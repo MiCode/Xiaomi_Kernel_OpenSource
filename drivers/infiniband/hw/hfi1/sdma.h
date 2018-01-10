@@ -445,7 +445,7 @@ static inline u16 sdma_descq_freecnt(struct sdma_engine *sde)
 {
 	return sde->descq_cnt -
 		(sde->descq_tail -
-		 READ_ONCE(sde->descq_head)) - 1;
+		 ACCESS_ONCE(sde->descq_head)) - 1;
 }
 
 static inline u16 sdma_descq_inprocess(struct sdma_engine *sde)

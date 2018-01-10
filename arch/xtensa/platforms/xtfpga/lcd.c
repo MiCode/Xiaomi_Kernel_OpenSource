@@ -34,23 +34,23 @@
 static void lcd_put_byte(u8 *addr, u8 data)
 {
 #ifdef CONFIG_XTFPGA_LCD_8BIT_ACCESS
-	WRITE_ONCE(*addr, data);
+	ACCESS_ONCE(*addr) = data;
 #else
-	WRITE_ONCE(*addr, data & 0xf0);
-	WRITE_ONCE(*addr, (data << 4) & 0xf0);
+	ACCESS_ONCE(*addr) = data & 0xf0;
+	ACCESS_ONCE(*addr) = (data << 4) & 0xf0;
 #endif
 }
 
 static int __init lcd_init(void)
 {
-	WRITE_ONCE(*LCD_INSTR_ADDR, LCD_DISPLAY_MODE8BIT);
+	ACCESS_ONCE(*LCD_INSTR_ADDR) = LCD_DISPLAY_MODE8BIT;
 	mdelay(5);
-	WRITE_ONCE(*LCD_INSTR_ADDR, LCD_DISPLAY_MODE8BIT);
+	ACCESS_ONCE(*LCD_INSTR_ADDR) = LCD_DISPLAY_MODE8BIT;
 	udelay(200);
-	WRITE_ONCE(*LCD_INSTR_ADDR, LCD_DISPLAY_MODE8BIT);
+	ACCESS_ONCE(*LCD_INSTR_ADDR) = LCD_DISPLAY_MODE8BIT;
 	udelay(50);
 #ifndef CONFIG_XTFPGA_LCD_8BIT_ACCESS
-	WRITE_ONCE(*LCD_INSTR_ADDR, LCD_DISPLAY_MODE4BIT);
+	ACCESS_ONCE(*LCD_INSTR_ADDR) = LCD_DISPLAY_MODE4BIT;
 	udelay(50);
 	lcd_put_byte(LCD_INSTR_ADDR, LCD_DISPLAY_MODE4BIT);
 	udelay(50);

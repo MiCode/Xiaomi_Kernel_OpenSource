@@ -138,7 +138,7 @@ void scif_rb_commit(struct scif_rb *rb)
 	 * the read barrier in scif_rb_count(..)
 	 */
 	wmb();
-	WRITE_ONCE(*rb->write_ptr, rb->current_write_offset);
+	ACCESS_ONCE(*rb->write_ptr) = rb->current_write_offset;
 #ifdef CONFIG_INTEL_MIC_CARD
 	/*
 	 * X100 Si bug: For the case where a Core is performing an EXT_WR
@@ -147,7 +147,7 @@ void scif_rb_commit(struct scif_rb *rb)
 	 * This way, if ordering is violated for the Interrupt Message, it will
 	 * fall just behind the first Posted associated with the first EXT_WR.
 	 */
-	WRITE_ONCE(*rb->write_ptr, rb->current_write_offset);
+	ACCESS_ONCE(*rb->write_ptr) = rb->current_write_offset;
 #endif
 }
 
@@ -210,7 +210,7 @@ void scif_rb_update_read_ptr(struct scif_rb *rb)
 	 * scif_rb_space(..)
 	 */
 	mb();
-	WRITE_ONCE(*rb->read_ptr, new_offset);
+	ACCESS_ONCE(*rb->read_ptr) = new_offset;
 #ifdef CONFIG_INTEL_MIC_CARD
 	/*
 	 * X100 Si Bug: For the case where a Core is performing an EXT_WR
@@ -219,7 +219,7 @@ void scif_rb_update_read_ptr(struct scif_rb *rb)
 	 * This way, if ordering is violated for the Interrupt Message, it will
 	 * fall just behind the first Posted associated with the first EXT_WR.
 	 */
-	WRITE_ONCE(*rb->read_ptr, new_offset);
+	ACCESS_ONCE(*rb->read_ptr) = new_offset;
 #endif
 }
 

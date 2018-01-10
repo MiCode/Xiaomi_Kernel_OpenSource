@@ -105,7 +105,7 @@ static inline bool pm_runtime_callbacks_present(struct device *dev)
 
 static inline void pm_runtime_mark_last_busy(struct device *dev)
 {
-	WRITE_ONCE(dev->power.last_busy, jiffies);
+	ACCESS_ONCE(dev->power.last_busy) = jiffies;
 }
 
 static inline bool pm_runtime_is_irq_safe(struct device *dev)
