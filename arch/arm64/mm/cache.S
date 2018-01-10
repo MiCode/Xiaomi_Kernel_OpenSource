@@ -180,7 +180,7 @@ USER(9f, ic	ivau, x4	)		// invalidate I line PoU
 9:						// ignore any faulting cache operation
 	dsb	ish
 	isb
-	uaccess_ttbr0_disable x1
+	uaccess_ttbr0_disable x1, x2
 	ret
 ENDPROC(flush_icache_range)
 ENDPROC(__flush_cache_user_range)
