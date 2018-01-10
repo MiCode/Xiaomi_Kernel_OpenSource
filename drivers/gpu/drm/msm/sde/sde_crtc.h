@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -440,7 +440,8 @@ enum sde_crtc_irq_state {
  * @event: event type of the interrupt
  * @func: function pointer to enable/disable the interrupt
  * @list: list of user customized event in crtc
- * @ref_count: reference count for the interrupt
+ * @state: state of the interrupt
+ * @state_lock: spin lock for interrupt state
  */
 struct sde_crtc_irq_info {
 	struct sde_irq_callback irq;
@@ -449,6 +450,7 @@ struct sde_crtc_irq_info {
 			struct sde_irq_callback *irq);
 	struct list_head list;
 	enum sde_crtc_irq_state state;
+	spinlock_t state_lock;
 };
 
 #define to_sde_crtc_state(x) \
