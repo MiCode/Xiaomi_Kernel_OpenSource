@@ -2253,6 +2253,14 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 
 	atomic_add(halt, &adreno_dev->halt);
 
+	/*
+	 * At this point it is safe to assume that we recovered. Setting
+	 * this field allows us to take a new snapshot for the next failure
+	 * if we are prioritizing the first unrecoverable snapshot.
+	 */
+	if (device->snapshot)
+		device->snapshot->recovered = true;
+
 	return 1;
 }
 
