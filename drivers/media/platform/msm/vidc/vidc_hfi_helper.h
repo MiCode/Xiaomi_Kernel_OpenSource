@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,7 +45,7 @@
 #define HFI_ERR_SYS_SESSION_IN_USE			(HFI_COMMON_BASE + 0x7)
 #define HFI_ERR_SYS_SESSION_ID_OUT_OF_RANGE	(HFI_COMMON_BASE + 0x8)
 #define HFI_ERR_SYS_UNSUPPORTED_DOMAIN		(HFI_COMMON_BASE + 0x9)
-
+#define HFI_ERR_SYS_NOC_ERROR			(HFI_COMMON_BASE + 0x11)
 #define HFI_ERR_SESSION_FATAL			(HFI_COMMON_BASE + 0x1001)
 #define HFI_ERR_SESSION_INVALID_PARAMETER	(HFI_COMMON_BASE + 0x1002)
 #define HFI_ERR_SESSION_BAD_POINTER		(HFI_COMMON_BASE + 0x1003)
