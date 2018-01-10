@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015,2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,19 +37,20 @@ struct gpio_usbdetect {
 static const unsigned int gpio_usb_extcon_table[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
-	EXTCON_USB_CC,
-	EXTCON_USB_SPEED,
 	EXTCON_NONE,
 };
 
 static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 {
 	struct gpio_usbdetect *usb = data;
+	union extcon_property_value val;
 
 	usb->vbus_state = gpio_get_value(usb->gpio);
 	if (usb->vbus_state) {
 		dev_dbg(&usb->pdev->dev, "setting vbus notification\n");
-		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_SPEED, 1);
+		val.intval = true;
+		extcon_set_property(usb->extcon_dev, EXTCON_USB,
+					EXTCON_PROP_USB_SS, val);
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB, 1);
 	} else {
 		dev_dbg(&usb->pdev->dev, "setting vbus removed notification\n");
@@ -79,6 +80,7 @@ static irqreturn_t gpio_usbdetect_id_irq_thread(int irq, void *data)
 	struct gpio_usbdetect *usb = data;
 	bool curr_id_state;
 	static int prev_id_state = -EINVAL;
+	union extcon_property_value val;
 
 	curr_id_state = usb->id_state;
 	if (curr_id_state == prev_id_state) {
@@ -93,7 +95,9 @@ static irqreturn_t gpio_usbdetect_id_irq_thread(int irq, void *data)
 	} else {
 		dev_dbg(&usb->pdev->dev, "starting usb HOST\n");
 		disable_irq(usb->vbus_det_irq);
-		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_SPEED, 1);
+		val.intval = true;
+		extcon_set_property(usb->extcon_dev, EXTCON_USB_HOST,
+					EXTCON_PROP_USB_SS, val);
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_HOST, 1);
 	}
 
@@ -125,6 +129,16 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 	rc = devm_extcon_dev_register(&pdev->dev, usb->extcon_dev);
 	if (rc) {
 		dev_err(&pdev->dev, "failed to register extcon device\n");
+		return rc;
+	}
+
+	rc = extcon_set_property_capability(usb->extcon_dev,
+			EXTCON_USB, EXTCON_PROP_USB_SS);
+	rc |= extcon_set_property_capability(usb->extcon_dev,
+			EXTCON_USB_HOST, EXTCON_PROP_USB_SS);
+	if (rc) {
+		dev_err(&pdev->dev, "failed to register extcon props rc=%d\n",
+						rc);
 		return rc;
 	}
 
