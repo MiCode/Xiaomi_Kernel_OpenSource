@@ -46,7 +46,6 @@
 #include <linux/irqdomain.h>
 #include <linux/pm_wakeup.h>
 #include <linux/compiler.h>
-#include <soc/qcom/scm.h>
 #include <linux/ipc_logging.h>
 #include <linux/msm_pcie.h>
 
@@ -625,7 +624,6 @@ struct msm_pcie_dev_t {
 	bool				 shadow_en;
 	bool				bridge_found;
 	struct msm_pcie_register_event *event_reg;
-	unsigned int			scm_dev_id;
 	bool				 power_on;
 	void				 *ipc_log;
 	void				*ipc_log_long;
@@ -998,26 +996,6 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 		return false;
 	else
 		return true;
-}
-
-static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
-{
-	int ret, scm_ret;
-
-	if (!dev) {
-		pr_err("PCIe: the input pcie dev is NULL.\n");
-		return -ENODEV;
-	}
-
-	ret = scm_restore_sec_cfg(dev->scm_dev_id, 0, &scm_ret);
-	if (ret || scm_ret) {
-		PCIE_ERR(dev,
-			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%d\n",
-			dev->rc_idx, ret, scm_ret);
-		return ret ? ret : -EINVAL;
-	}
-
-	return 0;
 }
 
 static inline int msm_pcie_check_align(struct msm_pcie_dev_t *dev,
@@ -3764,11 +3742,6 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			goto clk_fail;
 	}
 
-	if (dev->scm_dev_id) {
-		PCIE_DBG(dev, "RC%d: restoring sec config\n", dev->rc_idx);
-		msm_pcie_restore_sec_config(dev);
-	}
-
 	/* configure PCIe to RC mode */
 	msm_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x4);
 
@@ -4254,7 +4227,7 @@ static void msm_pcie_configure_sid(struct msm_pcie_dev_t *pcie_dev,
 
 int msm_pcie_enumerate(u32 rc_idx)
 {
-	int ret = 0, bus_ret = 0, scan_ret = 0;
+	int ret = 0, bus_ret = 0;
 	struct msm_pcie_dev_t *dev = &msm_pcie_dev[rc_idx];
 
 	mutex_lock(&dev->enumerate_lock);
@@ -4274,6 +4247,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 		/* kick start ARM PCI configuration framework */
 		if (!ret) {
 			struct pci_dev *pcidev = NULL;
+			struct pci_host_bridge *bridge;
 			bool found = false;
 			struct pci_bus *bus;
 			resource_size_t iobase = 0;
@@ -4285,6 +4259,11 @@ int msm_pcie_enumerate(u32 rc_idx)
 			PCIE_DBG(dev, "vendor-id:0x%x device_id:0x%x\n",
 					vendor_id, device_id);
 
+			bridge = devm_pci_alloc_host_bridge(&dev->pdev->dev,
+						sizeof(*dev));
+			if (!bridge)
+				return -ENOMEM;
+
 			ret = of_pci_get_host_bridge_resources(
 						dev->pdev->dev.of_node,
 						0, 0xff, &res, &iobase);
@@ -4295,20 +4274,32 @@ int msm_pcie_enumerate(u32 rc_idx)
 				goto out;
 			}
 
-			bus = pci_create_root_bus(&dev->pdev->dev, 0,
-						&msm_pcie_ops, dev, &res);
-			if (!bus) {
+			ret = devm_request_pci_bus_resources(&dev->pdev->dev,
+						&res);
+			if (ret) {
 				PCIE_ERR(dev,
-					"PCIe: failed to create root bus for RC%d\n",
-					dev->rc_idx);
-				ret = -ENOMEM;
+					"PCIe: RC%d: failed to request pci bus resources %d\n",
+					dev->rc_idx, ret);
 				goto out;
 			}
 
-			scan_ret = pci_scan_child_bus(bus);
-			PCIE_DBG(dev,
-				"PCIe: RC%d: The max subordinate bus number discovered is %d\n",
-				dev->rc_idx, scan_ret);
+			list_splice_init(&res, &bridge->windows);
+			bridge->dev.parent = &dev->pdev->dev;
+			bridge->sysdata = dev;
+			bridge->busnr = 0;
+			bridge->ops = &msm_pcie_ops;
+			bridge->map_irq = of_irq_parse_and_map_pci;
+			bridge->swizzle_irq = pci_common_swizzle;
+
+			ret = pci_scan_root_bus_bridge(bridge);
+			if (ret) {
+				PCIE_ERR(dev,
+					"PCIe: RC%d: failed to scan root bus %d\n",
+					dev->rc_idx, ret);
+				goto out;
+			}
+
+			bus = bridge->bus;
 
 			msm_pcie_fixup_irqs(dev);
 			pci_assign_unassigned_bus_resources(bus);
@@ -5516,7 +5507,7 @@ static void msm_pcie_config_link_pm_rc(struct msm_pcie_dev_t *dev,
 {
 	bool child_l0s_enable = 0, child_l1_enable = 0, child_l1ss_enable = 0;
 
-	if (!pdev->subordinate || !(&pdev->subordinate->devices)) {
+	if (!pdev->subordinate) {
 		PCIE_DBG(dev,
 			"PCIe: RC%d: no device connected to root complex\n",
 			dev->rc_idx);
@@ -5902,11 +5893,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 					msm_pcie_dev[rc_idx].msi_gicm_base);
 		}
 	}
-
-	msm_pcie_dev[rc_idx].scm_dev_id = 0;
-	ret = of_property_read_u32((&pdev->dev)->of_node,
-				"qcom,scm-dev-id",
-				&msm_pcie_dev[rc_idx].scm_dev_id);
 
 	msm_pcie_dev[rc_idx].rc_idx = rc_idx;
 	msm_pcie_dev[rc_idx].pdev = pdev;
