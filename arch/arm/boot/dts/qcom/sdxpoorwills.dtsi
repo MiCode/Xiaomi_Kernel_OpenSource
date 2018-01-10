@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -472,7 +472,7 @@
 		vdd_cx-supply = <&pmxpoorwills_s5_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 
-		qcom,pas-id = <0>;
+		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,sysmon-id = <0>;
