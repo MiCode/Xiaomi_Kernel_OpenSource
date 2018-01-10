@@ -130,7 +130,7 @@ static inline void update_saved_ttbr0(struct task_struct *tsk,
 	else
 		ttbr = virt_to_phys(mm->pgd) | ASID(mm) << 48;
 
-	task_thread_info(tsk)->ttbr0 = ttbr;
+	WRITE_ONCE(task_thread_info(tsk)->ttbr0, ttbr);
 }
 #else
 static inline void update_saved_ttbr0(struct task_struct *tsk,
@@ -183,5 +183,7 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 #define deactivate_mm(tsk,mm)	do { } while (0)
 #define activate_mm(prev,next)	switch_mm(prev, next, current)
+
+void post_ttbr_update_workaround(void);
 
 #endif
