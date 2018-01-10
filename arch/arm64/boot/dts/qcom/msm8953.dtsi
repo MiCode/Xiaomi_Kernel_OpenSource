@@ -162,6 +162,7 @@
 #include "msm8953-coresight.dtsi"
 #include "msm8953-ion.dtsi"
 #include "msm-arm-smmu-8953.dtsi"
+#include "msm8953-gpu.dtsi"
 
 &soc {
 	#address-cells = <1>;
