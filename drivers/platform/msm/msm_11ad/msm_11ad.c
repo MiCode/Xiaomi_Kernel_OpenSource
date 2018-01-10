@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,8 +50,6 @@
 #define VDDIO_MAX_UV	2040000
 #define VDDIO_MAX_UA	70300
 
-#define PCIE20_CAP_LINKCTRLSTATUS 0x80
-
 #define WIGIG_MIN_CPU_BOOST_KBPS	150000
 
 struct device;
@@ -96,7 +94,6 @@ struct msm11ad_ctx {
 	u32 rc_index; /* PCIE root complex index */
 	struct pci_dev *pcidev;
 	struct pci_saved_state *pristine_state;
-	bool l1_enabled_in_enum;
 
 	/* SMMU */
 	bool use_smmu; /* have SMMU enabled? */
@@ -493,47 +490,6 @@ static void msm_11ad_disable_clocks(struct msm11ad_ctx *ctx)
 	msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
 }
 
-int msm_11ad_ctrl_aspm_l1(struct msm11ad_ctx *ctx, bool enable)
-{
-	int rc;
-	u32 val;
-	struct pci_dev *pdev = ctx->pcidev;
-	bool l1_enabled;
-
-	/* Read current state */
-	rc = pci_read_config_dword(pdev,
-				   PCIE20_CAP_LINKCTRLSTATUS, &val);
-	if (rc) {
-		dev_err(ctx->dev,
-			"reading PCIE20_CAP_LINKCTRLSTATUS failed:%d\n", rc);
-		return rc;
-	}
-	dev_dbg(ctx->dev, "PCIE20_CAP_LINKCTRLSTATUS read returns 0x%x\n", val);
-
-	l1_enabled = val & PCI_EXP_LNKCTL_ASPM_L1;
-	if (l1_enabled == enable) {
-		dev_dbg(ctx->dev, "ASPM_L1 is already %s\n",
-			l1_enabled ? "enabled" : "disabled");
-		return 0;
-	}
-
-	if (enable)
-		val |= PCI_EXP_LNKCTL_ASPM_L1; /* enable bit 1 */
-	else
-		val &= ~PCI_EXP_LNKCTL_ASPM_L1; /* disable bit 1 */
-
-	dev_dbg(ctx->dev, "writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x)\n",
-		val);
-	rc = pci_write_config_dword(pdev,
-				    PCIE20_CAP_LINKCTRLSTATUS, val);
-	if (rc)
-		dev_err(ctx->dev,
-			"writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x) failed:%d\n",
-			val, rc);
-
-	return rc;
-}
-
 static int msm_11ad_turn_device_power_off(struct msm11ad_ctx *ctx)
 {
 	if (ctx->gpio_en >= 0)
@@ -688,21 +644,8 @@ static int msm_11ad_resume_power_on(void *handle)
 
 	msm_pcie_shadow_control(ctx->pcidev, 1);
 
-	/* Disable L1, in case it is enabled */
-	if (ctx->l1_enabled_in_enum) {
-		rc = msm_11ad_ctrl_aspm_l1(ctx, false);
-		if (rc) {
-			dev_err(ctx->dev,
-				"failed to disable L1, rc %d\n", rc);
-			goto err_suspend_rc;
-		}
-	}
-
 	return 0;
 
-err_suspend_rc:
-	msm_pcie_pm_control(MSM_PCIE_SUSPEND, pcidev->bus->number,
-			    pcidev, NULL, 0);
 err_disable_power:
 	msm_11ad_turn_device_power_off(ctx);
 	return rc;
@@ -1043,7 +986,6 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	struct pci_dev *pcidev = NULL;
 	u32 smmu_mapping[2];
 	int rc, i;
-	u32 val;
 	bool pcidev_found = false;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
@@ -1211,30 +1153,6 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	pci_set_power_state(pcidev, PCI_D0);
 
 	pci_restore_state(ctx->pcidev);
-
-	/* Read current state */
-	rc = pci_read_config_dword(pcidev,
-				   PCIE20_CAP_LINKCTRLSTATUS, &val);
-	if (rc) {
-		dev_err(ctx->dev,
-			"reading PCIE20_CAP_LINKCTRLSTATUS failed:%d\n",
-			rc);
-		goto out_suspend;
-	}
-
-	ctx->l1_enabled_in_enum = val & PCI_EXP_LNKCTL_ASPM_L1;
-	dev_dbg(ctx->dev, "L1 is %s in enumeration\n",
-		ctx->l1_enabled_in_enum ? "enabled" : "disabled");
-
-	/* Disable L1, in case it is enabled */
-	if (ctx->l1_enabled_in_enum) {
-		rc = msm_11ad_ctrl_aspm_l1(ctx, false);
-		if (rc) {
-			dev_err(ctx->dev,
-				"failed to disable L1, rc %d\n", rc);
-			goto out_suspend;
-		}
-	}
 
 	if (ctx->sleep_clk_en >= 0) {
 		rc = gpio_request(ctx->sleep_clk_en, "msm_11ad");
@@ -1498,14 +1416,6 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 					"failed to enable clk, rc %d\n", rc);
 				break;
 			}
-		}
-
-		/* Re-enable L1 in case it was enabled in enumeration */
-		if (ctx->l1_enabled_in_enum) {
-			rc = msm_11ad_ctrl_aspm_l1(ctx, true);
-			if (rc)
-				dev_err(ctx->dev,
-					"failed to enable L1, rc %d\n", rc);
 		}
 		break;
 	case WIL_PLATFORM_EVT_FW_RDY:
