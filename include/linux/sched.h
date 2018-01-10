@@ -1169,14 +1169,10 @@ struct task_struct {
 	 */
 };
 
-#ifdef CONFIG_SCHED_WALT
-extern int sched_set_boost(int enable);
-#else
 static inline int sched_set_boost(int enable)
 {
 	return 0;
 }
-#endif
 
 static inline struct pid *task_pid(struct task_struct *task)
 {
