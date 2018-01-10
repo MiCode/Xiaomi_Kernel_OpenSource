@@ -264,4 +264,19 @@
 			};
 		};
 	};
+
+	qcom,rpm-stats@200000 {
+		compatible = "qcom,rpm-stats";
+		reg = <0x200000 0x1000>, <0x290014 0x4>, <0x29001c 0x4>;
+		reg-names = "phys_addr_base", "offset_addr";
+	};
+
+	qcom,rpm-master-stats@60150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x60150 0x5000>;
+		qcom,masters = "APSS", "MPSS", "PRONTO", "TZ", "LPASS";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
+	};
+
 };
