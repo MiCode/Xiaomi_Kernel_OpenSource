@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ARCH_ARM_MACH_MSM_SOCINFO_H_
@@ -86,6 +86,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,bengal-iot")
 #define early_machine_is_bengalp_iot()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,bengalp-iot")
+#define early_machine_is_msm8937()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8937")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -123,6 +125,7 @@
 #define early_machine_is_sdm660()	0
 #define early_machine_is_bengal_iot()	0
 #define early_machine_is_bengalp_iot()	0
+#define early_machine_is_msm8937()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -162,6 +165,7 @@ enum msm_cpu {
 	MSM_CPU_SDMMAGPIE,
 	MSM_CPU_BENGAL_IOT,
 	MSM_CPU_BENGALP_IOT,
+	MSM_CPU_8937,
 };
 
 struct msm_soc_info {

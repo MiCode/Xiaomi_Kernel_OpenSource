@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -355,6 +355,11 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* BENGALP-IOT ID */
 	[470] = {MSM_CPU_BENGALP_IOT, "BENGALP-IOT"},
+
+	/* MSM8937 ID */
+	[294] = {MSM_CPU_8937, "MSM8937"},
+	[295] = {MSM_CPU_8937, "APQ8937"},
+
 
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -1282,6 +1287,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_bengalp_iot()) {
 		dummy_socinfo.id = 470;
 		strlcpy(dummy_socinfo.build_id, "bengalp-iot - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8937()) {
+		dummy_socinfo.id = 294;
+		strlcpy(dummy_socinfo.build_id, "msm8937 - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",
