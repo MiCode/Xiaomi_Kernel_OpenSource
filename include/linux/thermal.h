@@ -47,7 +47,7 @@
 #define THERMAL_WEIGHT_DEFAULT 0
 
 /* Max sensors that can be used for a single virtual thermalzone */
-#define THERMAL_MAX_VIRT_SENSORS 8
+#define THERMAL_MAX_VIRT_SENSORS 10
 
 /* use value, which < 0K, to indicate an invalid/uninitialized temperature */
 #define THERMAL_TEMP_INVALID	-274000
