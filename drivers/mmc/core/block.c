@@ -3641,6 +3641,9 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 				ret = mmc_blk_cmdq_issue_discard_rq(mq, req);
 			break;
 		case REQ_OP_SECURE_ERASE:
+			ret = mmc_cmdq_wait_for_small_sector_read(card, req);
+			if (ret)
+				break;
 			if (!(card->quirks & MMC_QUIRK_SEC_ERASE_TRIM_BROKEN))
 				ret = mmc_blk_cmdq_issue_secdiscard_rq(mq, req);
 			else
