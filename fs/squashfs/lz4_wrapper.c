@@ -95,7 +95,6 @@ static int lz4_uncompress(struct squashfs_sb_info *msblk, void *strm,
 	struct squashfs_page_actor *output)
 {
 	int res;
-	size_t dest_len = output->length;
 	struct squashfs_lz4 *stream = strm;
 
 	squashfs_bh_to_buf(bh, b, stream->input, offset, length,
