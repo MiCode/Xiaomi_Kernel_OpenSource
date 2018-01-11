@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,8 +175,8 @@
 		io-channel-names = "rradc_batt_id",
 				   "rradc_die_temp";
 		qcom,rradc-base = <0x4500>;
-		qcom,fg-esr-timer-awake = <96 96>;
-		qcom,fg-esr-timer-asleep = <256 256>;
+		qcom,fg-esr-timer-awake = <64 96>;
+		qcom,fg-esr-timer-asleep = <224 256>;
 		qcom,fg-esr-timer-charging = <0 96>;
 		qcom,cycle-counter-en;
 		qcom,hold-soc-while-full;
