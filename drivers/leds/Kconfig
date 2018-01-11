@@ -406,6 +406,17 @@ config LEDS_PCA963X
 	  LED driver chip accessed via the I2C bus. Supported
 	  devices include PCA9633 and PCA9634
 
+config LEDS_QPNP_FLASH_V2
+        tristate "Support for QPNP V2 Flash LEDs"
+        depends on LEDS_CLASS && MFD_SPMI_PMIC
+	select LEDS_TRIGGERS
+        help
+          This driver supports the flash V2 LED functionality of Qualcomm
+          Technologies, Inc. QPNP PMICs.  This driver supports PMICs starting
+          from PMI8998.  It can configure the flash LED target current for
+          several independent channels.  It also supports various over current
+          and over temperature mitigation features.
+
 config LEDS_WM831X_STATUS
 	tristate "LED support for status LEDs on WM831x PMICs"
 	depends on LEDS_CLASS
