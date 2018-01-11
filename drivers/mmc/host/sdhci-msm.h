@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -255,6 +255,7 @@ struct sdhci_msm_host {
 	bool core_3_0v_support;
 	bool pltfm_init_done;
 	struct sdhci_msm_regs_restore regs_restore;
+	int soc_min_rev;
 };
 
 extern char *saved_command_line;

@@ -121,6 +121,10 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 
 	- qcom,wakeup-on-idle: if configured, the mmcqd thread will call
 	  set_wake_up_idle(), thereby voting for it to be called on idle CPUs.
+	- nvmem-cells: specifies the handle to represent the SoC revision.
+	  usually it is defined by qfprom device node.
+	- nvmem-cell-names: specifies the given nvmem cell name as defined in
+	  qfprom node.
 
 Example:
 
