@@ -29,8 +29,15 @@
 #define WLED_DEFAULT_BRIGHTNESS		2048
 #define  WLED_MAX_BRIGHTNESS		4095
 
+#define WLED_SOFT_START_DLY_US		10000
+
 /* WLED control registers */
 #define WLED_CTRL_FAULT_STATUS		0x08
+#define  WLED_CTRL_ILIM_FAULT_BIT	BIT(0)
+#define  WLED_CTRL_OVP_FAULT_BIT	BIT(1)
+#define  WLED_CTRL_SC_FAULT_BIT		BIT(2)
+
+#define WLED_CTRL_INT_RT_STS		0x10
 
 #define WLED_CTRL_MOD_ENABLE		0x46
 #define  WLED_CTRL_MOD_EN_MASK		BIT(7)
@@ -89,6 +96,7 @@ struct wled_config {
 	u32 fs_current;
 	u32 string_cfg;
 	int sc_irq;
+	int ovp_irq;
 	bool en_cabc;
 	bool ext_pfet_sc_pro_en;
 };
@@ -105,6 +113,7 @@ struct wled {
 	u32 brightness;
 	u32 sc_count;
 	bool prev_state;
+	bool ovp_irq_disabled;
 };
 
 static int wled_module_enable(struct wled *wled, int val)
@@ -114,6 +123,28 @@ static int wled_module_enable(struct wled *wled, int val)
 	rc = regmap_update_bits(wled->regmap, wled->ctrl_addr +
 			WLED_CTRL_MOD_ENABLE, WLED_CTRL_MOD_EN_MASK,
 			val << WLED_CTRL_MODULE_EN_SHIFT);
+	if (rc < 0)
+		return rc;
+	/*
+	 * Wait for at least 10ms before enabling OVP fault interrupt after
+	 * enabling the module so that soft start is completed. Keep the OVP
+	 * interrupt disabled when the module is disabled.
+	 */
+	if (val) {
+		usleep_range(WLED_SOFT_START_DLY_US,
+				WLED_SOFT_START_DLY_US + 1000);
+
+		if (wled->cfg.ovp_irq > 0 && wled->ovp_irq_disabled) {
+			enable_irq(wled->cfg.ovp_irq);
+			wled->ovp_irq_disabled = false;
+		}
+	} else {
+		if (wled->cfg.ovp_irq > 0 && !wled->ovp_irq_disabled) {
+			disable_irq(wled->cfg.ovp_irq);
+			wled->ovp_irq_disabled = true;
+		}
+	}
+
 	return rc;
 }
 
@@ -266,12 +297,42 @@ unlock_mutex:
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t wled_ovp_irq_handler(int irq, void *_wled)
+{
+	struct wled *wled = _wled;
+	int rc;
+	u32 int_sts, fault_sts;
+
+	rc = regmap_read(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_INT_RT_STS, &int_sts);
+	if (rc < 0) {
+		pr_err("Error in reading WLED_INT_RT_STS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	rc = regmap_read(wled->regmap, wled->ctrl_addr +
+			WLED_CTRL_FAULT_STATUS, &fault_sts);
+	if (rc < 0) {
+		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	if (fault_sts &
+		(WLED_CTRL_OVP_FAULT_BIT | WLED_CTRL_ILIM_FAULT_BIT))
+		pr_err("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
+			int_sts, fault_sts);
+
+	return IRQ_HANDLED;
+}
+
 static int wled_setup(struct wled *wled)
 {
 	int rc, temp, i;
 	u8 sink_en = 0;
+	u32 val;
 	u8 string_cfg = wled->cfg.string_cfg;
 	int sc_irq = wled->cfg.sc_irq;
+	int ovp_irq = wled->cfg.ovp_irq;
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_OVP,
@@ -367,6 +428,25 @@ static int wled_setup(struct wled *wled)
 				WLED_EXT_FET_DTEST2);
 		if (rc < 0)
 			return rc;
+	}
+
+	if (ovp_irq >= 0) {
+		rc = devm_request_threaded_irq(&wled->pdev->dev, ovp_irq,
+				NULL, wled_ovp_irq_handler, IRQF_ONESHOT,
+				"wled_ovp_irq", wled);
+		if (rc < 0) {
+			dev_err(&wled->pdev->dev, "Unable to request ovp(%d) IRQ(err:%d)\n",
+				ovp_irq, rc);
+			return rc;
+		}
+
+		rc = regmap_read(wled->regmap, wled->ctrl_addr +
+				WLED_CTRL_MOD_ENABLE, &val);
+		/* disable the OVP irq only if the module is not enabled */
+		if (!rc && !(val & WLED_CTRL_MOD_EN_MASK)) {
+			disable_irq(ovp_irq);
+			wled->ovp_irq_disabled = true;
+		}
 	}
 
 	return 0;
@@ -540,6 +620,10 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	wled->cfg.sc_irq = platform_get_irq_byname(wled->pdev, "sc-irq");
 	if (wled->cfg.sc_irq < 0)
 		dev_dbg(&wled->pdev->dev, "sc irq is not used\n");
+
+	wled->cfg.ovp_irq = platform_get_irq_byname(wled->pdev, "ovp-irq");
+	if (wled->cfg.ovp_irq < 0)
+		dev_dbg(&wled->pdev->dev, "ovp irq is not used\n");
 
 	return 0;
 }
