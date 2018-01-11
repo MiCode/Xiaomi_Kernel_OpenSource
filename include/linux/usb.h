@@ -330,6 +330,7 @@ struct usb_host_bos {
 	struct usb_ss_cap_descriptor	*ss_cap;
 	struct usb_ssp_cap_descriptor	*ssp_cap;
 	struct usb_ss_container_id_descriptor	*ss_id;
+	struct usb_ptm_cap_descriptor   *ptm_cap;
 	struct usb_config_summary_descriptor	*config_summary;
 	unsigned int	num_config_summary_desc;
 };
