@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2153,6 +2153,8 @@ void msm_isp_do_tasklet(unsigned long data)
 		irq_ops->process_stats_irq(vfe_dev,
 			irq_status0, irq_status1,
 			pingpong_status, &ts);
+		irq_ops->process_sof_irq(vfe_dev,
+			irq_status0, irq_status1, &ts);
 		irq_ops->process_axi_irq(vfe_dev,
 			irq_status0, irq_status1,
 			pingpong_status, &ts);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,12 @@ struct csi_ctrl_params {
 	uint32_t lane_count;
 };
 
+/* Field info params */
+struct field_info_params {
+	bool even_field;
+	struct timeval field_ts;
+};
+
 /* private ioctl structure */
 struct msm_ba_v4l2_ioctl_t {
 	size_t len;
@@ -32,4 +38,8 @@ struct msm_ba_v4l2_ioctl_t {
 /* ADV7481 private ioctls for CSI control params */
 #define VIDIOC_G_CSI_PARAMS \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_ba_v4l2_ioctl_t)
+/* ADV7481 private ioctls for field info query */
+#define VIDIOC_G_FIELD_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 40, struct msm_ba_v4l2_ioctl_t)
+
 #endif

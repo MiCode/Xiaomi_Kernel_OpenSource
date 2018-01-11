@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -568,6 +568,24 @@ long msm_ba_private_ioctl(void *instance, int cmd, void *arg)
 			if (rc)
 				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
 					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
+	case VIDIOC_G_FIELD_INFO: {
+		dprintk(BA_DBG, "VIDIOC_G_FIELD_INFO");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (arg) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, arg);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					 __func__, rc, cmd);
 		} else {
 			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
 			rc = -EINVAL;

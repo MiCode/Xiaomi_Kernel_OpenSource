@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,9 @@ void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts);
 void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
+	uint32_t irq_status0, uint32_t irq_status1,
+	struct msm_isp_timestamp *ts);
+void msm_isp47_process_sof_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts);
 void msm_isp47_process_eof_irq(struct vfe_device *vfe_dev,
