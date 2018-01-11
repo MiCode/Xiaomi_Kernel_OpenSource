@@ -612,7 +612,7 @@
 			<0x9181000 0x1000>;
 		qcom,max-hw-load = <244800>; /* 1080p@30 */
 		qcom,firmware-name = "venus";
-		qcom,allowed-clock-rates = <133330000 266670000 307200000>;
+		qcom,allowed-clock-rates = <307200000 266670000 133330000>;
 		qcom,clock-freq-tbl {
 			qcom,profile-enc {
 				qcom,codec-mask = <0x55555555>;
