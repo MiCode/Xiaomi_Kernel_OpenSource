@@ -288,21 +288,6 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	return old_window_start;
 }
 
-int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
-{
-	mutex_lock(&cluster_lock);
-	if (!cb->get_cpu_cycle_counter) {
-		mutex_unlock(&cluster_lock);
-		return -EINVAL;
-	}
-
-	cpu_cycle_counter_cb = *cb;
-	use_cycle_counter = true;
-	mutex_unlock(&cluster_lock);
-
-	return 0;
-}
-
 static void update_task_cpu_cycles(struct task_struct *p, int cpu)
 {
 	if (use_cycle_counter)
@@ -2399,6 +2384,23 @@ static int register_walt_callback(void)
  * for further information.
  */
 core_initcall(register_walt_callback);
+
+int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
+{
+	mutex_lock(&cluster_lock);
+	if (!cb->get_cpu_cycle_counter) {
+		mutex_unlock(&cluster_lock);
+		return -EINVAL;
+	}
+
+	cpu_cycle_counter_cb = *cb;
+	use_cycle_counter = true;
+	mutex_unlock(&cluster_lock);
+
+	cpufreq_unregister_notifier(&notifier_trans_block,
+				    CPUFREQ_TRANSITION_NOTIFIER);
+	return 0;
+}
 
 static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 				struct task_struct *p, int event);
