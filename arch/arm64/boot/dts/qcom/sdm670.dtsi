@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2637,10 +2637,9 @@
 		qcom,cachemiss-ev = <0x17>;
 		qcom,core-dev-table =
 			<  576000  300000000 >,
-			<  748800  556800000 >,
-			<  998400  806400000 >,
-			< 1209660  940800000 >,
-			< 1516800 1190400000 >,
+			<  998400  556800000 >,
+			< 1209660  844800000 >,
+			< 1516800  940800000 >,
 			< 1612800 1382400000 >,
 			< 1708000 1440000000 >;
 	};
