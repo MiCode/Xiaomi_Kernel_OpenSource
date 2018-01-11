@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,6 +187,8 @@ struct cam_cpas {
 	struct list_head axi_ports_list_head;
 	struct cam_cpas_internal_ops internal_ops;
 	struct workqueue_struct *work_queue;
+	atomic_t irq_count;
+	wait_queue_head_t irq_count_wq;
 };
 
 int cam_camsstop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops);
