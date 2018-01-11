@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -209,13 +209,26 @@ int cam_cpas_soc_enable_resources(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-int cam_cpas_soc_disable_resources(struct cam_hw_soc_info *soc_info)
+int cam_cpas_soc_disable_resources(struct cam_hw_soc_info *soc_info,
+	bool disable_clocks, bool disble_irq)
 {
 	int rc = 0;
 
-	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
+	rc = cam_soc_util_disable_platform_resource(soc_info,
+		disable_clocks, disble_irq);
 	if (rc)
 		CAM_ERR(CAM_CPAS, "disable platform failed, rc=%d", rc);
+
+	return rc;
+}
+
+int cam_cpas_soc_disable_irq(struct cam_hw_soc_info *soc_info)
+{
+	int rc = 0;
+
+	rc = cam_soc_util_irq_disable(soc_info);
+	if (rc)
+		CAM_ERR(CAM_CPAS, "disable irq failed, rc=%d", rc);
 
 	return rc;
 }
