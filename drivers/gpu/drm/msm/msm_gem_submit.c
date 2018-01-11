@@ -29,11 +29,6 @@
 #define BO_LOCKED   0x4000
 #define BO_PINNED   0x2000
 
-static inline void __user *to_user_ptr(u64 address)
-{
-	return (void __user *)(uintptr_t)address;
-}
-
 static struct msm_gem_submit *submit_create(struct drm_device *dev,
 		struct msm_gem_address_space *aspace,
 		uint32_t nr_bos, uint32_t nr_cmds,
@@ -107,7 +102,7 @@ static int submit_lookup_objects(struct msm_gpu *gpu,
 		struct drm_gem_object *obj;
 		struct msm_gem_object *msm_obj;
 		void __user *userptr =
-			to_user_ptr(args->bos + (i * sizeof(submit_bo)));
+			u64_to_user_ptr(args->bos + (i * sizeof(submit_bo)));
 
 		if (copy_from_user_inatomic(&submit_bo, userptr,
 			sizeof(submit_bo))) {
@@ -362,7 +357,7 @@ static int submit_reloc(struct msm_gpu *gpu,
 	for (i = 0; i < nr_relocs; i++) {
 		struct drm_msm_gem_submit_reloc submit_reloc;
 		void __user *userptr =
-			to_user_ptr(relocs + (i * sizeof(submit_reloc)));
+			u64_to_user_ptr(relocs + (i * sizeof(submit_reloc)));
 		uint64_t iova;
 		uint32_t off;
 		bool valid;
@@ -473,7 +468,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	for (i = 0; i < args->nr_cmds; i++) {
 		struct drm_msm_gem_submit_cmd submit_cmd;
 		void __user *userptr =
-			to_user_ptr(args->cmds + (i * sizeof(submit_cmd)));
+			u64_to_user_ptr(args->cmds + (i * sizeof(submit_cmd)));
 		struct msm_gem_object *msm_obj;
 		uint64_t iova;
 		size_t size;
