@@ -198,6 +198,8 @@ static int mhi_uci_send_packet(struct mhi_dev_client **client_handle, void *buf,
 	uintptr_t memcpy_result = 0;
 	u32 data_inserted_so_far = 0;
 	struct uci_client *uci_handle;
+	struct mhi_req ureq;
+
 
 	uci_handle = container_of(client_handle, struct uci_client,
 					out_handle);
@@ -220,9 +222,13 @@ static int mhi_uci_send_packet(struct mhi_dev_client **client_handle, void *buf,
 	} else {
 		data_loc = buf;
 	}
+	ureq.client = *client_handle;
+	ureq.buf = data_loc;
+	ureq.len = size;
+	ureq.chan = uci_handle->out_chan;
+	ureq.mode = IPA_DMA_SYNC;
 
-	data_inserted_so_far = mhi_dev_write_channel(*client_handle, data_loc,
-							size);
+	data_inserted_so_far = mhi_dev_write_channel(&ureq);
 
 error_memcpy:
 	kfree(data_loc);
@@ -482,7 +488,7 @@ static ssize_t mhi_uci_ctrl_client_read(struct file *file,
 	return size;
 }
 
-static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
+static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 		size_t uspace_buf_size, loff_t *bytes_pending)
 {
 	struct uci_client *uci_handle = NULL;
@@ -490,39 +496,40 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 	int bytes_avail = 0;
 	int ret_val = 0;
 	struct mutex *mutex;
-	u32 chan = 0;
 	ssize_t bytes_copied = 0;
 	u32 addr_offset = 0;
-	uint32_t buf_size;
-	uint32_t chained = 0;
 	void *local_buf = NULL;
+	struct mhi_req ureq;
 
-	if (!file || !buf || !uspace_buf_size ||
+	if (!file || !ubuf || !uspace_buf_size ||
 			!file->private_data)
 		return -EINVAL;
 
 	uci_handle = file->private_data;
 	client_handle = uci_handle->in_handle;
 	mutex = &uci_handle->in_chan_lock;
-	chan = uci_handle->in_chan;
+	ureq.chan = uci_handle->in_chan;
 
 	mutex_lock(mutex);
+	ureq.client = client_handle;
+	ureq.buf = uci_handle->in_buf_list[0].addr;
+	ureq.len = uci_handle->in_buf_list[0].buf_size;
+	ureq.mode = IPA_DMA_SYNC;
 
-	local_buf = uci_handle->in_buf_list[0].addr;
-	buf_size = uci_handle->in_buf_list[0].buf_size;
-
-
-	uci_log(UCI_DBG_VERBOSE, "Client attempted read on chan %d\n", chan);
+	uci_log(UCI_DBG_VERBOSE, "Client attempted read on chan %d\n",
+			ureq.chan);
 	do {
 		if (!uci_handle->pkt_loc &&
 				!atomic_read(&uci_ctxt.mhi_disabled)) {
 
-			bytes_avail = mhi_dev_read_channel(client_handle,
-					local_buf, buf_size, &chained);
+			bytes_avail = mhi_dev_read_channel(&ureq);
 
 			uci_log(UCI_DBG_VERBOSE,
-				"reading from mhi_core local_buf = %p,buf_size = 0x%x bytes_read = 0x%x\n",
-				local_buf, buf_size, bytes_avail);
+				"reading from mhi_core local_buf = %p",
+				local_buf);
+			uci_log(UCI_DBG_VERBOSE,
+					"buf_size = 0x%x bytes_read = 0x%x\n",
+					 ureq.len, bytes_avail);
 
 			if (bytes_avail < 0) {
 				uci_log(UCI_DBG_ERROR,
@@ -533,13 +540,14 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 			}
 
 			if (bytes_avail > 0) {
-				uci_handle->pkt_loc = (void *)local_buf;
-				uci_handle->pkt_size = bytes_avail;
+				uci_handle->pkt_loc = (void *) ureq.buf;
+				uci_handle->pkt_size = ureq.actual_len;
 
 				*bytes_pending = (loff_t)uci_handle->pkt_size;
 				uci_log(UCI_DBG_VERBOSE,
-					"Got pkt of size 0x%x at addr %p, chan %d\n",
-					uci_handle->pkt_size, local_buf, chan);
+					"Got pkt of sz 0x%x at adr %p, ch %d\n",
+					uci_handle->pkt_size,
+					ureq.buf, ureq.chan);
 			} else {
 				uci_handle->pkt_loc = 0;
 				uci_handle->pkt_size = 0;
@@ -551,7 +559,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 			uci_log(UCI_DBG_VERBOSE,
 				"No data read_data_ready %d, chan %d\n",
 				atomic_read(&uci_handle->read_data_ready),
-				chan);
+				ureq.chan);
 
 			ret_val = wait_event_interruptible(uci_handle->read_wq,
 				(!mhi_dev_channel_isempty(client_handle)));
@@ -561,17 +569,17 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 				goto error;
 			}
 			uci_log(UCI_DBG_VERBOSE,
-				"Thread woke up. Got data on chan %d read_data_ready %d\n",
-				chan,
+				"wk up Got data on ch %d read_data_ready %d\n",
+				ureq.chan,
 				atomic_read(&uci_handle->read_data_ready));
 
 			/* A valid packet was returned from MHI */
 		} else if (bytes_avail > 0) {
 			uci_log(UCI_DBG_VERBOSE,
-				"Got packet: avail pkts %d phy_adr %p, chan %d\n",
+				"Got packet: avail pkts %d phy_adr %p, ch %d\n",
 				atomic_read(&uci_handle->read_data_ready),
-				local_buf,
-				chan);
+				ureq.buf,
+				ureq.chan);
 			break;
 			/*
 			 * MHI did not return a valid packet, but we have one
@@ -580,16 +588,16 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		} else {
 			uci_log(UCI_DBG_CRITICAL,
 				"chan %d err: avail pkts %d phy_adr %p",
-				chan,
+				ureq.chan,
 				atomic_read(&uci_handle->read_data_ready),
-				local_buf);
+				ureq.buf);
 			return -EIO;
 		}
 	} while (!uci_handle->pkt_loc);
 
 	if (uspace_buf_size >= *bytes_pending) {
 		addr_offset = uci_handle->pkt_size - *bytes_pending;
-		if (copy_to_user(buf, uci_handle->pkt_loc + addr_offset,
+		if (copy_to_user(ubuf, uci_handle->pkt_loc + addr_offset,
 							*bytes_pending)) {
 			ret_val = -EIO;
 			goto error;
@@ -598,10 +606,10 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		bytes_copied = *bytes_pending;
 		*bytes_pending = 0;
 		uci_log(UCI_DBG_VERBOSE, "Copied 0x%x of 0x%x, chan %d\n",
-				bytes_copied, (u32)*bytes_pending, chan);
+				bytes_copied, (u32)*bytes_pending, ureq.chan);
 	} else {
 		addr_offset = uci_handle->pkt_size - *bytes_pending;
-		if (copy_to_user(buf, (void *) (uintptr_t)uci_handle->pkt_loc +
+		if (copy_to_user(ubuf, (void *) (uintptr_t)uci_handle->pkt_loc +
 					addr_offset, uspace_buf_size)) {
 			ret_val = -EIO;
 			goto error;
@@ -611,13 +619,13 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		uci_log(UCI_DBG_VERBOSE, "Copied 0x%x of 0x%x,chan %d\n",
 				bytes_copied,
 				(u32)*bytes_pending,
-				chan);
+				ureq.chan);
 	}
 	/* We finished with this buffer, map it back */
 	if (*bytes_pending == 0) {
 		uci_log(UCI_DBG_VERBOSE,
 				"All data consumed. Pkt loc %p ,chan %d\n",
-				uci_handle->pkt_loc, chan);
+				uci_handle->pkt_loc, ureq.chan);
 		uci_handle->pkt_loc = 0;
 		uci_handle->pkt_size = 0;
 	}
