@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -880,9 +880,11 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 		goto done;
 
 	if (cpas_core->streamon_clients == 0) {
+		atomic_set(&cpas_core->irq_count, 1);
 		rc = cam_cpas_soc_enable_resources(&cpas_hw->soc_info,
 			applied_level);
 		if (rc) {
+			atomic_set(&cpas_core->irq_count, 0);
 			CAM_ERR(CAM_CPAS, "enable_resorce failed, rc=%d", rc);
 			goto done;
 		}
@@ -890,14 +892,17 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 		if (cpas_core->internal_ops.power_on) {
 			rc = cpas_core->internal_ops.power_on(cpas_hw);
 			if (rc) {
+				atomic_set(&cpas_core->irq_count, 0);
 				cam_cpas_soc_disable_resources(
-					&cpas_hw->soc_info);
+					&cpas_hw->soc_info, true, true);
 				CAM_ERR(CAM_CPAS,
 					"failed in power_on settings rc=%d",
 					rc);
 				goto done;
 			}
 		}
+		CAM_DBG(CAM_CPAS, "irq_count=%d\n",
+			atomic_read(&cpas_core->irq_count));
 		cpas_hw->hw_state = CAM_HW_STATE_POWER_UP;
 	}
 
@@ -912,6 +917,10 @@ done:
 	return rc;
 }
 
+static int _check_irq_count(struct cam_cpas *cpas_core)
+{
+	return (atomic_read(&cpas_core->irq_count) > 0) ? 0 : 1;
+}
 
 static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	uint32_t arg_size)
@@ -924,6 +933,7 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	struct cam_ahb_vote ahb_vote;
 	struct cam_axi_vote axi_vote;
 	int rc = 0;
+	long result;
 
 	if (!hw_priv || !stop_args) {
 		CAM_ERR(CAM_CPAS, "Invalid arguments %pK %pK",
@@ -972,11 +982,29 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 			}
 		}
 
-		rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info);
+		rc = cam_cpas_soc_disable_irq(&cpas_hw->soc_info);
+		if (rc) {
+			CAM_ERR(CAM_CPAS, "disable_irq failed, rc=%d", rc);
+			goto done;
+		}
+
+		/* Wait for any IRQs still being handled */
+		atomic_dec(&cpas_core->irq_count);
+		result = wait_event_timeout(cpas_core->irq_count_wq,
+			_check_irq_count(cpas_core), HZ);
+		if (result == 0) {
+			CAM_ERR(CAM_CPAS, "Wait failed: irq_count=%d",
+				atomic_read(&cpas_core->irq_count));
+		}
+
+		rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info,
+			true, false);
 		if (rc) {
 			CAM_ERR(CAM_CPAS, "disable_resorce failed, rc=%d", rc);
 			goto done;
 		}
+		CAM_DBG(CAM_CPAS, "Disabled all the resources: irq_count=%d\n",
+			atomic_read(&cpas_core->irq_count));
 		cpas_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
 	}
 
@@ -1427,6 +1455,8 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	soc_private = (struct cam_cpas_private_soc *)
 		cpas_hw->soc_info.soc_private;
 	cpas_core->num_clients = soc_private->num_clients;
+	atomic_set(&cpas_core->irq_count, 0);
+	init_waitqueue_head(&cpas_core->irq_count_wq);
 
 	if (internal_ops->setup_regbase) {
 		rc = internal_ops->setup_regbase(&cpas_hw->soc_info,
@@ -1482,7 +1512,7 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	if (rc)
 		goto disable_soc_res;
 
-	rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info);
+	rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info, true, true);
 	if (rc) {
 		CAM_ERR(CAM_CPAS, "failed in soc_disable_resources, rc=%d", rc);
 		goto remove_default_vote;
@@ -1500,7 +1530,7 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	return 0;
 
 disable_soc_res:
-	cam_cpas_soc_disable_resources(&cpas_hw->soc_info);
+	cam_cpas_soc_disable_resources(&cpas_hw->soc_info, true, true);
 remove_default_vote:
 	cam_cpas_util_vote_default_ahb_axi(cpas_hw, false);
 axi_cleanup:
