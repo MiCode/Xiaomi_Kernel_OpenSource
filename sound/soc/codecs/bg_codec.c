@@ -29,6 +29,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
+#include <linux/qdsp6v2/apr.h>
 #include <sound/info.h>
 #include <soc/qcom/bg_glink.h>
 #include "bg_codec.h"
@@ -864,6 +865,14 @@ static int bg_cdc_probe(struct platform_device *pdev)
 {
 	struct bg_cdc_priv *bg_cdc;
 	int ret = 0;
+	int adsp_state;
+
+	adsp_state = apr_get_subsys_state();
+	if (adsp_state != APR_SUBSYS_LOADED) {
+		pr_err("%s:Adsp is not loaded yet %d\n",
+			__func__, adsp_state);
+		return -EPROBE_DEFER;
+	}
 
 	bg_cdc = kzalloc(sizeof(struct bg_cdc_priv),
 			    GFP_KERNEL);
