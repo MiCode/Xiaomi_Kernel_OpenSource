@@ -879,18 +879,12 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	if (rc)
 		goto done;
 
-	trace_printk("CAPS:%s: %d: irq_count=%d\n",
-		__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 	if (cpas_core->streamon_clients == 0) {
-		trace_printk("CAPS:%s: %d: irq_count=%d\n",
-			__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 		atomic_set(&cpas_core->irq_count, 1);
 		rc = cam_cpas_soc_enable_resources(&cpas_hw->soc_info,
 			applied_level);
 		if (rc) {
 			atomic_set(&cpas_core->irq_count, 0);
-			trace_printk("CAPS:%s: %d: irq_count=%d\n",
-				__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 			CAM_ERR(CAM_CPAS, "enable_resorce failed, rc=%d", rc);
 			goto done;
 		}
@@ -907,18 +901,14 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 				goto done;
 			}
 		}
-		trace_printk("CAPS:%s: %d: irq_count=%d\n",
-			__func__, __LINE__, atomic_read(&cpas_core->irq_count));
+		CAM_DBG(CAM_CPAS, "irq_count=%d\n",
+			atomic_read(&cpas_core->irq_count));
 		cpas_hw->hw_state = CAM_HW_STATE_POWER_UP;
 	}
 
 	cpas_client->started = true;
 	cpas_core->streamon_clients++;
 
-	trace_printk("CAPS:%s:%d: client_indx=%d, streamon_clients=%d\n",
-		__func__, __LINE__, client_indx, cpas_core->streamon_clients);
-	trace_printk("CAPS:%s: %d: irq_count=%d\n",
-		__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 	CAM_DBG(CAM_CPAS, "client_indx=%d, streamon_clients=%d",
 		client_indx, cpas_core->streamon_clients);
 done:
@@ -970,8 +960,6 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 
 	CAM_DBG(CAM_CPAS, "client_indx=%d, streamon_clients=%d",
 		client_indx, cpas_core->streamon_clients);
-	trace_printk("CAPS:%s:%d: client_indx=%d, streamon_clients=%d\n",
-		__func__, __LINE__, client_indx, cpas_core->streamon_clients);
 
 	if (!CAM_CPAS_CLIENT_STARTED(cpas_core, client_indx)) {
 		CAM_ERR(CAM_CPAS, "Client %d is not started", client_indx);
@@ -993,8 +981,6 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 				/* Do not return error, passthrough */
 			}
 		}
-		trace_printk("CAPS:%s: %d: irq_count=%d\n",
-			__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 
 		rc = cam_cpas_soc_disable_irq(&cpas_hw->soc_info);
 		if (rc) {
@@ -1009,22 +995,19 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 		if (result == 0) {
 			CAM_ERR(CAM_CPAS, "Wait failed: irq_count=%d",
 				atomic_read(&cpas_core->irq_count));
-			trace_printk("CAPS:%s: %d: irq_count=%d\n",
-				__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 		}
 
-		rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info, true, false);
+		rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info,
+			true, false);
 		if (rc) {
 			CAM_ERR(CAM_CPAS, "disable_resorce failed, rc=%d", rc);
 			goto done;
 		}
-		trace_printk("CAPS: Disabled all the resources: irq_count=%d\n",
+		CAM_DBG(CAM_CPAS, "Disabled all the resources: irq_count=%d\n",
 			atomic_read(&cpas_core->irq_count));
 		cpas_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
 	}
 
-	trace_printk("CAPS:%s: %d: irq_count=%d\n",
-		__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SUSPEND_VOTE;
 	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw, cpas_client,

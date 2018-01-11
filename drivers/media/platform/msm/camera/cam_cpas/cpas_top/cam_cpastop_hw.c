@@ -356,8 +356,6 @@ static void cam_cpastop_work(struct work_struct *work)
 
 	if (!atomic_inc_not_zero(&cpas_core->irq_count)) {
 		CAM_ERR(CAM_CPAS, "CPAS off");
-		trace_printk("CAPS:%s: %d: irq_count=%d\n",
-			__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 		return;
 	}
 
@@ -407,8 +405,7 @@ static void cam_cpastop_work(struct work_struct *work)
 	}
 	atomic_dec(&cpas_core->irq_count);
 	wake_up(&cpas_core->irq_count_wq);
-	trace_printk("CAPS:%s: %d: irq_count=%d\n",
-		__func__, __LINE__, atomic_read(&cpas_core->irq_count));
+	CAM_DBG(CAM_CPAS, "irq_count=%d\n", atomic_read(&cpas_core->irq_count));
 
 	if (payload->irq_status)
 		CAM_ERR(CAM_CPAS, "IRQ not handled irq_status=0x%x",
@@ -427,8 +424,6 @@ static irqreturn_t cam_cpastop_handle_irq(int irq_num, void *data)
 
 	if (!atomic_inc_not_zero(&cpas_core->irq_count)) {
 		CAM_ERR(CAM_CPAS, "CPAS off");
-		trace_printk("CAPS:%s: %d: irq_count=%d\n",
-			__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 		return IRQ_HANDLED;
 	}
 
@@ -436,8 +431,6 @@ static irqreturn_t cam_cpastop_handle_irq(int irq_num, void *data)
 	if (!payload)
 		goto done;
 
-	trace_printk("CAPS:%s: %d: irq_count=%d\n",
-		__func__, __LINE__, atomic_read(&cpas_core->irq_count));
 	payload->irq_status = cam_io_r_mb(
 		soc_info->reg_map[camnoc_index].mem_base +
 		camnoc_info->irq_sbm->sbm_status.offset);
