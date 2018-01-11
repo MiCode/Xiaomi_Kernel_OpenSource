@@ -842,7 +842,8 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 	if (ret < 0) {
 		icnss_pr_err("Driver reinit failed: %d, state: 0x%lx\n",
 			     ret, priv->state);
-		ICNSS_ASSERT(false);
+		if (!priv->allow_recursive_recovery)
+			ICNSS_ASSERT(false);
 		goto out_power_off;
 	}
 
@@ -992,7 +993,8 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	if (test_bit(ICNSS_PD_RESTART, &priv->state) && event_data->crashed) {
 		icnss_pr_err("PD Down while recovery inprogress, crashed: %d, state: 0x%lx\n",
 			     event_data->crashed, priv->state);
-		ICNSS_ASSERT(0);
+		if (!priv->allow_recursive_recovery)
+			ICNSS_ASSERT(0);
 		goto out;
 	}
 
@@ -2205,6 +2207,15 @@ out:
 	return ret;
 }
 
+static void icnss_allow_recursive_recovery(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	priv->allow_recursive_recovery = true;
+
+	icnss_pr_info("Recursive recovery allowed for WLAN\n");
+}
+
 static ssize_t icnss_fw_debug_write(struct file *fp,
 				    const char __user *user_buf,
 				    size_t count, loff_t *off)
@@ -2252,6 +2263,9 @@ static ssize_t icnss_fw_debug_write(struct file *fp,
 			break;
 		case 3:
 			ret = icnss_trigger_recovery(&priv->pdev->dev);
+			break;
+		case 4:
+			icnss_allow_recursive_recovery(&priv->pdev->dev);
 			break;
 		default:
 			return -EINVAL;
