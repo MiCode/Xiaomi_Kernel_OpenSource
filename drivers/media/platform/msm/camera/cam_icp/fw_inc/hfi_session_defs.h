@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,6 +252,7 @@ struct bps_frame_process_data {
 	uint32_t iq_settings_addr;
 	uint32_t strip_lib_out_addr;
 	uint32_t cdm_prog_addr;
+	uint32_t request_id;
 };
 
 enum hfi_ipe_image_format {
@@ -433,6 +434,7 @@ struct ipe_frame_process_data {
 	uint32_t cdm_tf_ds4;
 	uint32_t cdm_tf_ds16;
 	uint32_t cdm_tf_ds64;
+	uint32_t request_id;
 	uint32_t frames_in_batch;
 	struct frame_set framesets[MAX_HFR_GROUP];
 } __packed;
