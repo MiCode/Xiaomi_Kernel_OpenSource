@@ -95,6 +95,7 @@ Optional properties:
 - qcom,qdsp6v56-1-10: Boolean- Present if the qdsp version is v56 1.10
 - qcom,override-acc-1: Override the default ACC settings with this value if present.
 - qcom,minidump-id: Unique id for each subsystem
+- qcom,reset-clk: Enable clock after MSS restart
 
 One child node to represent the MBA image may be specified, when the MBA image
 needs to be loaded in a specifically carved out memory region.
