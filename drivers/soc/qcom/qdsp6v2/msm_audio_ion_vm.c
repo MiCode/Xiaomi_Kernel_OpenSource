@@ -137,7 +137,7 @@ static int msm_audio_ion_smmu_map(struct ion_client *client,
 	mutex_unlock(&(msm_audio_ion_data.smmu_map_mutex));
 
 	if (cmd_rsp_size != sizeof(cmd_rsp)) {
-		pr_err("%s: invalid size for cmd rsp %lu, expected %lu\n",
+		pr_err("%s: invalid size for cmd rsp %u, expected %zu\n",
 			__func__, cmd_rsp_size, sizeof(cmd_rsp));
 		rc = -EIO;
 		goto err;
@@ -218,7 +218,7 @@ static int msm_audio_ion_smmu_unmap(struct ion_client *client,
 			}
 
 			if (cmd_rsp_size != sizeof(cmd_rsp)) {
-				pr_err("%s: invalid size for cmd rsp %lu\n",
+				pr_err("%s: invalid size for cmd rsp %u\n",
 					__func__, cmd_rsp_size);
 				rc = -EIO;
 				goto err;
