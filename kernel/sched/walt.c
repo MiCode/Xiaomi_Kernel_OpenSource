@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1965,6 +1965,10 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	p->misfit = false;
 }
 
+/*
+ * kfree() may wakeup kswapd. So this function should NOT be called
+ * with any CPU's rq->lock acquired.
+ */
 void free_task_load_ptrs(struct task_struct *p)
 {
 	kfree(p->ravg.curr_window_cpu);
