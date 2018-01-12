@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,11 @@
 };
 
 #include "sdm855-pmic-overlay.dtsi"
+
+/* VDD_MMCX */
+&pm855l_s5_level {
+	regulator-always-on;
+};
 
 &qupv3_se12_2uart {
 	status = "ok";
