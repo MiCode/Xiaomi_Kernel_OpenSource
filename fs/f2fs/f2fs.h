@@ -201,11 +201,6 @@ static inline struct dentry *file_dentry(const struct file *file)
 	return file->f_path.dentry;
 }
 
-static inline void inode_nohighmem(struct inode *inode)
-{
-	mapping_set_gfp_mask(inode->i_mapping, GFP_USER);
-}
-
 /**
  * current_time - Return FS time
  * @inode: inode.
