@@ -104,8 +104,7 @@ static inline int fscrypt_get_encryption_info(struct inode *inode)
 	return -EOPNOTSUPP;
 }
 
-static inline void fscrypt_put_encryption_info(struct inode *inode,
-					       struct fscrypt_info *ci)
+static inline void fscrypt_put_encryption_info(struct inode *inode)
 {
 	return;
 }
