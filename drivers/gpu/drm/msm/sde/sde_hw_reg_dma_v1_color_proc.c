@@ -23,6 +23,9 @@
 #define VLUT_LEN (128 * sizeof(u32))
 #define PA_OP_MODE_OFF 0x800
 #define PA_LUTV_OPMODE_OFF 0x84c
+#define REG_DMA_PA_MODE_HSIC_MASK 0xE1EFFFFF
+#define REG_DMA_PA_MODE_SZONE_MASK 0x1FEFFFFF
+#define REG_DMA_PA_PWL_HOLD_SZONE_MASK 0x0FFF
 
 #define GAMUT_LUT_MEM_SIZE ((sizeof(struct drm_msm_3d_gamut)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
@@ -988,7 +991,7 @@ exit:
 	kfree(data);
 }
 
-void reg_dmav1_setup_dspp_pa_hsicv18(struct sde_hw_dspp *ctx, void *cfg)
+void reg_dmav1_setup_dspp_pa_hsicv17(struct sde_hw_dspp *ctx, void *cfg)
 {
 	struct sde_hw_reg_dma_ops *dma_ops;
 	struct sde_reg_dma_kickoff_cfg kick_off;
@@ -1045,8 +1048,7 @@ void reg_dmav1_setup_dspp_pa_hsicv18(struct sde_hw_dspp *ctx, void *cfg)
 			return;
 		}
 		local_opcode |= PA_HUE_EN;
-	} else if (opcode & PA_HUE_EN)
-		opcode &= ~PA_HUE_EN;
+	}
 
 	if (hsic_cfg->flags & PA_HSIC_SAT_ENABLE) {
 		reg = hsic_cfg->saturation & PA_SAT_MASK;
@@ -1059,8 +1061,7 @@ void reg_dmav1_setup_dspp_pa_hsicv18(struct sde_hw_dspp *ctx, void *cfg)
 			return;
 		}
 		local_opcode |= PA_SAT_EN;
-	} else if (opcode & PA_SAT_EN)
-		opcode &= ~PA_SAT_EN;
+	}
 
 	if (hsic_cfg->flags & PA_HSIC_VAL_ENABLE) {
 		reg = hsic_cfg->value & PA_VAL_MASK;
@@ -1073,8 +1074,7 @@ void reg_dmav1_setup_dspp_pa_hsicv18(struct sde_hw_dspp *ctx, void *cfg)
 			return;
 		}
 		local_opcode |= PA_VAL_EN;
-	} else if (opcode & PA_VAL_EN)
-		opcode &= ~PA_VAL_EN;
+	}
 
 	if (hsic_cfg->flags & PA_HSIC_CONT_ENABLE) {
 		reg = hsic_cfg->contrast & PA_CONT_MASK;
@@ -1087,13 +1087,21 @@ void reg_dmav1_setup_dspp_pa_hsicv18(struct sde_hw_dspp *ctx, void *cfg)
 			return;
 		}
 		local_opcode |= PA_CONT_EN;
-	} else if (opcode & PA_CONT_EN)
-		opcode &= ~PA_CONT_EN;
+	}
 
-	if (local_opcode)
-		opcode |= (local_opcode | PA_EN);
-	else {
-		DRM_ERROR("Invalid hsic config\n");
+	if (local_opcode) {
+		local_opcode |= PA_EN;
+	} else {
+		DRM_ERROR("Invalid hsic config 0x%x\n", local_opcode);
+		return;
+	}
+
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->hsic.base, &local_opcode, sizeof(local_opcode),
+		REG_SINGLE_MODIFY, 0, 0, REG_DMA_PA_MODE_HSIC_MASK);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting opcode failed ret %d\n", rc);
 		return;
 	}
 
@@ -1102,11 +1110,9 @@ void reg_dmav1_setup_dspp_pa_hsicv18(struct sde_hw_dspp *ctx, void *cfg)
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
-
-	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
 }
 
-void reg_dmav1_setup_dspp_sixzonev18(struct sde_hw_dspp *ctx, void *cfg)
+void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg)
 {
 	struct sde_hw_reg_dma_ops *dma_ops;
 	struct sde_reg_dma_kickoff_cfg kick_off;
@@ -1167,7 +1173,7 @@ void reg_dmav1_setup_dspp_sixzonev18(struct sde_hw_dspp *ctx, void *cfg)
 	REG_DMA_SETUP_OPS(dma_write_cfg,
 	    (ctx->cap->sblk->sixzone.base + SIXZONE_ADJ_CURVE_P1_OFF),
 		&sixzone->curve[0].p1, (SIXZONE_LUT_SIZE * sizeof(u32) * 2),
-	    REG_BLK_WRITE_MULTIPLE, 2, 0, 0);
+		REG_BLK_WRITE_MULTIPLE, 2, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
 		DRM_ERROR("write sixzone lut failed ret %d\n", rc);
@@ -1184,21 +1190,17 @@ void reg_dmav1_setup_dspp_sixzonev18(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
-		dspp_buf[SIX_ZONE][ctx->idx],
-		REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
-	rc = dma_ops->kick_off(&kick_off);
-	if (rc)
-		DRM_ERROR("failed to kick off ret %d\n", rc);
-
-	hold = SDE_REG_READ(&ctx->hw,
-			(ctx->cap->sblk->hsic.base + PA_PWL_HOLD_OFF));
 	local_hold = ((sixzone->sat_hold & REG_MASK(2)) << 12);
 	local_hold |= ((sixzone->val_hold & REG_MASK(2)) << 14);
-	hold &= ~REG_MASK_SHIFT(4, 12);
-	hold |= local_hold;
-	SDE_REG_WRITE(&ctx->hw,
-			(ctx->cap->sblk->hsic.base + PA_PWL_HOLD_OFF), hold);
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->hsic.base + PA_PWL_HOLD_OFF, &local_hold,
+		sizeof(local_hold), REG_SINGLE_MODIFY, 0, 0,
+		REG_DMA_PA_PWL_HOLD_SZONE_MASK);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting local_hold failed ret %d\n", rc);
+		return;
+	}
 
 	if (sixzone->flags & SIXZONE_HUE_ENABLE)
 		local_opcode |= PA_SIXZONE_HUE_EN;
@@ -1207,12 +1209,27 @@ void reg_dmav1_setup_dspp_sixzonev18(struct sde_hw_dspp *ctx, void *cfg)
 	if (sixzone->flags & SIXZONE_VAL_ENABLE)
 		local_opcode |= PA_SIXZONE_VAL_EN;
 
-	if (local_opcode)
+	if (local_opcode) {
 		local_opcode |= PA_EN;
+	} else {
+		DRM_ERROR("Invalid six zone config 0x%x\n", local_opcode);
+		return;
+	}
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->hsic.base, &local_opcode, sizeof(local_opcode),
+		REG_SINGLE_MODIFY, 0, 0, REG_DMA_PA_MODE_SZONE_MASK);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting local_opcode failed ret %d\n", rc);
+		return;
+	}
 
-	opcode &= ~REG_MASK_SHIFT(3, 29);
-	opcode |= local_opcode;
-	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+		dspp_buf[SIX_ZONE][ctx->idx],
+		REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
 }
 
 int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx)
