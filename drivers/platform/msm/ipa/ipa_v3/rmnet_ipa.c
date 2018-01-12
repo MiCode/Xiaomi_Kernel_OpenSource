@@ -3272,8 +3272,9 @@ static int rmnet_ipa3_query_tethering_stats_modem(
 		/* prevent string buffer overflows */
 		data->upstreamIface[IFNAMSIZ-1] = '\0';
 		data->tetherIface[IFNAMSIZ-1] = '\0';
-	} else if (reset) {
-		/* Data can be NULL for reset stats, checking reset != False */
+	} else if (!reset) {
+		/* only reset can have data == NULL */
+		IPAWANERR("query without allocate tether_stats strucutre\n");
 		return -EINVAL;
 	}
 
