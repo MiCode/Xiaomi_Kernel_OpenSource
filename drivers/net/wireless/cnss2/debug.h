@@ -26,23 +26,23 @@ extern void *cnss_ipc_log_context;
 	} while (0)
 
 #define cnss_pr_err(_fmt, ...) do {					\
-		pr_err("cnss: " _fmt, ##__VA_ARGS__);			\
-		cnss_ipc_log_string("ERR: " _fmt, ##__VA_ARGS__);	\
+		printk("%scnss: " _fmt, KERN_ERR, ##__VA_ARGS__);	\
+		cnss_ipc_log_string("%scnss: " _fmt, "", ##__VA_ARGS__);\
 	} while (0)
 
 #define cnss_pr_warn(_fmt, ...) do {					\
-		pr_warn("cnss: " _fmt, ##__VA_ARGS__);			\
-		cnss_ipc_log_string("WRN: " _fmt, ##__VA_ARGS__);	\
+		printk("%scnss: " _fmt, KERN_WARNING, ##__VA_ARGS__);	\
+		cnss_ipc_log_string("%scnss: " _fmt, "", ##__VA_ARGS__);\
 	} while (0)
 
 #define cnss_pr_info(_fmt, ...) do {					\
-		pr_info("cnss: " _fmt, ##__VA_ARGS__);			\
-		cnss_ipc_log_string("INF: " _fmt, ##__VA_ARGS__);	\
+		printk("%scnss: " _fmt, KERN_INFO, ##__VA_ARGS__);	\
+		cnss_ipc_log_string("%scnss: " _fmt, "", ##__VA_ARGS__);\
 	} while (0)
 
 #define cnss_pr_dbg(_fmt, ...) do {					\
-		pr_debug("cnss: " _fmt, ##__VA_ARGS__);			\
-		cnss_ipc_log_string("DBG: " _fmt, ##__VA_ARGS__);	\
+		printk("%scnss: " _fmt, KERN_DEBUG, ##__VA_ARGS__);	\
+		cnss_ipc_log_string("%scnss: " _fmt, "", ##__VA_ARGS__);\
 	} while (0)
 
 #ifdef CONFIG_CNSS2_DEBUG
