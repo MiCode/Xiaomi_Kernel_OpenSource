@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -476,11 +476,11 @@
 			regulator-name = "pm855l_s5_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt
-				= <RPMH_REGULATOR_LEVEL_RETENTION>;
+				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
 			regulator-max-microvolt
 				= <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level
-				= <RPMH_REGULATOR_LEVEL_RETENTION>;
+				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
 		};
 	};
 
