@@ -33,7 +33,7 @@
 		<GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>,
 		<GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH>;
 	vdd-supply = <&gdsc_hlos1_vote_lpass_adsp>;
-	clocks = <&clock_gcc clk_hlos1_vote_lpass_adsp_smmu_clk>;
+	clocks = <&clock_virt clk_hlos1_vote_lpass_adsp_smmu_clk>;
 	clock-names = "lpass_q6_smmu_clocks";
 	#clock-cells = <1>;
 };
