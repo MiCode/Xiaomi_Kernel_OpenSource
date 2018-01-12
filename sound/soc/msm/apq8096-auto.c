@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,9 @@ static int msm_quat_tdm_tx_3_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_pri_tdm_rate = SAMPLING_RATE_48KHZ;
 static int msm_pri_tdm_slot_width = 32;
 static int msm_pri_tdm_slot_num = 8;
+
+static int msm_sec_tdm_slot_width = 32;
+static int msm_sec_tdm_slot_num = 8;
 
 /* EC Reference default values are set in mixer_paths.xml */
 static int msm_ec_ref_ch = 4;
@@ -494,13 +497,12 @@ static const char *const ec_ref_rate_text[] = {"0", "8000", "16000",
 
 static const char *const mi2s_rate_text[] = {"32000", "44100", "48000"};
 
-static const char *const pri_tdm_rate_text[] = {"8000", "16000", "48000"};
+static const char *const tdm_rate_text[] = {"8000", "16000", "48000"};
 
-static const char *const pri_tdm_slot_num_text[] = {"One", "Two", "Four",
+static const char *const tdm_slot_num_text[] = {"One", "Two", "Four",
 	"Eight", "Sixteen", "Thirtytwo"};
 
-
-static const char *const pri_tdm_slot_width_text[] = {"16", "24", "32"};
+static const char *const tdm_slot_width_text[] = {"16", "24", "32"};
 
 static struct afe_clk_set sec_mi2s_tx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
@@ -1139,6 +1141,98 @@ static int msm_pri_tdm_slot_num_put(struct snd_kcontrol *kcontrol,
 	}
 	pr_debug("%s: msm_pri_tdm_slot_num = %d\n",
 		__func__,  msm_pri_tdm_slot_num);
+	return 0;
+}
+
+static int msm_sec_tdm_slot_width_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_sec_tdm_slot_width;
+	pr_debug("%s: msm_sec_tdm_slot_width = %d\n",
+			__func__, msm_sec_tdm_slot_width);
+	return 0;
+}
+
+static int msm_sec_tdm_slot_width_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm_sec_tdm_slot_width = 16;
+		break;
+	case 1:
+		msm_sec_tdm_slot_width = 24;
+		break;
+	case 2:
+		msm_sec_tdm_slot_width = 32;
+		break;
+	default:
+		msm_sec_tdm_slot_width = 32;
+		break;
+	}
+	pr_debug("%s: msm_sec_tdm_slot_width= %d\n",
+		__func__, msm_sec_tdm_slot_width);
+	return 0;
+}
+
+static int msm_sec_tdm_slot_num_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	switch (msm_sec_tdm_slot_num) {
+	case 1:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	case 2:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case 4:
+		ucontrol->value.integer.value[0] = 2;
+		break;
+	case 8:
+		ucontrol->value.integer.value[0] = 3;
+		break;
+	case 16:
+		ucontrol->value.integer.value[0] = 4;
+		break;
+	case 32:
+	default:
+		ucontrol->value.integer.value[0] = 5;
+		break;
+	}
+
+	pr_debug("%s: msm_sec_tdm_slot_num = %d\n",
+		__func__, msm_sec_tdm_slot_num);
+	return 0;
+}
+
+static int msm_sec_tdm_slot_num_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm_sec_tdm_slot_num = 1;
+		break;
+	case 1:
+		msm_sec_tdm_slot_num = 2;
+		break;
+	case 2:
+		msm_sec_tdm_slot_num = 4;
+		break;
+	case 3:
+		msm_sec_tdm_slot_num = 8;
+		break;
+	case 4:
+		msm_sec_tdm_slot_num = 16;
+		break;
+	case 5:
+		msm_sec_tdm_slot_num = 32;
+		break;
+	default:
+		msm_sec_tdm_slot_num = 8;
+		break;
+	}
+	pr_debug("%s: msm_sec_tdm_slot_num = %d\n",
+		__func__,  msm_sec_tdm_slot_num);
 	return 0;
 }
 
@@ -3336,7 +3430,7 @@ static unsigned int tdm_param_set_slot_mask(int slots)
 	unsigned int slot_mask = 0;
 	unsigned int i = 0;
 
-	if ((slots != 16) && (slots != 8)) {
+	if ((slots <= 0) || (slots > 32)) {
 		pr_err("%s: invalid slot number %d\n", __func__, slots);
 		return -EINVAL;
 	}
@@ -3470,51 +3564,83 @@ static int apq8096_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 		slot_offset = tdm_slot_offset[PRIMARY_TDM_TX_7];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_RX:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_RX_0];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_RX_1:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_RX_1];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_RX_2:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_RX_2];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_RX_3:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_RX_3];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_RX_4:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_RX_4];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_RX_5:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_RX_5];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_RX_6:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_RX_6];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_RX_7:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_RX_7];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_TX:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_TX_0];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_TX_1:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_TX_1];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_TX_2:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_TX_2];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_TX_3:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_TX_3];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_TX_4:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_TX_4];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_TX_5:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_TX_5];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_TX_6:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_TX_6];
 		break;
 	case AFE_PORT_ID_SECONDARY_TDM_TX_7:
+		slots = msm_sec_tdm_slot_num;
+		slot_width = msm_sec_tdm_slot_width;
 		slot_offset = tdm_slot_offset[SECONDARY_TDM_TX_7];
 		break;
 	case AFE_PORT_ID_TERTIARY_TDM_RX:
@@ -3707,9 +3833,9 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(3, ec_ref_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(9, ec_ref_rate_text),
 	SOC_ENUM_SINGLE_EXT(3, mi2s_rate_text),
-	SOC_ENUM_SINGLE_EXT(3, pri_tdm_rate_text),
-	SOC_ENUM_SINGLE_EXT(6, pri_tdm_slot_num_text),
-	SOC_ENUM_SINGLE_EXT(3, pri_tdm_slot_width_text),
+	SOC_ENUM_SINGLE_EXT(3, tdm_rate_text),
+	SOC_ENUM_SINGLE_EXT(6, tdm_slot_num_text),
+	SOC_ENUM_SINGLE_EXT(3, tdm_slot_width_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -3908,6 +4034,10 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_pri_tdm_slot_num_get, msm_pri_tdm_slot_num_put),
 	SOC_ENUM_EXT("PRI_TDM Slot Width", msm_snd_enum[14],
 			msm_pri_tdm_slot_width_get, msm_pri_tdm_slot_width_put),
+	SOC_ENUM_EXT("SEC_TDM Slot Number", msm_snd_enum[13],
+			msm_sec_tdm_slot_num_get, msm_sec_tdm_slot_num_put),
+	SOC_ENUM_EXT("SEC_TDM Slot Width", msm_snd_enum[14],
+			msm_sec_tdm_slot_width_get, msm_sec_tdm_slot_width_put),
 	SOC_SINGLE_MULTI_EXT("PRI_TDM_RX_0 Slot Mapping", SND_SOC_NOPM,
 		PRIMARY_TDM_RX_0, 0xFFFF,
 		0, 8, msm_tdm_slot_mapping_get,
