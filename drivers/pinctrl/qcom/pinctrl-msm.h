@@ -43,6 +43,8 @@ struct msm_function {
  * @intr_status_reg:      Offset of the register holding the status bits for this group.
  * @intr_target_reg:      Offset of the register specifying routing of the interrupts
  *                        from this group.
+ * @dir_conn_reg:         Offset of the register specifying direct connect
+ *                        setup of this group.
  * @mux_bit:              Offset in @ctl_reg for the pinmux function selection.
  * @pull_bit:             Offset in @ctl_reg for the bias configuration.
  * @drv_bit:              Offset in @ctl_reg for the drive strength configuration.
@@ -75,6 +77,7 @@ struct msm_pingroup {
 	u32 intr_cfg_reg;
 	u32 intr_status_reg;
 	u32 intr_target_reg;
+	u32 dir_conn_reg;
 
 	unsigned mux_bit:5;
 
@@ -95,18 +98,32 @@ struct msm_pingroup {
 	unsigned intr_polarity_bit:5;
 	unsigned intr_detection_bit:5;
 	unsigned intr_detection_width:5;
+	unsigned dir_conn_en_bit:8;
+}
+
+/**
+ * struct msm_dir_conn - Direct GPIO connect configuration
+ * @gpio:	GPIO pin number
+ * @hwirq:	The GIC interrupt that the pin is connected to
+ */;
+struct msm_dir_conn {
+	unsigned int gpio;
+	irq_hw_number_t hwirq;
 };
 
 /**
  * struct msm_pinctrl_soc_data - Qualcomm pin controller driver configuration
- * @pins:	    An array describing all pins the pin controller affects.
- * @npins:	    The number of entries in @pins.
- * @functions:	    An array describing all mux functions the SoC supports.
- * @nfunctions:	    The number of entries in @functions.
- * @groups:	    An array describing all pin groups the pin SoC supports.
- * @ngroups:	    The numbmer of entries in @groups.
- * @ngpio:	    The number of pingroups the driver should expose as GPIOs.
+ * @pins:       An array describing all pins the pin controller affects.
+ * @npins:      The number of entries in @pins.
+ * @functions:  An array describing all mux functions the SoC supports.
+ * @nfunctions: The number of entries in @functions.
+ * @groups:     An array describing all pin groups the pin SoC supports.
+ * @ngroups:    The numbmer of entries in @groups.
+ * @ngpio:      The number of pingroups the driver should expose as GPIOs.
  * @pull_no_keeper: The SoC does not support keeper bias.
+ * @dir_conn:   An array describing all the pins directly connected to GIC.
+ * @ndirconns:  The number of pins directly connected to GIC
+ * @dir_conn_irq_base:  Direct connect interrupt base register for kpss.
  */
 struct msm_pinctrl_soc_data {
 	const struct pinctrl_pin_desc *pins;
@@ -117,11 +134,13 @@ struct msm_pinctrl_soc_data {
 	unsigned ngroups;
 	unsigned ngpios;
 	bool pull_no_keeper;
+	const struct msm_dir_conn *dir_conn;
+	unsigned int n_dir_conns;
+	unsigned int dir_conn_irq_base;
 };
 
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data);
 int msm_pinctrl_remove(struct platform_device *pdev);
 
-extern int msm_show_resume_irq_mask;
 #endif
