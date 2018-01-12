@@ -186,6 +186,7 @@
 	bg_cdc: bg_codec {
 		status = "disabled";
 		compatible = "qcom,bg-codec";
+		qcom,subsys-name = "modem";
 		qcom,bg-glink {
 			compatible = "qcom,bg-cdc-glink";
 			qcom,msm-glink-channels = <4>;
