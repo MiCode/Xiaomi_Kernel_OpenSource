@@ -3626,7 +3626,10 @@ static int perf_release(struct inode *inode, struct file *file)
 	if ((event->state == PERF_EVENT_STATE_OFF) &&
 	    event->attr.constraint_duplicate)
 		event->state = PERF_EVENT_STATE_ACTIVE;
+
+	get_online_cpus();
 	put_event(file->private_data);
+	put_online_cpus();
 	return 0;
 }
 
