@@ -355,11 +355,13 @@ struct arm_smmu_s2cr {
 	enum arm_smmu_s2cr_privcfg	privcfg;
 	u8				cbndx;
 	bool				cb_handoff;
+	bool				write_protected;
 };
 
 #define s2cr_init_val (struct arm_smmu_s2cr){				\
 	.type = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS,	\
 	.cb_handoff = false,						\
+	.write_protected = false,					\
 }
 
 struct arm_smmu_smr {
@@ -2758,13 +2760,28 @@ static struct arm_smmu_device *arm_smmu_get_by_addr(void __iomem *addr)
 bool arm_smmu_skip_write(void __iomem *addr)
 {
 	struct arm_smmu_device *smmu;
+	unsigned long cb;
+	int i;
 
 	smmu = arm_smmu_get_by_addr(addr);
-	if (smmu &&
-	    ((unsigned long)addr & (smmu->size - 1)) >= (smmu->size >> 1))
-		return false;
-	else
+
+	/* Skip write if smmu not available by now */
+	if (!smmu)
 		return true;
+
+	/* Do not write to global space */
+	if (((unsigned long)addr & (smmu->size - 1)) < (smmu->size >> 1))
+		return true;
+
+	/* Finally skip writing to secure CB */
+	cb = ((unsigned long)addr & ((smmu->size >> 1) - 1)) >> PAGE_SHIFT;
+	for (i = 0; i < smmu->num_mapping_groups; i++) {
+		if ((smmu->s2crs[i].cbndx == cb) &&
+		    (smmu->s2crs[i].write_protected))
+			return true;
+	}
+
+	return false;
 }
 #endif
 
@@ -3698,8 +3715,13 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 			cb = smmu->s2crs[idx].cbndx;
 	}
 
-	if (cb >= 0 && arm_smmu_is_static_cb(smmu))
+	if (cb >= 0 && arm_smmu_is_static_cb(smmu)) {
 		smmu_domain->slave_side_secure = true;
+
+		if (arm_smmu_is_slave_side_secure(smmu_domain))
+			for_each_cfg_sme(fwspec, i, idx)
+				smmu->s2crs[idx].write_protected = true;
+	}
 
 	if (cb < 0 && !arm_smmu_is_static_cb(smmu)) {
 		mutex_unlock(&smmu->stream_map_mutex);
