@@ -579,8 +579,6 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 
 	rc = dp_display_send_hpd_notification(dp, false);
 
-	dp->aux->deinit(dp->aux);
-
 	dp->panel->video_test = false;
 
 	return rc;
@@ -625,6 +623,8 @@ static void dp_display_clean(struct dp_display_private *dp)
 
 	dp->ctrl->push_idle(dp->ctrl);
 	dp->ctrl->off(dp->ctrl);
+	dp->panel->deinit(dp->panel);
+	dp->aux->deinit(dp->aux);
 	dp->power_on = false;
 }
 
@@ -759,7 +759,8 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		return -ENODEV;
 	}
 
-	if (dp->usbpd->hpd_irq && dp->usbpd->hpd_high) {
+	if (dp->usbpd->hpd_irq && dp->usbpd->hpd_high &&
+	    dp->power_on) {
 		dp->link->process_request(dp->link);
 		queue_work(dp->wq, &dp->attention_work);
 	} else if (dp->usbpd->hpd_high) {
@@ -1156,6 +1157,7 @@ static int dp_display_disable(struct dp_display *dp_display)
 
 	dp->ctrl->off(dp->ctrl);
 	dp->panel->deinit(dp->panel);
+	dp->aux->deinit(dp->aux);
 
 	connector->hdr_eotf = 0;
 	connector->hdr_metadata_type_one = 0;
