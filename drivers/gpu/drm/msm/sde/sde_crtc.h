@@ -309,10 +309,8 @@ struct sde_crtc_res_ops {
 };
 
 /* crtc resource type (0x0-0xffff reserved for hw block type */
-#define SDE_CRTC_RES_ROT_OUT_FBO	0x10000
-#define SDE_CRTC_RES_ROT_OUT_FB		0x10001
-#define SDE_CRTC_RES_ROT_PLANE		0x10002
-#define SDE_CRTC_RES_ROT_IN_FB		0x10003
+#define SDE_CRTC_RES_ROT_PLANE		0x10000
+#define SDE_CRTC_RES_ROT_IN_FB		0x10001
 
 #define SDE_CRTC_RES_FLAG_FREE		BIT(0)
 

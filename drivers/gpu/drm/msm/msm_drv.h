@@ -116,6 +116,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_PREFILL_TIME,
 	PLANE_PROP_SCALER_V1,
 	PLANE_PROP_SCALER_V2,
+	PLANE_PROP_ROT_OUT_FB,
 
 	/* enum/bitmask properties */
 	PLANE_PROP_BLEND_OP,
@@ -776,6 +777,7 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		struct dma_buf *dmabuf, struct sg_table *sgt);
 
 void msm_framebuffer_set_kmap(struct drm_framebuffer *fb, bool enable);
+void msm_framebuffer_set_keepattrs(struct drm_framebuffer *fb, bool enable);
 int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace);
 void msm_framebuffer_cleanup(struct drm_framebuffer *fb,

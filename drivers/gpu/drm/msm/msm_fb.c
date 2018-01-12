@@ -109,6 +109,38 @@ void msm_framebuffer_describe(struct drm_framebuffer *fb, struct seq_file *m)
 }
 #endif
 
+void msm_framebuffer_set_keepattrs(struct drm_framebuffer *fb, bool enable)
+{
+	struct msm_framebuffer *msm_fb;
+	int i, n;
+	struct drm_gem_object *bo;
+	struct msm_gem_object *msm_obj;
+
+	if (!fb) {
+		DRM_ERROR("from:%pS null fb\n", __builtin_return_address(0));
+		return;
+	}
+
+	if (!fb->format) {
+		DRM_ERROR("from:%pS null fb->format\n",
+				__builtin_return_address(0));
+		return;
+	}
+
+	msm_fb = to_msm_framebuffer(fb);
+	n = fb->format->num_planes;
+	for (i = 0; i < n; i++) {
+		bo = msm_framebuffer_bo(fb, i);
+		if (bo) {
+			msm_obj = to_msm_bo(bo);
+			if (enable)
+				msm_obj->flags |= MSM_BO_KEEPATTRS;
+			else
+				msm_obj->flags &= ~MSM_BO_KEEPATTRS;
+		}
+	}
+}
+
 void msm_framebuffer_set_kmap(struct drm_framebuffer *fb, bool enable)
 {
 	struct msm_framebuffer *msm_fb;

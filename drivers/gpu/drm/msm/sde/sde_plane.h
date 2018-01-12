@@ -53,8 +53,7 @@
  * @out_fb_flags: output framebuffer flags of rotator stage
  * @out_sbuf: true if output streaming buffer is required
  * @out_fb_format: Pointer to output framebuffer format of rotator stage
- * @out_fb: Pointer to output drm framebuffer of rotator stage
- * @out_fbo: framebuffer object of output streaming buffer
+ * @out_fb: Pointer to output framebuffer of rotator stage
  * @out_xpos: relative horizontal position of the plane (0 - leftmost)
  */
 struct sde_plane_rot_state {
@@ -85,7 +84,6 @@ struct sde_plane_rot_state {
 	bool out_sbuf;
 	const struct sde_format *out_fb_format;
 	struct drm_framebuffer *out_fb;
-	struct sde_kms_fbo *out_fbo;
 	int out_xpos;
 };
 

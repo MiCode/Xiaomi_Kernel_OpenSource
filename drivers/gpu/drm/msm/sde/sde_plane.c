@@ -1513,40 +1513,6 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 }
 
 /**
- * _sde_plane_fb_get/put - framebuffer callback for crtc res ops
- */
-static void *_sde_plane_fb_get(void *fb, u32 type, u64 tag)
-{
-	drm_framebuffer_get(fb);
-	return fb;
-}
-static void _sde_plane_fb_put(void *fb)
-{
-	drm_framebuffer_put(fb);
-}
-static struct sde_crtc_res_ops fb_res_ops = {
-	.put = _sde_plane_fb_put,
-	.get = _sde_plane_fb_get,
-};
-
-/**
- * _sde_plane_fbo_get/put - framebuffer object callback for crtc res ops
- */
-static void *_sde_plane_fbo_get(void *fbo, u32 type, u64 tag)
-{
-	sde_kms_fbo_reference(fbo);
-	return fbo;
-}
-static void _sde_plane_fbo_put(void *fbo)
-{
-	sde_kms_fbo_unreference(fbo);
-}
-static struct sde_crtc_res_ops fbo_res_ops = {
-	.put = _sde_plane_fbo_put,
-	.get = _sde_plane_fbo_get,
-};
-
-/**
  * sde_plane_rot_calc_prefill - calculate rotator start prefill
  * @plane: Pointer to drm plane
  * return: prefill time in line
@@ -1966,6 +1932,15 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	if (ret)
 		return ret;
 
+	if (rstate->out_fb && (rstate->out_fb->format->format !=
+			rot_cmd->dst_pixel_format)) {
+		SDE_ERROR(
+			"out_fb pixel format (%X) not match with rotator expected format (%X)\n",
+			rstate->out_fb->format->format,
+			rot_cmd->dst_pixel_format);
+		return -EINVAL;
+	}
+
 	rstate->out_rotation = rstate->in_rotation;
 	rstate->out_fb_flags = rot_cmd->dst_modifier ?
 			DRM_MODE_FB_MODIFIERS : 0;
@@ -2025,38 +2000,34 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
  *	from another plane in the current commit cycle, attempt to reuse
  *	it for this commit cycle as well.
  * @plane: Pointer to drm plane
- * @cstate: Pointer to crtc state
+ * @pstate: Pointer to sde plane state
  * @rstate: Pointer to rotator plane state
  */
 static void _sde_plane_rot_get_fb(struct drm_plane *plane,
-		struct drm_crtc_state *cstate,
+		struct sde_plane_state *pstate,
 		struct sde_plane_rot_state *rstate)
 {
-	struct sde_kms_fbo *fbo;
 	struct drm_framebuffer *fb;
+	u32 fb_id;
 
-	if (!plane || !cstate || !rstate || !rstate->rot_hw)
+	if (!plane || !pstate || !rstate || !rstate->rot_hw)
 		return;
 
-	fbo = sde_crtc_res_get(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-			(u64) &rstate->rot_hw->base);
-	fb = sde_crtc_res_get(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-			(u64) &rstate->rot_hw->base);
-	if (fb && fbo) {
-		SDE_DEBUG("plane%d.%d get fb/fbo\n", plane->base.id,
-				rstate->sequence_id);
-	} else if (fbo) {
-		sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-				(u64) &rstate->rot_hw->base);
-		fbo = NULL;
-	} else if (fb) {
-		sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-				(u64) &rstate->rot_hw->base);
-		fb = NULL;
+	fb_id = sde_plane_get_property(pstate, PLANE_PROP_ROT_OUT_FB);
+	if (fb_id == 0) {
+		SDE_DEBUG("cleared fb_id\n");
+		rstate->out_fb = NULL;
+	} else if (!rstate->out_fb) {
+		fb = drm_framebuffer_lookup(plane->dev, fb_id);
+		if (fb) {
+			SDE_DEBUG("plane%d.%d get fb:%d\n", plane->base.id,
+					rstate->sequence_id, fb_id);
+			rstate->out_fb = fb;
+			msm_framebuffer_set_keepattrs(rstate->out_fb, true);
+		} else {
+			SDE_ERROR("fail lookup framebuffer, fb_id:%d\n", fb_id);
+		}
 	}
-
-	rstate->out_fbo = fbo;
-	rstate->out_fb = fb;
 }
 
 /**
@@ -2098,52 +2069,13 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 
 	/* check if stream buffer is already attached to rotator */
 	if (sde_plane_enabled(new_state) && !new_rstate->out_fb)
-		_sde_plane_rot_get_fb(plane, cstate, new_rstate);
+		_sde_plane_rot_get_fb(plane, new_pstate, new_rstate);
 
-	/* create new stream buffer if it is not available */
+	/* return failure is rotator output buffer is not available */
 	if (sde_plane_enabled(new_state) && !new_rstate->out_fb) {
-		u32 fb_w = drm_rect_width(&new_rstate->out_rot_rect) >> 16;
-		u32 fb_h = drm_rect_height(&new_rstate->out_rot_rect) >> 16;
-
-		SDE_DEBUG("plane%d.%d allocate fb/fbo\n", plane->base.id,
-				new_rstate->sequence_id);
-
-		/* check if out_fb is already attached to rotator */
-		new_rstate->out_fbo = sde_kms_fbo_alloc(plane->dev, fb_w, fb_h,
-				new_rstate->out_fb_pixel_format,
-				new_rstate->out_fb_modifier,
-				new_rstate->out_fb_flags);
-		if (!new_rstate->out_fbo) {
-			SDE_ERROR("failed to allocate inline buffer object\n");
-			ret = -EINVAL;
-			goto error_create_fbo;
-		}
-
-		ret = sde_crtc_res_add(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-				(u64) &new_rstate->rot_hw->base,
-				new_rstate->out_fbo, &fbo_res_ops);
-		if (ret) {
-			SDE_ERROR("failed to add crtc resource\n");
-			goto error_create_fbo_res;
-		}
-
-		new_rstate->out_fb = sde_kms_fbo_create_fb(plane->dev,
-				new_rstate->out_fbo);
-		if (!new_rstate->out_fb) {
-			SDE_ERROR("failed to create inline framebuffer\n");
-			ret = -EINVAL;
-			goto error_create_fb;
-		}
-		SDE_EVT32_VERBOSE(DRMID(plane), new_rstate->sequence_id,
-				new_rstate->out_fb->base.id);
-
-		ret = sde_crtc_res_add(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-				(u64) &new_rstate->rot_hw->base,
-				new_rstate->out_fb, &fb_res_ops);
-		if (ret) {
-			SDE_ERROR("failed to add crtc resource %d\n", ret);
-			goto error_create_fb_res;
-		}
+		SDE_ERROR("failed to get rotator output buffer\n");
+		ret = -EINVAL;
+		goto error_create_fb_res;
 	}
 
 	if (new_pstate->defer_prepare_fb) {
@@ -2162,7 +2094,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	}
 
 	/* prepare rotator output buffer */
-	if (sde_plane_enabled(new_state) && new_rstate->out_fb) {
+	if (sde_plane_enabled(new_state)) {
 		SDE_DEBUG("plane%d.%d prepare fb/fbo\n", plane->base.id,
 				new_rstate->sequence_id);
 
@@ -2180,16 +2112,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 error_prepare_output_buffer:
 	msm_framebuffer_cleanup(new_state->fb, new_pstate->aspace);
 error_prepare_input_buffer:
-	sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-			(u64) &new_rstate->rot_hw->base);
 error_create_fb_res:
-	new_rstate->out_fb = NULL;
-error_create_fb:
-	sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-			(u64) &new_rstate->rot_hw->base);
-error_create_fbo_res:
-	new_rstate->out_fbo = NULL;
-error_create_fbo:
 	return ret;
 }
 
@@ -2206,7 +2129,6 @@ static void sde_plane_rot_cleanup_fb(struct drm_plane *plane,
 	struct sde_plane_state *old_pstate = to_sde_plane_state(old_state);
 	struct sde_plane_rot_state *old_rstate = &old_pstate->rot;
 	struct sde_hw_rot_cmd *cmd = &old_rstate->rot_cmd;
-	struct drm_crtc_state *cstate;
 	int ret;
 
 	SDE_DEBUG("plane%d.%d FB[%u] sbuf:%d rot:%d crtc:%d\n", plane->base.id,
@@ -2217,13 +2139,6 @@ static void sde_plane_rot_cleanup_fb(struct drm_plane *plane,
 	if (!old_rstate->out_sbuf || !old_rstate->rot_hw)
 		return;
 
-	cstate = _sde_plane_get_crtc_state(old_state);
-	if (IS_ERR(cstate)) {
-		ret = PTR_ERR(cstate);
-		SDE_ERROR("invalid crtc state %d\n", ret);
-		return;
-	}
-
 	if (sde_plane_crtc_enabled(old_state)) {
 		ret = old_rstate->rot_hw->ops.commit(old_rstate->rot_hw, cmd,
 				SDE_HW_ROT_CMD_CLEANUP);
@@ -2232,16 +2147,7 @@ static void sde_plane_rot_cleanup_fb(struct drm_plane *plane,
 	}
 
 	if (sde_plane_enabled(old_state)) {
-		if (old_rstate->out_fb) {
-			msm_framebuffer_cleanup(old_rstate->out_fb,
-					old_pstate->aspace);
-			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-					(u64) &old_rstate->rot_hw->base);
-			old_rstate->out_fb = NULL;
-			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-					(u64) &old_rstate->rot_hw->base);
-			old_rstate->out_fbo = NULL;
-		}
+		msm_framebuffer_cleanup(old_rstate->out_fb, old_pstate->aspace);
 
 		msm_framebuffer_cleanup(old_state->fb, old_pstate->aspace);
 	}
@@ -2351,30 +2257,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 				SDE_PLANE_DIRTY_RECTS;
 
 		/* check if stream buffer is already attached to rotator */
-		_sde_plane_rot_get_fb(plane, cstate, rstate);
-
-		/* release buffer if output format configuration changes */
-		if (rstate->out_fb &&
-			((rstate->out_fb_height != rstate->out_fb->height) ||
-			(rstate->out_fb_width != rstate->out_fb->width) ||
-			(rstate->out_fb_pixel_format !=
-					rstate->out_fb->format->format) ||
-			(rstate->out_fb_modifier[0] !=
-					rstate->out_fb->modifier) ||
-			(rstate->out_fb_flags != rstate->out_fb->flags))) {
-
-			SDE_DEBUG("plane%d.%d release fb/fbo\n", plane->base.id,
-					rstate->sequence_id);
-			SDE_EVT32_VERBOSE(DRMID(plane),
-					rstate->sequence_id, fb_id);
-
-			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-					(u64) &rstate->rot_hw->base);
-			rstate->out_fb = NULL;
-			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-					(u64) &rstate->rot_hw->base);
-			rstate->out_fbo = NULL;
-		}
+		_sde_plane_rot_get_fb(plane, pstate, rstate);
 	} else {
 
 		SDE_DEBUG("plane%d.%d bypass rotator\n", plane->base.id,
@@ -2622,6 +2505,10 @@ static void sde_plane_rot_destroy_state(struct drm_plane *plane,
 			rstate->sequence_id,
 			!!rstate->out_sbuf, !!rstate->rot_hw,
 			sde_plane_crtc_enabled(state));
+
+	/* remove reference count on output framebuffer */
+	if (rstate->out_sbuf && rstate->rot_hw && rstate->out_fb)
+		drm_framebuffer_unreference(rstate->out_fb);
 }
 
 /**
@@ -2644,7 +2531,6 @@ static int sde_plane_rot_duplicate_state(struct drm_plane *plane,
 
 	rstate->rot_hw = NULL;
 	rstate->out_fb = NULL;
-	rstate->out_fbo = NULL;
 
 	return 0;
 }
@@ -2754,6 +2640,8 @@ static void sde_plane_rot_install_properties(struct drm_plane *plane,
 	if (!(psde->features & BIT(SDE_SSPP_SBUF)) || !catalog->rot_count)
 		return;
 
+	msm_property_install_range(&psde->property_info, "rot_fb_id",
+			0, 0, ~0, ~0, PLANE_PROP_ROT_OUT_FB);
 	msm_property_install_range(&psde->property_info, "rot_dst_x",
 			0, 0, U64_MAX, 0, PLANE_PROP_ROT_DST_X);
 	msm_property_install_range(&psde->property_info, "rot_dst_y",
@@ -2974,7 +2862,7 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 
 	new_rstate = &to_sde_plane_state(new_state)->rot;
 
-	if (pstate->aspace) {
+	if (pstate->aspace && new_rstate->out_fb) {
 		ret = msm_framebuffer_prepare(new_rstate->out_fb,
 				pstate->aspace);
 		if (ret) {
@@ -3620,6 +3508,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		case PLANE_PROP_ROT_DST_Y:
 		case PLANE_PROP_ROT_DST_W:
 		case PLANE_PROP_ROT_DST_H:
+		case PLANE_PROP_ROT_OUT_FB:
 			/* handled by rotator atomic update */
 			break;
 		default:

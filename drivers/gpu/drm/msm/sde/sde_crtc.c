@@ -3547,7 +3547,7 @@ static bool _sde_crtc_prepare_for_kickoff_rot(struct drm_device *dev,
 		 * to hardware atomically, so avoid using it if a video
 		 * mode encoder is active on this CRTC.
 		 */
-		if (sde_encoder_get_intf_mode(encoder) == INTF_MODE_VIDEO) {
+		if (sde_encoder_get_intf_mode(encoder) != INTF_MODE_CMD) {
 			cstate->sbuf_cfg.rot_op_mode =
 				SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
 			return false;
