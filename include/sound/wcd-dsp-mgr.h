@@ -80,6 +80,7 @@ enum wdsp_signal {
 
 	/* Software generated signal indicating debug dumps to be collected */
 	WDSP_DEBUG_DUMP,
+	WDSP_DEBUG_DUMP_INTERNAL,
 };
 
 /*
