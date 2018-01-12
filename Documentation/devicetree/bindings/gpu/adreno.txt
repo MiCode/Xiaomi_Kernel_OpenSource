@@ -124,6 +124,12 @@ Optional Properties:
 				mask   - mask for the relevant bits in the efuse register.
 				shift  - number of bits to right shift to get the speed bin
 				value.
+- qcom,gpu-disable-fuse:	GPU disable fuse
+				<offset mask shift>
+				offset - offset of the efuse register from the base.
+				mask   - mask for the relevant bits in the efuse register.
+				shift  - number of bits to right shift to get the disable_gpu
+				fuse bit value.
 - qcom,highest-bank-bit:
 				Specify the bit of the highest DDR bank. This
 				is programmed into protected registers and also
