@@ -98,7 +98,26 @@ static struct platform_driver qfprom_driver = {
 		.of_match_table = qfprom_of_match,
 	},
 };
-module_platform_driver(qfprom_driver);
+
+static int __init qfprom_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&qfprom_driver);
+	if (ret != 0)
+		pr_err("Failed to register qfprom driver\n");
+
+	return ret;
+}
+
+static void __exit qfprom_exit(void)
+{
+	return platform_driver_unregister(&qfprom_driver);
+}
+
+subsys_initcall(qfprom_init);
+module_exit(qfprom_exit);
+
 MODULE_AUTHOR("Srinivas Kandagatla <srinivas.kandagatla@linaro.org>");
 MODULE_DESCRIPTION("Qualcomm QFPROM driver");
 MODULE_LICENSE("GPL v2");
