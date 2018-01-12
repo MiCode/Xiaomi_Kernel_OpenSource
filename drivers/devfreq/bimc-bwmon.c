@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -176,6 +176,14 @@ void mon_clear(struct bwmon *m, bool clear_all, enum mon_reg_type type)
 			writel_relaxed(MON_CLEAR_ALL_BIT, MON3_CLEAR(m));
 		else
 			writel_relaxed(MON_CLEAR_BIT, MON3_CLEAR(m));
+		/*
+		 * In some hardware versions since MON3_CLEAR(m) register does
+		 * not have self-clearing capability it needs to be cleared
+		 * explicitly. But we also need to ensure the writes to it
+		 * are successful before clearing it.
+		 */
+		wmb();
+		writel_relaxed(0, MON3_CLEAR(m));
 		break;
 	}
 	/*
@@ -365,6 +373,14 @@ void mon_irq_clear(struct bwmon *m, enum mon_reg_type type)
 		break;
 	case MON3:
 		writel_relaxed(MON3_INT_STATUS_MASK, MON3_INT_CLR(m));
+		/*
+		 * In some hardware versions since MON3_INT_CLEAR(m) register
+		 * does not have self-clearing capability it needs to be
+		 * cleared explicitly. But we also need to ensure the writes
+		 * to it are successful before clearing it.
+		 */
+		wmb();
+		writel_relaxed(0, MON3_INT_CLR(m));
 		break;
 	}
 }
