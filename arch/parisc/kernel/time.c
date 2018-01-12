@@ -299,7 +299,7 @@ static int __init init_cr16_clocksource(void)
 	 * The cr16 interval timers are not syncronized across CPUs, so mark
 	 * them unstable and lower rating on SMP systems.
 	 */
-	if (num_online_cpus() > 1) {
+	if (num_online_cpus() > 1 && !running_on_qemu) {
 		clocksource_cr16.flags = CLOCK_SOURCE_UNSTABLE;
 		clocksource_cr16.rating = 0;
 	}
