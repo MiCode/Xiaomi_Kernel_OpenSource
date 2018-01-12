@@ -314,15 +314,16 @@
 	};
 };
 
+&pm660_pdphy {
+	/delete-property/ vdd-pdphy-supply;
+};
+
 &qusb_phy0 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vdda33-supply;
+	vdd-supply = <&pm660_l6>;
+	vdda33-supply = <&pm660_l17>;
 };
 
 &usb_qmp_dp_phy {
-	/delete-property/ vdd-supply;
-};
-
-&pm660_pdphy {
-	/delete-property/ vdd-pdphy-supply;
+	vdd-supply = <&pm660_l6>;  /* 0.88v */
+	core-supply = <&pm660_l2>; /* 1.2v */
 };
