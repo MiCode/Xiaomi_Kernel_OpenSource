@@ -40,17 +40,9 @@
 #include <trace/events/lmh.h>
 
 #define LIMITS_DCVSH                0x10
-#define LIMITS_PROFILE_CHANGE       0x01
 #define LIMITS_NODE_DCVS            0x44435653
 
 #define LIMITS_SUB_FN_THERMAL       0x54484D4C
-#define LIMITS_SUB_FN_CRNT          0x43524E54
-#define LIMITS_SUB_FN_REL           0x52454C00
-#define LIMITS_SUB_FN_BCL           0x42434C00
-#define LIMITS_SUB_FN_GENERAL       0x47454E00
-
-#define LIMITS_ALGO_MODE_ENABLE     0x454E424C
-
 #define LIMITS_HI_THRESHOLD         0x48494748
 #define LIMITS_LOW_THRESHOLD        0x4C4F5700
 #define LIMITS_ARM_THRESHOLD        0x41524D00
@@ -336,23 +328,6 @@ static struct limits_dcvs_hw *get_dcvsh_hw_from_cpu(int cpu)
 	return NULL;
 }
 
-static int enable_lmh(void)
-{
-	int ret = 0;
-	struct scm_desc desc_arg;
-
-	desc_arg.args[0] = 1;
-	desc_arg.arginfo = SCM_ARGS(1, SCM_VAL);
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, LIMITS_PROFILE_CHANGE),
-			&desc_arg);
-	if (ret) {
-		pr_err("Error switching profile:[1]. err:%d\n", ret);
-		return ret;
-	}
-
-	return ret;
-}
-
 static int lmh_set_max_limit(int cpu, u32 freq)
 {
 	struct limits_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
@@ -565,30 +540,6 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	default:
 		return -EINVAL;
 	};
-
-	/* Enable the thermal algorithm early */
-	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_THERMAL,
-		 LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
-	if (ret)
-		return ret;
-	/* Enable the LMH outer loop algorithm */
-	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_CRNT,
-		 LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
-	if (ret)
-		return ret;
-	/* Enable the Reliability algorithm */
-	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_REL,
-		 LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
-	if (ret)
-		return ret;
-	/* Enable the BCL algorithm */
-	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_BCL,
-		 LIMITS_ALGO_MODE_ENABLE, 1, 0, 0);
-	if (ret)
-		return ret;
-	ret = enable_lmh();
-	if (ret)
-		return ret;
 
 	/*
 	 * Setup virtual thermal zones for each LMH-DCVS hardware
