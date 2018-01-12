@@ -471,7 +471,7 @@ static long qbt1000_ioctl(
 	case QBT1000_SEND_TZCMD:
 	{
 		struct qbt1000_send_tz_cmd tzcmd;
-		void *rsp_buf;
+		void *rsp_buf = NULL;
 
 		if (copy_from_user(&tzcmd, priv_arg,
 			sizeof(tzcmd))
@@ -861,8 +861,8 @@ static irqreturn_t qbt1000_gpio_isr(int irq, void *dev_id)
 static irqreturn_t qbt1000_ipc_irq_handler(int irq, void *dev_id)
 {
 	uint8_t *msg_buffer;
-	struct fw_ipc_cmd *rx_cmd;
-	struct fw_ipc_header *header;
+	struct fw_ipc_cmd *rx_cmd = NULL;
+	struct fw_ipc_header *header = NULL;
 	int i, j;
 	uint32_t rxipc = FP_APP_CMD_RX_IPC;
 	struct qbt1000_drvdata *drvdata = (struct qbt1000_drvdata *)dev_id;

@@ -68,6 +68,7 @@ Optional properties:
 			first segment to end address of last segment will be collected without
 			leaving any hole in between.
 - qcom,ignore-ssr-failure: Boolean. If set, SSR failures are not considered fatal.
+- qcom,mas-crypto: Reference to the bus master of crypto core.
 
 Example:
 	qcom,venus@fdce0000 {

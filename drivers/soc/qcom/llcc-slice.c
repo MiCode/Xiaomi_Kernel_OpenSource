@@ -80,6 +80,7 @@ static struct llcc_slice_desc *llcc_slice_get_entry(struct device *dev, int n)
 	const struct llcc_slice_config *llcc_data_ptr;
 	struct llcc_slice_desc *desc;
 	struct platform_device *pdev;
+	u32 sz, count;
 
 	if (of_parse_phandle_with_args(dev->of_node, "cache-slices",
 				       "#cache-cells", n, &phargs)) {
@@ -100,14 +101,17 @@ static struct llcc_slice_desc *llcc_slice_get_entry(struct device *dev, int n)
 	}
 
 	llcc_data_ptr = drv->slice_data;
+	sz = drv->llcc_config_data_sz;
+	count = 0;
 
-	while (llcc_data_ptr) {
+	while (llcc_data_ptr && count < sz) {
 		if (llcc_data_ptr->usecase_id == phargs.args[0])
 			break;
 		llcc_data_ptr++;
+		count++;
 	}
 
-	if (llcc_data_ptr == NULL) {
+	if (llcc_data_ptr == NULL || count == sz) {
 		pr_err("can't find %d usecase id\n", phargs.args[0]);
 		return ERR_PTR(-ENODEV);
 	}

@@ -266,10 +266,14 @@ struct sde_hw_vbif *sde_hw_vbif_init(enum sde_vbif idx,
 
 	/* no need to register sub-range in sde dbg, dump entire vbif io base */
 
+	mutex_init(&c->mutex);
+
 	return c;
 }
 
 void sde_hw_vbif_destroy(struct sde_hw_vbif *vbif)
 {
+	if (vbif)
+		mutex_destroy(&vbif->mutex);
 	kfree(vbif);
 }

@@ -1248,16 +1248,20 @@ static int ad4_backlight_setup_ipcr(struct sde_hw_dspp *dspp,
 	return 0;
 }
 
-void sde_read_intr_resp_ad4(struct sde_hw_dspp *dspp, u32 event, u32 *resp)
+void sde_read_intr_resp_ad4(struct sde_hw_dspp *dspp, u32 event,
+		u32 *resp_in, u32 *resp_out)
 {
-	if (!dspp || !resp) {
-		DRM_ERROR("invalid params dspp %pK resp %pK\n", dspp, resp);
+	if (!dspp || !resp_in || !resp_out) {
+		DRM_ERROR("invalid params dspp %pK resp_in %pK resp_out %pK\n",
+				dspp, resp_in, resp_out);
 		return;
 	}
 
 	switch (event) {
-	case AD4_BACKLIGHT:
-		*resp = SDE_REG_READ(&dspp->hw,
+	case AD4_IN_OUT_BACKLIGHT:
+		*resp_in = SDE_REG_READ(&dspp->hw,
+				dspp->cap->sblk->ad.base + 0x2c);
+		*resp_out = SDE_REG_READ(&dspp->hw,
 				dspp->cap->sblk->ad.base + 0x48);
 		break;
 	default:

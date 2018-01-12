@@ -360,4 +360,5 @@ int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
 		uint32_t bw_idx, enum rpm_ack_type ack_type);
 int hfi_notify_slumber(struct gmu_device *gmu, uint32_t init_perf_idx,
 		uint32_t init_bw_idx);
+int hfi_send_lmconfig(struct gmu_device *gmu);
 #endif  /* __KGSL_HFI_H */

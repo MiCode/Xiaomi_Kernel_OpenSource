@@ -424,16 +424,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		return ERR_PTR(ret);
 	}
 
-	if (gpudev->preemption_context_init) {
-		ret = gpudev->preemption_context_init(&drawctxt->base);
-		if (ret != 0) {
-			kgsl_context_detach(&drawctxt->base);
-			kgsl_context_put(&drawctxt->base);
-			kfree(drawctxt);
-			return ERR_PTR(ret);
-		}
-	}
-
 	kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, soptimestamp),
 			0);
@@ -444,6 +434,14 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
 	INIT_LIST_HEAD(&drawctxt->active_node);
+
+	if (gpudev->preemption_context_init) {
+		ret = gpudev->preemption_context_init(&drawctxt->base);
+		if (ret != 0) {
+			kgsl_context_detach(&drawctxt->base);
+			return ERR_PTR(ret);
+		}
+	}
 
 	/* copy back whatever flags we dediced were valid */
 	*flags = drawctxt->base.flags;

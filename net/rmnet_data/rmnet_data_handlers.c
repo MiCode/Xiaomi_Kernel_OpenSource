@@ -734,6 +734,9 @@ void rmnet_egress_handler(struct sk_buff *skb,
 	LOGD("Packet going out on %s with egress format 0x%08X",
 	     skb->dev->name, config->egress_data_format);
 
+	if (ep->rmnet_mode == RMNET_EPMODE_VND)
+		rmnet_vnd_tx_fixup(skb, orig_dev);
+
 	if (config->egress_data_format & RMNET_EGRESS_FORMAT_MAP) {
 		switch (rmnet_map_egress_handler(skb, config, ep, orig_dev)) {
 		case RMNET_MAP_CONSUMED:
@@ -750,9 +753,6 @@ void rmnet_egress_handler(struct sk_buff *skb,
 			return;
 		}
 	}
-
-	if (ep->rmnet_mode == RMNET_EPMODE_VND)
-		rmnet_vnd_tx_fixup(skb, orig_dev);
 
 	rmnet_print_packet(skb, skb->dev->name, 't');
 	trace_rmnet_egress_handler(skb);

@@ -954,6 +954,7 @@ struct dwc3_scratchpad_array {
  *			increments or 0 to disable.
  * @create_reg_debugfs: create debugfs entry to allow dwc3 register dump
  * @xhci_imod_value: imod value to use with xhci
+ * @core_id: usb core id to differentiate different controller
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -1150,6 +1151,7 @@ struct dwc3 {
 	struct dwc3_gadget_events	dbg_gadget_events;
 	bool			create_reg_debugfs;
 	u32			xhci_imod_value;
+	int			core_id;
 };
 
 /* -------------------------------------------------------------------------- */

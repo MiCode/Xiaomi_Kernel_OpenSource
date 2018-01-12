@@ -108,6 +108,13 @@ void sde_encoder_register_frame_event_callback(struct drm_encoder *encoder,
 struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *encoder);
 
 /**
+ * sde_encoder_poll_line_counts - poll encoder line counts for start of frame
+ * @encoder:	encoder pointer
+ * @Returns:	zero on success
+ */
+int sde_encoder_poll_line_counts(struct drm_encoder *encoder);
+
+/**
  * sde_encoder_prepare_for_kickoff - schedule double buffer flip of the ctl
  *	path (i.e. ctl flush and start) at next appropriate time.
  *	Immediately: if no previous commit is outstanding.
@@ -154,6 +161,14 @@ void sde_encoder_kickoff(struct drm_encoder *encoder, bool is_error);
  */
 int sde_encoder_wait_for_event(struct drm_encoder *drm_encoder,
 						enum msm_event_wait event);
+
+/**
+ * sde_encoder_idle_request - request for idle request to avoid 4 vsync cycle
+ *                            to turn off the clocks.
+ * @encoder:	encoder pointer
+ * Returns: 0 on success, errorcode otherwise
+ */
+int sde_encoder_idle_request(struct drm_encoder *drm_enc);
 
 /*
  * sde_encoder_get_intf_mode - get interface mode of the given encoder

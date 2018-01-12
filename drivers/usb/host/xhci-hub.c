@@ -23,6 +23,7 @@
 #include <linux/gfp.h>
 #include <linux/slab.h>
 #include <asm/unaligned.h>
+#include <linux/usb/phy.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"
@@ -1065,6 +1066,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	u16 wake_mask = 0;
 	u16 timeout = 0;
 	u16 test_mode = 0;
+	enum usb_device_speed s = hcd->self.root_hub->speed;
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
@@ -1314,6 +1316,10 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			writel(temp, port_array[wIndex]);
 
 			temp = readl(port_array[wIndex]);
+
+			if (s == USB_SPEED_HIGH)
+				usb_phy_start_port_reset(hcd->usb_phy);
+
 			xhci_dbg(xhci, "set port reset, actual port %d status  = 0x%x\n", wIndex, temp);
 			break;
 		case USB_PORT_FEAT_REMOTE_WAKE_MASK:

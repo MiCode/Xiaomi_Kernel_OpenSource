@@ -596,6 +596,7 @@ static int rndis_init_response(struct rndis_params *params,
 	resp->AFListOffset = cpu_to_le32(0);
 	resp->AFListSize = cpu_to_le32(0);
 
+	params->ul_max_xfer_size = le32_to_cpu(resp->MaxTransferSize);
 	params->resp_avail(params->v);
 	return 0;
 }
@@ -1014,6 +1015,18 @@ int rndis_set_param_medium(struct rndis_params *params, u32 medium, u32 speed)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(rndis_set_param_medium);
+
+u32 rndis_get_dl_max_xfer_size(struct rndis_params *params)
+{
+	pr_debug("%s:\n", __func__);
+	return params->dl_max_xfer_size;
+}
+
+u32 rndis_get_ul_max_xfer_size(struct rndis_params *params)
+{
+	pr_debug("%s:\n", __func__);
+	return params->ul_max_xfer_size;
+}
 
 void rndis_set_max_pkt_xfer(struct rndis_params *params, u8 max_pkt_per_xfer)
 {

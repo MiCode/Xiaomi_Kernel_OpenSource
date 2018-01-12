@@ -30,10 +30,9 @@
 #include <linux/msm-bus-board.h>
 #include <linux/netdevice.h>
 #include <linux/delay.h>
-#include <linux/qcom_iommu.h>
 #include <linux/time.h>
 #include <linux/hashtable.h>
-#include <linux/hash.h>
+#include <linux/jhash.h>
 #include "ipa_i.h"
 #include "../ipa_rm_i.h"
 
@@ -364,6 +363,8 @@ void ipa2_active_clients_log_clear(void)
 static void ipa2_active_clients_log_destroy(void)
 {
 	ipa_ctx->ipa2_active_clients_logging.log_rdy = 0;
+	kfree(active_clients_table_buf);
+	active_clients_table_buf = NULL;
 	kfree(ipa_ctx->ipa2_active_clients_logging.log_buffer[0]);
 	ipa_ctx->ipa2_active_clients_logging.log_head = 0;
 	ipa_ctx->ipa2_active_clients_logging.log_tail =
@@ -1999,6 +2000,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 	int index;
 	struct ipa_register_write *reg_write;
 	int retval;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	desc = kcalloc(ipa_ctx->ipa_num_pipes, sizeof(struct ipa_desc),
 			GFP_KERNEL);
@@ -2016,7 +2018,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 		if (ipa_ctx->ep[ep_idx].valid &&
 			ipa_ctx->ep[ep_idx].skip_ep_cfg) {
 			BUG_ON(num_descs >= ipa_ctx->ipa_num_pipes);
-			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
+			reg_write = kzalloc(sizeof(*reg_write), flag);
 
 			if (!reg_write) {
 				IPAERR("failed to allocate memory\n");
@@ -2049,7 +2051,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 			continue;
 		if (IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client_idx) ||
 			IPA_CLIENT_IS_Q6_ZIP_CONS(client_idx)) {
-			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
+			reg_write = kzalloc(sizeof(*reg_write), flag);
 
 			if (!reg_write) {
 				IPAERR("failed to allocate memory\n");
@@ -3281,7 +3283,7 @@ void ipa2_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 	hfound = NULL;
 	memset(str_to_hash, 0, IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN);
 	strlcpy(str_to_hash, id->id_string, IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN);
-	hkey = arch_fast_hash(str_to_hash, IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN,
+	hkey = jhash(str_to_hash, IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN,
 			0);
 	hash_for_each_possible(ipa_ctx->ipa2_active_clients_logging.htable,
 			hentry, list, hkey) {
@@ -3730,7 +3732,8 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 					 * acquire wake lock as long as suspend
 					 * vote is held
 					 */
-					ipa_inc_acquire_wakelock();
+					ipa_inc_acquire_wakelock(
+						IPA_WAKELOCK_REF_CLIENT_SPS);
 					ipa_sps_process_irq_schedule_rel();
 				}
 				mutex_unlock(&ipa_ctx->sps_pm.sps_pm_lock);
@@ -3803,7 +3806,7 @@ static void ipa_sps_release_resource(struct work_struct *work)
 			ipa_sps_process_irq_schedule_rel();
 		} else {
 			atomic_set(&ipa_ctx->sps_pm.dec_clients, 0);
-			ipa_dec_release_wakelock();
+			ipa_dec_release_wakelock(IPA_WAKELOCK_REF_CLIENT_SPS);
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("SPS_RESOURCE");
 		}
 	}
@@ -3922,6 +3925,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa_ctx->use_dma_zone = resource_p->use_dma_zone;
 	ipa_ctx->tethered_flow_control = resource_p->tethered_flow_control;
+	ipa_ctx->use_ipa_pm = resource_p->use_ipa_pm;
 
 	/* Setting up IPA RX Polling Timeout Seconds */
 	ipa_rx_timeout_min_max_calc(&ipa_ctx->ipa_rx_min_timeout_usec,
@@ -3973,14 +3977,16 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 				ipa_ctx->ctrl->msm_bus_data_ptr);
 		if (!ipa_ctx->ipa_bus_hdl) {
 			IPAERR("fail to register with bus mgr!\n");
-			result = -ENODEV;
+			result = -EPROBE_DEFER;
+			bus_scale_table = NULL;
 			goto fail_bus_reg;
 		}
 	} else {
 		IPADBG("Skipping bus scaling registration on Virtual plat\n");
 	}
 
-	if (ipa2_active_clients_log_init())
+	result = ipa2_active_clients_log_init();
+	if (result)
 		goto fail_init_active_client;
 
 	/* get IPA clocks */
@@ -4429,11 +4435,11 @@ fail_clk:
 	ipa2_active_clients_log_destroy();
 fail_init_active_client:
 	msm_bus_scale_unregister_client(ipa_ctx->ipa_bus_hdl);
-fail_bus_reg:
 	if (bus_scale_table) {
 		msm_bus_cl_clear_pdata(bus_scale_table);
 		bus_scale_table = NULL;
 	}
+fail_bus_reg:
 fail_bind:
 	kfree(ipa_ctx->ctrl);
 fail_mem_ctrl:
@@ -4445,12 +4451,20 @@ fail_mem_ctx:
 	return result;
 }
 
+bool ipa_pm_is_used(void)
+{
+	return (ipa_ctx) ? ipa_ctx->use_ipa_pm : false;
+}
+
 static int get_ipa_dts_configuration(struct platform_device *pdev,
 		struct ipa_plat_drv_res *ipa_drv_res)
 {
 	int result;
 	struct resource *resource;
 
+	ipa_drv_res->use_ipa_pm = of_property_read_bool(pdev->dev.of_node,
+		"qcom,use-ipa-pm");
+	IPADBG("use_ipa_pm=%d\n", ipa_drv_res->use_ipa_pm);
 	/* initialize ipa_res */
 	ipa_drv_res->ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
 	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
@@ -4665,7 +4679,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	IPADBG("sub pdev=%p\n", dev);
 
 	cb->dev = dev;
-	cb->iommu = iommu_domain_alloc(msm_iommu_get_bus(dev));
+	cb->iommu = iommu_domain_alloc(&platform_bus_type);
 	if (!cb->iommu) {
 		IPAERR("could not alloc iommu domain\n");
 		/* assume this failure is because iommu driver is not ready */
@@ -4760,7 +4774,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	IPADBG("UC CB PROBE=%p create IOMMU mapping\n", dev);
 
 	cb->dev = dev;
-	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
+	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
 				cb->va_start, cb->va_size);
 	if (IS_ERR_OR_NULL(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
@@ -4849,7 +4863,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	}
 
 	cb->dev = dev;
-	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
+	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
 					       cb->va_start,
 					       cb->va_size);
 	if (IS_ERR_OR_NULL(cb->mapping)) {

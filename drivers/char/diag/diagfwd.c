@@ -1053,8 +1053,11 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 				write_len = diag_send_data(reg_item, buf, len);
 		} else {
 			if (MD_PERIPHERAL_MASK(reg_item->proc) &
-				driver->logging_mask)
+				driver->logging_mask) {
+				mutex_unlock(&driver->cmd_reg_mutex);
 				diag_send_error_rsp(buf, len, info);
+				return write_len;
+			}
 			else
 				write_len = diag_send_data(reg_item, buf, len);
 		}
@@ -1687,10 +1690,10 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 		break;
 	case TYPE_CMD:
 		if (peripheral >= 0 && peripheral < NUM_PERIPHERALS) {
-			diagfwd_write_done(peripheral, type, num);
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"Marking buffer as free after write done p: %d, t: %d, buf_num: %d\n",
 				peripheral, type, num);
+			diagfwd_write_done(peripheral, type, num);
 		}
 		if (peripheral == APPS_DATA ||
 				ctxt == DIAG_MEMORY_DEVICE_MODE) {

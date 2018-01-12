@@ -131,7 +131,6 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
-				qcom,use-prediction;
 				qcom,cpu = <&CPU6 &CPU7>;
 
 				qcom,pm-cpu-level@0 { /* C1 */
@@ -185,13 +184,5 @@
 		compatible = "qcom,rpm-stats";
 		reg = <0xc300000 0x1000>, <0xc3f0004 0x4>;
 		reg-names = "phys_addr_base", "offset_addr";
-	};
-
-	pdc: interrupt-controller@b220000{
-		compatible = "qcom,pdc-sdm670";
-		reg = <0xb220000 0x400>;
-		#interrupt-cells = <3>;
-		interrupt-parent = <&intc>;
-		interrupt-controller;
 	};
 };

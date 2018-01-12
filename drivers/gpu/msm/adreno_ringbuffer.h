@@ -158,7 +158,7 @@ void adreno_ringbuffer_stop(struct adreno_device *adreno_dev);
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev);
 
-int adreno_ringbuffer_issuecmds(struct adreno_ringbuffer *rb,
+int adreno_ringbuffer_issue_internal_cmds(struct adreno_ringbuffer *rb,
 					unsigned int flags,
 					unsigned int *cmdaddr,
 					int sizedwords);

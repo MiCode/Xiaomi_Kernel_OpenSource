@@ -743,6 +743,15 @@ static void cpu_pm_pmu_setup(struct arm_pmu *armpmu, unsigned long cmd)
 			continue;
 
 		event = hw_events->events[idx];
+		if (!event)
+			continue;
+
+		/*
+		 * Check if an attempt was made to free this event during
+		 * the CPU went offline.
+		 */
+		if (event->state == PERF_EVENT_STATE_ZOMBIE)
+			continue;
 
 		switch (cmd) {
 		case CPU_PM_ENTER:

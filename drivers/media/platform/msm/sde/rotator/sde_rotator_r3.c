@@ -421,6 +421,7 @@ static const u32 sde_hw_rotator_v4_outpixfmts[] = {
 static const u32 sde_hw_rotator_v4_inpixfmts_sbuf[] = {
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
 	SDE_PIX_FMT_Y_CBCR_H2V2,
+	SDE_PIX_FMT_Y_CRCB_H2V2,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
 	SDE_PIX_FMT_Y_CBCR_H2V2_UBWC,
@@ -537,13 +538,13 @@ static struct sde_rot_regdump sde_rot_r3_regdump[] = {
 	 * REGDMA RAM should be dump at last.
 	 */
 	{ "SDEROT_REGDMA_RESET", ROTTOP_SW_RESET_OVERRIDE, 1,
-		SDE_ROT_REGDUMP_WRITE },
+		SDE_ROT_REGDUMP_WRITE, 1 },
 	{ "SDEROT_REGDMA_RAM", SDE_ROT_REGDMA_RAM_OFFSET, 0x2000,
 		SDE_ROT_REGDUMP_READ },
 	{ "SDEROT_VBIF_NRT", SDE_ROT_VBIF_NRT_OFFSET, 0x590,
 		SDE_ROT_REGDUMP_VBIF },
-	{ "SDEROT_REGDMA_RESET", ROTTOP_SW_RESET_OVERRIDE, 0,
-		SDE_ROT_REGDUMP_WRITE },
+	{ "SDEROT_REGDMA_RESET", ROTTOP_SW_RESET_OVERRIDE, 1,
+		SDE_ROT_REGDUMP_WRITE, 0 },
 };
 
 struct sde_rot_cdp_params {
@@ -710,7 +711,7 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 	u32 int_mask = (REGDMA_INT_0_MASK | REGDMA_INT_1_MASK |
 			REGDMA_INT_2_MASK);
 	u32 last_ts[ROT_QUEUE_MAX] = {0,};
-	u32 latest_ts;
+	u32 latest_ts, opmode;
 	int elapsed_time, t;
 	int i, j;
 	unsigned long flags;
@@ -722,7 +723,15 @@ static int sde_hw_rotator_reset(struct sde_hw_rotator *rot,
 
 	/* sw reset the hw rotator */
 	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_SW_RESET_OVERRIDE, 1);
+	/* ensure write is issued to the rotator HW */
+	wmb();
 	usleep_range(MS_TO_US(10), MS_TO_US(20));
+
+	/* force rotator into offline mode */
+	opmode = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_OP_MODE);
+	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_OP_MODE,
+			opmode & ~(BIT(5) | BIT(4) | BIT(1) | BIT(0)));
+
 	SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_SW_RESET_OVERRIDE, 0);
 
 	/* halt vbif xin client to ensure no pending transaction */

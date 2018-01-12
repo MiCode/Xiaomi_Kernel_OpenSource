@@ -461,6 +461,8 @@ static void ipa3_active_clients_log_destroy(void)
 
 	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients_logging.lock, flags);
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = 0;
+	kfree(active_clients_table_buf);
+	active_clients_table_buf = NULL;
 	kfree(ipa3_ctx->ipa3_active_clients_logging.log_buffer[0]);
 	ipa3_ctx->ipa3_active_clients_logging.log_head = 0;
 	ipa3_ctx->ipa3_active_clients_logging.log_tail =
@@ -3855,6 +3857,9 @@ int ipa3_set_clock_plan_from_pm(int idx)
 {
 	u32 clk_rate;
 
+	if (!ipa3_ctx->enable_clock_scaling)
+		return 0;
+
 	IPADBG_LOW("idx = %d\n", idx);
 
 	if (idx <= 0 || idx >= ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases) {
@@ -3863,10 +3868,12 @@ int ipa3_set_clock_plan_from_pm(int idx)
 	}
 
 	if (idx == 1)
-		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs2;
 	else if (idx == 2)
-		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_nominal;
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_svs;
 	else if (idx == 3)
+		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_nominal;
+	else if (idx == 4)
 		clk_rate = ipa3_ctx->ctrl->ipa_clk_rate_turbo;
 	else {
 		IPAERR("bad voltage\n");
@@ -4633,7 +4640,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 {
 	unsigned long missing;
 
-	char dbg_buff[16] = { 0 };
+	char dbg_buff[32] = { 0 };
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -4645,8 +4652,9 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		return -EFAULT;
 	}
 
-	if (count > 0)
-		dbg_buff[count - 1] = '\0';
+	dbg_buff[count] = '\0';
+
+	IPADBG("user input string %s\n", dbg_buff);
 
 	/* Prevent consequent calls from trying to load the FW again. */
 	if (ipa3_is_ready())
@@ -4654,13 +4662,40 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 
 	/* Check MHI configuration on MDM devices */
 	if (!ipa3_is_msm_device()) {
+
+		if (strnstr(dbg_buff, "vlan", strlen(dbg_buff))) {
+			if (strnstr(dbg_buff, "eth", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_EMAC] =
+				true;
+			if (strnstr(dbg_buff, "rndis", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_RNDIS] =
+				true;
+			if (strnstr(dbg_buff, "ecm", strlen(dbg_buff)))
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_ECM] =
+				true;
+
+			/*
+			 * when vlan mode is passed to our dev we expect
+			 * another write
+			 */
+			return count;
+		}
+
+		/* trim ending newline character if any */
+		if (count && (dbg_buff[count - 1] == '\n'))
+			dbg_buff[count - 1] = '\0';
+
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
 			pr_info(
-			"IPA is loading with MHI configuration\n");
-		} else {
+				"IPA is loading with MHI configuration\n");
+		} else if (!strcmp(dbg_buff, "1")) {
 			pr_info(
-			"IPA is loading with non MHI configuration\n");
+				"IPA is loading with non MHI configuration\n");
+		} else {
+			IPAERR("got invalid string %s not loading FW\n",
+				dbg_buff);
+			return count;
 		}
 	}
 
@@ -4941,7 +4976,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_clk;
 
 	/* init active_clients_log after getting ipa-clk */
-	if (ipa3_active_clients_log_init())
+	result = ipa3_active_clients_log_init();
+	if (result)
 		goto fail_init_active_client;
 
 	/* Enable ipa3_ctx->enable_clock_scaling */

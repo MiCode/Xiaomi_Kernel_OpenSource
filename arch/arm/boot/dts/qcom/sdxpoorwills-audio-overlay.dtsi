@@ -17,7 +17,6 @@
 
 &snd_934x {
 	qcom,audio-routing =
-		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
 		"MADINPUT", "MCLK",
 		"AMIC2", "MIC BIAS2",
@@ -28,8 +27,6 @@
 		"MIC BIAS2", "ANCLeft Headset Mic",
 		"AMIC5", "MIC BIAS3",
 		"MIC BIAS3", "Handset Mic",
-		"DMIC0", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic0",
 		"DMIC1", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic1",
 		"DMIC2", "MIC BIAS3",
@@ -40,14 +37,13 @@
 		"MIC BIAS4", "Digital Mic4",
 		"DMIC5", "MIC BIAS4",
 		"MIC BIAS4", "Digital Mic5",
-		"SpkrLeft IN", "SPK1 OUT",
 		"SpkrRight IN", "SPK2 OUT";
 
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
 	qcom,msm-mbhc-hs-mic-max-threshold-mv = <1700>;
 	qcom,msm-mbhc-hs-mic-min-threshold-mv = <50>;
-	qcom,tavil-mclk-clk-freq = <12288000>;
+	qcom,tavil-mclk-clk-freq = <9600000>;
 
 	asoc-codec = <&stub_codec>;
 	asoc-codec-names = "msm-stub-codec.1";
@@ -66,23 +62,24 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-parent = <&tlmm>;
-		qcom,gpio-connect = <&tlmm 71 0>;
+		qcom,gpio-connect = <&tlmm 90 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&wcd_intr_default>;
 	};
 
 	clock_audio_up: audio_ext_clk_up {
 		compatible = "qcom,audio-ref-clk";
-		qcom,codec-mclk-clk-freq = <12288000>;
+		qcom,audio-ref-clk-gpio = <&tlmm 62 0>;
+		qcom,codec-mclk-clk-freq = <9600000>;
 		pinctrl-names = "sleep", "active";
 		pinctrl-0 = <&i2s_mclk_sleep>;
 		pinctrl-1 = <&i2s_mclk_active>;
 		#clock-cells = <1>;
 	};
 
-	wcd_rst_gpio: msm_cdc_pinctrl@77 {
+	wcd_rst_gpio: msm_cdc_pinctrl@86 {
 		compatible = "qcom,msm-cdc-pinctrl";
-		qcom,cdc-rst-n-gpio = <&tlmm 77 0>;
+		qcom,cdc-rst-n-gpio = <&tlmm 86 0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_reset_active>;
 		pinctrl-1 = <&cdc_reset_sleep>;
@@ -91,8 +88,8 @@
 
 &i2c_3 {
 	wcd934x_cdc: tavil_codec {
-		compatible = "qcom,tavil-i2c-pgd";
-		elemental-addr = [00 01 50 02 17 02];
+		compatible = "qcom,tavil-i2c";
+		reg = <0x0d>;
 
 		interrupt-parent = <&wcd9xxx_intc>;
 		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
@@ -135,7 +132,7 @@
 		qcom,cdc-micbias3-mv = <1800>;
 		qcom,cdc-micbias4-mv = <1800>;
 
-		qcom,cdc-mclk-clk-rate = <12288000>;
+		qcom,cdc-mclk-clk-rate = <9600000>;
 		qcom,cdc-dmic-sample-rate = <4800000>;
 
 		qcom,wdsp-cmpnt-dev-name = "tavil_codec";

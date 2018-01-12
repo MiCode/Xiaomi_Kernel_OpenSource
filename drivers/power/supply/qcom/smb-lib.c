@@ -687,6 +687,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
+	vote(chg->usb_icl_votable, USBIN_USBIN_BOOST_VOTER, false, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
@@ -1008,6 +1009,101 @@ int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua)
 	return 0;
 }
 
+static int smblib_micro_usb_disable_power_role_switch(struct smb_charger *chg,
+				bool disable)
+{
+	int rc = 0;
+	u8 power_role;
+
+	power_role = disable ? TYPEC_DISABLE_CMD_BIT : 0;
+	/* Disable pullup on CC1_ID pin and stop detection on CC pins */
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				 (uint8_t)TYPEC_POWER_ROLE_CMD_MASK,
+				 power_role);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
+			power_role, rc);
+		return rc;
+	}
+
+	if (disable) {
+		/* configure TypeC mode */
+		rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
+					 TYPE_C_OR_U_USB_BIT, 0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't configure typec mode rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* wait for FSM to enter idle state */
+		usleep_range(5000, 5100);
+
+		/* configure micro USB mode */
+		rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
+					 TYPE_C_OR_U_USB_BIT,
+					 TYPE_C_OR_U_USB_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't configure micro USB mode rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
+static int __smblib_set_prop_typec_power_role(struct smb_charger *chg,
+				     const union power_supply_propval *val)
+{
+	int rc = 0;
+	u8 power_role;
+
+	switch (val->intval) {
+	case POWER_SUPPLY_TYPEC_PR_NONE:
+		power_role = TYPEC_DISABLE_CMD_BIT;
+		break;
+	case POWER_SUPPLY_TYPEC_PR_DUAL:
+		power_role = 0;
+		break;
+	case POWER_SUPPLY_TYPEC_PR_SINK:
+		power_role = UFP_EN_CMD_BIT;
+		break;
+	case POWER_SUPPLY_TYPEC_PR_SOURCE:
+		power_role = DFP_EN_CMD_BIT;
+		break;
+	default:
+		smblib_err(chg, "power role %d not supported\n", val->intval);
+		return -EINVAL;
+	}
+
+	if (power_role == UFP_EN_CMD_BIT) {
+		/* disable PBS workaround when forcing sink mode */
+		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0x0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
+				rc);
+		}
+	} else {
+		/* restore it back to 0xA5 */
+		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0xA5);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
+				rc);
+		}
+	}
+
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				 TYPEC_POWER_ROLE_CMD_MASK, power_role);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
+			power_role, rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 /*********************
  * VOTABLE CALLBACKS *
  *********************/
@@ -1248,6 +1344,31 @@ static int smblib_typec_irq_disable_vote_callback(struct votable *votable,
 	return 0;
 }
 
+static int smblib_disable_power_role_switch_callback(struct votable *votable,
+			void *data, int disable, const char *client)
+{
+	struct smb_charger *chg = data;
+	union power_supply_propval pval;
+	int rc = 0;
+
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		rc = smblib_micro_usb_disable_power_role_switch(chg, disable);
+	} else {
+		pval.intval = disable ? POWER_SUPPLY_TYPEC_PR_SINK
+				      : POWER_SUPPLY_TYPEC_PR_DUAL;
+		rc = __smblib_set_prop_typec_power_role(chg, &pval);
+	}
+
+	if (rc)
+		smblib_err(chg, "power_role_switch = %s failed, rc=%d\n",
+				disable ? "disabled" : "enabled", rc);
+	else
+		smblib_dbg(chg, PR_MISC, "power_role_switch = %s\n",
+				disable ? "disabled" : "enabled");
+
+	return rc;
+}
+
 /*******************
  * VCONN REGULATOR *
  * *****************/
@@ -1461,14 +1582,18 @@ int smblib_vbus_regulator_enable(struct regulator_dev *rdev)
 	if (!chg->usb_icl_votable) {
 		chg->usb_icl_votable = find_votable("USB_ICL");
 
-		if (!chg->usb_icl_votable)
-			return -EINVAL;
+		if (!chg->usb_icl_votable) {
+			rc = -EINVAL;
+			goto unlock;
+		}
 	}
 	vote(chg->usb_icl_votable, USBIN_USBIN_BOOST_VOTER, true, 0);
 
 	rc = _smblib_vbus_regulator_enable(rdev);
 	if (rc >= 0)
 		chg->otg_en = true;
+	else
+		vote(chg->usb_icl_votable, USBIN_USBIN_BOOST_VOTER, false, 0);
 
 unlock:
 	mutex_unlock(&chg->otg_oc_lock);
@@ -2676,52 +2801,11 @@ int smblib_set_prop_boost_current(struct smb_charger *chg,
 int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 				     const union power_supply_propval *val)
 {
-	int rc = 0;
-	u8 power_role;
+	/* Check if power role switch is disabled */
+	if (!get_effective_result(chg->disable_power_role_switch))
+		return __smblib_set_prop_typec_power_role(chg, val);
 
-	switch (val->intval) {
-	case POWER_SUPPLY_TYPEC_PR_NONE:
-		power_role = TYPEC_DISABLE_CMD_BIT;
-		break;
-	case POWER_SUPPLY_TYPEC_PR_DUAL:
-		power_role = 0;
-		break;
-	case POWER_SUPPLY_TYPEC_PR_SINK:
-		power_role = UFP_EN_CMD_BIT;
-		break;
-	case POWER_SUPPLY_TYPEC_PR_SOURCE:
-		power_role = DFP_EN_CMD_BIT;
-		break;
-	default:
-		smblib_err(chg, "power role %d not supported\n", val->intval);
-		return -EINVAL;
-	}
-
-	if (power_role == UFP_EN_CMD_BIT) {
-		/* disable PBS workaround when forcing sink mode */
-		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0x0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
-				rc);
-		}
-	} else {
-		/* restore it back to 0xA5 */
-		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0xA5);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
-				rc);
-		}
-	}
-
-	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				 TYPEC_POWER_ROLE_CMD_MASK, power_role);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
-			power_role, rc);
-		return rc;
-	}
-
-	return rc;
+	return 0;
 }
 
 int smblib_set_prop_pd_voltage_min(struct smb_charger *chg,
@@ -4017,6 +4101,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	int rc;
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
+	union power_supply_propval val;
 
 	chg->cc2_detach_wa_active = false;
 
@@ -4072,6 +4157,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
 
+	vote(chg->usb_icl_votable, USBIN_USBIN_BOOST_VOTER, false, 0);
 	chg->vconn_attempts = 0;
 	chg->otg_attempts = 0;
 	chg->pulse_cnt = 0;
@@ -4124,8 +4210,8 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	chg->is_audio_adapter = false;
 
 	/* enable DRP */
-	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				 TYPEC_POWER_ROLE_CMD_MASK, 0);
+	val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+	rc = smblib_set_prop_typec_power_role(chg, &val);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't enable DRP rc=%d\n", rc);
 
@@ -5011,6 +5097,16 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->disable_power_role_switch
+			= create_votable("DISABLE_POWER_ROLE_SWITCH",
+				VOTE_SET_ANY,
+				smblib_disable_power_role_switch_callback,
+				chg);
+	if (IS_ERR(chg->disable_power_role_switch)) {
+		rc = PTR_ERR(chg->disable_power_role_switch);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -5036,6 +5132,8 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->hvdcp_hw_inov_dis_votable);
 	if (chg->typec_irq_disable_votable)
 		destroy_votable(chg->typec_irq_disable_votable);
+	if (chg->disable_power_role_switch)
+		destroy_votable(chg->disable_power_role_switch);
 }
 
 static void smblib_iio_deinit(struct smb_charger *chg)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,7 +63,7 @@ int dbm_ep_unconfig(struct dbm *dbm, u8 usb_ep);
 int dbm_get_num_of_eps_configured(struct dbm *dbm);
 int dbm_event_buffer_config(struct dbm *dbm, u32 addr_lo, u32 addr_hi,
 				int size);
-int dbm_data_fifo_config(struct dbm *dbm, u8 dep_num, phys_addr_t addr,
+int dbm_data_fifo_config(struct dbm *dbm, u8 dep_num, unsigned long addr,
 				u32 size, u8 dst_pipe_idx);
 void dbm_set_speed(struct dbm *dbm, bool speed);
 void dbm_enable(struct dbm *dbm);

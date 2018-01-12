@@ -65,7 +65,7 @@ struct md_ss_toc {
 	u32			encryption_status;
 	u32			encryption_required;
 	u32			ss_region_count;
-	struct md_ss_region	*md_ss_smem_regions_baseptr;
+	u64			md_ss_smem_regions_baseptr;
 };
 
 /**

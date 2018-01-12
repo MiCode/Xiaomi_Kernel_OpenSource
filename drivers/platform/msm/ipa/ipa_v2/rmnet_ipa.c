@@ -45,7 +45,7 @@
 #define IPA_RM_INACTIVITY_TIMER 100 /* IPA_RM */
 #define HEADROOM_FOR_QMAP   8 /* for mux header */
 #define TAILROOM            0 /* for padding by mux layer */
-#define MAX_NUM_OF_MUX_CHANNEL  10 /* max mux channels */
+#define MAX_NUM_OF_MUX_CHANNEL  15 /* max mux channels */
 #define UL_FILTER_RULE_HANDLE_START 69
 #define DEFAULT_OUTSTANDING_HIGH_CTL 96
 #define DEFAULT_OUTSTANDING_HIGH 64
@@ -774,7 +774,7 @@ static int find_vchannel_name_index(const char *vchannel_name)
 	int i;
 
 	for (i = 0; i < MAX_NUM_OF_MUX_CHANNEL; i++) {
-		if (strcmp(mux_channel[i].vchannel_name, vchannel_name == 0))
+		if (strcmp(mux_channel[i].vchannel_name, vchannel_name) == 0)
 			return i;
 	}
 	return MAX_NUM_OF_MUX_CHANNEL;
@@ -2648,7 +2648,7 @@ static int rmnet_ipa_set_data_quota_modem(struct wan_ioctl_set_data_quota *data)
 	if (index == MAX_NUM_OF_MUX_CHANNEL) {
 		IPAWANERR("%s is an invalid iface name\n",
 			  data->interface_name);
-		return -EFAULT;
+		return -ENODEV;
 	}
 
 	mux_id = mux_channel[index].mux_id;

@@ -31,6 +31,7 @@
 #define MAX_DSI_CTRLS_PER_DISPLAY             2
 #define DSI_CLIENT_NAME_SIZE		20
 #define MAX_CMDLINE_PARAM_LEN	 512
+#define MAX_CMD_PAYLOAD_SIZE	256
 /*
  * DSI Validate Mode modifiers
  * @DSI_VALIDATE_FLAG_ALLOW_ADJUST:	Allow mode validation to also do fixup
@@ -124,6 +125,7 @@ struct dsi_display_clk_info {
  * struct dsi_display - dsi display information
  * @pdev:             Pointer to platform device.
  * @drm_dev:          DRM device associated with the display.
+ * @drm_conn:         Pointer to DRM connector associated with the display
  * @name:             Name of the display.
  * @display_type:     Display type as defined in device tree.
  * @list:             List pointer.
@@ -134,6 +136,7 @@ struct dsi_display_clk_info {
  * @ctrl:             Controller information for DSI display.
  * @panel:            Handle to DSI panel.
  * @panel_of:         pHandle to DSI panel.
+ * @modes:            Array of probed DSI modes
  * @type:             DSI display type.
  * @clk_master_idx:   The master controller for controlling clocks. This is an
  *		      index into the ctrl[MAX_DSI_CTRLS_PER_DISPLAY] array.
@@ -161,6 +164,7 @@ struct dsi_display_clk_info {
 struct dsi_display {
 	struct platform_device *pdev;
 	struct drm_device *drm_dev;
+	struct drm_connector *drm_conn;
 
 	const char *name;
 	const char *display_type;
@@ -175,6 +179,8 @@ struct dsi_display {
 	/* panel info */
 	struct dsi_panel *panel;
 	struct device_node *panel_of;
+
+	struct dsi_display_mode *modes;
 
 	enum dsi_display_type type;
 	u32 clk_master_idx;
@@ -302,15 +308,13 @@ int dsi_display_get_mode_count(struct dsi_display *display, u32 *count);
 /**
  * dsi_display_get_modes() - get modes supported by display
  * @display:            Handle to display.
- * @modes;              Pointer to array of modes. Memory allocated should be
- *			big enough to store (count * struct dsi_display_mode)
- *			elements. If modes pointer is NULL, number of modes will
- *			be stored in the memory pointed to by count.
+ * @modes;              Output param, list of DSI modes. Number of modes matches
+ *                      count returned by dsi_display_get_mode_count
  *
  * Return: error code.
  */
 int dsi_display_get_modes(struct dsi_display *display,
-			  struct dsi_display_mode *modes);
+			  struct dsi_display_mode **modes);
 
 /**
  * dsi_display_put_mode() - free up mode created for the display
@@ -322,6 +326,17 @@ int dsi_display_get_modes(struct dsi_display *display,
 void dsi_display_put_mode(struct dsi_display *display,
 	struct dsi_display_mode *mode);
 
+/**
+ * dsi_display_find_mode() - retrieve cached DSI mode given relevant params
+ * @display:            Handle to display.
+ * @cmp:                Mode to use as comparison to find original
+ * @out_mode:           Output parameter, pointer to retrieved mode
+ *
+ * Return: error code.
+ */
+int dsi_display_find_mode(struct dsi_display *display,
+		const struct dsi_display_mode *cmp,
+		struct dsi_display_mode **out_mode);
 /**
  * dsi_display_validate_mode() - validates if mode is supported by display
  * @display:             Handle to display.
@@ -520,6 +535,15 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl);
  * @display:            Handle to display.
  */
 int dsi_display_check_status(void *display);
+
+/**
+ * dsi_display_cmd_transfer() - transfer command to the panel
+ * @display:            Handle to display.
+ * @cmd_buf:            Command buffer
+ * @cmd_buf_len:        Command buffer length in bytes
+ */
+int dsi_display_cmd_transfer(void *display, const char *cmd_buffer,
+		u32 cmd_buf_len);
 
 /**
  * dsi_display_soft_reset() - perform a soft reset on DSI controller

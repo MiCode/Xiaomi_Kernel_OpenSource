@@ -122,10 +122,12 @@ enum EV_PRIORITY {
 #define DEFAULT_IPC_LOG_LVL (LOG_LVL_VERBOSE)
 #define IPC_LOG_PAGES (40)
 #define GPI_DBG_LOG_SIZE (SZ_1K) /* size must be power of 2 */
+#define CMD_TIMEOUT_MS (1000)
 #else
 #define IPC_LOG_PAGES (2)
 #define GPI_DBG_LOG_SIZE (0) /* size must be power of 2 */
 #define DEFAULT_IPC_LOG_LVL (LOG_LVL_ERROR)
+#define CMD_TIMEOUT_MS (250)
 #endif
 
 #define GPI_LABEL_SIZE (256)
@@ -133,7 +135,6 @@ enum EV_PRIORITY {
 #define MAX_CHANNELS_PER_GPII (2)
 #define GPI_TX_CHAN (0)
 #define GPI_RX_CHAN (1)
-#define CMD_TIMEOUT_MS (50)
 #define STATE_IGNORE (U32_MAX)
 #define REQ_OF_DMA_ARGS (5) /* # of arguments required from client */
 

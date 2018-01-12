@@ -1,0 +1,166 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+smb138x: qcom,smb138x@44 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x44>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-parent = <&spmi_bus>;
+	interrupts = <0x0 0xd1 0x0 IRQ_TYPE_LEVEL_LOW>;
+	interrupt_names = "smb138x";
+	interrupt-controller;
+	#interrupt-cells = <3>;
+	qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
+
+	smb138x_revid: qcom,revid@100 {
+		compatible = "qcom,qpnp-revid";
+		reg = <0x100 0x100>;
+	};
+
+	smb138x_tadc: qcom,tadc@3600 {
+		compatible = "qcom,tadc";
+		reg = <0x3600 0x100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#io-channel-cells = <1>;
+		interrupt-parent = <&smb138x>;
+		interrupts = <0x36 0x0 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "eoc";
+
+		batt_temp@0 {
+			reg = <0>;
+			qcom,rbias = <68100>;
+			qcom,rtherm-at-25degc = <68000>;
+			qcom,beta-coefficient = <3450>;
+		};
+
+		skin_temp@1 {
+			reg = <1>;
+			qcom,rbias = <33000>;
+			qcom,rtherm-at-25degc = <68000>;
+			qcom,beta-coefficient = <3450>;
+		};
+
+		die_temp@2 {
+			reg = <2>;
+			qcom,scale = <(-1306)>;
+			qcom,offset = <397904>;
+		};
+
+		batt_i@3 {
+			reg = <3>;
+			qcom,channel = <3>;
+			qcom,scale = <(-20000000)>;
+		};
+
+		batt_v@4 {
+			reg = <4>;
+			qcom,scale = <5000000>;
+		};
+
+		input_i@5 {
+			reg = <5>;
+			qcom,scale = <14285714>;
+		};
+
+		input_v@6 {
+			reg = <6>;
+			qcom,scale = <25000000>;
+		};
+
+		otg_i@7 {
+			reg = <7>;
+			qcom,scale = <5714286>;
+			};
+		};
+
+	smb1381_charger: qcom,smb1381-charger@1000 {
+		compatible = "qcom,smb138x-charger";
+		qcom,pmic-revid = <&smb138x_revid>;
+		reg = <0x1000 0x700>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		interrupt-parent = <&smb138x>;
+		io-channels =
+			<&smb138x_tadc 1>,
+			<&smb138x_tadc 2>,
+			<&smb138x_tadc 3>,
+			<&smb138x_tadc 14>,
+			<&smb138x_tadc 15>,
+			<&smb138x_tadc 16>,
+			<&smb138x_tadc 17>;
+		io-channel-names =
+			"connector_temp",
+			"charger_temp",
+			"batt_i",
+			"connector_temp_thr1",
+			"connector_temp_thr2",
+			"connector_temp_thr3",
+			"charger_temp_max";
+
+		qcom,chgr@1000 {
+			reg = <0x1000 0x100>;
+			interrupts = <0x10 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "chg-state-change";
+		};
+
+		qcom,otg@1100 {
+			reg = <0x1100 0x100>;
+			interrupts = <0x11 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x11 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x11 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x11 0x3 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "otg-fail",
+					  "otg-overcurrent",
+					  "otg-oc-dis-sw-sts",
+					  "testmode-change-detect";
+		};
+
+		qcom,usb-chgpth@1300 {
+			reg = <0x1300 0x100>;
+			interrupts = <0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x13 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
+				     <0x13 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x13 0x5 IRQ_TYPE_EDGE_RISING>,
+				     <0x13 0x6 IRQ_TYPE_EDGE_RISING>,
+				     <0x13 0x7 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "usbin-collapse",
+					  "usbin-lt-3p6v",
+					  "usbin-uv",
+					  "usbin-ov",
+					  "usbin-plugin",
+					  "usbin-src-change",
+					  "usbin-icl-change",
+					  "type-c-change";
+		};
+
+		qcom,chgr-misc@1600 {
+			reg = <0x1600 0x100>;
+			interrupts = <0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x16 0x6 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "wdog-bark",
+					  "temperature-change";
+		};
+
+		smb138x_vbus: qcom,smb138x-vbus {
+			status = "disabled";
+			regulator-name = "smb138x-vbus";
+		};
+	};
+};

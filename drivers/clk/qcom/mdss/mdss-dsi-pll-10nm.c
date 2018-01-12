@@ -33,24 +33,52 @@
 /* Register Offsets from PLL base address */
 #define PLL_ANALOG_CONTROLS_ONE			0x000
 #define PLL_ANALOG_CONTROLS_TWO			0x004
+#define PLL_INT_LOOP_SETTINGS			0x008
+#define PLL_INT_LOOP_SETTINGS_TWO		0x00c
 #define PLL_ANALOG_CONTROLS_THREE		0x010
+#define PLL_ANALOG_CONTROLS_FOUR		0x014
+#define PLL_INT_LOOP_CONTROLS			0x018
 #define PLL_DSM_DIVIDER				0x01c
 #define PLL_FEEDBACK_DIVIDER			0x020
 #define PLL_SYSTEM_MUXES			0x024
+#define PLL_FREQ_UPDATE_CONTROL_OVERRIDES	0x028
 #define PLL_CMODE				0x02c
 #define PLL_CALIBRATION_SETTINGS		0x030
+#define PLL_BAND_SEL_CAL_TIMER_LOW		0x034
+#define PLL_BAND_SEL_CAL_TIMER_HIGH		0x038
+#define PLL_BAND_SEL_CAL_SETTINGS		0x03c
+#define PLL_BAND_SEL_MIN			0x040
+#define PLL_BAND_SEL_MAX			0x044
+#define PLL_BAND_SEL_PFILT			0x048
+#define PLL_BAND_SEL_IFILT			0x04c
+#define PLL_BAND_SEL_CAL_SETTINGS_TWO		0x050
 #define PLL_BAND_SEL_CAL_SETTINGS_THREE		0x054
+#define PLL_BAND_SEL_CAL_SETTINGS_FOUR		0x058
+#define PLL_BAND_SEL_ICODE_HIGH			0x05c
+#define PLL_BAND_SEL_ICODE_LOW			0x060
 #define PLL_FREQ_DETECT_SETTINGS_ONE		0x064
 #define PLL_PFILT				0x07c
 #define PLL_IFILT				0x080
+#define PLL_GAIN				0x084
+#define PLL_ICODE_LOW				0x088
+#define PLL_ICODE_HIGH				0x08c
+#define PLL_LOCKDET				0x090
 #define PLL_OUTDIV				0x094
+#define PLL_FASTLOCK_CONTROL			0x098
+#define PLL_PASS_OUT_OVERRIDE_ONE		0x09c
+#define PLL_PASS_OUT_OVERRIDE_TWO		0x0a0
 #define PLL_CORE_OVERRIDE			0x0a4
 #define PLL_CORE_INPUT_OVERRIDE			0x0a8
+#define PLL_RATE_CHANGE				0x0ac
+#define PLL_PLL_DIGITAL_TIMERS			0x0b0
 #define PLL_PLL_DIGITAL_TIMERS_TWO		0x0b4
+#define PLL_DEC_FRAC_MUXES			0x0c8
 #define PLL_DECIMAL_DIV_START_1			0x0cc
 #define PLL_FRAC_DIV_START_LOW_1		0x0d0
 #define PLL_FRAC_DIV_START_MID_1		0x0d4
 #define PLL_FRAC_DIV_START_HIGH_1		0x0d8
+#define PLL_MASH_CONTROL			0x0ec
+#define PLL_SSC_MUX_CONTROL			0x108
 #define PLL_SSC_STEPSIZE_LOW_1			0x10c
 #define PLL_SSC_STEPSIZE_HIGH_1			0x110
 #define PLL_SSC_DIV_PER_LOW_1			0x114
@@ -64,9 +92,16 @@
 #define PLL_PLL_BAND_SET_RATE_1			0x154
 #define PLL_PLL_INT_GAIN_IFILT_BAND_1		0x15c
 #define PLL_PLL_FL_INT_GAIN_PFILT_BAND_1	0x164
+#define PLL_FASTLOCK_EN_BAND			0x16c
+#define PLL_FREQ_TUNE_ACCUM_INIT_MUX		0x17c
 #define PLL_PLL_LOCK_OVERRIDE			0x180
 #define PLL_PLL_LOCK_DELAY			0x184
+#define PLL_PLL_LOCK_MIN_DELAY			0x188
 #define PLL_CLOCK_INVERTERS			0x18c
+#define PLL_SPARE_AND_JPC_OVERRIDES		0x190
+#define PLL_BIAS_CONTROL_1			0x194
+#define PLL_BIAS_CONTROL_2			0x198
+#define PLL_ALOG_OBSV_BUS_CTRL_1		0x19c
 #define PLL_COMMON_STATUS_ONE			0x1a0
 
 /* Register Offsets from PHY base address */
@@ -249,7 +284,7 @@ static inline int pclk_mux_read_sel(void *context, unsigned int reg,
 	if (rc)
 		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
 	else
-		*val = (MDSS_PLL_REG_R(rsc->pll_base, reg) & 0x3);
+		*val = (MDSS_PLL_REG_R(rsc->phy_base, reg) & 0x3);
 
 	(void)mdss_pll_resource_enable(rsc, false);
 	return rc;
@@ -503,6 +538,49 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_10nm *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x3f);
 }
 
+static void dsi_pll_init_val(struct mdss_pll_resources *rsc)
+{
+	void __iomem *pll_base = rsc->pll_base;
+
+	MDSS_PLL_REG_W(pll_base, PLL_CORE_INPUT_OVERRIDE, 0x10);
+	MDSS_PLL_REG_W(pll_base, PLL_INT_LOOP_SETTINGS, 0x3f);
+	MDSS_PLL_REG_W(pll_base, PLL_INT_LOOP_SETTINGS_TWO, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FOUR, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_INT_LOOP_CONTROLS, 0x80);
+	MDSS_PLL_REG_W(pll_base, PLL_FREQ_UPDATE_CONTROL_OVERRIDES, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_TIMER_LOW, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_TIMER_HIGH, 0x02);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_SETTINGS, 0x82);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_MIN, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_MAX, 0xff);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_PFILT, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_IFILT, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_SETTINGS_TWO, 0x25);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_SETTINGS_FOUR, 0x4f);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_ICODE_HIGH, 0x0a);
+	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_ICODE_LOW, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_GAIN, 0x42);
+	MDSS_PLL_REG_W(pll_base, PLL_ICODE_LOW, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_ICODE_HIGH, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_LOCKDET, 0x30);
+	MDSS_PLL_REG_W(pll_base, PLL_FASTLOCK_CONTROL, 0x04);
+	MDSS_PLL_REG_W(pll_base, PLL_PASS_OUT_OVERRIDE_ONE, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_PASS_OUT_OVERRIDE_TWO, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_RATE_CHANGE, 0x01);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_DIGITAL_TIMERS, 0x08);
+	MDSS_PLL_REG_W(pll_base, PLL_DEC_FRAC_MUXES, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_MASH_CONTROL, 0x03);
+	MDSS_PLL_REG_W(pll_base, PLL_SSC_MUX_CONTROL, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_SSC_CONTROL, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_FASTLOCK_EN_BAND, 0x03);
+	MDSS_PLL_REG_W(pll_base, PLL_FREQ_TUNE_ACCUM_INIT_MUX, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_MIN_DELAY, 0x19);
+	MDSS_PLL_REG_W(pll_base, PLL_SPARE_AND_JPC_OVERRIDES, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_BIAS_CONTROL_1, 0x40);
+	MDSS_PLL_REG_W(pll_base, PLL_BIAS_CONTROL_2, 0x20);
+	MDSS_PLL_REG_W(pll_base, PLL_ALOG_OBSV_BUS_CTRL_1, 0x0);
+}
+
 static void dsi_pll_commit(struct dsi_pll_10nm *pll,
 			   struct mdss_pll_resources *rsc)
 {
@@ -558,6 +636,8 @@ static int vco_10nm_set_rate(struct clk_hw *hw, unsigned long rate,
 		       rsc->index, rc);
 		return rc;
 	}
+
+	dsi_pll_init_val(rsc);
 
 	dsi_pll_setup_config(pll, rsc);
 
@@ -741,12 +821,32 @@ static void vco_10nm_unprepare(struct clk_hw *hw)
 		pr_err("dsi pll resources not available\n");
 		return;
 	}
-	pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG0);
-	pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base, PLL_PLL_OUTDIV_RATE);
-	pr_debug("cfg0=%d,cfg1=%d, outdiv=%d\n", pll->cached_cfg0,
-			pll->cached_cfg1, pll->cached_outdiv);
 
-	pll->vco_cached_rate = clk_hw_get_rate(hw);
+	/*
+	 * During unprepare in continuous splash use case we want driver
+	 * to pick all dividers instead of retaining bootloader configurations.
+	 */
+	if (!pll->handoff_resources) {
+		pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base,
+							PHY_CMN_CLK_CFG0);
+		pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base,
+							PLL_PLL_OUTDIV_RATE);
+		pr_debug("cfg0=%d,cfg1=%d, outdiv=%d\n", pll->cached_cfg0,
+					pll->cached_cfg1, pll->cached_outdiv);
+
+		pll->vco_cached_rate = clk_hw_get_rate(hw);
+	}
+
+	/*
+	 * When continuous splash screen feature is enabled, we need to cache
+	 * the mux configuration for the pixel_clk_src mux clock. The clock
+	 * framework does not call back to re-configure the mux value if it is
+	 * does not change.For such usecases, we need to ensure that the cached
+	 * value is programmed prior to PLL being locked
+	 */
+	if (pll->handoff_resources)
+		pll->cached_cfg1 = MDSS_PLL_REG_R(pll->phy_base,
+							PHY_CMN_CLK_CFG1);
 	dsi_pll_disable(vco);
 	mdss_pll_resource_enable(pll, false);
 }
@@ -1026,8 +1126,8 @@ static struct regmap_bus pll_regmap_bus = {
 	.reg_read = pll_reg_read,
 };
 
-static struct regmap_bus pclk_mux_regmap_bus = {
-	.reg_read = phy_reg_read,
+static struct regmap_bus pclk_src_mux_regmap_bus = {
+	.reg_read = pclk_mux_read_sel,
 	.reg_write = pclk_mux_write_sel,
 };
 
@@ -1472,7 +1572,7 @@ int dsi_pll_clock_register_10nm(struct platform_device *pdev,
 				pll_res, &dsi_pll_10nm_config);
 		dsi0pll_pclk_mux.clkr.regmap = rmap;
 
-		rmap = devm_regmap_init(&pdev->dev, &pclk_mux_regmap_bus,
+		rmap = devm_regmap_init(&pdev->dev, &pclk_src_mux_regmap_bus,
 				pll_res, &dsi_pll_10nm_config);
 		dsi0pll_pclk_src_mux.clkr.regmap = rmap;
 		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,
@@ -1510,11 +1610,11 @@ int dsi_pll_clock_register_10nm(struct platform_device *pdev,
 				pll_res, &dsi_pll_10nm_config);
 		dsi1pll_pclk_src.clkr.regmap = rmap;
 
-		rmap = devm_regmap_init(&pdev->dev, &pclk_mux_regmap_bus,
+		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,
 				pll_res, &dsi_pll_10nm_config);
 		dsi1pll_pclk_mux.clkr.regmap = rmap;
 
-		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,
+		rmap = devm_regmap_init(&pdev->dev, &pclk_src_mux_regmap_bus,
 				pll_res, &dsi_pll_10nm_config);
 		dsi1pll_pclk_src_mux.clkr.regmap = rmap;
 		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,

@@ -1193,6 +1193,8 @@ static int msm_drm_object_supports_event(struct drm_device *dev,
 		break;
 	}
 
+	drm_mode_object_unreference(arg_obj);
+
 	return ret;
 }
 
@@ -1209,6 +1211,9 @@ static int msm_register_event(struct drm_device *dev,
 		return -ENOENT;
 
 	ret = kms->funcs->register_events(kms, arg_obj, req->event, en);
+
+	drm_mode_object_unreference(arg_obj);
+
 	return ret;
 }
 

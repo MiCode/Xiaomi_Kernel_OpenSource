@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include "sdm845-usb.dtsi"
+#include "sdm845-670-usb-common.dtsi"
 
 &soc {
 	/delete-node/ ssusb@a800000;
@@ -29,7 +29,7 @@
 &usb0 {
 	/delete-property/ iommus;
 	/delete-property/ qcom,smmu-s1-bypass;
-	extcon = <0>, <0>, <0> /* <&eud> */;
+	extcon = <0>, <0>, <&eud>, <0>, <0>;
 };
 
 &qusb_phy0 {

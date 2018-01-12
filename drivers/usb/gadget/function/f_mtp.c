@@ -499,7 +499,7 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 	struct usb_ep *ep;
 	int i;
 
-	DBG(cdev, "create_bulk_endpoints dev: %p\n", dev);
+	DBG(cdev, "create_bulk_endpoints dev: %pK\n", dev);
 
 	ep = usb_ep_autoconfig(cdev->gadget, in_desc);
 	if (!ep) {
@@ -644,7 +644,7 @@ requeue_req:
 		r = -EIO;
 		goto done;
 	} else {
-		DBG(cdev, "rx %p queue\n", req);
+		DBG(cdev, "rx %pK queue\n", req);
 	}
 
 	/* wait for a request to complete */
@@ -670,7 +670,7 @@ requeue_req:
 		if (req->actual == 0)
 			goto requeue_req;
 
-		DBG(cdev, "rx %p %d\n", req, req->actual);
+		DBG(cdev, "rx %pK %d\n", req, req->actual);
 		xfer = (req->actual < count) ? req->actual : count;
 		r = xfer;
 		if (copy_to_user(buf, req->buf, xfer))
@@ -955,7 +955,7 @@ static void receive_file_work(struct work_struct *data)
 		}
 
 		if (write_req) {
-			DBG(cdev, "rx %p %d\n", write_req, write_req->actual);
+			DBG(cdev, "rx %pK %d\n", write_req, write_req->actual);
 			start_time = ktime_get();
 			mutex_lock(&dev->read_mutex);
 			if (dev->state == STATE_OFFLINE) {
@@ -1410,7 +1410,7 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	struct mtp_instance *fi_mtp;
 
 	dev->cdev = cdev;
-	DBG(cdev, "mtp_function_bind dev: %p\n", dev);
+	DBG(cdev, "mtp_function_bind dev: %pK\n", dev);
 
 	/* allocate interface ID(s) */
 	id = usb_interface_id(c, f);
@@ -1464,6 +1464,7 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 		mtp_ss_out_comp_desc.bMaxBurst = max_burst;
 	}
 
+	fi_mtp->func_inst.f = &dev->function;
 	DBG(cdev, "%s speed %s: IN/%s, OUT/%s\n",
 		gadget_is_superspeed(c->cdev->gadget) ? "super" :
 		(gadget_is_dualspeed(c->cdev->gadget) ? "dual" : "full"),
@@ -1475,9 +1476,10 @@ static void
 mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct mtp_dev	*dev = func_to_mtp(f);
+	struct mtp_instance *fi_mtp;
 	struct usb_request *req;
 	int i;
-
+	fi_mtp = container_of(f->fi, struct mtp_instance, func_inst);
 	mtp_string_defs[INTERFACE_STRING_INDEX].id = 0;
 	mutex_lock(&dev->read_mutex);
 	while ((req = mtp_req_get(dev, &dev->tx_idle)))
@@ -1490,6 +1492,7 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	dev->state = STATE_OFFLINE;
 	kfree(f->os_desc_table);
 	f->os_desc_n = 0;
+	fi_mtp->func_inst.f = NULL;
 }
 
 static int mtp_function_set_alt(struct usb_function *f,

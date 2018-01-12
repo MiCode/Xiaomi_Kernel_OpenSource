@@ -739,26 +739,22 @@ failed_parse_params:
 
 void free_cluster_node(struct lpm_cluster *cluster)
 {
-	struct list_head *list;
 	struct lpm_cpu *cpu, *n;
-	int i;
+	struct lpm_cluster *cl, *m;
 
-	list_for_each(list, &cluster->child) {
-		struct lpm_cluster *n;
-
-		n = list_entry(list, typeof(*n), list);
-		list_del(list);
-		free_cluster_node(n);
+	list_for_each_entry_safe(cl, m, &cluster->child, list) {
+		list_del(&cl->list);
+		free_cluster_node(cl);
 	};
 
 	list_for_each_entry_safe(cpu, n, &cluster->cpu, list) {
-		struct lpm_cpu *cpu = list_entry(list, typeof(*cpu), list);
+		int i;
 
+		list_del(&cpu->list);
 		for (i = 0; i < cpu->nlevels; i++) {
 			kfree(cpu->levels[i].name);
 			cpu->levels[i].name = NULL;
 		}
-		list_del(list);
 	}
 }
 

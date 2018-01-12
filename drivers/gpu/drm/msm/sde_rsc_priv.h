@@ -149,6 +149,8 @@ struct sde_rsc_timer_config {
  *			and ab/ib vote on display rsc
  * master_drm:		Primary client waits for vsync on this drm object based
  *			on crtc id
+ * rsc_vsync_wait:   Refcount to indicate if we have to wait for the vsync.
+ * rsc_vsync_waitq:   Queue to wait for the vsync.
  */
 struct sde_rsc_priv {
 	u32 version;
@@ -177,6 +179,8 @@ struct sde_rsc_priv {
 	struct sde_rsc_client *primary_client;
 
 	struct drm_device *master_drm;
+	atomic_t rsc_vsync_wait;
+	wait_queue_head_t rsc_vsync_waitq;
 };
 
 /**

@@ -2320,8 +2320,10 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 	spin_unlock_irqrestore(&host->lock, flags);
 	remove_wait_queue(&host->wq, &wait);
 
-	if (pm)
+	if (pm) {
+		mmc_host_clk_hold(host);
 		pm_runtime_get_sync(mmc_dev(host));
+	}
 
 	if (host->ops->enable && !stop && host->claim_cnt == 1)
 		host->ops->enable(host);
@@ -2360,8 +2362,10 @@ int mmc_try_claim_host(struct mmc_host *host, unsigned int delay_ms)
 			mmc_delay(10);
 	} while (!claimed_host && retry_cnt--);
 
-	if (pm)
+	if (pm) {
+		mmc_host_clk_hold(host);
 		pm_runtime_get_sync(mmc_dev(host));
+	}
 
 	if (host->ops->enable && claimed_host && host->claim_cnt == 1)
 		host->ops->enable(host);
@@ -2396,6 +2400,7 @@ void mmc_release_host(struct mmc_host *host)
 		wake_up(&host->wq);
 		pm_runtime_mark_last_busy(mmc_dev(host));
 		pm_runtime_put_autosuspend(mmc_dev(host));
+		mmc_host_clk_release(host);
 	}
 }
 EXPORT_SYMBOL(mmc_release_host);

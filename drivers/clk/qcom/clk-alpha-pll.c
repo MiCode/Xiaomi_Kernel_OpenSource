@@ -401,8 +401,8 @@ static int clk_alpha_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	const struct pll_vco *vco;
-	u32 l, off = pll->offset;
-	u64 a;
+	u32 l = 0, off = pll->offset;
+	u64 a = 0;
 
 	rate = alpha_pll_round_rate(pll, rate, prate, &l, &a);
 	vco = alpha_pll_find_vco(pll, rate);
@@ -668,9 +668,9 @@ static int clk_fabia_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	unsigned long rrate;
-	u32 regval, l, off = pll->offset;
-	u64 a;
-	int ret;
+	u32 regval = 0, l = 0, off = pll->offset;
+	u64 a = 0;
+	int ret = 0;
 
 	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &regval);
 	if (ret)
@@ -1146,8 +1146,8 @@ static int clk_trion_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long rrate;
 	bool is_enabled;
 	int ret;
-	u32 l, val, off = pll->offset;
-	u64 a;
+	u32 l = 0, val = 0, off = pll->offset;
+	u64 a = 0;
 
 	rrate = alpha_pll_round_rate(pll, rate, prate, &l, &a);
 	/*

@@ -205,6 +205,8 @@ int diag_mux_switch_logging(int *req_mode, int *peripheral_mask)
 		new_mask = ~(*peripheral_mask) & diag_mux->mux_mask;
 		if (new_mask != DIAG_CON_NONE)
 			*req_mode = DIAG_MULTI_MODE;
+		if (new_mask == DIAG_CON_ALL)
+			*req_mode = DIAG_MEMORY_DEVICE_MODE;
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
 		new_mask = (*peripheral_mask) | diag_mux->mux_mask;

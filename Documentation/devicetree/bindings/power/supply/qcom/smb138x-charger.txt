@@ -93,6 +93,12 @@ Charger specific properties:
 		will use io-channel-names to match IIO input names
 		with IIO specifiers.
 
+- qcom,stacked-batfet
+  Usage:      optional
+  Value type: <empty>
+  Definition: boolean flag. Specifies if parallel charger has stacked BATFET
+              cofiguration.
+
 ================================================
 Second Level Nodes - SMB138X Charger Peripherals
 ================================================

@@ -741,6 +741,10 @@ static int ipa3_usb_register_pm(enum ipa3_usb_transport_type ttype)
 		&ipa3_usb_ctx->ttype_ctx[ttype];
 	int result;
 
+	/* create PM resources for the first tethering protocol only */
+	if (ipa3_usb_ctx->num_init_prot > 0)
+		return 0;
+
 	memset(&ttype_ctx->pm_ctx.reg_params, 0,
 		sizeof(ttype_ctx->pm_ctx.reg_params));
 	ttype_ctx->pm_ctx.reg_params.name = (ttype == IPA_USB_TRANSPORT_DPL) ?

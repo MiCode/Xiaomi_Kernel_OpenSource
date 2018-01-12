@@ -119,7 +119,6 @@ static struct adreno_device device_3d0 = {
 		.skipsaverestore = 1,
 		.usesgmem = 1,
 	},
-	.priv = BIT(ADRENO_DEVICE_PREEMPTION_EXECUTION),
 };
 
 /* Ptr to array for the current set of fault detect registers */
@@ -1431,7 +1430,8 @@ static int adreno_init(struct kgsl_device *device)
 
 	}
 
-	if (nopreempt == false) {
+	if (nopreempt == false &&
+		ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
 		int r = 0;
 
 		if (gpudev->preemption_init)
@@ -1872,8 +1872,18 @@ static int adreno_stop(struct kgsl_device *device)
 				OOB_GPU_CHECK_MASK,
 				OOB_GPU_CLEAR_MASK);
 		if (error) {
+			struct gmu_device *gmu = &device->gmu;
+
 			gpudev->oob_clear(adreno_dev, OOB_GPU_CLEAR_MASK);
-			return error;
+			if (gmu->gx_gdsc &&
+				regulator_is_enabled(gmu->gx_gdsc)) {
+				/* GPU is on. Try recovery */
+				set_bit(GMU_FAULT, &gmu->flags);
+				gmu_snapshot(device);
+				error = -EINVAL;
+			} else {
+				return error;
+			}
 		}
 	}
 
@@ -1907,7 +1917,7 @@ static int adreno_stop(struct kgsl_device *device)
 	 * GMU to return to the lowest idle level. This is
 	 * because some idle level transitions require VBIF and MMU.
 	 */
-	if (gpudev->wait_for_lowest_idle &&
+	if (!error && gpudev->wait_for_lowest_idle &&
 			gpudev->wait_for_lowest_idle(adreno_dev)) {
 		struct gmu_device *gmu = &device->gmu;
 
