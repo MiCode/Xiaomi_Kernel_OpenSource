@@ -54,7 +54,10 @@ enum sde_reg_dma_read_sel {
  * @IGC: inverse gamma correction
  * @PCC: polynomical color correction
  * @VLUT: PA vlut
- * @MEM_COLOR: memory color
+ * @MEMC_SKIN: memory color skin
+ * @MEMC_SKY: memory color sky
+ * @MEMC_FOLIAGE: memory color foliage
+ * @MEMC_PROT: memory color protect
  * @SIX_ZONE: six zone
  * @HSIC: Hue, saturation and contrast
  * @GC: gamma correction
@@ -66,7 +69,10 @@ enum sde_reg_dma_features {
 	IGC,
 	PCC,
 	VLUT,
-	MEM_COLOR,
+	MEMC_SKIN,
+	MEMC_SKY,
+	MEMC_FOLIAGE,
+	MEMC_PROT,
 	SIX_ZONE,
 	HSIC,
 	GC,

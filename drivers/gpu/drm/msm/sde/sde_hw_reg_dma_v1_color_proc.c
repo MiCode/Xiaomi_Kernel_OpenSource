@@ -46,8 +46,9 @@
 
 #define HSIC_MEM_SIZE ((sizeof(struct drm_msm_pa_hsic)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
-
 #define SIXZONE_MEM_SIZE ((sizeof(struct drm_msm_sixzone)) + \
+		REG_DMA_HEADERS_BUFFER_SZ)
+#define MEMCOLOR_MEM_SIZE ((sizeof(struct drm_msm_memcol)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
 
 #define REG_MASK(n) ((BIT(n)) - 1)
@@ -72,7 +73,8 @@ static u32 feature_map[SDE_DSPP_MAX] = {
 	[SDE_DSPP_PCC] = PCC,
 	[SDE_DSPP_GC] = GC,
 	[SDE_DSPP_HSIC] = HSIC,
-	[SDE_DSPP_MEMCOLOR] = REG_DMA_FEATURES_MAX,
+	/* MEMCOLOR can be mapped to any MEMC_SKIN/SKY/FOLIAGE/PROT*/
+	[SDE_DSPP_MEMCOLOR] = MEMC_SKIN,
 	[SDE_DSPP_SIXZONE] = SIX_ZONE,
 	[SDE_DSPP_DITHER] = REG_DMA_FEATURES_MAX,
 	[SDE_DSPP_HIST] = REG_DMA_FEATURES_MAX,
@@ -94,6 +96,7 @@ static u32 feature_reg_dma_sz[SDE_DSPP_MAX] = {
 	[SDE_DSPP_PCC] = PCC_MEM_SIZE,
 	[SDE_DSPP_HSIC] = HSIC_MEM_SIZE,
 	[SDE_DSPP_SIXZONE] = SIXZONE_MEM_SIZE,
+	[SDE_DSPP_MEMCOLOR] = MEMCOLOR_MEM_SIZE,
 };
 
 static u32 sspp_feature_reg_dma_sz[SDE_SSPP_MAX] = {
@@ -319,10 +322,33 @@ int reg_dmav1_init_dspp_op_v4(int feature, enum sde_dspp idx)
 	if (!rc)
 		rc = (is_supported) ? 0 : -ENOTSUPP;
 
-	if (!rc)
-		rc = reg_dma_buf_init(&dspp_buf[feature_map[feature]][idx],
+	if (!rc) {
+		if (feature == SDE_DSPP_MEMCOLOR) {
+			rc = reg_dma_buf_init(
+				&dspp_buf[MEMC_SKIN][idx],
 				feature_reg_dma_sz[feature]);
+			if (rc)
+				return rc;
+			rc = reg_dma_buf_init(
+				&dspp_buf[MEMC_SKY][idx],
+				feature_reg_dma_sz[feature]);
+			if (rc)
+				return rc;
+			rc = reg_dma_buf_init(
+				&dspp_buf[MEMC_FOLIAGE][idx],
+				feature_reg_dma_sz[feature]);
+			if (rc)
+				return rc;
+			rc = reg_dma_buf_init(
+				&dspp_buf[MEMC_PROT][idx],
+				feature_reg_dma_sz[feature]);
+		} else {
+			rc = reg_dma_buf_init(
+				&dspp_buf[feature_map[feature]][idx],
+				feature_reg_dma_sz[feature]);
+		}
 
+	}
 	return rc;
 }
 
@@ -1253,6 +1279,311 @@ int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx)
 		dspp_buf[i][idx] = NULL;
 	}
 	return 0;
+}
+
+static void __setup_dspp_memcol(struct sde_hw_dspp *ctx,
+		enum sde_reg_dma_features type,
+		struct sde_hw_cp_cfg *hw_cfg)
+{
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct drm_msm_memcol *memcolor;
+	int rc;
+	u32 addr = 0, idx = 0;
+	u32 hold = 0, hold_shift = 0, mask = 0xFFFF;
+	u32 opcode = 0, opcode_mask = 0xFFFFFFFF;
+
+	switch (type) {
+	case MEMC_SKIN:
+		idx = 0;
+		opcode |= PA_SKIN_EN;
+		break;
+	case MEMC_SKY:
+		idx = 1;
+		opcode |= PA_SKY_EN;
+		break;
+	case MEMC_FOLIAGE:
+		idx = 2;
+		opcode |= PA_FOL_EN;
+		break;
+	default:
+		DRM_ERROR("Invalid memory color type %d\n", type);
+		return;
+	}
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[type][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
+		type, dspp_buf[type][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	memcolor = hw_cfg->payload;
+	addr = ctx->cap->sblk->memcolor.base + MEMCOL_PWL0_OFF +
+		(idx * MEMCOL_SIZE0);
+	/* write color_adjust_p0 and color_adjust_p1 */
+	REG_DMA_SETUP_OPS(dma_write_cfg, addr, &memcolor->color_adjust_p0,
+		sizeof(u32) * 2, REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting color_adjust_p0 failed ret %d\n", rc);
+		return;
+	}
+
+	/* write hue/sat/val region */
+	addr += 8;
+	REG_DMA_SETUP_OPS(dma_write_cfg, addr, &memcolor->hue_region,
+		sizeof(u32) * 3, REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting color_adjust_p0 failed ret %d\n", rc);
+		return;
+	}
+
+	addr = ctx->cap->sblk->memcolor.base + MEMCOL_PWL2_OFF +
+		(idx * MEMCOL_SIZE1);
+	/* write color_adjust_p2 and blend_gain */
+	REG_DMA_SETUP_OPS(dma_write_cfg, addr, &memcolor->color_adjust_p2,
+		sizeof(u32) * 2, REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting color_adjust_p0 failed ret %d\n", rc);
+		return;
+	}
+
+	addr = ctx->cap->sblk->hsic.base + PA_PWL_HOLD_OFF;
+	hold_shift = idx * MEMCOL_HOLD_SIZE;
+	hold = ((memcolor->sat_hold & REG_MASK(2)) << hold_shift);
+	hold |= ((memcolor->val_hold & REG_MASK(2)) << (hold_shift + 2));
+	mask &= ~REG_MASK_SHIFT(4, hold_shift);
+	/* write sat_hold and val_hold in PA_PWL_HOLD */
+	REG_DMA_SETUP_OPS(dma_write_cfg, addr, &hold, sizeof(hold),
+		REG_SINGLE_MODIFY, 0, 0, mask);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting color_adjust_p0 failed ret %d\n", rc);
+		return;
+	}
+
+	opcode |= PA_EN;
+	opcode_mask &= ~(opcode);
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->hsic.base, &opcode, sizeof(opcode),
+		REG_SINGLE_MODIFY, 0, 0, opcode_mask);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting opcode failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+		dspp_buf[type][ctx->idx],
+		REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+}
+
+void reg_dmav1_setup_dspp_memcol_skinv17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	u32 opcode = 0;
+	int rc;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	rc = reg_dma_dspp_check(ctx, cfg, MEMC_SKIN);
+	if (rc)
+		return;
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable memcolor skin feature\n");
+		opcode &= ~(PA_SKIN_EN);
+		if (PA_DISABLE_REQUIRED(opcode))
+			opcode &= ~PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_memcol)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_memcol));
+		return;
+	}
+
+	__setup_dspp_memcol(ctx, MEMC_SKIN, hw_cfg);
+}
+
+void reg_dmav1_setup_dspp_memcol_skyv17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	u32 opcode = 0;
+	int rc;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	rc = reg_dma_dspp_check(ctx, cfg, MEMC_SKY);
+	if (rc)
+		return;
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable memcolor sky feature\n");
+		opcode &= ~(PA_SKY_EN);
+		if (PA_DISABLE_REQUIRED(opcode))
+			opcode &= ~PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_memcol)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_memcol));
+		return;
+	}
+
+	__setup_dspp_memcol(ctx, MEMC_SKY, hw_cfg);
+}
+
+void reg_dmav1_setup_dspp_memcol_folv17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	u32 opcode = 0;
+	int rc;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	rc = reg_dma_dspp_check(ctx, cfg, MEMC_FOLIAGE);
+	if (rc)
+		return;
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable memcolor foliage feature\n");
+		opcode &= ~(PA_FOL_EN);
+		if (PA_DISABLE_REQUIRED(opcode))
+			opcode &= ~PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_memcol)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_memcol));
+		return;
+	}
+
+	__setup_dspp_memcol(ctx, MEMC_FOLIAGE, hw_cfg);
+}
+
+void reg_dmav1_setup_dspp_memcol_protv17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct drm_msm_memcol *memcolor;
+	int rc;
+	u32 opcode = 0, opcode_mask = 0xFFFFFFFF;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	rc = reg_dma_dspp_check(ctx, cfg, MEMC_PROT);
+	if (rc)
+		return;
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable memcolor prot feature\n");
+		opcode &= ~(MEMCOL_PROT_MASK);
+		if (PA_DISABLE_REQUIRED(opcode))
+			opcode &= ~PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_memcol)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_memcol));
+		return;
+	}
+
+	memcolor = hw_cfg->payload;
+	opcode = 0;
+	if (memcolor->prot_flags) {
+		if (memcolor->prot_flags & MEMCOL_PROT_HUE)
+			opcode |= MEMCOL_PROT_HUE_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_SAT)
+			opcode |= MEMCOL_PROT_SAT_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_VAL)
+			opcode |= MEMCOL_PROT_VAL_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_CONT)
+			opcode |= MEMCOL_PROT_CONT_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_SIXZONE)
+			opcode |= MEMCOL_PROT_SIXZONE_EN;
+		if (memcolor->prot_flags & MEMCOL_PROT_BLEND)
+			opcode |= MEMCOL_PROT_BLEND_EN;
+	}
+
+	if (!opcode) {
+		DRM_ERROR("Invalid memcolor prot config 0x%x\n", opcode);
+		return;
+	}
+	opcode |= PA_EN;
+	opcode_mask &= ~(MEMCOL_PROT_MASK);
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[MEMC_PROT][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
+		MEMC_PROT, dspp_buf[MEMC_PROT][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->hsic.base, &opcode, sizeof(opcode),
+		REG_SINGLE_MODIFY, 0, 0, opcode_mask);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting opcode failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			dspp_buf[MEMC_PROT][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
 }
 
 int reg_dmav1_init_sspp_op_v4(int feature, enum sde_sspp idx)

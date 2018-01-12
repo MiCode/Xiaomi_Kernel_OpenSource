@@ -82,6 +82,37 @@ void reg_dmav1_setup_dspp_pa_hsicv17(struct sde_hw_dspp *ctx, void *cfg);
 void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
+ * reg_dmav1_setup_dspp_memcol_skinv17() - memcol skin v17 impl using
+ * reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_memcol_skinv17(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_dspp_memcol_skyv17() - memcol sky v17 impl using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_memcol_skyv17(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_dspp_memcol_folv17() - memcol foliage v17 impl using
+ * reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_memcol_folv17(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_dspp_memcol_protv17() - memcol prot v17 impl using
+ * reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_memcol_protv17(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
  * reg_dmav1_deinit_dspp_ops() - deinitialize the dspp feature op for sde v4
  *                               which were initialized.
  * @idx: dspp idx
