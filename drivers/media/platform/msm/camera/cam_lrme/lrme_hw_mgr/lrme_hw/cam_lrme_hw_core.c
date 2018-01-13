@@ -68,6 +68,10 @@ static void cam_lrme_hw_util_fill_fe_reg(struct cam_lrme_hw_io_buffer *io_buf,
 		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
 			0x1);
+	else if (io_buf->io_cfg->format == CAM_FORMAT_PLAIN16_10)
+		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
+			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
+			0x22);
 	else
 		CAM_ERR(CAM_LRME, "Unsupported format %d",
 			io_buf->io_cfg->format);
