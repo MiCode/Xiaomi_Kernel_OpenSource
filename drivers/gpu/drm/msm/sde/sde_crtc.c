@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1424,6 +1424,35 @@ static u32 _sde_crtc_calc_inline_prefill(struct drm_crtc *crtc)
 	}
 
 	return sde_kms->catalog->sbuf_prefill + sde_kms->catalog->sbuf_headroom;
+}
+
+uint64_t sde_crtc_get_sbuf_clk(struct drm_crtc_state *state)
+{
+	struct sde_crtc_state *cstate;
+	u64 tmp;
+
+	if (!state) {
+		SDE_ERROR("invalid crtc state\n");
+		return 0;
+	}
+	cstate = to_sde_crtc_state(state);
+
+	/*
+	 * Select the max of the current and previous frame's user mode
+	 * clock setting so that reductions in clock voting don't take effect
+	 * until the current frame has completed.
+	 *
+	 * If the sbuf_clk_rate[] FIFO hasn't yet been updated in this commit
+	 * cycle (as part of the CRTC's atomic check), compare the current
+	 * clock value against sbuf_clk_rate[1] instead of comparing the
+	 * sbuf_clk_rate[0]/sbuf_clk_rate[1] values.
+	 */
+	if (cstate->sbuf_clk_shifted)
+		tmp = cstate->sbuf_clk_rate[0];
+	else
+		tmp = sde_crtc_get_property(cstate, CRTC_PROP_ROT_CLK);
+
+	return max_t(u64, cstate->sbuf_clk_rate[1], tmp);
 }
 
 static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
@@ -4026,6 +4055,9 @@ static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
 	/* clear destination scaler dirty bit */
 	cstate->ds_dirty = false;
 
+	/* record whether or not the sbuf_clk_rate fifo has been shifted */
+	cstate->sbuf_clk_shifted = false;
+
 	/* duplicate base helper */
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &cstate->base);
 
@@ -4665,6 +4697,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	_sde_crtc_setup_is_ppsplit(state);
 	_sde_crtc_setup_lm_bounds(crtc, state);
+
+	/* record current/previous sbuf clock rate for later */
+	cstate->sbuf_clk_rate[0] = cstate->sbuf_clk_rate[1];
+	cstate->sbuf_clk_rate[1] = sde_crtc_get_property(
+			cstate, CRTC_PROP_ROT_CLK);
+	cstate->sbuf_clk_shifted = true;
 
 	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
