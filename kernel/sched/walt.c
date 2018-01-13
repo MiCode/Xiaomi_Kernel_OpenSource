@@ -2919,7 +2919,7 @@ static unsigned long thermal_cap_cpu[NR_CPUS];
 
 unsigned long thermal_cap(int cpu)
 {
-	return thermal_cap_cpu[cpu] ?: cpu_rq(cpu)->cpu_capacity_orig;
+	return thermal_cap_cpu[cpu] ?: SCHED_CAPACITY_SCALE;
 }
 
 unsigned long do_thermal_cap(int cpu, unsigned long thermal_max_freq)
