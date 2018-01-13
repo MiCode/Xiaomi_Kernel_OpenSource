@@ -4043,7 +4043,7 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 		struct mmc_host *host = card->host;
 		struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 
-		if ((req_op(req) == REQ_OP_FLUSH || req_op(req) ==  REQ_OP_DISCARD) &&
+		if (mmc_req_is_special(req) &&
 		    (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) &&
 		    ctx->active_small_sector_read_reqs) {
 			ret = wait_event_interruptible(ctx->queue_empty_wq,
