@@ -1253,6 +1253,8 @@ static int smb1355_probe(struct platform_device *pdev)
 		rc = PTR_ERR(chip->irq_disable_votable);
 		goto cleanup;
 	}
+	/* keep IRQ's disabled until parallel is enabled */
+	vote(chip->irq_disable_votable, PARALLEL_ENABLE_VOTER, true, 0);
 
 	pr_info("%s probed successfully pl_mode=%s batfet_mode=%s\n",
 		chip->name,
