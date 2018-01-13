@@ -57,8 +57,15 @@
 #define SDE_ROTATOR_DEGREE_180		180
 #define SDE_ROTATOR_DEGREE_90		90
 
+/* Inline rotator qos request */
+#define SDE_ROTATOR_ADD_REQUEST		1
+#define SDE_ROTATOR_REMOVE_REQUEST		0
+
+
 static void sde_rotator_submit_handler(struct kthread_work *work);
 static void sde_rotator_retire_handler(struct kthread_work *work);
+static void sde_rotator_pm_qos_request(struct sde_rotator_device *rot_dev,
+					 bool add_request);
 #ifdef CONFIG_COMPAT
 static long sde_rotator_compat_ioctl32(struct file *file,
 	unsigned int cmd, unsigned long arg);
@@ -1012,6 +1019,8 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 		SDEDEV_DBG(ctx->rot_dev->dev, "timeline is not available\n");
 
 	sde_rot_mgr_lock(rot_dev->mgr);
+	sde_rotator_pm_qos_request(rot_dev,
+				 SDE_ROTATOR_ADD_REQUEST);
 	ret = sde_rotator_session_open(rot_dev->mgr, &ctx->private,
 			ctx->session_id, &ctx->work_queue);
 	if (ret < 0) {
@@ -1121,6 +1130,8 @@ static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 	}
 	SDEDEV_DBG(rot_dev->dev, "release session s:%d\n", session_id);
 	sde_rot_mgr_lock(rot_dev->mgr);
+	sde_rotator_pm_qos_request(rot_dev,
+			SDE_ROTATOR_REMOVE_REQUEST);
 	sde_rotator_session_close(rot_dev->mgr, ctx->private, session_id);
 	sde_rot_mgr_unlock(rot_dev->mgr);
 	SDEDEV_DBG(rot_dev->dev, "release retire work s:%d\n", session_id);
@@ -1228,6 +1239,104 @@ static bool sde_rotator_is_request_retired(struct sde_rotator_request *request)
 	SDEROT_DBG("sequence:%u/%u\n", sequence_id, ctx->retired_sequence_id);
 
 	return retire_delta >= 0;
+}
+
+static void sde_rotator_pm_qos_remove(struct sde_rot_data_type *rot_mdata)
+{
+	struct pm_qos_request *req;
+	u32 cpu_mask;
+
+	if (!rot_mdata) {
+		SDEROT_DBG("invalid rot device or context\n");
+		return;
+	}
+
+	cpu_mask = rot_mdata->rot_pm_qos_cpu_mask;
+
+	if (!cpu_mask)
+		return;
+
+	req = &rot_mdata->pm_qos_rot_cpu_req;
+	pm_qos_remove_request(req);
+}
+
+void sde_rotator_pm_qos_add(struct sde_rot_data_type *rot_mdata)
+{
+	struct pm_qos_request *req;
+	u32 cpu_mask;
+	int cpu;
+
+	if (!rot_mdata) {
+		SDEROT_DBG("invalid rot device or context\n");
+		return;
+	}
+
+	cpu_mask = rot_mdata->rot_pm_qos_cpu_mask;
+
+	if (!cpu_mask)
+		return;
+
+	req = &rot_mdata->pm_qos_rot_cpu_req;
+	req->type = PM_QOS_REQ_AFFINE_CORES;
+	cpumask_empty(&req->cpus_affine);
+	for_each_possible_cpu(cpu) {
+		if ((1 << cpu) & cpu_mask)
+			cpumask_set_cpu(cpu, &req->cpus_affine);
+	}
+	pm_qos_add_request(req, PM_QOS_CPU_DMA_LATENCY,
+		PM_QOS_DEFAULT_VALUE);
+
+	SDEROT_DBG("rotator pmqos add mask %x latency %x\n",
+		rot_mdata->rot_pm_qos_cpu_mask,
+		rot_mdata->rot_pm_qos_cpu_dma_latency);
+}
+
+static void sde_rotator_pm_qos_request(struct sde_rotator_device *rot_dev,
+					 bool add_request)
+{
+	u32 cpu_mask;
+	u32 cpu_dma_latency;
+	bool changed = false;
+
+	if (!rot_dev) {
+		SDEROT_DBG("invalid rot device or context\n");
+		return;
+	}
+
+	cpu_mask = rot_dev->mdata->rot_pm_qos_cpu_mask;
+	cpu_dma_latency = rot_dev->mdata->rot_pm_qos_cpu_dma_latency;
+
+	if (!cpu_mask)
+		return;
+
+	if (add_request) {
+		if (rot_dev->mdata->rot_pm_qos_cpu_count == 0)
+			changed = true;
+		rot_dev->mdata->rot_pm_qos_cpu_count++;
+	} else {
+		if (rot_dev->mdata->rot_pm_qos_cpu_count != 0) {
+			rot_dev->mdata->rot_pm_qos_cpu_count--;
+			if (rot_dev->mdata->rot_pm_qos_cpu_count == 0)
+				changed = true;
+		} else {
+			SDEROT_DBG("%s: ref_count is not balanced\n",
+				__func__);
+		}
+	}
+
+	if (!changed)
+		return;
+
+	SDEROT_EVTLOG(add_request, cpu_mask, cpu_dma_latency);
+
+	if (!add_request) {
+		pm_qos_update_request(&rot_dev->mdata->pm_qos_rot_cpu_req,
+			PM_QOS_DEFAULT_VALUE);
+		return;
+	}
+
+	pm_qos_update_request(&rot_dev->mdata->pm_qos_rot_cpu_req,
+		cpu_dma_latency);
 }
 
 /*
@@ -3545,6 +3654,7 @@ static int sde_rotator_remove(struct platform_device *pdev)
 		return 0;
 	}
 
+	sde_rotator_pm_qos_remove(rot_dev->mdata);
 	sde_rotator_destroy_debugfs(rot_dev->debugfs_root);
 	video_unregister_device(rot_dev->vdev);
 	video_device_release(rot_dev->vdev);
