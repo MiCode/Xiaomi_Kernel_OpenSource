@@ -288,10 +288,10 @@ static void cec_data_cancel(struct cec_data *data)
 
 	/* Mark it as an error */
 	data->msg.tx_ts = ktime_get_ns();
-	data->msg.tx_status = CEC_TX_STATUS_ERROR |
-			      CEC_TX_STATUS_MAX_RETRIES;
+	data->msg.tx_status |= CEC_TX_STATUS_ERROR |
+			       CEC_TX_STATUS_MAX_RETRIES;
+	data->msg.tx_error_cnt++;
 	data->attempts = 0;
-	data->msg.tx_error_cnt = 1;
 	/* Queue transmitted message for monitoring purposes */
 	cec_queue_msg_monitor(data->adap, &data->msg, 1);
 
@@ -608,8 +608,7 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
 	}
 	memset(msg->msg + msg->len, 0, sizeof(msg->msg) - msg->len);
 	if (msg->len == 1) {
-		if (cec_msg_initiator(msg) != 0xf ||
-		    cec_msg_destination(msg) == 0xf) {
+		if (cec_msg_destination(msg) == 0xf) {
 			dprintk(1, "cec_transmit_msg: invalid poll message\n");
 			return -EINVAL;
 		}
@@ -634,7 +633,7 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
 		dprintk(1, "cec_transmit_msg: destination is the adapter itself\n");
 		return -EINVAL;
 	}
-	if (cec_msg_initiator(msg) != 0xf &&
+	if (msg->len > 1 && adap->is_configured &&
 	    !cec_has_log_addr(adap, cec_msg_initiator(msg))) {
 		dprintk(1, "cec_transmit_msg: initiator has unknown logical address %d\n",
 			cec_msg_initiator(msg));
@@ -883,7 +882,7 @@ static int cec_config_log_addr(struct cec_adapter *adap,
 
 	/* Send poll message */
 	msg.len = 1;
-	msg.msg[0] = 0xf0 | log_addr;
+	msg.msg[0] = (log_addr << 4) | log_addr;
 	err = cec_transmit_msg_fh(adap, &msg, NULL, true);
 
 	/*
@@ -1062,6 +1061,8 @@ configured:
 		for (i = 1; i < las->num_log_addrs; i++)
 			las->log_addr[i] = CEC_LOG_ADDR_INVALID;
 	}
+	for (i = las->num_log_addrs; i < CEC_MAX_LOG_ADDRS; i++)
+		las->log_addr[i] = CEC_LOG_ADDR_INVALID;
 	adap->is_configured = true;
 	adap->is_configuring = false;
 	cec_post_state_event(adap);
@@ -1079,8 +1080,6 @@ configured:
 			cec_report_features(adap, i);
 		cec_report_phys_addr(adap, i);
 	}
-	for (i = las->num_log_addrs; i < CEC_MAX_LOG_ADDRS; i++)
-		las->log_addr[i] = CEC_LOG_ADDR_INVALID;
 	mutex_lock(&adap->lock);
 	adap->kthread_config = NULL;
 	mutex_unlock(&adap->lock);
@@ -1557,9 +1556,9 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg,
 	}
 
 	case CEC_MSG_GIVE_FEATURES:
-		if (adap->log_addrs.cec_version >= CEC_OP_CEC_VERSION_2_0)
-			return cec_report_features(adap, la_idx);
-		return 0;
+		if (adap->log_addrs.cec_version < CEC_OP_CEC_VERSION_2_0)
+			return cec_feature_abort(adap, msg);
+		return cec_report_features(adap, la_idx);
 
 	default:
 		/*
