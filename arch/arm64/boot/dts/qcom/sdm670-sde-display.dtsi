@@ -814,6 +814,7 @@
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
 	qcom,ulps-enabled;
+	qcom,mdss-mdp-transfer-time-us = <14500>;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22
