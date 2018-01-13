@@ -10,7 +10,7 @@ ifeq ($(CONFIG_FB_MSM_MDSS_MDP3), y)
 ccflags-y += -DTARGET_HW_MDSS_MDP3
 endif
 mdss-mdp-objs := mdss_mdp.o mdss_mdp_ctl.o mdss_mdp_pipe.o mdss_mdp_util.o dsi_status_6g.o
-mdss-mdp-objs += mdss_mdp_pp.o mdss_mdp_pp_debug.o mdss_mdp_pp_cache_config.o
+mdss-mdp-objs += mdss_mdp_pp.o mdss_mdp_pp_debug.o mdss_mdp_pp_cache_config.o mdss_sync.o
 mdss-mdp-objs += mdss_mdp_intf_video.o
 mdss-mdp-objs += mdss_mdp_intf_cmd.o
 mdss-mdp-objs += mdss_mdp_intf_writeback.o
