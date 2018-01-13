@@ -142,6 +142,13 @@ enum fg_irq_index {
 	MEM_XCP_IRQ,
 	IMA_RDY_IRQ,
 	FG_GEN3_IRQ_MAX,
+	/* GEN4 FG_MEM_IF */
+	DMA_XCP_IRQ,
+	/* GEN4 FG_ADC_RR */
+	BATT_TEMP_COLD_IRQ,
+	BATT_TEMP_HOT_IRQ,
+	BATT_ID_IRQ,
+	FG_GEN4_IRQ_MAX,
 };
 
 /*
@@ -189,6 +196,8 @@ enum fg_sram_param_id {
 	FG_SRAM_ESR_TIGHT_FILTER,
 	FG_SRAM_ESR_BROAD_FILTER,
 	FG_SRAM_SLOPE_LIMIT,
+	FG_SRAM_BATT_TEMP_COLD,
+	FG_SRAM_BATT_TEMP_HOT,
 	FG_SRAM_MAX,
 };
 
@@ -231,6 +240,7 @@ enum fg_alg_flag_id {
 
 enum fg_version {
 	GEN3_FG = 1,
+	GEN4_FG,
 };
 
 struct fg_alg_flag {
@@ -242,6 +252,7 @@ struct fg_alg_flag {
 enum wa_flags {
 	PMI8998_V1_REV_WA = BIT(0),
 	PM660_TSMC_OSC_WA = BIT(1),
+	PM855B_V1_DMA_WA = BIT(2),
 };
 
 enum slope_limit_status {
@@ -270,6 +281,8 @@ struct fg_batt_props {
 	int		float_volt_uv;
 	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
+	int		*therm_coeffs;
+	int		therm_ctr_offset;
 };
 
 struct fg_cyc_ctr_data {
