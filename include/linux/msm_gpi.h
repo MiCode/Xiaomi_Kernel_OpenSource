@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -208,6 +208,7 @@ struct msm_gpi_dma_async_tx_cb_param {
 	u32 length;
 	enum msm_gpi_tce_code completion_code; /* TCE event code */
 	u32 status;
+	struct __packed msm_gpi_tre imed_tre;
 	void *userdata;
 };
 
