@@ -24,9 +24,8 @@
 
 #include "msm_drv.h"
 #include "sde_kms.h"
-#include "drm_crtc.h"
-#include "drm_crtc_helper.h"
-
+#include <drm/drm_crtc.h>
+#include <drm/drm_crtc_helper.h>
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_intf.h"
@@ -1901,7 +1900,8 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	case SDE_ENC_RC_EVENT_STOP:
 		/* cancel vsync event work and timer */
 		kthread_cancel_work_sync(&sde_enc->vsync_event_work);
-		del_timer_sync(&sde_enc->vsync_event_timer);
+		if (sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DSI)
+			del_timer_sync(&sde_enc->vsync_event_timer);
 
 		mutex_lock(&sde_enc->rc_lock);
 		/* return if the resource control is already in OFF state */

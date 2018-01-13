@@ -20,7 +20,7 @@
 #define _SDE_CRTC_H_
 
 #include <linux/kthread.h>
-#include "drm_crtc.h"
+#include <drm/drm_crtc.h>
 #include "msm_prop.h"
 #include "sde_fence.h"
 #include "sde_kms.h"

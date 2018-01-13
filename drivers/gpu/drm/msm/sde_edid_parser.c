@@ -11,6 +11,7 @@
  */
 
 #include <drm/drm_edid.h>
+#include <linux/hdmi.h>
 
 #include "sde_kms.h"
 #include "sde_edid_parser.h"
@@ -104,7 +105,7 @@ static bool sde_cea_db_is_hdmi_hf_vsdb(const u8 *db)
 
 	hdmi_id = db[1] | (db[2] << 8) | (db[3] << 16);
 
-	return hdmi_id == HDMI_IEEE_OUI_HF;
+	return hdmi_id == HDMI_FORUM_IEEE_OUI;
 }
 
 static u8 *sde_edid_find_extended_tag_block(struct edid *edid, int blk_id)

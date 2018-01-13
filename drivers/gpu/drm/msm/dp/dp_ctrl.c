@@ -242,7 +242,7 @@ static u64 rounddown_u64(u64 x, u64 y)
 static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 		struct dp_vc_tu_mapping_table *tu_table)
 {
-	u32 const multiplier = 1000000;
+	u32 multiplier = 1000000;
 	u64 pclk, lclk;
 	u8 bpp, ln_cnt;
 	int run_idx = 0;
