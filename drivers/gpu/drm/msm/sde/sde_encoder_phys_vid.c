@@ -404,6 +404,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	struct sde_hw_ctl *hw_ctl;
 	unsigned long lock_flags;
 	u32 flush_register = 0;
+	u32 reset_status = 0;
 	int new_cnt = -1, old_cnt = -1;
 	u32 event = 0;
 
@@ -446,10 +447,15 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	if (flush_register == 0)
 		new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt,
 				-1, 0);
+
+	if (hw_ctl && hw_ctl->ops.get_reset)
+		reset_status = hw_ctl->ops.get_reset(hw_ctl);
+
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
-			old_cnt, new_cnt, flush_register, event);
+			old_cnt, new_cnt, reset_status ? SDE_EVTLOG_ERROR : 0,
+			flush_register, event);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
