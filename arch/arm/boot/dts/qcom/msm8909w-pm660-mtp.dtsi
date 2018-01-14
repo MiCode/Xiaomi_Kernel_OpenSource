@@ -168,6 +168,10 @@
 	qcom,clock-a7@0b011050 {
 		cpu-vdd-supply = <&apc_vreg_corner>;
 	};
+
+	qcom,rpmcc@1800000 {
+		compatible = "qcom,rpmcc-8909-pm660";
+	};
 };
 
 &sdhc_1 {
