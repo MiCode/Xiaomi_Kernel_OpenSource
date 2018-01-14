@@ -2416,34 +2416,24 @@ static int cam_icp_mgr_hw_open(void *hw_mgr_priv, void *download_fw_args)
 	}
 	a5_dev = (struct cam_hw_info *)a5_dev_intf->hw_priv;
 	rc = cam_icp_allocate_hfi_mem();
-	if (rc) {
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	if (rc)
 		goto alloc_hfi_mem_failed;
-	}
 
 	rc = cam_icp_mgr_device_init(hw_mgr);
-	if (rc) {
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	if (rc)
 		goto dev_init_fail;
-	}
 
 	rc = cam_icp_mgr_fw_download(hw_mgr);
-	if (rc) {
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	if (rc)
 		goto fw_download_failed;
-	}
 
 	rc = cam_icp_mgr_hfi_init(hw_mgr);
-	if (rc) {
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	if (rc)
 		goto hfi_init_failed;
-	}
 
 	rc = cam_icp_mgr_send_fw_init(hw_mgr);
-	if (rc) {
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	if (rc)
 		goto fw_init_failed;
-	}
 
 	hw_mgr->ctxt_cnt = 0;
 	hw_mgr->fw_download = true;
@@ -2474,6 +2464,7 @@ fw_download_failed:
 dev_init_fail:
 	cam_icp_free_hfi_mem();
 alloc_hfi_mem_failed:
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	return rc;
 }
 
