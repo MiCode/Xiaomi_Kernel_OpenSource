@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,16 +11,13 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include "pmi632.dtsi"
 
-#include "sdm450.dtsi"
-#include "sdm450-pmi632-cdp-s2.dtsi"
-#include "sdm450-pmi632.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDM450 + PMI632 CDP S2";
-	compatible = "qcom,sdm450-cdp", "qcom,sdm450", "qcom,cdp";
-	qcom,board-id = <1 2>;
-	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
+&spmi_bus {
+	/delete-node/ qcom,pmi8950@2;
+	/delete-node/ qcom,pmi8950@3;
 };
 
+&pm8953_typec {
+	status = "disabled";
+};
