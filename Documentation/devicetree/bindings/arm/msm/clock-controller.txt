@@ -33,6 +33,7 @@ Required properties:
 			"qcom,rpmcc-8916"
 			"qcom,rpmcc-8936"
 			"qcom,rpmcc-8909"
+			"qcom,rpmcc-8909-pm660"
 			"qcom,cc-debug-8916"
 			"qcom,cc-debug-8936"
 			"qcom,cc-debug-8909"
