@@ -805,10 +805,10 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 
 	/* IPA_3_5_MHI */
 	[IPA_3_5_MHI][IPA_CLIENT_USB_PROD]            = {
-			true, IPA_v3_5_MHI_GROUP_DDR, true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			false, IPA_EP_NOT_ALLOCATED, false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 0, 7, 8, 16, IPA_EE_AP } },
+			{ -1, -1, -1, -1, -1 } },
 	[IPA_3_5_MHI][IPA_CLIENT_APPS_WAN_PROD]   = {
 			true, IPA_v3_5_MHI_GROUP_DDR, true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
@@ -869,7 +869,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v3_5_MHI_GROUP_DMA, true,
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
-			{7, 8, 8, 16, IPA_EE_AP } },
+			{ 7, 8, 8, 16, IPA_EE_AP } },
 	[IPA_3_5_MHI][IPA_CLIENT_TEST4_PROD]          = {
 			true, IPA_v3_5_MHI_GROUP_DMA, true,
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
@@ -882,15 +882,15 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_DDR,
 			{ 16, 3, 8, 8, IPA_EE_UC } },
 	[IPA_3_5_MHI][IPA_CLIENT_USB_CONS]            = {
-			true, IPA_v3_5_MHI_GROUP_DDR, false,
+			false, IPA_EP_NOT_ALLOCATED, false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 17, 11, 8, 8, IPA_EE_AP } },
+			{ -1, -1, -1, -1, -1 } },
 	[IPA_3_5_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
-			true, IPA_v3_5_MHI_GROUP_DDR, false,
+			false, IPA_EP_NOT_ALLOCATED, false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 14, 10, 4, 6, IPA_EE_AP } },
+			{ -1, -1, -1, -1, -1 } },
 	[IPA_3_5_MHI][IPA_CLIENT_APPS_LAN_CONS]       = {
 			true, IPA_v3_5_MHI_GROUP_DDR, false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
@@ -1313,11 +1313,11 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 
 	/* IPA_4_0_MHI */
 	[IPA_4_0_MHI][IPA_CLIENT_USB_PROD]            = {
-			true, IPA_v4_0_MHI_GROUP_DDR,
+			false, IPA_EP_NOT_ALLOCATED,
 			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 0, 8, 8, 16, IPA_EE_AP } },
+			{ -1, -1, -1, -1, -1 } },
 	[IPA_4_0_MHI][IPA_CLIENT_APPS_WAN_PROD]   = {
 			true, IPA_v4_0_MHI_GROUP_DDR,
 			true,
@@ -1399,17 +1399,17 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 8, 10, 8, 16, IPA_EE_AP } },
 
 	[IPA_4_0_MHI][IPA_CLIENT_USB_CONS]            = {
-			true, IPA_v4_0_MHI_GROUP_DDR,
+			false, IPA_EP_NOT_ALLOCATED,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 19, 12, 9, 9, IPA_EE_AP } },
+			{ -1, -1, -1, -1, -1 } },
 	[IPA_4_0_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
-			true, IPA_v4_0_MHI_GROUP_DDR,
+			false, IPA_EP_NOT_ALLOCATED,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 15, 7, 5, 5, IPA_EE_AP } },
+			{ -1, -1, -1, -1, -1 } },
 	[IPA_4_0_MHI][IPA_CLIENT_APPS_LAN_CONS]       = {
 			true, IPA_v4_0_MHI_GROUP_DDR,
 			false,
@@ -1570,10 +1570,12 @@ int ipa3_get_clients_from_rm_resource(
 
 	switch (resource) {
 	case IPA_RM_RESOURCE_USB_CONS:
-		clients->names[i++] = IPA_CLIENT_USB_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_USB_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_USB_CONS;
 		break;
 	case IPA_RM_RESOURCE_USB_DPL_CONS:
-		clients->names[i++] = IPA_CLIENT_USB_DPL_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_USB_DPL_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_USB_DPL_CONS;
 		break;
 	case IPA_RM_RESOURCE_HSIC_CONS:
 		clients->names[i++] = IPA_CLIENT_HSIC1_CONS;
@@ -1594,7 +1596,8 @@ int ipa3_get_clients_from_rm_resource(
 		clients->names[i++] = IPA_CLIENT_ETHERNET_CONS;
 		break;
 	case IPA_RM_RESOURCE_USB_PROD:
-		clients->names[i++] = IPA_CLIENT_USB_PROD;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD) != -1)
+			clients->names[i++] = IPA_CLIENT_USB_PROD;
 		break;
 	case IPA_RM_RESOURCE_HSIC_PROD:
 		clients->names[i++] = IPA_CLIENT_HSIC1_PROD;
