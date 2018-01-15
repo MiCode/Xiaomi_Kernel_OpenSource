@@ -47,7 +47,7 @@
 #define HED_EVENT_SIZE_LEN (0x02)
 #define HED_EVENT_DATA_STRT_LEN (0x05)
 
-#define MAX_RETRY 3
+#define MAX_RETRY 20
 
 enum bgcom_state {
 	/*BGCOM Staus ready*/
@@ -108,6 +108,8 @@ static enum bgcom_spi_state spi_state;
 
 static struct workqueue_struct *wq;
 static DECLARE_WORK(input_work , send_input_events);
+
+static struct mutex bg_resume_mutex;
 
 static void augmnt_fifo(uint8_t *data, int pos)
 {
@@ -462,6 +464,11 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 		return -EBUSY;
 	}
 
+	if (bgcom_resume(&handle)) {
+		pr_err("Failed to resume\n");
+		return -EBUSY;
+	}
+
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_READ_CMD_LEN + size;
 
@@ -518,6 +525,11 @@ int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 		return -EBUSY;
 	}
 
+	if (bgcom_resume(&handle)) {
+		pr_err("Failed to resume\n");
+		return -EBUSY;
+	}
+
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_CMD_LEN + size;
 
@@ -559,6 +571,11 @@ int bgcom_fifo_write(void *handle, uint32_t num_words,
 
 	if (spi_state == BGCOM_SPI_BUSY) {
 		pr_err("Device busy\n");
+		return -EBUSY;
+	}
+
+	if (bgcom_resume(&handle)) {
+		pr_err("Failed to resume\n");
 		return -EBUSY;
 	}
 
@@ -724,11 +741,26 @@ int bgcom_reg_read(void *handle, uint8_t reg_start_addr,
 }
 EXPORT_SYMBOL(bgcom_reg_read);
 
+static int is_bg_resume(void *handle)
+{
+	uint32_t txn_len;
+	int ret;
+	uint8_t tx_buf[8] = {0};
+	uint8_t rx_buf[8] = {0};
+	uint32_t cmnd_reg = 0;
+
+	txn_len = 0x08;
+	tx_buf[0] = 0x05;
+	ret = bgcom_transfer(handle, tx_buf, rx_buf, txn_len);
+	if (!ret)
+		memcpy(&cmnd_reg, rx_buf+BG_SPI_READ_LEN, 0x04);
+	return cmnd_reg & BIT(31);
+}
+
 int bgcom_resume(void **handle)
 {
 	struct bg_spi_priv *bg_spi;
 	struct bg_context *cntx;
-	uint32_t cmnd_reg = 0;
 	int retry = 0;
 
 	if (*handle == NULL)
@@ -737,12 +769,11 @@ int bgcom_resume(void **handle)
 	cntx = *handle;
 	bg_spi = cntx->bg_spi;
 
+	mutex_lock(&bg_resume_mutex);
 	if (bg_spi->bg_state == BGCOM_STATE_ACTIVE)
-		return 0;
-
+		goto unlock;
 	do {
-		bgcom_reg_read(*handle, BG_STATUS_REG, 1, &cmnd_reg);
-		if (cmnd_reg & BIT(31)) {
+		if (is_bg_resume(*handle)) {
 			bg_spi->bg_state = BGCOM_STATE_ACTIVE;
 			break;
 		}
@@ -750,29 +781,37 @@ int bgcom_resume(void **handle)
 		++retry;
 	} while (retry < MAX_RETRY);
 
+unlock:
+	mutex_unlock(&bg_resume_mutex);
+	pr_info("BG Resumed in %d retries\n", retry);
 	return (retry == MAX_RETRY ? -ETIMEDOUT : 0);
 }
 EXPORT_SYMBOL(bgcom_resume);
 
 int bgcom_suspend(void **handle)
 {
-	int ret;
 	struct bg_spi_priv *bg_spi;
 	struct bg_context *cntx;
 	uint32_t cmnd_reg = 0;
+	int ret = 0;
 
 	if (*handle == NULL)
 		return -EINVAL;
 
 	cntx = *handle;
 	bg_spi = cntx->bg_spi;
+	mutex_lock(&bg_resume_mutex);
 	if (bg_spi->bg_state == BGCOM_STATE_SUSPEND)
-		return 0;
+		goto unlock;
 
 	cmnd_reg |= BIT(31);
 	ret = bgcom_reg_write(*handle, BG_CMND_REG, 1, &cmnd_reg);
 	if (ret == 0)
 		bg_spi->bg_state = BGCOM_STATE_SUSPEND;
+
+unlock:
+	mutex_unlock(&bg_resume_mutex);
+	pr_info("suspended with : %d\n", ret);
 	return ret;
 }
 EXPORT_SYMBOL(bgcom_suspend);
@@ -877,6 +916,8 @@ static void bg_spi_init(struct bg_spi_priv *bg_spi)
 	bg_spi->bg_state = BGCOM_STATE_ACTIVE;
 
 	bg_com_drv = &bg_spi->lhandle;
+
+	mutex_init(&bg_resume_mutex);
 }
 
 static int bg_spi_probe(struct spi_device *spi)
