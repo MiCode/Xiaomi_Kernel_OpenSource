@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -747,7 +747,7 @@ out:
 }
 
 #define MEM_GNT_WAIT_TIME_US	10000
-#define MEM_GNT_RETRIES		20
+#define MEM_GNT_RETRIES		50
 static int fg_direct_mem_request(struct fg_chip *chip, bool request)
 {
 	int rc, ret, i = 0;
