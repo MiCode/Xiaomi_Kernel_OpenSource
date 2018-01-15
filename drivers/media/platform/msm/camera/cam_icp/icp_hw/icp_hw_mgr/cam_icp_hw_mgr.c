@@ -2532,10 +2532,10 @@ static int cam_icp_mgr_icp_resume(struct cam_icp_hw_mgr *hw_mgr)
 	if (hw_mgr->fw_download  == false) {
 		CAM_DBG(CAM_ICP, "Downloading FW");
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		cam_icp_mgr_hw_open(hw_mgr, &downloadFromResume);
+		rc = cam_icp_mgr_hw_open(hw_mgr, &downloadFromResume);
 		mutex_lock(&hw_mgr->hw_mgr_mutex);
 		CAM_DBG(CAM_ICP, "FW Download Done Exit");
-		return 0;
+		return rc;
 	}
 
 	rc = a5_dev_intf->hw_ops.init(a5_dev_intf->hw_priv, NULL, 0);
