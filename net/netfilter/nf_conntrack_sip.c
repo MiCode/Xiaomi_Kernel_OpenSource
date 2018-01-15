@@ -1872,6 +1872,10 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	if (datalen < strlen("SIP/2.0 200"))
 		return NF_ACCEPT;
 
+	/* Check if the header contains SIP version */
+	if (!strnstr(dptr, "SIP/2.0", datalen))
+		return NF_ACCEPT;
+
 	/* here we save the original datalength and data offset of the skb, this
 	 * is needed later to split combined skbs
 	 */
@@ -2041,6 +2045,10 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
 	dptr = skb->data + dataoff;
 	datalen = skb->len - dataoff;
 	if (datalen < strlen("SIP/2.0 200"))
+		return NF_ACCEPT;
+
+	/* Check if the header contains SIP version */
+	if (!strnstr(dptr, "SIP/2.0", datalen))
 		return NF_ACCEPT;
 
 	return process_sip_msg(skb, ct, protoff, dataoff, &dptr, &datalen);
