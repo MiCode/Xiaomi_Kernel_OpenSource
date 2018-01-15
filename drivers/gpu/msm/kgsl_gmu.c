@@ -1308,9 +1308,12 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	do {
 		if (!regulator_is_enabled(gmu->cx_gdsc))
 			return 0;
-		cond_resched();
+		usleep_range(10, 100);
 
 	} while (!(time_after(jiffies, t)));
+
+	if (!regulator_is_enabled(gmu->cx_gdsc))
+		return 0;
 
 	dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout");
 	return -ETIMEDOUT;
