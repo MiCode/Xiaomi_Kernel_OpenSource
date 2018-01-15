@@ -441,7 +441,7 @@
 	};
 
 	mdss_dsi0: qcom,mdss_dsi_ctrl0@ae94000 {
-		compatible = "qcom,dsi-ctrl-hw-v2.2";
+		compatible = "qcom,dsi-ctrl-hw-v2.3";
 		label = "dsi-ctrl-0";
 		cell-index = <0>;
 		reg =   <0xae94000 0x400>,
@@ -476,7 +476,7 @@
 	};
 
 	mdss_dsi1: qcom,mdss_dsi_ctrl1@ae96000 {
-		compatible = "qcom,dsi-ctrl-hw-v2.2";
+		compatible = "qcom,dsi-ctrl-hw-v2.3";
 		label = "dsi-ctrl-1";
 		cell-index = <1>;
 		reg =   <0xae96000 0x400>,
@@ -509,7 +509,7 @@
 	};
 
 	mdss_dsi_phy0: qcom,mdss_dsi_phy0@ae94400 {
-		compatible = "qcom,dsi-phy-v3.0";
+		compatible = "qcom,dsi-phy-v4.0";
 		label = "dsi-phy-0";
 		cell-index = <0>;
 		reg = <0xae94400 0x7c0>;
@@ -542,7 +542,7 @@
 	};
 
 	mdss_dsi_phy1: qcom,mdss_dsi_phy0@ae96400 {
-		compatible = "qcom,dsi-phy-v3.0";
+		compatible = "qcom,dsi-phy-v4.0";
 		label = "dsi-phy-1";
 		cell-index = <1>;
 		reg = <0xae96400 0x7c0>;
