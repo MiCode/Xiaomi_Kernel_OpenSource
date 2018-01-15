@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		ctrl->ops.kickoff_command_non_embedded_mode = NULL;
 		break;
 	case DSI_CTRL_VERSION_2_2:
+	case DSI_CTRL_VERSION_2_3:
 		ctrl->ops.phy_reset_config = dsi_ctrl_hw_22_phy_reset_config;
 		ctrl->ops.get_cont_splash_status =
 			dsi_ctrl_hw_22_get_cont_splash_status;
@@ -162,6 +163,7 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 		break;
 	case DSI_CTRL_VERSION_2_0:
 	case DSI_CTRL_VERSION_2_2:
+	case DSI_CTRL_VERSION_2_3:
 		ctrl->phy_isolation_enabled = phy_isolation_enabled;
 		dsi_catalog_cmn_init(ctrl, version);
 		break;
@@ -216,6 +218,31 @@ static void dsi_catalog_phy_3_0_init(struct dsi_phy_hw *phy)
 }
 
 /**
+ * dsi_catalog_phy_4_0_init() - catalog init for DSI PHY 7nm
+ */
+static void dsi_catalog_phy_4_0_init(struct dsi_phy_hw *phy)
+{
+	phy->ops.regulator_enable = NULL;
+	phy->ops.regulator_disable = NULL;
+	phy->ops.enable = dsi_phy_hw_v4_0_enable;
+	phy->ops.disable = dsi_phy_hw_v4_0_disable;
+	phy->ops.calculate_timing_params =
+		dsi_phy_hw_calculate_timing_params;
+	phy->ops.ulps_ops.wait_for_lane_idle =
+		dsi_phy_hw_v4_0_wait_for_lane_idle;
+	phy->ops.ulps_ops.ulps_request =
+		dsi_phy_hw_v4_0_ulps_request;
+	phy->ops.ulps_ops.ulps_exit =
+		dsi_phy_hw_v4_0_ulps_exit;
+	phy->ops.ulps_ops.get_lanes_in_ulps =
+		dsi_phy_hw_v4_0_get_lanes_in_ulps;
+	phy->ops.ulps_ops.is_lanes_in_ulps =
+		dsi_phy_hw_v4_0_is_lanes_in_ulps;
+	phy->ops.phy_timing_val = dsi_phy_hw_timing_val_v4_0;
+	phy->ops.phy_lane_reset = dsi_phy_hw_v4_0_lane_reset;
+}
+
+/**
  * dsi_catalog_phy_setup() - return catalog info for dsi phy hardware
  * @ctrl:        Pointer to DSI PHY hw object.
  * @version:     DSI PHY version.
@@ -248,6 +275,9 @@ int dsi_catalog_phy_setup(struct dsi_phy_hw *phy,
 		break;
 	case DSI_PHY_VERSION_3_0:
 		dsi_catalog_phy_3_0_init(phy);
+		break;
+	case DSI_PHY_VERSION_4_0:
+		dsi_catalog_phy_4_0_init(phy);
 		break;
 	case DSI_PHY_VERSION_0_0_HPM:
 	case DSI_PHY_VERSION_0_0_LPM:

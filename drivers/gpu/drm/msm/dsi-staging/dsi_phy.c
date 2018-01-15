@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,6 +79,14 @@ static const struct dsi_ver_spec_info dsi_phy_v3_0 = {
 	.timing_cfg_count = 12,
 };
 
+static const struct dsi_ver_spec_info dsi_phy_v4_0 = {
+	.version = DSI_PHY_VERSION_4_0,
+	.lane_cfg_count = 4,
+	.strength_cfg_count = 2,
+	.regulator_cfg_count = 0,
+	.timing_cfg_count = 14,
+};
+
 static const struct of_device_id msm_dsi_phy_of_match[] = {
 	{ .compatible = "qcom,dsi-phy-v0.0-hpm",
 	  .data = &dsi_phy_v0_0_hpm,},
@@ -90,6 +98,8 @@ static const struct of_device_id msm_dsi_phy_of_match[] = {
 	  .data = &dsi_phy_v2_0,},
 	{ .compatible = "qcom,dsi-phy-v3.0",
 	  .data = &dsi_phy_v3_0,},
+	{ .compatible = "qcom,dsi-phy-v4.0",
+	  .data = &dsi_phy_v4_0,},
 	{}
 };
 

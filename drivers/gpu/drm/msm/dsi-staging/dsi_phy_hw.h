@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 
 #define DSI_MAX_SETTINGS 8
 #define DSI_PHY_TIMING_V3_SIZE 12
+#define DSI_PHY_TIMING_V4_SIZE 14
 
 /**
  * enum dsi_phy_version - DSI PHY version enumeration
@@ -27,6 +28,7 @@
  * @DSI_PHY_VERSION_1_0:        20nm
  * @DSI_PHY_VERSION_2_0:        14nm
  * @DSI_PHY_VERSION_3_0:        10nm
+ * @DSI_PHY_VERSION_4_0:        7nm
  * @DSI_PHY_VERSION_MAX:
  */
 enum dsi_phy_version {
@@ -36,6 +38,7 @@ enum dsi_phy_version {
 	DSI_PHY_VERSION_1_0, /* 20nm */
 	DSI_PHY_VERSION_2_0, /* 14nm */
 	DSI_PHY_VERSION_3_0, /* 10nm */
+	DSI_PHY_VERSION_4_0, /* 7nm  */
 	DSI_PHY_VERSION_MAX
 };
 
@@ -76,6 +79,7 @@ enum dsi_phy_pll_source {
 struct dsi_phy_per_lane_cfgs {
 	u8 lane[DSI_LANE_MAX][DSI_MAX_SETTINGS];
 	u8 lane_v3[DSI_PHY_TIMING_V3_SIZE];
+	u8 lane_v4[DSI_PHY_TIMING_V4_SIZE];
 	u32 count_per_lane;
 };
 

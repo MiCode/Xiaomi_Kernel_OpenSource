@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -435,6 +435,121 @@ error:
 }
 
 /**
+ * cal_clk_pulse_time - calculates clk pulse time in nsec
+ */
+static s64 cal_clk_pulse_time(u32 inp1, u32 inp2, u32 bitclk_mbps)
+{
+	u64 const multiplier = BIT(20);
+	u64 clk_multiple;
+	s32 frac;
+	s64 temp, result;
+
+	clk_multiple = div_s64((inp1 * multiplier * 1000), bitclk_mbps);
+	div_s64_rem(clk_multiple, multiplier, &frac);
+	temp = (inp2 * multiplier) + (clk_multiple + frac);
+	result = div_s64(temp, multiplier);
+
+	return result;
+}
+
+/**
+ * calc_clk_post - calculates clk_post timing params for data lanes in HS.
+ */
+static int calc_clk_post(struct dsi_phy_hw *phy,
+			struct phy_clk_params *clk_params,
+			struct phy_timing_desc *desc)
+{
+	int rc = 0;
+	struct timing_entry *t = &desc->clk_post;
+	s64 rec_cal1, rec_cal2;
+	u32 input1;
+
+	/* mipi min */
+	t->mipi_min = cal_clk_pulse_time(52, 60, clk_params->bitclk_mbps);
+
+	/* recommended min
+	 * = roundup((mipi_min_ns + t_hs_trail_ns)/(16*bit_clk_ns), 0) - 1
+	 */
+	rec_cal1 = cal_clk_pulse_time(16, 0, clk_params->bitclk_mbps);
+
+	input1 = (desc->hs_trail.reg_value + 1) * 8;
+	rec_cal2 = cal_clk_pulse_time(input1, 0, clk_params->bitclk_mbps);
+	rec_cal2 += t->mipi_min;
+
+	t->rec_min = div_s64(rec_cal2, rec_cal1) - 1;
+
+	/* recommended max */
+	t->rec_max = 255;
+
+	/* register value */
+	rec_cal1 = (t->rec_max - t->rec_min);
+	rec_cal2 = clk_params->clk_post_buf/100;
+	t->rec = rec_cal1 * rec_cal2 + t->rec_min;
+
+	rc = dsi_phy_cmn_validate_and_set(t, "clk_post");
+	if (rc)
+		goto error;
+
+	pr_debug("CLK_POST:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->reg_value);
+error:
+	return rc;
+}
+
+/**
+ * calc_clk_pre - calculates clk_pre timing params for data lanes in HS.
+ */
+static int calc_clk_pre(struct dsi_phy_hw *phy,
+			struct phy_clk_params *clk_params,
+			struct phy_timing_desc *desc)
+{
+	int rc = 0;
+	struct timing_entry *t = &desc->clk_pre;
+	s64 rec_temp1;
+	s64 clk_prepare, clk_zero, clk_16;
+	u32 input1;
+	s64 rec_cal1, rec_cal2;
+
+	/* mipi min */
+	t->mipi_min = cal_clk_pulse_time(8, 0, clk_params->bitclk_mbps);
+
+	/* recommended min
+	 * val1 = (tlpx_ns + clk_prepare_ns + clk_zero_ns + hs_rqst_ns)
+	 * val2 = (16 * bit_clk_ns)
+	 * final = roundup(val1/val2, 0) - 1
+	 */
+	input1 = desc->clk_prepare.reg_value * 8;
+	clk_prepare = cal_clk_pulse_time(input1, 0, clk_params->bitclk_mbps);
+
+	input1 = (desc->clk_zero.reg_value + 1) * 8;
+	clk_zero = cal_clk_pulse_time(input1, 0, clk_params->bitclk_mbps);
+
+	clk_16 = cal_clk_pulse_time(16, 0, clk_params->bitclk_mbps);
+
+	rec_temp1 = 52 + clk_prepare + clk_zero + 54;
+	t->rec_min = div_s64(rec_temp1, clk_16) - 1;
+
+	/* recommended max */
+	t->rec_max = 255;
+
+	/* register value */
+	rec_cal1 = (t->rec_max - t->rec_min);
+	rec_cal2 = clk_params->clk_pre_buf/100;
+	t->rec = rec_cal1 * rec_cal2 + t->rec_min;
+
+	rc = dsi_phy_cmn_validate_and_set(t, "clk_pre");
+	if (rc)
+		goto error;
+
+	pr_debug("CLK_PRE:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->reg_value);
+error:
+	return rc;
+}
+
+/**
  * dsi_phy_calc_timing_params - calculates timing paramets for a given bit clock
  */
 static int dsi_phy_cmn_calc_timing_params(struct dsi_phy_hw *phy,
@@ -499,6 +614,18 @@ static int dsi_phy_cmn_calc_timing_params(struct dsi_phy_hw *phy,
 	rc = calc_hs_rqst_clk(phy, clk_params, desc);
 	if (rc) {
 		pr_err("hs_rqst_clk calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_clk_post(phy, clk_params, desc);
+	if (rc) {
+		pr_err("clk_post calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_clk_pre(phy, clk_params, desc);
+	if (rc) {
+		pr_err("clk_pre calculations failed, rc=%d\n", rc);
 		goto error;
 	}
 error:
@@ -662,6 +789,22 @@ int dsi_phy_timing_calc_init(struct dsi_phy_hw *phy,
 			dsi_phy_hw_v3_0_calc_hs_trail;
 		ops->update_timing_params =
 			dsi_phy_hw_v3_0_update_timing_params;
+		break;
+	case DSI_PHY_VERSION_4_0:
+		ops->get_default_phy_params =
+			dsi_phy_hw_v4_0_get_default_phy_params;
+		ops->calc_clk_zero =
+			dsi_phy_hw_v4_0_calc_clk_zero;
+		ops->calc_clk_trail_rec_min =
+			dsi_phy_hw_v4_0_calc_clk_trail_rec_min;
+		ops->calc_clk_trail_rec_max =
+			dsi_phy_hw_v4_0_calc_clk_trail_rec_max;
+		ops->calc_hs_zero =
+			dsi_phy_hw_v4_0_calc_hs_zero;
+		ops->calc_hs_trail =
+			dsi_phy_hw_v4_0_calc_hs_trail;
+		ops->update_timing_params =
+			dsi_phy_hw_v4_0_update_timing_params;
 		break;
 	case DSI_PHY_VERSION_0_0_HPM:
 	case DSI_PHY_VERSION_0_0_LPM:

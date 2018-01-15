@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,7 @@ static DEFINE_MUTEX(dsi_ctrl_list_lock);
 static const enum dsi_ctrl_version dsi_ctrl_v1_4 = DSI_CTRL_VERSION_1_4;
 static const enum dsi_ctrl_version dsi_ctrl_v2_0 = DSI_CTRL_VERSION_2_0;
 static const enum dsi_ctrl_version dsi_ctrl_v2_2 = DSI_CTRL_VERSION_2_2;
+static const enum dsi_ctrl_version dsi_ctrl_v2_3 = DSI_CTRL_VERSION_2_3;
 
 static const struct of_device_id msm_dsi_of_match[] = {
 	{
@@ -80,6 +81,10 @@ static const struct of_device_id msm_dsi_of_match[] = {
 	{
 		.compatible = "qcom,dsi-ctrl-hw-v2.2",
 		.data = &dsi_ctrl_v2_2,
+	},
+	{
+		.compatible = "qcom,dsi-ctrl-hw-v2.3",
+		.data = &dsi_ctrl_v2_3,
 	},
 	{}
 };
@@ -463,6 +468,7 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 		ctrl->hw.disp_cc_base = NULL;
 		break;
 	case DSI_CTRL_VERSION_2_2:
+	case DSI_CTRL_VERSION_2_3:
 		ptr = msm_ioremap(pdev, "disp_cc_base", ctrl->name);
 		if (IS_ERR(ptr)) {
 			pr_err("disp_cc base address not found for [%s]\n",
