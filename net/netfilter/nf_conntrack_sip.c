@@ -1,6 +1,6 @@
 /* SIP extension for IP connection tracking.
  *
- * Copyright (c) 2015,2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017-2018, The Linux Foundation. All rights reserved.
  * (C) 2005 by Christian Hentschel <chentschel@arnet.com.ar>
  * based on RR's ip_conntrack_ftp.c and other modules.
  * (C) 2007 United Security Providers
@@ -1880,6 +1880,10 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	if (datalen < strlen("SIP/2.0 200"))
 		return NF_ACCEPT;
 
+	/* Check if the header contains SIP version */
+	if (!strnstr(dptr, "SIP/2.0", datalen))
+		return NF_ACCEPT;
+
 	/* here we save the original datalength and data offset of the skb, this
 	 * is needed later to split combined skbs
 	 */
@@ -2049,6 +2053,10 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
 	dptr = skb->data + dataoff;
 	datalen = skb->len - dataoff;
 	if (datalen < strlen("SIP/2.0 200"))
+		return NF_ACCEPT;
+
+	/* Check if the header contains SIP version */
+	if (!strnstr(dptr, "SIP/2.0", datalen))
 		return NF_ACCEPT;
 
 	return process_sip_msg(skb, ct, protoff, dataoff, &dptr, &datalen);
