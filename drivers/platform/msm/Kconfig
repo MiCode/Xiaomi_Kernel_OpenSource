@@ -163,7 +163,7 @@ config GPIO_USB_DETECT
 
 config MSM_MHI_DEV
         tristate "Modem Device Interface Driver"
-	depends on EP_PCIE && IPA
+	depends on EP_PCIE && IPA3
         help
           This kernel module is used to interact with PCIe Root complex
           supporting MHI protocol. MHI is a data transmission protocol

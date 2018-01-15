@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -396,7 +396,8 @@ static bool mhi_sm_is_legal_pcie_event_on_state(enum mhi_dev_state curr_mstate,
 		res = true;
 		break;
 	case EP_PCIE_EVENT_PM_D3_HOT:
-		res = (curr_mstate == MHI_DEV_M3_STATE &&
+		res = ((curr_mstate == MHI_DEV_M3_STATE ||
+			curr_mstate == MHI_DEV_READY_STATE) &&
 			curr_dstate != MHI_SM_EP_PCIE_LINK_DISABLE);
 		break;
 	case EP_PCIE_EVENT_PM_D3_COLD:
@@ -437,7 +438,7 @@ static int mhi_sm_change_to_M0(void)
 {
 	enum mhi_dev_state old_state;
 	struct ep_pcie_msi_config cfg;
-	int res;
+	int res = -EINVAL;
 
 	MHI_SM_FUNC_ENTRY();
 
@@ -476,6 +477,30 @@ static int mhi_sm_change_to_M0(void)
 	mhi_sm_mmio_set_mhistatus(MHI_DEV_M0_STATE);
 
 	/* Tell the host, device move to M0 */
+	if (old_state == MHI_DEV_M3_STATE) {
+		if (mhi_sm_ctx->mhi_dev->use_ipa) {
+			res = ipa_dma_enable();
+			if (res) {
+				MHI_SM_ERR("IPA enable failed\n");
+				return res;
+			}
+		}
+
+		res = mhi_dev_resume(mhi_sm_ctx->mhi_dev);
+		if (res) {
+			MHI_SM_ERR("Failed resuming mhi core, returned %d",
+				res);
+			goto exit;
+		}
+
+		res = ipa_mhi_resume();
+		if (res) {
+			MHI_SM_ERR("Failed resuming ipa_mhi, returned %d",
+				res);
+			goto exit;
+		}
+	}
+
 	res = mhi_dev_send_state_change_event(mhi_sm_ctx->mhi_dev,
 				MHI_DEV_M0_STATE);
 	if (res) {
@@ -489,20 +514,6 @@ static int mhi_sm_change_to_M0(void)
 		res = mhi_dev_send_ee_event(mhi_sm_ctx->mhi_dev, 2);
 		if (res) {
 			MHI_SM_ERR("failed sending EE event to host\n");
-			goto exit;
-		}
-	} else if (old_state == MHI_DEV_M3_STATE) {
-		/*Resuming MHI operation*/
-		res = mhi_dev_resume(mhi_sm_ctx->mhi_dev);
-		if (res) {
-			MHI_SM_ERR("Failed resuming mhi core, returned %d",
-				res);
-			goto exit;
-		}
-		res = ipa_mhi_resume();
-		if (res) {
-			MHI_SM_ERR("Failed resuming ipa_mhi, returned %d",
-				res);
 			goto exit;
 		}
 	}
@@ -557,6 +568,14 @@ static int mhi_sm_change_to_M3(void)
 		goto exit;
 	}
 
+	if (mhi_sm_ctx->mhi_dev->use_ipa) {
+		res = ipa_dma_disable();
+		if (res) {
+			MHI_SM_ERR("IPA disable failed\n");
+			return res;
+		}
+	}
+
 exit:
 	MHI_SM_FUNC_EXIT();
 	return res;
@@ -579,9 +598,9 @@ static int mhi_sm_wakeup_host(enum mhi_dev_event event)
 
 	if (mhi_sm_ctx->mhi_state == MHI_DEV_M3_STATE) {
 		/*
-		 * ep_pcie driver is responsible to send the right wakeup
-		 * event, assert WAKE#, according to Link state
-		 */
+		  * ep_pcie driver is responsible to send the right wakeup
+		  * event, assert WAKE#, according to Link state
+		  */
 		res = ep_pcie_wakeup_host(mhi_sm_ctx->mhi_dev->phandle);
 		if (res) {
 			MHI_SM_ERR("Failed to wakeup MHI host, returned %d\n",
@@ -661,8 +680,8 @@ exit:
 		MHI_SM_ERR("EP-PCIE Link is disable cannot set MMIO to %s\n",
 			mhi_sm_mstate_str(MHI_DEV_SYSERR_STATE));
 
-	MHI_SM_ERR("/n/n/nASSERT ON DEVICE !!!!/n/n/n");
-	WARN_ON();
+	MHI_SM_ERR("/n/n/nError ON DEVICE !!!!/n/n/n");
+	WARN_ON(1);
 
 	MHI_SM_FUNC_EXIT();
 	return res;
@@ -918,6 +937,24 @@ fail_init_wq:
 }
 EXPORT_SYMBOL(mhi_dev_sm_init);
 
+int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
+{
+	MHI_SM_FUNC_ENTRY();
+
+	atomic_set(&mhi_sm_ctx->pending_device_events, 0);
+	atomic_set(&mhi_sm_ctx->pending_pcie_events, 0);
+	mhi_sm_debugfs_destroy();
+	flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
+	destroy_workqueue(mhi_sm_ctx->mhi_sm_wq);
+	ipa_dma_destroy();
+	mutex_destroy(&mhi_sm_ctx->mhi_state_lock);
+	devm_kfree(mhi_dev->dev, mhi_sm_ctx);
+	mhi_sm_ctx = NULL;
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_dev_sm_exit);
+
 /**
  * mhi_dev_sm_get_mhi_state() -Get current MHI state.
  * @state: return param
@@ -964,7 +1001,7 @@ EXPORT_SYMBOL(mhi_dev_sm_get_mhi_state);
  */
 int mhi_dev_sm_set_ready(void)
 {
-	int res;
+	int res = 0;
 	int is_ready;
 	enum mhi_dev_state state;
 
@@ -1011,6 +1048,7 @@ int mhi_dev_sm_set_ready(void)
 		goto unlock_and_exit;
 	}
 	mhi_sm_mmio_set_mhistatus(MHI_DEV_READY_STATE);
+	res = 0;
 
 unlock_and_exit:
 	mutex_unlock(&mhi_sm_ctx->mhi_state_lock);
@@ -1153,6 +1191,7 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		ep_pcie_mask_irq_event(mhi_sm_ctx->mhi_dev->phandle,
 				EP_PCIE_INT_EVT_MHI_A7, false);
 		mhi_dev_notify_a7_event(mhi_sm_ctx->mhi_dev);
+		kfree(dstate_change_evt);
 		goto exit;
 	default:
 		MHI_SM_ERR("Invalid ep_pcie event, received 0x%x event\n",

@@ -19,6 +19,18 @@ Required properties:
   - qcom,mhi-ep-msi: End point MSI number.
   - qcom,mhi-version: MHI specification version supported by the device.
 
+Optional property:
+  - qcom,use-ipa-software-channel: If property is present use IPA hardware
+		accelerated path for MHI software channel data transfers
+		between host and device.
+  - qcom,mhi-config-iatu: If property is present map the control and data region
+		between host and device using iatu.
+  - qcom,mhi-interrupt: If property is present register for mhi interrupt.
+  - qcom,mhi-local-pa-base: The physical base address on the device used by the
+		MHI device driver to map the control and data region with the
+		MHI driver on the host. This property is required if iatu
+		property qcom,mhi-config-iatu is present.
+
 Example:
 
 	mhi: qcom,msm-mhi-dev {
