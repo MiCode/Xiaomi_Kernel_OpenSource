@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@
 enum {
 	MDSS_DSI_PLL_10NM,
 	MDSS_DP_PLL_10NM,
+	MDSS_DSI_PLL_7NM,
 	MDSS_UNKNOWN_PLL,
 };
 
