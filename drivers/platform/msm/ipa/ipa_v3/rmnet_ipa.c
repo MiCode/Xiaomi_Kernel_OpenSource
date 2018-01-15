@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2810,8 +2810,9 @@ int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 		/* prevent string buffer overflows */
 		data->upstreamIface[IFNAMSIZ-1] = '\0';
 		data->tetherIface[IFNAMSIZ-1] = '\0';
-	} else if (reset != false) {
-		/* Data can be NULL for reset stats, checking reset != False */
+	} else if (reset == false) {
+		/* only reset can have data == NULL */
+		IPAWANERR("query without allocate tether_stats strucutre\n");
 		return -EINVAL;
 	}
 
