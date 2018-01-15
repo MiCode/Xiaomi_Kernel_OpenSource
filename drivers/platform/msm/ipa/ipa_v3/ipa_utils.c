@@ -3993,6 +3993,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	}
 	kfree(tag_desc);
 	tag_desc = NULL;
+	ipa3_ctx->tag_process_before_gating = false;
 
 	IPADBG("waiting for TAG response\n");
 	res = wait_for_completion_timeout(&comp->comp, timeout);
