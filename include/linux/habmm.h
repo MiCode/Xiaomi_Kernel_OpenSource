@@ -214,6 +214,11 @@ int32_t habmm_socket_recvfrom(int32_t handle, void *dst_buff,
  */
 #define HABMM_EXP_MEM_TYPE_DMA 0x00000001
 
+/*
+ * this flag is used for export from dma_buf fd or import to dma_buf fd
+ */
+#define HABMM_EXPIMP_FLAGS_FD  0x00010000
+
 #define HAB_MAX_EXPORT_SIZE 0x8000000
 
 /*
