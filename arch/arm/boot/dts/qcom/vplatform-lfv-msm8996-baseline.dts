@@ -1,0 +1,53 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "skeleton64.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996";
+	compatible = "qcom,msm8996";
+	qcom,msm-id = <246 0x0>;
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	soc: soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		virtual-interrupt-parent = "gic";
+		ranges = <0 0 0 0xffffffff>;
+		compatible = "simple-bus";
+
+		qcom,mpm2-sleep-counter@4a3000 {
+			compatible = "qcom,mpm2-sleep-counter";
+			reg = <0x004a3000 0x1000>;
+			clock-frequency = <32768>;
+		};
+
+		qcom,msm-imem@66bf000 {
+			compatible = "qcom,msm-imem";
+			reg = <0x66bf000 0x1000>; /* Address and size of IMEM */
+			ranges = <0x0 0x66bf000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			boot_stats@6b0 {
+				compatible = "qcom,msm-imem-boot_stats";
+				reg = <0x6b0 32>;
+			};
+		};
+	};
+};
