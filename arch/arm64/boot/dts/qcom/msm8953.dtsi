@@ -507,6 +507,16 @@
 		status = "disabled";
 	};
 
+	blsp1_serial1: serial@78b0000 {
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
+		reg = <0x78b0000 0x200>;
+		interrupts = <0 108 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core", "iface";
+		status = "disabled";
+	};
+
 	dma_blsp1: qcom,sps-dma@7884000 { /* BLSP1 */
 		#dma-cells = <4>;
 		compatible = "qcom,sps-dma";
@@ -1070,7 +1080,7 @@
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 		};
 
-	qcom,wdt@b017000 {
+	wdog: qcom,wdt@b017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
