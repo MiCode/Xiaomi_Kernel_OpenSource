@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,37 +20,55 @@
 #include <linux/platform_device.h>
 #include <linux/mailbox/qmp.h>
 #include <linux/uaccess.h>
+#include <linux/mailbox_controller.h>
 
 #define MAX_MSG_SIZE 96 /* Imposed by the remote*/
 
+struct qmp_debugfs_data {
+	struct qmp_pkt pkt;
+	char buf[MAX_MSG_SIZE + 1];
+};
+
+static struct qmp_debugfs_data data_pkt[MBOX_TX_QUEUE_LEN];
 static struct mbox_chan *chan;
 static struct mbox_client *cl;
+
+static DEFINE_MUTEX(qmp_debugfs_mutex);
 
 static ssize_t aop_msg_write(struct file *file, const char __user *userstr,
 		size_t len, loff_t *pos)
 {
-	char buf[MAX_MSG_SIZE + 1] = {0};
-	struct qmp_pkt pkt;
+	static int count;
 	int rc;
 
 	if (!len || (len > MAX_MSG_SIZE))
 		return len;
 
-	rc  = copy_from_user(buf, userstr, len);
+	mutex_lock(&qmp_debugfs_mutex);
+
+	if (count >= MBOX_TX_QUEUE_LEN)
+		count = 0;
+
+	memset(&(data_pkt[count]), 0, sizeof(data_pkt[count]));
+	rc  = copy_from_user(data_pkt[count].buf, userstr, len);
 	if (rc) {
 		pr_err("%s copy from user failed, rc=%d\n", __func__, rc);
+		mutex_unlock(&qmp_debugfs_mutex);
 		return len;
 	}
 
 	/*
 	 * Controller expects a 4 byte aligned buffer
 	 */
-	pkt.size = (len + 0x3) & ~0x3;
-	pkt.data = buf;
+	data_pkt[count].pkt.size = (len + 0x3) & ~0x3;
+	data_pkt[count].pkt.data = data_pkt[count].buf;
 
-	if (mbox_send_message(chan, &pkt) < 0)
+	if (mbox_send_message(chan, &(data_pkt[count].pkt)) < 0)
 		pr_err("Failed to send qmp request\n");
+	else
+		count++;
 
+	mutex_unlock(&qmp_debugfs_mutex);
 	return len;
 }
 
@@ -68,7 +86,7 @@ static int qmp_msg_probe(struct platform_device *pdev)
 
 	cl->dev = &pdev->dev;
 	cl->tx_block = true;
-	cl->tx_tout = 100;
+	cl->tx_tout = 1000;
 	cl->knows_txdone = false;
 
 	chan = mbox_request_channel(cl, 0);
