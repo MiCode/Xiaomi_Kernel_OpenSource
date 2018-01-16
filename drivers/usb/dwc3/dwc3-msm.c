@@ -3346,24 +3346,19 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (of_get_property(pdev->dev.of_node, "qcom,usb-dbm", NULL)) {
-		mdwc->dbm = usb_get_dbm_by_phandle(&pdev->dev, "qcom,usb-dbm");
-		if (IS_ERR(mdwc->dbm)) {
-			dev_err(&pdev->dev, "unable to get dbm device\n");
-			ret = -EPROBE_DEFER;
+	mdwc->dbm = dwc3_init_dbm(&pdev->dev, mdwc->base);
+	if (IS_ERR(mdwc->dbm)) {
+		dev_warn(&pdev->dev, "unable to init dbm device, skipping...\n");
+		mdwc->dbm = NULL;
+	}
+
+	/* Add power event if the dbm indicates coming out of L1 by interrupt */
+	if (mdwc->dbm && dbm_l1_lpm_interrupt(mdwc->dbm)) {
+		if (!mdwc->wakeup_irq[PWR_EVNT_IRQ].irq) {
+			dev_err(&pdev->dev,
+				"need pwr_event_irq exiting L1\n");
+			ret = -EINVAL;
 			goto err;
-		}
-		/*
-		 * Add power event if the dbm indicates coming out of L1
-		 * by interrupt
-		 */
-		if (dbm_l1_lpm_interrupt(mdwc->dbm)) {
-			if (!mdwc->wakeup_irq[PWR_EVNT_IRQ].irq) {
-				dev_err(&pdev->dev,
-					"need pwr_event_irq exiting L1\n");
-				ret = -EINVAL;
-				goto err;
-			}
 		}
 	}
 
