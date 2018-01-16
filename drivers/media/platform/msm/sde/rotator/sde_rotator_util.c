@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -788,6 +788,8 @@ static int sde_mdp_put_img(struct sde_mdp_img_data *data, bool rotator,
 					data->len, domain, data->flags);
 		}
 		if (!data->skip_detach) {
+			data->srcp_attachment->dma_map_attrs |=
+				DMA_ATTR_DELAYED_UNMAP;
 			dma_buf_unmap_attachment(data->srcp_attachment,
 				data->srcp_table, dir);
 			dma_buf_detach(data->srcp_dma_buf,
@@ -846,6 +848,7 @@ static int sde_mdp_get_img(struct sde_fb_data *img,
 		}
 
 		SDEROT_DBG("%d attach=%p\n", __LINE__, data->srcp_attachment);
+		data->srcp_attachment->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
 		data->srcp_table =
 			dma_buf_map_attachment(data->srcp_attachment, dir);
 		if (IS_ERR(data->srcp_table)) {
@@ -872,6 +875,7 @@ static int sde_mdp_get_img(struct sde_fb_data *img,
 			goto err_put;
 		}
 
+		data->srcp_attachment->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
 		data->srcp_table = dma_buf_map_attachment(
 				data->srcp_attachment, dir);
 		if (IS_ERR(data->srcp_table)) {
