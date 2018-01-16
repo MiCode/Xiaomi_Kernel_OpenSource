@@ -49,6 +49,9 @@
 
 #define DWC3_DEFAULT_AUTOSUSPEND_DELAY	5000 /* ms */
 
+static int count;
+static struct dwc3 *dwc3_instance[DWC_CTRL_COUNT];
+
 /**
  * dwc3_get_dr_mode - Validates and sets dr_mode
  * @dwc: pointer to our context structure
@@ -1227,6 +1230,16 @@ static int dwc3_probe(struct platform_device *pdev)
 		goto err5;
 
 	dwc3_debugfs_init(dwc);
+
+	dwc->dwc_ipc_log_ctxt = ipc_log_context_create(NUM_LOG_PAGES,
+					dev_name(dwc->dev), 0);
+	if (!dwc->dwc_ipc_log_ctxt)
+		dev_err(dwc->dev, "Error getting ipc_log_ctxt\n");
+
+	dwc3_instance[count] = dwc;
+	dwc->index = count;
+	count++;
+
 	pm_runtime_put(dev);
 
 	return 0;
@@ -1284,6 +1297,11 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	dwc3_free_event_buffers(dwc);
 	dwc3_free_scratch_buffers(dwc);
+
+	ipc_log_context_destroy(dwc->dwc_ipc_log_ctxt);
+	dwc->dwc_ipc_log_ctxt = NULL;
+	count--;
+	dwc3_instance[dwc->index] = NULL;
 
 	return 0;
 }

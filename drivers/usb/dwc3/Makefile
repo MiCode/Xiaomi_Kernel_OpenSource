@@ -4,7 +4,7 @@ CFLAGS_trace.o				:= -I$(src)
 
 obj-$(CONFIG_USB_DWC3)			+= dwc3.o
 
-dwc3-y					:= core.o
+dwc3-y					:= core.o debug_ipc.o
 
 ifneq ($(CONFIG_FTRACE),)
 	dwc3-y				+= trace.o
