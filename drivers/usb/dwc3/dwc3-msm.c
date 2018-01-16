@@ -249,7 +249,6 @@ struct dwc3_msm {
 
 	atomic_t                in_p3;
 	unsigned int		lpm_to_suspend_delay;
-	bool			init;
 	enum plug_orientation	typec_orientation;
 	u32			num_gsi_event_buffers;
 	struct dwc3_event_buffer **gsi_ev_buff;
@@ -1240,7 +1239,7 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 				DWC3_DEPCMD_SETTRANSFRESOURCE, &params);
 
 		dep->endpoint.desc = desc;
-		dep->comp_desc = comp_desc;
+		dep->endpoint.comp_desc = comp_desc;
 		dep->type = usb_endpoint_type(desc);
 		dep->flags |= DWC3_EP_ENABLED;
 		reg = dwc3_readl(dwc->regs, DWC3_DALEPENA);
@@ -1527,7 +1526,7 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
-	if (atomic_read(&dwc->in_lpm) || !dwc->is_drd) {
+	if (atomic_read(&dwc->in_lpm) || dwc->dr_mode != USB_DR_MODE_OTG) {
 		dev_dbg(mdwc->dev, "%s failed!!!\n", __func__);
 		return;
 	}
@@ -1915,6 +1914,7 @@ static void dwc3_msm_block_reset(struct dwc3_msm *mdwc, bool core_reset)
 	}
 }
 
+
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
@@ -1935,20 +1935,10 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 		clk_disable_unprepare(mdwc->cfg_ahb_clk);
 	}
 
-	if (!mdwc->init) {
-		dbg_event(0xFF, "dwc3 init",
-				atomic_read(&mdwc->dev->power.usage_count));
-		ret = dwc3_core_pre_init(dwc);
-		if (ret) {
-			dev_err(mdwc->dev, "dwc3_core_pre_init failed\n");
-			return;
-		}
-		mdwc->init = true;
-	}
-
-	dwc3_core_init(dwc);
-	/* Re-configure event buffers */
-	dwc3_event_buffers_setup(dwc);
+	ret = dwc3_core_init(dwc);
+	if (ret)
+		dev_err(mdwc->dev, "%s: dwc3_core init failed (%d)\n",
+							__func__, ret);
 }
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
@@ -2130,7 +2120,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		}
 	}
 
-	if (!mdwc->vbus_active && dwc->is_drd &&
+	if (!mdwc->vbus_active && (dwc->dr_mode == USB_DR_MODE_OTG) &&
 		mdwc->otg_state == OTG_STATE_B_PERIPHERAL) {
 		/*
 		 * In some cases, the pm_runtime_suspend may be called by
@@ -2153,8 +2143,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	 * then check controller state of L2 and break
 	 * LPM sequence. Check this for device bus suspend case.
 	 */
-	if ((dwc->is_drd && mdwc->otg_state == OTG_STATE_B_SUSPEND) &&
-		(dwc->gadget.state != USB_STATE_CONFIGURED)) {
+	if (((dwc->dr_mode == USB_DR_MODE_OTG) &&
+			mdwc->otg_state == OTG_STATE_B_SUSPEND) &&
+			(dwc->gadget.state != USB_STATE_CONFIGURED)) {
 		pr_err("%s(): Trying to go in LPM with state:%d\n",
 					__func__, dwc->gadget.state);
 		pr_err("%s(): LPM is not performed.\n", __func__);
@@ -2818,7 +2809,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	mdwc->vbus_active = event;
-	if (dwc->is_drd && !mdwc->in_restart)
+	if ((dwc->dr_mode == USB_DR_MODE_OTG) && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
 	return NOTIFY_DONE;
@@ -2845,7 +2836,7 @@ static int dwc3_msm_eud_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	mdwc->vbus_active = event;
-	if (dwc->is_drd && !mdwc->in_restart)
+	if ((dwc->dr_mode == USB_DR_MODE_OTG) && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
 	return NOTIFY_DONE;
@@ -3271,6 +3262,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"unable to read platform data tx fifo size\n");
 
+	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
+				&mdwc->num_gsi_event_buffers);
+
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
 	dwc3_set_notifier(&dwc3_msm_notify_event);
@@ -3337,9 +3331,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get dwc3 device\n");
 		goto put_dwc3;
 	}
-
-	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
-				&mdwc->num_gsi_event_buffers);
 
 	/* IOMMU will be reattached upon each resume/connect */
 	if (mdwc->iommu_map)
@@ -3415,7 +3406,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_usb_compliance_mode);
 
 	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
-	if (!dwc->is_drd && host_mode) {
+	if (host_mode) {
 		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
 		mdwc->id_state = DWC3_ID_GROUND;
 		dwc3_ext_event_notify(mdwc);
@@ -3427,8 +3418,6 @@ put_psy:
 	if (mdwc->usb_psy)
 		power_supply_put(mdwc->usb_psy);
 
-	if (cpu_to_affin)
-		unregister_cpu_notifier(&mdwc->dwc3_cpu_notifier);
 put_dwc3:
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
@@ -3690,29 +3679,14 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			return ret;
 		}
 
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 
 		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
 		usb_register_notify(&mdwc->host_nb);
 
 		mdwc->usbdev_nb.notifier_call = msm_dwc3_usbdev_notify;
 		usb_register_atomic_notify(&mdwc->usbdev_nb);
-		ret = dwc3_host_init(dwc);
-		if (ret) {
-			dev_err(mdwc->dev,
-				"%s: failed to add XHCI pdev ret=%d\n",
-				__func__, ret);
-			if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
-				regulator_disable(mdwc->vbus_reg);
-			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
-			pm_runtime_put_sync(mdwc->dev);
-			dbg_event(0xFF, "pdeverr psync",
-				atomic_read(&mdwc->dev->power.usage_count));
-			usb_unregister_notify(&mdwc->host_nb);
-			return ret;
-		}
 
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 		mdwc->in_host_mode = true;
 		dwc3_usb3_phy_suspend(dwc, true);
 
@@ -3757,7 +3731,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-		dwc3_host_exit(dwc);
 		usb_unregister_notify(&mdwc->host_nb);
 
 		dwc3_usb3_phy_suspend(dwc, false);
@@ -4018,6 +3991,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				queue_delayed_work(mdwc->dwc3_wq,
 						&mdwc->sdp_check,
 				msecs_to_jiffies(SDP_CONNETION_CHECK_TIME));
+
 			/*
 			 * Increment pm usage count upon cable connect. Count
 			 * is decremented in OTG_STATE_B_PERIPHERAL state on
@@ -4099,6 +4073,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			work = 1;
 		} else {
 			mdwc->otg_state = OTG_STATE_A_HOST;
+
 			ret = dwc3_otg_start_host(mdwc, 1);
 			if ((ret == -EPROBE_DEFER) &&
 						mdwc->vbus_retry_count < 3) {
