@@ -81,6 +81,9 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	if (!ctx)
 		return -ENOMEM;
 
+	INIT_LIST_HEAD(&ctx->dmabuf_list);
+	mutex_init(&ctx->dmabuf_lock);
+
 	file->driver_priv = ctx;
 
 	return 0;
@@ -90,6 +93,17 @@ static void msm_preclose(struct drm_device *dev, struct drm_file *file)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_file_private *ctx = file->driver_priv;
+	struct msm_dmabuf *dmabuf, *pt;
+	struct dma_buf *dma_buf;
+
+	mutex_lock(&ctx->dmabuf_lock);
+	list_for_each_entry_safe(dmabuf, pt, &ctx->dmabuf_list, node) {
+		dma_buf = (struct dma_buf *)dmabuf->dma_id;
+		dma_buf_put(dma_buf);
+		list_del(&dmabuf->node);
+		kfree(dmabuf);
+	}
+	mutex_unlock(&ctx->dmabuf_lock);
 
 	mutex_lock(&dev->struct_mutex);
 	if (ctx == priv->lastctx)
@@ -138,7 +152,24 @@ struct event_req {
 	u64 user_data;
 };
 
-static size_t msm_drm_write(struct file *filp, const char __user *buffer,
+struct drm_msm_hyp_gem {
+	__u64 handle;
+	__u32 size;
+	__s32 fd;
+};
+
+#define DRM_MSM_HYP_GEM_GET            0x1
+#define DRM_MSM_HYP_GEM_PUT            0x2
+#define DRM_MSM_HYP_GEM_QRY            0x3
+
+#define DRM_IOCTL_MSM_HYP_GEM_GET\
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_HYP_GEM_GET, struct drm_msm_hyp_gem)
+#define DRM_IOCTL_MSM_HYP_GEM_PUT\
+	DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_HYP_GEM_PUT, struct drm_msm_hyp_gem)
+#define DRM_IOCTL_MSM_HYP_GEM_QRY\
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_HYP_GEM_QRY, struct drm_msm_hyp_gem)
+
+static ssize_t msm_drm_write(struct file *filp, const char __user *buffer,
 				size_t count, loff_t *offset)
 {
 	struct drm_file *file_priv = filp->private_data;
@@ -173,6 +204,108 @@ static size_t msm_drm_write(struct file *filp, const char __user *buffer,
 	return count;
 }
 
+static int msm_ioctl_gem_get(struct drm_device *dev, void *data,
+				 struct drm_file *file_priv)
+{
+	struct drm_msm_hyp_gem *args = data;
+	struct msm_file_private *ctx = file_priv->driver_priv;
+	struct msm_dmabuf *dmabuf;
+	struct dma_buf *dma_buf;
+	__u64 dma_id;
+	int found = 0;
+	int ret = 0;
+
+	dma_buf = dma_buf_get(args->fd);
+	if (IS_ERR(dma_buf))
+		return PTR_ERR(dma_buf);
+
+	dma_id = (__u64)dma_buf;
+
+	mutex_lock(&ctx->dmabuf_lock);
+	list_for_each_entry(dmabuf, &ctx->dmabuf_list, node) {
+		if (dma_id == dmabuf->dma_id) {
+			args->handle = dmabuf->dma_id;
+			args->size = dma_buf->size;
+			found = 1;
+			break;
+		}
+	}
+	mutex_unlock(&ctx->dmabuf_lock);
+
+	if (found)
+		goto exit;
+
+	dmabuf = kzalloc(sizeof(*dmabuf), GFP_KERNEL);
+	if (!dmabuf) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	dmabuf->dma_id = (__u64)dma_buf;
+
+	mutex_lock(&ctx->dmabuf_lock);
+	list_add(&dmabuf->node, &ctx->dmabuf_list);
+	mutex_unlock(&ctx->dmabuf_lock);
+
+	args->handle = dmabuf->dma_id;
+	args->size = dma_buf->size;
+	return 0;
+
+exit:
+	dma_buf_put(dma_buf);
+	return ret;
+}
+
+static int msm_ioctl_gem_query(struct drm_device *dev, void *data,
+				 struct drm_file *file_priv)
+{
+	struct drm_msm_hyp_gem *args = data;
+	struct msm_file_private *ctx = file_priv->driver_priv;
+	struct msm_dmabuf *dmabuf;
+	struct dma_buf *dma_buf;
+	int ret = -ENOENT;
+
+	args->size = 0;
+	mutex_lock(&ctx->dmabuf_lock);
+	list_for_each_entry(dmabuf, &ctx->dmabuf_list, node) {
+		if (args->handle == dmabuf->dma_id) {
+			dma_buf = (struct dma_buf *)dmabuf->dma_id;
+			if (dma_buf->file)
+				args->size = atomic_long_read(
+					&dma_buf->file->f_count);
+			ret = 0;
+			break;
+		}
+	}
+	mutex_unlock(&ctx->dmabuf_lock);
+
+	return ret;
+}
+
+static int msm_ioctl_gem_put(struct drm_device *dev, void *data,
+				 struct drm_file *file_priv)
+{
+	struct drm_msm_hyp_gem *args = data;
+	struct msm_file_private *ctx = file_priv->driver_priv;
+	struct msm_dmabuf *dmabuf;
+	struct dma_buf *dma_buf;
+	int ret = 0;
+
+	mutex_lock(&ctx->dmabuf_lock);
+	list_for_each_entry(dmabuf, &ctx->dmabuf_list, node) {
+		if (args->handle == dmabuf->dma_id) {
+			dma_buf = (struct dma_buf *)dmabuf->dma_id;
+			dma_buf_put(dma_buf);
+			list_del(&dmabuf->node);
+			kfree(dmabuf);
+			break;
+		}
+	}
+	mutex_unlock(&ctx->dmabuf_lock);
+
+	return ret;
+}
+
 static const struct file_operations fops = {
 	.owner              = THIS_MODULE,
 	.open               = drm_open,
@@ -184,6 +317,15 @@ static const struct file_operations fops = {
 	.llseek             = no_llseek,
 };
 
+static const struct drm_ioctl_desc msm_ioctls[] = {
+	DRM_IOCTL_DEF_DRV(MSM_HYP_GEM_GET,  msm_ioctl_gem_get,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_HYP_GEM_PUT,  msm_ioctl_gem_put,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_HYP_GEM_QRY,  msm_ioctl_gem_query,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+};
+
 static struct drm_driver msm_driver = {
 	.driver_features    = 0,
 	.load               = msm_load,
@@ -192,7 +334,8 @@ static struct drm_driver msm_driver = {
 	.preclose           = msm_preclose,
 	.set_busid          = drm_platform_set_busid,
 	.get_vblank_counter = drm_vblank_no_hw_counter,
-	.num_ioctls         = 0,
+	.ioctls             = msm_ioctls,
+	.num_ioctls         = ARRAY_SIZE(msm_ioctls),
 	.fops               = &fops,
 	.name               = "msm_drm_hyp",
 	.desc               = "MSM Snapdragon DRM",

@@ -28,15 +28,18 @@
 #include <linux/slab.h>
 #include <linux/sizes.h>
 #include <linux/kthread.h>
-
+#include <linux/dma-buf.h>
+#include <linux/atomic.h>
 #include <drm/drmP.h>
 
 struct msm_file_private {
-	/* currently we don't do anything useful with this.. but when
-	 * per-context address spaces are supported we'd keep track of
-	 * the context's page-tables here.
-	 */
-	int dummy;
+	struct list_head    dmabuf_list;
+	struct mutex        dmabuf_lock;
+};
+
+struct msm_dmabuf {
+	struct list_head    node;
+	__u64               dma_id;
 };
 
 enum msm_mdp_display_id {
