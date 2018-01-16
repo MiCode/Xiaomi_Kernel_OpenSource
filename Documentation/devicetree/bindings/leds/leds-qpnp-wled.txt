@@ -84,6 +84,9 @@ Optional properties for WLED:
 				  These codes will be mapped to the brightness
 				  level requested in the scale of 0-4095. Code
 				  entry is of 16 bit size.
+- qcom,wled-stepper-en	: A boolean property to specify if stepper algorithm
+			  needs to be enabled. This needs the brightness map
+			  table to be specified.
 
 Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.
