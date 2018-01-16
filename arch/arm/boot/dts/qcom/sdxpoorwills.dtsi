@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -770,6 +770,14 @@
 		priority = <0>;
 		mbox-desc-offset = <0x0>;
 		#mbox-cells = <1>;
+	};
+
+	usb_detect: qcom,gpio-usbdetect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0x0d 0x0 IRQ_TYPE_NONE>;
+		interrupt-names = "vbus_det_irq";
+		status = "disabled";
 	};
 };
 
