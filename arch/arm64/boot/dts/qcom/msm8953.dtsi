@@ -113,8 +113,9 @@
 		};
 
 		dfps_data_mem: dfps_data_mem@90000000 {
-		       reg = <0 0x90000000 0 0x1000>;
-		       label = "dfps_data_mem";
+			reg = <0 0x90000000 0 0x1000>;
+			label = "dfps_data_mem";
+			status = "disabled";
 		};
 
 		cont_splash_mem: splash_region@0x90001000 {
@@ -164,6 +165,8 @@
 #include "msm8953-ion.dtsi"
 #include "msm-arm-smmu-8953.dtsi"
 #include "msm8953-gpu.dtsi"
+#include "msm8953-mdss.dtsi"
+#include "msm8953-mdss-pll.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -649,6 +652,19 @@
 		qcom,apps-ch-pipes = <0x600000>;
 		qcom,ea-pc = <0x200>;
 		status = "disabled";
+	};
+
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,gcc-mdss-8953";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		clock-names = "pclk0_src", "pclk1_src",
+			"byte0_src", "byte1_src";
+		clocks = <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_mux>,
+			<&mdss_dsi1_pll clk_dsi1pll_pixel_clk_mux>,
+			<&mdss_dsi0_pll clk_dsi0pll_byte_clk_mux>,
+			<&mdss_dsi1_pll clk_dsi1pll_byte_clk_mux>;
+		#clock-cells = <1>;
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
