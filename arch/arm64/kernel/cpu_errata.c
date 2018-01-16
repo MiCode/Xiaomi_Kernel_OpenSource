@@ -589,6 +589,11 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 			   MIDR_CPU_VAR_REV(13, 14)),
 		.enable = enable_smccc_arch_workaround_1,
 	},
+	{
+		.capability = ARM64_HARDEN_BRANCH_PREDICTOR,
+		MIDR_ALL_VERSIONS(MIDR_KRYO2XX_GOLD),
+		.enable = enable_smccc_arch_workaround_1,
+	},
 #endif
 #ifdef CONFIG_ARM64_SSBD
 	{
