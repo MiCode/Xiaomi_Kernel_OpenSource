@@ -448,5 +448,91 @@
 				regulator-max-microvolt = <6000000>;
 			};
 		};
+
+		flash_led: qcom,leds@d300 {
+			compatible = "qcom,qpnp-flash-led-v2";
+			status = "okay";
+			reg = <0xd300 0x100>;
+			label = "flash";
+			interrupts = <0x3 0xd3 0x0 IRQ_TYPE_EDGE_RISING>,
+				     <0x3 0xd3 0x3 IRQ_TYPE_EDGE_RISING>,
+				     <0x3 0xd3 0x4 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "led-fault-irq",
+					  "all-ramp-down-done-irq",
+					  "all-ramp-up-done-irq";
+			qcom,short-circuit-det;
+			qcom,open-circuit-det;
+			qcom,vph-droop-det;
+			qcom,thermal-derate-en;
+			qcom,thermal-derate-current = <200 500 1000>;
+			qcom,isc-delay = <192>;
+			qcom,pmic-revid = <&pmi632_revid>;
+
+			pmi632_flash0: qcom,flash_0 {
+				label = "flash";
+				qcom,led-name = "led:flash_0";
+				qcom,max-current = <1500>;
+				qcom,default-led-trigger = "flash0_trigger";
+				qcom,id = <0>;
+				qcom,current-ma = <1000>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <400>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmi632_flash1: qcom,flash_1 {
+				label = "flash";
+				qcom,led-name = "led:flash_1";
+				qcom,max-current = <1500>;
+				qcom,default-led-trigger = "flash1_trigger";
+				qcom,id = <1>;
+				qcom,current-ma = <1000>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <400>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmi632_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch0_trigger";
+				qcom,id = <0>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <400>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmi632_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch1_trigger";
+				qcom,id = <1>;
+				qcom,current-ma = <300>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <400>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmi632_switch0: qcom,led_switch_0 {
+				label = "switch";
+				qcom,led-name = "led:switch_0";
+				qcom,led-mask = <3>;
+				qcom,default-led-trigger = "switch0_trigger";
+			};
+
+			pmi632_switch1: qcom,led_switch_1 {
+				label = "switch";
+				qcom,led-name = "led:switch_1";
+				qcom,led-mask = <2>;
+				qcom,default-led-trigger = "switch1_trigger";
+			};
+
+		};
+
 	};
 };
