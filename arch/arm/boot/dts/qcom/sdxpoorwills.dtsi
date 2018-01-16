@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,7 +67,7 @@
 		#address-cells = <1>;
 
 		CPU0: cpu@0 {
-			device-type = "cpu";
+			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0x0>;
 			#cooling-cells = <2>;
