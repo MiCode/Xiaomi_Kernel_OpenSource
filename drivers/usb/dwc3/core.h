@@ -606,6 +606,9 @@
 #define DWC3_OSTS_VBUSVLD		BIT(1)
 #define DWC3_OSTS_CONIDSTS		BIT(0)
 
+#define DWC_CTRL_COUNT	10
+#define NUM_LOG_PAGES	12
+
 /* Structures */
 
 struct dwc3_trb;
@@ -1033,6 +1036,8 @@ struct dwc3_scratchpad_array {
  * @imod_interval: set the interrupt moderation interval in 250ns
  *                 increments or 0 to disable.
  * @xhci_imod_value: imod value to use with xhci
+ * @index: dwc3's instance number
+ * @dwc_ipc_log_ctxt: dwc3 ipc log context
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1223,6 +1228,9 @@ struct dwc3 {
 
 	u16			imod_interval;
 	u32			xhci_imod_value;
+
+	unsigned int		index;
+	void			*dwc_ipc_log_ctxt;
 };
 
 #define INCRX_BURST_MODE 0
