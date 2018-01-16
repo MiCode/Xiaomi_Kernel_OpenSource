@@ -52,6 +52,8 @@ struct dwc3;
 
 #define to_dwc3_request(r)	(container_of(r, struct dwc3_request, request))
 
+irqreturn_t dwc3_interrupt(int irq, void *_dwc);
+void dwc3_bh_work(struct work_struct *w);
 /**
  * next_request - gets the next request on the given list
  * @list: the request list to operate on
@@ -79,6 +81,14 @@ static inline void dwc3_gadget_move_started_request(struct dwc3_request *req)
 	list_move_tail(&req->list, &dep->started_list);
 }
 
+static inline enum dwc3_link_state dwc3_get_link_state(struct dwc3 *dwc)
+{
+	u32 reg;
+
+	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
+	return DWC3_DSTS_USBLNKST(reg);
+}
+
 void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		int status);
 
@@ -90,6 +100,17 @@ int dwc3_gadget_ep0_set_halt(struct usb_ep *ep, int value);
 int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 		gfp_t gfp_flags);
 int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol);
+void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force);
+void dwc3_ep_inc_enq(struct dwc3_ep *dep);
+void dwc3_ep_inc_deq(struct dwc3_ep *dep);
+
+static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
+		struct dwc3_trb *trb)
+{
+	u32 offset = (char *) trb - (char *) dep->trb_pool;
+
+	return dep->trb_pool_dma + offset;
+}
 
 /**
  * dwc3_gadget_ep_get_transfer_index - Gets transfer index from HW
