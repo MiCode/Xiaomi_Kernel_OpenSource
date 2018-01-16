@@ -137,6 +137,7 @@ static int pktzr_send_pkt(void *payload, uint32_t size, void *rsp,
 	INIT_LIST_HEAD(&pnode->list);
 	pr_debug("ppriv->token = %d\n", ppriv->token);
 	list_add_tail(&pnode->list, &ppriv->ch_list);
+	mutex_unlock(&ppriv->pktzr_lock);
 
 	if (cmd == PKTZR_CMD_DATA)
 		rc = bg_cdc_glink_write(ppriv->ch_info[1], pkt_hdr, pkt_size);
@@ -150,7 +151,6 @@ static int pktzr_send_pkt(void *payload, uint32_t size, void *rsp,
 
 	if (sync_cmd) {
 		pr_debug("%s: command sent waiting!\n", __func__);
-		mutex_unlock(&ppriv->pktzr_lock);
 		rc = wait_for_completion_timeout(&ppriv->thread_complete,
 						 MSM_BG_THREAD_TIMEOUT);
 		if (!rc) {
@@ -168,10 +168,12 @@ static int pktzr_send_pkt(void *payload, uint32_t size, void *rsp,
 exit:
 	/* Free memory */
 	kfree(pkt_hdr);
+	mutex_lock(&ppriv->pktzr_lock);
 	if (pnode) {
 		list_del(&pnode->list);
 		kfree(pnode);
 	}
+	mutex_unlock(&ppriv->pktzr_lock);
 	return rc;
 }
 
