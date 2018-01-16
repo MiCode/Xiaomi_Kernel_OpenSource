@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -875,6 +875,30 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 		}
 		break;
+	case CFG_CCI_POWER_UP:
+		if (s_ctrl->is_csid_tg_mode)
+			goto DONE;
+
+		rc = msm_camera_cci_power_up(s_ctrl->sensor_device_type,
+			s_ctrl->sensor_i2c_client);
+		if (rc < 0) {
+			pr_err("%s:%d failed rc %d\n", __func__,
+				__LINE__, rc);
+			break;
+		}
+		break;
+	case CFG_CCI_POWER_DOWN:
+		if (s_ctrl->is_csid_tg_mode)
+			goto DONE;
+
+		rc = msm_camera_cci_power_down(s_ctrl->sensor_device_type,
+			s_ctrl->sensor_i2c_client);
+		if (rc < 0) {
+			pr_err("%s:%d failed rc %d\n", __func__,
+				__LINE__, rc);
+			break;
+		}
+		break;
 	case CFG_SET_STOP_STREAM_SETTING: {
 		struct msm_camera_i2c_reg_setting32 stop_setting32;
 		struct msm_camera_i2c_reg_setting *stop_setting =
@@ -1361,6 +1385,32 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void *argp)
 				s_ctrl->sensor_state);
 		} else {
 			rc = -EFAULT;
+		}
+		break;
+
+	case CFG_CCI_POWER_UP:
+		if (s_ctrl->is_csid_tg_mode)
+			goto DONE;
+
+		rc = msm_camera_cci_power_up(s_ctrl->sensor_device_type,
+			s_ctrl->sensor_i2c_client);
+		if (rc < 0) {
+			pr_err("%s:%d failed rc %d\n", __func__,
+				__LINE__, rc);
+			break;
+		}
+		break;
+
+	case CFG_CCI_POWER_DOWN:
+		if (s_ctrl->is_csid_tg_mode)
+			goto DONE;
+
+		rc = msm_camera_cci_power_down(s_ctrl->sensor_device_type,
+			s_ctrl->sensor_i2c_client);
+		if (rc < 0) {
+			pr_err("%s:%d failed rc %d\n", __func__,
+				__LINE__, rc);
+			break;
 		}
 		break;
 

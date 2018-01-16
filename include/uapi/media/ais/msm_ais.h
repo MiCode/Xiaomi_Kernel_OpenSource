@@ -52,6 +52,7 @@
 #define MSM_CAMERA_SUBDEV_IR_LED       18
 #define MSM_CAMERA_SUBDEV_IR_CUT       19
 #define MSM_CAMERA_SUBDEV_EXT          20
+#define MSM_CAMERA_SUBDEV_AIS_MNGR     21
 
 #define MSM_MAX_CAMERA_SENSORS  5
 

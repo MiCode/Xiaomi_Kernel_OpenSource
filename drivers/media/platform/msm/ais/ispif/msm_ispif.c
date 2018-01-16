@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1437,13 +1437,6 @@ static int msm_ispif_init(struct ispif_device *ispif,
 			return -ENOMEM;
 	}
 
-	rc = cam_config_ahb_clk(NULL, 0,
-			CAM_AHB_CLIENT_ISPIF, CAM_AHB_SVS_VOTE);
-	if (rc < 0) {
-		pr_err("%s: failed to vote for AHB\n", __func__);
-		return rc;
-	}
-
 	rc = msm_ispif_reset_hw(ispif);
 	if (rc)
 		goto error_ahb;
@@ -1608,6 +1601,11 @@ static int ispif_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		rc = msm_camera_enable_irq(ispif->irq, 1);
 		if (rc)
 			goto irq_enable_fail;
+
+		/* Disable ispif clk and allow device to go XO shutdown */
+		msm_ispif_clk_ahb_enable(ispif, 0);
+		msm_ispif_set_regulators(ispif->ispif_vdd,
+					ispif->ispif_vdd_count, 0);
 	}
 	/* mem remap is done in init when the clock is on */
 	ispif->open_cnt++;
@@ -1640,6 +1638,10 @@ static int ispif_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	}
 	ispif->open_cnt--;
 	if (ispif->open_cnt == 0) {
+		/* Enable ispif clk to wake up from XO shutdown mode */
+		msm_ispif_clk_ahb_enable(ispif, 1);
+		msm_ispif_set_regulators(ispif->ispif_vdd,
+					ispif->ispif_vdd_count, 1);
 		msm_ispif_release(ispif);
 		/* disable clocks and regulator on last close */
 		msm_ispif_clk_ahb_enable(ispif, 0);
