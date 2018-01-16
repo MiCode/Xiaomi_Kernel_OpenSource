@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,10 +14,9 @@
 #include <dt-bindings/msm/power-on.h>
 
 &spmi_bus {
-
 	qcom,pmi8940@2 {
-		spmi-slave-container;
-		reg = <0x2>;
+		compatible ="qcom,spmi-pmic";
+		reg = <0x2 SPMI_USID>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
@@ -45,7 +44,7 @@
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interrupts = <0x2 0x31 0x0>;
+			interrupts = <0x2 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
@@ -141,35 +140,19 @@
 		};
 
 		pmi8940_mpps: mpps {
-			spmi-dev-container;
-			compatible = "qcom,qpnp-pin";
+			compatible = "qcom,spmi-mpp";
+			reg = <0xa000 0x400>;
+			interrupts = <0x2 0xa0 0 IRQ_TYPE_NONE>,
+				     <0x2 0xa1 0 IRQ_TYPE_NONE>,
+				     <0x2 0xa2 0 IRQ_TYPE_NONE>,
+				     <0x2 0xa3 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pmi8940_mpp1", "pmi8940_mpp2",
+					  "pmi8940_mpp3", "pmi8940_mpp4";
 			gpio-controller;
 			#gpio-cells = <2>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			label = "pmi8940-mpp";
-
-			mpp@a000 {
-				reg = <0xa000 0x100>;
-				qcom,pin-num = <1>;
-				status = "disabled";
-			};
-
-			mpp@a100 {
-				reg = <0xa100 0x100>;
-				qcom,pin-num = <2>;
-				status = "disabled";
-			};
-
-			mpp@a300 {
-				reg = <0xa300 0x100>;
-				qcom,pin-num = <4>;
-				status = "disabled";
-			};
 		};
 
 		pmi8940_charger: qcom,qpnp-smbcharger {
-			spmi-dev-container;
 			compatible = "qcom,qpnp-smbcharger";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -188,14 +171,14 @@
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
-				interrupts =	<0x2 0x10 0x0>,
-						<0x2 0x10 0x1>,
-						<0x2 0x10 0x2>,
-						<0x2 0x10 0x3>,
-						<0x2 0x10 0x4>,
-						<0x2 0x10 0x5>,
-						<0x2 0x10 0x6>,
-						<0x2 0x10 0x7>;
+				interrupts =	<0x2 0x10 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x10 0x1 IRQ_TYPE_NONE>,
+						<0x2 0x10 0x2 IRQ_TYPE_NONE>,
+						<0x2 0x10 0x3 IRQ_TYPE_NONE>,
+						<0x2 0x10 0x4 IRQ_TYPE_NONE>,
+						<0x2 0x10 0x5 IRQ_TYPE_NONE>,
+						<0x2 0x10 0x6 IRQ_TYPE_NONE>,
+						<0x2 0x10 0x7 IRQ_TYPE_NONE>;
 
 				interrupt-names =	"chg-error",
 							"chg-inhibit",
@@ -209,9 +192,9 @@
 
 			qcom,otg@1100 {
 				reg = <0x1100 0x100>;
-				interrupts =	<0x2 0x11 0x0>,
-						<0x2 0x11 0x1>,
-						<0x2 0x11 0x3>;
+				interrupts =	<0x2 0x11 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x11 0x1 IRQ_TYPE_NONE>,
+						<0x2 0x11 0x3 IRQ_TYPE_NONE>;
 				interrupt-names =	"otg-fail",
 							"otg-oc",
 						"usbid-change";
@@ -219,14 +202,14 @@
 
 			qcom,bat-if@1200 {
 				reg = <0x1200 0x100>;
-				interrupts =	<0x2 0x12 0x0>,
-						<0x2 0x12 0x1>,
-						<0x2 0x12 0x2>,
-						<0x2 0x12 0x3>,
-					<0x2 0x12 0x4>,
-						<0x2 0x12 0x5>,
-						<0x2 0x12 0x6>,
-						<0x2 0x12 0x7>;
+				interrupts =	<0x2 0x12 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x12 0x1 IRQ_TYPE_NONE>,
+						<0x2 0x12 0x2 IRQ_TYPE_NONE>,
+						<0x2 0x12 0x3 IRQ_TYPE_NONE>,
+						<0x2 0x12 0x4 IRQ_TYPE_NONE>,
+						<0x2 0x12 0x5 IRQ_TYPE_NONE>,
+						<0x2 0x12 0x6 IRQ_TYPE_NONE>,
+						<0x2 0x12 0x7 IRQ_TYPE_NONE>;
 
 				interrupt-names =	"batt-hot",
 							"batt-warm",
@@ -240,10 +223,10 @@
 
 			qcom,usb-chgpth@1300 {
 				reg = <0x1300 0x100>;
-				interrupts =	<0x2 0x13 0x0>,
-						<0x2 0x13 0x1>,
-					<0x2 0x13 0x2>,
-						<0x2 0x13 0x5>;
+				interrupts =	<0x2 0x13 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x13 0x1 IRQ_TYPE_NONE>,
+						<0x2 0x13 0x2 IRQ_TYPE_NONE>,
+						<0x2 0x13 0x5 IRQ_TYPE_NONE>;
 
 				interrupt-names =	"usbin-uv",
 						"usbin-ov",
@@ -253,20 +236,20 @@
 
 			qcom,dc-chgpth@1400 {
 				reg = <0x1400 0x100>;
-				interrupts =	<0x2 0x14 0x0>,
-						<0x2 0x14 0x1>;
+				interrupts =	<0x2 0x14 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x14 0x1 IRQ_TYPE_NONE>;
 				interrupt-names =	"dcin-uv",
 							"dcin-ov";
 			};
 
 			qcom,chgr-misc@1600 {
 				reg = <0x1600 0x100>;
-				interrupts =	<0x2 0x16 0x0>,
-						<0x2 0x16 0x1>,
-						<0x2 0x16 0x2>,
-					<0x2 0x16 0x3>,
-						<0x2 0x16 0x4>,
-						<0x2 0x16 0x5>;
+				interrupts =	<0x2 0x16 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x16 0x1 IRQ_TYPE_NONE>,
+						<0x2 0x16 0x2 IRQ_TYPE_NONE>,
+						<0x2 0x16 0x3 IRQ_TYPE_NONE>,
+						<0x2 0x16 0x4 IRQ_TYPE_NONE>,
+						<0x2 0x16 0x5 IRQ_TYPE_NONE>;
 
 				interrupt-names =	"power-ok",
 							"temp-shutdown",
@@ -282,7 +265,6 @@
 		};
 
 		pmi8940_fg: qcom,fg {
-			spmi-dev-container;
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -300,13 +282,13 @@
 			qcom,fg-soc@4000 {
 			status = "okay";
 				reg = <0x4000 0x100>;
-				interrupts =	<0x2 0x40 0x0>,
-						<0x2 0x40 0x1>,
-						<0x2 0x40 0x2>,
-						<0x2 0x40 0x3>,
-						<0x2 0x40 0x4>,
-						<0x2 0x40 0x5>,
-						<0x2 0x40 0x6>;
+				interrupts =	<0x2 0x40 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x40 0x1 IRQ_TYPE_NONE>,
+						<0x2 0x40 0x2 IRQ_TYPE_NONE>,
+						<0x2 0x40 0x3 IRQ_TYPE_NONE>,
+						<0x2 0x40 0x4 IRQ_TYPE_NONE>,
+						<0x2 0x40 0x5 IRQ_TYPE_NONE>,
+						<0x2 0x40 0x6 IRQ_TYPE_NONE>;
 
 				interrupt-names =	"high-soc",
 							"low-soc",
@@ -319,14 +301,14 @@
 
 			qcom,fg-batt@4100 {
 				reg = <0x4100 0x100>;
-				interrupts =	<0x2 0x41 0x0>,
-						<0x2 0x41 0x1>,
-					<0x2 0x41 0x2>,
-						<0x2 0x41 0x3>,
-						<0x2 0x41 0x4>,
-						<0x2 0x41 0x5>,
-						<0x2 0x41 0x6>,
-						<0x2 0x41 0x7>;
+				interrupts =	<0x2 0x41 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x41 0x1 IRQ_TYPE_NONE>,
+						<0x2 0x41 0x2 IRQ_TYPE_NONE>,
+						<0x2 0x41 0x3 IRQ_TYPE_NONE>,
+						<0x2 0x41 0x4 IRQ_TYPE_NONE>,
+						<0x2 0x41 0x5 IRQ_TYPE_NONE>,
+						<0x2 0x41 0x6 IRQ_TYPE_NONE>,
+						<0x2 0x41 0x7 IRQ_TYPE_NONE>;
 
 				interrupt-names =	"soft-cold",
 							"soft-hot",
@@ -345,8 +327,8 @@
 			qcom,fg-memif@4400 {
 				status = "okay";
 				reg = <0x4400 0x100>;
-				interrupts =	<0x2 0x44 0x0>,
-						<0x2 0x44 0x2>;
+				interrupts =	<0x2 0x44 0x0 IRQ_TYPE_NONE>,
+						<0x2 0x44 0x2 IRQ_TYPE_NONE>;
 
 				interrupt-names =	"mem-avail",
 							"data-rcvry-sug";
@@ -357,8 +339,8 @@
 			compatible = "qcom,msm-bcl";
 			reg = <0x4200 0xff>;
 			reg-names = "fg_user_adc";
-			interrupts = <0x2 0x42 0x0>,
-					<0x2 0x42 0x1>;
+			interrupts = <0x2 0x42 0x0 IRQ_TYPE_NONE>,
+				     <0x2 0x42 0x1 IRQ_TYPE_NONE>;
 			interrupt-names = "bcl-high-ibat-int",
 					"bcl-low-vbat-int";
 			qcom,vbat-scaling-factor = <39000>;
@@ -381,8 +363,8 @@
 	};
 
 	qcom,pmi8940@3 {
-		spmi-slave-container;
-		reg = <0x3>;
+		compatible ="qcom,spmi-pmic";
+		reg = <0x3 SPMI_USID>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
@@ -398,10 +380,10 @@
 
 		labibb: qpnp-labibb-regulator {
 			status = "disabled";
-			spmi-dev-container;
 			compatible = "qcom,qpnp-labibb-regulator";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			qcom,qpnp-labibb-mode = "lcd";
 			qcom,pmic-revid = <&pmi8940_revid>;
 
 			ibb_regulator: qcom,ibb@dc00 {
@@ -475,7 +457,7 @@
 				<0xd900 0x100>;
 			reg-names = "qpnp-wled-ctrl-base",
 					"qpnp-wled-sink-base";
-			interrupts = <0x3 0xd8 0x2>;
+			interrupts = <0x3 0xd8 0x2 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "sc-irq";
 			status = "okay";
 			linux,name = "wled";
@@ -495,6 +477,7 @@
 			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,pmic-revid = <&pmi8940_revid>;
 			qcom,cons-sync-write-delay-us = <1000>;
 		};
 
@@ -581,8 +564,8 @@
 		pmi_haptic: qcom,haptic@c000 {
 			compatible = "qcom,qpnp-haptic";
 			reg = <0xc000 0x100>;
-			interrupts = <0x3 0xc0 0x0>,
-				<0x3 0xc0 0x1>;
+			interrupts = <0x3 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x3 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
 			interrupt-names = "sc-irq", "play-irq";
 			qcom,pmic-revid = <&pmi8940_revid>;
 			vcc_pon-supply = <&pon_perph_reg>;
