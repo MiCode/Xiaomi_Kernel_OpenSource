@@ -606,7 +606,7 @@ static int do_tlb_conf_fault(unsigned long addr,
 				unsigned int esr,
 				struct pt_regs *regs)
 {
-#define SCM_TLB_CONFLICT_CMD	0x1B
+#define SCM_TLB_CONFLICT_CMD	0x1F
 	struct scm_desc desc = {
 		.args[0] = addr,
 		.arginfo = SCM_ARGS(1),
