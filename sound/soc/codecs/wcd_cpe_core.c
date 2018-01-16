@@ -337,6 +337,14 @@ static int wcd_cpe_load_each_segment(struct wcd_cpe_core *core,
 		goto done;
 	}
 
+	if (phdr->p_filesz != split_fw->size) {
+		dev_err(core->dev,
+			"%s: %s size mismatch, phdr_size: 0x%x fw_size: 0x%zx",
+			__func__, split_fname, phdr->p_filesz, split_fw->size);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	segment->cpe_addr = phdr->p_paddr;
 	segment->size = phdr->p_filesz;
 	segment->data = (u8 *) split_fw->data;
