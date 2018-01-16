@@ -54,6 +54,10 @@
 #define MEMCOLOR_MEM_SIZE ((sizeof(struct drm_msm_memcol)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
 
+#define QSEED3_MEM_SIZE (sizeof(struct sde_hw_scaler3_cfg) + \
+			(450 * sizeof(u32)) + \
+			REG_DMA_HEADERS_BUFFER_SZ)
+
 #define REG_MASK(n) ((BIT(n)) - 1)
 #define REG_MASK_SHIFT(n, shift) ((REG_MASK(n)) << (shift))
 #define REG_DMA_VIG_GAMUT_OP_MASK 0x300
@@ -65,6 +69,26 @@
 #define DMA_1D_LUT_IGC_LEN 128
 #define DMA_1D_LUT_GC_LEN 128
 #define DMA_1D_LUT_IGC_DITHER_OFF 0x408
+
+#define QSEED3_DE_OFFSET 0x24
+#define QSEED3_COEF_LUT_OFF                    0x100
+#define QSEED3_FILTERS                     5
+#define QSEED3_LUT_REGIONS                 4
+#define QSEED3_CIRCULAR_LUTS               9
+#define QSEED3_SEPARABLE_LUTS              10
+#define QSEED3_LUT_SIZE                    60
+#define QSEED3_DIR_LUT_SIZE                (200 * sizeof(u32))
+#define QSEED3_CIR_LUT_SIZE \
+	(QSEED3_LUT_SIZE * QSEED3_CIRCULAR_LUTS * sizeof(u32))
+#define QSEED3_SEP_LUT_SIZE \
+	(QSEED3_LUT_SIZE * QSEED3_SEPARABLE_LUTS * sizeof(u32))
+#define QSEED3_COEF_LUT_SWAP_BIT           0
+#define QSEED3_COEF_LUT_DIR_BIT            1
+#define QSEED3_COEF_LUT_Y_CIR_BIT          2
+#define QSEED3_COEF_LUT_UV_CIR_BIT         3
+#define QSEED3_COEF_LUT_Y_SEP_BIT          4
+#define QSEED3_COEF_LUT_UV_SEP_BIT         5
+#define QSEED3_COEF_LUT_CTRL_OFF               0x4C
 
 static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
 static struct sde_reg_dma_buffer *sspp_buf[REG_DMA_FEATURES_MAX][SSPP_MAX];
@@ -89,6 +113,7 @@ static u32 sspp_feature_map[SDE_SSPP_MAX] = {
 	[SDE_SSPP_VIG_GAMUT] = GAMUT,
 	[SDE_SSPP_DMA_IGC] = IGC,
 	[SDE_SSPP_DMA_GC] = GC,
+	[SDE_SSPP_SCALER_QSEED3] = QSEED,
 };
 
 static u32 feature_reg_dma_sz[SDE_DSPP_MAX] = {
@@ -107,6 +132,7 @@ static u32 sspp_feature_reg_dma_sz[SDE_SSPP_MAX] = {
 	[SDE_SSPP_VIG_GAMUT] = GAMUT_LUT_MEM_SIZE,
 	[SDE_SSPP_DMA_IGC] = IGC_LUT_MEM_SIZE,
 	[SDE_SSPP_DMA_GC] = GC_LUT_MEM_SIZE,
+	[SDE_SSPP_SCALER_QSEED3] = QSEED3_MEM_SIZE,
 };
 
 static u32 dspp_mapping[DSPP_MAX] = {
@@ -2190,4 +2216,291 @@ int reg_dmav1_deinit_sspp_ops(enum sde_sspp idx)
 		sspp_buf[i][idx] = NULL;
 	}
 	return 0;
+}
+
+static void reg_dmav1_setup_scaler3_lut(struct sde_reg_dma_setup_ops_cfg *buf,
+		struct sde_hw_scaler3_cfg *scaler3_cfg, u32 offset)
+{
+	int i, filter, rc;
+	int config_lut = 0x0;
+	unsigned long lut_flags;
+	u32 lut_addr, lut_offset, lut_len;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	u32 *lut[QSEED3_FILTERS] = {NULL, NULL, NULL, NULL, NULL};
+	static const uint32_t off_tbl[QSEED3_FILTERS][QSEED3_LUT_REGIONS][2] = {
+		{{18, 0x000}, {12, 0x120}, {12, 0x1E0}, {8, 0x2A0} },
+		{{6, 0x320}, {3, 0x3E0}, {3, 0x440}, {3, 0x4A0} },
+		{{6, 0x500}, {3, 0x5c0}, {3, 0x620}, {3, 0x680} },
+		{{6, 0x380}, {3, 0x410}, {3, 0x470}, {3, 0x4d0} },
+		{{6, 0x560}, {3, 0x5f0}, {3, 0x650}, {3, 0x6b0} },
+	};
+
+	dma_ops = sde_reg_dma_get_ops();
+	lut_flags = (unsigned long) scaler3_cfg->lut_flag;
+	if (test_bit(QSEED3_COEF_LUT_DIR_BIT, &lut_flags) &&
+		(scaler3_cfg->dir_len == QSEED3_DIR_LUT_SIZE)) {
+		lut[0] = scaler3_cfg->dir_lut;
+		config_lut = 1;
+	}
+	if (test_bit(QSEED3_COEF_LUT_Y_CIR_BIT, &lut_flags) &&
+		(scaler3_cfg->y_rgb_cir_lut_idx < QSEED3_CIRCULAR_LUTS) &&
+		(scaler3_cfg->cir_len == QSEED3_CIR_LUT_SIZE)) {
+		lut[1] = scaler3_cfg->cir_lut +
+			scaler3_cfg->y_rgb_cir_lut_idx * QSEED3_LUT_SIZE;
+		config_lut = 1;
+	}
+	if (test_bit(QSEED3_COEF_LUT_UV_CIR_BIT, &lut_flags) &&
+		(scaler3_cfg->uv_cir_lut_idx < QSEED3_CIRCULAR_LUTS) &&
+		(scaler3_cfg->cir_len == QSEED3_CIR_LUT_SIZE)) {
+		lut[2] = scaler3_cfg->cir_lut +
+			scaler3_cfg->uv_cir_lut_idx * QSEED3_LUT_SIZE;
+		config_lut = 1;
+	}
+	if (test_bit(QSEED3_COEF_LUT_Y_SEP_BIT, &lut_flags) &&
+		(scaler3_cfg->y_rgb_sep_lut_idx < QSEED3_SEPARABLE_LUTS) &&
+		(scaler3_cfg->sep_len == QSEED3_SEP_LUT_SIZE)) {
+		lut[3] = scaler3_cfg->sep_lut +
+			scaler3_cfg->y_rgb_sep_lut_idx * QSEED3_LUT_SIZE;
+		config_lut = 1;
+	}
+	if (test_bit(QSEED3_COEF_LUT_UV_SEP_BIT, &lut_flags) &&
+		(scaler3_cfg->uv_sep_lut_idx < QSEED3_SEPARABLE_LUTS) &&
+		(scaler3_cfg->sep_len == QSEED3_SEP_LUT_SIZE)) {
+		lut[4] = scaler3_cfg->sep_lut +
+			scaler3_cfg->uv_sep_lut_idx * QSEED3_LUT_SIZE;
+		config_lut = 1;
+	}
+
+	for (filter = 0; filter < QSEED3_FILTERS && config_lut; filter++) {
+		if (!lut[filter])
+			continue;
+		lut_offset = 0;
+		for (i = 0; i < QSEED3_LUT_REGIONS; i++) {
+			lut_addr = QSEED3_COEF_LUT_OFF + offset
+				+ off_tbl[filter][i][1];
+			lut_len = off_tbl[filter][i][0] << 2;
+			REG_DMA_SETUP_OPS(*buf, lut_addr,
+				&lut[filter][0], lut_len * sizeof(u32),
+				REG_BLK_WRITE_SINGLE, 0, 0, 0);
+			rc = dma_ops->setup_payload(buf);
+			if (rc) {
+				DRM_ERROR("lut write failed ret %d\n", rc);
+				return;
+			}
+		}
+	}
+
+	if (test_bit(QSEED3_COEF_LUT_SWAP_BIT, &lut_flags)) {
+		i = BIT(0);
+		REG_DMA_SETUP_OPS(*buf, QSEED3_COEF_LUT_CTRL_OFF + offset, &i,
+				sizeof(i), REG_SINGLE_WRITE, 0, 0, 0);
+		rc = dma_ops->setup_payload(buf);
+		if (rc)
+			DRM_ERROR("lut write failed ret %d\n", rc);
+			return;
+	}
+
+}
+
+static int reg_dmav1_setup_scaler3_de(struct sde_reg_dma_setup_ops_cfg *buf,
+	struct sde_hw_scaler3_de_cfg *de_cfg, u32 offset)
+{
+	u32 de_config[7];
+	struct sde_hw_reg_dma_ops *dma_ops;
+	int rc;
+
+	dma_ops = sde_reg_dma_get_ops();
+	de_config[0] = (de_cfg->sharpen_level1 & 0x1FF) |
+		((de_cfg->sharpen_level2 & 0x1FF) << 16);
+
+	de_config[1] = ((de_cfg->limit & 0xF) << 9) |
+		((de_cfg->prec_shift & 0x7) << 13) |
+		((de_cfg->clip & 0x7) << 16);
+
+	de_config[2] = (de_cfg->thr_quiet & 0xFF) |
+		((de_cfg->thr_dieout & 0x3FF) << 16);
+
+	de_config[3] = (de_cfg->thr_low & 0x3FF) |
+		((de_cfg->thr_high & 0x3FF) << 16);
+
+	de_config[4] = (de_cfg->adjust_a[0] & 0x3FF) |
+		((de_cfg->adjust_a[1] & 0x3FF) << 10) |
+		((de_cfg->adjust_a[2] & 0x3FF) << 20);
+
+	de_config[5] = (de_cfg->adjust_b[0] & 0x3FF) |
+		((de_cfg->adjust_b[1] & 0x3FF) << 10) |
+		((de_cfg->adjust_b[2] & 0x3FF) << 20);
+
+	de_config[6] = (de_cfg->adjust_c[0] & 0x3FF) |
+		((de_cfg->adjust_c[1] & 0x3FF) << 10) |
+		((de_cfg->adjust_c[2] & 0x3FF) << 20);
+
+	offset += QSEED3_DE_OFFSET;
+	REG_DMA_SETUP_OPS(*buf, offset,
+		de_config, sizeof(de_config), REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(buf);
+	if (rc) {
+		DRM_ERROR("de write failed ret %d\n", rc);
+		return rc;
+	}
+	return 0;
+}
+
+void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
+	struct sde_hw_pipe_cfg *sspp, struct sde_hw_pixel_ext *pe,
+	void *scaler_cfg)
+{
+	struct sde_hw_scaler3_cfg *scaler3_cfg = scaler_cfg;
+	int rc;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_cp_cfg hw_cfg = {};
+	u32 op_mode = 0, offset;
+	u32 preload, src_y_rgb, src_uv, dst;
+	u32 cache[4];
+
+	if (!ctx || !pe || !scaler_cfg) {
+		DRM_ERROR("invalid params ctx %pK pe %pK scaler_cfg %pK",
+			ctx, pe, scaler_cfg);
+		return;
+	}
+
+	hw_cfg.ctl = ctx->ctl;
+	hw_cfg.payload = scaler_cfg;
+	hw_cfg.len = sizeof(*scaler3_cfg);
+	rc = reg_dma_sspp_check(ctx, &hw_cfg, QSEED);
+	if (rc || !sspp) {
+		DRM_ERROR("invalid params rc %d sspp %pK\n", rc, sspp);
+		return;
+	}
+
+	offset = ctx->catalog->sspp[ctx->idx].sblk->scaler_blk.base -
+		REG_DMA_VIG_SWI_DIFF;
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(sspp_buf[QSEED][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], QSEED,
+	    sspp_buf[QSEED][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	if (!scaler3_cfg->enable)
+		goto end;
+
+	op_mode = BIT(0);
+	op_mode |= (scaler3_cfg->y_rgb_filter_cfg & 0x3) << 16;
+
+	if (sspp->layout.format && SDE_FORMAT_IS_YUV(sspp->layout.format)) {
+		op_mode |= BIT(12);
+		op_mode |= (scaler3_cfg->uv_filter_cfg & 0x3) << 24;
+	}
+
+	op_mode |= (scaler3_cfg->blend_cfg & 1) << 31;
+	op_mode |= (scaler3_cfg->dir_en) ? BIT(4) : 0;
+
+	preload =
+		((scaler3_cfg->preload_x[0] & 0x7F) << 0) |
+		((scaler3_cfg->preload_y[0] & 0x7F) << 8) |
+		((scaler3_cfg->preload_x[1] & 0x7F) << 16) |
+		((scaler3_cfg->preload_y[1] & 0x7F) << 24);
+
+	src_y_rgb = (scaler3_cfg->src_width[0] & 0xFFFF) |
+		((scaler3_cfg->src_height[0] & 0xFFFF) << 16);
+
+	src_uv = (scaler3_cfg->src_width[1] & 0xFFFF) |
+		((scaler3_cfg->src_height[1] & 0xFFFF) << 16);
+
+	dst = (scaler3_cfg->dst_width & 0xFFFF) |
+		((scaler3_cfg->dst_height & 0xFFFF) << 16);
+
+	if (scaler3_cfg->de.enable) {
+		rc = reg_dmav1_setup_scaler3_de(&dma_write_cfg,
+			&scaler3_cfg->de, offset);
+		if (!rc)
+			op_mode |= BIT(8);
+	}
+
+	if (scaler3_cfg->lut_flag)
+		reg_dmav1_setup_scaler3_lut(&dma_write_cfg, scaler3_cfg,
+					offset);
+
+	cache[0] = scaler3_cfg->init_phase_x[0] & 0x1FFFFF;
+	cache[1] = scaler3_cfg->init_phase_y[0] & 0x1FFFFF;
+	cache[2] = scaler3_cfg->init_phase_x[1] & 0x1FFFFF;
+	cache[3] = scaler3_cfg->init_phase_y[1] & 0x1FFFFF;
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		offset + 0x90, cache, sizeof(cache),
+		REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting phase failed ret %d\n", rc);
+		return;
+	}
+
+	cache[0] = scaler3_cfg->phase_step_x[0] & 0xFFFFFF;
+	cache[1] = scaler3_cfg->phase_step_y[0] & 0xFFFFFF;
+	cache[2] = scaler3_cfg->phase_step_x[1] & 0xFFFFFF;
+	cache[3] = scaler3_cfg->phase_step_y[1] & 0xFFFFFF;
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		offset + 0x10, cache, sizeof(cache),
+		REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting phase failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		offset + 0x20, &preload, sizeof(u32),
+		REG_SINGLE_WRITE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting preload failed ret %d\n", rc);
+		return;
+	}
+
+	cache[0] = src_y_rgb;
+	cache[1] = src_uv;
+	cache[2] = dst;
+
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		offset + 0x40, cache, 3 * sizeof(u32),
+		REG_BLK_WRITE_SINGLE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting sizes failed ret %d\n", rc);
+		return;
+	}
+
+end:
+	if (sspp->layout.format) {
+		if (SDE_FORMAT_IS_DX(sspp->layout.format))
+			op_mode |= BIT(14);
+		if (sspp->layout.format->alpha_enable) {
+			op_mode |= BIT(10);
+			op_mode |= (scaler3_cfg->alpha_filter_cfg & 0x3) << 29;
+		}
+	}
+
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		offset + 0x4,
+		&op_mode, sizeof(op_mode), REG_SINGLE_WRITE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting opmode failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg.ctl, sspp_buf[QSEED][ctx->idx],
+			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+
 }

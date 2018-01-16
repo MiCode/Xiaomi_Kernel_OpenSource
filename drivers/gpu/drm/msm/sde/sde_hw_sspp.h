@@ -588,6 +588,7 @@ struct sde_hw_pipe {
 
 	/* Ops */
 	struct sde_hw_sspp_ops ops;
+	struct sde_hw_ctl *ctl;
 };
 
 /**

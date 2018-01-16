@@ -161,7 +161,7 @@ static struct sde_kms *_sde_plane_get_kms(struct drm_plane *plane)
 	return to_sde_kms(priv->kms);
 }
 
-static struct sde_hw_ctl *_sde_plane_get_hw_ctl(struct drm_plane *plane)
+static struct sde_hw_ctl *_sde_plane_get_hw_ctl(const struct drm_plane *plane)
 {
 	struct drm_plane_state *pstate = NULL;
 	struct drm_crtc *drm_crtc = NULL;
@@ -1619,12 +1619,13 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 		if (psde->pipe_hw->ops.setup_pe)
 			psde->pipe_hw->ops.setup_pe(psde->pipe_hw,
 					&pstate->pixel_ext);
-
 		if (psde->pipe_hw->ops.setup_scaler &&
-				pstate->multirect_index != SDE_SSPP_RECT_1)
+				pstate->multirect_index != SDE_SSPP_RECT_1) {
+			psde->pipe_hw->ctl = _sde_plane_get_hw_ctl(plane);
 			psde->pipe_hw->ops.setup_scaler(psde->pipe_hw,
 					&psde->pipe_cfg, &pstate->pixel_ext,
 					&pstate->scaler3_cfg);
+		}
 	}
 
 	return 0;
@@ -3885,10 +3886,12 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		 * ONLY for RECT0
 		 */
 		if (psde->pipe_hw->ops.setup_scaler &&
-				pstate->multirect_index != SDE_SSPP_RECT_1)
+				pstate->multirect_index != SDE_SSPP_RECT_1) {
+			psde->pipe_hw->ctl = _sde_plane_get_hw_ctl(plane);
 			psde->pipe_hw->ops.setup_scaler(psde->pipe_hw,
 					&psde->pipe_cfg, &pstate->pixel_ext,
 					&pstate->scaler3_cfg);
+		}
 
 		/* update excl rect */
 		if (psde->pipe_hw->ops.setup_excl_rect)

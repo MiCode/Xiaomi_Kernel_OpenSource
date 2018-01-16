@@ -162,6 +162,18 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 			enum sde_sspp_multirect_index idx);
 
 /**
+ * reg_dmav1_setup_vig_qseed3 - Qseed3 implementation using reg dma v1.
+ * @ctx: sspp ctx info
+ * @sspp: pointer to sspp hw config
+ * @pe: pointer to pixel extension config
+ * @scaler_cfg: pointer to scaler config
+ */
+
+void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
+	struct sde_hw_pipe_cfg *sspp, struct sde_hw_pixel_ext *pe,
+	void *scaler_cfg);
+
+/**
  * reg_dmav1_deinit_sspp_ops() - deinitialize the sspp feature op for sde v4
  *                               which were initialized.
  * @idx: sspp idx
