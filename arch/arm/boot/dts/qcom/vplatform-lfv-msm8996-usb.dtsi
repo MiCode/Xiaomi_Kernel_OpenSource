@@ -184,16 +184,16 @@
 					<87 512 0 0>,
 					<87 512 60000 960000>;
 
-		clocks = <&clock_gcc clk_gcc_usb20_master_clk>,
-			 <&clock_gcc clk_gcc_periph_noc_usb20_ahb_clk>,
-			 <&clock_gcc clk_gcc_usb20_mock_utmi_clk>,
-			 <&clock_gcc clk_gcc_usb20_sleep_clk>,
+		clocks = <&clock_virt clk_gcc_usb20_master_clk>,
+			 <&clock_virt clk_gcc_periph_noc_usb20_ahb_clk>,
+			 <&clock_virt clk_gcc_usb20_mock_utmi_clk>,
+			 <&clock_virt clk_gcc_usb20_sleep_clk>,
 			 <&clock_gcc clk_cxo_dwc3_clk>,
-			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>;
+			 <&clock_virt clk_gcc_usb_phy_cfg_ahb2phy_clk>;
 		clock-names = "core_clk", "iface_clk", "utmi_clk", "sleep_clk",
 				"xo", "cfg_ahb_clk";
 		qcom,core-clk-rate = <60000000>;
-		resets = <&clock_gcc USB_20_BCR>;
+		resets = <&clock_virt USB_20_BCR>;
 		reset-names = "core_reset";
 		qcom,disable-host-mode-pm;
 
@@ -274,11 +274,11 @@
 		qcom,major-rev = <1>;
 		qcom,hold-reset;
 
-		clocks = <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+		clocks = <&clock_virt clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			<&clock_gcc clk_ln_bb_clk>;
 		clock-names = "cfg_ahb_clk", "ref_clk_src";
 
-		resets = <&clock_gcc QUSB2PHY_SEC_BCR>;
+		resets = <&clock_virt QUSB2PHY_SEC_BCR>;
 		reset-names = "phy_reset";
 	};
 
