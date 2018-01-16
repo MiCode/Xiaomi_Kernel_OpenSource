@@ -1187,18 +1187,6 @@ country US: DFS-FCC
 	(5250 - 5330 @ 80), (24), DFS, AUTO-BW
 	(5490 - 5730 @ 160), (24), DFS
 	(5735 - 5835 @ 80), (30)
-	# 5.9ghz band
-	# reference: https://apps.fcc.gov/edocs_public/attachmatch/FCC-03-324A1.pdf
-	(5842 - 5863 @  5), (30)
-	(5850 - 5870 @ 10), (30)
-	(5860 - 5880 @ 10), (30)
-	(5865 - 5885 @ 20), (30)
-	(5870 - 5890 @ 10), (30)
-	(5880 - 5900 @ 10), (30)
-	(5890 - 5910 @ 10), (30)
-	(5895 - 5915 @ 20), (30)
-	(5900 - 5920 @ 10), (30)
-	(5910 - 5930 @ 10), (30)
 	# 60g band
 	# reference: http://cfr.regstoday.com/47cfr15.aspx#47_CFR_15p255
 	# channels 1,2,3,4,5,6 EIRP=40dBm(43dBm peak)
