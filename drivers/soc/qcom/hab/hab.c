@@ -867,12 +867,19 @@ static long hab_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+static long hab_compat_ioctl(struct file *filep, unsigned int cmd,
+	unsigned long arg)
+{
+	return hab_ioctl(filep, cmd, arg);
+}
+
 static const struct file_operations hab_fops = {
 	.owner = THIS_MODULE,
 	.open = hab_open,
 	.release = hab_release,
 	.mmap = habmem_imp_hyp_mmap,
-	.unlocked_ioctl = hab_ioctl
+	.unlocked_ioctl = hab_ioctl,
+	.compat_ioctl = hab_compat_ioctl
 };
 
 /*
