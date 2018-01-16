@@ -721,7 +721,7 @@ alloc_fail:
 }
 
 
-void cam_hfi_deinit(void __iomem *icp_base)
+void cam_hfi_deinit(void)
 {
 	mutex_lock(&hfi_cmd_q_mutex);
 	mutex_lock(&hfi_msg_q_mutex);
@@ -733,9 +733,6 @@ void cam_hfi_deinit(void __iomem *icp_base)
 
 	g_hfi->cmd_q_state = false;
 	g_hfi->msg_q_state = false;
-
-	cam_io_w((uint32_t)ICP_INIT_REQUEST_RESET,
-		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
 
 	cam_io_w((uint32_t)INTR_DISABLE,
 		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);

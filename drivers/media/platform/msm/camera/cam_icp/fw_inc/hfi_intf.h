@@ -110,8 +110,7 @@ void cam_hfi_disable_cpu(void __iomem *icp_base);
 /**
  * cam_hfi_deinit() - cleanup HFI
  */
-void cam_hfi_deinit(void __iomem *icp_base);
-
+void cam_hfi_deinit(void);
 /**
  * hfi_set_debug_level() - set debug level
  * @lvl: FW debug message level
