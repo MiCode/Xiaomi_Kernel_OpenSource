@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@ struct adreno_sysfs_attribute adreno_attr_##_name = { \
 
 #define _ADRENO_SYSFS_ATTR_RO(_name, __show) \
 struct adreno_sysfs_attribute adreno_attr_##_name = { \
-	.attr = __ATTR(_name, 0644, __show, NULL), \
+	.attr = __ATTR(_name, 0444, __show, NULL), \
 	.show = _ ## _name ## _show, \
 	.store = NULL, \
 }
