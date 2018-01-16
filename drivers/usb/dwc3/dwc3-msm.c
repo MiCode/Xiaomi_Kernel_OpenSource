@@ -14,7 +14,6 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/cpu.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
@@ -65,11 +64,6 @@
 
 /* AHB2PHY read/write waite value */
 #define ONE_READ_WRITE_WAIT 0x11
-
-/* cpu to fix usb interrupt */
-static int cpu_to_affin;
-module_param(cpu_to_affin, int, 0644);
-MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 
 /* XHCI registers */
 #define USB3_HCSPARAMS1		(0x4)
@@ -229,7 +223,6 @@ struct dwc3_msm {
 	unsigned int		tx_fifo_size;
 	bool			vbus_active;
 	bool			suspend;
-	bool			disable_host_mode_pm;
 	bool			use_pdc_interrupts;
 	enum dwc3_id_state	id_state;
 	unsigned long		lpm_flags;
@@ -237,8 +230,6 @@ struct dwc3_msm {
 #define MDWC3_ASYNC_IRQ_WAKE_CAPABILITY	BIT(1)
 #define MDWC3_POWER_COLLAPSE		BIT(2)
 
-	unsigned int		irq_to_affin;
-	struct notifier_block	dwc3_cpu_notifier;
 	struct notifier_block	usbdev_nb;
 	bool			hc_died;
 	/* for usb connector either type-C or microAB */
@@ -1675,48 +1666,6 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 	return ret;
 }
 
-static void dwc3_msm_update_ref_clk(struct dwc3_msm *mdwc)
-{
-	u32 guctl, gfladj = 0;
-
-	guctl = dwc3_msm_read_reg(mdwc->base, DWC3_GUCTL);
-	guctl &= ~DWC3_GUCTL_REFCLKPER;
-
-	/* GFLADJ register is used starting with revision 2.50a */
-	if (dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID) >= DWC3_REVISION_250A) {
-		gfladj = dwc3_msm_read_reg(mdwc->base, DWC3_GFLADJ);
-		gfladj &= ~DWC3_GFLADJ_REFCLK_240MHZDECR_PLS1;
-		gfladj &= ~DWC3_GFLADJ_REFCLK_240MHZ_DECR;
-		gfladj &= ~DWC3_GFLADJ_REFCLK_LPM_SEL;
-		gfladj &= ~DWC3_GFLADJ_REFCLK_FLADJ;
-	}
-
-	/* Refer to SNPS Databook Table 6-55 for calculations used */
-	switch (mdwc->utmi_clk_rate) {
-	case 19200000:
-		guctl |= 52 << __ffs(DWC3_GUCTL_REFCLKPER);
-		gfladj |= 12 << __ffs(DWC3_GFLADJ_REFCLK_240MHZ_DECR);
-		gfladj |= DWC3_GFLADJ_REFCLK_240MHZDECR_PLS1;
-		gfladj |= DWC3_GFLADJ_REFCLK_LPM_SEL;
-		gfladj |= 200 << __ffs(DWC3_GFLADJ_REFCLK_FLADJ);
-		break;
-	case 24000000:
-		guctl |= 41 << __ffs(DWC3_GUCTL_REFCLKPER);
-		gfladj |= 10 << __ffs(DWC3_GFLADJ_REFCLK_240MHZ_DECR);
-		gfladj |= DWC3_GFLADJ_REFCLK_LPM_SEL;
-		gfladj |= 2032 << __ffs(DWC3_GFLADJ_REFCLK_FLADJ);
-		break;
-	default:
-		dev_warn(mdwc->dev, "Unsupported utmi_clk_rate: %u\n",
-				mdwc->utmi_clk_rate);
-		break;
-	}
-
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL, guctl);
-	if (gfladj)
-		dwc3_msm_write_reg(mdwc->base, DWC3_GFLADJ, gfladj);
-}
-
 /* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
 static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 {
@@ -1804,7 +1753,6 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 				& ~PIPE_UTMI_CLK_DIS);
 		}
 
-		dwc3_msm_update_ref_clk(mdwc);
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
 		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
@@ -2706,22 +2654,6 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int dwc3_cpu_notifier_cb(struct notifier_block *nfb,
-		unsigned long action, void *hcpu)
-{
-	uint32_t cpu = (uintptr_t)hcpu;
-	struct dwc3_msm *mdwc =
-			container_of(nfb, struct dwc3_msm, dwc3_cpu_notifier);
-
-	if (cpu == cpu_to_affin && action == CPU_ONLINE) {
-		pr_debug("%s: cpu online:%u irq:%d\n", __func__,
-				cpu_to_affin, mdwc->irq_to_affin);
-		irq_set_affinity(mdwc->irq_to_affin, get_cpu_mask(cpu));
-	}
-
-	return NOTIFY_OK;
-}
-
 static void dwc3_otg_sm_work(struct work_struct *w);
 
 static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
@@ -3195,10 +3127,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct dwc3_msm *mdwc;
 	struct dwc3	*dwc;
 	struct resource *res;
-	void __iomem *tcsr;
 	bool host_mode;
 	int ret = 0, i;
-	int ext_hub_reset_gpio;
 	u32 val;
 	unsigned long irq_type;
 
@@ -3281,25 +3211,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcsr_base");
-	if (!res) {
-		dev_dbg(&pdev->dev, "missing TCSR memory resource\n");
-	} else {
-		tcsr = devm_ioremap_nocache(&pdev->dev, res->start,
-			resource_size(res));
-		if (IS_ERR_OR_NULL(tcsr)) {
-			dev_dbg(&pdev->dev, "tcsr ioremap failed\n");
-		} else {
-			/* Enable USB3 on the primary USB port. */
-			writel_relaxed(0x1, tcsr);
-			/*
-			 * Ensure that TCSR write is completed before
-			 * USB registers initialization.
-			 */
-			mb();
-		}
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "core_base");
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
@@ -3362,29 +3273,11 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	ext_hub_reset_gpio = of_get_named_gpio(node,
-					"qcom,ext-hub-reset-gpio", 0);
-
-	if (gpio_is_valid(ext_hub_reset_gpio)
-		&& (!devm_gpio_request(&pdev->dev, ext_hub_reset_gpio,
-			"qcom,ext-hub-reset-gpio"))) {
-		/* reset external hub */
-		gpio_direction_output(ext_hub_reset_gpio, 1);
-		/*
-		 * Hub reset should be asserted for minimum 5microsec
-		 * before deasserting.
-		 */
-		usleep_range(5, 1000);
-		gpio_direction_output(ext_hub_reset_gpio, 0);
-	}
-
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",
 				 &mdwc->tx_fifo_size))
 		dev_err(&pdev->dev,
 			"unable to read platform data tx fifo size\n");
 
-	mdwc->disable_host_mode_pm = of_property_read_bool(node,
-				"qcom,disable-host-mode-pm");
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
 	dwc3_set_notifier(&dwc3_msm_notify_event);
@@ -3451,12 +3344,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get dwc3 device\n");
 		goto put_dwc3;
 	}
-
-	mdwc->irq_to_affin = platform_get_irq(mdwc->dwc3, 0);
-	mdwc->dwc3_cpu_notifier.notifier_call = dwc3_cpu_notifier_cb;
-
-	if (cpu_to_affin)
-		register_cpu_notifier(&mdwc->dwc3_cpu_notifier);
 
 	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
 				&mdwc->num_gsi_event_buffers);
@@ -3573,9 +3460,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_mode);
 	if (mdwc->usb_psy)
 		power_supply_put(mdwc->usb_psy);
-
-	if (cpu_to_affin)
-		unregister_cpu_notifier(&mdwc->dwc3_cpu_notifier);
 
 	/*
 	 * In case of system suspend, pm_runtime_get_sync fails.
@@ -3835,14 +3719,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			usb_unregister_notify(&mdwc->host_nb);
 			return ret;
 		}
-
-		/*
-		 * In some cases it is observed that USB PHY is not going into
-		 * suspend with host mode suspend functionality. Hence disable
-		 * XHCI's runtime PM here if disable_host_mode_pm is set.
-		 */
-		if (mdwc->disable_host_mode_pm)
-			pm_runtime_disable(&dwc->xhci->dev);
 
 		mdwc->in_host_mode = true;
 		dwc3_usb3_phy_suspend(dwc, true);
