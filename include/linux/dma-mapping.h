@@ -111,12 +111,7 @@
  * accessible at an elevated privilege level (and ideally inaccessible or
  * at least read-only at lesser-privileged levels).
  */
-#define DMA_ATTR_PRIVILEGED		(1UL << 9)
-
-/*
- * DMA_ATTR_SKIP_ZEROING: Do not zero mapping.
- */
-#define DMA_ATTR_SKIP_ZEROING		(1UL << 10)
+#define DMA_ATTR_PRIVILEGED		(1UL << 17)
 
 #define DMA_ERROR_CODE       (~(dma_addr_t)0)
 
