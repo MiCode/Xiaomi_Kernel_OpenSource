@@ -376,7 +376,7 @@ static void tx_func(struct kthread_work *work);
 
 static struct channel_ctx *ch_name_to_ch_ctx_create(
 					struct glink_core_xprt_ctx *xprt_ctx,
-					const char *name);
+					const char *name, bool local);
 
 static void ch_push_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 					uint32_t riid, void *cookie);
@@ -1836,13 +1836,14 @@ static void glink_ch_ctx_release(struct rwref_lock *ch_st_lock)
  *                              it is not found and get reference of context.
  * @xprt_ctx:	Transport to search for a matching channel.
  * @name:	Name of the desired channel.
+ * @local:	If called from local open or not
  *
  * Return: The channel corresponding to @name, NULL if a matching channel was
  *         not found AND a new channel could not be created.
  */
 static struct channel_ctx *ch_name_to_ch_ctx_create(
 					struct glink_core_xprt_ctx *xprt_ctx,
-					const char *name)
+					const char *name, bool local)
 {
 	struct channel_ctx *entry;
 	struct channel_ctx *ctx;
@@ -1886,10 +1887,23 @@ check_ctx:
 	list_for_each_entry_safe(entry, temp, &xprt_ctx->channels,
 		    port_list_node)
 		if (!strcmp(entry->name, name) && !entry->pending_delete) {
+			rwref_get(&entry->ch_state_lhb2);
+			/* port already exists */
+			if (entry->local_open_state != GLINK_CHANNEL_CLOSED
+								&& local) {
+				/* not ready to be re-opened */
+				GLINK_INFO_CH_XPRT(entry, xprt_ctx,
+					"%s: Ch not ready. State: %u\n",
+					__func__, entry->local_open_state);
+				rwref_put(&entry->ch_state_lhb2);
+				entry = NULL;
+			} else if (local) {
+				entry->local_open_state =
+						GLINK_CHANNEL_OPENING;
+			}
 			spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1,
 					flags);
 			kfree(ctx);
-			rwref_get(&entry->ch_state_lhb2);
 			rwref_write_put(&xprt_ctx->xprt_state_lhb0);
 			return entry;
 		}
@@ -1919,6 +1933,8 @@ check_ctx:
 
 		ctx->transport_ptr = xprt_ctx;
 		rwref_get(&ctx->ch_state_lhb2);
+		if (local)
+			ctx->local_open_state = GLINK_CHANNEL_OPENING;
 		list_add_tail(&ctx->port_list_node, &xprt_ctx->channels);
 
 		GLINK_INFO_PERF_CH_XPRT(ctx, xprt_ctx,
@@ -2604,21 +2620,11 @@ void *glink_open(const struct glink_open_config *cfg)
 	 * look for an existing port structure which can occur in
 	 * reopen and remote-open-first cases
 	 */
-	ctx = ch_name_to_ch_ctx_create(transport_ptr, cfg->name);
+	ctx = ch_name_to_ch_ctx_create(transport_ptr, cfg->name, true);
 	if (ctx == NULL) {
 		GLINK_ERR("%s:%s %s: Error - unable to allocate new channel\n",
 				cfg->transport, cfg->edge, __func__);
 		return ERR_PTR(-ENOMEM);
-	}
-
-	/* port already exists */
-	if (ctx->local_open_state != GLINK_CHANNEL_CLOSED) {
-		/* not ready to be re-opened */
-		GLINK_INFO_CH_XPRT(ctx, transport_ptr,
-		"%s: Channel not ready to be re-opened. State: %u\n",
-		__func__, ctx->local_open_state);
-		rwref_put(&ctx->ch_state_lhb2);
-		return ERR_PTR(-EBUSY);
 	}
 
 	/* initialize port structure */
@@ -2651,7 +2657,6 @@ void *glink_open(const struct glink_open_config *cfg)
 	ctx->local_xprt_req = best_id;
 	ctx->no_migrate = cfg->transport &&
 				!(cfg->options & GLINK_OPT_INITIAL_XPORT);
-	ctx->local_open_state = GLINK_CHANNEL_OPENING;
 	GLINK_INFO_PERF_CH(ctx,
 		"%s: local:GLINK_CHANNEL_CLOSED->GLINK_CHANNEL_OPENING\n",
 		__func__);
@@ -4912,7 +4917,7 @@ static void glink_core_rx_cmd_ch_remote_open(struct glink_transport_if *if_ptr,
 	bool do_migrate;
 
 	glink_core_migration_edge_lock(if_ptr->glink_core_priv);
-	ctx = ch_name_to_ch_ctx_create(if_ptr->glink_core_priv, name);
+	ctx = ch_name_to_ch_ctx_create(if_ptr->glink_core_priv, name, false);
 	if (ctx == NULL) {
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
 		       "%s: invalid rcid %u received, name '%s'\n",
@@ -5015,6 +5020,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 	struct channel_ctx *ctx;
 	bool is_ch_fully_closed;
 	struct glink_core_xprt_ctx *xprt_ptr = if_ptr->glink_core_priv;
+	unsigned long flags;
 
 	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
@@ -5032,11 +5038,13 @@ static void glink_core_rx_cmd_ch_remote_close(
 		rwref_put(&ctx->ch_state_lhb2);
 		return;
 	}
+	spin_lock_irqsave(&ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
+	ctx->pending_delete = true;
+	spin_unlock_irqrestore(&ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
 	GLINK_INFO_CH(ctx, "%s: remote: OPENED->CLOSED\n", __func__);
 
 	is_ch_fully_closed = glink_core_remote_close_common(ctx, false);
 
-	ctx->pending_delete = true;
 	if_ptr->tx_cmd_ch_remote_close_ack(if_ptr, rcid);
 
 	if (is_ch_fully_closed) {
