@@ -2391,6 +2391,7 @@
 	qcom,msm-adsprpc-mem {
 		compatible = "qcom,msm-adsprpc-mem-region";
 		memory-region = <&adsp_mem>;
+		restrict-access;
 	};
 
 	qcom,msm_fastrpc {
