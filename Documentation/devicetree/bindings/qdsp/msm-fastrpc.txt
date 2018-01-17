@@ -74,9 +74,11 @@ Remote Heap:
 Required properties:
 - compatible : Must be "qcom,msm-adsprpc-mem-region"
 - memory-region : CMA region which is owned by this device
+- restrict-access : Blocking vote for hyp_assign_phys function call
 
 Example:
        qcom,adsprpc-mem {
                compatible = "qcom,msm-adsprpc-mem-region";
                memory-region = <&adsp_mem>;
+               restrict-access;
        };
