@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,11 +17,11 @@
 #ifndef _RMNET_DATA_VND_H_
 #define _RMNET_DATA_VND_H_
 
-int rmnet_vnd_do_flow_control(struct net_device *dev,
-			      u32 map_flow_id,
-			      u16 v4_seq,
-			      u16 v6_seq,
-			      int enable);
+int rmnet_data_vnd_do_flow_control(struct net_device *dev,
+				   u32 map_flow_id,
+				   u16 v4_seq,
+				   u16 v6_seq,
+				   int enable);
 struct rmnet_logical_ep_conf_s *rmnet_vnd_get_le_config(struct net_device *dev);
 int rmnet_vnd_get_name(int id, char *name, int name_len);
 int rmnet_vnd_create_dev(int id, struct net_device **new_device,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -178,7 +178,7 @@ static rx_handler_result_t rmnet_bridge_handler
 		     skb->dev->name);
 		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_BRDG_NO_EGRESS);
 	} else {
-		rmnet_egress_handler(skb, ep);
+		rmnet_data_egress_handler(skb, ep);
 	}
 
 	return RX_HANDLER_CONSUMED;
@@ -425,7 +425,7 @@ static rx_handler_result_t _rmnet_map_ingress_handler
 	if (RMNET_MAP_GET_CD_BIT(skb)) {
 		if (config->ingress_data_format
 		    & RMNET_INGRESS_FORMAT_MAP_COMMANDS)
-			return rmnet_map_command(skb, config);
+			return rmnet_data_map_command(skb, config);
 
 		LOGM("MAP command packet on %s; %s", skb->dev->name,
 		     "Not configured for MAP commands");
@@ -452,7 +452,7 @@ static rx_handler_result_t _rmnet_map_ingress_handler
 
 	if ((config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3) ||
 	    (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV4)) {
-		ckresult = rmnet_map_checksum_downlink_packet(skb);
+		ckresult = rmnet_map_data_checksum_downlink_packet(skb);
 		trace_rmnet_map_checksum_downlink_packet(skb, ckresult);
 		rmnet_stats_dl_checksum(ckresult);
 		if (likely((ckresult == RMNET_MAP_CHECKSUM_OK) ||
@@ -498,9 +498,9 @@ static rx_handler_result_t rmnet_map_ingress_handler
 
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEAGGREGATION) {
 		trace_rmnet_start_deaggregation(skb);
-		while ((skbn = rmnet_map_deaggregate(skb, config)) != 0) {
+		while ((skbn = rmnet_data_map_deaggregate(skb, config)) != 0)
 			_rmnet_map_ingress_handler(skbn, config);
-		}
+
 		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPINGRESS_AGGBUF);
 		rc = RX_HANDLER_CONSUMED;
 	} else {
@@ -557,7 +557,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	}
 
 	if (csum_required) {
-		ckresult = rmnet_map_checksum_uplink_packet
+		ckresult = rmnet_map_data_checksum_uplink_packet
 				(skb, orig_dev, config->egress_data_format);
 		trace_rmnet_map_checksum_uplink_packet(orig_dev, ckresult);
 		rmnet_stats_ul_checksum(ckresult);
@@ -569,10 +569,10 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	if ((!(config->egress_data_format &
 	    RMNET_EGRESS_FORMAT_AGGREGATION)) || csum_required ||
 	    non_linear_skb)
-		map_header = rmnet_map_add_map_header
+		map_header = rmnet_data_map_add_map_header
 		(skb, additional_header_length, RMNET_MAP_NO_PAD_BYTES);
 	else
-		map_header = rmnet_map_add_map_header
+		map_header = rmnet_data_map_add_map_header
 		(skb, additional_header_length, RMNET_MAP_ADD_PAD_BYTES);
 
 	if (!map_header) {
@@ -684,7 +684,7 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 	return rc;
 }
 
-/* rmnet_rx_handler() - Rx handler callback registered with kernel
+/* rmnet_data_rx_handler() - Rx handler callback registered with kernel
  * @pskb: Packet to be processed by rx handler
  *
  * Standard kernel-expected footprint for rx handlers. Calls
@@ -693,12 +693,12 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
  * Return:
  *      - Whatever rmnet_ingress_handler() returns
  */
-rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
+rx_handler_result_t rmnet_data_rx_handler(struct sk_buff **pskb)
 {
 	return rmnet_ingress_handler(*pskb);
 }
 
-/* rmnet_egress_handler() - Egress handler entry point
+/* rmnet_data_egress_handler() - Egress handler entry point
  * @skb:        packet to transmit
  * @ep:         logical endpoint configuration of the packet originator
  *              (e.g.. RmNet virtual network device)
@@ -707,8 +707,8 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
  * for egress device configured in logical endpoint. Packet is then transmitted
  * on the egress device.
  */
-void rmnet_egress_handler(struct sk_buff *skb,
-			  struct rmnet_logical_ep_conf_s *ep)
+void rmnet_data_egress_handler(struct sk_buff *skb,
+			       struct rmnet_logical_ep_conf_s *ep)
 {
 	struct rmnet_phys_ep_config *config;
 	struct net_device *orig_dev;

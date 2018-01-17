@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,20 +132,22 @@ enum rmnet_map_agg_state_e {
 #define RMNET_MAP_ADD_PAD_BYTES       1
 
 uint8_t rmnet_map_demultiplex(struct sk_buff *skb);
-struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
-				      struct rmnet_phys_ep_config *config);
+struct sk_buff*
+rmnet_data_map_deaggregate(struct sk_buff *skb,
+			   struct rmnet_phys_ep_config *config);
 
-struct rmnet_map_header_s *rmnet_map_add_map_header(struct sk_buff *skb,
-						    int hdrlen, int pad);
-rx_handler_result_t rmnet_map_command(struct sk_buff *skb,
-				      struct rmnet_phys_ep_config *config);
+struct rmnet_map_header_s *rmnet_data_map_add_map_header(struct sk_buff *skb,
+							 int hdrlen, int pad);
+rx_handler_result_t
+rmnet_data_map_command(struct sk_buff *skb,
+		       struct rmnet_phys_ep_config *config);
 void rmnet_map_aggregate(struct sk_buff *skb,
 			 struct rmnet_phys_ep_config *config);
 
-int rmnet_map_checksum_downlink_packet(struct sk_buff *skb);
-int rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
-				     struct net_device *orig_dev,
-				     u32 egress_data_format);
+int rmnet_map_data_checksum_downlink_packet(struct sk_buff *skb);
+int rmnet_map_data_checksum_uplink_packet(struct sk_buff *skb,
+					  struct net_device *orig_dev,
+					  u32 egress_data_format);
 int rmnet_ul_aggregation_skip(struct sk_buff *skb, int offset);
 enum hrtimer_restart rmnet_map_flush_packet_queue(struct hrtimer *t);
 #endif /* _RMNET_MAP_H_ */

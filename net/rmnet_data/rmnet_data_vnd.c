@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,7 +128,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 						 dev,
 						 dev_conf->qos_version);
 		skb_orphan(skb);
-		rmnet_egress_handler(skb, &dev_conf->local_ep);
+		rmnet_data_egress_handler(skb, &dev_conf->local_ep);
 	} else {
 		dev->stats.tx_dropped++;
 		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_VND_NO_EGRESS);
@@ -956,7 +956,7 @@ int rmnet_vnd_del_tc_flow(u32 id, u32 map_flow, u32 tc_flow)
 	return rc;
 }
 
-/* rmnet_vnd_do_flow_control() - Process flow control request
+/* rmnet_data_vnd_do_flow_control() - Process flow control request
  * @dev: Virtual network device node to do lookup on
  * @map_flow_id: Flow ID from MAP message
  * @v4_seq: pointer to IPv4 indication sequence number
@@ -968,11 +968,11 @@ int rmnet_vnd_del_tc_flow(u32 id, u32 map_flow, u32 tc_flow)
  *      - 1 if no mapping is found
  *      - 2 if dev is not RmNet virtual network device node
  */
-int rmnet_vnd_do_flow_control(struct net_device *dev,
-			      u32 map_flow_id,
-			      u16 v4_seq,
-			      u16 v6_seq,
-			      int enable)
+int rmnet_data_vnd_do_flow_control(struct net_device *dev,
+				   u32 map_flow_id,
+				   u16 v4_seq,
+				   u16 v6_seq,
+				   int enable)
 {
 	struct rmnet_vnd_private_s *dev_conf;
 	struct rmnet_map_flow_mapping_s *itm;

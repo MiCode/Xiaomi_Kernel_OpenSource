@@ -15,9 +15,9 @@
 #ifndef _RMNET_DATA_HANDLERS_H_
 #define _RMNET_DATA_HANDLERS_H_
 
-void rmnet_egress_handler(struct sk_buff *skb,
-			  struct rmnet_logical_ep_conf_s *ep);
+void rmnet_data_egress_handler(struct sk_buff *skb,
+			       struct rmnet_logical_ep_conf_s *ep);
 
-rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb);
+rx_handler_result_t rmnet_data_rx_handler(struct sk_buff **pskb);
 
 #endif /* _RMNET_DATA_HANDLERS_H_ */
