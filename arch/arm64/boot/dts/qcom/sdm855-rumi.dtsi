@@ -32,11 +32,11 @@
 	};
 
 	timer {
-		clock-frequency = <96000>;
+		clock-frequency = <287000>;
 	};
 
 	timer@0x17c00000 {
-		clock-frequency = <96000>;
+		clock-frequency = <287000>;
 	};
 
 	qcom,icnss@18800000 {
