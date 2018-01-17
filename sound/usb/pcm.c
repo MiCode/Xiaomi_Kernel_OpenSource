@@ -150,6 +150,69 @@ static struct audioformat *find_format(struct snd_usb_substream *subs)
 	return found;
 }
 
+/*
+ * find a matching audio format as well as non-zero service interval
+ */
+static struct audioformat *find_format_and_si(struct snd_usb_substream *subs,
+	unsigned int datainterval)
+{
+	unsigned int i;
+	struct audioformat *fp;
+	struct audioformat *found = NULL;
+	int cur_attr = 0, attr;
+
+	list_for_each_entry(fp, &subs->fmt_list, list) {
+		if (datainterval != fp->datainterval)
+			continue;
+		if (!(fp->formats & pcm_format_to_bits(subs->pcm_format)))
+			continue;
+		if (fp->channels != subs->channels)
+			continue;
+		if (subs->cur_rate < fp->rate_min ||
+		    subs->cur_rate > fp->rate_max)
+			continue;
+		if (!(fp->rates & SNDRV_PCM_RATE_CONTINUOUS)) {
+			for (i = 0; i < fp->nr_rates; i++)
+				if (fp->rate_table[i] == subs->cur_rate)
+					break;
+			if (i >= fp->nr_rates)
+				continue;
+		}
+		attr = fp->ep_attr & USB_ENDPOINT_SYNCTYPE;
+		if (!found) {
+			found = fp;
+			cur_attr = attr;
+			continue;
+		}
+		/* avoid async out and adaptive in if the other method
+		 * supports the same format.
+		 * this is a workaround for the case like
+		 * M-audio audiophile USB.
+		 */
+		if (attr != cur_attr) {
+			if ((attr == USB_ENDPOINT_SYNC_ASYNC &&
+			     subs->direction == SNDRV_PCM_STREAM_PLAYBACK) ||
+			    (attr == USB_ENDPOINT_SYNC_ADAPTIVE &&
+			     subs->direction == SNDRV_PCM_STREAM_CAPTURE))
+				continue;
+			if ((cur_attr == USB_ENDPOINT_SYNC_ASYNC &&
+			     subs->direction == SNDRV_PCM_STREAM_PLAYBACK) ||
+			    (cur_attr == USB_ENDPOINT_SYNC_ADAPTIVE &&
+			     subs->direction == SNDRV_PCM_STREAM_CAPTURE)) {
+				found = fp;
+				cur_attr = attr;
+				continue;
+			}
+		}
+		/* find the format with the largest max. packet size */
+		if (fp->maxpacksize > found->maxpacksize) {
+			found = fp;
+			cur_attr = attr;
+		}
+	}
+	return found;
+}
+
 static int init_pitch_v1(struct snd_usb_audio *chip, int iface,
 			 struct usb_host_interface *alts,
 			 struct audioformat *fmt)
@@ -574,7 +637,7 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
 }
 
 int snd_usb_enable_audio_stream(struct snd_usb_substream *subs,
-	bool enable)
+	int datainterval, bool enable)
 {
 	struct audioformat *fmt;
 	struct usb_host_interface *alts;
@@ -594,7 +657,10 @@ int snd_usb_enable_audio_stream(struct snd_usb_substream *subs,
 	}
 
 	snd_usb_autoresume(subs->stream->chip);
-	fmt = find_format(subs);
+	if (datainterval != -EINVAL)
+		fmt = find_format_and_si(subs, datainterval);
+	else
+		fmt = find_format(subs);
 	if (!fmt) {
 		dev_err(&subs->dev->dev,
 		"cannot set format: format = %#x, rate = %d, channels = %d\n",
