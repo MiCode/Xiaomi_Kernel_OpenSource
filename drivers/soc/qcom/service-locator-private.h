@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,9 +14,7 @@
 #ifndef SERVICE_LOCATOR_V01_H
 #define SERVICE_LOCATOR_V01_H
 
-#include <linux/qmi_encdec.h>
-
-#include <soc/qcom/msm_qmi_interface.h>
+#include <linux/soc/qcom/qmi.h>
 #include <soc/qcom/service-locator.h>
 
 #define SERVREG_LOC_SERVICE_ID_V01 0x40
@@ -44,13 +42,13 @@ struct qmi_servreg_loc_indication_register_req_msg_v01 {
 	uint8_t enable_database_updated_indication;
 };
 #define QMI_SERVREG_LOC_INDICATION_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 4
-struct elem_info qmi_servreg_loc_indication_register_req_msg_v01_ei[];
+struct qmi_elem_info qmi_servreg_loc_indication_register_req_msg_v01_ei[];
 
 struct qmi_servreg_loc_indication_register_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
 #define QMI_SERVREG_LOC_INDICATION_REGISTER_RESP_MSG_V01_MAX_MSG_LEN 7
-struct elem_info qmi_servreg_loc_indication_register_resp_msg_v01_ei[];
+struct qmi_elem_info qmi_servreg_loc_indication_register_resp_msg_v01_ei[];
 
 struct qmi_servreg_loc_get_domain_list_req_msg_v01 {
 	char service_name[QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1];
@@ -58,7 +56,7 @@ struct qmi_servreg_loc_get_domain_list_req_msg_v01 {
 	uint32_t domain_offset;
 };
 #define QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_MSG_V01_MAX_MSG_LEN 74
-struct elem_info qmi_servreg_loc_get_domain_list_req_msg_v01_ei[];
+struct qmi_elem_info qmi_servreg_loc_get_domain_list_req_msg_v01_ei[];
 
 struct qmi_servreg_loc_get_domain_list_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
@@ -72,7 +70,7 @@ struct qmi_servreg_loc_get_domain_list_resp_msg_v01 {
 				domain_list[QMI_SERVREG_LOC_LIST_LENGTH_V01];
 };
 #define QMI_SERVREG_LOC_GET_DOMAIN_LIST_RESP_MSG_V01_MAX_MSG_LEN 2389
-struct elem_info qmi_servreg_loc_get_domain_list_resp_msg_v01_ei[];
+struct qmi_elem_info qmi_servreg_loc_get_domain_list_resp_msg_v01_ei[];
 
 struct qmi_servreg_loc_register_service_list_req_msg_v01 {
 	char domain_name[QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1];
@@ -81,19 +79,19 @@ struct qmi_servreg_loc_register_service_list_req_msg_v01 {
 				service_list[QMI_SERVREG_LOC_LIST_LENGTH_V01];
 };
 #define QMI_SERVREG_LOC_REGISTER_SERVICE_LIST_REQ_MSG_V01_MAX_MSG_LEN 2439
-struct elem_info qmi_servreg_loc_register_service_list_req_msg_v01_ei[];
+struct qmi_elem_info qmi_servreg_loc_register_service_list_req_msg_v01_ei[];
 
 struct qmi_servreg_loc_register_service_list_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 };
 #define QMI_SERVREG_LOC_REGISTER_SERVICE_LIST_RESP_MSG_V01_MAX_MSG_LEN 7
-struct elem_info qmi_servreg_loc_register_service_list_resp_msg_v01_ei[];
+struct qmi_elem_info qmi_servreg_loc_register_service_list_resp_msg_v01_ei[];
 
 struct qmi_servreg_loc_database_updated_ind_msg_v01 {
 	char placeholder;
 };
 #define QMI_SERVREG_LOC_DATABASE_UPDATED_IND_MSG_V01_MAX_MSG_LEN 0
-struct elem_info qmi_servreg_loc_database_updated_ind_msg_v01_ei[];
+struct qmi_elem_info qmi_servreg_loc_database_updated_ind_msg_v01_ei[];
 
 #define QMI_EOTI_DATA_TYPE	\
 {				\
@@ -106,7 +104,7 @@ struct elem_info qmi_servreg_loc_database_updated_ind_msg_v01_ei[];
 	.ei_array  = NULL,	\
 },
 
-static struct elem_info servreg_loc_entry_v01_ei[] = {
+static struct qmi_elem_info servreg_loc_entry_v01_ei[] = {
 	{
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1,
@@ -146,7 +144,7 @@ static struct elem_info servreg_loc_entry_v01_ei[] = {
 	QMI_EOTI_DATA_TYPE
 };
 
-struct elem_info qmi_servreg_loc_indication_register_req_msg_v01_ei[] = {
+struct qmi_elem_info qmi_servreg_loc_indication_register_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_OPT_FLAG,
 		.elem_len       = 1,
@@ -170,7 +168,7 @@ struct elem_info qmi_servreg_loc_indication_register_req_msg_v01_ei[] = {
 	QMI_EOTI_DATA_TYPE
 };
 
-struct elem_info qmi_servreg_loc_indication_register_resp_msg_v01_ei[] = {
+struct qmi_elem_info qmi_servreg_loc_indication_register_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -180,12 +178,12 @@ struct elem_info qmi_servreg_loc_indication_register_resp_msg_v01_ei[] = {
 		.offset         = offsetof(struct
 			qmi_servreg_loc_indication_register_resp_msg_v01,
 			resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	QMI_EOTI_DATA_TYPE
 };
 
-struct elem_info qmi_servreg_loc_get_domain_list_req_msg_v01_ei[] = {
+struct qmi_elem_info qmi_servreg_loc_get_domain_list_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1,
@@ -219,7 +217,7 @@ struct elem_info qmi_servreg_loc_get_domain_list_req_msg_v01_ei[] = {
 	QMI_EOTI_DATA_TYPE
 };
 
-struct elem_info qmi_servreg_loc_get_domain_list_resp_msg_v01_ei[] = {
+struct qmi_elem_info qmi_servreg_loc_get_domain_list_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -229,7 +227,7 @@ struct elem_info qmi_servreg_loc_get_domain_list_resp_msg_v01_ei[] = {
 		.offset         = offsetof(struct
 				qmi_servreg_loc_get_domain_list_resp_msg_v01,
 				resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_OPT_FLAG,
@@ -305,7 +303,7 @@ struct elem_info qmi_servreg_loc_get_domain_list_resp_msg_v01_ei[] = {
 	QMI_EOTI_DATA_TYPE
 };
 
-struct elem_info qmi_servreg_loc_register_service_list_req_msg_v01_ei[] = {
+struct qmi_elem_info qmi_servreg_loc_register_service_list_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1,
@@ -340,7 +338,7 @@ struct elem_info qmi_servreg_loc_register_service_list_req_msg_v01_ei[] = {
 	QMI_EOTI_DATA_TYPE
 };
 
-struct elem_info qmi_servreg_loc_register_service_list_resp_msg_v01_ei[] = {
+struct qmi_elem_info qmi_servreg_loc_register_service_list_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -350,12 +348,12 @@ struct elem_info qmi_servreg_loc_register_service_list_resp_msg_v01_ei[] = {
 		.offset         = offsetof(struct
 			qmi_servreg_loc_register_service_list_resp_msg_v01,
 			resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	QMI_EOTI_DATA_TYPE
 };
 
-struct elem_info qmi_servreg_loc_database_updated_ind_msg_v01_ei[] = {
+struct qmi_elem_info qmi_servreg_loc_database_updated_ind_msg_v01_ei[] = {
 	QMI_EOTI_DATA_TYPE
 };
 

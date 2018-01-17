@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 
-#include <soc/qcom/msm_qmi_interface.h>
+#include <linux/soc/qcom/qmi.h>
 #include <soc/qcom/service-locator.h>
 #include "service-locator-private.h"
 
@@ -43,21 +43,14 @@ static bool service_inited;
 
 module_param_named(enable, locator_status, uint, 0644);
 
-static void service_locator_svc_arrive(struct work_struct *work);
-static void service_locator_svc_exit(struct work_struct *work);
-static void service_locator_recv_msg(struct work_struct *work);
 static void pd_locator_work(struct work_struct *work);
 
-struct workqueue_struct *servloc_wq;
-
 struct pd_qmi_data {
-	struct work_struct svc_arrive;
-	struct work_struct svc_exit;
-	struct work_struct svc_rcv_msg;
 	struct notifier_block notifier;
 	struct completion service_available;
-	struct mutex service_mutex;
-	struct qmi_handle *clnt_handle;
+	struct qmi_handle clnt_handle;
+	bool connected;
+	struct sockaddr_qrtr s_addr;
 };
 
 struct pd_qmi_work {
@@ -70,92 +63,34 @@ struct pd_qmi_data service_locator;
 
 /* Please refer soc/qcom/service-locator.h for use about APIs defined here */
 
-static int service_locator_svc_event_notify(struct notifier_block *this,
-				      unsigned long code,
-				      void *_cmd)
-{
-	switch (code) {
-	case QMI_SERVER_ARRIVE:
-		queue_work(servloc_wq, &service_locator.svc_arrive);
-		break;
-	case QMI_SERVER_EXIT:
-		queue_work(servloc_wq, &service_locator.svc_exit);
-		break;
-	default:
-		break;
-	}
-	return 0;
-}
-
-static void service_locator_clnt_notify(struct qmi_handle *handle,
-			     enum qmi_event_type event, void *notify_priv)
-{
-	switch (event) {
-	case QMI_RECV_MSG:
-		schedule_work(&service_locator.svc_rcv_msg);
-		break;
-	default:
-		break;
-	}
-}
-
-static void service_locator_svc_arrive(struct work_struct *work)
+static int service_locator_new_server(struct qmi_handle *qmi,
+		struct qmi_service *svc)
 {
 	int rc = 0;
 
 	/* Create a Local client port for QMI communication */
-	mutex_lock(&service_locator.service_mutex);
-	service_locator.clnt_handle =
-			qmi_handle_create(service_locator_clnt_notify, NULL);
-	if (!service_locator.clnt_handle) {
-		service_locator.clnt_handle = NULL;
-		complete_all(&service_locator.service_available);
-		mutex_unlock(&service_locator.service_mutex);
-		pr_err("Service locator QMI client handle alloc failed!\n");
-		return;
-	}
-
-	/* Connect to service */
-	rc = qmi_connect_to_service(service_locator.clnt_handle,
-		SERVREG_LOC_SERVICE_ID_V01, SERVREG_LOC_SERVICE_VERS_V01,
-		SERVREG_LOC_SERVICE_INSTANCE_ID);
-	if (rc) {
-		qmi_handle_destroy(service_locator.clnt_handle);
-		service_locator.clnt_handle = NULL;
-		complete_all(&service_locator.service_available);
-		mutex_unlock(&service_locator.service_mutex);
-		pr_err("Unable to connnect to service rc:%d\n", rc);
-		return;
-	}
+	service_locator.s_addr.sq_family = AF_QIPCRTR;
+	service_locator.s_addr.sq_node = svc->node;
+	service_locator.s_addr.sq_port = svc->port;
+	service_locator.connected = true;
 	if (!service_inited)
 		complete_all(&service_locator.service_available);
-	mutex_unlock(&service_locator.service_mutex);
 	pr_info("Connection established with the Service locator\n");
+	return 0;
 }
 
-static void service_locator_svc_exit(struct work_struct *work)
+static void service_locator_del_server(struct qmi_handle *qmi,
+		struct qmi_service *svc)
 {
-	mutex_lock(&service_locator.service_mutex);
-	qmi_handle_destroy(service_locator.clnt_handle);
-	service_locator.clnt_handle = NULL;
+	service_locator.connected = false;
 	complete_all(&service_locator.service_available);
-	mutex_unlock(&service_locator.service_mutex);
 	pr_info("Connection with service locator lost\n");
 }
 
-static void service_locator_recv_msg(struct work_struct *work)
-{
-	int ret;
-
-	do {
-		pr_debug("Notified about a Receive event\n");
-		ret = qmi_recv_msg(service_locator.clnt_handle);
-		if (ret < 0)
-			pr_err("Error receiving message rc:%d. Retrying...\n",
-								ret);
-	} while (ret == 0);
-
-}
+static struct qmi_ops server_ops = {
+	.new_server = service_locator_new_server,
+	.del_server = service_locator_del_server,
+};
 
 static void store_get_domain_list_response(struct pd_qmi_client_data *pd,
 		struct qmi_servreg_loc_get_domain_list_resp_msg_v01 *resp,
@@ -175,24 +110,43 @@ static void store_get_domain_list_response(struct pd_qmi_client_data *pd,
 	}
 }
 
-static int servreg_loc_send_msg(struct msg_desc *req_desc,
-		struct msg_desc *resp_desc,
+static int servreg_loc_send_msg(
 		struct qmi_servreg_loc_get_domain_list_req_msg_v01 *req,
 		struct qmi_servreg_loc_get_domain_list_resp_msg_v01 *resp,
 		struct pd_qmi_client_data *pd)
 {
 	int rc;
-
+	struct qmi_txn txn;
 	/*
 	 * Send msg and get response. There is a chance that the service went
 	 * away since the time we last checked for it to be available and
 	 * actually made this call. In that case the call just fails.
 	 */
-	rc = qmi_send_req_wait(service_locator.clnt_handle, req_desc, req,
-		sizeof(*req), resp_desc, resp, sizeof(*resp),
-		msecs_to_jiffies(QMI_SERVREG_LOC_SERVER_TIMEOUT));
+	rc = qmi_txn_init(&service_locator.clnt_handle, &txn,
+			qmi_servreg_loc_get_domain_list_resp_msg_v01_ei, &resp);
+	if (rc < 0) {
+		pr_err("QMI tx init failed for client %s, ret - %d\n",
+			pd->client_name, rc);
+		return rc;
+	}
+
+	rc = qmi_send_request(&service_locator.clnt_handle,
+			&service_locator.s_addr,
+			&txn, QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_V01,
+			QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_MSG_V01_MAX_MSG_LEN,
+			qmi_servreg_loc_get_domain_list_req_msg_v01_ei,
+			&req);
 	if (rc < 0) {
 		pr_err("QMI send req failed for client %s, ret - %d\n",
+			pd->client_name, rc);
+		qmi_txn_cancel(&txn);
+		return rc;
+	}
+
+	rc = qmi_txn_wait(&txn,
+			msecs_to_jiffies(QMI_SERVREG_LOC_SERVER_TIMEOUT));
+	if (rc < 0) {
+		pr_err("QMI qmi txn wait failed for client %s, ret - %d\n",
 			pd->client_name, rc);
 		return rc;
 	}
@@ -208,13 +162,12 @@ static int servreg_loc_send_msg(struct msg_desc *req_desc,
 
 static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 {
-	struct msg_desc req_desc, resp_desc;
 	struct qmi_servreg_loc_get_domain_list_resp_msg_v01 *resp = NULL;
 	struct qmi_servreg_loc_get_domain_list_req_msg_v01 *req = NULL;
 	int rc;
 	int db_rev_count = 0, domains_read = 0;
 
-	if (!service_locator.clnt_handle) {
+	if (!service_locator.connected) {
 		pr_err("Service locator not available!\n");
 		return -EAGAIN;
 	}
@@ -235,16 +188,6 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 		rc = -ENOMEM;
 		goto out;
 	}
-	/* Prepare req and response message formats */
-	req_desc.msg_id = QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_V01;
-	req_desc.max_msg_len =
-		QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_MSG_V01_MAX_MSG_LEN;
-	req_desc.ei_array = qmi_servreg_loc_get_domain_list_req_msg_v01_ei;
-
-	resp_desc.msg_id = QMI_SERVREG_LOC_GET_DOMAIN_LIST_RESP_V01;
-	resp_desc.max_msg_len =
-		QMI_SERVREG_LOC_GET_DOMAIN_LIST_RESP_MSG_V01_MAX_MSG_LEN;
-	resp_desc.ei_array = qmi_servreg_loc_get_domain_list_resp_msg_v01_ei;
 
 	/* Prepare req and response message */
 	strlcpy(req->service_name, pd->service_name,
@@ -255,8 +198,7 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 	pd->domain_list = NULL;
 	do {
 		req->domain_offset += domains_read;
-		rc = servreg_loc_send_msg(&req_desc, &resp_desc, req, resp,
-					pd);
+		rc = servreg_loc_send_msg(req, resp, pd);
 		if (rc < 0) {
 			pr_err("send msg failed rc:%d\n", rc);
 			goto out;
@@ -313,29 +255,22 @@ static int init_service_locator(void)
 	if (service_inited)
 		goto inited;
 
-	service_locator.notifier.notifier_call =
-					service_locator_svc_event_notify;
 	init_completion(&service_locator.service_available);
-	mutex_init(&service_locator.service_mutex);
 
-	servloc_wq = create_singlethread_workqueue("servloc_wq");
-	if (!servloc_wq) {
-		rc = -ENOMEM;
-		pr_err("Could not create workqueue\n");
-		goto inited;
-	}
+	service_locator.connected = false;
 
-	INIT_WORK(&service_locator.svc_arrive, service_locator_svc_arrive);
-	INIT_WORK(&service_locator.svc_exit, service_locator_svc_exit);
-	INIT_WORK(&service_locator.svc_rcv_msg, service_locator_recv_msg);
-
-	rc = qmi_svc_event_notifier_register(SERVREG_LOC_SERVICE_ID_V01,
-		SERVREG_LOC_SERVICE_VERS_V01, SERVREG_LOC_SERVICE_INSTANCE_ID,
-		&service_locator.notifier);
+	rc = qmi_handle_init(&service_locator.clnt_handle,
+			QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_MSG_V01_MAX_MSG_LEN,
+			&server_ops, NULL);
 	if (rc < 0) {
-		pr_err("Notifier register failed rc:%d\n", rc);
+		pr_err("Service locator QMI handle init failed rc:%d\n", rc);
 		goto inited;
 	}
+
+	qmi_add_lookup(&service_locator.clnt_handle,
+			SERVREG_LOC_SERVICE_ID_V01,
+			SERVREG_LOC_SERVICE_VERS_V01,
+			SERVREG_LOC_SERVICE_INSTANCE_ID);
 
 	wait_for_completion(&service_locator.service_available);
 	service_inited = true;
