@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1210,7 +1210,7 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	return 0;
 }
 
-int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+static int qpnp_flash_led_prepare_v2(struct led_trigger *trig, int options,
 					int *max_current)
 {
 	struct led_classdev *led_cdev;
@@ -2194,6 +2194,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	if (!led->pdata)
 		return -ENOMEM;
 
+	qpnp_flash_led_prepare = qpnp_flash_led_prepare_v2;
 	rc = qpnp_flash_led_parse_common_dt(led, node);
 	if (rc < 0) {
 		pr_err("Failed to parse common flash LED device tree\n");
