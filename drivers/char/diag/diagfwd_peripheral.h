@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,7 +65,8 @@ struct diag_peripheral_ops {
 	void (*open)(void *ctxt);
 	void (*close)(void *ctxt);
 	int (*write)(void *ctxt, unsigned char *buf, int len);
-	int (*read)(void *ctxt, unsigned char *buf, int len);
+	int (*read)(void *ctxt, unsigned char *buf, int len,
+			struct diagfwd_buf_t *fwd_buf);
 	void (*queue_read)(void *ctxt);
 };
 

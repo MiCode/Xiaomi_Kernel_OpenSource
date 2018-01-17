@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -198,7 +198,8 @@ static void diag_state_open_smd(void *ctxt);
 static void diag_state_close_smd(void *ctxt);
 static void smd_notify(void *ctxt, unsigned int event);
 static int diag_smd_write(void *ctxt, unsigned char *buf, int len);
-static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len);
+static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len,
+			struct diagfwd_buf_t *fwd_buf);
 static void diag_smd_queue_read(void *ctxt);
 
 static struct diag_peripheral_ops smd_ops = {
@@ -780,7 +781,8 @@ static int diag_smd_write(void *ctxt, unsigned char *buf, int len)
 	return 0;
 }
 
-static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
+static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len,
+			struct diagfwd_buf_t *fwd_buf)
 {
 	int pkt_len = 0;
 	int err = 0;
@@ -791,7 +793,7 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 	uint32_t read_len = 0;
 	struct diag_smd_info *smd_info = NULL;
 
-	if (!ctxt || !buf || buf_len <= 0)
+	if (!ctxt || !buf || buf_len <= 0 || !fwd_buf)
 		return -EIO;
 
 	smd_info = (struct diag_smd_info *)ctxt;
@@ -810,7 +812,15 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 		diagfwd_channel_read_done(smd_info->fwd_ctxt, buf, 0);
 		return -ERESTARTSYS;
 	}
-
+	if (atomic_read(&fwd_buf->in_busy) == 0) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"%s closing read thread. Buffer is already marked freed p: %d t: %d buf_num: %d\n",
+			 smd_info->name, GET_BUF_PERIPHERAL(fwd_buf->ctxt),
+			 GET_BUF_TYPE(fwd_buf->ctxt),
+			 GET_BUF_NUM(fwd_buf->ctxt));
+		diag_ws_release();
+		return 0;
+	}
 	/*
 	 * Reset the buffers. Also release the wake source hold earlier.
 	 */
