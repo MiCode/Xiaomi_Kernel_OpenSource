@@ -172,6 +172,8 @@
 				&wifi_led_green_default
 				&wifi_led_red_default>;
 		status = "okay";
+		vdd_ldo_1-supply = <&pm660_l15>;
+		vdd_ldo_2-supply = <&pm660_l17>;
 
 		led@1 {
 			label = "PWR_LED:red:106";
