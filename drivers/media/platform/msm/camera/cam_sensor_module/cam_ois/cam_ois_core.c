@@ -469,7 +469,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 				CAM_ERR(CAM_OIS, "invalid cmd buf");
 				return -EINVAL;
 			}
-			cmd_buf += cmd_desc->offset / sizeof(uint32_t);
+			cmd_buf += cmd_desc[i].offset / sizeof(uint32_t);
 			cmm_hdr = (struct common_header *)cmd_buf;
 
 			switch (cmm_hdr->cmd_type) {
