@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -399,8 +399,7 @@ struct rmnet_endpoint *rmnet_get_endpoint(struct rmnet_port *port, u8 mux_id)
 }
 
 int rmnet_add_bridge(struct net_device *rmnet_dev,
-		     struct net_device *slave_dev,
-		     struct netlink_ext_ack *extack)
+		     struct net_device *slave_dev)
 {
 	struct rmnet_priv *priv = netdev_priv(rmnet_dev);
 	struct net_device *real_dev = priv->real_dev;
@@ -422,8 +421,7 @@ int rmnet_add_bridge(struct net_device *rmnet_dev,
 	if (err)
 		return -EBUSY;
 
-	err = netdev_master_upper_dev_link(slave_dev, rmnet_dev, NULL, NULL,
-					   extack);
+	err = netdev_master_upper_dev_link(slave_dev, rmnet_dev, NULL, NULL);
 	if (err)
 		return -EINVAL;
 
