@@ -55,6 +55,12 @@
  */
 #define CFG80211_ROAMED_API_UNIFIED 1
 
+/* Indicate backport support for DBS scan control */
+#define CFG80211_SCAN_DBS_CONTROL_SUPPORT 1
+
+/* Indicate backport support for per chain rssi scan */
+#define CFG80211_SCAN_PER_CHAIN_RSSI_SUPPORT 1
+
 /**
  * DOC: Introduction
  *

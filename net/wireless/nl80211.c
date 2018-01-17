@@ -6701,8 +6701,17 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 	if (info->attrs[NL80211_ATTR_SCAN_FLAGS]) {
 		request->flags = nla_get_u32(
 			info->attrs[NL80211_ATTR_SCAN_FLAGS]);
-		if ((request->flags & NL80211_SCAN_FLAG_LOW_PRIORITY) &&
-		    !(wiphy->features & NL80211_FEATURE_LOW_PRIORITY_SCAN)) {
+		if (((request->flags & NL80211_SCAN_FLAG_LOW_PRIORITY) &&
+		     !(wiphy->features & NL80211_FEATURE_LOW_PRIORITY_SCAN)) ||
+		    ((request->flags & NL80211_SCAN_FLAG_LOW_SPAN) &&
+		     !wiphy_ext_feature_isset(wiphy,
+				      NL80211_EXT_FEATURE_LOW_SPAN_SCAN)) ||
+		    ((request->flags & NL80211_SCAN_FLAG_LOW_POWER) &&
+		     !wiphy_ext_feature_isset(wiphy,
+				      NL80211_EXT_FEATURE_LOW_POWER_SCAN)) ||
+		    ((request->flags & NL80211_SCAN_FLAG_HIGH_ACCURACY) &&
+		     !wiphy_ext_feature_isset(wiphy,
+		      NL80211_EXT_FEATURE_HIGH_ACCURACY_SCAN))) {
 			err = -EOPNOTSUPP;
 			goto out_free;
 		}
