@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1072,12 +1072,13 @@ static void *cnss_pci_collect_dump_seg(struct cnss_pci_data *pci_priv,
 				       void *start_addr)
 {
 	int count;
-	struct scatterlist *sg_list, *s;
 	unsigned int i;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	struct cnss_dump_data *dump_data =
 		&plat_priv->ramdump_info_v2.dump_data;
 	struct cnss_dump_seg *dump_seg = start_addr;
+	struct scatterlist *sg_list = NULL;
+	struct scatterlist *s = NULL;
 
 	count = mhi_xfer_rddm(&pci_priv->mhi_dev, type, &sg_list);
 	if (count <= 0 || !sg_list) {
