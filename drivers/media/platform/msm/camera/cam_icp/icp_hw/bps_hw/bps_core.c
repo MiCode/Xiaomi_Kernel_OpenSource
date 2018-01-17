@@ -276,22 +276,29 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 		rc = cam_bps_handle_resume(bps_dev);
 		break;
 	case CAM_ICP_BPS_CMD_UPDATE_CLK: {
-		uint32_t clk_rate = *(uint32_t *)cmd_args;
+		struct cam_a5_clk_update_cmd *clk_upd_cmd =
+			(struct cam_a5_clk_update_cmd *)cmd_args;
+		uint32_t clk_rate = clk_upd_cmd->curr_clk_rate;
 
 		CAM_DBG(CAM_ICP, "bps_src_clk rate = %d", (int)clk_rate);
+
 		if (!core_info->clk_enable) {
-			cam_bps_handle_pc(bps_dev);
-			cam_cpas_reg_write(core_info->cpas_handle,
-				CAM_CPAS_REG_CPASTOP,
-				hw_info->pwr_ctrl, true, 0x0);
+			if (clk_upd_cmd->ipe_bps_pc_enable) {
+				cam_bps_handle_pc(bps_dev);
+				cam_cpas_reg_write(core_info->cpas_handle,
+					CAM_CPAS_REG_CPASTOP,
+					hw_info->pwr_ctrl, true, 0x0);
+			}
 			rc = cam_bps_toggle_clk(soc_info, true);
 			if (rc)
 				CAM_ERR(CAM_ICP, "Enable failed");
 			else
 				core_info->clk_enable = true;
-			rc = cam_bps_handle_resume(bps_dev);
-			if (rc)
-				CAM_ERR(CAM_ICP, "handle resume failed");
+			if (clk_upd_cmd->ipe_bps_pc_enable) {
+				rc = cam_bps_handle_resume(bps_dev);
+				if (rc)
+					CAM_ERR(CAM_ICP, "BPS resume failed");
+			}
 		}
 		CAM_DBG(CAM_ICP, "clock rate %d", clk_rate);
 		rc = cam_bps_update_clk_rate(soc_info, clk_rate);

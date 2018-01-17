@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -197,6 +197,7 @@ struct hfi_msg_abort_destroy {
 } __packed;
 
 #define MAX_NUM_OF_IMAGE_PLANES	2
+#define MAX_HFR_GROUP          16
 
 enum hfi_ipe_io_images {
 	IPE_INPUT_IMAGE_FULL,
@@ -218,6 +219,40 @@ enum hfi_ipe_io_images {
 	IPE_OUTPUT_IMAGE_FIRST = IPE_OUTPUT_IMAGE_DISPLAY,
 	IPE_OUTPUT_IMAGE_LAST = IPE_OUTPUT_IMAGE_DS64_REF,
 	IPE_IO_IMAGES_MAX
+};
+
+enum bps_io_images {
+	BPS_INPUT_IMAGE,
+	BPS_OUTPUT_IMAGE_FULL,
+	BPS_OUTPUT_IMAGE_DS4,
+	BPS_OUTPUT_IMAGE_DS16,
+	BPS_OUTPUT_IMAGE_DS64,
+	BPS_OUTPUT_IMAGE_STATS_BG,
+	BPS_OUTPUT_IMAGE_STATS_BHIST,
+	BPS_OUTPUT_IMAGE_REG1,
+	BPS_OUTPUT_IMAGE_REG2,
+	BPS_OUTPUT_IMAGE_FIRST = BPS_OUTPUT_IMAGE_FULL,
+	BPS_OUTPUT_IMAGE_LAST = BPS_OUTPUT_IMAGE_REG2,
+	BPS_IO_IMAGES_MAX
+};
+
+struct frame_buffer {
+	uint32_t buffer_ptr[MAX_NUM_OF_IMAGE_PLANES];
+	uint32_t meta_buffer_ptr[MAX_NUM_OF_IMAGE_PLANES];
+} __packed;
+
+struct bps_frame_process_data {
+	struct frame_buffer buffers[BPS_IO_IMAGES_MAX];
+	uint32_t max_num_cores;
+	uint32_t target_time;
+	uint32_t ubwc_stats_buffer_addr;
+	uint32_t ubwc_stats_buffer_size;
+	uint32_t cdm_buffer_addr;
+	uint32_t cdm_buffer_size;
+	uint32_t iq_settings_addr;
+	uint32_t strip_lib_out_addr;
+	uint32_t cdm_prog_addr;
+	uint32_t request_id;
 };
 
 enum hfi_ipe_image_format {
@@ -359,6 +394,49 @@ struct image_desc {
 	struct image_info info;
 	struct buffer_layout buf_layout[MAX_NUM_OF_IMAGE_PLANES];
 	struct buffer_layout meta_buf_layout[MAX_NUM_OF_IMAGE_PLANES];
+} __packed;
+
+struct ica_stab_coeff {
+	uint32_t coeffs[8];
+} __packed;
+
+struct ica_stab_params {
+	uint32_t mode;
+	struct ica_stab_coeff transforms[3];
+} __packed;
+
+struct frame_set {
+	struct frame_buffer buffers[IPE_IO_IMAGES_MAX];
+	struct ica_stab_params ica_params;
+	uint32_t cdm_ica1_addr;
+	uint32_t cdm_ica2_addr;
+} __packed;
+
+struct ipe_frame_process_data {
+	uint32_t strip_lib_out_addr;
+	uint32_t iq_settings_addr;
+	uint32_t scratch_buffer_addr;
+	uint32_t scratch_buffer_size;
+	uint32_t ubwc_stats_buffer_addr;
+	uint32_t ubwc_stats_buffer_size;
+	uint32_t cdm_buffer_addr;
+	uint32_t cdm_buffer_size;
+	uint32_t max_num_cores;
+	uint32_t target_time;
+	uint32_t cdm_prog_base;
+	uint32_t cdm_pre_ltm;
+	uint32_t cdm_post_ltm;
+	uint32_t cdm_anr_full_pass;
+	uint32_t cdm_anr_ds4;
+	uint32_t cdm_anr_ds16;
+	uint32_t cdm_anr_ds64;
+	uint32_t cdm_tf_full_pass;
+	uint32_t cdm_tf_ds4;
+	uint32_t cdm_tf_ds16;
+	uint32_t cdm_tf_ds64;
+	uint32_t request_id;
+	uint32_t frames_in_batch;
+	struct frame_set framesets[MAX_HFR_GROUP];
 } __packed;
 
 /**

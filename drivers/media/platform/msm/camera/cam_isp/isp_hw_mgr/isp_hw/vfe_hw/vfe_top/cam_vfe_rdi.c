@@ -209,7 +209,6 @@ static int cam_vfe_rdi_handle_irq_bottom_half(void *handler_priv,
 			CAM_DBG(CAM_ISP, "Received REG UPDATE");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
-		cam_vfe_put_evt_payload(payload->core_info, &payload);
 		break;
 	default:
 		break;

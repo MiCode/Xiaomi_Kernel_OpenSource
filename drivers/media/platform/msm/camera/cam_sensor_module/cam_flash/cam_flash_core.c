@@ -612,37 +612,36 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		case CAMERA_SENSOR_FLASH_CMD_TYPE_FIRE: {
 			CAM_DBG(CAM_FLASH,
 				"CAMERA_FLASH_CMD_TYPE_OPS case called");
-			if ((fctrl->flash_state == CAM_FLASH_STATE_START) ||
+			if ((fctrl->flash_state == CAM_FLASH_STATE_INIT) ||
 				(fctrl->flash_state ==
-					CAM_FLASH_STATE_CONFIG)) {
-				flash_operation_info =
-					(struct cam_flash_set_on_off *) cmd_buf;
-				if (!flash_operation_info) {
-					CAM_ERR(CAM_FLASH,
-						"flash_operation_info Null");
-					return -EINVAL;
-				}
-
-				fctrl->per_frame[frame_offset].opcode =
-					flash_operation_info->opcode;
-				fctrl->per_frame[frame_offset].cmn_attr.count =
-					flash_operation_info->count;
-				for (i = 0;
-					i < flash_operation_info->count; i++)
-					fctrl->per_frame[frame_offset].
-						led_current_ma[i]
-						= flash_operation_info->
-						led_current_ma[i];
-
-			} else {
-				CAM_ERR(CAM_FLASH,
-					"Rxed Update packets without linking");
+					CAM_FLASH_STATE_ACQUIRE)) {
+				CAM_WARN(CAM_FLASH,
+					"Rxed Flash fire ops without linking");
 				fctrl->per_frame[frame_offset].
 					cmn_attr.is_settings_valid = false;
+				return 0;
+			}
+
+			flash_operation_info =
+				(struct cam_flash_set_on_off *) cmd_buf;
+			if (!flash_operation_info) {
+				CAM_ERR(CAM_FLASH,
+					"flash_operation_info Null");
 				return -EINVAL;
 			}
+
+			fctrl->per_frame[frame_offset].opcode =
+				flash_operation_info->opcode;
+			fctrl->per_frame[frame_offset].cmn_attr.count =
+				flash_operation_info->count;
+			for (i = 0;
+				i < flash_operation_info->count; i++)
+				fctrl->per_frame[frame_offset].
+					led_current_ma[i]
+					= flash_operation_info->
+					led_current_ma[i];
+			}
 			break;
-		}
 		default:
 			CAM_ERR(CAM_FLASH, "Wrong cmd_type = %d",
 				cmn_hdr->cmd_type);
@@ -741,18 +740,18 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		break;
 	}
 	case CAM_PKT_NOP_OPCODE: {
-		if ((fctrl->flash_state == CAM_FLASH_STATE_START) ||
-			(fctrl->flash_state == CAM_FLASH_STATE_CONFIG)) {
-			CAM_DBG(CAM_FLASH, "NOP Packet is Received: req_id: %u",
-				csl_packet->header.request_id);
-			goto update_req_mgr;
-		} else {
-			CAM_ERR(CAM_FLASH,
-				"Rxed Update packets without linking");
+		if ((fctrl->flash_state == CAM_FLASH_STATE_INIT) ||
+			(fctrl->flash_state == CAM_FLASH_STATE_ACQUIRE)) {
+			CAM_WARN(CAM_FLASH,
+				"Rxed NOP packets without linking");
 			fctrl->per_frame[frame_offset].
 				cmn_attr.is_settings_valid = false;
-			return -EINVAL;
+			return 0;
 		}
+
+		CAM_DBG(CAM_FLASH, "NOP Packet is Received: req_id: %u",
+			csl_packet->header.request_id);
+		goto update_req_mgr;
 	}
 	default:
 		CAM_ERR(CAM_FLASH, "Wrong Opcode : %d",
