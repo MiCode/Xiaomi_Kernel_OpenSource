@@ -25,14 +25,21 @@
 
 #define VADC_DECIMATION_MIN			512
 #define VADC_DECIMATION_MAX			4096
+#define ADC5_DECIMATION_SHORT			250
+#define ADC5_DECIMATION_MEDIUM			420
+#define ADC5_DECIMATION_LONG			840
 
 #define VADC_HW_SETTLE_DELAY_MAX		10000
 #define VADC_AVG_SAMPLES_MAX			512
+#define ADC5_AVG_SAMPLES_MAX			16
 
 #define KELVINMIL_CELSIUSMIL			273150
 
 #define PMI_CHG_SCALE_1				-138890
 #define PMI_CHG_SCALE_2				391750000000LL
+
+#define VADC5_MAX_CODE				0x7fff
+#define VADC5_FULL_SCALE_CODE			0x70e4
 
 /**
  * struct vadc_map_pt - Map the graph representation for ADC channel
@@ -96,6 +103,18 @@ enum vadc_scale_fn_type {
 	SCALE_PMIC_THERM,
 	SCALE_XOTHERM,
 	SCALE_PMI_CHG_TEMP,
+	SCALE_HW_CALIB_DEFAULT,
+	SCALE_HW_CALIB_THERM_100K_PULLUP,
+	SCALE_HW_CALIB_XOTHERM,
+	SCALE_HW_CALIB_PMIC_THERM,
+	SCALE_HW_CALIB_CUR,
+	SCALE_HW_CALIB_PMI_CHG_TEMP,
+};
+
+struct adc_data {
+	const u32	full_scale_code_volt;
+	const u32	full_scale_code_cur;
+	const struct adc_channels *adc_chans;
 };
 
 int qcom_vadc_scale(enum vadc_scale_fn_type scaletype,
@@ -104,6 +123,13 @@ int qcom_vadc_scale(enum vadc_scale_fn_type scaletype,
 		    bool absolute,
 		    u16 adc_code, int *result_mdec);
 
+int qcom_vadc_hw_scale(enum vadc_scale_fn_type scaletype,
+		    const struct vadc_prescale_ratio *prescale,
+		    const struct adc_data *data,
+		    u16 adc_code, int *result_mdec);
+
 int qcom_vadc_decimation_from_dt(u32 value);
+
+int qcom_adc5_decimation_from_dt(u32 value);
 
 #endif /* QCOM_VADC_COMMON_H */
