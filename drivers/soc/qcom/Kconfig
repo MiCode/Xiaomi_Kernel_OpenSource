@@ -365,6 +365,16 @@ config MSM_CORE_HANG_DETECT
 	  for hang. By using sysfs entries core hang detection can be
 	  enabled or disabled dynamically.
 
+config QCOM_FSA4480_I2C
+	bool "Fairchild FSA4480 chip with I2C"
+	select REGMAP_I2C
+	depends on I2C
+	help
+	  Support for the Fairchild FSA4480 IC switch chip controlled
+	  using I2C. This driver provides common support
+	  for accessing the device, switching between USB and Audio
+	  modes, changing orientation.
+
 config QCOM_WATCHDOG_V2
 	bool "QTI Watchdog Support"
 	depends on ARCH_QCOM
