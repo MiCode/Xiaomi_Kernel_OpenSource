@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4072,7 +4072,16 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 	u32 regval;
+	struct clk *xo_clk;
 	bool compat_bin = false;
+
+	/* Require the GCC-RPM-XO clock to be registered first */
+	xo_clk = devm_clk_get(&pdev->dev, "xo");
+	if (IS_ERR(xo_clk)) {
+		if (PTR_ERR(xo_clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get xo clock\n");
+		return PTR_ERR(xo_clk);
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
