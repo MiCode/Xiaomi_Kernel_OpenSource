@@ -519,6 +519,7 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	struct sde_hw_blk_reg_map hw;
 
 	memset(&hw, 0, sizeof(hw));
+	msm_gem_sync(cfg->dma_buf->buf);
 	cmd1 = (cfg->op == REG_DMA_READ) ?
 		(dspp_read_sel[cfg->block_select] << 30) : 0;
 	cmd1 |= (cfg->last_command) ? BIT(24) : 0;
@@ -526,7 +527,6 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	cmd1 |= (cfg->op == REG_DMA_WRITE) ? (BIT(22)) : 0;
 	cmd1 |= (SIZE_DWORD(cfg->dma_buf->index) & MAX_DWORDS_SZ);
 
-	msm_gem_sync(cfg->dma_buf->buf);
 	SET_UP_REG_DMA_REG(hw, reg_dma);
 	SDE_REG_WRITE(&hw, reg_dma_opmode_offset, BIT(0));
 	val = SDE_REG_READ(&hw, reg_dma_intr_4_status_offset);
