@@ -34,6 +34,8 @@ static inline bool task_fits_max(struct task_struct *p, int cpu);
 static void walt_fixup_sched_stats_fair(struct rq *rq, struct task_struct *p,
 					u16 updated_demand_scaled,
 					u16 updated_pred_demand_scaled);
+static void walt_fixup_nr_big_tasks(struct rq *rq, struct task_struct *p,
+					int delta, bool inc);
 #endif /* CONFIG_SCHED_WALT */
 
 #if defined(CONFIG_SCHED_WALT) && defined(CONFIG_CFS_BANDWIDTH)
@@ -5254,6 +5256,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	 */
 	schedtune_enqueue_task(p, cpu_of(rq));
 
+#ifdef CONFIG_SCHED_WALT
+	p->misfit = !task_fits_max(p, rq->cpu);
+#endif
 	/*
 	 * If in_iowait is set, the code below may not trigger any cpufreq
 	 * utilization updates, so do it here explicitly with the IOWAIT flag
@@ -10763,6 +10768,10 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 {
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &curr->se;
+#ifdef CONFIG_SCHED_WALT
+	bool old_misfit = curr->misfit;
+	bool misfit;
+#endif
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
@@ -10773,6 +10782,16 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 		task_tick_numa(rq, curr);
 
 	update_misfit_status(curr, rq);
+
+#ifdef CONFIG_SCHED_WALT
+	misfit = rq->misfit_task_load;
+
+	if (old_misfit != misfit) {
+		walt_fixup_nr_big_tasks(rq, curr, 1, misfit);
+		curr->misfit = misfit;
+	}
+#endif
+
 	update_overutilized_status(task_rq(curr));
 }
 
@@ -11419,6 +11438,27 @@ static void walt_fixup_sched_stats_fair(struct rq *rq, struct task_struct *p,
 	}
 }
 
+static void walt_fixup_nr_big_tasks(struct rq *rq, struct task_struct *p,
+							int delta, bool inc)
+{
+	struct cfs_rq *cfs_rq;
+	struct sched_entity *se = &p->se;
+
+	for_each_sched_entity(se) {
+		cfs_rq = cfs_rq_of(se);
+
+		cfs_rq->walt_stats.nr_big_tasks += inc ? delta : -delta;
+		BUG_ON(cfs_rq->walt_stats.nr_big_tasks < 0);
+
+		if (cfs_rq_throttled(cfs_rq))
+			break;
+	}
+
+	/* Fix up rq->walt_stats only if we didn't find any throttled cfs_rq */
+	if (!se)
+		walt_adjust_nr_big_tasks(rq, delta, inc);
+}
+
 /*
  * Check if task is part of a hierarchy where some cfs_rq does not have any
  * runtime left.
@@ -11454,6 +11494,12 @@ static void walt_fixup_sched_stats_fair(struct rq *rq, struct task_struct *p,
 {
 	fixup_walt_sched_stats_common(rq, p, updated_demand_scaled,
 					updated_pred_demand_scaled);
+}
+
+static void walt_fixup_nr_big_tasks(struct rq *rq, struct task_struct *p,
+							int delta, bool inc)
+{
+	walt_adjust_nr_big_tasks(rq, delta, inc);
 }
 
 static int task_will_be_throttled(struct task_struct *p)
