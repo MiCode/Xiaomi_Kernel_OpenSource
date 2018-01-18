@@ -5031,6 +5031,53 @@ error:
 	return rc;
 }
 
+int dsi_display_get_panel_vfp(void *dsi_display,
+	int h_active, int v_active)
+{
+	int i, rc = 0;
+	u32 count, refresh_rate = 0;
+	struct dsi_dfps_capabilities dfps_caps;
+	struct dsi_display *display = (struct dsi_display *)dsi_display;
+
+	if (!display)
+		return -EINVAL;
+
+	rc = dsi_display_get_mode_count(display, &count);
+	if (rc)
+		return rc;
+
+	mutex_lock(&display->display_lock);
+
+	if (display->panel && display->panel->cur_mode)
+		refresh_rate = display->panel->cur_mode->timing.refresh_rate;
+
+	dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
+	if (dfps_caps.dfps_support)
+		refresh_rate = dfps_caps.max_refresh_rate;
+
+	if (!refresh_rate) {
+		mutex_unlock(&display->display_lock);
+		pr_err("Null Refresh Rate\n");
+		return -EINVAL;
+	}
+
+	h_active *= display->ctrl_count;
+
+	for (i = 0; i < count; i++) {
+		struct dsi_display_mode *m = &display->modes[i];
+
+		if (m && v_active == m->timing.v_active &&
+			h_active == m->timing.h_active &&
+			refresh_rate == m->timing.refresh_rate) {
+			rc = m->timing.v_front_porch;
+			break;
+		}
+	}
+	mutex_unlock(&display->display_lock);
+
+	return rc;
+}
+
 int dsi_display_find_mode(struct dsi_display *display,
 		const struct dsi_display_mode *cmp,
 		struct dsi_display_mode **out_mode)
