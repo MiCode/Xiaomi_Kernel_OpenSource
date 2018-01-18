@@ -1,7 +1,7 @@
 /*
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2394,6 +2394,12 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		list_for_each_entry(entry,
 		&qseecom.registered_app_list_head, list){
 			if (entry->app_id == app_id) {
+				if (entry->ref_cnt == U32_MAX) {
+					pr_err("App %d (%s) ref_cnt overflow\n",
+						app_id, req.app_name);
+					ret = -EINVAL;
+					goto loadapp_err;
+				}
 				entry->ref_cnt++;
 				break;
 			}
@@ -4533,6 +4539,12 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		list_for_each_entry(entry,
 				&qseecom.registered_app_list_head, list){
 			if (entry->app_id == app_id) {
+				if (entry->ref_cnt == U32_MAX) {
+					pr_err("App %d (%s) ref_cnt overflow\n",
+						app_id, app_ireq.app_name);
+					ret = -EINVAL;
+					goto err;
+				}
 				entry->ref_cnt++;
 				found_app = true;
 				break;
@@ -5433,6 +5445,11 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 				&qseecom.registered_app_list_head, list){
 			if (entry->app_id == app_id) {
 				app_arch = entry->app_arch;
+				if (entry->ref_cnt == U32_MAX) {
+					pr_err("App %d (%s) ref_cnt overflow\n",
+						app_id, req.app_name);
+					return -EINVAL;
+				}
 				entry->ref_cnt++;
 				found_app = true;
 				break;
