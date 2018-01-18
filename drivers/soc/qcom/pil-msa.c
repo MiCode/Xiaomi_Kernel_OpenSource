@@ -411,7 +411,7 @@ int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path)
 	/* In case of any failure where reclaiming MBA and DP memory
 	 * could not happen, free the memory here
 	 */
-	if (drv->q6->mba_dp_virt) {
+	if (drv->q6->mba_dp_virt && !drv->mba_mem_dev_fixed) {
 		if (pil->subsys_vmid > 0)
 			pil_assign_mem_to_linux(pil, drv->q6->mba_dp_phys,
 						drv->q6->mba_dp_size);
@@ -648,7 +648,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	struct modem_data *md = dev_get_drvdata(pil->dev);
-	const struct firmware *fw, *dp_fw = NULL;
+	const struct firmware *fw = NULL, *dp_fw = NULL;
 	char fw_name_legacy[10] = "mba.b00";
 	char fw_name[10] = "mba.mbn";
 	char *dp_name = "msadp";
@@ -660,6 +660,8 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	struct device *dma_dev = md->mba_mem_dev_fixed ?: &md->mba_mem_dev;
 
 	trace_pil_func(__func__);
+	if (drv->mba_dp_virt && md->mba_mem_dev_fixed)
+		goto mss_reset;
 	fw_name_p = drv->non_elf_image ? fw_name_legacy : fw_name;
 	ret = request_firmware(&fw, fw_name_p, pil->dev);
 	if (ret) {
@@ -749,16 +751,18 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 			goto err_mba_data;
 		}
 	}
+	if (dp_fw)
+		release_firmware(dp_fw);
+	release_firmware(fw);
+	dp_fw = NULL;
+	fw = NULL;
 
+mss_reset:
 	ret = pil_mss_reset(pil);
 	if (ret) {
 		dev_err(pil->dev, "MBA boot failed(rc:%d)\n", ret);
 		goto err_mss_reset;
 	}
-
-	if (dp_fw)
-		release_firmware(dp_fw);
-	release_firmware(fw);
 
 	return 0;
 
@@ -772,7 +776,8 @@ err_mba_data:
 err_invalid_fw:
 	if (dp_fw)
 		release_firmware(dp_fw);
-	release_firmware(fw);
+	if (fw)
+		release_firmware(fw);
 	drv->mba_dp_virt = NULL;
 	return ret;
 }
@@ -851,10 +856,12 @@ fail:
 		if (pil->subsys_vmid > 0)
 			pil_assign_mem_to_linux(pil, drv->q6->mba_dp_phys,
 						drv->q6->mba_dp_size);
-		dma_free_attrs(dma_dev, drv->q6->mba_dp_size,
+		if (drv->q6->mba_dp_virt && !drv->mba_mem_dev_fixed) {
+			dma_free_attrs(dma_dev, drv->q6->mba_dp_size,
 				drv->q6->mba_dp_virt, drv->q6->mba_dp_phys,
 				drv->attrs_dma);
-		drv->q6->mba_dp_virt = NULL;
+			drv->q6->mba_dp_virt = NULL;
+		}
 
 	}
 	return ret;
@@ -921,7 +928,7 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 	}
 
 	if (drv->q6) {
-		if (drv->q6->mba_dp_virt) {
+		if (drv->q6->mba_dp_virt && !drv->mba_mem_dev_fixed) {
 			/* Reclaim MBA and DP (if allocated) memory. */
 			if (pil->subsys_vmid > 0)
 				pil_assign_mem_to_linux(pil,
