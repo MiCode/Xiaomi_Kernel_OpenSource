@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,9 +46,12 @@
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		status = "ok";
-		reg = <0x5000000 0x40000
-			0x780000 0x6300>;
-		reg-names = "kgsl_3d0_reg_memory", "qfprom_memory";
+		reg =   <0x5000000 0x40000>,
+			<0x5061000 0x800>,
+			<0x780000 0x6300>;
+		reg-names =     "kgsl_3d0_reg_memory",
+				"kgsl_3d0_cx_dbgc_memory",
+				"qfprom_memory";
 		interrupts = <0 300 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
