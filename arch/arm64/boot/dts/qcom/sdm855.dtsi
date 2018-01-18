@@ -1644,6 +1644,11 @@
 			mboxes = <&apcs_glb 8>;
 			mbox-names = "adsp_smem";
 			interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
+
+			apr_tal_rpmsg {
+				qcom,glink-channels = "apr_audio_svc";
+				intents = <0x200 20>;
+			};
 		};
 
 		dsps {
