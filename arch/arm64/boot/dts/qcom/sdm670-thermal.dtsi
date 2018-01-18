@@ -471,7 +471,7 @@
 			};
 			gpu_vdd_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&msm_gpu 4 4>;
+				cooling-device = <&msm_gpu 0 0>;
 			};
 			cx_vdd_cdev {
 				trip = <&aoss0_trip>;
@@ -521,7 +521,7 @@
 			};
 			gpu_vdd_cdev {
 				trip = <&aoss1_trip>;
-				cooling-device = <&msm_gpu 4 4>;
+				cooling-device = <&msm_gpu 0 0>;
 			};
 			cx_vdd_cdev {
 				trip = <&aoss1_trip>;
