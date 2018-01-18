@@ -414,7 +414,6 @@ static void activate_work_func(struct work_struct *work)
 	complete_all(&client->complete);
 
 	if (dec_clk) {
-		ipa_set_tag_process_before_gating(true);
 		if (!client->skip_clk_vote)
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL(client->name);
 
@@ -465,7 +464,6 @@ static void delayed_deferred_deactivate_work_func(struct work_struct *work)
 		client->state = IPA_PM_DEACTIVATED;
 		IPA_PM_DBG_STATE(client->hdl, client->name, client->state);
 		spin_unlock_irqrestore(&client->state_lock, flags);
-		ipa_set_tag_process_before_gating(true);
 		if (!client->skip_clk_vote)
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL(client->name);
 
@@ -1074,7 +1072,6 @@ int ipa_pm_deactivate_all_deferred(void)
 			IPA_PM_DBG_STATE(client->hdl, client->name,
 				client->state);
 			spin_unlock_irqrestore(&client->state_lock, flags);
-			ipa_set_tag_process_before_gating(true);
 			if (!client->skip_clk_vote)
 				IPA_ACTIVE_CLIENTS_DEC_SPECIAL(client->name);
 			deactivate_client(client->hdl);
@@ -1127,7 +1124,6 @@ int ipa_pm_deactivate_sync(u32 hdl)
 	spin_unlock_irqrestore(&client->state_lock, flags);
 
 	/* else case (Deactivates all Activated cases)*/
-	ipa_set_tag_process_before_gating(true);
 	if (!client->skip_clk_vote)
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL(client->name);
 

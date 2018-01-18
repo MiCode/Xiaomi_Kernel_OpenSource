@@ -236,6 +236,8 @@ static void ipa3_send_nop_desc(struct work_struct *work)
 		return;
 	}
 	sys->len_pending_xfer = 0;
+	/* make sure TAG process is sent before clocks are gated */
+	ipa3_ctx->tag_process_before_gating = true;
 
 }
 
@@ -418,6 +420,9 @@ int ipa3_send(struct ipa3_sys_context *sys,
 			sys->ep->gsi_chan_hdl);
 		hrtimer_start(&sys->db_timer, time, HRTIMER_MODE_REL);
 	}
+
+	/* make sure TAG process is sent before clocks are gated */
+	ipa3_ctx->tag_process_before_gating = true;
 
 	return 0;
 
