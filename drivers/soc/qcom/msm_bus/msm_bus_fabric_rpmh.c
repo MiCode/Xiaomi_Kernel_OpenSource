@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -550,9 +550,9 @@ int msm_bus_commit_data(struct list_head *clist)
 	struct tcs_cmd *cmdlist_sleep = NULL;
 	struct rpmh_client *cur_mbox = NULL;
 	struct list_head *cur_bcm_clist = NULL;
-	int *n_active = NULL;
-	int *n_wake = NULL;
-	int *n_sleep = NULL;
+	int n_active[VCD_MAX_CNT];
+	int n_wake[VCD_MAX_CNT];
+	int n_sleep[VCD_MAX_CNT];
 	int cnt_vcd = 0;
 	int cnt_active = 0;
 	int cnt_wake = 0;
@@ -573,8 +573,15 @@ int msm_bus_commit_data(struct list_head *clist)
 
 	cur_mbox = cur_rsc->rscdev->mbox;
 	cur_bcm_clist = cur_rsc->rscdev->bcm_clist;
+	cmdlist_active = cur_rsc->rscdev->cmdlist_active;
+	cmdlist_wake = cur_rsc->rscdev->cmdlist_wake;
+	cmdlist_sleep = cur_rsc->rscdev->cmdlist_sleep;
 
 	for (i = 0; i < VCD_MAX_CNT; i++) {
+		n_active[i] = 0;
+		n_wake[i] = 0;
+		n_sleep[i] = 0;
+
 		if (list_empty(&cur_bcm_clist[i]))
 			continue;
 		list_for_each_entry(cur_bcm, &cur_bcm_clist[i], link) {
@@ -600,27 +607,6 @@ int msm_bus_commit_data(struct list_head *clist)
 	if (!cnt_active)
 		goto exit_msm_bus_commit_data;
 
-	n_active = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
-	if (!n_active)
-		return -ENOMEM;
-
-	n_wake = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
-	if (!n_wake)
-		return -ENOMEM;
-
-	n_sleep = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
-	if (!n_sleep)
-		return -ENOMEM;
-
-	if (cnt_active)
-		cmdlist_active = kcalloc(cnt_active, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
-	if (cnt_sleep && cnt_wake) {
-		cmdlist_wake = kcalloc(cnt_wake, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
-		cmdlist_sleep = kcalloc(cnt_sleep, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
-	}
 	bcm_cnt = tcs_cmd_list_gen(n_active, n_wake, n_sleep, cmdlist_active,
 				cmdlist_wake, cmdlist_sleep, cur_bcm_clist);
 
@@ -654,8 +640,6 @@ int msm_bus_commit_data(struct list_head *clist)
 		if (ret)
 			MSM_BUS_ERR("%s: error sending wake sets: %d\n",
 							__func__, ret);
-		kfree(n_wake);
-		kfree(cmdlist_wake);
 	}
 	if (cnt_sleep) {
 		ret = rpmh_write_batch(cur_mbox, RPMH_SLEEP_STATE,
@@ -663,13 +647,7 @@ int msm_bus_commit_data(struct list_head *clist)
 		if (ret)
 			MSM_BUS_ERR("%s: error sending sleep sets: %d\n",
 							__func__, ret);
-		kfree(n_sleep);
-		kfree(cmdlist_sleep);
 	}
-
-	kfree(cmdlist_active);
-	kfree(n_active);
-
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		if (unlikely(node->node_info->defer_qos))
@@ -1168,6 +1146,41 @@ exit_rsc_init:
 	return ret;
 }
 
+static int msm_bus_postcon_setup(struct device *bus_dev, void *data)
+{
+	struct msm_bus_node_device_type *bus_node = NULL;
+	struct msm_bus_rsc_device_type *rscdev;
+
+	bus_node = to_msm_bus_node(bus_dev);
+	if (!bus_node) {
+		MSM_BUS_ERR("%s: Can't get device info", __func__);
+		return -ENODEV;
+	}
+
+	if (bus_node->node_info->is_rsc_dev) {
+		rscdev = bus_node->rscdev;
+		rscdev->cmdlist_active = devm_kcalloc(bus_dev,
+					rscdev->num_bcm_devs,
+					sizeof(struct tcs_cmd), GFP_KERNEL);
+		if (!rscdev->cmdlist_active)
+			return -ENOMEM;
+
+		rscdev->cmdlist_wake = devm_kcalloc(bus_dev,
+					rscdev->num_bcm_devs,
+					sizeof(struct tcs_cmd), GFP_KERNEL);
+		if (!rscdev->cmdlist_wake)
+			return -ENOMEM;
+
+		rscdev->cmdlist_sleep = devm_kcalloc(bus_dev,
+					rscdev->num_bcm_devs,
+					sizeof(struct tcs_cmd),	GFP_KERNEL);
+		if (!rscdev->cmdlist_sleep)
+			return -ENOMEM;
+	}
+
+	return 0;
+}
+
 static int msm_bus_init_clk(struct device *bus_dev,
 				struct msm_bus_node_device_type *pdata)
 {
@@ -1641,6 +1654,7 @@ static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
 			goto exit_setup_dev_conn;
 		}
 		rsc_node = to_msm_bus_node(bus_node->node_info->rsc_devs[j]);
+		rsc_node->rscdev->num_bcm_devs++;
 	}
 
 exit_setup_dev_conn:
@@ -1768,6 +1782,13 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 						msm_bus_setup_dev_conn);
 	if (ret) {
 		MSM_BUS_ERR("%s: Error setting up dev connections", __func__);
+		goto exit_device_probe;
+	}
+
+	ret = bus_for_each_dev(&msm_bus_type, NULL, NULL,
+						msm_bus_postcon_setup);
+	if (ret) {
+		MSM_BUS_ERR("%s: Error post connection setup", __func__);
 		goto exit_device_probe;
 	}
 
