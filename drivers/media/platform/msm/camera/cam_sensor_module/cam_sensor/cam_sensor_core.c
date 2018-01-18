@@ -38,6 +38,31 @@ static void cam_sensor_update_req_mgr(
 			add_req.req_id);
 }
 
+static void cam_sensor_release_stream_rsc(
+	struct cam_sensor_ctrl_t *s_ctrl)
+{
+	struct i2c_settings_array *i2c_set = NULL;
+	int rc;
+
+	i2c_set = &(s_ctrl->i2c_data.streamoff_settings);
+	if (i2c_set->is_settings_valid == 1) {
+		i2c_set->is_settings_valid = -1;
+		rc = delete_request(i2c_set);
+		if (rc < 0)
+			CAM_ERR(CAM_SENSOR,
+				"failed while deleting Streamoff settings");
+	}
+
+	i2c_set = &(s_ctrl->i2c_data.streamon_settings);
+	if (i2c_set->is_settings_valid == 1) {
+		i2c_set->is_settings_valid = -1;
+		rc = delete_request(i2c_set);
+		if (rc < 0)
+			CAM_ERR(CAM_SENSOR,
+				"failed while deleting Streamon settings");
+	}
+}
+
 static void cam_sensor_release_resource(
 	struct cam_sensor_ctrl_t *s_ctrl)
 {
@@ -61,26 +86,10 @@ static void cam_sensor_release_resource(
 			CAM_ERR(CAM_SENSOR,
 				"failed while deleting Res settings");
 	}
-	i2c_set = &(s_ctrl->i2c_data.streamoff_settings);
-	if (i2c_set->is_settings_valid == 1) {
-		i2c_set->is_settings_valid = -1;
-		rc = delete_request(i2c_set);
-		if (rc < 0)
-			CAM_ERR(CAM_SENSOR,
-				"failed while deleting Streamoff settings");
-	}
-	i2c_set = &(s_ctrl->i2c_data.streamon_settings);
-	if (i2c_set->is_settings_valid == 1) {
-		i2c_set->is_settings_valid = -1;
-		rc = delete_request(i2c_set);
-		if (rc < 0)
-			CAM_ERR(CAM_SENSOR,
-				"failed while deleting Streamoff settings");
-	}
+
 	if (s_ctrl->i2c_data.per_frame != NULL) {
 		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
 			i2c_set = &(s_ctrl->i2c_data.per_frame[i]);
-
 			if (i2c_set->is_settings_valid == 1) {
 				i2c_set->is_settings_valid = -1;
 				rc = delete_request(i2c_set);
@@ -165,42 +174,42 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE: {
-		if ((s_ctrl->sensor_state == CAM_SENSOR_CONFIG) ||
-			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
-			i2c_reg_settings =
-				&i2c_data->
-				per_frame[csl_packet->header.request_id %
-				MAX_PER_FRAME_ARRAY];
-			CAM_DBG(CAM_SENSOR, "Received Packet: %lld",
-			csl_packet->header.request_id % MAX_PER_FRAME_ARRAY);
-			if (i2c_reg_settings->is_settings_valid == 1) {
-				CAM_ERR(CAM_SENSOR,
-					"Already some pkt in offset req : %lld",
-					csl_packet->header.request_id);
-				rc = delete_request(i2c_reg_settings);
-				if (rc < 0) {
-					CAM_ERR(CAM_SENSOR,
-					"Failed in Deleting the err: %d", rc);
-					return rc;
-				}
-			}
-		} else {
-			CAM_ERR(CAM_SENSOR,
+		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+			(s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE)) {
+			CAM_WARN(CAM_SENSOR,
 				"Rxed Update packets without linking");
-			return -EINVAL;
+			return 0;
+		}
+
+		i2c_reg_settings =
+			&i2c_data->
+			per_frame[csl_packet->header.request_id %
+			MAX_PER_FRAME_ARRAY];
+		CAM_DBG(CAM_SENSOR, "Received Packet: %lld",
+		csl_packet->header.request_id % MAX_PER_FRAME_ARRAY);
+		if (i2c_reg_settings->is_settings_valid == 1) {
+			CAM_ERR(CAM_SENSOR,
+				"Already some pkt in offset req : %lld",
+				csl_packet->header.request_id);
+			rc = delete_request(i2c_reg_settings);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+				"Failed in Deleting the err: %d", rc);
+				return rc;
+			}
 		}
 	break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP: {
-		if ((s_ctrl->sensor_state == CAM_SENSOR_CONFIG) ||
-			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
-			cam_sensor_update_req_mgr(s_ctrl, csl_packet);
-		} else {
-			CAM_ERR(CAM_SENSOR,
-				"Rxed Update packets without linking");
-			rc = -EINVAL;
+		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+			(s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE)) {
+			CAM_WARN(CAM_SENSOR,
+				"Rxed NOP packets without linking");
+			return 0;
 		}
-		return rc;
+
+		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
+		return 0;
 	}
 	default:
 		CAM_ERR(CAM_SENSOR, "Invalid Packet Header");
@@ -489,7 +498,7 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 		return;
 
 	cam_sensor_release_resource(s_ctrl);
-
+	cam_sensor_release_stream_rsc(s_ctrl);
 	if (s_ctrl->sensor_state >= CAM_SENSOR_ACQUIRE)
 		cam_sensor_power_down(s_ctrl);
 
@@ -706,8 +715,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 		break;
 	case CAM_RELEASE_DEV: {
-		if ((s_ctrl->sensor_state < CAM_SENSOR_ACQUIRE) ||
-			(s_ctrl->sensor_state > CAM_SENSOR_CONFIG)) {
+		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
 			rc = -EINVAL;
 			CAM_WARN(CAM_SENSOR,
 			"Not in right state to release : %d",
@@ -722,6 +731,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		cam_sensor_release_resource(s_ctrl);
+		cam_sensor_release_stream_rsc(s_ctrl);
 		if (s_ctrl->bridge_intf.device_hdl == -1) {
 			CAM_ERR(CAM_SENSOR,
 				"Invalid Handles: link hdl: %d device hdl: %d",
@@ -754,7 +764,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		break;
 	}
 	case CAM_START_DEV: {
-		if (s_ctrl->sensor_state != CAM_SENSOR_CONFIG) {
+		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
 			rc = -EINVAL;
 			CAM_WARN(CAM_SENSOR,
 			"Not in right state to start : %d",
@@ -793,6 +804,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				"cannot apply streamoff settings");
 			}
 		}
+
+		cam_sensor_release_resource(s_ctrl);
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 	}
 		break;
