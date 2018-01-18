@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -205,6 +205,8 @@ static inline void dsi_panel_release_panel_lock(struct dsi_panel *panel)
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
 				int topology_override);
+
+int dsi_panel_trigger_esd_attack(struct dsi_panel *panel);
 
 void dsi_panel_put(struct dsi_panel *panel);
 

@@ -160,6 +160,7 @@ struct dsi_display_clk_info {
  * @root:             Debugfs root directory
  * @misr_enable       Frame MISR enable/disable
  * @misr_frame_count  Number of frames to accumulate the MISR value
+ * @esd_trigger       field indicating ESD trigger through debugfs
  */
 struct dsi_display {
 	struct platform_device *pdev;
@@ -218,6 +219,7 @@ struct dsi_display {
 
 	bool misr_enable;
 	u32 misr_frame_count;
+	u32 esd_trigger;
 	/* multiple dsi error handlers */
 	struct workqueue_struct *err_workq;
 	struct work_struct fifo_underflow_work;
