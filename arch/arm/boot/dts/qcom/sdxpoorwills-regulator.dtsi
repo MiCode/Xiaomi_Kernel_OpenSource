@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -380,5 +380,25 @@
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&tlmm 92 GPIO_ACTIVE_HIGH>;
+	};
+
+	vreg_emac_phy: emac_phy_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "emac_phy";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-enable-ramp-delay = <100>;
+		gpio = <&tlmm 96 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	vreg_rgmii_io_pads: rgmii_io_pads_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "rgmii_io_pads";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <100>;
+		gpio = <&tlmm 83 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
 	};
 };

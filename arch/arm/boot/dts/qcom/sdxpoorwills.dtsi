@@ -722,43 +722,6 @@
 		};
 	};
 
-	emac_hw: qcom,emac@00020000 {
-		compatible = "qcom,emac-dwc-eqos";
-		reg = <0x20000 0x10000>,
-		      <0x36000 0x100>;
-		reg-names = "emac-base", "rgmii-base";
-		interrupts = <0 62 4>, <0 60 4>,
-			<0 45 4>, <0 49 4>,
-			<0 50 4>, <0 51 4>,
-			<0 52 4>, <0 53 4>,
-			<0 54 4>, <0 55 4>,
-			<0 56 4>, <0 57 4>;
-		interrupt-names = "sbd-intr", "lpi-intr",
-			"wol-intr", "tx-ch0-intr",
-			"tx-ch1-intr", "tx-ch2-intr",
-			"tx-ch3-intr", "tx-ch4-intr",
-			"rx-ch0-intr", "rx-ch1-intr",
-			"rx-ch2-intr", "rx-ch3-intr";
-		qcom,msm-bus,name = "emac";
-		qcom,msm-bus,num-cases = <3>;
-		qcom,msm-bus,num-paths = <2>;
-		qcom,msm-bus,vectors-KBps =
-			<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
-			<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
-			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
-		qcom,bus-vector-names = "10", "100", "1000";
-		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
-			<&clock_gcc GCC_ETH_PTP_CLK>,
-			<&clock_gcc GCC_ETH_RGMII_CLK>,
-			<&clock_gcc GCC_ETH_SLAVE_AHB_CLK>;
-		clock-names = "eth_axi_clk", "eth_ptp_clk",
-			"eth_rgmii_clk", "eth_slave_ahb_clk";
-		io-macro-info {
-			io-macro-bypass-mode = <0>;
-			io-interface = "rgmii";
-		};
-	};
-
 	qmp_aop: qcom,qmp-aop@c300000 {
 		compatible = "qcom,qmp-mbox";
 		label = "aop";
@@ -791,3 +754,48 @@
 #include "sdxpoorwills-audio.dtsi"
 #include "sdxpoorwills-ion.dtsi"
 #include "msm-arm-smmu-sdxpoorwills.dtsi"
+
+&soc {
+	emac_hw: qcom,emac@00020000 {
+		compatible = "qcom,emac-dwc-eqos";
+		reg = <0x20000 0x10000>,
+		      <0x36000 0x100>;
+		reg-names = "emac-base", "rgmii-base";
+		interrupts = <0 62 4>, <0 60 4>,
+			<0 45 4>, <0 49 4>,
+			<0 50 4>, <0 51 4>,
+			<0 52 4>, <0 53 4>,
+			<0 54 4>, <0 55 4>,
+			<0 56 4>, <0 57 4>;
+		interrupt-names = "sbd-intr", "lpi-intr",
+			"wol-intr", "tx-ch0-intr",
+			"tx-ch1-intr", "tx-ch2-intr",
+			"tx-ch3-intr", "tx-ch4-intr",
+			"rx-ch0-intr", "rx-ch1-intr",
+			"rx-ch2-intr", "rx-ch3-intr";
+		qcom,msm-bus,name = "emac";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
+			<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
+			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+		qcom,bus-vector-names = "10", "100", "1000";
+		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
+			<&clock_gcc GCC_ETH_PTP_CLK>,
+			<&clock_gcc GCC_ETH_RGMII_CLK>,
+			<&clock_gcc GCC_ETH_SLAVE_AHB_CLK>;
+		clock-names = "eth_axi_clk", "eth_ptp_clk",
+			"eth_rgmii_clk", "eth_slave_ahb_clk";
+		qcom,phy-intr-redirect = <&tlmm 84 GPIO_ACTIVE_LOW>;
+		qcom,phy-reset = <&tlmm 85 GPIO_ACTIVE_LOW>;
+		vreg_rgmii-supply = <&vreg_rgmii>;
+		vreg_emac_phy-supply =  <&vreg_emac_phy>;
+		vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
+		gdsc_emac-supply = <&gdsc_emac>;
+		io-macro-info {
+			io-macro-bypass-mode = <0>;
+			io-interface = "rgmii";
+		};
+	};
+};
