@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,6 +263,8 @@ struct sde_encoder_irq {
  * @irq:			IRQ tracking structures
  * @cont_splash_single_flush	Variable to check if single flush is enabled.
  * @cont_splash_settings	Variable to store continuous splash settings.
+ * @vfp_cached:			cached vertical front porch to be used for
+ *				programming ROT and MDP fetch start
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -292,6 +294,7 @@ struct sde_encoder_phys {
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
 	u32 cont_splash_single_flush;
 	bool cont_splash_settings;
+	int vfp_cached;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
