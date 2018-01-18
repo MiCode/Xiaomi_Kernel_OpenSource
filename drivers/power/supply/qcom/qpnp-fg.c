@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2548,13 +2548,13 @@ static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 
 	/* calculate soc_cutoff_new */
 	val = (1000000LL + temp_rs_to_rslow) * battery_esr;
-	do_div(val, 1000000);
+	val = div64_s64(val, 1000000);
 	ocv_cutoff_new = div64_s64(chip->evaluation_current * val, 1000)
 		+ chip->cutoff_voltage;
 
 	/* calculate soc_cutoff_aged */
 	val = (1000000LL + temp_rs_to_rslow) * esr_actual;
-	do_div(val, 1000000);
+	val = div64_s64(val, 1000000);
 	ocv_cutoff_aged = div64_s64(chip->evaluation_current * val, 1000)
 		+ chip->cutoff_voltage;
 
@@ -3068,11 +3068,11 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 
 	max_inc_val = chip->learning_data.learned_cc_uah
 			* (1000 + chip->learning_data.max_increment);
-	do_div(max_inc_val, 1000);
+	max_inc_val = div_s64(max_inc_val, 1000);
 
 	min_dec_val = chip->learning_data.learned_cc_uah
 			* (1000 - chip->learning_data.max_decrement);
-	do_div(min_dec_val, 1000);
+	min_dec_val = div_s64(min_dec_val, 1000);
 
 	old_cap = chip->learning_data.learned_cc_uah;
 	if (chip->learning_data.cc_uah > max_inc_val)

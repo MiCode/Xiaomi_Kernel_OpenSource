@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -397,6 +397,261 @@ static void ipareg_construct_endp_status_n_v4_0(
 	IPA_SETFIELD_IN_REG(*val, ep_status->status_pkt_suppress,
 			IPA_ENDP_STATUS_n_STATUS_PKT_SUPPRESS_SHFT,
 			IPA_ENDP_STATUS_n_STATUS_PKT_SUPPRESS_BMSK);
+}
+
+static void ipareg_construct_clkon_cfg(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipahal_reg_clkon_cfg *clkon_cfg =
+		(struct ipahal_reg_clkon_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_global_2x_clk,
+			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_SHFT,
+			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_global,
+			IPA_CLKON_CFG_OPEN_GLOBAL_SHFT,
+			IPA_CLKON_CFG_OPEN_GLOBAL_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_gsi_if,
+			IPA_CLKON_CFG_OPEN_GSI_IF_SHFT,
+			IPA_CLKON_CFG_OPEN_GSI_IF_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_weight_arb,
+			IPA_CLKON_CFG_OPEN_WEIGHT_ARB_SHFT,
+			IPA_CLKON_CFG_OPEN_WEIGHT_ARB_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_qmb,
+			IPA_CLKON_CFG_OPEN_QMB_SHFT,
+			IPA_CLKON_CFG_OPEN_QMB_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ram_slaveway,
+			IPA_CLKON_CFG_OPEN_RAM_SLAVEWAY_SHFT,
+			IPA_CLKON_CFG_OPEN_RAM_SLAVEWAY_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_aggr_wrapper,
+			IPA_CLKON_CFG_OPEN_AGGR_WRAPPER_SHFT,
+			IPA_CLKON_CFG_OPEN_AGGR_WRAPPER_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_qsb2axi_cmdq_l,
+			IPA_CLKON_CFG_OPEN_QSB2AXI_CMDQ_L_SHFT,
+			IPA_CLKON_CFG_OPEN_QSB2AXI_CMDQ_L_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_fnr,
+			IPA_CLKON_CFG_OPEN_FNR_SHFT,
+			IPA_CLKON_CFG_OPEN_FNR_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_tx_1,
+			IPA_CLKON_CFG_OPEN_TX_1_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_1_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_tx_0,
+			IPA_CLKON_CFG_OPEN_TX_0_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_0_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ntf_tx_cmdqs,
+			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_dcmp,
+			IPA_CLKON_CFG_OPEN_DCMP_SHFT,
+			IPA_CLKON_CFG_OPEN_DCMP_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_h_dcph,
+			IPA_CLKON_CFG_OPEN_H_DCPH_SHFT,
+			IPA_CLKON_CFG_OPEN_H_DCPH_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_d_dcph,
+			IPA_CLKON_CFG_OPEN_D_DCPH_SHFT,
+			IPA_CLKON_CFG_OPEN_D_DCPH_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ack_mngr,
+			IPA_CLKON_CFG_OPEN_ACK_MNGR_SHFT,
+			IPA_CLKON_CFG_OPEN_ACK_MNGR_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ctx_handler,
+			IPA_CLKON_CFG_OPEN_CTX_HANDLER_SHFT,
+			IPA_CLKON_CFG_OPEN_CTX_HANDLER_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_rsrc_mngr,
+			IPA_CLKON_CFG_OPEN_RSRC_MNGR_SHFT,
+			IPA_CLKON_CFG_OPEN_RSRC_MNGR_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_dps_tx_cmdqs,
+			IPA_CLKON_CFG_OPEN_DPS_TX_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_DPS_TX_CMDQS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_hps_dps_cmdqs,
+			IPA_CLKON_CFG_OPEN_HPS_DPS_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_HPS_DPS_CMDQS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_rx_hps_cmdqs,
+			IPA_CLKON_CFG_OPEN_RX_HPS_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_RX_HPS_CMDQS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_dps,
+			IPA_CLKON_CFG_OPEN_DPS_SHFT,
+			IPA_CLKON_CFG_OPEN_DPS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_hps,
+			IPA_CLKON_CFG_OPEN_HPS_SHFT,
+			IPA_CLKON_CFG_OPEN_HPS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ftch_dps,
+			IPA_CLKON_CFG_OPEN_FTCH_DPS_SHFT,
+			IPA_CLKON_CFG_OPEN_FTCH_DPS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ftch_hps,
+			IPA_CLKON_CFG_OPEN_FTCH_HPS_SHFT,
+			IPA_CLKON_CFG_OPEN_FTCH_HPS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_ram_arb,
+			IPA_CLKON_CFG_OPEN_RAM_ARB_SHFT,
+			IPA_CLKON_CFG_OPEN_RAM_ARB_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_misc,
+			IPA_CLKON_CFG_OPEN_MISC_SHFT,
+			IPA_CLKON_CFG_OPEN_MISC_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_tx_wrapper,
+			IPA_CLKON_CFG_OPEN_TX_WRAPPER_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_WRAPPER_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_proc,
+			IPA_CLKON_CFG_OPEN_PROC_SHFT,
+			IPA_CLKON_CFG_OPEN_PROC_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->open_rx,
+			IPA_CLKON_CFG_OPEN_RX_SHFT,
+			IPA_CLKON_CFG_OPEN_RX_BMSK);
+}
+
+static void ipareg_parse_clkon_cfg(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_clkon_cfg *clkon_cfg =
+		(struct ipahal_reg_clkon_cfg *)fields;
+
+	memset(clkon_cfg, 0, sizeof(struct ipahal_reg_clkon_cfg));
+	clkon_cfg->open_global_2x_clk = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_SHFT,
+			IPA_CLKON_CFG_OPEN_GLOBAL_2X_CLK_BMSK);
+
+	clkon_cfg->open_global = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_GLOBAL_SHFT,
+			IPA_CLKON_CFG_OPEN_GLOBAL_BMSK);
+
+	clkon_cfg->open_gsi_if = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_GSI_IF_SHFT,
+			IPA_CLKON_CFG_OPEN_GSI_IF_BMSK);
+
+	clkon_cfg->open_weight_arb = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_WEIGHT_ARB_SHFT,
+			IPA_CLKON_CFG_OPEN_WEIGHT_ARB_BMSK);
+
+	clkon_cfg->open_qmb = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_QMB_SHFT,
+			IPA_CLKON_CFG_OPEN_QMB_BMSK);
+
+	clkon_cfg->open_ram_slaveway = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_RAM_SLAVEWAY_SHFT,
+			IPA_CLKON_CFG_OPEN_RAM_SLAVEWAY_BMSK);
+
+	clkon_cfg->open_aggr_wrapper = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_AGGR_WRAPPER_SHFT,
+			IPA_CLKON_CFG_OPEN_AGGR_WRAPPER_BMSK);
+
+	clkon_cfg->open_qsb2axi_cmdq_l = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_QSB2AXI_CMDQ_L_SHFT,
+			IPA_CLKON_CFG_OPEN_QSB2AXI_CMDQ_L_BMSK);
+
+	clkon_cfg->open_fnr = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_FNR_SHFT,
+			IPA_CLKON_CFG_OPEN_FNR_BMSK);
+
+	clkon_cfg->open_tx_1 = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_TX_1_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_1_BMSK);
+
+	clkon_cfg->open_tx_0 = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_TX_0_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_0_BMSK);
+
+	clkon_cfg->open_ntf_tx_cmdqs = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_NTF_TX_CMDQS_BMSK);
+
+	clkon_cfg->open_dcmp = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_DCMP_SHFT,
+			IPA_CLKON_CFG_OPEN_DCMP_BMSK);
+
+	clkon_cfg->open_h_dcph = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_H_DCPH_SHFT,
+			IPA_CLKON_CFG_OPEN_H_DCPH_BMSK);
+
+	clkon_cfg->open_d_dcph = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_D_DCPH_SHFT,
+			IPA_CLKON_CFG_OPEN_D_DCPH_BMSK);
+
+	clkon_cfg->open_ack_mngr = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_ACK_MNGR_SHFT,
+			IPA_CLKON_CFG_OPEN_ACK_MNGR_BMSK);
+
+	clkon_cfg->open_ctx_handler = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_CTX_HANDLER_SHFT,
+			IPA_CLKON_CFG_OPEN_CTX_HANDLER_BMSK);
+
+	clkon_cfg->open_rsrc_mngr = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_RSRC_MNGR_SHFT,
+			IPA_CLKON_CFG_OPEN_RSRC_MNGR_BMSK);
+
+	clkon_cfg->open_dps_tx_cmdqs = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_DPS_TX_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_DPS_TX_CMDQS_BMSK);
+
+	clkon_cfg->open_hps_dps_cmdqs = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_HPS_DPS_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_HPS_DPS_CMDQS_BMSK);
+
+	clkon_cfg->open_rx_hps_cmdqs = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_RX_HPS_CMDQS_SHFT,
+			IPA_CLKON_CFG_OPEN_RX_HPS_CMDQS_BMSK);
+
+	clkon_cfg->open_dps = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_DPS_SHFT,
+			IPA_CLKON_CFG_OPEN_DPS_BMSK);
+
+	clkon_cfg->open_hps = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_HPS_SHFT,
+			IPA_CLKON_CFG_OPEN_HPS_BMSK);
+
+	clkon_cfg->open_ftch_dps = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_FTCH_DPS_SHFT,
+			IPA_CLKON_CFG_OPEN_FTCH_DPS_BMSK);
+
+	clkon_cfg->open_ftch_hps = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_FTCH_HPS_SHFT,
+			IPA_CLKON_CFG_OPEN_FTCH_HPS_BMSK);
+
+	clkon_cfg->open_ram_arb = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_RAM_ARB_SHFT,
+			IPA_CLKON_CFG_OPEN_RAM_ARB_BMSK);
+
+	clkon_cfg->open_misc = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_MISC_SHFT,
+			IPA_CLKON_CFG_OPEN_MISC_BMSK);
+
+	clkon_cfg->open_tx_wrapper = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_TX_WRAPPER_SHFT,
+			IPA_CLKON_CFG_OPEN_TX_WRAPPER_BMSK);
+
+	clkon_cfg->open_proc = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_PROC_SHFT,
+			IPA_CLKON_CFG_OPEN_PROC_BMSK);
+
+	clkon_cfg->open_rx = IPA_GETFIELD_FROM_REG(val,
+			IPA_CLKON_CFG_OPEN_RX_SHFT,
+			IPA_CLKON_CFG_OPEN_RX_BMSK);
 }
 
 static void ipareg_construct_qcncm(
@@ -1522,7 +1777,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_endp_status_n_v4_0, ipareg_parse_dummy,
 		0x00000840, 0x70},
 	[IPA_HW_v4_0][IPA_CLKON_CFG] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
+		ipareg_construct_clkon_cfg, ipareg_parse_clkon_cfg,
 		0x00000044, 0},
 	[IPA_HW_v4_0][IPA_ENDP_INIT_CONN_TRACK_n] = {
 		ipareg_construct_endp_init_conn_track_n,

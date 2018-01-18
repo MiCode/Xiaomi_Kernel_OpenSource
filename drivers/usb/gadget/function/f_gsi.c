@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -407,17 +407,17 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 			ipa_out_channel_out_params.db_reg_phs_addr_lsb);
 
 	d_port->in_channel_handle = ipa_in_channel_out_params.clnt_hdl;
-	d_port->in_db_reg_phs_addr_lsb =
+	d_port->in_request.db_reg_phs_addr_lsb =
 		ipa_in_channel_out_params.db_reg_phs_addr_lsb;
-	d_port->in_db_reg_phs_addr_msb =
+	d_port->in_request.db_reg_phs_addr_msb =
 		ipa_in_channel_out_params.db_reg_phs_addr_msb;
 
 	if (gsi->prot_id != IPA_USB_DIAG) {
 		d_port->out_channel_handle =
 			ipa_out_channel_out_params.clnt_hdl;
-		d_port->out_db_reg_phs_addr_lsb =
+		d_port->out_request.db_reg_phs_addr_lsb =
 			ipa_out_channel_out_params.db_reg_phs_addr_lsb;
-		d_port->out_db_reg_phs_addr_msb =
+		d_port->out_request.db_reg_phs_addr_msb =
 			ipa_out_channel_out_params.db_reg_phs_addr_msb;
 	}
 	return ret;
@@ -426,22 +426,19 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 static void ipa_data_path_enable(struct gsi_data_port *d_port)
 {
 	struct f_gsi *gsi = d_port_to_gsi(d_port);
-	struct usb_gsi_request req;
-	u64 dbl_register_addr;
 	bool block_db = false;
 
-
-	log_event_dbg("in_db_reg_phs_addr_lsb = %x",
-			gsi->d_port.in_db_reg_phs_addr_lsb);
+	log_event_dbg("IN: db_reg_phs_addr_lsb = %x",
+			gsi->d_port.in_request.db_reg_phs_addr_lsb);
 	usb_gsi_ep_op(gsi->d_port.in_ep,
-			(void *)&gsi->d_port.in_db_reg_phs_addr_lsb,
+			&gsi->d_port.in_request,
 			GSI_EP_OP_STORE_DBL_INFO);
 
 	if (gsi->d_port.out_ep) {
-		log_event_dbg("out_db_reg_phs_addr_lsb = %x",
-				gsi->d_port.out_db_reg_phs_addr_lsb);
+		log_event_dbg("OUT: db_reg_phs_addr_lsb = %x",
+				gsi->d_port.out_request.db_reg_phs_addr_lsb);
 		usb_gsi_ep_op(gsi->d_port.out_ep,
-				(void *)&gsi->d_port.out_db_reg_phs_addr_lsb,
+				&gsi->d_port.out_request,
 				GSI_EP_OP_STORE_DBL_INFO);
 
 		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
@@ -452,29 +449,12 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
 				GSI_EP_OP_SET_CLR_BLOCK_DBL);
 
-	/* GSI channel DBL address for USB IN endpoint */
-	dbl_register_addr = gsi->d_port.in_db_reg_phs_addr_msb;
-	dbl_register_addr = dbl_register_addr << 32;
-	dbl_register_addr =
-		dbl_register_addr | gsi->d_port.in_db_reg_phs_addr_lsb;
+	usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
+						GSI_EP_OP_RING_DB);
 
-	/* use temp gsi request to pass 64 bit dbl reg addr and num_bufs */
-	req.buf_base_addr = &dbl_register_addr;
-
-	req.num_bufs = gsi->d_port.in_request.num_bufs;
-	usb_gsi_ep_op(gsi->d_port.in_ep, &req, GSI_EP_OP_RING_DB);
-
-	if (gsi->d_port.out_ep) {
-		/* GSI channel DBL address for USB OUT endpoint */
-		dbl_register_addr = gsi->d_port.out_db_reg_phs_addr_msb;
-		dbl_register_addr = dbl_register_addr << 32;
-		dbl_register_addr = dbl_register_addr |
-					gsi->d_port.out_db_reg_phs_addr_lsb;
-		/* use temp request to pass 64 bit dbl reg addr and num_bufs */
-		req.buf_base_addr = &dbl_register_addr;
-		req.num_bufs = gsi->d_port.out_request.num_bufs;
-		usb_gsi_ep_op(gsi->d_port.out_ep, &req, GSI_EP_OP_RING_DB);
-	}
+	if (gsi->d_port.out_ep)
+		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
+						GSI_EP_OP_RING_DB);
 }
 
 static void ipa_disconnect_handler(struct gsi_data_port *d_port)
@@ -491,11 +471,13 @@ static void ipa_disconnect_handler(struct gsi_data_port *d_port)
 		 */
 		usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
 				GSI_EP_OP_SET_CLR_BLOCK_DBL);
-		usb_gsi_ep_op(gsi->d_port.in_ep, NULL, GSI_EP_OP_DISABLE);
+		usb_gsi_ep_op(gsi->d_port.in_ep,
+				&gsi->d_port.in_request, GSI_EP_OP_DISABLE);
 	}
 
 	if (gsi->d_port.out_ep)
-		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_DISABLE);
+		usb_gsi_ep_op(gsi->d_port.out_ep,
+				&gsi->d_port.out_request, GSI_EP_OP_DISABLE);
 
 	gsi->d_port.net_ready_trigger = false;
 }
@@ -1219,14 +1201,16 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 		break;
 	case QTI_CTRL_GET_LINE_STATE:
 		val = atomic_read(&gsi->connected);
+		if (gsi->prot_id == IPA_USB_RMNET)
+			val = gsi->rmnet_dtr_status;
+
 		ret = copy_to_user((void __user *)arg, &val, sizeof(val));
 		if (ret) {
 			log_event_err("copy_to_user fail LINE_STATE");
 			ret = -EFAULT;
 		}
 		log_event_dbg("%s: Sent line_state: %d for prot id:%d",
-				__func__,
-				atomic_read(&gsi->connected), gsi->prot_id);
+				__func__, val, gsi->prot_id);
 		break;
 	case QTI_CTRL_EP_LOOKUP:
 	case GSI_MBIM_EP_LOOKUP:
@@ -1750,6 +1734,7 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	struct gsi_ctrl_pkt *cpkt;
 	u8 *buf;
 	u32 n;
+	bool line_state;
 
 	if (!atomic_read(&gsi->connected)) {
 		log_event_dbg("usb cable is not connected");
@@ -1830,8 +1815,11 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
+		line_state = (w_value & GSI_CTRL_DTR ? true : false);
+		if (gsi->prot_id == IPA_USB_RMNET)
+			gsi->rmnet_dtr_status = line_state;
 		log_event_dbg("%s: USB_CDC_REQ_SET_CONTROL_LINE_STATE DTR:%d\n",
-				__func__, w_value & GSI_CTRL_DTR ? 1 : 0);
+						__func__, line_state);
 		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
 		value = 0;
 		break;
@@ -2184,7 +2172,10 @@ static void gsi_disable(struct usb_function *f)
 	if (gsi->prot_id == IPA_USB_RNDIS)
 		rndis_uninit(gsi->params);
 
-	 /* Disable Control Path */
+	if (gsi->prot_id == IPA_USB_RMNET)
+		gsi->rmnet_dtr_status = false;
+
+	/* Disable Control Path */
 	if (gsi->c_port.notify &&
 		gsi->c_port.notify->driver_data) {
 		usb_ep_disable(gsi->c_port.notify);
@@ -3072,7 +3063,7 @@ static ssize_t gsi_info_show(struct config_item *item, char *page)
 				gsi->d_port.in_channel_handle);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "IN Chnl Dbl Addr: ",
-				gsi->d_port.in_db_reg_phs_addr_lsb);
+				gsi->d_port.in_request.db_reg_phs_addr_lsb);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10u\n", "IN TRB Ring Len: ",
 				ipa_chnl_params->xfer_ring_len);
@@ -3106,7 +3097,7 @@ static ssize_t gsi_info_show(struct config_item *item, char *page)
 			gsi->d_port.out_channel_handle);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "OUT Channel Dbl Addr: ",
-			gsi->d_port.out_db_reg_phs_addr_lsb);
+			gsi->d_port.out_request.db_reg_phs_addr_lsb);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10u\n", "OUT TRB Ring Len: ",
 			ipa_chnl_params->xfer_ring_len);

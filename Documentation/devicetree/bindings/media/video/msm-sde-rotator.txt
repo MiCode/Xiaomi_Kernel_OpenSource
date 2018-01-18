@@ -108,6 +108,10 @@ Optional properties
 				<rd_lut, wr_lut> indicating the safe lut
 				settings for the inline rotator sspp and
 				writeback client.
+- qcom,mdss-rot-qos-cpu-mask: A u32 value indicating desired PM QoS CPU
+				affine mask.
+- qcom,mdss-rot-qos-cpu-dma-latency: A u32 value indicating desired PM QoS CPU DMA
+				latency in usec.
 - qcom,mdss-rot-mode:		This is integer value indicates operation mode
 				of the rotator device
 - qcom,mdss-sbuf-headroom:	This integer value indicates stream buffer headroom in lines.
@@ -187,6 +191,9 @@ Example:
 		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;
 		qcom,mdss-rot-safe-lut = <0x0000ffff 0x0>;
+
+		qcom,mdss-rot-qos-cpu-mask = <0xf>;
+		qcom,mdss-rot-qos-cpu-dma-latency = <75>;
 
 		qcom,mdss-inline-rot-qos-lut = <0x0 0x0 0x00112233 0x44556677>;
 		qcom,mdss-inline-rot-danger-lut = <0x0 0x0000ffff>;

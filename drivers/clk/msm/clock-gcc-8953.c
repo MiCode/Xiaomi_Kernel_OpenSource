@@ -2786,6 +2786,7 @@ static struct branch_clk gcc_oxili_timer_clk = {
 	.base = &virt_bases[GFX_BASE],
 	.c = {
 		.dbg_name = "gcc_oxili_timer_clk",
+		.parent = &xo_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_oxili_timer_clk.c),
 	},

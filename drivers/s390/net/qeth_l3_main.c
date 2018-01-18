@@ -1416,6 +1416,7 @@ qeth_l3_add_mc_to_hash(struct qeth_card *card, struct in_device *in4_dev)
 
 		tmp->u.a4.addr = im4->multiaddr;
 		memcpy(tmp->mac, buf, sizeof(tmp->mac));
+		tmp->is_multicast = 1;
 
 		ipm = qeth_l3_ip_from_hash(card, tmp);
 		if (ipm) {
@@ -1593,7 +1594,7 @@ static void qeth_l3_free_vlan_addresses4(struct qeth_card *card,
 
 	addr = qeth_l3_get_addr_buffer(QETH_PROT_IPV4);
 	if (!addr)
-		return;
+		goto out;
 
 	spin_lock_bh(&card->ip_lock);
 
@@ -1607,6 +1608,7 @@ static void qeth_l3_free_vlan_addresses4(struct qeth_card *card,
 	spin_unlock_bh(&card->ip_lock);
 
 	kfree(addr);
+out:
 	in_dev_put(in_dev);
 }
 
@@ -1631,7 +1633,7 @@ static void qeth_l3_free_vlan_addresses6(struct qeth_card *card,
 
 	addr = qeth_l3_get_addr_buffer(QETH_PROT_IPV6);
 	if (!addr)
-		return;
+		goto out;
 
 	spin_lock_bh(&card->ip_lock);
 
@@ -1646,6 +1648,7 @@ static void qeth_l3_free_vlan_addresses6(struct qeth_card *card,
 	spin_unlock_bh(&card->ip_lock);
 
 	kfree(addr);
+out:
 	in6_dev_put(in6_dev);
 #endif /* CONFIG_QETH_IPV6 */
 }
@@ -2609,17 +2612,13 @@ static void qeth_l3_fill_af_iucv_hdr(struct qeth_card *card,
 	char daddr[16];
 	struct af_iucv_trans_hdr *iucv_hdr;
 
-	skb_pull(skb, 14);
-	card->dev->header_ops->create(skb, card->dev, 0,
-				      card->dev->dev_addr, card->dev->dev_addr,
-				      card->dev->addr_len);
-	skb_pull(skb, 14);
-	iucv_hdr = (struct af_iucv_trans_hdr *)skb->data;
 	memset(hdr, 0, sizeof(struct qeth_hdr));
 	hdr->hdr.l3.id = QETH_HEADER_TYPE_LAYER3;
 	hdr->hdr.l3.ext_flags = 0;
-	hdr->hdr.l3.length = skb->len;
+	hdr->hdr.l3.length = skb->len - ETH_HLEN;
 	hdr->hdr.l3.flags = QETH_HDR_IPV6 | QETH_CAST_UNICAST;
+
+	iucv_hdr = (struct af_iucv_trans_hdr *) (skb->data + ETH_HLEN);
 	memset(daddr, 0, sizeof(daddr));
 	daddr[0] = 0xfe;
 	daddr[1] = 0x80;
@@ -2823,10 +2822,7 @@ static int qeth_l3_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if ((card->info.type == QETH_CARD_TYPE_IQD) &&
 	    !skb_is_nonlinear(skb)) {
 		new_skb = skb;
-		if (new_skb->protocol == ETH_P_AF_IUCV)
-			data_offset = 0;
-		else
-			data_offset = ETH_HLEN;
+		data_offset = ETH_HLEN;
 		hdr = kmem_cache_alloc(qeth_core_header_cache, GFP_ATOMIC);
 		if (!hdr)
 			goto tx_drop;
@@ -2867,7 +2863,7 @@ static int qeth_l3_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	 */
 	if ((card->info.type != QETH_CARD_TYPE_IQD) &&
 	    ((use_tso && !qeth_l3_get_elements_no_tso(card, new_skb, 1)) ||
-	     (!use_tso && !qeth_get_elements_no(card, new_skb, 0)))) {
+	     (!use_tso && !qeth_get_elements_no(card, new_skb, 0, 0)))) {
 		int lin_rc = skb_linearize(new_skb);
 
 		if (card->options.performance_stats) {
@@ -2909,7 +2905,8 @@ static int qeth_l3_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	elements = use_tso ?
 		   qeth_l3_get_elements_no_tso(card, new_skb, hdr_elements) :
-		   qeth_get_elements_no(card, new_skb, hdr_elements);
+		   qeth_get_elements_no(card, new_skb, hdr_elements,
+					(data_offset > 0) ? data_offset : 0);
 	if (!elements) {
 		if (data_offset >= 0)
 			kmem_cache_free(qeth_core_header_cache, hdr);
@@ -3064,6 +3061,7 @@ static const struct net_device_ops qeth_l3_netdev_ops = {
 	.ndo_stop		= qeth_l3_stop,
 	.ndo_get_stats		= qeth_get_stats,
 	.ndo_start_xmit		= qeth_l3_hard_start_xmit,
+	.ndo_features_check	= qeth_features_check,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_rx_mode	= qeth_l3_set_multicast_list,
 	.ndo_do_ioctl		= qeth_l3_do_ioctl,
@@ -3120,6 +3118,7 @@ static int qeth_l3_setup_netdev(struct qeth_card *card)
 				card->dev->vlan_features = NETIF_F_SG |
 					NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
 					NETIF_F_TSO;
+				card->dev->features |= NETIF_F_SG;
 			}
 		}
 	} else if (card->info.type == QETH_CARD_TYPE_IQD) {
@@ -3145,8 +3144,8 @@ static int qeth_l3_setup_netdev(struct qeth_card *card)
 				NETIF_F_HW_VLAN_CTAG_RX |
 				NETIF_F_HW_VLAN_CTAG_FILTER;
 	netif_keep_dst(card->dev);
-	card->dev->gso_max_size = (QETH_MAX_BUFFER_ELEMENTS(card) - 1) *
-				  PAGE_SIZE;
+	netif_set_gso_max_size(card->dev, (QETH_MAX_BUFFER_ELEMENTS(card) - 1) *
+					  PAGE_SIZE);
 
 	SET_NETDEV_DEV(card->dev, &card->gdev->dev);
 	netif_napi_add(card->dev, &card->napi, qeth_l3_poll, QETH_NAPI_WEIGHT);

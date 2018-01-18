@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -543,11 +543,11 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 
 	chip->tz_dev = thermal_zone_of_sensor_register(&pdev->dev, 0, chip,
 							tz_ops);
-	if (chip->tz_dev == NULL) {
+	if (IS_ERR(chip->tz_dev)) {
+		rc = PTR_ERR(chip->tz_dev);
 		dev_err(&pdev->dev,
-			"%s: thermal_zone_device_register() failed.\n",
-			__func__);
-		rc = -ENODEV;
+			"%s: thermal_zone_of_sensor_register() failed, rc=%d\n",
+			__func__, rc);
 		goto err_cancel_work;
 	}
 

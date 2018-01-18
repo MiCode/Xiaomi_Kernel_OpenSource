@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3486,7 +3486,7 @@ static unsigned int ipa3_get_bus_vote(void)
 	} else {
 		WARN_ON(1);
 	}
-	IPADBG("curr %d idx %d\n", ipa3_ctx->curr_ipa_clk_rate, idx);
+	IPADBG_LOW("curr %d idx %d\n", ipa3_ctx->curr_ipa_clk_rate, idx);
 
 	return idx;
 }

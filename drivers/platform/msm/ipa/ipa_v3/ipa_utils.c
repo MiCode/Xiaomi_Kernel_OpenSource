@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,7 +57,6 @@
 #define IPA_BCR_REG_VAL_v3_0 (0x00000001)
 #define IPA_BCR_REG_VAL_v3_5 (0x0000003B)
 #define IPA_BCR_REG_VAL_v4_0 (0x00000039)
-#define IPA_CLKON_CFG_v4_0 (0x30000000)
 #define IPA_AGGR_GRAN_MIN (1)
 #define IPA_AGGR_GRAN_MAX (32)
 #define IPA_EOT_COAL_GRAN_MIN (1)
@@ -2051,13 +2050,20 @@ int ipa3_init_hw(void)
 	ipahal_write_reg(IPA_BCR, val);
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
-		struct ipahal_reg_tx_cfg cfg;
+		struct ipahal_reg_clkon_cfg clkon_cfg;
+		struct ipahal_reg_tx_cfg tx_cfg;
 
-		ipahal_write_reg(IPA_CLKON_CFG, IPA_CLKON_CFG_v4_0);
-		ipahal_read_reg_fields(IPA_TX_CFG, &cfg);
+		memset(&clkon_cfg, 0, sizeof(clkon_cfg));
+
+		/*enable open global clocks*/
+		clkon_cfg.open_global_2x_clk = true;
+		clkon_cfg.open_global = true;
+		ipahal_write_reg_fields(IPA_CLKON_CFG, &clkon_cfg);
+
+		ipahal_read_reg_fields(IPA_TX_CFG, &tx_cfg);
 		/* disable PA_MASK_EN to allow holb drop */
-		cfg.pa_mask_en = 0;
-		ipahal_write_reg_fields(IPA_TX_CFG, &cfg);
+		tx_cfg.pa_mask_en = 0;
+		ipahal_write_reg_fields(IPA_TX_CFG, &tx_cfg);
 	}
 
 	ipa3_cfg_qsb();

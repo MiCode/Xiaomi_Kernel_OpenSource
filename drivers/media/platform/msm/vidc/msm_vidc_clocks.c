@@ -167,6 +167,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 	struct hfi_device *hdev;
 	struct msm_vidc_inst *inst = NULL;
 	struct vidc_bus_vote_data *vote_data = NULL;
+	bool is_turbo = false;
 
 	if (!core || !core->device) {
 		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, core);
@@ -208,6 +209,11 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 					temp->vvb.vb2_buf.planes[0].bytesused);
 				device_addr = temp->smem[0].device_addr;
 			}
+			if (inst->session_type == MSM_VIDC_ENCODER &&
+				(temp->vvb.flags &
+				V4L2_QCOM_BUF_FLAG_PERF_MODE)) {
+				is_turbo = true;
+			}
 		}
 		mutex_unlock(&inst->registeredbufs.lock);
 
@@ -248,7 +254,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 			vote_data[i].fps = inst->prop.fps;
 
 		vote_data[i].power_mode = 0;
-		if (!msm_vidc_clock_scaling ||
+		if (!msm_vidc_clock_scaling || is_turbo ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW)
 			vote_data[i].power_mode = VIDC_POWER_TURBO;
 
@@ -409,7 +415,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 }
 
 static void msm_vidc_update_freq_entry(struct msm_vidc_inst *inst,
-	unsigned long freq, u32 device_addr)
+	unsigned long freq, u32 device_addr, bool is_turbo)
 {
 	struct vidc_freq_data *temp, *next;
 	bool found = false;
@@ -433,6 +439,7 @@ static void msm_vidc_update_freq_entry(struct msm_vidc_inst *inst,
 		temp->device_addr = device_addr;
 		list_add_tail(&temp->list, &inst->freqs.list);
 	}
+	temp->turbo = !!is_turbo;
 exit:
 	mutex_unlock(&inst->freqs.lock);
 }
@@ -452,18 +459,36 @@ void msm_vidc_clear_freq_entry(struct msm_vidc_inst *inst,
 	inst->clk_data.buffer_counter++;
 }
 
+static unsigned long msm_vidc_max_freq(struct msm_vidc_core *core)
+{
+	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
+	unsigned long freq = 0;
+
+	allowed_clks_tbl = core->resources.allowed_clks_tbl;
+	freq = allowed_clks_tbl[0].clock_rate;
+	dprintk(VIDC_PROF, "Max rate = %lu\n", freq);
+	return freq;
+}
 
 static unsigned long msm_vidc_adjust_freq(struct msm_vidc_inst *inst)
 {
 	struct vidc_freq_data *temp;
 	unsigned long freq = 0;
+	bool is_turbo = false;
 
 	mutex_lock(&inst->freqs.lock);
 	list_for_each_entry(temp, &inst->freqs.list, list) {
 		freq = max(freq, temp->freq);
+		if (temp->turbo) {
+			is_turbo = true;
+			break;
+		}
 	}
 	mutex_unlock(&inst->freqs.lock);
 
+	if (is_turbo) {
+		return msm_vidc_max_freq(inst->core);
+	}
 	/* If current requirement is within DCVS limits, try DCVS. */
 
 	if (freq < inst->clk_data.load_norm) {
@@ -531,17 +556,8 @@ exit:
 	mutex_unlock(&inst->input_crs.lock);
 }
 
-static unsigned long msm_vidc_max_freq(struct msm_vidc_core *core)
-{
-	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
-	unsigned long freq = 0;
 
-	allowed_clks_tbl = core->resources.allowed_clks_tbl;
-	freq = allowed_clks_tbl[0].clock_rate;
-	dprintk(VIDC_PROF, "Max rate = %lu\n", freq);
 
-	return freq;
-}
 
 static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	u32 filled_len)
@@ -741,6 +757,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	unsigned long freq = 0;
 	u32 filled_len = 0;
 	u32 device_addr = 0;
+	bool is_turbo = false;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s Invalid args: Inst = %pK\n",
@@ -755,6 +772,11 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 					temp->flags & MSM_VIDC_FLAG_DEFERRED) {
 			filled_len = max(filled_len,
 				temp->vvb.vb2_buf.planes[0].bytesused);
+			if (inst->session_type == MSM_VIDC_ENCODER &&
+				(temp->vvb.flags &
+				 V4L2_QCOM_BUF_FLAG_PERF_MODE)) {
+				is_turbo = true;
+			}
 			device_addr = temp->smem[0].device_addr;
 		}
 	}
@@ -767,7 +789,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 
 	freq = msm_vidc_calc_freq(inst, filled_len);
 
-	msm_vidc_update_freq_entry(inst, freq, device_addr);
+	msm_vidc_update_freq_entry(inst, freq, device_addr, is_turbo);
 
 	freq = msm_vidc_adjust_freq(inst);
 

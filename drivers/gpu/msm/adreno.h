@@ -144,6 +144,12 @@
 #define ADRENO_QUIRK_HFI_USE_REG BIT(6)
 /* Only set protected SECVID registers once */
 #define ADRENO_QUIRK_SECVID_SET_ONCE BIT(7)
+/*
+ * Limit number of read and write transactions from
+ * UCHE block to GBIF to avoid possible deadlock
+ * between GBIF, SMMU and MEMNOC.
+ */
+#define ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW BIT(8)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -1949,7 +1955,7 @@ static inline int adreno_vbif_clear_pending_transactions(
 	return ret;
 }
 
-void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
+int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
 #endif /*__ADRENO_H */

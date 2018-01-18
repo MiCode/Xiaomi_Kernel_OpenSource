@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2014-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -182,7 +182,7 @@ static struct drm_crtc_state *_sde_plane_get_crtc_state(
 	return cstate;
 }
 
-static bool sde_plane_enabled(struct drm_plane_state *state)
+static bool sde_plane_enabled(const struct drm_plane_state *state)
 {
 	return state && state->fb && state->crtc;
 }
@@ -1558,50 +1558,38 @@ static struct sde_crtc_res_ops fbo_res_ops = {
 	.get = _sde_plane_fbo_get,
 };
 
-/**
- * sde_plane_rot_calc_prefill - calculate rotator start prefill
- * @plane: Pointer to drm plane
- * return: prefill time in line
- */
-u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
+u32 sde_plane_rot_get_prefill(struct drm_plane *plane)
 {
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
 	struct sde_kms *sde_kms;
-	u32 blocksize = 128;
-	u32 prefill_line = 0;
+	u32 blocksize = 0;
 
 	if (!plane || !plane->state || !plane->state->fb) {
 		SDE_ERROR("invalid parameters\n");
 		return 0;
 	}
 
-	sde_kms = _sde_plane_get_kms(plane);
 	state = plane->state;
 	pstate = to_sde_plane_state(state);
 	rstate = &pstate->rot;
 
+	if (!rstate->out_fb_format)
+		return 0;
+
+	sde_kms = _sde_plane_get_kms(plane);
 	if (!sde_kms || !sde_kms->catalog) {
 		SDE_ERROR("invalid kms\n");
 		return 0;
 	}
 
-	if (rstate->out_fb_format)
-		sde_format_get_block_size(rstate->out_fb_format,
-				&blocksize, &blocksize);
+	/* return zero if out_fb_format isn't valid */
+	if (sde_format_get_block_size(rstate->out_fb_format,
+			&blocksize, &blocksize))
+		return 0;
 
-	prefill_line = blocksize + sde_kms->catalog->sbuf_headroom;
-	prefill_line = mult_frac(prefill_line, rstate->out_src_h >> 16,
-			state->crtc_h);
-	SDE_DEBUG(
-		"plane%d.%d blk:%u head:%u vdst/vsrc:%u/%u prefill:%u\n",
-			plane->base.id, rstate->sequence_id,
-			blocksize, sde_kms->catalog->sbuf_headroom,
-			state->crtc_h, rstate->out_src_h >> 16,
-			prefill_line);
-
-	return prefill_line;
+	return blocksize + sde_kms->catalog->sbuf_headroom;
 }
 
 /**
@@ -1908,8 +1896,7 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 
 	rot_cmd->prefill_bw = sde_crtc_get_property(sde_cstate,
 			CRTC_PROP_ROT_PREFILL_BW);
-	rot_cmd->clkrate = sde_crtc_get_property(sde_cstate,
-			CRTC_PROP_ROT_CLK);
+	rot_cmd->clkrate = sde_crtc_get_sbuf_clk(cstate);
 	rot_cmd->dst_writeback = psde->sbuf_writeback;
 
 	if (sde_crtc_get_intf_mode(state->crtc) == INTF_MODE_VIDEO)
@@ -1937,6 +1924,7 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	rot_cmd->dst_rect_y = 0;
 	rot_cmd->dst_rect_w = drm_rect_width(&rstate->out_rot_rect) >> 16;
 	rot_cmd->dst_rect_h = drm_rect_height(&rstate->out_rot_rect) >> 16;
+	rot_cmd->crtc_h = state->crtc_h;
 
 	if (hw_cmd == SDE_HW_ROT_CMD_COMMIT) {
 		struct sde_hw_fmt_layout layout;
@@ -2966,30 +2954,22 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 }
 
 int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
-		const struct drm_plane_state *state)
+		const struct drm_plane_state *state,
+		struct drm_crtc_state *cstate)
 {
-	struct drm_crtc_state *cstate;
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
 	struct sde_hw_blk *hw_blk;
 
-	if (!plane || !state) {
-		SDE_ERROR("invalid plane/state\n");
+	if (!plane || !state || !cstate) {
+		SDE_ERROR("invalid parameters\n");
 		return -EINVAL;
 	}
 
 	pstate = to_sde_plane_state(state);
 	rstate = &pstate->rot;
 
-	/* cstate will be null if crtc is disconnected from plane */
-	cstate = _sde_plane_get_crtc_state((struct drm_plane_state *)state);
-	if (IS_ERR_OR_NULL(cstate)) {
-		SDE_ERROR("invalid crtc state\n");
-		return -EINVAL;
-	}
-
-	if (sde_plane_enabled((struct drm_plane_state *)state) &&
-			rstate->out_sbuf) {
+	if (sde_plane_enabled(state) && rstate->out_sbuf) {
 		SDE_DEBUG("plane%d.%d acquire rotator, fb %d\n",
 				plane->base.id, rstate->sequence_id,
 				state->fb ? state->fb->base.id : -1);
@@ -3005,7 +2985,15 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
 					SDE_EVTLOG_ERROR);
 			return -EINVAL;
 		}
+
+		_sde_plane_rot_get_fb(plane, cstate, rstate);
+
+		SDE_EVT32(DRMID(plane), rstate->sequence_id,
+				state->fb ? state->fb->base.id : -1,
+				rstate->out_fb ? rstate->out_fb->base.id : -1,
+				hw_blk->id);
 	}
+
 	return 0;
 }
 

@@ -1306,6 +1306,7 @@ void netdev_notify_peers(struct net_device *dev)
 {
 	rtnl_lock();
 	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, dev);
+	call_netdevice_notifiers(NETDEV_RESEND_IGMP, dev);
 	rtnl_unlock();
 }
 EXPORT_SYMBOL(netdev_notify_peers);
@@ -4171,6 +4172,9 @@ static inline int nf_ingress(struct sk_buff *skb, struct packet_type **pt_prev,
 	return 0;
 }
 
+int (*gsb_nw_stack_recv)(struct sk_buff *skb) __rcu __read_mostly;
+EXPORT_SYMBOL(gsb_nw_stack_recv);
+
 int (*athrs_fast_nat_recv)(struct sk_buff *skb) __rcu __read_mostly;
 EXPORT_SYMBOL(athrs_fast_nat_recv);
 
@@ -4185,6 +4189,7 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
 	bool deliver_exact = false;
 	int ret = NET_RX_DROP;
 	__be16 type;
+	int (*gsb_ns_recv)(struct sk_buff *skb);
 	int (*fast_recv)(struct sk_buff *skb);
 	int (*embms_recv)(struct sk_buff *skb);
 
@@ -4246,6 +4251,13 @@ skip_taps:
 			goto out;
 	}
 #endif
+	gsb_ns_recv = rcu_dereference(gsb_nw_stack_recv);
+		if (gsb_ns_recv) {
+			if (gsb_ns_recv(skb)) {
+				ret = NET_RX_SUCCESS;
+				goto out;
+		}
+	}
 	fast_recv = rcu_dereference(athrs_fast_nat_recv);
 	if (fast_recv) {
 		if (fast_recv(skb)) {

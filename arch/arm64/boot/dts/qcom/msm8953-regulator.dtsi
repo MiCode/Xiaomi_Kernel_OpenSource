@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,6 +59,14 @@
 			regulator-max-microvolt =
 					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
 			qcom,use-voltage-level;
+		};
+
+		cx_cdev: regulator-cx-cdev {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pm8953_s2_floor_level>;
+			regulator-levels = <RPM_SMD_REGULATOR_LEVEL_NOM
+					RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			#cooling-cells = <2>;
 		};
 	};
 

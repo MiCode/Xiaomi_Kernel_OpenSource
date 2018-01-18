@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,32 @@
 
 	chosen {
 		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
+	};
+
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait";
+					status = "ok";
+				};
+				system {
+					compatible = "android,system";
+					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait";
+					status = "ok";
+				};
+
+			};
+		};
 	};
 
 	reserved-memory {
@@ -136,6 +162,7 @@
 #include "msm8953-coresight.dtsi"
 #include "msm8953-ion.dtsi"
 #include "msm-arm-smmu-8953.dtsi"
+#include "msm8953-gpu.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -276,217 +303,7 @@
 		qcom,pipe-attr-ee;
 	};
 
-	thermal_zones: thermal-zones {
-		mdm-core-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-governor = "user_space";
-			thermal-sensors = <&tsens0 1>;
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		qdsp-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-governor = "user_space";
-			thermal-sensors = <&tsens0 2>;
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		camera-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-governor = "user_space";
-			thermal-sensors = <&tsens0 3>;
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc1_cpu0-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 4>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc1_cpu1-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 5>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc1_cpu2-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 6>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc1_cpu3-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 7>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc1_l2-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 8>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc0_cpu0-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 9>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc0_cpu1-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 10>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc0_cpu2-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 11>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc0_cpu3-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 12>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		apc0_l2-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 13>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		gpu0-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 14>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-
-		gpu1-usr {
-			polling-delay-passive = <0>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 15>;
-			thermal-governor = "user_space";
-			trips {
-				active-config0 {
-					temperature = <125000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-			};
-		};
-	};
+	thermal_zones: thermal-zones {};
 
 	tsens0: tsens@4a8000 {
 		compatible = "qcom,msm8953-tsens";
@@ -1788,6 +1605,47 @@
 		qcom,reset-ep-after-lpm-resume;
 	};
 
+	qcom,mss@4080000 {
+		compatible = "qcom,pil-q6v55-mss";
+		reg = <0x04080000 0x100>,
+		      <0x0194f000 0x010>,
+		      <0x01950000 0x008>,
+		      <0x01951000 0x008>,
+		      <0x04020000 0x040>,
+		      <0x01871000 0x004>;
+		reg-names = "qdsp6_base", "halt_q6", "halt_modem", "halt_nc",
+				 "rmb_base", "restart_reg";
+
+		interrupts = <GIC_SPI 24 IRQ_TYPE_EDGE_RISING>;
+		vdd_mss-supply = <&pm8953_s1>;
+		vdd_cx-supply = <&pm8953_s2_level>;
+		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		vdd_mx-supply = <&pm8953_s7_level_ao>;
+		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		vdd_pll-supply = <&pm8953_l7>;
+		qcom,vdd_pll = <1800000>;
+		vdd_mss-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+
+		clocks = <&clock_gcc clk_xo_pil_mss_clk>,
+			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
+			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
+			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>;
+		clock-names = "xo", "iface_clk", "bus_clk", "mem_clk";
+		qcom,proxy-clock-names = "xo";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk";
+
+		qcom,pas-id = <5>;
+		qcom,pil-mss-memsetup;
+		qcom,firmware-name = "modem";
+		qcom,pil-self-auth;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,qdsp6v56-1-10;
+		qcom,reset-clk;
+
+		memory-region = <&modem_mem>;
+	};
+
 	qcom,lpass@c200000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xc200000 0x00100>;
@@ -1894,6 +1752,7 @@
 #include "pm8953.dtsi"
 #include "msm8953-regulator.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm8953-thermal.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";

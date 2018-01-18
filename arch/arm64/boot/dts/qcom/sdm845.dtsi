@@ -3775,7 +3775,7 @@
 		};
 
 		fcm_dump {
-			qcom,dump-size = <0x400>;
+			qcom,dump-size = <0x8400>;
 			qcom,dump-id = <0xee>;
 		};
 

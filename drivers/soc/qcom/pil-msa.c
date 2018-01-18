@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,6 +263,12 @@ int pil_mss_assert_resets(struct q6v5_data *drv)
 
 	pil_mss_pdc_sync(drv, 1);
 	pil_mss_alt_reset(drv, 1);
+	if (drv->reset_clk) {
+		pil_mss_disable_clks(drv);
+		if (drv->ahb_clk_vote)
+			clk_disable_unprepare(drv->ahb_clk);
+	}
+
 	ret = pil_mss_restart_reg(drv, true);
 
 	return ret;
@@ -277,6 +283,9 @@ int pil_mss_deassert_resets(struct q6v5_data *drv)
 		return ret;
 	/* Wait 6 32kHz sleep cycles for reset */
 	udelay(200);
+
+	if (drv->reset_clk)
+		pil_mss_enable_clks(drv);
 	pil_mss_alt_reset(drv, 0);
 	pil_mss_pdc_sync(drv, false);
 

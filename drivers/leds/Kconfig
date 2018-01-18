@@ -706,6 +706,14 @@ config LEDS_QPNP_HAPTICS
 	  module provides haptic feedback for user actions such as a long press
 	  on the touch screen.
 
+config LEDS_QPNP_VIBRATOR_LDO
+	tristate "Vibrator-LDO support for QPNP PMIC"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC
+	help
+	  This option enables device driver support for the vibrator-ldo
+	  peripheral found on Qualcomm Technologies, Inc. QPNP PMICs.
+	  The vibrator-ldo peripheral is capable of driving ERM vibrators.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 

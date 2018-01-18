@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -84,6 +85,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L1_I_1: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;
@@ -102,6 +104,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L1_I_2: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;
@@ -120,6 +123,7 @@
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L1_I_3: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;
@@ -138,6 +142,7 @@
 			efficiency = <1126>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_1>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -162,6 +167,7 @@
 			efficiency = <1126>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_1>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L1_I_101: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;
@@ -180,6 +186,7 @@
 			efficiency = <1126>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_1>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L1_I_102: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;
@@ -198,6 +205,7 @@
 			efficiency = <1126>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_1>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L1_I_103: l1-icache {
 			      compatible = "arm,arch-cache";
 			      qcom,dump-size = <0x8800>;

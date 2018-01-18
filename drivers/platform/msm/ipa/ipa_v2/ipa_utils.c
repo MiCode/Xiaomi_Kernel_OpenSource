@@ -1407,6 +1407,37 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			ihl_ofst_meq32++;
 		}
 
+		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IP_TYPE) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			/* 22  => offset of IP type after v6 header */
+			*buf = ipa_write_8(22, *buf);
+			*buf = ipa_write_32(0xF0000000, *buf);
+			if (attrib->type == 0x40)
+				*buf = ipa_write_32(0x40000000, *buf);
+			else
+				*buf = ipa_write_32(0x60000000, *buf);
+			*buf = ipa_pad_to_32(*buf);
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IPV4_DST_ADDR) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			/* 38  => offset of inner IPv4 addr */
+			*buf = ipa_write_8(38, *buf);
+			*buf = ipa_write_32(attrib->u.v4.dst_addr_mask, *buf);
+			*buf = ipa_write_32(attrib->u.v4.dst_addr, *buf);
+			*buf = ipa_pad_to_32(*buf);
+			ihl_ofst_meq32++;
+		}
+
 		if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
 				IPAERR("ran out of ihl_rng16 eq\n");
@@ -2003,6 +2034,36 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 				0xFFFFFFFF;
 			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
 				attrib->spi;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IP_TYPE) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			/* 22  => offset of inner IP type after v6 header */
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 22;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+				0xF0000000;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				(u32)attrib->type << 24;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IPV4_DST_ADDR) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			/* 38  => offset of inner IPv4 addr */
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 38;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+				attrib->u.v4.dst_addr_mask;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->u.v4.dst_addr;
 			ihl_ofst_meq32++;
 		}
 

@@ -489,9 +489,6 @@ int fscrypt_initialize(void)
 {
 	int i, res = -ENOMEM;
 
-	if (fscrypt_bounce_page_pool)
-		return 0;
-
 	mutex_lock(&fscrypt_init_mutex);
 	if (fscrypt_bounce_page_pool)
 		goto already_initialized;

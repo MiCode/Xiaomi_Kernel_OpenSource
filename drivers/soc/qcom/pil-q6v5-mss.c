@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,7 +38,6 @@
 #define PROXY_TIMEOUT_MS	10000
 #define MAX_SSR_REASON_LEN	256U
 #define STOP_ACK_TIMEOUT_MS	1000
-#define QDSP6SS_NMI_STATUS	0x44
 
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
 
@@ -72,17 +71,12 @@ static void restart_modem(struct modem_data *drv)
 static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
 {
 	struct modem_data *drv = subsys_to_drv(dev_id);
-	u32 nmi_status = readl_relaxed(drv->q6->reg_base + QDSP6SS_NMI_STATUS);
 
 	/* Ignore if we're the one that set the force stop GPIO */
 	if (drv->crash_shutdown)
 		return IRQ_HANDLED;
 
-	if (nmi_status & 0x04)
-		pr_err("%s: Fatal error on the modem due to TZ NMI\n",
-			__func__);
-	else
-		pr_err("%s: Fatal error on the modem\n", __func__);
+	pr_err("Fatal error on the modem.\n");
 	subsys_set_crash_status(drv->subsys, CRASH_STATUS_ERR_FATAL);
 	restart_modem(drv);
 	return IRQ_HANDLED;
@@ -278,6 +272,8 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 
 	q6_desc->ops = &pil_msa_mss_ops;
 
+	q6->reset_clk = of_property_read_bool(pdev->dev.of_node,
+							"qcom,reset-clk");
 	q6->self_auth = of_property_read_bool(pdev->dev.of_node,
 							"qcom,pil-self-auth");
 	if (q6->self_auth) {

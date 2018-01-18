@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,21 @@ static const struct virtual_sensor_data qti_virtual_sensors[] = {
 		.num_sensors = 2,
 		.sensor_names = {"cpu0-gold-usr",
 				"cpu1-gold-usr"},
+		.logic = VIRT_MAXIMUM,
+	},
+	{
+		.virt_zone_name = "deca-cpu-max-step",
+		.num_sensors = 10,
+		.sensor_names = {"apc0-cpu0-usr",
+				"apc0-cpu1-usr",
+				"apc0-cpu2-usr",
+				"apc0-cpu3-usr",
+				"apc0-l2-usr",
+				"apc1-cpu0-usr",
+				"apc1-cpu1-usr",
+				"apc1-cpu2-usr",
+				"apc1-cpu3-usr",
+				"apc1-l2-usr"},
 		.logic = VIRT_MAXIMUM,
 	},
 };

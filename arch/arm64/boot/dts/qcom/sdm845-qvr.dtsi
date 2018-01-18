@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,30 @@
 	qcom,sw-jeita-enable;
 };
 
+&qupv3_se3_i2c {
+	status = "ok";
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 63 0x00>;
+		qcom,nq-ven = <&tlmm 12 0x00>;
+		qcom,nq-firm = <&tlmm 62 0x00>;
+		qcom,nq-clkreq = <&pm8998_gpios 21 0x00>;
+		qcom,nq-esepwr = <&tlmm 116 0x00>;
+		interrupt-parent = <&tlmm>;
+		qcom,clk-src = "BBCLK3";
+		interrupts = <63 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active
+			     &nfc_enable_active
+			     &nfc_clk_default>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+		clocks = <&clock_rpmh RPMH_LN_BB_CLK3>;
+		clock-names = "ref_clk";
+	};
+};
+
 &qupv3_se10_i2c {
 	status = "ok";
 };
@@ -104,6 +128,29 @@
 			linux,can-disable;
 		};
 	};
+};
+
+&qusb_phy0 {
+		qcom,qusb-phy-init-seq =
+			/* <value reg_offset> */
+			   <0x23 0x210 /* PWR_CTRL1 */
+			    0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+			    0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+			    0x80 0x2c  /* PLL_CMODE */
+			    0x0a 0x184 /* PLL_LOCK_DELAY */
+			    0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+			    0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+			    0x20 0x198 /* PLL_BIAS_CONTROL_2 */
+			    0x21 0x214 /* PWR_CTRL2 */
+			    0x00 0x220 /* IMP_CTRL1 */
+			    0x58 0x224 /* IMP_CTRL2 */
+			    0x27 0x240 /* TUNE1 */
+			    0x29 0x244 /* TUNE2 */
+			    0xca 0x248 /* TUNE3 */
+			    0x04 0x24c /* TUNE4 */
+			    0x03 0x250 /* TUNE5 */
+			    0x00 0x23c /* CHG_CTRL2 */
+			    0x22 0x210>; /* PWR_CTRL1 */
 };
 
 &pmi8998_haptics {

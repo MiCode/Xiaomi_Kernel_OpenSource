@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1006,7 +1006,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 
 			for (i = 0 ; i < mas->num_tx_eot; i++) {
 				timeout =
-				wait_for_completion_interruptible_timeout(
+				wait_for_completion_timeout(
 					&mas->tx_cb,
 					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
 				if (timeout <= 0) {
@@ -1018,7 +1018,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 			}
 			for (i = 0 ; i < mas->num_rx_eot; i++) {
 				timeout =
-				wait_for_completion_interruptible_timeout(
+				wait_for_completion_timeout(
 					&mas->rx_cb,
 					msecs_to_jiffies(SPI_XFER_TIMEOUT_MS));
 				if (timeout <= 0) {

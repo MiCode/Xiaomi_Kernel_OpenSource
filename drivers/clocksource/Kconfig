@@ -315,6 +315,14 @@ config FSL_ERRATUM_A008585
 	  value").  The workaround will only be active if the
 	  fsl,erratum-a008585 property is found in the timer node.
 
+config ARM_ARCH_TIMER_VCT_ACCESS
+	bool "Support for ARM architected timer virtual counter access in userspace"
+	default !ARM64
+	depends on ARM_ARCH_TIMER
+	help
+	  This option enables support for reading the ARM architected timer's
+	  virtual counter in userspace.
+
 config ARM_GLOBAL_TIMER
 	bool "Support for the ARM global timer" if COMPILE_TEST
 	select CLKSRC_OF if OF

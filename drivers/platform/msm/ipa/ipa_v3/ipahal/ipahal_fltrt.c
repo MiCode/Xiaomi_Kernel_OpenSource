@@ -1233,6 +1233,39 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip6(u16 *en_rule,
 		ihl_ofst_meq32 += 2;
 	}
 
+	if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IP_TYPE) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
+			ihl_ofst_meq32)) {
+			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+		/* 22  => offset of IP type after v6 header */
+		extra = ipa_write_8(22, extra);
+		rest = ipa_write_32(0xF0000000, rest);
+		if (attrib->type == 0x40)
+			rest = ipa_write_32(0x40000000, rest);
+		else
+			rest = ipa_write_32(0x60000000, rest);
+		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IPV4_DST_ADDR) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
+			ihl_ofst_meq32)) {
+			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+		/* 38  => offset of inner IPv4 addr */
+		extra = ipa_write_8(38, extra);
+		rest = ipa_write_32(attrib->u.v4.dst_addr_mask, rest);
+		rest = ipa_write_32(attrib->u.v4.dst_addr, rest);
+		ihl_ofst_meq32++;
+	}
+
 	if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_METADATA_COMPARE);
 		rest = ipa_write_32(attrib->meta_data_mask, rest);
@@ -2267,6 +2300,40 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 				0x20000;
 		}
 		ihl_ofst_meq32 += 2;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IP_TYPE) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
+			ihl_ofst_meq32)) {
+			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			return -EPERM;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+		/* 22  => offset of inner IP type after v6 header */
+		eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 22;
+		eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+			0xF0000000;
+		eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+			(u32)attrib->type << 24;
+		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IPV4_DST_ADDR) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
+			ihl_ofst_meq32)) {
+			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			return -EPERM;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+		/* 38  => offset of inner IPv4 addr */
+		eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 38;
+		eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+			attrib->u.v4.dst_addr_mask;
+		eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+			attrib->u.v4.dst_addr;
+		ihl_ofst_meq32++;
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {

@@ -270,8 +270,16 @@ static struct attribute *nd_pfn_attributes[] = {
 	NULL,
 };
 
+static umode_t pfn_visible(struct kobject *kobj, struct attribute *a, int n)
+{
+	if (a == &dev_attr_resource.attr)
+		return 0400;
+	return a->mode;
+}
+
 struct attribute_group nd_pfn_attribute_group = {
 	.attrs = nd_pfn_attributes,
+	.is_visible = pfn_visible,
 };
 
 static const struct attribute_group *nd_pfn_attribute_groups[] = {
@@ -344,9 +352,9 @@ struct device *nd_pfn_create(struct nd_region *nd_region)
 int nd_pfn_validate(struct nd_pfn *nd_pfn, const char *sig)
 {
 	u64 checksum, offset;
-	unsigned long align;
 	enum nd_pfn_mode mode;
 	struct nd_namespace_io *nsio;
+	unsigned long align, start_pad;
 	struct nd_pfn_sb *pfn_sb = nd_pfn->pfn_sb;
 	struct nd_namespace_common *ndns = nd_pfn->ndns;
 	const u8 *parent_uuid = nd_dev_to_uuid(&ndns->dev);
@@ -390,6 +398,7 @@ int nd_pfn_validate(struct nd_pfn *nd_pfn, const char *sig)
 
 	align = le32_to_cpu(pfn_sb->align);
 	offset = le64_to_cpu(pfn_sb->dataoff);
+	start_pad = le32_to_cpu(pfn_sb->start_pad);
 	if (align == 0)
 		align = 1UL << ilog2(offset);
 	mode = le32_to_cpu(pfn_sb->mode);
@@ -448,7 +457,7 @@ int nd_pfn_validate(struct nd_pfn *nd_pfn, const char *sig)
 		return -EBUSY;
 	}
 
-	if ((align && !IS_ALIGNED(offset, align))
+	if ((align && !IS_ALIGNED(nsio->res.start + offset + start_pad, align))
 			|| !IS_ALIGNED(offset, PAGE_SIZE)) {
 		dev_err(&nd_pfn->dev,
 				"bad offset: %#llx dax disabled align: %#lx\n",

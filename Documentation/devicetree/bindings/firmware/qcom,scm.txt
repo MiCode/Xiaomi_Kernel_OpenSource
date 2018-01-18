@@ -13,6 +13,7 @@ Required properties:
  * "qcom,scm" for later processors (MSM8916, APQ8084, MSM8974, etc)
  * "android,firmware" for firmware image
  * "android,vbmeta" for setting system properties for verified boot.
+ * "android,system" for system partition properties.
 - clocks: One to three clocks may be required based on compatible.
  * Only core clock required for "qcom,scm-apq8064", "qcom,scm-msm8660", and "qcom,scm-msm8960"
  * Core, iface, and bus clocks required for "qcom,scm"

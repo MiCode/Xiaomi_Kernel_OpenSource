@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -396,6 +396,9 @@
 							0x44556677 0x00112233>;
 		qcom,mdss-inline-rot-danger-lut = <0x0055aaff 0x0000ffff>;
 		qcom,mdss-inline-rot-safe-lut = <0x0000f000 0x0000ff00>;
+
+		qcom,mdss-rot-qos-cpu-mask = <0xf>;
+		qcom,mdss-rot-qos-cpu-dma-latency = <75>;
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;

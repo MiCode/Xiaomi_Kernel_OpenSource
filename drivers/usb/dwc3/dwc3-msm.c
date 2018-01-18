@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,7 +121,7 @@ MODULE_PARM_DESC(override_usb_speed, "override for USB speed");
 #define GSI_DBL_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x110) + (n*4))
 #define GSI_DBL_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x120) + (n*4))
 #define GSI_RING_BASE_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x130) + (n*4))
-#define GSI_RING_BASE_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x140) + (n*4))
+#define GSI_RING_BASE_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x144) + (n*4))
 
 #define	GSI_IF_STS	(QSCRATCH_REG_OFFSET + 0x1A4)
 #define	GSI_WR_CTRL_STATE_MASK	BIT(15)
@@ -271,6 +271,7 @@ struct dwc3_msm {
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
 	struct delayed_work sdp_check;
+	bool usb_compliance_mode;
 	struct mutex suspend_resume_mutex;
 };
 
@@ -933,9 +934,10 @@ static int gsi_startxfer_for_ep(struct usb_ep *ep)
 * for GSI channel creation.
 *
 * @usb_ep - pointer to usb_ep instance.
-* @dbl_addr - Doorbell address obtained from IPA driver
+* @request - USB GSI request to get Doorbell address obtained from IPA driver
 */
-static void gsi_store_ringbase_dbl_info(struct usb_ep *ep, u32 dbl_addr)
+static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
+			struct usb_gsi_request *request)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3	*dwc = dep->dwc;
@@ -944,11 +946,27 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep, u32 dbl_addr)
 
 	dwc3_msm_write_reg(mdwc->base, GSI_RING_BASE_ADDR_L(n),
 			dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
-	dwc3_msm_write_reg(mdwc->base, GSI_DBL_ADDR_L(n), dbl_addr);
 
-	dev_dbg(mdwc->dev, "Ring Base Addr %d = %x", n,
+	if (request->mapped_db_reg_phs_addr_lsb)
+		dma_unmap_resource(dwc->sysdev,
+			request->mapped_db_reg_phs_addr_lsb,
+			PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
+
+	request->mapped_db_reg_phs_addr_lsb = dma_map_resource(dwc->sysdev,
+			(phys_addr_t)request->db_reg_phs_addr_lsb, PAGE_SIZE,
+			DMA_BIDIRECTIONAL, 0);
+	if (dma_mapping_error(dwc->sysdev, request->mapped_db_reg_phs_addr_lsb))
+		dev_err(mdwc->dev, "mapping error for db_reg_phs_addr_lsb\n");
+
+	dev_dbg(mdwc->dev, "ep:%s dbl_addr_lsb:%x mapped_dbl_addr_lsb:%llx\n",
+		ep->name, request->db_reg_phs_addr_lsb,
+		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
+
+	dwc3_msm_write_reg(mdwc->base, GSI_DBL_ADDR_L(n),
+			(u32)request->mapped_db_reg_phs_addr_lsb);
+	dev_dbg(mdwc->dev, "Ring Base Addr %d: %x (LSB)\n", n,
 			dwc3_msm_read_reg(mdwc->base, GSI_RING_BASE_ADDR_L(n)));
-	dev_dbg(mdwc->dev, "GSI DB Addr %d = %x", n,
+	dev_dbg(mdwc->dev, "GSI DB Addr %d: %x (LSB)\n", n,
 			dwc3_msm_read_reg(mdwc->base, GSI_DBL_ADDR_L(n)));
 }
 
@@ -964,9 +982,6 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 	void __iomem *gsi_dbl_address_lsb;
 	void __iomem *gsi_dbl_address_msb;
 	dma_addr_t offset;
-	u64 dbl_addr = *((u64 *)request->buf_base_addr);
-	u32 dbl_lo_addr = (dbl_addr & 0xFFFFFFFF);
-	u32 dbl_hi_addr = (dbl_addr >> 32);
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3	*dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
@@ -974,18 +989,19 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 					: (request->num_bufs + 2);
 
 	gsi_dbl_address_lsb = devm_ioremap_nocache(mdwc->dev,
-					dbl_lo_addr, sizeof(u32));
+				request->db_reg_phs_addr_lsb, sizeof(u32));
 	if (!gsi_dbl_address_lsb)
 		dev_dbg(mdwc->dev, "Failed to get GSI DBL address LSB\n");
 
 	gsi_dbl_address_msb = devm_ioremap_nocache(mdwc->dev,
-					dbl_hi_addr, sizeof(u32));
+			request->db_reg_phs_addr_msb, sizeof(u32));
 	if (!gsi_dbl_address_msb)
 		dev_dbg(mdwc->dev, "Failed to get GSI DBL address MSB\n");
 
 	offset = dwc3_trb_dma_offset(dep, &dep->trb_pool[num_trbs-1]);
 	dev_dbg(mdwc->dev, "Writing link TRB addr: %pa to %p (%x) for ep:%s\n",
-		&offset, gsi_dbl_address_lsb, dbl_lo_addr, ep->name);
+		&offset, gsi_dbl_address_lsb, request->db_reg_phs_addr_lsb,
+		ep->name);
 
 	writel_relaxed(offset, gsi_dbl_address_lsb);
 	writel_relaxed(0, gsi_dbl_address_msb);
@@ -1381,7 +1397,8 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		break;
 	case GSI_EP_OP_STORE_DBL_INFO:
 		dev_dbg(mdwc->dev, "EP_OP_STORE_DBL_INFO\n");
-		gsi_store_ringbase_dbl_info(ep, *((u32 *)op_data));
+		request = (struct usb_gsi_request *)op_data;
+		gsi_store_ringbase_dbl_info(ep, request);
 		break;
 	case GSI_EP_OP_ENABLE_GSI:
 		dev_dbg(mdwc->dev, "EP_OP_ENABLE_GSI\n");
@@ -2851,6 +2868,13 @@ static void check_for_sdp_connection(struct work_struct *w)
 	if (!mdwc->vbus_active)
 		return;
 
+	/* USB 3.1 compliance equipment usually repoted as floating
+	 * charger as HS dp/dm lines are never connected. Do not
+	 * tear down USB stack if compliance parameter is set
+	 */
+	if (mdwc->usb_compliance_mode)
+		return;
+
 	/* floating D+/D- lines detected */
 	if (dwc->gadget.state < USB_STATE_DEFAULT &&
 		dwc3_gadget_get_link_state(dwc) != DWC3_LINK_STATE_CMPLY) {
@@ -3131,6 +3155,31 @@ static ssize_t speed_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 static DEVICE_ATTR_RW(speed);
+
+static ssize_t usb_compliance_mode_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%c\n",
+			mdwc->usb_compliance_mode ? 'Y' : 'N');
+}
+
+static ssize_t usb_compliance_mode_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	ret = strtobool(buf, &mdwc->usb_compliance_mode);
+
+	if (ret)
+		return ret;
+
+	return count;
+}
+static DEVICE_ATTR_RW(usb_compliance_mode);
+
 
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
@@ -3482,6 +3531,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	device_create_file(&pdev->dev, &dev_attr_mode);
 	device_create_file(&pdev->dev, &dev_attr_speed);
+	device_create_file(&pdev->dev, &dev_attr_usb_compliance_mode);
 
 	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
 	if (!dwc->is_drd && host_mode) {

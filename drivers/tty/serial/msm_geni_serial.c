@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1727,7 +1727,8 @@ exit_startup:
 static int get_clk_cfg(unsigned long clk_freq, unsigned long *ser_clk)
 {
 	unsigned long root_freq[] = {7372800, 14745600, 19200000, 29491200,
-		32000000, 48000000, 64000000, 80000000, 96000000, 100000000};
+		32000000, 48000000, 64000000, 80000000, 96000000, 100000000,
+		102400000, 112000000, 120000000, 128000000};
 	int i;
 	int match = -1;
 
@@ -2135,7 +2136,7 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 exit_geni_serial_earlyconsetup:
 	return ret;
 }
-OF_EARLYCON_DECLARE(msm_geni_serial, "qcom,msm-geni-uart",
+OF_EARLYCON_DECLARE(msm_geni_serial, "qcom,msm-geni-console",
 		msm_geni_serial_earlycon_setup);
 
 static int console_register(struct uart_driver *drv)
@@ -2657,17 +2658,12 @@ static const struct dev_pm_ops msm_geni_serial_pm_ops = {
 	.resume_noirq = msm_geni_serial_sys_resume_noirq,
 };
 
-static const struct of_device_id msm_geni_serial_match_table[] = {
-	{ .compatible = "qcom,msm-geni-uart"},
-	{},
-};
-
 static struct platform_driver msm_geni_serial_platform_driver = {
 	.remove = msm_geni_serial_remove,
 	.probe = msm_geni_serial_probe,
 	.driver = {
 		.name = "msm_geni_serial",
-		.of_match_table = msm_geni_serial_match_table,
+		.of_match_table = msm_geni_device_tbl,
 		.pm = &msm_geni_serial_pm_ops,
 	},
 };

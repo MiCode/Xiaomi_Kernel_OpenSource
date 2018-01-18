@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,8 +35,14 @@ enum msm_gpi_tre_type {
 #define MSM_GPI_TRE_TYPE(tre) ((tre->dword[3] >> 16) & 0xFF)
 
 /* DMA w. Buffer TRE */
+#ifdef CONFIG_ARM64
 #define MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(ptr) ((u32)ptr)
 #define MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(ptr) ((u32)(ptr >> 32))
+#else
+#define MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(ptr) (ptr)
+#define MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(ptr) 0
+#endif
+
 #define MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(length) (length & 0xFFFFFF)
 #define MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(bei, ieot, ieob, ch) ((0x1 << 20) | \
 	(0x0 << 16) | (bei << 10) | (ieot << 9) | (ieob << 8) | ch)
@@ -55,15 +61,25 @@ enum msm_gpi_tre_type {
 #define MSM_GPI_DMA_IMMEDIATE_TRE_GET_LEN(tre) (tre->dword[2] & 0xF)
 
 /* DMA w. Scatter/Gather List TRE */
+#ifdef CONFIG_ARM64
 #define MSM_GPI_SG_LIST_TRE_DWORD0(ptr) ((u32)ptr)
 #define MSM_GPI_SG_LIST_TRE_DWORD1(ptr) ((u32)(ptr >> 32))
+#else
+#define MSM_GPI_SG_LIST_TRE_DWORD0(ptr) (ptr)
+#define MSM_GPI_SG_LIST_TRE_DWORD1(ptr) 0
+#endif
 #define MSM_GPI_SG_LIST_TRE_DWORD2(length) (length & 0xFFFF)
 #define MSM_GPI_SG_LIST_TRE_DWORD3(bei, ieot, ieob, ch) ((0x1 << 20) | \
 	(0x2 << 16) | (bei << 10) | (ieot << 9) | (ieob << 8) | ch)
 
 /* SG Element */
+#ifdef CONFIG_ARM64
 #define MSM_GPI_SG_ELEMENT_DWORD0(ptr) ((u32)ptr)
 #define MSM_GPI_SG_ELEMENT_DWORD1(ptr) ((u32)(ptr >> 32))
+#else
+#define MSM_GPI_SG_ELEMENT_DWORD0(ptr) (ptr)
+#define MSM_GPI_SG_ELEMENT_DWORD1(ptr) 0
+#endif
 #define MSM_GSI_SG_ELEMENT_DWORD2(length) (length & 0xFFFFF)
 #define MSM_GSI_SG_ELEMENT_DWORD3 (0)
 
@@ -208,6 +224,7 @@ struct msm_gpi_dma_async_tx_cb_param {
 	u32 length;
 	enum msm_gpi_tce_code completion_code; /* TCE event code */
 	u32 status;
+	struct __packed msm_gpi_tre imed_tre;
 	void *userdata;
 };
 

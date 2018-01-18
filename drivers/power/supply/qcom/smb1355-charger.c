@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@
 #define ANA2_BASE	0x1100
 #define BATIF_BASE	0x1200
 #define USBIN_BASE	0x1300
+#define ANA1_BASE	0x1400
 #define MISC_BASE	0x1600
 
 #define BATTERY_STATUS_2_REG			(CHGR_BASE + 0x0B)
@@ -82,6 +83,9 @@
 #define EXT_BIAS_PIN_BIT			BIT(2)
 #define DIE_TEMP_COMP_HYST_BIT			BIT(1)
 
+#define ANA1_ENG_SREFGEN_CFG2_REG		(ANA1_BASE + 0xC1)
+#define VALLEY_COMPARATOR_EN_BIT		BIT(0)
+
 #define TEMP_COMP_STATUS_REG			(MISC_BASE + 0x07)
 #define SKIN_TEMP_RST_HOT_BIT			BIT(6)
 #define SKIN_TEMP_UB_HOT_BIT			BIT(5)
@@ -93,6 +97,9 @@
 
 #define MISC_RT_STS_REG				(MISC_BASE + 0x10)
 #define HARD_ILIMIT_RT_STS_BIT			BIT(5)
+
+#define BANDGAP_ENABLE_REG			(MISC_BASE + 0x42)
+#define BANDGAP_ENABLE_CMD_BIT			BIT(0)
 
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
@@ -107,6 +114,9 @@
 
 #define MISC_CUST_SDCDC_CLK_CFG_REG		(MISC_BASE + 0xA0)
 #define SWITCHER_CLK_FREQ_MASK			GENMASK(3, 0)
+
+#define MISC_CUST_SDCDC_ILIMIT_CFG_REG		(MISC_BASE + 0xA1)
+#define LS_VALLEY_THRESH_PCT_BIT		BIT(3)
 
 #define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x53)
 #define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
@@ -149,6 +159,8 @@
 #define IS_USBIN(mode)				\
 	((mode == POWER_SUPPLY_PL_USBIN_USBIN) \
 	 || (mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
+
+#define PARALLEL_ENABLE_VOTER			"PARALLEL_ENABLE_VOTER"
 
 struct smb_chg_param {
 	const char	*name;
@@ -224,6 +236,8 @@ struct smb1355 {
 	bool			exit_die_temp;
 	struct delayed_work	die_temp_work;
 	bool			disabled;
+
+	struct votable		*irq_disable_votable;
 };
 
 static bool is_secure(struct smb1355 *chip, int addr)
@@ -449,7 +463,7 @@ static int smb1355_parse_dt(struct smb1355 *chip)
 	if (of_property_read_bool(node, "qcom,stacked-batfet"))
 		chip->dt.pl_batfet_mode = POWER_SUPPLY_PL_STACKED_BATFET;
 
-	return rc;
+	return 0;
 }
 
 /*****************************
@@ -660,6 +674,18 @@ static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 		/* start the work to measure temperature */
 		chip->exit_die_temp = false;
 		schedule_delayed_work(&chip->die_temp_work, 0);
+	}
+
+	if (chip->irq_disable_votable)
+		vote(chip->irq_disable_votable, PARALLEL_ENABLE_VOTER,
+				disable, 0);
+
+	rc = smb1355_masked_write(chip, BANDGAP_ENABLE_REG,
+				BANDGAP_ENABLE_CMD_BIT,
+				disable ? 0 : BANDGAP_ENABLE_CMD_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure bandgap enable rc=%d\n", rc);
+		return rc;
 	}
 
 	chip->disabled = disable;
@@ -947,6 +973,22 @@ static int smb1355_init_hw(struct smb1355 *chip)
 		return rc;
 	}
 
+	/* Enable valley current comparator all the time */
+	rc = smb1355_masked_write(chip, ANA1_ENG_SREFGEN_CFG2_REG,
+		VALLEY_COMPARATOR_EN_BIT, VALLEY_COMPARATOR_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable valley current comparator rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Set LS_VALLEY threshold to 85% */
+	rc = smb1355_masked_write(chip, MISC_CUST_SDCDC_ILIMIT_CFG_REG,
+		LS_VALLEY_THRESH_PCT_BIT, LS_VALLEY_THRESH_PCT_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't set LS valley threshold to 85pc rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = smb1355_tskin_sensor_config(chip);
 	if (rc < 0) {
 		pr_err("Couldn't configure tskin regs rc=%d\n", rc);
@@ -1084,6 +1126,7 @@ static int smb1355_request_interrupt(struct smb1355 *chip,
 		return rc;
 	}
 
+	smb1355_irqs[irq_index].irq = irq;
 	if (smb1355_irqs[irq_index].wake)
 		enable_irq_wake(irq);
 
@@ -1111,6 +1154,23 @@ static int smb1355_request_interrupts(struct smb1355 *chip)
 	}
 
 	return rc;
+}
+static int smb1355_irq_disable_callback(struct votable *votable, void *data,
+			int disable, const char *client)
+
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smb1355_irqs); i++) {
+		if (smb1355_irqs[i].irq) {
+			if (disable)
+				disable_irq(smb1355_irqs[i].irq);
+			else
+				enable_irq(smb1355_irqs[i].irq);
+		}
+	}
+
+	return 0;
 }
 
 /*********
@@ -1186,6 +1246,15 @@ static int smb1355_probe(struct platform_device *pdev)
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
 		goto cleanup;
 	}
+
+	chip->irq_disable_votable = create_votable("SMB1355_IRQ_DISABLE",
+			VOTE_SET_ANY, smb1355_irq_disable_callback, chip);
+	if (IS_ERR(chip->irq_disable_votable)) {
+		rc = PTR_ERR(chip->irq_disable_votable);
+		goto cleanup;
+	}
+	/* keep IRQ's disabled until parallel is enabled */
+	vote(chip->irq_disable_votable, PARALLEL_ENABLE_VOTER, true, 0);
 
 	pr_info("%s probed successfully pl_mode=%s batfet_mode=%s\n",
 		chip->name,

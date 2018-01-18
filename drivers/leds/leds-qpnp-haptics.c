@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2018, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1434,8 +1435,7 @@ static ssize_t qpnp_haptics_show_duration(struct device *dev,
 		time_us = ktime_to_us(time_rem);
 	}
 
-	return snprintf(buf, PAGE_SIZE, "%lld\n", time_us / 1000);
-	return 0;
+	return snprintf(buf, PAGE_SIZE, "%lld\n", div_s64(time_us, 1000));
 }
 
 static ssize_t qpnp_haptics_store_duration(struct device *dev,
