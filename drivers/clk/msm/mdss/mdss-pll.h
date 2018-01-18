@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,7 +76,7 @@ struct dfps_info {
 struct mdss_pll_resources {
 
 	/* Pll specific resources like GPIO, power supply, clocks, etc*/
-	struct dss_module_power mp;
+	struct mdss_module_power mp;
 
 	/*
 	 * dsi/edp/hmdi plls' base register, phy, gdsc and dynamic refresh
@@ -219,6 +219,6 @@ int mdss_pll_util_resource_enable(struct mdss_pll_resources *pll_res,
 								bool enable);
 int mdss_pll_util_resource_parse(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
-struct dss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
+struct mdss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
 		, char *name);
 #endif

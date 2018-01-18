@@ -28,16 +28,16 @@ int mdss_pll_util_resource_init(struct platform_device *pdev,
 					struct mdss_pll_resources *pll_res)
 {
 	int rc = 0;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
-	rc = msm_dss_config_vreg(&pdev->dev,
+	rc = msm_mdss_config_vreg(&pdev->dev,
 				mp->vreg_config, mp->num_vreg, 1);
 	if (rc) {
 		pr_err("Vreg config failed rc=%d\n", rc);
 		goto vreg_err;
 	}
 
-	rc = msm_dss_get_clk(&pdev->dev, mp->clk_config, mp->num_clk);
+	rc = msm_mdss_get_clk(&pdev->dev, mp->clk_config, mp->num_clk);
 	if (rc) {
 		pr_err("Clock get failed rc=%d\n", rc);
 		goto clk_err;
@@ -46,7 +46,7 @@ int mdss_pll_util_resource_init(struct platform_device *pdev,
 	return rc;
 
 clk_err:
-	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
+	msm_mdss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
 	return rc;
 }
@@ -59,11 +59,11 @@ vreg_err:
  * This is a helper function to retrieve the regulator information
  * for each pll resource.
  */
-struct dss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
+struct mdss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
 		, char *name)
 {
 
-	struct dss_vreg *regulator = NULL;
+	struct mdss_vreg *regulator = NULL;
 	int i;
 
 	if ((pll_res == NULL) || (pll_res->mp.vreg_config == NULL)) {
@@ -88,17 +88,17 @@ error:
 void mdss_pll_util_resource_deinit(struct platform_device *pdev,
 					 struct mdss_pll_resources *pll_res)
 {
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
-	msm_dss_put_clk(mp->clk_config, mp->num_clk);
+	msm_mdss_put_clk(mp->clk_config, mp->num_clk);
 
-	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
+	msm_mdss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
 }
 
 void mdss_pll_util_resource_release(struct platform_device *pdev,
 					struct mdss_pll_resources *pll_res)
 {
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
 	devm_kfree(&pdev->dev, mp->clk_config);
 	devm_kfree(&pdev->dev, mp->vreg_config);
@@ -110,36 +110,37 @@ int mdss_pll_util_resource_enable(struct mdss_pll_resources *pll_res,
 								bool enable)
 {
 	int rc = 0;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
 	if (enable) {
-		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
+		rc = msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg,
+					  enable);
 		if (rc) {
 			pr_err("Failed to enable vregs rc=%d\n", rc);
 			goto vreg_err;
 		}
 
-		rc = msm_dss_clk_set_rate(mp->clk_config, mp->num_clk);
+		rc = msm_mdss_clk_set_rate(mp->clk_config, mp->num_clk);
 		if (rc) {
 			pr_err("Failed to set clock rate rc=%d\n", rc);
 			goto clk_err;
 		}
 
-		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
+		rc = msm_mdss_enable_clk(mp->clk_config, mp->num_clk, enable);
 		if (rc) {
 			pr_err("clock enable failed rc:%d\n", rc);
 			goto clk_err;
 		}
 	} else {
-		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
+		msm_mdss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
-		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
+		msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
 	}
 
 	return rc;
 
 clk_err:
-	msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
+	msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
 	return rc;
 }
@@ -151,7 +152,7 @@ static int mdss_pll_util_parse_dt_supply(struct platform_device *pdev,
 	u32 tmp = 0;
 	struct device_node *of_node = NULL, *supply_root_node = NULL;
 	struct device_node *supply_node = NULL;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
 	of_node = pdev->dev.of_node;
 
@@ -173,7 +174,7 @@ static int mdss_pll_util_parse_dt_supply(struct platform_device *pdev,
 	}
 	pr_debug("vreg found. count=%d\n", mp->num_vreg);
 
-	mp->vreg_config = devm_kzalloc(&pdev->dev, sizeof(struct dss_vreg) *
+	mp->vreg_config = devm_kzalloc(&pdev->dev, sizeof(struct mdss_vreg) *
 						mp->num_vreg, GFP_KERNEL);
 	if (!mp->vreg_config) {
 		rc = -ENOMEM;
@@ -298,7 +299,7 @@ static int mdss_pll_util_parse_dt_clock(struct platform_device *pdev,
 					struct mdss_pll_resources *pll_res)
 {
 	u32 i = 0, rc = 0;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 	const char *clock_name;
 	u32 clock_rate;
 
@@ -310,7 +311,7 @@ static int mdss_pll_util_parse_dt_clock(struct platform_device *pdev,
 	}
 
 	mp->clk_config = devm_kzalloc(&pdev->dev,
-			sizeof(struct dss_clk) * mp->num_clk, GFP_KERNEL);
+			sizeof(struct mdss_clk) * mp->num_clk, GFP_KERNEL);
 	if (!mp->clk_config) {
 		rc = -ENOMEM;
 		mp->num_clk = 0;
@@ -420,7 +421,7 @@ int mdss_pll_util_resource_parse(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc = 0;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
 	rc = mdss_pll_util_parse_dt_supply(pdev, pll_res);
 	if (rc) {
