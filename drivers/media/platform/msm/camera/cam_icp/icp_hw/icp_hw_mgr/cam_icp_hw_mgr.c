@@ -3464,6 +3464,9 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 			goto get_io_buf_failed;
 		}
 
+		if (icp_hw_mgr.a5_debug_q)
+			hfi_set_debug_level(icp_hw_mgr.a5_dbg_lvl);
+
 		rc = cam_icp_send_ubwc_cfg(hw_mgr);
 		if (rc) {
 			mutex_unlock(&hw_mgr->hw_mgr_mutex);
