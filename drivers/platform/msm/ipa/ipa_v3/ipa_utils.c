@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,14 +24,17 @@
 #include "ipahal/ipahal_hw_stats.h"
 #include "../ipa_rm_i.h"
 
+#define IPA_V3_0_CLK_RATE_SVS2 (37.5 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_TURBO (200 * 1000 * 1000UL)
 
+#define IPA_V3_5_CLK_RATE_SVS2 (100 * 1000 * 1000UL)
 #define IPA_V3_5_CLK_RATE_SVS (200 * 1000 * 1000UL)
 #define IPA_V3_5_CLK_RATE_NOMINAL (400 * 1000 * 1000UL)
 #define IPA_V3_5_CLK_RATE_TURBO (42640 * 10 * 1000UL)
 
+#define IPA_V4_0_CLK_RATE_SVS2 (60 * 1000 * 1000UL)
 #define IPA_V4_0_CLK_RATE_SVS (125 * 1000 * 1000UL)
 #define IPA_V4_0_CLK_RATE_NOMINAL (220 * 1000 * 1000UL)
 #define IPA_V4_0_CLK_RATE_TURBO (250 * 1000 * 1000UL)
@@ -40,6 +43,7 @@
 
 #define IPA_V3_0_BW_THRESHOLD_TURBO_MBPS (1000)
 #define IPA_V3_0_BW_THRESHOLD_NOMINAL_MBPS (600)
+#define IPA_V3_0_BW_THRESHOLD_SVS_MBPS (310)
 
 #define IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK 0xFF0000
 #define IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT 0x10
@@ -440,7 +444,7 @@ static const u32 ipa3_rsrc_rx_grp_hps_weight_config
 enum ipa_ees {
 	IPA_EE_AP = 0,
 	IPA_EE_Q6 = 1,
-	IPA_EE_UC = 3,
+	IPA_EE_UC = 2,
 };
 
 struct ipa_ep_configuration {
@@ -1141,12 +1145,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_4_0 */
-	[IPA_4_0][IPA_CLIENT_WLAN1_PROD]          = {
-			true, IPA_v4_0_GROUP_UL_DL,
-			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
-			QMB_MASTER_SELECT_DDR,
-			{ 7, 9, 8, 16, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
@@ -1239,25 +1237,25 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 18, 12, 6, 9, IPA_EE_AP } },
+			{ 18, 11, 6, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_WLAN2_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 14, 9, 9, IPA_EE_AP } },
+			{ 20, 13, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_WLAN3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 21, 15, 9, 9, IPA_EE_AP } },
+			{ 21, 14, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_USB_CONS]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 19, 13, 9, 9, IPA_EE_AP } },
+			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -1325,19 +1323,19 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 18, 12, 6, 9, IPA_EE_AP } },
+			{ 18, 11, 6, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 14, 9, 9, IPA_EE_AP } },
+			{ 20, 13, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST4_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 21, 15, 9, 9, IPA_EE_AP } },
+			{ 21, 14, 9, 9, IPA_EE_AP } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_0][IPA_CLIENT_DUMMY_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -1376,13 +1374,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 3, 0, 16, 32, IPA_EE_Q6 } },
+			{ 6, 2, 12, 24, IPA_EE_Q6 } },
 	[IPA_4_0_MHI][IPA_CLIENT_Q6_WAN_PROD]         = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 6, 2, 12, 24, IPA_EE_Q6 } },
+			{ 3, 0, 16, 32, IPA_EE_Q6 } },
 	[IPA_4_0_MHI][IPA_CLIENT_Q6_CMD_PROD]	  = {
 			true, IPA_v4_0_MHI_GROUP_PCIE,
 			false,
@@ -1438,7 +1436,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 19, 13, 9, 9, IPA_EE_AP } },
+			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_0_MHI_GROUP_DDR,
 			false,
@@ -1480,13 +1478,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 20, 14, 9, 9, IPA_EE_AP } },
+			{ 20, 13, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS] = {
 			true, IPA_v4_0_MHI_GROUP_DMA,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 21, 15, 9, 9, IPA_EE_AP } },
+			{ 21, 14, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS] = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -1511,19 +1509,19 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 18, 12, 6, 9, IPA_EE_AP } },
+			{ 18, 11, 6, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 14, 9, 9, IPA_EE_AP } },
+			{ 20, 13, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_TEST4_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 21, 15, 9, 9, IPA_EE_AP } },
+			{ 21, 14, 9, 9, IPA_EE_AP } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_0_MHI][IPA_CLIENT_DUMMY_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -1817,7 +1815,6 @@ int ipa3_get_clients_from_rm_resource(
 		clients->names[i++] = IPA_CLIENT_WLAN1_CONS;
 		clients->names[i++] = IPA_CLIENT_WLAN2_CONS;
 		clients->names[i++] = IPA_CLIENT_WLAN3_CONS;
-		clients->names[i++] = IPA_CLIENT_WLAN4_CONS;
 		break;
 	case IPA_RM_RESOURCE_MHI_CONS:
 		clients->names[i++] = IPA_CLIENT_MHI_CONS;
@@ -3027,7 +3024,7 @@ int ipa3_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 		ep_hdr->hdr_ofst_pkt_size_valid,
 		ep_hdr->hdr_additional_const_len);
 
-	IPADBG("ofst_metadata=0x%x, ofst_metadata_valid=%d, len=0x%x",
+	IPADBG("ofst_metadata=0x%x, ofst_metadata_valid=%d, len=0x%x\n",
 		ep_hdr->hdr_ofst_metadata,
 		ep_hdr->hdr_ofst_metadata_valid,
 		ep_hdr->hdr_len);
@@ -3186,7 +3183,7 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 	if (!IPA_CLIENT_IS_CONS(ep_mode->dst))
 		ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
 
-	IPADBG("pipe=%d mode=%d(%s), dst_client_number=%d",
+	IPADBG("pipe=%d mode=%d(%s), dst_client_number=%d\n",
 			clnt_hdl,
 			ep_mode->mode,
 			ipa3_get_mode_type_str(ep_mode->mode),
@@ -3977,14 +3974,17 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 		ctrl->ipa_clk_rate_turbo = IPA_V4_0_CLK_RATE_TURBO;
 		ctrl->ipa_clk_rate_nominal = IPA_V4_0_CLK_RATE_NOMINAL;
 		ctrl->ipa_clk_rate_svs = IPA_V4_0_CLK_RATE_SVS;
+		ctrl->ipa_clk_rate_svs2 = IPA_V4_0_CLK_RATE_SVS2;
 	} else if (hw_type >= IPA_HW_v3_5) {
 		ctrl->ipa_clk_rate_turbo = IPA_V3_5_CLK_RATE_TURBO;
 		ctrl->ipa_clk_rate_nominal = IPA_V3_5_CLK_RATE_NOMINAL;
 		ctrl->ipa_clk_rate_svs = IPA_V3_5_CLK_RATE_SVS;
+		ctrl->ipa_clk_rate_svs2 = IPA_V3_5_CLK_RATE_SVS2;
 	} else {
 		ctrl->ipa_clk_rate_turbo = IPA_V3_0_CLK_RATE_TURBO;
 		ctrl->ipa_clk_rate_nominal = IPA_V3_0_CLK_RATE_NOMINAL;
 		ctrl->ipa_clk_rate_svs = IPA_V3_0_CLK_RATE_SVS;
+		ctrl->ipa_clk_rate_svs2 = IPA_V3_0_CLK_RATE_SVS2;
 	}
 
 	ctrl->ipa_init_rt4 = _ipa_init_rt4_v3;
@@ -3998,6 +3998,8 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->ipa3_enable_clks = _ipa_enable_clks_v3_0;
 	ctrl->ipa3_disable_clks = _ipa_disable_clks_v3_0;
 	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v3_0;
+	ctrl->clock_scaling_bw_threshold_svs =
+		IPA_V3_0_BW_THRESHOLD_SVS_MBPS;
 	ctrl->clock_scaling_bw_threshold_nominal =
 		IPA_V3_0_BW_THRESHOLD_NOMINAL_MBPS;
 	ctrl->clock_scaling_bw_threshold_turbo =
@@ -4143,13 +4145,10 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_tag_desc;
 	}
-	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
-	tag_desc[desc_idx].pyld = cmd_pyld->data;
-	tag_desc[desc_idx].len = cmd_pyld->len;
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
 	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
 	tag_desc[desc_idx].user1 = cmd_pyld;
-	desc_idx++;
+	++desc_idx;
 
 	/* IP_PACKET_INIT IC for tag status to be sent to apps */
 	pktinit_cmd.destination_pipe_index =
@@ -4161,13 +4160,10 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_desc;
 	}
-	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
-	tag_desc[desc_idx].pyld = cmd_pyld->data;
-	tag_desc[desc_idx].len = cmd_pyld->len;
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
 	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
 	tag_desc[desc_idx].user1 = cmd_pyld;
-	desc_idx++;
+	++desc_idx;
 
 	/* status IC */
 	status.tag = IPA_COOKIE;
@@ -4178,13 +4174,10 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_desc;
 	}
-	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
-	tag_desc[desc_idx].pyld = cmd_pyld->data;
-	tag_desc[desc_idx].len = cmd_pyld->len;
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
 	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
 	tag_desc[desc_idx].user1 = cmd_pyld;
-	desc_idx++;
+	++desc_idx;
 
 	comp = kzalloc(sizeof(*comp), GFP_KERNEL);
 	if (!comp) {
@@ -4207,6 +4200,12 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 
 	memcpy(skb_put(dummy_skb, sizeof(comp)), &comp, sizeof(comp));
 
+	if (desc_idx >= IPA_TAG_MAX_DESC) {
+		IPAERR("number of commands is out of range\n");
+		res = -ENOBUFS;
+		goto fail_free_skb;
+	}
+
 	tag_desc[desc_idx].pyld = dummy_skb->data;
 	tag_desc[desc_idx].len = dummy_skb->len;
 	tag_desc[desc_idx].type = IPA_DATA_DESC_SKB;
@@ -4219,7 +4218,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	if (res) {
 		IPAERR("failed to send TAG packets %d\n", res);
 		res = -ENOMEM;
-		goto fail_free_comp;
+		goto fail_free_skb;
 	}
 	kfree(tag_desc);
 	tag_desc = NULL;
@@ -4247,6 +4246,8 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 
 	return 0;
 
+fail_free_skb:
+	kfree_skb(dummy_skb);
 fail_free_comp:
 	kfree(comp);
 fail_free_desc:
@@ -4317,19 +4318,16 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 			goto fail_alloc_reg_write_agg_close;
 		}
 
-		desc[desc_idx].opcode = cmd_pyld->opcode;
-		desc[desc_idx].pyld = cmd_pyld->data;
-		desc[desc_idx].len = cmd_pyld->len;
-		desc[desc_idx].type = IPA_IMM_CMD_DESC;
+		ipa3_init_imm_cmd_desc(&desc[desc_idx], cmd_pyld);
 		desc[desc_idx].callback = ipa3_tag_destroy_imm;
 		desc[desc_idx].user1 = cmd_pyld;
-		desc_idx++;
+		++desc_idx;
 	}
 
 	return desc_idx;
 
 fail_alloc_reg_write_agg_close:
-	for (i = 0; i < desc_idx; i++)
+	for (i = 0; i < desc_idx; ++i)
 		if (desc[desc_idx].callback)
 			desc[desc_idx].callback(desc[desc_idx].user1,
 				desc[desc_idx].user2);
@@ -4427,10 +4425,17 @@ bool ipa3_is_client_handle_valid(u32 clnt_hdl)
  */
 void ipa3_proxy_clk_unvote(void)
 {
-	if (ipa3_is_ready() && ipa3_ctx->q6_proxy_clk_vote_valid) {
+	if (!ipa3_is_ready())
+		return;
+
+	mutex_lock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
+	if (ipa3_ctx->q6_proxy_clk_vote_valid) {
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PROXY_CLK_VOTE");
-		ipa3_ctx->q6_proxy_clk_vote_valid = false;
+		ipa3_ctx->q6_proxy_clk_vote_cnt--;
+		if (ipa3_ctx->q6_proxy_clk_vote_cnt == 0)
+			ipa3_ctx->q6_proxy_clk_vote_valid = false;
 	}
+	mutex_unlock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 }
 
 /**
@@ -4440,10 +4445,17 @@ void ipa3_proxy_clk_unvote(void)
  */
 void ipa3_proxy_clk_vote(void)
 {
-	if (ipa3_is_ready() && !ipa3_ctx->q6_proxy_clk_vote_valid) {
+	if (!ipa3_is_ready())
+		return;
+
+	mutex_lock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
+	if (!ipa3_ctx->q6_proxy_clk_vote_valid ||
+		(ipa3_ctx->q6_proxy_clk_vote_cnt > 0)) {
 		IPA_ACTIVE_CLIENTS_INC_SPECIAL("PROXY_CLK_VOTE");
+		ipa3_ctx->q6_proxy_clk_vote_cnt++;
 		ipa3_ctx->q6_proxy_clk_vote_valid = true;
 	}
+	mutex_unlock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 }
 
 /**
@@ -4549,6 +4561,38 @@ static void ipa3_set_tag_process_before_gating(bool val)
 	ipa3_ctx->tag_process_before_gating = val;
 }
 
+/**
+ * ipa3_is_vlan_mode - check if a LAN driver should load in VLAN mode
+ * @iface - type of vlan capable device
+ * @res - query result: true for vlan mode, false for non vlan mode
+ *
+ * API must be called after ipa_is_ready() returns true, otherwise it will fail
+ *
+ * Returns: 0 on success, negative on failure
+ */
+static int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+{
+	if (!res) {
+		IPAERR("NULL out param\n");
+		return -EINVAL;
+	}
+
+	if (iface < 0 || iface > IPA_VLAN_IF_MAX) {
+		IPAERR("invalid iface %d\n", iface);
+		return -EINVAL;
+	}
+
+	if (!ipa3_is_ready()) {
+		IPAERR("IPA is not ready yet\n");
+		return -ENODEV;
+	}
+
+	*res = ipa3_ctx->vlan_mode_iface[iface];
+
+	IPADBG("Driver %d vlan mode is %d\n", iface, *res);
+	return 0;
+}
+
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
 {
@@ -4600,10 +4644,17 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_mdfy_flt_rule = ipa3_mdfy_flt_rule;
 	api_ctrl->ipa_commit_flt = ipa3_commit_flt;
 	api_ctrl->ipa_reset_flt = ipa3_reset_flt;
-	api_ctrl->allocate_nat_device = ipa3_allocate_nat_device;
+	api_ctrl->ipa_allocate_nat_device = ipa3_allocate_nat_device;
+	api_ctrl->ipa_allocate_nat_table = ipa3_allocate_nat_table;
+	api_ctrl->ipa_allocate_ipv6ct_table = ipa3_allocate_ipv6ct_table;
 	api_ctrl->ipa_nat_init_cmd = ipa3_nat_init_cmd;
+	api_ctrl->ipa_ipv6ct_init_cmd = ipa3_ipv6ct_init_cmd;
 	api_ctrl->ipa_nat_dma_cmd = ipa3_nat_dma_cmd;
+	api_ctrl->ipa_table_dma_cmd = ipa3_table_dma_cmd;
 	api_ctrl->ipa_nat_del_cmd = ipa3_nat_del_cmd;
+	api_ctrl->ipa_del_nat_table = ipa3_del_nat_table;
+	api_ctrl->ipa_del_ipv6ct_table = ipa3_del_ipv6ct_table;
+	api_ctrl->ipa_nat_mdfy_pdn = ipa3_nat_mdfy_pdn;
 	api_ctrl->ipa_send_msg = ipa3_send_msg;
 	api_ctrl->ipa_register_pull_msg = ipa3_register_pull_msg;
 	api_ctrl->ipa_deregister_pull_msg = ipa3_deregister_pull_msg;
@@ -4720,6 +4771,13 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_pdev = ipa3_get_pdev;
 	api_ctrl->ipa_ntn_uc_reg_rdyCB = ipa3_ntn_uc_reg_rdyCB;
 	api_ctrl->ipa_ntn_uc_dereg_rdyCB = ipa3_ntn_uc_dereg_rdyCB;
+	api_ctrl->ipa_conn_wdi3_pipes = ipa3_conn_wdi3_pipes;
+	api_ctrl->ipa_disconn_wdi3_pipes = ipa3_disconn_wdi3_pipes;
+	api_ctrl->ipa_enable_wdi3_pipes = ipa3_enable_wdi3_pipes;
+	api_ctrl->ipa_disable_wdi3_pipes = ipa3_disable_wdi3_pipes;
+	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
+	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
+	api_ctrl->ipa_is_vlan_mode = ipa3_is_vlan_mode;
 
 	return 0;
 }
@@ -5081,12 +5139,80 @@ static void ipa3_gsi_poll_after_suspend(struct ipa3_ep_context *ep)
 		IPADBG("ch %ld not empty\n", ep->gsi_chan_hdl);
 		/* queue a work to start polling if don't have one */
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
-		if (!atomic_read(&ep->sys->curr_polling_state)) {
-			ipa3_inc_acquire_wakelock();
-			atomic_set(&ep->sys->curr_polling_state, 1);
-			queue_work(ep->sys->wq, &ep->sys->work);
-		}
+		if (!atomic_read(&ep->sys->curr_polling_state))
+			__ipa_gsi_irq_rx_scedule_poll(ep->sys);
 	}
+}
+
+static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
+{
+	struct ipa_mem_buffer mem;
+	int res = 0;
+	int i;
+	struct ipa3_ep_context *ep;
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+	memset(&mem, 0, sizeof(mem));
+
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		IPADBG("Calling gsi_stop_channel ch:%lu\n",
+			ep->gsi_chan_hdl);
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
+		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
+			ep->gsi_chan_hdl, res);
+		return res;
+	}
+
+	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
+		IPADBG("Calling gsi_stop_channel ch:%lu\n",
+			ep->gsi_chan_hdl);
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
+		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
+			ep->gsi_chan_hdl, res);
+		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
+			return res;
+
+		IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
+		/* Send a 1B packet DMA_TASK to IPA and try again */
+		res = ipa3_inject_dma_task_for_gsi();
+		if (res) {
+			IPAERR("Failed to inject DMA TASk for GSI\n");
+			return res;
+		}
+
+		/* sleep for short period to flush IPA */
+		usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
+			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
+	}
+
+	IPAERR("Failed  to stop GSI channel with retries\n");
+	return -EFAULT;
+}
+
+/**
+ * ipa3_stop_gsi_channel()- Stops a GSI channel in IPA
+ * @chan_hdl: GSI channel handle
+ *
+ * This function implements the sequence to stop a GSI channel
+ * in IPA. This function returns when the channel is in STOP state.
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa3_stop_gsi_channel(u32 clnt_hdl)
+{
+	int res;
+
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+	res = __ipa3_stop_gsi_channel(clnt_hdl);
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	return res;
 }
 
 void ipa3_suspend_apps_pipes(bool suspend)
@@ -5111,7 +5237,7 @@ void ipa3_suspend_apps_pipes(bool suspend)
 			ipa_ep_idx);
 		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 			if (suspend) {
-				res = ipa3_stop_gsi_channel(ipa_ep_idx);
+				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
 				if (res) {
 					IPAERR("failed to stop LAN channel\n");
 					ipa_assert();
@@ -5145,7 +5271,7 @@ void ipa3_suspend_apps_pipes(bool suspend)
 			ipa_ep_idx);
 		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
 			if (suspend) {
-				res = ipa3_stop_gsi_channel(ipa_ep_idx);
+				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
 				if (res) {
 					IPAERR("failed to stop WAN channel\n");
 					ipa_assert();
@@ -5221,12 +5347,9 @@ void ipa3_free_dma_task_for_gsi(void)
  */
 int ipa3_inject_dma_task_for_gsi(void)
 {
-	struct ipa3_desc desc = {0};
+	struct ipa3_desc desc;
 
-	desc.opcode = ipa3_ctx->dma_task_info.cmd_pyld->opcode;
-	desc.pyld = ipa3_ctx->dma_task_info.cmd_pyld->data;
-	desc.len = ipa3_ctx->dma_task_info.cmd_pyld->len;
-	desc.type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc, ipa3_ctx->dma_task_info.cmd_pyld);
 
 	IPADBG("sending 1B packet to IPA\n");
 	if (ipa3_send_cmd_timeout(1, &desc,
@@ -5236,73 +5359,6 @@ int ipa3_inject_dma_task_for_gsi(void)
 	}
 
 	return 0;
-}
-
-/**
- * ipa3_stop_gsi_channel()- Stops a GSI channel in IPA
- * @chan_hdl: GSI channel handle
- *
- * This function implements the sequence to stop a GSI channel
- * in IPA. This function returns when the channel is is STOP state.
- *
- * Return value: 0 on success, negative otherwise
- */
-int ipa3_stop_gsi_channel(u32 clnt_hdl)
-{
-	struct ipa_mem_buffer mem;
-	int res = 0;
-	int i;
-	struct ipa3_ep_context *ep;
-
-	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
-		ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
-		return -EINVAL;
-	}
-
-	ep = &ipa3_ctx->ep[clnt_hdl];
-
-	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
-
-	memset(&mem, 0, sizeof(mem));
-
-	if (IPA_CLIENT_IS_PROD(ep->client)) {
-		IPADBG("Calling gsi_stop_channel ch:%lu\n",
-			ep->gsi_chan_hdl);
-		res = gsi_stop_channel(ep->gsi_chan_hdl);
-		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
-			ep->gsi_chan_hdl, res);
-		goto end_sequence;
-	}
-
-	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
-		IPADBG("Calling gsi_stop_channel ch:%lu\n",
-			ep->gsi_chan_hdl);
-		res = gsi_stop_channel(ep->gsi_chan_hdl);
-		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
-			ep->gsi_chan_hdl, res);
-		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
-			goto end_sequence;
-
-		IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
-		/* Send a 1B packet DMA_TASK to IPA and try again */
-		res = ipa3_inject_dma_task_for_gsi();
-		if (res) {
-			IPAERR("Failed to inject DMA TASk for GSI\n");
-			goto end_sequence;
-		}
-
-		/* sleep for short period to flush IPA */
-		usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
-			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
-	}
-
-	IPAERR("Failed  to stop GSI channel with retries\n");
-	res = -EFAULT;
-end_sequence:
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-
-	return res;
 }
 
 static int ipa3_load_single_fw(const struct firmware *firmware,
@@ -5550,3 +5606,14 @@ void ipa3_enable_dcd(void)
 	ipahal_write_reg_fields(IPA_IDLE_INDICATION_CFG,
 			&idle_indication_cfg);
 }
+
+void ipa3_init_imm_cmd_desc(struct ipa3_desc *desc,
+	struct ipahal_imm_cmd_pyld *cmd_pyld)
+{
+	memset(desc, 0, sizeof(*desc));
+	desc->opcode = cmd_pyld->opcode;
+	desc->pyld = cmd_pyld->data;
+	desc->len = cmd_pyld->len;
+	desc->type = IPA_IMM_CMD_DESC;
+}
+

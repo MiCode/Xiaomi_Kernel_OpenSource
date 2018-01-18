@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,17 +187,17 @@ static int ipa_fltrt_rule_generation_err_check(
 		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR ||
 		    attrib->attrib_mask & IPA_FLT_TC ||
 		    attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
-			IPAHAL_ERR("v6 attrib's specified for v4 rule\n");
+			IPAHAL_ERR_RL("v6 attrib's specified for v4 rule\n");
 			return -EPERM;
 		}
 	} else if (ipt == IPA_IP_v6) {
 		if (attrib->attrib_mask & IPA_FLT_TOS ||
 		    attrib->attrib_mask & IPA_FLT_PROTOCOL) {
-			IPAHAL_ERR("v4 attrib's specified for v6 rule\n");
+			IPAHAL_ERR_RL("v4 attrib's specified for v6 rule\n");
 			return -EPERM;
 		}
 	} else {
-		IPAHAL_ERR("unsupported ip %d\n", ipt);
+		IPAHAL_ERR_RL("unsupported ip %d\n", ipt);
 		return -EPERM;
 	}
 
@@ -235,7 +235,8 @@ static int ipa_rt_gen_hw_rule(struct ipahal_rt_rule_gen_params *params,
 		rule_hdr->u.hdr.hdr_offset = 0;
 		break;
 	default:
-		WARN(1, "Invalid HDR type %d\n", params->hdr_type);
+		IPAHAL_ERR("Invalid HDR type %d\n", params->hdr_type);
+		WARN_ON_RATELIMIT_IPA(1);
 		return -EINVAL;
 	};
 
@@ -293,7 +294,8 @@ static int ipa_flt_gen_hw_rule(struct ipahal_flt_rule_gen_params *params,
 		rule_hdr->u.hdr.action = 0x3;
 		break;
 	default:
-		WARN(1, "Invalid Rule Action %d\n", params->rule->action);
+		IPAHAL_ERR_RL("Invalid Rule Action %d\n", params->rule->action);
+		WARN_ON_RATELIMIT_IPA(1);
 		return -EINVAL;
 	}
 	ipa_assert_on(params->rt_tbl_idx & ~0x1F);
@@ -314,14 +316,14 @@ static int ipa_flt_gen_hw_rule(struct ipahal_flt_rule_gen_params *params,
 	if (params->rule->eq_attrib_type) {
 		if (ipa_fltrt_generate_hw_rule_bdy_from_eq(
 			&params->rule->eq_attrib, &buf)) {
-			IPAHAL_ERR("fail to generate hw rule from eq\n");
+			IPAHAL_ERR_RL("fail to generate hw rule from eq\n");
 			return -EPERM;
 		}
 		en_rule = params->rule->eq_attrib.rule_eq_bitmap;
 	} else {
 		if (ipa_fltrt_generate_hw_rule_bdy(params->ipt,
 			&params->rule->attrib, &buf, &en_rule)) {
-			IPAHAL_ERR("fail to generate hw rule\n");
+			IPAHAL_ERR_RL("fail to generate hw rule\n");
 			return -EPERM;
 		}
 	}
@@ -341,7 +343,7 @@ static int ipa_flt_gen_hw_rule(struct ipahal_flt_rule_gen_params *params,
 	if (*hw_len == 0) {
 		*hw_len = buf - start;
 	} else if (*hw_len != (buf - start)) {
-		IPAHAL_ERR("hw_len differs b/w passed=0x%x calc=%td\n",
+		IPAHAL_ERR_RL("hw_len differs b/w passed=0x%x calc=%td\n",
 			*hw_len, (buf - start));
 		return -EPERM;
 	}
@@ -373,7 +375,8 @@ static int ipa_flt_gen_hw_rule_ipav4(struct ipahal_flt_rule_gen_params *params,
 		rule_hdr->u.hdr.action = 0x3;
 		break;
 	default:
-		WARN(1, "Invalid Rule Action %d\n", params->rule->action);
+		IPAHAL_ERR("Invalid Rule Action %d\n", params->rule->action);
+		WARN_ON_RATELIMIT_IPA(1);
 		return -EINVAL;
 	}
 
@@ -1402,14 +1405,14 @@ static int ipa_fltrt_generate_hw_rule_bdy(enum ipa_ip_type ipt,
 
 	rc = ipa_fltrt_rule_generation_err_check(ipt, attrib);
 	if (rc) {
-		IPAHAL_ERR("rule generation err check failed\n");
+		IPAHAL_ERR_RL("rule generation err check failed\n");
 		goto fail_err_check;
 	}
 
 	if (ipt == IPA_IP_v4) {
 		if (ipa_fltrt_generate_hw_rule_bdy_ip4(en_rule, attrib,
 			&extra_wrd_i, &rest_wrd_i)) {
-			IPAHAL_ERR("failed to build ipv4 hw rule\n");
+			IPAHAL_ERR_RL("failed to build ipv4 hw rule\n");
 			rc = -EPERM;
 			goto fail_err_check;
 		}
@@ -1417,12 +1420,12 @@ static int ipa_fltrt_generate_hw_rule_bdy(enum ipa_ip_type ipt,
 	} else if (ipt == IPA_IP_v6) {
 		if (ipa_fltrt_generate_hw_rule_bdy_ip6(en_rule, attrib,
 			&extra_wrd_i, &rest_wrd_i)) {
-			IPAHAL_ERR("failed to build ipv6 hw rule\n");
+			IPAHAL_ERR_RL("failed to build ipv6 hw rule\n");
 			rc = -EPERM;
 			goto fail_err_check;
 		}
 	} else {
-		IPAHAL_ERR("unsupported ip %d\n", ipt);
+		IPAHAL_ERR_RL("unsupported ip %d\n", ipt);
 		goto fail_err_check;
 	}
 
@@ -1495,10 +1498,10 @@ static int ipa_fltrt_calc_extra_wrd_bytes(
 static int ipa_fltrt_generate_hw_rule_bdy_from_eq(
 		const struct ipa_ipfltri_rule_eq *attrib, u8 **buf)
 {
-	int num_offset_meq_32 = attrib->num_offset_meq_32;
-	int num_ihl_offset_range_16 = attrib->num_ihl_offset_range_16;
-	int num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
-	int num_offset_meq_128 = attrib->num_offset_meq_128;
+	uint8_t num_offset_meq_32 = attrib->num_offset_meq_32;
+	uint8_t num_ihl_offset_range_16 = attrib->num_ihl_offset_range_16;
+	uint8_t num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
+	uint8_t num_offset_meq_128 = attrib->num_offset_meq_128;
 	int i;
 	int extra_bytes;
 	u8 *extra;
@@ -1509,7 +1512,7 @@ static int ipa_fltrt_generate_hw_rule_bdy_from_eq(
 	 * of equations that needs extra word param
 	 */
 	if (extra_bytes > 13) {
-		IPAHAL_ERR("too much extra bytes\n");
+		IPAHAL_ERR_RL("too much extra bytes\n");
 		return -EPERM;
 	} else if (extra_bytes > IPA3_0_HW_TBL_HDR_WIDTH) {
 		/* two extra words */
@@ -2036,7 +2039,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 
 	if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq128, ofst_meq128)) {
-			IPAHAL_ERR("ran out of meq128 eq\n");
+			IPAHAL_ERR_RL("ran out of meq128 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2064,7 +2067,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 
 	if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq128, ofst_meq128)) {
-			IPAHAL_ERR("ran out of meq128 eq\n");
+			IPAHAL_ERR_RL("ran out of meq128 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2092,7 +2095,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 
 	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq128, ofst_meq128)) {
-			IPAHAL_ERR("ran out of meq128 eq\n");
+			IPAHAL_ERR_RL("ran out of meq128 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2109,7 +2112,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 
 	if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq128, ofst_meq128)) {
-			IPAHAL_ERR("ran out of meq128 eq\n");
+			IPAHAL_ERR_RL("ran out of meq128 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2125,7 +2128,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 
 	if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq128, ofst_meq128)) {
-			IPAHAL_ERR("ran out of meq128 eq\n");
+			IPAHAL_ERR_RL("ran out of meq128 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2141,7 +2144,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 
 	if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq128, ofst_meq128)) {
-			IPAHAL_ERR("ran out of meq128 eq\n");
+			IPAHAL_ERR_RL("ran out of meq128 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2157,7 +2160,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 
 	if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq128, ofst_meq128)) {
-			IPAHAL_ERR("ran out of meq128 eq\n");
+			IPAHAL_ERR_RL("ran out of meq128 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2175,7 +2178,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32) || IPA_IS_RAN_OUT_OF_EQ(
 			ipa3_0_ihl_ofst_meq32, ihl_ofst_meq32 + 1)) {
-			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2208,7 +2211,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	if (attrib->attrib_mask & IPA_FLT_TCP_SYN) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32)) {
-			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2224,7 +2227,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32) || IPA_IS_RAN_OUT_OF_EQ(
 			ipa3_0_ihl_ofst_meq32, ihl_ofst_meq32 + 1)) {
-			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2266,7 +2269,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 
 	if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq32, ofst_meq32)) {
-			IPAHAL_ERR("ran out of meq32 eq\n");
+			IPAHAL_ERR_RL("ran out of meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2282,7 +2285,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	if (attrib->attrib_mask & IPA_FLT_TYPE) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32)) {
-			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2297,7 +2300,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	if (attrib->attrib_mask & IPA_FLT_CODE) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32)) {
-			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2312,7 +2315,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	if (attrib->attrib_mask & IPA_FLT_SPI) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32)) {
-			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2337,7 +2340,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_rng16,
 				ihl_ofst_rng16)) {
-			IPAHAL_ERR("ran out of ihl_rng16 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_rng16 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2353,7 +2356,7 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_rng16,
 				ihl_ofst_rng16)) {
-			IPAHAL_ERR("ran out of ihl_rng16 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_rng16 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2369,11 +2372,11 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_rng16,
 				ihl_ofst_rng16)) {
-			IPAHAL_ERR("ran out of ihl_rng16 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_rng16 eq\n");
 			return -EPERM;
 		}
 		if (attrib->src_port_hi < attrib->src_port_lo) {
-			IPAHAL_ERR("bad src port range param\n");
+			IPAHAL_ERR_RL("bad src port range param\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2389,11 +2392,11 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 	if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_rng16,
 				ihl_ofst_rng16)) {
-			IPAHAL_ERR("ran out of ihl_rng16 eq\n");
+			IPAHAL_ERR_RL("ran out of ihl_rng16 eq\n");
 			return -EPERM;
 		}
 		if (attrib->dst_port_hi < attrib->dst_port_lo) {
-			IPAHAL_ERR("bad dst port range param\n");
+			IPAHAL_ERR_RL("bad dst port range param\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2410,6 +2413,32 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_rng16,
 				ihl_ofst_rng16)) {
 			IPAHAL_ERR("ran out of ihl_rng16 eq\n");
+			return -EPERM;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ihl_ofst_rng16[ihl_ofst_rng16]);
+		if (attrib->ether_type == 0x0800) {
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset
+				= 21;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= 0x0045;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= 0x0045;
+		} else {
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].offset =
+				20;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_low
+				= attrib->ether_type;
+			eq_atrb->ihl_offset_range_16[ihl_ofst_rng16].range_high
+				= attrib->ether_type;
+		}
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TCP_SYN_L2TP) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_rng16,
+				ihl_ofst_rng16)) {
+			IPAHAL_ERR_RL("ran out of ihl_rng16 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
@@ -2709,7 +2738,7 @@ static int ipa_flt_parse_hw_rule(u8 *addr, struct ipahal_flt_rule_entry *rule)
 		break;
 	default:
 		IPAHAL_ERR("Invalid Rule Action %d\n", rule_hdr->u.hdr.action);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		rule->rule.action = rule_hdr->u.hdr.action;
 	}
 
@@ -2756,7 +2785,7 @@ static int ipa_flt_parse_hw_rule_ipav4(u8 *addr,
 		break;
 	default:
 		IPAHAL_ERR("Invalid Rule Action %d\n", rule_hdr->u.hdr.action);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		rule->rule.action = rule_hdr->u.hdr.action;
 	}
 
@@ -3217,7 +3246,7 @@ static int ipa_fltrt_alloc_init_tbl_hdr(
 	obj = &ipahal_fltrt_objs[ipahal_ctx->hw_type];
 
 	if (!params) {
-		IPAHAL_ERR("Input error: params=%pK\n", params);
+		IPAHAL_ERR_RL("Input error: params=%pK\n", params);
 		return -EINVAL;
 	}
 
@@ -3226,7 +3255,7 @@ static int ipa_fltrt_alloc_init_tbl_hdr(
 		params->nhash_hdr.size,
 		&params->nhash_hdr.phys_base, GFP_KERNEL);
 	if (!params->nhash_hdr.base) {
-		IPAHAL_ERR("fail to alloc DMA buff of size %d\n",
+		IPAHAL_ERR_RL("fail to alloc DMA buff of size %d\n",
 			params->nhash_hdr.size);
 		goto nhash_alloc_fail;
 	}
@@ -3237,7 +3266,7 @@ static int ipa_fltrt_alloc_init_tbl_hdr(
 			params->hash_hdr.size, &params->hash_hdr.phys_base,
 			GFP_KERNEL);
 		if (!params->hash_hdr.base) {
-			IPAHAL_ERR("fail to alloc DMA buff of size %d\n",
+			IPAHAL_ERR_RL("fail to alloc DMA buff of size %d\n",
 				params->hash_hdr.size);
 			goto hash_alloc_fail;
 		}
@@ -3370,21 +3399,21 @@ int ipahal_fltrt_allocate_hw_tbl_imgs(
 
 	/* Input validation */
 	if (!params) {
-		IPAHAL_ERR("Input err: no params\n");
+		IPAHAL_ERR_RL("Input err: no params\n");
 		return -EINVAL;
 	}
 	if (params->ipt >= IPA_IP_MAX) {
-		IPAHAL_ERR("Input err: Invalid ip type %d\n", params->ipt);
+		IPAHAL_ERR_RL("Input err: Invalid ip type %d\n", params->ipt);
 		return -EINVAL;
 	}
 
 	if (ipa_fltrt_alloc_init_tbl_hdr(params)) {
-		IPAHAL_ERR("fail to alloc and init tbl hdr\n");
+		IPAHAL_ERR_RL("fail to alloc and init tbl hdr\n");
 		return -ENOMEM;
 	}
 
 	if (ipa_fltrt_alloc_lcl_bdy(params)) {
-		IPAHAL_ERR("fail to alloc tbl bodies\n");
+		IPAHAL_ERR_RL("fail to alloc tbl bodies\n");
 		goto bdy_alloc_fail;
 	}
 
@@ -3644,12 +3673,12 @@ int ipahal_flt_generate_equation(enum ipa_ip_type ipt,
 	IPAHAL_DBG_LOW("Entry\n");
 
 	if (ipt >= IPA_IP_MAX) {
-		IPAHAL_ERR("Input err: Invalid ip type %d\n", ipt);
+		IPAHAL_ERR_RL("Input err: Invalid ip type %d\n", ipt);
 		return -EINVAL;
 	}
 
 	if (!attrib || !eq_atrb) {
-		IPAHAL_ERR("Input err: attrib=%pK eq_atrb=%pK\n",
+		IPAHAL_ERR_RL("Input err: attrib=%pK eq_atrb=%pK\n",
 			attrib, eq_atrb);
 		return -EINVAL;
 	}

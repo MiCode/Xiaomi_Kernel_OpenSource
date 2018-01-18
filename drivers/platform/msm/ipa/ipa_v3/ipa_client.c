@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -493,7 +493,7 @@ int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
 	struct iommu_domain *smmu_domain;
 	int res;
 
-	if (ipa3_ctx->smmu_s1_bypass)
+	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
 		return 0;
 
 	smmu_domain = ipa3_get_smmu_domain();
@@ -525,7 +525,7 @@ int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr, u32 size, bool map)
 	struct iommu_domain *smmu_domain;
 	int res;
 
-	if (ipa3_ctx->smmu_s1_bypass)
+	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
 		return 0;
 
 	smmu_domain = ipa3_get_smmu_domain();
@@ -605,6 +605,22 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 	ep->client_notify = params->notify;
 	ep->priv = params->priv;
 	ep->keep_ipa_awake = params->keep_ipa_awake;
+
+
+	/* Config QMB for USB_CONS ep */
+	if (!IPA_CLIENT_IS_PROD(ep->client)) {
+		IPADBG("Configuring QMB on USB CONS pipe\n");
+		if (ipa_ep_idx >= ipa3_ctx->ipa_num_pipes ||
+			ipa3_ctx->ep[ipa_ep_idx].valid == 0) {
+			IPAERR("bad parm.\n");
+			return -EINVAL;
+		}
+		result = ipa3_cfg_ep_cfg(ipa_ep_idx, &params->ipa_ep_cfg.cfg);
+		if (result) {
+			IPAERR("fail to configure QMB.\n");
+			return result;
+		}
+	}
 
 	if (!ep->skip_ep_cfg) {
 		if (ipa3_cfg_ep(ipa_ep_idx, &params->ipa_ep_cfg)) {
@@ -748,6 +764,7 @@ int ipa3_set_usb_max_packet_size(
 	return 0;
 }
 
+/* This function called as part of usb pipe resume */
 int ipa3_xdci_connect(u32 clnt_hdl)
 {
 	int result;
@@ -787,11 +804,14 @@ exit:
 	return result;
 }
 
+
+/* This function called as part of usb pipe connect */
 int ipa3_xdci_start(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid)
 {
 	struct ipa3_ep_context *ep;
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
+	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
 	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes  ||
@@ -813,6 +833,22 @@ int ipa3_xdci_start(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid)
 			goto write_chan_scratch_fail;
 		}
 	}
+
+	if (IPA_CLIENT_IS_PROD(ep->client) && ep->skip_ep_cfg) {
+		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_delay = true;
+		ep->ep_delay_set = true;
+
+		result = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		if (result)
+			IPAERR("client (ep: %d) failed result=%d\n",
+			clnt_hdl, result);
+		else
+			IPADBG("client (ep: %d) success\n", clnt_hdl);
+	} else {
+		ep->ep_delay_set = false;
+	}
+
 	gsi_res = gsi_start_channel(ep->gsi_chan_hdl);
 	if (gsi_res != GSI_STATUS_SUCCESS) {
 		IPAERR("Error starting channel: %d\n", gsi_res);
@@ -980,6 +1016,7 @@ static int ipa3_xdci_stop_gsi_ch_brute_force(u32 clnt_hdl,
 		msecs_to_jiffies(IPA_CHANNEL_STOP_IN_PROC_TO_MSEC);
 	int res;
 
+	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0 ||
 		!stop_in_proc) {
@@ -1017,13 +1054,17 @@ static int ipa3_xdci_stop_gsi_ch_brute_force(u32 clnt_hdl,
 
 /* Clocks should be voted for before invoking this function */
 static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
-		u32 source_pipe_bitmask, bool should_force_clear, u32 clnt_hdl)
+		u32 source_pipe_bitmask, bool should_force_clear, u32 clnt_hdl,
+		bool remove_delay)
 {
 	int result;
 	bool is_empty = false;
 	int i;
 	bool stop_in_proc;
 	struct ipa3_ep_context *ep;
+	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+
+	IPADBG("entry\n");
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1043,6 +1084,22 @@ static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
 	}
 	if (!stop_in_proc)
 		goto exit;
+
+	if (remove_delay && ep->ep_delay_set == true) {
+		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_delay = false;
+		result = ipa3_cfg_ep_ctrl(clnt_hdl,
+			&ep_cfg_ctrl);
+		if (result) {
+			IPAERR
+			("client (ep: %d) failed to remove delay result=%d\n",
+				clnt_hdl, result);
+		} else {
+			IPADBG("client (ep: %d) delay removed\n",
+				clnt_hdl);
+			ep->ep_delay_set = false;
+		}
+	}
 
 	/* if stop_in_proc, lets wait for emptiness */
 	for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
@@ -1109,7 +1166,65 @@ disable_force_clear_and_exit:
 	if (should_force_clear)
 		ipa3_disable_force_clear(qmi_req_id);
 exit:
+	if (remove_delay && ep->ep_delay_set == true) {
+		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_delay = false;
+		result = ipa3_cfg_ep_ctrl(clnt_hdl,
+			&ep_cfg_ctrl);
+		if (result) {
+			IPAERR
+			("client (ep: %d) failed to remove delay result=%d\n",
+				clnt_hdl, result);
+		} else {
+			IPADBG("client (ep: %d) delay removed\n",
+				clnt_hdl);
+			ep->ep_delay_set = false;
+		}
+	}
+	IPADBG("exit\n");
 	return result;
+}
+
+void ipa3_xdci_ep_delay_rm(u32 clnt_hdl)
+{
+	struct ipa3_ep_context *ep;
+	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	int result;
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+
+	if (ep->ep_delay_set == true) {
+
+		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_delay = false;
+
+		if (!ep->keep_ipa_awake)
+			IPA_ACTIVE_CLIENTS_INC_EP
+				(ipa3_get_client_mapping(clnt_hdl));
+
+		result = ipa3_cfg_ep_ctrl(clnt_hdl,
+			&ep_cfg_ctrl);
+
+		if (!ep->keep_ipa_awake)
+			IPA_ACTIVE_CLIENTS_DEC_EP
+				(ipa3_get_client_mapping(clnt_hdl));
+
+		if (result) {
+			IPAERR
+			("client (ep: %d) failed to remove delay result=%d\n",
+				clnt_hdl, result);
+		} else {
+			IPADBG("client (ep: %d) delay removed\n",
+				clnt_hdl);
+			ep->ep_delay_set = false;
+		}
+	}
 }
 
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
@@ -1138,7 +1253,8 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 		source_pipe_bitmask = 1 <<
 			ipa3_get_ep_mapping(ep->client);
 		result = ipa3_stop_ul_chan_with_data_drain(qmi_req_id,
-			source_pipe_bitmask, should_force_clear, clnt_hdl);
+			source_pipe_bitmask, should_force_clear, clnt_hdl,
+			true);
 		if (result) {
 			IPAERR("Fail to stop UL channel with data drain\n");
 			WARN_ON(1);
@@ -1323,7 +1439,8 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	if (!is_dpl) {
 		source_pipe_bitmask = 1 << ipa3_get_ep_mapping(ul_ep->client);
 		result = ipa3_stop_ul_chan_with_data_drain(qmi_req_id,
-			source_pipe_bitmask, should_force_clear, ul_clnt_hdl);
+			source_pipe_bitmask, should_force_clear, ul_clnt_hdl,
+			false);
 		if (result) {
 			IPAERR("Error stopping UL channel: result = %d\n",
 				result);

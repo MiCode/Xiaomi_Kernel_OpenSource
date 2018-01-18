@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +24,6 @@
 #define GSI_CMD_TIMEOUT (5*HZ)
 #define GSI_STOP_CMD_TIMEOUT_MS 20
 #define GSI_MAX_CH_LOW_WEIGHT 15
-#define GSI_MHI_ER_START 10
-#define GSI_MHI_ER_END 16
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
 #define GSI_RESET_WA_MAX_SLEEP 2000
@@ -873,10 +871,23 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		return -GSI_STATUS_ERROR;
 	}
 
-	/* bitmap is max events excludes reserved events */
+	if (props->mhi_er_id_limits_valid &&
+	    props->mhi_er_id_limits[0] > (gsi_ctx->max_ev - 1)) {
+		devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
+		gsi_ctx->base = NULL;
+		devm_free_irq(gsi_ctx->dev, props->irq, gsi_ctx);
+		GSIERR("MHI event ring start id %u is beyond max %u\n",
+			props->mhi_er_id_limits[0], gsi_ctx->max_ev);
+		return -GSI_STATUS_ERROR;
+	}
+
 	gsi_ctx->evt_bmap = ~((1 << gsi_ctx->max_ev) - 1);
-	gsi_ctx->evt_bmap |= ((1 << (GSI_MHI_ER_END + 1)) - 1) ^
-		((1 << GSI_MHI_ER_START) - 1);
+
+	/* exclude reserved mhi events */
+	if (props->mhi_er_id_limits_valid)
+		gsi_ctx->evt_bmap |=
+			((1 << (props->mhi_er_id_limits[1] + 1)) - 1) ^
+			((1 << (props->mhi_er_id_limits[0])) - 1);
 
 	/*
 	 * enable all interrupts but GSI_BREAK_POINT.
@@ -1128,8 +1139,8 @@ static int gsi_validate_evt_ring_props(struct gsi_evt_ring_props *props)
 
 	if (props->intf == GSI_EVT_CHTYPE_MHI_EV &&
 			(!props->evchid_valid ||
-			props->evchid > GSI_MHI_ER_END ||
-			props->evchid < GSI_MHI_ER_START)) {
+			props->evchid > gsi_ctx->per.mhi_er_id_limits[1] ||
+			props->evchid < gsi_ctx->per.mhi_er_id_limits[0])) {
 		GSIERR("MHI requires evchid valid=%d val=%u\n",
 				props->evchid_valid, props->evchid);
 		return -GSI_STATUS_INVALID_PARAMS;
@@ -2644,15 +2655,16 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 	if (curr == GSI_CHAN_MODE_CALLBACK &&
 			mode == GSI_CHAN_MODE_POLL) {
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, 0);
+		atomic_set(&ctx->poll_mode, mode);
 		ctx->stats.callback_to_poll++;
 	}
 
 	if (curr == GSI_CHAN_MODE_POLL &&
 			mode == GSI_CHAN_MODE_CALLBACK) {
+		atomic_set(&ctx->poll_mode, mode);
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->evtr->id, ~0);
 		ctx->stats.poll_to_callback++;
 	}
-	atomic_set(&ctx->poll_mode, mode);
 	spin_unlock_irqrestore(&gsi_ctx->slock, flags);
 
 	return GSI_STATUS_SUCCESS;
@@ -2934,6 +2946,13 @@ int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee, int *code)
 
 	gsi_ctx->scratch.word0.val = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_CNTXT_SCRATCH_0_OFFS(gsi_ctx->per.ee));
+	if (gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code ==
+		GSI_GEN_EE_CMD_RETURN_CODE_RETRY) {
+		GSIDBG("chan_idx=%u ee=%u busy try again\n", chan_idx, ee);
+		*code = GSI_GEN_EE_CMD_RETURN_CODE_RETRY;
+		res = -GSI_STATUS_AGAIN;
+		goto free_lock;
+	}
 	if (gsi_ctx->scratch.word0.s.generic_ee_cmd_return_code == 0) {
 		GSIERR("No response received\n");
 		res = -GSI_STATUS_ERROR;

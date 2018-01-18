@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1896,6 +1896,8 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 		return;
 	}
 
+	memset(valmask, 0, sizeof(struct ipahal_reg_valmask));
+
 	if (ipahal_ctx->hw_type <= IPA_HW_v3_1) {
 		shft = IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT;
 		bmsk = IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK;
@@ -1946,21 +1948,4 @@ void ipahal_get_fltrt_hash_flush_valmask(
 			(1<<IPA_FILT_ROUT_HASH_FLUSH_IPv4_FILT_SHFT);
 
 	valmask->mask = valmask->val;
-}
-
-void ipahal_get_status_ep_valmask(int pipe_num,
-	struct ipahal_reg_valmask *valmask)
-{
-	if (!valmask) {
-		IPAHAL_ERR("Input error\n");
-		return;
-	}
-
-	valmask->val =
-		(pipe_num & IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK) <<
-		IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
-
-	valmask->mask =
-		IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK <<
-		IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
 }
