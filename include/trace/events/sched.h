@@ -671,6 +671,206 @@ DECLARE_TRACE(sched_overutilized_tp,
 	TP_PROTO(struct root_domain *rd, bool overutilized),
 	TP_ARGS(rd, overutilized));
 
+TRACE_EVENT(sched_cpu_util,
+
+	TP_PROTO(int cpu),
+
+	TP_ARGS(cpu),
+
+	TP_STRUCT__entry(
+		__field(unsigned int,	cpu)
+		__field(unsigned int,	nr_running)
+		__field(long,		cpu_util)
+		__field(long,		cpu_util_cum)
+		__field(unsigned int,	capacity_curr)
+		__field(unsigned int,	capacity)
+		__field(unsigned int,	capacity_orig)
+		__field(int,		idle_state)
+		__field(u64,		irqload)
+		__field(int,		online)
+		__field(int,		isolated)
+		__field(int,		reserved)
+		__field(int,		high_irq_load)
+	),
+
+	TP_fast_assign(
+		__entry->cpu                = cpu;
+		__entry->nr_running         = cpu_rq(cpu)->nr_running;
+		__entry->cpu_util           = cpu_util(cpu);
+		__entry->cpu_util_cum       = cpu_util_cum(cpu, 0);
+		__entry->capacity_curr      = capacity_curr_of(cpu);
+		__entry->capacity           = capacity_of(cpu);
+		__entry->capacity_orig      = capacity_orig_of(cpu);
+		__entry->idle_state         = idle_get_state_idx(cpu_rq(cpu));
+		__entry->irqload            = sched_irqload(cpu);
+		__entry->online             = cpu_online(cpu);
+		__entry->isolated           = cpu_isolated(cpu);
+		__entry->reserved           = is_reserved(cpu);
+		__entry->high_irq_load      = sched_cpu_high_irqload(cpu);
+	),
+
+	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%u capacity=%u capacity_orig=%u idle_state=%d irqload=%llu online=%u, isolated=%u, reserved=%u, high_irq_load=%u",
+		__entry->cpu, __entry->nr_running, __entry->cpu_util,
+		__entry->cpu_util_cum, __entry->capacity_curr,
+		__entry->capacity, __entry->capacity_orig,
+		__entry->idle_state, __entry->irqload, __entry->online,
+		__entry->isolated, __entry->reserved, __entry->high_irq_load)
+);
+
+TRACE_EVENT(sched_compute_energy,
+
+	TP_PROTO(struct task_struct *p, int eval_cpu,
+		unsigned long eval_energy,
+		unsigned long prev_energy,
+		unsigned long best_energy,
+		unsigned long best_energy_cpu),
+
+	TP_ARGS(p, eval_cpu, eval_energy, prev_energy, best_energy,
+		best_energy_cpu),
+
+	TP_STRUCT__entry(
+		__field(int,            pid)
+		__array(char,           comm, TASK_COMM_LEN)
+		__field(unsigned long,  util)
+		__field(int,            prev_cpu)
+		__field(unsigned long,  prev_energy)
+		__field(int,            eval_cpu)
+		__field(unsigned long,  eval_energy)
+		__field(int,            best_energy_cpu)
+		__field(unsigned long,  best_energy)
+	),
+
+	TP_fast_assign(
+		__entry->pid                    = p->pid;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->util                   = task_util(p);
+		__entry->prev_cpu               = task_cpu(p);
+		__entry->prev_energy            = prev_energy;
+		__entry->eval_cpu               = eval_cpu;
+		__entry->eval_energy            = eval_energy;
+		__entry->best_energy_cpu        = best_energy_cpu;
+		__entry->best_energy            = best_energy;
+	),
+
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d prev_energy=%llu eval_cpu=%d eval_energy=%llu best_energy_cpu=%d best_energy=%llu",
+		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
+		__entry->prev_energy, __entry->eval_cpu, __entry->eval_energy,
+		__entry->best_energy_cpu, __entry->best_energy)
+)
+
+TRACE_EVENT(sched_task_util,
+
+	TP_PROTO(struct task_struct *p, unsigned long candidates,
+		int best_energy_cpu, bool sync, bool need_idle, int fastpath,
+		bool placement_boost, u64 start_t,
+		bool stune_boosted, bool is_rtg, bool rtg_skip_min,
+		int start_cpu),
+
+	TP_ARGS(p, candidates, best_energy_cpu, sync, need_idle, fastpath,
+		placement_boost, start_t, stune_boosted, is_rtg, rtg_skip_min,
+		start_cpu),
+
+	TP_STRUCT__entry(
+		__field(int,            pid)
+		__array(char,           comm, TASK_COMM_LEN)
+		__field(unsigned long,  util)
+		__field(unsigned long,  candidates)
+		__field(int,            prev_cpu)
+		__field(int,            best_energy_cpu)
+		__field(bool,           sync)
+		__field(bool,           need_idle)
+		__field(int,            fastpath)
+		__field(int,            placement_boost)
+		__field(int,            rtg_cpu)
+		__field(u64,            latency)
+		__field(bool,           stune_boosted)
+		__field(bool,           is_rtg)
+		__field(bool,           rtg_skip_min)
+		__field(int,            start_cpu)
+		__field(int,            unfilter)
+		__field(unsigned long,	cpus_allowed)
+	),
+
+	TP_fast_assign(
+		__entry->pid                    = p->pid;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->util                   = task_util(p);
+		__entry->prev_cpu               = task_cpu(p);
+		__entry->candidates             = candidates;
+		__entry->best_energy_cpu        = best_energy_cpu;
+		__entry->sync                   = sync;
+		__entry->need_idle              = need_idle;
+		__entry->fastpath               = fastpath;
+		__entry->placement_boost        = placement_boost;
+		__entry->latency                = (sched_clock() - start_t);
+		__entry->stune_boosted          = stune_boosted;
+		__entry->is_rtg                 = is_rtg;
+		__entry->rtg_skip_min           = rtg_skip_min;
+		__entry->start_cpu              = start_cpu;
+#ifdef CONFIG_SCHED_WALT
+		__entry->unfilter               = p->unfilter;
+#else
+		__entry->unfilter               = 0;
+#endif
+		__entry->cpus_allowed		=
+					cpumask_bits(&p->cpus_mask)[0];
+	),
+
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%d affinity=%lx",
+		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
+		__entry->candidates, __entry->best_energy_cpu, __entry->sync,
+		__entry->need_idle, __entry->fastpath, __entry->placement_boost,
+		__entry->latency, __entry->stune_boosted,
+		__entry->is_rtg, __entry->rtg_skip_min, __entry->start_cpu,
+		__entry->unfilter, __entry->cpus_allowed)
+)
+
+/*
+ * Tracepoint for find_best_target
+ */
+TRACE_EVENT(sched_find_best_target,
+
+	TP_PROTO(struct task_struct *tsk,
+		 unsigned long min_util, int start_cpu,
+		 int best_idle, int best_active, int most_spare_cap,
+		 int target, int backup),
+
+	TP_ARGS(tsk, min_util, start_cpu,
+		best_idle, best_active, most_spare_cap,
+		target, backup),
+
+	TP_STRUCT__entry(
+		__array(char,		comm, TASK_COMM_LEN)
+		__field(pid_t,		pid)
+		__field(unsigned long,	min_util)
+		__field(int,		start_cpu)
+		__field(int,		best_idle)
+		__field(int,		best_active)
+		__field(int,		most_spare_cap)
+		__field(int,		target)
+		__field(int,		backup)
+		),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		__entry->pid            = tsk->pid;
+		__entry->min_util       = min_util;
+		__entry->start_cpu      = start_cpu;
+		__entry->best_idle      = best_idle;
+		__entry->best_active    = best_active;
+		__entry->most_spare_cap = most_spare_cap;
+		__entry->target         = target;
+		__entry->backup         = backup;
+		),
+
+	TP_printk("pid=%d comm=%s start_cpu=%d best_idle=%d best_active=%d most_spare_cap=%d target=%d backup=%d",
+		  __entry->pid, __entry->comm,
+		  __entry->start_cpu,
+		  __entry->best_idle, __entry->best_active,
+		  __entry->most_spare_cap,
+		  __entry->target, __entry->backup)
+);
+
 TRACE_EVENT(sched_preempt_disable,
 
 	TP_PROTO(u64 delta, bool irqs_disabled,

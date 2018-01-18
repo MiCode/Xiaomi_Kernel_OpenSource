@@ -885,6 +885,13 @@ struct root_domain {
 	 * CPUs of the rd. Protected by RCU.
 	 */
 	struct perf_domain __rcu *pd;
+
+#ifdef CONFIG_SCHED_WALT
+	/* First cpu with maximum and minimum original capacity */
+	int max_cap_orig_cpu, min_cap_orig_cpu;
+	/* First cpu with mid capacity */
+	int mid_cap_orig_cpu;
+#endif
 };
 
 extern void init_defrootdomain(void);
