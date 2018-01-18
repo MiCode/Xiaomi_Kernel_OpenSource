@@ -7,7 +7,7 @@ to be reset.
 Required Properties:
 - compatible:	The bus devices need to be compatible with
 		"qcom,mdm2-modem", "qcom,ext-mdm9x25", "qcom,ext-mdm9x35", "qcom, ext-mdm9x45",
-		"qcom,ext-mdm9x55".
+		"qcom,ext-mdm9x55", "qcom,ext-sdxpoorwills".
 
 Required named gpio properties:
 - qcom,mdm2ap-errfatal-gpio: gpio for the external modem to indicate to the apps processor
