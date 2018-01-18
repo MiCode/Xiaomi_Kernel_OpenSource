@@ -123,7 +123,7 @@ static int servreg_loc_send_msg(
 	 * actually made this call. In that case the call just fails.
 	 */
 	rc = qmi_txn_init(&service_locator.clnt_handle, &txn,
-			qmi_servreg_loc_get_domain_list_resp_msg_v01_ei, &resp);
+			qmi_servreg_loc_get_domain_list_resp_msg_v01_ei, resp);
 	if (rc < 0) {
 		pr_err("QMI tx init failed for client %s, ret - %d\n",
 			pd->client_name, rc);
@@ -135,7 +135,7 @@ static int servreg_loc_send_msg(
 			&txn, QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_V01,
 			QMI_SERVREG_LOC_GET_DOMAIN_LIST_REQ_MSG_V01_MAX_MSG_LEN,
 			qmi_servreg_loc_get_domain_list_req_msg_v01_ei,
-			&req);
+			req);
 	if (rc < 0) {
 		pr_err("QMI send req failed for client %s, ret - %d\n",
 			pd->client_name, rc);
