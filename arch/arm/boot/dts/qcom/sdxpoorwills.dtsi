@@ -67,7 +67,7 @@
 		#address-cells = <1>;
 
 		CPU0: cpu@0 {
-			device-type = "cpu";
+			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0x0>;
 			#cooling-cells = <2>;
