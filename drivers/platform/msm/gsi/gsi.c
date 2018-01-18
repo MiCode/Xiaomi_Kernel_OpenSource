@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 
 #define GSI_RESET_WA_MIN_SLEEP 1000
 #define GSI_RESET_WA_MAX_SLEEP 2000
+#define GSI_CHNL_STATE_MAX_RETRYCNT 10
 
 #define GSI_STTS_REG_BITS 32
 
@@ -2106,6 +2107,7 @@ int gsi_reset_channel(unsigned long chan_hdl)
 	uint32_t val;
 	struct gsi_chan_ctx *ctx;
 	bool reset_done = false;
+	uint32_t retry_cnt = 0;
 
 	if (!gsi_ctx) {
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
@@ -2142,9 +2144,19 @@ reset:
 		return -GSI_STATUS_TIMED_OUT;
 	}
 
+revrfy_chnlstate:
 	if (ctx->state != GSI_CHAN_STATE_ALLOCATED) {
 		GSIERR("chan_hdl=%lu unexpected state=%u\n", chan_hdl,
 				ctx->state);
+		/* GSI register update state not sync with gsi channel
+		 * context state not sync, need to wait for 1ms to sync.
+		 */
+		retry_cnt++;
+		if (retry_cnt <= GSI_CHNL_STATE_MAX_RETRYCNT) {
+			usleep_range(GSI_RESET_WA_MIN_SLEEP,
+				GSI_RESET_WA_MAX_SLEEP);
+			goto revrfy_chnlstate;
+		}
 		/*
 		 * Hardware returned incorrect state, unexpected
 		 * hardware state.
