@@ -43,6 +43,7 @@
 
 #define BGRSB_BGWEAR_SUBSYS "bg-wear"
 
+#define BGRSB_BTTN_CONFIGURE 5
 #define BGRSB_POWER_CALIBRATION 2
 #define BGRSB_POWER_ENABLE 1
 #define BGRSB_POWER_DISABLE 0
@@ -92,6 +93,7 @@ struct bgrsb_priv {
 	struct work_struct rsb_down_work;
 
 	struct work_struct rsb_calibration_work;
+	struct work_struct bttn_configr_work;
 
 	struct work_struct glink_work;
 
@@ -118,12 +120,17 @@ struct bgrsb_priv {
 
 	uint32_t calbrtion_intrvl;
 	uint32_t calbrtion_cpi;
+
+	uint8_t bttn_configs;
 };
 
 static void *bgrsb_drv;
 
 int bgrsb_send_input(struct event *evnt)
 {
+	uint8_t press_code;
+	uint8_t value;
+
 	struct bgrsb_priv *dev =
 			container_of(bgrsb_drv, struct bgrsb_priv, lhndl);
 
@@ -133,10 +140,44 @@ int bgrsb_send_input(struct event *evnt)
 	if (evnt->sub_id == 1) {
 		input_report_rel(dev->input, REL_WHEEL, evnt->evnt_data);
 		input_sync(dev->input);
-	} else
-		pr_debug("event: type[%d] , data: %d\n",
-						evnt->sub_id, evnt->evnt_data);
+	} else if (evnt->sub_id == 2) {
 
+		press_code = (uint8_t) evnt->evnt_data;
+		value = (uint8_t) (evnt->evnt_data >> 8);
+
+		switch (press_code) {
+		case 0x1:
+			if (value == 0) {
+				input_report_key(dev->input, KEY_VOLUMEDOWN, 1);
+				input_sync(dev->input);
+			} else {
+				input_report_key(dev->input, KEY_VOLUMEDOWN, 0);
+				input_sync(dev->input);
+			}
+			break;
+		case 0x2:
+			if (value == 0) {
+				input_report_key(dev->input, KEY_VOLUMEUP, 1);
+				input_sync(dev->input);
+			} else {
+				input_report_key(dev->input, KEY_VOLUMEUP, 0);
+				input_sync(dev->input);
+			}
+			break;
+		case 0x3:
+			if (value == 0) {
+				input_report_key(dev->input, KEY_POWER, 1);
+				input_sync(dev->input);
+			} else {
+				input_report_key(dev->input, KEY_POWER, 0);
+				input_sync(dev->input);
+			}
+			break;
+		default:
+			pr_info("event: type[%d] , data: %d\n",
+						evnt->sub_id, evnt->evnt_data);
+		}
+	}
 	return 0;
 }
 EXPORT_SYMBOL(bgrsb_send_input);
@@ -590,6 +631,27 @@ static void bgrsb_calibration(struct work_struct *work)
 	pr_debug("RSB Calibbered\n");
 }
 
+static void bgrsb_buttn_configration(struct work_struct *work)
+{
+	int rc = 0;
+	struct bgrsb_msg req = {0};
+	struct bgrsb_priv *dev =
+			container_of(work, struct bgrsb_priv,
+							bttn_configr_work);
+
+	req.cmd_id = 0x05;
+	req.data = dev->bttn_configs;
+
+	rc = bgrsb_tx_msg(dev, &req, 5);
+	if (rc != 0) {
+		pr_err("Failed to send button configuration cmnd to BG\n");
+		return;
+	}
+
+	dev->bttn_configs = 0;
+	pr_debug("Button configured\n");
+}
+
 static int split_bg_work(struct bgrsb_priv *dev, char *str)
 {
 	long val;
@@ -637,6 +699,18 @@ static int split_bg_work(struct bgrsb_priv *dev, char *str)
 		dev->calbrtion_cpi = (uint32_t)val;
 
 		queue_work(dev->bgrsb_wq, &dev->rsb_calibration_work);
+		break;
+	case BGRSB_BTTN_CONFIGURE:
+		tmp = strsep(&str, ":");
+		if (!tmp)
+			return -EINVAL;
+
+		ret = kstrtol(tmp, 10, &val);
+		if (ret < 0)
+			return ret;
+
+		dev->bttn_configs = (uint8_t)val;
+		queue_work(dev->bgrsb_wq, &dev->bttn_configr_work);
 		break;
 	}
 	return 0;
@@ -711,6 +785,7 @@ static int bgrsb_init(struct bgrsb_priv *dev)
 	INIT_WORK(&dev->rsb_up_work, bgrsb_enable_rsb);
 	INIT_WORK(&dev->rsb_down_work, bgrsb_disable_rsb);
 	INIT_WORK(&dev->rsb_calibration_work, bgrsb_calibration);
+	INIT_WORK(&dev->bttn_configr_work, bgrsb_buttn_configration);
 
 	return 0;
 
@@ -745,6 +820,8 @@ static int bg_rsb_probe(struct platform_device *pdev)
 		goto err_ret_dev;
 
 	input_set_capability(input, EV_REL, REL_WHEEL);
+	input_set_capability(input, EV_KEY, KEY_VOLUMEUP);
+	input_set_capability(input, EV_KEY, KEY_VOLUMEDOWN);
 	input->name = "bg-spi";
 
 	rc = input_register_device(input);
