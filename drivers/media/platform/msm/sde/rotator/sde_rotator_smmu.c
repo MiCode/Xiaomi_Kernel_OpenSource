@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -335,14 +335,15 @@ int sde_smmu_map_dma_buf(struct dma_buf *dma_buf,
 {
 	int rc;
 	struct sde_smmu_client *sde_smmu = sde_smmu_get_cb(domain);
+	unsigned long attrs = 0;
 
 	if (!sde_smmu) {
 		SDEROT_ERR("not able to get smmu context\n");
 		return -EINVAL;
 	}
 
-	rc = msm_dma_map_sg_lazy(sde_smmu->dev, table->sgl, table->nents, dir,
-		dma_buf);
+	rc = dma_map_sg_attrs(sde_smmu->dev, table->sgl, table->nents, dir,
+			attrs);
 	if (rc != table->nents) {
 		SDEROT_ERR("dma map sg failed\n");
 		return -ENOMEM;
@@ -363,8 +364,7 @@ void sde_smmu_unmap_dma_buf(struct sg_table *table, int domain,
 		return;
 	}
 
-	msm_dma_unmap_sg(sde_smmu->dev, table->sgl, table->nents, dir,
-		 dma_buf);
+	dma_unmap_sg(sde_smmu->dev, table->sgl, table->nents, dir);
 }
 
 static DEFINE_MUTEX(sde_smmu_ref_cnt_lock);
