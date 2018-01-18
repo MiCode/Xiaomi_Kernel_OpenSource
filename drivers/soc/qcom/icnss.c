@@ -81,7 +81,6 @@ void *icnss_ipc_log_long_context;
 #define ICNSS_EVENT_SYNC_UNINTERRUPTIBLE	(ICNSS_EVENT_UNINTERRUPTIBLE | \
 						 ICNSS_EVENT_SYNC)
 
-
 struct icnss_msa_perm_list_t msa_perm_secure_list[ICNSS_MSA_PERM_MAX] = {
 	[ICNSS_MSA_PERM_HLOS_ALL] = {
 		.vmids = {VMID_HLOS},
@@ -96,13 +95,6 @@ struct icnss_msa_perm_list_t msa_perm_secure_list[ICNSS_MSA_PERM_MAX] = {
 		.nelems = 2,
 	},
 
-	[ICNSS_MSA_PERM_DUMP_COLLECT] = {
-		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_HLOS},
-		.perms = {PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ},
-		.nelems = 3,
-	},
 };
 
 struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
@@ -120,14 +112,6 @@ struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
 		.nelems = 3,
 	},
 
-	[ICNSS_MSA_PERM_DUMP_COLLECT] = {
-		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_WLAN_CE, VMID_HLOS},
-		.perms = {PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ | PERM_WRITE,
-			PERM_READ},
-		.nelems = 4,
-	},
 };
 
 static struct icnss_vreg_info icnss_vreg_info[] = {
@@ -1075,9 +1059,10 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_SHUTDOWN) {
+	if (code == SUBSYS_AFTER_SHUTDOWN &&
+			notif->crashed != CRASH_STATUS_WDOG_BITE) {
 		ret = icnss_assign_msa_perm_all(priv,
-						ICNSS_MSA_PERM_DUMP_COLLECT);
+						ICNSS_MSA_PERM_HLOS_ALL);
 		if (!ret) {
 			icnss_pr_info("Collecting msa0 segment dump\n");
 			icnss_msa0_ramdump(priv);
