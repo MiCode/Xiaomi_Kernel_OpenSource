@@ -1088,8 +1088,16 @@ static void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
 static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 		const struct dwc3_event_depevt *event)
 {
+	u8			epnum;
+	struct dwc3_ep		*dep;
+
+	epnum = event->endpoint_number;
+	dep = dwc->eps[epnum];
+
 	switch (event->status) {
 	case DEPEVT_STATUS_CONTROL_DATA:
+		dep->dbg_ep_events.control_data++;
+
 		/*
 		 * We already have a DATA transfer in the controller's cache,
 		 * if we receive a XferNotReady(DATA) we will ignore it, unless
@@ -1111,6 +1119,7 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 		break;
 
 	case DEPEVT_STATUS_CONTROL_STATUS:
+		dep->dbg_ep_events.control_status++;
 		if (dwc->ep0_next_event != DWC3_EP0_NRDY_STATUS)
 			return;
 
@@ -1142,19 +1151,32 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 void dwc3_ep0_interrupt(struct dwc3 *dwc,
 		const struct dwc3_event_depevt *event)
 {
+	struct dwc3_ep	*dep;
+	u8 epnum = event->endpoint_number;
+
+	dep = dwc->eps[epnum];
 	switch (event->endpoint_event) {
 	case DWC3_DEPEVT_XFERCOMPLETE:
 		dwc3_ep0_xfer_complete(dwc, event);
+		dep->dbg_ep_events.xfercomplete++;
 		break;
 
 	case DWC3_DEPEVT_XFERNOTREADY:
 		dwc3_ep0_xfernotready(dwc, event);
+		dep->dbg_ep_events.xfernotready++;
 		break;
 
 	case DWC3_DEPEVT_XFERINPROGRESS:
+		dep->dbg_ep_events.xferinprogress++;
+		break;
 	case DWC3_DEPEVT_RXTXFIFOEVT:
+		dep->dbg_ep_events.rxtxfifoevent++;
+		break;
 	case DWC3_DEPEVT_STREAMEVT:
+		dep->dbg_ep_events.streamevent++;
+		break;
 	case DWC3_DEPEVT_EPCMDCMPLT:
+		dep->dbg_ep_events.epcmdcomplete++;
 		break;
 	}
 }

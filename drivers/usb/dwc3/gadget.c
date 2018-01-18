@@ -2472,9 +2472,12 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		return;
 	}
 
+	dep->dbg_ep_events.total++;
+
 	switch (event->endpoint_event) {
 	case DWC3_DEPEVT_XFERCOMPLETE:
 		dep->resource_index = 0;
+		dep->dbg_ep_events.xfercomplete++;
 
 		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dev_err(dwc->dev, "XferComplete for Isochronous endpoint\n");
@@ -2484,9 +2487,11 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		dwc3_endpoint_transfer_complete(dwc, dep, event);
 		break;
 	case DWC3_DEPEVT_XFERINPROGRESS:
+		dep->dbg_ep_events.xferinprogress++;
 		dwc3_endpoint_transfer_complete(dwc, dep, event);
 		break;
 	case DWC3_DEPEVT_XFERNOTREADY:
+		dep->dbg_ep_events.xfernotready++;
 		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dwc3_gadget_start_isoc(dwc, dep, event);
 		} else {
@@ -2499,6 +2504,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 
 		break;
 	case DWC3_DEPEVT_STREAMEVT:
+		dep->dbg_ep_events.streamevent++;
 		if (!usb_endpoint_xfer_bulk(dep->endpoint.desc)) {
 			dev_err(dwc->dev, "Stream event for non-Bulk %s\n",
 					dep->name);
@@ -2506,6 +2512,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		}
 		break;
 	case DWC3_DEPEVT_EPCMDCMPLT:
+		dep->dbg_ep_events.epcmdcomplete++;
 		cmd = DEPEVT_PARAMETER_CMD(event->parameters);
 
 		if (cmd == DWC3_DEPCMD_ENDTRANSFER) {
@@ -2514,6 +2521,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		}
 		break;
 	case DWC3_DEPEVT_RXTXFIFOEVT:
+		dep->dbg_ep_events.rxtxfifoevent++;
 		break;
 	}
 }
@@ -2984,15 +2992,19 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 	switch (event->type) {
 	case DWC3_DEVICE_EVENT_DISCONNECT:
 		dwc3_gadget_disconnect_interrupt(dwc);
+		dwc->dbg_gadget_events.disconnect++;
 		break;
 	case DWC3_DEVICE_EVENT_RESET:
 		dwc3_gadget_reset_interrupt(dwc);
+		dwc->dbg_gadget_events.reset++;
 		break;
 	case DWC3_DEVICE_EVENT_CONNECT_DONE:
 		dwc3_gadget_conndone_interrupt(dwc);
+		dwc->dbg_gadget_events.connect++;
 		break;
 	case DWC3_DEVICE_EVENT_WAKEUP:
 		dwc3_gadget_wakeup_interrupt(dwc);
+		dwc->dbg_gadget_events.wakeup++;
 		break;
 	case DWC3_DEVICE_EVENT_HIBER_REQ:
 		if (dev_WARN_ONCE(dwc->dev, !dwc->has_hibernation,
@@ -3003,10 +3015,12 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 		break;
 	case DWC3_DEVICE_EVENT_LINK_STATUS_CHANGE:
 		dwc3_gadget_linksts_change_interrupt(dwc, event->event_info);
+		dwc->dbg_gadget_events.link_status_change++;
 		break;
 	case DWC3_DEVICE_EVENT_EOPF:
 		/* It changed to be suspend event for version 2.30a and above */
 		if (dwc->revision >= DWC3_REVISION_230A) {
+			dwc->dbg_gadget_events.suspend++;
 			/*
 			 * Ignore suspend event until the gadget enters into
 			 * USB_STATE_CONFIGURED state.
@@ -3017,12 +3031,20 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 		}
 		break;
 	case DWC3_DEVICE_EVENT_SOF:
+		dwc->dbg_gadget_events.sof++;
+		break;
 	case DWC3_DEVICE_EVENT_ERRATIC_ERROR:
+		dwc->dbg_gadget_events.erratic_error++;
+		break;
 	case DWC3_DEVICE_EVENT_CMD_CMPL:
+		dwc->dbg_gadget_events.cmdcmplt++;
+		break;
 	case DWC3_DEVICE_EVENT_OVERFLOW:
+		dwc->dbg_gadget_events.overflow++;
 		break;
 	default:
 		dev_WARN(dwc->dev, "UNKNOWN IRQ %d\n", event->type);
+		dwc->dbg_gadget_events.unknown_event++;
 	}
 }
 
