@@ -38,6 +38,10 @@ static bool disable_usb_pd;
 module_param(disable_usb_pd, bool, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(disable_usb_pd, "Disable USB PD for USB3.1 compliance testing");
 
+static bool rev3_sink_only;
+module_param(rev3_sink_only, bool, 0644);
+MODULE_PARM_DESC(rev3_sink_only, "Enable power delivery rev3.0 sink only mode");
+
 enum usbpd_state {
 	PE_UNKNOWN,
 	PE_ERROR_RECOVERY,
@@ -364,6 +368,7 @@ struct usbpd {
 
 	enum usbpd_state	current_state;
 	bool			hard_reset_recvd;
+	ktime_t			hard_reset_recvd_time;
 	struct list_head	rx_q;
 	spinlock_t		rx_lock;
 	struct rx_msg		*rx_ext_msg;
@@ -552,6 +557,9 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 	int ret;
 	u16 hdr;
 
+	if (pd->hard_reset_recvd)
+		return -EBUSY;
+
 	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
 			pd->tx_msgid, num_data, pd->spec_rev);
 
@@ -670,7 +678,7 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos, int uv, int ua)
 
 static int pd_eval_src_caps(struct usbpd *pd)
 {
-	int obj_cnt;
+	int i;
 	union power_supply_propval val;
 	u32 first_pdo = pd->received_pdos[0];
 
@@ -687,11 +695,20 @@ static int pd_eval_src_caps(struct usbpd *pd)
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
 
-	for (obj_cnt = 1; obj_cnt < PD_MAX_DATA_OBJ; obj_cnt++) {
-		if ((PD_SRC_PDO_TYPE(pd->received_pdos[obj_cnt]) ==
+	if (pd->spec_rev == USBPD_REV_30 && !rev3_sink_only) {
+		bool pps_found = false;
+
+		/* downgrade to 2.0 if no PPS */
+		for (i = 1; i < PD_MAX_DATA_OBJ; i++) {
+			if ((PD_SRC_PDO_TYPE(pd->received_pdos[i]) ==
 					PD_SRC_PDO_TYPE_AUGMENTED) &&
-				!PD_APDO_PPS(pd->received_pdos[obj_cnt]))
-			pd->spec_rev = USBPD_REV_30;
+				!PD_APDO_PPS(pd->received_pdos[i])) {
+				pps_found = true;
+				break;
+			}
+		}
+		if (!pps_found)
+			pd->spec_rev = USBPD_REV_20;
 	}
 
 	/* Select the first PDO (vSafe5V) immediately. */
@@ -734,11 +751,13 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
 		return;
 	}
 
-	usbpd_dbg(&pd->dev, "hard reset received\n");
+	pd->hard_reset_recvd = true;
+	pd->hard_reset_recvd_time = ktime_get();
+
+	usbpd_err(&pd->dev, "hard reset received\n");
 
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
-	pd->hard_reset_recvd = true;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
@@ -993,6 +1012,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	unsigned long flags;
 	int ret;
 
+	if (pd->hard_reset_recvd) /* let usbpd_sm handle it */
+		return;
+
 	usbpd_dbg(&pd->dev, "%s -> %s\n",
 			usbpd_state_strings[pd->current_state],
 			usbpd_state_strings[next_state]);
@@ -1034,6 +1056,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
 
+		/* support only PD 2.0 as a source */
+		pd->spec_rev = USBPD_REV_20;
 		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
@@ -1204,6 +1228,11 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (!val.intval || disable_usb_pd)
 			break;
 
+		/*
+		 * support up to PD 3.0 as a sink; if source is 2.0
+		 * phy_msg_received() will handle the downgrade.
+		 */
+		pd->spec_rev = USBPD_REV_30;
 		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
@@ -1909,6 +1938,8 @@ static void usbpd_sm(struct work_struct *w)
 		/* set due to dual_role class "mode" change */
 		if (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE)
 			val.intval = pd->forced_pr;
+		else if (rev3_sink_only)
+			val.intval = POWER_SUPPLY_TYPEC_PR_SINK;
 		else
 			/* Set CC back to DRP toggle */
 			val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
@@ -1955,8 +1986,13 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		} else {
+			s64 delta = ktime_ms_delta(ktime_get(),
+					pd->hard_reset_recvd_time);
 			pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
-			kick_sm(pd, PS_HARD_RESET_TIME);
+			if (delta >= PS_HARD_RESET_TIME)
+				kick_sm(pd, 0);
+			else
+				kick_sm(pd, PS_HARD_RESET_TIME - (int)delta);
 		}
 
 		goto sm_done;
@@ -3910,8 +3946,6 @@ struct usbpd *usbpd_create(struct device *parent)
 		pd->dual_role->drv_data = pd;
 	}
 
-	/* default support as PD 2.0 source or sink */
-	pd->spec_rev = USBPD_REV_20;
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);
