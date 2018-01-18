@@ -237,11 +237,17 @@ static int cpufreq_cooling_pm_notify(struct notifier_block *nb,
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		mutex_lock(&cooling_list_lock);
-		mutex_lock(&core_isolate_lock);
 		list_for_each_entry(cpufreq_dev, &cpufreq_dev_list, node) {
+			mutex_lock(&core_isolate_lock);
 			if (cpufreq_dev->cpufreq_state ==
 				cpufreq_dev->max_level) {
 				cpu = cpumask_any(&cpufreq_dev->allowed_cpus);
+				/*
+				 * Unlock this lock before calling
+				 * schedule_isolate. as this could lead to
+				 * deadlock with hotplug path.
+				 */
+				mutex_unlock(&core_isolate_lock);
 				if (cpu_online(cpu) &&
 					!cpumask_test_and_set_cpu(cpu,
 					&cpus_isolated_by_thermal)) {
@@ -249,9 +255,10 @@ static int cpufreq_cooling_pm_notify(struct notifier_block *nb,
 						cpumask_clear_cpu(cpu,
 						&cpus_isolated_by_thermal);
 				}
+				continue;
 			}
+			mutex_unlock(&core_isolate_lock);
 		}
-		mutex_unlock(&core_isolate_lock);
 		mutex_unlock(&cooling_list_lock);
 
 		atomic_set(&in_suspend, 0);
@@ -727,6 +734,7 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	mutex_lock(&core_isolate_lock);
 	prev_state = cpufreq_device->cpufreq_state;
 	cpufreq_device->cpufreq_state = state;
+	mutex_unlock(&core_isolate_lock);
 	/* If state is the last, isolate the CPU */
 	if (state == cpufreq_device->max_level) {
 		if (cpu_online(cpu) &&
@@ -736,18 +744,11 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 				cpumask_clear_cpu(cpu,
 					&cpus_isolated_by_thermal);
 		}
-		mutex_unlock(&core_isolate_lock);
 		return ret;
 	} else if ((prev_state == cpufreq_device->max_level)
 			&& (state < cpufreq_device->max_level)) {
 		if (cpumask_test_and_clear_cpu(cpu, &cpus_pending_online)) {
 			cpu_dev = get_cpu_device(cpu);
-			mutex_unlock(&core_isolate_lock);
-			/*
-			 * Unlock before calling the device_online.
-			 * Else, this will lead to deadlock, since the hp
-			 * online callback will be blocked on this mutex.
-			 */
 			ret = device_online(cpu_dev);
 			if (ret)
 				pr_err("CPU:%d online error:%d\n", cpu, ret);
@@ -757,7 +758,6 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 			sched_unisolate_cpu(cpu);
 		}
 	}
-	mutex_unlock(&core_isolate_lock);
 update_frequency:
 	clip_freq = cpufreq_device->freq_table[state];
 	cpufreq_device->clipped_freq = clip_freq;
