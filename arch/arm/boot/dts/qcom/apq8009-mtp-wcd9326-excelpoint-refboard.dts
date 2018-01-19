@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,8 @@
 
 &soc {
 	sound-9335 {
+		qcom,model = "apq8009-tashalite-snd-card-tdm";
+		qcom,tdm-i2s-switch-enable = <&msm_gpio 88 0>;
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
@@ -52,7 +54,16 @@
 
 	i2c@78b8000 {
 		wcd9xxx_codec@d {
-			qcom,cdc-reset-gpio = <&msm_gpio 27 0>;
+			qcom,wcd9xxx-mic-tristate;
+			qcom,cdc-reset-gpio = <&msm_gpio 23 0>;
+
+			cdc-vdd-buck-supply = <&wcd_vdd_buck_1p8>;
+			qcom,cdc-vdd-buck-voltage = <0 0>;
+			qcom,cdc-vdd-buck-current = <250000>;
+
+			cdc-buck-sido-supply = <&wcd_vdd_buck_1p8>;
+			qcom,cdc-buck-sido-voltage = <0 0>;
+			qcom,cdc-buck-sido-current = <250000>;
 		};
 	};
 
@@ -60,6 +71,17 @@
 		synaptics@20 {
 			status = "disabled";
 		};
+	};
+
+	wcd_vdd_buck_1p8: wcd_vdd_buck_1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "wcd_vdd_buck_1p8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		status = "ok";
+		enable-active-high;
+		gpio = <&pm8916_gpios 4 0>;
+		vin-supply = <&pm8916_s4>;
 	};
 };
 
@@ -79,6 +101,17 @@
 		qcom,recharge-thresh-mv = <100>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
 		regulator-name = "smb1360_otg_vreg";
+	};
+};
+
+&pm8916_gpios {
+	gpio@c300 {
+		qcom,mode = <1>;        /* DIGITAL OUT */
+		qcom,pull = <1>;        /* No Pull */
+		qcom,vin-sel = <2>;     /* 1.8 */
+		qcom,src-sel = <0>;     /* CONSTANT */
+		qcom,master-en = <1>;   /* ENABLE GPIO */
+		status = "okay";
 	};
 };
 
