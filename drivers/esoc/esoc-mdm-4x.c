@@ -170,10 +170,7 @@ static void mdm_trigger_dbg(struct mdm_ctrl *mdm)
 
 static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 {
-	unsigned long end_time;
-	bool status_down = false;
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
-	struct device *dev = mdm->dev;
 	int ret;
 	bool graceful_shutdown = false;
 	u32 status, err_fatal;
@@ -219,22 +216,6 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		} else {
 			esoc_clink_queue_request(ESOC_REQ_SEND_SHUTDOWN, esoc);
 		}
-		dev_dbg(mdm->dev, "Waiting for status gpio go low\n");
-		status_down = false;
-		end_time = jiffies + msecs_to_jiffies(mdm->shutdown_timeout_ms);
-		while (time_before(jiffies, end_time)) {
-			if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS))
-									== 0) {
-				dev_dbg(dev, "Status went low\n");
-				status_down = true;
-				break;
-			}
-			msleep(100);
-		}
-		if (status_down)
-			dev_dbg(dev, "shutdown successful\n");
-		else
-			dev_err(mdm->dev, "graceful poff ipc fail\n");
 force_poff:
 	/* The case is a fallthrough of the previous case,
 	 * where, after sending the shutdown command, we
