@@ -102,6 +102,7 @@ struct arm_pmu {
 	int		(*request_irq)(struct arm_pmu *, irq_handler_t handler);
 	void		(*free_irq)(struct arm_pmu *);
 	int		(*map_event)(struct perf_event *event);
+	int		percpu_irq;
 	int		num_events;
 	atomic_t	active_events;
 	struct mutex	reserve_mutex;
