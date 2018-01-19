@@ -32,6 +32,162 @@
 			qcom,secondary-pon-reset;
 		};
 
+		pmi632_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc-hc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			qcom,adc-full-scale-code = <0x70e4>;
+
+			chan@0 {
+				label = "ref_gnd";
+				reg = <0>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@1 {
+				label = "ref_1250v";
+				reg = <1>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@83 {
+				label = "vph_pwr";
+				reg = <0x83>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@84 {
+				label = "vbat_sns";
+				reg = <0x84>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@6 {
+				label = "die_temp";
+				reg = <6>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <19>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@7 {
+				label = "usb_in_i";
+				reg = <7>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <21>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@8 {
+				label = "usb_in_v";
+				reg = <8>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <8>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@9 {
+				label = "chg_temp";
+				reg = <9>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <18>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@4a {
+				label = "bat_therm";
+				reg = <0x4a>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <17>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@4b {
+				label = "bat_id";
+				reg = <0x4b>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@4c {
+				label = "xo_therm";
+				reg = <0x4c>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <4>;
+				qcom,hw-settle-time = <8>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+
+			chan@1e {
+				label = "mid_chg";
+				reg = <0x1e>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <3>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+		};
+
 		pmi632_tz: qcom,temp-alarm@2400 {
 			compatible = "qcom,qpnp-temp-alarm";
 			reg = <0x2400 0x100>;
