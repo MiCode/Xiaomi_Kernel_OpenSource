@@ -43,6 +43,7 @@
 #include <soc/qcom/secure_buffer.h>
 
 #include "ion.h"
+#include "ion_secure_util.h"
 
 static struct ion_device *internal_dev;
 
@@ -298,9 +299,14 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	struct sg_table *table;
 	int ret, count, map_attrs;
+	struct ion_buffer *buffer = attachment->dmabuf->priv;
 
 	table = a->table;
+
 	map_attrs = attachment->dma_map_attrs;
+	if (!(buffer->flags & ION_FLAG_CACHED) ||
+	    !hlos_accessible_buffer(buffer))
+		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	if (map_attrs & DMA_ATTR_DELAYED_UNMAP) {
 		count = msm_dma_map_sg_attrs(attachment->dev, table->sgl,
@@ -316,6 +322,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 		ret = -ENOMEM;
 		goto err;
 	}
+
 	return table;
 
 err:
@@ -327,14 +334,22 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 			      struct sg_table *table,
 			      enum dma_data_direction direction)
 {
-	if (attachment->dma_map_attrs & DMA_ATTR_DELAYED_UNMAP)
+	int map_attrs;
+	struct ion_buffer *buffer = attachment->dmabuf->priv;
+
+	map_attrs = attachment->dma_map_attrs;
+	if (!(buffer->flags & ION_FLAG_CACHED) ||
+	    !hlos_accessible_buffer(buffer))
+		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
+	if (map_attrs & DMA_ATTR_DELAYED_UNMAP)
 		msm_dma_unmap_sg_attrs(attachment->dev, table->sgl,
 				       table->nents, direction,
 				       attachment->dmabuf,
-				       attachment->dma_map_attrs);
+				       map_attrs);
 	else
 		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
-				   direction, attachment->dma_map_attrs);
+				   direction, map_attrs);
 }
 
 void ion_pages_sync_for_device(struct device *dev, struct page *page,
@@ -493,6 +508,12 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	struct ion_buffer *buffer = dmabuf->priv;
 	void *vaddr;
 	struct ion_dma_buf_attachment *a;
+	int ret = 0;
+
+	if (!hlos_accessible_buffer(buffer)) {
+		ret = -EPERM;
+		goto out;
+	}
 
 	/*
 	 * TODO: Move this elsewhere because we don't always need a vaddr
@@ -502,6 +523,9 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		vaddr = ion_buffer_kmap_get(buffer);
 		mutex_unlock(&buffer->lock);
 	}
+
+	if (!(buffer->flags & ION_FLAG_CACHED))
+		goto out;
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
@@ -515,7 +539,8 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	}
 	mutex_unlock(&buffer->lock);
 
-	return 0;
+out:
+	return ret;
 }
 
 static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
@@ -524,12 +549,21 @@ static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
+	int ret = 0;
+
+	if (!hlos_accessible_buffer(buffer)) {
+		ret = -EPERM;
+		goto out;
+	}
 
 	if (buffer->heap->ops->map_kernel) {
 		mutex_lock(&buffer->lock);
 		ion_buffer_kmap_put(buffer);
 		mutex_unlock(&buffer->lock);
 	}
+
+	if (!(buffer->flags & ION_FLAG_CACHED))
+		goto out;
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
@@ -543,7 +577,8 @@ static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	}
 	mutex_unlock(&buffer->lock);
 
-	return 0;
+out:
+	return ret;
 }
 
 static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
@@ -578,6 +613,12 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 	struct ion_buffer *buffer = dmabuf->priv;
 	void *vaddr;
 	struct ion_dma_buf_attachment *a;
+	int ret = 0;
+
+	if (!hlos_accessible_buffer(buffer)) {
+		ret = -EPERM;
+		goto out;
+	}
 
 	/*
 	 * TODO: Move this elsewhere because we don't always need a vaddr
@@ -588,6 +629,9 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 		mutex_unlock(&buffer->lock);
 	}
 
+	if (!(buffer->flags & ION_FLAG_CACHED))
+		goto out;
+
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
 		ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
@@ -595,7 +639,8 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 	}
 	mutex_unlock(&buffer->lock);
 
-	return 0;
+out:
+	return ret;
 }
 
 static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
@@ -605,12 +650,21 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
+	int ret = 0;
+
+	if (!hlos_accessible_buffer(buffer)) {
+		ret = -EPERM;
+		goto out;
+	}
 
 	if (buffer->heap->ops->map_kernel) {
 		mutex_lock(&buffer->lock);
 		ion_buffer_kmap_put(buffer);
 		mutex_unlock(&buffer->lock);
 	}
+
+	if (!(buffer->flags & ION_FLAG_CACHED))
+		goto out;
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
@@ -619,7 +673,8 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 	}
 	mutex_unlock(&buffer->lock);
 
-	return 0;
+out:
+	return ret;
 }
 
 static int ion_dma_buf_get_flags(struct dma_buf *dmabuf,
