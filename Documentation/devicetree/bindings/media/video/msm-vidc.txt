@@ -6,6 +6,7 @@ Venus
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
+        - "qcom,sdm855-vidc" : Invokes driver specific data for SDM855.
         - "qcom,sdm845-vidc" : Invokes driver specific data for SDM845.
         - "qcom,sdm670-vidc" : Invokes driver specific data for SDM670.
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,19 @@ static struct msm_vidc_codec_data default_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 125, 675, 320),
 };
 
+/* Update with 855 data */
+static struct msm_vidc_codec_data sdm855_codec_data[] =  {
+	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_ENCODER, 10, 675, 320),
+	CODEC_ENTRY(V4L2_PIX_FMT_TME, MSM_VIDC_ENCODER, 0, 540, 540),
+	CODEC_ENTRY(V4L2_PIX_FMT_MPEG2, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_DECODER, 10, 200, 200),
+	CODEC_ENTRY(V4L2_PIX_FMT_VP9, MSM_VIDC_DECODER, 10, 200, 200),
+};
+
 static struct msm_vidc_codec_data sdm845_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 125, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_ENCODER, 125, 675, 320),
@@ -98,6 +111,57 @@ static struct msm_vidc_common_data default_common_data[] = {
 	{
 		.key = "qcom,never-unload-fw",
 		.value = 1,
+	},
+};
+
+static struct msm_vidc_common_data sdm855_common_data[] = {
+	{
+		.key = "qcom,never-unload-fw",
+		.value = 1,
+	},
+	{
+		.key = "qcom,sw-power-collapse",
+		.value = 1,
+	},
+	{
+		.key = "qcom,domain-attr-non-fatal-faults",
+		.value = 1,
+	},
+	{
+		.key = "qcom,max-secure-instances",
+		.value = 5,
+	},
+	{
+		.key = "qcom,max-hw-load",
+		.value = 4147200,	/* 4096x2160@120 */
+	},
+	{
+		.key = "qcom,max-hq-mbs-per-frame",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-hq-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,max-b-frame-size",
+		.value = 8160,
+	},
+	{
+		.key = "qcom,max-b-frames-per-sec",
+		.value = 60,
+	},
+	{
+		.key = "qcom,power-collapse-delay",
+		.value = 1500,
+	},
+	{
+		.key = "qcom,hw-resp-timeout",
+		.value = 1000,
+	},
+	{
+		.key = "qcom,debug-timeout",
+		.value = 0,
 	},
 };
 
@@ -255,6 +319,19 @@ static struct msm_vidc_platform_data default_data = {
 	.sku_version = 0,
 };
 
+static struct msm_vidc_platform_data sdm855_data = {
+	.codec_data = sdm855_codec_data,
+	.codec_data_length =  ARRAY_SIZE(sdm855_codec_data),
+	.common_data = sdm855_common_data,
+	.common_data_length =  ARRAY_SIZE(sdm855_common_data),
+	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
+	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
+	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
+	.efuse_data = NULL,
+	.efuse_data_length = 0,
+	.sku_version = 0,
+};
+
 static struct msm_vidc_platform_data sdm845_data = {
 	.codec_data = sdm845_codec_data,
 	.codec_data_length =  ARRAY_SIZE(sdm845_codec_data),
@@ -282,6 +359,10 @@ static struct msm_vidc_platform_data sdm670_data = {
 };
 
 static const struct of_device_id msm_vidc_dt_match[] = {
+	{
+		.compatible = "qcom,sdm855-vidc",
+		.data = &sdm855_data,
+	},
 	{
 		.compatible = "qcom,sdm845-vidc",
 		.data = &sdm845_data,
