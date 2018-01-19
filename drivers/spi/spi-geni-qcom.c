@@ -647,11 +647,11 @@ static int setup_gsi_xfer(struct spi_transfer *xfer,
 					&mas->gsi[mas->num_xfers].desc_cb;
 	mas->gsi[mas->num_xfers].tx_cookie =
 			dmaengine_submit(mas->gsi[mas->num_xfers].tx_desc);
-	if (mas->num_rx_eot)
+	if (cmd & SPI_RX_ONLY)
 		mas->gsi[mas->num_xfers].rx_cookie =
 			dmaengine_submit(mas->gsi[mas->num_xfers].rx_desc);
 	dma_async_issue_pending(mas->tx);
-	if (mas->num_rx_eot)
+	if (cmd & SPI_RX_ONLY)
 		dma_async_issue_pending(mas->rx);
 	mas->num_xfers++;
 	return ret;
