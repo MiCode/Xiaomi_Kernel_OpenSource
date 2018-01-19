@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,6 +168,9 @@ struct wcd_cpe_core {
 
 	/* mutex to protect cpe ssr status variables */
 	struct mutex ssr_lock;
+
+	/* mutex to protect cpe session status variables */
+	struct mutex session_lock;
 
 	/* Store the calibration data needed for cpe */
 	struct cal_type_data *cal_data[WCD_CPE_LSM_CAL_MAX];
