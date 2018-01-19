@@ -355,6 +355,8 @@ Optional properties:
 
  - qcom,mclk-clk-reg:                       Indicate the register address for mclk.
 
+ - qcom,lpass-mclk-id:                      Property to update LPASS MCLK Id.
+
 * audio_slimslave
 
 Required properties:
