@@ -86,7 +86,8 @@ static int __cam_isp_ctx_enqueue_init_request(
 		struct cam_ctx_request, list);
 	req_isp_old = (struct cam_isp_ctx_req *) req_old->req_priv;
 	req_isp_new = (struct cam_isp_ctx_req *) req->req_priv;
-	if (req_isp_old->packet_opcode_type == CAM_ISP_PACKET_INIT_DEV) {
+	if (req_isp_old->hw_update_data.packet_opcode_type ==
+		CAM_ISP_PACKET_INIT_DEV) {
 		if ((req_isp_old->num_cfg + req_isp_new->num_cfg) >=
 			CAM_ISP_CTX_CFG_MAX) {
 			CAM_WARN(CAM_ISP, "Can not merge INIT pkt");
@@ -1071,6 +1072,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	cfg.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	cfg.hw_update_entries = req_isp->cfg;
 	cfg.num_hw_update_entries = req_isp->num_cfg;
+	cfg.priv  = &req_isp->hw_update_data;
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc) {
@@ -1817,7 +1819,6 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_req_mgr_add_request    add_req;
 	struct cam_isp_context           *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
-	struct cam_isp_prepare_hw_update_data    hw_update_data;
 
 	CAM_DBG(CAM_ISP, "get free request object......");
 
@@ -1868,7 +1869,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	cfg.max_in_map_entries = CAM_ISP_CTX_RES_MAX;
 	cfg.out_map_entries = req_isp->fence_map_out;
 	cfg.in_map_entries = req_isp->fence_map_in;
-	cfg.priv  = &hw_update_data;
+	cfg.priv  = &req_isp->hw_update_data;
 
 	CAM_DBG(CAM_ISP, "try to prepare config packet......");
 
@@ -1883,7 +1884,6 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req_isp->num_fence_map_out = cfg.num_out_map_entries;
 	req_isp->num_fence_map_in = cfg.num_in_map_entries;
 	req_isp->num_acked = 0;
-	req_isp->packet_opcode_type = hw_update_data.packet_opcode_type;
 
 	CAM_DBG(CAM_ISP, "num_entry: %d, num fence out: %d, num fence in: %d",
 		req_isp->num_cfg, req_isp->num_fence_map_out,
@@ -1893,9 +1893,11 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req->status = 1;
 
 	CAM_DBG(CAM_ISP, "Packet request id 0x%llx packet opcode:%d",
-		packet->header.request_id, req_isp->packet_opcode_type);
+		packet->header.request_id,
+		req_isp->hw_update_data.packet_opcode_type);
 
-	if (req_isp->packet_opcode_type == CAM_ISP_PACKET_INIT_DEV) {
+	if (req_isp->hw_update_data.packet_opcode_type ==
+		CAM_ISP_PACKET_INIT_DEV) {
 		if (ctx->state < CAM_CTX_ACTIVATED) {
 			rc = __cam_isp_ctx_enqueue_init_request(ctx, req);
 			if (rc)
@@ -2140,7 +2142,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd)
 {
 	int rc = 0;
-	struct cam_hw_start_args         arg;
+	struct cam_hw_config_args        arg;
 	struct cam_ctx_request          *req;
 	struct cam_isp_ctx_req          *req_isp;
 	struct cam_isp_context          *ctx_isp =
@@ -2168,9 +2170,11 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		rc = -EFAULT;
 		goto end;
 	}
+
 	arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	arg.hw_update_entries = req_isp->cfg;
 	arg.num_hw_update_entries = req_isp->num_cfg;
+	arg.priv  = &req_isp->hw_update_data;
 
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
