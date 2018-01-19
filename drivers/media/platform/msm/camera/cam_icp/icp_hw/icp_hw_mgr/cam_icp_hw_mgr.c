@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,7 +116,12 @@ static int cam_icp_get_actual_clk_rate_idx(
 		if (ctx_data->clk_info.clk_rate[i] >= base_clk)
 			return i;
 
-	return 0;
+	/*
+	 * Caller has to ensure returned index is within array
+	 * size bounds while accessing that index.
+	 */
+
+	return i;
 }
 
 static bool cam_icp_is_over_clk(struct cam_icp_hw_mgr *hw_mgr,
@@ -132,7 +137,7 @@ static bool cam_icp_is_over_clk(struct cam_icp_hw_mgr *hw_mgr,
 	curr_clk_idx = cam_icp_get_actual_clk_rate_idx(ctx_data,
 		hw_mgr_clk_info->curr_clk);
 
-	CAM_DBG(CAM_ICP, "bc_idx = %d cc_idx = %d %lld %lld",
+	CAM_DBG(CAM_ICP, "bc_idx = %d cc_idx = %d %d %d",
 		base_clk_idx, curr_clk_idx, hw_mgr_clk_info->base_clk,
 		hw_mgr_clk_info->curr_clk);
 
