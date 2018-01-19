@@ -460,6 +460,7 @@ struct ath10k_hw_ce_regs qcax_ce_regs = {
 };
 
 const struct ath10k_hw_values qca988x_values = {
+	.pdev_suspend_option		= WMI_PDEV_SUSPEND_AND_DISABLE_INTR,
 	.rtc_state_val_on		= 3,
 	.ce_count			= 8,
 	.msi_assign_ce_max		= 7,
@@ -469,6 +470,7 @@ const struct ath10k_hw_values qca988x_values = {
 };
 
 const struct ath10k_hw_values qca6174_values = {
+	.pdev_suspend_option		= WMI_PDEV_SUSPEND_AND_DISABLE_INTR,
 	.rtc_state_val_on		= 3,
 	.ce_count			= 8,
 	.msi_assign_ce_max		= 7,
@@ -478,6 +480,7 @@ const struct ath10k_hw_values qca6174_values = {
 };
 
 const struct ath10k_hw_values qca99x0_values = {
+	.pdev_suspend_option		= WMI_PDEV_SUSPEND_AND_DISABLE_INTR,
 	.rtc_state_val_on		= 5,
 	.ce_count			= 12,
 	.msi_assign_ce_max		= 12,
@@ -487,6 +490,7 @@ const struct ath10k_hw_values qca99x0_values = {
 };
 
 const struct ath10k_hw_values qca9888_values = {
+	.pdev_suspend_option		= WMI_PDEV_SUSPEND_AND_DISABLE_INTR,
 	.rtc_state_val_on		= 3,
 	.ce_count			= 12,
 	.msi_assign_ce_max		= 12,
@@ -496,13 +500,15 @@ const struct ath10k_hw_values qca9888_values = {
 };
 
 const struct ath10k_hw_values qca4019_values = {
-	.ce_count                       = 12,
-	.num_target_ce_config_wlan      = 10,
-	.ce_desc_meta_data_mask         = 0xFFF0,
-	.ce_desc_meta_data_lsb          = 4,
+	.pdev_suspend_option		= WMI_PDEV_SUSPEND_AND_DISABLE_INTR,
+	.ce_count			= 12,
+	.num_target_ce_config_wlan	= 10,
+	.ce_desc_meta_data_mask		= 0xFFF0,
+	.ce_desc_meta_data_lsb		= 4,
 };
 
 const struct ath10k_hw_values wcn3990_values = {
+	.pdev_suspend_option		= WMI_PDEV_SUSPEND,
 	.rtc_state_val_on		= 5,
 	.ce_count			= 12,
 	.msi_assign_ce_max		= 12,
