@@ -28,11 +28,12 @@
 
 #include <linux/fs.h>
 #include <linux/vfs.h>
+#include <linux/bio.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/pagemap.h>
 #include <linux/buffer_head.h>
 #include <linux/bio.h>
-#include <linux/pagemap.h>
 #include <linux/workqueue.h>
 
 #include "squashfs_fs.h"
@@ -190,7 +191,7 @@ static void read_wq_handler(struct work_struct *work)
 static void squashfs_bio_end_io(struct bio *bio)
 {
 	int i;
-	int error = bio->bi_status;
+	blk_status_t error = bio->bi_status;
 	struct squashfs_bio_request *bio_req = bio->bi_private;
 
 	bio_put(bio);
