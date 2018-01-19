@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -2257,7 +2257,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			if (autorefresh_enabled) {
 				SDE_DEBUG_ENC(sde_enc,
 					"not handling early wakeup since auto refresh is enabled\n");
-				mutex_lock(&sde_enc->rc_lock);
+				mutex_unlock(&sde_enc->rc_lock);
 				return 0;
 			}
 
