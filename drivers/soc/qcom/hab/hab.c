@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -687,9 +687,12 @@ int do_hab_parse(void)
 	memset(&hab_driver.settings, HABCFG_VMID_INVALID,
 				sizeof(hab_driver.settings));
 
-	pr_debug("prepare default gvm 2 settings...\n");
-	fill_default_gvm_settings(&hab_driver.settings, 2,
+	result = hab_parse(&hab_driver.settings);
+	if (result) {
+		pr_warn("hab_parse failed and use the default settings\n");
+		fill_default_gvm_settings(&hab_driver.settings, 2,
 					MM_AUD_START, MM_ID_MAX);
+	}
 
 	/* now generate hab pchan list */
 	result  = hab_generate_pchan_list(&hab_driver.settings);
