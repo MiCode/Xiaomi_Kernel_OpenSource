@@ -76,6 +76,7 @@
 
 	aliases {
 		qpic_nand1 = &qnand_1;
+		pci-domain0 = &pcie0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC/SD/SDIO slot */
 	};
 
@@ -786,6 +787,7 @@
 #include "sdxpoorwills-regulator.dtsi"
 #include "sdxpoorwills-smp2p.dtsi"
 #include "sdxpoorwills-usb.dtsi"
+#include "sdxpoorwills-pcie.dtsi"
 #include "sdxpoorwills-bus.dtsi"
 #include "sdxpoorwills-thermal.dtsi"
 #include "sdxpoorwills-audio.dtsi"
