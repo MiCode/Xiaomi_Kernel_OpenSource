@@ -1655,6 +1655,12 @@ int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 	if (!dev)
 		return -ENODEV;
 
+	if (test_bit(ICNSS_FW_DOWN, &penv->state)) {
+		icnss_pr_err("FW down, ignoring fw_log_mode state: 0x%lx\n",
+			     penv->state);
+		return -EINVAL;
+	}
+
 	icnss_pr_dbg("FW log mode: %u\n", fw_log_mode);
 
 	ret = wlfw_ini_send_sync_msg(penv, fw_log_mode);
@@ -1741,6 +1747,12 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 		      enum icnss_driver_mode mode,
 		      const char *host_version)
 {
+	if (test_bit(ICNSS_FW_DOWN, &penv->state)) {
+		icnss_pr_err("FW down, ignoring wlan_enable state: 0x%lx\n",
+			     penv->state);
+		return -EINVAL;
+	}
+
 	return icnss_send_wlan_enable_to_fw(penv, config, mode, host_version);
 }
 EXPORT_SYMBOL(icnss_wlan_enable);
