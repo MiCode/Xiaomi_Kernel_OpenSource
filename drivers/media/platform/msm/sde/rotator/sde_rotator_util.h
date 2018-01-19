@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,7 +194,8 @@ int sde_mdp_get_plane_sizes(struct sde_mdp_format_params *fmt, u32 w, u32 h,
 	struct sde_mdp_plane_sizes *ps, u32 bwc_mode,
 	bool rotation);
 
-int sde_mdp_data_map(struct sde_mdp_data *data, bool rotator, int dir);
+int sde_mdp_data_map(struct sde_mdp_data *data, bool rotator, int dir,
+		bool skip_sync);
 
 int sde_mdp_data_check(struct sde_mdp_data *data,
 			struct sde_mdp_plane_sizes *ps,
