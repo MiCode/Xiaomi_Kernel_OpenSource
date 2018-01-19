@@ -1585,6 +1585,34 @@
 			};
 		};
 
+		sdc1_wlan_gpio_active: sdc1_wlan_gpio_active {
+			mux {
+				pins = "gpio81";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio81";
+				output-high;
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+
+		sdc1_wlan_gpio_sleep: sdc1_wlan_gpio_sleep {
+			mux {
+				pins = "gpio81";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio81";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
 		smb_int_default: smb_int_default {
 			mux {
 				pins = "gpio42";
