@@ -4268,6 +4268,7 @@ void ath10k_wmi_event_wow_wakeup_host(struct ath10k *ar, struct sk_buff *skb)
 		return;
 	}
 
+	ar->wow.wakeup_reason = ev.wake_reason;
 	ath10k_dbg(ar, ATH10K_DBG_WMI, "wow wakeup host reason %s\n",
 		   wow_reason(ev.wake_reason));
 }
