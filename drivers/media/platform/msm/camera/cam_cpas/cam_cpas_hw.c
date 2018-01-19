@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,12 +16,19 @@
 #include <linux/msm-bus.h>
 #include <linux/pm_opp.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 
 #include "cam_cpas_hw.h"
 #include "cam_cpas_hw_intf.h"
 #include "cam_cpas_soc.h"
 
-#define CAM_CPAS_AXI_MIN_BW (2048 * 1024)
+#define CAM_CPAS_AXI_MIN_MNOC_AB_BW   (2048 * 1024)
+#define CAM_CPAS_AXI_MIN_MNOC_IB_BW   (2048 * 1024)
+#define CAM_CPAS_AXI_MIN_CAMNOC_AB_BW (2048 * 1024)
+#define CAM_CPAS_AXI_MIN_CAMNOC_IB_BW (3000000000L)
+
+static uint cam_min_camnoc_ib_bw;
+module_param(cam_min_camnoc_ib_bw, uint, 0644);
 
 int cam_cpas_util_reg_update(struct cam_hw_info *cpas_hw,
 	enum cam_cpas_reg_base reg_base, struct cam_cpas_reg *reg_info)
@@ -84,11 +91,19 @@ static int cam_cpas_util_vote_bus_client_level(
 }
 
 static int cam_cpas_util_vote_bus_client_bw(
-	struct cam_cpas_bus_client *bus_client, uint64_t ab, uint64_t ib)
+	struct cam_cpas_bus_client *bus_client, uint64_t ab, uint64_t ib,
+	bool camnoc_bw)
 {
 	struct msm_bus_paths *path;
 	struct msm_bus_scale_pdata *pdata;
 	int idx = 0;
+	uint64_t min_camnoc_ib_bw = CAM_CPAS_AXI_MIN_CAMNOC_IB_BW;
+
+	if (cam_min_camnoc_ib_bw > 0)
+		min_camnoc_ib_bw = (uint64_t)cam_min_camnoc_ib_bw * 1000000L;
+
+	CAM_DBG(CAM_CPAS, "cam_min_camnoc_ib_bw = %d, min_camnoc_ib_bw=%llu",
+		cam_min_camnoc_ib_bw, min_camnoc_ib_bw);
 
 	if (!bus_client->valid) {
 		CAM_ERR(CAM_CPAS, "bus client not valid");
@@ -118,11 +133,19 @@ static int cam_cpas_util_vote_bus_client_bw(
 	bus_client->curr_vote_level = idx;
 	mutex_unlock(&bus_client->lock);
 
-	if ((ab > 0) && (ab < CAM_CPAS_AXI_MIN_BW))
-		ab = CAM_CPAS_AXI_MIN_BW;
+	if (camnoc_bw == true) {
+		if ((ab > 0) && (ab < CAM_CPAS_AXI_MIN_CAMNOC_AB_BW))
+			ab = CAM_CPAS_AXI_MIN_CAMNOC_AB_BW;
 
-	if ((ib > 0) && (ib < CAM_CPAS_AXI_MIN_BW))
-		ib = CAM_CPAS_AXI_MIN_BW;
+		if ((ib > 0) && (ib < min_camnoc_ib_bw))
+			ib = min_camnoc_ib_bw;
+	} else {
+		if ((ab > 0) && (ab < CAM_CPAS_AXI_MIN_MNOC_AB_BW))
+			ab = CAM_CPAS_AXI_MIN_MNOC_AB_BW;
+
+		if ((ib > 0) && (ib < CAM_CPAS_AXI_MIN_MNOC_IB_BW))
+			ib = CAM_CPAS_AXI_MIN_MNOC_IB_BW;
+	}
 
 	pdata = bus_client->pdata;
 	path = &(pdata->usecase[idx]);
@@ -205,7 +228,7 @@ static int cam_cpas_util_unregister_bus_client(
 		return -EINVAL;
 
 	if (bus_client->dyn_vote)
-		cam_cpas_util_vote_bus_client_bw(bus_client, 0, 0);
+		cam_cpas_util_vote_bus_client_bw(bus_client, 0, 0, false);
 	else
 		cam_cpas_util_vote_bus_client_level(bus_client, 0);
 
@@ -370,7 +393,7 @@ static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 	list_for_each_entry_safe(curr_port, temp_port,
 		&cpas_core->axi_ports_list_head, sibling_port) {
 		rc = cam_cpas_util_vote_bus_client_bw(&curr_port->mnoc_bus,
-			mnoc_bw, mnoc_bw);
+			mnoc_bw, mnoc_bw, false);
 		if (rc) {
 			CAM_ERR(CAM_CPAS,
 				"Failed in mnoc vote, enable=%d, rc=%d",
@@ -380,13 +403,13 @@ static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 
 		if (soc_private->axi_camnoc_based) {
 			cam_cpas_util_vote_bus_client_bw(
-				&curr_port->camnoc_bus, 0, camnoc_bw);
+				&curr_port->camnoc_bus, 0, camnoc_bw, true);
 			if (rc) {
 				CAM_ERR(CAM_CPAS,
 					"Failed in mnoc vote, enable=%d, %d",
 					enable, rc);
 				cam_cpas_util_vote_bus_client_bw(
-					&curr_port->mnoc_bus, 0, 0);
+					&curr_port->mnoc_bus, 0, 0, false);
 				goto remove_ahb_vote;
 			}
 		}
@@ -571,7 +594,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 		camnoc_bw, mnoc_bw);
 
 	rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
-		mnoc_bw, mnoc_bw);
+		mnoc_bw, mnoc_bw, false);
 	if (rc) {
 		CAM_ERR(CAM_CPAS,
 			"Failed in mnoc vote ab[%llu] ib[%llu] rc=%d",
@@ -581,7 +604,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 
 	if (soc_private->axi_camnoc_based) {
 		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->camnoc_bus,
-			0, camnoc_bw);
+			0, camnoc_bw, true);
 		if (rc) {
 			CAM_ERR(CAM_CPAS,
 				"Failed camnoc vote ab[%llu] ib[%llu] rc=%d",
