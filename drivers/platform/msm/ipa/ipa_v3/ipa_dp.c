@@ -828,7 +828,7 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 		 * pipe will be unsuspended as part of
 		 * enabling IPA clocks
 		 */
-		ipa_pm_activate_sync(sys->pm_hdl);
+		ipa_pm_activate(sys->pm_hdl);
 		ipa_pm_deferred_deactivate(sys->pm_hdl);
 		break;
 	default:
