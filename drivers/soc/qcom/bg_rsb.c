@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -544,8 +544,6 @@ static void bgrsb_disable_rsb(struct work_struct *work)
 								rsb_down_work);
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED) {
-		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) != 0)
-			return;
 
 		req.cmd_id = 0x02;
 		req.data = 0x00;
@@ -555,6 +553,10 @@ static void bgrsb_disable_rsb(struct work_struct *work)
 			pr_err("Failed to send disable command to BG\n");
 			return;
 		}
+
+		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) != 0)
+			return;
+
 		dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
 		pr_debug("RSB Disabled\n");
 	}

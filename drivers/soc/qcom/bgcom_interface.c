@@ -27,6 +27,11 @@
 #include <soc/qcom/subsystem_notif.h>
 #include "bgcom.h"
 #include "linux/bgcom_interface.h"
+#include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/platform_device.h>
 
 #define BGCOM "bg_com_dev"
 
@@ -51,6 +56,8 @@ static char *ssr_domains[] = {
 	"bg-wear",
 	"modem",
 };
+
+static unsigned bgreset_gpio;
 
 static  DEFINE_MUTEX(bg_char_mutex);
 static  struct cdev              bg_cdev;
@@ -169,6 +176,15 @@ static int bgchar_write_cmd(struct bg_ui_data *fui_obj_msg, int type)
 	return ret;
 }
 
+static int bg_soft_reset(void)
+{
+	/*pull down reset gpio */
+	gpio_direction_output(bgreset_gpio, 0);
+	msleep(50);
+	gpio_set_value(bgreset_gpio, 1);
+	return 0;
+}
+
 static long bg_com_ioctl(struct file *filp,
 		unsigned int ui_bgcom_cmd, unsigned long arg)
 {
@@ -205,6 +221,9 @@ static long bg_com_ioctl(struct file *filp,
 	case SET_SPI_BUSY:
 		ret = bgcom_set_spi_state(BGCOM_SPI_BUSY);
 		break;
+	case BG_SOFT_RESET:
+		ret = bg_soft_reset();
+		break;
 	default:
 		ret = -ENOIOCTLCMD;
 	}
@@ -221,6 +240,50 @@ static int bgcom_char_close(struct inode *inode, struct file *file)
 	mutex_unlock(&bg_char_mutex);
 	return ret;
 }
+
+static int bg_daemon_probe(struct platform_device *pdev)
+{
+	struct device_node *node;
+	unsigned reset_gpio;
+
+	node = pdev->dev.of_node;
+
+	reset_gpio = of_get_named_gpio(node, "qcom,bg-reset-gpio", 0);
+	if (!gpio_is_valid(reset_gpio)) {
+		pr_err("gpio %d found is not valid\n", reset_gpio);
+		goto err_ret;
+	}
+
+	if (gpio_request(reset_gpio, "bg_reset_gpio")) {
+		pr_err("gpio %d request failed\n", reset_gpio);
+		goto err_ret;
+	}
+
+	if (gpio_direction_output(reset_gpio, 1)) {
+		pr_err("gpio %d direction not set\n", reset_gpio);
+		goto err_ret;
+	}
+
+	pr_info("bg-soft-reset gpio successfully requested\n");
+	bgreset_gpio = reset_gpio;
+
+err_ret:
+	return 0;
+}
+
+static const struct of_device_id bg_daemon_of_match[] = {
+	{ .compatible = "qcom,bg-daemon", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, bg_daemon_of_match);
+
+static struct platform_driver bg_daemon_driver = {
+	.probe  = bg_daemon_probe,
+	.driver = {
+		.name = "bg-daemon",
+		.of_match_table = bg_daemon_of_match,
+	},
+};
 
 static const struct file_operations fops = {
 	.owner          = THIS_MODULE,
@@ -261,6 +324,10 @@ static int __init init_bg_com_dev(void)
 		pr_err("device create failed\n");
 		return PTR_ERR(dev_ret);
 	}
+
+	if (platform_driver_register(&bg_daemon_driver))
+		pr_err("%s: failed to register bg-daemon register\n", __func__);
+
 	return 0;
 }
 
@@ -270,6 +337,7 @@ static void __exit exit_bg_com_dev(void)
 	class_destroy(bg_class);
 	cdev_del(&bg_cdev);
 	unregister_chrdev_region(bg_dev, 1);
+	platform_driver_unregister(&bg_daemon_driver);
 }
 
 /**
