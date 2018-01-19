@@ -40,6 +40,8 @@ struct msm_vidc_drv *vidc_driver;
 
 static inline struct msm_vidc_inst *get_vidc_inst(struct file *filp, void *fh)
 {
+	if (!filp->private_data)
+		return NULL;
 	return container_of(filp->private_data,
 					struct msm_vidc_inst, event_handler);
 }
@@ -75,6 +77,7 @@ static int msm_v4l2_close(struct file *filp)
 	vidc_inst = get_vidc_inst(filp, NULL);
 
 	rc = msm_vidc_close(vidc_inst);
+	filp->private_data = NULL;
 	trace_msm_v4l2_vidc_close_end("msm v4l2_close end");
 	return rc;
 }
