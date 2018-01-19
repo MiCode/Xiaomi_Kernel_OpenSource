@@ -2511,9 +2511,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 							SDE_EVTLOG_FUNC_CASE3);
 		}
 
-		if (fevent->event & SDE_ENCODER_FRAME_EVENT_DONE)
-			sde_core_perf_crtc_update(crtc, 0, false);
-
 		if (fevent->event & (SDE_ENCODER_FRAME_EVENT_DONE
 					| SDE_ENCODER_FRAME_EVENT_ERROR))
 			frame_done = true;
@@ -2596,6 +2593,8 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
 	smmu_state = &sde_crtc->smmu_state;
+
+	sde_core_perf_crtc_update(crtc, 0, false);
 
 	/* complete secure transitions if any */
 	if (smmu_state->transition_type == POST_COMMIT)
