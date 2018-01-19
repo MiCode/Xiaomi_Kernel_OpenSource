@@ -265,6 +265,14 @@
 				type = "passive";
 			};
 		};
+		cooling-maps {
+			gpu_cdev0 {
+				trip = <&gpu_trip0>;
+				cooling-device =
+					<&msm_gpu THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
+			};
+		};
 	};
 
 	deca-cpu-max-step {
@@ -589,6 +597,10 @@
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
 			};
+			gpu_vdd_cdev {
+				trip = <&mdm_core_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 			cx_vdd_cdev {
 				trip = <&mdm_core_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -618,6 +630,10 @@
 				trip = <&qdsp_trip>;
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			gpu_vdd_cdev {
+				trip = <&qdsp_trip>;
+				cooling-device = <&msm_gpu 2 2>;
 			};
 			cx_vdd_cdev {
 				trip = <&qdsp_trip>;
@@ -649,6 +665,10 @@
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
 			};
+			gpu_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 			cx_vdd_cdev {
 				trip = <&camera_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -678,6 +698,10 @@
 				trip = <&cpu4_trip>;
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			gpu_vdd_cdev {
+				trip = <&cpu4_trip>;
+				cooling-device = <&msm_gpu 2 2>;
 			};
 			cx_vdd_cdev {
 				trip = <&cpu4_trip>;
@@ -709,6 +733,10 @@
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
 			};
+			gpu_vdd_cdev {
+				trip = <&cpu5_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 			cx_vdd_cdev {
 				trip = <&cpu5_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -738,6 +766,10 @@
 				trip = <&cpu6_trip>;
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			gpu_vdd_cdev {
+				trip = <&cpu6_trip>;
+				cooling-device = <&msm_gpu 2 2>;
 			};
 			cx_vdd_cdev {
 				trip = <&cpu6_trip>;
@@ -769,6 +801,10 @@
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
 			};
+			gpu_vdd_cdev {
+				trip = <&cpu7_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 			cx_vdd_cdev {
 				trip = <&cpu7_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -798,6 +834,10 @@
 				trip = <&apc1_l2_trip>;
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			gpu_vdd_cdev {
+				trip = <&apc1_l2_trip>;
+				cooling-device = <&msm_gpu 2 2>;
 			};
 			cx_vdd_cdev {
 				trip = <&apc1_l2_trip>;
@@ -829,6 +869,10 @@
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
 			};
+			gpu_vdd_cdev {
+				trip = <&cpu0_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 			cx_vdd_cdev {
 				trip = <&cpu0_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -858,6 +902,10 @@
 				trip = <&cpu1_trip>;
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			gpu_vdd_cdev {
+				trip = <&cpu1_trip>;
+				cooling-device = <&msm_gpu 2 2>;
 			};
 			cx_vdd_cdev {
 				trip = <&cpu1_trip>;
@@ -889,6 +937,10 @@
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
 			};
+			gpu_vdd_cdev {
+				trip = <&cpu2_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 			cx_vdd_cdev {
 				trip = <&cpu2_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -918,6 +970,10 @@
 				trip = <&cpu3_trip>;
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			gpu_vdd_cdev {
+				trip = <&cpu3_trip>;
+				cooling-device = <&msm_gpu 2 2>;
 			};
 			cx_vdd_cdev {
 				trip = <&cpu3_trip>;
@@ -949,6 +1005,10 @@
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
 			};
+			gpu_vdd_cdev {
+				trip = <&apc0_l2_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 			cx_vdd_cdev {
 				trip = <&apc0_l2_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -979,6 +1039,10 @@
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
 			};
+			gpu_vdd_cdev {
+				trip = <&gpu0_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 			cx_vdd_cdev {
 				trip = <&gpu0_trip>;
 				cooling-device = <&cx_cdev 0 0>;
@@ -1008,6 +1072,10 @@
 				trip = <&gpu1_trip>;
 				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
 						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			gpu_vdd_cdev {
+				trip = <&gpu1_trip>;
+				cooling-device = <&msm_gpu 2 2>;
 			};
 			cx_vdd_cdev {
 				trip = <&gpu1_trip>;
