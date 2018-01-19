@@ -28,6 +28,35 @@
 		compatible = "qcom,msm-audio-ion-vm";
 		qcom,smmu-enabled;
 	};
+
+	qcom,cnss {
+		compatible = "qcom,cnss";
+		wlan-bootstrap-gpio = <&tlmm 46 0>;
+		vdd-wlan-en-supply = <&wlan_en_vreg>;
+		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-io-supply = <&pm8994_s4>;
+		vdd-wlan-xtal-supply = <&pm8994_l30>;
+		vdd-wlan-core-supply = <&pm8994_s3>;
+		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
+		qcom,wlan-en-vreg-support;
+		qcom,notify-modem-status;
+		pinctrl-names = "bootstrap_active", "bootstrap_sleep";
+		pinctrl-0 = <&cnss_bootstrap_active>;
+		pinctrl-1 = <&cnss_bootstrap_sleep>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					/* No vote */
+					<45 512 0 0>,
+					/* Up to 200 Mbps */
+					<45 512 41421 1520000>,
+					/* Up to 400 Mbps */
+					<45 512 96650 1520000>,
+					/* Up to 800 Mbps */
+					<45 512 207108 14432000>;
+	};
 };
 
 &blsp1_uart2 {
