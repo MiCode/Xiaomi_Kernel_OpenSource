@@ -19,9 +19,10 @@
 #include <dt-bindings/clock/msm-clocks-8953.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8953";
+	model = "Qualcomm Technologies, Inc. MSM8953";
 	compatible = "qcom,msm8953";
 	qcom,msm-id = <293 0x0>;
+	qcom,msm-name = "MSM8953";
 	interrupt-parent = <&intc>;
 
 	chosen {

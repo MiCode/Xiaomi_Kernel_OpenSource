@@ -203,6 +203,52 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_MSM8953) += msm8953-mtp-overlay.dtbo \
+	msm8953-cdp-overlay.dtbo \
+	msm8953-rcm-overlay.dtbo \
+	msm8953-ipc-overlay.dtbo \
+	msm8953-qrd-overlay.dtbo \
+	msm8953-iot-mtp-overlay.dtbo \
+	msm8953-ext-codec-mtp-overlay.dtbo \
+	msm8953-ext-codec-rcm-overlay.dtbo \
+	msm8953-cdp-1200p-overlay.dtbo
+
+dtbo-$(CONFIG_ARCH_SDM450) += msm8953-mtp-overlay.dtbo \
+	msm8953-cdp-overlay.dtbo \
+	msm8953-rcm-overlay.dtbo \
+	msm8953-qrd-overlay.dtbo \
+	msm8953-iot-mtp-overlay.dtbo
+
+msm8953-mtp-overlay.dtbo-base := sdm450.dtb \
+	msm8953.dtb \
+	apq8053.dtb \
+	msm8953-pmi8940.dtb \
+	msm8953-pmi8937.dtb \
+	sdm450-pmi8940.dtb \
+	sdm450-pmi8937.dtb
+msm8953-cdp-overlay.dtbo-base := sdm450.dtb \
+	msm8953.dtb \
+	apq8053.dtb \
+	msm8953-pmi8940.dtb \
+	msm8953-pmi8937.dtb
+msm8953-rcm-overlay.dtbo-base := sdm450.dtb \
+	msm8953.dtb \
+	apq8053.dtb
+msm8953-ipc-overlay.dtbo-base := msm8953.dtb \
+	apq8053.dtb
+msm8953-qrd-overlay.dtbo-base := sdm450.dtb \
+	msm8953.dtb
+msm8953-iot-mtp-overlay.dtbo-base := sdm450.dtb \
+	msm8953.dtb \
+	apq8053.dtb
+msm8953-ext-codec-mtp-overlay.dtbo-base := msm8953.dtb \
+	apq8053.dtb \
+	msm8953-pmi8940.dtb \
+	msm8953-pmi8937.dtb
+msm8953-ext-codec-rcm-overlay.dtbo-base := msm8953.dtb \
+	apq8053.dtb
+msm8953-cdp-1200p-overlay.dtbo-base := msm8953.dtb
+
 else
 dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	msm8953-mtp.dtb \
