@@ -53,17 +53,16 @@ static int add_to_rbuf(struct mbox_chan *chan, void *mssg)
 	return idx;
 }
 
-static void msg_submit(struct mbox_chan *chan)
+static int __msg_submit(struct mbox_chan *chan)
 {
 	unsigned count, idx;
 	unsigned long flags;
 	void *data;
 	int err = -EBUSY;
 
-again:
 	spin_lock_irqsave(&chan->lock, flags);
 
-	if (!chan->msg_count || (chan->active_req && err != -EAGAIN))
+	if (!chan->msg_count || chan->active_req)
 		goto exit;
 
 	count = chan->msg_count;
@@ -86,15 +85,23 @@ again:
 exit:
 	spin_unlock_irqrestore(&chan->lock, flags);
 
+	return err;
+}
+
+static void msg_submit(struct mbox_chan *chan)
+{
+	int err = 0;
+
 	/*
 	 * If the controller returns -EAGAIN, then it means, our spinlock
 	 * here is preventing the controller from receiving its interrupt,
 	 * that would help clear the controller channels that are currently
 	 * blocked waiting on the interrupt response.
-	 * Unlock and retry again.
+	 * Retry again.
 	 */
-	if (err == -EAGAIN)
-		goto again;
+	do {
+		err = __msg_submit(chan);
+	} while (err == -EAGAIN);
 
 	if (!err && (chan->txdone_method & TXDONE_BY_POLL))
 		/* kick start the timer immediately to avoid delays */

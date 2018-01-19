@@ -128,6 +128,12 @@ struct sde_hw_pingpong_ops {
 	void (*disable_dsc)(struct sde_hw_pingpong *pp);
 
 	/**
+	 * Get DSC status
+	 * @Return: register value of DSC config
+	 */
+	u32 (*get_dsc_status)(struct sde_hw_pingpong *pp);
+
+	/**
 	 * Program the dither hw block
 	 */
 	int (*setup_dither)(struct sde_hw_pingpong *pp, void *cfg, size_t len);
@@ -159,16 +165,6 @@ static inline struct sde_hw_pingpong *to_sde_hw_pingpong(struct sde_hw_blk *hw)
 {
 	return container_of(hw, struct sde_hw_pingpong, base);
 }
-
-/**
- * sde_get_pp_dsc_for_cont_splash - retrieve the current dsc enabled blocks
- * @mmio: mapped register io address of MDP
- * @max_dsc_cnt: number of DSC blocks supported in the hw
- * @dsc_ids: pointer to store the active DSC block IDs
- * return: number of active DSC blocks
- */
-int sde_get_pp_dsc_for_cont_splash(void __iomem *mmio,
-		int max_dsc_cnt, u8 *dsc_ids);
 
 /**
  * sde_hw_pingpong_init - initializes the pingpong driver for the passed

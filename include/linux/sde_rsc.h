@@ -186,6 +186,26 @@ int sde_rsc_client_state_update(struct sde_rsc_client *client,
 	int *wait_vblank_crtc_id);
 
 /**
+ * sde_rsc_client_get_vsync_refcount() - returns the status of the vsync
+ * refcount, to signal if the client needs to reset the refcounting logic
+ * @client:	 Client pointer provided by sde_rsc_client_create().
+ *
+ * Return: true if the state update has completed.
+ */
+int sde_rsc_client_get_vsync_refcount(
+		struct sde_rsc_client *caller_client);
+
+/**
+ * sde_rsc_client_reset_vsync_refcount() - reduces the refcounting
+ * logic that waits for the vsync.
+ * @client:	 Client pointer provided by sde_rsc_client_create().
+ *
+ * Return: true if the state update has completed.
+ */
+int sde_rsc_client_reset_vsync_refcount(
+		struct sde_rsc_client *caller_client);
+
+/**
  * sde_rsc_client_is_state_update_complete() - check if state update is complete
  * RSC state transition is not complete until HW receives VBLANK signal. This
  * function checks RSC HW to determine whether that signal has been received.
@@ -261,6 +281,18 @@ static inline int sde_rsc_client_state_update(struct sde_rsc_client *client,
 	enum sde_rsc_state state,
 	struct sde_rsc_cmd_config *config, int crtc_id,
 	int *wait_vblank_crtc_id)
+{
+	return 0;
+}
+
+int sde_rsc_client_get_vsync_refcount(
+		struct sde_rsc_client *caller_client)
+{
+	return 0;
+}
+
+int sde_rsc_client_reset_vsync_refcount(
+		struct sde_rsc_client *caller_client)
 {
 	return 0;
 }

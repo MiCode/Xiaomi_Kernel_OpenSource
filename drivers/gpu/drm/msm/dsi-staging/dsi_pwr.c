@@ -111,13 +111,13 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 			regs->vregs[i].post_off_sleep = tmp;
 		}
 
-		++i;
 		pr_debug("[%s] minv=%d maxv=%d, en_load=%d, dis_load=%d\n",
 			 regs->vregs[i].vreg_name,
 			 regs->vregs[i].min_voltage,
 			 regs->vregs[i].max_voltage,
 			 regs->vregs[i].enable_load,
 			 regs->vregs[i].disable_load);
+		++i;
 	}
 
 error:
@@ -341,6 +341,11 @@ int dsi_pwr_enable_regulator(struct dsi_regulator_info *regs, bool enable)
 {
 	int rc = 0;
 
+	if (!regs->vregs) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
 	if (enable) {
 		if (regs->refcount == 0) {
 			rc = dsi_pwr_enable_vregs(regs, true);
@@ -350,7 +355,8 @@ int dsi_pwr_enable_regulator(struct dsi_regulator_info *regs, bool enable)
 		regs->refcount++;
 	} else {
 		if (regs->refcount == 0) {
-			pr_err("Unbalanced regulator off\n");
+			pr_err("Unbalanced regulator off:%s\n",
+					regs->vregs->vreg_name);
 		} else {
 			regs->refcount--;
 			if (regs->refcount == 0) {

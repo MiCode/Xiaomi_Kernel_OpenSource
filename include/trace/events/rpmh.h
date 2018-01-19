@@ -54,12 +54,14 @@ DEFINE_EVENT(rpmh_ack_recvd, rpmh_notify,
 
 TRACE_EVENT(rpmh_send_msg,
 
-	TP_PROTO(const char *s, int m, int n, u32 h, u32 a, u32 v, bool c, bool t),
+	TP_PROTO(const char *s, unsigned long b, int m, int n, u32 h, u32 a,
+							u32 v, bool c, bool t),
 
-	TP_ARGS(s, m, n, h, a, v, c, t),
+	TP_ARGS(s, b, m, n, h, a, v, c, t),
 
 	TP_STRUCT__entry(
 		__field(const char*, name)
+		__field(unsigned long, base)
 		__field(int, m)
 		__field(int, n)
 		__field(u32, hdr)
@@ -71,6 +73,7 @@ TRACE_EVENT(rpmh_send_msg,
 
 	TP_fast_assign(
 		__entry->name = s;
+		__entry->base = b;
 		__entry->m = m;
 		__entry->n = n;
 		__entry->hdr = h;
@@ -80,9 +83,10 @@ TRACE_EVENT(rpmh_send_msg,
 		__entry->trigger = t;
 	),
 
-	TP_printk("%s: send-msg: tcs(m): %d cmd(n): %d msgid: 0x%08x addr: 0x%08x data: 0x%08x complete: %d trigger: %d",
-			__entry->name, __entry->m, __entry->n, __entry->hdr,
-			__entry->addr, __entry->data, __entry->complete, __entry->trigger)
+	TP_printk("%s: reg: 0x%08lx send-msg: tcs(m): %d cmd(n): %d msgid: 0x%08x addr: 0x%08x data: 0x%08x complete: %d trigger: %d",
+			__entry->name, __entry->base, __entry->m,
+			__entry->n, __entry->hdr, __entry->addr,
+			__entry->data, __entry->complete, __entry->trigger)
 );
 
 TRACE_EVENT(rpmh_control_msg,

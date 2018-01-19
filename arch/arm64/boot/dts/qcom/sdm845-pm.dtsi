@@ -139,12 +139,4 @@
 		reg = <0xC300000 0x1000>, <0xC3F0004 0x4>;
 		reg-names = "phys_addr_base", "offset_addr";
 	};
-
-	pdc: interrupt-controller@0xb220000{
-		compatible = "qcom,pdc-sdm845";
-		reg = <0xb220000 0x400>;
-		#interrupt-cells = <3>;
-		interrupt-parent = <&intc>;
-		interrupt-controller;
-	};
 };

@@ -18,6 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/rmnet_data.h>
 #include <linux/spinlock.h>
+#include <linux/workqueue.h>
 #include <linux/time.h>
 #include <linux/net_map.h>
 #include <linux/ip.h>
@@ -46,6 +47,11 @@ MODULE_PARM_DESC(agg_time_limit, "Maximum time packets sit in the agg buf");
 long agg_bypass_time __read_mostly = 10000000L;
 module_param(agg_bypass_time, long, 0644);
 MODULE_PARM_DESC(agg_bypass_time, "Skip agg when apart spaced more than this");
+
+struct agg_work {
+	struct work_struct work;
+	struct rmnet_phys_ep_config *config;
+};
 
 #define RMNET_MAP_DEAGGR_SPACING  64
 #define RMNET_MAP_DEAGGR_HEADROOM (RMNET_MAP_DEAGGR_SPACING / 2)
@@ -159,22 +165,18 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	return skbn;
 }
 
-/* rmnet_map_flush_packet_queue() - Transmits aggregeted frame on timeout
- *
- * This function is scheduled to run in a specified number of ns after
- * the last frame transmitted by the network stack. When run, the buffer
- * containing aggregated packets is finally transmitted on the underlying link.
- *
- */
-enum hrtimer_restart rmnet_map_flush_packet_queue(struct hrtimer *t)
+static void rmnet_map_flush_packet_work(struct work_struct *work)
 {
 	struct rmnet_phys_ep_config *config;
+	struct agg_work *real_work;
+	int rc, agg_count = 0;
 	unsigned long flags;
 	struct sk_buff *skb;
-	int rc, agg_count = 0;
 
-	config = container_of(t, struct rmnet_phys_ep_config, hrtimer);
-	skb = 0;
+	real_work = (struct agg_work *)work;
+	config = real_work->config;
+	skb = NULL;
+
 	LOGD("%s", "Entering flush thread");
 	spin_lock_irqsave(&config->agg_lock, flags);
 	if (likely(config->agg_state == RMNET_MAP_TXFER_SCHEDULED)) {
@@ -185,7 +187,7 @@ enum hrtimer_restart rmnet_map_flush_packet_queue(struct hrtimer *t)
 				LOGL("Agg count: %d", config->agg_count);
 			skb = config->agg_skb;
 			agg_count = config->agg_count;
-			config->agg_skb = 0;
+			config->agg_skb = NULL;
 			config->agg_count = 0;
 			memset(&config->agg_time, 0, sizeof(struct timespec));
 		}
@@ -203,6 +205,33 @@ enum hrtimer_restart rmnet_map_flush_packet_queue(struct hrtimer *t)
 		rmnet_stats_queue_xmit(rc, RMNET_STATS_QUEUE_XMIT_AGG_TIMEOUT);
 	}
 
+	kfree(work);
+}
+
+/* rmnet_map_flush_packet_queue() - Transmits aggregeted frame on timeout
+ *
+ * This function is scheduled to run in a specified number of ns after
+ * the last frame transmitted by the network stack. When run, the buffer
+ * containing aggregated packets is finally transmitted on the underlying link.
+ *
+ */
+enum hrtimer_restart rmnet_map_flush_packet_queue(struct hrtimer *t)
+{
+	struct rmnet_phys_ep_config *config;
+	struct agg_work *work;
+
+	config = container_of(t, struct rmnet_phys_ep_config, hrtimer);
+
+	work = kmalloc(sizeof(*work), GFP_ATOMIC);
+	if (!work) {
+		config->agg_state = RMNET_MAP_AGG_IDLE;
+
+		return HRTIMER_NORESTART;
+	}
+
+	INIT_WORK(&work->work, rmnet_map_flush_packet_work);
+	work->config = config;
+	schedule_work((struct work_struct *)work);
 	return HRTIMER_NORESTART;
 }
 

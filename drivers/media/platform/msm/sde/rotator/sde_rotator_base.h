@@ -198,6 +198,7 @@ struct sde_rot_regdump {
 	u32 offset;
 	u32 len;
 	enum sde_rot_regdump_access access;
+	u32 value;
 };
 
 struct sde_rot_lut_cfg {

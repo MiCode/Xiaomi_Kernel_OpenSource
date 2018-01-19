@@ -93,7 +93,10 @@ static struct rule_node_info *gen_node(u32 id, void *data)
 
 	if (!node_match) {
 		node_match = kzalloc(sizeof(struct rule_node_info), GFP_KERNEL);
+		if (!node_match) {
+			pr_err("%s: Cannot allocate memory", __func__);
 			goto exit_node_match;
+		}
 
 		node_match->id = id;
 		node_match->cur_rule = NULL;

@@ -441,6 +441,7 @@ struct kgsl_context {
  * @syncsource_idr: sync sources created by this process
  * @syncsource_lock: Spinlock to protect the syncsource idr
  * @fd_count: Counter for the number of FDs for this process
+ * @ctxt_count: Count for the number of contexts for this process
  */
 struct kgsl_process_private {
 	unsigned long priv;
@@ -460,6 +461,7 @@ struct kgsl_process_private {
 	struct idr syncsource_idr;
 	spinlock_t syncsource_lock;
 	int fd_count;
+	atomic_t ctxt_count;
 };
 
 /**
@@ -498,6 +500,7 @@ struct kgsl_device_private {
  * @sysfs_read: Count of current reads via sysfs
  * @first_read: True until the snapshot read is started
  * @gmu_fault: Snapshot collected when GMU fault happened
+ * @recovered: True if GPU was recovered after previous snapshot
  */
 struct kgsl_snapshot {
 	uint64_t ib1base;
@@ -521,6 +524,7 @@ struct kgsl_snapshot {
 	unsigned int sysfs_read;
 	bool first_read;
 	bool gmu_fault;
+	bool recovered;
 };
 
 /**

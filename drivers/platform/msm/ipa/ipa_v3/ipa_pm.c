@@ -352,7 +352,7 @@ static int do_clk_scaling(void)
 	clk_scaling = &ipa_pm_ctx->clk_scaling;
 
 	mutex_lock(&ipa_pm_ctx->client_mutex);
-	IPA_PM_DBG("clock scaling started\n");
+	IPA_PM_DBG_LOW("clock scaling started\n");
 	tput = calculate_throughput();
 	ipa_pm_ctx->aggregated_tput = tput;
 	set_current_threshold();
@@ -364,7 +364,7 @@ static int do_clk_scaling(void)
 			new_th_idx++;
 	}
 
-	IPA_PM_DBG("old idx was at %d\n", ipa_pm_ctx->clk_scaling.cur_vote);
+	IPA_PM_DBG_LOW("old idx was at %d\n", ipa_pm_ctx->clk_scaling.cur_vote);
 
 
 	if (ipa_pm_ctx->clk_scaling.cur_vote != new_th_idx) {
@@ -372,7 +372,7 @@ static int do_clk_scaling(void)
 		ipa3_set_clock_plan_from_pm(ipa_pm_ctx->clk_scaling.cur_vote);
 	}
 
-	IPA_PM_DBG("new idx is at %d\n", ipa_pm_ctx->clk_scaling.cur_vote);
+	IPA_PM_DBG_LOW("new idx is at %d\n", ipa_pm_ctx->clk_scaling.cur_vote);
 
 	return 0;
 }
@@ -683,6 +683,11 @@ int ipa_pm_register(struct ipa_pm_register_params *params, u32 *hdl)
 {
 	struct ipa_pm_client *client;
 
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
+
 	if (params == NULL || hdl == NULL || params->name == NULL) {
 		IPA_PM_ERR("Invalid Params\n");
 		return -EINVAL;
@@ -749,6 +754,11 @@ int ipa_pm_deregister(u32 hdl)
 	int i;
 	unsigned long flags;
 
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
+
 	if (hdl >= IPA_PM_MAX_CLIENTS) {
 		IPA_PM_ERR("Invalid Param\n");
 		return -EINVAL;
@@ -805,6 +815,11 @@ int ipa_pm_deregister(u32 hdl)
 int ipa_pm_associate_ipa_cons_to_client(u32 hdl, enum ipa_client_type consumer)
 {
 	int idx;
+
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
 
 	if (hdl >= IPA_PM_MAX_CLIENTS || consumer < 0 ||
 		consumer >= IPA_CLIENT_MAX) {
@@ -924,6 +939,11 @@ static int ipa_pm_activate_helper(struct ipa_pm_client *client, bool sync)
  */
 int ipa_pm_activate(u32 hdl)
 {
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
+
 	if (hdl >= IPA_PM_MAX_CLIENTS || ipa_pm_ctx->clients[hdl] == NULL) {
 		IPA_PM_ERR("Invalid Param\n");
 		return -EINVAL;
@@ -941,6 +961,11 @@ int ipa_pm_activate(u32 hdl)
  */
 int ipa_pm_activate_sync(u32 hdl)
 {
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
+
 	if (hdl >= IPA_PM_MAX_CLIENTS || ipa_pm_ctx->clients[hdl] == NULL) {
 		IPA_PM_ERR("Invalid Param\n");
 		return -EINVAL;
@@ -960,6 +985,11 @@ int ipa_pm_deferred_deactivate(u32 hdl)
 {
 	struct ipa_pm_client *client;
 	unsigned long flags;
+
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
 
 	if (hdl >= IPA_PM_MAX_CLIENTS || ipa_pm_ctx->clients[hdl] == NULL) {
 		IPA_PM_ERR("Invalid Param\n");
@@ -1008,6 +1038,11 @@ int ipa_pm_deactivate_all_deferred(void)
 	struct ipa_pm_client *client;
 	unsigned long flags;
 
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
+
 	for (i = 0; i < IPA_PM_MAX_CLIENTS; i++) {
 		client = ipa_pm_ctx->clients[i];
 
@@ -1030,8 +1065,9 @@ int ipa_pm_deactivate_all_deferred(void)
 				client->state);
 			spin_unlock_irqrestore(&client->state_lock, flags);
 		} else if (client->state ==
-			IPA_PM_ACTIVATED_PENDING_DEACTIVATION ||
-			IPA_PM_ACTIVATED_PENDING_RESCHEDULE) {
+				IPA_PM_ACTIVATED_PENDING_DEACTIVATION ||
+			client->state ==
+				IPA_PM_ACTIVATED_PENDING_RESCHEDULE) {
 			run_algorithm = true;
 			client->state = IPA_PM_DEACTIVATED;
 			IPA_PM_DBG_STATE(client->hdl, client->name,
@@ -1060,13 +1096,19 @@ int ipa_pm_deactivate_all_deferred(void)
  */
 int ipa_pm_deactivate_sync(u32 hdl)
 {
-	struct ipa_pm_client *client = ipa_pm_ctx->clients[hdl];
+	struct ipa_pm_client *client;
 	unsigned long flags;
+
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
 
 	if (hdl >= IPA_PM_MAX_CLIENTS || ipa_pm_ctx->clients[hdl] == NULL) {
 		IPA_PM_ERR("Invalid Param\n");
 		return -EINVAL;
 	}
+	client = ipa_pm_ctx->clients[hdl];
 
 	cancel_delayed_work_sync(&client->deactivate_work);
 
@@ -1110,6 +1152,11 @@ int ipa_pm_handle_suspend(u32 pipe_bitmask)
 	struct ipa_pm_client *client;
 	bool client_notified[IPA_PM_MAX_CLIENTS] = { false };
 
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
+
 	IPA_PM_DBG_LOW("bitmask: %d",  pipe_bitmask);
 
 	if (pipe_bitmask == 0)
@@ -1145,14 +1192,20 @@ int ipa_pm_handle_suspend(u32 pipe_bitmask)
  */
 int ipa_pm_set_perf_profile(u32 hdl, int throughput)
 {
-	struct ipa_pm_client *client = ipa_pm_ctx->clients[hdl];
+	struct ipa_pm_client *client;
 	unsigned long flags;
+
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
 
 	if (hdl >= IPA_PM_MAX_CLIENTS || ipa_pm_ctx->clients[hdl] == NULL
 		|| throughput < 0) {
 		IPA_PM_ERR("Invalid Params\n");
 		return -EINVAL;
 	}
+	client = ipa_pm_ctx->clients[hdl];
 
 	mutex_lock(&ipa_pm_ctx->client_mutex);
 	if (client->group == IPA_PM_GROUP_DEFAULT)

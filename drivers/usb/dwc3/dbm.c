@@ -450,7 +450,7 @@ int dbm_event_buffer_config(struct dbm *dbm, u32 addr_lo, u32 addr_hi, int size)
 }
 
 
-int dbm_data_fifo_config(struct dbm *dbm, u8 dep_num, phys_addr_t addr,
+int dbm_data_fifo_config(struct dbm *dbm, u8 dep_num, unsigned long addr,
 				u32 size, u8 dst_pipe_idx)
 {
 	u8 dbm_ep = dst_pipe_idx;

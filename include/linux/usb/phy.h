@@ -45,7 +45,8 @@ enum usb_phy_type {
 	USB_PHY_TYPE_UNDEFINED,
 	USB_PHY_TYPE_USB2,
 	USB_PHY_TYPE_USB3,
-	USB_PHY_TYPE_USB3_DP,
+	USB_PHY_TYPE_USB3_OR_DP,
+	USB_PHY_TYPE_USB3_AND_DP,
 };
 
 /* OTG defines lots of enumeration states before device reset */
@@ -57,6 +58,7 @@ enum usb_otg_state {
 	OTG_STATE_B_SRP_INIT,
 	OTG_STATE_B_PERIPHERAL,
 	OTG_STATE_B_SUSPEND,
+	OTG_STATE_B_CHARGER,
 
 	/* extra dual-role default-b states */
 	OTG_STATE_B_WAIT_ACON,
@@ -114,6 +116,8 @@ struct usb_phy {
 
 	/* enable/disable VBUS */
 	int	(*set_vbus)(struct usb_phy *x, int on);
+	/* callback to indicate port is being reset or reset the port */
+	void	(*start_port_reset)(struct usb_phy *x);
 
 	/* effective for B devices, ignored for A-peripheral */
 	int	(*set_power)(struct usb_phy *x,
@@ -138,6 +142,10 @@ struct usb_phy {
 
 	/* reset the PHY clocks */
 	int     (*reset)(struct usb_phy *x);
+
+	/* for notification of usb_phy_dbg_events */
+	void    (*dbg_event)(struct usb_phy *x,
+			char *event, int msg1, int msg2);
 	int	(*disable_chirp)(struct usb_phy *x, bool disable);
 };
 
@@ -211,6 +219,15 @@ usb_phy_vbus_off(struct usb_phy *x)
 		return 0;
 
 	return x->set_vbus(x, false);
+}
+
+static inline void
+usb_phy_start_port_reset(struct usb_phy *x)
+{
+	if (!x || !x->start_port_reset)
+		return;
+
+	x->start_port_reset(x);
 }
 
 static inline int

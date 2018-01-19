@@ -663,7 +663,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	 * Overwrite a non-GMU fault snapshot if a GMU fault occurs.
 	 */
 	if (device->snapshot != NULL) {
-		if (!gmu_fault || device->snapshot->gmu_fault)
+		if (!gmu_fault || !device->snapshot->recovered)
 			return;
 
 		/*
@@ -689,6 +689,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	snapshot->ptr = device->snapshot_memory.ptr;
 	snapshot->remain = device->snapshot_memory.size;
 	snapshot->gmu_fault = gmu_fault;
+	snapshot->recovered = false;
 	snapshot->first_read = true;
 	snapshot->sysfs_read = 0;
 

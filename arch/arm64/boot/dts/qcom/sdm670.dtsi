@@ -354,7 +354,7 @@
 				1324800    84
 				1516800    96
 				1612800   114
-				1708000   139
+				1708800   139
 			>;
 			idle-cost-data = <
 				12 10 8 6
@@ -395,7 +395,7 @@
 				1324800   13
 				1516800   15
 				1612800   16
-				1708000   19
+				1708800   19
 			>;
 			idle-cost-data = <
 				4 3 2 1
@@ -446,6 +446,11 @@
 		android {
 			compatible = "android,firmware";
 
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,dtbo";
+			};
+
 			fstab {
 				compatible = "android,fstab";
 				vendor {
@@ -464,10 +469,22 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_regions: removed_regions@85700000 {
+		hyp_region: hyp_region@85700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x85700000 0 0x3800000>;
+			reg = <0 0x85700000 0 0x600000>;
+		};
+
+		xbl_region: xbl_region@85e00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x85e00000 0 0x100000>;
+		};
+
+		removed_region: removed_region@85fc0000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x85fc0000 0 0x2f40000>;
 		};
 
 		pil_camera_mem: camera_region@8ab00000 {
@@ -488,22 +505,28 @@
 			reg = <0 0x92e00000 0 0x500000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@93300000 {
+		wlan_msa_mem: wlan_msa_region@93300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93300000 0 0x800000>;
+			reg = <0 0x93300000 0 0x100000>;
 		};
 
-		pil_mba_mem: pil_mba_region@0x93b00000 {
+		pil_cdsp_mem: cdsp_regions@93400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93b00000 0 0x200000>;
+			reg = <0 0x93400000 0 0x800000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@93d00000 {
+		pil_mba_mem: pil_mba_region@0x93c00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93d00000 0 0x1e00000>;
+			reg = <0 0x93c00000 0 0x200000>;
+		};
+
+		pil_adsp_mem: pil_adsp_region@93e00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93e00000 0 0x1e00000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -564,6 +587,8 @@
 #include "sdm670-ion.dtsi"
 
 #include "sdm670-smp2p.dtsi"
+
+#include "msm-rdbg.dtsi"
 
 #include "sdm670-qupv3.dtsi"
 
@@ -679,6 +704,14 @@
 		      <0x17a60000 0x100000>;    /* GICR * 8 */
 		interrupts = <1 9 4>;
 		interrupt-parent = <&intc>;
+	};
+
+	pdc: interrupt-controller@b220000{
+		compatible = "qcom,pdc-sdm670";
+		reg = <0xb220000 0x400>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
 	};
 
 	timer {
@@ -1034,14 +1067,12 @@
 		compatible = "qcom,clk-cpu-osm-sdm670";
 		reg = <0x17d41000 0x1400>,
 			<0x17d43000 0x1400>,
-			<0x17d45800 0x1400>,
-			<0x784248 0x4>;
-		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
-				"cpr_rc";
+			<0x17d45800 0x1400>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base";
 		vdd_l3_mx_ao-supply = <&pm660l_s1_level_ao>;
 		vdd_pwrcl_mx_ao-supply = <&pm660l_s1_level_ao>;
 
-		qcom,mx-turbo-freq = <1478400000 1689600000 3300000001>;
+		qcom,mx-turbo-freq = <1440000000 1708000000 3300000001>;
 		l3-devs = <&l3_cpu0 &l3_cpu6>;
 
 		clock-names = "xo_ao";
@@ -1110,7 +1141,7 @@
 		reg-names = "wdt-base";
 		interrupts = <0 0 0>, <0 1 0>;
 		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 	};
@@ -2471,7 +2502,9 @@
 		vdd-1.8-xo-supply = <&pm660_l9>;
 		vdd-1.3-rfa-supply = <&pm660_l6>;
 		vdd-3.3-ch0-supply = <&pm660_l19>;
+		qcom,vdd-3.3-ch0-config = <3000000 3312000>;
 		qcom,wlan-msa-memory = <0x100000>;
+		qcom,wlan-msa-fixed-region = <&wlan_msa_mem>;
 		qcom,smmu-s1-bypass;
 	};
 
@@ -2545,6 +2578,16 @@
 			< MHZ_TO_MBPS(1353, 4) >, /* 5161 MB/s */
 			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
 			< MHZ_TO_MBPS(1804, 4) >; /* 6881 MB/s */
+	};
+
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <139 627>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl =
+			< 1 >;
 	};
 
 	devfreq_memlat_0: qcom,cpu0-memlat-mon {
@@ -2770,6 +2813,7 @@
 };
 
 &bps_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -2782,10 +2826,12 @@
 };
 
 &ipe_0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
 &ipe_1_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -2885,4 +2931,18 @@
 
 &pm660_div_clk {
 	status = "ok";
+};
+
+&qupv3_se10_i2c {
+	nx30p6093: nx30p6093@36 {
+		status = "disabled";
+		compatible = "nxp,nx30p6093";
+		reg = <0x36>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <5 IRQ_TYPE_NONE>;
+		nxp,long-wakeup-sec = <28800>; /* 8 hours */
+		nxp,short-wakeup-ms = <180000>; /* 3 mins */
+		pinctrl-names = "default";
+		pinctrl-0 = <&nx30p6093_intr_default>;
+	};
 };

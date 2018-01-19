@@ -20,12 +20,12 @@
 	model = "Qualcomm Technologies, Inc. SDXPOORWILLS MTP";
 	compatible = "qcom,sdxpoorwills-mtp",
 		"qcom,sdxpoorwills", "qcom,mtp";
-	qcom,board-id = <8 0x0>, <8 0x100>;
+	qcom,board-id = <8 0x0>, <8 0x100>, <8 0x2>, <8 0x102>;
 };
 
-&blsp1_uart2 {
+&serial_uart {
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_console_active>;
+	pinctrl-0 = <&uart3_console_active>;
 	status = "ok";
 };
 
@@ -104,4 +104,30 @@
 		qcom,fast-avg-setup = <0>;
 		qcom,vadc-thermal-node;
 	};
+};
+
+&i2c_3 {
+	status = "okay";
+	#include "smb138x.dtsi"
+};
+
+&smb138x {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_int_default>;
+	interrupt-parent = <&tlmm>;
+	interrupts = <42 IRQ_TYPE_LEVEL_LOW>;
+
+	smb1381_charger: qcom,smb1381-charger@1000 {
+		compatible = "qcom,smb138x-charger";
+		qcom,use-extcon;
+	};
+};
+
+&smb138x_vbus {
+	status = "okay";
+};
+
+&usb {
+	status = "okay";
+	extcon = <&smb1381_charger>;
 };

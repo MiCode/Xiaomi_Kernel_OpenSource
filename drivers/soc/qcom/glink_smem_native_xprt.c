@@ -557,6 +557,12 @@ static int fifo_write(struct edge_info *einfo, const void *data, int len)
 	len = fifo_write_body(einfo, data, len, &write_index);
 	if (unlikely(len < 0))
 		return len;
+
+	/* All data writes need to be flushed to memory before the write index
+	 * is updated. This protects against a race condition where the remote
+	 * reads stale data because the write index was written before the data.
+	 */
+	wmb();
 	einfo->tx_ch_desc->write_index = write_index;
 	send_irq(einfo);
 
@@ -599,6 +605,11 @@ static int fifo_write_complex(struct edge_info *einfo,
 	if (unlikely(len3 < 0))
 		return len3;
 
+	/* All data writes need to be flushed to memory before the write index
+	 * is updated. This protects against a race condition where the remote
+	 * reads stale data because the write index was written before the data.
+	 */
+	wmb();
 	einfo->tx_ch_desc->write_index = write_index;
 	send_irq(einfo);
 

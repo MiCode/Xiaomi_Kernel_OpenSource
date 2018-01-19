@@ -18,6 +18,7 @@
 #include "sde_connector.h"
 #include "sde_encoder.h"
 #include <linux/backlight.h>
+#include <linux/string.h>
 #include "dsi_drm.h"
 #include "dsi_display.h"
 #include "sde_crtc.h"
@@ -476,12 +477,10 @@ static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 	return rc;
 }
 
-static int _sde_connector_update_bl_scale(struct sde_connector *c_conn, int idx)
+static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 {
-	struct drm_connector conn;
 	struct dsi_display *dsi_display;
 	struct dsi_backlight_config *bl_config;
-	uint64_t value;
 	int rc = 0;
 
 	if (!c_conn) {
@@ -489,7 +488,6 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn, int idx)
 		return -EINVAL;
 	}
 
-	conn = c_conn->base;
 	dsi_display = c_conn->display;
 	if (!dsi_display || !dsi_display->panel) {
 		SDE_ERROR("Invalid params(s) dsi_display %pK, panel %pK\n",
@@ -499,22 +497,16 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn, int idx)
 	}
 
 	bl_config = &dsi_display->panel->bl_config;
-	value = sde_connector_get_property(conn.state, idx);
 
-	if (idx == CONNECTOR_PROP_BL_SCALE) {
-		if (value > MAX_BL_SCALE_LEVEL)
-			bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
-		else
-			bl_config->bl_scale = (u32)value;
-	} else if (idx == CONNECTOR_PROP_AD_BL_SCALE) {
-		if (value > MAX_AD_BL_SCALE_LEVEL)
-			bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
-		else
-			bl_config->bl_scale_ad = (u32)value;
-	} else {
-		SDE_DEBUG("invalid idx %d\n", idx);
-		return 0;
-	}
+	if (c_conn->bl_scale > MAX_BL_SCALE_LEVEL)
+		bl_config->bl_scale = MAX_BL_SCALE_LEVEL;
+	else
+		bl_config->bl_scale = c_conn->bl_scale;
+
+	if (c_conn->bl_scale_ad > MAX_AD_BL_SCALE_LEVEL)
+		bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+	else
+		bl_config->bl_scale_ad = c_conn->bl_scale_ad;
 
 	SDE_DEBUG("bl_scale = %u, bl_scale_ad = %u, bl_level = %u\n",
 		bl_config->bl_scale, bl_config->bl_scale_ad,
@@ -524,12 +516,12 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn, int idx)
 	return rc;
 }
 
-int sde_connector_pre_kickoff(struct drm_connector *connector)
+static int _sde_connector_update_dirty_properties(
+				struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
 	struct sde_connector_state *c_state;
-	struct msm_display_kickoff_params params;
-	int idx, rc;
+	int idx;
 
 	if (!connector) {
 		SDE_ERROR("invalid argument\n");
@@ -538,11 +530,6 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 
 	c_conn = to_sde_connector(connector);
 	c_state = to_sde_connector_state(connector->state);
-
-	if (!c_conn->display) {
-		SDE_ERROR("invalid argument\n");
-		return -EINVAL;
-	}
 
 	while ((idx = msm_property_pop_dirty(&c_conn->property_info,
 					&c_state->property_state)) >= 0) {
@@ -556,12 +543,46 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 			break;
 		case CONNECTOR_PROP_BL_SCALE:
 		case CONNECTOR_PROP_AD_BL_SCALE:
-			_sde_connector_update_bl_scale(c_conn, idx);
+			_sde_connector_update_bl_scale(c_conn);
 			break;
 		default:
 			/* nothing to do for most properties */
 			break;
 		}
+	}
+
+	/* Special handling for postproc properties */
+	if (c_conn->bl_scale_dirty) {
+		_sde_connector_update_bl_scale(c_conn);
+		c_conn->bl_scale_dirty = false;
+	}
+
+	return 0;
+}
+
+int sde_connector_pre_kickoff(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	struct msm_display_kickoff_params params;
+	int rc;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector->state);
+	if (!c_conn->display) {
+		SDE_ERROR("invalid connector display\n");
+		return -EINVAL;
+	}
+
+	rc = _sde_connector_update_dirty_properties(connector);
+	if (rc) {
+		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
+		goto end;
 	}
 
 	if (!c_conn->ops.pre_kickoff)
@@ -574,7 +595,23 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 
 	rc = c_conn->ops.pre_kickoff(connector, c_conn->display, &params);
 
+end:
 	return rc;
+}
+
+void sde_connector_helper_bridge_disable(struct drm_connector *connector)
+{
+	int rc;
+
+	if (!connector)
+		return;
+
+	rc = _sde_connector_update_dirty_properties(connector);
+	if (rc) {
+		SDE_ERROR("conn %d final pre kickoff failed %d\n",
+				connector->base.id, rc);
+		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
+	}
 }
 
 int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
@@ -1027,6 +1064,19 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "invalid roi_v1, rc: %d\n", rc);
 		break;
+	/* CONNECTOR_PROP_BL_SCALE and CONNECTOR_PROP_AD_BL_SCALE are
+	 * color-processing properties. These two properties require
+	 * special handling since they don't quite fit the current standard
+	 * atomic set property framework.
+	 */
+	case CONNECTOR_PROP_BL_SCALE:
+		c_conn->bl_scale = val;
+		c_conn->bl_scale_dirty = true;
+		break;
+	case CONNECTOR_PROP_AD_BL_SCALE:
+		c_conn->bl_scale_ad = val;
+		c_conn->bl_scale_dirty = true;
+		break;
 	default:
 		break;
 	}
@@ -1333,6 +1383,135 @@ int sde_connector_helper_reset_custom_properties(
 	return 0;
 }
 
+static int _sde_debugfs_conn_cmd_tx_open(struct inode *inode, struct file *file)
+{
+	/* non-seekable */
+	file->private_data = inode->i_private;
+	return nonseekable_open(inode, file);
+}
+
+static ssize_t _sde_debugfs_conn_cmd_tx_sts_read(struct file *file,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	struct drm_connector *connector = file->private_data;
+	struct sde_connector *c_conn;
+	char buffer[MAX_CMD_PAYLOAD_SIZE];
+	int blen = 0;
+
+	if (*ppos)
+		return 0;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument, conn is NULL\n");
+		return 0;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	mutex_lock(&c_conn->lock);
+	blen = snprintf(buffer, MAX_CMD_PAYLOAD_SIZE,
+		"last_cmd_tx_sts:0x%x",
+		c_conn->last_cmd_tx_sts);
+	mutex_unlock(&c_conn->lock);
+
+	SDE_DEBUG("output: %s\n", buffer);
+	if (blen <= 0) {
+		SDE_ERROR("snprintf failed, blen %d\n", blen);
+		return 0;
+	}
+
+	if (copy_to_user(buf, buffer, blen)) {
+		SDE_ERROR("copy to user buffer failed\n");
+		return -EFAULT;
+	}
+
+	*ppos += blen;
+	return blen;
+}
+
+static ssize_t _sde_debugfs_conn_cmd_tx_write(struct file *file,
+			const char __user *p, size_t count, loff_t *ppos)
+{
+	struct drm_connector *connector = file->private_data;
+	struct sde_connector *c_conn;
+	char *input, *token, *input_copy, *input_dup = NULL;
+	const char *delim = " ";
+	u32 buf_size = 0;
+	char buffer[MAX_CMD_PAYLOAD_SIZE];
+	int rc = 0, strtoint;
+
+	if (*ppos || !connector) {
+		SDE_ERROR("invalid argument(s), conn %d\n", connector != NULL);
+		return 0;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	if (!c_conn->ops.cmd_transfer) {
+		SDE_ERROR("no cmd transfer support for connector name %s\n",
+				c_conn->name);
+		return 0;
+	}
+
+	input = kmalloc(count + 1, GFP_KERNEL);
+	if (!input)
+		return -ENOMEM;
+
+	if (copy_from_user(input, p, count)) {
+		SDE_ERROR("copy from user failed\n");
+		rc = -EFAULT;
+		goto end;
+	}
+	input[count] = '\0';
+
+	SDE_DEBUG("input: %s\n", input);
+
+	input_copy = kstrdup(input, GFP_KERNEL);
+	if (!input_copy) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	input_dup = input_copy;
+	token = strsep(&input_copy, delim);
+	while (token) {
+		rc = kstrtoint(token, 0, &strtoint);
+		if (rc) {
+			SDE_ERROR("input buffer conversion failed\n");
+			goto end;
+		}
+
+		if (buf_size >= MAX_CMD_PAYLOAD_SIZE) {
+			SDE_ERROR("buffer size exceeding the limit %d\n",
+					MAX_CMD_PAYLOAD_SIZE);
+			goto end;
+		}
+		buffer[buf_size++] = (strtoint & 0xff);
+		token = strsep(&input_copy, delim);
+	}
+	SDE_DEBUG("command packet size in bytes: %u\n", buf_size);
+	if (!buf_size)
+		goto end;
+
+	mutex_lock(&c_conn->lock);
+	rc = c_conn->ops.cmd_transfer(c_conn->display, buffer,
+			buf_size);
+	c_conn->last_cmd_tx_sts = !rc ? true : false;
+	mutex_unlock(&c_conn->lock);
+
+	rc = count;
+end:
+	kfree(input_dup);
+	kfree(input);
+	return rc;
+}
+
+static const struct file_operations conn_cmd_tx_fops = {
+	.open =		_sde_debugfs_conn_cmd_tx_open,
+	.read =		_sde_debugfs_conn_cmd_tx_sts_read,
+	.write =	_sde_debugfs_conn_cmd_tx_write,
+};
+
 #ifdef CONFIG_DEBUG_FS
 /**
  * sde_connector_init_debugfs - initialize connector debugfs
@@ -1361,6 +1540,15 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 			&sde_connector->fb_kmap)) {
 		SDE_ERROR("failed to create connector fb_kmap\n");
 		return -ENOMEM;
+	}
+
+	if (sde_connector->ops.cmd_transfer) {
+		if (!debugfs_create_file("tx_cmd", 0600,
+			connector->debugfs_entry,
+			connector, &conn_cmd_tx_fops)) {
+			SDE_ERROR("failed to create connector cmd_tx\n");
+			return -ENOMEM;
+		}
 	}
 
 	return 0;
@@ -1628,7 +1816,7 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 	struct sde_connector *c_conn = NULL;
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct msm_mode_info mode_info;
-	struct drm_property_blob *blob = NULL;
+	struct drm_property_blob **blob = NULL;
 	int rc = 0;
 
 	c_conn = to_sde_connector(conn);
@@ -1672,7 +1860,7 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 			}
 		}
 
-		blob = c_conn->blob_caps;
+		blob = &c_conn->blob_caps;
 	break;
 	case CONNECTOR_PROP_MODE_INFO:
 		rc = sde_connector_populate_mode_info(conn, info);
@@ -1682,7 +1870,7 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 					rc);
 			goto exit;
 		}
-		blob = c_conn->blob_mode_info;
+		blob = &c_conn->blob_mode_info;
 	break;
 	default:
 		SDE_ERROR_CONN(c_conn, "invalid prop_id: %d\n", prop_id);
@@ -1690,7 +1878,7 @@ int sde_connector_set_blob_data(struct drm_connector *conn,
 	};
 
 	msm_property_set_blob(&c_conn->property_info,
-			&blob,
+			blob,
 			SDE_KMS_INFO_DATA(info),
 			SDE_KMS_INFO_DATALEN(info),
 			prop_id);
@@ -1898,6 +2086,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	msm_property_install_range(&c_conn->property_info, "ad_bl_scale",
 		0x0, 0, MAX_AD_BL_SCALE_LEVEL, MAX_AD_BL_SCALE_LEVEL,
 		CONNECTOR_PROP_AD_BL_SCALE);
+
+	c_conn->bl_scale_dirty = false;
+	c_conn->bl_scale = MAX_BL_SCALE_LEVEL;
+	c_conn->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
 
 	/* enum/bitmask properties */
 	msm_property_install_enum(&c_conn->property_info, "topology_name",

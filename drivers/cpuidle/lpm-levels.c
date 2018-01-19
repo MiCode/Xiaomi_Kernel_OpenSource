@@ -45,7 +45,11 @@
 #include <asm/cpuidle.h>
 #include "lpm-levels.h"
 #include <trace/events/power.h>
+#if defined(CONFIG_COMMON_CLK)
 #include "../clk/clk.h"
+#elif defined(CONFIG_COMMON_CLK_MSM)
+#include "../../drivers/clk/msm/clock.h"
+#endif /* CONFIG_COMMON_CLK */
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
 
@@ -642,7 +646,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 				next_wakeup_us = next_event_us - lvl_latency_us;
 		}
 
-		if (!i) {
+		if (!i && !cpu_isolated(dev->cpu)) {
 			/*
 			 * If the next_wake_us itself is not sufficient for
 			 * deeper low power modes than clock gating do not

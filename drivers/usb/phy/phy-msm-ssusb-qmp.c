@@ -152,6 +152,9 @@ static const struct of_device_id msm_usb_id_table[] = {
 	{
 		.compatible = "qcom,usb-ssphy-qmp-dp-combo",
 	},
+	{
+		.compatible = "qcom,usb-ssphy-qmp-usb3-or-dp",
+	},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, msm_usb_id_table);
@@ -177,10 +180,11 @@ static void msm_ssusb_qmp_clr_lfps_rxterm_int(struct msm_ssphy_qmp *phy)
 static void msm_ssusb_qmp_clamp_enable(struct msm_ssphy_qmp *phy, bool val)
 {
 	switch (phy->phy.type) {
-	case USB_PHY_TYPE_USB3_DP:
+	case USB_PHY_TYPE_USB3_AND_DP:
 		writel_relaxed(!val, phy->base +
 			phy->phy_reg[USB3_PCS_MISC_CLAMP_ENABLE]);
 		break;
+	case USB_PHY_TYPE_USB3_OR_DP:
 	case USB_PHY_TYPE_USB3:
 		writel_relaxed(!!val, phy->vls_clamp_reg);
 		break;
@@ -345,7 +349,7 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 	usb_qmp_powerup_phy(phy);
 
 	switch (phy->phy.type) {
-	case USB_PHY_TYPE_USB3_DP:
+	case USB_PHY_TYPE_USB3_AND_DP:
 		/* override hardware control for reset of qmp phy */
 		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
 			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
@@ -366,7 +370,7 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 		writel_relaxed(0x00,
 			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
 		break;
-	case  USB_PHY_TYPE_USB3:
+	case  USB_PHY_TYPE_USB3_OR_DP:
 		if (val > 0) {
 			dev_err(phy->phy.dev,
 				"USB QMP PHY: Update TYPEC CTRL(%d)\n", val);
@@ -375,7 +379,8 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 		}
 		break;
 	default:
-		dev_err(phy->phy.dev, "portselect: Unknown USB QMP PHY type\n");
+		dev_dbg(phy->phy.dev, "no portselect for phy type %d\n",
+					phy->phy.type);
 		break;
 	}
 
@@ -386,7 +391,7 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 static void usb_qmp_powerup_phy(struct msm_ssphy_qmp *phy)
 {
 	switch (phy->phy.type) {
-	case USB_PHY_TYPE_USB3_DP:
+	case USB_PHY_TYPE_USB3_AND_DP:
 		/* power up USB3 and DP common logic block */
 		writel_relaxed(0x01,
 			phy->base + phy->phy_reg[USB3_DP_COM_POWER_DOWN_CTRL]);
@@ -399,6 +404,7 @@ static void usb_qmp_powerup_phy(struct msm_ssphy_qmp *phy)
 		 */
 
 		/* intentional fall-through */
+	case USB_PHY_TYPE_USB3_OR_DP:
 	case USB_PHY_TYPE_USB3:
 		/* power up USB3 PHY */
 		writel_relaxed(0x01,
@@ -453,7 +459,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	}
 
 	/* perform software reset of PHY common logic */
-	if (phy->phy.type == USB_PHY_TYPE_USB3_DP)
+	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP)
 		writel_relaxed(0x00,
 			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
 
@@ -797,7 +803,11 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->phy.type = USB_PHY_TYPE_USB3;
 	if (of_device_is_compatible(dev->of_node,
 			"qcom,usb-ssphy-qmp-dp-combo"))
-		phy->phy.type = USB_PHY_TYPE_USB3_DP;
+		phy->phy.type = USB_PHY_TYPE_USB3_AND_DP;
+
+	if (of_device_is_compatible(dev->of_node,
+			"qcom,usb-ssphy-qmp-usb-or-dp"))
+		phy->phy.type = USB_PHY_TYPE_USB3_OR_DP;
 
 	ret = msm_ssphy_qmp_get_clks(phy, dev);
 	if (ret)
@@ -810,7 +820,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (phy->phy.type == USB_PHY_TYPE_USB3_DP) {
+	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP) {
 		phy->global_phy_reset = devm_reset_control_get(dev,
 						"global_phy_reset");
 		if (IS_ERR(phy->global_phy_reset)) {
@@ -871,7 +881,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (phy->phy.type == USB_PHY_TYPE_USB3) {
+	if (phy->phy.type != USB_PHY_TYPE_USB3_AND_DP) {
 		res = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, "vls_clamp_reg");
 		phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
@@ -978,7 +988,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->phy.notify_connect		= msm_ssphy_qmp_notify_connect;
 	phy->phy.notify_disconnect	= msm_ssphy_qmp_notify_disconnect;
 
-	if (phy->phy.type == USB_PHY_TYPE_USB3_DP)
+	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP)
 		phy->phy.reset		= msm_ssphy_qmp_dp_combo_reset;
 	else
 		phy->phy.reset		= msm_ssphy_qmp_reset;

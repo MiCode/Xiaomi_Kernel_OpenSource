@@ -38,6 +38,7 @@
 #include <linux/uaccess.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/etherdevice.h>
+#include <linux/of_gpio.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
@@ -281,6 +282,7 @@ enum icnss_driver_state {
 	ICNSS_SHUTDOWN_DONE,
 	ICNSS_HOST_TRIGGERED_PDR,
 	ICNSS_FW_DOWN,
+	ICNSS_DRIVER_UNLOADING,
 };
 
 struct ce_irq_list {
@@ -460,6 +462,7 @@ static struct icnss_priv {
 	atomic_t pm_count;
 	struct ramdump_device *msa0_dump_dev;
 	bool bypass_s1_smmu;
+	bool force_err_fatal;
 	u8 cause_for_rejuvenation;
 	u8 requesting_sub_system;
 	u16 line_number;
@@ -1149,6 +1152,16 @@ bool icnss_is_fw_ready(void)
 }
 EXPORT_SYMBOL(icnss_is_fw_ready);
 
+bool icnss_is_fw_down(void)
+{
+	if (!penv)
+		return false;
+	else
+		return test_bit(ICNSS_FW_DOWN, &penv->state);
+}
+EXPORT_SYMBOL(icnss_is_fw_down);
+
+
 int icnss_power_off(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
@@ -1164,6 +1177,48 @@ int icnss_power_off(struct device *dev)
 	return icnss_hw_power_off(priv);
 }
 EXPORT_SYMBOL(icnss_power_off);
+
+static irqreturn_t fw_error_fatal_handler(int irq, void *ctx)
+{
+	struct icnss_priv *priv = ctx;
+
+	if (priv)
+		priv->force_err_fatal = true;
+
+	icnss_pr_err("Received force error fatal request from FW\n");
+
+	return IRQ_HANDLED;
+}
+
+static void icnss_register_force_error_fatal(struct icnss_priv *priv)
+{
+	int gpio, irq, ret;
+
+	if (!of_find_property(priv->pdev->dev.of_node,
+				"qcom,gpio-force-fatal-error", NULL)) {
+		icnss_pr_dbg("Error fatal smp2p handler not registered\n");
+		return;
+	}
+	gpio = of_get_named_gpio(priv->pdev->dev.of_node,
+				"qcom,gpio-force-fatal-error", 0);
+	if (!gpio_is_valid(gpio)) {
+		icnss_pr_err("Invalid GPIO for error fatal smp2p %d\n", gpio);
+		return;
+	}
+	irq = gpio_to_irq(gpio);
+	if (irq < 0) {
+		icnss_pr_err("Invalid IRQ for error fatal smp2p %u\n", irq);
+		return;
+	}
+	ret = request_irq(irq, fw_error_fatal_handler,
+			IRQF_TRIGGER_RISING, "wlanfw-err", priv);
+	if (ret < 0) {
+		icnss_pr_err("Unable to regiser for error fatal IRQ handler %d",
+				irq);
+		return;
+	}
+	icnss_pr_dbg("FW force error fatal handler registered\n");
+}
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
 {
@@ -2054,6 +2109,8 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	icnss_init_vph_monitor(penv);
 
+	icnss_register_force_error_fatal(penv);
+
 	return ret;
 
 err_setup_msa:
@@ -2155,6 +2212,12 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	if (!priv->ops || !priv->ops->reinit)
 		goto out;
+
+	if (test_bit(ICNSS_FW_DOWN, &priv->state)) {
+		icnss_pr_err("FW is in bad state, state: 0x%lx\n",
+			     priv->state);
+		goto out;
+	}
 
 	if (!test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		goto call_probe;
@@ -2273,9 +2336,11 @@ static int icnss_driver_event_unregister_driver(void *data)
 		goto out;
 	}
 
+	set_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
 	if (penv->ops)
 		penv->ops->remove(&penv->pdev->dev);
 
+	clear_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
 	clear_bit(ICNSS_DRIVER_PROBED, &penv->state);
 
 	penv->ops = NULL;
@@ -2298,8 +2363,10 @@ static int icnss_call_driver_remove(struct icnss_priv *priv)
 	if (!priv->ops || !priv->ops->remove)
 		return 0;
 
+	set_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
 	penv->ops->remove(&priv->pdev->dev);
 
+	clear_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
 	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
 
 	icnss_hw_power_off(penv);
@@ -2341,6 +2408,9 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 		ICNSS_ASSERT(0);
 		goto out;
 	}
+
+	if (priv->force_err_fatal)
+		ICNSS_ASSERT(0);
 
 	if (event_data->crashed)
 		icnss_fw_crashed(priv, event_data);
@@ -2505,7 +2575,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 		icnss_ignore_qmi_timeout(true);
 
 		fw_down_data.crashed = !!notif->crashed;
-		if (test_bit(ICNSS_FW_READY, &priv->state))
+		if (test_bit(ICNSS_FW_READY, &priv->state) &&
+		    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
 			icnss_call_driver_uevent(priv,
 						 ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
@@ -2649,7 +2720,8 @@ event_post:
 		icnss_ignore_qmi_timeout(true);
 
 		fw_down_data.crashed = event_data->crashed;
-		if (test_bit(ICNSS_FW_READY, &priv->state))
+		if (test_bit(ICNSS_FW_READY, &priv->state) &&
+		    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
 			icnss_call_driver_uevent(priv,
 						 ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
@@ -3809,6 +3881,8 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 		case ICNSS_FW_DOWN:
 			seq_puts(s, "FW DOWN");
 			continue;
+		case ICNSS_DRIVER_UNLOADING:
+			seq_puts(s, "DRIVER UNLOADING");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

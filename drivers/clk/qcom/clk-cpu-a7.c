@@ -664,6 +664,11 @@ static int a7cc_driver_probe(struct platform_device *pdev)
 	/* Put proxy vote for APSS PLL */
 	clk_prepare_enable(apcs_cpu_pll.clkr.hw.clk);
 
+	/* Reconfigure APSS RCG */
+	ret = clk_set_rate(apcs_clk.clkr.hw.clk, sys_apc0_aux_clk.rrate);
+	if (ret)
+		dev_err(&pdev->dev, "Unable to set aux rate on apcs_clk\n");
+
 	/* Set to TURBO boot frequency */
 	ret = clk_set_rate(apcs_clk.clkr.hw.clk, a7cc_clk_init_rate);
 	if (ret)

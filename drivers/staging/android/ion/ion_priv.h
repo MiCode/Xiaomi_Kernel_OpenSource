@@ -26,6 +26,7 @@
 #include <linux/rbtree.h>
 #include <linux/seq_file.h>
 
+#include "msm_ion_priv.h"
 #include <linux/sched.h>
 #include <linux/shrinker.h>
 #include <linux/types.h>

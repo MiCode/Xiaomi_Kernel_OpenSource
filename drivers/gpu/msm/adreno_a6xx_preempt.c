@@ -121,7 +121,10 @@ static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 
 	del_timer_sync(&adreno_dev->preempt.timer);
 
-	trace_adreno_preempt_done(adreno_dev->cur_rb, adreno_dev->next_rb);
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT_LEVEL_STATUS, &status);
+
+	trace_adreno_preempt_done(adreno_dev->cur_rb, adreno_dev->next_rb,
+		status);
 
 	/* Clean up all the bits */
 	adreno_dev->prev_rb = adreno_dev->cur_rb;
@@ -230,14 +233,13 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	struct adreno_ringbuffer *next;
 	uint64_t ttbr0, gpuaddr;
-	unsigned int contextidr;
+	unsigned int contextidr, cntl;
 	unsigned long flags;
-	uint32_t preempt_level, usesgmem, skipsaverestore;
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
 
-	preempt_level = preempt->preempt_level;
-	usesgmem = preempt->usesgmem;
-	skipsaverestore = preempt->skipsaverestore;
+	cntl = (((preempt->preempt_level << 6) & 0xC0) |
+		((preempt->skipsaverestore << 9) & 0x200) |
+		((preempt->usesgmem << 8) & 0x100) | 0x1);
 
 	/* Put ourselves into a possible trigger state */
 	if (!adreno_move_preempt_state(adreno_dev,
@@ -360,16 +362,13 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	mod_timer(&adreno_dev->preempt.timer,
 		jiffies + msecs_to_jiffies(ADRENO_PREEMPT_TIMEOUT));
 
-	trace_adreno_preempt_trigger(adreno_dev->cur_rb, adreno_dev->next_rb);
+	trace_adreno_preempt_trigger(adreno_dev->cur_rb, adreno_dev->next_rb,
+		cntl);
 
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_TRIGGERED);
 
 	/* Trigger the preemption */
-	adreno_gmu_fenced_write(adreno_dev,
-		ADRENO_REG_CP_PREEMPT,
-		(((preempt_level << 6) & 0xC0) |
-		((skipsaverestore << 9) & 0x200) |
-		((usesgmem << 8) & 0x100) | 0x1),
+	adreno_gmu_fenced_write(adreno_dev, ADRENO_REG_CP_PREEMPT, cntl,
 		FENCE_STATUS_WRITEDROPPED1_MASK);
 
 	/*
@@ -408,8 +407,10 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 
 	del_timer(&adreno_dev->preempt.timer);
 
-	trace_adreno_preempt_done(adreno_dev->cur_rb,
-		adreno_dev->next_rb);
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT_LEVEL_STATUS, &status);
+
+	trace_adreno_preempt_done(adreno_dev->cur_rb, adreno_dev->next_rb,
+		status);
 
 	adreno_dev->prev_rb = adreno_dev->cur_rb;
 	adreno_dev->cur_rb = adreno_dev->next_rb;
@@ -431,7 +432,7 @@ void a6xx_preemption_schedule(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!adreno_is_preemption_execution_enabled(adreno_dev))
+	if (!adreno_is_preemption_enabled(adreno_dev))
 		return;
 
 	mutex_lock(&device->mutex);
@@ -536,7 +537,7 @@ void a6xx_preemption_start(struct adreno_device *adreno_dev)
 	struct adreno_ringbuffer *rb;
 	unsigned int i;
 
-	if (!adreno_is_preemption_execution_enabled(adreno_dev))
+	if (!adreno_is_preemption_enabled(adreno_dev))
 		return;
 
 	/* Force the state to be clear */
@@ -728,7 +729,7 @@ void a6xx_preemption_context_destroy(struct kgsl_context *context)
 	struct kgsl_device *device = context->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	if (!adreno_is_preemption_setup_enabled(adreno_dev))
+	if (!adreno_is_preemption_enabled(adreno_dev))
 		return;
 
 	gpumem_free_entry(context->user_ctxt_record);
@@ -743,7 +744,7 @@ int a6xx_preemption_context_init(struct kgsl_context *context)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	uint64_t flags = 0;
 
-	if (!adreno_is_preemption_setup_enabled(adreno_dev))
+	if (!adreno_is_preemption_enabled(adreno_dev))
 		return 0;
 
 	if (context->flags & KGSL_CONTEXT_SECURE)

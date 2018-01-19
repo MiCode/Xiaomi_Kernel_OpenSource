@@ -478,8 +478,10 @@ void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
 		copy_size = new_size;
 
 	ret = devm_kzalloc(dev, new_size, flags);
-	if (!ret)
+	if (!ret) {
+		MSM_BUS_ERR("%s: Error Reallocating memory", __func__);
 		goto exit_realloc_devmem;
+	}
 
 	memcpy(ret, p, copy_size);
 	devm_kfree(dev, p);
@@ -716,6 +718,7 @@ static int msm_bus_fabric_init(struct device *dev,
 	fabdev = devm_kzalloc(dev, sizeof(struct msm_bus_fab_device_type),
 								GFP_KERNEL);
 	if (!fabdev) {
+		MSM_BUS_ERR("Fabric alloc failed\n");
 		ret = -ENOMEM;
 		goto exit_fabric_init;
 	}
@@ -827,8 +830,8 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 
 	if (!bus_node || !pdata) {
 		ret = -ENXIO;
-		MSM_BUS_ERR("%s: NULL pointers for pdata or bus_node",
-			__func__);
+		MSM_BUS_ERR("%s: Invalid pointers pdata %p, bus_node %p",
+			__func__, pdata, bus_node);
 		goto exit_copy_node_info;
 	}
 
@@ -968,6 +971,7 @@ static struct device *msm_bus_device_init(
 
 	bus_node = kzalloc(sizeof(struct msm_bus_node_device_type), GFP_KERNEL);
 	if (!bus_node) {
+		MSM_BUS_ERR("%s:Bus node alloc failed\n", __func__);
 		kfree(bus_dev);
 		bus_dev = NULL;
 		goto exit_device_init;
@@ -978,6 +982,7 @@ static struct device *msm_bus_device_init(
 	node_info = devm_kzalloc(bus_dev,
 			sizeof(struct msm_bus_node_info_type), GFP_KERNEL);
 	if (!node_info) {
+		MSM_BUS_ERR("%s:Bus node info alloc failed\n", __func__);
 		devm_kfree(bus_dev, bus_node);
 		kfree(bus_dev);
 		bus_dev = NULL;
@@ -1210,6 +1215,9 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 
 	devm_kfree(&pdev->dev, pdata->info);
 	devm_kfree(&pdev->dev, pdata);
+
+	dev_info(&pdev->dev, "Bus scaling driver probe successful\n");
+
 exit_device_probe:
 	return ret;
 }
@@ -1288,4 +1296,4 @@ int __init msm_bus_device_init_driver(void)
 	}
 	return platform_driver_register(&msm_bus_rules_driver);
 }
-subsys_initcall(msm_bus_device_init_driver);
+fs_initcall(msm_bus_device_init_driver);

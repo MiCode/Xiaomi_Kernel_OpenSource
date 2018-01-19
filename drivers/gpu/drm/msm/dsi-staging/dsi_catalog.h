@@ -213,6 +213,9 @@ int dsi_ctrl_hw_20_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);
 ssize_t dsi_ctrl_hw_20_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
 					  char *buf,
 					  u32 size);
+void dsi_ctrl_hw_kickoff_non_embedded_mode(struct dsi_ctrl_hw *ctrl,
+					struct dsi_ctrl_cmd_dma_info *cmd,
+					u32 flags);
 
 /* Definitions specific to 2.2 DSI controller hardware */
 bool dsi_ctrl_hw_22_get_cont_splash_status(struct dsi_ctrl_hw *ctrl);

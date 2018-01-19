@@ -1,0 +1,18 @@
+config COMMON_CLK_MSM
+	tristate "Support for MSM clock controllers"
+	depends on OF
+	depends on ARCH_QCOM
+	select RATIONAL
+	help
+	  This support clock controller used by MSM devices which support
+	  global, mmss and gpu clock controller.
+	  Say Y if you want to support the clocks exposed by the MSM on
+	  platforms such as msm8953 etc.
+
+config MSM_CLK_CONTROLLER_V2
+	bool "QTI clock driver"
+	depends on COMMON_CLK_MSM
+	---help---
+	   Generate clock data structures from definitions found in
+	   device tree.
+

@@ -4184,6 +4184,7 @@ static void rdev_deinit_debugfs(struct regulator_dev *rdev)
 		debugfs_remove_recursive(rdev->debugfs);
 		if (rdev->debug_consumer)
 			rdev->debug_consumer->debugfs = NULL;
+		rdev->debugfs = NULL;
 		regulator_put(rdev->debug_consumer);
 	}
 }
@@ -4225,9 +4226,10 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 
 	regulator = regulator_get(NULL, rdev_get_name(rdev));
 	if (IS_ERR(regulator)) {
-		debugfs_remove_recursive(rdev->debugfs);
-		rdev_err(rdev, "regulator get failed, ret=%ld\n",
-			PTR_ERR(regulator));
+		rdev_deinit_debugfs(rdev);
+		if (PTR_ERR(regulator) != -EPROBE_DEFER)
+			rdev_err(rdev, "regulator get failed, ret=%ld\n",
+				 PTR_ERR(regulator));
 		return;
 	}
 	rdev->debug_consumer = regulator;

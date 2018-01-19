@@ -24,6 +24,7 @@
 #include "sde_ad4.h"
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
+#include "dsi_panel.h"
 
 struct sde_cp_node {
 	u32 property_id;
@@ -635,15 +636,19 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 
 	sde_cp_get_hw_payload(prop_node, &hw_cfg, &feature_enabled);
 	hw_cfg.num_of_mixers = sde_crtc->num_mixers;
-	hw_cfg.displayh = sde_crtc->base.mode.hdisplay;
-	hw_cfg.displayv = sde_crtc->base.mode.vdisplay;
 	hw_cfg.last_feature = 0;
 
 	for (i = 0; i < num_mixers && !ret; i++) {
 		hw_lm = sde_crtc->mixers[i].hw_lm;
 		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+		if (!hw_lm) {
+			ret = -EINVAL;
+			continue;
+		}
 		hw_cfg.ctl = sde_crtc->mixers[i].hw_ctl;
 		hw_cfg.mixer_info = hw_lm;
+		hw_cfg.displayh = num_mixers * hw_lm->cfg.out_width;
+		hw_cfg.displayv = hw_lm->cfg.out_height;
 		switch (prop_node->feature) {
 		case SDE_CP_CRTC_DSPP_VLUT:
 			if (!hw_dspp || !hw_dspp->ops.setup_vlut) {
@@ -723,7 +728,7 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			hw_dspp->ops.setup_gamut(hw_dspp, &hw_cfg);
 			break;
 		case SDE_CP_CRTC_LM_GC:
-			if (!hw_lm || !hw_lm->ops.setup_gc) {
+			if (!hw_lm->ops.setup_gc) {
 				ret = -EINVAL;
 				continue;
 			}
@@ -737,7 +742,7 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			hw_dspp->ops.setup_histogram(hw_dspp, &feature_enabled);
 			break;
 		case SDE_CP_CRTC_DSPP_HIST_IRQ:
-			if (!hw_dspp || !hw_lm) {
+			if (!hw_dspp) {
 				ret = -EINVAL;
 				continue;
 			}
@@ -1028,7 +1033,7 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 	 */
 	if (!sde_crtc->num_mixers ||
 	    sde_crtc->num_mixers > ARRAY_SIZE(sde_crtc->mixers)) {
-		DRM_ERROR("Invalid mixer config act cnt %d max cnt %ld\n",
+		DRM_INFO("Invalid mixer config act cnt %d max cnt %ld\n",
 			sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
 		ret = -EPERM;
 		goto exit;
@@ -1571,7 +1576,8 @@ static void sde_cp_ad_interrupt_cb(void *arg, int irq_idx)
 
 static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg)
 {
-	uint32_t bl = 0;
+	uint32_t input_bl = 0, output_bl = 0;
+	uint32_t scale = MAX_AD_BL_SCALE_LEVEL;
 	struct sde_hw_mixer *hw_lm = NULL;
 	struct sde_hw_dspp *hw_dspp = NULL;
 	u32 num_mixers;
@@ -1594,11 +1600,17 @@ static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg)
 	if (!hw_dspp)
 		return;
 
-	hw_dspp->ops.ad_read_intr_resp(hw_dspp, AD4_BACKLIGHT, &bl);
+	hw_dspp->ops.ad_read_intr_resp(hw_dspp, AD4_IN_OUT_BACKLIGHT,
+			&input_bl, &output_bl);
+
+	if (!input_bl || input_bl < output_bl)
+		return;
+
+	scale = (output_bl * MAX_AD_BL_SCALE_LEVEL) / input_bl;
 	event.length = sizeof(u32);
 	event.type = DRM_EVENT_AD_BACKLIGHT;
 	msm_mode_object_event_notify(&crtc_drm->base, crtc_drm->dev,
-			&event, (u8 *)&bl);
+			&event, (u8 *)&scale);
 }
 
 int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
@@ -1726,8 +1738,6 @@ static void sde_cp_ad_set_prop(struct sde_crtc *sde_crtc,
 	int i = 0, ret = 0;
 
 	hw_cfg.num_of_mixers = sde_crtc->num_mixers;
-	hw_cfg.displayh = sde_crtc->base.mode.hdisplay;
-	hw_cfg.displayv = sde_crtc->base.mode.vdisplay;
 
 	for (i = 0; i < num_mixers && !ret; i++) {
 		hw_lm = sde_crtc->mixers[i].hw_lm;
@@ -1738,6 +1748,8 @@ static void sde_cp_ad_set_prop(struct sde_crtc *sde_crtc,
 			continue;
 		}
 
+		hw_cfg.displayh = num_mixers * hw_lm->cfg.out_width;
+		hw_cfg.displayv = hw_lm->cfg.out_height;
 		hw_cfg.mixer_info = hw_lm;
 		ad_cfg.prop = ad_prop;
 		ad_cfg.hw_cfg = &hw_cfg;

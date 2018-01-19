@@ -248,7 +248,7 @@
 			pm8998_trip2: pm8998-trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
-				type = "critical";
+				type = "passive";
 			};
 		};
 	};

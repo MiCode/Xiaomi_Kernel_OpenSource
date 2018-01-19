@@ -769,7 +769,8 @@ err_invalid_fw:
 }
 
 static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
-					size_t size)
+					size_t size, phys_addr_t region_start,
+					void *region)
 {
 	struct modem_data *drv = dev_get_drvdata(pil->dev);
 	void *mdata_virt;
@@ -851,7 +852,8 @@ fail:
 }
 
 static int pil_msa_mss_reset_mba_load_auth_mdt(struct pil_desc *pil,
-				  const u8 *metadata, size_t size)
+				const u8 *metadata, size_t size,
+				phys_addr_t region_start, void *region)
 {
 	int ret;
 
@@ -859,7 +861,8 @@ static int pil_msa_mss_reset_mba_load_auth_mdt(struct pil_desc *pil,
 	if (ret)
 		return ret;
 
-	return pil_msa_auth_modem_mdt(pil, metadata, size);
+	return pil_msa_auth_modem_mdt(pil, metadata, size, region_start,
+								region);
 }
 
 static int pil_msa_mba_verify_blob(struct pil_desc *pil, phys_addr_t phy_addr,

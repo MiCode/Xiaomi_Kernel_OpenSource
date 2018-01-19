@@ -29,6 +29,7 @@
 
 #include "sde_power_handle.h"
 #include "sde_trace.h"
+#include "sde_dbg.h"
 
 static const char *data_bus_name[SDE_POWER_HANDLE_DBUS_ID_MAX] = {
 	[SDE_POWER_HANDLE_DBUS_ID_MNOC] = "qcom,sde-data-bus",
@@ -470,7 +471,7 @@ int sde_power_data_bus_set_quota(struct sde_power_handle *phandle,
 
 	pclient->ab[bus_client] = ab_quota;
 	pclient->ib[bus_client] = ib_quota;
-	trace_sde_perf_update_bus(bus_client, ab_quota, ib_quota);
+	trace_sde_perf_update_bus(bus_client, bus_id, ab_quota, ib_quota);
 
 	list_for_each_entry(client, &phandle->power_client_clist, list) {
 		for (i = 0; i < SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX; i++) {
@@ -932,6 +933,7 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 			goto rsc_err;
 		}
 
+		SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_CASE1);
 		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 		if (rc) {
 			pr_err("clock enable failed rc:%d\n", rc);
@@ -945,6 +947,7 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 		sde_power_event_trigger_locked(phandle,
 				SDE_POWER_EVENT_PRE_DISABLE);
 
+		SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_CASE2);
 		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
 		sde_power_rsc_update(phandle, false);
@@ -964,7 +967,9 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 	}
 
 end:
+	SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_EXIT);
 	mutex_unlock(&phandle->phandle_lock);
+
 	return rc;
 
 clk_err:

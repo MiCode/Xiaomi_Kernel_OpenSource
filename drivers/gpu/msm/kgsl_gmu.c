@@ -1343,29 +1343,27 @@ void gmu_snapshot(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
 
-	if (!gmu->fault_count) {
-		/* Mask so there's no interrupt caused by NMI */
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+	/* Mask so there's no interrupt caused by NMI */
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
 
-		/* Make sure the interrupt is masked before causing it */
-		wmb();
-		adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
-		adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_CM3_CFG, (1 << 9));
+	/* Make sure the interrupt is masked before causing it */
+	wmb();
+	adreno_write_gmureg(adreno_dev,
+		ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+	adreno_write_gmureg(adreno_dev,
+		ADRENO_REG_GMU_CM3_CFG, (1 << 9));
 
-		/* Wait for the NMI to be handled */
-		wmb();
-		udelay(100);
-		kgsl_device_snapshot(device, NULL, true);
+	/* Wait for the NMI to be handled */
+	wmb();
+	udelay(100);
+	kgsl_device_snapshot(device, NULL, true);
 
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-				(unsigned int) ~HFI_IRQ_MASK);
-	}
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			(unsigned int) ~HFI_IRQ_MASK);
 
 	gmu->fault_count++;
 }

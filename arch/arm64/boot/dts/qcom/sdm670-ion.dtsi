@@ -21,12 +21,6 @@
 			qcom,ion-heap-type = "SYSTEM";
 		};
 
-		qcom,ion-heap@22 { /* ADSP HEAP */
-			reg = <22>;
-			memory-region = <&adsp_mem>;
-			qcom,ion-heap-type = "DMA";
-		};
-
 		qcom,ion-heap@27 { /* QSEECOM HEAP */
 			reg = <27>;
 			memory-region = <&qseecom_mem>;

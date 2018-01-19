@@ -640,8 +640,8 @@ static int msm_vidc_set_clocks(struct msm_vidc_core *core)
 		else if (temp->clk_data.core_id == VIDC_CORE_ID_2)
 			freq_core_2 += temp->clk_data.min_freq;
 		else if (temp->clk_data.core_id == VIDC_CORE_ID_3) {
-			freq_core_1 += temp->clk_data.min_freq / 2;
-			freq_core_2 += temp->clk_data.min_freq / 2;
+			freq_core_1 += temp->clk_data.min_freq;
+			freq_core_2 += temp->clk_data.min_freq;
 		}
 
 		freq_core_max = max_t(unsigned long, freq_core_1, freq_core_2);

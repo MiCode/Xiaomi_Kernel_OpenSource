@@ -45,7 +45,7 @@
 #define IPA_RM_INACTIVITY_TIMER 100 /* IPA_RM */
 #define HEADROOM_FOR_QMAP   8 /* for mux header */
 #define TAILROOM            0 /* for padding by mux layer */
-#define MAX_NUM_OF_MUX_CHANNEL  10 /* max mux channels */
+#define MAX_NUM_OF_MUX_CHANNEL  15 /* max mux channels */
 #define UL_FILTER_RULE_HANDLE_START 69
 #define DEFAULT_OUTSTANDING_HIGH 128
 #define DEFAULT_OUTSTANDING_HIGH_CTL (DEFAULT_OUTSTANDING_HIGH+32)
@@ -2455,8 +2455,14 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 				ret);
 		goto config_err;
 	}
+
+	/*
+	 * for IPA 4.0 offline charge is not needed and we need to prevent
+	 * power collapse until IPA uC is loaded.
+	 */
 	atomic_set(&rmnet_ipa3_ctx->is_initialized, 1);
-	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
+	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr) && ipa3_ctx->ipa_hw_type !=
+		IPA_HW_v4_0) {
 		/* offline charging mode */
 		ipa3_proxy_clk_unvote();
 	}
@@ -2944,7 +2950,7 @@ static int rmnet_ipa3_set_data_quota_modem(
 	if (index == MAX_NUM_OF_MUX_CHANNEL) {
 		IPAWANERR("%s is an invalid iface name\n",
 			  data->interface_name);
-		return -EFAULT;
+		return -ENODEV;
 	}
 
 	mux_id = rmnet_ipa3_ctx->mux_channel[index].mux_id;

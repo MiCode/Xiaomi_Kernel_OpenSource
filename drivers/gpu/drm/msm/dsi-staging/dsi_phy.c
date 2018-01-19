@@ -955,6 +955,14 @@ int dsi_phy_set_clk_freq(struct msm_dsi_phy *phy,
 	phy->regulator_required = clk_freq->byte_clk_rate >
 		(phy->regulator_min_datarate_bps / BITS_PER_BYTE);
 
+	/*
+	 * DSI PLL needs 0p9 LDO1A for Powering DSI PLL block.
+	 * PLL driver can vote for this regulator in PLL driver file, but for
+	 * the usecase where we come out of idle(static screen), if PLL and
+	 * PHY vote for regulator ,there will be performance delays as both
+	 * votes go through RPM to enable regulators.
+	 */
+	phy->regulator_required = true;
 	pr_debug("[%s] lane_datarate=%u min_datarate=%u required=%d\n",
 			phy->name,
 			clk_freq->byte_clk_rate * BITS_PER_BYTE,

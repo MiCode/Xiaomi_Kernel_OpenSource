@@ -226,12 +226,12 @@ int ipa_usb_notify_cb(enum ipa_usb_notify_event event,
 				return -ENOMEM;
 			}
 			cpkt_notify_speed->type = GSI_CTRL_NOTIFY_SPEED;
-			spin_lock_irqsave(&gsi->c_port.lock, flags);
+			spin_lock(&gsi->c_port.lock);
 			list_add_tail(&cpkt_notify_connect->list,
 					&gsi->c_port.cpkt_resp_q);
 			list_add_tail(&cpkt_notify_speed->list,
 					&gsi->c_port.cpkt_resp_q);
-			spin_unlock_irqrestore(&gsi->c_port.lock, flags);
+			spin_unlock(&gsi->c_port.lock);
 			gsi_ctrl_send_notification(gsi);
 		}
 
@@ -930,7 +930,7 @@ static int gsi_ctrl_dev_open(struct inode *ip, struct file *fp)
 	struct gsi_inst_status *inst_cur;
 
 	if (!c_port) {
-		pr_err_ratelimited("%s: gsi ctrl port %p", __func__, c_port);
+		pr_err_ratelimited("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1019,7 +1019,7 @@ gsi_ctrl_dev_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	gsi = inst_cur->opts->gsi;
 	c_port = &inst_cur->opts->gsi->c_port;
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1108,7 +1108,7 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 	req = c_port->notify_req;
 
 	if (!c_port || !req || !req->buf) {
-		log_event_err("%s: c_port %p req %p req->buf %p",
+		log_event_err("%s: c_port %pK req %p req->buf %p",
 			__func__, c_port, req, req ? req->buf : req);
 		return -ENODEV;
 	}
@@ -1186,7 +1186,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 	c_port = &gsi->c_port;
 
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1325,7 +1325,7 @@ static unsigned int gsi_ctrl_dev_poll(struct file *fp, poll_table *wait)
 	gsi = inst_cur->opts->gsi;
 	c_port = &inst_cur->opts->gsi->c_port;
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1454,7 +1454,7 @@ void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)
 	struct gsi_data_port *d_port;
 
 	if (!gsi) {
-		pr_err("%s: gsi prot ctx is %p", __func__, gsi);
+		pr_err("%s: gsi prot ctx is %pK", __func__, gsi);
 		return;
 	}
 
@@ -1678,7 +1678,7 @@ gsi_ctrl_set_ntb_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_gsi *gsi = req->context;
 	struct gsi_ntb_info *ntb = NULL;
 
-	log_event_dbg("dev:%p", gsi);
+	log_event_dbg("dev:%pK", gsi);
 
 	req->context = NULL;
 	if (req->status || req->actual != req->length) {
@@ -1939,9 +1939,11 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 {
 	u32 len_in = 0, len_out = 0;
 	int ret = 0;
+	struct device *dev;
 
 	log_event_dbg("allocate trb's buffer\n");
 
+	dev = gsi->d_port.gadget->dev.parent;
 	if (gsi->d_port.in_ep && !gsi->d_port.in_request.buf_base_addr) {
 		log_event_dbg("IN: num_bufs:=%zu, buf_len=%zu\n",
 			gsi->d_port.in_request.num_bufs,
@@ -1950,7 +1952,7 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 		len_in = gsi->d_port.in_request.buf_len *
 				gsi->d_port.in_request.num_bufs;
 		gsi->d_port.in_request.buf_base_addr =
-			dma_zalloc_coherent(gsi->d_port.gadget->dev.parent,
+			dma_zalloc_coherent(dev->parent,
 			len_in, &gsi->d_port.in_request.dma, GFP_KERNEL);
 		if (!gsi->d_port.in_request.buf_base_addr) {
 			dev_err(&gsi->d_port.gadget->dev,
@@ -1969,7 +1971,7 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 		len_out = gsi->d_port.out_request.buf_len *
 				gsi->d_port.out_request.num_bufs;
 		gsi->d_port.out_request.buf_base_addr =
-			dma_zalloc_coherent(gsi->d_port.gadget->dev.parent,
+			dma_zalloc_coherent(dev->parent,
 			len_out, &gsi->d_port.out_request.dma, GFP_KERNEL);
 		if (!gsi->d_port.out_request.buf_base_addr) {
 			dev_err(&gsi->d_port.gadget->dev,
@@ -1985,7 +1987,7 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 
 fail:
 	if (len_in && gsi->d_port.in_request.buf_base_addr) {
-		dma_free_coherent(gsi->d_port.gadget->dev.parent, len_in,
+		dma_free_coherent(dev->parent, len_in,
 				gsi->d_port.in_request.buf_base_addr,
 				gsi->d_port.in_request.dma);
 		gsi->d_port.in_request.buf_base_addr = NULL;
@@ -2004,7 +2006,7 @@ static void gsi_free_trb_buffer(struct f_gsi *gsi)
 			gsi->d_port.out_request.buf_base_addr) {
 		len = gsi->d_port.out_request.buf_len *
 			gsi->d_port.out_request.num_bufs;
-		dma_free_coherent(gsi->d_port.gadget->dev.parent, len,
+		dma_free_coherent(gsi->d_port.gadget->dev.parent->parent, len,
 			gsi->d_port.out_request.buf_base_addr,
 			gsi->d_port.out_request.dma);
 		gsi->d_port.out_request.buf_base_addr = NULL;
@@ -2014,7 +2016,7 @@ static void gsi_free_trb_buffer(struct f_gsi *gsi)
 			gsi->d_port.in_request.buf_base_addr) {
 		len = gsi->d_port.in_request.buf_len *
 			gsi->d_port.in_request.num_bufs;
-		dma_free_coherent(gsi->d_port.gadget->dev.parent, len,
+		dma_free_coherent(gsi->d_port.gadget->dev.parent->parent, len,
 			gsi->d_port.in_request.buf_base_addr,
 			gsi->d_port.in_request.dma);
 		gsi->d_port.in_request.buf_base_addr = NULL;
@@ -2507,6 +2509,10 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 	struct rndis_params *params;
 	int status;
+	__u8  class;
+	__u8  subclass;
+	__u8  proto;
+
 
 	if (gsi->prot_id == IPA_USB_RMNET ||
 		gsi->prot_id == IPA_USB_DIAG)
@@ -2588,6 +2594,85 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 					DEFAULT_PKT_ALIGNMENT_FACTOR);
 		rndis_set_pkt_alignment_factor(gsi->params,
 					DEFAULT_PKT_ALIGNMENT_FACTOR);
+
+		/* Windows7/Windows10 automatically loads RNDIS drivers for
+		 * class drivers which represents MISC_ACTIVE_SYNC,
+		 * MISC_RNDIS_OVER_ETHERNET & WIRELESS_CONTROLLER_REMOTE_NDIS.
+		 * All the codes listed below are from
+		 * http://www.usb.org/developers/defined_class and its unknown
+		 * why windows loads rndis class driver for some of them.
+		 * Note that, Windows loads NDIS6 stack automatically for
+		 * MISC_RNDIS_OVER_ETHERNET. Windows loads NDIS5 stack for
+		 * MISC_ACTIVE_SYNC and WIRELESS_CONTROLLER_REMOTE_NDIS.
+		 * For other class codes, NDIS stack can be selected using
+		 * customized INF file but that defeats the purpose as its
+		 * expected to load drivers automatically for known class
+		 * drivers published by usbif.
+		 * Linux rndis host driver supports MISC_ACTIVE_SYNC and
+		 * WIRELESS_CONTROLLER_REMOTE_NDIS as of now.
+		 * Default to rndis over ethernet which loads NDIS6 drivers
+		 * for windows7/windows10 to avoid data stall issues
+		 */
+		if (gsi->rndis_id == RNDIS_ID_UNKNOWN)
+			gsi->rndis_id = MISC_RNDIS_OVER_ETHERNET;
+
+		switch (gsi->rndis_id) {
+		default:
+			/* fall throug */
+		case WIRELESS_CONTROLLER_REMOTE_NDIS:
+			class = USB_CLASS_WIRELESS_CONTROLLER;
+			subclass = 0x01;
+			proto = 0x03;
+			break;
+		case MISC_ACTIVE_SYNC:
+			class = USB_CLASS_MISC;
+			subclass = 0x01;
+			proto = 0x01;
+			break;
+		case MISC_RNDIS_OVER_ETHERNET:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x01;
+			break;
+		case MISC_RNDIS_OVER_WIFI:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x02;
+			break;
+		case MISC_RNDIS_OVER_WIMAX:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x03;
+			break;
+		case MISC_RNDIS_OVER_WWAN:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x04;
+			break;
+		case MISC_RNDIS_FOR_IPV4:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x05;
+			break;
+		case MISC_RNDIS_FOR_IPV6:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x06;
+			break;
+		case MISC_RNDIS_FOR_GPRS:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x07;
+			break;
+		}
+
+		info.iad_desc->bFunctionClass = class;
+		info.iad_desc->bFunctionSubClass = subclass;
+		info.iad_desc->bFunctionProtocol = proto;
+		info.ctrl_desc->bInterfaceClass = class;
+		info.ctrl_desc->bInterfaceSubClass = subclass;
+		info.ctrl_desc->bInterfaceProtocol = proto;
+
 		break;
 	case IPA_USB_MBIM:
 		info.string_defs = mbim_gsi_string_defs;
@@ -3086,6 +3171,43 @@ static struct config_item_type gsi_func_type = {
 	.ct_owner	= THIS_MODULE,
 };
 
+static ssize_t gsi_rndis_class_id_show(struct config_item *item, char *page)
+{
+	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
+
+	return snprintf(page, PAGE_SIZE, "%d\n", gsi->rndis_id);
+}
+
+static ssize_t gsi_rndis_class_id_store(struct config_item *item,
+			const char *page, size_t len)
+{
+	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
+	u8 id;
+
+	if (kstrtou8(page, 0, &id))
+		return -EINVAL;
+
+	if (id > RNDIS_ID_UNKNOWN && id < RNDIS_ID_MAX)
+		gsi->rndis_id = id;
+	else
+		return -EINVAL;
+
+	return len;
+}
+CONFIGFS_ATTR(gsi_, rndis_class_id);
+
+static struct configfs_attribute *gsi_rndis_attrs[] = {
+	&gsi_attr_info,
+	&gsi_attr_rndis_class_id,
+	NULL,
+};
+
+static struct config_item_type gsi_func_rndis_type = {
+	.ct_item_ops	= &gsi_item_ops,
+	.ct_attrs	= gsi_rndis_attrs,
+	.ct_owner	= THIS_MODULE,
+};
+
 static void gsi_inst_clean(struct gsi_opts *opts)
 {
 	if (opts->gsi->c_port.ctrl_device.fops)
@@ -3126,6 +3248,10 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 		return -EBUSY;
 	}
 	mutex_unlock(&inst_status[prot_id].gsi_lock);
+
+	if (prot_id == IPA_USB_RNDIS)
+		config_group_init_type_name(&opts->func_inst.group, "",
+					    &gsi_func_rndis_type);
 
 	gsi = gsi_function_init(prot_id);
 	if (IS_ERR(gsi))

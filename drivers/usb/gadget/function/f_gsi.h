@@ -122,6 +122,20 @@ enum gsi_ctrl_notify_state {
 	GSI_CTRL_NOTIFY_RESPONSE_AVAILABLE,
 };
 
+enum rndis_class_id {
+	RNDIS_ID_UNKNOWN,
+	WIRELESS_CONTROLLER_REMOTE_NDIS,
+	MISC_ACTIVE_SYNC,
+	MISC_RNDIS_OVER_ETHERNET,
+	MISC_RNDIS_OVER_WIFI,
+	MISC_RNDIS_OVER_WIMAX,
+	MISC_RNDIS_OVER_WWAN,
+	MISC_RNDIS_FOR_IPV4,
+	MISC_RNDIS_FOR_IPV6,
+	MISC_RNDIS_FOR_GPRS,
+	RNDIS_ID_MAX,
+};
+
 #define MAXQUEUELEN 128
 struct event_queue {
 	u8 event[MAXQUEUELEN];
@@ -258,6 +272,7 @@ struct f_gsi {
 	struct rndis_params *params;
 	atomic_t connected;
 	bool data_interface_up;
+	enum rndis_class_id rndis_id;
 
 	const struct usb_endpoint_descriptor *in_ep_desc_backup;
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
@@ -572,7 +587,7 @@ static struct usb_endpoint_descriptor rndis_gsi_fs_notify_desc = {
 static struct usb_endpoint_descriptor rndis_gsi_fs_in_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
-
+	.wMaxPacketSize =	cpu_to_le16(64),
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
@@ -580,7 +595,7 @@ static struct usb_endpoint_descriptor rndis_gsi_fs_in_desc = {
 static struct usb_endpoint_descriptor rndis_gsi_fs_out_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
-
+	.wMaxPacketSize =	cpu_to_le16(64),
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };

@@ -1,0 +1,22 @@
+Qualcomm Technologies MSM Clock Controller
+
+Required properties :
+- compatible : shall contain "qcom,msm-clock-controller"
+- reg : shall contain base register location and length
+- reg-names: names of registers listed in the same order as in
+		the reg property.
+- #clock-cells : shall contain 1
+- #reset-cells : shall contain 1
+
+Optional properties :
+- vdd_<rail>-supply: The logic rail supply.
+
+Example:
+	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,msm-clock-controller";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc-base";
+		#clock-cells = <1>;
+		clock-names = "a7_debug_clk";
+		clocks = <&clock_a7pll clk_a7_debug_mux>;
+	};

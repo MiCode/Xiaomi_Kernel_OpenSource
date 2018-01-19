@@ -12,6 +12,7 @@
 #include <linux/debugfs.h>
 #include <linux/errno.h>
 #include <linux/etherdevice.h>
+#include <linux/if_vlan.h>
 #include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
@@ -123,6 +124,7 @@ enum ecm_ipa_operation {
  * @ipa_rm_resource_name_prod: IPA resource manager producer resource
  * @ipa_rm_resource_name_cons: IPA resource manager consumer resource
  * @pm_hdl: handle for IPA PM
+ * @is_vlan_mode: does the driver need to work in VLAN mode?
  */
 struct ecm_ipa_dev {
 	struct net_device *net;
@@ -141,6 +143,7 @@ struct ecm_ipa_dev {
 	enum ipa_rm_resource_name ipa_rm_resource_name_prod;
 	enum ipa_rm_resource_name ipa_rm_resource_name_cons;
 	u32 pm_hdl;
+	bool is_vlan_mode;
 };
 
 static int ecm_ipa_open(struct net_device *net);
@@ -173,7 +176,8 @@ static ssize_t ecm_ipa_debugfs_atomic_read
 	(struct file *file, char __user *ubuf, size_t count, loff_t *ppos);
 static void ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *ecm_ipa_ctx);
-static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl);
+static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
+	bool is_vlan_mode);
 static int ecm_ipa_set_device_ethernet_addr
 	(u8 *dev_ethaddr, u8 device_ethaddr[]);
 static enum ecm_ipa_state ecm_ipa_next_state
@@ -283,6 +287,12 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	}
 	ECM_IPA_DEBUG("Device Ethernet address set %pM\n", net->dev_addr);
 
+	if (ipa_is_vlan_mode(IPA_VLAN_IF_ECM, &ecm_ipa_ctx->is_vlan_mode)) {
+		ECM_IPA_ERROR("couldn't acquire vlan mode, is ipa ready?\n");
+		goto fail_get_vlan_mode;
+	}
+	ECM_IPA_DEBUG("is vlan mode %d\n", ecm_ipa_ctx->is_vlan_mode);
+
 	result = ecm_ipa_rules_cfg
 		(ecm_ipa_ctx, params->host_ethaddr, params->device_ethaddr);
 	if (result) {
@@ -319,8 +329,9 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 
 fail_register_netdev:
 	ecm_ipa_rules_destroy(ecm_ipa_ctx);
-fail_set_device_ethernet:
 fail_rules_cfg:
+fail_get_vlan_mode:
+fail_set_device_ethernet:
 	ecm_ipa_debugfs_destroy(ecm_ipa_ctx);
 fail_netdev_priv:
 	free_netdev(net);
@@ -450,7 +461,8 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl, void *priv)
 	}
 	ECM_IPA_DEBUG("ecm_ipa 2 Tx and 2 Rx properties were registered\n");
 
-	retval = ecm_ipa_ep_registers_cfg(usb_to_ipa_hdl, ipa_to_usb_hdl);
+	retval = ecm_ipa_ep_registers_cfg(usb_to_ipa_hdl, ipa_to_usb_hdl,
+		ecm_ipa_ctx->is_vlan_mode);
 	if (retval) {
 		ECM_IPA_ERROR("fail on ep cfg\n");
 		goto fail;
@@ -605,6 +617,10 @@ static netdev_tx_t ecm_ipa_start_xmit
 		status = NETDEV_TX_BUSY;
 		goto out;
 	}
+
+	if (ecm_ipa_ctx->is_vlan_mode)
+		if (unlikely(skb->protocol != ETH_P_8021Q))
+			ECM_IPA_DEBUG("ether_type != ETH_P_8021Q && vlan\n");
 
 	ret = ipa_tx_dp(ecm_ipa_ctx->ipa_to_usb_client, skb, NULL);
 	if (ret) {
@@ -843,6 +859,41 @@ static void ecm_ipa_enable_data_path(struct ecm_ipa_dev *ecm_ipa_ctx)
 	ECM_IPA_DEBUG("queue started\n");
 }
 
+static void ecm_ipa_prepare_header_insertion(
+	int eth_type,
+	const char *hdr_name, struct ipa_hdr_add *add_hdr,
+	const void *dst_mac, const void *src_mac, bool is_vlan_mode)
+{
+	struct ethhdr *eth_hdr;
+	struct vlan_ethhdr *eth_vlan_hdr;
+
+	ECM_IPA_LOG_ENTRY();
+
+	add_hdr->is_partial = 0;
+	strlcpy(add_hdr->name, hdr_name, IPA_RESOURCE_NAME_MAX);
+	add_hdr->is_eth2_ofst_valid = true;
+	add_hdr->eth2_ofst = 0;
+
+	if (is_vlan_mode) {
+		eth_vlan_hdr = (struct vlan_ethhdr *)add_hdr->hdr;
+		memcpy(eth_vlan_hdr->h_dest, dst_mac, ETH_ALEN);
+		memcpy(eth_vlan_hdr->h_source, src_mac, ETH_ALEN);
+		eth_vlan_hdr->h_vlan_encapsulated_proto =
+			htons(eth_type);
+		eth_vlan_hdr->h_vlan_proto = htons(ETH_P_8021Q);
+		add_hdr->hdr_len = VLAN_ETH_HLEN;
+		add_hdr->type = IPA_HDR_L2_802_1Q;
+	} else {
+		eth_hdr = (struct ethhdr *)add_hdr->hdr;
+		memcpy(eth_hdr->h_dest, dst_mac, ETH_ALEN);
+		memcpy(eth_hdr->h_source, src_mac, ETH_ALEN);
+		eth_hdr->h_proto = htons(eth_type);
+		add_hdr->hdr_len = ETH_HLEN;
+		add_hdr->type = IPA_HDR_L2_ETHERNET_II;
+	}
+	ECM_IPA_LOG_EXIT();
+}
+
 /**
  * ecm_ipa_rules_cfg() - set header insertion and register Tx/Rx properties
  *				Headers will be committed to HW
@@ -859,8 +910,6 @@ static int ecm_ipa_rules_cfg
 	struct ipa_ioc_add_hdr *hdrs;
 	struct ipa_hdr_add *ipv4_hdr;
 	struct ipa_hdr_add *ipv6_hdr;
-	struct ethhdr *eth_ipv4;
-	struct ethhdr *eth_ipv6;
 	int result = 0;
 
 	ECM_IPA_LOG_ENTRY();
@@ -871,28 +920,17 @@ static int ecm_ipa_rules_cfg
 		result = -ENOMEM;
 		goto out;
 	}
+
 	ipv4_hdr = &hdrs->hdr[0];
-	eth_ipv4 = (struct ethhdr *)ipv4_hdr->hdr;
+	ecm_ipa_prepare_header_insertion(
+		ETH_P_IP, ECM_IPA_IPV4_HDR_NAME,
+		ipv4_hdr, dst_mac, src_mac, ecm_ipa_ctx->is_vlan_mode);
+
 	ipv6_hdr = &hdrs->hdr[1];
-	eth_ipv6 = (struct ethhdr *)ipv6_hdr->hdr;
-	strlcpy(ipv4_hdr->name, ECM_IPA_IPV4_HDR_NAME, IPA_RESOURCE_NAME_MAX);
-	memcpy(eth_ipv4->h_dest, dst_mac, ETH_ALEN);
-	memcpy(eth_ipv4->h_source, src_mac, ETH_ALEN);
-	eth_ipv4->h_proto = htons(ETH_P_IP);
-	ipv4_hdr->hdr_len = ETH_HLEN;
-	ipv4_hdr->is_partial = 0;
-	ipv4_hdr->is_eth2_ofst_valid = true;
-	ipv4_hdr->eth2_ofst = 0;
-	ipv4_hdr->type = IPA_HDR_L2_ETHERNET_II;
-	strlcpy(ipv6_hdr->name, ECM_IPA_IPV6_HDR_NAME, IPA_RESOURCE_NAME_MAX);
-	memcpy(eth_ipv6->h_dest, dst_mac, ETH_ALEN);
-	memcpy(eth_ipv6->h_source, src_mac, ETH_ALEN);
-	eth_ipv6->h_proto = htons(ETH_P_IPV6);
-	ipv6_hdr->hdr_len = ETH_HLEN;
-	ipv6_hdr->is_partial = 0;
-	ipv6_hdr->is_eth2_ofst_valid = true;
-	ipv6_hdr->eth2_ofst = 0;
-	ipv6_hdr->type = IPA_HDR_L2_ETHERNET_II;
+	ecm_ipa_prepare_header_insertion(
+		ETH_P_IPV6, ECM_IPA_IPV6_HDR_NAME,
+		ipv6_hdr, dst_mac, src_mac, ecm_ipa_ctx->is_vlan_mode);
+
 	hdrs->commit = 1;
 	hdrs->num_hdrs = 2;
 	result = ipa_add_hdr(hdrs);
@@ -972,9 +1010,13 @@ static int ecm_ipa_register_properties(struct ecm_ipa_dev *ecm_ipa_ctx)
 	struct ipa_rx_intf rx_properties = {0};
 	struct ipa_ioc_rx_intf_prop *rx_ipv4_property;
 	struct ipa_ioc_rx_intf_prop *rx_ipv6_property;
+	enum ipa_hdr_l2_type hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	int result = 0;
 
 	ECM_IPA_LOG_ENTRY();
+
+	if (ecm_ipa_ctx->is_vlan_mode)
+		hdr_l2_type = IPA_HDR_L2_802_1Q;
 
 	tx_properties.prop = properties;
 	ipv4_property = &tx_properties.prop[0];
@@ -983,11 +1025,11 @@ static int ecm_ipa_register_properties(struct ecm_ipa_dev *ecm_ipa_ctx)
 	strlcpy
 		(ipv4_property->hdr_name, ECM_IPA_IPV4_HDR_NAME,
 		IPA_RESOURCE_NAME_MAX);
-	ipv4_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
+	ipv4_property->hdr_l2_type = hdr_l2_type;
 	ipv6_property = &tx_properties.prop[1];
 	ipv6_property->ip = IPA_IP_v6;
 	ipv6_property->dst_pipe = ecm_ipa_ctx->ipa_to_usb_client;
-	ipv6_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
+	ipv6_property->hdr_l2_type = hdr_l2_type;
 	strlcpy
 		(ipv6_property->hdr_name, ECM_IPA_IPV6_HDR_NAME,
 		IPA_RESOURCE_NAME_MAX);
@@ -998,12 +1040,12 @@ static int ecm_ipa_register_properties(struct ecm_ipa_dev *ecm_ipa_ctx)
 	rx_ipv4_property->ip = IPA_IP_v4;
 	rx_ipv4_property->attrib.attrib_mask = 0;
 	rx_ipv4_property->src_pipe = ecm_ipa_ctx->usb_to_ipa_client;
-	rx_ipv4_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
+	rx_ipv4_property->hdr_l2_type = hdr_l2_type;
 	rx_ipv6_property = &rx_properties.prop[1];
 	rx_ipv6_property->ip = IPA_IP_v6;
 	rx_ipv6_property->attrib.attrib_mask = 0;
 	rx_ipv6_property->src_pipe = ecm_ipa_ctx->usb_to_ipa_client;
-	rx_ipv6_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
+	rx_ipv6_property->hdr_l2_type = hdr_l2_type;
 	rx_properties.num_props = 2;
 
 	result = ipa_register_intf("ecm0", &tx_properties, &rx_properties);
@@ -1336,6 +1378,13 @@ static void ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx)
 		goto fail_file;
 	}
 
+	file = debugfs_create_bool("is_vlan_mode", flags_read_only,
+		ecm_ipa_ctx->directory, &ecm_ipa_ctx->is_vlan_mode);
+	if (!file) {
+		ECM_IPA_ERROR("could not create is_vlan_mode file\n");
+		goto fail_file;
+	}
+
 	ECM_IPA_DEBUG("debugfs entries were created\n");
 	ECM_IPA_LOG_EXIT();
 
@@ -1362,8 +1411,9 @@ static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *ecm_ipa_ctx) {}
 /**
  * ecm_ipa_ep_cfg() - configure the USB endpoints for ECM
  *
- *usb_to_ipa_hdl: handle received from ipa_connect
- *ipa_to_usb_hdl: handle received from ipa_connect
+ * @usb_to_ipa_hdl: handle received from ipa_connect
+ * @ipa_to_usb_hdl: handle received from ipa_connect
+ * @is_vlan_mode - should driver work in vlan mode?
  *
  * USB to IPA pipe:
  *  - No de-aggregation
@@ -1374,16 +1424,21 @@ static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *ecm_ipa_ctx) {}
  *  - No aggregation
  *  - Add Ethernet header
  */
-static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl)
+static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
+	bool is_vlan_mode)
 {
 	int result = 0;
 	struct ipa_ep_cfg usb_to_ipa_ep_cfg;
 	struct ipa_ep_cfg ipa_to_usb_ep_cfg;
+	uint8_t hdr_add = 0;
+
 
 	ECM_IPA_LOG_ENTRY();
+	if (is_vlan_mode)
+		hdr_add = VLAN_HLEN;
 	memset(&usb_to_ipa_ep_cfg, 0, sizeof(struct ipa_ep_cfg));
 	usb_to_ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
-	usb_to_ipa_ep_cfg.hdr.hdr_len = ETH_HLEN;
+	usb_to_ipa_ep_cfg.hdr.hdr_len = ETH_HLEN + hdr_add;
 	usb_to_ipa_ep_cfg.nat.nat_en = IPA_SRC_NAT;
 	usb_to_ipa_ep_cfg.route.rt_tbl_hdl = 0;
 	usb_to_ipa_ep_cfg.mode.dst = IPA_CLIENT_A5_LAN_WAN_CONS;
@@ -1395,7 +1450,7 @@ static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl)
 	}
 	memset(&ipa_to_usb_ep_cfg, 0, sizeof(struct ipa_ep_cfg));
 	ipa_to_usb_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
-	ipa_to_usb_ep_cfg.hdr.hdr_len = ETH_HLEN;
+	ipa_to_usb_ep_cfg.hdr.hdr_len = ETH_HLEN + hdr_add;
 	ipa_to_usb_ep_cfg.nat.nat_en = IPA_BYPASS_NAT;
 	result = ipa_cfg_ep(ipa_to_usb_hdl, &ipa_to_usb_ep_cfg);
 	if (result) {

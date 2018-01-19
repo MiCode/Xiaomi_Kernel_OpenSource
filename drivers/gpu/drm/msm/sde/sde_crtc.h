@@ -183,6 +183,9 @@ struct sde_crtc_event {
  * @vblank_cb_count : count of vblank callback since last reset
  * @play_count    : frame count between crtc enable and disable
  * @vblank_cb_time  : ktime at vblank count reset
+ * @vblank_last_cb_time  : ktime at last vblank notification
+ * @sysfs_dev  : sysfs device node for crtc
+ * @vsync_event_sf : vsync event notifier sysfs device
  * @vblank_requested : whether the user has requested vblank events
  * @suspend         : whether or not a suspend operation is in progress
  * @enabled       : whether the SDE CRTC is currently enabled. updated in the
@@ -212,8 +215,10 @@ struct sde_crtc_event {
  * @misr_enable   : boolean entry indicates misr enable/disable status.
  * @misr_frame_count  : misr frame count provided by client
  * @misr_data     : store misr data before turning off the clocks.
- * @sbuf_flush_mask: flush mask for inline rotator
+ * @sbuf_op_mode_old : inline rotator op mode for previous commit cycle
  * @sbuf_flush_mask_old: inline rotator flush mask for previous commit
+ * @sbuf_flush_mask_all: inline rotator flush mask for all attached planes
+ * @sbuf_flush_mask_delta: inline rotator flush mask for current delta state
  * @idle_notify_work: delayed worker to notify idle timeout to user space
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
@@ -246,6 +251,9 @@ struct sde_crtc {
 	u32 vblank_cb_count;
 	u64 play_count;
 	ktime_t vblank_cb_time;
+	ktime_t vblank_last_cb_time;
+	struct device *sysfs_dev;
+	struct kernfs_node *vsync_event_sf;
 	bool vblank_requested;
 	bool suspend;
 	bool enabled;
@@ -278,8 +286,10 @@ struct sde_crtc {
 	u32 misr_frame_count;
 	u32 misr_data[CRTC_DUAL_MIXERS];
 
-	u32 sbuf_flush_mask;
+	u32 sbuf_op_mode_old;
 	u32 sbuf_flush_mask_old;
+	u32 sbuf_flush_mask_all;
+	u32 sbuf_flush_mask_delta;
 	struct kthread_delayed_work idle_notify_work;
 
 	struct sde_power_event *power_event;
@@ -545,6 +555,14 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
 
 /**
+ * sde_crtc_post_init - update crtc object with post initialization. It
+ *      can update the debugfs, sysfs, entires.
+ * @dev: sde device
+ * @crtc: Pointer to drm crtc structure
+ */
+int sde_crtc_post_init(struct drm_device *dev, struct drm_crtc *crtc);
+
+/**
  * sde_crtc_cancel_pending_flip - complete flip for clients on lastclose
  * @crtc: Pointer to drm crtc object
  * @file: client to cancel's file handle
@@ -683,6 +701,14 @@ void sde_crtc_res_put(struct drm_crtc_state *state, u32 type, u64 tag);
  */
 void sde_crtc_get_crtc_roi(struct drm_crtc_state *state,
 		const struct sde_rect **crtc_roi);
+
+/**
+ * sde_crtc_is_crtc_roi_dirty - retrieve whether crtc_roi was updated this frame
+ *	Note: Only use during atomic_check since dirty properties may be popped
+ * @crtc_state: Pointer to crtc state
+ * Return: true if roi is dirty, false otherwise
+ */
+bool sde_crtc_is_crtc_roi_dirty(struct drm_crtc_state *state);
 
 /** sde_crt_get_secure_level - retrieve the secure level from the give state
  *	object, this is used to determine the secure state of the crtc

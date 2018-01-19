@@ -706,7 +706,9 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 				req->filter_index_list[i].filter_handle,
 				req->filter_index_list[i].filter_index);
 		return -EINVAL;
-	} else if (req->install_status != IPA_QMI_RESULT_SUCCESS_V01) {
+	}
+
+	if (req->install_status != IPA_QMI_RESULT_SUCCESS_V01) {
 		IPAWANERR(" UL filter rule for pipe %d install_status = %d\n",
 			req->source_pipe_index, req->install_status);
 		return -EINVAL;
@@ -1029,7 +1031,7 @@ int ipa_qmi_service_init(uint32_t wan_platform_type)
 	qmi_indication_fin = false;
 	atomic_set(&workqueues_stopped, 0);
 
-	if (atomic_read(&ipa_qmi_initialized == 0))
+	if (atomic_read(&ipa_qmi_initialized) == 0)
 		ipa_qmi_service_init_worker();
 	return 0;
 }

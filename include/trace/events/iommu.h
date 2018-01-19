@@ -201,7 +201,7 @@ DEFINE_EVENT(iommu_error, io_page_fault,
 	TP_ARGS(dev, iova, flags)
 );
 
-DECLARE_EVENT_CLASS(iommu_errata_tlbi,
+DECLARE_EVENT_CLASS(iommu_tlbi,
 
 	TP_PROTO(struct device *dev, u64 time),
 
@@ -222,35 +222,35 @@ DECLARE_EVENT_CLASS(iommu_errata_tlbi,
 	)
 );
 
-DEFINE_EVENT(iommu_errata_tlbi, errata_tlbi_start,
+DEFINE_EVENT(iommu_tlbi, tlbi_start,
 
 	TP_PROTO(struct device *dev, u64 time),
 
 	TP_ARGS(dev, time)
 );
 
-DEFINE_EVENT(iommu_errata_tlbi, errata_tlbi_end,
+DEFINE_EVENT(iommu_tlbi, tlbi_end,
 
 	TP_PROTO(struct device *dev, u64 time),
 
 	TP_ARGS(dev, time)
 );
 
-DEFINE_EVENT(iommu_errata_tlbi, errata_throttle_start,
+DEFINE_EVENT(iommu_tlbi, tlbi_throttle_start,
 
 	TP_PROTO(struct device *dev, u64 time),
 
 	TP_ARGS(dev, time)
 );
 
-DEFINE_EVENT(iommu_errata_tlbi, errata_throttle_end,
+DEFINE_EVENT(iommu_tlbi, tlbi_throttle_end,
 
 	TP_PROTO(struct device *dev, u64 time),
 
 	TP_ARGS(dev, time)
 );
 
-DEFINE_EVENT(iommu_errata_tlbi, errata_failed,
+DEFINE_EVENT(iommu_tlbi, tlbsync_timeout,
 
 	TP_PROTO(struct device *dev, u64 time),
 
