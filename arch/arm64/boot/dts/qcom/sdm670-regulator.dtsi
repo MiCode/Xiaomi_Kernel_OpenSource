@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017,2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -241,7 +241,7 @@
 		qcom,supported-modes =
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
-		qcom,mode-threshold-currents = <0 1>;
+		qcom,mode-threshold-currents = <0 10000>;
 		pm660_l6: regulator-pm660-l6 {
 			regulator-name = "pm660_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -298,7 +298,7 @@
 		qcom,supported-modes =
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
-		qcom,mode-threshold-currents = <0 1>;
+		qcom,mode-threshold-currents = <0 10000>;
 		pm660_l9: regulator-pm660-l9 {
 			regulator-name = "pm660_l9";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -472,7 +472,7 @@
 		qcom,supported-modes =
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
-		qcom,mode-threshold-currents = <0 1>;
+		qcom,mode-threshold-currents = <0 10000>;
 		pm660_l19: regulator-pm660-l19 {
 			regulator-name = "pm660_l19";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
