@@ -50,6 +50,7 @@ config ARCH_SDXPOORWILLS
 	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	select QCOM_GDSC
+	select GENERIC_CLOCKEVENTS_BROADCAST
 
 config ARCH_MSM8953
 	bool "Enable support for MSM8953"
