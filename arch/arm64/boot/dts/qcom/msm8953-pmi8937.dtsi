@@ -25,3 +25,9 @@
 &usb3 {
 	vbus_dwc3-supply = <&smbcharger_charger_otg>;
 };
+
+&pmi8937_charger {
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
+};
+
