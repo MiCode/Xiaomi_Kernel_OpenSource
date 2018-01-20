@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -422,6 +422,28 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 
 static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 {
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+
+	if (phy->suspended && suspend) {
+		dev_dbg(uphy->dev, "%s: USB PHY is already suspended\n",
+			__func__);
+		return 0;
+	}
+
+	if (suspend) { /* Bus suspend */
+		if (phy->cable_connected ||
+			(phy->phy.flags & PHY_HOST_MODE)) {
+			msm_hsphy_enable_clocks(phy, false);
+		} else {/* Cable disconnect */
+			msm_hsphy_enable_clocks(phy, false);
+			msm_hsphy_enable_power(phy, false);
+		}
+		phy->suspended = true;
+	} else { /* Bus resume and cable connect */
+			msm_hsphy_enable_clocks(phy, true);
+			phy->suspended = false;
+		}
+
 	return 0;
 }
 
