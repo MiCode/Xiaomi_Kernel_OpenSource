@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 #include "dp_catalog.h"
 
 struct dp_ctrl {
-	int (*init)(struct dp_ctrl *dp_ctrl, bool flip, bool multi_func);
+	int (*init)(struct dp_ctrl *dp_ctrl, bool flip, bool reset);
 	void (*deinit)(struct dp_ctrl *dp_ctrl);
 	int (*on)(struct dp_ctrl *dp_ctrl);
 	void (*off)(struct dp_ctrl *dp_ctrl);

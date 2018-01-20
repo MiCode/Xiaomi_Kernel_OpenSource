@@ -466,6 +466,7 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 		bool hpd)
 {
 	u32 timeout_sec;
+	int ret = 0;
 
 	dp->dp_display.is_connected = hpd;
 
@@ -474,16 +475,20 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp,
 	else
 		timeout_sec = 10;
 
+	dp->aux->state |= DP_STATE_NOTIFICATION_SENT;
+
 	reinit_completion(&dp->notification_comp);
 	dp_display_send_hpd_event(dp);
 
 	if (!wait_for_completion_timeout(&dp->notification_comp,
 						HZ * timeout_sec)) {
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
-		return -EINVAL;
+		ret = -EINVAL;
 	}
 
-	return 0;
+	dp->aux->state &= ~DP_STATE_NOTIFICATION_SENT;
+
+	return ret;
 }
 
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
@@ -532,6 +537,7 @@ end:
 static void dp_display_host_init(struct dp_display_private *dp)
 {
 	bool flip = false;
+	bool reset;
 
 	if (dp->core_initialized) {
 		pr_debug("DP core already initialized\n");
@@ -541,8 +547,10 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	if (dp->usbpd->orientation == ORIENTATION_CC2)
 		flip = true;
 
+	reset = dp->debug->sim_mode ? false : !dp->usbpd->multi_func;
+
 	dp->power->init(dp->power, flip);
-	dp->ctrl->init(dp->ctrl, flip, dp->usbpd->multi_func);
+	dp->ctrl->init(dp->ctrl, flip, reset);
 	enable_irq(dp->irq);
 	dp->core_initialized = true;
 }
@@ -558,6 +566,7 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 	dp->power->deinit(dp->power);
 	disable_irq(dp->irq);
 	dp->core_initialized = false;
+	dp->aux->state = 0;
 }
 
 static int dp_display_process_hpd_low(struct dp_display_private *dp)
@@ -929,7 +938,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	}
 
 	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
-				dp->link, &dp->dp_display.connector);
+				dp->link, dp->aux, &dp->dp_display.connector);
 	if (IS_ERR(dp->debug)) {
 		rc = PTR_ERR(dp->debug);
 		pr_err("failed to initialize debug, rc = %d\n", rc);
@@ -1095,6 +1104,7 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 end:
 	/* clear framework event notifier */
 	dp_display->post_open = NULL;
+	dp->aux->state |= DP_STATE_CTRL_POWERED_ON;
 
 	complete_all(&dp->notification_comp);
 	mutex_unlock(&dp->session_lock);
@@ -1168,7 +1178,7 @@ static int dp_display_disable(struct dp_display *dp_display)
 	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
 
 	dp->power_on = false;
-
+	dp->aux->state = DP_STATE_CTRL_POWERED_OFF;
 end:
 	complete_all(&dp->notification_comp);
 	mutex_unlock(&dp->session_lock);
