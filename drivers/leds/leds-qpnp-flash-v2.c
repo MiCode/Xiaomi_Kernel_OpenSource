@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1103,10 +1103,11 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		return rc;
 	}
 
-	/* Iterate over all leds for this switch node */
+	/* Iterate over all active leds for this switch node */
 	val = 0;
 	for (i = 0; i < led->num_fnodes; i++)
-		if (snode->led_mask & BIT(led->fnode[i].id))
+		if (led->fnode[i].led_on &&
+				snode->led_mask & BIT(led->fnode[i].id))
 			val |= led->fnode[i].ires_idx << (led->fnode[i].id * 2);
 
 	rc = qpnp_flash_led_masked_write(led, FLASH_LED_REG_IRES(led->base),
