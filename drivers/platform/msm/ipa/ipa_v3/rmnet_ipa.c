@@ -2711,8 +2711,13 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
 			/* clean up cached QMI msg/handlers */
 			ipa3_qmi_service_exit();
-		/*hold a proxy vote for the modem*/
-		ipa3_proxy_clk_vote();
+		/*
+		 * hold a proxy vote for the modem.
+		 * for IPA 4.0 offline charge is not needed and proxy vote
+		 * is already held.
+		 */
+		if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
+			ipa3_proxy_clk_vote();
 		ipa3_reset_freeze_vote();
 		IPAWANINFO("IPA BEFORE_POWERUP handling is complete\n");
 		break;
