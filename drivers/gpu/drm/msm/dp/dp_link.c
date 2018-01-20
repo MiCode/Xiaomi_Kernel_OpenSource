@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -722,24 +722,6 @@ static int dp_link_parse_phy_test_params(struct dp_link_private *link)
 		ret = -EINVAL;
 end:
 	return ret;
-}
-
-static char *dp_link_get_test_name(u32 test_requested)
-{
-	switch (test_requested) {
-	case DP_TEST_LINK_TRAINING:
-		return DP_LINK_ENUM_STR(DP_TEST_LINK_TRAINING);
-	case DP_TEST_LINK_VIDEO_PATTERN:
-		return DP_LINK_ENUM_STR(DP_TEST_LINK_VIDEO_PATTERN);
-	case DP_TEST_LINK_EDID_READ:
-		return DP_LINK_ENUM_STR(DP_TEST_LINK_EDID_READ);
-	case DP_TEST_LINK_PHY_TEST_PATTERN:
-		return DP_LINK_ENUM_STR(DP_TEST_LINK_PHY_TEST_PATTERN);
-	case DP_TEST_LINK_AUDIO_PATTERN:
-		return DP_LINK_ENUM_STR(DP_TEST_LINK_AUDIO_PATTERN);
-	default:
-		return "unknown";
-	}
 }
 
 /**
