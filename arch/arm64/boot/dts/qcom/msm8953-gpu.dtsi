@@ -16,6 +16,7 @@
 		qcom,pas-id = <13>;
 		qcom,firmware-name = "a506_zap";
 		memory-region = <&gpu_mem>;
+		qcom,mas-crypto = <&mas_crypto>;
 		clocks = <&clock_gcc clk_gcc_crypto_clk>,
 		<&clock_gcc clk_gcc_crypto_ahb_clk>,
 		<&clock_gcc clk_gcc_crypto_axi_clk>,
