@@ -27,7 +27,7 @@
 #include "walt.h"
 
 #define MAX_CPUS_PER_CLUSTER 6
-#define MAX_CLUSTERS 2
+#define MAX_CLUSTERS 3
 
 struct cluster_data {
 	bool inited;
