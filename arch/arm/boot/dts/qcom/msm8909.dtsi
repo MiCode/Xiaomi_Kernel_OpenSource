@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -779,6 +779,7 @@
 		qcom,rx-ring-size = <32>;
 		qcom,max-rx-mtu = <4096>;
 		qcom,fast-shutdown;
+		qcom,no-cpu-affinity;
 	};
 
 	qcom,smdtty {
