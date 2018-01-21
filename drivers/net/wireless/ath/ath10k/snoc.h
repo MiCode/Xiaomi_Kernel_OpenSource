@@ -145,6 +145,11 @@ static struct ath10k_wcn3990_clk_info clk_cfg[] = {
 
 #define ATH10K_WCN3990_CLK_INFO_SIZE		ARRAY_SIZE(clk_cfg)
 
+enum ath10k_driver_state {
+	ATH10K_DRIVER_STATE_PROBED,
+	ATH10K_DRIVER_STATE_STARTED,
+};
+
 /* struct ath10k_snoc: SNOC info struct
  * @dev: device structure
  * @ar:ath10k base structure
@@ -192,6 +197,7 @@ struct ath10k_snoc {
 	struct ath10k_snoc_qmi_config qmi_cfg;
 	struct ath10k_wcn3990_vreg_info vreg[ATH10K_WCN3990_VREG_INFO_SIZE];
 	struct ath10k_wcn3990_clk_info clk[ATH10K_WCN3990_CLK_INFO_SIZE];
+	enum ath10k_driver_state drv_state;
 };
 
 struct ath10k_event_pd_down_data {
