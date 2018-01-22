@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,8 +72,14 @@ static struct pll_vco trion_vco[] = {
 };
 
 static const struct alpha_pll_config npu_cc_pll0_config = {
-	.l = 0x48,
-	.alpha = 0xeaaa,
+	.l = 0x3E,
+	.alpha = 0x8000,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
 };
 
 static struct clk_alpha_pll npu_cc_pll0 = {
@@ -124,6 +130,12 @@ static struct clk_alpha_pll_postdiv npu_cc_pll0_out_even = {
 static const struct alpha_pll_config npu_cc_pll1_config = {
 	.l = 0x24,
 	.alpha = 0x7555,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
 };
 
 static struct clk_alpha_pll npu_cc_pll1 = {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -130,8 +130,14 @@ static struct pll_vco trion_vco[] = {
 };
 
 static const struct alpha_pll_config cam_cc_pll0_config = {
-	.l = 0x3e,
+	.l = 0x3E,
 	.alpha = 0x8000,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
 };
 
 static struct clk_alpha_pll cam_cc_pll0 = {
@@ -205,6 +211,12 @@ static struct clk_alpha_pll_postdiv cam_cc_pll0_out_odd = {
 static const struct alpha_pll_config cam_cc_pll1_config = {
 	.l = 0x13,
 	.alpha = 0x8800,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
 };
 
 static struct clk_alpha_pll cam_cc_pll1 = {
@@ -247,6 +259,12 @@ static struct clk_alpha_pll_postdiv cam_cc_pll1_out_even = {
 static const struct alpha_pll_config cam_cc_pll2_config = {
 	.l = 0x32,
 	.alpha = 0x0,
+	.config_ctl_val = 0x10000927,
+	.config_ctl_hi_val = 0x00000011,
+	.config_ctl_hi1_val = 0x04300142,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00004000,
+	.test_ctl_hi1_val = 0x00000000,
 };
 
 static struct clk_alpha_pll cam_cc_pll2 = {
@@ -297,7 +315,13 @@ static struct clk_alpha_pll_postdiv cam_cc_pll2_out_main = {
 
 static const struct alpha_pll_config cam_cc_pll3_config = {
 	.l = 0x14,
-	.alpha = 0xd555,
+	.alpha = 0xD555,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
 };
 
 static struct clk_alpha_pll cam_cc_pll3 = {
@@ -339,7 +363,13 @@ static struct clk_alpha_pll_postdiv cam_cc_pll3_out_even = {
 
 static const struct alpha_pll_config cam_cc_pll4_config = {
 	.l = 0x14,
-	.alpha = 0xd555,
+	.alpha = 0xD555,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
 };
 
 static struct clk_alpha_pll cam_cc_pll4 = {

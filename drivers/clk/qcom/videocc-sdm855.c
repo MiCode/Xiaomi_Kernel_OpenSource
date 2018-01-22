@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@ static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
 
 enum {
 	P_BI_TCXO,
+	P_CHIP_SLEEP_CLK,
 	P_CORE_BI_PLL_TEST_SE,
 	P_VIDEO_PLL0_OUT_EVEN,
 	P_VIDEO_PLL0_OUT_MAIN,
@@ -70,7 +71,13 @@ static struct pll_vco trion_vco[] = {
 
 static const struct alpha_pll_config video_pll0_config = {
 	.l = 0x14,
-	.alpha = 0xd555,
+	.alpha = 0xD555,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002267,
+	.config_ctl_hi1_val = 0x00000024,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x000000D0,
 };
 
 static struct clk_alpha_pll video_pll0 = {
