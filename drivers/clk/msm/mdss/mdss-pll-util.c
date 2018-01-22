@@ -17,8 +17,6 @@
 #include <linux/err.h>
 #include <linux/string.h>
 #include <linux/clk/msm-clock-generic.h>
-#include <linux/of_address.h>
-#include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
 #include <linux/memblock.h>
 
@@ -337,85 +335,6 @@ clk_err:
 	return rc;
 }
 
-static void mdss_pll_free_bootmem(u32 mem_addr, u32 size)
-{
-	unsigned long pfn_start, pfn_end, pfn_idx;
-
-	pfn_start = mem_addr >> PAGE_SHIFT;
-	pfn_end = (mem_addr + size) >> PAGE_SHIFT;
-	for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
-		free_reserved_page(pfn_to_page(pfn_idx));
-}
-
-static int mdss_pll_util_parse_dt_dfps(struct platform_device *pdev,
-					struct mdss_pll_resources *pll_res)
-{
-	int rc = 0;
-	struct device_node *pnode;
-	const u32 *addr;
-	struct vm_struct *area;
-	u64 size;
-	u32 offsets[2];
-	unsigned long virt_add;
-
-	pnode = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
-	if (IS_ERR_OR_NULL(pnode)) {
-		rc = PTR_ERR(pnode);
-		goto pnode_err;
-	}
-
-	addr = of_get_address(pnode, 0, &size, NULL);
-	if (!addr) {
-		pr_err("failed to parse the dfps memory address\n");
-		rc = -EINVAL;
-		goto pnode_err;
-	}
-	/* maintain compatibility for 32/64 bit */
-	offsets[0] = (u32) of_read_ulong(addr, 2);
-	offsets[1] = (u32) size;
-
-	area = get_vm_area(offsets[1], VM_IOREMAP);
-	if (!area) {
-		rc = -ENOMEM;
-		goto dfps_mem_err;
-	}
-
-	virt_add = (unsigned long)area->addr;
-	rc = ioremap_page_range(virt_add, (virt_add + offsets[1]),
-			offsets[0], PAGE_KERNEL);
-	if (rc) {
-		rc = -ENOMEM;
-		goto ioremap_err;
-	}
-
-	pll_res->dfps = kzalloc(sizeof(struct dfps_info), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(pll_res->dfps)) {
-		rc = PTR_ERR(pll_res->dfps);
-		pr_err("couldn't allocate dfps kernel memory\n");
-		goto addr_err;
-	}
-
-	/* memcopy complete dfps structure from kernel virtual memory */
-	memcpy_fromio(pll_res->dfps, area->addr, sizeof(struct dfps_info));
-
-addr_err:
-	if (virt_add)
-		unmap_kernel_range(virt_add, (unsigned long) size);
-ioremap_err:
-	if (area)
-		vfree(area->addr);
-dfps_mem_err:
-	/* free the dfps memory here */
-	memblock_free(offsets[0], offsets[1]);
-	mdss_pll_free_bootmem(offsets[0], offsets[1]);
-pnode_err:
-	if (pnode)
-		of_node_put(pnode);
-
-	dma_release_declared_memory(&pdev->dev);
-	return rc;
-}
-
 int mdss_pll_util_resource_parse(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
@@ -433,9 +352,6 @@ int mdss_pll_util_resource_parse(struct platform_device *pdev,
 		pr_err("clock name parsing failed rc=%d", rc);
 		goto clk_err;
 	}
-
-	if (mdss_pll_util_parse_dt_dfps(pdev, pll_res))
-		pr_err("dfps not enabled!\n");
 
 	return rc;
 
