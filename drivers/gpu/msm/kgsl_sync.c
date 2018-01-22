@@ -736,7 +736,8 @@ out:
 			fput(sync_file->file);
 		else if (sfence)
 			dma_fence_put(&sfence->fence);
-		kgsl_syncsource_put(syncsource);
+		else
+			kgsl_syncsource_put(syncsource);
 	}
 
 	return ret;
