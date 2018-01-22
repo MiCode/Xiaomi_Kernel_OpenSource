@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,7 @@
 #define ICP_SHARED_MEM_IN_BYTES                 (1024 * 1024)
 #define ICP_UNCACHED_HEAP_SIZE_IN_BYTES         (2 * 1024 * 1024)
 #define ICP_HFI_MAX_PKT_SIZE_IN_WORDS           25600
+#define ICP_HFI_MAX_PKT_SIZE_MSGQ_IN_WORDS      256
 
 #define ICP_HFI_QTBL_HOSTID1                    0x01000000
 #define ICP_HFI_QTBL_STATUS_ENABLED             0x00000001
