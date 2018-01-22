@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,6 +110,7 @@ out:
 	return ret;
 }
 
+#ifndef CONFIG_MSM_GVM_QUIN
 static int cnss_vreg_on(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -229,6 +230,7 @@ static int cnss_vreg_off(struct cnss_plat_data *plat_priv)
 
 	return ret;
 }
+#endif /* CONFIG_MSM_GVM_QUIN */
 
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
 {
@@ -285,6 +287,7 @@ out:
 	return ret;
 }
 
+#ifndef CONFIG_MSM_GVM_QUIN
 static int cnss_select_pinctrl_state(struct cnss_plat_data *plat_priv,
 				     bool state)
 {
@@ -368,6 +371,7 @@ void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 	cnss_select_pinctrl_state(plat_priv, false);
 	cnss_vreg_off(plat_priv);
 }
+#endif /* CONFIG_MSM_GVM_QUIN */
 
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)
 {
