@@ -6975,7 +6975,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int best_idle_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
-	unsigned long max_capacity_orig = -1;
+	unsigned long spare_cap;
 
 	*backup_cpu = -1;
 
@@ -7021,6 +7021,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 */
 			wake_util = cpu_util_wake(i, p);
 			new_util = wake_util + task_util(p);
+			spare_cap = capacity_orig_of(i) - wake_util;
 
 			switch (placement_boost) {
 			/*
@@ -7028,12 +7029,12 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * CPUs
 			 */
 			case SCHED_BOOST_ON_BIG:
-				if (capacity_orig < max_capacity_orig)
+				if (is_min_capacity_cpu(i))
 					continue;
-				max_capacity_orig = capacity_orig;
-				if (wake_util < min_wake_util) {
+
+				if (spare_cap > target_max_spare_cap) {
 					target_cpu = i;
-					min_wake_util = wake_util;
+					target_max_spare_cap = spare_cap;
 				}
 				continue;
 
