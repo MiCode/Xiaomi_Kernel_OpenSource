@@ -59,6 +59,23 @@ struct drm_bridge_funcs {
 	void (*detach)(struct drm_bridge *bridge);
 
 	/**
+	 * @connector_init:
+	 *
+	 * This callback is used to init the connector from bridge side. In some
+	 * cases connector and bridge are created in different modules, and the
+	 * connector ops might need extra info from bridge. This callback offers
+	 * the opportunity to overwrite connector's behavior in external bridge.
+	 *
+	 * The connector_init callback is optional.
+	 *
+	 * RETURNS:
+	 *
+	 * Zero on success, error code on failure.
+	 */
+	int (*connector_init)(struct drm_bridge *bridge,
+				struct drm_connector *connector);
+
+	/**
 	 * @mode_fixup:
 	 *
 	 * This callback is used to validate and adjust a mode. The paramater
@@ -214,5 +231,7 @@ void drm_bridge_mode_set(struct drm_bridge *bridge,
 			struct drm_display_mode *adjusted_mode);
 void drm_bridge_pre_enable(struct drm_bridge *bridge);
 void drm_bridge_enable(struct drm_bridge *bridge);
+int drm_bridge_connector_init(struct drm_bridge *bridge,
+	struct drm_connector *connector);
 
 #endif
