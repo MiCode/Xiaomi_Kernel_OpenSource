@@ -3268,7 +3268,7 @@ static void smb1351_charger_shutdown(struct i2c_client *client)
 {
 	struct smb1351_charger *chip = i2c_get_clientdata(client);
 
-	if (chip->chg_present)
+	if (!chip->parallel_charger_suspended)
 		smb1351_usb_suspend(chip, USER, true);
 }
 
