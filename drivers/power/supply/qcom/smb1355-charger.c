@@ -488,6 +488,7 @@ static enum power_supply_property smb1355_parallel_props[] = {
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 	POWER_SUPPLY_PROP_PARALLEL_BATFET_MODE,
+	POWER_SUPPLY_PROP_PARALLEL_FCC_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_MIN_ICL,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
@@ -628,6 +629,9 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MIN_ICL:
 		val->intval = MIN_PARALLEL_ICL_UA;
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_FCC_MAX:
+		val->intval = chip->max_fcc;
 		break;
 	default:
 		pr_err_ratelimited("parallel psy get prop %d not supported\n",
