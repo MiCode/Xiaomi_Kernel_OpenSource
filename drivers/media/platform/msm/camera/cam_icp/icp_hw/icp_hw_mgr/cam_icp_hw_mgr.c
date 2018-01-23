@@ -367,10 +367,16 @@ static int cam_icp_timer_start(struct cam_icp_hw_mgr *hw_mgr)
 
 static void cam_icp_timer_stop(struct cam_icp_hw_mgr *hw_mgr)
 {
-	if (!hw_mgr->bps_ctxt_cnt)
+	if (!hw_mgr->bps_ctxt_cnt &&
+		hw_mgr->clk_info[ICP_CLK_HW_BPS].watch_dog) {
 		crm_timer_exit(&hw_mgr->clk_info[ICP_CLK_HW_BPS].watch_dog);
-	else if (!hw_mgr->ipe_ctxt_cnt)
+		hw_mgr->clk_info[ICP_CLK_HW_BPS].watch_dog = NULL;
+	}
+	if (!hw_mgr->ipe_ctxt_cnt &&
+		hw_mgr->clk_info[ICP_CLK_HW_IPE].watch_dog) {
 		crm_timer_exit(&hw_mgr->clk_info[ICP_CLK_HW_IPE].watch_dog);
+		hw_mgr->clk_info[ICP_CLK_HW_IPE].watch_dog = NULL;
+	}
 }
 
 static uint32_t cam_icp_mgr_calc_base_clk(uint32_t frame_cycles,
@@ -2334,10 +2340,10 @@ static int cam_icp_mgr_icp_resume(struct cam_icp_hw_mgr *hw_mgr)
 	if (hw_mgr->fw_download  == false) {
 		CAM_DBG(CAM_ICP, "Downloading FW");
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		cam_icp_mgr_hw_open(hw_mgr, &downloadFromResume);
+		rc = cam_icp_mgr_hw_open(hw_mgr, &downloadFromResume);
 		mutex_lock(&hw_mgr->hw_mgr_mutex);
 		CAM_DBG(CAM_ICP, "FW Download Done Exit");
-		return 0;
+		return rc;
 	}
 
 	rc = a5_dev_intf->hw_ops.init(a5_dev_intf->hw_priv, NULL, 0);
