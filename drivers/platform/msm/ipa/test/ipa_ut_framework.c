@@ -971,6 +971,7 @@ static int ipa_ut_framework_init(void)
 		IS_ERR(ipa_ut_ctx->test_dbgfs_root)) {
 		IPA_UT_ERR("failed to create test debugfs dir\n");
 		ret = -EFAULT;
+		destroy_workqueue(ipa_ut_ctx->wq);
 		goto unlock_mutex;
 	}
 
@@ -980,6 +981,7 @@ static int ipa_ut_framework_init(void)
 	if (!dfile_enable || IS_ERR(dfile_enable)) {
 		IPA_UT_ERR("failed to create enable debugfs file\n");
 		ret = -EFAULT;
+		destroy_workqueue(ipa_ut_ctx->wq);
 		goto fail_clean_dbgfs;
 	}
 
