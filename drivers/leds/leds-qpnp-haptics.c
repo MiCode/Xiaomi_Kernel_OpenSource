@@ -482,7 +482,8 @@ static int qpnp_haptics_auto_res_enable(struct hap_chip *chip, bool enable)
 {
 	int rc = 0;
 	u32 delay_us = HAPTICS_BACK_EMF_DELAY_US;
-	u8 val, auto_res_mode_qwd;
+	u8 val;
+	bool auto_res_mode_qwd;
 
 	if (chip->act_type != HAP_LRA)
 		return 0;
@@ -496,7 +497,7 @@ static int qpnp_haptics_auto_res_enable(struct hap_chip *chip, bool enable)
 
 	/*
 	 * Do not enable auto resonance if auto mode is enabled and auto
-	 * resonance mode is QWD, meaning short pattern.
+	 * resonance mode is QWD, meaning long pattern.
 	 */
 	if (chip->lra_auto_mode && auto_res_mode_qwd && enable) {
 		pr_debug("auto_mode enabled, not enabling auto_res\n");
@@ -1232,7 +1233,7 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 			ares_cfg.lra_qwd_drive_duration = 0;
 			ares_cfg.calibrate_at_eop = 0;
 		} else {
-			ares_cfg.auto_res_mode = HAP_AUTO_RES_QWD;
+			ares_cfg.auto_res_mode = HAP_AUTO_RES_ZXD_EOP;
 			ares_cfg.lra_qwd_drive_duration = -EINVAL;
 			ares_cfg.calibrate_at_eop = -EINVAL;
 		}
@@ -1242,16 +1243,13 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 		if (rc < 0)
 			return rc;
 
-		rc = qpnp_haptics_brake_config(chip, brake_pat);
-		if (rc < 0)
-			return rc;
-
 		/* enable play_irq for buffer mode */
 		if (chip->play_irq >= 0 && !chip->play_irq_en) {
 			enable_irq(chip->play_irq);
 			chip->play_irq_en = true;
 		}
 
+		brake_pat[0] = BRAKE_VMAX;
 		chip->play_mode = HAP_BUFFER;
 		chip->wave_shape = HAP_WAVE_SQUARE;
 	} else {
@@ -1264,7 +1262,7 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 			ares_cfg.lra_qwd_drive_duration = 0;
 			ares_cfg.calibrate_at_eop = 1;
 		} else {
-			ares_cfg.auto_res_mode = HAP_AUTO_RES_ZXD_EOP;
+			ares_cfg.auto_res_mode = HAP_AUTO_RES_QWD;
 			ares_cfg.lra_res_cal_period = HAP_RES_CAL_PERIOD_MAX;
 			ares_cfg.lra_qwd_drive_duration = -EINVAL;
 			ares_cfg.calibrate_at_eop = -EINVAL;
@@ -1272,11 +1270,6 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 
 		vmax_mv = chip->vmax_mv;
 		rc = qpnp_haptics_vmax_config(chip, vmax_mv, false);
-		if (rc < 0)
-			return rc;
-
-		brake_pat[0] = 0x3;
-		rc = qpnp_haptics_brake_config(chip, brake_pat);
 		if (rc < 0)
 			return rc;
 
@@ -1302,6 +1295,10 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 		chip->play_mode = old_play_mode;
 		return rc;
 	}
+
+	rc = qpnp_haptics_brake_config(chip, brake_pat);
+	if (rc < 0)
+		return rc;
 
 	rc = qpnp_haptics_masked_write_reg(chip, HAP_CFG2_REG(chip),
 			HAP_LRA_RES_TYPE_MASK, chip->wave_shape);
