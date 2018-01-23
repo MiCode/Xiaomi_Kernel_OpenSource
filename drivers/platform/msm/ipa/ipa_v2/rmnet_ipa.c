@@ -2685,7 +2685,7 @@ int rmnet_ipa_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 		kfree(req);
 		kfree(resp);
 		return rc;
-	} else if (reset) {
+	} else if (data == NULL) {
 		kfree(req);
 		kfree(resp);
 		return 0;

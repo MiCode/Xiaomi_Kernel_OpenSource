@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -612,7 +612,7 @@
 			<0x9181000 0x1000>;
 		qcom,max-hw-load = <244800>; /* 1080p@30 */
 		qcom,firmware-name = "venus";
-		qcom,allowed-clock-rates = <133330000 266670000 307200000>;
+		qcom,allowed-clock-rates = <307200000 266670000 133330000>;
 		qcom,clock-freq-tbl {
 			qcom,profile-enc {
 				qcom,codec-mask = <0x55555555>;
@@ -779,6 +779,7 @@
 		qcom,rx-ring-size = <32>;
 		qcom,max-rx-mtu = <4096>;
 		qcom,fast-shutdown;
+		qcom,no-cpu-affinity;
 	};
 
 	qcom,smdtty {

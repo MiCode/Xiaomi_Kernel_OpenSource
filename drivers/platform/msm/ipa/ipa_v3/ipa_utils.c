@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -775,11 +775,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_5_MHI][IPA_CLIENT_HSIC4_PROD]          = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_USB4_PROD]           = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_HSIC5_PROD]          = IPA_CLIENT_NOT_USED,
-	[IPA_3_5_MHI][IPA_CLIENT_USB_PROD]            = {
-			0, IPA_v3_5_MHI_GROUP_DDR, true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
-			QMB_MASTER_SELECT_DDR,
-			{ 0, 7, 8, 16, IPA_EE_AP } },
+	[IPA_3_5_MHI][IPA_CLIENT_USB_PROD]            = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_UC_USB_PROD]         = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_A5_WLAN_AMPDU_PROD]  = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_A2_EMBEDDED_PROD]    = IPA_CLIENT_NOT_USED,
@@ -872,16 +868,8 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_5_MHI][IPA_CLIENT_USB4_CONS]           = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_WLAN4_CONS]          = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_HSIC5_CONS]          = IPA_CLIENT_NOT_USED,
-	[IPA_3_5_MHI][IPA_CLIENT_USB_CONS]            = {
-			17, IPA_v3_5_MHI_GROUP_DDR, false,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 17, 11, 8, 8, IPA_EE_AP } },
-	[IPA_3_5_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
-			14, IPA_v3_5_MHI_GROUP_DDR, false,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 14, 10, 4, 6, IPA_EE_AP } },
+	[IPA_3_5_MHI][IPA_CLIENT_USB_CONS]            = IPA_CLIENT_NOT_USED,
+	[IPA_3_5_MHI][IPA_CLIENT_USB_DPL_CONS]        = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_A2_EMBEDDED_CONS]    = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_A2_TETHERED_CONS]    = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_MHI][IPA_CLIENT_A5_LAN_WAN_CONS]     = IPA_CLIENT_NOT_USED,
@@ -1257,10 +1245,12 @@ int ipa3_get_clients_from_rm_resource(
 
 	switch (resource) {
 	case IPA_RM_RESOURCE_USB_CONS:
-		clients->names[i++] = IPA_CLIENT_USB_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_USB_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_USB_CONS;
 		break;
 	case IPA_RM_RESOURCE_USB_DPL_CONS:
-		clients->names[i++] = IPA_CLIENT_USB_DPL_CONS;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_USB_DPL_CONS) != -1)
+			clients->names[i++] = IPA_CLIENT_USB_DPL_CONS;
 		break;
 	case IPA_RM_RESOURCE_HSIC_CONS:
 		if (ipa3_get_ep_mapping(IPA_CLIENT_HSIC1_CONS) != -1)
@@ -1287,7 +1277,8 @@ int ipa3_get_clients_from_rm_resource(
 			clients->names[i++] = IPA_CLIENT_ETHERNET_CONS;
 		break;
 	case IPA_RM_RESOURCE_USB_PROD:
-		clients->names[i++] = IPA_CLIENT_USB_PROD;
+		if (ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD) != -1)
+			clients->names[i++] = IPA_CLIENT_USB_PROD;
 		break;
 	case IPA_RM_RESOURCE_HSIC_PROD:
 		if (ipa3_get_ep_mapping(IPA_CLIENT_HSIC1_PROD) != -1)
