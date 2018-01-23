@@ -38,9 +38,6 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
-#define GCC_APCS_CLOCK_SLEEP_ENA_VOTE_OFFSET	0x52008
-#define CPUSS_AHB_CLK_SLEEP_ENA			BIT(21)
-#define SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA		BIT(0)
 #define GCC_NPU_MISC				0x4d110
 #define GCC_GPU_MISC				0x71028
 
@@ -4460,15 +4457,7 @@ static int gcc_sdm855_probe(struct platform_device *pdev)
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	/*
-	 * Set the *_SLEEP_ENA bits to allow certain cpuss* clocks to be
-	 * turned off by hardware during certain apps low power modes.
-	 */
-	regmap_update_bits(regmap, GCC_APCS_CLOCK_SLEEP_ENA_VOTE_OFFSET,
-		CPUSS_AHB_CLK_SLEEP_ENA | SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA,
-		CPUSS_AHB_CLK_SLEEP_ENA | SYS_NOC_CPUSS_AHB_CLK_SLEEP_ENA);
-
-	/* Disable the GPLL0 active input to MMSS and GPU via MISC registers */
+	/* Disable the GPLL0 active input to NPU and GPU via MISC registers */
 	regmap_update_bits(regmap, GCC_NPU_MISC, 0x3, 0x3);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
 
