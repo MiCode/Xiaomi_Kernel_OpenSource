@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,14 +62,13 @@ extern bool msm_vidc_thermal_mitigation_disabled;
 extern bool msm_vidc_clock_scaling;
 extern bool msm_vidc_syscache_disable;
 
-#define VIDC_MSG_PRIO2STRING(__level)
-
 #define dprintk(__level, __fmt, arg...)	\
 	do { \
 		if (msm_vidc_debug & __level) { \
 			if (msm_vidc_debug_out == VIDC_OUT_PRINTK) { \
 				pr_info(VIDC_DBG_TAG __fmt, \
-						## arg); \
+					get_debug_level_str(__level),	\
+					## arg); \
 			} \
 		} \
 	} while (0)
@@ -89,6 +88,28 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst);
 void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 		enum msm_vidc_debugfs_event e);
+
+static inline char *get_debug_level_str(int level)
+{
+	switch (level) {
+	case VIDC_ERR:
+		return "err";
+	case VIDC_WARN:
+		return "warn";
+	case VIDC_INFO:
+		return "info";
+	case VIDC_DBG:
+		return "dbg";
+	case VIDC_PROF:
+		return "prof";
+	case VIDC_PKT:
+		return "pkt";
+	case VIDC_FW:
+		return "fw";
+	default:
+		return "???";
+	}
+}
 
 static inline void tic(struct msm_vidc_inst *i, enum profiling_points p,
 				 char *b)
