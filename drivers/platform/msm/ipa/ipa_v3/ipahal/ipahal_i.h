@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,16 @@
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
 			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
+
+#define IPAHAL_ERR_RL(fmt, args...) \
+		do { \
+			pr_err_ratelimited_ipa(IPAHAL_DRV_NAME " %s:%d " fmt, \
+			__func__, __LINE__, ## args); \
+			IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+				IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+				IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
+		} while (0)
 
 #define IPAHAL_MEM_ALLOC(__size, __is_atomic_ctx) \
 	(kzalloc((__size), ((__is_atomic_ctx) ? GFP_ATOMIC : GFP_KERNEL)))
@@ -125,10 +135,10 @@ struct ipa_imm_cmd_hw_ip_v6_filter_init {
  * struct ipa_imm_cmd_hw_ip_v4_nat_init - IP_V4_NAT_INIT command payload
  *  in H/W format.
  * Inits IPv4 NAT block. Initiate NAT table with it dimensions, location
- *  cache address abd itger related parameters.
+ *  cache address and other related parameters.
  * @ipv4_rules_addr: Addr in sys/shared mem where ipv4 NAT rules start
- * @ipv4_expansion_rules_addr: Addr in sys/shared mem where expantion NAT
- *  table starts. IPv4 NAT rules that result in NAT collision are located
+ * @ipv4_expansion_rules_addr: Addr in sys/shared mem where expansion NAT
+ *  table starts. IPv4 NAT rules that result in hash collision are located
  *  in this table.
  * @index_table_addr: Addr in sys/shared mem where index table, which points
  *  to NAT table starts
@@ -143,11 +153,12 @@ struct ipa_imm_cmd_hw_ip_v6_filter_init {
  * @index_table_expansion_addr_type: index_table_expansion_addr in
  *  sys or shared mem
  * @size_base_tables: Num of entries in NAT tbl and idx tbl (each)
- * @size_expansion_tables: Num of entries in NAT expantion tbl and expantion
+ * @size_expansion_tables: Num of entries in NAT expansion tbl and expansion
  *  idx tbl (each)
  * @rsvd2: reserved
- * @public_ip_addr: public IP address. for IPAv4 this is the PDN config table
- *  offset in SMEM
+ * @public_addr_info: Public IP addresses info suitable to the IPA H/W version
+ *                    IPA H/W >= 4.0 - PDN config table offset in SMEM
+ *                    IPA H/W < 4.0  - The public IP address
  */
 struct ipa_imm_cmd_hw_ip_v4_nat_init {
 	u64 ipv4_rules_addr:64;
@@ -163,7 +174,38 @@ struct ipa_imm_cmd_hw_ip_v4_nat_init {
 	u64 size_base_tables:12;
 	u64 size_expansion_tables:10;
 	u64 rsvd2:2;
-	u64 public_ip_addr:32;
+	u64 public_addr_info:32;
+};
+
+/*
+ * struct ipa_imm_cmd_hw_ip_v6_ct_init - IP_V6_CONN_TRACK_INIT command payload
+ *  in H/W format.
+ * Inits IPv6CT block. Initiate IPv6CT table with it dimensions, location
+ *  cache address and other related parameters.
+ * @table_addr: Address in sys/shared mem where IPv6CT rules start
+ * @expansion_table_addr: Address in sys/shared mem where IPv6CT expansion
+ *  table starts. IPv6CT rules that result in hash collision are located
+ *  in this table.
+ * @table_index: For future support of multiple IPv6CT tables
+ * @rsvd1: reserved
+ * @table_addr_type: table_addr in sys or shared mem
+ * @expansion_table_addr_type: expansion_table_addr in sys or shared mem
+ * @rsvd2: reserved
+ * @size_base_tables: Number of entries in IPv6CT table
+ * @size_expansion_tables: Number of entries in IPv6CT expansion table
+ * @rsvd3: reserved
+ */
+struct ipa_imm_cmd_hw_ip_v6_ct_init {
+	u64 table_addr:64;
+	u64 expansion_table_addr:64;
+	u64 table_index:3;
+	u64 rsvd1:1;
+	u64 table_addr_type:1;
+	u64 expansion_table_addr_type:1;
+	u64 rsvd2:2;
+	u64 size_base_table:12;
+	u64 size_expansion_table:10;
+	u64 rsvd3:34;
 };
 
 /*

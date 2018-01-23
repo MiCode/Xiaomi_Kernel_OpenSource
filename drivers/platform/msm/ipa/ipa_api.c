@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1059,7 +1059,7 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 EXPORT_SYMBOL(ipa_reset_flt);
 
 /**
- * allocate_nat_device() - Allocates memory for the NAT device
+ * ipa_allocate_nat_device() - Allocates memory for the NAT device
  * @mem:	[in/out] memory parameters
  *
  * Called by NAT client driver to allocate memory for the NAT entries. Based on
@@ -1067,15 +1067,55 @@ EXPORT_SYMBOL(ipa_reset_flt);
  *
  * Returns:	0 on success, negative on failure
  */
-int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
+int ipa_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(allocate_nat_device, mem);
+	IPA_API_DISPATCH_RETURN(ipa_allocate_nat_device, mem);
 
 	return ret;
 }
-EXPORT_SYMBOL(allocate_nat_device);
+EXPORT_SYMBOL(ipa_allocate_nat_device);
+
+/**
+ * ipa_allocate_nat_table() - Allocates memory for the NAT table
+ * @table_alloc: [in/out] memory parameters
+ *
+ * Called by NAT client to allocate memory for the table entries.
+ * Based on the request size either shared or system memory will be used.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_allocate_nat_table(struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_allocate_nat_table, table_alloc);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_allocate_nat_table);
+
+
+/**
+ * ipa_allocate_ipv6ct_table() - Allocates memory for the IPv6CT table
+ * @table_alloc: [in/out] memory parameters
+ *
+ * Called by IPv6CT client to allocate memory for the table entries.
+ * Based on the request size either shared or system memory will be used.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_allocate_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_allocate_ipv6ct_table, table_alloc);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_allocate_ipv6ct_table);
 
 /**
  * ipa_nat_init_cmd() - Post IP_V4_NAT_INIT command to IPA HW
@@ -1096,6 +1136,25 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 EXPORT_SYMBOL(ipa_nat_init_cmd);
 
 /**
+ * ipa_ipv6ct_init_cmd() - Post IP_V6_CONN_TRACK_INIT command to IPA HW
+ * @init:	[in] initialization command attributes
+ *
+ * Called by IPv6CT client driver to post IP_V6_CONN_TRACK_INIT command
+ * to IPA HW.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_ipv6ct_init_cmd, init);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_ipv6ct_init_cmd);
+
+/**
  * ipa_nat_dma_cmd() - Post NAT_DMA command to IPA HW
  * @dma:	[in] initialization command attributes
  *
@@ -1114,8 +1173,26 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 EXPORT_SYMBOL(ipa_nat_dma_cmd);
 
 /**
- * ipa_nat_del_cmd() - Delete a NAT table
- * @del:	[in] delete table table table parameters
+ * ipa_table_dma_cmd() - Post TABLE_DMA command to IPA HW
+ * @dma:	[in] initialization command attributes
+ *
+ * Called by NAT/IPv6CT client to post TABLE_DMA command to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_table_dma_cmd, dma);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_table_dma_cmd);
+
+/**
+ * ipa_nat_del_cmd() - Delete the NAT table
+ * @del:	[in] delete NAT table parameters
  *
  * Called by NAT client driver to delete the nat table
  *
@@ -1130,6 +1207,60 @@ int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_nat_del_cmd);
+
+/**
+ * ipa_del_nat_table() - Delete the NAT table
+ * @del:	[in] delete table parameters
+ *
+ * Called by NAT client to delete the table
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_del_nat_table, del);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_del_nat_table);
+
+/**
+ * ipa_del_ipv6ct_table() - Delete the IPv6CT table
+ * @del:	[in] delete table parameters
+ *
+ * Called by IPv6CT client to delete the table
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_del_ipv6ct_table, del);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_del_ipv6ct_table);
+
+/**
+ * ipa3_nat_mdfy_pdn() - Modify a PDN entry in PDN config table in IPA SRAM
+ * @mdfy_pdn:	[in] PDN info to be written to SRAM
+ *
+ * Called by NAT client driver to modify an entry in the PDN config table
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_nat_mdfy_pdn, mdfy_pdn);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_nat_mdfy_pdn);
 
 /**
  * ipa_send_msg() - Send "message" from kernel client to IPA driver
@@ -2561,6 +2692,26 @@ int ipa_start_gsi_channel(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_start_gsi_channel);
 
 /**
+* ipa_is_vlan_mode - check if a LAN driver should load in VLAN mode
+* @iface - type of vlan capable device
+* @res - query result: true for vlan mode, false for non vlan mode
+*
+* API must be called after ipa_is_ready() returns true, otherwise it will fail
+*
+* Returns: 0 on success, negative on failure
+*/
+int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_is_vlan_mode, iface, res);
+
+	return ret;
+
+}
+EXPORT_SYMBOL(ipa_is_vlan_mode);
+
+/**
  * ipa_get_version_string() - Get string representation of IPA version
  * @ver: IPA version
  *
@@ -2964,6 +3115,80 @@ void ipa_ntn_uc_dereg_rdyCB(void)
 }
 EXPORT_SYMBOL(ipa_ntn_uc_dereg_rdyCB);
 
+int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_get_smmu_params, in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_smmu_params);
+
+/**
+ * ipa_conn_wdi3_pipes() - connect wdi3 pipes
+ */
+int ipa_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
+	struct ipa_wdi3_conn_out_params *out)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_conn_wdi3_pipes, in, out);
+
+	return ret;
+}
+
+/**
+ * ipa_disconn_wdi3_pipes() - disconnect wdi3 pipes
+ */
+int ipa_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disconn_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
+
+/**
+ * ipa_enable_wdi3_pipes() - enable wdi3 pipes
+ */
+int ipa_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_enable_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
+
+/**
+ * ipa_disable_wdi3_pipes() - disable wdi3 pipes
+ */
+int ipa_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disable_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
+
+/**
+ * ipa_tz_unlock_reg() - Allow AP access to memory regions controlled by TZ
+ */
+int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_tz_unlock_reg, reg_info, num_regs);
+
+	return ret;
+}
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

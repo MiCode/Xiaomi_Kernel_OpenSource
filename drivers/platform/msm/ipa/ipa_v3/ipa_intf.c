@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,10 +217,11 @@ int ipa3_query_intf(struct ipa_ioc_query_intf *lookup)
 	int result = -EINVAL;
 
 	if (lookup == NULL) {
-		IPAERR("invalid param lookup=%pK\n", lookup);
+		IPAERR_RL("invalid param lookup=%pK\n", lookup);
 		return result;
 	}
 
+	lookup->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	if (strnlen(lookup->name, IPA_RESOURCE_NAME_MAX) ==
 			IPA_RESOURCE_NAME_MAX) {
 		IPAERR_RL("Interface name too long. (%s)\n", lookup->name);
@@ -263,6 +264,7 @@ int ipa3_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
 		return result;
 	}
 
+	tx->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	if (strnlen(tx->name, IPA_RESOURCE_NAME_MAX) == IPA_RESOURCE_NAME_MAX) {
 		IPAERR_RL("Interface name too long. (%s)\n", tx->name);
 		return result;
@@ -310,6 +312,7 @@ int ipa3_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
 		return result;
 	}
 
+	rx->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	if (strnlen(rx->name, IPA_RESOURCE_NAME_MAX) == IPA_RESOURCE_NAME_MAX) {
 		IPAERR_RL("Interface name too long. (%s)\n", rx->name);
 		return result;

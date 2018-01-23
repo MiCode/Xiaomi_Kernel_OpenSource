@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,12 +66,33 @@ static int ipa3_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 {
 	struct ipa3_hdr_proc_ctx_entry *entry;
 	int ret;
+	int ep;
+	struct ipa_ep_cfg *cfg_ptr;
+	struct ipa_l2tp_header_remove_procparams *l2p_hdr_rm_ptr;
 
 	list_for_each_entry(entry,
 			&ipa3_ctx->hdr_proc_ctx_tbl.head_proc_ctx_entry_list,
 			link) {
 		IPADBG_LOW("processing type %d ofst=%d\n",
 			entry->type, entry->offset_entry->offset);
+
+		if (entry->l2tp_params.is_dst_pipe_valid) {
+			ep = ipa3_get_ep_mapping(entry->l2tp_params.dst_pipe);
+
+			if (ep >= 0) {
+				cfg_ptr = &ipa3_ctx->ep[ep].cfg;
+				l2p_hdr_rm_ptr =
+					&entry->l2tp_params.hdr_remove_param;
+				l2p_hdr_rm_ptr->hdr_ofst_pkt_size_valid =
+					cfg_ptr->hdr.hdr_ofst_pkt_size_valid;
+				l2p_hdr_rm_ptr->hdr_ofst_pkt_size =
+					cfg_ptr->hdr.hdr_ofst_pkt_size;
+				l2p_hdr_rm_ptr->hdr_endianness =
+					cfg_ptr->hdr_ext.hdr_little_endian ?
+					0 : 1;
+			}
+		}
+
 		ret = ipahal_cp_proc_ctx_to_hw_buff(entry->type, mem->base,
 				entry->offset_entry->offset,
 				entry->hdr->hdr_len,
@@ -182,9 +203,6 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct dma_shared_mem cmd\n");
 				goto end;
 			}
-			desc[0].opcode = hdr_cmd_pyld->opcode;
-			desc[0].pyld = hdr_cmd_pyld->data;
-			desc[0].len = hdr_cmd_pyld->len;
 		}
 	} else {
 		if (hdr_mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
@@ -200,12 +218,9 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct hdr_init_system cmd\n");
 				goto end;
 			}
-			desc[0].opcode = hdr_cmd_pyld->opcode;
-			desc[0].pyld = hdr_cmd_pyld->data;
-			desc[0].len = hdr_cmd_pyld->len;
 		}
 	}
-	desc[0].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[0], hdr_cmd_pyld);
 	IPA_DUMP_BUFF(hdr_mem.base, hdr_mem.phys_base, hdr_mem.size);
 
 	proc_ctx_size = IPA_MEM_PART(apps_hdr_proc_ctx_size);
@@ -232,9 +247,6 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct dma_shared_mem cmd\n");
 				goto end;
 			}
-			desc[1].opcode = ctx_cmd_pyld->opcode;
-			desc[1].pyld = ctx_cmd_pyld->data;
-			desc[1].len = ctx_cmd_pyld->len;
 		}
 	} else {
 		proc_ctx_size_ddr = IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr);
@@ -260,12 +272,9 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct register_write cmd\n");
 				goto end;
 			}
-			desc[1].opcode = ctx_cmd_pyld->opcode;
-			desc[1].pyld = ctx_cmd_pyld->data;
-			desc[1].len = ctx_cmd_pyld->len;
 		}
 	}
-	desc[1].type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[1], ctx_cmd_pyld);
 	IPA_DUMP_BUFF(ctx_mem.base, ctx_mem.phys_base, ctx_mem.size);
 
 	if (ipa3_send_cmd(2, desc))
@@ -338,7 +347,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	}
 	if (hdr_entry->cookie != IPA_HDR_COOKIE) {
 		IPAERR_RL("Invalid header cookie %u\n", hdr_entry->cookie);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		return -EINVAL;
 	}
 	IPADBG("Associated header is name=%s is_hdr_proc_ctx=%d\n",
@@ -368,7 +377,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 		bin = IPA_HDR_PROC_CTX_BIN1;
 	} else {
 		IPAERR_RL("unexpected needed len %d\n", needed_len);
-		WARN_ON(1);
+		WARN_ON_RATELIMIT_IPA(1);
 		goto bad_len;
 	}
 
@@ -413,8 +422,8 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 
 	id = ipa3_id_alloc(entry);
 	if (id < 0) {
-		IPAERR("failed to alloc id\n");
-		WARN_ON(1);
+		IPAERR_RL("failed to alloc id\n");
+		WARN_ON_RATELIMIT_IPA(1);
 		goto ipa_insert_failed;
 	}
 	entry->id = id;
@@ -548,8 +557,8 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 
 	id = ipa3_id_alloc(entry);
 	if (id < 0) {
-		IPAERR("failed to alloc id\n");
-		WARN_ON(1);
+		IPAERR_RL("failed to alloc id\n");
+		WARN_ON_RATELIMIT_IPA(1);
 		goto ipa_insert_failed;
 	}
 	entry->id = id;
@@ -674,8 +683,17 @@ int __ipa3_del_hdr(u32 hdr_hdl, bool by_user)
 		return -EINVAL;
 	}
 
-	if (by_user)
+	if (by_user) {
+		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME)) {
+			IPADBG("Trying to delete hdr %s offset=%u\n",
+				entry->name, entry->offset_entry->offset);
+			if (!entry->offset_entry->offset) {
+				IPAERR("User cannot delete default header\n");
+				return -EPERM;
+			}
+		}
 		entry->user_deleted = true;
+	}
 
 	if (--entry->ref_cnt) {
 		IPADBG("hdr_hdl %x ref_cnt %d\n", hdr_hdl, entry->ref_cnt);
@@ -974,18 +992,23 @@ int ipa3_reset_hdr(void)
 
 		/* do not remove the default header */
 		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME)) {
-			if (entry->is_hdr_proc_ctx) {
-				IPAERR("default header is proc ctx\n");
-				mutex_unlock(&ipa3_ctx->lock);
-				WARN_ON(1);
-				return -EFAULT;
+			IPADBG("Trying to remove hdr %s offset=%u\n",
+				entry->name, entry->offset_entry->offset);
+			if (!entry->offset_entry->offset) {
+				if (entry->is_hdr_proc_ctx) {
+					IPAERR("default header is proc ctx\n");
+					mutex_unlock(&ipa3_ctx->lock);
+					WARN_ON_RATELIMIT_IPA(1);
+					return -EFAULT;
+				}
+				IPADBG("skip default header\n");
+				continue;
 			}
-			continue;
 		}
 
 		if (ipa3_id_find(entry->id) == NULL) {
 			mutex_unlock(&ipa3_ctx->lock);
-			WARN_ON(1);
+			WARN_ON_RATELIMIT_IPA(1);
 			return -EFAULT;
 		}
 		if (entry->is_hdr_proc_ctx) {
@@ -1039,7 +1062,7 @@ int ipa3_reset_hdr(void)
 
 		if (ipa3_id_find(ctx_entry->id) == NULL) {
 			mutex_unlock(&ipa3_ctx->lock);
-			WARN_ON(1);
+			WARN_ON_RATELIMIT_IPA(1);
 			return -EFAULT;
 		}
 		list_del(&ctx_entry->link);
@@ -1114,6 +1137,7 @@ int ipa3_get_hdr(struct ipa_ioc_get_hdr *lookup)
 		return -EINVAL;
 	}
 	mutex_lock(&ipa3_ctx->lock);
+	lookup->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	entry = __ipa_find_hdr(lookup->name);
 	if (entry) {
 		lookup->hdl = entry->id;
@@ -1236,6 +1260,7 @@ int ipa3_copy_hdr(struct ipa_ioc_copy_hdr *copy)
 		return -EINVAL;
 	}
 	mutex_lock(&ipa3_ctx->lock);
+	copy->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	entry = __ipa_find_hdr(copy->name);
 	if (entry) {
 		memcpy(copy->hdr, entry->hdr, entry->hdr_len);

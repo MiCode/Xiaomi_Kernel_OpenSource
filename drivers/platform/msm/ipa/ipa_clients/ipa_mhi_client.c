@@ -19,6 +19,7 @@
 #include <linux/ipa_qmi_service_v01.h>
 #include <linux/ipa_mhi.h>
 #include "../ipa_common_i.h"
+#include "../ipa_v3/ipa_pm.h"
 
 #define IPA_MHI_DRV_NAME "ipa_mhi_client"
 #define IPA_MHI_DBG(fmt, args...) \
@@ -39,11 +40,6 @@
 
 #define IPA_MHI_MAX_UL_CHANNELS 1
 #define IPA_MHI_MAX_DL_CHANNELS 1
-
-#if (IPA_MHI_MAX_UL_CHANNELS + IPA_MHI_MAX_DL_CHANNELS) > \
-	(IPA_MHI_GSI_ER_END - IPA_MHI_GSI_ER_START)
-#error not enought event rings for MHI
-#endif
 
 /* bit #40 in address should be asserted for MHI transfers over pcie */
 #define IPA_MHI_CLIENT_HOST_ADDR_COND(addr) \
@@ -136,6 +132,8 @@ struct ipa_mhi_client_ctx {
 	u32 use_ipadma;
 	bool assert_bit40;
 	bool test_mode;
+	u32 pm_hdl;
+	u32 modem_pm_hdl;
 };
 
 static struct ipa_mhi_client_ctx *ipa_mhi_client_ctx;
@@ -182,6 +180,12 @@ static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
 			return -ENOMEM;
 		}
 
+		res = ipa_dma_enable();
+		if (res) {
+			IPA_MHI_ERR("failed to enable IPA DMA rc=%d\n", res);
+			goto fail_dma_enable;
+		}
+
 		if (dir == IPA_MHI_DMA_FROM_HOST) {
 			res = ipa_dma_sync_memcpy(mem.phys_base, host_addr,
 				size);
@@ -203,8 +207,7 @@ static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
 				goto fail_memcopy;
 			}
 		}
-		dma_free_coherent(pdev, mem.size, mem.base,
-			mem.phys_base);
+		goto dma_succeed;
 	} else {
 		void *host_ptr;
 
@@ -227,9 +230,14 @@ static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 
+dma_succeed:
+	IPA_MHI_FUNC_EXIT();
+	res = 0;
 fail_memcopy:
-	dma_free_coherent(ipa_get_dma_dev(), mem.size, mem.base,
-			mem.phys_base);
+	if (ipa_dma_disable())
+		IPA_MHI_ERR("failed to disable IPA DMA\n");
+fail_dma_enable:
+	dma_free_coherent(pdev, mem.size, mem.base, mem.phys_base);
 	return res;
 }
 
@@ -833,25 +841,38 @@ int ipa_mhi_start(struct ipa_mhi_start_params *params)
 	IPA_MHI_DBG("event_context_array_addr 0x%llx\n",
 		ipa_mhi_client_ctx->event_context_array_addr);
 
-	/* Add MHI <-> Q6 dependencies to IPA RM */
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_MHI_PROD,
-		IPA_RM_RESOURCE_Q6_CONS);
-	if (res && res != -EINPROGRESS) {
-		IPA_MHI_ERR("failed to add dependency %d\n", res);
-		goto fail_add_mhi_q6_dep;
-	}
+	if (ipa_pm_is_used()) {
+		res = ipa_pm_activate_sync(ipa_mhi_client_ctx->pm_hdl);
+		if (res) {
+			IPA_MHI_ERR("failed activate client %d\n", res);
+			goto fail_pm_activate;
+		}
+		res = ipa_pm_activate_sync(ipa_mhi_client_ctx->modem_pm_hdl);
+		if (res) {
+			IPA_MHI_ERR("failed activate modem client %d\n", res);
+			goto fail_pm_activate_modem;
+		}
+	} else {
+		/* Add MHI <-> Q6 dependencies to IPA RM */
+		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_MHI_PROD,
+			IPA_RM_RESOURCE_Q6_CONS);
+		if (res && res != -EINPROGRESS) {
+			IPA_MHI_ERR("failed to add dependency %d\n", res);
+			goto fail_add_mhi_q6_dep;
+		}
 
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
-		IPA_RM_RESOURCE_MHI_CONS);
-	if (res && res != -EINPROGRESS) {
-		IPA_MHI_ERR("failed to add dependency %d\n", res);
-		goto fail_add_q6_mhi_dep;
-	}
+		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
+			IPA_RM_RESOURCE_MHI_CONS);
+		if (res && res != -EINPROGRESS) {
+			IPA_MHI_ERR("failed to add dependency %d\n", res);
+			goto fail_add_q6_mhi_dep;
+		}
 
-	res = ipa_mhi_request_prod();
-	if (res) {
-		IPA_MHI_ERR("failed request prod %d\n", res);
-		goto fail_request_prod;
+		res = ipa_mhi_request_prod();
+		if (res) {
+			IPA_MHI_ERR("failed request prod %d\n", res);
+			goto fail_request_prod;
+		}
 	}
 
 	/* gsi params */
@@ -879,14 +900,23 @@ int ipa_mhi_start(struct ipa_mhi_start_params *params)
 	return 0;
 
 fail_init_engine:
-	ipa_mhi_release_prod();
+	if (!ipa_pm_is_used())
+		ipa_mhi_release_prod();
 fail_request_prod:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-		IPA_RM_RESOURCE_MHI_CONS);
+	if (!ipa_pm_is_used())
+		ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+			IPA_RM_RESOURCE_MHI_CONS);
 fail_add_q6_mhi_dep:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
-		IPA_RM_RESOURCE_Q6_CONS);
+	if (!ipa_pm_is_used())
+		ipa_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
+			IPA_RM_RESOURCE_Q6_CONS);
 fail_add_mhi_q6_dep:
+	if (ipa_pm_is_used())
+		ipa_pm_deactivate_sync(ipa_mhi_client_ctx->modem_pm_hdl);
+fail_pm_activate_modem:
+	if (ipa_pm_is_used())
+		ipa_pm_deactivate_sync(ipa_mhi_client_ctx->pm_hdl);
+fail_pm_activate:
 	ipa_mhi_set_state(IPA_MHI_STATE_INITIALIZED);
 	return res;
 }
@@ -1538,8 +1568,7 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 		internal.start.gsi.mhi = &channel->ch_scratch.mhi;
 		internal.start.gsi.cached_gsi_evt_ring_hdl =
 				&channel->cached_gsi_evt_ring_hdl;
-		internal.start.gsi.evchid =
-				channel->index + IPA_MHI_GSI_ER_START;
+		internal.start.gsi.evchid = channel->index;
 
 		res = ipa_connect_mhi_pipe(&internal, clnt_hdl);
 		if (res) {
@@ -2094,20 +2123,32 @@ int ipa_mhi_suspend(bool force)
 	 */
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	IPA_MHI_DBG("release prod\n");
-	res = ipa_mhi_release_prod();
-	if (res) {
-		IPA_MHI_ERR("ipa_mhi_release_prod failed %d\n", res);
-		goto fail_release_prod;
-	}
+	if (ipa_pm_is_used()) {
+		res = ipa_pm_deactivate_sync(ipa_mhi_client_ctx->pm_hdl);
+		if (res) {
+			IPA_MHI_ERR("fail to deactivate client %d\n", res);
+			goto fail_deactivate_pm;
+		}
+		res = ipa_pm_deactivate_sync(ipa_mhi_client_ctx->modem_pm_hdl);
+		if (res) {
+			IPA_MHI_ERR("fail to deactivate client %d\n", res);
+			goto fail_deactivate_modem_pm;
+		}
+	} else {
+		IPA_MHI_DBG("release prod\n");
+		res = ipa_mhi_release_prod();
+		if (res) {
+			IPA_MHI_ERR("ipa_mhi_release_prod failed %d\n", res);
+			goto fail_release_prod;
+		}
 
-	IPA_MHI_DBG("wait for cons release\n");
-	res = ipa_mhi_wait_for_cons_release();
-	if (res) {
-		IPA_MHI_ERR("ipa_mhi_wait_for_cons_release failed %d\n", res);
-		goto fail_release_cons;
+		IPA_MHI_DBG("wait for cons release\n");
+		res = ipa_mhi_wait_for_cons_release();
+		if (res) {
+			IPA_MHI_ERR("ipa_mhi_wait_for_cons_release failed\n");
+			goto fail_release_cons;
+		}
 	}
-
 	usleep_range(IPA_MHI_SUSPEND_SLEEP_MIN, IPA_MHI_SUSPEND_SLEEP_MAX);
 
 	res = ipa_mhi_suspend_dl(force);
@@ -2131,8 +2172,15 @@ int ipa_mhi_suspend(bool force)
 
 fail_suspend_dl_channel:
 fail_release_cons:
-	ipa_mhi_request_prod();
+	if (!ipa_pm_is_used())
+		ipa_mhi_request_prod();
 fail_release_prod:
+	if (ipa_pm_is_used())
+		ipa_pm_deactivate_sync(ipa_mhi_client_ctx->modem_pm_hdl);
+fail_deactivate_modem_pm:
+	if (ipa_pm_is_used())
+		ipa_pm_deactivate_sync(ipa_mhi_client_ctx->pm_hdl);
+fail_deactivate_pm:
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 fail_suspend_ul_channel:
 	ipa_mhi_resume_channels(true, ipa_mhi_client_ctx->ul_channels);
@@ -2192,10 +2240,23 @@ int ipa_mhi_resume(void)
 		ipa_mhi_client_ctx->rm_cons_state = IPA_MHI_RM_STATE_GRANTED;
 	}
 
-	res = ipa_mhi_request_prod();
-	if (res) {
-		IPA_MHI_ERR("ipa_mhi_request_prod failed %d\n", res);
-		goto fail_request_prod;
+	if (ipa_pm_is_used()) {
+		res = ipa_pm_activate_sync(ipa_mhi_client_ctx->pm_hdl);
+		if (res) {
+			IPA_MHI_ERR("fail to activate client %d\n", res);
+			goto fail_pm_activate;
+		}
+		ipa_pm_activate_sync(ipa_mhi_client_ctx->modem_pm_hdl);
+		if (res) {
+			IPA_MHI_ERR("fail to activate client %d\n", res);
+			goto fail_pm_activate_modem;
+		}
+	} else {
+		res = ipa_mhi_request_prod();
+		if (res) {
+			IPA_MHI_ERR("ipa_mhi_request_prod failed %d\n", res);
+			goto fail_request_prod;
+		}
 	}
 
 	/* resume all UL channels */
@@ -2233,8 +2294,15 @@ fail_set_state:
 fail_resume_dl_channels2:
 	ipa_mhi_suspend_channels(ipa_mhi_client_ctx->ul_channels);
 fail_resume_ul_channels:
-	ipa_mhi_release_prod();
+	if (!ipa_pm_is_used())
+		ipa_mhi_release_prod();
 fail_request_prod:
+	if (ipa_pm_is_used())
+		ipa_pm_deactivate_sync(ipa_mhi_client_ctx->modem_pm_hdl);
+fail_pm_activate_modem:
+	if (ipa_pm_is_used())
+		ipa_pm_deactivate_sync(ipa_mhi_client_ctx->pm_hdl);
+fail_pm_activate:
 	ipa_mhi_suspend_channels(ipa_mhi_client_ctx->dl_channels);
 fail_resume_dl_channels:
 	ipa_mhi_set_state(IPA_MHI_STATE_SUSPENDED);
@@ -2318,6 +2386,85 @@ static void ipa_mhi_debugfs_destroy(void)
 	debugfs_remove_recursive(dent);
 }
 
+static void ipa_mhi_delete_rm_resources(void)
+{
+	int res;
+
+	if (ipa_mhi_client_ctx->state != IPA_MHI_STATE_INITIALIZED  &&
+		ipa_mhi_client_ctx->state != IPA_MHI_STATE_READY) {
+
+		IPA_MHI_DBG("release prod\n");
+		res = ipa_mhi_release_prod();
+		if (res) {
+			IPA_MHI_ERR("ipa_mhi_release_prod failed %d\n",
+				res);
+			goto fail;
+		}
+		IPA_MHI_DBG("wait for cons release\n");
+		res = ipa_mhi_wait_for_cons_release();
+		if (res) {
+			IPA_MHI_ERR("ipa_mhi_wait_for_cons_release%d\n",
+				res);
+			goto fail;
+		}
+
+		usleep_range(IPA_MHI_SUSPEND_SLEEP_MIN,
+			IPA_MHI_SUSPEND_SLEEP_MAX);
+
+		IPA_MHI_DBG("deleate dependency Q6_PROD->MHI_CONS\n");
+		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+			IPA_RM_RESOURCE_MHI_CONS);
+		if (res) {
+			IPA_MHI_ERR(
+				"Error deleting dependency %d->%d, res=%d\n",
+				IPA_RM_RESOURCE_Q6_PROD,
+				IPA_RM_RESOURCE_MHI_CONS,
+				res);
+			goto fail;
+		}
+		IPA_MHI_DBG("deleate dependency MHI_PROD->Q6_CONS\n");
+		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
+			IPA_RM_RESOURCE_Q6_CONS);
+		if (res) {
+			IPA_MHI_ERR(
+				"Error deleting dependency %d->%d, res=%d\n",
+				IPA_RM_RESOURCE_MHI_PROD,
+				IPA_RM_RESOURCE_Q6_CONS,
+				res);
+			goto fail;
+		}
+	}
+
+	res = ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
+	if (res) {
+		IPA_MHI_ERR("Error deleting resource %d, res=%d\n",
+			IPA_RM_RESOURCE_MHI_PROD, res);
+		goto fail;
+	}
+
+	res = ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_CONS);
+	if (res) {
+		IPA_MHI_ERR("Error deleting resource %d, res=%d\n",
+			IPA_RM_RESOURCE_MHI_CONS, res);
+		goto fail;
+	}
+
+	return;
+fail:
+	ipa_assert();
+}
+
+static void ipa_mhi_deregister_pm(void)
+{
+	ipa_pm_deactivate_sync(ipa_mhi_client_ctx->pm_hdl);
+	ipa_pm_deregister(ipa_mhi_client_ctx->pm_hdl);
+	ipa_mhi_client_ctx->pm_hdl = ~0;
+
+	ipa_pm_deactivate_sync(ipa_mhi_client_ctx->modem_pm_hdl);
+	ipa_pm_deregister(ipa_mhi_client_ctx->modem_pm_hdl);
+	ipa_mhi_client_ctx->modem_pm_hdl = ~0;
+}
+
 /**
  * ipa_mhi_destroy() - Destroy MHI IPA
  *
@@ -2350,63 +2497,12 @@ void ipa_mhi_destroy(void)
 		ipa_uc_mhi_cleanup();
 	}
 
+	if (ipa_pm_is_used())
+		ipa_mhi_deregister_pm();
+	else
+		ipa_mhi_delete_rm_resources();
 
-	if (ipa_mhi_client_ctx->state != IPA_MHI_STATE_INITIALIZED  &&
-			ipa_mhi_client_ctx->state != IPA_MHI_STATE_READY) {
-		IPA_MHI_DBG("release prod\n");
-		res = ipa_mhi_release_prod();
-		if (res) {
-			IPA_MHI_ERR("ipa_mhi_release_prod failed %d\n", res);
-			goto fail;
-		}
-		IPA_MHI_DBG("wait for cons release\n");
-		res = ipa_mhi_wait_for_cons_release();
-		if (res) {
-			IPA_MHI_ERR("ipa_mhi_wait_for_cons_release failed %d\n",
-				res);
-			goto fail;
-		}
-		usleep_range(IPA_MHI_SUSPEND_SLEEP_MIN,
-				IPA_MHI_SUSPEND_SLEEP_MAX);
-
-		IPA_MHI_DBG("deleate dependency Q6_PROD->MHI_CONS\n");
-		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-			IPA_RM_RESOURCE_MHI_CONS);
-		if (res) {
-			IPA_MHI_ERR(
-				"Error deleting dependency %d->%d, res=%d\n"
-				, IPA_RM_RESOURCE_Q6_PROD,
-				IPA_RM_RESOURCE_MHI_CONS,
-				res);
-			goto fail;
-		}
-		IPA_MHI_DBG("deleate dependency MHI_PROD->Q6_CONS\n");
-		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
-			IPA_RM_RESOURCE_Q6_CONS);
-		if (res) {
-			IPA_MHI_ERR(
-				"Error deleting dependency %d->%d, res=%d\n",
-			IPA_RM_RESOURCE_MHI_PROD,
-			IPA_RM_RESOURCE_Q6_CONS,
-			res);
-			goto fail;
-		}
-	}
-
-	res = ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
-	if (res) {
-		IPA_MHI_ERR("Error deleting resource %d, res=%d\n",
-			IPA_RM_RESOURCE_MHI_PROD, res);
-		goto fail;
-	}
-
-	res = ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_CONS);
-	if (res) {
-		IPA_MHI_ERR("Error deleting resource %d, res=%d\n",
-			IPA_RM_RESOURCE_MHI_CONS, res);
-		goto fail;
-	}
-
+	ipa_dma_destroy();
 	ipa_mhi_debugfs_destroy();
 	destroy_workqueue(ipa_mhi_client_ctx->wq);
 	kfree(ipa_mhi_client_ctx);
@@ -2417,6 +2513,132 @@ void ipa_mhi_destroy(void)
 	return;
 fail:
 	ipa_assert();
+}
+
+static void ipa_mhi_pm_cb(void *p, enum ipa_pm_cb_event event)
+{
+	unsigned long flags;
+
+	IPA_MHI_FUNC_ENTRY();
+
+	if (event != IPA_PM_REQUEST_WAKEUP) {
+		IPA_MHI_ERR("Unexpected event %d\n", event);
+		WARN_ON(1);
+		return;
+	}
+
+	IPA_MHI_DBG("%s\n", MHI_STATE_STR(ipa_mhi_client_ctx->state));
+	spin_lock_irqsave(&ipa_mhi_client_ctx->state_lock, flags);
+	if (ipa_mhi_client_ctx->state == IPA_MHI_STATE_SUSPENDED) {
+		ipa_mhi_notify_wakeup();
+	} else if (ipa_mhi_client_ctx->state ==
+		IPA_MHI_STATE_SUSPEND_IN_PROGRESS) {
+		/* wakeup event will be trigger after suspend finishes */
+		ipa_mhi_client_ctx->trigger_wakeup = true;
+	}
+	spin_unlock_irqrestore(&ipa_mhi_client_ctx->state_lock, flags);
+	IPA_MHI_DBG("EXIT");
+}
+
+static int ipa_mhi_register_pm(void)
+{
+	int res;
+	struct ipa_pm_register_params params;
+
+	memset(&params, 0, sizeof(params));
+	params.name = "MHI";
+	params.callback = ipa_mhi_pm_cb;
+	params.group = IPA_PM_GROUP_DEFAULT;
+	res = ipa_pm_register(&params, &ipa_mhi_client_ctx->pm_hdl);
+	if (res) {
+		IPA_MHI_ERR("fail to register with PM %d\n", res);
+		return res;
+	}
+
+	res = ipa_pm_associate_ipa_cons_to_client(ipa_mhi_client_ctx->pm_hdl,
+		IPA_CLIENT_MHI_CONS);
+	if (res) {
+		IPA_MHI_ERR("fail to associate cons with PM %d\n", res);
+		goto fail_pm_cons;
+	}
+
+	res = ipa_pm_set_perf_profile(ipa_mhi_client_ctx->pm_hdl, 1000);
+	if (res) {
+		IPA_MHI_ERR("fail to set perf profile to PM %d\n", res);
+		goto fail_pm_cons;
+	}
+
+	/* create a modem client for clock scaling */
+	memset(&params, 0, sizeof(params));
+	params.name = "MODEM (MHI)";
+	params.group = IPA_PM_GROUP_MODEM;
+	params.skip_clk_vote = true;
+	res = ipa_pm_register(&params, &ipa_mhi_client_ctx->modem_pm_hdl);
+	if (res) {
+		IPA_MHI_ERR("fail to register with PM %d\n", res);
+		goto fail_pm_cons;
+	}
+
+	return 0;
+
+fail_pm_cons:
+	ipa_pm_deregister(ipa_mhi_client_ctx->pm_hdl);
+	ipa_mhi_client_ctx->pm_hdl = ~0;
+	return res;
+}
+
+static int ipa_mhi_create_rm_resources(void)
+{
+	int res;
+	struct ipa_rm_create_params mhi_prod_params;
+	struct ipa_rm_create_params mhi_cons_params;
+	struct ipa_rm_perf_profile profile;
+
+	/* Create PROD in IPA RM */
+	memset(&mhi_prod_params, 0, sizeof(mhi_prod_params));
+	mhi_prod_params.name = IPA_RM_RESOURCE_MHI_PROD;
+	mhi_prod_params.floor_voltage = IPA_VOLTAGE_SVS;
+	mhi_prod_params.reg_params.notify_cb = ipa_mhi_rm_prod_notify;
+	res = ipa_rm_create_resource(&mhi_prod_params);
+	if (res) {
+		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_PROD\n");
+		goto fail_create_rm_prod;
+	}
+
+	memset(&profile, 0, sizeof(profile));
+	profile.max_supported_bandwidth_mbps = 1000;
+	res = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_MHI_PROD, &profile);
+	if (res) {
+		IPA_MHI_ERR("fail to set profile to MHI_PROD\n");
+		goto fail_perf_rm_prod;
+	}
+
+	/* Create CONS in IPA RM */
+	memset(&mhi_cons_params, 0, sizeof(mhi_cons_params));
+	mhi_cons_params.name = IPA_RM_RESOURCE_MHI_CONS;
+	mhi_cons_params.floor_voltage = IPA_VOLTAGE_SVS;
+	mhi_cons_params.request_resource = ipa_mhi_rm_cons_request;
+	mhi_cons_params.release_resource = ipa_mhi_rm_cons_release;
+	res = ipa_rm_create_resource(&mhi_cons_params);
+	if (res) {
+		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_CONS\n");
+		goto fail_create_rm_cons;
+	}
+
+	memset(&profile, 0, sizeof(profile));
+	profile.max_supported_bandwidth_mbps = 1000;
+	res = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_MHI_CONS, &profile);
+	if (res) {
+		IPA_MHI_ERR("fail to set profile to MHI_CONS\n");
+		goto fail_perf_rm_cons;
+	}
+fail_perf_rm_cons:
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_CONS);
+fail_create_rm_cons:
+fail_perf_rm_prod:
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
+fail_create_rm_prod:
+	return res;
 }
 
 /**
@@ -2436,9 +2658,6 @@ fail:
 int ipa_mhi_init(struct ipa_mhi_init_params *params)
 {
 	int res;
-	struct ipa_rm_create_params mhi_prod_params;
-	struct ipa_rm_create_params mhi_cons_params;
-	struct ipa_rm_perf_profile profile;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -2498,43 +2717,20 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 		goto fail_create_wq;
 	}
 
-	/* Create PROD in IPA RM */
-	memset(&mhi_prod_params, 0, sizeof(mhi_prod_params));
-	mhi_prod_params.name = IPA_RM_RESOURCE_MHI_PROD;
-	mhi_prod_params.floor_voltage = IPA_VOLTAGE_SVS;
-	mhi_prod_params.reg_params.notify_cb = ipa_mhi_rm_prod_notify;
-	res = ipa_rm_create_resource(&mhi_prod_params);
+	res = ipa_dma_init();
 	if (res) {
-		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_PROD\n");
-		goto fail_create_rm_prod;
+		IPA_MHI_ERR("failed to init ipa dma %d\n", res);
+		goto fail_dma_init;
 	}
 
-	memset(&profile, 0, sizeof(profile));
-	profile.max_supported_bandwidth_mbps = 1000;
-	res = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_MHI_PROD, &profile);
+	if (ipa_pm_is_used())
+		res = ipa_mhi_register_pm();
+	else
+		res = ipa_mhi_create_rm_resources();
 	if (res) {
-		IPA_MHI_ERR("fail to set profile to MHI_PROD\n");
-		goto fail_perf_rm_prod;
-	}
-
-	/* Create CONS in IPA RM */
-	memset(&mhi_cons_params, 0, sizeof(mhi_cons_params));
-	mhi_cons_params.name = IPA_RM_RESOURCE_MHI_CONS;
-	mhi_cons_params.floor_voltage = IPA_VOLTAGE_SVS;
-	mhi_cons_params.request_resource = ipa_mhi_rm_cons_request;
-	mhi_cons_params.release_resource = ipa_mhi_rm_cons_release;
-	res = ipa_rm_create_resource(&mhi_cons_params);
-	if (res) {
-		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_CONS\n");
-		goto fail_create_rm_cons;
-	}
-
-	memset(&profile, 0, sizeof(profile));
-	profile.max_supported_bandwidth_mbps = 1000;
-	res = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_MHI_CONS, &profile);
-	if (res) {
-		IPA_MHI_ERR("fail to set profile to MHI_CONS\n");
-		goto fail_perf_rm_cons;
+		IPA_MHI_ERR("failed to create RM resources\n");
+		res = -EFAULT;
+		goto fail_rm;
 	}
 
 	/* Initialize uC interface */
@@ -2549,12 +2745,9 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 
-fail_perf_rm_cons:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_CONS);
-fail_create_rm_cons:
-fail_perf_rm_prod:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
-fail_create_rm_prod:
+fail_rm:
+	ipa_dma_destroy();
+fail_dma_init:
 	destroy_workqueue(ipa_mhi_client_ctx->wq);
 fail_create_wq:
 	kfree(ipa_mhi_client_ctx);
