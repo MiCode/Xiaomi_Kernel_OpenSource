@@ -648,7 +648,6 @@ int core_ctl_set_boost(bool boost)
 			++cluster->boost;
 		} else {
 			if (!cluster->boost) {
-				pr_err("Error turning off boost. Boost already turned off\n");
 				ret = -EINVAL;
 				break;
 			} else {
