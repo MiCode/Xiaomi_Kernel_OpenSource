@@ -1,4 +1,4 @@
-* Qualcomm HDMI Tx
+* Qualcomm Technologies, Inc. HDMI Tx
 
 Required properties:
 - cell-index: hdmi tx controller index

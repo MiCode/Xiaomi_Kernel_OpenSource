@@ -1,4 +1,4 @@
-Qualcomm mdss-dsi
+Qualcomm Technologies, Inc. mdss-dsi
 
 mdss-dsi is the master DSI device which supports multiple DSI host controllers that
 are compatible with MIPI display serial interface specification.

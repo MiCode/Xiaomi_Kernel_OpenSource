@@ -607,7 +607,6 @@ void edp_extract_edid_detailed_timing_description(struct edp_edid *edid,
 
 /*
  * EDID structure can be found in VESA standard here:
- * http://read.pudn.com/downloads110/ebook/456020/E-EDID%20Standard.pdf
  *
  * following table contains default edid
  * static char edid_raw_data[128] = {
