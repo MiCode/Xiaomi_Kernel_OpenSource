@@ -2129,15 +2129,13 @@ void ipahal_get_disable_aggr_valmask(struct ipahal_reg_valmask *valmask)
 		return;
 	}
 
-	valmask->val = (1 & IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK) <<
-		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
-	valmask->mask = IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK <<
-		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+	valmask->val = (1 << IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT) &&
+		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK;
+	valmask->mask = IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK;
 
-	valmask->val |= ((0 & IPA_ENDP_INIT_AGGR_n_AGGR_EN_BMSK) <<
-		IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT);
-	valmask->mask |= ((IPA_ENDP_INIT_AGGR_n_AGGR_EN_BMSK <<
-		IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT));
+	valmask->val |= ((0 << IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT) &&
+		IPA_ENDP_INIT_AGGR_n_AGGR_EN_BMSK);
+	valmask->mask |= IPA_ENDP_INIT_AGGR_n_AGGR_EN_BMSK;
 }
 
 u32 ipahal_aggr_get_max_byte_limit(void)
@@ -2188,7 +2186,7 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 		return;
 	}
 	IPA_SETFIELD_IN_REG(valmask->val, 1 << ep_idx, shft, bmsk);
-	valmask->mask = bmsk << shft;
+	valmask->mask = bmsk;
 }
 
 void ipahal_get_fltrt_hash_flush_valmask(
