@@ -41,6 +41,7 @@ enum ion_heap_ids {
  * Newly added heap ids have to be #define(d) since all API changes must
  * include a new #define.
  */
+#define ION_QSECOM_TA_HEAP_ID		19
 #define ION_AUDIO_HEAP_ID		28
 
 /**
