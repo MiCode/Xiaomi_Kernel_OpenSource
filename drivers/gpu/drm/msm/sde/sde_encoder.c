@@ -1681,6 +1681,29 @@ static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 	return ret;
 }
 
+static int _sde_encoder_switch_to_watchdog_vsync(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct msm_display_info disp_info;
+
+	if (!drm_enc) {
+		pr_err("invalid drm encoder\n");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	sde_encoder_control_te(drm_enc, false);
+
+	memcpy(&disp_info, &sde_enc->disp_info, sizeof(disp_info));
+	disp_info.is_te_using_watchdog_timer = true;
+	_sde_encoder_update_vsync_source(sde_enc, &disp_info, false);
+
+	sde_encoder_control_te(drm_enc, true);
+
+	return 0;
+}
+
 static int _sde_encoder_update_rsc_client(
 		struct drm_encoder *drm_enc,
 		struct sde_encoder_rsc_config *config, bool enable)
@@ -1820,7 +1843,12 @@ static int _sde_encoder_update_rsc_client(
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
 					"wait for vblank failed ret:%d\n", ret);
-			break;
+			/**
+			 * rsc hardware may hang without vsync. avoid rsc hang
+			 * by generating the vsync from watchdog timer.
+			 */
+			if (crtc->base.id == wait_vblank_crtc_id)
+				_sde_encoder_switch_to_watchdog_vsync(drm_enc);
 		}
 	}
 
@@ -4935,4 +4963,18 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 	}
 
 	return ret;
+}
+
+int sde_encoder_display_failure_notification(struct drm_encoder *enc)
+{
+	/**
+	 * panel may stop generating te signal (vsync) during esd failure. rsc
+	 * hardware may hang without vsync. Avoid rsc hang by generating the
+	 * vsync from watchdog timer instead of panel.
+	 */
+	_sde_encoder_switch_to_watchdog_vsync(enc);
+
+	sde_encoder_wait_for_event(enc, MSM_ENC_TX_COMPLETE);
+
+	return 0;
 }
