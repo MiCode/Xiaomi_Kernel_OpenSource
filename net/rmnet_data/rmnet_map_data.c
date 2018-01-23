@@ -292,7 +292,7 @@ new_packet:
 		config->agg_count = 1;
 		getnstimeofday(&config->agg_time);
 		trace_rmnet_start_aggregation(skb);
-		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_AGG_CPY_EXPAND);
+		dev_kfree_skb_any(skb);
 		goto schedule;
 	}
 	diff = timespec_sub(config->agg_last, config->agg_time);
@@ -321,7 +321,7 @@ new_packet:
 	dest_buff = skb_put(config->agg_skb, skb->len);
 	memcpy(dest_buff, skb->data, skb->len);
 	config->agg_count++;
-	rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_AGG_INTO_BUFF);
+	dev_kfree_skb_any(skb);
 
 schedule:
 	if (config->agg_state != RMNET_MAP_TXFER_SCHEDULED) {
