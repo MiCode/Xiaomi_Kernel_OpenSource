@@ -31,12 +31,15 @@
 
 /* SMB1355 registers, different than mentioned in smb-reg.h */
 
+#define REVID_BASE	0x0100
 #define CHGR_BASE	0x1000
 #define ANA2_BASE	0x1100
 #define BATIF_BASE	0x1200
 #define USBIN_BASE	0x1300
 #define ANA1_BASE	0x1400
 #define MISC_BASE	0x1600
+
+#define REVID_MFG_ID_SPARE_REG			(REVID_BASE + 0xFF)
 
 #define BATTERY_STATUS_2_REG			(CHGR_BASE + 0x0B)
 #define DISABLE_CHARGING_BIT			BIT(3)
@@ -221,6 +224,8 @@ struct smb1355 {
 	struct device		*dev;
 	char			*name;
 	struct regmap		*regmap;
+
+	int			max_fcc;
 
 	struct smb_dt_props	dt;
 	struct smb_params	param;
@@ -798,6 +803,37 @@ static int smb1355_init_parallel_psy(struct smb1355 *chip)
  * HARDWARE INITIALIZATION *
  ***************************/
 
+#define MFG_ID_SMB1354			0x01
+#define MFG_ID_SMB1355			0xFF
+#define SMB1354_MAX_PARALLEL_FCC_UA	2500000
+static int smb1355_detect_version(struct smb1355 *chip)
+{
+	int rc;
+	u8 val;
+
+	rc = smb1355_read(chip, REVID_MFG_ID_SPARE_REG, &val);
+	if (rc < 0) {
+		pr_err("Unable to read REVID rc=%d\n", rc);
+		return rc;
+	}
+
+	switch (val) {
+	case MFG_ID_SMB1354:
+		chip->name = "smb1354";
+		chip->max_fcc = SMB1354_MAX_PARALLEL_FCC_UA;
+		break;
+	case MFG_ID_SMB1355:
+		chip->name = "smb1355";
+		chip->max_fcc = INT_MAX;
+		break;
+	default:
+		pr_err("Invalid value of REVID val=%d", val);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
 static int smb1355_tskin_sensor_config(struct smb1355 *chip)
 {
 	int rc;
@@ -1196,7 +1232,6 @@ static int smb1355_probe(struct platform_device *pdev)
 	chip->dev = &pdev->dev;
 	chip->param = v1_params;
 	chip->c_health = -EINVAL;
-	chip->name = "smb1355";
 	mutex_init(&chip->write_lock);
 	INIT_DELAYED_WORK(&chip->die_temp_work, die_temp_work);
 	chip->disabled = true;
@@ -1212,6 +1247,12 @@ static int smb1355_probe(struct platform_device *pdev)
 	if (!id) {
 		pr_err("Couldn't find a matching device\n");
 		return -ENODEV;
+	}
+
+	rc = smb1355_detect_version(chip);
+	if (rc < 0) {
+		pr_err("Couldn't detect SMB1355/1354 chip type rc=%d\n", rc);
+		goto cleanup;
 	}
 
 	platform_set_drvdata(pdev, chip);
