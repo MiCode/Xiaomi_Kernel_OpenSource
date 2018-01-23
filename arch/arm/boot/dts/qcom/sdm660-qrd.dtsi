@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -244,6 +244,11 @@
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,fg-jeita-thresholds = <0 5 55 55>;
 	qcom,battery-thermal-coefficients = [9d 50 ff];
+};
+
+&pm660_haptics {
+	qcom,wave-play-rate-us = <4255>;
+	qcom,vmax-mv = <1800>;
 };
 
 &i2c_2 {
