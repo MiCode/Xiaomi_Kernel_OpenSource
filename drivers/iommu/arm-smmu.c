@@ -355,13 +355,11 @@ struct arm_smmu_s2cr {
 	enum arm_smmu_s2cr_privcfg	privcfg;
 	u8				cbndx;
 	bool				cb_handoff;
-	bool				write_protected;
 };
 
 #define s2cr_init_val (struct arm_smmu_s2cr){				\
 	.type = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS,	\
 	.cb_handoff = false,						\
-	.write_protected = false,					\
 }
 
 struct arm_smmu_smr {
@@ -450,6 +448,7 @@ struct arm_smmu_device {
 	u32				num_context_banks;
 	u32				num_s2_context_banks;
 	DECLARE_BITMAP(context_map, ARM_SMMU_MAX_CBS);
+	DECLARE_BITMAP(secure_context_map, ARM_SMMU_MAX_CBS);
 	atomic_t			irptndx;
 
 	u32				num_mapping_groups;
@@ -2052,6 +2051,11 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
+	/* As the nonsecure context bank index is any way set to zero,
+	 * so, directly clearing up the secure cb bitmap.
+	 */
+	if (arm_smmu_is_slave_side_secure(smmu_domain))
+		__arm_smmu_free_bitmap(smmu->secure_context_map, cfg->cbndx);
 
 	arm_smmu_power_off(smmu->pwr);
 	arm_smmu_domain_reinit(smmu_domain);
@@ -2777,8 +2781,7 @@ static struct arm_smmu_device *arm_smmu_get_by_addr(void __iomem *addr)
 bool arm_smmu_skip_write(void __iomem *addr)
 {
 	struct arm_smmu_device *smmu;
-	unsigned long cb;
-	int i;
+	int cb;
 
 	smmu = arm_smmu_get_by_addr(addr);
 
@@ -2792,11 +2795,8 @@ bool arm_smmu_skip_write(void __iomem *addr)
 
 	/* Finally skip writing to secure CB */
 	cb = ((unsigned long)addr & ((smmu->size >> 1) - 1)) >> PAGE_SHIFT;
-	for (i = 0; i < smmu->num_mapping_groups; i++) {
-		if ((smmu->s2crs[i].cbndx == cb) &&
-		    (smmu->s2crs[i].write_protected))
-			return true;
-	}
+	if (test_bit(cb, smmu->secure_context_map))
+		return true;
 
 	return false;
 }
@@ -3736,8 +3736,7 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 		smmu_domain->slave_side_secure = true;
 
 		if (arm_smmu_is_slave_side_secure(smmu_domain))
-			for_each_cfg_sme(fwspec, i, idx)
-				smmu->s2crs[idx].write_protected = true;
+			bitmap_set(smmu->secure_context_map, cb, 1);
 	}
 
 	if (cb < 0 && !arm_smmu_is_static_cb(smmu)) {
@@ -4553,7 +4552,8 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	if (arm_smmu_power_on(smmu->pwr))
 		return -EINVAL;
 
-	if (!bitmap_empty(smmu->context_map, ARM_SMMU_MAX_CBS))
+	if (!bitmap_empty(smmu->context_map, ARM_SMMU_MAX_CBS) ||
+	    !bitmap_empty(smmu->secure_context_map, ARM_SMMU_MAX_CBS))
 		dev_err(&pdev->dev, "removing device with active domains!\n");
 
 	idr_destroy(&smmu->asid_idr);
