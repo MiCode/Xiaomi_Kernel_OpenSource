@@ -257,6 +257,7 @@ static const struct bin_table bin_net_ipv4_conf_vars_table[] = {
 	{ CTL_INT,	NET_IPV4_CONF_NOPOLICY,			"disable_policy" },
 	{ CTL_INT,	NET_IPV4_CONF_FORCE_IGMP_VERSION,	"force_igmp_version" },
 	{ CTL_INT,	NET_IPV4_CONF_PROMOTE_SECONDARIES,	"promote_secondaries" },
+	{ CTL_INT, NET_IPV4_CONF_NF_IPV4_DEFRAG_SKIP, "nf_ipv4_defrag_skip" },
 	{}
 };
 
