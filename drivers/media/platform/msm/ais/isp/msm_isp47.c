@@ -593,7 +593,6 @@ void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
 			case VFE_RAW_1:
 			case VFE_RAW_2:
 				msm_isp_increment_frame_id(vfe_dev, i, ts);
-				msm_isp_notify(vfe_dev, ISP_EVENT_SOF, i, ts);
 				msm_isp_update_framedrop_reg(vfe_dev, i);
 				/*
 				 * Reg Update is pseudo SOF for RDI,
@@ -641,7 +640,6 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 		msm_isp_update_framedrop_reg(vfe_dev, VFE_PIX_0);
 		msm_isp_update_stats_framedrop_reg(vfe_dev);
 		msm_isp_update_error_frame_count(vfe_dev);
-		msm_isp_notify(vfe_dev, ISP_EVENT_SOF, VFE_PIX_0, ts);
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].raw_stream_count > 0
 			&& vfe_dev->axi_data.src_info[VFE_PIX_0].
 			pix_stream_count == 0) {
@@ -651,6 +649,23 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 				vfe_dev, VFE_PIX_0);
 		}
 	}
+}
+
+void msm_isp47_process_sof_irq(struct vfe_device *vfe_dev,
+	uint32_t irq_status0, uint32_t irq_status1,
+	struct msm_isp_timestamp *ts)
+{
+	if ((!(irq_status0 & 0x1)) && (!(irq_status1 & 0xE0000000)))
+		return;
+
+	if (irq_status0 & BIT(0))
+		msm_isp_notify(vfe_dev, ISP_EVENT_SOF, VFE_PIX_0, ts);
+	if (irq_status1 & BIT(29))
+		msm_isp_notify(vfe_dev, ISP_EVENT_SOF, VFE_RAW_0, ts);
+	if (irq_status1 & BIT(30))
+		msm_isp_notify(vfe_dev, ISP_EVENT_SOF, VFE_RAW_1, ts);
+	if (irq_status1 & BIT(31))
+		msm_isp_notify(vfe_dev, ISP_EVENT_SOF, VFE_RAW_2, ts);
 }
 
 void msm_isp47_process_eof_irq(struct vfe_device *vfe_dev,
@@ -2709,6 +2724,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.process_stats_irq = msm_isp_process_stats_irq,
 			.process_epoch_irq = msm_vfe47_process_epoch_irq,
 			.config_irq = msm_vfe47_config_irq,
+			.process_sof_irq = msm_isp47_process_sof_irq,
 			.process_eof_irq = msm_isp47_process_eof_irq,
 		},
 		.axi_ops = {

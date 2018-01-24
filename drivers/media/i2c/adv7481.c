@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1031,7 +1031,10 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	struct msm_ba_v4l2_ioctl_t adv_arg = *(struct msm_ba_v4l2_ioctl_t *)arg;
 	long ret = 0;
 	int param = 0;
+	uint8_t status = 0;
+	struct timespec ts;
 	struct csi_ctrl_params user_csi;
+	struct field_info_params user_field;
 	struct adv7481_vid_params vid_params;
 	struct adv7481_hdmi_params hdmi_params;
 
@@ -1091,6 +1094,28 @@ static long adv7481_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		}
 		break;
 	}
+	case VIDIOC_G_FIELD_INFO:
+		/* Select SDP read-only Map 1 */
+		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x02);
+		status = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_sdp_addr, SDP_RO_MAP_1_FIELD_ADDR);
+		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x00);
+
+		user_field.even_field = ADV_REG_GETFIELD(status,
+				SDP_RO_MAP_1_EVEN_FIELD);
+		get_monotonic_boottime(&ts);
+		user_field.field_ts.tv_sec = ts.tv_sec;
+		user_field.field_ts.tv_usec = ts.tv_nsec/1000;
+
+		if (copy_to_user((void __user *)adv_arg.ptr,
+			(void *)&user_field,
+			sizeof(struct field_info_params))) {
+			pr_err("%s: Failed to copy FIELD params\n", __func__);
+			return -EINVAL;
+		}
+		break;
 	default:
 		pr_err("Not a typewriter! Command: 0x%x", cmd);
 		ret = -ENOTTY;

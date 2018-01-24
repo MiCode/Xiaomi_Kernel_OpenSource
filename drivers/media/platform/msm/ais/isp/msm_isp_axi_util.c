@@ -951,6 +951,8 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	enum msm_vfe_dual_hw_ms_type ms_type;
 	int i, j;
 	unsigned long flags;
+	struct msm_vfe_axi_stream *stream_info =
+		&vfe_dev->axi_data.stream_info[INTF_TO_SRC(frame_src)];
 
 	memset(&event_data, 0, sizeof(event_data));
 
@@ -1041,7 +1043,11 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		break;
 	}
 
-	event_data.frame_id = vfe_dev->axi_data.src_info[frame_src].frame_id;
+	if (event_type == ISP_EVENT_SOF)
+		event_data.frame_id = stream_info->frame_id + 1;
+	else
+		event_data.frame_id =
+			vfe_dev->axi_data.src_info[frame_src].frame_id;
 	event_data.timestamp = ts->event_time;
 	event_data.mono_timestamp = ts->buf_time;
 	msm_isp_send_event(vfe_dev, event_type | frame_src, &event_data);
@@ -4080,7 +4086,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	}
 
 	msm_isp_process_done_buf(vfe_dev, stream_info,
-			done_buf, time_stamp, frame_id);
+			done_buf, time_stamp, stream_info->frame_id);
 }
 
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
