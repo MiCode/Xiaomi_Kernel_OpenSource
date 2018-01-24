@@ -410,6 +410,38 @@ static struct virtclk_front gcc_usb3_clkref_clk = {
 	},
 };
 
+static struct virtclk_front gcc_usb20_master_clk = {
+	.c = {
+		.dbg_name = "gcc_usb20_master_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb20_master_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_periph_noc_usb20_ahb_clk = {
+	.c = {
+		.dbg_name = "gcc_periph_noc_usb20_ahb_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_periph_noc_usb20_ahb_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_usb20_mock_utmi_clk = {
+	.c = {
+		.dbg_name = "gcc_usb20_mock_utmi_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb20_mock_utmi_clk.c),
+	},
+};
+
+static struct virtclk_front gcc_usb20_sleep_clk = {
+	.c = {
+		.dbg_name = "gcc_usb20_sleep_clk",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(gcc_usb20_sleep_clk.c),
+	},
+};
+
 static struct virtclk_front hlos1_vote_lpass_adsp_smmu_clk = {
 	.c = {
 		.dbg_name = "gcc_lpass_adsp_smmu_clk",
@@ -516,6 +548,10 @@ static struct clk_lookup msm_clocks_8996[] = {
 	CLK_LIST(gcc_usb30_sleep_clk),
 	CLK_LIST(gcc_usb_phy_cfg_ahb2phy_clk),
 	CLK_LIST(gcc_usb3_clkref_clk),
+	CLK_LIST(gcc_usb20_master_clk),
+	CLK_LIST(gcc_periph_noc_usb20_ahb_clk),
+	CLK_LIST(gcc_usb20_mock_utmi_clk),
+	CLK_LIST(gcc_usb20_sleep_clk),
 	CLK_LIST(hlos1_vote_lpass_adsp_smmu_clk),
 	CLK_LIST(gcc_mss_cfg_ahb_clk),
 	CLK_LIST(gcc_mss_q6_bimc_axi_clk),
