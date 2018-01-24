@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -670,7 +670,7 @@ static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 	int ret;
 	struct sde_layer_buffer *input;
 	struct sde_layer_buffer *output;
-	struct sde_mdp_format_params *fmt;
+	struct sde_mdp_format_params *in_fmt, *out_fmt;
 	struct sde_mdp_plane_sizes ps;
 	bool rotation;
 	bool secure;
@@ -693,54 +693,58 @@ static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 		goto end;
 	}
 
-	/* if error during map, the caller will release the data */
-	ret = sde_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE);
-	if (ret) {
-		SDEROT_ERR("source buffer mapping failed ret:%d\n", ret);
-		goto end;
-	}
-
-	ret = sde_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE);
-	if (ret) {
-		SDEROT_ERR("destination buffer mapping failed ret:%d\n", ret);
-		goto end;
-	}
-
-	fmt = sde_get_format_params(input->format);
-	if (!fmt) {
+	in_fmt = sde_get_format_params(input->format);
+	if (!in_fmt) {
 		SDEROT_ERR("invalid input format:%d\n", input->format);
 		ret = -EINVAL;
 		goto end;
 	}
 
-	ret = sde_mdp_get_plane_sizes(
-			fmt, input->width, input->height, &ps, 0, rotation);
-	if (ret) {
-		SDEROT_ERR("fail to get input plane size ret=%d\n", ret);
-		goto end;
-	}
-
-	ret = sde_mdp_data_check(&entry->src_buf, &ps, fmt);
-	if (ret) {
-		SDEROT_ERR("fail to check input data ret=%d\n", ret);
-		goto end;
-	}
-
-	fmt = sde_get_format_params(output->format);
-	if (!fmt) {
+	out_fmt = sde_get_format_params(output->format);
+	if (!out_fmt) {
 		SDEROT_ERR("invalid output format:%d\n", output->format);
 		ret = -EINVAL;
 		goto end;
 	}
 
+	/* if error during map, the caller will release the data */
+	ret = sde_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE,
+			sde_mdp_is_ubwc_format(in_fmt) ||
+			sde_mdp_is_tilea5x_format(in_fmt));
+	if (ret) {
+		SDEROT_ERR("source buffer mapping failed ret:%d\n", ret);
+		goto end;
+	}
+
+	ret = sde_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE,
+			sde_mdp_is_ubwc_format(out_fmt) ||
+			sde_mdp_is_tilea5x_format(out_fmt));
+	if (ret) {
+		SDEROT_ERR("destination buffer mapping failed ret:%d\n", ret);
+		goto end;
+	}
+
 	ret = sde_mdp_get_plane_sizes(
-			fmt, output->width, output->height, &ps, 0, rotation);
+			in_fmt, input->width, input->height, &ps, 0, rotation);
+	if (ret) {
+		SDEROT_ERR("fail to get input plane size ret=%d\n", ret);
+		goto end;
+	}
+
+	ret = sde_mdp_data_check(&entry->src_buf, &ps, in_fmt);
+	if (ret) {
+		SDEROT_ERR("fail to check input data ret=%d\n", ret);
+		goto end;
+	}
+
+	ret = sde_mdp_get_plane_sizes(out_fmt, output->width, output->height,
+			&ps, 0, rotation);
 	if (ret) {
 		SDEROT_ERR("fail to get output plane size ret=%d\n", ret);
 		goto end;
 	}
 
-	ret = sde_mdp_data_check(&entry->dst_buf, &ps, fmt);
+	ret = sde_mdp_data_check(&entry->dst_buf, &ps, out_fmt);
 	if (ret) {
 		SDEROT_ERR("fail to check output data ret=%d\n", ret);
 		goto end;
