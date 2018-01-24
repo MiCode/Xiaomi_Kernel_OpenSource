@@ -295,9 +295,21 @@ void walt_irq_work(struct irq_work *irq_work);
 
 void walt_sched_init(struct rq *rq);
 
+static inline void walt_update_last_enqueue(struct task_struct *p)
+{
+	p->last_enqueued_ts = ktime_get_ns();
+}
+extern void walt_rotate_work_init(void);
+extern void walt_rotation_checkpoint(int nr_big);
+extern unsigned int walt_rotation_enabled;
+
 #else /* CONFIG_SCHED_WALT */
 
 static inline void walt_sched_init(struct rq *rq) { }
+
+static inline void walt_rotate_work_init(void) { }
+static inline void walt_rotation_checkpoint(int nr_big) { }
+static inline void walt_update_last_enqueue(struct task_struct *p) { }
 
 static inline void update_task_ravg(struct task_struct *p, struct rq *rq,
 				int event, u64 wallclock, u64 irqtime) { }

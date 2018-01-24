@@ -479,6 +479,7 @@ static void update_running_avg(void)
 
 	sched_get_nr_running_avg(&avg, &iowait_avg, &big_avg,
 				 &max_nr, &big_max_nr);
+	walt_rotation_checkpoint(big_avg);
 
 	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {

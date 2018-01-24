@@ -767,6 +767,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 		sched_info_queued(rq, p);
 
 	p->sched_class->enqueue_task(rq, p, flags);
+	walt_update_last_enqueue(p);
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
