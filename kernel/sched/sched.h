@@ -127,6 +127,7 @@ extern long calc_load_fold_active(struct rq *this_rq, long adjust);
 
 #ifdef CONFIG_SMP
 extern void cpu_load_update_active(struct rq *this_rq);
+extern void init_sched_groups_capacity(int cpu, struct sched_domain *sd);
 #else
 static inline void cpu_load_update_active(struct rq *this_rq) { }
 #endif
@@ -1626,6 +1627,7 @@ extern const struct sched_class idle_sched_class;
 extern void update_group_capacity(struct sched_domain *sd, int cpu);
 
 extern void trigger_load_balance(struct rq *rq);
+extern void nohz_balance_clear_nohz_mask(int cpu);
 
 extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
 

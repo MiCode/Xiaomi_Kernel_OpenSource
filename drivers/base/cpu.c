@@ -181,9 +181,40 @@ static struct attribute_group crash_note_cpu_attr_group = {
 };
 #endif
 
+#ifdef CONFIG_HOTPLUG_CPU
+
+static ssize_t isolate_show(struct device *dev,
+			    struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpuid = cpu->dev.id;
+	unsigned int isolated = cpu_isolated(cpuid);
+
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", isolated);
+
+	return rc;
+}
+
+static DEVICE_ATTR_RO(isolate);
+
+static struct attribute *cpu_isolated_attrs[] = {
+	&dev_attr_isolate.attr,
+	NULL
+};
+
+static struct attribute_group cpu_isolated_attr_group = {
+	.attrs = cpu_isolated_attrs,
+};
+
+#endif
+
 static const struct attribute_group *common_cpu_attr_groups[] = {
 #ifdef CONFIG_KEXEC
 	&crash_note_cpu_attr_group,
+#endif
+#ifdef CONFIG_HOTPLUG_CPU
+	&cpu_isolated_attr_group,
 #endif
 	NULL
 };
@@ -191,6 +222,9 @@ static const struct attribute_group *common_cpu_attr_groups[] = {
 static const struct attribute_group *hotplugable_cpu_attr_groups[] = {
 #ifdef CONFIG_KEXEC
 	&crash_note_cpu_attr_group,
+#endif
+#ifdef CONFIG_HOTPLUG_CPU
+	&cpu_isolated_attr_group,
 #endif
 	NULL
 };
