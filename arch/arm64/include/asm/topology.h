@@ -44,6 +44,9 @@ int pcibus_to_node(struct pci_bus *bus);
 /* Enable topology flag updates */
 #define arch_update_cpu_topology topology_update_cpu_topology
 
+#define arch_update_cpu_capacity update_cpu_power_capacity
+extern void update_cpu_power_capacity(int cpu);
+
 #include <asm-generic/topology.h>
 
 #endif /* _ASM_ARM_TOPOLOGY_H */

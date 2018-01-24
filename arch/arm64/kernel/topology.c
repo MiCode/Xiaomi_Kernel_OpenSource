@@ -354,6 +354,27 @@ const struct sched_group_energy * const cpu_system_energy(int cpu)
 	return sge;
 }
 
+static void update_cpu_capacity(unsigned int cpu)
+{
+	unsigned long capacity = SCHED_CAPACITY_SCALE;
+
+	if (cpu_core_energy(cpu)) {
+		int max_cap_idx = cpu_core_energy(cpu)->nr_cap_states - 1;
+
+		capacity = cpu_core_energy(cpu)->cap_states[max_cap_idx].cap;
+	}
+
+	topology_set_cpu_scale(cpu, capacity);
+
+	pr_info("CPU%d: update cpu_capacity %lu\n",
+		cpu, arch_scale_cpu_capacity(NULL, cpu));
+}
+
+void update_cpu_power_capacity(int cpu)
+{
+	update_cpu_capacity(cpu);
+}
+
 static struct sched_domain_topology_level arm64_topology[] = {
 #ifdef CONFIG_SCHED_SMT
 	{ cpu_smt_mask, smt_flags, SD_INIT_NAME(SMT) },

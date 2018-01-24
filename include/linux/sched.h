@@ -175,6 +175,12 @@ enum task_event {
 	IRQ_UPDATE	= 5,
 };
 
+/* Note: this need to be in sync with migrate_type_names array */
+enum migrate_types {
+	GROUP_TO_RQ,
+	RQ_TO_GROUP,
+};
+
 extern cpumask_var_t			cpu_isolated_map;
 
 extern void scheduler_tick(void);
@@ -419,8 +425,35 @@ struct sched_entity {
 #endif
 };
 
+struct sched_load {
+	unsigned long prev_load;
+	unsigned long new_task_load;
+	unsigned long predicted_load;
+};
+
+struct cpu_cycle_counter_cb {
+	u64 (*get_cpu_cycle_counter)(int cpu);
+};
+
+#define MAX_NUM_CGROUP_COLOC_ID	20
+
+extern DEFINE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
+
 #ifdef CONFIG_SCHED_WALT
+extern void sched_exit(struct task_struct *p);
+extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
+extern void sched_set_io_is_busy(int val);
+extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
+extern unsigned int sched_get_group_id(struct task_struct *p);
+extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
+extern u32 sched_get_init_task_load(struct task_struct *p);
+extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin,
+					  u32 fmax);
+extern int sched_set_boost(int enable);
+extern void free_task_load_ptrs(struct task_struct *p);
+
 #define RAVG_HIST_SIZE_MAX  5
+#define NUM_BUSY_BUCKETS 10
 
 /* ravg represents frequency scaled cpu-demand of tasks */
 struct ravg {
@@ -440,19 +473,49 @@ struct ravg {
 	 * sysctl_sched_ravg_hist_size windows. 'demand' could drive frequency
 	 * demand for tasks.
 	 *
-	 * 'curr_window' represents task's contribution to cpu busy time
-	 * statistics (rq->curr_runnable_sum) in current window
+	 * 'curr_window_cpu' represents task's contribution to cpu busy time on
+	 * various CPUs in the current window
 	 *
-	 * 'prev_window' represents task's contribution to cpu busy time
-	 * statistics (rq->prev_runnable_sum) in previous window
+	 * 'prev_window_cpu' represents task's contribution to cpu busy time on
+	 * various CPUs in the previous window
+	 *
+	 * 'curr_window' represents the sum of all entries in curr_window_cpu
+	 *
+	 * 'prev_window' represents the sum of all entries in prev_window_cpu
+	 *
+	 * 'pred_demand' represents task's current predicted cpu busy time
+	 *
+	 * 'busy_buckets' groups historical busy time into different buckets
+	 * used for prediction
 	 */
 	u64 mark_start;
 	u32 sum, demand;
+	u32 coloc_demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
+	u32 *curr_window_cpu, *prev_window_cpu;
 	u32 curr_window, prev_window;
 	u16 active_windows;
+	u32 pred_demand;
+	u8 busy_buckets[NUM_BUSY_BUCKETS];
 };
-#endif
+#else
+static inline void sched_exit(struct task_struct *p) { }
+static inline int
+register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
+{
+	return 0;
+}
+static inline void sched_set_io_is_busy(int val) {};
+
+static inline int sched_set_boost(int enable)
+{
+	return -EINVAL;
+}
+static inline void free_task_load_ptrs(struct task_struct *p) { }
+
+static inline void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
+					u32 fmin, u32 fmax) { }
+#endif /* CONFIG_SCHED_WALT */
 
 struct sched_rt_entity {
 	struct list_head		run_list;
@@ -606,6 +669,7 @@ struct task_struct {
 	const struct sched_class	*sched_class;
 	struct sched_entity		se;
 	struct sched_rt_entity		rt;
+	u64 last_sleep_ts;
 #ifdef CONFIG_SCHED_WALT
 	struct ravg ravg;
 	/*
@@ -613,7 +677,13 @@ struct task_struct {
 	 * of this task
 	 */
 	u32 init_load_pct;
-	u64 last_sleep_ts;
+	u64 last_wake_ts;
+	u64 last_switch_out_ts;
+	u64 last_cpu_selected_ts;
+	struct related_thread_group *grp;
+	struct list_head grp_list;
+	u64 cpu_cycles;
+	bool misfit;
 #endif
 
 #ifdef CONFIG_CGROUP_SCHED
@@ -1169,11 +1239,6 @@ struct task_struct {
 	 */
 };
 
-static inline int sched_set_boost(int enable)
-{
-	return 0;
-}
-
 static inline struct pid *task_pid(struct task_struct *task)
 {
 	return task->pids[PIDTYPE_PID].pid;
@@ -1722,9 +1787,6 @@ static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)
 
 extern long sched_setaffinity(pid_t pid, const struct cpumask *new_mask);
 extern long sched_getaffinity(pid_t pid, struct cpumask *mask);
-
-#define SCHED_CPUFREQ_INTERCLUSTER_MIG (1U << 3)
-#define SCHED_CPUFREQ_PL (1U << 5)
 
 #ifndef TASK_SIZE_OF
 #define TASK_SIZE_OF(tsk)	TASK_SIZE

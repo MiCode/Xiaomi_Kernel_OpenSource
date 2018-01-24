@@ -694,8 +694,8 @@ TRACE_EVENT(sched_load_rt_rq,
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int sysctl_sched_use_walt_task_util;
-extern unsigned int walt_ravg_window;
-extern bool walt_disabled;
+extern unsigned int sched_ravg_window;
+extern unsigned int walt_disabled;
 #endif
 
 /*
@@ -703,37 +703,37 @@ extern bool walt_disabled;
  */
 TRACE_EVENT(sched_load_avg_cpu,
 
-        TP_PROTO(int cpu, struct cfs_rq *cfs_rq),
+	TP_PROTO(int cpu, struct cfs_rq *cfs_rq),
 
-        TP_ARGS(cpu, cfs_rq),
+	TP_ARGS(cpu, cfs_rq),
 
-        TP_STRUCT__entry(
-                __field( int,   cpu                             )
-                __field( unsigned long, load_avg                )
-                __field( unsigned long, util_avg                )
-                __field( unsigned long, util_avg_pelt           )
-                __field( unsigned long, util_avg_walt           )
-        ),
+	TP_STRUCT__entry(
+		__field( int,   cpu                             )
+		__field( unsigned long, load_avg                )
+		__field( unsigned long, util_avg                )
+		__field( unsigned long, util_avg_pelt           )
+		__field( unsigned long, util_avg_walt           )
+	),
 
-        TP_fast_assign(
-                __entry->cpu                    = cpu;
-                __entry->load_avg               = cfs_rq->avg.load_avg;
-                __entry->util_avg               = cfs_rq->avg.util_avg;
-                __entry->util_avg_pelt  = cfs_rq->avg.util_avg;
-                __entry->util_avg_walt  = 0;
+	TP_fast_assign(
+		__entry->cpu                    = cpu;
+		__entry->load_avg               = cfs_rq->avg.load_avg;
+		__entry->util_avg               = cfs_rq->avg.util_avg;
+		__entry->util_avg_pelt  = cfs_rq->avg.util_avg;
+		__entry->util_avg_walt  = 0;
 #ifdef CONFIG_SCHED_WALT
-                __entry->util_avg_walt  =
-                                cpu_rq(cpu)->prev_runnable_sum << SCHED_CAPACITY_SHIFT;
-                do_div(__entry->util_avg_walt, walt_ravg_window);
-                if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
-                        __entry->util_avg               = __entry->util_avg_walt;
+		__entry->util_avg_walt  =
+			cpu_rq(cpu)->prev_runnable_sum << SCHED_CAPACITY_SHIFT;
+		do_div(__entry->util_avg_walt, sched_ravg_window);
+		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+			__entry->util_avg       = __entry->util_avg_walt;
 #endif
-        ),
+	),
 
-        TP_printk("cpu=%d load_avg=%lu util_avg=%lu "
-                          "util_avg_pelt=%lu util_avg_walt=%lu",
-                  __entry->cpu, __entry->load_avg, __entry->util_avg,
-                  __entry->util_avg_pelt, __entry->util_avg_walt)
+	TP_printk("cpu=%d load_avg=%lu util_avg=%lu "
+			"util_avg_pelt=%lu util_avg_walt=%lu",
+		__entry->cpu, __entry->load_avg, __entry->util_avg,
+		__entry->util_avg_pelt, __entry->util_avg_walt)
 );
 
 
@@ -775,8 +775,8 @@ TRACE_EVENT(sched_load_se,
 #ifdef CONFIG_SCHED_WALT
 		if (!se->my_q) {
 			struct task_struct *p = container_of(se, struct task_struct, se);
-			__entry->util_walt = p->ravg.demand;
-			do_div(__entry->util_walt, walt_ravg_window >> SCHED_CAPACITY_SHIFT);
+			__entry->util_walt = ((unsigned long)(p->ravg.demand) << SCHED_CAPACITY_SHIFT);
+			do_div(__entry->util_walt, sched_ravg_window);
 			if (!walt_disabled && sysctl_sched_use_walt_task_util)
 				__entry->util = __entry->util_walt;
 		}
@@ -1005,163 +1005,39 @@ TRACE_EVENT(sched_find_best_target,
 		__entry->target)
 );
 
-#ifdef CONFIG_SCHED_WALT
-struct rq;
+/*
+ * Tracepoint for sched_get_nr_running_avg
+ */
+TRACE_EVENT(sched_get_nr_running_avg,
 
-TRACE_EVENT(walt_update_task_ravg,
+	TP_PROTO(int avg, int big_avg, int iowait_avg,
+		unsigned int max_nr, unsigned int big_max_nr),
 
-	TP_PROTO(struct task_struct *p, struct rq *rq, int evt,
-						u64 wallclock, u64 irqtime),
-
-	TP_ARGS(p, rq, evt, wallclock, irqtime),
+	TP_ARGS(avg, big_avg, iowait_avg, max_nr, big_max_nr),
 
 	TP_STRUCT__entry(
-		__array(	char,	comm,   TASK_COMM_LEN	)
-		__field(	pid_t,	pid			)
-		__field(	pid_t,	cur_pid			)
-		__field(	u64,	wallclock		)
-		__field(	u64,	mark_start		)
-		__field(	u64,	delta_m			)
-		__field(	u64,	win_start		)
-		__field(	u64,	delta			)
-		__field(	u64,	irqtime			)
-		__array(    char,   evt, 16			)
-		__field(unsigned int,	demand			)
-		__field(unsigned int,	sum			)
-		__field(	 int,	cpu			)
-		__field(	u64,	cs			)
-		__field(	u64,	ps			)
-		__field(	u32,	curr_window		)
-		__field(	u32,	prev_window		)
-		__field(	u64,	nt_cs			)
-		__field(	u64,	nt_ps			)
-		__field(	u32,	active_windows		)
+		__field( int,   avg                     )
+		__field( int,   big_avg                 )
+		__field( int,   iowait_avg              )
+		__field( unsigned int,  max_nr          )
+		__field( unsigned int,  big_max_nr      )
 	),
 
 	TP_fast_assign(
-			static const char* walt_event_names[] =
-			{
-				"PUT_PREV_TASK",
-				"PICK_NEXT_TASK",
-				"TASK_WAKE",
-				"TASK_MIGRATE",
-				"TASK_UPDATE",
-				"IRQ_UPDATE"
-			};
-		__entry->wallclock      = wallclock;
-		__entry->win_start      = rq->window_start;
-		__entry->delta          = (wallclock - rq->window_start);
-		strcpy(__entry->evt, walt_event_names[evt]);
-		__entry->cpu            = rq->cpu;
-		__entry->cur_pid        = rq->curr->pid;
-		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
-		__entry->pid            = p->pid;
-		__entry->mark_start     = p->ravg.mark_start;
-		__entry->delta_m        = (wallclock - p->ravg.mark_start);
-		__entry->demand         = p->ravg.demand;
-		__entry->sum            = p->ravg.sum;
-		__entry->irqtime        = irqtime;
-		__entry->cs             = rq->curr_runnable_sum;
-		__entry->ps             = rq->prev_runnable_sum;
-		__entry->curr_window	= p->ravg.curr_window;
-		__entry->prev_window	= p->ravg.prev_window;
-		__entry->nt_cs		= rq->nt_curr_runnable_sum;
-		__entry->nt_ps		= rq->nt_prev_runnable_sum;
-		__entry->active_windows	= p->ravg.active_windows;
+		__entry->avg            = avg;
+		__entry->big_avg        = big_avg;
+		__entry->iowait_avg     = iowait_avg;
+		__entry->max_nr         = max_nr;
+		__entry->big_max_nr     = big_max_nr;
 	),
 
-	TP_printk("wallclock=%llu window_start=%llu delta=%llu event=%s cpu=%d cur_pid=%d pid=%d comm=%s"
-		" mark_start=%llu delta=%llu demand=%u sum=%u irqtime=%llu"
-		" curr_runnable_sum=%llu prev_runnable_sum=%llu cur_window=%u"
-		" prev_window=%u nt_curr_runnable_sum=%llu nt_prev_runnable_sum=%llu active_windows=%u",
-		__entry->wallclock, __entry->win_start, __entry->delta,
-		__entry->evt, __entry->cpu, __entry->cur_pid,
-		__entry->pid, __entry->comm, __entry->mark_start,
-		__entry->delta_m, __entry->demand,
-		__entry->sum, __entry->irqtime,
-		__entry->cs, __entry->ps,
-		__entry->curr_window, __entry->prev_window,
-		__entry->nt_cs, __entry->nt_ps,
-		__entry->active_windows
-		)
+	TP_printk("avg=%d big_avg=%d iowait_avg=%d max_nr=%u big_max_nr=%u",
+		__entry->avg, __entry->big_avg, __entry->iowait_avg,
+		__entry->max_nr, __entry->big_max_nr)
 );
 
-TRACE_EVENT(walt_update_history,
+#include "walt.h"
 
-	TP_PROTO(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
-			int evt),
-
-	TP_ARGS(rq, p, runtime, samples, evt),
-
-	TP_STRUCT__entry(
-		__array(	char,	comm,   TASK_COMM_LEN	)
-		__field(	pid_t,	pid			)
-		__field(unsigned int,	runtime			)
-		__field(	 int,	samples			)
-		__field(	 int,	evt			)
-		__field(	 u64,	demand			)
-		__field(unsigned int,	walt_avg		)
-		__field(unsigned int,	pelt_avg		)
-		__array(	 u32,	hist, RAVG_HIST_SIZE_MAX)
-		__field(	 int,	cpu			)
-	),
-
-	TP_fast_assign(
-		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
-		__entry->pid            = p->pid;
-		__entry->runtime        = runtime;
-		__entry->samples        = samples;
-		__entry->evt            = evt;
-		__entry->demand         = p->ravg.demand;
-		__entry->walt_avg = (__entry->demand << 10) / walt_ravg_window,
-		__entry->pelt_avg	= p->se.avg.util_avg;
-		memcpy(__entry->hist, p->ravg.sum_history,
-					RAVG_HIST_SIZE_MAX * sizeof(u32));
-		__entry->cpu            = rq->cpu;
-	),
-
-	TP_printk("pid=%d comm=%s runtime=%u samples=%d event=%d demand=%llu ravg_window=%u"
-		" walt=%u pelt=%u hist0=%u hist1=%u hist2=%u hist3=%u hist4=%u cpu=%d",
-		__entry->pid, __entry->comm,
-		__entry->runtime, __entry->samples, __entry->evt,
-		__entry->demand,
-		walt_ravg_window,
-		__entry->walt_avg,
-		__entry->pelt_avg,
-		__entry->hist[0], __entry->hist[1],
-		__entry->hist[2], __entry->hist[3],
-		__entry->hist[4], __entry->cpu)
-);
-
-TRACE_EVENT(walt_migration_update_sum,
-
-	TP_PROTO(struct rq *rq, struct task_struct *p),
-
-	TP_ARGS(rq, p),
-
-	TP_STRUCT__entry(
-		__field(int,		cpu			)
-		__field(int,		pid			)
-		__field(	u64,	cs			)
-		__field(	u64,	ps			)
-		__field(	s64,	nt_cs			)
-		__field(	s64,	nt_ps			)
-	),
-
-	TP_fast_assign(
-		__entry->cpu		= cpu_of(rq);
-		__entry->cs		= rq->curr_runnable_sum;
-		__entry->ps		= rq->prev_runnable_sum;
-		__entry->nt_cs		= (s64)rq->nt_curr_runnable_sum;
-		__entry->nt_ps		= (s64)rq->nt_prev_runnable_sum;
-		__entry->pid		= p->pid;
-	),
-
-	TP_printk("cpu=%d curr_runnable_sum=%llu prev_runnable_sum=%llu nt_curr_runnable_sum=%lld nt_prev_runnable_sum=%lld pid=%d",
-		  __entry->cpu, __entry->cs, __entry->ps,
-		  __entry->nt_cs, __entry->nt_ps, __entry->pid)
-);
-#endif /* CONFIG_SCHED_WALT */
 #endif /* CONFIG_SMP */
 #endif /* _TRACE_SCHED_H */
 

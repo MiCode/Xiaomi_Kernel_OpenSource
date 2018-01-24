@@ -34,12 +34,12 @@
 #endif
 
 #include "sched.h"
+#include "walt.h"
 #include "../workqueue_internal.h"
 #include "../smpboot.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
-#include "walt.h"
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 
@@ -86,8 +86,6 @@ int sysctl_sched_rt_runtime = 950000;
 
 /* CPUs with isolated domains */
 cpumask_var_t cpu_isolated_map;
-
-__read_mostly unsigned int sched_ravg_window = (3333333 * 6);
 
 /*
  * __task_rq_lock - lock the rq @p resides on.
@@ -794,6 +792,9 @@ void deactivate_task(struct rq *rq, struct task_struct *p, int flags)
 	if (task_contributes_to_load(p))
 		rq->nr_uninterruptible++;
 
+	if (flags & DEQUEUE_SLEEP)
+		clear_ed_task(p, rq);
+
 	dequeue_task(rq, p, flags);
 }
 
@@ -928,8 +929,9 @@ static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
 
 	p->on_rq = TASK_ON_RQ_MIGRATING;
 	dequeue_task(rq, p, DEQUEUE_NOCLOCK);
+	double_lock_balance(rq, cpu_rq(new_cpu));
 	set_task_cpu(p, new_cpu);
-	rq_unlock(rq, rf);
+	double_rq_unlock(cpu_rq(new_cpu), rq);
 
 	rq = cpu_rq(new_cpu);
 
@@ -1195,7 +1197,7 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 		p->se.nr_migrations++;
 		perf_event_task_migrate(p);
 
-		walt_fixup_busy_time(p, new_cpu);
+		fixup_busy_time(p, new_cpu);
 	}
 
 	__set_task_cpu(p, new_cpu);
@@ -1770,6 +1772,7 @@ void sched_ttwu_pending(void)
 
 void scheduler_ipi(void)
 {
+	int cpu = smp_processor_id();
 	/*
 	 * Fold TIF_NEED_RESCHED into the preempt_count; anybody setting
 	 * TIF_NEED_RESCHED remotely (for the first time) will also send
@@ -1777,8 +1780,17 @@ void scheduler_ipi(void)
 	 */
 	preempt_fold_need_resched();
 
-	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick())
+	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick()
+		&& !got_boost_kick())
 		return;
+
+	if (got_boost_kick()) {
+		struct rq *rq = cpu_rq(cpu);
+
+		if (rq->curr->sched_class == &fair_sched_class)
+			check_for_migration(rq, rq->curr);
+		clear_boost_kick(cpu);
+	}
 
 	/*
 	 * Not all reschedule IPI handlers call irq_enter/irq_exit, since
@@ -1968,12 +1980,21 @@ static inline void walt_try_to_wake_up(struct task_struct *p)
 	struct rq *rq = cpu_rq(task_cpu(p));
 	struct rq_flags rf;
 	u64 wallclock;
+	unsigned int old_load;
+	struct related_thread_group *grp = NULL;
 
 	rq_lock_irqsave(rq, &rf);
-	wallclock = walt_ktime_clock();
-	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
-	walt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
+	old_load = task_load(p);
+	wallclock = ktime_get_ns();
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+	update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 	rq_unlock_irqrestore(rq, &rf);
+
+	rcu_read_lock();
+	grp = task_related_thread_group(p);
+	if (update_preferred_cluster(grp, p, old_load))
+		set_preferred_cluster(grp);
+	rcu_read_unlock();
 }
 #else
 #define walt_try_to_wake_up(a) {}
@@ -2004,6 +2025,9 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 {
 	unsigned long flags;
 	int cpu, success = 0;
+#ifdef CONFIG_SMP
+	u64 wallclock;
+#endif
 
 	/*
 	 * If we are going to wake up a thread waiting for CONDITION we
@@ -2095,6 +2119,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 		set_task_cpu(p, cpu);
 	}
 
+	wallclock = ktime_get_ns();
+	note_task_waking(p, wallclock);
 #else /* CONFIG_SMP */
 
 	if (p->in_iowait) {
@@ -2150,16 +2176,17 @@ static void try_to_wake_up_local(struct task_struct *p, struct rq_flags *rf)
 	trace_sched_waking(p);
 
 	if (!task_on_rq_queued(p)) {
-		u64 wallclock = walt_ktime_clock();
+		u64 wallclock = ktime_get_ns();
 
-		walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
-		walt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
+		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+		update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 
 		if (p->in_iowait) {
 			delayacct_blkio_end();
 			atomic_dec(&rq->nr_iowait);
 		}
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK);
+		note_task_waking(p, wallclock);
 	}
 
 	ttwu_do_wakeup(rq, p, 0, rf);
@@ -2207,12 +2234,8 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.prev_sum_exec_runtime	= 0;
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
-#ifdef CONFIG_SCHED_WALT
 	p->last_sleep_ts		= 0;
-#endif
-
 	INIT_LIST_HEAD(&p->se.group_node);
-	walt_init_new_task_load(p);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	p->se.cfs_rq			= NULL;
@@ -2381,6 +2404,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	unsigned long flags;
 	int cpu = get_cpu();
 
+	init_new_task_load(p, false);
 	__sched_fork(clone_flags, p);
 	/*
 	 * We mark the process as NEW here. This guarantees that
@@ -2488,9 +2512,8 @@ void wake_up_new_task(struct task_struct *p)
 	struct rq_flags rf;
 	struct rq *rq;
 
+	add_new_task_to_grp(p);
 	raw_spin_lock_irqsave(&p->pi_lock, rf.flags);
-
-	walt_init_new_task_load(p);
 
 	p->state = TASK_RUNNING;
 #ifdef CONFIG_SMP
@@ -2509,7 +2532,7 @@ void wake_up_new_task(struct task_struct *p)
 	post_init_entity_util_avg(&p->se);
 
 	activate_task(rq, p, ENQUEUE_NOCLOCK);
-	walt_mark_task_starting(p);
+	mark_task_starting(p);
 
 	p->on_rq = TASK_ON_RQ_QUEUED;
 	trace_sched_wakeup_new(p);
@@ -3059,19 +3082,30 @@ void scheduler_tick(void)
 	struct rq *rq = cpu_rq(cpu);
 	struct task_struct *curr = rq->curr;
 	struct rq_flags rf;
+	u64 wallclock;
+	bool early_notif;
+	u32 old_load;
+	struct related_thread_group *grp;
+	unsigned int flag = 0;
 
 	sched_clock_tick();
 
 	rq_lock(rq, &rf);
 
-	walt_set_window_start(rq, &rf);
-	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE,
-			walt_ktime_clock(), 0);
+	old_load = task_load(curr);
+	set_window_start(rq);
+	wallclock = ktime_get_ns();
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_rq_clock(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
 	cpu_load_update_active(rq);
 	calc_global_load_tick(rq);
 
+	early_notif = early_detection_notify(rq, wallclock);
+	if (early_notif)
+		flag = SCHED_CPUFREQ_WALT | SCHED_CPUFREQ_EARLY_DET;
+
+	cpufreq_update_util(rq, flag);
 	rq_unlock(rq, &rf);
 
 	perf_event_task_tick();
@@ -3081,6 +3115,15 @@ void scheduler_tick(void)
 	trigger_load_balance(rq);
 #endif
 	rq_last_tick_reset(rq);
+
+	rcu_read_lock();
+	grp = task_related_thread_group(curr);
+	if (update_preferred_cluster(grp, curr, old_load))
+		set_preferred_cluster(grp);
+	rcu_read_unlock();
+
+	if (curr->sched_class == &fair_sched_class)
+		check_for_migration(rq, curr);
 }
 
 #ifdef CONFIG_NO_HZ_FULL
@@ -3394,17 +3437,16 @@ static void __sched notrace __schedule(bool preempt)
 	}
 
 	next = pick_next_task(rq, prev, &rf);
-	wallclock = walt_ktime_clock();
-	walt_update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
-	walt_update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 	clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
 
+	wallclock = ktime_get_ns();
 	if (likely(prev != next)) {
-#ifdef CONFIG_SCHED_WALT
 		if (!prev->on_rq)
 			prev->last_sleep_ts = wallclock;
-#endif
+
+		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
+		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 		rq->nr_switches++;
 		rq->curr = next;
 		/*
@@ -3429,6 +3471,7 @@ static void __sched notrace __schedule(bool preempt)
 		/* Also unlocks the rq: */
 		rq = context_switch(rq, prev, next, &rf);
 	} else {
+		update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 		rq->clock_update_flags &= ~(RQCF_ACT_SKIP|RQCF_REQ_SKIP);
 		rq_unlock_irq(rq, &rf);
 	}
@@ -5298,15 +5341,18 @@ void show_state_filter(unsigned long state_filter)
  * NOTE: this function does not set the idle thread's NEED_RESCHED
  * flag, to make booting more robust.
  */
-void init_idle(struct task_struct *idle, int cpu)
+void init_idle(struct task_struct *idle, int cpu, bool cpu_up)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
 
+	__sched_fork(0, idle);
+	if (!cpu_up)
+		init_new_task_load(idle, true);
+
 	raw_spin_lock_irqsave(&idle->pi_lock, flags);
 	raw_spin_lock(&rq->lock);
 
-	__sched_fork(0, idle);
 	idle->state = TASK_RUNNING;
 	idle->se.exec_start = sched_clock();
 	idle->flags |= PF_IDLE;
@@ -5734,6 +5780,11 @@ int sched_cpu_deactivate(unsigned int cpu)
 static void sched_rq_cpu_starting(unsigned int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	set_window_start(rq);
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	rq->calc_load_update = calc_load_update;
 	update_max_interval();
@@ -5757,8 +5808,6 @@ int sched_cpu_dying(unsigned int cpu)
 
 	rq_lock_irqsave(rq, &rf);
 
-	walt_migrate_sync_cpu(cpu);
-
 	if (rq->rd) {
 		BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
 		set_rq_offline(rq);
@@ -5766,6 +5815,8 @@ int sched_cpu_dying(unsigned int cpu)
 	migrate_tasks(rq, &rf);
 	BUG_ON(rq->nr_running != 1);
 	rq_unlock_irqrestore(rq, &rf);
+
+	clear_walt_request(cpu);
 
 	calc_load_migrate(rq);
 	update_max_interval();
@@ -5810,6 +5861,8 @@ void __init sched_init_smp(void)
 	if (cpumask_empty(non_isolated_cpus))
 		cpumask_set_cpu(smp_processor_id(), non_isolated_cpus);
 	mutex_unlock(&sched_domains_mutex);
+
+	update_cluster_topology();
 
 	/* Move init over to a non-isolated CPU */
 	if (set_cpus_allowed_ptr(current, non_isolated_cpus) < 0)
@@ -5868,6 +5921,8 @@ void __init sched_init(void)
 
 	sched_clock_init();
 	wait_bit_init();
+
+	init_clusters();
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
@@ -5984,11 +6039,8 @@ void __init sched_init(void)
 		rq->idle_stamp = 0;
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
-#ifdef CONFIG_SCHED_WALT
-		rq->cur_irqload = 0;
-		rq->avg_irqload = 0;
-		rq->irqload_ts = 0;
-#endif
+		rq->push_task = NULL;
+		walt_sched_init(rq);
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 
@@ -6006,6 +6058,8 @@ void __init sched_init(void)
 		atomic_set(&rq->nr_iowait, 0);
 	}
 
+	BUG_ON(alloc_related_thread_groups());
+
 	set_load_weight(&init_task);
 
 	/*
@@ -6020,7 +6074,7 @@ void __init sched_init(void)
 	 * but because we are the idle thread, we just pick up running again
 	 * when this runqueue becomes "idle".
 	 */
-	init_idle(current, smp_processor_id());
+	init_idle(current, smp_processor_id(), false);
 
 	calc_load_update = jiffies + LOAD_FREQ;
 
@@ -6833,3 +6887,49 @@ const u32 sched_prio_to_wmult[40] = {
  /*  10 */  39045157,  49367440,  61356676,  76695844,  95443717,
  /*  15 */ 119304647, 148102320, 186737708, 238609294, 286331153,
 };
+
+#ifdef CONFIG_SCHED_WALT
+/*
+ * sched_exit() - Set EXITING_TASK_MARKER in task's ravg.demand field
+ *
+ * Stop accounting (exiting) task's future cpu usage
+ *
+ * We need this so that reset_all_windows_stats() can function correctly.
+ * reset_all_window_stats() depends on do_each_thread/for_each_thread task
+ * iterators to reset *all* task's statistics. Exiting tasks however become
+ * invisible to those iterators. sched_exit() is called on a exiting task prior
+ * to being removed from task_list, which will let reset_all_window_stats()
+ * function correctly.
+ */
+void sched_exit(struct task_struct *p)
+{
+	struct rq_flags rf;
+	struct rq *rq;
+	u64 wallclock;
+
+	sched_set_group_id(p, 0);
+
+	rq = task_rq_lock(p, &rf);
+
+	/* rq->curr == p */
+	wallclock = ktime_get_ns();
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+	dequeue_task(rq, p, 0);
+	/*
+	 * task's contribution is already removed from the
+	 * cumulative window demand in dequeue. As the
+	 * task's stats are reset, the next enqueue does
+	 * not change the cumulative window demand.
+	 */
+	reset_task_stats(p);
+	p->ravg.mark_start = wallclock;
+	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
+	free_task_load_ptrs(p);
+
+	enqueue_task(rq, p, 0);
+	clear_ed_task(p, rq);
+	task_rq_unlock(rq, p, &rf);
+}
+#endif /* CONFIG_SCHED_WALT */
+
+__read_mostly bool sched_predl = 1;
