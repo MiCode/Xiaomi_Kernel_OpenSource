@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,14 +49,14 @@ module_param(agg_bypass_time, long, 0644);
 MODULE_PARM_DESC(agg_bypass_time, "Skip agg when apart spaced more than this");
 
 struct agg_work {
-	struct delayed_work work;
+	struct work_struct work;
 	struct rmnet_phys_ep_config *config;
 };
 
 #define RMNET_MAP_DEAGGR_SPACING  64
 #define RMNET_MAP_DEAGGR_HEADROOM (RMNET_MAP_DEAGGR_SPACING / 2)
 
-/* rmnet_map_add_map_header() - Adds MAP header to front of skb->data
+/* rmnet_data_map_add_map_header() - Adds MAP header to front of skb->data
  * @skb:        Socket buffer ("packet") to modify
  * @hdrlen:     Number of bytes of header data which should not be included in
  *              MAP length field
@@ -71,8 +71,8 @@ struct agg_work {
  *      - 0 (null) if insufficient headroom
  *      - 0 (null) if insufficient tailroom for padding bytes
  */
-struct rmnet_map_header_s *rmnet_map_add_map_header(struct sk_buff *skb,
-						    int hdrlen, int pad)
+struct rmnet_map_header_s *rmnet_data_map_add_map_header(struct sk_buff *skb,
+							 int hdrlen, int pad)
 {
 	u32 padding, map_datalen;
 	u8 *padbytes;
@@ -110,7 +110,7 @@ done:
 	return map_header;
 }
 
-/* rmnet_map_deaggregate() - Deaggregates a single packet
+/* rmnet_data_map_deaggregate() - Deaggregates a single packet
  * @skb:        Source socket buffer containing multiple MAP frames
  * @config:     Physical endpoint configuration of the ingress device
  *
@@ -123,8 +123,8 @@ done:
  *     - Pointer to new skb
  *     - 0 (null) if no more aggregated packets
  */
-struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
-				      struct rmnet_phys_ep_config *config)
+struct sk_buff *rmnet_data_map_deaggregate(struct sk_buff *skb,
+					   struct rmnet_phys_ep_config *config)
 {
 	struct sk_buff *skbn;
 	struct rmnet_map_header_s *maph;
@@ -165,25 +165,18 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	return skbn;
 }
 
-/* rmnet_map_flush_packet_queue() - Transmits aggregeted frame on timeout
- * @work:        struct agg_work containing delayed work and skb to flush
- *
- * This function is scheduled to run in a specified number of jiffies after
- * the last frame transmitted by the network stack. When run, the buffer
- * containing aggregated packets is finally transmitted on the underlying link.
- *
- */
-static void rmnet_map_flush_packet_queue(struct work_struct *work)
+static void rmnet_map_flush_packet_work(struct work_struct *work)
 {
-	struct agg_work *real_work;
 	struct rmnet_phys_ep_config *config;
+	struct agg_work *real_work;
+	int rc, agg_count = 0;
 	unsigned long flags;
 	struct sk_buff *skb;
-	int rc, agg_count = 0;
 
-	skb = 0;
 	real_work = (struct agg_work *)work;
 	config = real_work->config;
+	skb = NULL;
+
 	LOGD("%s", "Entering flush thread");
 	spin_lock_irqsave(&config->agg_lock, flags);
 	if (likely(config->agg_state == RMNET_MAP_TXFER_SCHEDULED)) {
@@ -194,15 +187,11 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 				LOGL("Agg count: %d", config->agg_count);
 			skb = config->agg_skb;
 			agg_count = config->agg_count;
-			config->agg_skb = 0;
+			config->agg_skb = NULL;
 			config->agg_count = 0;
 			memset(&config->agg_time, 0, sizeof(struct timespec));
 		}
 		config->agg_state = RMNET_MAP_AGG_IDLE;
-	} else {
-		/* How did we get here? */
-		LOGE("Ran queued command when state %s",
-		     "is idle. State machine likely broken");
 	}
 
 	spin_unlock_irqrestore(&config->agg_lock, flags);
@@ -211,7 +200,35 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 		rc = dev_queue_xmit(skb);
 		rmnet_stats_queue_xmit(rc, RMNET_STATS_QUEUE_XMIT_AGG_TIMEOUT);
 	}
+
 	kfree(work);
+}
+
+/* rmnet_map_flush_packet_queue() - Transmits aggregeted frame on timeout
+ *
+ * This function is scheduled to run in a specified number of ns after
+ * the last frame transmitted by the network stack. When run, the buffer
+ * containing aggregated packets is finally transmitted on the underlying link.
+ *
+ */
+enum hrtimer_restart rmnet_map_flush_packet_queue(struct hrtimer *t)
+{
+	struct rmnet_phys_ep_config *config;
+	struct agg_work *work;
+
+	config = container_of(t, struct rmnet_phys_ep_config, hrtimer);
+
+	work = kmalloc(sizeof(*work), GFP_ATOMIC);
+	if (!work) {
+		config->agg_state = RMNET_MAP_AGG_IDLE;
+
+		return HRTIMER_NORESTART;
+	}
+
+	INIT_WORK(&work->work, rmnet_map_flush_packet_work);
+	work->config = config;
+	schedule_work((struct work_struct *)work);
+	return HRTIMER_NORESTART;
 }
 
 /* rmnet_map_aggregate() - Software aggregates multiple packets.
@@ -227,7 +244,6 @@ void rmnet_map_aggregate(struct sk_buff *skb,
 			 struct rmnet_phys_ep_config *config)
 {
 	u8 *dest_buff;
-	struct agg_work *work;
 	unsigned long flags;
 	struct sk_buff *agg_skb;
 	struct timespec diff, last;
@@ -235,16 +251,9 @@ void rmnet_map_aggregate(struct sk_buff *skb,
 
 	if (!skb || !config)
 		return;
-	size = config->egress_agg_size - skb->len;
-
-	if (size < 2000) {
-		LOGL("Invalid length %d", size);
-		return;
-	}
 
 new_packet:
 	spin_lock_irqsave(&config->agg_lock, flags);
-
 	memcpy(&last, &config->agg_last, sizeof(struct timespec));
 	getnstimeofday(&config->agg_last);
 
@@ -266,6 +275,7 @@ new_packet:
 			return;
 		}
 
+		size = config->egress_agg_size - skb->len;
 		config->agg_skb = skb_copy_expand(skb, 0, size, GFP_ATOMIC);
 		if (!config->agg_skb) {
 			config->agg_skb = 0;
@@ -297,7 +307,9 @@ new_packet:
 		config->agg_skb = 0;
 		config->agg_count = 0;
 		memset(&config->agg_time, 0, sizeof(struct timespec));
+		config->agg_state = RMNET_MAP_AGG_IDLE;
 		spin_unlock_irqrestore(&config->agg_lock, flags);
+		hrtimer_cancel(&config->hrtimer);
 		LOGL("delta t: %ld.%09lu\tcount: %d", diff.tv_sec,
 		     diff.tv_nsec, agg_count);
 		trace_rmnet_map_aggregate(skb, agg_count);
@@ -314,19 +326,9 @@ new_packet:
 
 schedule:
 	if (config->agg_state != RMNET_MAP_TXFER_SCHEDULED) {
-		work = kmalloc(sizeof(*work), GFP_ATOMIC);
-		if (!work) {
-			LOGE("Failed to allocate work item for packet %s",
-			     "transfer. DATA PATH LIKELY BROKEN!");
-			config->agg_state = RMNET_MAP_AGG_IDLE;
-			spin_unlock_irqrestore(&config->agg_lock, flags);
-			return;
-		}
-		INIT_DELAYED_WORK((struct delayed_work *)work,
-				  rmnet_map_flush_packet_queue);
-		work->config = config;
 		config->agg_state = RMNET_MAP_TXFER_SCHEDULED;
-		schedule_delayed_work((struct delayed_work *)work, 1);
+		hrtimer_start(&config->hrtimer, ns_to_ktime(3000000),
+			      HRTIMER_MODE_REL);
 	}
 	spin_unlock_irqrestore(&config->agg_lock, flags);
 }
@@ -556,7 +558,7 @@ static int rmnet_map_validate_ipv6_packet_checksum
 		return RMNET_MAP_CHECKSUM_VALIDATION_FAILED;
 	}
 
-/* rmnet_map_checksum_downlink_packet() - Validates checksum on
+/* rmnet_map_data_checksum_downlink_packet() - Validates checksum on
  * a downlink packet
  * @skb:	Pointer to the packet's skb.
  *
@@ -577,7 +579,7 @@ static int rmnet_map_validate_ipv6_packet_checksum
  *   - RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION: Unrecognized IP header.
  *   - RMNET_MAP_CHECKSUM_VALIDATION_FAILED: In case the validation failed.
  */
-int rmnet_map_checksum_downlink_packet(struct sk_buff *skb)
+int rmnet_map_data_checksum_downlink_packet(struct sk_buff *skb)
 {
 	struct rmnet_map_dl_checksum_trailer_s *cksum_trailer;
 	unsigned int data_len;
@@ -692,9 +694,9 @@ static void rmnet_map_complement_ipv6_txporthdr_csum_field(void *ip6hdr)
  *   - RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION: Unrecognized IP header.
  *   - RMNET_MAP_CHECKSUM_SW: Unsupported packet for UL checksum offload.
  */
-int rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
-				     struct net_device *orig_dev,
-				     u32 egress_data_format)
+int rmnet_map_data_checksum_uplink_packet(struct sk_buff *skb,
+					  struct net_device *orig_dev,
+					  u32 egress_data_format)
 {
 	unsigned char ip_version;
 	struct rmnet_map_ul_checksum_header_s *ul_header;
@@ -748,4 +750,32 @@ sw_checksum:
 	ul_header->udp_ip4_ind = 0;
 done:
 	return ret;
+}
+
+int rmnet_ul_aggregation_skip(struct sk_buff *skb, int offset)
+{
+	unsigned char *packet_start = skb->data + offset;
+	int is_icmp = 0;
+
+	if (skb->data[offset] >> 4 == 0x04) {
+		struct iphdr *ip4h = (struct iphdr *)(packet_start);
+
+		if (ip4h->protocol == IPPROTO_ICMP)
+			is_icmp = 1;
+	} else if ((skb->data[offset]) >> 4 == 0x06) {
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)(packet_start);
+
+		if (ip6h->nexthdr == IPPROTO_ICMPV6) {
+			is_icmp = 1;
+		} else if (ip6h->nexthdr == NEXTHDR_FRAGMENT) {
+			struct frag_hdr *frag;
+
+			frag = (struct frag_hdr *)(packet_start
+						   + sizeof(struct ipv6hdr));
+			if (frag->nexthdr == IPPROTO_ICMPV6)
+				is_icmp = 1;
+		}
+	}
+
+	return is_icmp;
 }

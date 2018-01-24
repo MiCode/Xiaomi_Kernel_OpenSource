@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,7 +88,7 @@ static uint8_t rmnet_map_do_flow_control(struct sk_buff *skb,
 	 * sequence. User space does not support creating dedicated flows for
 	 * the 2 protocols
 	 */
-	r = rmnet_vnd_do_flow_control(vnd, qos_id, fc_seq, fc_seq, enable);
+	r = rmnet_data_vnd_do_flow_control(vnd, qos_id, fc_seq, fc_seq, enable);
 	LOGD("dev:%s, qos_id:0x%08X, ip_family:%hd, fc_seq %hd, en:%d",
 	     skb->dev->name, qos_id, ip_family & 3, fc_seq, enable);
 
@@ -157,7 +157,7 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 	}
 }
 
-/* rmnet_map_command() - Entry point for handling MAP commands
+/* rmnet_data_map_command() - Entry point for handling MAP commands
  * @skb: Socket buffer containing the MAP command message
  * @config: Physical end-point configuration of ingress device
  *
@@ -167,8 +167,8 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
  * Return:
  *      - RX_HANDLER_CONSUMED. Command frames are always consumed.
  */
-rx_handler_result_t rmnet_map_command(struct sk_buff *skb,
-				      struct rmnet_phys_ep_config *config)
+rx_handler_result_t rmnet_data_map_command(struct sk_buff *skb,
+					   struct rmnet_phys_ep_config *config)
 {
 	struct rmnet_map_control_command_s *cmd;
 	unsigned char command_name;

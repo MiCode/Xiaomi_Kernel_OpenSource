@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,55 +101,6 @@ static void rmnet_vnd_add_qos_header(struct sk_buff *skb,
 	}
 }
 
-/* RX/TX Fixup */
-
-/* rmnet_vnd_rx_fixup() - Virtual Network Device receive fixup hook
- * @skb:        Socket buffer ("packet") to modify
- * @dev:        Virtual network device
- *
- * Additional VND specific packet processing for ingress packets
- *
- * Return:
- *      - RX_HANDLER_PASS if packet should continue to process in stack
- *      - RX_HANDLER_CONSUMED if packet should not be processed in stack
- *
- */
-int rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev)
-{
-	if (unlikely(!dev || !skb))
-		return RX_HANDLER_CONSUMED;
-
-	dev->stats.rx_packets++;
-	dev->stats.rx_bytes += skb->len;
-
-	return RX_HANDLER_PASS;
-}
-
-/* rmnet_vnd_tx_fixup() - Virtual Network Device transmic fixup hook
- * @skb:      Socket buffer ("packet") to modify
- * @dev:      Virtual network device
- *
- * Additional VND specific packet processing for egress packets
- *
- * Return:
- *      - RX_HANDLER_PASS if packet should continue to be transmitted
- *      - RX_HANDLER_CONSUMED if packet should not be transmitted by stack
- */
-int rmnet_vnd_tx_fixup(struct sk_buff *skb, struct net_device *dev)
-{
-	struct rmnet_vnd_private_s *dev_conf;
-
-	dev_conf = (struct rmnet_vnd_private_s *)netdev_priv(dev);
-
-	if (unlikely(!dev || !skb))
-		return RX_HANDLER_CONSUMED;
-
-	dev->stats.tx_packets++;
-	dev->stats.tx_bytes += skb->len;
-
-	return RX_HANDLER_PASS;
-}
-
 /* Network Device Operations */
 
 /* rmnet_vnd_start_xmit() - Transmit NDO callback
@@ -177,7 +128,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 						 dev,
 						 dev_conf->qos_version);
 		skb_orphan(skb);
-		rmnet_egress_handler(skb, &dev_conf->local_ep);
+		rmnet_data_egress_handler(skb, &dev_conf->local_ep);
 	} else {
 		dev->stats.tx_dropped++;
 		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_VND_NO_EGRESS);
@@ -220,12 +171,16 @@ static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 
 	switch (cmd) {
 	case RMNET_IOCTL_SET_QOS_ENABLE:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		LOGM("RMNET_IOCTL_SET_QOS_ENABLE on %s", dev->name);
 		if (!dev_conf->qos_version)
 			dev_conf->qos_version = RMNET_IOCTL_QOS_MODE_6;
 		break;
 
 	case RMNET_IOCTL_SET_QOS_DISABLE:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		LOGM("RMNET_IOCTL_SET_QOS_DISABLE on %s", dev->name);
 		dev_conf->qos_version = 0;
 		break;
@@ -240,6 +195,8 @@ static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 		break;
 
 	case RMNET_IOCTL_FLOW_ENABLE:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		LOGL("RMNET_IOCTL_FLOW_ENABLE on %s", dev->name);
 		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
 				   sizeof(struct rmnet_ioctl_data_s))) {
@@ -252,6 +209,8 @@ static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 		break;
 
 	case RMNET_IOCTL_FLOW_DISABLE:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		LOGL("RMNET_IOCTL_FLOW_DISABLE on %s", dev->name);
 		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
 				   sizeof(struct rmnet_ioctl_data_s))) {
@@ -367,6 +326,8 @@ static int rmnet_vnd_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 		break;
 
 	case RMNET_IOCTL_SET_QOS_VERSION:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		if (ext_cmd.u.data == RMNET_IOCTL_QOS_MODE_6 ||
 		    ext_cmd.u.data == RMNET_IOCTL_QOS_MODE_8 ||
 		    ext_cmd.u.data == 0) {
@@ -995,7 +956,7 @@ int rmnet_vnd_del_tc_flow(u32 id, u32 map_flow, u32 tc_flow)
 	return rc;
 }
 
-/* rmnet_vnd_do_flow_control() - Process flow control request
+/* rmnet_data_vnd_do_flow_control() - Process flow control request
  * @dev: Virtual network device node to do lookup on
  * @map_flow_id: Flow ID from MAP message
  * @v4_seq: pointer to IPv4 indication sequence number
@@ -1007,11 +968,11 @@ int rmnet_vnd_del_tc_flow(u32 id, u32 map_flow, u32 tc_flow)
  *      - 1 if no mapping is found
  *      - 2 if dev is not RmNet virtual network device node
  */
-int rmnet_vnd_do_flow_control(struct net_device *dev,
-			      u32 map_flow_id,
-			      u16 v4_seq,
-			      u16 v6_seq,
-			      int enable)
+int rmnet_data_vnd_do_flow_control(struct net_device *dev,
+				   u32 map_flow_id,
+				   u16 v4_seq,
+				   u16 v6_seq,
+				   int enable)
 {
 	struct rmnet_vnd_private_s *dev_conf;
 	struct rmnet_map_flow_mapping_s *itm;
