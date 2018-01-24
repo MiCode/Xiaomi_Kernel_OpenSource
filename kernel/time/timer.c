@@ -1867,7 +1867,8 @@ static void __migrate_timers(unsigned int cpu, bool remove_pinned)
 		raw_spin_lock_irqsave(&new_base->lock, flags);
 		raw_spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
 
-		BUG_ON(old_base->running_timer);
+		if (!cpu_online(cpu))
+			BUG_ON(old_base->running_timer);
 
 		for (i = 0; i < WHEEL_SIZE; i++)
 			migrate_timer_list(new_base, old_base->vectors + i,
