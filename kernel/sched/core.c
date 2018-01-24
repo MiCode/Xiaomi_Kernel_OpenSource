@@ -1481,7 +1481,7 @@ static int select_fallback_rq(int cpu, struct task_struct *p, bool allow_iso)
 {
 	int nid = cpu_to_node(cpu);
 	const struct cpumask *nodemask = NULL;
-	enum { cpuset, possible, fail } state = cpuset;
+	enum { cpuset, possible, fail, bug } state = cpuset;
 	int dest_cpu;
 	int isolated_candidate = -1;
 
@@ -1539,6 +1539,11 @@ static int select_fallback_rq(int cpu, struct task_struct *p, bool allow_iso)
 			break;
 
 		case fail:
+			allow_iso = true;
+			state = bug;
+			break;
+
+		case bug:
 			BUG();
 			break;
 		}
@@ -5686,12 +5691,18 @@ int do_isolation_work_cpu_stop(void *data)
 	/* Update our root-domain */
 	raw_spin_lock_irqsave(&rq->lock, flags);
 
+	/*
+	 * Temporarily mark the rq as offline. This will allow us to
+	 * move tasks off the CPU.
+	 */
 	if (rq->rd) {
 		BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
 		set_rq_offline(rq);
 	}
 
 	migrate_tasks(rq, &rf, false);
+	if (rq->rd)
+		set_rq_online(rq);
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	/*
@@ -5777,7 +5788,7 @@ int sched_isolate_cpu(int cpu)
 	if (trace_sched_isolate_enabled())
 		start_time = sched_clock();
 
-	lock_device_hotplug();
+	cpu_maps_update_begin();
 
 	cpumask_andnot(&avail_cpus, cpu_online_mask, cpu_isolated_mask);
 
@@ -5809,7 +5820,7 @@ int sched_isolate_cpu(int cpu)
 	sched_update_group_capacities(cpu);
 
 out:
-	unlock_device_hotplug();
+	cpu_maps_update_done();
 	trace_sched_isolate(cpu, cpumask_bits(cpu_isolated_mask)[0],
 			    start_time, 1);
 	return ret_code;
@@ -5830,8 +5841,6 @@ int sched_unisolate_cpu_unlocked(int cpu)
 	if (trace_sched_isolate_enabled())
 		start_time = sched_clock();
 
-	lock_device_hotplug_assert();
-
 	if (!cpu_isolation_vote[cpu]) {
 		ret_code = -EINVAL;
 		goto out;
@@ -5845,10 +5854,6 @@ int sched_unisolate_cpu_unlocked(int cpu)
 
 		raw_spin_lock_irqsave(&rq->lock, flags);
 		rq->age_stamp = sched_clock_cpu(cpu);
-		if (rq->rd) {
-			BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
-			set_rq_online(rq);
-		}
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
 
@@ -5874,9 +5879,9 @@ int sched_unisolate_cpu(int cpu)
 {
 	int ret_code;
 
-	lock_device_hotplug();
+	cpu_maps_update_begin();
 	ret_code = sched_unisolate_cpu_unlocked(cpu);
-	unlock_device_hotplug();
+	cpu_maps_update_done();
 	return ret_code;
 }
 
