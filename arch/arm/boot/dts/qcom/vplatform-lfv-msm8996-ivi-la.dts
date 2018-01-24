@@ -1,0 +1,67 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "skeleton64.dtsi"
+#include "vplatform-lfv-msm8996.dtsi"
+#include <dt-bindings/clock/msm-clocks-8996.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996";
+	compatible = "qcom,msm8996";
+	qcom,msm-id = <246 0x0>;
+};
+
+firmware: firmware {
+	android {
+		compatible = "android,firmware";
+		fstab {
+			compatible = "android,fstab";
+			system {
+				compatible = "android,system";
+				dev= "/dev/block/platform/vdevs/1c0b0000.virtio_blk/vda";
+				type = "ext4";
+				mnt_flags = "ro,barrier=1,discard";
+				fsmgr_flags = "wait";
+				status = "ok";
+			};
+			vendor {
+				compatible = "android,vendor";
+				dev="/dev/block/platform/vdevs/1c0f0000.virtio_blk/vdc";
+				type = "ext4";
+				mnt_flags = "ro,barrier=1,discard";
+				fsmgr_flags = "wait";
+				status = "ok";
+			};
+		};
+	};
+};
+
+&reserved_memory {
+	pmem_shared: pmem_shared_region {
+		reg = <0 0xd0000000 0 0x30000000>;
+		label = "pmem_shared_mem";
+	};
+
+	ion_system: ion_system_region {
+		reg = <0x1 0x0 0 0x10000000>;
+		label = "ion_system_mem";
+	};
+
+	ion_audio: ion_audio_region {
+		reg = <0 0xc8000000 0 0x00400000>;
+		label = "ion_audio_mem";
+	};
+};
+
