@@ -77,6 +77,11 @@ void rmnet_kfree_skb(struct sk_buff *skb, unsigned int reason)
 	if (likely(skb)) {
 		struct rmnet_phys_ep_conf_s *config;
 
+		if (skb->destructor) {
+			skb->destructor(skb);
+			return;
+		}
+
 		config = (struct rmnet_phys_ep_conf_s *)rcu_dereference
 			 (skb->dev->rx_handler_data);
 		if (likely(config))
