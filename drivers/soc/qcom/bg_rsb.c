@@ -47,6 +47,9 @@
 #define BGRSB_POWER_CALIBRATION 2
 #define BGRSB_POWER_ENABLE 1
 #define BGRSB_POWER_DISABLE 0
+#define BGRSB_GLINK_POWER_ENABLE 6
+#define BGRSB_GLINK_POWER_DISABLE 7
+
 
 struct bgrsb_regulator {
 	struct regulator *regldo11;
@@ -91,6 +94,9 @@ struct bgrsb_priv {
 
 	struct work_struct rsb_up_work;
 	struct work_struct rsb_down_work;
+
+	struct work_struct rsb_glink_up_work;
+	struct work_struct rsb_glink_down_work;
 
 	struct work_struct rsb_calibration_work;
 	struct work_struct bttn_configr_work;
@@ -403,6 +409,30 @@ static void bgrsb_bgdown_work(struct work_struct *work)
 	pr_debug("RSB current state is : %d\n", dev->bgrsb_current_state);
 }
 
+static void bgrsb_glink_bgdown_work(struct work_struct *work)
+{
+	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
+							rsb_glink_down_work);
+
+	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED) {
+		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) == 0)
+			dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
+		else
+			pr_err("Failed to unvote LDO-15 on BG down\n");
+	}
+
+	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_CONFIGURED) {
+		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11) == 0)
+			dev->bgrsb_current_state = BGRSB_STATE_INIT;
+		else
+			pr_err("Failed to unvote LDO-11 on BG Glink down\n");
+	}
+	if (dev->handle)
+		glink_close(dev->handle);
+	dev->handle = NULL;
+	pr_debug("BG Glink Close connection\n");
+}
+
 static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
 {
 	int rc = 0;
@@ -495,6 +525,36 @@ static void bgrsb_bgup_work(struct work_struct *work)
 		}
 		dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
 		pr_debug("RSB Cofigured\n");
+	}
+}
+
+static void bgrsb_glink_bgup_work(struct work_struct *work)
+{
+	int rc = 0;
+	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
+							rsb_glink_up_work);
+
+	if (bgrsb_ldo_work(dev, BGRSB_ENABLE_LDO11) == 0) {
+
+		INIT_WORK(&dev->glink_work, bgrsb_glink_open_work);
+		queue_work(dev->bgrsb_event_wq, &dev->glink_work);
+
+		rc = wait_event_timeout(dev->link_state_wait,
+					(dev->chnl_state == true),
+						msecs_to_jiffies(TIMEOUT_MS*2));
+		if (rc == 0) {
+			pr_err("Glink channel connection time out\n");
+			return;
+		}
+		rc = bgrsb_configr_rsb(dev, true);
+		if (rc != 0) {
+			pr_err("BG Glink failed to configure RSB %d\n", rc);
+			if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11) == 0)
+				dev->bgrsb_current_state = BGRSB_STATE_INIT;
+			return;
+		}
+		dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
+		pr_debug("Glink RSB Cofigured\n");
 	}
 }
 
@@ -712,6 +772,12 @@ static int split_bg_work(struct bgrsb_priv *dev, char *str)
 		dev->bttn_configs = (uint8_t)val;
 		queue_work(dev->bgrsb_wq, &dev->bttn_configr_work);
 		break;
+	case BGRSB_GLINK_POWER_DISABLE:
+		queue_work(dev->bgrsb_wq, &dev->rsb_glink_down_work);
+		break;
+	case BGRSB_GLINK_POWER_ENABLE:
+		queue_work(dev->bgrsb_wq, &dev->rsb_glink_up_work);
+		break;
 	}
 	return 0;
 }
@@ -786,6 +852,8 @@ static int bgrsb_init(struct bgrsb_priv *dev)
 	INIT_WORK(&dev->rsb_down_work, bgrsb_disable_rsb);
 	INIT_WORK(&dev->rsb_calibration_work, bgrsb_calibration);
 	INIT_WORK(&dev->bttn_configr_work, bgrsb_buttn_configration);
+	INIT_WORK(&dev->rsb_glink_down_work, bgrsb_glink_bgdown_work);
+	INIT_WORK(&dev->rsb_glink_up_work, bgrsb_glink_bgup_work);
 
 	return 0;
 
@@ -918,7 +986,7 @@ static struct platform_driver bg_rsb_driver = {
 		.name = "bg-rsb",
 		.of_match_table = bg_rsb_of_match,
 	},
-	.probe          = bg_rsb_probe,
+	.probe		= bg_rsb_probe,
 	.remove		= bg_rsb_remove,
 	.resume		= bg_rsb_resume,
 	.suspend	= bg_rsb_suspend,
