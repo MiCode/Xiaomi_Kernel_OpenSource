@@ -104,7 +104,6 @@ static int lz4_uncompress(struct squashfs_sb_info *msblk, void *strm,
 
 	if (res < 0)
 		return -EIO;
-
 	squashfs_buf_to_actor(stream->output, output, res);
 
 	return res;
