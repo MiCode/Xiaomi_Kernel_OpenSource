@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,7 @@ struct pl_data {
 	int			charge_type;
 	int			total_settled_ua;
 	int			pl_settled_ua;
+	int			pl_fcc_max;
 	struct class		qcom_batt_class;
 	struct wakeup_source	*pl_ws;
 	struct notifier_block	nb;
@@ -418,6 +419,7 @@ static void get_fcc_split(struct pl_data *chip, int total_ua,
 	effective_total_ua = max(0, total_ua + hw_cc_delta_ua);
 	slave_limited_ua = min(effective_total_ua, bcl_ua);
 	*slave_ua = (slave_limited_ua * chip->slave_pct) / 100;
+	*slave_ua = min(*slave_ua, chip->pl_fcc_max);
 
 	/*
 	 * In stacked BATFET configuration charger's current goes
@@ -934,6 +936,12 @@ static bool is_parallel_available(struct pl_data *chip)
 	power_supply_get_property(chip->pl_psy, POWER_SUPPLY_PROP_MIN_ICL,
 					&pval);
 	chip->pl_min_icl_ua = pval.intval;
+
+	chip->pl_fcc_max = INT_MAX;
+	rc = power_supply_get_property(chip->pl_psy,
+			POWER_SUPPLY_PROP_PARALLEL_FCC_MAX, &pval);
+	if (!rc)
+		chip->pl_fcc_max = pval.intval;
 
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
 
