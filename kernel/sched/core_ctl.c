@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -482,6 +482,7 @@ static void update_running_avg(void)
 
 	sched_get_nr_running_avg(&avg, &iowait_avg, &big_avg,
 				 &max_nr, &big_max_nr);
+	walt_rotation_checkpoint(big_avg);
 
 	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {
