@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3291,6 +3291,25 @@ u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
 		dsi_ctrl->cell_index, dsi_ctrl->misr_cache, misr);
 
 	return misr;
+}
+
+void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl)
+{
+	if (!dsi_ctrl || !dsi_ctrl->hw.ops.error_intr_ctrl
+			|| !dsi_ctrl->hw.ops.clear_error_status) {
+		pr_err("Invalid params\n");
+		return;
+	}
+
+	/*
+	 * Mask DSI error status interrupts and clear error status
+	 * register
+	 */
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, false);
+	dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					DSI_ERROR_INTERRUPT_COUNT);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 /**

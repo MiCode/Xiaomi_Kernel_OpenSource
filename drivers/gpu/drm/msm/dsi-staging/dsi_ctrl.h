@@ -711,6 +711,13 @@ int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl, u32 cmd_len,
 void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable);
 
 /**
+ * dsi_ctrl_mask_error_status_interrupts() - API to mask dsi ctrl error status
+ *                                           interrupts
+ * @dsi_ctrl:              DSI controller handle.
+ */
+void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl);
+
+/**
  * dsi_ctrl_irq_update() - Put a irq vote to process DSI error
  *				interrupts at any time.
  * @dsi_ctrl:              DSI controller handle.
