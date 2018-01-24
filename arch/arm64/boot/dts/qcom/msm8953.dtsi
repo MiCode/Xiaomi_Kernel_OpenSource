@@ -164,6 +164,7 @@
 #include "msm8953-coresight.dtsi"
 #include "msm8953-ion.dtsi"
 #include "msm-arm-smmu-8953.dtsi"
+#include "msm8953-vidc.dtsi"
 #include "msm8953-gpu.dtsi"
 #include "msm8953-mdss.dtsi"
 #include "msm8953-mdss-pll.dtsi"
