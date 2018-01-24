@@ -25,6 +25,8 @@ extern unsigned int sysctl_sched_sync_hint_enable;
 extern unsigned int sysctl_sched_cstate_aware;
 extern unsigned int sysctl_sched_wakeup_granularity;
 extern unsigned int sysctl_sched_child_runs_first;
+extern unsigned int sysctl_sched_capacity_margin_up;
+extern unsigned int sysctl_sched_capacity_margin_down;
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int sysctl_sched_use_walt_task_util;
@@ -64,6 +66,9 @@ int sched_proc_update_handler(struct ctl_table *table, int write,
 		loff_t *ppos);
 #endif
 
+extern int sched_boost_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
+
 /*
  *  control realtime throttling:
  *
@@ -91,6 +96,10 @@ extern int sched_rr_handler(struct ctl_table *table, int write,
 extern int sched_rt_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
 		loff_t *ppos);
+
+extern int sched_updown_migrate_handler(struct ctl_table *table,
+					int write, void __user *buffer,
+					size_t *lenp, loff_t *ppos);
 
 extern int sysctl_numa_balancing(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp,

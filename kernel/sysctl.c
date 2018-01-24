@@ -124,6 +124,7 @@ static int __maybe_unused neg_one = -1;
 static int zero;
 static int __maybe_unused one = 1;
 static int __maybe_unused two = 2;
+static int __maybe_unused three = 3;
 static int __maybe_unused four = 4;
 static unsigned long one_ul = 1;
 static int one_hundred = 100;
@@ -335,6 +336,15 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &zero,
 		.extra2		= &sysctl_sched_group_upmigrate_pct,
 	},
+	{
+		.procname	= "sched_boost",
+		.data		= &sysctl_sched_boost,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_boost_handler,
+		.extra1		= &zero,
+		.extra2		= &three,
+	},
 #endif
 #ifdef CONFIG_SCHED_DEBUG
 	{
@@ -393,6 +403,20 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= sched_proc_update_handler,
 		.extra1		= &min_wakeup_granularity_ns,
 		.extra2		= &max_wakeup_granularity_ns,
+	},
+	{
+		.procname	= "sched_upmigrate",
+		.data		= &sysctl_sched_capacity_margin_up,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_updown_migrate_handler,
+	},
+	{
+		.procname	= "sched_downmigrate",
+		.data		= &sysctl_sched_capacity_margin_down,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_updown_migrate_handler,
 	},
 #ifdef CONFIG_SMP
 	{
@@ -3172,6 +3196,39 @@ int proc_do_large_bitmap(struct ctl_table *table, int write,
 	}
 }
 
+static int do_proc_douintvec_capacity_conv(bool *negp, unsigned long *lvalp,
+					   int *valp, int write, void *data)
+{
+	if (write) {
+		if (*negp)
+			return -EINVAL;
+		*valp = SCHED_FIXEDPOINT_SCALE * 100 / *lvalp;
+	} else {
+		*negp = false;
+		*lvalp = SCHED_FIXEDPOINT_SCALE * 100 / *valp;
+	}
+
+	return 0;
+}
+
+/**
+ * proc_douintvec_capacity - read a vector of integers in percentage and convert
+ *			    into sched capacity
+ * @table: the sysctl table
+ * @write: %TRUE if this is a write to the sysctl file
+ * @buffer: the user buffer
+ * @lenp: the size of the user buffer
+ * @ppos: file position
+ *
+ * Returns 0 on success.
+ */
+int proc_douintvec_capacity(struct ctl_table *table, int write,
+			    void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	return do_proc_dointvec(table, write, buffer, lenp, ppos,
+				do_proc_douintvec_capacity_conv, NULL);
+}
+
 #else /* CONFIG_PROC_SYSCTL */
 
 int proc_dostring(struct ctl_table *table, int write,
@@ -3235,6 +3292,11 @@ int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int write,
     return -ENOSYS;
 }
 
+int proc_douintvec_capacity(struct ctl_table *table, int write,
+			    void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	return -ENOSYS;
+}
 
 #endif /* CONFIG_PROC_SYSCTL */
 

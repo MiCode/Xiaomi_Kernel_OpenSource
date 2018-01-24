@@ -1627,7 +1627,6 @@ extern const struct sched_class idle_sched_class;
 extern void update_group_capacity(struct sched_domain *sd, int cpu);
 
 extern void trigger_load_balance(struct rq *rq);
-extern void nohz_balance_clear_nohz_mask(int cpu);
 
 extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
 
@@ -2022,6 +2021,8 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 
 #endif /* CONFIG_SCHED_WALT */
 
+extern unsigned long
+boosted_cpu_util(int cpu, struct sched_walt_cpu_load *walt_load);
 extern unsigned int capacity_margin_freq;
 
 static inline unsigned long
@@ -2515,7 +2516,6 @@ struct related_thread_group {
 };
 
 extern struct list_head cluster_head;
-extern int num_clusters;
 extern struct sched_cluster *sched_cluster[NR_CPUS];
 
 #define for_each_sched_cluster(cluster) \

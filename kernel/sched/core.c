@@ -1835,7 +1835,7 @@ void scheduler_ipi(void)
 	/*
 	 * Check if someone kicked us for doing the nohz idle load balance.
 	 */
-	if (unlikely(got_nohz_idle_kick())) {
+	if (unlikely(got_nohz_idle_kick()) && !cpu_isolated(cpu)) {
 		this_rq()->idle_balance = 1;
 		raise_softirq_irqoff(SCHED_SOFTIRQ);
 	}
@@ -5573,6 +5573,37 @@ static struct task_struct fake_task = {
 };
 
 /*
+ * Remove a task from the runqueue and pretend that it's migrating. This
+ * should prevent migrations for the detached task and disallow further
+ * changes to tsk_cpus_allowed.
+ */
+static void
+detach_one_task(struct task_struct *p, struct rq *rq, struct list_head *tasks)
+{
+	lockdep_assert_held(&rq->lock);
+
+	p->on_rq = TASK_ON_RQ_MIGRATING;
+	deactivate_task(rq, p, 0);
+	list_add(&p->se.group_node, tasks);
+}
+
+static void attach_tasks(struct list_head *tasks, struct rq *rq)
+{
+	struct task_struct *p;
+
+	lockdep_assert_held(&rq->lock);
+
+	while (!list_empty(tasks)) {
+		p = list_first_entry(tasks, struct task_struct, se.group_node);
+		list_del_init(&p->se.group_node);
+
+		BUG_ON(task_rq(p) != rq);
+		activate_task(rq, p, 0);
+		p->on_rq = TASK_ON_RQ_QUEUED;
+	}
+}
+
+/*
  * Migrate all tasks (not pinned if pinned argument say so) from the rq,
  * sleeping tasks will be migrated by try_to_wake_up()->select_task_rq().
  *
@@ -5589,6 +5620,7 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 	struct pin_cookie cookie;
 	int dest_cpu;
 	unsigned int num_pinned_kthreads = 1; /* this thread */
+	LIST_HEAD(tasks);
 	cpumask_t avail_cpus;
 
 	cpumask_andnot(&avail_cpus, cpu_online_mask, cpu_isolated_mask);
@@ -5613,12 +5645,10 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 
 	for (;;) {
 		/*
-		 * There's this thread running + pinned threads, bail when
-		 * those are the only remaining threads:
+		 * There's this thread running, bail when that's the only
+		 * remaining thread.
 		 */
-		if ((migrate_pinned_tasks && rq->nr_running == 1) ||
-		   (!migrate_pinned_tasks &&
-		    rq->nr_running == num_pinned_kthreads))
+		if (rq->nr_running == 1)
 			break;
 
 		/*
@@ -5630,7 +5660,7 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 
 		if (!migrate_pinned_tasks && next->flags & PF_KTHREAD &&
 			!cpumask_intersects(&avail_cpus, &next->cpus_allowed)) {
-			lockdep_unpin_lock(&rq->lock, cookie);
+			detach_one_task(next, rq, &tasks);
 			num_pinned_kthreads += 1;
 			continue;
 		}
@@ -5652,8 +5682,12 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 		 * Since we're inside stop-machine, _nothing_ should have
 		 * changed the task, WARN if weird stuff happened, because in
 		 * that case the above rq->lock drop is a fail too.
+		 * However, during cpu isolation the load balancer might have
+		 * interferred since we don't stop all CPUs. Ignore warning for
+		 * this case.
 		 */
-		if (WARN_ON(task_rq(next) != rq || !task_on_rq_queued(next))) {
+		if (task_rq(next) != rq || !task_on_rq_queued(next)) {
+			WARN_ON(migrate_pinned_tasks);
 			raw_spin_unlock(&next->pi_lock);
 			continue;
 		}
@@ -5671,6 +5705,9 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 	}
 
 	rq->stop = stop;
+
+	if (num_pinned_kthreads > 1)
+		attach_tasks(&tasks, rq);
 }
 
 void set_rq_online(struct rq *rq);
@@ -5678,7 +5715,6 @@ void set_rq_offline(struct rq *rq);
 
 int do_isolation_work_cpu_stop(void *data)
 {
-	unsigned long flags;
 	unsigned int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
 	struct rq_flags rf;
@@ -5687,9 +5723,12 @@ int do_isolation_work_cpu_stop(void *data)
 
 	irq_migrate_all_off_this_cpu();
 
+	local_irq_disable();
+
 	sched_ttwu_pending();
+
 	/* Update our root-domain */
-	raw_spin_lock_irqsave(&rq->lock, flags);
+	raw_spin_lock(&rq->lock);
 
 	/*
 	 * Temporarily mark the rq as offline. This will allow us to
@@ -5701,15 +5740,10 @@ int do_isolation_work_cpu_stop(void *data)
 	}
 
 	migrate_tasks(rq, &rf, false);
-	if (rq->rd)
-		set_rq_online(rq);
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
+	raw_spin_unlock(&rq->lock);
 
-	/*
-	 * We might have been in tickless state. Clear NOHZ flags to avoid
-	 * us being kicked for helping out with balancing
-	 */
-	nohz_balance_clear_nohz_mask(cpu);
+	clear_walt_request(cpu);
+	local_irq_enable();
 	return 0;
 }
 
@@ -6642,6 +6676,32 @@ void sched_move_task(struct task_struct *tsk)
 
 	task_rq_unlock(rq, tsk, &rf);
 }
+
+#ifdef CONFIG_PROC_SYSCTL
+int sched_updown_migrate_handler(struct ctl_table *table, int write,
+				 void __user *buffer, size_t *lenp,
+				 loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+	unsigned int old_val;
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+	old_val = *data;
+
+	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
+
+	if (!ret && write && sysctl_sched_capacity_margin_up >
+				sysctl_sched_capacity_margin_down) {
+		ret = -EINVAL;
+		*data = old_val;
+	}
+	mutex_unlock(&mutex);
+
+	return ret;
+}
+#endif
 
 static inline struct task_group *css_tg(struct cgroup_subsys_state *css)
 {

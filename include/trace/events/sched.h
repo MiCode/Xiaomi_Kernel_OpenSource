@@ -8,6 +8,7 @@
 #include <linux/sched/numa_balancing.h>
 #include <linux/tracepoint.h>
 #include <linux/binfmts.h>
+#include <linux/sched/idle.h>
 
 /*
  * Tracepoint for calling kthread_stop, performed to end a kthread:
@@ -196,6 +197,56 @@ TRACE_EVENT(sched_migrate_task,
 	TP_printk("comm=%s pid=%d prio=%d orig_cpu=%d dest_cpu=%d",
 		  __entry->comm, __entry->pid, __entry->prio,
 		  __entry->orig_cpu, __entry->dest_cpu)
+);
+
+/*
+ * Tracepoint for load balancing:
+ */
+#if NR_CPUS > 32
+#error "Unsupported NR_CPUS for lb tracepoint."
+#endif
+TRACE_EVENT(sched_load_balance,
+
+	TP_PROTO(int cpu, enum cpu_idle_type idle, int balance,
+		unsigned long group_mask, int busiest_nr_running,
+		unsigned long imbalance, unsigned int env_flags, int ld_moved,
+		unsigned int balance_interval),
+
+	TP_ARGS(cpu, idle, balance, group_mask, busiest_nr_running,
+		imbalance, env_flags, ld_moved, balance_interval),
+
+	TP_STRUCT__entry(
+		__field(        int,                    cpu)
+		__field(        enum cpu_idle_type,     idle)
+		__field(        int,                    balance)
+		__field(        unsigned long,          group_mask)
+		__field(        int,                    busiest_nr_running)
+		__field(        unsigned long,          imbalance)
+		__field(        unsigned int,           env_flags)
+		__field(        int,                    ld_moved)
+		__field(        unsigned int,           balance_interval)
+	),
+
+	TP_fast_assign(
+		__entry->cpu                    = cpu;
+		__entry->idle                   = idle;
+		__entry->balance                = balance;
+		__entry->group_mask             = group_mask;
+		__entry->busiest_nr_running     = busiest_nr_running;
+		__entry->imbalance              = imbalance;
+		__entry->env_flags              = env_flags;
+		__entry->ld_moved               = ld_moved;
+		__entry->balance_interval       = balance_interval;
+	),
+
+	TP_printk("cpu=%d state=%s balance=%d group=%#lx busy_nr=%d imbalance=%ld flags=%#x ld_moved=%d bal_int=%d",
+		__entry->cpu,
+		__entry->idle == CPU_IDLE ? "idle" :
+		(__entry->idle == CPU_NEWLY_IDLE ? "newly_idle" : "busy"),
+		__entry->balance,
+		__entry->group_mask, __entry->busiest_nr_running,
+		__entry->imbalance, __entry->env_flags, __entry->ld_moved,
+		__entry->balance_interval)
 );
 
 DECLARE_EVENT_CLASS(sched_process_template,
@@ -876,16 +927,18 @@ TRACE_EVENT(core_ctl_set_busy,
 		__field(u32, busy)
 		__field(u32, old_is_busy)
 		__field(u32, is_busy)
+		__field(bool, high_irqload)
 	),
 	TP_fast_assign(
 		__entry->cpu = cpu;
 		__entry->busy = busy;
 		__entry->old_is_busy = old_is_busy;
 		__entry->is_busy = is_busy;
+		__entry->high_irqload = sched_cpu_high_irqload(cpu);
 	),
-	TP_printk("cpu=%u, busy=%u, old_is_busy=%u, new_is_busy=%u",
+	TP_printk("cpu=%u, busy=%u, old_is_busy=%u, new_is_busy=%u high_ieqload=%d",
 		  __entry->cpu, __entry->busy, __entry->old_is_busy,
-		  __entry->is_busy)
+		  __entry->is_busy, __entry->high_irqload)
 );
 
 TRACE_EVENT(core_ctl_set_boost,
