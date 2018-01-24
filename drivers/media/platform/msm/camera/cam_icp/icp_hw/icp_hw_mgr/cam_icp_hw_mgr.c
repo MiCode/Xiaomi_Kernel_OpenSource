@@ -1025,11 +1025,13 @@ static int cam_icp_update_cpas_vote(struct cam_icp_hw_mgr *hw_mgr,
 	dev_intf->hw_ops.process_cmd(dev_intf->hw_priv, id,
 		&clk_update, sizeof(clk_update));
 
-	if (ctx_data->icp_dev_acquire_info->dev_type != CAM_ICP_RES_TYPE_BPS)
-		if (ipe1_dev_intf)
-			ipe1_dev_intf->hw_ops.process_cmd(
-				ipe1_dev_intf->hw_priv, id,
-				&clk_update, sizeof(clk_update));
+	/*
+	 * Consolidated bw needs to be voted on only one IPE client. Otherwise
+	 * total bw that we vote at bus client would be doubled. So either
+	 * remove voting on IPE1 or divide the vote for each IPE client
+	 * and vote to cpas - cpas will add up and vote full bw to sf client
+	 * anyway.
+	 */
 
 	return 0;
 }
