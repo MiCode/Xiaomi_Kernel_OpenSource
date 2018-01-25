@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -291,6 +291,26 @@ static unsigned long __calculate_vpe(struct vidc_bus_vote_data *d,
 		enum governor_mode gm)
 {
 	return 0;
+}
+
+static unsigned long __calculate_cvp(struct vidc_bus_vote_data *d,
+		enum governor_mode gm)
+{
+	unsigned long ret = 0;
+
+	switch (gm) {
+	case GOVERNOR_DDR:
+		ret = d->ddr_bw;
+		break;
+	case GOVERNOR_LLCC:
+		ret = d->sys_cache_bw;
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s - Unknown governor\n", __func__);
+		break;
+	}
+
+	return ret;
 }
 
 static bool __ubwc(enum hal_uncompressed_format f)
@@ -861,6 +881,7 @@ static unsigned long __calculate(struct vidc_bus_vote_data *d,
 		[HAL_VIDEO_DOMAIN_VPE] = __calculate_vpe,
 		[HAL_VIDEO_DOMAIN_ENCODER] = __calculate_encoder,
 		[HAL_VIDEO_DOMAIN_DECODER] = __calculate_decoder,
+		[HAL_VIDEO_DOMAIN_CVP] = __calculate_cvp,
 	};
 
 	if (d->domain >= ARRAY_SIZE(calc)) {

@@ -19,6 +19,7 @@
 #include "msm_vidc_debug.h"
 #include "msm_vdec.h"
 #include "msm_venc.h"
+#include "msm_cvp.h"
 #include "msm_vidc_common.h"
 #include <linux/delay.h>
 #include "vidc_hfi_api.h"
@@ -1302,6 +1303,15 @@ int msm_vidc_private(void *vidc_inst, unsigned int cmd,
 		return -EINVAL;
 	}
 
+	if (inst->session_type == MSM_VIDC_CVP) {
+		rc = msm_vidc_cvp(inst, arg);
+	} else {
+		dprintk(VIDC_ERR,
+			"%s: private cmd %#x not supported for session_type %d\n",
+			__func__, cmd, inst->session_type);
+		rc = -EINVAL;
+	}
+
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_private);
@@ -1644,6 +1654,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	INIT_MSM_VIDC_LIST(&inst->cvpbufs);
 	INIT_MSM_VIDC_LIST(&inst->reconbufs);
 	INIT_MSM_VIDC_LIST(&inst->eosbufs);
 	INIT_MSM_VIDC_LIST(&inst->etb_data);
@@ -1656,6 +1667,8 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->core = core;
 	inst->clk_data.min_freq = 0;
 	inst->clk_data.curr_freq = 0;
+	inst->clk_data.ddr_bw = 0;
+	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
 	inst->clk_data.core_id = VIDC_CORE_ID_DEFAULT;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
@@ -1676,10 +1689,14 @@ void *msm_vidc_open(int core_id, int session_type)
 	} else if (session_type == MSM_VIDC_ENCODER) {
 		msm_venc_inst_init(inst);
 		rc = msm_venc_ctrl_init(inst, &msm_vidc_ctrl_ops);
+	} else if (session_type == MSM_VIDC_CVP) {
+		msm_cvp_inst_init(inst);
+		rc = msm_cvp_ctrl_init(inst, &msm_vidc_ctrl_ops);
 	}
-
-	if (rc)
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed control initialization\n");
 		goto fail_bufq_capture;
+	}
 
 	rc = vb2_bufq_init(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 			session_type);
@@ -1721,6 +1738,15 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
 
+	if (inst->session_type == MSM_VIDC_CVP) {
+		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to move video instance to open done state\n");
+			goto fail_init;
+		}
+	}
+
 	return inst;
 fail_init:
 	mutex_lock(&core->lock);
@@ -1744,6 +1770,7 @@ fail_bufq_capture:
 	DEINIT_MSM_VIDC_LIST(&inst->persistbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->cvpbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->freqs);
@@ -1851,6 +1878,7 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	DEINIT_MSM_VIDC_LIST(&inst->persistbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->cvpbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->freqs);
@@ -1899,6 +1927,13 @@ int msm_vidc_close(void *instance)
 		dprintk(VIDC_ERR,
 			"Failed to move inst %pK to rel resource done state\n",
 			inst);
+
+	/*
+	 * deinit instance after REL_RES_DONE to ensure hardware
+	 * released all buffers.
+	 */
+	if (inst->session_type == MSM_VIDC_CVP)
+		msm_cvp_inst_deinit(inst);
 
 	msm_vidc_cleanup_instance(inst);
 

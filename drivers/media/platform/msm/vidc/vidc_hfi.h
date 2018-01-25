@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -331,6 +331,14 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 #define HFI_CMD_SESSION_CONTINUE	(HFI_CMD_SESSION_OX_START + 0x00D)
 #define HFI_CMD_SESSION_SYNC		(HFI_CMD_SESSION_OX_START + 0x00E)
 
+#define HFI_CMD_SESSION_CVP_START	\
+	(HFI_DOMAIN_BASE_CVP + HFI_ARCH_COMMON_OFFSET +	\
+	HFI_CMD_START_OFFSET + 0x1000)
+#define HFI_CMD_SESSION_REGISTER_BUFFERS	\
+	(HFI_CMD_SESSION_CVP_START + 0x0A0)
+#define HFI_CMD_SESSION_UNREGISTER_BUFFERS	\
+	(HFI_CMD_SESSION_CVP_START + 0x0A1)
+
 #define HFI_MSG_SYS_OX_START			\
 (HFI_DOMAIN_BASE_COMMON + HFI_ARCH_OX_OFFSET + HFI_MSG_START_OFFSET + 0x0000)
 #define HFI_MSG_SYS_PING_ACK	(HFI_MSG_SYS_OX_START + 0x2)
@@ -351,6 +359,14 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 	(HFI_MSG_SESSION_OX_START + 0xA)
 #define  HFI_MSG_SESSION_RELEASE_BUFFERS_DONE			\
 	(HFI_MSG_SESSION_OX_START + 0xC)
+
+#define HFI_MSG_SESSION_CVP_START	\
+	(HFI_DOMAIN_BASE_CVP + HFI_ARCH_COMMON_OFFSET +	\
+	HFI_MSG_START_OFFSET + 0x1000)
+#define HFI_MSG_SESSION_REGISTER_BUFFERS_DONE	\
+	(HFI_MSG_SESSION_CVP_START + 0x0A0)
+#define HFI_MSG_SESSION_UNREGISTER_BUFFERS_DONE	\
+	(HFI_MSG_SESSION_CVP_START + 0x0A1)
 
 #define VIDC_IFACEQ_MAX_PKT_SIZE                        1024
 #define VIDC_IFACEQ_MED_PKT_SIZE                        768
@@ -694,6 +710,22 @@ struct hfi_msg_session_release_buffers_done_packet {
 	u32 error_type;
 	u32 num_buffers;
 	u32 rg_buffer_info[1];
+};
+
+struct hfi_msg_session_register_buffers_done_packet {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	u32 client_data;
+	u32 error_type;
+};
+
+struct hfi_msg_session_unregister_buffers_done_packet {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	u32 client_data;
+	u32 error_type;
 };
 
 struct hfi_extradata_mb_quantization_payload {

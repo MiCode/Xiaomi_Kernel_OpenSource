@@ -7,6 +7,7 @@ msm-vidc-objs := msm_v4l2_vidc.o \
                                 msm_vidc.o \
                                 msm_vdec.o \
                                 msm_venc.o \
+                                msm_cvp.o \
                                 msm_smem.o \
                                 msm_vidc_debug.o \
                                 msm_vidc_res_parse.o \

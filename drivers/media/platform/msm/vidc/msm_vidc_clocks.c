@@ -220,16 +220,29 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		}
 		mutex_unlock(&inst->registeredbufs.lock);
 
-		if (!filled_len || !device_addr) {
+		if ((!filled_len || !device_addr) &&
+			(inst->session_type != MSM_VIDC_CVP)) {
 			dprintk(VIDC_DBG, "%s No ETBs\n", __func__);
 			continue;
 		}
 
 		++vote_data_count;
 
-		codec = inst->session_type == MSM_VIDC_DECODER ?
-			inst->fmts[OUTPUT_PORT].fourcc :
-			inst->fmts[CAPTURE_PORT].fourcc;
+		switch (inst->session_type) {
+		case MSM_VIDC_DECODER:
+			codec = inst->fmts[OUTPUT_PORT].fourcc;
+			break;
+		case MSM_VIDC_ENCODER:
+			codec = inst->fmts[CAPTURE_PORT].fourcc;
+			break;
+		case MSM_VIDC_CVP:
+			codec = V4L2_PIX_FMT_CVP;
+			break;
+		default:
+			dprintk(VIDC_ERR, "%s: invalid session_type %#x\n",
+				__func__, inst->session_type);
+			break;
+		}
 
 		memset(&(vote_data[i]), 0x0, sizeof(struct vidc_bus_vote_data));
 
@@ -281,6 +294,14 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 		if (core->resources.sys_cache_res_set)
 			vote_data[i].use_sys_cache = true;
+
+		if (inst->session_type == MSM_VIDC_CVP) {
+			vote_data[i].domain =
+				get_hal_domain(inst->session_type);
+			vote_data[i].ddr_bw = inst->clk_data.ddr_bw;
+			vote_data[i].sys_cache_bw =
+				inst->clk_data.sys_cache_bw;
+		}
 
 		i++;
 	}
@@ -634,7 +655,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	return freq;
 }
 
-static int msm_vidc_set_clocks(struct msm_vidc_core *core)
+int msm_vidc_set_clocks(struct msm_vidc_core *core)
 {
 	struct hfi_device *hdev;
 	unsigned long freq_core_1 = 0, freq_core_2 = 0, rate = 0;

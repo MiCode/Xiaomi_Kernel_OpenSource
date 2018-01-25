@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,10 @@ enum load_calc_quirks {
 
 enum hal_buffer get_hal_buffer_type(unsigned int type,
 		unsigned int plane_num);
+void put_inst(struct msm_vidc_inst *inst);
+struct msm_vidc_inst *get_inst(struct msm_vidc_core *core,
+		void *session_id);
+void change_inst_state(struct msm_vidc_inst *inst, enum instance_state state);
 struct msm_vidc_core *get_vidc_core(int core_id);
 const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
 	const struct msm_vidc_format fmt[], int size, int index, int fmt_type);

@@ -1628,6 +1628,60 @@ static int hfi_process_session_rel_buf_done(u32 device_id,
 	return 0;
 }
 
+static int hfi_process_session_register_buffer_done(u32 device_id,
+		struct hfi_msg_session_register_buffers_done_packet *pkt,
+		struct msm_vidc_cb_info *info)
+{
+	struct msm_vidc_cb_cmd_done cmd_done = {0};
+
+	if (!pkt || pkt->size <
+		sizeof(struct hfi_msg_session_register_buffers_done_packet)) {
+		dprintk(VIDC_ERR, "%s: bad packet/packet size %d\n",
+			__func__, pkt ? pkt->size : 0);
+		return -E2BIG;
+	}
+	dprintk(VIDC_DBG, "RECEIVED: SESSION_REGISTER_BUFFERS_DONE[%#x]\n",
+			pkt->session_id);
+
+	cmd_done.device_id = device_id;
+	cmd_done.size = sizeof(struct msm_vidc_cb_cmd_done);
+	cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
+	cmd_done.status = hfi_map_err_status(pkt->error_type);
+	cmd_done.data.regbuf.client_data = pkt->client_data;
+
+	info->response_type = HAL_SESSION_REGISTER_BUFFER_DONE;
+	info->response.cmd = cmd_done;
+
+	return 0;
+}
+
+static int hfi_process_session_unregister_buffer_done(u32 device_id,
+		struct hfi_msg_session_unregister_buffers_done_packet *pkt,
+		struct msm_vidc_cb_info *info)
+{
+	struct msm_vidc_cb_cmd_done cmd_done = {0};
+
+	if (!pkt || pkt->size <
+		sizeof(struct hfi_msg_session_unregister_buffers_done_packet)) {
+		dprintk(VIDC_ERR, "%s: bad packet/packet size %d\n",
+			__func__, pkt ? pkt->size : 0);
+		return -E2BIG;
+	}
+	dprintk(VIDC_DBG, "RECEIVED: SESSION_UNREGISTER_BUFFERS_DONE[%#x]\n",
+			pkt->session_id);
+
+	cmd_done.device_id = device_id;
+	cmd_done.size = sizeof(struct msm_vidc_cb_cmd_done);
+	cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
+	cmd_done.status = hfi_map_err_status(pkt->error_type);
+	cmd_done.data.unregbuf.client_data = pkt->client_data;
+
+	info->response_type = HAL_SESSION_UNREGISTER_BUFFER_DONE;
+	info->response.cmd = cmd_done;
+
+	return 0;
+}
+
 static int hfi_process_session_end_done(u32 device_id,
 		struct hfi_msg_sys_session_end_done_packet *pkt,
 		struct msm_vidc_cb_info *info)
@@ -1824,6 +1878,14 @@ int hfi_process_msg_packet(u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
 		break;
 	case HFI_MSG_SESSION_RELEASE_BUFFERS_DONE:
 		pkt_func = (pkt_func_def)hfi_process_session_rel_buf_done;
+		break;
+	case HFI_MSG_SESSION_REGISTER_BUFFERS_DONE:
+		pkt_func = (pkt_func_def)
+			hfi_process_session_register_buffer_done;
+		break;
+	case HFI_MSG_SESSION_UNREGISTER_BUFFERS_DONE:
+		pkt_func = (pkt_func_def)
+			hfi_process_session_unregister_buffer_done;
 		break;
 	case HFI_MSG_SYS_SESSION_ABORT_DONE:
 		pkt_func = (pkt_func_def)hfi_process_session_abort_done;

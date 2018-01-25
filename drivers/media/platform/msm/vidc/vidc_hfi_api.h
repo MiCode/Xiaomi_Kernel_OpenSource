@@ -220,6 +220,7 @@ enum hal_domain {
 	HAL_VIDEO_DOMAIN_VPE,
 	HAL_VIDEO_DOMAIN_ENCODER,
 	HAL_VIDEO_DOMAIN_DECODER,
+	HAL_VIDEO_DOMAIN_CVP,
 	HAL_UNUSED_DOMAIN = 0x10000000,
 };
 
@@ -262,6 +263,7 @@ enum hal_video_codec {
 	HAL_VIDEO_CODEC_HEVC     = 0x00002000,
 	HAL_VIDEO_CODEC_VP9      = 0x00004000,
 	HAL_VIDEO_CODEC_TME      = 0x00008000,
+	HAL_VIDEO_CODEC_CVP      = 0x00010000,
 	HAL_VIDEO_CODEC_HEVC_HYBRID     = 0x80000000,
 	HAL_UNUSED_CODEC = 0x10000000,
 };
@@ -884,6 +886,24 @@ struct vidc_resource_hdr {
 	void *resource_handle;
 };
 
+struct vidc_register_buffer {
+	enum hal_buffer type;
+	u32 index;
+	u32 size;
+	u32 device_addr;
+	u32 response_required;
+	u32 client_data;
+};
+
+struct vidc_unregister_buffer {
+	enum hal_buffer type;
+	u32 index;
+	u32 size;
+	u32 device_addr;
+	u32 response_required;
+	u32 client_data;
+};
+
 struct vidc_buffer_addr_info {
 	enum hal_buffer buffer_type;
 	u32 buffer_size;
@@ -1088,6 +1108,8 @@ enum hal_command_response {
 	HAL_SESSION_SET_PROP_DONE,
 	HAL_SESSION_GET_PROP_DONE,
 	HAL_SESSION_RELEASE_BUFFER_DONE,
+	HAL_SESSION_REGISTER_BUFFER_DONE,
+	HAL_SESSION_UNREGISTER_BUFFER_DONE,
 	HAL_SESSION_RELEASE_RESOURCE_DONE,
 	HAL_SESSION_PROPERTY_INFO,
 	HAL_SESSION_ERROR,
@@ -1237,6 +1259,8 @@ struct msm_vidc_cb_cmd_done {
 		struct vidc_hal_sys_init_done sys_init_done;
 		struct vidc_hal_session_init_done session_init_done;
 		struct hal_buffer_info buffer_info;
+		struct vidc_register_buffer regbuf;
+		struct vidc_unregister_buffer unregbuf;
 		union hal_get_property property;
 		enum hal_flush flush_type;
 	} data;
@@ -1350,6 +1374,8 @@ struct vidc_bus_vote_data {
 	int compression_ratio;
 	int complexity_factor;
 	int input_cr;
+	u32 ddr_bw;
+	u32 sys_cache_bw;
 	bool use_dpb_read;
 	unsigned int lcu_size;
 	enum msm_vidc_power_mode power_mode;
@@ -1397,6 +1423,10 @@ struct hfi_device {
 				struct vidc_buffer_addr_info *buffer_info);
 	int (*session_release_buffers)(void *sess,
 				struct vidc_buffer_addr_info *buffer_info);
+	int (*session_register_buffer)(void *sess,
+				struct vidc_register_buffer *buffer);
+	int (*session_unregister_buffer)(void *sess,
+				struct vidc_unregister_buffer *buffer);
 	int (*session_load_res)(void *sess);
 	int (*session_release_res)(void *sess);
 	int (*session_start)(void *sess);

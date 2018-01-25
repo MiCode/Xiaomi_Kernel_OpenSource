@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,14 @@ struct hfi_packetization_ops {
 		struct hfi_cmd_session_release_buffer_packet *pkt,
 		struct hal_session *session,
 		struct vidc_buffer_addr_info *buffer_info);
+	int (*session_register_buffer)(
+		struct hfi_cmd_session_register_buffers_packet *pkt,
+		struct hal_session *session,
+		struct vidc_register_buffer *buffer);
+	int (*session_unregister_buffer)(
+		struct hfi_cmd_session_unregister_buffers_packet *pkt,
+		struct hal_session *session,
+		struct vidc_unregister_buffer *buffer);
 	int (*session_etb_decoder)(
 		struct hfi_cmd_session_empty_buffer_compressed_packet *pkt,
 		struct hal_session *session,

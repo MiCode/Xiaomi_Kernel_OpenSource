@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -237,10 +237,12 @@ struct venus_hfi_device {
 	struct mutex lock;
 	msm_vidc_callback callback;
 	struct vidc_mem_addr iface_q_table;
+	struct vidc_mem_addr dsp_iface_q_table;
 	struct vidc_mem_addr qdss;
 	struct vidc_mem_addr sfr;
 	struct vidc_mem_addr mem_addr;
 	struct vidc_iface_q_info iface_queues[VIDC_IFACEQ_NUMQ];
+	struct vidc_iface_q_info dsp_iface_queues[VIDC_IFACEQ_NUMQ];
 	struct hal_data *hal_data;
 	struct workqueue_struct *vidc_workq;
 	struct workqueue_struct *venus_pm_workq;
