@@ -45,3 +45,18 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,rbat-conn-mohm = <20>;
 };
+
+&pm8953_gpios {
+	bklt_en {
+		bklt_en_default: bklt_en_default {
+		pins = "gpio4";
+		function = "normal";
+		power-source = <0>;
+		output-high;
+		};
+	};
+};
+
+&pm8953_pwm {
+	status = "ok";
+};
