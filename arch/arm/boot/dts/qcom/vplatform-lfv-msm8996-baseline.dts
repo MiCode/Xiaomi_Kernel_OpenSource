@@ -49,5 +49,10 @@
 				reg = <0x6b0 32>;
 			};
 		};
+
+		qcom,hab {
+			compatible = "qcom,hab";
+			vmid = <3>;
+		};
 	};
 };
