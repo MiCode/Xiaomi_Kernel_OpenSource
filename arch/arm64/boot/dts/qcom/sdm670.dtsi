@@ -2139,6 +2139,7 @@
 		compatible = "qcom,pil-tz-generic";
 		qcom,pas-id = <0xf>;
 		qcom,firmware-name = "ipa_fws";
+		memory-region = <&pil_ipa_fw_mem>;
 	};
 
 	pil_modem: qcom,mss@4080000 {
