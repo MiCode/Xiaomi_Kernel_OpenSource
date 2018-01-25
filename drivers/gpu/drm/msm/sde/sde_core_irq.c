@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -513,6 +513,7 @@ void sde_core_irq_uninstall(struct sde_kms *sde_kms)
 	struct msm_drm_private *priv;
 	int i;
 	int rc;
+	unsigned long irq_flags;
 
 	if (!sde_kms) {
 		SDE_ERROR("invalid sde_kms\n");
@@ -543,6 +544,7 @@ void sde_core_irq_uninstall(struct sde_kms *sde_kms)
 	sde_disable_all_irqs(sde_kms);
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
+	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
 	kfree(sde_kms->irq_obj.irq_cb_tbl);
 	kfree(sde_kms->irq_obj.enable_counts);
 	kfree(sde_kms->irq_obj.irq_counts);
@@ -550,6 +552,7 @@ void sde_core_irq_uninstall(struct sde_kms *sde_kms)
 	sde_kms->irq_obj.enable_counts = NULL;
 	sde_kms->irq_obj.irq_counts = NULL;
 	sde_kms->irq_obj.total_irqs = 0;
+	spin_unlock_irqrestore(&sde_kms->irq_obj.cb_lock, irq_flags);
 }
 
 static void sde_core_irq_mask(struct irq_data *irqd)
