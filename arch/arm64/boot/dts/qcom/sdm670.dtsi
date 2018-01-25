@@ -529,20 +529,36 @@
 			reg = <0 0x93e00000 0 0x1e00000>;
 		};
 
+		pil_ipa_fw_mem: ips_fw_region@0x95c00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x95c00000 0 0x10000>;
+		};
+
+		pil_ipa_gsi_mem: ipa_gsi_region@0x95c10000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x95c10000 0 0x5000>;
+		};
+
+		pil_gpu_mem: gpu_region@0x95c15000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x95c15000 0 0x2000>;
+		};
+
+		qseecom_mem: qseecom_region@0x9e400000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0 0x9e400000 0 0x1400000>;
+		};
+
 		adsp_mem: adsp_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0xc00000>;
-		};
-
-		qseecom_mem: qseecom_region {
-			compatible = "shared-dma-pool";
-			alloc-ranges = <0 0x00000000 0 0xffffffff>;
-			no-map;
-			alignment = <0 0x400000>;
-			size = <0 0x1400000>;
 		};
 
 		qseecom_ta_mem: qseecom_ta_region {
