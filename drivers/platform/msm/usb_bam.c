@@ -1213,7 +1213,8 @@ static int usb_bam_init(struct platform_device *pdev)
 		props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
 
 	dev = &ctx->usb_bam_pdev->dev;
-	if (dev && dev->parent && !device_property_present(dev->parent,
+	if (dev && dev->parent && device_property_present(dev->parent, "iommus")
+		&& !device_property_present(dev->parent,
 						"qcom,smmu-s1-bypass")) {
 		pr_info("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
 						__func__, dev_name(dev));
