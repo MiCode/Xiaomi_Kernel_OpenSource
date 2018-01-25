@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -284,15 +284,6 @@
 				"msm-dai-q6-dev.32770";
 		asoc-codec = <&stub_codec>, <&pm8909_conga_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
-	};
-
-	bg_cdc: bg_codec {
-		status = "disabled";
-		compatible = "qcom,bg-codec";
-		qcom,bg-glink {
-			compatible = "qcom,bg-cdc-glink";
-			qcom,msm-glink-channels = <4>;
-		};
 	};
 };
 

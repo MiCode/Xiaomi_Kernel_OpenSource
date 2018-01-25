@@ -205,11 +205,11 @@
 
 &audio_codec_bg {
 	status = "ok";
-	vdd-spkr-supply = <&pm660_l11>;
 };
 
 &bg_cdc {
 	status = "ok";
+	vdd-spkr-supply = <&pm660_l11>;
 };
 
 &blsp1_uart1 {
