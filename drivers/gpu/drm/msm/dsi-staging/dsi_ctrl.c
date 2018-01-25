@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2672,9 +2672,6 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
-
-	mutex_lock(&dsi_ctrl->ctrl_lock);
-	mutex_unlock(&dsi_ctrl->ctrl_lock);
 
 	return rc;
 }

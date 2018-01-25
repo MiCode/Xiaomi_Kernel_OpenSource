@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2960,11 +2960,7 @@ int dsi_panel_get_phy_props(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-
 	memcpy(phy_props, &panel->phy_props, sizeof(*phy_props));
-
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -2978,11 +2974,7 @@ int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-
 	memcpy(dfps_caps, &panel->dfps_caps, sizeof(*dfps_caps));
-
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
