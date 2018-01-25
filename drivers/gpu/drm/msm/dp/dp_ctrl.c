@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +71,8 @@ struct dp_ctrl_private {
 	struct completion video_comp;
 
 	bool orientation;
+	bool power_on;
+
 	atomic_t aborted;
 
 	u32 pixel_rate;
@@ -127,6 +129,11 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl)
 	}
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+
+	if (!ctrl->power_on || atomic_read(&ctrl->aborted)) {
+		pr_err("CTRL off, return\n");
+		return;
+	}
 
 	reinit_completion(&ctrl->idle_comp);
 	dp_ctrl_state_ctrl(ctrl, ST_PUSH_IDLE);
@@ -833,7 +840,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 
 	tries = 0;
 	old_v_level = ctrl->link->phy_params.v_level;
-	while (1) {
+	while (!atomic_read(&ctrl->aborted)) {
 		drm_dp_link_train_clock_recovery_delay(ctrl->panel->dpcd);
 
 		ret = dp_ctrl_read_link_status(ctrl, link_status);
@@ -960,7 +967,7 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 			ret = -EINVAL;
 			break;
 		}
-	} while (1);
+	} while (!atomic_read(&ctrl->aborted));
 
 	return ret;
 }
@@ -1180,6 +1187,11 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
+	if (!ctrl->power_on || atomic_read(&ctrl->aborted)) {
+		pr_err("CTRL off, return\n");
+		return -EINVAL;
+	}
+
 	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl);
 	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
 
@@ -1341,7 +1353,6 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 	atomic_set(&ctrl->aborted, 0);
 	rate = ctrl->panel->link_info.rate;
 
-	ctrl->power->clk_enable(ctrl->power, DP_CORE_PM, true);
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
@@ -1396,6 +1407,7 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
 		dp_ctrl_send_phy_test_pattern(ctrl);
 
+	ctrl->power_on = true;
 	pr_debug("End-\n");
 
 end:
@@ -1419,6 +1431,7 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 
 	dp_ctrl_disable_mainlink_clocks(ctrl);
 
+	ctrl->power_on = false;
 	pr_debug("DP off done\n");
 }
 

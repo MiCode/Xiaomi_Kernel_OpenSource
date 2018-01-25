@@ -949,7 +949,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_mode_info  = dp_connector_get_mode_info,
 		.post_open  = dp_connector_post_open,
 		.check_status = NULL,
-		.pre_kickoff  = dp_connector_pre_kickoff,
+		.config_hdr = dp_connector_config_hdr,
 		.cmd_transfer = NULL,
 	};
 	struct msm_display_info info;

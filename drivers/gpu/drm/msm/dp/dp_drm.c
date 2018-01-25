@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -276,18 +276,17 @@ static const struct drm_bridge_funcs dp_bridge_ops = {
 	.mode_set     = dp_bridge_mode_set,
 };
 
-int dp_connector_pre_kickoff(struct drm_connector *connector,
-		void *display,
-		struct msm_display_kickoff_params *params)
+int dp_connector_config_hdr(void *display,
+	struct sde_connector_state *c_state)
 {
 	struct dp_display *dp = display;
 
-	if (!connector || !display || !params) {
+	if (!display || !c_state) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
-	return dp->pre_kickoff(dp, params->hdr_meta);
+	return dp->config_hdr(dp, &c_state->hdr_meta);
 }
 
 int dp_connector_post_init(struct drm_connector *connector, void *display)
