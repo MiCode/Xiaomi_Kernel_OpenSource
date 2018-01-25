@@ -1799,10 +1799,7 @@ static void msm_spi_slv_setup(struct msm_spi *dd)
 	u32 irq_en = GENMASK(6, 0);
 
 	qup_config &= ~QUP_CFG_MODE;
-	qup_config |= QUP_CONFIG_SPI_SLAVE;
-	qup_config |= (SPI_EN_EXT_OUT_FLAG | APP_CLK_ON_EN | CORE_CLK_ON_EN
-		| FIFO_CLK_ON_EN | CORE_EX_CLK_ON_EN);
-	spi_config |= SPI_CFG_SLAVE_OP;
+	qup_config |= SPI_EN_EXT_OUT_FLAG;
 	writel_relaxed(qup_config, dd->base + QUP_CONFIG);
 	writel_relaxed(spi_config, dd->base + SPI_CONFIG);
 	writel_relaxed(irq_en, (dd->base + SPI_SLAVE_IRQ_EN));
@@ -1812,6 +1809,28 @@ static void msm_spi_slv_setup(struct msm_spi *dd)
 		slv_cfg |= (RX_UNBALANCED_MASK | SPI_S_CGC_EN);
 		writel_relaxed(slv_cfg, (dd->base + SPI_SLAVE_CONFIG));
 	}
+	/*
+	 * Ensure the previous write completed before enabling slave mode.
+	 */
+	mb();
+
+	spi_config = readl_relaxed(dd->base + SPI_CONFIG);
+	qup_config = readl_relaxed(dd->base + QUP_CONFIG);
+
+	qup_config |= QUP_CONFIG_SPI_SLAVE;
+	spi_config |= SPI_CFG_SLAVE_OP;
+
+	writel_relaxed(qup_config, dd->base + QUP_CONFIG);
+	writel_relaxed(spi_config, dd->base + SPI_CONFIG);
+	/*
+	 * Ensure the previous write completed before enabling clk_on bit.
+	 */
+	mb();
+
+	qup_config = readl_relaxed(dd->base + QUP_CONFIG);
+	qup_config |= (APP_CLK_ON_EN | CORE_CLK_ON_EN |
+		FIFO_CLK_ON_EN | CORE_EX_CLK_ON_EN);
+	writel_relaxed(qup_config, dd->base + QUP_CONFIG);
 	/*
 	 * Ensure Slave setup completes before returning.
 	 */
