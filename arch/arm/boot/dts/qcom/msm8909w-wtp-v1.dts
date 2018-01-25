@@ -294,3 +294,7 @@
 &led_flash0{
 	status = "disabled";
 };
+
+&actuator0{
+	status = "disabled";
+};
