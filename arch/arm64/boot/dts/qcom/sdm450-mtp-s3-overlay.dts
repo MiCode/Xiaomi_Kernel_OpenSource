@@ -11,13 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8953.dtsi"
-#include "sdm632-cpu.dtsi"
+/dts-v1/;
+/plugin/;
+
+#include "sdm450-pmi632-mtp-s3.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM632";
-	compatible = "qcom,sdm632";
-	qcom,msm-id = <349 0x0>;
-	qcom,msm-name = "SDM632";
+	model = "MTP S3";
+	compatible = "qcom,mtp";
+	qcom,board-id = <8 3>;
 };
 
