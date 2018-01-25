@@ -199,6 +199,15 @@ config MSM_MMCC_8996
 	  Say Y if you want to support multimedia devices such as display,
 	  graphics, video encode/decode, camera, etc.
 
+config SPMI_PMIC_CLKDIV
+	tristate "SPMI PMIC clkdiv Support"
+	depends on (COMMON_CLK_QCOM && SPMI) || COMPILE_TEST
+	help
+	  This driver supports the clkdiv functionality on the Qualcomm
+	  Technologies, Inc. SPMI PMIC. It configures the frequency of
+	  clkdiv outputs of the PMIC. These clocks are typically wired
+	  through alternate functions on GPIO pins.
+
 config MSM_CLK_AOP_QMP
 	tristate "AOP QMP Clock Driver"
 	depends on COMMON_CLK_QCOM && MSM_QMP

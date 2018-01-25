@@ -33,6 +33,16 @@
 			#thermal-sensor-cells = <0>;
 			qcom,temperature-threshold-set = <1>;
 		};
+
+		pm855l_clkdiv: clock-controller@5b00 {
+			compatible = "qcom,spmi-clkdiv";
+			reg = <0x5b00 0x100>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <1>;
+			clock-output-names = "pm855l_div_clk1";
+			clocks = <&clock_rpmh RPMH_CXO_CLK>;
+			clock-names = "xo";
+		};
 	};
 
 	qcom,pm855l@5 {
