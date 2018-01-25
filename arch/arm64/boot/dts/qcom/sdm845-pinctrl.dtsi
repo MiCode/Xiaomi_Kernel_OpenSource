@@ -749,6 +749,123 @@
 			};
 		};
 
+		/* add pingrp for touchscreen */
+		pmx_ts_int_active {
+			ts_int_active: ts_int_active {
+				mux {
+					pins = "gpio122";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio122";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_int_suspend {
+			ts_int_suspend1: ts_int_suspend1 {
+				mux {
+					pins = "gpio122";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio122";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_reset_active {
+			ts_reset_active: ts_reset_active {
+				mux {
+					pins = "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio99";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			ts_reset_suspend1: ts_reset_suspend1 {
+				mux {
+					pins = "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio99";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_release {
+			ts_release: ts_release {
+				mux {
+					pins = "gpio122", "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio122", "gpio99";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		ts_mux {
+			ts_active: ts_active {
+				mux {
+					pins = "gpio99", "gpio122";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio99", "gpio122";
+					drive-strength = <16>;
+					bias-pull-up;
+				};
+			};
+
+			ts_reset_suspend: ts_reset_suspend {
+				mux {
+					pins = "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio99";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			ts_int_suspend: ts_int_suspend {
+				mux {
+					pins = "gpio122";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio122";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		sec_aux_pcm {
 			sec_aux_pcm_sleep: sec_aux_pcm_sleep {
 				mux {
