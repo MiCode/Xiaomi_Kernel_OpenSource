@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1680,6 +1680,8 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 
 		if (sde_cfg->has_wb_ubwc)
 			set_bit(SDE_WB_UBWC, &wb->features);
+
+		set_bit(SDE_WB_XY_ROI_OFFSET, &wb->features);
 
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[wb->clk_ctrl].reg_off =
