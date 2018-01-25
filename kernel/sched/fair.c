@@ -6959,7 +6959,8 @@ static int start_cpu(bool boosted)
 
 static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				   bool boosted, bool prefer_idle,
-				   struct cpumask *rtg_target)
+				   struct cpumask *rtg_target,
+				   enum sched_boost_policy placement_boost)
 {
 	unsigned long best_idle_min_cap_orig = ULONG_MAX;
 	unsigned long min_util = boosted_task_util(p);
@@ -6976,6 +6977,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int best_idle_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
+	unsigned long max_capacity_orig = -1;
 
 	*backup_cpu = -1;
 
@@ -7021,6 +7023,25 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 */
 			wake_util = cpu_util_wake(i, p);
 			new_util = wake_util + task_util(p);
+
+			switch (placement_boost) {
+			/*
+			 * pick lowest util cpu amongst all > min cap
+			 * CPUs
+			 */
+			case SCHED_BOOST_ON_BIG:
+				if (capacity_orig < max_capacity_orig)
+					continue;
+				max_capacity_orig = capacity_orig;
+				if (wake_util < min_wake_util) {
+					target_cpu = i;
+					min_wake_util = wake_util;
+				}
+				continue;
+
+			default:
+				break;
+			}
 
 			/*
 			 * Cumulative demand may already be accounting for the
@@ -7438,6 +7459,9 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	struct energy_env *eenv;
 	struct related_thread_group *grp;
 	struct cpumask *rtg_target = NULL;
+	enum sched_boost_policy placement_boost =
+			task_sched_boost(p) ? sched_boost_policy() :
+			SCHED_BOOST_NONE;
 
 	grp = task_related_thread_group(p);
 	if (grp && grp->preferred_cluster)
@@ -7501,7 +7525,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		/* Find a cpu with sufficient capacity */
 		eenv->cpu[EAS_CPU_NXT].cpu_id = find_best_target(p,
 				&eenv->cpu[EAS_CPU_BKP].cpu_id,
-				boosted, prefer_idle, rtg_target);
+				boosted, prefer_idle, rtg_target,
+				placement_boost);
 
 		/* take note if no backup was found */
 		if (eenv->cpu[EAS_CPU_BKP].cpu_id < 0)
@@ -7521,7 +7546,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		return energy_cpu;
 	}
 
-	if (rtg_target != NULL)
+	if (rtg_target != NULL || placement_boost)
 		return eenv->cpu[EAS_CPU_NXT].cpu_id;
 
 	/* find most energy-efficient CPU */
