@@ -425,16 +425,19 @@ static int cnss_pci_resume(struct device *dev)
 	if (pci_priv->pci_link_down_ind)
 		goto out;
 
-	ret = pci_enable_device(pci_dev);
-	if (ret)
-		cnss_pr_err("Failed to enable PCI device, err = %d\n", ret);
+	if (pci_priv->pci_link_state) {
+		ret = pci_enable_device(pci_dev);
+		if (ret)
+			cnss_pr_err("Failed to enable PCI device, err = %d\n",
+				    ret);
 
-	if (pci_priv->saved_state)
-		cnss_set_pci_config_space(pci_priv,
-					  RESTORE_PCI_CONFIG_SPACE);
+		if (pci_priv->saved_state)
+			cnss_set_pci_config_space(pci_priv,
+						  RESTORE_PCI_CONFIG_SPACE);
 
-	pci_set_master(pci_dev);
-	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
+		pci_set_master(pci_dev);
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
+	}
 
 	driver_ops = plat_priv->driver_ops;
 	if (driver_ops && driver_ops->resume) {
