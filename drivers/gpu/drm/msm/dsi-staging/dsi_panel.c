@@ -18,6 +18,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <video/mipi_display.h>
+#include <linux/firmware.h>
 
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
@@ -682,12 +683,58 @@ static int dsi_panel_bl_unregister(struct dsi_panel *panel)
 error:
 	return rc;
 }
-static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
-				  struct device_node *of_node)
+
+static int dsi_panel_fw_parse(const struct firmware *fw_entry,
+		char *id_match, u32 *param_value)
 {
-	int rc = 0;
+	int value, numlen = 1, index = 0;
+	char id[SZ_256];
+
+	while (sscanf(fw_entry->data + index,
+			"%255s %d", id, &value) > 0) {
+		if (!strcmp(id, id_match)) {
+			*param_value = value;
+			return 0;
+		}
+
+		while ((value / 10) > 0) {
+			value /= 10;
+			numlen++;
+		}
+
+		index += (strlen(id) + numlen + 1);
+		numlen = 1;
+	}
+
+	return -EINVAL;
+}
+
+static int dsi_panel_parse(struct device_node *of_node,
+	const struct firmware *fw_entry, char *id_match, u32 *val)
+{
+	if (fw_entry && fw_entry->data)
+		return dsi_panel_fw_parse(fw_entry, id_match, val);
+	else
+		return of_property_read_u32(of_node, id_match, val);
+
+	return 0;
+}
+
+static int dsi_panel_parse_timing(struct device *parent,
+	struct dsi_mode_info *mode, const char *name,
+	struct device_node *of_node)
+{
+	int fw = 0, rc = 0;
 	u64 tmp64;
 	struct dsi_display_mode *display_mode;
+	const struct firmware *fw_entry = NULL;
+	char *fw_name = "dsi_prop";
+
+	if (strcmp(name, "Simulator video mode dsi panel") == 0)
+		fw = request_firmware(&fw_entry, fw_name, parent);
+
+	if (fw)
+		fw_entry = NULL;
 
 	display_mode = container_of(mode, struct dsi_display_mode, timing);
 
@@ -702,47 +749,47 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	mode->clk_rate_hz = !rc ? tmp64 : 0;
 	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-framerate",
-				  &mode->refresh_rate);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-panel-framerate", &mode->refresh_rate);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-panel-framerate, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-width",
-				  &mode->h_active);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-panel-width", &mode->h_active);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-panel-width, rc=%d\n", rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-h-front-porch",
-				  &mode->h_front_porch);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-h-front-porch", &mode->h_front_porch);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-h-front-porch, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-h-back-porch",
-				  &mode->h_back_porch);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-h-back-porch", &mode->h_back_porch);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-h-back-porch, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-h-pulse-width",
-				  &mode->h_sync_width);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-h-pulse-width", &mode->h_sync_width);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-h-pulse-width, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-h-sync-skew",
-				  &mode->h_skew);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-h-sync-skew", &mode->h_skew);
 	if (rc)
 		pr_err("qcom,mdss-dsi-h-sync-skew is not defined, rc=%d\n", rc);
 
@@ -750,32 +797,32 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		mode->h_active, mode->h_front_porch, mode->h_back_porch,
 		mode->h_sync_width);
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-height",
-				  &mode->v_active);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-panel-height", &mode->v_active);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-panel-height, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-v-back-porch",
-				  &mode->v_back_porch);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-v-back-porch", &mode->v_back_porch);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-v-back-porch, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-v-front-porch",
-				  &mode->v_front_porch);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-v-front-porch", &mode->v_front_porch);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-v-back-porch, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-v-pulse-width",
-				  &mode->v_sync_width);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-v-pulse-width", &mode->v_sync_width);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-v-pulse-width, rc=%d\n",
 		       rc);
@@ -3034,7 +3081,8 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 		if (index != child_idx++)
 			continue;
 
-		rc = dsi_panel_parse_timing(&mode->timing, child_np);
+		rc = dsi_panel_parse_timing(panel->parent, &mode->timing,
+			panel->name, child_np);
 		if (rc) {
 			pr_err("failed to parse panel timing, rc=%d\n", rc);
 			goto parse_fail;
