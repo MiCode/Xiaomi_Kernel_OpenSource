@@ -675,6 +675,8 @@
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc_base";
 		vdd_gfx-supply = <&gfx_vreg_corner>;
+		clocks = <&clock_gcc clk_xo_clk_src>;
+		clock-names = "xo";
 		qcom,gfxfreq-corner =
 			 <         0   0 >,
 			 < 133330000   1 >,  /* Min SVS   */
