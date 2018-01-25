@@ -31,6 +31,7 @@
 #include <linux/regulator/consumer.h>
 #include <media/msm_media_info.h>
 #include <linux/videodev2.h>
+#include <linux/ion.h>
 
 #include "sde_rotator_util.h"
 #include "sde_rotator_smmu.h"
@@ -868,13 +869,14 @@ err_put:
 }
 
 static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
-		int dir, bool skip_sync)
+		int dir)
 {
 	int ret = -EINVAL;
 	int domain;
 	struct scatterlist *sg;
 	unsigned int i;
 	struct sg_table *table;
+	unsigned long flags = 0;
 
 	if (data->addr && data->len)
 		return 0;
@@ -894,9 +896,19 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 		 */
 		data->srcp_attachment->dma_map_attrs |=
 			DMA_ATTR_DELAYED_UNMAP;
-		if (skip_sync)
-			data->srcp_attachment->dma_map_attrs |=
-				DMA_ATTR_SKIP_CPU_SYNC;
+
+		if (data->srcp_dma_buf && data->srcp_dma_buf->ops &&
+				data->srcp_dma_buf->ops->get_flags) {
+			if (data->srcp_dma_buf->ops->get_flags(
+						data->srcp_dma_buf,
+						&flags) == 0) {
+				if ((flags & ION_FLAG_CACHED) == 0) {
+					SDEROT_DBG("dmabuf is uncached type\n");
+					data->srcp_attachment->dma_map_attrs |=
+						DMA_ATTR_SKIP_CPU_SYNC;
+				}
+			}
+		}
 
 		if (sde_mdp_is_map_needed(data)) {
 			data->srcp_table =
@@ -1016,8 +1028,7 @@ static int sde_mdp_data_get(struct sde_mdp_data *data,
 	return rc;
 }
 
-int sde_mdp_data_map(struct sde_mdp_data *data, bool rotator, int dir,
-		bool skip_sync)
+int sde_mdp_data_map(struct sde_mdp_data *data, bool rotator, int dir)
 {
 	int i, rc = 0;
 
@@ -1025,7 +1036,7 @@ int sde_mdp_data_map(struct sde_mdp_data *data, bool rotator, int dir,
 		return -EINVAL;
 
 	for (i = 0; i < data->num_planes; i++) {
-		rc = sde_mdp_map_buffer(&data->p[i], rotator, dir, skip_sync);
+		rc = sde_mdp_map_buffer(&data->p[i], rotator, dir);
 		if (rc) {
 			SDEROT_ERR("failed to map buf p=%d\n", i);
 			while (i > 0) {

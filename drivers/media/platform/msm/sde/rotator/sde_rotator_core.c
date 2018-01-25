@@ -708,17 +708,13 @@ static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 	}
 
 	/* if error during map, the caller will release the data */
-	ret = sde_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE,
-			sde_mdp_is_ubwc_format(in_fmt) ||
-			sde_mdp_is_tilea5x_format(in_fmt));
+	ret = sde_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE);
 	if (ret) {
 		SDEROT_ERR("source buffer mapping failed ret:%d\n", ret);
 		goto end;
 	}
 
-	ret = sde_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE,
-			sde_mdp_is_ubwc_format(out_fmt) ||
-			sde_mdp_is_tilea5x_format(out_fmt));
+	ret = sde_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE);
 	if (ret) {
 		SDEROT_ERR("destination buffer mapping failed ret:%d\n", ret);
 		goto end;
