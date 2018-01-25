@@ -1487,6 +1487,8 @@ static int issue_discard_thread(void *data)
 				msecs_to_jiffies(wait_ms));
 		if (try_to_freeze())
 			continue;
+		if (f2fs_readonly(sbi->sb))
+			continue;
 		if (kthread_should_stop())
 			return 0;
 
