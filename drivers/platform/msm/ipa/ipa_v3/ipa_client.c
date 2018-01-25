@@ -548,10 +548,17 @@ int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
 	return 0;
 }
 
-int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr, u32 size, bool map)
+int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt)
 {
 	struct iommu_domain *smmu_domain;
 	int res;
+	phys_addr_t phys;
+	unsigned long va;
+	struct scatterlist *sg;
+	int count = 0;
+	size_t len;
+	int i;
+	struct page *page;
 
 	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP])
 		return 0;
@@ -562,33 +569,53 @@ int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr, u32 size, bool map)
 		return -EINVAL;
 	}
 
+	/*
+	 * USB GSI driver would update sgt irrespective of USB S1
+	 * is enable or bypass.
+	 * If USB S1 is enabled using IOMMU, iova != pa.
+	 * If USB S1 is bypass, iova == pa.
+	 */
 	if (map) {
-		res = ipa3_iommu_map(smmu_domain,
-			rounddown(iova, PAGE_SIZE),
-			rounddown(phys_addr, PAGE_SIZE),
-			roundup(size + iova - rounddown(iova, PAGE_SIZE),
-			PAGE_SIZE),
-			IOMMU_READ | IOMMU_WRITE);
-		if (res) {
-			IPAERR("Fail to map 0x%llx->0x%pa\n", iova, &phys_addr);
-			return -EINVAL;
+		if (sgt != NULL) {
+			va = rounddown(iova, PAGE_SIZE);
+			for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+				page = sg_page(sg);
+				phys = page_to_phys(page);
+				len = PAGE_ALIGN(sg->offset + sg->length);
+				res = ipa3_iommu_map(smmu_domain, va, phys,
+					len, IOMMU_READ | IOMMU_WRITE);
+				if (res) {
+					IPAERR("Fail to map pa=%pa\n", &phys);
+					return -EINVAL;
+				}
+				va += len;
+				count++;
+			}
+		} else {
+			res = ipa3_iommu_map(smmu_domain,
+				rounddown(iova, PAGE_SIZE),
+				rounddown(iova, PAGE_SIZE),
+				roundup(size + iova -
+					rounddown(iova, PAGE_SIZE),
+				PAGE_SIZE),
+				IOMMU_READ | IOMMU_WRITE);
+			if (res) {
+				IPAERR("Fail to map 0x%llx\n", iova);
+				return -EINVAL;
+			}
 		}
 	} else {
 		res = iommu_unmap(smmu_domain,
-			rounddown(iova, PAGE_SIZE),
-			roundup(size + iova - rounddown(iova, PAGE_SIZE),
-			PAGE_SIZE));
+		rounddown(iova, PAGE_SIZE),
+		roundup(size + iova - rounddown(iova, PAGE_SIZE),
+		PAGE_SIZE));
 		if (res != roundup(size + iova - rounddown(iova, PAGE_SIZE),
 			PAGE_SIZE)) {
-			IPAERR("Fail to unmap 0x%llx->0x%pa\n",
-				iova, &phys_addr);
+			IPAERR("Fail to unmap 0x%llx\n", iova);
 			return -EINVAL;
 		}
 	}
-
-	IPADBG("Peer buff %s 0x%llx->0x%pa\n", map ? "map" : "unmap",
-		iova, &phys_addr);
-
+	IPADBG("Peer buff %s 0x%llx\n", map ? "map" : "unmap", iova);
 	return 0;
 }
 
