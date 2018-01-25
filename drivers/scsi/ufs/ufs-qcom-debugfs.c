@@ -111,7 +111,7 @@ static ssize_t ufs_qcom_dbg_testbus_cfg_write(struct file *file,
 				loff_t *ppos)
 {
 	struct ufs_qcom_host *host = file->f_mapping->host->i_private;
-	char configuration[TESTBUS_CFG_BUFF_LINE_SIZE] = {0};
+	char configuration[TESTBUS_CFG_BUFF_LINE_SIZE] = {'\0'};
 	loff_t buff_pos = 0;
 	char *comma;
 	int ret = 0;
@@ -121,13 +121,15 @@ static ssize_t ufs_qcom_dbg_testbus_cfg_write(struct file *file,
 	struct ufs_hba *hba = host->hba;
 
 
-	ret = simple_write_to_buffer(configuration, TESTBUS_CFG_BUFF_LINE_SIZE,
+	ret = simple_write_to_buffer(configuration,
+		TESTBUS_CFG_BUFF_LINE_SIZE - 1,
 		&buff_pos, ubuf, cnt);
 	if (ret < 0) {
 		dev_err(host->hba->dev, "%s: failed to read user data\n",
 			__func__);
 		goto out;
 	}
+	configuration[ret] = '\0';
 
 	comma = strnchr(configuration, TESTBUS_CFG_BUFF_LINE_SIZE, ',');
 	if (!comma || comma == configuration) {

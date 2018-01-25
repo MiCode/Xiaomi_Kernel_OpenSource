@@ -441,7 +441,7 @@ struct ufs_clk_gating {
 	struct device_attribute enable_attr;
 	bool is_enabled;
 	int active_reqs;
-	struct workqueue_struct *ungating_workq;
+	struct workqueue_struct *clk_gating_workq;
 };
 
 struct ufs_saved_pwr_info {
@@ -638,6 +638,7 @@ struct ufs_stats {
 	struct ufshcd_clk_ctx clk_rel;
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
+	u32 power_mode_change_cnt;
 	struct ufs_uic_err_reg_hist pa_err;
 	struct ufs_uic_err_reg_hist dl_err;
 	struct ufs_uic_err_reg_hist nl_err;
@@ -680,6 +681,13 @@ struct ufshcd_cmd_log {
 	struct ufshcd_cmd_log_entry *entries;
 	int pos;
 	u32 seq_num;
+};
+
+/* UFS card state - hotplug state */
+enum ufshcd_card_state {
+	UFS_CARD_STATE_UNKNOWN	= 0,
+	UFS_CARD_STATE_ONLINE	= 1,
+	UFS_CARD_STATE_OFFLINE	= 2,
 };
 
 /**
@@ -731,7 +739,7 @@ struct ufshcd_cmd_log {
  * @extcon: pointer to external connector device
  * @card_detect_nb: card detector notifier registered with @extcon
  * @card_detect_work: work to exectute the card detect function
- * @card_detect_event: card detect event, 0 = removed, 1 = inserted
+ * @card_state: card state event, enum ufshcd_card_state defines possible states
  * @vreg_info: UFS device voltage regulator information
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
@@ -893,6 +901,7 @@ struct ufs_hba {
 	/* Work Queues */
 	struct work_struct eh_work;
 	struct work_struct eeh_work;
+	struct work_struct rls_work;
 
 	/* HBA Errors */
 	u32 errors;
@@ -903,6 +912,7 @@ struct ufs_hba {
 	u32 saved_ce_err;
 	bool silence_err_logs;
 	bool force_host_reset;
+	bool auto_h8_err;
 	struct ufs_stats ufs_stats;
 
 	/* Device management request data */
@@ -942,7 +952,7 @@ struct ufs_hba {
 	struct extcon_dev *extcon;
 	struct notifier_block card_detect_nb;
 	struct work_struct card_detect_work;
-	unsigned long card_detect_event;
+	atomic_t card_state;
 
 	struct ufs_pa_layer_attr pwr_info;
 	struct ufs_pwr_mode_info max_pwr_info;
@@ -1006,6 +1016,7 @@ struct ufs_hba {
 	struct reset_control *core_reset;
 
 	struct ufs_desc_size desc_size;
+	bool restore_needed;
 
 	int latency_hist_enabled;
 	struct io_latency_state io_lat_s;
@@ -1229,6 +1240,14 @@ static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 		pwr_info->pwr_rx == FASTAUTO_MODE) &&
 		(pwr_info->pwr_tx == FAST_MODE ||
 		pwr_info->pwr_tx == FASTAUTO_MODE);
+}
+
+static inline bool ufshcd_is_embedded_dev(struct ufs_hba *hba)
+{
+	if ((hba->dev_info.b_device_sub_class == UFS_DEV_EMBEDDED_BOOTABLE) ||
+	    (hba->dev_info.b_device_sub_class == UFS_DEV_EMBEDDED_NON_BOOTABLE))
+		return true;
+	return false;
 }
 
 #ifdef CONFIG_DEBUG_FS
