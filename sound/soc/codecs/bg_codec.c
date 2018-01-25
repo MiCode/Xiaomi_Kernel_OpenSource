@@ -288,7 +288,7 @@ static int _bg_codec_hw_params(struct bg_cdc_priv *bg_cdc)
 		ret =  bg_cdc_cal(bg_cdc);
 		if (ret < 0) {
 			pr_err("%s:failed to send cal data", __func__);
-			goto err;
+			goto err1;
 		}
 	} else {
 		pr_debug("%s:cal data already sent to BG", __func__);
@@ -307,6 +307,8 @@ static int _bg_codec_hw_params(struct bg_cdc_priv *bg_cdc)
 
 	kfree(rsp.buf);
 	return ret;
+err1:
+	bg_cdc_enable_regulator(bg_cdc->spkr_vreg, false);
 err:
 	mutex_unlock(&bg_cdc->bg_cdc_lock);
 	return ret;
@@ -886,8 +888,10 @@ static int bg_cdc_pm_suspend(struct bg_cdc_priv *bg_cdc)
 		pr_debug("audio session in progress don't devote\n");
 		return 0;
 	}
-	bg_cdc_enable_regulator(bg_cdc->spkr_vreg, false);
-	bg_cdc->bg_cal_updated = false;
+	if (bg_cdc->bg_cal_updated) {
+		bg_cdc_enable_regulator(bg_cdc->spkr_vreg, false);
+		bg_cdc->bg_cal_updated = false;
+	}
 	return 0;
 }
 
@@ -904,17 +908,27 @@ static int bg_cdc_pm_resume(struct bg_cdc_priv *bg_cdc)
 		rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
 		rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
 		if (!rsp.buf)
-			return 0;
+			goto err;
 		memcpy(&hw_params, &bg_cdc->hw_params, sizeof(hw_params));
 		/* Send command to BG to start session */
 		ret = pktzr_cmd_open(&hw_params, sizeof(hw_params), &rsp);
-		if (ret < 0)
+		if (ret < 0) {
 			pr_err("pktzr cmd open failed\n");
-
-		if (rsp.buf)
-			kzfree(rsp.buf);
-		bg_cdc_cal(bg_cdc);
+			goto err1;
+		}
+		ret = bg_cdc_cal(bg_cdc);
+		if (ret < 0) {
+			pr_err("calibiration failed\n");
+			goto err1;
+		}
+		kfree(rsp.buf);
 	}
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
+	return 0;
+err1:
+	kfree(rsp.buf);
+err:
+	bg_cdc_enable_regulator(bg_cdc->spkr_vreg, false);
 	mutex_unlock(&bg_cdc->bg_cdc_lock);
 	return 0;
 }
