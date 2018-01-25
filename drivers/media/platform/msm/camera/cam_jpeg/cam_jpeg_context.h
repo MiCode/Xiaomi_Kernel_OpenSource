@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,11 +53,13 @@ struct cam_jpeg_ctx_irq_ops {
  * @ctx: JPEG context obj to be initialized
  * @ctx_base: Context base from cam_context
  * @hw_intf: JPEG hw manager interface
+ * @ctx_id: ID for this context
  *
  */
 int cam_jpeg_context_init(struct cam_jpeg_context *ctx,
 	struct cam_context *ctx_base,
-	struct cam_hw_mgr_intf *hw_intf);
+	struct cam_hw_mgr_intf *hw_intf,
+	uint32_t ctx_id);
 
 /**
  * cam_jpeg_context_deinit()

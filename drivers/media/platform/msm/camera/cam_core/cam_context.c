@@ -224,6 +224,7 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
 {
 	int rc;
+	int i;
 
 	if (!ctx->state_machine) {
 		CAM_ERR(CAM_CORE, "Context is not ready");
@@ -244,6 +245,17 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
 			cmd->dev_handle, ctx->state);
 		rc = -EPROTO;
 	}
+
+	INIT_LIST_HEAD(&ctx->active_req_list);
+	INIT_LIST_HEAD(&ctx->wait_req_list);
+	INIT_LIST_HEAD(&ctx->pending_req_list);
+	INIT_LIST_HEAD(&ctx->free_req_list);
+
+	for (i = 0; i < ctx->req_size; i++) {
+		INIT_LIST_HEAD(&ctx->req_list[i].list);
+		list_add_tail(&ctx->req_list[i].list, &ctx->free_req_list);
+	}
+
 	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;
@@ -394,6 +406,8 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 
 int cam_context_init(struct cam_context *ctx,
 	const char *dev_name,
+	uint64_t dev_id,
+	uint32_t ctx_id,
 	struct cam_req_mgr_kmd_ops *crm_node_intf,
 	struct cam_hw_mgr_intf *hw_mgr_intf,
 	struct cam_ctx_request *req_list,
@@ -417,6 +431,8 @@ int cam_context_init(struct cam_context *ctx,
 	spin_lock_init(&ctx->lock);
 
 	ctx->dev_name = dev_name;
+	ctx->dev_id = dev_id;
+	ctx->ctx_id = ctx_id;
 	ctx->ctx_crm_intf = NULL;
 	ctx->crm_ctx_intf = crm_node_intf;
 	ctx->hw_mgr_intf = hw_mgr_intf;

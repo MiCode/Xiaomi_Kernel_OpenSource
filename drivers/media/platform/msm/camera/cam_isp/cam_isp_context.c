@@ -2498,7 +2498,8 @@ static struct cam_ctx_ops
 int cam_isp_context_init(struct cam_isp_context *ctx,
 	struct cam_context *ctx_base,
 	struct cam_req_mgr_kmd_ops *crm_node_intf,
-	struct cam_hw_mgr_intf *hw_intf)
+	struct cam_hw_mgr_intf *hw_intf,
+	uint32_t ctx_id)
 
 {
 	int rc = -1;
@@ -2527,8 +2528,8 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	}
 
 	/* camera context setup */
-	rc = cam_context_init(ctx_base, isp_dev_name, crm_node_intf, hw_intf,
-		ctx->req_base, CAM_CTX_REQ_MAX);
+	rc = cam_context_init(ctx_base, isp_dev_name, CAM_ISP, ctx_id,
+		crm_node_intf, hw_intf, ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Camera Context Base init failed");
 		goto err;

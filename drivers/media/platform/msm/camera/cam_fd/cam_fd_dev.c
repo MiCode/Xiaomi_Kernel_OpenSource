@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,7 +121,7 @@ static int cam_fd_dev_probe(struct platform_device *pdev)
 
 	for (i = 0; i < CAM_CTX_MAX; i++) {
 		rc = cam_fd_context_init(&g_fd_dev.fd_ctx[i],
-			&g_fd_dev.base_ctx[i], &node->hw_mgr_intf);
+			&g_fd_dev.base_ctx[i], &node->hw_mgr_intf, i);
 		if (rc) {
 			CAM_ERR(CAM_FD, "FD context init failed i=%d, rc=%d",
 				i, rc);
