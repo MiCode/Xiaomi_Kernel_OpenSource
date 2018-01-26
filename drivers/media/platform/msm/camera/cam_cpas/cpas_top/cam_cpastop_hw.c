@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -354,6 +354,11 @@ static void cam_cpastop_work(struct work_struct *work)
 	cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	soc_info = &cpas_hw->soc_info;
 
+	if (!atomic_inc_not_zero(&cpas_core->irq_count)) {
+		CAM_ERR(CAM_CPAS, "CPAS off");
+		return;
+	}
+
 	for (i = 0; i < camnoc_info->irq_err_size; i++) {
 		if ((payload->irq_status & camnoc_info->irq_err[i].sbm_port) &&
 			(camnoc_info->irq_err[i].enable)) {
@@ -398,6 +403,9 @@ static void cam_cpastop_work(struct work_struct *work)
 				~camnoc_info->irq_err[i].sbm_port;
 		}
 	}
+	atomic_dec(&cpas_core->irq_count);
+	wake_up(&cpas_core->irq_count_wq);
+	CAM_DBG(CAM_CPAS, "irq_count=%d\n", atomic_read(&cpas_core->irq_count));
 
 	if (payload->irq_status)
 		CAM_ERR(CAM_CPAS, "IRQ not handled irq_status=0x%x",
@@ -414,9 +422,14 @@ static irqreturn_t cam_cpastop_handle_irq(int irq_num, void *data)
 	int camnoc_index = cpas_core->regbase_index[CAM_CPAS_REG_CAMNOC];
 	struct cam_cpas_work_payload *payload;
 
+	if (!atomic_inc_not_zero(&cpas_core->irq_count)) {
+		CAM_ERR(CAM_CPAS, "CPAS off");
+		return IRQ_HANDLED;
+	}
+
 	payload = kzalloc(sizeof(struct cam_cpas_work_payload), GFP_ATOMIC);
 	if (!payload)
-		return IRQ_HANDLED;
+		goto done;
 
 	payload->irq_status = cam_io_r_mb(
 		soc_info->reg_map[camnoc_index].mem_base +
@@ -433,6 +446,9 @@ static irqreturn_t cam_cpastop_handle_irq(int irq_num, void *data)
 	cam_cpastop_reset_irq(cpas_hw);
 
 	queue_work(cpas_core->work_queue, &payload->work);
+done:
+	atomic_dec(&cpas_core->irq_count);
+	wake_up(&cpas_core->irq_count_wq);
 
 	return IRQ_HANDLED;
 }
