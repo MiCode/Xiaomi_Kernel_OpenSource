@@ -1,0 +1,115 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_lgd_incell_sw49106_fhd_video:
+		qcom,mdss_dsi_lgd_incell_sw49106_fhd_video {
+			qcom,mdss-dsi-panel-name =
+				"lgd incell sw49106 fhd video";
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-panel-width = <1080>;
+		qcom,mdss-dsi-panel-height = <2160>;
+		qcom,mdss-dsi-h-front-porch = <8>;
+		qcom,mdss-dsi-h-back-porch = <8>;
+		qcom,mdss-dsi-h-pulse-width = <4>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <92>;
+		qcom,mdss-dsi-v-front-porch = <170>;
+		qcom,mdss-dsi-v-pulse-width = <1>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-h-sync-pulse = <0>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-panel-timings = [F8 3C 28 00 6E 72 2E
+				40 30 03 04 00];
+		qcom,mdss-dsi-t-clk-post = <0x02>;
+		qcom,mdss-dsi-t-clk-pre = <0x2D>;
+		qcom,mdss-dsi-bl-min-level = <1>;
+		qcom,mdss-dsi-bl-max-level = <4095>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-on-command = [05 01 00 00 0B 00 02 35 00
+			15 01 00 00 00 00 02 36 00
+			15 01 00 00 00 00 02 51 FF
+			15 01 00 00 00 00 02 53 24
+			15 01 00 00 00 00 02 55 80
+			39 01 00 00 00 00 02 B0 AC
+			39 01 00 00 00 00 06 B1 46 00 80 14 85
+			39 01 00 00 00 00 08 B3 05 08 14 00 1C 00 02
+			39 01 00 00 00 00 10 B4 83 08 00 04 04 04 04 00
+				00 00 00 00 00 00 00
+			39 01 00 00 00 00 13 B5 03 1E 0B 02 29 00 00 00
+				00 04 00 24 00 10 10 10 10 00
+			39 01 00 00 00 00 0A B6 00 72 39 13 08 67 00 60 46
+			39 01 00 00 00 00 05 B7 00 50 37 04
+			39 01 00 00 00 00 0C B8 70 38 14 ED 08 04 00 01
+				0A A0 00
+			39 01 00 00 00 00 06 C0 8A 8F 18 C1 12
+			39 01 00 00 00 00 07 C1 01 00 30 C2 C7 0F
+			39 01 00 00 00 00 03 C2 2A 00
+			39 01 00 00 00 00 07 C3 05 0E 0E 50 88 09
+			39 01 00 00 00 00 04 C4 A2 E8 F4
+			39 01 00 00 00 00 05 C5 C2 2A 4E 08
+			39 01 00 00 00 00 03 C6 15 01
+			39 01 00 00 00 00 07 CA 00 00 03 84 55 F5
+			39 01 00 00 00 00 03 CB 3F A0
+			39 01 00 00 00 00 09 CC F0 03 10 55 11 FC 34 34
+			39 01 00 00 00 00 07 CD 11 50 50 90 00 F3
+			39 01 00 00 00 00 07 CE A0 28 28 34 00 AB
+			39 01 00 00 00 00 10 D0 10 1B 22 2A 35 42 4A 53 4D
+				44 34 23 10 03 81
+			39 01 00 00 00 00 10 D1 09 15 1C 25 31 3F 47 52 4F
+				45 34 22 0E 01 83
+			39 01 00 00 00 00 10 D2 10 1B 22 29 34 41 49 52 4E
+				44 34 23 10 03 81
+			39 01 00 00 00 00 10 D3 09 15 1C 24 30 3E 46 51 50
+				45 34 22 0E 01 83
+			39 01 00 00 00 00 10 D4 10 1B 22 2A 35 42 4A 53 4D
+				44 34 23 10 03 81
+			39 01 00 00 00 00 10 D5 09 15 1C 25 31 3F 47 52 4F
+				45 34 22 0E 01 83
+			39 01 00 00 00 00 0D E5 24 23 11 10 00 0A 08 06 04
+				11 0E 23
+			39 01 00 00 00 00 0D E6 24 23 11 10 01 0B 09 07 05
+				11 0E 23
+			39 01 00 00 00 00 07 E7 15 16 17 18 19 1A
+			39 01 00 00 00 00 07 E8 1B 1C 1D 1E 1F 20
+			39 01 00 00 00 00 05 ED 00 01 53 0C
+			39 01 00 00 00 00 03 F0 B2 00
+			39 01 00 00 00 00 05 F2 01 00 17 00
+			39 01 00 00 64 00 07 F3 00 50 90 C9 00 01
+			05 01 00 00 78 00 02 11 00
+			05 01 00 00 05 00 02 29 00];
+		qcom,mdss-dsi-off-command = [05 01 00 00 32 00 02 28 00
+			05 01 00 00 64 00 02 10 00];
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		qcom,mdss-dsi-reset-sequence = <1 200>, <0 200>, <1 200>;
+		qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-dsi-post-init-delay = <1>;
+	};
+};
