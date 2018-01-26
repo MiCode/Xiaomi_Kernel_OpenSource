@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,7 @@
 			qcom,adc-vdd-reference = <1875>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&ambient_therm_default>;
+			#thermal-sensor-cells = <1>;
 
 			chan@6 {
 				label = "die_temp";
