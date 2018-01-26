@@ -1274,7 +1274,7 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	wmb();
 }
 
-#define GMU_START_TIMEOUT	10	/* ms */
+#define GMU_START_TIMEOUT	100	/* ms */
 #define GPU_START_TIMEOUT	100	/* ms */
 #define GPU_RESET_TIMEOUT	1	/* ms */
 #define GPU_RESET_TIMEOUT_US	10	/* us */
