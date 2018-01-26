@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -941,6 +941,8 @@
 #define A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_H	0x1F84D
 #define A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_L	0x1F84E
 #define A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_H	0x1F84F
+#define A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L	0x1F888
+#define A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H	0x1F889
 #define A6XX_GMU_PWR_COL_INTER_FRAME_CTRL	0x1F8C0
 #define A6XX_GMU_PWR_COL_INTER_FRAME_HYST	0x1F8C1
 #define A6XX_GMU_PWR_COL_SPTPRAC_HYST		0x1F8C2
