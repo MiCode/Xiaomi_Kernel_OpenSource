@@ -61,6 +61,8 @@ Optional properties:
 - qcom,adc-tm-recalib-check: Add this property to check if recalibration required due to inaccuracy.
 - hkadc_ldo-supply : Add this property if VADC needs to perform a Software Vote for the HKADC.
 - hkadc_ok-supply : Add this property if the VADC needs to perform a Software vote for the HKADC VREG_OK.
+- #thermal-sensor-cells : To register ADC sensors with of_thermal. Should be 1.
+  See ./thermal.txt for a description.
 
 Client required property:
 - qcom,<consumer name>-adc_tm : The phandle to the corresponding adc_tm device.
