@@ -71,6 +71,7 @@ struct msm_gem_address_space {
 	struct list_head active_list;
 	/* list of clients */
 	struct list_head clients;
+	struct mutex list_lock; /* Protects active_list & clients */
 };
 
 struct msm_gem_vma {

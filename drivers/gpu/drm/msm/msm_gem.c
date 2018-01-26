@@ -433,8 +433,11 @@ int msm_gem_get_iova(struct drm_gem_object *obj,
 
 	*iova = vma->iova;
 
-	if (aspace && aspace->domain_attached)
+	if (aspace && aspace->domain_attached) {
+		mutex_lock(&aspace->list_lock);
 		msm_gem_add_obj_to_aspace_active_list(aspace, obj);
+		mutex_unlock(&aspace->list_lock);
+	}
 
 	mutex_unlock(&msm_obj->lock);
 	return 0;
@@ -487,7 +490,7 @@ void msm_gem_aspace_domain_attach_detach_update(
 	if (!aspace)
 		return;
 
-	mutex_lock(&aspace->dev->struct_mutex);
+	mutex_lock(&aspace->list_lock);
 	if (is_detach) {
 		/* Indicate to clients domain is getting detached */
 		list_for_each_entry(aclient, &aspace->clients, list) {
@@ -513,7 +516,7 @@ void msm_gem_aspace_domain_attach_detach_update(
 			obj = &msm_obj->base;
 			ret = msm_gem_get_iova(obj, aspace, &iova);
 			if (ret) {
-				mutex_unlock(&aspace->dev->struct_mutex);
+				mutex_unlock(&aspace->list_lock);
 				return;
 			}
 		}
@@ -525,7 +528,7 @@ void msm_gem_aspace_domain_attach_detach_update(
 						is_detach);
 		}
 	}
-	mutex_unlock(&aspace->dev->struct_mutex);
+	mutex_unlock(&aspace->list_lock);
 }
 
 int msm_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
@@ -644,7 +647,12 @@ void msm_gem_purge(struct drm_gem_object *obj, enum msm_gem_lock subclass)
 	mutex_lock_nested(&msm_obj->lock, subclass);
 
 	put_iova(obj);
-	msm_gem_remove_obj_from_aspace_active_list(msm_obj->aspace, obj);
+	if (msm_obj->aspace) {
+		mutex_lock(&msm_obj->aspace->list_lock);
+		msm_gem_remove_obj_from_aspace_active_list(msm_obj->aspace,
+				obj);
+		mutex_unlock(&msm_obj->aspace->list_lock);
+	}
 
 	msm_gem_vunmap_locked(obj);
 
@@ -878,7 +886,12 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 	mutex_lock(&msm_obj->lock);
 
 	put_iova(obj);
-	msm_gem_remove_obj_from_aspace_active_list(msm_obj->aspace, obj);
+	if (msm_obj->aspace) {
+		mutex_lock(&msm_obj->aspace->list_lock);
+		msm_gem_remove_obj_from_aspace_active_list(msm_obj->aspace,
+				obj);
+		mutex_unlock(&msm_obj->aspace->list_lock);
+	}
 
 	if (obj->import_attach) {
 		if (msm_obj->vaddr)
