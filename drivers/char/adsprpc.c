@@ -2091,12 +2091,13 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 		goto bail;
 	mutex_lock(&fl->fl_map_mutex);
 	fastrpc_mmap_free(map, 0);
+	mutex_unlock(&fl->fl_map_mutex);
 bail:
 	if (err && map) {
 		mutex_lock(&fl->fl_map_mutex);
 		fastrpc_mmap_add(map);
+		mutex_unlock(&fl->fl_map_mutex);
 	}
-	mutex_unlock(&fl->fl_map_mutex);
 	mutex_unlock(&fl->map_mutex);
 	return err;
 }
