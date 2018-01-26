@@ -8,6 +8,7 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/swap.h>
+#include <linux/sched/signal.h>
 
 #include "ion.h"
 
@@ -64,6 +65,9 @@ struct page *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 
 	BUG_ON(!pool);
 
+	if (fatal_signal_pending(current))
+		return ERR_PTR(-EINTR);
+
 	if (*from_pool && mutex_trylock(&pool->mutex)) {
 		if (pool->high_count)
 			page = ion_page_pool_remove(pool, true);
@@ -75,6 +79,9 @@ struct page *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 		page = ion_page_pool_alloc_pages(pool);
 		*from_pool = false;
 	}
+
+	if (!page)
+		return ERR_PTR(-ENOMEM);
 	return page;
 }
 
@@ -86,7 +93,7 @@ struct page *ion_page_pool_alloc_pool_only(struct ion_page_pool *pool)
 	struct page *page = NULL;
 
 	if (!pool)
-		return NULL;
+		return ERR_PTR(-EINVAL);
 
 	if (mutex_trylock(&pool->mutex)) {
 		if (pool->high_count)
@@ -96,6 +103,8 @@ struct page *ion_page_pool_alloc_pool_only(struct ion_page_pool *pool)
 		mutex_unlock(&pool->mutex);
 	}
 
+	if (!page)
+		return ERR_PTR(-ENOMEM);
 	return page;
 }
 

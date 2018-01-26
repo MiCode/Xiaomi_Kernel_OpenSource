@@ -98,8 +98,8 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 	int ret;
 	int vmid;
 
+	memset(&buffer, 0, sizeof(struct ion_buffer));
 	buffer.heap = sys_heap;
-	buffer.flags = 0;
 
 	ret = sys_heap->ops->allocate(sys_heap, &buffer, info->size,
 					buffer.flags);
@@ -156,6 +156,7 @@ static void process_one_shrink(struct ion_heap *sys_heap,
 	size_t pool_size, size;
 	int ret;
 
+	memset(&buffer, 0, sizeof(struct ion_buffer));
 	buffer.heap = sys_heap;
 	buffer.flags = info->vmid;
 
@@ -355,31 +356,6 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	return &heap->heap;
 }
 
-void ion_system_secure_heap_destroy(struct ion_heap *heap)
-{
-	struct ion_system_secure_heap *secure_heap = container_of(heap,
-						struct ion_system_secure_heap,
-						heap);
-	unsigned long flags;
-	LIST_HEAD(items);
-	struct prefetch_info *info, *tmp;
-
-	/* Stop any pending/future work */
-	spin_lock_irqsave(&secure_heap->work_lock, flags);
-	secure_heap->destroy_heap = true;
-	list_splice_init(&secure_heap->prefetch_list, &items);
-	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
-
-	cancel_delayed_work_sync(&secure_heap->prefetch_work);
-
-	list_for_each_entry_safe(info, tmp, &items, list) {
-		list_del(&info->list);
-		kfree(info);
-	}
-
-	kfree(heap);
-}
-
 struct page *alloc_from_secure_pool_order(struct ion_system_heap *heap,
 					  struct ion_buffer *buffer,
 					  unsigned long order)
@@ -388,7 +364,7 @@ struct page *alloc_from_secure_pool_order(struct ion_system_heap *heap,
 	struct ion_page_pool *pool;
 
 	if (!is_secure_vmid_valid(vmid))
-		return NULL;
+		return ERR_PTR(-EINVAL);
 
 	pool = heap->secure_pools[vmid][order_to_index(order)];
 	return ion_page_pool_alloc_pool_only(pool);
@@ -410,13 +386,13 @@ struct page *split_page_from_secure_pool(struct ion_system_heap *heap,
 	 * possible.
 	 */
 	page = alloc_from_secure_pool_order(heap, buffer, 0);
-	if (page)
+	if (!IS_ERR(page))
 		goto got_page;
 
 	for (i = NUM_ORDERS - 2; i >= 0; i--) {
 		order = orders[i];
 		page = alloc_from_secure_pool_order(heap, buffer, order);
-		if (!page)
+		if (IS_ERR(page))
 			continue;
 
 		split_page(page, order);
@@ -426,7 +402,7 @@ struct page *split_page_from_secure_pool(struct ion_system_heap *heap,
 	 * Return the remaining order-0 pages to the pool.
 	 * SetPagePrivate flag to mark memory as secure.
 	 */
-	if (page) {
+	if (!IS_ERR(page)) {
 		for (j = 1; j < (1 << order); j++) {
 			SetPagePrivate(page + j);
 			free_buffer_page(heap, buffer, page + j, 0);
@@ -454,7 +430,7 @@ int ion_secure_page_pool_shrink(struct ion_system_heap *sys_heap,
 
 	while (freed < nr_to_scan) {
 		page = ion_page_pool_alloc_pool_only(pool);
-		if (!page)
+		if (IS_ERR(page))
 			break;
 		list_add(&page->lru, &pages);
 		freed += (1 << order);
