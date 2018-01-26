@@ -2032,17 +2032,17 @@ static int a6xx_wait_for_gmu_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
-	unsigned int status, status2;
+	unsigned int status2;
+	uint64_t ts1;
 
+	ts1 = read_AO_counter(device);
 	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
 			0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
 		kgsl_gmu_regread(device,
-				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &status);
-		kgsl_gmu_regread(device,
 				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS2, &status2);
 		dev_err(&gmu->pdev->dev,
-				"GMU not idling: status=0x%x, status2=0x%x\n",
-				status, status2);
+				"GMU not idling: status2=0x%x %llx %llx\n",
+				status2, ts1, read_AO_counter(device));
 		return -ETIMEDOUT;
 	}
 
