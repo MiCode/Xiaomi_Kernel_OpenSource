@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,7 +62,7 @@
 #define CXGXCPUBUSYIGNAHB	BIT(30)
 
 /* GMU timeouts */
-#define GMU_IDLE_TIMEOUT        10 /* ms */
+#define GMU_IDLE_TIMEOUT        100 /* ms */
 
 /* Constants for GMU OOBs */
 #define OOB_BOOT_OPTION         0
