@@ -239,3 +239,44 @@ bool hlos_accessible_buffer(struct ion_buffer *buffer)
 
 	return true;
 }
+
+int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
+{
+	u32 *vmids, *modes;
+	u32 nr, i;
+	int ret = -EINVAL;
+	u32 src_vm = VMID_HLOS;
+
+	nr = count_set_bits(flags);
+	vmids = kcalloc(nr, sizeof(*vmids), GFP_KERNEL);
+	if (!vmids)
+		return -ENOMEM;
+
+	modes = kcalloc(nr, sizeof(*modes), GFP_KERNEL);
+	if (!modes) {
+		kfree(vmids);
+		return -ENOMEM;
+	}
+
+	if ((flags & ~ION_FLAGS_CP_MASK) ||
+	    populate_vm_list(flags, vmids, nr)) {
+		pr_err("%s: Failed to parse secure flags 0x%x\n", __func__,
+		       flags);
+		goto out;
+	}
+
+	for (i = 0; i < nr; i++)
+		if (vmids[i] == VMID_CP_SEC_DISPLAY)
+			modes[i] = PERM_READ;
+		else
+			modes[i] = PERM_READ | PERM_WRITE;
+
+	ret = hyp_assign_phys(base, size, &src_vm, 1, vmids, modes, nr);
+	if (ret)
+		pr_err("%s: Assign call failed, flags 0x%x\n", __func__, flags);
+
+out:
+	kfree(modes);
+	kfree(vmids);
+	return ret;
+}

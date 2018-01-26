@@ -17,6 +17,7 @@ enum msm_ion_heap_types {
 	ION_HEAP_TYPE_SECURE_DMA = ION_HEAP_TYPE_MSM_START,
 	ION_HEAP_TYPE_SYSTEM_SECURE,
 	ION_HEAP_TYPE_HYP_CMA,
+	ION_HEAP_TYPE_SECURE_CARVEOUT,
 };
 
 /**
@@ -44,6 +45,7 @@ enum ion_heap_ids {
  * Newly added heap ids have to be #define(d) since all API changes must
  * include a new #define.
  */
+#define ION_SECURE_CARVEOUT_HEAP_ID	14
 #define ION_QSECOM_TA_HEAP_ID		19
 #define ION_AUDIO_HEAP_ID		28
 #define ION_CAMERA_HEAP_ID		20
