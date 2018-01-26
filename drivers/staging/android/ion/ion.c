@@ -246,6 +246,7 @@ struct ion_dma_buf_attachment {
 	struct device *dev;
 	struct sg_table *table;
 	struct list_head list;
+	bool dma_mapped;
 };
 
 static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
@@ -267,6 +268,7 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 
 	a->table = table;
 	a->dev = dev;
+	a->dma_mapped = false;
 	INIT_LIST_HEAD(&a->list);
 
 	attachment->priv = a;
@@ -321,6 +323,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	if (count <= 0)
 		return ERR_PTR(-ENOMEM);
 
+	a->dma_mapped = true;
 	return table;
 }
 
@@ -330,6 +333,7 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 {
 	int map_attrs;
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
+	struct ion_dma_buf_attachment *a = attachment->priv;
 
 	map_attrs = attachment->dma_map_attrs;
 	if (!(buffer->flags & ION_FLAG_CACHED) ||
@@ -344,6 +348,7 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	else
 		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
 				   direction, map_attrs);
+	a->dma_mapped = false;
 }
 
 void ion_pages_sync_for_device(struct device *dev, struct page *page,
@@ -523,6 +528,9 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->dma_mapped)
+			continue;
+
 		if (sync_only_mapped)
 			ion_sgl_sync_mapped(a->dev, a->table->sgl,
 					    a->table->nents, &buffer->vmas,
@@ -561,6 +569,9 @@ static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->dma_mapped)
+			continue;
+
 		if (sync_only_mapped)
 			ion_sgl_sync_mapped(a->dev, a->table->sgl,
 					    a->table->nents, &buffer->vmas,
@@ -628,6 +639,9 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->dma_mapped)
+			continue;
+
 		ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
 				   offset, len, dir, true);
 	}
@@ -662,8 +676,12 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->dma_mapped)
+			continue;
+
 		ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
 				   offset, len, direction, false);
+
 	}
 	mutex_unlock(&buffer->lock);
 
