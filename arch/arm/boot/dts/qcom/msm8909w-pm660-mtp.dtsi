@@ -20,6 +20,16 @@
 		/delete-property/ qcom,mipi-csi-vdd-supply;
 	};
 
+	spi_4 {
+		qcom,mdss_spi_client {
+			reg = <0>;
+			compatible = "qcom,mdss-spi-client";
+			label = "MDSS SPI QUP4 CLIENT";
+			dc-gpio = <&msm_gpio 59 0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+
 	i2c@78b9000 {
 		synaptics@20 {
 			/delete-property/ avdd-supply;
@@ -190,6 +200,26 @@
 &dsi_auo_390p_cmd {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
+};
+
+&spi_st7789v2_qvga_cmd {
+	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
+	qcom,mdss-spi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-spi-bl-pmic-bank-select = <0>;
+};
+
+&mdss_spi {
+	qcom,spi-pref-prim-pan = <&spi_st7789v2_qvga_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_te_active>;
+	pinctrl-1 = <&mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&msm_gpio 24 0>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+	qcom,platform-spi-dc-gpio = <&msm_gpio 59 0>;
+
+	vdd-supply = <&pm660_l18>;
+	vddio-supply = <&pm660_l11>;
 };
 
 &mdss_dsi{
