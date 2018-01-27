@@ -29,6 +29,7 @@
 #define GLINK_SSR_EVENT_INIT ~0
 #define NUM_LOG_PAGES 3
 
+#define GLINK_SSR_PRIORITY 1
 #define GLINK_SSR_LOG(x...) do { \
 	if (glink_ssr_log_ctx) \
 		ipc_log_string(glink_ssr_log_ctx, x); \
@@ -945,6 +946,7 @@ static int glink_ssr_probe(struct platform_device *pdev)
 
 	nb->subsystem = subsys_name;
 	nb->nb.notifier_call = glink_ssr_restart_notifier_cb;
+	nb->nb.priority = GLINK_SSR_PRIORITY;
 
 	handle = subsys_notif_register_notifier(nb->subsystem, &nb->nb);
 	if (IS_ERR_OR_NULL(handle)) {
