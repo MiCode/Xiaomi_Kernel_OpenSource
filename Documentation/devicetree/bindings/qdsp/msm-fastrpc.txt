@@ -14,6 +14,7 @@ Optional properties:
 - qcom,fastrpc-glink:	Flag to use glink instead of smd for IPC
 - qcom,rpc-latency-us:	FastRPC QoS latency vote
 - qcom,adsp-remoteheap-vmid:  FastRPC remote heap VMID list
+- qcom,fastrpc-adsp-audio-pdr:  Flag to enable ADSP Audio PDR
 
 Optional subnodes:
 - qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context
