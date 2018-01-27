@@ -33,6 +33,7 @@ obj-$(CONFIG_PWM_PUV3)		+= pwm-puv3.o
 obj-$(CONFIG_PWM_PXA)		+= pwm-pxa.o
 obj-$(CONFIG_PWM_QPNP)		+= pwm-qpnp.o
 obj-$(CONFIG_PWM_RCAR)		+= pwm-rcar.o
+obj-$(CONFIG_PWM_QTI_LPG)	+= pwm-qti-lpg.o
 obj-$(CONFIG_PWM_RENESAS_TPU)	+= pwm-renesas-tpu.o
 obj-$(CONFIG_PWM_ROCKCHIP)	+= pwm-rockchip.o
 obj-$(CONFIG_PWM_SAMSUNG)	+= pwm-samsung.o
