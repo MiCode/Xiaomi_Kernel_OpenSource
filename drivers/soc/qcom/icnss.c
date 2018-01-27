@@ -2262,8 +2262,6 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 
 	set_bit(ICNSS_FW_READY, &penv->state);
 
-	icnss_call_driver_uevent(penv, ICNSS_UEVENT_FW_READY, NULL);
-
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
 
 	icnss_hw_power_off(penv);
