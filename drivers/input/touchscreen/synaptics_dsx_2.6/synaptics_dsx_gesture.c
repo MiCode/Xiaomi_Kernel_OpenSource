@@ -38,7 +38,7 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
 #define GESTURE_PHYS_NAME "synaptics_dsx/gesture"
@@ -388,46 +388,46 @@ struct synaptics_rmi4_udg_handle {
 };
 
 static struct device_attribute attrs[] = {
-	__ATTR(engine_enable, S_IWUGO,
+	__ATTR(engine_enable, 0220,
 			synaptics_rmi4_show_error,
 			udg_sysfs_engine_enable_store),
-	__ATTR(detection_enable, S_IWUGO,
+	__ATTR(detection_enable, 0220,
 			synaptics_rmi4_show_error,
 			udg_sysfs_detection_enable_store),
-	__ATTR(detection_score, S_IRUGO,
+	__ATTR(detection_score, 0444,
 			udg_sysfs_detection_score_show,
 			synaptics_rmi4_store_error),
-	__ATTR(detection_index, S_IRUGO,
+	__ATTR(detection_index, 0444,
 			udg_sysfs_detection_index_show,
 			synaptics_rmi4_store_error),
-	__ATTR(registration_enable, S_IWUGO,
+	__ATTR(registration_enable, 0220,
 			synaptics_rmi4_show_error,
 			udg_sysfs_registration_enable_store),
-	__ATTR(registration_begin, S_IWUGO,
+	__ATTR(registration_begin, 0220,
 			synaptics_rmi4_show_error,
 			udg_sysfs_registration_begin_store),
-	__ATTR(registration_status, S_IRUGO,
+	__ATTR(registration_status, 0444,
 			udg_sysfs_registration_status_show,
 			synaptics_rmi4_store_error),
-	__ATTR(template_size, S_IRUGO,
+	__ATTR(template_size, 0444,
 			udg_sysfs_template_size_show,
 			synaptics_rmi4_store_error),
-	__ATTR(template_max_index, S_IRUGO,
+	__ATTR(template_max_index, 0444,
 			udg_sysfs_template_max_index_show,
 			synaptics_rmi4_store_error),
-	__ATTR(template_detection, S_IRUGO,
+	__ATTR(template_detection, 0444,
 			udg_sysfs_template_detection_show,
 			synaptics_rmi4_store_error),
-	__ATTR(template_index, S_IWUGO,
+	__ATTR(template_index, 0220,
 			synaptics_rmi4_show_error,
 			udg_sysfs_template_index_store),
-	__ATTR(template_valid, (S_IRUGO | S_IWUGO),
+	__ATTR(template_valid, 0664,
 			udg_sysfs_template_valid_show,
 			udg_sysfs_template_valid_store),
-	__ATTR(template_clear, S_IWUGO,
+	__ATTR(template_clear, 0220,
 			synaptics_rmi4_show_error,
 			udg_sysfs_template_clear_store),
-	__ATTR(trace_size, S_IRUGO,
+	__ATTR(trace_size, 0444,
 			udg_sysfs_trace_size_show,
 			synaptics_rmi4_store_error),
 };
@@ -435,7 +435,7 @@ static struct device_attribute attrs[] = {
 static struct bin_attribute template_data = {
 	.attr = {
 		.name = "template_data",
-		.mode = (S_IRUGO | S_IWUGO),
+		.mode = 0664,
 	},
 	.size = 0,
 	.read = udg_sysfs_template_data_show,
@@ -445,7 +445,7 @@ static struct bin_attribute template_data = {
 static struct bin_attribute trace_data = {
 	.attr = {
 		.name = "trace_data",
-		.mode = S_IRUGO,
+		.mode = 0444,
 	},
 	.size = 0,
 	.read = udg_sysfs_trace_data_show,
@@ -453,22 +453,22 @@ static struct bin_attribute trace_data = {
 };
 
 static struct device_attribute params[] = {
-	__ATTR(template_displacement, (S_IRUGO | S_IWUGO),
+	__ATTR(template_displacement, 0664,
 			udg_sysfs_template_displacement_show,
 			udg_sysfs_template_displacement_store),
-	__ATTR(rotation_invariance, (S_IRUGO | S_IWUGO),
+	__ATTR(rotation_invariance, 0664,
 			udg_sysfs_rotation_invariance_show,
 			udg_sysfs_rotation_invariance_store),
-	__ATTR(scale_invariance, (S_IRUGO | S_IWUGO),
+	__ATTR(scale_invariance, 0664,
 			udg_sysfs_scale_invariance_show,
 			udg_sysfs_scale_invariance_store),
-	__ATTR(threshold_factor, (S_IRUGO | S_IWUGO),
+	__ATTR(threshold_factor, 0664,
 			udg_sysfs_threshold_factor_show,
 			udg_sysfs_threshold_factor_store),
-	__ATTR(match_metric_threshold, (S_IRUGO | S_IWUGO),
+	__ATTR(match_metric_threshold, 0664,
 			udg_sysfs_match_metric_threshold_show,
 			udg_sysfs_match_metric_threshold_store),
-	__ATTR(max_inter_stroke_time, (S_IRUGO | S_IWUGO),
+	__ATTR(max_inter_stroke_time, 0664,
 			udg_sysfs_max_inter_stroke_time_show,
 			udg_sysfs_max_inter_stroke_time_store),
 };

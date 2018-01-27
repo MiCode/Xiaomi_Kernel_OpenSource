@@ -40,7 +40,7 @@
 #include <linux/types.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
 #define SYN_I2C_RETRY_TIMES 10
@@ -48,9 +48,8 @@
 /*
 #define I2C_BURST_LIMIT 255
 */
-/*
+
 #define XFER_MSGS_LIMIT 8
-*/
 
 static unsigned char *wr_buf;
 
@@ -178,14 +177,9 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 		bdata->max_y_for_2d = -1;
 	}
 
-	prop = of_find_property(np, "synaptics,swap-axes", NULL);
-	bdata->swap_axes = prop > 0 ? true : false;
-
-	prop = of_find_property(np, "synaptics,x-flip", NULL);
-	bdata->x_flip = prop > 0 ? true : false;
-
-	prop = of_find_property(np, "synaptics,y-flip", NULL);
-	bdata->y_flip = prop > 0 ? true : false;
+	bdata->swap_axes = of_property_read_bool(np, "synaptics,swap-axes");
+	bdata->x_flip = of_property_read_bool(np, "synaptics,x-flip");
+	bdata->y_flip = of_property_read_bool(np, "synaptics,y-flip");
 
 	prop = of_find_property(np, "synaptics,ub-i2c-addr", NULL);
 	if (prop && prop->length) {
@@ -288,7 +282,7 @@ static void synaptics_rmi4_i2c_check_addr(struct synaptics_rmi4_data *rmi4_data,
 static int synaptics_rmi4_i2c_set_page(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr)
 {
-	int retval;
+	int retval = 0;
 	unsigned char retry;
 	unsigned char buf[PAGE_SELECT_LEN];
 	unsigned char page;
@@ -306,7 +300,7 @@ static int synaptics_rmi4_i2c_set_page(struct synaptics_rmi4_data *rmi4_data,
 
 	if (page != rmi4_data->current_page) {
 		for (retry = 0; retry < SYN_I2C_RETRY_TIMES; retry++) {
-			if (i2c_transfer(i2c->adapter, msg, 1) == 1) {
+			if (i2c_transfer(i2c->adapter, &msg[0], 1) == 1) {
 				rmi4_data->current_page = page;
 				retval = PAGE_SELECT_LEN;
 				break;
@@ -348,7 +342,7 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 	unsigned short remaining_length = length;
 	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
 	struct i2c_adapter *adap = i2c->adapter;
-	struct i2c_msg msg[rd_msgs + 1];
+	struct i2c_msg msg[XFER_MSGS_LIMIT + 1];
 
 	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
 
@@ -384,14 +378,10 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 	remaining_msgs = rd_msgs + 1;
 
 	while (remaining_msgs) {
-#ifdef XFER_MSGS_LIMIT
 		if (remaining_msgs > XFER_MSGS_LIMIT)
 			xfer_msgs = XFER_MSGS_LIMIT;
 		else
 			xfer_msgs = remaining_msgs;
-#else
-		xfer_msgs = remaining_msgs;
-#endif
 		for (retry = 0; retry < SYN_I2C_RETRY_TIMES; retry++) {
 			retval = i2c_transfer(adap, &msg[index], xfer_msgs);
 			if (retval == xfer_msgs)
@@ -469,7 +459,7 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 	}
 
 	for (retry = 0; retry < SYN_I2C_RETRY_TIMES; retry++) {
-		if (i2c_transfer(i2c->adapter, msg, 1) == 1) {
+		if (i2c_transfer(i2c->adapter, &msg[0], 1) == 1) {
 			retval = length;
 			break;
 		}
@@ -625,13 +615,13 @@ static struct i2c_driver synaptics_rmi4_i2c_driver = {
 	.id_table = synaptics_rmi4_id_table,
 };
 
-int synaptics_rmi4_bus_init(void)
+int synaptics_rmi4_bus_init_v26(void)
 {
 	return i2c_add_driver(&synaptics_rmi4_i2c_driver);
 }
-EXPORT_SYMBOL(synaptics_rmi4_bus_init);
+EXPORT_SYMBOL(synaptics_rmi4_bus_init_v26);
 
-void synaptics_rmi4_bus_exit(void)
+void synaptics_rmi4_bus_exit_v26(void)
 {
 	kfree(wr_buf);
 
@@ -639,7 +629,7 @@ void synaptics_rmi4_bus_exit(void)
 
 	return;
 }
-EXPORT_SYMBOL(synaptics_rmi4_bus_exit);
+EXPORT_SYMBOL(synaptics_rmi4_bus_exit_v26);
 
 MODULE_AUTHOR("Synaptics, Inc.");
 MODULE_DESCRIPTION("Synaptics DSX I2C Bus Support Module");

@@ -38,7 +38,7 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
 #define PROX_PHYS_NAME "synaptics_dsx/proximity"
@@ -54,7 +54,7 @@ static ssize_t synaptics_rmi4_hover_finger_en_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
 static struct device_attribute attrs[] = {
-	__ATTR(hover_finger_en, (S_IRUGO | S_IWUGO),
+	__ATTR(hover_finger_en, 0664,
 			synaptics_rmi4_hover_finger_en_show,
 			synaptics_rmi4_hover_finger_en_store),
 };
