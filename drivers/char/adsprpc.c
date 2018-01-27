@@ -362,6 +362,7 @@ struct fastrpc_file {
 	struct pm_qos_request pm_qos_req;
 	int qos_request;
 	struct mutex map_mutex;
+	struct mutex fl_map_mutex;
 };
 
 static struct fastrpc_apps gfa;
@@ -519,9 +520,7 @@ static void fastrpc_mmap_add(struct fastrpc_mmap *map)
 	} else {
 		struct fastrpc_file *fl = map->fl;
 
-		spin_lock(&fl->hlock);
 		hlist_add_head(&map->hn, &fl->maps);
-		spin_unlock(&fl->hlock);
 	}
 }
 
@@ -550,7 +549,6 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 		}
 		spin_unlock(&me->hlock);
 	} else {
-		spin_lock(&fl->hlock);
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			if (va >= map->va &&
 				va + len <= map->va + map->len &&
@@ -561,7 +559,6 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 				break;
 			}
 		}
-		spin_unlock(&fl->hlock);
 	}
 	if (match) {
 		*ppmap = match;
@@ -609,7 +606,6 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 		*ppmap = match;
 		return 0;
 	}
-	spin_lock(&fl->hlock);
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 		if (map->raddr == va &&
 			map->raddr + map->len == va + len &&
@@ -619,7 +615,6 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 			break;
 		}
 	}
-	spin_unlock(&fl->hlock);
 	if (match) {
 		*ppmap = match;
 		return 0;
@@ -647,11 +642,9 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 		if (map->refs > 0)
 			return;
 	} else {
-		spin_lock(&fl->hlock);
 		map->refs--;
 		if (!map->refs)
 			hlist_del_init(&map->hn);
-		spin_unlock(&fl->hlock);
 		if (map->refs > 0 && !flags)
 			return;
 	}
@@ -1112,8 +1105,11 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	spin_lock(&ctx->fl->hlock);
 	hlist_del_init(&ctx->hn);
 	spin_unlock(&ctx->fl->hlock);
+	mutex_lock(&ctx->fl->fl_map_mutex);
 	for (i = 0; i < nbufs; ++i)
 		fastrpc_mmap_free(ctx->maps[i], 0);
+
+	mutex_unlock(&ctx->fl->fl_map_mutex);
 	fastrpc_buf_free(ctx->buf, 1);
 	ctx->magic = 0;
 	kfree(ctx);
@@ -1258,21 +1254,27 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		uintptr_t buf = (uintptr_t)lpra[i].buf.pv;
 		size_t len = lpra[i].buf.len;
 
+		mutex_lock(&ctx->fl->fl_map_mutex);
 		if (ctx->fds[i] && (ctx->fds[i] != -1))
 			fastrpc_mmap_create(ctx->fl, ctx->fds[i],
 					ctx->attrs[i], buf, len,
 					mflags, &ctx->maps[i]);
+		mutex_unlock(&ctx->fl->fl_map_mutex);
 		ipage += 1;
 	}
 	PERF_END);
 	handles = REMOTE_SCALARS_INHANDLES(sc) + REMOTE_SCALARS_OUTHANDLES(sc);
+	mutex_lock(&ctx->fl->fl_map_mutex);
 	for (i = bufs; i < bufs + handles; i++) {
 		VERIFY(err, !fastrpc_mmap_create(ctx->fl, ctx->fds[i],
 				FASTRPC_ATTR_NOVA, 0, 0, 0, &ctx->maps[i]));
-		if (err)
+		if (err) {
+			mutex_unlock(&ctx->fl->fl_map_mutex);
 			goto bail;
+		}
 		ipage += 1;
 	}
+	mutex_unlock(&ctx->fl->fl_map_mutex);
 	metalen = copylen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
 				 (sizeof(uint32_t) * M_CRCLIST);
 
@@ -1481,10 +1483,13 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			if (err)
 				goto bail;
 		} else {
+			mutex_lock(&ctx->fl->fl_map_mutex);
 			fastrpc_mmap_free(ctx->maps[i], 0);
+			mutex_unlock(&ctx->fl->fl_map_mutex);
 			ctx->maps[i] = NULL;
 		}
 	}
+	mutex_lock(&ctx->fl->fl_map_mutex);
 	if (inbufs + outbufs + handles) {
 		for (i = 0; i < M_FDLIST; i++) {
 			if (!fdlist[i])
@@ -1494,6 +1499,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 				fastrpc_mmap_free(mmap, 0);
 		}
 	}
+	mutex_unlock(&ctx->fl->fl_map_mutex);
 	if (ctx->crc && crclist && rpra)
 		K_COPY_TO_USER(err, kernel, ctx->crc,
 			crclist, M_CRCLIST*sizeof(uint32_t));
@@ -1819,8 +1825,10 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 		if (init->filelen) {
+			mutex_lock(&fl->fl_map_mutex);
 			VERIFY(err, !fastrpc_mmap_create(fl, init->filefd, 0,
 				init->file, init->filelen, mflags, &file));
+			mutex_unlock(&fl->fl_map_mutex);
 			if (err)
 				goto bail;
 		}
@@ -1829,8 +1837,10 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			init->memlen));
 		if (err)
 			goto bail;
+		mutex_lock(&fl->fl_map_mutex);
 		VERIFY(err, !fastrpc_mmap_create(fl, init->memfd, 0,
 				init->mem, init->memlen, mflags, &mem));
+		mutex_unlock(&fl->fl_map_mutex);
 		if (err)
 			goto bail;
 		inbuf.pageslen = 1;
@@ -1908,9 +1918,11 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 
 		if (!me->staticpd_flags) {
 			inbuf.pageslen = 1;
+			mutex_lock(&fl->fl_map_mutex);
 			VERIFY(err, !fastrpc_mmap_create(fl, -1, 0, init->mem,
 				 init->memlen, ADSP_MMAP_REMOTE_HEAP_ADDR,
 				 &mem));
+			mutex_unlock(&fl->fl_map_mutex);
 			if (err)
 				goto bail;
 			phys = mem->phys;
@@ -1967,10 +1979,15 @@ bail:
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
 					hlosvm, hlosvmperm, 1);
+		mutex_lock(&fl->fl_map_mutex);
 		fastrpc_mmap_free(mem, 0);
+		mutex_unlock(&fl->fl_map_mutex);
 	}
-	if (file)
+	if (file) {
+		mutex_lock(&fl->fl_map_mutex);
 		fastrpc_mmap_free(file, 0);
+		mutex_unlock(&fl->fl_map_mutex);
+	}
 	return err;
 }
 
@@ -2249,16 +2266,23 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 	struct fastrpc_mmap *map = NULL;
 
 	mutex_lock(&fl->map_mutex);
+	mutex_lock(&fl->fl_map_mutex);
 	VERIFY(err, !fastrpc_mmap_remove(fl, ud->vaddrout, ud->size, &map));
+	mutex_unlock(&fl->fl_map_mutex);
 	if (err)
 		goto bail;
 	VERIFY(err, !fastrpc_munmap_on_dsp(fl, map));
 	if (err)
 		goto bail;
+	mutex_lock(&fl->fl_map_mutex);
 	fastrpc_mmap_free(map, 0);
+	mutex_unlock(&fl->fl_map_mutex);
 bail:
-	if (err && map)
+	if (err && map) {
+		mutex_lock(&fl->fl_map_mutex);
 		fastrpc_mmap_add(map);
+		mutex_unlock(&fl->fl_map_mutex);
+	}
 	mutex_unlock(&fl->map_mutex);
 	return err;
 }
@@ -2271,16 +2295,18 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 	VERIFY(err, (fl && ud));
 	if (err)
 		goto bail;
-
+	mutex_lock(&fl->fl_map_mutex);
 	if (!fastrpc_mmap_find(fl, ud->fd, ud->va, ud->len, 0, 0, &map)) {
 		pr_err("mapping not found to unamp %x va %llx %x\n",
 			ud->fd, (unsigned long long)ud->va,
 			(unsigned int)ud->len);
 		err = -1;
+		mutex_unlock(&fl->fl_map_mutex);
 		goto bail;
 	}
 	if (map)
-	fastrpc_mmap_free(map, 0);
+		fastrpc_mmap_free(map, 0);
+	mutex_unlock(&fl->fl_map_mutex);
 bail:
 	return err;
 }
@@ -2294,14 +2320,17 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	int err = 0;
 
 	mutex_lock(&fl->map_mutex);
+	mutex_lock(&fl->fl_map_mutex);
 	if (!fastrpc_mmap_find(fl, ud->fd, (uintptr_t)ud->vaddrin,
-			 ud->size, ud->flags, 1, &map)){
+			 ud->size, ud->flags, 1, &map)) {
+		mutex_unlock(&fl->fl_map_mutex);
 		mutex_unlock(&fl->map_mutex);
 		return 0;
 	}
 	VERIFY(err, !fastrpc_mmap_create(fl, ud->fd, 0,
 			(uintptr_t)ud->vaddrin, ud->size,
 			 ud->flags, &map));
+	mutex_unlock(&fl->fl_map_mutex);
 	if (err)
 		goto bail;
 	VERIFY(err, 0 == fastrpc_mmap_on_dsp(fl, ud->flags, map));
@@ -2309,8 +2338,11 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		goto bail;
 	ud->vaddrout = map->raddr;
  bail:
-	if (err && map)
+	if (err && map) {
+		mutex_lock(&fl->fl_map_mutex);
 		fastrpc_mmap_free(map, 0);
+		mutex_unlock(&fl->fl_map_mutex);
+	}
 	mutex_unlock(&fl->map_mutex);
 	return err;
 }
@@ -2475,9 +2507,11 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	spin_unlock(&fl->hlock);
 	fastrpc_context_list_dtor(fl);
 	fastrpc_buf_list_free(fl);
+	mutex_lock(&fl->fl_map_mutex);
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 		fastrpc_mmap_free(map, 1);
 	}
+	mutex_unlock(&fl->fl_map_mutex);
 	if (fl->ssrcount == fl->apps->channel[cid].ssrcount)
 		kref_put_mutex(&fl->apps->channel[cid].kref,
 				fastrpc_channel_close, &fl->apps->smd_mutex);
@@ -2500,6 +2534,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	} while (fperf);
 	mutex_unlock(&fl->perf_mutex);
 	mutex_destroy(&fl->perf_mutex);
+	mutex_destroy(&fl->fl_map_mutex);
 	kfree(fl);
 	return 0;
 }
@@ -2839,6 +2874,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->qos_request = 0;
 	filp->private_data = fl;
 	mutex_init(&fl->map_mutex);
+	mutex_init(&fl->fl_map_mutex);
 	spin_lock(&me->hlock);
 	hlist_add_head(&fl->hn, &me->drivers);
 	spin_unlock(&me->hlock);
