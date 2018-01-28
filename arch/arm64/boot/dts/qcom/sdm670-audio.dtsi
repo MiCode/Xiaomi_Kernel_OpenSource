@@ -19,6 +19,13 @@
 };
 
 &soc {
+	audio_load_mod {
+		compatible = "qcom,audio-load-mod";
+		audio_test_mod {
+			compatible = "qcom,audio-test-mod";
+		};
+	};
+
 	qcom,avtimer@62cf700c {
 		compatible = "qcom,avtimer";
 		reg = <0x62cf700c 0x4>,
