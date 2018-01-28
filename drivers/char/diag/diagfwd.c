@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -594,14 +594,15 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 	 * Check if command is valid. If the command is asking for
 	 * status, then the processor mask field is to be ignored.
 	 */
-	if ((version != 2) || (cmd > STATUS_STM) ||
-		((cmd != STATUS_STM) && ((mask == 0) || (0 != (mask >> 4))))) {
+	if ((version != 2) || (cmd > STM_AUTO_QUERY) ||
+		((cmd != STATUS_STM && cmd != STM_AUTO_QUERY) &&
+		((mask == 0) || (0 != (mask >> 4))))) {
 		/* Command is invalid. Send bad param message response */
 		dest_buf[0] = BAD_PARAM_RESPONSE_MESSAGE;
 		for (i = 0; i < STM_CMD_NUM_BYTES; i++)
 			dest_buf[i+1] = *(buf + i);
 		return STM_CMD_NUM_BYTES+1;
-	} else if (cmd != STATUS_STM) {
+	} else if (cmd != STATUS_STM && cmd != STM_AUTO_QUERY) {
 		if (mask & DIAG_STM_MODEM)
 			diag_process_stm_mask(cmd, DIAG_STM_MODEM,
 					      PERIPHERAL_MODEM);
