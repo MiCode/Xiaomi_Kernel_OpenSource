@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1505,6 +1505,67 @@
 			};
 		};
 
+		/* Tasha WSA speaker reset pins */
+		tasha_spkr_1_sd_n {
+			tasha_spkr_1_sd_n_sleep: tasha_spkr_1_sd_n_sleep {
+				mux {
+					pins = "gpio66";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio66";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			tasha_spkr_1_sd_n_active: tasha_spkr_1_sd_n_active {
+				mux {
+					pins = "gpio66";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio66";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		tasha_spkr_2_sd_n {
+			tasha_spkr_2_sd_n_sleep: tasha_spkr_2_sd_n_sleep {
+				mux {
+					pins = "gpio65";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio65";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			tasha_spkr_2_sd_n_active: tasha_spkr_2_sd_n_active {
+				mux {
+					pins = "gpio65";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio65";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
 		wcd_buck_vsel {
 			wcd_buck_vsel_default: wcd_buck_vsel_default{
 				mux {
@@ -1991,6 +2052,19 @@
 				bias-disable;
 				input-enable;
 			};
+		};
+	};
+};
+
+&pm660_gpios {
+	tasha_mclk {
+		tasha_mclk_default: tasha_mclk_default{
+			pins = "gpio3";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+			bias-disable;
+			output-low;
 		};
 	};
 };

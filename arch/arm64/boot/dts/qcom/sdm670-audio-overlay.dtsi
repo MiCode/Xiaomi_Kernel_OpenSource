@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
  */
 #include "sdm670-wcd.dtsi"
 #include "sdm670-wsa881x.dtsi"
+#include "sdm670-lpi.dtsi"
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
 &tavil_snd {
@@ -55,6 +56,49 @@
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 		<&wsa881x_0213>, <&wsa881x_0214>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+		"SpkrLeft", "SpkrRight";
+};
+
+&tasha_snd {
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"hifi amp", "LINEOUT1",
+		"hifi amp", "LINEOUT2",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"AMIC3", "MIC BIAS2",
+		"MIC BIAS2", "ANCRight Headset Mic",
+		"AMIC4", "MIC BIAS2",
+		"MIC BIAS2", "ANCLeft Headset Mic",
+		"AMIC5", "MIC BIAS3",
+		"MIC BIAS3", "Handset Mic",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"DMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic1",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
+		"DMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic3",
+		"DMIC4", "MIC BIAS4",
+		"MIC BIAS4", "Digital Mic4",
+		"DMIC5", "MIC BIAS4",
+		"MIC BIAS4", "Digital Mic5",
+		"SpkrLeft IN", "SPK1 OUT",
+		"SpkrRight IN", "SPK2 OUT";
+
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+	qcom,msm-mclk-freq = <9600000>;
+	asoc-codec = <&stub_codec>;
+	asoc-codec-names = "msm-stub-codec.1";
+	qcom,wsa-max-devs = <2>;
+	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+		<&wsa881x_213>, <&wsa881x_214>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 		"SpkrLeft", "SpkrRight";
 };
@@ -222,6 +266,31 @@
 		pinctrl-0 = <&wcd_intr_default>;
 	};
 
+	clock_audio_native: audio_ext_clk_native {
+		status = "disabled";
+		compatible = "qcom,audio-ref-clk";
+		#clock-cells = <1>;
+		qcom,lpass-mclk-id = <0x116>;
+		qcom,codec-mclk-clk-freq = <11289600>;
+		qcom,audio-ref-clk-gpio = <&lpi_tlmm 19 0>;
+		pinctrl-names = "sleep", "active";
+		pinctrl-0 = <&lpi_mclk0_sleep>;
+		pinctrl-1 = <&lpi_mclk0_active>;
+	};
+
+	clock_audio: audio_ext_clk {
+		status = "disabled";
+		compatible = "qcom,audio-ref-clk";
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&tasha_mclk_default>;
+		pinctrl-1 = <&tasha_mclk_default>;
+		qcom,audio-ref-clk-gpio = <&pm660_gpios 3 0>;
+		clock-names = "osr_clk";
+		clocks = <&pm660_div_clk>;
+		qcom,node_has_rpm_clock;
+		#clock-cells = <1>;
+	};
+
 	clock_audio_lnbb: audio_ext_clk_lnbb {
 		status = "disabled";
 		compatible = "qcom,audio-ref-clk";
@@ -254,6 +323,40 @@
 };
 
 &slim_aud {
+	wcd9335: tasha_codec {
+		status = "disabled";
+		compatible = "qcom,tasha-slim-pgd";
+		elemental-addr = [00 01 a0 01 17 02];
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+		      17 18 19 20 21 22 23 24 25 26 27 28 29
+		      30>;
+
+		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+
+		clock-names = "wcd_clk", "wcd_native_clk";
+		clocks = <&clock_audio AUDIO_PMI_CLK>,
+			 <&clock_audio_native AUDIO_LPASS_MCLK>;
+
+		cdc-vdd-mic-bias-supply = <&pm660l_bob>;
+		qcom,cdc-vdd-mic-bias-voltage = <3312000 3312000>;
+		qcom,cdc-vdd-mic-bias-current = <30400>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-mic-bias";
+
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias4-mv = <1800>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+		qcom,cdc-slim-ifd = "tasha-slim-ifd";
+		qcom,cdc-slim-ifd-elemental-addr = [00 00 a0 01 17 02];
+		qcom,cdc-dmic-sample-rate = <4800000>;
+		qcom,cdc-mad-dmic-rate = <600000>;
+	};
+
 	wcd934x_cdc: tavil_codec {
 		status = "disabled";
 		compatible = "qcom,tavil-slim-pgd";

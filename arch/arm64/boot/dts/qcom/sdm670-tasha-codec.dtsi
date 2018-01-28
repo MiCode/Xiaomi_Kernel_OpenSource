@@ -10,18 +10,24 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm670-tasha-codec-audio-overlay.dtsi"
 
-/dts-v1/;
+&int_codec {
+	status = "disabled";
+};
 
-#include "sdm670.dtsi"
-#include "sdm670-cdp.dtsi"
-#include "sdm670-tasha-codec.dtsi"
+&pm660_div_clk {
+	status = "okay";
+};
 
-/ {
-	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660L Tasha Codec CDP";
-	compatible = "qcom,sdm670-cdp", "qcom,sdm670", "qcom,cdp";
-	qcom,board-id = <1 5>;
-	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
-		       <0x0001001b 0x0102001a 0x0 0x0>,
-		       <0x0001001b 0x0201011a 0x0 0x0>;
+&tasha_snd {
+	status = "okay";
+};
+
+&slim_aud {
+	status = "okay";
+};
+
+&dai_slim {
+	status = "okay";
 };

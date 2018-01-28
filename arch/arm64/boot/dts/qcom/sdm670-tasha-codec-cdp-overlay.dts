@@ -20,7 +20,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdm670-cdp.dtsi"
-#include "sdm670-audio-overlay.dtsi"
+#include "sdm670-tasha-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660L Tasha Codec CDP";
