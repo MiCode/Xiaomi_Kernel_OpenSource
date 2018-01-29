@@ -2026,13 +2026,6 @@ void mark_task_starting(struct task_struct *p)
 	update_task_cpu_cycles(p, cpu_of(rq));
 }
 
-unsigned long __weak arch_get_cpu_efficiency(int cpu)
-{
-	if (cpu > 3)
-		return (SCHED_CAPACITY_SCALE * 17) / 10;
-	return SCHED_CAPACITY_SCALE;
-}
-
 static cpumask_t all_cluster_cpus = CPU_MASK_NONE;
 DECLARE_BITMAP(all_cluster_ids, NR_CPUS);
 struct sched_cluster *sched_cluster[NR_CPUS];
@@ -2084,9 +2077,7 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 
 	raw_spin_lock_init(&cluster->load_lock);
 	cluster->cpus = *cpus;
-	// FIXME:
-	cluster->efficiency = arch_get_cpu_efficiency(cpumask_first(cpus));
-	cluster->efficiency = 1024;
+	cluster->efficiency = topology_get_cpu_scale(NULL, cpumask_first(cpus));
 
 	if (cluster->efficiency > max_possible_efficiency)
 		max_possible_efficiency = cluster->efficiency;
@@ -3118,4 +3109,8 @@ void walt_sched_init(struct rq *rq)
 
 	walt_cpu_util_freq_divisor =
 	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
+
+	sched_init_task_load_windows =
+		div64_u64((u64)sysctl_sched_init_task_load_pct *
+			  (u64)sched_ravg_window, 100);
 }
