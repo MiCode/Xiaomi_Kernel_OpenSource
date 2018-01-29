@@ -2365,6 +2365,8 @@
 		qcom,ddr-config = <0xC3040873>;
 
 		qcom,nonremovable;
+		nvmem-cells = <&minor_rev>;
+		nvmem-cell-names = "minor_rev";
 
 		status = "disabled";
 	};
