@@ -211,18 +211,13 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 				dev_err(mdm->dev,
 				 "sysmon shutdown fail, ret = %d\n", ret);
 				graceful_shutdown = false;
-				goto force_poff;
 			}
 		} else {
 			esoc_clink_queue_request(ESOC_REQ_SEND_SHUTDOWN, esoc);
 		}
-force_poff:
-	/* The case is a fallthrough of the previous case,
-	 * where, after sending the shutdown command, we
-	 * are actually turning off the modem.
-	 */
+		break;
 	case ESOC_FORCE_PWR_OFF:
-		if (!graceful_shutdown) {
+		if (!graceful_shutdown && esoc->subsys.sysmon_shutdown_ret) {
 			mdm_disable_irqs(mdm);
 			mdm->debug = 0;
 			mdm->ready = false;

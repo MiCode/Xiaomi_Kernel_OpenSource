@@ -190,14 +190,17 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 				 * of the command engine as is.
 				 */
 				return 0;
+			dev_dbg(&esoc_clink->dev, "Sending sysmon-shutdown\n");
 			ret = clink_ops->cmd_exe(ESOC_PWR_OFF, esoc_clink);
 		}
 		if (ret) {
 			dev_err(&esoc_clink->dev, "failed to exe power off\n");
 			return ret;
 		}
-		mdm_drv->mode = PWR_OFF;
 		esoc_client_link_power_off(esoc_clink, false);
+		/* Pull the reset line low to turn off the device */
+		clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF, esoc_clink);
+		mdm_drv->mode = PWR_OFF;
 	}
 	return 0;
 }
