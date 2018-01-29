@@ -558,6 +558,9 @@ static void ath10k_wmi_tlv_op_rx(struct ath10k *ar, struct sk_buff *skb)
 	case WMI_TLV_PEER_DELETE_RESP_EVENTID:
 		ath10k_wmi_tlv_event_peer_delete_resp(ar, skb);
 		break;
+	case WMI_TLV_MGMT_TX_COMPLETION_EVENTID:
+		ath10k_wmi_tlv_event_mgmt_tx_compl(ar, skb);
+		break;
 	default:
 		ath10k_dbg(ar, ATH10K_DBG_WMI, "Unknown eventid: %d\n", id);
 		break;
@@ -594,6 +597,31 @@ static int ath10k_wmi_tlv_op_pull_scan_ev(struct ath10k *ar,
 	arg->scan_req_id = ev->scan_req_id;
 	arg->scan_id = ev->scan_id;
 	arg->vdev_id = ev->vdev_id;
+
+	kfree(tb);
+	return 0;
+}
+
+static int ath10k_wmi_tlv_op_pull_mgmt_tx_compl_ev(
+				struct ath10k *ar, struct sk_buff *skb,
+				struct wmi_tlv_mgmt_tx_compl_ev_arg *arg)
+{
+	const void **tb;
+	const struct wmi_tlv_mgmt_tx_compl_ev *ev;
+	int ret;
+
+	tb = ath10k_wmi_tlv_parse_alloc(ar, skb->data, skb->len, GFP_ATOMIC);
+	if (IS_ERR(tb)) {
+		ret = PTR_ERR(tb);
+		ath10k_warn(ar, "failed to parse tlv: %d\n", ret);
+		return ret;
+	}
+
+	ev = tb[WMI_TLV_TAG_STRUCT_MGMT_TX_COMPL];
+
+	arg->desc_id = ev->desc_id;
+	arg->status = ev->status;
+	arg->pdev_id = ev->pdev_id;
 
 	kfree(tb);
 	return 0;
@@ -2488,6 +2516,30 @@ ath10k_wmi_tlv_op_gen_pdev_set_wmm(struct ath10k *ar,
 	return skb;
 }
 
+static int
+ath10k_wmi_mgmt_tx_alloc_msdu_id(struct ath10k *ar, struct sk_buff *skb,
+				 dma_addr_t paddr)
+{
+	struct ath10k_wmi *wmi = &ar->wmi;
+	struct ath10k_mgmt_tx_pkt_addr *pkt_addr;
+	int ret;
+
+	pkt_addr = kmalloc(sizeof(*pkt_addr), GFP_ATOMIC);
+	if (!pkt_addr)
+		return -ENOMEM;
+
+	pkt_addr->vaddr = skb;
+	pkt_addr->paddr = paddr;
+
+	spin_lock_bh(&wmi->mgmt_tx_lock);
+	ret = idr_alloc(&wmi->mgmt_pending_tx, pkt_addr, 0,
+			wmi->mgmt_max_num_pending_tx, GFP_ATOMIC);
+	spin_unlock_bh(&wmi->mgmt_tx_lock);
+
+	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi mgmt tx alloc msdu_id %d\n", ret);
+	return ret;
+}
+
 static struct sk_buff *
 ath10k_wmi_tlv_op_gen_request_stats(struct ath10k *ar, u32 stats_mask)
 {
@@ -2520,9 +2572,9 @@ ath10k_wmi_tlv_op_gen_mgmt_tx_send(struct ath10k *ar, struct sk_buff *msdu,
 	u32 buf_len = msdu->len;
 	struct wmi_tlv *tlv;
 	struct sk_buff *skb;
+	int desc_id, len;
 	u32 vdev_id;
 	void *ptr;
-	int len;
 	u16 fc;
 
 	hdr = (struct ieee80211_hdr *)msdu->data;
@@ -2554,13 +2606,17 @@ ath10k_wmi_tlv_op_gen_mgmt_tx_send(struct ath10k *ar, struct sk_buff *msdu,
 	if (!skb)
 		return ERR_PTR(-ENOMEM);
 
+	desc_id = ath10k_wmi_mgmt_tx_alloc_msdu_id(ar, msdu, paddr);
+	if (desc_id < 0)
+		goto msdu_id_alloc_fail;
+
 	ptr = (void *)skb->data;
 	tlv = ptr;
 	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_MGMT_TX_CMD);
 	tlv->len = __cpu_to_le16(sizeof(cmd->hdr));
 	cmd = (void *)tlv->value;
 	cmd->hdr.vdev_id = vdev_id;
-	cmd->hdr.desc_id = 0;
+	cmd->hdr.desc_id = desc_id;
 	cmd->hdr.chanfreq = 0;
 	cmd->hdr.buf_len = __cpu_to_le32(buf_len);
 	cmd->hdr.frame_len = __cpu_to_le32(msdu->len);
@@ -2577,6 +2633,10 @@ ath10k_wmi_tlv_op_gen_mgmt_tx_send(struct ath10k *ar, struct sk_buff *msdu,
 	memcpy(cmd->buf, msdu->data, buf_len);
 
 	return skb;
+
+msdu_id_alloc_fail:
+	dev_kfree_skb(skb);
+	return ERR_PTR(desc_id);
 }
 
 static struct sk_buff *
@@ -3750,6 +3810,7 @@ static const struct wmi_ops wmi_tlv_ops = {
 
 	.pull_scan = ath10k_wmi_tlv_op_pull_scan_ev,
 	.pull_mgmt_rx = ath10k_wmi_tlv_op_pull_mgmt_rx_ev,
+	.pull_mgmt_tx_compl = ath10k_wmi_tlv_op_pull_mgmt_tx_compl_ev,
 	.pull_ch_info = ath10k_wmi_tlv_op_pull_ch_info_ev,
 	.pull_peer_delete_resp = ath10k_wmi_tlv_op_pull_peer_delete_ev,
 	.pull_vdev_start = ath10k_wmi_tlv_op_pull_vdev_start_ev,
