@@ -3569,7 +3569,8 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 
 	pstate->const_alpha_en = fmt->alpha_enable &&
 		(SDE_DRM_BLEND_OP_OPAQUE !=
-		 sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
+		 sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP)) &&
+		(pstate->stage != SDE_STAGE_0);
 
 modeset_update:
 	if (!ret)
