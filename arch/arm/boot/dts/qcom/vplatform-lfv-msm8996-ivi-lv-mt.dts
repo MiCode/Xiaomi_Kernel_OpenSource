@@ -1,0 +1,107 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "skeleton64.dtsi"
+#include "vplatform-lfv-msm8996.dtsi"
+#include <dt-bindings/clock/msm-clocks-8996.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996";
+	compatible = "qcom,msm8996";
+	qcom,msm-id = <246 0x0>;
+};
+
+&soc {
+	qcom,msm-audio-ion-vm {
+		compatible = "qcom,msm-audio-ion-vm";
+		qcom,smmu-enabled;
+	};
+
+	qcom,hab {
+		compatible = "qcom,hab";
+		vmid = <3>;
+
+		mmid100: mmid-grp@100 {
+			grp-start-id = <100>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmid200: mmid-grp@200 {
+			grp-start-id = <200>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmid300: mmid-grp@300 {
+			grp-start-id = <300>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmid400: mmid-grp@400 {
+			grp-start-id = <400>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmid500: mmid-grp@500 {
+			grp-start-id = <500>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmid600: mmid-grp@600 {
+			grp-start-id = <600>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmid700: mmid-grp@700 {
+			grp-start-id = <700>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmid800: mmid-grp@800 {
+			grp-start-id = <800>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+	};
+};
+
+&blsp1_uart2 {
+	status = "okay";
+};
+
+&reserved_memory {
+		pmem_shared: pmem_shared_region@d0000000 {
+			reg = <0 0xd0000000 0 0x20000000>;
+			label = "pmem_shared_mem";
+		};
+
+		ion_system: ion_system_region@100000000 {
+			reg = <0x1 0x60000000 0 0x10000000>;
+			label = "ion_system_mem";
+		};
+};
+
+#include "vplatform-lfv-msm8996-usb.dtsi"
+
+&usb3 {
+	status = "okay";
+	qcom,no-wakeup-src-in-hostmode;
+};
