@@ -56,6 +56,7 @@
 #include <linux/ktime.h>
 #include <trace/events/iommu.h>
 #include <linux/notifier.h>
+#include <dt-bindings/arm/arm-smmu.h>
 
 #include <linux/amba/bus.h>
 #include <soc/qcom/msm_tz_smmu.h>
@@ -431,16 +432,6 @@ struct arm_smmu_device {
 #define ARM_SMMU_FEAT_FMT_AARCH32_S	(1 << 11)
 	u32				features;
 
-#define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
-#define ARM_SMMU_OPT_FATAL_ASF		(1 << 1)
-#define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
-#define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
-#define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
-#define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
-#define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 6)
-#define ARM_SMMU_OPT_MMU500_ERRATA1	(1 << 7)
-#define ARM_SMMU_OPT_STATIC_CB		(1 << 8)
-#define ARM_SMMU_OPT_HALT		(1 << 9)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
