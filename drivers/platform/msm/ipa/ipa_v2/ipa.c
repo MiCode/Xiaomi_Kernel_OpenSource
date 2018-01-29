@@ -3925,7 +3925,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa_ctx->use_dma_zone = resource_p->use_dma_zone;
 	ipa_ctx->tethered_flow_control = resource_p->tethered_flow_control;
-	ipa_ctx->use_ipa_pm = resource_p->use_ipa_pm;
 
 	/* Setting up IPA RX Polling Timeout Seconds */
 	ipa_rx_timeout_min_max_calc(&ipa_ctx->ipa_rx_min_timeout_usec,
@@ -4451,20 +4450,12 @@ fail_mem_ctx:
 	return result;
 }
 
-bool ipa_pm_is_used(void)
-{
-	return (ipa_ctx) ? ipa_ctx->use_ipa_pm : false;
-}
-
 static int get_ipa_dts_configuration(struct platform_device *pdev,
 		struct ipa_plat_drv_res *ipa_drv_res)
 {
 	int result;
 	struct resource *resource;
 
-	ipa_drv_res->use_ipa_pm = of_property_read_bool(pdev->dev.of_node,
-		"qcom,use-ipa-pm");
-	IPADBG("use_ipa_pm=%d\n", ipa_drv_res->use_ipa_pm);
 	/* initialize ipa_res */
 	ipa_drv_res->ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
 	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;

@@ -4984,6 +4984,11 @@ static void ipa2_set_tag_process_before_gating(bool val)
 	ipa_ctx->tag_process_before_gating = val;
 }
 
+static bool ipa2_pm_is_used(void)
+{
+	return false;
+}
+
 int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
 {
@@ -5159,6 +5164,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_disconn_wdi3_pipes = ipa2_disconn_wdi3_pipes;
 	api_ctrl->ipa_enable_wdi3_pipes = ipa2_enable_wdi3_pipes;
 	api_ctrl->ipa_disable_wdi3_pipes = ipa2_disable_wdi3_pipes;
+	api_ctrl->ipa_pm_is_used = ipa2_pm_is_used;
 
 	return 0;
 }
