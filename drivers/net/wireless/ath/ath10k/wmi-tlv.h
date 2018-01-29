@@ -1254,6 +1254,8 @@ struct wmi_tlv_rdy_ev {
 	__le32 status;
 } __packed;
 
+#define WMI_TLV_TX_MSDU_ID_NEW_PARTITION_SUPPORT  BIT(10)
+
 struct wmi_tlv_resource_config {
 	__le32 num_vdevs;
 	__le32 num_peers;
