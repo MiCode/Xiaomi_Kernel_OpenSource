@@ -1729,6 +1729,7 @@
 
 		vdd-supply = <&gdsc_venus>;
 		qcom,proxy-reg-names = "vdd";
+		qcom,mas-crypto = <&mas_crypto>;
 
 		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
 			<&clock_gcc clk_gcc_venus0_ahb_clk>,
