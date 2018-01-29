@@ -194,8 +194,7 @@ int sde_mdp_get_plane_sizes(struct sde_mdp_format_params *fmt, u32 w, u32 h,
 	struct sde_mdp_plane_sizes *ps, u32 bwc_mode,
 	bool rotation);
 
-int sde_mdp_data_map(struct sde_mdp_data *data, bool rotator, int dir,
-		bool skip_sync);
+int sde_mdp_data_map(struct sde_mdp_data *data, bool rotator, int dir);
 
 int sde_mdp_data_check(struct sde_mdp_data *data,
 			struct sde_mdp_plane_sizes *ps,
