@@ -16,6 +16,7 @@ ifeq ($(CONFIG_COMMON_CLK_MSM), y)
 obj-$(CONFIG_ARCH_MSM8953)	+= clock-gcc-8953.o
 obj-$(CONFIG_ARCH_MSM8953)	+= clock-cpu-8953.o
 obj-$(CONFIG_ARCH_MSM8953)	+= clock-rcgwr.o
+obj-$(CONFIG_ARCH_MSM8937)	+= clock-gcc-8952.o
 endif
 
 obj-y               += mdss/
