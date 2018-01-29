@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,6 +376,7 @@ enum a6xx_debugbus_id {
 	A6XX_DBGBUS_CX           = 0x17,
 	A6XX_DBGBUS_GMU_GX       = 0x18,
 	A6XX_DBGBUS_TPFCHE       = 0x19,
+	A6XX_DBGBUS_GBIF_GX      = 0x1a,
 	A6XX_DBGBUS_GPC          = 0x1d,
 	A6XX_DBGBUS_LARC         = 0x1e,
 	A6XX_DBGBUS_HLSQ_SPTP    = 0x1f,
@@ -1161,11 +1162,14 @@ static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 	}
 
 	header->id = block->block_id;
+	if ((block->block_id == A6XX_DBGBUS_VBIF) &&
+		adreno_has_gbif(adreno_dev))
+		header->id = A6XX_DBGBUS_GBIF_GX;
 	header->count = dwords * 2;
 
 	block_id = block->block_id;
 	/* GMU_GX data is read using the GMU_CX block id on A630 */
-	if (adreno_is_a630(adreno_dev) &&
+	if ((adreno_is_a630(adreno_dev) || adreno_is_a615(adreno_dev)) &&
 		(block_id == A6XX_DBGBUS_GMU_GX))
 		block_id = A6XX_DBGBUS_GMU_CX;
 
@@ -1428,18 +1432,18 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 				snapshot, a6xx_snapshot_cx_dbgc_debugbus_block,
 				(void *) &a6xx_cx_dbgc_debugbus_blocks[i]);
-			/*
-			 * Get debugbus for GBIF CX part if GPU has GBIF block
-			 * GBIF uses exactly same ID as of VBIF so use
-			 * it as it is.
-			 */
-			if (adreno_has_gbif(adreno_dev))
-				kgsl_snapshot_add_section(device,
-					KGSL_SNAPSHOT_SECTION_DEBUGBUS,
-					snapshot,
-					a6xx_snapshot_cx_dbgc_debugbus_block,
-					(void *) &a6xx_vbif_debugbus_blocks);
 		}
+		/*
+		 * Get debugbus for GBIF CX part if GPU has GBIF block
+		 * GBIF uses exactly same ID as of VBIF so use
+		 * it as it is.
+		 */
+		if (adreno_has_gbif(adreno_dev))
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot,
+				a6xx_snapshot_cx_dbgc_debugbus_block,
+				(void *) &a6xx_vbif_debugbus_blocks);
 	}
 }
 
