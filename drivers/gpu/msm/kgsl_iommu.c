@@ -165,14 +165,19 @@ static int kgsl_iommu_map_globals(struct kgsl_pagetable *pagetable)
 }
 
 void kgsl_iommu_unmap_global_secure_pt_entry(struct kgsl_device *device,
-				struct kgsl_memdesc *entry)
+				struct kgsl_memdesc *memdesc)
 {
-	if (!kgsl_mmu_is_secured(&device->mmu))
+	if (!kgsl_mmu_is_secured(&device->mmu) || memdesc == NULL)
 		return;
 
-	if (entry != NULL && entry->pagetable->name == KGSL_MMU_SECURE_PT)
-		kgsl_mmu_unmap(entry->pagetable, entry);
+	/* Check if an empty memdesc got passed in */
+	if ((memdesc->gpuaddr == 0) || (memdesc->size == 0))
+		return;
 
+	if (memdesc->pagetable) {
+		if (memdesc->pagetable->name == KGSL_MMU_SECURE_PT)
+			kgsl_mmu_unmap(memdesc->pagetable, memdesc);
+	}
 }
 
 int kgsl_iommu_map_global_secure_pt_entry(struct kgsl_device *device,
