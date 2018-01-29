@@ -161,7 +161,7 @@
 						qcom,psci-cpu-mode = <4>;
 						qcom,latency-us = <80>;
 						qcom,ss-power = <196>;
-						qcom,energy-overhead = <45300>;
+						qcom,energy-overhead = <62248>;
 						qcom,time-overhead = <210>;
 						qcom,reset-level =
 							<LPM_RESET_LVL_PC>;
@@ -250,7 +250,7 @@
 						qcom,psci-cpu-mode = <4>;
 						qcom,latency-us = <80>;
 						qcom,ss-power = <196>;
-						qcom,energy-overhead = <45300>;
+						qcom,energy-overhead = <62248>;
 						qcom,time-overhead = <210>;
 						qcom,reset-level =
 							<LPM_RESET_LVL_PC>;
@@ -316,6 +316,7 @@
 			<0xff 94>,  /* osmmu_CIrpt[0] */
 			<0xff 97>,  /* iommu_nonsecure_irq */
 			<0xff 99>,  /* msm_iommu_pmon_nonsecure_irq */
+			<0xff 101>, /* camss_jpeg_mmu_cirpt */
 			<0xff 102>, /* osmmu_CIrpt[1] */
 			<0xff 105>, /* iommu_pmon_nonsecure_irq */
 			<0xff 108>, /* osmmu_PMIrpt */
@@ -391,6 +392,7 @@
 			<0xff 295>, /* camss_cpp_mmu_cirpt[0] */
 			<0xff 296>, /* camss_cpp_mmu_pmirpt */
 			<0xff 297>, /* ufs_intrq */
+			<0xff 298>, /* camss_cpp_mmu_cirpt */
 			<0xff 302>, /* qdss_etrbytecnt_irq */
 			<0xff 310>, /* pcie20_1_int_pls_err */
 			<0xff 311>, /* pcie20_1_int_aer_legacy */
@@ -522,6 +524,17 @@
 			<69  145>;
 	};
 
+	rpm_msg_ram: memory@0x200000 {
+		compatible = "qcom,rpm-msg-ram";
+		reg = <0x200000 0x1000>,
+			<0x290000 0x1000>;
+	};
+
+	rpm_code_ram: rpm-memory@0x68000 {
+		compatible = "qcom,rpm-code-ram";
+		reg = <0x68000 0x5000>;
+	};
+
 	qcom,rpm-stats@200000 {
 		compatible = "qcom,rpm-stats";
 		reg = <0x200000 0x1000>,
@@ -531,6 +544,13 @@
 			    "offset_addr",
 			    "heap_phys_addrbase";
 		qcom,sleep-stats-version = <2>;
+	};
+
+	qcom,system-stats@68140 {
+		compatible = "qcom,system-stats";
+		qcom,rpm-msg-ram = <&rpm_msg_ram>;
+		qcom,rpm-code-ram = <&rpm_code_ram>;
+		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI";
 	};
 
 	qcom,pm-snoc-client {

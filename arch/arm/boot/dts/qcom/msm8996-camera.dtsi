@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,18 +28,24 @@
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
-		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
+		qcom,csi-vdd-voltage = <1250000>;
+		qcom,mipi-csi-vdd-supply = <&pm8994_l2>;
+		mmagic-supply = <&gdsc_mmagic_camss>;
+		gdscr-supply = <&gdsc_camss_top>;
+		qcom,cam-vreg-name = "mmagic", "gdscr";
+		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi0phytimer_clk_src>,
 			<&clock_mmss clk_camss_csi0phytimer_clk>,
 			<&clock_mmss clk_camss_ahb_clk>,
 			<&clock_mmss clk_csiphy0_3p_clk_src>,
 			<&clock_mmss clk_camss_csiphy0_3p_clk>;
-		clock-names = "camss_top_ahb_clk",
+		clock-names = "mmagic_ahb_clk", "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 200000000 0 0 100000000 0>;
+		qcom,clock-rates = <0 0 0 200000000 0 0 100000000 0>;
 	};
 
 	qcom,csiphy@a35000 {
@@ -49,18 +55,24 @@
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
-		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
+		qcom,csi-vdd-voltage = <1250000>;
+		qcom,mipi-csi-vdd-supply = <&pm8994_l2>;
+		mmagic-supply = <&gdsc_mmagic_camss>;
+		gdscr-supply = <&gdsc_camss_top>;
+		qcom,cam-vreg-name = "mmagic", "gdscr";
+		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi1phytimer_clk_src>,
 			<&clock_mmss clk_camss_csi1phytimer_clk>,
 			<&clock_mmss clk_camss_ahb_clk>,
 			<&clock_mmss clk_csiphy1_3p_clk_src>,
 			<&clock_mmss clk_camss_csiphy1_3p_clk>;
-		clock-names = "camss_top_ahb_clk",
+		clock-names = "mmagic_ahb_clk", "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 200000000 0 0 100000000 0>;
+		qcom,clock-rates = <0 0 0 200000000 0 0 100000000 0>;
 	};
 
 	qcom,csiphy@a36000 {
@@ -70,18 +82,24 @@
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 80 0>;
 		interrupt-names = "csiphy";
-		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
+		qcom,csi-vdd-voltage = <1250000>;
+		qcom,mipi-csi-vdd-supply = <&pm8994_l2>;
+		mmagic-supply = <&gdsc_mmagic_camss>;
+		gdscr-supply = <&gdsc_camss_top>;
+		qcom,cam-vreg-name = "mmagic", "gdscr";
+		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi2phytimer_clk_src>,
 			<&clock_mmss clk_camss_csi2phytimer_clk>,
 			<&clock_mmss clk_camss_ahb_clk>,
 			<&clock_mmss clk_csiphy2_3p_clk_src>,
 			<&clock_mmss clk_camss_csiphy2_3p_clk>;
-		clock-names = "camss_top_ahb_clk",
+		clock-names = "mmagic_ahb_clk", "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 200000000 0 0 100000000 0>;
+		qcom,clock-rates = <0 0 0 200000000 0 0 100000000 0>;
 	};
 
 	qcom,csid@a30000  {
@@ -693,9 +711,9 @@
 			"smmu_cpp_ahb_clk";
 		qcom,clock-rates =
 			<0 0 0 400000000 400000000 0 0 0 0 0 0 0>,
-			<0 0 0 400000000 400000000 0 0 0 0 0 0 0>,
+			<0 0 0 100000000 100000000 0 0 0 0 0 0 0>,
 			<0 0 0 200000000 200000000 0 0 0 0 0 0 0>,
-			<0 0 0 100000000 100000000 0 0 0 0 0 0 0>;
+			<0 0 0 400000000 400000000 0 0 0 0 0 0 0>;
 		qcom,msm-bus,name = "msm_camera_fd";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;

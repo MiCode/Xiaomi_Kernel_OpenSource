@@ -210,7 +210,7 @@ static int msm_ipc_router_create(struct net *net,
 	sock->ops = &msm_ipc_proto_ops;
 	sock_init_data(sock, sk);
 	sk->sk_data_ready = NULL;
-	sk->sk_write_space = NULL;
+	sk->sk_write_space = ipc_router_dummy_write_space;
 	sk->sk_rcvtimeo = DEFAULT_RCV_TIMEO;
 	sk->sk_sndtimeo = DEFAULT_SND_TIMEO;
 
@@ -555,10 +555,18 @@ static unsigned int msm_ipc_router_poll(struct file *file,
 static int msm_ipc_router_close(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
-	struct msm_ipc_port *port_ptr = msm_ipc_sk_port(sk);
+	struct msm_ipc_port *port_ptr;
 	int ret;
 
+	if (!sk)
+		return -EINVAL;
+
 	lock_sock(sk);
+	port_ptr = msm_ipc_sk_port(sk);
+	if (!port_ptr) {
+		release_sock(sk);
+		return -EINVAL;
+	}
 	ret = msm_ipc_router_close_port(port_ptr);
 	msm_ipc_unload_default_node(msm_ipc_sk(sk)->default_node_vote_info);
 	release_sock(sk);

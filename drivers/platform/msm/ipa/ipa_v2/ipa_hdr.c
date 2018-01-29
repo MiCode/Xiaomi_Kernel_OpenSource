@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -266,8 +266,8 @@ int __ipa_commit_hdr_v2(void)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
-	struct ipa_hdr_init_system cmd;
-	struct ipa_hw_imm_cmd_dma_shared_mem dma_cmd;
+	struct ipa_hdr_init_system *cmd = NULL;
+	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd = NULL;
 	int rc = -EFAULT;
 
 	if (ipa_generate_hdr_hw_tbl(&mem)) {
@@ -279,14 +279,21 @@ int __ipa_commit_hdr_v2(void)
 		if (mem.size > IPA_MEM_PART(apps_hdr_size)) {
 			IPAERR("tbl too big, needed %d avail %d\n", mem.size,
 				IPA_MEM_PART(apps_hdr_size));
-			goto end;
+			goto fail_send_cmd;
 		} else {
-			dma_cmd.system_addr = mem.phys_base;
-			dma_cmd.size = mem.size;
-			dma_cmd.local_addr = ipa_ctx->smem_restricted_bytes +
+			dma_cmd = kzalloc(sizeof(*dma_cmd), GFP_ATOMIC);
+			if (dma_cmd == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd;
+			}
+
+			dma_cmd->system_addr = mem.phys_base;
+			dma_cmd->size = mem.size;
+			dma_cmd->local_addr = ipa_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(apps_hdr_ofst);
 			desc.opcode = IPA_DMA_SHARED_MEM;
-			desc.pyld = &dma_cmd;
+			desc.pyld = (void *)dma_cmd;
 			desc.len =
 				sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 		}
@@ -294,11 +301,17 @@ int __ipa_commit_hdr_v2(void)
 		if (mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
 			IPAERR("tbl too big, needed %d avail %d\n", mem.size,
 				IPA_MEM_PART(apps_hdr_size_ddr));
-			goto end;
+			goto fail_send_cmd;
 		} else {
-			cmd.hdr_table_addr = mem.phys_base;
+			cmd = kzalloc(sizeof(*cmd), GFP_ATOMIC);
+			if (cmd == NULL) {
+				IPAERR("fail to alloc hdr init cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd;
+			}
+			cmd->hdr_table_addr = mem.phys_base;
 			desc.opcode = IPA_HDR_INIT_SYSTEM;
-			desc.pyld = &cmd;
+			desc.pyld = (void *)cmd;
 			desc.len = sizeof(struct ipa_hdr_init_system);
 		}
 	}
@@ -311,6 +324,10 @@ int __ipa_commit_hdr_v2(void)
 	else
 		rc = 0;
 
+	kfree(dma_cmd);
+	kfree(cmd);
+
+fail_send_cmd:
 	if (ipa_ctx->hdr_tbl_lcl) {
 		dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
 				mem.phys_base);
@@ -322,6 +339,9 @@ int __ipa_commit_hdr_v2(void)
 						ipa_ctx->hdr_mem.base,
 						ipa_ctx->hdr_mem.phys_base);
 			ipa_ctx->hdr_mem = mem;
+		} else {
+			dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
+					mem.phys_base);
 		}
 	}
 
@@ -335,10 +355,10 @@ int __ipa_commit_hdr_v2_5(void)
 	struct ipa_mem_buffer hdr_mem;
 	struct ipa_mem_buffer ctx_mem;
 	struct ipa_mem_buffer aligned_ctx_mem;
-	struct ipa_hdr_init_system hdr_init_cmd = {0};
-	struct ipa_hw_imm_cmd_dma_shared_mem dma_cmd_hdr = {0};
-	struct ipa_hw_imm_cmd_dma_shared_mem dma_cmd_ctx = {0};
-	struct ipa_register_write reg_write_cmd = {0};
+	struct ipa_hdr_init_system *hdr_init_cmd = NULL;
+	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd_hdr = NULL;
+	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd_ctx = NULL;
+	struct ipa_register_write *reg_write_cmd = NULL;
 	int rc = -EFAULT;
 	u32 proc_ctx_size;
 	u32 proc_ctx_ofst;
@@ -361,15 +381,21 @@ int __ipa_commit_hdr_v2_5(void)
 		if (hdr_mem.size > IPA_MEM_PART(apps_hdr_size)) {
 			IPAERR("tbl too big needed %d avail %d\n", hdr_mem.size,
 				IPA_MEM_PART(apps_hdr_size));
-			goto end;
+			goto fail_send_cmd1;
 		} else {
-			dma_cmd_hdr.system_addr = hdr_mem.phys_base;
-			dma_cmd_hdr.size = hdr_mem.size;
-			dma_cmd_hdr.local_addr =
+			dma_cmd_hdr = kzalloc(sizeof(*dma_cmd_hdr), GFP_ATOMIC);
+			if (dma_cmd_hdr == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd1;
+			}
+			dma_cmd_hdr->system_addr = hdr_mem.phys_base;
+			dma_cmd_hdr->size = hdr_mem.size;
+			dma_cmd_hdr->local_addr =
 				ipa_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(apps_hdr_ofst);
 			desc[0].opcode = IPA_DMA_SHARED_MEM;
-			desc[0].pyld = &dma_cmd_hdr;
+			desc[0].pyld = (void *)dma_cmd_hdr;
 			desc[0].len =
 				sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 		}
@@ -377,11 +403,18 @@ int __ipa_commit_hdr_v2_5(void)
 		if (hdr_mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
 			IPAERR("tbl too big needed %d avail %d\n", hdr_mem.size,
 				IPA_MEM_PART(apps_hdr_size_ddr));
-			goto end;
+			goto fail_send_cmd1;
 		} else {
-			hdr_init_cmd.hdr_table_addr = hdr_mem.phys_base;
+			hdr_init_cmd = kzalloc(sizeof(*hdr_init_cmd),
+				GFP_ATOMIC);
+			if (hdr_init_cmd == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd1;
+			}
+			hdr_init_cmd->hdr_table_addr = hdr_mem.phys_base;
 			desc[0].opcode = IPA_HDR_INIT_SYSTEM;
-			desc[0].pyld = &hdr_init_cmd;
+			desc[0].pyld = (void *)hdr_init_cmd;
 			desc[0].len = sizeof(struct ipa_hdr_init_system);
 		}
 	}
@@ -395,15 +428,22 @@ int __ipa_commit_hdr_v2_5(void)
 			IPAERR("tbl too big needed %d avail %d\n",
 				aligned_ctx_mem.size,
 				proc_ctx_size);
-			goto end;
+			goto fail_send_cmd1;
 		} else {
-			dma_cmd_ctx.system_addr = aligned_ctx_mem.phys_base;
-			dma_cmd_ctx.size = aligned_ctx_mem.size;
-			dma_cmd_ctx.local_addr =
+			dma_cmd_ctx = kzalloc(sizeof(*dma_cmd_ctx),
+				GFP_ATOMIC);
+			if (dma_cmd_ctx == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd1;
+			}
+			dma_cmd_ctx->system_addr = aligned_ctx_mem.phys_base;
+			dma_cmd_ctx->size = aligned_ctx_mem.size;
+			dma_cmd_ctx->local_addr =
 				ipa_ctx->smem_restricted_bytes +
 				proc_ctx_ofst;
 			desc[1].opcode = IPA_DMA_SHARED_MEM;
-			desc[1].pyld = &dma_cmd_ctx;
+			desc[1].pyld = (void *)dma_cmd_ctx;
 			desc[1].len =
 				sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 		}
@@ -413,15 +453,23 @@ int __ipa_commit_hdr_v2_5(void)
 			IPAERR("tbl too big, needed %d avail %d\n",
 				aligned_ctx_mem.size,
 				proc_ctx_size_ddr);
-			goto end;
+			goto fail_send_cmd1;
 		} else {
-			reg_write_cmd.offset = IPA_SYS_PKT_PROC_CNTXT_BASE_OFST;
-			reg_write_cmd.value = aligned_ctx_mem.phys_base;
-			reg_write_cmd.value_mask =
+			reg_write_cmd = kzalloc(sizeof(*reg_write_cmd),
+				GFP_ATOMIC);
+			if (reg_write_cmd == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd1;
+			}
+			reg_write_cmd->offset =
+				IPA_SYS_PKT_PROC_CNTXT_BASE_OFST;
+			reg_write_cmd->value = aligned_ctx_mem.phys_base;
+			reg_write_cmd->value_mask =
 				~(IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1);
-			desc[1].pyld = &reg_write_cmd;
+			desc[1].pyld = (void *)reg_write_cmd;
 			desc[1].opcode = IPA_REGISTER_WRITE;
-			desc[1].len = sizeof(reg_write_cmd);
+			desc[1].len = sizeof(*reg_write_cmd);
 		}
 	}
 	desc[1].type = IPA_IMM_CMD_DESC;
@@ -432,22 +480,16 @@ int __ipa_commit_hdr_v2_5(void)
 	else
 		rc = 0;
 
-	if (ipa_ctx->hdr_tbl_lcl) {
-		dma_free_coherent(ipa_ctx->pdev, hdr_mem.size, hdr_mem.base,
-			hdr_mem.phys_base);
-	} else {
-		if (!rc) {
-			if (ipa_ctx->hdr_mem.phys_base)
-				dma_free_coherent(ipa_ctx->pdev,
-				ipa_ctx->hdr_mem.size,
-				ipa_ctx->hdr_mem.base,
-				ipa_ctx->hdr_mem.phys_base);
-			ipa_ctx->hdr_mem = hdr_mem;
-		}
-	}
+fail_send_cmd1:
+
+	kfree(dma_cmd_hdr);
+	kfree(hdr_init_cmd);
+	kfree(dma_cmd_ctx);
+	kfree(reg_write_cmd);
 
 	if (ipa_ctx->hdr_proc_ctx_tbl_lcl) {
-		dma_free_coherent(ipa_ctx->pdev, ctx_mem.size, ctx_mem.base,
+		dma_free_coherent(ipa_ctx->pdev, ctx_mem.size,
+			ctx_mem.base,
 			ctx_mem.phys_base);
 	} else {
 		if (!rc) {
@@ -457,9 +499,31 @@ int __ipa_commit_hdr_v2_5(void)
 					ipa_ctx->hdr_proc_ctx_mem.base,
 					ipa_ctx->hdr_proc_ctx_mem.phys_base);
 			ipa_ctx->hdr_proc_ctx_mem = ctx_mem;
+		} else {
+			dma_free_coherent(ipa_ctx->pdev, ctx_mem.size,
+				ctx_mem.base,
+				ctx_mem.phys_base);
 		}
 	}
 
+	if (ipa_ctx->hdr_tbl_lcl) {
+		dma_free_coherent(ipa_ctx->pdev, hdr_mem.size,
+			hdr_mem.base,
+			hdr_mem.phys_base);
+	} else {
+		if (!rc) {
+			if (ipa_ctx->hdr_mem.phys_base)
+				dma_free_coherent(ipa_ctx->pdev,
+				ipa_ctx->hdr_mem.size,
+				ipa_ctx->hdr_mem.base,
+				ipa_ctx->hdr_mem.phys_base);
+			ipa_ctx->hdr_mem = hdr_mem;
+		} else {
+			dma_free_coherent(ipa_ctx->pdev, hdr_mem.size,
+				hdr_mem.base,
+				hdr_mem.phys_base);
+		}
+	}
 end:
 	return rc;
 }
@@ -485,6 +549,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	struct ipa_hdr_proc_ctx_tbl *htbl = &ipa_ctx->hdr_proc_ctx_tbl;
 	int id;
 	int needed_len;
+	int mem_size;
 
 	IPADBG("processing type %d hdr_hdl %d\n",
 		proc_ctx->type, proc_ctx->hdr_hdl);
@@ -526,6 +591,14 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	} else {
 		IPAERR("unexpected needed len %d\n", needed_len);
 		WARN_ON(1);
+		goto bad_len;
+	}
+
+	mem_size = (ipa_ctx->hdr_proc_ctx_tbl_lcl) ?
+		IPA_MEM_PART(apps_hdr_proc_ctx_size) :
+		IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr);
+	if (htbl->end + ipa_hdr_proc_ctx_bin_sz[bin] > mem_size) {
+		IPAERR("hdr proc ctx table overflow\n");
 		goto bad_len;
 	}
 
@@ -572,7 +645,8 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	return 0;
 
 bad_len:
-	hdr_entry->ref_cnt--;
+	if (add_ref_hdr)
+		hdr_entry->ref_cnt--;
 	entry->cookie = 0;
 	kmem_cache_free(ipa_ctx->hdr_proc_ctx_cache, entry);
 	return -EPERM;
@@ -731,7 +805,8 @@ error:
 	return -EPERM;
 }
 
-static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
+static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl,
+	bool release_hdr, bool by_user)
 {
 	struct ipa_hdr_proc_ctx_entry *entry;
 	struct ipa_hdr_proc_ctx_tbl *htbl = &ipa_ctx->hdr_proc_ctx_tbl;
@@ -745,6 +820,14 @@ static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
 	IPADBG("del ctx proc cnt=%d ofst=%d\n",
 		htbl->proc_ctx_cnt, entry->offset_entry->offset);
 
+	if (by_user && entry->user_deleted) {
+		IPAERR("proc_ctx already deleted by user\n");
+		return -EINVAL;
+	}
+
+	if (by_user)
+		entry->user_deleted = true;
+
 	if (--entry->ref_cnt) {
 		IPADBG("proc_ctx_hdl %x ref_cnt %d\n",
 			proc_ctx_hdl, entry->ref_cnt);
@@ -752,7 +835,7 @@ static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
 	}
 
 	if (release_hdr)
-		__ipa_release_hdr(entry->hdr->id);
+		__ipa_del_hdr(entry->hdr->id, false);
 
 	/* move the offset entry to appropriate free list */
 	list_move(&entry->offset_entry->link,
@@ -769,7 +852,7 @@ static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
 }
 
 
-int __ipa_del_hdr(u32 hdr_hdl)
+int __ipa_del_hdr(u32 hdr_hdl, bool by_user)
 {
 	struct ipa_hdr_entry *entry;
 	struct ipa_hdr_tbl *htbl = &ipa_ctx->hdr_tbl;
@@ -780,7 +863,7 @@ int __ipa_del_hdr(u32 hdr_hdl)
 		return -EINVAL;
 	}
 
-	if (!entry || (entry->cookie != IPA_COOKIE)) {
+	if (entry->cookie != IPA_COOKIE) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
 	}
@@ -792,6 +875,14 @@ int __ipa_del_hdr(u32 hdr_hdl)
 		IPADBG("del hdr of sz=%d hdr_cnt=%d ofst=%d\n", entry->hdr_len,
 			htbl->hdr_cnt, entry->offset_entry->offset);
 
+	if (by_user && entry->user_deleted) {
+		IPAERR("hdr already deleted by user\n");
+		return -EINVAL;
+	}
+
+	if (by_user)
+		entry->user_deleted = true;
+
 	if (--entry->ref_cnt) {
 		IPADBG("hdr_hdl %x ref_cnt %d\n", hdr_hdl, entry->ref_cnt);
 		return 0;
@@ -802,7 +893,7 @@ int __ipa_del_hdr(u32 hdr_hdl)
 			entry->phys_base,
 			entry->hdr_len,
 			DMA_TO_DEVICE);
-		__ipa_del_hdr_proc_ctx(entry->proc_ctx->id, false);
+		__ipa_del_hdr_proc_ctx(entry->proc_ctx->id, false, false);
 	} else {
 		/* move the offset entry to appropriate free list */
 		list_move(&entry->offset_entry->link,
@@ -869,15 +960,16 @@ bail:
 }
 
 /**
- * ipa2_del_hdr() - Remove the specified headers from SW and optionally commit them
- * to IPA HW
+ * ipa2_del_hdr_by_user() - Remove the specified headers
+ * from SW and optionally commit them to IPA HW
  * @hdls:	[inout] set of headers to delete
+ * @by_user:	Operation requested by user?
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
+int ipa2_del_hdr_by_user(struct ipa_ioc_del_hdr *hdls, bool by_user)
 {
 	int i;
 	int result = -EFAULT;
@@ -894,7 +986,7 @@ int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
 
 	mutex_lock(&ipa_ctx->lock);
 	for (i = 0; i < hdls->num_hdls; i++) {
-		if (__ipa_del_hdr(hdls->hdl[i].hdl)) {
+		if (__ipa_del_hdr(hdls->hdl[i].hdl, by_user)) {
 			IPAERR("failed to del hdr %i\n", i);
 			hdls->hdl[i].status = -1;
 		} else {
@@ -912,6 +1004,20 @@ int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
 bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
+}
+
+/**
+ * ipa2_del_hdr() - Remove the specified headers from SW and optionally commit them
+ * to IPA HW
+ * @hdls:	[inout] set of headers to delete
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
+{
+	return ipa2_del_hdr_by_user(hdls, false);
 }
 
 /**
@@ -966,16 +1072,18 @@ bail:
 }
 
 /**
- * ipa2_del_hdr_proc_ctx() -
+ * ipa2_del_hdr_proc_ctx_by_user() -
  * Remove the specified processing context headers from SW and
  * optionally commit them to IPA HW.
  * @hdls:	[inout] set of processing context headers to delete
+ * @by_user:	Operation requested by user?
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
+int ipa2_del_hdr_proc_ctx_by_user(struct ipa_ioc_del_hdr_proc_ctx *hdls,
+	bool by_user)
 {
 	int i;
 	int result;
@@ -994,7 +1102,7 @@ int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
 
 	mutex_lock(&ipa_ctx->lock);
 	for (i = 0; i < hdls->num_hdls; i++) {
-		if (__ipa_del_hdr_proc_ctx(hdls->hdl[i].hdl, true)) {
+		if (__ipa_del_hdr_proc_ctx(hdls->hdl[i].hdl, true, by_user)) {
 			IPAERR("failed to del hdr %i\n", i);
 			hdls->hdl[i].status = -1;
 		} else {
@@ -1012,6 +1120,21 @@ int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
 bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
+}
+
+/**
+ * ipa2_del_hdr_proc_ctx() -
+ * Remove the specified processing context headers from SW and
+ * optionally commit them to IPA HW.
+ * @hdls:	[inout] set of processing context headers to delete
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
+{
+	return ipa2_del_hdr_proc_ctx_by_user(hdls, false);
 }
 
 /**
@@ -1080,12 +1203,19 @@ int ipa2_reset_hdr(void)
 			&ipa_ctx->hdr_tbl.head_hdr_entry_list, link) {
 
 		/* do not remove the default header */
-		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME))
+		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME)) {
+			if (entry->is_hdr_proc_ctx) {
+				mutex_unlock(&ipa_ctx->lock);
+				WARN_ON(1);
+				IPAERR("default header is proc ctx\n");
+				return -EFAULT;
+			}
 			continue;
+		}
 
 		if (ipa_id_find(entry->id) == NULL) {
-			WARN_ON(1);
 			mutex_unlock(&ipa_ctx->lock);
+			WARN_ON(1);
 			return -EFAULT;
 		}
 		if (entry->is_hdr_proc_ctx) {
@@ -1138,8 +1268,8 @@ int ipa2_reset_hdr(void)
 		link) {
 
 		if (ipa_id_find(ctx_entry->id) == NULL) {
-			WARN_ON(1);
 			mutex_unlock(&ipa_ctx->lock);
+			WARN_ON(1);
 			return -EFAULT;
 		}
 		list_del(&ctx_entry->link);
@@ -1235,7 +1365,7 @@ int __ipa_release_hdr(u32 hdr_hdl)
 {
 	int result = 0;
 
-	if (__ipa_del_hdr(hdr_hdl)) {
+	if (__ipa_del_hdr(hdr_hdl, false)) {
 		IPADBG("fail to del hdr %x\n", hdr_hdl);
 		result = -EFAULT;
 		goto bail;
@@ -1263,7 +1393,7 @@ int __ipa_release_hdr_proc_ctx(u32 proc_ctx_hdl)
 {
 	int result = 0;
 
-	if (__ipa_del_hdr_proc_ctx(proc_ctx_hdl, true)) {
+	if (__ipa_del_hdr_proc_ctx(proc_ctx_hdl, true, false)) {
 		IPADBG("fail to del hdr %x\n", proc_ctx_hdl);
 		result = -EFAULT;
 		goto bail;
@@ -1302,8 +1432,8 @@ int ipa2_put_hdr(u32 hdr_hdl)
 		goto bail;
 	}
 
-	if (entry == NULL || entry->cookie != IPA_COOKIE) {
-		IPAERR("bad params\n");
+	if (entry->cookie != IPA_COOKIE) {
+		IPAERR("invalid header entry\n");
 		result = -EINVAL;
 		goto bail;
 	}

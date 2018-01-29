@@ -270,14 +270,14 @@ int hdmi_cec_isr(void *input)
 		return -EPERM;
 	}
 
+	if (!cec_ctrl->cec_enabled) {
+		DEV_DBG("%s: CEC feature not enabled\n", __func__);
+		return 0;
+	}
+
 	io = cec_ctrl->init_data.io;
 
 	cec_intr = DSS_REG_R_ND(io, HDMI_CEC_INT);
-
-	if (!cec_ctrl->cec_enabled) {
-		DSS_REG_W(io, HDMI_CEC_INT, cec_intr);
-		return 0;
-	}
 
 	cec_status = DSS_REG_R_ND(io, HDMI_CEC_STATUS);
 

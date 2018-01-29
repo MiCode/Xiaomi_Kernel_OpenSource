@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,7 +64,11 @@
 		qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 		qcom,mdss-dsi-tx-eot-append;
 		qcom,esd-check-enabled;
-
+		qcom,mdss-dsi-panel-hdr-enabled;
+		qcom,mdss-dsi-panel-hdr-color-primaries = <14880 15935 32435
+			16555 14945 30910 7790 3415>;
+		qcom,mdss-dsi-panel-peak-brightness = <5643000>;
+		qcom,mdss-dsi-panel-blackness-level = <6134>;
 		qcom,config-select = <&dsi_dual_sharp_video_config0>;
 
 		dsi_dual_sharp_video_config0: config0 {

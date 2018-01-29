@@ -213,6 +213,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_enabled),
 	POWER_SUPPLY_ATTR(battery_charging_enabled),
 	POWER_SUPPLY_ATTR(charging_enabled),
+	POWER_SUPPLY_ATTR(input_suspend),
 	POWER_SUPPLY_ATTR(input_voltage_regulation),
 	POWER_SUPPLY_ATTR(input_current_max),
 	POWER_SUPPLY_ATTR(input_current_trim),
@@ -246,9 +247,12 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(current_capability),
 	POWER_SUPPLY_ATTR(typec_mode),
 	POWER_SUPPLY_ATTR(allow_hvdcp3),
+	POWER_SUPPLY_ATTR(max_pulse_allowed),
+	POWER_SUPPLY_ATTR(soc_reporting_ready),
 	POWER_SUPPLY_ATTR(ignore_false_negative_isense),
 	POWER_SUPPLY_ATTR(enable_jeita_detection),
-	POWER_SUPPLY_ATTR(soc_reporting_ready),
+	POWER_SUPPLY_ATTR(battery_info),
+	POWER_SUPPLY_ATTR(battery_info_id),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
@@ -256,6 +260,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(manufacturer),
 	POWER_SUPPLY_ATTR(serial_number),
 	POWER_SUPPLY_ATTR(battery_type),
+	POWER_SUPPLY_ATTR(dump_sram),
 };
 
 static struct attribute *

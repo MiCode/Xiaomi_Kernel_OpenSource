@@ -42,13 +42,8 @@ extern unsigned int sysctl_sched_child_runs_first;
 extern unsigned int sysctl_sched_wake_to_idle;
 extern unsigned int sysctl_sched_wakeup_load_threshold;
 extern unsigned int sysctl_sched_window_stats_policy;
-extern unsigned int sysctl_sched_account_wait_time;
 extern unsigned int sysctl_sched_ravg_hist_size;
 extern unsigned int sysctl_sched_cpu_high_irqload;
-extern unsigned int sysctl_sched_freq_account_wait_time;
-extern unsigned int sysctl_sched_migration_fixup;
-extern unsigned int sysctl_sched_heavy_task_pct;
-extern unsigned int sysctl_sched_enable_power_aware;
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 extern unsigned int sysctl_sched_init_task_load_pct;
@@ -66,7 +61,6 @@ extern unsigned int sysctl_sched_upmigrate_pct;
 extern unsigned int sysctl_sched_downmigrate_pct;
 extern int sysctl_sched_upmigrate_min_nice;
 extern unsigned int sysctl_sched_boost;
-extern unsigned int sysctl_early_detection_duration;
 extern unsigned int sysctl_sched_small_wakee_task_load_pct;
 extern unsigned int sysctl_sched_big_waker_task_load_pct;
 extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
@@ -75,6 +69,11 @@ extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
 extern unsigned int sysctl_sched_min_runtime;
 extern unsigned int sysctl_sched_small_task_pct;
 extern unsigned int sysctl_sched_restrict_tasks_spread;
+extern unsigned int sysctl_sched_account_wait_time;
+extern unsigned int sysctl_sched_freq_account_wait_time;
+extern unsigned int sysctl_sched_enable_power_aware;
+extern unsigned int sysctl_sched_migration_fixup;
+extern unsigned int sysctl_sched_heavy_task_pct;
 #else
 extern unsigned int sysctl_sched_select_prev_cpu_us;
 extern unsigned int sysctl_sched_enable_colocation;
@@ -83,6 +82,8 @@ extern unsigned int sysctl_sched_enable_thread_grouping;
 #if defined(CONFIG_SCHED_FREQ_INPUT)
 extern unsigned int sysctl_sched_new_task_windows;
 extern unsigned int sysctl_sched_pred_alert_freq;
+extern unsigned int sysctl_sched_freq_aggregate;
+extern unsigned int sysctl_sched_freq_aggregate_threshold_pct;
 #endif
 #endif
 
@@ -159,12 +160,13 @@ extern unsigned int sysctl_sched_autogroup_enabled;
 #endif
 
 #ifdef CONFIG_SCHEDSTATS
+#ifdef CONFIG_SCHED_QHMP
 extern unsigned int sysctl_sched_latency_panic_threshold;
 extern unsigned int sysctl_sched_latency_warn_threshold;
-
 extern int sched_max_latency_sysctl(struct ctl_table *table, int write,
 				    void __user *buffer, size_t *lenp,
 				    loff_t *ppos);
+#endif
 #endif
 
 extern int sched_rr_timeslice;

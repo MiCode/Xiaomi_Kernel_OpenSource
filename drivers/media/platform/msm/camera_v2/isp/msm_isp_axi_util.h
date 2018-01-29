@@ -51,6 +51,8 @@ void msm_isp_reset_framedrop(struct vfe_device *vfe_dev,
 int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg);
 void msm_isp_get_avtimer_ts(struct msm_isp_timestamp *time_stamp);
 int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg);
+int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev,
+	enum msm_vfe_hw_state hw_state);
 int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg);
 void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,

@@ -60,6 +60,7 @@ static void radio_hci_smd_recv_event(unsigned long temp)
 	struct sk_buff *skb;
 	unsigned  char *buf;
 	struct radio_data *hsmd = &hs;
+	FMDBG("");
 
 	len = smd_read_avail(hsmd->fm_channel);
 
@@ -94,6 +95,7 @@ static void radio_hci_smd_recv_event(unsigned long temp)
 static int radio_hci_smd_send_frame(struct sk_buff *skb)
 {
 	int len = 0;
+	FMDBG("skb %pK", skb);
 
 	len = smd_write(hs.fm_channel, skb->data, skb->len);
 	if (len < skb->len) {
@@ -133,6 +135,7 @@ static void send_disable_event(struct work_struct *worker)
 static void radio_hci_smd_notify_cmd(void *data, unsigned int event)
 {
 	struct radio_hci_dev *hdev = (struct radio_hci_dev *)data;
+	FMDBG("data %p event %u", data, event);
 
 	if (!hdev) {
 		FMDERR("Frame for unknown HCI device (hdev=NULL)");
@@ -163,6 +166,7 @@ static int radio_hci_smd_register_dev(struct radio_data *hsmd)
 {
 	struct radio_hci_dev *hdev;
 	int rc;
+	FMDBG("hsmd: %pK", hsmd);
 
 	if (hsmd == NULL)
 		return -ENODEV;
@@ -204,6 +208,8 @@ static int radio_hci_smd_register_dev(struct radio_data *hsmd)
 
 static void radio_hci_smd_deregister(void)
 {
+	FMDBG("");
+
 	radio_hci_unregister_dev();
 	kfree(hs.hdev);
 	hs.hdev = NULL;

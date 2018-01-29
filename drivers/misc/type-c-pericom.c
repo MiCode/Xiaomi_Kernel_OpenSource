@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
+#include <linux/usb/class-dual-role.h>
 
 #define PERICOM_I2C_NAME	"usb-type-c-pericom"
 #define PERICOM_I2C_DELAY_MS	30
@@ -32,37 +33,69 @@
 
 #define PIUSB_1P8_VOL_MAX	1800000 /* uV */
 
+#define DETACH_DEBOUNCE_MS	500
+
 static bool disable_on_suspend;
 module_param(disable_on_suspend , bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(disable_on_suspend,
 	"Whether to disable chip on suspend if state is not attached");
 
+static unsigned int detach_debounce_delay_ms = DETACH_DEBOUNCE_MS;
+module_param(detach_debounce_delay_ms , uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(detach_debounce_delay_ms,
+	"Delay to use before updating mode during forced role-switch");
+
 struct piusb_regs {
 	u8		dev_id;
 	u8		control;
+#define CTL_MODE_UFP	(0x0)
+#define CTL_MODE_DFP	(0x2)
+#define CTL_MODE_DRP	(0x4)
+#define CTL_MODE_MASK	(0x6)	      /* Port setting - ufp/dfp/drp */
 	u8		intr_status;
 #define	INTS_ATTACH	0x1
 #define	INTS_DETACH	0x2
 #define INTS_ATTACH_MASK	0x3   /* current attach state interrupt */
 
 	u8		port_status;
-#define STS_PORT_MASK	(0x1c)	      /* attached port status  - device/host */
 #define STS_CCD_MASK	(0x60)	      /* charging current status */
 #define STS_VBUS_MASK	(0x80)	      /* vbus status */
 
+#define STS_MODE_DFP	(0x4)         /* port is connected to UFP */
+#define STS_MODE_UFP	(0x8)         /* port is connected to DFP */
+#define STS_MODE_MASK	(0x1C)	      /* Port Status- connected to ufp or dfp */
 } __packed;
 
 struct pi_usb_type_c {
-	struct i2c_client	*client;
-	struct piusb_regs	reg_data;
-	struct power_supply	*usb_psy;
-	int			max_current;
-	bool			attach_state;
-	int			enb_gpio;
-	int			enb_gpio_polarity;
-	struct regulator	*i2c_1p8;
+	struct i2c_client		*client;
+	struct piusb_regs		reg_data;
+	struct power_supply		*usb_psy;
+	int				max_current;
+	bool				attach_state;
+	int				enb_gpio;
+	int				enb_gpio_polarity;
+	struct regulator		*i2c_1p8;
+	struct dual_role_phy_instance	*dual_role;
+	struct dual_role_phy_desc	dr_desc;
+	struct mutex			mutex;
+	unsigned int			current_mode;
+	struct delayed_work		handle_detach_work;
 };
 static struct pi_usb_type_c *pi_usb;
+
+static enum dual_role_property pi_usb_dr_properties[] = {
+	DUAL_ROLE_PROP_SUPPORTED_MODES,
+	DUAL_ROLE_PROP_MODE,
+	DUAL_ROLE_PROP_PR,
+	DUAL_ROLE_PROP_DR,
+};
+
+/* requested mode */
+static char *dual_mode_text[] = {
+	"ufp", "dfp", "none"
+};
+
+static int piusb_i2c_enable(struct pi_usb_type_c *pi, bool enable, u8 mode);
 
 static int piusb_read_regdata(struct i2c_client *i2c)
 {
@@ -156,16 +189,26 @@ static irqreturn_t piusb_irq(int irq, void *data)
 	/* i2c register update takes time, 30msec sleep required as per HPG */
 	msleep(PERICOM_I2C_DELAY_MS);
 
+	mutex_lock(&pi_usb->mutex);
 	ret = piusb_read_regdata(pi_usb->client);
-	if (ret < 0)
+	if (ret < 0) {
+		mutex_unlock(&pi_usb->mutex);
 		goto out;
+	}
 
 	piusb_update_max_current(pi_usb);
 
 	ret = piusb_update_power_supply(pi_usb->usb_psy, pi_usb->max_current);
 	if (ret < 0)
 		dev_err(&pi_usb->client->dev, "failed to notify USB-%d\n", ret);
+	mutex_unlock(&pi_usb->mutex);
 
+	/* On detach, go back to DRP if there is no immediate attach */
+	if (pi_usb->attach_state)
+		cancel_delayed_work_sync(&pi_usb->handle_detach_work);
+	else if (pi_usb->current_mode != CTL_MODE_DRP)
+		schedule_delayed_work(&pi_usb->handle_detach_work,
+				msecs_to_jiffies(detach_debounce_delay_ms));
 out:
 	return IRQ_HANDLED;
 }
@@ -191,10 +234,10 @@ static int piusb_i2c_write(struct pi_usb_type_c *pi, u8 *data, int len)
 	return 0;
 }
 
-static int piusb_i2c_enable(struct pi_usb_type_c *pi, bool enable)
+static int piusb_i2c_enable(struct pi_usb_type_c *pi, bool enable, u8 port_mode)
 {
 	u8 rst_assert[] = {0, 0x1};
-	u8 rst_deassert[] = {0, 0x4};
+	u8 rst_deassert[] = {0, port_mode};
 	u8 pi_disable[] = {0, 0x80};
 
 	if (!enable) {
@@ -207,8 +250,12 @@ static int piusb_i2c_enable(struct pi_usb_type_c *pi, bool enable)
 		return -EIO;
 
 	msleep(PERICOM_I2C_DELAY_MS);
+	/* Program type-c port (and CC lines) to appropriate state */
 	if (piusb_i2c_write(pi, rst_deassert, sizeof(rst_deassert)))
 		return -EIO;
+
+	pi_usb->current_mode = port_mode;
+	dev_dbg(&pi->client->dev, "mode set to - %d\n", port_mode);
 
 	return 0;
 }
@@ -280,6 +327,127 @@ put_1p8:
 	return rc;
 }
 
+static int piusb_dr_get_property(struct dual_role_phy_instance *dual_role,
+		enum dual_role_property prop, unsigned int *val)
+{
+	u8 curr_port_status;
+	int mode, pr, dr;
+
+	mutex_lock(&pi_usb->mutex);
+
+	curr_port_status = pi_usb->reg_data.port_status & STS_MODE_MASK;
+	dev_dbg(&pi_usb->client->dev, "%s: prop(%d), ctl_mode: %u current sts_mode: %u\n",
+			__func__, prop, pi_usb->current_mode, curr_port_status);
+
+	/* Allow role-switch to finish before returning updated mode */
+	if (prop == DUAL_ROLE_PROP_MODE &&
+			((pi_usb->current_mode == CTL_MODE_DFP &&
+			     curr_port_status != STS_MODE_DFP) ||
+			(pi_usb->current_mode == CTL_MODE_UFP &&
+				curr_port_status != STS_MODE_UFP))) {
+		mutex_unlock(&pi_usb->mutex);
+		msleep(detach_debounce_delay_ms);
+		mutex_lock(&pi_usb->mutex);
+	}
+
+	curr_port_status = pi_usb->reg_data.port_status & STS_MODE_MASK;
+	if (curr_port_status == STS_MODE_DFP) {
+		dev_dbg(&pi_usb->client->dev, "%s: Mode is DFP\n", __func__);
+		mode = DUAL_ROLE_PROP_MODE_DFP;
+		pr = DUAL_ROLE_PROP_PR_SRC;
+		dr = DUAL_ROLE_PROP_DR_HOST;
+	} else {
+		dev_dbg(&pi_usb->client->dev, "%s: Mode is UFP\n", __func__);
+		mode = DUAL_ROLE_PROP_MODE_UFP;
+		pr = DUAL_ROLE_PROP_PR_SNK;
+		dr = DUAL_ROLE_PROP_DR_DEVICE;
+	}
+
+	mutex_unlock(&pi_usb->mutex);
+
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		*val = mode;
+		break;
+	case DUAL_ROLE_PROP_PR:
+		*val = pr;
+		break;
+	case DUAL_ROLE_PROP_DR:
+		*val = dr;
+		break;
+	default:
+		dev_warn(&pi_usb->client->dev, "%s: unsupported property %d\n",
+				__func__, prop);
+		return -ENODATA;
+	}
+
+	return 0;
+}
+
+static int piusb_dr_set_property(struct dual_role_phy_instance *dual_role,
+		enum dual_role_property prop, const unsigned int *val)
+{
+	mutex_lock(&pi_usb->mutex);
+
+	dev_dbg(&pi_usb->client->dev, "%s: prop(%d), curr_mode: %u, new_mode:%s\n",
+		__func__, prop, pi_usb->current_mode, dual_mode_text[*val]);
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		if (*val == DUAL_ROLE_PROP_MODE_UFP &&
+		     pi_usb->current_mode != CTL_MODE_UFP) {
+			piusb_i2c_enable(pi_usb, true, CTL_MODE_UFP);
+		} else if (*val == DUAL_ROLE_PROP_MODE_DFP &&
+			  pi_usb->current_mode != CTL_MODE_DFP) {
+			piusb_i2c_enable(pi_usb, true, CTL_MODE_DFP);
+		} else {
+			dev_warn(&pi_usb->client->dev, "%s: unsupported mode %d\n",
+				__func__, prop);
+		}
+		break;
+	case DUAL_ROLE_PROP_PR:
+	case DUAL_ROLE_PROP_DR:
+	default:
+		dev_warn(&pi_usb->client->dev, "%s: unsupported property %d\n",
+				__func__, prop);
+		mutex_unlock(&pi_usb->mutex);
+		return -ENOTSUPP;
+	}
+	mutex_unlock(&pi_usb->mutex);
+
+	return 0;
+}
+
+static int piusb_dr_prop_writeable(struct dual_role_phy_instance *dual_role,
+		enum dual_role_property prop)
+{
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		return 1;
+	case DUAL_ROLE_PROP_PR:
+	case DUAL_ROLE_PROP_DR:
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static void piusb_handle_detach_work(struct work_struct *w)
+{
+	mutex_lock(&pi_usb->mutex);
+	if (pi_usb->attach_state || pi_usb->current_mode == CTL_MODE_DRP) {
+		dev_dbg(&pi_usb->client->dev, "%s: nothing to do (%u %u)\n",
+			__func__, pi_usb->attach_state, pi_usb->current_mode);
+		mutex_unlock(&pi_usb->mutex);
+		return;
+	}
+	dev_dbg(&pi_usb->client->dev, "%s: Set DRP mode on detach\n", __func__);
+
+	/* On real detach (no soft-switch), move to DRP mode */
+	piusb_i2c_enable(pi_usb, true, CTL_MODE_DRP);
+	mutex_unlock(&pi_usb->mutex);
+}
+
 static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 {
 	int ret;
@@ -329,13 +497,14 @@ static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto gpio_disable;
 	}
 
-	ret = piusb_i2c_enable(pi_usb, true);
+	ret = piusb_i2c_enable(pi_usb, true, CTL_MODE_DRP);
 	if (ret) {
 		dev_err(&pi_usb->client->dev, "i2c access failed\n");
 		ret = -EPROBE_DEFER;
 		goto ldo_disable;
 	}
 
+	mutex_init(&pi_usb->mutex);
 	/* Update initial state to USB */
 	piusb_irq(i2c->irq, pi_usb);
 
@@ -347,12 +516,31 @@ static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto i2c_disable;
 	}
 
+	/*
+	 * Register the Android dual-role class (/sys/class/dual_role_usb/)
+	 */
+	pi_usb->dr_desc.name = "otg_default";
+	pi_usb->dr_desc.supported_modes = DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP;
+	pi_usb->dr_desc.properties = pi_usb_dr_properties;
+	pi_usb->dr_desc.num_properties = ARRAY_SIZE(pi_usb_dr_properties);
+	pi_usb->dr_desc.get_property = piusb_dr_get_property;
+	pi_usb->dr_desc.set_property = piusb_dr_set_property;
+	pi_usb->dr_desc.property_is_writeable = piusb_dr_prop_writeable;
+
+	pi_usb->dual_role = devm_dual_role_instance_register(&i2c->dev,
+			&pi_usb->dr_desc);
+	if (IS_ERR(pi_usb->dual_role))
+		dev_dbg(&i2c->dev, "failed to register dual_role_class\n");
+
+	INIT_DELAYED_WORK(&pi_usb->handle_detach_work,
+				  piusb_handle_detach_work);
+
 	dev_dbg(&i2c->dev, "%s finished, addr:%d\n", __func__, i2c->addr);
 
 	return 0;
 
 i2c_disable:
-	piusb_i2c_enable(pi_usb, false);
+	piusb_i2c_enable(pi_usb, false, pi_usb->current_mode);
 ldo_disable:
 	piusb_ldo_init(pi_usb, false);
 gpio_disable:
@@ -366,7 +554,7 @@ static int piusb_remove(struct i2c_client *i2c)
 {
 	struct pi_usb_type_c *pi_usb = i2c_get_clientdata(i2c);
 
-	piusb_i2c_enable(pi_usb, false);
+	piusb_i2c_enable(pi_usb, false, pi_usb->current_mode);
 	piusb_ldo_init(pi_usb, false);
 	if (gpio_is_valid(pi_usb->enb_gpio))
 		piusb_gpio_config(pi_usb, false);
@@ -389,7 +577,7 @@ static int piusb_i2c_suspend(struct device *dev)
 		return 0;
 
 	if (disable_on_suspend)
-		piusb_i2c_enable(pi, false);
+		piusb_i2c_enable(pi, false, pi->current_mode);
 
 	regulator_set_voltage(pi->i2c_1p8, 0, PIUSB_1P8_VOL_MAX);
 	regulator_disable(pi->i2c_1p8);
@@ -428,7 +616,7 @@ static int piusb_i2c_resume(struct device *dev)
 		dev_err(&pi->client->dev, "unable to enable 1p8-reg(%d)\n", rc);
 
 	if (disable_on_suspend)
-		rc = piusb_i2c_enable(pi, true);
+		rc = piusb_i2c_enable(pi, true, pi->current_mode);
 	enable_irq(pi->client->irq);
 
 	return rc;

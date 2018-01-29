@@ -259,8 +259,6 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 
 		/* Nothing more to read, or out of buffers in MHI layer */
 		if (unlikely(!result->buf_addr || !result->bytes_xferd)) {
-			rmnet_log(MSG_CRITICAL,
-				  "Not valid buff not rescheduling\n");
 			should_reschedule = false;
 			break;
 		}
@@ -625,6 +623,9 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 				tx_ring_full_count[rmnet_mhi_ptr->dev_index]++;
 				netif_stop_queue(dev);
 				rmnet_log(MSG_VERBOSE, "Stopping Queue\n");
+				write_unlock_irqrestore(
+					    &rmnet_mhi_ptr->out_chan_full_lock,
+					    flags);
 				goto rmnet_mhi_xmit_error_cleanup;
 			} else {
 				retry = 1;
@@ -652,7 +653,6 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 
 rmnet_mhi_xmit_error_cleanup:
 	rmnet_log(MSG_VERBOSE, "Ring full\n");
-	write_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	return NETDEV_TX_BUSY;
 }
 
@@ -915,6 +915,7 @@ static void rmnet_mhi_cb(struct mhi_cb_info *cb_info)
 	} else {
 		rmnet_log(MSG_CRITICAL,
 			"Invalid data in MHI callback, quitting\n");
+		return;
 	}
 
 	switch (cb_info->cb_reason) {

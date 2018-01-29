@@ -224,6 +224,32 @@ void kgsl_pool_free_sgt(struct sg_table *sgt)
 }
 
 /**
+ * kgsl_pool_free_pages() - Free pages in the pages array
+ * @pages: pointer of the pages array
+ *
+ * Free the pages by collapsing any physical adjacent pages.
+ * Pages are added back to the pool, if pool has sufficient space
+ * otherwise they are given back to system.
+ */
+void kgsl_pool_free_pages(struct page **pages, unsigned int pcount)
+{
+	int i;
+
+	if (pages == NULL || pcount == 0)
+		return;
+
+	for (i = 0; i < pcount;) {
+		/*
+		 * Free each page or compound page group individually.
+		 */
+		struct page *p = pages[i];
+
+		i += 1 << compound_order(p);
+		kgsl_pool_free_page(p);
+	}
+}
+
+/**
  * kgsl_pool_alloc_page() - Allocate a page of requested size
  * @page_size: Size of the page to be allocated
  * @pages: pointer to hold list of pages, should be big enough to hold
@@ -246,8 +272,10 @@ int kgsl_pool_alloc_page(int page_size, struct page **pages,
 
 	pool = _kgsl_get_pool_from_order(get_order(page_size));
 
-	if (pool != NULL)
-		page = _kgsl_pool_get_page(pool);
+	if (pool == NULL)
+		return -EINVAL;
+
+	page = _kgsl_pool_get_page(pool);
 
 	/* Allocate a new page if not allocated from pool */
 	if (page == NULL) {

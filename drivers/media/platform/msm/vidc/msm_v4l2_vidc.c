@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -416,10 +416,29 @@ static ssize_t store_platform_version(struct device *dev,
 static DEVICE_ATTR(platform_version, S_IRUGO, show_platform_version,
 		store_platform_version);
 
+static ssize_t show_capability_version(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			vidc_driver->capability_version);
+}
+
+static ssize_t store_capability_version(struct device *dev,
+		struct device_attribute *attr, const char *buf,
+		size_t count)
+{
+	dprintk(VIDC_WARN, "store capability version is not allowed\n");
+	return count;
+}
+
+static DEVICE_ATTR(capability_version, S_IRUGO, show_capability_version,
+		store_capability_version);
+
 static struct attribute *msm_vidc_core_attrs[] = {
 		&dev_attr_pwr_collapse_delay.attr,
 		&dev_attr_thermal_level.attr,
 		&dev_attr_platform_version.attr,
+		&dev_attr_capability_version.attr,
 		NULL
 };
 
@@ -434,11 +453,38 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 	{}
 };
 
+static u32 msm_vidc_read_efuse_version(struct platform_device *pdev,
+	struct version_table *table, const char *fuse_name)
+{
+	void __iomem *base;
+	struct resource *res;
+	u32 ret = 0;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, fuse_name);
+	if (!res) {
+		dprintk(VIDC_DBG, "Failed to get resource %s\n", fuse_name);
+		goto exit;
+	}
+	base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!base) {
+		dprintk(VIDC_ERR,
+			"failed ioremap: res->start %#x, size %d\n",
+			(u32)res->start, (u32)resource_size(res));
+		goto exit;
+	} else {
+		ret = readl_relaxed(base);
+		ret = (ret & table->version_mask) >>
+			table->version_shift;
+
+		devm_iounmap(&pdev->dev, base);
+	}
+exit:
+	return ret;
+}
+
 static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 {
 	int rc = 0;
-	void __iomem *base;
-	struct resource *res;
 	struct msm_vidc_core *core;
 	struct device *dev;
 	int nr = BASE_DEVICE_NUMBER;
@@ -553,32 +599,13 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 	core->debugfs_root = msm_vidc_debugfs_init_core(
 		core, vidc_driver->debugfs_root);
 
-	vidc_driver->platform_version = 0;
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
-	if (!res) {
-		dprintk(VIDC_DBG, "failed to get efuse resource\n");
-	} else {
-		base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-		if (!base) {
-			dprintk(VIDC_ERR,
-				"failed efuse ioremap: res->start %#x, size %d\n",
-				(u32)res->start, (u32)resource_size(res));
-		} else {
-			u32 efuse = 0;
-			struct platform_version_table *pf_ver_tbl =
-				core->resources.pf_ver_tbl;
+	vidc_driver->platform_version =
+		msm_vidc_read_efuse_version(pdev,
+			core->resources.pf_ver_tbl, "efuse");
 
-			efuse = readl_relaxed(base);
-			vidc_driver->platform_version =
-				(efuse & pf_ver_tbl->version_mask) >>
-				pf_ver_tbl->version_shift;
-			dprintk(VIDC_DBG,
-				"efuse 0x%x, platform version 0x%x\n",
-				efuse, vidc_driver->platform_version);
-
-			devm_iounmap(&pdev->dev, base);
-		}
-	}
+	vidc_driver->capability_version =
+		msm_vidc_read_efuse_version(
+			pdev, core->resources.pf_cap_tbl, "efuse2");
 
 	dprintk(VIDC_DBG, "populating sub devices\n");
 	/*
@@ -762,6 +789,8 @@ static int __init msm_vidc_init(void)
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to register platform driver\n");
+		msm_vidc_debugfs_deinit_drv();
+		debugfs_remove_recursive(vidc_driver->debugfs_root);
 		kfree(vidc_driver);
 		vidc_driver = NULL;
 	}
@@ -772,6 +801,7 @@ static int __init msm_vidc_init(void)
 static void __exit msm_vidc_exit(void)
 {
 	platform_driver_unregister(&msm_vidc_driver);
+	msm_vidc_debugfs_deinit_drv();
 	debugfs_remove_recursive(vidc_driver->debugfs_root);
 	kfree(vidc_driver);
 	vidc_driver = NULL;

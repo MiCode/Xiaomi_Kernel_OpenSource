@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,6 +194,7 @@ int mdss_dsi_clk_deregister(void *client);
  * @client: client handle.
  * @clk: Type of clock requested (enum mdss_dsi_clk_type).
  * @state: clock state requested.
+ * @index: controller index.
  *
  * This routine is used to request a new clock state for a specific clock. If
  * turning ON the clocks, this guarantees that clocks will be on before
@@ -203,7 +204,7 @@ int mdss_dsi_clk_deregister(void *client);
  * @return: error code.
  */
 int mdss_dsi_clk_req_state(void *client, enum mdss_dsi_clk_type clk,
-			   enum mdss_dsi_clk_state state);
+	enum mdss_dsi_clk_state state, u32 index);
 
 /**
  * mdss_dsi_clk_set_link_rate() - set clock rate for link clocks
@@ -235,4 +236,16 @@ int mdss_dsi_clk_set_link_rate(void *client, enum mdss_dsi_link_clk_type clk,
  * @return:error code.
  */
 int mdss_dsi_clk_force_toggle(void *client, u32 clk);
+
+/**
+ * is_dsi_clk_in_ecg_state() - Checks the current state of clocks
+ * @client: client handle.
+ *
+ * This routine returns checks the clocks status for client and return
+ * success code based on it.
+ *
+ * @return:true: if clocks are in ECG state
+ *         false: for all other cases
+ */
+bool is_dsi_clk_in_ecg_state(void *client);
 #endif /* _MDSS_DSI_CLK_H_ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,29 +28,32 @@
 #define QPNP_REVID_DEV_NAME "qcom,qpnp-revid"
 
 static const char *const pmic_names[] = {
-		"Unknown PMIC",
-		"PM8941",
-		"PM8841",
-		"PM8019",
-		"PM8226",
-		"PM8110",
-		"PMA8084",
-		"PMI8962",
-		"PMD9635",
-		"PM8994",
-		"PMI8994",
-		"PM8916",
-		"PM8004",
-		"PM8909",
-		"PM2433",
-		"PMD9655",
-		"PM8950",
-		"PMI8950",
-		"PMK8001",
-		"PMI8996",
-	[25] =	"PM8937",
-	[55] =	"PMI8937",
-	[64] = "PMI8940",
+	[0] =	"Unknown PMIC",
+	[PM8941_SUBTYPE] = "PM8941",
+	[PM8841_SUBTYPE] = "PM8841",
+	[PM8019_SUBTYPE] = "PM8019",
+	[PM8226_SUBTYPE] = "PM8226",
+	[PM8110_SUBTYPE] = "PM8110",
+	[PMA8084_SUBTYPE] = "PMA8084",
+	[PMI8962_SUBTYPE] = "PMI8962",
+	[PMD9635_SUBTYPE] = "PMD9635",
+	[PM8994_SUBTYPE] = "PM8994",
+	[PMI8994_SUBTYPE] = "PMI8994",
+	[PM8916_SUBTYPE] = "PM8916",
+	[PM8004_SUBTYPE] = "PM8004",
+	[PM8909_SUBTYPE] = "PM8909",
+	[PM2433_SUBTYPE] = "PM2433",
+	[PMD9655_SUBTYPE] = "PMD9655",
+	[PM8950_SUBTYPE] = "PM8950",
+	[PMI8950_SUBTYPE] = "PMI8950",
+	[PMK8001_SUBTYPE] = "PMK8001",
+	[PMI8996_SUBTYPE] = "PMI8996",
+	[PMCOBALT_SUBTYPE] = "PMCOBALT",
+	[PMICOBALT_SUBTYPE] = "PMICOBALT",
+	[PM8005_SUBTYPE] = "PM8005",
+	[PM8937_SUBTYPE] = "PM8937",
+	[PMI8937_SUBTYPE] = "PMI8937",
+	[PMI8940_SUBTYPE] = "PMI8940",
 };
 
 struct revid_chip {

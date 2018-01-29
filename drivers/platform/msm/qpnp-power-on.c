@@ -69,6 +69,7 @@
 #define QPNP_POFF_REASON1(pon) \
 	((pon)->base + PON_OFFSET((pon)->subtype, 0xC, 0xC5))
 #define QPNP_PON_WARM_RESET_REASON2(pon)	((pon)->base + 0xB)
+#define QPNP_POFF_REASON2(pon)                 ((pon)->base + 0xD)
 #define QPNP_PON_OFF_REASON(pon)		((pon)->base + 0xC7)
 #define QPNP_FAULT_REASON1(pon)			((pon)->base + 0xC8)
 #define QPNP_S3_RESET_REASON(pon)		((pon)->base + 0xCA)
@@ -497,14 +498,14 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 	udelay(500);
 
 	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon),
-				   QPNP_PON_POWER_OFF_MASK, type);
+				QPNP_PON_POWER_OFF_MASK, type);
 	if (rc)
 		dev_err(&pon->spmi->dev,
 			"Unable to write to addr=%x, rc(%d)\n",
 				QPNP_PON_PS_HOLD_RST_CTL(pon), rc);
 
 	rc = qpnp_pon_masked_write(pon, rst_en_reg, QPNP_PON_RESET_EN,
-						    QPNP_PON_RESET_EN);
+						QPNP_PON_RESET_EN);
 	if (rc)
 		dev_err(&pon->spmi->dev,
 			"Unable to write to addr=%hx, rc(%d)\n",
@@ -590,6 +591,77 @@ int qpnp_pon_is_warm_reset(void)
 		return pon->warm_reset_reason1;
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
+
+int qpnp_pon_is_ps_hold_reset(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	u8 reg = 0;
+
+	if (!pon)
+			return 0;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+					QPNP_POFF_REASON1(pon), &reg, 1);
+	if (rc) {
+			dev_err(&pon->spmi->dev,
+					"Unable to read addr=%x, rc(%d)\n",
+					QPNP_POFF_REASON1(pon), rc);
+			return 0;
+	}
+
+	/* The bit 1 is 1, means by PS_HOLD/MSM controlled shutdown */
+	if (reg & 0x2)
+			return 1;
+	dev_info(&pon->spmi->dev,
+					"hw_reset reason1 is 0x%x\n",
+					reg);
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+					QPNP_POFF_REASON2(pon), &reg, 1);
+
+	dev_info(&pon->spmi->dev,
+					"hw_reset reason2 is 0x%x\n",
+					reg);
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_ps_hold_reset);
+
+int qpnp_pon_is_lpk(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	u8 reg = 0;
+
+	if (!pon)
+			return 0;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+					QPNP_POFF_REASON1(pon), &reg, 1);
+	if (rc) {
+			dev_err(&pon->spmi->dev,
+					"Unable to read addr=%x, rc(%d)\n",
+					QPNP_POFF_REASON1(pon), rc);
+			return 0;
+	}
+
+
+	if (reg & 0x80)
+			return 1;
+
+	dev_info(&pon->spmi->dev,
+					"hw_reset reason1 is 0x%x\n",
+					reg);
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+					QPNP_POFF_REASON2(pon), &reg, 1);
+
+	dev_info(&pon->spmi->dev,
+					"hw_reset reason2 is 0x%x\n",
+					reg);
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lpk);
 
 /**
  * qpnp_pon_wd_config - Disable the wd in a warm reset.
@@ -1281,9 +1353,9 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 			}
 
 			/* If the value read from REVISION2 register is 0x00,
-			   then there is a single register to control s2 reset.
-			   Otherwise there are separate registers for s2 reset
-			   type and s2 reset enable */
+			then there is a single register to control s2 reset.
+			Otherwise there are separate registers for s2 reset
+			type and s2 reset enable */
 			if (pon->pon_ver == QPNP_PON_GEN1_V1) {
 				cfg->s2_cntl_addr = cfg->s2_cntl2_addr =
 					QPNP_PON_KPDPWR_S2_CNTL(pon);
@@ -2249,6 +2321,15 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "sys file creation failed rc: %d\n",
 			rc);
 		return rc;
+	}
+
+	if (of_property_read_bool(spmi->dev.of_node,
+					"qcom,pon-reset-off")) {
+		rc = qpnp_pon_trigger_config(PON_CBLPWR_N, false);
+		if (rc) {
+			dev_err(&spmi->dev, "failed update the PON_CBLPWR %d\n",
+				rc);
+		}
 	}
 
 	if (of_property_read_bool(spmi->dev.of_node,

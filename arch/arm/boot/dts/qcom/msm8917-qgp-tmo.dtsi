@@ -90,9 +90,6 @@
 			debounce-interval = <15>;
 		};
 	};
-
-	led_flash0: qcom,camera-flash {
-	};
 };
 
 &mdss_mdp {
@@ -114,10 +111,6 @@
 
 &dsi_lead_fl10802_fwvga_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-};
-
-&int_codec {
-	qcom,model = "msm8917-tmo-snd-card";
 };
 
 / {
@@ -146,4 +139,8 @@
 	qcom,warm-bat-decidegc = <600>;
 	qcom,bad-battery-detection-enable;
 	qcom,hold-soc-while-full;
+};
+
+&int_codec {
+	qcom,model = "msm8917-tmo-snd-card";
 };

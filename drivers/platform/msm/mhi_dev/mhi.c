@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 #include <linux/msm_ep_pcie.h>
-#include <linux/ipa.h>
+#include <linux/ipa_mhi.h>
 #include <linux/vmalloc.h>
 
 #include "mhi.h"
@@ -36,7 +36,7 @@
 /* Wait time on the device for Host to set M0 state */
 #define MHI_M0_WAIT_MIN_USLEEP		20000000
 #define MHI_M0_WAIT_MAX_USLEEP		25000000
-#define MHI_DEV_M0_MAX_CNT		10
+#define MHI_DEV_M0_MAX_CNT		30
 /* Wait time before suspend/resume is complete */
 #define MHI_SUSPEND_WAIT_MIN		3100
 #define MHI_SUSPEND_WAIT_MAX		3200
@@ -1625,14 +1625,13 @@ static void mhi_dev_enable(struct work_struct *work)
 	mhi_dev_sm_set_ready();
 
 	rc = ep_pcie_get_msi_config(mhi->phandle, &msi_cfg);
-	if (rc) {
-		pr_err("MHI: error geting msi configs\n");
-		return;
-	}
-
-	rc = ep_pcie_trigger_msi(mhi->phandle, mhi->mhi_ep_msi_num);
 	if (rc)
-		return;
+		pr_warn("MHI: error geting msi configs\n");
+	else {
+		rc = ep_pcie_trigger_msi(mhi->phandle, mhi->mhi_ep_msi_num);
+		if (rc)
+			return;
+	}
 
 	rc = mhi_dev_mmio_get_mhi_state(mhi, &state);
 	if (rc) {

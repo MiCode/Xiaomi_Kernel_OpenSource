@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,7 @@ struct msm_vidc_drv {
 	struct dentry *debugfs_root;
 	int thermal_level;
 	u32 platform_version;
+	u32 capability_version;
 };
 
 struct msm_video_device {
@@ -273,6 +274,7 @@ struct msm_vidc_inst {
 	bool in_reconfig;
 	u32 reconfig_width;
 	u32 reconfig_height;
+	u32 seqchanged_count;
 	struct dentry *debugfs_root;
 	void *priv;
 	struct msm_vidc_debug debug;
@@ -290,6 +292,8 @@ struct msm_vidc_inst {
 	unsigned long instant_bitrate;
 	u32 buffers_held_in_driver;
 	atomic_t in_flush;
+	u32 pic_struct;
+	u32 colour_space;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
@@ -365,6 +369,7 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 struct context_bank_info *msm_smem_get_context_bank(void *clt,
 		bool is_secure, enum hal_buffer buffer_type);
 void msm_vidc_fw_unload_handler(struct work_struct *work);
+bool msm_smem_compare_buffers(void *clt, int fd, void *priv);
 /* XXX: normally should be in msm_vidc.h, but that's meant for public APIs,
  * whereas this is private */
 int msm_vidc_destroy(struct msm_vidc_inst *inst);

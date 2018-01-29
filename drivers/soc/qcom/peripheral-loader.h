@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,9 @@ struct pil_priv;
  * @unmap_fw_mem: Custom function used to undo mapping by map_fw_mem.
  * This defaults to iounmap if not specified.
  * @shutdown_fail: Set if PIL op for shutting down subsystem fails.
+ * @modem_ssr: true if modem is restarting, false if booting for first time.
  * @subsys_vmid: memprot id for the subsystem.
+ * @clear_fw_region: Clear fw region on failure in loading.
  */
 struct pil_desc {
 	const char *name;
@@ -54,7 +56,9 @@ struct pil_desc {
 	void (*unmap_fw_mem)(void *virt, size_t size, void *data);
 	void *map_data;
 	bool shutdown_fail;
+	bool modem_ssr;
 	u32 subsys_vmid;
+	bool clear_fw_region;
 };
 
 /**

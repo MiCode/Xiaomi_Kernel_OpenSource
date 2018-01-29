@@ -297,8 +297,8 @@ static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *dev,
 	if (!list_empty(&dev->buf_qhead)) {
 		list_for_each_entry_safe(bufs,
 			save, &dev->buf_qhead, entry) {
-			pr_info("%s: Delete invalid bufs =%lx, session_id=%u, bufs->ses_id=%d, str_id=%d, idx=%d\n",
-				__func__, (unsigned long)bufs, session->session,
+			pr_info("%s: Delete invalid bufs =%pK, session_id=%u, bufs->ses_id=%d, str_id=%d, idx=%d\n",
+				__func__, (void *)bufs, session->session,
 				bufs->session_id, bufs->stream_id,
 				bufs->index);
 			if (session->session == bufs->session_id) {
@@ -554,8 +554,7 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 				sizeof(struct msm_buf_mngr_info))) {
 				return -EFAULT;
 			}
-			MSM_CAM_GET_IOCTL_ARG_PTR(&k_ioctl.ioctl_ptr,
-				&buf_info, sizeof(void *));
+			k_ioctl.ioctl_ptr = (uintptr_t)&buf_info;
 			argp = &k_ioctl;
 			rc = msm_cam_buf_mgr_ops(cmd, argp);
 			}

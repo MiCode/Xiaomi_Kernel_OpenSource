@@ -94,7 +94,7 @@ struct ipa_usb_xdci_connect_params {
  * ipa_usb_xdci_chan_scratch - xDCI protocol SW config area of
  * channel scratch
  *
- * @last_trb_addr:       Address (LSB - based on alignment restrictions) of
+ * @last_trb_addr_iova:  Address (iova LSB - based on alignment restrictions) of
  *                       last TRB in queue. Used to identify roll over case
  * @const_buffer_size:   TRB buffer size in KB (similar to IPA aggregation
  *                       configuration). Must be aligned to max USB Packet Size.
@@ -103,7 +103,7 @@ struct ipa_usb_xdci_connect_params {
  * @depcmd_hi_addr:      Used to generate "Update Transfer" command.
  */
 struct ipa_usb_xdci_chan_scratch {
-	u16 last_trb_addr;
+	u16 last_trb_addr_iova;
 	u8 const_buffer_size;
 	u32 depcmd_low_addr;
 	u8 depcmd_hi_addr;
@@ -124,6 +124,11 @@ struct ipa_usb_xdci_chan_scratch {
  * @xfer_ring_base_addr: physical base address of transfer ring. Address must be
  *                       aligned to xfer_ring_len rounded to power of two
  * @xfer_scratch:        parameters for xDCI channel scratch
+ * @xfer_ring_base_addr_iova: IO virtual address mapped to xfer_ring_base_addr
+ * @data_buff_base_len:  length of data buffer allocated by USB driver
+ * @data_buff_base_addr: physical base address for the data buffer (where TRBs
+ *                       points)
+ * @data_buff_base_addr_iova:  IO virtual address mapped to data_buff_base_addr
  *
  */
 struct ipa_usb_xdci_chan_params {
@@ -140,6 +145,10 @@ struct ipa_usb_xdci_chan_params {
 	u16 xfer_ring_len;
 	u64 xfer_ring_base_addr;
 	struct ipa_usb_xdci_chan_scratch xfer_scratch;
+	u64 xfer_ring_base_addr_iova;
+	u32 data_buff_base_len;
+	u64 data_buff_base_addr;
+	u64 data_buff_base_addr_iova;
 };
 
 /**

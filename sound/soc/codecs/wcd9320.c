@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1207,6 +1207,14 @@ static int taiko_mad_input_put(struct snd_kcontrol *kcontrol,
 	char *mad_input;
 
 	taiko_mad_input = ucontrol->value.integer.value[0];
+
+	if (taiko_mad_input >= ARRAY_SIZE(taiko_conn_mad_text)) {
+		dev_err(codec->dev,
+			"%s: taiko_mad_input = %d out of bounds\n",
+			__func__, taiko_mad_input);
+		return -EINVAL;
+	}
+
 
 	micb_4_int_reg = taiko->resmgr.reg_addr->micb_4_int_rbias;
 	pr_debug("%s: taiko_mad_input = %s\n", __func__,
@@ -4734,7 +4742,7 @@ static int taiko_set_channel_map(struct snd_soc_dai *dai,
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(dai->codec);
 	struct wcd9xxx *core = dev_get_drvdata(dai->codec->dev->parent);
 	if (!tx_slot || !rx_slot) {
-		pr_err("%s: Invalid tx_slot=%p, rx_slot=%p\n", __func__,
+		pr_err("%s: Invalid tx_slot=%pK, rx_slot=%pK\n", __func__,
 			tx_slot, rx_slot);
 		return -EINVAL;
 	}

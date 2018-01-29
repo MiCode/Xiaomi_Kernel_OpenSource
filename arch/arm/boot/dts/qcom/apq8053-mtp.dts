@@ -34,7 +34,7 @@
 	};
 };
 
-&pmi8950_fg {
+&pmi8940_fg {
 	/* use external rsense for parallel charging */
 	qcom,ext-sense-type;
 };

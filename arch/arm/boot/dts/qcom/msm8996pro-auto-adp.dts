@@ -1,0 +1,88 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "msm8996pro.dtsi"
+#include "msm8996-pm8994.dtsi"
+#include "msm8996-agave-adp.dtsi"
+#include "msm8996pro-auto.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996pro AUTO ADP";
+	compatible = "qcom,msm8996-adp", "qcom,msm8996", "qcom,adp";
+	qcom,msm-id = <315 0x10000>;
+	qcom,board-id = <0x02010019 0>;
+};
+
+&spi_9 {
+	status = "ok";
+	can-controller@0 {
+		compatible = "renesas,rh850";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0>;
+		spi-max-frequency = <5000000>;
+	};
+};
+
+&soc {
+	qcom,msm-ssc-sensors {
+		status = "disabled";
+	};
+
+	qcom,msm-thermal {
+		qcom,hotplug-temp = <115>;
+		qcom,hotplug-temp-hysteresis = <25>;
+		qcom,therm-reset-temp = <119>;
+	};
+
+	qcom,adv7481@70 {
+		qcom,cam-vreg-min-voltage = <1300000 0 1800000>;
+		qcom,cam-vreg-max-voltage = <1300000 0 1800000>;
+	};
+};
+
+&pil_modem {
+	pinctrl-names = "default";
+	pinctrl-0 = <&modem_mux>;
+};
+
+&slim_msm {
+	status = "disabled";
+};
+
+&pm8994_mpps {
+	mpp@a500 { /* MPP 6 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on_sbc>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_cd_on_sbc>;
+};
+
+&i2c_7 {
+	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
+		status = "disabled";
+	};
+};
+

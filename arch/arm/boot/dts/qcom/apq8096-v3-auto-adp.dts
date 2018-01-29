@@ -1,0 +1,161 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "apq8096-v3.dtsi"
+#include "msm8996-pm8994.dtsi"
+#include "msm8996-agave-adp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ 8096 v3 AUTO ADP";
+	compatible = "qcom,apq8096-adp", "qcom,apq8096", "qcom,adp";
+	qcom,msm-id = <311 0x30001>;
+	qcom,board-id = <0x02010019 0>;
+};
+
+&spi_9 {
+	status = "ok";
+	can-controller@0 {
+		compatible = "renesas,rh850";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0>;
+		spi-max-frequency = <5000000>;
+	};
+};
+
+&soc {
+	qcom,msm-ssc-sensors {
+		status = "disabled";
+	};
+
+	qcom,msm-thermal {
+		qcom,hotplug-temp = <115>;
+		qcom,hotplug-temp-hysteresis = <25>;
+		qcom,therm-reset-temp = <119>;
+	};
+};
+
+&slim_msm {
+	status = "disabled";
+};
+
+&pm8994_mpps {
+	mpp@a500 { /* MPP 6 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+};
+
+&hl7509_en_vreg {
+	status = "ok";
+};
+
+&hl7509_vreg {
+	status = "ok";
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on_sbc>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_cd_on_sbc>;
+};
+
+&i2c_7 {
+	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
+		status = "disabled";
+	};
+};
+
+&gfx_cpr {
+	vdd-supply = <&hl7509_vreg>;
+	qcom,cpr-step-quot-init-min = <20>;
+	qcom,cpr-step-quot-init-max = <26>;
+	qcom,voltage-step = <10000>;
+	/delete-property/ qcom,cpr-enable;
+};
+
+&gfx_vreg {
+	qcom,cpr-voltage-ceiling =
+		<600000  670000  670000  750000  830000
+		 910000  960000 1020000>;
+	qcom,cpr-voltage-floor =
+		<600000  600000  600000  600000  600000
+		 600000  600000  600000>;
+};
+
+&pm8994_l3 {
+	regulator-min-microvolt = <875000>;
+	regulator-max-microvolt = <875000>;
+	qcom,init-voltage = <875000>;
+};
+
+&pm8994_l11 {
+	regulator-min-microvolt = <850000>;
+	regulator-max-microvolt = <850000>;
+	qcom,init-voltage = <850000>;
+};
+
+&pm8994_l17 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	qcom,init-voltage = <1800000>;
+};
+
+&pm8994_l23 {
+	regulator-min-microvolt = <1100000>;
+	regulator-max-microvolt = <1100000>;
+	qcom,init-voltage = <1100000>;
+};
+
+&pm8994_l27 {
+	regulator-min-microvolt = <800000>;
+	regulator-max-microvolt = <800000>;
+	qcom,init-voltage = <800000>;
+};
+
+&pm8994_l29 {
+	regulator-min-microvolt = <2500000>;
+	regulator-max-microvolt = <2500000>;
+	qcom,init-voltage = <2500000>;
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa26 {
+		/delete-node/ pm8994_l26_corner;
+		/delete-node/ pm8994_l26_floor_corner;
+
+		pm8994_l26: regulator-l26 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa31 {
+		status = "okay";
+		pm8994_l31: regulator-l31 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+};

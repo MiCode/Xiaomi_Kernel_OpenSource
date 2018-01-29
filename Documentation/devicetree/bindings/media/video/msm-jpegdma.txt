@@ -19,13 +19,18 @@ Required properties:
 - clocks : clocks required for the device.
 - qcom,clock-rates: should specify clock rates in Hz to each clocks
     property defined.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+	below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+
 Optional properties:
-- qcom,qos-regs: relative address offsets of QoS registers.
-- qcom,qos-settings: QoS values to be written to QoS registers.
-- qcom,vbif-regs: relative address offsets of VBIF registers.
-- qcom,vbif-settings: VBIF values to be written to VBIF registers.
-- qcom,prefetch-regs: relative address offsets of MMU prefetch registers.
-- qcom,prefetch-settings: values to be written to MMU Prefetch registers.
+- qcom,vbif-reg-settings: relative address offsets and value pairs for VBIF registers.
+- qcom,qos-reg-settings: relative address offsets and value pairs for QoS registers.
+- qcom,prefetch-reg-settings: relative address offsets and value pairs for
+  MMU prefetch registers.
 
 Example:
 	qcom,jpegdma@aa0000 {
@@ -53,10 +58,14 @@ Example:
 			<&clock_gcc  clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmagic_camss_axi_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0 0 0 0 0>,
-				<400000000 0 0 0 0 0 0 0 0>;
-		qcom,vbif-regs = <0x4 0xDC 0x124 0x160>;
-		qcom,vbif-settings = <0x1 0x7 0x1 0x22222222>;
-		qcom,prefetch-regs = <0x18C 0x1A0 0x1B0>;
-		qcom,prefetch-settings = <0x11 0x31 0x31>;
+		qcom,vbif-reg-settings = <0x4 0x1>;
+		qcom,prefetch-reg-settings = <0x18c 0x11>,
+			<0x1a0 0x31>,
+			<0x1b0 0x31>;
+		qcom,msm-bus,name = "msm_camera_jpeg_dma";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
 		status = "ok";
 	};

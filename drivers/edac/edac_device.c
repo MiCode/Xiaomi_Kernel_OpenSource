@@ -411,6 +411,8 @@ void edac_device_workq_setup(struct edac_device_ctl_info *edac_dev,
 	 * to used in the time period calculation
 	 * then calc the number of jiffies that represents
 	 */
+	if (!msec)
+		msec = 1000;
 	edac_dev->poll_msec = msec;
 	edac_dev->delay = msecs_to_jiffies(msec);
 
@@ -439,16 +441,13 @@ void edac_device_workq_setup(struct edac_device_ctl_info *edac_dev,
  */
 void edac_device_workq_teardown(struct edac_device_ctl_info *edac_dev)
 {
-	int status;
-
 	if (!edac_dev->edac_check)
 		return;
 
-	status = cancel_delayed_work(&edac_dev->work);
-	if (status == 0) {
-		/* workq instance might be running, wait for it */
-		flush_workqueue(edac_workqueue);
-	}
+	edac_dev->op_state = OP_OFFLINE;
+
+	cancel_delayed_work_sync(&edac_dev->work);
+	flush_workqueue(edac_workqueue);
 }
 
 /*
@@ -530,7 +529,7 @@ int edac_device_add_device(struct edac_device_ctl_info *edac_dev)
 		 * enable workq processing on this instance,
 		 * default = 1000 msec
 		 */
-		edac_device_workq_setup(edac_dev, 1000);
+		edac_device_workq_setup(edac_dev, edac_dev->poll_msec);
 	} else {
 		edac_dev->op_state = OP_RUNNING_INTERRUPT;
 	}

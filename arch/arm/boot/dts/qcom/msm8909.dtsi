@@ -814,27 +814,26 @@
 		reg-names = "hsusb";
 		interrupts = <0 135 0>;
 		interrupt-names = "hsusb";
+		qcom,bam-type = <1>;
 		qcom,usb-bam-num-pipes = <2>;
 		qcom,usb-bam-fifo-baseaddr = <0x08603800>;
 		qcom,ignore-core-reset-ack;
 		qcom,disable-clk-gating;
+		qcom,reset-bam-on-disconnect;
 
 		qcom,pipe0 {
 			label = "hsusb-qdss-in-0";
-			qcom,usb-bam-mem-type = <3>;
-			qcom,bam-type = <1>;
+			qcom,usb-bam-mem-type = <2>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <0>;
-			qcom,peer-bam = <1>;
-			qcom,src-bam-physical-address = <0x884000>;
+			qcom,peer-bam = <0>;
+			qcom,peer-bam-physical-address = <0x884000>;
 			qcom,src-bam-pipe-index = <0>;
-			qcom,dst-bam-physical-address = <0x78c4000>;
 			qcom,dst-bam-pipe-index = <0>;
 			qcom,data-fifo-offset = <0x0>;
 			qcom,data-fifo-size = <0x600>;
 			qcom,descriptor-fifo-offset = <0x600>;
 			qcom,descriptor-fifo-size = <0x200>;
-			qcom,reset-bam-on-connect;
 		};
 	};
 
@@ -951,7 +950,9 @@
 
 		qcom,bus-width = <8>;
 
-		qcom,cpu-dma-latency-us = <2 241 501>;
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 250>;
+
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
@@ -971,6 +972,7 @@
 			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 		qcom,clk-rates = <400000 25000000 50000000 100000000 177770000>;
+		qcom,devfreq,freq-table = <50000000 177770000>;
 
 		status = "disabled";
 	};
@@ -985,7 +987,9 @@
 
 		qcom,bus-width = <4>;
 
-		qcom,cpu-dma-latency-us = <2 241 501>;
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 250>;
+
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1005,6 +1009,7 @@
 		clock-names = "iface_clk", "core_clk";
 
 		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		status = "disabled";
 	};
@@ -1324,8 +1329,8 @@
 		dai_mi2s3: qcom,msm-dai-q6-mi2s-quat {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <3>;
-			qcom,msm-mi2s-rx-lines = <1>;
-			qcom,msm-mi2s-tx-lines = <2>;
+			qcom,msm-mi2s-rx-lines = <0>;
+			qcom,msm-mi2s-tx-lines = <3>;
 		};
 
 		dai_mi2s5: qcom,msm-dai-q6-mi2s-quin {
@@ -1350,12 +1355,57 @@
 		};
 	};
 
+	dai_hdmi: qcom,msm-dai-q6-hdmi {
+		compatible = "qcom,msm-dai-q6-hdmi";
+		qcom,msm-dai-q6-dev-id = <8>;
+	};
+
 	lsm: qcom,msm-lsm-client {
 		compatible = "qcom,msm-lsm-client";
 	};
 
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
+		sb_0_rx: qcom,msm-dai-q6-sb-0-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16384>;
+		};
+
+		sb_0_tx: qcom,msm-dai-q6-sb-0-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16385>;
+		};
+
+		sb_1_rx: qcom,msm-dai-q6-sb-1-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16386>;
+		};
+
+		sb_1_tx: qcom,msm-dai-q6-sb-1-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16387>;
+		};
+
+		sb_3_rx: qcom,msm-dai-q6-sb-3-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16390>;
+		};
+
+		sb_3_tx: qcom,msm-dai-q6-sb-3-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16391>;
+		};
+
+		sb_4_rx: qcom,msm-dai-q6-sb-4-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16392>;
+		};
+
+		sb_4_tx: qcom,msm-dai-q6-sb-4-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16393>;
+		};
+
 		bt_sco_rx: qcom,msm-dai-q6-bt-sco-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12288>;
@@ -1706,10 +1756,33 @@
 		qcom,sleep-status-mask= <0x80000>;
 	};
 };
+
+&gdsc_venus {
+	clock-names = "bus_clk", "core_clk";
+	clocks = <&clock_gcc clk_gcc_venus0_axi_clk>,
+		 <&clock_gcc clk_gcc_venus0_vcodec0_clk>;
+	status = "okay";
+};
+
+&gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+	clock-names = "core0_clk";
+	clocks = <&clock_gcc clk_gcc_venus0_core0_vcodec0_clk>;
+	status = "okay";
+};
+
 &gdsc_mdss {
 	clock-names = "core_clk", "bus_clk";
 	clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
 		 <&clock_gcc clk_gcc_mdss_axi_clk>;
+	status = "okay";
+};
+
+&gdsc_vfe {
+	clock-names = "core_clk", "bus_clk", "csi_clk";
+	clocks = <&clock_gcc clk_gcc_camss_vfe0_clk>,
+		 <&clock_gcc clk_gcc_camss_vfe_axi_clk>,
+		 <&clock_gcc clk_gcc_camss_csi_vfe0_clk>;
 	status = "okay";
 };
 
@@ -1718,4 +1791,3 @@
 	clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>;
 	status = "okay";
 };
-

@@ -55,6 +55,7 @@
 				"xo", "cfg_ahb_clk";
 
 		qcom,core-clk-rate = <120000000>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		dwc3@8a00000 {
 			compatible = "snps,dwc3";
 			reg = <0x08a00000 0xcd00>;
@@ -68,6 +69,7 @@
 			snps,bus-suspend-enable;
 			snps,usb3-u1u2-disable;
 			snps,num-gsi-evt-buffs = <0x3>;
+			xhci-imod-value = <4000>;
 		};
 
 		qcom,usbbam@0x8B04000 {
@@ -137,14 +139,16 @@
 					0x9f 0x1c
 					0x00 0x18>;
 		phy_type = "utmi";
+		USB3_GDSC-supply = <&gdsc_usb30>;
 
 		clocks = <&clock_gcc clk_ln_bb_clk>,
 			 <&clock_gcc clk_gcc_qusb_ref_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
-			 <&clock_gcc clk_gcc_qusb2a_phy_reset>;
+			 <&clock_gcc clk_gcc_qusb2a_phy_reset>,
+			 <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>;
 
 		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk",
-			"phy_reset";
+			"phy_reset", "iface_clk";
 	};
 
 	ssphy: ssphy@78000 {

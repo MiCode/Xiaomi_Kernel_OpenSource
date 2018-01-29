@@ -531,6 +531,11 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 				cstream, &async_domain);
 			} else {
 				be_list[j++] = be;
+				if (j == DPCM_MAX_BE_USERS) {
+					dev_dbg(fe->dev,
+						"ASoC: MAX backend users!\n");
+					break;
+				}
 			}
 		}
 		for (i = 0; i < j; i++) {

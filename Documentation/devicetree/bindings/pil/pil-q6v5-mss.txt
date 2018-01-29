@@ -84,6 +84,13 @@ Optional properties:
 - qcom,qdsp6v56-1-10: Boolean- Present if the qdsp version is v56 1.10
 - qcom,override-acc-1: Override the default ACC settings with this value if present.
 
+One child node to represent the MBA image may be specified, when the MBA image
+needs to be loaded in a specifically carved out memory region.
+
+Required properties:
+- compatible: Must be "qcom,pil-mba-mem"
+- memory-region: A phandle that points to a reserved memory where the MBA image will be loaded.
+
 Example:
 	qcom,mss@fc880000 {
 		compatible = "qcom,pil-q6v5-mss";
@@ -123,4 +130,9 @@ Example:
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		qcom,ssctl-instance-id = <12>;
 		qcom,sysmon-id = <0>;
+
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&peripheral_mem>;
+		};
 	};

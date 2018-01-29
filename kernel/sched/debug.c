@@ -332,6 +332,7 @@ do {									\
 	P(cluster->efficiency);
 	P(cluster->cur_freq);
 	P(cluster->max_freq);
+	P(cluster->exec_scale_factor);
 #endif
 #endif
 #ifdef CONFIG_SCHED_HMP

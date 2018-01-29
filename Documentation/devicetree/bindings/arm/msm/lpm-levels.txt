@@ -16,6 +16,10 @@ Required properties:
 
 - compatible: "qcom,lpm-levels"
 
+Optional properties:
+	- clocks: The clocks sources used by the cluster/cci mux.
+	- clock-names: Name of the clocks for the above clocks.
+
 [Node bindings for qcom,pm-cluster]
  Required properties:
 	- reg - The numeric cluster id

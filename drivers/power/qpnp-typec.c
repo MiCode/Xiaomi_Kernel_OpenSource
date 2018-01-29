@@ -27,6 +27,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/slab.h>
 #include <linux/spmi.h>
+#include <linux/usb/class-dual-role.h>
 
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
@@ -48,18 +49,42 @@
 #define TYPEC_DFP_STATUS_REG(base)	(base +	0x09)
 #define VALID_DFP_MASK			TYPEC_MASK(6, 4)
 
+#define TYPEC_SW_CTL_REG(base)		(base + 0x52)
+
 #define TYPEC_STD_MA			900
 #define TYPEC_MED_MA			1500
 #define TYPEC_HIGH_MA			3000
 
 #define QPNP_TYPEC_DEV_NAME	"qcom,qpnp-typec"
 #define TYPEC_PSY_NAME		"typec"
+#define DUAL_ROLE_DESC_NAME	"otg_default"
 
 enum cc_line_state {
 	CC_1,
 	CC_2,
 	OPEN,
 };
+
+struct typec_wakeup_source {
+	struct wakeup_source	source;
+	unsigned long		enabled;
+};
+
+static void typec_stay_awake(struct typec_wakeup_source *source)
+{
+	if (!__test_and_set_bit(0, &source->enabled)) {
+		__pm_stay_awake(&source->source);
+		pr_debug("enabled source %s\n", source->source.name);
+	}
+}
+
+static void typec_relax(struct typec_wakeup_source *source)
+{
+	if (__test_and_clear_bit(0, &source->enabled)) {
+		__pm_relax(&source->source);
+		pr_debug("disabled source %s\n", source->source.name);
+	}
+}
 
 struct qpnp_typec_chip {
 	struct device		*dev;
@@ -68,6 +93,7 @@ struct qpnp_typec_chip {
 	struct power_supply	type_c_psy;
 	struct regulator	*ss_mux_vreg;
 	struct mutex		typec_lock;
+	spinlock_t		rw_lock;
 
 	u16			base;
 
@@ -86,13 +112,53 @@ struct qpnp_typec_chip {
 	int			ssmux_gpio;
 	enum of_gpio_flags	gpio_flag;
 	int			typec_state;
+
+	/* Dual role support */
+	bool				role_reversal_supported;
+	bool				in_force_mode;
+	int				force_mode;
+	struct dual_role_phy_instance	*dr_inst;
+	struct dual_role_phy_desc	dr_desc;
+	struct delayed_work		role_reversal_check;
+	struct typec_wakeup_source	role_reversal_wakeup_source;
+};
+
+/* current mode */
+static char *mode_text[] = {
+	"ufp", "dfp", "none"
 };
 
 /* SPMI operations */
+static int __qpnp_typec_read(struct spmi_device *spmi, u8 *val, u16 addr,
+			int count)
+{
+	int rc;
+
+	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, addr, val, count);
+	if (rc)
+		pr_err("spmi read failed addr=0x%02x sid=0x%02x rc=%d\n",
+				addr, spmi->sid, rc);
+
+	return rc;
+}
+
+static int __qpnp_typec_write(struct spmi_device *spmi, u8 *val, u16 addr,
+			int count)
+{
+	int rc;
+
+	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, addr, val, count);
+	if (rc)
+		pr_err("spmi write failed addr=0x%02x sid=0x%02x rc=%d\n",
+				addr, spmi->sid, rc);
+	return rc;
+}
+
 static int qpnp_typec_read(struct qpnp_typec_chip *chip, u8 *val, u16 addr,
 			int count)
 {
-	int rc = 0;
+	int rc;
+	unsigned long flags;
 	struct spmi_device *spmi = chip->spmi;
 
 	if (addr == 0) {
@@ -101,15 +167,45 @@ static int qpnp_typec_read(struct qpnp_typec_chip *chip, u8 *val, u16 addr,
 		return -EINVAL;
 	}
 
-	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, addr, val, count);
+	spin_lock_irqsave(&chip->rw_lock, flags);
+	rc = __qpnp_typec_read(spmi, val, addr, count);
+	spin_unlock_irqrestore(&chip->rw_lock, flags);
+
+	return rc;
+}
+
+static int qpnp_typec_masked_write(struct qpnp_typec_chip *chip, u16 base,
+			u8 mask, u8 val)
+{
+	u8 reg;
+	int rc;
+	unsigned long flags;
+	struct spmi_device *spmi = chip->spmi;
+
+	spin_lock_irqsave(&chip->rw_lock, flags);
+	rc = __qpnp_typec_read(spmi, &reg, base, 1);
 	if (rc) {
-		pr_err("spmi read failed addr=0x%02x sid=0x%02x rc=%d\n",
-				addr, spmi->sid, rc);
-		return rc;
+		pr_err("spmi read failed: addr=%03X, rc=%d\n", base, rc);
+		goto out;
 	}
 
-	return 0;
+	reg &= ~mask;
+	reg |= val & mask;
+
+	pr_debug("addr = 0x%x writing 0x%x\n", base, reg);
+
+	rc = __qpnp_typec_write(spmi, &reg, base, 1);
+	if (rc) {
+		pr_err("spmi write failed: addr=%03X, rc=%d\n", base, rc);
+		goto out;
+	}
+
+out:
+	spin_unlock_irqrestore(&chip->rw_lock, flags);
+	return rc;
 }
+
+
 
 static int set_property_on_battery(struct qpnp_typec_chip *chip,
 				enum power_supply_property prop)
@@ -216,6 +312,30 @@ static int qpnp_typec_configure_ssmux(struct qpnp_typec_chip *chip,
 	return 0;
 }
 
+#define UFP_EN_BIT			BIT(5)
+#define DFP_EN_BIT			BIT(4)
+#define FORCE_MODE_MASK			TYPEC_MASK(5, 4)
+static int qpnp_typec_force_mode(struct qpnp_typec_chip *chip, int mode)
+{
+	int rc = 0;
+	u8 reg = (mode == DUAL_ROLE_PROP_MODE_UFP) ? UFP_EN_BIT
+			: (mode == DUAL_ROLE_PROP_MODE_DFP) ? DFP_EN_BIT : 0x0;
+
+	if (chip->force_mode != mode) {
+		rc = qpnp_typec_masked_write(chip,
+			TYPEC_SW_CTL_REG(chip->base), FORCE_MODE_MASK, reg);
+		if (rc) {
+			pr_err("Failed to force typeC mode rc=%d\n", rc);
+		} else {
+			chip->force_mode = mode;
+			pr_debug("Forced mode: %s\n",
+					mode_text[chip->force_mode]);
+		}
+	}
+
+	return rc;
+}
+
 static int qpnp_typec_handle_usb_insertion(struct qpnp_typec_chip *chip, u8 reg)
 {
 	int rc;
@@ -254,8 +374,19 @@ static int qpnp_typec_handle_detach(struct qpnp_typec_chip *chip)
 	if (rc)
 		pr_err("failed to set TYPEC MODE on battery psy rc=%d\n", rc);
 
-	pr_debug("CC_line state = %d current_ma = %d\n", chip->cc_line_state,
-			chip->current_ma);
+	pr_debug("CC_line state = %d current_ma = %d in_force_mode = %d\n",
+			chip->cc_line_state, chip->current_ma,
+			chip->in_force_mode);
+
+	/* handle role reversal */
+	if (chip->role_reversal_supported && !chip->in_force_mode) {
+		rc = qpnp_typec_force_mode(chip, DUAL_ROLE_PROP_MODE_NONE);
+		if (rc)
+			pr_err("Failed to set DRP mode rc=%d\n", rc);
+	}
+
+	if (chip->dr_inst)
+		dual_role_instance_changed(chip->dr_inst);
 
 	return rc;
 }
@@ -332,6 +463,9 @@ static irqreturn_t ufp_detect_handler(int irq, void *_chip)
 	if (rc)
 		pr_err("failed to set TYPEC MODE on battery psy rc=%d\n", rc);
 
+	if (chip->dr_inst)
+		dual_role_instance_changed(chip->dr_inst);
+
 	pr_debug("UFP status reg = 0x%x current = %dma\n",
 			reg, chip->current_ma);
 
@@ -388,6 +522,9 @@ static irqreturn_t dfp_detect_handler(int irq, void *_chip)
 			pr_err("failed to set TYPEC MODE on battery psy rc=%d\n",
 					rc);
 	}
+
+	if (chip->dr_inst)
+		dual_role_instance_changed(chip->dr_inst);
 
 	pr_debug("UFP status reg = 0x%x DFP status reg = 0x%x\n",
 			reg[0], reg[1]);
@@ -462,6 +599,8 @@ static int qpnp_typec_parse_dt(struct qpnp_typec_chip *chip)
 			return PTR_ERR(chip->ss_mux_vreg);
 	}
 
+	chip->role_reversal_supported = of_property_read_bool(node,
+					"qcom,role-reversal-supported");
 	return 0;
 }
 
@@ -560,6 +699,176 @@ static int qpnp_typec_get_property(struct power_supply *psy,
 	return 0;
 }
 
+#define ROLE_REVERSAL_DELAY_MS		500
+static void qpnp_typec_role_check_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct qpnp_typec_chip *chip = container_of(dwork,
+				struct qpnp_typec_chip, role_reversal_check);
+	int rc;
+
+	mutex_lock(&chip->typec_lock);
+	switch (chip->force_mode) {
+	case DUAL_ROLE_PROP_MODE_UFP:
+		if (chip->typec_state != POWER_SUPPLY_TYPE_UFP) {
+			pr_debug("Role-reversal not latched to UFP in %d msec resetting to DRP mode\n",
+					ROLE_REVERSAL_DELAY_MS);
+			rc = qpnp_typec_force_mode(chip,
+						DUAL_ROLE_PROP_MODE_NONE);
+			if (rc)
+				pr_err("Failed to set DRP mode rc=%d\n", rc);
+		}
+		chip->in_force_mode = false;
+		break;
+	case DUAL_ROLE_PROP_MODE_DFP:
+		if (chip->typec_state != POWER_SUPPLY_TYPE_DFP) {
+			pr_debug("Role-reversal not latched to DFP in %d msec resetting to DRP mode\n",
+					ROLE_REVERSAL_DELAY_MS);
+			rc = qpnp_typec_force_mode(chip,
+						DUAL_ROLE_PROP_MODE_NONE);
+			if (rc)
+				pr_err("Failed to set DRP mode rc=%d\n", rc);
+		}
+		chip->in_force_mode = false;
+		break;
+	default:
+		pr_debug("Already in DRP mode\n");
+		break;
+	}
+	mutex_unlock(&chip->typec_lock);
+	typec_relax(&chip->role_reversal_wakeup_source);
+}
+
+enum dual_role_property qpnp_typec_dr_properties[] = {
+	DUAL_ROLE_PROP_SUPPORTED_MODES,
+	DUAL_ROLE_PROP_MODE,
+	DUAL_ROLE_PROP_PR,
+	DUAL_ROLE_PROP_DR,
+};
+
+static int qpnp_typec_dr_is_writeable(struct dual_role_phy_instance *dual_role,
+					enum dual_role_property prop)
+{
+	int rc;
+
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
+	}
+	return rc;
+}
+
+static int qpnp_typec_dr_set_property(struct dual_role_phy_instance *dual_role,
+					enum dual_role_property prop,
+					const unsigned int *val)
+{
+	int rc = 0;
+	struct qpnp_typec_chip *chip = dual_role_get_drvdata(dual_role);
+
+	if (!chip || (chip->typec_state == POWER_SUPPLY_TYPE_UNKNOWN))
+		return -EINVAL;
+
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		/* Force role */
+		mutex_lock(&chip->typec_lock);
+		if (chip->in_force_mode) {
+			pr_debug("Already in mode transition skipping request\n");
+			mutex_unlock(&chip->typec_lock);
+			return 0;
+		}
+		switch (*val) {
+		case DUAL_ROLE_PROP_MODE_UFP:
+			rc = qpnp_typec_force_mode(chip,
+						DUAL_ROLE_PROP_MODE_UFP);
+			if (rc)
+				pr_err("Failed to force UFP mode rc=%d\n", rc);
+			else
+				chip->in_force_mode = true;
+			break;
+		case DUAL_ROLE_PROP_MODE_DFP:
+			rc = qpnp_typec_force_mode(chip,
+						DUAL_ROLE_PROP_MODE_DFP);
+			if (rc)
+				pr_err("Failed to force DFP mode rc=%d\n", rc);
+			else
+				chip->in_force_mode = true;
+			break;
+		default:
+			pr_debug("Invalid role(not DFP/UFP) %d\n", *val);
+			rc = -EINVAL;
+		}
+		mutex_unlock(&chip->typec_lock);
+
+		/*
+		 * schedule delayed work to check if device latched to the
+		 * requested mode.
+		 */
+		if (!rc && chip->in_force_mode) {
+			cancel_delayed_work_sync(&chip->role_reversal_check);
+			typec_stay_awake(&chip->role_reversal_wakeup_source);
+			schedule_delayed_work(&chip->role_reversal_check,
+				msecs_to_jiffies(ROLE_REVERSAL_DELAY_MS));
+		}
+		break;
+	default:
+		pr_debug("Invalid DUAL ROLE request %d\n", prop);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+static int qpnp_typec_dr_get_property(struct dual_role_phy_instance *dual_role,
+					enum dual_role_property prop,
+					unsigned int *val)
+{
+	struct qpnp_typec_chip *chip = dual_role_get_drvdata(dual_role);
+	unsigned int mode, power_role, data_role;
+
+	if (!chip)
+		return -EINVAL;
+
+	switch (chip->typec_state) {
+	case POWER_SUPPLY_TYPE_UFP:
+		mode = DUAL_ROLE_PROP_MODE_UFP;
+		power_role = DUAL_ROLE_PROP_PR_SNK;
+		data_role = DUAL_ROLE_PROP_DR_DEVICE;
+		break;
+	case POWER_SUPPLY_TYPE_DFP:
+		mode = DUAL_ROLE_PROP_MODE_DFP;
+		power_role = DUAL_ROLE_PROP_PR_SRC;
+		data_role = DUAL_ROLE_PROP_DR_HOST;
+		break;
+	default:
+		mode = DUAL_ROLE_PROP_MODE_NONE;
+		power_role = DUAL_ROLE_PROP_PR_NONE;
+		data_role = DUAL_ROLE_PROP_DR_NONE;
+	};
+
+	switch (prop) {
+	case DUAL_ROLE_PROP_SUPPORTED_MODES:
+		*val = chip->dr_desc.supported_modes;
+		break;
+	case DUAL_ROLE_PROP_MODE:
+		*val = mode;
+		break;
+	case DUAL_ROLE_PROP_PR:
+		*val = power_role;
+		break;
+	case DUAL_ROLE_PROP_DR:
+		*val = data_role;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int qpnp_typec_probe(struct spmi_device *spmi)
 {
 	int rc;
@@ -591,12 +900,13 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, chip);
 	device_init_wakeup(&spmi->dev, 1);
 	mutex_init(&chip->typec_lock);
+	spin_lock_init(&chip->rw_lock);
 
 	/* determine initial status */
 	rc = qpnp_typec_determine_initial_status(chip);
 	if (rc) {
 		pr_err("failed to determine initial state rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
 	chip->type_c_psy.name		= TYPEC_PSY_NAME;
@@ -607,20 +917,56 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 	rc = power_supply_register(chip->dev, &chip->type_c_psy);
 	if (rc < 0) {
 		pr_err("Unable to register  type_c_psy rc=%d\n", rc);
-		return rc;
+		goto out;
+	}
+
+	if (chip->role_reversal_supported) {
+		chip->force_mode = DUAL_ROLE_PROP_MODE_NONE;
+		wakeup_source_init(&chip->role_reversal_wakeup_source.source,
+					"typec_role_reversal_wake");
+		INIT_DELAYED_WORK(&chip->role_reversal_check,
+					qpnp_typec_role_check_work);
+		/* Register for android TypeC dual role framework */
+		chip->dr_desc.name		= DUAL_ROLE_DESC_NAME;
+		chip->dr_desc.properties	= qpnp_typec_dr_properties;
+		chip->dr_desc.get_property	= qpnp_typec_dr_get_property;
+		chip->dr_desc.set_property	= qpnp_typec_dr_set_property;
+		chip->dr_desc.property_is_writeable =
+					qpnp_typec_dr_is_writeable;
+		chip->dr_desc.supported_modes	=
+					DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP;
+		chip->dr_desc.num_properties	=
+					ARRAY_SIZE(qpnp_typec_dr_properties);
+
+		chip->dr_inst = devm_dual_role_instance_register(chip->dev,
+					&chip->dr_desc);
+		if (IS_ERR(chip->dr_inst)) {
+			pr_err("Failed to initialize dual role\n");
+			rc = PTR_ERR(chip->dr_inst);
+			goto unregister_psy;
+		} else {
+			chip->dr_inst->drv_data = chip;
+		}
 	}
 
 	/* All irqs */
 	rc = qpnp_typec_request_irqs(chip);
 	if (rc) {
 		pr_err("failed to request irqs rc=%d\n", rc);
-		return rc;
+		goto unregister_psy;
 	}
 
 	pr_info("TypeC successfully probed state=%d CC-line-state=%d\n",
 			chip->typec_state, chip->cc_line_state);
-
 	return 0;
+
+unregister_psy:
+	power_supply_unregister(&chip->type_c_psy);
+out:
+	mutex_destroy(&chip->typec_lock);
+	if (chip->role_reversal_supported)
+		wakeup_source_trash(&chip->role_reversal_wakeup_source.source);
+	return rc;
 }
 
 static int qpnp_typec_remove(struct spmi_device *spmi)
@@ -628,6 +974,10 @@ static int qpnp_typec_remove(struct spmi_device *spmi)
 	int rc;
 	struct qpnp_typec_chip *chip = dev_get_drvdata(&spmi->dev);
 
+	if (chip->role_reversal_supported) {
+		cancel_delayed_work_sync(&chip->role_reversal_check);
+		wakeup_source_trash(&chip->role_reversal_wakeup_source.source);
+	}
 	rc = qpnp_typec_configure_ssmux(chip, OPEN);
 	if (rc)
 		pr_err("failed to configure SSMUX rc=%d\n", rc);

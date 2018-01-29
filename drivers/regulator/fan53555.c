@@ -465,7 +465,17 @@ static struct i2c_driver fan53555_regulator_driver = {
 	.id_table = fan53555_id,
 };
 
-module_i2c_driver(fan53555_regulator_driver);
+static int __init fan53555_init(void)
+{
+	return i2c_add_driver(&fan53555_regulator_driver);
+}
+subsys_initcall(fan53555_init);
+
+static void __exit fan53555_exit(void)
+{
+	i2c_del_driver(&fan53555_regulator_driver);
+}
+module_exit(fan53555_exit);
 
 MODULE_AUTHOR("Yunfan Zhang <yfzhang@marvell.com>");
 MODULE_DESCRIPTION("FAN53555 regulator driver");

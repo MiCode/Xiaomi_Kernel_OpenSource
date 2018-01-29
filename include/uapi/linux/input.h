@@ -418,6 +418,11 @@ struct input_keymap_entry {
 #define KEY_F23			193
 #define KEY_F24			194
 
+#define KEY_GESTURE_NAV_UP		195
+#define KEY_GESTURE_NAV_DOWN	196
+#define KEY_GESTURE_NAV_LEFT	197
+#define KEY_GESTURE_NAV_RIGHT	198
+
 #define KEY_PLAYCD		200
 #define KEY_PAUSECD		201
 #define KEY_PROG3		202

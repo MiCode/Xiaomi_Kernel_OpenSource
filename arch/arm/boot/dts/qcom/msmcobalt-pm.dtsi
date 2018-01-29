@@ -11,6 +11,38 @@
  */
 
 &soc {
+	qcom,spm@178120000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x17812000 0x1000>;
+		qcom,name = "gold-l2"; /* Gold L2 SAW */
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,cpu-vctl-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,vctl-timeout-us = <500>;
+		qcom,vctl-port = <0x0>;
+		qcom,phase-port = <0x1>;
+		qcom,saw2-avs-ctl = <0x1010031>;
+		qcom,saw2-avs-limit = <0x4000208>;
+		qcom,pfm-port = <0x2>;
+	};
+
+	qcom,spm@179120000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x17912000 0x1000>;
+		qcom,name = "silver-l2"; /* Silver L2 SAW */
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,vctl-timeout-us = <500>;
+		qcom,vctl-port = <0x0>;
+		qcom,phase-port = <0x1>;
+		qcom,saw2-avs-ctl = <0x1010031>;
+		qcom,saw2-avs-limit = <0x4000208>;
+		qcom,pfm-port = <0x2>;
+	};
+
 	qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
 		qcom,use-psci;

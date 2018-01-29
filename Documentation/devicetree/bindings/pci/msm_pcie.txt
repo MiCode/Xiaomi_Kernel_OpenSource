@@ -73,6 +73,11 @@ Optional Properties:
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
   - qcom,pcie-phy-ver: version of PCIe PHY.
+  - qcom,phy-sequence: The initialization sequence to bring up the PCIe PHY.
+    Should be specified in groups (offset, value, delay).
+  - qcom,port-phy-sequence: The initialization sequence to bring up the
+    PCIe port PHY.
+    Should be specified in groups (offset, value, delay).
   - qcom,use-19p2mhz-aux-clk: The frequency of PCIe AUX clock is 19.2MHz.
   - qcom,ep-wakeirq: The endpoint will issue wake signal when it is up, and the
     root complex has the capability to enumerate the endpoint for this case.
@@ -91,6 +96,10 @@ Optional Properties:
     from the endpoint.
   - linux,pci-domain: For details of pci-domains properties, please refer to:
     "Documentation/devicetree/bindings/pci/pci.txt"
+  - qcom,perst-delay-us-min: The minimum allowed time (unit: us) to sleep after
+    asserting or de-asserting PERST GPIO.
+  - qcom,perst-delay-us-max: The maximum allowed time (unit: us) to sleep after
+    asserting or de-asserting PERST GPIO.
   - qcom,tlp-rd-size: The max TLP read size (Calculation: 128 times 2 to the
     tlp-rd-size power).
   - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
@@ -185,6 +194,21 @@ Example:
 				"msi_20", "msi_21", "msi_22", "msi_23",
 				"msi_24", "msi_25", "msi_26", "msi_27",
 				"msi_28", "msi_29", "msi_30", "msi_31";
+
+		qcom,phy-sequence = <0x804 0x01 0x00
+					0x034 0x14 0x00
+					0x138 0x30 0x00
+					0x048 0x0f 0x00
+					0x15c 0x06 0x00
+					0x090 0x01 0x00
+					0x808 0x03 0x00>;
+		qcom,port-phy-sequence = <0x804 0x01 0x00
+					0x034 0x14 0x00
+					0x138 0x30 0x00
+					0x048 0x0f 0x00
+					0x15c 0x06 0x00
+					0x090 0x01 0x00
+					0x808 0x03 0x00>;
 		perst-gpio = <&msmgpio 70 0>;
 		wake-gpio = <&msmgpio 69 0>;
 		clkreq-gpio = <&msmgpio 68 0>;

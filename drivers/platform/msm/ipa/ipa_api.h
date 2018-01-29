@@ -10,6 +10,10 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/ipa_mhi.h>
+#include <linux/ipa_uc_offload.h>
+#include "ipa_common_i.h"
+
 #ifndef _IPA_API_H_
 #define _IPA_API_H_
 
@@ -22,6 +26,8 @@ struct ipa_api_controller {
 	int (*ipa_reset_endpoint)(u32 clnt_hdl);
 
 	int (*ipa_clear_endpoint_delay)(u32 clnt_hdl);
+
+	int (*ipa_disable_endpoint)(u32 clnt_hdl);
 
 	int (*ipa_cfg_ep)(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg);
 
@@ -183,45 +189,6 @@ struct ipa_api_controller {
 
 	int (*ipa_uc_dereg_rdyCB)(void);
 
-	int (*ipa_rm_create_resource)(
-		struct ipa_rm_create_params *create_params);
-
-	int (*ipa_rm_delete_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_register)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_register_params *reg_params);
-
-	int (*ipa_rm_deregister)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_register_params *reg_params);
-
-	int (*ipa_rm_set_perf_profile)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_perf_profile *profile);
-
-	int (*ipa_rm_add_dependency)(enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
-
-	int (*ipa_rm_delete_dependency)(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-	int (*ipa_rm_request_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_release_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_notify_completion)(enum ipa_rm_event event,
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_init)(enum ipa_rm_resource_name
-		resource_name, unsigned long msecs);
-
-	int (*ipa_rm_inactivity_timer_destroy)(
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_request_resource)(
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_release_resource)(
-				enum ipa_rm_resource_name resource_name);
-
 	int (*teth_bridge_init)(struct teth_bridge_init_params *params);
 
 	int (*teth_bridge_disconnect)(enum ipa_client_type client);
@@ -251,20 +218,68 @@ struct ipa_api_controller {
 
 	void (*ipa_dma_destroy)(void);
 
-	int (*ipa_mhi_init)(struct ipa_mhi_init_params *params);
+	bool (*ipa_has_open_aggr_frame)(enum ipa_client_type client);
 
-	int (*ipa_mhi_start)(struct ipa_mhi_start_params *params);
+	int (*ipa_generate_tag_process)(void);
 
-	int (*ipa_mhi_connect_pipe)(struct ipa_mhi_connect_params *in,
+	int (*ipa_disable_sps_pipe)(enum ipa_client_type client);
+
+	void (*ipa_set_tag_process_before_gating)(bool val);
+
+	int (*ipa_mhi_init_engine)(struct ipa_mhi_init_engine *params);
+
+	int (*ipa_connect_mhi_pipe)(struct ipa_mhi_connect_params_internal *in,
 		u32 *clnt_hdl);
 
-	int (*ipa_mhi_disconnect_pipe)(u32 clnt_hdl);
+	int (*ipa_disconnect_mhi_pipe)(u32 clnt_hdl);
 
-	int (*ipa_mhi_suspend)(bool force);
+	bool (*ipa_mhi_stop_gsi_channel)(enum ipa_client_type client);
 
-	int (*ipa_mhi_resume)(void);
+	int (*ipa_qmi_disable_force_clear)(u32 request_id);
 
-	void (*ipa_mhi_destroy)(void);
+	int (*ipa_qmi_enable_force_clear_datapath_send)(
+		struct ipa_enable_force_clear_datapath_req_msg_v01 *req);
+
+	int (*ipa_qmi_disable_force_clear_datapath_send)(
+		struct ipa_disable_force_clear_datapath_req_msg_v01 *req);
+
+	bool (*ipa_mhi_sps_channel_empty)(enum ipa_client_type client);
+
+	int (*ipa_mhi_reset_channel_internal)(enum ipa_client_type client);
+
+	int (*ipa_mhi_start_channel_internal)(enum ipa_client_type client);
+
+	void (*ipa_get_holb)(int ep_idx, struct ipa_ep_cfg_holb *holb);
+
+	int (*ipa_mhi_query_ch_info)(enum ipa_client_type client,
+			struct gsi_chan_info *ch_info);
+
+	int (*ipa_mhi_resume_channels_internal)(
+			enum ipa_client_type client,
+			bool LPTransitionRejected,
+			bool brstmode_enabled,
+			union __packed gsi_channel_scratch ch_scratch,
+			u8 index);
+
+	int  (*ipa_mhi_destroy_channel)(enum ipa_client_type client);
+
+	int (*ipa_uc_mhi_send_dl_ul_sync_info)
+		(union IpaHwMhiDlUlSyncCmdData_t *cmd);
+
+	int (*ipa_uc_mhi_init)
+		(void (*ready_cb)(void), void (*wakeup_request_cb)(void));
+
+	void (*ipa_uc_mhi_cleanup)(void);
+
+	int (*ipa_uc_mhi_print_stats)(char *dbg_buff, int size);
+
+	int (*ipa_uc_mhi_reset_channel)(int channelHandle);
+
+	int (*ipa_uc_mhi_suspend_channel)(int channelHandle);
+
+	int (*ipa_uc_mhi_stop_event_update_channel)(int channelHandle);
+
+	int (*ipa_uc_state_check)(void);
 
 	int (*ipa_write_qmap_id)(struct ipa_ioc_write_qmapid *param_in);
 
@@ -308,10 +323,6 @@ struct ipa_api_controller {
 	int (*ipa_disable_apps_wan_cons_deaggr)(uint32_t agg_size,
 						uint32_t agg_count);
 
-	int (*ipa_rm_add_dependency_sync)(
-		enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
-
 	struct device *(*ipa_get_dma_dev)(void);
 
 	int (*ipa_release_wdi_mapping)(u32 num_buffers,
@@ -325,6 +336,35 @@ struct ipa_api_controller {
 	int (*ipa_register_ipa_ready_cb)(void (*ipa_ready_cb)(void *user_data),
 		void *user_data);
 
+	void (*ipa_inc_client_enable_clks)(
+		struct ipa_active_client_logging_info *id);
+
+	void (*ipa_dec_client_disable_clks)(
+		struct ipa_active_client_logging_info *id);
+
+	int (*ipa_inc_client_enable_clks_no_block)(
+		struct ipa_active_client_logging_info *id);
+
+	int (*ipa_suspend_resource_no_block)(
+		enum ipa_rm_resource_name resource);
+
+	int (*ipa_resume_resource)(enum ipa_rm_resource_name name);
+
+	int (*ipa_suspend_resource_sync)(enum ipa_rm_resource_name resource);
+
+	int (*ipa_set_required_perf_profile)(
+		enum ipa_voltage_level floor_voltage, u32 bandwidth_mbps);
+
+	void *(*ipa_get_ipc_logbuf)(void);
+
+	void *(*ipa_get_ipc_logbuf_low)(void);
+
+	int (*ipa_setup_uc_ntn_pipes)(struct ipa_ntn_conn_in_params *in,
+		ipa_notify_cb notify, void *priv, u8 hdr_len,
+		struct ipa_ntn_conn_out_params *);
+
+	int (*ipa_tear_down_uc_offload_pipes)(int ipa_ep_idx_ul,
+		int ipa_ep_idx_dl);
 };
 
 #ifdef CONFIG_IPA

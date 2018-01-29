@@ -1551,7 +1551,7 @@ static void __trace_find_cmdline(int pid, char comm[])
 
 	map = savedcmd->map_pid_to_cmdline[pid];
 	if (map != NO_CMDLINE_MAP)
-		strcpy(comm, get_saved_cmdlines(map));
+		strlcpy(comm, get_saved_cmdlines(map), TASK_COMM_LEN - 1);
 	else
 		strcpy(comm, "<...>");
 }
@@ -4775,7 +4775,10 @@ static ssize_t tracing_splice_read_pipe(struct file *filp,
 
 	spd.nr_pages = i;
 
-	ret = splice_to_pipe(pipe, &spd);
+	if (i)
+		ret = splice_to_pipe(pipe, &spd);
+	else
+		ret = 0;
 out:
 	splice_shrink_spd(&spd);
 	return ret;

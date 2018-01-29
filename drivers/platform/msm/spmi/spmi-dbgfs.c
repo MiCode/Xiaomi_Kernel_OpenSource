@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,12 @@
 static const char *DFS_ROOT_NAME	= "spmi";
 static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
 
+#ifndef CONFIG_MSM_SPMI_DEBUGFS_RO
+static const mode_t DFS_DATA_MODE = S_IRUSR | S_IWUSR;
+#else
+static const mode_t DFS_DATA_MODE = S_IRUSR;
+#endif
+
 /* Log buffer */
 struct spmi_log_buffer {
 	size_t rpos;	/* Current 'read' position in buffer */
@@ -69,6 +75,7 @@ struct spmi_trans {
 	u32 addr;	/* 20-bit address: SID + PID + Register offset */
 	u32 offset;	/* Offset of last read data */
 	bool raw_data;	/* Set to true for raw data dump */
+	struct mutex spmi_dfs_lock; /* Prevent thread concurrency */
 	struct spmi_controller *ctrl;
 	struct spmi_log_buffer *log; /* log buffer */
 };
@@ -168,6 +175,7 @@ static int spmi_dfs_open(struct spmi_ctrl_data *ctrl_data, struct file *file)
 	trans->addr = ctrl_data->addr;
 	trans->ctrl = ctrl_data->ctrl;
 	trans->offset = trans->addr;
+	mutex_init(&trans->spmi_dfs_lock);
 
 	file->private_data = trans;
 	return 0;
@@ -197,6 +205,7 @@ static int spmi_dfs_close(struct inode *inode, struct file *file)
 
 	if (trans && trans->log) {
 		file->private_data = NULL;
+		mutex_destroy(&trans->spmi_dfs_lock);
 		kfree(trans->log);
 		kfree(trans);
 	}
@@ -241,6 +250,7 @@ done:
 	return ret;
 }
 
+#ifndef CONFIG_MSM_SPMI_DEBUGFS_RO
 /**
  * spmi_write_data: writes data across the SPMI bus
  * @ctrl: The SPMI controller
@@ -277,6 +287,7 @@ spmi_write_data(struct spmi_controller *ctrl, uint8_t *buf, int offset, int cnt)
 done:
 	return ret;
 }
+#endif
 
 /**
  * print_to_log: format a string and place into the log buffer
@@ -456,6 +467,7 @@ static int get_log_data(struct spmi_trans *trans)
 	return total_items_read;
 }
 
+#ifndef CONFIG_MSM_SPMI_DEBUGFS_RO
 /**
  * spmi_dfs_reg_write: write user's byte array (coded as string) over SPMI.
  * @file: file pointer
@@ -473,14 +485,21 @@ static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 	int cnt = 0;
 	u8  *values;
 	size_t ret = 0;
-
+	u32 offset;
+	char *kbuf;
 	struct spmi_trans *trans = file->private_data;
-	u32 offset = trans->offset;
+
+	mutex_lock(&trans->spmi_dfs_lock);
+
+	trans = file->private_data;
+	offset = trans->offset;
 
 	/* Make a copy of the user data */
-	char *kbuf = kmalloc(count + 1, GFP_KERNEL);
-	if (!kbuf)
-		return -ENOMEM;
+	kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf) {
+		ret = -ENOMEM;
+		goto unlock_mutex;
+	}
 
 	ret = copy_from_user(kbuf, buf, count);
 	if (ret == count) {
@@ -517,8 +536,13 @@ static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 
 free_buf:
 	kfree(kbuf);
+unlock_mutex:
+	mutex_unlock(&trans->spmi_dfs_lock);
 	return ret;
 }
+#else
+#define spmi_dfs_reg_write NULL
+#endif
 
 /**
  * spmi_dfs_reg_read: reads value(s) over SPMI and fill user's buffer a
@@ -537,10 +561,13 @@ static ssize_t spmi_dfs_reg_read(struct file *file, char __user *buf,
 	size_t ret;
 	size_t len;
 
+	mutex_lock(&trans->spmi_dfs_lock);
 	/* Is the the log buffer empty */
 	if (log->rpos >= log->wpos) {
-		if (get_log_data(trans) <= 0)
-			return 0;
+		if (get_log_data(trans) <= 0) {
+			len = 0;
+			goto unlock_mutex;
+		}
 	}
 
 	len = min(count, log->wpos - log->rpos);
@@ -548,7 +575,8 @@ static ssize_t spmi_dfs_reg_read(struct file *file, char __user *buf,
 	ret = copy_to_user(buf, &log->data[log->rpos], len);
 	if (ret == len) {
 		pr_err("error copy SPMI register values to user\n");
-		return -EFAULT;
+		len = -EFAULT;
+		goto unlock_mutex;
 	}
 
 	/* 'ret' is the number of bytes not copied */
@@ -556,6 +584,9 @@ static ssize_t spmi_dfs_reg_read(struct file *file, char __user *buf,
 
 	*ppos += len;
 	log->rpos += len;
+
+unlock_mutex:
+	mutex_unlock(&trans->spmi_dfs_lock);
 	return len;
 }
 
@@ -671,14 +702,14 @@ int spmi_dfs_add_controller(struct spmi_controller *ctrl)
 		goto err_remove_fs;
 	}
 
-	file = debugfs_create_file("data", DFS_MODE, dir, ctrl_data,
+	file = debugfs_create_file("data", DFS_DATA_MODE, dir, ctrl_data,
 							&spmi_dfs_reg_fops);
 	if (!file) {
 		pr_err("error creating 'data' entry\n");
 		goto err_remove_fs;
 	}
 
-	file = debugfs_create_file("data_raw", DFS_MODE, dir, ctrl_data,
+	file = debugfs_create_file("data_raw", DFS_DATA_MODE, dir, ctrl_data,
 						&spmi_dfs_raw_data_fops);
 	if (!file) {
 		pr_err("error creating 'data' entry\n");

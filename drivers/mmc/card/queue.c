@@ -113,6 +113,9 @@ static int mmc_cmdq_thread(void *d)
 	struct mmc_queue *mq = d;
 	struct mmc_card *card = mq->card;
 	struct mmc_host *host = card->host;
+	struct sched_param scheduler_params = {0};
+	scheduler_params.sched_priority = 1;
+	sched_setscheduler(current, SCHED_FIFO, &scheduler_params);
 
 	current->flags |= PF_MEMALLOC;
 	if (card->host->wakeup_on_idle)
@@ -127,14 +130,11 @@ static int mmc_cmdq_thread(void *d)
 
 		ret = mq->cmdq_issue_fn(mq, mq->cmdq_req_peeked);
 		/*
-		 * Don't requeue if issue_fn fails, just bug on.
-		 * We don't expect failure here and there is no recovery other
-		 * than fixing the actual issue if there is any.
+		 * Don't requeue if issue_fn fails.
+		 * Recovery will be come by completion softirq
 		 * Also we end the request if there is a partition switch error,
 		 * so we should not requeue the request here.
 		 */
-		if (ret)
-			BUG_ON(1);
 	} /* loop */
 
 	return 0;

@@ -665,57 +665,56 @@
 		interrupt-names = "pwrcl-irq", "perfcl-irq";
 
 		qcom,pwrcl-speedbin0-v0 =
-			< 300000000 0x4000f 0x31e001e >,
-			< 345600000 0x5040012 0x4200020 >,
-			< 422400000 0x5040016 0x4200020 >,
-			< 499200000 0x504001a 0x5200020 >,
-			< 576000000 0x504001e 0x6200020 >,
-			< 633600000 0x4040021 0x7200020 >,
-			< 710400000 0x4040025 0x7200020 >,
-			< 806400000 0x404002a 0x8220022 >,
-			< 883200000 0x404002e 0x9250025 >,
-			< 960000000 0x4040032 0xa280028 >,
-			< 1036800000 0x4040036 0xb2b002b >,
-			< 1113600000 0x404003a 0xc2e002e >,
-			< 1190400000 0x404003e 0xc320032 >,
-			< 1248000000 0x4040041 0xd340034 >,
-			< 1324800000 0x4040045 0xe370037 >,
-			< 1401600000 0x4040049 0xf3a003a >,
-			< 1478400000 0x404004d 0x103e003e >,
-			< 1574400000 0x4040052 0x10420042 >,
-			< 1651200000 0x4040056 0x11450045 >,
-			< 1728000000 0x404005a 0x12480048 >,
-			< 1804800000 0x404005e 0x134b004b >,
-			< 1881600000 0x4040062 0x144e004e >;
+			< 300000000  0x0004000f 0x031e001e 0x1>,
+			< 345600000  0x05040012 0x04200020 0x1>,
+			< 422400000  0x05040016 0x04200020 0x1>,
+			< 499200000  0x0504001a 0x05200020 0x1>,
+			< 576000000  0x0504001e 0x06200020 0x1>,
+			< 633600000  0x04040021 0x07200020 0x1>,
+			< 710400000  0x04040025 0x07200020 0x1>,
+			< 806400000  0x0404002a 0x08220022 0x2>,
+			< 883200000  0x0404002e 0x09250025 0x2>,
+			< 960000000  0x04040032 0x0a280028 0x2>,
+			< 1036800000 0x04040036 0x0b2b002b 0x3>,
+			< 1113600000 0x0404003a 0x0c2e002e 0x3>,
+			< 1190400000 0x0404003e 0x0c320032 0x3>,
+			< 1248000000 0x04040041 0x0d340034 0x3>,
+			< 1324800000 0x04040045 0x0e370037 0x3>,
+			< 1401600000 0x04040049 0x0f3a003a 0x3>,
+			< 1478400000 0x0404004d 0x103e003e 0x3>,
+			< 1574400000 0x04040052 0x10420042 0x4>,
+			< 1651200000 0x04040056 0x11450045 0x4>,
+			< 1728000000 0x0404005a 0x12480048 0x4>,
+			< 1804800000 0x0404005e 0x134b004b 0x4>,
+			< 1881600000 0x04040062 0x144e004e 0x4>;
 
 		qcom,perfcl-speedbin0-v0 =
-			< 300000000 0x4000f 0x3200020 >,
-			< 345600000 0x5040012 0x4200020 >,
-			< 422400000 0x5040016 0x4200020 >,
-			< 480000000 0x5040019 0x5200020 >,
-			< 556800000 0x504001d 0x6200020 >,
-			< 633600000 0x4040021 0x7200020 >,
-			< 710400000 0x4040025 0x7200020 >,
-			< 787200000 0x4040029 0x8210021 >,
-			< 844800000 0x404002c 0x9240024 >,
-			< 902400000 0x404002f 0x9260026 >,
-			< 979200000 0x4040033 0xa290029 >,
-			< 1056000000 0x4040037 0xb2c002c >,
-			< 1171200000 0x404003d 0xc300030 >,
-			< 1248000000 0x4040041 0xd340034 >,
-			< 1324800000 0x4040045 0xe370037 >,
-			< 1401600000 0x4040049 0xf3b003b >,
-			< 1478400000 0x404004d 0xf3e003e >,
-			< 1536000000 0x4040050 0x10400040 >,
-			< 1632000000 0x4040055 0x11440044 >,
-			< 1708800000 0x4040059 0x12480048 >,
-			< 1785600000 0x404005d 0x134a004a >,
-			< 1862400000 0x4040061 0x134e004e >,
-			< 1939200000 0x4040065 0x14510051 >,
-			< 2016000000 0x4040069 0x15540054 >,
-			< 2092800000 0x404006d 0x16570057 >;
+			< 300000000  0x0004000f 0x03200020 0x1>,
+			< 345600000  0x05040012 0x04200020 0x1>,
+			< 422400000  0x05040016 0x04200020 0x1>,
+			< 480000000  0x05040019 0x05200020 0x1>,
+			< 556800000  0x0504001d 0x06200020 0x1>,
+			< 633600000  0x04040021 0x07200020 0x1>,
+			< 710400000  0x04040025 0x07200020 0x1>,
+			< 787200000  0x04040029 0x08210021 0x1>,
+			< 844800000  0x0404002c 0x09240024 0x2>,
+			< 902400000  0x0404002f 0x09260026 0x2>,
+			< 979200000  0x04040033 0x0a290029 0x2>,
+			< 1056000000 0x04040037 0x0b2c002c 0x2>,
+			< 1171200000 0x0404003d 0x0c300030 0x3>,
+			< 1248000000 0x04040041 0x0d340034 0x3>,
+			< 1324800000 0x04040045 0x0e370037 0x3>,
+			< 1401600000 0x04040049 0x0f3b003b 0x3>,
+			< 1478400000 0x0404004d 0x0f3e003e 0x3>,
+			< 1536000000 0x04040050 0x10400040 0x3>,
+			< 1632000000 0x04040055 0x11440044 0x4>,
+			< 1708800000 0x04040059 0x12480048 0x4>,
+			< 1785600000 0x0404005d 0x134a004a 0x4>,
+			< 1862400000 0x04040061 0x134e004e 0x4>,
+			< 1939200000 0x04040065 0x14510051 0x4>,
+			< 2016000000 0x04040069 0x15540054 0x4>,
+			< 2092800000 0x0404006d 0x16570057 0x4>;
 
-		qcom,osm-no-tz;
 		qcom,osm-pll-setup;
 
 		qcom,up-timer =
@@ -758,6 +757,25 @@
 		qcom,red-fsm-en;
 		qcom,boost-fsm-en;
 		qcom,safe-fsm-en;
+		qcom,ps-fsm-en;
+		qcom,droop-fsm-en;
+		qcom,wfx-fsm-en;
+		qcom,pc-fsm-en;
+
+		qcom,pwrcl-apcs-mem-acc-cfg =
+			<0x179d1360 0x179d1364 0x179d1364>;
+		qcom,perfcl-apcs-mem-acc-cfg =
+			<0x179d1368 0x179d136C 0x179d1370>;
+		qcom,pwrcl-apcs-mem-acc-val =
+			<0x00000000 0x10000000 0x10000000>,
+			<0x00000000 0x10000000 0x10000000>,
+			<0x00000000 0x00000000 0x00000000>,
+			<0x00000000 0x00000001 0x00000001>;
+		qcom,perfcl-apcs-mem-acc-val =
+			<0x00000000 0x00000000 0x10000000>,
+			<0x00000000 0x00000000 0x10000000>,
+			<0x00000000 0x00000000 0x00000000>,
+			<0x00000000 0x00000000 0x00000001>;
 
 		clock-names = "aux_clk", "xo_ao";
 		clocks = <&clock_gcc clk_hmss_gpll0_clk_src>,
@@ -790,6 +808,7 @@
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
 		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
 	};
 
 	ipa_hw: qcom,ipa@01e00000 {
@@ -809,6 +828,9 @@
 		qcom,use-gsi;
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
+		qcom,do-not-use-ch-gsi-20;
+		qcom,ipa-wdi2;
+		qcom,use-64-bit-dma-mask;
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,msm-bus,name = "ipa";
@@ -820,6 +842,17 @@
 		<90 512 206000 960000>, <90 585 206000 960000>,    /* NOMINAL */
 		<90 512 206000 3600000>, <90 585 206000 3600000>;    /* TURBO */
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+
+		/* smp2p gpio information */
+		qcom,smp2pgpio_map_ipa_1_out {
+			compatible = "qcom,smp2pgpio-map-ipa-1-out";
+			gpios = <&smp2pgpio_ipa_1_out 0 0>;
+		};
+
+		qcom,smp2pgpio_map_ipa_1_in {
+			compatible = "qcom,smp2pgpio-map-ipa-1-in";
+			gpios = <&smp2pgpio_ipa_1_in 0 0>;
+		};
 	};
 
 	qcom,ipa_fws@1e08000 {
@@ -900,26 +933,56 @@
 		};
 	};
 
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-adsp";
+		qcom,fastrpc-glink;
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 8>;
+		};
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 9>;
+		};
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 10>;
+		};
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 11>;
+		};
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 12>;
+		};
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 5>;
+		};
+		qcom,msm_fastrpc_compute_cb7 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 6>;
+		};
+		qcom,msm_fastrpc_compute_cb8 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 7>;
+		};
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-glink";
 		qcom,glink-edge = "rpm";
 		rpm-channel-name = "rpm_requests";
-	};
-
-	qcom,smdpkt {
-		compatible = "qcom,smdpkt";
-
-		qcom,smdpkt-apr-apps2 {
-			qcom,smdpkt-remote = "adsp";
-			qcom,smdpkt-port-name = "apr_apps2";
-			qcom,smdpkt-dev-name = "apr_apps2";
-		};
-
-		qcom,smdpkt-loopback {
-			qcom,smdpkt-remote = "modem";
-			qcom,smdpkt-port-name = "LOOPBACK";
-			qcom,smdpkt-dev-name = "smd_pkt_loopback";
-		};
 	};
 
 	glink_mpss: qcom,glink-ssr-modem {
@@ -1026,7 +1089,7 @@
 		compatible = "qcom,glinkpkt";
 
 		qcom,glinkpkt-at-mdm0 {
-			qcom,glinkpkt-transport = "smd_trans";
+			qcom,glinkpkt-transport = "smem";
 			qcom,glinkpkt-edge = "mpss";
 			qcom,glinkpkt-ch-name = "DS";
 			qcom,glinkpkt-dev-name = "at_mdm0";
@@ -1044,6 +1107,20 @@
 			qcom,glinkpkt-edge = "local";
 			qcom,glinkpkt-ch-name = "glink_pkt_lloop_CLNT";
 			qcom,glinkpkt-dev-name = "glink_pkt_loopback";
+		};
+
+		qcom,glinkpkt-apr-apps2 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "adsp";
+			qcom,glinkpkt-ch-name = "apr_apps2";
+			qcom,glinkpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,glinkpkt-data40-cntl {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA40_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl8";
 		};
 	};
 
@@ -1130,14 +1207,12 @@
 		reg = <0x1da7000 0xda8>;
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
-		vdda-phy-max-microamp = <51430>;
-		vdda-pll-max-microamp = <14170>;
-		vddp-ref-clk-max-microamp = <100>;
-		vddp-ref-clk-always-on;
 		clock-names = "ref_clk_src",
-			"ref_clk";
+			"ref_clk",
+			"ref_aux_clk";
 		clocks = <&clock_gcc clk_ln_bb_clk1>,
-			<&clock_gcc clk_gcc_ufs_clkref_clk>;
+			<&clock_gcc clk_gcc_ufs_clkref_clk>,
+			<&clock_gcc clk_gcc_ufs_phy_aux_clk>;
 		status = "disabled";
 	};
 
@@ -1145,24 +1220,18 @@
 		compatible = "qcom,ice";
 		reg = <0x1db0000 0x8000>;
 		qcom,enable-ice-clk;
-		clock-names =   "ufs_core_clk_src",
-				"ufs_core_clk",
+		clock-names =   "ufs_core_clk",
 				"bus_clk",
 				"iface_clk",
-				"ice_core_clk_src",
 				"ice_core_clk";
-		clocks = <&clock_gcc clk_ufs_axi_clk_src>,
-			 <&clock_gcc clk_gcc_ufs_axi_clk>,
+		clocks = <&clock_gcc clk_gcc_ufs_axi_clk>,
 			 <&clock_gcc clk_gcc_aggre1_ufs_axi_clk>,
 			 <&clock_gcc clk_gcc_ufs_ahb_clk>,
-			 <&clock_gcc clk_ufs_ice_core_clk_src>,
 			 <&clock_gcc clk_gcc_ufs_ice_core_clk>;
 		qcom,op-freq-hz =	<0>,
 					<0>,
 					<0>,
-					<0>,
-					<300000000>,
-					<0>;
+					<300000000>;
 		vdd-hba-supply = <&gdsc_ufs>;
 		qcom,msm-bus,name = "ufs_ice_noc";
 		qcom,msm-bus,num-cases = <2>;
@@ -1182,28 +1251,21 @@
 		interrupts = <0 265 0>;
 		phys = <&ufsphy1>;
 		phy-names = "ufsphy";
-		vdd-hba-supply = <&gdsc_ufs>;
-		vdd-hba-fixed-regulator;
-		vcc-max-microamp = <750000>;
-		vccq-max-microamp = <450000>;
-		vccq2-max-microamp = <750000>;
 		ufs-qcom-crypto = <&ufs_ice>;
 
 		clock-names =
-			"core_clk_src",
 			"core_clk",
+			"bus_aggr_clk",
 			"iface_clk",
-			"core_clk_unipro_src",
 			"core_clk_unipro",
 			"core_clk_ice",
 			"ref_clk",
 			"tx_lane0_sync_clk",
 			"rx_lane0_sync_clk";
 		clocks =
-			<&clock_gcc clk_ufs_axi_clk_src>,
 			<&clock_gcc clk_gcc_ufs_axi_clk>,
+			<&clock_gcc clk_gcc_aggre1_ufs_axi_clk>,
 			<&clock_gcc clk_gcc_ufs_ahb_clk>,
-			<&clock_gcc clk_ufs_ice_core_clk_src>,
 			<&clock_gcc clk_gcc_ufs_unipro_core_clk>,
 			<&clock_gcc clk_gcc_ufs_ice_core_clk>,
 			<&clock_gcc clk_ln_bb_clk1>,
@@ -1213,9 +1275,8 @@
 			<100000000 200000000>,
 			<0 0>,
 			<0 0>,
+			<75000000 150000000>,
 			<150000000 300000000>,
-			<0 0>,
-			<0 0>,
 			<0 0>,
 			<0 0>,
 			<0 0>;
@@ -1604,6 +1665,44 @@
 		};
 	};
 
+	qcom_seecom: qseecom@86600000 {
+		compatible = "qcom,qseecom";
+		reg = <0x86600000 0x2200000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
+		qcom,commonlib64-loaded-by-uefi;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 0 0>,
+				<55 512 120000 1200000>,
+				<55 512 393600 3936000>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		clocks = <&clock_gcc clk_ce1_clk>,
+			 <&clock_gcc clk_qseecom_ce1_clk>,
+			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
+			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	qcom_tzlog: tz-log@146BF720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146BF720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>; /* 0x066BFB30 */
+		hyplog-size-offset = <0x414>;    /* 0x066BFB34 */
+	};
+
 	mitigation_profile0: qcom,limit_info-0 {
 		qcom,temperature-sensor = <&sensor_information1>;
 		qcom,boot-frequency-mitigate;
@@ -1781,6 +1880,11 @@
 		mem_dump_table@10 {
 			compatible = "qcom,msm-imem-mem_dump_table";
 			reg = <0x10 8>;
+		};
+
+		dload_type@18 {
+			compatible = "qcom,msm-imem-dload-type";
+			reg = <0x18 4>;
 		};
 
 		restart_reason@65c {

@@ -1,0 +1,286 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "mdm9640-v2.dtsi"
+#include "mdm9640-pinctrl.dtsi"
+
+&soc {
+	sound {
+		qcom,cdc-micbias2-headset-only;
+	};
+
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+		ntn-supply-enable-gpio = <&pmd9635_gpios 3 0>;
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <0>;
+	};
+};
+
+&blsp1_uart3 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_console_active>;
+};
+
+&blsp1_uart2 {
+	status = "ok";
+};
+
+&i2c_3 {
+	smb1357_otg_supply: smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <83 0>;    /* MDM GPIO 83 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1357_otg_supply";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pmx_smb_stat_active>;
+		qcom,id-line-not-connected;
+		qcom,bmd-algo-disabled;
+	};
+};
+
+&pmd9635_gpios {
+	gpio@c000 { /* GPIO 1 */
+	};
+
+	gpio@c100 { /* GPIO 2 */
+		qcom,mode = <1>;               /* Digital output */
+		qcom,output-type = <0>;        /* CMOS logic */
+		qcom,invert = <0>;             /* no inversion */
+		qcom,vin-sel = <2>;            /* VIN 2 */
+		qcom,src-sel = <2>;            /* Function 2 */
+		qcom,out-strength = <2>;       /* Medium */
+		qcom,master-en = <1>;          /* Enable GPIO */
+		status = "ok";
+	};
+
+	gpio@c200 { /* GPIO 3 - Neutrino supply enable */
+		qcom,mode = <1>;         /* Digital output*/
+		qcom,pull = <5>;         /* No Pull */
+		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,src-sel = <0>;      /* GPIO */
+		qcom,invert = <0>;       /* Invert */
+		qcom,master-en = <1>;    /* Enable GPIO */
+		status = "ok";
+	};
+
+	gpio@c300 { /* GPIO 4 */
+		status = "ok";
+		qcom,mode = <0>;	/* Digital input */
+		qcom,pull = <1>;	/* Pull up 1.5 uA */
+		qcom,vin-sel = <2>;	/* PMD9635 LDO 6 = 1.8 V */
+		qcom,master-en = <1>;	/* Enable GPIO */
+	};
+
+	gpio@c400 { /* GPIO 5 */
+	};
+
+	gpio@c500 { /* GPIO 6 */
+		qcom,mode = <1>;         /* Digital output*/
+		qcom,pull = <4>;         /* Pulldown 10uA */
+		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,src-sel = <0>;      /* GPIO */
+		qcom,invert = <0>;       /* Invert */
+		qcom,master-en = <1>;    /* Enable GPIO */
+		status = "ok";
+	};
+};
+
+&pmd9635_mpps {
+	mpp@a000 { /* MPP 1 */
+	};
+
+	mpp@a100 { /* MPP 2 */
+	};
+
+	mpp@a200 { /* MPP 3 */
+	};
+
+	mpp@a300 { /* MPP 4 */
+		/* VADC channel 19 */
+		qcom,mode = <4>;
+		qcom,ain-route = <3>; /* AMUX 8 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		qcom,invert = <1>;
+		status = "ok";
+	};
+
+	mpp@a400 { /* MPP 5 */
+	};
+
+	mpp@a500 { /* MPP 6 */
+		/* channel 21 */
+		qcom,mode = <4>;
+		qcom,ain-route = <1>; /* AMUX 6 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		qcom,invert = <1>;
+		status = "ok";
+	};
+};
+
+&pmd9635_vadc {
+	chan@6 {
+		label = "vbat_sns";
+		reg = <6>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@7 {
+		label = "vph_pwr";
+		reg = <7>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@31 {
+		label = "batt_id_therm";
+		reg = <0x31>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@33 {
+		label = "pa_therm0";
+		reg = <0x33>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@3c {
+		label = "xo_therm_buf";
+		reg = <0x3c>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@13 {
+		label = "case_therm";
+		reg = <0x13>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@15 {
+		label = "ambient_therm";
+		reg = <0x15>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+};
+
+&pmd9635_adc_tm {
+	chan@33 {
+		label = "pa_therm0";
+		reg = <0x33>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x48>;
+		qcom,thermal-node;
+	};
+
+	chan@13 {
+		label = "case_therm";
+		reg = <0x13>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x68>;
+		qcom,thermal-node;
+	};
+
+	chan@15 {
+		label = "ambient_therm";
+		reg = <0x15>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x70>;
+		qcom,thermal-node;
+	};
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&sd_slot_vreg>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <9000 800000>;
+
+	vdd-io-supply = <&pmd9635_l14>;
+	qcom,vdd-io-voltage-level = <1800000 2850000>;
+	qcom,vdd-io-current-level = <200 60000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on
+							&pmx_sdc1_cd_on>;
+	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off>;
+
+	cd-gpios = <&tlmm_pinmux 81 0x1>;
+
+	qcom,devfreq,freq-table = <50000000 200000000>;
+
+	status = "ok";
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&smb1357_otg_supply>;
+	qcom,cpe-gpio = <&tlmm_pinmux 87 0>;
+};

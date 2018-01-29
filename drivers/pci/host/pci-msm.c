@@ -53,16 +53,33 @@
 #define PCIE20_PARF_DBI_BASE_ADDR	0x350
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x358
 
+#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x174)
+
 #define TX_BASE 0x200
 #define RX_BASE 0x400
 #define PCS_BASE 0x800
 #define PCS_MISC_BASE 0x600
+#elif defined(CONFIG_ARCH_MDM9640)
+#define PCIE_VENDOR_ID_RCP		0x17cb
+#define PCIE_DEVICE_ID_RCP		0x0301
+
+#define PCIE20_PARF_DBI_BASE_ADDR	0x168
+#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
+
+#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x128)
+
+#define TX_BASE 0x200
+#define RX_BASE 0x400
+#define PCS_BASE 0x600
+#define PCS_MISC_BASE 0
 #else
 #define PCIE_VENDOR_ID_RCP		0x17cb
 #define PCIE_DEVICE_ID_RCP		0x0104
 
 #define PCIE20_PARF_DBI_BASE_ADDR	0x168
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
+
+#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x174)
 
 #define TX_BASE 0x1000
 #define RX_BASE 0x1200
@@ -169,7 +186,6 @@
 #define PCIE_N_TEST_CONTROL5(n, m)		(PCS_PORT(n, m) + 0x120)
 #define PCIE_N_TEST_CONTROL6(n, m)		(PCS_PORT(n, m) + 0x124)
 #define PCIE_N_TEST_CONTROL7(n, m)		(PCS_PORT(n, m) + 0x128)
-#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x174)
 #define PCIE_N_DEBUG_BUS_0_STATUS(n, m)		(PCS_PORT(n, m) + 0x198)
 #define PCIE_N_DEBUG_BUS_1_STATUS(n, m)		(PCS_PORT(n, m) + 0x19C)
 #define PCIE_N_DEBUG_BUS_2_STATUS(n, m)		(PCS_PORT(n, m) + 0x1A0)
@@ -502,6 +518,13 @@ struct msm_pcie_irq_info_t {
 	uint32_t	    num;
 };
 
+/* phy info structure */
+struct msm_pcie_phy_info_t {
+	u32	offset;
+	u32	val;
+	u32	delay;
+};
+
 /* PCIe device info structure */
 struct msm_pcie_device_info {
 	u32			bdf;
@@ -585,6 +608,8 @@ struct msm_pcie_dev_t {
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	short				current_short_bdf;
+	uint32_t			perst_delay_us_min;
+	uint32_t			perst_delay_us_max;
 	uint32_t			tlp_rd_size;
 	bool				linkdown_panic;
 	bool				 ep_wakeirq;
@@ -613,6 +638,10 @@ struct msm_pcie_dev_t {
 	u32				num_active_ep;
 	u32				num_ep;
 	bool				pending_ep_reg;
+	u32				phy_len;
+	u32				port_phy_len;
+	struct msm_pcie_phy_info_t	*phy_sequence;
+	struct msm_pcie_phy_info_t	*port_phy_sequence;
 	u32		ep_shadow[MAX_DEVICE_NUM][PCIE_CONF_SPACE_DW];
 	u32				  rc_shadow[PCIE_CONF_SPACE_DW];
 	bool				 shadow_en;
@@ -1409,9 +1438,27 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 #else
 static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 {
+	int i;
+	struct msm_pcie_phy_info_t *phy_seq;
+
 	PCIE_DBG(dev,
 		"RC%d: Initializing 14nm QMP phy - 19.2MHz with Common Mode Clock (SSC ON)\n",
 		dev->rc_idx);
+
+	if (dev->phy_sequence) {
+		i =  dev->phy_len;
+		phy_seq = dev->phy_sequence;
+		while (i--) {
+			msm_pcie_write_reg(dev->phy,
+				phy_seq->offset,
+				phy_seq->val);
+			if (phy_seq->delay)
+				usleep_range(phy_seq->delay,
+					phy_seq->delay + 1);
+			phy_seq++;
+		}
+		return;
+	}
 
 	if (dev->common_phy)
 		msm_pcie_write_reg(dev->phy, PCIE_COM_POWER_DOWN_CONTROL, 0x01);
@@ -1473,7 +1520,12 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 
 static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 {
+	int i;
+	struct msm_pcie_phy_info_t *phy_seq;
 	u8 common_phy;
+
+	if (dev->phy_ver == 0x90)
+		return;
 
 	PCIE_DBG(dev, "RC%d: Initializing PCIe PHY Port\n", dev->rc_idx);
 
@@ -1481,6 +1533,21 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 		common_phy = 1;
 	else
 		common_phy = 0;
+
+	if (dev->port_phy_sequence) {
+		i =  dev->port_phy_len;
+		phy_seq = dev->port_phy_sequence;
+		while (i--) {
+			msm_pcie_write_reg(dev->phy,
+				phy_seq->offset,
+				phy_seq->val);
+			if (phy_seq->delay)
+				usleep_range(phy_seq->delay,
+					phy_seq->delay + 1);
+			phy_seq++;
+		}
+		return;
+	}
 
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_TX_N_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN(dev->rc_idx,
@@ -1570,6 +1637,15 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
+	if (dev->phy_ver == 0x90) {
+		if (readl_relaxed(dev->phy +
+			PCIE_N_PCS_STATUS(dev->rc_idx, dev->common_phy)) &
+			BIT(6))
+			return false;
+		else
+			return true;
+	}
+
 	if (!(readl_relaxed(dev->phy + PCIE_COM_PCS_READY_STATUS) & 0x1))
 		return false;
 	else
@@ -1770,6 +1846,10 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->num_active_ep);
 	PCIE_DBG_FS(dev, "pending_ep_reg: %s\n",
 		dev->pending_ep_reg ? "true" : "false");
+	PCIE_DBG_FS(dev, "phy_len is %d",
+		dev->phy_len);
+	PCIE_DBG_FS(dev, "port_phy_len is %d",
+		dev->port_phy_len);
 	PCIE_DBG_FS(dev, "disable_pc is %d",
 		dev->disable_pc);
 	PCIE_DBG_FS(dev, "l0s_supported is %s supported\n",
@@ -1822,6 +1902,10 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
 		dev->current_bdf);
+	PCIE_DBG_FS(dev, "perst_delay_us_min: %dus\n",
+		dev->perst_delay_us_min);
+	PCIE_DBG_FS(dev, "perst_delay_us_max: %dus\n",
+		dev->perst_delay_us_max);
 	PCIE_DBG_FS(dev, "tlp_rd_size: 0x%x\n",
 		dev->tlp_rd_size);
 	PCIE_DBG_FS(dev, "rc_corr_counter: %lu\n",
@@ -2255,6 +2339,9 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 	case 13: /* dump all registers of base_sel */
 		if (!base_sel) {
 			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
+			break;
+		} else if (base_sel - 1 == MSM_PCIE_RES_PARF) {
+			pcie_parf_dump(dev);
 			break;
 		} else if (base_sel - 1 == MSM_PCIE_RES_PHY) {
 			pcie_phy_dump(dev);
@@ -3815,7 +3902,7 @@ void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev)
 static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 					struct platform_device *pdev)
 {
-	int i, len, cnt, ret = 0;
+	int i, len, cnt, ret = 0, size = 0;
 	struct msm_pcie_vreg_info_t *vreg_info;
 	struct msm_pcie_gpio_info_t *gpio_info;
 	struct msm_pcie_clk_info_t  *clk_info;
@@ -3936,6 +4023,56 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 			}
 		}
 		ret = 0;
+	}
+
+	of_get_property(pdev->dev.of_node, "qcom,phy-sequence", &size);
+	if (size) {
+		dev->phy_sequence = (struct msm_pcie_phy_info_t *)
+			devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+
+		if (dev->phy_sequence) {
+			dev->phy_len =
+				size / sizeof(*dev->phy_sequence);
+
+			of_property_read_u32_array(pdev->dev.of_node,
+				"qcom,phy-sequence",
+				(unsigned int *)dev->phy_sequence,
+				size / sizeof(dev->phy_sequence->offset));
+		} else {
+			PCIE_ERR(dev,
+				"RC%d: Could not allocate memory for phy init sequence.\n",
+				dev->rc_idx);
+			ret = -ENOMEM;
+			goto out;
+		}
+	} else {
+		PCIE_DBG(dev, "RC%d: phy sequence is not present in DT\n",
+			dev->rc_idx);
+	}
+
+	of_get_property(pdev->dev.of_node, "qcom,port-phy-sequence", &size);
+	if (size) {
+		dev->port_phy_sequence = (struct msm_pcie_phy_info_t *)
+			devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+
+		if (dev->port_phy_sequence) {
+			dev->port_phy_len =
+				size / sizeof(*dev->port_phy_sequence);
+
+			of_property_read_u32_array(pdev->dev.of_node,
+				"qcom,port-phy-sequence",
+				(unsigned int *)dev->port_phy_sequence,
+				size / sizeof(dev->port_phy_sequence->offset));
+		} else {
+			PCIE_ERR(dev,
+				"RC%d: Could not allocate memory for port phy init sequence.\n",
+				dev->rc_idx);
+			ret = -ENOMEM;
+			goto out;
+		}
+	} else {
+		PCIE_DBG(dev, "RC%d: port phy sequence is not present in DT\n",
+			dev->rc_idx);
 	}
 
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
@@ -4256,8 +4393,7 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		dev->rc_idx);
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_PERST].on);
-	usleep_range(PERST_PROPAGATION_DELAY_US_MIN,
-				 PERST_PROPAGATION_DELAY_US_MAX);
+	usleep_range(dev->perst_delay_us_min, dev->perst_delay_us_max);
 
 	/* set max tlp read size */
 	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
@@ -4303,6 +4439,12 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	dev->power_on = true;
 	dev->suspending = false;
 	dev->link_turned_on_counter++;
+
+	if (dev->bridge_found && dev->ep_latency) {
+		PCIE_DBG(dev, "PCIe RC%d add ref clk propagation latency.\n",
+			dev->rc_idx);
+		usleep_range(dev->ep_latency * 1000, dev->ep_latency * 1000);
+	}
 
 	goto out;
 
@@ -4685,6 +4827,14 @@ int msm_pcie_enumerate(u32 rc_idx)
 					dev->rc_idx, ret);
 
 				return ret;
+			}
+
+			if (dev->ep_latency) {
+				PCIE_DBG(dev,
+					"PCIe RC%d add ref clk propagation latency.\n",
+					dev->rc_idx);
+				usleep_range(dev->ep_latency * 1000,
+					dev->ep_latency * 1000);
 			}
 
 			bus = pci_create_root_bus(&dev->pdev->dev, 0,
@@ -5121,7 +5271,7 @@ static irqreturn_t handle_msi_irq(int irq, void *data)
 	struct msm_pcie_dev_t *dev = data;
 	void __iomem *ctrl_status;
 
-	PCIE_DBG(dev, "irq=%d\n", irq);
+	PCIE_DUMP(dev, "irq: %d\n", irq);
 
 	/* check for set bits, clear it by setting that bit
 	   and trigger corresponding irq */
@@ -5772,6 +5922,34 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: cpl-timeout: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].cpl_timeout);
 
+	msm_pcie_dev[rc_idx].perst_delay_us_min =
+		PERST_PROPAGATION_DELAY_US_MIN;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,perst-delay-us-min",
+				&msm_pcie_dev[rc_idx].perst_delay_us_min);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-min does not exist. Use default value %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_min);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-min: %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_min);
+
+	msm_pcie_dev[rc_idx].perst_delay_us_max =
+		PERST_PROPAGATION_DELAY_US_MAX;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,perst-delay-us-max",
+				&msm_pcie_dev[rc_idx].perst_delay_us_max);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-max does not exist. Use default value %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_max);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-max: %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_max);
+
 	msm_pcie_dev[rc_idx].tlp_rd_size = PCIE_TLP_RD_SIZE;
 	ret = of_property_read_u32(pdev->dev.of_node,
 				"qcom,tlp-rd-size",
@@ -5831,6 +6009,10 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].num_active_ep = 0;
 	msm_pcie_dev[rc_idx].num_ep = 0;
 	msm_pcie_dev[rc_idx].pending_ep_reg = false;
+	msm_pcie_dev[rc_idx].phy_len = 0;
+	msm_pcie_dev[rc_idx].port_phy_len = 0;
+	msm_pcie_dev[rc_idx].phy_sequence = NULL;
+	msm_pcie_dev[rc_idx].port_phy_sequence = NULL;
 	msm_pcie_dev[rc_idx].event_reg = NULL;
 	msm_pcie_dev[rc_idx].linkdown_counter = 0;
 	msm_pcie_dev[rc_idx].link_turned_on_counter = 0;

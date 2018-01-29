@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,28 +43,6 @@
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_active>;
-};
-
-&sdhc_1 {
-	vdd-supply = <&pm8994_l20>;
-	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <200 570000>;
-
-	vdd-io-supply = <&pm8994_s4>;
-	qcom,vdd-io-always-on;
-	qcom,vdd-io-voltage-level = <1800000 1800000>;
-	qcom,vdd-io-current-level = <110 325000>;
-
-	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
-	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
-
-	qcom,clk-rates = <400000 20000000 25000000 50000000
-				96000000 192000000 384000000>;
-	qcom,nonremovable;
-	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
-
-	status = "ok";
 };
 
 &sdhc_2 {
@@ -262,6 +240,9 @@
 };
 
 &mdss_hdmi_tx {
+	qcom,conti-splash-enabled;
+	qcom,hdmi-tx-hpd = <&tlmm 34 0>;
+
 	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active", "hdmi_cec_active",
 				"hdmi_active", "hdmi_sleep";
 	pinctrl-0 = <&mdss_hdmi_hpd_active &mdss_hdmi_ddc_suspend
@@ -330,8 +311,8 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
-	qcom,mdss-dsi-pwm-gpio = <&pm8994_gpios 6 0>;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8994_gpios 5 0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
 };
 
 &mdss_mdp {
@@ -363,12 +344,11 @@
 };
 
 &labibb {
-	status = "ok";
-	qpnp,qpnp-labibb-mode = "lcd";
+	status = "disabled";
 };
 
 &ibb_regulator {
-	qcom,qpnp-ibb-discharge-resistor = <32>;
+	status = "disabled";
 };
 
 &rpm_bus {
@@ -396,22 +376,15 @@
 	};
 };
 
-&pmi8994_fg {
-	status = "disabled";
-};
-
-&pmi8994_charger {
-	status = "disabled";
-};
-
 &usb_otg_switch {
+	/delete-property/ vin-supply;
 	gpio = <&pm8994_gpios 11 0>;
 	enable-active-high;
 	status = "ok";
 };
 
 &usb3 {
-	status = "disabled";
+	status = "ok";
 	qcom,charging-disabled;
 	vbus_dwc3-supply = <&usb_otg_switch>;
 	qcom,ext-hub-reset-gpio =  <&tlmm 103 0>;
@@ -439,6 +412,10 @@
 
 &rome_vreg {
 	status = "disabled";
+};
+
+&pcie2 {
+	/delete-property/ qcom,ep-wakeirq;
 };
 
 &pm8994_mpps {
@@ -497,6 +474,8 @@
 		qcom,vin-sel = <0>;		/* VPH_PWR */
 		qcom,master-en = <1>;		/* Enable GPIO */
 		status = "okay";
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,invert = <0>;
 	};
 };
 
@@ -566,34 +545,32 @@
 	};
 
 	sound-9335 {
-		qcom,model = "msm8996-tasha-db-snd-card";
+		qcom,model = "msm8996-tasha-sbc-snd-card";
 
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
-			"AMIC1", "MIC BIAS3",
-			"MIC BIAS3", "Analog Mic4",
+			"AMIC1", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
 			"AMIC3", "MIC BIAS2",
 			"MIC BIAS2", "ANCLeft Headset Mic",
 			"AMIC4", "MIC BIAS2",
 			"MIC BIAS2", "ANCRight Headset Mic",
-			"AMIC5", "MIC BIAS3",
-			"MIC BIAS3", "Analog Mic6",
-			"AMIC6", "MIC BIAS4",
-			"MIC BIAS4", "Analog Mic7",
-			"DMIC0", "MIC BIAS1",
-			"MIC BIAS1", "Digital Mic0",
-			"DMIC1", "MIC BIAS3",
-			"MIC BIAS3", "Digital Mic1",
-			"DMIC2", "MIC BIAS4",
-			"MIC BIAS4", "Digital Mic2",
+			"AMIC5", "MIC BIAS2",
+			"MIC BIAS2", "Analog Mic6",
+			"AMIC6", "MIC BIAS2",
+			"MIC BIAS2", "Analog Mic7",
+			"DMIC2", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic2",
 			"DMIC3", "MIC BIAS1",
 			"MIC BIAS1", "Digital Mic3",
 			"DMIC4", "MIC BIAS3",
 			"MIC BIAS3", "Digital Mic4",
-			"DMIC5", "MIC BIAS4",
-			"MIC BIAS4", "Digital Mic5";
+			"DMIC5", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic5",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
 
 		qcom,hdmi-audio-rx;
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
@@ -614,24 +591,39 @@
 	};
 };
 
-&spmi_bus {
-	qcom,pmi8994@0 {
-		compatible = "qcom,leds-qpnp";
+&green_led {
+	linux,name = "UserLED0";
+};
 
+&blue_led {
+	linux,name = "UserLED1";
+};
+
+&red_led {
+	linux,name = "UserLED2";
+};
+
+&spmi_bus {
+	qcom,pmi8994@2 {
 		qcom,leds@a100 { /* user3 LED */
+			compatible = "qcom,leds-qpnp";
 			reg = <0xa100 0x100>;
 			status = "okay";
 			qcom,led_pmi_mpp_2 {
 				label = "mpp";
-				linux,name = "user3";
+				linux,name = "UserLED3";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
 				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
+				qcom,mode-ctrl = <0x60>;
 				qcom,mode = "manual";
 				linux,default-trigger =
 					"none";
 			};
+		};
+
+		qcom,power-on@800 {
+			qcom,pon-reset-off;
 		};
 	};
 
@@ -639,15 +631,16 @@
 		compatible = "qcom,leds-qpnp";
 
 		qcom,leds@a100 { /* wifi LED */
+			compatible = "qcom,leds-qpnp";
 			reg = <0xa100 0x100>;
 			status = "okay";
 			qcom,led_mpp_2 {
 				label = "mpp";
-				linux,name = "wifi";
+				linux,name = "WiFi_LED";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
 				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
+				qcom,mode-ctrl = <0x60>;
 				qcom,mode = "manual";
 				linux,default-trigger =
 					"wifi-indication-led";
@@ -655,15 +648,16 @@
 		};
 
 		qcom,leds@a300 { /* BT LED */
+		    compatible = "qcom,leds-qpnp";
 			reg = <0xa300 0x100>;
 			status = "okay";
 			qcom,led_mpp_4 {
 				label = "mpp";
-				linux,name = "bt";
+				linux,name = "BT_LED";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
 				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
+				qcom,mode-ctrl = <0x60>;
 				qcom,mode = "manual";
 				linux,default-trigger =
 					"bt-indication-led";
@@ -673,7 +667,7 @@
 
 	qcom,pm8994@1 {
 		pwm@b100 {
-			qcom,lpg-dtest-line = <4>;
+			qcom,dtest-line = <4>;
 			qcom,dtest-output = <1>;
 			status = "okay";
 		};
@@ -809,13 +803,23 @@
 	status = "ok";
 };
 
+&spi_0 {
+	status = "ok";
+};
+
+&i2c_12 {
+	status = "disabled";
+};
+
+&spi_12 {
+	status = "ok";
+};
+
 &slim_msm {
 	tasha_codec {
-		qcom,cdc-micbias2-headset-only;
 		qcom,cdc-micbias1-ext-cap;
 		qcom,cdc-micbias2-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
-		qcom,cdc-micbias4-ext-cap;
 	};
 };
 
@@ -833,13 +837,13 @@
 
 &cam_sensor_mclk1_active { /* MCLK1 */
 	config {
-		drive-strength = <8>; /* 8 MA */
+		drive-strength = <4>; /* 4 MA */
 	};
 };
 
 &cam_sensor_mclk1_suspend { /* MCLK1 */
 	config {
-		drive-strength = <8>; /* 8 MA */
+		drive-strength = <4>; /* 4 MA */
 	};
 };
 
@@ -853,4 +857,10 @@
 	config {
 		drive-strength = <8>; /* 8 MA */
 	};
+};
+
+&wil6210 {
+	status = "ok";
+	/delete-property/ qcom,wigig-en;
+	/delete-property/ qcom,sleep-clk-en;
 };

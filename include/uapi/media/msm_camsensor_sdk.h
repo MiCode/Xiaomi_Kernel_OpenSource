@@ -114,6 +114,15 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_MAX,
 };
 
+enum msm_ir_cut_filter_gpio_t {
+	IR_CUT_FILTER_GPIO_P = 0,
+	IR_CUT_FILTER_GPIO_M,
+	IR_CUT_FILTER_GPIO_MAX,
+};
+#define IR_CUT_FILTER_GPIO_P IR_CUT_FILTER_GPIO_P
+#define IR_CUT_FILTER_GPIO_M IR_CUT_FILTER_GPIO_M
+#define R_CUT_FILTER_GPIO_MAX IR_CUT_FILTER_GPIO_MAX
+
 enum msm_camera_vreg_name_t {
 	CAM_VDIG,
 	CAM_VIO,
@@ -181,6 +190,28 @@ enum msm_flash_cfg_type_t {
 	CFG_FLASH_LOW,
 	CFG_FLASH_HIGH,
 };
+
+enum msm_ir_led_cfg_type_t {
+	CFG_IR_LED_INIT = 0,
+	CFG_IR_LED_RELEASE,
+	CFG_IR_LED_OFF,
+	CFG_IR_LED_ON,
+};
+#define CFG_IR_LED_INIT CFG_IR_LED_INIT
+#define CFG_IR_LED_RELEASE CFG_IR_LED_RELEASE
+#define CFG_IR_LED_OFF CFG_IR_LED_OFF
+#define CFG_IR_LED_ON CFG_IR_LED_ON
+
+enum msm_ir_cut_cfg_type_t {
+	CFG_IR_CUT_INIT = 0,
+	CFG_IR_CUT_RELEASE,
+	CFG_IR_CUT_OFF,
+	CFG_IR_CUT_ON,
+};
+#define CFG_IR_CUT_INIT CFG_IR_CUT_INIT
+#define CFG_IR_CUT_RELEASE CFG_IR_CUT_RELEASE
+#define CFG_IR_CUT_OFF CFG_IR_CUT_OFF
+#define CFG_IR_CUT_ON CFG_IR_CUT_ON
 
 enum msm_sensor_output_format_t {
 	MSM_SENSOR_BAYER,

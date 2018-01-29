@@ -33,18 +33,6 @@
 	qcom,xo-clk-rate = <19200000>;
 };
 
-&ufsphy1 {
-	status = "ok";
-};
-
-&ufs1 {
-	status = "ok";
-};
-
-&ufs_ice {
-	status = "ok";
-};
-
 &qusb_phy0 {
 	compatible =  "usb-nop-xceiv";
 };

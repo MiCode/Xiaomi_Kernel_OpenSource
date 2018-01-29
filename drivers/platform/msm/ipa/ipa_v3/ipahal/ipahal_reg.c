@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/ipc_logging.h>
 #include <linux/init.h>
 #include <linux/ipa.h>
 #include <linux/kernel.h>
@@ -1038,6 +1037,12 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_QSB_MAX_READS] = {
 		ipareg_construct_qsb_max_reads, ipareg_parse_dummy,
 		0x00000078, 0},
+	[IPA_HW_v3_0][IPA_DPS_SEQUENCER_FIRST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0001e000, 0},
+	[IPA_HW_v3_0][IPA_HPS_SEQUENCER_FIRST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0001e080, 0},
 
 
 	/* IPAv3.1 */
@@ -1066,6 +1071,11 @@ int ipahal_reg_init(enum ipa_hw_type ipa_hw_type)
 	struct ipahal_reg_obj zero_obj;
 
 	IPAHAL_DBG_LOW("Entry - HW_TYPE=%d\n", ipa_hw_type);
+
+	if ((ipa_hw_type < 0) || (ipa_hw_type >= IPA_HW_MAX)) {
+		IPAHAL_ERR("invalid IPA HW type (%d)\n", ipa_hw_type);
+		return -EINVAL;
+	}
 
 	memset(&zero_obj, 0, sizeof(zero_obj));
 	for (i = IPA_HW_v3_0 ; i < ipa_hw_type ; i++) {

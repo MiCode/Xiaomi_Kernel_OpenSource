@@ -202,7 +202,7 @@ TRACE_EVENT(cpu_frequency_limits,
 
 	TP_fast_assign(
 		__entry->min_freq = min_freq;
-		__entry->max_freq = min_freq;
+		__entry->max_freq = max_freq;
 		__entry->cpu_id = cpu_id;
 	),
 
@@ -617,49 +617,6 @@ DEFINE_EVENT(dev_pm_qos_request, dev_pm_qos_remove_request,
 		 s32 new_value),
 
 	TP_ARGS(name, type, new_value)
-);
-
-TRACE_EVENT(core_ctl_eval_need,
-
-	TP_PROTO(unsigned int cpu, unsigned int old_need,
-		 unsigned int new_need, unsigned int updated),
-	TP_ARGS(cpu, old_need, new_need, updated),
-	TP_STRUCT__entry(
-		__field(u32, cpu)
-		__field(u32, old_need)
-		__field(u32, new_need)
-		__field(u32, updated)
-	),
-	TP_fast_assign(
-		__entry->cpu = cpu;
-		__entry->old_need = old_need;
-		__entry->new_need = new_need;
-		__entry->updated = updated;
-	),
-	TP_printk("cpu=%u, old_need=%u, new_need=%u, updated=%u", __entry->cpu,
-		  __entry->old_need, __entry->new_need, __entry->updated)
-);
-
-TRACE_EVENT(core_ctl_set_busy,
-
-	TP_PROTO(unsigned int cpu, unsigned int busy,
-		 unsigned int old_is_busy, unsigned int is_busy),
-	TP_ARGS(cpu, busy, old_is_busy, is_busy),
-	TP_STRUCT__entry(
-		__field(u32, cpu)
-		__field(u32, busy)
-		__field(u32, old_is_busy)
-		__field(u32, is_busy)
-	),
-	TP_fast_assign(
-		__entry->cpu = cpu;
-		__entry->busy = busy;
-		__entry->old_is_busy = old_is_busy;
-		__entry->is_busy = is_busy;
-	),
-	TP_printk("cpu=%u, busy=%u, old_is_busy=%u, new_is_busy=%u",
-		  __entry->cpu, __entry->busy, __entry->old_is_busy,
-		  __entry->is_busy)
 );
 
 DECLARE_EVENT_CLASS(kpm_module,
@@ -1149,6 +1106,27 @@ TRACE_EVENT(memlat_dev_update,
 		__entry->mem,
 		__entry->freq,
 		__entry->vote)
+);
+
+TRACE_EVENT(msmpower_max_ddr,
+
+	TP_PROTO(unsigned int prev_max_ddr, unsigned int curr_max_ddr),
+
+	TP_ARGS(prev_max_ddr, curr_max_ddr),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, prev_max_ddr)
+		__field(unsigned int, curr_max_ddr)
+	),
+
+	TP_fast_assign(
+		__entry->prev_max_ddr = prev_max_ddr;
+		__entry->curr_max_ddr = curr_max_ddr;
+	),
+
+	TP_printk("prev_max_ddr = %u, curr_max_ddr = %u",
+		__entry->prev_max_ddr,
+		__entry->curr_max_ddr)
 );
 
 #endif /* _TRACE_POWER_H */

@@ -34,15 +34,18 @@
 			< 5859 >, /* 4. DDR:384.00 MHz BIMC: 768.00 MHz */
 			< 8496 >, /* 5. DDR:556.80 MHz BIMC: 1113.60 MHz */
 			< 9082 >, /* 6. DDR:595.20 MHz BIMC: 1190.40 MHz */
-			< 10253>; /* 7. DDR:672.00 MHz BIMC: 1344.00 MHz */
+			< 10253>, /* 7. DDR:672.00 MHz BIMC: 1344.00 MHz */
+			< 11279>; /* 8. DDR:739.20 MHz BIMC: 1478.40 MHz */
 	};
 
 	msm_gpu: qcom,kgsl-3d0@1c00000 {
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		reg = <0x1c00000 0x10000
-		       0x1c10000 0x10000>;
-		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
+		       0x1c10000 0x10000
+		       0x00a0000 0x06fff>;
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory",
+				"qfprom_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
@@ -74,17 +77,18 @@
 		qcom,bus-control;
 		qcom,bus-width = <16>;
 		qcom,msm-bus,name = "grp3d";
-		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-cases = <9>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<26 512 0 0>,	    /*    off        */
 				<26 512 0  1612800>, /* 1. 100.80 MHz */
 				<26 512 0  3379200>, /* 2. 211.20 MHz */
-				<26 512 0  4454400>, /* 3. 278.40 MHz */
+				<26 512 0  4761600>, /* 3. 297.60 MHz */
 				<26 512 0  6144000>, /* 4. 384.00 MHz */
-				<26 512 0  8601600>, /* 5. 537.60 MHz */
-				<26 512 0  8908800>, /* 6. 556.80 MHz */
-				<26 512 0 10598400>; /* 7. 662.40 MHz */
+				<26 512 0  8908800>, /* 5. 556.80 MHz */
+				<26 512 0  9523200>, /* 6. 595.20 MHz */
+				<26 512 0 10752000>, /* 7. 672.00 MHz */
+				<26 512 0 11827200>; /* 8. 739.20 MHz */
 
 		/* GDSC regulator names */
 		regulator-names = "vdd";

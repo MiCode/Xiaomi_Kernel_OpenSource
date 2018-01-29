@@ -24,12 +24,13 @@ Required properties:
 	       should be "qcom,msm8939-tsens" for 8939 TSENS driver.
 	       should be "qcom,msm8909-tsens" for 8909 TSENS driver.
 	       should be "qcom,msm8952-tsens" for 8952 TSENS driver.
-	       should be "qcom,msmzirc-tsens" for zirc TSENS driver.
+	       should be "qcom,mdm9640-tsens" for 9640 TSENS driver.
 	       should be "qcom,mdm9607-tsens" for 9607 TSENS driver.
 	       should be "qcom,msm8953-tsens" for 8953 TSENS driver.
 	       should be "qcom,msm8937-tsens" for 8937 TSENS driver.
 	       should be "qcom,msm8917-tsens" for 8917 TSENS driver.
 	       should be "qcom,msmcobalt-tsens" for cobalt TSENS driver.
+	       should be "qcom,mdm9640v2-tsens" for 9640v2 TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers.

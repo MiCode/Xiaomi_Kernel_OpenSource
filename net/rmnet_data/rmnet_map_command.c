@@ -93,10 +93,12 @@ static uint8_t rmnet_map_do_flow_control(struct sk_buff *skb,
 	LOGD("dev:%s, qos_id:0x%08X, ip_family:%hd, fc_seq %hd, en:%d",
 	     skb->dev->name, qos_id, ip_family & 3, fc_seq, enable);
 
-	if (r)
+	if (r) {
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPC_UNSUPPORTED);
 		return RMNET_MAP_COMMAND_UNSUPPORTED;
-	else
+	} else {
 		return RMNET_MAP_COMMAND_ACK;
+	}
 }
 
 /**
@@ -188,8 +190,10 @@ rx_handler_result_t rmnet_map_command(struct sk_buff *skb,
 		rmnet_map_command_stats[RMNET_MAP_COMMAND_UNKNOWN]++;
 		LOGM("Uknown MAP command: %d", command_name);
 		rc = RMNET_MAP_COMMAND_UNSUPPORTED;
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPC_UNSUPPORTED);
 		break;
 	}
-	rmnet_map_send_ack(skb, rc, config);
+	if (rc == RMNET_MAP_COMMAND_ACK)
+		rmnet_map_send_ack(skb, rc, config);
 	return RX_HANDLER_CONSUMED;
 }

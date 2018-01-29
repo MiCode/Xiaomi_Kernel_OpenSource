@@ -317,7 +317,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip, enum ipa_rule_type rlt)
  * Return: 0 on success, negative on failure
  */
 static int ipa_alloc_init_flt_tbl_hdr(enum ipa_ip_type ip,
-	struct ipa3_mem_buffer *hash_hdr, struct ipa3_mem_buffer *nhash_hdr)
+	struct ipa_mem_buffer *hash_hdr, struct ipa_mem_buffer *nhash_hdr)
 {
 	int num_hdrs;
 	u64 *hash_entr;
@@ -489,7 +489,7 @@ static int ipa_translate_flt_tbl_to_hw_fmt(enum ipa_ip_type ip,
 	int res;
 	struct ipa3_flt_entry *entry;
 	u8 *tbl_mem_buf;
-	struct ipa3_mem_buffer tbl_mem;
+	struct ipa_mem_buffer tbl_mem;
 	struct ipa3_flt_tbl *tbl;
 	int i;
 	int hdr_idx = 0;
@@ -612,8 +612,8 @@ err:
  * Return: 0 on success, negative on failure
  */
 static int ipa_generate_flt_hw_tbl_img(enum ipa_ip_type ip,
-	struct ipa3_mem_buffer *hash_hdr, struct ipa3_mem_buffer *nhash_hdr,
-	struct ipa3_mem_buffer *hash_bdy, struct ipa3_mem_buffer *nhash_bdy)
+	struct ipa_mem_buffer *hash_hdr, struct ipa_mem_buffer *nhash_hdr,
+	struct ipa_mem_buffer *hash_bdy, struct ipa_mem_buffer *nhash_bdy)
 {
 	u32 hash_bdy_start_ofst, nhash_bdy_start_ofst;
 	u32 hash_bdy_sz;
@@ -724,7 +724,7 @@ no_flt_tbls:
  * Return: true if enough space available or false in other cases
  */
 static bool ipa_flt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
-	enum ipa_rule_type rlt, struct ipa3_mem_buffer *bdy)
+	enum ipa_rule_type rlt, struct ipa_mem_buffer *bdy)
 {
 	u16 avail;
 
@@ -827,8 +827,8 @@ static bool ipa_flt_skip_pipe_config(int pipe)
  */
 int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 {
-	struct ipa3_mem_buffer hash_bdy, nhash_bdy;
-	struct ipa3_mem_buffer hash_hdr, nhash_hdr;
+	struct ipa_mem_buffer hash_bdy, nhash_bdy;
+	struct ipa_mem_buffer hash_hdr, nhash_hdr;
 	int rc = 0;
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
@@ -1821,6 +1821,7 @@ int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
 	int rule_idx;
 	u8 rule_size;
 	int i;
+	void *ipa_sram_mmio;
 
 	IPADBG("pipe_idx=%d ip_type=%d hashable=%d\n",
 		pipe_idx, ip_type, hashable);
@@ -1835,6 +1836,18 @@ int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
 	if (!ipa_is_ep_support_flt(pipe_idx)) {
 		IPAERR("pipe %d does not support filtering\n", pipe_idx);
 		return -EINVAL;
+	}
+
+	/* map IPA SRAM */
+	ipa_sram_mmio = ioremap(ipa3_ctx->ipa_wrapper_base +
+				ipa3_ctx->ctrl->ipa_reg_base_ofst +
+				ipahal_get_reg_n_ofst(
+					IPA_SRAM_DIRECT_ACCESS_n,
+					0),
+				ipa3_ctx->smem_sz);
+	if (!ipa_sram_mmio) {
+		IPAERR("fail to ioremap IPA SRAM\n");
+		return -ENOMEM;
 	}
 
 	memset(entry, 0, sizeof(*entry) * (*num_entry));
@@ -1870,16 +1883,14 @@ int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
 
 	IPADBG("tbl_entry_in_hdr_ofst=0x%llx\n", tbl_entry_in_hdr_ofst);
 
-	tbl_entry_in_hdr = ipa3_ctx->mmio +
-		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
-		tbl_entry_in_hdr_ofst;
+	tbl_entry_in_hdr = ipa_sram_mmio + tbl_entry_in_hdr_ofst;
 
 	/* for tables resides in DDR access it from the virtual memory */
 	if (*tbl_entry_in_hdr & 0x1) {
 		/* local */
-		hdr = (void *)(tbl_entry_in_hdr -
+		hdr = (void *)((u8 *)tbl_entry_in_hdr -
 			tbl_entry_idx * IPA_HW_TBL_HDR_WIDTH +
-			(*tbl_entry_in_hdr - 1) * 16);
+			(*tbl_entry_in_hdr - 1) / 16);
 	} else {
 		/* system */
 		if (hashable)
@@ -1921,6 +1932,7 @@ int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
 	}
 
 	*num_entry = rule_idx;
+	iounmap(ipa_sram_mmio);
 
 	return 0;
 }

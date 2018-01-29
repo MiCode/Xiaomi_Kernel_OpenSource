@@ -12,6 +12,7 @@
 #define pr_fmt(fmt) "SMB:%s: " fmt, __func__
 
 #include <linux/i2c.h>
+#include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -362,15 +363,23 @@ enum {
 
 static irqreturn_t smb23x_stat_handler(int irq, void *dev_id);
 
+#define MAX_RW_RETRIES		3
 static int __smb23x_read(struct smb23x_chip *chip, u8 reg, u8 *val)
 {
-	int rc;
+	int rc, i;
 
-	rc = i2c_smbus_read_byte_data(chip->client, reg);
+	for (i = 0; i < MAX_RW_RETRIES; i++) {
+		rc = i2c_smbus_read_byte_data(chip->client, reg);
+		if (rc >= 0)
+			break;
+		/* delay between i2c retries */
+		msleep(20);
+	}
 	if (rc < 0) {
 		pr_err("Reading 0x%02x failed, rc = %d\n", reg, rc);
 		return rc;
 	}
+
 	*val = rc;
 	pr_debug("Reading 0x%02x = 0x%02x\n", reg, *val);
 
@@ -379,14 +388,21 @@ static int __smb23x_read(struct smb23x_chip *chip, u8 reg, u8 *val)
 
 static int __smb23x_write(struct smb23x_chip *chip, u8 reg, u8 val)
 {
-	int rc;
+	int rc, i;
 
-	rc = i2c_smbus_write_byte_data(chip->client, reg, val);
+	for (i = 0; i < MAX_RW_RETRIES; i++) {
+		rc = i2c_smbus_write_byte_data(chip->client, reg, val);
+		if (!rc)
+			break;
+		/* delay between i2c retries */
+		msleep(20);
+	}
 	if (rc < 0) {
 		pr_err("Writing val 0x%02x to reg 0x%02x failed, rc = %d\n",
 			val, reg, rc);
 		return rc;
 	}
+
 	pr_debug("Writing 0x%02x = 0x%02x\n", reg, val);
 
 	return 0;
@@ -1230,6 +1246,9 @@ static int handle_usb_removal(struct smb23x_chip *chip)
 static int src_detect_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 {
 	bool usb_present = !!rt_sts;
+
+	if (!chip->apsd_enabled)
+		return 0;
 
 	pr_debug("chip->usb_present = %d, usb_present = %d\n",
 					chip->usb_present, usb_present);
@@ -2255,8 +2274,6 @@ static int smb23x_probe(struct i2c_client *client,
 		goto destroy_mutex;
 	}
 
-	smb23x_irq_polling_wa_check(chip);
-
 	/*
 	 * Enable register based battery charging as the hw_init moves CHG_EN
 	 * control from pin-based to register based.
@@ -2272,6 +2289,8 @@ static int smb23x_probe(struct i2c_client *client,
 		pr_err("Initialize hardware failed!\n");
 		goto destroy_mutex;
 	}
+
+	smb23x_irq_polling_wa_check(chip);
 
 	/*
 	 * Disable charging if device tree (USER) requested:

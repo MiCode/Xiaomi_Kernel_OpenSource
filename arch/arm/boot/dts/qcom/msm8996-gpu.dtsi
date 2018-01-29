@@ -77,6 +77,11 @@
 
 		qcom,highest-bank-bit = <15>;
 
+		qcom,snapshot-size = <1048576>;
+
+		qcom,gpu-qdss-stm = <0x081c0000 0x40000>;
+
+		qcom,tsens-name = "tsens_tz_sensor14";
 		/* Trace bus */
 		coresight-id = <300>;
 		coresight-name = "coresight-gfx";

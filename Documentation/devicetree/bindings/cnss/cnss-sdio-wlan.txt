@@ -23,7 +23,14 @@ Optional properties:
                 bindings/pinctrl/pinctrl-bindings.txt
   - qcom,is-antenna-shared: Enabled for Platforms with both sdio and pcie QCA
                            Chipsets are attached.
-
+  - qcom,cnss-enable-bus-bandwidth: define this property when target support to
+					vote for bus bandwidth.
+  - qcom,msm-bus,name: client name for msm bus register.
+  - qcom,msm-bus,num-cases: number of cases for bus scaling.
+  - qcom,msm-bus,num-paths: number of paths for bus scale vector.
+  - qcom,msm-bus,vectors-KBps: bus scale vector table.
+  - qcom,skip-wlan-en-toggle: Boolean property to be enabled for platforms where
+                           wlan_en toggling is not supported.
 Example:
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
@@ -38,5 +45,13 @@ Example:
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&cnss_sdio_active>;
 		pinctrl-1 = <&cnss_sdio_sleep>;
-
+		qcom,cnss-enable-bus-bandwidth;
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<79 512 0 0>,			/* No vote */
+				<79 512 6250 200000>,		/* 50 Mbps */
+				<79 512 25000 200000>,		/* 200 Mbps */
+				<79 512 2048000 4096000>;	/* MAX */
 	};

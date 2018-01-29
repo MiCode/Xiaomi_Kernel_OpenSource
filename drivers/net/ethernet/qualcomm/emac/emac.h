@@ -549,8 +549,8 @@ struct emac_clk {
 
 struct emac_regulator {
 	struct regulator *vreg;
-	bool			enabled;
-	bool			set_voltage;
+	int	voltage_uv;
+	bool	enabled;
 };
 
 /* emac_ring_header represents a single, contiguous block of DMA space
@@ -730,6 +730,9 @@ struct emac_adapter {
 	int	(*gpio_on)(struct emac_adapter *adpt, bool mdio, bool ephy);
 	int	(*gpio_off)(struct emac_adapter *adpt, bool mdio, bool ephy);
 	struct wakeup_source link_wlock;
+	bool		runtime_enable;
+	bool		is_wol_enabled;
+	spinlock_t	wol_irq_lock; /* lock for wol irq gpio enablement */
 };
 
 static inline struct emac_adapter *emac_hw_get_adap(struct emac_hw *hw)

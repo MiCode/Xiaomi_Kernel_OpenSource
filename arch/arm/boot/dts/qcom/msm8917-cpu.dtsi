@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,35 +162,35 @@
 		};
 		qcom,l1_i_cache100 {
 			qcom,dump-node = <&L1_I_100>;
-			qcom,dump-id = <0x64>;
+			qcom,dump-id = <0x60>;
 		};
 		qcom,l1_i_cache101 {
 			qcom,dump-node = <&L1_I_101>;
-			qcom,dump-id = <0x65>;
+			qcom,dump-id = <0x61>;
 		};
 		qcom,l1_i_cache102 {
 			qcom,dump-node = <&L1_I_102>;
-			qcom,dump-id = <0x66>;
+			qcom,dump-id = <0x62>;
 		};
 		qcom,l1_i_cache103 {
 			qcom,dump-node = <&L1_I_103>;
-			qcom,dump-id = <0x67>;
+			qcom,dump-id = <0x63>;
 		};
 		qcom,l1_d_cache100 {
 			qcom,dump-node = <&L1_D_100>;
-			qcom,dump-id = <0x84>;
+			qcom,dump-id = <0x80>;
 		};
 		qcom,l1_d_cache101 {
 			qcom,dump-node = <&L1_D_101>;
-			qcom,dump-id = <0x85>;
+			qcom,dump-id = <0x81>;
 		};
 		qcom,l1_d_cache102 {
 			qcom,dump-node = <&L1_D_102>;
-			qcom,dump-id = <0x86>;
+			qcom,dump-id = <0x82>;
 		};
 		qcom,l1_d_cache103 {
 			qcom,dump-node = <&L1_D_103>;
-			qcom,dump-id = <0x87>;
+			qcom,dump-id = <0x83>;
 		};
 	};
 };

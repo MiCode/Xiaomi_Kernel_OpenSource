@@ -173,7 +173,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	default: {
-		pr_debug("%s[%p]: Calling utils ioctl\n", __func__, audio);
+		pr_debug("%s[%pK]: Calling utils ioctl\n", __func__, audio);
 		rc = audio->codec_ioctl(file, cmd, arg);
 		if (rc)
 			pr_err("Failed in utils_ioctl: %d\n", rc);
@@ -283,7 +283,7 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 	default: {
-		pr_debug("%s[%p]: Calling utils ioctl\n", __func__, audio);
+		pr_debug("%s[%pK]: Calling utils ioctl\n", __func__, audio);
 		rc = audio->codec_compat_ioctl(file, cmd, arg);
 		if (rc)
 			pr_err("Failed in utils_ioctl: %d\n", rc);
@@ -325,6 +325,8 @@ static int audio_open(struct inode *inode, struct file *file)
 	audio->miscdevice = &audio_wmapro_misc;
 	audio->wakelock_voted = false;
 	audio->audio_ws_mgr = &audio_wmapro_ws_mgr;
+
+	init_waitqueue_head(&audio->event_wait);
 
 	audio->ac = q6asm_audio_client_alloc((app_cb) q6_audio_cb,
 					     (void *)audio);

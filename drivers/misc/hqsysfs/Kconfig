@@ -1,0 +1,6 @@
+config HQ_SYSFS_SUPPORT
+	bool "Enable Huaqin Sysfs Driver"
+	default n
+	help
+	  Huaqin Sysfs information driver includes specific information about hardware info and other info for HQ tools
+

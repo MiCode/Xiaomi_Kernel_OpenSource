@@ -11,7 +11,7 @@
  */
 
 #include "msm8996-pinctrl.dtsi"
-#include "msm8996-camera-sensor-adp.dtsi"
+#include "msm8996-camera-sensor-cdp.dtsi"
 #include "msm8996-wsa881x.dtsi"
 
 / {
@@ -26,6 +26,10 @@
 		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
 		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
 	};
+};
+
+&eeprom0 {
+	status = "disabled";
 };
 
 &ufs_ice {
@@ -50,6 +54,15 @@
 
 &spi_10 {
 	status = "ok";
+};
+
+&spi_0 {
+	spi_codec@0 {
+		compatible = "qcom,spi-msm-codec-slave";
+		reg = <0>;
+		spi-max-frequency = <2000000>;
+		spi-cpha;
+	};
 };
 
 &uartblsp2dm1 {
@@ -385,7 +398,7 @@
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled;
-	qcom,panel-roi-alignment = <720 128 720 64 720 64>;
+	qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
 };
 
 &dsi_nt35597_dsc_video {
@@ -453,6 +466,19 @@
 };
 
 &soc {
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+
+		ntn-rst-gpio = <&pm8994_gpios 13 0>;
+
+		vdd-ntn-hsic-supply = <&pm8994_l25>;
+		vdd-ntn-pci-supply = <&pm8994_s4>;
+		vdd-ntn-io-supply = <&pm8994_s4>;
+
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <1>;
+	};
+
 	i2c@75ba000 {
 		synaptics@20 {
 			compatible = "synaptics,dsx";
@@ -617,13 +643,15 @@
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&compr>;
+				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&loopback1>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
-				"msm-pcm-routing", "msm-compr-dsp";
+				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-loopback.1";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
 				<&dai_mi2s>, <&dai_mi2s_quat>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>,
@@ -664,6 +692,11 @@
 		interrupt-names = "vbus_det_irq";
 	};
 
+	loopback1: qcom,msm-pcm-loopback-low-latency {
+		compatible = "qcom,msm-pcm-loopback";
+		qcom,msm-pcm-loopback-low-latency;
+	};
+
 	usb_vbus_vreg: usb_vbus_vreg {
 		compatible = "regulator-fixed";
 		regulator-name = "usb_vbus_vreg";
@@ -691,6 +724,10 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&quat_tdm_dout_active>;
 		pinctrl-1 = <&quat_tdm_dout_sleep>;
+	};
+
+	qcom,msm-ssc-sensors {
+		status = "disabled";
 	};
 };
 
@@ -777,14 +814,14 @@
 		status = "okay";
 	};
 
-	gpio@cc00 { /* GPIO 13 - HPH_EN0 */
-		qcom,mode = <1>;
-		qcom,output-type = <0>;
+	gpio@cc00 { /* GPIO 13 - NTN_RST */
+		qcom,mode = <1>; /* DIGITAL OUT */
+		qcom,output-type = <0>; /* CMOS logic */
 		qcom,pull = <5>;
-		qcom,vin-sel = <2>;
+		qcom,vin-sel = <2>; /* 1.8 */
 		qcom,out-strength = <1>;
-		qcom,src-sel = <2>;
-		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* GPIO */
+		qcom,master-en = <1>; /* Enable GPIO */
 		status = "okay";
 	};
 
@@ -918,6 +955,10 @@
 	};
 };
 
+&slim_msm {
+	status = "disabled";
+};
+
 /delete-node/  &led_flash0;
 
 &mdss_dsi0 {
@@ -947,7 +988,19 @@
 	/delete-property/ vin-supply;
 };
 
+&pcie0 {
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
+	/delete-property/ qcom,aux-clk-sync;
+};
+
 &pcie1 {
+	qcom,msi-gicm-addr = <0x09BD0040>;
+	qcom,msi-gicm-base = <0x240>;
+
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
+	/delete-property/ qcom,aux-clk-sync;
 	/delete-property/ qcom,ep-wakeirq;
 };
 
@@ -955,6 +1008,9 @@
 	perst-gpio = <&tlmm 90 0>;
 	wake-gpio = <&tlmm 54 0>;
 
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
+	/delete-property/ qcom,aux-clk-sync;
 	/delete-property/ qcom,ep-wakeirq;
 };
 
@@ -974,87 +1030,4 @@
 	/delete-property/ qcom,spkr-sd-n-gpio;
 };
 
-&hl7509_en_vreg {
-	status = "ok";
-};
 
-&hl7509_vreg {
-	status = "ok";
-};
-
-&gfx_cpr {
-	vdd-supply = <&hl7509_vreg>;
-	qcom,cpr-step-quot-init-min = <20>;
-	qcom,cpr-step-quot-init-max = <26>;
-	qcom,voltage-step = <10000>;
-	/delete-property/ qcom,cpr-enable;
-};
-
-&gfx_vreg {
-	qcom,cpr-voltage-ceiling =
-		<600000  670000  670000  750000  830000
-		 910000  960000 1020000>;
-	qcom,cpr-voltage-floor =
-		<600000  600000  600000  600000  600000
-		 600000  600000  600000>;
-};
-
-&pm8994_l3 {
-	regulator-min-microvolt = <875000>;
-	regulator-max-microvolt = <875000>;
-	qcom,init-voltage = <875000>;
-};
-
-&pm8994_l11 {
-	regulator-min-microvolt = <850000>;
-	regulator-max-microvolt = <850000>;
-	qcom,init-voltage = <850000>;
-};
-
-&pm8994_l17 {
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
-	qcom,init-voltage = <1800000>;
-};
-
-&pm8994_l23 {
-	regulator-min-microvolt = <1100000>;
-	regulator-max-microvolt = <1100000>;
-	qcom,init-voltage = <1100000>;
-};
-
-&pm8994_l27 {
-	regulator-min-microvolt = <800000>;
-	regulator-max-microvolt = <800000>;
-	qcom,init-voltage = <800000>;
-};
-
-&pm8994_l29 {
-	regulator-min-microvolt = <2500000>;
-	regulator-max-microvolt = <2500000>;
-	qcom,init-voltage = <2500000>;
-};
-
-&rpm_bus {
-	rpm-regulator-ldoa26 {
-		/delete-node/ pm8994_l26_corner;
-		/delete-node/ pm8994_l26_floor_corner;
-
-		pm8994_l26: regulator-l26 {
-			regulator-min-microvolt = <1100000>;
-			regulator-max-microvolt = <1100000>;
-			qcom,init-voltage = <1100000>;
-			status = "okay";
-		};
-	};
-
-	rpm-regulator-ldoa31 {
-		status = "okay";
-		pm8994_l31: regulator-l31 {
-			regulator-min-microvolt = <1100000>;
-			regulator-max-microvolt = <1100000>;
-			qcom,init-voltage = <1100000>;
-			status = "okay";
-		};
-	};
-};

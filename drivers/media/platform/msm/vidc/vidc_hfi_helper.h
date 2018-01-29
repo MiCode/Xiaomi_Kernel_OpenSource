@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -291,6 +291,11 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x003)
 #define  HFI_PROPERTY_PARAM_VDEC_PIXEL_BITDEPTH				\
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x007)
+#define  HFI_PROPERTY_PARAM_VDEC_PIC_STRUCT				\
+	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x009)
+#define  HFI_PROPERTY_PARAM_VDEC_COLOUR_SPACE				\
+	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x00A)
+
 
 #define HFI_PROPERTY_CONFIG_VDEC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_COMMON_OFFSET + 0x4000)
@@ -347,7 +352,7 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01B)
 #define HFI_PROPERTY_PARAM_VENC_LTRMODE		\
 	 (HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01C)
-#define HFI_PROPERTY_PARAM_VENC_VIDEO_FULL_RANGE	\
+#define HFI_PROPERTY_PARAM_VENC_VIDEO_SIGNAL_INFO	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01D)
 #define HFI_PROPERTY_PARAM_VENC_H264_VUI_TIMING_INFO	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01E)
@@ -361,6 +366,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x022)
 #define HFI_PROPERTY_PARAM_VENC_PRESERVE_TEXT_QUALITY \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x023)
+#define HFI_PROPERTY_PARAM_VENC_H264_8X8_TRANSFORM \
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x025)
 #define HFI_PROPERTY_PARAM_VENC_HIER_P_MAX_NUM_ENH_LAYER	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x026)
 #define HFI_PROPERTY_PARAM_VENC_DISABLE_RC_TIMESTAMP \
@@ -369,6 +376,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x028)
 #define HFI_PROPERTY_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x029)
+#define HFI_PROPERTY_PARAM_VENC_CONSTRAINED_INTRA_PRED	\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x02B)
 #define HFI_PROPERTY_PARAM_VENC_HIER_B_MAX_NUM_ENH_LAYER	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x02C)
 #define  HFI_PROPERTY_PARAM_VENC_HIER_P_HYBRID_MODE	\
@@ -377,6 +386,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x031)
 #define  HFI_PROPERTY_PARAM_VENC_VQZIP_SEI_TYPE		\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x033)
+#define  HFI_PROPERTY_PARAM_VENC_IFRAMESIZE			\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x034)
 
 #define HFI_PROPERTY_CONFIG_VENC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_COMMON_OFFSET + 0x6000)
@@ -412,14 +423,24 @@ struct hfi_buffer_info {
 
 #define HFI_PROPERTY_CONFIG_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x8000)
+#define  HFI_PROPERTY_CONFIG_VENC_BLUR_FRAME_SIZE		\
+	(HFI_PROPERTY_CONFIG_COMMON_START + 0x010)
 #define HFI_PROPERTY_CONFIG_VPE_DEINTERLACE				\
 	(HFI_PROPERTY_CONFIG_VPE_COMMON_START + 0x001)
 #define HFI_PROPERTY_CONFIG_VPE_OPERATIONS				\
 	(HFI_PROPERTY_CONFIG_VPE_COMMON_START + 0x002)
 
+struct hfi_pic_struct {
+	u32 progressive_only;
+};
+
 struct hfi_bitrate {
 	u32 bit_rate;
 	u32 layer_id;
+};
+
+struct hfi_colour_space {
+	u32 colour_space;
 };
 
 #define HFI_CAPABILITY_FRAME_WIDTH			(HFI_COMMON_BASE + 0x1)
@@ -658,6 +679,16 @@ struct hfi_frame_size {
 	u32 height;
 };
 
+struct hfi_video_signal_metadata {
+	u32 enable;
+	u32 video_format;
+	u32 video_full_range;
+	u32 color_description;
+	u32 color_primaries;
+	u32 transfer_characteristics;
+	u32 matrix_coeffs;
+};
+
 struct hfi_h264_vui_timing_info {
 	u32 enable;
 	u32 fixed_frame_rate;
@@ -857,6 +888,14 @@ struct hfi_seq_header_info {
 struct hfi_aspect_ratio {
 	u32 aspect_width;
 	u32 aspect_height;
+};
+
+#define HFI_IFRAME_SIZE_DEFAULT			(HFI_COMMON_BASE + 0x1)
+#define HFI_IFRAME_SIZE_MEDIUM			(HFI_COMMON_BASE + 0x2)
+#define HFI_IFRAME_SIZE_HIGH			(HFI_COMMON_BASE + 0x3)
+#define HFI_IFRAME_SIZE_UNLIMITED		(HFI_COMMON_BASE + 0x4)
+struct hfi_iframe_size {
+	u32 type;
 };
 
 #define HFI_MVC_BUFFER_LAYOUT_TOP_BOTTOM  (0)

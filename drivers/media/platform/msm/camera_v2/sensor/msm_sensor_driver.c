@@ -17,6 +17,7 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#include <linux/hqsysfs.h>
 
 /* Logging macro */
 #undef CDBG
@@ -954,6 +955,14 @@ CSID_TG:
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
 
+	if (0 == s_ctrl->id) {
+		hq_regiser_hw_info(HWID_MAIN_CAM, (char *)(s_ctrl->sensordata->eeprom_name));
+	} else if (1 == s_ctrl->id) {
+		hq_regiser_hw_info(HWID_MAIN_CAM_2, (char *)(s_ctrl->sensordata->eeprom_name));
+	} else if (2 == s_ctrl->id) {
+		hq_regiser_hw_info(HWID_SUB_CAM, (char *)(s_ctrl->sensordata->eeprom_name));
+	}
+
 	return rc;
 
 camera_power_down:
@@ -1107,6 +1116,7 @@ static int32_t msm_sensor_driver_parse(struct msm_sensor_ctrl_t *s_ctrl)
 	if (!s_ctrl->msm_sensor_mutex) {
 		pr_err("failed: no memory msm_sensor_mutex %pK",
 			s_ctrl->msm_sensor_mutex);
+		rc = -ENOMEM;
 		goto FREE_SENSOR_I2C_CLIENT;
 	}
 
@@ -1231,16 +1241,18 @@ static int32_t msm_sensor_driver_i2c_probe(struct i2c_client *client,
 	if (s_ctrl->sensor_i2c_client != NULL) {
 		s_ctrl->sensor_i2c_client->client = client;
 		s_ctrl->sensordata->power_info.dev = &client->dev;
-	}
-	/* Get clocks information */
-	rc = msm_camera_i2c_dev_get_clk_info(
-		&s_ctrl->sensor_i2c_client->client->dev,
-		&s_ctrl->sensordata->power_info.clk_info,
-		&s_ctrl->sensordata->power_info.clk_ptr,
-		&s_ctrl->sensordata->power_info.clk_info_size);
-	if (rc < 0) {
-		pr_err("failed: msm_camera_i2c_dev_get_clk_info rc %d", rc);
-		goto FREE_S_CTRL;
+
+		/* Get clocks information */
+		rc = msm_camera_i2c_dev_get_clk_info(
+			&s_ctrl->sensor_i2c_client->client->dev,
+			&s_ctrl->sensordata->power_info.clk_info,
+			&s_ctrl->sensordata->power_info.clk_ptr,
+			&s_ctrl->sensordata->power_info.clk_info_size);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_i2c_dev_get_clk_info rc %d",
+				rc);
+			goto FREE_S_CTRL;
+		}
 	}
 	return rc;
 FREE_S_CTRL:

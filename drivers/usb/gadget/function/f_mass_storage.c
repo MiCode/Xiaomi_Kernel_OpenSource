@@ -3654,7 +3654,6 @@ static void fsg_lun_drop(struct config_group *group, struct config_item *item)
 		struct config_item *gadget;
 
 		gadget = group->cg_item.ci_parent->ci_parent;
-		unregister_gadget_item(gadget);
 	}
 
 	fsg_common_remove_lun(lun_opts->lun, fsg_opts->common->sysfs);

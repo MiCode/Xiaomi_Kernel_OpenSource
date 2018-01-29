@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,13 +35,11 @@
 			<&clock_gcc clk_csi0phytimer_clk_src>,
 			<&clock_gcc clk_gcc_camss_csi0phytimer_clk>,
 			<&clock_gcc clk_camss_top_ahb_clk_src>,
-			<&clock_gcc clk_gcc_camss_csi0phy_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
-			"camss_ahb_src", "csi_phy_clk",
-			"camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 200000000 0 0 0 0>;
+			"camss_ahb_src", "camss_ahb_clk";
+		qcom,clock-rates = <0 61540000 200000000 0 0 0>;
 	};
 
 	qcom,csiphy@1b35000 {
@@ -58,13 +56,11 @@
 			<&clock_gcc clk_csi1phytimer_clk_src>,
 			<&clock_gcc clk_gcc_camss_csi1phytimer_clk>,
 			<&clock_gcc clk_camss_top_ahb_clk_src>,
-			<&clock_gcc clk_gcc_camss_csi1phy_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
-			"camss_ahb_src", "csi_phy_clk",
-			"camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 200000000 0 0 0 0>;
+			"camss_ahb_src", "camss_ahb_clk";
+		qcom,clock-rates = <0 61540000 200000000 0 0 0>;
 	};
 
 	qcom,csiphy@1b36000 {
@@ -81,13 +77,11 @@
 			<&clock_gcc clk_csi2phytimer_clk_src>,
 			<&clock_gcc clk_gcc_camss_csi2phytimer_clk>,
 			<&clock_gcc clk_camss_top_ahb_clk_src>,
-			<&clock_gcc clk_gcc_camss_csi2phy_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
-			"camss_ahb_src", "csi_phy_clk",
-			"camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 200000000 0 0 0 0>;
+			"camss_ahb_src", "camss_ahb_clk";
+		qcom,clock-rates = <0 61540000 200000000 0 0 0>;
 	};
 
 	qcom,csid@1b30000  {
@@ -104,15 +98,17 @@
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi0_ahb_clk>,
 			<&clock_gcc clk_csi0_clk_src>,
+			<&clock_gcc clk_gcc_camss_csi0phy_clk>,
 			<&clock_gcc clk_gcc_camss_csi0_clk>,
 			<&clock_gcc clk_gcc_camss_csi0pix_clk>,
 			<&clock_gcc clk_gcc_camss_csi0rdi_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
+			"csi0_phy_clk",
 			"csi_clk",  "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0>;
+		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0 0>;
 	};
 
 	qcom,csid@1b30400 {
@@ -129,15 +125,17 @@
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi1_ahb_clk>,
 			<&clock_gcc clk_csi1_clk_src>,
+			<&clock_gcc clk_gcc_camss_csi1phy_clk>,
 			<&clock_gcc clk_gcc_camss_csi1_clk>,
 			<&clock_gcc clk_gcc_camss_csi1pix_clk>,
 			<&clock_gcc clk_gcc_camss_csi1rdi_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
+			"csi1_phy_clk",
 			"csi_clk", "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0>;
+		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0 0>;
 	};
 
 	qcom,csid@1b30800 {
@@ -154,15 +152,17 @@
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi2_ahb_clk>,
 			<&clock_gcc clk_csi2_clk_src>,
+			<&clock_gcc clk_gcc_camss_csi2phy_clk>,
 			<&clock_gcc clk_gcc_camss_csi2_clk>,
 			<&clock_gcc clk_gcc_camss_csi2pix_clk>,
 			<&clock_gcc clk_gcc_camss_csi2rdi_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
+			"csi2_phy_clk",
 			"csi_clk", "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0>;
+		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0 0>;
 	};
 
 	qcom,ispif@1b31000 {
@@ -232,8 +232,9 @@
 		cell-index = <0>;
 		compatible = "qcom,vfe40";
 		reg = <0x1b10000 0x1000>,
-			<0x1b40000 0x200>;
-		reg-names = "vfe", "vfe_vbif";
+			<0x1b40000 0x200>,
+			<0x00a4174 0x8>;
+		reg-names = "vfe", "vfe_vbif", "vfe_fuse";
 		interrupts = <0 57 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe>;
@@ -282,8 +283,9 @@
 		cell-index = <1>;
 		compatible = "qcom,vfe40";
 		reg = <0x1b14000 0x1000>,
-			<0x1ba0000 0x200>;
-		reg-names = "vfe", "vfe_vbif";
+			<0x1ba0000 0x200>,
+			<0x00a4174 0x8>;
+		reg-names = "vfe", "vfe_vbif", "vfe_fuse";
 		interrupts = <0 29 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe1>;

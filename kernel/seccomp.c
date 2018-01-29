@@ -317,24 +317,24 @@ static inline void seccomp_sync_threads(void)
 		put_seccomp_filter(thread);
 		smp_store_release(&thread->seccomp.filter,
 				  caller->seccomp.filter);
+
+		/*
+		 * Don't let an unprivileged task work around
+		 * the no_new_privs restriction by creating
+		 * a thread that sets it up, enters seccomp,
+		 * then dies.
+		 */
+		if (task_no_new_privs(caller))
+			task_set_no_new_privs(thread);
+
 		/*
 		 * Opt the other thread into seccomp if needed.
 		 * As threads are considered to be trust-realm
 		 * equivalent (see ptrace_may_access), it is safe to
 		 * allow one thread to transition the other.
 		 */
-		if (thread->seccomp.mode == SECCOMP_MODE_DISABLED) {
-			/*
-			 * Don't let an unprivileged task work around
-			 * the no_new_privs restriction by creating
-			 * a thread that sets it up, enters seccomp,
-			 * then dies.
-			 */
-			if (task_no_new_privs(caller))
-				task_set_no_new_privs(thread);
-
+		if (thread->seccomp.mode == SECCOMP_MODE_DISABLED)
 			seccomp_assign_mode(thread, SECCOMP_MODE_FILTER);
-		}
 	}
 }
 
@@ -629,7 +629,9 @@ static u32 __seccomp_phase1_filter(int this_syscall, struct seccomp_data *sd)
 
 	switch (action) {
 	case SECCOMP_RET_ERRNO:
-		/* Set the low-order 16-bits as a errno. */
+		/* Set low-order bits as an errno, capped at MAX_ERRNO. */
+		if (data > MAX_ERRNO)
+			data = MAX_ERRNO;
 		syscall_set_return_value(current, task_pt_regs(current),
 					 -data, 0);
 		goto skip;

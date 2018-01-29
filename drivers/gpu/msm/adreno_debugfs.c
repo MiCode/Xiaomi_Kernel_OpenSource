@@ -226,8 +226,7 @@ static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
 	if (cmdbatch->flags & KGSL_CONTEXT_SYNC)
 		return;
 
-	seq_printf(s, "\t%d: ib: expires: %lu",
-		cmdbatch->timestamp, cmdbatch->expires);
+	seq_printf(s, "\t%d: ", cmdbatch->timestamp);
 
 	seq_puts(s, " flags: ");
 	print_flags(s, cmdbatch_flags, ARRAY_SIZE(cmdbatch_flags),

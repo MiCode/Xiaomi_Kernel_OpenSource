@@ -220,6 +220,10 @@ static char *snd_pcm_format_names[] = {
 	FORMAT(DSD_U32_BE),
 };
 
+/**
+ * snd_pcm_format_name - Return a name string for the given PCM format
+ * @format: PCM format
+ */
 const char *snd_pcm_format_name(snd_pcm_format_t format)
 {
 	if ((__force unsigned int)format >= ARRAY_SIZE(snd_pcm_format_names))
@@ -708,8 +712,7 @@ int snd_pcm_new_stream(struct snd_pcm *pcm, int stream, int substream_count)
 		prev = substream;
 	}
 	return 0;
-}				
-
+}
 EXPORT_SYMBOL(snd_pcm_new_stream);
 
 static int _snd_pcm_new(struct snd_card *card, const char *id, int device,
@@ -810,6 +813,22 @@ int snd_pcm_new_internal(struct snd_card *card, const char *id, int device,
 }
 EXPORT_SYMBOL(snd_pcm_new_internal);
 
+static void free_pcm_kctl(struct snd_pcm_str *pstr)
+{
+	if (pstr->chmap_kctl) {
+		snd_ctl_remove(pstr->pcm->card, pstr->chmap_kctl);
+		pstr->chmap_kctl = NULL;
+	}
+	if (pstr->vol_kctl) {
+		snd_ctl_remove(pstr->pcm->card, pstr->vol_kctl);
+		pstr->vol_kctl = NULL;
+	}
+	if (pstr->usr_kctl) {
+		snd_ctl_remove(pstr->pcm->card, pstr->usr_kctl);
+		pstr->usr_kctl = NULL;
+	}
+}
+
 static void snd_pcm_free_stream(struct snd_pcm_str * pstr)
 {
 	struct snd_pcm_substream *substream, *substream_next;
@@ -832,6 +851,7 @@ static void snd_pcm_free_stream(struct snd_pcm_str * pstr)
 		kfree(setup);
 	}
 #endif
+	free_pcm_kctl(pstr);
 }
 
 static int snd_pcm_free(struct snd_pcm *pcm)
@@ -1146,18 +1166,7 @@ static int snd_pcm_dev_disconnect(struct snd_device *device)
 			break;
 		}
 		snd_unregister_device(devtype, pcm->card, pcm->device);
-		if (pcm->streams[cidx].chmap_kctl) {
-			snd_ctl_remove(pcm->card, pcm->streams[cidx].chmap_kctl);
-			pcm->streams[cidx].chmap_kctl = NULL;
-		}
-		if (pcm->streams[cidx].vol_kctl) {
-			snd_ctl_remove(pcm->card, pcm->streams[cidx].vol_kctl);
-			pcm->streams[cidx].vol_kctl = NULL;
-		}
-		if (pcm->streams[cidx].usr_kctl) {
-			snd_ctl_remove(pcm->card, pcm->streams[cidx].usr_kctl);
-			pcm->streams[cidx].usr_kctl = NULL;
-		}
+		free_pcm_kctl(&pcm->streams[cidx]);
 	}
 	mutex_unlock(&pcm->open_mutex);
  unlock:
@@ -1165,6 +1174,15 @@ static int snd_pcm_dev_disconnect(struct snd_device *device)
 	return 0;
 }
 
+/**
+ * snd_pcm_notify - Add/remove the notify list
+ * @notify: PCM notify list
+ * @nfree: 0 = register, 1 = unregister
+ *
+ * This adds the given notifier to the global list so that the callback is
+ * called for each registered PCM devices.  This exists only for PCM OSS
+ * emulation, so far.
+ */
 int snd_pcm_notify(struct snd_pcm_notify *notify, int nfree)
 {
 	struct snd_pcm *pcm;
@@ -1187,7 +1205,6 @@ int snd_pcm_notify(struct snd_pcm_notify *notify, int nfree)
 	mutex_unlock(&register_mutex);
 	return 0;
 }
-
 EXPORT_SYMBOL(snd_pcm_notify);
 
 #ifdef CONFIG_PROC_FS

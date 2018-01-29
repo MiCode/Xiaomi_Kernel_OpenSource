@@ -290,7 +290,9 @@
  * @NL80211_CMD_GET_SCAN: get scan results
  * @NL80211_CMD_TRIGGER_SCAN: trigger a new scan with the given parameters
  *	%NL80211_ATTR_TX_NO_CCK_RATE is used to decide whether to send the
- *	probe requests at CCK rate or not.
+ *	probe requests at CCK rate or not. %NL80211_ATTR_MAC can be used to
+ *	specify a BSSID to scan for; if not included, the wildcard BSSID will
+ *	be used.
  * @NL80211_CMD_NEW_SCAN_RESULTS: scan notification (as a reply to
  *	NL80211_CMD_GET_SCAN and on the "scan" multicast group)
  * @NL80211_CMD_SCAN_ABORTED: scan was aborted, for unspecified reasons,
@@ -1664,7 +1666,10 @@ enum nl80211_commands {
  *
  * @NL80211_ATTR_IFACE_SOCKET_OWNER: flag attribute, if set during interface
  *	creation then the new interface will be owned by the netlink socket
- *	that created it and will be destroyed when the socket is closed
+ *	that created it and will be destroyed when the socket is closed.
+ *	If set during scheduled scan start then the new scan req will be
+ *	owned by the netlink socket that created it and the scheduled scan will
+ *	be stopped when the socket is closed.
  *
  * @NL80211_ATTR_TDLS_INITIATOR: flag attribute indicating the current end is
  *	the TDLS link initiator.
@@ -1694,10 +1699,70 @@ enum nl80211_commands {
  * @NL80211_ATTR_SMPS_MODE: SMPS mode to use (ap mode). see
  *	&enum nl80211_smps_mode.
  *
+ * @NL80211_ATTR_OPER_CLASS: operating class
+ *
+ * @NL80211_ATTR_MAC_MASK: MAC address mask
+ *
+ * @NL80211_ATTR_WIPHY_SELF_MANAGED_REG: flag attribute indicating this device
+ *	is self-managing its regulatory information and any regulatory domain
+ *	obtained from it is coming from the device's wiphy and not the global
+ *	cfg80211 regdomain.
+ *
+ * @NL80211_ATTR_EXT_FEATURES: extended feature flags contained in a byte
+ *	array. The feature flags are identified by their bit index (see &enum
+ *	nl80211_ext_feature_index). The bit index is ordered starting at the
+ *	least-significant bit of the first byte in the array, ie. bit index 0
+ *	is located at bit 0 of byte 0. bit index 25 would be located at bit 1
+ *	of byte 3 (u8 array).
+ *
+ * @NL80211_ATTR_SURVEY_RADIO_STATS: Request overall radio statistics to be
+ *	returned along with other survey data. If set, @NL80211_CMD_GET_SURVEY
+ *	may return a survey entry without a channel indicating global radio
+ *	statistics (only some values are valid and make sense.)
+ *	For devices that don't return such an entry even then, the information
+ *	should be contained in the result as the sum of the respective counters
+ *	over all channels.
+ *
+ * @NL80211_ATTR_SCHED_SCAN_DELAY: delay before the first cycle of a
+ *	scheduled scan is started.  Or the delay before a WoWLAN
+ *	net-detect scan is started, counting from the moment the
+ *	system is suspended.  This value is a u32, in seconds.
+
+ * @NL80211_ATTR_REG_INDOOR: flag attribute, if set indicates that the device
+ *      is operating in an indoor environment.
+ *
+ * @NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS: maximum number of scan plans for
+ *	scheduled scan supported by the device (u32), a wiphy attribute.
+ * @NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL: maximum interval (in seconds) for
+ *	a scan plan (u32), a wiphy attribute.
+ * @NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS: maximum number of iterations in
+ *	a scan plan (u32), a wiphy attribute.
+ * @NL80211_ATTR_SCHED_SCAN_PLANS: a list of scan plans for scheduled scan.
+ *	Each scan plan defines the number of scan iterations and the interval
+ *	between scans. The last scan plan will always run infinitely,
+ *	thus it must not specify the number of iterations, only the interval
+ *	between scans. The scan plans are executed sequentially.
+ *	Each scan plan is a nested attribute of &enum nl80211_sched_scan_plan.
  * @NL80211_ATTR_PBSS: flag attribute. If set it means operate
  *	in a PBSS. Specified in %NL80211_CMD_CONNECT to request
  *	connecting to a PCP, and in %NL80211_CMD_START_AP to start
  *	a PCP instead of AP. Relevant for DMG networks only.
+ * @NL80211_ATTR_BSS_SELECT: nested attribute for driver supporting the
+ *	BSS selection feature. When used with %NL80211_CMD_GET_WIPHY it contains
+ *	attributes according &enum nl80211_bss_select_attr to indicate what
+ *	BSS selection behaviours are supported. When used with %NL80211_CMD_CONNECT
+ *	it contains the behaviour-specific attribute containing the parameters for
+ *	BSS selection to be done by driver and/or firmware.
+ *
+ * @NL80211_ATTR_STA_SUPPORT_P2P_PS: whether P2P PS mechanism supported
+ *	or not. u8, one of the values of &enum nl80211_sta_p2p_ps_status
+ *
+ * @NL80211_ATTR_PAD: attribute used for padding for 64-bit alignment
+ *
+ * @NL80211_ATTR_IFTYPE_EXT_CAPA: Nested attribute of the following attributes:
+ *	%NL80211_ATTR_IFTYPE, %NL80211_ATTR_EXT_CAPA,
+ *	%NL80211_ATTR_EXT_CAPA_MASK, to specify the extended capabilities per
+ *	interface type.
  *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -2073,6 +2138,14 @@ enum nl80211_attrs {
 	NL80211_ATTR_SCHED_SCAN_PLANS,
 
 	NL80211_ATTR_PBSS,
+
+	NL80211_ATTR_BSS_SELECT,
+
+	NL80211_ATTR_STA_SUPPORT_P2P_PS,
+
+	NL80211_ATTR_PAD,
+
+	NL80211_ATTR_IFTYPE_EXT_CAPA,
 
 	/* add attributes here, update the policy in nl80211.c */
 

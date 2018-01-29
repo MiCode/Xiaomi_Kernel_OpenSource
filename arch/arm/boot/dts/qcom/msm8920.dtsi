@@ -1,0 +1,398 @@
+/*
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "skeleton64.dtsi"
+#include "msm8917.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8920";
+	compatible = "qcom,msm8920";
+	qcom,msm-id = <320 0x0>;
+	interrupt-parent = <&intc>;
+
+	soc: soc { };
+};
+
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x6a00000>;
+};
+
+&adsp_fw_mem {
+	reg = <0x0 0x8d200000 0x0 0x1100000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x8e300000 0x0 0x700000>;
+};
+
+&ad_hoc_bus {
+	mas_ipa: mas-ipa {
+		cell-id = <MSM_BUS_MASTER_IPA>;
+		label = "mas-ipa";
+		qcom,buswidth = <8>;
+		qcom,agg-ports = <1>;
+		qcom,ap-owned;
+		qcom,qport = <14>;
+		qcom,qos-mode = "fixed";
+		qcom,connections = <&snoc_int_1 &slv_snoc_bimc_1>;
+		qcom,prio1 = <0>;
+		qcom,prio0 = <0>;
+		qcom,bus-dev = <&fab_snoc>;
+		qcom,mas-rpm-id = <ICBID_MASTER_IPA>;
+	};
+};
+
+&clock_gcc {
+	compatible = "qcom,gcc-8920";
+};
+
+&clock_debug {
+	compatible = "qcom,cc-debug-8920";
+};
+
+&clock_gcc_mdss {
+	compatible = "qcom,gcc-mdss-8920";
+};
+
+&usb_otg {
+	/delete-property/ clocks;
+	clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
+			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
+			 <&clock_gcc clk_bimc_usb_clk>,
+			 <&clock_gcc clk_snoc_usb_clk>,
+			 <&clock_gcc clk_pnoc_usb_clk>,
+			 <&clock_gcc clk_gcc_qusb2_phy_clk>,
+			 <&clock_gcc clk_gcc_usb2_hs_phy_only_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_phy_cfg_ahb_clk>,
+			 <&clock_gcc clk_xo_otg_clk>;
+
+	qcom,usbbam@78c4000 {
+		/delete-property/ qcom,reset-bam-on-disconnect;
+		/delete-node/ qcom,pipe0;
+		qcom,pipe0 {
+			label = "hsusb-ipa-out-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-pipe-index = <1>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+		qcom,pipe1 {
+			label = "hsusb-ipa-in-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+		qcom,pipe2 {
+			label = "hsusb-qdss-in-0";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <0>;
+			qcom,peer-bam-physical-address = <0x6044000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0x0>;
+			qcom,data-fifo-size = <0xe00>;
+			qcom,descriptor-fifo-offset = <0xe00>;
+			qcom,descriptor-fifo-size = <0x200>;
+		};
+		qcom,pipe3 {
+			label = "hsusb-dpl-ipa-in-1";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <1>;
+			qcom,peer-bam = <1>;
+			qcom,dst-bam-pipe-index = <3>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+	};
+};
+
+&bam_dmux {
+	status = "disabled";
+};
+
+&soc {
+	ipa_hw: qcom,ipa@07900000 {
+		compatible = "qcom,ipa";
+		reg = <0x07900000 0x4effc>, <0x07904000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 228 0>,
+				<0 230 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
+		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,wan-rx-ring-size = <192>; /* IPA WAN-rx-ring-size*/
+		qcom,lan-rx-ring-size = <192>; /* IPA LAN-rx-ring-size*/
+		clock-names = "core_clk";
+		clocks = <&clock_gcc clk_ipa_clk>;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+		<90 512 0 0>, /* No BIMC vote (ab=0 Mbps, ib=0 Mbps ~ 0MHZ) */
+		<90 512 100000 800000>, /* SVS (ab=100, ib=800 ~ 50MHz) */
+		<90 512 100000 1200000>; /* PERF (ab=100, ib=1200 ~ 75MHz) */
+		qcom,bus-vector-names = "MIN", "SVS", "PERF";
+		qcom,rx-polling-sleep-ms = <2>; /* Polling sleep interval */
+		qcom,ipa-polling-iteration = <5>;	/* Polling Iteration */
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
+	};
+
+	qcom,bm-sensors {
+		compatible = "qcom,bm-sensors";
+
+		bw_mm {
+			qcom,bm-sensor = <&slv_snoc_bimc_2 &mas_vfe0 &mas_vfe1>;
+			qcom,bm-sensor-field = "ab";
+		};
+	};
+
+	qcom,sensor-information {
+		sensor_information16: qcom,sensor-information-16 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "bw_mm";
+			qcom,scaling-factor = <1000>;
+		};
+	};
+
+	cpubw: qcom,cpubw {
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2270 /*  297.6 MHz */ >,	/*SVS */
+			<  2929 /*  384   MHz */ >,
+			<  4248 /*  556.8 MHz */ >,	/*SVS+*/
+			<  4541 /*  595.2 MHz */ >,	/*NOM*/
+			<  5126 /*  672   MHz */ >,	/*NOM+*/
+			<  5645 /*  740   MHz */ >;	/*TURBO*/
+	};
+
+	mincpubw: qcom,mincpubw {
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2270 /*  297.6 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  4541 /*  595.2 MHz */ >,
+			<  5126 /*  672   MHz */ >,
+			<  5645 /*  740   MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		cpu-to-dev-map =
+			<  998400  4248 >,
+			< 1094400  4541 >,
+			< 1497600  5645 >;
+		};
+
+	};
+
+};
+
+&apc_vreg_corner {
+	/delete-property/ qcom,cpr-fuse-version-map;
+	/delete-property/ qcom,cpr-quotient-adjustment;
+	/delete-property/ qcom,cpr-init-voltage-adjustment;
+	/delete-property/ qcom,cpr-enable;
+
+	qcom,cpr-speed-bin-max-corners =
+		<0 (-1) 1 2 4>,
+		<1 (-1) 1 2 5>;
+
+	qcom,cpr-fuse-version-map =
+		/* Format: <speed_bin foundry cpr_rev ...> */
+		<  0      0      1    (-1)    (-1)    (-1)>,
+		<  0      0    (-1)   (-1)    (-1)    (-1)>,
+		<  0      1      1    (-1)    (-1)    (-1)>,
+		<  0      1    (-1)   (-1)    (-1)    (-1)>,
+		<  0      5    (-1)   (-1)    (-1)    (-1)>,
+		<(-1)   (-1)   (-1)   (-1)    (-1)    (-1)>;
+
+	qcom,cpr-init-voltage-adjustment =
+		<  0     0        0  >,
+		<15000  15000   25000>,
+		<  0     0        0  >,
+		<15000   5000     0  >,
+		< 5000  10000    5000>,
+		<  0     0        0  >;
+
+	qcom,cpr-quotient-adjustment =
+		<(-19) (-28) (-19)>, /* SVSP(-10) NOM(-15) TUR(-10); KV(1.9) */
+		<0      0      19 >, /* SVSP(-5) NOM(-10) TUR(-5); KV(1.9) */
+		<(-38) (-28) (-38)>, /* SVSP(-20) NOM(-15) TUR(-20); KV(1.9) */
+		<0      0       0 >,
+		<(-28)  0      10 >, /* SVSP(-15) TUR(5); KV(1.9) */
+		<0      0       0 >;
+
+	qcom,cpr-enable;
+};
+
+&funnel_apss {
+	coresight-child-ports = <3>;
+};
+
+&soc {
+	/delete-node/ cti@6124000;
+	cti_modem_cpu0: cti@6128000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6128000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <51>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* MSS_SCL */
+	modem_etm0 {
+		coresight-child-ports = <2>;
+	};
+
+	cti_modem_cpu1: cti@6124000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <52>;
+		coresight-name = "coresight-cti-modem-cpu1";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* MSS_VEC */
+	modem_etm1 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <53>;
+		coresight-name = "coresight-modem-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_right>;
+		coresight-child-ports = <1>;
+
+		qcom,inst-id = <11>;
+	};
+};
+
+&funnel_apss {
+	coresight-child-ports = <3>;
+};
+
+&soc {
+	/delete-node/ cti@6124000;
+	cti_modem_cpu0: cti@6128000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6128000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <51>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* MSS_SCL */
+	modem_etm0 {
+		coresight-child-ports = <2>;
+	};
+
+	cti_modem_cpu1: cti@6124000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <52>;
+		coresight-name = "coresight-cti-modem-cpu1";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* MSS_VEC */
+	modem_etm1 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <53>;
+		coresight-name = "coresight-modem-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_right>;
+		coresight-child-ports = <1>;
+
+		qcom,inst-id = <11>;
+	};
+};
+
+/* gpubw overrides */
+&gpubw {
+	/delete-property/ qcom,bw-tbl;
+	qcom,bw-tbl =
+			< 0 >,    /* Off */
+			< 769 >, /* 1. DDR:100.80 MHz BIMC: 201.60 MHz */
+			< 1611>, /* 2. DDR:211.20 MHz BIMC: 422.40 MHz */
+			< 2270>, /* 3. DDR:297.60 MHz BIMC: 595.20 MHz */
+			< 2929>, /* 4. DDR:384.00 MHz BIMC: 768.00 MHz */
+			< 4248>, /* 5. DDR:556.80 MHz BIMC: 1113.60 MHz */
+			< 4541>, /* 6. DDR:595.20 MHz BIMC: 1190.40 MHz */
+			< 5126>, /* 7. DDR:672.00 MHz BIMC: 1344.00 MHz */
+			< 5639>; /* 8. DDR:739.20 MHz BIMC: 1478.40 MHz */
+};
+
+/* GPU overrides */
+&msm_gpu {
+
+	/delete-property/ qcom,msm-bus,vectors-KBps;
+	qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>,	    /*    off        */
+				<26 512 0   806400>, /* 1. 100.80 MHz */
+				<26 512 0  1689600>, /* 2. 211.20 MHz */
+				<26 512 0  2380800>, /* 3. 297.60 MHz */
+				<26 512 0  3072000>, /* 4. 384.00 MHz */
+				<26 512 0  4454400>, /* 5. 556.80 MHz */
+				<26 512 0  4761600>, /* 6. 595.20 MHz */
+				<26 512 0  5376000>, /* 7. 672.00 MHz */
+				<26 512 0  5913600>; /* 8. 739.20 MHz */
+};

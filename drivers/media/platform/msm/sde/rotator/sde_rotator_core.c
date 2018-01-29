@@ -33,6 +33,7 @@
 #include "sde_rotator_io_util.h"
 #include "sde_rotator_smmu.h"
 #include "sde_rotator_r1.h"
+#include "sde_rotator_r3.h"
 #include "sde_rotator_trace.h"
 
 /* waiting for hw time out, 3 vsync for 30fps*/
@@ -606,59 +607,165 @@ static int sde_rotator_import_data(struct sde_rot_mgr *mgr,
 	return ret;
 }
 
+/*
+ * sde_rotator_require_reconfiguration - check if reconfiguration is required
+ * @mgr: Pointer to rotator manager
+ * @hw: Pointer to rotator hw resource
+ * @entry: Pointer to next rotation entry
+ *
+ * Parameters are validated by caller.
+ */
+static int sde_rotator_require_reconfiguration(struct sde_rot_mgr *mgr,
+		struct sde_rot_hw_resource *hw, struct sde_rot_entry *entry)
+{
+	/* OT setting change may impact queued entries */
+	if (entry->perf && (entry->perf->rdot_limit != mgr->rdot_limit ||
+			entry->perf->wrot_limit != mgr->wrot_limit))
+		return true;
+
+	return false;
+}
+
+/*
+ * sde_rotator_is_hw_idle - check if hw block is not processing request
+ * @mgr: Pointer to rotator manager
+ * @hw: Pointer to rotator hw resource
+ *
+ * Parameters are validated by caller.
+ */
+static int sde_rotator_is_hw_idle(struct sde_rot_mgr *mgr,
+		struct sde_rot_hw_resource *hw)
+{
+	int i;
+
+	/*
+	 * Wait until all queues are idle in order to update global
+	 * setting such as VBIF QoS.  This check can be relaxed if global
+	 * settings can be updated individually by entries already
+	 * queued in hw queue, i.e. REGDMA can update VBIF directly.
+	 */
+	for (i = 0; i < mgr->queue_count; i++) {
+		struct sde_rot_hw_resource *hw_res = mgr->commitq[i].hw;
+
+		if (hw_res && atomic_read(&hw_res->num_active))
+			return false;
+	}
+
+	return true;
+}
+
+/*
+ * sde_rotator_is_hw_available - check if hw is available for the given entry
+ * @mgr: Pointer to rotator manager
+ * @hw: Pointer to rotator hw resource
+ * @entry: Pointer to rotation entry
+ *
+ * Parameters are validated by caller.
+ */
+static int sde_rotator_is_hw_available(struct sde_rot_mgr *mgr,
+		struct sde_rot_hw_resource *hw, struct sde_rot_entry *entry)
+{
+	/*
+	 * Wait until hw is idle if reconfiguration is required; otherwise,
+	 * wait until free queue entry is available
+	 */
+	if (sde_rotator_require_reconfiguration(mgr, hw, entry)) {
+		SDEROT_DBG(
+			"wait4idle active=%d pending=%d rdot:%u/%u wrot:%u/%u s:%d.%d\n",
+				atomic_read(&hw->num_active), hw->pending_count,
+				mgr->rdot_limit, entry->perf->rdot_limit,
+				mgr->wrot_limit, entry->perf->wrot_limit,
+				entry->item.session_id,
+				entry->item.sequence_id);
+		return sde_rotator_is_hw_idle(mgr, hw);
+	} else {
+		return (atomic_read(&hw->num_active) < hw->max_active);
+	}
+}
+
+/*
+ * sde_rotator_get_hw_resource - block waiting for hw availability or timeout
+ * @queue: Pointer to rotator queue
+ * @entry: Pointer to rotation entry
+ */
 static struct sde_rot_hw_resource *sde_rotator_get_hw_resource(
 	struct sde_rot_queue *queue, struct sde_rot_entry *entry)
 {
-	struct sde_rot_hw_resource *hw = queue->hw;
+	struct sde_rot_hw_resource *hw;
 	struct sde_rot_mgr *mgr;
 	int ret;
 
-	if (!hw) {
-		SDEROT_ERR("no hw in the queue\n");
+	if (!queue || !entry || !queue->hw) {
+		SDEROT_ERR("null parameters\n");
 		return NULL;
 	}
 
+	hw = queue->hw;
 	mgr = entry->private->mgr;
 
 	BUG_ON(atomic_read(&hw->num_active) > hw->max_active);
-	while (atomic_read(&hw->num_active) >= hw->max_active) {
-		sde_rot_mgr_unlock(entry->private->mgr);
+	while (!sde_rotator_is_hw_available(mgr, hw, entry)) {
+		sde_rot_mgr_unlock(mgr);
 		ret = wait_event_timeout(hw->wait_queue,
-			(atomic_read(&hw->num_active) < hw->max_active),
+			sde_rotator_is_hw_available(mgr, hw, entry),
 			msecs_to_jiffies(mgr->hwacquire_timeout));
-		sde_rot_mgr_lock(entry->private->mgr);
+		sde_rot_mgr_lock(mgr);
 		if (!ret) {
 			SDEROT_ERR(
 				"timeout waiting for hw resource, a:%d p:%d\n",
 				atomic_read(&hw->num_active),
 				hw->pending_count);
-			if (hw->workload)
-				SDEROT_ERR("possible faulty workload s:%d.%d\n",
-						hw->workload->item.session_id,
-						hw->workload->item.sequence_id);
 			return NULL;
 		}
 	}
 	atomic_inc(&hw->num_active);
-	SDEROT_DBG("active=%d pending=%d s:%d.%d\n",
+	SDEROT_DBG("active=%d pending=%d rdot=%u/%u wrot=%u/%u s:%d.%d\n",
 			atomic_read(&hw->num_active), hw->pending_count,
+			mgr->rdot_limit, entry->perf->rdot_limit,
+			mgr->wrot_limit, entry->perf->wrot_limit,
 			entry->item.session_id, entry->item.sequence_id);
-	hw->workload = entry;
+	mgr->rdot_limit = entry->perf->rdot_limit;
+	mgr->wrot_limit = entry->perf->wrot_limit;
 	return hw;
 }
 
+/*
+ * sde_rotator_put_hw_resource - return hw resource and wake up waiting clients
+ * @queue: Pointer to rotator queue
+ * @entry: Pointer to rotation entry
+ * @hw: Pointer to hw resource to be returned
+ */
 static void sde_rotator_put_hw_resource(struct sde_rot_queue *queue,
-	struct sde_rot_hw_resource *hw)
+		struct sde_rot_entry *entry, struct sde_rot_hw_resource *hw)
 {
-	struct sde_rot_entry *entry = hw->workload;
+	struct sde_rot_mgr *mgr;
+	int i;
+
+	if (!queue || !entry || !hw) {
+		SDEROT_ERR("null parameters\n");
+		return;
+	}
+
+	mgr = entry->private->mgr;
 
 	BUG_ON(atomic_read(&hw->num_active) < 1);
-	hw->workload = NULL;
 	if (!atomic_add_unless(&hw->num_active, -1, 0))
 		SDEROT_ERR("underflow active=%d pending=%d s:%d.%d\n",
 			atomic_read(&hw->num_active), hw->pending_count,
 			entry->item.session_id, entry->item.sequence_id);
-	wake_up(&hw->wait_queue);
+	/*
+	 * Wake up all queues in case any entry is waiting for hw idle,
+	 * in order to update global settings, such as VBIF QoS.
+	 * This can be relaxed to the given hw resource if global
+	 * settings can be updated individually by entries already
+	 * queued in hw queue.
+	 */
+	for (i = 0; i < mgr->queue_count; i++) {
+		struct sde_rot_hw_resource *hw_res = mgr->commitq[i].hw;
+
+		if (hw_res)
+			wake_up(&hw_res->wait_queue);
+	}
 	SDEROT_DBG("active=%d pending=%d s:%d.%d\n",
 			atomic_read(&hw->num_active), hw->pending_count,
 			entry->item.session_id, entry->item.sequence_id);
@@ -907,6 +1014,14 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 			&config->output.comp_ratio);
 
 	perf->bw = read_bw + write_bw;
+
+	perf->rdot_limit = sde_mdp_get_ot_limit(
+			config->input.width, config->input.height,
+			config->input.format, config->frame_rate, true);
+	perf->wrot_limit = sde_mdp_get_ot_limit(
+			config->input.width, config->input.height,
+			config->input.format, config->frame_rate, false);
+
 	return 0;
 }
 
@@ -1068,7 +1183,7 @@ static void sde_rotator_commit_handler(struct work_struct *work)
 	sde_rot_mgr_unlock(mgr);
 	return;
 error:
-	sde_rotator_put_hw_resource(entry->commitq, hw);
+	sde_rotator_put_hw_resource(entry->commitq, entry, hw);
 get_hw_res_err:
 	sde_rotator_signal_output(entry);
 	sde_rotator_release_entry(mgr, entry);
@@ -1140,7 +1255,7 @@ static void sde_rotator_done_handler(struct work_struct *work)
 		entry->item.dst_rect.w, entry->item.dst_rect.h);
 
 	sde_rot_mgr_lock(mgr);
-	sde_rotator_put_hw_resource(entry->commitq, entry->commitq->hw);
+	sde_rotator_put_hw_resource(entry->commitq, entry, entry->commitq->hw);
 	sde_rotator_signal_output(entry);
 	sde_rotator_release_entry(mgr, entry);
 	atomic_dec(&request->pending_count);
@@ -2274,10 +2389,12 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	sde_rotator_clk_ctrl(mgr, true);
 
 	mdata->mdss_version = SDE_REG_READ(mdata, SDE_REG_HW_VERSION);
-	SDEROT_INFO("mdss revision %x\n", mdata->mdss_version);
+	SDEROT_DBG("mdss revision %x\n", mdata->mdss_version);
 
 	if ((mdata->mdss_version & 0xFFFF0000) == 0x10070000) {
 		mgr->ops_hw_init = sde_rotator_r1_init;
+	} else if ((mdata->mdss_version & 0xFFFF0000) == 0x30000000) {
+		mgr->ops_hw_init = sde_rotator_r3_init;
 	} else {
 		SDEROT_ERR("unsupported sde version %x\n",
 				mdata->mdss_version);

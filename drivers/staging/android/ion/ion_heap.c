@@ -2,7 +2,7 @@
  * drivers/staging/android/ion/ion_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -325,8 +325,9 @@ struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 
 	switch (heap_data->type) {
 	case ION_HEAP_TYPE_SYSTEM_CONTIG:
-		heap = ion_system_contig_heap_create(heap_data);
-		break;
+		pr_err("%s: Heap type is disabled: %d\n", __func__,
+		       heap_data->type);
+		return ERR_PTR(-EINVAL);
 	case ION_HEAP_TYPE_SYSTEM:
 		heap = ion_system_heap_create(heap_data);
 		break;
@@ -365,7 +366,8 @@ void ion_heap_destroy(struct ion_heap *heap)
 
 	switch (heap->type) {
 	case ION_HEAP_TYPE_SYSTEM_CONTIG:
-		ion_system_contig_heap_destroy(heap);
+		pr_err("%s: Heap type is disabled: %d\n", __func__,
+		       heap->type);
 		break;
 	case ION_HEAP_TYPE_SYSTEM:
 		ion_system_heap_destroy(heap);

@@ -27,4 +27,11 @@ config MSM_QPNP_INT
 	help
 	  Say 'y' here to include support for the Qualcomm QPNP interrupt
 	  support. QPNP is a SPMI based PMIC implementation.
+
+config MSM_SPMI_DEBUGFS_RO
+	depends on DEBUG_FS
+	depends on MSM_SPMI
+	bool "Disable SPMI debugfs write"
+	help
+	  Say 'y' here to disable the SPMI debugfs register write operation.
 endif

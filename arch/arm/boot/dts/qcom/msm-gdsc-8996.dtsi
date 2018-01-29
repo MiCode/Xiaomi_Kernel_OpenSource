@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -182,6 +182,7 @@
 		regulator-name = "gdsc_hlos1_vote_aggre0_noc";
 		reg = <0x37d024 0x4>;
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
@@ -190,6 +191,7 @@
 		regulator-name = "gdsc_hlos1_vote_lpass_adsp";
 		reg = <0x37d034 0x4>;
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
@@ -198,6 +200,7 @@
 		regulator-name = "gdsc_hlos1_vote_lpass_core";
 		reg = <0x37d038 0x4>;
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 

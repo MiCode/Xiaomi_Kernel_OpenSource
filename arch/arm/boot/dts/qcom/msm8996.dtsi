@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 	interrupt-parent = <&intc>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
+		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1 app_setting.use_32bit_app_setting=1";
 	};
 
 	aliases {
@@ -973,6 +973,7 @@
 			qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 01 17 02];
 			qcom,cdc-dmic-sample-rate = <4800000>;
 			qcom,cdc-mad-dmic-rate = <600000>;
+			qcom,cdc-ecpp-dmic-rate = <1200000>;
 			qcom,cdc-dmic-clk-drv-strength = <2>;
 		};
 	};
@@ -1325,7 +1326,7 @@
 		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&pm8994_l12>;
 		vreg-0.9-supply = <&pm8994_l28>;
-		vreg-cx-supply = <&pm8994_s1_corner_ao>;
+		vreg-cx-supply = <&pm8994_s1_corner>;
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
 		qcom,vreg-cx-voltage-level = <7 4 0>;
@@ -1478,7 +1479,7 @@
 		gdsc-vdd-supply = <&gdsc_pcie_1>;
 		vreg-1.8-supply = <&pm8994_l12>;
 		vreg-0.9-supply = <&pm8994_l28>;
-		vreg-cx-supply = <&pm8994_s1_corner_ao>;
+		vreg-cx-supply = <&pm8994_s1_corner>;
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
 		qcom,vreg-cx-voltage-level = <7 5 0>;
@@ -1629,10 +1630,10 @@
 		gdsc-vdd-supply = <&gdsc_pcie_2>;
 		vreg-1.8-supply = <&pm8994_l12>;
 		vreg-0.9-supply = <&pm8994_l28>;
-		vreg-cx-supply = <&pm8994_s1_corner_ao>;
+		vreg-cx-supply = <&pm8994_s1_corner>;
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
-		qcom,vreg-cx-voltage-level = <7 4 0>;
+		qcom,vreg-cx-voltage-level = <7 5 0>;
 
 		qcom,l1-supported;
 		qcom,l1ss-supported;
@@ -1777,6 +1778,11 @@
 		mem_dump_table@10 {
 			compatible = "qcom,msm-imem-mem_dump_table";
 			reg = <0x10 8>;
+		};
+
+		dload_type@18 {
+			compatible = "qcom,msm-imem-dload-type";
+			reg = <0x18 4>;
 		};
 
 		restart_reason@65c {
@@ -2221,15 +2227,18 @@
 	qcom,cnss {
 		compatible = "qcom,cnss";
 		wlan-bootstrap-gpio = <&tlmm 46 0>;
-		wlan-en-gpio = <&pm8994_gpios 8 0>;
+		vdd-wlan-en-supply = <&wlan_en_vreg>;
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-io-supply = <&pm8994_s4>;
 		vdd-wlan-xtal-supply = <&pm8994_l30>;
 		vdd-wlan-core-supply = <&pm8994_s3>;
 		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
+		qcom,wlan-en-vreg-support;
+		qcom,enable-bootstrap-gpio;
 		qcom,notify-modem-status;
-		pinctrl-names = "default";
-		pinctrl-0 = <&cnss_default>;
+		pinctrl-names = "bootstrap_active", "bootstrap_sleep";
+		pinctrl-0 = <&cnss_bootstrap_active>;
+		pinctrl-1 = <&cnss_bootstrap_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 
@@ -2433,7 +2442,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
-				<55 512 3936000 393600>;
+				<55 512 393600 393600>;
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		clocks = <&clock_gcc clk_qcrypto_ce1_clk>,
@@ -2445,6 +2454,8 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,use-sw-aead-algo;
 	};
 
 	qcom_cedev: qcedev@660000 {
@@ -2463,7 +2474,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
-				<55 512 3936000 393600>;
+				<55 512 393600 393600>;
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		clocks = <&clock_gcc clk_qcedev_ce1_clk>,
@@ -2933,12 +2944,14 @@
 		qcom,tasha-mclk-clk-freq = <9600000>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>;
+				<&afe>, <&lsm>, <&routing>, <&cpe>,
+				<&compr>, <&pcmnoirq>, <&cpe3>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1", "msm-pcm-dsp.2",
 				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
 				"msm-lsm-client", "msm-pcm-routing", "msm-cpe-lsm",
-				"msm-compr-dsp";
+				"msm-compr-dsp", "msm-pcm-dsp-noirq",
+				"msm-cpe-lsm.3";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>, <&dai_mi2s>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
@@ -3008,6 +3021,12 @@
 		compatible = "qcom,msm-compress-dsp";
 	};
 
+	pcmnoirq: qcom,msm-pcm-dsp-noirq {
+		compatible = "qcom,msm-pcm-dsp-noirq";
+		qcom,msm-pcm-low-latency;
+		qcom,latency-level = "ultra";
+	};
+
 	voip: qcom,msm-voip-dsp {
 		compatible = "qcom,msm-voip-dsp";
 	};
@@ -3044,6 +3063,12 @@
 
 	cpe: qcom,msm-cpe-lsm {
 		compatible = "qcom,msm-cpe-lsm";
+		qcom,msm-cpe-lsm-id = <1>;
+	};
+
+	cpe3: qcom,msm-cpe-lsm@3 {
+		compatible = "qcom,msm-cpe-lsm";
+		qcom,msm-cpe-lsm-id = <3>;
 	};
 
 	qcom,msm-dai-q6 {
@@ -3729,6 +3754,12 @@
 		clock-names = "dcc_clk";
 
 		qcom,save-reg;
+	};
+
+	qcom,msm-power {
+		compatible = "qcom,msm-power";
+		clock-names = "gpu_clk";
+		clocks = <&clock_gpu clk_gpu_gx_gfx3d_clk>;
 	};
 };
 

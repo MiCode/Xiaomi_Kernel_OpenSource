@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -746,7 +746,8 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 		goto error;
 
 	pipe_ndx = mdata->dma_pipes[pipe_id].ndx;
-	hw->pipe = mdss_mdp_pipe_assign(mdata, hw->mixer, pipe_ndx);
+	hw->pipe = mdss_mdp_pipe_assign(mdata, hw->mixer,
+			pipe_ndx, MDSS_MDP_PIPE_RECT0);
 	if (IS_ERR_OR_NULL(hw->pipe)) {
 		pr_err("dma pipe allocation failed\n");
 		ret = -ENODEV;
@@ -1033,8 +1034,16 @@ static int mdss_rotator_calc_perf(struct mdss_rot_perf *perf)
 		pr_err("invalid output format\n");
 		return -EINVAL;
 	}
+	if (!config->input.width ||
+		(0xffffffff/config->input.width < config->input.height))
+		return -EINVAL;
 
 	perf->clk_rate = config->input.width * config->input.height;
+
+	if (!perf->clk_rate ||
+		(0xffffffff/perf->clk_rate < config->frame_rate))
+		return -EINVAL;
+
 	perf->clk_rate *= config->frame_rate;
 	/* rotator processes 4 pixels per clock */
 	perf->clk_rate /= 4;
@@ -2058,10 +2067,12 @@ static int mdss_rotator_config_session(struct mdss_rot_mgr *mgr,
 		return ret;
 	}
 
+	mutex_lock(&mgr->lock);
 	perf = mdss_rotator_find_session(private, config.session_id);
 	if (!perf) {
 		pr_err("No session with id=%u could be found\n",
 			config.session_id);
+		mutex_unlock(&mgr->lock);
 		return -EINVAL;
 	}
 
@@ -2084,6 +2095,7 @@ static int mdss_rotator_config_session(struct mdss_rot_mgr *mgr,
 		config.output.format);
 done:
 	ATRACE_END(__func__);
+	mutex_unlock(&mgr->lock);
 	return ret;
 }
 

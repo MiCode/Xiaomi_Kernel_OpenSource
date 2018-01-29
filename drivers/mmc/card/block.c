@@ -47,6 +47,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
+#include <linux/mmc/ffu.h>
 
 #include <asm/uaccess.h>
 
@@ -164,7 +165,7 @@ MODULE_PARM_DESC(perdev_minors, "Minors numbers to allocate per device");
 static inline int mmc_blk_part_switch(struct mmc_card *card,
 				      struct mmc_blk_data *md);
 static int get_card_status(struct mmc_card *card, u32 *status, int retries);
-static int mmc_blk_cmdq_switch(struct mmc_card *card,
+int mmc_blk_cmdq_switch(struct mmc_card *card,
 			       struct mmc_blk_data *md, bool enable);
 
 static inline void mmc_blk_clear_packed(struct mmc_queue_req *mqrq)
@@ -620,6 +621,15 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	idata = mmc_blk_ioctl_copy_from_user(ic_ptr);
 	if (IS_ERR_OR_NULL(idata))
 		return PTR_ERR(idata);
+	if (idata->ic.postsleep_max_us < idata->ic.postsleep_min_us) {
+		pr_err("%s: min value: %u must not be greater than max value: %u\n",
+			__func__, idata->ic.postsleep_min_us,
+			idata->ic.postsleep_max_us);
+		WARN_ON(1);
+		err = -EPERM;
+		goto cmd_err;
+	}
+
 	md = mmc_blk_get(bdev->bd_disk);
 	if (!md) {
 		err = -EINVAL;
@@ -1001,7 +1011,7 @@ static const struct block_device_operations mmc_bdops = {
 #endif
 };
 
-static int mmc_blk_cmdq_switch(struct mmc_card *card,
+int mmc_blk_cmdq_switch(struct mmc_card *card,
 			       struct mmc_blk_data *md, bool enable)
 {
 	int ret = 0;
@@ -3104,7 +3114,8 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	struct mmc_request *mrq = host->err_mrq;
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
 	struct request_queue *q;
-	int err;
+	int err, ret;
+	u32 status = 0;
 
 	mmc_host_clk_hold(host);
 	host->cmdq_ops->dumpstate(host);
@@ -3123,8 +3134,14 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	/* RED error - Fatal: requires reset */
 	if (mrq->cmdq_req->resp_err) {
 		err = mrq->cmdq_req->resp_err;
-		pr_crit("%s: Response error detected: Device in bad state\n",
-			mmc_hostname(host));
+		if (mmc_host_halt(host) || mmc_host_cq_disable(host)) {
+			ret = get_card_status(host->card, &status, 0);
+			if (ret)
+				pr_err("%s: CMD13 failed with err %d\n",
+						mmc_hostname(host), ret);
+		}
+		pr_err("%s: Response error detected with device status 0x%08x\n",
+			mmc_hostname(host), status);
 		goto reset;
 	}
 
@@ -3483,10 +3500,6 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 
 	mmc_get_card(card);
 
-#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
-	if (mmc_bus_needs_resume(card->host))
-		mmc_resume_bus(card->host);
-#endif
 	if (!card->host->cmdq_ctx.active_reqs && mmc_card_doing_bkops(card)) {
 		ret = mmc_cmdq_halt(card->host, true);
 		if (ret)
@@ -3573,10 +3586,6 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		/* claim host only for the first request */
 		mmc_get_card(card);
 
-#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
-	if (mmc_bus_needs_resume(card->host))
-		mmc_resume_bus(card->host);
-#endif
 		if (mmc_card_doing_bkops(host->card)) {
 			ret = mmc_stop_bkops(host->card);
 			if (ret)
@@ -4137,6 +4146,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 		pm_runtime_enable(&card->dev);
 	}
 
+	mmc_ffu(card);
 	return 0;
 
  out:

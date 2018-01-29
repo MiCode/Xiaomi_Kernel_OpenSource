@@ -99,6 +99,8 @@ int msm_ba_s_priority(void *instance, enum v4l2_priority prio)
 	struct msm_ba_input *ba_input = NULL;
 	int rc = 0;
 
+	dprintk(BA_DBG, "Enter %s, prio: %d", __func__, prio);
+
 	if (!inst)
 		return -EINVAL;
 
@@ -144,8 +146,8 @@ int msm_ba_enum_input(void *instance, struct v4l2_input *input)
 		input->type = V4L2_INPUT_TYPE_CAMERA;
 		input->std = V4L2_STD_ALL;
 		strlcpy(input->name, ba_input->name, sizeof(input->name));
-		if (BA_INPUT_HDMI == ba_input->inputType ||
-			BA_INPUT_MHL == ba_input->inputType)
+		if (BA_INPUT_HDMI == ba_input->input_type ||
+			BA_INPUT_MHL == ba_input->input_type)
 			input->capabilities = V4L2_IN_CAP_CUSTOM_TIMINGS;
 		else
 			input->capabilities = V4L2_IN_CAP_STD;
@@ -174,15 +176,23 @@ int msm_ba_g_input(void *instance, unsigned int *index)
 	if (!inst || !index)
 		return -EINVAL;
 
-	/* First find current input */
-	ba_input = msm_ba_find_input(inst->sd_input.index);
-	if (ba_input) {
-		if (V4L2_PRIORITY_RECORD == ba_input->prio &&
-			inst->input_prio != ba_input->prio) {
-			inst->sd_input.index++;
+	do {
+		/* First find current input */
+		ba_input = msm_ba_find_input(inst->sd_input.index);
+		if (ba_input) {
+			if (BA_INPUT_USERTYPE_KERNEL ==
+				ba_input->input_user_type) {
+				inst->sd_input.index++;
+				continue;
+			}
+			break;
 		}
-	}
-	*index = inst->sd_input.index;
+	} while (ba_input);
+
+	if (ba_input)
+		*index = inst->sd_input.index;
+	else
+		rc = -ENOENT;
 
 	return rc;
 }
@@ -223,6 +233,10 @@ int msm_ba_s_input(void *instance, unsigned int index)
 					ba_input->bridge_chip_ip);
 				rc_sig = v4l2_subdev_call(ba_input->sd,
 							video, s_stream, 0);
+				if (rc_sig)
+					dprintk(BA_ERR,
+					"%s: Error in stream off. rc_sig %d",
+					__func__, rc_sig);
 			}
 		} else {
 			dprintk(BA_WARN, "Sd %d in use", ba_input->ba_out);
@@ -252,7 +266,6 @@ int msm_ba_s_input(void *instance, unsigned int index)
 			.id = 0,
 			.type = V4L2_EVENT_MSM_BA_SIGNAL_IN_LOCK};
 		int *ptr = (int *)sd_event.u.data;
-
 		ptr[0] = index;
 		ptr[1] = ba_input->signal_status;
 		msm_ba_queue_v4l2_event(inst, &sd_event);
@@ -311,7 +324,6 @@ int msm_ba_s_output(void *instance, unsigned int index)
 			dprintk(BA_ERR, "No sd registered");
 			return -EINVAL;
 		}
-		ba_input->ba_node_addr = index;
 		ba_input->ba_out = index;
 		inst->sd_output.index = index;
 		inst->sd = ba_input->sd;
@@ -370,7 +382,7 @@ int msm_ba_g_fmt(void *instance, struct v4l2_format *f)
 				inst->sd_input.index);
 		return -EINVAL;
 	}
-	if (BA_INPUT_HDMI != ba_input->inputType) {
+	if (BA_INPUT_HDMI != ba_input->input_type) {
 		rc = v4l2_subdev_call(sd, video, querystd, &new_std);
 		if (rc) {
 			dprintk(BA_ERR, "querystd failed %d for sd: %s",
@@ -380,9 +392,11 @@ int msm_ba_g_fmt(void *instance, struct v4l2_format *f)
 		inst->sd_input.std = new_std;
 	} else {
 		rc = v4l2_subdev_call(sd, video, g_dv_timings, &sd_dv_timings);
-		if (rc)
+		if (rc) {
 			dprintk(BA_ERR, "g_dv_timings failed %d for sd: %s",
 				rc, sd->name);
+			return -EINVAL;
+		}
 	}
 
 	rc = v4l2_subdev_call(sd, video, g_mbus_fmt, &sd_mbus_fmt);
@@ -503,6 +517,113 @@ int msm_ba_streamoff(void *instance, enum v4l2_buf_type i)
 }
 EXPORT_SYMBOL(msm_ba_streamoff);
 
+long msm_ba_private_ioctl(void *instance, int cmd, void *arg)
+{
+	long rc = 0;
+	struct msm_ba_inst *inst = instance;
+	struct v4l2_subdev *sd = NULL;
+	int *s_ioctl = arg;
+
+	dprintk(BA_DBG, "Enter %s with command: 0x%x", __func__, cmd);
+
+	if (!inst)
+		return -EINVAL;
+
+	switch (cmd) {
+	case VIDIOC_HDMI_RX_CEC_S_LOGICAL: {
+		dprintk(BA_DBG, "VIDIOC_HDMI_RX_CEC_S_LOGICAL");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (s_ioctl) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, s_ioctl);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
+	case VIDIOC_HDMI_RX_CEC_CLEAR_LOGICAL: {
+		dprintk(BA_DBG, "VIDIOC_HDMI_RX_CEC_CLEAR_LOGICAL");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		rc = v4l2_subdev_call(sd, core, ioctl, cmd, s_ioctl);
+		if (rc)
+			dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+				__func__, rc, cmd);
+	}
+		break;
+	case VIDIOC_HDMI_RX_CEC_G_PHYSICAL: {
+		dprintk(BA_DBG, "VIDIOC_HDMI_RX_CEC_G_PHYSICAL");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (s_ioctl) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, s_ioctl);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
+	case VIDIOC_HDMI_RX_CEC_G_CONNECTED: {
+		dprintk(BA_DBG, "VIDIOC_HDMI_RX_CEC_G_CONNECTED");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (s_ioctl) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, s_ioctl);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
+	case VIDIOC_HDMI_RX_CEC_S_ENABLE: {
+		dprintk(BA_DBG, "VIDIOC_HDMI_RX_CEC_S_ENABLE");
+		sd = inst->sd;
+		if (!sd) {
+			dprintk(BA_ERR, "No sd registered");
+			return -EINVAL;
+		}
+		if (s_ioctl) {
+			rc = v4l2_subdev_call(sd, core, ioctl, cmd, s_ioctl);
+			if (rc)
+				dprintk(BA_ERR, "%s failed: %ld on cmd: 0x%x",
+					__func__, rc, cmd);
+		} else {
+			dprintk(BA_ERR, "%s: NULL argument provided", __func__);
+			rc = -EINVAL;
+		}
+	}
+		break;
+	default:
+		dprintk(BA_WARN, "Not a typewriter! Command: 0x%x", cmd);
+		rc = -ENOTTY;
+		break;
+	}
+	return rc;
+}
+EXPORT_SYMBOL(msm_ba_private_ioctl);
+
 int msm_ba_save_restore_input(void *instance, enum msm_ba_save_restore_ip sr)
 {
 	struct msm_ba_inst *inst = instance;
@@ -535,7 +656,10 @@ int msm_ba_save_restore_input(void *instance, enum msm_ba_save_restore_ip sr)
 		rc = msm_ba_streamon(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	} else if (BA_SR_SAVE_IP == sr) {
 		ba_input = msm_ba_find_input(inst->sd_input.index);
-		if (ba_input && ba_input->ba_out_in_use) {
+		if (ba_input == NULL) {
+			dprintk(BA_ERR, "Could not find input %d",
+				inst->sd_input.index);
+		} else if (ba_input->ba_out_in_use) {
 			inst->restore = 1;
 			inst->saved_input =
 				msm_ba_find_ip_in_use_from_sd(inst->sd);
@@ -547,9 +671,6 @@ int msm_ba_save_restore_input(void *instance, enum msm_ba_save_restore_ip sr)
 				inst->saved_input);
 			rc = -EBUSY;
 		}
-		if (!ba_input)
-			dprintk(BA_WARN, "Couldn't find input idx %d to save",
-				inst->sd_input.index);
 	} else {
 		dprintk(BA_DBG, "Nothing to do in save and restore");
 	}

@@ -21,6 +21,28 @@
 
 #include "core.h"
 
+/*
+ * NOTE: Make sure to have dwc as local variable in function before using
+ * below macros.
+ */
+#define dbg_event(ep_num, name, status) \
+	dwc3_dbg_print(dwc, ep_num, name, status, "")
+
+#define dbg_print(ep_num, name, status, extra) \
+	dwc3_dbg_print(dwc, ep_num, name, status, extra)
+
+#define dbg_print_reg(name, reg) \
+	dwc3_dbg_print_reg(dwc, name, reg)
+
+#define dbg_done(ep_num, count, status) \
+	dwc3_dbg_done(dwc, ep_num, count, status)
+
+#define dbg_queue(ep_num, req, status) \
+	dwc3_dbg_queue(dwc, ep_num, req, status)
+
+#define dbg_setup(ep_num, req) \
+	dwc3_dbg_setup(dwc, ep_num, req)
+
 /**
  * dwc3_gadget_ep_cmd_string - returns endpoint command string
  * @cmd: command code
@@ -217,28 +239,28 @@ static inline const char *dwc3_gadget_event_type_string(u8 event)
 void dwc3_trace(void (*trace)(struct va_format *), const char *fmt, ...);
 
 #ifdef CONFIG_DEBUG_FS
-extern void dbg_event(u8, const char*, int);
-extern void dbg_print(u8, const char*, int, const char*);
-extern void dbg_done(u8, const u32, int);
-extern void dbg_queue(u8, const struct usb_request*, int);
-extern void dbg_setup(u8, const struct usb_ctrlrequest*);
+extern void dwc3_dbg_print(struct dwc3 *, u8, const char*, int, const char*);
+extern void dwc3_dbg_done(struct dwc3 *, u8, const u32, int);
+extern void dwc3_dbg_queue(struct dwc3 *, u8, const struct usb_request*, int);
+extern void dwc3_dbg_setup(struct dwc3 *, u8, const struct usb_ctrlrequest*);
 extern int dwc3_debugfs_init(struct dwc3 *);
 extern void dwc3_debugfs_exit(struct dwc3 *);
-extern void dbg_print_reg(const char *name, int reg);
+extern void dwc3_dbg_print_reg(struct dwc3 *, const char *name, int reg);
 #else
-static inline void dbg_event(u8 ep_num, const char *name, int status)
+static inline void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num, const char *name,
+		int status, const char *extra)
 {  }
-static inline void dbg_print(u8 ep_num, const char *name, int status,
-			     const char *extra)
+static inline void dwc3_dbg_done(struct dwc3 *dwc, u8 ep_num,
+		const u32 count, int status)
 {  }
-static inline void dbg_done(u8 ep_num, const u32 count, int status)
+static inline void dwc3_dbg_queue(struct dwc3 *dwc, u8 ep_num,
+		const struct usb_request *req, int status)
 {  }
-static inline void dbg_queue(u8 ep_num, const struct usb_request *req,
-			     int status)
+static inline void dwc3_dbg_setup(struct dwc3 *dwc, u8 ep_num,
+		const struct usb_ctrlrequest *req)
 {  }
-static inline void dbg_setup(u8 ep_num, const struct usb_ctrlrequest *req)
-{  }
-static inline void dbg_print_reg(const char *name, int reg)
+static inline void dwc3_dbg_print_reg(struct dwc3 *dwc, const char *name,
+				int reg)
 {  }
 static inline int dwc3_debugfs_init(struct dwc3 *d)
 {  return 0;  }

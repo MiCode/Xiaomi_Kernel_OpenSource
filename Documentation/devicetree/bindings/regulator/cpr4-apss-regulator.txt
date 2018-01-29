@@ -165,7 +165,7 @@ APSS specific properties:
 		    and Turbo.
 
 - qcom,cpr-fuse-combos
-	Usage:      required
+	Usage:      optional
 	Value type: <u32>
 	Definition: Specifies the number of fuse combinations being supported by
 		    the device.  This value is utilized by several other
@@ -177,6 +177,11 @@ APSS specific properties:
 		    bin fuse value 1 along with CPR revision fuse values 0 to 7.
 		    The last 8 fuse combos correspond to speed bin fuse value 7
 		    along with CPR revision fuse values 0 to 7.
+
+		    This property must be specified unless qcom,cpr-fuse-combo-map
+		    is present. In that case, qcom,cpr-fuse-combos is implicitly
+		    assumed to have a value equal to the number of tuple lists (rows)
+		    found in the qcom,cpr-fuse-combo-map property.
 
 - qcom,cpr-speed-bins
 	Usage:      optional
@@ -367,6 +372,27 @@ APSS specific properties:
 		    number of tuple lists in which case the lists are matched to
 		    speed bins 1-to-1 or exactly 1 list which is used regardless
 		    of the speed bin found on a given chip.
+
+- qcom,cpr-fuse-combo-map
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists where each tuple list (row)
+		    defines a mapping from combinations of fuse parameter ranges
+		    to fuse combo ID (i.e., map row index). Each tuple defines the
+		    beginning and ending fuse parameter value that matches. The
+		    number of tuples in each row is equal to the number of selection
+		    fuse parameters used in fuse combo logic. For MSM8953, the fuse
+		    parameters are "speed-bin", "cpr fuse revision", and "foundry id".
+		    The tuples in each row correspond to the fuses in order:
+		    "speed-bin", "cpr fuse revision" and "foundry id". An example entry
+		    for speed-bin '3', cpr fuse revisions >= '2', and foundry '2' is
+		    as shown below:
+		         <3 3>, <2 7>, <2 2>
+
+		    The number of rows in the property is arbitrary but used to size
+		    other properties. qcom,cpr-fuse-combos must be set to the number
+		    of rows specified in this property. For msm8953, the maximum number
+		    of rows for this property is 512 (8 * 8 * 8).
 
 =======
 Example

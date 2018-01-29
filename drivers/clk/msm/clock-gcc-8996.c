@@ -1339,9 +1339,11 @@ static struct rcg_clk pdm2_clk_src = {
 	},
 };
 
-/* Frequency table might change later */
 static struct clk_freq_tbl ftbl_qspi_ser_clk_src[] = {
-	F( 192000000,  gpll4_out_main,    2,    0,     0),
+	F(  75000000,  gpll0_out_main,    8,    0,     0),
+	F( 150000000,  gpll0_out_main,    4,    0,     0),
+	F( 256000000,  gpll4_out_main,  1.5,    0,     0),
+	F( 300000000,  gpll0_out_main,    2,    0,     0),
 	F_END
 };
 

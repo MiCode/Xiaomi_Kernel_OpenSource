@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/delay.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/module.h>
@@ -21,6 +22,7 @@
 #include <linux/srcu.h>
 #include <linux/termios.h>
 #include <linux/workqueue.h>
+#include <linux/completion.h>
 #include <soc/qcom/smd.h>
 #include <soc/qcom/glink.h>
 #include "glink_core_if.h"
@@ -140,6 +142,7 @@ struct channel {
 	uint32_t lcid;
 	uint32_t rcid;
 	struct mutex ch_probe_lock;
+	struct mutex ch_tasklet_lock;
 	bool wait_for_probe;
 	bool had_probed;
 	struct edge_info *edge;
@@ -149,7 +152,7 @@ struct channel {
 	spinlock_t intents_lock;
 	uint32_t next_intent_id;
 	struct workqueue_struct *wq;
-	struct work_struct work;
+	struct tasklet_struct data_tasklet;
 	struct intent_info *cur_intent;
 	bool intent_req;
 	bool is_closing;
@@ -159,6 +162,8 @@ struct channel {
 	spinlock_t rx_data_lock;
 	bool streaming_ch;
 	bool tx_resume_needed;
+	bool is_tasklet_enabled;
+	struct completion open_notifier;
 };
 
 /**
@@ -230,7 +235,7 @@ static struct glink_core_version versions[] = {
 static LIST_HEAD(pdrv_list);
 static DEFINE_MUTEX(pdrv_list_mutex);
 
-static void process_data_event(struct work_struct *work);
+static void process_data_event(unsigned long param);
 static int add_platform_driver(struct channel *ch);
 static void smd_data_ch_close(struct channel *ch);
 
@@ -324,11 +329,18 @@ static void process_ctl_event(struct work_struct *work)
 				strlcpy(ch->name, name, GLINK_NAME_SIZE);
 				ch->edge = einfo;
 				mutex_init(&ch->ch_probe_lock);
+				mutex_init(&ch->ch_tasklet_lock);
+				init_completion(&ch->open_notifier);
 				INIT_LIST_HEAD(&ch->intents);
 				INIT_LIST_HEAD(&ch->used_intents);
 				spin_lock_init(&ch->intents_lock);
 				spin_lock_init(&ch->rx_data_lock);
-				INIT_WORK(&ch->work, process_data_event);
+				mutex_lock(&ch->ch_tasklet_lock);
+				tasklet_init(&ch->data_tasklet,
+				process_data_event, (unsigned long)ch);
+				tasklet_disable(&ch->data_tasklet);
+				ch->is_tasklet_enabled = false;
+				mutex_unlock(&ch->ch_tasklet_lock);
 				ch->wq = create_singlethread_workqueue(
 								ch->name);
 				if (!ch->wq) {
@@ -362,6 +374,7 @@ static void process_ctl_event(struct work_struct *work)
 				} else {
 					spin_unlock_irqrestore(
 						&einfo->channels_lock, flags);
+					tasklet_kill(&temp_ch->data_tasklet);
 					destroy_workqueue(temp_ch->wq);
 					kfree(temp_ch);
 				}
@@ -410,7 +423,7 @@ static void process_ctl_event(struct work_struct *work)
 						__func__, cmd.id);
 				continue;
 			}
-
+			reinit_completion(&ch->open_notifier);
 			add_platform_driver(ch);
 			mutex_lock(&einfo->rx_cmd_lock);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
@@ -418,6 +431,7 @@ static void process_ctl_event(struct work_struct *work)
 								cmd.id,
 								cmd.priority);
 			mutex_unlock(&einfo->rx_cmd_lock);
+			complete_all(&ch->open_notifier);
 		} else if (cmd.cmd == CMD_CLOSE) {
 			SMDXPRT_INFO(einfo, "%s RX REMOTE CLOSE rcid %u\n",
 					__func__, cmd.id);
@@ -548,6 +562,24 @@ static void ssr_work_func(struct work_struct *work)
 }
 
 /**
+ * deferred_close_ack() - Generate a deferred channel close ack
+ * @work:	The channel close ack work to generate.
+ */
+static void deferred_close_ack(struct work_struct *work)
+{
+	struct channel_work *ch_work;
+	struct channel *ch;
+
+	ch_work = container_of(work, struct channel_work, work);
+	ch = ch_work->ch;
+	mutex_lock(&ch->edge->rx_cmd_lock);
+	ch->edge->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
+				&ch->edge->xprt_if, ch->lcid);
+	mutex_unlock(&ch->edge->rx_cmd_lock);
+	kfree(ch_work);
+}
+
+/**
  * process_tx_done() - process a tx done task
  * @work:	The tx done task to process.
  */
@@ -602,6 +634,13 @@ static void process_open_event(struct work_struct *work)
 							SMD_TRANS_XPRT_ID);
 		mutex_unlock(&einfo->rx_cmd_lock);
 	}
+	mutex_lock(&ch->ch_tasklet_lock);
+	if (!ch->is_tasklet_enabled) {
+		tasklet_enable(&ch->data_tasklet);
+		ch->is_tasklet_enabled = true;
+	}
+	mutex_unlock(&ch->ch_tasklet_lock);
+	wait_for_completion(&ch->open_notifier);
 	kfree(ch_work);
 }
 
@@ -626,6 +665,12 @@ static void process_close_event(struct work_struct *work)
 								ch->rcid);
 		mutex_unlock(&einfo->rx_cmd_lock);
 	}
+	mutex_lock(&ch->ch_tasklet_lock);
+	if (ch->is_tasklet_enabled) {
+		tasklet_disable(&ch->data_tasklet);
+		ch->is_tasklet_enabled = false;
+	}
+	mutex_unlock(&ch->ch_tasklet_lock);
 	ch->rcid = 0;
 }
 
@@ -686,6 +731,7 @@ static void process_reopen_event(struct work_struct *work)
 		mutex_unlock(&einfo->rx_cmd_lock);
 	}
 	if (ch->local_legacy) {
+		ch->local_legacy = false;
 		mutex_lock(&einfo->rx_cmd_lock);
 		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
 								&einfo->xprt_if,
@@ -696,9 +742,9 @@ static void process_reopen_event(struct work_struct *work)
 
 /**
  * process_data_event() - process a data event task
- * @work:	The data task to process.
+ * @param:	Pointer to the channel in long format.
  */
-static void process_data_event(struct work_struct *work)
+static void process_data_event(unsigned long param)
 {
 	struct channel *ch;
 	struct edge_info *einfo;
@@ -710,7 +756,7 @@ static void process_data_event(struct work_struct *work)
 	unsigned long intents_flags;
 	unsigned long rx_data_flags;
 
-	ch = container_of(work, struct channel, work);
+	ch = (struct channel *)param;
 	einfo = ch->edge;
 
 	if (ch->tx_resume_needed && smd_write_avail(ch->smd_ch) > 0) {
@@ -810,7 +856,7 @@ static void smd_data_ch_notify(void *priv, unsigned event)
 
 	switch (event) {
 	case SMD_EVENT_DATA:
-		queue_work(ch->wq, &ch->work);
+		tasklet_hi_schedule(&ch->data_tasklet);
 		break;
 	case SMD_EVENT_OPEN:
 		work = kmalloc(sizeof(*work), GFP_ATOMIC);
@@ -877,12 +923,19 @@ static void smd_data_ch_close(struct channel *ch)
 {
 	struct intent_info *intent;
 	unsigned long flags;
+	struct channel_work *ch_work;
 
 	SMDXPRT_INFO(ch->edge, "%s Closing SMD channel lcid %u\n",
 			__func__, ch->lcid);
 
 	ch->is_closing = true;
 	ch->tx_resume_needed = false;
+	mutex_lock(&ch->ch_tasklet_lock);
+	if (ch->is_tasklet_enabled) {
+		tasklet_disable(&ch->data_tasklet);
+		ch->is_tasklet_enabled = false;
+	}
+	mutex_unlock(&ch->ch_tasklet_lock);
 	flush_workqueue(ch->wq);
 
 	mutex_lock(&ch->ch_probe_lock);
@@ -891,15 +944,16 @@ static void smd_data_ch_close(struct channel *ch)
 		smd_close(ch->smd_ch);
 		ch->smd_ch = NULL;
 	} else if (ch->local_legacy) {
-		mutex_lock(&ch->edge->rx_cmd_lock);
-		ch->edge->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
-							&ch->edge->xprt_if,
-							ch->lcid);
-		mutex_unlock(&ch->edge->rx_cmd_lock);
+		ch_work = kzalloc(sizeof(*ch_work), GFP_KERNEL);
+		ch->local_legacy = false;
+		if (ch_work) {
+			ch_work->ch = ch;
+			INIT_WORK(&ch_work->work, deferred_close_ack);
+			queue_work(ch->wq, &ch_work->work);
+		}
 	}
 	mutex_unlock(&ch->ch_probe_lock);
 
-	ch->local_legacy = false;
 
 	spin_lock_irqsave(&ch->intents_lock, flags);
 	while (!list_empty(&ch->intents)) {
@@ -1186,11 +1240,18 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		strlcpy(ch->name, name, GLINK_NAME_SIZE);
 		ch->edge = einfo;
 		mutex_init(&ch->ch_probe_lock);
+		mutex_init(&ch->ch_tasklet_lock);
+		init_completion(&ch->open_notifier);
 		INIT_LIST_HEAD(&ch->intents);
 		INIT_LIST_HEAD(&ch->used_intents);
 		spin_lock_init(&ch->intents_lock);
 		spin_lock_init(&ch->rx_data_lock);
-		INIT_WORK(&ch->work, process_data_event);
+		mutex_lock(&ch->ch_tasklet_lock);
+		tasklet_init(&ch->data_tasklet, process_data_event,
+				(unsigned long)ch);
+		tasklet_disable(&ch->data_tasklet);
+		ch->is_tasklet_enabled = false;
+		mutex_unlock(&ch->ch_tasklet_lock);
 		ch->wq = create_singlethread_workqueue(ch->name);
 		if (!ch->wq) {
 			SMDXPRT_ERR(einfo,
@@ -1220,6 +1281,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 			spin_unlock_irqrestore(&einfo->channels_lock, flags);
 		} else {
 			spin_unlock_irqrestore(&einfo->channels_lock, flags);
+			tasklet_kill(&temp_ch->data_tasklet);
 			destroy_workqueue(temp_ch->wq);
 			kfree(temp_ch);
 		}
@@ -1250,6 +1312,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		ch->rcid = lcid + LEGACY_RCID_CHANNEL_OFFSET;
 		ch->local_legacy = true;
 		ch->remote_legacy = true;
+		reinit_completion(&ch->open_notifier);
 		ret = add_platform_driver(ch);
 		if (!ret) {
 			mutex_lock(&einfo->rx_cmd_lock);
@@ -1258,6 +1321,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 						ch->lcid, SMD_TRANS_XPRT_ID);
 			mutex_unlock(&einfo->rx_cmd_lock);
 		}
+		complete_all(&ch->open_notifier);
 	}
 
 	srcu_read_unlock(&einfo->ssr_sync, rcu_id);
@@ -1463,6 +1527,12 @@ static int ssr(struct glink_transport_if *if_ptr)
 	list_for_each_entry(ch, &einfo->channels, node) {
 		spin_unlock_irqrestore(&einfo->channels_lock, flags);
 		ch->is_closing = true;
+		mutex_lock(&ch->ch_tasklet_lock);
+		if (ch->is_tasklet_enabled) {
+			tasklet_disable(&ch->data_tasklet);
+			ch->is_tasklet_enabled = false;
+		}
+		mutex_unlock(&ch->ch_tasklet_lock);
 		flush_workqueue(ch->wq);
 		mutex_lock(&ch->ch_probe_lock);
 		ch->wait_for_probe = false;
@@ -1568,7 +1638,7 @@ static void check_and_resume_rx(struct channel *ch, size_t intent_size)
 {
 	if (ch->intent_req && ch->intent_req_size <= intent_size) {
 		ch->intent_req = false;
-		queue_work(ch->wq, &ch->work);
+		tasklet_hi_schedule(&ch->data_tasklet);
 	}
 }
 
@@ -1785,8 +1855,14 @@ static int tx_cmd_rx_intent_req(struct glink_transport_if *if_ptr,
 	struct edge_info *einfo;
 	struct channel *ch;
 	unsigned long flags;
+	int rcu_id;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+	rcu_id = srcu_read_lock(&einfo->ssr_sync);
+	if (einfo->in_ssr) {
+		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+		return -EFAULT;
+	}
 	spin_lock_irqsave(&einfo->channels_lock, flags);
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (lcid == ch->lcid)
@@ -1802,6 +1878,7 @@ static int tx_cmd_rx_intent_req(struct glink_transport_if *if_ptr,
 							ch->rcid,
 							ch->next_intent_id++,
 							size);
+	srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 	return 0;
 }
 
@@ -1895,7 +1972,7 @@ static int poll(struct glink_transport_if *if_ptr, uint32_t lcid)
 	spin_unlock_irqrestore(&einfo->channels_lock, flags);
 	rc = smd_is_pkt_avail(ch->smd_ch);
 	if (rc == 1)
-		process_data_event(&ch->work);
+		process_data_event((unsigned long)ch);
 	return rc;
 }
 

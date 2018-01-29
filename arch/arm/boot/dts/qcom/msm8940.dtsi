@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,8 +38,7 @@
 			 <&clock_gcc clk_xo_otg_clk>;
 
 	qcom,usbbam@78c4000 {
-		qcom,enable-hsusb-bam-on-boot;
-
+		/delete-property/ qcom,reset-bam-on-disconnect;
 		/delete-node/ qcom,pipe0;
 		qcom,pipe0 {
 			label = "hsusb-ipa-out-0";
@@ -125,7 +124,50 @@
 	compatible = "qcom,gcc-mdss-8940";
 };
 
+&bam_dmux {
+	status = "disabled";
+};
+
 &soc {
+	ipa_hw: qcom,ipa@07900000 {
+		compatible = "qcom,ipa";
+		reg = <0x07900000 0x4effc>, <0x07904000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 228 0>,
+				<0 230 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
+		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,wan-rx-ring-size = <192>; /* IPA WAN-rx-ring-size*/
+		qcom,lan-rx-ring-size = <192>; /* IPA LAN-rx-ring-size*/
+		clock-names = "core_clk";
+		clocks = <&clock_gcc clk_ipa_clk>;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+		<90 512 0 0>, /* No BIMC vote (ab=0 Mbps, ib=0 Mbps ~ 0MHZ) */
+		<90 512 100000 800000>, /* SVS (ab=100, ib=800 ~ 50MHz) */
+		<90 512 100000 1200000>; /* PERF (ab=100, ib=1200 ~ 75MHz) */
+		qcom,bus-vector-names = "MIN", "SVS", "PERF";
+		qcom,rx-polling-sleep-ms = <2>; /* Polling sleep interval */
+		qcom,ipa-polling-iteration = <5>;	/* Polling Iteration */
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
+	};
+
+	qcom,rmtfs_sharedmem@00000000 {
+		reg = <0x00000000 0x00180000>;
+	};
+
 	/* remove 8937 MEM ACC node */
 	/delete-node/ regulator@01946004;
 
@@ -182,43 +224,6 @@
 			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
 			<(-1)  (-1)>;
 	};
-
-	ipa_hw: qcom,ipa@07900000 {
-		compatible = "qcom,ipa";
-		reg = <0x07900000 0x4effc>, <0x07904000 0x26934>;
-		reg-names = "ipa-base", "bam-base";
-		interrupts = <0 228 0>,
-				<0 230 0>;
-		interrupt-names = "ipa-irq", "bam-irq";
-		qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
-		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
-		clock-names = "core_clk";
-		clocks = <&clock_gcc clk_ipa_clk>;
-		qcom,ee = <0>;
-		qcom,use-ipa-tethering-bridge;
-		qcom,modem-cfg-emb-pipe-flt;
-		qcom,msm-bus,name = "ipa";
-		qcom,msm-bus,num-cases = <3>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-		<90 512 0 0>, /* No BIMC vote (ab=0 Mbps, ib=0 Mbps ~ 0MHZ) */
-		<90 512 100000 800000>, /* SVS (ab=100, ib=800 ~ 50MHz) */
-		<90 512 100000 1200000>; /* PERF (ab=100, ib=1200 ~ 75MHz) */
-		qcom,bus-vector-names = "MIN", "SVS", "PERF";
-		qcom,rx-polling-sleep-ms = <3>; /* Polling sleep interval */
-		qcom,ipa-polling-iteration = <15>; /* Polling Iteration */
-	};
-
-	qcom,rmnet-ipa {
-		compatible = "qcom,rmnet-ipa";
-		qcom,rmnet-ipa-ssr;
-		qcom,ipa-loaduC;
-		qcom,ipa-advertise-sg-support;
-	};
-
-	qcom,rmtfs_sharedmem@00000000 {
-		reg = <0x00000000 0x00180000>;
-	};
 };
 
 &apc_vreg_corner {
@@ -228,30 +233,51 @@
 	/delete-property/ qcom,cpr-enable;
 
 	qcom,pvs-version-fuse-sel = <37 40 3 0>; /* foundry */
+	qcom,cpr-speed-bin-max-corners =
+		<0 (-1) 1 2 6>,
+		<1 (-1) 1 2 7>;
+
 	qcom,cpr-fuse-version-map =
-		<(-1)   0  (-1) (-1) (-1) (-1)>,
-		<(-1)   1  (-1) (-1) (-1) (-1)>,
-		<(-1)   5  (-1) (-1) (-1) (-1)>;
+		<  0    0  (-1) (-1) (-1) (-1)>,
+		<  0    1  (-1) (-1) (-1) (-1)>,
+		<  0    5  (-1) (-1) (-1) (-1)>,
+		<  1    0  (-1) (-1) (-1) (-1)>,
+		<  1    1  (-1) (-1) (-1) (-1)>,
+		<  1    5  (-1) (-1) (-1) (-1)>;
 
 	qcom,cpr-init-voltage-adjustment =
 		<0    0     0>,
 		<0    0 20000>,
-		<0    0 15000>;
+		<0    0 20000>,
+		<0    0 20000>,
+		<0    0 20000>,
+		<0    0 25000>;
 
 	qcom,cpr-quotient-adjustment =
 		<0    0    0>,
 		<38   0   28>, /* SVSP(20mv); TURBO(15mv); KV(1.9) */
-		<0    0   19>; /* TURBO(10mv); KV(1.9) */
+		<0    0   28>, /* TURBO(15mv); KV(1.9) */
+		<0    0   28>, /* TURBO(15mv); KV(1.9) */
+		<38   0   28>, /* SVSP(20mv); TURBO(15mv); KV(1.9) */
+		<0    0   38>; /* TURBO(20mv); KV(1.9) */
 
 	qcom,cpr-enable;
+};
+
+&mdss_mdp {
+	qcom,vbif-settings = <0x0d0 0x00000020>;
 };
 
 &modem_mem {
 	reg = <0x0 0x86800000 0x0 0x6a00000>;
 };
 
-&reloc_mem {
-	reg = <0x0 0x8d200000 0x0 0x1800000>;
+&adsp_fw_mem {
+	reg = <0x0 0x8d200000 0x0 0x1100000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x8e300000 0x0 0x700000>;
 };
 
 &funnel_apss {
@@ -262,14 +288,33 @@
 &modem_etm0 {
 	coresight-child-ports = <2>;
 };
+&pil_mss {
+	/delete-property/ qcom,qdsp6v56-1-8-inrush-current;
+	qcom,qdsp6v56-1-8;
+};
 
 &soc {
-	cti_modem_cpu1: cti@6128000{
+	/delete-node/ cti@6124000;
+	cti_modem_cpu0: cti@6128000{
 		compatible = "arm,coresight-cti";
 		reg = <0x6128000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <59>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_modem_cpu1: cti@6124000{
+		compatible = "arm,coresight-cti";
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <60>;
 		coresight-name = "coresight-cti-modem-cpu1";
 		coresight-nr-inports = <0>;
 
@@ -282,7 +327,7 @@
 	modem_etm1 {
 		compatible = "qcom,coresight-remote-etm";
 
-		coresight-id = <60>;
+		coresight-id = <61>;
 		coresight-name = "coresight-modem-etm1";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -293,17 +338,173 @@
 	};
 };
 
-&mdss_mdp {
-	qcom,vbif-settings = <0x0d0 0x00000020>;
+/* GPU overrides */
+&msm_gpu {
+
+	qcom,restrict-pwrlevel = <1>;
+	/delete-property/qcom,gpu-speed-bin;
+	qcom,gpu-speed-bin = <0x0174 0x80000000 31>;
+
+	/delete-property/qcom,initial-pwrlevel;
+	/delete-node/qcom,gpu-pwrlevel-bins;
+	/delete-node/qcom,gpu-pwrlevels;
+
+	qcom,gpu-pwrlevel-bins {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible="qcom,gpu-pwrlevel-bins";
+
+		/* Power levels */
+		qcom,gpu-pwrlevels-0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <0>;
+			qcom,initial-pwrlevel = <3>;
+
+			/* SUPER TURBO */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <475000000>;
+				qcom,bus-freq = <10>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <10>;
+			};
+
+			/* TURBO */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <450000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <9>;
+				qcom,bus-max = <10>;
+			};
+
+			/* NOM+ */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <400000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <6>;
+				qcom,bus-max = <9>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <375000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <8>;
+			};
+
+			/* SVS+ */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <300000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <7>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <216000000>;
+				qcom,bus-freq = <3>;
+				qcom,bus-min = <1>;
+				qcom,bus-max = <4>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
+				qcom,gpu-freq = <19200000>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
+
+		/* Power levels */
+		qcom,gpu-pwrlevels-1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <1>;
+			qcom,initial-pwrlevel = <3>;
+
+			/* SUPER TURBO */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <500000000>;
+				qcom,bus-freq = <10>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <10>;
+			};
+
+			/* TURBO */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <450000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <9>;
+				qcom,bus-max = <10>;
+			};
+
+			/* NOM+ */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <400000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <6>;
+				qcom,bus-max = <9>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <375000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <8>;
+			};
+
+			/* SVS+ */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <300000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <7>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <216000000>;
+				qcom,bus-freq = <3>;
+				qcom,bus-min = <1>;
+				qcom,bus-max = <4>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
+				qcom,gpu-freq = <19200000>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
+
+	};
 };
 
-&bam_dmux {
-	status = "disabled";
-};
-
-&pil_mss {
-	/delete-property/ qcom,qdsp6v56-1-8-inrush-current;
-	qcom,qdsp6v56-1-8;
+&tsens {
+	qcom,temp1-offset = <0 (-2) (-5) (-3) (-1) (-1) (-1) 0 1 (-1) (-6)>;
+	qcom,temp2-offset = <1 1 (-7) 5 4 7 6 2 3 1 7>;
 };
 
 /* CAMSS_CPHY */
@@ -316,85 +517,5 @@
 	qcom,csiphy@1b35000 {
 		status = "ok";
 		compatible = "qcom,csiphy-v3.4.2.1", "qcom,csiphy";
-	};
-};
-
-/* GPU overrides */
-&msm_gpu {
-
-	/delete-property/qcom,initial-pwrlevel;
-	qcom,initial-pwrlevel = <3>;
-
-	/delete-node/qcom,gpu-pwrlevel-bins;
-	/delete-node/qcom,gpu-pwrlevels;
-	/* Power levels */
-	qcom,gpu-pwrlevels {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		compatible = "qcom,gpu-pwrlevels";
-
-		/* SUPER TURBO */
-		qcom,gpu-pwrlevel@0 {
-			reg = <0>;
-			qcom,gpu-freq = <475000000>;
-			qcom,bus-freq = <10>;
-			qcom,bus-min = <10>;
-			qcom,bus-max = <10>;
-		};
-
-		/* TURBO */
-		qcom,gpu-pwrlevel@1 {
-			reg = <1>;
-			qcom,gpu-freq = <450000000>;
-			qcom,bus-freq = <9>;
-			qcom,bus-min = <9>;
-			qcom,bus-max = <10>;
-		};
-
-		/* NOM+ */
-		qcom,gpu-pwrlevel@2 {
-			reg = <2>;
-			qcom,gpu-freq = <400000000>;
-			qcom,bus-freq = <7>;
-			qcom,bus-min = <6>;
-			qcom,bus-max = <9>;
-		};
-
-		/* NOM */
-		qcom,gpu-pwrlevel@3 {
-			reg = <3>;
-			qcom,gpu-freq = <375000000>;
-			qcom,bus-freq = <6>;
-			qcom,bus-min = <5>;
-			qcom,bus-max = <8>;
-		};
-
-		/* SVS+ */
-		qcom,gpu-pwrlevel@4 {
-			reg = <4>;
-			qcom,gpu-freq = <300000000>;
-			qcom,bus-freq = <5>;
-			qcom,bus-min = <4>;
-			qcom,bus-max = <7>;
-		};
-
-		/* SVS */
-		qcom,gpu-pwrlevel@5 {
-			reg = <5>;
-			qcom,gpu-freq = <216000000>;
-			qcom,bus-freq = <3>;
-			qcom,bus-min = <1>;
-			qcom,bus-max = <4>;
-		};
-
-		/* XO */
-		qcom,gpu-pwrlevel@6 {
-			reg = <6>;
-			qcom,gpu-freq = <19200000>;
-			qcom,bus-freq = <0>;
-			qcom,bus-min = <0>;
-			qcom,bus-max = <0>;
-		};
 	};
 };

@@ -2346,6 +2346,24 @@ bool hdmi_edid_get_scdc_support(void *input)
 	return scdc_present;
 }
 
+/**
+ * hdmi_edid_sink_scramble_override() - check if override has been enabled
+ * @input: edid data
+ *
+ * Return true if scrambling override is enabled false otherwise.
+ */
+bool hdmi_edid_sink_scramble_override(void *input)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	if (edid_ctrl->edid_override &&
+		(edid_ctrl->override_data.scramble != -1))
+		return true;
+
+	return false;
+
+}
+
 bool hdmi_edid_get_sink_scrambler_support(void *input)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;

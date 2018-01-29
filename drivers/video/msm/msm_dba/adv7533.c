@@ -31,7 +31,7 @@
 
 #define ADV7533_REG_CHIP_REVISION (0x00)
 #define ADV7533_DSI_CEC_I2C_ADDR_REG (0xE1)
-#define ADV7533_RESET_DELAY (100)
+#define ADV7533_RESET_DELAY (10)
 
 #define PINCTRL_STATE_ACTIVE    "pmx_adv7533_active"
 #define PINCTRL_STATE_SUSPEND   "pmx_adv7533_suspend"
@@ -728,7 +728,7 @@ static void adv7533_notify_clients(struct msm_dba_device_info *dev,
 u32 adv7533_read_edid(struct adv7533 *pdata, u32 size, char *edid_buf)
 {
 	u32 ret = 0, read_size = size / 2;
-	u8 edid_addr;
+	u8 edid_addr = 0;
 	int ndx;
 
 	if (!pdata || !edid_buf)

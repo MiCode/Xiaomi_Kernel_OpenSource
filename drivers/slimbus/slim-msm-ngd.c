@@ -162,6 +162,7 @@ static int ngd_qmi_available(struct notifier_block *n, unsigned long code,
 	SLIM_INFO(dev, "Slimbus QMI NGD CB received event:%ld\n", code);
 	switch (code) {
 	case QMI_SERVER_ARRIVE:
+		atomic_set(&dev->ssr_in_progress, 0);
 		schedule_work(&qmi->ssr_up);
 		break;
 	default:
@@ -180,6 +181,7 @@ static int dsp_ssr_notify_cb(struct notifier_block *n, unsigned long code,
 	switch (code) {
 	case SUBSYS_BEFORE_SHUTDOWN:
 		SLIM_INFO(dev, "SLIM DSP SSR notify cb:%lu\n", code);
+		atomic_set(&dev->ssr_in_progress, 1);
 		/* wait for current transaction */
 		mutex_lock(&dev->tx_lock);
 		/* make sure autosuspend is not called until ADSP comes up*/
@@ -299,6 +301,26 @@ static void slim_reinit_tx_msgq(struct msm_slim_ctrl *dev)
 	}
 }
 
+static int ngd_check_hw_status(struct msm_slim_ctrl *dev)
+{
+	void __iomem *ngd = dev->base + NGD_BASE(dev->ctrl.nr, dev->ver);
+	u32 laddr = readl_relaxed(ngd + NGD_STATUS);
+	int ret = 0;
+
+	/* Lost logical addr due to noise */
+	if (!(laddr & NGD_LADDR)) {
+		SLIM_WARN(dev, "NGD lost LADDR: status:0x%x\n", laddr);
+		ret = ngd_slim_power_up(dev, false);
+
+		if (ret) {
+			SLIM_WARN(dev, "slim resume ret:%d, state:%d\n",
+					ret, dev->state);
+			ret = -EREMOTEIO;
+		}
+	}
+	return ret;
+}
+
 static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 {
 	DECLARE_COMPLETION_ONSTACK(done);
@@ -351,7 +373,6 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 
 	/* If txn is tried when controller is down, wait for ADSP to boot */
 	if (!report_sat) {
-
 		if (dev->state == MSM_CTRL_DOWN) {
 			u8 mc = (u8)txn->mc;
 			int timeout;
@@ -417,6 +438,12 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			mutex_unlock(&dev->tx_lock);
 			msm_slim_put_ctrl(dev);
 			return -EREMOTEIO;
+		}
+		ret = ngd_check_hw_status(dev);
+		if (ret) {
+			mutex_unlock(&dev->tx_lock);
+			msm_slim_put_ctrl(dev);
+			return ret;
 		}
 	}
 
@@ -737,6 +764,14 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 		}
 		mutex_lock(&dev->tx_lock);
 	}
+
+	ret = ngd_check_hw_status(dev);
+	if (ret) {
+		mutex_unlock(&dev->tx_lock);
+		msm_slim_put_ctrl(dev);
+		return ret;
+	}
+
 	if (dev->use_tx_msgqs != MSM_MSGQ_ENABLED) {
 		SLIM_WARN(dev, "bulk wr not supported");
 		ret = -EPROTONOSUPPORT;
@@ -762,7 +797,7 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 	}
 	if (dev->bulk.size > dev->bulk.buf_sz) {
 		void *temp = krealloc(dev->bulk.base, dev->bulk.size,
-				      GFP_KERNEL);
+				      GFP_KERNEL | GFP_DMA);
 		if (!temp) {
 			ret = -ENOMEM;
 			goto retpath;
@@ -1080,7 +1115,7 @@ static void ngd_slim_setup(struct msm_slim_ctrl *dev)
 		if (dev->use_rx_msgqs == MSM_MSGQ_DISABLED)
 			goto setup_tx_msg_path;
 		if (cfg & NGD_CFG_RX_MSGQ_EN) {
-			SLIM_WARN(dev, "RX msgq status HW:0x%x, SW:%d:", cfg,
+			SLIM_WARN(dev, "SLIM NGD CFG HW:0x%x, SW:%d:", cfg,
 				  dev->use_rx_msgqs);
 			goto setup_tx_msg_path;
 		}
@@ -1188,7 +1223,7 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 {
 	void __iomem *ngd;
-	int timeout, ret = 0;
+	int timeout, retries = 0, ret = 0;
 	enum msm_ctrl_state cur_state = dev->state;
 	u32 laddr;
 	u32 rx_msgq;
@@ -1206,16 +1241,26 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 		}
 	}
 
+hw_init_retry:
 	/* No need to vote if contorller is not in low power mode */
 	if (!mdm_restart &&
 		(cur_state == MSM_CTRL_DOWN || cur_state == MSM_CTRL_ASLEEP)) {
 		ret = msm_slim_qmi_power_request(dev, true);
 		if (ret) {
-			SLIM_ERR(dev, "SLIM QMI power request failed:%d\n",
-					ret);
+			SLIM_WARN(dev, "SLIM power req failed:%d, retry:%d\n",
+					ret, retries);
+			if (!atomic_read(&dev->ssr_in_progress))
+				msm_slim_qmi_power_request(dev, false);
+			if (retries < INIT_MX_RETRIES &&
+				!atomic_read(&dev->ssr_in_progress)) {
+				retries++;
+				goto hw_init_retry;
+			}
 			return ret;
 		}
 	}
+	retries = 0;
+
 	if (!dev->ver) {
 		dev->ver = readl_relaxed(dev->base);
 		/* Version info in 16 MSbits */
@@ -1254,6 +1299,7 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 		dev->state = MSM_CTRL_DOWN;
 	}
 
+capability_retry:
 	/*
 	 * ADSP power collapse case (OR SSR), where HW was reset
 	 * BAM programming will happen when capability message is received
@@ -1274,7 +1320,17 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 
 	timeout = wait_for_completion_timeout(&dev->reconf, HZ);
 	if (!timeout) {
-		SLIM_WARN(dev, "capability exchange timed-out\n");
+		u32 cfg = readl_relaxed(dev->base +
+					 NGD_BASE(dev->ctrl.nr, dev->ver));
+		laddr = readl_relaxed(ngd + NGD_STATUS);
+		SLIM_WARN(dev,
+			  "slim capability time-out:%d, stat:0x%x,cfg:0x%x\n",
+				retries, laddr, cfg);
+		if ((retries < INIT_MX_RETRIES) &&
+				!atomic_read(&dev->ssr_in_progress)) {
+			retries++;
+			goto capability_retry;
+		}
 		return -ETIMEDOUT;
 	}
 	/* mutliple transactions waiting on slimbus to power up? */
@@ -1366,12 +1422,11 @@ capability_retry:
 
 			SLIM_INFO(dev,
 				"SLIM SAT: capability exchange successful\n");
-			if (prev_state >= MSM_CTRL_ASLEEP)
-				complete(&dev->reconf);
-			else
+			if (prev_state < MSM_CTRL_ASLEEP)
 				SLIM_WARN(dev,
-					"SLIM: unexpected capability, state:%d\n",
+					"capability due to noise, state:%d\n",
 						prev_state);
+			complete(&dev->reconf);
 			/* ADSP SSR, send device_up notifications */
 			if (prev_state == MSM_CTRL_DOWN)
 				complete(&dev->qmi.slave_notify);
@@ -1538,7 +1593,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 
 	/* typical txn numbers and size used in bulk operation */
 	dev->bulk.buf_sz = SLIM_MAX_TXNS * 8;
-	dev->bulk.base = kzalloc(dev->bulk.buf_sz, GFP_KERNEL);
+	dev->bulk.base = kzalloc(dev->bulk.buf_sz, GFP_KERNEL | GFP_DMA);
 	if (!dev->bulk.base) {
 		ret = -ENOMEM;
 		goto err_nobulk;
@@ -1635,6 +1690,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	dev->ee = 1;
 	dev->irq = irq->start;
 	dev->bam.irq = bam_irq->start;
+	atomic_set(&dev->ssr_in_progress, 0);
 
 	if (rxreg_access)
 		dev->use_rx_msgqs = MSM_MSGQ_DISABLED;
@@ -1683,6 +1739,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	pm_runtime_set_suspended(dev->dev);
 	pm_runtime_enable(dev->dev);
 
+	dev->dsp.nb.priority = 4;
 	ret = of_property_read_string(pdev->dev.of_node,
 				"qcom,subsys-name", &subsys_name);
 	if (ret) {
@@ -1805,6 +1862,7 @@ static int ngd_slim_runtime_resume(struct device *device)
 	struct platform_device *pdev = to_platform_device(device);
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
 	int ret = 0;
+
 	mutex_lock(&dev->tx_lock);
 	if (dev->state >= MSM_CTRL_ASLEEP)
 		ret = ngd_slim_power_up(dev, false);

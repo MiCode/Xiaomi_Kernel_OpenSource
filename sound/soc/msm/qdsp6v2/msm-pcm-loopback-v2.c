@@ -25,19 +25,16 @@
 #include <sound/control.h>
 #include <sound/tlv.h>
 #include <asm/dma.h>
+#include <sound/q6audio-v2.h>
 
 #include "msm-pcm-routing-v2.h"
 
 #define LOOPBACK_VOL_MAX_STEPS 0x2000
+#define LOOPBACK_SESSION_MAX 4
 
+static DEFINE_MUTEX(loopback_session_lock);
 static const DECLARE_TLV_DB_LINEAR(loopback_rx_vol_gain, 0,
 				LOOPBACK_VOL_MAX_STEPS);
-
-enum {
-	LOOPBACK_SESSION_1,
-	LOOPBACK_SESSION_2,
-	LOOPBACK_SESSION_MAX,
-};
 
 struct msm_pcm_loopback {
 	struct snd_pcm_substream *playback_substream;
@@ -54,14 +51,30 @@ struct msm_pcm_loopback {
 	int capture_start;
 	int session_id;
 	struct audio_client *audio_client;
-	int volume;
+	uint32_t volume;
 };
 
-struct loopback_info {
-	struct msm_pcm_loopback loop[LOOPBACK_SESSION_MAX];
+struct fe_dai_session_map {
+	char stream_name[32];
+	struct msm_pcm_loopback *loopback_priv;
 };
+
+static struct fe_dai_session_map session_map[LOOPBACK_SESSION_MAX] = {
+	{ {}, NULL},
+	{ {}, NULL},
+	{ {}, NULL},
+	{ {}, NULL},
+};
+
+struct msm_pcm_pdata {
+	int perf_mode;
+};
+
+static u32 hfp_tx_mute;
 
 static void stop_pcm(struct msm_pcm_loopback *pcm);
+static int msm_pcm_loopback_get_session(struct snd_soc_pcm_runtime *rtd,
+					struct msm_pcm_loopback **pcm);
 
 static void msm_pcm_route_event_handler(enum msm_pcm_routing_event event,
 					void *priv_data)
@@ -103,7 +116,57 @@ static void msm_pcm_loopback_event_handler(uint32_t opcode, uint32_t token,
 	}
 }
 
-static int pcm_loopback_set_volume(struct msm_pcm_loopback *prtd, int volume)
+static int msm_loopback_session_mute_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = hfp_tx_mute;
+	return 0;
+}
+
+static int msm_loopback_session_mute_put(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0, n = 0;
+	int mute = ucontrol->value.integer.value[0];
+	struct msm_pcm_loopback *pcm = NULL;
+
+	if ((mute < 0) || (mute > 1)) {
+		pr_err(" %s Invalid arguments", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	pr_debug("%s: mute=%d\n", __func__, mute);
+	hfp_tx_mute = mute;
+	for (n = 0; n < LOOPBACK_SESSION_MAX; n++) {
+		if (!strcmp(session_map[n].stream_name, "MultiMedia6"))
+			pcm = session_map[n].loopback_priv;
+	}
+	if (pcm && pcm->audio_client) {
+		ret = q6asm_set_mute(pcm->audio_client, mute);
+		if (ret < 0)
+			pr_err("%s: Send mute command failed rc=%d\n",
+				__func__, ret);
+	}
+done:
+	return ret;
+}
+
+static struct snd_kcontrol_new msm_loopback_controls[] = {
+	SOC_SINGLE_EXT("HFP TX Mute", SND_SOC_NOPM, 0, 1, 0,
+			msm_loopback_session_mute_get,
+			msm_loopback_session_mute_put),
+};
+
+static int msm_pcm_loopback_probe(struct snd_soc_platform *platform)
+{
+	snd_soc_add_platform_controls(platform, msm_loopback_controls,
+				      ARRAY_SIZE(msm_loopback_controls));
+
+	return 0;
+}
+static int pcm_loopback_set_volume(struct msm_pcm_loopback *prtd,
+				   uint32_t volume)
 {
 	int rc = -EINVAL;
 
@@ -121,26 +184,76 @@ static int pcm_loopback_set_volume(struct msm_pcm_loopback *prtd, int volume)
 	return rc;
 }
 
+static int msm_pcm_loopback_get_session(struct snd_soc_pcm_runtime *rtd,
+					struct msm_pcm_loopback **pcm)
+{
+	int ret = 0;
+	int n, index = -1;
+
+	dev_dbg(rtd->platform->dev, "%s: stream %s\n", __func__,
+		rtd->dai_link->stream_name);
+
+	mutex_lock(&loopback_session_lock);
+	for (n = 0; n < LOOPBACK_SESSION_MAX; n++) {
+		if (!strcmp(rtd->dai_link->stream_name,
+		    session_map[n].stream_name)) {
+			*pcm = session_map[n].loopback_priv;
+			goto exit;
+		}
+		/*
+		 * Store the min index value for allocating a new session.
+		 * Here, if session stream name is not found in the
+		 * existing entries after the loop iteration, then this
+		 * index will be used to allocate the new session.
+		 * This index variable is expected to point to the topmost
+		 * available free session.
+		 */
+		if (!(session_map[n].stream_name[0]) && (index < 0))
+			index = n;
+	}
+
+	if (index < 0) {
+		dev_err(rtd->platform->dev, "%s: Max Sessions allocated\n",
+				 __func__);
+		ret = -EAGAIN;
+		goto exit;
+	}
+
+	session_map[index].loopback_priv = kzalloc(
+		sizeof(struct msm_pcm_loopback), GFP_KERNEL);
+	if (!session_map[index].loopback_priv) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	strlcpy(session_map[index].stream_name,
+		rtd->dai_link->stream_name,
+		sizeof(session_map[index].stream_name));
+	dev_dbg(rtd->platform->dev, "%s: stream %s index %d\n",
+		__func__, session_map[index].stream_name, index);
+
+	mutex_init(&session_map[index].loopback_priv->lock);
+	*pcm = session_map[index].loopback_priv;
+exit:
+	mutex_unlock(&loopback_session_lock);
+	return ret;
+}
+
 static int msm_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(substream);
-	struct msm_pcm_loopback *pcm;
-	struct loopback_info *loopback_info;
+	struct msm_pcm_loopback *pcm = NULL;
 	int ret = 0;
 	uint16_t bits_per_sample = 16;
 	struct msm_pcm_routing_evt event;
 	struct asm_session_mtmx_strtr_param_window_v2_t asm_mtmx_strtr_window;
 	uint32_t param_id;
+	struct msm_pcm_pdata *pdata;
 
-	dev_dbg(rtd->platform->dev, "%s: stream name: %s\n", __func__,
-			rtd->dai_link->stream_name);
-
-	loopback_info = dev_get_drvdata(rtd->platform->dev);
-	if (!strcmp(rtd->dai_link->stream_name, "MultiMedia6"))
-		pcm = &loopback_info->loop[LOOPBACK_SESSION_1];
-	else
-		pcm = &loopback_info->loop[LOOPBACK_SESSION_2];
+	ret =  msm_pcm_loopback_get_session(rtd, &pcm);
+	if (ret)
+		return ret;
 
 	mutex_lock(&pcm->lock);
 
@@ -162,6 +275,15 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		if (pcm->audio_client != NULL)
 			stop_pcm(pcm);
 
+		pdata = (struct msm_pcm_pdata *)
+			dev_get_drvdata(rtd->platform->dev);
+		if (!pdata) {
+			dev_err(rtd->platform->dev,
+				"%s: platform data not populated\n", __func__);
+			mutex_unlock(&pcm->lock);
+			return -EINVAL;
+		}
+
 		pcm->audio_client = q6asm_audio_client_alloc(
 				(app_cb)msm_pcm_loopback_event_handler, pcm);
 		if (!pcm->audio_client) {
@@ -171,7 +293,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 			return -ENOMEM;
 		}
 		pcm->session_id = pcm->audio_client->session;
-		pcm->audio_client->perf_mode = false;
+		pcm->audio_client->perf_mode = pdata->perf_mode;
 		ret = q6asm_open_loopback_v2(pcm->audio_client,
 					     bits_per_sample);
 		if (ret < 0) {
@@ -249,7 +371,8 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_pcm_loopback *pcm = runtime->private_data;
 	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(substream);
-	int ret = 0;
+	int ret = 0, n;
+	bool found = false;
 
 	mutex_lock(&pcm->lock);
 
@@ -266,6 +389,29 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 		stop_pcm(pcm);
 	}
 
+	if (!pcm->instance) {
+		mutex_lock(&loopback_session_lock);
+		for (n = 0; n < LOOPBACK_SESSION_MAX; n++) {
+			if (!strcmp(rtd->dai_link->stream_name,
+					session_map[n].stream_name)) {
+				found = true;
+				break;
+			}
+		}
+		if (found) {
+			memset(session_map[n].stream_name, 0,
+				sizeof(session_map[n].stream_name));
+			mutex_unlock(&pcm->lock);
+			mutex_destroy(&session_map[n].loopback_priv->lock);
+			session_map[n].loopback_priv = NULL;
+			kfree(pcm);
+			dev_dbg(rtd->platform->dev, "%s: stream freed %s\n",
+				__func__, rtd->dai_link->stream_name);
+			mutex_unlock(&loopback_session_lock);
+			return 0;
+		}
+		mutex_unlock(&loopback_session_lock);
+	}
 	mutex_unlock(&pcm->lock);
 	return ret;
 }
@@ -339,14 +485,53 @@ static int msm_pcm_volume_ctl_put(struct snd_kcontrol *kcontrol,
 	int rc = 0;
 	struct snd_pcm_volume *vol = kcontrol->private_data;
 	struct snd_pcm_substream *substream = vol->pcm->streams[0].substream;
-	struct msm_pcm_loopback *prtd = substream->runtime->private_data;
+	struct msm_pcm_loopback *prtd;
 	int volume = ucontrol->value.integer.value[0];
 
+	pr_debug("%s: volume : 0x%x\n", __func__, volume);
+	if ((!substream) || (!substream->runtime)) {
+		pr_err("%s substream or runtime not found\n", __func__);
+		rc = -ENODEV;
+		goto exit;
+	}
+	prtd = substream->runtime->private_data;
+	if (!prtd) {
+		rc = -ENODEV;
+		goto exit;
+	}
 	rc = pcm_loopback_set_volume(prtd, volume);
+
+exit:
 	return rc;
 }
 
-static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
+static int msm_pcm_volume_ctl_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+	struct snd_pcm_volume *vol = snd_kcontrol_chip(kcontrol);
+	struct snd_pcm_substream *substream =
+		vol->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	struct msm_pcm_loopback *prtd;
+
+	pr_debug("%s\n", __func__);
+	if ((!substream) || (!substream->runtime)) {
+		pr_err("%s substream or runtime not found\n", __func__);
+		rc = -ENODEV;
+		goto exit;
+	}
+	prtd = substream->runtime->private_data;
+	if (!prtd) {
+		rc = -ENODEV;
+		goto exit;
+	}
+	ucontrol->value.integer.value[0] = prtd->volume;
+
+exit:
+	return rc;
+}
+
+static int msm_pcm_add_volume_controls(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
 	struct snd_pcm_volume *volume_info;
@@ -362,8 +547,195 @@ static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
 		return ret;
 	kctl = volume_info->kctl;
 	kctl->put = msm_pcm_volume_ctl_put;
+	kctl->get = msm_pcm_volume_ctl_get;
 	kctl->tlv.p = loopback_rx_vol_gain;
 	return 0;
+}
+
+static int msm_pcm_playback_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate = 48000;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	app_type = ucontrol->value.integer.value[0];
+	acdb_dev_id = ucontrol->value.integer.value[1];
+	if (0 != ucontrol->value.integer.value[2])
+		sample_rate = ucontrol->value.integer.value[2];
+	pr_debug("%s: app_type- %d acdb_dev_id- %d sample_rate- %d session_type- %d\n",
+		__func__, app_type, acdb_dev_id, sample_rate, SESSION_TYPE_RX);
+	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type,
+			acdb_dev_id, sample_rate, SESSION_TYPE_RX);
+
+	return 0;
+}
+
+static int msm_pcm_playback_app_type_cfg_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int ret = 0;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, SESSION_TYPE_RX,
+		&app_type, &acdb_dev_id, &sample_rate);
+	if (ret < 0) {
+		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ucontrol->value.integer.value[0] = app_type;
+	ucontrol->value.integer.value[1] = acdb_dev_id;
+	ucontrol->value.integer.value[2] = sample_rate;
+	pr_debug("%s: fedai_id %llu, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, SESSION_TYPE_RX,
+		app_type, acdb_dev_id, sample_rate);
+done:
+	return ret;
+}
+
+static int msm_pcm_capture_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate = 48000;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	app_type = ucontrol->value.integer.value[0];
+	acdb_dev_id = ucontrol->value.integer.value[1];
+	if (0 != ucontrol->value.integer.value[2])
+		sample_rate = ucontrol->value.integer.value[2];
+	pr_debug("%s: app_type- %d acdb_dev_id- %d sample_rate- %d session_type- %d\n",
+		__func__, app_type, acdb_dev_id, sample_rate, SESSION_TYPE_TX);
+	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type,
+			acdb_dev_id, sample_rate, SESSION_TYPE_TX);
+
+	return 0;
+}
+
+static int msm_pcm_capture_app_type_cfg_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int ret = 0;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, SESSION_TYPE_TX,
+		&app_type, &acdb_dev_id, &sample_rate);
+	if (ret < 0) {
+		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ucontrol->value.integer.value[0] = app_type;
+	ucontrol->value.integer.value[1] = acdb_dev_id;
+	ucontrol->value.integer.value[2] = sample_rate;
+	pr_debug("%s: fedai_id %llu, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, SESSION_TYPE_TX,
+		app_type, acdb_dev_id, sample_rate);
+done:
+	return ret;
+}
+
+static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
+	struct snd_pcm_usr *app_type_info;
+	struct snd_kcontrol *kctl;
+	const char *playback_mixer_ctl_name	= "Audio Stream";
+	const char *capture_mixer_ctl_name	= "Audio Stream Capture";
+	const char *deviceNo		= "NN";
+	const char *suffix		= "App Type Cfg";
+	int ctl_len, ret = 0;
+
+	if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream) {
+		ctl_len = strlen(playback_mixer_ctl_name) + 1 +
+				strlen(deviceNo) + 1 + strlen(suffix) + 1;
+		pr_debug("%s: Playback app type cntrl add\n", __func__);
+		ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+					NULL, 1, ctl_len, rtd->dai_link->be_id,
+					&app_type_info);
+		if (ret < 0)
+			return ret;
+		kctl = app_type_info->kctl;
+		snprintf(kctl->id.name, ctl_len, "%s %d %s",
+			playback_mixer_ctl_name, rtd->pcm->device, suffix);
+		kctl->put = msm_pcm_playback_app_type_cfg_ctl_put;
+		kctl->get = msm_pcm_playback_app_type_cfg_ctl_get;
+	}
+
+	if (pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream) {
+		ctl_len = strlen(capture_mixer_ctl_name) + 1 +
+				strlen(deviceNo) + 1 + strlen(suffix) + 1;
+		pr_debug("%s: Capture app type cntrl add\n", __func__);
+		ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_CAPTURE,
+					NULL, 1, ctl_len, rtd->dai_link->be_id,
+					&app_type_info);
+		if (ret < 0)
+			return ret;
+		kctl = app_type_info->kctl;
+		snprintf(kctl->id.name, ctl_len, "%s %d %s",
+			capture_mixer_ctl_name, rtd->pcm->device, suffix);
+		kctl->put = msm_pcm_capture_app_type_cfg_ctl_put;
+		kctl->get = msm_pcm_capture_app_type_cfg_ctl_get;
+	}
+
+	return 0;
+}
+
+static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+
+	pr_debug("%s\n", __func__);
+	ret = msm_pcm_add_volume_controls(rtd);
+	if (ret)
+		pr_err("%s: pcm add volume controls failed:%d\n",
+			__func__, ret);
+	ret = msm_pcm_add_app_type_controls(rtd);
+	if (ret)
+		pr_err("%s: pcm add app type controls failed:%d\n",
+			__func__, ret);
+	return ret;
 }
 
 static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
@@ -383,40 +755,34 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 static struct snd_soc_platform_driver msm_soc_platform = {
 	.ops            = &msm_pcm_ops,
 	.pcm_new        = msm_asoc_pcm_new,
+	.probe          = msm_pcm_loopback_probe,
 };
 
 static int msm_pcm_probe(struct platform_device *pdev)
 {
-	struct loopback_info *loopback;
-	int i = 0;
+	struct msm_pcm_pdata *pdata;
 
 	dev_dbg(&pdev->dev, "%s: dev name %s\n",
 		__func__, dev_name(&pdev->dev));
 
-	loopback = kzalloc(sizeof(struct loopback_info), GFP_KERNEL);
-	if (!loopback)
+	pdata = kzalloc(sizeof(struct msm_pcm_pdata), GFP_KERNEL);
+	if (!pdata)
 		return -ENOMEM;
 
-	for (i = 0; i < LOOPBACK_SESSION_MAX; i++)
-		mutex_init(&loopback->loop[i].lock);
+	if (of_property_read_bool(pdev->dev.of_node,
+				"qcom,msm-pcm-loopback-low-latency"))
+		pdata->perf_mode = LOW_LATENCY_PCM_MODE;
+	else
+		pdata->perf_mode = LEGACY_PCM_MODE;
 
-	dev_set_drvdata(&pdev->dev, loopback);
+	dev_set_drvdata(&pdev->dev, pdata);
+
 	return snd_soc_register_platform(&pdev->dev,
 				   &msm_soc_platform);
 }
 
 static int msm_pcm_remove(struct platform_device *pdev)
 {
-	struct loopback_info *loopback;
-	int i = 0;
-
-	loopback = dev_get_drvdata(&pdev->dev);
-	if (loopback) {
-		for (i = 0; i < LOOPBACK_SESSION_MAX; i++)
-			mutex_destroy(&loopback->loop[i].lock);
-		kfree(loopback);
-	}
-
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
 }

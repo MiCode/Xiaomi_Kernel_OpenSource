@@ -169,6 +169,8 @@ struct kgsl_functable {
 	void (*pwrlevel_change_settings)(struct kgsl_device *device,
 		unsigned int prelevel, unsigned int postlevel, bool post);
 	void (*regulator_disable_poll)(struct kgsl_device *device);
+	void (*gpu_model)(struct kgsl_device *device, char *str,
+		size_t bufsz);
 };
 
 struct kgsl_ioctl {
@@ -229,6 +231,7 @@ struct kgsl_device {
 	/* GPU shader memory size */
 	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
+	struct kgsl_memdesc scratch;
 	const char *iomemname;
 	const char *shadermemname;
 
@@ -262,6 +265,7 @@ struct kgsl_device {
 	struct kgsl_snapshot *snapshot;
 
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
+	bool force_panic;		/* Force panic after snapshot dump */
 	struct kobject snapshot_kobj;
 
 	struct kobject ppd_kobj;
@@ -273,7 +277,6 @@ struct kgsl_device {
 	int mem_log;
 	int pwr_log;
 	struct kgsl_pwrscale pwrscale;
-	struct work_struct event_work;
 
 	int reset_counter; /* Track how many GPU core resets have occured */
 	int cff_dump_enable;
@@ -283,6 +286,7 @@ struct kgsl_device {
 
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
+	struct kobject *gpu_sysfs_kobj;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -293,8 +297,6 @@ struct kgsl_device {
 	.cmdbatch_gate = COMPLETION_INITIALIZER((_dev).cmdbatch_gate),\
 	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
 			kgsl_idle_check),\
-	.event_work  = __WORK_INITIALIZER((_dev).event_work,\
-			kgsl_process_events),\
 	.context_idr = IDR_INIT((_dev).context_idr),\
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
 	.active_cnt_wq = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).active_cnt_wq),\
@@ -428,6 +430,12 @@ struct kgsl_device_private {
 
 /**
  * struct kgsl_snapshot - details for a specific snapshot instance
+ * @ib1base: Active IB1 base address at the time of fault
+ * @ib2base: Active IB2 base address at the time of fault
+ * @ib1size: Number of DWORDS pending in IB1 at the time of fault
+ * @ib2size: Number of DWORDS pending in IB2 at the time of fault
+ * @ib1dumped: Active IB1 dump status to sansphot binary
+ * @ib2dumped: Active IB2 dump status to sansphot binary
  * @start: Pointer to the start of the static snapshot region
  * @size: Size of the current snapshot instance
  * @ptr: Pointer to the next block of memory to write to during snapshotting
@@ -443,6 +451,12 @@ struct kgsl_device_private {
  * @sysfs_read: An atomic for concurrent snapshot reads via syfs.
  */
 struct kgsl_snapshot {
+	uint64_t ib1base;
+	uint64_t ib2base;
+	unsigned int ib1size;
+	unsigned int ib2size;
+	bool ib1dumped;
+	bool ib2dumped;
 	u8 *start;
 	size_t size;
 	u8 *ptr;
@@ -603,7 +617,7 @@ void kgsl_process_event_group(struct kgsl_device *device,
 	struct kgsl_event_group *group);
 void kgsl_flush_event_group(struct kgsl_device *device,
 		struct kgsl_event_group *group);
-void kgsl_process_events(struct work_struct *work);
+void kgsl_process_event_groups(struct kgsl_device *device);
 
 void kgsl_context_destroy(struct kref *kref);
 

@@ -421,7 +421,7 @@ static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
 		hist_addr += 4;
 	}
 	if (copy_to_user(lut_data->data, data, sz)) {
-		pr_err("faild to copy the hist_lut back to user\n");
+		pr_err("failed to copy the hist_lut back to user\n");
 		ret = -EFAULT;
 	}
 	kfree(data);
@@ -503,7 +503,8 @@ static int pp_hist_lut_set_config(char __iomem *base_addr,
 	}
 	if (lut_cfg_data->hist_lut_first)
 		pp_sts->enhist_sts |= PP_STS_PA_LUT_FIRST;
-
+	else
+		pp_sts->enhist_sts &= ~PP_STS_PA_LUT_FIRST;
 
 	writel_relaxed(1, swap_addr);
 
@@ -538,7 +539,8 @@ static int pp_dither_set_config(char __iomem *base_addr,
 		      base_addr, cfg_data, pp_sts);
 		return -EINVAL;
 	}
-
+	if (block_type != DSPP)
+		return -ENOTSUPP;
 	dither_cfg_data = (struct mdp_dither_cfg_data *) cfg_data;
 
 	if (dither_cfg_data->version != mdp_dither_v1_7) {
@@ -831,6 +833,8 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 	struct mdp_gamut_cfg_data *gamut_cfg_data = NULL;
 	struct mdp_gamut_data_v1_7 *gamut_data = NULL;
 	char __iomem *base_addr_scale = base_addr;
+	uint64_t gamut_val;
+
 	if (!base_addr || !cfg_data || !pp_sts) {
 		pr_err("invalid params base_addr %pK cfg_data %pK pp_sts_type %pK\n",
 		      base_addr, cfg_data, pp_sts);
@@ -898,12 +902,18 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 		val = index_start;
 		val |= GAMUT_TABLE_SELECT(i);
 		writel_relaxed(val, (base_addr + GAMUT_TABLE_INDEX));
-		for (j = 0; j < gamut_data->tbl_size[i]; j++) {
-			writel_relaxed(gamut_data->c1_c2_data[i][j],
-				       base_addr + GAMUT_TABLE_LOWER_GB);
-			writel_relaxed(gamut_data->c0_data[i][j],
-				      base_addr + GAMUT_TABLE_UPPER_R);
+
+		writel_relaxed(gamut_data->c1_c2_data[i][0],
+				base_addr + GAMUT_TABLE_LOWER_GB);
+		for (j = 0; j < gamut_data->tbl_size[i] - 1; j++) {
+			gamut_val = gamut_data->c1_c2_data[i][j + 1];
+			gamut_val = (gamut_val << 32) |
+					gamut_data->c0_data[i][j];
+			writeq_relaxed(gamut_val,
+					base_addr + GAMUT_TABLE_UPPER_R);
 		}
+		writel_relaxed(gamut_data->c0_data[i][j],
+				base_addr + GAMUT_TABLE_UPPER_R);
 		if ((i >= MDP_GAMUT_SCALE_OFF_TABLE_NUM) ||
 				(!gamut_data->map_en))
 			continue;

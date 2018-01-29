@@ -133,10 +133,10 @@
 #define QPNP_VADC_HC1_DEC_RATIO_SEL				0xc
 #define QPNP_VADC_HC1_DEC_RATIO_SHIFT				2
 #define QPNP_VADC_HC1_FAST_AVG_CTL				0x43
-#define QPNP_VADC_HC1_FAST_AVG_SAMPLES_MASK			0xfff
+#define QPNP_VADC_HC1_FAST_AVG_SAMPLES_MASK			0x7
 #define QPNP_VADC_HC1_ADC_CH_SEL_CTL				0x44
 #define QPNP_VADC_HC1_DELAY_CTL					0x45
-#define QPNP_VADC_HC1_DELAY_CTL_MASK				0xfff
+#define QPNP_VADC_HC1_DELAY_CTL_MASK				0xf
 #define QPNP_VADC_MC1_EN_CTL1					0x46
 #define QPNP_VADC_HC1_ADC_EN					BIT(7)
 #define QPNP_VADC_MC1_CONV_REQ					0x47
@@ -1375,10 +1375,19 @@ int32_t qpnp_get_vadc_gain_and_offset(struct qpnp_vadc_chip *vadc,
 				enum qpnp_adc_calib_type calib_type)
 {
 	int rc = 0;
+	struct qpnp_vadc_result result;
 
 	rc = qpnp_vadc_is_valid(vadc);
 	if (rc < 0)
 		return rc;
+
+	if (!vadc->vadc_init_calib) {
+		rc = qpnp_vadc_read(vadc, REF_125V, &result);
+		if (rc) {
+			pr_debug("vadc read failed with rc = %d\n", rc);
+			return rc;
+		}
+	}
 
 	switch (calib_type) {
 	case CALIB_RATIOMETRIC:

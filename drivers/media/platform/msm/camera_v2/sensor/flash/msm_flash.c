@@ -22,10 +22,13 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+static struct msm_flash_ctrl_t *flashlight;
+
 DEFINE_MSM_MUTEX(msm_flash_mutex);
 
 static struct v4l2_file_operations msm_flash_v4l2_subdev_fops;
 static struct led_trigger *torch_trigger;
+static struct led_classdev flashlight_led;
 
 static const struct of_device_id msm_flash_dt_match[] = {
 	{.compatible = "qcom,camera-flash", .data = NULL},
@@ -268,6 +271,16 @@ static int32_t msm_flash_i2c_init(
 	flash_ctrl->power_info.power_down_setting_size =
 		flash_ctrl->power_setting_array.size_down;
 
+	if ((flash_ctrl->power_info.power_setting_size > MAX_POWER_CONFIG) ||
+	(flash_ctrl->power_info.power_down_setting_size > MAX_POWER_CONFIG)) {
+		pr_err("%s:%d invalid power setting size=%d size_down=%d\n",
+			__func__, __LINE__,
+			flash_ctrl->power_info.power_setting_size,
+			flash_ctrl->power_info.power_down_setting_size);
+		rc = -EINVAL;
+		goto msm_flash_i2c_init_fail;
+	}
+
 	rc = msm_camera_power_up(&flash_ctrl->power_info,
 		flash_ctrl->flash_device_type,
 		&flash_ctrl->flash_i2c_client);
@@ -370,6 +383,9 @@ static int32_t msm_flash_off(struct msm_flash_ctrl_t *flash_ctrl,
 	int32_t i = 0;
 
 	CDBG("Enter\n");
+
+	/* Clear flashlight brightness */
+	flashlight_led.brightness = 0;
 
 	for (i = 0; i < flash_ctrl->flash_num_sources; i++)
 		if (flash_ctrl->flash_trigger[i])
@@ -503,6 +519,8 @@ static int32_t msm_flash_low(
 	for (i = 0; i < flash_ctrl->flash_num_sources; i++)
 		if (flash_ctrl->flash_trigger[i])
 			led_trigger_event(flash_ctrl->flash_trigger[i], 0);
+	/* Clear flashlight brightness */
+	flashlight_led.brightness = 0;
 
 	/* Turn on flash triggers */
 	for (i = 0; i < flash_ctrl->torch_num_sources; i++) {
@@ -540,6 +558,8 @@ static int32_t msm_flash_high(
 	for (i = 0; i < flash_ctrl->torch_num_sources; i++)
 		if (flash_ctrl->torch_trigger[i])
 			led_trigger_event(flash_ctrl->torch_trigger[i], 0);
+	/* Clear flashlight brightness */
+	flashlight_led.brightness = 0;
 
 	/* Turn on flash triggers */
 	for (i = 0; i < flash_ctrl->flash_num_sources; i++) {
@@ -587,7 +607,7 @@ static int32_t msm_flash_release(
 static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 	void __user *argp)
 {
-	int32_t rc = -EINVAL;
+	int32_t rc = 0;
 	struct msm_flash_cfg_data_t *flash_data =
 		(struct msm_flash_cfg_data_t *) argp;
 
@@ -866,6 +886,10 @@ static int32_t msm_flash_get_pmic_source_info(
 			fctrl->flash_driver_type);
 	}
 
+	if (fctrl != NULL) {
+		flashlight = fctrl;
+	}
+
 	return 0;
 }
 
@@ -1011,6 +1035,66 @@ static long msm_flash_subdev_fops_ioctl(struct file *file,
 	return video_usercopy(file, cmd, arg, msm_flash_subdev_do_ioctl);
 }
 #endif
+
+static void flashlight_set_brightness(struct led_classdev *cdev,
+	enum led_brightness brightness)
+{
+	int32_t i;
+	int32_t	curr = 0;
+	int32_t torch0_curr = 200;
+	int32_t torch1_curr = 88;
+		 printk("flashlight_set_brightness brightness=%d\n", brightness);
+		 curr = brightness;
+		 cdev->brightness = brightness;
+
+	if ((brightness == LED_OFF) || brightness == 100) {
+				/* Turn off flash triggers */
+		for (i = 0; i < flashlight->flash_num_sources; i++) {
+			if (flashlight->flash_trigger[i])
+				led_trigger_event(flashlight->flash_trigger[i], 0);
+		}
+				/* Turn off flashlight */
+		if (brightness == 0) {
+			CDBG("flashlight flash current = %d", curr);
+			for (i = 0; i < flashlight->flash_num_sources; i++) {
+				if (flashlight->torch_trigger[i]) {
+					CDBG("flashlight_flash_current[%d] = %d", i, curr);
+					led_trigger_event(flashlight->torch_trigger[i], 0);
+				}
+			}
+
+			if (flashlight->switch_trigger)
+			led_trigger_event(flashlight->switch_trigger, 0);
+				/* Turn on flash triggers */
+		} else if (brightness  == 100) {
+			CDBG("flashlight flash current = %d", curr);
+			if (flashlight->torch_trigger[0]) {
+				CDBG("flashlight set brightness torch0_curr %d", torch0_curr);
+				led_trigger_event(flashlight->torch_trigger[0], torch0_curr);
+			}
+
+			if (flashlight->torch_trigger[1]) {
+				CDBG("flashlight set brightness torch1_curr %d", torch1_curr);
+							led_trigger_event(flashlight->torch_trigger[1], torch1_curr);
+			}
+
+			if (flashlight->switch_trigger)
+			led_trigger_event(flashlight->switch_trigger, 1);
+		}
+	/* brightness input Current invalid */
+	} else {
+		CDBG("flashlight flash current = %d", curr);
+		pr_err("%s:%d brightness input Current invalid!\n", __func__, __LINE__);
+	}
+}
+
+static struct led_classdev flashlight_led = {
+
+	.name = "flashlight",
+	.brightness_set = flashlight_set_brightness,
+
+};
+
 static int32_t msm_flash_platform_probe(struct platform_device *pdev)
 {
 	int32_t rc = 0;
@@ -1085,7 +1169,19 @@ static int32_t msm_flash_platform_probe(struct platform_device *pdev)
 	if (flash_ctrl->flash_driver_type == FLASH_DRIVER_PMIC)
 		rc = msm_torch_create_classdev(pdev, flash_ctrl);
 
+		 /* register flashlight led class*/
+	rc = led_classdev_register(&pdev->dev, &flashlight_led);
+		 if (rc < 0) {
+				pr_err("Register flashlight led failed: %d\n", rc);
+				goto failed_unregister_flashlight_led;
+		 }
+
 	CDBG("probe success\n");
+	return rc;
+
+failed_unregister_flashlight_led:
+		 led_classdev_unregister(&flashlight_led);
+
 	return rc;
 }
 

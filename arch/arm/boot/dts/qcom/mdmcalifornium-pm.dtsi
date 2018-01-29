@@ -20,7 +20,6 @@
 		reg = <0xb009000 0x1000>;
 		qcom,name = "core0";
 		qcom,cpu = <&CPU0>;
-		qcom,supports-rpm-hs;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x101>;
 		qcom,saw2-spm-dly= <0x401004>;

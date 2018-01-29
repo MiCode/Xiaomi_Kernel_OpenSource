@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,6 +79,10 @@ struct msm_audio_eq_stream_config	eq_data[MAX_EQ_SESSIONS];
 
 static int msm_route_hfp_vol_control;
 static const DECLARE_TLV_DB_LINEAR(hfp_rx_vol_gain, 0,
+				INT_RX_VOL_MAX_STEPS);
+
+static int msm_route_icc_vol_control;
+static const DECLARE_TLV_DB_LINEAR(icc_rx_vol_gain, 0,
 				INT_RX_VOL_MAX_STEPS);
 
 static int msm_route_pri_auxpcm_lb_vol_ctrl;
@@ -337,7 +341,7 @@ static int msm_qti_pp_get_rms_value_control(struct snd_kcontrol *kcontrol,
 	uint32_t param_length = sizeof(uint32_t);
 	uint32_t param_payload_len = RMS_PAYLOAD_LEN * sizeof(uint32_t);
 	struct msm_pcm_routing_bdai_data msm_bedai;
-	param_value = kzalloc(param_length, GFP_KERNEL);
+	param_value = kzalloc(param_length + param_payload_len, GFP_KERNEL);
 	if (!param_value) {
 		pr_err("%s, param memory alloc failed\n", __func__);
 		return -ENOMEM;
@@ -466,6 +470,23 @@ static int msm_qti_pp_set_tert_mi2s_lb_vol_mixer(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_qti_pp_get_icc_vol_mixer(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_route_icc_vol_control;
+	return 0;
+}
+
+static int msm_qti_pp_set_icc_vol_mixer(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	adm_set_mic_gain(AFE_PORT_ID_QUATERNARY_TDM_TX,
+		adm_get_default_copp_idx(AFE_PORT_ID_QUATERNARY_TDM_TX),
+		ucontrol->value.integer.value[0]);
+	msm_route_icc_vol_control = ucontrol->value.integer.value[0];
+	return 0;
+}
+
 static int msm_qti_pp_get_quat_mi2s_fm_vol_mixer(struct snd_kcontrol *kcontrol,
 				       struct snd_ctl_elem_value *ucontrol)
 {
@@ -552,7 +573,7 @@ static int msm_qti_pp_set_sec_auxpcm_lb_vol_mixer(
 static int msm_qti_pp_get_channel_map_mixer(struct snd_kcontrol *kcontrol,
 					    struct snd_ctl_elem_value *ucontrol)
 {
-	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL];
+	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL] = {0};
 	int i;
 
 	adm_get_multi_ch_map(channel_map, ADM_PATH_PLAYBACK);
@@ -774,6 +795,12 @@ static const struct snd_kcontrol_new int_hfp_vol_mixer_controls[] = {
 	msm_qti_pp_set_hfp_vol_mixer, hfp_rx_vol_gain),
 };
 
+static const struct snd_kcontrol_new int_icc_vol_mixer_controls[] = {
+	SOC_SINGLE_EXT_TLV("Internal ICC Volume", SND_SOC_NOPM, 0,
+	INT_RX_VOL_GAIN, 0, msm_qti_pp_get_icc_vol_mixer,
+	msm_qti_pp_set_icc_vol_mixer, icc_rx_vol_gain),
+};
+
 static const struct snd_kcontrol_new pri_auxpcm_lb_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("PRI AUXPCM LOOPBACK Volume",
 	AFE_PORT_ID_PRIMARY_PCM_TX, 0, INT_RX_VOL_GAIN, 0,
@@ -961,6 +988,9 @@ void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, int_hfp_vol_mixer_controls,
 			ARRAY_SIZE(int_hfp_vol_mixer_controls));
+
+	snd_soc_add_platform_controls(platform, int_icc_vol_mixer_controls,
+			ARRAY_SIZE(int_icc_vol_mixer_controls));
 
 	snd_soc_add_platform_controls(platform,
 			pri_auxpcm_lb_vol_mixer_controls,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,18 +113,18 @@ int ipa2_teth_bridge_init(struct teth_bridge_init_params *params)
 	params->skip_ep_cfg = true;
 
 	/* Build dependency graph */
-	res = ipa2_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
+	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
 				    IPA_RM_RESOURCE_Q6_CONS);
 	if (res < 0 && res != -EINPROGRESS) {
-		TETH_ERR("ipa2_rm_add_dependency() failed.\n");
+		TETH_ERR("ipa_rm_add_dependency() failed.\n");
 		goto bail;
 	}
-	res = ipa2_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
 				    IPA_RM_RESOURCE_USB_CONS);
 	if (res < 0 && res != -EINPROGRESS) {
-		ipa2_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+		ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 					IPA_RM_RESOURCE_Q6_CONS);
-		TETH_ERR("ipa2_rm_add_dependency() failed.\n");
+		TETH_ERR("ipa_rm_add_dependency() failed.\n");
 		goto bail;
 	}
 
@@ -142,9 +142,9 @@ bail:
 int ipa2_teth_bridge_disconnect(enum ipa_client_type client)
 {
 	TETH_DBG_FUNC_ENTRY();
-	ipa2_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 				 IPA_RM_RESOURCE_Q6_CONS);
-	ipa2_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
 				 IPA_RM_RESOURCE_USB_CONS);
 	TETH_DBG_FUNC_EXIT();
 

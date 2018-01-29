@@ -1,0 +1,988 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+C6_PID	.\ist30xxc.h	74;"	d
+CALIB_MSG_MASK	.\ist30xxc.c	422;"	d	file:
+CALIB_MSG_VALID	.\ist30xxc.c	423;"	d	file:
+CALIB_TO_GAP	.\ist30xxc_update.h	46;"	d
+CALIB_TO_OS_VALUE	.\ist30xxc_update.h	48;"	d
+CALIB_TO_STATUS	.\ist30xxc_update.h	47;"	d
+CALIB_WAIT_TIME	.\ist30xxc_update.h	45;"	d
+CAL_REF_FAIL_CRC	.\ist30xxc_update.h	56;"	d
+CAL_REF_FAIL_UNKNOWN	.\ist30xxc_update.h	55;"	d
+CAL_REF_FAIL_VERIFY	.\ist30xxc_update.h	57;"	d
+CAL_REF_MSG_MASK	.\ist30xxc.c	424;"	d	file:
+CAL_REF_MSG_VALID	.\ist30xxc.c	425;"	d	file:
+CAL_REF_NONE	.\ist30xxc_update.h	52;"	d
+CAL_REF_OK	.\ist30xxc_update.h	53;"	d
+CAL_REF_OK_VERIFY	.\ist30xxc_update.h	54;"	d
+CAL_REF_TO_STATUS	.\ist30xxc_update.h	51;"	d
+CHECK_INTR_STATUS	.\ist30xxc.h	208;"	d
+CH_NUM	.\ist30xxc.h	/^struct CH_NUM {$/;"	s
+CM2_MSG_VALID	.\ist30xxc_cmcs.h	23;"	d
+CMCS_BIN_INFO	.\ist30xxc_cmcs.h	/^} CMCS_BIN_INFO;$/;"	t	typeref:struct:_CMCS_BIN_INFO
+CMCS_BUF	.\ist30xxc_cmcs.h	/^} CMCS_BUF;$/;"	t	typeref:struct:_CMCS_BUF
+CMCS_CM	.\ist30xxc_cmcs.c	63;"	d	file:
+CMCS_CM2	.\ist30xxc_cmcs.c	64;"	d	file:
+CMCS_CMD	.\ist30xxc_cmcs.h	/^} CMCS_CMD;$/;"	t	typeref:struct:_CMCS_CMD
+CMCS_CMD_INFO	.\ist30xxc_cmcs.h	/^struct CMCS_CMD_INFO {$/;"	s
+CMCS_CMJIT	.\ist30xxc_cmcs.c	62;"	d	file:
+CMCS_CS	.\ist30xxc_cmcs.c	65;"	d	file:
+CMCS_ENABLE_CM	.\ist30xxc_cmcs.c	51;"	d	file:
+CMCS_ENABLE_CM2	.\ist30xxc_cmcs.c	52;"	d	file:
+CMCS_ENABLE_CMJIT	.\ist30xxc_cmcs.c	55;"	d	file:
+CMCS_ENABLE_CS	.\ist30xxc_cmcs.c	53;"	d	file:
+CMCS_ENABLE_INT	.\ist30xxc_cmcs.c	54;"	d	file:
+CMCS_FLAG_CM	.\ist30xxc_cmcs.c	42;"	d	file:
+CMCS_FLAG_CM2	.\ist30xxc_cmcs.c	47;"	d	file:
+CMCS_FLAG_CMJIT	.\ist30xxc_cmcs.c	46;"	d	file:
+CMCS_FLAG_CM_SLOPE0	.\ist30xxc_cmcs.c	44;"	d	file:
+CMCS_FLAG_CM_SLOPE1	.\ist30xxc_cmcs.c	45;"	d	file:
+CMCS_FLAG_CM_SPEC	.\ist30xxc_cmcs.c	43;"	d	file:
+CMCS_FLAG_CS	.\ist30xxc_cmcs.c	48;"	d	file:
+CMCS_FLAG_INT	.\ist30xxc_cmcs.c	49;"	d	file:
+CMCS_ITEM	.\ist30xxc_cmcs.h	/^} CMCS_ITEM;$/;"	t	typeref:struct:_CMCS_ITEM
+CMCS_ITEM_INFO	.\ist30xxc_cmcs.h	/^struct CMCS_ITEM_INFO {$/;"	s
+CMCS_MSG_MASK	.\ist30xxc_cmcs.h	21;"	d
+CMCS_NOT_READY	.\ist30xxc_cmcs.c	58;"	d	file:
+CMCS_PARAM	.\ist30xxc_cmcs.h	/^} CMCS_PARAM;$/;"	t	typeref:struct:_CMCS_PARAM
+CMCS_PARSING_DEBUG	.\ist30xxc_cmcs.c	67;"	d	file:
+CMCS_READY	.\ist30xxc_cmcs.c	57;"	d	file:
+CMCS_REG_INFO	.\ist30xxc_cmcs.h	/^struct CMCS_REG_INFO {$/;"	s
+CMCS_SPEC_ITEM	.\ist30xxc_cmcs.h	/^union CMCS_SPEC_ITEM {$/;"	u
+CMCS_SPEC_NODE	.\ist30xxc_cmcs.h	/^struct CMCS_SPEC_NODE {$/;"	s
+CMCS_SPEC_SLOPE	.\ist30xxc_cmcs.h	/^struct CMCS_SPEC_SLOPE {$/;"	s
+CMCS_SPEC_TOTAL	.\ist30xxc_cmcs.h	/^struct CMCS_SPEC_TOTAL {$/;"	s
+CMCS_TAGS_PARSE_OK	.\ist30xxc_cmcs.c	68;"	d	file:
+CMCS_TIMEOUT	.\ist30xxc_cmcs.c	60;"	d	file:
+CMJIT_MSG_VALID	.\ist30xxc_cmcs.h	25;"	d
+CM_MSG_VALID	.\ist30xxc_cmcs.h	22;"	d
+CS_MSG_VALID	.\ist30xxc_cmcs.h	24;"	d
+DEV_DEBUG	.\ist30xxc.h	151;"	d
+DEV_ERR	.\ist30xxc.h	147;"	d
+DEV_INFO	.\ist30xxc.h	149;"	d
+DEV_NOTI	.\ist30xxc.h	150;"	d
+DEV_VERB	.\ist30xxc.h	152;"	d
+DEV_WARN	.\ist30xxc.h	148;"	d
+DIRECT_ADDR	.\ist30xxc_misc.c	1174;"	d	file:
+DIRECT_BUF_COUNT	.\ist30xxc_misc.c	1177;"	d	file:
+DIRECT_CMD_READ	.\ist30xxc_misc.c	1176;"	d	file:
+DIRECT_CMD_WRITE	.\ist30xxc_misc.c	1175;"	d	file:
+DIRECT_INFO	.\ist30xxc_misc.c	/^} DIRECT_INFO;$/;"	t	typeref:struct:__anon4	file:
+DebugBuf	.\ist30xxc_misc.c	/^IST30XX_RING_BUF DebugBuf;$/;"	v
+EVENT_TIMER_INTERVAL	.\ist30xxc.h	166;"	d
+FINGER_ENABLE_MASK	.\ist30xxc.c	1486;"	d	file:
+FLAG_CORE	.\ist30xxc_update.h	68;"	d
+FLAG_FW	.\ist30xxc_update.h	67;"	d
+FLAG_MAIN	.\ist30xxc_update.h	66;"	d
+FLAG_TEST	.\ist30xxc_update.h	69;"	d
+GET_FINGER_ENABLE	.\ist30xxc.c	1488;"	d	file:
+GET_SCAN_CNT	.\ist30xxc.c	1489;"	d	file:
+GTX_INFO	.\ist30xxc.h	/^struct GTX_INFO {$/;"	s
+I2C_MAX_READ_SIZE	.\ist30xxc.h	183;"	d
+I2C_MAX_WRITE_SIZE	.\ist30xxc.h	182;"	d
+IMAGIS_IST3026C	.\ist30xxc.h	28;"	d
+IMAGIS_IST3032C	.\ist30xxc.h	29;"	d
+IMAGIS_IST3038C	.\ist30xxc.h	30;"	d
+IMAGIS_IST3044C	.\ist30xxc.h	31;"	d
+IMAGIS_IST3048C	.\ist30xxc.h	32;"	d
+IMAGIS_TSP_DD_VERSION	.\ist30xxc.h	26;"	d
+IMAGIS_TSP_IC	.\ist30xxc.h	34;"	d
+INTERNAL_CMCS_BIN	.\ist30xxc_cmcs.h	19;"	d
+INT_MSG_VALID	.\ist30xxc_cmcs.h	26;"	d
+IST3048C_DEFAULT_CHIP_ID	.\ist30xxc.h	79;"	d
+IST30XXC_DEFAULT_CHIP_ID	.\ist30xxc.h	78;"	d
+IST30XX_ADDR_LEN	.\ist30xxc.h	178;"	d
+IST30XX_ALGORITHM_MODE	.\ist30xxc.h	52;"	d
+IST30XX_BA_ADDR	.\ist30xxc.h	190;"	d
+IST30XX_BIN_NAME	.\ist30xxc_update.h	42;"	d
+IST30XX_BURST_ACCESS	.\ist30xxc.h	187;"	d
+IST30XX_CAL_MODE	.\ist30xxc.h	125;"	d
+IST30XX_CHIP_ID	.\ist30xxc.h	102;"	d
+IST30XX_CHIP_ID	.\ist30xxc.h	82;"	d
+IST30XX_CHIP_ID	.\ist30xxc.h	86;"	d
+IST30XX_CHIP_ID	.\ist30xxc.h	90;"	d
+IST30XX_CHIP_ID	.\ist30xxc.h	94;"	d
+IST30XX_CHIP_ID	.\ist30xxc.h	98;"	d
+IST30XX_CMCS_MAGIC	.\ist30xxc_cmcs.h	29;"	d
+IST30XX_CMCS_NAME	.\ist30xxc_cmcs.h	28;"	d
+IST30XX_CMCS_TEST	.\ist30xxc.h	58;"	d
+IST30XX_CMD_ADDR	.\ist30xxc.h	220;"	d
+IST30XX_CMD_VALUE	.\ist30xxc.h	221;"	d
+IST30XX_CP_ADDRESS	.\ist30xxc_misc.c	475;"	d	file:
+IST30XX_DATA_LEN	.\ist30xxc.h	179;"	d
+IST30XX_DA_ADDR	.\ist30xxc.h	189;"	d
+IST30XX_DEBUG	.\ist30xxc.h	57;"	d
+IST30XX_DEBUGGING_MAGIC	.\ist30xxc_misc.c	1899;"	d	file:
+IST30XX_DEBUGGING_VALUE	.\ist30xxc.h	114;"	d
+IST30XX_DEV_ID	.\ist30xxc.h	171;"	d
+IST30XX_DEV_NAME	.\ist30xxc.h	170;"	d
+IST30XX_DIRECT_ACCESS	.\ist30xxc.h	186;"	d
+IST30XX_DISABLE	.\ist30xxc.h	123;"	d
+IST30XX_ENABLE	.\ist30xxc.h	122;"	d
+IST30XX_EXCEPT_MASK	.\ist30xxc.h	116;"	d
+IST30XX_EXCEPT_VALUE	.\ist30xxc.h	117;"	d
+IST30XX_FLASH_ADDR	.\ist30xxc_update.h	31;"	d
+IST30XX_FLASH_AUTO_READ	.\ist30xxc_update.h	35;"	d
+IST30XX_FLASH_BASE	.\ist30xxc_update.h	29;"	d
+IST30XX_FLASH_BASE_ADDR	.\ist30xxc_update.h	20;"	d
+IST30XX_FLASH_CRC	.\ist30xxc_update.h	36;"	d
+IST30XX_FLASH_DIN	.\ist30xxc_update.h	32;"	d
+IST30XX_FLASH_DOUT	.\ist30xxc_update.h	33;"	d
+IST30XX_FLASH_ISPEN	.\ist30xxc_update.h	34;"	d
+IST30XX_FLASH_MODE	.\ist30xxc_update.h	30;"	d
+IST30XX_FLASH_PAGE_SIZE	.\ist30xxc_update.h	25;"	d
+IST30XX_FLASH_STATUS	.\ist30xxc_update.h	38;"	d
+IST30XX_FLASH_TEST_MODE1	.\ist30xxc_update.h	37;"	d
+IST30XX_FLASH_TOTAL_SIZE	.\ist30xxc_update.h	22;"	d
+IST30XX_FLASH_TOTAL_SIZE	.\ist30xxc_update.h	24;"	d
+IST30XX_FW_NAME	.\ist30xxc_update.h	41;"	d
+IST30XX_HA_ADDR	.\ist30xxc.h	191;"	d
+IST30XX_HIB_ACCESS	.\ist30xxc.h	188;"	d
+IST30XX_HIB_BASE	.\ist30xxc.h	199;"	d
+IST30XX_HIB_CMD	.\ist30xxc.h	203;"	d
+IST30XX_HIB_COORD	.\ist30xxc.h	202;"	d
+IST30XX_HIB_INTR_MSG	.\ist30xxc.h	201;"	d
+IST30XX_HIB_RW_STATUS	.\ist30xxc.h	204;"	d
+IST30XX_HIB_TOUCH_STATUS	.\ist30xxc.h	200;"	d
+IST30XX_INITIAL_VALUE	.\ist30xxc.h	111;"	d
+IST30XX_INTERNAL_BIN	.\ist30xxc.h	42;"	d
+IST30XX_INTR_STATUS	.\ist30xxc.h	207;"	d
+IST30XX_ISP_ERASE_BLOCK	.\ist30xxc_update.c	98;"	d	file:
+IST30XX_ISP_ERASE_INFO	.\ist30xxc_update.c	101;"	d	file:
+IST30XX_ISP_ERASE_PAGE	.\ist30xxc_update.c	100;"	d	file:
+IST30XX_ISP_ERASE_SECTOR	.\ist30xxc_update.c	99;"	d	file:
+IST30XX_ISP_PROG_INFO_B	.\ist30xxc_update.c	97;"	d	file:
+IST30XX_ISP_PROG_INFO_S	.\ist30xxc_update.c	96;"	d	file:
+IST30XX_ISP_PROG_MAIN_B	.\ist30xxc_update.c	95;"	d	file:
+IST30XX_ISP_PROG_MAIN_S	.\ist30xxc_update.c	94;"	d	file:
+IST30XX_ISP_PROG_TOTAL_B	.\ist30xxc_update.c	93;"	d	file:
+IST30XX_ISP_PROG_TOTAL_S	.\ist30xxc_update.c	92;"	d	file:
+IST30XX_ISP_READ_INFO_B	.\ist30xxc_update.c	91;"	d	file:
+IST30XX_ISP_READ_INFO_CRC	.\ist30xxc_update.c	104;"	d	file:
+IST30XX_ISP_READ_INFO_S	.\ist30xxc_update.c	90;"	d	file:
+IST30XX_ISP_READ_MAIN_B	.\ist30xxc_update.c	89;"	d	file:
+IST30XX_ISP_READ_MAIN_CRC	.\ist30xxc_update.c	103;"	d	file:
+IST30XX_ISP_READ_MAIN_S	.\ist30xxc_update.c	88;"	d	file:
+IST30XX_ISP_READ_TOTAL_B	.\ist30xxc_update.c	87;"	d	file:
+IST30XX_ISP_READ_TOTAL_CRC	.\ist30xxc_update.c	102;"	d	file:
+IST30XX_ISP_READ_TOTAL_S	.\ist30xxc_update.c	86;"	d	file:
+IST30XX_JIG_TOUCH	.\ist30xxc.h	120;"	d
+IST30XX_KEY_CODES	.\ist30xxc.h	55;"	d
+IST30XX_LOG_LEVEL	.\ist30xxc.h	155;"	d
+IST30XX_LOG_TAG	.\ist30xxc.h	154;"	d
+IST30XX_MAX_3D_VALUE	.\ist30xxc.h	109;"	d
+IST30XX_MAX_CAL_REF_CNT	.\ist30xxc.h	130;"	d
+IST30XX_MAX_CMD_SIZE	.\ist30xxc.h	219;"	d
+IST30XX_MAX_DEBUGINFO	.\ist30xxc.h	115;"	d
+IST30XX_MAX_ERR_CNT	.\ist30xxc.h	165;"	d
+IST30XX_MAX_EXCEPT_SIZE	.\ist30xxc.h	118;"	d
+IST30XX_MAX_FINGERS	.\ist30xxc.h	106;"	d
+IST30XX_MAX_KEYS	.\ist30xxc.h	107;"	d
+IST30XX_MAX_NODE_NUM	.\ist30xxc.h	103;"	d
+IST30XX_MAX_NODE_NUM	.\ist30xxc.h	83;"	d
+IST30XX_MAX_NODE_NUM	.\ist30xxc.h	87;"	d
+IST30XX_MAX_NODE_NUM	.\ist30xxc.h	91;"	d
+IST30XX_MAX_NODE_NUM	.\ist30xxc.h	95;"	d
+IST30XX_MAX_NODE_NUM	.\ist30xxc.h	99;"	d
+IST30XX_MAX_RETRY_CNT	.\ist30xxc.h	129;"	d
+IST30XX_MAX_RINGBUF_SIZE	.\ist30xxc.h	294;"	d
+IST30XX_MAX_W	.\ist30xxc.h	108;"	d
+IST30XX_NOISE_MODE	.\ist30xxc.h	50;"	d
+IST30XX_NON_CAL_MODE	.\ist30xxc.h	126;"	d
+IST30XX_REC_FILENAME	.\ist30xxc_misc.h	33;"	d
+IST30XX_REC_FILENAME_SIZE	.\ist30xxc.h	113;"	d
+IST30XX_REC_VALUE	.\ist30xxc.h	112;"	d
+IST30XX_REG_CHIPID	.\ist30xxc.h	195;"	d
+IST30XX_REG_TSPTYPE	.\ist30xxc.h	196;"	d
+IST30XX_RINGBUF_EMPTY	.\ist30xxc.h	291;"	d
+IST30XX_RINGBUF_FULL	.\ist30xxc.h	292;"	d
+IST30XX_RINGBUF_NOT_ENOUGH	.\ist30xxc.h	290;"	d
+IST30XX_RINGBUF_NO_ERR	.\ist30xxc.h	289;"	d
+IST30XX_RINGBUF_TIMEOUT	.\ist30xxc.h	293;"	d
+IST30XX_RING_BUF	.\ist30xxc.h	/^} IST30XX_RING_BUF;$/;"	t	typeref:struct:_IST30XX_RINGBUF
+IST30XX_START_SCAN	.\ist30xxc.h	121;"	d
+IST30XX_TAG_MAGIC	.\ist30xxc.h	350;"	d
+IST30XX_TRACKING_MAGIC	.\ist30xxc_tracking.h	29;"	d
+IST30XX_TRACKING_MODE	.\ist30xxc.h	49;"	d
+IST30XX_UPDATE_DELAY	.\ist30xxc.h	46;"	d
+IST30XX_USE_KEY	.\ist30xxc.h	53;"	d
+LogBuf	.\ist30xxc.h	/^    u8 LogBuf[IST30XX_MAX_RINGBUF_SIZE];$/;"	m	struct:_IST30XX_RINGBUF
+MAIN_VER_MASK	.\ist30xxc_update.c	1053;"	d	file:
+MASK_UPDATE_ERASE	.\ist30xxc_update.h	63;"	d
+MASK_UPDATE_FW	.\ist30xxc_update.h	61;"	d
+MASK_UPDATE_INTERNAL	.\ist30xxc_update.h	60;"	d
+MASK_UPDATE_SDCARD	.\ist30xxc_update.h	62;"	d
+MAX_FILE_PATH	.\ist30xxc_cmcs.c	1248;"	d	file:
+MAX_FILE_PATH	.\ist30xxc_update.c	1200;"	d	file:
+MAX_FRAME_COUNT	.\ist30xxc_misc.c	1900;"	d	file:
+MAX_LK_KEYCODE_NUM	.\ist30xxc.c	515;"	d	file:
+MAX_TRACKING_COUNT	.\ist30xxc_tracking.c	141;"	d	file:
+MAX_WRITE_LEN	.\ist30xxc_misc.c	1391;"	d	file:
+MULTI_MSG_MASK	.\ist30xxc.c	635;"	d	file:
+NODE_FLAG_ALL	.\ist30xxc_misc.h	23;"	d
+NODE_FLAG_BASE	.\ist30xxc_misc.h	20;"	d
+NODE_FLAG_CP_LOWER	.\ist30xxc_misc.h	26;"	d
+NODE_FLAG_CP_UPPER	.\ist30xxc_misc.h	27;"	d
+NODE_FLAG_DIFF	.\ist30xxc_misc.h	22;"	d
+NODE_FLAG_FILTER	.\ist30xxc_misc.h	21;"	d
+NODE_FLAG_NO_CCP	.\ist30xxc_misc.h	24;"	d
+NODE_FLAG_RAW	.\ist30xxc_misc.h	19;"	d
+NOISE_MODE_CALL	.\ist30xxc.c	163;"	d	file:
+NOISE_MODE_COVER	.\ist30xxc.c	164;"	d	file:
+NOISE_MODE_EDGE	.\ist30xxc.c	165;"	d	file:
+NOISE_MODE_POWER	.\ist30xxc.c	166;"	d	file:
+NOISE_MODE_TA	.\ist30xxc.c	162;"	d	file:
+PARSE_FINGER_CNT	.\ist30xxc.h	210;"	d
+PARSE_FINGER_STATUS	.\ist30xxc.h	213;"	d
+PARSE_KEY_CNT	.\ist30xxc.h	211;"	d
+PARSE_KEY_STATUS	.\ist30xxc.h	215;"	d
+PARSE_SPECIAL_MESSAGE	.\ist30xxc.c	510;"	d	file:
+PRESSED_FINGER	.\ist30xxc.h	216;"	d
+PRESSED_KEY	.\ist30xxc.h	217;"	d
+PRESS_MSG_KEY	.\ist30xxc.c	677;"	d	file:
+PRESS_MSG_MASK	.\ist30xxc.c	634;"	d	file:
+READ_CMD_MSG_LEN	.\ist30xxc.h	175;"	d
+RingBufCtr	.\ist30xxc.h	/^    u32 RingBufCtr;$/;"	m	struct:_IST30XX_RINGBUF
+RingBufInIdx	.\ist30xxc.h	/^    u32 RingBufInIdx;$/;"	m	struct:_IST30XX_RINGBUF
+RingBufOutIdx	.\ist30xxc.h	/^    u32 RingBufOutIdx;$/;"	m	struct:_IST30XX_RINGBUF
+SCAN_CNT_MASK	.\ist30xxc.c	1487;"	d	file:
+SPECIAL_MAGIC_MASK	.\ist30xxc.c	508;"	d	file:
+SPECIAL_MAGIC_STRING	.\ist30xxc.c	507;"	d	file:
+SPECIAL_MESSAGE_MASK	.\ist30xxc.c	509;"	d	file:
+SPECIAL_START_MASK	.\ist30xxc.c	513;"	d	file:
+SPECIAL_SUCCESS_MASK	.\ist30xxc.c	514;"	d	file:
+TAGS_PARSE_OK	.\ist30xxc_update.c	36;"	d	file:
+TKEY_INFO	.\ist30xxc.h	/^} TKEY_INFO;$/;"	t	typeref:struct:_TKEY_INFO
+TOUCH_DOWN_MESSAGE	.\ist30xxc.c	636;"	d	file:
+TOUCH_MOVE_MESSAGE	.\ist30xxc.c	638;"	d	file:
+TOUCH_NODE_PARSING_DEBUG	.\ist30xxc_misc.c	38;"	d	file:
+TOUCH_STATUS_MAGIC	.\ist30xxc.c	1484;"	d	file:
+TOUCH_STATUS_MASK	.\ist30xxc.c	1485;"	d	file:
+TOUCH_UP_MESSAGE	.\ist30xxc.c	637;"	d	file:
+TRACKING_INTR_DEBUG1_VALID	.\ist30xxc.c	427;"	d	file:
+TRACKING_INTR_DEBUG2_VALID	.\ist30xxc.c	428;"	d	file:
+TRACKING_INTR_DEBUG3_VALID	.\ist30xxc.c	429;"	d	file:
+TRACKING_INTR_VALID	.\ist30xxc.c	426;"	d	file:
+TRACK_CMD_CALIB	.\ist30xxc_tracking.h	15;"	d
+TRACK_CMD_CALL	.\ist30xxc_tracking.h	21;"	d
+TRACK_CMD_CHECK_CALIB	.\ist30xxc_tracking.h	16;"	d
+TRACK_CMD_CHKSUM	.\ist30xxc_tracking.h	17;"	d
+TRACK_CMD_CHKSUM_ALL	.\ist30xxc_tracking.h	18;"	d
+TRACK_CMD_COVER	.\ist30xxc_tracking.h	23;"	d
+TRACK_CMD_ENTER_REG	.\ist30xxc_tracking.h	19;"	d
+TRACK_CMD_EXIT_REG	.\ist30xxc_tracking.h	20;"	d
+TRACK_CMD_FWUPDATE	.\ist30xxc_tracking.h	13;"	d
+TRACK_CMD_NOTCALL	.\ist30xxc_tracking.h	22;"	d
+TRACK_CMD_NOTCOVER	.\ist30xxc_tracking.h	24;"	d
+TRACK_CMD_PRUPDATE	.\ist30xxc_tracking.h	14;"	d
+TRACK_CMD_RUN_DEVICE	.\ist30xxc_tracking.h	9;"	d
+TRACK_CMD_SCAN	.\ist30xxc_tracking.h	10;"	d
+TRACK_CMD_TACON	.\ist30xxc_tracking.h	11;"	d
+TRACK_CMD_TADISCON	.\ist30xxc_tracking.h	12;"	d
+TRACK_INTR_DISABLE	.\ist30xxc_tracking.h	8;"	d
+TRACK_INTR_ENABLE	.\ist30xxc_tracking.h	7;"	d
+TRACK_POS_FINGER	.\ist30xxc_tracking.h	25;"	d
+TRACK_POS_KEY	.\ist30xxc_tracking.h	26;"	d
+TRACK_POS_UNKNOWN	.\ist30xxc_tracking.h	27;"	d
+TRACK_PWR_OFF	.\ist30xxc_tracking.h	5;"	d
+TRACK_PWR_ON	.\ist30xxc_tracking.h	4;"	d
+TRACK_PWR_RESET	.\ist30xxc_tracking.h	6;"	d
+TSP_CHIP_NAME	.\ist30xxc.h	101;"	d
+TSP_CHIP_NAME	.\ist30xxc.h	81;"	d
+TSP_CHIP_NAME	.\ist30xxc.h	85;"	d
+TSP_CHIP_NAME	.\ist30xxc.h	89;"	d
+TSP_CHIP_NAME	.\ist30xxc.h	93;"	d
+TSP_CHIP_NAME	.\ist30xxc.h	97;"	d
+TSP_CHIP_VENDOR	.\ist30xxc.h	35;"	d
+TSP_CH_GTX	.\ist30xxc_cmcs.c	38;"	d	file:
+TSP_CH_GTX	.\ist30xxc_misc.c	34;"	d	file:
+TSP_CH_KEY	.\ist30xxc_cmcs.c	39;"	d	file:
+TSP_CH_KEY	.\ist30xxc_misc.c	35;"	d	file:
+TSP_CH_SCREEN	.\ist30xxc_cmcs.c	37;"	d	file:
+TSP_CH_SCREEN	.\ist30xxc_misc.c	33;"	d	file:
+TSP_CH_UNKNOWN	.\ist30xxc_cmcs.c	40;"	d	file:
+TSP_CH_UNKNOWN	.\ist30xxc_misc.c	36;"	d	file:
+TSP_CH_UNUSED	.\ist30xxc_cmcs.c	36;"	d	file:
+TSP_CH_UNUSED	.\ist30xxc_misc.c	32;"	d	file:
+TSP_DIRECTION	.\ist30xxc.h	/^struct TSP_DIRECTION {$/;"	s
+TSP_INFO	.\ist30xxc.h	/^} TSP_INFO;$/;"	t	typeref:struct:_TSP_INFO
+TSP_INFO_FLIP_X	.\ist30xxc_update.c	718;"	d	file:
+TSP_INFO_FLIP_Y	.\ist30xxc_update.c	719;"	d	file:
+TSP_INFO_SWAP_XY	.\ist30xxc_update.c	717;"	d	file:
+TSP_LOCAL_CMCC	.\ist30xxc.h	136;"	d
+TSP_LOCAL_CODE	.\ist30xxc.h	144;"	d
+TSP_LOCAL_CTC	.\ist30xxc.h	139;"	d
+TSP_LOCAL_CU	.\ist30xxc.h	137;"	d
+TSP_LOCAL_EEU	.\ist30xxc.h	134;"	d
+TSP_LOCAL_EU	.\ist30xxc.h	133;"	d
+TSP_LOCAL_INDIA	.\ist30xxc.h	140;"	d
+TSP_LOCAL_LA	.\ist30xxc.h	143;"	d
+TSP_LOCAL_NA	.\ist30xxc.h	142;"	d
+TSP_LOCAL_SPRD	.\ist30xxc.h	138;"	d
+TSP_LOCAL_SWASIA	.\ist30xxc.h	141;"	d
+TSP_LOCAL_TD	.\ist30xxc.h	135;"	d
+TSP_NODE_BUF	.\ist30xxc.h	/^struct TSP_NODE_BUF {$/;"	s
+TSP_RAW_ALL	.\ist30xxc_misc.h	29;"	d
+TSP_RAW_KEY	.\ist30xxc_misc.h	31;"	d
+TSP_RAW_SCREEN	.\ist30xxc_misc.h	30;"	d
+TUNES_CMD_READ	.\ist30xxc_misc.c	1168;"	d	file:
+TUNES_CMD_REG_ENTER	.\ist30xxc_misc.c	1169;"	d	file:
+TUNES_CMD_REG_EXIT	.\ist30xxc_misc.c	1170;"	d	file:
+TUNES_CMD_UPDATE_FW	.\ist30xxc_misc.c	1172;"	d	file:
+TUNES_CMD_UPDATE_PARAM	.\ist30xxc_misc.c	1171;"	d	file:
+TUNES_CMD_WRITE	.\ist30xxc_misc.c	1167;"	d	file:
+TUNES_INFO	.\ist30xxc_misc.c	/^} TUNES_INFO;$/;"	t	typeref:struct:__anon3	file:
+TrackBuf	.\ist30xxc_tracking.c	/^IST30XX_RING_BUF TrackBuf;$/;"	v
+WRITE_CMD_MSG_LEN	.\ist30xxc.h	174;"	d
+XIAOMI_GET_PID	.\ist30xxc.h	75;"	d
+XIAOMI_INFO_ADDR	.\ist30xxc.h	68;"	d
+XIAOMI_INFO_MASK	.\ist30xxc.h	72;"	d
+XIAOMI_INFO_SIZE	.\ist30xxc.h	69;"	d
+XIAOMI_INFO_VALUE	.\ist30xxc.h	73;"	d
+XIAOMI_LOCKDOWN_INDEX	.\ist30xxc.h	70;"	d
+XIAOMI_PID_INDEX	.\ist30xxc.h	71;"	d
+XIAOMI_PRODUCT	.\ist30xxc.h	38;"	d
+_CMCS_BIN_INFO	.\ist30xxc_cmcs.h	/^typedef struct _CMCS_BIN_INFO {$/;"	s
+_CMCS_BUF	.\ist30xxc_cmcs.h	/^typedef struct _CMCS_BUF {$/;"	s
+_CMCS_CMD	.\ist30xxc_cmcs.h	/^typedef struct _CMCS_CMD {$/;"	s
+_CMCS_ITEM	.\ist30xxc_cmcs.h	/^typedef struct _CMCS_ITEM {$/;"	s
+_CMCS_PARAM	.\ist30xxc_cmcs.h	/^typedef struct _CMCS_PARAM {$/;"	s
+_IST30XX_RINGBUF	.\ist30xxc.h	/^typedef struct _IST30XX_RINGBUF {$/;"	s
+_TKEY_INFO	.\ist30xxc.h	/^typedef struct _TKEY_INFO {$/;"	s
+_TSP_INFO	.\ist30xxc.h	/^typedef struct _TSP_INFO {$/;"	s
+__IST30XXC_CMCS_BIN_H__	.\ist30xxc_cmcs_bin.h	2;"	d
+__IST30XXC_CMCS_H__	.\ist30xxc_cmcs.h	17;"	d
+__IST30XXC_FW_H__	.\IST3038C1_C6_FW_PORTING.h	3;"	d
+__IST30XXC_H__	.\ist30xxc.h	17;"	d
+__IST30XXC_MISC_H__	.\ist30xxc_misc.h	17;"	d
+__IST30XXC_TRACKING_H__	.\ist30xxc_tracking.h	2;"	d
+__IST30XXC_UPDATE_H__	.\ist30xxc_update.h	17;"	d
+addr	.\ist30xxc_cmcs.h	/^    u32 addr;$/;"	m	struct:CMCS_CMD_INFO
+addr	.\ist30xxc_cmcs.h	/^    u32 addr;$/;"	m	struct:CMCS_ITEM_INFO
+addr	.\ist30xxc_cmcs.h	/^    u32 addr;$/;"	m	struct:CMCS_REG_INFO
+addr	.\ist30xxc_misc.c	/^    u32 addr;$/;"	m	struct:__anon3	file:
+addr	.\ist30xxc_misc.c	/^    u32 addr;$/;"	m	struct:__anon4	file:
+algorithm_addr	.\ist30xxc.h	/^    u32 algorithm_addr;$/;"	m	struct:ist30xx_data
+algr_addr	.\ist30xxc.h	/^    u32 algr_addr;$/;"	m	struct:ist30xx_data
+algr_base	.\ist30xxc.h	/^    u32 algr_base;$/;"	m	struct:ist30xx_tags
+algr_size	.\ist30xxc.h	/^    u32 algr_size;$/;"	m	struct:ist30xx_data
+base	.\ist30xxc.h	/^    u16 base[IST30XX_MAX_NODE_NUM];$/;"	m	struct:TSP_NODE_BUF
+baseline	.\ist30xxc.h	/^    u16 baseline;$/;"	m	struct:_TKEY_INFO
+baseline	.\ist30xxc.h	/^    u16 baseline;$/;"	m	struct:_TSP_INFO
+bin	.\ist30xxc.h	/^    struct ist30xx_version bin;$/;"	m	struct:ist30xx_fw	typeref:struct:ist30xx_fw::ist30xx_version
+bit_field	.\ist30xxc.h	/^    } bit_field;$/;"	m	union:__anon1	typeref:struct:__anon1::__anon2
+buf	.\ist30xxc.h	/^    u8 *buf;$/;"	m	struct:ist30xx_fw
+buf32_flash	.\ist30xxc_update.c	/^u32 buf32_flash[IST30XX_FLASH_TOTAL_SIZE \/ IST30XX_DATA_LEN];$/;"	v
+buf_cm_sensor	.\ist30xxc_cmcs.h	/^    u32 *buf_cm_sensor;$/;"	m	struct:_CMCS_BIN_INFO
+buf_cmcs	.\ist30xxc_cmcs.h	/^    u8 *buf_cmcs;$/;"	m	struct:_CMCS_BIN_INFO
+buf_cs_sensor	.\ist30xxc_cmcs.h	/^    u32 *buf_cs_sensor;$/;"	m	struct:_CMCS_BIN_INFO
+buf_jit_sensor	.\ist30xxc_cmcs.h	/^    u32 *buf_jit_sensor;$/;"	m	struct:_CMCS_BIN_INFO
+buf_max	.\ist30xxc_cmcs.h	/^    u16 *buf_max;$/;"	m	struct:CMCS_SPEC_NODE
+buf_min	.\ist30xxc_cmcs.h	/^    u16 *buf_min;$/;"	m	struct:CMCS_SPEC_NODE
+buf_size	.\ist30xxc.h	/^    u32 buf_size;$/;"	m	struct:ist30xx_fw
+cal_ref_count	.\ist30xxc.h	/^    int cal_ref_count;$/;"	m	struct:ist30xx_data
+cal_ref_msg	.\ist30xxc.h	/^    u32 cal_ref_msg;$/;"	m	struct:ist30xx_status
+cal_ref_work_func	.\ist30xxc.c	/^static void cal_ref_work_func(struct work_struct *work)$/;"	f	file:
+calib	.\ist30xxc.h	/^    int calib;$/;"	m	struct:ist30xx_status
+calib_ms_delay	.\ist30xxc_update.c	/^int calib_ms_delay = CALIB_WAIT_TIME;$/;"	v
+calib_msg	.\ist30xxc.h	/^    int calib_msg;$/;"	m	struct:ist30xx_status
+callbacks	.\ist30xxc.h	/^    struct tsp_callbacks callbacks;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::tsp_callbacks
+cfg_addr	.\ist30xxc.h	/^    u32 cfg_addr;$/;"	m	struct:ist30xx_tags
+cfg_size	.\ist30xxc.h	/^    u32 cfg_size;$/;"	m	struct:ist30xx_tags
+ch_num	.\ist30xxc.h	/^    struct CH_NUM ch_num;$/;"	m	struct:_TSP_INFO	typeref:struct:_TSP_INFO::CH_NUM
+ch_num	.\ist30xxc.h	/^    struct CH_NUM ch_num[IST30XX_MAX_KEYS];$/;"	m	struct:_TKEY_INFO	typeref:struct:_TKEY_INFO::CH_NUM
+ch_num	.\ist30xxc.h	/^    u8 ch_num[4];$/;"	m	struct:GTX_INFO
+charger_enable	.\ist30xxc.c	/^void charger_enable(struct tsp_callbacks *cb, int enable)$/;"	f
+check_tsp_type	.\ist30xxc_cmcs.c	/^int check_tsp_type(struct ist30xx_data *data, int tx, int rx)$/;"	f
+check_valid_coord	.\ist30xxc.c	/^static int check_valid_coord(u32 *msg, int cnt)$/;"	f	file:
+checksum_addr	.\ist30xxc_cmcs.h	/^    u32 checksum_addr;$/;"	m	struct:_CMCS_PARAM
+chip_id	.\ist30xxc.h	/^    u32 chip_id;$/;"	m	struct:ist30xx_data
+chksum	.\ist30xxc.h	/^    u32 chksum;$/;"	m	struct:ist30xx_fw
+chksum	.\ist30xxc.h	/^    u32 chksum;$/;"	m	struct:ist30xx_tags
+chksum_all	.\ist30xxc.h	/^    u32 chksum_all;$/;"	m	struct:ist30xx_tags
+clear_input_data	.\ist30xxc.c	/^static void clear_input_data(struct ist30xx_data *data)$/;"	f	file:
+client	.\ist30xxc.h	/^    struct i2c_client *client;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::i2c_client
+cm	.\ist30xxc_cmcs.h	/^    s16 cm[IST30XX_MAX_NODE_NUM];$/;"	m	struct:_CMCS_BUF
+cm2	.\ist30xxc_cmcs.h	/^    s16 cm2[IST30XX_MAX_NODE_NUM];$/;"	m	struct:_CMCS_BUF
+cm_jit	.\ist30xxc_cmcs.h	/^    s16 cm_jit[IST30XX_MAX_NODE_NUM];$/;"	m	struct:_CMCS_BUF
+cm_sensor1_size	.\ist30xxc_cmcs.h	/^    u32 cm_sensor1_size;$/;"	m	struct:_CMCS_PARAM
+cm_sensor2_size	.\ist30xxc_cmcs.h	/^    u32 cm_sensor2_size;$/;"	m	struct:_CMCS_PARAM
+cm_sensor3_size	.\ist30xxc_cmcs.h	/^    u32 cm_sensor3_size;$/;"	m	struct:_CMCS_PARAM
+cm_sensor_chksum	.\ist30xxc_cmcs.h	/^    u32 cm_sensor_chksum;$/;"	m	struct:_CMCS_PARAM
+cmcs	.\ist30xxc.h	/^    u32 cmcs;$/;"	m	struct:ist30xx_status
+cmcs_attr_group	.\ist30xxc_cmcs.c	/^static struct attribute_group cmcs_attr_group = {$/;"	v	typeref:struct:attribute_group	file:
+cmcs_attributes	.\ist30xxc_cmcs.c	/^static struct attribute *cmcs_attributes[] = {$/;"	v	typeref:struct:attribute	file:
+cmcs_chksum	.\ist30xxc_cmcs.h	/^    u32 cmcs_chksum;$/;"	m	struct:_CMCS_PARAM
+cmcs_next_step	.\ist30xxc_cmcs.c	906;"	d	file:
+cmcs_ready	.\ist30xxc_cmcs.c	/^int cmcs_ready = CMCS_READY;$/;"	v
+cmcs_size	.\ist30xxc_cmcs.h	/^    u32 cmcs_size;$/;"	m	struct:_CMCS_PARAM
+cmcs_size_addr	.\ist30xxc_cmcs.h	/^    u32 cmcs_size_addr;$/;"	m	struct:_CMCS_PARAM
+cmcs_test_result	.\ist30xxc_cmcs.c	/^int cmcs_test_result(struct ist30xx_data *data)$/;"	f
+cmd	.\ist30xxc_cmcs.h	/^    struct CMCS_CMD_INFO *cmd;$/;"	m	struct:_CMCS_CMD	typeref:struct:_CMCS_CMD::CMCS_CMD_INFO
+cmd	.\ist30xxc_misc.c	/^    char cmd;$/;"	m	struct:__anon4	file:
+cmd	.\ist30xxc_misc.c	/^    u8 cmd;$/;"	m	struct:__anon3	file:
+cmds	.\ist30xxc_cmcs.h	/^    CMCS_CMD cmds;$/;"	m	struct:_CMCS_BIN_INFO
+cnt	.\ist30xxc_cmcs.h	/^    u32 cnt;$/;"	m	struct:_CMCS_CMD
+cnt	.\ist30xxc_cmcs.h	/^    u32 cnt;$/;"	m	struct:_CMCS_ITEM
+config	.\ist30xxc.h	/^    u32 config[2];$/;"	m	struct:ist30xx_version
+core_ver	.\ist30xxc.h	/^    u32 core_ver;$/;"	m	struct:ist30xx_version
+cp_addr	.\ist30xxc.h	/^    u32 cp_addr;$/;"	m	struct:ist30xx_tags
+cp_lower	.\ist30xxc.h	/^    u16 cp_lower[IST30XX_MAX_NODE_NUM];$/;"	m	struct:TSP_NODE_BUF
+cp_size	.\ist30xxc.h	/^    u32 cp_size;$/;"	m	struct:ist30xx_tags
+cp_upper	.\ist30xxc.h	/^    u16 cp_upper[IST30XX_MAX_NODE_NUM];$/;"	m	struct:TSP_NODE_BUF
+cs	.\ist30xxc_cmcs.h	/^    s16 cs[IST30XX_MAX_NODE_NUM];$/;"	m	struct:_CMCS_BUF
+cs_rx_result	.\ist30xxc_cmcs.h	/^    u32 cs_rx_result;$/;"	m	struct:_CMCS_BUF
+cs_rx_result_addr	.\ist30xxc_cmcs.h	/^    u32 cs_rx_result_addr;$/;"	m	struct:_CMCS_PARAM
+cs_sensor1_size	.\ist30xxc_cmcs.h	/^    u32 cs_sensor1_size;$/;"	m	struct:_CMCS_PARAM
+cs_sensor2_size	.\ist30xxc_cmcs.h	/^    u32 cs_sensor2_size;$/;"	m	struct:_CMCS_PARAM
+cs_sensor3_size	.\ist30xxc_cmcs.h	/^    u32 cs_sensor3_size;$/;"	m	struct:_CMCS_PARAM
+cs_sensor_chksum	.\ist30xxc_cmcs.h	/^    u32 cs_sensor_chksum;$/;"	m	struct:_CMCS_PARAM
+cs_tx_result	.\ist30xxc_cmcs.h	/^    u32 cs_tx_result;$/;"	m	struct:_CMCS_BUF
+cs_tx_result_addr	.\ist30xxc_cmcs.h	/^    u32 cs_tx_result_addr;$/;"	m	struct:_CMCS_PARAM
+cur	.\ist30xxc.h	/^    struct ist30xx_version cur;$/;"	m	struct:ist30xx_fw	typeref:struct:ist30xx_fw::ist30xx_version
+data_type	.\ist30xxc_cmcs.h	/^    char data_type[2];$/;"	m	struct:CMCS_ITEM_INFO
+day	.\ist30xxc.h	/^    u8 day;$/;"	m	struct:ist30xx_tags
+debug_mode	.\ist30xxc.h	/^    u32 debug_mode;$/;"	m	struct:ist30xx_data
+debug_work_func	.\ist30xxc.c	/^static void debug_work_func(struct work_struct *work)$/;"	f	file:
+debugging_addr	.\ist30xxc.h	/^    u32 debugging_addr;$/;"	m	struct:ist30xx_data
+debugging_cnt_show	.\ist30xxc_misc.c	/^ssize_t debugging_cnt_show(struct device *dev, struct device_attribute *attr,$/;"	f
+debugging_frame_show	.\ist30xxc_misc.c	/^ssize_t debugging_frame_show(struct device *dev, struct device_attribute *attr,$/;"	f
+debugging_initialize	.\ist30xxc_misc.c	/^bool debugging_initialize = false;$/;"	v
+debugging_mode	.\ist30xxc.h	/^    u32 debugging_mode;$/;"	m	struct:ist30xx_data
+debugging_mode_show	.\ist30xxc_misc.c	/^ssize_t debugging_mode_show(struct device *dev, struct device_attribute *attr,$/;"	f
+debugging_mode_store	.\ist30xxc_misc.c	/^ssize_t debugging_mode_store(struct device *dev, struct device_attribute *attr,$/;"	f
+debugging_noise	.\ist30xxc.h	/^    u32 debugging_noise;$/;"	m	struct:ist30xx_data
+debugging_scancnt	.\ist30xxc.h	/^    u32 debugging_scancnt;$/;"	m	struct:ist30xx_data
+debugging_size	.\ist30xxc.h	/^    u8 debugging_size;$/;"	m	struct:ist30xx_data
+debugging_status_show	.\ist30xxc_misc.c	/^ssize_t debugging_status_show(struct device *dev, struct device_attribute *attr,$/;"	f
+dir	.\ist30xxc.h	/^    struct TSP_DIRECTION dir;$/;"	m	struct:_TSP_INFO	typeref:struct:_TSP_INFO::TSP_DIRECTION
+dt_data	.\ist30xxc.h	/^    struct ist30xx_dt_data *dt_data;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::ist30xx_dt_data
+eHCOM_CP_CORRECT_EN	.\ist30xxc.h	/^    eHCOM_CP_CORRECT_EN     = 0x10,$/;"	e	enum:ist30xx_write_commands
+eHCOM_DEFAULT	.\ist30xxc.h	/^    eHCOM_DEFAULT           = 0xFF,$/;"	e	enum:ist30xx_write_commands
+eHCOM_FW_HOLD	.\ist30xxc.h	/^    eHCOM_FW_HOLD           = 0x02,$/;"	e	enum:ist30xx_write_commands
+eHCOM_FW_START	.\ist30xxc.h	/^    eHCOM_FW_START          = 0x01,$/;"	e	enum:ist30xx_write_commands
+eHCOM_GESTURE_EN	.\ist30xxc.h	/^    eHCOM_GESTURE_EN        = 0x12,$/;"	e	enum:ist30xx_write_commands
+eHCOM_GET_ALGO_BASE	.\ist30xxc.h	/^    eHCOM_GET_ALGO_BASE     = IST30XX_CMD_ADDR(0x1E),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_BASELINE	.\ist30xxc.h	/^    eHCOM_GET_BASELINE      = IST30XX_CMD_ADDR(0x19),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_CAL_RESULT	.\ist30xxc.h	/^    eHCOM_GET_CAL_RESULT    = IST30XX_CMD_ADDR(0x07),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_CHIP_ID	.\ist30xxc.h	/^    eHCOM_GET_CHIP_ID       = IST30XX_CMD_ADDR(0x00),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_COM_CHECKSUM	.\ist30xxc.h	/^    eHCOM_GET_COM_CHECKSUM  = IST30XX_CMD_ADDR(0x1F),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_CONFIG_1	.\ist30xxc.h	/^    eHCOM_GET_CONFIG_1      = IST30XX_CMD_ADDR(0x0B),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_CONFIG_2	.\ist30xxc.h	/^    eHCOM_GET_CONFIG_2      = IST30XX_CMD_ADDR(0x0C),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_CRC32	.\ist30xxc.h	/^    eHCOM_GET_CRC32         = IST30XX_CMD_ADDR(0x05),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_DBG_INFO_BASE	.\ist30xxc.h	/^    eHCOM_GET_DBG_INFO_BASE = IST30XX_CMD_ADDR(0x0E),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_FILTER_BASE	.\ist30xxc.h	/^    eHCOM_GET_FILTER_BASE   = IST30XX_CMD_ADDR(0x1B),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_FINGER_INFO	.\ist30xxc.h	/^    eHCOM_GET_FINGER_INFO   = IST30XX_CMD_ADDR(0x18),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_FW_MODE	.\ist30xxc.h	/^    eHCOM_GET_FW_MODE       = IST30XX_CMD_ADDR(0x06),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_GTX_INFO	.\ist30xxc.h	/^    eHCOM_GET_GTX_INFO      = IST30XX_CMD_ADDR(0x16),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_KEY_INFO_0	.\ist30xxc.h	/^    eHCOM_GET_KEY_INFO_0    = IST30XX_CMD_ADDR(0x12),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_KEY_INFO_1	.\ist30xxc.h	/^    eHCOM_GET_KEY_INFO_1    = IST30XX_CMD_ADDR(0x13),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_KEY_INFO_2	.\ist30xxc.h	/^    eHCOM_GET_KEY_INFO_2    = IST30XX_CMD_ADDR(0x14),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_LCD_INFO	.\ist30xxc.h	/^    eHCOM_GET_LCD_INFO      = IST30XX_CMD_ADDR(0x10),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_LOCKDOWN_1	.\ist30xxc.h	/^    eHCOM_GET_LOCKDOWN_1    = IST30XX_CMD_ADDR(0x09),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_LOCKDOWN_2	.\ist30xxc.h	/^    eHCOM_GET_LOCKDOWN_2    = IST30XX_CMD_ADDR(0x0A),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_RAW_BASE	.\ist30xxc.h	/^    eHCOM_GET_RAW_BASE      = IST30XX_CMD_ADDR(0x1D),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_SCR_INFO	.\ist30xxc.h	/^    eHCOM_GET_SCR_INFO      = IST30XX_CMD_ADDR(0x15),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_SWAP_INFO	.\ist30xxc.h	/^    eHCOM_GET_SWAP_INFO     = IST30XX_CMD_ADDR(0x17),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_TOUCH_TH	.\ist30xxc.h	/^    eHCOM_GET_TOUCH_TH      = IST30XX_CMD_ADDR(0x1A),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_TSP_INFO	.\ist30xxc.h	/^    eHCOM_GET_TSP_INFO      = IST30XX_CMD_ADDR(0x11),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_TSP_VENDOR	.\ist30xxc.h	/^    eHCOM_GET_TSP_VENDOR    = IST30XX_CMD_ADDR(0x08),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_VER_CORE	.\ist30xxc.h	/^    eHCOM_GET_VER_CORE      = IST30XX_CMD_ADDR(0x03),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_VER_FW	.\ist30xxc.h	/^    eHCOM_GET_VER_FW        = IST30XX_CMD_ADDR(0x02),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_VER_MAIN	.\ist30xxc.h	/^    eHCOM_GET_VER_MAIN      = IST30XX_CMD_ADDR(0x01),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_VER_TEST	.\ist30xxc.h	/^    eHCOM_GET_VER_TEST      = IST30XX_CMD_ADDR(0x04),$/;"	e	enum:ist30xx_read_commands
+eHCOM_GET_ZVALUE_BASE	.\ist30xxc.h	/^    eHCOM_GET_ZVALUE_BASE   = IST30XX_CMD_ADDR(0x1C),$/;"	e	enum:ist30xx_read_commands
+eHCOM_NEW_POSITION_DIS	.\ist30xxc.h	/^    eHCOM_NEW_POSITION_DIS  = 0x14,$/;"	e	enum:ist30xx_write_commands
+eHCOM_RUN_CAL_AUTO	.\ist30xxc.h	/^    eHCOM_RUN_CAL_AUTO      = 0x31,$/;"	e	enum:ist30xx_write_commands
+eHCOM_RUN_CAL_PARAM	.\ist30xxc.h	/^    eHCOM_RUN_CAL_PARAM     = 0x32,$/;"	e	enum:ist30xx_write_commands
+eHCOM_RUN_CAL_REF	.\ist30xxc.h	/^    eHCOM_RUN_CAL_REF       = 0x33,$/;"	e	enum:ist30xx_write_commands
+eHCOM_RUN_RAMCODE	.\ist30xxc.h	/^    eHCOM_RUN_RAMCODE       = 0x30,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SCALE_EN	.\ist30xxc.h	/^    eHCOM_SCALE_EN          = 0x13,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SET_DBG_MODE	.\ist30xxc.h	/^    eHCOM_SET_DBG_MODE      = 0xE1,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SET_JIG_MODE	.\ist30xxc.h	/^    eHCOM_SET_JIG_MODE      = 0x80,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SET_JIG_SENSITI	.\ist30xxc.h	/^    eHCOM_SET_JIG_SENSITI   = 0x81,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SET_LOCAL_MODEL	.\ist30xxc.h	/^    eHCOM_SET_LOCAL_MODEL   = 0x23,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SET_MODE_SPECIAL	.\ist30xxc.h	/^    eHCOM_SET_MODE_SPECIAL  = 0x22,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SET_REC_MODE	.\ist30xxc.h	/^    eHCOM_SET_REC_MODE      = 0xE0,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SET_TIME_ACTIVE	.\ist30xxc.h	/^    eHCOM_SET_TIME_ACTIVE   = 0x20,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SET_TIME_IDLE	.\ist30xxc.h	/^    eHCOM_SET_TIME_IDLE     = 0x21,$/;"	e	enum:ist30xx_write_commands
+eHCOM_SLEEP_MODE_EN	.\ist30xxc.h	/^    eHCOM_SLEEP_MODE_EN     = 0x15,$/;"	e	enum:ist30xx_write_commands
+eHCOM_WDT_EN	.\ist30xxc.h	/^    eHCOM_WDT_EN            = 0x11,$/;"	e	enum:ist30xx_write_commands
+early_suspend	.\ist30xxc.h	/^    struct early_suspend early_suspend;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::early_suspend
+enable	.\ist30xxc.h	/^    bool enable;$/;"	m	struct:_TKEY_INFO
+enable_addr	.\ist30xxc_cmcs.h	/^    u32 enable_addr;$/;"	m	struct:_CMCS_PARAM
+end_notify_addr	.\ist30xxc_cmcs.h	/^    u32 end_notify_addr;$/;"	m	struct:_CMCS_PARAM
+event_mode	.\ist30xxc.h	/^    bool event_mode;$/;"	m	struct:ist30xx_status
+event_ms	.\ist30xxc.h	/^    u32 event_ms; $/;"	m	struct:ist30xx_data
+event_timer	.\ist30xxc.h	/^    struct timer_list event_timer;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::timer_list
+f	.\ist30xxc.h	/^        u32 f:8;$/;"	m	struct:__anon1::__anon2
+filter	.\ist30xxc.h	/^    u16 filter[IST30XX_MAX_NODE_NUM];$/;"	m	struct:TSP_NODE_BUF
+filter_addr	.\ist30xxc.h	/^    u32 filter_addr;$/;"	m	struct:ist30xx_data
+filter_base	.\ist30xxc.h	/^    u32 filter_base;$/;"	m	struct:ist30xx_tags
+finger_info	.\ist30xxc.h	/^} finger_info;$/;"	t	typeref:union:__anon1
+finger_num	.\ist30xxc.h	/^    int finger_num;$/;"	m	struct:_TSP_INFO
+fingers	.\ist30xxc.h	/^    finger_info fingers[IST30XX_MAX_FINGERS];$/;"	m	struct:ist30xx_data
+flag_addr	.\ist30xxc.h	/^    u32 flag_addr;$/;"	m	struct:ist30xx_tags
+flag_size	.\ist30xxc.h	/^    u32 flag_size;$/;"	m	struct:ist30xx_tags
+flip_x	.\ist30xxc.h	/^    bool flip_x;$/;"	m	struct:TSP_DIRECTION
+flip_y	.\ist30xxc.h	/^    bool flip_y;$/;"	m	struct:TSP_DIRECTION
+full_field	.\ist30xxc.h	/^    u32 full_field;$/;"	m	union:__anon1
+fw	.\ist30xxc.h	/^    struct ist30xx_fw fw;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::ist30xx_fw
+fw_addr	.\ist30xxc.h	/^    u32 fw_addr;$/;"	m	struct:ist30xx_tags
+fw_attr_group	.\ist30xxc_update.c	/^static struct attribute_group fw_attr_group = {$/;"	v	typeref:struct:attribute_group	file:
+fw_attributes	.\ist30xxc_update.c	/^static struct attribute *fw_attributes[] = {$/;"	v	typeref:struct:attribute	file:
+fw_mode	.\ist30xxc.h	/^    u32 fw_mode;$/;"	m	struct:ist30xx_data
+fw_size	.\ist30xxc.h	/^    u32 fw_size;$/;"	m	struct:ist30xx_tags
+fw_update_func	.\ist30xxc.c	/^static void fw_update_func(struct work_struct *work)$/;"	f	file:
+fw_ver	.\ist30xxc.h	/^    u32 fw_ver;$/;"	m	struct:ist30xx_version
+fwbuf	.\ist30xxc_update.c	/^const u8 fwbuf[IST30XX_FLASH_TOTAL_SIZE + sizeof(struct ist30xx_tags)];$/;"	v
+gesture	.\ist30xxc.h	/^    bool gesture;$/;"	m	struct:ist30xx_data
+get_milli_second	.\ist30xxc.c	/^long get_milli_second(struct ist30xx_data *data)$/;"	f
+gtx	.\ist30xxc.h	/^    struct GTX_INFO gtx;$/;"	m	struct:_TSP_INFO	typeref:struct:_TSP_INFO::GTX_INFO
+gtx_max	.\ist30xxc_cmcs.h	/^    s16 gtx_max;$/;"	m	struct:CMCS_SPEC_TOTAL
+gtx_min	.\ist30xxc_cmcs.h	/^    s16 gtx_min;$/;"	m	struct:CMCS_SPEC_TOTAL
+gtx_x_max	.\ist30xxc_cmcs.h	/^    s16 gtx_x_max;$/;"	m	struct:CMCS_SPEC_SLOPE
+gtx_x_min	.\ist30xxc_cmcs.h	/^    s16 gtx_x_min;$/;"	m	struct:CMCS_SPEC_SLOPE
+gtx_y_max	.\ist30xxc_cmcs.h	/^    s16 gtx_y_max;$/;"	m	struct:CMCS_SPEC_SLOPE
+gtx_y_min	.\ist30xxc_cmcs.h	/^    s16 gtx_y_min;$/;"	m	struct:CMCS_SPEC_SLOPE
+height	.\ist30xxc.h	/^    int height;$/;"	m	struct:_TSP_INFO
+hour	.\ist30xxc.h	/^    u8 hour;$/;"	m	struct:ist30xx_tags
+id	.\ist30xxc.h	/^        u32 id:4;$/;"	m	struct:__anon1::__anon2
+idle_rate	.\ist30xxc.h	/^    int idle_rate;$/;"	m	struct:ist30xx_data
+ignore_delay	.\ist30xxc.h	/^    bool ignore_delay;$/;"	m	struct:ist30xx_data
+index	.\ist30xxc.h	/^    u32 index;$/;"	m	struct:ist30xx_fw
+initialized	.\ist30xxc.h	/^    bool initialized;$/;"	m	struct:ist30xx_data
+input_dev	.\ist30xxc.h	/^    struct input_dev *input_dev;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::input_dev
+intr_debug1_addr	.\ist30xxc.h	/^    u32 intr_debug1_addr;$/;"	m	struct:ist30xx_data
+intr_debug1_size	.\ist30xxc.h	/^    u32 intr_debug1_size;$/;"	m	struct:ist30xx_data
+intr_debug2_addr	.\ist30xxc.h	/^    u32 intr_debug2_addr;$/;"	m	struct:ist30xx_data
+intr_debug2_show	.\ist30xxc_misc.c	/^ssize_t intr_debug2_show(struct device *dev, struct device_attribute *attr,$/;"	f
+intr_debug2_size	.\ist30xxc.h	/^    u32 intr_debug2_size;$/;"	m	struct:ist30xx_data
+intr_debug2_store	.\ist30xxc_misc.c	/^ssize_t intr_debug2_store(struct device *dev, struct device_attribute *attr,$/;"	f
+intr_debug3_addr	.\ist30xxc.h	/^    u32 intr_debug3_addr;$/;"	m	struct:ist30xx_data
+intr_debug3_show	.\ist30xxc_misc.c	/^ssize_t intr_debug3_show(struct device *dev, struct device_attribute *attr,$/;"	f
+intr_debug3_size	.\ist30xxc.h	/^    u32 intr_debug3_size;$/;"	m	struct:ist30xx_data
+intr_debug3_store	.\ist30xxc_misc.c	/^ssize_t intr_debug3_store(struct device *dev, struct device_attribute *attr,$/;"	f
+intr_debug_show	.\ist30xxc_misc.c	/^ssize_t intr_debug_show(struct device *dev, struct device_attribute *attr,$/;"	f
+intr_debug_store	.\ist30xxc_misc.c	/^ssize_t intr_debug_store(struct device *dev, struct device_attribute *attr,$/;"	f
+irq_enabled	.\ist30xxc.h	/^    bool irq_enabled;$/;"	m	struct:ist30xx_data
+irq_err_cnt	.\ist30xxc.h	/^    int irq_err_cnt;$/;"	m	struct:ist30xx_data
+irq_gpio	.\ist30xxc.h	/^    u32 irq_gpio;$/;"	m	struct:ist30xx_dt_data
+irq_working	.\ist30xxc.h	/^    volatile bool irq_working;$/;"	m	struct:ist30xx_data
+ist30xx_algr_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_algr_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_algr_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_algr_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_apply_cmcs_slope	.\ist30xxc_cmcs.c	/^int ist30xx_apply_cmcs_slope(struct ist30xx_data *data, CMCS_BUF *cmcs_buf)$/;"	f
+ist30xx_auto_bin_update	.\ist30xxc_update.c	/^int ist30xx_auto_bin_update(struct ist30xx_data *data)$/;"	f
+ist30xx_base_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_base_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_burst_read	.\ist30xxc_sys.c	/^int ist30xx_burst_read(struct i2c_client *client, u32 addr,$/;"	f
+ist30xx_burst_write	.\ist30xxc_sys.c	/^int ist30xx_burst_write(struct i2c_client *client, u32 addr,$/;"	f
+ist30xx_cal_ref_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_cal_ref_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cal_ref_wait	.\ist30xxc_update.c	/^int ist30xx_cal_ref_wait(struct ist30xx_data *data)$/;"	f
+ist30xx_cal_reference	.\ist30xxc_update.c	/^int ist30xx_cal_reference(struct ist30xx_data *data)$/;"	f
+ist30xx_calib_result_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_calib_result_show(struct device *dev,$/;"	f
+ist30xx_calib_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_calib_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_calib_time_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_calib_time_store(struct device *dev,$/;"	f
+ist30xx_calib_wait	.\ist30xxc_update.c	/^int ist30xx_calib_wait(struct ist30xx_data *data)$/;"	f
+ist30xx_calibrate	.\ist30xxc_update.c	/^int ist30xx_calibrate(struct ist30xx_data *data, int wait_cnt)$/;"	f
+ist30xx_call_mode_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_call_mode_store(struct device *dev,$/;"	f
+ist30xx_check_auto_update	.\ist30xxc_update.c	/^int ist30xx_check_auto_update(struct ist30xx_data *data)$/;"	f
+ist30xx_check_fw	.\ist30xxc_update.c	/^int ist30xx_check_fw(struct ist30xx_data *data)$/;"	f
+ist30xx_check_valid_ch	.\ist30xxc_misc.c	/^int ist30xx_check_valid_ch(struct ist30xx_data *data, int ch_tx, int ch_rx)$/;"	f
+ist30xx_class	.\ist30xxc_update.c	/^struct class *ist30xx_class;$/;"	v	typeref:struct:class
+ist30xx_cm2_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm2_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cm_jit_result_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_jit_result_show(struct device *dev,$/;"	f
+ist30xx_cm_jit_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_jit_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cm_key_slope_result_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_key_slope_result_show(struct device *dev,$/;"	f
+ist30xx_cm_key_slope_value_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_key_slope_value_show(struct device *dev,$/;"	f
+ist30xx_cm_result_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_result_show(struct device *dev,$/;"	f
+ist30xx_cm_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cm_slope0_result_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_slope0_result_show(struct device *dev,$/;"	f
+ist30xx_cm_slope0_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_slope0_show(struct device *dev,$/;"	f
+ist30xx_cm_slope1_result_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_slope1_result_show(struct device *dev,$/;"	f
+ist30xx_cm_slope1_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_slope1_show(struct device *dev,$/;"	f
+ist30xx_cm_spec_max_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_spec_max_show(struct device *dev,$/;"	f
+ist30xx_cm_spec_min_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cm_spec_min_show(struct device *dev,$/;"	f
+ist30xx_cmcs	.\ist30xxc_cmcs_bin.h	/^static unsigned char ist30xx_cmcs[] = {$/;"	v
+ist30xx_cmcs_bin	.\ist30xxc_cmcs.c	/^CMCS_BIN_INFO ist30xx_cmcs_bin;$/;"	v
+ist30xx_cmcs_binary_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cmcs_binary_show(struct device *dev,$/;"	f
+ist30xx_cmcs_buf	.\ist30xxc_cmcs.c	/^CMCS_BUF ist30xx_cmcs_buf;$/;"	v
+ist30xx_cmcs_custom_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cmcs_custom_show(struct device *dev,$/;"	f
+ist30xx_cmcs_dev	.\ist30xxc_cmcs.c	/^struct device *ist30xx_cmcs_dev;$/;"	v	typeref:struct:device
+ist30xx_cmcs_info_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cmcs_info_show(struct device *dev,$/;"	f
+ist30xx_cmcs_sdcard_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cmcs_sdcard_show(struct device *dev,$/;"	f
+ist30xx_cmcs_test	.\ist30xxc_cmcs.c	/^int ist30xx_cmcs_test(struct ist30xx_data *data, const u8 *buf, int size)$/;"	f
+ist30xx_cmcs_test_all_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cmcs_test_all_show(struct device *dev,$/;"	f
+ist30xx_cmcs_wait	.\ist30xxc_cmcs.c	/^int ist30xx_cmcs_wait(struct ist30xx_data *data, int mode)$/;"	f
+ist30xx_cmd_cal_reference	.\ist30xxc_sys.c	/^int ist30xx_cmd_cal_reference(struct ist30xx_data *data)$/;"	f
+ist30xx_cmd_calibrate	.\ist30xxc_sys.c	/^int ist30xx_cmd_calibrate(struct ist30xx_data *data)$/;"	f
+ist30xx_cmd_check_calib	.\ist30xxc_sys.c	/^int ist30xx_cmd_check_calib(struct ist30xx_data *data)$/;"	f
+ist30xx_cmd_gesture	.\ist30xxc_sys.c	/^int ist30xx_cmd_gesture(struct ist30xx_data *data, int value)$/;"	f
+ist30xx_cmd_hold	.\ist30xxc_sys.c	/^int ist30xx_cmd_hold(struct ist30xx_data *data, int enable)$/;"	f
+ist30xx_cmd_start_scan	.\ist30xxc_sys.c	/^int ist30xx_cmd_start_scan(struct ist30xx_data *data)$/;"	f
+ist30xx_config_show	.\ist30xxc_update.c	/^ssize_t ist30xx_config_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cover_mode_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_cover_mode_store(struct device *dev,$/;"	f
+ist30xx_cp_lower_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_cp_lower_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cp_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_cp_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cp_upper_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_cp_upper_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cs_result_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cs_result_show(struct device *dev,$/;"	f
+ist30xx_cs_rx_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cs_rx_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cs_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cs_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_cs_tx_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_cs_tx_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_data	.\ist30xxc.h	/^struct ist30xx_data {$/;"	s
+ist30xx_debug_mode_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_debug_mode_store(struct device *dev,$/;"	f
+ist30xx_debugging_init	.\ist30xxc_misc.c	/^void ist30xx_debugging_init(struct ist30xx_data *data)$/;"	f
+ist30xx_delay	.\ist30xxc.c	/^void ist30xx_delay(unsigned int ms)$/;"	f
+ist30xx_diff_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_diff_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_direct	.\ist30xxc_misc.c	/^static DIRECT_INFO ist30xx_direct;$/;"	v	file:
+ist30xx_direct_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_direct_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_direct_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_direct_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_disable_irq	.\ist30xxc.c	/^void ist30xx_disable_irq(struct ist30xx_data *data)$/;"	f
+ist30xx_dt_data	.\ist30xxc.h	/^struct ist30xx_dt_data {$/;"	s
+ist30xx_early_suspend	.\ist30xxc.c	/^static void ist30xx_early_suspend(struct early_suspend *h)$/;"	f	file:
+ist30xx_enable_irq	.\ist30xxc.c	/^void ist30xx_enable_irq(struct ist30xx_data *data)$/;"	f
+ist30xx_errcnt_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_errcnt_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_exit	.\ist30xxc.c	/^module_exit(ist30xx_exit);$/;"	v
+ist30xx_exit	.\ist30xxc.c	/^static void __exit ist30xx_exit(void)$/;"	f	file:
+ist30xx_filter_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_filter_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_frame_buf	.\ist30xxc_misc.c	/^static u32 ist30xx_frame_buf[IST30XX_MAX_NODE_NUM];$/;"	v	file:
+ist30xx_frame_cpbuf	.\ist30xxc_misc.c	/^static u32 ist30xx_frame_cpbuf[IST30XX_MAX_NODE_NUM];$/;"	v	file:
+ist30xx_frame_fltbuf	.\ist30xxc_misc.c	/^static u32 ist30xx_frame_fltbuf[IST30XX_MAX_NODE_NUM];$/;"	v	file:
+ist30xx_frame_nocp	.\ist30xxc_misc.c	/^ssize_t ist30xx_frame_nocp(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_frame_rawbase	.\ist30xxc_misc.c	/^ssize_t ist30xx_frame_rawbase(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_frame_rawbuf	.\ist30xxc_misc.c	/^static u32 ist30xx_frame_rawbuf[IST30XX_MAX_NODE_NUM];$/;"	v	file:
+ist30xx_frame_refresh	.\ist30xxc_misc.c	/^ssize_t ist30xx_frame_refresh(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_free_gpio	.\ist30xxc.c	/^static void ist30xx_free_gpio(struct ist30xx_data *data)$/;"	f	file:
+ist30xx_fw	.\ist30xxc.h	/^struct ist30xx_fw {$/;"	s
+ist30xx_fw_dev	.\ist30xxc_update.c	/^struct device *ist30xx_fw_dev;$/;"	v	typeref:struct:device
+ist30xx_fw_read_show	.\ist30xxc_update.c	/^ssize_t ist30xx_fw_read_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_fw_recovery	.\ist30xxc_update.c	/^int ist30xx_fw_recovery(struct ist30xx_data *data)$/;"	f
+ist30xx_fw_sdcard_show	.\ist30xxc_update.c	/^ssize_t ist30xx_fw_sdcard_show(struct device *dev,$/;"	f
+ist30xx_fw_status_show	.\ist30xxc_update.c	/^ssize_t ist30xx_fw_status_show(struct device *dev,$/;"	f
+ist30xx_fw_store	.\ist30xxc_update.c	/^ssize_t ist30xx_fw_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_fw_update	.\ist30xxc_update.c	/^int ist30xx_fw_update(struct ist30xx_data *data, const u8 *buf, int size)$/;"	f
+ist30xx_fw_version_show	.\ist30xxc_update.c	/^ssize_t ist30xx_fw_version_show(struct device *dev,$/;"	f
+ist30xx_gesture_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_gesture_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_get_cmcs_buf	.\ist30xxc_cmcs.c	/^int ist30xx_get_cmcs_buf(struct ist30xx_data *data, const char *mode,$/;"	f
+ist30xx_get_cmcs_info	.\ist30xxc_cmcs.c	/^int ist30xx_get_cmcs_info(const u8 *buf, const u32 size)$/;"	f
+ist30xx_get_debugging_cnt	.\ist30xxc_misc.c	/^u32 ist30xx_get_debugging_cnt(void)$/;"	f
+ist30xx_get_frame	.\ist30xxc_misc.c	/^int ist30xx_get_frame(struct ist30xx_data *data, u32 *frame, u32 cnt)$/;"	f
+ist30xx_get_info	.\ist30xxc.c	/^int ist30xx_get_info(struct ist30xx_data *data)$/;"	f
+ist30xx_get_track	.\ist30xxc_tracking.c	/^int ist30xx_get_track(u32 *track, int cnt)$/;"	f
+ist30xx_get_track_cnt	.\ist30xxc_tracking.c	/^u32 ist30xx_get_track_cnt(void)$/;"	f
+ist30xx_get_tsp_info	.\ist30xxc_update.c	/^int ist30xx_get_tsp_info(struct ist30xx_data *data)$/;"	f
+ist30xx_get_update_info	.\ist30xxc_update.c	/^int ist30xx_get_update_info(struct ist30xx_data *data, const u8 *buf,$/;"	f
+ist30xx_get_ver_info	.\ist30xxc.c	/^int ist30xx_get_ver_info(struct ist30xx_data *data)$/;"	f
+ist30xx_i2c_driver	.\ist30xxc.c	/^static struct i2c_driver ist30xx_i2c_driver = {$/;"	v	typeref:struct:i2c_driver	file:
+ist30xx_i2c_transfer	.\ist30xxc_sys.c	/^int ist30xx_i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs,$/;"	f
+ist30xx_idle_scan_rate_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_idle_scan_rate_store(struct device *dev,$/;"	f
+ist30xx_idtable	.\ist30xxc.c	/^static struct i2c_device_id ist30xx_idtable[] = {$/;"	v	typeref:struct:i2c_device_id	file:
+ist30xx_info_cal_crc	.\ist30xxc_update.c	/^u32 ist30xx_info_cal_crc(u32 *buf)$/;"	f
+ist30xx_init	.\ist30xxc.c	/^module_init(ist30xx_init);$/;"	v
+ist30xx_init	.\ist30xxc.c	/^static int __init ist30xx_init(void)$/;"	f	file:
+ist30xx_init_cmcs_sysfs	.\ist30xxc_cmcs.c	/^int ist30xx_init_cmcs_sysfs(struct ist30xx_data *data)$/;"	f
+ist30xx_init_misc_sysfs	.\ist30xxc_misc.c	/^int ist30xx_init_misc_sysfs(struct ist30xx_data *data)$/;"	f
+ist30xx_init_system	.\ist30xxc_sys.c	/^int ist30xx_init_system(struct ist30xx_data *data)$/;"	f
+ist30xx_init_tracking_sysfs	.\ist30xxc_tracking.c	/^int ist30xx_init_tracking_sysfs(struct ist30xx_data *data)$/;"	f
+ist30xx_init_update_sysfs	.\ist30xxc_update.c	/^int ist30xx_init_update_sysfs(struct ist30xx_data *data)$/;"	f
+ist30xx_internal_resume	.\ist30xxc_sys.c	/^int ist30xx_internal_resume(struct ist30xx_data *data)$/;"	f
+ist30xx_internal_suspend	.\ist30xxc_sys.c	/^int ist30xx_internal_suspend(struct ist30xx_data *data)$/;"	f
+ist30xx_intr_wait	.\ist30xxc.c	/^int ist30xx_intr_wait(struct ist30xx_data *data, long ms)$/;"	f
+ist30xx_irq_thread	.\ist30xxc.c	/^static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)$/;"	f	file:
+ist30xx_isp_read_burst	.\ist30xxc_update.c	/^int ist30xx_isp_read_burst(struct i2c_client *client, u32 addr, u32 *buf32,$/;"	f
+ist30xx_isp_write_burst	.\ist30xxc_update.c	/^int ist30xx_isp_write_burst(struct i2c_client *client, u32 addr, u32 *buf32,$/;"	f
+ist30xx_item_test	.\ist30xxc_cmcs.c	/^int ist30xx_item_test(struct ist30xx_data *data, CMCS_ITEM items,$/;"	f
+ist30xx_jig_mode_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_jig_mode_store(struct device *dev,$/;"	f
+ist30xx_key_code	.\ist30xxc.c	/^int ist30xx_key_code[] = IST30XX_KEY_CODES;$/;"	v
+ist30xx_key_x	.\ist30xxc.c	/^int ist30xx_key_x[] = KEY_COORD_X;$/;"	v
+ist30xx_late_resume	.\ist30xxc.c	/^static void ist30xx_late_resume(struct early_suspend *h)$/;"	f	file:
+ist30xx_line_cm2_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_line_cm2_show(struct device *dev,$/;"	f
+ist30xx_line_cm_jit_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_line_cm_jit_show(struct device *dev,$/;"	f
+ist30xx_line_cm_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_line_cm_show(struct device *dev,$/;"	f
+ist30xx_line_cm_slope0_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_line_cm_slope0_show(struct device *dev,$/;"	f
+ist30xx_line_cm_slope1_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_line_cm_slope1_show(struct device *dev,$/;"	f
+ist30xx_line_cs_show	.\ist30xxc_cmcs.c	/^ssize_t ist30xx_line_cs_show(struct device *dev,$/;"	f
+ist30xx_lockdown_show	.\ist30xxc_update.c	/^ssize_t ist30xx_lockdown_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_log_level	.\ist30xxc.c	/^int ist30xx_log_level = IST30XX_LOG_LEVEL;$/;"	v
+ist30xx_match_table	.\ist30xxc.c	/^static struct of_device_id ist30xx_match_table[] = {$/;"	v	typeref:struct:of_device_id	file:
+ist30xx_match_table	.\ist30xxc.c	2068;"	d	file:
+ist30xx_node_dev	.\ist30xxc_misc.c	/^struct device *ist30xx_node_dev;$/;"	v	typeref:struct:device
+ist30xx_parse_cmcs_bin	.\ist30xxc_cmcs.c	/^int ist30xx_parse_cmcs_bin(const u8 *buf, const u32 size)$/;"	f
+ist30xx_parse_cmcs_buf	.\ist30xxc_cmcs.c	/^int ist30xx_parse_cmcs_buf(struct ist30xx_data *data, s16 *buf)$/;"	f
+ist30xx_parse_cp_node	.\ist30xxc_misc.c	/^int ist30xx_parse_cp_node(struct ist30xx_data *data, struct TSP_NODE_BUF *node)$/;"	f
+ist30xx_parse_dt	.\ist30xxc.c	/^static int ist30xx_parse_dt(struct device *dev, struct ist30xx_data *data)$/;"	f	file:
+ist30xx_parse_tags	.\ist30xxc_update.c	/^int ist30xx_parse_tags(struct ist30xx_data *data, const u8 *buf, const u32 size)$/;"	f
+ist30xx_parse_touch_node	.\ist30xxc_misc.c	/^int ist30xx_parse_touch_node(struct ist30xx_data *data, u8 flag,$/;"	f
+ist30xx_parse_ver	.\ist30xxc_update.c	/^u32 ist30xx_parse_ver(struct ist30xx_data *data, int flag, const u8 *buf)$/;"	f
+ist30xx_pm_ops	.\ist30xxc.c	/^static const struct dev_pm_ops ist30xx_pm_ops = {$/;"	v	typeref:struct:dev_pm_ops	file:
+ist30xx_power_off	.\ist30xxc_sys.c	/^int ist30xx_power_off(struct ist30xx_data *data)$/;"	f
+ist30xx_power_off_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_power_off_show(struct device *dev,$/;"	f
+ist30xx_power_on	.\ist30xxc_sys.c	/^int ist30xx_power_on(struct ist30xx_data *data, bool download)$/;"	f
+ist30xx_power_on_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_power_on_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_print_info	.\ist30xxc_update.c	/^void ist30xx_print_info(struct ist30xx_data *data)$/;"	f
+ist30xx_printk5_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_printk5_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_printk6_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_printk6_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_printk_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_printk_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_printk_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_printk_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_probe	.\ist30xxc.c	/^static int ist30xx_probe(struct i2c_client *client,$/;"	f	file:
+ist30xx_put_frame	.\ist30xxc_misc.c	/^int ist30xx_put_frame(struct ist30xx_data *data, u32 ms, u32 *touch, u32 *frame,$/;"	f
+ist30xx_put_track	.\ist30xxc_tracking.c	/^int ist30xx_put_track(u32 *track, int cnt)$/;"	f
+ist30xx_put_track_ms	.\ist30xxc_tracking.c	/^int ist30xx_put_track_ms(u32 ms)$/;"	f
+ist30xx_raw_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_raw_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_read_buf	.\ist30xxc_sys.c	/^int ist30xx_read_buf(struct i2c_client *client, u32 cmd, u32 *buf, u16 len)$/;"	f
+ist30xx_read_cmd	.\ist30xxc_sys.c	/^int ist30xx_read_cmd(struct ist30xx_data *data, u32 cmd, u32 *buf)$/;"	f
+ist30xx_read_commands	.\ist30xxc.h	/^enum ist30xx_read_commands {$/;"	g
+ist30xx_read_cp_node	.\ist30xxc_misc.c	/^int ist30xx_read_cp_node(struct ist30xx_data *data, struct TSP_NODE_BUF *node)$/;"	f
+ist30xx_read_ic_inform	.\ist30xxc_misc.c	/^ssize_t ist30xx_read_ic_inform(struct device *dev,$/;"	f
+ist30xx_read_reg	.\ist30xxc_sys.c	/^int ist30xx_read_reg(struct i2c_client *client, u32 reg, u32 *buf)$/;"	f
+ist30xx_read_touch_node	.\ist30xxc_misc.c	/^int ist30xx_read_touch_node(struct ist30xx_data *data, u8 flag,$/;"	f
+ist30xx_rec_mode_show	.\ist30xxc_misc.c	/^ssize_t ist30xx_rec_mode_show(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_rec_mode_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_rec_mode_store(struct device *dev,$/;"	f
+ist30xx_reg_mode	.\ist30xxc_misc.c	/^static bool ist30xx_reg_mode = false;$/;"	v	file:
+ist30xx_register_callback	.\ist30xxc.c	/^static void ist30xx_register_callback(struct tsp_callbacks *cb)$/;"	f	file:
+ist30xx_remove	.\ist30xxc.c	/^static int ist30xx_remove(struct i2c_client *client)$/;"	f	file:
+ist30xx_report_rate_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_report_rate_store(struct device *dev,$/;"	f
+ist30xx_request_gpio	.\ist30xxc.c	/^static void ist30xx_request_gpio(struct ist30xx_data *data)$/;"	f	file:
+ist30xx_request_reset	.\ist30xxc.c	/^static void ist30xx_request_reset(struct ist30xx_data *data)$/;"	f	file:
+ist30xx_reset	.\ist30xxc_sys.c	/^int ist30xx_reset(struct ist30xx_data *data, bool download)$/;"	f
+ist30xx_resume	.\ist30xxc.c	/^static int ist30xx_resume(struct device *dev)$/;"	f	file:
+ist30xx_scancnt_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_scancnt_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_scheduled_cal_ref	.\ist30xxc.c	/^void ist30xx_scheduled_cal_ref(struct ist30xx_data *data)$/;"	f
+ist30xx_scheduled_reset	.\ist30xxc.c	/^void ist30xx_scheduled_reset(struct ist30xx_data *data)$/;"	f
+ist30xx_set_call_mode	.\ist30xxc.c	/^EXPORT_SYMBOL(ist30xx_set_call_mode);$/;"	v
+ist30xx_set_call_mode	.\ist30xxc.c	/^void ist30xx_set_call_mode(int mode)$/;"	f
+ist30xx_set_cmcs_cmd	.\ist30xxc_cmcs.c	/^int ist30xx_set_cmcs_cmd(struct ist30xx_data *data, CMCS_CMD cmds)$/;"	f
+ist30xx_set_cmcs_fw	.\ist30xxc_cmcs.c	/^int ist30xx_set_cmcs_fw(struct ist30xx_data *data, CMCS_PARAM param, u32 *buf32)$/;"	f
+ist30xx_set_cmcs_sensor	.\ist30xxc_cmcs.c	/^int ist30xx_set_cmcs_sensor(struct ist30xx_data *data, CMCS_PARAM param,$/;"	f
+ist30xx_set_cover_mode	.\ist30xxc.c	/^EXPORT_SYMBOL(ist30xx_set_cover_mode);$/;"	v
+ist30xx_set_cover_mode	.\ist30xxc.c	/^void ist30xx_set_cover_mode(int mode)$/;"	f
+ist30xx_set_edge_mode	.\ist30xxc.c	/^EXPORT_SYMBOL(ist30xx_set_edge_mode);$/;"	v
+ist30xx_set_edge_mode	.\ist30xxc.c	/^void ist30xx_set_edge_mode(int mode)$/;"	f
+ist30xx_set_input_device	.\ist30xxc.c	/^int ist30xx_set_input_device(struct ist30xx_data *data)$/;"	f
+ist30xx_set_ta_mode	.\ist30xxc.c	/^EXPORT_SYMBOL(ist30xx_set_ta_mode);$/;"	v
+ist30xx_set_ta_mode	.\ist30xxc.c	/^void ist30xx_set_ta_mode(bool mode)$/;"	f
+ist30xx_shutdown	.\ist30xxc.c	/^static void ist30xx_shutdown(struct i2c_client *client)$/;"	f	file:
+ist30xx_special_cmd	.\ist30xxc.c	/^void ist30xx_special_cmd(struct ist30xx_data *data, int cmd)$/;"	f
+ist30xx_start	.\ist30xxc.c	/^void ist30xx_start(struct ist30xx_data *data)$/;"	f
+ist30xx_status	.\ist30xxc.h	/^struct ist30xx_status {$/;"	s
+ist30xx_suspend	.\ist30xxc.c	/^static int ist30xx_suspend(struct device *dev)$/;"	f	file:
+ist30xx_sys_dev	.\ist30xxc_misc.c	/^struct device *ist30xx_sys_dev;$/;"	v	typeref:struct:device
+ist30xx_ta_mode_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_ta_mode_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_tags	.\ist30xxc.h	/^struct ist30xx_tags {$/;"	s
+ist30xx_timerms_store	.\ist30xxc_misc.c	/^ssize_t ist30xx_timerms_store(struct device *dev, struct device_attribute *attr,$/;"	f
+ist30xx_track_cnt_show	.\ist30xxc_tracking.c	/^ssize_t ist30xx_track_cnt_show(struct device *dev,$/;"	f
+ist30xx_track_frame_show	.\ist30xxc_tracking.c	/^ssize_t ist30xx_track_frame_show(struct device *dev,$/;"	f
+ist30xx_tracking	.\ist30xxc_tracking.c	/^int ist30xx_tracking(u32 status)$/;"	f
+ist30xx_tracking_deinit	.\ist30xxc_tracking.c	/^void ist30xx_tracking_deinit(void)$/;"	f
+ist30xx_tracking_dev	.\ist30xxc_tracking.c	/^struct device *ist30xx_tracking_dev;$/;"	v	typeref:struct:device
+ist30xx_tracking_init	.\ist30xxc_tracking.c	/^void ist30xx_tracking_init(void)$/;"	f
+ist30xx_ts_close	.\ist30xxc.c	/^static void ist30xx_ts_close(struct input_dev *dev)$/;"	f	file:
+ist30xx_ts_open	.\ist30xxc.c	/^static int ist30xx_ts_open(struct input_dev *dev)$/;"	f	file:
+ist30xx_tsp_update_info	.\ist30xxc_update.c	/^int ist30xx_tsp_update_info(struct ist30xx_data *data)$/;"	f
+ist30xx_tunes	.\ist30xxc_misc.c	/^static TUNES_INFO ist30xx_tunes;$/;"	v	file:
+ist30xx_tunes_dev	.\ist30xxc_misc.c	/^struct device *ist30xx_tunes_dev;$/;"	v	typeref:struct:device
+ist30xx_version	.\ist30xxc.h	/^struct ist30xx_version {$/;"	s
+ist30xx_write_buf	.\ist30xxc_sys.c	/^int ist30xx_write_buf(struct i2c_client *client, u32 cmd, u32 *buf, u16 len)$/;"	f
+ist30xx_write_cmd	.\ist30xxc_sys.c	/^int ist30xx_write_cmd(struct ist30xx_data *data, u32 cmd, u32 val)$/;"	f
+ist30xx_write_commands	.\ist30xxc.h	/^enum ist30xx_write_commands {$/;"	g
+ist30xxc_cmd_read_chksum	.\ist30xxc_update.c	/^int ist30xxc_cmd_read_chksum(struct ist30xx_data *data, int mode,$/;"	f
+ist30xxc_fw	.\IST3038C1_C6_FW_PORTING.h	/^static unsigned char ist30xxc_fw[] = {$/;"	v
+ist30xxc_isp_enable	.\ist30xxc_update.c	/^int ist30xxc_isp_enable(struct ist30xx_data *data, bool enable)$/;"	f
+ist30xxc_isp_erase	.\ist30xxc_update.c	/^int ist30xxc_isp_erase(struct ist30xx_data *data, int mode, u32 index)$/;"	f
+ist30xxc_isp_fw_read	.\ist30xxc_update.c	/^int ist30xxc_isp_fw_read(struct ist30xx_data *data, u32 *buf32)$/;"	f
+ist30xxc_isp_fw_update	.\ist30xxc_update.c	/^int ist30xxc_isp_fw_update(struct ist30xx_data *data, const u8 *buf)$/;"	f
+ist30xxc_isp_info_read	.\ist30xxc_update.c	/^int ist30xxc_isp_info_read(struct ist30xx_data *data, u32 addr, u32 *buf32,$/;"	f
+ist30xxc_isp_mode	.\ist30xxc_update.c	/^int ist30xxc_isp_mode(struct ist30xx_data *data, int mode)$/;"	f
+ist30xxc_isp_page_erase	.\ist30xxc_update.c	/^int ist30xxc_isp_page_erase(struct ist30xx_data *data, u32 addr, u32 index)$/;"	f
+ist30xxc_isp_program	.\ist30xxc_update.c	/^int ist30xxc_isp_program(struct ist30xx_data *data, u32 addr, int mode,$/;"	f
+ist30xxc_isp_read	.\ist30xxc_update.c	/^int ist30xxc_isp_read(struct ist30xx_data *data, u32 addr, int mode, u32 *buf32,$/;"	f
+ist30xxc_read_chksum	.\ist30xxc_update.c	/^int ist30xxc_read_chksum(struct ist30xx_data *data, u32 *chksum)$/;"	f
+ist30xxc_read_chksum_all	.\ist30xxc_update.c	/^int ist30xxc_read_chksum_all(struct ist30xx_data *data, u32 *chksum)$/;"	f
+item	.\ist30xxc_cmcs.h	/^    struct CMCS_ITEM_INFO *item;$/;"	m	struct:_CMCS_ITEM	typeref:struct:_CMCS_ITEM::CMCS_ITEM_INFO
+items	.\ist30xxc_cmcs.h	/^    CMCS_ITEM items;$/;"	m	struct:_CMCS_BIN_INFO
+jig_mode	.\ist30xxc.h	/^    u32 jig_mode;$/;"	m	struct:ist30xx_data
+jit_sensor1_size	.\ist30xxc_cmcs.h	/^    u32 jit_sensor1_size;$/;"	m	struct:_CMCS_PARAM
+jit_sensor2_size	.\ist30xxc_cmcs.h	/^    u32 jit_sensor2_size;$/;"	m	struct:_CMCS_PARAM
+jit_sensor3_size	.\ist30xxc_cmcs.h	/^    u32 jit_sensor3_size;$/;"	m	struct:_CMCS_PARAM
+jit_sensor_chksum	.\ist30xxc_cmcs.h	/^    u32 jit_sensor_chksum;$/;"	m	struct:_CMCS_PARAM
+key_max	.\ist30xxc_cmcs.h	/^    s16 key_max;$/;"	m	struct:CMCS_SPEC_SLOPE
+key_max	.\ist30xxc_cmcs.h	/^    s16 key_max;$/;"	m	struct:CMCS_SPEC_TOTAL
+key_min	.\ist30xxc_cmcs.h	/^    s16 key_min;$/;"	m	struct:CMCS_SPEC_SLOPE
+key_min	.\ist30xxc_cmcs.h	/^    s16 key_min;$/;"	m	struct:CMCS_SPEC_TOTAL
+key_num	.\ist30xxc.h	/^    int key_num;$/;"	m	struct:_TKEY_INFO
+len	.\ist30xxc.h	/^    u16 len;$/;"	m	struct:TSP_NODE_BUF
+len	.\ist30xxc_misc.c	/^    u16 len;$/;"	m	struct:__anon3	file:
+lk_keycode	.\ist30xxc.c	/^static unsigned short lk_keycode[MAX_LK_KEYCODE_NUM] = {$/;"	v	file:
+lock	.\ist30xxc.h	/^    struct mutex lock;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::mutex
+lockdown	.\ist30xxc.h	/^    u32 lockdown[2];$/;"	m	struct:ist30xx_version
+lockdown_upper	.\ist30xxc.h	/^    u32 lockdown_upper;$/;"	m	struct:ist30xx_data
+magic1	.\ist30xxc.h	/^    char magic1[8];$/;"	m	struct:ist30xx_tags
+magic1	.\ist30xxc_cmcs.h	/^    char magic1[8];$/;"	m	struct:_CMCS_BIN_INFO
+magic2	.\ist30xxc.h	/^    char magic2[8];$/;"	m	struct:ist30xx_tags
+magic2	.\ist30xxc_cmcs.h	/^    char magic2[8];$/;"	m	struct:_CMCS_BIN_INFO
+main_ver	.\ist30xxc.h	/^    u32 main_ver;$/;"	m	struct:ist30xx_version
+max_fingers	.\ist30xxc.h	/^    u32 max_fingers;$/;"	m	struct:ist30xx_data
+max_irq_err_cnt	.\ist30xxc.h	/^    int max_irq_err_cnt;$/;"	m	struct:ist30xx_data
+max_keys	.\ist30xxc.h	/^    u32 max_keys;$/;"	m	struct:ist30xx_data
+max_scan_retry	.\ist30xxc.h	/^    int max_scan_retry;$/;"	m	struct:ist30xx_data
+min	.\ist30xxc.h	/^    u8 min;$/;"	m	struct:ist30xx_tags
+month	.\ist30xxc.h	/^    u8 month;$/;"	m	struct:ist30xx_tags
+mr_lock	.\ist30xxc_tracking.c	/^static spinlock_t mr_lock = __SPIN_LOCK_UNLOCKED();$/;"	v	file:
+name	.\ist30xxc_cmcs.h	/^    char name[8];$/;"	m	struct:CMCS_ITEM_INFO
+name	.\ist30xxc_cmcs.h	/^    char name[8];$/;"	m	struct:CMCS_REG_INFO
+name	.\ist30xxc_cmcs.h	/^    char name[8];$/;"	m	struct:CMCS_SPEC_SLOPE
+node	.\ist30xxc.h	/^    struct TSP_NODE_BUF node;$/;"	m	struct:_TSP_INFO	typeref:struct:_TSP_INFO::TSP_NODE_BUF
+node_attr_group	.\ist30xxc_misc.c	/^static struct attribute_group node_attr_group = {$/;"	v	typeref:struct:attribute_group	file:
+node_attributes	.\ist30xxc_misc.c	/^static struct attribute *node_attributes[] = {$/;"	v	typeref:struct:attribute	file:
+node_cnt	.\ist30xxc_cmcs.h	/^    u32 node_cnt;$/;"	m	struct:CMCS_SPEC_NODE
+noise_mode	.\ist30xxc.h	/^    bool noise_mode;$/;"	m	struct:ist30xx_status
+noise_mode	.\ist30xxc.h	/^    u32 noise_mode;$/;"	m	struct:ist30xx_data
+noise_work_func	.\ist30xxc.c	/^static void noise_work_func(struct work_struct *work)$/;"	f	file:
+num	.\ist30xxc.h	/^    u8 num;$/;"	m	struct:GTX_INFO
+pDebugBuf	.\ist30xxc_misc.c	/^IST30XX_RING_BUF *pDebugBuf;$/;"	v
+pTrackBuf	.\ist30xxc_tracking.c	/^IST30XX_RING_BUF *pTrackBuf;$/;"	v
+param	.\ist30xxc_cmcs.h	/^    CMCS_PARAM param;$/;"	m	struct:_CMCS_BIN_INFO
+parse_cp_node	.\ist30xxc_misc.c	/^int parse_cp_node(struct ist30xx_data *data, u8 flag,$/;"	f
+parse_tsp_node	.\ist30xxc_misc.c	/^int parse_tsp_node(struct ist30xx_data *data, u8 flag,$/;"	f
+pid	.\ist30xxc.h	/^    u32 pid;$/;"	m	struct:ist30xx_data
+power	.\ist30xxc.h	/^    int power;$/;"	m	struct:ist30xx_status
+prev	.\ist30xxc.h	/^    struct ist30xx_version prev;$/;"	m	struct:ist30xx_fw	typeref:struct:ist30xx_fw::ist30xx_version
+print_cm_key_slope_result	.\ist30xxc_cmcs.c	/^int print_cm_key_slope_result(struct ist30xx_data *data, s16 *buf16, char *buf,$/;"	f
+print_cm_result	.\ist30xxc_cmcs.c	/^int print_cm_result(struct ist30xx_data *data, char *buf, bool fail_list)$/;"	f
+print_cm_slope_result	.\ist30xxc_cmcs.c	/^int print_cm_slope_result(struct ist30xx_data *data, u8 flag, s16 *buf16,$/;"	f
+print_cmcs	.\ist30xxc_cmcs.c	/^int print_cmcs(struct ist30xx_data *data, s16 *buf16, char *buf)$/;"	f
+print_cp_node	.\ist30xxc_misc.c	/^int print_cp_node(struct ist30xx_data *data, u8 flag, struct TSP_NODE_BUF *node,$/;"	f
+print_line_cmcs	.\ist30xxc_cmcs.c	/^int print_line_cmcs(struct ist30xx_data *data, int mode, s16 *buf16, char *buf)$/;"	f
+print_tkey_event	.\ist30xxc.c	/^void print_tkey_event(struct ist30xx_data *data, int id)$/;"	f
+print_total_result	.\ist30xxc_cmcs.c	/^int print_total_result(struct ist30xx_data *data, s16 *buf16, char *buf,$/;"	f
+print_touch_node	.\ist30xxc_misc.c	/^int print_touch_node(struct ist30xx_data *data, u8 flag,$/;"	f
+print_tsp_event	.\ist30xxc.c	/^void print_tsp_event(struct ist30xx_data *data, int id, finger_info *finger)$/;"	f
+ram_base	.\ist30xxc.h	/^    u32 ram_base;$/;"	m	struct:ist30xx_tags
+raw	.\ist30xxc.h	/^    u16 raw[IST30XX_MAX_NODE_NUM];$/;"	m	struct:TSP_NODE_BUF
+raw_addr	.\ist30xxc.h	/^    u32 raw_addr;$/;"	m	struct:ist30xx_data
+raw_base	.\ist30xxc.h	/^    u32 raw_base;$/;"	m	struct:ist30xx_tags
+rec_delay	.\ist30xxc.h	/^    int rec_delay;$/;"	m	struct:ist30xx_data
+rec_file_name	.\ist30xxc.h	/^    char *rec_file_name;$/;"	m	struct:ist30xx_data
+rec_mode	.\ist30xxc.h	/^    u32 rec_mode;$/;"	m	struct:ist30xx_data
+rec_start_ch	.\ist30xxc.h	/^    struct CH_NUM rec_start_ch;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::CH_NUM
+rec_stop_ch	.\ist30xxc.h	/^    struct CH_NUM rec_stop_ch;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::CH_NUM
+recording_data	.\ist30xxc.c	/^void recording_data(struct ist30xx_data *data, bool idle)$/;"	f
+release_finger	.\ist30xxc.c	/^static void release_finger(struct ist30xx_data *data, int id)$/;"	f	file:
+release_key	.\ist30xxc.c	/^static void release_key(struct ist30xx_data *data, int id)$/;"	f	file:
+release_work_func	.\ist30xxc.c	/^static void release_work_func(struct work_struct *work)$/;"	f	file:
+report_input_data	.\ist30xxc.c	/^static void report_input_data(struct ist30xx_data *data, int finger_counts,$/;"	f	file:
+report_rate	.\ist30xxc.h	/^    int report_rate;$/;"	m	struct:ist30xx_data
+reserved0	.\ist30xxc.h	/^    u32 reserved0;$/;"	m	struct:ist30xx_tags
+reserved1	.\ist30xxc.h	/^    u32 reserved1;$/;"	m	struct:ist30xx_tags
+reserved2	.\ist30xxc.h	/^    u32 reserved2;$/;"	m	struct:ist30xx_tags
+reserved3	.\ist30xxc.h	/^    u32 reserved3;$/;"	m	struct:ist30xx_tags
+reserved4	.\ist30xxc.h	/^    u32 reserved4;$/;"	m	struct:ist30xx_tags
+reserved5	.\ist30xxc.h	/^    u32 reserved5;$/;"	m	struct:ist30xx_tags
+reserved6	.\ist30xxc.h	/^    u32 reserved6;$/;"	m	struct:ist30xx_tags
+reserved7	.\ist30xxc.h	/^    u32 reserved7;$/;"	m	struct:ist30xx_tags
+reserved8	.\ist30xxc.h	/^    u8 reserved8;$/;"	m	struct:ist30xx_tags
+reset_gpio	.\ist30xxc.h	/^    u32 reset_gpio;$/;"	m	struct:ist30xx_dt_data
+reset_work_func	.\ist30xxc.c	/^static void reset_work_func(struct work_struct *work)$/;"	f	file:
+rom_base	.\ist30xxc.h	/^    u32 rom_base;$/;"	m	struct:ist30xx_tags
+rx	.\ist30xxc.h	/^    u8 rx;$/;"	m	struct:CH_NUM
+scan_count	.\ist30xxc.h	/^    int scan_count;$/;"	m	struct:ist30xx_data
+scan_retry	.\ist30xxc.h	/^    int scan_retry;$/;"	m	struct:ist30xx_data
+screen	.\ist30xxc.h	/^    struct CH_NUM screen;$/;"	m	struct:_TSP_INFO	typeref:struct:_TSP_INFO::CH_NUM
+screen_max	.\ist30xxc_cmcs.h	/^    s16 screen_max;$/;"	m	struct:CMCS_SPEC_TOTAL
+screen_min	.\ist30xxc_cmcs.h	/^    s16 screen_min;$/;"	m	struct:CMCS_SPEC_TOTAL
+sec	.\ist30xxc.h	/^    u8 sec;$/;"	m	struct:ist30xx_tags
+sensor1_addr	.\ist30xxc_cmcs.h	/^    u32 sensor1_addr;$/;"	m	struct:_CMCS_PARAM
+sensor2_addr	.\ist30xxc_cmcs.h	/^    u32 sensor2_addr;$/;"	m	struct:_CMCS_PARAM
+sensor3_addr	.\ist30xxc_cmcs.h	/^    u32 sensor3_addr;$/;"	m	struct:_CMCS_PARAM
+sensor_addr	.\ist30xxc.h	/^    u32 sensor_addr;$/;"	m	struct:ist30xx_tags
+sensor_size	.\ist30xxc.h	/^    u32 sensor_size;$/;"	m	struct:ist30xx_tags
+size	.\ist30xxc.h	/^    u32 size;$/;"	m	struct:ist30xx_fw
+size	.\ist30xxc_cmcs.h	/^    u32 size;$/;"	m	struct:CMCS_ITEM_INFO
+size	.\ist30xxc_cmcs.h	/^    u32 size;$/;"	m	struct:CMCS_REG_INFO
+size	.\ist30xxc_misc.c	/^    u32 size;$/;"	m	struct:__anon4	file:
+slope0	.\ist30xxc_cmcs.h	/^    s16 slope0[IST30XX_MAX_NODE_NUM];$/;"	m	struct:_CMCS_BUF
+slope1	.\ist30xxc_cmcs.h	/^    s16 slope1[IST30XX_MAX_NODE_NUM];$/;"	m	struct:_CMCS_BUF
+spec_cr	.\ist30xxc_cmcs.h	/^    struct CMCS_SPEC_TOTAL spec_cr;$/;"	m	struct:_CMCS_BIN_INFO	typeref:struct:_CMCS_BIN_INFO::CMCS_SPEC_TOTAL
+spec_item	.\ist30xxc_cmcs.h	/^    union CMCS_SPEC_ITEM *spec_item;$/;"	m	struct:_CMCS_BIN_INFO	typeref:union:_CMCS_BIN_INFO::CMCS_SPEC_ITEM
+spec_max	.\ist30xxc_cmcs.h	/^    s16 spec_max[IST30XX_MAX_NODE_NUM];$/;"	m	struct:_CMCS_BUF
+spec_min	.\ist30xxc_cmcs.h	/^    s16 spec_min[IST30XX_MAX_NODE_NUM];$/;"	m	struct:_CMCS_BUF
+spec_node	.\ist30xxc_cmcs.h	/^    struct CMCS_SPEC_NODE spec_node;$/;"	m	union:CMCS_SPEC_ITEM	typeref:struct:CMCS_SPEC_ITEM::CMCS_SPEC_NODE
+spec_slope	.\ist30xxc_cmcs.h	/^    struct CMCS_SPEC_SLOPE spec_slope;$/;"	m	struct:_CMCS_BIN_INFO	typeref:struct:_CMCS_BIN_INFO::CMCS_SPEC_SLOPE
+spec_total	.\ist30xxc_cmcs.h	/^    struct CMCS_SPEC_TOTAL spec_total;$/;"	m	union:CMCS_SPEC_ITEM	typeref:struct:CMCS_SPEC_ITEM::CMCS_SPEC_TOTAL
+spec_type	.\ist30xxc_cmcs.h	/^    char spec_type[2];$/;"	m	struct:CMCS_ITEM_INFO
+status	.\ist30xxc.h	/^    struct ist30xx_status status;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::ist30xx_status
+suspend	.\ist30xxc.h	/^    bool suspend;$/;"	m	struct:ist30xx_data
+swap_xy	.\ist30xxc.h	/^    bool swap_xy;$/;"	m	struct:TSP_DIRECTION
+sys_attr_group	.\ist30xxc_misc.c	/^static struct attribute_group sys_attr_group = {$/;"	v	typeref:struct:attribute_group	file:
+sys_attributes	.\ist30xxc_misc.c	/^static struct attribute *sys_attributes[] = {$/;"	v	typeref:struct:attribute	file:
+t_current	.\ist30xxc.h	/^    struct timespec t_current;  \/* nano seconds *\/$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::timespec
+t_frame	.\ist30xxc.h	/^    u32 t_frame[2];$/;"	m	struct:ist30xx_data
+t_status	.\ist30xxc.h	/^    u32 t_status;$/;"	m	struct:ist30xx_data
+t_track	.\ist30xxc_tracking.c	/^static struct timespec t_track;$/;"	v	typeref:struct:timespec	file:
+tags	.\ist30xxc.h	/^    struct ist30xx_tags tags;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::ist30xx_tags
+target_baseline_show	.\ist30xxc_misc.c	/^ssize_t target_baseline_show(struct device *dev, struct device_attribute *attr,$/;"	f
+test_ver	.\ist30xxc.h	/^    u32 test_ver;$/;"	m	struct:ist30xx_version
+timer_handler	.\ist30xxc.c	/^void timer_handler(unsigned long timer_data)$/;"	f
+timer_ms	.\ist30xxc.h	/^    u32 timer_ms;$/;"	m	struct:ist30xx_data
+timer_period_ms	.\ist30xxc.h	/^    int timer_period_ms;$/;"	m	struct:ist30xx_data
+tkey_info	.\ist30xxc.h	/^    TKEY_INFO tkey_info;$/;"	m	struct:ist30xx_data
+tkey_pressed	.\ist30xxc.h	/^    bool tkey_pressed[IST30XX_MAX_KEYS];$/;"	m	struct:ist30xx_data
+touch_regulator	.\ist30xxc_sys.c	/^static struct regulator *touch_regulator;$/;"	v	typeref:struct:regulator	file:
+tracking_attr_group	.\ist30xxc_tracking.c	/^static struct attribute_group tracking_attr_group = {$/;"	v	typeref:struct:attribute_group	file:
+tracking_attributes	.\ist30xxc_tracking.c	/^static struct attribute *tracking_attributes[] = {$/;"	v	typeref:struct:attribute	file:
+tracking_initialize	.\ist30xxc_tracking.c	/^bool tracking_initialize = false;$/;"	v
+ts_cmcs	.\ist30xxc_cmcs.c	/^CMCS_BIN_INFO *ts_cmcs = (CMCS_BIN_INFO *)&ist30xx_cmcs_bin;$/;"	v
+ts_cmcs_bin	.\ist30xxc_cmcs.c	/^u8 *ts_cmcs_bin = NULL;$/;"	v
+ts_cmcs_bin_size	.\ist30xxc_cmcs.c	/^u32 ts_cmcs_bin_size = 0;$/;"	v
+ts_cmcs_buf	.\ist30xxc_cmcs.c	/^CMCS_BUF *ts_cmcs_buf = (CMCS_BUF *)&ist30xx_cmcs_buf;$/;"	v
+ts_data	.\ist30xxc.c	/^struct ist30xx_data *ts_data;$/;"	v	typeref:struct:ist30xx_data
+ts_power_enable	.\ist30xxc_sys.c	/^static void ts_power_enable(struct ist30xx_data *data, int en)$/;"	f	file:
+tsp_debug	.\ist30xxc.h	161;"	d
+tsp_err	.\ist30xxc.h	157;"	d
+tsp_info	.\ist30xxc.h	/^    TSP_INFO tsp_info;$/;"	m	struct:ist30xx_data
+tsp_info	.\ist30xxc.h	159;"	d
+tsp_noti	.\ist30xxc.h	160;"	d
+tsp_printk	.\ist30xxc.c	/^void tsp_printk(int level, const char *fmt, ...)$/;"	f
+tsp_touched	.\ist30xxc.h	/^    bool tsp_touched[IST30XX_MAX_FINGERS];$/;"	m	struct:ist30xx_data
+tsp_verb	.\ist30xxc.h	162;"	d
+tsp_warn	.\ist30xxc.h	158;"	d
+tunes_adb_show	.\ist30xxc_misc.c	/^ssize_t tunes_adb_show(struct device *dev, struct device_attribute *attr,$/;"	f
+tunes_adb_store	.\ist30xxc_misc.c	/^ssize_t tunes_adb_store(struct device *dev, struct device_attribute *attr,$/;"	f
+tunes_attr_group	.\ist30xxc_misc.c	/^static struct attribute_group tunes_attr_group = {$/;"	v	typeref:struct:attribute_group	file:
+tunes_attributes	.\ist30xxc_misc.c	/^static struct attribute *tunes_attributes[] = {$/;"	v	typeref:struct:attribute	file:
+tunes_cmd_done	.\ist30xxc_misc.c	/^static bool tunes_cmd_done = false;$/;"	v	file:
+tunes_node_info_show	.\ist30xxc_misc.c	/^ssize_t tunes_node_info_show(struct device *dev,$/;"	f
+tunes_reg_show	.\ist30xxc_misc.c	/^ssize_t tunes_reg_show(struct device *dev, struct device_attribute *attr,$/;"	f
+tunes_reg_store	.\ist30xxc_misc.c	/^ssize_t tunes_reg_store(struct device *dev, struct device_attribute *attr,$/;"	f
+tunes_regcmd_show	.\ist30xxc_misc.c	/^ssize_t tunes_regcmd_show(struct device *dev, struct device_attribute *attr,$/;"	f
+tunes_regcmd_store	.\ist30xxc_misc.c	/^ssize_t tunes_regcmd_store(struct device *dev, struct device_attribute *attr,$/;"	f
+tx	.\ist30xxc.h	/^    u8 tx;$/;"	m	struct:CH_NUM
+update	.\ist30xxc.h	/^    int update;$/;"	m	struct:ist30xx_status
+update_next_step	.\ist30xxc_update.c	950;"	d	file:
+update_result	.\ist30xxc.h	/^    int update_result;$/;"	m	struct:ist30xx_status
+val	.\ist30xxc_misc.c	/^    u32 val;$/;"	m	struct:__anon4	file:
+value	.\ist30xxc_cmcs.h	/^    u32 value;$/;"	m	struct:CMCS_CMD_INFO
+vdd_name	.\ist30xxc.h	/^    const char *vdd_name;$/;"	m	struct:ist30xx_dt_data
+vddio_name	.\ist30xxc.h	/^    const char *vddio_name;$/;"	m	struct:ist30xx_dt_data
+version	.\ist30xxc_cmcs.h	/^    u32 version;$/;"	m	struct:_CMCS_BIN_INFO
+w	.\ist30xxc.h	/^        u32 w:4;$/;"	m	struct:__anon1::__anon2
+width	.\ist30xxc.h	/^    int width;$/;"	m	struct:_TSP_INFO
+work_cal_reference	.\ist30xxc.h	/^    struct delayed_work work_cal_reference;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::delayed_work
+work_debug_algorithm	.\ist30xxc.h	/^    struct delayed_work work_debug_algorithm;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::delayed_work
+work_force_release	.\ist30xxc.h	/^    struct delayed_work work_force_release;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::delayed_work
+work_fw_update	.\ist30xxc.h	/^	struct delayed_work work_fw_update;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::delayed_work
+work_noise_protect	.\ist30xxc.h	/^    struct delayed_work work_noise_protect;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::delayed_work
+work_reset_check	.\ist30xxc.h	/^    struct delayed_work work_reset_check;$/;"	m	struct:ist30xx_data	typeref:struct:ist30xx_data::delayed_work
+x	.\ist30xxc.h	/^        u32 x:12;$/;"	m	struct:__anon1::__anon2
+x_max	.\ist30xxc_cmcs.h	/^    s16 x_max;$/;"	m	struct:CMCS_SPEC_SLOPE
+x_min	.\ist30xxc_cmcs.h	/^    s16 x_min;$/;"	m	struct:CMCS_SPEC_SLOPE
+y	.\ist30xxc.h	/^        u32 y:12;$/;"	m	struct:__anon1::__anon2
+y_max	.\ist30xxc_cmcs.h	/^    s16 y_max;$/;"	m	struct:CMCS_SPEC_SLOPE
+y_min	.\ist30xxc_cmcs.h	/^    s16 y_min;$/;"	m	struct:CMCS_SPEC_SLOPE
+year	.\ist30xxc.h	/^    u16 year;$/;"	m	struct:ist30xx_tags
+z_values	.\ist30xxc.h	/^    u32 z_values[IST30XX_MAX_FINGERS];$/;"	m	struct:ist30xx_data
+zvalue_addr	.\ist30xxc.h	/^    u32 zvalue_addr;$/;"	m	struct:ist30xx_data
+zvalue_base	.\ist30xxc.h	/^    u32 zvalue_base;$/;"	m	struct:ist30xx_tags

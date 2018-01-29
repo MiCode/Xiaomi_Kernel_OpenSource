@@ -215,5 +215,5 @@ ENTRY(memset)
 	ands	count, count, zva_bits_x
 	b.ne	.Ltail_maybe_long
 	ret
-ENDPROC(memset)
+ENDPIPROC(memset)
 ENDPROC(__memset)

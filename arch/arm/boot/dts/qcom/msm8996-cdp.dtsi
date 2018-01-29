@@ -409,7 +409,8 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled;
-	qcom,panel-roi-alignment = <720 128 720 64 720 64>;
+	qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
+	qcom,panel-allow-phy-poweroff;
 };
 
 &dsi_nt35950_4k_dsc_cmd {
@@ -433,7 +434,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled;
 	/* panel supports slice height of 8/16/32/48/3840 */
-	qcom,panel-roi-alignment = <1080 8 1080 8 1080 8>;
+	qcom,panel-roi-alignment = <1080 32 1080 32 1080 32>;
 };
 
 &dsi_nt35597_dsc_video {
@@ -448,6 +449,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,panel-allow-phy-poweroff;
 };
 
 &dsi_dual_sharp_1080_120hz_cmd {
@@ -685,7 +687,7 @@
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
-		qcom,invert = <0>;
+		qcom,invert = <1>;
 		status = "okay";
 	};
 
@@ -730,7 +732,7 @@
 
 &pmi8994_pwm_4 {
 	qcom,channel-owner = "lcd_bl";
-	qcom,lpg-dtest-line = <4>;
+	qcom,dtest-line = <4>;
 	qcom,dtest-output = <1>;
 	status = "okay";
 };

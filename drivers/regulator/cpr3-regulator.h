@@ -566,6 +566,10 @@ struct cpr3_panic_regs_info {
  * @iface_clk:		Pointer to the CPR3 interface clock (platform specific)
  * @bus_clk:		Pointer to the CPR3 bus clock (platform specific)
  * @irq:		CPR interrupt number
+ * @irq_affinity_mask:	The cpumask for the CPUs which the CPR interrupt should
+ *			have affinity for
+ * @cpu_hotplug_notifier: CPU hotplug notifier used to reset IRQ affinity when a
+ *			CPU is brought back online
  * @ceiling_irq:	Interrupt number for the interrupt that is triggered
  *			when hardware closed-loop attempts to exceed the ceiling
  *			voltage
@@ -736,6 +740,8 @@ struct cpr3_controller {
 	struct clk		*iface_clk;
 	struct clk		*bus_clk;
 	int			irq;
+	struct cpumask		irq_affinity_mask;
+	struct notifier_block	cpu_hotplug_notifier;
 	int			ceiling_irq;
 	struct msm_apm_ctrl_dev *apm;
 	int			apm_threshold_volt;
@@ -859,6 +865,8 @@ int cpr4_parse_core_count_temp_voltage_adj(struct cpr3_regulator *vreg,
 			bool use_corner_band);
 int cpr3_apm_init(struct cpr3_controller *ctrl);
 int cpr3_mem_acc_init(struct cpr3_regulator *vreg);
+int cpr3_parse_fuse_combo_map(struct cpr3_regulator *vreg, u64 *fuse_val,
+			int fuse_count);
 
 #else
 
@@ -1029,6 +1037,12 @@ static inline int cpr3_apm_init(struct cpr3_controller *ctrl)
 static inline int cpr3_mem_acc_init(struct cpr3_regulator *vreg)
 {
 	return 0;
+}
+
+static int cpr3_parse_fuse_combo_map(struct cpr3_regulator *vreg, u64 *fuse_val,
+			int fuse_count)
+{
+	return -EPERM;
 }
 
 #endif /* CONFIG_REGULATOR_CPR3 */

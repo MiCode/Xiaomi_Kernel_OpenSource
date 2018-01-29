@@ -1,0 +1,49 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "apq8053.dtsi"
+#include "msm8953-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8053 IOT MTP";
+	compatible = "qcom,apq8053-mtp", "qcom,apq8053", "qcom,mtp";
+	qcom,board-id= <8 2>;
+};
+
+&mdss_dsi {
+	hw-config = "dual_dsi";
+};
+
+&mdss_dsi1 {
+	status = "ok";
+	qcom,bridge-index = <0>;
+};
+
+&dsi_adv7533_1080p {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&pm8953_gpios {
+	/* GPIO 5 (ADV7533 DSI2HDMI) */
+	gpio@c400 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
+
+};

@@ -129,6 +129,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	struct clk              *clk;
 	int			ret;
 	int			irq;
+	u32			temp, imod;
+	unsigned long		flags;
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -230,6 +232,18 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto put_usb3_hcd;
+
+	/* override imod interval if specified */
+	if (pdata && pdata->imod_interval) {
+		imod = pdata->imod_interval & ER_IRQ_INTERVAL_MASK;
+		spin_lock_irqsave(&xhci->lock, flags);
+		temp = readl_relaxed(&xhci->ir_set->irq_control);
+		temp &= ~ER_IRQ_INTERVAL_MASK;
+		temp |= imod;
+		writel_relaxed(temp, &xhci->ir_set->irq_control);
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		dev_dbg(&pdev->dev, "%s: imod set to %u\n", __func__, imod);
+	}
 
 	ret = device_create_file(&pdev->dev, &dev_attr_config_imod);
 	if (ret)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, 2012-2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009, 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,11 @@ int clk_reset(struct clk *clk, enum clk_reset_action action);
 
 /* Set clock-specific configuration parameters */
 int clk_set_flags(struct clk *clk, unsigned long flags);
+
+/* Set clock duty-cycle as a ratio of numerator/denominator for the desired
+ * duty cycle
+ */
+int clk_set_duty_cycle(struct clk *clk, u32 numerator, u32 denominator);
 
 /* returns the mux selection index associated with a particular parent */
 int parent_to_src_sel(struct clk_src *parents, int num_parents, struct clk *p);

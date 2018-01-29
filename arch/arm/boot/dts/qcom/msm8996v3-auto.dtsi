@@ -1,0 +1,232 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&hl7509_en_vreg {
+	status = "ok";
+};
+
+&hl7509_vreg {
+	status = "ok";
+};
+
+&gfx_cpr {
+	vdd-supply = <&hl7509_vreg>;
+	qcom,cpr-step-quot-init-min = <20>;
+	qcom,cpr-step-quot-init-max = <26>;
+	qcom,voltage-step = <10000>;
+	/delete-property/ qcom,cpr-enable;
+};
+
+&gfx_vreg {
+	qcom,cpr-voltage-ceiling =
+		<600000  670000  670000  750000  830000
+		 910000  960000 1020000>;
+	qcom,cpr-voltage-floor =
+		<600000  600000  600000  600000  600000
+		 600000  600000  600000>;
+};
+
+&pm8994_l3 {
+	regulator-min-microvolt = <875000>;
+	regulator-max-microvolt = <875000>;
+	qcom,init-voltage = <875000>;
+};
+
+&pm8994_l11 {
+	regulator-min-microvolt = <850000>;
+	regulator-max-microvolt = <850000>;
+	qcom,init-voltage = <850000>;
+};
+
+&pm8994_l17 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	qcom,init-voltage = <1800000>;
+};
+
+&pm8994_l23 {
+	regulator-min-microvolt = <1100000>;
+	regulator-max-microvolt = <1100000>;
+	qcom,init-voltage = <1100000>;
+};
+
+&pm8994_l27 {
+	regulator-min-microvolt = <800000>;
+	regulator-max-microvolt = <800000>;
+	qcom,init-voltage = <800000>;
+};
+
+&pm8994_l29 {
+	regulator-min-microvolt = <2500000>;
+	regulator-max-microvolt = <2500000>;
+	qcom,init-voltage = <2500000>;
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa26 {
+		/delete-node/ pm8994_l26_corner;
+		/delete-node/ pm8994_l26_floor_corner;
+
+		pm8994_l26: regulator-l26 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa31 {
+		status = "okay";
+		pm8994_l31: regulator-l31 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+};
+
+&clock_cpu {
+	qcom,pwrcl-speedbin0-v0 =
+		<          0  0 >,
+		<  768000000  7 >,
+		<  844800000  8 >,
+		<  902400000  9 >,
+		<  979200000 10 >,
+		< 1056000000 11 >,
+		< 1132800000 12 >,
+		< 1209600000 13 >,
+		< 1286400000 14 >,
+		< 1363200000 15 >,
+		< 1440000000 16 >,
+		< 1516800000 17 >,
+		< 1593600000 18 >;
+
+	qcom,perfcl-speedbin0-v0 =
+		<          0  0 >,
+		<  825600000  8 >,
+		<  902400000  9 >,
+		<  979200000 10 >,
+		< 1056000000 11 >,
+		< 1132800000 12 >,
+		< 1209600000 13 >,
+		< 1286400000 14 >,
+		< 1363200000 15 >,
+		< 1440000000 16 >,
+		< 1516800000 17 >,
+		< 1593600000 18 >,
+		< 1670400000 19 >,
+		< 1747200000 20 >,
+		< 1824000000 21 >,
+		< 1900800000 22 >,
+		< 1977600000 23 >,
+		< 2054400000 24 >;
+
+	qcom,cbf-speedbin0-v0 =
+		<	   0  0 >,
+		<  537600000  5 >,
+		<  614400000  6 >,
+		<  691200000  7 >,
+		<  768000000  8 >,
+		<  844800000  9 >,
+		<  902400000 10 >,
+		<  979200000 11 >,
+		< 1056000000 12 >,
+		< 1132800000 13 >,
+		< 1190400000 14 >,
+		< 1286400000 15 >,
+		< 1363200000 16 >,
+		< 1440000000 17 >,
+		< 1516800000 18 >,
+		< 1593600000 19 >;
+};
+
+&clock_gpu {
+	qcom,gfxfreq-speedbin0 =
+		<          0  0  0 >,
+		<  315000000  4  4 >,
+		<  401800000  5  5 >,
+		<  510000000  6  5 >,
+		<  560000000  7  7 >,
+		<  624000000  8  7 >;
+
+	qcom,gfxfreq-mx-speedbin0 =
+		<          0  0 >,
+		<  315000000  4 >,
+		<  401800000  5 >,
+		<  510000000  5 >,
+		<  560000000  7 >,
+		<  624000000  7 >;
+};
+
+&msm_cpufreq {
+	qcom,cpufreq-table-0 =
+		<  768000 >,
+		<  844800 >,
+		<  902400 >,
+		<  979200 >,
+		< 1056000 >,
+		< 1132800 >,
+		< 1209600 >,
+		< 1286400 >,
+		< 1363200 >,
+		< 1440000 >,
+		< 1516800 >,
+		< 1593600 >;
+	qcom,cpufreq-table-2 =
+		<  825600 >,
+		<  902400 >,
+		<  979200 >,
+		< 1056000 >,
+		< 1132800 >,
+		< 1209600 >,
+		< 1286400 >,
+		< 1363200 >,
+		< 1440000 >,
+		< 1516800 >,
+		< 1593600 >,
+		< 1670400 >,
+		< 1747200 >,
+		< 1824000 >,
+		< 1900800 >,
+		< 1977600 >,
+		< 2054400 >;
+};
+
+&m4m_cache {
+	freq-tbl-khz =
+		<  537600 >,
+		<  614400 >,
+		<  691200 >,
+		<  768000 >,
+		<  844800 >,
+		<  902400 >,
+		<  979200 >,
+		< 1056000 >,
+		< 1132800 >,
+		< 1190400 >,
+		< 1286400 >,
+		< 1363200 >,
+		< 1440000 >,
+		< 1516800 >,
+		< 1593600 >;
+};
+
+&devfreq_cpufreq {
+	mincpubw-cpufreq {
+		cpu-to-dev-map-0 =
+			< 1593600 1525 >;
+		cpu-to-dev-map-2 =
+			< 1977600 1525 >,
+			< 2054400 5195 >;
+	};
+};

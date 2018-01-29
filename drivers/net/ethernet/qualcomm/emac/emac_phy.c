@@ -319,6 +319,9 @@ static int emac_hw_setup_phy_link(struct emac_adapter *adpt,
 		case EMAC_LINK_SPEED_100_FULL:
 			bmcr |= BMCR_SPEED100 | BMCR_FULLDPLX;
 			break;
+		case EMAC_LINK_SPEED_1GB_FULL:
+			bmcr |= BMCR_SPEED1000 | BMCR_FULLDPLX;
+			break;
 		default:
 			return -EINVAL;
 		}

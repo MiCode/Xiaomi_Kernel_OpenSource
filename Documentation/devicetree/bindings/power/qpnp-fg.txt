@@ -273,6 +273,14 @@ Parent node optional properties:
 					default limit would be 150C.
 - qcom,fg-cc-soc-limit-pct:		Percentage of CC_SOC before resetting
 					FG and restore the full CC_SOC value.
+- qcom,fg-restore-batt-info:		A boolean property to specify whether
+					battery parameters needs to be
+					restored. If this feature is enabled,
+					then validating the battery parameters
+					by OCV/battery SOC, validation range
+					in percentage should be specified via
+					appropriate module parameters to make
+					it work properly.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.

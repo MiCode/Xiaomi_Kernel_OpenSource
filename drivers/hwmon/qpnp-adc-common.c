@@ -1674,103 +1674,88 @@ int qpnp_adc_get_revid_version(struct device *dev)
 		(revid_data->rev2 == PM8941_V3P1_REV2) &&
 		(revid_data->rev3 == PM8941_V3P1_REV3) &&
 		(revid_data->rev4 == PM8941_V3P1_REV4) &&
-		(revid_data->pmic_type == PM8941_V3P1_TYPE) &&
-		(revid_data->pmic_subtype == PM8941_V3P1_SUBTYPE))
+		(revid_data->pmic_subtype == PM8941_SUBTYPE))
 			return QPNP_REV_ID_8941_3_1;
 	else if ((revid_data->rev1 == PM8941_V3P0_REV1) &&
 		(revid_data->rev2 == PM8941_V3P0_REV2) &&
 		(revid_data->rev3 == PM8941_V3P0_REV3) &&
 		(revid_data->rev4 == PM8941_V3P0_REV4) &&
-		(revid_data->pmic_type == PM8941_V3P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8941_V3P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8941_SUBTYPE))
 			return QPNP_REV_ID_8941_3_0;
 	else if ((revid_data->rev1 == PM8941_V2P0_REV1) &&
 		(revid_data->rev2 == PM8941_V2P0_REV2) &&
 		(revid_data->rev3 == PM8941_V2P0_REV3) &&
 		(revid_data->rev4 == PM8941_V2P0_REV4) &&
-		(revid_data->pmic_type == PM8941_V2P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8941_V2P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8941_SUBTYPE))
 			return QPNP_REV_ID_8941_2_0;
 	else if ((revid_data->rev1 == PM8226_V2P2_REV1) &&
 		(revid_data->rev2 == PM8226_V2P2_REV2) &&
 		(revid_data->rev3 == PM8226_V2P2_REV3) &&
 		(revid_data->rev4 == PM8226_V2P2_REV4) &&
-		(revid_data->pmic_type == PM8226_V2P2_TYPE) &&
-		(revid_data->pmic_subtype == PM8226_V2P2_SUBTYPE))
+		(revid_data->pmic_subtype == PM8226_SUBTYPE))
 			return QPNP_REV_ID_8026_2_2;
 	else if ((revid_data->rev1 == PM8226_V2P1_REV1) &&
 		(revid_data->rev2 == PM8226_V2P1_REV2) &&
 		(revid_data->rev3 == PM8226_V2P1_REV3) &&
 		(revid_data->rev4 == PM8226_V2P1_REV4) &&
-		(revid_data->pmic_type == PM8226_V2P1_TYPE) &&
-		(revid_data->pmic_subtype == PM8226_V2P1_SUBTYPE))
+		(revid_data->pmic_subtype == PM8226_SUBTYPE))
 			return QPNP_REV_ID_8026_2_1;
 	else if ((revid_data->rev1 == PM8226_V2P0_REV1) &&
 		(revid_data->rev2 == PM8226_V2P0_REV2) &&
 		(revid_data->rev3 == PM8226_V2P0_REV3) &&
 		(revid_data->rev4 == PM8226_V2P0_REV4) &&
-		(revid_data->pmic_type == PM8226_V2P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8226_V2P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8226_SUBTYPE))
 			return QPNP_REV_ID_8026_2_0;
 	else if ((revid_data->rev1 == PM8226_V1P0_REV1) &&
 		(revid_data->rev2 == PM8226_V1P0_REV2) &&
 		(revid_data->rev3 == PM8226_V1P0_REV3) &&
 		(revid_data->rev4 == PM8226_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8226_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8226_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8226_SUBTYPE))
 			return QPNP_REV_ID_8026_1_0;
 	else if ((revid_data->rev1 == PM8110_V1P0_REV1) &&
 		(revid_data->rev2 == PM8110_V1P0_REV2) &&
 		(revid_data->rev3 == PM8110_V1P0_REV3) &&
 		(revid_data->rev4 == PM8110_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8110_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8110_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8110_SUBTYPE))
 			return QPNP_REV_ID_8110_1_0;
 	else if ((revid_data->rev1 == PM8110_V2P0_REV1) &&
 		(revid_data->rev2 == PM8110_V2P0_REV2) &&
 		(revid_data->rev3 == PM8110_V2P0_REV3) &&
 		(revid_data->rev4 == PM8110_V2P0_REV4) &&
-		(revid_data->pmic_type == PM8110_V2P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8110_V2P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8110_SUBTYPE))
 			return QPNP_REV_ID_8110_2_0;
 	else if ((revid_data->rev1 == PM8916_V1P0_REV1) &&
 		(revid_data->rev2 == PM8916_V1P0_REV2) &&
 		(revid_data->rev3 == PM8916_V1P0_REV3) &&
 		(revid_data->rev4 == PM8916_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8916_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8916_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8916_SUBTYPE))
 			return QPNP_REV_ID_8916_1_0;
 	else if ((revid_data->rev1 == PM8916_V1P1_REV1) &&
 		(revid_data->rev2 == PM8916_V1P1_REV2) &&
 		(revid_data->rev3 == PM8916_V1P1_REV3) &&
 		(revid_data->rev4 == PM8916_V1P1_REV4) &&
-		(revid_data->pmic_type == PM8916_V1P1_TYPE) &&
-		(revid_data->pmic_subtype == PM8916_V1P1_SUBTYPE))
+		(revid_data->pmic_subtype == PM8916_SUBTYPE))
 			return QPNP_REV_ID_8916_1_1;
 	else if ((revid_data->rev1 == PM8916_V2P0_REV1) &&
 		(revid_data->rev2 == PM8916_V2P0_REV2) &&
 		(revid_data->rev3 == PM8916_V2P0_REV3) &&
 		(revid_data->rev4 == PM8916_V2P0_REV4) &&
-		(revid_data->pmic_type == PM8916_V2P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8916_V2P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8916_SUBTYPE))
 			return QPNP_REV_ID_8916_2_0;
 	else if ((revid_data->rev1 == PM8909_V1P0_REV1) &&
 		(revid_data->rev2 == PM8909_V1P0_REV2) &&
 		(revid_data->rev3 == PM8909_V1P0_REV3) &&
 		(revid_data->rev4 == PM8909_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8909_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8909_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8909_SUBTYPE))
 			return QPNP_REV_ID_8909_1_0;
 	else if ((revid_data->rev1 == PM8909_V1P1_REV1) &&
 		(revid_data->rev2 == PM8909_V1P1_REV2) &&
 		(revid_data->rev3 == PM8909_V1P1_REV3) &&
 		(revid_data->rev4 == PM8909_V1P1_REV4) &&
-		(revid_data->pmic_type == PM8909_V1P1_TYPE) &&
-		(revid_data->pmic_subtype == PM8909_V1P1_SUBTYPE))
+		(revid_data->pmic_subtype == PM8909_SUBTYPE))
 			return QPNP_REV_ID_8909_1_1;
 	else if ((revid_data->rev4 == PM8950_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8950_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8950_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8950_SUBTYPE))
 			return QPNP_REV_ID_PM8950_1_0;
 	else
 		return -EINVAL;
@@ -1787,6 +1772,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	struct qpnp_adc_properties *adc_prop;
 	struct qpnp_adc_amux_properties *amux_prop;
 	int count_adc_channel_list = 0, decimation, rc = 0, i = 0;
+	int cal_val_hc = 0;
 	bool adc_hc;
 
 	if (!node)
@@ -1904,6 +1890,17 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 			pr_err("Invalid channel fast average setup\n");
 			return -EINVAL;
 		}
+		if (of_device_is_compatible(node, "qcom,qpnp-vadc-hc")) {
+			rc = of_property_read_u32(child, "qcom,cal-val",
+							&cal_val_hc);
+			if (rc) {
+				pr_debug("Use calibration value from timer\n");
+				adc_channel_list[i].cal_val = ADC_TIMER_CAL;
+			} else {
+				adc_channel_list[i].cal_val = cal_val_hc;
+			}
+		}
+
 		/* Individual channel properties */
 		adc_channel_list[i].name = (char *)channel_name;
 		adc_channel_list[i].channel_num = channel_num;

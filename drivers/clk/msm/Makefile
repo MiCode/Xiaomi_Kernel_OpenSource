@@ -6,6 +6,7 @@ obj-y				+= clock-pll.o
 obj-y				+= clock-alpha-pll.o
 obj-y				+= clock-rpm.o
 obj-y				+= clock-voter.o
+obj-y				+= clock-pm.o
 
 obj-$(CONFIG_MSM_CLK_CONTROLLER_V2)	+= msm-clock-controller.o
 

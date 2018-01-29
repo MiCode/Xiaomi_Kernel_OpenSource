@@ -213,7 +213,7 @@ static void dci_chk_handshake(unsigned long data)
 {
 	int index = (int)data;
 
-	if (index < 0 || index > NUM_DCI_PROC)
+	if (index < 0 || index >= NUM_DCI_PROC)
 		return;
 
 	queue_work(driver->diag_dci_wq,
@@ -2137,13 +2137,17 @@ struct diag_dci_client_tbl *dci_lookup_client_entry_pid(int tgid)
 
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask, int token)
 {
-	uint8_t *event_mask_ptr;
-	uint8_t *update_ptr = dci_ops_tbl[token].event_mask_composite;
+	uint8_t *event_mask_ptr, *update_ptr = NULL;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 	bool is_set = false;
 
 	mutex_lock(&dci_event_mask_mutex);
+	update_ptr = dci_ops_tbl[token].event_mask_composite;
+	if (!update_ptr) {
+		mutex_unlock(&dci_event_mask_mutex);
+		return;
+	}
 	update_ptr += offset;
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
@@ -2169,13 +2173,15 @@ void diag_dci_invalidate_cumulative_event_mask(int token)
 	int i = 0;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
-	uint8_t *update_ptr, *event_mask_ptr;
-	update_ptr = dci_ops_tbl[token].event_mask_composite;
-
-	if (!update_ptr)
-		return;
+	uint8_t *event_mask_ptr, *update_ptr = NULL;
 
 	mutex_lock(&dci_event_mask_mutex);
+	update_ptr = dci_ops_tbl[token].event_mask_composite;
+	if (!update_ptr) {
+		mutex_unlock(&dci_event_mask_mutex);
+		return;
+	}
+
 	create_dci_event_mask_tbl(update_ptr);
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
@@ -2197,14 +2203,20 @@ int diag_send_dci_event_mask_remote(int token)
 	int dci_header_size = sizeof(struct diag_dci_header_t);
 	int event_header_size = sizeof(struct diag_ctrl_event_mask);
 	int i, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
-	unsigned char *event_mask_ptr = dci_ops_tbl[token].
-							event_mask_composite;
+	unsigned char *event_mask_ptr = NULL;
 	uint32_t write_len = 0;
 
+	mutex_lock(&dci_event_mask_mutex);
+	event_mask_ptr = dci_ops_tbl[token].event_mask_composite;
+	if (!event_mask_ptr) {
+		mutex_unlock(&dci_event_mask_mutex);
+		return -EINVAL;
+	}
 	buf = dci_get_buffer_from_bridge(token);
 	if (!buf) {
 		pr_err("diag: In %s, unable to get dci buffers to write data\n",
 			__func__);
+		mutex_unlock(&dci_event_mask_mutex);
 		return -EAGAIN;
 	}
 
@@ -2243,7 +2255,7 @@ int diag_send_dci_event_mask_remote(int token)
 	} else {
 		ret = DIAG_DCI_NO_ERROR;
 	}
-
+	mutex_unlock(&dci_event_mask_mutex);
 	return ret;
 }
 #endif
@@ -2254,8 +2266,14 @@ int diag_send_dci_event_mask(int token)
 	struct diag_ctrl_event_mask header;
 	int header_size = sizeof(struct diag_ctrl_event_mask);
 	int ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR, i;
-	unsigned char *event_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].
-							event_mask_composite;
+	unsigned char *event_mask_ptr = NULL;
+
+	mutex_lock(&dci_event_mask_mutex);
+	event_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].event_mask_composite;
+	if (!event_mask_ptr) {
+		mutex_unlock(&dci_event_mask_mutex);
+		return -EINVAL;
+	}
 
 	mutex_lock(&event_mask.lock);
 	/* send event mask update */
@@ -2284,7 +2302,9 @@ int diag_send_dci_event_mask(int token)
 		if (err != DIAG_DCI_NO_ERROR)
 			ret = DIAG_DCI_SEND_DATA_FAIL;
 	}
+
 	mutex_unlock(&event_mask.lock);
+	mutex_unlock(&dci_event_mask_mutex);
 
 	return ret;
 }
@@ -2292,13 +2312,18 @@ int diag_send_dci_event_mask(int token)
 void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 						uint8_t byte_mask, int token)
 {
-	uint8_t *update_ptr = dci_ops_tbl[token].log_mask_composite;
-	uint8_t *log_mask_ptr;
+	uint8_t *log_mask_ptr, *update_ptr = NULL;
 	bool is_set = false;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 
 	mutex_lock(&dci_log_mask_mutex);
+	update_ptr = dci_ops_tbl[token].log_mask_composite;
+	if (!update_ptr) {
+		mutex_unlock(&dci_log_mask_mutex);
+		return;
+	}
+
 	update_ptr += offset;
 	/* update the dirty bit */
 	*(update_ptr+1) = 1;
@@ -2328,11 +2353,16 @@ void diag_dci_invalidate_cumulative_log_mask(int token)
 	int i = 0;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
-	uint8_t *update_ptr, *log_mask_ptr;
-	update_ptr = dci_ops_tbl[token].log_mask_composite;
+	uint8_t *log_mask_ptr, *update_ptr = NULL;
 
 	/* Clear the composite mask and redo all the masks */
 	mutex_lock(&dci_log_mask_mutex);
+	update_ptr = dci_ops_tbl[token].log_mask_composite;
+	if (!update_ptr) {
+		mutex_unlock(&dci_log_mask_mutex);
+		return;
+	}
+
 	create_dci_log_mask_tbl(update_ptr, DCI_LOG_MASK_DIRTY);
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
@@ -2371,10 +2401,17 @@ int diag_send_dci_log_mask_remote(int token)
 	struct diag_dci_header_t dci_header;
 	int dci_header_size = sizeof(struct diag_dci_header_t);
 	int log_header_size = sizeof(struct diag_ctrl_log_mask);
-	uint8_t *log_mask_ptr = dci_ops_tbl[token].log_mask_composite;
+	uint8_t *log_mask_ptr = NULL;
 	int i, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
 	int updated;
 	uint32_t write_len = 0;
+
+	mutex_lock(&dci_log_mask_mutex);
+	log_mask_ptr = dci_ops_tbl[token].log_mask_composite;
+	if (!log_mask_ptr) {
+		mutex_unlock(&dci_log_mask_mutex);
+		return -EINVAL;
+	}
 
 	/* DCI header is common to all equipment IDs */
 	dci_header.start = CONTROL_CHAR;
@@ -2394,6 +2431,7 @@ int diag_send_dci_log_mask_remote(int token)
 		if (!buf) {
 			pr_err("diag: In %s, unable to get dci buffers to write data\n",
 				__func__);
+			mutex_unlock(&dci_log_mask_mutex);
 			return -EAGAIN;
 		}
 
@@ -2413,7 +2451,7 @@ int diag_send_dci_log_mask_remote(int token)
 			*(log_mask_ptr + 1) = 0; /* clear dirty byte */
 		log_mask_ptr += 514;
 	}
-
+	mutex_unlock(&dci_log_mask_mutex);
 	return ret;
 }
 #endif
@@ -2422,9 +2460,17 @@ int diag_send_dci_log_mask(int token)
 {
 	void *buf = log_mask.update_buf;
 	int write_len = 0;
-	uint8_t *log_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].log_mask_composite;
+	uint8_t *log_mask_ptr = NULL;
 	int i, j, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
 	int updated;
+
+
+	mutex_lock(&dci_log_mask_mutex);
+	log_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].log_mask_composite;
+	if (!log_mask_ptr) {
+		mutex_unlock(&dci_log_mask_mutex);
+		return -EINVAL;
+	}
 
 	mutex_lock(&log_mask.lock);
 	for (i = 0; i < 16; i++) {
@@ -2448,7 +2494,7 @@ int diag_send_dci_log_mask(int token)
 		log_mask_ptr += 514;
 	}
 	mutex_unlock(&log_mask.lock);
-
+	mutex_unlock(&dci_log_mask_mutex);
 	return ret;
 }
 

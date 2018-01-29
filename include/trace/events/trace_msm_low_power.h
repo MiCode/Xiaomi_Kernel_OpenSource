@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +80,50 @@ TRACE_EVENT(cpu_idle_exit,
 	TP_printk("idx:%d success:%d",
 		__entry->index,
 		__entry->success)
+);
+
+TRACE_EVENT(cpu_idle_enter_cpu_freq,
+
+	TP_PROTO(int cpu, unsigned long cpu_clk, unsigned long l2_clk),
+
+	TP_ARGS(cpu, cpu_clk, l2_clk),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(unsigned long, cpu_clk)
+		__field(unsigned long, l2_clk)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->cpu_clk = cpu_clk;
+		__entry->l2_clk = l2_clk;
+	),
+
+	TP_printk("cpu:%d cpu_clk:%luHZ l2_clk:%luHZ",
+		__entry->cpu, __entry->cpu_clk, __entry->l2_clk)
+);
+
+TRACE_EVENT(cpu_idle_exit_cpu_freq,
+
+	TP_PROTO(int cpu, unsigned long cpu_clk, unsigned long l2_clk),
+
+	TP_ARGS(cpu, cpu_clk, l2_clk),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(unsigned long, cpu_clk)
+		__field(unsigned long, l2_clk)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->cpu_clk = cpu_clk;
+		__entry->l2_clk = l2_clk;
+	),
+
+	TP_printk("cpu:%d cpu_clk:%luHZ l2_clk:%luHZ",
+		__entry->cpu, __entry->cpu_clk, __entry->l2_clk)
 );
 
 TRACE_EVENT(cluster_enter,

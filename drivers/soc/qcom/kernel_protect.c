@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,10 +14,12 @@
 #include <linux/printk.h>
 #include <linux/init.h>
 #include <linux/gfp.h>
+#include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <asm/sections.h>
 #include <asm/cacheflush.h>
 
+#define KERNEL_PROTECT_MPU	0x24
 
 #ifdef CONFIG_MSM_KERNEL_PROTECT_TEST
 
@@ -38,6 +40,10 @@ static void msm_protect_kernel_test(void)
 	 */
 	char *addr = (char *)__alloc_pages_nodemask;
 
+	if (IS_ENABLED(CONFIG_MSM_KERNEL_PROTECT_MPU)) {
+		pr_err("MPU protected kernel code is HLOS writable\n");
+		return;
+	}
 	pr_err("Checking whether the kernel text is writable...\n");
 	pr_err("A BUG means it is writable (this is bad)\n");
 	pr_err("A stage-2 fault means it's not writable (this is good, but we'll still crash)\n");
@@ -84,9 +90,33 @@ static int __init msm_protect_kernel(void)
 	pr_debug("assigning from phys: %pa to %pa\n",
 		 &kernel_x_start_rounded, &kernel_x_end);
 	pr_debug("virtual: %p to %p\n", virt_start, virt_end);
-	ret = hyp_assign_phys(kernel_x_start_rounded,
-			      kernel_x_end - kernel_x_start_rounded,
-			      &vmid_hlos, 1, &vmid_hlos, &dest_perms, 1);
+
+	if (IS_ENABLED(CONFIG_MSM_KERNEL_PROTECT_MPU)) {
+		struct scm_desc desc = {0};
+
+		if (!scm_is_call_available(SCM_SVC_MP, KERNEL_PROTECT_MPU))
+			return 0;
+
+		desc.args[0] = kernel_x_start_rounded;
+		desc.args[1] = kernel_x_end - kernel_x_start_rounded;
+		desc.arginfo = SCM_ARGS(2);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+					KERNEL_PROTECT_MPU), &desc);
+		if (ret) {
+			/*
+			 * must not proceed if failed to MPU protect kernel
+			 * text region
+			 */
+			panic("Failed to protect kernel region %pa -- %pa\n",
+					&kernel_x_start_rounded,
+					&kernel_x_end);
+		}
+	} else {
+		ret = hyp_assign_phys(kernel_x_start_rounded,
+				kernel_x_end - kernel_x_start_rounded,
+				&vmid_hlos, 1, &vmid_hlos, &dest_perms, 1);
+	}
 	if (ret)
 		/*
 		 * We want to fail relatively silently since not all

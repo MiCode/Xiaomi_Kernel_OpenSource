@@ -129,15 +129,15 @@ enum mdp_mmap_type {
  * enum dyn_mode_switch_state - Lists next stage for dynamic mode switch work
  *
  * @MDSS_MDP_NO_UPDATE_REQUESTED: incoming frame is processed normally
- * @MDSS_MDP_WAIT_FOR_PREP: Waiting for OVERLAY_PREPARE to be called
- * @MDSS_MDP_WAIT_FOR_SYNC: Waiting for BUFFER_SYNC to be called
- * @MDSS_MDP_WAIT_FOR_COMMIT: Waiting for COMMIT to be called
+ * @MDSS_MDP_WAIT_FOR_VALIDATE: Waiting for ATOMIC_COMMIT-validate to be called
+ * @MDSS_MDP_WAIT_FOR_COMMIT: Waiting for ATOMIC_COMMIT-commit to be called
+ * @MDSS_MDP_WAIT_FOR_KICKOFF: Waiting for KICKOFF to be called
  */
 enum dyn_mode_switch_state {
 	MDSS_MDP_NO_UPDATE_REQUESTED,
-	MDSS_MDP_WAIT_FOR_PREP,
-	MDSS_MDP_WAIT_FOR_SYNC,
+	MDSS_MDP_WAIT_FOR_VALIDATE,
 	MDSS_MDP_WAIT_FOR_COMMIT,
+	MDSS_MDP_WAIT_FOR_KICKOFF,
 };
 
 /**
@@ -228,8 +228,6 @@ struct msm_mdp_interface {
 	u32 (*fb_stride)(u32 fb_index, u32 xres, int bpp);
 	struct mdss_mdp_format_params *(*get_format_params)(u32 format);
 	int (*splash_init_fnc)(struct msm_fb_data_type *mfd);
-	struct msm_sync_pt_data *(*get_sync_fnc)(struct msm_fb_data_type *mfd,
-				const struct mdp_buf_sync *buf_sync);
 	void (*check_dsi_status)(struct work_struct *work, uint32_t interval);
 	int (*configure_panel)(struct msm_fb_data_type *mfd, int mode,
 				int dest_ctrl);

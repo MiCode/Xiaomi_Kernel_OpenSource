@@ -427,6 +427,8 @@ static int audio_open(struct inode *inode, struct file *file)
 	audio->audio_ws_mgr = &audio_multiaac_ws_mgr;
 	aac_config->dual_mono_mode = AUDIO_AAC_DUAL_MONO_INVALID;
 
+	init_waitqueue_head(&audio->event_wait);
+
 	audio->ac = q6asm_audio_client_alloc((app_cb) q6_audio_cb,
 					     (void *)audio);
 

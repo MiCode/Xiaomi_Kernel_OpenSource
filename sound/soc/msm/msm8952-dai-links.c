@@ -117,6 +117,41 @@ static struct snd_soc_dai_link msm8952_tasha_fe_dai[] = {
 		.codec_name = "tasha_codec",
 		.ops = &msm8952_cpe_ops,
 	},
+	/* slimbus rx 6 hostless */
+	{
+		.name = "SLIMBUS_6 Hostless Playback",
+		.stream_name = "SLIMBUS_6 Hostless",
+		.cpu_dai_name = "SLIMBUS6_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		 /* this dailink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	/* QCHAT */
+	{/* hw:x,42 */
+		.name = "QCHAT",
+		.stream_name = "QCHAT",
+		.cpu_dai_name = "QCHAT",
+		.platform_name  = "msm-pcm-voice",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_QCHAT,
+	},
 };
 
 static struct snd_soc_dai_link msm8952_tasha_be_dai[] = {
@@ -257,6 +292,22 @@ static struct snd_soc_dai_link msm8952_tasha_be_dai[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_5_TX,
 		.be_hw_params_fixup = msm_slim_5_tx_be_hw_params_fixup,
 		.ops = &msm8952_slimbus_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_6_RX,
+		.stream_name = "Slimbus6 Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16396",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tasha_codec",
+		.codec_dai_name = "tasha_rx4",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_6_RX,
+		.be_hw_params_fixup = msm_slim_6_rx_be_hw_params_fixup,
+		.ops = &msm8952_slimbus_be_ops,
+		/* dai link has playback support */
+		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
 };

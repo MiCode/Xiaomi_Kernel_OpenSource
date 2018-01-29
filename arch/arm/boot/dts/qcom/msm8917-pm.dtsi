@@ -33,6 +33,12 @@
 		qcom,use-psci;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk";
+		clocks = <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>;
 
 		qcom,pm-cluster@0{
 			reg = <0>;
@@ -229,6 +235,10 @@
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdcc_pwr_cmd_irq */
+			<0xff 260>, /* ipa_irq[0] */
+			<0xff 261>, /* ipa_irq[2] */
+			<0xff 262>, /* ipa_bam_irq[0] */
+			<0xff 263>, /* ipa_bam_irq[2] */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
 			<0xff 272>, /* smmu_intr_bus[17] */
@@ -255,6 +265,8 @@
 			<9  36>,
 			<10  13>,
 			<11  35>,
+			<12  17>,
+			<13  21>,
 			<14  54>,
 			<15  34>,
 			<16  31>,

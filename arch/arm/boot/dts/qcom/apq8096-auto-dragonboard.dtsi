@@ -12,7 +12,6 @@
 
 #include "msm8996-pinctrl.dtsi"
 #include "apq8096-camera-sensor-dragonboard.dtsi"
-#include "apq8096-ba.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -522,6 +521,19 @@
 };
 
 &soc {
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+
+		ntn-rst-gpio = <&pm8994_gpios 13 0>;
+
+		vdd-ntn-hsic-supply = <&pm8994_l25>;
+		vdd-ntn-pci-supply = <&pm8994_s4>;
+		vdd-ntn-io-supply = <&pm8994_s4>;
+
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <1>;
+	};
+
 	qcom,cnss {
 		wlan-bootstrap-gpio = <&tlmm 46 0>;
 		wlan-en-gpio = <&pm8994_gpios 8 0>;
@@ -608,13 +620,15 @@
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&compr>;
+				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&loopback1>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
-				"msm-pcm-routing", "msm-compr-dsp";
+				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-loopback.1";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
 				<&dai_mi2s>, <&dai_mi2s_quat>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>,
@@ -656,6 +670,11 @@
 		vin-supply = <&vph_pwr_vreg>;
 	};
 
+	loopback1: qcom,msm-pcm-loopback-low-latency {
+		compatible = "qcom,msm-pcm-loopback";
+		qcom,msm-pcm-loopback-low-latency;
+	};
+
 	qcom,msm-dai-mi2s {
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
 			pinctrl-names = "default", "sleep";
@@ -669,12 +688,47 @@
 		pinctrl-0 = <&quat_tdm_dout_active>;
 		pinctrl-1 = <&quat_tdm_dout_sleep>;
 	};
+
+	qcom,msm-ba {
+		compatible = "qcom,msm-ba";
+		qcom,ba-input-profile-0 {
+			qcom,type = <4>;          /* input type   */
+			qcom,name = "HDMI-1";     /* input name   */
+			qcom,ba-input = <13>;     /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "adv7481"; /* sd name      */
+			qcom,ba-node = <0>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
+	};
+
+	qcom,adv7481@70 {
+		compatible = "qcom,adv7481";
+		reg = <0x70 0xff>;
+		cam_vdig-supply = <&vph_pwr_vreg>;
+		/* Cameras powered by PMIC: */
+		cam_vio-supply = <&pm8994_lvs1>;
+		cam_vana-supply = <&pm8994_l17>;
+		/* Self-powered cameras: */
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1300000 0 2500000>;
+		qcom,cam-vreg-max-voltage = <1300000 0 2500000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000>;
+
+		qcom,cci-master = <0>;
+		gpios = <&tlmm 17 0>,          /* I2C SDA */
+			<&tlmm 18 0>,          /* I2C SCL */
+			<&pm8994_gpios 4 0>,   /* RST     */
+			<&pm8994_gpios 5 0>,   /* INT1    */
+			<&pm8994_gpios 6 0>,   /* INT2    */
+			<&pm8994_gpios 7 0>;   /* INT3    */
+	};
 };
 
 &spmi_bus {
 	qcom,pm8994@1 {
 		pwm@b100 {
-			qcom,lpg-dtest-line = <4>;
+			qcom,dtest-line = <4>;
 			qcom,dtest-output = <1>;
 			status = "okay";
 		};
@@ -690,28 +744,32 @@
 		status = "okay";
 	};
 
-	gpio@c300 { /* GPIO 4 - BL1_PWM */
+	gpio@c300 { /* GPIO 4 - adv7481 RST */
 		qcom,mode = <1>;
-		qcom,pull = <1>;
+		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
-		qcom,src-sel = <4>;
+		qcom,src-sel = <0>;
 		status = "okay";
 	};
 
-	gpio@c400 { /* GPIO 5 - BL0_PWM */
-		qcom,mode = <1>;	/* DIGITAL OUT */
-		qcom,pull = <1>;	/* PULL DOWN */
-		qcom,vin-sel = <2>;	/* 1.8 */
-		qcom,src-sel = <7>;	/* LPG4 */
-		qcom,master-en = <1>;   /* Enable GPIO */
+	gpio@c400 { /* GPIO 5 - adv7481 INT1 */
+		qcom,mode = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 		status = "okay";
 	};
 
-	gpio@c600 { /* GPIO 7 */
-		qcom,mode = <1>;	/* DIGITAL OUT */
-		qcom,vin-sel = <2>;	/* 1.8 */
-		qcom,src-sel = <0>;	/* GPIO */
-		qcom,master-en = <1>;	/* ENABLE GPIO */
+	gpio@c500 { /* GPIO 6 - adv7481 INT2*/
+		qcom,mode = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "okay";
+	};
+
+	gpio@c600 { /* GPIO 7 - adv7481 INT3*/
+		qcom,mode = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
 		status = "okay";
 	};
 
@@ -743,11 +801,14 @@
 		status = "okay";
 	};
 
-	gpio@cc00 { /* GPIO 13 */
-		qcom,mode = <1>;	/* DIGITAL OUT */
-		qcom,vin-sel = <2>;	/* 1.8 */
-		qcom,src-sel = <0>;	/* GPIO */
-		qcom,master-en = <1>;	/* Enable GPIO */
+	gpio@cc00 { /* GPIO 13 - NTN_RST */
+		qcom,mode = <1>; /* DIGITAL OUT */
+		qcom,output-type = <0>; /* CMOS logic */
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>; /* 1.8 */
+		qcom,out-strength = <1>;
+		qcom,src-sel = <0>; /* GPIO */
+		qcom,master-en = <1>; /* Enable GPIO */
 		status = "okay";
 	};
 
@@ -872,9 +933,10 @@
 };
 
 &spi_0 {
-	spi_codec@2 {
+	spi_codec@0 {
 		compatible = "qcom,spi-msm-codec-slave";
-		reg = <2>;
-		spi-max-frequency = <19200000>;
+		reg = <0>;
+		spi-max-frequency = <2000000>;
+		spi-cpha;
 	};
 };

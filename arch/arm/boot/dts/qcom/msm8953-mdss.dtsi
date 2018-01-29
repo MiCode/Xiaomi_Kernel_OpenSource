@@ -102,8 +102,7 @@
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
 
-		qcom,mdp-settings = <0x01190 0x00000000>,
-				    <0x0506c 0x00000000>,
+		qcom,mdp-settings = <0x0506c 0x00000000>,
 				    <0x1506c 0x00000000>,
 				    <0x1706c 0x00000000>,
 				    <0x2506c 0x00000000>;

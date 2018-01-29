@@ -1,0 +1,18 @@
+MSM power device
+
+msm_power is a device that monitors the frequency of various resources
+(e.g. CPU and GPU) to manage other system resources (e.g. DDR frequency)
+more efficiently.
+
+Required properties:
+- compatible:		Must be "qcom,msm-power"
+- clocks:		Array of clock phandle and clock specifier pairs
+			(per clock-bindings doc) for all clocks that are
+			to be managed by this device (e.g. GPU clock).
+
+Example:
+	qcom,msm-power {
+		compatible = "qcom,msm-power";
+		clock-names = "gpu_clk";
+		clocks = <&clock_gpu clk_gpu_gx_gfx3d_clk>;
+	};

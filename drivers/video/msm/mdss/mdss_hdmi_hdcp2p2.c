@@ -666,7 +666,7 @@ static void hdmi_hdcp2p2_link_cb(void *data)
 
 static void hdmi_hdcp2p2_recv_msg(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
-	int rc, timeout_hsync;
+	int rc = 0, timeout_hsync;
 	char *recvd_msg_buf = NULL;
 	struct hdmi_tx_hdcp2p2_ddc_data *ddc_data;
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;

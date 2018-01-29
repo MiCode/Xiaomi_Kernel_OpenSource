@@ -62,6 +62,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8916")
 #define early_machine_is_msm8917()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8917")
+#define early_machine_is_msm8920()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8920")
 #define early_machine_is_msm8940()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8940")
 #define early_machine_is_msm8936()	\
@@ -94,8 +96,6 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8937")
 #define early_machine_is_msm8996()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996")
-#define early_machine_is_msm8996_auto()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996-cdp")
 #define early_machine_is_msm8929()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8929")
 #define early_machine_is_mdm9607()	\
@@ -126,6 +126,7 @@
 #define early_machine_is_msm8909()	0
 #define early_machine_is_msm8916()	0
 #define early_machine_is_msm8917()	0
+#define early_machine_is_msm8920()	0
 #define early_machine_is_msm8940()	0
 #define early_machine_is_msm8936()	0
 #define early_machine_is_msm8939()	0
@@ -183,6 +184,7 @@ enum msm_cpu {
 	MSM_CPU_8909,
 	MSM_CPU_8916,
 	MSM_CPU_8917,
+	MSM_CPU_8920,
 	MSM_CPU_8940,
 	MSM_CPU_8936,
 	MSM_CPU_8939,
@@ -237,6 +239,7 @@ char *socinfo_get_build_id(void);
 uint32_t socinfo_get_platform_type(void);
 uint32_t socinfo_get_platform_subtype(void);
 uint32_t socinfo_get_platform_version(void);
+uint32_t socinfo_get_serial_number(void);
 enum pmic_model socinfo_get_pmic_model(void);
 uint32_t socinfo_get_pmic_die_revision(void);
 int __init socinfo_init(void) __must_check;

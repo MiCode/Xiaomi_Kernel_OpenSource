@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1316,6 +1316,17 @@ static int set_hard_mute(struct silabs_fm_device *radio, bool val)
 	return retval;
 }
 
+static int set_mute_mode(struct silabs_fm_device *radio, u16 val)
+{
+	int retval = 0;
+
+	retval = set_property(radio, RX_HARD_MUTE_PROP, val);
+
+	if (retval < 0)
+		FMDERR("%s: set_mute_mode failed with error %d\n",
+			__func__, retval);
+	return retval;
+}
 static int get_rssi(struct silabs_fm_device *radio, u8 *prssi)
 {
 	int retval = 0;
@@ -1346,7 +1357,7 @@ static bool is_valid_freq(struct silabs_fm_device *radio, u32 freq)
 {
 	u32 band_low_limit = radio->recv_conf.band_low_limit * TUNE_STEP_SIZE;
 	u32 band_high_limit = radio->recv_conf.band_high_limit * TUNE_STEP_SIZE;
-	u8 spacing;
+	u8 spacing = 0;
 
 	if (radio->recv_conf.ch_spacing == 0)
 		spacing = CH_SPACING_200;
@@ -1354,6 +1365,8 @@ static bool is_valid_freq(struct silabs_fm_device *radio, u32 freq)
 		spacing = CH_SPACING_100;
 	else if (radio->recv_conf.ch_spacing == 2)
 		spacing = CH_SPACING_50;
+	else
+		return false;
 
 	if ((freq >= band_low_limit) &&
 		(freq <= band_high_limit) &&
@@ -2879,6 +2892,16 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 	}
 
 	switch (ctrl->id) {
+	case V4L2_CID_AUDIO_MUTE:
+		if ((ctrl->value >= 0) && (ctrl->value <= 3)) {
+			set_mute_mode(radio, ctrl->value);
+		} else {
+			FMDERR("%s: Mute mode states are out of range\n",
+					__func__);
+			retval = -EINVAL;
+			goto end;
+		}
+		break;
 	case V4L2_CID_PRIVATE_SILABS_STATE:
 		/* check if already on */
 		if (ctrl->value == FM_RECV) {

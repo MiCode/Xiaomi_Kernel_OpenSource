@@ -790,7 +790,7 @@ out:
 	mmc_free_ext_csd(bw_ext_csd);
 	return err;
 }
-
+MMC_DEV_ATTR(hq_fw_version, "0x%08x\n", card->ext_csd.fw_version);
 MMC_DEV_ATTR(cid, "%08x%08x%08x%08x\n", card->raw_cid[0], card->raw_cid[1],
 	card->raw_cid[2], card->raw_cid[3]);
 MMC_DEV_ATTR(csd, "%08x%08x%08x%08x\n", card->raw_csd[0], card->raw_csd[1],
@@ -814,6 +814,7 @@ MMC_DEV_ATTR(enhanced_rpmb_supported, "%#x\n",
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
 
 static struct attribute *mmc_std_attrs[] = {
+	&dev_attr_hq_fw_version.attr,
 	&dev_attr_cid.attr,
 	&dev_attr_csd.attr,
 	&dev_attr_date.attr,
@@ -1046,9 +1047,11 @@ static int mmc_select_hs(struct mmc_card *card)
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS,
 			   card->ext_csd.generic_cmd6_time,
-			   true, true, true);
-	if (!err)
+			   true, false, true);
+	if (!err) {
 		mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
+		err = mmc_switch_status(card, false);
+	}
 
 	return err;
 }
@@ -1072,10 +1075,11 @@ static int mmc_select_hs_ddr(struct mmc_card *card)
 	ext_csd_bits = (bus_width == MMC_BUS_WIDTH_8) ?
 		EXT_CSD_DDR_BUS_WIDTH_8 : EXT_CSD_DDR_BUS_WIDTH_4;
 
-	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			EXT_CSD_BUS_WIDTH,
 			ext_csd_bits,
-			card->ext_csd.generic_cmd6_time);
+			card->ext_csd.generic_cmd6_time,
+			true, false, false);
 	if (err) {
 		pr_warn("%s: switch to bus width %d ddr failed\n",
 			mmc_hostname(host), 1 << bus_width);
@@ -1118,8 +1122,10 @@ static int mmc_select_hs_ddr(struct mmc_card *card)
 	if (err)
 		err = __mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_330);
 
-	if (!err)
+	if (!err) {
 		mmc_set_timing(host, MMC_TIMING_MMC_DDR52);
+		err = mmc_switch_status(card, false);
+	}
 
 	return err;
 }
@@ -1160,18 +1166,22 @@ static int mmc_select_hs400(struct mmc_card *card)
 	 * Before switching to dual data rate operation for HS400,
 	 * it is required to convert from HS200 mode to HS mode.
 	 */
-	mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
-	mmc_set_bus_speed(card);
-
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS,
 			   card->ext_csd.generic_cmd6_time,
-			   true, true, true);
+			   true, false, true);
 	if (err) {
 		pr_warn("%s: switch to high-speed from hs200 failed, err:%d\n",
 			mmc_hostname(host), err);
 		return err;
 	}
+
+	mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
+	mmc_set_bus_speed(card);
+
+	err = mmc_switch_status(card, false);
+	if (err)
+		goto out_err;
 
 	val = EXT_CSD_DDR_BUS_WIDTH_8;
 	if (card->ext_csd.strobe_support) {
@@ -1193,7 +1203,7 @@ static int mmc_select_hs400(struct mmc_card *card)
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS400,
 			   card->ext_csd.generic_cmd6_time,
-			   true, true, true);
+			   true, false, true);
 	if (err) {
 		pr_warn("%s: switch to hs400 failed, err:%d\n",
 			 mmc_hostname(host), err);
@@ -1219,6 +1229,17 @@ static int mmc_select_hs400(struct mmc_card *card)
 				mmc_hostname(host));
 	}
 
+	/*
+	 * Sending of CMD13 should be done after the host calibration
+	 * for enhanced_strobe or HS400 mode is completed.
+	 * Otherwise may see CMD13 timeouts or CRC errors.
+	 */
+	err = mmc_switch_status(card, false);
+
+out_err:
+	if (err)
+		pr_err("%s: %s failed, error %d\n", mmc_hostname(card->host),
+				__func__, err);
 	return err;
 }
 
@@ -1253,9 +1274,17 @@ static int mmc_select_hs200(struct mmc_card *card)
 		err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS200,
 				   card->ext_csd.generic_cmd6_time,
-				   true, true, true);
-		if (!err)
+				   true, false, true);
+		if (!err) {
 			mmc_set_timing(host, MMC_TIMING_MMC_HS200);
+			/*
+			 * Since after switching to hs200, crc errors might
+			 * occur for commands send before tuning.
+			 * So ignore crc error for cmd13.
+			 */
+			err = mmc_switch_status(card, true);
+
+		}
 	}
 err:
 	return err;
@@ -1673,10 +1702,16 @@ reinit:
 
 	if (oldcard) {
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
-			err = -ENOENT;
-			pr_err("%s: %s: CID memcmp failed %d\n",
+			if (oldcard->cid_ffu_flag) {
+				memcpy(oldcard->raw_cid, cid, sizeof(cid));
+				oldcard->cid_ffu_flag = 0;
+				pr_info("FFU update CID\n");
+			} else{
+				err = -ENOENT;
+				pr_err("%s: %s: CID memcmp failed %d\n",
 					mmc_hostname(host), __func__, err);
-			goto err;
+				goto err;
+			}
 		}
 
 		card = oldcard;
@@ -2378,12 +2413,6 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 			goto out;
 	}
 
-	if (mmc_card_doing_auto_bkops(host->card)) {
-		err = mmc_set_auto_bkops(host->card, false);
-		if (err)
-			goto out;
-	}
-
 	err = mmc_flush_cache(host->card);
 	if (err)
 		goto out;
@@ -2463,9 +2492,6 @@ static int mmc_partial_init(struct mmc_host *host)
 	pr_debug("%s: %s: reading and comparing ext_csd successful\n",
 		mmc_hostname(host), __func__);
 
-	if (mmc_card_support_auto_bkops(host->card))
-		(void)mmc_set_auto_bkops(host->card, true);
-
 	if (card->ext_csd.cmdq_support && (card->host->caps2 &
 					   MMC_CAP2_CMD_QUEUE)) {
 		err = mmc_select_cmdq(card);
@@ -2492,6 +2518,7 @@ static int mmc_suspend(struct mmc_host *host)
 	int err;
 	ktime_t start = ktime_get();
 
+	MMC_TRACE(host, "%s: Enter\n", __func__);
 	err = _mmc_suspend(host, true);
 	if (!err) {
 		pm_runtime_disable(&host->card->dev);
@@ -2500,6 +2527,7 @@ static int mmc_suspend(struct mmc_host *host)
 
 	trace_mmc_suspend(mmc_hostname(host), err,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
+	MMC_TRACE(host, "%s: Exit err: %d\n", __func__, err);
 	return err;
 }
 
@@ -2575,6 +2603,7 @@ static int mmc_resume(struct mmc_host *host)
 	int err = 0;
 	ktime_t start = ktime_get();
 
+	MMC_TRACE(host, "%s: Enter\n", __func__);
 	if (!(host->caps & MMC_CAP_RUNTIME_RESUME)) {
 		err = _mmc_resume(host);
 		pm_runtime_set_active(&host->card->dev);
@@ -2584,7 +2613,7 @@ static int mmc_resume(struct mmc_host *host)
 
 	trace_mmc_resume(mmc_hostname(host), err,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
-
+	MMC_TRACE(host, "%s: Exit err: %d\n", __func__, err);
 	return err;
 }
 
@@ -2713,6 +2742,11 @@ static int mmc_power_restore(struct mmc_host *host)
 	}
 
 	ret = mmc_init_card(host, host->card->ocr, host->card);
+	if (ret) {
+		pr_err("%s: %s: mmc_init_card failed (%d)\n",
+			mmc_hostname(host), __func__, ret);
+		return ret;
+	}
 
 	ret = mmc_resume_clk_scaling(host);
 	if (ret)

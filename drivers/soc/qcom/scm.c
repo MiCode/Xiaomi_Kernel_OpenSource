@@ -56,9 +56,16 @@ DEFINE_MUTEX(scm_lmh_lock);
 #define SMC_ATOMIC_MASK 0x80000000
 #define IS_CALL_AVAIL_CMD 1
 
-#define SCM_BUF_LEN(__cmd_size, __resp_size)	\
-	(sizeof(struct scm_command) + sizeof(struct scm_response) + \
-		__cmd_size + __resp_size)
+#define SCM_BUF_LEN(__cmd_size, __resp_size) ({ \
+	size_t x =  __cmd_size + __resp_size; \
+	size_t y = sizeof(struct scm_command) + sizeof(struct scm_response); \
+	size_t result; \
+	if (x < __cmd_size || (x + y) < x) \
+		result = 0; \
+	else \
+		result = x + y; \
+	result; \
+	})
 /**
  * struct scm_command - one SCM command buffer
  * @len: total available memory for command and response
@@ -357,8 +364,7 @@ int scm_call_noalloc(u32 svc_id, u32 cmd_id, const void *cmd_buf,
 	int ret;
 	size_t len = SCM_BUF_LEN(cmd_len, resp_len);
 
-	if (cmd_len > scm_buf_len || resp_len > scm_buf_len ||
-	    len > scm_buf_len)
+	if (len == 0)
 		return -EINVAL;
 
 	if (!IS_ALIGNED((unsigned long)scm_buf, PAGE_SIZE))
@@ -662,10 +668,6 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 
 		desc->ret[0] = desc->ret[1] = desc->ret[2] = 0;
 
-		pr_debug("scm_call: func id %#llx, args: %#x, %#llx, %#llx, %#llx, %#llx\n",
-			x0, desc->arginfo, desc->args[0], desc->args[1],
-			desc->args[2], desc->x5);
-
 		trace_scm_call_start(x0, desc);
 
 		if (scm_version == SCM_ARMV8_64)
@@ -695,10 +697,8 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 	}  while (ret == SCM_V2_EBUSY && (retry_count++ < SCM_EBUSY_MAX_RETRY));
 
 	if (ret < 0)
-		pr_err("scm_call failed: func id %#llx, arginfo: %#x, args: %#llx, %#llx, %#llx, %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
-			x0, desc->arginfo, desc->args[0], desc->args[1],
-			desc->args[2], desc->x5, ret, desc->ret[0],
-			desc->ret[1], desc->ret[2]);
+		pr_err("scm_call failed: func id %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
+			x0, ret, desc->ret[0], desc->ret[1], desc->ret[2]);
 
 	if (arglen > N_REGISTER_ARGS)
 		kfree(desc->extra_arg_buf);
@@ -783,7 +783,7 @@ int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 	int ret;
 	size_t len = SCM_BUF_LEN(cmd_len, resp_len);
 
-	if (cmd_len > len || resp_len > len)
+	if (len == 0 || PAGE_ALIGN(len) < len)
 		return -EINVAL;
 
 	cmd = kzalloc(PAGE_ALIGN(len), GFP_KERNEL);

@@ -15,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/of_platform.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/io.h>
@@ -290,10 +290,91 @@ static const struct v4l2_file_operations msm_ba_v4l2_ba_fops = {
 	.poll = msm_ba_v4l2_poll,
 };
 
-static const struct of_device_id msm_ba_dt_match[] = {
-	{.compatible = "qcom,msm-ba"},
-	{}
-};
+static int parse_ba_dt(struct platform_device *pdev)
+{
+	uint32_t profile_count = 0;
+	struct device_node *np = pdev->dev.of_node;
+	struct device_node *child_np = NULL;
+	struct msm_ba_dev *dev_ctxt = NULL;
+	struct ba_ctxt *ba_ctxt = msm_ba_get_ba_context();
+	char *key = NULL;
+	uint32_t err = 0, i = 0;
+
+	dev_ctxt = ba_ctxt->dev_ctxt;
+
+	profile_count = of_get_child_count(np);
+	if (profile_count == 0) {
+		dprintk(BA_ERR, "%s: Error reading DT. node=%s",
+			__func__, np->full_name);
+		return -ENODEV;
+	}
+
+	dev_ctxt->msm_ba_inp_cfg = devm_kzalloc(&pdev->dev,
+			sizeof(struct msm_ba_input_config) * profile_count,
+			GFP_KERNEL);
+	if (!dev_ctxt->msm_ba_inp_cfg)
+		return -ENOMEM;
+
+	i = 0;
+	for_each_child_of_node(np, child_np) {
+		key = "qcom,type";
+		err = of_property_read_u32(child_np, key,
+			&dev_ctxt->msm_ba_inp_cfg[i].input_type);
+		if (err)
+			goto read_fail;
+
+		key = "qcom,name";
+		err = of_property_read_string(child_np, key,
+			&dev_ctxt->msm_ba_inp_cfg[i].name);
+		if (err)
+			goto read_fail;
+
+		key = "qcom,ba-input";
+		err = of_property_read_u32(child_np, key,
+			&dev_ctxt->msm_ba_inp_cfg[i].ba_ip);
+		if (err)
+			goto read_fail;
+
+		key = "qcom,ba-output";
+		err = of_property_read_u32(child_np, key,
+			&dev_ctxt->msm_ba_inp_cfg[i].ba_out);
+		if (err)
+			goto read_fail;
+
+		key = "qcom,sd-name";
+		err = of_property_read_string(child_np, key,
+			&dev_ctxt->msm_ba_inp_cfg[i].sd_name);
+		if (err)
+			goto read_fail;
+
+		key = "qcom,ba-node";
+		err = of_property_read_u32(child_np, key,
+			&dev_ctxt->msm_ba_inp_cfg[i].ba_node);
+		if (err)
+			goto read_fail;
+
+
+		key = "qcom,user-type";
+		err = of_property_read_u32(child_np, key,
+			&dev_ctxt->msm_ba_inp_cfg[i].input_user_type);
+		if (err)
+			goto read_fail;
+
+		i++;
+	}
+	dev_ctxt->num_config_inputs = i;
+
+read_fail:
+	if (err) {
+		dprintk(BA_INFO, "%s: Error reading DT. node=%s key=%s",
+			__func__, np->full_name, key);
+		devm_kfree(&pdev->dev, dev_ctxt->msm_ba_inp_cfg);
+
+		dev_ctxt->num_config_inputs = 0;
+	}
+
+	return err;
+}
 
 static int msm_ba_device_init(struct platform_device *pdev,
 					struct msm_ba_dev **ret_dev_ctxt)
@@ -312,18 +393,12 @@ static int msm_ba_device_init(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	dev_ctxt = kzalloc(sizeof(struct msm_ba_dev), GFP_KERNEL);
+	dev_ctxt = devm_kzalloc(&pdev->dev, sizeof(struct msm_ba_dev),
+			GFP_KERNEL);
 	if (NULL == dev_ctxt)
 		return -ENOMEM;
 
-	dev_set_drvdata(&pdev->dev, dev_ctxt);
-	dev_ctxt->pdev = pdev;
-	if (!pdev->dev.of_node) {
-		dprintk(BA_ERR, "%s(%d) pdev node is NULL",
-			__func__, __LINE__);
-		rc = -EINVAL;
-		goto err_dev_init;
-	}
+	platform_set_drvdata(pdev, dev_ctxt);
 
 	INIT_LIST_HEAD(&dev_ctxt->inputs);
 	INIT_LIST_HEAD(&dev_ctxt->instances);
@@ -382,9 +457,8 @@ static int msm_ba_device_init(struct platform_device *pdev,
 		dprintk(BA_ERR, "Failed to register v4l2 device");
 	}
 
-err_dev_init:
 	if (rc) {
-		kfree(dev_ctxt);
+		devm_kfree(&pdev->dev, dev_ctxt);
 		dev_ctxt = NULL;
 	}
 	dprintk(BA_INFO, "Exit %s with error %d", __func__, rc);
@@ -392,7 +466,7 @@ err_dev_init:
 	return rc;
 }
 
-static int msm_ba_probe_ba_device(struct platform_device *pdev)
+static int msm_ba_probe(struct platform_device *pdev)
 {
 	struct ba_ctxt *ba_ctxt;
 	int rc = 0;
@@ -406,57 +480,45 @@ static int msm_ba_probe_ba_device(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	rc = msm_ba_device_init(pdev, &ba_ctxt->dev_ctxt);
-	if (rc) {
+	if (rc)
 		dprintk(BA_ERR, "Failed to init device");
-	} else {
+	else
 		ba_ctxt->dev_ctxt->debugfs_root = msm_ba_debugfs_init_dev(
 			ba_ctxt->dev_ctxt, ba_ctxt->debugfs_root);
-		pdev->dev.platform_data = ba_ctxt->dev_ctxt;
+
+	rc = parse_ba_dt(pdev);
+	if (rc < 0) {
+		dprintk(BA_ERR, "%s: devicetree error. Exit init", __func__);
+		return rc;
 	}
 	dprintk(BA_INFO, "Exit %s with error %d", __func__, rc);
 
 	return rc;
 }
 
-static int msm_ba_probe(struct platform_device *pdev)
-{
-	if (of_device_is_compatible(pdev->dev.of_node, "qcom,msm-ba"))
-		return msm_ba_probe_ba_device(pdev);
-	/* How did we end up here? */
-	BUG();
-	return -EINVAL;
-}
-
 static int msm_ba_remove(struct platform_device *pdev)
 {
-	struct msm_ba_dev *dev_ctxt;
+	struct msm_ba_dev *dev_ctxt = platform_get_drvdata(pdev);
 	struct msm_ba_sd_event *ba_sd_event = NULL;
 	struct msm_ba_sd_event *ba_sd_event_tmp = NULL;
 	int rc = 0;
 
-	dprintk(BA_INFO, "Enter %s", __func__);
-	if (!pdev) {
-		dprintk(BA_ERR, "%s invalid input %p", __func__, pdev);
+	if (NULL == dev_ctxt) {
+		dprintk(BA_ERR, "%s invalid device", __func__);
 		rc = -EINVAL;
 	} else {
-		dev_ctxt = pdev->dev.platform_data;
-
-		if (NULL == dev_ctxt) {
-			dprintk(BA_ERR, "%s invalid device", __func__);
-			rc = -EINVAL;
-		} else {
-			video_unregister_device(dev_ctxt->vdev);
-			v4l2_device_unregister(&dev_ctxt->v4l2_dev);
-			cancel_delayed_work_sync(&dev_ctxt->sd_events_work);
-			list_for_each_entry_safe(ba_sd_event, ba_sd_event_tmp,
-					&dev_ctxt->sd_events, list) {
-				list_del(&ba_sd_event->list);
-				kfree(ba_sd_event);
-			}
-
-			kfree(dev_ctxt);
-			dev_ctxt = NULL;
+		video_unregister_device(dev_ctxt->vdev);
+		v4l2_device_unregister(&dev_ctxt->v4l2_dev);
+		cancel_delayed_work_sync(&dev_ctxt->sd_events_work);
+		list_for_each_entry_safe(ba_sd_event, ba_sd_event_tmp,
+				&dev_ctxt->sd_events, list) {
+			list_del(&ba_sd_event->list);
+			kfree(ba_sd_event);
 		}
+
+		devm_kfree(&pdev->dev, dev_ctxt->msm_ba_inp_cfg);
+		devm_kfree(&pdev->dev, dev_ctxt);
+		dev_ctxt = NULL;
 	}
 	dprintk(BA_INFO, "Exit %s with error %d", __func__, rc);
 
@@ -519,6 +581,11 @@ int msm_ba_destroy(void)
 
 	return rc;
 }
+
+static const struct of_device_id msm_ba_dt_match[] = {
+	{.compatible = "qcom,msm-ba"},
+	{}
+};
 
 MODULE_DEVICE_TABLE(of, msm_ba_dt_match);
 

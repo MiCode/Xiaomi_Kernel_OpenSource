@@ -146,7 +146,7 @@ static void hdmi_audio_acr_enable(struct hdmi_audio *audio)
 	struct dss_io_data *io;
 	struct hdmi_audio_acr acr;
 	struct msm_hdmi_audio_setup_params *params;
-	u32 pclk, layout, multiplier, sample_rate;
+	u32 pclk, layout, multiplier = 1, sample_rate;
 	u32 acr_pkt_ctl, aud_pkt_ctl2, acr_reg_cts, acr_reg_n;
 
 	if (!audio) {
@@ -168,9 +168,6 @@ static void hdmi_audio_acr_enable(struct hdmi_audio *audio)
 
 	/* AUDIO_PRIORITY | SOURCE */
 	acr_pkt_ctl = BIT(31) | BIT(8);
-
-	/* N_MULTIPLE(multiplier) */
-	acr_pkt_ctl |= (multiplier & 0x7) << 16;
 
 	switch (sample_rate) {
 	case AUDIO_SAMPLE_RATE_44_1KHZ:
@@ -239,6 +236,10 @@ static void hdmi_audio_acr_enable(struct hdmi_audio *audio)
 	}
 
 	aud_pkt_ctl2 = BIT(0) | (layout << 1);
+
+	/* N_MULTIPLE(multiplier) */
+	acr_pkt_ctl &= ~(7 << 16);
+	acr_pkt_ctl |= (multiplier & 0x7) << 16;
 
 	/* SEND | CONT */
 	acr_pkt_ctl |= BIT(0) | BIT(1);

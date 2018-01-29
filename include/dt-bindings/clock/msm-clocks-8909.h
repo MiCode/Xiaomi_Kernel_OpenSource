@@ -227,4 +227,7 @@
 #define clk_apc3_m_clk				0x78c64486
 #define clk_l2_m_clk                            0x4bedf4d0
 
+#define clk_audio_ap_clk                        0x312ac429
+#define clk_audio_pmi_clk                       0xb7ba2274
+
 #endif

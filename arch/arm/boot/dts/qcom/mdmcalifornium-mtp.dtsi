@@ -10,8 +10,11 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/interrupt-controller/irq.h>
 #include "mdmcalifornium.dtsi"
 #include "mdmcalifornium-pinctrl.dtsi"
+#include "mdmcalifornium-display.dtsi"
+#include "qpic-panel-ili-hvga.dtsi"
 
 &blsp1_uart3 {
 	status = "ok";
@@ -29,7 +32,7 @@
 		compatible = "qcom,smb1351-charger";
 		reg = <0x55>;
 		interrupt-parent = <&tlmm_pinmux>;
-		interrupts = <83 0>;
+		interrupts = <83 IRQ_TYPE_LEVEL_LOW>;
 		qcom,float-voltage-mv = <4200>;
 		qcom,charging-timeout = <1536>;
 		qcom,recharge-thresh-mv = <200>;
@@ -38,6 +41,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&smb_stat_active>;
 		qcom,id-line-not-connected;
+		qcom,switch-freq = <2>;
 	};
 };
 
@@ -111,7 +115,7 @@
 	chan@83 {
 		label = "vph_pwr";
 		reg = <0x83>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <1>;
 		qcom,calibration-type = "absolute";
 		qcom,scale-function = <0>;
@@ -122,22 +126,70 @@
 	chan@4c {
 		label = "xo_therm_buf";
 		reg = <0x4c>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <4>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
 	};
 
 	chan@53 {
 		label = "ambient_therm";
 		reg = <0x53>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
 	};
+
+	chan@4d {
+		label = "mdm_case_therm";
+		reg = <0x4d>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	chan@4e {
+		label = "pa_therm1";
+		reg = <0x4e>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	chan@4f {
+		label = "pa_therm2";
+		reg = <0x4f>;
+		qcom,decimation = <2>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+};
+
+/* Display */
+&mdss_qpic {
+	pinctrl-names= "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_cs_active &mdss_te_active &mdss_rs_active
+		&mdss_ad_active &mdss_bl_active>;
+	pinctrl-1 = <&mdss_cs_sleep &mdss_te_sleep
+		&mdss_rs_sleep &mdss_ad_sleep &mdss_bl_sleep>;
+	status = "ok";
 };

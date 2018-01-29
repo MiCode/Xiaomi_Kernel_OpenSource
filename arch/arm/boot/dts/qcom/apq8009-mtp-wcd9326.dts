@@ -17,22 +17,11 @@
 #include "msm8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
 #include "apq8009-audio-external_codec.dtsi"
+#include "apq8009w-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 WCD9326 MTP";
 	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
 	qcom,msm-id = <265 0>;
 	qcom,board-id= <8 0x105>;
-};
-
-&external_image_mem {
-	reg = <0x0 0x87a00000 0x0 0x0600000>;
-};
-
-&modem_adsp_mem {
-	reg = <0x0 0x88000000 0x0 0x02c00000>;
-};
-
-&peripheral_mem {
-	reg = <0x0 0x8ac00000 0x0 0x0500000>;
 };

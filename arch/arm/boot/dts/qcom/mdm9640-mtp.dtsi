@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,13 @@
 	sound {
 		qcom,cdc-micbias2-headset-only;
 	};
+
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+		ntn-supply-enable-gpio = <&pmd9635_gpios 3 0>;
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <0>;
+	};
 };
 
 &blsp1_uart3 {
@@ -27,9 +34,24 @@
 
 &blsp1_uart2 {
 	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_console_active>;
+};
 
+&i2c_3 {
+	smb1357_otg_supply: smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <83 0>;    /* MDM GPIO 83 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1357_otg_supply";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pmx_smb_stat_active>;
+		qcom,id-line-not-connected;
+		qcom,bmd-algo-disabled;
+	};
 };
 
 &pmd9635_gpios {
@@ -47,7 +69,14 @@
 		status = "ok";
 	};
 
-	gpio@c200 { /* GPIO 3 */
+	gpio@c200 { /* GPIO 3 - Neutrino supply enable */
+		qcom,mode = <1>;         /* Digital output*/
+		qcom,pull = <5>;         /* No Pull */
+		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,src-sel = <0>;      /* GPIO */
+		qcom,invert = <0>;       /* Invert */
+		qcom,master-en = <1>;    /* Enable GPIO */
+		status = "ok";
 	};
 
 	gpio@c300 { /* GPIO 4 */
@@ -228,4 +257,30 @@
 
 &qnand_1 {
 	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&sd_slot_vreg>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <9000 800000>;
+
+	vdd-io-supply = <&pmd9635_l14>;
+	qcom,vdd-io-voltage-level = <1800000 2850000>;
+	qcom,vdd-io-current-level = <200 60000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on
+							&pmx_sdc1_cd_on>;
+	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off>;
+
+	cd-gpios = <&tlmm_pinmux 81 0x1>;
+
+	qcom,devfreq,freq-table = <50000000 200000000>;
+
+	status = "ok";
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&smb1357_otg_supply>;
+	qcom,cpe-gpio = <&tlmm_pinmux 87 0>;
 };

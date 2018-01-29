@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/ipa_uc_offload.h>
 #include "ipa_api.h"
 
 #define DRV_NAME "ipa"
@@ -73,8 +74,98 @@
 		} \
 	} while (0)
 
+#define IPA_API_DISPATCH_RETURN_BOOL(api, p...) \
+	do { \
+		if (!ipa_api_ctrl) { \
+			pr_err("IPA HW is not supported on this target\n"); \
+			ret = false; \
+		} \
+		else { \
+			if (ipa_api_ctrl->api) { \
+				ret = ipa_api_ctrl->api(p); \
+			} else { \
+				pr_err("%s not implemented for IPA ver %d\n", \
+						__func__, ipa_api_hw_type); \
+				WARN_ON(1); \
+				ret = false; \
+			} \
+		} \
+	} while (0)
+
 static enum ipa_hw_type ipa_api_hw_type;
 static struct ipa_api_controller *ipa_api_ctrl;
+
+const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
+	__stringify(IPA_CLIENT_HSIC1_PROD),
+	__stringify(IPA_CLIENT_WLAN1_PROD),
+	__stringify(IPA_CLIENT_HSIC2_PROD),
+	__stringify(IPA_CLIENT_USB2_PROD),
+	__stringify(IPA_CLIENT_HSIC3_PROD),
+	__stringify(IPA_CLIENT_USB3_PROD),
+	__stringify(IPA_CLIENT_HSIC4_PROD),
+	__stringify(IPA_CLIENT_USB4_PROD),
+	__stringify(IPA_CLIENT_HSIC5_PROD),
+	__stringify(IPA_CLIENT_USB_PROD),
+	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
+	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
+	__stringify(IPA_CLIENT_APPS_LAN_WAN_PROD),
+	__stringify(IPA_CLIENT_APPS_CMD_PROD),
+	__stringify(IPA_CLIENT_ODU_PROD),
+	__stringify(IPA_CLIENT_MHI_PROD),
+	__stringify(IPA_CLIENT_Q6_LAN_PROD),
+	__stringify(IPA_CLIENT_Q6_WAN_PROD),
+	__stringify(IPA_CLIENT_Q6_CMD_PROD),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD),
+	__stringify(IPA_CLIENT_Q6_DECOMP_PROD),
+	__stringify(IPA_CLIENT_Q6_DECOMP2_PROD),
+	__stringify(IPA_CLIENT_UC_USB_PROD),
+
+	/* Below PROD client type is only for test purpose */
+	__stringify(IPA_CLIENT_TEST_PROD),
+	__stringify(IPA_CLIENT_TEST1_PROD),
+	__stringify(IPA_CLIENT_TEST2_PROD),
+	__stringify(IPA_CLIENT_TEST3_PROD),
+	__stringify(IPA_CLIENT_TEST4_PROD),
+
+	__stringify(IPA_CLIENT_HSIC1_CONS),
+	__stringify(IPA_CLIENT_WLAN1_CONS),
+	__stringify(IPA_CLIENT_HSIC2_CONS),
+	__stringify(IPA_CLIENT_USB2_CONS),
+	__stringify(IPA_CLIENT_WLAN2_CONS),
+	__stringify(IPA_CLIENT_HSIC3_CONS),
+	__stringify(IPA_CLIENT_USB3_CONS),
+	__stringify(IPA_CLIENT_WLAN3_CONS),
+	__stringify(IPA_CLIENT_HSIC4_CONS),
+	__stringify(IPA_CLIENT_USB4_CONS),
+	__stringify(IPA_CLIENT_WLAN4_CONS),
+	__stringify(IPA_CLIENT_HSIC5_CONS),
+	__stringify(IPA_CLIENT_USB_CONS),
+	__stringify(IPA_CLIENT_USB_DPL_CONS),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_CONS),
+	__stringify(IPA_CLIENT_A2_TETHERED_CONS),
+	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
+	__stringify(IPA_CLIENT_APPS_LAN_CONS),
+	__stringify(IPA_CLIENT_APPS_WAN_CONS),
+	__stringify(IPA_CLIENT_ODU_EMB_CONS),
+	__stringify(IPA_CLIENT_ODU_TETH_CONS),
+	__stringify(IPA_CLIENT_MHI_CONS),
+	__stringify(IPA_CLIENT_Q6_LAN_CONS),
+	__stringify(IPA_CLIENT_Q6_WAN_CONS),
+	__stringify(IPA_CLIENT_Q6_DUN_CONS),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS),
+	__stringify(IPA_CLIENT_Q6_DECOMP_CONS),
+	__stringify(IPA_CLIENT_Q6_DECOMP2_CONS),
+	__stringify(IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS),
+	/* Below CONS client type is only for test purpose */
+	__stringify(IPA_CLIENT_TEST_CONS),
+	__stringify(IPA_CLIENT_TEST1_CONS),
+	__stringify(IPA_CLIENT_TEST2_CONS),
+	__stringify(IPA_CLIENT_TEST3_CONS),
+	__stringify(IPA_CLIENT_TEST4_CONS),
+};
 
 
 /**
@@ -160,6 +251,24 @@ int ipa_reset_endpoint(u32 clnt_hdl)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_reset_endpoint);
+
+/**
+* ipa_disable_endpoint() - Disable an endpoint from IPA perspective
+* @clnt_hdl:	[in] IPA client handle
+*
+* Returns:	0 on success, negative on failure
+*
+* Note:		Should not be called from atomic context
+*/
+int ipa_disable_endpoint(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disable_endpoint, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_disable_endpoint);
 
 
 /**
@@ -1459,314 +1568,6 @@ int ipa_uc_dereg_rdyCB(void)
 EXPORT_SYMBOL(ipa_uc_dereg_rdyCB);
 
 /**
- * ipa_rm_create_resource() - create resource
- * @create_params: [in] parameters needed
- *                  for resource initialization
- *
- * Returns: 0 on success, negative on failure
- *
- * This function is called by IPA RM client to initialize client's resources.
- * This API should be called before any other IPA RM API on a given resource
- * name.
- *
- */
-int ipa_rm_create_resource(struct ipa_rm_create_params *create_params)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_create_resource, create_params);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_create_resource);
-
-/**
- * ipa_rm_delete_resource() - delete resource
- * @resource_name: name of resource to be deleted
- *
- * Returns: 0 on success, negative on failure
- *
- * This function is called by IPA RM client to delete client's resources.
- *
- */
-int ipa_rm_delete_resource(enum ipa_rm_resource_name resource_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_delete_resource, resource_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_delete_resource);
-
-/**
- * ipa_rm_add_dependency() - create dependency
- *					between 2 resources
- * @resource_name: name of dependent resource
- * @depends_on_name: name of its dependency
- *
- * Returns: 0 on success, negative on failure
- *
- * Side effects: IPA_RM_RESORCE_GRANTED could be generated
- * in case client registered with IPA RM
- */
-int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_add_dependency, resource_name,
-		depends_on_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_add_dependency);
-
-/**
- * ipa_rm_delete_dependency() - create dependency
- *					between 2 resources
- * @resource_name: name of dependent resource
- * @depends_on_name: name of its dependency
- *
- * Returns: 0 on success, negative on failure
- *
- * Side effects: IPA_RM_RESORCE_GRANTED could be generated
- * in case client registered with IPA RM
- */
-int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_delete_dependency, resource_name,
-		depends_on_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_delete_dependency);
-
-/**
- * ipa_rm_request_resource() - request resource
- * @resource_name: [in] name of the requested resource
- *
- * Returns: 0 on success, negative on failure
- *
- * All registered callbacks are called with IPA_RM_RESOURCE_GRANTED
- * on successful completion of this operation.
- */
-int ipa_rm_request_resource(enum ipa_rm_resource_name resource_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_request_resource, resource_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_request_resource);
-
-/**
- * ipa_rm_release_resource() - release resource
- * @resource_name: [in] name of the requested resource
- *
- * Returns: 0 on success, negative on failure
- *
- * All registered callbacks are called with IPA_RM_RESOURCE_RELEASED
- * on successful completion of this operation.
- */
-int ipa_rm_release_resource(enum ipa_rm_resource_name resource_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_release_resource, resource_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_release_resource);
-
-/**
- * ipa_rm_register() - register for event
- * @resource_name: resource name
- * @reg_params: [in] registration parameters
- *
- * Returns: 0 on success, negative on failure
- *
- * Registration parameters provided here should be the same
- * as provided later in  ipa_rm_deregister() call.
- */
-int ipa_rm_register(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_register, resource_name, reg_params);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_register);
-
-/**
- * ipa_rm_deregister() - cancel the registration
- * @resource_name: resource name
- * @reg_params: [in] registration parameters
- *
- * Returns: 0 on success, negative on failure
- *
- * Registration parameters provided here should be the same
- * as provided in  ipa_rm_register() call.
- */
-int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_deregister, resource_name, reg_params);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_deregister);
-
-/**
- * ipa_rm_set_perf_profile() - set performance profile
- * @resource_name: resource name
- * @profile: [in] profile information.
- *
- * Returns: 0 on success, negative on failure
- *
- * Set resource performance profile.
- * Updates IPA driver if performance level changed.
- */
-int ipa_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_perf_profile *profile)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(
-		ipa_rm_set_perf_profile,
-		resource_name,
-		profile);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_set_perf_profile);
-
-/**
- * ipa_rm_notify_completion() -
- *	consumer driver notification for
- *	request_resource / release_resource operations
- *	completion
- * @event: notified event
- * @resource_name: resource name
- *
- * Returns: 0 on success, negative on failure
- */
-int ipa_rm_notify_completion(enum ipa_rm_event event,
-		enum ipa_rm_resource_name resource_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_notify_completion, event, resource_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_notify_completion);
-
-/**
-* ipa_rm_inactivity_timer_init() - Init function for IPA RM
-* inactivity timer. This function shall be called prior calling
-* any other API of IPA RM inactivity timer.
-*
-* @resource_name: Resource name. @see ipa_rm.h
-* @msecs: time in miliseccond, that IPA RM inactivity timer
-* shall wait prior calling to ipa_rm_release_resource().
-*
-* Return codes:
-* 0: success
-* -EINVAL: invalid parameters
-*/
-int ipa_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
-	unsigned long msecs)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_inactivity_timer_init, resource_name,
-		msecs);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_inactivity_timer_init);
-
-/**
-* ipa_rm_inactivity_timer_destroy() - De-Init function for IPA
-* RM inactivity timer.
-*
-* @resource_name: Resource name. @see ipa_rm.h
-*
-* Return codes:
-* 0: success
-* -EINVAL: invalid parameters
-*/
-int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_inactivity_timer_destroy, resource_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_inactivity_timer_destroy);
-
-/**
-* ipa_rm_inactivity_timer_request_resource() - Same as
-* ipa_rm_request_resource(), with a difference that calling to
-* this function will also cancel the inactivity timer, if
-* ipa_rm_inactivity_timer_release_resource() was called earlier.
-*
-* @resource_name: Resource name. @see ipa_rm.h
-*
-* Return codes:
-* 0: success
-* -EINVAL: invalid parameters
-*/
-int ipa_rm_inactivity_timer_request_resource(
-	enum ipa_rm_resource_name resource_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_inactivity_timer_request_resource,
-		resource_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_inactivity_timer_request_resource);
-
-/**
-* ipa_rm_inactivity_timer_release_resource() - Sets the
-* inactivity timer to the timeout set by
-* ipa_rm_inactivity_timer_init(). When the timeout expires, IPA
-* RM inactivity timer will call to ipa_rm_release_resource().
-* If a call to ipa_rm_inactivity_timer_request_resource() was
-* made BEFORE the timout has expired, rge timer will be
-* cancelled.
-*
-* @resource_name: Resource name. @see ipa_rm.h
-*
-* Return codes:
-* 0: success
-* -EINVAL: invalid parameters
-*/
-int ipa_rm_inactivity_timer_release_resource(
-	enum ipa_rm_resource_name resource_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_inactivity_timer_release_resource,
-		resource_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_inactivity_timer_release_resource);
-
-/**
 * teth_bridge_init() - Initialize the Tethering bridge driver
 * @params - in/out params for USB initialization API (please look at struct
 *  definition for more info)
@@ -2014,63 +1815,23 @@ void ipa_dma_destroy(void)
 }
 EXPORT_SYMBOL(ipa_dma_destroy);
 
-/**
- * ipa_mhi_init() - Initialize IPA MHI driver
- * @params: initialization params
- *
- * This function is called by MHI client driver on boot to initialize IPA MHI
- * Driver. When this function returns device can move to READY state.
- * This function is doing the following:
- *	- Initialize MHI IPA internal data structures
- *	- Create IPA RM resources
- *	- Initialize debugfs
- *
- * Return codes: 0	  : success
- *		 negative : error
- */
-int ipa_mhi_init(struct ipa_mhi_init_params *params)
+int ipa_mhi_init_engine(struct ipa_mhi_init_engine *params)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_init, params);
+	IPA_API_DISPATCH_RETURN(ipa_mhi_init_engine, params);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_init);
+EXPORT_SYMBOL(ipa_mhi_init_engine);
 
 /**
- * ipa_mhi_start() - Start IPA MHI engine
- * @params: pcie addresses for MHI
- *
- * This function is called by MHI client driver on MHI engine start for
- * handling MHI accelerated channels. This function is called after
- * ipa_mhi_init() was called and can be called after MHI reset to restart MHI
- * engine. When this function returns device can move to M0 state.
- * This function is doing the following:
- *	- Send command to uC for initialization of MHI engine
- *	- Add dependencies to IPA RM
- *	- Request MHI_PROD in IPA RM
- *
- * Return codes: 0	  : success
- *		 negative : error
- */
-int ipa_mhi_start(struct ipa_mhi_start_params *params)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_mhi_start, params);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_mhi_start);
-
-/**
- * ipa_mhi_connect_pipe() - Connect pipe to IPA and start corresponding
+ * ipa_connect_mhi_pipe() - Connect pipe to IPA and start corresponding
  * MHI channel
  * @in: connect parameters
  * @clnt_hdl: [out] client handle for this pipe
  *
- * This function is called by MHI client driver on MHI channel start.
+ * This function is called by IPA MHI client driver on MHI channel start.
  * This function is called after MHI engine was started.
  * This function is doing the following:
  *	- Send command to uC to start corresponding MHI channel
@@ -2079,23 +1840,24 @@ EXPORT_SYMBOL(ipa_mhi_start);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
+int ipa_connect_mhi_pipe(struct ipa_mhi_connect_params_internal *in,
+		u32 *clnt_hdl)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_connect_pipe, in, clnt_hdl);
+	IPA_API_DISPATCH_RETURN(ipa_connect_mhi_pipe, in, clnt_hdl);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_connect_pipe);
+EXPORT_SYMBOL(ipa_connect_mhi_pipe);
 
 /**
- * ipa_mhi_disconnect_pipe() - Disconnect pipe from IPA and reset corresponding
+ * ipa_disconnect_mhi_pipe() - Disconnect pipe from IPA and reset corresponding
  * MHI channel
  * @in: connect parameters
  * @clnt_hdl: [out] client handle for this pipe
  *
- * This function is called by MHI client driver on MHI channel reset.
+ * This function is called by IPA MHI client driver on MHI channel reset.
  * This function is called after MHI channel was started.
  * This function is doing the following:
  *	- Send command to uC to reset corresponding MHI channel
@@ -2104,81 +1866,218 @@ EXPORT_SYMBOL(ipa_mhi_connect_pipe);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_disconnect_pipe(u32 clnt_hdl)
+int ipa_disconnect_mhi_pipe(u32 clnt_hdl)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_disconnect_pipe, clnt_hdl);
+	IPA_API_DISPATCH_RETURN(ipa_disconnect_mhi_pipe, clnt_hdl);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_disconnect_pipe);
+EXPORT_SYMBOL(ipa_disconnect_mhi_pipe);
 
-/**
- * ipa_mhi_suspend() - Suspend MHI accelerated channels
- * @force:
- *	false: in case of data pending in IPA, MHI channels will not be
- *		suspended and function will fail.
- *	true:  in case of data pending in IPA, make sure no further access from
- *		IPA to PCIe is possible. In this case suspend cannot fail.
- *
- * This function is called by MHI client driver on MHI suspend.
- * This function is called after MHI channel was started.
- * When this function returns device can move to M1/M2/M3/D3cold state.
- * This function is doing the following:
- *	- Send command to uC to suspend corresponding MHI channel
- *	- Make sure no further access is possible from IPA to PCIe
- *	- Release MHI_PROD in IPA RM
- *
- * Return codes: 0	  : success
- *		 negative : error
- */
-int ipa_mhi_suspend(bool force)
+bool ipa_mhi_stop_gsi_channel(enum ipa_client_type client)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN_BOOL(ipa_mhi_stop_gsi_channel, client);
+
+	return ret;
+}
+
+int ipa_uc_mhi_reset_channel(int channelHandle)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_suspend, force);
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_reset_channel, channelHandle);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_suspend);
 
-/**
- * ipa_mhi_resume() - Resume MHI accelerated channels
- *
- * This function is called by MHI client driver on MHI resume.
- * This function is called after MHI channel was suspended.
- * When this function returns device can move to M0 state.
- * This function is doing the following:
- *	- Send command to uC to resume corresponding MHI channel
- *	- Request MHI_PROD in IPA RM
- *	- Resume data to IPA
- *
- * Return codes: 0	  : success
- *		 negative : error
- */
-int ipa_mhi_resume(void)
+bool ipa_mhi_sps_channel_empty(enum ipa_client_type client)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN_BOOL(ipa_mhi_sps_channel_empty, client);
+
+	return ret;
+}
+
+int ipa_qmi_enable_force_clear_datapath_send(
+	struct ipa_enable_force_clear_datapath_req_msg_v01 *req)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_resume);
+	IPA_API_DISPATCH_RETURN(ipa_qmi_enable_force_clear_datapath_send, req);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_resume);
+
+int ipa_qmi_disable_force_clear_datapath_send(
+	struct ipa_disable_force_clear_datapath_req_msg_v01 *req)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_qmi_disable_force_clear_datapath_send, req);
+
+	return ret;
+}
+
+int ipa_generate_tag_process(void)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_generate_tag_process);
+
+	return ret;
+}
+
+int ipa_disable_sps_pipe(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disable_sps_pipe, client);
+
+	return ret;
+}
+
+int ipa_mhi_reset_channel_internal(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_reset_channel_internal, client);
+
+	return ret;
+}
+
+int ipa_mhi_start_channel_internal(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_start_channel_internal, client);
+
+	return ret;
+}
+
+void ipa_get_holb(int ep_idx, struct ipa_ep_cfg_holb *holb)
+{
+	IPA_API_DISPATCH(ipa_get_holb, ep_idx, holb);
+}
+
+void ipa_set_tag_process_before_gating(bool val)
+{
+	IPA_API_DISPATCH(ipa_set_tag_process_before_gating, val);
+}
+
+int ipa_mhi_query_ch_info(enum ipa_client_type client,
+		struct gsi_chan_info *ch_info)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_query_ch_info, client, ch_info);
+
+	return ret;
+}
+
+int ipa_uc_mhi_suspend_channel(int channelHandle)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_suspend_channel, channelHandle);
+
+	return ret;
+}
+
+int ipa_uc_mhi_stop_event_update_channel(int channelHandle)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_stop_event_update_channel,
+			channelHandle);
+
+	return ret;
+}
+
+bool ipa_has_open_aggr_frame(enum ipa_client_type client)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN_BOOL(ipa_has_open_aggr_frame, client);
+
+	return ret;
+}
+
+int ipa_mhi_resume_channels_internal(enum ipa_client_type client,
+		bool LPTransitionRejected, bool brstmode_enabled,
+		union __packed gsi_channel_scratch ch_scratch, u8 index)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_resume_channels_internal, client,
+			LPTransitionRejected, brstmode_enabled, ch_scratch,
+			index);
+
+	return ret;
+}
+
+int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t *cmd)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_send_dl_ul_sync_info,
+			cmd);
+
+	return ret;
+}
+
+int ipa_mhi_destroy_channel(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_destroy_channel, client);
+
+	return ret;
+}
+
+int ipa_uc_mhi_init(void (*ready_cb)(void),
+		void (*wakeup_request_cb)(void))
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_init, ready_cb, wakeup_request_cb);
+
+	return ret;
+}
+
+void ipa_uc_mhi_cleanup(void)
+{
+	IPA_API_DISPATCH(ipa_uc_mhi_cleanup);
+}
+
+int ipa_uc_mhi_print_stats(char *dbg_buff, int size)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_print_stats, dbg_buff, size);
+
+	return ret;
+}
 
 /**
- * ipa_mhi_destroy() - Destroy MHI IPA
+ * ipa_uc_state_check() - Check the status of the uC interface
  *
- * This function is called by MHI client driver on MHI reset to destroy all IPA
- * MHI resources.
+ * Return value: 0 if the uC is loaded, interface is initialized
+ *               and there was no recent failure in one of the commands.
+ *               A negative value is returned otherwise.
  */
-void ipa_mhi_destroy(void)
+int ipa_uc_state_check(void)
 {
-	IPA_API_DISPATCH(ipa_mhi_destroy);
+	int ret;
 
+	IPA_API_DISPATCH_RETURN(ipa_uc_state_check);
+
+	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_destroy);
 
 int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 {
@@ -2431,31 +2330,6 @@ int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 EXPORT_SYMBOL(ipa_disable_apps_wan_cons_deaggr);
 
 /**
- * ipa_rm_add_dependency_sync() - Create a dependency between 2 resources
- * in a synchronized fashion. In case a producer resource is in GRANTED state
- * and the newly added consumer resource is in RELEASED state, the consumer
- * entity will be requested and the function will block until the consumer
- * is granted.
- * @resource_name: name of dependent resource
- * @depends_on_name: name of its dependency
- *
- * Returns: 0 on success, negative on failure
- *
- * Side effects: May block. See documentation above.
- */
-int ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_rm_add_dependency_sync, resource_name,
-		depends_on_name);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_rm_add_dependency_sync);
-
-/**
  * ipa_get_dma_dev()- Returns ipa_ctx dma dev pointer
  *
  * Return value: pointer to ipa_ctx dma dev pointer
@@ -2540,6 +2414,50 @@ int ipa_stop_gsi_channel(u32 clnt_hdl)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_stop_gsi_channel);
+
+/**
+ * ipa_get_version_string() - Get string representation of IPA version
+ * @ver: IPA version
+ *
+ * Return: Constant string representation
+ */
+const char *ipa_get_version_string(enum ipa_hw_type ver)
+{
+	const char *str;
+
+	switch (ver) {
+	case IPA_HW_v1_0:
+		str = "1.0";
+		break;
+	case IPA_HW_v1_1:
+		str = "1.1";
+		break;
+	case IPA_HW_v2_0:
+		str = "2.0";
+		break;
+	case IPA_HW_v2_1:
+		str = "2.1";
+		break;
+	case IPA_HW_v2_5:
+		str = "2.5/2.6";
+		break;
+	case IPA_HW_v2_6L:
+		str = "2.6L";
+		break;
+	case IPA_HW_v3_0:
+		str = "3.0";
+		break;
+	case IPA_HW_v3_1:
+		str = "3.1";
+		break;
+	default:
+		str = "Invalid version";
+		break;
+	}
+
+	return str;
+}
+EXPORT_SYMBOL(ipa_get_version_string);
 
 static struct of_device_id ipa_plat_drv_match[] = {
 	{ .compatible = "qcom,ipa", },
@@ -2633,6 +2551,200 @@ int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
 	return ret;
 }
 EXPORT_SYMBOL(ipa_register_ipa_ready_cb);
+
+/**
+ * ipa_inc_client_enable_clks() - Increase active clients counter, and
+ * enable ipa clocks if necessary
+ *
+ * Please do not use this API, use the wrapper macros instead (ipa_i.h)
+ * IPA_ACTIVE_CLIENTS_INC_XXX();
+ *
+ * Return codes:
+ * None
+*/
+void ipa_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
+{
+	IPA_API_DISPATCH(ipa_inc_client_enable_clks, id);
+}
+EXPORT_SYMBOL(ipa_inc_client_enable_clks);
+
+/**
+ * ipa_dec_client_disable_clks() - Increase active clients counter, and
+ * enable ipa clocks if necessary
+ *
+ * Please do not use this API, use the wrapper macros instead (ipa_i.h)
+ * IPA_ACTIVE_CLIENTS_DEC_XXX();
+ *
+ * Return codes:
+ * None
+*/
+void ipa_dec_client_disable_clks(struct ipa_active_client_logging_info *id)
+{
+	IPA_API_DISPATCH(ipa_dec_client_disable_clks, id);
+}
+EXPORT_SYMBOL(ipa_dec_client_disable_clks);
+
+/**
+ * ipa_inc_client_enable_clks_no_block() - Only increment the number of active
+ * clients if no asynchronous actions should be done.Asynchronous actions are
+ * locking a mutex and waking up IPA HW.
+ *
+ * Please do not use this API, use the wrapper macros instead(ipa_i.h)
+ *
+ *
+ * Return codes : 0 for success
+ *		-EPERM if an asynchronous action should have been done
+ */
+int ipa_inc_client_enable_clks_no_block(
+	struct ipa_active_client_logging_info *id)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_inc_client_enable_clks_no_block, id);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_inc_client_enable_clks_no_block);
+
+/**
+* ipa_suspend_resource_no_block() - suspend client endpoints related to the
+* IPA_RM resource and decrement active clients counter. This function is
+* guaranteed to avoid sleeping.
+*
+* @resource: [IN] IPA Resource Manager resource
+*
+* Return codes: 0 on success, negative on failure.
+*/
+int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_suspend_resource_no_block, resource);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_suspend_resource_no_block);
+/**
+ * ipa_resume_resource() - resume client endpoints related to the IPA_RM
+ * resource.
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_resume_resource(enum ipa_rm_resource_name resource)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_resume_resource, resource);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_resume_resource);
+
+/**
+ * ipa_suspend_resource_sync() - suspend client endpoints related to the IPA_RM
+ * resource and decrement active clients counter, which may result in clock
+ * gating of IPA clocks.
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_suspend_resource_sync, resource);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_suspend_resource_sync);
+
+/**
+ * ipa_set_required_perf_profile() - set IPA to the specified performance
+ *	profile based on the bandwidth, unless minimum voltage required is
+ *	higher. In this case the floor_voltage specified will be used.
+ * @floor_voltage: minimum voltage to operate
+ * @bandwidth_mbps: needed bandwidth from IPA
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
+	u32 bandwidth_mbps)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_set_required_perf_profile, floor_voltage,
+		bandwidth_mbps);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_set_required_perf_profile);
+
+/**
+ * ipa_get_ipc_logbuf() - return a pointer to IPA driver IPC log
+ */
+void *ipa_get_ipc_logbuf(void)
+{
+	void *ret;
+
+	IPA_API_DISPATCH_RETURN_PTR(ipa_get_ipc_logbuf);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_ipc_logbuf);
+
+/**
+ * ipa_get_ipc_logbuf_low() - return a pointer to IPA driver IPC low prio log
+ */
+void *ipa_get_ipc_logbuf_low(void)
+{
+	void *ret;
+
+	IPA_API_DISPATCH_RETURN_PTR(ipa_get_ipc_logbuf_low);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_ipc_logbuf_low);
+
+/**
+ * ipa_assert() - general function for assertion
+ */
+void ipa_assert(void)
+{
+	pr_err("IPA: unrecoverable error has occurred, asserting\n");
+	BUG();
+}
+
+/**
+ * ipa_setup_uc_ntn_pipes() - setup uc offload pipes
+ */
+int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *inp,
+		ipa_notify_cb notify, void *priv, u8 hdr_len,
+		struct ipa_ntn_conn_out_params *outp)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_setup_uc_ntn_pipes, inp,
+		notify, priv, hdr_len, outp);
+
+	return ret;
+}
+
+/**
+ * ipa_tear_down_uc_offload_pipes() - tear down uc offload pipes
+ */
+int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
+		int ipa_ep_idx_dl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_tear_down_uc_offload_pipes, ipa_ep_idx_ul,
+		ipa_ep_idx_dl);
+
+	return ret;
+}
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

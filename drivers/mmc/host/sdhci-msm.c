@@ -2582,9 +2582,17 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	if (done)
 		init_completion(&msm_host->pwr_irq_completion);
 	else if (!wait_for_completion_timeout(&msm_host->pwr_irq_completion,
-				msecs_to_jiffies(MSM_PWR_IRQ_TIMEOUT_MS)))
+				msecs_to_jiffies(MSM_PWR_IRQ_TIMEOUT_MS))) {
 		__WARN_printf("%s: request(%d) timed out waiting for pwr_irq\n",
 					mmc_hostname(host->mmc), req_type);
+		MMC_TRACE(host->mmc,
+			"request(%d) timed out waiting for pwr_irq, 0xDC: 0x%08x | 0xE0: 0x%08x | 0xE8: 0x%08x\n",
+			req_type,
+			readl_relaxed(msm_host->core_mem + CORE_PWRCTL_STATUS),
+			readl_relaxed(msm_host->core_mem + CORE_PWRCTL_MASK),
+			readl_relaxed(msm_host->core_mem + CORE_PWRCTL_CTL));
+		mmc_stop_tracing(host->mmc);
+		}
 
 	pr_debug("%s: %s: request %d done\n", mmc_hostname(host->mmc),
 			__func__, req_type);
@@ -2706,7 +2714,24 @@ out:
 	return rc;
 }
 
+static void sdhci_msm_disable_controller_clock(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
+	if (atomic_read(&msm_host->controller_clock)) {
+		if (!IS_ERR(msm_host->clk))
+			clk_disable_unprepare(msm_host->clk);
+		if (!IS_ERR(msm_host->pclk))
+			clk_disable_unprepare(msm_host->pclk);
+		if (!IS_ERR(msm_host->ice_clk))
+			clk_disable_unprepare(msm_host->ice_clk);
+		sdhci_msm_bus_voting(host, 0);
+		atomic_set(&msm_host->controller_clock, 0);
+		pr_debug("%s: %s: disabled controller clock\n",
+			mmc_hostname(host->mmc), __func__);
+	}
+}
 
 static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 {
@@ -3072,6 +3097,9 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 	if (host->cq_host)
 		sdhci_msm_cmdq_dump_debug_ram(host);
 
+	MMC_TRACE(host->mmc, "Data cnt: 0x%08x | Fifo cnt: 0x%08x\n",
+		readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CNT),
+		readl_relaxed(msm_host->core_mem + CORE_MCI_FIFO_CNT));
 	pr_info("Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
 		readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CNT),
 		readl_relaxed(msm_host->core_mem + CORE_MCI_FIFO_CNT),
@@ -3958,10 +3986,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			goto pltfm_free;
 		}
 
-		if (ret <= 2) {
+		if (ret <= 2)
 			sdhci_slot[ret-1] = msm_host;
-			host->slot_no = ret;
-		}
 
 		msm_host->pdata = sdhci_msm_populate_pdata(&pdev->dev,
 							   msm_host);
@@ -4566,7 +4592,7 @@ static int sdhci_msm_suspend(struct device *dev)
 	}
 	ret = sdhci_msm_runtime_suspend(dev);
 out:
-
+	sdhci_msm_disable_controller_clock(host);
 	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
 		sdio_cfg = sdhci_msm_cfg_sdio_wakeup(host, true);
 		if (sdio_cfg)

@@ -313,6 +313,7 @@ apcc_cpr: cpr3-ctrl@99e8000 {
 	clock-names = "core_clk";
 	interrupts = <0 48 0>, <0 47 0>;
 	interrupt-names = "cpr", "ceiling";
+	qcom,cpr-interrupt-affinity = <&CPU0 &CPU1>;
 	qcom,cpr-ctrl-name = "apcc";
 
 	qcom,cpr-sensor-time = <1000>;

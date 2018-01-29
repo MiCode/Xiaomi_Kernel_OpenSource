@@ -875,7 +875,7 @@
 
 			config {
 				pins = "gpio23";
-				drive-strength = <10>;/*2mA*/
+				drive-strength = <2>;/*2mA*/
 				bias-disable;/*NOpull*/
 			};
 		};
@@ -901,7 +901,7 @@
 
 			config {
 				pins = "gpio20";
-				drive-strength = <10>;/*2mA*/
+				drive-strength = <2>;/*2mA*/
 				bias-disable;/*NOpull*/
 			};
 		};
@@ -927,7 +927,7 @@
 
 			config {
 				pins = "gpio74";
-				drive-strength = <10>;/*2mA*/
+				drive-strength = <2>;/*2mA*/
 				bias-disable;/*NOpull*/
 			};
 		};
@@ -953,7 +953,7 @@
 
 			config {
 				pins = "gpio22";
-				drive-strength = <10>;/*2mA*/
+				drive-strength = <2>;/*2mA*/
 				bias-disable;/*NOpull*/
 			};
 		};
@@ -980,9 +980,8 @@
 
 			config {
 				pins = "gpio21";
-				drive-strength = <10>;/*2mA*/
+				drive-strength = <2>;/*2mA*/
 				bias-disable;/*NOpull*/
-				output-high;
 			};
 		};
 
@@ -1008,9 +1007,20 @@
 
 			config {
 				pins = "gpio10";
-				drive-strength = <10>;/*2mA*/
+				drive-strength = <2>;/*2mA*/
 				bias-disable;/*NOpull*/
 				output-low;
+			};
+		};
+		pinctrl_pps: ppsgrp {
+			mux {
+				pins = "gpio53";
+				function = "nav_tsync_out_a";
+			};
+
+			config {
+				pins = "gpio53";
+				bias-pull-down;
 			};
 		};
 	};

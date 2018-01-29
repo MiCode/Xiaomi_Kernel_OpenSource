@@ -68,7 +68,8 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	pingpong_bit = (~(pingpong_status >> stats_pingpong_offset) & 0x1);
 
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
-			vfe_dev->pdev->id, bufq_handle, &buf);
+			vfe_dev->pdev->id, bufq_handle,
+			MSM_ISP_INVALID_BUF_INDEX, &buf);
 	if (rc == -EFAULT) {
 		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_BUF_FATAL_ERROR);
 		return rc;
@@ -202,7 +203,7 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	if (rc < 0) {
 		if (rc == -EFAULT)
 			msm_isp_halt_send_error(vfe_dev,
-					ISP_EVENT_BUF_FATAL_ERROR);
+					ISP_EVENT_PING_PONG_MISMATCH);
 		pr_err("stats_buf_divert: update put buf cnt fail\n");
 		return rc;
 	}
@@ -597,6 +598,12 @@ static int msm_isp_stats_update_cgc_override(struct vfe_device *vfe_dev,
 	int i;
 	uint32_t stats_mask = 0, idx;
 
+	if (stream_cfg_cmd->num_streams > MSM_ISP_STATS_MAX) {
+		pr_err("%s invalid num_streams %d\n", __func__,
+			stream_cfg_cmd->num_streams);
+		return -EINVAL;
+	}
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
 
@@ -667,12 +674,19 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev,
 	uint32_t num_stats_comp_mask = 0;
 	struct msm_vfe_stats_stream *stream_info;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+
+	if (stream_cfg_cmd->num_streams > MSM_ISP_STATS_MAX) {
+		pr_err("%s invalid num_streams %d\n", __func__,
+			stream_cfg_cmd->num_streams);
+		return -EINVAL;
+	}
 	num_stats_comp_mask =
 		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
 	rc = vfe_dev->hw_info->vfe_ops.stats_ops.check_streams(
 		stats_data->stream_info);
 	if (rc < 0)
 		return rc;
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
 

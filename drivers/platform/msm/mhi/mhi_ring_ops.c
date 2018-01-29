@@ -19,7 +19,7 @@ static int add_element(struct mhi_ring *ring, void **rp,
 	uintptr_t d_wp = 0, d_rp = 0, ring_size = 0;
 	int r;
 
-	if (0 == ring->el_size || NULL == ring
+	if (NULL == ring || 0 == ring->el_size
 		|| NULL == ring->base || 0 == ring->len) {
 		mhi_log(MHI_MSG_ERROR, "Bad input parameters, quitting.\n");
 		return -EINVAL;
@@ -48,6 +48,9 @@ static int add_element(struct mhi_ring *ring, void **rp,
 		*assigned_addr = (char *)ring->wp;
 	*wp = (void *)(((d_wp + 1) % ring_size) * ring->el_size +
 						(uintptr_t)ring->base);
+
+	/* force update visible to other cores */
+	smp_wmb();
 	return 0;
 }
 
@@ -77,7 +80,7 @@ int delete_element(struct mhi_ring *ring, void **rp,
 	uintptr_t d_wp = 0, d_rp = 0, ring_size = 0;
 	int r;
 
-	if (0 == ring->el_size || NULL == ring ||
+	if (NULL == ring || 0 == ring->el_size ||
 		NULL == ring->base || 0 == ring->len)
 		return -EINVAL;
 
@@ -101,6 +104,9 @@ int delete_element(struct mhi_ring *ring, void **rp,
 
 	*rp = (void *)(((d_rp + 1) % ring_size) * ring->el_size +
 						(uintptr_t)ring->base);
+
+	/* force update visible to other cores */
+	smp_wmb();
 	return 0;
 }
 
@@ -143,7 +149,7 @@ int get_nr_enclosed_el(struct mhi_ring *ring, void *rp,
 	uintptr_t ring_size = 0;
 	int r = 0;
 
-	if (0 == ring->el_size || NULL == ring ||
+	if (NULL == ring || 0 == ring->el_size ||
 		NULL == ring->base || 0 == ring->len) {
 		mhi_log(MHI_MSG_ERROR, "Bad input parameters, quitting.\n");
 		return -EINVAL;

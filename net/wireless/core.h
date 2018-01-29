@@ -84,6 +84,8 @@ struct cfg80211_registered_device {
 	struct list_head destroy_list;
 	struct work_struct destroy_work;
 
+	struct work_struct sched_scan_stop_wk;
+
 	/* must be last because of the way we do wiphy_priv(),
 	 * and it should at least be aligned to NETDEV_ALIGN */
 	struct wiphy wiphy __aligned(NETDEV_ALIGN);
@@ -199,6 +201,7 @@ struct cfg80211_event {
 			const u8 *resp_ie;
 			size_t req_ie_len;
 			size_t resp_ie_len;
+			struct cfg80211_bss *bss;
 			u16 status;
 		} cr;
 		struct {

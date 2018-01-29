@@ -79,6 +79,7 @@ struct alpha_pll_clk {
 	 * that the workaround is required.
 	 */
 	bool offline_bit_workaround;
+	bool no_irq_dis;
 	bool is_fabia;
 	unsigned long min_supported_freq;
 	struct clk c;

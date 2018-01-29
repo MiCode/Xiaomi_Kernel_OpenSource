@@ -1446,6 +1446,8 @@ static int icnss_probe(struct platform_device *pdev)
 		goto err_wlan_mode;
 	}
 
+	spin_lock_init(&penv->qmi_event_lock);
+
 	penv->qmi_event_wq = alloc_workqueue("icnss_qmi_event", 0, 0);
 	if (!penv->qmi_event_wq) {
 		pr_err("%s: workqueue creation failed\n", __func__);

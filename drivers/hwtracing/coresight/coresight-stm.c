@@ -774,8 +774,6 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
 		return -ENOMEM;
-	/* Store the driver data pointer for use in exported functions */
-	stmdrvdata = drvdata;
 	drvdata->dev = &adev->dev;
 	dev_set_drvdata(dev, drvdata);
 
@@ -851,6 +849,8 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 	if (boot_enable)
 		coresight_enable(drvdata->csdev);
 
+	/* Store the driver data pointer for use in exported functions */
+	stmdrvdata = drvdata;
 	return 0;
 err:
 	coresight_unregister(drvdata->csdev);

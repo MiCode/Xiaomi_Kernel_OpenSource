@@ -37,8 +37,8 @@ Required properties:
 					"display_2" = DISPLAY_2
 - qcom,mdss-dsi-panel-timings:		An array of length 12 that specifies the PHY
 					timing settings for the panel.
-- qcom,mdss-dsi-panel-timings-8996:		An array of length 40 char that specifies the 8996 PHY lane
-					timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-phy-v2:	An array of length 40 char that specifies the PHY version 2
+					lane timing settings for the panel.
 - qcom,mdss-dsi-on-command:		A byte stream formed by multiple dcs packets base on
 					qcom dsi controller protocol.
 					byte 0: dcs data type
@@ -326,6 +326,28 @@ Optional properties:
 					2A/2B command.
 - qcom,dcs-cmd-by-left:			Boolean to indicate that dcs command are sent
 					through the left DSI controller only in a dual-dsi configuration
+- qcom,mdss-dsi-panel-hdr-enabled:	Boolean to indicate HDR support in panel.
+- qcom,mdss-dsi-panel-hdr-color-primaries:
+					Array of 8 unsigned integers denoting chromaticity of panel.These
+					values are specified in nits units. The value range is 0 through 50000.
+					To obtain real chromacity, these values should be divided by factor of
+					50000. The structure of array is defined in below order
+						value 1: x value of white chromaticity of display panel
+						value 2: y value of white chromaticity of display panel
+						value 3: x value of red chromaticity of display panel
+						value 4: y value of red chromaticity of display panel
+						value 5: x value of green chromaticity of display panel
+						value 6: y value of green chromaticity of display panel
+						value 7: x value of blue chromaticity of display panel
+						value 8: y value of blue chromaticity of display panel
+- qcom,mdss-dsi-panel-peak-brightness:	Maximum brightness supported by panel.In absence of maximum value
+					typical value becomes peak brightness. Value is specified in nits units.
+					To obtail real peak brightness, this value should be divided by factor of
+					10000.
+- qcom,mdss-dsi-panel-blackness-level:	Blackness level supported by panel. Blackness level is defined as
+					ratio of peak brightness to contrast. Value is specified in nits units.
+					To obtail real blackness level, this value should be divided by factor of
+					10000.
 - qcom,mdss-dsi-lp11-init:		Boolean used to enable the DSI clocks and data lanes (low power 11)
 					before issuing hardware reset line.
 - qcom,mdss-dsi-init-delay-us:		Delay in microseconds(us) before performing any DSI activity in lp11
@@ -397,6 +419,10 @@ Optional properties:
 - qcom,cmd-to-video-mode-switch-commands:	List of commands that need to be sent
 					to panel in order to switch from command mode to video mode dynamically.
 					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
+- qcom,send-pps-before-switch:		Boolean propety to indicate when PPS commands should be sent,
+					either before or after switch commands during dynamic resolution
+					switch in DSC panels. If the property is not present, the default
+					behavior is to send PPS commands after the switch commands.
 - qcom,mdss-dsi-panel-orientation:	String used to indicate orientation of panel
 					"180" = panel is flipped in both horizontal and vertical directions
 					"hflip" = panel is flipped in horizontal direction
@@ -416,7 +442,11 @@ Optional properties:
 					fields in the supply entry, refer to the qcom,ctrl-supply-entries
 					binding above.
 - qcom,config-select:			Optional property to select default configuration.
-
+- qcom,panel-allow-phy-poweroff:	A boolean property indicates that panel allows to turn off the phy power
+					supply during idle screen. A panel should able to handle the dsi lanes
+					in floating state(not LP00 or LP11) to turn on this property. Software
+					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
+					idle screen (footswitch control off) when this property is enabled.
 [[Optional config sub-nodes]]		These subnodes provide different configurations for a given same panel.
 					Default configuration can be chosen by specifying phandle of the
 					selected subnode in the qcom,config-select.
@@ -437,6 +467,12 @@ Optional properites:
 - qcom,split-mode:			String property indicating which split mode MDP should use. Valid
 					entries are "pingpong-split" and "dualctl-split".
 					This property is mutually exclusive with qcom,lm-split.
+- qcom,mdss-dsc-version:		An 8 bit value indicates the DSC version supported by panel. Bits[0.3]
+					provides information about minor version while Bits[4.7] provides
+					major version information. It supports only DSC rev 1(Major).1(Minor)
+					right now.
+- qcom,mdss-dsc-scr-version:		Each DSC version can have multiple SCR. This 8 bit value indicates
+					current SCR revision information supported by panel.
 - qcom,mdss-dsc-encoders:		An integer value indicating how many DSC encoders should be used
 					to drive data stream to DSI.
 					Default value is 1 and max value is 2.
@@ -556,7 +592,7 @@ Example:
 		qcom,mdss-mdp-transfer-time-us = <12500>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];
-                qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
+                qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
@@ -596,6 +632,7 @@ Example:
 		qcom,suspend-ulps-enabled;
 		qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 		qcom,esd-check-enabled;
+		qcom,panel-allow-phy-poweroff;
 		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 0A 08];
 		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
@@ -609,6 +646,7 @@ Example:
 		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
 						15 01 00 00 00 00 02 C2 08];
 		qcom,cmd-to-video-mode-switch-commands = [15 01 00 00 00 00 02 C2 03];
+		qcom,send-pps-before-switch;
 		qcom,panel-ack-disabled;
 		qcom,mdss-dsi-horizontal-line-idle = <0 40 256>,
 						<40 120 128>,
@@ -640,6 +678,19 @@ Example:
 					29 00 00 00 00 00 02 B0 04
 					29 00 00 00 00 00 02 F1 00];
 				qcom,mdss-dsi-timing-switch-command-state = "dsi_lp_mode";
+
+				qcom,config-select = <&dsi_sim_vid_config0>;
+				dsi_sim_vid_config0: config0 {
+					qcom,lm-split = <360 360>;
+					qcom,mdss-dsc-encoders = <2>;
+					qcom,mdss-dsc-slice-height = <16>;
+					qcom,mdss-dsc-slice-width = <360>;
+					qcom,mdss-dsc-slice-per-pkt = <2>;
+					qcom,mdss-dsc-bit-per-component = <8>;
+					qcom,mdss-dsc-bit-per-pixel = <8>;
+					qcom,mdss-dsc-block-prediction-enable;
+					qcom,mdss-dsc-config-by-manufacture-cmd;
+				};
 			};
 		};
 		qcom,panel-supply-entries {
@@ -676,6 +727,8 @@ Example:
 		qcom,config-select = <&dsi_sim_vid_config0>;
 		qcom,dba-panel;
 		qcom,bridge-name = "adv7533";
+		qcom,mdss-dsc-version = <0x11>;
+		qcom,mdss-dsc-scr-version = <0x1>;
 
 		dsi_sim_vid_config0: config0 {
 			qcom,lm-split = <360 360>;

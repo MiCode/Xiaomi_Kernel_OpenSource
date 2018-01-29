@@ -20,6 +20,9 @@
 		interrupts = <0 83 0>;
 		vdd-supply = <&gdsc_mdss>;
 
+		#address-cells = <1>;
+		#size-cells = <1>;
+
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
 		qcom,msm-bus,num-cases = <3>;
@@ -97,7 +100,8 @@
 		qcom,mdss-pingpong-off = <0x00071000 0x00071800
 					  0x00072000 0x00072800>;
 		qcom,mdss-slave-pingpong-off = <0x00073000>;
-		qcom,mdss-ppb-off = <0x00000330 0x00000338>;
+		qcom,mdss-ppb-ctl-off = <0x00000330 0x00000338>;
+		qcom,mdss-ppb-cfg-off = <0x00000334 0x0000033C>;
 		qcom,mdss-has-pingpong-split;
 
 		qcom,mdss-ad-off = <0x0079000 0x00079800 0x0007a000>;
@@ -117,8 +121,7 @@
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
 
-		qcom,mdp-settings = <0x01190 0x00000000>,
-				    <0x012ac 0xc0000ccc>,
+		qcom,mdp-settings = <0x012ac 0xc0000ccc>,
 				    <0x012b4 0xc0000ccc>,
 				    <0x012bc 0x00cccccc>,
 				    <0x012c4 0x000000cc>,
@@ -199,6 +202,19 @@
 			"PP_0",    "PP_1", "PP_4",
 			"DSC_0",    "DSC_1";
 
+		qcom,regs-dump-xin-id-mdp = <0xff
+			0xff 0xff 0xff 0xff 0xff
+			0x0 0x0 0x4 0x4
+			0x8 0x8 0xc 0xc
+			0x1 0x1 0x5 0x5
+			0x9 0x9 0xd 0xd
+			0x2 0xa
+			0x7 0x7
+			0xff 0xff 0xff
+			0xff 0xff 0xff
+			0xff 0xff
+			0x3 0xb 0x6>;
+
 		/* buffer parameters to calculate prefill bandwidth */
 		qcom,mdss-prefill-outstanding-buffer-bytes = <0>;
 		qcom,mdss-prefill-y-buffer-bytes = <0>;
@@ -221,6 +237,8 @@
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
 			compatible = "qcom,smmu_mdp_unsec";
 			iommus = <&mdp_smmu 0>;
+			reg = <0x00d08000 0xd00>;
+			reg-names = "mmu_cb";
 			gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 			clocks = <&clock_mmss clk_smmu_mdp_ahb_clk>,
 				<&clock_mmss clk_mmagic_mdss_axi_clk>,
@@ -232,6 +250,8 @@
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_rot_unsec";
 			iommus = <&rot_smmu 0>;
+			reg = <0x00d09000 0xd00>;
+			reg-names = "mmu_cb";
 			gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 			clocks = <&clock_mmss clk_smmu_rot_ahb_clk>,
 				<&clock_mmss clk_mmagic_mdss_axi_clk>,
@@ -243,6 +263,8 @@
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
 			compatible = "qcom,smmu_mdp_sec";
 			iommus = <&mdp_smmu 1>;
+			reg = <0x00d0a000 0xd00>;
+			reg-names = "mmu_cb";
 			gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 			clocks = <&clock_mmss clk_smmu_mdp_ahb_clk>,
 				<&clock_mmss clk_mmagic_mdss_axi_clk>,
@@ -254,6 +276,8 @@
 		smmu_rot_sec: qcom,smmu_rot_sec_cb {
 			compatible = "qcom,smmu_rot_sec";
 			iommus = <&rot_smmu 1>;
+			reg = <0x00d0b000 0xd00>;
+			reg-names = "mmu_cb";
 			gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 			clocks = <&clock_mmss clk_smmu_rot_ahb_clk>,
 				<&clock_mmss clk_mmagic_mdss_axi_clk>,

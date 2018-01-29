@@ -67,13 +67,17 @@
 
 		qcom,initial-pwrlevel = <4>;
 
-		qcom,idle-timeout = <8>; //<HZ/12>
+		qcom,idle-timeout = <80>; //<HZ/12>
 		/*
 		 * Timeout to enter deeper power saving state
 		 * from NAP.
 		 */
 		qcom,deep-nap-timeout = <2>; //<HZ/50>
 		qcom,strtstp-sleepwake;
+
+		qcom,highest-bank-bit = <15>;
+
+		qcom,snapshot-size = <1048576>; //bytes
 
 		clocks = <&clock_gpu clk_gpucc_gfx3d_clk>,
 			<&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
@@ -123,7 +127,7 @@
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gpu-freq = <700000000>;
+				qcom,gpu-freq = <650000000>;
 				qcom,bus-freq = <12>;
 				qcom,bus-min = <11>;
 				qcom,bus-max = <12>;
@@ -132,7 +136,7 @@
 
 			qcom,gpu-pwrlevel@1 {
 				reg = <1>;
-				qcom,gpu-freq = <560000000>;
+				qcom,gpu-freq = <504000000>;
 				qcom,bus-freq = <11>;
 				qcom,bus-min = <10>;
 				qcom,bus-max = <12>;
@@ -140,7 +144,7 @@
 
 			qcom,gpu-pwrlevel@2 {
 				reg = <2>;
-				qcom,gpu-freq = <460000000>;
+				qcom,gpu-freq = <403000000>;
 				qcom,bus-freq = <10>;
 				qcom,bus-min = <9>;
 				qcom,bus-max = <11>;
@@ -148,7 +152,7 @@
 
 			qcom,gpu-pwrlevel@3 {
 				reg = <3>;
-				qcom,gpu-freq = <360000000>;
+				qcom,gpu-freq = <332000000>;
 				qcom,bus-freq = <7>;
 				qcom,bus-min = <6>;
 				qcom,bus-max = <8>;
@@ -156,7 +160,7 @@
 
 			qcom,gpu-pwrlevel@4 {
 				reg = <4>;
-				qcom,gpu-freq = <290000000>;
+				qcom,gpu-freq = <251000000>;
 				qcom,bus-freq = <4>;
 				qcom,bus-min = <3>;
 				qcom,bus-max = <5>;
@@ -164,7 +168,7 @@
 
 			qcom,gpu-pwrlevel@5 {
 				reg = <5>;
-				qcom,gpu-freq = <180000000>;
+				qcom,gpu-freq = <171000000>;
 				qcom,bus-freq = <3>;
 				qcom,bus-min = <1>;
 				qcom,bus-max = <4>;

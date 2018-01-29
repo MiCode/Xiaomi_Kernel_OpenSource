@@ -105,6 +105,17 @@ static void sdhci_dump_state(struct sdhci_host *host)
 
 static void sdhci_dumpregs(struct sdhci_host *host)
 {
+	MMC_TRACE(host->mmc,
+		"%s: 0x04=0x%08x 0x06=0x%08x 0x0E=0x%08x 0x30=0x%08x 0x34=0x%08x 0x38=0x%08x\n",
+		__func__,
+		sdhci_readw(host, SDHCI_BLOCK_SIZE),
+		sdhci_readw(host, SDHCI_BLOCK_COUNT),
+		sdhci_readw(host, SDHCI_COMMAND),
+		sdhci_readl(host, SDHCI_INT_STATUS),
+		sdhci_readl(host, SDHCI_INT_ENABLE),
+		sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
+	mmc_stop_tracing(host->mmc);
+
 	pr_info(DRIVER_NAME ": =========== REGISTER DUMP (%s)===========\n",
 		mmc_hostname(host->mmc));
 
@@ -166,8 +177,6 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 		host->ops->dump_vendor_regs(host);
 	sdhci_dump_state(host);
 	pr_info(DRIVER_NAME ": ===========================================\n");
-	if (host->slot_no == 1)
-		BUG_ON(1);
 }
 
 /*****************************************************************************\
@@ -1048,6 +1057,11 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	/* Set the DMA boundary value and block size */
 	sdhci_set_blk_size_reg(host, data->blksz, SDHCI_DEFAULT_BOUNDARY_ARG);
 	sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
+	MMC_TRACE(host->mmc,
+		"%s: 0x28=0x%08x 0x3E=0x%08x 0x06=0x%08x\n", __func__,
+		sdhci_readb(host, SDHCI_HOST_CONTROL),
+		sdhci_readw(host, SDHCI_HOST_CONTROL2),
+		sdhci_readw(host, SDHCI_BLOCK_COUNT));
 }
 
 static void sdhci_set_transfer_mode(struct sdhci_host *host,
@@ -1098,6 +1112,9 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 		mode |= SDHCI_TRNS_DMA;
 
 	sdhci_writew(host, mode, SDHCI_TRANSFER_MODE);
+	MMC_TRACE(host->mmc, "%s: 0x00=0x%08x 0x0C=0x%08x\n", __func__,
+		sdhci_readw(host, SDHCI_ARGUMENT2),
+		sdhci_readw(host, SDHCI_TRANSFER_MODE));
 }
 
 static void sdhci_finish_data(struct sdhci_host *host)
@@ -1109,6 +1126,8 @@ static void sdhci_finish_data(struct sdhci_host *host)
 	data = host->data;
 	host->data = NULL;
 
+	MMC_TRACE(host->mmc, "%s: 0x24=0x%08x\n", __func__,
+		sdhci_readl(host, SDHCI_PRESENT_STATE));
 	if (host->flags & SDHCI_REQ_USE_DMA) {
 		if (host->flags & SDHCI_USE_ADMA)
 			sdhci_adma_table_post(host, data);
@@ -1235,6 +1254,11 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	if (cmd->data)
 		host->data_start_time = ktime_get();
 	trace_mmc_cmd_rw_start(cmd->opcode, cmd->arg, cmd->flags);
+	MMC_TRACE(host->mmc,
+		"%s: updated 0x8=0x%08x 0xC=0x%08x 0xE=0x%08x\n", __func__,
+		sdhci_readl(host, SDHCI_ARGUMENT),
+		sdhci_readw(host, SDHCI_TRANSFER_MODE),
+		sdhci_readw(host, SDHCI_COMMAND));
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 EXPORT_SYMBOL_GPL(sdhci_send_command);
@@ -1256,8 +1280,14 @@ static void sdhci_finish_command(struct sdhci_host *host)
 						sdhci_readb(host,
 						SDHCI_RESPONSE + (3-i)*4-1);
 			}
+			MMC_TRACE(host->mmc,
+			"%s: resp 0: 0x%08x resp 1: 0x%08x resp 2: 0x%08x resp 3: 0x%08x\n",
+			__func__, host->cmd->resp[0], host->cmd->resp[1],
+			host->cmd->resp[2], host->cmd->resp[3]);
 		} else {
 			host->cmd->resp[0] = sdhci_readl(host, SDHCI_RESPONSE);
+			MMC_TRACE(host->mmc, "%s: resp 0: 0x%08x\n",
+				__func__, host->cmd->resp[0]);
 		}
 	}
 
@@ -2849,6 +2879,26 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask, u32 *mask)
 		    (command != MMC_SEND_TUNING_BLOCK) &&
 		    (command != MMC_SEND_STATUS))
 				host->flags |= SDHCI_NEEDS_RETUNING;
+
+		/*
+		 * If this command initiates a data phase and a response
+		 * CRC error is signalled, the card can start transferring
+		 * data - the card may have received the command without
+		 * error.  We must not terminate the mmc_request early.
+		 *
+		 * If the card did not receive the command or returned an
+		 * error which prevented it sending data, the data phase
+		 * will time out.
+		 *
+		 * Even in case of cmd INDEX OR ENDBIT error we
+		 * handle it the same way.
+		 */
+		if (host->cmd->data &&
+		    (((intmask & (SDHCI_INT_CRC | SDHCI_INT_TIMEOUT)) ==
+		     SDHCI_INT_CRC) || (host->cmd->error == -EILSEQ))) {
+			host->cmd = NULL;
+			return;
+		}
 		tasklet_schedule(&host->finish_tasklet);
 		return;
 	}
@@ -3160,7 +3210,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 
 	do {
 		if (host->mmc->card && mmc_card_cmdq(host->mmc->card) &&
-		    !mmc_host_halt(host->mmc)) {
+		!mmc_host_halt(host->mmc) && !mmc_host_cq_disable(host->mmc)) {
 			pr_debug("*** %s: cmdq intr: 0x%08x\n",
 					mmc_hostname(host->mmc),
 					intmask);
@@ -3168,6 +3218,9 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 			if (result == IRQ_HANDLED)
 				goto out;
 		}
+
+		MMC_TRACE(host->mmc,
+			"%s: intmask: 0x%x\n", __func__, intmask);
 
 		if (intmask & SDHCI_INT_AUTO_CMD_ERR)
 			host->auto_cmd_err_sts = sdhci_readw(host,
@@ -4099,10 +4152,15 @@ int sdhci_add_host(struct sdhci_host *host)
 	 * value.
 	 */
 	max_current_caps = sdhci_readl(host, SDHCI_MAX_CURRENT);
-	if (!max_current_caps && !IS_ERR(mmc->supply.vmmc)) {
-		int curr = regulator_get_current_limit(mmc->supply.vmmc);
-		if (curr > 0) {
+	if (!max_current_caps) {
+		u32 curr = 0;
 
+		if (!IS_ERR(mmc->supply.vmmc))
+			curr = regulator_get_current_limit(mmc->supply.vmmc);
+		else if (host->ops->get_current_limit)
+			curr = host->ops->get_current_limit(host);
+
+		if (curr > 0) {
 			/* convert to SDHCI_MAX_CURRENT format */
 			curr = curr/1000;  /* convert to mA */
 			curr = curr/SDHCI_MAX_CURRENT_MULTIPLIER;

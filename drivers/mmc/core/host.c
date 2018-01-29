@@ -26,6 +26,8 @@
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include <linux/mmc/ring_buffer.h>
+
 #include <linux/mmc/slot-gpio.h>
 
 #include "core.h"
@@ -563,7 +565,7 @@ static ssize_t store_enable(struct device *dev,
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	unsigned long value;
 
-	if (!host || kstrtoul(buf, 0, &value))
+	if (!host || !host->card || kstrtoul(buf, 0, &value))
 		return -EINVAL;
 
 	mmc_get_card(host->card);
@@ -787,6 +789,7 @@ int mmc_add_host(struct mmc_host *host)
 	mmc_add_host_debugfs(host);
 #endif
 	mmc_host_clk_sysfs_init(host);
+	mmc_trace_init(host);
 
 	err = sysfs_create_group(&host->class_dev.kobj, &clk_scaling_attr_grp);
 	if (err)

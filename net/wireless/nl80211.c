@@ -1230,7 +1230,7 @@ nl80211_send_mgmt_stypes(struct sk_buff *msg,
 struct nl80211_dump_wiphy_state {
 	s64 filter_wiphy;
 	long start;
-	long split_start, band_start, chan_start;
+	long split_start, band_start, chan_start, capa_start;
 	bool split;
 };
 
@@ -1692,6 +1692,47 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
 		    nla_put_u8(msg, NL80211_ATTR_MAX_CSA_COUNTERS,
 			       rdev->wiphy.max_num_csa_counters))
 			goto nla_put_failure;
+
+		state->split_start++;
+		break;
+	case 13:
+		if (rdev->wiphy.num_iftype_ext_capab &&
+		    rdev->wiphy.iftype_ext_capab) {
+			struct nlattr *nested_ext_capab, *nested;
+
+			nested = nla_nest_start(msg,
+						NL80211_ATTR_IFTYPE_EXT_CAPA);
+			if (!nested)
+				goto nla_put_failure;
+
+			for (i = state->capa_start;
+			     i < rdev->wiphy.num_iftype_ext_capab; i++) {
+				const struct wiphy_iftype_ext_capab *capab;
+
+				capab = &rdev->wiphy.iftype_ext_capab[i];
+
+				nested_ext_capab = nla_nest_start(msg, i);
+				if (!nested_ext_capab ||
+				    nla_put_u32(msg, NL80211_ATTR_IFTYPE,
+						capab->iftype) ||
+				    nla_put(msg, NL80211_ATTR_EXT_CAPA,
+					    capab->extended_capabilities_len,
+					    capab->extended_capabilities) ||
+				    nla_put(msg, NL80211_ATTR_EXT_CAPA_MASK,
+					    capab->extended_capabilities_len,
+					    capab->extended_capabilities_mask))
+					goto nla_put_failure;
+
+				nla_nest_end(msg, nested_ext_capab);
+				if (state->split)
+					break;
+			}
+			nla_nest_end(msg, nested);
+			if (i < rdev->wiphy.num_iftype_ext_capab) {
+				state->capa_start = i + 1;
+				break;
+			}
+		}
 
 		/* done */
 		state->split_start = 0;
@@ -5577,6 +5618,12 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 	request->no_cck =
 		nla_get_flag(info->attrs[NL80211_ATTR_TX_NO_CCK_RATE]);
 
+	if (info->attrs[NL80211_ATTR_MAC])
+		memcpy(request->bssid, nla_data(info->attrs[NL80211_ATTR_MAC]),
+		       ETH_ALEN);
+	else
+		eth_broadcast_addr(request->bssid);
+
 	request->wdev = wdev;
 	request->wiphy = &rdev->wiphy;
 	request->scan_start = jiffies;
@@ -5890,6 +5937,9 @@ static int nl80211_start_sched_scan(struct sk_buff *skb,
 
 	err = rdev_sched_scan_start(rdev, dev, request);
 	if (!err) {
+		if (info->attrs[NL80211_ATTR_IFACE_SOCKET_OWNER])
+			request->owner_nlportid = info->snd_portid;
+
 		rdev->sched_scan_req = request;
 		nl80211_send_sched_scan(rdev, dev,
 					NL80211_CMD_START_SCHED_SCAN);
@@ -7315,6 +7365,10 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 	} else {
 		connect.mfp = NL80211_MFP_NO;
 	}
+
+	if (info->attrs[NL80211_ATTR_PREV_BSSID])
+		connect.prev_bssid =
+			nla_data(info->attrs[NL80211_ATTR_PREV_BSSID]);
 
 	if (info->attrs[NL80211_ATTR_WIPHY_FREQ]) {
 		connect.channel = nl80211_get_valid_chan(
@@ -12032,6 +12086,13 @@ static int nl80211_netlink_notify(struct notifier_block * nb,
 
 	list_for_each_entry_rcu(rdev, &cfg80211_rdev_list, list) {
 		bool schedule_destroy_work = false;
+		bool schedule_scan_stop = false;
+		struct cfg80211_sched_scan_request *sched_scan_req =
+			rcu_dereference(rdev->sched_scan_req);
+
+		if (sched_scan_req && notify->portid &&
+		    sched_scan_req->owner_nlportid == notify->portid)
+			schedule_scan_stop = true;
 
 		list_for_each_entry_rcu(wdev, &rdev->wdev_list, list) {
 			cfg80211_mlme_unregister_socket(wdev, notify->portid);
@@ -12062,6 +12123,12 @@ static int nl80211_netlink_notify(struct notifier_block * nb,
 				spin_unlock(&rdev->destroy_list_lock);
 				schedule_work(&rdev->destroy_work);
 			}
+		} else if (schedule_scan_stop) {
+			sched_scan_req->owner_nlportid = 0;
+
+			if (rdev->ops->sched_scan_stop &&
+			    rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_SCHED_SCAN)
+				schedule_work(&rdev->sched_scan_stop_wk);
 		}
 	}
 

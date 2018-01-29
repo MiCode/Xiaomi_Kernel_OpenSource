@@ -705,7 +705,7 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 		} else {
 			handle = ion_import_dma_buf(client, data.flush_data.fd);
 			if (IS_ERR(handle)) {
-				pr_info("%s: Could not import handle: %p\n",
+				pr_info("%s: Could not import handle: %pK\n",
 					__func__, handle);
 				return -EINVAL;
 			}
@@ -718,7 +718,7 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 			+ data.flush_data.length;
 
 		if (start && check_vaddr_bounds(start, end)) {
-			pr_err("%s: virtual address %p is out of bounds\n",
+			pr_err("%s: virtual address %pK is out of bounds\n",
 				__func__, data.flush_data.vaddr);
 			ret = -EINVAL;
 		} else {

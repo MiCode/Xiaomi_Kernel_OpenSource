@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/stringify.h>
 #include "ipa_i.h"
-#include "ipa_rm_i.h"
+#include "../ipa_rm_i.h"
 
 #define IPA_MAX_MSG_LEN 4096
 #define IPA_DBG_CNTR_ON 127265
@@ -110,6 +110,7 @@ static struct dentry *dfile_ip6_flt;
 static struct dentry *dfile_stats;
 static struct dentry *dfile_wstats;
 static struct dentry *dfile_wdi_stats;
+static struct dentry *dfile_ntn_stats;
 static struct dentry *dfile_dbg_cnt;
 static struct dentry *dfile_msg;
 static struct dentry *dfile_ip4_nat;
@@ -167,9 +168,9 @@ static ssize_t ipa_read_gen_reg(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	nbytes = ipa_ctx->ctrl->ipa_read_gen_reg(dbg_buff, IPA_MAX_MSG_LEN);
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -337,7 +338,7 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 		end_idx = start_idx + 1;
 	}
 	pos = *ppos;
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	for (i = start_idx; i < end_idx; i++) {
 
 		nbytes = ipa_ctx->ctrl->ipa_read_ep_reg(dbg_buff,
@@ -347,7 +348,7 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 		ret = simple_read_from_buffer(ubuf, count, ppos, dbg_buff,
 					      nbytes);
 		if (ret < 0) {
-			IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return ret;
 		}
 
@@ -355,7 +356,7 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 		ubuf += nbytes;
 		count -= nbytes;
 	}
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	*ppos = pos + size;
 	return size;
@@ -379,9 +380,9 @@ static ssize_t ipa_write_keep_awake(struct file *file, const char __user *buf,
 		return -EFAULT;
 
 	if (option == 1)
-		IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	else if (option == 0)
-		IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	else
 		return -EFAULT;
 
@@ -1100,6 +1101,110 @@ nxt_clnt_cons:
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa_read_ntn(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+#define TX_STATS(y) \
+	ipa_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->tx_ch_stats[0].y
+#define RX_STATS(y) \
+	ipa_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->rx_ch_stats[0].y
+
+	struct IpaHwStatsNTNInfoData_t stats;
+	int nbytes;
+	int cnt = 0;
+
+	if (!ipa2_get_ntn_stats(&stats)) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"TX num_pkts_processed=%u\n"
+			"TX tail_ptr_val=%u\n"
+			"TX num_db_fired=%u\n"
+			"TX ringFull=%u\n"
+			"TX ringEmpty=%u\n"
+			"TX ringUsageHigh=%u\n"
+			"TX ringUsageLow=%u\n"
+			"TX RingUtilCount=%u\n"
+			"TX bamFifoFull=%u\n"
+			"TX bamFifoEmpty=%u\n"
+			"TX bamFifoUsageHigh=%u\n"
+			"TX bamFifoUsageLow=%u\n"
+			"TX bamUtilCount=%u\n"
+			"TX num_db=%u\n"
+			"TX num_unexpected_db=%u\n"
+			"TX num_bam_int_handled=%u\n"
+			"TX num_bam_int_in_non_running_state=%u\n"
+			"TX num_qmb_int_handled=%u\n"
+			"TX num_bam_int_handled_while_wait_for_bam=%u\n"
+			"TX num_bam_int_handled_while_not_in_bam=%u\n",
+			TX_STATS(num_pkts_processed),
+			TX_STATS(tail_ptr_val),
+			TX_STATS(num_db_fired),
+			TX_STATS(tx_comp_ring_stats.ringFull),
+			TX_STATS(tx_comp_ring_stats.ringEmpty),
+			TX_STATS(tx_comp_ring_stats.ringUsageHigh),
+			TX_STATS(tx_comp_ring_stats.ringUsageLow),
+			TX_STATS(tx_comp_ring_stats.RingUtilCount),
+			TX_STATS(bam_stats.bamFifoFull),
+			TX_STATS(bam_stats.bamFifoEmpty),
+			TX_STATS(bam_stats.bamFifoUsageHigh),
+			TX_STATS(bam_stats.bamFifoUsageLow),
+			TX_STATS(bam_stats.bamUtilCount),
+			TX_STATS(num_db),
+			TX_STATS(num_unexpected_db),
+			TX_STATS(num_bam_int_handled),
+			TX_STATS(num_bam_int_in_non_running_state),
+			TX_STATS(num_qmb_int_handled),
+			TX_STATS(num_bam_int_handled_while_wait_for_bam),
+			TX_STATS(num_bam_int_handled_while_not_in_bam));
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"RX max_outstanding_pkts=%u\n"
+			"RX num_pkts_processed=%u\n"
+			"RX rx_ring_rp_value=%u\n"
+			"RX ringFull=%u\n"
+			"RX ringEmpty=%u\n"
+			"RX ringUsageHigh=%u\n"
+			"RX ringUsageLow=%u\n"
+			"RX RingUtilCount=%u\n"
+			"RX bamFifoFull=%u\n"
+			"RX bamFifoEmpty=%u\n"
+			"RX bamFifoUsageHigh=%u\n"
+			"RX bamFifoUsageLow=%u\n"
+			"RX bamUtilCount=%u\n"
+			"RX num_bam_int_handled=%u\n"
+			"RX num_db=%u\n"
+			"RX num_unexpected_db=%u\n"
+			"RX num_pkts_in_dis_uninit_state=%u\n"
+			"num_ic_inj_vdev_change=%u\n"
+			"num_ic_inj_fw_desc_change=%u\n",
+			RX_STATS(max_outstanding_pkts),
+			RX_STATS(num_pkts_processed),
+			RX_STATS(rx_ring_rp_value),
+			RX_STATS(rx_ind_ring_stats.ringFull),
+			RX_STATS(rx_ind_ring_stats.ringEmpty),
+			RX_STATS(rx_ind_ring_stats.ringUsageHigh),
+			RX_STATS(rx_ind_ring_stats.ringUsageLow),
+			RX_STATS(rx_ind_ring_stats.RingUtilCount),
+			RX_STATS(bam_stats.bamFifoFull),
+			RX_STATS(bam_stats.bamFifoEmpty),
+			RX_STATS(bam_stats.bamFifoUsageHigh),
+			RX_STATS(bam_stats.bamFifoUsageLow),
+			RX_STATS(bam_stats.bamUtilCount),
+			RX_STATS(num_bam_int_handled),
+			RX_STATS(num_db),
+			RX_STATS(num_unexpected_db),
+			RX_STATS(num_pkts_in_dis_uninit_state),
+			RX_STATS(num_bam_int_handled_while_not_in_bam),
+			RX_STATS(num_bam_int_handled_while_in_bam_state));
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"Fail to read NTN stats\n");
+		cnt += nbytes;
+	}
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 static ssize_t ipa_read_wdi(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -1239,9 +1344,9 @@ static ssize_t ipa_write_dbg_cnt(struct file *file, const char __user *buf,
 	if (kstrtou32(dbg_buff, 0, &option))
 		return -EFAULT;
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	ipa_ctx->ctrl->ipa_write_dbg_cnt(option);
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return count;
 }
@@ -1273,9 +1378,9 @@ static ssize_t ipa_read_dbg_cnt(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	nbytes = ipa_ctx->ctrl->ipa_read_dbg_cnt(dbg_buff, IPA_MAX_MSG_LEN);
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -1745,6 +1850,10 @@ const struct file_operations ipa_wdi_ops = {
 	.read = ipa_read_wdi,
 };
 
+const struct file_operations ipa_ntn_ops = {
+	.read = ipa_read_ntn,
+};
+
 const struct file_operations ipa_msg_ops = {
 	.read = ipa_read_msg,
 };
@@ -1904,6 +2013,13 @@ void ipa_debugfs_init(void)
 			&ipa_wdi_ops);
 	if (!dfile_wdi_stats || IS_ERR(dfile_wdi_stats)) {
 		IPAERR("fail to create file for debug_fs wdi stats\n");
+		goto fail;
+	}
+
+	dfile_ntn_stats = debugfs_create_file("ntn", read_only_mode, dent, 0,
+			&ipa_ntn_ops);
+	if (!dfile_ntn_stats || IS_ERR(dfile_ntn_stats)) {
+		IPAERR("fail to create file for debug_fs ntn stats\n");
 		goto fail;
 	}
 

@@ -23,6 +23,7 @@
 #include "mdss_debug.h"
 
 #define MDSS_SMMU_COMPATIBLE "qcom,smmu"
+#define SMMU_CBN_FSYNR1		0x6c
 
 struct mdss_iommu_map_type {
 	char *client_name;

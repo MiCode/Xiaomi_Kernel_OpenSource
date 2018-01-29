@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -725,6 +725,19 @@ static int qpnp_tm_remove(struct spmi_device *spmi)
 	return 0;
 }
 
+static void qpnp_tm_shutdown(struct spmi_device *spmi)
+{
+	struct qpnp_tm_chip *chip = dev_get_drvdata(&spmi->dev);
+	int rc;
+	u8 reg;
+
+	/* configure TEMP_ALARM to follow HW_EN */
+	reg = ALARM_CTRL_FOLLOW_HW_ENABLE;
+	rc = qpnp_tm_write(chip, QPNP_TM_REG_ALARM_CTRL, &reg, 1);
+	if (rc)
+		pr_err("Failed to cfg. TEMP_ALARM to follow HW_EN rc=%d\n", rc);
+}
+
 #ifdef CONFIG_PM
 static int qpnp_tm_suspend(struct device *dev)
 {
@@ -776,6 +789,7 @@ static struct spmi_driver qpnp_tm_driver = {
 	},
 	.probe	  = qpnp_tm_probe,
 	.remove	  = qpnp_tm_remove,
+	.shutdown = qpnp_tm_shutdown,
 	.id_table = qpnp_tm_id,
 };
 

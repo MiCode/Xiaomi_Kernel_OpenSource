@@ -653,10 +653,10 @@ static ssize_t gsi_rst_stats(struct file *file,
 	} else if (ch_id < 0 || ch_id >= GSI_MAX_CHAN ||
 		   !gsi_ctx->chan[ch_id].allocated) {
 		goto error;
+	} else {
+		min = ch_id;
+		max = ch_id + 1;
 	}
-
-	min = ch_id;
-	max = ch_id + 1;
 
 	for (ch_id = min; ch_id < max; ch_id++)
 		memset(&gsi_ctx->chan[ch_id].stats, 0,

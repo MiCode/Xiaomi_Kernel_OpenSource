@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/stringify.h>
 #include "ipa_i.h"
-#include "ipa_rm_i.h"
+#include "../ipa_rm_i.h"
 
 #define IPA_MAX_MSG_LEN 4096
 #define IPA_DBG_MAX_RULE_IN_TBL 128
@@ -95,6 +95,7 @@ static struct dentry *dfile_ip6_flt_hw;
 static struct dentry *dfile_stats;
 static struct dentry *dfile_wstats;
 static struct dentry *dfile_wdi_stats;
+static struct dentry *dfile_ntn_stats;
 static struct dentry *dfile_dbg_cnt;
 static struct dentry *dfile_msg;
 static struct dentry *dfile_ip4_nat;
@@ -114,10 +115,10 @@ static ssize_t ipa3_read_gen_reg(struct file *file, char __user *ubuf,
 	struct ipahal_reg_shared_mem_size smem_sz;
 
 	memset(&smem_sz, 0, sizeof(smem_sz));
-	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
+	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
 	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"IPA_VERSION=0x%x\n"
 			"IPA_COMP_HW_VERSION=0x%x\n"
@@ -694,6 +695,7 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 	if (!entry)
 		return -ENOMEM;
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	mutex_lock(&ipa3_ctx->lock);
 	for (j = 0; j < num_tbls; j++) {
 		pr_err("== NON HASHABLE TABLE tbl:%d ==\n", j);
@@ -742,6 +744,7 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 	}
 	mutex_unlock(&ipa3_ctx->lock);
 	kfree(entry);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -866,6 +869,7 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 	if (!entry)
 		return -ENOMEM;
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	mutex_lock(&ipa3_ctx->lock);
 	for (j = 0; j < ipa3_ctx->ipa_num_pipes; j++) {
 		if (!ipa_is_ep_support_flt(j))
@@ -903,6 +907,7 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 	}
 	mutex_unlock(&ipa3_ctx->lock);
 	kfree(entry);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -921,6 +926,7 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 		"sw_tx=%u\n"
 		"hw_tx=%u\n"
+		"tx_non_linear=%u\n"
 		"tx_compl=%u\n"
 		"wan_rx=%u\n"
 		"stat_compl=%u\n"
@@ -936,6 +942,7 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 		"flow_disable=%u\n",
 		ipa3_ctx->stats.tx_sw_pkts,
 		ipa3_ctx->stats.tx_hw_pkts,
+		ipa3_ctx->stats.tx_non_linear,
 		ipa3_ctx->stats.tx_pkts_compl,
 		ipa3_ctx->stats.rx_pkts,
 		ipa3_ctx->stats.stat_compl,
@@ -1115,6 +1122,110 @@ nxt_clnt_cons:
 	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR1,
 		"Total Tx Pkts Freed:", ipa3_ctx->wc_memb.total_tx_pkts_freed);
 	cnt += nbytes;
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
+static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+#define TX_STATS(y) \
+	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->tx_ch_stats[0].y
+#define RX_STATS(y) \
+	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->rx_ch_stats[0].y
+
+	struct Ipa3HwStatsNTNInfoData_t stats;
+	int nbytes;
+	int cnt = 0;
+
+	if (!ipa3_get_ntn_stats(&stats)) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"TX num_pkts_processed=%u\n"
+			"TX tail_ptr_val=%u\n"
+			"TX num_db_fired=%u\n"
+			"TX ringFull=%u\n"
+			"TX ringEmpty=%u\n"
+			"TX ringUsageHigh=%u\n"
+			"TX ringUsageLow=%u\n"
+			"TX RingUtilCount=%u\n"
+			"TX bamFifoFull=%u\n"
+			"TX bamFifoEmpty=%u\n"
+			"TX bamFifoUsageHigh=%u\n"
+			"TX bamFifoUsageLow=%u\n"
+			"TX bamUtilCount=%u\n"
+			"TX num_db=%u\n"
+			"TX num_unexpected_db=%u\n"
+			"TX num_bam_int_handled=%u\n"
+			"TX num_bam_int_in_non_running_state=%u\n"
+			"TX num_qmb_int_handled=%u\n"
+			"TX num_bam_int_handled_while_wait_for_bam=%u\n"
+			"TX num_bam_int_handled_while_not_in_bam=%u\n",
+			TX_STATS(num_pkts_processed),
+			TX_STATS(tail_ptr_val),
+			TX_STATS(num_db_fired),
+			TX_STATS(tx_comp_ring_stats.ringFull),
+			TX_STATS(tx_comp_ring_stats.ringEmpty),
+			TX_STATS(tx_comp_ring_stats.ringUsageHigh),
+			TX_STATS(tx_comp_ring_stats.ringUsageLow),
+			TX_STATS(tx_comp_ring_stats.RingUtilCount),
+			TX_STATS(bam_stats.bamFifoFull),
+			TX_STATS(bam_stats.bamFifoEmpty),
+			TX_STATS(bam_stats.bamFifoUsageHigh),
+			TX_STATS(bam_stats.bamFifoUsageLow),
+			TX_STATS(bam_stats.bamUtilCount),
+			TX_STATS(num_db),
+			TX_STATS(num_unexpected_db),
+			TX_STATS(num_bam_int_handled),
+			TX_STATS(num_bam_int_in_non_running_state),
+			TX_STATS(num_qmb_int_handled),
+			TX_STATS(num_bam_int_handled_while_wait_for_bam),
+			TX_STATS(num_bam_int_handled_while_not_in_bam));
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"RX max_outstanding_pkts=%u\n"
+			"RX num_pkts_processed=%u\n"
+			"RX rx_ring_rp_value=%u\n"
+			"RX ringFull=%u\n"
+			"RX ringEmpty=%u\n"
+			"RX ringUsageHigh=%u\n"
+			"RX ringUsageLow=%u\n"
+			"RX RingUtilCount=%u\n"
+			"RX bamFifoFull=%u\n"
+			"RX bamFifoEmpty=%u\n"
+			"RX bamFifoUsageHigh=%u\n"
+			"RX bamFifoUsageLow=%u\n"
+			"RX bamUtilCount=%u\n"
+			"RX num_bam_int_handled=%u\n"
+			"RX num_db=%u\n"
+			"RX num_unexpected_db=%u\n"
+			"RX num_pkts_in_dis_uninit_state=%u\n"
+			"num_ic_inj_vdev_change=%u\n"
+			"num_ic_inj_fw_desc_change=%u\n",
+			RX_STATS(max_outstanding_pkts),
+			RX_STATS(num_pkts_processed),
+			RX_STATS(rx_ring_rp_value),
+			RX_STATS(rx_ind_ring_stats.ringFull),
+			RX_STATS(rx_ind_ring_stats.ringEmpty),
+			RX_STATS(rx_ind_ring_stats.ringUsageHigh),
+			RX_STATS(rx_ind_ring_stats.ringUsageLow),
+			RX_STATS(rx_ind_ring_stats.RingUtilCount),
+			RX_STATS(bam_stats.bamFifoFull),
+			RX_STATS(bam_stats.bamFifoEmpty),
+			RX_STATS(bam_stats.bamFifoUsageHigh),
+			RX_STATS(bam_stats.bamFifoUsageLow),
+			RX_STATS(bam_stats.bamUtilCount),
+			RX_STATS(num_bam_int_handled),
+			RX_STATS(num_db),
+			RX_STATS(num_unexpected_db),
+			RX_STATS(num_pkts_in_dis_uninit_state),
+			RX_STATS(num_bam_int_handled_while_not_in_bam),
+			RX_STATS(num_bam_int_handled_while_in_bam_state));
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"Fail to read NTN stats\n");
+		cnt += nbytes;
+	}
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
@@ -1470,7 +1581,7 @@ static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 {
 	int result, nbytes, cnt = 0;
 
-	result = ipa3_rm_stat(dbg_buff, IPA_MAX_MSG_LEN);
+	result = ipa_rm_stat(dbg_buff, IPA_MAX_MSG_LEN);
 	if (result < 0) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"Error in printing RM stat %d\n", result);
@@ -1587,6 +1698,43 @@ static ssize_t ipa3_clear_active_clients_log(struct file *file,
 	return count;
 }
 
+static ssize_t ipa3_enable_ipc_low(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+	s8 option = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtos8(dbg_buff, 0, &option))
+		return -EFAULT;
+
+	if (option) {
+		if (!ipa3_ctx->logbuf_low) {
+			ipa3_ctx->logbuf_low =
+				ipc_log_context_create(IPA_IPC_LOG_PAGES,
+					"ipa_low", 0);
+		}
+
+		if (ipa3_ctx->logbuf_low == NULL) {
+			IPAERR("failed to get logbuf_low\n");
+			return -EFAULT;
+		}
+	} else {
+		if (ipa3_ctx->logbuf_low)
+			ipc_log_context_destroy(ipa3_ctx->logbuf_low);
+		ipa3_ctx->logbuf_low = NULL;
+	}
+
+	return count;
+}
+
 const struct file_operations ipa3_gen_reg_ops = {
 	.read = ipa3_read_gen_reg,
 };
@@ -1645,6 +1793,10 @@ const struct file_operations ipa3_wdi_ops = {
 	.read = ipa3_read_wdi,
 };
 
+const struct file_operations ipa3_ntn_ops = {
+	.read = ipa3_read_ntn,
+};
+
 const struct file_operations ipa3_msg_ops = {
 	.read = ipa3_read_msg,
 };
@@ -1669,6 +1821,10 @@ const struct file_operations ipa3_rm_stats = {
 const struct file_operations ipa3_active_clients = {
 	.read = ipa3_print_active_clients_log,
 	.write = ipa3_clear_active_clients_log,
+};
+
+const struct file_operations ipa3_ipc_low_ops = {
+	.write = ipa3_enable_ipc_low,
 };
 
 void ipa3_debugfs_init(void)
@@ -1825,6 +1981,13 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	dfile_ntn_stats = debugfs_create_file("ntn", read_only_mode, dent, 0,
+			&ipa3_ntn_ops);
+	if (!dfile_ntn_stats || IS_ERR(dfile_ntn_stats)) {
+		IPAERR("fail to create file for debug_fs ntn stats\n");
+		goto fail;
+	}
+
 	dfile_dbg_cnt = debugfs_create_file("dbg_cnt", read_write_mode, dent, 0,
 			&ipa3_dbg_cnt_ops);
 	if (!dfile_dbg_cnt || IS_ERR(dfile_dbg_cnt)) {
@@ -1883,8 +2046,8 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
-	file = debugfs_create_u32("enable_low_prio_print", read_write_mode,
-		dent, &ipa3_ctx->enable_low_prio_print);
+	file = debugfs_create_file("enable_low_prio_print", write_only_mode,
+		dent, 0, &ipa3_ipc_low_ops);
 	if (!file) {
 		IPAERR("could not create enable_low_prio_print file\n");
 		goto fail;
@@ -1908,6 +2071,12 @@ void ipa3_debugfs_remove(void)
 	}
 	debugfs_remove_recursive(dent);
 }
+
+struct dentry *ipa_debugfs_get_root(void)
+{
+	return dent;
+}
+EXPORT_SYMBOL(ipa_debugfs_get_root);
 
 #else /* !CONFIG_DEBUG_FS */
 void ipa3_debugfs_init(void) {}

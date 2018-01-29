@@ -33,6 +33,8 @@ msm_adreno-y += \
 	adreno_a3xx_snapshot.o \
 	adreno_a4xx_snapshot.o \
 	adreno_a5xx_snapshot.o \
+	adreno_a4xx_preempt.o \
+	adreno_a5xx_preempt.o \
 	adreno_sysfs.o \
 	adreno.o \
 	adreno_cp_parser.o \

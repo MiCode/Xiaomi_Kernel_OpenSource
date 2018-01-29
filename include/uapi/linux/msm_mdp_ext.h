@@ -30,6 +30,15 @@
 #define MSMFB_MDP_SET_CFG _IOW(MDP_IOCTL_MAGIC, 130, \
 					      struct mdp_set_cfg)
 
+/*
+ * To allow proper structure padding for 64bit/32bit target
+ */
+#ifdef __LP64
+#define MDP_LAYER_COMMIT_V1_PAD 3
+#else
+#define MDP_LAYER_COMMIT_V1_PAD 4
+#endif
+
 /**********************************************************************
 LAYER FLAG CONFIGURATION
 **********************************************************************/
@@ -76,6 +85,37 @@ LAYER FLAG CONFIGURATION
 #define MDP_LAYER_ENABLE_QSEED3_SCALE   0x800
 
 /**********************************************************************
+DESTINATION SCALER FLAG CONFIGURATION
+**********************************************************************/
+
+/* Enable/disable Destination scaler */
+#define MDP_DESTSCALER_ENABLE		0x1
+
+/*
+ * Indicating mdp_destination_scaler_data contains
+ * Scaling parameter update. Can be set anytime.
+ */
+#define MDP_DESTSCALER_SCALE_UPDATE	0x2
+
+/*
+ * Indicating mdp_destination_scaler_data contains
+ * Detail enhancement setting update. Can be set anytime.
+ */
+#define MDP_DESTSCALER_ENHANCER_UPDATE	0x4
+
+/*
+ * layer will work in multirect mode, where single hardware should
+ * fetch multiple rectangles with a single hardware
+ */
+#define MDP_LAYER_MULTIRECT_ENABLE		0x1000
+
+/*
+ * if flag present and multirect is enabled, multirect will work in parallel
+ * fetch mode, otherwise it will default to serial fetch mode.
+ */
+#define MDP_LAYER_MULTIRECT_PARALLEL_MODE	0x2000
+
+/**********************************************************************
 VALIDATE/COMMIT FLAG CONFIGURATION
 **********************************************************************/
 
@@ -99,6 +139,8 @@ VALIDATE/COMMIT FLAG CONFIGURATION
 #define MDP_COMMIT_SYNC_FENCE_WAIT		0x04
 
 #define MDP_COMMIT_VERSION_1_0		0x00010000
+
+#define OUT_LAYER_COLOR_SPACE
 
 /**********************************************************************
 Configuration structures
@@ -292,8 +334,46 @@ struct mdp_output_layer {
 	/* Buffer attached with output layer. Device uses it for commit call */
 	struct mdp_layer_buffer		buffer;
 
+	/* color space of the destination */
+	enum mdp_color_space		color_space;
+
 	/* 32bits reserved value for future usage. */
-	uint32_t			reserved[6];
+	uint32_t			reserved[5];
+};
+
+/*
+ * Destination scaling info structure holds setup paramaters for upscaling
+ * setting in the destination scaling block.
+ */
+struct mdp_destination_scaler_data {
+	/*
+	 * Flag to switch between mode for destination scaler. Please Refer to
+	 * destination scaler flag config for all possible setting.
+	 */
+	uint32_t			flags;
+
+	/*
+	 * Destination scaler selection index. Client provides the index in
+	 * validate and commit call.
+	 */
+	uint32_t			dest_scaler_ndx;
+
+	/*
+	 * LM width configuration per Destination scaling updates
+	 */
+	uint32_t			lm_width;
+
+	/*
+	 * LM height configuration per Destination scaling updates
+	 */
+	uint32_t			lm_height;
+
+	/*
+	 * The scaling parameters for all the mode except disable. For
+	 * disabling the scaler, there is no need to provide the scale.
+	 * A userspace pointer points to struct mdp_scale_data_v2.
+	 */
+	uint64_t	__user scale;
 };
 
 /*
@@ -362,8 +442,20 @@ struct mdp_layer_commit_v1 {
 	 */
 	int			retire_fence;
 
+	/*
+	 * Scaler data and control for setting up destination scaler.
+	 * A userspace pointer that points to a list of
+	 * struct mdp_destination_scaler_data.
+	 */
+	void __user		*dest_scaler;
+
+	/*
+	 * Represents number of Destination scaler data provied by userspace.
+	 */
+	uint32_t		dest_scaler_cnt;
+
 	/* 32-bits reserved value for future usage. */
-	uint32_t		reserved[6];
+	uint32_t		reserved[MDP_LAYER_COMMIT_V1_PAD];
 };
 
 /*

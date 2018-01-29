@@ -32,274 +32,6 @@
 
 #define PHY_ADDR_4G (1ULL<<32)
 
-enum {
-	MDP_INTR_VSYNC_INTF_0,
-	MDP_INTR_VSYNC_INTF_1,
-	MDP_INTR_VSYNC_INTF_2,
-	MDP_INTR_VSYNC_INTF_3,
-	MDP_INTR_UNDERRUN_INTF_0,
-	MDP_INTR_UNDERRUN_INTF_1,
-	MDP_INTR_UNDERRUN_INTF_2,
-	MDP_INTR_UNDERRUN_INTF_3,
-	MDP_INTR_PING_PONG_0,
-	MDP_INTR_PING_PONG_1,
-	MDP_INTR_PING_PONG_2,
-	MDP_INTR_PING_PONG_3,
-	MDP_INTR_PING_PONG_0_RD_PTR,
-	MDP_INTR_PING_PONG_1_RD_PTR,
-	MDP_INTR_PING_PONG_2_RD_PTR,
-	MDP_INTR_PING_PONG_3_RD_PTR,
-	MDP_INTR_PING_PONG_0_WR_PTR,
-	MDP_INTR_PING_PONG_1_WR_PTR,
-	MDP_INTR_PING_PONG_2_WR_PTR,
-	MDP_INTR_PING_PONG_3_WR_PTR,
-	MDP_INTR_WB_0,
-	MDP_INTR_WB_1,
-	MDP_INTR_WB_2,
-	MDP_INTR_PING_PONG_0_AUTO_REF,
-	MDP_INTR_PING_PONG_1_AUTO_REF,
-	MDP_INTR_PING_PONG_2_AUTO_REF,
-	MDP_INTR_PING_PONG_3_AUTO_REF,
-	MDP_INTR_MAX,
-};
-
-struct intr_callback {
-	void (*func)(void *);
-	void *arg;
-};
-
-struct intr_callback mdp_intr_cb[MDP_INTR_MAX];
-static DEFINE_SPINLOCK(mdss_mdp_intr_lock);
-
-static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
-{
-	int index = -1;
-	switch (intr_type) {
-	case MDSS_MDP_IRQ_INTF_UNDER_RUN:
-		index = MDP_INTR_UNDERRUN_INTF_0 + (intf_num - MDSS_MDP_INTF0);
-		break;
-	case MDSS_MDP_IRQ_INTF_VSYNC:
-		index = MDP_INTR_VSYNC_INTF_0 + (intf_num - MDSS_MDP_INTF0);
-		break;
-	case MDSS_MDP_IRQ_PING_PONG_COMP:
-		index = MDP_INTR_PING_PONG_0 + intf_num;
-		break;
-	case MDSS_MDP_IRQ_PING_PONG_RD_PTR:
-		index = MDP_INTR_PING_PONG_0_RD_PTR + intf_num;
-		break;
-	case MDSS_MDP_IRQ_PING_PONG_WR_PTR:
-		index = MDP_INTR_PING_PONG_0_WR_PTR + intf_num;
-		break;
-	case MDSS_MDP_IRQ_WB_ROT_COMP:
-		index = MDP_INTR_WB_0 + intf_num;
-		break;
-	case MDSS_MDP_IRQ_WB_WFD:
-		index = MDP_INTR_WB_2 + intf_num;
-		break;
-	case MDSS_MDP_IRQ_PING_PONG_AUTO_REF:
-		index = MDP_INTR_PING_PONG_0_AUTO_REF + intf_num;
-		break;
-	}
-
-	return index;
-}
-
-int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
-			       void (*fnc_ptr)(void *), void *arg)
-{
-	unsigned long flags;
-	int index;
-
-	index = mdss_mdp_intr2index(intr_type, intf_num);
-	if (index < 0) {
-		pr_warn("invalid intr type=%u intf_num=%u\n",
-				intr_type, intf_num);
-		return -EINVAL;
-	}
-
-	spin_lock_irqsave(&mdss_mdp_intr_lock, flags);
-	WARN(mdp_intr_cb[index].func && fnc_ptr,
-		"replacing current intr callback for ndx=%d\n", index);
-	mdp_intr_cb[index].func = fnc_ptr;
-	mdp_intr_cb[index].arg = arg;
-	spin_unlock_irqrestore(&mdss_mdp_intr_lock, flags);
-
-	return 0;
-}
-
-int mdss_mdp_set_intr_callback_nosync(u32 intr_type, u32 intf_num,
-			       void (*fnc_ptr)(void *), void *arg)
-{
-	int index;
-
-	index = mdss_mdp_intr2index(intr_type, intf_num);
-	if (index < 0) {
-		pr_warn("invalid intr type=%u intf_num=%u\n",
-				intr_type, intf_num);
-		return -EINVAL;
-	}
-
-	WARN(mdp_intr_cb[index].func && fnc_ptr,
-		"replacing current intr callback for ndx=%d\n", index);
-	mdp_intr_cb[index].func = fnc_ptr;
-	mdp_intr_cb[index].arg = arg;
-
-	return 0;
-}
-
-static inline void mdss_mdp_intr_done(int index)
-{
-	void (*fnc)(void *);
-	void *arg;
-
-	spin_lock(&mdss_mdp_intr_lock);
-	fnc = mdp_intr_cb[index].func;
-	arg = mdp_intr_cb[index].arg;
-	spin_unlock(&mdss_mdp_intr_lock);
-	if (fnc)
-		fnc(arg);
-}
-
-irqreturn_t mdss_mdp_isr(int irq, void *ptr)
-{
-	struct mdss_data_type *mdata = ptr;
-	u32 isr, mask, hist_isr, hist_mask;
-
-	if (!mdata->clk_ena)
-		return IRQ_HANDLED;
-
-	isr = readl_relaxed(mdata->mdp_base + MDSS_MDP_REG_INTR_STATUS);
-
-	if (isr == 0)
-		goto mdp_isr_done;
-
-
-	mask = readl_relaxed(mdata->mdp_base + MDSS_MDP_REG_INTR_EN);
-	writel_relaxed(isr, mdata->mdp_base + MDSS_MDP_REG_INTR_CLEAR);
-
-	pr_debug("%s: isr=%x mask=%x\n", __func__, isr, mask);
-
-	isr &= mask;
-	if (isr == 0)
-		goto mdp_isr_done;
-
-	if (isr & MDSS_MDP_INTR_INTF_0_UNDERRUN)
-		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_0);
-
-	if (isr & MDSS_MDP_INTR_INTF_1_UNDERRUN)
-		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_1);
-
-	if (isr & MDSS_MDP_INTR_INTF_2_UNDERRUN)
-		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_2);
-
-	if (isr & MDSS_MDP_INTR_INTF_3_UNDERRUN)
-		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_3);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_0_DONE) {
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI0, false);
-	}
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_1_DONE) {
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_1);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI1, false);
-	}
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_2_DONE)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_3_DONE)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_0_RD_PTR)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0_RD_PTR);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_1_RD_PTR)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_1_RD_PTR);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_2_RD_PTR)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2_RD_PTR);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_3_RD_PTR)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3_RD_PTR);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_0_WR_PTR)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0_WR_PTR);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_1_WR_PTR)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_1_WR_PTR);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_2_WR_PTR)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2_WR_PTR);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_3_WR_PTR)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3_WR_PTR);
-
-	if (isr & MDSS_MDP_INTR_INTF_0_VSYNC) {
-		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_0);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_EDP, true);
-	}
-
-	if (isr & MDSS_MDP_INTR_INTF_1_VSYNC) {
-		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_1);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI0, true);
-	}
-
-	if (isr & MDSS_MDP_INTR_INTF_2_VSYNC) {
-		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_2);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI1, true);
-	}
-
-	if (isr & MDSS_MDP_INTR_INTF_3_VSYNC) {
-		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_3);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_HDMI, true);
-	}
-
-	if (isr & MDSS_MDP_INTR_WB_0_DONE) {
-		mdss_mdp_intr_done(MDP_INTR_WB_0);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
-	}
-
-	if (isr & MDSS_MDP_INTR_WB_1_DONE) {
-		mdss_mdp_intr_done(MDP_INTR_WB_1);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
-	}
-
-	if (isr & ((mdata->mdp_rev == MDSS_MDP_HW_REV_108) ?
-		MDSS_MDP_INTR_WB_2_DONE >> 2 : MDSS_MDP_INTR_WB_2_DONE)) {
-		mdss_mdp_intr_done(MDP_INTR_WB_2);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
-	}
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_0_AUTOREFRESH_DONE)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0_AUTO_REF);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_1_AUTOREFRESH_DONE)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_1_AUTO_REF);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_2_AUTOREFRESH_DONE)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2_AUTO_REF);
-
-	if (isr & MDSS_MDP_INTR_PING_PONG_3_AUTOREFRESH_DONE)
-		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3_AUTO_REF);
-
-mdp_isr_done:
-	hist_isr = readl_relaxed(mdata->mdp_base +
-			MDSS_MDP_REG_HIST_INTR_STATUS);
-	if (hist_isr == 0)
-		goto hist_isr_done;
-	hist_mask = readl_relaxed(mdata->mdp_base +
-			MDSS_MDP_REG_HIST_INTR_EN);
-	writel_relaxed(hist_isr, mdata->mdp_base +
-		MDSS_MDP_REG_HIST_INTR_CLEAR);
-	hist_isr &= hist_mask;
-	if (hist_isr == 0)
-		goto hist_isr_done;
-	mdss_mdp_hist_intr_done(hist_isr);
-hist_isr_done:
-	return IRQ_HANDLED;
-}
-
 void mdss_mdp_format_flag_removal(u32 *table, u32 num, u32 remove_bits)
 {
 	struct mdss_mdp_format_params *fmt = NULL;
@@ -321,17 +53,23 @@ void mdss_mdp_format_flag_removal(u32 *table, u32 num, u32 remove_bits)
 	}
 }
 
-void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
-{
 #define SET_BIT(value, bit_num) \
 	{ \
 		value[bit_num >> 3] |= (1 << (bit_num & 7)); \
-	} \
+	}
+static inline void __set_pipes_supported_fmt(struct mdss_mdp_pipe *pipe_list,
+		int count, struct mdss_mdp_format_params *fmt)
+{
+	struct mdss_mdp_pipe *pipe = pipe_list;
+	int i, j;
 
-	struct mdss_mdp_pipe *vig_pipes = mdata->vig_pipes;
-	struct mdss_mdp_pipe *rgb_pipes = mdata->rgb_pipes;
-	struct mdss_mdp_pipe *dma_pipes = mdata->dma_pipes;
-	struct mdss_mdp_pipe *cur_pipes = mdata->cursor_pipes;
+	for (i = 0; i < count; i++, pipe += j)
+		for (j = 0; j < pipe->multirect.max_rects; j++)
+			SET_BIT(pipe[j].supported_formats, fmt->format);
+}
+
+void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
+{
 	struct mdss_mdp_writeback *wb = mdata->wb;
 	bool has_tile = mdata->highest_bank_bit && !mdata->has_ubwc;
 	bool has_ubwc = mdata->has_ubwc;
@@ -348,9 +86,8 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 				mdata->mdss_caps_map))
 				continue;
 
-			for (j = 0; j < mdata->nvig_pipes; j++)
-				SET_BIT(vig_pipes[j].supported_formats,
-						fmt->format);
+			__set_pipes_supported_fmt(mdata->vig_pipes,
+					mdata->nvig_pipes, fmt);
 
 			if (fmt->flag & VALID_ROT_WB_FORMAT) {
 				for (j = 0; j < mdata->nwb; j++)
@@ -364,19 +101,15 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 			}
 			if (fmt->flag & VALID_MDP_CURSOR_FORMAT &&
 					mdata->ncursor_pipes) {
-				for (j = 0; j < mdata->ncursor_pipes; j++)
-					SET_BIT(cur_pipes[j].supported_formats,
-							fmt->format);
+				__set_pipes_supported_fmt(mdata->cursor_pipes,
+						mdata->ncursor_pipes, fmt);
 			}
 
 			if (!fmt->is_yuv) {
-				for (j = 0; j < mdata->nrgb_pipes; j++)
-					SET_BIT(rgb_pipes[j].supported_formats,
-							fmt->format);
-
-				for (j = 0; j < mdata->ndma_pipes; j++)
-					SET_BIT(dma_pipes[j].supported_formats,
-							fmt->format);
+				__set_pipes_supported_fmt(mdata->rgb_pipes,
+						mdata->nrgb_pipes, fmt);
+				__set_pipes_supported_fmt(mdata->dma_pipes,
+						mdata->ndma_pipes, fmt);
 			}
 		}
 	}
@@ -390,8 +123,8 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 			mdata->mdss_caps_map))
 			continue;
 
-		for (j = 0; j < mdata->nvig_pipes; j++)
-			SET_BIT(vig_pipes[j].supported_formats, fmt->format);
+		__set_pipes_supported_fmt(mdata->vig_pipes,
+				mdata->nvig_pipes, fmt);
 
 		if (fmt->flag & VALID_ROT_WB_FORMAT) {
 			for (j = 0; j < mdata->nwb; j++)
@@ -405,19 +138,15 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 		}
 		if (fmt->flag & VALID_MDP_CURSOR_FORMAT &&
 				mdata->ncursor_pipes) {
-			for (j = 0; j < mdata->ncursor_pipes; j++)
-				SET_BIT(cur_pipes[j].supported_formats,
-						fmt->format);
+			__set_pipes_supported_fmt(mdata->cursor_pipes,
+					mdata->ncursor_pipes, fmt);
 		}
 
 		if (!fmt->is_yuv) {
-			for (j = 0; j < mdata->nrgb_pipes; j++)
-				SET_BIT(rgb_pipes[j].supported_formats,
-						fmt->format);
-
-			for (j = 0; j < mdata->ndma_pipes; j++)
-				SET_BIT(dma_pipes[j].supported_formats,
-						fmt->format);
+			__set_pipes_supported_fmt(mdata->rgb_pipes,
+					mdata->nrgb_pipes, fmt);
+			__set_pipes_supported_fmt(mdata->dma_pipes,
+					mdata->ndma_pipes, fmt);
 		}
 	}
 }
@@ -834,13 +563,6 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 			u32 chroma_samp;
 
 			chroma_samp = fmt->chroma_sample;
-
-			if (rotation) {
-				if (chroma_samp == MDSS_MDP_CHROMA_H2V1)
-					chroma_samp = MDSS_MDP_CHROMA_H1V2;
-				else if (chroma_samp == MDSS_MDP_CHROMA_H1V2)
-					chroma_samp = MDSS_MDP_CHROMA_H2V1;
-			}
 
 			mdss_mdp_get_v_h_subsample_rate(chroma_samp,
 				&v_subsample, &h_subsample);
@@ -1288,7 +1010,7 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 	} else if (iclient) {
 		if (mdss_mdp_is_map_needed(mdata, data)) {
 			data->srcp_dma_buf = dma_buf_get(img->memory_id);
-			if (IS_ERR(data->srcp_dma_buf)) {
+			if (IS_ERR_OR_NULL(data->srcp_dma_buf)) {
 				pr_err("error on ion_import_fd\n");
 				ret = PTR_ERR(data->srcp_dma_buf);
 				data->srcp_dma_buf = NULL;
@@ -1397,6 +1119,9 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 	int ret = -EINVAL;
 	int domain;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct scatterlist *sg;
+	unsigned int i;
+	struct sg_table *table;
 
 	if (data->addr && data->len)
 		return 0;
@@ -1418,7 +1143,11 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 			data->mapped = true;
 		} else {
 			data->addr = sg_phys(data->srcp_table->sgl);
-			data->len = data->srcp_table->sgl->length;
+			data->len = 0;
+			table = data->srcp_table;
+			for_each_sg(table->sgl, sg, table->nents, i) {
+				data->len += sg->length;
+			}
 			ret = 0;
 		}
 	}

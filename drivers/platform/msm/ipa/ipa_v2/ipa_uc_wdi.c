@@ -407,7 +407,7 @@ int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 		return -EINVAL;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	TX_STATS(num_pkts_processed);
 	TX_STATS(copy_engine_doorbell_value);
@@ -449,7 +449,7 @@ int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	RX_STATS(reserved1);
 	RX_STATS(reserved2);
 
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -484,7 +484,7 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 		return -EINVAL;
 	}
 
-	ret = iommu_map(cb->mapping->domain, va, rounddown(pa, PAGE_SIZE),
+	ret = ipa_iommu_map(cb->mapping->domain, va, rounddown(pa, PAGE_SIZE),
 			true_len,
 			device ? (prot | IOMMU_DEVICE) : prot);
 	if (ret) {
@@ -525,7 +525,7 @@ static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 		phys = page_to_phys(sg_page(sg));
 		len = PAGE_ALIGN(sg->offset + sg->length);
 
-		ret = iommu_map(cb->mapping->domain, va, phys, len, prot);
+		ret = ipa_iommu_map(cb->mapping->domain, va, phys, len, prot);
 		if (ret) {
 			IPAERR("iommu map failed for pa=%pa len=%zu\n",
 					&phys, len);
@@ -577,7 +577,7 @@ static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
 	}
 
 	if (ipa_ctx->wdi_map_cnt == 0)
-		cb->next_addr = IPA_SMMU_UC_VA_END;
+		cb->next_addr = cb->va_end;
 
 }
 
@@ -636,19 +636,19 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		unsigned long *iova)
 {
 	/* support for SMMU on WLAN but no SMMU on IPA */
-	if (wlan_smmu_en && !ipa_ctx->smmu_present) {
+	if (wlan_smmu_en && ipa_ctx->smmu_s1_bypass) {
 		IPAERR("Unsupported SMMU pairing\n");
 		return -EINVAL;
 	}
 
 	/* legacy: no SMMUs on either end */
-	if (!wlan_smmu_en && !ipa_ctx->smmu_present) {
+	if (!wlan_smmu_en && ipa_ctx->smmu_s1_bypass) {
 		*iova = pa;
 		return 0;
 	}
 
 	/* no SMMU on WLAN but SMMU on IPA */
-	if (!wlan_smmu_en && ipa_ctx->smmu_present) {
+	if (!wlan_smmu_en && !ipa_ctx->smmu_s1_bypass) {
 		if (ipa_create_uc_smmu_mapping_pa(pa, len,
 			(res_idx == IPA_WDI_CE_DB_RES) ? true : false, iova)) {
 			IPAERR("Fail to create mapping res %d\n", res_idx);
@@ -659,7 +659,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	}
 
 	/* SMMU on WLAN and SMMU on IPA */
-	if (wlan_smmu_en && ipa_ctx->smmu_present) {
+	if (wlan_smmu_en && !ipa_ctx->smmu_s1_bypass) {
 		switch (res_idx) {
 		case IPA_WDI_RX_RING_RP_RES:
 		case IPA_WDI_CE_DB_RES:
@@ -738,7 +738,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		}
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -756,7 +756,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	}
 
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
-	IPA2_ACTIVE_CLIENTS_INC_EP(in->sys.client);
+	IPA_ACTIVE_CLIENTS_INC_EP(in->sys.client);
 
 	IPADBG("client=%d ep=%d\n", in->sys.client, ipa_ep_idx);
 	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
@@ -960,10 +960,10 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
 	if (!ep->keep_ipa_awake)
-		IPA2_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
+		IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 
 	dma_free_coherent(ipa_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
-	ep->wdi_state |= IPA_WDI_CONNECTED;
+	ep->uc_offload_state |= IPA_WDI_CONNECTED;
 	IPADBG("client %d (ep: %d) connected\n", in->sys.client, ipa_ep_idx);
 
 	return 0;
@@ -974,7 +974,7 @@ uc_timeout:
 	ipa_release_uc_smmu_mappings(in->sys.client);
 	dma_free_coherent(ipa_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 dma_alloc_fail:
-	IPA2_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
+	IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 fail:
 	return result;
 }
@@ -1001,11 +1001,11 @@ int ipa2_disconnect_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1013,13 +1013,13 @@ int ipa2_disconnect_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != IPA_WDI_CONNECTED) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (ep->uc_offload_state != IPA_WDI_CONNECTED) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
 	if (!ep->keep_ipa_awake)
-		IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+		IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	tear.params.ipa_pipe_number = clnt_hdl;
 
@@ -1037,7 +1037,7 @@ int ipa2_disconnect_wdi_pipe(u32 clnt_hdl)
 	ipa_release_uc_smmu_mappings(ep->client);
 
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
@@ -1067,11 +1067,11 @@ int ipa2_enable_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1079,12 +1079,12 @@ int ipa2_enable_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != IPA_WDI_CONNECTED) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (ep->uc_offload_state != IPA_WDI_CONNECTED) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 	enable.params.ipa_pipe_number = clnt_hdl;
 
 	result = ipa_uc_send_cmd(enable.raw32b,
@@ -1104,8 +1104,8 @@ int ipa2_enable_wdi_pipe(u32 clnt_hdl)
 		result = ipa2_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
-	ep->wdi_state |= IPA_WDI_ENABLED;
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	ep->uc_offload_state |= IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) enabled\n", clnt_hdl);
 
 uc_timeout:
@@ -1135,11 +1135,11 @@ int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1147,12 +1147,12 @@ int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED)) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (ep->uc_offload_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED)) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	result = ipa_disable_data_path(clnt_hdl);
 	if (result) {
@@ -1205,8 +1205,8 @@ int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 		ipa2_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
-	ep->wdi_state &= ~IPA_WDI_ENABLED;
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	ep->uc_offload_state &= ~IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
 
 uc_timeout:
@@ -1235,11 +1235,11 @@ int ipa2_resume_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1247,12 +1247,12 @@ int ipa2_resume_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED)) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (ep->uc_offload_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED)) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 	resume.params.ipa_pipe_number = clnt_hdl;
 
 	result = ipa_uc_send_cmd(resume.raw32b,
@@ -1273,7 +1273,7 @@ int ipa2_resume_wdi_pipe(u32 clnt_hdl)
 	else
 		IPADBG("client (ep: %d) un-susp/delay\n", clnt_hdl);
 
-	ep->wdi_state |= IPA_WDI_RESUMED;
+	ep->uc_offload_state |= IPA_WDI_RESUMED;
 	IPADBG("client (ep: %d) resumed\n", clnt_hdl);
 
 uc_timeout:
@@ -1302,11 +1302,11 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1314,9 +1314,9 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
+	if (ep->uc_offload_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
 				IPA_WDI_RESUMED)) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
@@ -1368,8 +1368,8 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 	}
 
 	ipa_ctx->tag_process_before_gating = true;
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
-	ep->wdi_state &= ~IPA_WDI_RESUMED;
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	ep->uc_offload_state &= ~IPA_WDI_RESUMED;
 	IPADBG("client (ep: %d) suspended\n", clnt_hdl);
 
 uc_timeout:
@@ -1384,11 +1384,11 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1396,12 +1396,12 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	if (!(ep->wdi_state & IPA_WDI_CONNECTED)) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (!(ep->uc_offload_state & IPA_WDI_CONNECTED)) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 	qmap.params.ipa_pipe_number = clnt_hdl;
 	qmap.params.qmap_id = qmap_id;
 
@@ -1415,7 +1415,7 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		goto uc_timeout;
 	}
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) qmap_id %d updated\n", clnt_hdl, qmap_id);
 
@@ -1447,7 +1447,7 @@ int ipa2_uc_reg_rdyCB(
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result) {
 		inout->is_uC_ready = false;
 		ipa_ctx->uc_wdi_ctx.uc_ready_cb = inout->notify;
@@ -1574,7 +1574,7 @@ int ipa2_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 	for (i = 0; i < num_buffers; i++) {
 		IPADBG("i=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", i,
 			&info[i].pa, info[i].iova, info[i].size);
-		info[i].result = iommu_map(cb->iommu,
+		info[i].result = ipa_iommu_map(cb->iommu,
 			rounddown(info[i].iova, PAGE_SIZE),
 			rounddown(info[i].pa, PAGE_SIZE),
 			roundup(info[i].size + info[i].pa -

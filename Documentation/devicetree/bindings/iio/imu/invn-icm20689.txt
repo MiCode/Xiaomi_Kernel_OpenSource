@@ -1,0 +1,35 @@
+The ICM20689 sensor is 6-axis gyroscope+accelerometer combo
+device which is made by InvenSense Inc. It can be accessed
+via SPI bus with max frequency up to 8MHz. The recommended
+SPI mode is the mode 3(CPOL=1, CPHA=1).
+
+The datasheet can be found as the following link:
+https://www.invensense.com/products/motion-tracking/6-axis/icm-20689/
+
+
+Required properties:
+
+ - compatible		: Should be "invn,icm20689".
+ - reg		: the Chip select ID.
+ - spi-max-frequency: the SPI bus max frequency
+
+Optional properties:
+ - invn,icm20689-irq:  the irq gpio. This is not used if
+ using SMD to trigger. this is needed only if using the
+ device IRQ to trigger. Only using SMD to trigger can
+ support 8K sample rate.
+
+ - spi-cpol		: SPI MODE(CPOL)
+ - spi-cpha		: SPI MODE(CPHA)
+
+Example:
+	spi@78b6000 {
+		icm20689-spi@0 {
+			compatible = "invn,icm20689";
+			reg = <0>;
+			spi-max-frequency = <8000000>;
+			invn,icm20689-irq = <&msm_gpio 96 0>;
+			spi-cpol;
+			spi-cpha;
+		};
+	};

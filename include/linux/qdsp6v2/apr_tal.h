@@ -87,6 +87,7 @@ struct apr_svc_ch_dev {
 	wait_queue_head_t  wait;
 	void               *priv;
 	unsigned           channel_state;
+	bool               if_remote_intent_ready;
 };
 #else
 struct apr_svc_ch_dev {

@@ -17,6 +17,7 @@
 #include "msm8909w-gpu.dtsi"
 #include "msm8909-pm8916-cdp.dtsi"
 #include "msm8909w.dtsi"
+#include "apq8009w-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009W-PM8916 CDP";
@@ -24,18 +25,6 @@
 	qcom,msm-id = <265 0>,
 		      <301 0>;
 	qcom,board-id= <1 0x103>;
-};
-
-&external_image_mem {
-	reg = <0x0 0x87a00000 0x0 0x0600000>;
-};
-
-&modem_adsp_mem {
-	reg = <0x0 0x88000000 0x0 0x02c00000>;
-};
-
-&peripheral_mem {
-	reg = <0x0 0x8ac00000 0x0 0x0500000>;
 };
 
 &mdss_dsi0 {

@@ -93,6 +93,14 @@ Optional properties:
 			   involving DMIC will use the rate defined by
 			   cdc-dmic-sample-rate.
 
+ - qcom,cdc-ecpp-dmic-rate: Specifies the sample rate of digital mic in HZ to be
+			   used by ECPP (Echo Cancellation Ping Pong) block
+			   on the codec. The valid set of values are same
+			   as that of cdc-dmic-sample-rate, but this rate will
+			   only be used by ECPP and all other audio use cases
+			   involving DMIC will use the rate defined by
+			   cdc-dmic-sample-rate.
+
  - qcom,cdc-dmic-clk-drv-strength: Specifies the drive strength for digital microphone
 				   clock in the codec. Accepted values are 2,4,8 and 16.
 				   The clock drive strentgh is in uA. Codec driver will

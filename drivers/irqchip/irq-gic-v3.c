@@ -131,6 +131,7 @@ static void __maybe_unused gic_write_pmr(u64 val)
 {
 	asm volatile("msr_s " __stringify(ICC_PMR_EL1) ", %0" : : "r" (val));
 	/* As per the architecture specification */
+	isb();
 	mb();
 }
 
@@ -150,6 +151,7 @@ static void __maybe_unused gic_write_sgi1r(u64 val)
 {
 	asm volatile("msr_s " __stringify(ICC_SGI1R_EL1) ", %0" : : "r" (val));
 	/* As per the architecture specification */
+	isb();
 	mb();
 }
 

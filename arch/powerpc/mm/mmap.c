@@ -63,6 +63,13 @@ unsigned long arch_mmap_rnd(void)
 	else
 		rnd = (unsigned long)get_random_int() % (1<<(30-PAGE_SHIFT));
 
+	if (current->flags & PF_RANDOMIZE) {
+		/* 8MB for 32bit, 1GB for 64bit */
+		if (is_32bit_task())
+			rnd = get_random_long() % (1<<(23-PAGE_SHIFT));
+		else
+			rnd = get_random_long() % (1UL<<(30-PAGE_SHIFT));
+	}
 	return rnd << PAGE_SHIFT;
 }
 

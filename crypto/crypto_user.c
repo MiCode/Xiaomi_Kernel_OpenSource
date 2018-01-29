@@ -367,7 +367,7 @@ static struct crypto_alg *crypto_user_aead_alg(const char *name, u32 type,
 		err = PTR_ERR(alg);
 		if (err != -EAGAIN)
 			break;
-		if (signal_pending(current)) {
+		if (fatal_signal_pending(current)) {
 			err = -EINTR;
 			break;
 		}
@@ -483,6 +483,7 @@ static int crypto_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 		if (link->dump == NULL)
 			return -EINVAL;
 
+		down_read(&crypto_alg_sem);
 		list_for_each_entry(alg, &crypto_alg_list, cra_list)
 			dump_alloc += CRYPTO_REPORT_MAXSIZE;
 
@@ -492,8 +493,11 @@ static int crypto_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 				.done = link->done,
 				.min_dump_alloc = dump_alloc,
 			};
-			return netlink_dump_start(crypto_nlsk, skb, nlh, &c);
+			err = netlink_dump_start(crypto_nlsk, skb, nlh, &c);
 		}
+		up_read(&crypto_alg_sem);
+
+		return err;
 	}
 
 	err = nlmsg_parse(nlh, crypto_msg_min[type], attrs, CRYPTOCFGA_MAX,

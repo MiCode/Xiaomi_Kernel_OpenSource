@@ -187,6 +187,7 @@ struct wcd9xxx_pdata {
 	u32 mclk_rate;
 	u32 dmic_sample_rate;
 	u32 mad_dmic_sample_rate;
+	u32 ecpp_dmic_sample_rate;
 	u32 dmic_clk_drv;
 	enum codec_variant cdc_variant;
 	u16 use_pinctrl;

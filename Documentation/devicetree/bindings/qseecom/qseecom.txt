@@ -25,6 +25,8 @@ Optional properties:
   - qcom,appsbl-qseecom-support : indicates if there is qseecom support in appsbootloader
   - vdd-hba-supply   : handle for fixed power regulator
   - qcom,qsee-reentrancy-support: indicates the qsee reentrancy phase supported by the target
+  - qcom,commonlib64-loaded-by-uefi: indicates commonlib64 is loaded by uefi already
+  - qcom,fde-key-size: indicates which FDE key size is used in device.
 
 Example:
 	qcom,qseecom@fe806000 {
@@ -45,6 +47,7 @@ Example:
 		qcom,msm_bus,num_paths = <1>;
 		qcom,no-clock-support;
 		qcom,appsbl-qseecom-support;
+                qcom,fde-key-size;
 		qcom,msm_bus,vectors =
 			<55 512 0 0>,
 			<55 512 3936000000 393600000>,
@@ -71,6 +74,7 @@ Example: The following dts setup is the same as the example above.
 		qcom,msm_bus,num_paths = <1>;
 		qcom,no-clock-support;
 		qcom,appsbl-qseecom-support;
+                qcom,fde-key-size;
 		qcom,msm_bus,vectors =
 			<55 512 0 0>,
 			<55 512 3936000000 393600000>,

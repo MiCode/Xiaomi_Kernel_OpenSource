@@ -202,7 +202,7 @@ ENTRY(__flush_dcache_area)
 	b.lo	1b
 	dsb	sy
 	ret
-ENDPROC(__flush_dcache_area)
+ENDPIPROC(__flush_dcache_area)
 
 /*
  *	__inval_cache_range(start, end)
@@ -235,7 +235,7 @@ ENTRY(__dma_inv_range)
 	b.lo	2b
 	dsb	sy
 	ret
-ENDPROC(__inval_cache_range)
+ENDPIPROC(__inval_cache_range)
 ENDPROC(__dma_inv_range)
 
 /*
@@ -270,7 +270,7 @@ ENTRY(__dma_flush_range)
 	b.lo	1b
 	dsb	sy
 	ret
-ENDPROC(__dma_flush_range)
+ENDPIPROC(__dma_flush_range)
 
 /*
  *	__dma_map_area(start, size, dir)
@@ -283,7 +283,7 @@ ENTRY(__dma_map_area)
 	cmp	w2, #DMA_FROM_DEVICE
 	b.eq	__dma_inv_range
 	b	__dma_clean_range
-ENDPROC(__dma_map_area)
+ENDPIPROC(__dma_map_area)
 
 /*
  *	__dma_unmap_area(start, size, dir)
@@ -296,4 +296,4 @@ ENTRY(__dma_unmap_area)
 	cmp	w2, #DMA_TO_DEVICE
 	b.ne	__dma_inv_range
 	ret
-ENDPROC(__dma_unmap_area)
+ENDPIPROC(__dma_unmap_area)

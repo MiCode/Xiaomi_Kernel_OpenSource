@@ -1,0 +1,24 @@
+Shared Memory Time Stamp Driver
+
+Provides a high response mechanism that allows for AP to get
+timestamp from mDSP. It provides the device node in /dev/
+for user to read the timestamp, and the timestamp is transferred
+through smd between mDSP and AP.
+
+The devicetree representation of the SPM block should be:
+
+Required properties
+
+- compatible: "qcom,smd-ts".
+- ts-channel-name: The string corresponding to the channel name of the
+			peripheral subsystem.
+- ch-channel-type: The interal SMD edge for this subsystem found in
+			<soc/qcom/smd.h>
+
+Example:
+
+	qcom,smd-ts {
+		compatible = "qcom,smd-ts";
+		ts-channel-name = "vsync_ts_diff";
+		ts-channel-type = <0>; /* SMD_APPS_MODEM */
+	};
