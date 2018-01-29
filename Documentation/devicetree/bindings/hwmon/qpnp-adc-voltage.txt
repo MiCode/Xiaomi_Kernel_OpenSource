@@ -51,6 +51,8 @@ Optional properties:
   device (see pinctrl binding [0]).
 
 [0]: Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt
+- #thermal-sensor-cells : To register ADC sensors with of_thermal. Should be 1.
+  See ./thermal.txt for a description.
 
 Client required property:
 - qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.
