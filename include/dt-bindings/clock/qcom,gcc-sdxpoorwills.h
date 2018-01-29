@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,47 +62,44 @@
 #define GCC_GP2_CLK_SRC						44
 #define GCC_GP3_CLK						45
 #define GCC_GP3_CLK_SRC						46
-#define GCC_MSS_CFG_AHB_CLK					47
-#define GCC_MSS_GPLL0_DIV_CLK_SRC				48
-#define GCC_MSS_SNOC_AXI_CLK					49
-#define GCC_PCIE_0_CLKREF_CLK					50
-#define GCC_PCIE_AUX_CLK					51
-#define GCC_PCIE_AUX_PHY_CLK_SRC				52
-#define GCC_PCIE_CFG_AHB_CLK					53
-#define GCC_PCIE_MSTR_AXI_CLK					54
-#define GCC_PCIE_PHY_REFGEN_CLK					55
-#define GCC_PCIE_PHY_REFGEN_CLK_SRC				56
-#define GCC_PCIE_PIPE_CLK					57
-#define GCC_PCIE_SLEEP_CLK					58
-#define GCC_PCIE_SLV_AXI_CLK					59
-#define GCC_PCIE_SLV_Q2A_AXI_CLK				60
-#define GCC_PDM2_CLK						61
-#define GCC_PDM2_CLK_SRC					62
-#define GCC_PDM_AHB_CLK						63
-#define GCC_PDM_XO4_CLK						64
-#define GCC_PRNG_AHB_CLK					65
-#define GCC_SDCC1_AHB_CLK					66
-#define GCC_SDCC1_APPS_CLK					67
-#define GCC_SDCC1_APPS_CLK_SRC					68
-#define GCC_SPMI_FETCHER_AHB_CLK				69
-#define GCC_SPMI_FETCHER_CLK					70
-#define GCC_SPMI_FETCHER_CLK_SRC				71
-#define GCC_SYS_NOC_CPUSS_AHB_CLK				72
-#define GCC_SYS_NOC_USB3_CLK					73
-#define GCC_USB30_MASTER_CLK					74
-#define GCC_USB30_MASTER_CLK_SRC				75
-#define GCC_USB30_MOCK_UTMI_CLK					76
-#define GCC_USB30_MOCK_UTMI_CLK_SRC				77
-#define GCC_USB30_SLEEP_CLK					78
-#define GCC_USB3_PHY_AUX_CLK					79
-#define GCC_USB3_PHY_AUX_CLK_SRC				80
-#define GCC_USB3_PHY_PIPE_CLK					81
-#define GCC_USB3_PRIM_CLKREF_CLK				82
-#define GCC_USB_PHY_CFG_AHB2PHY_CLK				83
-#define GPLL0							84
-#define GPLL0_OUT_EVEN						85
-#define GPLL4							86
-#define GPLL4_OUT_EVEN						87
+#define GCC_PCIE_0_CLKREF_CLK					47
+#define GCC_PCIE_AUX_CLK					48
+#define GCC_PCIE_AUX_PHY_CLK_SRC				49
+#define GCC_PCIE_CFG_AHB_CLK					50
+#define GCC_PCIE_MSTR_AXI_CLK					51
+#define GCC_PCIE_PHY_REFGEN_CLK					52
+#define GCC_PCIE_PHY_REFGEN_CLK_SRC				53
+#define GCC_PCIE_PIPE_CLK					54
+#define GCC_PCIE_SLEEP_CLK					55
+#define GCC_PCIE_SLV_AXI_CLK					56
+#define GCC_PCIE_SLV_Q2A_AXI_CLK				57
+#define GCC_PDM2_CLK						58
+#define GCC_PDM2_CLK_SRC					59
+#define GCC_PDM_AHB_CLK						60
+#define GCC_PDM_XO4_CLK						61
+#define GCC_PRNG_AHB_CLK					62
+#define GCC_SDCC1_AHB_CLK					63
+#define GCC_SDCC1_APPS_CLK					64
+#define GCC_SDCC1_APPS_CLK_SRC					65
+#define GCC_SPMI_FETCHER_AHB_CLK				66
+#define GCC_SPMI_FETCHER_CLK					67
+#define GCC_SPMI_FETCHER_CLK_SRC				68
+#define GCC_SYS_NOC_CPUSS_AHB_CLK				69
+#define GCC_SYS_NOC_USB3_CLK					70
+#define GCC_USB30_MASTER_CLK					71
+#define GCC_USB30_MASTER_CLK_SRC				72
+#define GCC_USB30_MOCK_UTMI_CLK					73
+#define GCC_USB30_MOCK_UTMI_CLK_SRC				74
+#define GCC_USB30_SLEEP_CLK					75
+#define GCC_USB3_PHY_AUX_CLK					76
+#define GCC_USB3_PHY_AUX_CLK_SRC				77
+#define GCC_USB3_PHY_PIPE_CLK					78
+#define GCC_USB3_PRIM_CLKREF_CLK				79
+#define GCC_USB_PHY_CFG_AHB2PHY_CLK				80
+#define GPLL0							81
+#define GPLL0_OUT_EVEN						82
+#define GPLL4							83
+#define GPLL4_OUT_EVEN						84
 
 /* CPU clocks */
 #define CLOCK_A7SS						0
