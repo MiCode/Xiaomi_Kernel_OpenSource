@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,6 +212,7 @@ enum hal_property {
 	HAL_PARAM_VIDEO_WORK_MODE,
 	HAL_PARAM_SECURE,
 	HAL_PARAM_VENC_HDR10_PQ_SEI,
+	HAL_PARAM_VIDEO_WORK_ROUTE,
 };
 
 enum hal_domain {
@@ -843,6 +844,10 @@ enum hal_work_mode {
 
 struct hal_video_work_mode {
 	u32 video_work_mode;
+};
+
+struct hal_video_work_route {
+	u32 video_work_route;
 };
 
 struct hal_vpe_color_space_conversion {

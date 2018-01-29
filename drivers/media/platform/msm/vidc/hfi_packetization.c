@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1819,6 +1819,19 @@ int create_pkt_cmd_session_set_property(
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_WORK_MODE;
 		pkt->size += sizeof(u32) + sizeof(*work_mode);
+		break;
+	}
+	case HAL_PARAM_VIDEO_WORK_ROUTE:
+	{
+		struct hal_video_work_route *hal = pdata;
+		struct hfi_video_work_route *prop =
+			(struct hfi_video_work_route *)
+			&pkt->rg_property_data[1];
+		prop->video_work_route =
+			hal->video_work_route;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_WORK_ROUTE;
+		pkt->size += sizeof(u32) + sizeof(*prop);
 		break;
 	}
 	case HAL_PARAM_VENC_HDR10_PQ_SEI:

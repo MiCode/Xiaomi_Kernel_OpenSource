@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -236,6 +236,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x015)
 #define  HFI_PROPERTY_TME_VERSION_SUPPORTED                 \
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x016)
+#define  HFI_PROPERTY_PARAM_WORK_ROUTE                 \
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x017)
 
 #define HFI_PROPERTY_CONFIG_COMMON_START				\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x2000)
@@ -410,6 +412,7 @@ struct hfi_colour_space {
 #define HFI_CAPABILITY_MAX_VIDEOCORES			(HFI_COMMON_BASE + 0X2B)
 #define HFI_CAPABILITY_MAX_WORKMODES			(HFI_COMMON_BASE + 0X2C)
 #define HFI_CAPABILITY_UBWC_CR_STATS			(HFI_COMMON_BASE + 0X2D)
+#define HFI_CAPABILITY_MAX_WORKROUTES			(HFI_COMMON_BASE + 0X31)
 
 struct hfi_capability_supported {
 	u32 capability_type;
@@ -594,6 +597,10 @@ struct hfi_videocores_usage_type {
 
 struct hfi_video_work_mode {
 	u32 video_work_mode;
+};
+
+struct hfi_video_work_route {
+	u32 video_work_route;
 };
 
 struct hfi_video_signal_metadata {

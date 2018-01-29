@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -904,6 +904,14 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"This session scaling is not supported %pK\n", inst);
+		goto fail_start;
+	}
+
+	/* Decide work route for current session */
+	rc = msm_vidc_decide_work_route(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to decide work route for session %pK\n", inst);
 		goto fail_start;
 	}
 
