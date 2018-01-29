@@ -905,6 +905,66 @@ static inline int rt_se_prio(struct sched_rt_entity *rt_se)
 	return rt_task_of(rt_se)->prio;
 }
 
+static void dump_throttled_rt_tasks(struct rt_rq *rt_rq)
+{
+	struct rt_prio_array *array = &rt_rq->active;
+	struct sched_rt_entity *rt_se;
+	char buf[500];
+	char *pos = buf;
+	char *end = buf + sizeof(buf);
+	int idx;
+	struct rt_bandwidth *rt_b = sched_rt_bandwidth(rt_rq);
+
+	pos += snprintf(pos, sizeof(buf),
+		"sched: RT throttling activated for rt_rq %pK (cpu %d)\n",
+		rt_rq, cpu_of(rq_of_rt_rq(rt_rq)));
+
+	pos += snprintf(pos, end - pos,
+			"rt_period_timer: expires=%lld now=%llu period=%llu\n",
+			hrtimer_get_expires_ns(&rt_b->rt_period_timer),
+			ktime_get_ns(), sched_rt_period(rt_rq));
+
+	if (bitmap_empty(array->bitmap, MAX_RT_PRIO))
+		goto out;
+
+	pos += snprintf(pos, end - pos, "potential CPU hogs:\n");
+#ifdef CONFIG_SCHED_INFO
+	if (sched_info_on())
+		pos += snprintf(pos, end - pos,
+				"current %s (%d) is running for %llu nsec\n",
+				current->comm, current->pid,
+				rq_clock(rq_of_rt_rq(rt_rq)) -
+				current->sched_info.last_arrival);
+#endif
+
+	idx = sched_find_first_bit(array->bitmap);
+	while (idx < MAX_RT_PRIO) {
+		list_for_each_entry(rt_se, array->queue + idx, run_list) {
+			struct task_struct *p;
+
+			if (!rt_entity_is_task(rt_se))
+				continue;
+
+			p = rt_task_of(rt_se);
+			if (pos < end)
+				pos += snprintf(pos, end - pos, "\t%s (%d)\n",
+					p->comm, p->pid);
+		}
+		idx = find_next_bit(array->bitmap, MAX_RT_PRIO, idx + 1);
+	}
+out:
+#ifdef CONFIG_PANIC_ON_RT_THROTTLING
+	/*
+	 * Use pr_err() in the BUG() case since printk_sched() will
+	 * not get flushed and deadlock is not a concern.
+	 */
+	pr_err("%s", buf);
+	BUG();
+#else
+	printk_deferred("%s", buf);
+#endif
+}
+
 static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 {
 	u64 runtime = sched_rt_runtime(rt_rq);
@@ -928,8 +988,14 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 		 * but accrue some time due to boosting.
 		 */
 		if (likely(rt_b->rt_runtime)) {
+			static bool once;
+
 			rt_rq->rt_throttled = 1;
-			printk_deferred_once("sched: RT throttling activated\n");
+
+			if (!once) {
+				once = true;
+				dump_throttled_rt_tasks(rt_rq);
+			}
 		} else {
 			/*
 			 * In case we did anyway, make it go away,
@@ -1422,9 +1488,10 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
 	 * This test is optimistic, if we get it wrong the load-balancer
 	 * will have to sort it out.
 	 */
-	if (curr && unlikely(rt_task(curr)) &&
-	    (curr->nr_cpus_allowed < 2 ||
-	     curr->prio <= p->prio)) {
+	if (energy_aware() ||
+	    (curr && unlikely(rt_task(curr)) &&
+	     (curr->nr_cpus_allowed < 2 ||
+	      curr->prio <= p->prio))) {
 		int target = find_lowest_rq(p);
 
 		/*
@@ -1636,12 +1703,112 @@ static struct task_struct *pick_highest_pushable_task(struct rq *rq, int cpu)
 
 static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
 
+static int rt_energy_aware_wake_cpu(struct task_struct *task)
+{
+	struct sched_domain *sd;
+	struct sched_group *sg, *sg_target = NULL;
+	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
+	int cpu, best_cpu = -1;
+	struct cpumask search_cpu, backup_search_cpu;
+	unsigned long cpu_capacity, capacity = ULONG_MAX;
+	unsigned long util, best_cpu_util = ULONG_MAX;
+	unsigned long best_cpu_util_cum = ULONG_MAX;
+	unsigned long util_cum;
+	unsigned long tutil = task_util(task);
+	int best_cpu_idle_idx = INT_MAX;
+	int cpu_idle_idx = -1;
+
+	rcu_read_lock();
+	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(task)));
+	if (!sd) {
+		rcu_read_unlock();
+		return best_cpu;
+	}
+
+	sg = sd->groups;
+	do {
+		cpu = group_first_cpu(sg);
+		cpu_capacity = capacity_orig_of(cpu);
+		if (cpu_capacity < capacity) {
+			capacity = cpu_capacity;
+			sg_target = sg;
+		}
+	} while (sg = sg->next, sg != sd->groups);
+	rcu_read_unlock();
+
+	cpumask_and(&search_cpu, lowest_mask,
+		    sched_group_span(sg_target));
+	cpumask_copy(&backup_search_cpu, lowest_mask);
+	cpumask_andnot(&backup_search_cpu, &backup_search_cpu,
+		       &search_cpu);
+
+retry:
+	for_each_cpu(cpu, &search_cpu) {
+		if (cpu_isolated(cpu))
+			continue;
+
+		if (sched_cpu_high_irqload(cpu))
+			continue;
+
+		util = cpu_util(cpu);
+
+		if (__cpu_overutilized(cpu, util + tutil))
+			continue;
+
+		/* Find the least loaded CPU */
+		if (util > best_cpu_util)
+			continue;
+
+		/*
+		 * If the previous CPU has same load, keep it as
+		 * best_cpu.
+		 */
+		if (best_cpu_util == util && best_cpu == task_cpu(task))
+			continue;
+
+		/*
+		 * If candidate CPU is the previous CPU, select it.
+		 * Otherwise, if its load is same with best_cpu and in
+		 * a shallower C-state, select it.  If all above
+		 * conditions are same, select the least cumulative
+		 * window demand CPU.
+		 */
+		if (sysctl_sched_cstate_aware)
+			cpu_idle_idx = idle_get_state_idx(cpu_rq(cpu));
+
+		util_cum = cpu_util_cum(cpu, 0);
+		if (cpu != task_cpu(task) && best_cpu_util == util) {
+			if (best_cpu_idle_idx < cpu_idle_idx)
+				continue;
+
+			if (best_cpu_idle_idx == cpu_idle_idx &&
+			    best_cpu_util_cum < util_cum)
+				continue;
+		}
+
+		best_cpu_idle_idx = cpu_idle_idx;
+		best_cpu_util_cum = util_cum;
+		best_cpu_util = util;
+		best_cpu = cpu;
+	}
+
+	if (best_cpu != -1) {
+		return best_cpu;
+	} else if (!cpumask_empty(&backup_search_cpu)) {
+		cpumask_copy(&search_cpu, &backup_search_cpu);
+		cpumask_clear(&backup_search_cpu);
+		goto retry;
+	} else {
+		return best_cpu;
+	}
+}
+
 static int find_lowest_rq(struct task_struct *task)
 {
 	struct sched_domain *sd;
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	int this_cpu = smp_processor_id();
-	int cpu      = task_cpu(task);
+	int cpu = -1;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1652,6 +1819,12 @@ static int find_lowest_rq(struct task_struct *task)
 
 	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
 		return -1; /* No targets found */
+
+	if (energy_aware())
+		cpu = rt_energy_aware_wake_cpu(task);
+
+	if (cpu == -1)
+		cpu = task_cpu(task);
 
 	/*
 	 * At this point we have built a mask of cpus representing the

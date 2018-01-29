@@ -1630,6 +1630,9 @@ extern void trigger_load_balance(struct rq *rq);
 
 extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
 
+bool __cpu_overutilized(int cpu, unsigned long util);
+bool cpu_overutilized(int cpu);
+
 #endif
 
 #ifdef CONFIG_CPU_IDLE
@@ -3009,3 +3012,8 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 #endif	/* CONFIG_SCHED_WALT */
+
+static inline bool energy_aware(void)
+{
+	return sched_feat(ENERGY_AWARE);
+}
