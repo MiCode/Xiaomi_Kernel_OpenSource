@@ -19,10 +19,6 @@
 #define SRC_TO_INTF(src) \
 	((src < RDI_INTF_0 || src == VFE_AXI_SRC_MAX) ? VFE_PIX_0 : \
 	(VFE_RAW_0 + src - RDI_INTF_0))
-/* automotive has 1vs1 mapping currently */
-#define INTF_TO_SRC(intf) \
-	((intf == VFE_PIX_0 || intf == VFE_SRC_MAX) ? CAMIF_RAW : \
-	(RDI_INTF_0 + intf - VFE_RAW_0))
 
 int msm_isp_axi_create_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_shared_data *axi_data,
