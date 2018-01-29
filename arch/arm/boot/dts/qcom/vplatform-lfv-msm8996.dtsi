@@ -681,6 +681,7 @@
 
 	sde_kms_hyp: qcom,sde_kms_hyp@900000 {
 		compatible = "qcom,sde-kms-hyp";
+		qcom,client-id = "7816";
 	};
 
 	qcom,sps {
