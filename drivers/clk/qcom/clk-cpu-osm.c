@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #include <linux/pm_opp.h>
 #include <linux/interrupt.h>
 #include <linux/uaccess.h>
+#include <linux/sched.h>
 #include <linux/cpufreq.h>
 #include <linux/slab.h>
 #include <dt-bindings/clock/qcom,cpucc-sdm855.h>
@@ -767,6 +768,45 @@ static void populate_opp_table(struct platform_device *pdev)
 	populate_l3_opp_table(np, "l3-devs");
 }
 
+static u64 clk_osm_get_cpu_cycle_counter(int cpu)
+{
+	u32 val;
+	int core_num;
+	unsigned long flags;
+	u64 cycle_counter_ret;
+	struct clk_osm *parent, *c = logical_cpu_to_clk(cpu);
+
+	if (IS_ERR_OR_NULL(c)) {
+		pr_err("no clock device for CPU=%d\n", cpu);
+		return 0;
+	}
+
+	parent = to_clk_osm(clk_hw_get_parent(&c->hw));
+
+	spin_lock_irqsave(&parent->lock, flags);
+	/*
+	 * Use core 0's copy as proxy for the whole cluster when per
+	 * core DCVS is disabled.
+	 */
+	core_num = parent->per_core_dcvs ? c->core_num : 0;
+	val = clk_osm_read_reg_no_log(parent,
+				OSM_CYCLE_COUNTER_STATUS_REG(core_num));
+
+	if (val < c->prev_cycle_counter) {
+		/* Handle counter overflow */
+		c->total_cycle_counter += UINT_MAX -
+			c->prev_cycle_counter + val;
+		c->prev_cycle_counter = val;
+	} else {
+		c->total_cycle_counter += val - c->prev_cycle_counter;
+		c->prev_cycle_counter = val;
+	}
+	cycle_counter_ret = c->total_cycle_counter;
+	spin_unlock_irqrestore(&parent->lock, flags);
+
+	return cycle_counter_ret;
+}
+
 static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 {
 	u32 data, src, lval, i, j = OSM_TABLE_SIZE;
@@ -891,6 +931,9 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	struct clk *clk;
 	struct device *dev = &pdev->dev;
 	struct clk_onecell_data *clk_data;
+	struct cpu_cycle_counter_cb cycle_counter_cb = {
+		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,
+	};
 
 	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data),
 								GFP_KERNEL);
@@ -984,6 +1027,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	populate_opp_table(pdev);
 
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	register_cpu_cycle_counter_cb(&cycle_counter_cb);
 	put_online_cpus();
 
 	rc = cpufreq_register_driver(&qcom_osm_cpufreq_driver);
