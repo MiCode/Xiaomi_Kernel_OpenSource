@@ -2510,21 +2510,20 @@ ath10k_wmi_tlv_op_gen_request_stats(struct ath10k *ar, u32 stats_mask)
 }
 
 static struct sk_buff *
-ath10k_wmi_tlv_op_gen_mgmt_tx(struct ath10k *ar, struct sk_buff *msdu)
+ath10k_wmi_tlv_op_gen_mgmt_tx_send(struct ath10k *ar, struct sk_buff *msdu,
+				   dma_addr_t paddr)
 {
 	struct ath10k_skb_cb *cb = ATH10K_SKB_CB(msdu);
 	struct wmi_tlv_mgmt_tx_cmd *cmd;
-	struct wmi_tlv *tlv;
 	struct ieee80211_hdr *hdr;
+	struct ath10k_vif *arvif;
+	u32 buf_len = msdu->len;
+	struct wmi_tlv *tlv;
 	struct sk_buff *skb;
+	u32 vdev_id;
 	void *ptr;
 	int len;
-	u32 buf_len = (msdu->len < WMI_TX_DL_FRM_LEN) ? msdu->len :
-					 WMI_TX_DL_FRM_LEN;
 	u16 fc;
-	struct ath10k_vif *arvif;
-	dma_addr_t mgmt_frame_dma;
-	u32 vdev_id;
 
 	hdr = (struct ieee80211_hdr *)msdu->data;
 	fc = le16_to_cpu(hdr->frame_control);
@@ -2565,14 +2564,7 @@ ath10k_wmi_tlv_op_gen_mgmt_tx(struct ath10k *ar, struct sk_buff *msdu)
 	cmd->hdr.chanfreq = 0;
 	cmd->hdr.buf_len = __cpu_to_le32(buf_len);
 	cmd->hdr.frame_len = __cpu_to_le32(msdu->len);
-	mgmt_frame_dma = dma_map_single(arvif->ar->dev, msdu->data,
-					msdu->len, DMA_TO_DEVICE);
-	if (!mgmt_frame_dma)
-		return ERR_PTR(-ENOMEM);
-
-	cmd->hdr.paddr_lo = (uint32_t)(mgmt_frame_dma & 0xffffffff);
-	cmd->hdr.paddr_hi  = (uint32_t)(upper_32_bits(mgmt_frame_dma) &
-						HTT_WCN3990_PADDR_MASK);
+	cmd->hdr.paddr = __cpu_to_le64(paddr);
 	cmd->data_len = buf_len;
 	cmd->data_tag = 0x11;
 
@@ -3802,7 +3794,7 @@ static const struct wmi_ops wmi_tlv_ops = {
 	.gen_pdev_set_wmm = ath10k_wmi_tlv_op_gen_pdev_set_wmm,
 	.gen_request_stats = ath10k_wmi_tlv_op_gen_request_stats,
 	.gen_force_fw_hang = ath10k_wmi_tlv_op_gen_force_fw_hang,
-	.gen_mgmt_tx =  ath10k_wmi_tlv_op_gen_mgmt_tx,
+	.gen_mgmt_tx_send = ath10k_wmi_tlv_op_gen_mgmt_tx_send,
 	.gen_dbglog_cfg = ath10k_wmi_tlv_op_gen_dbglog_cfg,
 	.gen_pktlog_enable = ath10k_wmi_tlv_op_gen_pktlog_enable,
 	.gen_pktlog_disable = ath10k_wmi_tlv_op_gen_pktlog_disable,
