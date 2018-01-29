@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -350,6 +350,14 @@ static void mhi_notifier(struct mhi_cb_info *cb_info)
 
 		drvdata->opened = 0;
 		queue_work(drvdata->mhi_wq, &drvdata->close_work);
+		break;
+
+	case MHI_CB_SYS_ERROR:
+	case MHI_CB_MHI_SHUTDOWN:
+		drvdata->opened = 0;
+
+		flush_workqueue(drvdata->mhi_wq);
+		qdss_destroy_buf_tbl(drvdata);
 		break;
 
 	default:
