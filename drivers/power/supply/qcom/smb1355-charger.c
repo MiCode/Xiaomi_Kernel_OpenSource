@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -449,7 +449,7 @@ static int smb1355_parse_dt(struct smb1355 *chip)
 	if (of_property_read_bool(node, "qcom,stacked-batfet"))
 		chip->dt.pl_batfet_mode = POWER_SUPPLY_PL_STACKED_BATFET;
 
-	return rc;
+	return 0;
 }
 
 /*****************************
