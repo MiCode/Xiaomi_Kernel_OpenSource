@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,6 +116,7 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 	struct hfi_pic_struct *pic_struct;
 	struct hfi_buffer_requirements *buf_req;
 	struct hfi_index_extradata_input_crop_payload *crop_info;
+	struct hfi_dpb_counts *dpb_counts;
 	u32 entropy_mode = 0;
 	u8 *data_ptr;
 	int prop_id;
@@ -216,6 +217,23 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 				data_ptr +=
 					sizeof(struct hfi_pic_struct);
 				break;
+			case HFI_PROPERTY_PARAM_VDEC_DPB_COUNTS:
+				data_ptr = data_ptr + sizeof(u32);
+				dpb_counts = (struct hfi_dpb_counts *) data_ptr;
+				event_notify.max_dpb_count =
+					dpb_counts->max_dpb_count;
+				event_notify.max_ref_count =
+					dpb_counts->max_ref_count;
+				event_notify.max_dec_buffering =
+					dpb_counts->max_dec_buffering;
+				dprintk(VIDC_DBG,
+					"DPB Counts: dpb %d ref %d buff %d\n",
+						dpb_counts->max_dpb_count,
+						dpb_counts->max_ref_count,
+						dpb_counts->max_dec_buffering);
+				data_ptr +=
+					sizeof(struct hfi_pic_struct);
+				break;
 			case HFI_PROPERTY_PARAM_VDEC_COLOUR_SPACE:
 				data_ptr = data_ptr + sizeof(u32);
 				colour_info =
@@ -313,6 +331,7 @@ static int hfi_process_evt_release_buffer_ref(u32 device_id,
 	event_notify.hal_event_type = HAL_EVENT_RELEASE_BUFFER_REFERENCE;
 	event_notify.packet_buffer = data->packet_buffer;
 	event_notify.extra_data_buffer = data->extra_data_buffer;
+	event_notify.output_tag = data->output_tag;
 
 	info->response_type = HAL_SESSION_EVENT_CHANGE;
 	info->response.event = event_notify;
@@ -1400,7 +1419,7 @@ static int hfi_process_session_etb_done(u32 device_id,
 	data_done.session_id = (void *)(uintptr_t)pkt->session_id;
 	data_done.status = hfi_map_err_status(pkt->error_type);
 	data_done.size = sizeof(struct msm_vidc_cb_data_done);
-	data_done.clnt_data = pkt->input_tag;
+	data_done.input_done.input_tag = pkt->input_tag;
 	data_done.input_done.recon_stats.buffer_index =
 		pkt->ubwc_cr_stats.frame_index;
 	memcpy(&data_done.input_done.recon_stats.ubwc_stats_info,
@@ -1532,7 +1551,9 @@ static int hfi_process_session_ftb_done(
 		data_done.output_done.frame_height = pkt->frame_height;
 		data_done.output_done.start_x_coord = pkt->start_x_coord;
 		data_done.output_done.start_y_coord = pkt->start_y_coord;
-		data_done.output_done.input_tag1 = pkt->input_tag;
+		data_done.output_done.input_tag = pkt->input_tag;
+		data_done.output_done.input_tag1 = pkt->input_tag2;
+		data_done.output_done.output_tag = pkt->output_tag;
 		data_done.output_done.picture_type = pkt->picture_type;
 		data_done.output_done.packet_buffer1 = pkt->packet_buffer;
 		data_done.output_done.extra_data_buffer =
