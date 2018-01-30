@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,7 +220,7 @@ static int __cam_node_handle_flush_dev(struct cam_node *node,
 
 	rc = cam_context_handle_flush_dev(ctx, flush);
 	if (rc)
-		CAM_ERR(CAM_CORE, "FLush failure for node %s", node->name);
+		CAM_ERR(CAM_CORE, "Flush failure for node %s", node->name);
 
 	return rc;
 }
@@ -342,6 +342,25 @@ static int __cam_node_crm_flush_req(struct cam_req_mgr_flush_request *flush)
 	return cam_context_handle_crm_flush_req(ctx, flush);
 }
 
+static int __cam_node_crm_process_evt(
+	struct cam_req_mgr_link_evt_data *evt_data)
+{
+	struct cam_context *ctx = NULL;
+
+	if (!evt_data) {
+		CAM_ERR(CAM_CORE, "Invalid process event request payload");
+		return -EINVAL;
+	}
+
+	ctx = (struct cam_context *) cam_get_device_priv(evt_data->dev_hdl);
+	if (!ctx) {
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			evt_data->dev_hdl);
+		return -EINVAL;
+	}
+	return cam_context_handle_crm_process_evt(ctx, evt_data);
+}
+
 int cam_node_deinit(struct cam_node *node)
 {
 	if (node)
@@ -394,6 +413,7 @@ int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
 	node->crm_node_intf.get_dev_info = __cam_node_crm_get_dev_info;
 	node->crm_node_intf.link_setup = __cam_node_crm_link_setup;
 	node->crm_node_intf.flush_req = __cam_node_crm_flush_req;
+	node->crm_node_intf.process_evt = __cam_node_crm_process_evt;
 
 	mutex_init(&node->list_mutex);
 	INIT_LIST_HEAD(&node->free_ctx_list);

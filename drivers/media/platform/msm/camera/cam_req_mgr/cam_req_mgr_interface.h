@@ -81,9 +81,9 @@ struct cam_req_mgr_crm_cb {
  * @process_evt  : payload to generic event
  */
 struct cam_req_mgr_kmd_ops {
-	cam_req_mgr_get_dev_info      get_dev_info;
-	cam_req_mgr_link_setup        link_setup;
-	cam_req_mgr_apply_req         apply_req;
+	cam_req_mgr_get_dev_info     get_dev_info;
+	cam_req_mgr_link_setup       link_setup;
+	cam_req_mgr_apply_req        apply_req;
 	cam_req_mgr_flush_req        flush_req;
 	cam_req_mgr_process_evt      process_evt;
 };
@@ -182,6 +182,8 @@ enum cam_req_mgr_device_id {
  */
 enum cam_req_mgr_link_evt_type {
 	CAM_REQ_MGR_LINK_EVT_ERR,
+	CAM_REQ_MGR_LINK_EVT_PAUSE,
+	CAM_REQ_MGR_LINK_EVT_RESUME,
 	CAM_REQ_MGR_LINK_EVT_MAX,
 };
 
