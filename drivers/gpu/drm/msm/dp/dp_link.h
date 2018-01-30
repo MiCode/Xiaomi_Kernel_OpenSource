@@ -72,6 +72,11 @@ struct dp_link_test_audio {
 	u32 test_audio_period_ch_8;
 };
 
+struct dp_link_hdcp_status {
+	int hdcp_state;
+	int hdcp_version;
+};
+
 struct dp_link_phy_params {
 	u32 phy_test_pattern_sel;
 	u8 v_level;
@@ -110,6 +115,7 @@ struct dp_link {
 	struct dp_link_test_audio test_audio;
 	struct dp_link_phy_params phy_params;
 	struct dp_link_params link_params;
+	struct dp_link_hdcp_status hdcp_status;
 
 	u32 (*get_test_bits_depth)(struct dp_link *dp_link, u32 bpp);
 	int (*process_request)(struct dp_link *dp_link);
