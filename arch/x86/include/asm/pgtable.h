@@ -20,9 +20,15 @@
 
 #ifdef CONFIG_PAGE_TABLE_ISOLATION
 extern int kaiser_enabled;
+/*
+ * Instead of one PGD, we acquire two PGDs.  Being order-1, it is
+ * both 8k in size and 8k-aligned.  That lets us just flip bit 12
+ * in a pointer to swap between the two 4k halves.
+ */
 #else
 #define kaiser_enabled 0
 #endif
+#define PGD_ALLOCATION_ORDER kaiser_enabled
 
 void ptdump_walk_pgd_level(struct seq_file *m, pgd_t *pgd);
 void ptdump_walk_pgd_level_checkwx(void);
