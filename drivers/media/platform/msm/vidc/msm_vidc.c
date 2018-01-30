@@ -495,6 +495,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	struct msm_vidc_inst *inst = instance;
 	int rc = 0, i = 0;
 	struct buf_queue *q = NULL;
+	struct vidc_tag_data tag_data;
 	u32 cr = 0;
 
 	if (!inst || !inst->core || !b || !valid_v4l2_buffer(b, inst)) {
@@ -523,6 +524,12 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 			b->m.planes[0].reserved[3], b->m.planes[0].reserved[4]);
 	}
 
+	tag_data.index = b->index;
+	tag_data.type = b->type;
+	tag_data.input_tag = b->m.planes[0].reserved[5];
+	tag_data.output_tag = b->m.planes[0].reserved[6];
+	msm_comm_store_tags(inst, &tag_data);
+
 	q = msm_comm_get_vb2q(inst, b->type);
 	if (!q) {
 		dprintk(VIDC_ERR,
@@ -545,6 +552,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 	struct msm_vidc_inst *inst = instance;
 	int rc = 0, i = 0;
 	struct buf_queue *q = NULL;
+	struct vidc_tag_data tag_data;
 
 	if (!inst || !b || !valid_v4l2_buffer(b, inst)) {
 		dprintk(VIDC_ERR, "%s: invalid params, inst %pK\n",
@@ -581,6 +589,13 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 			&b->m.planes[0].reserved[3],
 			&b->m.planes[0].reserved[4]);
 	}
+
+	tag_data.index = b->index;
+	tag_data.type = b->type;
+
+	msm_comm_fetch_tags(inst, &tag_data);
+	b->m.planes[0].reserved[5] = tag_data.input_tag;
+	b->m.planes[0].reserved[6] = tag_data.output_tag;
 
 	return rc;
 }
@@ -1618,6 +1633,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->scratchbufs);
 	INIT_MSM_VIDC_LIST(&inst->freqs);
 	INIT_MSM_VIDC_LIST(&inst->input_crs);
+	INIT_MSM_VIDC_LIST(&inst->buffer_tags);
 	INIT_MSM_VIDC_LIST(&inst->persistbufs);
 	INIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
@@ -1734,6 +1750,7 @@ fail_mem_client:
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->freqs);
 	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
+	DEINIT_MSM_VIDC_LIST(&inst->buffer_tags);
 	DEINIT_MSM_VIDC_LIST(&inst->etb_data);
 	DEINIT_MSM_VIDC_LIST(&inst->fbd_data);
 
