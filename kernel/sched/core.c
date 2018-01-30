@@ -1105,9 +1105,15 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	if (cpumask_equal(&p->cpus_allowed, new_mask))
 		goto out;
 
-	if (!cpumask_intersects(new_mask, cpu_valid_mask)) {
-		ret = -EINVAL;
-		goto out;
+	cpumask_andnot(&allowed_mask, new_mask, cpu_isolated_mask);
+
+	dest_cpu = cpumask_any_and(cpu_valid_mask, &allowed_mask);
+	if (dest_cpu >= nr_cpu_ids) {
+		if (!cpumask_intersects(new_mask, cpu_valid_mask)) {
+			ret = -EINVAL;
+			goto out;
+		}
+		cpumask_copy(&allowed_mask, new_mask);
 	}
 
 	do_set_cpus_allowed(p, new_mask);
