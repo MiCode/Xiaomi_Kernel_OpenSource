@@ -1031,9 +1031,8 @@ static int wil_cfg80211_set_channel(struct wiphy *wiphy,
 				    struct cfg80211_chan_def *chandef)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
-	struct wireless_dev *wdev = wil_to_wdev(wil);
 
-	wdev->preset_chandef = *chandef;
+	wil->monitor_chandef = *chandef;
 
 	return 0;
 }
@@ -1807,9 +1806,8 @@ static int wil_cfg80211_suspend(struct wiphy *wiphy,
 	wil_dbg_pm(wil, "suspending\n");
 
 	mutex_lock(&wil->mutex);
-	wil_p2p_stop_discovery(wil);
-
 	mutex_lock(&wil->p2p_wdev_mutex);
+	wil_p2p_stop_radio_operations(wil);
 	wil_abort_scan(wil, true);
 	mutex_unlock(&wil->p2p_wdev_mutex);
 	mutex_unlock(&wil->mutex);
@@ -1823,6 +1821,68 @@ static int wil_cfg80211_resume(struct wiphy *wiphy)
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 
 	wil_dbg_pm(wil, "resuming\n");
+
+	return 0;
+}
+
+static int
+wil_cfg80211_sched_scan_start(struct wiphy *wiphy,
+			      struct net_device *dev,
+			      struct cfg80211_sched_scan_request *request)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	int i, rc;
+
+	wil_dbg_misc(wil,
+		     "sched scan start: n_ssids %d, ie_len %zu, flags 0x%x\n",
+		     request->n_ssids, request->ie_len, request->flags);
+	for (i = 0; i < request->n_ssids; i++) {
+		wil_dbg_misc(wil, "SSID[%d]:", i);
+		wil_hex_dump_misc("SSID ", DUMP_PREFIX_OFFSET, 16, 1,
+				  request->ssids[i].ssid,
+				  request->ssids[i].ssid_len, true);
+	}
+	wil_dbg_misc(wil, "channels:");
+	for (i = 0; i < request->n_channels; i++)
+		wil_dbg_misc(wil, " %d%s", request->channels[i]->hw_value,
+			     i == request->n_channels - 1 ? "\n" : "");
+	wil_dbg_misc(wil, "n_match_sets %d, min_rssi_thold %d, delay %d\n",
+		     request->n_match_sets, request->min_rssi_thold,
+		     request->delay);
+	for (i = 0; i < request->n_match_sets; i++) {
+		struct cfg80211_match_set *ms = &request->match_sets[i];
+
+		wil_dbg_misc(wil, "MATCHSET[%d]: rssi_thold %d\n",
+			     i, ms->rssi_thold);
+		wil_hex_dump_misc("SSID ", DUMP_PREFIX_OFFSET, 16, 1,
+				  ms->ssid.ssid,
+				  ms->ssid.ssid_len, true);
+	}
+	wil_dbg_misc(wil, "n_scan_plans %d\n", request->n_scan_plans);
+	for (i = 0; i < request->n_scan_plans; i++) {
+		struct cfg80211_sched_scan_plan *sp = &request->scan_plans[i];
+
+		wil_dbg_misc(wil, "SCAN PLAN[%d]: interval %d iterations %d\n",
+			     i, sp->interval, sp->iterations);
+	}
+
+	rc = wmi_set_ie(wil, WMI_FRAME_PROBE_REQ, request->ie_len, request->ie);
+	if (rc)
+		return rc;
+	return wmi_start_sched_scan(wil, request);
+}
+
+static int
+wil_cfg80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	int rc;
+
+	rc = wmi_stop_sched_scan(wil);
+	/* device would return error if it thinks PNO is already stopped.
+	 * ignore the return code so user space and driver gets back in-sync
+	 */
+	wil_dbg_misc(wil, "sched scan stopped (%d)\n", rc);
 
 	return 0;
 }
@@ -1860,6 +1920,8 @@ static struct cfg80211_ops wil_cfg80211_ops = {
 	.set_power_mgmt = wil_cfg80211_set_power_mgmt,
 	.suspend = wil_cfg80211_suspend,
 	.resume = wil_cfg80211_resume,
+	.sched_scan_start = wil_cfg80211_sched_scan_start,
+	.sched_scan_stop = wil_cfg80211_sched_scan_stop,
 };
 
 static void wil_wiphy_init(struct wiphy *wiphy)
