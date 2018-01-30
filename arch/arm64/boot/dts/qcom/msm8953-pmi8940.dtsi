@@ -24,7 +24,7 @@
 
 &usb3 {
 	vbus_dwc3-supply = <&smbcharger_charger_otg>;
-	extcon = <&pmi8940_charger>;
+	extcon = <&qpnp_smbcharger>;
 };
 
 &labibb {
@@ -36,7 +36,7 @@
 	qcom,qpnp-ibb-discharge-resistor = <32>;
 };
 
-&pmi8940_charger {
+&qpnp_smbcharger {
 	qcom,external-typec;
 	qcom,typec-psy-name = "typec";
 };

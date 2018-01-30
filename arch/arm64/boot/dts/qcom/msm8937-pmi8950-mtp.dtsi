@@ -33,11 +33,11 @@
 	};
 };
 
-&pmi8950_fg {
+&qpnp_fg {
 	qcom,battery-data = <&mtp_batterydata>;
 };
 
-&pmi8950_charger {
+&qpnp_smbcharger {
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,chg-led-sw-controls;
 	qcom,chg-led-support;
