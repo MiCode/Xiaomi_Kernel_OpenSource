@@ -2098,7 +2098,7 @@ static int cam_icp_mgr_abort_handle(
 	int rc = 0;
 	unsigned long rem_jiffies;
 	size_t packet_size;
-	int timeout = 5000;
+	int timeout = 100;
 	struct hfi_cmd_work_data *task_data;
 	struct hfi_cmd_ipebps_async *abort_cmd;
 	struct crm_workq_task *task;
@@ -2161,7 +2161,7 @@ static int cam_icp_mgr_destroy_handle(
 	struct cam_icp_hw_ctx_data *ctx_data)
 {
 	int rc = 0;
-	int timeout = 5000;
+	int timeout = 100;
 	unsigned long rem_jiffies;
 	size_t packet_size;
 	struct hfi_cmd_work_data *task_data;
