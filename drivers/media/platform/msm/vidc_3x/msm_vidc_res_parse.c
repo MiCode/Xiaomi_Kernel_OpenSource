@@ -22,10 +22,15 @@
 #include "venus_boot.h"
 #include "soc/qcom/secure_buffer.h"
 #include <linux/io.h>
+#include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 
 enum clock_properties {
 	CLOCK_PROP_HAS_SCALING = 1 << 0,
 };
+
+struct regulator *gdsc_venus;
+struct regulator *gdsc_venus_core0;
 
 static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 {
@@ -57,6 +62,118 @@ static size_t get_u32_array_num_elements(struct device_node *np,
 
 fail_read:
 	return 0;
+}
+
+static int venus_regulator_setup(struct msm_vidc_platform_resources *res)
+{
+	const char *reg_name = "venus";
+	const char *reg_name_core0 = "venus-core0";
+	int rc = 0;
+
+	gdsc_venus = devm_regulator_get(&res->pdev->dev, reg_name);
+	if (IS_ERR(gdsc_venus))
+		dprintk(VIDC_ERR, "Failed to get Venus GDSC\n");
+
+	rc = regulator_enable(gdsc_venus);
+	if (rc)
+		dprintk(VIDC_ERR, "Venus GDSC enable failed\n");
+
+	gdsc_venus_core0 = devm_regulator_get(&res->pdev->dev, reg_name_core0);
+	if (IS_ERR(gdsc_venus_core0))
+		dprintk(VIDC_ERR, "Failed to get Venus-Core0 GDSC\n");
+
+	rc = regulator_enable(gdsc_venus_core0);
+	if (rc)
+		dprintk(VIDC_ERR, "Venus-Core0 GDSC enable failed\n");
+
+	dprintk(VIDC_DBG, "Vensu, Venus-Core0 GDSC's are enabled\n");
+	return rc;
+}
+
+
+static int venus_clock_setup(struct msm_vidc_platform_resources *res,
+		unsigned long rate)
+{
+	int i, rc = 0;
+	struct clock_info *cl;
+	struct clk *clk = NULL;
+
+	dprintk(VIDC_DBG, " %s In\n", __func__);
+	for (i = 0; i < res->clock_set.count; i++) {
+	cl = &res->clock_set.clock_tbl[i];
+		if (!cl->has_scaling)
+			continue;
+
+		clk = clk_get(&res->pdev->dev, cl->name);
+		rc = clk_set_rate(clk, clk_round_rate(clk, rate));
+
+		if (rc)
+			dprintk(VIDC_ERR,
+				"%s: Failed to set clock rate %s: %d\n",
+				__func__, cl->name, rc);
+
+		dprintk(VIDC_DBG, "%s clock set clock rate to %lu\n",
+				cl->name, rate);
+	}
+
+	dprintk(VIDC_DBG, " %s exit\n", __func__);
+	return rc;
+}
+
+static int venus_clock_prepare_enable(struct msm_vidc_platform_resources *res)
+{
+	int i, rc = 0;
+	struct clock_info *cl;
+	struct clk *clk = NULL;
+
+	dprintk(VIDC_DBG, " %s In\n", __func__);
+	for (i = 0; i < res->clock_set.count; i++) {
+		cl = &res->clock_set.clock_tbl[i];
+		clk = clk_get(&res->pdev->dev, cl->name);
+		rc = clk_prepare_enable(clk);
+
+		if (rc) {
+			dprintk(VIDC_ERR, "failed to enable %s clock\n",
+					cl->name);
+			for (i--; i >= 0; i--) {
+				cl = &res->clock_set.clock_tbl[i];
+				clk = clk_get(&res->pdev->dev, cl->name);
+				clk_disable_unprepare(clk);
+				dprintk(VIDC_ERR, "clock %s unprepared\n",
+						cl->name);
+			}
+			return rc;
+		}
+		dprintk(VIDC_DBG, " Clock : %s enabled\n", cl->name);
+	}
+
+	dprintk(VIDC_DBG, " %s exit\n", __func__);
+	return rc;
+}
+
+static void venus_clk_disable_unprepare(struct msm_vidc_platform_resources *res)
+{
+	int i;
+	struct clock_info *cl;
+	struct clk *clk = NULL;
+
+	for (i = 0; i < res->clock_set.count; i++) {
+		cl = &res->clock_set.clock_tbl[i];
+		clk = clk_get(&res->pdev->dev, cl->name);
+		dprintk(VIDC_DBG, "clock %s unprepared\n", cl->name);
+		clk_disable_unprepare(clk);
+	}
+
+	if (gdsc_venus) {
+		regulator_disable(gdsc_venus);
+		dprintk(VIDC_DBG, "Venus Regulator disabled\n");
+		gdsc_venus = NULL;
+	}
+	if (gdsc_venus_core0) {
+		regulator_disable(gdsc_venus_core0);
+		dprintk(VIDC_DBG, "Venus-Core0 Regulator disabled\n");
+		gdsc_venus_core0 = NULL;
+	}
 }
 
 static inline enum imem_type read_imem_type(struct platform_device *pdev)
@@ -843,6 +960,8 @@ static int msm_vidc_populate_bus(struct device *dev,
 	bus->dev = dev;
 	dprintk(VIDC_DBG, "Found bus %s [%d->%d] with governor %s\n",
 			bus->name, bus->master, bus->slave, bus->governor);
+
+	venus_clk_disable_unprepare(res);
 err_bus:
 	return rc;
 }
@@ -1232,6 +1351,12 @@ int read_platform_resources_from_dt(
 	of_property_read_u32(pdev->dev.of_node,
 			"qcom,max-secure-instances",
 			&res->max_secure_inst_count);
+
+	venus_regulator_setup(res);
+	venus_clock_setup(res, 0);
+	venus_clock_prepare_enable(res);
+	venus_clock_setup(res, 1);
+
 	return rc;
 
 err_setup_legacy_cb:
