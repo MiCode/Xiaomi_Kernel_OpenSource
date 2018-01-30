@@ -766,6 +766,7 @@ static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 			return ret;
 		}
 		qphy->dpdm_enable = true;
+		qusb_phy_reset(qphy);
 	}
 
 	return ret;
