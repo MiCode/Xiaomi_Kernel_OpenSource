@@ -211,6 +211,7 @@ struct dsi_ctrl_interrupts {
  *                          dsi controller and run only dsi controller.
  * @null_insertion_enabled:  A boolean property to allow dsi controller to
  *                           insert null packet.
+ * @modeupdated:	  Boolean to send new roi if mode is updated.
  */
 struct dsi_ctrl {
 	struct platform_device *pdev;
@@ -258,6 +259,7 @@ struct dsi_ctrl {
 
 	bool phy_isolation_enabled;
 	bool null_insertion_enabled;
+	bool modeupdated;
 };
 
 /**
