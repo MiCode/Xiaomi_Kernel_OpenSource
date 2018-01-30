@@ -36,6 +36,8 @@ struct nqx_platform_data {
 	unsigned int firm_gpio;
 	unsigned int ese_gpio;
 	const char *clk_src_name;
+	/* NFC_CLK pin voting state */
+	bool clk_pin_voting;
 };
 
 static const struct of_device_id msm_match_table[] = {
@@ -487,9 +489,11 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			gpio_set_value(nqx_dev->en_gpio, 0);
 			usleep_range(10000, 10100);
 		}
-		r = nqx_clock_deselect(nqx_dev);
-		if (r < 0)
-			dev_err(&nqx_dev->client->dev, "unable to disable clock\n");
+		if (nqx_dev->pdata->clk_pin_voting) {
+			r = nqx_clock_deselect(nqx_dev);
+			if (r < 0)
+				dev_err(&nqx_dev->client->dev, "unable to disable clock\n");
+		}
 		nqx_dev->nfc_ven_enabled = false;
 	} else if (arg == 1) {
 		nqx_enable_irq(nqx_dev);
@@ -502,9 +506,11 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		}
 		gpio_set_value(nqx_dev->en_gpio, 1);
 		usleep_range(10000, 10100);
-		r = nqx_clock_select(nqx_dev);
-		if (r < 0)
-			dev_err(&nqx_dev->client->dev, "unable to enable clock\n");
+		if (nqx_dev->pdata->clk_pin_voting) {
+			r = nqx_clock_select(nqx_dev);
+			if (r < 0)
+				dev_err(&nqx_dev->client->dev, "unable to enable clock\n");
+		}
 		nqx_dev->nfc_ven_enabled = true;
 	} else if (arg == 2) {
 		/*
@@ -841,12 +847,13 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 		pdata->ese_gpio = -EINVAL;
 	}
 
-	r = of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name);
+	if (of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name))
+		pdata->clk_pin_voting = false;
+	else
+		pdata->clk_pin_voting = true;
 
 	pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,nq-clkreq", 0);
 
-	if (r)
-		return -EINVAL;
 	return r;
 }
 
