@@ -22,6 +22,10 @@ Optional Properties:
 	value is 0 or device mode if 1.
 - qcom,disable-device-mode: If present then don't treat GPIO high as Vbus high.
 	And only notify host mode similar to ID line.
+-qcom,id-det-gpio: If present, specifies a gpio that is tied to ID, switch
+	to host mode if value is 0.
+-qcom,dpdm_switch_gpio: If present, specifies a gpio that drives a switch
+	which routes DPDM lines to different ports.
 
 Example:
 
