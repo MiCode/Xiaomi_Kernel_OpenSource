@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,6 +166,7 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * struct dp_parser - DP parser's data exposed to clients
  *
  * @pdev: platform data of the client
+ * @msm_hdcp_dev: device pointer for the HDCP driver
  * @mp: gpio, regulator and clock related data
  * @pinctrl: pin-control related data
  * @ctrl_resouce: controller's register address realated data
@@ -174,6 +175,7 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  */
 struct dp_parser {
 	struct platform_device *pdev;
+	struct device *msm_hdcp_dev;
 	struct dss_module_power mp[DP_MAX_PM];
 	struct dp_pinctrl pinctrl;
 	struct dp_io io;
