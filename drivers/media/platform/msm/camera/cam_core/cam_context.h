@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,6 +110,7 @@ struct cam_ctx_ioctl_ops {
  * @unlink:                Unlink the context
  * @apply_req:             Apply setting for the context
  * @flush_req:             Flush request to remove request ids
+ * @process_evt:           Handle event notification from CRM.(optional)
  *
  */
 struct cam_ctx_crm_ops {
@@ -123,6 +124,8 @@ struct cam_ctx_crm_ops {
 			struct cam_req_mgr_apply_request *apply);
 	int (*flush_req)(struct cam_context *ctx,
 			struct cam_req_mgr_flush_request *flush);
+	int (*process_evt)(struct cam_context *ctx,
+			struct cam_req_mgr_link_evt_data *evt_data);
 };
 
 
@@ -271,6 +274,18 @@ int cam_context_handle_crm_apply_req(struct cam_context *ctx,
  */
 int cam_context_handle_crm_flush_req(struct cam_context *ctx,
 		struct cam_req_mgr_flush_request *apply);
+
+/**
+ * cam_context_handle_crm_process_evt()
+ *
+ * @brief:        Handle process event command
+ *
+ * @ctx:          Object pointer for cam_context
+ * @process_evt:  process event command payload
+ *
+ */
+int cam_context_handle_crm_process_evt(struct cam_context *ctx,
+	struct cam_req_mgr_link_evt_data *process_evt);
 
 /**
  * cam_context_handle_acquire_dev()

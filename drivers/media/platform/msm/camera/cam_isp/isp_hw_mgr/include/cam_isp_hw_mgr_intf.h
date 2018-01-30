@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -130,6 +130,8 @@ struct cam_isp_hw_error_event_data {
 /* enum cam_isp_hw_mgr_command - Hardware manager command type */
 enum cam_isp_hw_mgr_command {
 	CAM_ISP_HW_MGR_CMD_IS_RDI_ONLY_CONTEXT,
+	CAM_ISP_HW_MGR_CMD_PAUSE_HW,
+	CAM_ISP_HW_MGR_CMD_RESUME_HW,
 	CAM_ISP_HW_MGR_CMD_MAX,
 };
 
