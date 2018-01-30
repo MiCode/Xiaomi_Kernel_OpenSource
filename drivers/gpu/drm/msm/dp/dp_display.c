@@ -664,6 +664,13 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		goto end;
 	}
 
+	/*
+	 * In case cable/dongle is disconnected during adb shell stop,
+	 * reset psm_enabled flag to false since it is no more needed
+	 */
+	if (dp->dp_display.post_open)
+		dp->debug->psm_enabled = false;
+
 	if (dp->debug->psm_enabled)
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 
@@ -1127,6 +1134,14 @@ static int dp_display_pre_disable(struct dp_display *dp_display)
 			dp->hdcp.ops->off(dp->hdcp.data);
 	}
 
+	if (dp->usbpd->hpd_high && dp->usbpd->alt_mode_cfg_done) {
+		if (dp->audio_supported)
+			dp->audio->off(dp->audio);
+
+		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
+		dp->debug->psm_enabled = true;
+	}
+
 	dp->ctrl->push_idle(dp->ctrl);
 end:
 	mutex_unlock(&dp->session_lock);
@@ -1167,6 +1182,15 @@ static int dp_display_disable(struct dp_display *dp_display)
 
 	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
 
+	/*
+	 * In case of framework reboot, the DP off sequence is executed without
+	 * any notification from driver. Initialize post_open callback to notify
+	 * DP connection once framework restarts.
+	 */
+	if (dp->usbpd->hpd_high && dp->usbpd->alt_mode_cfg_done) {
+		dp_display->post_open = dp_display_post_open;
+		dp->dp_display.is_connected = false;
+	}
 	dp->power_on = false;
 
 end:
