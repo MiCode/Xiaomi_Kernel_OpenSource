@@ -2328,6 +2328,16 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 
 	SDE_EVT32(DRMID(drm_enc));
 
+	/*
+	 * cache the crtc in sde_enc on enable for duration of use case
+	 * for correctly servicing asynchronous irq events and timers
+	 */
+	if (!drm_enc->crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+	sde_enc->crtc = drm_enc->crtc;
+
 	list_for_each_entry(conn_iter, connector_list, head)
 		if (conn_iter->encoder == drm_enc)
 			conn = conn_iter;
@@ -2529,16 +2539,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		SDE_ERROR("power resource is not enabled\n");
 		return;
 	}
-
-	/*
-	 * cache the crtc in sde_enc on enable for duration of use case
-	 * for correctly servicing asynchronous irq events and timers
-	 */
-	if (!drm_enc->crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return;
-	}
-	sde_enc->crtc = drm_enc->crtc;
 
 	ret = _sde_encoder_get_mode_info(drm_enc, &mode_info);
 	if (ret) {
