@@ -1916,7 +1916,11 @@ static long qfprom_read(struct device *dev, const char *name)
 			err = PTR_ERR(buf);
 		}
 	} else {
-		val = *buf;
+		/*
+		 * 30 bits from bit offset 0 would be read.
+		 * We're interested in bits 28:29
+		 */
+		val = (*buf >> 28) & 0x3;
 		kfree(buf);
 	}
 
