@@ -1000,6 +1000,16 @@ config SCHED_INFO
 	bool
 	default n
 
+config PANIC_ON_SCHED_BUG
+	bool "Panic on all bugs encountered by the scheduler"
+	help
+	  Say Y here to panic on all 'BUG:' conditions encountered by the
+	  scheduler, even potentially-recoverable ones such as scheduling
+	  while atomic, sleeping from invalid context, and detection of
+	  broken arch topologies.
+
+	  Say N if unsure.
+
 config SCHEDSTATS
 	bool "Collect scheduler statistics"
 	depends on DEBUG_KERNEL && PROC_FS
