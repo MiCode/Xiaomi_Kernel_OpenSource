@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,9 +23,14 @@
 
 #define DEBUG_SIZE				10
 #define TSENS_MAX_SENSORS			16
+#define TSENS_1x_MAX_SENSORS			11
 #define TSENS_CONTROLLER_ID(n)			(n)
 #define TSENS_CTRL_ADDR(n)			(n)
 #define TSENS_TM_SN_STATUS(n)			((n) + 0xa0)
+
+#define ONE_PT_CALIB		0x1
+#define ONE_PT_CALIB2		0x2
+#define TWO_PT_CALIB		0x3
 
 enum tsens_dbg_type {
 	TSENS_DBG_POLL,
@@ -70,6 +75,8 @@ struct tsens_context {
 	int				high_temp;
 	int				low_temp;
 	int				crit_temp;
+	int				high_adc_code;
+	int				low_adc_code;
 };
 
 struct tsens_sensor {
@@ -79,6 +86,8 @@ struct tsens_sensor {
 	u32				id;
 	const char			*sensor_name;
 	struct tsens_context		thr_state;
+	int				offset;
+	int				slope;
 };
 
 /**
@@ -93,6 +102,7 @@ struct tsens_ops {
 	int (*interrupts_reg)(struct tsens_device *);
 	int (*dbg)(struct tsens_device *, u32, u32, int *);
 	int (*sensor_en)(struct tsens_device *, u32);
+	int (*calibrate)(struct tsens_device *);
 };
 
 struct tsens_irqs {
@@ -116,14 +126,15 @@ struct tsens_data {
 	bool				wd_bark;
 	u32				wd_bark_mask;
 	bool				mtc;
+	bool				valid_status_check;
 };
 
 struct tsens_mtc_sysfs {
-	uint32_t	zone_log;
+	u32			zone_log;
 	int			zone_mtc;
 	int			th1;
 	int			th2;
-	uint32_t	zone_hist;
+	u32			zone_hist;
 };
 
 struct tsens_device {
@@ -134,6 +145,7 @@ struct tsens_device {
 	struct regmap_field		*status_field;
 	void __iomem			*tsens_srot_addr;
 	void __iomem			*tsens_tm_addr;
+	void __iomem			*tsens_calib_addr;
 	const struct tsens_ops		*ops;
 	struct tsens_dbg_context	tsens_dbg;
 	spinlock_t			tsens_crit_lock;
@@ -144,6 +156,7 @@ struct tsens_device {
 };
 
 extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx;
+extern const struct tsens_data data_tsens14xx;
 extern struct list_head tsens_device_list;
 
 #endif /* __QCOM_TSENS_H__ */
