@@ -101,6 +101,8 @@ Optional properties:
  - qcom,core-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner.
+ - "pcs_clamp_enable_reg" : Clamps the phy data inputs and enables USB3
+   autonomous mode.
 
 Example:
 	ssphy0: ssphy@f9b38000 {
