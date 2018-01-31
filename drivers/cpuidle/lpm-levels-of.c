@@ -10,6 +10,9 @@
  * GNU General Public License for more details.
  *
  */
+
+#define pr_fmt(fmt) "%s: " fmt, KBUILD_MODNAME
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -21,10 +24,10 @@
 #include <linux/moduleparam.h>
 #include "lpm-levels.h"
 
-bool use_psci;
 enum lpm_type {
 	IDLE = 0,
 	SUSPEND,
+	LATENCY,
 	LPM_TYPE_NR
 };
 
@@ -36,6 +39,7 @@ struct lpm_type_str {
 static const struct lpm_type_str lpm_types[] = {
 	{IDLE, "idle_enabled"},
 	{SUSPEND, "suspend_enabled"},
+	{LATENCY, "latency_us"},
 };
 
 static DEFINE_PER_CPU(uint32_t *, max_residency);
@@ -67,6 +71,9 @@ static struct lpm_level_avail *get_avail_ptr(struct kobject *kobj,
 	else if (!strcmp(attr->attr.name, lpm_types[SUSPEND].str))
 		avail = container_of(attr, struct lpm_level_avail,
 					suspend_enabled_attr);
+	else if (!strcmp(attr->attr.name, lpm_types[LATENCY].str))
+		avail = container_of(attr, struct lpm_level_avail,
+					latency_attr);
 
 	return avail;
 }
@@ -163,6 +170,28 @@ uint32_t *get_per_cpu_min_residency(int cpu)
 {
 	return per_cpu(min_residency, cpu);
 }
+
+static ssize_t lpm_latency_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int ret = 0;
+	struct kernel_param kp;
+	struct lpm_level_avail *avail = get_avail_ptr(kobj, attr);
+
+	if (!avail)
+		pr_info("Error\n");
+
+	kp.arg = &avail->latency_us;
+
+	ret = param_get_uint(buf, &kp);
+	if (ret > 0) {
+		strlcat(buf, "\n", PAGE_SIZE);
+		ret++;
+	}
+
+	return ret;
+}
+
 ssize_t lpm_enable_show(struct kobject *kobj, struct kobj_attribute *attr,
 				char *buf)
 {
@@ -189,6 +218,7 @@ ssize_t lpm_enable_store(struct kobject *kobj, struct kobj_attribute *attr,
 	avail = get_avail_ptr(kobj, attr);
 	if (WARN_ON(!avail))
 		return -EINVAL;
+
 	kp.arg = get_enabled_ptr(attr, avail);
 	ret = param_set_bool(buf, &kp);
 
@@ -239,9 +269,16 @@ static int create_lvl_avail_nodes(const char *name,
 	avail->suspend_enabled_attr.show = lpm_enable_show;
 	avail->suspend_enabled_attr.store = lpm_enable_store;
 
+	sysfs_attr_init(&avail->latency_attr.attr);
+	avail->latency_attr.attr.name = lpm_types[LATENCY].str;
+	avail->latency_attr.attr.mode = 0444;
+	avail->latency_attr.show = lpm_latency_show;
+	avail->latency_attr.store = NULL;
+
 	attr[0] = &avail->idle_enabled_attr.attr;
 	attr[1] = &avail->suspend_enabled_attr.attr;
-	attr[2] = NULL;
+	attr[2] = &avail->latency_attr.attr;
+	attr[3] = NULL;
 	attr_group->attrs = attr;
 
 	ret = sysfs_create_group(kobj, attr_group);
@@ -272,6 +309,7 @@ static int create_cpu_lvl_nodes(struct lpm_cluster *p, struct kobject *parent)
 	struct lpm_level_avail *level_list = NULL;
 	char cpu_name[20] = {0};
 	int ret = 0;
+	struct list_head *pos;
 
 	cpu_kobj = devm_kzalloc(&lpm_pdev->dev, sizeof(*cpu_kobj) *
 			cpumask_weight(&p->child_cpus), GFP_KERNEL);
@@ -279,37 +317,45 @@ static int create_cpu_lvl_nodes(struct lpm_cluster *p, struct kobject *parent)
 		return -ENOMEM;
 
 	cpu_idx = 0;
-	for_each_cpu(cpu, &p->child_cpus) {
-		snprintf(cpu_name, sizeof(cpu_name), "cpu%d", cpu);
-		cpu_kobj[cpu_idx] = kobject_create_and_add(cpu_name, parent);
-		if (!cpu_kobj[cpu_idx]) {
-			ret = -ENOMEM;
-			goto release_kobj;
-		}
+	list_for_each(pos, &p->cpu) {
+		struct lpm_cpu *lpm_cpu = list_entry(pos, struct lpm_cpu, list);
 
-		level_list = devm_kzalloc(&lpm_pdev->dev,
-				p->cpu->nlevels * sizeof(*level_list),
-				GFP_KERNEL);
-		if (!level_list) {
-			ret = -ENOMEM;
-			goto release_kobj;
-		}
-
-		/*
-		 * Skip enable/disable for WFI. cpuidle expects WFI to be
-		 * available at all times.
-		 */
-		for (i = 1; i < p->cpu->nlevels; i++) {
-
-			ret = create_lvl_avail_nodes(p->cpu->levels[i].name,
-					cpu_kobj[cpu_idx], &level_list[i],
-					(void *)p->cpu, cpu, true);
-			if (ret)
+		for_each_cpu(cpu, &lpm_cpu->related_cpus) {
+			snprintf(cpu_name, sizeof(cpu_name), "cpu%d", cpu);
+			cpu_kobj[cpu_idx] = kobject_create_and_add(cpu_name,
+					parent);
+			if (!cpu_kobj[cpu_idx]) {
+				ret = -ENOMEM;
 				goto release_kobj;
-		}
+			}
 
-		cpu_level_available[cpu] = level_list;
-		cpu_idx++;
+			level_list = devm_kzalloc(&lpm_pdev->dev,
+					lpm_cpu->nlevels * sizeof(*level_list),
+					GFP_KERNEL);
+			if (!level_list) {
+				ret = -ENOMEM;
+				goto release_kobj;
+			}
+
+			/*
+			 * Skip enable/disable for WFI. cpuidle expects WFI to
+			 * be available at all times.
+			 */
+			for (i = 1; i < lpm_cpu->nlevels; i++) {
+				level_list[i].latency_us =
+					p->levels[i].pwr.latency_us;
+				ret = create_lvl_avail_nodes(
+						lpm_cpu->levels[i].name,
+						cpu_kobj[cpu_idx],
+						&level_list[i],
+						(void *)lpm_cpu, cpu, true);
+				if (ret)
+					goto release_kobj;
+			}
+
+			cpu_level_available[cpu] = level_list;
+			cpu_idx++;
+		}
 	}
 
 	return ret;
@@ -336,6 +382,7 @@ int create_cluster_lvl_nodes(struct lpm_cluster *p, struct kobject *kobj)
 		return -ENOMEM;
 
 	for (i = 0; i < p->nlevels; i++) {
+		p->levels[i].available.latency_us = p->levels[i].pwr.latency_us;
 		ret = create_lvl_avail_nodes(p->levels[i].level_name,
 				cluster_kobj, &p->levels[i].available,
 				(void *)p, 0, false);
@@ -349,19 +396,22 @@ int create_cluster_lvl_nodes(struct lpm_cluster *p, struct kobject *kobj)
 			return ret;
 	}
 
-	if (p->cpu) {
+	if (!list_empty(&p->cpu)) {
 		ret = create_cpu_lvl_nodes(p, cluster_kobj);
 		if (ret)
 			return ret;
 	}
 
-	return 0;
+	return ret;
 }
 
 bool lpm_cpu_mode_allow(unsigned int cpu,
 		unsigned int index, bool from_idle)
 {
 	struct lpm_level_avail *avail = cpu_level_available[cpu];
+
+	if (lpm_pdev && !index)
+		return 1;
 
 	if (!lpm_pdev || !avail)
 		return !from_idle;
@@ -390,36 +440,27 @@ static int parse_cluster_params(struct device_node *node,
 
 	key = "label";
 	ret = of_property_read_string(node, key, &c->cluster_name);
-	if (ret) {
-		pr_err("%s(): Cannot read required param %s\n", __func__, key);
-		return ret;
-	}
+	if (ret)
+		goto fail;
 
-	if (use_psci) {
-		key = "qcom,psci-mode-shift";
-		ret = of_property_read_u32(node, key,
-				&c->psci_mode_shift);
-		if (ret) {
-			pr_err("%s(): Failed to read param: %s\n",
-							__func__, key);
-			return ret;
-		}
+	key = "qcom,psci-mode-shift";
+	ret = of_property_read_u32(node, key, &c->psci_mode_shift);
+	if (ret)
+		goto fail;
 
-		key = "qcom,psci-mode-mask";
-		ret = of_property_read_u32(node, key,
-				&c->psci_mode_mask);
-		if (ret) {
-			pr_err("%s(): Failed to read param: %s\n",
-							__func__, key);
-			return ret;
-		}
+	key = "qcom,psci-mode-mask";
+	ret = of_property_read_u32(node, key, &c->psci_mode_mask);
+	if (ret)
+		goto fail;
 
-		/* Set ndevice to 1 as default */
-		c->ndevices = 1;
+	/* Set default_level to 0 as default */
+	c->default_level = 0;
 
-	} else
-		pr_warn("Target supports PSCI only\n");
-	return 0;
+	return ret;
+fail:
+	pr_err("Failed to read key: %s ret: %d\n", key, ret);
+
+	return ret;
 }
 
 static int parse_power_params(struct device_node *node,
@@ -448,10 +489,10 @@ static int parse_power_params(struct device_node *node,
 	if (ret)
 		goto fail;
 
+	return ret;
 fail:
-	if (ret)
-		pr_err("%s(): %s Error reading %s\n", __func__, node->name,
-				key);
+	pr_err("Failed to read key: %s node: %s\n", key, node->name);
+
 	return ret;
 }
 
@@ -467,26 +508,16 @@ static int parse_cluster_level(struct device_node *node,
 	if (ret)
 		goto failed;
 
-	if (use_psci) {
-		char *k = "qcom,psci-mode";
-
-		ret = of_property_read_u32(node, k, &level->psci_id);
-		if (ret)
-			goto failed;
-
-		level->is_reset = of_property_read_bool(node, "qcom,is-reset");
-	} else
-		pr_warn("Build supports PSCI targets only");
-
-	key = "label";
-	ret = of_property_read_string(node, key, &level->level_name);
+	key = "qcom,psci-mode";
+	ret = of_property_read_u32(node, key, &level->psci_id);
 	if (ret)
 		goto failed;
 
+	level->is_reset = of_property_read_bool(node, "qcom,is-reset");
+
 	if (cluster->nlevels != cluster->default_level) {
-		key = "min child idx";
-		ret = of_property_read_u32(node, "qcom,min-child-idx",
-				&level->min_child_level);
+		key = "qcom,min-child-idx";
+		ret = of_property_read_u32(node, key, &level->min_child_level);
 		if (ret)
 			goto failed;
 
@@ -495,10 +526,6 @@ static int parse_cluster_level(struct device_node *node,
 	}
 
 	level->notify_rpm = of_property_read_bool(node, "qcom,notify-rpm");
-	level->disable_dynamic_routing = of_property_read_bool(node,
-					"qcom,disable-dynamic-int-routing");
-	level->last_core_only = of_property_read_bool(node,
-					"qcom,last-core-only");
 
 	key = "parse_power_params";
 	ret = parse_power_params(node, &level->pwr);
@@ -513,11 +540,11 @@ static int parse_cluster_level(struct device_node *node,
 		goto failed;
 
 	cluster->nlevels++;
+
 	return 0;
 failed:
-	pr_err("Failed %s() key = %s ret = %d\n", __func__, key, ret);
-	kfree(level->mode);
-	level->mode = NULL;
+	pr_err("Failed to read key: %s ret: %d\n", key, ret);
+
 	return ret;
 }
 
@@ -526,29 +553,21 @@ static int parse_cpu_mode(struct device_node *n, struct lpm_cpu_level *l)
 	char *key;
 	int ret;
 
-	key = "qcom,spm-cpu-mode";
-	ret  =  of_property_read_string(n, key, &l->name);
-	if (ret) {
-		pr_err("Failed %s %d\n", n->name, __LINE__);
-		return ret;
-	}
+	key = "label";
+	ret = of_property_read_string(n, key, &l->name);
+	if (ret)
+		goto fail;
 
-	if (use_psci) {
-		key = "qcom,psci-cpu-mode";
+	key = "qcom,psci-cpu-mode";
+	ret = of_property_read_u32(n, key, &l->psci_id);
+	if (ret)
+		goto fail;
 
-		ret = of_property_read_u32(n, key, &l->psci_id);
-		if (ret) {
-			pr_err("Failed reading %s on device %s\n", key,
-					n->name);
-			return ret;
-		}
-		key = "qcom,hyp-psci";
+	return ret;
+fail:
+	pr_err("Failed to read key: %s level: %s\n", key, l->name);
 
-		l->hyp_psci = of_property_read_bool(n, key);
-	} else
-		pr_warn("Build supports PSCI targets only");
-	return 0;
-
+	return ret;
 }
 
 static int get_cpumask_for_node(struct device_node *node, struct cpumask *mask)
@@ -594,8 +613,7 @@ static int calculate_residency(struct power_params *base_pwr,
 	residency /= (int32_t)(base_pwr->ss_power  - next_pwr->ss_power);
 
 	if (residency < 0) {
-		pr_err("%s: residency < 0 for LPM\n",
-				__func__);
+		pr_err("Residency < 0 for LPM\n");
 		return next_pwr->time_overhead_us;
 	}
 
@@ -603,125 +621,141 @@ static int calculate_residency(struct power_params *base_pwr,
 				next_pwr->time_overhead_us : residency;
 }
 
-static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
+static int parse_cpu(struct device_node *node, struct lpm_cpu *cpu)
 {
+
 	struct device_node *n;
-	int ret = -ENOMEM;
-	int i, j;
-	char *key;
-
-	c->cpu = devm_kzalloc(&lpm_pdev->dev, sizeof(*c->cpu), GFP_KERNEL);
-	if (!c->cpu)
-		return ret;
-
-	c->cpu->parent = c;
-	if (use_psci) {
-
-		key = "qcom,psci-mode-shift";
-
-		ret = of_property_read_u32(node, key, &c->cpu->psci_mode_shift);
-		if (ret) {
-			pr_err("Failed reading %s on device %s\n", key,
-					node->name);
-			return ret;
-		}
-		key = "qcom,psci-mode-mask";
-
-		ret = of_property_read_u32(node, key, &c->cpu->psci_mode_mask);
-		if (ret) {
-			pr_err("Failed reading %s on device %s\n", key,
-					node->name);
-			return ret;
-		}
-	}
+	int ret, i, j;
+	const char *key;
 	for_each_child_of_node(node, n) {
-		struct lpm_cpu_level *l = &c->cpu->levels[c->cpu->nlevels];
+		struct lpm_cpu_level *l = &cpu->levels[cpu->nlevels];
 
-		c->cpu->nlevels++;
+		cpu->nlevels++;
 
 		ret = parse_cpu_mode(n, l);
-		if (ret < 0) {
-			pr_info("Failed %s\n", l->name);
-			goto failed;
-		}
+		if (ret)
+			return ret;
 
 		ret = parse_power_params(n, &l->pwr);
 		if (ret)
-			goto failed;
+			return ret;
 
 		key = "qcom,use-broadcast-timer";
 		l->use_bc_timer = of_property_read_bool(n, key);
 
-		l->is_reset = of_property_read_bool(n, "qcom,is-reset");
-
-		key = "qcom,jtag-save-restore";
-		l->jtag_save_restore = of_property_read_bool(n, key);
+		key = "qcom,is-reset";
+		l->is_reset = of_property_read_bool(n, key);
 
 		key = "qcom,reset-level";
 		ret = of_property_read_u32(n, key, &l->reset_level);
 		if (ret == -EINVAL)
 			l->reset_level = LPM_RESET_LVL_NONE;
 		else if (ret)
-			goto failed;
+			return ret;
 	}
-	for (i = 0; i < c->cpu->nlevels; i++) {
-		for (j = 0; j < c->cpu->nlevels; j++) {
+
+	for (i = 0; i < cpu->nlevels; i++) {
+		for (j = 0; j < cpu->nlevels; j++) {
 			if (i >= j) {
-				c->cpu->levels[i].pwr.residencies[j] = 0;
+				cpu->levels[i].pwr.residencies[j] = 0;
 				continue;
 			}
 
-			c->cpu->levels[i].pwr.residencies[j] =
-				calculate_residency(&c->cpu->levels[i].pwr,
-					&c->cpu->levels[j].pwr);
+			cpu->levels[i].pwr.residencies[j] =
+				calculate_residency(&cpu->levels[i].pwr,
+						&cpu->levels[j].pwr);
 
-			pr_err("%s: idx %d %u\n", __func__, j,
-					c->cpu->levels[i].pwr.residencies[j]);
+			pr_info("idx %d %u\n", j,
+					cpu->levels[i].pwr.residencies[j]);
 		}
 	}
 
-	return 0;
-failed:
-	for (i = 0; i < c->cpu->nlevels; i++) {
-		kfree(c->cpu->levels[i].name);
-		c->cpu->levels[i].name = NULL;
+	for_each_cpu(i, &cpu->related_cpus) {
+
+		per_cpu(max_residency, i) = devm_kzalloc(&lpm_pdev->dev,
+				sizeof(uint32_t) * cpu->nlevels, GFP_KERNEL);
+		if (!per_cpu(max_residency, i))
+			return -ENOMEM;
+
+		per_cpu(min_residency, i) = devm_kzalloc(&lpm_pdev->dev,
+				sizeof(uint32_t) * cpu->nlevels, GFP_KERNEL);
+		if (!per_cpu(min_residency, i))
+			return -ENOMEM;
+
+		set_optimum_cpu_residency(cpu, i, true);
 	}
-	kfree(c->cpu);
-	c->cpu = NULL;
-	pr_err("%s(): Failed with error code:%d\n", __func__, ret);
+
+	return 0;
+}
+
+static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
+{
+	int ret, i;
+	char *key;
+	struct lpm_cpu *cpu;
+
+	cpu = devm_kzalloc(&lpm_pdev->dev, sizeof(*cpu), GFP_KERNEL);
+	if (!cpu)
+		return -ENOMEM;
+
+	if (get_cpumask_for_node(node, &cpu->related_cpus))
+		return -EINVAL;
+
+	cpu->parent = c;
+
+	key = "qcom,psci-mode-shift";
+	ret = of_property_read_u32(node, key, &cpu->psci_mode_shift);
+	if (ret)
+		goto failed_parse_params;
+
+	key = "qcom,psci-mode-mask";
+	ret = of_property_read_u32(node, key, &cpu->psci_mode_mask);
+	if (ret)
+		goto failed_parse_params;
+
+	key = "qcom,use-prediction";
+	cpu->lpm_prediction = of_property_read_bool(node, key);
+
+	key = "parse_cpu";
+	ret = parse_cpu(node, cpu);
+	if (ret)
+		goto failed_parse_cpu;
+
+	cpumask_or(&c->child_cpus, &c->child_cpus, &cpu->related_cpus);
+	list_add(&cpu->list, &c->cpu);
+
+	return ret;
+
+failed_parse_cpu:
+	for (i = 0; i < cpu->nlevels; i++) {
+		kfree(cpu->levels[i].name);
+		cpu->levels[i].name = NULL;
+	}
+
+failed_parse_params:
+	pr_err("Failed to read key: %s node: %s\n", key, node->name);
 	return ret;
 }
 
 void free_cluster_node(struct lpm_cluster *cluster)
 {
-	struct list_head *list;
-	int i;
+	struct lpm_cpu *cpu, *n;
+	struct lpm_cluster *cl, *m;
 
-	list_for_each(list, &cluster->child) {
-		struct lpm_cluster *n;
-
-		n = list_entry(list, typeof(*n), list);
-		list_del(list);
-		free_cluster_node(n);
+	list_for_each_entry_safe(cl, m, &cluster->child, list) {
+		list_del(&cl->list);
+		free_cluster_node(cl);
 	};
 
-	if (cluster->cpu) {
-		for (i = 0; i < cluster->cpu->nlevels; i++) {
-			kfree(cluster->cpu->levels[i].name);
-			cluster->cpu->levels[i].name = NULL;
+	list_for_each_entry_safe(cpu, n, &cluster->cpu, list) {
+		int i;
+
+		list_del(&cpu->list);
+		for (i = 0; i < cpu->nlevels; i++) {
+			kfree(cpu->levels[i].name);
+			cpu->levels[i].name = NULL;
 		}
 	}
-	for (i = 0; i < cluster->nlevels; i++) {
-		kfree(cluster->levels[i].mode);
-		cluster->levels[i].mode = NULL;
-	}
-	kfree(cluster->cpu);
-	kfree(cluster->name);
-	kfree(cluster->lpm_dev);
-	cluster->cpu = NULL;
-	cluster->name = NULL;
-	cluster->lpm_dev = NULL;
-	cluster->ndevices = 0;
 }
 
 /*
@@ -744,11 +778,12 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 		return ERR_PTR(-ENOMEM);
 
 	ret = parse_cluster_params(node, c);
-
 	if (ret)
 		goto failed_parse_params;
 
+	INIT_LIST_HEAD(&c->list);
 	INIT_LIST_HEAD(&c->child);
+	INIT_LIST_HEAD(&c->cpu);
 	c->parent = parent;
 	spin_lock_init(&c->sync_lock);
 	c->min_child_level = NR_LPM_LEVELS;
@@ -757,9 +792,9 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 
 		if (!n->name)
 			continue;
+
 		key = "qcom,pm-cluster-level";
 		if (!of_node_cmp(n->name, key)) {
-			WARN_ON(!use_psci && c->no_saw_devices);
 			if (parse_cluster_level(n, c))
 				goto failed_parse_cluster;
 			continue;
@@ -769,7 +804,6 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 		if (!of_node_cmp(n->name, key)) {
 			struct lpm_cluster *child;
 
-			WARN_ON(!use_psci && c->no_saw_devices);
 			child = parse_cluster(n, c);
 			if (!child)
 				goto failed_parse_cluster;
@@ -783,34 +817,10 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 
 		key = "qcom,pm-cpu";
 		if (!of_node_cmp(n->name, key)) {
-			/*
-			 * Parse the the cpu node only if a pm-cpu node
-			 * is available, though the mask is defined @ the
-			 * cluster level
-			 */
-			if (get_cpumask_for_node(node, &c->child_cpus))
-				goto failed_parse_cluster;
-
 			if (parse_cpu_levels(n, c))
 				goto failed_parse_cluster;
 
 			c->aff_level = 1;
-
-			for_each_cpu(i, &c->child_cpus) {
-				per_cpu(max_residency, i) = devm_kzalloc(
-					&lpm_pdev->dev,
-					sizeof(uint32_t) * c->cpu->nlevels,
-					GFP_KERNEL);
-				if (!per_cpu(max_residency, i))
-					return ERR_PTR(-ENOMEM);
-				per_cpu(min_residency, i) = devm_kzalloc(
-					&lpm_pdev->dev,
-					sizeof(uint32_t) * c->cpu->nlevels,
-					GFP_KERNEL);
-				if (!per_cpu(min_residency, i))
-					return ERR_PTR(-ENOMEM);
-				set_optimum_cpu_residency(c->cpu, i, true);
-			}
 		}
 	}
 
@@ -840,14 +850,11 @@ failed_parse_cluster:
 failed_parse_params:
 	c->parent = NULL;
 	pr_err("Failed parse params\n");
-	kfree(c);
 	return NULL;
 }
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev)
 {
 	struct device_node *top = NULL;
-
-	use_psci = of_property_read_bool(pdev->dev.of_node, "qcom,use-psci");
 
 	top = of_find_node_by_name(pdev->dev.of_node, "qcom,pm-cluster");
 	if (!top) {
@@ -862,6 +869,7 @@ struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev)
 void cluster_dt_walkthrough(struct lpm_cluster *cluster)
 {
 	struct list_head *list;
+	struct lpm_cpu *cpu;
 	int i, j;
 	static int id;
 	char str[10] = {0};
@@ -875,19 +883,15 @@ void cluster_dt_walkthrough(struct lpm_cluster *cluster)
 
 	for (i = 0; i < cluster->nlevels; i++) {
 		struct lpm_cluster_level *l = &cluster->levels[i];
-
-		pr_info("%d ndevices:%d\n", __LINE__, cluster->ndevices);
-		for (j = 0; j < cluster->ndevices; j++)
-			pr_info("%sDevice: %p id:%p\n", str,
-					&cluster->name[j], &l->mode[i]);
+		pr_info("cluster: %s \t level: %s\n", cluster->cluster_name,
+							l->level_name);
 	}
 
-	if (cluster->cpu) {
+	list_for_each_entry(cpu, &cluster->cpu, list) {
 		pr_info("%d\n", __LINE__);
-		for (j = 0; j < cluster->cpu->nlevels; j++)
-			pr_info("%s\tCPU mode: %s id:%d\n", str,
-					cluster->cpu->levels[j].name,
-					cluster->cpu->levels[j].mode);
+		for (j = 0; j < cpu->nlevels; j++)
+			pr_info("%s\tCPU level name: %s\n", str,
+						cpu->levels[j].name);
 	}
 
 	id++;

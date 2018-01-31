@@ -9,6 +9,7 @@
  */
 #undef CONFIG_PARAVIRT
 #undef CONFIG_PARAVIRT_SPINLOCKS
+#undef CONFIG_PAGE_TABLE_ISOLATION
 #undef CONFIG_KASAN
 
 #include <linux/linkage.h>
@@ -81,8 +82,6 @@ static inline void choose_random_location(unsigned long input,
 					  unsigned long output_size,
 					  unsigned long *virt_addr)
 {
-	/* No change from existing output location. */
-	*virt_addr = *output;
 }
 #endif
 

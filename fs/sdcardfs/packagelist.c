@@ -156,7 +156,7 @@ int check_caller_access_to_name(struct inode *parent_node, const struct qstr *na
 	struct qstr q_android_secure = QSTR_LITERAL("android_secure");
 
 	/* Always block security-sensitive files at root */
-	if (parent_node && SDCARDFS_I(parent_node)->perm == PERM_ROOT) {
+	if (parent_node && SDCARDFS_I(parent_node)->data->perm == PERM_ROOT) {
 		if (qstr_case_eq(name, &q_autorun)
 			|| qstr_case_eq(name, &q__android_secure)
 			|| qstr_case_eq(name, &q_android_secure)) {
@@ -172,19 +172,6 @@ int check_caller_access_to_name(struct inode *parent_node, const struct qstr *na
 
 	/* No extra permissions to enforce */
 	return 1;
-}
-
-/* This function is used when file opening. The open flags must be
- * checked before calling check_caller_access_to_name()
- */
-int open_flags_to_access_mode(int open_flags)
-{
-	if ((open_flags & O_ACCMODE) == O_RDONLY)
-		return 0; /* R_OK */
-	if ((open_flags & O_ACCMODE) == O_WRONLY)
-		return 1; /* W_OK */
-	/* Probably O_RDRW, but treat as default to be safe */
-		return 1; /* R_OK | W_OK */
 }
 
 static struct hashtable_entry *alloc_hashtable_entry(const struct qstr *key,

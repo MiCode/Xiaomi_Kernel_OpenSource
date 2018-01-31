@@ -46,6 +46,12 @@ Required properties:
 -compatible: "qcom,msm-imem-restart_reason
 -reg: start address and size of restart_reason region in imem
 
+Download Mode Type:
+-------------------
+Required properties:
+-compatible: "qcom,msm-imem-dload-type"
+-reg: start address and size of dload type region in imem
+
 Download Mode:
 --------------
 Required properties:
@@ -66,6 +72,11 @@ USB Diag Cookies:
 -----------------
 Memory region used to store USB PID and serial numbers to be used by
 bootloader in download mode.
+
+SSR Minidump Offset
+-------------------
+-Compatible: "qcom,msm-imem-minidump"
+-reg: start address and size of ssr imem region
 
 Required properties:
 -compatible: "qcom,msm-imem-diag-dload"
@@ -114,5 +125,10 @@ Example:
 		emergency_download_mode@fe0 {
 			compatible = "qcom,msm-imem-emergency_download_mode";
 			reg = <0xfe0 12>;
+		};
+
+		ss_mdump@b88 {
+			compatible = "qcom,msm-imem-minidump";
+			reg = <0xb88 28>;
 		};
 	};

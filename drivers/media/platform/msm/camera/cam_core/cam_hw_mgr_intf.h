@@ -36,6 +36,7 @@ typedef int (*cam_hw_event_cb_func)(void *context, uint32_t evt_id,
  * @offset:                Memory offset
  * @len:                   Size of the configuration
  * @flags:                 Flags for the config entry(eg. DMI)
+ * @addr:                  Address of hardware update entry
  *
  */
 struct cam_hw_update_entry {
@@ -43,13 +44,14 @@ struct cam_hw_update_entry {
 	uint32_t           offset;
 	uint32_t           len;
 	uint32_t           flags;
+	uint64_t           addr;
 };
 
 /**
  * struct cam_hw_fence_map_entry - Entry for the resource to sync id map
  *
  * @resrouce_handle:       Resource port id for the buffer
- * @sync_id:               Synce id
+ * @sync_id:               Sync id
  *
  */
 struct cam_hw_fence_map_entry {
@@ -63,12 +65,14 @@ struct cam_hw_fence_map_entry {
  * @num_handles:           number of handles in the event
  * @resrouce_handle:       list of the resource handle
  * @timestamp:             time stamp
+ * @request_id:            request identifier
  *
  */
 struct cam_hw_done_event_data {
 	uint32_t           num_handles;
 	uint32_t           resource_handle[CAM_NUM_OUT_PER_COMP_IRQ_MAX];
 	struct timeval     timestamp;
+	uint64_t           request_id;
 };
 
 /**
@@ -93,10 +97,12 @@ struct cam_hw_acquire_args {
  * struct cam_hw_release_args - Payload for release command
  *
  * @ctxt_to_hw_map:        HW context from the acquire
+ * @active_req:            Active request flag
  *
  */
 struct cam_hw_release_args {
 	void              *ctxt_to_hw_map;
+	bool               active_req;
 };
 
 /**
@@ -137,6 +143,7 @@ struct cam_hw_stop_args {
  * @max_in_map_entries:    Maximum input fence mapping supported
  * @in_map_entries:        Actual input fence mapping list (returned)
  * @num_in_map_entries:    Number of acutal input fence mapping (returned)
+ * @priv:                  Private pointer of hw update
  *
  */
 struct cam_hw_prepare_update_args {
@@ -151,6 +158,7 @@ struct cam_hw_prepare_update_args {
 	uint32_t                        max_in_map_entries;
 	struct cam_hw_fence_map_entry  *in_map_entries;
 	uint32_t                        num_in_map_entries;
+	void                           *priv;
 };
 
 /**
@@ -159,12 +167,38 @@ struct cam_hw_prepare_update_args {
  * @ctxt_to_hw_map:        HW context from the acquire
  * @num_hw_update_entries: Number of hardware update entries
  * @hw_update_entries:     Hardware update list
+ * @out_map_entries:       Out map info
+ * @num_out_map_entries:   Number of out map entries
+ * @priv:                  Private pointer
  *
  */
 struct cam_hw_config_args {
-	void                        *ctxt_to_hw_map;
-	uint32_t                     num_hw_update_entries;
-	struct cam_hw_update_entry  *hw_update_entries;
+	void                           *ctxt_to_hw_map;
+	uint32_t                        num_hw_update_entries;
+	struct cam_hw_update_entry     *hw_update_entries;
+	struct cam_hw_fence_map_entry  *out_map_entries;
+	uint32_t                        num_out_map_entries;
+	void                           *priv;
+};
+
+/**
+ * struct cam_hw_flush_args - Flush arguments
+ *
+ * @ctxt_to_hw_map:        HW context from the acquire
+ * @num_req_pending:       Num request to flush, valid when flush type is REQ
+ * @flush_req_pending:     Request pending pointers to flush
+ * @num_req_active:        Num request to flush, valid when flush type is REQ
+ * @flush_req_active:      Request active pointers to flush
+ * @flush_type:            The flush type
+ *
+ */
+struct cam_hw_flush_args {
+	void                           *ctxt_to_hw_map;
+	uint32_t                        num_req_pending;
+	void                           *flush_req_pending[20];
+	uint32_t                        num_req_active;
+	void                           *flush_req_active[20];
+	enum flush_type_t               flush_type;
 };
 
 /**
@@ -189,6 +223,9 @@ struct cam_hw_config_args {
  * @hw_write:              Function pointer for Write hardware registers
  * @hw_cmd:                Function pointer for any customized commands for the
  *                         hardware manager
+ * @hw_open:               Function pointer for HW init
+ * @hw_close:              Function pointer for HW deinit
+ * @hw_flush:              Function pointer for HW flush
  *
  */
 struct cam_hw_mgr_intf {
@@ -204,6 +241,9 @@ struct cam_hw_mgr_intf {
 	int (*hw_read)(void *hw_priv, void *read_args);
 	int (*hw_write)(void *hw_priv, void *write_args);
 	int (*hw_cmd)(void *hw_priv, void *write_args);
+	int (*hw_open)(void *hw_priv, void *fw_download_args);
+	int (*hw_close)(void *hw_priv, void *hw_close_args);
+	int (*hw_flush)(void *hw_priv, void *hw_flush_args);
 };
 
 #endif /* _CAM_HW_MGR_INTF_H_ */

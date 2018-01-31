@@ -345,6 +345,8 @@ struct drm_connector_funcs {
 	 * core drm connector interfaces. Everything added from this callback
 	 * should be unregistered in the early_unregister callback.
 	 *
+	 * This is called while holding drm_connector->mutex.
+	 *
 	 * Returns:
 	 *
 	 * 0 on success, or a negative error code on failure.
@@ -359,6 +361,8 @@ struct drm_connector_funcs {
 	 * late_register(). It is called from drm_connector_unregister(),
 	 * early in the driver unload sequence to disable userspace access
 	 * before data structures are torndown.
+	 *
+	 * This is called while holding drm_connector->mutex.
 	 */
 	void (*early_unregister)(struct drm_connector *connector);
 
@@ -511,7 +515,6 @@ struct drm_cmdline_mode {
  * @interlace_allowed: can this connector handle interlaced modes?
  * @doublescan_allowed: can this connector handle doublescan?
  * @stereo_allowed: can this connector handle stereo modes?
- * @registered: is this connector exposed (registered) with userspace?
  * @modes: modes available on this connector (from fill_modes() + user)
  * @status: one of the drm_connector_status enums (connected, not, or unknown)
  * @probed_modes: list of modes derived directly from the display
@@ -531,6 +534,20 @@ struct drm_cmdline_mode {
  * @audio_latency: audio latency info from ELD, if found
  * @null_edid_counter: track sinks that give us all zeros for the EDID
  * @bad_edid_counter: track sinks that give us an EDID with invalid checksum
+ * @max_tmds_char: indicates the maximum TMDS Character Rate supported
+ * @scdc_present: when set the sink supports SCDC functionality
+ * @rr_capable: when set the sink is capable of initiating an SCDC read request
+ * @supports_scramble: when set the sink supports less than 340Mcsc scrambling
+ * @flags_3d: 3D view(s) supported by the sink, see drm_edid.h (DRM_EDID_3D_*)
+ * @pt_scan_info: PT scan info obtained from the VCDB of EDID
+ * @it_scan_info: IT scan info obtained from the VCDB of EDID
+ * @ce_scan_info: CE scan info obtained from the VCDB of EDID
+ * @hdr_eotf: Electro optical transfer function obtained from HDR block
+ * @hdr_metadata_type_one: Metadata type one obtained from HDR block
+ * @hdr_max_luminance: desired max luminance obtained from HDR block
+ * @hdr_avg_luminance: desired avg luminance obtained from HDR block
+ * @hdr_min_luminance: desired min luminance obtained from HDR block
+ * @hdr_supported: does the sink support HDR content
  * @edid_corrupt: indicates whether the last read EDID was corrupt
  * @debugfs_entry: debugfs directory for this connector
  * @state: current atomic state for this connector
@@ -560,6 +577,13 @@ struct drm_connector {
 	char *name;
 
 	/**
+	 * @mutex: Lock for general connector state, but currently only protects
+	 * @registered. Most of the connector state is still protected by the
+	 * mutex in &drm_mode_config.
+	 */
+	struct mutex mutex;
+
+	/**
 	 * @index: Compacted connector index, which matches the position inside
 	 * the mode_config.list for drivers not supporting hot-add/removing. Can
 	 * be used as an array index. It is invariant over the lifetime of the
@@ -572,6 +596,10 @@ struct drm_connector {
 	bool interlace_allowed;
 	bool doublescan_allowed;
 	bool stereo_allowed;
+	/**
+	 * @registered: Is this connector exposed (registered) with userspace?
+	 * Protected by @mutex.
+	 */
 	bool registered;
 	struct list_head modes; /* list of modes on this connector */
 
@@ -664,6 +692,22 @@ struct drm_connector {
 	int audio_latency[2];
 	int null_edid_counter; /* needed to workaround some HW bugs where we get all 0s */
 	unsigned bad_edid_counter;
+
+	/* EDID bits HDMI 2.0 */
+	int max_tmds_char;	/* in Mcsc */
+	bool scdc_present;
+	bool rr_capable;
+	bool supports_scramble;
+	int flags_3d;
+	u8 pt_scan_info;
+	u8 it_scan_info;
+	u8 ce_scan_info;
+	u32 hdr_eotf;
+	bool hdr_metadata_type_one;
+	u32 hdr_max_luminance;
+	u32 hdr_avg_luminance;
+	u32 hdr_min_luminance;
+	bool hdr_supported;
 
 	/* Flag for raw EDID header corruption - used in Displayport
 	 * compliance testing - * Displayport Link CTS Core 1.2 rev1.1 4.2.2.6

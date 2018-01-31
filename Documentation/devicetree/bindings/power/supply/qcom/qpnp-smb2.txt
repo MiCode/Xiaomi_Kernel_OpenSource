@@ -35,11 +35,6 @@ Charger specific properties:
 		addition battery properties will be faked such that the device
 		assumes normal operation.
 
-- qcom,external-vconn
-  Usage:      optional
-  Value type: <empty>
-  Definition: Boolean flag which indicates VCONN is sourced externally.
-
 - qcom,fcc-max-ua
   Usage:      optional
   Value type: <u32>
@@ -89,21 +84,6 @@ Charger specific properties:
 		This should be a flat array that denotes the
 		maximum charge current in mA for each thermal
 		level.
-
-- qcom,step-soc-thresholds
-  Usage:      optional
-  Value type: Array of <u32>
-  Definition: Array of SOC threshold values, size of 4. This should be a
-		flat array that denotes the percentage ranging from 0 to 100.
-		If the array is not present, step charging is disabled.
-
-- qcom,step-current-deltas
-  Usage:      optional
-  Value type: Array of <s32>
-  Definition: Array of delta values for charging current, size of 5, with
-		FCC as base.  This should be a flat array that denotes the
-		offset of charging current in uA, from -3100000 to 3200000.
-		If the array is not present, step charging is disabled.
 
 - io-channels
   Usage:      optional
@@ -157,12 +137,6 @@ Charger specific properties:
 		be based off battery voltage. For both SOC and battery voltage,
 		charger receives the signal from FG to resume charging.
 
-- qcom,micro-usb
-  Usage:      optional
-  Value type: <empty>
-  Definition: Boolean flag which indicates that the platform only support
-		micro usb port.
-
 - qcom,suspend-input-on-debug-batt
   Usage:      optional
   Value type: <empty>
@@ -180,6 +154,37 @@ Charger specific properties:
   Value type: <u32>
   Definition: Specifies the maximum charger buck/boost switching frequency in
 		 KHz. It overrides the max frequency defined for the charger.
+
+- qcom,otg-deglitch-time-ms
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the deglitch interval for OTG detection.
+		If the value is not present, 50 msec is used as default.
+
+- qcom,step-charging-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables step-charging.
+
+- qcom,wd-bark-time-secs
+  Usage:      optional
+  Value type: <u32>
+  Definition: WD bark-timeout in seconds. The possible values are
+		16, 32, 64, 128. If not defined it defaults to 64.
+
+- qcom,sw-jeita-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables sw compensation for jeita
+
+- qcom,battery-data
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the phandle of the node which contains the battery
+		profiles supported on the device. This is only specified
+		when step charging and sw-jeita configurations are desired
+		to be get from these properties defined in battery profile:
+		qcom,step-chg-ranges, qcom,jeita-fcc-ranges, qcom,jeita-fv-ranges.
 
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
@@ -215,9 +220,6 @@ pmi8998_charger: qcom,qpnp-smb2 {
 	io-channel-names = "rradc_batt_id";
 
 	dpdm-supply = <&qusb_phy0>;
-
-	qcom,step-soc-thresholds = <60 70 80 90>;
-	qcom,step-current-deltas = <500000 250000 150000 0 (-150000)>;
 
 	qcom,chgr@1000 {
 		reg = <0x1000 0x100>;

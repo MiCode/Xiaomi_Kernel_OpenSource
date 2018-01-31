@@ -66,6 +66,7 @@ enum debug_cc {
  * @mux_offset:		the debug mux offset.
  * @post_div_offset:	register with post-divider settings for the debug mux.
  * @cbcr_offset:	branch register to turn on debug mux.
+ * @misc_div_val:	includes any pre-set dividers in the measurement logic.
  */
 struct clk_src {
 	const char *parents;
@@ -81,6 +82,7 @@ struct clk_src {
 	u32 mux_offset;
 	u32 post_div_offset;
 	u32 cbcr_offset;
+	u32 misc_div_val;
 };
 
 #define MUX_SRC_LIST(...) \

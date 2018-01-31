@@ -57,15 +57,11 @@ extern int msm_vidc_debug_out;
 extern int msm_vidc_fw_debug;
 extern int msm_vidc_fw_debug_mode;
 extern int msm_vidc_fw_low_power_mode;
-extern int msm_vidc_hw_rsp_timeout;
 extern bool msm_vidc_fw_coverage;
-extern bool msm_vidc_dec_dcvs_mode;
-extern bool msm_vidc_enc_dcvs_mode;
 extern bool msm_vidc_sys_idle_indicator;
-extern int msm_vidc_firmware_unload_delay;
 extern bool msm_vidc_thermal_mitigation_disabled;
-extern bool msm_vidc_bitrate_clock_scaling;
-extern bool msm_vidc_debug_timeout;
+extern bool msm_vidc_clock_scaling;
+extern bool msm_vidc_syscache_disable;
 
 #define VIDC_MSG_PRIO2STRING(__level) ({ \
 	char *__str; \
@@ -117,7 +113,6 @@ extern bool msm_vidc_debug_timeout;
 
 #define MSM_VIDC_ERROR(value)					\
 	do {							\
-		dprintk(VIDC_DBG, "Fatal Level = %d\n", value);\
 		BUG_ON(value);					\
 	} while (0)
 
@@ -127,6 +122,7 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		struct dentry *parent);
 struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 		struct dentry *parent);
+void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst);
 void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 		enum msm_vidc_debugfs_event e);
 
@@ -182,18 +178,34 @@ static inline void show_stats(struct msm_vidc_inst *i)
 	}
 }
 
+static inline void msm_vidc_res_handle_fatal_hw_error(
+	struct msm_vidc_platform_resources *resources,
+	bool enable_fatal)
+{
+	enable_fatal &= resources->debug_timeout;
+	MSM_VIDC_ERROR(enable_fatal);
+}
+
 static inline void msm_vidc_handle_hw_error(struct msm_vidc_core *core)
 {
-	bool enable_fatal;
+	bool enable_fatal = true;
 
-	enable_fatal = core->resources.debug_timeout;
+	/*
+	 * In current implementation user-initiated SSR triggers
+	 * a fatal error from hardware. However, there is no way
+	 * to know if fatal error is due to SSR or not. Handle
+	 * user SSR as non-fatal.
+	 */
+	if (core->trigger_ssr) {
+		core->trigger_ssr = false;
+		enable_fatal = false;
+	}
 
 	/* Video driver can decide FATAL handling of HW errors
 	 * based on multiple factors. This condition check will
 	 * be enhanced later.
 	 */
-
-	MSM_VIDC_ERROR(enable_fatal);
+	msm_vidc_res_handle_fatal_hw_error(&core->resources, enable_fatal);
 }
 
 #endif

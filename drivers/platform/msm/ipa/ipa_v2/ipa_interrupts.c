@@ -103,11 +103,12 @@ static int handle_interrupt(int irq_num, bool isr_context)
 
 	switch (interrupt_info.interrupt) {
 	case IPA_TX_SUSPEND_IRQ:
+		IPADBG_LOW("processing TX_SUSPEND interrupt work-around\n");
 		suspend_data = ipa_read_reg(ipa_ctx->mmio,
 					IPA_IRQ_SUSPEND_INFO_EE_n_ADDR(ipa_ee));
 		if (!is_valid_ep(suspend_data))
 			return 0;
-
+		IPADBG_LOW("get interrupt %d\n", suspend_data);
 		suspend_interrupt_data =
 			kzalloc(sizeof(*suspend_interrupt_data), GFP_ATOMIC);
 		if (!suspend_interrupt_data) {
@@ -167,9 +168,11 @@ static void ipa_process_interrupts(bool isr_context)
 	u32 i = 0;
 	u32 en;
 	bool uc_irq;
-
 	en = ipa_read_reg(ipa_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
 	reg = ipa_read_reg(ipa_ctx->mmio, IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
+	IPADBG_LOW(
+		"ISR enter\n isr_ctx = %d EN reg = 0x%x STTS reg = 0x%x\n",
+		isr_context, en, reg);
 	while (en & reg) {
 		bmsk = 1;
 		for (i = 0; i < IPA_IRQ_NUM_MAX; i++) {
@@ -206,21 +209,22 @@ static void ipa_process_interrupts(bool isr_context)
 		reg = ipa_read_reg(ipa_ctx->mmio,
 				IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
 	}
+	IPADBG_LOW("Exit\n");
 }
 
 static void ipa_interrupt_defer(struct work_struct *work)
 {
-	IPADBG("processing interrupts in wq\n");
+	IPADBG_LOW("processing interrupts in wq\n");
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	ipa_process_interrupts(false);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-	IPADBG("Done\n");
+	IPADBG_LOW("Done\n");
 }
 
 static irqreturn_t ipa_isr(int irq, void *ctxt)
 {
 	unsigned long flags;
-
+	IPADBG_LOW("Enter\n");
 	/* defer interrupt handling in case IPA is not clocked on */
 	if (ipa_active_clients_trylock(&flags) == 0) {
 		IPADBG("defer interrupt processing\n");
@@ -235,7 +239,7 @@ static irqreturn_t ipa_isr(int irq, void *ctxt)
 	}
 
 	ipa_process_interrupts(true);
-
+	IPADBG_LOW("Exit\n");
 bail:
 	ipa_active_clients_trylock_unlock(&flags);
 	return IRQ_HANDLED;
@@ -260,7 +264,7 @@ int ipa2_add_interrupt_handler(enum ipa_irq_type interrupt,
 	u32 bmsk;
 	int irq_num;
 
-	IPADBG("in ipa2_add_interrupt_handler\n");
+	IPADBG_LOW("in ipa2_add_interrupt_handler\n");
 	if (interrupt < IPA_BAD_SNOC_ACCESS_IRQ ||
 		interrupt >= IPA_IRQ_MAX) {
 		IPAERR("invalid interrupt number %d\n", interrupt);
@@ -284,7 +288,7 @@ int ipa2_add_interrupt_handler(enum ipa_irq_type interrupt,
 	bmsk = 1 << irq_num;
 	val |= bmsk;
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
-	IPADBG("wrote IPA_IRQ_EN_EE_n_ADDR register. reg = %d\n", val);
+	IPADBG_LOW("wrote IPA_IRQ_EN_EE_n_ADDR register. reg = %d\n", val);
 	return 0;
 }
 

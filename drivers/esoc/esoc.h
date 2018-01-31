@@ -49,6 +49,7 @@ struct esoc_eng {
  * @link_info: additional info about the physical link.
  * @parent: parent device.
  * @dev: device for userspace interface.
+ * @pdev: platform device to interface with SSR driver.
  * @id: id of the external device.
  * @owner: owner of the device.
  * @clink_ops: control operations for the control link
@@ -59,6 +60,12 @@ struct esoc_eng {
  * @subsys_desc: descriptor for subsystem restart
  * @subsys_dev: ssr device handle.
  * @np: device tree node for esoc_clink.
+ * @auto_boot: boots independently.
+ * @primary: primary esoc controls(reset/poweroff) all secondary
+ *	 esocs, but not	otherway around.
+ * @statusline_not_a_powersource: True if status line to esoc is not a
+ *				power source.
+ * @userspace_handle_shutdown: True if user space handles shutdown requests.
  */
 struct esoc_clink {
 	const char *name;
@@ -66,6 +73,7 @@ struct esoc_clink {
 	const char *link_info;
 	struct device *parent;
 	struct device dev;
+	struct platform_device *pdev;
 	unsigned int id;
 	struct module *owner;
 	const struct esoc_clink_ops *clink_ops;
@@ -77,17 +85,23 @@ struct esoc_clink {
 	struct subsys_desc subsys;
 	struct subsys_device *subsys_dev;
 	struct device_node *np;
+	bool auto_boot;
+	bool primary;
+	bool statusline_not_a_powersource;
+	bool userspace_handle_shutdown;
 };
 
 /**
  * struct esoc_clink_ops: Operations to control external soc
  * @cmd_exe: Execute control command
  * @get_status: Get current status, or response to previous command
+ * @get_err_fatal: Get status of err fatal signal
  * @notify_esoc: notify external soc of events
  */
 struct esoc_clink_ops {
 	int (*cmd_exe)(enum esoc_cmd cmd, struct esoc_clink *dev);
-	int (*get_status)(u32 *status, struct esoc_clink *dev);
+	void (*get_status)(u32 *status, struct esoc_clink *dev);
+	void (*get_err_fatal)(u32 *status, struct esoc_clink *dev);
 	void (*notify)(enum esoc_notify notify, struct esoc_clink *dev);
 };
 

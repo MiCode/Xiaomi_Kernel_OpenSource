@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/err.h>
@@ -87,7 +89,7 @@ static const char * const cam_cc_parent_names_1[] = {
 };
 
 static struct pll_vco fabia_vco[] = {
-	{ 250000000, 2000000000, 0 },
+	{ 249600000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
 };
 
@@ -278,6 +280,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll3_out_even = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_bps_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(100000000, P_CAM_CC_PLL0_OUT_EVEN, 6, 0, 0),
 	F(200000000, P_CAM_CC_PLL0_OUT_EVEN, 3, 0, 0),
 	F(404000000, P_CAM_CC_PLL1_OUT_EVEN, 2, 0, 0),
@@ -316,7 +319,6 @@ static const struct freq_tbl ftbl_cam_cc_cci_clk_src[] = {
 	{ }
 };
 
-
 static struct clk_rcg2 cam_cc_cci_clk_src = {
 	.cmd_rcgr = 0xb0d8,
 	.mnd_width = 8,
@@ -341,7 +343,13 @@ static const struct freq_tbl ftbl_cam_cc_cphy_rx_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(300000000, P_CAM_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(320000000, P_CAM_CC_PLL2_OUT_ODD, 3, 0, 0),
-	F(384000000, P_CAM_CC_PLL2_OUT_ODD, 2.5, 0, 0),
+	F(384000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_cphy_rx_clk_src_sdm845_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(384000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -429,7 +437,27 @@ static struct clk_rcg2 cam_cc_csi2phytimer_clk_src = {
 	},
 };
 
+static struct clk_rcg2 cam_cc_csi3phytimer_clk_src = {
+	.cmd_rcgr = 0x5070,
+	.mnd_width = 0,
+	.hid_width = 5,
+	.parent_map = cam_cc_parent_map_0,
+	.freq_tbl = ftbl_cam_cc_csi0phytimer_clk_src,
+	.clkr.hw.init = &(struct clk_init_data){
+		.name = "cam_cc_csi3phytimer_clk_src",
+		.parent_names = cam_cc_parent_names_0,
+		.num_parents = 6,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_rcg2_ops,
+		VDD_CX_FMAX_MAP3(
+			MIN, 19200000,
+			LOWER, 240000000,
+			LOW, 269333333),
+	},
+};
+
 static const struct freq_tbl ftbl_cam_cc_fast_ahb_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(50000000, P_CAM_CC_PLL0_OUT_EVEN, 12, 0, 0),
 	F(100000000, P_CAM_CC_PLL0_OUT_EVEN, 6, 0, 0),
 	F(200000000, P_CAM_CC_PLL0_OUT_EVEN, 3, 0, 0),
@@ -468,6 +496,15 @@ static const struct freq_tbl ftbl_cam_cc_fd_core_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_cam_cc_fd_core_clk_src_sdm845_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(384000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_EVEN, 1.5, 0, 0),
+	F(538666667, P_CAM_CC_PLL1_OUT_EVEN, 1.5, 0, 0),
+	F(600000000, P_CAM_CC_PLL0_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 cam_cc_fd_core_clk_src = {
 	.cmd_rcgr = 0xb0b0,
 	.mnd_width = 0,
@@ -490,13 +527,31 @@ static struct clk_rcg2 cam_cc_fd_core_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_cam_cc_icp_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(320000000, P_CAM_CC_PLL2_OUT_EVEN, 1.5, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_EVEN, 1.5, 0, 0),
+	F(538666667, P_CAM_CC_PLL1_OUT_EVEN, 1.5, 0, 0),
+	F(600000000, P_CAM_CC_PLL0_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_icp_clk_src_sdm845_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(384000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_EVEN, 1.5, 0, 0),
+	F(538666667, P_CAM_CC_PLL1_OUT_EVEN, 1.5, 0, 0),
+	F(600000000, P_CAM_CC_PLL0_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 cam_cc_icp_clk_src = {
 	.cmd_rcgr = 0xb088,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.enable_safe_config = true,
 	.parent_map = cam_cc_parent_map_0,
-	.freq_tbl = ftbl_cam_cc_fd_core_clk_src,
+	.freq_tbl = ftbl_cam_cc_icp_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_icp_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -513,6 +568,7 @@ static struct clk_rcg2 cam_cc_icp_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_ife_0_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(100000000, P_CAM_CC_PLL0_OUT_EVEN, 6, 0, 0),
 	F(320000000, P_CAM_CC_PLL2_OUT_EVEN, 1.5, 0, 0),
 	F(404000000, P_CAM_CC_PLL1_OUT_EVEN, 2, 0, 0),
@@ -544,6 +600,7 @@ static struct clk_rcg2 cam_cc_ife_0_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_ife_0_csid_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(75000000, P_CAM_CC_PLL0_OUT_EVEN, 8, 0, 0),
 	F(384000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(538666667, P_CAM_CC_PLL1_OUT_EVEN, 1.5, 0, 0),
@@ -655,6 +712,7 @@ static struct clk_rcg2 cam_cc_ife_lite_csid_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_ipe_0_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(100000000, P_CAM_CC_PLL0_OUT_EVEN, 6, 0, 0),
 	F(240000000, P_CAM_CC_PLL0_OUT_EVEN, 2.5, 0, 0),
 	F(404000000, P_CAM_CC_PLL1_OUT_EVEN, 2, 0, 0),
@@ -733,11 +791,22 @@ static struct clk_rcg2 cam_cc_jpeg_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_lrme_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(100000000, P_CAM_CC_PLL0_OUT_EVEN, 6, 0, 0),
 	F(200000000, P_CAM_CC_PLL0_OUT_EVEN, 3, 0, 0),
 	F(384000000, P_CAM_CC_PLL2_OUT_ODD, 2.5, 0, 0),
 	F(480000000, P_CAM_CC_PLL2_OUT_EVEN, 1, 0, 0),
 	F(600000000, P_CAM_CC_PLL0_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_lrme_clk_src_sdm845_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(100000000, P_CAM_CC_PLL0_OUT_EVEN, 6, 0, 0),
+	F(200000000, P_CAM_CC_PLL0_OUT_EVEN, 3, 0, 0),
+	F(269333333, P_CAM_CC_PLL1_OUT_EVEN, 3, 0, 0),
+	F(320000000, P_CAM_CC_PLL2_OUT_EVEN, 1.5, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_EVEN, 1.5, 0, 0),
 	{ }
 };
 
@@ -764,7 +833,8 @@ static struct clk_rcg2 cam_cc_lrme_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
-	F(24000000, P_CAM_CC_PLL3_OUT_EVEN, 16, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(24000000, P_CAM_CC_PLL2_OUT_EVEN, 10, 1, 2),
 	F(33333333, P_CAM_CC_PLL0_OUT_EVEN, 2, 1, 9),
 	F(34285714, P_CAM_CC_PLL2_OUT_EVEN, 14, 0, 0),
 	{ }
@@ -1058,6 +1128,24 @@ static struct clk_branch cam_cc_csi2phytimer_clk = {
 	},
 };
 
+static struct clk_branch cam_cc_csi3phytimer_clk = {
+	.halt_reg = 0x5088,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x5088,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "cam_cc_csi3phytimer_clk",
+			.parent_names = (const char *[]){
+				"cam_cc_csi3phytimer_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch cam_cc_csiphy0_clk = {
 	.halt_reg = 0x5020,
 	.halt_check = BRANCH_HALT,
@@ -1105,6 +1193,25 @@ static struct clk_branch cam_cc_csiphy2_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_csiphy2_clk",
+			.parent_names = (const char *[]){
+				"cam_cc_cphy_rx_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch cam_cc_csiphy3_clk = {
+	.halt_reg = 0x508c,
+	.halt_check = BRANCH_HALT,
+	.aggr_sibling_rates = true,
+	.clkr = {
+		.enable_reg = 0x508c,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "cam_cc_csiphy3_clk",
 			.parent_names = (const char *[]){
 				"cam_cc_cphy_rx_clk_src",
 			},
@@ -1748,9 +1855,12 @@ static struct clk_regmap *cam_cc_sdm845_clocks[] = {
 	[CAM_CC_CSI1PHYTIMER_CLK_SRC] = &cam_cc_csi1phytimer_clk_src.clkr,
 	[CAM_CC_CSI2PHYTIMER_CLK] = &cam_cc_csi2phytimer_clk.clkr,
 	[CAM_CC_CSI2PHYTIMER_CLK_SRC] = &cam_cc_csi2phytimer_clk_src.clkr,
+	[CAM_CC_CSI3PHYTIMER_CLK] = NULL,
+	[CAM_CC_CSI3PHYTIMER_CLK_SRC] = NULL,
 	[CAM_CC_CSIPHY0_CLK] = &cam_cc_csiphy0_clk.clkr,
 	[CAM_CC_CSIPHY1_CLK] = &cam_cc_csiphy1_clk.clkr,
 	[CAM_CC_CSIPHY2_CLK] = &cam_cc_csiphy2_clk.clkr,
+	[CAM_CC_CSIPHY3_CLK] = NULL,
 	[CAM_CC_FAST_AHB_CLK_SRC] = &cam_cc_fast_ahb_clk_src.clkr,
 	[CAM_CC_FD_CORE_CLK] = &cam_cc_fd_core_clk.clkr,
 	[CAM_CC_FD_CORE_CLK_SRC] = &cam_cc_fd_core_clk_src.clkr,
@@ -1818,22 +1928,11 @@ static struct clk_regmap *cam_cc_sdm845_clocks[] = {
 };
 
 static const struct qcom_reset_map cam_cc_sdm845_resets[] = {
-	[TITAN_CAM_CC_BPS_BCR] = { 0x6000 },
-	[TITAN_CAM_CC_CAMNOC_BCR] = { 0xb120 },
 	[TITAN_CAM_CC_CCI_BCR] = { 0xb0d4 },
 	[TITAN_CAM_CC_CPAS_BCR] = { 0xb118 },
 	[TITAN_CAM_CC_CSI0PHY_BCR] = { 0x5000 },
 	[TITAN_CAM_CC_CSI1PHY_BCR] = { 0x5024 },
 	[TITAN_CAM_CC_CSI2PHY_BCR] = { 0x5048 },
-	[TITAN_CAM_CC_FD_BCR] = { 0xb0ac },
-	[TITAN_CAM_CC_ICP_BCR] = { 0xb074 },
-	[TITAN_CAM_CC_IFE_0_BCR] = { 0x9000 },
-	[TITAN_CAM_CC_IFE_1_BCR] = { 0xa000 },
-	[TITAN_CAM_CC_IFE_LITE_BCR] = { 0xb000 },
-	[TITAN_CAM_CC_IPE_0_BCR] = { 0x7000 },
-	[TITAN_CAM_CC_IPE_1_BCR] = { 0x8000 },
-	[TITAN_CAM_CC_JPEG_BCR] = { 0xb048 },
-	[TITAN_CAM_CC_LRME_BCR] = { 0xb0f4 },
 	[TITAN_CAM_CC_MCLK0_BCR] = { 0x4000 },
 	[TITAN_CAM_CC_MCLK1_BCR] = { 0x4020 },
 	[TITAN_CAM_CC_MCLK2_BCR] = { 0x4040 },
@@ -1859,9 +1958,136 @@ static const struct qcom_cc_desc cam_cc_sdm845_desc = {
 
 static const struct of_device_id cam_cc_sdm845_match_table[] = {
 	{ .compatible = "qcom,cam_cc-sdm845" },
+	{ .compatible = "qcom,cam_cc-sdm845-v2" },
+	{ .compatible = "qcom,cam_cc-sdm670" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_sdm845_match_table);
+
+static void cam_cc_sdm845_fixup_sdm845v2(void)
+{
+	cam_cc_sdm845_clocks[CAM_CC_CSI3PHYTIMER_CLK] =
+		&cam_cc_csi3phytimer_clk.clkr;
+	cam_cc_sdm845_clocks[CAM_CC_CSIPHY3_CLK] = &cam_cc_csiphy3_clk.clkr;
+	cam_cc_sdm845_clocks[CAM_CC_CSI3PHYTIMER_CLK_SRC] =
+		&cam_cc_csi3phytimer_clk_src.clkr;
+	cam_cc_bps_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_bps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_cci_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_cci_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_cphy_rx_clk_src.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src_sdm845_v2;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 384000000;
+	cam_cc_csi0phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_csi0phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_csi1phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_csi1phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_csi2phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_csi2phytimer_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_fast_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_fast_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_fd_core_clk_src.freq_tbl = ftbl_cam_cc_fd_core_clk_src_sdm845_v2;
+	cam_cc_fd_core_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_fd_core_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_icp_clk_src.freq_tbl = ftbl_cam_cc_icp_clk_src_sdm845_v2;
+	cam_cc_icp_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_icp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_icp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] = 600000000;
+	cam_cc_ife_0_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_0_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_0_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_0_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		384000000;
+	cam_cc_ife_1_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_1_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_1_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_1_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		384000000;
+	cam_cc_ife_lite_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_lite_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_lite_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ife_lite_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ife_lite_csid_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		384000000;
+	cam_cc_ipe_0_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ipe_0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ipe_0_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 600000000;
+	cam_cc_ipe_1_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_ipe_1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_ipe_1_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 600000000;
+	cam_cc_jpeg_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_jpeg_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_lrme_clk_src.freq_tbl = ftbl_cam_cc_lrme_clk_src_sdm845_v2;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 269333333;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] = 320000000;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 400000000;
+	cam_cc_mclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_mclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_mclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 34285714;
+	cam_cc_mclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_mclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_mclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 34285714;
+	cam_cc_mclk2_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_mclk2_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_mclk2_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 34285714;
+	cam_cc_mclk3_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_mclk3_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_mclk3_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 34285714;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] = 0;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 0;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 80000000;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		80000000;
+}
+
+static void cam_cc_sdm845_fixup_sdm670(void)
+{
+	cam_cc_sdm845_clocks[CAM_CC_CSI3PHYTIMER_CLK] =
+		&cam_cc_csi3phytimer_clk.clkr;
+	cam_cc_sdm845_clocks[CAM_CC_CSIPHY3_CLK] = &cam_cc_csiphy3_clk.clkr;
+	cam_cc_sdm845_clocks[CAM_CC_CSI3PHYTIMER_CLK_SRC] =
+		&cam_cc_csi3phytimer_clk_src.clkr;
+	cam_cc_cphy_rx_clk_src.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src_sdm845_v2;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 384000000;
+	cam_cc_cphy_rx_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 384000000;
+	cam_cc_fd_core_clk_src.freq_tbl = ftbl_cam_cc_fd_core_clk_src_sdm845_v2;
+	cam_cc_fd_core_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 384000000;
+	cam_cc_icp_clk_src.freq_tbl = ftbl_cam_cc_icp_clk_src_sdm845_v2;
+	cam_cc_icp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 384000000;
+	cam_cc_icp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] = 600000000;
+	cam_cc_ipe_0_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 600000000;
+	cam_cc_ipe_1_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 600000000;
+	cam_cc_lrme_clk_src.freq_tbl = ftbl_cam_cc_lrme_clk_src_sdm845_v2;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 269333333;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] = 320000000;
+	cam_cc_lrme_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] = 400000000;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] = 80000000;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 80000000;
+	cam_cc_slow_ahb_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		80000000;
+}
+
+static int cam_cc_sdm845_fixup(struct platform_device *pdev)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,cam_cc-sdm845-v2"))
+		cam_cc_sdm845_fixup_sdm845v2();
+	else if (!strcmp(compat, "qcom,cam_cc-sdm670"))
+		cam_cc_sdm845_fixup_sdm670();
+
+	return 0;
+}
 
 static int cam_cc_sdm845_probe(struct platform_device *pdev)
 {
@@ -1890,6 +2116,10 @@ static int cam_cc_sdm845_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_mx.regulator[0]);
 	}
 
+	ret = cam_cc_sdm845_fixup(pdev);
+	if (ret)
+		return ret;
+
 	clk_fabia_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
 	clk_fabia_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);
 	clk_fabia_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config);
@@ -1917,7 +2147,7 @@ static int __init cam_cc_sdm845_init(void)
 {
 	return platform_driver_register(&cam_cc_sdm845_driver);
 }
-core_initcall(cam_cc_sdm845_init);
+subsys_initcall(cam_cc_sdm845_init);
 
 static void __exit cam_cc_sdm845_exit(void)
 {

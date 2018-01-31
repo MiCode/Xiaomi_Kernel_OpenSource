@@ -617,6 +617,13 @@ static void set_tlb_ubc_flush_pending(struct mm_struct *mm,
 	tlb_ubc->flush_required = true;
 
 	/*
+	 * Ensure compiler does not re-order the setting of tlb_flush_batched
+	 * before the PTE is cleared.
+	 */
+	barrier();
+	mm->tlb_flush_batched = true;
+
+	/*
 	 * If the PTE was dirty then it's best to assume it's writable. The
 	 * caller must use try_to_unmap_flush_dirty() or try_to_unmap_flush()
 	 * before the page is queued for IO.
@@ -642,6 +649,35 @@ static bool should_defer_flush(struct mm_struct *mm, enum ttu_flags flags)
 	put_cpu();
 
 	return should_defer;
+}
+
+/*
+ * Reclaim unmaps pages under the PTL but do not flush the TLB prior to
+ * releasing the PTL if TLB flushes are batched. It's possible for a parallel
+ * operation such as mprotect or munmap to race between reclaim unmapping
+ * the page and flushing the page. If this race occurs, it potentially allows
+ * access to data via a stale TLB entry. Tracking all mm's that have TLB
+ * batching in flight would be expensive during reclaim so instead track
+ * whether TLB batching occurred in the past and if so then do a flush here
+ * if required. This will cost one additional flush per reclaim cycle paid
+ * by the first operation at risk such as mprotect and mumap.
+ *
+ * This must be called under the PTL so that an access to tlb_flush_batched
+ * that is potentially a "reclaim vs mprotect/munmap/etc" race will synchronise
+ * via the PTL.
+ */
+void flush_tlb_batched_pending(struct mm_struct *mm)
+{
+	if (mm->tlb_flush_batched) {
+		flush_tlb_mm(mm);
+
+		/*
+		 * Do not allow the compiler to re-order the clearing of
+		 * tlb_flush_batched before the tlb is flushed.
+		 */
+		barrier();
+		mm->tlb_flush_batched = false;
+	}
 }
 #else
 static void set_tlb_ubc_flush_pending(struct mm_struct *mm,
@@ -1616,9 +1652,12 @@ static int page_mapcount_is_zero(struct page *page)
  * try_to_unmap - try to remove all page table mappings to a page
  * @page: the page to get unmapped
  * @flags: action and flags
+ * @vma : target vma for reclaim
  *
  * Tries to remove all the page table entries which are mapping this
  * page, used in the pageout path.  Caller must hold the page lock.
+ * If @vma is not NULL, this function try to remove @page from only @vma
+ * without peeking all mapped vma for @page.
  * Return values are:
  *
  * SWAP_SUCCESS	- we succeeded in removing all mappings
@@ -1626,7 +1665,8 @@ static int page_mapcount_is_zero(struct page *page)
  * SWAP_FAIL	- the page is unswappable
  * SWAP_MLOCK	- page is mlocked.
  */
-int try_to_unmap(struct page *page, enum ttu_flags flags)
+int try_to_unmap(struct page *page, enum ttu_flags flags,
+				struct vm_area_struct *vma)
 {
 	int ret;
 	struct rmap_private rp = {
@@ -1639,6 +1679,7 @@ int try_to_unmap(struct page *page, enum ttu_flags flags)
 		.arg = &rp,
 		.done = page_mapcount_is_zero,
 		.anon_lock = page_lock_anon_vma_read,
+		.target_vma = vma,
 	};
 
 	/*
@@ -1698,6 +1739,7 @@ int try_to_munlock(struct page *page)
 		.arg = &rp,
 		.done = page_not_mapped,
 		.anon_lock = page_lock_anon_vma_read,
+		.target_vma = NULL,
 
 	};
 
@@ -1760,6 +1802,11 @@ static int rmap_walk_anon(struct page *page, struct rmap_walk_control *rwc,
 	struct anon_vma_chain *avc;
 	int ret = SWAP_AGAIN;
 
+	if (rwc->target_vma) {
+		unsigned long address = vma_address(page, rwc->target_vma);
+		return rwc->rmap_one(page, rwc->target_vma, address, rwc->arg);
+	}
+
 	if (locked) {
 		anon_vma = page_anon_vma(page);
 		/* anon_vma disappear under us? */
@@ -1767,6 +1814,7 @@ static int rmap_walk_anon(struct page *page, struct rmap_walk_control *rwc,
 	} else {
 		anon_vma = rmap_walk_anon_lock(page, rwc);
 	}
+
 	if (!anon_vma)
 		return ret;
 
@@ -1811,6 +1859,7 @@ static int rmap_walk_file(struct page *page, struct rmap_walk_control *rwc,
 	struct address_space *mapping = page_mapping(page);
 	pgoff_t pgoff;
 	struct vm_area_struct *vma;
+	unsigned long address;
 	int ret = SWAP_AGAIN;
 
 	/*
@@ -1827,6 +1876,13 @@ static int rmap_walk_file(struct page *page, struct rmap_walk_control *rwc,
 	pgoff = page_to_pgoff(page);
 	if (!locked)
 		i_mmap_lock_read(mapping);
+
+	if (rwc->target_vma) {
+               address = vma_address(page, rwc->target_vma);
+               ret = rwc->rmap_one(page, rwc->target_vma, address, rwc->arg);
+               goto done;
+	}
+
 	vma_interval_tree_foreach(vma, &mapping->i_mmap, pgoff, pgoff) {
 		unsigned long address = vma_address(page, vma);
 

@@ -111,14 +111,14 @@ void wil_pmc_alloc(struct wil6210_priv *wil,
 	 *
 	 * HW has limitation that all vrings addresses must share the same
 	 * upper 16 msb bits part of 48 bits address. To workaround that,
-	 * if we are using 48 bit addresses switch to 32 bit allocation
-	 * before allocating vring memory.
+	 * if we are using more than 32 bit addresses switch to 32 bit
+	 * allocation before allocating vring memory.
 	 *
 	 * There's no check for the return value of dma_set_mask_and_coherent,
 	 * since we assume if we were able to set the mask during
 	 * initialization in this system it will not fail if we set it again
 	 */
-	if (wil->use_extended_dma_addr)
+	if (wil->dma_addr_size > 32)
 		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 
 	pmc->pring_va = dma_alloc_coherent(dev,
@@ -126,8 +126,9 @@ void wil_pmc_alloc(struct wil6210_priv *wil,
 			&pmc->pring_pa,
 			GFP_KERNEL);
 
-	if (wil->use_extended_dma_addr)
-		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48));
+	if (wil->dma_addr_size > 32)
+		dma_set_mask_and_coherent(dev,
+					  DMA_BIT_MASK(wil->dma_addr_size));
 
 	wil_dbg_misc(wil,
 		     "pmc_alloc: allocated pring %p => %pad. %zd x %d = total %zd bytes\n",
@@ -200,7 +201,7 @@ void wil_pmc_alloc(struct wil6210_priv *wil,
 
 release_pmc_skbs:
 	wil_err(wil, "exit on error: Releasing skbs...\n");
-	for (i = 0; pmc->descriptors[i].va && i < num_descriptors; i++) {
+	for (i = 0; i < num_descriptors && pmc->descriptors[i].va; i++) {
 		dma_free_coherent(dev,
 				  descriptor_size,
 				  pmc->descriptors[i].va,
@@ -283,7 +284,7 @@ void wil_pmc_free(struct wil6210_priv *wil, int send_pmc_cmd)
 		int i;
 
 		for (i = 0;
-		     pmc->descriptors[i].va && i < pmc->num_descriptors; i++) {
+		     i < pmc->num_descriptors && pmc->descriptors[i].va; i++) {
 			dma_free_coherent(dev,
 					  pmc->descriptor_size,
 					  pmc->descriptors[i].va,

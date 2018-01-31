@@ -62,6 +62,16 @@ static struct sde_rot_cfg *_rot_offset(enum sde_rot rot,
 }
 
 /**
+ * _sde_hw_rot_reg_dump - perform register dump
+ * @ptr: private pointer to rotator platform device
+ * return: None
+ */
+static void _sde_hw_rot_reg_dump(void *ptr)
+{
+	sde_rotator_inline_reg_dump((struct platform_device *) ptr);
+}
+
+/**
  * sde_hw_rot_start - start rotator before any commit
  * @hw: Pointer to rotator hardware driver
  * return: 0 if success; error code otherwise
@@ -77,6 +87,10 @@ static int sde_hw_rot_start(struct sde_hw_rot *hw)
 	}
 
 	pdev = hw->caps->pdev;
+
+	rc = sde_dbg_reg_register_cb(hw->name, _sde_hw_rot_reg_dump, pdev);
+	if (rc)
+		SDE_ERROR("failed to register debug dump %d\n", rc);
 
 	hw->rot_ctx = sde_rotator_inline_open(pdev);
 	if (IS_ERR_OR_NULL(hw->rot_ctx)) {
@@ -95,13 +109,16 @@ static int sde_hw_rot_start(struct sde_hw_rot *hw)
  */
 static void sde_hw_rot_stop(struct sde_hw_rot *hw)
 {
-	if (!hw) {
+	if (!hw || !hw->caps || !hw->caps->pdev) {
 		SDE_ERROR("invalid parameter\n");
 		return;
 	}
 
 	sde_rotator_inline_release(hw->rot_ctx);
 	hw->rot_ctx = NULL;
+
+	sde_dbg_reg_unregister_cb(hw->name, _sde_hw_rot_reg_dump,
+			hw->caps->pdev);
 }
 
 /**
@@ -535,6 +552,28 @@ static void sde_hw_rot_to_v4l2_buffer(u32 drm_pixfmt, u64 drm_modifier,
 }
 
 /**
+ * sde_hw_rot_adjust_prefill_bw - update prefill bw based on pipe config
+ * @hw: Pointer to rotator hardware driver
+ * @data: Pointer to command descriptor
+ * @prefill_bw: adjusted prefill bw (output)
+ * return: 0 if success; error code otherwise
+ */
+static int sde_hw_rot_adjust_prefill_bw(struct sde_hw_rot *hw,
+		struct sde_hw_rot_cmd *data, u64 *prefill_bw)
+{
+	if (!hw || !data || !prefill_bw) {
+		SDE_ERROR("invalid parameter(s)\n");
+		return -EINVAL;
+	}
+
+	/* adjust bw for scaling */
+	if (data->dst_rect_h)
+		*prefill_bw = mult_frac(data->prefill_bw, data->crtc_h,
+				data->dst_rect_h);
+	return 0;
+}
+
+/**
  * sde_hw_rot_commit - commit/execute given rotator command
  * @hw: Pointer to rotator hardware driver
  * @data: Pointer to command descriptor
@@ -563,8 +602,16 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 	case SDE_HW_ROT_CMD_COMMIT:
 		cmd_type = SDE_ROTATOR_INLINE_CMD_COMMIT;
 		break;
+	case SDE_HW_ROT_CMD_START:
+		cmd_type = SDE_ROTATOR_INLINE_CMD_START;
+		priv_handle = data->priv_handle;
+		break;
 	case SDE_HW_ROT_CMD_CLEANUP:
 		cmd_type = SDE_ROTATOR_INLINE_CMD_CLEANUP;
+		priv_handle = data->priv_handle;
+		break;
+	case SDE_HW_ROT_CMD_RESET:
+		cmd_type = SDE_ROTATOR_INLINE_CMD_ABORT;
 		priv_handle = data->priv_handle;
 		break;
 	default:
@@ -572,11 +619,19 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 		return -EINVAL;
 	}
 
+	rot_cmd.sequence_id = data->sequence_id;
 	rot_cmd.video_mode = data->video_mode;
 	rot_cmd.fps = data->fps;
+
+	/*
+	 * DRM rotation property is specified in counter clockwise direction
+	 * whereas rotator h/w rotates in clockwise direction.
+	 * Convert rotation property to clockwise 90 by toggling h/v flip
+	 */
 	rot_cmd.rot90 = data->rot90;
-	rot_cmd.hflip = data->hflip;
-	rot_cmd.vflip = data->vflip;
+	rot_cmd.hflip = data->rot90 ? !data->hflip : data->hflip;
+	rot_cmd.vflip = data->rot90 ? !data->vflip : data->vflip;
+
 	rot_cmd.secure = data->secure;
 	rot_cmd.clkrate = data->clkrate;
 	rot_cmd.data_bw = 0;
@@ -627,7 +682,7 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 			SDE_ERROR("failed to get dst format\n");
 			return -EINVAL;
 		}
-	} else if (hw_cmd == SDE_HW_ROT_CMD_COMMIT) {
+	} else {
 		rc = sde_hw_rot_to_v4l2_pixfmt(data->dst_pixel_format,
 				data->dst_modifier, &rot_cmd.dst_pixfmt);
 		if (rc) {
@@ -650,16 +705,16 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 				&rot_cmd.dst_planes);
 	}
 
+	sde_hw_rot_adjust_prefill_bw(hw, data, &rot_cmd.prefill_bw);
+
 	/* only process any command if client is master or for validation */
 	if (data->master || hw_cmd == SDE_HW_ROT_CMD_VALIDATE) {
 		SDE_DEBUG("dispatch seq:%d cmd:%d\n", data->sequence_id,
 				hw_cmd);
 
 		rc = sde_rotator_inline_commit(hw->rot_ctx, &rot_cmd, cmd_type);
-		if (rc) {
-			SDE_ERROR("failed to commit inline rotation %d\n", rc);
+		if (rc)
 			return rc;
-		}
 
 		/* return to caller */
 		data->priv_handle = rot_cmd.priv_handle;
@@ -887,10 +942,11 @@ struct sde_hw_rot *sde_hw_rot_init(enum sde_rot idx,
 	/* Assign ops */
 	c->idx = idx;
 	c->caps = cfg;
+	c->catalog = m;
 	_setup_rot_ops(&c->ops, c->caps->features);
+	snprintf(c->name, ARRAY_SIZE(c->name), "sde_rot_%d", idx - ROT_0);
 
-	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_ROT, idx,
-			&sde_hw_rot_ops);
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_ROT, idx, &sde_hw_rot_ops);
 	if (rc) {
 		SDE_ERROR("failed to init hw blk %d\n", rc);
 		goto blk_init_error;
@@ -911,9 +967,11 @@ blk_init_error:
  */
 void sde_hw_rot_destroy(struct sde_hw_rot *hw_rot)
 {
-	sde_hw_blk_destroy(&hw_rot->base);
-	kfree(hw_rot->downscale_caps);
-	kfree(hw_rot->format_caps);
+	if (hw_rot) {
+		sde_hw_blk_destroy(&hw_rot->base);
+		kfree(hw_rot->downscale_caps);
+		kfree(hw_rot->format_caps);
+	}
 	kfree(hw_rot);
 }
 

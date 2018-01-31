@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm_bus_rules.h>
 #include "msm_bus_core.h"
+#include "msm_bus_noc.h"
 
 #define VCD_MAX_CNT 16
 
@@ -41,6 +42,7 @@ struct link_node {
 /* New types introduced for adhoc topology */
 struct msm_bus_noc_ops {
 	int (*qos_init)(struct msm_bus_node_device_type *dev,
+			struct msm_bus_node_device_type *fabdev,
 			void __iomem *qos_base, uint32_t qos_off,
 			uint32_t qos_delta, uint32_t qos_freq);
 	int (*set_bw)(struct msm_bus_node_device_type *dev,
@@ -71,12 +73,25 @@ struct nodebw {
 struct nodevector {
 	uint64_t vec_a;
 	uint64_t vec_b;
+	uint64_t query_vec_a;
+	uint64_t query_vec_b;
+};
+
+struct qos_bcm_type {
+	int qos_bcm_id;
+	struct nodevector vec;
 };
 
 struct msm_bus_rsc_device_type {
 	struct rpmh_client *mbox;
 	struct list_head bcm_clist[VCD_MAX_CNT];
 	int req_state;
+	uint32_t acv[NUM_CTX];
+	uint32_t query_acv[NUM_CTX];
+	struct tcs_cmd *cmdlist_active;
+	struct tcs_cmd *cmdlist_wake;
+	struct tcs_cmd *cmdlist_sleep;
+	int num_bcm_devs;
 };
 
 struct msm_bus_bcm_device_type {
@@ -102,19 +117,31 @@ struct msm_bus_fab_device_type {
 	bool bypass_qos_prg;
 };
 
-struct qos_params_type {
-	int mode;
-	unsigned int prio_lvl;
-	unsigned int prio_rd;
-	unsigned int prio_wr;
-	unsigned int prio1;
-	unsigned int prio0;
-	unsigned int reg_prio1;
-	unsigned int reg_prio0;
-	unsigned int gp;
-	unsigned int thmp;
-	unsigned int ws;
-	u64 bw_buffer;
+struct msm_bus_noc_limiter {
+	uint32_t bw;
+	uint32_t sat;
+};
+
+struct msm_bus_noc_regulator {
+	uint32_t low_prio;
+	uint32_t hi_prio;
+	uint32_t bw;
+	uint32_t sat;
+};
+
+struct msm_bus_noc_regulator_mode {
+	uint32_t read;
+	uint32_t write;
+};
+
+struct msm_bus_noc_qos_params {
+	uint32_t prio_dflt;
+	struct msm_bus_noc_limiter limiter;
+	bool limiter_en;
+	struct msm_bus_noc_regulator reg;
+	struct msm_bus_noc_regulator_mode reg_mode;
+	bool urg_fwd_en;
+	bool defer_init_qos;
 };
 
 struct node_util_levels_type {
@@ -139,7 +166,7 @@ struct msm_bus_node_info_type {
 	int num_ports;
 	int num_qports;
 	int *qport;
-	struct qos_params_type qos_params;
+	struct msm_bus_noc_qos_params qos_params;
 	unsigned int num_connections;
 	unsigned int num_blist;
 	unsigned int num_bcm_devs;
@@ -157,7 +184,7 @@ struct msm_bus_node_info_type {
 	struct device **black_connections;
 	struct device **bcm_devs;
 	struct device **rsc_devs;
-	int bcm_req_idx;
+	int *bcm_req_idx;
 	unsigned int bus_device_id;
 	struct device *bus_device;
 	struct rule_update_path_info rule;
@@ -181,6 +208,8 @@ struct msm_bus_node_device_type {
 	struct nodeclk bus_qos_clk;
 	uint32_t num_node_qos_clks;
 	struct nodeclk *node_qos_clks;
+	uint32_t num_qos_bcms;
+	struct qos_bcm_type *qos_bcms;
 	unsigned int ap_owned;
 	struct device_node *of_node;
 	struct device dev;
@@ -201,7 +230,7 @@ int msm_bus_enable_limiter(struct msm_bus_node_device_type *nodedev,
 				int throttle_en, uint64_t lim_bw);
 int msm_bus_commit_data(struct list_head *clist);
 int bcm_remove_handoff_req(struct device *dev, void *data);
-void commit_late_init_data(void);
+int commit_late_init_data(bool lock);
 int msm_bus_query_gen(struct list_head *qlist,
 				struct msm_bus_tcs_usecase *tcs_usecase);
 void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,

@@ -25,12 +25,16 @@
  * enum sde_rotator_inline_cmd_type - inline rotator command stages
  * @SDE_ROTATOR_INLINE_CMD_VALIDATE: validate command only
  * @SDE_ROTATOR_INLINE_CMD_COMMIT: commit command to hardware
+ * @SDE_ROTATOR_INLINE_CMD_START: ready to start inline rotation
  * @SDE_ROTATOR_INLINE_CMD_CLEANUP: cleanup after commit is done
+ * @SDE_ROTATOR_INLINE_CMD_ABORT: abort current commit and reset
  */
 enum sde_rotator_inline_cmd_type {
 	SDE_ROTATOR_INLINE_CMD_VALIDATE,
 	SDE_ROTATOR_INLINE_CMD_COMMIT,
+	SDE_ROTATOR_INLINE_CMD_START,
 	SDE_ROTATOR_INLINE_CMD_CLEANUP,
+	SDE_ROTATOR_INLINE_CMD_ABORT,
 };
 
 /**
@@ -110,5 +114,6 @@ int sde_rotator_inline_get_pixfmt_caps(struct platform_device *pdev,
 int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		enum sde_rotator_inline_cmd_type cmd_type);
 int sde_rotator_inline_release(void *handle);
+void sde_rotator_inline_reg_dump(struct platform_device *pdev);
 
 #endif /* __SDE_ROTATOR_INLINE_H__ */

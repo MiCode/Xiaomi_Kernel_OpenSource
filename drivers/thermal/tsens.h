@@ -31,6 +31,8 @@ enum tsens_dbg_type {
 	TSENS_DBG_POLL,
 	TSENS_DBG_LOG_TEMP_READS,
 	TSENS_DBG_LOG_INTERRUPT_TIMESTAMP,
+	TSENS_DBG_LOG_BUS_ID_DATA,
+	TSENS_DBG_MTC_DATA,
 	TSENS_DBG_LOG_MAX
 };
 
@@ -47,7 +49,6 @@ static inline int tsens2xxx_dbg(struct tsens_device *data, u32 id,
 #endif
 
 struct tsens_dbg {
-	u32				dbg_count[DEBUG_SIZE];
 	u32				idx;
 	unsigned long long		time_stmp[DEBUG_SIZE];
 	unsigned long			temp[DEBUG_SIZE];
@@ -55,9 +56,10 @@ struct tsens_dbg {
 
 struct tsens_dbg_context {
 	struct tsens_device		*tmdev;
-	struct tsens_dbg		tsens_thread_iq_dbg;
 	struct tsens_dbg		sensor_dbg_info[TSENS_MAX_SENSORS];
 	int				tsens_critical_wd_cnt;
+	u32				irq_idx;
+	unsigned long long		irq_time_stmp[DEBUG_SIZE];
 	struct delayed_work		tsens_critical_poll_test;
 };
 
@@ -90,6 +92,7 @@ struct tsens_ops {
 	int (*set_trips)(struct tsens_sensor *, int, int);
 	int (*interrupts_reg)(struct tsens_device *);
 	int (*dbg)(struct tsens_device *, u32, u32, int *);
+	int (*sensor_en)(struct tsens_device *, u32);
 };
 
 struct tsens_irqs {
@@ -109,16 +112,24 @@ struct tsens_data {
 	unsigned int			*hw_ids;
 	u32				temp_factor;
 	bool				cycle_monitor;
-	u32				cycle_compltn_monitor_val;
+	u32				cycle_compltn_monitor_mask;
 	bool				wd_bark;
-	u32				wd_bark_val;
+	u32				wd_bark_mask;
+	bool				mtc;
+};
+
+struct tsens_mtc_sysfs {
+	uint32_t	zone_log;
+	int			zone_mtc;
+	int			th1;
+	int			th2;
+	uint32_t	zone_hist;
 };
 
 struct tsens_device {
 	struct device			*dev;
 	struct platform_device		*pdev;
 	struct list_head		list;
-	u32				num_sensors;
 	struct regmap			*map;
 	struct regmap_field		*status_field;
 	void __iomem			*tsens_srot_addr;
@@ -129,8 +140,10 @@ struct tsens_device {
 	spinlock_t			tsens_upp_low_lock;
 	const struct tsens_data		*ctrl_data;
 	struct tsens_sensor		sensor[0];
+	struct tsens_mtc_sysfs	mtcsys;
 };
 
 extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx;
+extern struct list_head tsens_device_list;
 
 #endif /* __QCOM_TSENS_H__ */

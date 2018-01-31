@@ -20,8 +20,10 @@
 #include <linux/of.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <trace/events/trace_msm_pil_event.h>
 
 #include "peripheral-loader.h"
+#include "pil-msa.h"
 #include "pil-q6v5.h"
 
 /* QDSP6SS Register Offsets */
@@ -82,10 +84,10 @@
 /* QDSP6v65 parameters */
 #define QDSP6SS_BOOT_CORE_START		(0x400)
 #define QDSP6SS_BOOT_CMD		(0x404)
-#define QDSP6SS_BOOT_STATUS		(0x408)
+#define MSS_STATUS			(0x40)
 #define QDSP6SS_SLEEP			(0x3C)
 #define SLEEP_CHECK_MAX_LOOPS		(200)
-#define BOOT_FSM_TIMEOUT		(10)
+#define BOOT_FSM_TIMEOUT		(10000)
 
 #define QDSP6SS_ACC_OVERRIDE_VAL	0x20
 
@@ -383,7 +385,7 @@ static int __pil_q6v65_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	u32 val, count;
-	unsigned long timeout;
+	int ret;
 
 	val = readl_relaxed(drv->reg_base + QDSP6SS_SLEEP);
 	val |= 0x1;
@@ -408,15 +410,19 @@ static int __pil_q6v65_reset(struct pil_desc *pil)
 	writel_relaxed(1, drv->reg_base + QDSP6SS_BOOT_CMD);
 
 	/* Wait for boot FSM to complete */
-	timeout = jiffies + usecs_to_jiffies(BOOT_FSM_TIMEOUT);
-	while (time_before(jiffies, timeout)) {
-		val = readl_relaxed(drv->reg_base + QDSP6SS_BOOT_STATUS);
-		if (val & BIT(0))
-			return 0;
+	ret = readl_poll_timeout(drv->rmb_base + MSS_STATUS, val,
+			(val & BIT(0)) != 0, 10, BOOT_FSM_TIMEOUT);
+
+	if (ret) {
+		dev_err(drv->desc.dev, "Boot FSM failed to complete.\n");
+		/* Reset the modem so that boot FSM is in reset state */
+		pil_mss_assert_resets(drv);
+		/* Wait 6 32kHz sleep cycles for reset */
+		udelay(200);
+		pil_mss_deassert_resets(drv);
 	}
 
-	dev_err(drv->desc.dev, "Boot FSM failed to complete.\n");
-	return -ETIMEDOUT;
+	return ret;
 }
 
 static int __pil_q6v55_reset(struct pil_desc *pil)
@@ -425,6 +431,7 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 	u32 val;
 	int i;
 
+	trace_pil_func(__func__);
 	/* Override the ACC value if required */
 	if (drv->override_acc)
 		writel_relaxed(QDSP6SS_ACC_OVERRIDE_VAL,

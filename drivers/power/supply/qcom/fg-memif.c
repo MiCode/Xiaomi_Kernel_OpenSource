@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -746,6 +746,257 @@ out:
 	return rc;
 }
 
+#define MEM_GNT_WAIT_TIME_US	10000
+#define MEM_GNT_RETRIES		50
+static int fg_direct_mem_request(struct fg_chip *chip, bool request)
+{
+	int rc, ret, i = 0;
+	u8 val, mask;
+
+	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
+	val = request ? MEM_ACCESS_REQ_BIT : 0;
+	rc = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip), mask, val);
+	if (rc < 0) {
+		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
+		return rc;
+	}
+
+	mask = MEM_ARB_LO_LATENCY_EN_BIT | MEM_ARB_REQ_BIT;
+	val = request ? mask : 0;
+	rc = fg_masked_write(chip, MEM_IF_MEM_ARB_CFG(chip), mask, val);
+	if (rc < 0) {
+		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
+		goto release;
+	}
+
+	if (request)
+		pr_debug("requesting access\n");
+	else
+		pr_debug("releasing access\n");
+
+	if (!request)
+		return 0;
+
+	/*
+	 * HW takes 5 cycles (200 KHz clock) to grant access after requesting
+	 * for DMA. Wait for 40 us before polling for MEM_GNT first time.
+	 */
+	usleep_range(40, 41);
+
+	while (i < MEM_GNT_RETRIES) {
+		rc = fg_read(chip, MEM_IF_INT_RT_STS(chip), &val, 1);
+		if (rc < 0) {
+			pr_err("Error in reading MEM_IF_INT_RT_STS, rc=%d\n",
+				rc);
+			goto release;
+		}
+
+		if (val & MEM_GNT_BIT)
+			return 0;
+
+		usleep_range(MEM_GNT_WAIT_TIME_US, MEM_GNT_WAIT_TIME_US + 1);
+		i++;
+	}
+
+	rc = -ETIMEDOUT;
+	pr_err("wait for mem_grant timed out, val=0x%x\n", val);
+	fg_dump_regs(chip);
+
+release:
+	val = 0;
+	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
+	ret = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip), mask, val);
+	if (ret < 0) {
+		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
+		return ret;
+	}
+
+	mask = MEM_ARB_LO_LATENCY_EN_BIT | MEM_ARB_REQ_BIT;
+	ret = fg_masked_write(chip, MEM_IF_MEM_ARB_CFG(chip), mask, val);
+	if (ret < 0) {
+		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
+		return ret;
+	}
+
+	return rc;
+}
+
+static int fg_get_dma_address(struct fg_chip *chip, u16 sram_addr, u8 offset,
+				u16 *addr)
+{
+	int i;
+	u16 start_sram_addr, end_sram_addr;
+
+	for (i = 0; i < NUM_PARTITIONS; i++) {
+		start_sram_addr = chip->addr_map[i].partition_start;
+		end_sram_addr = chip->addr_map[i].partition_end;
+		if (sram_addr >= start_sram_addr &&
+			sram_addr <= end_sram_addr) {
+			*addr = chip->addr_map[i].spmi_addr_base + offset +
+					(sram_addr - start_sram_addr) *
+						BYTES_PER_SRAM_WORD;
+			return 0;
+		}
+	}
+
+	pr_err("Couldn't find address for %d from address map\n", sram_addr);
+	return -ENXIO;
+}
+
+static int fg_get_partition_count(struct fg_chip *chip, u16 sram_addr, int len,
+				int *count)
+{
+	int i, start_partn = 0, end_partn = 0;
+	u16 end_addr = 0;
+
+	end_addr = sram_addr + len / BYTES_PER_SRAM_WORD;
+	if (!(len % BYTES_PER_SRAM_WORD))
+		end_addr -= 1;
+
+	if (sram_addr == end_addr) {
+		*count = 1;
+		return 0;
+	}
+
+	for (i = 0; i < NUM_PARTITIONS; i++) {
+		if (sram_addr >= chip->addr_map[i].partition_start
+				&& sram_addr <= chip->addr_map[i].partition_end)
+			start_partn = i + 1;
+
+		if (end_addr >= chip->addr_map[i].partition_start
+				&& end_addr <= chip->addr_map[i].partition_end)
+			end_partn = i + 1;
+	}
+
+	if (!start_partn || !end_partn) {
+		pr_err("Couldn't find number of partitions for address %d\n",
+			sram_addr);
+		return -ENXIO;
+	}
+
+	*count = (end_partn - start_partn) + 1;
+
+	return 0;
+}
+
+static int fg_get_partition_avail_bytes(struct fg_chip *chip, u16 sram_addr,
+					int len, int *rem_len)
+{
+	int i, part_len = 0, temp;
+	u16 end_addr;
+
+	for (i = 0; i < NUM_PARTITIONS; i++) {
+		if (sram_addr >= chip->addr_map[i].partition_start
+			&& sram_addr <= chip->addr_map[i].partition_end) {
+			part_len = (chip->addr_map[i].partition_end -
+					chip->addr_map[i].partition_start + 1);
+			part_len *= BYTES_PER_SRAM_WORD;
+			end_addr = chip->addr_map[i].partition_end;
+			break;
+		}
+	}
+
+	if (part_len <= 0) {
+		pr_err("Bad address? total_len=%d\n", part_len);
+		return -ENXIO;
+	}
+
+	temp = (end_addr - sram_addr + 1) * BYTES_PER_SRAM_WORD;
+	if (temp > part_len || !temp) {
+		pr_err("Bad length=%d\n", temp);
+		return -ENXIO;
+	}
+
+	*rem_len = temp;
+	pr_debug("address %d len %d rem_len %d\n", sram_addr, len, *rem_len);
+	return 0;
+}
+
+static int __fg_direct_mem_rw(struct fg_chip *chip, u16 sram_addr, u8 offset,
+				u8 *val, int len, bool access)
+{
+	int rc, ret, num_partitions, num_bytes = 0;
+	u16 addr;
+	u8 *ptr = val;
+	char *temp_str;
+
+	if (offset > 3) {
+		pr_err("offset too large %d\n", offset);
+		return -EINVAL;
+	}
+
+	rc = fg_get_partition_count(chip, sram_addr, len, &num_partitions);
+	if (rc < 0)
+		return rc;
+
+	pr_debug("number of partitions: %d\n", num_partitions);
+
+	rc = fg_direct_mem_request(chip, true);
+	if (rc < 0) {
+		pr_err("Error in requesting direct_mem access rc=%d\n", rc);
+		return rc;
+	}
+
+	while (num_partitions-- && len) {
+		rc = fg_get_dma_address(chip, sram_addr, offset, &addr);
+		if (rc < 0) {
+			pr_err("Incorrect address %d/offset %d\n", sram_addr,
+				offset);
+			break;
+		}
+
+		rc = fg_get_partition_avail_bytes(chip, sram_addr + offset, len,
+						&num_bytes);
+		if (rc < 0)
+			break;
+
+		if (num_bytes > len)
+			num_bytes = len;
+
+		pr_debug("reading from address: [%d %d] dma_address = %x\n",
+			sram_addr, offset, addr);
+
+		if (access == FG_READ) {
+			rc = fg_read(chip, addr, ptr, num_bytes);
+			temp_str = "read";
+		} else {
+			rc = fg_write(chip, addr, ptr, num_bytes);
+			temp_str = "write";
+		}
+
+		if (rc < 0) {
+			pr_err("Error in %sing address %d rc=%d\n", temp_str,
+				sram_addr, rc);
+			break;
+		}
+
+		ptr += num_bytes;
+		len -= num_bytes;
+		sram_addr += (num_bytes / BYTES_PER_SRAM_WORD);
+		offset = 0;
+	}
+
+	ret = fg_direct_mem_request(chip, false);
+	if (ret < 0) {
+		pr_err("Error in releasing direct_mem access rc=%d\n", rc);
+		return ret;
+	}
+
+	return rc;
+}
+
+int fg_direct_mem_read(struct fg_chip *chip, u16 sram_addr, u8 offset,
+				u8 *val, int len)
+{
+	return __fg_direct_mem_rw(chip, sram_addr, offset, val, len, FG_READ);
+}
+
+int fg_direct_mem_write(struct fg_chip *chip, u16 sram_addr, u8 offset,
+				u8 *val, int len, bool atomic_access)
+{
+	return __fg_direct_mem_rw(chip, sram_addr, offset, val, len, FG_WRITE);
+}
+
 int fg_ima_init(struct fg_chip *chip)
 {
 	int rc;
@@ -773,6 +1024,62 @@ int fg_ima_init(struct fg_chip *chip)
 	rc = fg_clear_ima_errors_if_any(chip, true);
 	if (rc < 0 && rc != -EAGAIN) {
 		pr_err("Error in checking IMA errors rc:%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+/*
+ * This SRAM partition to DMA address partition mapping remains identical for
+ * PMICs that use GEN3 FG.
+ */
+static struct fg_dma_address fg_gen3_addr_map[NUM_PARTITIONS] = {
+	/* system partition */
+	{
+		.partition_start = 0,
+		.partition_end = 23,
+		.spmi_addr_base = FG_DMA0_BASE + SRAM_ADDR_OFFSET,
+	},
+	/* battery profile partition */
+	{
+		.partition_start = 24,
+		.partition_end = 79,
+		.spmi_addr_base = FG_DMA1_BASE + SRAM_ADDR_OFFSET,
+	},
+	/* scratch pad partition */
+	{
+		.partition_start = 80,
+		.partition_end =  125,
+		.spmi_addr_base = FG_DMA2_BASE + SRAM_ADDR_OFFSET,
+	},
+};
+int fg_dma_init(struct fg_chip *chip)
+{
+	int rc;
+
+	chip->addr_map = fg_gen3_addr_map;
+
+	/* Clear DMA errors if any before clearing IMA errors */
+	rc = fg_clear_dma_errors_if_any(chip);
+	if (rc < 0) {
+		pr_err("Error in checking DMA errors rc:%d\n", rc);
+		return rc;
+	}
+
+	/* Configure the DMA peripheral addressing to partition */
+	rc = fg_masked_write(chip, MEM_IF_DMA_CTL(chip), ADDR_KIND_BIT,
+				ADDR_KIND_BIT);
+	if (rc < 0) {
+		pr_err("failed to configure DMA_CTL rc:%d\n", rc);
+		return rc;
+	}
+
+	/* Release the DMA initially so that request can happen */
+	rc = fg_direct_mem_request(chip, false);
+	if (rc < 0) {
+		pr_err("Error in releasing direct_mem access rc=%d\n",
+			rc);
 		return rc;
 	}
 

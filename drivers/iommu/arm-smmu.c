@@ -47,12 +47,19 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/of_platform.h>
 #include <linux/msm-bus.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <linux/remote_spinlock.h>
+#include <linux/ktime.h>
+#include <trace/events/iommu.h>
+#include <linux/notifier.h>
+#include <dt-bindings/arm/arm-smmu.h>
 
 #include <linux/amba/bus.h>
+#include <soc/qcom/msm_tz_smmu.h>
 
 #include "io-pgtable.h"
 
@@ -98,6 +105,9 @@
 #define sCR0_VMID16EN			(1 << 31)
 #define sCR0_BSU_SHIFT			14
 #define sCR0_BSU_MASK			0x3
+#define sCR0_SHCFG_SHIFT		22
+#define sCR0_SHCFG_MASK			0x3
+#define sCR0_SHCFG_NSH			3
 
 /* Auxiliary Configuration register */
 #define ARM_SMMU_GR0_sACR		0x10
@@ -166,6 +176,8 @@
 #define ARM_SMMU_GR0_SMR(n)		(0x800 + ((n) << 2))
 #define SMR_VALID			(1 << 31)
 #define SMR_MASK_SHIFT			16
+#define SMR_MASK_MASK			0x7FFF
+#define SID_MASK			0x7FFF
 #define SMR_ID_SHIFT			0
 
 #define ARM_SMMU_GR0_S2CR(n)		(0xc00 + ((n) << 2))
@@ -173,6 +185,9 @@
 #define S2CR_CBNDX_MASK			0xff
 #define S2CR_TYPE_SHIFT			16
 #define S2CR_TYPE_MASK			0x3
+#define S2CR_SHCFG_SHIFT		8
+#define S2CR_SHCFG_MASK			0x3
+#define S2CR_SHCFG_NSH			0x3
 enum arm_smmu_s2cr_type {
 	S2CR_TYPE_TRANS,
 	S2CR_TYPE_BYPASS,
@@ -237,6 +252,7 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_FSYNR0		0x68
 #define ARM_SMMU_CB_S1_TLBIVA		0x600
 #define ARM_SMMU_CB_S1_TLBIASID		0x610
+#define ARM_SMMU_CB_S1_TLBIALL		0x618
 #define ARM_SMMU_CB_S1_TLBIVAL		0x620
 #define ARM_SMMU_CB_S2_TLBIIPAS2	0x630
 #define ARM_SMMU_CB_S2_TLBIIPAS2L	0x638
@@ -246,8 +262,12 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 
+#define SCTLR_SHCFG_SHIFT		22
+#define SCTLR_SHCFG_MASK		0x3
+#define SCTLR_SHCFG_NSH			0x3
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
+#define SCTLR_HUPCF			(1 << 8)
 #define SCTLR_CFIE			(1 << 6)
 #define SCTLR_CFRE			(1 << 5)
 #define SCTLR_E				(1 << 4)
@@ -316,29 +336,31 @@ enum arm_smmu_implementation {
 	QCOM_SMMUV500,
 };
 
-struct arm_smmu_device;
-struct arm_smmu_arch_ops {
-	int (*init)(struct arm_smmu_device *smmu);
-	void (*device_reset)(struct arm_smmu_device *smmu);
-	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
-					 dma_addr_t iova);
-};
-
 struct arm_smmu_impl_def_reg {
 	u32 offset;
 	u32 value;
 };
 
+/*
+ * attach_count
+ *	The SMR and S2CR registers are only programmed when the number of
+ *	devices attached to the iommu using these registers is > 0. This
+ *	is required for the "SID switch" use case for secure display.
+ *	Protected by stream_map_mutex.
+ */
 struct arm_smmu_s2cr {
 	struct iommu_group		*group;
 	int				count;
+	int				attach_count;
 	enum arm_smmu_s2cr_type		type;
 	enum arm_smmu_s2cr_privcfg	privcfg;
 	u8				cbndx;
+	bool				cb_handoff;
 };
 
 #define s2cr_init_val (struct arm_smmu_s2cr){				\
 	.type = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS,	\
+	.cb_handoff = false,						\
 }
 
 struct arm_smmu_smr {
@@ -384,13 +406,16 @@ struct arm_smmu_power_resources {
 	/* Protects clock_refs_count */
 	spinlock_t			clock_refs_lock;
 	int				clock_refs_count;
+	int				regulator_defer;
 };
 
+struct arm_smmu_arch_ops;
 struct arm_smmu_device {
 	struct device			*dev;
 
 	void __iomem			*base;
 	unsigned long			size;
+	phys_addr_t			phys_addr;
 	unsigned long			pgshift;
 
 #define ARM_SMMU_FEAT_COHERENT_WALK	(1 << 0)
@@ -407,10 +432,6 @@ struct arm_smmu_device {
 #define ARM_SMMU_FEAT_FMT_AARCH32_S	(1 << 11)
 	u32				features;
 
-#define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
-#define ARM_SMMU_OPT_FATAL_ASF		(1 << 1)
-#define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
-#define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -418,6 +439,7 @@ struct arm_smmu_device {
 	u32				num_context_banks;
 	u32				num_s2_context_banks;
 	DECLARE_BITMAP(context_map, ARM_SMMU_MAX_CBS);
+	DECLARE_BITMAP(secure_context_map, ARM_SMMU_MAX_CBS);
 	atomic_t			irptndx;
 
 	u32				num_mapping_groups;
@@ -444,6 +466,7 @@ struct arm_smmu_device {
 	unsigned int			num_impl_def_attach_registers;
 
 	struct arm_smmu_power_resources *pwr;
+	struct notifier_block		regulator_nb;
 
 	spinlock_t			atos_lock;
 
@@ -453,6 +476,8 @@ struct arm_smmu_device {
 
 	struct arm_smmu_arch_ops	*arch_ops;
 	void				*archdata;
+
+	enum tz_smmu_device_id		sec_id;
 };
 
 enum arm_smmu_context_fmt {
@@ -504,12 +529,17 @@ struct arm_smmu_domain {
 	enum arm_smmu_domain_stage	stage;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	u32 attributes;
+	bool				slave_side_secure;
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
 	struct mutex			assign_lock;
 	struct list_head		secure_pool_list;
 	struct iommu_domain		domain;
+
+	bool				qsmmuv500_errata1_init;
+	bool				qsmmuv500_errata1_client;
+	bool				qsmmuv500_errata2_min_align;
 };
 
 static DEFINE_SPINLOCK(arm_smmu_devices_lock);
@@ -529,6 +559,12 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
+	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
+	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
+	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
+	{ ARM_SMMU_OPT_MMU500_ERRATA1, "qcom,mmu500-errata-1" },
+	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
+	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
 	{ 0, NULL},
 };
 
@@ -543,10 +579,19 @@ static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
 static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
 
-static int arm_smmu_arch_init(struct arm_smmu_device *smmu);
-static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu);
+static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
+				    dma_addr_t iova);
 
 static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
+
+static int arm_smmu_alloc_cb(struct iommu_domain *domain,
+				struct arm_smmu_device *smmu,
+				struct device *dev);
+static struct iommu_gather_ops qsmmuv500_errata1_smmu_gather_ops;
+
+static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu);
+static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain);
+static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -574,6 +619,22 @@ static bool is_dynamic_domain(struct iommu_domain *domain)
 	return !!(smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC));
 }
 
+static int arm_smmu_restore_sec_cfg(struct arm_smmu_device *smmu, u32 cb)
+{
+	int ret;
+	int scm_ret = 0;
+
+	if (!arm_smmu_is_static_cb(smmu))
+		return 0;
+
+	ret = scm_restore_sec_cfg(smmu->sec_id, cb, &scm_ret);
+	if (ret || scm_ret) {
+		pr_err("scm call IOMMU_SECURE_CFG failed\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
 static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 {
 	if (smmu_domain->attributes &
@@ -585,21 +646,108 @@ static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 		return false;
 }
 
-static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain)
+static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu)
+{
+	return smmu->options & ARM_SMMU_OPT_STATIC_CB;
+}
+
+static bool arm_smmu_has_secure_vmid(struct arm_smmu_domain *smmu_domain)
 {
 	return (smmu_domain->secure_vmid != VMID_INVAL);
 }
 
+static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain)
+{
+	return arm_smmu_has_secure_vmid(smmu_domain) &&
+			smmu_domain->slave_side_secure;
+}
+
+static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain)
+{
+	return arm_smmu_has_secure_vmid(smmu_domain)
+			&& !smmu_domain->slave_side_secure;
+}
+
 static void arm_smmu_secure_domain_lock(struct arm_smmu_domain *smmu_domain)
 {
-	if (arm_smmu_is_domain_secure(smmu_domain))
+	if (arm_smmu_is_master_side_secure(smmu_domain))
 		mutex_lock(&smmu_domain->assign_lock);
 }
 
 static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
 {
-	if (arm_smmu_is_domain_secure(smmu_domain))
+	if (arm_smmu_is_master_side_secure(smmu_domain))
 		mutex_unlock(&smmu_domain->assign_lock);
+}
+
+/*
+ * init()
+ * Hook for additional device tree parsing at probe time.
+ *
+ * device_reset()
+ * Hook for one-time architecture-specific register settings.
+ *
+ * iova_to_phys_hard()
+ * Provides debug information. May be called from the context fault irq handler.
+ *
+ * init_context_bank()
+ * Hook for architecture-specific settings which require knowledge of the
+ * dynamically allocated context bank number.
+ *
+ * device_group()
+ * Hook for checking whether a device is compatible with a said group.
+ */
+struct arm_smmu_arch_ops {
+	int (*init)(struct arm_smmu_device *smmu);
+	void (*device_reset)(struct arm_smmu_device *smmu);
+	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
+					 dma_addr_t iova);
+	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
+					struct device *dev);
+	int (*device_group)(struct device *dev, struct iommu_group *group);
+};
+
+static int arm_smmu_arch_init(struct arm_smmu_device *smmu)
+{
+	if (!smmu->arch_ops)
+		return 0;
+	if (!smmu->arch_ops->init)
+		return 0;
+	return smmu->arch_ops->init(smmu);
+}
+
+static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu)
+{
+	if (!smmu->arch_ops)
+		return;
+	if (!smmu->arch_ops->device_reset)
+		return;
+	return smmu->arch_ops->device_reset(smmu);
+}
+
+static void arm_smmu_arch_init_context_bank(
+		struct arm_smmu_domain *smmu_domain, struct device *dev)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+
+	if (!smmu->arch_ops)
+		return;
+	if (!smmu->arch_ops->init_context_bank)
+		return;
+	return smmu->arch_ops->init_context_bank(smmu_domain, dev);
+}
+
+static int arm_smmu_arch_device_group(struct device *dev,
+					struct iommu_group *group)
+{
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
+
+	if (!smmu->arch_ops)
+		return 0;
+	if (!smmu->arch_ops->device_group)
+		return 0;
+	return smmu->arch_ops->device_group(dev, group);
 }
 
 static struct device_node *dev_get_dev_node(struct device *dev)
@@ -773,6 +921,57 @@ static void arm_smmu_unrequest_bus(struct arm_smmu_power_resources *pwr)
 	WARN_ON(msm_bus_scale_client_update_request(pwr->bus_client, 0));
 }
 
+static int arm_smmu_enable_regulators(struct arm_smmu_power_resources *pwr)
+{
+	struct regulator_bulk_data *consumers;
+	int num_consumers, ret;
+	int i;
+
+	num_consumers = pwr->num_gdscs;
+	consumers = pwr->gdscs;
+	for (i = 0; i < num_consumers; i++) {
+		ret = regulator_enable(consumers[i].consumer);
+		if (ret)
+			goto out;
+	}
+	return 0;
+
+out:
+	i -= 1;
+	for (; i >= 0; i--)
+		regulator_disable(consumers[i].consumer);
+	return ret;
+}
+
+static int arm_smmu_disable_regulators(struct arm_smmu_power_resources *pwr)
+{
+	struct regulator_bulk_data *consumers;
+	int i;
+	int num_consumers, ret, r;
+
+	num_consumers = pwr->num_gdscs;
+	consumers = pwr->gdscs;
+	for (i = num_consumers - 1; i >= 0; --i) {
+		ret = regulator_disable_deferred(consumers[i].consumer,
+						 pwr->regulator_defer);
+		if (ret != 0)
+			goto err;
+	}
+
+	return 0;
+
+err:
+	pr_err("Failed to disable %s: %d\n", consumers[i].supply, ret);
+	for (++i; i < num_consumers; ++i) {
+		r = regulator_enable(consumers[i].consumer);
+		if (r != 0)
+			pr_err("Failed to reename %s: %d\n",
+			       consumers[i].supply, r);
+	}
+
+	return ret;
+}
+
 /* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
 static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 {
@@ -832,7 +1031,7 @@ static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
 	if (ret)
 		goto out_unlock;
 
-	ret = regulator_bulk_enable(pwr->num_gdscs, pwr->gdscs);
+	ret = arm_smmu_enable_regulators(pwr);
 	if (ret)
 		goto out_disable_bus;
 
@@ -868,7 +1067,7 @@ static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 	}
 
 	arm_smmu_unprepare_clocks(pwr);
-	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
+	arm_smmu_disable_regulators(pwr);
 	arm_smmu_unrequest_bus(pwr);
 	pwr->power_count = 0;
 	mutex_unlock(&pwr->power_lock);
@@ -943,8 +1142,10 @@ static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
 	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
 	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
 				      !(val & TLBSTATUS_SACTIVE),
-				      0, TLB_LOOP_TIMEOUT))
+				      0, TLB_LOOP_TIMEOUT)) {
+		trace_tlbsync_timeout(smmu->dev, 0);
 		dev_err(smmu->dev, "TLBSYNC timeout!\n");
+	}
 }
 
 static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu)
@@ -975,15 +1176,24 @@ static void arm_smmu_tlb_sync(void *cookie)
 static void arm_smmu_tlb_inv_context(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
+	struct device *dev = smmu_domain->dev;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *base;
+	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
+	ktime_t cur = ktime_get();
 
-	if (stage1) {
+	trace_tlbi_start(dev, 0);
+
+	if (stage1 && !use_tlbiall) {
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		writel_relaxed(ARM_SMMU_CB_ASID(smmu, cfg),
 			       base + ARM_SMMU_CB_S1_TLBIASID);
+		arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
+	} else if (stage1 && use_tlbiall) {
+		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+		writel_relaxed(0, base + ARM_SMMU_CB_S1_TLBIALL);
 		arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
 	} else {
 		base = ARM_SMMU_GR0(smmu);
@@ -991,6 +1201,8 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 			       base + ARM_SMMU_GR0_TLBIVMID);
 		__arm_smmu_tlb_sync(smmu);
 	}
+
+	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
 }
 
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
@@ -1001,8 +1213,9 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *reg;
+	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 
-	if (stage1) {
+	if (stage1 && !use_tlbiall) {
 		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		reg += leaf ? ARM_SMMU_CB_S1_TLBIVAL : ARM_SMMU_CB_S1_TLBIVA;
 
@@ -1021,6 +1234,10 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 				iova += granule >> 12;
 			} while (size -= granule);
 		}
+	} else if (stage1 && use_tlbiall) {
+		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+		reg += ARM_SMMU_CB_S1_TLBIALL;
+		writel_relaxed(0, reg);
 	} else if (smmu->version == ARM_SMMU_V2) {
 		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		reg += leaf ? ARM_SMMU_CB_S2_TLBIIPAS2L :
@@ -1084,6 +1301,7 @@ static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
 	list_for_each_entry_safe(it, i, &smmu_domain->secure_pool_list, list) {
 		arm_smmu_unprepare_pgtable(smmu_domain, it->addr, it->size);
 		/* pages will be freed later (after being unassigned) */
+		list_del(&it->list);
 		kfree(it);
 	}
 }
@@ -1095,7 +1313,7 @@ static void *arm_smmu_alloc_pages_exact(void *cookie,
 	void *page;
 	struct arm_smmu_domain *smmu_domain = cookie;
 
-	if (!arm_smmu_is_domain_secure(smmu_domain))
+	if (!arm_smmu_is_master_side_secure(smmu_domain))
 		return alloc_pages_exact(size, gfp_mask);
 
 	page = arm_smmu_secure_pool_remove(smmu_domain, size);
@@ -1118,7 +1336,7 @@ static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 
-	if (!arm_smmu_is_domain_secure(smmu_domain)) {
+	if (!arm_smmu_is_master_side_secure(smmu_domain)) {
 		free_pages_exact(virt, size);
 		return;
 	}
@@ -1140,11 +1358,12 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	const struct iommu_gather_ops *tlb = smmu_domain->pgtbl_cfg.tlb;
 	phys_addr_t phys;
 	phys_addr_t phys_post_tlbiall;
 
 	phys = arm_smmu_iova_to_phys_hard(domain, iova);
-	arm_smmu_tlb_inv_context(smmu_domain);
+	tlb->tlb_flush_all(smmu_domain);
 	phys_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova);
 
 	if (phys != phys_post_tlbiall) {
@@ -1171,7 +1390,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	phys_addr_t phys_soft;
 	u32 frsynra;
 	bool non_fatal_fault = !!(smmu_domain->attributes &
-					DOMAIN_ATTR_NON_FATAL_FAULTS);
+					(1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
 
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
@@ -1328,6 +1547,35 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static bool arm_smmu_master_attached(struct arm_smmu_device *smmu,
+				     struct iommu_fwspec *fwspec)
+{
+	int i, idx;
+
+	for_each_cfg_sme(fwspec, i, idx) {
+		if (smmu->s2crs[idx].attach_count)
+			return true;
+	}
+
+	return false;
+}
+
+static int arm_smmu_set_pt_format(struct arm_smmu_domain *smmu_domain,
+				  struct io_pgtable_cfg *pgtbl_cfg)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	int ret = 0;
+
+	if ((smmu->version > ARM_SMMU_V1) &&
+	    (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64) &&
+	    !arm_smmu_has_secure_vmid(smmu_domain) &&
+	    arm_smmu_is_static_cb(smmu)) {
+		ret = msm_tz_set_cb_format(smmu->sec_id, cfg->cbndx);
+	}
+	return ret;
+}
+
 static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 				       struct io_pgtable_cfg *pgtbl_cfg)
 {
@@ -1428,6 +1676,14 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
 
+	/* Ensure bypass transactions are Non-shareable */
+	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
+
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
+		reg &= ~SCTLR_CFCFG;
+		reg |= SCTLR_HUPCF;
+	}
+
 	if ((!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(smmu_domain->attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) ||
 								!stage1)
@@ -1495,6 +1751,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	bool is_fast = smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST);
 	unsigned long quirks = 0;
 	bool dynamic;
+	const struct iommu_gather_ops *tlb;
 
 	mutex_lock(&smmu_domain->init_mutex);
 	if (smmu_domain->smmu)
@@ -1567,6 +1824,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		oas = smmu->ipa_size;
 		if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64) {
 			fmt = ARM_64_LPAE_S1;
+			if (smmu->options & ARM_SMMU_OPT_3LVL_TABLES)
+				ias = min(ias, 39UL);
 		} else if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_L) {
 			fmt = ARM_32_LPAE_S1;
 			ias = min(ias, 32UL);
@@ -1607,15 +1866,19 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 	if (is_iommu_pt_coherent(smmu_domain))
 		quirks |= IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT;
+	if ((quirks & IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT) &&
+		(smmu->model == QCOM_SMMUV500))
+		quirks |= IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE;
 
-	/* Dynamic domains must set cbndx through domain attribute */
-	if (!dynamic) {
-		ret = __arm_smmu_alloc_bitmap(smmu->context_map, start,
-				      smmu->num_context_banks);
-		if (ret < 0)
-			goto out_unlock;
-		cfg->cbndx = ret;
-	}
+	tlb = &arm_smmu_gather_ops;
+	if (smmu->options & ARM_SMMU_OPT_MMU500_ERRATA1)
+		tlb = &qsmmuv500_errata1_smmu_gather_ops;
+
+	ret = arm_smmu_alloc_cb(domain, smmu, dev);
+	if (ret < 0)
+		goto out_unlock;
+	cfg->cbndx = ret;
+
 	if (smmu->version < ARM_SMMU_V2) {
 		cfg->irptndx = atomic_inc_return(&smmu->irptndx);
 		cfg->irptndx %= smmu->num_context_irqs;
@@ -1623,14 +1886,27 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		cfg->irptndx = cfg->cbndx;
 	}
 
-	smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
-		.quirks		= quirks,
-		.pgsize_bitmap	= smmu->pgsize_bitmap,
-		.ias		= ias,
-		.oas		= oas,
-		.tlb		= &arm_smmu_gather_ops,
-		.iommu_dev	= smmu->dev,
-	};
+	if (arm_smmu_is_slave_side_secure(smmu_domain)) {
+		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+			.quirks         = quirks,
+			.pgsize_bitmap  = smmu->pgsize_bitmap,
+			.arm_msm_secure_cfg = {
+				.sec_id = smmu->sec_id,
+				.cbndx = cfg->cbndx,
+			},
+			.iommu_dev      = smmu->dev,
+		};
+		fmt = ARM_MSM_SECURE;
+	} else  {
+		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+			.quirks		= quirks,
+			.pgsize_bitmap	= smmu->pgsize_bitmap,
+			.ias		= ias,
+			.oas		= oas,
+			.tlb		= tlb,
+			.iommu_dev	= smmu->dev,
+		};
+	}
 
 	smmu_domain->smmu = smmu;
 	smmu_domain->dev = dev;
@@ -1663,6 +1939,15 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		/* Initialise the context bank with our page table cfg */
 		arm_smmu_init_context_bank(smmu_domain,
 						&smmu_domain->pgtbl_cfg);
+		/* for slave side secure, we may have to force the pagetable
+		 * format to V8L.
+		 */
+		ret = arm_smmu_set_pt_format(smmu_domain,
+					     &smmu_domain->pgtbl_cfg);
+		if (ret)
+			goto out_clear_smmu;
+
+		arm_smmu_arch_init_context_bank(smmu_domain, dev);
 
 		/*
 		 * Request context fault interrupt. Do this last to avoid the
@@ -1685,6 +1970,10 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	/* Publish page table ops for map/unmap */
 	smmu_domain->pgtbl_ops = pgtbl_ops;
+	if (arm_smmu_is_slave_side_secure(smmu_domain) &&
+			!arm_smmu_master_attached(smmu, dev->iommu_fwspec))
+		arm_smmu_restore_sec_cfg(smmu, cfg->cbndx);
+
 	return 0;
 
 out_clear_smmu:
@@ -1753,6 +2042,11 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
+	/* As the nonsecure context bank index is any way set to zero,
+	 * so, directly clearing up the secure cb bitmap.
+	 */
+	if (arm_smmu_is_slave_side_secure(smmu_domain))
+		__arm_smmu_free_bitmap(smmu->secure_context_map, cfg->cbndx);
 
 	arm_smmu_power_off(smmu->pwr);
 	arm_smmu_domain_reinit(smmu_domain);
@@ -1819,7 +2113,8 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	struct arm_smmu_s2cr *s2cr = smmu->s2crs + idx;
 	u32 reg = (s2cr->type & S2CR_TYPE_MASK) << S2CR_TYPE_SHIFT |
 		  (s2cr->cbndx & S2CR_CBNDX_MASK) << S2CR_CBNDX_SHIFT |
-		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT;
+		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT |
+		  S2CR_SHCFG_NSH << S2CR_SHCFG_SHIFT;
 
 	writel_relaxed(reg, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
 }
@@ -1928,11 +2223,9 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	}
 	iommu_group_put(group);
 
-	/* It worked! Now, poke the actual hardware */
-	for_each_cfg_sme(fwspec, i, idx) {
-		arm_smmu_write_sme(smmu, idx);
+	/* It worked! Don't poke the actual hardware until we've attached */
+	for_each_cfg_sme(fwspec, i, idx)
 		smmu->s2crs[idx].group = group;
-	}
 
 	mutex_unlock(&smmu->stream_map_mutex);
 	return 0;
@@ -1961,6 +2254,35 @@ static void arm_smmu_master_free_smes(struct iommu_fwspec *fwspec)
 	mutex_unlock(&smmu->stream_map_mutex);
 }
 
+static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
+					  struct iommu_fwspec *fwspec)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_s2cr *s2cr = smmu->s2crs;
+	int i, idx;
+	const struct iommu_gather_ops *tlb;
+
+	tlb = smmu_domain->pgtbl_cfg.tlb;
+	if (!tlb)
+		return;
+
+	mutex_lock(&smmu->stream_map_mutex);
+	for_each_cfg_sme(fwspec, i, idx) {
+		WARN_ON(s2cr[idx].attach_count == 0);
+		s2cr[idx].attach_count -= 1;
+
+		if (s2cr[idx].attach_count > 0)
+			continue;
+
+		writel_relaxed(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_SMR(idx));
+		writel_relaxed(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
+	}
+	mutex_unlock(&smmu->stream_map_mutex);
+
+	/* Ensure there are no stale mappings for this context bank */
+	tlb->tlb_flush_all(smmu_domain);
+}
+
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 				      struct iommu_fwspec *fwspec)
 {
@@ -1970,15 +2292,17 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 	u8 cbndx = smmu_domain->cfg.cbndx;
 	int i, idx;
 
+	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
-		if (type == s2cr[idx].type && cbndx == s2cr[idx].cbndx)
+		if (s2cr[idx].attach_count++ > 0)
 			continue;
 
 		s2cr[idx].type = type;
 		s2cr[idx].privcfg = S2CR_PRIVCFG_DEFAULT;
 		s2cr[idx].cbndx = cbndx;
-		arm_smmu_write_s2cr(smmu, idx);
+		arm_smmu_write_sme(smmu, idx);
 	}
+	mutex_unlock(&smmu->stream_map_mutex);
 
 	return 0;
 }
@@ -1988,6 +2312,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	int dynamic = smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC);
 	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
@@ -1999,11 +2324,13 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 		return;
 	}
 
-	/* Remove additional vote for atomic power */
-	if (atomic_domain) {
-		WARN_ON(arm_smmu_power_on_atomic(smmu->pwr));
-		arm_smmu_power_off(smmu->pwr);
-	}
+	if (atomic_domain)
+		arm_smmu_power_on_atomic(smmu->pwr);
+	else
+		arm_smmu_power_on(smmu->pwr);
+
+	arm_smmu_domain_remove_master(smmu_domain, fwspec);
+	arm_smmu_power_off(smmu->pwr);
 }
 
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
@@ -2014,7 +2341,7 @@ static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 	int source_vmid = VMID_HLOS;
 	struct arm_smmu_pte_info *pte_info, *temp;
 
-	if (!arm_smmu_is_domain_secure(smmu_domain))
+	if (!arm_smmu_is_master_side_secure(smmu_domain))
 		return ret;
 
 	list_for_each_entry(pte_info, &smmu_domain->pte_info_list, entry) {
@@ -2041,7 +2368,7 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
 	struct arm_smmu_pte_info *pte_info, *temp;
 
-	if (!arm_smmu_is_domain_secure(smmu_domain))
+	if (!arm_smmu_is_master_side_secure(smmu_domain))
 		return;
 
 	list_for_each_entry(pte_info, &smmu_domain->unassign_list, entry) {
@@ -2065,7 +2392,14 @@ static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	BUG_ON(!arm_smmu_is_domain_secure(smmu_domain));
+	if (smmu_domain->slave_side_secure ||
+	    !arm_smmu_has_secure_vmid(smmu_domain)) {
+		if (smmu_domain->slave_side_secure)
+			WARN(1, "slave side secure is enforced\n");
+		else
+			WARN(1, "Invalid VMID is set !!\n");
+		return;
+	}
 
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
 	if (!pte_info)
@@ -2081,7 +2415,14 @@ static int arm_smmu_prepare_pgtable(void *addr, void *cookie)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	BUG_ON(!arm_smmu_is_domain_secure(smmu_domain));
+	if (smmu_domain->slave_side_secure ||
+	    !arm_smmu_has_secure_vmid(smmu_domain)) {
+		if (smmu_domain->slave_side_secure)
+			WARN(1, "slave side secure is enforced\n");
+		else
+			WARN(1, "Invalid VMID is set !!\n");
+		return -EINVAL;
+	}
 
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
 	if (!pte_info)
@@ -2185,6 +2526,23 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
+	      dma_addr_t iova)
+{
+	uint64_t ret;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	if (!ops)
+		return 0;
+
+	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+	ret = ops->iova_to_pte(ops, iova);
+	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+	return ret;
+}
+
 static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 			     size_t size)
 {
@@ -2219,33 +2577,63 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+#define MAX_MAP_SG_BATCH_SIZE (SZ_4M)
 static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			   struct scatterlist *sg, unsigned int nents, int prot)
 {
 	int ret;
-	size_t size;
+	size_t size, batch_size, size_to_unmap = 0;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	unsigned int idx_start, idx_end;
+	struct scatterlist *sg_start, *sg_end;
+	unsigned long __saved_iova_start;
 
 	if (!ops)
 		return -ENODEV;
 
-	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
-	if (ret)
-		return ret;
+	arm_smmu_secure_domain_lock(smmu_domain);
 
-	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-	ret = ops->map_sg(ops, iova, sg, nents, prot, &size);
-	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+	__saved_iova_start = iova;
+	idx_start = idx_end = 0;
+	sg_start = sg_end = sg;
+	while (idx_end < nents) {
+		batch_size = sg_end->length;
+		sg_end = sg_next(sg_end);
+		idx_end++;
+		while ((idx_end < nents) &&
+		       (batch_size + sg_end->length < MAX_MAP_SG_BATCH_SIZE)) {
 
-	if (!ret)
-		arm_smmu_unmap(domain, iova, size);
+			batch_size += sg_end->length;
+			sg_end = sg_next(sg_end);
+			idx_end++;
+		}
 
-	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
+		spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+		ret = ops->map_sg(ops, iova, sg_start, idx_end - idx_start,
+				  prot, &size);
+		spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+		/* Returns 0 on error */
+		if (!ret) {
+			size_to_unmap = iova + size - __saved_iova_start;
+			goto out;
+		}
+
+		iova += batch_size;
+		idx_start = idx_end;
+		sg_start = sg_end;
+	}
+
+out:
 	arm_smmu_assign_table(smmu_domain);
 
-	return ret;
+	if (size_to_unmap) {
+		arm_smmu_unmap(domain, __saved_iova_start, size_to_unmap);
+		iova = __saved_iova_start;
+	}
+	arm_smmu_secure_domain_unlock(smmu_domain);
+	return iova - __saved_iova_start;
 }
 
 static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
@@ -2321,6 +2709,10 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	phys_addr_t ret = 0;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+
+	if (smmu->options & ARM_SMMU_OPT_DISABLE_ATOS)
+		return 0;
 
 	if (smmu_domain->smmu->arch_ops &&
 	    smmu_domain->smmu->arch_ops->iova_to_phys_hard) {
@@ -2356,6 +2748,50 @@ static bool arm_smmu_capable(enum iommu_cap cap)
 		return false;
 	}
 }
+
+#ifdef CONFIG_MSM_TZ_SMMU
+static struct arm_smmu_device *arm_smmu_get_by_addr(void __iomem *addr)
+{
+	struct arm_smmu_device *smmu;
+	unsigned long flags;
+
+	spin_lock_irqsave(&arm_smmu_devices_lock, flags);
+	list_for_each_entry(smmu, &arm_smmu_devices, list) {
+		unsigned long base = (unsigned long)smmu->base;
+		unsigned long mask = ~(smmu->size - 1);
+
+		if ((base & mask) == ((unsigned long)addr & mask)) {
+			spin_unlock_irqrestore(&arm_smmu_devices_lock, flags);
+			return smmu;
+		}
+	}
+	spin_unlock_irqrestore(&arm_smmu_devices_lock, flags);
+	return NULL;
+}
+
+bool arm_smmu_skip_write(void __iomem *addr)
+{
+	struct arm_smmu_device *smmu;
+	int cb;
+
+	smmu = arm_smmu_get_by_addr(addr);
+
+	/* Skip write if smmu not available by now */
+	if (!smmu)
+		return true;
+
+	/* Do not write to global space */
+	if (((unsigned long)addr & (smmu->size - 1)) < (smmu->size >> 1))
+		return true;
+
+	/* Finally skip writing to secure CB */
+	cb = ((unsigned long)addr & ((smmu->size >> 1) - 1)) >> PAGE_SHIFT;
+	if (test_bit(cb, smmu->secure_context_map))
+		return true;
+
+	return false;
+}
+#endif
 
 static struct arm_smmu_device *arm_smmu_get_by_list(struct device_node *np)
 {
@@ -2490,13 +2926,20 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 		group = smmu->s2crs[idx].group;
 	}
 
-	if (group)
-		return group;
+	if (!group) {
+		if (dev_is_pci(dev))
+			group = pci_device_group(dev);
+		else
+			group = generic_device_group(dev);
 
-	if (dev_is_pci(dev))
-		group = pci_device_group(dev);
-	else
-		group = generic_device_group(dev);
+		if (IS_ERR(group))
+			return NULL;
+	}
+
+	if (arm_smmu_arch_device_group(dev, group)) {
+		iommu_group_put(group);
+		return ERR_PTR(-EINVAL);
+	}
 
 	return group;
 }
@@ -2507,19 +2950,23 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int ret = 0;
 
+	mutex_lock(&smmu_domain->init_mutex);
 	switch (attr) {
 	case DOMAIN_ATTR_NESTING:
 		*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_PT_BASE_ADDR:
 		*((phys_addr_t *)data) =
 			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_CONTEXT_BANK:
 		/* context bank index isn't valid until we are attached */
-		if (smmu_domain->smmu == NULL)
-			return -ENODEV;
-
+		if (smmu_domain->smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		*((unsigned int *) data) = smmu_domain->cfg.cbndx;
 		ret = 0;
 		break;
@@ -2527,9 +2974,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		u64 val;
 		struct arm_smmu_device *smmu = smmu_domain->smmu;
 		/* not valid until we are attached */
-		if (smmu == NULL)
-			return -ENODEV;
-
+		if (smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		val = smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
 		if (smmu_domain->cfg.cbar != CBAR_TYPE_S2_TRANS)
 			val |= (u64)ARM_SMMU_CB_ASID(smmu, &smmu_domain->cfg)
@@ -2540,8 +2988,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	}
 	case DOMAIN_ATTR_CONTEXTIDR:
 		/* not valid until attached */
-		if (smmu_domain->smmu == NULL)
-			return -ENODEV;
+		if (smmu_domain->smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		*((u32 *)data) = smmu_domain->cfg.procid;
 		ret = 0;
 		break;
@@ -2584,6 +3034,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					& (1 << DOMAIN_ATTR_FAST));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 		*((int *)data) = !!(smmu_domain->attributes &
 				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
@@ -2595,8 +3050,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
-		if (!smmu_domain->smmu)
-			return -ENODEV;
+		if (!smmu_domain->smmu) {
+			ret = -ENODEV;
+			break;
+		}
 		*((int *)data) = is_iommu_pt_coherent(smmu_domain);
 		ret = 0;
 		break;
@@ -2605,9 +3062,20 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN:
+		*((int *)data) = smmu_domain->qsmmuv500_errata2_min_align;
+		ret = 0;
+		break;
 	default:
-		return -ENODEV;
+		ret = -ENODEV;
+		break;
 	}
+	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 }
 
@@ -2727,11 +3195,28 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		}
 		smmu_domain->secure_vmid = *((int *)data);
 		break;
-	case DOMAIN_ATTR_FAST:
+	case DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR:
 		if (*((int *)data))
-			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR;
 		ret = 0;
 		break;
+	/*
+	 * fast_smmu_unmap_page() and fast_smmu_alloc_iova() both
+	 * expect that the bus/clock/regulator are already on. Thus also
+	 * force DOMAIN_ATTR_ATOMIC to bet set.
+	 */
+	case DOMAIN_ATTR_FAST:
+	{
+		int fast = *((int *)data);
+
+		if (fast) {
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_ATOMIC;
+		}
+		ret = 0;
+		break;
+	}
 	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
 		/* can't be changed while attached */
 		if (smmu_domain->smmu != NULL) {
@@ -2782,6 +3267,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		break;
 	}
 
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 	}
@@ -2869,68 +3360,12 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	arm_smmu_power_off(smmu->pwr);
 }
 
-static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
-				       unsigned long offset)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	void __iomem *cb_base;
-	unsigned long val;
-
-	if (offset >= SZ_4K) {
-		pr_err("Invalid offset: 0x%lx\n", offset);
-		return 0;
-	}
-
-	smmu = smmu_domain->smmu;
-	if (!smmu) {
-		WARN(1, "Can't read registers of a detached domain\n");
-		val = 0;
-		return val;
-	}
-
-	if (arm_smmu_power_on(smmu->pwr))
-		return 0;
-
-	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
-	val = readl_relaxed(cb_base + offset);
-
-	arm_smmu_power_off(smmu->pwr);
-	return val;
-}
-
-static void arm_smmu_reg_write(struct iommu_domain *domain,
-			       unsigned long offset, unsigned long val)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	void __iomem *cb_base;
-
-	if (offset >= SZ_4K) {
-		pr_err("Invalid offset: 0x%lx\n", offset);
-		return;
-	}
-
-	smmu = smmu_domain->smmu;
-	if (!smmu) {
-		WARN(1, "Can't read registers of a detached domain\n");
-		return;
-	}
-
-	if (arm_smmu_power_on(smmu->pwr))
-		return;
-
-	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
-	writel_relaxed(val, cb_base + offset);
-
-	arm_smmu_power_off(smmu->pwr);
-}
-
 static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
 {
-	arm_smmu_tlb_inv_context(to_smmu_domain(domain));
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	const struct iommu_gather_ops *tlb = smmu_domain->pgtbl_cfg.tlb;
+
+	tlb->tlb_flush_all(smmu_domain);
 }
 
 static int arm_smmu_enable_config_clocks(struct iommu_domain *domain)
@@ -2966,12 +3401,11 @@ static struct iommu_ops arm_smmu_ops = {
 	.of_xlate		= arm_smmu_of_xlate,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 	.trigger_fault		= arm_smmu_trigger_fault,
-	.reg_read		= arm_smmu_reg_read,
-	.reg_write		= arm_smmu_reg_write,
 	.tlbi_domain		= arm_smmu_tlbi_domain,
 	.enable_config_clocks	= arm_smmu_enable_config_clocks,
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,
 	.is_iova_coherent	= arm_smmu_is_iova_coherent,
+	.iova_to_pte = arm_smmu_iova_to_pte,
 };
 
 #define IMPL_DEF1_MICRO_MMU_CTRL	0
@@ -3010,7 +3444,20 @@ static int __qsmmuv2_halt(struct arm_smmu_device *smmu, bool wait)
 
 	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	reg |= MICRO_MMU_CTRL_LOCAL_HALT_REQ;
-	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+
+	if (arm_smmu_is_static_cb(smmu)) {
+		phys_addr_t impl_def1_base_phys = impl_def1_base - smmu->base +
+							smmu->phys_addr;
+
+		if (scm_io_write(impl_def1_base_phys +
+					IMPL_DEF1_MICRO_MMU_CTRL, reg)) {
+			dev_err(smmu->dev,
+				"scm_io_write fail. SMMU might not be halted");
+			return -EINVAL;
+		}
+	} else {
+		writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	}
 
 	return wait ? qsmmuv2_wait_for_halt(smmu) : 0;
 }
@@ -3032,7 +3479,18 @@ static void qsmmuv2_resume(struct arm_smmu_device *smmu)
 
 	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	reg &= ~MICRO_MMU_CTRL_LOCAL_HALT_REQ;
-	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+
+	if (arm_smmu_is_static_cb(smmu)) {
+		phys_addr_t impl_def1_base_phys = impl_def1_base - smmu->base +
+							smmu->phys_addr;
+
+		if (scm_io_write(impl_def1_base_phys +
+				IMPL_DEF1_MICRO_MMU_CTRL, reg))
+			dev_err(smmu->dev,
+				"scm_io_write fail. SMMU might not be resumed");
+	} else {
+		writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	}
 }
 
 static void qsmmuv2_device_reset(struct arm_smmu_device *smmu)
@@ -3197,6 +3655,10 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	if (smmu->features & ARM_SMMU_FEAT_VMID16)
 		reg |= sCR0_VMID16EN;
 
+	/* Force bypass transaction to be Non-Shareable & not io-coherent */
+	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
+	reg |= sCR0_SHCFG_NSH << sCR0_SHCFG_SHIFT;
+
 	/* Push the button */
 	__arm_smmu_tlb_sync(smmu);
 	writel(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
@@ -3222,6 +3684,109 @@ static int arm_smmu_id_size_to_bits(int size)
 	default:
 		return 48;
 	}
+}
+
+
+/*
+ * Some context banks needs to be transferred from bootloader to HLOS in a way
+ * that allows ongoing traffic. The current expectation is that these context
+ * banks operate in bypass mode.
+ * Additionally, there must be exactly one device in devicetree with stream-ids
+ * overlapping those used by the bootloader.
+ */
+static int arm_smmu_alloc_cb(struct iommu_domain *domain,
+				struct arm_smmu_device *smmu,
+				struct device *dev)
+{
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	u32 i, idx;
+	int cb = -EINVAL;
+	bool dynamic;
+
+	/*
+	 * Dynamic domains have already set cbndx through domain attribute.
+	 * Verify that they picked a valid value.
+	 */
+	dynamic = is_dynamic_domain(domain);
+	if (dynamic) {
+		cb = smmu_domain->cfg.cbndx;
+		if (cb < smmu->num_context_banks)
+			return cb;
+		else
+			return -EINVAL;
+	}
+
+	mutex_lock(&smmu->stream_map_mutex);
+	for_each_cfg_sme(fwspec, i, idx) {
+		if (smmu->s2crs[idx].cb_handoff)
+			cb = smmu->s2crs[idx].cbndx;
+	}
+
+	if (cb >= 0 && arm_smmu_is_static_cb(smmu)) {
+		smmu_domain->slave_side_secure = true;
+
+		if (arm_smmu_is_slave_side_secure(smmu_domain))
+			bitmap_set(smmu->secure_context_map, cb, 1);
+	}
+
+	if (cb < 0 && !arm_smmu_is_static_cb(smmu)) {
+		mutex_unlock(&smmu->stream_map_mutex);
+		return __arm_smmu_alloc_bitmap(smmu->context_map,
+						smmu->num_s2_context_banks,
+						smmu->num_context_banks);
+	}
+
+	for (i = 0; i < smmu->num_mapping_groups; i++) {
+		if (smmu->s2crs[i].cb_handoff && smmu->s2crs[i].cbndx == cb) {
+			if (!arm_smmu_is_static_cb(smmu))
+				smmu->s2crs[i].cb_handoff = false;
+			smmu->s2crs[i].count -= 1;
+		}
+	}
+	mutex_unlock(&smmu->stream_map_mutex);
+
+	return cb;
+}
+
+static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
+{
+	u32 i, raw_smr, raw_s2cr;
+	struct arm_smmu_smr smr;
+	struct arm_smmu_s2cr s2cr;
+
+	for (i = 0; i < smmu->num_mapping_groups; i++) {
+		raw_smr = readl_relaxed(ARM_SMMU_GR0(smmu) +
+					ARM_SMMU_GR0_SMR(i));
+		if (!(raw_smr & SMR_VALID))
+			continue;
+
+		smr.mask = (raw_smr >> SMR_MASK_SHIFT) & SMR_MASK_MASK;
+		smr.id = (u16)raw_smr;
+		smr.valid = true;
+
+		raw_s2cr = readl_relaxed(ARM_SMMU_GR0(smmu) +
+					ARM_SMMU_GR0_S2CR(i));
+		memset(&s2cr, 0, sizeof(s2cr));
+		s2cr.group = NULL;
+		s2cr.count = 1;
+		s2cr.type = (raw_s2cr >> S2CR_TYPE_SHIFT) & S2CR_TYPE_MASK;
+		s2cr.privcfg = (raw_s2cr >> S2CR_PRIVCFG_SHIFT) &
+				S2CR_PRIVCFG_MASK;
+		s2cr.cbndx = (u8)raw_s2cr;
+		s2cr.cb_handoff = true;
+
+		if (s2cr.type != S2CR_TYPE_TRANS)
+			continue;
+
+		smmu->smrs[i] = smr;
+		smmu->s2crs[i] = s2cr;
+		bitmap_set(smmu->context_map, s2cr.cbndx, 1);
+		dev_dbg(smmu->dev, "Handoff smr: %x s2cr: %x cb: %d\n",
+			raw_smr, raw_s2cr, s2cr.cbndx);
+	}
+
+	return 0;
 }
 
 static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
@@ -3317,6 +3882,71 @@ static int arm_smmu_init_clocks(struct arm_smmu_power_resources *pwr)
 	return 0;
 }
 
+static int regulator_notifier(struct notifier_block *nb,
+			      unsigned long event, void *data)
+{
+	int ret = 0;
+	struct arm_smmu_device *smmu = container_of(nb, struct arm_smmu_device,
+						    regulator_nb);
+
+	if (event != REGULATOR_EVENT_PRE_DISABLE &&
+	    event != REGULATOR_EVENT_ENABLE)
+		return NOTIFY_OK;
+
+	ret = arm_smmu_prepare_clocks(smmu->pwr);
+	if (ret)
+		goto out;
+
+	ret = arm_smmu_power_on_atomic(smmu->pwr);
+	if (ret)
+		goto unprepare_clock;
+
+	if (event == REGULATOR_EVENT_PRE_DISABLE)
+		qsmmuv2_halt(smmu);
+	else if (event == REGULATOR_EVENT_ENABLE) {
+		if (arm_smmu_restore_sec_cfg(smmu, 0))
+			goto power_off;
+		qsmmuv2_resume(smmu);
+	}
+power_off:
+	arm_smmu_power_off_atomic(smmu->pwr);
+unprepare_clock:
+	arm_smmu_unprepare_clocks(smmu->pwr);
+out:
+	return NOTIFY_OK;
+}
+
+static int register_regulator_notifier(struct arm_smmu_device *smmu)
+{
+	struct device *dev = smmu->dev;
+	struct regulator_bulk_data *consumers;
+	int ret = 0, num_consumers;
+	struct arm_smmu_power_resources *pwr = smmu->pwr;
+
+	if (!(smmu->options & ARM_SMMU_OPT_HALT))
+		goto out;
+
+	num_consumers = pwr->num_gdscs;
+	consumers = pwr->gdscs;
+
+	if (!num_consumers) {
+		dev_info(dev, "no regulator info exist for %s\n",
+			 dev_name(dev));
+		goto out;
+	}
+
+	smmu->regulator_nb.notifier_call = regulator_notifier;
+	/* registering the notifier against one gdsc is sufficient as
+	 * we do enable/disable regulators in group.
+	 */
+	ret = regulator_register_notifier(consumers[0].consumer,
+					  &smmu->regulator_nb);
+	if (ret)
+		dev_err(dev, "Regulator notifier request failed\n");
+out:
+	return ret;
+}
+
 static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 {
 	const char *cname;
@@ -3337,6 +3967,12 @@ static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 
 	if (!pwr->gdscs)
 		return -ENOMEM;
+
+	if (!of_property_read_u32(dev->of_node,
+				  "qcom,deferred-regulator-disable-delay",
+				  &(pwr->regulator_defer)))
+		dev_info(dev, "regulator defer delay %d\n",
+			pwr->regulator_defer);
 
 	i = 0;
 	of_property_for_each_string(dev->of_node, "qcom,regulator-names",
@@ -3421,6 +4057,9 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	bool cttw_dt, cttw_reg;
 	int i;
 
+	if (arm_smmu_restore_sec_cfg(smmu, 0))
+		return -ENODEV;
+
 	dev_dbg(smmu->dev, "probing hardware configuration...\n");
 	dev_dbg(smmu->dev, "SMMUv%d with:\n",
 			smmu->version == ARM_SMMU_V2 ? 2 : 1);
@@ -3483,6 +4122,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	smmu->streamid_mask = size - 1;
 	if (id & ID0_SMS) {
 		u32 smr;
+		int i;
 
 		smmu->features |= ARM_SMMU_FEAT_STREAM_MATCH;
 		size = (id >> ID0_NUMSMRG_SHIFT) & ID0_NUMSMRG_MASK;
@@ -3497,15 +4137,32 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 		 * bits are set, so check each one separately. We can reject
 		 * masters later if they try to claim IDs outside these masks.
 		 */
-		smr = smmu->streamid_mask << SMR_ID_SHIFT;
-		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
-		smmu->streamid_mask = smr >> SMR_ID_SHIFT;
+		if (!arm_smmu_is_static_cb(smmu)) {
+			for (i = 0; i < size; i++) {
+				smr = readl_relaxed(
+					gr0_base + ARM_SMMU_GR0_SMR(i));
+				if (!(smr & SMR_VALID))
+					break;
+			}
+			if (i == size) {
+				dev_err(smmu->dev,
+					"Unable to compute streamid_masks\n");
+				return -ENODEV;
+			}
 
-		smr = smmu->streamid_mask << SMR_MASK_SHIFT;
-		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
-		smmu->smr_mask_mask = smr >> SMR_MASK_SHIFT;
+			smr = smmu->streamid_mask << SMR_ID_SHIFT;
+			writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(i));
+			smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
+			smmu->streamid_mask = smr >> SMR_ID_SHIFT;
+
+			smr = smmu->streamid_mask << SMR_MASK_SHIFT;
+			writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(i));
+			smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
+			smmu->smr_mask_mask = smr >> SMR_MASK_SHIFT;
+		} else {
+			smmu->smr_mask_mask = SMR_MASK_MASK;
+			smmu->streamid_mask = SID_MASK;
+		}
 
 		/* Zero-initialised to mark as invalid */
 		smmu->smrs = devm_kcalloc(smmu->dev, size, sizeof(*smmu->smrs),
@@ -3632,24 +4289,6 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	return 0;
 }
 
-static int arm_smmu_arch_init(struct arm_smmu_device *smmu)
-{
-	if (!smmu->arch_ops)
-		return 0;
-	if (!smmu->arch_ops->init)
-		return 0;
-	return smmu->arch_ops->init(smmu);
-}
-
-static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu)
-{
-	if (!smmu->arch_ops)
-		return;
-	if (!smmu->arch_ops->device_reset)
-		return;
-	return smmu->arch_ops->device_reset(smmu);
-}
-
 struct arm_smmu_match_data {
 	enum arm_smmu_arch_version version;
 	enum arm_smmu_implementation model;
@@ -3687,7 +4326,23 @@ static const struct of_device_id arm_smmu_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, arm_smmu_of_match);
 
+#ifdef CONFIG_MSM_TZ_SMMU
+int register_iommu_sec_ptbl(void)
+{
+	struct device_node *np;
 
+	for_each_matching_node(np, arm_smmu_of_match)
+		if (of_find_property(np, "qcom,tz-device-id", NULL) &&
+				of_device_is_available(np))
+			break;
+	if (!np)
+		return -ENODEV;
+
+	of_node_put(np);
+
+	return msm_iommu_sec_pgtbl_init();
+}
+#endif
 static int arm_smmu_of_iommu_configure_fixup(struct device *dev, void *data)
 {
 	if (!dev->iommu_fwspec)
@@ -3741,6 +4396,8 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	smmu->arch_ops = data->arch_ops;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res)
+		smmu->phys_addr = res->start;
 	smmu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(smmu->base))
 		return PTR_ERR(smmu->base);
@@ -3792,7 +4449,12 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (err)
 		goto out_exit_power_resources;
 
+	smmu->sec_id = msm_dev_to_device_id(dev);
 	err = arm_smmu_device_cfg_probe(smmu);
+	if (err)
+		goto out_power_off;
+
+	err = arm_smmu_handoff_cbs(smmu);
 	if (err)
 		goto out_power_off;
 
@@ -3845,6 +4507,11 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	else
 		bus_for_each_dev(&platform_bus_type, NULL, &arm_smmu_ops,
 				 arm_smmu_add_device_fixup);
+
+	err = register_regulator_notifier(smmu);
+	if (err)
+		goto out_power_off;
+
 #ifdef CONFIG_ARM_AMBA
 	if (!iommu_present(&amba_bustype))
 		bus_set_iommu(&amba_bustype, &arm_smmu_ops);
@@ -3876,7 +4543,8 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	if (arm_smmu_power_on(smmu->pwr))
 		return -EINVAL;
 
-	if (!bitmap_empty(smmu->context_map, ARM_SMMU_MAX_CBS))
+	if (!bitmap_empty(smmu->context_map, ARM_SMMU_MAX_CBS) ||
+	    !bitmap_empty(smmu->secure_context_map, ARM_SMMU_MAX_CBS))
 		dev_err(&pdev->dev, "removing device with active domains!\n");
 
 	idr_destroy(&smmu->asid_idr);
@@ -3904,16 +4572,23 @@ static int __init arm_smmu_init(void)
 {
 	static bool registered;
 	int ret = 0;
+	ktime_t cur;
 
 	if (registered)
 		return 0;
 
+	cur = ktime_get();
 	ret = platform_driver_register(&qsmmuv500_tbu_driver);
 	if (ret)
 		return ret;
 
 	ret = platform_driver_register(&arm_smmu_driver);
+#ifdef CONFIG_MSM_TZ_SMMU
+	ret = register_iommu_sec_ptbl();
+#endif
 	registered = !ret;
+	trace_smmu_init(ktime_us_delta(ktime_get(), cur));
+
 	return ret;
 }
 
@@ -3968,12 +4643,29 @@ IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 #define DEBUG_PAR_PA_SHIFT		12
 #define DEBUG_PAR_FAULT_VAL		0x1
 
-#define TBU_DBG_TIMEOUT_US		30000
+#define TBU_DBG_TIMEOUT_US		100
+
+#define QSMMUV500_ACTLR_DEEP_PREFETCH_MASK	0x3
+#define QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT	0x8
+
+
+struct actlr_setting {
+	struct arm_smmu_smr smr;
+	u32 actlr;
+};
 
 struct qsmmuv500_archdata {
 	struct list_head		tbus;
 	void __iomem			*tcu_base;
 	u32				version;
+
+	struct actlr_setting		*actlrs;
+	u32				actlr_tbl_size;
+
+	struct arm_smmu_smr		*errata1_clients;
+	u32				num_errata1_clients;
+	remote_spinlock_t		errata1_lock;
+	ktime_t				last_tlbi_ktime;
 };
 #define get_qsmmuv500_archdata(smmu)				\
 	((struct qsmmuv500_archdata *)(smmu->archdata))
@@ -3994,41 +4686,163 @@ struct qsmmuv500_tbu_device {
 	u32				halt_count;
 };
 
-static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
+struct qsmmuv500_group_iommudata {
+	bool has_actlr;
+	u32 actlr;
+};
+#define to_qsmmuv500_group_iommudata(group)				\
+	((struct qsmmuv500_group_iommudata *)				\
+		(iommu_group_get_iommudata(group)))
+
+
+static bool arm_smmu_fwspec_match_smr(struct iommu_fwspec *fwspec,
+				      struct arm_smmu_smr *smr)
 {
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-	int ret = 0;
+	struct arm_smmu_smr *smr2;
+	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
+	int i, idx;
 
-	list_for_each_entry(tbu, &data->tbus, list) {
-		ret = arm_smmu_power_on(tbu->pwr);
-		if (ret)
+	for_each_cfg_sme(fwspec, i, idx) {
+		smr2 = &smmu->smrs[idx];
+		/* Continue if table entry does not match */
+		if ((smr->id ^ smr2->id) & ~(smr->mask | smr2->mask))
+			continue;
+		return true;
+	}
+	return false;
+}
+
+#define ERRATA1_REMOTE_SPINLOCK       "S:6"
+#define ERRATA1_TLBI_INTERVAL_US		10
+static bool
+qsmmuv500_errata1_required(struct arm_smmu_domain *smmu_domain,
+				 struct qsmmuv500_archdata *data)
+{
+	bool ret = false;
+	int j;
+	struct arm_smmu_smr *smr;
+	struct iommu_fwspec *fwspec;
+
+	if (smmu_domain->qsmmuv500_errata1_init)
+		return smmu_domain->qsmmuv500_errata1_client;
+
+	fwspec = smmu_domain->dev->iommu_fwspec;
+	for (j = 0; j < data->num_errata1_clients; j++) {
+		smr = &data->errata1_clients[j];
+		if (arm_smmu_fwspec_match_smr(fwspec, smr)) {
+			ret = true;
 			break;
+		}
 	}
-	if (!ret)
-		return 0;
 
-	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
-		arm_smmu_power_off(tbu->pwr);
-	}
+	smmu_domain->qsmmuv500_errata1_init = true;
+	smmu_domain->qsmmuv500_errata1_client = ret;
 	return ret;
 }
 
-static void qsmmuv500_tbu_power_off_all(struct arm_smmu_device *smmu)
+#define SCM_CONFIG_ERRATA1_CLIENT_ALL 0x2
+#define SCM_CONFIG_ERRATA1 0x3
+static void __qsmmuv500_errata1_tlbiall(struct arm_smmu_domain *smmu_domain)
 {
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct device *dev = smmu_domain->dev;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	void __iomem *base;
+	int ret;
+	ktime_t cur;
+	u32 val;
+	struct scm_desc desc = {
+		.args[0] = SCM_CONFIG_ERRATA1_CLIENT_ALL,
+		.args[1] = false,
+		.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL),
+	};
 
-	list_for_each_entry_reverse(tbu, &data->tbus, list) {
-		arm_smmu_power_off(tbu->pwr);
+	base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	writel_relaxed(0, base + ARM_SMMU_CB_S1_TLBIALL);
+	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
+	if (!readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
+				      !(val & TLBSTATUS_SACTIVE), 0, 100))
+		return;
+
+	ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_SMMU_PROGRAM,
+					    SCM_CONFIG_ERRATA1),
+			       &desc);
+	if (ret) {
+		dev_err(smmu->dev, "Calling into TZ to disable ERRATA1 failed - IOMMU hardware in bad state\n");
+		BUG();
+		return;
+	}
+
+	cur = ktime_get();
+	trace_tlbi_throttle_start(dev, 0);
+	msm_bus_noc_throttle_wa(true);
+
+	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
+			      !(val & TLBSTATUS_SACTIVE), 0, 10000)) {
+		dev_err(smmu->dev, "ERRATA1 TLBSYNC timeout - IOMMU hardware in bad state");
+		trace_tlbsync_timeout(dev, 0);
+		BUG();
+	}
+
+	msm_bus_noc_throttle_wa(false);
+	trace_tlbi_throttle_end(dev, ktime_us_delta(ktime_get(), cur));
+
+	desc.args[1] = true;
+	ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_SMMU_PROGRAM,
+					    SCM_CONFIG_ERRATA1),
+			       &desc);
+	if (ret) {
+		dev_err(smmu->dev, "Calling into TZ to reenable ERRATA1 failed - IOMMU hardware in bad state\n");
+		BUG();
 	}
 }
 
-static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu)
+/* Must be called with clocks/regulators enabled */
+static void qsmmuv500_errata1_tlb_inv_context(void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	struct device *dev = smmu_domain->dev;
+	struct qsmmuv500_archdata *data =
+			get_qsmmuv500_archdata(smmu_domain->smmu);
+	ktime_t cur;
+	unsigned long flags;
+	bool errata;
+
+	cur = ktime_get();
+	trace_tlbi_start(dev, 0);
+
+	errata = qsmmuv500_errata1_required(smmu_domain, data);
+	remote_spin_lock_irqsave(&data->errata1_lock, flags);
+	if (errata) {
+		s64 delta;
+
+		delta = ktime_us_delta(ktime_get(), data->last_tlbi_ktime);
+		if (delta < ERRATA1_TLBI_INTERVAL_US)
+			udelay(ERRATA1_TLBI_INTERVAL_US - delta);
+
+		__qsmmuv500_errata1_tlbiall(smmu_domain);
+
+		data->last_tlbi_ktime = ktime_get();
+	} else {
+		__qsmmuv500_errata1_tlbiall(smmu_domain);
+	}
+	remote_spin_unlock_irqrestore(&data->errata1_lock, flags);
+
+	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
+}
+
+static struct iommu_gather_ops qsmmuv500_errata1_smmu_gather_ops = {
+	.tlb_flush_all	= qsmmuv500_errata1_tlb_inv_context,
+	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
+	.free_pages_exact = arm_smmu_free_pages_exact,
+};
+
+static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
+				struct arm_smmu_domain *smmu_domain)
 {
 	unsigned long flags;
-	u32 val;
-	void __iomem *base;
+	u32 halt, fsr, sctlr_orig, sctlr, status;
+	void __iomem *base, *cb_base;
 
 	spin_lock_irqsave(&tbu->halt_lock, flags);
 	if (tbu->halt_count) {
@@ -4037,19 +4851,49 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu)
 		return 0;
 	}
 
+	cb_base = ARM_SMMU_CB_BASE(smmu_domain->smmu) +
+		ARM_SMMU_CB(smmu_domain->smmu, smmu_domain->cfg.cbndx);
 	base = tbu->base;
-	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
-	val |= DEBUG_SID_HALT_VAL;
-	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
+	halt = readl_relaxed(base + DEBUG_SID_HALT_REG);
+	halt |= DEBUG_SID_HALT_VAL;
+	writel_relaxed(halt, base + DEBUG_SID_HALT_REG);
 
-	if (readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG,
-					val, (val & DEBUG_SR_HALT_ACK_VAL),
-					0, TBU_DBG_TIMEOUT_US)) {
+	if (!readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG, status,
+					(status & DEBUG_SR_HALT_ACK_VAL),
+					0, TBU_DBG_TIMEOUT_US))
+		goto out;
+
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	if (!(fsr & FSR_FAULT)) {
 		dev_err(tbu->dev, "Couldn't halt TBU!\n");
 		spin_unlock_irqrestore(&tbu->halt_lock, flags);
 		return -ETIMEDOUT;
 	}
 
+	/*
+	 * We are in a fault; Our request to halt the bus will not complete
+	 * until transactions in front of us (such as the fault itself) have
+	 * completed. Disable iommu faults and terminate any existing
+	 * transactions.
+	 */
+	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
+	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+
+	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+
+	if (readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG, status,
+					(status & DEBUG_SR_HALT_ACK_VAL),
+					0, TBU_DBG_TIMEOUT_US)) {
+		dev_err(tbu->dev, "Couldn't halt TBU from fault context!\n");
+		writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return -ETIMEDOUT;
+	}
+
+	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+out:
 	tbu->halt_count = 1;
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
 	return 0;
@@ -4082,37 +4926,6 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
 }
 
-static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-	int ret = 0;
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		ret = qsmmuv500_tbu_halt(tbu);
-		if (ret)
-			break;
-	}
-
-	if (!ret)
-		return 0;
-
-	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
-		qsmmuv500_tbu_resume(tbu);
-	}
-	return ret;
-}
-
-static void qsmmuv500_resume_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		qsmmuv500_tbu_resume(tbu);
-	}
-}
-
 static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 	struct arm_smmu_device *smmu, u32 sid)
 {
@@ -4125,24 +4938,6 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 			return tbu;
 	}
 	return NULL;
-}
-
-static void qsmmuv500_device_reset(struct arm_smmu_device *smmu)
-{
-	int i, ret;
-	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
-
-	ret = qsmmuv500_tbu_power_on_all(smmu);
-	if (ret)
-		return;
-
-	/* Program implementation defined registers */
-	qsmmuv500_halt_all(smmu);
-	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
-		writel_relaxed(regs[i].value,
-			ARM_SMMU_GR0(smmu) + regs[i].offset);
-	qsmmuv500_resume_all(smmu);
-	qsmmuv500_tbu_power_off_all(smmu);
 }
 
 static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
@@ -4199,6 +4994,14 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	void __iomem *cb_base;
 	u32 sctlr_orig, sctlr;
 	int needs_redo = 0;
+	ktime_t timeout;
+
+	/* only 36 bit iova is supported */
+	if (iova >= (1ULL << 36)) {
+		dev_err_ratelimited(smmu->dev, "ECATS: address too large: %pad\n",
+					&iova);
+		return 0;
+	}
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	tbu = qsmmuv500_find_tbu(smmu, sid);
@@ -4209,34 +5012,22 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	if (ret)
 		return 0;
 
-	/*
-	 * Disable client transactions & wait for existing operations to
-	 * complete.
-	 */
-	ret = qsmmuv500_tbu_halt(tbu);
+	ret = qsmmuv500_tbu_halt(tbu, smmu_domain);
 	if (ret)
 		goto out_power_off;
+
+	/*
+	 * ECATS can trigger the fault interrupt, so disable it temporarily
+	 * and check for an interrupt manually.
+	 */
+	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
+	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
 	/* Only one concurrent atos operation */
 	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &flags);
 	if (ret)
 		goto out_resume;
-
-	/*
-	 * We can be called from an interrupt handler with FSR already set
-	 * so terminate the faulting transaction prior to starting ecats.
-	 * No new racing faults can occur since we in the halted state.
-	 * ECATS can trigger the fault interrupt, so disable it temporarily
-	 * and check for an interrupt manually.
-	 */
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
-	if (fsr & FSR_FAULT) {
-		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
-		writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
-	}
-	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
-	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
-	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
 redo:
 	/* Set address and stream-id */
@@ -4256,16 +5047,26 @@ redo:
 	writeq_relaxed(val, tbu->base + DEBUG_TXN_TRIGG_REG);
 
 	ret = 0;
-	if (readl_poll_timeout_atomic(tbu->base + DEBUG_SR_HALT_ACK_REG,
-				val, !(val & DEBUG_SR_ECATS_RUNNING_VAL),
-				0, TBU_DBG_TIMEOUT_US)) {
-		dev_err(tbu->dev, "ECATS translation timed out!\n");
+	//based on readx_poll_timeout_atomic
+	timeout = ktime_add_us(ktime_get(), TBU_DBG_TIMEOUT_US);
+	for (;;) {
+		val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
+		if (!(val & DEBUG_SR_ECATS_RUNNING_VAL))
+			break;
+		val = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+		if (val & FSR_FAULT)
+			break;
+		if (ktime_compare(ktime_get(), timeout) > 0) {
+			dev_err(tbu->dev, "ECATS translation timed out!\n");
+			ret = -ETIMEDOUT;
+			break;
+		}
 	}
 
 	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
 	if (fsr & FSR_FAULT) {
 		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx\n",
-			val);
+			fsr);
 		ret = -EINVAL;
 
 		writel_relaxed(val, cb_base + ARM_SMMU_CB_FSR);
@@ -4326,6 +5127,83 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 	return qsmmuv500_iova_to_phys(domain, iova, sid);
 }
 
+static void qsmmuv500_release_group_iommudata(void *data)
+{
+	kfree(data);
+}
+
+/* If a device has a valid actlr, it must match */
+static int qsmmuv500_device_group(struct device *dev,
+				struct iommu_group *group)
+{
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_group_iommudata *iommudata;
+	u32 actlr, i;
+	struct arm_smmu_smr *smr;
+
+	iommudata = to_qsmmuv500_group_iommudata(group);
+	if (!iommudata) {
+		iommudata = kzalloc(sizeof(*iommudata), GFP_KERNEL);
+		if (!iommudata)
+			return -ENOMEM;
+
+		iommu_group_set_iommudata(group, iommudata,
+				qsmmuv500_release_group_iommudata);
+	}
+
+	for (i = 0; i < data->actlr_tbl_size; i++) {
+		smr = &data->actlrs[i].smr;
+		actlr = data->actlrs[i].actlr;
+
+		if (!arm_smmu_fwspec_match_smr(fwspec, smr))
+			continue;
+
+		if (!iommudata->has_actlr) {
+			iommudata->actlr = actlr;
+			iommudata->has_actlr = true;
+		} else if (iommudata->actlr != actlr) {
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
+				struct device *dev)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct qsmmuv500_group_iommudata *iommudata =
+		to_qsmmuv500_group_iommudata(dev->iommu_group);
+	void __iomem *cb_base;
+	const struct iommu_gather_ops *tlb;
+
+	if (!iommudata->has_actlr)
+		return;
+
+	tlb = smmu_domain->pgtbl_cfg.tlb;
+	cb_base = ARM_SMMU_CB_BASE(smmu) +
+			ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
+
+	writel_relaxed(iommudata->actlr, cb_base + ARM_SMMU_CB_ACTLR);
+
+	/*
+	 * Prefetch only works properly if the start and end of all
+	 * buffers in the page table are aligned to 16 Kb.
+	 */
+	if ((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &
+			QSMMUV500_ACTLR_DEEP_PREFETCH_MASK)
+		smmu_domain->qsmmuv500_errata2_min_align = true;
+
+	/*
+	 * Flush the context bank after modifying ACTLR to ensure there
+	 * are no cache entries with stale state
+	 */
+	tlb->tlb_flush_all(smmu_domain);
+}
+
 static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
 {
 	struct arm_smmu_device *smmu = cookie;
@@ -4345,6 +5223,70 @@ static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
 	return 0;
 }
 
+static int qsmmuv500_parse_errata1(struct arm_smmu_device *smmu)
+{
+	int len, i;
+	struct device *dev = smmu->dev;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct arm_smmu_smr *smrs;
+	const __be32 *cell;
+
+	cell = of_get_property(dev->of_node, "qcom,mmu500-errata-1", NULL);
+	if (!cell)
+		return 0;
+
+	remote_spin_lock_init(&data->errata1_lock, ERRATA1_REMOTE_SPINLOCK);
+	len = of_property_count_elems_of_size(
+			dev->of_node, "qcom,mmu500-errata-1", sizeof(u32) * 2);
+	if (len < 0)
+		return 0;
+
+	smrs = devm_kzalloc(dev, sizeof(*smrs) * len, GFP_KERNEL);
+	if (!smrs)
+		return -ENOMEM;
+
+	for (i = 0; i < len; i++) {
+		smrs[i].id = of_read_number(cell++, 1);
+		smrs[i].mask = of_read_number(cell++, 1);
+	}
+
+	data->errata1_clients = smrs;
+	data->num_errata1_clients = len;
+	return 0;
+}
+
+static int qsmmuv500_read_actlr_tbl(struct arm_smmu_device *smmu)
+{
+	int len, i;
+	struct device *dev = smmu->dev;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct actlr_setting *actlrs;
+	const __be32 *cell;
+
+	cell = of_get_property(dev->of_node, "qcom,actlr", NULL);
+	if (!cell)
+		return 0;
+
+	len = of_property_count_elems_of_size(dev->of_node, "qcom,actlr",
+						sizeof(u32) * 3);
+	if (len < 0)
+		return 0;
+
+	actlrs = devm_kzalloc(dev, sizeof(*actlrs) * len, GFP_KERNEL);
+	if (!actlrs)
+		return -ENOMEM;
+
+	for (i = 0; i < len; i++) {
+		actlrs[i].smr.id = of_read_number(cell++, 1);
+		actlrs[i].smr.mask = of_read_number(cell++, 1);
+		actlrs[i].actlr = of_read_number(cell++, 1);
+	}
+
+	data->actlrs = actlrs;
+	data->actlr_tbl_size = len;
+	return 0;
+}
+
 static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 {
 	struct resource *res;
@@ -4352,6 +5294,8 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	struct qsmmuv500_archdata *data;
 	struct platform_device *pdev;
 	int ret;
+	u32 val;
+	void __iomem *reg;
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -4368,6 +5312,29 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
 	smmu->archdata = data;
 
+	if (arm_smmu_is_static_cb(smmu))
+		return 0;
+
+	ret = qsmmuv500_parse_errata1(smmu);
+	if (ret)
+		return ret;
+
+	ret = qsmmuv500_read_actlr_tbl(smmu);
+	if (ret)
+		return ret;
+
+	reg = ARM_SMMU_GR0(smmu);
+	val = readl_relaxed(reg + ARM_SMMU_GR0_sACR);
+	val &= ~ARM_MMU500_ACR_CACHE_LOCK;
+	writel_relaxed(val, reg + ARM_SMMU_GR0_sACR);
+	val = readl_relaxed(reg + ARM_SMMU_GR0_sACR);
+	/*
+	 * Modifiying the nonsecure copy of the sACR register is only
+	 * allowed if permission is given in the secure sACR register.
+	 * Attempt to detect if we were able to update the value.
+	 */
+	WARN_ON(val & ARM_MMU500_ACR_CACHE_LOCK);
+
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (ret)
 		return ret;
@@ -4382,8 +5349,9 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
 	.init = qsmmuv500_arch_init,
-	.device_reset = qsmmuv500_device_reset,
 	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
+	.init_context_bank = qsmmuv500_init_cb,
+	.device_group = qsmmuv500_device_group,
 };
 
 static const struct of_device_id qsmmuv500_tbu_of_match[] = {

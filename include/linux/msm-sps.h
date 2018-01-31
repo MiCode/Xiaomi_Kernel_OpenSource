@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -430,7 +430,7 @@ struct sps_bam_props {
 
 	u32 options;
 	phys_addr_t phys_addr;
-	void *virt_addr;
+	void __iomem *virt_addr;
 	u32 virt_size;
 	u32 irq;
 	u32 num_pipes;

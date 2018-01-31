@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,6 +219,11 @@ static struct qpnp_vadc_scale_fn vadc_scale_fn[] = {
 	[SCALE_NCP_03WF683_THERM] = {qpnp_adc_scale_therm_ncp03},
 	[SCALE_QRD_SKUT1_BATT_THERM] = {qpnp_adc_scale_qrd_skut1_batt_therm},
 	[SCALE_PMI_CHG_TEMP] = {qpnp_adc_scale_pmi_chg_temp},
+	[SCALE_BATT_THERM_TEMP] = {qpnp_adc_batt_therm},
+	[SCALE_CHRG_TEMP] = {qpnp_adc_scale_chrg_temp},
+	[SCALE_DIE_TEMP] = {qpnp_adc_scale_die_temp},
+	[SCALE_I_DEFAULT] = {qpnp_iadc_scale_default},
+	[SCALE_USBIN_I] = {qpnp_adc_scale_usbin_curr},
 };
 
 static struct qpnp_vadc_rscale_fn adc_vadc_rscale_fn[] = {
@@ -2618,6 +2623,7 @@ static int32_t qpnp_vadc_init_thermal(struct qpnp_vadc_chip *vadc,
 				&qpnp_vadc_thermal_ops);
 			if (IS_ERR(vadc->vadc_therm_chan[i].tz_dev)) {
 				pr_err("thermal device register failed.\n");
+				rc = PTR_ERR(vadc->vadc_therm_chan[i].tz_dev);
 				goto thermal_err_sens;
 			}
 		}

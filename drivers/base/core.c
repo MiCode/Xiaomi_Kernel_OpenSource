@@ -1116,13 +1116,7 @@ int device_add(struct device *dev)
 	error = dpm_sysfs_add(dev);
 	if (error)
 		goto DPMError;
-	if ((dev->pm_domain) || (dev->type && dev->type->pm)
-		|| (dev->class && (dev->class->pm || dev->class->resume))
-		|| (dev->bus && (dev->bus->pm || dev->bus->resume)) ||
-		(dev->driver && dev->driver->pm)) {
-		device_pm_add(dev);
-	}
-
+	device_pm_add(dev);
 
 	if (MAJOR(dev->devt)) {
 		error = device_create_file(dev, &dev_attr_dev);
@@ -2106,7 +2100,11 @@ void device_shutdown(void)
 		pm_runtime_get_noresume(dev);
 		pm_runtime_barrier(dev);
 
-		if (dev->bus && dev->bus->shutdown) {
+		if (dev->class && dev->class->shutdown) {
+			if (initcall_debug)
+				dev_info(dev, "shutdown\n");
+			dev->class->shutdown(dev);
+		} else if (dev->bus && dev->bus->shutdown) {
 			if (initcall_debug)
 				dev_info(dev, "shutdown\n");
 			dev->bus->shutdown(dev);

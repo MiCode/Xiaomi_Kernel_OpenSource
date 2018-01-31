@@ -137,6 +137,8 @@ struct shared_info xen_dummy_shared_info;
 void *xen_initial_gdt;
 
 RESERVE_BRK(shared_info_page_brk, PAGE_SIZE);
+__read_mostly int xen_have_vector_callback;
+EXPORT_SYMBOL_GPL(xen_have_vector_callback);
 
 static int xen_cpu_up_prepare(unsigned int cpu);
 static int xen_cpu_up_online(unsigned int cpu);
@@ -441,6 +443,12 @@ static void __init xen_init_cpuid_mask(void)
 	cpuid_leaf1_edx_mask =
 		~((1 << X86_FEATURE_MTRR) |  /* disable MTRR */
 		  (1 << X86_FEATURE_ACC));   /* thermal monitoring */
+
+	/*
+	 * Xen PV would need some work to support PCID: CR3 handling as well
+	 * as xen_flush_tlb_others() would need updating.
+	 */
+	cpuid_leaf1_ecx_mask &= ~(1 << (X86_FEATURE_PCID % 32));  /* disable PCID */
 
 	if (!xen_initial_domain())
 		cpuid_leaf1_edx_mask &=
@@ -1521,7 +1529,10 @@ static void __init xen_pvh_early_guest_init(void)
 	if (!xen_feature(XENFEAT_auto_translated_physmap))
 		return;
 
-	BUG_ON(!xen_feature(XENFEAT_hvm_callback_vector));
+	if (!xen_feature(XENFEAT_hvm_callback_vector))
+		return;
+
+	xen_have_vector_callback = 1;
 
 	xen_pvh_early_cpu_init(0, false);
 	xen_pvh_set_cr_flags(0);
@@ -1860,7 +1871,9 @@ static int xen_cpu_up_prepare(unsigned int cpu)
 		xen_vcpu_setup(cpu);
 	}
 
-	if (xen_pv_domain() || xen_feature(XENFEAT_hvm_safe_pvclock))
+	if (xen_pv_domain() ||
+	    (xen_have_vector_callback &&
+	     xen_feature(XENFEAT_hvm_safe_pvclock)))
 		xen_setup_timer(cpu);
 
 	rc = xen_smp_intr_init(cpu);
@@ -1876,7 +1889,9 @@ static int xen_cpu_dead(unsigned int cpu)
 {
 	xen_smp_intr_free(cpu);
 
-	if (xen_pv_domain() || xen_feature(XENFEAT_hvm_safe_pvclock))
+	if (xen_pv_domain() ||
+	    (xen_have_vector_callback &&
+	     xen_feature(XENFEAT_hvm_safe_pvclock)))
 		xen_teardown_timer(cpu);
 
 	return 0;
@@ -1915,8 +1930,8 @@ static void __init xen_hvm_guest_init(void)
 
 	xen_panic_handler_init();
 
-	BUG_ON(!xen_feature(XENFEAT_hvm_callback_vector));
-
+	if (xen_feature(XENFEAT_hvm_callback_vector))
+		xen_have_vector_callback = 1;
 	xen_hvm_smp_init();
 	WARN_ON(xen_cpuhp_setup());
 	xen_unplug_emulated_devices();
@@ -1954,7 +1969,7 @@ bool xen_hvm_need_lapic(void)
 		return false;
 	if (!xen_hvm_domain())
 		return false;
-	if (xen_feature(XENFEAT_hvm_pirqs))
+	if (xen_feature(XENFEAT_hvm_pirqs) && xen_have_vector_callback)
 		return false;
 	return true;
 }

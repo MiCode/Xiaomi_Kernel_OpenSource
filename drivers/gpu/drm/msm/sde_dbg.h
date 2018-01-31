@@ -17,7 +17,8 @@
 #include <linux/debugfs.h>
 #include <linux/list.h>
 
-#define SDE_EVTLOG_DATA_LIMITER	(-1)
+/* select an uncommon hex value for the limiter */
+#define SDE_EVTLOG_DATA_LIMITER	(0xC0DEBEEF)
 #define SDE_EVTLOG_FUNC_ENTRY	0x1111
 #define SDE_EVTLOG_FUNC_EXIT	0x2222
 #define SDE_EVTLOG_FUNC_CASE1	0x3333
@@ -25,8 +26,14 @@
 #define SDE_EVTLOG_FUNC_CASE3	0x5555
 #define SDE_EVTLOG_FUNC_CASE4	0x6666
 #define SDE_EVTLOG_FUNC_CASE5	0x7777
+#define SDE_EVTLOG_FUNC_CASE6	0x8888
+#define SDE_EVTLOG_FUNC_CASE7	0x9999
+#define SDE_EVTLOG_FUNC_CASE8	0xaaaa
+#define SDE_EVTLOG_FUNC_CASE9	0xbbbb
+#define SDE_EVTLOG_FUNC_CASE10	0xcccc
 #define SDE_EVTLOG_PANIC	0xdead
 #define SDE_EVTLOG_FATAL	0xbad
+#define SDE_EVTLOG_ERROR	0xebad
 
 #define SDE_DBG_DUMP_DATA_LIMITER (NULL)
 
@@ -60,7 +67,7 @@ enum sde_dbg_dump_flag {
  * number must be greater than print entry to prevent out of bound evtlog
  * entry array access.
  */
-#define SDE_EVTLOG_ENTRY	(SDE_EVTLOG_PRINT_ENTRY * 4)
+#define SDE_EVTLOG_ENTRY	(SDE_EVTLOG_PRINT_ENTRY * 8)
 #define SDE_EVTLOG_MAX_DATA 15
 #define SDE_EVTLOG_BUF_MAX 512
 #define SDE_EVTLOG_BUF_ALIGN 32
@@ -81,12 +88,14 @@ struct sde_dbg_evtlog_log {
 };
 
 /**
+ * @last_dump: Index of last entry to be output during evtlog dumps
  * @filter_list: Linked list of currently active filter strings
  */
 struct sde_dbg_evtlog {
 	struct sde_dbg_evtlog_log logs[SDE_EVTLOG_ENTRY];
 	u32 first;
 	u32 last;
+	u32 last_dump;
 	u32 curr;
 	u32 next;
 	u32 enable;
@@ -142,6 +151,13 @@ extern struct sde_dbg_evtlog *sde_dbg_base_evtlog;
 #define SDE_DBG_DUMP_WQ(...) sde_dbg_dump(true, __func__, ##__VA_ARGS__, \
 		SDE_DBG_DUMP_DATA_LIMITER)
 
+/**
+ * SDE_DBG_EVT_CTRL - trigger a different driver events
+ *  event: event that trigger different behavior in the driver
+ */
+#define SDE_DBG_CTRL(...) sde_dbg_ctrl(__func__, ##__VA_ARGS__, \
+		SDE_DBG_DUMP_DATA_LIMITER)
+
 #if defined(CONFIG_DEBUG_FS)
 
 /**
@@ -191,10 +207,12 @@ bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog, u32 flag);
  * @evtlog:		pointer to evtlog
  * @evtlog_buf:		target buffer to print into
  * @evtlog_buf_size:	size of target buffer
+ * @update_last_entry:	whether or not to stop at most recent entry
  * Returns:		number of bytes written to buffer
  */
 ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
-		char *evtlog_buf, ssize_t evtlog_buf_size);
+		char *evtlog_buf, ssize_t evtlog_buf_size,
+		bool update_last_entry);
 
 /**
  * sde_dbg_init_dbg_buses - initialize debug bus dumping support for the chipset
@@ -238,6 +256,15 @@ void sde_dbg_destroy(void);
 void sde_dbg_dump(bool queue_work, const char *name, ...);
 
 /**
+ * sde_dbg_ctrl - trigger specific actions for the driver with debugging
+ *		purposes. Those actions need to be enabled by the debugfs entry
+ *		so the driver executes those actions in the corresponding calls.
+ * @va_args:	list of actions to trigger
+ * Returns:	none
+ */
+void sde_dbg_ctrl(const char *name, ...);
+
+/**
  * sde_dbg_reg_register_base - register a hw register address section for later
  *	dumping. call this before calling sde_dbg_reg_register_dump_range
  *	to be able to specify sub-ranges within the base hw range.
@@ -248,6 +275,26 @@ void sde_dbg_dump(bool queue_work, const char *name, ...);
  */
 int sde_dbg_reg_register_base(const char *name, void __iomem *base,
 		size_t max_offset);
+
+/**
+ * sde_dbg_reg_register_cb - register a hw register callback for later
+ *	dumping.
+ * @name:	name of base region
+ * @cb:		callback of external region
+ * @cb_ptr:	private pointer of external region
+ * Returns:	0 or -ERROR
+ */
+int sde_dbg_reg_register_cb(const char *name, void (*cb)(void *), void *ptr);
+
+/**
+ * sde_dbg_reg_unregister_cb - register a hw unregister callback for later
+ *	dumping.
+ * @name:	name of base region
+ * @cb:		callback of external region
+ * @cb_ptr:	private pointer of external region
+ * Returns:	None
+ */
+void sde_dbg_reg_unregister_cb(const char *name, void (*cb)(void *), void *ptr);
 
 /**
  * sde_dbg_reg_register_dump_range - register a hw register sub-region for
@@ -289,6 +336,17 @@ void sde_evtlog_set_filter(struct sde_dbg_evtlog *evtlog, char *filter);
 int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog, int index,
 		char *buf, size_t bufsz);
 
+/**
+ * sde_rsc_debug_dump - sde rsc debug dump status
+ * @mux_sel:	select mux on rsc debug bus
+ */
+void sde_rsc_debug_dump(u32 mux_sel);
+
+/**
+ * dsi_ctrl_debug_dump - dump dsi debug dump status
+ */
+void dsi_ctrl_debug_dump(void);
+
 #else
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
 {
@@ -315,7 +373,8 @@ static inline bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog,
 }
 
 static inline ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
-		char *evtlog_buf, ssize_t evtlog_buf_size)
+		char *evtlog_buf, ssize_t evtlog_buf_size,
+		bool update_last_entry)
 {
 	return 0;
 }
@@ -340,6 +399,10 @@ static inline void sde_dbg_destroy(void)
 }
 
 static inline void sde_dbg_dump(bool queue_work, const char *name, ...)
+{
+}
+
+static inline void sde_dbg_ctrl(const char *name, ...)
 {
 }
 
@@ -368,6 +431,14 @@ static inline int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog,
 		int index, char *buf, size_t bufsz)
 {
 	return -EINVAL;
+}
+
+static inline void sde_rsc_debug_dump(u32 mux_sel)
+{
+}
+
+static inline void dsi_ctrl_debug_dump(void)
+{
 }
 
 #endif /* defined(CONFIG_DEBUG_FS) */

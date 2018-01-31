@@ -40,6 +40,8 @@
  * that the KGSL module believes a device is idle (has been inactive	*
  * past its timer) and all system resources are released.  SUSPEND is	*
  * requested by the kernel and will be enforced upon all open devices.	*
+ * RESET indicates that GPU or GMU hang happens. KGSL is handling	*
+ * snapshot or recover GPU from hang.					*
  */
 
 #define KGSL_STATE_NONE		0x00000000
@@ -49,6 +51,7 @@
 #define KGSL_STATE_SUSPEND	0x00000010
 #define KGSL_STATE_AWARE	0x00000020
 #define KGSL_STATE_SLUMBER	0x00000080
+#define KGSL_STATE_RESET	0x00000100
 
 /**
  * enum kgsl_event_results - result codes passed to an event callback when the
@@ -80,8 +83,14 @@ enum kgsl_event_results {
 	{ KGSL_CONTEXT_PER_CONTEXT_TS, "PER_CONTEXT_TS" }, \
 	{ KGSL_CONTEXT_USER_GENERATED_TS, "USER_TS" }, \
 	{ KGSL_CONTEXT_NO_FAULT_TOLERANCE, "NO_FT" }, \
+	{ KGSL_CONTEXT_INVALIDATE_ON_FAULT, "INVALIDATE_ON_FAULT" }, \
 	{ KGSL_CONTEXT_PWR_CONSTRAINT, "PWR" }, \
-	{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" }
+	{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" }, \
+	{ KGSL_CONTEXT_IFH_NOP, "IFH_NOP" }, \
+	{ KGSL_CONTEXT_SECURE, "SECURE" }, \
+	{ KGSL_CONTEXT_NO_SNAPSHOT, "NO_SNAPSHOT" }, \
+	{ KGSL_CONTEXT_SPARSE, "SPARSE" }
+
 
 #define KGSL_CONTEXT_TYPES \
 	{ KGSL_CONTEXT_TYPE_ANY, "ANY" }, \
@@ -142,6 +151,8 @@ struct kgsl_functable {
 	unsigned int (*gpuid)(struct kgsl_device *device, unsigned int *chipid);
 	void (*snapshot)(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot, struct kgsl_context *context);
+	void (*snapshot_gmu)(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot);
 	irqreturn_t (*irq_handler)(struct kgsl_device *device);
 	int (*drain)(struct kgsl_device *device);
 	/*
@@ -175,7 +186,7 @@ struct kgsl_functable {
 		unsigned int prelevel, unsigned int postlevel, bool post);
 	void (*regulator_disable_poll)(struct kgsl_device *device);
 	void (*clk_set_options)(struct kgsl_device *device,
-		const char *name, struct clk *clk);
+		const char *name, struct clk *clk, bool on);
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
 	void (*stop_fault_timer)(struct kgsl_device *device);
@@ -265,6 +276,11 @@ struct kgsl_device {
 	struct kgsl_pwrctrl pwrctrl;
 	int open_count;
 
+	/* For GPU inline submission */
+	uint32_t submit_now;
+	spinlock_t submit_lock;
+	bool slumber;
+
 	struct mutex mutex;
 	uint32_t state;
 	uint32_t requested_state;
@@ -290,6 +306,8 @@ struct kgsl_device {
 
 	/* Use CP Crash dumper to get GPU snapshot*/
 	bool snapshot_crashdumper;
+	/* Use HOST side register reads to get GPU snapshot*/
+	bool snapshot_legacy;
 
 	struct kobject snapshot_kobj;
 
@@ -372,6 +390,8 @@ struct kgsl_process_private;
  * @pwr_constraint: power constraint from userspace for this context
  * @fault_count: number of times gpu hanged in last _context_throttle_time ms
  * @fault_time: time of the first gpu hang in last _context_throttle_time ms
+ * @user_ctxt_record: memory descriptor used by CP to save/restore VPC data
+ * across preemption
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -389,6 +409,7 @@ struct kgsl_context {
 	struct kgsl_pwr_constraint pwr_constraint;
 	unsigned int fault_count;
 	unsigned long fault_time;
+	struct kgsl_mem_entry *user_ctxt_record;
 };
 
 #define _context_comm(_c) \
@@ -420,6 +441,7 @@ struct kgsl_context {
  * @syncsource_idr: sync sources created by this process
  * @syncsource_lock: Spinlock to protect the syncsource idr
  * @fd_count: Counter for the number of FDs for this process
+ * @ctxt_count: Count for the number of contexts for this process
  */
 struct kgsl_process_private {
 	unsigned long priv;
@@ -439,6 +461,7 @@ struct kgsl_process_private {
 	struct idr syncsource_idr;
 	spinlock_t syncsource_lock;
 	int fd_count;
+	atomic_t ctxt_count;
 };
 
 /**
@@ -474,7 +497,10 @@ struct kgsl_device_private {
  * @work: worker to dump the frozen memory
  * @dump_gate: completion gate signaled by worker when it is finished.
  * @process: the process that caused the hang, if known.
- * @sysfs_read: An atomic for concurrent snapshot reads via syfs.
+ * @sysfs_read: Count of current reads via sysfs
+ * @first_read: True until the snapshot read is started
+ * @gmu_fault: Snapshot collected when GMU fault happened
+ * @recovered: True if GPU was recovered after previous snapshot
  */
 struct kgsl_snapshot {
 	uint64_t ib1base;
@@ -495,7 +521,10 @@ struct kgsl_snapshot {
 	struct work_struct work;
 	struct completion dump_gate;
 	struct kgsl_process_private *process;
-	atomic_t sysfs_read;
+	unsigned int sysfs_read;
+	bool first_read;
+	bool gmu_fault;
+	bool recovered;
 };
 
 /**
@@ -526,18 +555,49 @@ static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
 		priv->stats[type].max = priv->stats[type].cur;
 }
 
+static inline bool kgsl_is_register_offset(struct kgsl_device *device,
+				unsigned int offsetwords)
+{
+	return ((offsetwords * sizeof(uint32_t)) < device->reg_len);
+}
+
+static inline bool kgsl_is_gmu_offset(struct kgsl_device *device,
+				unsigned int offsetwords)
+{
+	struct gmu_device *gmu = &device->gmu;
+
+	return (gmu->pdev &&
+		(offsetwords >= gmu->gmu2gpu_offset) &&
+		((offsetwords - gmu->gmu2gpu_offset) * sizeof(uint32_t) <
+			gmu->reg_len));
+}
+
 static inline void kgsl_regread(struct kgsl_device *device,
 				unsigned int offsetwords,
 				unsigned int *value)
 {
-	device->ftbl->regread(device, offsetwords, value);
+	if (kgsl_is_register_offset(device, offsetwords))
+		device->ftbl->regread(device, offsetwords, value);
+	else if (device->ftbl->gmu_regread &&
+			kgsl_is_gmu_offset(device, offsetwords))
+		device->ftbl->gmu_regread(device, offsetwords, value);
+	else {
+		WARN(1, "Out of bounds register read: 0x%x\n", offsetwords);
+		*value = 0;
+	}
 }
 
 static inline void kgsl_regwrite(struct kgsl_device *device,
 				 unsigned int offsetwords,
 				 unsigned int value)
 {
-	device->ftbl->regwrite(device, offsetwords, value);
+	if (kgsl_is_register_offset(device, offsetwords))
+		device->ftbl->regwrite(device, offsetwords, value);
+	else if (device->ftbl->gmu_regwrite &&
+			kgsl_is_gmu_offset(device, offsetwords))
+		device->ftbl->gmu_regwrite(device, offsetwords, value);
+	else
+		WARN(1, "Out of bounds register write: 0x%x\n", offsetwords);
 }
 
 static inline void kgsl_gmu_regread(struct kgsl_device *device,
@@ -547,7 +607,7 @@ static inline void kgsl_gmu_regread(struct kgsl_device *device,
 	if (device->ftbl->gmu_regread)
 		device->ftbl->gmu_regread(device, offsetwords, value);
 	else
-		*value = 0xDEADBEEF;
+		*value = 0;
 }
 
 static inline void kgsl_gmu_regwrite(struct kgsl_device *device,
@@ -564,9 +624,9 @@ static inline void kgsl_regrmw(struct kgsl_device *device,
 {
 	unsigned int val = 0;
 
-	device->ftbl->regread(device, offsetwords, &val);
+	kgsl_regread(device, offsetwords, &val);
 	val &= ~mask;
-	device->ftbl->regwrite(device, offsetwords, val | bits);
+	kgsl_regwrite(device, offsetwords, val | bits);
 }
 
 static inline void kgsl_gmu_regrmw(struct kgsl_device *device,
@@ -624,8 +684,13 @@ static inline struct kgsl_device *kgsl_device_from_dev(struct device *dev)
 
 static inline int kgsl_state_is_awake(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = &device->gmu;
+
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
+		return true;
+	else if (kgsl_gmu_isenabled(device) &&
+			test_bit(GMU_CLK_ON, &gmu->flags))
 		return true;
 	else
 		return false;
@@ -645,12 +710,13 @@ const char *kgsl_pwrstate_to_str(unsigned int state);
 
 int kgsl_device_snapshot_init(struct kgsl_device *device);
 void kgsl_device_snapshot(struct kgsl_device *device,
-			struct kgsl_context *context);
+			struct kgsl_context *context, bool gmu_fault);
 void kgsl_device_snapshot_close(struct kgsl_device *device);
-void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
 
 void kgsl_events_init(void);
 void kgsl_events_exit(void);
+
+void kgsl_context_detach(struct kgsl_context *context);
 
 void kgsl_del_event_group(struct kgsl_event_group *group);
 

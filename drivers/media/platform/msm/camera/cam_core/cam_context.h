@@ -13,7 +13,9 @@
 #ifndef _CAM_CONTEXT_H_
 #define _CAM_CONTEXT_H_
 
+#include <linux/mutex.h>
 #include <linux/spinlock.h>
+#include <linux/kref.h>
 #include "cam_req_mgr_interface.h"
 #include "cam_hw_mgr_intf.h"
 
@@ -22,6 +24,8 @@ struct cam_context;
 
 /* max request number */
 #define CAM_CTX_REQ_MAX              20
+#define CAM_CTX_CFG_MAX              20
+#define CAM_CTX_RES_MAX              20
 
 /**
  * enum cam_ctx_state -  context top level states
@@ -43,13 +47,33 @@ enum cam_context_state {
  * @status:                Request status
  * @request_id:            Request id
  * @req_priv:              Derived request object
+ * @hw_update_entries:     Hardware update entries
+ * @num_hw_update_entries: Number of hardware update entries
+ * @in_map_entries:        Entries for in fences
+ * @num_in_map_entries:    Number of in map entries
+ * @out_map_entries:       Entries for out fences
+ * @num_out_map_entries:   Number of out map entries
+ * @num_in_acked:          Number of in fence acked
+ * @num_out_acked:         Number of out fence acked
+ * @flushed:               Request is flushed
+ * @ctx:                   The context to which this request belongs
  *
  */
 struct cam_ctx_request {
-	struct list_head   list;
-	uint32_t           status;
-	uint64_t           request_id;
-	void              *req_priv;
+	struct list_head              list;
+	uint32_t                      status;
+	uint64_t                      request_id;
+	void                          *req_priv;
+	struct cam_hw_update_entry    hw_update_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_hw_update_entries;
+	struct cam_hw_fence_map_entry in_map_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_in_map_entries;
+	struct cam_hw_fence_map_entry out_map_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_out_map_entries;
+	uint32_t                      num_in_acked;
+	uint32_t                      num_out_acked;
+	int                           flushed;
+	struct cam_context           *ctx;
 };
 
 /**
@@ -60,6 +84,7 @@ struct cam_ctx_request {
  * @config_dev:            Function pointer for config device
  * @start_dev:             Function pointer for start device
  * @stop_dev:              Function pointer for stop device
+ * @flush_dev:             Function pointer for flush device
  *
  */
 struct cam_ctx_ioctl_ops {
@@ -73,6 +98,8 @@ struct cam_ctx_ioctl_ops {
 			struct cam_start_stop_dev_cmd *cmd);
 	int (*stop_dev)(struct cam_context *ctx,
 			struct cam_start_stop_dev_cmd *cmd);
+	int (*flush_dev)(struct cam_context *ctx,
+			struct cam_flush_dev_cmd *cmd);
 };
 
 /**
@@ -82,6 +109,7 @@ struct cam_ctx_ioctl_ops {
  * @link:                  Link the context
  * @unlink:                Unlink the context
  * @apply_req:             Apply setting for the context
+ * @flush_req:             Flush request to remove request ids
  *
  */
 struct cam_ctx_crm_ops {
@@ -93,6 +121,8 @@ struct cam_ctx_crm_ops {
 			struct cam_req_mgr_core_dev_link_setup *unlink);
 	int (*apply_req)(struct cam_context *ctx,
 			struct cam_req_mgr_apply_request *apply);
+	int (*flush_req)(struct cam_context *ctx,
+			struct cam_req_mgr_flush_request *flush);
 };
 
 
@@ -113,6 +143,7 @@ struct cam_ctx_ops {
 /**
  * struct cam_context - camera context object for the subdevice node
  *
+ * @dev_name:              String giving name of device associated
  * @list:                  Link list entry
  * @sessoin_hdl:           Session handle
  * @dev_hdl:               Device handle
@@ -132,9 +163,14 @@ struct cam_ctx_ops {
  * @state:                 Current state for top level state machine
  * @state_machine:         Top level state machine
  * @ctx_priv:              Private context pointer
+ * @ctxt_to_hw_map:        Context to hardware mapping pointer
+ * @refcount:              Context object refcount
+ * @node:                  The main node to which this context belongs
+ * @sync_mutex:            mutex to sync with sync cb thread
  *
  */
 struct cam_context {
+	const char                  *dev_name;
 	struct list_head             list;
 	int32_t                      session_hdl;
 	int32_t                      dev_hdl;
@@ -159,64 +195,90 @@ struct cam_context {
 	struct cam_ctx_ops          *state_machine;
 
 	void                        *ctx_priv;
+	void                        *ctxt_to_hw_map;
+
+	struct kref                  refcount;
+	void                        *node;
+	struct mutex                 sync_mutex;
 };
 
 /**
- * cam_context_handle_get_dev_info()
+ * cam_context_shutdown()
+ *
+ * @brief:        Calls while device close or shutdown
+ *
+ * @ctx:          Object pointer for cam_context
+ *
+ */
+int cam_context_shutdown(struct cam_context *ctx);
+
+/**
+ * cam_context_handle_crm_get_dev_info()
  *
  * @brief:        Handle get device information command
  *
- * @ctx:                   Object pointer for cam_context
- * @info:                  Device information returned
+ * @ctx:          Object pointer for cam_context
+ * @info:         Device information returned
  *
  */
-int cam_context_handle_get_dev_info(struct cam_context *ctx,
+int cam_context_handle_crm_get_dev_info(struct cam_context *ctx,
 		struct cam_req_mgr_device_info *info);
 
 /**
- * cam_context_handle_link()
+ * cam_context_handle_crm_link()
  *
  * @brief:        Handle link command
  *
- * @ctx:                   Object pointer for cam_context
- * @link:                  Link command payload
+ * @ctx:          Object pointer for cam_context
+ * @link:         Link command payload
  *
  */
-int cam_context_handle_link(struct cam_context *ctx,
+int cam_context_handle_crm_link(struct cam_context *ctx,
 		struct cam_req_mgr_core_dev_link_setup *link);
 
 /**
- * cam_context_handle_unlink()
+ * cam_context_handle_crm_unlink()
  *
  * @brief:        Handle unlink command
  *
- * @ctx:                   Object pointer for cam_context
- * @unlink:                Unlink command payload
+ * @ctx:          Object pointer for cam_context
+ * @unlink:       Unlink command payload
  *
  */
-int cam_context_handle_unlink(struct cam_context *ctx,
+int cam_context_handle_crm_unlink(struct cam_context *ctx,
 		struct cam_req_mgr_core_dev_link_setup *unlink);
 
 /**
- * cam_context_handle_apply_req()
+ * cam_context_handle_crm_apply_req()
  *
  * @brief:        Handle apply request command
  *
- * @ctx:                   Object pointer for cam_context
- * @apply:                 Apply request command payload
+ * @ctx:          Object pointer for cam_context
+ * @apply:        Apply request command payload
  *
  */
-int cam_context_handle_apply_req(struct cam_context *ctx,
+int cam_context_handle_crm_apply_req(struct cam_context *ctx,
 		struct cam_req_mgr_apply_request *apply);
 
+/**
+ * cam_context_handle_crm_flush_req()
+ *
+ * @brief:        Handle flush request command
+ *
+ * @ctx:          Object pointer for cam_context
+ * @apply:        Flush request command payload
+ *
+ */
+int cam_context_handle_crm_flush_req(struct cam_context *ctx,
+		struct cam_req_mgr_flush_request *apply);
 
 /**
  * cam_context_handle_acquire_dev()
  *
  * @brief:        Handle acquire device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Acquire device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Acquire device command payload
  *
  */
 int cam_context_handle_acquire_dev(struct cam_context *ctx,
@@ -227,8 +289,8 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
  *
  * @brief:        Handle release device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Release device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Release device command payload
  *
  */
 int cam_context_handle_release_dev(struct cam_context *ctx,
@@ -239,20 +301,32 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
  *
  * @brief:        Handle config device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Config device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Config device command payload
  *
  */
 int cam_context_handle_config_dev(struct cam_context *ctx,
 		struct cam_config_dev_cmd *cmd);
 
 /**
+ * cam_context_handle_flush_dev()
+ *
+ * @brief:        Handle flush device command
+ *
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Flush device command payload
+ *
+ */
+int cam_context_handle_flush_dev(struct cam_context *ctx,
+		struct cam_flush_dev_cmd *cmd);
+
+/**
  * cam_context_handle_start_dev()
  *
  * @brief:        Handle start device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Start device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Start device command payload
  *
  */
 int cam_context_handle_start_dev(struct cam_context *ctx,
@@ -263,8 +337,8 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
  *
  * @brief:        Handle stop device command
  *
- * @ctx:                   Object pointer for cam_context
- * @cmd:                   Stop device command payload
+ * @ctx:          Object pointer for cam_context
+ * @cmd:          Stop device command payload
  *
  */
 int cam_context_handle_stop_dev(struct cam_context *ctx,
@@ -275,7 +349,7 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
  *
  * @brief:        Camera context deinitialize function
  *
- * @ctx:                   Object pointer for cam_context
+ * @ctx:          Object pointer for cam_context
  *
  */
 int cam_context_deinit(struct cam_context *ctx);
@@ -286,6 +360,7 @@ int cam_context_deinit(struct cam_context *ctx);
  * @brief:        Camera context initialize function
  *
  * @ctx:                   Object pointer for cam_context
+ * @dev_name:              String giving name of device associated
  * @crm_node_intf:         Function table for crm to context interface
  * @hw_mgr_intf:           Function table for context to hw interface
  * @req_list:              Requests storage
@@ -293,10 +368,30 @@ int cam_context_deinit(struct cam_context *ctx);
  *
  */
 int cam_context_init(struct cam_context *ctx,
+		const char *dev_name,
 		struct cam_req_mgr_kmd_ops *crm_node_intf,
 		struct cam_hw_mgr_intf *hw_mgr_intf,
 		struct cam_ctx_request *req_list,
 		uint32_t req_size);
 
+/**
+ * cam_context_putref()
+ *
+ * @brief:       Put back context reference.
+ *
+ * @ctx:                  Context for which ref is returned
+ *
+ */
+void cam_context_putref(struct cam_context *ctx);
+
+/**
+ * cam_context_getref()
+ *
+ * @brief:       Get back context reference.
+ *
+ * @ctx:                  Context for which ref is taken
+ *
+ */
+void cam_context_getref(struct cam_context *ctx);
 
 #endif  /* _CAM_CONTEXT_H_ */

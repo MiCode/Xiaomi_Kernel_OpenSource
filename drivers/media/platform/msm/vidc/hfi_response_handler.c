@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,9 @@ static enum vidc_status hfi_map_err_status(u32 hfi_err)
 		break;
 	case HFI_ERR_SYS_FATAL:
 		vidc_err = VIDC_ERR_HW_FATAL;
+		break;
+	case HFI_ERR_SYS_NOC_ERROR:
+		vidc_err = VIDC_ERR_NOC_ERROR;
 		break;
 	case HFI_ERR_SYS_VERSION_MISMATCH:
 	case HFI_ERR_SYS_INVALID_PARAMETER:
@@ -110,6 +113,8 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 	struct hfi_profile_level *profile_level;
 	struct hfi_bit_depth *pixel_depth;
 	struct hfi_pic_struct *pic_struct;
+	struct hfi_buffer_requirements *buf_req;
+	struct hfi_index_extradata_input_crop_payload *crop_info;
 	u32 entropy_mode = 0;
 	u8 *data_ptr;
 	int prop_id;
@@ -231,6 +236,41 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 				data_ptr +=
 					sizeof(u32);
 				break;
+			case HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS:
+				data_ptr = data_ptr + sizeof(u32);
+				buf_req =
+					(struct hfi_buffer_requirements *)
+						data_ptr;
+				event_notify.capture_buf_count =
+					buf_req->buffer_count_min;
+				dprintk(VIDC_DBG,
+					"Capture Count : 0x%x\n",
+						event_notify.capture_buf_count);
+				data_ptr +=
+					sizeof(struct hfi_buffer_requirements);
+				break;
+			case HFI_INDEX_EXTRADATA_INPUT_CROP:
+				data_ptr = data_ptr + sizeof(u32);
+				crop_info = (struct
+				hfi_index_extradata_input_crop_payload *)
+						data_ptr;
+				event_notify.crop_data.left = crop_info->left;
+				event_notify.crop_data.top = crop_info->top;
+				event_notify.crop_data.width = crop_info->width;
+				event_notify.crop_data.height =
+					crop_info->height;
+				dprintk(VIDC_DBG,
+					"CROP info : Left = %d Top = %d\n",
+						crop_info->left,
+						crop_info->top);
+				dprintk(VIDC_DBG,
+					"CROP info : Width = %d Height = %d\n",
+						crop_info->width,
+						crop_info->height);
+				data_ptr +=
+					sizeof(struct
+					hfi_index_extradata_input_crop_payload);
+				break;
 			default:
 				dprintk(VIDC_ERR,
 					"%s cmd: %#x not supported\n",
@@ -279,11 +319,14 @@ static int hfi_process_evt_release_buffer_ref(u32 device_id,
 	return 0;
 }
 
-static int hfi_process_sys_error(u32 device_id, struct msm_vidc_cb_info *info)
+static int hfi_process_sys_error(u32 device_id,
+	struct hfi_msg_event_notify_packet *pkt,
+	struct msm_vidc_cb_info *info)
 {
 	struct msm_vidc_cb_cmd_done cmd_done = {0};
 
 	cmd_done.device_id = device_id;
+	cmd_done.status = hfi_map_err_status(pkt->event_data1);
 
 	info->response_type = HAL_SYS_ERROR;
 	info->response.cmd = cmd_done;
@@ -300,26 +343,25 @@ static int hfi_process_session_error(u32 device_id,
 	cmd_done.device_id = device_id;
 	cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
 	cmd_done.status = hfi_map_err_status(pkt->event_data1);
+	info->response.cmd = cmd_done;
 	dprintk(VIDC_INFO, "Received: SESSION_ERROR with event id : %#x %#x\n",
 		pkt->event_data1, pkt->event_data2);
 	switch (pkt->event_data1) {
+	/* Ignore below errors */
 	case HFI_ERR_SESSION_INVALID_SCALE_FACTOR:
-	case HFI_ERR_SESSION_UNSUPPORT_BUFFERTYPE:
-	case HFI_ERR_SESSION_UNSUPPORTED_SETTING:
 	case HFI_ERR_SESSION_UPSCALE_NOT_SUPPORTED:
-		cmd_done.status = VIDC_ERR_NONE;
 		dprintk(VIDC_INFO, "Non Fatal: HFI_EVENT_SESSION_ERROR\n");
 		info->response_type = HAL_RESPONSE_UNUSED;
-		info->response.cmd = cmd_done;
-		return 0;
+		break;
 	default:
 		dprintk(VIDC_ERR,
-			"HFI_EVENT_SESSION_ERROR: data1 %#x, data2 %#x\n",
-			pkt->event_data1, pkt->event_data2);
+			"%s: session %x data1 %#x, data2 %#x\n", __func__,
+			pkt->session_id, pkt->event_data1, pkt->event_data2);
 		info->response_type = HAL_SESSION_ERROR;
-		info->response.cmd = cmd_done;
-		return 0;
+		break;
 	}
+
+	return 0;
 }
 
 static int hfi_process_event_notify(u32 device_id,
@@ -337,7 +379,7 @@ static int hfi_process_event_notify(u32 device_id,
 	case HFI_EVENT_SYS_ERROR:
 		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d, %#x\n",
 			pkt->event_data1, pkt->event_data2);
-		return hfi_process_sys_error(device_id, info);
+		return hfi_process_sys_error(device_id, pkt, info);
 	case HFI_EVENT_SESSION_ERROR:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR[%#x]\n",
 				pkt->session_id);
@@ -738,6 +780,47 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 	return size;
 }
 
+static int copy_profile_caps_to_sessions(struct hfi_profile_level *prof,
+		u32 profile_count, struct msm_vidc_capability *capabilities,
+		u32 num_sessions, u32 codecs, u32 domain)
+{
+	u32 i = 0, j = 0;
+	struct msm_vidc_capability *capability;
+	u32 sess_codec;
+	u32 sess_domain;
+
+	/*
+	 * iterate over num_sessions and copy all the profile capabilities
+	 * to matching sessions.
+	 */
+	for (i = 0; i < num_sessions; i++) {
+		sess_codec = 0;
+		sess_domain = 0;
+		capability = &capabilities[i];
+
+		if (capability->codec)
+			sess_codec =
+				vidc_get_hfi_codec(capability->codec);
+		if (capability->domain)
+			sess_domain =
+				vidc_get_hfi_domain(capability->domain);
+
+		if (!(sess_codec & codecs && sess_domain & domain))
+			continue;
+
+		capability->profile_level.profile_count = profile_count;
+		for (j = 0; j < profile_count; j++) {
+			/* HFI and HAL follow same enums, hence no conversion */
+			capability->profile_level.profile_level[j].profile =
+				prof[j].profile;
+			capability->profile_level.profile_level[j].level =
+				prof[j].level;
+		}
+	}
+
+	return 0;
+}
+
 static int copy_caps_to_sessions(struct hfi_capability_supported *cap,
 		u32 num_caps, struct msm_vidc_capability *capabilities,
 		u32 num_sessions, u32 codecs, u32 domain)
@@ -877,38 +960,25 @@ static enum vidc_status hfi_parse_init_done_properties(
 		}
 		case HFI_PROPERTY_PARAM_PROFILE_LEVEL_SUPPORTED:
 		{
-			struct msm_vidc_capability capability;
-			char *ptr = NULL;
-			u32 count = 0;
-			u32 prof_count = 0;
-			struct hfi_profile_level *prof_level;
 			struct hfi_profile_level_supported *prop =
 				(struct hfi_profile_level_supported *)
 				(data_ptr + next_offset);
 
-			ptr = (char *) &prop->rg_profile_level[0];
-			prof_count = prop->profile_count;
-			next_offset += sizeof(u32);
+			next_offset += sizeof(u32) +
+				prop->profile_count *
+				sizeof(struct hfi_profile_level);
 
-			if (prof_count > MAX_PROFILE_COUNT) {
-				prof_count = MAX_PROFILE_COUNT;
+			if (prop->profile_count > MAX_PROFILE_COUNT) {
+				prop->profile_count = MAX_PROFILE_COUNT;
 				dprintk(VIDC_WARN,
 					"prop count exceeds max profile count\n");
 				break;
 			}
-			while (prof_count) {
-				prof_level = (struct hfi_profile_level *)ptr;
-				capability.
-				profile_level.profile_level[count].profile
-					= prof_level->profile;
-				capability.
-				profile_level.profile_level[count].level
-					= prof_level->level;
-				prof_count--;
-				count++;
-				ptr += sizeof(struct hfi_profile_level);
-				next_offset += sizeof(struct hfi_profile_level);
-			}
+
+			copy_profile_caps_to_sessions(
+					&prop->rg_profile_level[0],
+					prop->profile_count, capabilities,
+					num_sessions, codecs, domain);
 			num_properties--;
 			break;
 		}
@@ -929,6 +999,15 @@ static enum vidc_status hfi_parse_init_done_properties(
 		{
 			next_offset +=
 				sizeof(struct hfi_intra_refresh);
+			num_properties--;
+			break;
+		}
+		case HFI_PROPERTY_TME_VERSION_SUPPORTED:
+		{
+			capabilities->tme_version =
+				*((u32 *)(data_ptr + next_offset));
+			next_offset +=
+				sizeof(u32);
 			num_properties--;
 			break;
 		}
@@ -1037,15 +1116,6 @@ static void hfi_process_sess_get_prop_buf_req(
 	}
 
 	while (req_bytes) {
-		if (hfi_buf_req->buffer_size &&
-			hfi_buf_req->buffer_count_min > hfi_buf_req->
-			buffer_count_actual)
-			dprintk(VIDC_WARN,
-				"Bad buffer requirements for %#x: min %d, actual %d\n",
-				hfi_buf_req->buffer_type,
-				hfi_buf_req->buffer_count_min,
-				hfi_buf_req->buffer_count_actual);
-
 		dprintk(VIDC_DBG, "got buffer requirements for: %d\n",
 					hfi_buf_req->buffer_type);
 		switch (hfi_buf_req->buffer_type) {
@@ -1082,19 +1152,19 @@ static void hfi_process_sess_get_prop_buf_req(
 			buffreq->buffer[5].buffer_type =
 				HAL_BUFFER_EXTRADATA_OUTPUT2;
 			break;
-		case HFI_BUFFER_INTERNAL_SCRATCH:
+		case HFI_BUFFER_COMMON_INTERNAL_SCRATCH:
 			memcpy(&buffreq->buffer[6], hfi_buf_req,
 			sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[6].buffer_type =
 				HAL_BUFFER_INTERNAL_SCRATCH;
 			break;
-		case HFI_BUFFER_INTERNAL_SCRATCH_1:
+		case HFI_BUFFER_COMMON_INTERNAL_SCRATCH_1:
 			memcpy(&buffreq->buffer[7], hfi_buf_req,
 				sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[7].buffer_type =
 				HAL_BUFFER_INTERNAL_SCRATCH_1;
 			break;
-		case HFI_BUFFER_INTERNAL_SCRATCH_2:
+		case HFI_BUFFER_COMMON_INTERNAL_SCRATCH_2:
 			memcpy(&buffreq->buffer[8], hfi_buf_req,
 				sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[8].buffer_type =
@@ -1111,6 +1181,12 @@ static void hfi_process_sess_get_prop_buf_req(
 				sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[10].buffer_type =
 				HAL_BUFFER_INTERNAL_PERSIST_1;
+			break;
+		case HFI_BUFFER_COMMON_INTERNAL_RECON:
+			memcpy(&buffreq->buffer[11], hfi_buf_req,
+			sizeof(struct hfi_buffer_requirements));
+			buffreq->buffer[11].buffer_type =
+				HAL_BUFFER_INTERNAL_RECON;
 			break;
 		default:
 			dprintk(VIDC_ERR,
@@ -1283,12 +1359,17 @@ static int hfi_process_session_etb_done(u32 device_id,
 	data_done.status = hfi_map_err_status(pkt->error_type);
 	data_done.size = sizeof(struct msm_vidc_cb_data_done);
 	data_done.clnt_data = pkt->input_tag;
+	data_done.input_done.recon_stats.buffer_index =
+		pkt->ubwc_cr_stats.frame_index;
+	memcpy(&data_done.input_done.recon_stats.ubwc_stats_info,
+		&pkt->ubwc_cr_stats.ubwc_stats_info,
+		sizeof(data_done.input_done.recon_stats.ubwc_stats_info));
+	data_done.input_done.recon_stats.complexity_number =
+		pkt->ubwc_cr_stats.complexity_number;
 	data_done.input_done.offset = pkt->offset;
 	data_done.input_done.filled_len = pkt->filled_len;
-	data_done.input_done.packet_buffer =
-		(ion_phys_addr_t)pkt->packet_buffer;
-	data_done.input_done.extra_data_buffer =
-		(ion_phys_addr_t)pkt->extra_data_buffer;
+	data_done.input_done.packet_buffer = pkt->packet_buffer;
+	data_done.input_done.extra_data_buffer = pkt->extra_data_buffer;
 	data_done.input_done.status =
 		hfi_map_err_status(pkt->error_type);
 	hfi_picture_type = (struct hfi_picture_type *)&pkt->rgData[0];
@@ -1369,10 +1450,9 @@ static int hfi_process_session_ftb_done(
 		data_done.output_done.alloc_len1 = pkt->alloc_len;
 		data_done.output_done.filled_len1 = pkt->filled_len;
 		data_done.output_done.picture_type = pkt->picture_type;
-		data_done.output_done.packet_buffer1 =
-			(ion_phys_addr_t)pkt->packet_buffer;
+		data_done.output_done.packet_buffer1 = pkt->packet_buffer;
 		data_done.output_done.extra_data_buffer =
-			(ion_phys_addr_t)pkt->extra_data_buffer;
+			pkt->extra_data_buffer;
 		data_done.output_done.buffer_type = HAL_BUFFER_OUTPUT;
 	} else /* if (is_decoder) */ {
 		struct hfi_msg_session_fbd_uncompressed_plane0_packet *pkt =

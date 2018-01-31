@@ -243,12 +243,15 @@ qla2x00_sysfs_read_optrom(struct file *filp, struct kobject *kobj,
 	struct qla_hw_data *ha = vha->hw;
 	ssize_t rval = 0;
 
-	if (ha->optrom_state != QLA_SREADING)
-		return 0;
-
 	mutex_lock(&ha->optrom_mutex);
+
+	if (ha->optrom_state != QLA_SREADING)
+		goto out;
+
 	rval = memory_read_from_buffer(buf, count, &off, ha->optrom_buffer,
 	    ha->optrom_region_size);
+
+out:
 	mutex_unlock(&ha->optrom_mutex);
 
 	return rval;
@@ -263,14 +266,19 @@ qla2x00_sysfs_write_optrom(struct file *filp, struct kobject *kobj,
 	    struct device, kobj)));
 	struct qla_hw_data *ha = vha->hw;
 
-	if (ha->optrom_state != QLA_SWRITING)
+	mutex_lock(&ha->optrom_mutex);
+
+	if (ha->optrom_state != QLA_SWRITING) {
+		mutex_unlock(&ha->optrom_mutex);
 		return -EINVAL;
-	if (off > ha->optrom_region_size)
+	}
+	if (off > ha->optrom_region_size) {
+		mutex_unlock(&ha->optrom_mutex);
 		return -ERANGE;
+	}
 	if (off + count > ha->optrom_region_size)
 		count = ha->optrom_region_size - off;
 
-	mutex_lock(&ha->optrom_mutex);
 	memcpy(&ha->optrom_buffer[off], buf, count);
 	mutex_unlock(&ha->optrom_mutex);
 
@@ -310,6 +318,8 @@ qla2x00_sysfs_write_optrom_ctl(struct file *filp, struct kobject *kobj,
 		return -EINVAL;
 	if (start > ha->optrom_size)
 		return -EINVAL;
+	if (size > ha->optrom_size - start)
+		size = ha->optrom_size - start;
 
 	mutex_lock(&ha->optrom_mutex);
 	switch (val) {
@@ -335,8 +345,7 @@ qla2x00_sysfs_write_optrom_ctl(struct file *filp, struct kobject *kobj,
 		}
 
 		ha->optrom_region_start = start;
-		ha->optrom_region_size = start + size > ha->optrom_size ?
-		    ha->optrom_size - start : size;
+		ha->optrom_region_size = start + size;
 
 		ha->optrom_state = QLA_SREADING;
 		ha->optrom_buffer = vmalloc(ha->optrom_region_size);
@@ -409,8 +418,7 @@ qla2x00_sysfs_write_optrom_ctl(struct file *filp, struct kobject *kobj,
 		}
 
 		ha->optrom_region_start = start;
-		ha->optrom_region_size = start + size > ha->optrom_size ?
-		    ha->optrom_size - start : size;
+		ha->optrom_region_size = start + size;
 
 		ha->optrom_state = QLA_SWRITING;
 		ha->optrom_buffer = vmalloc(ha->optrom_region_size);

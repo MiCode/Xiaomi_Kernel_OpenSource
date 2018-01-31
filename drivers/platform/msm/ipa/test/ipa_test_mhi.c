@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -326,6 +326,7 @@ struct ipa_test_mhi_context {
 	struct ipa_mem_buffer out_buffer;
 	u32 prod_hdl;
 	u32 cons_hdl;
+	u32 test_prod_hdl;
 };
 
 static struct ipa_test_mhi_context *test_mhi_ctx;
@@ -611,7 +612,8 @@ static int ipa_mhi_test_config_channel_context(
 		p_events[ev_ring_idx].rp =
 			(u32)event_ring_bufs[ev_ring_idx].phys_base;
 		p_events[ev_ring_idx].wp =
-			(u32)event_ring_bufs[ev_ring_idx].phys_base;
+			(u32)event_ring_bufs[ev_ring_idx].phys_base +
+			event_ring_bufs[ev_ring_idx].size - 16;
 	} else {
 		IPA_UT_LOG("Skip configuring event ring - already done\n");
 	}
@@ -774,6 +776,7 @@ fail_destroy_out_ch_ctx:
 static int ipa_test_mhi_suite_setup(void **ppriv)
 {
 	int rc = 0;
+	struct ipa_sys_connect_params sys_in;
 
 	IPA_UT_DBG("Start Setup\n");
 
@@ -815,9 +818,22 @@ static int ipa_test_mhi_suite_setup(void **ppriv)
 		goto fail_free_mmio_spc;
 	}
 
+	/* connect PROD pipe for remote wakeup */
+	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
+	sys_in.client = IPA_CLIENT_TEST_PROD;
+	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+	sys_in.ipa_ep_cfg.mode.mode = IPA_DMA;
+	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_MHI_CONS;
+	if (ipa_setup_sys_pipe(&sys_in, &test_mhi_ctx->test_prod_hdl)) {
+		IPA_UT_ERR("setup sys pipe failed.\n");
+		goto fail_destroy_data_structures;
+	}
+
 	*ppriv = test_mhi_ctx;
 	return 0;
 
+fail_destroy_data_structures:
+	ipa_mhi_test_destroy_data_structures();
 fail_free_mmio_spc:
 	ipa_test_mhi_free_mmio_space();
 fail_iounmap:
@@ -838,6 +854,7 @@ static int ipa_test_mhi_suite_teardown(void *priv)
 	if (!test_mhi_ctx)
 		return  0;
 
+	ipa_teardown_sys_pipe(test_mhi_ctx->test_prod_hdl);
 	ipa_mhi_test_destroy_data_structures();
 	ipa_test_mhi_free_mmio_space();
 	iounmap(test_mhi_ctx->gsi_mmio);
@@ -852,7 +869,7 @@ static int ipa_test_mhi_suite_teardown(void *priv)
  *
  * To be run during tests
  * 1. MHI init (Ready state)
- * 2. Conditional MHO start and connect (M0 state)
+ * 2. Conditional MHI start and connect (M0 state)
  */
 static int ipa_mhi_test_initialize_driver(bool skip_start_and_conn)
 {
@@ -863,7 +880,6 @@ static int ipa_mhi_test_initialize_driver(bool skip_start_and_conn)
 	struct ipa_mhi_connect_params cons_params;
 	struct ipa_mhi_mmio_register_set *p_mmio;
 	struct ipa_mhi_channel_context_array *p_ch_ctx_array;
-	bool is_dma;
 	u64 phys_addr;
 
 	IPA_UT_LOG("Entry\n");
@@ -894,29 +910,6 @@ static int ipa_mhi_test_initialize_driver(bool skip_start_and_conn)
 		IPA_UT_LOG("timeout waiting for READY event");
 		IPA_UT_TEST_FAIL_REPORT("failed waiting for state ready");
 		return -ETIME;
-	}
-
-	if (ipa_mhi_is_using_dma(&is_dma)) {
-		IPA_UT_LOG("is_dma checkign failed. Is MHI loaded?\n");
-		IPA_UT_TEST_FAIL_REPORT("failed checking using dma");
-		return -EPERM;
-	}
-
-	if (is_dma) {
-		IPA_UT_LOG("init ipa_dma\n");
-		rc = ipa_dma_init();
-		if (rc && rc != -EFAULT) {
-			IPA_UT_LOG("ipa_dma_init failed, %d\n", rc);
-			IPA_UT_TEST_FAIL_REPORT("failed init dma");
-			return rc;
-		}
-		IPA_UT_LOG("enable ipa_dma\n");
-		rc = ipa_dma_enable();
-		if (rc && rc != -EPERM) {
-			IPA_UT_LOG("ipa_dma_enable failed, %d\n", rc);
-			IPA_UT_TEST_FAIL_REPORT("failed enable dma");
-			return rc;
-		}
 	}
 
 	if (!skip_start_and_conn) {
@@ -1311,6 +1304,7 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 	u32 next_wp_ofst;
 	int i;
 	u32 num_of_ed_to_queue;
+	u32 avail_ev;
 
 	IPA_UT_LOG("Entry\n");
 
@@ -1348,6 +1342,8 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 
 	wp_ofst = (u32)(p_events[event_ring_index].wp -
 		p_events[event_ring_index].rbase);
+	rp_ofst = (u32)(p_events[event_ring_index].rp -
+		p_events[event_ring_index].rbase);
 
 	if (p_events[event_ring_index].rlen & 0xFFFFFFFF00000000) {
 		IPA_UT_LOG("invalid ev rlen %llu\n",
@@ -1355,23 +1351,48 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 		return -EFAULT;
 	}
 
-	next_wp_ofst = (wp_ofst + num_of_ed_to_queue *
-		sizeof(struct ipa_mhi_event_ring_element)) %
-		(u32)p_events[event_ring_index].rlen;
+	if (wp_ofst > rp_ofst) {
+		avail_ev = (wp_ofst - rp_ofst) /
+			sizeof(struct ipa_mhi_event_ring_element);
+	} else {
+		avail_ev = (u32)p_events[event_ring_index].rlen -
+			(rp_ofst - wp_ofst);
+		avail_ev /= sizeof(struct ipa_mhi_event_ring_element);
+	}
 
-	/* set next WP */
-	p_events[event_ring_index].wp =
-		(u32)p_events[event_ring_index].rbase + next_wp_ofst;
+	IPA_UT_LOG("wp_ofst=0x%x rp_ofst=0x%x rlen=%llu avail_ev=%u\n",
+		wp_ofst, rp_ofst, p_events[event_ring_index].rlen, avail_ev);
 
-	/* write value to event ring doorbell */
-	IPA_UT_LOG("DB to event 0x%llx: base %pa ofst 0x%x\n",
-		p_events[event_ring_index].wp,
-		&(gsi_ctx->per.phys_addr), GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
-			event_ring_index + IPA_MHI_GSI_ER_START, 0));
-	iowrite32(p_events[event_ring_index].wp,
-		test_mhi_ctx->gsi_mmio +
-		GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
-			event_ring_index + IPA_MHI_GSI_ER_START, 0));
+	if (num_of_ed_to_queue > ((u32)p_events[event_ring_index].rlen /
+		sizeof(struct ipa_mhi_event_ring_element))) {
+		IPA_UT_LOG("event ring too small for %u credits\n",
+			num_of_ed_to_queue);
+		return -EFAULT;
+	}
+
+	if (num_of_ed_to_queue > avail_ev) {
+		IPA_UT_LOG("Need to add event credits (needed=%u)\n",
+			num_of_ed_to_queue - avail_ev);
+
+		next_wp_ofst = (wp_ofst + (num_of_ed_to_queue - avail_ev) *
+			sizeof(struct ipa_mhi_event_ring_element)) %
+			(u32)p_events[event_ring_index].rlen;
+
+		/* set next WP */
+		p_events[event_ring_index].wp =
+			(u32)p_events[event_ring_index].rbase + next_wp_ofst;
+
+		/* write value to event ring doorbell */
+		IPA_UT_LOG("DB to event 0x%llx: base %pa ofst 0x%x\n",
+			p_events[event_ring_index].wp,
+			&(gsi_ctx->per.phys_addr),
+			GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
+			event_ring_index + ipa3_ctx->mhi_evid_limits[0], 0));
+		iowrite32(p_events[event_ring_index].wp,
+			test_mhi_ctx->gsi_mmio +
+			GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
+			event_ring_index + ipa3_ctx->mhi_evid_limits[0], 0));
+	}
 
 	for (i = 0; i < buf_array_size; i++) {
 		/* calculate virtual pointer for current WP and RP */
@@ -1529,7 +1550,7 @@ static int ipa_mhi_test_suspend(bool force, bool should_success)
 	}
 
 	if (!should_success && rc != -EAGAIN) {
-		IPA_UT_LOG("ipa_mhi_suspenddid not return -EAGAIN fail %d\n",
+		IPA_UT_LOG("ipa_mhi_suspend did not return -EAGAIN fail %d\n",
 			rc);
 		IPA_UT_TEST_FAIL_REPORT("suspend succeeded unexpectedly");
 		return -EFAULT;
@@ -1811,7 +1832,7 @@ static int ipa_mhi_test_create_aggr_open_frame(void)
 		memset(test_mhi_ctx->out_buffer.base + i, i & 0xFF, 1);
 	}
 
-	rc = ipa_tx_dp(IPA_CLIENT_MHI_CONS, skb, NULL);
+	rc = ipa_tx_dp(IPA_CLIENT_TEST_PROD, skb, NULL);
 	if (rc) {
 		IPA_UT_LOG("ipa_tx_dp failed %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("ipa tx dp fail");
@@ -1982,7 +2003,7 @@ static int ipa_mhi_test_suspend_host_wakeup(void)
 		memset(test_mhi_ctx->out_buffer.base + i, i & 0xFF, 1);
 	}
 
-	rc = ipa_tx_dp(IPA_CLIENT_MHI_CONS, skb, NULL);
+	rc = ipa_tx_dp(IPA_CLIENT_TEST_PROD, skb, NULL);
 	if (rc) {
 		IPA_UT_LOG("ipa_tx_dp failed %d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("ipa tx dp fail");
@@ -3269,11 +3290,11 @@ IPA_UT_DEFINE_SUITE_START(mhi, "MHI for GSI",
 	IPA_UT_ADD_TEST(suspend_resume_with_open_aggr,
 		"several suspend/resume iterations with open aggregation frame",
 		ipa_mhi_test_in_loop_suspend_resume_aggr_open,
-		true, IPA_HW_v3_0, IPA_HW_MAX),
+		true, IPA_HW_v3_0, IPA_HW_v3_5_1),
 	IPA_UT_ADD_TEST(force_suspend_resume_with_open_aggr,
 		"several force suspend/resume iterations with open aggregation frame",
 		ipa_mhi_test_in_loop_force_suspend_resume_aggr_open,
-		true, IPA_HW_v3_0, IPA_HW_MAX),
+		true, IPA_HW_v3_0, IPA_HW_v3_5_1),
 	IPA_UT_ADD_TEST(suspend_resume_with_host_wakeup,
 		"several suspend and host wakeup resume iterations",
 		ipa_mhi_test_in_loop_suspend_host_wakeup,

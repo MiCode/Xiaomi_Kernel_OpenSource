@@ -1,0 +1,376 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/thermal/thermal.h>
+
+&soc {
+	qmi-tmd-devices {
+		compatible = "qcom,qmi_cooling_devices";
+
+		modem {
+			qcom,instance-id = <0x0>;
+
+			modem_pa: modem_pa {
+				qcom,qmi-dev-name = "pa";
+				#cooling-cells = <2>;
+			};
+
+			modem_proc: modem_proc {
+				qcom,qmi-dev-name = "modem";
+				#cooling-cells = <2>;
+			};
+
+			modem_current: modem_current {
+				qcom,qmi-dev-name = "modem_current";
+				#cooling-cells = <2>;
+			};
+
+			modem_skin: modem_skin {
+				qcom,qmi-dev-name = "modem_skin";
+				#cooling-cells = <2>;
+			};
+
+			modem_vdd: modem_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+
+		adsp {
+			qcom,instance-id = <0x1>;
+
+			adsp_vdd: adsp_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	aoss-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&tsens0 0>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	mdm-q6-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&tsens0 1>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	ddrss-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&tsens0 2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	cpu-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&tsens0 3>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	mdm-core-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&tsens0 4>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	mdm-vpe-usr {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&tsens0 5>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	aoss-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 0>;
+		tracks-low;
+		trips {
+			aoss_trip: aoss-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			modem_vdd_cdev {
+				trip = <&aoss_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&aoss_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&aoss_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&aoss_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
+		};
+	};
+
+	mdm-q6-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 1>;
+		tracks-low;
+		trips {
+			mdm_q6_trip: mdm-q6-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			modem_vdd_cdev {
+				trip = <&mdm_q6_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&mdm_q6_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&mdm_q6_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&mdm_q6_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
+		};
+	};
+
+	ddrss-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 2>;
+		tracks-low;
+		trips {
+			ddrss_trip: ddrss-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			modem_vdd_cdev {
+				trip = <&ddrss_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&ddrss_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&ddrss_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&ddrss_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
+		};
+	};
+
+	cpu-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 3>;
+		tracks-low;
+		trips {
+			cpu_trip: cpu-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			modem_vdd_cdev {
+				trip = <&cpu_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpu_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&cpu_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&cpu_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
+		};
+	};
+
+	mdm-core-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 4>;
+		tracks-low;
+		trips {
+			mdm_trip: mdm-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			modem_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
+		};
+	};
+
+	mdm-vpe-lowf {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_floor";
+		thermal-sensors = <&tsens0 5>;
+		tracks-low;
+		trips {
+			mdm_vpe_trip: mdm-vpe-trip {
+				temperature = <5000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			modem_vdd_cdev {
+				trip = <&mdm_vpe_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&mdm_vpe_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cx_vdd_cdev {
+				trip = <&mdm_vpe_trip>;
+				cooling-device = <&cx_cdev 0 0>;
+			};
+			mx_vdd_cdev {
+				trip = <&mdm_vpe_trip>;
+				cooling-device = <&mx_cdev 0 0>;
+			};
+		};
+	};
+
+	xo-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x4c>;
+		thermal-governor = "user_space";
+	};
+
+	pa-therm1-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x4d>;
+		thermal-governor = "user_space";
+	};
+
+	pa-therm2-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x4e>;
+		thermal-governor = "user_space";
+	};
+
+	mdm-case-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x4f>;
+		thermal-governor = "user_space";
+	};
+
+	ambient-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmxpoorwills_vadc 0x52>;
+		thermal-governor = "user_space";
+	};
+};

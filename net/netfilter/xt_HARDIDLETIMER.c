@@ -72,7 +72,7 @@ static void notify_netlink_uevent(const char *iface,
 {
 	char iface_msg[NLMSG_MAX_SIZE];
 	char state_msg[NLMSG_MAX_SIZE];
-	static const char * const envp[] = { iface_msg, state_msg, NULL };
+	char *envp[] = { iface_msg, state_msg, NULL };
 	int res;
 
 	res = snprintf(iface_msg, NLMSG_MAX_SIZE, "INTERFACE=%s",
@@ -180,6 +180,8 @@ static int hardidletimer_tg_create(struct hardidletimer_tg_info *info)
 		pr_debug("couldn't add file to sysfs");
 		goto out_free_attr;
 	}
+	/*  notify userspace  */
+	kobject_uevent(hardidletimer_tg_kobj, KOBJ_ADD);
 
 	list_add(&info->timer->entry, &hardidletimer_tg_list);
 

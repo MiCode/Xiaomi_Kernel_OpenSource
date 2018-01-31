@@ -27,10 +27,13 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/cpu_cooling.h>
 #include <trace/events/power.h>
 
 static DEFINE_MUTEX(l2bw_lock);
 
+static struct thermal_cooling_device *cdev[NR_CPUS];
 static struct clk *cpu_clk[NR_CPUS];
 static struct clk *l2_clk;
 static DEFINE_PER_CPU(struct cpufreq_frequency_table *, freq_table);
@@ -42,6 +45,8 @@ struct cpufreq_suspend_t {
 };
 
 static DEFINE_PER_CPU(struct cpufreq_suspend_t, suspend_data);
+static DEFINE_PER_CPU(int, cached_resolve_idx);
+static DEFINE_PER_CPU(unsigned int, cached_resolve_freq);
 
 static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 			unsigned int index)
@@ -74,6 +79,7 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	int ret = 0;
 	int index;
 	struct cpufreq_frequency_table *table;
+	int first_cpu = cpumask_first(policy->related_cpus);
 
 	mutex_lock(&per_cpu(suspend_data, policy->cpu).suspend_mutex);
 
@@ -88,13 +94,11 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	}
 
 	table = policy->freq_table;
-	if (!table) {
-		pr_err("cpufreq: Failed to get frequency table for CPU%u\n",
-		       policy->cpu);
-		ret = -ENODEV;
-		goto done;
-	}
-	index = cpufreq_frequency_table_target(policy, target_freq, relation);
+	if (per_cpu(cached_resolve_freq, first_cpu) == target_freq)
+		index = per_cpu(cached_resolve_idx, first_cpu);
+	else
+		index = cpufreq_frequency_table_target(policy, target_freq,
+						       relation);
 
 	pr_debug("CPU[%d] target %d relation %d (%d-%d) selected %d\n",
 		policy->cpu, target_freq, relation,
@@ -105,6 +109,23 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 done:
 	mutex_unlock(&per_cpu(suspend_data, policy->cpu).suspend_mutex);
 	return ret;
+}
+
+static unsigned int msm_cpufreq_resolve_freq(struct cpufreq_policy *policy,
+					     unsigned int target_freq)
+{
+	int index;
+	int first_cpu = cpumask_first(policy->related_cpus);
+	unsigned int freq;
+
+	index = cpufreq_frequency_table_target(policy, target_freq,
+					       CPUFREQ_RELATION_L);
+	freq = policy->freq_table[index].frequency;
+
+	per_cpu(cached_resolve_idx, first_cpu) = index;
+	per_cpu(cached_resolve_freq, first_cpu) = freq;
+
+	return freq;
 }
 
 static int msm_cpufreq_verify(struct cpufreq_policy *policy)
@@ -290,15 +311,63 @@ static struct freq_attr *msm_freq_attr[] = {
 	NULL,
 };
 
+static void msm_cpufreq_ready(struct cpufreq_policy *policy)
+{
+	struct device_node *np, *lmh_node;
+	unsigned int cpu = 0;
+
+	if (cdev[policy->cpu])
+		return;
+
+	np = of_cpu_device_node_get(policy->cpu);
+	if (WARN_ON(!np))
+		return;
+
+	/*
+	 * For now, just loading the cooling device;
+	 * thermal DT code takes care of matching them.
+	 */
+	if (of_find_property(np, "#cooling-cells", NULL)) {
+		lmh_node = of_parse_phandle(np, "qcom,lmh-dcvs", 0);
+		if (lmh_node) {
+			of_node_put(lmh_node);
+			goto ready_exit;
+		}
+
+		for_each_cpu(cpu, policy->related_cpus) {
+			cpumask_t cpu_mask  = CPU_MASK_NONE;
+
+			of_node_put(np);
+			np = of_cpu_device_node_get(cpu);
+			if (WARN_ON(!np))
+				return;
+
+			cpumask_set_cpu(cpu, &cpu_mask);
+			cdev[cpu] = of_cpufreq_cooling_register(np, &cpu_mask);
+			if (IS_ERR(cdev[cpu])) {
+				pr_err(
+				"running cpufreq for CPU%d without cooling dev: %ld\n",
+				cpu, PTR_ERR(cdev[cpu]));
+				cdev[cpu] = NULL;
+			}
+		}
+	}
+
+ready_exit:
+	of_node_put(np);
+}
+
 static struct cpufreq_driver msm_cpufreq_driver = {
 	/* lps calculations are handled here. */
 	.flags		= CPUFREQ_STICKY | CPUFREQ_CONST_LOOPS | CPUFREQ_NEED_INITIAL_FREQ_CHECK,
 	.init		= msm_cpufreq_init,
 	.verify		= msm_cpufreq_verify,
 	.target		= msm_cpufreq_target,
+	.resolve_freq	= msm_cpufreq_resolve_freq,
 	.get		= msm_cpufreq_get_freq,
 	.name		= "msm",
 	.attr		= msm_freq_attr,
+	.ready		= msm_cpufreq_ready,
 };
 
 static struct cpufreq_frequency_table *cpufreq_parse_dt(struct device *dev,
@@ -391,7 +460,7 @@ static int msm_cpufreq_probe(struct platform_device *pdev)
 	if (!IS_ERR(ftbl)) {
 		for_each_possible_cpu(cpu)
 			per_cpu(freq_table, cpu) = ftbl;
-		return 0;
+		goto out_register;
 	}
 
 	/*
@@ -431,6 +500,7 @@ static int msm_cpufreq_probe(struct platform_device *pdev)
 		per_cpu(freq_table, cpu) = ftbl;
 	}
 
+out_register:
 	ret = register_pm_notifier(&msm_cpufreq_pm_notifier);
 	if (ret)
 		return ret;
@@ -462,6 +532,7 @@ static int __init msm_cpufreq_register(void)
 	for_each_possible_cpu(cpu) {
 		mutex_init(&(per_cpu(suspend_data, cpu).suspend_mutex));
 		per_cpu(suspend_data, cpu).device_suspended = 0;
+		per_cpu(cached_resolve_freq, cpu) = UINT_MAX;
 	}
 
 	rc = platform_driver_register(&msm_cpufreq_plat_driver);

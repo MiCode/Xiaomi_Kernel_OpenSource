@@ -95,6 +95,14 @@ config CORESIGHT_QCOM_REPLICATOR
 	  programmable ATB replicator sends the ATB trace stream from the
 	  ETB/ETF to the TPIUi and ETR.
 
+config CORESIGHT_DBGUI
+	bool "CoreSight DebugUI driver"
+	help
+	  This driver provides support for DebugUI that helps to capture
+	  the value at a specified address. It allows configuring DebugUI
+	  to select specified address and trigger mode based on user
+	  input.
+
 config CORESIGHT_STM
 	bool "CoreSight System Trace Macrocell driver"
 	depends on (ARM && !(CPU_32v3 || CPU_32v4 || CPU_32v4T)) || ARM64
@@ -147,6 +155,25 @@ config CORESIGHT_CTI
 	  used to input or output i.e. pass cross trigger events from one
 	  hardware component to another. It can also be used to pass
 	  software generated events.
+
+config CORESIGHT_EVENT
+        tristate "CoreSight Event driver"
+        help
+          This driver provides support for registering with various events
+          and performing CoreSight actions like aborting trace on their
+          occurrence. These events can be controlled by using module
+          parameters.
+
+config CORESIGHT_TGU
+	bool "CoreSight Trigger Generation Unit driver"
+	help
+	  This driver provides support for Trigger Generation Unit that is
+	  used to detect patterns or sequences on a given set of signals.
+	  TGU is used to monitor a particular bus within a given region to
+	  detect illegal transaction sequences or slave responses. It is also
+	  used to monitor a data stream to detect protocol violations and to
+	  provide a trigger point for centering data around a specific event
+	  within the trace data buffer.
 
 config CORESIGHT_CSR
 	bool "CoreSight Slave Register driver"

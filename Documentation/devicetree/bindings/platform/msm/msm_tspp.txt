@@ -1,0 +1,83 @@
+* TSPP ( QTI Transport Stream Packet Processor )
+
+Hardware driver for QTI TSIF 12seg wrapper core, which consists of a TSPP, a
+BAM (Bus access manager, used for DMA) and two TSIF inputs.
+
+The TSPP driver is responsible for:
+ - TSPP/TSIF hardware configuration (using SPS driver to configure BAM hardware)
+ - TSIF GPIO/Clocks configuration
+ - Memory resource management
+ - Handling TSIF/TSPP interrupts and BAM events
+ - TSPP Power management
+
+Required properties:
+- compatible : Should be "qcom,msm_tspp"
+- reg : Specifies the base physical addresses and sizes of TSIF, TSPP & BAM registers.
+- reg-names : Specifies the register names of TSIF, TSPP & BAM base registers.
+- interrupts : Specifies the interrupts associated with TSIF 12 seg core.
+- interrupt-names: Specifies interrupt names for TSIF, TSPP & BAM interrupts.
+- clock-names: Specifies the clock names used for interface & reference clocks.
+- clocks: GCC_TSIF_AHB_CLK clock for interface clock & GCC_TSIF_REF_CLK clock for reference clock.
+- qcom, msm_bus,name: Should be "tsif"
+- qcom, msm_bus,num_cases: Depends on the use cases for bus scaling
+- qcom, msm_bus,num_paths: The paths for source and destination ports
+- qcom, msm_bus,vectors: Vectors for bus topology.
+- pinctrl-names: Names for the TSIF mode configuration to specify which TSIF interface is active.
+- qcom,smmu-s1-bypass : Boolean flag to bypass SMMU stage 1 translation.
+- iommus : A list of phandle and IOMMU specifier pairs that describe the IOMMU master interfaces of the device.
+
+Example:
+
+        tspp: msm_tspp@0x8880000 {
+                compatible = "qcom,msm_tspp";
+                reg = <0x088a7000 0x200>, /* MSM_TSIF0_PHYS */
+                      <0x088a8000 0x200>, /* MSM_TSIF1_PHYS */
+                      <0x088a9000 0x1000>, /* MSM_TSPP_PHYS  */
+                      <0x08884000 0x23000>; /* MSM_TSPP_BAM_PHYS */
+                reg-names = "MSM_TSIF0_PHYS",
+                        "MSM_TSIF1_PHYS",
+                        "MSM_TSPP_PHYS",
+                        "MSM_TSPP_BAM_PHYS";
+                interrupts = <0 121 0>, /* TSIF_TSPP_IRQ */
+                        <0 119 0>, /* TSIF0_IRQ */
+                        <0 120 0>, /* TSIF1_IRQ */
+                        <0 122 0>; /* TSIF_BAM_IRQ */
+                interrupt-names = "TSIF_TSPP_IRQ",
+                        "TSIF0_IRQ",
+                        "TSIF1_IRQ",
+                        "TSIF_BAM_IRQ";
+
+                clock-names = "iface_clk", "ref_clk";
+                clocks = <&clock_gcc GCC_TSIF_AHB_CLK>,
+                        <&clock_gcc GCC_TSIF_REF_CLK>;
+
+                qcom,msm-bus,name = "tsif";
+                qcom,msm-bus,num-cases = <2>;
+                qcom,msm-bus,num-paths = <1>;
+                qcom,msm-bus,vectors-KBps =
+                                <82 512 0 0>, /* No vote */
+                                <82 512 12288 24576>;
+                                /* Max. bandwidth, 2xTSIF, each max of 96Mbps */
+
+                pinctrl-names = "disabled",
+                        "tsif0-mode1", "tsif0-mode2",
+                        "tsif1-mode1", "tsif1-mode2",
+                        "dual-tsif-mode1", "dual-tsif-mode2";
+
+                pinctrl-0 = <>;                         /* disabled */
+                pinctrl-1 = <&tsif0_signals_active>;    /* tsif0-mode1 */
+                pinctrl-2 = <&tsif0_signals_active
+                        &tsif0_sync_active>;            /* tsif0-mode2 */
+                pinctrl-3 = <&tsif1_signals_active>;    /* tsif1-mode1 */
+                pinctrl-4 = <&tsif1_signals_active
+                        &tsif1_sync_active>;            /* tsif1-mode2 */
+                pinctrl-5 = <&tsif0_signals_active
+                        &tsif1_signals_active>;         /* dual-tsif-mode1 */
+                pinctrl-6 = <&tsif0_signals_active
+                        &tsif0_sync_active
+                        &tsif1_signals_active
+                        &tsif1_sync_active>;            /* dual-tsif-mode2 */
+
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x20 0x0f>;
+        };

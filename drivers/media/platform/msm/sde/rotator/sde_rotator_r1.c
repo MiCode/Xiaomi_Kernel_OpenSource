@@ -343,6 +343,18 @@ static int sde_rotator_config_hw(struct sde_rot_hw_resource *hw,
 	return ret;
 }
 
+static int sde_rotator_cancel_hw(struct sde_rot_hw_resource *hw,
+	struct sde_rot_entry *entry)
+{
+	return 0;
+}
+
+static int sde_rotator_abort_hw(struct sde_rot_hw_resource *hw,
+	struct sde_rot_entry *entry)
+{
+	return 0;
+}
+
 static int sde_rotator_kickoff_entry(struct sde_rot_hw_resource *hw,
 	struct sde_rot_entry *entry)
 {
@@ -501,9 +513,10 @@ static ssize_t sde_rotator_hw_show_state(struct sde_rot_mgr *mgr,
  * @mgr: Pointer to rotator manager
  * @index: index of pixel format
  * @input: true for input port; false for output port
+ * @mode: operating mode
  */
 static u32 sde_hw_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
-		int index, bool input)
+		int index, bool input, u32 mode)
 {
 	if (input) {
 		if (index < ARRAY_SIZE(sde_hw_rotator_input_pixfmts))
@@ -523,9 +536,10 @@ static u32 sde_hw_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
  * @mgr: Pointer to rotator manager
  * @pixfmt: pixel format to be verified
  * @input: true for input port; false for output port
+ * @mode: operating mode
  */
 static int sde_hw_rotator_is_valid_pixfmt(struct sde_rot_mgr *mgr, u32 pixfmt,
-		bool input)
+		bool input, u32 mode)
 {
 	int i;
 
@@ -682,6 +696,8 @@ int sde_rotator_r1_init(struct sde_rot_mgr *mgr)
 
 	mgr->hw_data = hw_data;
 	mgr->ops_config_hw = sde_rotator_config_hw;
+	mgr->ops_cancel_hw = sde_rotator_cancel_hw;
+	mgr->ops_abort_hw = sde_rotator_abort_hw;
 	mgr->ops_kickoff_entry = sde_rotator_kickoff_entry;
 	mgr->ops_wait_for_entry = sde_rotator_wait_for_entry;
 	mgr->ops_hw_alloc = sde_rotator_hw_alloc_ext;

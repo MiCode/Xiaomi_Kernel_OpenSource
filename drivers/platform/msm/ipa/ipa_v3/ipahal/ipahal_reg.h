@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@ enum ipahal_reg_name {
 	IPA_ENDP_INIT_ROUTE_n,
 	IPA_ENDP_INIT_MODE_n,
 	IPA_ENDP_INIT_NAT_n,
+	IPA_ENDP_INIT_CONN_TRACK_n,
 	IPA_ENDP_INIT_CTRL_n,
 	IPA_ENDP_INIT_CTRL_SCND_n,
 	IPA_ENDP_INIT_HOL_BLOCK_EN_n,
@@ -81,12 +82,32 @@ enum ipahal_reg_name {
 	IPA_RX_HPS_CLIENTS_MIN_DEPTH_1,
 	IPA_RX_HPS_CLIENTS_MAX_DEPTH_0,
 	IPA_RX_HPS_CLIENTS_MAX_DEPTH_1,
+	IPA_HPS_FTCH_ARB_QUEUE_WEIGHT,
 	IPA_QSB_MAX_WRITES,
 	IPA_QSB_MAX_READS,
 	IPA_TX_CFG,
 	IPA_IDLE_INDICATION_CFG,
 	IPA_DPS_SEQUENCER_FIRST,
 	IPA_HPS_SEQUENCER_FIRST,
+	IPA_CLKON_CFG,
+	IPA_STAT_QUOTA_BASE_n,
+	IPA_STAT_QUOTA_MASK_n,
+	IPA_STAT_TETHERING_BASE_n,
+	IPA_STAT_TETHERING_MASK_n,
+	IPA_STAT_FILTER_IPV4_BASE,
+	IPA_STAT_FILTER_IPV6_BASE,
+	IPA_STAT_ROUTER_IPV4_BASE,
+	IPA_STAT_ROUTER_IPV6_BASE,
+	IPA_STAT_FILTER_IPV4_START_ID,
+	IPA_STAT_FILTER_IPV6_START_ID,
+	IPA_STAT_ROUTER_IPV4_START_ID,
+	IPA_STAT_ROUTER_IPV6_START_ID,
+	IPA_STAT_FILTER_IPV4_END_ID,
+	IPA_STAT_FILTER_IPV6_END_ID,
+	IPA_STAT_ROUTER_IPV4_END_ID,
+	IPA_STAT_ROUTER_IPV6_END_ID,
+	IPA_STAT_DROP_CNT_BASE_n,
+	IPA_STAT_DROP_CNT_MASK_n,
 	IPA_REG_MAX,
 };
 
@@ -168,11 +189,54 @@ struct ipahal_reg_shared_mem_size {
  *	If set to 0 (default), PKT-STATUS will be appended before the packet
  *	for this endpoint. If set to 1, PKT-STATUS will be appended after the
  *	packet for this endpoint. Valid only for Output Pipes (IPA Producer)
+ * @status_pkt_suppress:
  */
 struct ipahal_reg_ep_cfg_status {
 	bool status_en;
 	u8 status_ep;
 	bool status_location;
+	u8 status_pkt_suppress;
+};
+
+/*
+ * struct ipahal_reg_clkon_cfg-  Enables SW bypass clock-gating for the IPA core
+ *
+ * @all: Enables SW bypass clock-gating controls for this sub-module;
+ *	0: CGC is enabled by internal logic, 1: No CGC (clk is always 'ON').
+ *	sub-module affected is based on var name -> ex: open_rx refers
+ *	to IPA_RX sub-module and open_global refers to global IPA 1x clock
+ */
+struct ipahal_reg_clkon_cfg {
+	bool open_global_2x_clk;
+	bool open_global;
+	bool open_gsi_if;
+	bool open_weight_arb;
+	bool open_qmb;
+	bool open_ram_slaveway;
+	bool open_aggr_wrapper;
+	bool open_qsb2axi_cmdq_l;
+	bool open_fnr;
+	bool open_tx_1;
+	bool open_tx_0;
+	bool open_ntf_tx_cmdqs;
+	bool open_dcmp;
+	bool open_h_dcph;
+	bool open_d_dcph;
+	bool open_ack_mngr;
+	bool open_ctx_handler;
+	bool open_rsrc_mngr;
+	bool open_dps_tx_cmdqs;
+	bool open_hps_dps_cmdqs;
+	bool open_rx_hps_cmdqs;
+	bool open_dps;
+	bool open_hps;
+	bool open_ftch_dps;
+	bool open_ftch_hps;
+	bool open_ram_arb;
+	bool open_misc;
+	bool open_tx_wrapper;
+	bool open_proc;
+	bool open_rx;
 };
 
 /*
@@ -272,6 +336,20 @@ struct ipahal_reg_rx_hps_clients {
 };
 
 /*
+* struct ipahal_reg_rx_hps_weights - weight values for RX HPS clients
+* @hps_queue_weight_0 - 4 bit Weight for RX_HPS_CMDQ #0 (3:0)
+* @hps_queue_weight_1 - 4 bit Weight for RX_HPS_CMDQ #1 (7:4)
+* @hps_queue_weight_2 - 4 bit Weight for RX_HPS_CMDQ #2 (11:8)
+* @hps_queue_weight_3 - 4 bit Weight for RX_HPS_CMDQ #3 (15:12)
+*/
+struct ipahal_reg_rx_hps_weights {
+	u32 hps_queue_weight_0;
+	u32 hps_queue_weight_1;
+	u32 hps_queue_weight_2;
+	u32 hps_queue_weight_3;
+};
+
+/*
  * struct ipahal_reg_valmask - holding values and masking for registers
  *	HAL application may require only value and mask of it for some
  *	register fields.
@@ -322,15 +400,50 @@ struct ipahal_reg_qcncm {
 };
 
 /*
+ * struct ipahal_reg_qsb_max_writes - IPA QSB Max Writes register
+ * @qmb_0_max_writes: Max number of outstanding writes for GEN_QMB_0
+ * @qmb_1_max_writes: Max number of outstanding writes for GEN_QMB_1
+ */
+struct ipahal_reg_qsb_max_writes {
+	u32 qmb_0_max_writes;
+	u32 qmb_1_max_writes;
+};
+
+/*
+ * struct ipahal_reg_qsb_max_reads - IPA QSB Max Reads register
+ * @qmb_0_max_reads: Max number of outstanding reads for GEN_QMB_0
+ * @qmb_1_max_reads: Max number of outstanding reads for GEN_QMB_1
+ * @qmb_0_max_read_beats: Max number of outstanding read beats for GEN_QMB_0
+ * @qmb_1_max_read_beats: Max number of outstanding read beats for GEN_QMB_1
+ */
+struct ipahal_reg_qsb_max_reads {
+	u32 qmb_0_max_reads;
+	u32 qmb_1_max_reads;
+	u32 qmb_0_max_read_beats;
+	u32 qmb_1_max_read_beats;
+};
+
+/*
  * struct ipahal_reg_tx_cfg - IPA TX_CFG register
  * @tx0_prefetch_disable: Disable prefetch on TX0
  * @tx1_prefetch_disable: Disable prefetch on TX1
- * @prefetch_almost_empty_size: Prefetch almost empty size
+ * @tx0_prefetch_almost_empty_size: Prefetch almost empty size on TX0
+ * @tx1_prefetch_almost_empty_size: Prefetch almost empty size on TX1
+ * @dmaw_scnd_outsd_pred_threshold:
+ * @dmaw_max_beats_256_dis:
+ * @dmaw_scnd_outsd_pred_en:
+ * @pa_mask_en:
  */
 struct ipahal_reg_tx_cfg {
 	bool tx0_prefetch_disable;
 	bool tx1_prefetch_disable;
-	u16 prefetch_almost_empty_size;
+	u32 tx0_prefetch_almost_empty_size;
+	u32 tx1_prefetch_almost_empty_size;
+	u32 dmaw_scnd_outsd_pred_threshold;
+	u32 dmaw_max_beats_256_dis;
+	u32 dmaw_scnd_outsd_pred_en;
+	u32 pa_mask_en;
+
 };
 
 /*
@@ -468,8 +581,6 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	struct ipahal_reg_valmask *valmask);
 void ipahal_get_fltrt_hash_flush_valmask(
 	struct ipahal_reg_fltrt_hash_flush *flush,
-	struct ipahal_reg_valmask *valmask);
-void ipahal_get_status_ep_valmask(int pipe_num,
 	struct ipahal_reg_valmask *valmask);
 
 #endif /* _IPAHAL_REG_H_ */

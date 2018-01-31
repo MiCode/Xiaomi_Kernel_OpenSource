@@ -73,6 +73,8 @@ enum bpf_cmd {
 	BPF_PROG_LOAD,
 	BPF_OBJ_PIN,
 	BPF_OBJ_GET,
+	BPF_PROG_ATTACH,
+	BPF_PROG_DETACH,
 };
 
 enum bpf_map_type {
@@ -96,7 +98,22 @@ enum bpf_prog_type {
 	BPF_PROG_TYPE_TRACEPOINT,
 	BPF_PROG_TYPE_XDP,
 	BPF_PROG_TYPE_PERF_EVENT,
+	BPF_PROG_TYPE_CGROUP_SKB,
 };
+
+enum bpf_attach_type {
+	BPF_CGROUP_INET_INGRESS,
+	BPF_CGROUP_INET_EGRESS,
+	__MAX_BPF_ATTACH_TYPE
+};
+
+#define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
+
+/* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
+ * to the given target_fd cgroup the descendent cgroup will be able to
+ * override effective bpf program that was inherited from this cgroup
+ */
+#define BPF_F_ALLOW_OVERRIDE	(1U << 0)
 
 #define BPF_PSEUDO_MAP_FD	1
 
@@ -140,6 +157,13 @@ union bpf_attr {
 	struct { /* anonymous struct used by BPF_OBJ_* commands */
 		__aligned_u64	pathname;
 		__u32		bpf_fd;
+	};
+
+	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
+		__u32		target_fd;	/* container object to attach to */
+		__u32		attach_bpf_fd;	/* eBPF program to attach */
+		__u32		attach_type;
+		__u32		attach_flags;
 	};
 } __attribute__((aligned(8)));
 
@@ -425,6 +449,67 @@ enum bpf_func_id {
 	 * @skb: pointer to skb
 	 */
 	BPF_FUNC_set_hash_invalid,
+
+	/**
+	 * int bpf_get_numa_node_id()
+	 *     Return: Id of current NUMA node.
+	 */
+	BPF_FUNC_get_numa_node_id,
+
+	/**
+	 * int bpf_skb_change_head()
+	 *     Grows headroom of skb and adjusts MAC header offset accordingly.
+	 *     Will extends/reallocae as required automatically.
+	 *     May change skb data pointer and will thus invalidate any check
+	 *     performed for direct packet access.
+	 *     @skb: pointer to skb
+	 *     @len: length of header to be pushed in front
+	 *     @flags: Flags (unused for now)
+	 *     Return: 0 on success or negative error
+	 */
+	BPF_FUNC_skb_change_head,
+
+	/**
+	 * int bpf_xdp_adjust_head(xdp_md, delta)
+	 *     Adjust the xdp_md.data by delta
+	 *     @xdp_md: pointer to xdp_md
+	 *     @delta: An positive/negative integer to be added to xdp_md.data
+	 *     Return: 0 on success or negative on error
+	 */
+	BPF_FUNC_xdp_adjust_head,
+
+	/**
+	 * int bpf_probe_read_str(void *dst, int size, const void *unsafe_ptr)
+	 *     Copy a NUL terminated string from unsafe address. In case the string
+	 *     length is smaller than size, the target is not padded with further NUL
+	 *     bytes. In case the string length is larger than size, just count-1
+	 *     bytes are copied and the last byte is set to NUL.
+	 *     @dst: destination address
+	 *     @size: maximum number of bytes to copy, including the trailing NUL
+	 *     @unsafe_ptr: unsafe address
+	 *     Return:
+	 *       > 0 length of the string including the trailing NUL on success
+	 *       < 0 error
+	 */
+	BPF_FUNC_probe_read_str,
+
+	/**
+	 * u64 bpf_bpf_get_socket_cookie(skb)
+	 *     Get the cookie for the socket stored inside sk_buff.
+	 *     @skb: pointer to skb
+	 *     Return: 8 Bytes non-decreasing number on success or 0 if the socket
+	 *     field is missing inside sk_buff
+	 */
+	BPF_FUNC_get_socket_cookie,
+
+	/**
+	 * u32 bpf_get_socket_uid(skb)
+	 *     Get the owner uid of the socket stored inside sk_buff.
+	 *     @skb: pointer to skb
+	 *     Return: uid of the socket owner on success or 0 if the socket pointer
+	 *     inside sk_buff is NULL
+	 */
+	BPF_FUNC_get_socket_uid,
 
 	__BPF_FUNC_MAX_ID,
 };

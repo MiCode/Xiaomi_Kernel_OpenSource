@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 #include "tsens.h"
+#include "qcom/qti_virtual_sensor.h"
 
 LIST_HEAD(tsens_device_list);
 
@@ -76,6 +77,9 @@ static const struct of_device_id tsens_table[] = {
 		.data = &data_tsens23xx,
 	},
 	{	.compatible = "qcom,sdm845-tsens",
+		.data = &data_tsens24xx,
+	},
+	{	.compatible = "qcom,tsens24xx",
 		.data = &data_tsens24xx,
 	},
 	{}
@@ -156,14 +160,18 @@ static int tsens_thermal_zone_register(struct tsens_device *tmdev)
 	for (i = 0; i < TSENS_MAX_SENSORS; i++) {
 		tmdev->sensor[i].tmdev = tmdev;
 		tmdev->sensor[i].hw_id = i;
-		tmdev->sensor[i].tzd =
-			devm_thermal_zone_of_sensor_register(
-			&tmdev->pdev->dev, i,
-			&tmdev->sensor[i], &tsens_tm_thermal_zone_ops);
-		if (IS_ERR(tmdev->sensor[i].tzd)) {
-			pr_debug("Error registering sensor:%d\n", i);
-			sensor_missing++;
-			continue;
+		if (tmdev->ops->sensor_en(tmdev, i)) {
+			tmdev->sensor[i].tzd =
+				devm_thermal_zone_of_sensor_register(
+				&tmdev->pdev->dev, i,
+				&tmdev->sensor[i], &tsens_tm_thermal_zone_ops);
+			if (IS_ERR(tmdev->sensor[i].tzd)) {
+				pr_debug("Error registering sensor:%d\n", i);
+				sensor_missing++;
+				continue;
+			}
+		} else {
+			pr_debug("Sensor not enabled:%d\n", i);
 		}
 	}
 
@@ -171,6 +179,9 @@ static int tsens_thermal_zone_register(struct tsens_device *tmdev)
 		pr_err("No TSENS sensors to register?\n");
 		return -ENODEV;
 	}
+
+	/* Register virtual thermal sensors. */
+	qti_virtual_sensor_register(&tmdev->pdev->dev);
 
 	return 0;
 }

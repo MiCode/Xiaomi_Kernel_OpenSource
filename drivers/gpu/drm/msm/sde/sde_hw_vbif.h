@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,44 @@ struct sde_hw_vbif_ops {
 	 */
 	bool (*get_halt_ctrl)(struct sde_hw_vbif *vbif,
 			u32 xin_id);
+
+	/**
+	 * set_qos_remap - set QoS priority remap
+	 * @vbif: vbif context driver
+	 * @xin_id: client interface identifier
+	 * @level: priority level
+	 * @remap_level: remapped level
+	 */
+	void (*set_qos_remap)(struct sde_hw_vbif *vbif,
+			u32 xin_id, u32 level, u32 remap_level);
+
+	/**
+	 * set_mem_type - set memory type
+	 * @vbif: vbif context driver
+	 * @xin_id: client interface identifier
+	 * @value: memory type value
+	 */
+	void (*set_mem_type)(struct sde_hw_vbif *vbif,
+			u32 xin_id, u32 value);
+
+	/**
+	 * clear_errors - clear any vbif errors
+	 *	This function clears any detected pending/source errors
+	 *	on the VBIF interface, and optionally returns the detected
+	 *	error mask(s).
+	 * @vbif: vbif context driver
+	 * @pnd_errors: pointer to pending error reporting variable
+	 * @src_errors: pointer to source error reporting variable
+	 */
+	void (*clear_errors)(struct sde_hw_vbif *vbif,
+		u32 *pnd_errors, u32 *src_errors);
+
+	/**
+	 * set_write_gather_en - set write_gather enable
+	 * @vbif: vbif context driver
+	 * @xin_id: client interface identifier
+	 */
+	void (*set_write_gather_en)(struct sde_hw_vbif *vbif, u32 xin_id);
 };
 
 struct sde_hw_vbif {
@@ -73,6 +111,12 @@ struct sde_hw_vbif {
 
 	/* ops */
 	struct sde_hw_vbif_ops ops;
+
+	/*
+	 * vbif is common across all displays, lock to serialize access.
+	 * must be take by client before using any ops
+	 */
+	struct mutex mutex;
 };
 
 /**

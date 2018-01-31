@@ -1,0 +1,15 @@
+Qualcomm Technologies, Inc. QDSS bridge Driver
+
+This device will enable routing debug data from modem
+subsystem to APSS host.
+
+Required properties:
+-compatible : "qcom,qdss-mhi".
+-qcom,mhi : phandle of MHI Device to connect to.
+
+Example:
+	qcom,qdss-mhi {
+		compatible = "qcom,qdss-mhi";
+		qcom,mhi = <&mhi_0>;
+	};
+

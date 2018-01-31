@@ -29,7 +29,8 @@
  * @done_count: Number of completed commits since bootup
  * @drm_id: ID number of owning DRM Object
  * @ref: kref counter on timeline
- * @lock: spinlock for timeline and fence counter protection
+ * @lock: spinlock for fence counter protection
+ * @list_lock: spinlock for timeline protection
  * @context: fence context
  * @list_head: fence list to hold all the fence created on this context
  * @name: name of fence context/timeline
@@ -40,6 +41,7 @@ struct sde_fence_context {
 	uint32_t drm_id;
 	struct kref kref;
 	spinlock_t lock;
+	spinlock_t list_lock;
 	u64 context;
 	struct list_head fence_list_head;
 	char name[SDE_FENCE_NAME_SIZE];
@@ -125,9 +127,20 @@ int sde_fence_create(struct sde_fence_context *fence, uint64_t *val,
 /**
  * sde_fence_signal - advance fence timeline to signal outstanding fences
  * @fence: Pointer fence container
- * @is_error: Set to non-zero if the commit didn't complete successfully
+ * @ts: fence timestamp
+ * @reset_timeline: reset the fence timeline to done count equal to commit count
  */
-void sde_fence_signal(struct sde_fence_context *fence, bool is_error);
+void sde_fence_signal(struct sde_fence_context *fence, ktime_t ts,
+		bool reset_timeline);
+
+/**
+ * sde_fence_timeline_status - prints fence timeline status
+ * @fence: Pointer fence container
+ * @drm_obj Pointer to drm object associated with fence timeline
+ */
+void sde_fence_timeline_status(struct sde_fence_context *ctx,
+					struct drm_mode_object *drm_obj);
+
 #else
 static inline void *sde_sync_get(uint64_t fd)
 {
@@ -166,7 +179,7 @@ static inline int sde_fence_get(struct sde_fence_context *fence, uint64_t *val)
 }
 
 static inline void sde_fence_signal(struct sde_fence_context *fence,
-								bool is_error)
+						ktime_t ts, bool reset_timeline)
 {
 	/* do nothing */
 }
@@ -180,6 +193,12 @@ static inline int sde_fence_create(struct sde_fence_context *fence,
 						uint64_t *val, uint32_t offset)
 {
 	return 0;
+}
+
+static inline void sde_fence_timeline_status(struct sde_fence_context *ctx,
+					struct drm_mode_object *drm_obj);
+{
+	/* do nothing */
 }
 #endif /* IS_ENABLED(CONFIG_SW_SYNC) */
 

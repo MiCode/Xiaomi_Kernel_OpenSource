@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,11 @@
 #include <linux/ipc_logging.h>
 #include <linux/ipa.h>
 #include <linux/ipa_uc_offload.h>
+#include <linux/ipa_wdi3.h>
+#include <linux/ratelimit.h>
+
+#define WARNON_RATELIMIT_BURST 1
+#define IPA_RATELIMIT_BURST 1
 
 #define __FILENAME__ \
 	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -26,7 +31,8 @@
 		log_info.file = __FILENAME__; \
 		log_info.line = __LINE__; \
 		log_info.type = EP; \
-		log_info.id_string = ipa_clients_strings[client]
+		log_info.id_string = (client < 0 || client >= IPA_CLIENT_MAX) \
+			? "Invalid Client" : ipa_clients_strings[client]
 
 #define IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info) \
 		log_info.file = __FILENAME__; \
@@ -102,14 +108,49 @@
 		ipa_dec_client_disable_clks(&log_info); \
 	} while (0)
 
+/*
+ * Printing one warning message in 5 seconds if multiple warning messages
+ * are coming back to back.
+ */
+
+#define WARN_ON_RATELIMIT_IPA(condition)				\
+({								\
+	static DEFINE_RATELIMIT_STATE(_rs,			\
+				DEFAULT_RATELIMIT_INTERVAL,	\
+				WARNON_RATELIMIT_BURST);	\
+	int rtn = !!(condition);				\
+								\
+	if (unlikely(rtn && __ratelimit(&_rs)))			\
+		WARN_ON(rtn);					\
+})
+
+/*
+ * Printing one error message in 5 seconds if multiple error messages
+ * are coming back to back.
+ */
+
+#define pr_err_ratelimited_ipa(fmt, ...)				\
+	printk_ratelimited_ipa(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__)
+#define printk_ratelimited_ipa(fmt, ...)				\
+({									\
+	static DEFINE_RATELIMIT_STATE(_rs,				\
+				      DEFAULT_RATELIMIT_INTERVAL,	\
+				      IPA_RATELIMIT_BURST);		\
+									\
+	if (__ratelimit(&_rs))						\
+		printk(fmt, ##__VA_ARGS__);				\
+})
+
 #define ipa_assert_on(condition)\
 do {\
 	if (unlikely(condition))\
 		ipa_assert();\
 } while (0)
 
-#define IPA_CLIENT_IS_PROD(x) (x >= IPA_CLIENT_PROD && x < IPA_CLIENT_CONS)
-#define IPA_CLIENT_IS_CONS(x) (x >= IPA_CLIENT_CONS && x < IPA_CLIENT_MAX)
+#define IPA_CLIENT_IS_PROD(x) \
+	(x < IPA_CLIENT_MAX && (x & 0x1) == 0)
+#define IPA_CLIENT_IS_CONS(x) \
+	(x < IPA_CLIENT_MAX && (x & 0x1) == 1)
 
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)
@@ -140,9 +181,6 @@ struct ipa_mem_buffer {
 	dma_addr_t phys_base;
 	u32 size;
 };
-
-#define IPA_MHI_GSI_ER_START 10
-#define IPA_MHI_GSI_ER_END 16
 
 /**
  * enum ipa3_mhi_burst_mode - MHI channel burst mode state
@@ -371,13 +409,28 @@ int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	struct ipa_ntn_conn_out_params *outp);
 
 int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
-
 u8 *ipa_write_64(u64 w, u8 *dest);
 u8 *ipa_write_32(u32 w, u8 *dest);
 u8 *ipa_write_16(u16 hw, u8 *dest);
 u8 *ipa_write_8(u8 b, u8 *dest);
 u8 *ipa_pad_to_64(u8 *dest);
 u8 *ipa_pad_to_32(u8 *dest);
+int ipa_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *user_data),
+			      void *user_data);
+void ipa_ntn_uc_dereg_rdyCB(void);
+
+int ipa_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
+	struct ipa_wdi3_conn_out_params *out);
+
+int ipa_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+
+int ipa_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+
+int ipa_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
+
 const char *ipa_get_version_string(enum ipa_hw_type ver);
+int ipa_start_gsi_channel(u32 clnt_hdl);
+
+bool ipa_pm_is_used(void);
 
 #endif /* _IPA_COMMON_I_H_ */

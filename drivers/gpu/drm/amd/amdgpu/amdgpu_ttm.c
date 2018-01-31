@@ -491,6 +491,9 @@ static int amdgpu_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_
 	case TTM_PL_TT:
 		break;
 	case TTM_PL_VRAM:
+		if (mem->start == AMDGPU_BO_INVALID_OFFSET)
+			return -EINVAL;
+
 		mem->bus.offset = mem->start << PAGE_SHIFT;
 		/* check if it's visible */
 		if ((mem->bus.offset + mem->bus.size) > adev->mc.visible_vram_size)
@@ -1418,6 +1421,9 @@ static ssize_t amdgpu_ttm_vram_read(struct file *f, char __user *buf,
 
 	if (size & 0x3 || *pos & 0x3)
 		return -EINVAL;
+
+	if (*pos >= adev->mc.mc_vram_size)
+		return -ENXIO;
 
 	while (size) {
 		unsigned long flags;

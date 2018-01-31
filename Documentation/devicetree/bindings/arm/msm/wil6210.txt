@@ -10,6 +10,10 @@ Required properties:
 
 - compatible: "qcom,wil6210"
 - qcom,smmu-support: Boolean flag indicating whether PCIe has SMMU support
+- qcom,smmu-s1-en: Boolean flag indicating whether SMMU stage1 should be enabled
+- qcom,smmu-fast-map: Boolean flag indicating whether SMMU fast mapping should be enabled
+- qcom,smmu-coherent: Boolean flag indicating SMMU dma and page table coherency
+- qcom,smmu-mapping: specifies the base address and size of SMMU space
 - qcom,pcie-parent: phandle for the PCIe root complex to which 11ad card is connected
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   the below optional properties:
@@ -28,11 +32,17 @@ Optional properties:
 - clocks	    : List of phandle and clock specifier pairs
 - clock-names       : List of clock input name strings sorted in the same
 		      order as the clocks property.
+- qcom,keep-radio-on-during-sleep: Boolean flag to indicate if to suspend to d3hot
+				   instead of turning off the device
 
 Example:
 	wil6210: qcom,wil6210 {
 		compatible = "qcom,wil6210";
 		qcom,smmu-support;
+		qcom,smmu-s1-en;
+		qcom,smmu-fast-map;
+		qcom,smmu-coherent;
+		qcom,smmu-mapping = <0x20000000 0xe0000000>;
 		qcom,pcie-parent = <&pcie1>;
 		qcom,wigig-en = <&tlmm 94 0>;
 		qcom,msm-bus,name = "wil6210";
@@ -48,5 +58,6 @@ Example:
 		clocks = <&clock_gcc clk_rf_clk3>,
 			 <&clock_gcc clk_rf_clk3_pin>;
 		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
+		qcom,keep-radio-on-during-sleep;
 	};
 

@@ -29,6 +29,10 @@ Optional properties:
 Bus Scaling Subnodes:
 - qcom,sde-data-bus:		Property to provide Bus scaling for data bus access for
 				sde blocks.
+- qcom,sde-llcc-bus:		Property to provide Bus scaling for data bus access for
+				mnoc to llcc.
+- qcom,sde-ebi-bus:		Property to provide Bus scaling for data bus access for
+				llcc to ebi.
 
 Bus Scaling Data:
 - qcom,msm-bus,name:		String property describing client name.
@@ -68,5 +72,25 @@ Example:
 		          <22 512 0 0>, <23 512 0 0>,
 		          <22 512 0 6400000>, <23 512 0 6400000>,
 		          <22 512 0 6400000>, <23 512 0 6400000>;
+		};
+		qcom,sde-llcc-bus {
+			qcom,msm-bus,name = "sde_rsc_llcc";
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+			    <20001 20513 0 0>,
+			    <20001 20513 0 6400000>,
+			    <20001 20513 0 6400000>;
+		};
+		qcom,sde-ebi-bus {
+			qcom,msm-bus,name = "sde_rsc_ebi";
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+			    <20000 20512 0 0>,
+			    <20000 20512 0 6400000>,
+			    <20000 20512 0 6400000>;
 		};
 	};

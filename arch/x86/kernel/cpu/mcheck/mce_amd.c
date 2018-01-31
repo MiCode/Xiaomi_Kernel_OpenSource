@@ -593,14 +593,14 @@ static inline void __smp_deferred_error_interrupt(void)
 	deferred_error_int_vector();
 }
 
-asmlinkage __visible void smp_deferred_error_interrupt(void)
+asmlinkage __visible void __irq_entry smp_deferred_error_interrupt(void)
 {
 	entering_irq();
 	__smp_deferred_error_interrupt();
 	exiting_ack_irq();
 }
 
-asmlinkage __visible void smp_trace_deferred_error_interrupt(void)
+asmlinkage __visible void __irq_entry smp_trace_deferred_error_interrupt(void)
 {
 	entering_irq();
 	trace_deferred_error_apic_entry(DEFERRED_ERROR_VECTOR);
@@ -954,6 +954,9 @@ static int threshold_create_bank(unsigned int cpu, unsigned int bank)
 	struct threshold_bank *b = NULL;
 	const char *name = get_name(bank, NULL);
 	int err = 0;
+
+	if (!dev)
+		return -ENODEV;
 
 	if (is_shared_bank(bank)) {
 		nb = node_to_amd_nb(amd_get_nb_id(cpu));

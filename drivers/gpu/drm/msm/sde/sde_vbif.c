@@ -60,6 +60,66 @@ static int _sde_vbif_wait_for_xin_halt(struct sde_hw_vbif *vbif, u32 xin_id)
 	return rc;
 }
 
+int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id, u32 clk_ctrl)
+{
+	struct sde_hw_vbif *vbif = NULL;
+	struct sde_hw_mdp *mdp;
+	bool forced_on = false;
+	bool status;
+	int rc = 0;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	vbif = sde_kms->hw_vbif[VBIF_RT];
+	mdp = sde_kms->hw_mdp;
+	if (!vbif || !mdp || !vbif->ops.get_halt_ctrl ||
+		       !vbif->ops.set_halt_ctrl ||
+		       !mdp->ops.setup_clk_force_ctrl) {
+		SDE_ERROR("invalid vbif or mdp arguments\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&vbif->mutex);
+
+	SDE_EVT32_VERBOSE(vbif->idx, xin_id);
+
+	/*
+	 * If status is 0, then make sure client clock is not gated
+	 * while halting by forcing it ON only if it was not previously
+	 * forced on. If status is 1 then its already halted.
+	 */
+	status = vbif->ops.get_halt_ctrl(vbif, xin_id);
+	if (status) {
+		mutex_unlock(&vbif->mutex);
+		return 0;
+	}
+
+	forced_on = mdp->ops.setup_clk_force_ctrl(mdp, clk_ctrl, true);
+
+	/* send halt request for unused plane's xin client */
+	vbif->ops.set_halt_ctrl(vbif, xin_id, true);
+
+	rc = _sde_vbif_wait_for_xin_halt(vbif, xin_id);
+	if (rc) {
+		SDE_ERROR(
+		"wait failed for pipe halt:xin_id %u, clk_ctrl %u, rc %u\n",
+			xin_id, clk_ctrl, rc);
+		SDE_EVT32(xin_id, clk_ctrl, rc, SDE_EVTLOG_ERROR);
+	}
+
+	/* open xin client to enable transactions */
+	vbif->ops.set_halt_ctrl(vbif, xin_id, false);
+	if (forced_on)
+		mdp->ops.setup_clk_force_ctrl(mdp, clk_ctrl, false);
+
+	mutex_unlock(&vbif->mutex);
+
+	return rc;
+}
+
 /**
  * _sde_vbif_apply_dynamic_ot_limit - determine OT based on usecase parameters
  * @vbif:	Pointer to hardware vbif driver
@@ -169,13 +229,15 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 
 	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
 		if (sde_kms->hw_vbif[i] &&
-				sde_kms->hw_vbif[i]->idx == params->vbif_idx)
+				sde_kms->hw_vbif[i]->idx == params->vbif_idx) {
 			vbif = sde_kms->hw_vbif[i];
+			break;
+		}
 	}
 
 	if (!vbif || !mdp) {
 		SDE_DEBUG("invalid arguments vbif %d mdp %d\n",
-				vbif != 0, mdp != 0);
+				vbif != NULL, mdp != NULL);
 		return;
 	}
 
@@ -183,6 +245,14 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 			!vbif->ops.set_limit_conf ||
 			!vbif->ops.set_halt_ctrl)
 		return;
+
+	mutex_lock(&vbif->mutex);
+
+	SDE_EVT32_VERBOSE(vbif->idx, params->xin_id);
+
+	/* set write_gather_en for all write clients */
+	if (vbif->ops.set_write_gather_en && !params->rd)
+		vbif->ops.set_write_gather_en(vbif, params->xin_id);
 
 	ot_lim = _sde_vbif_get_ot_limit(vbif, params) & 0xFF;
 
@@ -207,7 +277,172 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 	if (forced_on)
 		mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, false);
 exit:
+	mutex_unlock(&vbif->mutex);
 	return;
+}
+
+bool sde_vbif_set_xin_halt(struct sde_kms *sde_kms,
+		struct sde_vbif_set_xin_halt_params *params)
+{
+	struct sde_hw_vbif *vbif = NULL;
+	struct sde_hw_mdp *mdp;
+	bool forced_on = false;
+	int ret, i;
+
+	if (!sde_kms || !params) {
+		SDE_ERROR("invalid arguments\n");
+		return false;
+	}
+	mdp = sde_kms->hw_mdp;
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		if (sde_kms->hw_vbif[i] &&
+				sde_kms->hw_vbif[i]->idx == params->vbif_idx) {
+			vbif = sde_kms->hw_vbif[i];
+			break;
+		}
+	}
+
+	if (!vbif || !mdp) {
+		SDE_DEBUG("invalid arguments vbif %d mdp %d\n",
+				vbif != NULL, mdp != NULL);
+		return false;
+	}
+
+	if (!mdp->ops.setup_clk_force_ctrl ||
+			!vbif->ops.set_halt_ctrl)
+		return false;
+
+	mutex_lock(&vbif->mutex);
+
+	SDE_EVT32_VERBOSE(vbif->idx, params->xin_id);
+
+	if (params->enable) {
+		forced_on = mdp->ops.setup_clk_force_ctrl(mdp,
+				params->clk_ctrl, true);
+
+		vbif->ops.set_halt_ctrl(vbif, params->xin_id, true);
+
+		ret = _sde_vbif_wait_for_xin_halt(vbif, params->xin_id);
+		if (ret)
+			SDE_EVT32(vbif->idx, params->xin_id, SDE_EVTLOG_ERROR);
+	} else {
+		vbif->ops.set_halt_ctrl(vbif, params->xin_id, false);
+
+		if (params->forced_on)
+			mdp->ops.setup_clk_force_ctrl(mdp,
+					params->clk_ctrl, false);
+	}
+
+	mutex_unlock(&vbif->mutex);
+
+	return forced_on;
+}
+
+void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
+		struct sde_vbif_set_qos_params *params)
+{
+	struct sde_hw_vbif *vbif = NULL;
+	struct sde_hw_mdp *mdp;
+	bool forced_on = false;
+	const struct sde_vbif_qos_tbl *qos_tbl;
+	int i;
+
+	if (!sde_kms || !params || !sde_kms->hw_mdp) {
+		SDE_ERROR("invalid arguments\n");
+		return;
+	}
+	mdp = sde_kms->hw_mdp;
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		if (sde_kms->hw_vbif[i] &&
+				sde_kms->hw_vbif[i]->idx == params->vbif_idx) {
+			vbif = sde_kms->hw_vbif[i];
+			break;
+		}
+	}
+
+	if (!vbif || !vbif->cap) {
+		SDE_ERROR("invalid vbif %d\n", params->vbif_idx);
+		return;
+	}
+
+	if (!vbif->ops.set_qos_remap || !mdp->ops.setup_clk_force_ctrl) {
+		SDE_DEBUG("qos remap not supported\n");
+		return;
+	}
+
+	qos_tbl = params->is_rt ? &vbif->cap->qos_rt_tbl :
+			&vbif->cap->qos_nrt_tbl;
+
+	if (!qos_tbl->npriority_lvl || !qos_tbl->priority_lvl) {
+		SDE_DEBUG("qos tbl not defined\n");
+		return;
+	}
+
+	mutex_lock(&vbif->mutex);
+
+	forced_on = mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, true);
+
+	for (i = 0; i < qos_tbl->npriority_lvl; i++) {
+		SDE_DEBUG("vbif:%d xin:%d lvl:%d/%d\n",
+				params->vbif_idx, params->xin_id, i,
+				qos_tbl->priority_lvl[i]);
+		vbif->ops.set_qos_remap(vbif, params->xin_id, i,
+				qos_tbl->priority_lvl[i]);
+	}
+
+	if (forced_on)
+		mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, false);
+
+	mutex_unlock(&vbif->mutex);
+}
+
+void sde_vbif_clear_errors(struct sde_kms *sde_kms)
+{
+	struct sde_hw_vbif *vbif;
+	u32 i, pnd, src;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid argument\n");
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		vbif = sde_kms->hw_vbif[i];
+		if (vbif && vbif->ops.clear_errors) {
+			mutex_lock(&vbif->mutex);
+			vbif->ops.clear_errors(vbif, &pnd, &src);
+			if (pnd || src) {
+				SDE_EVT32(i, pnd, src);
+				SDE_DEBUG("VBIF %d: pnd 0x%X, src 0x%X\n",
+						vbif->idx - VBIF_0, pnd, src);
+			}
+			mutex_unlock(&vbif->mutex);
+		}
+	}
+}
+
+void sde_vbif_init_memtypes(struct sde_kms *sde_kms)
+{
+	struct sde_hw_vbif *vbif;
+	int i, j;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid argument\n");
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		vbif = sde_kms->hw_vbif[i];
+		if (vbif && vbif->cap && vbif->ops.set_mem_type) {
+			mutex_lock(&vbif->mutex);
+			for (j = 0; j < vbif->cap->memtype_count; j++)
+				vbif->ops.set_mem_type(
+						vbif, j, vbif->cap->memtype[j]);
+			mutex_unlock(&vbif->mutex);
+		}
+	}
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -237,16 +472,16 @@ int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root)
 		debugfs_vbif = debugfs_create_dir(vbif_name,
 				sde_kms->debugfs_vbif);
 
-		debugfs_create_u32("features", 0644, debugfs_vbif,
+		debugfs_create_u32("features", 0600, debugfs_vbif,
 			(u32 *)&vbif->features);
 
-		debugfs_create_u32("xin_halt_timeout", 0444, debugfs_vbif,
+		debugfs_create_u32("xin_halt_timeout", 0400, debugfs_vbif,
 			(u32 *)&vbif->xin_halt_timeout);
 
-		debugfs_create_u32("default_rd_ot_limit", 0444, debugfs_vbif,
+		debugfs_create_u32("default_rd_ot_limit", 0400, debugfs_vbif,
 			(u32 *)&vbif->default_ot_rd_limit);
 
-		debugfs_create_u32("default_wr_ot_limit", 0444, debugfs_vbif,
+		debugfs_create_u32("default_wr_ot_limit", 0400, debugfs_vbif,
 			(u32 *)&vbif->default_ot_wr_limit);
 
 		for (j = 0; j < vbif->dynamic_ot_rd_tbl.count; j++) {
@@ -255,11 +490,11 @@ int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root)
 
 			snprintf(vbif_name, sizeof(vbif_name),
 					"dynamic_ot_rd_%d_pps", j);
-			debugfs_create_u64(vbif_name, 0444, debugfs_vbif,
+			debugfs_create_u64(vbif_name, 0400, debugfs_vbif,
 					(u64 *)&cfg->pps);
 			snprintf(vbif_name, sizeof(vbif_name),
 					"dynamic_ot_rd_%d_ot_limit", j);
-			debugfs_create_u32(vbif_name, 0444, debugfs_vbif,
+			debugfs_create_u32(vbif_name, 0400, debugfs_vbif,
 					(u32 *)&cfg->ot_limit);
 		}
 
@@ -269,11 +504,11 @@ int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root)
 
 			snprintf(vbif_name, sizeof(vbif_name),
 					"dynamic_ot_wr_%d_pps", j);
-			debugfs_create_u64(vbif_name, 0444, debugfs_vbif,
+			debugfs_create_u64(vbif_name, 0400, debugfs_vbif,
 					(u64 *)&cfg->pps);
 			snprintf(vbif_name, sizeof(vbif_name),
 					"dynamic_ot_wr_%d_ot_limit", j);
-			debugfs_create_u32(vbif_name, 0444, debugfs_vbif,
+			debugfs_create_u32(vbif_name, 0400, debugfs_vbif,
 					(u32 *)&cfg->ot_limit);
 		}
 	}

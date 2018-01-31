@@ -47,7 +47,7 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 
 		if ((tz->temperature <= trip_temp) ||
 			(instance->target != THERMAL_NO_TARGET
-				&& tz->temperature <= trip_hyst))
+				&& tz->temperature < trip_hyst))
 			throttle = true;
 		else
 			throttle = false;

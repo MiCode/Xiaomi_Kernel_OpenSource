@@ -94,8 +94,223 @@ static DEVICE_ATTR(ftm_txrx_offset, 0644,
 		   wil_ftm_txrx_offset_sysfs_show,
 		   wil_ftm_txrx_offset_sysfs_store);
 
+static ssize_t
+wil_tt_sysfs_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	ssize_t len;
+	struct wmi_tt_data tt_data;
+	int i, rc;
+
+	rc = wmi_get_tt_cfg(wil, &tt_data);
+	if (rc)
+		return rc;
+
+	len = snprintf(buf, PAGE_SIZE, "    high      max       critical\n");
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "bb: ");
+	if (tt_data.bb_enabled)
+		for (i = 0; i < WMI_NUM_OF_TT_ZONES; ++i)
+			len += snprintf(buf + len, PAGE_SIZE - len,
+					"%03d-%03d   ",
+					tt_data.bb_zones[i].temperature_high,
+					tt_data.bb_zones[i].temperature_low);
+	else
+		len += snprintf(buf + len, PAGE_SIZE - len, "* disabled *");
+	len += snprintf(buf + len, PAGE_SIZE - len, "\nrf: ");
+	if (tt_data.rf_enabled)
+		for (i = 0; i < WMI_NUM_OF_TT_ZONES; ++i)
+			len += snprintf(buf + len, PAGE_SIZE - len,
+					"%03d-%03d   ",
+					tt_data.rf_zones[i].temperature_high,
+					tt_data.rf_zones[i].temperature_low);
+	else
+		len += snprintf(buf + len, PAGE_SIZE - len, "* disabled *");
+	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
+
+	return len;
+}
+
+static ssize_t
+wil_tt_sysfs_store(struct device *dev, struct device_attribute *attr,
+		   const char *buf, size_t count)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	int i, rc = -EINVAL;
+	char *token, *dupbuf, *tmp;
+	struct wmi_tt_data tt_data = {
+		.bb_enabled = 0,
+		.rf_enabled = 0,
+	};
+
+	tmp = kmemdup(buf, count + 1, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+	tmp[count] = '\0';
+	dupbuf = tmp;
+
+	/* Format for writing is 12 unsigned bytes separated by spaces:
+	 * <bb_z1_h> <bb_z1_l> <bb_z2_h> <bb_z2_l> <bb_z3_h> <bb_z3_l> \
+	 * <rf_z1_h> <rf_z1_l> <rf_z2_h> <rf_z2_l> <rf_z3_h> <rf_z3_l>
+	 * To disable thermal throttling for bb or for rf, use 0 for all
+	 * its six set points.
+	 */
+
+	/* bb */
+	for (i = 0; i < WMI_NUM_OF_TT_ZONES; ++i) {
+		token = strsep(&dupbuf, " ");
+		if (!token)
+			goto out;
+		if (kstrtou8(token, 0, &tt_data.bb_zones[i].temperature_high))
+			goto out;
+		token = strsep(&dupbuf, " ");
+		if (!token)
+			goto out;
+		if (kstrtou8(token, 0, &tt_data.bb_zones[i].temperature_low))
+			goto out;
+
+		if (tt_data.bb_zones[i].temperature_high > 0 ||
+		    tt_data.bb_zones[i].temperature_low > 0)
+			tt_data.bb_enabled = 1;
+	}
+	/* rf */
+	for (i = 0; i < WMI_NUM_OF_TT_ZONES; ++i) {
+		token = strsep(&dupbuf, " ");
+		if (!token)
+			goto out;
+		if (kstrtou8(token, 0, &tt_data.rf_zones[i].temperature_high))
+			goto out;
+		token = strsep(&dupbuf, " ");
+		if (!token)
+			goto out;
+		if (kstrtou8(token, 0, &tt_data.rf_zones[i].temperature_low))
+			goto out;
+
+		if (tt_data.rf_zones[i].temperature_high > 0 ||
+		    tt_data.rf_zones[i].temperature_low > 0)
+			tt_data.rf_enabled = 1;
+	}
+
+	rc = wmi_set_tt_cfg(wil, &tt_data);
+	if (rc)
+		goto out;
+
+	rc = count;
+out:
+	kfree(tmp);
+	return rc;
+}
+
+static DEVICE_ATTR(thermal_throttling, 0644,
+		   wil_tt_sysfs_show, wil_tt_sysfs_store);
+
+static ssize_t
+wil_fst_link_loss_sysfs_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	ssize_t len = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(wil->sta); i++)
+		if (wil->sta[i].status == wil_sta_connected)
+			len += snprintf(buf + len, PAGE_SIZE - len,
+					"[%d] %pM %s\n", i, wil->sta[i].addr,
+					wil->sta[i].fst_link_loss ?
+					"On" : "Off");
+
+	return len;
+}
+
+static ssize_t
+wil_fst_link_loss_sysfs_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	u8 addr[ETH_ALEN];
+	char *token, *dupbuf, *tmp;
+	int rc = -EINVAL;
+	bool fst_link_loss;
+
+	tmp = kmemdup(buf, count + 1, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+
+	tmp[count] = '\0';
+	dupbuf = tmp;
+
+	token = strsep(&dupbuf, " ");
+	if (!token)
+		goto out;
+
+	/* mac address */
+	if (sscanf(token, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+		   &addr[0], &addr[1], &addr[2],
+		   &addr[3], &addr[4], &addr[5]) != 6)
+		goto out;
+
+	/* On/Off */
+	if (strtobool(dupbuf, &fst_link_loss))
+		goto out;
+
+	wil_dbg_misc(wil, "set [%pM] with %d\n", addr, fst_link_loss);
+
+	rc = wmi_link_maintain_cfg_write(wil, addr, fst_link_loss);
+	if (!rc)
+		rc = count;
+
+out:
+	kfree(tmp);
+	return rc;
+}
+
+static DEVICE_ATTR(fst_link_loss, 0644,
+		   wil_fst_link_loss_sysfs_show,
+		   wil_fst_link_loss_sysfs_store);
+
+static ssize_t
+wil_snr_thresh_sysfs_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	ssize_t len = 0;
+
+	if (wil->snr_thresh.enabled)
+		len = snprintf(buf, PAGE_SIZE, "omni=%d, direct=%d\n",
+			       wil->snr_thresh.omni, wil->snr_thresh.direct);
+
+	return len;
+}
+
+static ssize_t
+wil_snr_thresh_sysfs_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	int rc;
+	short omni, direct;
+
+	/* to disable snr threshold, set both omni and direct to 0 */
+	if (sscanf(buf, "%hd %hd", &omni, &direct) != 2)
+		return -EINVAL;
+
+	rc = wmi_set_snr_thresh(wil, omni, direct);
+	if (!rc)
+		rc = count;
+
+	return rc;
+}
+
+static DEVICE_ATTR(snr_thresh, 0644,
+		   wil_snr_thresh_sysfs_show,
+		   wil_snr_thresh_sysfs_store);
+
 static struct attribute *wil6210_sysfs_entries[] = {
 	&dev_attr_ftm_txrx_offset.attr,
+	&dev_attr_thermal_throttling.attr,
+	&dev_attr_fst_link_loss.attr,
+	&dev_attr_snr_thresh.attr,
 	NULL
 };
 
@@ -115,6 +330,8 @@ int wil6210_sysfs_init(struct wil6210_priv *wil)
 		return err;
 	}
 
+	kobject_uevent(&dev->kobj, KOBJ_CHANGE);
+
 	return 0;
 }
 
@@ -123,4 +340,5 @@ void wil6210_sysfs_remove(struct wil6210_priv *wil)
 	struct device *dev = wil_to_dev(wil);
 
 	sysfs_remove_group(&dev->kobj, &wil6210_attribute_group);
+	kobject_uevent(&dev->kobj, KOBJ_CHANGE);
 }

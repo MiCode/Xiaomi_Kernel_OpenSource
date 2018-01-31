@@ -16,6 +16,10 @@ Required properties:
 		      If "halt_base" is in same 4K pages this register then
 		      this will be defined else "halt_q6", "halt_modem",
 		      "halt_nc" is required.
+		      "pdc_sync" is the power domain register introduced in
+		      sdm845 for power domain of subsystems.
+		      If alternative reset is required, "alt_reset" maps to
+		      mss_alt_ares.
 - interrupts:         The modem watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - vdd_cx-voltage:     Voltage corner/level(max) for cx rail.
@@ -28,6 +32,7 @@ Optional properties:
 		      This may be a shared regulator that is already voted
 		      on in the PIL proxy voting code (and also managed by the
 		      modem on its own), hence we mark it as as optional.
+- vdd_mss-uV:         Voltage to set for vdd_mss.
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
 - qcom,vdd_pll:       Voltage to be set for the PLL's rail.
 - reg-names:          "cxrail_bhs_reg" - control register for modem power
@@ -63,6 +68,9 @@ Optional properties:
 			  service.
 - qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
 - qcom,override-acc: Boolean- Present if we need to override the default ACC settings
+- qcom,mss_pdc_offset: Integer- Mandatory if PDC register is specified. It is
+				used to specify which bit in the PDC register
+				corresponds to the modem.
 - qcom,ahb-clk-vote: Boolean- Present if we need to remove the vote for the mss_cfg_ahb
 		     clock after the modem boots up
 - qcom,pnoc-clk-vote: Boolean- Present if the modem needs the PNOC bus to be
@@ -86,6 +94,8 @@ Optional properties:
 		    wordline clamp, and compiler memory clamp during MSS restart.
 - qcom,qdsp6v56-1-10: Boolean- Present if the qdsp version is v56 1.10
 - qcom,override-acc-1: Override the default ACC settings with this value if present.
+- qcom,minidump-id: Unique id for each subsystem
+- qcom,reset-clk: Enable clock after MSS restart
 
 One child node to represent the MBA image may be specified, when the MBA image
 needs to be loaded in a specifically carved out memory region.

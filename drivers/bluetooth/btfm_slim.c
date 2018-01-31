@@ -127,19 +127,28 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	if (!btfmslim || !ch)
 		return -EINVAL;
 
-	BTFMSLIM_DBG("port:%d", ch->port);
+	BTFMSLIM_DBG("port: %d ch: %d", ch->port, ch->ch);
 
 	/* Define the channel with below parameters */
-	prop.prot = SLIM_AUTO_ISO;
-	prop.baser = SLIM_RATE_4000HZ;
-	prop.dataf = (rates == 48000) ? SLIM_CH_DATAF_NOT_DEFINED
-			: SLIM_CH_DATAF_LPCM_AUDIO;
+	prop.prot =  ((rates == 44100) || (rates == 88200)) ?
+			SLIM_PUSH : SLIM_AUTO_ISO;
+	prop.baser = ((rates == 44100) || (rates == 88200)) ?
+			SLIM_RATE_11025HZ : SLIM_RATE_4000HZ;
+	prop.dataf = ((rates == 48000) || (rates == 44100) ||
+		(rates == 88200) || (rates == 96000)) ?
+			SLIM_CH_DATAF_NOT_DEFINED : SLIM_CH_DATAF_LPCM_AUDIO;
 	prop.auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
-	prop.ratem = (rates/4000);
+	prop.ratem = ((rates == 44100) || (rates == 88200)) ?
+		(rates/11025) : (rates/4000);
 	prop.sampleszbits = 16;
 
 	ch_h[0] = ch->ch_hdl;
 	ch_h[1] = (grp) ? (ch+1)->ch_hdl : 0;
+
+	BTFMSLIM_INFO("channel define - prot:%d, dataf:%d, auxf:%d",
+			prop.prot, prop.dataf, prop.auxf);
+	BTFMSLIM_INFO("channel define - rates:%d, baser:%d, ratem:%d",
+			rates, prop.baser, prop.ratem);
 
 	ret = slim_define_ch(btfmslim->slim_pgd, &prop, ch_h, nchan, grp,
 			&ch->grph);
@@ -220,17 +229,34 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 
 	BTFMSLIM_INFO("port:%d, grp: %d, ch->grph:0x%x, ch->ch_hdl:0x%x ",
 		ch->port, grp, ch->grph, ch->ch_hdl);
+
+	/* For 44.1/88.2 Khz A2DP Rx, disconnect the port first */
+	if (rxport &&
+		(btfmslim->sample_rate == 44100 ||
+		 btfmslim->sample_rate == 88200)) {
+		BTFMSLIM_DBG("disconnecting the ports, removing the channel");
+		ret = slim_disconnect_ports(btfmslim->slim_pgd,
+				&ch->port_hdl, 1);
+		if (ret < 0) {
+			BTFMSLIM_ERR("slim_disconnect_ports failed ret[%d]",
+				ret);
+		}
+	}
+
 	/* Remove the channel immediately*/
 	ret = slim_control_ch(btfmslim->slim_pgd, (grp ? ch->grph : ch->ch_hdl),
 			SLIM_CH_REMOVE, true);
 	if (ret < 0) {
 		BTFMSLIM_ERR("slim_control_ch failed ret[%d]", ret);
-		ret = slim_disconnect_ports(btfmslim->slim_pgd,
-			&ch->port_hdl, 1);
-		if (ret < 0) {
-			BTFMSLIM_ERR("slim_disconnect_ports failed ret[%d]",
-				ret);
-			goto error;
+		if (btfmslim->sample_rate != 44100 &&
+			btfmslim->sample_rate != 88200) {
+			ret = slim_disconnect_ports(btfmslim->slim_pgd,
+				&ch->port_hdl, 1);
+			if (ret < 0) {
+				BTFMSLIM_ERR("disconnect_ports failed ret[%d]",
+					 ret);
+				goto error;
+			}
 		}
 	}
 
@@ -496,9 +522,18 @@ static int btfm_slim_probe(struct slim_device *slim)
 	/* Driver specific data allocation */
 	btfm_slim->dev = &slim->dev;
 	ret = btfm_slim_register_codec(&slim->dev);
+	if (ret) {
+		BTFMSLIM_ERR("error, registering slimbus codec failed");
+		goto free;
+	}
 	ret = bt_register_slimdev(&slim->dev);
+	if (ret < 0) {
+		btfm_slim_unregister_codec(&slim->dev);
+		goto free;
+	}
 	return ret;
-
+free:
+	slim_remove_device(&btfm_slim->slim_ifd);
 dealloc:
 	mutex_destroy(&btfm_slim->io_lock);
 	mutex_destroy(&btfm_slim->xfer_lock);

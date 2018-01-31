@@ -20,6 +20,7 @@
 #include <linux/phy.h>
 
 struct property_set {
+	struct device *dev;
 	struct fwnode_handle fwnode;
 	struct property_entry *properties;
 };
@@ -182,11 +183,12 @@ static int pset_prop_read_string(struct property_set *pset,
 	return 0;
 }
 
-static inline struct fwnode_handle *dev_fwnode(struct device *dev)
+struct fwnode_handle *dev_fwnode(struct device *dev)
 {
 	return IS_ENABLED(CONFIG_OF) && dev->of_node ?
 		&dev->of_node->fwnode : dev->fwnode;
 }
+EXPORT_SYMBOL_GPL(dev_fwnode);
 
 /**
  * device_property_present - check if a property of a device is present
@@ -816,6 +818,7 @@ static struct property_set *pset_copy_set(const struct property_set *pset)
 void device_remove_properties(struct device *dev)
 {
 	struct fwnode_handle *fwnode;
+	struct property_set *pset;
 
 	fwnode = dev_fwnode(dev);
 	if (!fwnode)
@@ -825,16 +828,16 @@ void device_remove_properties(struct device *dev)
 	 * the pset. If there is no real firmware node (ACPI/DT) primary
 	 * will hold the pset.
 	 */
-	if (is_pset_node(fwnode)) {
+	pset = to_pset_node(fwnode);
+	if (pset) {
 		set_primary_fwnode(dev, NULL);
-		pset_free_set(to_pset_node(fwnode));
 	} else {
-		fwnode = fwnode->secondary;
-		if (!IS_ERR(fwnode) && is_pset_node(fwnode)) {
+		pset = to_pset_node(fwnode->secondary);
+		if (pset && dev == pset->dev)
 			set_secondary_fwnode(dev, NULL);
-			pset_free_set(to_pset_node(fwnode));
-		}
 	}
+	if (pset && dev == pset->dev)
+		pset_free_set(pset);
 }
 EXPORT_SYMBOL_GPL(device_remove_properties);
 
@@ -862,6 +865,7 @@ int device_add_properties(struct device *dev, struct property_entry *properties)
 
 	p->fwnode.type = FWNODE_PDATA;
 	set_secondary_fwnode(dev, &p->fwnode);
+	p->dev = dev;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(device_add_properties);

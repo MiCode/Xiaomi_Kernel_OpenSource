@@ -1,0 +1,186 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&spmi_bus {
+	qcom,pmxpoorwills@0 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x0 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pmxpoorwills_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x1 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x4 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x5 IRQ_TYPE_NONE>;
+			interrupt-names = "kpdpwr", "resin",
+					"resin-bark", "kpdpwr-resin-bark";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,kpdpwr-sw-debounce;
+			qcom,system-reset;
+			qcom,store-hard-reset-reason;
+
+			qcom,pon_1 {
+				qcom,pon-type = <0>;
+				qcom,pull-up = <1>;
+				linux,code = <116>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <1>;
+				qcom,pull-up = <1>;
+				linux,code = <114>;
+			};
+		};
+
+		pmxpoorwills_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x900>;
+			interrupts = <0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc4 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pmxpoorwills_gpio2",
+					  "pmxpoorwills_gpio3",
+					  "pmxpoorwills_gpio4",
+					  "pmxpoorwills_gpio5",
+					  "pmxpoorwills_gpio6";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <1 7 8 9>;
+		};
+
+		pmxpoorwills_rtc: qcom,pmxpoorwills_rtc {
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pmxpoorwills_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+			qcom,pmxpoorwills_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+			};
+		};
+
+		pmxpoorwills_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc-hc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-full-scale-code = <0x70e4>;
+			qcom,adc-vdd-reference = <1875>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&ambient_therm_default>;
+			#thermal-sensor-cells = <1>;
+
+			chan@6 {
+				label = "die_temp";
+				reg = <6>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@0 {
+				label = "ref_gnd";
+				reg = <0>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@1 {
+				label = "ref_1250v";
+				reg = <1>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+		};
+	};
+
+	qcom,pmxpoorwills@1 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x1 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pmxpoorwills_pwm_1: pwm@bc00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmxpoorwills_pwm_2: pwm@bd00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbd00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmxpoorwills_pwm_3: pwm@be00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbe00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <2>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmxpoorwills_pwm_4: pwm@bf00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbf00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <3>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+	};
+};

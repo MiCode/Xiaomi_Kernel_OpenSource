@@ -40,6 +40,14 @@ enum ipa_nat_en_type {
 };
 
 /**
+ * enum ipa_ipv6ct_en_type - IPv6CT setting type in IPA end-point
+ */
+enum ipa_ipv6ct_en_type {
+	IPA_BYPASS_IPV6CT,
+	IPA_ENABLE_IPV6CT,
+};
+
+/**
  * enum ipa_mode_type - mode setting type in IPA end-point
  * @BASIC: basic mode
  * @ENABLE_FRAMING_HDLC: not currently supported
@@ -109,6 +117,19 @@ enum hdr_total_len_or_pad_type {
 };
 
 /**
+* enum ipa_vlan_ifaces - vlan interfaces types
+* @IPA_VLAN_IF_EMAC: used for EMAC ethernet device
+* @IPA_VLAN_IF_RNDIS: used for RNDIS USB device
+* @IPA_VLAN_IF_ECM: used for ECM USB device
+*/
+enum ipa_vlan_ifaces {
+	IPA_VLAN_IF_EMAC,
+	IPA_VLAN_IF_RNDIS,
+	IPA_VLAN_IF_ECM,
+	IPA_VLAN_IF_MAX
+};
+
+/**
  * struct ipa_ep_cfg_nat - NAT configuration in IPA end-point
  * @nat_en:	This defines the default NAT mode for the pipe: in case of
  *		filter miss - the default NAT mode defines the NATing operation
@@ -116,6 +137,19 @@ enum hdr_total_len_or_pad_type {
  */
 struct ipa_ep_cfg_nat {
 	enum ipa_nat_en_type nat_en;
+};
+
+/**
+ * struct ipa_ep_cfg_conn_track - IPv6 Connection tracking configuration in
+ *	IPA end-point
+ * @conn_track_en: Defines speculative conn_track action, means if specific
+ *		   pipe needs to have UL/DL IPv6 Connection Tracking or Bypass
+ *		   IPv6 Connection Tracking. 0: Bypass IPv6 Connection Tracking
+ *					     1: IPv6 UL/DL Connection Tracking.
+ *		  Valid for Input Pipes only (IPA consumer)
+ */
+struct ipa_ep_cfg_conn_track {
+	enum ipa_ipv6ct_en_type conn_track_en;
 };
 
 /**
@@ -386,7 +420,8 @@ struct ipa_ep_cfg_seq {
 
 /**
  * struct ipa_ep_cfg - configuration of IPA end-point
- * @nat:		NAT parmeters
+ * @nat:		NAT parameters
+ * @conn_track:		IPv6CT parameters
  * @hdr:		Header parameters
  * @hdr_ext:		Extended header parameters
  * @mode:		Mode parameters
@@ -400,6 +435,7 @@ struct ipa_ep_cfg_seq {
  */
 struct ipa_ep_cfg {
 	struct ipa_ep_cfg_nat nat;
+	struct ipa_ep_cfg_conn_track conn_track;
 	struct ipa_ep_cfg_hdr hdr;
 	struct ipa_ep_cfg_hdr_ext hdr_ext;
 	struct ipa_ep_cfg_mode mode;
@@ -648,7 +684,8 @@ typedef int (*ipa_msg_pull_fn)(void *buff, u32 len, u32 type);
  */
 enum ipa_voltage_level {
 	IPA_VOLTAGE_UNSPECIFIED,
-	IPA_VOLTAGE_SVS = IPA_VOLTAGE_UNSPECIFIED,
+	IPA_VOLTAGE_SVS2 = IPA_VOLTAGE_UNSPECIFIED,
+	IPA_VOLTAGE_SVS,
 	IPA_VOLTAGE_NOMINAL,
 	IPA_VOLTAGE_TURBO,
 	IPA_VOLTAGE_MAX,
@@ -1141,6 +1178,38 @@ struct ipa_gsi_ep_config {
 	int ee;
 };
 
+/**
+ * struct ipa_tz_unlock_reg_info - Used in order unlock regions of memory by TZ
+ * @reg_addr - Physical address of the start of the region
+ * @size - Size of the region in bytes
+ */
+struct ipa_tz_unlock_reg_info {
+	u64 reg_addr;
+	u64 size;
+};
+
+/**
+ * struct  ipa_smmu_in_params - information provided from client
+ * @ipa_smmu_client_type: clinet requesting for the smmu info.
+ */
+
+enum ipa_smmu_client_type {
+	IPA_SMMU_WLAN_CLIENT,
+	IPA_SMMU_CLIENT_MAX
+};
+
+struct ipa_smmu_in_params {
+	enum ipa_smmu_client_type smmu_client;
+};
+
+/**
+ * struct  ipa_smmu_out_params - information provided to IPA client
+ * @ipa_smmu_s1_enable: IPA S1 SMMU enable/disable status
+ */
+struct ipa_smmu_out_params {
+	bool smmu_enable;
+};
+
 #if defined CONFIG_IPA || defined CONFIG_IPA3
 
 /*
@@ -1171,6 +1240,9 @@ int ipa_disable_endpoint(u32 clnt_hdl);
 int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg);
 
 int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ipa_ep_cfg);
+
+int ipa_cfg_ep_conn_track(u32 clnt_hdl,
+	const struct ipa_ep_cfg_conn_track *ep_conn_track);
 
 int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg);
 
@@ -1255,15 +1327,24 @@ int ipa_commit_flt(enum ipa_ip_type ip);
 int ipa_reset_flt(enum ipa_ip_type ip);
 
 /*
- * NAT
+ * NAT\IPv6CT
  */
-int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
+int ipa_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
+int ipa_allocate_nat_table(struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
+int ipa_allocate_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
 
 int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init);
+int ipa_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init);
 
 int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
+int ipa_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
 
 int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del);
+int ipa_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
+int ipa_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
+
+int ipa_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn);
 
 /*
  * Messaging
@@ -1503,6 +1584,32 @@ typedef void (*ipa_ready_cb)(void *user_data);
 int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
 			      void *user_data);
 
+/**
+ * ipa_tz_unlock_reg - Unlocks memory regions so that they become accessible
+ *	from AP.
+ * @reg_info - Pointer to array of memory regions to unlock
+ * @num_regs - Number of elements in the array
+ *
+ * Converts the input array of regions to a struct that TZ understands and
+ * issues an SCM call.
+ * Also flushes the memory cache to DDR in order to make sure that TZ sees the
+ * correct data structure.
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
+int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out);
+/**
+ * ipa_is_vlan_mode - check if a LAN driver should load in VLAN mode
+ * @iface - type of vlan capable device
+ * @res - query result: true for vlan mode, false for non vlan mode
+ *
+ * API must be called after ipa_is_ready() returns true, otherwise it will fail
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res);
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
 /*
@@ -1556,6 +1663,12 @@ static inline int ipa_cfg_ep_nat(u32 clnt_hdl,
 		const struct ipa_ep_cfg_nat *ipa_ep_cfg)
 {
 	return -EPERM;
+}
+
+static inline int ipa_cfg_ep_conn_track(u32 clnt_hdl,
+	const struct ipa_ep_cfg_conn_track *ep_conn_track)
+{
+	return -EPERM
 }
 
 static inline int ipa_cfg_ep_hdr(u32 clnt_hdl,
@@ -1743,25 +1856,60 @@ static inline int ipa_reset_flt(enum ipa_ip_type ip)
 /*
  * NAT
  */
-static inline int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
+static inline int ipa_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 {
 	return -EPERM;
 }
 
+static inline int ipa_allocate_nat_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+{
+	return -EPERM;
+}
+
+static inline int ipa_allocate_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+{
+	return -EPERM;
+}
 
 static inline int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 {
 	return -EPERM;
 }
 
+static inline int ipa_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
+{
+	return -EPERM;
+}
 
 static inline int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 {
 	return -EPERM;
 }
 
+static inline int ipa_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
+{
+	return -EPERM;
+}
 
 static inline int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
+{
+	return -EPERM;
+}
+
+static inline int ipa_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
+{
+	return -EPERM;
+}
+
+static inline int ipa_del_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_del *del)
+{
+	return -EPERM;
+}
+
+static inline int ipa_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
 {
 	return -EPERM;
 }
@@ -2243,6 +2391,23 @@ static inline int ipa_register_ipa_ready_cb(
 	return -EPERM;
 }
 
+static inline int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info,
+	u16 num_regs)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
+{
+	return -EPERM;
+}
+
+static inline int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+{
+	return -EPERM;
+}
 #endif /* (CONFIG_IPA || CONFIG_IPA3) */
 
 #endif /* _IPA_H_ */

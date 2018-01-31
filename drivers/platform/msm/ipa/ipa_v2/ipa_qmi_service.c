@@ -312,7 +312,7 @@ static void ipa_a5_svc_recv_msg(struct work_struct *work)
 	int rc;
 
 	do {
-		IPAWANDBG("Notified about a Receive Event");
+		IPAWANDBG_LOW("Notified about a Receive Event");
 		rc = qmi_recv_msg(ipa_svc_handle);
 	} while (rc == 0);
 	if (rc != -ENOMSG)
@@ -386,7 +386,7 @@ static int ipa_check_qmi_response(int rc,
 		req_id, result, error);
 		return result;
 	}
-	IPAWANDBG("Received %s successfully\n", resp_type);
+	IPAWANDBG_LOW("Received %s successfully\n", resp_type);
 	return 0;
 }
 
@@ -512,6 +512,7 @@ int qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 	struct ipa_install_fltr_rule_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 	int rc;
+	int i;
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->filter_spec_list_len == 0) {
@@ -521,6 +522,38 @@ int qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 		req->filter_spec_list_len);
 	}
 
+	if (req->filter_spec_list_len >= QMI_IPA_MAX_FILTERS_V01) {
+		IPAWANDBG(
+		"IPACM passes the number of filtering rules exceed limit\n");
+		return -EINVAL;
+	} else if (req->source_pipe_index_valid != 0) {
+		IPAWANDBG(
+		"IPACM passes source_pipe_index_valid not zero 0 != %d\n",
+			req->source_pipe_index_valid);
+		return -EINVAL;
+	} else if (req->source_pipe_index >= ipa_ctx->ipa_num_pipes) {
+		IPAWANDBG(
+		"IPACM passes source pipe index not valid ID = %d\n",
+		req->source_pipe_index);
+		return -EINVAL;
+	}
+	for (i = 0; i < req->filter_spec_list_len; i++) {
+		if ((req->filter_spec_list[i].ip_type !=
+			QMI_IPA_IP_TYPE_V4_V01) &&
+			(req->filter_spec_list[i].ip_type !=
+			QMI_IPA_IP_TYPE_V6_V01))
+			return -EINVAL;
+		if (req->filter_spec_list[i].is_mux_id_valid == false)
+			return -EINVAL;
+		if (req->filter_spec_list[i].is_routing_table_index_valid
+			== false)
+			return -EINVAL;
+		if ((req->filter_spec_list[i].filter_action <=
+			QMI_IPA_FILTER_ACTION_INVALID_V01) &&
+			(req->filter_spec_list[i].filter_action >
+			QMI_IPA_FILTER_ACTION_EXCEPTION_V01))
+			return -EINVAL;
+	}
 	mutex_lock(&ipa_qmi_lock);
 	if (ipa_qmi_ctx != NULL) {
 		/* cache the qmi_filter_request */
@@ -655,9 +688,8 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->filter_index_list_len == 0) {
-		IPAWANERR(" delete UL filter rule for pipe %d\n",
+		IPAWANDBG(" delete UL filter rule for pipe %d\n",
 		req->source_pipe_index);
-		return -EINVAL;
 	} else if (req->filter_index_list_len > QMI_IPA_MAX_FILTERS_V01) {
 		IPAWANERR(" UL filter rule for pipe %d exceed max (%u)\n",
 		req->source_pipe_index,
@@ -673,6 +705,27 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 				i,
 				req->filter_index_list[i].filter_handle,
 				req->filter_index_list[i].filter_index);
+		return -EINVAL;
+	}
+
+	if (req->install_status != IPA_QMI_RESULT_SUCCESS_V01) {
+		IPAWANERR(" UL filter rule for pipe %d install_status = %d\n",
+			req->source_pipe_index, req->install_status);
+		return -EINVAL;
+	} else if (req->source_pipe_index >= ipa_ctx->ipa_num_pipes) {
+		IPAWANERR("IPACM passes source pipe index not valid ID = %d\n",
+		req->source_pipe_index);
+		return -EINVAL;
+	} else if (((req->embedded_pipe_index_valid != true) ||
+			(req->embedded_call_mux_id_valid != true)) &&
+			((req->embedded_pipe_index_valid != false) ||
+			(req->embedded_call_mux_id_valid != false))) {
+		IPAWANERR(
+			"IPACM passes embedded pipe and mux valid not valid\n");
+		return -EINVAL;
+	} else if (req->embedded_pipe_index >= ipa_ctx->ipa_num_pipes) {
+		IPAWANERR("IPACM passes source pipe index not valid ID = %d\n",
+		req->source_pipe_index);
 		return -EINVAL;
 	}
 
@@ -715,7 +768,7 @@ static void ipa_q6_clnt_recv_msg(struct work_struct *work)
 	int rc;
 
 	do {
-		IPAWANDBG("Notified about a Receive Event");
+		IPAWANDBG_LOW("Notified about a Receive Event");
 		rc = qmi_recv_msg(ipa_q6_clnt);
 	} while (rc == 0);
 	if (rc != -ENOMSG)
@@ -727,7 +780,7 @@ static void ipa_q6_clnt_notify(struct qmi_handle *handle,
 {
 	switch (event) {
 	case QMI_RECV_MSG:
-		IPAWANDBG("client qmi recv message called");
+		IPAWANDBG_LOW("client qmi recv message called");
 		if (!atomic_read(&workqueues_stopped))
 			queue_delayed_work(ipa_clnt_resp_workqueue,
 					   &work_recv_msg_client, 0);
@@ -978,7 +1031,7 @@ int ipa_qmi_service_init(uint32_t wan_platform_type)
 	qmi_indication_fin = false;
 	atomic_set(&workqueues_stopped, 0);
 
-	if (atomic_read(&ipa_qmi_initialized == 0))
+	if (atomic_read(&ipa_qmi_initialized) == 0)
 		ipa_qmi_service_init_worker();
 	return 0;
 }
@@ -1098,7 +1151,7 @@ int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 	resp_desc.msg_id = QMI_IPA_GET_DATA_STATS_RESP_V01;
 	resp_desc.ei_array = ipa_get_data_stats_resp_msg_data_v01_ei;
 
-	IPAWANDBG("Sending QMI_IPA_GET_DATA_STATS_REQ_V01\n");
+	IPAWANDBG_LOW("Sending QMI_IPA_GET_DATA_STATS_REQ_V01\n");
 	if (unlikely(!ipa_q6_clnt))
 		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
@@ -1107,7 +1160,7 @@ int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 			sizeof(struct ipa_get_data_stats_resp_msg_v01),
 			QMI_SEND_STATS_REQ_TIMEOUT_MS);
 
-	IPAWANDBG("QMI_IPA_GET_DATA_STATS_RESP_V01 received\n");
+	IPAWANDBG_LOW("QMI_IPA_GET_DATA_STATS_RESP_V01 received\n");
 
 	return ipa_check_qmi_response(rc,
 		QMI_IPA_GET_DATA_STATS_REQ_V01, resp->resp.result,
@@ -1128,7 +1181,7 @@ int ipa_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
 	resp_desc.msg_id = QMI_IPA_GET_APN_DATA_STATS_RESP_V01;
 	resp_desc.ei_array = ipa_get_apn_data_stats_resp_msg_data_v01_ei;
 
-	IPAWANDBG("Sending QMI_IPA_GET_APN_DATA_STATS_REQ_V01\n");
+	IPAWANDBG_LOW("Sending QMI_IPA_GET_APN_DATA_STATS_REQ_V01\n");
 	if (unlikely(!ipa_q6_clnt))
 		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
@@ -1137,7 +1190,7 @@ int ipa_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
 			sizeof(struct ipa_get_apn_data_stats_resp_msg_v01),
 			QMI_SEND_STATS_REQ_TIMEOUT_MS);
 
-	IPAWANDBG("QMI_IPA_GET_APN_DATA_STATS_RESP_V01 received\n");
+	IPAWANDBG_LOW("QMI_IPA_GET_APN_DATA_STATS_RESP_V01 received\n");
 
 	return ipa_check_qmi_response(rc,
 		QMI_IPA_GET_APN_DATA_STATS_REQ_V01, resp->resp.result,
@@ -1161,7 +1214,7 @@ int ipa_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req)
 	resp_desc.msg_id = QMI_IPA_SET_DATA_USAGE_QUOTA_RESP_V01;
 	resp_desc.ei_array = ipa_set_data_usage_quota_resp_msg_data_v01_ei;
 
-	IPAWANDBG("Sending QMI_IPA_SET_DATA_USAGE_QUOTA_REQ_V01\n");
+	IPAWANDBG_LOW("Sending QMI_IPA_SET_DATA_USAGE_QUOTA_REQ_V01\n");
 	if (unlikely(!ipa_q6_clnt))
 		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
@@ -1169,7 +1222,7 @@ int ipa_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req)
 			&resp_desc, &resp, sizeof(resp),
 			QMI_SEND_STATS_REQ_TIMEOUT_MS);
 
-	IPAWANDBG("QMI_IPA_SET_DATA_USAGE_QUOTA_RESP_V01 received\n");
+	IPAWANDBG_LOW("QMI_IPA_SET_DATA_USAGE_QUOTA_RESP_V01 received\n");
 
 	return ipa_check_qmi_response(rc,
 		QMI_IPA_SET_DATA_USAGE_QUOTA_REQ_V01, resp.resp.result,
@@ -1196,14 +1249,14 @@ int ipa_qmi_stop_data_qouta(void)
 	resp_desc.msg_id = QMI_IPA_STOP_DATA_USAGE_QUOTA_RESP_V01;
 	resp_desc.ei_array = ipa_stop_data_usage_quota_resp_msg_data_v01_ei;
 
-	IPAWANDBG("Sending QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_V01\n");
+	IPAWANDBG_LOW("Sending QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_V01\n");
 	if (unlikely(!ipa_q6_clnt))
 		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, &req, sizeof(req),
 		&resp_desc, &resp, sizeof(resp),
 		QMI_SEND_STATS_REQ_TIMEOUT_MS);
 
-	IPAWANDBG("QMI_IPA_STOP_DATA_USAGE_QUOTA_RESP_V01 received\n");
+	IPAWANDBG_LOW("QMI_IPA_STOP_DATA_USAGE_QUOTA_RESP_V01 received\n");
 
 	return ipa_check_qmi_response(rc,
 		QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_V01, resp.resp.result,

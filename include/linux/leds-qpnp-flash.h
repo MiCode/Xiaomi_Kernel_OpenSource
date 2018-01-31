@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,11 +18,17 @@
 #define ENABLE_REGULATOR	BIT(0)
 #define DISABLE_REGULATOR	BIT(1)
 #define QUERY_MAX_CURRENT	BIT(2)
-#define PRE_FLASH		BIT(3)
 
 #define FLASH_LED_PREPARE_OPTIONS_MASK	GENMASK(3, 0)
 
-int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+#if (defined CONFIG_LEDS_QPNP_FLASH || defined CONFIG_LEDS_QPNP_FLASH_V2)
+extern int (*qpnp_flash_led_prepare)(struct led_trigger *trig, int options,
 					int *max_current);
-
+#else
+static inline int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current)
+{
+	return -ENODEV;
+}
+#endif
 #endif

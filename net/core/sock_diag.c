@@ -19,7 +19,7 @@ static int (*inet_rcv_compat)(struct sk_buff *skb, struct nlmsghdr *nlh);
 static DEFINE_MUTEX(sock_diag_table_mutex);
 static struct workqueue_struct *broadcast_wq;
 
-static u64 sock_gen_cookie(struct sock *sk)
+u64 sock_gen_cookie(struct sock *sk)
 {
 	while (1) {
 		u64 res = atomic64_read(&sk->sk_cookie);
@@ -295,7 +295,7 @@ static int sock_diag_bind(struct net *net, int group)
 	case SKNLGRP_INET6_UDP_DESTROY:
 		if (!sock_diag_handlers[AF_INET6])
 			request_module("net-pf-%d-proto-%d-type-%d", PF_NETLINK,
-				       NETLINK_SOCK_DIAG, AF_INET);
+				       NETLINK_SOCK_DIAG, AF_INET6);
 		break;
 	}
 	return 0;

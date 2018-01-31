@@ -114,27 +114,62 @@ config ARCH_MVEBU
 config ARCH_QCOM
 	bool "Qualcomm Platforms"
 	select PINCTRL
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
 	select SOC_BUS
 	select PM_OPP
+	select MFD_CORE
+	select SND_SOC_COMPRESS
+	select SND_HWDEP
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
 config ARCH_SDM845
 	bool "Enable Support for Qualcomm Technologies Inc. SDM845"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	select QCOM_GDSC
 	help
 	  This enables support for the SDM845 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
-config ARCH_SDM830
-	bool "Enable Support for Qualcomm Technologies Inc. SDM830"
+config ARCH_SDM670
+	bool "Enable Support for Qualcomm Technologies Inc. SDM670"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	select QCOM_GDSC
 	help
-	  This enables support for the SDM830 chipset. If you do not
+	  This enables support for the SDM670 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_MSM8953
+	bool "Enable Support for Qualcomm Technologies Inc. MSM8953"
+	depends on ARCH_QCOM
+	select CPU_FREQ_QCOM
+	select COMMON_CLK_MSM
+	help
+	  This enables support for the MSM8953 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_SDM450
+	bool "Enable Support for Qualcomm Technologies Inc. SDM450"
+	depends on ARCH_QCOM
+	select CPU_FREQ_QCOM
+	select COMMON_CLK_MSM
+	help
+	  This enables support for the sdm450 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
+config ARCH_SDM632
+	bool "Enable Support for Qualcomm Technologies Inc. SDM632"
+	depends on ARCH_QCOM
+	select CPU_FREQ_QCOM
+	select COMMON_CLK_MSM
+	help
+	  This enables support for the sdm632 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
 config ARCH_ROCKCHIP

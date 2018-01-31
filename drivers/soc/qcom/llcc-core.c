@@ -35,6 +35,15 @@
 #define DRP0_INTERRUPT_ENABLE	BIT(6)
 #define SB_DB_DRP_INTERRUPT_ENABLE	0x3
 
+#ifdef CONFIG_EDAC_QCOM_LLCC
+#define ENABLE_ECC_INTR 1
+#else
+#define ENABLE_ECC_INTR 0
+#endif
+
+static int enable_ecc_intr = ENABLE_ECC_INTR;
+module_param(enable_ecc_intr, int, 0444);
+
 static void qcom_llcc_core_setup(struct regmap *llcc_regmap, uint32_t b_off)
 {
 	u32 sb_err_threshold;
@@ -81,7 +90,8 @@ static int qcom_llcc_core_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	qcom_llcc_core_setup(llcc_regmap, b_off);
+	if (enable_ecc_intr)
+		qcom_llcc_core_setup(llcc_regmap, b_off);
 
 	return 0;
 }

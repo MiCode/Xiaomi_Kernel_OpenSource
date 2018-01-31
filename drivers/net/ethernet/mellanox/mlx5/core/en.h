@@ -82,7 +82,7 @@
 #define MLX5E_VALID_NUM_MTTS(num_mtts) (MLX5_MTT_OCTW(num_mtts) <= U16_MAX)
 
 #define MLX5_UMR_ALIGN				(2048)
-#define MLX5_MPWRQ_SMALL_PACKET_THRESHOLD	(128)
+#define MLX5_MPWRQ_SMALL_PACKET_THRESHOLD	(256)
 
 #define MLX5E_PARAMS_DEFAULT_LRO_WQE_SZ                 (64 * 1024)
 #define MLX5E_DEFAULT_LRO_TIMEOUT                       32
@@ -283,13 +283,15 @@ struct mlx5e_dma_info {
 
 struct mlx5e_rx_am_stats {
 	int ppms; /* packets per msec */
+	int bpms; /* bytes per msec */
 	int epms; /* events per msec */
 };
 
 struct mlx5e_rx_am_sample {
-	ktime_t		time;
-	unsigned int	pkt_ctr;
-	u16		event_ctr;
+	ktime_t	time;
+	u32	pkt_ctr;
+	u32	byte_ctr;
+	u16	event_ctr;
 };
 
 struct mlx5e_rx_am { /* Adaptive Moderation */

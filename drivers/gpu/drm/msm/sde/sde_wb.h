@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
  * @wb_lock		Serialization lock for writeback context structure
  * @connector:		Connector associated with writeback device
  * @encoder:		Encoder associated with writeback device
+ * @max_mixer_width:    Max width supported by SDE LM HW block
  * @count_modes:	Length of writeback connector modes array
  * @modes:		Writeback connector modes array
  */
@@ -49,6 +50,8 @@ struct sde_wb_device {
 	struct drm_encoder *encoder;
 
 	enum drm_connector_status detect_status;
+	u32 max_mixer_width;
+
 	u32 count_modes;
 	struct drm_mode_modeinfo *modes;
 };
@@ -128,13 +131,23 @@ int sde_wb_config(struct drm_device *drm_dev, void *data,
 /**
  * sde_wb_connector_post_init - perform writeback specific initialization
  * @connector: Pointer to drm connector structure
- * @info: Pointer to connector info
  * @display: Pointer to private display structure
  * Returns: Zero on success
  */
-int sde_wb_connector_post_init(struct drm_connector *connector,
+int sde_wb_connector_post_init(struct drm_connector *connector, void *display);
+
+/**
+ * sde_wb_connector_set_info_blob - perform writeback info blob initialization
+ * @connector: Pointer to drm connector structure
+ * @info: Pointer to connector info
+ * @display: Pointer to private display structure
+ * @mode_info: Pointer to the mode info structure
+ * Returns: Zero on success
+ */
+int sde_wb_connector_set_info_blob(struct drm_connector *connector,
 		void *info,
-		void *display);
+		void *display,
+		struct msm_mode_info *mode_info);
 
 /**
  * sde_wb_connector_detect - perform writeback connection status detection
@@ -181,6 +194,18 @@ int sde_wb_connector_set_property(struct drm_connector *connector,
  * Returns: Zero on success
  */
 int sde_wb_get_info(struct msm_display_info *info, void *display);
+
+/**
+ * sde_wb_get_mode_info - retrieve information of the mode selected
+ * @drm_mode: Display mode set for the display
+ * @mode_info: Out parameter. information of the mode.
+ * @max_mixer_width: max width supported by HW layer mixer
+ * @display: Pointer to private display structure
+ * Returns: zero on success
+ */
+int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
+		struct msm_mode_info *mode_info, u32 max_mixer_width,
+		void *display);
 
 /**
  * sde_wb_connector_get_wb - retrieve writeback device of the given connector
@@ -265,7 +290,8 @@ int sde_wb_config(struct drm_device *drm_dev, void *data,
 static inline
 int sde_wb_connector_post_init(struct drm_connector *connector,
 		void *info,
-		void *display)
+		void *display,
+		struct msm_mode_info *mode_info)
 {
 	return 0;
 }

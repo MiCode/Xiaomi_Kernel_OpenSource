@@ -16,10 +16,14 @@
 
 #define MAX_CLIENT_NAME_LEN 128
 
-#define SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA	64000
+#define SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA	0
 #define SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA	0
-#define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA	64000
+#define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA		400000000
+#define SDE_POWER_HANDLE_ENABLE_NRT_BUS_IB_QUOTA	0
 #define SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA	0
+
+#define SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA	1800000000
+#define SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA	1800000000
 
 #include <linux/sde_io_util.h>
 
@@ -60,6 +64,19 @@ enum sde_power_handle_data_bus_client {
 };
 
 /**
+ * enum SDE_POWER_HANDLE_DBUS_ID - data bus identifier
+ * @SDE_POWER_HANDLE_DBUS_ID_MNOC: DPU/MNOC data bus
+ * @SDE_POWER_HANDLE_DBUS_ID_LLCC: MNOC/LLCC data bus
+ * @SDE_POWER_HANDLE_DBUS_ID_EBI: LLCC/EBI data bus
+ */
+enum SDE_POWER_HANDLE_DBUS_ID {
+	SDE_POWER_HANDLE_DBUS_ID_MNOC,
+	SDE_POWER_HANDLE_DBUS_ID_LLCC,
+	SDE_POWER_HANDLE_DBUS_ID_EBI,
+	SDE_POWER_HANDLE_DBUS_ID_MAX,
+};
+
+/**
  * struct sde_power_client: stores the power client for sde driver
  * @name:	name of the client
  * @usecase_ndx: current regs bus vote type
@@ -88,20 +105,30 @@ struct sde_power_client {
  * struct sde_power_data_handle: power handle struct for data bus
  * @data_bus_scale_table: pointer to bus scaling table
  * @data_bus_hdl: current data bus handle
- * @axi_port_cnt: number of rt axi ports
- * @nrt_axi_port_cnt: number of nrt axi ports
+ * @data_paths_cnt: number of rt data path ports
+ * @nrt_data_paths_cnt: number of nrt data path ports
  * @bus_channels: number of memory bus channels
  * @curr_bw_uc_idx: current use case index of data bus
  * @ao_bw_uc_idx: active only use case index of data bus
+ * @ab_rt: realtime ab quota
+ * @ib_rt: realtime ib quota
+ * @ab_nrt: non-realtime ab quota
+ * @ib_nrt: non-realtime ib quota
+ * @enable: true if bus is enabled
  */
 struct sde_power_data_bus_handle {
 	struct msm_bus_scale_pdata *data_bus_scale_table;
 	u32 data_bus_hdl;
-	u32 axi_port_cnt;
-	u32 nrt_axi_port_cnt;
+	u32 data_paths_cnt;
+	u32 nrt_data_paths_cnt;
 	u32 bus_channels;
 	u32 curr_bw_uc_idx;
 	u32 ao_bw_uc_idx;
+	u64 ab_rt;
+	u64 ib_rt;
+	u64 ab_nrt;
+	u64 ib_nrt;
+	bool enable;
 };
 
 /*
@@ -142,7 +169,8 @@ struct sde_power_handle {
 	struct device *dev;
 	u32 current_usecase_ndx;
 	u32 reg_bus_hdl;
-	struct sde_power_data_bus_handle data_bus_handle;
+	struct sde_power_data_bus_handle data_bus_handle
+		[SDE_POWER_HANDLE_DBUS_ID_MAX];
 	struct list_head event_list;
 	struct sde_rsc_client *rsc_client;
 	bool rsc_client_init;
@@ -200,6 +228,24 @@ int sde_power_resource_enable(struct sde_power_handle *pdata,
 	struct sde_power_client *pclient, bool enable);
 
 /**
+ * sde_power_resource_is_enabled() - return true if power resource is enabled
+ * @pdata:  power handle containing the resources
+ *
+ * Return: true if enabled; false otherwise
+ */
+int sde_power_resource_is_enabled(struct sde_power_handle *pdata);
+
+/**
+ * sde_power_data_bus_state_update() - update data bus state
+ * @pdata:  power handle containing the resources
+ * @enable: take enable vs disable path
+ *
+ * Return: error code.
+ */
+int sde_power_data_bus_state_update(struct sde_power_handle *phandle,
+							bool enable);
+
+/**
  * sde_power_clk_set_rate() - set the clock rate
  * @pdata:  power handle containing the resources
  * @clock_name: clock name which needs rate update.
@@ -244,6 +290,7 @@ struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
  * @phandle:  power handle containing the resources
  * @client: client information to set quota
  * @bus_client: real-time or non-real-time bus client
+ * @bus_id: identifier of data bus, see SDE_POWER_HANDLE_DBUS_ID
  * @ab_quota: arbitrated bus bandwidth
  * @ib_quota: instantaneous bus bandwidth
  *
@@ -251,7 +298,8 @@ struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
  */
 int sde_power_data_bus_set_quota(struct sde_power_handle *phandle,
 		struct sde_power_client *pclient,
-		int bus_client, u64 ab_quota, u64 ib_quota);
+		int bus_client, u32 bus_id,
+		u64 ab_quota, u64 ib_quota);
 
 /**
  * sde_power_data_bus_bandwidth_ctrl() - control data bus bandwidth enable
@@ -287,5 +335,12 @@ struct sde_power_event *sde_power_handle_register_event(
  */
 void sde_power_handle_unregister_event(struct sde_power_handle *phandle,
 		struct sde_power_event *event);
+
+/**
+ * sde_power_handle_get_dbus_name - get name of given data bus identifier
+ * @bus_id:	data bus identifier
+ * Return:	Pointer to name string if success; NULL otherwise
+ */
+const char *sde_power_handle_get_dbus_name(u32 bus_id);
 
 #endif /* _SDE_POWER_HANDLE_H_ */

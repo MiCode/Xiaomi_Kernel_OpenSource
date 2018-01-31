@@ -51,9 +51,13 @@
  * @speed_bin:		Application processor speed bin fuse parameter value for
  *			the given chip
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
+ * @foundry_id:		Foundry identifier fuse parameter value for the given
+ *			chip
  * @boost_cfg:		CPR boost configuration fuse parameter value
  * @boost_voltage:	CPR boost voltage fuse parameter value (raw, not
  *			converted to a voltage)
+ * @aging_init_quot_diff:	Initial quotient difference between CPR aging
+ *			min and max sensors measured at time of manufacturing
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -64,9 +68,11 @@ struct cpr4_msm8953_apss_fuses {
 	u64	quot_offset[MSM8953_APSS_FUSE_CORNERS];
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
+	u64	foundry_id;
 	u64	boost_cfg;
 	u64	boost_voltage;
 	u64	misc;
+	u64	aging_init_quot_diff;
 };
 
 /*
@@ -146,6 +152,11 @@ static const struct cpr3_fuse_param msm8953_apss_speed_bin_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param msm8953_apss_foundry_id_param[] = {
+	{37, 40, 42},
+	{},
+};
+
 static const struct cpr3_fuse_param msm8953_cpr_boost_fuse_cfg_param[] = {
 	{36, 43, 45},
 	{},
@@ -160,6 +171,21 @@ static const struct cpr3_fuse_param msm8953_misc_fuse_volt_adj_param[] = {
 	{36, 54, 54},
 	{},
 };
+
+static const struct cpr3_fuse_param msm8953_apss_aging_init_quot_diff_param[]
+= {
+	{72, 0, 7},
+	{},
+};
+
+/*
+ * The maximum number of fuse combinations possible for the selected fuse
+ * parameters in fuse combo map logic.
+ * Here, possible speed-bin values = 8, fuse revision values = 8, and foundry
+ * identifier values = 8. Total number of combinations = 512 (i.e., 8 * 8 * 8)
+ */
+#define CPR4_MSM8953_APSS_FUSE_COMBO_MAP_MAX_COUNT	512
+
 
 /*
  * The number of possible values for misc fuse is
@@ -206,6 +232,14 @@ static const int msm8953_apss_fuse_ref_volt
  */
 static bool boost_fuse[MAX_BOOST_CONFIG_FUSE_VALUE] = {0, 1, 1, 1, 1, 1, 1, 1};
 
+/* CPR Aging parameters for msm8953 */
+#define MSM8953_APSS_AGING_INIT_QUOT_DIFF_SCALE	1
+#define MSM8953_APSS_AGING_INIT_QUOT_DIFF_SIZE	8
+#define MSM8953_APSS_AGING_SENSOR_ID		6
+
+/* Use a very high value for max aging margin to be applied */
+#define MSM8953_APSS_AGING_MAX_AGE_MARGIN_QUOT	(-1000)
+
 /**
  * cpr4_msm8953_apss_read_fuse_data() - load APSS specific fuse parameter values
  * @vreg:		Pointer to the CPR3 regulator
@@ -243,6 +277,14 @@ static int cpr4_msm8953_apss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 	cpr3_info(vreg, "CPR fusing revision = %llu\n", fuse->cpr_fusing_rev);
 
+	rc = cpr3_read_fuse_param(base, msm8953_apss_foundry_id_param,
+				&fuse->foundry_id);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read foundry id fuse, rc=%d\n", rc);
+		return rc;
+	}
+	cpr3_info(vreg, "foundry id = %llu\n", fuse->foundry_id);
+
 	rc = cpr3_read_fuse_param(base, msm8953_misc_fuse_volt_adj_param,
 				&fuse->misc);
 	if (rc) {
@@ -255,6 +297,14 @@ static int cpr4_msm8953_apss_read_fuse_data(struct cpr3_regulator *vreg)
 		cpr3_err(vreg, "CPR misc fuse value = %llu, should be < %lu\n",
 			fuse->misc, MSM8953_MISC_FUSE_VAL_COUNT);
 		return -EINVAL;
+	}
+
+	rc = cpr3_read_fuse_param(base, msm8953_apss_aging_init_quot_diff_param,
+				&fuse->aging_init_quot_diff);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read aging initial quotient difference fuse, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	for (i = 0; i < MSM8953_APSS_FUSE_CORNERS; i++) {
@@ -1120,6 +1170,58 @@ done:
 	return rc;
 }
 
+/*
+ * Constants which define the selection fuse parameters used in fuse combo map
+ * logic.
+ */
+enum cpr4_msm8953_apss_fuse_combo_parameters {
+	MSM8953_APSS_SPEED_BIN = 0,
+	MSM8953_APSS_CPR_FUSE_REV,
+	MSM8953_APSS_FOUNDRY_ID,
+	MSM8953_APSS_FUSE_COMBO_PARAM_COUNT,
+};
+
+/**
+ * cpr4_parse_fuse_combo_map() - parse APSS fuse combo map data from device tree
+ *		properties of the CPR3 regulator's device node
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_parse_fuse_combo_map(struct cpr3_regulator *vreg)
+{
+	struct cpr4_msm8953_apss_fuses *fuse = vreg->platform_fuses;
+	u64 *fuse_val;
+	int rc;
+
+	fuse_val = kcalloc(MSM8953_APSS_FUSE_COMBO_PARAM_COUNT,
+			sizeof(*fuse_val), GFP_KERNEL);
+	if (!fuse_val)
+		return -ENOMEM;
+
+	fuse_val[MSM8953_APSS_SPEED_BIN] = fuse->speed_bin;
+	fuse_val[MSM8953_APSS_CPR_FUSE_REV] = fuse->cpr_fusing_rev;
+	fuse_val[MSM8953_APSS_FOUNDRY_ID] = fuse->foundry_id;
+	rc = cpr3_parse_fuse_combo_map(vreg, fuse_val,
+			MSM8953_APSS_FUSE_COMBO_PARAM_COUNT);
+	if (rc == -ENODEV) {
+		cpr3_debug(vreg, "using legacy fuse combo logic, rc=%d\n",
+			rc);
+		rc = 0;
+	} else if (rc < 0) {
+		cpr3_err(vreg, "error reading fuse combo map data, rc=%d\n",
+			rc);
+	} else if (vreg->fuse_combo >=
+			CPR4_MSM8953_APSS_FUSE_COMBO_MAP_MAX_COUNT) {
+		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
+			vreg->fuse_combo);
+		rc = -EINVAL;
+	}
+
+	kfree(fuse_val);
+	return rc;
+}
+
 /**
  * cpr4_apss_init_regulator() - perform all steps necessary to initialize the
  *		configuration data for a CPR3 regulator
@@ -1139,6 +1241,13 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 	}
 
 	fuse = vreg->platform_fuses;
+
+	rc = cpr4_parse_fuse_combo_map(vreg);
+	if (rc) {
+		cpr3_err(vreg, "error while parsing fuse combo map, rc=%d\n",
+			rc);
+		return rc;
+	}
 
 	rc = cpr4_apss_parse_corner_data(vreg);
 	if (rc) {
@@ -1209,6 +1318,81 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 	cpr4_apss_print_settings(vreg);
 
 	return rc;
+}
+
+/**
+ * cpr4_apss_init_aging() - perform APSS CPR4 controller specific
+ *		aging initializations
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_init_aging(struct cpr3_controller *ctrl)
+{
+	struct cpr4_msm8953_apss_fuses *fuse = NULL;
+	struct cpr3_regulator *vreg = NULL;
+	u32 aging_ro_scale;
+	int i, j, rc;
+
+	for (i = 0; i < ctrl->thread_count; i++) {
+		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+			if (ctrl->thread[i].vreg[j].aging_allowed) {
+				ctrl->aging_required = true;
+				vreg = &ctrl->thread[i].vreg[j];
+				fuse = vreg->platform_fuses;
+				break;
+			}
+		}
+	}
+
+	if (!ctrl->aging_required || !fuse)
+		return 0;
+
+	rc = cpr3_parse_array_property(vreg, "qcom,cpr-aging-ro-scaling-factor",
+					1, &aging_ro_scale);
+	if (rc)
+		return rc;
+
+	if (aging_ro_scale == 0) {
+		cpr3_err(ctrl, "aging RO scaling factor is invalid: %u\n",
+			aging_ro_scale);
+		return -EINVAL;
+	}
+
+	ctrl->aging_vdd_mode = REGULATOR_MODE_NORMAL;
+	ctrl->aging_complete_vdd_mode = REGULATOR_MODE_IDLE;
+
+	ctrl->aging_sensor_count = 1;
+	ctrl->aging_sensor = kzalloc(sizeof(*ctrl->aging_sensor), GFP_KERNEL);
+	if (!ctrl->aging_sensor)
+		return -ENOMEM;
+
+	ctrl->aging_sensor->sensor_id = MSM8953_APSS_AGING_SENSOR_ID;
+	ctrl->aging_sensor->ro_scale = aging_ro_scale;
+
+	ctrl->aging_sensor->init_quot_diff
+		= cpr3_convert_open_loop_voltage_fuse(0,
+			MSM8953_APSS_AGING_INIT_QUOT_DIFF_SCALE,
+			fuse->aging_init_quot_diff,
+			MSM8953_APSS_AGING_INIT_QUOT_DIFF_SIZE);
+
+	if (ctrl->aging_sensor->init_quot_diff == 0) {
+		/*
+		 * Initial quotient difference value '0' has a special meaning
+		 * in MSM8953 fusing scheme. Use max age margin quotient
+		 * difference to consider full aging margin of 15 mV.
+		 */
+		ctrl->aging_sensor->init_quot_diff
+			= MSM8953_APSS_AGING_MAX_AGE_MARGIN_QUOT;
+		cpr3_debug(ctrl, "Init quotient diff = 0, use max age margin quotient\n");
+	}
+
+	cpr3_info(ctrl, "sensor %u aging init quotient diff = %d, aging RO scale = %u QUOT/V\n",
+		ctrl->aging_sensor->sensor_id,
+		ctrl->aging_sensor->init_quot_diff,
+		ctrl->aging_sensor->ro_scale);
+
+	return 0;
 }
 
 /**
@@ -1388,6 +1572,13 @@ static int cpr4_apss_regulator_probe(struct platform_device *pdev)
 				 rc);
 			return rc;
 		}
+	}
+
+	rc = cpr4_apss_init_aging(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "failed to initialize aging configurations, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	platform_set_drvdata(pdev, ctrl);

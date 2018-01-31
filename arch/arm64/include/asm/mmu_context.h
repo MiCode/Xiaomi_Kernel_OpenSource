@@ -30,14 +30,20 @@
 #include <asm/pgtable.h>
 #include <asm/sysreg.h>
 #include <asm/tlbflush.h>
+#include <linux/msm_rtb.h>
 
 static inline void contextidr_thread_switch(struct task_struct *next)
 {
+	pid_t pid = task_pid_nr(next);
+
 	if (!IS_ENABLED(CONFIG_PID_IN_CONTEXTIDR))
 		return;
 
-	write_sysreg(task_pid_nr(next), contextidr_el1);
+	write_sysreg(pid, contextidr_el1);
 	isb();
+
+	uncached_logk(LOGK_CTXID, (void *)(u64)pid);
+
 }
 
 /*
@@ -45,10 +51,17 @@ static inline void contextidr_thread_switch(struct task_struct *next)
  */
 static inline void cpu_set_reserved_ttbr0(void)
 {
-	unsigned long ttbr = virt_to_phys(empty_zero_page);
+	unsigned long ttbr = __pa_symbol(empty_zero_page);
 
 	write_sysreg(ttbr, ttbr0_el1);
 	isb();
+}
+
+static inline void cpu_switch_mm(pgd_t *pgd, struct mm_struct *mm)
+{
+	BUG_ON(pgd == swapper_pg_dir);
+	cpu_set_reserved_ttbr0();
+	cpu_do_switch_mm(virt_to_phys(pgd),mm);
 }
 
 /*
@@ -114,7 +127,7 @@ static inline void cpu_install_idmap(void)
 	local_flush_tlb_all();
 	cpu_set_idmap_tcr_t0sz();
 
-	cpu_switch_mm(idmap_pg_dir, &init_mm);
+	cpu_switch_mm(lm_alias(idmap_pg_dir), &init_mm);
 }
 
 /*
@@ -129,7 +142,7 @@ static inline void cpu_replace_ttbr1(pgd_t *pgd)
 
 	phys_addr_t pgd_phys = virt_to_phys(pgd);
 
-	replace_phys = (void *)virt_to_phys(idmap_cpu_replace_ttbr1);
+	replace_phys = (void *)__pa_symbol(idmap_cpu_replace_ttbr1);
 
 	cpu_install_idmap();
 	replace_phys(pgd_phys);
@@ -150,29 +163,21 @@ void check_and_switch_context(struct mm_struct *mm, unsigned int cpu);
 
 #define init_new_context(tsk,mm)	({ atomic64_set(&(mm)->context.id, 0); 0; })
 
-/*
- * This is called when "tsk" is about to enter lazy TLB mode.
- *
- * mm:  describes the currently active mm context
- * tsk: task which is entering lazy tlb
- * cpu: cpu number which is entering lazy tlb
- *
- * tsk->mm will be NULL
- */
-static inline void
-enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
-{
-}
-
 #ifdef CONFIG_ARM64_SW_TTBR0_PAN
 static inline void update_saved_ttbr0(struct task_struct *tsk,
 				      struct mm_struct *mm)
 {
-	if (system_uses_ttbr0_pan()) {
-		BUG_ON(mm->pgd == swapper_pg_dir);
-		task_thread_info(tsk)->ttbr0 =
-			virt_to_phys(mm->pgd) | ASID(mm) << 48;
-	}
+	u64 ttbr;
+
+	if (!system_uses_ttbr0_pan())
+		return;
+
+	if (mm == &init_mm)
+		ttbr = __pa_symbol(empty_zero_page);
+	else
+		ttbr = virt_to_phys(mm->pgd) | ASID(mm) << 48;
+
+	task_thread_info(tsk)->ttbr0 = ttbr;
 }
 #else
 static inline void update_saved_ttbr0(struct task_struct *tsk,
@@ -180,6 +185,16 @@ static inline void update_saved_ttbr0(struct task_struct *tsk,
 {
 }
 #endif
+
+static inline void
+enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
+{
+	/*
+	 * We don't actually care about the ttbr0 mapping, so point it at the
+	 * zero page.
+	 */
+	update_saved_ttbr0(tsk, &init_mm);
+}
 
 static inline void __switch_mm(struct mm_struct *next)
 {
@@ -208,11 +223,9 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	 * Update the saved TTBR0_EL1 of the scheduled-in task as the previous
 	 * value may have not been initialised yet (activate_mm caller) or the
 	 * ASID has changed since the last run (following the context switch
-	 * of another thread of the same process). Avoid setting the reserved
-	 * TTBR0_EL1 to swapper_pg_dir (init_mm; e.g. via idle_task_exit).
+	 * of another thread of the same process).
 	 */
-	if (next != &init_mm)
-		update_saved_ttbr0(tsk, next);
+	update_saved_ttbr0(tsk, next);
 }
 
 #define deactivate_mm(tsk,mm)	do { } while (0)

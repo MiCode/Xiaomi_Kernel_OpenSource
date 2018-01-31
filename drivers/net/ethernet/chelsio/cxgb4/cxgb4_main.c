@@ -2201,9 +2201,10 @@ static int cxgb_up(struct adapter *adap)
 {
 	int err;
 
+	mutex_lock(&uld_mutex);
 	err = setup_sge_queues(adap);
 	if (err)
-		goto out;
+		goto rel_lock;
 	err = setup_rss(adap);
 	if (err)
 		goto freeq;
@@ -2226,23 +2227,28 @@ static int cxgb_up(struct adapter *adap)
 		if (err)
 			goto irq_err;
 	}
+
 	enable_rx(adap);
 	t4_sge_start(adap);
 	t4_intr_enable(adap);
 	adap->flags |= FULL_INIT_DONE;
+	mutex_unlock(&uld_mutex);
+
 	notify_ulds(adap, CXGB4_STATE_UP);
 #if IS_ENABLED(CONFIG_IPV6)
 	update_clip(adap);
 #endif
 	/* Initialize hash mac addr list*/
 	INIT_LIST_HEAD(&adap->mac_hlist);
- out:
 	return err;
+
  irq_err:
 	dev_err(adap->pdev_dev, "request_irq failed, err %d\n", err);
  freeq:
 	t4_free_sge_resources(adap);
-	goto out;
+ rel_lock:
+	mutex_unlock(&uld_mutex);
+	return err;
 }
 
 static void cxgb_down(struct adapter *adapter)

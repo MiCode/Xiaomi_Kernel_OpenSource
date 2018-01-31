@@ -22,8 +22,7 @@ Charger specific properties:
   Definition: String which indicates the charging mode. Can be one of the
 	      following:
               Standalone/Parallel Master	- "qcom,smb138x-charger"
-	      smb138x Parallel Slave		- "qcom,smb138x-parallel-slave"
-	      smb1355 Parallel Slave		- "qcom,smb1355-parallel-slave",
+	      Parallel Slave			- "qcom,smb138x-parallel-slave"
 
 - qcom,pmic-revid
   Usage:      required
@@ -36,14 +35,20 @@ Charger specific properties:
   Usage:      optional
   Value type: <u32>
   Definition: Specifies parallel charging mode. If not specified, MID-MID
-	      option is selected by default. Note that smb1355 can only
-	      run in MID-MID configuration.
+	      option is selected by default.
 
 - qcom,suspend-input
   Usage:      optional
   Value type: <empty>
   Definition: Boolean flag which indicates that the charger should not draw
 	      current from any of its input sources (USB, DC).
+
+- qcom,use-extcon
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which specify that smb138x will act as main charger
+	      to do extcon USB calls. If not defined, other charger driver can
+	      act as main charger to do extcon USB calls.
 
 - qcom,fcc-max-ua
   Usage:      optional
@@ -88,6 +93,12 @@ Charger specific properties:
 		will use io-channel-names to match IIO input names
 		with IIO specifiers.
 
+- qcom,stacked-batfet
+  Usage:      optional
+  Value type: <empty>
+  Definition: boolean flag. Specifies if parallel charger has stacked BATFET
+              cofiguration.
+
 ================================================
 Second Level Nodes - SMB138X Charger Peripherals
 ================================================
@@ -127,7 +138,7 @@ Example
 =======
 
 smb138x_charger: qcom,smb138x-charger {
-	compatible = "qcom,smb138x-charger";
+	compatible = "qcom,qpnp-smb138x-charger";
 	#address-cells = <1>;
 	#size-cells = <1>;
 

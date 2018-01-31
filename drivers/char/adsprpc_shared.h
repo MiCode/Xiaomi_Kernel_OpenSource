@@ -27,6 +27,9 @@
 #define FASTRPC_IOCTL_GETINFO	_IOWR('R', 8, uint32_t)
 #define FASTRPC_IOCTL_GETPERF	_IOWR('R', 9, struct fastrpc_ioctl_perf)
 #define FASTRPC_IOCTL_INIT_ATTRS _IOWR('R', 10, struct fastrpc_ioctl_init_attrs)
+#define FASTRPC_IOCTL_INVOKE_CRC _IOWR('R', 11, struct fastrpc_ioctl_invoke_crc)
+#define FASTRPC_IOCTL_CONTROL   _IOWR('R', 12, struct fastrpc_ioctl_control)
+#define FASTRPC_IOCTL_MUNMAP_FD _IOWR('R', 13, struct fastrpc_ioctl_munmap_fd)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -34,6 +37,15 @@
 
 /* Set for buffers that have no virtual mapping in userspace */
 #define FASTRPC_ATTR_NOVA 0x1
+
+/* Set for buffers that are NOT dma coherent */
+#define FASTRPC_ATTR_NON_COHERENT 0x2
+
+/* Set for buffers that are dma coherent */
+#define FASTRPC_ATTR_COHERENT 0x4
+
+/* Fastrpc attribute for keeping the map persistent */
+#define FASTRPC_ATTR_KEEP_MAP	0x8
 
 /* Driver should operate in parallel with the co-processor */
 #define FASTRPC_MODE_PARALLEL    0
@@ -44,9 +56,13 @@
 /* Driver should operate in profile mode with the co-processor */
 #define FASTRPC_MODE_PROFILE     2
 
+/* Set FastRPC session ID to 1 */
+#define FASTRPC_MODE_SESSION     4
+
 /* INIT a new process or attach to guestos */
 #define FASTRPC_INIT_ATTACH      0
 #define FASTRPC_INIT_CREATE      1
+#define FASTRPC_INIT_CREATE_STATIC  2
 
 /* Retrives number of input buffers from the scalars parameter */
 #define REMOTE_SCALARS_INBUFS(sc)        (((sc) >> 16) & 0x0ff)
@@ -93,7 +109,7 @@
 #define VERIFY(err, val) \
 do {\
 	VERIFY_IPRINTF(__FILE_LINE__"info: calling: " #val "\n");\
-	if (0 == (val)) {\
+	if ((val) == 0) {\
 		(err) = (err) == 0 ? -1 : (err);\
 		VERIFY_EPRINTF(__FILE_LINE__"error: %d: " #val "\n", (err));\
 	} else {\
@@ -106,7 +122,7 @@ do {\
 
 struct remote_buf64 {
 	uint64_t pv;
-	int64_t len;
+	uint64_t len;
 };
 
 struct remote_dma_handle64 {
@@ -125,7 +141,7 @@ union remote_arg64 {
 
 struct remote_buf {
 	void *pv;		/* buffer pointer */
-	ssize_t len;		/* length of buffer */
+	size_t len;		/* length of buffer */
 };
 
 struct remote_dma_handle {
@@ -156,39 +172,66 @@ struct fastrpc_ioctl_invoke_attrs {
 	unsigned int *attrs;	/* attribute list */
 };
 
+struct fastrpc_ioctl_invoke_crc {
+	struct fastrpc_ioctl_invoke inv;
+	int *fds;		/* fd list */
+	unsigned int *attrs;	/* attribute list */
+	unsigned int *crc;
+};
+
 struct fastrpc_ioctl_init {
 	uint32_t flags;		/* one of FASTRPC_INIT_* macros */
-	uintptr_t __user file;	/* pointer to elf file */
-	int32_t filelen;	/* elf file length */
+	uintptr_t file;		/* pointer to elf file */
+	uint32_t filelen;	/* elf file length */
 	int32_t filefd;		/* ION fd for the file */
-	uintptr_t __user mem;	/* mem for the PD */
-	int32_t memlen;		/* mem length */
+	uintptr_t mem;		/* mem for the PD */
+	uint32_t memlen;	/* mem length */
 	int32_t memfd;		/* ION fd for the mem */
 };
 
 struct fastrpc_ioctl_init_attrs {
 		struct fastrpc_ioctl_init init;
 		int attrs;
-		int siglen;
+		unsigned int siglen;
 };
 
 struct fastrpc_ioctl_munmap {
 	uintptr_t vaddrout;	/* address to unmap */
-	ssize_t size;		/* size */
+	size_t size;		/* size */
 };
 
 struct fastrpc_ioctl_mmap {
 	int fd;				/* ion fd */
 	uint32_t flags;			/* flags for dsp to map with */
-	uintptr_t __user *vaddrin;	/* optional virtual address */
-	ssize_t size;			/* size */
+	uintptr_t vaddrin;		/* optional virtual address */
+	size_t size;			/* size */
 	uintptr_t vaddrout;		/* dsps virtual address */
 };
 
+struct fastrpc_ioctl_munmap_fd {
+	int     fd;				/* fd */
+	uint32_t  flags;		/* control flags */
+	uintptr_t va;			/* va */
+	ssize_t  len;			/* length */
+};
+
 struct fastrpc_ioctl_perf {			/* kernel performance data */
-	uintptr_t __user data;
+	uintptr_t data;
 	uint32_t numkeys;
-	uintptr_t __user keys;
+	uintptr_t keys;
+};
+
+#define FASTRPC_CONTROL_LATENCY   (1)
+struct fastrpc_ctrl_latency {
+	uint32_t enable;	//!latency control enable
+	uint32_t level;		//!level of control
+};
+
+struct fastrpc_ioctl_control {
+	uint32_t req;
+	union {
+		struct fastrpc_ctrl_latency lp;
+	};
 };
 
 struct smq_null_invoke {
@@ -226,7 +269,7 @@ struct smq_invoke_rsp {
 static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
 							uint32_t sc)
 {
-	int len = REMOTE_SCALARS_LENGTH(sc);
+	unsigned int len = REMOTE_SCALARS_LENGTH(sc);
 
 	return (struct smq_invoke_buf *)(&pra[len]);
 }
@@ -234,7 +277,7 @@ static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
 static inline struct smq_phy_page *smq_phy_page_start(uint32_t sc,
 						struct smq_invoke_buf *buf)
 {
-	int nTotal = REMOTE_SCALARS_LENGTH(sc);
+	unsigned int nTotal = REMOTE_SCALARS_LENGTH(sc);
 
 	return (struct smq_phy_page *)(&buf[nTotal]);
 }

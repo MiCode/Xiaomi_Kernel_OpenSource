@@ -84,6 +84,16 @@
 		.is_ubwc = isubwc,				\
 	}
 
+#define FMT_YUV10_COMMON(fmt)					\
+		.format = (fmt),				\
+		.is_yuv = 1,					\
+		.bits = {					\
+			[C2_R_Cr] = SDE_COLOR_8BIT,		\
+			[C0_G_Y] = SDE_COLOR_8BIT,		\
+			[C1_B_Cb] = SDE_COLOR_8BIT,		\
+		},						\
+		.alpha_enable = 0
+
 #define FMT_YUV_COMMON(fmt)					\
 		.format = (fmt),				\
 		.is_yuv = 1,					\
@@ -643,8 +653,23 @@ static struct sde_mdp_format_params sde_mdp_format_map[] = {
 		0, C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
 
 	{
-		FMT_YUV_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010),
+		FMT_YUV10_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010),
 		.description = "SDE/Y_CBCR_H2V2_P010",
+		.flag = 0,
+		.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,
+		.chroma_sample = SDE_MDP_CHROMA_420,
+		.unpack_count = 2,
+		.bpp = 2,
+		.frame_format = SDE_MDP_FMT_LINEAR,
+		.pixel_mode = SDE_MDP_PIXEL_10BIT,
+		.element = { C1_B_Cb, C2_R_Cr },
+		.unpack_tight = 0,
+		.unpack_align_msb = 1,
+		.is_ubwc = SDE_MDP_COMPRESS_NONE,
+	},
+	{
+		FMT_YUV10_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010_VENUS),
+		.description = "SDE/Y_CBCR_H2V2_P010_VENUS",
 		.flag = 0,
 		.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,
 		.chroma_sample = SDE_MDP_CHROMA_420,
@@ -783,10 +808,15 @@ struct sde_mdp_format_params *sde_get_format_params(u32 format)
 	if (!fmt_found) {
 		for (i = 0; i < ARRAY_SIZE(sde_mdp_format_ubwc_map); i++) {
 			fmt = &sde_mdp_format_ubwc_map[i].mdp_format;
-			if (format == fmt->format)
+			if (format == fmt->format) {
+				fmt_found = true;
 				break;
+			}
 		}
 	}
+	/* If format not supported than return NULL */
+	if (!fmt_found)
+		fmt = NULL;
 
 	return fmt;
 }
@@ -844,6 +874,11 @@ int sde_rot_get_base_tilea5x_pixfmt(u32 src_pixfmt, u32 *dst_pixfmt)
 	case SDE_PIX_FMT_Y_CRCB_H2V2:
 	case SDE_PIX_FMT_Y_CRCB_H2V2_TILE:
 		*dst_pixfmt = SDE_PIX_FMT_Y_CRCB_H2V2_TILE;
+		break;
+	case V4L2_PIX_FMT_RGB565:
+	case SDE_PIX_FMT_RGB_565_UBWC:
+	case SDE_PIX_FMT_RGB_565_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_RGB_565_TILE;
 		break;
 	case SDE_PIX_FMT_RGBA_8888:
 	case SDE_PIX_FMT_RGBA_8888_UBWC:

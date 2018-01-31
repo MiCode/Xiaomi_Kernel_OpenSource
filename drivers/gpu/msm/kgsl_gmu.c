@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/iommu.h>
@@ -17,6 +18,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/pm_opp.h>
+#include <linux/io.h>
 #include <soc/qcom/cmd-db.h>
 
 #include "kgsl_device.h"
@@ -24,6 +26,13 @@
 #include "kgsl_hfi.h"
 #include "a6xx_reg.h"
 #include "adreno.h"
+
+#undef MODULE_PARAM_PREFIX
+#define MODULE_PARAM_PREFIX "kgsl_gmu."
+
+static bool nogmu;
+module_param(nogmu, bool, 0444);
+MODULE_PARM_DESC(nogmu, "Disable the GMU");
 
 #define GMU_CONTEXT_USER		0
 #define GMU_CONTEXT_KERNEL		1
@@ -107,9 +116,9 @@ bool kgsl_gmu_isenabled(struct kgsl_device *device)
 	struct gmu_device *gmu = &device->gmu;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	if (gmu->pdev && ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+	if (!nogmu && gmu->pdev &&
+		ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return true;
-
 	return false;
 }
 
@@ -173,8 +182,8 @@ static int alloc_and_map(struct gmu_device *gmu, unsigned int ctx_id,
 
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
-				"gmu map err: gaddr=0x%016llX, paddr=0x%016llX\n",
-				md->gmuaddr, md->physaddr);
+				"gmu map err: gaddr=0x%016llX, paddr=0x%pa\n",
+				md->gmuaddr, &(md->physaddr));
 		free_gmu_mem(gmu, md);
 	}
 
@@ -437,20 +446,33 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int perf_idx = INVALID_DCVS_IDX, bw_idx = INVALID_DCVS_IDX;
+	int ret;
 
-	if (gpu_pwrlevel < gmu->num_gpupwrlevels)
+	if (gpu_pwrlevel < gmu->num_gpupwrlevels - 1)
 		perf_idx = gmu->num_gpupwrlevels - gpu_pwrlevel - 1;
 
-	if (bus_level < gmu->num_bwlevels)
+	if (bus_level < gmu->num_bwlevels && bus_level > 0)
 		bw_idx = bus_level;
 
 	if ((perf_idx == INVALID_DCVS_IDX) &&
 		(bw_idx == INVALID_DCVS_IDX))
 		return -EINVAL;
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		return gpudev->rpmh_gpu_pwrctrl(adreno_dev,
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev,
 			GMU_DCVS_NOHFI, perf_idx, bw_idx);
+
+		if (ret) {
+			dev_err_ratelimited(&gmu->pdev->dev,
+				"Failed to set GPU perf idx %d, bw idx %d\n",
+				perf_idx, bw_idx);
+
+			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+			adreno_dispatcher_schedule(device);
+		}
+
+		return ret;
+	}
 
 	return hfi_send_dcvs_vote(gmu, perf_idx, bw_idx, ACK_NONBLOCK);
 }
@@ -490,9 +512,10 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	unsigned int len;
 
 	len = cmd_db_get_aux_data_len(res_id);
+	if (len == 0)
+		return -EINVAL;
 
 	if (len > (MAX_GX_LEVELS << 1)) {
-		/* CmdDB VLVL table size in bytes is too large */
 		dev_err(&gmu->pdev->dev,
 			"gfx cmddb size %d larger than alloc buf %d of %s\n",
 			len, (MAX_GX_LEVELS << 1), res_id);
@@ -500,7 +523,18 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	}
 
 	cmd_db_get_aux_data(res_id, (uint8_t *)arc->val, len);
-	arc->num = len >> 1;
+
+	/*
+	 * cmd_db_get_aux_data() gives us a zero-padded table of
+	 * size len that contains the arc values. To determine the
+	 * number of arc values, we loop through the table and count
+	 * them until we get to the end of the buffer or hit the
+	 * zero padding.
+	 */
+	for (arc->num = 1; arc->num < (len >> 1); arc->num++) {
+		if (arc->val[arc->num - 1] >= arc->val[arc->num])
+			break;
+	}
 
 	return 0;
 }
@@ -523,35 +557,42 @@ static int setup_volt_dependency_tbl(struct arc_vote_desc *votes,
 {
 	int i, j, k;
 	uint16_t cur_vlvl;
+	bool found_match;
 
 	/* i tracks current KGSL GPU frequency table entry
 	 * j tracks second rail voltage table entry
 	 * k tracks primary rail voltage table entry
 	 */
-	for (i = 0, k = 0; i < num_entries; k++) {
-		if (pri_rail->val[k] != vlvl[i]) {
-			if (k >= pri_rail->num)
-				return -EINVAL;
-			continue;
-		}
-		votes[i].pri_idx = k;
-		votes[i].vlvl = vlvl[i];
-		cur_vlvl = vlvl[i];
+	for (i = 0; i < num_entries; i++) {
+		found_match = false;
 
-		/* find index of second rail vlvl array element that
-		 * its vlvl >= current vlvl of primary rail
-		 */
-		for (j = 0; j < sec_rail->num; j++) {
-			if (sec_rail->val[j] >= cur_vlvl) {
-				votes[i].sec_idx = j;
+		/* Look for a primary rail voltage that matches a VLVL level */
+		for (k = 0; k < pri_rail->num; k++) {
+			if (pri_rail->val[k] == vlvl[i]) {
+				votes[i].pri_idx = k;
+				votes[i].vlvl = vlvl[i];
+				cur_vlvl = vlvl[i];
+				found_match = true;
 				break;
 			}
 		}
 
-		if (j == sec_rail->num)
-			votes[i].sec_idx = j;
+		/* If we did not find a matching VLVL level then abort */
+		if (!found_match)
+			return -EINVAL;
 
-		i++;
+		/*
+		 * Look for a secondary rail index whose VLVL value
+		 * is greater than or equal to the VLVL value of the
+		 * corresponding index of the primary rail
+		 */
+		for (j = 0; j < sec_rail->num; j++) {
+			if (sec_rail->val[j] >= cur_vlvl ||
+					j + 1 == sec_rail->num) {
+				votes[i].sec_idx = j;
+				break;
+			}
+		}
 	}
 	return 0;
 }
@@ -570,26 +611,25 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 		struct rpmh_arc_vals *sec_rail,
 		unsigned int type)
 {
+	struct device *dev;
+	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	unsigned int num_freqs;
 	struct arc_vote_desc *votes;
 	unsigned int vlvl_tbl[MAX_GX_LEVELS];
 	unsigned int *freq_tbl;
 	int i, ret;
-	/*
-	 * FIXME: remove below two arrays after OPP VLVL query API ready
-	 * struct dev_pm_opp *opp;
-	 */
-	uint16_t gpu_vlvl[] = {0, 128, 256, 384};
-	uint16_t cx_vlvl[] = {0, 48, 256};
+	struct dev_pm_opp *opp;
 
 	if (type == GPU_ARC_VOTE) {
 		num_freqs = gmu->num_gpupwrlevels;
 		votes = gmu->rpmh_votes.gx_votes;
-		freq_tbl = gmu->gmu_freqs;
+		freq_tbl = gmu->gpu_freqs;
+		dev = &device->pdev->dev;
 	} else if (type == GMU_ARC_VOTE) {
 		num_freqs = gmu->num_gmupwrlevels;
 		votes = gmu->rpmh_votes.cx_votes;
-		freq_tbl = gmu->gpu_freqs;
+		freq_tbl = gmu->gmu_freqs;
+		dev = &gmu->pdev->dev;
 	} else {
 		return -EINVAL;
 	}
@@ -601,26 +641,25 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 		return -EINVAL;
 	}
 
-	/*
-	 * FIXME: Find a core's voltage VLVL value based on its frequency
-	 *	using OPP framework, waiting for David Colin, ETA Jan.
-	 */
+	memset(vlvl_tbl, 0, sizeof(vlvl_tbl));
 	for (i = 0; i < num_freqs; i++) {
-		/*
-		 * opp = dev_pm_opp_find_freq_exact(&gmu->pdev->dev,
-		 *		freq_tbl[i], true);
-		 * if (IS_ERR(opp)) {
-		 *	dev_err(&gmu->pdev->dev,
-		 *			"Failed to find opp freq %d of %s\n",
-		 *			freq_tbl[i], debug_strs[type]);
-		 *	return PTR_ERR(opp);
-		 * }
-		 * vlvl_tbl[i] = dev_pm_opp_get_voltage(opp);
-		 */
-		if (type == GPU_ARC_VOTE)
-			vlvl_tbl[i] = gpu_vlvl[i];
-		else
-			vlvl_tbl[i] = cx_vlvl[i];
+		/* Hardcode VLVL for 0 because it is not registered in OPP */
+		if (freq_tbl[i] == 0) {
+			vlvl_tbl[i] = 0;
+			continue;
+		}
+
+		/* Otherwise get the value from the OPP API */
+		opp = dev_pm_opp_find_freq_exact(dev, freq_tbl[i], true);
+		if (IS_ERR(opp)) {
+			dev_err(&gmu->pdev->dev,
+				"Failed to find opp freq %d of %s\n",
+				freq_tbl[i], debug_strs[type]);
+			return PTR_ERR(opp);
+		}
+
+		/* Values from OPP framework are offset by 1 */
+		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp) - 1;
 	}
 
 	ret = setup_volt_dependency_tbl(votes,
@@ -748,6 +787,7 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 {
 	struct gmu_device *gmu = data;
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
 	adreno_read_gmureg(ADRENO_DEVICE(device),
@@ -756,12 +796,24 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 			ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR, status);
 
 	/* Ignore GMU_INT_RSCC_COMP and GMU_INT_DBD WAKEUP interrupts */
-	if (status & GMU_INT_WDOG_BITE)
+	if (status & GMU_INT_WDOG_BITE) {
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
+	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"AHB bus error interrupt received\n");
+	if (status & GMU_INT_FENCE_ERR) {
+		unsigned int fence_status;
+
+		adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_AHB_FENCE_STATUS, &fence_status);
+		dev_err_ratelimited(&gmu->pdev->dev,
+			"FENCE error interrupt received %x\n", fence_status);
+	}
+
 	if (status & ~GMU_AO_INT_MASK)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"Unhandled GMU interrupts 0x%lx\n",
@@ -775,6 +827,7 @@ static irqreturn_t hfi_irq_handler(int irq, void *data)
 	struct kgsl_hfi *hfi = data;
 	struct gmu_device *gmu = container_of(hfi, struct gmu_device, hfi);
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
 	adreno_read_gmureg(ADRENO_DEVICE(device),
@@ -784,9 +837,12 @@ static irqreturn_t hfi_irq_handler(int irq, void *data)
 
 	if (status & HFI_IRQ_MSGQ_MASK)
 		tasklet_hi_schedule(&hfi->tasklet);
-	if (status & HFI_IRQ_CM3_FAULT_MASK)
+	if (status & HFI_IRQ_CM3_FAULT_MASK) {
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU CM3 fault interrupt received\n");
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
+	}
 	if (status & ~HFI_IRQ_MASK)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"Unhandled HFI interrupts 0x%lx\n",
@@ -850,14 +906,6 @@ static int gmu_reg_probe(struct gmu_device *gmu, const char *name, bool is_gmu)
 	}
 
 	if (is_gmu) {
-		if (!devm_request_mem_region(&gmu->pdev->dev, res->start,
-					resource_size(res),
-					res->name)) {
-			dev_err(&gmu->pdev->dev,
-				"GMU regs request mem region failed\n");
-			return -ENOMEM;
-		}
-
 		gmu->reg_phys = res->start;
 		gmu->reg_len = resource_size(res);
 		gmu->reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
@@ -1161,6 +1209,8 @@ int gmu_probe(struct kgsl_device *device)
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
 
+	/* disable LM during boot time */
+	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 	return 0;
 
 error:
@@ -1201,17 +1251,10 @@ static int gmu_enable_clks(struct gmu_device *gmu)
 
 static int gmu_disable_clks(struct gmu_device *gmu)
 {
-	int ret, j = 0;
+	int j = 0;
 
 	if (IS_ERR_OR_NULL(gmu->clks[0]))
 		return 0;
-
-	ret = clk_set_rate(gmu->clks[0], gmu->gmu_freqs[0]);
-	if (ret) {
-		dev_err(&gmu->pdev->dev, "fail to reset GMU clk freq %d\n",
-				gmu->gmu_freqs[0]);
-		return ret;
-	}
 
 	while ((j < MAX_GMU_CLKS) && gmu->clks[j]) {
 		clk_disable_unprepare(gmu->clks[j]);
@@ -1238,19 +1281,119 @@ static int gmu_enable_gdsc(struct gmu_device *gmu)
 	return ret;
 }
 
+#define CX_GDSC_TIMEOUT	5000	/* ms */
 static int gmu_disable_gdsc(struct gmu_device *gmu)
 {
 	int ret;
+	unsigned long t;
 
 	if (IS_ERR_OR_NULL(gmu->cx_gdsc))
 		return 0;
 
 	ret = regulator_disable(gmu->cx_gdsc);
-	if (ret)
+	if (ret) {
 		dev_err(&gmu->pdev->dev,
 			"Failed to disable GMU CX gdsc, error %d\n", ret);
+		return ret;
+	}
 
-	return ret;
+	/*
+	 * After GX GDSC is off, CX GDSC must be off
+	 * Voting off alone from GPU driver cannot
+	 * Guarantee CX GDSC off. Polling with 5s
+	 * timeout to ensure
+	 */
+	t = jiffies + msecs_to_jiffies(CX_GDSC_TIMEOUT);
+	do {
+		if (!regulator_is_enabled(gmu->cx_gdsc))
+			return 0;
+		usleep_range(10, 100);
+
+	} while (!(time_after(jiffies, t)));
+
+	if (!regulator_is_enabled(gmu->cx_gdsc))
+		return 0;
+
+	dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout");
+	return -ETIMEDOUT;
+}
+
+static int gmu_suspend(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+
+	if (!test_bit(GMU_CLK_ON, &gmu->flags))
+		return 0;
+
+	/* Pending message in all queues are abandoned */
+	hfi_stop(gmu);
+	clear_bit(GMU_HFI_ON, &gmu->flags);
+	gmu_irq_disable(device);
+
+	if (gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_SUSPEND, 0, 0))
+		return -EINVAL;
+
+	gmu_disable_clks(gmu);
+	gmu_disable_gdsc(gmu);
+	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
+	return 0;
+}
+
+void gmu_snapshot(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = &device->gmu;
+
+	/* Mask so there's no interrupt caused by NMI */
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+
+	/* Make sure the interrupt is masked before causing it */
+	wmb();
+	adreno_write_gmureg(adreno_dev,
+		ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+	adreno_write_gmureg(adreno_dev,
+		ADRENO_REG_GMU_CM3_CFG, (1 << 9));
+
+	/* Wait for the NMI to be handled */
+	wmb();
+	udelay(100);
+	kgsl_device_snapshot(device, NULL, true);
+
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			(unsigned int) ~HFI_IRQ_MASK);
+
+	gmu->fault_count++;
+}
+
+static void gmu_change_gpu_pwrlevel(struct kgsl_device *device,
+	unsigned int new_level) {
+
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	unsigned int old_level = pwr->active_pwrlevel;
+
+	/*
+	 * Update the level according to any thermal,
+	 * max/min, or power constraints.
+	 */
+	new_level = kgsl_pwrctrl_adjust_pwrlevel(device, new_level);
+
+	/*
+	 * If thermal cycling is required and the new level hits the
+	 * thermal limit, kick off the cycling.
+	 */
+	kgsl_pwrctrl_set_thermal_cycle(device, new_level);
+
+	pwr->active_pwrlevel = new_level;
+	pwr->previous_pwrlevel = old_level;
+
+	/* Request adjusted DCVS level */
+	kgsl_clk_set_rate(device, pwr->active_pwrlevel);
 }
 
 /* To be called to power on both GPU and GMU */
@@ -1261,115 +1404,102 @@ int gmu_start(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
-	int bus_level = pwr->pwrlevels[pwr->default_pwrlevel].bus_freq;
 
-	if (!kgsl_gmu_isenabled(device))
-		return 0;
-
-	if (test_bit(GMU_CLK_ON, &gmu->flags))
-		return 0;
-
-	ret = gmu_enable_gdsc(gmu);
-	if (ret)
-		return ret;
-
-	gmu_enable_clks(gmu);
-
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND) {
-		/* Convert to RPMh frequency index */
-		int perf_idx = gmu->num_gpupwrlevels -
-				pwr->default_pwrlevel - 1;
+	switch (device->state) {
+	case KGSL_STATE_INIT:
+	case KGSL_STATE_SUSPEND:
+		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
+		gmu_enable_gdsc(gmu);
+		gmu_enable_clks(gmu);
+		gmu_irq_enable(device);
 
 		/* Vote for 300MHz DDR for GMU to init */
 		ret = msm_bus_scale_client_update_request(gmu->pcl,
-				bus_level);
-		if (ret) {
+				pwr->pwrlevels[pwr->default_pwrlevel].bus_freq);
+		if (ret)
 			dev_err(&gmu->pdev->dev,
-					"Failed to allocate gmu b/w\n");
-			goto error_clks;
-		}
+				"Failed to allocate gmu b/w: %d\n", ret);
 
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
 				GMU_COLD_BOOT, 0);
 		if (ret)
-			goto error_bus;
-
-		gmu_irq_enable(device);
+			goto error_gmu;
 
 		ret = hfi_start(gmu, GMU_COLD_BOOT);
 		if (ret)
-			goto error_gpu;
+			goto error_gmu;
 
-		/* Send default DCVS level */
-		ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
-		if (ret)
-			goto error_gpu;
-	} else {
-		int perf_idx = gmu->num_gpupwrlevels - gmu->wakeup_pwrlevel - 1;
+		/* Request default DCVS level */
+		gmu_change_gpu_pwrlevel(device, pwr->default_pwrlevel);
+		msm_bus_scale_client_update_request(gmu->pcl, 0);
+		break;
+
+	case KGSL_STATE_SLUMBER:
+		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
+		gmu_enable_gdsc(gmu);
+		gmu_enable_clks(gmu);
+		gmu_irq_enable(device);
 
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
 				GMU_WARM_BOOT, 0);
 		if (ret)
-			goto error_clks;
-
-		gmu_irq_enable(device);
+			goto error_gmu;
 
 		ret = hfi_start(gmu, GMU_WARM_BOOT);
 		if (ret)
-			goto error_gpu;
+			goto error_gmu;
 
-		if (gmu->wakeup_pwrlevel != pwr->default_pwrlevel) {
-			ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
+		gmu_change_gpu_pwrlevel(device, pwr->default_pwrlevel);
+		break;
+
+	case KGSL_STATE_RESET:
+		if (test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv) ||
+			test_bit(GMU_FAULT, &gmu->flags)) {
+			gmu_suspend(device);
+			gmu_enable_gdsc(gmu);
+			gmu_enable_clks(gmu);
+			gmu_irq_enable(device);
+
+			ret = gpudev->rpmh_gpu_pwrctrl(
+				adreno_dev, GMU_FW_START, GMU_RESET, 0);
 			if (ret)
-				goto error_gpu;
-			gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
+				goto error_gmu;
+
+
+			ret = hfi_start(gmu, GMU_COLD_BOOT);
+			if (ret)
+				goto error_gmu;
+
+			/* Send DCVS level prior to reset*/
+			gmu_change_gpu_pwrlevel(device,
+				pwr->default_pwrlevel);
+		} else {
+			/* GMU fast boot */
+			hfi_stop(gmu);
+
+			ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
+					GMU_RESET, 0);
+			if (ret)
+				goto error_gmu;
+
+			ret = hfi_start(gmu, GMU_WARM_BOOT);
+			if (ret)
+				goto error_gmu;
 		}
+		break;
+	default:
+		break;
 	}
 
-	/*
-	 * OOB to enable power management of GMU.
-	 * In v2, this function call shall move ahead
-	 * of hfi_start() to save power.
-	 */
-	ret = gpudev->oob_set(adreno_dev, OOB_CPINIT_SET_MASK,
-			OOB_CPINIT_CHECK_MASK, OOB_CPINIT_CLEAR_MASK);
-	gpudev->oob_clear(adreno_dev, OOB_CPINIT_CLEAR_MASK);
+	return ret;
 
-	if (ret)
-		goto error_gpu;
-
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND) {
-		msm_bus_scale_client_update_request(gmu->pcl, 0);
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-			gpudev->oob_clear(adreno_dev,
-					OOB_BOOT_SLUMBER_CLEAR_MASK);
-	}
-
-	return 0;
-
-error_gpu:
-	hfi_stop(gmu);
-	gmu_irq_disable(device);
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND) {
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-			gpudev->oob_clear(adreno_dev,
-					OOB_BOOT_SLUMBER_CLEAR_MASK);
-	}
-	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
-error_bus:
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND)
-		msm_bus_scale_client_update_request(gmu->pcl, 0);
-error_clks:
-	gmu_disable_clks(gmu);
-	gmu_disable_gdsc(gmu);
+error_gmu:
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		gpudev->oob_clear(adreno_dev,
+				OOB_BOOT_SLUMBER_CLEAR_MASK);
+	gmu_snapshot(device);
 	return ret;
 }
-
-#define GMU_IDLE_TIMEOUT	10 /* ms */
 
 /* Caller shall ensure GPU is ready for SLUMBER */
 void gmu_stop(struct kgsl_device *device)
@@ -1377,30 +1507,23 @@ void gmu_stop(struct kgsl_device *device)
 	struct gmu_device *gmu = &device->gmu;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned long t;
-	bool idle = false;
+	int ret = 0;
 
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return;
 
-	if (gpudev->hw_isidle) {
-		t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
-		while (!time_after(jiffies, t)) {
-			if (gpudev->hw_isidle(adreno_dev)) {
-				idle = true;
-				break;
-			}
-			cpu_relax();
-		}
-	}
+	/* Wait for the lowest idle level we requested */
+	if (gpudev->wait_for_lowest_idle &&
+			gpudev->wait_for_lowest_idle(adreno_dev))
+		goto error;
 
-	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
+	ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
+	if (ret)
+		goto error;
 
-	if (!idle || (gpudev->wait_for_gmu_idle &&
-			gpudev->wait_for_gmu_idle(adreno_dev))) {
-		dev_err(&gmu->pdev->dev, "Failure to stop GMU");
-		return;
-	}
+	if (gpudev->wait_for_gmu_idle &&
+			gpudev->wait_for_gmu_idle(adreno_dev))
+		goto error;
 
 	/* Pending message in all queues are abandoned */
 	hfi_stop(gmu);
@@ -1411,9 +1534,18 @@ void gmu_stop(struct kgsl_device *device)
 	gmu_disable_clks(gmu);
 	gmu_disable_gdsc(gmu);
 
-	/* TODO: Vote CX, MX retention off */
-
 	msm_bus_scale_client_update_request(gmu->pcl, 0);
+	return;
+
+error:
+	/*
+	 * The power controller will change state to SLUMBER anyway
+	 * Set GMU_FAULT flag to indicate to power contrller
+	 * that hang recovery is needed to power on GPU
+	 */
+	set_bit(GMU_FAULT, &gmu->flags);
+	dev_err(&gmu->pdev->dev, "Failed to stop GMU\n");
+	gmu_snapshot(device);
 }
 
 void gmu_remove(struct kgsl_device *device)
@@ -1443,7 +1575,7 @@ void gmu_remove(struct kgsl_device *device)
 
 	if (hfi->hfi_interrupt_num) {
 		devm_free_irq(&gmu->pdev->dev,
-				hfi->hfi_interrupt_num, gmu);
+				hfi->hfi_interrupt_num, hfi);
 		hfi->hfi_interrupt_num = 0;
 	}
 
@@ -1464,8 +1596,6 @@ void gmu_remove(struct kgsl_device *device)
 
 	if (gmu->reg_virt) {
 		devm_iounmap(&gmu->pdev->dev, gmu->reg_virt);
-		devm_release_mem_region(&gmu->pdev->dev,
-				gmu->reg_phys, gmu->reg_len);
 		gmu->reg_virt = NULL;
 	}
 
@@ -1490,4 +1620,48 @@ void gmu_remove(struct kgsl_device *device)
 	}
 
 	device->gmu.pdev = NULL;
+}
+
+/*
+ * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
+ * @adreno_dev: Pointer to the Adreno device device that owns the GMU
+ * @offset: 32bit register enum that is to be written
+ * @val: The value to be written to the register
+ * @fence_mask: The value to poll the fence status register
+ *
+ * Check the WRITEDROPPED0/1 bit in the FENCE_STATUS regsiter to check if
+ * the write to the fenced register went through. If it didn't then we retry
+ * the write until it goes through or we time out.
+ */
+int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
+		enum adreno_regs offset, unsigned int val,
+		unsigned int fence_mask)
+{
+	unsigned int status, i;
+
+	adreno_writereg(adreno_dev, offset, val);
+
+	if (!kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
+		return 0;
+
+	for (i = 0; i < GMU_WAKEUP_RETRY_MAX; i++) {
+		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
+			&status);
+
+		/*
+		 * If !writedropped0/1, then the write to fenced register
+		 * was successful
+		 */
+		if (!(status & fence_mask))
+			return 0;
+		/* Wait a small amount of time before trying again */
+		udelay(GMU_WAKEUP_DELAY_US);
+
+		/* Try to write the fenced register again */
+		adreno_writereg(adreno_dev, offset, val);
+	}
+
+	dev_err(adreno_dev->dev.dev,
+		"GMU fenced register write timed out: reg %x\n", offset);
+	return -ETIMEDOUT;
 }

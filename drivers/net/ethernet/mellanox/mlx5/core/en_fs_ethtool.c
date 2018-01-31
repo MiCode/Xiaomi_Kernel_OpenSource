@@ -276,7 +276,7 @@ static void add_rule_to_list(struct mlx5e_priv *priv,
 
 static bool outer_header_zero(u32 *match_criteria)
 {
-	int size = MLX5_ST_SZ_BYTES(fte_match_param);
+	int size = MLX5_FLD_SZ_BYTES(fte_match_param, outer_headers);
 	char *outer_headers_c = MLX5_ADDR_OF(fte_match_param, match_criteria,
 					     outer_headers);
 
@@ -563,6 +563,7 @@ int mlx5e_ethtool_get_all_flows(struct mlx5e_priv *priv, struct ethtool_rxnfc *i
 	int idx = 0;
 	int err = 0;
 
+	info->data = MAX_NUM_OF_ETHTOOL_RULES;
 	while ((!err || err == -ENOENT) && idx < info->rule_cnt) {
 		err = mlx5e_ethtool_get_flow(priv, info, location);
 		if (!err)

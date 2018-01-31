@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,13 @@ struct adreno_sysfs_attribute adreno_attr_##_name = { \
 	.store = _ ## _name ## _store, \
 }
 
+#define _ADRENO_SYSFS_ATTR_RO(_name, __show) \
+struct adreno_sysfs_attribute adreno_attr_##_name = { \
+	.attr = __ATTR(_name, 0444, __show, NULL), \
+	.show = _ ## _name ## _show, \
+	.store = NULL, \
+}
+
 #define ADRENO_SYSFS_ATTR(_a) \
 	container_of((_a), struct adreno_sysfs_attribute, attr)
 
@@ -49,6 +56,55 @@ static int _ft_policy_store(struct adreno_device *adreno_dev,
 static unsigned int _ft_policy_show(struct adreno_device *adreno_dev)
 {
 	return adreno_dev->ft_policy;
+}
+
+static int _preempt_level_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	if (val <= 2)
+		preempt->preempt_level = val;
+	return 0;
+}
+
+static unsigned int _preempt_level_show(struct adreno_device *adreno_dev)
+{
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	return preempt->preempt_level;
+}
+
+static int _usesgmem_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	preempt->usesgmem = val ? 1 : 0;
+	return 0;
+}
+
+static unsigned int _usesgmem_show(struct adreno_device *adreno_dev)
+{
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	return preempt->usesgmem;
+}
+
+static int _skipsaverestore_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	preempt->skipsaverestore = val ? 1 : 0;
+	return 0;
+}
+
+static unsigned int _skipsaverestore_show(struct adreno_device *adreno_dev)
+{
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	return preempt->skipsaverestore;
 }
 
 static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
@@ -128,7 +184,6 @@ static int _ft_hang_intr_status_store(struct adreno_device *adreno_dev,
 
 	if (test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
-		adreno_irqctrl(adreno_dev, 1);
 	} else if (device->state == KGSL_STATE_INIT) {
 		ret = -EACCES;
 		change_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);
@@ -168,10 +223,14 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv) == val)
-		return 0;
-
 	mutex_lock(&device->mutex);
+
+	if (!(ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) ||
+		(test_bit(ADRENO_DEVICE_PREEMPTION,
+		&adreno_dev->priv) == val)) {
+		mutex_unlock(&device->mutex);
+		return 0;
+	}
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
 	change_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
@@ -180,6 +239,23 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 
 	mutex_unlock(&device->mutex);
 
+	return 0;
+}
+
+static int _gmu_idle_level_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+
+	mutex_lock(&device->mutex);
+
+	/* Power down the GPU before changing the idle level */
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	gmu->idle_level = val;
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+
+	mutex_unlock(&device->mutex);
 	return 0;
 }
 
@@ -229,6 +305,47 @@ static int _lm_store(struct adreno_device *adreno_dev, unsigned int val)
 static unsigned int _lm_show(struct adreno_device *adreno_dev)
 {
 	return test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
+static int _ifpc_store(struct adreno_device *adreno_dev, unsigned int val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+	unsigned int requested_idle_level;
+
+	if (!kgsl_gmu_isenabled(device) ||
+			!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
+		return -EINVAL;
+
+	if ((val && gmu->idle_level >= GPU_HW_IFPC) ||
+			(!val && gmu->idle_level < GPU_HW_IFPC))
+		return 0;
+
+	if (val)
+		requested_idle_level = GPU_HW_IFPC;
+	else {
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+			requested_idle_level = GPU_HW_SPTP_PC;
+		else
+			requested_idle_level = GPU_HW_ACTIVE;
+	}
+
+	return _gmu_idle_level_store(adreno_dev, requested_idle_level);
+}
+
+static unsigned int _ifpc_show(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+
+	return kgsl_gmu_isenabled(device) && gmu->idle_level >= GPU_HW_IFPC;
+}
+
+static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
+{
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	return preempt->count;
 }
 
 static ssize_t _sysfs_store_u32(struct device *dev,
@@ -311,8 +428,15 @@ static ssize_t _sysfs_show_bool(struct device *dev,
 #define ADRENO_SYSFS_U32(_name) \
 	_ADRENO_SYSFS_ATTR(_name, _sysfs_show_u32, _sysfs_store_u32)
 
+#define ADRENO_SYSFS_RO_U32(_name) \
+	_ADRENO_SYSFS_ATTR_RO(_name, _sysfs_show_u32)
+
 static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);
+static ADRENO_SYSFS_U32(preempt_level);
+static ADRENO_SYSFS_RO_U32(preempt_count);
+static ADRENO_SYSFS_BOOL(usesgmem);
+static ADRENO_SYSFS_BOOL(skipsaverestore);
 static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
 static ADRENO_SYSFS_BOOL(ft_hang_intr_status);
 static ADRENO_SYSFS_BOOL(gpu_llc_slice_enable);
@@ -326,6 +450,7 @@ static ADRENO_SYSFS_BOOL(lm);
 static ADRENO_SYSFS_BOOL(preemption);
 static ADRENO_SYSFS_BOOL(hwcg);
 static ADRENO_SYSFS_BOOL(throttling);
+static ADRENO_SYSFS_BOOL(ifpc);
 
 
 
@@ -343,6 +468,11 @@ static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_throttling.attr,
 	&adreno_attr_gpu_llc_slice_enable.attr,
 	&adreno_attr_gpuhtw_llc_slice_enable.attr,
+	&adreno_attr_preempt_level.attr,
+	&adreno_attr_usesgmem.attr,
+	&adreno_attr_skipsaverestore.attr,
+	&adreno_attr_ifpc.attr,
+	&adreno_attr_preempt_count.attr,
 	NULL,
 };
 

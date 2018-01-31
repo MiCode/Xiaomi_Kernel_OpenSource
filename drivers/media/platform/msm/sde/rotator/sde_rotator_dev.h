@@ -23,6 +23,7 @@
 #include <linux/msm-bus.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/kthread.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ctrls.h>
@@ -89,17 +90,21 @@ struct sde_rotator_vbinfo {
  * @list: list head for submit/retire list
  * @submit_work: submit work structure
  * @retire_work: retire work structure
- * @request: Pointer to core layer rotator manager request
+ * @req: Pointer to core layer rotator manager request
+ *	 Request can be freed by core layer during sde_rotator_stop_streaming.
+ *	 Avoid dereference in dev layer if possible.
  * @ctx: Pointer to parent context
  * @committed: true if request committed to hardware
+ * @sequence_id: sequence identifier of this request
  */
 struct sde_rotator_request {
 	struct list_head list;
-	struct work_struct submit_work;
-	struct work_struct retire_work;
+	struct kthread_work submit_work;
+	struct kthread_work retire_work;
 	struct sde_rot_entry_container *req;
 	struct sde_rotator_ctx *ctx;
 	bool committed;
+	u32 sequence_id;
 };
 
 /*
@@ -204,6 +209,9 @@ struct sde_rotator_statistics {
  * @min_overhead_us: Override the minimum overhead in us from perf calculation
  * @debugfs_root: Pointer to debugfs directory entry.
  * @stats: placeholder for rotator statistics
+ * @open_timeout: maximum wait time for ctx open in msec
+ * @open_wq: wait queue for ctx open
+ * @excl_ctx: Pointer to exclusive ctx
  */
 struct sde_rotator_device {
 	struct mutex lock;
@@ -226,6 +234,9 @@ struct sde_rotator_device {
 	struct sde_rotator_statistics stats;
 	struct dentry *debugfs_root;
 	struct dentry *perf_root;
+	u32 open_timeout;
+	wait_queue_head_t open_wq;
+	struct sde_rotator_ctx *excl_ctx;
 };
 
 static inline
@@ -239,4 +250,7 @@ struct sde_rot_mgr *sde_rot_mgr_from_device(struct device *dev)
 {
 	return ((struct sde_rotator_device *) dev_get_drvdata(dev))->mgr;
 }
+
+void sde_rotator_pm_qos_add(struct sde_rot_data_type *rot_mdata);
+
 #endif /* __SDE_ROTATOR_DEV_H__ */

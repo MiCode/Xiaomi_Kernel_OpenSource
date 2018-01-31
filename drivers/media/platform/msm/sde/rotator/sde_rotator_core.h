@@ -21,6 +21,7 @@
 #include <linux/types.h>
 #include <linux/cdev.h>
 #include <linux/pm_runtime.h>
+#include <linux/kthread.h>
 
 #include "sde_rotator_base.h"
 #include "sde_rotator_util.h"
@@ -114,6 +115,7 @@ enum sde_rotator_ts {
 	SDE_ROTATOR_TS_FENCE,		/* wait for source buffer fence */
 	SDE_ROTATOR_TS_QUEUE,		/* wait for h/w resource */
 	SDE_ROTATOR_TS_COMMIT,		/* prepare h/w command */
+	SDE_ROTATOR_TS_START,		/* wait for h/w kickoff rdy (inline) */
 	SDE_ROTATOR_TS_FLUSH,		/* initiate h/w processing */
 	SDE_ROTATOR_TS_DONE,		/* receive h/w completion */
 	SDE_ROTATOR_TS_RETIRE,		/* signal destination buffer fence */
@@ -125,7 +127,7 @@ enum sde_rotator_ts {
 enum sde_rotator_clk_type {
 	SDE_ROTATOR_CLK_MDSS_AHB,
 	SDE_ROTATOR_CLK_MDSS_AXI,
-	SDE_ROTATOR_CLK_ROT_CORE,
+	SDE_ROTATOR_CLK_MDSS_ROT_SUB,
 	SDE_ROTATOR_CLK_MDSS_ROT,
 	SDE_ROTATOR_CLK_MNOC_AHB,
 	SDE_ROTATOR_CLK_GCC_AHB,
@@ -137,6 +139,12 @@ enum sde_rotator_trigger {
 	SDE_ROTATOR_TRIGGER_IMMEDIATE,
 	SDE_ROTATOR_TRIGGER_VIDEO,
 	SDE_ROTATOR_TRIGGER_COMMAND,
+};
+
+enum sde_rotator_mode {
+	SDE_ROTATOR_MODE_OFFLINE,
+	SDE_ROTATOR_MODE_SBUF,
+	SDE_ROTATOR_MODE_MAX,
 };
 
 struct sde_rotation_item {
@@ -199,6 +207,9 @@ struct sde_rotation_item {
 
 	/* Time stamp for profiling purposes */
 	ktime_t		*ts;
+
+	/* Completion structure for inline rotation */
+	struct completion inline_start;
 };
 
 /*
@@ -225,7 +236,8 @@ struct sde_rot_hw_resource {
 };
 
 struct sde_rot_queue {
-	struct workqueue_struct *rot_work_queue;
+	struct kthread_worker rot_kw;
+	struct task_struct *rot_thread;
 	struct sde_rot_timeline *timeline;
 	struct sde_rot_hw_resource *hw;
 };
@@ -248,8 +260,8 @@ struct sde_rot_entry_container {
 	u32 count;
 	atomic_t pending_count;
 	atomic_t failed_count;
-	struct workqueue_struct *retireq;
-	struct work_struct *retire_work;
+	struct kthread_worker *retire_kw;
+	struct kthread_work *retire_work;
 	bool finished;
 	struct sde_rot_entry *entries;
 };
@@ -279,8 +291,8 @@ struct sde_rot_file_private;
  */
 struct sde_rot_entry {
 	struct sde_rotation_item item;
-	struct work_struct commit_work;
-	struct work_struct done_work;
+	struct kthread_work commit_work;
+	struct kthread_work done_work;
 	struct sde_rot_queue *commitq;
 	struct sde_rot_queue *fenceq;
 	struct sde_rot_queue *doneq;
@@ -383,6 +395,7 @@ struct sde_rot_bus_data_type {
  * @pixel_per_clk: rotator hardware performance in pixel for clock
  * @fudge_factor: fudge factor for clock calculation
  * @overhead: software overhead for offline rotation in msec
+ * @min_rot_clk: minimum rotator clock rate
  * @sbuf_ctx: pointer to sbuf session context
  * @ops_xxx: function pointers of rotator HAL layer
  * @hw_data: private handle of rotator HAL layer
@@ -428,10 +441,15 @@ struct sde_rot_mgr {
 	struct sde_mult_factor pixel_per_clk;
 	struct sde_mult_factor fudge_factor;
 	struct sde_mult_factor overhead;
+	unsigned long min_rot_clk;
 
 	struct sde_rot_file_private *sbuf_ctx;
 
 	int (*ops_config_hw)(struct sde_rot_hw_resource *hw,
+			struct sde_rot_entry *entry);
+	int (*ops_cancel_hw)(struct sde_rot_hw_resource *hw,
+			struct sde_rot_entry *entry);
+	int (*ops_abort_hw)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
 	int (*ops_kickoff_entry)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
@@ -454,30 +472,31 @@ struct sde_rot_mgr {
 	int (*ops_hw_validate_entry)(struct sde_rot_mgr *mgr,
 			struct sde_rot_entry *entry);
 	u32 (*ops_hw_get_pixfmt)(struct sde_rot_mgr *mgr, int index,
-			bool input);
+			bool input, u32 mode);
 	int (*ops_hw_is_valid_pixfmt)(struct sde_rot_mgr *mgr, u32 pixfmt,
-			bool input);
+			bool input, u32 mode);
 	int (*ops_hw_get_downscale_caps)(struct sde_rot_mgr *mgr, char *caps,
 			int len);
 	int (*ops_hw_get_maxlinewidth)(struct sde_rot_mgr *mgr);
+	void (*ops_hw_dump_status)(struct sde_rot_mgr *mgr);
 
 	void *hw_data;
 };
 
 static inline int sde_rotator_is_valid_pixfmt(struct sde_rot_mgr *mgr,
-		u32 pixfmt, bool input)
+		u32 pixfmt, bool input, u32 mode)
 {
 	if (mgr && mgr->ops_hw_is_valid_pixfmt)
-		return mgr->ops_hw_is_valid_pixfmt(mgr, pixfmt, input);
+		return mgr->ops_hw_is_valid_pixfmt(mgr, pixfmt, input, mode);
 
 	return false;
 }
 
 static inline u32 sde_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
-		int index, bool input)
+		int index, bool input, u32 mode)
 {
 	if (mgr && mgr->ops_hw_get_pixfmt)
-		return mgr->ops_hw_get_pixfmt(mgr, index, input);
+		return mgr->ops_hw_get_pixfmt(mgr, index, input, mode);
 
 	return 0;
 }
@@ -552,6 +571,12 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 void sde_rotator_core_destroy(struct sde_rot_mgr *mgr);
 
 /*
+ * sde_rotator_core_dump - perform register dump
+ * @mgr: Pointer to rotator manager
+ */
+void sde_rotator_core_dump(struct sde_rot_mgr *mgr);
+
+/*
  * sde_rotator_session_open - open a new rotator per file session
  * @mgr: Pointer to rotator manager
  * @pprivate: Pointer to pointer of the newly initialized per file session
@@ -585,6 +610,17 @@ int sde_rotator_session_config(struct sde_rot_mgr *mgr,
 	struct sde_rotation_config *config);
 
 /*
+ * sde_rotator_session_validate - validate session configuration
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to per file session
+ * @config: Pointer to rotator configuration
+ * return: 0 if success; error code otherwise
+ */
+int sde_rotator_session_validate(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private,
+	struct sde_rotation_config *config);
+
+/*
  * sde_rotator_req_init - allocate a new request and initialzie with given
  *	array of rotation items
  * @rot_dev: Pointer to rotator device
@@ -601,9 +637,39 @@ struct sde_rot_entry_container *sde_rotator_req_init(
 	u32 count, u32 flags);
 
 /*
+ * sde_rotator_req_reset_start - reset inline h/w 'start' indicator
+ *	For inline rotations, the time of rotation start is not controlled
+ *	by the rotator driver. This function resets an internal 'start'
+ *	indicator that allows the rotator to delay its rotator
+ *	timeout waiting until such time as the inline rotation has
+ *	really started.
+ * @mgr: Pointer to rotator manager
+ * @req: Pointer to rotation request
+ */
+void sde_rotator_req_reset_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req);
+
+/*
+ * sde_rotator_req_set_start - set inline h/w 'start' indicator
+ * @mgr: Pointer to rotator manager
+ * @req: Pointer to rotation request
+ */
+void sde_rotator_req_set_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req);
+
+/*
+ * sde_rotator_req_wait_start - wait for inline h/w 'start' indicator
+ * @mgr: Pointer to rotator manager
+ * @req: Pointer to rotation request
+ * return: Zero on success
+ */
+int sde_rotator_req_wait_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req);
+
+/*
  * sde_rotator_req_finish - notify manager that client is finished with the
  *	given request and manager can release the request as required
- * @rot_dev: Pointer to rotator device
+ * @mgr: Pointer to rotator manager
  * @private: Pointer to rotator manager per file context
  * @req: Pointer to rotation request
  * return: none
@@ -611,6 +677,19 @@ struct sde_rot_entry_container *sde_rotator_req_init(
 void sde_rotator_req_finish(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private,
 	struct sde_rot_entry_container *req);
+
+/*
+ * sde_rotator_abort_inline_request - abort inline rotation request after start
+ *	This function allows inline rotation requests to be aborted after
+ *	sde_rotator_req_set_start has already been issued.
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to rotator manager per file context
+ * @req: Pointer to rotation request
+ * return: none
+ */
+void sde_rotator_abort_inline_request(struct sde_rot_mgr *mgr,
+		struct sde_rot_file_private *private,
+		struct sde_rot_entry_container *req);
 
 /*
  * sde_rotator_handle_request_common - add the given request to rotator
@@ -632,18 +711,6 @@ int sde_rotator_handle_request_common(struct sde_rot_mgr *rot_dev,
  * return: 0 if success; error code otherwise
  */
 void sde_rotator_queue_request(struct sde_rot_mgr *rot_dev,
-	struct sde_rot_file_private *ctx,
-	struct sde_rot_entry_container *req);
-
-/*
- * sde_rotator_commit_request - queue/schedule the given request and wait
- *	until h/w commit
- * @rot_dev: Pointer to rotator device
- * @private: Pointer to rotator manager per file context
- * @req: Pointer to rotation request
- * return: 0 if success; error code otherwise
- */
-void sde_rotator_commit_request(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *ctx,
 	struct sde_rot_entry_container *req);
 
@@ -694,6 +761,15 @@ int sde_rotator_validate_request(struct sde_rot_mgr *rot_dev,
  */
 int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable);
 
+/* sde_rotator_resource_ctrl_enabled - check if resource control is enabled
+ * @mgr: Pointer to rotator manager
+ * Return: true if enabled; false otherwise
+ */
+static inline int sde_rotator_resource_ctrl_enabled(struct sde_rot_mgr *mgr)
+{
+	return mgr->regulator_enable;
+}
+
 /*
  * sde_rotator_cancel_all_requests - cancel all outstanding requests
  * @mgr: Pointer to rotator manager
@@ -718,6 +794,15 @@ static inline void sde_rot_mgr_lock(struct sde_rot_mgr *mgr)
 static inline void sde_rot_mgr_unlock(struct sde_rot_mgr *mgr)
 {
 	mutex_unlock(&mgr->lock);
+}
+
+/*
+ * sde_rot_mgr_pd_enabled - return true if power domain is enabled
+ * @mgr: Pointer to rotator manager
+ */
+static inline bool sde_rot_mgr_pd_enabled(struct sde_rot_mgr *mgr)
+{
+	return mgr && mgr->device && mgr->device->pm_domain;
 }
 
 #if defined(CONFIG_PM)

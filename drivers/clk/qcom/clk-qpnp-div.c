@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>

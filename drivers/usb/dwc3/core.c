@@ -428,6 +428,9 @@ static void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 {
 	struct dwc3_event_buffer	*evt;
 
+	if (!dwc->ev_buf)
+		return;
+
 	evt = dwc->ev_buf;
 
 	evt->lpos = 0;
@@ -687,13 +690,9 @@ static void dwc3_core_exit(struct dwc3 *dwc)
 {
 	dwc3_event_buffers_cleanup(dwc);
 
-	usb_phy_shutdown(dwc->usb2_phy);
-	usb_phy_shutdown(dwc->usb3_phy);
 	phy_exit(dwc->usb2_generic_phy);
 	phy_exit(dwc->usb3_generic_phy);
 
-	usb_phy_set_suspend(dwc->usb2_phy, 1);
-	usb_phy_set_suspend(dwc->usb3_phy, 1);
 	phy_power_off(dwc->usb2_generic_phy);
 	phy_power_off(dwc->usb3_generic_phy);
 }
@@ -859,7 +858,8 @@ int dwc3_core_init(struct dwc3 *dwc)
 	dwc3_frame_length_adjustment(dwc);
 
 	usb_phy_set_suspend(dwc->usb2_phy, 0);
-	usb_phy_set_suspend(dwc->usb3_phy, 0);
+	if (dwc->maximum_speed >= USB_SPEED_SUPER)
+		usb_phy_set_suspend(dwc->usb3_phy, 0);
 	ret = phy_power_on(dwc->usb2_generic_phy);
 	if (ret < 0)
 		goto err2;
@@ -888,6 +888,29 @@ int dwc3_core_init(struct dwc3 *dwc)
 		reg = dwc3_readl(dwc->regs, DWC3_GUCTL2);
 		reg |= DWC3_GUCTL2_RST_ACTBITLATER;
 		dwc3_writel(dwc->regs, DWC3_GUCTL2, reg);
+	}
+
+	/*
+	 * Workaround for STAR 9001198391 which affects dwc3 core
+	 * version 3.20a only. Default HP timer value is incorrectly
+	 * set to 3us. Reprogram HP timer value to support USB 3.1
+	 * HP timer ECN.
+	 */
+	if (!dwc3_is_usb31(dwc) &&  dwc->revision == DWC3_REVISION_320A) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL2);
+		reg &= ~DWC3_GUCTL2_HP_TIMER_MASK;
+		reg |= DWC3_GUCTL2_HP_TIMER(11);
+		dwc3_writel(dwc->regs, DWC3_GUCTL2, reg);
+	}
+
+	/*
+	 * Enable hardware control of sending remote wakeup in HS when
+	 * the device is in the L1 state.
+	 */
+	if (dwc->revision >= DWC3_REVISION_290A) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL1);
+		reg |= DWC3_GUCTL1_DEV_L1_EXIT_BY_HW;
+		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
 	}
 
 	return 0;
@@ -976,41 +999,14 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 	struct device *dev = dwc->dev;
 	int ret;
 
-	switch (dwc->dr_mode) {
-	case USB_DR_MODE_PERIPHERAL:
+	if (dwc->dr_mode == USB_DR_MODE_OTG ||
+			dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
 		ret = dwc3_gadget_init(dwc);
 		if (ret) {
 			if (ret != -EPROBE_DEFER)
 				dev_err(dev, "failed to initialize gadget\n");
 			return ret;
 		}
-		break;
-	case USB_DR_MODE_HOST:
-		ret = dwc3_host_init(dwc);
-		if (ret) {
-			if (ret != -EPROBE_DEFER)
-				dev_err(dev, "failed to initialize host\n");
-			return ret;
-		}
-		break;
-	case USB_DR_MODE_OTG:
-		ret = dwc3_host_init(dwc);
-		if (ret) {
-			if (ret != -EPROBE_DEFER)
-				dev_err(dev, "failed to initialize host\n");
-			return ret;
-		}
-
-		ret = dwc3_gadget_init(dwc);
-		if (ret) {
-			if (ret != -EPROBE_DEFER)
-				dev_err(dev, "failed to initialize gadget\n");
-			return ret;
-		}
-		break;
-	default:
-		dev_err(dev, "Unsupported mode of operation %d\n", dwc->dr_mode);
-		return -EINVAL;
 	}
 
 	return 0;
@@ -1018,21 +1014,9 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 
 static void dwc3_core_exit_mode(struct dwc3 *dwc)
 {
-	switch (dwc->dr_mode) {
-	case USB_DR_MODE_PERIPHERAL:
+	if (dwc->dr_mode == USB_DR_MODE_PERIPHERAL ||
+			dwc->dr_mode == USB_DR_MODE_OTG)
 		dwc3_gadget_exit(dwc);
-		break;
-	case USB_DR_MODE_HOST:
-		dwc3_host_exit(dwc);
-		break;
-	case USB_DR_MODE_OTG:
-		dwc3_host_exit(dwc);
-		dwc3_gadget_exit(dwc);
-		break;
-	default:
-		/* do nothing */
-		break;
-	}
 }
 
 /* XHCI reset, resets other CORE registers as well, re-init those */
@@ -1209,6 +1193,13 @@ static int dwc3_probe(struct platform_device *pdev)
 				"snps,is-utmi-l1-suspend");
 	device_property_read_u8(dev, "snps,hird-threshold",
 				&hird_threshold);
+
+	device_property_read_u32(dev, "snps,xhci-imod-value",
+			&dwc->xhci_imod_value);
+
+	dwc->core_id = -1;
+	device_property_read_u32(dev, "usb-core-id", &dwc->core_id);
+
 	dwc->usb3_lpm_capable = device_property_read_bool(dev,
 				"snps,usb3_lpm_capable");
 
@@ -1254,7 +1245,8 @@ static int dwc3_probe(struct platform_device *pdev)
 				 &dwc->fladj);
 	dwc->disable_clk_gating = device_property_read_bool(dev,
 				"snps,disable-clk-gating");
-
+	dwc->enable_bus_suspend = device_property_read_bool(dev,
+					"snps,bus-suspend-enable");
 	if (dwc->enable_bus_suspend) {
 		pm_runtime_set_autosuspend_delay(dev, 500);
 		pm_runtime_use_autosuspend(dev);
@@ -1278,7 +1270,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->dwc_wq = alloc_ordered_workqueue("dwc_wq", WQ_HIGHPRI);
 	if (!dwc->dwc_wq) {
 		pr_err("%s: Unable to create workqueue dwc_wq\n", __func__);
-		return -ENOMEM;
+		goto err0;
 	}
 
 	INIT_WORK(&dwc->bh_work, dwc3_bh_work);
@@ -1325,7 +1317,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	ret = dwc3_core_init_mode(dwc);
 	if (ret)
-		goto err0;
+		goto err1;
 
 	ret = dwc3_debugfs_init(dwc);
 	if (ret) {
@@ -1347,6 +1339,8 @@ static int dwc3_probe(struct platform_device *pdev)
 
 err_core_init:
 	dwc3_core_exit_mode(dwc);
+err1:
+	destroy_workqueue(dwc->dwc_wq);
 err0:
 	/*
 	 * restore res->start back to its original value so that, in case the
@@ -1354,7 +1348,6 @@ err0:
 	 * memory region the next time probe is called.
 	 */
 	res->start -= DWC3_GLOBALS_REGS_START;
-	destroy_workqueue(dwc->dwc_wq);
 
 	return ret;
 }

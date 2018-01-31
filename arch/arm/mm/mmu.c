@@ -1152,13 +1152,12 @@ early_param("vmalloc", early_vmalloc);
 
 phys_addr_t arm_lowmem_limit __initdata = 0;
 
-void __init sanity_check_meminfo(void)
+void __init adjust_lowmem_bounds(void)
 {
 	phys_addr_t memblock_limit = 0;
-	int highmem = 0;
 	u64 vmalloc_limit;
 	struct memblock_region *reg;
-	bool should_use_highmem = false;
+	phys_addr_t lowmem_limit = 0;
 
 	/*
 	 * Let's use our own (unoptimized) equivalent of __pa() that is
@@ -1169,46 +1168,34 @@ void __init sanity_check_meminfo(void)
 	 */
 	vmalloc_limit = (u64)(uintptr_t)vmalloc_min - PAGE_OFFSET + PHYS_OFFSET;
 
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+	struct memblock_region *prev_reg = NULL;
+
+	for_each_memblock(memory, reg) {
+		if (prev_reg == NULL) {
+			prev_reg = reg;
+			continue;
+		}
+		vmalloc_limit += reg->base - (prev_reg->base + prev_reg->size);
+		prev_reg = reg;
+	}
+#endif
+
 	for_each_memblock(memory, reg) {
 		phys_addr_t block_start = reg->base;
 		phys_addr_t block_end = reg->base + reg->size;
-		phys_addr_t size_limit = reg->size;
 
-		if (reg->base >= vmalloc_limit)
-			highmem = 1;
-		else
-			size_limit = vmalloc_limit - reg->base;
-
-
-		if (!IS_ENABLED(CONFIG_HIGHMEM) || cache_is_vipt_aliasing()) {
-
-			if (highmem) {
-				pr_notice("Ignoring RAM at %pa-%pa (!CONFIG_HIGHMEM)\n",
-					  &block_start, &block_end);
-				memblock_remove(reg->base, reg->size);
-				should_use_highmem = true;
-				continue;
-			}
-
-			if (reg->size > size_limit) {
-				phys_addr_t overlap_size = reg->size - size_limit;
-
-				pr_notice("Truncating RAM at %pa-%pa",
-					  &block_start, &block_end);
-				block_end = vmalloc_limit;
-				pr_cont(" to -%pa", &block_end);
-				memblock_remove(vmalloc_limit, overlap_size);
-				should_use_highmem = true;
-			}
-		}
-
-		if (!highmem) {
-			if (block_end > arm_lowmem_limit) {
-				if (reg->size > size_limit)
-					arm_lowmem_limit = vmalloc_limit;
-				else
-					arm_lowmem_limit = block_end;
-			}
+		if (reg->base < vmalloc_limit) {
+			if (block_end > lowmem_limit)
+				/*
+				 * Compare as u64 to ensure vmalloc_limit does
+				 * not get truncated. block_end should always
+				 * fit in phys_addr_t so there should be no
+				 * issue with assignment.
+				 */
+				lowmem_limit = min_t(u64,
+							 vmalloc_limit,
+							 block_end);
 
 			/*
 			 * Find the first non-pmd-aligned page, and point
@@ -1227,26 +1214,37 @@ void __init sanity_check_meminfo(void)
 				if (!IS_ALIGNED(block_start, PMD_SIZE))
 					memblock_limit = block_start;
 				else if (!IS_ALIGNED(block_end, PMD_SIZE))
-					memblock_limit = arm_lowmem_limit;
+					memblock_limit = lowmem_limit;
 			}
 
 		}
 	}
 
-	if (should_use_highmem)
-		pr_notice("Consider using a HIGHMEM enabled kernel.\n");
+	arm_lowmem_limit = lowmem_limit;
 
 	high_memory = __va(arm_lowmem_limit - 1) + 1;
+
+	if (!memblock_limit)
+		memblock_limit = arm_lowmem_limit;
 
 	/*
 	 * Round the memblock limit down to a pmd size.  This
 	 * helps to ensure that we will allocate memory from the
 	 * last full pmd, which should be mapped.
 	 */
-	if (memblock_limit)
-		memblock_limit = round_down(memblock_limit, PMD_SIZE);
-	if (!memblock_limit)
-		memblock_limit = arm_lowmem_limit;
+	memblock_limit = round_down(memblock_limit, PMD_SIZE);
+
+	if (!IS_ENABLED(CONFIG_HIGHMEM) || cache_is_vipt_aliasing()) {
+		if (memblock_end_of_DRAM() > arm_lowmem_limit) {
+			phys_addr_t end = memblock_end_of_DRAM();
+
+			pr_notice("Ignoring RAM at %pa-%pa\n",
+				  &memblock_limit, &end);
+			pr_notice("Consider using a HIGHMEM enabled kernel.\n");
+
+			memblock_remove(memblock_limit, end - memblock_limit);
+		}
+	}
 
 	memblock_set_current_limit(memblock_limit);
 }
@@ -1443,12 +1441,21 @@ static void __init map_lowmem(void)
 	phys_addr_t kernel_x_start = round_down(__pa(_stext), SECTION_SIZE);
 #endif
 	phys_addr_t kernel_x_end = round_up(__pa(__init_end), SECTION_SIZE);
+	struct static_vm *svm;
+	phys_addr_t start;
+	phys_addr_t end;
+	unsigned long vaddr;
+	unsigned long pfn;
+	unsigned long length;
+	unsigned int type;
+	int nr = 0;
 
 	/* Map all the lowmem memory banks. */
 	for_each_memblock(memory, reg) {
-		phys_addr_t start = reg->base;
-		phys_addr_t end = start + reg->size;
 		struct map_desc map;
+		start = reg->base;
+		end = start + reg->size;
+		nr++;
 
 		if (memblock_is_nomap(reg))
 			continue;
@@ -1499,6 +1506,34 @@ static void __init map_lowmem(void)
 				create_mapping(&map);
 			}
 		}
+	}
+	svm = early_alloc_aligned(sizeof(*svm) * nr, __alignof__(*svm));
+
+	for_each_memblock(memory, reg) {
+		struct vm_struct *vm;
+
+		start = reg->base;
+		end = start + reg->size;
+
+		if (end > arm_lowmem_limit)
+			end = arm_lowmem_limit;
+		if (start >= end)
+			break;
+
+		vm = &svm->vm;
+		pfn = __phys_to_pfn(start);
+		vaddr = __phys_to_virt(start);
+		length = end - start;
+		type = MT_MEMORY_RW;
+
+		vm->addr = (void *)(vaddr & PAGE_MASK);
+		vm->size = PAGE_ALIGN(length + (vaddr & ~PAGE_MASK));
+		vm->phys_addr = __pfn_to_phys(pfn);
+		vm->flags = VM_LOWMEM;
+		vm->flags |= VM_ARM_MTYPE(type);
+		vm->caller = map_lowmem;
+		add_static_vm_early(svm++);
+		mark_vmalloc_reserved_area(vm->addr, vm->size);
 	}
 }
 
@@ -1598,6 +1633,119 @@ void __init early_paging_init(const struct machine_desc *mdesc)
 
 #endif
 
+#ifdef CONFIG_FORCE_PAGES
+/*
+ * remap a PMD into pages
+ * We split a single pmd here none of this two pmd nonsense
+ */
+static noinline void __init split_pmd(pmd_t *pmd, unsigned long addr,
+				unsigned long end, unsigned long pfn,
+				const struct mem_type *type)
+{
+	pte_t *pte, *start_pte;
+	pmd_t *base_pmd;
+
+	base_pmd = pmd_offset(
+			pud_offset(pgd_offset(&init_mm, addr), addr), addr);
+
+	if (pmd_none(*base_pmd) || pmd_bad(*base_pmd)) {
+		start_pte = early_alloc(PTE_HWTABLE_OFF + PTE_HWTABLE_SIZE);
+#ifndef CONFIG_ARM_LPAE
+		/*
+		 * Following is needed when new pte is allocated for pmd[1]
+		 * cases, which may happen when base (start) address falls
+		 * under pmd[1].
+		 */
+		if (addr & SECTION_SIZE)
+			start_pte += pte_index(addr);
+#endif
+	} else {
+		start_pte = pte_offset_kernel(base_pmd, addr);
+	}
+
+	pte = start_pte;
+
+	do {
+		set_pte_ext(pte, pfn_pte(pfn, type->prot_pte), 0);
+		pfn++;
+	} while (pte++, addr += PAGE_SIZE, addr != end);
+
+	*pmd = __pmd((__pa(start_pte) + PTE_HWTABLE_OFF) | type->prot_l1);
+	mb(); /* let pmd be programmed */
+	flush_pmd_entry(pmd);
+	flush_tlb_all();
+}
+
+/*
+ * It's significantly easier to remap as pages later after all memory is
+ * mapped. Everything is sections so all we have to do is split
+ */
+static void __init remap_pages(void)
+{
+	struct memblock_region *reg;
+
+	for_each_memblock(memory, reg) {
+		phys_addr_t phys_start = reg->base;
+		phys_addr_t phys_end = reg->base + reg->size;
+		unsigned long addr = (unsigned long)__va(phys_start);
+		unsigned long end = (unsigned long)__va(phys_end);
+		pmd_t *pmd = NULL;
+		unsigned long next;
+		unsigned long pfn = __phys_to_pfn(phys_start);
+		bool fixup = false;
+		unsigned long saved_start = addr;
+
+		if (phys_start > arm_lowmem_limit)
+			break;
+		if (phys_end > arm_lowmem_limit)
+			end = (unsigned long)__va(arm_lowmem_limit);
+		if (phys_start >= phys_end)
+			break;
+
+		pmd = pmd_offset(
+			pud_offset(pgd_offset(&init_mm, addr), addr), addr);
+
+#ifndef	CONFIG_ARM_LPAE
+		if (addr & SECTION_SIZE) {
+			fixup = true;
+			pmd_empty_section_gap((addr - SECTION_SIZE) & PMD_MASK);
+			pmd++;
+		}
+
+		if (end & SECTION_SIZE)
+			pmd_empty_section_gap(end);
+#endif
+
+		do {
+			next = addr + SECTION_SIZE;
+
+			if (pmd_none(*pmd) || pmd_bad(*pmd))
+				split_pmd(pmd, addr, next, pfn,
+						&mem_types[MT_MEMORY_RWX]);
+			pmd++;
+			pfn += SECTION_SIZE >> PAGE_SHIFT;
+
+		} while (addr = next, addr < end);
+
+		if (fixup) {
+			/*
+			 * Put a faulting page table here to avoid detecting no
+			 * pmd when accessing an odd section boundary. This
+			 * needs to be faulting to help catch errors and avoid
+			 * speculation
+			 */
+			pmd = pmd_off_k(saved_start);
+			pmd[0] = pmd[1] & ~1;
+		}
+	}
+}
+#else
+static void __init remap_pages(void)
+{
+
+}
+#endif
+
 static void __init early_fixmap_shutdown(void)
 {
 	int i;
@@ -1641,6 +1789,7 @@ void __init paging_init(const struct machine_desc *mdesc)
 	memblock_set_current_limit(arm_lowmem_limit);
 	dma_contiguous_remap();
 	early_fixmap_shutdown();
+	remap_pages();
 	devicemaps_init(mdesc);
 	kmap_init();
 	tcm_init();

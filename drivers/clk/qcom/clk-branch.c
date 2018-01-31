@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/err.h>
@@ -90,14 +92,14 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 	} else if (br->halt_check == BRANCH_HALT_ENABLE ||
 		   br->halt_check == BRANCH_HALT ||
 		   (enabling && voted)) {
-		int count = 200;
+		int count = 500;
 
 		while (count-- > 0) {
 			if (check_halt(br, enabling))
 				return 0;
 			udelay(1);
 		}
-		WARN(1, "%s status stuck at 'o%s'", name,
+		WARN(1, "clk: %s status stuck at 'o%s'", name,
 				enabling ? "ff" : "n");
 		return -EBUSY;
 	}
@@ -285,10 +287,18 @@ static int clk_branch2_enable(struct clk_hw *hw)
 
 static int clk_branch2_prepare(struct clk_hw *hw)
 {
-	struct clk_branch *branch = to_clk_branch(hw);
-	struct clk_hw *parent = clk_hw_get_parent(hw);
-	unsigned long curr_rate, branch_rate = branch->rate;
+	struct clk_branch *branch;
+	struct clk_hw *parent;
+	unsigned long curr_rate;
 	int ret = 0;
+
+	if (!hw)
+		return -EINVAL;
+
+	branch = to_clk_branch(hw);
+	parent = clk_hw_get_parent(hw);
+	if (!branch)
+		return -EINVAL;
 
 	/*
 	 * Do the rate aggregation and scaling of the RCG in the prepare/
@@ -296,9 +306,11 @@ static int clk_branch2_prepare(struct clk_hw *hw)
 	 * votes on the voltage rails.
 	 */
 	if (branch->aggr_sibling_rates) {
+		if (!parent)
+			return -EINVAL;
 		curr_rate = clk_aggregate_rate(hw, parent->core);
-		if (branch_rate > curr_rate) {
-			ret = clk_set_rate(parent->clk, branch_rate);
+		if (branch->rate > curr_rate) {
+			ret = clk_set_rate(parent->clk, branch->rate);
 			if (ret)
 				goto exit;
 		}
@@ -314,13 +326,23 @@ static void clk_branch2_disable(struct clk_hw *hw)
 
 static void clk_branch2_unprepare(struct clk_hw *hw)
 {
-	struct clk_branch *branch = to_clk_branch(hw);
-	struct clk_hw *parent = clk_hw_get_parent(hw);
-	unsigned long curr_rate, new_rate, branch_rate = branch->rate;
+	struct clk_branch *branch;
+	struct clk_hw *parent;
+	unsigned long curr_rate, new_rate;
+
+	if (!hw)
+		return;
+
+	branch = to_clk_branch(hw);
+	parent = clk_hw_get_parent(hw);
+	if (!branch)
+		return;
 
 	if (branch->aggr_sibling_rates) {
+		if (!parent)
+			return;
 		new_rate = clk_aggregate_rate(hw, parent->core);
-		curr_rate = max(new_rate, branch_rate);
+		curr_rate = max(new_rate, branch->rate);
 		if (new_rate < curr_rate)
 			if (clk_set_rate(parent->clk, new_rate))
 				pr_err("Failed to scale %s to %lu\n",
@@ -342,6 +364,72 @@ const struct clk_ops clk_branch2_ops = {
 	.debug_init = clk_debug_measure_add,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
+
+static int clk_branch2_hw_ctl_set_rate(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate)
+{
+	if (!(hw->init->flags & CLK_SET_RATE_PARENT)) {
+		pr_err("SET_RATE_PARENT flag needs to be set for %s\n",
+					clk_hw_get_name(hw));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static unsigned long clk_branch2_hw_ctl_recalc_rate(struct clk_hw *hw,
+		unsigned long parent_rate)
+{
+	return parent_rate;
+}
+
+static int clk_branch2_hw_ctl_determine_rate(struct clk_hw *hw,
+		struct clk_rate_request *req)
+{
+	struct clk_hw *clkp;
+
+	clkp = clk_hw_get_parent(hw);
+	if (!clkp)
+		return -EINVAL;
+
+	req->best_parent_hw = clkp;
+	req->best_parent_rate = clk_round_rate(clkp->clk, req->rate);
+
+	return 0;
+}
+
+static int clk_branch2_hw_ctl_enable(struct clk_hw *hw)
+{
+	struct clk_hw *parent = clk_hw_get_parent(hw);
+
+	/* The parent branch clock should have been prepared prior to this. */
+	if (!parent || (parent && !clk_hw_is_prepared(parent)))
+		return -EINVAL;
+
+	return clk_enable_regmap(hw);
+}
+
+static void clk_branch2_hw_ctl_disable(struct clk_hw *hw)
+{
+	struct clk_hw *parent = clk_hw_get_parent(hw);
+
+	if (!parent)
+		return;
+
+	clk_disable_regmap(hw);
+}
+
+const struct clk_ops clk_branch2_hw_ctl_ops = {
+	.enable = clk_branch2_hw_ctl_enable,
+	.disable = clk_branch2_hw_ctl_disable,
+	.is_enabled = clk_is_enabled_regmap,
+	.set_rate = clk_branch2_hw_ctl_set_rate,
+	.recalc_rate = clk_branch2_hw_ctl_recalc_rate,
+	.determine_rate = clk_branch2_hw_ctl_determine_rate,
+	.set_flags = clk_branch_set_flags,
+	.list_registers = clk_branch2_list_registers,
+};
+EXPORT_SYMBOL_GPL(clk_branch2_hw_ctl_ops);
 
 static int clk_gate_toggle(struct clk_hw *hw, bool en)
 {

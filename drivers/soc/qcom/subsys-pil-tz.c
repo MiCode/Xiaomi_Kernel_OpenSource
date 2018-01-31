@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,7 @@
 
 #define XO_FREQ			19200000
 #define PROXY_TIMEOUT_MS	10000
-#define MAX_SSR_REASON_LEN	81U
+#define MAX_SSR_REASON_LEN	256U
 #define STOP_ACK_TIMEOUT_MS	1000
 #define CRASH_STOP_ACK_TO_MS	200
 
@@ -45,6 +45,13 @@
 
 #define desc_to_data(d) container_of(d, struct pil_tz_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_tz_data, subsys_desc)
+
+struct pil_map_fw_info {
+	void *region;
+	unsigned long attrs;
+	phys_addr_t base_addr;
+	struct device *dev;
+};
 
 /**
  * struct reg_info - regulator info
@@ -584,7 +591,8 @@ static void pil_remove_proxy_vote(struct pil_desc *pil)
 }
 
 static int pil_init_image_trusted(struct pil_desc *pil,
-		const u8 *metadata, size_t size)
+		const u8 *metadata, size_t size, phys_addr_t mdata_phys,
+		void *region)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
 	struct pas_init_image_req {
@@ -593,11 +601,15 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	} request;
 	u32 scm_ret = 0;
 	void *mdata_buf;
-	dma_addr_t mdata_phys;
 	int ret;
-	unsigned long attrs = 0;
-	struct device dev = {0};
 	struct scm_desc desc = {0};
+	struct pil_map_fw_info map_fw_info = {
+		.attrs = pil->attrs,
+		.region = region,
+		.base_addr = mdata_phys,
+		.dev = pil->dev,
+	};
+	void *map_data = pil->map_data ? pil->map_data : &map_fw_info;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
@@ -605,15 +617,10 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	ret = scm_pas_enable_bw();
 	if (ret)
 		return ret;
-	arch_setup_dma_ops(&dev, 0, 0, NULL, 0);
 
-	dev.coherent_dma_mask =
-		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
-	attrs |= DMA_ATTR_STRONGLY_ORDERED;
-	mdata_buf = dma_alloc_attrs(&dev, size, &mdata_phys, GFP_KERNEL,
-					attrs);
+	mdata_buf = pil->map_fw_mem(mdata_phys, size, map_data);
 	if (!mdata_buf) {
-		pr_err("scm-pas: Allocation for metadata failed.\n");
+		dev_err(pil->dev, "Failed to map memory for metadata.\n");
 		scm_pas_disable_bw();
 		return -ENOMEM;
 	}
@@ -635,7 +642,7 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 		scm_ret = desc.ret[0];
 	}
 
-	dma_free_attrs(&dev, size, mdata_buf, mdata_phys, attrs);
+	pil->unmap_fw_mem(mdata_buf, size, map_data);
 	scm_pas_disable_bw();
 	if (ret)
 		return ret;
@@ -795,6 +802,33 @@ err_regulators:
 	return rc;
 }
 
+static int pil_deinit_image_trusted(struct pil_desc *pil)
+{
+	struct pil_tz_data *d = desc_to_data(pil);
+	u32 proc, scm_ret = 0;
+	int rc;
+	struct scm_desc desc = {0};
+
+	if (d->subsys_desc.no_auth)
+		return 0;
+
+	desc.args[0] = proc = d->pas_id;
+	desc.arginfo = SCM_ARGS(1);
+
+	if (!is_scm_armv8()) {
+		rc = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &proc,
+			      sizeof(proc), &scm_ret, sizeof(scm_ret));
+	} else {
+		rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
+			       &desc);
+		scm_ret = desc.ret[0];
+	}
+
+	if (rc)
+		return rc;
+	return scm_ret;
+}
+
 static struct pil_reset_ops pil_ops_trusted = {
 	.init_image = pil_init_image_trusted,
 	.mem_setup =  pil_mem_setup_trusted,
@@ -802,6 +836,7 @@ static struct pil_reset_ops pil_ops_trusted = {
 	.shutdown = pil_shutdown_trusted,
 	.proxy_vote = pil_make_proxy_vote,
 	.proxy_unvote = pil_remove_proxy_vote,
+	.deinit_image = pil_deinit_image_trusted,
 };
 
 static void log_failure_reason(const struct pil_tz_data *d)
@@ -827,9 +862,6 @@ static void log_failure_reason(const struct pil_tz_data *d)
 
 	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
-
-	smem_reason[0] = '\0';
-	wmb();
 }
 
 static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
@@ -873,7 +905,7 @@ static int subsys_ramdump(int enable, const struct subsys_desc *subsys)
 	if (!enable)
 		return 0;
 
-	return pil_do_ramdump(&d->desc, d->ramdump_dev);
+	return pil_do_ramdump(&d->desc, d->ramdump_dev, NULL);
 }
 
 static void subsys_free_memory(const struct subsys_desc *subsys)
@@ -1020,7 +1052,8 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 {
 	struct pil_tz_data *d;
 	struct resource *res;
-	u32 proxy_timeout;
+	struct device_node *crypto_node;
+	u32 proxy_timeout, crypto_id;
 	int len, rc;
 
 	d = devm_kzalloc(&pdev->dev, sizeof(*d), GFP_KERNEL);
@@ -1076,7 +1109,17 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 									rc);
 			return rc;
 		}
-		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE_0);
+
+		crypto_id = MSM_BUS_MASTER_CRYPTO_CORE_0;
+		crypto_node = of_parse_phandle(pdev->dev.of_node,
+						"qcom,mas-crypto", 0);
+		if (!IS_ERR_OR_NULL(crypto_node)) {
+			of_property_read_u32(crypto_node, "cell-id",
+				&crypto_id);
+			of_node_put(crypto_node);
+		}
+
+		scm_pas_init((int)crypto_id);
 	}
 
 	rc = pil_desc_init(&d->desc);
@@ -1099,23 +1142,55 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"sp2soc_irq_status");
 		d->irq_status = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(d->irq_status)) {
+			dev_err(&pdev->dev, "Invalid resource for sp2soc_irq_status\n");
+			rc = PTR_ERR(d->irq_status);
+			goto err_ramdump;
+		}
+
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"sp2soc_irq_clr");
 		d->irq_clear = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(d->irq_clear)) {
+			dev_err(&pdev->dev, "Invalid resource for sp2soc_irq_clr\n");
+			rc = PTR_ERR(d->irq_clear);
+			goto err_ramdump;
+		}
+
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"sp2soc_irq_mask");
 		d->irq_mask = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(d->irq_mask)) {
+			dev_err(&pdev->dev, "Invalid resource for sp2soc_irq_mask\n");
+			rc = PTR_ERR(d->irq_mask);
+			goto err_ramdump;
+		}
+
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"rmb_err");
 		d->err_status = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(d->err_status)) {
+			dev_err(&pdev->dev, "Invalid resource for rmb_err\n");
+			rc = PTR_ERR(d->err_status);
+			goto err_ramdump;
+		}
+
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"rmb_err_spare2");
 		d->err_status_spare = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(d->err_status_spare)) {
+			dev_err(&pdev->dev, "Invalid resource for rmb_err_spare2\n");
+			rc = PTR_ERR(d->err_status_spare);
+			goto err_ramdump;
+		}
+
 		rc = of_property_read_u32_array(pdev->dev.of_node,
 		       "qcom,spss-scsr-bits", d->bits_arr, sizeof(d->bits_arr)/
 							sizeof(d->bits_arr[0]));
-		if (rc)
+		if (rc) {
 			dev_err(&pdev->dev, "Failed to read qcom,spss-scsr-bits");
+			goto err_ramdump;
+		}
 		mask_scsr_irqs(d);
 
 	} else {
@@ -1124,6 +1199,22 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		d->subsys_desc.wdog_bite_handler = subsys_wdog_bite_irq_handler;
 		d->subsys_desc.stop_ack_handler = subsys_stop_ack_intr_handler;
 	}
+	d->desc.signal_aop = of_property_read_bool(pdev->dev.of_node,
+						"qcom,signal-aop");
+	if (d->desc.signal_aop) {
+		d->desc.cl.dev = &pdev->dev;
+		d->desc.cl.tx_block = true;
+		d->desc.cl.tx_tout = 1000;
+		d->desc.cl.knows_txdone = false;
+		d->desc.mbox = mbox_request_channel(&d->desc.cl, 0);
+		if (IS_ERR(d->desc.mbox)) {
+			rc = PTR_ERR(d->desc.mbox);
+			dev_err(&pdev->dev, "Failed to get mailbox channel %pK %d\n",
+				d->desc.mbox, rc);
+			goto err_ramdump;
+		}
+	}
+
 	d->ramdump_dev = create_ramdump_device(d->subsys_desc.name,
 								&pdev->dev);
 	if (!d->ramdump_dev) {
@@ -1142,6 +1233,7 @@ err_subsys:
 	destroy_ramdump_device(d->ramdump_dev);
 err_ramdump:
 	pil_desc_release(&d->desc);
+	platform_set_drvdata(pdev, NULL);
 
 	return rc;
 }

@@ -103,12 +103,12 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	alt_end_marker ":\n"
 
 /*
- * max without conditionals. Idea adapted from:
+ * gas compatible max based on the idea from:
  * http://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
  *
- * The additional "-" is needed because gas works with s32s.
+ * The additional "-" is needed because gas uses a "true" value of -1.
  */
-#define alt_max_short(a, b)	"((" a ") ^ (((" a ") ^ (" b ")) & -(-((" a ") - (" b ")))))"
+#define alt_max_short(a, b)	"((" a ") ^ (((" a ") ^ (" b ")) & -(-((" a ") < (" b ")))))"
 
 /*
  * Pad the second replacement alternative with additional NOPs if it is
@@ -139,7 +139,7 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	".popsection\n"							\
 	".pushsection .altinstr_replacement, \"ax\"\n"			\
 	ALTINSTR_REPLACEMENT(newinstr, feature, 1)			\
-	".popsection"
+	".popsection\n"
 
 #define ALTERNATIVE_2(oldinstr, newinstr1, feature1, newinstr2, feature2)\
 	OLDINSTR_2(oldinstr, 1, 2)					\
@@ -150,7 +150,7 @@ static inline int alternatives_text_reserved(void *start, void *end)
 	".pushsection .altinstr_replacement, \"ax\"\n"			\
 	ALTINSTR_REPLACEMENT(newinstr1, feature1, 1)			\
 	ALTINSTR_REPLACEMENT(newinstr2, feature2, 2)			\
-	".popsection"
+	".popsection\n"
 
 /*
  * Alternative instructions for different CPU types or capabilities.

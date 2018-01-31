@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,19 +43,35 @@
 
 /*
  * These mode constants may be used for qcom,supported-modes and qcom,init-mode
- * properties of an RPMh resource.  Modes should be matched to the physical
- * PMIC regulator type (i.e. LDO, SMPS, or BOB).
+ * properties of an RPMh resource.  Each type of regulator supports a subset of
+ * the possible modes.
+ *
+ * %RPMH_REGULATOR_MODE_PASS:	Pass-through mode in which output is directly
+ *				tied to input.  This mode is only supported by
+ *				BOB type regulators.
+ * %RPMH_REGULATOR_MODE_RET:	Retention mode in which only an extremely small
+ *				load current is allowed.  This mode is supported
+ *				by LDO and SMPS type regulators.
+ * %RPMH_REGULATOR_MODE_LPM:	Low power mode in which a small load current is
+ *				allowed.  This mode corresponds to PFM for SMPS
+ *				and BOB type regulators.  This mode is supported
+ *				by LDO, HFSMPS, BOB, and PMIC4 FTSMPS type
+ *				regulators.
+ * %RPMH_REGULATOR_MODE_AUTO:	Auto mode in which the regulator hardware
+ *				automatically switches between LPM and HPM based
+ *				upon the real-time load current.  This mode is
+ *				supported by HFSMPS, BOB, and PMIC4 FTSMPS type
+ *				regulators.
+ * %RPMH_REGULATOR_MODE_HPM:	High power mode in which the full rated current
+ *				of the regulator is allowed.  This mode
+ *				corresponds to PWM for SMPS and BOB type
+ *				regulators.  This mode is supported by all types
+ *				of regulators.
  */
-#define RPMH_REGULATOR_MODE_LDO_LPM	5
-#define RPMH_REGULATOR_MODE_LDO_HPM	7
-
-#define RPMH_REGULATOR_MODE_SMPS_PFM	5
-#define RPMH_REGULATOR_MODE_SMPS_AUTO	6
-#define RPMH_REGULATOR_MODE_SMPS_PWM	7
-
-#define RPMH_REGULATOR_MODE_BOB_PASS	0
-#define RPMH_REGULATOR_MODE_BOB_PFM	1
-#define RPMH_REGULATOR_MODE_BOB_AUTO	2
-#define RPMH_REGULATOR_MODE_BOB_PWM	3
+#define RPMH_REGULATOR_MODE_PASS	0
+#define RPMH_REGULATOR_MODE_RET		1
+#define RPMH_REGULATOR_MODE_LPM		2
+#define RPMH_REGULATOR_MODE_AUTO	3
+#define RPMH_REGULATOR_MODE_HPM		4
 
 #endif

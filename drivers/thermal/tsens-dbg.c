@@ -12,7 +12,9 @@
  */
 
 #include <asm/arch_timer.h>
+#include <linux/platform_device.h>
 #include "tsens.h"
+#include "tsens-mtc.h"
 
 /* debug defines */
 #define	TSENS_DBG_BUS_ID_0			0
@@ -35,12 +37,183 @@
 #define	TSENS_DEBUG_ID_MASK_1_4			0xffffffe1
 #define	DEBUG_SIZE				10
 
-#define TSENS_DEBUG_CONTROL(n)			((n) + 0x1130)
-#define TSENS_DEBUG_DATA(n)			((n) + 0x1134)
+#define TSENS_DEBUG_CONTROL(n)			((n) + 0x130)
+#define TSENS_DEBUG_DATA(n)			((n) + 0x134)
 
 struct tsens_dbg_func {
 	int (*dbg_func)(struct tsens_device *, u32, u32, int *);
 };
+
+static ssize_t
+zonemask_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct tsens_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	return snprintf(buf, PAGE_SIZE,
+		"Zone =%d th1=%d th2=%d\n", tmdev->mtcsys.zone_mtc,
+				tmdev->mtcsys.th1, tmdev->mtcsys.th2);
+}
+
+static ssize_t
+zonemask_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret;
+	struct tsens_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = sscanf(buf, "%d %d %d", &tmdev->mtcsys.zone_mtc,
+				&tmdev->mtcsys.th1, &tmdev->mtcsys.th2);
+
+	if (ret != TSENS_ZONEMASK_PARAMS) {
+		pr_err("Invalid command line arguments\n");
+		count = -EINVAL;
+	} else {
+		pr_debug("store zone_mtc=%d th1=%d th2=%d\n",
+				tmdev->mtcsys.zone_mtc,
+				tmdev->mtcsys.th1, tmdev->mtcsys.th2);
+		ret = tsens_set_mtc_zone_sw_mask(tmdev->mtcsys.zone_mtc,
+					tmdev->mtcsys.th1, tmdev->mtcsys.th2);
+		if (ret < 0) {
+			pr_err("Invalid command line arguments\n");
+			count = -EINVAL;
+		}
+	}
+
+	return count;
+}
+
+static ssize_t
+zonelog_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret, zlog[TSENS_MTC_ZONE_LOG_SIZE];
+	struct tsens_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = tsens_get_mtc_zone_log(tmdev->mtcsys.zone_log, zlog);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
+	}
+
+	return snprintf(buf, PAGE_SIZE,
+		"Log[0]=%d\nLog[1]=%d\nLog[2]=%d\nLog[3]=%d\nLog[4]=%d\nLog[5]=%d\n",
+			zlog[0], zlog[1], zlog[2], zlog[3], zlog[4], zlog[5]);
+}
+
+static ssize_t
+zonelog_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret;
+	struct tsens_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = kstrtou32(buf, 0, &tmdev->mtcsys.zone_log);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static ssize_t
+zonehist_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret, zhist[TSENS_MTC_ZONE_HISTORY_SIZE];
+	struct tsens_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = tsens_get_mtc_zone_history(tmdev->mtcsys.zone_hist, zhist);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
+	}
+
+	return snprintf(buf, PAGE_SIZE,
+		"Cool = %d\nYellow = %d\nRed = %d\n",
+			zhist[0], zhist[1], zhist[2]);
+}
+
+static ssize_t
+zonehist_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret;
+	struct tsens_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = kstrtou32(buf, 0, &tmdev->mtcsys.zone_hist);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static struct device_attribute tsens_mtc_dev_attr[] = {
+	__ATTR(zonemask, 0644, zonemask_show, zonemask_store),
+	__ATTR(zonelog, 0644, zonelog_show, zonelog_store),
+	__ATTR(zonehist, 0644, zonehist_show, zonehist_store),
+};
+
+static int tsens_dbg_mtc_data(struct tsens_device *data,
+					u32 id, u32 dbg_type, int *val)
+{
+	int result = 0, i;
+	struct tsens_device *tmdev = NULL;
+	struct device_attribute *attr_ptr = NULL;
+
+	attr_ptr = tsens_mtc_dev_attr;
+	tmdev = data;
+
+	for (i = 0; i < ARRAY_SIZE(tsens_mtc_dev_attr); i++) {
+		result = device_create_file(&tmdev->pdev->dev, &attr_ptr[i]);
+		if (result < 0)
+			goto error;
+	}
+
+	return result;
+
+error:
+	for (i--; i >= 0; i--)
+		device_remove_file(&tmdev->pdev->dev, &attr_ptr[i]);
+
+	return result;
+}
 
 static int tsens_dbg_log_temp_reads(struct tsens_device *data, u32 id,
 					u32 dbg_type, int *temp)
@@ -77,11 +250,126 @@ static int tsens_dbg_log_interrupt_timestamp(struct tsens_device *data,
 	pr_debug("%d %d\n", id, dbg_type);
 	tmdev = data;
 	/* debug */
-	idx = tmdev->tsens_dbg.tsens_thread_iq_dbg.idx;
-	tmdev->tsens_dbg.tsens_thread_iq_dbg.dbg_count[idx%10]++;
-	tmdev->tsens_dbg.tsens_thread_iq_dbg.time_stmp[idx%10] =
+	idx = tmdev->tsens_dbg.irq_idx;
+	tmdev->tsens_dbg.irq_time_stmp[idx%10] =
 							sched_clock();
-	tmdev->tsens_dbg.tsens_thread_iq_dbg.idx++;
+	tmdev->tsens_dbg.irq_idx++;
+
+	return 0;
+}
+
+static int tsens_dbg_log_bus_id_data(struct tsens_device *data,
+					u32 id, u32 dbg_type, int *val)
+{
+	struct tsens_device *tmdev = NULL;
+	u32 loop = 0, i = 0;
+	uint32_t r1, r2, r3, r4, offset = 0;
+	unsigned int debug_dump;
+	unsigned int debug_id = 0, cntrl_id = 0;
+	void __iomem *srot_addr;
+	void __iomem *controller_id_addr;
+	void __iomem *debug_id_addr;
+	void __iomem *debug_data_addr;
+
+	if (!data)
+		return -EINVAL;
+
+	pr_debug("%d %d\n", id, dbg_type);
+	tmdev = data;
+	controller_id_addr = TSENS_CONTROLLER_ID(tmdev->tsens_tm_addr);
+	debug_id_addr = TSENS_DEBUG_CONTROL(tmdev->tsens_tm_addr);
+	debug_data_addr = TSENS_DEBUG_DATA(tmdev->tsens_tm_addr);
+	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr);
+
+	cntrl_id = readl_relaxed(controller_id_addr);
+	pr_err("Controller_id: 0x%x\n", cntrl_id);
+
+	loop = 0;
+	i = 0;
+	debug_id = readl_relaxed(debug_id_addr);
+	writel_relaxed((debug_id | (i << 1) | 1),
+			TSENS_DEBUG_CONTROL(tmdev->tsens_tm_addr));
+	while (loop < TSENS_DEBUG_LOOP_COUNT_ID_0) {
+		debug_dump = readl_relaxed(debug_data_addr);
+		r1 = readl_relaxed(debug_data_addr);
+		r2 = readl_relaxed(debug_data_addr);
+		r3 = readl_relaxed(debug_data_addr);
+		r4 = readl_relaxed(debug_data_addr);
+		pr_err("cntrl:%d, bus-id:%d value:0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+			cntrl_id, i, debug_dump, r1, r2, r3, r4);
+		loop++;
+	}
+
+	for (i = TSENS_DBG_BUS_ID_1; i <= TSENS_DBG_BUS_ID_15; i++) {
+		loop = 0;
+		debug_id = readl_relaxed(debug_id_addr);
+		debug_id = debug_id & TSENS_DEBUG_ID_MASK_1_4;
+		writel_relaxed((debug_id | (i << 1) | 1),
+				TSENS_DEBUG_CONTROL(tmdev->tsens_tm_addr));
+		while (loop < TSENS_DEBUG_LOOP_COUNT) {
+			debug_dump = readl_relaxed(debug_data_addr);
+			pr_err("cntrl:%d, bus-id:%d with value: 0x%x\n",
+				cntrl_id, i, debug_dump);
+			if (i == TSENS_DBG_BUS_ID_2)
+				usleep_range(
+					TSENS_DEBUG_BUS_ID2_MIN_CYCLE,
+					TSENS_DEBUG_BUS_ID2_MAX_CYCLE);
+			loop++;
+		}
+	}
+
+	pr_err("Start of TSENS TM dump\n");
+	for (i = 0; i < TSENS_DEBUG_OFFSET_RANGE; i++) {
+		r1 = readl_relaxed(controller_id_addr + offset);
+		r2 = readl_relaxed(controller_id_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD1));
+		r3 = readl_relaxed(controller_id_addr +	(offset +
+					TSENS_DEBUG_OFFSET_WORD2));
+		r4 = readl_relaxed(controller_id_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD3));
+
+		pr_err("ctrl:%d:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			cntrl_id, offset, r1, r2, r3, r4);
+		offset += TSENS_DEBUG_OFFSET_ROW;
+	}
+
+	offset = 0;
+	pr_err("Start of TSENS SROT dump\n");
+	for (i = 0; i < TSENS_DEBUG_OFFSET_RANGE; i++) {
+		r1 = readl_relaxed(srot_addr + offset);
+		r2 = readl_relaxed(srot_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD1));
+		r3 = readl_relaxed(srot_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD2));
+		r4 = readl_relaxed(srot_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD3));
+
+		pr_err("ctrl:%d:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			cntrl_id, offset, r1, r2, r3, r4);
+		offset += TSENS_DEBUG_OFFSET_ROW;
+	}
+
+	loop = 0;
+	while (loop < TSENS_DEBUG_LOOP_COUNT) {
+		offset = TSENS_DEBUG_OFFSET_ROW *
+				TSENS_DEBUG_STATUS_REG_START;
+		pr_err("Start of TSENS TM dump %d\n", loop);
+		/* Limited dump of the registers for the temperature */
+		for (i = 0; i < TSENS_DEBUG_LOOP_COUNT; i++) {
+			r1 = readl_relaxed(controller_id_addr + offset);
+			r2 = readl_relaxed(controller_id_addr +
+				(offset + TSENS_DEBUG_OFFSET_WORD1));
+			r3 = readl_relaxed(controller_id_addr +
+				(offset + TSENS_DEBUG_OFFSET_WORD2));
+			r4 = readl_relaxed(controller_id_addr +
+				(offset + TSENS_DEBUG_OFFSET_WORD3));
+
+		pr_err("ctrl:%d:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			cntrl_id, offset, r1, r2, r3, r4);
+			offset += TSENS_DEBUG_OFFSET_ROW;
+		}
+		loop++;
+	}
 
 	return 0;
 }
@@ -90,6 +378,8 @@ static struct tsens_dbg_func dbg_arr[] = {
 	[TSENS_DBG_LOG_TEMP_READS] = {tsens_dbg_log_temp_reads},
 	[TSENS_DBG_LOG_INTERRUPT_TIMESTAMP] = {
 			tsens_dbg_log_interrupt_timestamp},
+	[TSENS_DBG_LOG_BUS_ID_DATA] = {tsens_dbg_log_bus_id_data},
+	[TSENS_DBG_MTC_DATA] = {tsens_dbg_mtc_data},
 };
 
 int tsens2xxx_dbg(struct tsens_device *data, u32 id, u32 dbg_type, int *val)

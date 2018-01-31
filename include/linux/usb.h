@@ -333,6 +333,8 @@ struct usb_host_bos {
 	struct usb_ssp_cap_descriptor	*ssp_cap;
 	struct usb_ss_container_id_descriptor	*ss_id;
 	struct usb_ptm_cap_descriptor	*ptm_cap;
+	struct usb_config_summary_descriptor	*config_summary;
+	unsigned int	num_config_summary_desc;
 };
 
 int __usb_get_extra_descriptor(char *buffer, unsigned size,
@@ -749,10 +751,13 @@ extern int usb_sec_event_ring_setup(struct usb_device *dev,
 extern int usb_sec_event_ring_cleanup(struct usb_device *dev,
 	unsigned int intr_num);
 
-extern dma_addr_t usb_get_sec_event_ring_dma_addr(struct usb_device *dev,
-	unsigned int intr_num);
-extern dma_addr_t usb_get_dcba_dma_addr(struct usb_device *dev);
-extern dma_addr_t usb_get_xfer_ring_dma_addr(struct usb_device *dev,
+extern phys_addr_t usb_get_sec_event_ring_phys_addr(
+	struct usb_device *dev, unsigned int intr_num, dma_addr_t *dma);
+extern phys_addr_t usb_get_xfer_ring_phys_addr(struct usb_device *dev,
+	struct usb_host_endpoint *ep, dma_addr_t *dma);
+extern int usb_get_controller_id(struct usb_device *dev);
+
+extern int usb_stop_endpoint(struct usb_device *dev,
 	struct usb_host_endpoint *ep);
 
 /* Sets up a group of bulk endpoints to support multiple stream IDs. */
@@ -1723,6 +1728,8 @@ extern int usb_string(struct usb_device *dev, int index,
 extern int usb_clear_halt(struct usb_device *dev, int pipe);
 extern int usb_reset_configuration(struct usb_device *dev);
 extern int usb_set_interface(struct usb_device *dev, int ifnum, int alternate);
+extern int usb_set_interface_timeout(struct usb_device *dev, int ifnum,
+		int alternate, unsigned long timeout);
 extern void usb_reset_endpoint(struct usb_device *dev, unsigned int epaddr);
 
 /* this request isn't really synchronous, but it belongs with the others */

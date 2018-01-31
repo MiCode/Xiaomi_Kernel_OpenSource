@@ -217,6 +217,9 @@
 /* Global Debug LTSSM Register */
 #define DWC3_GDBGLTSSM_LINKSTATE_MASK	(0xF << 22)
 
+/* Global User Control 1 Register */
+#define DWC3_GUCTL1_DEV_L1_EXIT_BY_HW	(1 << 24)
+
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST	(1 << 31)
 #define DWC3_GUSB2PHYCFG_ENBLSLPM	(1 << 8)
@@ -323,6 +326,8 @@
 
 /* Global User Control Register 2 */
 #define DWC3_GUCTL2_RST_ACTBITLATER		(1 << 14)
+#define DWC3_GUCTL2_HP_TIMER(n)			((n) << 21)
+#define DWC3_GUCTL2_HP_TIMER_MASK		DWC3_GUCTL2_HP_TIMER(0x1f)
 
 /* Device Configuration Register */
 #define DWC3_DCFG_DEVADDR(addr)	((addr) << 3)
@@ -480,6 +485,8 @@
 #define DWC3_DEPCMD_SETTRANSFRESOURCE	(0x02 << 0)
 #define DWC3_DEPCMD_SETEPCONFIG		(0x01 << 0)
 
+#define DWC3_DEPCMD_CMD(x)		((x) & 0xf)
+
 /* The EP number goes 0..31 so ep0 is always out and ep1 is always in */
 #define DWC3_DALEPENA_EP(n)		(1 << n)
 
@@ -568,7 +575,6 @@ struct dwc3_ep_events {
  * @started_list: list of started requests on this endpoint
  * @lock: spinlock for endpoint request queue traversal
  * @regs: pointer to first endpoint register
- * @trb_dma_pool: dma pool used to get aligned trb memory pool
  * @trb_pool: array of transaction buffers
  * @trb_pool_dma: dma address of @trb_pool
  * @num_trbs: num of trbs in the trb dma pool
@@ -590,6 +596,7 @@ struct dwc3_ep_events {
  * @dbg_ep_events: different events counter for endpoint
  * @dbg_ep_events_diff: differential events counter for endpoint
  * @dbg_ep_events_ts: timestamp for previous event counters
+ * @fifo_depth: allocated TXFIFO depth
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
@@ -599,7 +606,6 @@ struct dwc3_ep {
 	spinlock_t		lock;
 	void __iomem		*regs;
 
-	struct dma_pool		*trb_dma_pool;
 	struct dwc3_trb		*trb_pool;
 	dma_addr_t		trb_pool_dma;
 	u32			num_trbs;
@@ -614,6 +620,7 @@ struct dwc3_ep {
 #define DWC3_EP_BUSY		(1 << 4)
 #define DWC3_EP_PENDING_REQUEST	(1 << 5)
 #define DWC3_EP_MISSED_ISOC	(1 << 6)
+#define DWC3_EP_TRANSFER_STARTED (1 << 8)
 
 	/* This last one is specific to EP0 */
 #define DWC3_EP0_DIR_IN		(1 << 31)
@@ -644,6 +651,7 @@ struct dwc3_ep {
 	struct dwc3_ep_events	dbg_ep_events;
 	struct dwc3_ep_events	dbg_ep_events_diff;
 	struct timespec		dbg_ep_events_ts;
+	int			fifo_depth;
 };
 
 enum dwc3_phy {
@@ -905,7 +913,6 @@ struct dwc3_scratchpad_array {
  * @pending_events: true when we have pending IRQs to be handled
  * @needs_fifo_resize: not all users might want fifo resizing, flag it
  * @pullups_connected: true when Run/Stop bit is set
- * @resize_fifos: tells us it's ok to reconfigure our TxFIFO sizes.
  * @setup_packet_pending: true when there's a Setup Packet in FIFO. Workaround
  * @start_config_issued: true when StartConfig command has been issued
  * @three_stage_setup: set if we perform a three phase setup
@@ -947,8 +954,12 @@ struct dwc3_scratchpad_array {
  * @vbus_draw: current to be drawn from USB
  * @index: dwc3 instance's number
  * @dwc_ipc_log_ctxt: dwc3 ipc log context
+ * @last_fifo_depth: total TXFIFO depth of all enabled USB IN/INT endpoints
  * @imod_interval: set the interrupt moderation interval in 250ns
  *			increments or 0 to disable.
+ * @create_reg_debugfs: create debugfs entry to allow dwc3 register dump
+ * @xhci_imod_value: imod value to use with xhci
+ * @core_id: usb core id to differentiate different controller
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -1028,8 +1039,10 @@ struct dwc3 {
 #define DWC3_REVISION_260A	0x5533260a
 #define DWC3_REVISION_270A	0x5533270a
 #define DWC3_REVISION_280A	0x5533280a
+#define DWC3_REVISION_290A	0x5533290a
 #define DWC3_REVISION_300A	0x5533300a
 #define DWC3_REVISION_310A	0x5533310a
+#define DWC3_REVISION_320A	0x5533320a
 
 /*
  * NOTICE: we're using bit 31 as a "is usb 3.1" flag. This is really
@@ -1082,7 +1095,6 @@ struct dwc3 {
 	unsigned		pending_events:1;
 	unsigned		needs_fifo_resize:1;
 	unsigned		pullups_connected:1;
-	unsigned		resize_fifos:1;
 	unsigned		setup_packet_pending:1;
 	unsigned		three_stage_setup:1;
 	unsigned		usb3_lpm_capable:1;
@@ -1142,7 +1154,11 @@ struct dwc3 {
 	wait_queue_head_t	wait_linkstate;
 	unsigned int		index;
 	void			*dwc_ipc_log_ctxt;
+	int			last_fifo_depth;
 	struct dwc3_gadget_events	dbg_gadget_events;
+	bool			create_reg_debugfs;
+	u32			xhci_imod_value;
+	int			core_id;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -1297,7 +1313,7 @@ struct dwc3_gadget_ep_cmd_params {
 /* prototypes */
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 u32 dwc3_core_fifo_space(struct dwc3_ep *dep, u8 type);
-int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
+int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep);
 
 /* check whether we are on the DWC_usb3 core */
 static inline bool dwc3_is_usb3(struct dwc3 *dwc)

@@ -599,9 +599,6 @@ static int qpnp_rtc_probe(struct platform_device *pdev)
 		goto fail_rtc_enable;
 	}
 
-	/* Init power_on_alarm after adding rtc device */
-	power_on_alarm_init();
-
 	/* Request the alarm IRQ */
 	rc = request_any_context_irq(rtc_dd->rtc_alarm_irq,
 				 qpnp_alarm_trigger, IRQF_TRIGGER_RISING,

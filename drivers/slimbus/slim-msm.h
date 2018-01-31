@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,6 +228,10 @@ struct msm_slim_qmi {
 	struct kthread_worker		kworker;
 	struct completion		qmi_comp;
 	struct notifier_block		nb;
+	bool				deferred_resp;
+	struct qmi_response_type_v01	resp;
+	struct msg_desc			resp_desc;
+	struct completion		defer_comp;
 };
 
 enum msm_slim_dom {
@@ -259,10 +263,17 @@ struct msm_slim_bulk_wr {
 	bool		in_progress;
 };
 
+struct msm_slim_iommu {
+	struct device			*cb_dev;
+	struct dma_iommu_mapping	*iommu_map;
+	bool				s1_bypass;
+};
+
 struct msm_slim_ctrl {
 	struct slim_controller  ctrl;
 	struct slim_framer	framer;
 	struct device		*dev;
+	struct msm_slim_iommu	iommu_desc;
 	void __iomem		*base;
 	struct resource		*slew_mem;
 	struct resource		*bam_mem;
@@ -437,4 +448,5 @@ void msm_slim_qmi_exit(struct msm_slim_ctrl *dev);
 int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master);
 int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active);
 int msm_slim_qmi_check_framer_request(struct msm_slim_ctrl *dev);
+int msm_slim_qmi_deferred_status_req(struct msm_slim_ctrl *dev);
 #endif

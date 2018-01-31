@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,9 +35,12 @@
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/secure_buffer.h>
+#include <soc/qcom/smem.h>
 
 #include <linux/uaccess.h>
 #include <asm/setup.h>
+#define CREATE_TRACE_POINTS
+#include <trace/events/trace_msm_pil_event.h>
 
 #include "peripheral-loader.h"
 
@@ -53,7 +56,9 @@
 #endif
 
 #define PIL_NUM_DESC		10
+#define MAX_LEN 96
 static void __iomem *pil_info_base;
+static struct md_global_toc *g_md_toc;
 
 /**
  * proxy_timeout - Override for proxy vote timeouts
@@ -134,6 +139,70 @@ struct pil_priv {
 	size_t region_size;
 };
 
+static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
+{
+	struct md_ss_region __iomem *region_info;
+	struct ramdump_segment *ramdump_segs, *s;
+	struct pil_priv *priv = desc->priv;
+	void __iomem *subsys_segtable_base;
+	u64 ss_region_ptr = 0;
+	void __iomem *offset;
+	int ss_mdump_seg_cnt;
+	int ss_valid_seg_cnt;
+	int ret, i;
+
+	ss_region_ptr = desc->minidump->md_ss_smem_regions_baseptr;
+	if (!ramdump_dev)
+		return -ENODEV;
+	ss_mdump_seg_cnt = desc->minidump->ss_region_count;
+	subsys_segtable_base =
+		ioremap((unsigned long)ss_region_ptr,
+		ss_mdump_seg_cnt * sizeof(struct md_ss_region));
+	region_info = (struct md_ss_region __iomem *)subsys_segtable_base;
+	if (!region_info)
+		return -EINVAL;
+	pr_debug("Segments in minidump 0x%x\n", ss_mdump_seg_cnt);
+	ramdump_segs = kcalloc(ss_mdump_seg_cnt,
+			       sizeof(*ramdump_segs), GFP_KERNEL);
+	if (!ramdump_segs)
+		return -ENOMEM;
+
+	if (desc->subsys_vmid > 0)
+		ret = pil_assign_mem_to_linux(desc, priv->region_start,
+			(priv->region_end - priv->region_start));
+
+	s = ramdump_segs;
+	ss_valid_seg_cnt = ss_mdump_seg_cnt;
+	for (i = 0; i < ss_mdump_seg_cnt; i++) {
+		memcpy(&offset, &region_info, sizeof(region_info));
+		offset = offset + sizeof(region_info->name) +
+				sizeof(region_info->seq_num);
+		if (__raw_readl(offset) == MD_REGION_VALID) {
+			memcpy(&s->name, &region_info, sizeof(region_info));
+			offset = offset + sizeof(region_info->md_valid);
+			s->address = __raw_readl(offset);
+			offset = offset +
+				sizeof(region_info->region_base_address);
+			s->size = __raw_readl(offset);
+			pr_debug("Minidump : Dumping segment %s with address 0x%lx and size 0x%x\n",
+				s->name, s->address, (unsigned int)s->size);
+		} else
+			ss_valid_seg_cnt--;
+		s++;
+		region_info++;
+	}
+	ret = do_minidump(ramdump_dev, ramdump_segs, ss_valid_seg_cnt);
+	kfree(ramdump_segs);
+	if (ret)
+		pil_err(desc, "%s: Minidump collection failed for subsys %s rc:%d\n",
+			__func__, desc->name, ret);
+
+	if (desc->subsys_vmid > 0)
+		ret = pil_assign_mem_to_subsys(desc, priv->region_start,
+			(priv->region_end - priv->region_start));
+	return ret;
+}
+
 /**
  * pil_do_ramdump() - Ramdump an image
  * @desc: descriptor from pil_desc_init()
@@ -142,13 +211,45 @@ struct pil_priv {
  * Calls the ramdump API with a list of segments generated from the addresses
  * that the descriptor corresponds to.
  */
-int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
+int pil_do_ramdump(struct pil_desc *desc,
+		   void *ramdump_dev, void *minidump_dev)
 {
+	struct ramdump_segment *ramdump_segs, *s;
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *seg;
 	int count = 0, ret;
-	struct ramdump_segment *ramdump_segs, *s;
 
+	if (desc->minidump) {
+		pr_debug("Minidump : md_ss_toc->md_ss_toc_init is 0x%x\n",
+			(unsigned int)desc->minidump->md_ss_toc_init);
+		pr_debug("Minidump : md_ss_toc->md_ss_enable_status is 0x%x\n",
+			(unsigned int)desc->minidump->md_ss_enable_status);
+		pr_debug("Minidump : md_ss_toc->encryption_status is 0x%x\n",
+			(unsigned int)desc->minidump->encryption_status);
+		pr_debug("Minidump : md_ss_toc->ss_region_count is 0x%x\n",
+			(unsigned int)desc->minidump->ss_region_count);
+		pr_debug("Minidump : md_ss_toc->md_ss_smem_regions_baseptr is 0x%x\n",
+			(unsigned int)
+			desc->minidump->md_ss_smem_regions_baseptr);
+		/**
+		 * Collect minidump if SS ToC is valid and segment table
+		 * is initialized in memory and encryption status is set.
+		 */
+		if ((desc->minidump->md_ss_smem_regions_baseptr != 0) &&
+			(desc->minidump->md_ss_toc_init == true) &&
+			(desc->minidump->md_ss_enable_status ==
+				MD_SS_ENABLED)) {
+			if (desc->minidump->encryption_status ==
+				MD_SS_ENCR_DONE) {
+				pr_debug("Dumping Minidump for %s\n",
+					desc->name);
+				return pil_do_minidump(desc, minidump_dev);
+			}
+			pr_debug("Minidump aborted for %s\n", desc->name);
+			return -EINVAL;
+		}
+	}
+	pr_debug("Continuing with full SSR dump for %s\n", desc->name);
 	list_for_each_entry(seg, &priv->segs, list)
 		count++;
 
@@ -435,11 +536,12 @@ static int pil_init_entry_addr(struct pil_priv *priv, const struct pil_mdt *mdt)
 }
 
 static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
-				phys_addr_t max_addr, size_t align)
+				phys_addr_t max_addr, size_t align,
+				size_t mdt_size)
 {
 	void *region;
 	size_t size = max_addr - min_addr;
-	size_t aligned_size;
+	size_t aligned_size = max(size, mdt_size);
 
 	/* Don't reallocate due to fragmentation concerns, just sanity check */
 	if (priv->region) {
@@ -450,9 +552,11 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	}
 
 	if (align > SZ_4M)
-		aligned_size = ALIGN(size, SZ_4M);
+		aligned_size = ALIGN(aligned_size, SZ_4M);
+	else if (align > SZ_1M)
+		aligned_size = ALIGN(aligned_size, SZ_1M);
 	else
-		aligned_size = ALIGN(size, SZ_1M);
+		aligned_size = ALIGN(aligned_size, SZ_4K);
 
 	priv->desc->attrs = 0;
 	priv->desc->attrs |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
@@ -464,6 +568,8 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	if (region == NULL) {
 		pil_err(priv->desc, "Failed to allocate relocatable region of size %zx\n",
 					size);
+		priv->region_start = 0;
+		priv->region_end = 0;
 		return -ENOMEM;
 	}
 
@@ -475,7 +581,8 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	return 0;
 }
 
-static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
+static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt,
+				size_t mdt_size)
 {
 	const struct elf32_phdr *phdr;
 	phys_addr_t min_addr_r, min_addr_n, max_addr_r, max_addr_n, start, end;
@@ -520,7 +627,8 @@ static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 	max_addr_r = ALIGN(max_addr_r, SZ_4K);
 
 	if (relocatable) {
-		ret = pil_alloc_region(priv, min_addr_r, max_addr_r, align);
+		ret = pil_alloc_region(priv, min_addr_r, max_addr_r, align,
+					mdt_size);
 	} else {
 		priv->region_start = min_addr_n;
 		priv->region_end = max_addr_n;
@@ -551,14 +659,15 @@ static int pil_cmp_seg(void *priv, struct list_head *a, struct list_head *b)
 	return ret;
 }
 
-static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
+static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt,
+			size_t mdt_size)
 {
 	struct pil_priv *priv = desc->priv;
 	const struct elf32_phdr *phdr;
 	struct pil_seg *seg;
 	int i, ret;
 
-	ret = pil_setup_region(priv, mdt);
+	ret = pil_setup_region(priv, mdt, mdt_size);
 	if (ret)
 		return ret;
 
@@ -624,6 +733,12 @@ static void pil_clear_segment(struct pil_desc *desc)
 	/* Clear memory so that unauthorized ELF code is not left behind */
 	buf = desc->map_fw_mem(priv->region_start, (priv->region_end -
 					priv->region_start), map_data);
+
+	if (!buf) {
+		pil_err(desc, "Failed to map memory\n");
+		return;
+	}
+
 	pil_memset_io(buf, 0, (priv->region_end - priv->region_start));
 	desc->unmap_fw_mem(buf, (priv->region_end - priv->region_start),
 								map_data);
@@ -759,6 +874,23 @@ static int pil_parse_devicetree(struct pil_desc *desc)
 	return 0;
 }
 
+static int pil_notify_aop(struct pil_desc *desc, char *status)
+{
+	struct qmp_pkt pkt;
+	char mbox_msg[MAX_LEN];
+
+	if (!desc->signal_aop)
+		return 0;
+
+	snprintf(mbox_msg, MAX_LEN,
+		"{class: image, res: load_state, name: %s, val: %s}",
+		desc->name, status);
+	pkt.size = MAX_LEN;
+	pkt.data = mbox_msg;
+
+	return mbox_send_message(desc->mbox, &pkt);
+}
+
 /* Synchronize request_firmware() with suspend */
 static DECLARE_RWSEM(pil_pm_rwsem);
 
@@ -779,6 +911,12 @@ int pil_boot(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 	bool mem_protect = false;
 	bool hyp_assign = false;
+
+	ret = pil_notify_aop(desc, "on");
+	if (ret < 0) {
+		pil_err(desc, "Failed to send ON message to AOP rc:%d\n", ret);
+		return ret;
+	}
 
 	if (desc->shutdown_fail)
 		pil_err(desc, "Subsystem shutdown failed previously!\n");
@@ -821,7 +959,7 @@ int pil_boot(struct pil_desc *desc)
 		goto release_fw;
 	}
 
-	ret = pil_init_mmap(desc, mdt);
+	ret = pil_init_mmap(desc, mdt, fw->size);
 	if (ret)
 		goto release_fw;
 
@@ -832,13 +970,16 @@ int pil_boot(struct pil_desc *desc)
 		goto release_fw;
 	}
 
+	trace_pil_event("before_init_image", desc);
 	if (desc->ops->init_image)
-		ret = desc->ops->init_image(desc, fw->data, fw->size);
+		ret = desc->ops->init_image(desc, fw->data, fw->size,
+				priv->region_start, priv->region);
 	if (ret) {
 		pil_err(desc, "Initializing image failed(rc:%d)\n", ret);
 		goto err_boot;
 	}
 
+	trace_pil_event("before_mem_setup", desc);
 	if (desc->ops->mem_setup)
 		ret = desc->ops->mem_setup(desc, priv->region_start,
 				priv->region_end - priv->region_start);
@@ -854,6 +995,7 @@ int pil_boot(struct pil_desc *desc)
 		 * Also for secure boot devices, modem memory has to be released
 		 * after MBA is booted
 		 */
+		trace_pil_event("before_assign_mem", desc);
 		if (desc->modem_ssr) {
 			ret = pil_assign_mem_to_linux(desc, priv->region_start,
 				(priv->region_end - priv->region_start));
@@ -872,6 +1014,7 @@ int pil_boot(struct pil_desc *desc)
 		hyp_assign = true;
 	}
 
+	trace_pil_event("before_load_seg", desc);
 	list_for_each_entry(seg, &desc->priv->segs, list) {
 		ret = pil_load_seg(desc, seg);
 		if (ret)
@@ -879,6 +1022,7 @@ int pil_boot(struct pil_desc *desc)
 	}
 
 	if (desc->subsys_vmid > 0) {
+		trace_pil_event("before_reclaim_mem", desc);
 		ret =  pil_reclaim_mem(desc, priv->region_start,
 				(priv->region_end - priv->region_start),
 				desc->subsys_vmid);
@@ -890,11 +1034,13 @@ int pil_boot(struct pil_desc *desc)
 		hyp_assign = false;
 	}
 
+	trace_pil_event("before_auth_reset", desc);
 	ret = desc->ops->auth_and_reset(desc);
 	if (ret) {
 		pil_err(desc, "Failed to bring out of reset(rc:%d)\n", ret);
 		goto err_auth_and_reset;
 	}
+	trace_pil_event("reset_done", desc);
 	pil_info(desc, "Brought out of reset\n");
 	desc->modem_ssr = false;
 err_auth_and_reset:
@@ -923,14 +1069,15 @@ out:
 						priv->region_start),
 					VMID_HLOS);
 			}
+			if (desc->clear_fw_region && priv->region_start)
+				pil_clear_segment(desc);
 			dma_free_attrs(desc->dev, priv->region_size,
 					priv->region, priv->region_start,
 					desc->attrs);
 			priv->region = NULL;
 		}
-		if (desc->clear_fw_region && priv->region_start)
-			pil_clear_segment(desc);
 		pil_release_mmap(desc);
+		pil_notify_aop(desc, "off");
 	}
 	return ret;
 }
@@ -942,6 +1089,7 @@ EXPORT_SYMBOL(pil_boot);
  */
 void pil_shutdown(struct pil_desc *desc)
 {
+	int ret;
 	struct pil_priv *priv = desc->priv;
 
 	if (desc->ops->shutdown) {
@@ -959,6 +1107,9 @@ void pil_shutdown(struct pil_desc *desc)
 		pil_proxy_unvote(desc, 1);
 	else
 		flush_delayed_work(&priv->proxy);
+	ret = pil_notify_aop(desc, "off");
+	if (ret < 0)
+		pr_warn("pil: failed to send OFF message to AOP rc:%d\n", ret);
 	desc->modem_ssr = true;
 }
 EXPORT_SYMBOL(pil_shutdown);
@@ -1000,9 +1151,11 @@ bool is_timeout_disabled(void)
 int pil_desc_init(struct pil_desc *desc)
 {
 	struct pil_priv *priv;
-	int ret;
 	void __iomem *addr;
+	void *ss_toc_addr;
+	int ret;
 	char buf[sizeof(priv->info->name)];
+	struct device_node *ofnode = desc->dev->of_node;
 
 	if (WARN(desc->ops->proxy_unvote && !desc->ops->proxy_vote,
 				"Invalid proxy voting. Ignoring\n"))
@@ -1024,6 +1177,18 @@ int pil_desc_init(struct pil_desc *desc)
 
 		strlcpy(buf, desc->name, sizeof(buf));
 		__iowrite32_copy(priv->info->name, buf, sizeof(buf) / 4);
+	}
+	if (of_property_read_u32(ofnode, "qcom,minidump-id",
+		&desc->minidump_id))
+		pr_err("minidump-id not found for %s\n", desc->name);
+	else {
+		if (g_md_toc && g_md_toc->md_toc_init == true) {
+			ss_toc_addr = &g_md_toc->md_ss_toc[desc->minidump_id];
+			pr_debug("Minidump : ss_toc_addr is %pa and desc->minidump_id is %d\n",
+				&ss_toc_addr, desc->minidump_id);
+			memcpy(&desc->minidump, &ss_toc_addr,
+			       sizeof(ss_toc_addr));
+		}
 	}
 
 	ret = pil_parse_devicetree(desc);
@@ -1111,6 +1276,7 @@ static int __init msm_pil_init(void)
 	struct device_node *np;
 	struct resource res;
 	int i;
+	unsigned int size;
 
 	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-pil");
 	if (!np) {
@@ -1133,6 +1299,14 @@ static int __init msm_pil_init(void)
 	for (i = 0; i < resource_size(&res)/sizeof(u32); i++)
 		writel_relaxed(0, pil_info_base + (i * sizeof(u32)));
 
+	/* Get Global minidump ToC*/
+	g_md_toc = smem_get_entry(SBL_MINIDUMP_SMEM_ID, &size, 0,
+				  SMEM_ANY_HOST_FLAG);
+	pr_debug("Minidump: g_md_toc is %pa\n", &g_md_toc);
+	if (PTR_ERR(g_md_toc) == -EPROBE_DEFER) {
+		pr_err("SMEM is not initialized.\n");
+		return -EPROBE_DEFER;
+	}
 out:
 	return register_pm_notifier(&pil_pm_notifier);
 }

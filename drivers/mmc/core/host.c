@@ -50,9 +50,28 @@ static void mmc_host_classdev_release(struct device *dev)
 	kfree(host);
 }
 
+static int mmc_host_prepare(struct device *dev)
+{
+	/*
+	 * Since mmc_host is a virtual device, we don't have to do anything.
+	 * If we return a positive value, the pm framework will consider that
+	 * the runtime suspend and system suspend of this device is same and
+	 * will set direct_complete flag as true. We don't want this as the
+	 * mmc_host always has positive disable_depth and setting the flag
+	 * will not speed up the suspend process.
+	 * So return 0.
+	 */
+	return 0;
+}
+
+static const struct dev_pm_ops mmc_pm_ops = {
+	.prepare = mmc_host_prepare,
+};
+
 static struct class mmc_host_class = {
 	.name		= "mmc_host",
 	.dev_release	= mmc_host_classdev_release,
+	.pm		= &mmc_pm_ops,
 };
 
 int mmc_register_host_class(void)
@@ -224,7 +243,7 @@ void mmc_host_clk_release(struct mmc_host *host)
 	host->clk_requests--;
 	if (mmc_host_may_gate_card(host->card) &&
 	    !host->clk_requests)
-		schedule_delayed_work(&host->clk_gate_work,
+		queue_delayed_work(host->clk_gate_wq, &host->clk_gate_work,
 				      msecs_to_jiffies(host->clkgate_delay));
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 }
@@ -283,6 +302,8 @@ static inline void mmc_host_clk_exit(struct mmc_host *host)
 		mmc_host_clk_gate_delayed(host);
 	if (host->clk_gated)
 		mmc_host_clk_hold(host);
+	if (host->clk_gate_wq)
+		destroy_workqueue(host->clk_gate_wq);
 	/* There should be only one user now */
 	WARN_ON(host->clk_requests > 1);
 }
@@ -297,6 +318,42 @@ static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
 	if (device_create_file(&host->class_dev, &host->clkgate_delay_attr))
 		pr_err("%s: Failed to create clkgate_delay sysfs entry\n",
 				mmc_hostname(host));
+}
+
+static inline bool mmc_host_clk_gate_wq_init(struct mmc_host *host)
+{
+	char *wq = NULL;
+	int wq_nl;
+	bool ret = true;
+
+	wq_nl = sizeof("mmc_clk_gate/") + sizeof(mmc_hostname(host)) + 1;
+
+	wq = kzalloc(wq_nl, GFP_KERNEL);
+	if (!wq) {
+		ret = false;
+		goto out;
+	}
+
+	snprintf(wq, wq_nl, "mmc_clk_gate/%s", mmc_hostname(host));
+
+	/*
+	 * Create a work queue with flag WQ_MEM_RECLAIM set for
+	 * mmc clock gate work. Because mmc thread is created with
+	 * flag PF_MEMALLOC set, kernel will check for work queue
+	 * flag WQ_MEM_RECLAIM when flush the work queue. If work
+	 * queue flag WQ_MEM_RECLAIM is not set, kernel warning
+	 * will be triggered.
+	 */
+	host->clk_gate_wq = create_workqueue(wq);
+	if (!host->clk_gate_wq) {
+		ret = false;
+		dev_err(host->parent,
+				"failed to create clock gate work queue\n");
+	}
+
+	kfree(wq);
+out:
+	return ret;
 }
 #else
 
@@ -316,6 +373,11 @@ bool mmc_host_may_gate_card(struct mmc_card *card)
 {
 	return false;
 }
+
+static inline bool mmc_host_clk_gate_wq_init(struct mmc_host *host)
+{
+	return true;
+}
 #endif
 
 void mmc_retune_enable(struct mmc_host *host)
@@ -325,6 +387,7 @@ void mmc_retune_enable(struct mmc_host *host)
 		mod_timer(&host->retune_timer,
 			  jiffies + host->retune_period * HZ);
 }
+EXPORT_SYMBOL(mmc_retune_enable);
 
 /*
  * Pause re-tuning for a small set of operations.  The pause begins after the
@@ -357,6 +420,7 @@ void mmc_retune_disable(struct mmc_host *host)
 	host->retune_now = 0;
 	host->need_retune = 0;
 }
+EXPORT_SYMBOL(mmc_retune_disable);
 
 void mmc_retune_timer_stop(struct mmc_host *host)
 {
@@ -389,7 +453,8 @@ int mmc_retune(struct mmc_host *host)
 	else
 		return 0;
 
-	if (!host->need_retune || host->doing_retune || !host->card)
+	if (!host->need_retune || host->doing_retune || !host->card ||
+			mmc_card_hs400es(host->card))
 		return 0;
 
 	host->need_retune = 0;
@@ -437,19 +502,17 @@ static void mmc_retune_timer(unsigned long data)
  */
 int mmc_of_parse(struct mmc_host *host)
 {
-	struct device_node *np;
+	struct device *dev = host->parent;
 	u32 bus_width;
 	int ret;
 	bool cd_cap_invert, cd_gpio_invert = false;
 	bool ro_cap_invert, ro_gpio_invert = false;
 
-	if (!host->parent || !host->parent->of_node)
+	if (!dev || !dev_fwnode(dev))
 		return 0;
 
-	np = host->parent->of_node;
-
 	/* "bus-width" is translated to MMC_CAP_*_BIT_DATA flags */
-	if (of_property_read_u32(np, "bus-width", &bus_width) < 0) {
+	if (device_property_read_u32(dev, "bus-width", &bus_width) < 0) {
 		dev_dbg(host->parent,
 			"\"bus-width\" property is missing, assuming 1 bit.\n");
 		bus_width = 1;
@@ -471,7 +534,7 @@ int mmc_of_parse(struct mmc_host *host)
 	}
 
 	/* f_max is obtained from the optional "max-frequency" property */
-	of_property_read_u32(np, "max-frequency", &host->f_max);
+	device_property_read_u32(dev, "max-frequency", &host->f_max);
 
 	/*
 	 * Configure CD and WP pins. They are both by default active low to
@@ -486,12 +549,12 @@ int mmc_of_parse(struct mmc_host *host)
 	 */
 
 	/* Parse Card Detection */
-	if (of_property_read_bool(np, "non-removable")) {
+	if (device_property_read_bool(dev, "non-removable")) {
 		host->caps |= MMC_CAP_NONREMOVABLE;
 	} else {
-		cd_cap_invert = of_property_read_bool(np, "cd-inverted");
+		cd_cap_invert = device_property_read_bool(dev, "cd-inverted");
 
-		if (of_property_read_bool(np, "broken-cd"))
+		if (device_property_read_bool(dev, "broken-cd"))
 			host->caps |= MMC_CAP_NEEDS_POLL;
 
 		ret = mmc_gpiod_request_cd(host, "cd", 0, true,
@@ -517,7 +580,7 @@ int mmc_of_parse(struct mmc_host *host)
 	}
 
 	/* Parse Write Protection */
-	ro_cap_invert = of_property_read_bool(np, "wp-inverted");
+	ro_cap_invert = device_property_read_bool(dev, "wp-inverted");
 
 	ret = mmc_gpiod_request_ro(host, "wp", 0, false, 0, &ro_gpio_invert);
 	if (!ret)
@@ -525,62 +588,62 @@ int mmc_of_parse(struct mmc_host *host)
 	else if (ret != -ENOENT && ret != -ENOSYS)
 		return ret;
 
-	if (of_property_read_bool(np, "disable-wp"))
+	if (device_property_read_bool(dev, "disable-wp"))
 		host->caps2 |= MMC_CAP2_NO_WRITE_PROTECT;
 
 	/* See the comment on CD inversion above */
 	if (ro_cap_invert ^ ro_gpio_invert)
 		host->caps2 |= MMC_CAP2_RO_ACTIVE_HIGH;
 
-	if (of_property_read_bool(np, "cap-sd-highspeed"))
+	if (device_property_read_bool(dev, "cap-sd-highspeed"))
 		host->caps |= MMC_CAP_SD_HIGHSPEED;
-	if (of_property_read_bool(np, "cap-mmc-highspeed"))
+	if (device_property_read_bool(dev, "cap-mmc-highspeed"))
 		host->caps |= MMC_CAP_MMC_HIGHSPEED;
-	if (of_property_read_bool(np, "sd-uhs-sdr12"))
+	if (device_property_read_bool(dev, "sd-uhs-sdr12"))
 		host->caps |= MMC_CAP_UHS_SDR12;
-	if (of_property_read_bool(np, "sd-uhs-sdr25"))
+	if (device_property_read_bool(dev, "sd-uhs-sdr25"))
 		host->caps |= MMC_CAP_UHS_SDR25;
-	if (of_property_read_bool(np, "sd-uhs-sdr50"))
+	if (device_property_read_bool(dev, "sd-uhs-sdr50"))
 		host->caps |= MMC_CAP_UHS_SDR50;
-	if (of_property_read_bool(np, "sd-uhs-sdr104"))
+	if (device_property_read_bool(dev, "sd-uhs-sdr104"))
 		host->caps |= MMC_CAP_UHS_SDR104;
-	if (of_property_read_bool(np, "sd-uhs-ddr50"))
+	if (device_property_read_bool(dev, "sd-uhs-ddr50"))
 		host->caps |= MMC_CAP_UHS_DDR50;
-	if (of_property_read_bool(np, "cap-power-off-card"))
+	if (device_property_read_bool(dev, "cap-power-off-card"))
 		host->caps |= MMC_CAP_POWER_OFF_CARD;
-	if (of_property_read_bool(np, "cap-mmc-hw-reset"))
+	if (device_property_read_bool(dev, "cap-mmc-hw-reset"))
 		host->caps |= MMC_CAP_HW_RESET;
-	if (of_property_read_bool(np, "cap-sdio-irq"))
+	if (device_property_read_bool(dev, "cap-sdio-irq"))
 		host->caps |= MMC_CAP_SDIO_IRQ;
-	if (of_property_read_bool(np, "full-pwr-cycle"))
+	if (device_property_read_bool(dev, "full-pwr-cycle"))
 		host->caps2 |= MMC_CAP2_FULL_PWR_CYCLE;
-	if (of_property_read_bool(np, "keep-power-in-suspend"))
+	if (device_property_read_bool(dev, "keep-power-in-suspend"))
 		host->pm_caps |= MMC_PM_KEEP_POWER;
-	if (of_property_read_bool(np, "wakeup-source") ||
-	    of_property_read_bool(np, "enable-sdio-wakeup")) /* legacy */
+	if (device_property_read_bool(dev, "wakeup-source") ||
+	    device_property_read_bool(dev, "enable-sdio-wakeup")) /* legacy */
 		host->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
-	if (of_property_read_bool(np, "mmc-ddr-1_8v"))
+	if (device_property_read_bool(dev, "mmc-ddr-1_8v"))
 		host->caps |= MMC_CAP_1_8V_DDR;
-	if (of_property_read_bool(np, "mmc-ddr-1_2v"))
+	if (device_property_read_bool(dev, "mmc-ddr-1_2v"))
 		host->caps |= MMC_CAP_1_2V_DDR;
-	if (of_property_read_bool(np, "mmc-hs200-1_8v"))
+	if (device_property_read_bool(dev, "mmc-hs200-1_8v"))
 		host->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
-	if (of_property_read_bool(np, "mmc-hs200-1_2v"))
+	if (device_property_read_bool(dev, "mmc-hs200-1_2v"))
 		host->caps2 |= MMC_CAP2_HS200_1_2V_SDR;
-	if (of_property_read_bool(np, "mmc-hs400-1_8v"))
+	if (device_property_read_bool(dev, "mmc-hs400-1_8v"))
 		host->caps2 |= MMC_CAP2_HS400_1_8V | MMC_CAP2_HS200_1_8V_SDR;
-	if (of_property_read_bool(np, "mmc-hs400-1_2v"))
+	if (device_property_read_bool(dev, "mmc-hs400-1_2v"))
 		host->caps2 |= MMC_CAP2_HS400_1_2V | MMC_CAP2_HS200_1_2V_SDR;
-	if (of_property_read_bool(np, "mmc-hs400-enhanced-strobe"))
+	if (device_property_read_bool(dev, "mmc-hs400-enhanced-strobe"))
 		host->caps2 |= MMC_CAP2_HS400_ES;
-	if (of_property_read_bool(np, "no-sdio"))
+	if (device_property_read_bool(dev, "no-sdio"))
 		host->caps2 |= MMC_CAP2_NO_SDIO;
-	if (of_property_read_bool(np, "no-sd"))
+	if (device_property_read_bool(dev, "no-sd"))
 		host->caps2 |= MMC_CAP2_NO_SD;
-	if (of_property_read_bool(np, "no-mmc"))
+	if (device_property_read_bool(dev, "no-mmc"))
 		host->caps2 |= MMC_CAP2_NO_MMC;
 
-	host->dsr_req = !of_property_read_u32(np, "dsr", &host->dsr);
+	host->dsr_req = !device_property_read_u32(dev, "dsr", &host->dsr);
 	if (host->dsr_req && (host->dsr & ~0xffff)) {
 		dev_err(host->parent,
 			"device tree specified broken value for DSR: 0x%x, ignoring\n",
@@ -642,6 +705,11 @@ again:
 		return NULL;
 	}
 
+	if (!mmc_host_clk_gate_wq_init(host)) {
+		kfree(host);
+		return NULL;
+	}
+
 	mmc_host_clk_init(host);
 
 	spin_lock_init(&host->lock);
@@ -688,19 +756,19 @@ static ssize_t store_enable(struct device *dev,
 	mmc_get_card(host->card);
 
 	if (!value) {
-		/*turning off clock scaling*/
-		mmc_exit_clk_scaling(host);
+		/* Suspend the clock scaling and mask host capability */
+		if (host->clk_scaling.enable)
+			mmc_suspend_clk_scaling(host);
 		host->caps2 &= ~MMC_CAP2_CLK_SCALE;
 		host->clk_scaling.state = MMC_LOAD_HIGH;
 		/* Set to max. frequency when disabling */
 		mmc_clk_update_freq(host, host->card->clk_scaling_highest,
 					host->clk_scaling.state);
 	} else if (value) {
-		/* starting clock scaling, will restart in case started */
+		/* Unmask host capability and resume scaling */
 		host->caps2 |= MMC_CAP2_CLK_SCALE;
-		if (host->clk_scaling.enable)
-			mmc_exit_clk_scaling(host);
-		mmc_init_clk_scaling(host);
+		if (!host->clk_scaling.enable)
+			mmc_resume_clk_scaling(host);
 	}
 
 	mmc_put_card(host->card);

@@ -620,8 +620,9 @@ static void ipa_save_uc_smmu_mapping_pa(int res_idx, phys_addr_t pa,
 		unsigned long iova, size_t len)
 {
 	IPADBG("--res_idx=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", res_idx,
-			&pa, iova, len);
-	wdi_res[res_idx].res = kzalloc(sizeof(struct ipa_wdi_res), GFP_KERNEL);
+		&pa, iova, len);
+	wdi_res[res_idx].res = kzalloc(sizeof(*wdi_res[res_idx].res),
+		GFP_KERNEL);
 	if (!wdi_res[res_idx].res)
 		BUG();
 	wdi_res[res_idx].nents = 1;
@@ -647,7 +648,8 @@ static void ipa_save_uc_smmu_mapping_sgt(int res_idx, struct sg_table *sgt,
 		return;
 	}
 
-	wdi_res[res_idx].res = kcalloc(sgt->nents, sizeof(struct ipa_wdi_res),
+	wdi_res[res_idx].res = kcalloc(sgt->nents,
+		sizeof(*wdi_res[res_idx].res),
 			GFP_KERNEL);
 	if (!wdi_res[res_idx].res)
 		BUG();
@@ -672,19 +674,19 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		unsigned long *iova)
 {
 	/* support for SMMU on WLAN but no SMMU on IPA */
-	if (wlan_smmu_en && ipa3_ctx->smmu_s1_bypass) {
+	if (wlan_smmu_en && ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
 		IPAERR("Unsupported SMMU pairing\n");
 		return -EINVAL;
 	}
 
 	/* legacy: no SMMUs on either end */
-	if (!wlan_smmu_en && ipa3_ctx->smmu_s1_bypass) {
+	if (!wlan_smmu_en && ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
 		*iova = pa;
 		return 0;
 	}
 
 	/* no SMMU on WLAN but SMMU on IPA */
-	if (!wlan_smmu_en && !ipa3_ctx->smmu_s1_bypass) {
+	if (!wlan_smmu_en && !ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
 		if (ipa_create_uc_smmu_mapping_pa(pa, len,
 			(res_idx == IPA_WDI_CE_DB_RES) ? true : false, iova)) {
 			IPAERR("Fail to create mapping res %d\n", res_idx);
@@ -695,7 +697,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	}
 
 	/* SMMU on WLAN and SMMU on IPA */
-	if (wlan_smmu_en && !ipa3_ctx->smmu_s1_bypass) {
+	if (wlan_smmu_en && !ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC]) {
 		switch (res_idx) {
 		case IPA_WDI_RX_RING_RP_RES:
 		case IPA_WDI_RX_COMP_RING_WP_RES:
@@ -1600,13 +1602,15 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 
 	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
-		ep_cfg_ctrl.ipa_ep_suspend = true;
-		result = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
-		if (result)
-			IPAERR("client (ep: %d) failed to suspend result=%d\n",
-					clnt_hdl, result);
-		else
-			IPADBG("client (ep: %d) suspended\n", clnt_hdl);
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+			ep_cfg_ctrl.ipa_ep_suspend = true;
+			result = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+			if (result)
+				IPAERR("(ep: %d) failed to suspend result=%d\n",
+						clnt_hdl, result);
+			else
+				IPADBG("(ep: %d) suspended\n", clnt_hdl);
+		}
 	} else {
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		result = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
@@ -1666,7 +1670,7 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm, %d\n", clnt_hdl);
+		IPAERR_RL("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
@@ -1679,7 +1683,7 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
 	if (!(ep->uc_offload_state & IPA_WDI_CONNECTED)) {
-		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
+		IPAERR_RL("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
@@ -1816,6 +1820,11 @@ int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 
 	if (!cb->valid) {
 		IPAERR("No SMMU CB setup\n");
+		return -EINVAL;
+	}
+
+	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]) {
+		IPAERR("IPA SMMU not enabled\n");
 		return -EINVAL;
 	}
 

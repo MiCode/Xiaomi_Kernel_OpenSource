@@ -331,6 +331,7 @@ DEFINE_EVENT(wakeup_source, wakeup_source_deactivate,
  * The clock events are used for clock enable/disable and for
  *  clock rate change
  */
+#if defined(CONFIG_COMMON_CLK_MSM)
 DECLARE_EVENT_CLASS(clock,
 
 	TP_PROTO(const char *name, unsigned int state, unsigned int cpu_id),
@@ -374,6 +375,13 @@ DEFINE_EVENT(clock, clock_set_rate,
 	TP_ARGS(name, state, cpu_id)
 );
 
+DEFINE_EVENT(clock, clock_set_rate_complete,
+
+	TP_PROTO(const char *name, unsigned int state, unsigned int cpu_id),
+
+	TP_ARGS(name, state, cpu_id)
+);
+
 TRACE_EVENT(clock_set_parent,
 
 	TP_PROTO(const char *name, const char *parent_name),
@@ -392,6 +400,32 @@ TRACE_EVENT(clock_set_parent,
 
 	TP_printk("%s parent=%s", __get_str(name), __get_str(parent_name))
 );
+
+TRACE_EVENT(clock_state,
+
+	TP_PROTO(const char *name, unsigned long prepare_count,
+		unsigned long count, unsigned long rate),
+
+	TP_ARGS(name, prepare_count, count, rate),
+
+	TP_STRUCT__entry(
+		__string(name,			name)
+		__field(unsigned long,		prepare_count)
+		__field(unsigned long,		count)
+		__field(unsigned long,		rate)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->prepare_count = prepare_count;
+		__entry->count = count;
+		__entry->rate = rate;
+	),
+	TP_printk("%s\t[%lu:%lu]\t%lu", __get_str(name), __entry->prepare_count,
+					 __entry->count, __entry->rate)
+
+);
+#endif /* CONFIG_COMMON_CLK_MSM */
 
 /*
  * The power domain events are used for power domains transitions
@@ -702,9 +736,10 @@ TRACE_EVENT(cache_hwmon_update,
 TRACE_EVENT(memlat_dev_meas,
 
 	TP_PROTO(const char *name, unsigned int dev_id, unsigned long inst,
-		 unsigned long mem, unsigned long freq, unsigned int ratio),
+		 unsigned long mem, unsigned long freq, unsigned int stall,
+		 unsigned int ratio),
 
-	TP_ARGS(name, dev_id, inst, mem, freq, ratio),
+	TP_ARGS(name, dev_id, inst, mem, freq, stall, ratio),
 
 	TP_STRUCT__entry(
 		__string(name, name)
@@ -712,6 +747,7 @@ TRACE_EVENT(memlat_dev_meas,
 		__field(unsigned long, inst)
 		__field(unsigned long, mem)
 		__field(unsigned long, freq)
+		__field(unsigned int, stall)
 		__field(unsigned int, ratio)
 	),
 
@@ -721,15 +757,17 @@ TRACE_EVENT(memlat_dev_meas,
 		__entry->inst = inst;
 		__entry->mem = mem;
 		__entry->freq = freq;
+		__entry->stall = stall;
 		__entry->ratio = ratio;
 	),
 
-	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, ratio=%u",
+	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, stall=%u, ratio=%u",
 		__get_str(name),
 		__entry->dev_id,
 		__entry->inst,
 		__entry->mem,
 		__entry->freq,
+		__entry->stall,
 		__entry->ratio)
 );
 
@@ -765,6 +803,376 @@ TRACE_EVENT(memlat_dev_update,
 		__entry->mem,
 		__entry->freq,
 		__entry->vote)
+);
+
+TRACE_EVENT(sugov_util_update,
+	    TP_PROTO(int cpu,
+		     unsigned long util, unsigned long avg_cap,
+		     unsigned long max_cap, unsigned long nl, unsigned long pl,
+		     unsigned int flags),
+	    TP_ARGS(cpu, util, avg_cap, max_cap, nl, pl, flags),
+	    TP_STRUCT__entry(
+		    __field(	int,		cpu)
+		    __field(	unsigned long,	util)
+		    __field(	unsigned long,	avg_cap)
+		    __field(	unsigned long,	max_cap)
+		    __field(	unsigned long,	nl)
+		    __field(	unsigned long,	pl)
+		    __field(	unsigned int,	flags)
+	    ),
+	    TP_fast_assign(
+		    __entry->cpu = cpu;
+		    __entry->util = util;
+		    __entry->avg_cap = avg_cap;
+		    __entry->max_cap = max_cap;
+		    __entry->nl = nl;
+		    __entry->pl = pl;
+		    __entry->flags = flags;
+	    ),
+	    TP_printk("cpu=%d util=%lu avg_cap=%lu max_cap=%lu nl=%lu pl=%lu flags=0x%x",
+		      __entry->cpu, __entry->util, __entry->avg_cap,
+		      __entry->max_cap, __entry->nl,
+		      __entry->pl, __entry->flags)
+);
+
+TRACE_EVENT(sugov_next_freq,
+	    TP_PROTO(unsigned int cpu, unsigned long util, unsigned long max,
+		     unsigned int freq),
+	    TP_ARGS(cpu, util, max, freq),
+	    TP_STRUCT__entry(
+		    __field(	unsigned int,	cpu)
+		    __field(	unsigned long,	util)
+		    __field(	unsigned long,	max)
+		    __field(	unsigned int,	freq)
+	    ),
+	    TP_fast_assign(
+		    __entry->cpu = cpu;
+		    __entry->util = util;
+		    __entry->max = max;
+		    __entry->freq = freq;
+	    ),
+	    TP_printk("cpu=%u util=%lu max=%lu freq=%u",
+		      __entry->cpu,
+		      __entry->util,
+		      __entry->max,
+		      __entry->freq)
+);
+
+DECLARE_EVENT_CLASS(kpm_module,
+
+	TP_PROTO(unsigned int managed_cpus, unsigned int max_cpus),
+
+	TP_ARGS(managed_cpus, max_cpus),
+
+	TP_STRUCT__entry(
+		__field(u32, managed_cpus)
+		__field(u32, max_cpus)
+	),
+
+	TP_fast_assign(
+		__entry->managed_cpus = managed_cpus;
+		__entry->max_cpus = max_cpus;
+	),
+
+	TP_printk("managed:%x max_cpus=%u", (unsigned int)__entry->managed_cpus,
+					(unsigned int)__entry->max_cpus)
+);
+
+DEFINE_EVENT(kpm_module, set_max_cpus,
+	TP_PROTO(unsigned int managed_cpus, unsigned int max_cpus),
+	TP_ARGS(managed_cpus, max_cpus)
+);
+
+DEFINE_EVENT(kpm_module, reevaluate_hotplug,
+	TP_PROTO(unsigned int managed_cpus, unsigned int max_cpus),
+	TP_ARGS(managed_cpus, max_cpus)
+);
+
+DECLARE_EVENT_CLASS(kpm_module2,
+
+	TP_PROTO(unsigned int cpu, unsigned int enter_cycle_cnt,
+		unsigned int exit_cycle_cnt,
+		unsigned int io_busy, u64 iowait),
+
+	TP_ARGS(cpu, enter_cycle_cnt, exit_cycle_cnt, io_busy, iowait),
+
+	TP_STRUCT__entry(
+		__field(u32, cpu)
+		__field(u32, enter_cycle_cnt)
+		__field(u32, exit_cycle_cnt)
+		__field(u32, io_busy)
+		__field(u64, iowait)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->enter_cycle_cnt = enter_cycle_cnt;
+		__entry->exit_cycle_cnt = exit_cycle_cnt;
+		__entry->io_busy = io_busy;
+		__entry->iowait = iowait;
+	),
+
+	TP_printk("CPU:%u enter_cycles=%u exit_cycles=%u io_busy=%u iowait=%lu",
+		(unsigned int)__entry->cpu,
+		(unsigned int)__entry->enter_cycle_cnt,
+		(unsigned int)__entry->exit_cycle_cnt,
+		(unsigned int)__entry->io_busy,
+		(unsigned long)__entry->iowait)
+);
+
+DEFINE_EVENT(kpm_module2, track_iowait,
+	TP_PROTO(unsigned int cpu, unsigned int enter_cycle_cnt,
+		unsigned int exit_cycle_cnt, unsigned int io_busy, u64 iowait),
+	TP_ARGS(cpu, enter_cycle_cnt, exit_cycle_cnt, io_busy, iowait)
+);
+
+DECLARE_EVENT_CLASS(cpu_modes,
+
+	TP_PROTO(unsigned int cpu, unsigned int max_load,
+		unsigned int single_enter_cycle_cnt,
+		unsigned int single_exit_cycle_cnt,
+		unsigned int total_load, unsigned int multi_enter_cycle_cnt,
+		unsigned int multi_exit_cycle_cnt,
+		unsigned int perf_cl_peak_enter_cycle_cnt,
+		unsigned int perf_cl_peak_exit_cycle_cnt,
+		unsigned int mode,
+		unsigned int cpu_cnt),
+
+	TP_ARGS(cpu, max_load, single_enter_cycle_cnt, single_exit_cycle_cnt,
+		total_load, multi_enter_cycle_cnt, multi_exit_cycle_cnt,
+		perf_cl_peak_enter_cycle_cnt, perf_cl_peak_exit_cycle_cnt, mode,
+		cpu_cnt),
+
+	TP_STRUCT__entry(
+		__field(u32, cpu)
+		__field(u32, max_load)
+		__field(u32, single_enter_cycle_cnt)
+		__field(u32, single_exit_cycle_cnt)
+		__field(u32, total_load)
+		__field(u32, multi_enter_cycle_cnt)
+		__field(u32, multi_exit_cycle_cnt)
+		__field(u32, perf_cl_peak_enter_cycle_cnt)
+		__field(u32, perf_cl_peak_exit_cycle_cnt)
+		__field(u32, mode)
+		__field(u32, cpu_cnt)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->max_load = max_load;
+		__entry->single_enter_cycle_cnt = single_enter_cycle_cnt;
+		__entry->single_exit_cycle_cnt = single_exit_cycle_cnt;
+		__entry->total_load = total_load;
+		__entry->multi_enter_cycle_cnt = multi_enter_cycle_cnt;
+		__entry->multi_exit_cycle_cnt = multi_exit_cycle_cnt;
+		__entry->perf_cl_peak_enter_cycle_cnt =
+				perf_cl_peak_enter_cycle_cnt;
+		__entry->perf_cl_peak_exit_cycle_cnt =
+				perf_cl_peak_exit_cycle_cnt;
+		__entry->mode = mode;
+		__entry->cpu_cnt = cpu_cnt;
+	),
+
+	TP_printk("%u:%4u:%4u:%4u:%4u:%4u:%4u:%4u:%4u:%4u:%u",
+		(unsigned int)__entry->cpu, (unsigned int)__entry->max_load,
+		(unsigned int)__entry->single_enter_cycle_cnt,
+		(unsigned int)__entry->single_exit_cycle_cnt,
+		(unsigned int)__entry->total_load,
+		(unsigned int)__entry->multi_enter_cycle_cnt,
+		(unsigned int)__entry->multi_exit_cycle_cnt,
+		(unsigned int)__entry->perf_cl_peak_enter_cycle_cnt,
+		(unsigned int)__entry->perf_cl_peak_exit_cycle_cnt,
+		(unsigned int)__entry->mode,
+		(unsigned int)__entry->cpu_cnt)
+);
+
+DEFINE_EVENT(cpu_modes, cpu_mode_detect,
+	TP_PROTO(unsigned int cpu, unsigned int max_load,
+		unsigned int single_enter_cycle_cnt,
+		unsigned int single_exit_cycle_cnt,
+		unsigned int total_load, unsigned int multi_enter_cycle_cnt,
+		unsigned int multi_exit_cycle_cnt,
+		unsigned int perf_cl_peak_enter_cycle_cnt,
+		unsigned int perf_cl_peak_exit_cycle_cnt,
+		unsigned int mode,
+		unsigned int cpu_cnt),
+	TP_ARGS(cpu, max_load, single_enter_cycle_cnt, single_exit_cycle_cnt,
+		total_load, multi_enter_cycle_cnt, multi_exit_cycle_cnt,
+		perf_cl_peak_enter_cycle_cnt, perf_cl_peak_exit_cycle_cnt,
+		mode, cpu_cnt)
+);
+
+DECLARE_EVENT_CLASS(timer_status,
+	TP_PROTO(unsigned int cpu, unsigned int single_enter_cycles,
+		unsigned int single_enter_cycle_cnt,
+		unsigned int single_exit_cycles,
+		unsigned int single_exit_cycle_cnt,
+		unsigned int multi_enter_cycles,
+		unsigned int multi_enter_cycle_cnt,
+		unsigned int multi_exit_cycles,
+		unsigned int multi_exit_cycle_cnt, unsigned int timer_rate,
+		unsigned int mode),
+	TP_ARGS(cpu, single_enter_cycles, single_enter_cycle_cnt,
+		single_exit_cycles, single_exit_cycle_cnt, multi_enter_cycles,
+		multi_enter_cycle_cnt, multi_exit_cycles,
+		multi_exit_cycle_cnt, timer_rate, mode),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, cpu)
+		__field(unsigned int, single_enter_cycles)
+		__field(unsigned int, single_enter_cycle_cnt)
+		__field(unsigned int, single_exit_cycles)
+		__field(unsigned int, single_exit_cycle_cnt)
+		__field(unsigned int, multi_enter_cycles)
+		__field(unsigned int, multi_enter_cycle_cnt)
+		__field(unsigned int, multi_exit_cycles)
+		__field(unsigned int, multi_exit_cycle_cnt)
+		__field(unsigned int, timer_rate)
+		__field(unsigned int, mode)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->single_enter_cycles = single_enter_cycles;
+		__entry->single_enter_cycle_cnt = single_enter_cycle_cnt;
+		__entry->single_exit_cycles = single_exit_cycles;
+		__entry->single_exit_cycle_cnt = single_exit_cycle_cnt;
+		__entry->multi_enter_cycles = multi_enter_cycles;
+		__entry->multi_enter_cycle_cnt = multi_enter_cycle_cnt;
+		__entry->multi_exit_cycles = multi_exit_cycles;
+		__entry->multi_exit_cycle_cnt = multi_exit_cycle_cnt;
+		__entry->timer_rate = timer_rate;
+		__entry->mode = mode;
+	),
+
+	TP_printk("%u:%4u:%4u:%4u:%4u:%4u:%4u:%4u:%4u:%4u:%4u",
+		(unsigned int) __entry->cpu,
+		(unsigned int) __entry->single_enter_cycles,
+		(unsigned int) __entry->single_enter_cycle_cnt,
+		(unsigned int) __entry->single_exit_cycles,
+		(unsigned int) __entry->single_exit_cycle_cnt,
+		(unsigned int) __entry->multi_enter_cycles,
+		(unsigned int) __entry->multi_enter_cycle_cnt,
+		(unsigned int) __entry->multi_exit_cycles,
+		(unsigned int) __entry->multi_exit_cycle_cnt,
+		(unsigned int) __entry->timer_rate,
+		(unsigned int) __entry->mode)
+);
+
+DEFINE_EVENT(timer_status, single_mode_timeout,
+	TP_PROTO(unsigned int cpu, unsigned int single_enter_cycles,
+		unsigned int single_enter_cycle_cnt,
+		unsigned int single_exit_cycles,
+		unsigned int single_exit_cycle_cnt,
+		unsigned int multi_enter_cycles,
+		unsigned int multi_enter_cycle_cnt,
+		unsigned int multi_exit_cycles,
+		unsigned int multi_exit_cycle_cnt, unsigned int timer_rate,
+		unsigned int mode),
+	TP_ARGS(cpu, single_enter_cycles, single_enter_cycle_cnt,
+		single_exit_cycles, single_exit_cycle_cnt, multi_enter_cycles,
+		multi_enter_cycle_cnt, multi_exit_cycles, multi_exit_cycle_cnt,
+		timer_rate, mode)
+);
+
+DEFINE_EVENT(timer_status, single_cycle_exit_timer_start,
+	TP_PROTO(unsigned int cpu, unsigned int single_enter_cycles,
+		unsigned int single_enter_cycle_cnt,
+		unsigned int single_exit_cycles,
+		unsigned int single_exit_cycle_cnt,
+		unsigned int multi_enter_cycles,
+		unsigned int multi_enter_cycle_cnt,
+		unsigned int multi_exit_cycles,
+		unsigned int multi_exit_cycle_cnt, unsigned int timer_rate,
+		unsigned int mode),
+	TP_ARGS(cpu, single_enter_cycles, single_enter_cycle_cnt,
+		single_exit_cycles, single_exit_cycle_cnt, multi_enter_cycles,
+		multi_enter_cycle_cnt, multi_exit_cycles, multi_exit_cycle_cnt,
+		timer_rate, mode)
+);
+
+DEFINE_EVENT(timer_status, single_cycle_exit_timer_stop,
+	TP_PROTO(unsigned int cpu, unsigned int single_enter_cycles,
+		unsigned int single_enter_cycle_cnt,
+		unsigned int single_exit_cycles,
+		unsigned int single_exit_cycle_cnt,
+		unsigned int multi_enter_cycles,
+		unsigned int multi_enter_cycle_cnt,
+		unsigned int multi_exit_cycles,
+		unsigned int multi_exit_cycle_cnt, unsigned int timer_rate,
+		unsigned int mode),
+	TP_ARGS(cpu, single_enter_cycles, single_enter_cycle_cnt,
+		single_exit_cycles, single_exit_cycle_cnt, multi_enter_cycles,
+		multi_enter_cycle_cnt, multi_exit_cycles, multi_exit_cycle_cnt,
+		timer_rate, mode)
+);
+
+DECLARE_EVENT_CLASS(perf_cl_peak_timer_status,
+	TP_PROTO(unsigned int cpu, unsigned int perf_cl_peak_enter_cycles,
+		unsigned int perf_cl_peak_enter_cycle_cnt,
+		unsigned int perf_cl_peak_exit_cycles,
+		unsigned int perf_cl_peak_exit_cycle_cnt,
+		unsigned int timer_rate,
+		unsigned int mode),
+	TP_ARGS(cpu, perf_cl_peak_enter_cycles, perf_cl_peak_enter_cycle_cnt,
+		perf_cl_peak_exit_cycles, perf_cl_peak_exit_cycle_cnt,
+		timer_rate, mode),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, cpu)
+		__field(unsigned int, perf_cl_peak_enter_cycles)
+		__field(unsigned int, perf_cl_peak_enter_cycle_cnt)
+		__field(unsigned int, perf_cl_peak_exit_cycles)
+		__field(unsigned int, perf_cl_peak_exit_cycle_cnt)
+		__field(unsigned int, timer_rate)
+		__field(unsigned int, mode)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->perf_cl_peak_enter_cycles = perf_cl_peak_enter_cycles;
+		__entry->perf_cl_peak_enter_cycle_cnt =
+				perf_cl_peak_enter_cycle_cnt;
+		__entry->perf_cl_peak_exit_cycles = perf_cl_peak_exit_cycles;
+		__entry->perf_cl_peak_exit_cycle_cnt =
+				perf_cl_peak_exit_cycle_cnt;
+		__entry->timer_rate = timer_rate;
+		__entry->mode = mode;
+	),
+
+	TP_printk("%u:%4u:%4u:%4u:%4u:%4u:%4u",
+		(unsigned int) __entry->cpu,
+		(unsigned int) __entry->perf_cl_peak_enter_cycles,
+		(unsigned int) __entry->perf_cl_peak_enter_cycle_cnt,
+		(unsigned int) __entry->perf_cl_peak_exit_cycles,
+		(unsigned int) __entry->perf_cl_peak_exit_cycle_cnt,
+		(unsigned int) __entry->timer_rate,
+		(unsigned int) __entry->mode)
+);
+
+DEFINE_EVENT(perf_cl_peak_timer_status, perf_cl_peak_exit_timer_start,
+	TP_PROTO(unsigned int cpu, unsigned int perf_cl_peak_enter_cycles,
+		unsigned int perf_cl_peak_enter_cycle_cnt,
+		unsigned int perf_cl_peak_exit_cycles,
+		unsigned int perf_cl_peak_exit_cycle_cnt,
+		unsigned int timer_rate,
+		unsigned int mode),
+	TP_ARGS(cpu, perf_cl_peak_enter_cycles, perf_cl_peak_enter_cycle_cnt,
+		perf_cl_peak_exit_cycles, perf_cl_peak_exit_cycle_cnt,
+		timer_rate, mode)
+);
+
+
+DEFINE_EVENT(perf_cl_peak_timer_status, perf_cl_peak_exit_timer_stop,
+	TP_PROTO(unsigned int cpu, unsigned int perf_cl_peak_enter_cycles,
+		unsigned int perf_cl_peak_enter_cycle_cnt,
+		unsigned int perf_cl_peak_exit_cycles,
+		unsigned int perf_cl_peak_exit_cycle_cnt,
+		unsigned int timer_rate,
+		unsigned int mode),
+	TP_ARGS(cpu, perf_cl_peak_enter_cycles, perf_cl_peak_enter_cycle_cnt,
+		perf_cl_peak_exit_cycles, perf_cl_peak_exit_cycle_cnt,
+		timer_rate, mode)
 );
 
 #endif /* _TRACE_POWER_H */

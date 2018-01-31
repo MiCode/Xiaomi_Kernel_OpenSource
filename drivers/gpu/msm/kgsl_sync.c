@@ -52,6 +52,10 @@ static struct kgsl_sync_fence *kgsl_sync_fence_create(
 	fence_init(&kfence->fence, &kgsl_sync_fence_ops, &ktimeline->lock,
 		ktimeline->fence_context, timestamp);
 
+	/*
+	 * sync_file_create() takes a refcount to the fence. This refcount is
+	 * put when the fence is signaled.
+	 */
 	kfence->sync_file = sync_file_create(&kfence->fence);
 
 	if (kfence->sync_file == NULL) {
@@ -60,9 +64,6 @@ static struct kgsl_sync_fence *kgsl_sync_fence_create(
 		kfree(kfence);
 		return NULL;
 	}
-
-	/* Get a refcount to the fence. Put when signaled */
-	fence_get(&kfence->fence);
 
 	spin_lock_irqsave(&ktimeline->lock, flags);
 	list_add_tail(&kfence->child_list, &ktimeline->child_list_head);
@@ -338,10 +339,10 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 		return -ENOENT;
 
 	snprintf(ktimeline_name, sizeof(ktimeline_name),
-		"%s_%.15s(%d)-%.15s(%d)-%d",
-		context->device->name,
+		"%s_%d-%.15s(%d)-%.15s(%d)",
+		context->device->name, context->id,
 		current->group_leader->comm, current->group_leader->pid,
-		current->comm, current->pid, context->id);
+		current->comm, current->pid);
 
 	ktimeline = kzalloc(sizeof(*ktimeline), GFP_KERNEL);
 	if (ktimeline == NULL) {
@@ -369,7 +370,8 @@ static void kgsl_sync_timeline_signal(struct kgsl_sync_timeline *ktimeline,
 	unsigned long flags;
 	struct kgsl_sync_fence *kfence, *next;
 
-	kref_get(&ktimeline->kref);
+	if (!kref_get_unless_zero(&ktimeline->kref))
+		return;
 
 	spin_lock_irqsave(&ktimeline->lock, flags);
 	if (timestamp_cmp(timestamp, ktimeline->last_timestamp) > 0)
@@ -426,9 +428,14 @@ static void kgsl_sync_fence_callback(struct fence *fence, struct fence_cb *cb)
 {
 	struct kgsl_sync_fence_cb *kcb = (struct kgsl_sync_fence_cb *)cb;
 
-	kcb->func(kcb->priv);
-	fence_put(kcb->fence);
-	kfree(kcb);
+	/*
+	 * If the callback is marked for cancellation in a separate thread,
+	 * let the other thread do the cleanup.
+	 */
+	if (kcb->func(kcb->priv)) {
+		fence_put(kcb->fence);
+		kfree(kcb);
+	}
 }
 
 static void kgsl_get_fence_name(struct fence *fence,
@@ -451,7 +458,7 @@ static void kgsl_get_fence_name(struct fence *fence,
 }
 
 struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
-	void (*func)(void *priv), void *priv, char *fence_name, int name_len)
+	bool (*func)(void *priv), void *priv, char *fence_name, int name_len)
 {
 	struct kgsl_sync_fence_cb *kcb;
 	struct fence *fence;
@@ -491,17 +498,24 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 	return kcb;
 }
 
-int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb)
+/*
+ * Cancel the fence async callback and do the cleanup. The caller must make
+ * sure that the callback (if run before cancelling) returns false, so that
+ * no other thread frees the pointer.
+ */
+void kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb)
 {
 	if (kcb == NULL)
-		return 0;
+		return;
 
-	if (fence_remove_callback(kcb->fence, &kcb->fence_cb)) {
-		fence_put(kcb->fence);
-		kfree(kcb);
-		return 1;
-	}
-	return 0;
+	/*
+	 * After fence_remove_callback() returns, the fence callback is
+	 * either not called at all, or completed without freeing kcb.
+	 * This thread can then put the fence refcount and free kcb.
+	 */
+	fence_remove_callback(kcb->fence, &kcb->fence_cb);
+	fence_put(kcb->fence);
+	kfree(kcb);
 }
 
 struct kgsl_syncsource {
@@ -707,6 +721,14 @@ long kgsl_ioctl_syncsource_create_fence(struct kgsl_device_private *dev_priv,
 	list_add_tail(&sfence->child_list, &syncsource->child_list_head);
 	spin_unlock(&syncsource->lock);
 out:
+	/*
+	 * We're transferring ownership of the fence to the sync file.
+	 * The sync file takes an extra refcount when it is created, so put
+	 * our refcount.
+	 */
+	if (sync_file)
+		fence_put(&sfence->fence);
+
 	if (ret) {
 		if (sync_file)
 			fput(sync_file->file);
@@ -803,11 +825,23 @@ static const char *kgsl_syncsource_driver_name(struct fence *fence)
 	return "kgsl-syncsource-timeline";
 }
 
+static void kgsl_syncsource_fence_value_str(struct fence *fence,
+						char *str, int size)
+{
+	/*
+	 * Each fence is independent of the others on the same timeline.
+	 * We use a different context for each of them.
+	 */
+	snprintf(str, size, "%llu", fence->context);
+}
+
 static const struct fence_ops kgsl_syncsource_fence_ops = {
 	.get_driver_name = kgsl_syncsource_driver_name,
 	.get_timeline_name = kgsl_syncsource_get_timeline_name,
 	.enable_signaling = kgsl_syncsource_enable_signaling,
 	.wait = fence_default_wait,
 	.release = kgsl_syncsource_fence_release,
+
+	.fence_value_str = kgsl_syncsource_fence_value_str,
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Qualcomm Atheros, Inc.
+ * Copyright (c) 2014,2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -54,7 +54,7 @@ static void __iomem *wil_ioc_addr(struct wil6210_priv *wil, uint32_t addr,
 	}
 
 	off = a - wil->csr;
-	if (size >= WIL6210_MEM_SIZE - off) {
+	if (size >= wil->bar_size - off) {
 		wil_err(wil, "Requested block does not fit into memory: "
 			"off = 0x%08x size = 0x%08x\n", off, size);
 		return NULL;
@@ -221,6 +221,10 @@ int wil_ioctl(struct wil6210_priv *wil, void __user *data, int cmd)
 {
 	int ret;
 
+	ret = wil_pm_runtime_get(wil);
+	if (ret < 0)
+		return ret;
+
 	switch (cmd) {
 	case WIL_IOCTL_MEMIO:
 		ret = wil_ioc_memio_dword(wil, data);
@@ -233,8 +237,11 @@ int wil_ioctl(struct wil6210_priv *wil, void __user *data, int cmd)
 		break;
 	default:
 		wil_dbg_ioctl(wil, "Unsupported IOCTL 0x%04x\n", cmd);
+		wil_pm_runtime_put(wil);
 		return -ENOIOCTLCMD;
 	}
+
+	wil_pm_runtime_put(wil);
 
 	wil_dbg_ioctl(wil, "ioctl(0x%04x) -> %d\n", cmd, ret);
 	return ret;

@@ -31,8 +31,7 @@
  * If the temperature is higher than a trip point,
  *    a. if the trend is THERMAL_TREND_RAISING, use higher cooling
  *       state for this trip point
- *    b. if the trend is THERMAL_TREND_DROPPING, use lower cooling
- *       state for this trip point
+ *    b. if the trend is THERMAL_TREND_DROPPING, do nothing
  *    c. if the trend is THERMAL_TREND_RAISE_FULL, use upper limit
  *       for this trip point
  *    d. if the trend is THERMAL_TREND_DROP_FULL, use lower limit
@@ -76,6 +75,14 @@ static unsigned long get_target_state(struct thermal_instance *instance,
 		return next_target;
 	}
 
+	/*
+	 * If there is no new throttle request and if the thermal zone
+	 * wasn't requesting any previous mitigation, then skip the
+	 * evaluation.
+	 */
+	if (instance->target == THERMAL_NO_TARGET && !throttle)
+		return next_target;
+
 	switch (trend) {
 	case THERMAL_TREND_RAISING:
 		if (throttle) {
@@ -94,9 +101,11 @@ static unsigned long get_target_state(struct thermal_instance *instance,
 			if (!throttle)
 				next_target = THERMAL_NO_TARGET;
 		} else {
-			next_target = cur_state - 1;
-			if (next_target > instance->upper)
-				next_target = instance->upper;
+			if (!throttle) {
+				next_target = cur_state - 1;
+				if (next_target > instance->upper)
+					next_target = instance->upper;
+			}
 		}
 		break;
 	case THERMAL_TREND_DROP_FULL:
@@ -168,7 +177,7 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 		 * temperature.
 		 */
 		if (tz->temperature >= trip_temp ||
-			(tz->temperature >= hyst_temp &&
+			(tz->temperature > hyst_temp &&
 			 old_target != THERMAL_NO_TARGET))
 			throttle = true;
 		else

@@ -27,5 +27,8 @@
 #define CPU5_PERFCL_CLK						10
 #define CPU6_PERFCL_CLK						11
 #define CPU7_PERFCL_CLK						12
+#define L3_MISC_VOTE_CLK					13
+#define CPU4_PWRCL_CLK						14
+#define CPU5_PWRCL_CLK						15
 
 #endif

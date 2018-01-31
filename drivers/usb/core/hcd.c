@@ -1723,7 +1723,7 @@ int usb_hcd_unlink_urb (struct urb *urb, int status)
 		if (retval == 0)
 			retval = -EINPROGRESS;
 		else if (retval != -EIDRM && retval != -EBUSY)
-			dev_dbg(&udev->dev, "hcd_unlink_urb %p fail %d\n",
+			dev_dbg(&udev->dev, "hcd_unlink_urb %pK fail %d\n",
 					urb, retval);
 		usb_put_dev(udev);
 	}
@@ -1878,7 +1878,7 @@ void usb_hcd_flush_endpoint(struct usb_device *udev,
 	/* No more submits can occur */
 	spin_lock_irq(&hcd_urb_list_lock);
 rescan:
-	list_for_each_entry (urb, &ep->urb_list, urb_list) {
+	list_for_each_entry_reverse(urb, &ep->urb_list, urb_list) {
 		int	is_in;
 
 		if (urb->unlinked)
@@ -1890,7 +1890,7 @@ rescan:
 		/* kick hcd */
 		unlink1(hcd, urb, -ESHUTDOWN);
 		dev_dbg (hcd->self.controller,
-			"shutdown urb %p ep%d%s%s\n",
+			"shutdown urb %pK ep%d%s%s\n",
 			urb, usb_endpoint_num(&ep->desc),
 			is_in ? "in" : "out",
 			({	char *s;
@@ -2256,39 +2256,46 @@ int usb_hcd_sec_event_ring_cleanup(struct usb_device *udev,
 
 /*-------------------------------------------------------------------------*/
 
-dma_addr_t
-usb_hcd_get_sec_event_ring_dma_addr(struct usb_device *udev,
-	unsigned int intr_num)
+phys_addr_t
+usb_hcd_get_sec_event_ring_phys_addr(struct usb_device *udev,
+	unsigned int intr_num, dma_addr_t *dma)
 {
 	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
 
 	if (!HCD_RH_RUNNING(hcd))
 		return 0;
 
-	return hcd->driver->get_sec_event_ring_dma_addr(hcd, intr_num);
+	return hcd->driver->get_sec_event_ring_phys_addr(hcd, intr_num, dma);
 }
 
-dma_addr_t
-usb_hcd_get_dcba_dma_addr(struct usb_device *udev)
+phys_addr_t
+usb_hcd_get_xfer_ring_phys_addr(struct usb_device *udev,
+		struct usb_host_endpoint *ep, dma_addr_t *dma)
 {
 	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
 
 	if (!HCD_RH_RUNNING(hcd))
 		return 0;
 
-	return hcd->driver->get_dcba_dma_addr(hcd, udev);
+	return hcd->driver->get_xfer_ring_phys_addr(hcd, udev, ep, dma);
 }
 
-dma_addr_t
-usb_hcd_get_xfer_ring_dma_addr(struct usb_device *udev,
+int usb_hcd_get_controller_id(struct usb_device *udev)
+{
+	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
+
+	if (!HCD_RH_RUNNING(hcd))
+		return -EINVAL;
+
+	return hcd->driver->get_core_id(hcd);
+}
+
+int usb_hcd_stop_endpoint(struct usb_device *udev,
 		struct usb_host_endpoint *ep)
 {
 	struct usb_hcd	*hcd = bus_to_hcd(udev->bus);
 
-	if (!HCD_RH_RUNNING(hcd))
-		return 0;
-
-	return hcd->driver->get_xfer_ring_dma_addr(hcd, udev, ep);
+	return hcd->driver->stop_endpoint(hcd, udev, ep);
 }
 
 #ifdef	CONFIG_PM
@@ -2532,6 +2539,8 @@ void usb_hc_died (struct usb_hcd *hcd)
 	}
 	if (usb_hcd_is_primary_hcd(hcd) && hcd->shared_hcd) {
 		hcd = hcd->shared_hcd;
+		clear_bit(HCD_FLAG_RH_RUNNING, &hcd->flags);
+		set_bit(HCD_FLAG_DEAD, &hcd->flags);
 		if (hcd->rh_registered) {
 			clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
 
@@ -2578,6 +2587,7 @@ struct usb_hcd *__usb_create_hcd(const struct hc_driver *driver,
 		hcd->bandwidth_mutex = kmalloc(sizeof(*hcd->bandwidth_mutex),
 				GFP_KERNEL);
 		if (!hcd->bandwidth_mutex) {
+			kfree(hcd->address0_mutex);
 			kfree(hcd);
 			dev_dbg(dev, "hcd bandwidth mutex alloc failed\n");
 			return NULL;
@@ -3091,6 +3101,7 @@ void usb_remove_hcd(struct usb_hcd *hcd)
 	}
 
 	usb_put_invalidate_rhdev(hcd);
+	hcd->flags = 0;
 }
 EXPORT_SYMBOL_GPL(usb_remove_hcd);
 

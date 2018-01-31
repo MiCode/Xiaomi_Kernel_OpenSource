@@ -57,6 +57,7 @@
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
+#include <linux/extcon.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -248,6 +249,15 @@ struct ufs_dev_cmd {
 	struct ufs_query query;
 };
 
+struct ufs_desc_size {
+	int dev_desc;
+	int pwr_desc;
+	int geom_desc;
+	int interc_desc;
+	int unit_desc;
+	int conf_desc;
+};
+
 /**
  * struct ufs_clk_info - UFS clock related info
  * @list: list headed by hba->clk_list_head
@@ -436,7 +446,7 @@ struct ufs_clk_gating {
 	struct device_attribute enable_attr;
 	bool is_enabled;
 	int active_reqs;
-	struct workqueue_struct *ungating_workq;
+	struct workqueue_struct *clk_gating_workq;
 };
 
 /* Hibern8 state  */
@@ -515,7 +525,7 @@ struct ufs_clk_scaling {
 	bool is_scaled_up;
 };
 
-#define UIC_ERR_REG_HIST_LENGTH 8
+#define UIC_ERR_REG_HIST_LENGTH 20
 /**
  * struct ufs_uic_err_reg_hist - keeps history of uic errors
  * @pos: index to indicate cyclic buffer position
@@ -584,6 +594,22 @@ struct ufshcd_req_stat {
 };
 #endif
 
+enum ufshcd_ctx {
+	QUEUE_CMD,
+	ERR_HNDLR_WORK,
+	H8_EXIT_WORK,
+	UIC_CMD_SEND,
+	PWRCTL_CMD_SEND,
+	TM_CMD_SEND,
+	XFR_REQ_COMPL,
+	CLK_SCALE_WORK,
+};
+
+struct ufshcd_clk_ctx {
+	ktime_t ts;
+	enum ufshcd_ctx ctx;
+};
+
 /**
  * struct ufs_stats - keeps usage/err statistics
  * @enabled: enable tag stats for debugfs
@@ -612,8 +638,13 @@ struct ufs_stats {
 	int query_stats_arr[UPIU_QUERY_OPCODE_MAX][MAX_QUERY_IDN];
 
 #endif
+	u32 last_intr_status;
+	ktime_t last_intr_ts;
+	struct ufshcd_clk_ctx clk_hold;
+	struct ufshcd_clk_ctx clk_rel;
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
+	u32 power_mode_change_cnt;
 	struct ufs_uic_err_reg_hist pa_err;
 	struct ufs_uic_err_reg_hist dl_err;
 	struct ufs_uic_err_reg_hist nl_err;
@@ -636,6 +667,34 @@ struct ufs_stats {
 		 UFSHCD_DBG_PRINT_HOST_REGS_EN | UFSHCD_DBG_PRINT_TRS_EN | \
 		 UFSHCD_DBG_PRINT_TMRS_EN | UFSHCD_DBG_PRINT_PWR_EN |	   \
 		 UFSHCD_DBG_PRINT_HOST_STATE_EN)
+
+struct ufshcd_cmd_log_entry {
+	char *str;	/* context like "send", "complete" */
+	char *cmd_type;	/* "scsi", "query", "nop", "dme" */
+	u8 lun;
+	u8 cmd_id;
+	sector_t lba;
+	int transfer_len;
+	u8 idn;		/* used only for query idn */
+	u32 doorbell;
+	u32 outstanding_reqs;
+	u32 seq_num;
+	unsigned int tag;
+	ktime_t tstamp;
+};
+
+struct ufshcd_cmd_log {
+	struct ufshcd_cmd_log_entry *entries;
+	int pos;
+	u32 seq_num;
+};
+
+/* UFS card state - hotplug state */
+enum ufshcd_card_state {
+	UFS_CARD_STATE_UNKNOWN	= 0,
+	UFS_CARD_STATE_ONLINE	= 1,
+	UFS_CARD_STATE_OFFLINE	= 2,
+};
 
 /**
  * struct ufs_hba - per adapter private structure
@@ -683,6 +742,10 @@ struct ufs_stats {
  * @ufs_stats: ufshcd statistics to be used via debugfs
  * @debugfs_files: debugfs files associated with the ufs stats
  * @ufshcd_dbg_print: Bitmask for enabling debug prints
+ * @extcon: pointer to external connector device
+ * @card_detect_nb: card detector notifier registered with @extcon
+ * @card_detect_work: work to exectute the card detect function
+ * @card_state: card state event, enum ufshcd_card_state defines possible states
  * @vreg_info: UFS device voltage regulator information
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
@@ -692,6 +755,7 @@ struct ufs_stats {
  * @is_urgent_bkops_lvl_checked: keeps track if the urgent bkops level for
  *  device is known or not.
  * @scsi_block_reqs_cnt: reference counting for scsi block requests
+ * @desc_size: descriptor sizes reported by device
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -809,6 +873,7 @@ struct ufs_hba {
 	/* Work Queues */
 	struct work_struct eh_work;
 	struct work_struct eeh_work;
+	struct work_struct rls_work;
 
 	/* HBA Errors */
 	u32 errors;
@@ -819,6 +884,7 @@ struct ufs_hba {
 	u32 saved_ce_err;
 	bool silence_err_logs;
 	bool force_host_reset;
+	bool auto_h8_err;
 
 	/* Device management request data */
 	struct ufs_dev_cmd dev_cmd;
@@ -855,11 +921,17 @@ struct ufs_hba {
 	/* Bitmask for enabling debug prints */
 	u32 ufshcd_dbg_print;
 
+	struct extcon_dev *extcon;
+	struct notifier_block card_detect_nb;
+	struct work_struct card_detect_work;
+	atomic_t card_state;
+
 	struct ufs_pa_layer_attr pwr_info;
 	struct ufs_pwr_mode_info max_pwr_info;
 
 	struct ufs_clk_gating clk_gating;
 	struct ufs_hibern8_on_idle hibern8_on_idle;
+	struct ufshcd_cmd_log cmd_log;
 
 	/* Control to enable/disable host capabilities */
 	u32 caps;
@@ -915,6 +987,8 @@ struct ufs_hba {
 
 	int latency_hist_enabled;
 	struct io_latency_state io_lat_s;
+	struct ufs_desc_size desc_size;
+	bool restore_needed;
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
@@ -1127,6 +1201,14 @@ static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 		pwr_info->pwr_tx == FASTAUTO_MODE);
 }
 
+static inline bool ufshcd_is_embedded_dev(struct ufs_hba *hba)
+{
+	if ((hba->dev_info.b_device_sub_class == UFS_DEV_EMBEDDED_BOOTABLE) ||
+	    (hba->dev_info.b_device_sub_class == UFS_DEV_EMBEDDED_NON_BOOTABLE))
+		return true;
+	return false;
+}
+
 #ifdef CONFIG_DEBUG_FS
 static inline void ufshcd_init_req_stats(struct ufs_hba *hba)
 {
@@ -1156,6 +1238,10 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 			     struct ufs_pa_layer_attr *pwr_mode);
 void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba,
 		int result);
+
+int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
+	int *desc_length);
+
 u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
 
 void ufshcd_scsi_block_requests(struct ufs_hba *hba);
@@ -1247,8 +1333,8 @@ static inline int ufshcd_vops_apply_dev_quirks(struct ufs_hba *hba)
 
 static inline int ufshcd_vops_suspend(struct ufs_hba *hba, enum ufs_pm_op op)
 {
-	if (hba->var && hba->var->vops && hba->var->vops->apply_dev_quirks)
-		return hba->var->vops->apply_dev_quirks(hba);
+	if (hba->var && hba->var->vops && hba->var->vops->suspend)
+		return hba->var->vops->suspend(hba, op);
 	return 0;
 }
 

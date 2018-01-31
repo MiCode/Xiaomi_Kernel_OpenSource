@@ -1,0 +1,53 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sdm670-audio-overlay.dtsi"
+
+&pm660l_3 {
+	/delete-node/analog-codec;
+};
+
+&soc {
+	/delete-node/msm-sdw-codec@62ec1000;
+	/delete-node/cdc_pdm_pinctrl;
+	/delete-node/wsa_spkr_en1_pinctrl;
+	/delete-node/wsa_spkr_en2_pinctrl;
+	/delete-node/sdw_clk_data_pinctrl;
+};
+
+&qupv3_se8_spi {
+	status = "okay";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+	qcom,gpio-connect = <&tlmm 54 0>;
+};
+
+&wdsp_mgr {
+	status = "okay";
+};
+
+&wdsp_glink {
+	status = "okay";
+};
+
+&wcd934x_cdc {
+	status = "okay";
+};
+
+&clock_audio_lnbb {
+	status = "okay";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};

@@ -157,6 +157,10 @@ ssize_t dsi_ctrl_hw_20_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
 	len += snprintf((buf + len), (size - len),
 			DUMP_REG_VALUE(DSI_RESET_SW_TRIGGER));
 	len += snprintf((buf + len), (size - len),
+			DUMP_REG_VALUE(DSI_MISR_CMD_CTRL));
+	len += snprintf((buf + len), (size - len),
+			DUMP_REG_VALUE(DSI_MISR_VIDEO_CTRL));
+	len += snprintf((buf + len), (size - len),
 			DUMP_REG_VALUE(DSI_LANE_STATUS));
 	len += snprintf((buf + len), (size - len),
 			DUMP_REG_VALUE(DSI_LANE_CTRL));
@@ -192,6 +196,12 @@ ssize_t dsi_ctrl_hw_20_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
 			DUMP_REG_VALUE(DSI_PHY_SW_RESET));
 	len += snprintf((buf + len), (size - len),
 			DUMP_REG_VALUE(DSI_AXI2AHB_CTRL));
+	len += snprintf((buf + len), (size - len),
+			DUMP_REG_VALUE(DSI_MISR_CMD_MDP0_32BIT));
+	len += snprintf((buf + len), (size - len),
+			DUMP_REG_VALUE(DSI_MISR_CMD_MDP1_32BIT));
+	len += snprintf((buf + len), (size - len),
+			DUMP_REG_VALUE(DSI_MISR_VIDEO_32BIT));
 	len += snprintf((buf + len), (size - len),
 			DUMP_REG_VALUE(DSI_COMMAND_MODE_MDP_CTRL2));
 	len += snprintf((buf + len), (size - len),

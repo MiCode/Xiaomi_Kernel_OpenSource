@@ -6,6 +6,7 @@
 #define MSM_VIDC_HAL_INTERLACE_COLOR_FORMAT_NV12	0x2
 #define MSM_VIDC_HAL_INTERLACE_COLOR_FORMAT_NV12_UBWC	0x8002
 #define MSM_VIDC_4x_1 0x1
+#define MSM_VIDC_EXTRADATA_FRAME_QP_ADV 0x1
 
 struct msm_vidc_extradata_header {
 	unsigned int size;
@@ -137,6 +138,10 @@ struct msm_vidc_stream_userdata_payload {
 
 struct msm_vidc_frame_qp_payload {
 	unsigned int frame_qp;
+	unsigned int qp_sum;
+	unsigned int skip_qp_sum;
+	unsigned int skip_num_blocks;
+	unsigned int total_num_blocks;
 };
 
 struct msm_vidc_frame_bits_info_payload {
@@ -168,6 +173,16 @@ struct msm_vidc_s3d_frame_packing_payload {
 struct msm_vidc_vqzip_sei_payload {
 	unsigned int size;
 	unsigned int data[1];
+};
+
+struct msm_vidc_ubwc_cr_stats_info {
+	unsigned int stats_tile_32;
+	unsigned int stats_tile_64;
+	unsigned int stats_tile_96;
+	unsigned int stats_tile_128;
+	unsigned int stats_tile_160;
+	unsigned int stats_tile_192;
+	unsigned int stats_tile_256;
 };
 
 struct msm_vidc_yuv_stats_payload {
@@ -238,6 +253,9 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_FRAME_BITS_INFO = 0x00000010,
 	MSM_VIDC_EXTRADATA_VQZIP_SEI = 0x00000011,
 	MSM_VIDC_EXTRADATA_ROI_QP = 0x00000013,
+#define MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO \
+	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO
+	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO = 0x00000014,
 #define MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI \
 	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI
 	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI = 0x00000015,
@@ -247,14 +265,17 @@ enum msm_vidc_extradata_type {
 #define MSM_VIDC_EXTRADATA_PQ_INFO \
 	MSM_VIDC_EXTRADATA_PQ_INFO
 	MSM_VIDC_EXTRADATA_PQ_INFO = 0x00000017,
+#define MSM_VIDC_EXTRADATA_COLOUR_REMAPPING_INFO_SEI \
+	MSM_VIDC_EXTRADATA_COLOUR_REMAPPING_INFO_SEI
+	MSM_VIDC_EXTRADATA_COLOUR_REMAPPING_INFO_SEI = 0x00000018,
+#define MSM_VIDC_EXTRADATA_UBWC_CR_STAT_INFO \
+	MSM_VIDC_EXTRADATA_UBWC_CR_STAT_INFO
+	MSM_VIDC_EXTRADATA_UBWC_CR_STAT_INFO = 0x00000019,
 	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
 #define MSM_VIDC_EXTRADATA_OUTPUT_CROP \
 	MSM_VIDC_EXTRADATA_OUTPUT_CROP
 	MSM_VIDC_EXTRADATA_OUTPUT_CROP = 0x0700000F,
 	MSM_VIDC_EXTRADATA_DIGITAL_ZOOM = 0x07000010,
-#define MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO \
-	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO
-	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO = 0x070000011,
 	MSM_VIDC_EXTRADATA_MULTISLICE_INFO = 0x7F100000,
 	MSM_VIDC_EXTRADATA_NUM_CONCEALED_MB = 0x7F100001,
 	MSM_VIDC_EXTRADATA_INDEX = 0x7F100002,
@@ -354,6 +375,15 @@ enum msm_vidc_h264_transfer_chars_values {
 	MSM_VIDC_TRANSFER_SRGB = 13,
 	MSM_VIDC_TRANSFER_BT_2020_10 = 14,
 	MSM_VIDC_TRANSFER_BT_2020_12 = 15,
+#define MSM_VIDC_TRANSFER_SMPTE_ST2084 \
+	MSM_VIDC_TRANSFER_SMPTE_ST2084
+	MSM_VIDC_TRANSFER_SMPTE_ST2084 = 16,
+#define MSM_VIDC_TRANSFER_SMPTE_ST428_1 \
+	MSM_VIDC_TRANSFER_SMPTE_ST428_1
+	MSM_VIDC_TRANSFER_SMPTE_ST428_1 = 17,
+#define MSM_VIDC_TRANSFER_HLG \
+	MSM_VIDC_TRANSFER_HLG
+	MSM_VIDC_TRANSFER_HLG = 18,
 };
 
 enum msm_vidc_pixel_depth {

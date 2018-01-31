@@ -1,6 +1,7 @@
 ccflags-y += -I$(srctree)/drivers/media/platform/msm/vidc/
 
 msm-vidc-objs := msm_v4l2_vidc.o \
+				msm_vidc_platform.o \
                                 msm_vidc_common.o \
                                 msm_vidc.o \
                                 msm_vdec.o \

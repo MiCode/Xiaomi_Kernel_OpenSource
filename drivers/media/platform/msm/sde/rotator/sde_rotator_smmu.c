@@ -36,6 +36,14 @@
 #define SMMU_SDE_ROT_SEC	"qcom,smmu_sde_rot_sec"
 #define SMMU_SDE_ROT_UNSEC	"qcom,smmu_sde_rot_unsec"
 
+#ifndef SZ_4G
+#define SZ_4G	(((size_t) SZ_1G) * 4)
+#endif
+
+#ifndef SZ_2G
+#define SZ_2G	(((size_t) SZ_1G) * 2)
+#endif
+
 struct sde_smmu_domain {
 	char *ctx_name;
 	int domain;
@@ -487,9 +495,9 @@ static int sde_smmu_fault_handler(struct iommu_domain *domain,
 }
 
 static struct sde_smmu_domain sde_rot_unsec = {
-	"rot_0", SDE_IOMMU_DOMAIN_ROT_UNSECURE, SZ_128K, (SZ_1G - SZ_128K)};
+	"rot_0", SDE_IOMMU_DOMAIN_ROT_UNSECURE, SZ_2G, (SZ_4G - SZ_2G)};
 static struct sde_smmu_domain sde_rot_sec = {
-	"rot_1", SDE_IOMMU_DOMAIN_ROT_SECURE, SZ_1G, SZ_2G};
+	"rot_1", SDE_IOMMU_DOMAIN_ROT_SECURE, SZ_2G, (SZ_4G - SZ_2G)};
 
 static const struct of_device_id sde_smmu_dt_match[] = {
 	{ .compatible = SMMU_SDE_ROT_UNSEC, .data = &sde_rot_unsec},
@@ -517,9 +525,12 @@ int sde_smmu_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	struct sde_module_power *mp;
 	char name[MAX_CLIENT_NAME_LEN];
+	int mdphtw_llc_enable = 1;
+	u32 sid = 0;
 
 	if (!mdata) {
-		SDEROT_ERR("probe failed as mdata is not initialized\n");
+		SDEROT_INFO(
+			"probe failed as mdata is not initializedi, probe defer\n");
 		return -EPROBE_DEFER;
 	}
 
@@ -537,6 +548,11 @@ int sde_smmu_probe(struct platform_device *pdev)
 
 	if (of_find_property(pdev->dev.of_node, "iommus", NULL)) {
 		dev = &pdev->dev;
+		rc = of_property_read_u32_index(pdev->dev.of_node, "iommus",
+			1, &sid);
+		if (rc)
+			SDEROT_DBG("SID not defined for domain:%d",
+					smmu_domain.domain);
 	} else {
 		SDEROT_ERR("Invalid SMMU ctx for domain:%d\n",
 				smmu_domain.domain);
@@ -545,6 +561,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 
 	sde_smmu = &mdata->sde_smmu[smmu_domain.domain];
 	sde_smmu->domain = smmu_domain.domain;
+	sde_smmu->sid = sid;
 	mp = &sde_smmu->mp;
 	memset(mp, 0, sizeof(struct sde_module_power));
 
@@ -602,6 +619,13 @@ int sde_smmu_probe(struct platform_device *pdev)
 		rc = PTR_ERR(sde_smmu->mmu_mapping);
 		sde_smmu->mmu_mapping = NULL;
 		goto disable_power;
+	}
+
+	rc = iommu_domain_set_attr(sde_smmu->mmu_mapping->domain,
+			DOMAIN_ATTR_USE_UPSTREAM_HINT, &mdphtw_llc_enable);
+	if (rc) {
+		SDEROT_ERR("couldn't enable rot pagetable walks: %d\n", rc);
+		goto release_mapping;
 	}
 
 	if (smmu_domain.domain == SDE_IOMMU_DOMAIN_ROT_SECURE) {

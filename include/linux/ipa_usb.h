@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,14 +121,16 @@ struct ipa_usb_xdci_chan_scratch {
  * @dir:                 channel direction
  * @xfer_ring_len:       length of transfer ring in bytes (must be integral
  *                       multiple of transfer element size - 16B for xDCI)
- * @xfer_ring_base_addr: physical base address of transfer ring. Address must be
- *                       aligned to xfer_ring_len rounded to power of two
  * @xfer_scratch:        parameters for xDCI channel scratch
- * @xfer_ring_base_addr_iova: IO virtual address mapped to xfer_ring_base_addr
+ * @xfer_ring_base_addr_iova: IO virtual address mapped to pysical base address
  * @data_buff_base_len:  length of data buffer allocated by USB driver
- * @data_buff_base_addr: physical base address for the data buffer (where TRBs
- *                       points)
- * @data_buff_base_addr_iova:  IO virtual address mapped to data_buff_base_addr
+ * @data_buff_base_addr_iova:  IO virtual address mapped to pysical base address
+ * @sgt_xfer_rings:      Scatter table for Xfer rings,contains valid non NULL
+ *			 value
+ *                       when USB S1-SMMU enabed, else NULL.
+ * @sgt_data_buff:       Scatter table for data buffs,contains valid non NULL
+ *			 value
+ *                       when USB S1-SMMU enabed, else NULL.
  *
  */
 struct ipa_usb_xdci_chan_params {
@@ -143,12 +145,12 @@ struct ipa_usb_xdci_chan_params {
 	/* transfer ring params */
 	enum gsi_chan_dir dir;
 	u16 xfer_ring_len;
-	u64 xfer_ring_base_addr;
 	struct ipa_usb_xdci_chan_scratch xfer_scratch;
 	u64 xfer_ring_base_addr_iova;
 	u32 data_buff_base_len;
-	u64 data_buff_base_addr;
 	u64 data_buff_base_addr_iova;
+	struct sg_table *sgt_xfer_rings;
+	struct sg_table *sgt_data_buff;
 };
 
 /**

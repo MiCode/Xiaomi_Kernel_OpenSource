@@ -1221,15 +1221,15 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	if (md->area_type & MMC_BLK_DATA_AREA_RPMB)
 		mmc_blk_part_switch(card, dev_get_drvdata(&card->dev));
 
-	mmc_put_card(card);
-
-	err = mmc_blk_ioctl_copy_to_user(ic_ptr, idata);
-
 	if (mmc_card_cmdq(card)) {
 		if (mmc_cmdq_halt(card->host, false))
 			pr_err("%s: %s: cmdq unhalt failed\n",
 			       mmc_hostname(card->host), __func__);
 	}
+
+	mmc_put_card(card);
+
+	err = mmc_blk_ioctl_copy_to_user(ic_ptr, idata);
 
 cmd_done:
 	mmc_blk_put(md);
@@ -1718,6 +1718,8 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 
 	/* We couldn't get a response from the card.  Give up. */
 	if (err) {
+		if (card->err_in_sdr104)
+			return ERR_RETRY;
 		/* Check if the card is removed */
 		if (mmc_detect_card_removed(card->host))
 			return ERR_NOMEDIUM;
@@ -2208,7 +2210,8 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	     brq->data.error == -ETIMEDOUT ||
 	     brq->cmd.error == -EILSEQ ||
 	     brq->cmd.error == -EIO ||
-	     brq->cmd.error == -ETIMEDOUT))
+	     brq->cmd.error == -ETIMEDOUT ||
+	     brq->sbc.error))
 		card->err_in_sdr104 = true;
 
 	/*
@@ -3181,6 +3184,16 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_rw_prep(
 	return &mqrq->cmdq_req;
 }
 
+static void mmc_blk_cmdq_requeue_rw_rq(struct mmc_queue *mq,
+				struct request *req)
+{
+	struct mmc_card *card = mq->card;
+	struct mmc_host *host = card->host;
+
+	blk_requeue_request(req->q, req);
+	mmc_put_card(host->card);
+}
+
 static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 {
 	struct mmc_queue_req *active_mqrq;
@@ -3227,6 +3240,15 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	if (!ret && (host->clk_scaling.state == MMC_LOAD_LOW))
 		wait_event_interruptible(ctx->queue_empty_wq,
 					(!ctx->active_reqs));
+
+	if (ret) {
+		/* clear pending request */
+		WARN_ON(!test_and_clear_bit(req->tag,
+				&host->cmdq_ctx.data_active_reqs));
+		WARN_ON(!test_and_clear_bit(req->tag,
+				&host->cmdq_ctx.active_reqs));
+		mmc_cmdq_clk_scaling_stop_busy(host, true, false);
+	}
 
 	return ret;
 }
@@ -3458,6 +3480,8 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 	else
 		mrq->data->error = -ETIMEDOUT;
 
+	host->err_stats[MMC_ERR_CMDQ_REQ_TIMEOUT]++;
+
 	if (mrq->cmd && mrq->cmd->error) {
 		if (!(mrq->req->cmd_flags & REQ_PREFLUSH)) {
 			/*
@@ -3515,15 +3539,23 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	/* RED error - Fatal: requires reset */
 	if (mrq->cmdq_req->resp_err) {
 		err = mrq->cmdq_req->resp_err;
+		goto reset;
+	}
+
+	/*
+	 * TIMEOUT errrors can happen because of execution error
+	 * in the last command. So send cmd 13 to get device status
+	 */
+	if ((mrq->cmd && (mrq->cmd->error == -ETIMEDOUT)) ||
+			(mrq->data && (mrq->data->error == -ETIMEDOUT))) {
 		if (mmc_host_halt(host) || mmc_host_cq_disable(host)) {
 			ret = get_card_status(host->card, &status, 0);
 			if (ret)
 				pr_err("%s: CMD13 failed with err %d\n",
 						mmc_hostname(host), ret);
 		}
-		pr_err("%s: Response error detected with device status 0x%08x\n",
+		pr_err("%s: Timeout error detected with device status 0x%08x\n",
 			mmc_hostname(host), status);
-		goto reset;
 	}
 
 	/*
@@ -3569,7 +3601,7 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	else if (mrq->data && mrq->data->error)
 		err = mrq->data->error;
 
-	if (err || cmdq_req->resp_err) {
+	if ((err || cmdq_req->resp_err) && !cmdq_req->skip_err_handling) {
 		pr_err("%s: %s: txfr error(%d)/resp_err(%d)\n",
 				mmc_hostname(mrq->host), __func__, err,
 				cmdq_req->resp_err);
@@ -3603,6 +3635,17 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 		mmc_cmdq_post_req(host, cmdq_req->tag, err);
 	if (cmdq_req->cmdq_req_flags & DCMD) {
 		clear_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
+		blk_end_request_all(rq, err);
+		goto out;
+	}
+	/*
+	 * In case of error, cmdq_req->data.bytes_xfered is set to 0.
+	 * If we call blk_end_request() with nr_bytes as 0 then the request
+	 * never gets completed. So in case of error, to complete a request
+	 * with error we should use blk_end_request_all().
+	 */
+	if (err && cmdq_req->skip_err_handling) {
+		cmdq_req->skip_err_handling = false;
 		blk_end_request_all(rq, err);
 		goto out;
 	}
@@ -3886,6 +3929,7 @@ static inline int mmc_blk_cmdq_part_switch(struct mmc_card *card,
 	struct mmc_host *host = card->host;
 	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 	u8 part_config = card->ext_csd.part_config;
+	int ret = 0, err = 0;
 
 	if ((main_md->part_curr == md->part_type) &&
 	    (card->part_curr == md->part_type))
@@ -3895,40 +3939,70 @@ static inline int mmc_blk_cmdq_part_switch(struct mmc_card *card,
 		 card->ext_csd.cmdq_support &&
 		 (md->flags & MMC_BLK_CMD_QUEUE)));
 
-	if (!test_bit(CMDQ_STATE_HALT, &ctx->curr_state))
-		WARN_ON(mmc_cmdq_halt(host, true));
+	if (!test_bit(CMDQ_STATE_HALT, &ctx->curr_state)) {
+		ret = mmc_cmdq_halt(host, true);
+		if (ret) {
+			pr_err("%s: %s: halt: failed: %d\n",
+				mmc_hostname(host), __func__,  ret);
+			goto out;
+		}
+	}
 
 	/* disable CQ mode in card */
 	if (mmc_card_cmdq(card)) {
-		WARN_ON(mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+		ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				 EXT_CSD_CMDQ, 0,
-				  card->ext_csd.generic_cmd6_time));
+				 card->ext_csd.generic_cmd6_time);
+		if (ret) {
+			pr_err("%s: %s: cmdq mode disable failed %d\n",
+				mmc_hostname(host), __func__, ret);
+			goto cmdq_unhalt;
+		}
 		mmc_card_clr_cmdq(card);
 	}
 
 	part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
 	part_config |= md->part_type;
 
-	WARN_ON(mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+	ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			 EXT_CSD_PART_CONFIG, part_config,
-			  card->ext_csd.part_time));
+			 card->ext_csd.part_time);
+	if (ret) {
+		pr_err("%s: %s: mmc_switch failure, %d -> %d , err = %d\n",
+			mmc_hostname(host), __func__, main_md->part_curr,
+			md->part_type, ret);
+		goto cmdq_switch;
+	}
 
 	card->ext_csd.part_config = part_config;
 	card->part_curr = md->part_type;
 
 	main_md->part_curr = md->part_type;
 
-	WARN_ON(mmc_blk_cmdq_switch(card, md, true));
-	WARN_ON(mmc_cmdq_halt(host, false));
-
-	return 0;
+cmdq_switch:
+	err = mmc_blk_cmdq_switch(card, md, true);
+	if (err) {
+		pr_err("%s: %s: mmc_blk_cmdq_switch failed: %d\n",
+			mmc_hostname(host), __func__,  err);
+		ret = err;
+	}
+cmdq_unhalt:
+	err = mmc_cmdq_halt(host, false);
+	if (err) {
+		pr_err("%s: %s: unhalt: failed: %d\n",
+			mmc_hostname(host), __func__,  err);
+		ret = err;
+	}
+out:
+	return ret;
 }
 
 static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 {
-	int ret;
+	int ret, err = 0;
 	struct mmc_blk_data *md = mq->data;
 	struct mmc_card *card = md->queue.card;
+	struct mmc_host *host = card->host;
 
 	mmc_get_card(card);
 
@@ -3949,16 +4023,27 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 
 	ret = mmc_blk_cmdq_part_switch(card, md);
 	if (ret) {
-		pr_err("%s: %s: partition switch failed %d\n",
+		pr_err("%s: %s: partition switch failed %d, resetting cmdq\n",
 				md->disk->disk_name, __func__, ret);
-		goto out;
+
+		mmc_blk_cmdq_reset(host, false);
+		err = mmc_blk_cmdq_part_switch(card, md);
+		if (!err) {
+			pr_err("%s: %s: partition switch success err = %d\n",
+				md->disk->disk_name, __func__, err);
+		} else {
+			pr_err("%s: %s: partition switch failed err = %d\n",
+				md->disk->disk_name, __func__, err);
+			ret = err;
+			goto out;
+		}
 	}
 
 	if (req) {
 		struct mmc_host *host = card->host;
 		struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 
-		if ((req_op(req) == REQ_OP_FLUSH || req_op(req) ==  REQ_OP_DISCARD) &&
+		if (mmc_req_is_special(req) &&
 		    (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) &&
 		    ctx->active_small_sector_read_reqs) {
 			ret = wait_event_interruptible(ctx->queue_empty_wq,
@@ -3992,6 +4077,13 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 			ret = mmc_blk_cmdq_issue_flush_rq(mq, req);
 		} else {
 			ret = mmc_blk_cmdq_issue_rw_rq(mq, req);
+			/*
+			 * If issuing of the request fails with eitehr EBUSY or
+			 * EAGAIN error, re-queue the request.
+			 * This case would occur with ICE calls.
+			 */
+			if (ret == -EBUSY || ret == -EAGAIN)
+				mmc_blk_cmdq_requeue_rw_rq(mq, req);
 		}
 	}
 
@@ -4586,6 +4678,10 @@ static int mmc_blk_probe(struct mmc_card *card)
 
 	dev_set_drvdata(&card->dev, md);
 
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	mmc_set_bus_resume_policy(card->host, 1);
+#endif
+
 	if (mmc_add_disk(md))
 		goto out;
 
@@ -4629,6 +4725,9 @@ static void mmc_blk_remove(struct mmc_card *card)
 	pm_runtime_put_noidle(&card->dev);
 	mmc_blk_remove_req(md);
 	dev_set_drvdata(&card->dev, NULL);
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	mmc_set_bus_resume_policy(card->host, 0);
+#endif
 }
 
 static int _mmc_blk_suspend(struct mmc_card *card, bool wait)
@@ -4661,10 +4760,6 @@ static int _mmc_blk_suspend(struct mmc_card *card, bool wait)
 static void mmc_blk_shutdown(struct mmc_card *card)
 {
 	_mmc_blk_suspend(card, 1);
-
-	/* send power off notification */
-	if (mmc_card_mmc(card))
-		mmc_send_pon(card);
 }
 
 #ifdef CONFIG_PM_SLEEP

@@ -14,6 +14,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_intf.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define INTF_TIMING_ENGINE_EN           0x000
 #define INTF_CONFIG                     0x004
@@ -116,7 +117,7 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	display_v_end = ((vsync_period - p->v_front_porch) * hsync_period) +
 	p->hsync_skew - 1;
 
-	if (ctx->cap->type == INTF_EDP) {
+	if (ctx->cap->type == INTF_EDP || ctx->cap->type == INTF_DP) {
 		display_v_start += p->hsync_pulse_width + p->h_back_porch;
 		display_v_end -= p->h_front_porch;
 	}
@@ -288,6 +289,18 @@ static u32 sde_hw_intf_collect_misr(struct sde_hw_intf *intf)
 	return SDE_REG_READ(c, INTF_MISR_SIGNATURE);
 }
 
+static u32 sde_hw_intf_get_line_count(struct sde_hw_intf *intf)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!intf)
+		return 0;
+
+	c = &intf->hw;
+
+	return SDE_REG_READ(c, INTF_LINE_COUNT);
+}
+
 static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 		unsigned long cap)
 {
@@ -297,9 +310,15 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	ops->enable_timing = sde_hw_intf_enable_timing_engine;
 	ops->setup_misr = sde_hw_intf_setup_misr;
 	ops->collect_misr = sde_hw_intf_collect_misr;
+	ops->get_line_count = sde_hw_intf_get_line_count;
 	if (cap & BIT(SDE_INTF_ROT_START))
 		ops->setup_rot_start = sde_hw_intf_setup_rot_start;
 }
+
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
 
 struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 		void __iomem *addr,
@@ -307,6 +326,7 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 {
 	struct sde_hw_intf *c;
 	struct sde_intf_cfg *cfg;
+	int rc;
 
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
@@ -327,14 +347,27 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 	c->mdss = m;
 	_setup_intf_ops(&c->ops, c->cap->features);
 
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_INTF, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_intf_destroy(struct sde_hw_intf *intf)
 {
+	if (intf)
+		sde_hw_blk_destroy(&intf->base);
 	kfree(intf);
 }
 

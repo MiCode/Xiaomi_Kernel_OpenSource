@@ -72,209 +72,124 @@ static const int ipa_ihl_ofst_meq32[] = { IPA_IHL_OFFSET_MEQ32_0,
 
 #define INVALID_EP_MAPPING_INDEX (-1)
 
-static const int ep_mapping[3][IPA_CLIENT_MAX] = {
-	[IPA_1_1][IPA_CLIENT_HSIC1_PROD]         = 19,
-	[IPA_1_1][IPA_CLIENT_WLAN1_PROD]         = -1,
-	[IPA_1_1][IPA_CLIENT_HSIC2_PROD]         = 12,
-	[IPA_1_1][IPA_CLIENT_USB2_PROD]          = 12,
-	[IPA_1_1][IPA_CLIENT_HSIC3_PROD]         = 13,
-	[IPA_1_1][IPA_CLIENT_USB3_PROD]          = 13,
-	[IPA_1_1][IPA_CLIENT_HSIC4_PROD]         =  0,
-	[IPA_1_1][IPA_CLIENT_USB4_PROD]          =  0,
-	[IPA_1_1][IPA_CLIENT_HSIC5_PROD]         = -1,
-	[IPA_1_1][IPA_CLIENT_USB_PROD]           = 11,
-	[IPA_1_1][IPA_CLIENT_A5_WLAN_AMPDU_PROD] = 15,
-	[IPA_1_1][IPA_CLIENT_A2_EMBEDDED_PROD]   =  8,
-	[IPA_1_1][IPA_CLIENT_A2_TETHERED_PROD]   =  6,
-	[IPA_1_1][IPA_CLIENT_APPS_LAN_PROD]      = -1,
-	[IPA_1_1][IPA_CLIENT_APPS_LAN_WAN_PROD]  =  2,
-	[IPA_1_1][IPA_CLIENT_APPS_CMD_PROD]      =  1,
-	[IPA_1_1][IPA_CLIENT_ODU_PROD]           = -1,
-	[IPA_1_1][IPA_CLIENT_MHI_PROD]           = -1,
-	[IPA_1_1][IPA_CLIENT_Q6_LAN_PROD]        =  5,
-	[IPA_1_1][IPA_CLIENT_Q6_WAN_PROD]        = -1,
-	[IPA_1_1][IPA_CLIENT_Q6_CMD_PROD]        = -1,
-	[IPA_1_1][IPA_CLIENT_ETHERNET_PROD]      = -1,
+struct ipa_ep_confing {
+	bool valid;
+	int pipe_num;
+};
 
-	[IPA_1_1][IPA_CLIENT_HSIC1_CONS]         = 14,
-	[IPA_1_1][IPA_CLIENT_WLAN1_CONS]         = -1,
-	[IPA_1_1][IPA_CLIENT_HSIC2_CONS]         = 16,
-	[IPA_1_1][IPA_CLIENT_USB2_CONS]          = 16,
-	[IPA_1_1][IPA_CLIENT_WLAN2_CONS]         = -1,
-	[IPA_1_1][IPA_CLIENT_HSIC3_CONS]         = 17,
-	[IPA_1_1][IPA_CLIENT_USB3_CONS]          = 17,
-	[IPA_1_1][IPA_CLIENT_WLAN3_CONS]         = -1,
-	[IPA_1_1][IPA_CLIENT_HSIC4_CONS]         = 18,
-	[IPA_1_1][IPA_CLIENT_USB4_CONS]          = 18,
-	[IPA_1_1][IPA_CLIENT_WLAN4_CONS]         = -1,
-	[IPA_1_1][IPA_CLIENT_HSIC5_CONS]         = -1,
-	[IPA_1_1][IPA_CLIENT_USB_CONS]           = 10,
-	[IPA_1_1][IPA_CLIENT_USB_DPL_CONS]       = -1,
-	[IPA_1_1][IPA_CLIENT_A2_EMBEDDED_CONS]   =  9,
-	[IPA_1_1][IPA_CLIENT_A2_TETHERED_CONS]   =  7,
-	[IPA_1_1][IPA_CLIENT_A5_LAN_WAN_CONS]    =  3,
-	[IPA_1_1][IPA_CLIENT_APPS_LAN_CONS]      = -1,
-	[IPA_1_1][IPA_CLIENT_APPS_WAN_CONS]      = -1,
-	[IPA_1_1][IPA_CLIENT_ODU_EMB_CONS]       = -1,
-	[IPA_1_1][IPA_CLIENT_ODU_TETH_CONS]      = -1,
-	[IPA_1_1][IPA_CLIENT_MHI_CONS]           = -1,
-	[IPA_1_1][IPA_CLIENT_Q6_LAN_CONS]        =  4,
-	[IPA_1_1][IPA_CLIENT_Q6_WAN_CONS]        = -1,
-	[IPA_1_1][IPA_CLIENT_ETHERNET_CONS]      = -1,
+static const struct ipa_ep_confing ep_mapping[3][IPA_CLIENT_MAX] = {
+	[IPA_1_1][IPA_CLIENT_HSIC1_PROD]         = {true, 19},
+	[IPA_1_1][IPA_CLIENT_HSIC2_PROD]         = {true, 12},
+	[IPA_1_1][IPA_CLIENT_USB2_PROD]          = {true, 12},
+	[IPA_1_1][IPA_CLIENT_HSIC3_PROD]         = {true, 13},
+	[IPA_1_1][IPA_CLIENT_USB3_PROD]          = {true, 13},
+	[IPA_1_1][IPA_CLIENT_HSIC4_PROD]         = {true,  0},
+	[IPA_1_1][IPA_CLIENT_USB4_PROD]          = {true,  0},
+	[IPA_1_1][IPA_CLIENT_USB_PROD]           = {true, 11},
+	[IPA_1_1][IPA_CLIENT_A5_WLAN_AMPDU_PROD] = {true, 15},
+	[IPA_1_1][IPA_CLIENT_A2_EMBEDDED_PROD]   = {true,  8},
+	[IPA_1_1][IPA_CLIENT_A2_TETHERED_PROD]   = {true,  6},
+	[IPA_1_1][IPA_CLIENT_APPS_LAN_WAN_PROD]  = {true,  2},
+	[IPA_1_1][IPA_CLIENT_APPS_CMD_PROD]      = {true,  1},
+	[IPA_1_1][IPA_CLIENT_Q6_LAN_PROD]        = {true,  5},
+
+	[IPA_1_1][IPA_CLIENT_HSIC1_CONS]         = {true, 14},
+	[IPA_1_1][IPA_CLIENT_HSIC2_CONS]         = {true, 16},
+	[IPA_1_1][IPA_CLIENT_USB2_CONS]          = {true, 16},
+	[IPA_1_1][IPA_CLIENT_HSIC3_CONS]         = {true, 17},
+	[IPA_1_1][IPA_CLIENT_USB3_CONS]          = {true, 17},
+	[IPA_1_1][IPA_CLIENT_HSIC4_CONS]         = {true, 18},
+	[IPA_1_1][IPA_CLIENT_USB4_CONS]          = {true, 18},
+	[IPA_1_1][IPA_CLIENT_USB_CONS]           = {true, 10},
+	[IPA_1_1][IPA_CLIENT_A2_EMBEDDED_CONS]   = {true,  9},
+	[IPA_1_1][IPA_CLIENT_A2_TETHERED_CONS]   = {true,  7},
+	[IPA_1_1][IPA_CLIENT_A5_LAN_WAN_CONS]    = {true,  3},
+	[IPA_1_1][IPA_CLIENT_Q6_LAN_CONS]        = {true,  4},
 
 
-	[IPA_2_0][IPA_CLIENT_HSIC1_PROD]         = 12,
-	[IPA_2_0][IPA_CLIENT_WLAN1_PROD]         = 18,
-	[IPA_2_0][IPA_CLIENT_HSIC2_PROD]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB2_PROD]          = 12,
-	[IPA_2_0][IPA_CLIENT_HSIC3_PROD]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB3_PROD]          = 13,
-	[IPA_2_0][IPA_CLIENT_HSIC4_PROD]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB4_PROD]          =  0,
-	[IPA_2_0][IPA_CLIENT_HSIC5_PROD]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB_PROD]           = 11,
-	[IPA_2_0][IPA_CLIENT_A5_WLAN_AMPDU_PROD] = -1,
-	[IPA_2_0][IPA_CLIENT_A2_EMBEDDED_PROD]   = -1,
-	[IPA_2_0][IPA_CLIENT_A2_TETHERED_PROD]   = -1,
-	[IPA_2_0][IPA_CLIENT_APPS_LAN_PROD]      = -1,
-	[IPA_2_0][IPA_CLIENT_APPS_LAN_WAN_PROD]  =  4,
-	[IPA_2_0][IPA_CLIENT_APPS_CMD_PROD]      =  3,
-	[IPA_2_0][IPA_CLIENT_ODU_PROD]           = 12,
-	[IPA_2_0][IPA_CLIENT_MHI_PROD]           = 18,
-	[IPA_2_0][IPA_CLIENT_Q6_LAN_PROD]        =  6,
-	[IPA_2_0][IPA_CLIENT_Q6_WAN_PROD]	 = -1,
-	[IPA_2_0][IPA_CLIENT_Q6_CMD_PROD]        =  7,
-	[IPA_2_0][IPA_CLIENT_Q6_DECOMP_PROD]     = -1,
-	[IPA_2_0][IPA_CLIENT_Q6_DECOMP2_PROD]    = -1,
+	[IPA_2_0][IPA_CLIENT_HSIC1_PROD]         = {true, 12},
+	[IPA_2_0][IPA_CLIENT_WLAN1_PROD]         = {true, 18},
+	[IPA_2_0][IPA_CLIENT_USB2_PROD]          = {true, 12},
+	[IPA_2_0][IPA_CLIENT_USB3_PROD]          = {true, 13},
+	[IPA_2_0][IPA_CLIENT_USB4_PROD]          = {true,  0},
+	[IPA_2_0][IPA_CLIENT_USB_PROD]           = {true, 11},
+	[IPA_2_0][IPA_CLIENT_APPS_LAN_WAN_PROD]  = {true,  4},
+	[IPA_2_0][IPA_CLIENT_APPS_CMD_PROD]      = {true,  3},
+	[IPA_2_0][IPA_CLIENT_ODU_PROD]           = {true, 12},
+	[IPA_2_0][IPA_CLIENT_MHI_PROD]           = {true, 18},
+	[IPA_2_0][IPA_CLIENT_Q6_LAN_PROD]        = {true,  6},
+	[IPA_2_0][IPA_CLIENT_Q6_CMD_PROD]        = {true,  7},
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]
-						 =  12,
+						 = {true, 12},
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
-						 =  19,
-	[IPA_2_0][IPA_CLIENT_ETHERNET_PROD]      = 12,
+						 = {true, 19},
+	[IPA_2_0][IPA_CLIENT_ETHERNET_PROD]      = {true, 12},
 	/* Only for test purpose */
-	[IPA_2_0][IPA_CLIENT_TEST_PROD]          = 19,
-	[IPA_2_0][IPA_CLIENT_TEST1_PROD]         = 19,
-	[IPA_2_0][IPA_CLIENT_TEST2_PROD]         = 12,
-	[IPA_2_0][IPA_CLIENT_TEST3_PROD]         = 11,
-	[IPA_2_0][IPA_CLIENT_TEST4_PROD]         =  0,
+	[IPA_2_0][IPA_CLIENT_TEST_PROD]          = {true, 19},
+	[IPA_2_0][IPA_CLIENT_TEST1_PROD]         = {true, 19},
+	[IPA_2_0][IPA_CLIENT_TEST2_PROD]         = {true, 12},
+	[IPA_2_0][IPA_CLIENT_TEST3_PROD]         = {true, 11},
+	[IPA_2_0][IPA_CLIENT_TEST4_PROD]         = {true,  0},
 
-	[IPA_2_0][IPA_CLIENT_HSIC1_CONS]         = 13,
-	[IPA_2_0][IPA_CLIENT_WLAN1_CONS]         = 17,
-	[IPA_2_0][IPA_CLIENT_HSIC2_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB2_CONS]          = -1,
-	[IPA_2_0][IPA_CLIENT_WLAN2_CONS]         = 16,
-	[IPA_2_0][IPA_CLIENT_HSIC3_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB3_CONS]          = -1,
-	[IPA_2_0][IPA_CLIENT_WLAN3_CONS]         = 14,
-	[IPA_2_0][IPA_CLIENT_HSIC4_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB4_CONS]          = -1,
-	[IPA_2_0][IPA_CLIENT_WLAN4_CONS]         = 19,
-	[IPA_2_0][IPA_CLIENT_HSIC5_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB_CONS]           = 15,
-	[IPA_2_0][IPA_CLIENT_USB_DPL_CONS]       =  0,
-	[IPA_2_0][IPA_CLIENT_A2_EMBEDDED_CONS]   = -1,
-	[IPA_2_0][IPA_CLIENT_A2_TETHERED_CONS]   = -1,
-	[IPA_2_0][IPA_CLIENT_A5_LAN_WAN_CONS]    = -1,
-	[IPA_2_0][IPA_CLIENT_APPS_LAN_CONS]      =  2,
-	[IPA_2_0][IPA_CLIENT_APPS_WAN_CONS]      =  5,
-	[IPA_2_0][IPA_CLIENT_ODU_EMB_CONS]       = 13,
-	[IPA_2_0][IPA_CLIENT_ODU_TETH_CONS]      =  1,
-	[IPA_2_0][IPA_CLIENT_MHI_CONS]           = 17,
-	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
-	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
-	[IPA_2_0][IPA_CLIENT_Q6_DUN_CONS]        = -1,
-	[IPA_2_0][IPA_CLIENT_Q6_DECOMP_CONS]     = -1,
-	[IPA_2_0][IPA_CLIENT_Q6_DECOMP2_CONS]    = -1,
+	[IPA_2_0][IPA_CLIENT_HSIC1_CONS]         = {true, 13},
+	[IPA_2_0][IPA_CLIENT_WLAN1_CONS]         = {true, 17},
+	[IPA_2_0][IPA_CLIENT_WLAN2_CONS]         = {true, 16},
+	[IPA_2_0][IPA_CLIENT_WLAN3_CONS]         = {true, 14},
+	[IPA_2_0][IPA_CLIENT_WLAN4_CONS]         = {true, 19},
+	[IPA_2_0][IPA_CLIENT_USB_CONS]           = {true, 15},
+	[IPA_2_0][IPA_CLIENT_USB_DPL_CONS]       = {true,  0},
+	[IPA_2_0][IPA_CLIENT_APPS_LAN_CONS]      = {true,  2},
+	[IPA_2_0][IPA_CLIENT_APPS_WAN_CONS]      = {true,  5},
+	[IPA_2_0][IPA_CLIENT_ODU_EMB_CONS]       = {true, 13},
+	[IPA_2_0][IPA_CLIENT_ODU_TETH_CONS]      = {true,  1},
+	[IPA_2_0][IPA_CLIENT_MHI_CONS]           = {true, 17},
+	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        = {true,  8},
+	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        = {true,  9},
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
-						 =  13,
+						 = {true, 13},
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
-						 =  16,
+						 = {true, 16},
 	[IPA_2_0][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]
-						 =  10,
-	[IPA_2_0][IPA_CLIENT_ETHERNET_CONS]      = 1,
+						 = {true, 10},
+	[IPA_2_0][IPA_CLIENT_ETHERNET_CONS]      = {true,  1},
+
 	/* Only for test purpose */
-	[IPA_2_0][IPA_CLIENT_TEST_CONS]          = 1,
-	[IPA_2_0][IPA_CLIENT_TEST1_CONS]         = 1,
-	[IPA_2_0][IPA_CLIENT_TEST2_CONS]         = 16,
-	[IPA_2_0][IPA_CLIENT_TEST3_CONS]         = 13,
-	[IPA_2_0][IPA_CLIENT_TEST4_CONS]         = 15,
+	[IPA_2_0][IPA_CLIENT_TEST_CONS]          = {true,  1},
+	[IPA_2_0][IPA_CLIENT_TEST1_CONS]         = {true,  1},
+	[IPA_2_0][IPA_CLIENT_TEST2_CONS]         = {true, 16},
+	[IPA_2_0][IPA_CLIENT_TEST3_CONS]         = {true, 13},
+	[IPA_2_0][IPA_CLIENT_TEST4_CONS]         = {true, 15},
 
 
-	[IPA_2_6L][IPA_CLIENT_HSIC1_PROD]         = -1,
-	[IPA_2_6L][IPA_CLIENT_WLAN1_PROD]         = -1,
-	[IPA_2_6L][IPA_CLIENT_HSIC2_PROD]         = -1,
-	[IPA_2_6L][IPA_CLIENT_USB2_PROD]          = -1,
-	[IPA_2_6L][IPA_CLIENT_HSIC3_PROD]         = -1,
-	[IPA_2_6L][IPA_CLIENT_USB3_PROD]          = -1,
-	[IPA_2_6L][IPA_CLIENT_HSIC4_PROD]         = -1,
-	[IPA_2_6L][IPA_CLIENT_USB4_PROD]          = -1,
-	[IPA_2_6L][IPA_CLIENT_HSIC5_PROD]         = -1,
-	[IPA_2_6L][IPA_CLIENT_USB_PROD]           =  1,
-	[IPA_2_6L][IPA_CLIENT_A5_WLAN_AMPDU_PROD] = -1,
-	[IPA_2_6L][IPA_CLIENT_A2_EMBEDDED_PROD]   = -1,
-	[IPA_2_6L][IPA_CLIENT_A2_TETHERED_PROD]   = -1,
-	[IPA_2_6L][IPA_CLIENT_APPS_LAN_PROD]      = -1,
-	[IPA_2_6L][IPA_CLIENT_APPS_LAN_WAN_PROD]  =  4,
-	[IPA_2_6L][IPA_CLIENT_APPS_CMD_PROD]      =  3,
-	[IPA_2_6L][IPA_CLIENT_ODU_PROD]           = -1,
-	[IPA_2_6L][IPA_CLIENT_MHI_PROD]           = -1,
-	[IPA_2_6L][IPA_CLIENT_Q6_LAN_PROD]        =  6,
-	[IPA_2_6L][IPA_CLIENT_Q6_WAN_PROD]	  = -1,
-	[IPA_2_6L][IPA_CLIENT_Q6_CMD_PROD]        =  7,
-	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP_PROD]     = 11,
-	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP2_PROD]    = 13,
-	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]
-						 =  -1,
-	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
-						 =  -1,
-	[IPA_2_6L][IPA_CLIENT_ETHERNET_PROD]      = -1,
-	/* Only for test purpose */
-	[IPA_2_6L][IPA_CLIENT_TEST_PROD]          = 11,
-	[IPA_2_6L][IPA_CLIENT_TEST1_PROD]         = 11,
-	[IPA_2_6L][IPA_CLIENT_TEST2_PROD]         = 12,
-	[IPA_2_6L][IPA_CLIENT_TEST3_PROD]         = 13,
-	[IPA_2_6L][IPA_CLIENT_TEST4_PROD]         = 14,
+	[IPA_2_6L][IPA_CLIENT_APPS_LAN_WAN_PROD]  = {true,  4},
+	[IPA_2_6L][IPA_CLIENT_APPS_CMD_PROD]      = {true,  3},
+	[IPA_2_6L][IPA_CLIENT_Q6_LAN_PROD]        = {true,  6},
+	[IPA_2_6L][IPA_CLIENT_Q6_CMD_PROD]        = {true,  7},
+	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP_PROD]     = {true, 11},
+	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP2_PROD]    = {true, 13},
 
-	[IPA_2_6L][IPA_CLIENT_HSIC1_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_WLAN1_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_HSIC2_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_USB2_CONS]          = -1,
-	[IPA_2_6L][IPA_CLIENT_WLAN2_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_HSIC3_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_USB3_CONS]          = -1,
-	[IPA_2_6L][IPA_CLIENT_WLAN3_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_HSIC4_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_USB4_CONS]          = -1,
-	[IPA_2_6L][IPA_CLIENT_WLAN4_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_HSIC5_CONS]         = -1,
-	[IPA_2_6L][IPA_CLIENT_USB_CONS]           =  0,
-	[IPA_2_6L][IPA_CLIENT_USB_DPL_CONS]       = 10,
-	[IPA_2_6L][IPA_CLIENT_A2_EMBEDDED_CONS]   = -1,
-	[IPA_2_6L][IPA_CLIENT_A2_TETHERED_CONS]   = -1,
-	[IPA_2_6L][IPA_CLIENT_A5_LAN_WAN_CONS]    = -1,
-	[IPA_2_6L][IPA_CLIENT_APPS_LAN_CONS]      =  2,
-	[IPA_2_6L][IPA_CLIENT_APPS_WAN_CONS]      =  5,
-	[IPA_2_6L][IPA_CLIENT_ODU_EMB_CONS]       = -1,
-	[IPA_2_6L][IPA_CLIENT_ODU_TETH_CONS]      = -1,
-	[IPA_2_6L][IPA_CLIENT_MHI_CONS]           = -1,
-	[IPA_2_6L][IPA_CLIENT_Q6_LAN_CONS]        =  8,
-	[IPA_2_6L][IPA_CLIENT_Q6_WAN_CONS]        =  9,
-	[IPA_2_6L][IPA_CLIENT_Q6_DUN_CONS]        = -1,
-	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP_CONS]     = 12,
-	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP2_CONS]    = 14,
-	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
-						 =  -1,
-	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
-						 =  -1,
-	[IPA_2_6L][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]
-						 =  -1,
-	[IPA_2_6L][IPA_CLIENT_ETHERNET_CONS]      = -1,
 	/* Only for test purpose */
-	[IPA_2_6L][IPA_CLIENT_TEST_CONS]          = 15,
-	[IPA_2_6L][IPA_CLIENT_TEST1_CONS]         = 15,
-	[IPA_2_6L][IPA_CLIENT_TEST2_CONS]         = 0,
-	[IPA_2_6L][IPA_CLIENT_TEST3_CONS]         = 1,
-	[IPA_2_6L][IPA_CLIENT_TEST4_CONS]         = 10,
+	[IPA_2_6L][IPA_CLIENT_TEST_PROD]          = {true, 11},
+	[IPA_2_6L][IPA_CLIENT_TEST1_PROD]         = {true, 11},
+	[IPA_2_6L][IPA_CLIENT_TEST2_PROD]         = {true, 12},
+	[IPA_2_6L][IPA_CLIENT_TEST3_PROD]         = {true, 13},
+	[IPA_2_6L][IPA_CLIENT_TEST4_PROD]         = {true, 14},
+
+	[IPA_2_6L][IPA_CLIENT_USB_CONS]           = {true,  0},
+	[IPA_2_6L][IPA_CLIENT_USB_DPL_CONS]       = {true, 10},
+	[IPA_2_6L][IPA_CLIENT_APPS_LAN_CONS]      = {true,  2},
+	[IPA_2_6L][IPA_CLIENT_APPS_WAN_CONS]      = {true,  5},
+	[IPA_2_6L][IPA_CLIENT_Q6_LAN_CONS]        = {true,  8},
+	[IPA_2_6L][IPA_CLIENT_Q6_WAN_CONS]        = {true,  9},
+	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP_CONS]     = {true, 12},
+	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP2_CONS]    = {true, 14},
+
+	/* Only for test purpose */
+	[IPA_2_6L][IPA_CLIENT_TEST_CONS]          = {true, 15},
+	[IPA_2_6L][IPA_CLIENT_TEST1_CONS]         = {true, 15},
+	[IPA_2_6L][IPA_CLIENT_TEST2_CONS]         = {true,  0},
+	[IPA_2_6L][IPA_CLIENT_TEST3_CONS]         = {true,  1},
+	[IPA_2_6L][IPA_CLIENT_TEST4_CONS]         = {true, 10},
 };
 
 static struct msm_bus_vectors ipa_init_vectors_v1_1[]  = {
@@ -372,14 +287,14 @@ static struct msm_bus_paths ipa_usecases_v2_0[]  = {
 };
 
 static struct msm_bus_scale_pdata ipa_bus_client_pdata_v1_1 = {
-	ipa_usecases_v1_1,
-	ARRAY_SIZE(ipa_usecases_v1_1),
+	.usecase = ipa_usecases_v1_1,
+	.num_usecases = ARRAY_SIZE(ipa_usecases_v1_1),
 	.name = "ipa",
 };
 
 static struct msm_bus_scale_pdata ipa_bus_client_pdata_v2_0 = {
-	ipa_usecases_v2_0,
-	ARRAY_SIZE(ipa_usecases_v2_0),
+	.usecase = ipa_usecases_v2_0,
+	.num_usecases = ARRAY_SIZE(ipa_usecases_v2_0),
 	.name = "ipa",
 };
 
@@ -932,7 +847,7 @@ int ipa2_get_ep_mapping(enum ipa_client_type client)
 	}
 
 	if (client >= IPA_CLIENT_MAX || client < 0) {
-		IPAERR("Bad client number! client =%d\n", client);
+		IPAERR_RL("Bad client number! client =%d\n", client);
 		return INVALID_EP_MAPPING_INDEX;
 	}
 
@@ -949,7 +864,10 @@ int ipa2_get_ep_mapping(enum ipa_client_type client)
 		break;
 	}
 
-	return ep_mapping[hw_type_index][client];
+	if (!ep_mapping[hw_type_index][client].valid)
+		return INVALID_EP_MAPPING_INDEX;
+
+	return ep_mapping[hw_type_index][client].pipe_num;
 }
 
 /* ipa2_set_client() - provide client mapping
@@ -960,7 +878,7 @@ int ipa2_get_ep_mapping(enum ipa_client_type client)
 
 void ipa2_set_client(int index, enum ipacm_client_enum client, bool uplink)
 {
-	if (client >= IPACM_CLIENT_MAX || client < IPACM_CLIENT_USB) {
+	if (client > IPACM_CLIENT_MAX || client < IPACM_CLIENT_USB) {
 		IPAERR("Bad client number! client =%d\n", client);
 	} else if (index >= IPA_MAX_NUM_PIPES || index < 0) {
 		IPAERR("Bad pipe index! index =%d\n", index);
@@ -1022,6 +940,11 @@ enum ipacm_client_enum ipa2_get_client(int pipe_idx)
  */
 bool ipa2_get_client_uplink(int pipe_idx)
 {
+	if (pipe_idx < 0 || pipe_idx >= IPA_MAX_NUM_PIPES) {
+		IPAERR("invalid pipe idx %d\n", pipe_idx);
+		return false;
+	}
+
 	return ipa_ctx->ipacm_client[pipe_idx].uplink;
 }
 
@@ -1484,6 +1407,37 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			ihl_ofst_meq32++;
 		}
 
+		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IP_TYPE) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			/* 22  => offset of IP type after v6 header */
+			*buf = ipa_write_8(22, *buf);
+			*buf = ipa_write_32(0xF0000000, *buf);
+			if (attrib->type == 0x40)
+				*buf = ipa_write_32(0x40000000, *buf);
+			else
+				*buf = ipa_write_32(0x60000000, *buf);
+			*buf = ipa_pad_to_32(*buf);
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IPV4_DST_ADDR) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			/* 38  => offset of inner IPv4 addr */
+			*buf = ipa_write_8(38, *buf);
+			*buf = ipa_write_32(attrib->u.v4.dst_addr_mask, *buf);
+			*buf = ipa_write_32(attrib->u.v4.dst_addr, *buf);
+			*buf = ipa_pad_to_32(*buf);
+			ihl_ofst_meq32++;
+		}
+
 		if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
 				IPAERR("ran out of ihl_rng16 eq\n");
@@ -1720,6 +1674,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 	 * OFFSET_MEQ32_0 with mask of 0 and val of 0 and offset 0
 	 */
 	if (attrib->attrib_mask == 0) {
+		IPADBG_LOW("building default rule\n");
 		if (ipa_ofst_meq32[ofst_meq32] == -1) {
 			IPAERR("ran out of meq32 eq\n");
 			return -EPERM;
@@ -1777,7 +1732,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR ||
 		    attrib->attrib_mask & IPA_FLT_TC || attrib->attrib_mask &
 		    IPA_FLT_FLOW_LABEL) {
-			IPAERR("v6 attrib's specified for v4 rule\n");
+			IPAERR_RL("v6 attrib's specified for v4 rule\n");
 			return -EPERM;
 		}
 
@@ -1789,7 +1744,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
 			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq32 eq\n");
+				IPAERR_RL("ran out of meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
@@ -1809,7 +1764,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
 			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq32 eq\n");
+				IPAERR_RL("ran out of meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
@@ -1823,7 +1778,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
 			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq32 eq\n");
+				IPAERR_RL("ran out of meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
@@ -1837,11 +1792,11 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
+				IPAERR_RL("ran out of ihl_rng16 eq\n");
 				return -EPERM;
 			}
 			if (attrib->src_port_hi < attrib->src_port_lo) {
-				IPAERR("bad src port range param\n");
+				IPAERR_RL("bad src port range param\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
@@ -1855,11 +1810,11 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
+				IPAERR_RL("ran out of ihl_rng16 eq\n");
 				return -EPERM;
 			}
 			if (attrib->dst_port_hi < attrib->dst_port_lo) {
-				IPAERR("bad dst port range param\n");
+				IPAERR_RL("bad dst port range param\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
@@ -1873,7 +1828,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_TYPE) {
 			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
+				IPAERR_RL("ran out of ihl_meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
@@ -1886,7 +1841,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_CODE) {
 			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
+				IPAERR_RL("ran out of ihl_meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
@@ -1899,7 +1854,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_SPI) {
 			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
+				IPAERR_RL("ran out of ihl_meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
@@ -1913,7 +1868,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
+				IPAERR_RL("ran out of ihl_rng16 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
@@ -1927,7 +1882,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
+				IPAERR_RL("ran out of ihl_rng16 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
@@ -1954,7 +1909,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -1969,7 +1924,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -1984,7 +1939,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -1999,7 +1954,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -2014,7 +1969,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
 			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
@@ -2032,7 +1987,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_TOS ||
 		    attrib->attrib_mask & IPA_FLT_PROTOCOL) {
-			IPAERR("v4 attrib's specified for v6 rule\n");
+			IPAERR_RL("v4 attrib's specified for v6 rule\n");
 			return -EPERM;
 		}
 
@@ -2044,7 +1999,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_TYPE) {
 			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
+				IPAERR_RL("ran out of ihl_meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
@@ -2057,7 +2012,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_CODE) {
 			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
+				IPAERR_RL("ran out of ihl_meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
@@ -2070,7 +2025,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_SPI) {
 			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
+				IPAERR_RL("ran out of ihl_meq32 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
@@ -2082,9 +2037,39 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			ihl_ofst_meq32++;
 		}
 
+		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IP_TYPE) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			/* 22  => offset of inner IP type after v6 header */
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 22;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+				0xF0000000;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				(u32)attrib->type << 24;
+			ihl_ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IPV4_DST_ADDR) {
+			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+				IPAERR("ran out of ihl_meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+			/* 38  => offset of inner IPv4 addr */
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].offset = 38;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].mask =
+				attrib->u.v4.dst_addr_mask;
+			eq_atrb->ihl_offset_meq_32[ihl_ofst_meq32].value =
+				attrib->u.v4.dst_addr;
+			ihl_ofst_meq32++;
+		}
+
 		if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
+				IPAERR_RL("ran out of ihl_rng16 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
@@ -2098,7 +2083,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
+				IPAERR_RL("ran out of ihl_rng16 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
@@ -2112,11 +2097,11 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
+				IPAERR_RL("ran out of ihl_rng16 eq\n");
 				return -EPERM;
 			}
 			if (attrib->src_port_hi < attrib->src_port_lo) {
-				IPAERR("bad src port range param\n");
+				IPAERR_RL("bad src port range param\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
@@ -2130,11 +2115,11 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
 			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
+				IPAERR_RL("ran out of ihl_rng16 eq\n");
 				return -EPERM;
 			}
 			if (attrib->dst_port_hi < attrib->dst_port_lo) {
-				IPAERR("bad dst port range param\n");
+				IPAERR_RL("bad dst port range param\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
@@ -2148,7 +2133,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -2174,7 +2159,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -2206,7 +2191,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -2251,7 +2236,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -2266,7 +2251,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -2281,7 +2266,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -2296,7 +2281,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
 			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
@@ -2311,7 +2296,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
 			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq128 eq\n");
+				IPAERR_RL("ran out of meq128 eq\n");
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
@@ -2324,7 +2309,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		}
 
 	} else {
-		IPAERR("unsupported ip %d\n", ip);
+		IPAERR_RL("unsupported ip %d\n", ip);
 		return -EPERM;
 	}
 
@@ -2334,7 +2319,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 	 */
 	if (attrib->attrib_mask == 0) {
 		if (ipa_ofst_meq32[ofst_meq32] == -1) {
-			IPAERR("ran out of meq32 eq\n");
+			IPAERR_RL("ran out of meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= ipa_ofst_meq32[ofst_meq32];
@@ -3625,19 +3610,19 @@ int ipa2_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	}
 
 	if (param_in->client  >= IPA_CLIENT_MAX) {
-		IPAERR("bad parm client:%d\n", param_in->client);
+		IPAERR_RL("bad parm client:%d\n", param_in->client);
 		goto fail;
 	}
 
 	ipa_ep_idx = ipa2_get_ep_mapping(param_in->client);
 	if (ipa_ep_idx == -1) {
-		IPAERR("Invalid client.\n");
+		IPAERR_RL("Invalid client.\n");
 		goto fail;
 	}
 
 	ep = &ipa_ctx->ep[ipa_ep_idx];
 	if (!ep->valid) {
-		IPAERR("EP not allocated.\n");
+		IPAERR_RL("EP not allocated.\n");
 		goto fail;
 	}
 
@@ -3651,7 +3636,7 @@ int ipa2_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 		ipa_ctx->ep[ipa_ep_idx].cfg.meta = meta;
 		result = ipa_write_qmapid_wdi_pipe(ipa_ep_idx, meta.qmap_id);
 		if (result)
-			IPAERR("qmap_id %d write failed on ep=%d\n",
+			IPAERR_RL("qmap_id %d write failed on ep=%d\n",
 					meta.qmap_id, ipa_ep_idx);
 		result = 0;
 	}
@@ -4522,6 +4507,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	int res;
 	struct ipa_tag_completion *comp;
 	int ep_idx;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
@@ -4539,7 +4525,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	}
 	sys = ipa_ctx->ep[ep_idx].sys;
 
-	tag_desc = kzalloc(sizeof(*tag_desc) * IPA_TAG_MAX_DESC, GFP_KERNEL);
+	tag_desc = kzalloc(sizeof(*tag_desc) * IPA_TAG_MAX_DESC, flag);
 	if (!tag_desc) {
 		IPAERR("failed to allocate memory\n");
 		res = -ENOMEM;
@@ -4547,7 +4533,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	}
 
 	/* IP_PACKET_INIT IC for tag status to be sent to apps */
-	pkt_init = kzalloc(sizeof(*pkt_init), GFP_KERNEL);
+	pkt_init = kzalloc(sizeof(*pkt_init), flag);
 	if (!pkt_init) {
 		IPAERR("failed to allocate memory\n");
 		res = -ENOMEM;
@@ -4566,7 +4552,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	desc_idx++;
 
 	/* NO-OP IC for ensuring that IPA pipeline is empty */
-	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
+	reg_write_nop = kzalloc(sizeof(*reg_write_nop), flag);
 	if (!reg_write_nop) {
 		IPAERR("no mem\n");
 		res = -ENOMEM;
@@ -4585,7 +4571,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	desc_idx++;
 
 	/* status IC */
-	status = kzalloc(sizeof(*status), GFP_KERNEL);
+	status = kzalloc(sizeof(*status), flag);
 	if (!status) {
 		IPAERR("no mem\n");
 		res = -ENOMEM;
@@ -4621,7 +4607,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	atomic_set(&comp->cnt, 2);
 
 	/* dummy packet to send to IPA. packet payload is a completion object */
-	dummy_skb = alloc_skb(sizeof(comp), GFP_KERNEL);
+	dummy_skb = alloc_skb(sizeof(comp), flag);
 	if (!dummy_skb) {
 		IPAERR("failed to allocate memory\n");
 		res = -ENOMEM;
@@ -4962,13 +4948,17 @@ static int ipa2_stop_gsi_channel(u32 clnt_hdl)
 
 static void *ipa2_get_ipc_logbuf(void)
 {
-	/* no support for IPC logging in IPAv2 */
+	if (ipa_ctx)
+		return ipa_ctx->logbuf;
+
 	return NULL;
 }
 
 static void *ipa2_get_ipc_logbuf_low(void)
 {
-	/* no support for IPC logging in IPAv2 */
+	if (ipa_ctx)
+		return ipa_ctx->logbuf_low;
+
 	return NULL;
 }
 
@@ -5045,7 +5035,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_mdfy_flt_rule = ipa2_mdfy_flt_rule;
 	api_ctrl->ipa_commit_flt = ipa2_commit_flt;
 	api_ctrl->ipa_reset_flt = ipa2_reset_flt;
-	api_ctrl->allocate_nat_device = ipa2_allocate_nat_device;
+	api_ctrl->ipa_allocate_nat_device = ipa2_allocate_nat_device;
 	api_ctrl->ipa_nat_init_cmd = ipa2_nat_init_cmd;
 	api_ctrl->ipa_nat_dma_cmd = ipa2_nat_dma_cmd;
 	api_ctrl->ipa_nat_del_cmd = ipa2_nat_del_cmd;
@@ -5162,6 +5152,12 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_tear_down_uc_offload_pipes =
 		ipa2_tear_down_uc_offload_pipes;
 	api_ctrl->ipa_get_pdev = ipa2_get_pdev;
+	api_ctrl->ipa_ntn_uc_reg_rdyCB = ipa2_ntn_uc_reg_rdyCB;
+	api_ctrl->ipa_ntn_uc_dereg_rdyCB = ipa2_ntn_uc_dereg_rdyCB;
+	api_ctrl->ipa_conn_wdi3_pipes = ipa2_conn_wdi3_pipes;
+	api_ctrl->ipa_disconn_wdi3_pipes = ipa2_disconn_wdi3_pipes;
+	api_ctrl->ipa_enable_wdi3_pipes = ipa2_enable_wdi3_pipes;
+	api_ctrl->ipa_disable_wdi3_pipes = ipa2_disable_wdi3_pipes;
 
 	return 0;
 }

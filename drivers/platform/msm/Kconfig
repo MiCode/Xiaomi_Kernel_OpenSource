@@ -56,6 +56,24 @@ config RMNET_IPA3
 	  for RmNet Data Driver and also exchange of QMI messages between
 	  A7 and Q6 IPA-driver.
 
+config ECM_IPA
+	tristate "STD ECM LAN Driver support"
+	depends on IPA || IPA3
+	help
+	  Enables LAN between applications processor and a tethered
+	  host using the STD ECM protocol.
+	  This Network interface is aimed to allow data path go through
+	  IPA core while using STD ECM protocol.
+
+config RNDIS_IPA
+	tristate "RNDIS_IPA Network Interface Driver support"
+	depends on IPA || IPA3
+	help
+	  Enables LAN between applications processor and a tethered
+	  host using the RNDIS protocol.
+	  This Network interface is aimed to allow data path go through
+	  IPA core while using RNDIS protocol.
+
 config IPA_UT
 	tristate "IPA Unit-Test Framework and Test Suites"
 	depends on IPA3 && DEBUG_FS
@@ -94,6 +112,27 @@ config SPS_SUPPORT_NDP_BAM
 	help
 	  No-Data-Path BAM is used to improve BAM performance.
 
+config EP_PCIE
+	bool "PCIe Endpoint mode support"
+	select GENERIC_ALLOCATOR
+	help
+	  PCIe controller is in endpoint mode.
+	  It supports the APIs to clients as a service layer, and allows
+	  clients to enable/disable PCIe link, configure the address
+	  mapping for the access to host memory, trigger wake interrupt
+	  on host side to wake up host, and trigger MSI to host side.
+
+config EP_PCIE_HW
+	bool "PCIe Endpoint HW driver"
+	depends on EP_PCIE
+	help
+	  PCIe endpoint HW specific implementation.
+	  It supports:
+		1. link training with Root Complex.
+		2. Address mapping.
+		3. Sideband signaling.
+		4. Power management.
+
 config QPNP_COINCELL
 	tristate "QPNP coincell charger support"
 	depends on SPMI
@@ -113,6 +152,14 @@ config QPNP_REVID
 	  numbers in the kernel log along with the PMIC option status. The PMIC
 	  type is mapped to a QTI chip part number and logged as well.
 
+config GPIO_USB_DETECT
+	tristate "GPIO-based USB VBUS Detection"
+	depends on POWER_SUPPLY
+	help
+	  This driver supports external USB VBUS detection circuitry whose
+	  output is connected to a GPIO. The driver in turn notifies the
+	  USB driver of VBUS presence/disconnection using the power_supply
+	  framework.
 
 config MSM_MHI_DEV
         tristate "Modem Device Interface Driver"
@@ -151,5 +198,20 @@ config SEEMP_CORE
 	  anomalies in various activities. It records task activities in
 	  a log and rates the actions according to whether a typical user would
 	  use the tools.
+
+config QCOM_GENI_SE
+	tristate "QCOM GENI Serial Engine Driver"
+	help
+	  This module is used to interact with GENI based Serial Engines on
+	  Qualcomm Technologies, Inc. Universal Peripheral(QUPv3). This
+	  module is used to configure and read the configuration from the
+	  Serial Engines.
+
+config MSM_EXT_DISPLAY
+	bool "MSM External Display Driver"
+	help
+	  Enabling this option adds MSM External Display Driver.
+	  External Display driver was added to support the communication
+	  between external display driver and its counterparts.
 
 endmenu

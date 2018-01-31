@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,8 +131,9 @@ kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 	if (align > 32)
 		align = 32;
 
-	memdesc->flags &= ~KGSL_MEMALIGN_MASK;
-	memdesc->flags |= (align << KGSL_MEMALIGN_SHIFT) & KGSL_MEMALIGN_MASK;
+	memdesc->flags &= ~(uint64_t)KGSL_MEMALIGN_MASK;
+	memdesc->flags |= (uint64_t)((align << KGSL_MEMALIGN_SHIFT) &
+					KGSL_MEMALIGN_MASK);
 	return 0;
 }
 
@@ -291,8 +292,10 @@ static inline int kgsl_allocate_global(struct kgsl_device *device,
 	else {
 		ret = kgsl_sharedmem_page_alloc_user(memdesc, (size_t) size);
 		if (ret == 0) {
-			if (kgsl_memdesc_map(memdesc) == NULL)
+			if (kgsl_memdesc_map(memdesc) == NULL) {
+				kgsl_sharedmem_free(memdesc);
 				ret = -ENOMEM;
+			}
 		}
 	}
 
@@ -365,6 +368,8 @@ static inline void kgsl_free_sgt(struct sg_table *sgt)
 	}
 }
 
+#include "kgsl_pool.h"
+
 /**
  * kgsl_get_page_size() - Get supported pagesize
  * @size: Size of the page
@@ -375,11 +380,14 @@ static inline void kgsl_free_sgt(struct sg_table *sgt)
 #ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
 static inline int kgsl_get_page_size(size_t size, unsigned int align)
 {
-	if (align >= ilog2(SZ_1M) && size >= SZ_1M)
+	if (align >= ilog2(SZ_1M) && size >= SZ_1M &&
+		kgsl_pool_avaialable(SZ_1M))
 		return SZ_1M;
-	else if (align >= ilog2(SZ_64K) && size >= SZ_64K)
+	else if (align >= ilog2(SZ_64K) && size >= SZ_64K &&
+		kgsl_pool_avaialable(SZ_64K))
 		return SZ_64K;
-	else if (align >= ilog2(SZ_8K) && size >= SZ_8K)
+	else if (align >= ilog2(SZ_8K) && size >= SZ_8K &&
+		kgsl_pool_avaialable(SZ_8K))
 		return SZ_8K;
 	else
 		return PAGE_SIZE;

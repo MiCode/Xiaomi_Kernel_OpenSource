@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +50,7 @@ static int diag_dbgfs_bridgeinfo_index;
 static int diag_dbgfs_finished;
 static int diag_dbgfs_dci_data_index;
 static int diag_dbgfs_dci_finished;
-
+static struct mutex diag_dci_dbgfs_mutex;
 static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 				      size_t count, loff_t *ppos)
 {
@@ -69,6 +69,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Uses Device Tree: %d\n"
 		"Apps Supports Separate CMDRSP: %d\n"
 		"Apps Supports HDLC Encoding: %d\n"
+		"Apps Supports Header Untagging: %d\n"
 		"Apps Supports Sockets: %d\n"
 		"Logging Mode: %d\n"
 		"RSP Buffer is Busy: %d\n"
@@ -76,13 +77,15 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Time Sync Enabled: %d\n"
 		"MD session mode: %d\n"
 		"MD session mask: %d\n"
-		"Uses Time API: %d\n",
+		"Uses Time API: %d\n"
+		"Supports PD buffering: %d\n",
 		chk_config_get_id(),
 		chk_polling_response(),
 		driver->polling_reg_flag,
 		driver->use_device_tree,
 		driver->supports_separate_cmdrsp,
 		driver->supports_apps_hdlc_encoding,
+		driver->supports_apps_header_untagging,
 		driver->supports_sockets,
 		driver->logging_mode,
 		driver->rsp_buf_busy,
@@ -90,11 +93,12 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->time_sync_enabled,
 		driver->md_session_mode,
 		driver->md_session_mask,
-		driver->uses_time_api);
+		driver->uses_time_api,
+		driver->supports_pd_buffering);
 
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		ret += scnprintf(buf+ret, buf_size-ret,
-			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c|\n",
+			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c%c%c|\n",
 			PERIPHERAL_STRING(i),
 			driver->feature[i].feature_mask[0],
 			driver->feature[i].feature_mask[1],
@@ -103,9 +107,11 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 			driver->feature[i].encode_hdlc ? 'H':'h',
 			driver->feature[i].peripheral_buffering ? 'B':'b',
 			driver->feature[i].mask_centralization ? 'M':'m',
+			driver->feature[i].pd_buffering ? 'P':'p',
 			driver->feature[i].stm_support ? 'Q':'q',
 			driver->feature[i].sockets_enabled ? 'S':'s',
-			driver->feature[i].sent_feature_mask ? 'T':'t');
+			driver->feature[i].sent_feature_mask ? 'T':'t',
+			driver->feature[i].untag_header ? 'U':'u');
 	}
 
 #ifdef CONFIG_DIAG_OVER_USB
@@ -149,6 +155,7 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 	buf_size = ksize(buf);
 	bytes_remaining = buf_size;
 
+	mutex_lock(&diag_dci_dbgfs_mutex);
 	if (diag_dbgfs_dci_data_index == 0) {
 		bytes_written =
 			scnprintf(buf, buf_size,
@@ -204,8 +211,8 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 		}
 		temp_data++;
 	}
-
 	diag_dbgfs_dci_data_index = (i >= DIAG_DCI_DEBUG_CNT) ? 0 : i + 1;
+	mutex_unlock(&diag_dci_dbgfs_mutex);
 	bytes_written = simple_read_from_buffer(ubuf, count, ppos, buf,
 								bytes_in_buf);
 	kfree(buf);
@@ -264,8 +271,10 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	struct list_head *temp;
 	struct diag_cmd_reg_t *item = NULL;
 
+	mutex_lock(&driver->cmd_reg_mutex);
 	if (diag_dbgfs_table_index == driver->cmd_reg_count) {
 		diag_dbgfs_table_index = 0;
+		mutex_unlock(&driver->cmd_reg_mutex);
 		return 0;
 	}
 
@@ -274,6 +283,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	buf = kcalloc(buf_size, sizeof(char), GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf)) {
 		pr_err("diag: %s, Error allocating memory\n", __func__);
+		mutex_unlock(&driver->cmd_reg_mutex);
 		return -ENOMEM;
 	}
 	buf_size = ksize(buf);
@@ -318,6 +328,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 			break;
 	}
 	diag_dbgfs_table_index = i;
+	mutex_unlock(&driver->cmd_reg_mutex);
 
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
@@ -1054,6 +1065,7 @@ int diag_debugfs_init(void)
 		pr_warn("diag: could not allocate memory for dci debug info\n");
 
 	mutex_init(&dci_stat_mutex);
+	mutex_init(&diag_dci_dbgfs_mutex);
 	return 0;
 err:
 	kfree(dci_traffic);
@@ -1067,6 +1079,7 @@ void diag_debugfs_cleanup(void)
 	diag_dbgfs_dent = NULL;
 	kfree(dci_traffic);
 	mutex_destroy(&dci_stat_mutex);
+	mutex_destroy(&diag_dci_dbgfs_mutex);
 }
 #else
 int diag_debugfs_init(void) { return 0; }

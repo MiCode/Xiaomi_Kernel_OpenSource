@@ -16,59 +16,85 @@
 #define IPA_IOC_MAGIC 0xCF
 
 /**
+ * IPA device full path
+ */
+#define IPA_DEV_NAME "/dev/ipa"
+
+/**
+ * IPA NAT table character device name
+ */
+#define IPA_NAT_DEV_NAME "ipaNatTable"
+
+/**
+ * IPA IPv6CT table character device name
+ */
+#define IPA_IPV6CT_DEV_NAME "ipaIpv6CTTable"
+
+ /**
  * name of the default routing tables for v4 and v6
  */
 #define IPA_DFLT_RT_TBL_NAME "ipa_dflt_rt"
 
 /**
- *   the commands supported by IPA driver
+ * commands supported by IPA driver
  */
-#define IPA_IOCTL_ADD_HDR            0
-#define IPA_IOCTL_DEL_HDR            1
-#define IPA_IOCTL_ADD_RT_RULE        2
-#define IPA_IOCTL_DEL_RT_RULE        3
-#define IPA_IOCTL_ADD_FLT_RULE       4
-#define IPA_IOCTL_DEL_FLT_RULE       5
-#define IPA_IOCTL_COMMIT_HDR         6
-#define IPA_IOCTL_RESET_HDR          7
-#define IPA_IOCTL_COMMIT_RT          8
-#define IPA_IOCTL_RESET_RT           9
-#define IPA_IOCTL_COMMIT_FLT        10
-#define IPA_IOCTL_RESET_FLT         11
-#define IPA_IOCTL_DUMP              12
-#define IPA_IOCTL_GET_RT_TBL        13
-#define IPA_IOCTL_PUT_RT_TBL        14
-#define IPA_IOCTL_COPY_HDR          15
-#define IPA_IOCTL_QUERY_INTF        16
-#define IPA_IOCTL_QUERY_INTF_TX_PROPS 17
-#define IPA_IOCTL_QUERY_INTF_RX_PROPS 18
-#define IPA_IOCTL_GET_HDR           19
-#define IPA_IOCTL_PUT_HDR           20
-#define IPA_IOCTL_SET_FLT        21
-#define IPA_IOCTL_ALLOC_NAT_MEM  22
-#define IPA_IOCTL_V4_INIT_NAT    23
-#define IPA_IOCTL_NAT_DMA        24
-#define IPA_IOCTL_V4_DEL_NAT     26
-#define IPA_IOCTL_PULL_MSG       27
-#define IPA_IOCTL_GET_NAT_OFFSET 28
-#define IPA_IOCTL_RM_ADD_DEPENDENCY 29
-#define IPA_IOCTL_RM_DEL_DEPENDENCY 30
-#define IPA_IOCTL_GENERATE_FLT_EQ 31
-#define IPA_IOCTL_QUERY_INTF_EXT_PROPS 32
-#define IPA_IOCTL_QUERY_EP_MAPPING 33
-#define IPA_IOCTL_QUERY_RT_TBL_INDEX 34
-#define IPA_IOCTL_WRITE_QMAPID 35
-#define IPA_IOCTL_MDFY_FLT_RULE 36
-#define IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD	37
-#define IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_DEL	38
-#define IPA_IOCTL_NOTIFY_WAN_EMBMS_CONNECTED	39
-#define IPA_IOCTL_ADD_HDR_PROC_CTX 40
-#define IPA_IOCTL_DEL_HDR_PROC_CTX 41
-#define IPA_IOCTL_MDFY_RT_RULE 42
-#define IPA_IOCTL_ADD_RT_RULE_AFTER 43
-#define IPA_IOCTL_ADD_FLT_RULE_AFTER 44
-#define IPA_IOCTL_GET_HW_VERSION 45
-#define IPA_IOCTL_MAX 46
+#define IPA_IOCTL_ADD_HDR                       0
+#define IPA_IOCTL_DEL_HDR                       1
+#define IPA_IOCTL_ADD_RT_RULE                   2
+#define IPA_IOCTL_DEL_RT_RULE                   3
+#define IPA_IOCTL_ADD_FLT_RULE                  4
+#define IPA_IOCTL_DEL_FLT_RULE                  5
+#define IPA_IOCTL_COMMIT_HDR                    6
+#define IPA_IOCTL_RESET_HDR                     7
+#define IPA_IOCTL_COMMIT_RT                     8
+#define IPA_IOCTL_RESET_RT                      9
+#define IPA_IOCTL_COMMIT_FLT                    10
+#define IPA_IOCTL_RESET_FLT                     11
+#define IPA_IOCTL_DUMP                          12
+#define IPA_IOCTL_GET_RT_TBL                    13
+#define IPA_IOCTL_PUT_RT_TBL                    14
+#define IPA_IOCTL_COPY_HDR                      15
+#define IPA_IOCTL_QUERY_INTF                    16
+#define IPA_IOCTL_QUERY_INTF_TX_PROPS           17
+#define IPA_IOCTL_QUERY_INTF_RX_PROPS           18
+#define IPA_IOCTL_GET_HDR                       19
+#define IPA_IOCTL_PUT_HDR                       20
+#define IPA_IOCTL_SET_FLT                       21
+#define IPA_IOCTL_ALLOC_NAT_MEM                 22
+#define IPA_IOCTL_V4_INIT_NAT                   23
+#define IPA_IOCTL_TABLE_DMA_CMD                 24
+#define IPA_IOCTL_NAT_DMA                       IPA_IOCTL_TABLE_DMA_CMD
+#define IPA_IOCTL_INIT_IPV6CT_TABLE             25
+#define IPA_IOCTL_V4_DEL_NAT                    26
+#define IPA_IOCTL_PULL_MSG                      27
+#define IPA_IOCTL_GET_NAT_OFFSET                28
+#define IPA_IOCTL_RM_ADD_DEPENDENCY             29
+#define IPA_IOCTL_RM_DEL_DEPENDENCY             30
+#define IPA_IOCTL_GENERATE_FLT_EQ               31
+#define IPA_IOCTL_QUERY_INTF_EXT_PROPS          32
+#define IPA_IOCTL_QUERY_EP_MAPPING              33
+#define IPA_IOCTL_QUERY_RT_TBL_INDEX            34
+#define IPA_IOCTL_WRITE_QMAPID                  35
+#define IPA_IOCTL_MDFY_FLT_RULE                 36
+#define IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD 37
+#define IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_DEL 38
+#define IPA_IOCTL_NOTIFY_WAN_EMBMS_CONNECTED    39
+#define IPA_IOCTL_ADD_HDR_PROC_CTX              40
+#define IPA_IOCTL_DEL_HDR_PROC_CTX              41
+#define IPA_IOCTL_MDFY_RT_RULE                  42
+#define IPA_IOCTL_ADD_RT_RULE_AFTER             43
+#define IPA_IOCTL_ADD_FLT_RULE_AFTER            44
+#define IPA_IOCTL_GET_HW_VERSION                45
+#define IPA_IOCTL_ADD_RT_RULE_EXT               46
+#define IPA_IOCTL_ADD_VLAN_IFACE                47
+#define IPA_IOCTL_DEL_VLAN_IFACE                48
+#define IPA_IOCTL_ADD_L2TP_VLAN_MAPPING         49
+#define IPA_IOCTL_DEL_L2TP_VLAN_MAPPING         50
+#define IPA_IOCTL_NAT_MODIFY_PDN                51
+#define IPA_IOCTL_ALLOC_NAT_TABLE               52
+#define IPA_IOCTL_ALLOC_IPV6CT_TABLE            53
+#define IPA_IOCTL_DEL_NAT_TABLE                 54
+#define IPA_IOCTL_DEL_IPV6CT_TABLE              55
 
 /**
  * max size of the header to be inserted
@@ -101,6 +127,17 @@
 #define IPA_WAN_MSG_IPv6_ADDR_GW_LEN 4
 
 /**
+ * max number of lan clients supported per device type
+ * for LAN stats via HW.
+ */
+#define IPA_MAX_NUM_HW_PATH_CLIENTS 16
+
+/**
+ * max number of destination pipes possible for a client.
+ */
+#define QMI_IPA_MAX_CLIENT_DST_PIPES 4
+
+/**
  * the attributes of the rule (routing or filtering)
  */
 #define IPA_FLT_TOS			(1ul << 0)
@@ -125,93 +162,140 @@
 #define IPA_FLT_MAC_SRC_ADDR_802_3	(1ul << 19)
 #define IPA_FLT_MAC_DST_ADDR_802_3	(1ul << 20)
 #define IPA_FLT_MAC_ETHER_TYPE		(1ul << 21)
+#define IPA_FLT_MAC_DST_ADDR_L2TP	(1ul << 22)
+#define IPA_FLT_TCP_SYN			(1ul << 23)
+#define IPA_FLT_TCP_SYN_L2TP		(1ul << 24)
+#define IPA_FLT_L2TP_INNER_IP_TYPE  (1ul << 25)
+#define IPA_FLT_L2TP_INNER_IPV4_DST_ADDR (1ul << 26)
+
+/**
+ * maximal number of NAT PDNs in the PDN config table
+ */
+#define IPA_MAX_PDN_NUM 5
 
 /**
  * enum ipa_client_type - names for the various IPA "clients"
  * these are from the perspective of the clients, for e.g.
  * HSIC1_PROD means HSIC client is the producer and IPA is the
- * consumer
+ * consumer.
+ * PROD clients are always even, and CONS clients are always odd.
+ * Add new clients in the end of the list and update IPA_CLIENT_MAX
  */
 enum ipa_client_type {
-	IPA_CLIENT_PROD,
-	IPA_CLIENT_HSIC1_PROD = IPA_CLIENT_PROD,
-	IPA_CLIENT_WLAN1_PROD,
-	IPA_CLIENT_HSIC2_PROD,
-	IPA_CLIENT_USB2_PROD,
-	IPA_CLIENT_HSIC3_PROD,
-	IPA_CLIENT_USB3_PROD,
-	IPA_CLIENT_HSIC4_PROD,
-	IPA_CLIENT_USB4_PROD,
-	IPA_CLIENT_HSIC5_PROD,
-	IPA_CLIENT_USB_PROD,
-	IPA_CLIENT_A5_WLAN_AMPDU_PROD,
-	IPA_CLIENT_A2_EMBEDDED_PROD,
-	IPA_CLIENT_A2_TETHERED_PROD,
-	IPA_CLIENT_APPS_LAN_PROD,
-	IPA_CLIENT_APPS_WAN_PROD,
+	IPA_CLIENT_HSIC1_PROD			= 0,
+	IPA_CLIENT_HSIC1_CONS			= 1,
+
+	IPA_CLIENT_HSIC2_PROD			= 2,
+	IPA_CLIENT_HSIC2_CONS			= 3,
+
+	IPA_CLIENT_HSIC3_PROD			= 4,
+	IPA_CLIENT_HSIC3_CONS			= 5,
+
+	IPA_CLIENT_HSIC4_PROD			= 6,
+	IPA_CLIENT_HSIC4_CONS			= 7,
+
+	IPA_CLIENT_HSIC5_PROD			= 8,
+	IPA_CLIENT_HSIC5_CONS			= 9,
+
+	IPA_CLIENT_WLAN1_PROD			= 10,
+	IPA_CLIENT_WLAN1_CONS			= 11,
+
+	IPA_CLIENT_A5_WLAN_AMPDU_PROD		= 12,
+	IPA_CLIENT_WLAN2_CONS			= 13,
+
+	/* RESERVERD PROD			= 14, */
+	IPA_CLIENT_WLAN3_CONS			= 15,
+
+	/* RESERVERD PROD			= 16, */
+	IPA_CLIENT_WLAN4_CONS			= 17,
+
+	IPA_CLIENT_USB_PROD			= 18,
+	IPA_CLIENT_USB_CONS			= 19,
+
+	IPA_CLIENT_USB2_PROD			= 20,
+	IPA_CLIENT_USB2_CONS			= 21,
+
+	IPA_CLIENT_USB3_PROD			= 22,
+	IPA_CLIENT_USB3_CONS			= 23,
+
+	IPA_CLIENT_USB4_PROD			= 24,
+	IPA_CLIENT_USB4_CONS			= 25,
+
+	IPA_CLIENT_UC_USB_PROD			= 26,
+	IPA_CLIENT_USB_DPL_CONS			= 27,
+
+	IPA_CLIENT_A2_EMBEDDED_PROD		= 28,
+	IPA_CLIENT_A2_EMBEDDED_CONS		= 29,
+
+	IPA_CLIENT_A2_TETHERED_PROD		= 30,
+	IPA_CLIENT_A2_TETHERED_CONS		= 31,
+
+	IPA_CLIENT_APPS_LAN_PROD		= 32,
+	IPA_CLIENT_APPS_LAN_CONS		= 33,
+
+	IPA_CLIENT_APPS_WAN_PROD		= 34,
 	IPA_CLIENT_APPS_LAN_WAN_PROD = IPA_CLIENT_APPS_WAN_PROD,
-	IPA_CLIENT_APPS_CMD_PROD,
-	IPA_CLIENT_ODU_PROD,
-	IPA_CLIENT_MHI_PROD,
-	IPA_CLIENT_Q6_LAN_PROD,
-	IPA_CLIENT_Q6_WAN_PROD,
-	IPA_CLIENT_Q6_CMD_PROD,
-	IPA_CLIENT_MEMCPY_DMA_SYNC_PROD,
-	IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD,
-	IPA_CLIENT_Q6_DECOMP_PROD,
-	IPA_CLIENT_Q6_DECOMP2_PROD,
-	IPA_CLIENT_UC_USB_PROD,
-	IPA_CLIENT_ETHERNET_PROD,
+	IPA_CLIENT_APPS_WAN_CONS		= 35,
 
-	/* Below PROD client type is only for test purpose */
-	IPA_CLIENT_TEST_PROD,
-	IPA_CLIENT_TEST1_PROD,
-	IPA_CLIENT_TEST2_PROD,
-	IPA_CLIENT_TEST3_PROD,
-	IPA_CLIENT_TEST4_PROD,
+	IPA_CLIENT_APPS_CMD_PROD		= 36,
+	IPA_CLIENT_A5_LAN_WAN_CONS		= 37,
 
-	IPA_CLIENT_CONS,
-	IPA_CLIENT_HSIC1_CONS = IPA_CLIENT_CONS,
-	IPA_CLIENT_WLAN1_CONS,
-	IPA_CLIENT_HSIC2_CONS,
-	IPA_CLIENT_USB2_CONS,
-	IPA_CLIENT_WLAN2_CONS,
-	IPA_CLIENT_HSIC3_CONS,
-	IPA_CLIENT_USB3_CONS,
-	IPA_CLIENT_WLAN3_CONS,
-	IPA_CLIENT_HSIC4_CONS,
-	IPA_CLIENT_USB4_CONS,
-	IPA_CLIENT_WLAN4_CONS,
-	IPA_CLIENT_HSIC5_CONS,
-	IPA_CLIENT_USB_CONS,
-	IPA_CLIENT_USB_DPL_CONS,
-	IPA_CLIENT_A2_EMBEDDED_CONS,
-	IPA_CLIENT_A2_TETHERED_CONS,
-	IPA_CLIENT_A5_LAN_WAN_CONS,
-	IPA_CLIENT_APPS_LAN_CONS,
-	IPA_CLIENT_APPS_WAN_CONS,
-	IPA_CLIENT_ODU_EMB_CONS,
-	IPA_CLIENT_ODU_TETH_CONS,
-	IPA_CLIENT_MHI_CONS,
-	IPA_CLIENT_Q6_LAN_CONS,
-	IPA_CLIENT_Q6_WAN_CONS,
-	IPA_CLIENT_Q6_DUN_CONS,
-	IPA_CLIENT_MEMCPY_DMA_SYNC_CONS,
-	IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS,
-	IPA_CLIENT_Q6_DECOMP_CONS,
-	IPA_CLIENT_Q6_DECOMP2_CONS,
-	IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS,
-	IPA_CLIENT_ETHERNET_CONS,
+	IPA_CLIENT_ODU_PROD			= 38,
+	IPA_CLIENT_ODU_EMB_CONS			= 39,
 
-	/* Below CONS client type is only for test purpose */
-	IPA_CLIENT_TEST_CONS,
-	IPA_CLIENT_TEST1_CONS,
-	IPA_CLIENT_TEST2_CONS,
-	IPA_CLIENT_TEST3_CONS,
-	IPA_CLIENT_TEST4_CONS,
+	/* RESERVERD PROD			= 40, */
+	IPA_CLIENT_ODU_TETH_CONS		= 41,
 
-	IPA_CLIENT_MAX,
+	IPA_CLIENT_MHI_PROD			= 42,
+	IPA_CLIENT_MHI_CONS			= 43,
+
+	IPA_CLIENT_MEMCPY_DMA_SYNC_PROD		= 44,
+	IPA_CLIENT_MEMCPY_DMA_SYNC_CONS		= 45,
+
+	IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD	= 46,
+	IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS	= 47,
+
+	IPA_CLIENT_ETHERNET_PROD		= 48,
+	IPA_CLIENT_ETHERNET_CONS		= 49,
+
+	IPA_CLIENT_Q6_LAN_PROD			= 50,
+	IPA_CLIENT_Q6_LAN_CONS			= 51,
+
+	IPA_CLIENT_Q6_WAN_PROD			= 52,
+	IPA_CLIENT_Q6_WAN_CONS			= 53,
+
+	IPA_CLIENT_Q6_CMD_PROD			= 54,
+	IPA_CLIENT_Q6_DUN_CONS			= 55,
+
+	IPA_CLIENT_Q6_DECOMP_PROD		= 56,
+	IPA_CLIENT_Q6_DECOMP_CONS		= 57,
+
+	IPA_CLIENT_Q6_DECOMP2_PROD		= 58,
+	IPA_CLIENT_Q6_DECOMP2_CONS		= 59,
+
+	/* RESERVERD PROD			= 60, */
+	IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS	= 61,
+
+	IPA_CLIENT_TEST_PROD			= 62,
+	IPA_CLIENT_TEST_CONS			= 63,
+
+	IPA_CLIENT_TEST1_PROD			= 64,
+	IPA_CLIENT_TEST1_CONS			= 65,
+
+	IPA_CLIENT_TEST2_PROD			= 66,
+	IPA_CLIENT_TEST2_CONS			= 67,
+
+	IPA_CLIENT_TEST3_PROD			= 68,
+	IPA_CLIENT_TEST3_CONS			= 69,
+
+	IPA_CLIENT_TEST4_PROD			= 70,
+	IPA_CLIENT_TEST4_CONS			= 71,
+
+	/* RESERVERD PROD				= 72, */
+	IPA_CLIENT_DUMMY_CONS			= 73
 };
+
+#define IPA_CLIENT_MAX (IPA_CLIENT_DUMMY_CONS + 1)
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -317,8 +401,8 @@ enum ipa_ip_type {
 enum ipa_rule_type {
 	IPA_RULE_HASHABLE,
 	IPA_RULE_NON_HASHABLE,
-	IPA_RULE_TYPE_MAX
 };
+#define IPA_RULE_TYPE_MAX (IPA_RULE_NON_HASHABLE + 1)
 
 /**
  * enum ipa_flt_action - action field of filtering rule
@@ -397,43 +481,78 @@ enum ipa_tethering_stats_event {
 	IPA_TETHERING_STATS_UPDATE_STATS = IPA_ECM_EVENT_MAX,
 	IPA_TETHERING_STATS_UPDATE_NETWORK_STATS,
 	IPA_TETHERING_STATS_EVENT_MAX,
-	IPA_EVENT_MAX_NUM = IPA_TETHERING_STATS_EVENT_MAX
 };
 
+
+enum ipa_quota_event {
+	IPA_QUOTA_REACH = IPA_TETHERING_STATS_EVENT_MAX,
+	IPA_QUOTA_EVENT_MAX,
+};
+
+enum ipa_ssr_event {
+	IPA_SSR_BEFORE_SHUTDOWN = IPA_QUOTA_EVENT_MAX,
+	IPA_SSR_AFTER_POWERUP,
+	IPA_SSR_EVENT_MAX
+};
+
+enum ipa_vlan_l2tp_event {
+	ADD_VLAN_IFACE = IPA_SSR_EVENT_MAX,
+	DEL_VLAN_IFACE,
+	ADD_L2TP_VLAN_MAPPING,
+	DEL_L2TP_VLAN_MAPPING,
+	IPA_VLAN_L2TP_EVENT_MAX,
+};
+
+enum ipa_per_client_stats_event {
+	IPA_PER_CLIENT_STATS_CONNECT_EVENT = IPA_VLAN_L2TP_EVENT_MAX,
+	IPA_PER_CLIENT_STATS_DISCONNECT_EVENT,
+	IPA_PER_CLIENT_STATS_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_PER_CLIENT_STATS_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
  * enum ipa_rm_resource_name - IPA RM clients identification names
  *
- * Add new mapping to ipa_rm_prod_index() / ipa_rm_cons_index()
- * when adding new entry to this enum.
+ * PROD resources are always even, and CONS resources are always odd.
+ * Add new clients in the end of the list and update IPA_RM_RESOURCE_MAX
  */
 enum ipa_rm_resource_name {
-	IPA_RM_RESOURCE_PROD = 0,
-	IPA_RM_RESOURCE_Q6_PROD = IPA_RM_RESOURCE_PROD,
-	IPA_RM_RESOURCE_USB_PROD,
-	IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
-	IPA_RM_RESOURCE_HSIC_PROD,
-	IPA_RM_RESOURCE_STD_ECM_PROD,
-	IPA_RM_RESOURCE_RNDIS_PROD,
-	IPA_RM_RESOURCE_WWAN_0_PROD,
-	IPA_RM_RESOURCE_WLAN_PROD,
-	IPA_RM_RESOURCE_ODU_ADAPT_PROD,
-	IPA_RM_RESOURCE_MHI_PROD,
-	IPA_RM_RESOURCE_ETHERNET_PROD,
-	IPA_RM_RESOURCE_PROD_MAX,
+	IPA_RM_RESOURCE_Q6_PROD				= 0,
+	IPA_RM_RESOURCE_Q6_CONS				= 1,
 
-	IPA_RM_RESOURCE_Q6_CONS = IPA_RM_RESOURCE_PROD_MAX,
-	IPA_RM_RESOURCE_USB_CONS,
-	IPA_RM_RESOURCE_USB_DPL_CONS,
-	IPA_RM_RESOURCE_HSIC_CONS,
-	IPA_RM_RESOURCE_WLAN_CONS,
-	IPA_RM_RESOURCE_APPS_CONS,
-	IPA_RM_RESOURCE_ODU_ADAPT_CONS,
-	IPA_RM_RESOURCE_MHI_CONS,
-	IPA_RM_RESOURCE_ETHERNET_CONS,
-	IPA_RM_RESOURCE_MAX
+	IPA_RM_RESOURCE_USB_PROD			= 2,
+	IPA_RM_RESOURCE_USB_CONS			= 3,
+
+	IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD		= 4,
+	IPA_RM_RESOURCE_USB_DPL_CONS			= 5,
+
+	IPA_RM_RESOURCE_HSIC_PROD			= 6,
+	IPA_RM_RESOURCE_HSIC_CONS			= 7,
+
+	IPA_RM_RESOURCE_STD_ECM_PROD			= 8,
+	IPA_RM_RESOURCE_APPS_CONS			= 9,
+
+	IPA_RM_RESOURCE_RNDIS_PROD			= 10,
+	/* RESERVED CONS				= 11, */
+
+	IPA_RM_RESOURCE_WWAN_0_PROD			= 12,
+	/* RESERVED CONS				= 13, */
+
+	IPA_RM_RESOURCE_WLAN_PROD			= 14,
+	IPA_RM_RESOURCE_WLAN_CONS			= 15,
+
+	IPA_RM_RESOURCE_ODU_ADAPT_PROD			= 16,
+	IPA_RM_RESOURCE_ODU_ADAPT_CONS			= 17,
+
+	IPA_RM_RESOURCE_MHI_PROD			= 18,
+	IPA_RM_RESOURCE_MHI_CONS			= 19,
+
+	IPA_RM_RESOURCE_ETHERNET_PROD			= 20,
+	IPA_RM_RESOURCE_ETHERNET_CONS			= 21,
 };
+#define IPA_RM_RESOURCE_MAX (IPA_RM_RESOURCE_ETHERNET_CONS + 1)
 
 /**
  * enum ipa_hw_type - IPA hardware version type
@@ -449,6 +568,7 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v3_1: IPA hardware version 3.1
  * @IPA_HW_v3_5: IPA hardware version 3.5
  * @IPA_HW_v3_5_1: IPA hardware version 3.5.1
+ * @IPA_HW_v4_0: IPA hardware version 4.0
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -463,8 +583,11 @@ enum ipa_hw_type {
 	IPA_HW_v3_1 = 11,
 	IPA_HW_v3_5 = 12,
 	IPA_HW_v3_5_1 = 13,
-	IPA_HW_MAX
+	IPA_HW_v4_0 = 14,
 };
+#define IPA_HW_MAX (IPA_HW_v4_0 + 1)
+
+#define IPA_HW_v4_0 IPA_HW_v4_0
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
@@ -671,6 +794,11 @@ struct ipa_ipfltri_rule_eq {
  *  consecutive packets
  * @rule_id: rule_id to be assigned to the filter rule. In case client specifies
  *  rule_id as 0 the driver will assign a new rule_id
+ * @set_metadata: bool switch. should metadata replacement at the NAT block
+ *  take place?
+ * @pdn_idx: if action is "pass to source\destination NAT" then a comparison
+ * against the PDN index in the matching PDN entry will take place as an
+ * additional condition for NAT hit.
  */
 struct ipa_flt_rule {
 	uint8_t retain_hdr;
@@ -684,6 +812,8 @@ struct ipa_flt_rule {
 	uint8_t max_prio;
 	uint8_t hashable;
 	uint16_t rule_id;
+	uint8_t set_metadata;
+	uint8_t pdn_idx;
 };
 
 /**
@@ -691,13 +821,17 @@ struct ipa_flt_rule {
  * IPA_HDR_L2_NONE: L2 header which isn't Ethernet II and isn't 802_3
  * IPA_HDR_L2_ETHERNET_II: L2 header of type Ethernet II
  * IPA_HDR_L2_802_3: L2 header of type 802_3
+ * IPA_HDR_L2_802_1Q: L2 header of type 802_1Q
  */
 enum ipa_hdr_l2_type {
 	IPA_HDR_L2_NONE,
 	IPA_HDR_L2_ETHERNET_II,
 	IPA_HDR_L2_802_3,
-	IPA_HDR_L2_MAX,
+	IPA_HDR_L2_802_1Q,
 };
+#define IPA_HDR_L2_MAX (IPA_HDR_L2_802_1Q + 1)
+
+#define IPA_HDR_L2_802_1Q IPA_HDR_L2_802_1Q
 
 /**
  * enum ipa_hdr_l2_type - Processing context type
@@ -713,8 +847,10 @@ enum ipa_hdr_proc_type {
 	IPA_HDR_PROC_ETHII_TO_802_3,
 	IPA_HDR_PROC_802_3_TO_ETHII,
 	IPA_HDR_PROC_802_3_TO_802_3,
-	IPA_HDR_PROC_MAX,
+	IPA_HDR_PROC_L2TP_HEADER_ADD,
+	IPA_HDR_PROC_L2TP_HEADER_REMOVE
 };
+#define IPA_HDR_PROC_MAX (IPA_HDR_PROC_L2TP_HEADER_REMOVE + 1)
 
 /**
  * struct ipa_rt_rule - attributes of a routing rule
@@ -785,10 +921,60 @@ struct ipa_ioc_add_hdr {
 };
 
 /**
+ * struct ipa_l2tp_header_add_procparams -
+ * @eth_hdr_retained: Specifies if Ethernet header is retained or not
+ * @input_ip_version: Specifies if Input header is IPV4(0) or IPV6(1)
+ * @output_ip_version: Specifies if template header is IPV4(0) or IPV6(1)
+ */
+struct ipa_l2tp_header_add_procparams {
+	uint32_t eth_hdr_retained:1;
+	uint32_t input_ip_version:1;
+	uint32_t output_ip_version:1;
+	uint32_t reserved:29;
+};
+
+/**
+ * struct ipa_l2tp_header_remove_procparams -
+ * @hdr_len_remove: Specifies how much of the header needs to
+		be removed in bytes
+ * @eth_hdr_retained: Specifies if Ethernet header is retained or not
+ * @hdr_ofst_pkt_size_valid: Specifies if the Header offset is valid
+ * @hdr_ofst_pkt_size: If hdr_ofst_pkt_size_valid =1, this indicates where the
+		packet size field (2bytes) resides
+ * @hdr_endianness: 0:little endian, 1:big endian
+ */
+struct ipa_l2tp_header_remove_procparams {
+	uint32_t hdr_len_remove:8;
+	uint32_t eth_hdr_retained:1;
+	/* Following fields are valid if eth_hdr_retained =1 ( bridge mode) */
+	uint32_t hdr_ofst_pkt_size_valid:1;
+	uint32_t hdr_ofst_pkt_size:6;
+	uint32_t hdr_endianness:1;
+	uint32_t reserved:15;
+};
+
+/**
+ * struct ipa_l2tp_hdr_proc_ctx_params -
+ * @hdr_add_param: parameters for header add
+ * @hdr_remove_param: parameters for header remove
+ * @is_dst_pipe_valid: if dst pipe is valid
+ * @dst_pipe: destination pipe
+ */
+struct ipa_l2tp_hdr_proc_ctx_params {
+	struct ipa_l2tp_header_add_procparams hdr_add_param;
+	struct ipa_l2tp_header_remove_procparams hdr_remove_param;
+	uint8_t is_dst_pipe_valid;
+	enum ipa_client_type dst_pipe;
+};
+
+#define L2TP_USER_SPACE_SPECIFY_DST_PIPE
+
+/**
  * struct ipa_hdr_proc_ctx_add - processing context descriptor includes
  * in and out parameters
  * @type: processing context type
  * @hdr_hdl: in parameter, handle to header
+ * @l2tp_params: l2tp parameters
  * @proc_ctx_hdl: out parameter, handle to proc_ctx, valid when status is 0
  * @status:	out parameter, status of header add operation,
  *		0 for success,
@@ -799,7 +985,10 @@ struct ipa_hdr_proc_ctx_add {
 	uint32_t hdr_hdl;
 	uint32_t proc_ctx_hdl;
 	int status;
+	struct ipa_l2tp_hdr_proc_ctx_params l2tp_params;
 };
+
+#define IPA_L2TP_HDR_PROC_SUPPORT
 
 /**
  * struct ipa_ioc_add_hdr - processing context addition parameters (support
@@ -1008,6 +1197,48 @@ struct ipa_rt_rule_del {
 	uint32_t hdl;
 	int status;
 };
+
+/**
+ * struct ipa_rt_rule_add_ext - routing rule descriptor includes in
+ * and out parameters
+ * @rule: actual rule to be added
+ * @at_rear:	add at back of routing table, it is NOT possible to add rules at
+ *		the rear of the "default" routing tables
+ * @rt_rule_hdl: output parameter, handle to rule, valid when status is 0
+ * @status:	output parameter, status of routing rule add operation,
+ * @rule_id: rule_id to be assigned to the routing rule. In case client
+ *  specifies rule_id as 0 the driver will assign a new rule_id
+ *		0 for success,
+ *		-1 for failure
+ */
+struct ipa_rt_rule_add_ext {
+	struct ipa_rt_rule rule;
+	uint8_t at_rear;
+	uint32_t rt_rule_hdl;
+	int status;
+	uint16_t rule_id;
+};
+
+/**
+ * struct ipa_ioc_add_rt_rule - routing rule addition parameters (supports
+ * multiple rules and commit with rule_id);
+ *
+ * all rules MUST be added to same table
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @rt_tbl_name: name of routing table resource
+ * @num_rules: number of routing rules that follow
+ * @ipa_rt_rule_add_ext rules: all rules need to go back to back here,
+ *  no pointers
+ */
+struct ipa_ioc_add_rt_rule_ext {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	char rt_tbl_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t num_rules;
+	struct ipa_rt_rule_add_ext rules[0];
+};
+
 
 /**
  * struct ipa_ioc_del_rt_rule - routing rule deletion parameters (supports
@@ -1297,15 +1528,26 @@ struct ipa_ioc_nat_alloc_mem {
 };
 
 /**
- * struct ipa_ioc_v4_nat_init - nat table initialization
- * parameters
+ * struct ipa_ioc_nat_ipv6ct_table_alloc - NAT/IPv6CT table memory allocation
+ * properties
+ * @size: input parameter, size of table in bytes
+ * @offset: output parameter, offset into page in case of system memory
+ */
+struct ipa_ioc_nat_ipv6ct_table_alloc {
+	size_t size;
+	off_t offset;
+};
+
+/**
+ * struct ipa_ioc_v4_nat_init - nat table initialization parameters
  * @tbl_index: input parameter, index of the table
  * @ipv4_rules_offset: input parameter, ipv4 rules address offset
  * @expn_rules_offset: input parameter, ipv4 expansion rules address offset
  * @index_offset: input parameter, index rules offset
  * @index_expn_offset: input parameter, index expansion rules offset
- * @table_entries: input parameter, ipv4 rules table size in entries
- * @expn_table_entries: input parameter, ipv4 expansion rules table size
+ * @table_entries: input parameter, ipv4 rules table number of entries
+ * @expn_table_entries: input parameter, ipv4 expansion rules table number of
+ *                      entries
  * @ip_addr: input parameter, public ip address
  */
 struct ipa_ioc_v4_nat_init {
@@ -1322,6 +1564,23 @@ struct ipa_ioc_v4_nat_init {
 };
 
 /**
+ * struct ipa_ioc_ipv6ct_init - IPv6CT table initialization parameters
+ * @base_table_offset: input parameter, IPv6CT base table address offset
+ * @expn_table_offset: input parameter, IPv6CT expansion table address offset
+ * @table_entries: input parameter, IPv6CT table number of entries
+ * @expn_table_entries: input parameter, IPv6CT expansion table number of
+ *                      entries
+ * @tbl_index: input parameter, index of the table
+ */
+struct ipa_ioc_ipv6ct_init {
+	uint32_t base_table_offset;
+	uint32_t expn_table_offset;
+	uint16_t table_entries;
+	uint16_t expn_table_entries;
+	uint8_t tbl_index;
+};
+
+/**
  * struct ipa_ioc_v4_nat_del - nat table delete parameter
  * @table_index: input parameter, index of the table
  * @public_ip_addr: input parameter, public ip address
@@ -1332,7 +1591,15 @@ struct ipa_ioc_v4_nat_del {
 };
 
 /**
- * struct ipa_ioc_nat_dma_one - nat dma command parameter
+ * struct ipa_ioc_nat_ipv6ct_table_del - NAT/IPv6CT table delete parameter
+ * @table_index: input parameter, index of the table
+ */
+struct ipa_ioc_nat_ipv6ct_table_del {
+	uint8_t table_index;
+};
+
+/**
+ * struct ipa_ioc_nat_dma_one - nat/ipv6ct dma command parameter
  * @table_index: input parameter, index of the table
  * @base_addr:	type of table, from which the base address of the table
  *		can be inferred
@@ -1349,7 +1616,7 @@ struct ipa_ioc_nat_dma_one {
 };
 
 /**
- * struct ipa_ioc_nat_dma_cmd - To hold multiple nat dma commands
+ * struct ipa_ioc_nat_dma_cmd - To hold multiple nat/ipv6ct dma commands
  * @entries: number of dma commands in use
  * @dma: data pointer to the dma commands
  */
@@ -1357,6 +1624,44 @@ struct ipa_ioc_nat_dma_cmd {
 	uint8_t entries;
 	struct ipa_ioc_nat_dma_one dma[0];
 
+};
+
+/**
+ * struct ipa_ioc_nat_pdn_entry - PDN entry modification data
+ * @pdn_index: index of the entry in the PDN config table to be changed
+ * @public_ip: PDN's public ip
+ * @src_metadata: PDN's source NAT metadata for metadata replacement
+ * @dst_metadata: PDN's destination NAT metadata for metadata replacement
+ */
+struct ipa_ioc_nat_pdn_entry {
+	uint8_t pdn_index;
+	uint32_t public_ip;
+	uint32_t src_metadata;
+	uint32_t dst_metadata;
+};
+
+/**
+ * struct ipa_ioc_vlan_iface_info - add vlan interface
+ * @name: interface name
+ * @vlan_id: VLAN ID
+ */
+struct ipa_ioc_vlan_iface_info {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint8_t vlan_id;
+};
+
+/**
+ * struct ipa_ioc_l2tp_vlan_mapping_info - l2tp->vlan mapping info
+ * @iptype: l2tp tunnel IP type
+ * @l2tp_iface_name: l2tp interface name
+ * @l2tp_session_id: l2tp session id
+ * @vlan_iface_name: vlan interface name
+ */
+struct ipa_ioc_l2tp_vlan_mapping_info {
+	enum ipa_ip_type iptype;
+	char l2tp_iface_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t l2tp_session_id;
+	char vlan_iface_name[IPA_RESOURCE_NAME_MAX];
 };
 
 /**
@@ -1494,6 +1799,52 @@ enum ipacm_client_enum {
 	IPACM_CLIENT_WLAN,
 	IPACM_CLIENT_MAX
 };
+
+enum ipacm_per_client_device_type {
+	IPACM_CLIENT_DEVICE_TYPE_USB = 0,
+	IPACM_CLIENT_DEVICE_TYPE_WLAN = 1,
+	IPACM_CLIENT_DEVICE_TYPE_ETH = 2
+};
+
+/**
+ * max number of device types supported.
+ */
+#define IPACM_MAX_CLIENT_DEVICE_TYPES 3
+
+/**
+ * @lanIface - Name of the lan interface
+ * @mac: Mac address of the client.
+ */
+struct ipa_lan_client_msg {
+	char lanIface[IPA_RESOURCE_NAME_MAX];
+	uint8_t mac[IPA_MAC_ADDR_SIZE];
+};
+
+/**
+ * struct ipa_lan_client - lan client data
+ * @mac: MAC Address of the client.
+ * @client_idx: Client Index.
+ * @inited: Bool to indicate whether client info is set.
+ */
+struct ipa_lan_client {
+	uint8_t mac[IPA_MAC_ADDR_SIZE];
+	int8_t client_idx;
+	uint8_t inited;
+};
+
+/**
+ * struct ipa_tether_device_info - tether device info indicated from IPACM
+ * @ul_src_pipe: Source pipe of the lan client.
+ * @hdr_len: Header length of the client.
+ * @num_clients: Number of clients connected.
+ */
+struct ipa_tether_device_info {
+	int32_t ul_src_pipe;
+	uint8_t hdr_len;
+	uint32_t num_clients;
+	struct ipa_lan_client lan_client[IPA_MAX_NUM_HW_PATH_CLIENTS];
+};
+
 /**
  *   actual IOCTLs supported by IPA driver
  */
@@ -1506,6 +1857,9 @@ enum ipacm_client_enum {
 #define IPA_IOC_ADD_RT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_RT_RULE, \
 					struct ipa_ioc_add_rt_rule *)
+#define IPA_IOC_ADD_RT_RULE_EXT _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_RT_RULE_EXT, \
+					struct ipa_ioc_add_rt_rule_ext *)
 #define IPA_IOC_ADD_RT_RULE_AFTER _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_RT_RULE_AFTER, \
 					struct ipa_ioc_add_rt_rule_after *)
@@ -1569,18 +1923,39 @@ enum ipacm_client_enum {
 #define IPA_IOC_ALLOC_NAT_MEM _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_ALLOC_NAT_MEM, \
 				struct ipa_ioc_nat_alloc_mem *)
+#define IPA_IOC_ALLOC_NAT_TABLE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ALLOC_NAT_TABLE, \
+				struct ipa_ioc_nat_ipv6ct_table_alloc *)
+#define IPA_IOC_ALLOC_IPV6CT_TABLE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ALLOC_IPV6CT_TABLE, \
+				struct ipa_ioc_nat_ipv6ct_table_alloc *)
 #define IPA_IOC_V4_INIT_NAT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_V4_INIT_NAT, \
 				struct ipa_ioc_v4_nat_init *)
+#define IPA_IOC_INIT_IPV6CT_TABLE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_INIT_IPV6CT_TABLE, \
+				struct ipa_ioc_ipv6ct_init *)
 #define IPA_IOC_NAT_DMA _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_NAT_DMA, \
+				struct ipa_ioc_nat_dma_cmd *)
+#define IPA_IOC_TABLE_DMA_CMD _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_TABLE_DMA_CMD, \
 				struct ipa_ioc_nat_dma_cmd *)
 #define IPA_IOC_V4_DEL_NAT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_V4_DEL_NAT, \
 				struct ipa_ioc_v4_nat_del *)
+#define IPA_IOC_DEL_NAT_TABLE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_NAT_TABLE, \
+				struct ipa_ioc_nat_ipv6ct_table_del *)
+#define IPA_IOC_DEL_IPV6CT_TABLE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_IPV6CT_TABLE, \
+				struct ipa_ioc_nat_ipv6ct_table_del *)
 #define IPA_IOC_GET_NAT_OFFSET _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GET_NAT_OFFSET, \
 				uint32_t *)
+#define IPA_IOC_NAT_MODIFY_PDN _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NAT_MODIFY_PDN, \
+				struct ipa_ioc_nat_pdn_entry *)
 #define IPA_IOC_SET_FLT _IOW(IPA_IOC_MAGIC, \
 			IPA_IOCTL_SET_FLT, \
 			uint32_t)
@@ -1633,6 +2008,21 @@ enum ipacm_client_enum {
 				IPA_IOCTL_GET_HW_VERSION, \
 				enum ipa_hw_type *)
 
+#define IPA_IOC_ADD_VLAN_IFACE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_VLAN_IFACE, \
+				struct ipa_ioc_vlan_iface_info *)
+
+#define IPA_IOC_DEL_VLAN_IFACE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_VLAN_IFACE, \
+				struct ipa_ioc_vlan_iface_info *)
+
+#define IPA_IOC_ADD_L2TP_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_L2TP_VLAN_MAPPING, \
+				struct ipa_ioc_l2tp_vlan_mapping_info *)
+
+#define IPA_IOC_DEL_L2TP_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_L2TP_VLAN_MAPPING, \
+				struct ipa_ioc_l2tp_vlan_mapping_info *)
 /*
  * unique magic number of the Tethering bridge ioctls
  */

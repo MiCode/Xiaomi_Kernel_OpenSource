@@ -23,6 +23,56 @@
 
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
+#define MSM_BO_KEEPATTRS     0x20000000     /* keep h/w bus attributes */
+
+struct msm_gem_object;
+
+struct msm_gem_aspace_ops {
+	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
+		struct sg_table *sgt, void *priv, unsigned int flags);
+
+	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
+		struct sg_table *sgt, void *priv);
+
+	void (*destroy)(struct msm_gem_address_space *);
+	void (*add_to_active)(struct msm_gem_address_space *,
+		struct msm_gem_object *);
+	void (*remove_from_active)(struct msm_gem_address_space *,
+		struct msm_gem_object *);
+	int (*register_cb)(struct msm_gem_address_space *,
+			void (*cb)(void *, bool),
+			void *);
+	int (*unregister_cb)(struct msm_gem_address_space *,
+			void (*cb)(void *, bool),
+			void *);
+};
+
+struct aspace_client {
+	void (*cb)(void *, bool);
+	void *cb_data;
+	struct list_head list;
+};
+
+
+struct msm_gem_address_space {
+	const char *name;
+	struct msm_mmu *mmu;
+	const struct msm_gem_aspace_ops *ops;
+	bool domain_attached;
+	struct drm_device *dev;
+	/* list of mapped objects */
+	struct list_head active_list;
+	/* list of clients */
+	struct list_head clients;
+};
+
+struct msm_gem_vma {
+	/* Node used by the GPU address space, but not the SDE address space */
+	struct drm_mm_node node;
+	struct msm_gem_address_space *aspace;
+	uint64_t iova;
+	struct list_head list;
+};
 
 struct msm_gem_object {
 	struct drm_gem_object base;
@@ -61,9 +111,7 @@ struct msm_gem_object {
 	struct sg_table *sgt;
 	void *vaddr;
 
-	struct {
-		dma_addr_t iova;
-	} domain[NUM_DOMAINS];
+	struct list_head domains;
 
 	/* normally (resv == &_resv) except for imported bo's */
 	struct reservation_object *resv;
@@ -73,6 +121,9 @@ struct msm_gem_object {
 	 * an IOMMU.  Also used for stolen/splashscreen buffer.
 	 */
 	struct drm_mm_node *vram_node;
+	struct list_head iova_list;
+
+	struct msm_gem_address_space *aspace;
 };
 #define to_msm_bo(x) container_of(x, struct msm_gem_object, base)
 

@@ -6,6 +6,7 @@ extern int	     sysctl_hung_task_check_count;
 extern unsigned int  sysctl_hung_task_panic;
 extern unsigned long sysctl_hung_task_timeout_secs;
 extern int sysctl_hung_task_warnings;
+extern int sysctl_hung_task_selective_monitoring;
 extern int proc_dohung_task_timeout_secs(struct ctl_table *table, int write,
 					 void __user *buffer,
 					 size_t *lenp, loff_t *ppos);
@@ -22,52 +23,24 @@ extern unsigned int sysctl_sched_is_big_little;
 extern unsigned int sysctl_sched_sync_hint_enable;
 extern unsigned int sysctl_sched_initial_task_util;
 extern unsigned int sysctl_sched_cstate_aware;
-#ifdef CONFIG_SCHED_WALT
-extern unsigned int sysctl_sched_use_walt_cpu_util;
-extern unsigned int sysctl_sched_use_walt_task_util;
-extern unsigned int sysctl_sched_init_task_load_pct;
-#endif
+extern unsigned int sysctl_sched_capacity_margin;
+extern unsigned int sysctl_sched_capacity_margin_down;
 
 #ifdef CONFIG_SCHED_WALT
+extern unsigned int sysctl_sched_init_task_load_pct;
 extern unsigned int sysctl_sched_cpu_high_irqload;
 extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int sysctl_sched_use_walt_task_util;
 extern unsigned int sysctl_sched_boost;
-#endif
-
-#ifdef CONFIG_SCHED_HMP
-
-enum freq_reporting_policy {
-	FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK,
-	FREQ_REPORT_CPU_LOAD,
-	FREQ_REPORT_TOP_TASK,
-	FREQ_REPORT_INVALID_POLICY
-};
-
-extern int sysctl_sched_freq_inc_notify;
-extern int sysctl_sched_freq_dec_notify;
-extern unsigned int sysctl_sched_freq_reporting_policy;
-extern unsigned int sysctl_sched_window_stats_policy;
-extern unsigned int sysctl_sched_ravg_hist_size;
-extern unsigned int sysctl_sched_spill_nr_run;
-extern unsigned int sysctl_sched_spill_load_pct;
-extern unsigned int sysctl_sched_upmigrate_pct;
-extern unsigned int sysctl_sched_downmigrate_pct;
 extern unsigned int sysctl_sched_group_upmigrate_pct;
 extern unsigned int sysctl_sched_group_downmigrate_pct;
-extern unsigned int sysctl_early_detection_duration;
-extern unsigned int sysctl_sched_small_wakee_task_load_pct;
-extern unsigned int sysctl_sched_big_waker_task_load_pct;
-extern unsigned int sysctl_sched_select_prev_cpu_us;
-extern unsigned int sysctl_sched_restrict_cluster_spill;
-extern unsigned int sysctl_sched_pred_alert_freq;
-extern unsigned int sysctl_sched_freq_aggregate;
-extern unsigned int sysctl_sched_enable_thread_grouping;
-extern unsigned int sysctl_sched_freq_aggregate_threshold_pct;
-extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
-extern unsigned int sysctl_sched_short_burst;
-extern unsigned int sysctl_sched_short_sleep;
-#endif /* CONFIG_SCHED_HMP */
+
+extern int
+walt_proc_update_handler(struct ctl_table *table, int write,
+			 void __user *buffer, size_t *lenp,
+			 loff_t *ppos);
+
+#endif /* CONFIG_SCHED_WALT */
 
 enum sched_tunable_scaling {
 	SCHED_TUNABLESCALING_NONE,
@@ -94,9 +67,6 @@ int sched_proc_update_handler(struct ctl_table *table, int write,
 #endif
 
 extern int sched_migrate_notify_proc_handler(struct ctl_table *table,
-		int write, void __user *buffer, size_t *lenp, loff_t *ppos);
-
-extern int sched_hmp_proc_update_handler(struct ctl_table *table,
 		int write, void __user *buffer, size_t *lenp, loff_t *ppos);
 
 extern int sched_boost_handler(struct ctl_table *table, int write,
@@ -147,6 +117,10 @@ extern int sched_rr_handler(struct ctl_table *table, int write,
 extern int sched_rt_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
 		loff_t *ppos);
+
+extern int sched_updown_migrate_handler(struct ctl_table *table,
+					int write, void __user *buffer,
+					size_t *lenp, loff_t *ppos);
 
 extern int sysctl_numa_balancing(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp,

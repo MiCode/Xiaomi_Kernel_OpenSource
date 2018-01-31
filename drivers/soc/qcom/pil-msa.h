@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,13 +17,12 @@
 
 #include "peripheral-loader.h"
 
-#define VDD_MSS_UV	1000000
-
 struct modem_data {
 	struct q6v5_data *q6;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	void *ramdump_dev;
+	void *minidump_dev;
 	bool crash_shutdown;
 	u32 pas_id;
 	bool ignore_errors;
@@ -46,4 +45,7 @@ void pil_mss_remove_proxy_votes(struct pil_desc *pil);
 int pil_mss_shutdown(struct pil_desc *pil);
 int pil_mss_deinit_image(struct pil_desc *pil);
 int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path);
+int pil_mss_assert_resets(struct q6v5_data *drv);
+int pil_mss_deassert_resets(struct q6v5_data *drv);
+int pil_mss_debug_reset(struct pil_desc *pil);
 #endif

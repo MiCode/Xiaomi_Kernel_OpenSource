@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-REQ-MGR %s:%d " fmt, __func__, __LINE__
-
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
@@ -20,11 +18,13 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/cam_req_mgr.h>
+#include <media/cam_defs.h>
 #include "cam_req_mgr_dev.h"
 #include "cam_req_mgr_util.h"
 #include "cam_req_mgr_core.h"
 #include "cam_subdev.h"
 #include "cam_mem_mgr.h"
+#include "cam_debug_util.h"
 
 #define CAM_REQ_MGR_EVENT_MAX 30
 
@@ -107,7 +107,7 @@ static int cam_req_mgr_open(struct file *filep)
 
 	rc = v4l2_fh_open(filep);
 	if (rc) {
-		pr_err("v4l2_fh_open failed: %d\n", rc);
+		CAM_ERR(CAM_CRM, "v4l2_fh_open failed: %d", rc);
 		goto end;
 	}
 
@@ -119,7 +119,7 @@ static int cam_req_mgr_open(struct file *filep)
 	rc = cam_mem_mgr_init();
 	if (rc) {
 		g_dev.open_cnt--;
-		pr_err("mem mgr init failed\n");
+		CAM_ERR(CAM_CRM, "mem mgr init failed");
 		goto mem_mgr_init_fail;
 	}
 
@@ -158,6 +158,7 @@ static int cam_req_mgr_close(struct file *filep)
 		return -EINVAL;
 	}
 
+	cam_req_mgr_handle_core_shutdown();
 	g_dev.open_cnt--;
 	v4l2_fh_release(filep);
 
@@ -315,18 +316,18 @@ static long cam_private_ioctl(struct file *file, void *fh,
 		break;
 
 	case CAM_REQ_MGR_SYNC_MODE: {
-		struct cam_req_mgr_sync_mode sync_mode;
+		struct cam_req_mgr_sync_mode sync_info;
 
-		if (k_ioctl->size != sizeof(sync_mode))
+		if (k_ioctl->size != sizeof(sync_info))
 			return -EINVAL;
 
-		if (copy_from_user(&sync_mode,
+		if (copy_from_user(&sync_info,
 			(void *)k_ioctl->handle,
 			k_ioctl->size)) {
 			return -EFAULT;
 		}
 
-		rc = cam_req_mgr_sync_mode(&sync_mode);
+		rc = cam_req_mgr_sync_config(&sync_info);
 		}
 		break;
 	case CAM_REQ_MGR_ALLOC_BUF: {
@@ -407,6 +408,24 @@ static long cam_private_ioctl(struct file *file, void *fh,
 			rc = -EINVAL;
 		}
 		break;
+	case CAM_REQ_MGR_LINK_CONTROL: {
+		struct cam_req_mgr_link_control cmd;
+
+		if (k_ioctl->size != sizeof(cmd))
+			return -EINVAL;
+
+		if (copy_from_user(&cmd,
+			(void __user *)k_ioctl->handle,
+			k_ioctl->size)) {
+			rc = -EFAULT;
+			break;
+		}
+
+		rc = cam_req_mgr_link_control(&cmd);
+		if (rc)
+			rc = -EINVAL;
+		}
+		break;
 	default:
 		return -ENOIOCTLCMD;
 	}
@@ -461,6 +480,27 @@ video_fail:
 	return rc;
 }
 
+int cam_req_mgr_notify_message(struct cam_req_mgr_message *msg,
+	uint32_t id,
+	uint32_t type)
+{
+	struct v4l2_event event;
+	struct cam_req_mgr_message *ev_header;
+
+	if (!msg)
+		return -EINVAL;
+
+	event.id = id;
+	event.type = type;
+	ev_header = CAM_REQ_MGR_GET_PAYLOAD_PTR(event,
+		struct cam_req_mgr_message);
+	memcpy(ev_header, msg, sizeof(struct cam_req_mgr_message));
+	v4l2_event_queue(g_dev.video, &event);
+
+	return 0;
+}
+EXPORT_SYMBOL(cam_req_mgr_notify_message);
+
 void cam_video_device_cleanup(void)
 {
 	video_unregister_device(g_dev.video);
@@ -468,25 +508,32 @@ void cam_video_device_cleanup(void)
 	g_dev.video = NULL;
 }
 
+void cam_register_subdev_fops(struct v4l2_file_operations *fops)
+{
+	*fops = v4l2_subdev_fops;
+}
+EXPORT_SYMBOL(cam_register_subdev_fops);
+
 int cam_register_subdev(struct cam_subdev *csd)
 {
 	struct v4l2_subdev *sd;
 	int rc;
 
 	if (g_dev.state != true) {
-		pr_err("camera root device not ready yet");
+		CAM_ERR(CAM_CRM, "camera root device not ready yet");
 		return -ENODEV;
 	}
 
 	if (!csd || !csd->name) {
-		pr_err("invalid arguments");
+		CAM_ERR(CAM_CRM, "invalid arguments");
 		return -EINVAL;
 	}
 
 	mutex_lock(&g_dev.dev_lock);
 	if ((g_dev.subdev_nodes_created) &&
 		(csd->sd_flags & V4L2_SUBDEV_FL_HAS_DEVNODE)) {
-		pr_err("dynamic node is not allowed, name: %s, type : %d",
+		CAM_ERR(CAM_CRM,
+			"dynamic node is not allowed, name: %s, type :%d",
 			csd->name, csd->ent_function);
 		rc = -EINVAL;
 		goto reg_fail;
@@ -505,7 +552,7 @@ int cam_register_subdev(struct cam_subdev *csd)
 
 	rc = v4l2_device_register_subdev(g_dev.v4l2_dev, sd);
 	if (rc) {
-		pr_err("register subdev failed");
+		CAM_ERR(CAM_CRM, "register subdev failed");
 		goto reg_fail;
 	}
 	g_dev.count++;
@@ -519,7 +566,7 @@ EXPORT_SYMBOL(cam_register_subdev);
 int cam_unregister_subdev(struct cam_subdev *csd)
 {
 	if (g_dev.state != true) {
-		pr_err("camera root device not ready yet");
+		CAM_ERR(CAM_CRM, "camera root device not ready yet");
 		return -ENODEV;
 	}
 
@@ -570,19 +617,19 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 
 	rc = cam_req_mgr_util_init();
 	if (rc) {
-		pr_err("cam req mgr util init is failed\n");
+		CAM_ERR(CAM_CRM, "cam req mgr util init is failed");
 		goto req_mgr_util_fail;
 	}
 
 	rc = cam_mem_mgr_init();
 	if (rc) {
-		pr_err("mem mgr init failed\n");
+		CAM_ERR(CAM_CRM, "mem mgr init failed");
 		goto mem_mgr_init_fail;
 	}
 
 	rc = cam_req_mgr_core_device_init();
 	if (rc) {
-		pr_err("core device setup failed\n");
+		CAM_ERR(CAM_CRM, "core device setup failed");
 		goto req_mgr_core_fail;
 	}
 
@@ -630,7 +677,7 @@ int cam_dev_mgr_create_subdev_nodes(void)
 		return -EINVAL;
 
 	if (g_dev.state != true) {
-		pr_err("camera root device not ready yet");
+		CAM_ERR(CAM_CRM, "camera root device not ready yet");
 		return -ENODEV;
 	}
 
@@ -642,7 +689,7 @@ int cam_dev_mgr_create_subdev_nodes(void)
 
 	rc = v4l2_device_register_subdev_nodes(g_dev.v4l2_dev);
 	if (rc) {
-		pr_err("failed to register the sub devices");
+		CAM_ERR(CAM_CRM, "failed to register the sub devices");
 		goto create_fail;
 	}
 
@@ -650,7 +697,7 @@ int cam_dev_mgr_create_subdev_nodes(void)
 		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
 			continue;
 		sd->entity.name = video_device_node_name(sd->devnode);
-		pr_debug("created node :%s\n", sd->entity.name);
+		CAM_DBG(CAM_CRM, "created node :%s", sd->entity.name);
 	}
 
 	g_dev.subdev_nodes_created = true;

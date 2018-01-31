@@ -795,19 +795,6 @@ config RCU_NOCB_CPU_ALL
 
 endchoice
 
-config RCU_EXPEDITE_BOOT
-	bool
-	default n
-	help
-	  This option enables expedited grace periods at boot time,
-	  as if rcu_expedite_gp() had been invoked early in boot.
-	  The corresponding rcu_unexpedite_gp() is invoked from
-	  rcu_end_inkernel_boot(), which is intended to be invoked
-	  at the end of the kernel-only boot sequence, just before
-	  init is exec'ed.
-
-	  Accept the default if unsure.
-
 endmenu # "RCU Subsystem"
 
 config BUILD_BIN2C
@@ -1064,23 +1051,6 @@ config CGROUP_SCHEDTUNE
 config PAGE_COUNTER
        bool
 
-config CGROUP_SCHEDTUNE
-	bool "CFS tasks boosting cgroup subsystem (EXPERIMENTAL)"
-	depends on SCHED_TUNE
-	help
-	  This option provides the "schedtune" controller which improves the
-	  flexibility of the task boosting mechanism by introducing the support
-	  to define "per task" boost values.
-
-	  This new controller:
-	  1. allows only a two layers hierarchy, where the root defines the
-	     system-wide boost value and its direct childrens define each one a
-	     different "class of tasks" to be boosted with a different value
-	  2. supports up to 16 different task classes, each one which could be
-	     configured with a different boost value
-
-	  Say N if unsure.
-
 config MEMCG
 	bool "Memory controller"
 	select PAGE_COUNTER
@@ -1261,6 +1231,19 @@ config CGROUP_PERF
 
 	  Say N if unsure.
 
+config CGROUP_BPF
+	bool "Support for eBPF programs attached to cgroups"
+	depends on BPF_SYSCALL
+	select SOCK_CGROUP_DATA
+	help
+	  Allow attaching eBPF programs to a cgroup using the bpf(2)
+	  syscall command BPF_PROG_ATTACH.
+
+	  In which context these programs are accessed depends on the type
+	  of attachment. For instance, programs that are attached using
+	  BPF_CGROUP_INET_INGRESS will be executed on the ingress path of
+	  inet sockets.
+
 config CGROUP_DEBUG
 	bool "Example controller"
 	default n
@@ -1270,32 +1253,11 @@ config CGROUP_DEBUG
 
 	  Say N.
 
+config SOCK_CGROUP_DATA
+	bool
+	default n
+
 endif # CGROUPS
-
-config SCHED_HMP
-	bool "Scheduler support for heterogenous multi-processor systems"
-	select SCHED_WALT
-	depends on SMP && FAIR_GROUP_SCHED
-	help
-	  This feature will let the scheduler optimize task placement on
-	  systems made of heterogeneous cpus i.e cpus that differ either
-	  in their instructions per-cycle capability or the maximum
-	  frequency they can attain.
-
-config SCHED_WALT
-	bool "WALT"
-	depends on SMP && FAIR_GROUP_SCHED
-	help
-	  Use Window-Assisted Load Tracking (WALT) as an alternative or
-	  additional load tracking scheme in lieu of or along with PELT.
-
-config SCHED_HMP_CSTATE_AWARE
-	bool "CPU C-state aware scheduler"
-	depends on SCHED_HMP
-	help
-	  This feature will let the HMP scheduler optimize task placement
-	  with CPUs C-state. If this is enabled, scheduler places tasks
-	  onto the shallowest C-state CPU among the most power efficient CPUs.
 
 config SCHED_CORE_CTL
 	bool "QTI Core Control"
@@ -1304,6 +1266,16 @@ config SCHED_CORE_CTL
 	  This options enables the core control functionality in
 	  the scheduler. Core control automatically offline and
 	  online cores based on cpu load and utilization.
+
+	  If unsure, say N here.
+
+config SCHED_CORE_ROTATE
+	bool "Scheduler core rotation"
+	depends on SMP
+	help
+	  This options enables the core rotation functionality in
+	  the scheduler. Scheduler with core rotation aims to utilize
+	  CPUs evenly.
 
 	  If unsure, say N here.
 
@@ -1896,6 +1868,16 @@ config PERF_EVENTS
 	  capabilities on top of those.
 
 	  Say Y if unsure.
+
+config PERF_USER_SHARE
+	bool "Perf event sharing with user-space"
+	help
+	  Say yes here to enable the user-space sharing of events. The events
+	  can be shared among other user-space events or with kernel created
+	  events that has the same config and type event attributes.
+
+	  Say N if unsure.
+
 
 config DEBUG_PERF_USE_VMALLOC
 	default n

@@ -11,7 +11,6 @@
  *
  */
 
-#include <linux/debugfs.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -54,6 +53,11 @@ struct msm_rpm_stats_data {
 	u64 last_entered_at;
 	u64 last_exited_at;
 	u64 accumulated;
+#if defined(CONFIG_MSM_RPM_SMD)
+	u32 client_votes;
+	u32 reserved[3];
+#endif
+
 };
 
 struct msm_rpmstats_kobj_attr {
@@ -93,11 +97,21 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 	time_since_last_mode = get_time_in_sec(time_since_last_mode);
 	actual_last_sleep = get_time_in_msec(data->accumulated);
 
+#if defined(CONFIG_MSM_RPM_SMD)
+	return snprintf(buf, buflength,
+		"RPM Mode:%s\n\t count:%d\ntime in last mode(msec):%llu\n"
+		"time since last mode(sec):%llu\nactual last sleep(msec):%llu\n"
+		"client votes: %#010x\n\n",
+		stat_type, data->count, time_in_last_mode,
+		time_since_last_mode, actual_last_sleep,
+		data->client_votes);
+#else
 	return snprintf(buf, buflength,
 		"RPM Mode:%s\n\t count:%d\ntime in last mode(msec):%llu\n"
 		"time since last mode(sec):%llu\nactual last sleep(msec):%llu\n\n",
 		stat_type, data->count, time_in_last_mode,
 		time_since_last_mode, actual_last_sleep);
+#endif
 }
 
 static inline u32 msm_rpmstats_read_long_register(void __iomem *regbase,
@@ -142,6 +156,12 @@ static inline int msm_rpmstats_copy_stats(
 		data.accumulated = msm_rpmstats_read_quad_register(reg,
 				i, offsetof(struct msm_rpm_stats_data,
 					accumulated));
+#if defined(CONFIG_MSM_RPM_SMD)
+		data.client_votes = msm_rpmstats_read_long_register(reg,
+				i, offsetof(struct msm_rpm_stats_data,
+					client_votes));
+#endif
+
 		length += msm_rpmstats_append_data_to_buf(prvdata->buf + length,
 				&data, sizeof(prvdata->buf) - length);
 		prvdata->read_idx++;
@@ -150,131 +170,40 @@ static inline int msm_rpmstats_copy_stats(
 	return length;
 }
 
-static inline unsigned long  msm_rpmstats_read_register(void __iomem *regbase,
-		int index, int offset)
-{
-	return  readl_relaxed(regbase + index * 12 + (offset + 1) * 4);
-}
-
-static ssize_t msm_rpmstats_file_read(struct file *file, char __user *bufu,
-				  size_t count, loff_t *ppos)
-{
-	struct msm_rpmstats_private_data *prvdata;
-
-	prvdata = file->private_data;
-	if (!prvdata)
-		return -EINVAL;
-
-	if (!bufu || count == 0)
-		return -EINVAL;
-
-	if ((*ppos >= prvdata->len) &&
-		(prvdata->read_idx < prvdata->num_records)) {
-		prvdata->len = msm_rpmstats_copy_stats(prvdata);
-		*ppos = 0;
-	}
-
-	return simple_read_from_buffer(bufu, count, ppos,
-			prvdata->buf, prvdata->len);
-}
-
-static int msm_rpmstats_file_open(struct inode *inode, struct file *file)
-{
-	struct msm_rpmstats_private_data *prvdata;
-	struct msm_rpmstats_platform_data *pdata;
-
-	pdata = inode->i_private;
-
-	file->private_data = kzalloc(sizeof(*prvdata), GFP_KERNEL);
-	if (!file->private_data)
-		return -ENOMEM;
-
-	prvdata = file->private_data;
-
-	prvdata->reg_base = ioremap_nocache(pdata->phys_addr_base,
-					pdata->phys_size);
-	if (!prvdata->reg_base) {
-		kfree(file->private_data);
-		prvdata = NULL;
-		pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
-			__func__, &pdata->phys_addr_base,
-			pdata->phys_size);
-		return -EBUSY;
-	}
-
-	prvdata->read_idx = prvdata->len = 0;
-	prvdata->platform_data = pdata;
-	prvdata->num_records = RPM_STATS_NUM_REC;
-
-	return 0;
-}
-
-static int msm_rpmstats_file_close(struct inode *inode, struct file *file)
-{
-	struct msm_rpmstats_private_data *private = file->private_data;
-
-	if (private->reg_base)
-		iounmap(private->reg_base);
-	kfree(file->private_data);
-
-	return 0;
-}
-
-static const struct file_operations msm_rpmstats_fops = {
-	.owner    = THIS_MODULE,
-	.open     = msm_rpmstats_file_open,
-	.read     = msm_rpmstats_file_read,
-	.release  = msm_rpmstats_file_close,
-	.llseek   = no_llseek,
-};
-
 static ssize_t rpmstats_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
-	struct msm_rpmstats_private_data *prvdata = NULL;
+	struct msm_rpmstats_private_data prvdata;
 	struct msm_rpmstats_platform_data *pdata = NULL;
 
 	pdata = GET_PDATA_OF_ATTR(attr);
 
-	prvdata =
-		kmalloc(sizeof(*prvdata), GFP_KERNEL);
-	if (!prvdata)
-		return -ENOMEM;
-
-	prvdata->reg_base = ioremap_nocache(pdata->phys_addr_base,
+	prvdata.reg_base = ioremap_nocache(pdata->phys_addr_base,
 					pdata->phys_size);
-	if (!prvdata->reg_base) {
-		kfree(prvdata);
+	if (!prvdata.reg_base) {
 		pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
 			__func__, &pdata->phys_addr_base,
 			pdata->phys_size);
 		return -EBUSY;
 	}
 
-	prvdata->read_idx = prvdata->len = 0;
-	prvdata->platform_data = pdata;
-	prvdata->num_records = RPM_STATS_NUM_REC;
+	prvdata.read_idx = prvdata.len = 0;
+	prvdata.platform_data = pdata;
+	prvdata.num_records = RPM_STATS_NUM_REC;
 
-	if (prvdata->read_idx < prvdata->num_records)
-		prvdata->len = msm_rpmstats_copy_stats(prvdata);
+	if (prvdata.read_idx < prvdata.num_records)
+		prvdata.len = msm_rpmstats_copy_stats(&prvdata);
 
-	return snprintf(buf, prvdata->len, prvdata->buf);
+	return snprintf(buf, prvdata.len, "%s", prvdata.buf);
 }
 
 static int msm_rpmstats_create_sysfs(struct msm_rpmstats_platform_data *pd)
 {
-	struct kobject *module_kobj = NULL;
 	struct kobject *rpmstats_kobj = NULL;
 	struct msm_rpmstats_kobj_attr *rpms_ka = NULL;
 	int ret = 0;
 
-	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
-	if (!module_kobj) {
-		pr_err("%s: Cannot find module_kset\n", __func__);
-		return -ENODEV;
-	}
-
-	rpmstats_kobj = kobject_create_and_add("rpmstats", module_kobj);
+	rpmstats_kobj = kobject_create_and_add("system_sleep", power_kobj);
 	if (!rpmstats_kobj) {
 		pr_err("%s: Cannot create rpmstats kobject\n", __func__);
 		ret = -ENOMEM;
@@ -303,7 +232,6 @@ fail:
 
 static int msm_rpmstats_probe(struct platform_device *pdev)
 {
-	struct dentry *dent = NULL;
 	struct msm_rpmstats_platform_data *pdata;
 	struct msm_rpmstats_platform_data *pd;
 	struct resource *res = NULL, *offset = NULL;
@@ -339,27 +267,7 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 	if (pdev->dev.platform_data)
 		pd = pdev->dev.platform_data;
 
-	dent = debugfs_create_file("rpm_stats", 0444, NULL,
-					pdata, &msm_rpmstats_fops);
-	if (!dent) {
-		pr_err("%s: ERROR rpm_stats debugfs_create_file	fail\n",
-				__func__);
-		return -ENOMEM;
-	}
-
 	msm_rpmstats_create_sysfs(pdata);
-
-	platform_set_drvdata(pdev, dent);
-	return 0;
-}
-
-static int msm_rpmstats_remove(struct platform_device *pdev)
-{
-	struct dentry *dent;
-
-	dent = platform_get_drvdata(pdev);
-	debugfs_remove(dent);
-	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }
@@ -371,7 +279,6 @@ static const struct of_device_id rpm_stats_table[] = {
 
 static struct platform_driver msm_rpmstats_driver = {
 	.probe = msm_rpmstats_probe,
-	.remove = msm_rpmstats_remove,
 	.driver = {
 		.name = "msm_rpm_stat",
 		.owner = THIS_MODULE,

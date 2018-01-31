@@ -372,8 +372,8 @@ static ssize_t qeth_l3_dev_ipato_enable_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct qeth_card *card = dev_get_drvdata(dev);
-	struct qeth_ipaddr *addr;
-	int i, rc = 0;
+	bool enable;
+	int rc = 0;
 
 	if (!card)
 		return -EINVAL;
@@ -386,25 +386,18 @@ static ssize_t qeth_l3_dev_ipato_enable_store(struct device *dev,
 	}
 
 	if (sysfs_streq(buf, "toggle")) {
-		card->ipato.enabled = (card->ipato.enabled)? 0 : 1;
-	} else if (sysfs_streq(buf, "1")) {
-		card->ipato.enabled = 1;
-		hash_for_each(card->ip_htable, i, addr, hnode) {
-				if ((addr->type == QETH_IP_TYPE_NORMAL) &&
-				qeth_l3_is_addr_covered_by_ipato(card, addr))
-					addr->set_flags |=
-					QETH_IPA_SETIP_TAKEOVER_FLAG;
-			}
-	} else if (sysfs_streq(buf, "0")) {
-		card->ipato.enabled = 0;
-		hash_for_each(card->ip_htable, i, addr, hnode) {
-			if (addr->set_flags &
-			QETH_IPA_SETIP_TAKEOVER_FLAG)
-				addr->set_flags &=
-				~QETH_IPA_SETIP_TAKEOVER_FLAG;
-			}
-	} else
+		enable = !card->ipato.enabled;
+	} else if (kstrtobool(buf, &enable)) {
 		rc = -EINVAL;
+		goto out;
+	}
+
+	if (card->ipato.enabled != enable) {
+		card->ipato.enabled = enable;
+		spin_lock_bh(&card->ip_lock);
+		qeth_l3_update_ipato(card);
+		spin_unlock_bh(&card->ip_lock);
+	}
 out:
 	mutex_unlock(&card->conf_mutex);
 	return rc ? rc : count;
@@ -430,20 +423,27 @@ static ssize_t qeth_l3_dev_ipato_invert4_store(struct device *dev,
 				const char *buf, size_t count)
 {
 	struct qeth_card *card = dev_get_drvdata(dev);
+	bool invert;
 	int rc = 0;
 
 	if (!card)
 		return -EINVAL;
 
 	mutex_lock(&card->conf_mutex);
-	if (sysfs_streq(buf, "toggle"))
-		card->ipato.invert4 = (card->ipato.invert4)? 0 : 1;
-	else if (sysfs_streq(buf, "1"))
-		card->ipato.invert4 = 1;
-	else if (sysfs_streq(buf, "0"))
-		card->ipato.invert4 = 0;
-	else
+	if (sysfs_streq(buf, "toggle")) {
+		invert = !card->ipato.invert4;
+	} else if (kstrtobool(buf, &invert)) {
 		rc = -EINVAL;
+		goto out;
+	}
+
+	if (card->ipato.invert4 != invert) {
+		card->ipato.invert4 = invert;
+		spin_lock_bh(&card->ip_lock);
+		qeth_l3_update_ipato(card);
+		spin_unlock_bh(&card->ip_lock);
+	}
+out:
 	mutex_unlock(&card->conf_mutex);
 	return rc ? rc : count;
 }
@@ -609,20 +609,27 @@ static ssize_t qeth_l3_dev_ipato_invert6_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct qeth_card *card = dev_get_drvdata(dev);
+	bool invert;
 	int rc = 0;
 
 	if (!card)
 		return -EINVAL;
 
 	mutex_lock(&card->conf_mutex);
-	if (sysfs_streq(buf, "toggle"))
-		card->ipato.invert6 = (card->ipato.invert6)? 0 : 1;
-	else if (sysfs_streq(buf, "1"))
-		card->ipato.invert6 = 1;
-	else if (sysfs_streq(buf, "0"))
-		card->ipato.invert6 = 0;
-	else
+	if (sysfs_streq(buf, "toggle")) {
+		invert = !card->ipato.invert6;
+	} else if (kstrtobool(buf, &invert)) {
 		rc = -EINVAL;
+		goto out;
+	}
+
+	if (card->ipato.invert6 != invert) {
+		card->ipato.invert6 = invert;
+		spin_lock_bh(&card->ip_lock);
+		qeth_l3_update_ipato(card);
+		spin_unlock_bh(&card->ip_lock);
+	}
+out:
 	mutex_unlock(&card->conf_mutex);
 	return rc ? rc : count;
 }
@@ -692,15 +699,15 @@ static ssize_t qeth_l3_dev_vipa_add_show(char *buf, struct qeth_card *card,
 			enum qeth_prot_versions proto)
 {
 	struct qeth_ipaddr *ipaddr;
-	struct hlist_node  *tmp;
 	char addr_str[40];
+	int str_len = 0;
 	int entry_len; /* length of 1 entry string, differs between v4 and v6 */
-	int i = 0;
+	int i;
 
 	entry_len = (proto == QETH_PROT_IPV4)? 12 : 40;
 	entry_len += 2; /* \n + terminator */
 	spin_lock_bh(&card->ip_lock);
-	hash_for_each_safe(card->ip_htable, i, tmp, ipaddr, hnode) {
+	hash_for_each(card->ip_htable, i, ipaddr, hnode) {
 		if (ipaddr->proto != proto)
 			continue;
 		if (ipaddr->type != QETH_IP_TYPE_VIPA)
@@ -708,16 +715,17 @@ static ssize_t qeth_l3_dev_vipa_add_show(char *buf, struct qeth_card *card,
 		/* String must not be longer than PAGE_SIZE. So we check if
 		 * string length gets near PAGE_SIZE. Then we can savely display
 		 * the next IPv6 address (worst case, compared to IPv4) */
-		if ((PAGE_SIZE - i) <= entry_len)
+		if ((PAGE_SIZE - str_len) <= entry_len)
 			break;
 		qeth_l3_ipaddr_to_string(proto, (const u8 *)&ipaddr->u,
 			addr_str);
-		i += snprintf(buf + i, PAGE_SIZE - i, "%s\n", addr_str);
+		str_len += snprintf(buf + str_len, PAGE_SIZE - str_len, "%s\n",
+				    addr_str);
 	}
 	spin_unlock_bh(&card->ip_lock);
-	i += snprintf(buf + i, PAGE_SIZE - i, "\n");
+	str_len += snprintf(buf + str_len, PAGE_SIZE - str_len, "\n");
 
-	return i;
+	return str_len;
 }
 
 static ssize_t qeth_l3_dev_vipa_add4_show(struct device *dev,
@@ -854,15 +862,15 @@ static ssize_t qeth_l3_dev_rxip_add_show(char *buf, struct qeth_card *card,
 		       enum qeth_prot_versions proto)
 {
 	struct qeth_ipaddr *ipaddr;
-	struct hlist_node *tmp;
 	char addr_str[40];
+	int str_len = 0;
 	int entry_len; /* length of 1 entry string, differs between v4 and v6 */
-	int i = 0;
+	int i;
 
 	entry_len = (proto == QETH_PROT_IPV4)? 12 : 40;
 	entry_len += 2; /* \n + terminator */
 	spin_lock_bh(&card->ip_lock);
-	hash_for_each_safe(card->ip_htable, i, tmp, ipaddr, hnode) {
+	hash_for_each(card->ip_htable, i, ipaddr, hnode) {
 		if (ipaddr->proto != proto)
 			continue;
 		if (ipaddr->type != QETH_IP_TYPE_RXIP)
@@ -870,16 +878,17 @@ static ssize_t qeth_l3_dev_rxip_add_show(char *buf, struct qeth_card *card,
 		/* String must not be longer than PAGE_SIZE. So we check if
 		 * string length gets near PAGE_SIZE. Then we can savely display
 		 * the next IPv6 address (worst case, compared to IPv4) */
-		if ((PAGE_SIZE - i) <= entry_len)
+		if ((PAGE_SIZE - str_len) <= entry_len)
 			break;
 		qeth_l3_ipaddr_to_string(proto, (const u8 *)&ipaddr->u,
 			addr_str);
-		i += snprintf(buf + i, PAGE_SIZE - i, "%s\n", addr_str);
+		str_len += snprintf(buf + str_len, PAGE_SIZE - str_len, "%s\n",
+				    addr_str);
 	}
 	spin_unlock_bh(&card->ip_lock);
-	i += snprintf(buf + i, PAGE_SIZE - i, "\n");
+	str_len += snprintf(buf + str_len, PAGE_SIZE - str_len, "\n");
 
-	return i;
+	return str_len;
 }
 
 static ssize_t qeth_l3_dev_rxip_add4_show(struct device *dev,

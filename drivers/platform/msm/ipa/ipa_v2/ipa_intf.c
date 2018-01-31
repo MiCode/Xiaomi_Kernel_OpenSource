@@ -234,6 +234,7 @@ int ipa_query_intf(struct ipa_ioc_query_intf *lookup)
 	}
 
 	mutex_lock(&ipa_ctx->lock);
+	lookup->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
 		if (!strcmp(entry->name, lookup->name)) {
 			lookup->num_tx_props = entry->num_tx_props;
@@ -269,8 +270,17 @@ int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
 	}
 
 	mutex_lock(&ipa_ctx->lock);
+	tx->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
 		if (!strcmp(entry->name, tx->name)) {
+			/* add the entry check */
+			if (entry->num_tx_props != tx->num_tx_props) {
+				IPAERR("invalid entry number(%u %u)\n",
+					entry->num_tx_props,
+						tx->num_tx_props);
+				mutex_unlock(&ipa_ctx->lock);
+				return result;
+			}
 			memcpy(tx->tx, entry->tx, entry->num_tx_props *
 			       sizeof(struct ipa_ioc_tx_intf_prop));
 			result = 0;
@@ -302,8 +312,17 @@ int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
 	}
 
 	mutex_lock(&ipa_ctx->lock);
+	rx->name[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
 		if (!strcmp(entry->name, rx->name)) {
+			/* add the entry check */
+			if (entry->num_rx_props != rx->num_rx_props) {
+				IPAERR("invalid entry number(%u %u)\n",
+					entry->num_rx_props,
+						rx->num_rx_props);
+				mutex_unlock(&ipa_ctx->lock);
+				return result;
+			}
 			memcpy(rx->rx, entry->rx, entry->num_rx_props *
 					sizeof(struct ipa_ioc_rx_intf_prop));
 			result = 0;
@@ -337,6 +356,14 @@ int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
 	mutex_lock(&ipa_ctx->lock);
 	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
 		if (!strcmp(entry->name, ext->name)) {
+			/* add the entry check */
+			if (entry->num_ext_props != ext->num_ext_props) {
+				IPAERR("invalid entry number(%u %u)\n",
+					entry->num_ext_props,
+						ext->num_ext_props);
+				mutex_unlock(&ipa_ctx->lock);
+				return result;
+			}
 			memcpy(ext->ext, entry->ext, entry->num_ext_props *
 					sizeof(struct ipa_ioc_ext_intf_prop));
 			result = 0;
@@ -380,13 +407,13 @@ int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
 
 	if (meta == NULL || (buff == NULL && callback != NULL) ||
 	    (buff != NULL && callback == NULL)) {
-		IPAERR("invalid param meta=%p buff=%p, callback=%p\n",
+		IPAERR_RL("invalid param meta=%p buff=%p, callback=%p\n",
 		       meta, buff, callback);
 		return -EINVAL;
 	}
 
 	if (meta->msg_type >= IPA_EVENT_MAX_NUM) {
-		IPAERR("unsupported message type %d\n", meta->msg_type);
+		IPAERR_RL("unsupported message type %d\n", meta->msg_type);
 		return -EINVAL;
 	}
 
@@ -516,24 +543,23 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 	char __user *start;
 	struct ipa_push_msg *msg = NULL;
 	int ret;
-	DEFINE_WAIT(wait);
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 	int locked;
 
 	start = buf;
 
+	add_wait_queue(&ipa_ctx->msg_waitq, &wait);
 	while (1) {
 		mutex_lock(&ipa_ctx->msg_lock);
 		locked = 1;
-		prepare_to_wait(&ipa_ctx->msg_waitq, &wait, TASK_INTERRUPTIBLE);
 		if (!list_empty(&ipa_ctx->msg_list)) {
 			msg = list_first_entry(&ipa_ctx->msg_list,
 					struct ipa_push_msg, link);
 			list_del(&msg->link);
 		}
 
-		IPADBG("msg=%p\n", msg);
-
 		if (msg) {
+			IPADBG("msg=%pK\n", msg);
 			locked = 0;
 			mutex_unlock(&ipa_ctx->msg_lock);
 			if (copy_to_user(buf, &msg->meta,
@@ -561,6 +587,7 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 			IPA_STATS_INC_CNT(
 				ipa_ctx->stats.msg_r[msg->meta.msg_type]);
 			kfree(msg);
+			msg = NULL;
 		}
 
 		ret = -EAGAIN;
@@ -576,10 +603,10 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 
 		locked = 0;
 		mutex_unlock(&ipa_ctx->msg_lock);
-		schedule();
+		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
 	}
 
-	finish_wait(&ipa_ctx->msg_waitq, &wait);
+	remove_wait_queue(&ipa_ctx->msg_waitq, &wait);
 	if (start != buf && ret != -EFAULT)
 		ret = buf - start;
 
@@ -609,7 +636,7 @@ int ipa_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count)
 	int result = -EINVAL;
 
 	if (meta == NULL || buff == NULL || !count) {
-		IPAERR("invalid param name=%p buff=%p count=%zu\n",
+		IPAERR_RL("invalid param name=%p buff=%p count=%zu\n",
 				meta, buff, count);
 		return result;
 	}

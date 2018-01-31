@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -699,14 +699,14 @@ enum ssr_command {
  *			received.
  * edge:		The G-Link edge name for the channel associated with
  *			this callback data
- * do_cleanup_data:	Structure containing the G-Link SSR do_cleanup message.
+ * cb_kref:		Kref object to maintain cb_data reference.
  */
 struct ssr_notify_data {
 	bool tx_done;
 	unsigned int event;
 	bool responded;
 	const char *edge;
-	struct do_cleanup_msg *do_cleanup_data;
+	struct kref cb_kref;
 };
 
 /**
@@ -741,6 +741,7 @@ struct subsys_info {
 	int notify_list_len;
 	bool link_up;
 	spinlock_t link_up_lock;
+	spinlock_t cb_lock;
 };
 
 /**
@@ -749,7 +750,6 @@ struct subsys_info {
  * ssr_name:	Name of the subsystem recognized by the SSR framework
  * edge:	Name of the G-Link edge
  * xprt:	Name of the G-Link transport
- * restarted:	Indicates whether a restart has been triggered for this edge
  * cb_data:	Private callback data structure for notification functions
  * notify_list_node:	used to chain this structure in the notify list
  */
@@ -757,7 +757,6 @@ struct subsys_info_leaf {
 	const char *ssr_name;
 	const char *edge;
 	const char *xprt;
-	bool restarted;
 	struct ssr_notify_data *cb_data;
 	struct list_head notify_list_node;
 };

@@ -1,0 +1,218 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm670-pmic-overlay.dtsi"
+
+&soc {
+	/* Delete all regulators */
+	/delete-node/ rpmh-regulator-smpa4;
+	/delete-node/ rpmh-regulator-smpa6;
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-modemlvl;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa6;
+	/delete-node/ rpmh-regulator-ldoa7;
+	/delete-node/ rpmh-regulator-ldoa8;
+	/delete-node/ rpmh-regulator-ldoa9;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa15;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-ldoa17;
+	/delete-node/ rpmh-regulator-ldoa19;
+	/delete-node/ rpmh-regulator-ldob1;
+	/delete-node/ rpmh-regulator-ldob2;
+	/delete-node/ rpmh-regulator-ldob3;
+	/delete-node/ rpmh-regulator-ldob4;
+	/delete-node/ rpmh-regulator-ldob5;
+	/delete-node/ rpmh-regulator-ldob6;
+	/delete-node/ rpmh-regulator-ldob7;
+	/delete-node/ rpmh-regulator-ldob8;
+	/delete-node/ rpmh-regulator-lcxlvl;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-ldoa28;
+	/delete-node/ rpmh-regulator-bobb1;
+	/delete-node/ rpmh-regulator-gfxlvl;
+	/delete-node/ thermal-zones;
+};
+
+#include "sdm670-stub-regulator.dtsi"
+
+&qupv3_se9_2uart {
+	status = "disabled";
+};
+
+&qupv3_se8_spi {
+	status = "disabled";
+};
+
+&qupv3_se10_2uart {
+	status = "ok";
+};
+
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&qupv3_se10_i2c {
+	status = "disabled";
+};
+
+&qupv3_se6_4uart {
+	status = "disabled";
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm660l_l1>; /* 0.88v */
+	vdda-pll-supply = <&pm660_l1>; /* 1.2v */
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+	scsi-cmd-timeout = <300000>;
+
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm660l_l4>;
+	vccq2-supply = <&pm660_l8>;
+	vcc-max-microamp = <600000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm660_l1>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm660l_l4>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	vdd-io-supply = <&pm660_l8>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+	/delete-property/qcom,devfreq,freq-table;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm660l_l5>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm660l_l2>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50";
+
+	/delete-property/qcom,devfreq,freq-table;
+
+	status = "ok";
+};
+
+&usb0 {
+	/delete-property/ qcom,usb-dbm;
+	/delete-property/ extcon;
+	qcom,charging-disabled;
+	dwc3@a600000 {
+		maximum-speed = "high-speed";
+		usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
+	};
+};
+
+&qusb_phy0 {
+	reg = <0x088e2000 0x4>,
+		<0x0a720000 0x9500>;
+	reg-names = "qusb_phy_base",
+		"emu_phy_base";
+	qcom,emulation;
+	qcom,emu-init-seq = <0x19 0x1404
+				0x20 0x1414
+				0x79 0x1410
+				0x00 0x1418
+				0x99 0x1404
+				0x04 0x1408
+				0xd9 0x1404>;
+
+	qcom,emu-dcm-reset-seq = <0x5 0x14      /* 0x1 0x14 for E1.2 */
+				0x100000 0x20
+				0x0 0x20
+				0x1a0 0x20    /* 0x220 0x20 for E1.2 */
+				0x80 0x28>;
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
+&mdss_mdp {
+	status = "disabled";
+};
+
+&sde_rscc {
+	status = "disabled";
+};
+
+&mdss_rotator {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&mdss_dsi_phy0 {
+	status = "disabled";
+};
+
+&mdss_dsi_phy1 {
+	status = "disabled";
+};

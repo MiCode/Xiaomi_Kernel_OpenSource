@@ -17,6 +17,7 @@
 #include "sde_hw_util.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_sspp.h"
+#include "sde_hw_blk.h"
 
 /**
  * sde_ctl_mode_sel: Interface mode selection
@@ -49,8 +50,8 @@ struct sde_hw_ctl;
  * @multirect_index: index of the rectangle of SSPP.
  */
 struct sde_hw_stage_cfg {
-	enum sde_sspp stage[CRTC_DUAL_MIXERS][SDE_STAGE_MAX][PIPES_PER_STAGE];
-	enum sde_sspp_multirect_index multirect_index[CRTC_DUAL_MIXERS]
+	enum sde_sspp stage[SDE_STAGE_MAX][PIPES_PER_STAGE];
+	enum sde_sspp_multirect_index multirect_index
 					[SDE_STAGE_MAX][PIPES_PER_STAGE];
 };
 
@@ -89,6 +90,14 @@ struct sde_hw_ctl_ops {
 	 * @ctx       : ctl path ctx pointer
 	 */
 	void (*trigger_start)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * kickoff prepare is in progress hw operation for sw
+	 * controlled interfaces: DSI cmd mode and WB interface
+	 * are SW controlled
+	 * @ctx       : ctl path ctx pointer
+	 */
+	void (*trigger_pending)(struct sde_hw_ctl *ctx);
 
 	/**
 	 * kickoff rotator operation for Sw controlled interfaces
@@ -143,6 +152,20 @@ struct sde_hw_ctl_ops {
 
 	int (*reset)(struct sde_hw_ctl *c);
 
+	/**
+	 * get_reset - check ctl reset status bit
+	 * @ctx    : ctl path ctx pointer
+	 * Returns: current value of ctl reset status
+	 */
+	u32 (*get_reset)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * hard_reset - force reset on ctl_path
+	 * @ctx    : ctl path ctx pointer
+	 * @enable : whether to enable/disable hard reset
+	 */
+	void (*hard_reset)(struct sde_hw_ctl *c, bool enable);
+
 	/*
 	 * wait_reset_status - checks ctl reset status
 	 * @ctx       : ctl path ctx pointer
@@ -164,6 +187,10 @@ struct sde_hw_ctl_ops {
 		u32 *flushbits,
 		enum sde_dspp blk);
 
+	int (*get_bitmask_dspp_pavlut)(struct sde_hw_ctl *ctx,
+		u32 *flushbits,
+		enum sde_dspp blk);
+
 	int (*get_bitmask_intf)(struct sde_hw_ctl *ctx,
 		u32 *flushbits,
 		enum sde_intf blk);
@@ -181,6 +208,23 @@ struct sde_hw_ctl_ops {
 		enum sde_rot blk);
 
 	/**
+	 * read CTL_TOP register value and return
+	 * the data.
+	 * @ctx		: ctl path ctx pointer
+	 * @return	: CTL top register value
+	 */
+	u32 (*read_ctl_top)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * read CTL layers register value and return
+	 * the data.
+	 * @ctx       : ctl path ctx pointer
+	 * @index       : layer index for this ctl path
+	 * @return	: CTL layers register value
+	 */
+	u32 (*read_ctl_layers)(struct sde_hw_ctl *ctx, int index);
+
+	/**
 	 * Set all blend stages to disabled
 	 * @ctx       : ctl path ctx pointer
 	 */
@@ -193,24 +237,39 @@ struct sde_hw_ctl_ops {
 	 * @cfg       : blend stage configuration
 	 */
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
-		enum sde_lm lm, struct sde_hw_stage_cfg *cfg, u32 index);
+		enum sde_lm lm, struct sde_hw_stage_cfg *cfg);
 
 	void (*setup_sbuf_cfg)(struct sde_hw_ctl *ctx,
 		struct sde_ctl_sbuf_cfg *cfg);
+
+	/**
+	 * Flush the reg dma by sending last command.
+	 * @ctx       : ctl path ctx pointer
+	 * @blocking  : if set to true api will block until flush is done
+	 */
+	void (*reg_dma_flush)(struct sde_hw_ctl *ctx, bool blocking);
+
+	/**
+	 * check if ctl start trigger state to confirm the frame pending
+	 * status
+	 * @ctx       : ctl path ctx pointer
+	 */
+	int (*get_start_state)(struct sde_hw_ctl *ctx);
 };
 
 /**
  * struct sde_hw_ctl : CTL PATH driver object
+ * @base: hardware block base structure
  * @hw: block register map object
  * @idx: control path index
- * @ctl_hw_caps: control path capabilities
+ * @caps: control path capabilities
  * @mixer_count: number of mixers
  * @mixer_hw_caps: mixer hardware capabilities
  * @pending_flush_mask: storage for pending ctl_flush managed via ops
  * @ops: operation list
  */
 struct sde_hw_ctl {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* ctl path */
@@ -223,6 +282,16 @@ struct sde_hw_ctl {
 	/* ops */
 	struct sde_hw_ctl_ops ops;
 };
+
+/**
+ * sde_hw_ctl - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_ctl *to_sde_hw_ctl(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_ctl, base);
+}
 
 /**
  * sde_hw_ctl_init(): Initializes the ctl_path hw driver object.

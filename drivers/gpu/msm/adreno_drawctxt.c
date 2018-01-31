@@ -304,6 +304,7 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	/* Give the bad news to everybody waiting around */
 	wake_up_all(&drawctxt->waiting);
 	wake_up_all(&drawctxt->wq);
+	wake_up_all(&drawctxt->timeout);
 }
 
 /*
@@ -341,14 +342,16 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	struct adreno_context *drawctxt;
 	struct kgsl_device *device = dev_priv->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
-	unsigned long local;
+	unsigned int local;
 
 	local = *flags & (KGSL_CONTEXT_PREAMBLE |
 		KGSL_CONTEXT_NO_GMEM_ALLOC |
 		KGSL_CONTEXT_PER_CONTEXT_TS |
 		KGSL_CONTEXT_USER_GENERATED_TS |
 		KGSL_CONTEXT_NO_FAULT_TOLERANCE |
+		KGSL_CONTEXT_INVALIDATE_ON_FAULT |
 		KGSL_CONTEXT_CTX_SWITCH |
 		KGSL_CONTEXT_PRIORITY_MASK |
 		KGSL_CONTEXT_TYPE_MASK |
@@ -396,6 +399,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	spin_lock_init(&drawctxt->lock);
 	init_waitqueue_head(&drawctxt->wq);
 	init_waitqueue_head(&drawctxt->waiting);
+	init_waitqueue_head(&drawctxt->timeout);
 
 	/* Set the context priority */
 	_set_context_priority(drawctxt);
@@ -430,6 +434,14 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
 	INIT_LIST_HEAD(&drawctxt->active_node);
+
+	if (gpudev->preemption_context_init) {
+		ret = gpudev->preemption_context_init(&drawctxt->base);
+		if (ret != 0) {
+			kgsl_context_detach(&drawctxt->base);
+			return ERR_PTR(ret);
+		}
+	}
 
 	/* copy back whatever flags we dediced were valid */
 	*flags = drawctxt->base.flags;
@@ -491,6 +503,8 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 		kgsl_drawobj_destroy(list[i]);
 	}
 
+	debugfs_remove_recursive(drawctxt->debug_root);
+
 	/*
 	 * internal_timestamp is set in adreno_ringbuffer_addcmds,
 	 * which holds the device mutex.
@@ -508,20 +522,32 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 		drawctxt->internal_timestamp, 30 * 1000);
 
 	/*
-	 * If the wait for global fails due to timeout then nothing after this
-	 * point is likely to work very well - Get GPU snapshot and BUG_ON()
-	 * so we can take advantage of the debug tools to figure out what the
-	 * h - e - double hockey sticks happened. If EAGAIN error is returned
+	 * If the wait for global fails due to timeout then mark it as
+	 * context detach timeout fault and schedule dispatcher to kick
+	 * in GPU recovery. For a ADRENO_CTX_DETATCH_TIMEOUT_FAULT we clear
+	 * the policy and invalidate the context. If EAGAIN error is returned
 	 * then recovery will kick in and there will be no more commands in the
-	 * RB pipe from this context which is waht we are waiting for, so ignore
-	 * -EAGAIN error
+	 * RB pipe from this context which is what we are waiting for, so ignore
+	 * -EAGAIN error.
 	 */
 	if (ret && ret != -EAGAIN) {
-		KGSL_DRV_ERR(device, "Wait for global ts=%d type=%d error=%d\n",
-				drawctxt->internal_timestamp,
+		KGSL_DRV_ERR(device,
+				"Wait for global ctx=%d ts=%d type=%d error=%d\n",
+				drawctxt->base.id, drawctxt->internal_timestamp,
 				drawctxt->type, ret);
-		device->force_panic = 1;
-		kgsl_device_snapshot(device, context);
+
+		adreno_set_gpu_fault(adreno_dev,
+				ADRENO_CTX_DETATCH_TIMEOUT_FAULT);
+		mutex_unlock(&device->mutex);
+
+		/* Schedule dispatcher to kick in recovery */
+		adreno_dispatcher_schedule(device);
+
+		/* Wait for context to be invalidated and release context */
+		wait_event_interruptible_timeout(drawctxt->timeout,
+					kgsl_context_invalid(&drawctxt->base),
+					msecs_to_jiffies(5000));
+		return;
 	}
 
 	kgsl_sharedmem_writel(device, &device->memstore,
@@ -544,12 +570,19 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 void adreno_drawctxt_destroy(struct kgsl_context *context)
 {
 	struct adreno_context *drawctxt;
+	struct adreno_device *adreno_dev;
+	struct adreno_gpudev *gpudev;
 
 	if (context == NULL)
 		return;
 
+	adreno_dev = ADRENO_DEVICE(context->device);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (gpudev->preemption_context_destroy)
+		gpudev->preemption_context_destroy(context);
+
 	drawctxt = ADRENO_CONTEXT(context);
-	debugfs_remove_recursive(drawctxt->debug_root);
 	kfree(drawctxt);
 }
 

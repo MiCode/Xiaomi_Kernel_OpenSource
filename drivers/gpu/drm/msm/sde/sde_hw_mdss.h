@@ -82,11 +82,25 @@ enum sde_format_flags {
 #define SDE_BLEND_BG_INV_MOD_ALPHA	(1 << 12)
 #define SDE_BLEND_BG_TRANSP_EN		(1 << 13)
 
+#define SDE_VSYNC0_SOURCE_GPIO		0
+#define SDE_VSYNC1_SOURCE_GPIO		1
+#define SDE_VSYNC2_SOURCE_GPIO		2
+#define SDE_VSYNC_SOURCE_INTF_0		3
+#define SDE_VSYNC_SOURCE_INTF_1		4
+#define SDE_VSYNC_SOURCE_INTF_2		5
+#define SDE_VSYNC_SOURCE_INTF_3		6
+#define SDE_VSYNC_SOURCE_WD_TIMER_4	11
+#define SDE_VSYNC_SOURCE_WD_TIMER_3	12
+#define SDE_VSYNC_SOURCE_WD_TIMER_2	13
+#define SDE_VSYNC_SOURCE_WD_TIMER_1	14
+#define SDE_VSYNC_SOURCE_WD_TIMER_0	15
+
 enum sde_hw_blk_type {
 	SDE_HW_BLK_TOP = 0,
 	SDE_HW_BLK_SSPP,
 	SDE_HW_BLK_LM,
 	SDE_HW_BLK_DSPP,
+	SDE_HW_BLK_DS,
 	SDE_HW_BLK_CTL,
 	SDE_HW_BLK_CDM,
 	SDE_HW_BLK_PINGPONG,
@@ -161,6 +175,13 @@ enum sde_dspp {
 	DSPP_2,
 	DSPP_3,
 	DSPP_MAX
+};
+
+enum sde_ds {
+	DS_TOP,
+	DS_0,
+	DS_1,
+	DS_MAX
 };
 
 enum sde_ctl {
@@ -281,6 +302,13 @@ enum sde_iommu_domain {
 enum sde_rot {
 	ROT_0 = 1,
 	ROT_MAX
+};
+
+enum sde_inline_rot {
+	INLINE_ROT_NONE,
+	INLINE_ROT0_SSPP,
+	INLINE_ROT0_WB,
+	INLINE_ROT_MAX
 };
 
 /**
@@ -469,6 +497,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_VBIF     (1 << 10)
 #define SDE_DBG_MASK_DSC      (1 << 11)
 #define SDE_DBG_MASK_ROT      (1 << 12)
+#define SDE_DBG_MASK_DS       (1 << 13)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.
@@ -504,6 +533,68 @@ struct sde_hw_dim_layer {
 	uint32_t stage;
 	struct sde_mdss_color color_fill;
 	struct sde_rect rect;
+};
+
+/**
+ * struct sde_splash_lm_hw - Struct contains LM block properties
+ * @lm_id:	stores the current LM ID
+ * @ctl_id:	stores the current CTL ID associated with the LM.
+ * @lm_reg_value:Store the LM block register value
+ */
+struct sde_splash_lm_hw {
+	u8 lm_id;
+	u8 ctl_id;
+	u32 lm_reg_value;
+};
+
+/**
+ * struct ctl_top - Struct contains CTL block properties
+ * @value:	Store the CTL block register value
+ * @mode_sel:	stores the mode selected in the CTL block
+ * @dspp_sel:	stores the dspp selected in the CTL block
+ * @pp_sel:	stores the pp selected in the CTL block
+ * @intf_sel:	stores the intf selected in the CTL block
+ * @lm:		Pointer to store the list of LMs in the CTL block
+ * @ctl_lm_cnt:	stores the active number of MDSS "LM" blocks in the CTL block
+ */
+struct ctl_top {
+	u32 value;
+	u8 mode_sel;
+	u8 dspp_sel;
+	u8 pp_sel;
+	u8 intf_sel;
+	struct sde_splash_lm_hw lm[LM_MAX - LM_0];
+	u8 ctl_lm_cnt;
+};
+
+/**
+ * struct sde_splash_data - Struct contains details of continuous splash
+ *	memory region and initial pipeline configuration.
+ * @smmu_handoff_pending:boolean to notify handoff from splash memory to smmu
+ * @splash_base:	Base address of continuous splash region reserved
+ *                      by bootloader
+ * @splash_size:	Size of continuous splash region
+ * @top:	struct ctl_top objects
+ * @ctl_ids:	stores the valid MDSS ctl block ids for the current mode
+ * @lm_ids:	stores the valid MDSS layer mixer block ids for the current mode
+ * @dsc_ids:	stores the valid MDSS DSC block ids for the current mode
+ * @ctl_top_cnt:stores the active number of MDSS "top" blks of the current mode
+ * @lm_cnt:	stores the active number of MDSS "LM" blks for the current mode
+ * @dsc_cnt:	stores the active number of MDSS "dsc" blks for the current mode
+ * @cont_splash_en:	Stores the cont_splash status (enabled/disbled)
+ */
+struct sde_splash_data {
+	bool smmu_handoff_pending;
+	unsigned long splash_base;
+	u32 splash_size;
+	struct ctl_top top[CTL_MAX - CTL_0];
+	u8 ctl_ids[CTL_MAX - CTL_0];
+	u8 lm_ids[LM_MAX - LM_0];
+	u8 dsc_ids[DSC_MAX - DSC_0];
+	u8 ctl_top_cnt;
+	u8 lm_cnt;
+	u8 dsc_cnt;
+	bool cont_splash_en;
 };
 
 #endif  /* _SDE_HW_MDSS_H */

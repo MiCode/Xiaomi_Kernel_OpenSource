@@ -84,6 +84,7 @@ config PPC
 	select ARCH_MIGHT_HAVE_PC_SERIO
 	select BINFMT_ELF
 	select ARCH_HAS_ELF_RANDOMIZE
+	select ARCH_HAS_FORTIFY_SOURCE
 	select OF
 	select OF_EARLY_FLATTREE
 	select OF_RESERVED_MEM
@@ -388,8 +389,8 @@ config DISABLE_MPROFILE_KERNEL
 	  be disabled also.
 
 	  If you have a toolchain which supports mprofile-kernel, then you can
-	  enable this. Otherwise leave it disabled. If you're not sure, say
-	  "N".
+	  disable this. Otherwise leave it enabled. If you're not sure, say
+	  "Y".
 
 config MPROFILE_KERNEL
 	depends on PPC64 && CPU_LITTLE_ENDIAN
@@ -1086,11 +1087,6 @@ source "lib/Kconfig"
 source "arch/powerpc/Kconfig.debug"
 
 source "security/Kconfig"
-
-config KEYS_COMPAT
-	bool
-	depends on COMPAT && KEYS
-	default y
 
 source "crypto/Kconfig"
 

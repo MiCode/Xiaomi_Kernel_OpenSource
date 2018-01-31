@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,11 +52,13 @@ static int change_memory_common(unsigned long addr, int numpages,
 	if (!numpages)
 		return 0;
 
-	if (start < MODULES_VADDR || start >= MODULES_END)
-		return -EINVAL;
+	if (!IS_ENABLED(CONFIG_FORCE_PAGES)) {
+		if (start < MODULES_VADDR || start >= MODULES_END)
+			return -EINVAL;
 
-	if (end < MODULES_VADDR || start >= MODULES_END)
-		return -EINVAL;
+		if (end < MODULES_VADDR || start >= MODULES_END)
+			return -EINVAL;
+	}
 
 	data.set_mask = set_mask;
 	data.clear_mask = clear_mask;
@@ -95,3 +97,19 @@ int set_memory_x(unsigned long addr, int numpages)
 					__pgprot(0),
 					__pgprot(L_PTE_XN));
 }
+
+#ifdef CONFIG_ARCH_SUPPORTS_DEBUG_PAGEALLOC
+void __kernel_map_pages(struct page *page, int numpages, int enable)
+{
+	unsigned long addr;
+
+	if (PageHighMem(page))
+		return;
+
+	addr = (unsigned long) page_address(page);
+	if (enable)
+		set_memory_rw(addr, numpages);
+	else
+		set_memory_ro(addr, numpages);
+}
+#endif

@@ -193,7 +193,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
 	const struct hc_driver	*driver;
-	struct device		*sysdev;
+	struct device		*sysdev, *phydev;
 	struct xhci_hcd		*xhci;
 	struct resource         *res;
 	struct usb_hcd		*hcd;
@@ -210,7 +210,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
-		return -ENODEV;
+		return irq;
 
 	/*
 	 * sysdev must point to a device that is known to the system firmware
@@ -220,7 +220,18 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	 * 3. xhci_plat is grandchild of a pci device (dwc3-pci)
 	 */
 	sysdev = &pdev->dev;
+	phydev = &pdev->dev;
 	if (sysdev->parent && !sysdev->of_node && sysdev->parent->of_node)
+		phydev = sysdev->parent;
+	/*
+	 * If sysdev->parent->parent is available and part of IOMMU group
+	 * (indicating possible usage of SMMU enablement), then use
+	 * sysdev->parent->parent as sysdev.
+	 */
+	if (sysdev->parent && !sysdev->of_node && sysdev->parent->of_node &&
+		sysdev->parent->parent && sysdev->parent->parent->iommu_group)
+		sysdev = sysdev->parent->parent;
+	else if (sysdev->parent && !sysdev->of_node && sysdev->parent->of_node)
 		sysdev = sysdev->parent;
 #ifdef CONFIG_PCI
 	else if (sysdev->parent && sysdev->parent->parent &&
@@ -307,16 +318,19 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 
-	if (device_property_read_bool(sysdev, "usb3-lpm-capable"))
+	if (device_property_read_bool(&pdev->dev, "usb3-lpm-capable"))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
 	if (device_property_read_bool(&pdev->dev, "quirk-broken-port-ped"))
 		xhci->quirks |= XHCI_BROKEN_PORT_PED;
 
-	if (device_property_read_u32(sysdev, "snps,xhci-imod-value", &imod))
+	if (device_property_read_u32(&pdev->dev, "xhci-imod-value", &imod))
 		imod = 0;
 
-	hcd->usb_phy = devm_usb_get_phy_by_phandle(sysdev, "usb-phy", 0);
+	if (device_property_read_u32(&pdev->dev, "usb-core-id", &xhci->core_id))
+		xhci->core_id = -EINVAL;
+
+	hcd->usb_phy = devm_usb_get_phy_by_phandle(phydev, "usb-phy", 0);
 	if (IS_ERR(hcd->usb_phy)) {
 		ret = PTR_ERR(hcd->usb_phy);
 		if (ret == -EPROBE_DEFER)
@@ -475,6 +489,7 @@ MODULE_DEVICE_TABLE(acpi, usb_xhci_acpi_match);
 static struct platform_driver usb_xhci_driver = {
 	.probe	= xhci_plat_probe,
 	.remove	= xhci_plat_remove,
+	.shutdown	= usb_hcd_platform_shutdown,
 	.driver	= {
 		.name = "xhci-hcd",
 		.pm = DEV_PM_OPS,

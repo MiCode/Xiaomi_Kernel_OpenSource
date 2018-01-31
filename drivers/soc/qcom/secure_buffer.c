@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,7 +37,6 @@ struct cp2_lock_req {
 	u32 lock;
 } __attribute__ ((__packed__));
 
-
 struct mem_prot_info {
 	phys_addr_t addr;
 	u64 size;
@@ -46,7 +45,7 @@ struct mem_prot_info {
 #define MEM_PROT_ASSIGN_ID		0x16
 #define MEM_PROTECT_LOCK_ID2		0x0A
 #define MEM_PROTECT_LOCK_ID2_FLAT	0x11
-#define V2_CHUNK_SIZE		SZ_1M
+#define V2_CHUNK_SIZE           SZ_1M
 #define FEATURE_ID_CP 12
 
 struct dest_vm_and_perm_info {
@@ -93,8 +92,6 @@ static int secure_buffer_change_chunk(u32 chunks,
 
 	return ret;
 }
-
-
 
 static int secure_buffer_change_table(struct sg_table *table, int lock)
 {
@@ -147,7 +144,7 @@ static int secure_buffer_change_table(struct sg_table *table, int lock)
 		 */
 		dmac_flush_range(chunk_list, chunk_list + chunk_list_len);
 
-		ret = secure_buffer_change_chunk(virt_to_phys(chunk_list),
+		ret = secure_buffer_change_chunk(chunk_list_phys,
 				nchunks, V2_CHUNK_SIZE, lock);
 
 		if (!ret) {
@@ -176,7 +173,6 @@ int msm_secure_table(struct sg_table *table)
 	mutex_unlock(&secure_buffer_mutex);
 
 	return ret;
-
 }
 
 int msm_unsecure_table(struct sg_table *table)
@@ -186,8 +182,8 @@ int msm_unsecure_table(struct sg_table *table)
 	mutex_lock(&secure_buffer_mutex);
 	ret = secure_buffer_change_table(table, 0);
 	mutex_unlock(&secure_buffer_mutex);
-	return ret;
 
+	return ret;
 }
 
 static struct dest_vm_and_perm_info *
@@ -360,6 +356,7 @@ out_free:
 	kfree(source_vm_copy);
 	return ret;
 }
+EXPORT_SYMBOL(hyp_assign_table);
 
 int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,
 			int source_nelems, int *dest_vmids,
@@ -380,6 +377,7 @@ int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,
 	sg_free_table(&table);
 	return ret;
 }
+EXPORT_SYMBOL(hyp_assign_phys);
 
 const char *msm_secure_vmid_to_string(int secure_vmid)
 {
@@ -412,6 +410,12 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_WLAN_CE";
 	case VMID_CP_CAMERA_PREVIEW:
 		return "VMID_CP_CAMERA_PREVIEW";
+	case VMID_CP_SPSS_SP:
+		return "VMID_CP_SPSS_SP";
+	case VMID_CP_SPSS_SP_SHARED:
+		return "VMID_CP_SPSS_SP_SHARED";
+	case VMID_CP_SPSS_HLOS_SHARED:
+		return "VMID_CP_SPSS_HLOS_SHARED";
 	case VMID_INVAL:
 		return "VMID_INVAL";
 	default:
@@ -424,13 +428,12 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 
 bool msm_secure_v2_is_supported(void)
 {
-	int version = scm_get_feat_version(FEATURE_ID_CP);
-
 	/*
 	 * if the version is < 1.1.0 then dynamic buffer allocation is
 	 * not supported
 	 */
-	return version >= MAKE_CP_VERSION(1, 1, 0);
+	return (scm_get_feat_version(FEATURE_ID_CP) >=
+			MAKE_CP_VERSION(1, 1, 0));
 }
 
 static int __init alloc_secure_shared_memory(void)

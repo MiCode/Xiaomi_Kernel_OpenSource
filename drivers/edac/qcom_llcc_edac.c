@@ -103,7 +103,7 @@ struct errors_edac {
 
 struct erp_drvdata {
 	struct regmap *llcc_map;
-	phys_addr_t *llcc_banks;
+	u32 *llcc_banks;
 	u32 ecc_irq;
 	u32 num_banks;
 	u32 b_off;
@@ -291,7 +291,7 @@ static void dump_syn_reg(struct edac_device_ctl_info *edev_ctl,
 
 	qcom_llcc_clear_errors(err_type, drv);
 
-	errors[err_type].func(edev_ctl, 0, 0, errors[err_type].msg);
+	errors[err_type].func(edev_ctl, 0, bank, errors[err_type].msg);
 }
 
 static void qcom_llcc_check_cache_errors
@@ -353,12 +353,29 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	struct erp_drvdata *drv;
 	struct edac_device_ctl_info *edev_ctl;
 	struct device *dev = &pdev->dev;
-	u32 *banks;
-	u32 i;
+	u32 num_banks;
+	struct regmap *llcc_map = NULL;
+
+	llcc_map = syscon_node_to_regmap(dev->parent->of_node);
+	if (IS_ERR(llcc_map)) {
+		dev_err(dev, "no regmap for syscon llcc parent\n");
+		return -ENOMEM;
+	}
+
+	/* Find the number of LLC banks supported */
+	regmap_read(llcc_map, LLCC_COMMON_STATUS0,
+		    &num_banks);
+
+	num_banks &= LLCC_LB_CNT_MASK;
+	num_banks >>= LLCC_LB_CNT_SHIFT;
 
 	/* Allocate edac control info */
 	edev_ctl = edac_device_alloc_ctl_info(sizeof(*drv), "qcom-llcc", 1,
-			NULL, 1, 1, NULL, 0, edac_device_alloc_index());
+			"bank", num_banks, 1, NULL, 0,
+			edac_device_alloc_index());
+
+	if (!edev_ctl)
+		return -ENOMEM;
 
 	edev_ctl->dev = dev;
 	edev_ctl->mod_name = dev_name(dev);
@@ -373,72 +390,59 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	edev_ctl->panic_on_ue = LLCC_ERP_PANIC_ON_UE;
 
 	drv = edev_ctl->pvt_info;
+	drv->num_banks = num_banks;
+	drv->llcc_map = llcc_map;
 
-	drv->llcc_map = syscon_node_to_regmap(dev->parent->of_node);
-	if (IS_ERR(drv->llcc_map)) {
-		dev_err(dev, "no regmap for syscon llcc parent\n");
-		rc = -ENOMEM;
-		goto out;
-	}
-
-	if (interrupt_mode) {
-		drv->ecc_irq = platform_get_irq_byname(pdev, "ecc_irq");
-		if (!drv->ecc_irq) {
-			rc = -ENODEV;
-			goto out;
-		}
-
-		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
-				IRQF_TRIGGER_HIGH, "llcc_ecc", edev_ctl);
-		if (rc) {
-			dev_err(dev, "failed to request ecc irq\n");
-			goto out;
-		}
-	}
-
-	/* Find the number of LLC banks supported */
-	regmap_read(drv->llcc_map, LLCC_COMMON_STATUS0,
-		    &drv->num_banks);
-
-	drv->num_banks &= LLCC_LB_CNT_MASK;
-	drv->num_banks >>= LLCC_LB_CNT_SHIFT;
+	rc = edac_device_add_device(edev_ctl);
+	if (rc)
+		goto out_mem;
 
 	drv->llcc_banks = devm_kzalloc(&pdev->dev,
-		sizeof(phys_addr_t) * drv->num_banks, GFP_KERNEL);
+		sizeof(u32) * drv->num_banks, GFP_KERNEL);
 
-	if (!drv->num_banks) {
+	if (!drv->llcc_banks) {
 		dev_err(dev, "Cannot allocate memory for llcc_banks\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto out_dev;
 	}
 
-	banks = devm_kzalloc(&pdev->dev,
-		sizeof(u32) * drv->num_banks, GFP_KERNEL);
-	if (!banks)
-		return -ENOMEM;
-
 	rc = of_property_read_u32_array(dev->parent->of_node,
-			"qcom,llcc-banks-off", banks, drv->num_banks);
+			"qcom,llcc-banks-off", drv->llcc_banks, drv->num_banks);
 	if (rc) {
 		dev_err(dev, "Cannot read llcc-banks-off property\n");
-		return -EINVAL;
+		goto out_dev;
 	}
 
 	rc = of_property_read_u32(dev->parent->of_node,
 			"qcom,llcc-broadcast-off", &drv->b_off);
 	if (rc) {
 		dev_err(dev, "Cannot read llcc-broadcast-off property\n");
-		return -EINVAL;
+		goto out_dev;
 	}
-
-	for (i = 0; i < drv->num_banks; i++)
-		drv->llcc_banks[i] = banks[i];
 
 	platform_set_drvdata(pdev, edev_ctl);
 
-	rc = edac_device_add_device(edev_ctl);
-out:
-	if (rc)
-		edac_device_free_ctl_info(edev_ctl);
+	if (interrupt_mode) {
+		drv->ecc_irq = platform_get_irq_byname(pdev, "ecc_irq");
+		if (!drv->ecc_irq) {
+			rc = -ENODEV;
+			goto out_dev;
+		}
+
+		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
+				IRQF_TRIGGER_HIGH, "llcc_ecc", edev_ctl);
+		if (rc) {
+			dev_err(dev, "failed to request ecc irq\n");
+			goto out_dev;
+		}
+	}
+
+	return 0;
+
+out_dev:
+	edac_device_del_device(edev_ctl->dev);
+out_mem:
+	edac_device_free_ctl_info(edev_ctl);
 
 	return rc;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,23 +16,12 @@
 #ifdef CONFIG_IOMMU_DEBUG_TRACKING
 
 void iommu_debug_attach_device(struct iommu_domain *domain, struct device *dev);
-void iommu_debug_detach_device(struct iommu_domain *domain, struct device *dev);
-void iommu_debug_domain_add(struct iommu_domain *domain);
 void iommu_debug_domain_remove(struct iommu_domain *domain);
 
 #else  /* !CONFIG_IOMMU_DEBUG_TRACKING */
 
 static inline void iommu_debug_attach_device(struct iommu_domain *domain,
 					     struct device *dev)
-{
-}
-
-static inline void iommu_debug_detach_device(struct iommu_domain *domain,
-					     struct device *dev)
-{
-}
-
-static inline void iommu_debug_domain_add(struct iommu_domain *domain)
 {
 }
 

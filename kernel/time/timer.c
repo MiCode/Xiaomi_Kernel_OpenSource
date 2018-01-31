@@ -201,12 +201,14 @@ struct timer_base {
 	bool			migration_enabled;
 	bool			nohz_active;
 	bool			is_idle;
+	bool			must_forward_clk;
 	DECLARE_BITMAP(pending_map, WHEEL_SIZE);
 	struct hlist_head	vectors[WHEEL_SIZE];
 } ____cacheline_aligned;
 
 static DEFINE_PER_CPU(struct timer_base, timer_bases[NR_BASES]);
 struct timer_base timer_base_deferrable;
+static atomic_t deferrable_pending;
 
 #if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ_COMMON)
 unsigned int sysctl_timer_migration = 1;
@@ -243,7 +245,7 @@ int timer_migration_handler(struct ctl_table *table, int write,
 	int ret;
 
 	mutex_lock(&mutex);
-	ret = proc_dointvec(table, write, buffer, lenp, ppos);
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (!ret && write)
 		timers_update_migration(false);
 	mutex_unlock(&mutex);
@@ -471,8 +473,17 @@ static inline void timer_set_idx(struct timer_list *timer, unsigned int idx)
  */
 static inline unsigned calc_index(unsigned expires, unsigned lvl)
 {
-	expires = (expires + LVL_GRAN(lvl)) >> LVL_SHIFT(lvl);
+	if (expires & ~(UINT_MAX << LVL_SHIFT(lvl)))
+		expires = (expires + LVL_GRAN(lvl)) >> LVL_SHIFT(lvl);
+	else
+		expires = expires >> LVL_SHIFT(lvl);
+
 	return LVL_OFFS(lvl) + (expires & LVL_MASK);
+}
+
+static inline unsigned int calc_index_min_granularity(unsigned int  expires)
+{
+	return LVL_OFFS(0) + ((expires >> LVL_SHIFT(0)) & LVL_MASK);
 }
 
 static int calc_wheel_index(unsigned long expires, unsigned long clk)
@@ -481,7 +492,7 @@ static int calc_wheel_index(unsigned long expires, unsigned long clk)
 	unsigned int idx;
 
 	if (delta < LVL_START(1)) {
-		idx = calc_index(expires, 0);
+		idx = calc_index_min_granularity(expires);
 	} else if (delta < LVL_START(2)) {
 		idx = calc_index(expires, 1);
 	} else if (delta < LVL_START(3)) {
@@ -574,38 +585,6 @@ internal_add_timer(struct timer_base *base, struct timer_list *timer)
 	__internal_add_timer(base, timer);
 	trigger_dyntick_cpu(base, timer);
 }
-
-#ifdef CONFIG_TIMER_STATS
-void __timer_stats_timer_set_start_info(struct timer_list *timer, void *addr)
-{
-	if (timer->start_site)
-		return;
-
-	timer->start_site = addr;
-	memcpy(timer->start_comm, current->comm, TASK_COMM_LEN);
-	timer->start_pid = current->pid;
-}
-
-static void timer_stats_account_timer(struct timer_list *timer)
-{
-	void *site;
-
-	/*
-	 * start_site can be concurrently reset by
-	 * timer_stats_timer_clear_start_info()
-	 */
-	site = READ_ONCE(timer->start_site);
-	if (likely(!site))
-		return;
-
-	timer_stats_update_stats(timer, timer->start_pid, site,
-				 timer->function, timer->start_comm,
-				 timer->flags);
-}
-
-#else
-static void timer_stats_account_timer(struct timer_list *timer) {}
-#endif
 
 #ifdef CONFIG_DEBUG_OBJECTS_TIMERS
 
@@ -793,11 +772,6 @@ static void do_init_timer(struct timer_list *timer, unsigned int flags,
 {
 	timer->entry.pprev = NULL;
 	timer->flags = flags | raw_smp_processor_id();
-#ifdef CONFIG_TIMER_STATS
-	timer->start_site = NULL;
-	timer->start_pid = -1;
-	memset(timer->start_comm, 0, TASK_COMM_LEN);
-#endif
 	lockdep_init_map(&timer->lockdep_map, name, key, 0);
 }
 
@@ -852,11 +826,10 @@ static inline struct timer_base *get_timer_cpu_base(u32 tflags, u32 cpu)
 	struct timer_base *base = per_cpu_ptr(&timer_bases[BASE_STD], cpu);
 
 	/*
-	 * If the timer is deferrable and nohz is active then we need to use
-	 * the deferrable base.
+	 * If the timer is deferrable and NO_HZ_COMMON is set then we need
+	 * to use the deferrable base.
 	 */
-	if (IS_ENABLED(CONFIG_NO_HZ_COMMON) && base->nohz_active &&
-	    (tflags & TIMER_DEFERRABLE)) {
+	if (IS_ENABLED(CONFIG_NO_HZ_COMMON) && (tflags & TIMER_DEFERRABLE)) {
 		base = &timer_base_deferrable;
 		if (tflags & TIMER_PINNED)
 			base = per_cpu_ptr(&timer_bases[BASE_DEF], cpu);
@@ -869,11 +842,10 @@ static inline struct timer_base *get_timer_this_cpu_base(u32 tflags)
 	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
 
 	/*
-	 * If the timer is deferrable and nohz is active then we need to use
-	 * the deferrable base.
+	 * If the timer is deferrable and NO_HZ_COMMON is set then we need
+	 * to use the deferrable base.
 	 */
-	if (IS_ENABLED(CONFIG_NO_HZ_COMMON) && base->nohz_active &&
-	    (tflags & TIMER_DEFERRABLE)) {
+	if (IS_ENABLED(CONFIG_NO_HZ_COMMON) && (tflags & TIMER_DEFERRABLE)) {
 		base = &timer_base_deferrable;
 		if (tflags & TIMER_PINNED)
 			base = this_cpu_ptr(&timer_bases[BASE_DEF]);
@@ -901,13 +873,19 @@ get_target_base(struct timer_base *base, unsigned tflags)
 
 static inline void forward_timer_base(struct timer_base *base)
 {
-	unsigned long jnow = READ_ONCE(jiffies);
+	unsigned long jnow;
 
 	/*
-	 * We only forward the base when it's idle and we have a delta between
-	 * base clock and jiffies.
+	 * We only forward the base when we are idle or have just come out of
+	 * idle (must_forward_clk logic), and have a delta between base clock
+	 * and jiffies. In the common case, run_timers will take care of it.
 	 */
-	if (!base->is_idle || (long) (jnow - base->clk) < 2)
+	if (likely(!base->must_forward_clk))
+		return;
+
+	jnow = READ_ONCE(jiffies);
+	base->must_forward_clk = base->is_idle;
+	if ((long)(jnow - base->clk) < 2)
 		return;
 
 	/*
@@ -983,6 +961,11 @@ __mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
 	 * same array bucket then just return:
 	 */
 	if (timer_pending(timer)) {
+		/*
+		 * The downside of this optimization is that it can result in
+		 * larger granularity than you would get from adding a new
+		 * timer with this expiry.
+		 */
 		if (timer->expires == expires)
 			return 1;
 
@@ -993,6 +976,7 @@ __mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
 		 * dequeue/enqueue dance.
 		 */
 		base = lock_timer_base(timer, &flags);
+		forward_timer_base(base);
 
 		clk = base->clk;
 		idx = calc_wheel_index(expires, clk);
@@ -1009,15 +993,12 @@ __mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
 		}
 	} else {
 		base = lock_timer_base(timer, &flags);
+		forward_timer_base(base);
 	}
-
-	timer_stats_timer_set_start_info(timer);
 
 	ret = detach_if_pending(timer, base, false);
 	if (!ret && pending_only)
 		goto out_unlock;
-
-	debug_activate(timer, expires);
 
 	new_base = get_target_base(base, timer->flags);
 
@@ -1038,11 +1019,11 @@ __mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
 			spin_lock(&base->lock);
 			WRITE_ONCE(timer->flags,
 				   (timer->flags & ~TIMER_BASEMASK) | base->cpu);
+			forward_timer_base(base);
 		}
 	}
 
-	/* Try to forward a stale timer base clock */
-	forward_timer_base(base);
+	debug_activate(timer, expires);
 
 	timer->expires = expires;
 	/*
@@ -1140,7 +1121,6 @@ void add_timer_on(struct timer_list *timer, int cpu)
 	struct timer_base *new_base, *base;
 	unsigned long flags;
 
-	timer_stats_timer_set_start_info(timer);
 	BUG_ON(timer_pending(timer) || !timer->function);
 
 	new_base = get_timer_cpu_base(timer->flags, cpu);
@@ -1160,6 +1140,7 @@ void add_timer_on(struct timer_list *timer, int cpu)
 		WRITE_ONCE(timer->flags,
 			   (timer->flags & ~TIMER_BASEMASK) | cpu);
 	}
+	forward_timer_base(base);
 
 	debug_activate(timer, timer->expires);
 	internal_add_timer(base, timer);
@@ -1186,7 +1167,6 @@ int del_timer(struct timer_list *timer)
 
 	debug_assert_init(timer);
 
-	timer_stats_timer_clear_start_info(timer);
 	if (timer_pending(timer)) {
 		base = lock_timer_base(timer, &flags);
 		ret = detach_if_pending(timer, base, true);
@@ -1214,10 +1194,9 @@ int try_to_del_timer_sync(struct timer_list *timer)
 
 	base = lock_timer_base(timer, &flags);
 
-	if (base->running_timer != timer) {
-		timer_stats_timer_clear_start_info(timer);
+	if (base->running_timer != timer)
 		ret = detach_if_pending(timer, base, true);
-	}
+
 	spin_unlock_irqrestore(&base->lock, flags);
 
 	return ret;
@@ -1341,7 +1320,6 @@ static void expire_timers(struct timer_base *base, struct hlist_head *head)
 		unsigned long data;
 
 		timer = hlist_entry(head->first, struct timer_list, entry);
-		timer_stats_account_timer(timer);
 
 		base->running_timer = timer;
 		detach_timer(timer, true);
@@ -1393,17 +1371,22 @@ static int __collect_expired_timers(struct timer_base *base,
  * (@offset) up to @offset + clk.
  */
 static int next_pending_bucket(struct timer_base *base, unsigned offset,
-			       unsigned clk)
+			       unsigned int clk, int lvl)
 {
-	unsigned pos, start = offset + clk;
+	unsigned int pos_up = -1, pos_down, start = offset + clk;
 	unsigned end = offset + LVL_SIZE;
+	unsigned int pos;
 
 	pos = find_next_bit(base->pending_map, end, start);
 	if (pos < end)
-		return pos - start;
+		pos_up = pos - start;
 
 	pos = find_next_bit(base->pending_map, start, offset);
-	return pos < start ? pos + LVL_SIZE - start : -1;
+	pos_down = pos < start ? pos + LVL_SIZE - start : -1;
+	if (((pos_up + (u64)base->clk) << LVL_SHIFT(lvl)) >
+		((pos_down + (u64)base->clk) << LVL_SHIFT(lvl)))
+		return pos_down;
+	return pos_up;
 }
 
 /*
@@ -1418,7 +1401,8 @@ static unsigned long __next_timer_interrupt(struct timer_base *base)
 	next = base->clk + NEXT_TIMER_MAX_DELTA;
 	clk = base->clk;
 	for (lvl = 0; lvl < LVL_DEPTH; lvl++, offset += LVL_SIZE) {
-		int pos = next_pending_bucket(base, offset, clk & LVL_MASK);
+		int pos = next_pending_bucket(base, offset, clk & LVL_MASK,
+			  lvl);
 
 		if (pos >= 0) {
 			unsigned long tmp = clk + (unsigned long) pos;
@@ -1503,6 +1487,31 @@ static u64 cmp_next_hrtimer_event(u64 basem, u64 expires)
 	return DIV_ROUND_UP_ULL(nextevt, TICK_NSEC) * TICK_NSEC;
 }
 
+
+#ifdef CONFIG_SMP
+/*
+ * check_pending_deferrable_timers - Check for unbound deferrable timer expiry
+ * @cpu - Current CPU
+ *
+ * The function checks whether any global deferrable pending timers
+ * are exipired or not. This function does not check cpu bounded
+ * diferrable pending timers expiry.
+ *
+ * The function returns true when a cpu unbounded deferrable timer is expired.
+ */
+bool check_pending_deferrable_timers(int cpu)
+{
+	if (cpu == tick_do_timer_cpu ||
+		tick_do_timer_cpu == TICK_DO_TIMER_NONE) {
+		if (time_after_eq(jiffies, timer_base_deferrable.clk)
+			&& !atomic_cmpxchg(&deferrable_pending, 0, 1)) {
+			return true;
+		}
+	}
+	return false;
+}
+#endif
+
 /**
  * get_next_timer_interrupt - return the time (clock mono) of the next timer
  * @basej:	base time jiffies
@@ -1546,12 +1555,18 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 		base->is_idle = false;
 	} else {
 		if (!is_max_delta)
-			expires = basem + (nextevt - basej) * TICK_NSEC;
+			expires = basem + (u64)(nextevt - basej) * TICK_NSEC;
 		/*
-		 * If we expect to sleep more than a tick, mark the base idle:
+		 * If we expect to sleep more than a tick, mark the base idle.
+		 * Also the tick is stopped so any added timer must forward
+		 * the base clk itself to keep granularity small. This idle
+		 * logic is only maintained for the BASE_STD base, deferrable
+		 * timers may still see large granularity skew (by design).
 		 */
-		if ((expires - basem) > TICK_NSEC)
+		if ((expires - basem) > TICK_NSEC) {
+			base->must_forward_clk = true;
 			base->is_idle = true;
+		}
 	}
 	spin_unlock(&base->lock);
 
@@ -1661,11 +1676,27 @@ static __latent_entropy void run_timer_softirq(struct softirq_action *h)
 {
 	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
 
+	/*
+	 * must_forward_clk must be cleared before running timers so that any
+	 * timer functions that call mod_timer will not try to forward the
+	 * base. idle trcking / clock forwarding logic is only used with
+	 * BASE_STD timers.
+	 *
+	 * The deferrable base does not do idle tracking at all, so we do
+	 * not forward it. This can result in very large variations in
+	 * granularity for deferrable timers, but they can be deferred for
+	 * long periods due to idle.
+	 */
+	base->must_forward_clk = false;
+
 	__run_timers(base);
-	if (IS_ENABLED(CONFIG_NO_HZ_COMMON) && base->nohz_active) {
-		__run_timers(&timer_base_deferrable);
+	if (IS_ENABLED(CONFIG_NO_HZ_COMMON))
 		__run_timers(this_cpu_ptr(&timer_bases[BASE_DEF]));
-	}
+
+	if ((atomic_cmpxchg(&deferrable_pending, 1, 0) &&
+		tick_do_timer_cpu == TICK_DO_TIMER_NONE) ||
+		tick_do_timer_cpu == smp_processor_id())
+		__run_timers(&timer_base_deferrable);
 }
 
 /*
@@ -1839,6 +1870,21 @@ static void migrate_timer_list(struct timer_base *new_base,
 	}
 }
 
+int timers_prepare_cpu(unsigned int cpu)
+{
+	struct timer_base *base;
+	int b;
+
+	for (b = 0; b < NR_BASES; b++) {
+		base = per_cpu_ptr(&timer_bases[b], cpu);
+		base->clk = jiffies;
+		base->next_expiry = base->clk + NEXT_TIMER_MAX_DELTA;
+		base->is_idle = false;
+		base->must_forward_clk = true;
+	}
+	return 0;
+}
+
 static void __migrate_timers(unsigned int cpu, bool remove_pinned)
 {
 	struct timer_base *old_base;
@@ -1916,7 +1962,6 @@ static void __init init_timer_cpus(void)
 void __init init_timers(void)
 {
 	init_timer_cpus();
-	init_timer_stats();
 	open_softirq(TIMER_SOFTIRQ, run_timer_softirq);
 }
 

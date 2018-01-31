@@ -101,77 +101,78 @@ static struct ipa_api_controller *ipa_api_ctrl;
 
 const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_HSIC1_PROD),
-	__stringify(IPA_CLIENT_WLAN1_PROD),
-	__stringify(IPA_CLIENT_HSIC2_PROD),
-	__stringify(IPA_CLIENT_USB2_PROD),
-	__stringify(IPA_CLIENT_HSIC3_PROD),
-	__stringify(IPA_CLIENT_USB3_PROD),
-	__stringify(IPA_CLIENT_HSIC4_PROD),
-	__stringify(IPA_CLIENT_USB4_PROD),
-	__stringify(IPA_CLIENT_HSIC5_PROD),
-	__stringify(IPA_CLIENT_USB_PROD),
-	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
-	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
-	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
-	__stringify(IPA_CLIENT_APPS_LAN_PROD),
-	__stringify(IPA_CLIENT_APPS_WAN_PROD),
-	__stringify(IPA_CLIENT_APPS_CMD_PROD),
-	__stringify(IPA_CLIENT_ODU_PROD),
-	__stringify(IPA_CLIENT_MHI_PROD),
-	__stringify(IPA_CLIENT_Q6_LAN_PROD),
-	__stringify(IPA_CLIENT_Q6_WAN_PROD),
-	__stringify(IPA_CLIENT_Q6_CMD_PROD),
-	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD),
-	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD),
-	__stringify(IPA_CLIENT_Q6_DECOMP_PROD),
-	__stringify(IPA_CLIENT_Q6_DECOMP2_PROD),
-	__stringify(IPA_CLIENT_UC_USB_PROD),
-	__stringify(IPA_CLIENT_ETHERNET_PROD),
-
-	/* Below PROD client type is only for test purpose */
-	__stringify(IPA_CLIENT_TEST_PROD),
-	__stringify(IPA_CLIENT_TEST1_PROD),
-	__stringify(IPA_CLIENT_TEST2_PROD),
-	__stringify(IPA_CLIENT_TEST3_PROD),
-	__stringify(IPA_CLIENT_TEST4_PROD),
-
 	__stringify(IPA_CLIENT_HSIC1_CONS),
-	__stringify(IPA_CLIENT_WLAN1_CONS),
+	__stringify(IPA_CLIENT_HSIC2_PROD),
 	__stringify(IPA_CLIENT_HSIC2_CONS),
-	__stringify(IPA_CLIENT_USB2_CONS),
-	__stringify(IPA_CLIENT_WLAN2_CONS),
+	__stringify(IPA_CLIENT_HSIC3_PROD),
 	__stringify(IPA_CLIENT_HSIC3_CONS),
-	__stringify(IPA_CLIENT_USB3_CONS),
-	__stringify(IPA_CLIENT_WLAN3_CONS),
+	__stringify(IPA_CLIENT_HSIC4_PROD),
 	__stringify(IPA_CLIENT_HSIC4_CONS),
-	__stringify(IPA_CLIENT_USB4_CONS),
-	__stringify(IPA_CLIENT_WLAN4_CONS),
+	__stringify(IPA_CLIENT_HSIC5_PROD),
 	__stringify(IPA_CLIENT_HSIC5_CONS),
+	__stringify(IPA_CLIENT_WLAN1_PROD),
+	__stringify(IPA_CLIENT_WLAN1_CONS),
+	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
+	__stringify(IPA_CLIENT_WLAN2_CONS),
+	__stringify(RESERVERD_PROD_14),
+	__stringify(IPA_CLIENT_WLAN3_CONS),
+	__stringify(RESERVERD_PROD_16),
+	__stringify(IPA_CLIENT_WLAN4_CONS),
+	__stringify(IPA_CLIENT_USB_PROD),
 	__stringify(IPA_CLIENT_USB_CONS),
+	__stringify(IPA_CLIENT_USB2_PROD),
+	__stringify(IPA_CLIENT_USB2_CONS),
+	__stringify(IPA_CLIENT_USB3_PROD),
+	__stringify(IPA_CLIENT_USB3_CONS),
+	__stringify(IPA_CLIENT_USB4_PROD),
+	__stringify(IPA_CLIENT_USB4_CONS),
+	__stringify(IPA_CLIENT_UC_USB_PROD),
 	__stringify(IPA_CLIENT_USB_DPL_CONS),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
 	__stringify(IPA_CLIENT_A2_EMBEDDED_CONS),
+	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
 	__stringify(IPA_CLIENT_A2_TETHERED_CONS),
-	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
+	__stringify(IPA_CLIENT_APPS_LAN_PROD),
 	__stringify(IPA_CLIENT_APPS_LAN_CONS),
+	__stringify(IPA_CLIENT_APPS_WAN_PROD),
 	__stringify(IPA_CLIENT_APPS_WAN_CONS),
+	__stringify(IPA_CLIENT_APPS_CMD_PROD),
+	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
+	__stringify(IPA_CLIENT_ODU_PROD),
 	__stringify(IPA_CLIENT_ODU_EMB_CONS),
+	__stringify(RESERVERD_PROD_40),
 	__stringify(IPA_CLIENT_ODU_TETH_CONS),
+	__stringify(IPA_CLIENT_MHI_PROD),
 	__stringify(IPA_CLIENT_MHI_CONS),
-	__stringify(IPA_CLIENT_Q6_LAN_CONS),
-	__stringify(IPA_CLIENT_Q6_WAN_CONS),
-	__stringify(IPA_CLIENT_Q6_DUN_CONS),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD),
 	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD),
 	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS),
-	__stringify(IPA_CLIENT_Q6_DECOMP_CONS),
-	__stringify(IPA_CLIENT_Q6_DECOMP2_CONS),
-	__stringify(IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS),
+	__stringify(IPA_CLIENT_ETHERNET_PROD),
 	__stringify(IPA_CLIENT_ETHERNET_CONS),
-	/* Below CONS client type is only for test purpose */
+	__stringify(IPA_CLIENT_Q6_LAN_PROD),
+	__stringify(IPA_CLIENT_Q6_LAN_CONS),
+	__stringify(IPA_CLIENT_Q6_WAN_PROD),
+	__stringify(IPA_CLIENT_Q6_WAN_CONS),
+	__stringify(IPA_CLIENT_Q6_CMD_PROD),
+	__stringify(IPA_CLIENT_Q6_DUN_CONS),
+	__stringify(IPA_CLIENT_Q6_DECOMP_PROD),
+	__stringify(IPA_CLIENT_Q6_DECOMP_CONS),
+	__stringify(IPA_CLIENT_Q6_DECOMP2_PROD),
+	__stringify(IPA_CLIENT_Q6_DECOMP2_CONS),
+	__stringify(RESERVERD_PROD_60),
+	__stringify(IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS),
+	__stringify(IPA_CLIENT_TEST_PROD),
 	__stringify(IPA_CLIENT_TEST_CONS),
+	__stringify(IPA_CLIENT_TEST1_PROD),
 	__stringify(IPA_CLIENT_TEST1_CONS),
+	__stringify(IPA_CLIENT_TEST2_PROD),
 	__stringify(IPA_CLIENT_TEST2_CONS),
+	__stringify(IPA_CLIENT_TEST3_PROD),
 	__stringify(IPA_CLIENT_TEST3_CONS),
+	__stringify(IPA_CLIENT_TEST4_PROD),
 	__stringify(IPA_CLIENT_TEST4_CONS),
+	__stringify(IPA_CLIENT_DUMMY_CONS),
 };
 
 /**
@@ -421,7 +422,7 @@ EXPORT_SYMBOL(ipa_cfg_ep);
 /**
  * ipa_cfg_ep_nat() - IPA end-point NAT configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
- * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ * @ep_nat:	[in] IPA NAT end-point configuration params
  *
  * Returns:	0 on success, negative on failure
  *
@@ -436,6 +437,27 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_cfg_ep_nat);
+
+/**
+* ipa_cfg_ep_conn_track() - IPA end-point IPv6CT configuration
+* @clnt_hdl:		[in] opaque client handle assigned by IPA to client
+* @ep_conn_track:	[in] IPA IPv6CT end-point configuration params
+*
+* Returns:	0 on success, negative on failure
+*
+* Note:	Should not be called from atomic context
+*/
+int ipa_cfg_ep_conn_track(u32 clnt_hdl,
+	const struct ipa_ep_cfg_conn_track *ep_conn_track)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_cfg_ep_conn_track, clnt_hdl,
+		ep_conn_track);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_conn_track);
 
 /**
  * ipa_cfg_ep_hdr() -  IPA end-point header configuration
@@ -1073,7 +1095,7 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 EXPORT_SYMBOL(ipa_reset_flt);
 
 /**
- * allocate_nat_device() - Allocates memory for the NAT device
+ * ipa_allocate_nat_device() - Allocates memory for the NAT device
  * @mem:	[in/out] memory parameters
  *
  * Called by NAT client driver to allocate memory for the NAT entries. Based on
@@ -1081,15 +1103,55 @@ EXPORT_SYMBOL(ipa_reset_flt);
  *
  * Returns:	0 on success, negative on failure
  */
-int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
+int ipa_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(allocate_nat_device, mem);
+	IPA_API_DISPATCH_RETURN(ipa_allocate_nat_device, mem);
 
 	return ret;
 }
-EXPORT_SYMBOL(allocate_nat_device);
+EXPORT_SYMBOL(ipa_allocate_nat_device);
+
+/**
+ * ipa_allocate_nat_table() - Allocates memory for the NAT table
+ * @table_alloc: [in/out] memory parameters
+ *
+ * Called by NAT client to allocate memory for the table entries.
+ * Based on the request size either shared or system memory will be used.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_allocate_nat_table(struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_allocate_nat_table, table_alloc);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_allocate_nat_table);
+
+
+/**
+ * ipa_allocate_ipv6ct_table() - Allocates memory for the IPv6CT table
+ * @table_alloc: [in/out] memory parameters
+ *
+ * Called by IPv6CT client to allocate memory for the table entries.
+ * Based on the request size either shared or system memory will be used.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_allocate_ipv6ct_table(
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_allocate_ipv6ct_table, table_alloc);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_allocate_ipv6ct_table);
 
 /**
  * ipa_nat_init_cmd() - Post IP_V4_NAT_INIT command to IPA HW
@@ -1110,6 +1172,25 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 EXPORT_SYMBOL(ipa_nat_init_cmd);
 
 /**
+ * ipa_ipv6ct_init_cmd() - Post IP_V6_CONN_TRACK_INIT command to IPA HW
+ * @init:	[in] initialization command attributes
+ *
+ * Called by IPv6CT client driver to post IP_V6_CONN_TRACK_INIT command
+ * to IPA HW.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_ipv6ct_init_cmd, init);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_ipv6ct_init_cmd);
+
+/**
  * ipa_nat_dma_cmd() - Post NAT_DMA command to IPA HW
  * @dma:	[in] initialization command attributes
  *
@@ -1128,8 +1209,26 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 EXPORT_SYMBOL(ipa_nat_dma_cmd);
 
 /**
- * ipa_nat_del_cmd() - Delete a NAT table
- * @del:	[in] delete table table table parameters
+ * ipa_table_dma_cmd() - Post TABLE_DMA command to IPA HW
+ * @dma:	[in] initialization command attributes
+ *
+ * Called by NAT/IPv6CT client to post TABLE_DMA command to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_table_dma_cmd, dma);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_table_dma_cmd);
+
+/**
+ * ipa_nat_del_cmd() - Delete the NAT table
+ * @del:	[in] delete NAT table parameters
  *
  * Called by NAT client driver to delete the nat table
  *
@@ -1144,6 +1243,60 @@ int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_nat_del_cmd);
+
+/**
+ * ipa_del_nat_table() - Delete the NAT table
+ * @del:	[in] delete table parameters
+ *
+ * Called by NAT client to delete the table
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_del_nat_table, del);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_del_nat_table);
+
+/**
+ * ipa_del_ipv6ct_table() - Delete the IPv6CT table
+ * @del:	[in] delete table parameters
+ *
+ * Called by IPv6CT client to delete the table
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_del_ipv6ct_table, del);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_del_ipv6ct_table);
+
+/**
+ * ipa3_nat_mdfy_pdn() - Modify a PDN entry in PDN config table in IPA SRAM
+ * @mdfy_pdn:	[in] PDN info to be written to SRAM
+ *
+ * Called by NAT client driver to modify an entry in the PDN config table
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_nat_mdfy_pdn, mdfy_pdn);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_nat_mdfy_pdn);
 
 /**
  * ipa_send_msg() - Send "message" from kernel client to IPA driver
@@ -2560,6 +2713,41 @@ int ipa_stop_gsi_channel(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_stop_gsi_channel);
 
 /**
+ * ipa_start_gsi_channel()- Startsa GSI channel in IPA
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa_start_gsi_channel(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_start_gsi_channel, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_start_gsi_channel);
+
+/**
+* ipa_is_vlan_mode - check if a LAN driver should load in VLAN mode
+* @iface - type of vlan capable device
+* @res - query result: true for vlan mode, false for non vlan mode
+*
+* API must be called after ipa_is_ready() returns true, otherwise it will fail
+*
+* Returns: 0 on success, negative on failure
+*/
+int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_is_vlan_mode, iface, res);
+
+	return ret;
+
+}
+EXPORT_SYMBOL(ipa_is_vlan_mode);
+
+/**
  * ipa_get_version_string() - Get string representation of IPA version
  * @ver: IPA version
  *
@@ -2599,6 +2787,9 @@ const char *ipa_get_version_string(enum ipa_hw_type ver)
 		break;
 	case IPA_HW_v3_5_1:
 		str = "3.5.1";
+		break;
+	case IPA_HW_v4_0:
+		str = "4.0";
 		break;
 	default:
 		str = "Invalid version";
@@ -2660,6 +2851,7 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 	case IPA_HW_v3_1:
 	case IPA_HW_v3_5:
 	case IPA_HW_v3_5_1:
+	case IPA_HW_v4_0:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
 		break;
@@ -2944,6 +3136,99 @@ struct device *ipa_get_pdev(void)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_get_pdev);
+
+int ipa_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *user_data),
+			      void *user_data)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_ntn_uc_reg_rdyCB,
+				ipauc_ready_cb, user_data);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_ntn_uc_reg_rdyCB);
+
+void ipa_ntn_uc_dereg_rdyCB(void)
+{
+	IPA_API_DISPATCH(ipa_ntn_uc_dereg_rdyCB);
+}
+EXPORT_SYMBOL(ipa_ntn_uc_dereg_rdyCB);
+
+int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_get_smmu_params, in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_smmu_params);
+
+/**
+ * ipa_conn_wdi3_pipes() - connect wdi3 pipes
+ */
+int ipa_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
+	struct ipa_wdi3_conn_out_params *out)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_conn_wdi3_pipes, in, out);
+
+	return ret;
+}
+
+/**
+ * ipa_disconn_wdi3_pipes() - disconnect wdi3 pipes
+ */
+int ipa_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disconn_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
+
+/**
+ * ipa_enable_wdi3_pipes() - enable wdi3 pipes
+ */
+int ipa_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_enable_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
+
+/**
+ * ipa_disable_wdi3_pipes() - disable wdi3 pipes
+ */
+int ipa_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disable_wdi3_pipes, ipa_ep_idx_tx,
+		ipa_ep_idx_rx);
+
+	return ret;
+}
+
+/**
+ * ipa_tz_unlock_reg() - Allow AP access to memory regions controlled by TZ
+ */
+int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_tz_unlock_reg, reg_info, num_regs);
+
+	return ret;
+}
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

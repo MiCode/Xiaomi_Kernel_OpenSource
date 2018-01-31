@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -437,6 +437,9 @@ static int pmic_gpio_config_get(struct pinctrl_dev *pctldev,
 	case PIN_CONFIG_INPUT_ENABLE:
 		arg = pad->input_enabled;
 		break;
+	case PIN_CONFIG_OUTPUT_ENABLE:
+		arg = pad->output_enabled;
+		break;
 	case PIN_CONFIG_OUTPUT:
 		arg = pad->out_value;
 		break;
@@ -471,6 +474,7 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 
 	pad = pctldev->desc->pins[pin].drv_data;
 
+	pad->is_enabled = true;
 	for (i = 0; i < nconfs; i++) {
 		param = pinconf_to_config_param(configs[i]);
 		arg = pinconf_to_config_argument(configs[i]);
@@ -511,6 +515,9 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			break;
 		case PIN_CONFIG_INPUT_ENABLE:
 			pad->input_enabled = arg ? true : false;
+			break;
+		case PIN_CONFIG_OUTPUT_ENABLE:
+			pad->output_enabled = arg ? true : false;
 			break;
 		case PIN_CONFIG_OUTPUT:
 			pad->output_enabled = true;
@@ -562,14 +569,6 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 	if (ret < 0)
 		return ret;
 
-	val = PMIC_GPIO_MODE_DIGITAL_INPUT;
-	if (pad->output_enabled) {
-		if (pad->input_enabled)
-			val = PMIC_GPIO_MODE_DIGITAL_INPUT_OUTPUT;
-		else
-			val = PMIC_GPIO_MODE_DIGITAL_OUTPUT;
-	}
-
 	if (pad->dtest_buffer != INT_MAX) {
 		val = pad->dtest_buffer;
 		if (pad->lv_mv_type)
@@ -579,6 +578,14 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 				PMIC_GPIO_REG_DIG_IN_CTL, val);
 		if (ret < 0)
 			return ret;
+	}
+
+	val = PMIC_GPIO_MODE_DIGITAL_INPUT;
+	if (pad->output_enabled) {
+		if (pad->input_enabled)
+			val = PMIC_GPIO_MODE_DIGITAL_INPUT_OUTPUT;
+		else
+			val = PMIC_GPIO_MODE_DIGITAL_OUTPUT;
 	}
 
 	if (pad->lv_mv_type) {
@@ -618,6 +625,10 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 		if (ret < 0)
 			return ret;
 	}
+
+	val = pad->is_enabled << PMIC_GPIO_REG_MASTER_EN_SHIFT;
+
+	ret = pmic_gpio_write(state, pad, PMIC_GPIO_REG_EN_CTL, val);
 
 	return ret;
 }

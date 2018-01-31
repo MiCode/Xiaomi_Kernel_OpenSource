@@ -26,7 +26,7 @@
 #include "f_ccid.h"
 
 #define BULK_IN_BUFFER_SIZE sizeof(struct ccid_bulk_in_header)
-#define BULK_OUT_BUFFER_SIZE sizeof(struct ccid_bulk_out_header)
+#define BULK_OUT_BUFFER_SIZE 1024
 #define CTRL_BUF_SIZE	4
 #define FUNCTION_NAME	"ccid"
 #define MAX_INST_NAME_LEN	40
@@ -203,6 +203,71 @@ static struct usb_descriptor_header *ccid_hs_descs[] = {
 	(struct usb_descriptor_header *) &ccid_hs_notify_desc,
 	(struct usb_descriptor_header *) &ccid_hs_in_desc,
 	(struct usb_descriptor_header *) &ccid_hs_out_desc,
+	NULL,
+};
+
+/* Super speed support: */
+static struct usb_endpoint_descriptor ccid_ss_notify_desc  = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	cpu_to_le16(CCID_NOTIFY_MAXPACKET),
+	.bInterval =		CCID_NOTIFY_INTERVAL + 4,
+};
+
+static struct usb_ss_ep_comp_descriptor ccid_ss_notify_comp_desc = {
+	.bLength =		sizeof(ccid_ss_notify_comp_desc),
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+};
+
+static struct usb_endpoint_descriptor ccid_ss_in_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(1024),
+};
+
+static struct usb_ss_ep_comp_descriptor ccid_ss_in_comp_desc = {
+	.bLength =		sizeof(ccid_ss_in_comp_desc),
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+};
+
+static struct usb_endpoint_descriptor ccid_ss_out_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_OUT,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(1024),
+};
+
+static struct usb_ss_ep_comp_descriptor ccid_ss_out_comp_desc = {
+	.bLength =		sizeof(ccid_ss_out_comp_desc),
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+};
+
+static struct usb_descriptor_header *ccid_ss_descs[] = {
+	(struct usb_descriptor_header *) &ccid_interface_desc,
+	(struct usb_descriptor_header *) &ccid_class_desc,
+	(struct usb_descriptor_header *) &ccid_ss_notify_desc,
+	(struct usb_descriptor_header *) &ccid_ss_notify_comp_desc,
+	(struct usb_descriptor_header *) &ccid_ss_in_desc,
+	(struct usb_descriptor_header *) &ccid_ss_in_comp_desc,
+	(struct usb_descriptor_header *) &ccid_ss_out_desc,
+	(struct usb_descriptor_header *) &ccid_ss_out_comp_desc,
 	NULL,
 };
 
@@ -503,10 +568,7 @@ free_notify:
 static void ccid_function_unbind(struct usb_configuration *c,
 					struct usb_function *f)
 {
-	if (gadget_is_dualspeed(c->cdev->gadget))
-		usb_free_descriptors(f->hs_descriptors);
-	usb_free_descriptors(f->fs_descriptors);
-
+	usb_free_all_descriptors(f);
 }
 
 static int ccid_function_bind(struct usb_configuration *c,
@@ -551,23 +613,26 @@ static int ccid_function_bind(struct usb_configuration *c,
 	ccid_dev->out = ep;
 	ep->driver_data = cdev;
 
-	f->fs_descriptors = usb_copy_descriptors(ccid_fs_descs);
-	if (!f->fs_descriptors)
+	/*
+	 * support all relevant hardware speeds... we expect that when
+	 * hardware is dual speed, all bulk-capable endpoints work at
+	 * both speeds
+	 */
+	ccid_hs_in_desc.bEndpointAddress = ccid_fs_in_desc.bEndpointAddress;
+	ccid_hs_out_desc.bEndpointAddress = ccid_fs_out_desc.bEndpointAddress;
+	ccid_hs_notify_desc.bEndpointAddress =
+					ccid_fs_notify_desc.bEndpointAddress;
+
+
+	ccid_ss_in_desc.bEndpointAddress = ccid_fs_in_desc.bEndpointAddress;
+	ccid_ss_out_desc.bEndpointAddress = ccid_fs_out_desc.bEndpointAddress;
+	ccid_ss_notify_desc.bEndpointAddress =
+					ccid_fs_notify_desc.bEndpointAddress;
+
+	ret = usb_assign_descriptors(f, ccid_fs_descs, ccid_hs_descs,
+						ccid_ss_descs, NULL);
+	if (ret)
 		goto ep_auto_out_fail;
-
-	if (gadget_is_dualspeed(cdev->gadget)) {
-		ccid_hs_in_desc.bEndpointAddress =
-				ccid_fs_in_desc.bEndpointAddress;
-		ccid_hs_out_desc.bEndpointAddress =
-				ccid_fs_out_desc.bEndpointAddress;
-		ccid_hs_notify_desc.bEndpointAddress =
-				ccid_fs_notify_desc.bEndpointAddress;
-
-		/* copy descriptors, and track endpoint copies */
-		f->hs_descriptors = usb_copy_descriptors(ccid_hs_descs);
-		if (!f->hs_descriptors)
-			goto ep_auto_out_fail;
-	}
 
 	pr_debug("%s: CCID %s Speed, IN:%s OUT:%s\n", __func__,
 			gadget_is_dualspeed(cdev->gadget) ? "dual" : "full",
@@ -629,14 +694,14 @@ static ssize_t ccid_bulk_read(struct file *fp, char __user *buf,
 	struct f_ccid *ccid_dev =  fp->private_data;
 	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
 	struct usb_request *req;
-	int r = count, xfer;
+	int r = count, xfer, len;
 	int ret;
 	unsigned long flags;
 
 	pr_debug("ccid_bulk_read(%zu)\n", count);
 
 	if (count > BULK_OUT_BUFFER_SIZE) {
-		pr_err("%s: max_buffer_size:%zu given_pkt_size:%zu\n",
+		pr_err("%s: max_buffer_size:%d given_pkt_size:%zu\n",
 				__func__, BULK_OUT_BUFFER_SIZE, count);
 		return -ENOMEM;
 	}
@@ -647,6 +712,7 @@ static ssize_t ccid_bulk_read(struct file *fp, char __user *buf,
 		goto done;
 	}
 
+	len = ALIGN(count, ccid_dev->out->maxpacket);
 requeue_req:
 	spin_lock_irqsave(&ccid_dev->lock, flags);
 	if (!atomic_read(&ccid_dev->online)) {
@@ -655,7 +721,7 @@ requeue_req:
 	}
 	/* queue a request */
 	req = bulk_dev->rx_req;
-	req->length = count;
+	req->length = len;
 	bulk_dev->rx_done = 0;
 	spin_unlock_irqrestore(&ccid_dev->lock, flags);
 	ret = usb_ep_queue(ccid_dev->out, req, GFP_KERNEL);
@@ -688,6 +754,9 @@ requeue_req:
 			spin_unlock_irqrestore(&ccid_dev->lock, flags);
 			goto requeue_req;
 		}
+		if (req->actual > count)
+			pr_err("%s More data received(%d) than required(%zu)\n",
+						__func__, req->actual, count);
 		xfer = (req->actual < count) ? req->actual : count;
 		atomic_set(&bulk_dev->rx_req_busy, 1);
 		spin_unlock_irqrestore(&ccid_dev->lock, flags);
@@ -875,7 +944,8 @@ static ssize_t ccid_ctrl_read(struct file *fp, char __user *buf,
 		count = CTRL_BUF_SIZE;
 
 	ret = wait_event_interruptible(ctrl_dev->tx_wait_q,
-					 ctrl_dev->tx_ctrl_done);
+					 ctrl_dev->tx_ctrl_done ||
+					!atomic_read(&ccid_dev->online));
 	if (ret < 0)
 		return ret;
 	ctrl_dev->tx_ctrl_done = 0;
@@ -967,6 +1037,7 @@ static int ccid_bind_config(struct f_ccid *ccid_dev)
 	ccid_dev->function.name = FUNCTION_NAME;
 	ccid_dev->function.fs_descriptors = ccid_fs_descs;
 	ccid_dev->function.hs_descriptors = ccid_hs_descs;
+	ccid_dev->function.ss_descriptors = ccid_ss_descs;
 	ccid_dev->function.bind = ccid_function_bind;
 	ccid_dev->function.unbind = ccid_function_unbind;
 	ccid_dev->function.set_alt = ccid_function_set_alt;

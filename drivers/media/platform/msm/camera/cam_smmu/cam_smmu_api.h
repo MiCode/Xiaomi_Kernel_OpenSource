@@ -45,7 +45,19 @@ enum cam_smmu_region_id {
 	CAM_SMMU_REGION_FIRMWARE,
 	CAM_SMMU_REGION_SHARED,
 	CAM_SMMU_REGION_SCRATCH,
-	CAM_SMMU_REGION_IO
+	CAM_SMMU_REGION_IO,
+	CAM_SMMU_REGION_SECHEAP
+};
+
+/**
+ * @brief            : Structure to store region information
+ *
+ * @param iova_start : Start address of region
+ * @param iova_len   : length of region
+ */
+struct cam_smmu_region_info {
+	dma_addr_t iova_start;
+	size_t iova_len;
 };
 
 /**
@@ -74,7 +86,7 @@ int cam_smmu_get_handle(char *identifier, int *handle_ptr);
 int cam_smmu_ops(int handle, enum cam_smmu_ops_param op);
 
 /**
- * @brief       : Maps IOVA for calling driver
+ * @brief       : Maps user space IOVA for calling driver
  *
  * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
  * @param ion_fd: ION handle identifying the memory buffer.
@@ -84,25 +96,54 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param op);
  *                returned if region_id is CAM_SMMU_REGION_IO. If region_id is
  *                CAM_SMMU_REGION_SHARED, dma_addr is used as an input parameter
  *                which specifies the cpu virtual address to map.
- * @len         : Length of buffer mapped returned by CAM SMMU driver.
+ * @len_ptr     : Length of buffer mapped returned by CAM SMMU driver.
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_map_iova(int handle,
+int cam_smmu_map_user_iova(int handle,
 	int ion_fd, enum cam_smmu_map_dir dir,
 	dma_addr_t *dma_addr, size_t *len_ptr,
 	enum cam_smmu_region_id region_id);
 
 /**
- * @brief       : Unmaps IOVA for calling driver
+ * @brief        : Maps kernel space IOVA for calling driver
+ *
+ * @param handle : Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+ * @param buf    : dma_buf allocated for kernel usage in mem_mgr
+ * @dir          : Mapping direction: which will traslate toDMA_BIDIRECTIONAL,
+ *                 DMA_TO_DEVICE or DMA_FROM_DEVICE
+ * @dma_addr     : Pointer to physical address where mapped address will be
+ *                 returned if region_id is CAM_SMMU_REGION_IO. If region_id is
+ *                 CAM_SMMU_REGION_SHARED, dma_addr is used as an input
+ *                 parameter which specifies the cpu virtual address to map.
+ * @len_ptr      : Length of buffer mapped returned by CAM SMMU driver.
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_map_kernel_iova(int handle,
+	struct dma_buf *buf, enum cam_smmu_map_dir dir,
+	dma_addr_t *dma_addr, size_t *len_ptr,
+	enum cam_smmu_region_id region_id);
+
+/**
+ * @brief       : Unmaps user space IOVA for calling driver
  *
  * @param handle: Handle to identify the CAMSMMU client (VFE, CPP, FD etc.)
  * @param ion_fd: ION handle identifying the memory buffer.
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_unmap_iova(int handle,
-	int ion_fd,
-	enum cam_smmu_region_id region_id);
+int cam_smmu_unmap_user_iova(int handle,
+	int ion_fd, enum cam_smmu_region_id region_id);
+
+/**
+ * @brief       : Unmaps kernel IOVA for calling driver
+ *
+ * @param handle: Handle to identify the CAMSMMU client (VFE, CPP, FD etc.)
+ * @param buf   : dma_buf allocated for the kernel
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_unmap_kernel_iova(int handle,
+	struct dma_buf *buf, enum cam_smmu_region_id region_id);
 
 /**
  * @brief          : Allocates a scratch buffer
@@ -193,6 +234,19 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
  */
 int cam_smmu_get_iova(int handle, int ion_fd,
 	dma_addr_t *paddr_ptr, size_t *len_ptr);
+
+/**
+ * @brief Maps memory from an ION fd into IOVA space
+ *
+ * @param handle: SMMU handle identifying the secure context bank to map to
+ * @param ion_fd: ION fd of memory to map to
+ * @param paddr_ptr: Pointer IOVA address that will be returned
+ * @param len_ptr: Length of memory mapped
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_get_stage2_iova(int handle, int ion_fd,
+	dma_addr_t *paddr_ptr, size_t *len_ptr);
 /**
  * @brief Unmaps memory from context bank
  *
@@ -206,27 +260,28 @@ int cam_smmu_put_iova(int handle, int ion_fd);
 /**
  * @brief Maps secure memory for SMMU handle
  *
- * @param handle: SMMU handle identifying context bank
+ * @param handle: SMMU handle identifying secure context bank
  * @param ion_fd: ION fd to map securely
  * @param dir: DMA Direction for the mapping
+ * @param client: Ion client passed by caller
  * @param dma_addr: Returned IOVA address after mapping
  * @param len_ptr: Length of memory mapped
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_map_sec_iova(int handle,
-	int ion_fd, enum cam_smmu_map_dir dir,
-	dma_addr_t *dma_addr, size_t *len_ptr);
+int cam_smmu_map_stage2_iova(int handle,
+	int ion_fd, enum cam_smmu_map_dir dir, struct ion_client *client,
+	ion_phys_addr_t *dma_addr, size_t *len_ptr);
 
 /**
  * @brief Unmaps secure memopry for SMMU handle
  *
- * @param handle: SMMU handle identifying context bank
+ * @param handle: SMMU handle identifying secure context bank
  * @param ion_fd: ION fd to unmap
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_smmu_unmap_sec_iova(int handle, int ion_fd);
+int cam_smmu_unmap_stage2_iova(int handle, int ion_fd);
 
 
 /**
@@ -252,4 +307,42 @@ int cam_smmu_alloc_firmware(int32_t smmu_hdl,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_dealloc_firmware(int32_t smmu_hdl);
+
+/**
+ * @brief Gets region information specified by smmu handle and region id
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ * @param region_id: Region id for which information is desired
+ * @param region_info: Struct populated with region information
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_get_region_info(int32_t smmu_hdl,
+	enum cam_smmu_region_id region_id,
+	struct cam_smmu_region_info *region_info);
+
+/**
+ * @brief Reserves secondary heap
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ * @param iova: IOVA of secondary heap after reservation has completed
+ * @param buf: Allocated dma_buf for secondary heap
+ * @param request_len: Length of secondary heap after reservation has completed
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_reserve_sec_heap(int32_t smmu_hdl,
+	struct dma_buf *buf,
+	dma_addr_t *iova,
+	size_t *request_len);
+
+/**
+ * @brief Releases secondary heap
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_release_sec_heap(int32_t smmu_hdl);
+
 #endif /* _CAM_SMMU_API_H_ */

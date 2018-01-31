@@ -157,22 +157,17 @@ static bool mlx5_lag_is_bonded(struct mlx5_lag *ldev)
 static void mlx5_infer_tx_affinity_mapping(struct lag_tracker *tracker,
 					   u8 *port1, u8 *port2)
 {
-	if (tracker->tx_type == NETDEV_LAG_TX_TYPE_ACTIVEBACKUP) {
-		if (tracker->netdev_state[0].tx_enabled) {
-			*port1 = 1;
-			*port2 = 1;
-		} else {
-			*port1 = 2;
-			*port2 = 2;
-		}
-	} else {
-		*port1 = 1;
-		*port2 = 2;
-		if (!tracker->netdev_state[0].link_up)
-			*port1 = 2;
-		else if (!tracker->netdev_state[1].link_up)
-			*port2 = 1;
+	*port1 = 1;
+	*port2 = 2;
+	if (!tracker->netdev_state[0].tx_enabled ||
+	    !tracker->netdev_state[0].link_up) {
+		*port1 = 2;
+		return;
 	}
+
+	if (!tracker->netdev_state[1].tx_enabled ||
+	    !tracker->netdev_state[1].link_up)
+		*port2 = 1;
 }
 
 static void mlx5_activate_lag(struct mlx5_lag *ldev,
@@ -294,7 +289,7 @@ static int mlx5_handle_changeupper_event(struct mlx5_lag *ldev,
 					 struct netdev_notifier_changeupper_info *info)
 {
 	struct net_device *upper = info->upper_dev, *ndev_tmp;
-	struct netdev_lag_upper_info *lag_upper_info;
+	struct netdev_lag_upper_info *lag_upper_info = NULL;
 	bool is_bonded;
 	int bond_status = 0;
 	int num_slaves = 0;
@@ -303,7 +298,8 @@ static int mlx5_handle_changeupper_event(struct mlx5_lag *ldev,
 	if (!netif_is_lag_master(upper))
 		return 0;
 
-	lag_upper_info = info->upper_info;
+	if (info->linking)
+		lag_upper_info = info->upper_info;
 
 	/* The event may still be of interest if the slave does not belong to
 	 * us, but is enslaved to a master which has one or more of our netdevs

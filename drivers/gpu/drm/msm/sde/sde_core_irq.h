@@ -38,6 +38,20 @@ int sde_core_irq_postinstall(struct sde_kms *sde_kms);
 void sde_core_irq_uninstall(struct sde_kms *sde_kms);
 
 /**
+ * sde_core_irq_domain_add - Add core IRQ domain for SDE
+ * @sde_kms:		SDE handle
+ * @return:		none
+ */
+int sde_core_irq_domain_add(struct sde_kms *sde_kms);
+
+/**
+ * sde_core_irq_domain_fini - uninstall core IRQ domain
+ * @sde_kms:		SDE handle
+ * @return:		0 if success; error code otherwise
+ */
+int sde_core_irq_domain_fini(struct sde_kms *sde_kms);
+
+/**
  * sde_core_irq - core IRQ handler
  * @sde_kms:		SDE handle
  * @return:		interrupt handling status
@@ -88,6 +102,19 @@ int sde_core_irq_disable(
 		uint32_t irq_count);
 
 /**
+ * sde_core_irq_disable_nolock - no lock version of sde_core_irq_disable
+ * @sde_kms:		SDE handle
+ * @irq_idx:		Irq index
+ * @return:		0 for success disabling IRQ, otherwise failure
+ *
+ * This function increments count on each enable and decrements on each
+ * disable.  Interrupts is disabled if count is 0 after decrement.
+ */
+int sde_core_irq_disable_nolock(
+		struct sde_kms *sde_kms,
+		int irq_idx);
+
+/**
  * sde_core_irq_read - IRQ helper function for reading IRQ status
  * @sde_kms:		SDE handle
  * @irq_idx:		irq index
@@ -95,6 +122,18 @@ int sde_core_irq_disable(
  * @return:		non-zero if irq detected; otherwise no irq detected
  */
 u32 sde_core_irq_read(
+		struct sde_kms *sde_kms,
+		int irq_idx,
+		bool clear);
+
+/**
+ * sde_core_irq_read - no lock version of sde_core_irq_read
+ * @sde_kms:		SDE handle
+ * @irq_idx:		irq index
+ * @clear:		True to clear the irq after read
+ * @return:		non-zero if irq detected; otherwise no irq detected
+ */
+u32 sde_core_irq_read_nolock(
 		struct sde_kms *sde_kms,
 		int irq_idx,
 		bool clear);

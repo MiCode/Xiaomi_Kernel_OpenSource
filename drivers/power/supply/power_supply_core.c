@@ -123,6 +123,7 @@ void power_supply_changed(struct power_supply *psy)
 }
 EXPORT_SYMBOL_GPL(power_supply_changed);
 
+static int psy_register_cooler(struct device *dev, struct power_supply *psy);
 /*
  * Notify that power supply was registered after parent finished the probing.
  *
@@ -130,6 +131,8 @@ EXPORT_SYMBOL_GPL(power_supply_changed);
  * calling power_supply_changed() directly from power_supply_register()
  * would lead to execution of get_property() function provided by the driver
  * too early - before the probe ends.
+ * Also, registering cooling device from the probe will execute the
+ * get_property() function. So register the cooling device after the probe.
  *
  * Avoid that by waiting on parent's mutex.
  */
@@ -141,6 +144,7 @@ static void power_supply_deferred_register_work(struct work_struct *work)
 	if (psy->dev.parent)
 		mutex_lock(&psy->dev.parent->mutex);
 
+	psy_register_cooler(psy->dev.parent, psy);
 	power_supply_changed(psy);
 
 	if (psy->dev.parent)
@@ -776,10 +780,6 @@ __power_supply_register(struct device *parent,
 	if (rc)
 		goto register_thermal_failed;
 
-	rc = psy_register_cooler(parent, psy);
-	if (rc)
-		goto register_cooler_failed;
-
 	rc = power_supply_create_triggers(psy);
 	if (rc)
 		goto create_triggers_failed;
@@ -803,8 +803,6 @@ __power_supply_register(struct device *parent,
 	return psy;
 
 create_triggers_failed:
-	psy_unregister_cooler(psy);
-register_cooler_failed:
 	psy_unregister_thermal(psy);
 register_thermal_failed:
 	device_del(dev);

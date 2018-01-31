@@ -414,6 +414,7 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
 	root_ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
 	if (!root_ns) {
 		esw_warn(dev, "Failed to get FDB flow namespace\n");
+		err = -EOPNOTSUPP;
 		goto ns_err;
 	}
 
@@ -520,7 +521,7 @@ static int esw_create_offloads_table(struct mlx5_eswitch *esw)
 	ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_OFFLOADS);
 	if (!ns) {
 		esw_warn(esw->dev, "Failed to get offloads flow namespace\n");
-		return -ENOMEM;
+		return -EOPNOTSUPP;
 	}
 
 	ft_offloads = mlx5_create_flow_table(ns, 0, dev->priv.sriov.num_vfs + 2, 0);
@@ -639,7 +640,7 @@ static int esw_offloads_start(struct mlx5_eswitch *esw)
 		esw_warn(esw->dev, "Failed setting eswitch to offloads, err %d\n", err);
 		err1 = mlx5_eswitch_enable_sriov(esw, num_vfs, SRIOV_LEGACY);
 		if (err1)
-			esw_warn(esw->dev, "Failed setting eswitch back to legacy, err %d\n", err);
+			esw_warn(esw->dev, "Failed setting eswitch back to legacy, err %d\n", err1);
 	}
 	return err;
 }
@@ -650,9 +651,14 @@ int esw_offloads_init(struct mlx5_eswitch *esw, int nvports)
 	int vport;
 	int err;
 
+	/* disable PF RoCE so missed packets don't go through RoCE steering */
+	mlx5_dev_list_lock();
+	mlx5_remove_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
+	mlx5_dev_list_unlock();
+
 	err = esw_create_offloads_fdb_table(esw, nvports);
 	if (err)
-		return err;
+		goto create_fdb_err;
 
 	err = esw_create_offloads_table(esw);
 	if (err)
@@ -671,6 +677,7 @@ int esw_offloads_init(struct mlx5_eswitch *esw, int nvports)
 		if (err)
 			goto err_reps;
 	}
+
 	return 0;
 
 err_reps:
@@ -687,6 +694,13 @@ create_fg_err:
 
 create_ft_err:
 	esw_destroy_offloads_fdb_table(esw);
+
+create_fdb_err:
+	/* enable back PF RoCE */
+	mlx5_dev_list_lock();
+	mlx5_add_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
+	mlx5_dev_list_unlock();
+
 	return err;
 }
 
@@ -702,6 +716,11 @@ static int esw_offloads_stop(struct mlx5_eswitch *esw)
 		if (err1)
 			esw_warn(esw->dev, "Failed setting eswitch back to offloads, err %d\n", err);
 	}
+
+	/* enable back PF RoCE */
+	mlx5_dev_list_lock();
+	mlx5_add_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
+	mlx5_dev_list_unlock();
 
 	return err;
 }

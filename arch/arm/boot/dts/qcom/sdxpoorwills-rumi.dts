@@ -23,8 +23,82 @@
 	qcom,board-id = <15 0>;
 };
 
-&blsp1_uart2 {
+&soc {
+	/* Delete rpmh regulators */
+	/delete-node/ rpmh-regulator-modemlvl;
+	/delete-node/ rpmh-regulator-smpa4;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-ldoa4;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa7;
+	/delete-node/ rpmh-regulator-ldoa8;
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-rgmii;
+
+	/delete-node/ thermal-zones;
+};
+
+#include "sdxpoorwills-stub-regulator.dtsi"
+
+&serial_uart {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_console_active>;
+	status = "ok";
+};
+
+&gdsc_usb30 {
+	compatible = "regulator-fixed";
+};
+
+&gdsc_pcie {
+	compatible = "regulator-fixed";
+};
+
+&ipa_hw {
+	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
+};
+
+&usb {
+	/delete-property/ qcom,usb-dbm;
+	qcom,charging-disabled;
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb2_phy {
+	reg = <0xff1000 0x1000>,
+	      <0x0a60cd00 0x40>;
+	reg-names = "hsusb_phy_base",
+		"emu_phy_base";
+	qcom,emu-init-seq = <0x19 0x404
+			     0x20 0x414
+			     0x79 0x410
+			     0x00 0x418
+			     0x99 0x404
+			     0x04 0x408
+			     0xd9 0x404>;
+
+	qcom,emu-dcm-reset-seq = <0x100000 0x20
+				  0x0 0x20
+				  0x1e0 0x20
+				  0x5 0x14>;
+};
+
+&usb3_qmp_phy {
+	status = "disabled";
+};
+
+&qnand_1 {
 	status = "ok";
 };

@@ -33,6 +33,7 @@ enum ion_heap_ids {
 	ION_CP_MFC_HEAP_ID = 12,
 	ION_SPSS_HEAP_ID = 13, /* Secure Processor ION heap */
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
+	ION_QSECOM_TA_HEAP_ID = 19,
 	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
 	ION_SYSTEM_CONTIG_HEAP_ID = 21,
 	ION_ADSP_HEAP_ID = 22,
@@ -84,24 +85,24 @@ enum cp_mem_usage {
 #define ION_FLAG_CP_NON_PIXEL		ION_BIT(20)
 #define ION_FLAG_CP_CAMERA		ION_BIT(21)
 #define ION_FLAG_CP_HLOS		ION_BIT(22)
-#define ION_FLAG_CP_HLOS_FREE		ION_BIT(23)
+#define ION_FLAG_CP_SPSS_SP		ION_BIT(23)
+#define ION_FLAG_CP_SPSS_SP_SHARED	ION_BIT(24)
 #define ION_FLAG_CP_SEC_DISPLAY		ION_BIT(25)
 #define ION_FLAG_CP_APP			ION_BIT(26)
 #define ION_FLAG_CP_CAMERA_PREVIEW	ION_BIT(27)
+#define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
 
+/**
+ * Flag to allow non continguous allocation of memory from secure
+ * heap
+ */
+#define ION_FLAG_ALLOW_NON_CONTIG       ION_BIT(28)
 
 /**
  * Flag to use when allocating to indicate that a heap is secure.
  * Do NOT use BIT macro since it is defined in #ifdef __KERNEL__
  */
 #define ION_FLAG_SECURE			ION_BIT(ION_HEAP_ID_RESERVED)
-
-/**
- * Flag for clients to force contiguous memort allocation
- *
- * Use of this flag is carefully monitored!
- */
-#define ION_FLAG_FORCE_CONTIGUOUS	ION_BIT(30)
 
 /*
  * Used in conjunction with heap which pool memory to force an allocation
@@ -113,7 +114,6 @@ enum cp_mem_usage {
  * Deprecated! Please use the corresponding ION_FLAG_*
  */
 #define ION_SECURE ION_FLAG_SECURE
-#define ION_FORCE_CONTIGUOUS ION_FLAG_FORCE_CONTIGUOUS
 
 /**
  * Macro should be used with ion_heap_ids defined above.
@@ -136,6 +136,7 @@ enum cp_mem_usage {
 #define ION_PIL1_HEAP_NAME  "pil_1"
 #define ION_PIL2_HEAP_NAME  "pil_2"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
+#define ION_QSECOM_TA_HEAP_NAME	"qsecom_ta"
 #define ION_SECURE_HEAP_NAME	"secure_heap"
 #define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
 

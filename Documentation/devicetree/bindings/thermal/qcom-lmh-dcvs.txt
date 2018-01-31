@@ -31,12 +31,29 @@ Properties:
 	Definition: Should specify the cluster affinity this hardware
 			corresponds to.
 
+- isens_vref-supply:
+	Usage: optional
+	Value type: <phandle>
+	Definition: Should specify the phandle of the vref regulator used by
+			the isens hardware. This active only regulator will be
+			enabled by LMH DCVSh.
+
+- isens-vref-settings:
+	Usage: optional
+	Value type: <u32 array>
+	Definition: Should specify the min voltage(uV), max voltage(uV) and
+			max load(uA) for the isens vref regulator. This
+			property is valid only if there is valid entry for
+			isens_vref-supply.
+
 Example:
 
 	lmh_dcvs0: qcom,limits-dcvs@0 {
 		compatible = "qcom,msm-hw-limits";
 		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,affinity = <0>;
+		isens_vref-supply = <&pm8998_l1_ao>;
+		isens-vref-settings = <880000 880000 36000>;
 	};
 
 	CPU0: cpu@0 {

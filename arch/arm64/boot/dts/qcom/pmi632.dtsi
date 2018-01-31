@@ -1,0 +1,308 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/msm/power-on.h>
+
+&spmi_bus {
+	qcom,pmi632@2 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x2 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pmi632_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		pmi632_pon: qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			qcom,secondary-pon-reset;
+		};
+
+		pmi632_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc-hc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			qcom,adc-full-scale-code = <0x70e4>;
+
+			chan@0 {
+				label = "ref_gnd";
+				reg = <0>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@1 {
+				label = "ref_1250v";
+				reg = <1>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@83 {
+				label = "vph_pwr";
+				reg = <0x83>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@84 {
+				label = "vbat_sns";
+				reg = <0x84>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@6 {
+				label = "die_temp";
+				reg = <6>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <19>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@7 {
+				label = "usb_in_i";
+				reg = <7>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <21>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@8 {
+				label = "usb_in_v";
+				reg = <8>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <8>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@9 {
+				label = "chg_temp";
+				reg = <9>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <18>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@4a {
+				label = "bat_therm";
+				reg = <0x4a>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <17>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@4b {
+				label = "bat_id";
+				reg = <0x4b>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@4c {
+				label = "xo_therm";
+				reg = <0x4c>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <4>;
+				qcom,hw-settle-time = <8>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+
+			chan@1e {
+				label = "mid_chg";
+				reg = <0x1e>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <3>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+		};
+
+		pmi632_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			label = "pmi632_tz";
+			#thermal-sensor-cells = <0>;
+		};
+
+		pmi632_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x800>;
+			interrupts = <0x2 0xc1 0 IRQ_TYPE_NONE>,
+					<0x2 0xc2 0 IRQ_TYPE_NONE>,
+					<0x2 0xc3 0 IRQ_TYPE_NONE>,
+					<0x2 0xc4 0 IRQ_TYPE_NONE>,
+					<0x2 0xc5 0 IRQ_TYPE_NONE>,
+					<0x2 0xc6 0 IRQ_TYPE_NONE>,
+					<0x2 0xc7 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pmi632_gpio2", "pmi632_gpio3",
+					"pmi632_gpio4", "pmi632_gpio5",
+					"pmi632_gpio6", "pmi632_gpio7",
+					"pmi632_gpio8";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <1>;
+		};
+	};
+
+	pmi632_3: qcom,pmi632@3 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x3 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pmi632_vib: qcom,vibrator@5700 {
+			compatible = "qcom,qpnp-vibrator-ldo";
+			reg = <0x5700 0x100>;
+			qcom,vib-ldo-volt-uv = <1504000>;
+			qcom,vib-overdrive-volt-uv = <3544000>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_1: pwm@b300 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb300 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_2: pwm@b400 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb400 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <2>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_3: pwm@b500 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb500 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <3>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_4: pwm@b600 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb600 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <4>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_pwm_5: pwm@b700 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb700 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <5>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmi632_lcdb: qpnp-lcdb@ec00 {
+			compatible = "qcom,qpnp-lcdb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0xec00 0x100>;
+			interrupts = <0x3 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "sc-irq";
+
+			qcom,pmic-revid = <&pmi632_revid>;
+
+			lcdb_ldo_vreg: ldo {
+				label = "ldo";
+				regulator-name = "lcdb_ldo";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+			};
+
+			lcdb_ncp_vreg: ncp {
+				label = "ncp";
+				regulator-name = "lcdb_ncp";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+			};
+		};
+	};
+};

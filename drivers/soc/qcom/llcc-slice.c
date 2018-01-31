@@ -43,7 +43,10 @@
 #define LLCC_STATUS_READ_DELAY 100
 
 #define CACHE_LINE_SIZE_SHIFT 6
-#define SIZE_PER_LLCC_SHIFT   2
+
+#define LLCC_COMMON_STATUS0		0x0003000C
+#define LLCC_LB_CNT_MASK		0xf0000000
+#define LLCC_LB_CNT_SHIFT		28
 
 #define MAX_CAP_TO_BYTES(n) (n * 1024)
 #define LLCC_TRP_ACT_CTRLn(n) (n * 0x1000)
@@ -65,6 +68,7 @@ struct llcc_drv_data {
 	u32 llcc_config_data_sz;
 	u32 max_slices;
 	u32 b_off;
+	u32 no_banks;
 	unsigned long *llcc_slice_map;
 };
 
@@ -76,6 +80,7 @@ static struct llcc_slice_desc *llcc_slice_get_entry(struct device *dev, int n)
 	const struct llcc_slice_config *llcc_data_ptr;
 	struct llcc_slice_desc *desc;
 	struct platform_device *pdev;
+	u32 sz, count;
 
 	if (of_parse_phandle_with_args(dev->of_node, "cache-slices",
 				       "#cache-cells", n, &phargs)) {
@@ -96,14 +101,17 @@ static struct llcc_slice_desc *llcc_slice_get_entry(struct device *dev, int n)
 	}
 
 	llcc_data_ptr = drv->slice_data;
+	sz = drv->llcc_config_data_sz;
+	count = 0;
 
-	while (llcc_data_ptr) {
+	while (llcc_data_ptr && count < sz) {
 		if (llcc_data_ptr->usecase_id == phargs.args[0])
 			break;
 		llcc_data_ptr++;
+		count++;
 	}
 
-	if (llcc_data_ptr == NULL) {
+	if (llcc_data_ptr == NULL || count == sz) {
 		pr_err("can't find %d usecase id\n", phargs.args[0]);
 		return ERR_PTR(-ENODEV);
 	}
@@ -342,13 +350,15 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 		attr1_val |= (llcc_table[i].priority << ATTR1_PRIORITY_SHIFT);
 
 		max_cap_cacheline = MAX_CAP_TO_BYTES(llcc_table[i].max_cap);
-		max_cap_cacheline >>= CACHE_LINE_SIZE_SHIFT;
-		/* There are four llcc instances llcc0..llcc3. The SW writes to
-		 * to broadcast register which gets propagated to each llcc.
+
+		/* LLCC instances can vary for each target.
+		 * The SW writes to broadcast register which gets propagated
+		 * to each llcc instace (llcc0,.. llccN).
 		 * Since the size of the memory is divided equally amongst the
-		 * four llcc, we need to divide the max cap by 4
+		 * llcc instances, we need to configure the max cap accordingly.
 		 */
-		max_cap_cacheline >>= SIZE_PER_LLCC_SHIFT;
+		max_cap_cacheline = (max_cap_cacheline / drv->no_banks);
+		max_cap_cacheline >>= CACHE_LINE_SIZE_SHIFT;
 		attr1_val |= (max_cap_cacheline << ATTR1_MAX_CAP_SHIFT);
 
 		attr0_val = llcc_table[i].res_ways & ATTR0_RES_WAYS_MASK;
@@ -375,6 +385,7 @@ int qcom_llcc_probe(struct platform_device *pdev,
 		      const struct llcc_slice_config *llcc_cfg, u32 sz)
 {
 	int rc = 0;
+	u32 num_banks = 0;
 	struct device *dev = &pdev->dev;
 	static struct llcc_drv_data *drv_data;
 
@@ -385,6 +396,13 @@ int qcom_llcc_probe(struct platform_device *pdev,
 	drv_data->llcc_map = syscon_node_to_regmap(dev->parent->of_node);
 	if (!drv_data->llcc_map)
 		return PTR_ERR(drv_data->llcc_map);
+
+	regmap_read(drv_data->llcc_map, LLCC_COMMON_STATUS0,
+		    &num_banks);
+
+	num_banks &= LLCC_LB_CNT_MASK;
+	num_banks >>= LLCC_LB_CNT_SHIFT;
+	drv_data->no_banks = num_banks;
 
 	rc = of_property_read_u32(pdev->dev.of_node, "max-slices",
 				  &drv_data->max_slices);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -27,6 +27,7 @@ struct pll_vco {
 enum pll_type {
 	ALPHA_PLL,
 	FABIA_PLL,
+	TRION_PLL,
 };
 
 /**
@@ -35,7 +36,7 @@ enum pll_type {
  * @inited: flag that's set when the PLL is initialized
  * @vco_table: array of VCO settings
  * @clkr: regmap clock handle
- * @is_fabia: Set if the PLL type is FABIA
+ * @pll_type: Specify the type of PLL
  */
 struct clk_alpha_pll {
 	u32 offset;
@@ -79,10 +80,15 @@ extern const struct clk_ops clk_alpha_pll_postdiv_ops;
 extern const struct clk_ops clk_fabia_pll_ops;
 extern const struct clk_ops clk_fabia_fixed_pll_ops;
 extern const struct clk_ops clk_generic_pll_postdiv_ops;
+extern const struct clk_ops clk_trion_pll_ops;
+extern const struct clk_ops clk_trion_fixed_pll_ops;
+extern const struct clk_ops clk_trion_pll_postdiv_ops;
 
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		const struct pll_config *config);
 void clk_fabia_pll_configure(struct clk_alpha_pll *pll,
 		struct regmap *regmap, const struct pll_config *config);
+int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+		const struct pll_config *config);
 
 #endif

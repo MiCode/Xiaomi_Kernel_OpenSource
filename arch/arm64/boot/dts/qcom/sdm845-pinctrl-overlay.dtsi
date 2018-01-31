@@ -1,0 +1,63 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&pmi8998_gpios {
+	usb2_vbus_boost {
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			pins = "gpio2";
+			function = "normal";
+			output-low;
+			power-source = <0>;
+		};
+	};
+
+	qnovo_fet_ctrl {
+		qnovo_fet_ctrl_default: qnovo_fet_ctrl_default {
+			pins = "gpio6";
+			function = "func1";
+			output-low;
+			input-disable;
+			bias-disable;
+			power-source = <0>;
+			qcom,drive-strength = <1>;
+		};
+	};
+
+	usb2_vbus_det {
+		usb2_vbus_det_default: usb2_vbus_det_default {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			bias-pull-down;
+			power-source = <1>;	/* VPH input supply */
+		};
+	};
+
+	usb2_id_det {
+		usb2_id_det_default: usb2_id_det_default {
+			pins = "gpio9";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+
+	usb2_ext_5v_boost {
+		usb2_ext_5v_boost_default: usb2_ext_5v_boost_default {
+			pins = "gpio10";
+			function = "normal";
+			output-low;
+			power-source = <0>;
+		};
+	};
+};

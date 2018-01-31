@@ -328,7 +328,7 @@ static int ipa_rm_resource_producer_create(struct ipa_rm_resource **resource,
 
 	(*resource) = (struct ipa_rm_resource *) (*producer);
 	(*resource)->type = IPA_RM_PRODUCER;
-	*max_peers = IPA_RM_RESOURCE_CONS_MAX;
+	*max_peers = IPA_RM_RESOURCE_MAX;
 	goto bail;
 register_fail:
 	kfree(*producer);
@@ -371,7 +371,7 @@ static int ipa_rm_resource_consumer_create(struct ipa_rm_resource **resource,
 	(*resource) = (struct ipa_rm_resource *) (*consumer);
 	(*resource)->type = IPA_RM_CONSUMER;
 	init_completion(&((*consumer)->request_consumer_in_progress));
-	*max_peers = IPA_RM_RESOURCE_PROD_MAX;
+	*max_peers = IPA_RM_RESOURCE_MAX;
 bail:
 	return result;
 }

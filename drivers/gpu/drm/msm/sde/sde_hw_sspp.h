@@ -16,6 +16,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_hw_blk.h"
 #include "sde_formats.h"
 #include "sde_color_processing.h"
 
@@ -155,114 +156,6 @@ struct sde_hw_pixel_ext {
 };
 
 /**
- * struct sde_hw_scaler3_de_cfg : QSEEDv3 detail enhancer configuration
- * @enable:         detail enhancer enable/disable
- * @sharpen_level1: sharpening strength for noise
- * @sharpen_level2: sharpening strength for signal
- * @ clip:          clip shift
- * @ limit:         limit value
- * @ thr_quiet:     quiet threshold
- * @ thr_dieout:    dieout threshold
- * @ thr_high:      low threshold
- * @ thr_high:      high threshold
- * @ prec_shift:    precision shift
- * @ adjust_a:      A-coefficients for mapping curve
- * @ adjust_b:      B-coefficients for mapping curve
- * @ adjust_c:      C-coefficients for mapping curve
- */
-struct sde_hw_scaler3_de_cfg {
-	u32 enable;
-	int16_t sharpen_level1;
-	int16_t sharpen_level2;
-	uint16_t clip;
-	uint16_t limit;
-	uint16_t thr_quiet;
-	uint16_t thr_dieout;
-	uint16_t thr_low;
-	uint16_t thr_high;
-	uint16_t prec_shift;
-	int16_t adjust_a[SDE_MAX_DE_CURVES];
-	int16_t adjust_b[SDE_MAX_DE_CURVES];
-	int16_t adjust_c[SDE_MAX_DE_CURVES];
-};
-
-/**
- * struct sde_hw_scaler3_cfg : QSEEDv3 configuration
- * @enable:        scaler enable
- * @dir_en:        direction detection block enable
- * @ init_phase_x: horizontal initial phase
- * @ phase_step_x: horizontal phase step
- * @ init_phase_y: vertical initial phase
- * @ phase_step_y: vertical phase step
- * @ preload_x:    horizontal preload value
- * @ preload_y:    vertical preload value
- * @ src_width:    source width
- * @ src_height:   source height
- * @ dst_width:    destination width
- * @ dst_height:   destination height
- * @ y_rgb_filter_cfg: y/rgb plane filter configuration
- * @ uv_filter_cfg: uv plane filter configuration
- * @ alpha_filter_cfg: alpha filter configuration
- * @ blend_cfg:    blend coefficients configuration
- * @ lut_flag:     scaler LUT update flags
- *                 0x1 swap LUT bank
- *                 0x2 update 2D filter LUT
- *                 0x4 update y circular filter LUT
- *                 0x8 update uv circular filter LUT
- *                 0x10 update y separable filter LUT
- *                 0x20 update uv separable filter LUT
- * @ dir_lut_idx:  2D filter LUT index
- * @ y_rgb_cir_lut_idx: y circular filter LUT index
- * @ uv_cir_lut_idx: uv circular filter LUT index
- * @ y_rgb_sep_lut_idx: y circular filter LUT index
- * @ uv_sep_lut_idx: uv separable filter LUT index
- * @ dir_lut:      pointer to 2D LUT
- * @ cir_lut:      pointer to circular filter LUT
- * @ sep_lut:      pointer to separable filter LUT
- * @ de: detail enhancer configuration
- */
-struct sde_hw_scaler3_cfg {
-	u32 enable;
-	u32 dir_en;
-	int32_t init_phase_x[SDE_MAX_PLANES];
-	int32_t phase_step_x[SDE_MAX_PLANES];
-	int32_t init_phase_y[SDE_MAX_PLANES];
-	int32_t phase_step_y[SDE_MAX_PLANES];
-
-	u32 preload_x[SDE_MAX_PLANES];
-	u32 preload_y[SDE_MAX_PLANES];
-	u32 src_width[SDE_MAX_PLANES];
-	u32 src_height[SDE_MAX_PLANES];
-
-	u32 dst_width;
-	u32 dst_height;
-
-	u32 y_rgb_filter_cfg;
-	u32 uv_filter_cfg;
-	u32 alpha_filter_cfg;
-	u32 blend_cfg;
-
-	u32 lut_flag;
-	u32 dir_lut_idx;
-
-	u32 y_rgb_cir_lut_idx;
-	u32 uv_cir_lut_idx;
-	u32 y_rgb_sep_lut_idx;
-	u32 uv_sep_lut_idx;
-	u32 *dir_lut;
-	size_t dir_len;
-	u32 *cir_lut;
-	size_t cir_len;
-	u32 *sep_lut;
-	size_t sep_len;
-
-	/*
-	 * Detail enhancer settings
-	 */
-	struct sde_hw_scaler3_de_cfg de;
-};
-
-/**
  * struct sde_hw_pipe_cfg : Pipe description
  * @layout:    format layout information for programming buffer to hardware
  * @src_rect:  src ROI, caller takes into account the different operations
@@ -300,11 +193,35 @@ struct sde_hw_pipe_cfg {
 struct sde_hw_pipe_qos_cfg {
 	u32 danger_lut;
 	u32 safe_lut;
-	u32 creq_lut;
+	u64 creq_lut;
 	u32 creq_vblank;
 	u32 danger_vblank;
 	bool vblank_en;
 	bool danger_safe_en;
+};
+
+/**
+ * enum CDP preload ahead address size
+ */
+enum {
+	SDE_SSPP_CDP_PRELOAD_AHEAD_32,
+	SDE_SSPP_CDP_PRELOAD_AHEAD_64
+};
+
+/**
+ * struct sde_hw_pipe_cdp_cfg : CDP configuration
+ * @enable: true to enable CDP
+ * @ubwc_meta_enable: true to enable ubwc metadata preload
+ * @tile_amortize_enable: true to enable amortization control for tile format
+ * @preload_ahead: number of request to preload ahead
+ *	SDE_SSPP_CDP_PRELOAD_AHEAD_32,
+ *	SDE_SSPP_CDP_PRELOAD_AHEAD_64
+ */
+struct sde_hw_pipe_cdp_cfg {
+	bool enable;
+	bool ubwc_meta_enable;
+	bool tile_amortize_enable;
+	u32 preload_ahead;
 };
 
 /**
@@ -343,6 +260,16 @@ struct sde_hw_pipe_sc_cfg {
 };
 
 /**
+ * struct sde_hw_pipe_ts_cfg - traffic shaper configuration
+ * @size: size to prefill in bytes, or zero to disable
+ * @time: time to prefill in usec, or zero to disable
+ */
+struct sde_hw_pipe_ts_cfg {
+	u64 size;
+	u64 time;
+};
+
+/**
  * Maximum number of stream buffer plane
  */
 #define SDE_PIPE_SBUF_PLANE_NUM	2
@@ -366,12 +293,14 @@ struct sde_hw_sspp_ops {
 	/**
 	 * setup_format - setup pixel format cropping rectangle, flip
 	 * @ctx: Pointer to pipe context
-	 * @cfg: Pointer to pipe config structure
+	 * @fmt: Pointer to sde_format structure
+	 * @blend_enabled: flag indicating blend enabled or disabled on plane
 	 * @flags: Extra flags for format config
 	 * @index: rectangle index in multirect
 	 */
 	void (*setup_format)(struct sde_hw_pipe *ctx,
-			const struct sde_format *fmt, u32 flags,
+			const struct sde_format *fmt,
+			bool blend_enabled, u32 flags,
 			enum sde_sspp_multirect_index index);
 
 	/**
@@ -540,6 +469,12 @@ struct sde_hw_sspp_ops {
 		void *scaler_cfg);
 
 	/**
+	 * get_scaler_ver - get scaler h/w version
+	 * @ctx: Pointer to pipe context
+	 */
+	u32 (*get_scaler_ver)(struct sde_hw_pipe *ctx);
+
+	/**
 	 * setup_sys_cache - setup system cache configuration
 	 * @ctx: Pointer to pipe context
 	 * @cfg: Pointer to system cache configuration
@@ -554,24 +489,50 @@ struct sde_hw_sspp_ops {
 	 */
 	void (*get_sbuf_status)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_sbuf_status *status);
+
+	/**
+	 * setup_ts_prefill - setup prefill traffic shaper
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to traffic shaper configuration
+	 * @index: rectangle index in multirect
+	 */
+	void (*setup_ts_prefill)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_ts_cfg *cfg,
+			enum sde_sspp_multirect_index index);
+
+	/**
+	 * setup_cdp - setup client driven prefetch
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to cdp configuration
+	 * @index: rectangle index in multirect
+	 */
+	void (*setup_cdp)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_cdp_cfg *cfg,
+			enum sde_sspp_multirect_index index);
+
+	/**
+	 * setup_secure_address - setup secureity status of the source address
+	 * @ctx: Pointer to pipe context
+	 * @index: rectangle index in multirect
+	 * @enable: enable content protected buffer state
+	 */
+	void (*setup_secure_address)(struct sde_hw_pipe *ctx,
+			enum sde_sspp_multirect_index index,
+		bool enable);
 };
 
 /**
  * struct sde_hw_pipe - pipe description
- * @base_off:     mdp register mapped offset
- * @blk_off:      pipe offset relative to mdss offset
- * @length        length of register block offset
- * @hwversion     mdss hw version number
- * @catalog:      back pointer to catalog
- * @mdp:          pointer to associated mdp portion of the catalog
- * @idx:          pipe index
- * @type :        pipe type, VIG/DMA/RGB/CURSOR, certain operations are not
- *                supported for each pipe type
- * @pipe_hw_cap:  pointer to layer_cfg
- * @ops:          pointer to operations possible for this pipe
+ * @base: hardware block base structure
+ * @hw: block hardware details
+ * @catalog: back pointer to catalog
+ * @mdp: pointer to associated mdp portion of the catalog
+ * @idx: pipe index
+ * @cap: pointer to layer_cfg
+ * @ops: pointer to operations possible for this pipe
  */
 struct sde_hw_pipe {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 	struct sde_mdss_cfg *catalog;
 	struct sde_mdp_cfg *mdp;
@@ -585,15 +546,26 @@ struct sde_hw_pipe {
 };
 
 /**
+ * sde_hw_pipe - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_pipe *to_sde_hw_pipe(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_pipe, base);
+}
+
+/**
  * sde_hw_sspp_init - initializes the sspp hw driver object.
  * Should be called once before accessing every pipe.
  * @idx:  Pipe index for which driver object is required
  * @addr: Mapped register io address of MDP
  * @catalog : Pointer to mdss catalog data
+ * @is_virtual_pipe: is this pipe virtual pipe
  */
 struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
-			void __iomem *addr,
-			struct sde_mdss_cfg *catalog);
+		void __iomem *addr, struct sde_mdss_cfg *catalog,
+		bool is_virtual_pipe);
 
 /**
  * sde_hw_sspp_destroy(): Destroys SSPP driver context

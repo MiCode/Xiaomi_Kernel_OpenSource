@@ -300,7 +300,7 @@ int fscrypt_fname_disk_to_usr(struct inode *inode,
 	} else {
 		memset(buf, 0, 8);
 	}
-	memcpy(buf + 8, iname->name + iname->len - 16, 16);
+	memcpy(buf + 8, iname->name + ((iname->len - 17) & ~15), 16);
 	oname->name[0] = '_';
 	oname->len = 1 + digest_encode(buf, 24, oname->name + 1);
 	return 0;
@@ -332,7 +332,7 @@ int fscrypt_fname_usr_to_disk(struct inode *inode,
 	 * in a directory. Consequently, a user space name cannot be mapped to
 	 * a disk-space name
 	 */
-	return -EACCES;
+	return -ENOKEY;
 }
 EXPORT_SYMBOL(fscrypt_fname_usr_to_disk);
 
@@ -367,7 +367,7 @@ int fscrypt_setup_filename(struct inode *dir, const struct qstr *iname,
 		return 0;
 	}
 	if (!lookup)
-		return -EACCES;
+		return -ENOKEY;
 
 	/*
 	 * We don't have the key and we are doing a lookup; decode the

@@ -932,7 +932,8 @@ int pci_scan_bridge(struct pci_bus *bus, struct pci_dev *dev, int max, int pass)
 			child = pci_add_new_bus(bus, dev, max+1);
 			if (!child)
 				goto out;
-			pci_bus_insert_busn_res(child, max+1, 0xff);
+			pci_bus_insert_busn_res(child, max+1,
+						bus->busn_res.end);
 		}
 		max++;
 		buses = (buses & 0xff000000)
@@ -1438,8 +1439,16 @@ static void program_hpp_type0(struct pci_dev *dev, struct hpp_type0 *hpp)
 
 static void program_hpp_type1(struct pci_dev *dev, struct hpp_type1 *hpp)
 {
-	if (hpp)
-		dev_warn(&dev->dev, "PCI-X settings not supported\n");
+	int pos;
+
+	if (!hpp)
+		return;
+
+	pos = pci_find_capability(dev, PCI_CAP_ID_PCIX);
+	if (!pos)
+		return;
+
+	dev_warn(&dev->dev, "PCI-X settings not supported\n");
 }
 
 static bool pcie_root_rcb_set(struct pci_dev *dev)
@@ -1463,6 +1472,9 @@ static void program_hpp_type2(struct pci_dev *dev, struct hpp_type2 *hpp)
 	u32 reg32;
 
 	if (!hpp)
+		return;
+
+	if (!pci_is_pcie(dev))
 		return;
 
 	if (hpp->revision > 1) {
@@ -2125,6 +2137,10 @@ unsigned int pci_scan_child_bus(struct pci_bus *bus)
 	if (bus->self && bus->self->is_hotplug_bridge && pci_hotplug_bus_size) {
 		if (max - bus->busn_res.start < pci_hotplug_bus_size - 1)
 			max = bus->busn_res.start + pci_hotplug_bus_size - 1;
+
+		/* Do not allocate more buses than we have room left */
+		if (max > bus->busn_res.end)
+			max = bus->busn_res.end;
 	}
 
 	/*

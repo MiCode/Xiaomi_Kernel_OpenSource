@@ -21,47 +21,26 @@
 #include <linux/errno.h>
 #include <linux/leds.h>
 #include <drm/drm_panel.h>
-#include <drm/drm_mipi_dsi.h>
 #include <drm/msm_drm.h>
 
 #include "dsi_defs.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_clk.h"
 #include "dsi_pwr.h"
+#include "msm_drv.h"
 
 #define MAX_BL_LEVEL 4096
+#define MAX_BL_SCALE_LEVEL 1024
+#define MAX_AD_BL_SCALE_LEVEL 65535
 #define DSI_CMD_PPS_SIZE 135
+
+#define DSI_MODE_MAX 5
 
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
 	DSI_PANEL_ROTATE_HV_FLIP,
 	DSI_PANEL_ROTATE_H_FLIP,
 	DSI_PANEL_ROTATE_V_FLIP
-};
-
-enum dsi_cmd_set_type {
-	DSI_CMD_SET_PRE_ON = 0,
-	DSI_CMD_SET_ON,
-	DSI_CMD_SET_POST_ON,
-	DSI_CMD_SET_PRE_OFF,
-	DSI_CMD_SET_OFF,
-	DSI_CMD_SET_POST_OFF,
-	DSI_CMD_SET_PRE_RES_SWITCH,
-	DSI_CMD_SET_RES_SWITCH,
-	DSI_CMD_SET_POST_RES_SWITCH,
-	DSI_CMD_SET_CMD_TO_VID_SWITCH,
-	DSI_CMD_SET_POST_CMD_TO_VID_SWITCH,
-	DSI_CMD_SET_VID_TO_CMD_SWITCH,
-	DSI_CMD_SET_POST_VID_TO_CMD_SWITCH,
-	DSI_CMD_SET_PANEL_STATUS,
-	DSI_CMD_SET_PPS,
-	DSI_CMD_SET_MAX
-};
-
-enum dsi_cmd_set_state {
-	DSI_CMD_SET_STATE_LP = 0,
-	DSI_CMD_SET_STATE_HS,
-	DSI_CMD_SET_STATE_MAX
 };
 
 enum dsi_backlight_type {
@@ -78,6 +57,11 @@ enum {
 	MODE_SEL_SINGLE_PORT,
 	MODE_GPIO_HIGH,
 	MODE_GPIO_LOW,
+};
+
+enum dsi_dms_mode {
+	DSI_DMS_MODE_DISABLED = 0,
+	DSI_DMS_MODE_RES_SWITCH_IMMEDIATE,
 };
 
 struct dsi_dfps_capabilities {
@@ -99,26 +83,15 @@ struct dsi_panel_phy_props {
 	enum dsi_panel_rotation rotation;
 };
 
-struct dsi_cmd_desc {
-	struct mipi_dsi_msg msg;
-	bool last_command;
-	u32  post_wait_ms;
-};
-
-struct dsi_panel_cmd_set {
-	enum dsi_cmd_set_type type;
-	enum dsi_cmd_set_state state;
-	u32 count;
-	int ctrl_idx;
-	struct dsi_cmd_desc *cmds;
-};
-
 struct dsi_backlight_config {
 	enum dsi_backlight_type type;
 
 	u32 bl_min_level;
 	u32 bl_max_level;
 	u32 brightness_max_level;
+	u32 bl_level;
+	u32 bl_scale;
+	u32 bl_scale_ad;
 
 	int en_gpio;
 	/* PWM params */
@@ -147,6 +120,26 @@ struct dsi_panel_reset_config {
 	u32 mode_sel_state;
 };
 
+enum esd_check_status_mode {
+	ESD_MODE_REG_READ,
+	ESD_MODE_SW_BTA,
+	ESD_MODE_PANEL_TE,
+	ESD_MODE_MAX
+};
+
+struct drm_panel_esd_config {
+	bool esd_enabled;
+
+	enum esd_check_status_mode status_mode;
+	struct dsi_panel_cmd_set status_cmd;
+	u32 *status_cmds_rlen;
+	u32 *status_valid_params;
+	u32 *status_value;
+	u8 *return_buf;
+	u8 *status_buf;
+	u32 groups;
+};
+
 struct dsi_panel {
 	const char *name;
 	struct device_node *panel_of_node;
@@ -160,34 +153,33 @@ struct dsi_panel {
 	struct dsi_host_common_cfg host_config;
 	struct dsi_video_engine_cfg video_config;
 	struct dsi_cmd_engine_cfg cmd_config;
+	enum dsi_op_mode panel_mode;
 
 	struct dsi_dfps_capabilities dfps_caps;
-
-	struct dsi_panel_cmd_set cmd_sets[DSI_CMD_SET_MAX];
 	struct dsi_panel_phy_props phy_props;
 
-	u32 *phy_timing_val;
-	u32 phy_timing_len;
+	struct dsi_display_mode *cur_mode;
+	u32 num_timing_nodes;
 
 	struct dsi_regulator_info power_info;
-	struct dsi_display_mode mode;
-
 	struct dsi_backlight_config bl_config;
 	struct dsi_panel_reset_config reset_config;
 	struct dsi_pinctrl_info pinctrl;
 	struct drm_panel_hdr_properties hdr_props;
+	struct drm_panel_esd_config esd_config;
 
 	bool lp11_init;
 	bool ulps_enabled;
+	bool ulps_suspend_enabled;
 	bool allow_phy_power_off;
 
-	u32 panel_jitter;
-	u32 panel_prefill_lines;
 	bool panel_initialized;
+	bool te_using_watchdog_timer;
 
-	bool dsc_enabled;
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
-	struct msm_display_dsc_info dsc;
+	enum dsi_dms_mode dms_mode;
+
+	bool sync_broadcast_en;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -200,19 +192,39 @@ static inline bool dsi_panel_initialized(struct dsi_panel *panel)
 	return panel->panel_initialized;
 }
 
+static inline void dsi_panel_acquire_panel_lock(struct dsi_panel *panel)
+{
+	mutex_lock(&panel->panel_lock);
+}
+
+static inline void dsi_panel_release_panel_lock(struct dsi_panel *panel)
+{
+	mutex_unlock(&panel->panel_lock);
+}
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
-				struct device_node *of_node);
+				struct device_node *of_node,
+				int topology_override);
+
 void dsi_panel_put(struct dsi_panel *panel);
 
 int dsi_panel_drv_init(struct dsi_panel *panel, struct mipi_dsi_host *host);
+
 int dsi_panel_drv_deinit(struct dsi_panel *panel);
 
-int dsi_panel_get_mode_count(struct dsi_panel *panel, u32 *count);
+int dsi_panel_get_mode_count(struct dsi_panel *panel,
+		struct device_node *of_node);
+
+void dsi_panel_put_mode(struct dsi_display_mode *mode);
+
 int dsi_panel_get_mode(struct dsi_panel *panel,
 		       u32 index,
-		       struct dsi_display_mode *mode);
+		       struct dsi_display_mode *mode,
+		       int topology_override);
+
 int dsi_panel_validate_mode(struct dsi_panel *panel,
 			    struct dsi_display_mode *mode);
+
 int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 				    struct dsi_display_mode *mode,
 				    struct dsi_host_config *config);
@@ -223,6 +235,12 @@ int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
 			    struct dsi_dfps_capabilities *dfps_caps);
 
 int dsi_panel_pre_prepare(struct dsi_panel *panel);
+
+int dsi_panel_set_lp1(struct dsi_panel *panel);
+
+int dsi_panel_set_lp2(struct dsi_panel *panel);
+
+int dsi_panel_set_nolp(struct dsi_panel *panel);
 
 int dsi_panel_prepare(struct dsi_panel *panel);
 
@@ -241,4 +259,14 @@ int dsi_panel_post_unprepare(struct dsi_panel *panel);
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl);
 
 int dsi_panel_update_pps(struct dsi_panel *panel);
+
+int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
+		struct dsi_rect *roi);
+
+int dsi_panel_switch(struct dsi_panel *panel);
+
+int dsi_panel_post_switch(struct dsi_panel *panel);
+
+void dsi_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc, int intf_width);
+
 #endif /* _DSI_PANEL_H_ */

@@ -475,12 +475,14 @@ void rds_rdma_send_complete(struct rds_message *rm, int status)
 	struct rm_rdma_op *ro;
 	struct rds_notifier *notifier;
 	unsigned long flags;
+	unsigned int notify = 0;
 
 	spin_lock_irqsave(&rm->m_rs_lock, flags);
 
+	notify =  rm->rdma.op_notify | rm->data.op_notify;
 	ro = &rm->rdma;
 	if (test_bit(RDS_MSG_ON_SOCK, &rm->m_flags) &&
-	    ro->op_active && ro->op_notify && ro->op_notifier) {
+	    ro->op_active && notify && ro->op_notifier) {
 		notifier = ro->op_notifier;
 		rs = rm->m_rs;
 		sock_hold(rds_rs_to_sk(rs));
@@ -944,6 +946,11 @@ static int rds_cmsg_send(struct rds_sock *rs, struct rds_message *rm,
 			ret = rds_cmsg_rdma_map(rs, rm, cmsg);
 			if (!ret)
 				*allocated_mr = 1;
+			else if (ret == -ENODEV)
+				/* Accommodate the get_mr() case which can fail
+				 * if connection isn't established yet.
+				 */
+				ret = -EAGAIN;
 			break;
 		case RDS_CMSG_ATOMIC_CSWP:
 		case RDS_CMSG_ATOMIC_FADD:
@@ -986,6 +993,29 @@ static int rds_send_mprds_hash(struct rds_sock *rs, struct rds_connection *conn)
 	return hash;
 }
 
+static int rds_rdma_bytes(struct msghdr *msg, size_t *rdma_bytes)
+{
+	struct rds_rdma_args *args;
+	struct cmsghdr *cmsg;
+
+	for_each_cmsghdr(cmsg, msg) {
+		if (!CMSG_OK(msg, cmsg))
+			return -EINVAL;
+
+		if (cmsg->cmsg_level != SOL_RDS)
+			continue;
+
+		if (cmsg->cmsg_type == RDS_CMSG_RDMA_ARGS) {
+			if (cmsg->cmsg_len <
+			    CMSG_LEN(sizeof(struct rds_rdma_args)))
+				return -EINVAL;
+			args = CMSG_DATA(cmsg);
+			*rdma_bytes += args->remote_vec.bytes;
+		}
+	}
+	return 0;
+}
+
 int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
 {
 	struct sock *sk = sock->sk;
@@ -1000,6 +1030,7 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
 	int nonblock = msg->msg_flags & MSG_DONTWAIT;
 	long timeo = sock_sndtimeo(sk, nonblock);
 	struct rds_conn_path *cpath;
+	size_t total_payload_len = payload_len, rdma_payload_len = 0;
 
 	/* Mirror Linux UDP mirror of BSD error message compatibility */
 	/* XXX: Perhaps MSG_MORE someday */
@@ -1031,6 +1062,16 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
 		goto out;
 	}
 	release_sock(sk);
+
+	ret = rds_rdma_bytes(msg, &rdma_payload_len);
+	if (ret)
+		goto out;
+
+	total_payload_len += rdma_payload_len;
+	if (max_t(size_t, payload_len, rdma_payload_len) > RDS_MAX_MSG_SIZE) {
+		ret = -EMSGSIZE;
+		goto out;
+	}
 
 	if (payload_len > rds_sk_sndbuf(rs)) {
 		ret = -EMSGSIZE;
@@ -1081,8 +1122,12 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
 
 	/* Parse any control messages the user may have included. */
 	ret = rds_cmsg_send(rs, rm, msg, &allocated_mr);
-	if (ret)
+	if (ret) {
+		/* Trigger connection so that its ready for the next retry */
+		if (ret ==  -EAGAIN)
+			rds_conn_connect_if_down(conn);
 		goto out;
+	}
 
 	if (rm->rdma.op_active && !conn->c_trans->xmit_rdma) {
 		printk_ratelimited(KERN_NOTICE "rdma_op %p conn xmit_rdma %p\n",

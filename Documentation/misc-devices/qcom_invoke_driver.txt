@@ -1,0 +1,54 @@
+Introduction:
+=============
+Invoke driver is a misc driver which helps communication between non secure
+and secure world. Invoke driver communicates with secure side using SCM
+driver. To use invoke driver, open must be called on invoke device i.e.
+/dev/invoke. Invoke driver exposes only one IOCTL invoke which passes
+userspace request to TZ.
+
+SW Architecture
+===============
+Following is SW stack for Invoke driver.
+
++++++++++++++++++++++++++++++++++++++++++
++           Applications                +
++++++++++++++++++++++++++++++++++++++++++
++          System Layer                 +
++++++++++++++++++++++++++++++++++++++++++
++             Kernel                    +
++       +++++++++++++++++++             +
++       +  Invoke driver  +             +
++       +++++++++++++++++++             +
++       +   SCM Driver    +             +
++++++++++++++++++++++++++++++++++++++++++
+               ||
+               ||
+               \/
++++++++++++++++++++++++++++++++++++++++++
++           Trust Zone                  +
++    +++++++++++    +++++++++++         +
++    + TZ App1 +    + TZ App2 +         +
++++++++++++++++++++++++++++++++++++++++++
+
+
+Interfaces
+==========
+Invoke driver exposes INVOKE_IOCTL_INVOKE_REQ IOCTL for userspace to
+communicate with driver. More details of IOCTL are avilable in
+corresponding header file.
+
+
+Driver Parameters
+=================
+This driver is built and statically linked into the kernel; therefore,
+there are no module parameters supported by this driver.
+
+There are no kernel command line parameters supported by this driver.
+
+Power Management
+================
+TBD
+
+Dependencies
+============
+Invoke driver depends on SCM driver to communicate with TZ.

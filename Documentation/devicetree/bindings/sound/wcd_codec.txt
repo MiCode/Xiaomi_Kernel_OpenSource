@@ -3,7 +3,7 @@ WCD audio CODEC
 Required properties:
 
  - compatible : "qcom,tasha-slim-pgd" or "qcom,tasha-i2c-pgd" for Tasha Codec
-		or "qcom,tavil-slim-pgd" for Tavil Codec
+		"qcom,tavil-slim-pgd" or "qcom,tavil-i2c-pgd" for Tavil Codec
  - elemental-addr: codec slimbus slave PGD enumeration address.(48 bits)
 
  - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
@@ -12,7 +12,6 @@ Required properties:
  - qcom,wcd-rst-gpio-node: Phandle reference to the DT node having codec reset gpio
                         configuration. If this property is not defined, it is
                         expected to atleast define "qcom,cdc-reset-gpio" property.
-
  - cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
  - qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
  - qcom,cdc-vdd-buck-current: buck supply's max current in mA.
@@ -141,6 +140,11 @@ Optional properties:
 
  - clock-names : clock name defined for external clock.
  - clocks : external clock defined for codec clock.
+
+ - qcom,has-buck-vsel-gpio:  Boolean property to select if WCD_BUCK has VSEL
+			controlled by GPIO.
+ - qcom,buck-vsel-gpio-node: Phandle reference to the DT node having wcd buck
+			VSEL gpio configuration.
 
 Example:
 

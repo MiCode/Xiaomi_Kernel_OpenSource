@@ -20,6 +20,7 @@
 #include "msm_kms.h"
 #include "sde_connector.h"
 #include "dsi_drm.h"
+#include "sde_trace.h"
 
 #define to_dsi_bridge(x)     container_of((x), struct dsi_bridge, base)
 #define to_dsi_state(x)      container_of((x), struct dsi_connector_state, base)
@@ -48,7 +49,9 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 	dsi_mode->timing.refresh_rate = drm_mode->vrefresh;
 
 	dsi_mode->pixel_clk_khz = drm_mode->clock;
-	dsi_mode->panel_mode = 0; /* TODO: Panel Mode */
+
+	dsi_mode->priv_info =
+		(struct dsi_display_mode_priv_info *)drm_mode->private;
 
 	if (msm_is_mode_seamless(drm_mode))
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_SEAMLESS;
@@ -56,9 +59,13 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_DFPS;
 	if (msm_needs_vblank_pre_modeset(drm_mode))
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_VBLANK_PRE_MODESET;
+	if (msm_is_mode_seamless_dms(drm_mode))
+		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_DMS;
+	if (msm_is_mode_seamless_vrr(drm_mode))
+		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_VRR;
 }
 
-static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
+void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 				struct drm_display_mode *drm_mode)
 {
 	memset(drm_mode, 0, sizeof(*drm_mode));
@@ -81,12 +88,18 @@ static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 	drm_mode->vrefresh = dsi_mode->timing.refresh_rate;
 	drm_mode->clock = dsi_mode->pixel_clk_khz;
 
+	drm_mode->private = (int *)dsi_mode->priv_info;
+
 	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS)
 		drm_mode->flags |= DRM_MODE_FLAG_SEAMLESS;
 	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_DFPS)
 		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_DYNAMIC_FPS;
 	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_VBLANK_PRE_MODESET)
 		drm_mode->private_flags |= MSM_MODE_FLAG_VBLANK_PRE_MODESET;
+	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_DMS)
+		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_DMS;
+	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_VRR)
+		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_VRR;
 
 	drm_mode_set_name(drm_mode);
 }
@@ -116,6 +129,9 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 	}
 
+	if (!c_bridge || !c_bridge->display)
+		pr_err("Incorrect bridge details\n");
+
 	/* By this point mode should have been validated through mode_fixup */
 	rc = dsi_display_set_mode(c_bridge->display,
 			&(c_bridge->dsi_mode), 0x0);
@@ -125,24 +141,35 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 	}
 
-	if (c_bridge->dsi_mode.dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS) {
+	if (c_bridge->dsi_mode.dsi_mode_flags &
+		(DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR)) {
 		pr_debug("[%d] seamless pre-enable\n", c_bridge->id);
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("dsi_bridge_pre_enable");
 	rc = dsi_display_prepare(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display prepare failed, rc=%d\n",
 		       c_bridge->id, rc);
+		SDE_ATRACE_END("dsi_bridge_pre_enable");
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("dsi_display_enable");
 	rc = dsi_display_enable(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display enable failed, rc=%d\n",
-		       c_bridge->id, rc);
+				c_bridge->id, rc);
 		(void)dsi_display_unprepare(c_bridge->display);
 	}
+	SDE_ATRACE_END("dsi_display_enable");
+	SDE_ATRACE_END("dsi_bridge_pre_enable");
+
+	rc = dsi_display_splash_res_cleanup(c_bridge->display);
+	if (rc)
+		pr_err("Continuous splash pipeline cleanup failed, rc=%d\n",
+									rc);
 }
 
 static void dsi_bridge_enable(struct drm_bridge *bridge)
@@ -155,7 +182,8 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 		return;
 	}
 
-	if (c_bridge->dsi_mode.dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS) {
+	if (c_bridge->dsi_mode.dsi_mode_flags &
+			(DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR)) {
 		pr_debug("[%d] seamless enable\n", c_bridge->id);
 		return;
 	}
@@ -169,12 +197,17 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 static void dsi_bridge_disable(struct drm_bridge *bridge)
 {
 	int rc = 0;
+	struct dsi_display *display;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
 	if (!bridge) {
 		pr_err("Invalid params\n");
 		return;
 	}
+	display = c_bridge->display;
+
+	if (display && display->drm_conn)
+		sde_connector_helper_bridge_disable(display->drm_conn);
 
 	rc = dsi_display_pre_disable(c_bridge->display);
 	if (rc) {
@@ -193,19 +226,25 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("dsi_bridge_post_disable");
+	SDE_ATRACE_BEGIN("dsi_display_disable");
 	rc = dsi_display_disable(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display disable failed, rc=%d\n",
 		       c_bridge->id, rc);
+		SDE_ATRACE_END("dsi_display_disable");
 		return;
 	}
+	SDE_ATRACE_END("dsi_display_disable");
 
 	rc = dsi_display_unprepare(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display unprepare failed, rc=%d\n",
 		       c_bridge->id, rc);
+		SDE_ATRACE_END("dsi_bridge_post_disable");
 		return;
 	}
+	SDE_ATRACE_END("dsi_bridge_post_disable");
 }
 
 static void dsi_bridge_mode_set(struct drm_bridge *bridge,
@@ -221,10 +260,6 @@ static void dsi_bridge_mode_set(struct drm_bridge *bridge,
 
 	memset(&(c_bridge->dsi_mode), 0x0, sizeof(struct dsi_display_mode));
 	convert_to_dsi_mode(adjusted_mode, &(c_bridge->dsi_mode));
-
-	pr_debug("note: using panel cmd/vid mode instead of user val\n");
-	c_bridge->dsi_mode.panel_mode =
-		c_bridge->display->panel->mode.panel_mode;
 }
 
 static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
@@ -232,27 +267,114 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 				  struct drm_display_mode *adjusted_mode)
 {
 	int rc = 0;
-	bool ret = true;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
-	struct dsi_display_mode dsi_mode;
+	struct dsi_display *display;
+	struct dsi_display_mode dsi_mode, cur_dsi_mode, *panel_dsi_mode;
+	struct drm_display_mode cur_mode;
+	struct drm_crtc_state *crtc_state;
+
+	crtc_state = container_of(mode, struct drm_crtc_state, mode);
 
 	if (!bridge || !mode || !adjusted_mode) {
 		pr_err("Invalid params\n");
 		return false;
 	}
 
+	display = c_bridge->display;
+	if (!display) {
+		pr_err("Invalid params\n");
+		return false;
+	}
+
 	convert_to_dsi_mode(mode, &dsi_mode);
+
+	/*
+	 * retrieve dsi mode from dsi driver's cache since not safe to take
+	 * the drm mode config mutex in all paths
+	 */
+	rc = dsi_display_find_mode(display, &dsi_mode, &panel_dsi_mode);
+	if (rc)
+		return rc;
+
+	/* propagate the private info to the adjusted_mode derived dsi mode */
+	dsi_mode.priv_info = panel_dsi_mode->priv_info;
+	dsi_mode.dsi_mode_flags = panel_dsi_mode->dsi_mode_flags;
 
 	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode,
 			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
 	if (rc) {
 		pr_err("[%d] mode is not valid, rc=%d\n", c_bridge->id, rc);
-		ret = false;
-	} else {
-		convert_to_drm_mode(&dsi_mode, adjusted_mode);
+		return false;
 	}
 
-	return ret;
+	if (bridge->encoder && bridge->encoder->crtc &&
+			crtc_state->crtc) {
+
+		convert_to_dsi_mode(&crtc_state->crtc->state->mode,
+							&cur_dsi_mode);
+		rc = dsi_display_validate_mode_vrr(c_bridge->display,
+					&cur_dsi_mode, &dsi_mode);
+		if (rc)
+			pr_debug("[%s] vrr mode mismatch failure rc=%d\n",
+				c_bridge->display->name, rc);
+
+		cur_mode = crtc_state->crtc->mode;
+
+		/* No DMS/VRR when drm pipeline is changing */
+		if (!drm_mode_equal(&cur_mode, adjusted_mode) &&
+			(!(dsi_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR)) &&
+			(!crtc_state->active_changed ||
+			 display->is_cont_splash_enabled))
+			dsi_mode.dsi_mode_flags |= DSI_MODE_FLAG_DMS;
+	}
+
+	/* convert back to drm mode, propagating the private info & flags */
+	dsi_convert_to_drm_mode(&dsi_mode, adjusted_mode);
+
+	return true;
+}
+
+int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
+	struct msm_mode_info *mode_info,
+	u32 max_mixer_width, void *display)
+{
+	struct dsi_display_mode dsi_mode;
+	struct dsi_mode_info *timing;
+
+	if (!drm_mode || !mode_info)
+		return -EINVAL;
+
+	convert_to_dsi_mode(drm_mode, &dsi_mode);
+
+	if (!dsi_mode.priv_info)
+		return -EINVAL;
+
+	memset(mode_info, 0, sizeof(*mode_info));
+
+	timing = &dsi_mode.timing;
+	mode_info->frame_rate = dsi_mode.timing.refresh_rate;
+	mode_info->vtotal = DSI_V_TOTAL(timing);
+	mode_info->prefill_lines = dsi_mode.priv_info->panel_prefill_lines;
+	mode_info->jitter_numer = dsi_mode.priv_info->panel_jitter_numer;
+	mode_info->jitter_denom = dsi_mode.priv_info->panel_jitter_denom;
+	mode_info->clk_rate = dsi_mode.priv_info->clk_rate_hz;
+
+	memcpy(&mode_info->topology, &dsi_mode.priv_info->topology,
+			sizeof(struct msm_display_topology));
+
+	mode_info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
+	if (dsi_mode.priv_info->dsc_enabled) {
+		mode_info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_DSC;
+		memcpy(&mode_info->comp_info.dsc_info, &dsi_mode.priv_info->dsc,
+			sizeof(dsi_mode.priv_info->dsc));
+	}
+
+	if (dsi_mode.priv_info->roi_caps.enabled) {
+		memcpy(&mode_info->roi_caps, &dsi_mode.priv_info->roi_caps,
+			sizeof(dsi_mode.priv_info->roi_caps));
+	}
+
+	return 0;
 }
 
 static const struct drm_bridge_funcs dsi_bridge_ops = {
@@ -265,15 +387,16 @@ static const struct drm_bridge_funcs dsi_bridge_ops = {
 	.mode_set     = dsi_bridge_mode_set,
 };
 
-int dsi_conn_post_init(struct drm_connector *connector,
-		void *info,
-		void *display)
+int dsi_conn_set_info_blob(struct drm_connector *connector,
+		void *info, void *display, struct msm_mode_info *mode_info)
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
 
 	if (!info || !dsi_display)
 		return -EINVAL;
+
+	dsi_display->drm_conn = connector;
 
 	sde_kms_info_add_keystr(info,
 		"display type", dsi_display->display_type);
@@ -307,7 +430,7 @@ int dsi_conn_post_init(struct drm_connector *connector,
 	panel = dsi_display->panel;
 	sde_kms_info_add_keystr(info, "panel name", panel->name);
 
-	switch (panel->mode.panel_mode) {
+	switch (panel->panel_mode) {
 	case DSI_OP_VIDEO_MODE:
 		sde_kms_info_add_keystr(info, "panel mode", "video");
 		break;
@@ -317,11 +440,18 @@ int dsi_conn_post_init(struct drm_connector *connector,
 				panel->cmd_config.mdp_transfer_time_us);
 		break;
 	default:
-		pr_debug("invalid panel type:%d\n", panel->mode.panel_mode);
+		pr_debug("invalid panel type:%d\n", panel->panel_mode);
 		break;
 	}
 	sde_kms_info_add_keystr(info, "dfps support",
 			panel->dfps_caps.dfps_support ? "true" : "false");
+
+	if (panel->dfps_caps.dfps_support) {
+		sde_kms_info_add_keyint(info, "min_fps",
+			panel->dfps_caps.min_refresh_rate);
+		sde_kms_info_add_keyint(info, "max_fps",
+			panel->dfps_caps.max_refresh_rate);
+	}
 
 	switch (panel->phy_props.rotation) {
 	case DSI_PANEL_ROTATE_NONE:
@@ -332,6 +462,10 @@ int dsi_conn_post_init(struct drm_connector *connector,
 		break;
 	case DSI_PANEL_ROTATE_V_FLIP:
 		sde_kms_info_add_keystr(info, "panel orientation", "vert flip");
+		break;
+	case DSI_PANEL_ROTATE_HV_FLIP:
+		sde_kms_info_add_keystr(info, "panel orientation",
+							"horz & vert flip");
 		break;
 	default:
 		pr_debug("invalid panel rotation:%d\n",
@@ -353,6 +487,25 @@ int dsi_conn_post_init(struct drm_connector *connector,
 		pr_debug("invalid panel backlight type:%d\n",
 						panel->bl_config.type);
 		break;
+	}
+
+	if (mode_info && mode_info->roi_caps.enabled) {
+		sde_kms_info_add_keyint(info, "partial_update_num_roi",
+				mode_info->roi_caps.num_roi);
+		sde_kms_info_add_keyint(info, "partial_update_xstart",
+				mode_info->roi_caps.align.xstart_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_walign",
+				mode_info->roi_caps.align.width_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_wmin",
+				mode_info->roi_caps.align.min_width);
+		sde_kms_info_add_keyint(info, "partial_update_ystart",
+				mode_info->roi_caps.align.ystart_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_halign",
+				mode_info->roi_caps.align.height_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_hmin",
+				mode_info->roi_caps.align.min_height);
+		sde_kms_info_add_keyint(info, "partial_update_roimerge",
+				mode_info->roi_caps.merge_rois);
 	}
 
 end:
@@ -390,11 +543,25 @@ enum drm_connector_status dsi_conn_detect(struct drm_connector *conn,
 	return status;
 }
 
+void dsi_connector_put_modes(struct drm_connector *connector,
+	void *display)
+{
+	struct drm_display_mode *drm_mode;
+	struct dsi_display_mode dsi_mode;
+
+	if (!connector || !display)
+		return;
+
+	 list_for_each_entry(drm_mode, &connector->modes, head) {
+		convert_to_dsi_mode(drm_mode, &dsi_mode);
+		dsi_display_put_mode(display, &dsi_mode);
+	}
+}
+
 int dsi_connector_get_modes(struct drm_connector *connector,
 		void *display)
 {
 	u32 count = 0;
-	u32 size = 0;
 	struct dsi_display_mode *modes = NULL;
 	struct drm_display_mode drm_mode;
 	int rc, i;
@@ -407,45 +574,36 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 		 */
 		goto end;
 	}
-	rc = dsi_display_get_modes(display, NULL, &count);
+	rc = dsi_display_get_mode_count(display, &count);
 	if (rc) {
 		pr_err("failed to get num of modes, rc=%d\n", rc);
-		goto error;
-	}
-
-	size = count * sizeof(*modes);
-	modes = kzalloc(size,  GFP_KERNEL);
-	if (!modes) {
-		count = 0;
 		goto end;
 	}
 
-	rc = dsi_display_get_modes(display, modes, &count);
+	rc = dsi_display_get_modes(display, &modes);
 	if (rc) {
 		pr_err("failed to get modes, rc=%d\n", rc);
 		count = 0;
-		goto error;
+		goto end;
 	}
 
 	for (i = 0; i < count; i++) {
 		struct drm_display_mode *m;
 
 		memset(&drm_mode, 0x0, sizeof(drm_mode));
-		convert_to_drm_mode(&modes[i], &drm_mode);
+		dsi_convert_to_drm_mode(&modes[i], &drm_mode);
 		m = drm_mode_duplicate(connector->dev, &drm_mode);
 		if (!m) {
 			pr_err("failed to add mode %ux%u\n",
 			       drm_mode.hdisplay,
 			       drm_mode.vdisplay);
 			count = -ENOMEM;
-			goto error;
+			goto end;
 		}
 		m->width_mm = connector->display_info.width_mm;
 		m->height_mm = connector->display_info.height_mm;
 		drm_mode_probed_add(connector, m);
 	}
-error:
-	kfree(modes);
 end:
 	pr_debug("MODE COUNT =%d\n\n", count);
 	return count;
@@ -485,6 +643,72 @@ int dsi_conn_pre_kickoff(struct drm_connector *connector,
 	}
 
 	return dsi_display_pre_kickoff(display, params);
+}
+
+void dsi_conn_enable_event(struct drm_connector *connector,
+		uint32_t event_idx, bool enable, void *display)
+{
+	struct dsi_event_cb_info event_info;
+
+	memset(&event_info, 0, sizeof(event_info));
+
+	event_info.event_cb = sde_connector_trigger_event;
+	event_info.event_usr_ptr = connector;
+
+	dsi_display_enable_event(display, event_idx, &event_info, enable);
+}
+
+int dsi_conn_post_kickoff(struct drm_connector *connector)
+{
+	struct drm_encoder *encoder;
+	struct dsi_bridge *c_bridge;
+	struct dsi_display_mode adj_mode;
+	struct dsi_display *display;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+	int i, rc = 0;
+
+	if (!connector || !connector->state) {
+		pr_err("invalid connector or connector state");
+		return -EINVAL;
+	}
+
+	encoder = connector->state->best_encoder;
+	if (!encoder) {
+		pr_debug("best encoder is not available");
+		return 0;
+	}
+
+	c_bridge = to_dsi_bridge(encoder->bridge);
+	adj_mode = c_bridge->dsi_mode;
+	display = c_bridge->display;
+
+	if (adj_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR) {
+		m_ctrl = &display->ctrl[display->clk_master_idx];
+		rc = dsi_ctrl_timing_db_update(m_ctrl->ctrl, false);
+		if (rc) {
+			pr_err("[%s] failed to dfps update  rc=%d\n",
+				display->name, rc);
+			return -EINVAL;
+		}
+
+		/* Update the rest of the controllers */
+		for (i = 0; i < display->ctrl_count; i++) {
+			ctrl = &display->ctrl[i];
+			if (!ctrl->ctrl || (ctrl == m_ctrl))
+				continue;
+
+			rc = dsi_ctrl_timing_db_update(ctrl->ctrl, false);
+			if (rc) {
+				pr_err("[%s] failed to dfps update rc=%d\n",
+					display->name,  rc);
+				return -EINVAL;
+			}
+		}
+
+		c_bridge->dsi_mode.dsi_mode_flags &= ~DSI_MODE_FLAG_VRR;
+	}
+
+	return 0;
 }
 
 struct dsi_bridge *dsi_drm_bridge_init(struct dsi_display *display,

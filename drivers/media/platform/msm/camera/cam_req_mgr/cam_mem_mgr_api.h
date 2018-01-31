@@ -14,13 +14,7 @@
 #define _CAM_MEM_MGR_API_H_
 
 #include <media/cam_req_mgr.h>
-
-/* Region IDs for memory manager */
-#define CAM_MEM_MGR_REGION_FIRMWARE      0
-#define CAM_MEM_MGR_REGION_SHARED        1
-#define CAM_MEM_MGR_REGION_NON_SECURE_IO 2
-#define CAM_MEM_MGR_REGION_SECURE_IO     3
-#define CAM_MEM_MGR_REGION_SCRATCH       4
+#include "cam_smmu_api.h"
 
 /**
  * struct cam_mem_mgr_request_desc
@@ -36,7 +30,6 @@ struct cam_mem_mgr_request_desc {
 	uint64_t align;
 	int32_t smmu_hdl;
 	uint32_t flags;
-	uint32_t region;
 };
 
 /**
@@ -55,7 +48,7 @@ struct cam_mem_mgr_memory_desc {
 	int32_t smmu_hdl;
 	uint32_t mem_handle;
 	uint64_t len;
-	uint32_t region;
+	enum cam_smmu_region_id region;
 };
 
 /**
@@ -101,5 +94,32 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
  */
 int cam_mem_get_cpu_buf(int32_t buf_handle, uint64_t *vaddr_ptr,
 	size_t *len);
+
+static inline bool cam_mem_is_secure_buf(int32_t buf_handle)
+{
+	return CAM_MEM_MGR_IS_SECURE_HDL(buf_handle);
+}
+
+/**
+ * @brief: Reserves a memory region
+ *
+ * @inp:  Information specifying requested region properties
+ * @region : Region which is to be reserved
+ * @out   : Information about reserved region
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
+		enum cam_smmu_region_id region,
+		struct cam_mem_mgr_memory_desc *out);
+
+/**
+ * @brief: Frees a memory region
+ *
+ * @inp   : Information about region which is to be freed
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_mem_mgr_free_memory_region(struct cam_mem_mgr_memory_desc *inp);
 
 #endif /* _CAM_MEM_MGR_API_H_ */

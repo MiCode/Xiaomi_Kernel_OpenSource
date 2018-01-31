@@ -479,6 +479,15 @@ config SRAM
 	  the genalloc API. It is supposed to be used for small on-chip SRAM
 	  areas found on many SoCs.
 
+config HDCP_QSEECOM
+	tristate "QTI High-Bandwidth Digital Content Protection Module"
+	help
+	  This module implements HDCP 2.2 features over external interfaces
+	  such as the DisplayPort interface. It exposes APIs for the interface
+	  driver to communicate with QTI Secure Execution Environment (QSEE)
+	  via the QSEECOM Driver and also communicates with the Receiver via
+	  APIs exposed by the interface driver.
+
 config QSEECOM
         tristate "QTI Secure Execution Communicator driver"
         help
@@ -776,11 +785,18 @@ config PANEL_BOOT_MESSAGE
 
 config UID_SYS_STATS
 	bool "Per-UID statistics"
-	depends on PROFILING
+	depends on PROFILING && TASK_XACCT && TASK_IO_ACCOUNTING
 	help
 	  Per UID based cpu time statistics exported to /proc/uid_cputime
 	  Per UID based io statistics exported to /proc/uid_io
 	  Per UID based procstat control in /proc/uid_procstat
+
+config UID_SYS_STATS_DEBUG
+	bool "Per-TASK statistics"
+	depends on UID_SYS_STATS
+	default n
+	help
+	  Per TASK based io statistics exported to /proc/uid_io
 
 config MEMORY_STATE_TIME
 	tristate "Memory freq/bandwidth time statistics"
@@ -805,7 +821,6 @@ source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
 source "drivers/misc/vmw_vmci/Kconfig"
-source "drivers/misc/qcom/Kconfig"
 source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"

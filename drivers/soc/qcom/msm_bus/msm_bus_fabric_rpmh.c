@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -272,6 +272,9 @@ static int tcs_cmd_gen(struct msm_bus_node_device_type *cur_bcm,
 	int ret = 0;
 	bool valid = true;
 
+	if (!cmd)
+		return ret;
+
 	if (vec_a == 0 && vec_b == 0)
 		valid = false;
 
@@ -337,8 +340,8 @@ static int tcs_cmd_list_gen(int *n_active,
 			tcs_cmd_gen(cur_bcm, &cmdlist_active[k],
 				cur_bcm->node_vec[ACTIVE_CTX].vec_a,
 				cur_bcm->node_vec[ACTIVE_CTX].vec_b, commit);
-			k++;
 			last_tcs = k;
+			k++;
 			cur_bcm->updated = true;
 		}
 	}
@@ -383,6 +386,10 @@ static int tcs_cmd_list_gen(int *n_active,
 			tcs_cmd_gen(cur_bcm, &cmdlist_wake[k],
 				cur_bcm->node_vec[ACTIVE_CTX].vec_a,
 				cur_bcm->node_vec[ACTIVE_CTX].vec_b, commit);
+
+			if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE)
+				commit = false;
+
 			tcs_cmd_gen(cur_bcm, &cmdlist_sleep[k],
 				cur_bcm->node_vec[DUAL_CTX].vec_a,
 				cur_bcm->node_vec[DUAL_CTX].vec_b, commit);
@@ -418,8 +425,8 @@ static int tcs_cmd_query_list_gen(struct tcs_cmd *cmdlist_active)
 				commit = true;
 			}
 			tcs_cmd_gen(cur_bcm, &cmdlist_active[k],
-				cur_bcm->node_bw[ACTIVE_CTX].max_query_ib,
-				cur_bcm->node_bw[ACTIVE_CTX].max_query_ab,
+				cur_bcm->node_vec[ACTIVE_CTX].query_vec_a,
+				cur_bcm->node_vec[ACTIVE_CTX].query_vec_b,
 								commit);
 			k++;
 		}
@@ -433,26 +440,30 @@ static int bcm_clist_add(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
 	int cur_vcd = 0;
+	int i = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_clist_add;
 
-	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
-	cur_vcd = cur_bcm->bcmdev->clk_domain;
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
+		cur_vcd = cur_bcm->bcmdev->clk_domain;
 
-	if (!cur_bcm->node_info->num_rsc_devs)
-		goto exit_bcm_clist_add;
+		if (!cur_bcm->node_info->num_rsc_devs)
+			goto exit_bcm_clist_add;
 
-	if (!cur_rsc)
-		cur_rsc = to_msm_bus_node(cur_bcm->node_info->rsc_devs[0]);
+		if (!cur_rsc)
+			cur_rsc = to_msm_bus_node(cur_bcm->node_info->
+								rsc_devs[0]);
 
-	if (!cur_bcm->dirty) {
-		list_add_tail(&cur_bcm->link,
+		if (!cur_bcm->dirty) {
+			list_add_tail(&cur_bcm->link,
 					&cur_rsc->rscdev->bcm_clist[cur_vcd]);
-		cur_bcm->dirty = true;
+			cur_bcm->dirty = true;
+		}
+		cur_bcm->updated = false;
 	}
-	cur_bcm->updated = false;
 
 exit_bcm_clist_add:
 	return ret;
@@ -462,17 +473,20 @@ static int bcm_query_list_add(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
 	int cur_vcd = 0;
+	int i = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_query_list_add;
 
-	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
-	cur_vcd = cur_bcm->bcmdev->clk_domain;
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
+		cur_vcd = cur_bcm->bcmdev->clk_domain;
 
-	if (!cur_bcm->query_dirty)
-		list_add_tail(&cur_bcm->query_link,
+		if (!cur_bcm->query_dirty)
+			list_add_tail(&cur_bcm->query_link,
 					&bcm_query_list_inorder[cur_vcd]);
+	}
 
 exit_bcm_query_list_add:
 	return ret;
@@ -481,20 +495,23 @@ exit_bcm_query_list_add:
 static int bcm_clist_clean(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
+	int i = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_clist_clean;
 
-	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
 
-	if (cur_bcm->node_vec[DUAL_CTX].vec_a == 0 &&
+		if (cur_bcm->node_vec[DUAL_CTX].vec_a == 0 &&
 			cur_bcm->node_vec[ACTIVE_CTX].vec_a == 0 &&
 			cur_bcm->node_vec[DUAL_CTX].vec_b == 0 &&
 			cur_bcm->node_vec[ACTIVE_CTX].vec_b == 0 &&
 			init_time == false) {
-		cur_bcm->dirty = false;
-		list_del_init(&cur_bcm->link);
+			cur_bcm->dirty = false;
+			list_del_init(&cur_bcm->link);
+		}
 	}
 
 exit_bcm_clist_clean:
@@ -504,15 +521,18 @@ exit_bcm_clist_clean:
 static int bcm_query_list_clean(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
+	int i = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_clist_add;
 
-	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
 
-	cur_bcm->query_dirty = false;
-	list_del_init(&cur_bcm->query_link);
+		cur_bcm->query_dirty = false;
+		list_del_init(&cur_bcm->query_link);
+	}
 
 exit_bcm_clist_add:
 	return ret;
@@ -530,27 +550,38 @@ int msm_bus_commit_data(struct list_head *clist)
 	struct tcs_cmd *cmdlist_sleep = NULL;
 	struct rpmh_client *cur_mbox = NULL;
 	struct list_head *cur_bcm_clist = NULL;
-	int *n_active = NULL;
-	int *n_wake = NULL;
-	int *n_sleep = NULL;
+	int n_active[VCD_MAX_CNT];
+	int n_wake[VCD_MAX_CNT];
+	int n_sleep[VCD_MAX_CNT];
 	int cnt_vcd = 0;
 	int cnt_active = 0;
 	int cnt_wake = 0;
 	int cnt_sleep = 0;
 	int i = 0;
 
+	if (!clist)
+		return ret;
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
-		if (unlikely(node->node_info->defer_qos))
-			msm_bus_dev_init_qos(&node->dev, NULL);
-
 		bcm_clist_add(node);
+	}
+
+	if (!cur_rsc) {
+		MSM_BUS_ERR("%s: Error for cur_rsc is NULL.\n", __func__);
+		return ret;
 	}
 
 	cur_mbox = cur_rsc->rscdev->mbox;
 	cur_bcm_clist = cur_rsc->rscdev->bcm_clist;
+	cmdlist_active = cur_rsc->rscdev->cmdlist_active;
+	cmdlist_wake = cur_rsc->rscdev->cmdlist_wake;
+	cmdlist_sleep = cur_rsc->rscdev->cmdlist_sleep;
 
 	for (i = 0; i < VCD_MAX_CNT; i++) {
+		n_active[i] = 0;
+		n_wake[i] = 0;
+		n_sleep[i] = 0;
+
 		if (list_empty(&cur_bcm_clist[i]))
 			continue;
 		list_for_each_entry(cur_bcm, &cur_bcm_clist[i], link) {
@@ -573,49 +604,63 @@ int msm_bus_commit_data(struct list_head *clist)
 		cnt_vcd++;
 	}
 
-	n_active = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
-	n_wake = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
-	n_sleep = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
+	if (!cnt_active)
+		goto exit_msm_bus_commit_data;
 
-	if (cnt_active)
-		cmdlist_active = kcalloc(cnt_active, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
-	if (cnt_sleep && cnt_wake) {
-		cmdlist_wake = kcalloc(cnt_wake, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
-		cmdlist_sleep = kcalloc(cnt_sleep, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
-	}
 	bcm_cnt = tcs_cmd_list_gen(n_active, n_wake, n_sleep, cmdlist_active,
 				cmdlist_wake, cmdlist_sleep, cur_bcm_clist);
 
 	ret = rpmh_invalidate(cur_mbox);
-	if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE)
+	if (ret)
+		MSM_BUS_ERR("%s: Error invalidating mbox: %d\n",
+						__func__, ret);
+
+	if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE) {
 		ret = rpmh_write(cur_mbox, cur_rsc->rscdev->req_state,
 						cmdlist_active, cnt_active);
-	else
-		ret = rpmh_write_passthru(cur_mbox, cur_rsc->rscdev->req_state,
+		/*
+		 * Ignore -EBUSY from rpmh_write if it's an AWAKE_STATE
+		 * request since AWAKE requests are invalid when
+		 * the display RSC is in solver mode and the bus driver
+		 * does not know the current state of the display RSC.
+		 */
+		if (ret && ret != -EBUSY)
+			MSM_BUS_ERR("%s: error sending active/awake sets: %d\n",
+						__func__, ret);
+	} else {
+		ret = rpmh_write_batch(cur_mbox, cur_rsc->rscdev->req_state,
 						cmdlist_active, n_active);
+		if (ret)
+			MSM_BUS_ERR("%s: error sending active/awake sets: %d\n",
+						__func__, ret);
+	}
+	if (cnt_wake) {
+		ret = rpmh_write_batch(cur_mbox, RPMH_WAKE_ONLY_STATE,
+							cmdlist_wake, n_wake);
+		if (ret)
+			MSM_BUS_ERR("%s: error sending wake sets: %d\n",
+							__func__, ret);
+	}
+	if (cnt_sleep) {
+		ret = rpmh_write_batch(cur_mbox, RPMH_SLEEP_STATE,
+							cmdlist_sleep, n_sleep);
+		if (ret)
+			MSM_BUS_ERR("%s: error sending sleep sets: %d\n",
+							__func__, ret);
+	}
 
-	ret = rpmh_write_passthru(cur_mbox, RPMH_WAKE_ONLY_STATE,
-						cmdlist_wake, n_wake);
+	list_for_each_entry_safe(node, node_tmp, clist, link) {
+		if (unlikely(node->node_info->defer_qos))
+			msm_bus_dev_init_qos(&node->dev, NULL);
+	}
 
-	ret = rpmh_write_passthru(cur_mbox, RPMH_SLEEP_STATE,
-						cmdlist_sleep, n_sleep);
-
+exit_msm_bus_commit_data:
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		bcm_clist_clean(node);
 		node->dirty = false;
 		list_del_init(&node->link);
 	}
-
 	cur_rsc = NULL;
-	kfree(cmdlist_active);
-	kfree(cmdlist_wake);
-	kfree(cmdlist_sleep);
-	kfree(n_active);
-	kfree(n_wake);
-	kfree(n_sleep);
 	return ret;
 }
 
@@ -657,7 +702,30 @@ int msm_bus_query_gen(struct list_head *query_list,
 	return ret;
 }
 
+static void bcm_commit_single_req(struct msm_bus_node_device_type *cur_bcm,
+					uint64_t vec_a, uint64_t vec_b)
+{
+	struct msm_bus_node_device_type *cur_rsc = NULL;
+	struct rpmh_client *cur_mbox = NULL;
+	struct tcs_cmd *cmd_active = NULL;
 
+	if (!cur_bcm->node_info->num_rsc_devs)
+		return;
+
+	cmd_active = kzalloc(sizeof(struct tcs_cmd), GFP_KERNEL);
+
+	if (!cmd_active)
+		return;
+
+	cur_rsc = to_msm_bus_node(cur_bcm->node_info->rsc_devs[0]);
+	cur_mbox = cur_rsc->rscdev->mbox;
+
+	tcs_cmd_gen(cur_bcm, cmd_active, vec_a, vec_b, true);
+	rpmh_write_single(cur_mbox, RPMH_ACTIVE_ONLY_STATE,
+					cmd_active->addr, cmd_active->data);
+
+	kfree(cmd_active);
+}
 
 void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
 					size_t new_size, gfp_t flags)
@@ -701,18 +769,16 @@ static void msm_bus_fab_init_noc_ops(struct msm_bus_node_device_type *bus_dev)
 
 static int msm_bus_disable_node_qos_clk(struct msm_bus_node_device_type *node)
 {
-	struct msm_bus_node_device_type *bus_node = NULL;
 	int i;
 	int ret = 0;
 
-	if (!node || (!to_msm_bus_node(node->node_info->bus_device))) {
+	if (!node) {
 		ret = -ENXIO;
 		goto exit_disable_node_qos_clk;
 	}
-	bus_node = to_msm_bus_node(node->node_info->bus_device);
 
-	for (i = 0; i < bus_node->num_node_qos_clks; i++)
-		ret = disable_nodeclk(&bus_node->node_qos_clks[i]);
+	for (i = 0; i < node->num_node_qos_clks; i++)
+		ret = disable_nodeclk(&node->node_qos_clks[i]);
 
 exit_disable_node_qos_clk:
 	return ret;
@@ -720,29 +786,22 @@ exit_disable_node_qos_clk:
 
 static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 {
-	struct msm_bus_node_device_type *bus_node = NULL;
 	int i;
-	int ret;
+	int ret = 0;
 	long rounded_rate;
 
-	if (!node || (!to_msm_bus_node(node->node_info->bus_device))) {
-		ret = -ENXIO;
-		goto exit_enable_node_qos_clk;
-	}
-	bus_node = to_msm_bus_node(node->node_info->bus_device);
-
-	for (i = 0; i < bus_node->num_node_qos_clks; i++) {
-		if (!bus_node->node_qos_clks[i].enable_only_clk) {
+	for (i = 0; i < node->num_node_qos_clks; i++) {
+		if (!node->node_qos_clks[i].enable_only_clk) {
 			rounded_rate =
 				clk_round_rate(
-					bus_node->node_qos_clks[i].clk, 1);
-			ret = setrate_nodeclk(&bus_node->node_qos_clks[i],
+					node->node_qos_clks[i].clk, 1);
+			ret = setrate_nodeclk(&node->node_qos_clks[i],
 								rounded_rate);
 			if (ret)
 				MSM_BUS_DBG("%s: Failed set rate clk,node %d\n",
 					__func__, node->node_info->id);
 		}
-		ret = enable_nodeclk(&bus_node->node_qos_clks[i],
+		ret = enable_nodeclk(&node->node_qos_clks[i],
 					node->node_info->bus_device);
 		if (ret) {
 			MSM_BUS_DBG("%s: Failed to set Qos Clks ret %d\n",
@@ -750,10 +809,83 @@ static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 			msm_bus_disable_node_qos_clk(node);
 			goto exit_enable_node_qos_clk;
 		}
-
 	}
 exit_enable_node_qos_clk:
 	return ret;
+}
+
+static int msm_bus_vote_qos_bcms(struct msm_bus_node_device_type *node)
+{
+	struct msm_bus_node_device_type *cur_dev = NULL;
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+	int i;
+	struct device *dev = NULL;
+
+	if (!node || (!to_msm_bus_node(node->node_info->bus_device)))
+		return -ENXIO;
+
+	cur_dev = node;
+
+	for (i = 0; i < cur_dev->num_qos_bcms; i++) {
+		dev = bus_find_device(&msm_bus_type, NULL,
+				(void *) &cur_dev->qos_bcms[i].qos_bcm_id,
+					msm_bus_device_match_adhoc);
+
+		if (!dev) {
+			MSM_BUS_ERR("Can't find dev node for %d",
+					cur_dev->qos_bcms[i].qos_bcm_id);
+			return -ENODEV;
+		}
+
+		cur_bcm = to_msm_bus_node(dev);
+		if (cur_bcm->node_vec[ACTIVE_CTX].vec_a != 0 ||
+			cur_bcm->node_vec[ACTIVE_CTX].vec_b != 0 ||
+			cur_bcm->node_vec[DUAL_CTX].vec_a != 0 ||
+			cur_bcm->node_vec[DUAL_CTX].vec_b != 0)
+			return 0;
+
+		bcm_commit_single_req(cur_bcm,
+					cur_dev->qos_bcms[i].vec.vec_a,
+					cur_dev->qos_bcms[i].vec.vec_b);
+	}
+
+	return 0;
+}
+
+static int msm_bus_rm_vote_qos_bcms(struct msm_bus_node_device_type *node)
+{
+	struct msm_bus_node_device_type *cur_dev = NULL;
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+	int i;
+	struct device *dev = NULL;
+
+	if (!node || (!to_msm_bus_node(node->node_info->bus_device)))
+		return -ENXIO;
+
+	cur_dev = node;
+
+	for (i = 0; i < cur_dev->num_qos_bcms; i++) {
+		dev = bus_find_device(&msm_bus_type, NULL,
+				(void *) &cur_dev->qos_bcms[i].qos_bcm_id,
+					msm_bus_device_match_adhoc);
+
+		if (!dev) {
+			MSM_BUS_ERR("Can't find dev node for %d",
+					cur_dev->qos_bcms[i].qos_bcm_id);
+			return -ENODEV;
+		}
+
+		cur_bcm = to_msm_bus_node(dev);
+		if (cur_bcm->node_vec[ACTIVE_CTX].vec_a != 0 ||
+			cur_bcm->node_vec[ACTIVE_CTX].vec_b != 0 ||
+			cur_bcm->node_vec[DUAL_CTX].vec_a != 0 ||
+			cur_bcm->node_vec[DUAL_CTX].vec_b != 0)
+			return 0;
+
+		bcm_commit_single_req(cur_bcm, 0, 0);
+	}
+
+	return 0;
 }
 
 int msm_bus_enable_limiter(struct msm_bus_node_device_type *node_dev,
@@ -816,6 +948,12 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 
 	MSM_BUS_DBG("Device = %d", node_dev->node_info->id);
 
+	if (node_dev->node_info->qos_params.defer_init_qos) {
+		node_dev->node_info->qos_params.defer_init_qos = false;
+		node_dev->node_info->defer_qos = true;
+		goto exit_init_qos;
+	}
+
 	if (node_dev->ap_owned) {
 		struct msm_bus_node_device_type *bus_node_info;
 
@@ -834,12 +972,11 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 			bus_node_info->fabdev->noc_ops.qos_init) {
 			int ret = 0;
 
-			if (node_dev->ap_owned &&
-				(node_dev->node_info->qos_params.mode) != -1) {
-
+			if (node_dev->ap_owned) {
 				if (bus_node_info->fabdev->bypass_qos_prg)
 					goto exit_init_qos;
 
+				ret = msm_bus_vote_qos_bcms(node_dev);
 				ret = msm_bus_enable_node_qos_clk(node_dev);
 				if (ret < 0) {
 					MSM_BUS_DBG("Can't Enable QoS clk %d\n",
@@ -850,11 +987,13 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 
 				bus_node_info->fabdev->noc_ops.qos_init(
 					node_dev,
+					bus_node_info,
 					bus_node_info->fabdev->qos_base,
 					bus_node_info->fabdev->base_offset,
 					bus_node_info->fabdev->qos_off,
 					bus_node_info->fabdev->qos_freq);
 				ret = msm_bus_disable_node_qos_clk(node_dev);
+				ret = msm_bus_rm_vote_qos_bcms(node_dev);
 				node_dev->node_info->defer_qos = false;
 			}
 		} else
@@ -1007,6 +1146,41 @@ exit_rsc_init:
 	return ret;
 }
 
+static int msm_bus_postcon_setup(struct device *bus_dev, void *data)
+{
+	struct msm_bus_node_device_type *bus_node = NULL;
+	struct msm_bus_rsc_device_type *rscdev;
+
+	bus_node = to_msm_bus_node(bus_dev);
+	if (!bus_node) {
+		MSM_BUS_ERR("%s: Can't get device info", __func__);
+		return -ENODEV;
+	}
+
+	if (bus_node->node_info->is_rsc_dev) {
+		rscdev = bus_node->rscdev;
+		rscdev->cmdlist_active = devm_kcalloc(bus_dev,
+					rscdev->num_bcm_devs,
+					sizeof(struct tcs_cmd), GFP_KERNEL);
+		if (!rscdev->cmdlist_active)
+			return -ENOMEM;
+
+		rscdev->cmdlist_wake = devm_kcalloc(bus_dev,
+					rscdev->num_bcm_devs,
+					sizeof(struct tcs_cmd), GFP_KERNEL);
+		if (!rscdev->cmdlist_wake)
+			return -ENOMEM;
+
+		rscdev->cmdlist_sleep = devm_kcalloc(bus_dev,
+					rscdev->num_bcm_devs,
+					sizeof(struct tcs_cmd),	GFP_KERNEL);
+		if (!rscdev->cmdlist_sleep)
+			return -ENOMEM;
+	}
+
+	return 0;
+}
+
 static int msm_bus_init_clk(struct device *bus_dev,
 				struct msm_bus_node_device_type *pdata)
 {
@@ -1081,7 +1255,7 @@ static int msm_bus_init_clk(struct device *bus_dev,
 static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 				struct device *bus_dev)
 {
-	int ret = 0;
+	int ret = 0, i = 0;
 	struct msm_bus_node_info_type *node_info = NULL;
 	struct msm_bus_node_info_type *pdata_node_info = NULL;
 	struct msm_bus_node_device_type *bus_node = NULL;
@@ -1100,7 +1274,17 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 
 	node_info->name = pdata_node_info->name;
 	node_info->id =  pdata_node_info->id;
-	node_info->bcm_req_idx = -1;
+	node_info->bcm_req_idx = devm_kzalloc(bus_dev,
+			sizeof(int) * pdata_node_info->num_bcm_devs,
+			GFP_KERNEL);
+	if (!node_info->bcm_req_idx) {
+		ret = -ENOMEM;
+		goto exit_copy_node_info;
+	}
+
+	for (i = 0; i < pdata_node_info->num_bcm_devs; i++)
+		node_info->bcm_req_idx[i] = -1;
+
 	node_info->bus_device_id = pdata_node_info->bus_device_id;
 	node_info->mas_rpm_id = pdata_node_info->mas_rpm_id;
 	node_info->slv_rpm_id = pdata_node_info->slv_rpm_id;
@@ -1113,18 +1297,29 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->is_fab_dev = pdata_node_info->is_fab_dev;
 	node_info->is_bcm_dev = pdata_node_info->is_bcm_dev;
 	node_info->is_rsc_dev = pdata_node_info->is_rsc_dev;
-	node_info->qos_params.mode = pdata_node_info->qos_params.mode;
-	node_info->qos_params.prio1 = pdata_node_info->qos_params.prio1;
-	node_info->qos_params.prio0 = pdata_node_info->qos_params.prio0;
-	node_info->qos_params.reg_prio1 = pdata_node_info->qos_params.reg_prio1;
-	node_info->qos_params.reg_prio0 = pdata_node_info->qos_params.reg_prio0;
-	node_info->qos_params.prio_lvl = pdata_node_info->qos_params.prio_lvl;
-	node_info->qos_params.prio_rd = pdata_node_info->qos_params.prio_rd;
-	node_info->qos_params.prio_wr = pdata_node_info->qos_params.prio_wr;
-	node_info->qos_params.gp = pdata_node_info->qos_params.gp;
-	node_info->qos_params.thmp = pdata_node_info->qos_params.thmp;
-	node_info->qos_params.ws = pdata_node_info->qos_params.ws;
-	node_info->qos_params.bw_buffer = pdata_node_info->qos_params.bw_buffer;
+	node_info->qos_params.prio_dflt = pdata_node_info->qos_params.prio_dflt;
+	node_info->qos_params.limiter.bw =
+				pdata_node_info->qos_params.limiter.bw;
+	node_info->qos_params.limiter.sat =
+				pdata_node_info->qos_params.limiter.sat;
+	node_info->qos_params.limiter_en =
+				pdata_node_info->qos_params.limiter_en;
+	node_info->qos_params.reg.low_prio =
+				pdata_node_info->qos_params.reg.low_prio;
+	node_info->qos_params.reg.hi_prio =
+				pdata_node_info->qos_params.reg.hi_prio;
+	node_info->qos_params.reg.bw =
+				pdata_node_info->qos_params.reg.bw;
+	node_info->qos_params.reg.sat =
+				pdata_node_info->qos_params.reg.sat;
+	node_info->qos_params.reg_mode.read =
+				pdata_node_info->qos_params.reg_mode.read;
+	node_info->qos_params.reg_mode.write =
+				pdata_node_info->qos_params.reg_mode.write;
+	node_info->qos_params.urg_fwd_en =
+				pdata_node_info->qos_params.urg_fwd_en;
+	node_info->qos_params.defer_init_qos =
+				pdata_node_info->qos_params.defer_init_qos;
 	node_info->agg_params.buswidth = pdata_node_info->agg_params.buswidth;
 	node_info->agg_params.agg_scheme =
 					pdata_node_info->agg_params.agg_scheme;
@@ -1215,7 +1410,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->bcm_dev_ids = devm_kzalloc(bus_dev,
 			sizeof(int) * pdata_node_info->num_bcm_devs,
 			GFP_KERNEL);
-	if (!node_info->bcm_devs) {
+	if (!node_info->bcm_dev_ids) {
 		MSM_BUS_ERR("%s:Bus connections alloc failed\n", __func__);
 		devm_kfree(bus_dev, node_info->bcm_devs);
 		ret = -ENOMEM;
@@ -1239,7 +1434,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->rsc_dev_ids = devm_kzalloc(bus_dev,
 			sizeof(int) * pdata_node_info->num_rsc_devs,
 			GFP_KERNEL);
-	if (!node_info->rsc_devs) {
+	if (!node_info->rsc_dev_ids) {
 		MSM_BUS_ERR("%s:Bus connections alloc failed\n", __func__);
 		devm_kfree(bus_dev, node_info->rsc_devs);
 		ret = -ENOMEM;
@@ -1276,7 +1471,7 @@ static struct device *msm_bus_device_init(
 	struct device *bus_dev = NULL;
 	struct msm_bus_node_device_type *bus_node = NULL;
 	struct msm_bus_node_info_type *node_info = NULL;
-	int ret = 0;
+	int ret = 0, i = 0;
 
 	/**
 	* Init here so we can use devm calls
@@ -1305,6 +1500,23 @@ static struct device *msm_bus_device_init(
 	bus_node->node_info = node_info;
 	bus_node->ap_owned = pdata->ap_owned;
 	bus_node->dirty = false;
+	bus_node->num_qos_bcms = pdata->num_qos_bcms;
+	if (bus_node->num_qos_bcms) {
+		bus_node->qos_bcms = devm_kzalloc(bus_dev,
+					(sizeof(struct qos_bcm_type) *
+					bus_node->num_qos_bcms), GFP_KERNEL);
+		if (!bus_node->qos_bcms)
+			goto exit_device_init;
+		for (i = 0; i < bus_node->num_qos_bcms; i++) {
+			bus_node->qos_bcms[i].qos_bcm_id =
+					pdata->qos_bcms[i].qos_bcm_id;
+			bus_node->qos_bcms[i].vec.vec_a =
+					pdata->qos_bcms[i].vec.vec_a;
+			bus_node->qos_bcms[i].vec.vec_b =
+					pdata->qos_bcms[i].vec.vec_b;
+		}
+	}
+
 	bus_dev->of_node = pdata->of_node;
 
 	if (msm_bus_copy_node_info(pdata, bus_dev) < 0) {
@@ -1442,6 +1654,7 @@ static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
 			goto exit_setup_dev_conn;
 		}
 		rsc_node = to_msm_bus_node(bus_node->node_info->rsc_devs[j]);
+		rsc_node->rscdev->num_bcm_devs++;
 	}
 
 exit_setup_dev_conn:
@@ -1572,6 +1785,13 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 		goto exit_device_probe;
 	}
 
+	ret = bus_for_each_dev(&msm_bus_type, NULL, NULL,
+						msm_bus_postcon_setup);
+	if (ret) {
+		MSM_BUS_ERR("%s: Error post connection setup", __func__);
+		goto exit_device_probe;
+	}
+
 	/*
 	 * Setup the QoS for the nodes, don't check the error codes as we
 	 * defer QoS programming to the first transaction in cases of failure
@@ -1666,15 +1886,10 @@ int __init msm_bus_device_init_driver(void)
 
 int __init msm_bus_device_late_init(void)
 {
-	int rc;
-
+	commit_late_init_data(true);
 	MSM_BUS_ERR("msm_bus_late_init: Remove handoff bw requests\n");
 	init_time = false;
-	rc = bus_for_each_dev(&msm_bus_type, NULL, NULL,
-						bcm_remove_handoff_req);
-
-	commit_late_init_data();
-	return rc;
+	return commit_late_init_data(false);
 }
 subsys_initcall(msm_bus_device_init_driver);
 late_initcall_sync(msm_bus_device_late_init);

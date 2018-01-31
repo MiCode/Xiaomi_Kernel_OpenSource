@@ -30,7 +30,6 @@
 #include "kgsl_trace.h"
 #include "adreno_a5xx_packets.h"
 
-static int zap_ucode_loaded;
 static int critical_packet_constructed;
 
 static struct kgsl_memdesc crit_pkts;
@@ -62,8 +61,8 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 };
 
 static void a5xx_irq_storm_worker(struct work_struct *work);
-static int _read_fw2_block_header(uint32_t *header, uint32_t id,
-	uint32_t major, uint32_t minor);
+static int _read_fw2_block_header(uint32_t *header, uint32_t remain,
+	uint32_t id, uint32_t major, uint32_t minor);
 static void a5xx_gpmu_reset(struct work_struct *work);
 static int a5xx_gpmu_init(struct adreno_device *adreno_dev);
 
@@ -194,6 +193,8 @@ static void a5xx_critical_packet_destroy(struct adreno_device *adreno_dev)
 	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf2);
 	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf3);
 
+	kgsl_iommu_unmap_global_secure_pt_entry(KGSL_DEVICE(adreno_dev),
+			&crit_pkts_refbuf0);
 	kgsl_sharedmem_free(&crit_pkts_refbuf0);
 
 }
@@ -232,8 +233,10 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	kgsl_add_global_secure_entry(&adreno_dev->dev,
+	ret = kgsl_iommu_map_global_secure_pt_entry(&adreno_dev->dev,
 					&crit_pkts_refbuf0);
+	if (ret)
+		return ret;
 
 	ret = kgsl_allocate_global(&adreno_dev->dev,
 					&crit_pkts_refbuf1,
@@ -294,8 +297,13 @@ static void a5xx_init(struct adreno_device *adreno_dev)
 
 	INIT_WORK(&adreno_dev->irq_storm_work, a5xx_irq_storm_worker);
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS))
-		a5xx_critical_packet_construct(adreno_dev);
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS)) {
+		int ret;
+
+		ret = a5xx_critical_packet_construct(adreno_dev);
+		if (ret)
+			a5xx_critical_packet_destroy(adreno_dev);
+	}
 
 	a5xx_crashdump_init(adreno_dev);
 }
@@ -679,10 +687,15 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	if (data[1] != GPMU_FIRMWARE_ID)
 		goto err;
 	ret = _read_fw2_block_header(&data[2],
+		data[0] - 2,
 		GPMU_FIRMWARE_ID,
 		adreno_dev->gpucore->gpmu_major,
 		adreno_dev->gpucore->gpmu_minor);
 	if (ret)
+		goto err;
+
+	/* Integer overflow check for cmd_size */
+	if (data[2] > (data[0] - 2))
 		goto err;
 
 	cmds = data + data[2] + 3;
@@ -1197,8 +1210,8 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, on ? 0x00000182 : 0x00000180);
 }
 
-static int _read_fw2_block_header(uint32_t *header, uint32_t id,
-				uint32_t major, uint32_t minor)
+static int _read_fw2_block_header(uint32_t *header, uint32_t remain,
+			uint32_t id, uint32_t major, uint32_t minor)
 {
 	uint32_t header_size;
 	int i = 1;
@@ -1208,7 +1221,8 @@ static int _read_fw2_block_header(uint32_t *header, uint32_t id,
 
 	header_size = header[0];
 	/* Headers have limited size and always occur as pairs of words */
-	if (header_size > MAX_HEADER_SIZE || header_size % 2)
+	if (header_size >  MAX_HEADER_SIZE || header_size >= remain ||
+				header_size % 2 || header_size == 0)
 		return -EINVAL;
 	/* Sequences must have an identifying id first thing in their header */
 	if (id == GPMU_SEQUENCE_ID) {
@@ -1272,8 +1286,8 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct firmware *fw;
-	uint32_t block_size = 0, block_total = 0, fw_size;
-	uint32_t *block;
+	uint64_t block_size = 0, block_total = 0;
+	uint32_t fw_size, *block;
 	int ret = -EINVAL;
 
 	if (!adreno_dev->gpucore->regfw_name)
@@ -1295,7 +1309,8 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 	/* All offset numbers calculated from file description */
 	while (block_total < fw_size) {
 		block_size = block[0];
-		if (block_size >= fw_size || block_size < 2)
+		if (((block_total + block_size) >= fw_size)
+				|| block_size < 5)
 			goto err;
 		if (block[1] != GPMU_SEQUENCE_ID)
 			goto err;
@@ -1303,6 +1318,7 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 		/* For now ignore blocks other than the LM sequence */
 		if (block[4] == LM_SEQUENCE_ID) {
 			ret = _read_fw2_block_header(&block[2],
+				block_size - 2,
 				GPMU_SEQUENCE_ID,
 				adreno_dev->gpucore->lm_major,
 				adreno_dev->gpucore->lm_minor);
@@ -1310,6 +1326,9 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 				goto err;
 
 			adreno_dev->lm_fw = fw;
+
+			if (block[2] > (block_size - 2))
+				goto err;
 			adreno_dev->lm_sequence = block + block[2] + 3;
 			adreno_dev->lm_size = block_size - block[2] - 2;
 		}
@@ -1322,7 +1341,7 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 err:
 	release_firmware(fw);
 	KGSL_PWR_ERR(device,
-		"Register file failed to load sz=%d bsz=%d header=%d\n",
+		"Register file failed to load sz=%d bsz=%llu header=%d\n",
 		fw_size, block_size, ret);
 }
 
@@ -1609,17 +1628,26 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 }
 
 static void a5xx_clk_set_options(struct adreno_device *adreno_dev,
-	const char *name, struct clk *clk)
+	const char *name, struct clk *clk, bool on)
 {
+
+	if (!adreno_is_a540(adreno_dev) && !adreno_is_a512(adreno_dev) &&
+		!adreno_is_a508(adreno_dev))
+		return;
+
 	/* Handle clock settings for GFX PSCBCs */
-	if (adreno_is_a540(adreno_dev) || adreno_is_a512(adreno_dev) ||
-		adreno_is_a508(adreno_dev)) {
+	if (on) {
 		if (!strcmp(name, "mem_iface_clk")) {
 			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
 			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
 		} else if (!strcmp(name, "core_clk")) {
 			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
 			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
 		}
 	}
 }
@@ -2029,6 +2057,9 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	}
 
+	/* Disable All flat shading optimization */
+	kgsl_regrmw(device, A5XX_VPC_DBG_ECO_CNTL, 0, 0x1 << 10);
+
 	/*
 	 * VPC corner case with local memory load kill leads to corrupt
 	 * internal state. Normal Disable does not work for all a5x chips.
@@ -2179,7 +2210,7 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	 * appropriate register,
 	 * skip if retention is supported for the CPZ register
 	 */
-	if (zap_ucode_loaded && !(ADRENO_FEATURE(adreno_dev,
+	if (adreno_dev->zap_loaded && !(ADRENO_FEATURE(adreno_dev,
 		ADRENO_CPZ_RETENTION))) {
 		int ret;
 		struct scm_desc desc = {0};
@@ -2197,14 +2228,13 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	}
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !zap_ucode_loaded) {
+	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
 		ptr = subsystem_get(adreno_dev->gpucore->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
 		if (IS_ERR_OR_NULL(ptr))
 			return (ptr == NULL) ? -ENODEV : PTR_ERR(ptr);
-
-		zap_ucode_loaded = 1;
+		adreno_dev->zap_loaded = 1;
 	}
 
 	return 0;
@@ -2394,8 +2424,8 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev,
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
 		A5XX_CP_RB_CNTL_DEFAULT);
 
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			rb->buffer_desc.gpuaddr);
+	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
+			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc.gpuaddr);
 
 	ret = a5xx_microcode_load(adreno_dev);
 	if (ret)
@@ -2984,6 +3014,10 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 		ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD2,
 					  A5XX_RBBM_BLOCK_SW_RESET_CMD2),
 	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE0, A5XX_UCHE_INVALIDATE0),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
+				A5XX_RBBM_PERFCTR_RBBM_0_LO),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
+				A5XX_RBBM_PERFCTR_RBBM_0_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
@@ -3010,6 +3044,8 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A5XX_VBIF_XIN_HALT_CTRL1),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION,
 				A5XX_VBIF_VERSION),
+	ADRENO_REG_DEFINE(ADRENO_REG_GPMU_POWER_COUNTER_ENABLE,
+				A5XX_GPMU_POWER_COUNTER_ENABLE),
 };
 
 static const struct adreno_reg_offsets a5xx_reg_offsets = {
@@ -3561,7 +3597,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.int_bits = a5xx_int_bits,
 	.ft_perf_counters = a5xx_ft_perf_counters,
 	.ft_perf_counters_count = ARRAY_SIZE(a5xx_ft_perf_counters),
-	.coresight = &a5xx_coresight,
+	.coresight = {&a5xx_coresight},
 	.start = a5xx_start,
 	.snapshot = a5xx_snapshot,
 	.irq = &a5xx_irq,

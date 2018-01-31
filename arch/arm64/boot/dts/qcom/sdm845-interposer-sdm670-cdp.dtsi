@@ -1,0 +1,43 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm845-cdp.dtsi"
+#include "sdm845-interposer-pm660.dtsi"
+
+&soc {
+	/delete-node/ ssusb@a800000;
+	/delete-node/ qusb@88e3000;
+	/delete-node/ ssphy@88eb000;
+};
+
+&usb0 {
+	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <0> /* <&eud> */;
+};
+
+&qusb_phy0 {
+	vdd-supply = <&pm660l_l1>;
+	vdda18-supply = <&pm660_l10>;
+	vdda33-supply = <&pm660l_l7>;
+};
+
+&usb_qmp_dp_phy {
+	vdd-supply = <&pm660l_l1>; /* 0.88v */
+	core-supply = <&pm660_l1>; /* 1.2v */
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&eud {
+	vdda33-supply = <&pm660l_l7>;
+};

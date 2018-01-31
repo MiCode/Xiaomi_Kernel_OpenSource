@@ -74,6 +74,9 @@ conditions.
                   address size faults are due to a fundamental programming
                   error from which we don't care about recovering anyways.
 
+- qcom,tz-device-id : A string indicating the device ID for this SMMU known
+		  to TZ.  See msm_tz_smmu.c for a full list of mappings.
+
 - qcom,skip-init : Disable resetting configuration for all context banks
                   during device reset.  This is useful for targets where
                   some context banks are dedicated to other execution
@@ -85,6 +88,35 @@ conditions.
 - qcom,dynamic  : Allow dynamic domains to be attached. This is only
 		  useful if the upstream hardware is capable of switching
 		  between multiple domains within a single context bank.
+
+- qcom,use-3-lvl-tables:
+		  Some hardware configurations may not be optimized for using
+		  a four level page table configuration. Set to use a three
+		  level page table instead.
+
+- qcom,no-asid-retention:
+		  Some hardware may lose internal state for asid after
+		  retention. No cache invalidation operations involving asid
+		  may be used.
+
+- qcom,disable-atos:
+		  Some hardware may not have full support for atos debugging
+		  in tandem with other features like power collapse.
+
+- qcom,mmu500-errata-1:
+		  An array of <sid mask>.
+		  Indicates the SIDs for which the workaround is required.
+
+- qcom,actlr:
+		  An array of <sid mask actlr-setting>.
+		  Any sid X for which X&~mask==sid will be programmed with the
+		  given actlr-setting.
+
+- qcom,deferred-regulator-disable-delay : The time delay for deferred regulator
+                  disable in ms. In case of unmap call, regulator is
+                  enabled/disabled. This may introduce additional delay. For
+                  clients who do not detach, it's not possible to keep regulator
+                  vote while smmu is attached. Type is <u32>.
 
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt

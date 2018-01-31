@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,10 @@ struct usbpd_svid_handler {
 	/* Notified when VDM session established/reset; must be implemented */
 	void (*connect)(struct usbpd_svid_handler *hdlr);
 	void (*disconnect)(struct usbpd_svid_handler *hdlr);
+
+	/* DP driver -> PE driver for requesting USB SS lanes */
+	int (*request_usb_ss_lane)(struct usbpd *pd,
+			struct usbpd_svid_handler *hdlr);
 
 	/* Unstructured VDM */
 	void (*vdm_received)(struct usbpd_svid_handler *hdlr, u32 vdm_hdr,

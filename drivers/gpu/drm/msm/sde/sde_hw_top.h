@@ -16,6 +16,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_hw_blk.h"
 
 struct sde_hw_mdp;
 
@@ -74,6 +75,24 @@ struct sde_danger_safe_status {
 	u8 mdp;
 	u8 sspp[SSPP_MAX];
 	u8 wb[WB_MAX];
+};
+
+/**
+ * struct sde_vsync_source_cfg - configure vsync source and configure the
+ *                                    watchdog timers if required.
+ * @pp_count: number of ping pongs active
+ * @frame_rate: Display frame rate
+ * @ppnumber: ping pong index array
+ * @vsync_source: vsync source selection
+ * @is_dummy: a dummy source of vsync selection. It must not be selected for
+ *           any case other than sde rsc idle request.
+ */
+struct sde_vsync_source_cfg {
+	u32 pp_count;
+	u32 frame_rate;
+	u32 ppnumber[PINGPONG_MAX];
+	u32 vsync_source;
+	bool is_dummy;
 };
 
 /**
@@ -142,28 +161,59 @@ struct sde_hw_mdp_ops {
 			struct sde_danger_safe_status *status);
 
 	/**
+	 * setup_vsync_source - setup vsync source configuration details
+	 * @mdp: mdp top context driver
+	 * @cfg: vsync source selection configuration
+	 */
+	void (*setup_vsync_source)(struct sde_hw_mdp *mdp,
+				struct sde_vsync_source_cfg *cfg);
+
+	/**
 	 * get_safe_status - get safe status
 	 * @mdp: mdp top context driver
 	 * @status: Pointer to danger safe status
 	 */
 	void (*get_safe_status)(struct sde_hw_mdp *mdp,
 			struct sde_danger_safe_status *status);
+
+	/**
+	 * reset_ubwc - reset top level UBWC configuration
+	 * @mdp: mdp top context driver
+	 * @m: pointer to mdss catalog data
+	 */
+	void (*reset_ubwc)(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m);
+
+	/**
+	 * intf_audio_select - select the external interface for audio
+	 * @mdp: mdp top context driver
+	 */
+	void (*intf_audio_select)(struct sde_hw_mdp *mdp);
 };
 
 struct sde_hw_mdp {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
-	/* intf */
+	/* top */
 	enum sde_mdp idx;
-	const struct sde_mdp_cfg *cap;
+	const struct sde_mdp_cfg *caps;
 
 	/* ops */
 	struct sde_hw_mdp_ops ops;
 };
 
 /**
- * sde_hw_intf_init - initializes the intf driver for the passed interface idx
+ * to_sde_hw_mdp - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_mdp *to_sde_hw_mdp(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_mdp, base);
+}
+
+/**
+ * sde_hw_mdptop_init - initializes the top driver for the passed idx
  * @idx:  Interface index for which driver object is required
  * @addr: Mapped register io address of MDP
  * @m:    Pointer to mdss catalog data

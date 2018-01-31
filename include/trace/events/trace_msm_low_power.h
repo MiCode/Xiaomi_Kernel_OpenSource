@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -250,24 +250,6 @@ TRACE_EVENT(cluster_pred_hist,
 		__entry->sample, __entry->tmr)
 );
 
-TRACE_EVENT(pre_pc_cb,
-
-	TP_PROTO(int tzflag),
-
-	TP_ARGS(tzflag),
-
-	TP_STRUCT__entry(
-		__field(int, tzflag)
-	),
-
-	TP_fast_assign(
-		__entry->tzflag = tzflag;
-	),
-
-	TP_printk("tzflag:%d",
-		__entry->tzflag
-	)
-);
 #endif
 #define TRACE_INCLUDE_FILE trace_msm_low_power
 #include <trace/define_trace.h>

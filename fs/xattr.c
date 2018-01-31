@@ -249,7 +249,7 @@ xattr_getsecurity(struct inode *inode, const char *name, void *value,
 	}
 	memcpy(value, buffer, len);
 out:
-	security_release_secctx(buffer, len);
+	kfree(buffer);
 out_noalloc:
 	return len;
 }
@@ -530,7 +530,7 @@ getxattr(struct dentry *d, const char __user *name, void __user *value,
 			size = XATTR_SIZE_MAX;
 		kvalue = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
 		if (!kvalue) {
-			kvalue = vmalloc(size);
+			kvalue = vzalloc(size);
 			if (!kvalue)
 				return -ENOMEM;
 		}

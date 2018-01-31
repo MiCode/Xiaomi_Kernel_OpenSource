@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include <linux/highmem.h>
 #include <linux/cma.h>
 #include <linux/module.h>
+#include <linux/bitops.h>
 #include <linux/show_mem_notifier.h>
 #include <asm/cacheflush.h>
 #include "../ion_priv.h"
@@ -85,6 +86,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_QSECOM_HEAP_ID,
 		.name	= ION_QSECOM_HEAP_NAME,
+	},
+	{
+		.id	= ION_QSECOM_TA_HEAP_ID,
+		.name	= ION_QSECOM_TA_HEAP_NAME,
 	},
 	{
 		.id	= ION_SPSS_HEAP_ID,
@@ -339,7 +344,7 @@ static int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 	if (!ION_IS_CACHED(flags))
 		return 0;
 
-	if (flags & ION_FLAG_SECURE)
+	if (!is_buffer_hlos_assigned(ion_handle_buffer(handle)))
 		return 0;
 
 	table = ion_sg_table(client, handle);
@@ -399,6 +404,28 @@ static int msm_init_extra_data(struct device_node *node,
 			ret = -ENOMEM;
 		break;
 	}
+	case ION_HEAP_TYPE_SECURE_DMA:
+	{
+		unsigned int val;
+		struct ion_cma_pdata *extra = NULL;
+
+		ret = of_property_read_u32(node,
+					   "qcom,default-prefetch-size", &val);
+		if (!ret) {
+			heap->extra_data = kzalloc(sizeof(*extra),
+						   GFP_KERNEL);
+
+			if (!heap->extra_data) {
+				ret = -ENOMEM;
+			} else {
+				extra = heap->extra_data;
+				extra->default_prefetch_size = val;
+			}
+		} else {
+			ret = 0;
+		}
+		break;
+	}
 	default:
 		heap->extra_data = 0;
 		break;
@@ -418,6 +445,7 @@ static struct heap_types_info {
 	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(CHUNK),
 	MAKE_HEAP_TYPE_MAPPING(DMA),
+	MAKE_HEAP_TYPE_MAPPING(SECURE_DMA),
 	MAKE_HEAP_TYPE_MAPPING(SYSTEM_SECURE),
 	MAKE_HEAP_TYPE_MAPPING(HYP_CMA),
 };
@@ -604,6 +632,16 @@ int ion_heap_is_system_secure_heap_type(enum ion_heap_type type)
 	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE);
 }
 
+int ion_heap_allow_secure_allocation(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SECURE_DMA);
+}
+
+int ion_heap_allow_handle_secure(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SECURE_DMA);
+}
+
 int ion_heap_allow_heap_secure(enum ion_heap_type type)
 {
 	return false;
@@ -618,7 +656,33 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_CAMERA ||
 		vmid == VMID_CP_SEC_DISPLAY ||
 		vmid == VMID_CP_APP ||
-		vmid == VMID_CP_CAMERA_PREVIEW);
+		vmid == VMID_CP_CAMERA_PREVIEW ||
+		vmid == VMID_CP_SPSS_SP ||
+		vmid == VMID_CP_SPSS_SP_SHARED ||
+		vmid == VMID_CP_SPSS_HLOS_SHARED);
+}
+
+unsigned int count_set_bits(unsigned long val)
+{
+	return ((unsigned int)bitmap_weight(&val, BITS_PER_LONG));
+}
+
+int populate_vm_list(unsigned long flags, unsigned int *vm_list,
+		     int nelems)
+{
+	unsigned int itr = 0;
+	int vmid;
+
+	flags = flags & ION_FLAGS_CP_MASK;
+	for_each_set_bit(itr, &flags, BITS_PER_LONG) {
+		vmid = get_vmid(0x1UL << itr);
+		if (vmid < 0 || !nelems)
+			return -EINVAL;
+
+		vm_list[nelems - 1] = vmid;
+		nelems--;
+	}
+	return 0;
 }
 
 int get_secure_vmid(unsigned long flags)
@@ -639,8 +703,41 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_APP;
 	if (flags & ION_FLAG_CP_CAMERA_PREVIEW)
 		return VMID_CP_CAMERA_PREVIEW;
+	if (flags & ION_FLAG_CP_SPSS_SP)
+		return VMID_CP_SPSS_SP;
+	if (flags & ION_FLAG_CP_SPSS_SP_SHARED)
+		return VMID_CP_SPSS_SP_SHARED;
+	if (flags & ION_FLAG_CP_SPSS_HLOS_SHARED)
+		return VMID_CP_SPSS_HLOS_SHARED;
 	return -EINVAL;
 }
+
+bool is_buffer_hlos_assigned(struct ion_buffer *buffer)
+{
+	bool is_hlos = false;
+
+	if (buffer->heap->type == (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA &&
+	    (buffer->flags & ION_FLAG_CP_HLOS))
+		is_hlos = true;
+
+	if (get_secure_vmid(buffer->flags) <= 0)
+		is_hlos = true;
+
+	return is_hlos;
+}
+
+int get_vmid(unsigned long flags)
+{
+	int vmid;
+
+	vmid = get_secure_vmid(flags);
+	if (vmid < 0) {
+		if (flags & ION_FLAG_CP_HLOS)
+			vmid = VMID_HLOS;
+	}
+	return vmid;
+}
+
 /* fix up the cases where the ioctl direction bits are incorrect */
 static unsigned int msm_ion_ioctl_dir(unsigned int cmd)
 {
@@ -705,9 +802,9 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 
 		down_read(&mm->mmap_sem);
 
-		start = (unsigned long)data.flush_data.vaddr;
-		end = (unsigned long)data.flush_data.vaddr
-			+ data.flush_data.length;
+		start = (unsigned long)data.flush_data.vaddr +
+			data.flush_data.offset;
+		end = start + data.flush_data.length;
 
 		if (check_vaddr_bounds(start, end)) {
 			pr_err("%s: virtual address %pK is out of bounds\n",
@@ -732,6 +829,13 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 		int ret;
 
 		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
+			ION_HEAP_TYPE_SECURE_DMA,
+			(void *)data.prefetch_data.len,
+			ion_secure_cma_prefetch);
+		if (ret)
+			return ret;
+
+		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
 				     ION_HEAP_TYPE_SYSTEM_SECURE,
 				     (void *)&data.prefetch_data,
 				     ion_system_secure_heap_prefetch);
@@ -742,6 +846,13 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 	case ION_IOC_DRAIN:
 	{
 		int ret;
+		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
+				     ION_HEAP_TYPE_SECURE_DMA,
+				     (void *)data.prefetch_data.len,
+				     ion_secure_cma_drain_pool);
+
+		if (ret)
+			return ret;
 
 		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
 				     ION_HEAP_TYPE_SYSTEM_SECURE,
@@ -895,6 +1006,11 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 	struct ion_heap *heap = NULL;
 
 	switch ((int)heap_data->type) {
+#ifdef CONFIG_CMA
+	case ION_HEAP_TYPE_SECURE_DMA:
+		heap = ion_secure_cma_heap_create(heap_data);
+		break;
+#endif
 	case ION_HEAP_TYPE_SYSTEM_SECURE:
 		heap = ion_system_secure_heap_create(heap_data);
 		break;
@@ -924,6 +1040,11 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 		return;
 
 	switch ((int)heap->type) {
+#ifdef CONFIG_CMA
+	case ION_HEAP_TYPE_SECURE_DMA:
+		ion_secure_cma_heap_destroy(heap);
+		break;
+#endif
 	case ION_HEAP_TYPE_SYSTEM_SECURE:
 		ion_system_secure_heap_destroy(heap);
 		break;

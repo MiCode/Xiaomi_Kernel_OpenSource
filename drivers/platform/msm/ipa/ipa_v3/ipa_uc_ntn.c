@@ -104,39 +104,81 @@ int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats)
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	TX_STATS(num_pkts_processed);
-	TX_STATS(tail_ptr_val);
-	TX_STATS(num_db_fired);
-	TX_STATS(tx_comp_ring_stats.ringFull);
-	TX_STATS(tx_comp_ring_stats.ringEmpty);
-	TX_STATS(tx_comp_ring_stats.ringUsageHigh);
-	TX_STATS(tx_comp_ring_stats.ringUsageLow);
-	TX_STATS(tx_comp_ring_stats.RingUtilCount);
-	TX_STATS(bam_stats.bamFifoFull);
-	TX_STATS(bam_stats.bamFifoEmpty);
-	TX_STATS(bam_stats.bamFifoUsageHigh);
-	TX_STATS(bam_stats.bamFifoUsageLow);
-	TX_STATS(bam_stats.bamUtilCount);
+	TX_STATS(ring_stats.ringFull);
+	TX_STATS(ring_stats.ringEmpty);
+	TX_STATS(ring_stats.ringUsageHigh);
+	TX_STATS(ring_stats.ringUsageLow);
+	TX_STATS(ring_stats.RingUtilCount);
+	TX_STATS(gsi_stats.bamFifoFull);
+	TX_STATS(gsi_stats.bamFifoEmpty);
+	TX_STATS(gsi_stats.bamFifoUsageHigh);
+	TX_STATS(gsi_stats.bamFifoUsageLow);
+	TX_STATS(gsi_stats.bamUtilCount);
 	TX_STATS(num_db);
 	TX_STATS(num_qmb_int_handled);
+	TX_STATS(ipa_pipe_number);
 
-	RX_STATS(max_outstanding_pkts);
 	RX_STATS(num_pkts_processed);
-	RX_STATS(rx_ring_rp_value);
-	RX_STATS(rx_ind_ring_stats.ringFull);
-	RX_STATS(rx_ind_ring_stats.ringEmpty);
-	RX_STATS(rx_ind_ring_stats.ringUsageHigh);
-	RX_STATS(rx_ind_ring_stats.ringUsageLow);
-	RX_STATS(rx_ind_ring_stats.RingUtilCount);
-	RX_STATS(bam_stats.bamFifoFull);
-	RX_STATS(bam_stats.bamFifoEmpty);
-	RX_STATS(bam_stats.bamFifoUsageHigh);
-	RX_STATS(bam_stats.bamFifoUsageLow);
-	RX_STATS(bam_stats.bamUtilCount);
+	RX_STATS(ring_stats.ringFull);
+	RX_STATS(ring_stats.ringEmpty);
+	RX_STATS(ring_stats.ringUsageHigh);
+	RX_STATS(ring_stats.ringUsageLow);
+	RX_STATS(ring_stats.RingUtilCount);
+	RX_STATS(gsi_stats.bamFifoFull);
+	RX_STATS(gsi_stats.bamFifoEmpty);
+	RX_STATS(gsi_stats.bamFifoUsageHigh);
+	RX_STATS(gsi_stats.bamFifoUsageLow);
+	RX_STATS(gsi_stats.bamUtilCount);
 	RX_STATS(num_db);
+	RX_STATS(num_qmb_int_handled);
+	RX_STATS(ipa_pipe_number);
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
+}
+
+
+int ipa3_ntn_uc_reg_rdyCB(void (*ipa_ready_cb)(void *), void *user_data)
+{
+	int ret;
+
+	if (!ipa3_ctx) {
+		IPAERR("IPA ctx is null\n");
+		return -ENXIO;
+	}
+
+	ret = ipa3_uc_state_check();
+	if (ret) {
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb = ipa_ready_cb;
+		ipa3_ctx->uc_ntn_ctx.priv = user_data;
+		return 0;
+	}
+
+	return -EEXIST;
+}
+
+void ipa3_ntn_uc_dereg_rdyCB(void)
+{
+	ipa3_ctx->uc_ntn_ctx.uc_ready_cb = NULL;
+	ipa3_ctx->uc_ntn_ctx.priv = NULL;
+}
+
+static void ipa3_uc_ntn_loaded_handler(void)
+{
+	if (!ipa3_ctx) {
+		IPAERR("IPA ctx is null\n");
+		return;
+	}
+
+	if (ipa3_ctx->uc_ntn_ctx.uc_ready_cb) {
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb(
+			ipa3_ctx->uc_ntn_ctx.priv);
+
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb =
+			NULL;
+		ipa3_ctx->uc_ntn_ctx.priv = NULL;
+	}
 }
 
 int ipa3_ntn_init(void)
@@ -146,6 +188,8 @@ int ipa3_ntn_init(void)
 	uc_ntn_cbs.ipa_uc_event_hdlr = ipa3_uc_ntn_event_handler;
 	uc_ntn_cbs.ipa_uc_event_log_info_hdlr =
 		ipa3_uc_ntn_event_log_info_handler;
+	uc_ntn_cbs.ipa_uc_loaded_hdlr =
+		ipa3_uc_ntn_loaded_handler;
 
 	ipa3_uc_register_handlers(IPA_HW_FEATURE_NTN, &uc_ntn_cbs);
 
@@ -160,6 +204,7 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 	struct ipa_mem_buffer cmd;
 	struct Ipa3HwNtnSetUpCmdData_t *Ntn_params;
 	struct IpaHwOffloadSetUpCmdData_t *cmd_data;
+	struct IpaHwOffloadSetUpCmdData_t_v4_0 *cmd_data_v4_0;
 
 	if (ntn_info == NULL) {
 		IPAERR("invalid input\n");
@@ -181,8 +226,10 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 	IPADBG("num_buffers = %d\n", ntn_info->num_buffers);
 	IPADBG("data_buff_size = %d\n", ntn_info->data_buff_size);
 	IPADBG("tail_ptr_base_pa = 0x%pa\n", &ntn_info->ntn_reg_base_ptr_pa);
-
-	cmd.size = sizeof(*cmd_data);
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		cmd.size = sizeof(*cmd_data_v4_0);
+	else
+		cmd.size = sizeof(*cmd_data);
 	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
 			&cmd.phys_base, GFP_KERNEL);
 	if (cmd.base == NULL) {
@@ -190,10 +237,17 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 		return -ENOMEM;
 	}
 
-	cmd_data = (struct IpaHwOffloadSetUpCmdData_t *)cmd.base;
-	cmd_data->protocol = IPA_HW_FEATURE_NTN;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		cmd_data_v4_0 = (struct IpaHwOffloadSetUpCmdData_t_v4_0 *)
+			cmd.base;
+		cmd_data_v4_0->protocol = IPA_HW_FEATURE_NTN;
+		Ntn_params = &cmd_data_v4_0->SetupCh_params.NtnSetupCh_params;
+	} else {
+		cmd_data = (struct IpaHwOffloadSetUpCmdData_t *)cmd.base;
+		cmd_data->protocol = IPA_HW_FEATURE_NTN;
+		Ntn_params = &cmd_data->SetupCh_params.NtnSetupCh_params;
+	}
 
-	Ntn_params = &cmd_data->SetupCh_params.NtnSetupCh_params;
 	Ntn_params->ring_base_pa = ntn_info->ring_base_pa;
 	Ntn_params->buff_pool_base_pa = ntn_info->buff_pool_base_pa;
 	Ntn_params->ntn_ring_size = ntn_info->ntn_ring_size;
@@ -328,6 +382,7 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	struct ipa_mem_buffer cmd;
 	struct ipa3_ep_context *ep_ul, *ep_dl;
 	struct IpaHwOffloadCommonChCmdData_t *cmd_data;
+	struct IpaHwOffloadCommonChCmdData_t_v4_0 *cmd_data_v4_0;
 	union Ipa3HwNtnCommonChCmdData_t *tear;
 	int result = 0;
 
@@ -344,7 +399,10 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 		return -EFAULT;
 	}
 
-	cmd.size = sizeof(*cmd_data);
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		cmd.size = sizeof(*cmd_data_v4_0);
+	else
+		cmd.size = sizeof(*cmd_data);
 	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
 		&cmd.phys_base, GFP_KERNEL);
 	if (cmd.base == NULL) {
@@ -353,9 +411,16 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	cmd_data = (struct IpaHwOffloadCommonChCmdData_t *)cmd.base;
-	cmd_data->protocol = IPA_HW_FEATURE_NTN;
-	tear = &cmd_data->CommonCh_params.NtnCommonCh_params;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		cmd_data_v4_0 = (struct IpaHwOffloadCommonChCmdData_t_v4_0 *)
+			cmd.base;
+		cmd_data_v4_0->protocol = IPA_HW_FEATURE_NTN;
+		tear = &cmd_data_v4_0->CommonCh_params.NtnCommonCh_params;
+	} else {
+		cmd_data = (struct IpaHwOffloadCommonChCmdData_t *)cmd.base;
+		cmd_data->protocol = IPA_HW_FEATURE_NTN;
+		tear = &cmd_data->CommonCh_params.NtnCommonCh_params;
+	}
 
 	/* teardown the DL pipe */
 	ipa3_disable_data_path(ipa_ep_idx_dl);

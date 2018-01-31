@@ -2512,9 +2512,11 @@ mwifiex_cfg80211_scan(struct wiphy *wiphy,
 			priv->random_mac[i] |= get_random_int() &
 					       ~(request->mac_addr_mask[i]);
 		}
+		ether_addr_copy(user_scan_cfg->random_mac, priv->random_mac);
+	} else {
+		eth_zero_addr(priv->random_mac);
 	}
 
-	ether_addr_copy(user_scan_cfg->random_mac, priv->random_mac);
 	user_scan_cfg->num_ssids = request->n_ssids;
 	user_scan_cfg->ssid_list = request->ssids;
 
@@ -4186,7 +4188,7 @@ int mwifiex_init_channel_scan_gap(struct mwifiex_adapter *adapter)
 	if (adapter->config_bands & BAND_A)
 		n_channels_a = mwifiex_band_5ghz.n_channels;
 
-	adapter->num_in_chan_stats = max_t(u32, n_channels_bg, n_channels_a);
+	adapter->num_in_chan_stats = n_channels_bg + n_channels_a;
 	adapter->chan_stats = vmalloc(sizeof(*adapter->chan_stats) *
 				      adapter->num_in_chan_stats);
 

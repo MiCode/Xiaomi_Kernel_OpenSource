@@ -64,7 +64,7 @@ int adreno_hw_init(struct msm_gpu *gpu)
 
 	DBG("%s", gpu->name);
 
-	ret = msm_gem_get_iova(gpu->rb->bo, gpu->id, &gpu->rb_iova);
+	ret = msm_gem_get_iova(gpu->rb->bo, gpu->aspace, &gpu->rb_iova);
 	if (ret) {
 		gpu->rb_iova = 0;
 		dev_err(gpu->dev->dev, "could not map ringbuffer: %d\n", ret);
@@ -210,7 +210,14 @@ void adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 void adreno_flush(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	uint32_t wptr = get_wptr(gpu->rb);
+	uint32_t wptr;
+
+	/*
+	 * Mask wptr value that we calculate to fit in the HW range. This is
+	 * to account for the possibility that the last command fit exactly into
+	 * the ringbuffer and rb->next hasn't wrapped to zero yet
+	 */
+	wptr = get_wptr(gpu->rb) & ((gpu->rb->size / 4) - 1);
 
 	/* ensure writes to ringbuffer have hit system memory: */
 	mb();
@@ -381,7 +388,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		return ret;
 	}
 
-	mmu = gpu->mmu;
+	mmu = gpu->aspace->mmu;
 	if (mmu) {
 		ret = mmu->funcs->attach(mmu, iommu_ports,
 				ARRAY_SIZE(iommu_ports));
@@ -406,7 +413,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		return -ENOMEM;
 	}
 
-	ret = msm_gem_get_iova(adreno_gpu->memptrs_bo, gpu->id,
+	ret = msm_gem_get_iova(adreno_gpu->memptrs_bo, gpu->aspace,
 			&adreno_gpu->memptrs_iova);
 	if (ret) {
 		dev_err(drm->dev, "could not map memptrs: %d\n", ret);
@@ -423,8 +430,7 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 			msm_gem_put_vaddr(gpu->memptrs_bo);
 
 		if (gpu->memptrs_iova)
-			msm_gem_put_iova(gpu->memptrs_bo, gpu->base.id);
-
+			msm_gem_put_iova(gpu->memptrs_bo, gpu->base.aspace);
 		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
 	}
 	release_firmware(gpu->pm4);

@@ -333,6 +333,20 @@ static void slim_report(struct work_struct *work)
 	}
 }
 
+static void slim_device_reset(struct work_struct *work)
+{
+	struct slim_driver *sbdrv;
+	struct slim_device *sbdev =
+			container_of(work, struct slim_device, device_reset);
+
+	if (!sbdev->dev.driver)
+		return;
+
+	sbdrv = to_slim_driver(sbdev->dev.driver);
+	if (sbdrv && sbdrv->reset_device)
+		sbdrv->reset_device(sbdev);
+}
+
 /*
  * slim_add_device: Add a new device without register board info.
  * @ctrl: Controller to which this device is to be added to.
@@ -353,6 +367,7 @@ int slim_add_device(struct slim_controller *ctrl, struct slim_device *sbdev)
 	INIT_LIST_HEAD(&sbdev->mark_suspend);
 	INIT_LIST_HEAD(&sbdev->mark_removal);
 	INIT_WORK(&sbdev->wd, slim_report);
+	INIT_WORK(&sbdev->device_reset, slim_device_reset);
 	mutex_lock(&ctrl->m_ctrl);
 	list_add_tail(&sbdev->dev_list, &ctrl->devs);
 	mutex_unlock(&ctrl->m_ctrl);
@@ -684,16 +699,9 @@ void slim_framer_booted(struct slim_controller *ctrl)
 	mutex_unlock(&ctrl->sched.m_reconf);
 	mutex_lock(&ctrl->m_ctrl);
 	list_for_each_safe(pos, next, &ctrl->devs) {
-		struct slim_driver *sbdrv;
-
 		sbdev = list_entry(pos, struct slim_device, dev_list);
-		mutex_unlock(&ctrl->m_ctrl);
-		if (sbdev && sbdev->dev.driver) {
-			sbdrv = to_slim_driver(sbdev->dev.driver);
-			if (sbdrv->reset_device)
-				sbdrv->reset_device(sbdev);
-		}
-		mutex_lock(&ctrl->m_ctrl);
+		if (sbdev)
+			queue_work(ctrl->wq, &sbdev->device_reset);
 	}
 	mutex_unlock(&ctrl->m_ctrl);
 }
@@ -2397,6 +2405,8 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 		bool opensl1valid = false;
 		int maxctrlw1, maxctrlw3, i;
 
+		/* intitalize array to zero */
+		memset(opensl1, 0x0, sizeof(opensl1));
 		finalexp = (ctrl->sched.chc3[last3])->rootexp;
 		if (last1 >= 0) {
 			slc1 = ctrl->sched.chc1[coeff1];
@@ -2510,7 +2520,7 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 				}
 			}
 			/* schedule 4k family channels */
-			while (coeff1 < ctrl->sched.num_cc1 &&
+			while (coeff1 < ctrl->sched.num_cc1 && slc1 &&
 				curexp == (int)slc1->rootexp + expshft) {
 				/* searchorder effective when opensl valid */
 				static const int srcho[] = { 5, 2, 4, 1, 3, 0 };

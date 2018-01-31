@@ -15,6 +15,10 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 		  const struct bpf_insn *insns, int insn_len,
 		  const char *license, int kern_version);
 
+int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type,
+		    unsigned int flags);
+int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
+
 int bpf_obj_pin(int fd, const char *pathname);
 int bpf_obj_get(const char *pathname);
 

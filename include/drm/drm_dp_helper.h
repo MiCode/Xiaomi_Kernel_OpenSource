@@ -228,6 +228,7 @@
 # define DP_LINK_BW_1_62		    0x06
 # define DP_LINK_BW_2_7			    0x0a
 # define DP_LINK_BW_5_4			    0x14    /* 1.2 */
+# define DP_LINK_BW_8_1			    0x1e
 
 #define DP_LANE_COUNT_SET	            0x101
 # define DP_LANE_COUNT_MASK		    0x0f
@@ -408,6 +409,8 @@
 # define DP_TEST_LINK_EDID_READ		    (1 << 2)
 # define DP_TEST_LINK_PHY_TEST_PATTERN	    (1 << 3) /* DPCD >= 1.1 */
 # define DP_TEST_LINK_FAUX_PATTERN	    (1 << 4) /* DPCD >= 1.2 */
+# define DP_TEST_LINK_AUDIO_PATTERN     (1 << 5)
+# define DP_TEST_LINK_AUDIO_DISABLED_VIDEO (1 << 6)
 
 #define DP_TEST_LINK_RATE		    0x219
 # define DP_LINK_RATE_162		    (0x6)
@@ -416,6 +419,63 @@
 #define DP_TEST_LANE_COUNT		    0x220
 
 #define DP_TEST_PATTERN			    0x221
+# define DP_NO_TEST_PATTERN                 0x0
+# define DP_COLOR_RAMP                      0x1
+# define DP_BLACK_AND_WHITE_VERTICAL_LINES  0x2
+# define DP_COLOR_SQUARE                    0x3
+
+#define DP_TEST_H_TOTAL_HI                  0x222
+#define DP_TEST_H_TOTAL_LO                  0x223
+
+#define DP_TEST_V_TOTAL_HI                  0x224
+#define DP_TEST_V_TOTAL_LO                  0x225
+
+#define DP_TEST_H_START_HI                  0x226
+#define DP_TEST_H_START_LO                  0x227
+
+#define DP_TEST_V_START_HI                  0x228
+#define DP_TEST_V_START_LO                  0x229
+
+#define DP_TEST_HSYNC_HI                    0x22A
+# define DP_TEST_HSYNC_POLARITY             (1 << 7)
+# define DP_TEST_HSYNC_WIDTH_HI_MASK        (127 << 0)
+#define DP_TEST_HSYNC_WIDTH_LO              0x22B
+
+#define DP_TEST_VSYNC_HI                    0x22C
+# define DP_TEST_VSYNC_POLARITY             (1 << 7)
+# define DP_TEST_VSYNC_WIDTH_HI_MASK        (127 << 0)
+#define DP_TEST_VSYNC_WIDTH_LO              0x22D
+
+#define DP_TEST_H_WIDTH_HI                  0x22E
+#define DP_TEST_H_WIDTH_LO                  0x22F
+
+#define DP_TEST_V_HEIGHT_HI                 0x230
+#define DP_TEST_V_HEIGHT_LO                 0x231
+
+#define DP_TEST_MISC0                       0x232
+# define DP_TEST_SYNC_CLOCK                 (1 << 0)
+# define DP_TEST_COLOR_FORMAT_MASK          (3 << 1)
+# define DP_TEST_COLOR_FORMAT_SHIFT         1
+# define DP_COLOR_FORMAT_RGB                (0 << 1)
+# define DP_COLOR_FORMAT_YCbCr422           (1 << 1)
+# define DP_COLOR_FORMAT_YCbCr444           (2 << 1)
+# define DP_TEST_DYNAMIC_RANGE_CEA          (1 << 3)
+# define DP_TEST_YCBCR_COEFFICIENTS         (1 << 4)
+# define DP_YCBCR_COEFFICIENTS_ITU601       (0 << 4)
+# define DP_YCBCR_COEFFICIENTS_ITU709       (1 << 4)
+# define DP_TEST_BIT_DEPTH_MASK             (7 << 5)
+# define DP_TEST_BIT_DEPTH_SHIFT            5
+# define DP_TEST_BIT_DEPTH_6                (0 << 5)
+# define DP_TEST_BIT_DEPTH_8                (1 << 5)
+# define DP_TEST_BIT_DEPTH_10               (2 << 5)
+# define DP_TEST_BIT_DEPTH_12               (3 << 5)
+# define DP_TEST_BIT_DEPTH_16               (4 << 5)
+
+#define DP_TEST_MISC1                       0x233
+# define DP_TEST_REFRESH_DENOMINATOR        (1 << 0)
+# define DP_TEST_INTERLACED                 (1 << 1)
+
+#define DP_TEST_REFRESH_RATE_NUMERATOR      0x234
 
 #define DP_TEST_CRC_R_CR		    0x240
 #define DP_TEST_CRC_G_Y			    0x242
@@ -424,6 +484,16 @@
 #define DP_TEST_SINK_MISC		    0x246
 # define DP_TEST_CRC_SUPPORTED		    (1 << 5)
 # define DP_TEST_COUNT_MASK		    0xf
+
+#define DP_TEST_PHY_PATTERN		    0x248
+# define DP_TEST_PHY_PATTERN_NONE			0x0
+# define DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING	0x1
+# define DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT 0x2
+# define DP_TEST_PHY_PATTERN_PRBS7			0x3
+# define DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN	0x4
+# define DP_TEST_PHY_PATTERN_CP2520_PATTERN_1		0x5
+# define DP_TEST_PHY_PATTERN_CP2520_PATTERN_2		0x6
+# define DP_TEST_PHY_PATTERN_CP2520_PATTERN_3		0x7
 
 #define DP_TEST_RESPONSE		    0x260
 # define DP_TEST_ACK			    (1 << 0)
@@ -434,6 +504,19 @@
 
 #define DP_TEST_SINK			    0x270
 # define DP_TEST_SINK_START		    (1 << 0)
+
+#define DP_TEST_AUDIO_MODE		    0x271
+
+#define DP_TEST_AUDIO_PATTERN_TYPE	    0x272
+
+#define DP_TEST_AUDIO_PERIOD_CH1	    0x273
+#define DP_TEST_AUDIO_PERIOD_CH2	    0x274
+#define DP_TEST_AUDIO_PERIOD_CH3	    0x275
+#define DP_TEST_AUDIO_PERIOD_CH4	    0x276
+#define DP_TEST_AUDIO_PERIOD_CH5	    0x277
+#define DP_TEST_AUDIO_PERIOD_CH6	    0x278
+#define DP_TEST_AUDIO_PERIOD_CH7	    0x279
+#define DP_TEST_AUDIO_PERIOD_CH8	    0x27A
 
 #define DP_PAYLOAD_TABLE_UPDATE_STATUS      0x2c0   /* 1.2 MST */
 # define DP_PAYLOAD_TABLE_UPDATED           (1 << 0)

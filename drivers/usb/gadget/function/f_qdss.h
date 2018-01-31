@@ -31,6 +31,9 @@ struct usb_qdss_bam_connect_info {
 	u32 peer_pipe_idx;
 	unsigned long usb_bam_handle;
 	struct sps_mem_buffer *data_fifo;
+	unsigned long qdss_bam_iova;
+	phys_addr_t qdss_bam_phys;
+	u32 qdss_bam_size;
 };
 
 struct gqdss {
@@ -56,6 +59,10 @@ struct f_qdss {
 	struct usb_qdss_ch ch;
 	struct list_head ctrl_read_pool;
 	struct list_head ctrl_write_pool;
+
+	/* for mdm channel SW path */
+	struct list_head data_write_pool;
+
 	struct work_struct connect_w;
 	struct work_struct disconnect_w;
 	spinlock_t lock;

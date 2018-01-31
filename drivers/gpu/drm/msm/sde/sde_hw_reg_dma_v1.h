@@ -20,4 +20,8 @@
  */
 int init_v1(struct sde_hw_reg_dma *reg_dma);
 
+/**
+ * deinit_v1() - free up any resources allocated during the v1 reg dma init
+ */
+void deinit_v1(void);
 #endif /* _SDE_HW_REG_DMA_V1_H */

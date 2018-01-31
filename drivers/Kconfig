@@ -54,8 +54,6 @@ source "drivers/char/Kconfig"
 
 source "drivers/i2c/Kconfig"
 
-source "drivers/soundwire/Kconfig"
-
 source "drivers/spi/Kconfig"
 
 source "drivers/slimbus/Kconfig"
@@ -207,5 +205,7 @@ source "drivers/hwtracing/stm/Kconfig"
 source "drivers/hwtracing/intel_th/Kconfig"
 
 source "drivers/fpga/Kconfig"
+
+source "drivers/sensors/Kconfig"
 
 endmenu

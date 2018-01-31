@@ -20,14 +20,18 @@
 #define __SDE_KMS_H__
 
 #include <linux/msm_ion.h>
+#include <linux/pm_domain.h>
+#include <linux/pm_qos.h>
 
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_mmu.h"
+#include "msm_gem.h"
 #include "sde_dbg.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
+#include "sde_hw_pingpong.h"
 #include "sde_hw_interrupts.h"
 #include "sde_hw_wb.h"
 #include "sde_hw_top.h"
@@ -87,6 +91,27 @@
 	ktime_compare(ktime_sub((A), (B)), ktime_set(0, 0))
 
 #define SDE_NAME_SIZE  12
+
+/* timeout in frames waiting for frame done */
+#define SDE_FRAME_DONE_TIMEOUT	60
+
+/* max active secure client counts allowed */
+#define MAX_ALLOWED_SECURE_CLIENT_CNT	1
+
+/* max active crtc when secure client is active */
+#define MAX_ALLOWED_CRTC_CNT_DURING_SECURE	1
+
+/* max virtual encoders per secure crtc */
+#define MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC	1
+
+/* defines the operations required for secure state transition */
+#define SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE               BIT(0)
+#define SDE_KMS_OPS_WAIT_FOR_TX_DONE                       BIT(1)
+#define SDE_KMS_OPS_CLEANUP_PLANE_FB                       BIT(2)
+#define SDE_KMS_OPS_PREPARE_PLANE_FB                       BIT(3)
+
+/* ESD status check interval in miliseconds */
+#define STATUS_CHECK_INTERVAL_MS 5000
 
 /*
  * struct sde_irq_callback - IRQ callback handlers
@@ -154,11 +179,15 @@ struct sde_kms {
 	int core_rev;
 	struct sde_mdss_cfg *catalog;
 
-	struct msm_mmu *mmu[MSM_SMMU_DOMAIN_MAX];
-	int mmu_id[MSM_SMMU_DOMAIN_MAX];
+	struct generic_pm_domain genpd;
+	bool genpd_init;
+
+	struct msm_gem_address_space *aspace[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;
+	struct pm_qos_request pm_qos_cpu_req;
 
 	struct ion_client *iclient;
+	struct sde_power_event *power_event;
 
 	/* directory entry for debugfs */
 	struct dentry *debugfs_danger;
@@ -176,18 +205,25 @@ struct sde_kms {
 
 	struct sde_hw_intr *hw_intr;
 	struct sde_irq irq_obj;
+	int irq_num;	/* mdss irq number */
 
 	struct sde_core_perf perf;
 
+	/* saved atomic state during system suspend */
+	struct drm_atomic_state *suspend_state;
+	bool suspend_block;
+
 	struct sde_rm rm;
 	bool rm_init;
-
+	struct sde_splash_data splash_data;
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;
 	int dsi_display_count;
 	void **dsi_displays;
 	int wb_display_count;
 	void **wb_displays;
+	int dp_display_count;
+	void **dp_displays;
 
 	bool has_danger_ctrl;
 };
@@ -205,6 +241,50 @@ struct vsync_info {
  * Return: Whether or not the 'sdeclient' module parameter was set on boot up
  */
 bool sde_is_custom_client(void);
+
+/**
+ * sde_kms_power_resource_is_enabled - whether or not power resource is enabled
+ * @dev: Pointer to drm device
+ * Return: true if power resource is enabled; false otherwise
+ */
+static inline bool sde_kms_power_resource_is_enabled(struct drm_device *dev)
+{
+	struct msm_drm_private *priv;
+
+	if (!dev || !dev->dev_private)
+		return false;
+
+	priv = dev->dev_private;
+
+	return sde_power_resource_is_enabled(&priv->phandle);
+}
+
+/**
+ * sde_kms_is_suspend_state - whether or not the system is pm suspended
+ * @dev: Pointer to drm device
+ * Return: Suspend status
+ */
+static inline bool sde_kms_is_suspend_state(struct drm_device *dev)
+{
+	if (!ddev_to_msm_kms(dev))
+		return false;
+
+	return to_sde_kms(ddev_to_msm_kms(dev))->suspend_state != NULL;
+}
+
+/**
+ * sde_kms_is_suspend_blocked - whether or not commits are blocked due to pm
+ *				suspend status
+ * @dev: Pointer to drm device
+ * Return: True if commits should be rejected due to pm suspend
+ */
+static inline bool sde_kms_is_suspend_blocked(struct drm_device *dev)
+{
+	if (!sde_kms_is_suspend_state(dev))
+		return false;
+
+	return to_sde_kms(ddev_to_msm_kms(dev))->suspend_block;
+}
 
 /**
  * Debugfs functions - extra helper functions for debugfs support
@@ -306,14 +386,17 @@ struct sde_kms_info {
  * @S: Pointer to sde_kms_info structure
  * Returns: Pointer to byte data
  */
-#define SDE_KMS_INFO_DATA(S)    ((S) ? ((struct sde_kms_info *)(S))->data : 0)
+#define SDE_KMS_INFO_DATA(S)    ((S) ? ((struct sde_kms_info *)(S))->data \
+							: NULL)
 
 /**
  * SDE_KMS_INFO_DATALEN - Macro for accessing sde_kms_info data length
+ *			it adds an extra character length to count null.
  * @S: Pointer to sde_kms_info structure
  * Returns: Size of available byte data
  */
-#define SDE_KMS_INFO_DATALEN(S) ((S) ? ((struct sde_kms_info *)(S))->len : 0)
+#define SDE_KMS_INFO_DATALEN(S) ((S) ? ((struct sde_kms_info *)(S))->len + 1 \
+							: 0)
 
 /**
  * sde_kms_info_reset - reset sde_kms_info structure
@@ -325,11 +408,11 @@ void sde_kms_info_reset(struct sde_kms_info *info);
  * sde_kms_info_add_keyint - add integer value to 'sde_kms_info'
  * @info: Pointer to sde_kms_info structure
  * @key: Pointer to key string
- * @value: Signed 32-bit integer value
+ * @value: Signed 64-bit integer value
  */
 void sde_kms_info_add_keyint(struct sde_kms_info *info,
 		const char *key,
-		int32_t value);
+		int64_t value);
 
 /**
  * sde_kms_info_add_keystr - add string value to 'sde_kms_info'
@@ -404,6 +487,14 @@ void sde_kms_info_stop(struct sde_kms_info *info);
  */
 void sde_kms_rect_intersect(const struct sde_rect *r1,
 		const struct sde_rect *r2,
+		struct sde_rect *result);
+
+/**
+ * sde_kms_rect_merge_rectangles - merge a rectangle list into one rect
+ * @rois: pointer to the list of rois
+ * @result: output rectangle, all 0 on error
+ */
+void sde_kms_rect_merge_rectangles(const struct msm_roi_list *rois,
 		struct sde_rect *result);
 
 /**
@@ -482,5 +573,27 @@ int sde_kms_fbo_reference(struct sde_kms_fbo *fbo);
  * return: 0 on success; error code otherwise
  */
 void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo);
+
+/**
+ * smmu attach/detach functions
+ * @sde_kms: poiner to sde_kms structure
+ * @secure_only: if true only secure contexts are attached/detached, else
+ * all contexts are attached/detached/
+ */
+int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only);
+int sde_kms_mmu_detach(struct sde_kms *sde_kms, bool secure_only);
+
+/**
+ * sde_kms_timeline_status - provides current timeline status
+ * @dev: Pointer to drm device
+ */
+void sde_kms_timeline_status(struct drm_device *dev);
+
+/**
+ * sde_kms_handle_recovery - handler function for FIFO overflow issue
+ * @encoder: pointer to drm encoder structure
+ * return: 0 on success; error code otherwise
+ */
+int sde_kms_handle_recovery(struct drm_encoder *encoder);
 
 #endif /* __sde_kms_H__ */

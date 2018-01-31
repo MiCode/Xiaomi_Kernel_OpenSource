@@ -167,6 +167,19 @@ static int mmc_bus_suspend(struct device *dev)
 	if (mmc_bus_needs_resume(host))
 		return 0;
 	ret = host->bus_ops->suspend(host);
+
+	/*
+	 * bus_ops->suspend may fail due to some reason
+	 * In such cases if we return error to PM framework
+	 * from here without calling pm_generic_resume then mmc
+	 * request may get stuck since PM framework will assume
+	 * that mmc bus is not suspended (because of error) and
+	 * it won't call resume again.
+	 *
+	 * So in case of error call pm_generic_resume().
+	 */
+	if (ret)
+		pm_generic_resume(dev);
 	return ret;
 }
 
@@ -385,13 +398,12 @@ int mmc_add_card(struct mmc_card *card)
 			       mmc_hostname(card->host), __func__, ret);
 	}
 
-	device_enable_async_suspend(&card->dev);
-
 	ret = device_add(&card->dev);
 	if (ret)
 		return ret;
 
 	mmc_card_set_present(card);
+	device_enable_async_suspend(&card->dev);
 
 	return 0;
 }
@@ -419,7 +431,6 @@ void mmc_remove_card(struct mmc_card *card)
 	}
 
 	kfree(card->wr_pack_stats.packing_events);
-	kfree(card->cached_ext_csd);
 
 	put_device(&card->dev);
 }

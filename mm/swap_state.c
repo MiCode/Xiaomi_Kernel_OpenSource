@@ -478,7 +478,7 @@ struct page *swapin_readahead(swp_entry_t entry, gfp_t gfp_mask,
 	unsigned long mask;
 	struct blk_plug plug;
 
-	mask = swapin_nr_pages(offset) - 1;
+	mask = is_swap_fast(entry) ? 0 : swapin_nr_pages(offset) - 1;
 	if (!mask)
 		goto skip;
 

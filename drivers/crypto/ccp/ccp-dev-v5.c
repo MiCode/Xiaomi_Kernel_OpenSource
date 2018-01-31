@@ -131,6 +131,7 @@ union ccp_function {
 #define	CCP_AES_MODE(p)		((p)->aes.mode)
 #define	CCP_AES_TYPE(p)		((p)->aes.type)
 #define	CCP_XTS_SIZE(p)		((p)->aes_xts.size)
+#define	CCP_XTS_TYPE(p)		((p)->aes_xts.type)
 #define	CCP_XTS_ENCRYPT(p)	((p)->aes_xts.encrypt)
 #define	CCP_SHA_TYPE(p)		((p)->sha.type)
 #define	CCP_RSA_SIZE(p)		((p)->rsa.size)
@@ -277,8 +278,7 @@ static int ccp5_perform_aes(struct ccp_op *op)
 	CCP_AES_ENCRYPT(&function) = op->u.aes.action;
 	CCP_AES_MODE(&function) = op->u.aes.mode;
 	CCP_AES_TYPE(&function) = op->u.aes.type;
-	if (op->u.aes.mode == CCP_AES_MODE_CFB)
-		CCP_AES_SIZE(&function) = 0x7f;
+	CCP_AES_SIZE(&function) = op->u.aes.size;
 
 	CCP5_CMD_FUNCTION(&desc) = function.raw;
 
@@ -318,6 +318,7 @@ static int ccp5_perform_xts_aes(struct ccp_op *op)
 	CCP5_CMD_PROT(&desc) = 0;
 
 	function.raw = 0;
+	CCP_XTS_TYPE(&function) = op->u.xts.type;
 	CCP_XTS_ENCRYPT(&function) = op->u.xts.action;
 	CCP_XTS_SIZE(&function) = op->u.xts.unit_size;
 	CCP5_CMD_FUNCTION(&desc) = function.raw;
@@ -644,6 +645,65 @@ static int ccp_assign_lsbs(struct ccp_device *ccp)
 	return rc;
 }
 
+static void ccp5_disable_queue_interrupts(struct ccp_device *ccp)
+{
+	unsigned int i;
+
+	for (i = 0; i < ccp->cmd_q_count; i++)
+		iowrite32(0x0, ccp->cmd_q[i].reg_int_enable);
+}
+
+static void ccp5_enable_queue_interrupts(struct ccp_device *ccp)
+{
+	unsigned int i;
+
+	for (i = 0; i < ccp->cmd_q_count; i++)
+		iowrite32(SUPPORTED_INTERRUPTS, ccp->cmd_q[i].reg_int_enable);
+}
+
+static void ccp5_irq_bh(unsigned long data)
+{
+	struct ccp_device *ccp = (struct ccp_device *)data;
+	u32 status;
+	unsigned int i;
+
+	for (i = 0; i < ccp->cmd_q_count; i++) {
+		struct ccp_cmd_queue *cmd_q = &ccp->cmd_q[i];
+
+		status = ioread32(cmd_q->reg_interrupt_status);
+
+		if (status) {
+			cmd_q->int_status = status;
+			cmd_q->q_status = ioread32(cmd_q->reg_status);
+			cmd_q->q_int_status = ioread32(cmd_q->reg_int_status);
+
+			/* On error, only save the first error value */
+			if ((status & INT_ERROR) && !cmd_q->cmd_error)
+				cmd_q->cmd_error = CMD_Q_ERROR(cmd_q->q_status);
+
+			cmd_q->int_rcvd = 1;
+
+			/* Acknowledge the interrupt and wake the kthread */
+			iowrite32(status, cmd_q->reg_interrupt_status);
+			wake_up_interruptible(&cmd_q->int_queue);
+		}
+	}
+	ccp5_enable_queue_interrupts(ccp);
+}
+
+static irqreturn_t ccp5_irq_handler(int irq, void *data)
+{
+	struct device *dev = data;
+	struct ccp_device *ccp = dev_get_drvdata(dev);
+
+	ccp5_disable_queue_interrupts(ccp);
+	if (ccp->use_tasklet)
+		tasklet_schedule(&ccp->irq_tasklet);
+	else
+		ccp5_irq_bh((unsigned long)ccp);
+	return IRQ_HANDLED;
+}
+
 static int ccp5_init(struct ccp_device *ccp)
 {
 	struct device *dev = ccp->dev;
@@ -728,19 +788,18 @@ static int ccp5_init(struct ccp_device *ccp)
 	dev_notice(dev, "%u command queues available\n", ccp->cmd_q_count);
 
 	/* Turn off the queues and disable interrupts until ready */
+	ccp5_disable_queue_interrupts(ccp);
 	for (i = 0; i < ccp->cmd_q_count; i++) {
 		cmd_q = &ccp->cmd_q[i];
 
 		cmd_q->qcontrol = 0; /* Start with nothing */
 		iowrite32(cmd_q->qcontrol, cmd_q->reg_control);
 
-		/* Disable the interrupts */
-		iowrite32(0x00, cmd_q->reg_int_enable);
 		ioread32(cmd_q->reg_int_status);
 		ioread32(cmd_q->reg_status);
 
-		/* Clear the interrupts */
-		iowrite32(ALL_INTERRUPTS, cmd_q->reg_interrupt_status);
+		/* Clear the interrupt status */
+		iowrite32(SUPPORTED_INTERRUPTS, cmd_q->reg_interrupt_status);
 	}
 
 	dev_dbg(dev, "Requesting an IRQ...\n");
@@ -750,6 +809,10 @@ static int ccp5_init(struct ccp_device *ccp)
 		dev_err(dev, "unable to allocate an IRQ\n");
 		goto e_pool;
 	}
+	/* Initialize the ISR tasklet */
+	if (ccp->use_tasklet)
+		tasklet_init(&ccp->irq_tasklet, ccp5_irq_bh,
+			     (unsigned long)ccp);
 
 	/* Initialize the queue used to suspend */
 	init_waitqueue_head(&ccp->suspend_queue);
@@ -821,11 +884,7 @@ static int ccp5_init(struct ccp_device *ccp)
 	}
 
 	dev_dbg(dev, "Enabling interrupts...\n");
-	/* Enable interrupts */
-	for (i = 0; i < ccp->cmd_q_count; i++) {
-		cmd_q = &ccp->cmd_q[i];
-		iowrite32(ALL_INTERRUPTS, cmd_q->reg_int_enable);
-	}
+	ccp5_enable_queue_interrupts(ccp);
 
 	dev_dbg(dev, "Registering device...\n");
 	/* Put this on the unit list to make it available */
@@ -877,17 +936,15 @@ static void ccp5_destroy(struct ccp_device *ccp)
 	ccp_del_device(ccp);
 
 	/* Disable and clear interrupts */
+	ccp5_disable_queue_interrupts(ccp);
 	for (i = 0; i < ccp->cmd_q_count; i++) {
 		cmd_q = &ccp->cmd_q[i];
 
 		/* Turn off the run bit */
 		iowrite32(cmd_q->qcontrol & ~CMD5_Q_RUN, cmd_q->reg_control);
 
-		/* Disable the interrupts */
-		iowrite32(ALL_INTERRUPTS, cmd_q->reg_interrupt_status);
-
 		/* Clear the interrupt status */
-		iowrite32(0x00, cmd_q->reg_int_enable);
+		iowrite32(SUPPORTED_INTERRUPTS, cmd_q->reg_interrupt_status);
 		ioread32(cmd_q->reg_int_status);
 		ioread32(cmd_q->reg_status);
 	}
@@ -918,38 +975,6 @@ static void ccp5_destroy(struct ccp_device *ccp)
 		list_del(&cmd->entry);
 		cmd->callback(cmd->data, -ENODEV);
 	}
-}
-
-static irqreturn_t ccp5_irq_handler(int irq, void *data)
-{
-	struct device *dev = data;
-	struct ccp_device *ccp = dev_get_drvdata(dev);
-	u32 status;
-	unsigned int i;
-
-	for (i = 0; i < ccp->cmd_q_count; i++) {
-		struct ccp_cmd_queue *cmd_q = &ccp->cmd_q[i];
-
-		status = ioread32(cmd_q->reg_interrupt_status);
-
-		if (status) {
-			cmd_q->int_status = status;
-			cmd_q->q_status = ioread32(cmd_q->reg_status);
-			cmd_q->q_int_status = ioread32(cmd_q->reg_int_status);
-
-			/* On error, only save the first error value */
-			if ((status & INT_ERROR) && !cmd_q->cmd_error)
-				cmd_q->cmd_error = CMD_Q_ERROR(cmd_q->q_status);
-
-			cmd_q->int_rcvd = 1;
-
-			/* Acknowledge the interrupt and wake the kthread */
-			iowrite32(ALL_INTERRUPTS, cmd_q->reg_interrupt_status);
-			wake_up_interruptible(&cmd_q->int_queue);
-		}
-	}
-
-	return IRQ_HANDLED;
 }
 
 static void ccp5_config(struct ccp_device *ccp)

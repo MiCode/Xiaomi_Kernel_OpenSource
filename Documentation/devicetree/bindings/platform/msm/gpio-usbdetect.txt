@@ -1,0 +1,25 @@
+GPIO USB VBUS Detection
+
+Discrete USB VBUS detection circuitry can be connected to the AP or PMICs.
+Such circuits can be used to detect the when a USB cable is connected to
+an upstream port such as a standard host or a wall charger by detecting
+the presence of VBUS voltage. The GPIO can be configured to trigger an
+interrupt, and allow the software driver to in turn notify the USB
+subsytem using the power_supply framework.
+
+Required Properties:
+ - compatible: must be "qcom,gpio-usbdetect"
+ - qcom,vbus-det-gpio: GPIO from which VBUS detection can be read from.
+ - interrupts: an interrupt triggered by the output of the detection circuit
+ - interrupt-names: must be "vbus_det_irq"
+
+Optional Properties:
+ - vin-supply: phandle to a regulator that powers this circuit, if needed
+
+Example:
+
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		qcom,vbus-det-gpio = <&pm8084 2 0>;
+                vin-supply = <&vbus_det_reg>;
+	};

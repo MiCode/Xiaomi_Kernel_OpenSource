@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 
 #define KGSL_PWR_ON	0xFFFF
 
-#define KGSL_MAX_CLKS 15
+#define KGSL_MAX_CLKS 16
 #define KGSL_MAX_REGULATORS 2
 
 #define KGSL_MAX_PWRLEVELS 10
@@ -49,6 +49,19 @@
 #define KGSL_PWR_ADD_LIMIT 0
 #define KGSL_PWR_DEL_LIMIT 1
 #define KGSL_PWR_SET_LIMIT 2
+
+/*
+ * The effective duration of qos request in usecs at queue time.
+ * After timeout, qos request is cancelled automatically.
+ * Kept 80ms default, inline with default GPU idle time.
+ */
+#define KGSL_L2PC_QUEUE_TIMEOUT	(80 * 1000)
+
+/*
+ * The effective duration of qos request in usecs at wakeup time.
+ * After timeout, qos request is cancelled automatically.
+ */
+#define KGSL_L2PC_WAKEUP_TIMEOUT (10 * 1000)
 
 enum kgsl_pwrctrl_timer_type {
 	KGSL_PWR_IDLE_TIMER,
@@ -112,9 +125,11 @@ struct kgsl_regulator {
  * @grp_clks - Array of clocks structures that we control
  * @power_flags - Control flags for power
  * @pwrlevels - List of supported power levels
+ * @nb - Notifier block to receive GPU OPP change event
  * @active_pwrlevel - The currently active power level
  * @previous_pwrlevel - The power level before transition
  * @thermal_pwrlevel - maximum powerlevel constraint from thermal
+ * @thermal_pwrlevel_floor - minimum powerlevel constraint from thermal
  * @default_pwrlevel - device wake up power level
  * @max_pwrlevel - maximum allowable powerlevel per the user
  * @min_pwrlevel - minimum allowable powerlevel per the user
@@ -127,10 +142,12 @@ struct kgsl_regulator {
  * @irq_name - resource name for the IRQ
  * @clk_stats - structure of clock statistics
  * @l2pc_cpus_mask - mask to avoid L2PC on masked CPUs
+ * @l2pc_update_queue - Boolean flag to avoid L2PC on masked CPUs at queue time
  * @l2pc_cpus_qos - qos structure to avoid L2PC on CPUs
  * @pm_qos_req_dma - the power management quality of service structure
  * @pm_qos_active_latency - allowed CPU latency in microseconds when active
  * @pm_qos_cpu_mask_latency - allowed CPU mask latency in microseconds
+ * @input_disable - To disable GPU wakeup on touch input event
  * @pm_qos_wakeup_latency - allowed CPU latency in microseconds during wakeup
  * @bus_control - true if the bus calculation is independent
  * @bus_mod - modifier from the current power level for the bus vote
@@ -164,9 +181,11 @@ struct kgsl_pwrctrl {
 	unsigned long power_flags;
 	unsigned long ctrl_flags;
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];
+	struct notifier_block nb;
 	unsigned int active_pwrlevel;
 	unsigned int previous_pwrlevel;
 	unsigned int thermal_pwrlevel;
+	unsigned int thermal_pwrlevel_floor;
 	unsigned int default_pwrlevel;
 	unsigned int wakeup_maxpwrlevel;
 	unsigned int max_pwrlevel;
@@ -180,11 +199,13 @@ struct kgsl_pwrctrl {
 	const char *irq_name;
 	struct kgsl_clk_stats clk_stats;
 	unsigned int l2pc_cpus_mask;
+	bool l2pc_update_queue;
 	struct pm_qos_request l2pc_cpus_qos;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_active_latency;
 	unsigned int pm_qos_cpu_mask_latency;
 	unsigned int pm_qos_wakeup_latency;
+	bool input_disable;
 	bool bus_control;
 	int bus_mod;
 	unsigned int bus_percent_ab;
@@ -220,6 +241,12 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device);
 void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device);
 int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state);
+int kgsl_clk_set_rate(struct kgsl_device *device,
+	unsigned int pwrlevel);
+unsigned int kgsl_pwrctrl_adjust_pwrlevel(struct kgsl_device *device,
+	unsigned int new_level);
+void kgsl_pwrctrl_set_thermal_cycle(struct kgsl_device *device,
+	unsigned int new_level);
 
 static inline unsigned long kgsl_get_clkrate(struct clk *clk)
 {
@@ -244,5 +271,6 @@ int kgsl_active_count_wait(struct kgsl_device *device, int count);
 void kgsl_pwrctrl_busy_time(struct kgsl_device *device, u64 time, u64 busy);
 void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 			struct kgsl_pwr_constraint *pwrc, uint32_t id);
-void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device);
+void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device,
+			unsigned long timeout_us);
 #endif /* __KGSL_PWRCTRL_H */

@@ -16,7 +16,6 @@
 #include <linux/jiffies.h>
 #include <linux/sched.h>
 #include <linux/module.h>
-#include <linux/miscdevice.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
@@ -24,11 +23,23 @@
 #include <linux/uaccess.h>
 #include <linux/elf.h>
 #include <linux/wait.h>
+#include <linux/cdev.h>
 #include <soc/qcom/ramdump.h>
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
 
+
+#define RAMDUMP_NUM_DEVICES	256
+#define RAMDUMP_NAME		"ramdump"
+
+static struct class *ramdump_class;
+static dev_t ramdump_dev;
+static DEFINE_MUTEX(rd_minor_mutex);
+static DEFINE_IDA(rd_minor_id);
+static bool ramdump_devnode_inited;
 #define RAMDUMP_WAIT_MSECS	120000
+#define MAX_STRTBL_SIZE 512
+#define MAX_NAME_LENGTH 16
 
 struct ramdump_device {
 	char name[256];
@@ -38,7 +49,8 @@ struct ramdump_device {
 	int ramdump_status;
 
 	struct completion ramdump_complete;
-	struct miscdevice device;
+	struct cdev cdev;
+	struct device *dev;
 
 	wait_queue_head_t dump_wait_q;
 	int nsegments;
@@ -51,17 +63,19 @@ struct ramdump_device {
 
 static int ramdump_open(struct inode *inode, struct file *filep)
 {
-	struct ramdump_device *rd_dev = container_of(filep->private_data,
-				struct ramdump_device, device);
+	struct ramdump_device *rd_dev = container_of(inode->i_cdev,
+					struct ramdump_device, cdev);
 	rd_dev->consumer_present = 1;
 	rd_dev->ramdump_status = 0;
+	filep->private_data = rd_dev;
 	return 0;
 }
 
 static int ramdump_release(struct inode *inode, struct file *filep)
 {
-	struct ramdump_device *rd_dev = container_of(filep->private_data,
-				struct ramdump_device, device);
+
+	struct ramdump_device *rd_dev = container_of(inode->i_cdev,
+					struct ramdump_device, cdev);
 	rd_dev->consumer_present = 0;
 	rd_dev->data_ready = 0;
 	complete(&rd_dev->ramdump_complete);
@@ -105,8 +119,7 @@ static unsigned long offset_translate(loff_t user_offset,
 static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 			loff_t *pos)
 {
-	struct ramdump_device *rd_dev = container_of(filep->private_data,
-				struct ramdump_device, device);
+	struct ramdump_device *rd_dev = filep->private_data;
 	void *device_mem = NULL, *origdevice_mem = NULL, *vaddr = NULL;
 	unsigned long data_left = 0, bytes_before, bytes_after;
 	unsigned long addr = 0;
@@ -154,7 +167,7 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 
 	rd_dev->attrs = 0;
 	rd_dev->attrs |= DMA_ATTR_SKIP_ZEROING;
-	device_mem = vaddr ?: dma_remap(rd_dev->device.parent, NULL, addr,
+	device_mem = vaddr ?: dma_remap(rd_dev->dev->parent, NULL, addr,
 						copy_size, rd_dev->attrs);
 	origdevice_mem = device_mem;
 
@@ -206,7 +219,7 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 
 	kfree(finalbuf);
 	if (!vaddr && origdevice_mem)
-		dma_unremap(rd_dev->device.parent, origdevice_mem, copy_size);
+		dma_unremap(rd_dev->dev->parent, origdevice_mem, copy_size);
 
 	*pos += copy_size;
 
@@ -217,7 +230,7 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 
 ramdump_done:
 	if (!vaddr && origdevice_mem)
-		dma_unremap(rd_dev->device.parent, origdevice_mem, copy_size);
+		dma_unremap(rd_dev->dev->parent, origdevice_mem, copy_size);
 
 	kfree(finalbuf);
 	rd_dev->data_ready = 0;
@@ -229,8 +242,7 @@ ramdump_done:
 static unsigned int ramdump_poll(struct file *filep,
 					struct poll_table_struct *wait)
 {
-	struct ramdump_device *rd_dev = container_of(filep->private_data,
-				struct ramdump_device, device);
+	struct ramdump_device *rd_dev = filep->private_data;
 	unsigned int mask = 0;
 
 	if (rd_dev->data_ready)
@@ -247,15 +259,40 @@ static const struct file_operations ramdump_file_ops = {
 	.poll = ramdump_poll
 };
 
-void *create_ramdump_device(const char *dev_name, struct device *parent)
+static int ramdump_devnode_init(void)
 {
 	int ret;
+
+	ramdump_class = class_create(THIS_MODULE, RAMDUMP_NAME);
+	ret = alloc_chrdev_region(&ramdump_dev, 0, RAMDUMP_NUM_DEVICES,
+				  RAMDUMP_NAME);
+	if (ret < 0) {
+		pr_warn("%s: unable to allocate major\n", __func__);
+		return ret;
+	}
+
+	ramdump_devnode_inited = true;
+
+	return 0;
+}
+
+void *create_ramdump_device(const char *dev_name, struct device *parent)
+{
+	int ret, minor;
 	struct ramdump_device *rd_dev;
 
 	if (!dev_name) {
 		pr_err("%s: Invalid device name.\n", __func__);
 		return NULL;
 	}
+
+	mutex_lock(&rd_minor_mutex);
+	if (!ramdump_devnode_inited) {
+		ret = ramdump_devnode_init();
+		if (ret)
+			return ERR_PTR(ret);
+	}
+	mutex_unlock(&rd_minor_mutex);
 
 	rd_dev = kzalloc(sizeof(struct ramdump_device), GFP_KERNEL);
 
@@ -265,15 +302,20 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 		return NULL;
 	}
 
+	/* get a minor number */
+	minor = ida_simple_get(&rd_minor_id, 0, RAMDUMP_NUM_DEVICES,
+			GFP_KERNEL);
+	if (minor < 0) {
+		pr_err("%s: No more minor numbers left! rc:%d\n", __func__,
+			minor);
+		ret = -ENODEV;
+		goto fail_out_of_minors;
+	}
+
 	snprintf(rd_dev->name, ARRAY_SIZE(rd_dev->name), "ramdump_%s",
 		 dev_name);
 
 	init_completion(&rd_dev->ramdump_complete);
-
-	rd_dev->device.minor = MISC_DYNAMIC_MINOR;
-	rd_dev->device.name = rd_dev->name;
-	rd_dev->device.fops = &ramdump_file_ops;
-	rd_dev->device.parent = parent;
 	if (parent) {
 		rd_dev->complete_ramdump = of_property_read_bool(
 				parent->of_node, "qcom,complete-ramdump");
@@ -284,27 +326,48 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 
 	init_waitqueue_head(&rd_dev->dump_wait_q);
 
-	ret = misc_register(&rd_dev->device);
-
-	if (ret) {
-		pr_err("%s: misc_register failed for %s (%d)", __func__,
+	rd_dev->dev = device_create(ramdump_class, parent,
+				    MKDEV(MAJOR(ramdump_dev), minor),
+				   rd_dev, rd_dev->name);
+	if (IS_ERR(rd_dev->dev)) {
+		ret = PTR_ERR(rd_dev->dev);
+		pr_err("%s: device_create failed for %s (%d)", __func__,
 				dev_name, ret);
-		kfree(rd_dev);
-		return NULL;
+		goto fail_return_minor;
+	}
+
+	cdev_init(&rd_dev->cdev, &ramdump_file_ops);
+
+	ret = cdev_add(&rd_dev->cdev, MKDEV(MAJOR(ramdump_dev), minor), 1);
+	if (ret < 0) {
+		pr_err("%s: cdev_add failed for %s (%d)", __func__,
+				dev_name, ret);
+		goto fail_cdev_add;
 	}
 
 	return (void *)rd_dev;
+
+fail_cdev_add:
+	device_unregister(rd_dev->dev);
+fail_return_minor:
+	ida_simple_remove(&rd_minor_id, minor);
+fail_out_of_minors:
+	kfree(rd_dev);
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(create_ramdump_device);
 
 void destroy_ramdump_device(void *dev)
 {
 	struct ramdump_device *rd_dev = dev;
+	int minor = MINOR(rd_dev->cdev.dev);
 
 	if (IS_ERR_OR_NULL(rd_dev))
 		return;
 
-	misc_deregister(&rd_dev->device);
+	cdev_del(&rd_dev->cdev);
+	device_unregister(rd_dev->dev);
+	ida_simple_remove(&rd_minor_id, minor);
 	kfree(rd_dev);
 }
 EXPORT_SYMBOL(destroy_ramdump_device);
@@ -391,11 +454,125 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 
 }
 
+static inline unsigned int set_section_name(const char *name,
+					    struct elfhdr *ehdr)
+{
+	char *strtab = elf_str_table(ehdr);
+	static int strtable_idx = 1;
+	int idx, ret = 0;
+
+	idx = strtable_idx;
+	if ((strtab == NULL) || (name == NULL))
+		return 0;
+
+	ret = idx;
+	idx += strlcpy((strtab + idx), name, MAX_NAME_LENGTH);
+	strtable_idx = idx + 1;
+
+	return ret;
+}
+
+static int _do_minidump(void *handle, struct ramdump_segment *segments,
+		int nsegments)
+{
+	int ret, i;
+	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+	struct elfhdr *ehdr;
+	struct elf_shdr *shdr;
+	unsigned long offset, strtbl_off;
+
+	if (!rd_dev->consumer_present) {
+		pr_err("Ramdump(%s): No consumers. Aborting..\n", rd_dev->name);
+		return -EPIPE;
+	}
+
+	rd_dev->segments = segments;
+	rd_dev->nsegments = nsegments;
+
+	rd_dev->elfcore_size = sizeof(*ehdr) +
+			(sizeof(*shdr) * (nsegments + 2)) + MAX_STRTBL_SIZE;
+	ehdr = kzalloc(rd_dev->elfcore_size, GFP_KERNEL);
+	rd_dev->elfcore_buf = (char *)ehdr;
+	if (!rd_dev->elfcore_buf)
+		return -ENOMEM;
+
+	memcpy(ehdr->e_ident, ELFMAG, SELFMAG);
+	ehdr->e_ident[EI_CLASS] = ELF_CLASS;
+	ehdr->e_ident[EI_DATA] = ELF_DATA;
+	ehdr->e_ident[EI_VERSION] = EV_CURRENT;
+	ehdr->e_ident[EI_OSABI] = ELF_OSABI;
+	ehdr->e_type = ET_CORE;
+	ehdr->e_machine  = ELF_ARCH;
+	ehdr->e_version = EV_CURRENT;
+	ehdr->e_ehsize = sizeof(*ehdr);
+	ehdr->e_shoff = sizeof(*ehdr);
+	ehdr->e_shentsize = sizeof(*shdr);
+	ehdr->e_shstrndx = 1;
+
+
+	offset = rd_dev->elfcore_size;
+	shdr = (struct elf_shdr *)(ehdr + 1);
+	strtbl_off = sizeof(*ehdr) + sizeof(*shdr) * (nsegments + 2);
+	shdr++;
+	shdr->sh_type = SHT_STRTAB;
+	shdr->sh_offset = (elf_addr_t)strtbl_off;
+	shdr->sh_size = MAX_STRTBL_SIZE;
+	shdr->sh_entsize = 0;
+	shdr->sh_flags = 0;
+	shdr->sh_name = set_section_name("STR_TBL", ehdr);
+	shdr++;
+
+	for (i = 0; i < nsegments; i++, shdr++) {
+		/* Update elf header */
+		shdr->sh_type = SHT_PROGBITS;
+		shdr->sh_name = set_section_name(segments[i].name, ehdr);
+		shdr->sh_addr = (elf_addr_t)segments[i].address;
+		shdr->sh_size = segments[i].size;
+		shdr->sh_flags = SHF_WRITE;
+		shdr->sh_offset = offset;
+		shdr->sh_entsize = 0;
+		offset += shdr->sh_size;
+	}
+	ehdr->e_shnum = nsegments + 2;
+
+	rd_dev->data_ready = 1;
+	rd_dev->ramdump_status = -1;
+
+	reinit_completion(&rd_dev->ramdump_complete);
+
+	/* Tell userspace that the data is ready */
+	wake_up(&rd_dev->dump_wait_q);
+
+	/* Wait (with a timeout) to let the ramdump complete */
+	ret = wait_for_completion_timeout(&rd_dev->ramdump_complete,
+			msecs_to_jiffies(RAMDUMP_WAIT_MSECS));
+
+	if (!ret) {
+		pr_err("Ramdump(%s): Timed out waiting for userspace.\n",
+		       rd_dev->name);
+		ret = -EPIPE;
+	} else {
+		ret = (rd_dev->ramdump_status == 0) ? 0 : -EPIPE;
+	}
+
+	rd_dev->data_ready = 0;
+	rd_dev->elfcore_size = 0;
+	kfree(rd_dev->elfcore_buf);
+	rd_dev->elfcore_buf = NULL;
+	return ret;
+}
+
 int do_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
 {
 	return _do_ramdump(handle, segments, nsegments, false);
 }
 EXPORT_SYMBOL(do_ramdump);
+
+int do_minidump(void *handle, struct ramdump_segment *segments, int nsegments)
+{
+	return _do_minidump(handle, segments, nsegments);
+}
+EXPORT_SYMBOL(do_minidump);
 
 int
 do_elf_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)

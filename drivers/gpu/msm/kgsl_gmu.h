@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,14 +22,19 @@
 
 #define GMU_INT_WDOG_BITE		BIT(0)
 #define GMU_INT_RSCC_COMP		BIT(1)
+#define GMU_INT_FENCE_ERR		BIT(3)
 #define GMU_INT_DBD_WAKEUP		BIT(4)
 #define GMU_INT_HOST_AHB_BUS_ERR	BIT(5)
 #define GMU_AO_INT_MASK		\
 		(GMU_INT_WDOG_BITE |	\
-		GMU_INT_HOST_AHB_BUS_ERR)
+		GMU_INT_HOST_AHB_BUS_ERR |	\
+		GMU_INT_FENCE_ERR)
 
-#define MAX_GMUFW_SIZE	0x2000	/* in dwords */
-#define FENCE_RANGE_MASK	((0x1 << 31) | (0x0A << 18) | (0x8A0))
+#define MAX_GMUFW_SIZE	0x2000	/* in bytes */
+#define FENCE_RANGE_MASK	((0x1 << 31) | ((0xA << 2) << 18) | (0x8A0))
+
+#define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
+#define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
 /* Bitmask for GPU low power mode enabling and hysterisis*/
 #define SPTP_ENABLE_MASK (BIT(2) | BIT(0))
@@ -56,6 +61,9 @@
 #define GPUBUSYIGNAHB		BIT(23)
 #define CXGXCPUBUSYIGNAHB	BIT(30)
 
+/* GMU timeouts */
+#define GMU_IDLE_TIMEOUT        100 /* ms */
+
 /* Constants for GMU OOBs */
 #define OOB_BOOT_OPTION         0
 #define OOB_SLUMBER_OPTION      1
@@ -67,15 +75,33 @@
 #define OOB_DCVS_SET_MASK		BIT(23)
 #define OOB_DCVS_CHECK_MASK		BIT(31)
 #define OOB_DCVS_CLEAR_MASK		BIT(31)
-#define OOB_CPINIT_SET_MASK		BIT(16)
-#define OOB_CPINIT_CHECK_MASK		BIT(24)
-#define OOB_CPINIT_CLEAR_MASK		BIT(24)
+#define OOB_GPU_SET_MASK		BIT(16)
+#define OOB_GPU_CHECK_MASK		BIT(24)
+#define OOB_GPU_CLEAR_MASK		BIT(24)
+#define OOB_PERFCNTR_SET_MASK		BIT(17)
+#define OOB_PERFCNTR_CHECK_MASK		BIT(25)
+#define OOB_PERFCNTR_CLEAR_MASK		BIT(25)
+#define OOB_PREEMPTION_SET_MASK		BIT(18)
+#define OOB_PREEMPTION_CHECK_MASK	BIT(26)
+#define OOB_PREEMPTION_CLEAR_MASK	BIT(26)
+
+/*
+ * Wait time before trying to write the register again.
+ * Hopefully the GMU has finished waking up during this delay.
+ * This delay must be less than the IFPC main hysteresis or
+ * the GMU will start shutting down before we try again.
+ */
+#define GMU_WAKEUP_DELAY_US 10
+/* Max amount of tries to wake up the GMU. */
+#define GMU_WAKEUP_RETRY_MAX 60
 
 /* Bits for the flags field in the gmu structure */
 enum gmu_flags {
 	GMU_BOOT_INIT_DONE = 0,
 	GMU_CLK_ON = 1,
 	GMU_HFI_ON = 2,
+	GMU_FAULT = 3,
+	GMU_DCVS_REPLAY = 4,
 };
 
 /**
@@ -133,7 +159,7 @@ enum gmu_load_mode {
 enum gmu_pwrctrl_mode {
 	GMU_FW_START,
 	GMU_FW_STOP,
-	GMU_POWER_RESET,
+	GMU_SUSPEND,
 	GMU_DCVS_NOHFI,
 	GMU_NOTIFY_SLUMBER,
 	INVALID_POWER_CTRL
@@ -146,7 +172,7 @@ enum gpu_idle_level {
 	GPU_HW_NAP = 0x4,
 	GPU_HW_MIN_VOLT = 0x5,
 	GPU_HW_MIN_DDR = 0x6,
-	GPU_HW_SLUMBER = 0x7
+	GPU_HW_SLUMBER = 0xF
 };
 
 /**
@@ -186,6 +212,7 @@ enum gpu_idle_level {
  * @pcl: GPU BW scaling client
  * @ccl: CNOC BW scaling client
  * @idle_level: Minimal GPU idle power level
+ * @fault_count: GMU fault count
  */
 struct gmu_device {
 	unsigned int ver;
@@ -219,8 +246,10 @@ struct gmu_device {
 	unsigned int pcl;
 	unsigned int ccl;
 	unsigned int idle_level;
+	unsigned int fault_count;
 };
 
+void gmu_snapshot(struct kgsl_device *device);
 bool kgsl_gmu_isenabled(struct kgsl_device *device);
 int gmu_probe(struct kgsl_device *device);
 void gmu_remove(struct kgsl_device *device);

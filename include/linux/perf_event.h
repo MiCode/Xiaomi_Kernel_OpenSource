@@ -497,7 +497,8 @@ struct perf_addr_filters_head {
  * enum perf_event_active_state - the states of a event
  */
 enum perf_event_active_state {
-	PERF_EVENT_STATE_DEAD		= -4,
+	PERF_EVENT_STATE_DEAD		= -5,
+	PERF_EVENT_STATE_ZOMBIE		= -4,
 	PERF_EVENT_STATE_EXIT		= -3,
 	PERF_EVENT_STATE_ERROR		= -2,
 	PERF_EVENT_STATE_OFF		= -1,
@@ -583,6 +584,12 @@ struct perf_event {
 	int				group_caps;
 
 	struct perf_event		*group_leader;
+
+	/*
+	 * Protect the pmu, attributes and context of a group leader.
+	 * Note: does not protect the pointer to the group_leader.
+	 */
+	struct mutex			group_leader_mutex;
 	struct pmu			*pmu;
 	void				*pmu_private;
 
@@ -711,6 +718,10 @@ struct perf_event {
 #endif
 
 	struct list_head		sb_list;
+
+	/* Is this event shared with other events */
+	bool					shared;
+	struct list_head		zombie_entry;
 #endif /* CONFIG_PERF_EVENTS */
 };
 
@@ -1266,6 +1277,7 @@ extern void perf_event_disable(struct perf_event *event);
 extern void perf_event_disable_local(struct perf_event *event);
 extern void perf_event_disable_inatomic(struct perf_event *event);
 extern void perf_event_task_tick(void);
+extern int perf_event_account_interrupt(struct perf_event *event);
 #else /* !CONFIG_PERF_EVENTS: */
 static inline void *
 perf_aux_output_begin(struct perf_output_handle *handle,

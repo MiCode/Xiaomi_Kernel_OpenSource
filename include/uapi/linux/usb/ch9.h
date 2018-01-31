@@ -423,6 +423,11 @@ struct usb_endpoint_descriptor {
 #define USB_ENDPOINT_XFER_INT		3
 #define USB_ENDPOINT_MAX_ADJUSTABLE	0x80
 
+#define USB_EP_MAXP_MULT_SHIFT	11
+#define USB_EP_MAXP_MULT_MASK	(3 << USB_EP_MAXP_MULT_SHIFT)
+#define USB_EP_MAXP_MULT(m) \
+	(((m) & USB_EP_MAXP_MULT_MASK) >> USB_EP_MAXP_MULT_SHIFT)
+
 /* The USB 3.0 spec redefines bits 5:4 of bmAttributes as interrupt ep type. */
 #define USB_ENDPOINT_INTRTYPE		0x30
 #define USB_ENDPOINT_INTR_PERIODIC	(0 << 4)
@@ -630,6 +635,20 @@ static inline int usb_endpoint_maxp(const struct usb_endpoint_descriptor *epd)
 	return __le16_to_cpu(epd->wMaxPacketSize);
 }
 
+/**
+ * usb_endpoint_maxp_mult - get endpoint's transactional opportunities
+ * @epd: endpoint to be checked
+ *
+ * Return @epd's wMaxPacketSize[12:11] + 1
+ */
+static inline int
+usb_endpoint_maxp_mult(const struct usb_endpoint_descriptor *epd)
+{
+	int maxp = __le16_to_cpu(epd->wMaxPacketSize);
+
+	return USB_EP_MAXP_MULT(maxp) + 1;
+}
+
 static inline int usb_endpoint_interrupt_type(
 		const struct usb_endpoint_descriptor *epd)
 {
@@ -759,6 +778,7 @@ struct usb_interface_assoc_descriptor {
 	__u8  iFunction;
 } __attribute__ ((packed));
 
+#define USB_DT_INTERFACE_ASSOCIATION_SIZE	8
 
 /*-------------------------------------------------------------------------*/
 
@@ -852,6 +872,8 @@ struct usb_wireless_cap_descriptor {	/* Ultra Wide Band */
 	__le16 bmBandGroup;
 	__u8  bReserved;
 } __attribute__((packed));
+
+#define USB_DT_USB_WIRELESS_CAP_SIZE	11
 
 /* USB 2.0 Extension descriptor */
 #define	USB_CAP_TYPE_EXT		2
@@ -1045,11 +1067,36 @@ struct usb_ptm_cap_descriptor {
 	__u8  bDevCapabilityType;
 } __attribute__((packed));
 
+#define USB_DT_USB_PTM_ID_SIZE		3
 /*
  * The size of the descriptor for the Sublink Speed Attribute Count
  * (SSAC) specified in bmAttributes[4:0].
  */
 #define USB_DT_USB_SSP_CAP_SIZE(ssac)	(16 + ssac * 4)
+
+/*
+ * Configuration Summary descriptors: Defines a list of functions in the
+ * configuration. This descriptor may be used by Host software to decide
+ * which Configuration to use to obtain the desired functionality.
+ */
+#define	USB_CAP_TYPE_CONFIG_SUMMARY	0x10
+
+struct function_class_info {
+	__u8 bClass;
+	__u8 bSubClass;
+	__u8 bProtocol;
+};
+
+struct usb_config_summary_descriptor {
+	__u8 bLength;
+	__u8 bDescriptorType;
+	__u8 bDevCapabilityType;
+	__u16 bcdVersion;
+	__u8 bConfigurationValue;
+	__u8 bMaxPower;
+	__u8 bNumFunctions;
+	struct function_class_info cs_info[];
+} __attribute__((packed));
 
 /*-------------------------------------------------------------------------*/
 

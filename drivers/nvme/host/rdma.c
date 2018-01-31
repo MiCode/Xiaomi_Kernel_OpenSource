@@ -88,7 +88,7 @@ enum nvme_rdma_queue_flags {
 
 struct nvme_rdma_queue {
 	struct nvme_rdma_qe	*rsp_ring;
-	u8			sig_count;
+	atomic_t		sig_count;
 	int			queue_size;
 	size_t			cmnd_capsule_len;
 	struct nvme_rdma_ctrl	*ctrl;
@@ -337,8 +337,6 @@ static int __nvme_rdma_init_request(struct nvme_rdma_ctrl *ctrl,
 	struct ib_device *ibdev = dev->dev;
 	int ret;
 
-	BUG_ON(queue_idx >= ctrl->queue_count);
-
 	ret = nvme_rdma_alloc_qe(ibdev, &req->sqe, sizeof(struct nvme_command),
 			DMA_TO_DEVICE);
 	if (ret)
@@ -555,6 +553,7 @@ static int nvme_rdma_init_queue(struct nvme_rdma_ctrl *ctrl,
 		queue->cmnd_capsule_len = sizeof(struct nvme_command);
 
 	queue->queue_size = queue_size;
+	atomic_set(&queue->sig_count, 0);
 
 	queue->cm_id = rdma_create_id(&init_net, nvme_rdma_cm_handler, queue,
 			RDMA_PS_TCP, IB_QPT_RC);
@@ -642,7 +641,21 @@ out_free_queues:
 
 static int nvme_rdma_init_io_queues(struct nvme_rdma_ctrl *ctrl)
 {
+	struct nvmf_ctrl_options *opts = ctrl->ctrl.opts;
+	unsigned int nr_io_queues;
 	int i, ret;
+
+	nr_io_queues = min(opts->nr_io_queues, num_online_cpus());
+	ret = nvme_set_queue_count(&ctrl->ctrl, &nr_io_queues);
+	if (ret)
+		return ret;
+
+	ctrl->queue_count = nr_io_queues + 1;
+	if (ctrl->queue_count < 2)
+		return 0;
+
+	dev_info(ctrl->ctrl.device,
+		"creating %d I/O queues.\n", nr_io_queues);
 
 	for (i = 1; i < ctrl->queue_count; i++) {
 		ret = nvme_rdma_init_queue(ctrl, i,
@@ -1011,6 +1024,18 @@ static void nvme_rdma_send_done(struct ib_cq *cq, struct ib_wc *wc)
 		nvme_rdma_wr_error(cq, wc, "SEND");
 }
 
+/*
+ * We want to signal completion at least every queue depth/2.  This returns the
+ * largest power of two that is not above half of (queue size + 1) to optimize
+ * (avoid divisions).
+ */
+static inline bool nvme_rdma_queue_sig_limit(struct nvme_rdma_queue *queue)
+{
+	int limit = 1 << ilog2((queue->queue_size + 1) / 2);
+
+	return (atomic_inc_return(&queue->sig_count) & (limit - 1)) == 0;
+}
+
 static int nvme_rdma_post_send(struct nvme_rdma_queue *queue,
 		struct nvme_rdma_qe *qe, struct ib_sge *sge, u32 num_sge,
 		struct ib_send_wr *first, bool flush)
@@ -1038,9 +1063,6 @@ static int nvme_rdma_post_send(struct nvme_rdma_queue *queue,
 	 * Would have been way to obvious to handle this in hardware or
 	 * at least the RDMA stack..
 	 *
-	 * This messy and racy code sniplet is copy and pasted from the iSER
-	 * initiator, and the magic '32' comes from there as well.
-	 *
 	 * Always signal the flushes. The magic request used for the flush
 	 * sequencer is not allocated in our driver's tagset and it's
 	 * triggered to be freed by blk_cleanup_queue(). So we need to
@@ -1048,7 +1070,7 @@ static int nvme_rdma_post_send(struct nvme_rdma_queue *queue,
 	 * embeded in request's payload, is not freed when __ib_process_cq()
 	 * calls wr_cqe->done().
 	 */
-	if ((++queue->sig_count % 32) == 0 || flush)
+	if (nvme_rdma_queue_sig_limit(queue) || flush)
 		wr.send_flags |= IB_SEND_SIGNALED;
 
 	if (first)
@@ -1785,19 +1807,7 @@ static const struct nvme_ctrl_ops nvme_rdma_ctrl_ops = {
 
 static int nvme_rdma_create_io_queues(struct nvme_rdma_ctrl *ctrl)
 {
-	struct nvmf_ctrl_options *opts = ctrl->ctrl.opts;
 	int ret;
-
-	ret = nvme_set_queue_count(&ctrl->ctrl, &opts->nr_io_queues);
-	if (ret)
-		return ret;
-
-	ctrl->queue_count = opts->nr_io_queues + 1;
-	if (ctrl->queue_count < 2)
-		return 0;
-
-	dev_info(ctrl->ctrl.device,
-		"creating %d I/O queues.\n", opts->nr_io_queues);
 
 	ret = nvme_rdma_init_io_queues(ctrl);
 	if (ret)

@@ -26,6 +26,12 @@
 #include <linux/serial_core.h>
 #include <linux/serial.h>
 #include <linux/workqueue.h>
+#include <linux/power_supply.h>
+#include <linux/clk.h>
+#include <linux/of.h>
+#include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
 
 #define EUD_ENABLE_CMD 1
 #define EUD_DISABLE_CMD 0
@@ -69,6 +75,12 @@ struct eud_chip {
 	struct extcon_dev		*extcon;
 	struct uart_port		port;
 	struct work_struct		eud_work;
+	struct power_supply		*batt_psy;
+	struct clk			*cfg_ahb_clk;
+
+	/* regulator and notifier chain for it */
+	struct regulator		*vdda33;
+	struct notifier_block		vdda33_nb;
 };
 
 static const unsigned int eud_extcon_cable[] = {
@@ -87,15 +99,52 @@ static struct platform_device *eud_private;
 static void enable_eud(struct platform_device *pdev)
 {
 	struct eud_chip *priv = platform_get_drvdata(pdev);
+	struct power_supply *usb_psy = NULL;
+	union power_supply_propval pval = {0};
+	union power_supply_propval tval = {0};
+	int ret;
 
-	/* write into CSR to enable EUD */
-	writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
-	/* Enable vbus, chgr & safe mode warning interrupts */
-	writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
-			priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+	usb_psy = power_supply_get_by_name("usb");
+	if (!usb_psy) {
+		dev_warn(&pdev->dev, "Could not get usb power_supply\n");
+		return;
+	}
 
-	/* Ensure Register Writes Complete */
-	wmb();
+	ret = power_supply_get_property(usb_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to read USB PRESENT: %x\n", ret);
+		return;
+	}
+
+	ret = power_supply_get_property(usb_psy,
+			POWER_SUPPLY_PROP_REAL_TYPE, &tval);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to read USB TYPE: %x\n", ret);
+		return;
+	}
+
+	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
+	    tval.intval == POWER_SUPPLY_TYPE_USB_CDP)) {
+		/* write into CSR to enable EUD */
+		writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
+		/* Enable vbus, chgr & safe mode warning interrupts */
+		writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR,
+				priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+
+		/* Ensure Register Writes Complete */
+		wmb();
+
+		/*
+		 * Set the default cable state to usb connect and charger
+		 * enable
+		 */
+		extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
+		extcon_set_state_sync(priv->extcon, EXTCON_CHG_USB_SDP, true);
+	} else {
+		dev_warn(&pdev->dev, "Connect USB cable before enabling EUD\n");
+		return;
+	}
 
 	dev_dbg(&pdev->dev, "%s: EUD Enabled!\n", __func__);
 }
@@ -138,17 +187,33 @@ static const struct kernel_param_ops eud_param_ops = {
 
 module_param_cb(enable, &eud_param_ops, &enable, 0644);
 
+static bool is_batt_available(struct eud_chip *chip)
+{
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
 static void eud_event_notifier(struct work_struct *eud_work)
 {
 	struct eud_chip *chip = container_of(eud_work, struct eud_chip,
 					eud_work);
+	union power_supply_propval pval;
 
 	if (chip->int_status == EUD_INT_VBUS)
 		extcon_set_state_sync(chip->extcon, chip->extcon_id,
 					chip->usb_attach);
-	else if (chip->int_status == EUD_INT_CHGR)
-		extcon_set_state_sync(chip->extcon, chip->extcon_id,
-					chip->chgr_enable);
+	else if (chip->int_status == EUD_INT_CHGR) {
+		if (is_batt_available(chip)) {
+			pval.intval = !chip->chgr_enable;
+			power_supply_set_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_INPUT_SUSPEND, &pval);
+		}
+	}
 }
 
 static void usb_attach_detach(struct eud_chip *chip)
@@ -393,7 +458,11 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 {
 	struct eud_chip *chip = data;
 	u32 reg;
-	u32 int_mask_en1 = readl_relaxed(chip->eud_reg_base +
+	u32 int_mask_en1;
+
+	clk_prepare_enable(chip->cfg_ahb_clk);
+
+	int_mask_en1 = readl_relaxed(chip->eud_reg_base +
 					EUD_REG_INT1_EN_MASK);
 
 	/* read status register and find out which interrupt triggered */
@@ -417,10 +486,46 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 		pet_eud(chip);
 	} else {
 		dev_dbg(chip->dev, "Unknown/spurious EUD Interrupt!\n");
+		clk_disable_unprepare(chip->cfg_ahb_clk);
 		return IRQ_NONE;
 	}
 
+	clk_disable_unprepare(chip->cfg_ahb_clk);
 	return IRQ_HANDLED;
+}
+
+static int vdda33_notifier_block_cb(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	struct eud_chip *chip = container_of(nb, struct eud_chip, vdda33_nb);
+	int attach_det  = 0;
+
+	switch (event) {
+	case REGULATOR_EVENT_ENABLE:
+		attach_det = 1;
+		/* fall throuhg */
+	case REGULATOR_EVENT_DISABLE:
+		clk_prepare_enable(chip->cfg_ahb_clk);
+
+		/* eud does not retain interrupt mask when ldo24
+		 * is turned off. Set the interrupt mask when
+		 * ldo24 is turned on
+		 */
+		if (attach_det)
+			writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR,
+				chip->eud_reg_base + EUD_REG_INT1_EN_MASK);
+		writel_relaxed(attach_det,
+			chip->eud_reg_base + EUD_REG_SW_ATTACH_DET);
+		clk_disable_unprepare(chip->cfg_ahb_clk);
+
+		dev_dbg(chip->dev, "%s(): %s\n", __func__,
+			attach_det ? "enable" : "disable");
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
 }
 
 static int msm_eud_probe(struct platform_device *pdev)
@@ -429,6 +534,7 @@ static int msm_eud_probe(struct platform_device *pdev)
 	struct uart_port *port;
 	struct resource *res;
 	int ret;
+	int pet;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip) {
@@ -437,6 +543,7 @@ static int msm_eud_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, chip);
+	chip->dev = &pdev->dev;
 
 	chip->extcon = devm_extcon_dev_allocate(&pdev->dev, eud_extcon_cable);
 	if (IS_ERR(chip->extcon)) {
@@ -462,10 +569,25 @@ static int msm_eud_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->eud_reg_base))
 		return PTR_ERR(chip->eud_reg_base);
 
+	if (of_property_match_string(pdev->dev.of_node,
+				"clock-names", "cfg_ahb_clk") >= 0) {
+		chip->cfg_ahb_clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
+		if (IS_ERR(chip->cfg_ahb_clk)) {
+			ret = PTR_ERR(chip->cfg_ahb_clk);
+			if (ret != -EPROBE_DEFER)
+				dev_err(chip->dev,
+				"clk get failed for cfg_ahb_clk ret %d\n",
+				ret);
+			return ret;
+		}
+	}
+
 	chip->eud_irq = platform_get_irq_byname(pdev, "eud_irq");
 
-	ret = devm_request_irq(&pdev->dev, chip->eud_irq, handle_eud_irq,
-				IRQF_TRIGGER_HIGH, "eud_irq", chip);
+	ret = devm_request_threaded_irq(&pdev->dev, chip->eud_irq,
+					NULL, handle_eud_irq,
+					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					"eud_irq", chip);
 	if (ret) {
 		dev_err(chip->dev, "request failed for eud irq\n");
 		return ret;
@@ -495,6 +617,24 @@ static int msm_eud_probe(struct platform_device *pdev)
 
 	eud_private = pdev;
 
+	chip->vdda33 = devm_regulator_get(&pdev->dev, "vdda33");
+	if (IS_ERR(chip->vdda33)) {
+		dev_err(chip->dev, "%s: failed to get eud 3p1 regulator\n",
+					__func__);
+		return PTR_ERR(chip->vdda33);
+	}
+	chip->vdda33_nb.notifier_call = vdda33_notifier_block_cb;
+	regulator_register_notifier(chip->vdda33, &chip->vdda33_nb);
+
+	clk_prepare_enable(chip->cfg_ahb_clk);
+
+	pet = regulator_is_enabled(chip->vdda33) ? 1 : 0;
+	writel_relaxed(pet, chip->eud_reg_base + EUD_REG_SW_ATTACH_DET);
+
+	dev_dbg(chip->dev, "%s:%s pet\n", __func__, pet ? "Attach" : "Detach");
+
+	clk_disable_unprepare(chip->cfg_ahb_clk);
+
 	/* Enable EUD */
 	if (enable)
 		enable_eud(pdev);
@@ -506,6 +646,8 @@ static int msm_eud_remove(struct platform_device *pdev)
 {
 	struct eud_chip *chip = platform_get_drvdata(pdev);
 	struct uart_port *port = &chip->port;
+
+	regulator_unregister_notifier(chip->vdda33, &chip->vdda33_nb);
 
 	uart_remove_one_port(&eud_uart_driver, port);
 	device_init_wakeup(chip->dev, false);

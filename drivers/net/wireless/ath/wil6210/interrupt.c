@@ -244,7 +244,7 @@ static irqreturn_t wil6210_irq_rx(int irq, void *cookie)
 	wil_dbg_irq(wil, "ISR RX 0x%08x\n", isr);
 
 	if (unlikely(!isr)) {
-		wil_err(wil, "spurious IRQ: RX\n");
+		wil_err_ratelimited(wil, "spurious IRQ: RX\n");
 		return IRQ_NONE;
 	}
 
@@ -269,11 +269,12 @@ static irqreturn_t wil6210_irq_rx(int irq, void *cookie)
 				need_unmask = false;
 				napi_schedule(&wil->napi_rx);
 			} else {
-				wil_err(wil,
+				wil_err_ratelimited(
+					wil,
 					"Got Rx interrupt while stopping interface\n");
 			}
 		} else {
-			wil_err(wil, "Got Rx interrupt while in reset\n");
+			wil_err_ratelimited(wil, "Got Rx interrupt while in reset\n");
 		}
 	}
 
@@ -302,7 +303,7 @@ static irqreturn_t wil6210_irq_tx(int irq, void *cookie)
 	wil_dbg_irq(wil, "ISR TX 0x%08x\n", isr);
 
 	if (unlikely(!isr)) {
-		wil_err(wil, "spurious IRQ: TX\n");
+		wil_err_ratelimited(wil, "spurious IRQ: TX\n");
 		return IRQ_NONE;
 	}
 
@@ -318,12 +319,13 @@ static irqreturn_t wil6210_irq_tx(int irq, void *cookie)
 			need_unmask = false;
 			napi_schedule(&wil->napi_tx);
 		} else {
-			wil_err(wil, "Got Tx interrupt while in reset\n");
+			wil_err_ratelimited(wil, "Got Tx interrupt while in reset\n");
 		}
 	}
 
 	if (unlikely(isr))
-		wil_err(wil, "un-handled TX ISR bits 0x%08x\n", isr);
+		wil_err_ratelimited(wil, "un-handled TX ISR bits 0x%08x\n",
+				    isr);
 
 	/* Tx IRQ will be enabled when NAPI processing finished */
 
@@ -354,6 +356,25 @@ static void wil_cache_mbox_regs(struct wil6210_priv *wil)
 			     sizeof(struct wil6210_mbox_ctl));
 	wil_mbox_ring_le2cpus(&wil->mbox_ctl.rx);
 	wil_mbox_ring_le2cpus(&wil->mbox_ctl.tx);
+}
+
+static bool wil_validate_mbox_regs(struct wil6210_priv *wil)
+{
+	size_t min_size = sizeof(struct wil6210_mbox_hdr) +
+		sizeof(struct wmi_cmd_hdr);
+
+	if (wil->mbox_ctl.rx.entry_size < min_size) {
+		wil_err(wil, "rx mbox entry too small (%d)\n",
+			wil->mbox_ctl.rx.entry_size);
+		return false;
+	}
+	if (wil->mbox_ctl.tx.entry_size < min_size) {
+		wil_err(wil, "tx mbox entry too small (%d)\n",
+			wil->mbox_ctl.tx.entry_size);
+		return false;
+	}
+
+	return true;
 }
 
 static irqreturn_t wil6210_irq_misc(int irq, void *cookie)
@@ -391,7 +412,8 @@ static irqreturn_t wil6210_irq_misc(int irq, void *cookie)
 	if (isr & ISR_MISC_FW_READY) {
 		wil_dbg_irq(wil, "IRQ: FW ready\n");
 		wil_cache_mbox_regs(wil);
-		set_bit(wil_status_mbox_ready, wil->status);
+		if (wil_validate_mbox_regs(wil))
+			set_bit(wil_status_mbox_ready, wil->status);
 		/**
 		 * Actual FW ready indicated by the
 		 * WMI_FW_READY_EVENTID
@@ -467,6 +489,12 @@ static irqreturn_t wil6210_thread_irq(int irq, void *cookie)
 
 	wil6210_unmask_irq_pseudo(wil);
 
+	if (wil->suspend_resp_rcvd) {
+		wil_dbg_irq(wil, "set suspend_resp_comp to true\n");
+		wil->suspend_resp_comp = true;
+		wake_up_interruptible(&wil->wq);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -537,7 +565,7 @@ static irqreturn_t wil6210_hardirq(int irq, void *cookie)
 	if (unlikely((pseudo_cause == 0) || ((pseudo_cause & 0xff) == 0xff)))
 		return IRQ_NONE;
 
-	/* FIXME: IRQ mask debug */
+	/* IRQ mask debug */
 	if (unlikely(wil6210_debug_irq_mask(wil, pseudo_cause)))
 		return IRQ_NONE;
 

@@ -218,6 +218,20 @@ config GENERIC_SMP_IDLE_THREAD
 config GENERIC_IDLE_POLL_SETUP
        bool
 
+config ARCH_HAS_FORTIFY_SOURCE
+	bool
+	help
+	  An architecture should select this when it can successfully
+	  build and run with CONFIG_FORTIFY_SOURCE.
+
+config FORTIFY_COMPILE_CHECK
+	depends on ARCH_HAS_FORTIFY_SOURCE
+	bool
+	help
+	  Disable compile time size check for string routines as part
+	  of fortify source. Selecting this option will not enforce compile
+	  time size check for string functions.
+
 # Select if arch init_task initializer is different to init/init_task.c
 config ARCH_INIT_TASK
        bool

@@ -10,6 +10,8 @@
  * Standard functionality for the common clock API.  See Documentation/clk.txt
  */
 
+#define pr_fmt(fmt) "clk: " fmt
+
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/clk/clk-conf.h>
@@ -29,6 +31,8 @@
 #include <linux/regulator/consumer.h>
 
 #include "clk.h"
+
+#if defined(CONFIG_COMMON_CLK)
 
 static DEFINE_SPINLOCK(enable_lock);
 static DEFINE_MUTEX(prepare_lock);
@@ -557,7 +561,7 @@ static int clk_update_vdd(struct clk_vdd_class *vdd_class)
 		pr_debug("Set Voltage level Min %d, Max %d\n", uv[new_base + i],
 				uv[max_lvl + i]);
 		rc = regulator_set_voltage(r[i], uv[new_base + i],
-				uv[max_lvl + i]);
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		if (rc)
 			goto set_voltage_fail;
 
@@ -578,11 +582,13 @@ static int clk_update_vdd(struct clk_vdd_class *vdd_class)
 	return rc;
 
 enable_disable_fail:
-	regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+	regulator_set_voltage(r[i], uv[cur_base + i],
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 
 set_voltage_fail:
 	for (i--; i >= 0; i--) {
-		regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+		regulator_set_voltage(r[i], uv[cur_base + i],
+		       vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		if (cur_lvl == 0 || cur_lvl == vdd_class->num_levels)
 			regulator_disable(r[i]);
 		else if (level == 0)
@@ -692,6 +698,9 @@ static bool clk_is_rate_level_valid(struct clk_core *core, unsigned long rate)
 static int clk_vdd_class_init(struct clk_vdd_class *vdd)
 {
 	struct clk_handoff_vdd *v;
+
+	if (vdd->skip_handoff)
+		return 0;
 
 	list_for_each_entry(v, &clk_handoff_vdd_list, list) {
 		if (v->vdd_class == vdd)
@@ -1709,8 +1718,14 @@ static struct clk_core *clk_calc_new_rates(struct clk_core *core,
 		}
 	}
 
+	/*
+	 * The Fabia PLLs only have 16 bits to program the fractional divider.
+	 * Hence the programmed rate might be slightly different than the
+	 * requested one.
+	 */
 	if ((core->flags & CLK_SET_RATE_PARENT) && parent &&
-	    best_parent_rate != parent->rate)
+		(DIV_ROUND_CLOSEST(best_parent_rate, 1000) !=
+			DIV_ROUND_CLOSEST(parent->rate, 1000)))
 		top = clk_calc_new_rates(parent, best_parent_rate);
 
 out:
@@ -1795,6 +1810,15 @@ static int clk_change_rate(struct clk_core *core)
 		clk_enable_unlock(flags);
 	}
 
+	trace_clk_set_rate(core, core->new_rate);
+
+	/* Enforce vdd requirements for new frequency. */
+	if (core->prepare_count) {
+		rc = clk_vote_rate_vdd(core, core->new_rate);
+		if (rc)
+			goto out;
+	}
+
 	if (core->new_parent && core->new_parent != core->parent) {
 		old_parent = __clk_set_parent_before(core, core->new_parent);
 		trace_clk_set_parent(core, core->new_parent);
@@ -1814,15 +1838,6 @@ static int clk_change_rate(struct clk_core *core)
 
 	if (core->flags & CLK_OPS_PARENT_ENABLE)
 		clk_core_prepare_enable(parent);
-
-	trace_clk_set_rate(core, core->new_rate);
-
-	/* Enforce vdd requirements for new frequency. */
-	if (core->prepare_count) {
-		rc = clk_vote_rate_vdd(core, core->new_rate);
-		if (rc)
-			goto out;
-	}
 
 	if (!skip_set_rate && core->ops->set_rate) {
 		rc = core->ops->set_rate(core->hw, core->new_rate,
@@ -2323,6 +2338,21 @@ int clk_set_flags(struct clk *clk, unsigned long flags)
 }
 EXPORT_SYMBOL_GPL(clk_set_flags);
 
+unsigned long clk_list_frequency(struct clk *clk, unsigned int index)
+{
+	int ret = 0;
+
+	if (!clk || !clk->core->ops->list_rate)
+		return -EINVAL;
+
+	clk_prepare_lock();
+	ret = clk->core->ops->list_rate(clk->core->hw, index, ULONG_MAX);
+	clk_prepare_unlock();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(clk_list_frequency);
+
 /***        debugfs support        ***/
 
 #ifdef CONFIG_DEBUG_FS
@@ -2603,7 +2633,46 @@ do {							\
 		pr_info(fmt, ##__VA_ARGS__);		\
 } while (0)
 
-int clock_debug_print_clock(struct clk_core *c, struct seq_file *s)
+/*
+ * clock_debug_print_enabled_debug_suspend() - Print names of enabled clocks
+ * during suspend.
+ */
+static void clock_debug_print_enabled_debug_suspend(struct seq_file *s)
+{
+	struct clk_core *core;
+	int cnt = 0;
+
+	if (!mutex_trylock(&clk_debug_lock))
+		return;
+
+	clock_debug_output(s, 0, "Enabled clocks:\n");
+
+	hlist_for_each_entry(core, &clk_debug_list, debug_node) {
+		if (!core || !core->prepare_count)
+			continue;
+
+		if (core->vdd_class)
+			clock_debug_output(s, 0, " %s:%u:%u [%ld, %d]",
+					core->name, core->prepare_count,
+					core->enable_count, core->rate,
+					clk_find_vdd_level(core, core->rate));
+
+		else
+			clock_debug_output(s, 0, " %s:%u:%u [%ld]",
+					core->name, core->prepare_count,
+					core->enable_count, core->rate);
+		cnt++;
+	}
+
+	mutex_unlock(&clk_debug_lock);
+
+	if (cnt)
+		clock_debug_output(s, 0, "Enabled clock count: %d\n", cnt);
+	else
+		clock_debug_output(s, 0, "No clocks enabled.\n");
+}
+
+static int clock_debug_print_clock(struct clk_core *c, struct seq_file *s)
 {
 	char *start = "";
 	struct clk *clk;
@@ -2645,9 +2714,10 @@ static void clock_debug_print_enabled_clocks(struct seq_file *s)
 	struct clk_core *core;
 	int cnt = 0;
 
-	clock_debug_output(s, 0, "Enabled clocks:\n");
+	if (!mutex_trylock(&clk_debug_lock))
+		return;
 
-	mutex_lock(&clk_debug_lock);
+	clock_debug_output(s, 0, "Enabled clocks:\n");
 
 	hlist_for_each_entry(core, &clk_debug_list, debug_node)
 		cnt += clock_debug_print_clock(core, s);
@@ -2970,14 +3040,19 @@ EXPORT_SYMBOL_GPL(clk_debugfs_add_file);
 
 /*
  * Print the names of all enabled clocks and their parents if
- * debug_suspend is set from debugfs.
+ * debug_suspend is set from debugfs along with print_parent flag set to 1.
+ * Otherwise if print_parent set to 0, print only enabled clocks
+ *
  */
-void clock_debug_print_enabled(void)
+void clock_debug_print_enabled(bool print_parent)
 {
 	if (likely(!debug_suspend))
 		return;
 
-	clock_debug_print_enabled_clocks(NULL);
+	if (print_parent)
+		clock_debug_print_enabled_clocks(NULL);
+	else
+		clock_debug_print_enabled_debug_suspend(NULL);
 }
 EXPORT_SYMBOL_GPL(clock_debug_print_enabled);
 
@@ -3959,6 +4034,8 @@ int clk_notifier_unregister(struct clk *clk, struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(clk_notifier_unregister);
 
+#endif /* CONFIG_COMMON_CLK */
+
 #ifdef CONFIG_OF
 /**
  * struct of_clk_provider - Clock provider registration structure
@@ -3996,6 +4073,8 @@ struct clk_hw *of_clk_hw_simple_get(struct of_phandle_args *clkspec, void *data)
 }
 EXPORT_SYMBOL_GPL(of_clk_hw_simple_get);
 
+#if defined(CONFIG_COMMON_CLK)
+
 struct clk *of_clk_src_onecell_get(struct of_phandle_args *clkspec, void *data)
 {
 	struct clk_onecell_data *clk_data = data;
@@ -4024,6 +4103,29 @@ of_clk_hw_onecell_get(struct of_phandle_args *clkspec, void *data)
 	return hw_data->hws[idx];
 }
 EXPORT_SYMBOL_GPL(of_clk_hw_onecell_get);
+
+#endif /* CONFIG_COMMON_CLK */
+
+/**
+ * of_clk_del_provider() - Remove a previously registered clock provider
+ * @np: Device node pointer associated with clock provider
+ */
+void of_clk_del_provider(struct device_node *np)
+{
+	struct of_clk_provider *cp;
+
+	mutex_lock(&of_clk_mutex);
+	list_for_each_entry(cp, &of_clk_providers, link) {
+		if (cp->node == np) {
+			list_del(&cp->link);
+			of_node_put(cp->node);
+			kfree(cp);
+			break;
+		}
+	}
+	mutex_unlock(&of_clk_mutex);
+}
+EXPORT_SYMBOL_GPL(of_clk_del_provider);
 
 /**
  * of_clk_add_provider() - Register a clock provider for a node
@@ -4094,27 +4196,6 @@ int of_clk_add_hw_provider(struct device_node *np,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(of_clk_add_hw_provider);
-
-/**
- * of_clk_del_provider() - Remove a previously registered clock provider
- * @np: Device node pointer associated with clock provider
- */
-void of_clk_del_provider(struct device_node *np)
-{
-	struct of_clk_provider *cp;
-
-	mutex_lock(&of_clk_mutex);
-	list_for_each_entry(cp, &of_clk_providers, link) {
-		if (cp->node == np) {
-			list_del(&cp->link);
-			of_node_put(cp->node);
-			kfree(cp);
-			break;
-		}
-	}
-	mutex_unlock(&of_clk_mutex);
-}
-EXPORT_SYMBOL_GPL(of_clk_del_provider);
 
 static struct clk_hw *
 __of_clk_get_hw_from_provider(struct of_clk_provider *provider,
@@ -4244,8 +4325,10 @@ const char *of_clk_get_parent_name(struct device_node *np, int index)
 			else
 				clk_name = NULL;
 		} else {
+#if defined(CONFIG_COMMON_CLK)
 			clk_name = __clk_get_name(clk);
 			clk_put(clk);
+#endif
 		}
 	}
 
@@ -4275,6 +4358,8 @@ int of_clk_parent_fill(struct device_node *np, const char **parents,
 	return i;
 }
 EXPORT_SYMBOL_GPL(of_clk_parent_fill);
+
+#if defined(CONFIG_COMMON_CLK)
 
 struct clock_provider {
 	of_clk_init_cb_t clk_init_cb;
@@ -4426,4 +4511,7 @@ void __init of_clk_init(const struct of_device_id *matches)
 			force = true;
 	}
 }
+
+#endif /* CONFIG_COMMON_CLK */
+
 #endif

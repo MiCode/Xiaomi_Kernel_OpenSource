@@ -865,7 +865,7 @@ static int qeth_l2_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	 * chaining we can not send long frag lists
 	 */
 	if ((card->info.type != QETH_CARD_TYPE_IQD) &&
-	    !qeth_get_elements_no(card, new_skb, 0)) {
+	    !qeth_get_elements_no(card, new_skb, 0, 0)) {
 		int lin_rc = skb_linearize(new_skb);
 
 		if (card->options.performance_stats) {
@@ -910,7 +910,8 @@ static int qeth_l2_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		}
 	}
 
-	elements = qeth_get_elements_no(card, new_skb, elements_needed);
+	elements = qeth_get_elements_no(card, new_skb, elements_needed,
+					(data_offset > 0) ? data_offset : 0);
 	if (!elements) {
 		if (data_offset >= 0)
 			kmem_cache_free(qeth_core_header_cache, hdr);
@@ -1021,11 +1022,21 @@ static int qeth_l2_stop(struct net_device *dev)
 	return 0;
 }
 
+static const struct device_type qeth_l2_devtype = {
+	.name = "qeth_layer2",
+	.groups = qeth_l2_attr_groups,
+};
+
 static int qeth_l2_probe_device(struct ccwgroup_device *gdev)
 {
 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
+	int rc;
 
-	qeth_l2_create_device_attributes(&gdev->dev);
+	if (gdev->dev.type == &qeth_generic_devtype) {
+		rc = qeth_l2_create_device_attributes(&gdev->dev);
+		if (rc)
+			return rc;
+	}
 	INIT_LIST_HEAD(&card->vid_list);
 	hash_init(card->mac_htable);
 	card->options.layer2 = 1;
@@ -1037,7 +1048,8 @@ static void qeth_l2_remove_device(struct ccwgroup_device *cgdev)
 {
 	struct qeth_card *card = dev_get_drvdata(&cgdev->dev);
 
-	qeth_l2_remove_device_attributes(&cgdev->dev);
+	if (cgdev->dev.type == &qeth_generic_devtype)
+		qeth_l2_remove_device_attributes(&cgdev->dev);
 	qeth_set_allowed_threads(card, 0, 1);
 	wait_event(card->wait_q, qeth_threads_running(card, 0xffffffff) == 0);
 
@@ -1073,6 +1085,7 @@ static const struct net_device_ops qeth_l2_netdev_ops = {
 	.ndo_stop		= qeth_l2_stop,
 	.ndo_get_stats		= qeth_get_stats,
 	.ndo_start_xmit		= qeth_l2_hard_start_xmit,
+	.ndo_features_check	= qeth_features_check,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_rx_mode	= qeth_l2_set_rx_mode,
 	.ndo_do_ioctl	   	= qeth_l2_do_ioctl,
@@ -1095,7 +1108,6 @@ static int qeth_l2_setup_netdev(struct qeth_card *card)
 	case QETH_CARD_TYPE_OSN:
 		card->dev = alloc_netdev(0, "osn%d", NET_NAME_UNKNOWN,
 					 ether_setup);
-		card->dev->flags |= IFF_NOARP;
 		break;
 	default:
 		card->dev = alloc_etherdev(0);
@@ -1108,13 +1120,17 @@ static int qeth_l2_setup_netdev(struct qeth_card *card)
 	card->dev->watchdog_timeo = QETH_TX_TIMEOUT;
 	card->dev->mtu = card->info.initial_mtu;
 	card->dev->netdev_ops = &qeth_l2_netdev_ops;
-	card->dev->ethtool_ops =
-		(card->info.type != QETH_CARD_TYPE_OSN) ?
-		&qeth_l2_ethtool_ops : &qeth_l2_osn_ops;
+	if (card->info.type == QETH_CARD_TYPE_OSN) {
+		card->dev->ethtool_ops = &qeth_l2_osn_ops;
+		card->dev->flags |= IFF_NOARP;
+	} else {
+		card->dev->ethtool_ops = &qeth_l2_ethtool_ops;
+	}
 	card->dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 	if (card->info.type == QETH_CARD_TYPE_OSD && !card->info.guestlan) {
 		card->dev->hw_features = NETIF_F_SG;
 		card->dev->vlan_features = NETIF_F_SG;
+		card->dev->features |= NETIF_F_SG;
 		/* OSA 3S and earlier has no RX/TX support */
 		if (qeth_is_supported(card, IPA_OUTBOUND_CHECKSUM)) {
 			card->dev->hw_features |= NETIF_F_IP_CSUM;
@@ -1127,8 +1143,6 @@ static int qeth_l2_setup_netdev(struct qeth_card *card)
 	}
 	card->info.broadcast_capable = 1;
 	qeth_l2_request_initial_mac(card);
-	card->dev->gso_max_size = (QETH_MAX_BUFFER_ELEMENTS(card) - 1) *
-				  PAGE_SIZE;
 	SET_NETDEV_DEV(card->dev, &card->gdev->dev);
 	netif_napi_add(card->dev, &card->napi, qeth_l2_poll, QETH_NAPI_WEIGHT);
 	netif_carrier_off(card->dev);
@@ -1191,21 +1205,6 @@ static int __qeth_l2_set_online(struct ccwgroup_device *gdev, int recovery_mode)
 	/* softsetup */
 	QETH_DBF_TEXT(SETUP, 2, "softsetp");
 
-	rc = qeth_send_startlan(card);
-	if (rc) {
-		QETH_DBF_TEXT_(SETUP, 2, "1err%d", rc);
-		if (rc == 0xe080) {
-			dev_warn(&card->gdev->dev,
-				"The LAN is offline\n");
-			card->lan_online = 0;
-			goto contin;
-		}
-		rc = -ENODEV;
-		goto out_remove;
-	} else
-		card->lan_online = 1;
-
-contin:
 	if ((card->info.type == QETH_CARD_TYPE_OSD) ||
 	    (card->info.type == QETH_CARD_TYPE_OSX)) {
 		rc = qeth_l2_start_ipassists(card);
@@ -1434,6 +1433,7 @@ static int qeth_l2_control_event(struct qeth_card *card,
 }
 
 struct qeth_discipline qeth_l2_discipline = {
+	.devtype = &qeth_l2_devtype,
 	.start_poll = qeth_qdio_start_poll,
 	.input_handler = (qdio_handler_t *) qeth_qdio_input_handler,
 	.output_handler = (qdio_handler_t *) qeth_qdio_output_handler,

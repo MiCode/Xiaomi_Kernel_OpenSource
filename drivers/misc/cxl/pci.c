@@ -1496,8 +1496,6 @@ static int cxl_configure_adapter(struct cxl *adapter, struct pci_dev *dev)
 	if ((rc = cxl_native_register_psl_err_irq(adapter)))
 		goto err;
 
-	/* Release the context lock as adapter is configured */
-	cxl_adapter_context_unlock(adapter);
 	return 0;
 
 err:
@@ -1596,6 +1594,9 @@ static struct cxl *cxl_pci_init_adapter(struct pci_dev *dev)
 	if ((rc = cxl_sysfs_adapter_add(adapter)))
 		goto err_put1;
 
+	/* Release the context lock as adapter is configured */
+	cxl_adapter_context_unlock(adapter);
+
 	return adapter;
 
 err_put1:
@@ -1618,6 +1619,9 @@ static void cxl_pci_remove_adapter(struct cxl *adapter)
 
 	cxl_sysfs_adapter_remove(adapter);
 	cxl_debugfs_adapter_remove(adapter);
+
+	/* Flush adapter datacache as its about to be removed */
+	cxl_data_cache_flush(adapter);
 
 	cxl_deconfigure_adapter(adapter);
 
@@ -1754,6 +1758,9 @@ static pci_ers_result_t cxl_vphb_error_detected(struct cxl_afu *afu,
 	/* There should only be one entry, but go through the list
 	 * anyway
 	 */
+	if (afu->phb == NULL)
+		return result;
+
 	list_for_each_entry(afu_dev, &afu->phb->bus->devices, bus_list) {
 		if (!afu_dev->driver)
 			continue;
@@ -1778,7 +1785,7 @@ static pci_ers_result_t cxl_pci_error_detected(struct pci_dev *pdev,
 {
 	struct cxl *adapter = pci_get_drvdata(pdev);
 	struct cxl_afu *afu;
-	pci_ers_result_t result = PCI_ERS_RESULT_NEED_RESET;
+	pci_ers_result_t result = PCI_ERS_RESULT_NEED_RESET, afu_result;
 	int i;
 
 	/* At this point, we could still have an interrupt pending.
@@ -1797,6 +1804,11 @@ static pci_ers_result_t cxl_pci_error_detected(struct pci_dev *pdev,
 			/* Only participate in EEH if we are on a virtual PHB */
 			if (afu->phb == NULL)
 				return PCI_ERS_RESULT_NONE;
+
+			/*
+			 * Tell the AFU drivers; but we don't care what they
+			 * say, we're going away.
+			 */
 			cxl_vphb_error_detected(afu, state);
 		}
 		return PCI_ERS_RESULT_DISCONNECT;
@@ -1883,16 +1895,26 @@ static pci_ers_result_t cxl_pci_error_detected(struct pci_dev *pdev,
 	for (i = 0; i < adapter->slices; i++) {
 		afu = adapter->afu[i];
 
-		result = cxl_vphb_error_detected(afu, state);
-
-		/* Only continue if everyone agrees on NEED_RESET */
-		if (result != PCI_ERS_RESULT_NEED_RESET)
-			return result;
+		afu_result = cxl_vphb_error_detected(afu, state);
 
 		cxl_context_detach_all(afu);
 		cxl_ops->afu_deactivate_mode(afu, afu->current_mode);
 		pci_deconfigure_afu(afu);
+
+		/* Disconnect trumps all, NONE trumps NEED_RESET */
+		if (afu_result == PCI_ERS_RESULT_DISCONNECT)
+			result = PCI_ERS_RESULT_DISCONNECT;
+		else if ((afu_result == PCI_ERS_RESULT_NONE) &&
+			 (result == PCI_ERS_RESULT_NEED_RESET))
+			result = PCI_ERS_RESULT_NONE;
 	}
+
+	/* should take the context lock here */
+	if (cxl_adapter_context_lock(adapter) != 0)
+		dev_warn(&adapter->dev,
+			 "Couldn't take context lock with %d active-contexts\n",
+			 atomic_read(&adapter->contexts_num));
+
 	cxl_deconfigure_adapter(adapter);
 
 	return result;
@@ -1911,6 +1933,13 @@ static pci_ers_result_t cxl_pci_slot_reset(struct pci_dev *pdev)
 	if (cxl_configure_adapter(adapter, pdev))
 		goto err;
 
+	/*
+	 * Unlock context activation for the adapter. Ideally this should be
+	 * done in cxl_pci_resume but cxlflash module tries to activate the
+	 * master context as part of slot_reset callback.
+	 */
+	cxl_adapter_context_unlock(adapter);
+
 	for (i = 0; i < adapter->slices; i++) {
 		afu = adapter->afu[i];
 
@@ -1919,6 +1948,9 @@ static pci_ers_result_t cxl_pci_slot_reset(struct pci_dev *pdev)
 
 		if (cxl_afu_select_best_mode(afu))
 			goto err;
+
+		if (afu->phb == NULL)
+			continue;
 
 		list_for_each_entry(afu_dev, &afu->phb->bus->devices, bus_list) {
 			/* Reset the device context.
@@ -1981,6 +2013,9 @@ static void cxl_pci_resume(struct pci_dev *pdev)
 	 */
 	for (i = 0; i < adapter->slices; i++) {
 		afu = adapter->afu[i];
+
+		if (afu->phb == NULL)
+			continue;
 
 		list_for_each_entry(afu_dev, &afu->phb->bus->devices, bus_list) {
 			if (afu_dev->driver && afu_dev->driver->err_handler &&

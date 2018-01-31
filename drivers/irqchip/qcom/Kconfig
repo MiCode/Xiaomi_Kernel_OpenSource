@@ -1,0 +1,22 @@
+config QTI_PDC
+        bool "QTI PDC"
+        depends on ARCH_QCOM
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+        help
+          QTI Power Domain Controller driver to manage and configure wakeup
+          IRQs
+
+config QTI_PDC_SDM845
+        bool "QTI PDC SDM845"
+        select QTI_PDC
+        default y if ARCH_SDM845
+        help
+          QTI Power Domain Controller for SDM845
+
+config QTI_PDC_SDM670
+        bool "QTI PDC SDM670"
+        select QTI_PDC
+        default y if ARCH_SDM670
+        help
+          QTI Power Domain Controller for SDM670

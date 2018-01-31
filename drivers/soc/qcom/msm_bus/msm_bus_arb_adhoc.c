@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,26 +73,26 @@ static void copy_remaining_nodes(struct list_head *edge_list, struct list_head
  * "util" file for these common func/macros.
  *
  */
-uint64_t msm_bus_div64(unsigned int w, uint64_t bw)
+uint64_t msm_bus_div64(uint64_t num, unsigned int base)
 {
-	uint64_t *b = &bw;
+	uint64_t *n = &num;
 
-	if ((bw > 0) && (bw < w))
+	if ((num > 0) && (num < base))
 		return 1;
 
-	switch (w) {
+	switch (base) {
 	case 0:
 		WARN(1, "AXI: Divide by 0 attempted\n");
-	case 1: return bw;
-	case 2: return (bw >> 1);
-	case 4: return (bw >> 2);
-	case 8: return (bw >> 3);
-	case 16: return (bw >> 4);
-	case 32: return (bw >> 5);
+	case 1: return num;
+	case 2: return (num >> 1);
+	case 4: return (num >> 2);
+	case 8: return (num >> 3);
+	case 16: return (num >> 4);
+	case 32: return (num >> 5);
 	}
 
-	do_div(*b, w);
-	return *b;
+	do_div(*n, base);
+	return *n;
 }
 
 int msm_bus_device_match_adhoc(struct device *dev, void *id)
@@ -452,19 +452,18 @@ static uint64_t scheme1_agg_scheme(struct msm_bus_node_device_type *bus_dev,
 
 	if (util_fact && (util_fact != 100)) {
 		sum_ab *= util_fact;
-		sum_ab = msm_bus_div64(100, sum_ab);
+		sum_ab = msm_bus_div64(sum_ab, 100);
 	}
 
 	if (vrail_comp && (vrail_comp != 100)) {
 		max_ib *= 100;
-		max_ib = msm_bus_div64(vrail_comp, max_ib);
+		max_ib = msm_bus_div64(max_ib, vrail_comp);
 	}
 
 	/* Account for multiple channels if any */
 	if (bus_dev->node_info->agg_params.num_aggports > 1)
-		sum_ab = msm_bus_div64(
-				bus_dev->node_info->agg_params.num_aggports,
-					sum_ab);
+		sum_ab = msm_bus_div64(sum_ab,
+				bus_dev->node_info->agg_params.num_aggports);
 
 	if (!bus_dev->node_info->agg_params.buswidth) {
 		MSM_BUS_WARN("No bus width found for %d. Using default\n",
@@ -473,8 +472,8 @@ static uint64_t scheme1_agg_scheme(struct msm_bus_node_device_type *bus_dev,
 	}
 
 	bw_max_hz = max(max_ib, sum_ab);
-	bw_max_hz = msm_bus_div64(bus_dev->node_info->agg_params.buswidth,
-					bw_max_hz);
+	bw_max_hz = msm_bus_div64(bw_max_hz,
+				bus_dev->node_info->agg_params.buswidth);
 
 	return bw_max_hz;
 }
@@ -517,19 +516,18 @@ static uint64_t legacy_agg_scheme(struct msm_bus_node_device_type *bus_dev,
 
 	if (util_fact && (util_fact != 100)) {
 		sum_ab *= util_fact;
-		sum_ab = msm_bus_div64(100, sum_ab);
+		sum_ab = msm_bus_div64(sum_ab, 100);
 	}
 
 	if (vrail_comp && (vrail_comp != 100)) {
 		max_ib *= 100;
-		max_ib = msm_bus_div64(vrail_comp, max_ib);
+		max_ib = msm_bus_div64(max_ib, vrail_comp);
 	}
 
 	/* Account for multiple channels if any */
 	if (bus_dev->node_info->agg_params.num_aggports > 1)
-		sum_ab = msm_bus_div64(
-				bus_dev->node_info->agg_params.num_aggports,
-					sum_ab);
+		sum_ab = msm_bus_div64(sum_ab,
+				bus_dev->node_info->agg_params.num_aggports);
 
 	if (!bus_dev->node_info->agg_params.buswidth) {
 		MSM_BUS_WARN("No bus width found for %d. Using default\n",
@@ -538,8 +536,8 @@ static uint64_t legacy_agg_scheme(struct msm_bus_node_device_type *bus_dev,
 	}
 
 	bw_max_hz = max(max_ib, sum_ab);
-	bw_max_hz = msm_bus_div64(bus_dev->node_info->agg_params.buswidth,
-					bw_max_hz);
+	bw_max_hz = msm_bus_div64(bw_max_hz,
+				bus_dev->node_info->agg_params.buswidth);
 
 	return bw_max_hz;
 }
@@ -873,7 +871,7 @@ static void unregister_client_adhoc(uint32_t cl)
 	}
 
 	curr = client->curr;
-	if (curr >= pdata->num_usecases) {
+	if ((curr < 0) || (curr >= pdata->num_usecases)) {
 		MSM_BUS_ERR("Invalid index Defaulting curr to 0");
 		curr = 0;
 	}
@@ -1111,75 +1109,6 @@ exit_update_client_paths:
 	return ret;
 }
 
-static int query_client_paths(struct msm_bus_client *client, bool log_trns,
-							unsigned int idx)
-{
-	int lnode, src, dest, cur_idx;
-	uint64_t req_clk, req_bw, curr_clk, curr_bw, slp_clk, slp_bw;
-	int i, ret = 0;
-	struct msm_bus_scale_pdata *pdata;
-	struct device *src_dev;
-
-	if (!client) {
-		MSM_BUS_ERR("Client handle  Null");
-		ret = -ENXIO;
-		goto exit_update_client_paths;
-	}
-
-	pdata = client->pdata;
-	if (!pdata) {
-		MSM_BUS_ERR("Client pdata Null");
-		ret = -ENXIO;
-		goto exit_update_client_paths;
-	}
-
-	cur_idx = client->curr;
-	client->curr = idx;
-	for (i = 0; i < pdata->usecase->num_paths; i++) {
-		src = pdata->usecase[idx].vectors[i].src;
-		dest = pdata->usecase[idx].vectors[i].dst;
-
-		lnode = client->src_pnode[i];
-		src_dev = client->src_devs[i];
-		req_clk = client->pdata->usecase[idx].vectors[i].ib;
-		req_bw = client->pdata->usecase[idx].vectors[i].ab;
-		if (cur_idx < 0) {
-			curr_clk = 0;
-			curr_bw = 0;
-		} else {
-			curr_clk =
-				client->pdata->usecase[cur_idx].vectors[i].ib;
-			curr_bw = client->pdata->usecase[cur_idx].vectors[i].ab;
-			MSM_BUS_DBG("%s:ab: %llu ib: %llu\n", __func__,
-					curr_bw, curr_clk);
-		}
-
-		if (pdata->active_only) {
-			slp_clk = 0;
-			slp_bw = 0;
-		} else {
-			slp_clk = req_clk;
-			slp_bw = req_bw;
-		}
-
-		ret = update_path(src_dev, dest, req_clk, req_bw, slp_clk,
-			slp_bw, curr_clk, curr_bw, lnode, pdata->active_only);
-
-		if (ret) {
-			MSM_BUS_ERR("%s: Update path failed! %d ctx %d\n",
-					__func__, ret, pdata->active_only);
-			goto exit_update_client_paths;
-		}
-
-		if (log_trns)
-			getpath_debug(src, lnode, pdata->active_only);
-	}
-	commit_data();
-exit_update_client_paths:
-	return ret;
-}
-
-
 static int update_context(uint32_t cl, bool active_only,
 					unsigned int ctx_idx)
 {
@@ -1352,8 +1281,8 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 	commit_data();
 	cl->cur_act_ib = ib;
 	cl->cur_act_ab = ab;
-	cl->cur_slp_ib = slp_ib;
-	cl->cur_slp_ab = slp_ab;
+	cl->cur_dual_ib = slp_ib;
+	cl->cur_dual_ab = slp_ab;
 
 	if (log_transaction)
 		getpath_debug(cl->mas, cl->first_hop, cl->active_only);
@@ -1378,18 +1307,18 @@ static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
 
 	if ((cl->cur_act_ib == act_ib) &&
 		(cl->cur_act_ab == act_ab) &&
-		(cl->cur_slp_ib == slp_ib) &&
-		(cl->cur_slp_ab == slp_ab)) {
+		(cl->cur_dual_ib == slp_ib) &&
+		(cl->cur_dual_ab == slp_ab)) {
 		MSM_BUS_ERR("No change in vote");
 		goto exit_change_context;
 	}
 
 	if (!slp_ab && !slp_ib)
 		cl->active_only = true;
-	msm_bus_dbg_rec_transaction(cl, cl->cur_act_ab, cl->cur_slp_ib);
-	ret = update_path(cl->mas_dev, cl->slv, act_ib, act_ab, slp_ib, slp_ab,
-				cl->cur_act_ab, cl->cur_act_ab,  cl->first_hop,
-				cl->active_only);
+	msm_bus_dbg_rec_transaction(cl, cl->cur_act_ab, cl->cur_dual_ib);
+	ret = update_path(cl->mas_dev, cl->slv, act_ib, act_ab, slp_ib,
+				slp_ab, cl->cur_act_ab, cl->cur_act_ab,
+				cl->first_hop, cl->active_only);
 	if (ret) {
 		MSM_BUS_ERR("%s: Update path failed! %d active_only %d\n",
 				__func__, ret, cl->active_only);
@@ -1398,8 +1327,8 @@ static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
 	commit_data();
 	cl->cur_act_ib = act_ib;
 	cl->cur_act_ab = act_ab;
-	cl->cur_slp_ib = slp_ib;
-	cl->cur_slp_ab = slp_ab;
+	cl->cur_dual_ib = slp_ib;
+	cl->cur_dual_ab = slp_ab;
 	trace_bus_update_request_end(cl->name);
 exit_change_context:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
@@ -1421,6 +1350,7 @@ static void unregister_adhoc(struct msm_bus_client_handle *cl)
 				cl->first_hop, cl->active_only);
 	commit_data();
 	msm_bus_dbg_remove_client(cl);
+	kfree(cl->name);
 	kfree(cl);
 exit_unregister_client:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);

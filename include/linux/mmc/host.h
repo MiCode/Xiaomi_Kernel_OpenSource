@@ -18,6 +18,7 @@
 #include <linux/devfreq.h>
 #include <linux/fault-inject.h>
 #include <linux/blkdev.h>
+#include <linux/extcon.h>
 
 #include <linux/mmc/core.h>
 #include <linux/mmc/card.h>
@@ -93,6 +94,23 @@ struct mmc_ios {
 enum mmc_load {
 	MMC_LOAD_HIGH,
 	MMC_LOAD_LOW,
+};
+
+enum {
+	MMC_ERR_CMD_TIMEOUT,
+	MMC_ERR_CMD_CRC,
+	MMC_ERR_DAT_TIMEOUT,
+	MMC_ERR_DAT_CRC,
+	MMC_ERR_AUTO_CMD,
+	MMC_ERR_ADMA,
+	MMC_ERR_TUNING,
+	MMC_ERR_CMDQ_RED,
+	MMC_ERR_CMDQ_GCE,
+	MMC_ERR_CMDQ_ICCE,
+	MMC_ERR_REQ_TIMEOUT,
+	MMC_ERR_CMDQ_REQ_TIMEOUT,
+	MMC_ERR_ICE_CFG,
+	MMC_ERR_MAX,
 };
 
 struct mmc_cmdq_host_ops {
@@ -225,6 +243,7 @@ struct mmc_cmdq_req {
 	unsigned int		resp_arg;
 	unsigned int		dev_pend_tasks;
 	bool			resp_err;
+	bool			skip_err_handling;
 	int			tag; /* used for command queuing */
 	u8			ctx_id;
 };
@@ -346,7 +365,9 @@ struct mmc_devfeq_clk_scaling {
 	atomic_t	devfreq_abort;
 	bool		skip_clk_scale_freq_update;
 	int		freq_table_sz;
+	int		pltfm_freq_table_sz;
 	u32		*freq_table;
+	u32		*pltfm_freq_table;
 	unsigned long	total_busy_time_us;
 	unsigned long	target_freq;
 	unsigned long	curr_freq;
@@ -477,6 +498,7 @@ struct mmc_host {
 	int			clk_requests;	/* internal reference counter */
 	unsigned int		clk_delay;	/* number of MCI clk hold cycles */
 	bool			clk_gated;	/* clock gated */
+	struct workqueue_struct *clk_gate_wq;	/* clock gate work queue */
 	struct delayed_work	clk_gate_work; /* delayed clock gate */
 	unsigned int		clk_old;	/* old clock value cache */
 	spinlock_t		clk_lock;	/* lock for clk fields */
@@ -539,6 +561,7 @@ struct mmc_host {
 	unsigned int		bus_resume_flags;
 #define MMC_BUSRESUME_MANUAL_RESUME	(1 << 0)
 #define MMC_BUSRESUME_NEEDS_RESUME	(1 << 1)
+	bool ignore_bus_resume_flags;
 
 	unsigned int		sdio_irqs;
 	struct task_struct	*sdio_irq_thread;
@@ -555,6 +578,9 @@ struct mmc_host {
 	struct mmc_supply	supply;
 
 	struct dentry		*debugfs_root;
+
+	bool			err_occurred;
+	u32			err_stats[MMC_ERR_MAX];
 
 	struct mmc_async_req	*areq;		/* active async req */
 	struct mmc_context_info	context_info;	/* async synchronization info */
@@ -594,6 +620,8 @@ struct mmc_host {
 	 * actually disabling the clock from it's source.
 	 */
 	bool			card_clock_off;
+	struct extcon_dev	*extcon;
+	struct notifier_block card_detect_nb;
 
 #ifdef CONFIG_MMC_PERF_PROFILING
 	struct {
@@ -850,6 +878,8 @@ static inline bool mmc_card_hs400es(struct mmc_card *card)
 	return card->host->ios.enhanced_strobe;
 }
 
+void mmc_retune_enable(struct mmc_host *host);
+void mmc_retune_disable(struct mmc_host *host);
 void mmc_retune_timer_stop(struct mmc_host *host);
 
 static inline void mmc_retune_needed(struct mmc_host *host)

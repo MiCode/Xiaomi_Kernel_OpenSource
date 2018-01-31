@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,10 @@
  */
 #ifndef __MSM_PERIPHERAL_LOADER_H
 #define __MSM_PERIPHERAL_LOADER_H
+
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
+#include "minidump_private.h"
 
 struct device;
 struct module;
@@ -57,6 +61,11 @@ struct pil_desc {
 	bool modem_ssr;
 	bool clear_fw_region;
 	u32 subsys_vmid;
+	bool signal_aop;
+	struct mbox_client cl;
+	struct mbox_chan *mbox;
+	struct md_ss_toc *minidump;
+	int minidump_id;
 };
 
 /**
@@ -85,7 +94,7 @@ struct pil_image_info {
  */
 struct pil_reset_ops {
 	int (*init_image)(struct pil_desc *pil, const u8 *metadata,
-			  size_t size);
+			  size_t size, phys_addr_t mdata_phys, void *region);
 	int (*mem_setup)(struct pil_desc *pil, phys_addr_t addr, size_t size);
 	int (*verify_blob)(struct pil_desc *pil, phys_addr_t phy_addr,
 			   size_t size);
@@ -103,7 +112,8 @@ extern void pil_shutdown(struct pil_desc *desc);
 extern void pil_free_memory(struct pil_desc *desc);
 extern void pil_desc_release(struct pil_desc *desc);
 extern phys_addr_t pil_get_entry_addr(struct pil_desc *desc);
-extern int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev);
+extern int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev,
+			  void *minidump_dev);
 extern int pil_assign_mem_to_subsys(struct pil_desc *desc, phys_addr_t addr,
 						size_t size);
 extern int pil_assign_mem_to_linux(struct pil_desc *desc, phys_addr_t addr,
@@ -123,7 +133,8 @@ static inline phys_addr_t pil_get_entry_addr(struct pil_desc *desc)
 {
 	return 0;
 }
-static inline int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
+static inline int pil_do_ramdump(struct pil_desc *desc,
+		void *ramdump_dev, void *minidump_dev)
 {
 	return 0;
 }

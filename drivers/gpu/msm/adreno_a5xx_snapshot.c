@@ -360,8 +360,8 @@ static const unsigned int a5xx_registers[] = {
 	0x0000, 0x0002, 0x0004, 0x0020, 0x0022, 0x0026, 0x0029, 0x002B,
 	0x002E, 0x0035, 0x0038, 0x0042, 0x0044, 0x0044, 0x0047, 0x0095,
 	0x0097, 0x00BB, 0x03A0, 0x0464, 0x0469, 0x046F, 0x04D2, 0x04D3,
-	0x04E0, 0x04F4, 0X04F6, 0x0533, 0x0540, 0x0555, 0xF400, 0xF400,
-	0xF800, 0xF807,
+	0x04E0, 0x04F4, 0X04F8, 0x0529, 0x0531, 0x0533, 0x0540, 0x0555,
+	0xF400, 0xF400, 0xF800, 0xF807,
 	/* CP */
 	0x0800, 0x081A, 0x081F, 0x0841, 0x0860, 0x0860, 0x0880, 0x08A0,
 	0x0B00, 0x0B12, 0x0B15, 0X0B1C, 0X0B1E, 0x0B28, 0x0B78, 0x0B7F,
@@ -422,8 +422,8 @@ static const unsigned int a5xx_registers[] = {
  * is the stop offset (inclusive)
  */
 static const unsigned int a5xx_pre_crashdumper_registers[] = {
-	/* RBBM: RBBM_STATUS */
-	0x04F5, 0x04F5,
+	/* RBBM: RBBM_STATUS - RBBM_STATUS3 */
+	0x04F5, 0x04F7, 0x0530, 0x0530,
 	/* CP: CP_STATUS_1 */
 	0x0B1D, 0x0B1D,
 };
@@ -621,7 +621,8 @@ static size_t a5xx_snapshot_shader_memory(struct kgsl_device *device,
 	header->index = info->bank;
 	header->size = block->sz;
 
-	memcpy(data, registers.hostptr + info->offset, block->sz);
+	memcpy(data, registers.hostptr + info->offset,
+		block->sz * sizeof(unsigned int));
 
 	return SHADER_SECTION_SZ(block->sz);
 }
@@ -767,6 +768,8 @@ static void _a5xx_do_crashdump(struct kgsl_device *device)
 
 	crash_dump_valid = false;
 
+	if (!device->snapshot_crashdumper)
+		return;
 	if (capturescript.gpuaddr == 0 || registers.gpuaddr == 0)
 		return;
 
@@ -872,8 +875,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 		ARRAY_SIZE(a5xx_vbif_snapshot_registers));
 
 	/* Try to run the crash dumper */
-	if (device->snapshot_crashdumper)
-		_a5xx_do_crashdump(device);
+	_a5xx_do_crashdump(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 		snapshot, a5xx_snapshot_registers, NULL);

@@ -1,0 +1,309 @@
+/*
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+
+	qcom,pm8937@0 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x0 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pm8937_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x1 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x4 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x5 IRQ_TYPE_NONE>;
+			interrupt-names = "kpdpwr", "resin",
+				"resin-bark", "kpdpwr-resin-bark";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
+
+			qcom,pon_1 {
+				qcom,pon-type = <0>;
+				qcom,pull-up = <1>;
+				linux,code = <116>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <1>;
+				qcom,pull-up = <1>;
+				linux,code = <114>;
+			};
+		};
+
+		pm8937_temp_alarm: qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			label = "pm8937_tz";
+			qcom,channel-num = <8>;
+			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pm8937_vadc>;
+		};
+
+		pm8937_coincell: qcom,coincell@2800 {
+			compatible = "qcom,qpnp-coincell";
+			reg = <0x2800 0x100>;
+		};
+
+		pm8937_rtc: qcom,pm8937_rtc {
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pm8937_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+
+			qcom,pm8937_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+			};
+		};
+
+		pm8937_mpps: mpps {
+			compatible = "qcom,spmi-mpp";
+			reg = <0xa000 0x400>;
+			interrupts = <0x0 0xa0 0 IRQ_TYPE_NONE>,
+				     <0x0 0xa1 0 IRQ_TYPE_NONE>,
+				     <0x0 0xa2 0 IRQ_TYPE_NONE>,
+				     <0x0 0xa3 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8937_mpp1", "pm8937_mpp2",
+					  "pm8937_mpp3", "pm8937_mpp4";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		pm8937_gpios: gpios {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x800>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+				     <0x0 0xc1 0 IRQ_TYPE_NONE>,
+				     <0x0 0xc4 0 IRQ_TYPE_NONE>,
+				     <0x0 0xc6 0 IRQ_TYPE_NONE>,
+				     <0x0 0xc7 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8937_gpio1", "pm8937_gpio2",
+					  "pm8937_gpio5", "pmi8937_gpio7",
+					  "pm8937_gpio8";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <3 4 6>;
+		};
+
+		pm8937_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,vadc-poll-eoc;
+
+			chan@5 {
+				label = "vcoin";
+				reg = <5>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@7 {
+				label = "vph_pwr";
+				reg = <7>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@8 {
+				label = "die_temp";
+				reg = <8>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@9 {
+				label = "ref_625mv";
+				reg = <9>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@a {
+				label = "ref_1250v";
+				reg = <0xa>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@c {
+				label = "ref_buf_625mv";
+				reg = <0xc>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@36 {
+				label = "pa_therm0";
+				reg = <0x36>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@11 {
+				label = "pa_therm1";
+				reg = <0x11>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,vadc-thermal-node;
+			};
+
+			chan@32 {
+				label = "xo_therm";
+				reg = <0x32>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <4>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,vadc-thermal-node;
+			};
+
+			chan@3c {
+				label = "xo_therm_buf";
+				reg = <0x3c>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <4>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,vadc-thermal-node;
+			};
+
+			chan@13 {
+				label = "case_therm";
+				reg = <0x13>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,vadc-thermal-node;
+			};
+		};
+
+		pm8937_adc_tm: vadc@3400 {
+			compatible = "qcom,qpnp-adc-tm";
+			reg = <0x3400 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts =	<0x0 0x34 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x0 0x34 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x0 0x34 0x4 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names =	"eoc-int-en-set",
+						"high-thr-en-set",
+						"low-thr-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pm8937_vadc>;
+
+			chan@36 {
+				label = "pa_therm0";
+				reg = <0x36>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x48>;
+				qcom,thermal-node;
+			};
+
+			chan@7 {
+				label = "vph_pwr";
+				reg = <0x7>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x68>;
+			};
+		};
+
+	};
+
+	pm8937_1: qcom,pm8937@1 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x1 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pm8937_pwm: pwm@bc00 {
+			status = "disabled";
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+		};
+	};
+};

@@ -1,0 +1,84 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sdm670-audio-overlay.dtsi"
+
+&pmic_analog_codec {
+	status = "disabled";
+};
+
+&msm_sdw_codec {
+	status = "disabled";
+};
+
+&cdc_pdm_gpios {
+	status = "disabled";
+};
+
+&cdc_comp_gpios {
+	status = "disabled";
+};
+
+&cdc_dmic_gpios {
+	status = "disabled";
+};
+
+&cdc_sdw_gpios {
+	status = "disabled";
+};
+
+&wsa_spkr_en1 {
+	status = "disabled";
+};
+
+&wsa_spkr_en2 {
+	status = "disabled";
+};
+
+&qupv3_se8_spi {
+	status = "okay";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+};
+
+&wdsp_mgr {
+	status = "okay";
+};
+
+&wdsp_glink {
+	status = "okay";
+};
+
+&slim_aud {
+	status = "okay";
+};
+
+&dai_slim {
+	status = "okay";
+};
+
+&wcd934x_cdc {
+	status = "okay";
+};
+
+&clock_audio_lnbb {
+	status = "okay";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+};

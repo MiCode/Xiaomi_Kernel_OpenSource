@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -163,6 +163,20 @@ struct ipa_perf_profile {
 	u32 max_supported_bw_mbps;
 };
 
+/**
+ * struct  ipa_uc_ready_params - uC ready CB parameters
+ * @is_uC_ready: uC loaded or not
+ * @priv : callback cookie
+ * @notify:	callback
+ * @proto: uC offload protocol type
+ */
+struct ipa_uc_ready_params {
+	bool is_uC_ready;
+	void *priv;
+	ipa_uc_ready_cb notify;
+	enum ipa_uc_offload_proto proto;
+};
+
 #if defined CONFIG_IPA || defined CONFIG_IPA3
 
 /**
@@ -223,6 +237,19 @@ int ipa_uc_offload_disconn_pipes(u32 clnt_hdl);
  */
 int ipa_set_perf_profile(struct ipa_perf_profile *profile);
 
+
+/*
+ * To register uC ready callback if uC not ready
+ * and also check uC readiness
+ * if uC not ready only, register callback
+ */
+int ipa_uc_offload_reg_rdyCB(struct ipa_uc_ready_params *param);
+
+/*
+ * To de-register uC ready callback
+ */
+void ipa_uc_offload_dereg_rdyCB(enum ipa_uc_offload_proto proto);
+
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
 static inline int ipa_uc_offload_reg_intf(
@@ -252,6 +279,15 @@ static inline int ipa_uc_offload_disconn_pipes(u32 clnt_hdl)
 static inline int ipa_set_perf_profile(struct ipa_perf_profile *profile)
 {
 	return -EPERM;
+}
+
+static inline int ipa_uc_offload_reg_rdyCB(struct ipa_uc_ready_params *param)
+{
+	return -EPERM;
+}
+
+static void ipa_uc_offload_dereg_rdyCB(enum ipa_uc_offload_proto proto)
+{
 }
 
 #endif /* CONFIG_IPA3 */

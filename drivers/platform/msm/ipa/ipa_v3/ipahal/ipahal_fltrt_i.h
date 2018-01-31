@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,6 +133,43 @@ struct ipa3_0_flt_rule_hw_hdr {
 			u64 rsvd2:6;
 			u64 rule_id:10;
 			u64 rsvd3:6;
+		} hdr;
+	} u;
+};
+
+/**
+ * struct ipa4_0_flt_rule_hw_hdr - HW header of IPA filter rule
+ * @word: filtering rule properties
+ * @en_rule: enable rule
+ * @action: post filtering action
+ * @rt_tbl_idx: index in routing table
+ * @retain_hdr: added to add back to the packet the header removed
+ *  as part of header removal. This will be done as part of
+ *  header insertion block.
+ * @pdn_idx: in case of go to src nat action possible to input the pdn index to
+ *  the NAT block
+ * @set_metadata: enable metadata replacement in the NAT block
+ * @priority: Rule priority. Added to distinguish rules order
+ *  at the integrated table consisting from hashable and
+ *  non-hashable parts
+ * @rsvd2: reserved bits
+ * @rule_id: rule ID that will be returned in the packet status
+ * @rsvd3: reserved bits
+ */
+struct ipa4_0_flt_rule_hw_hdr {
+	union {
+		u64 word;
+		struct {
+			u64 en_rule : 16;
+			u64 action : 5;
+			u64 rt_tbl_idx : 5;
+			u64 retain_hdr : 1;
+			u64 pdn_idx : 4;
+			u64 set_metadata : 1;
+			u64 priority : 10;
+			u64 rsvd2 : 6;
+			u64 rule_id : 10;
+			u64 rsvd3 : 6;
 		} hdr;
 	} u;
 };

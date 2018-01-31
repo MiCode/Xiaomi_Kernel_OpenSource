@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  *
  */
-
 #include <linux/compat.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
@@ -36,10 +35,14 @@
 		_IOWR('R', 9, struct compat_fastrpc_ioctl_perf)
 #define COMPAT_FASTRPC_IOCTL_INIT_ATTRS \
 		_IOWR('R', 10, struct compat_fastrpc_ioctl_init_attrs)
+#define COMPAT_FASTRPC_IOCTL_INVOKE_CRC \
+		_IOWR('R', 11, struct compat_fastrpc_ioctl_invoke_crc)
+#define COMPAT_FASTRPC_IOCTL_CONTROL \
+		_IOWR('R', 12, struct compat_fastrpc_ioctl_control)
 
 struct compat_remote_buf {
 	compat_uptr_t pv;	/* buffer pointer */
-	compat_ssize_t len;	/* length of buffer */
+	compat_size_t len;	/* length of buffer */
 };
 
 union compat_remote_arg {
@@ -64,17 +67,24 @@ struct compat_fastrpc_ioctl_invoke_attrs {
 	compat_uptr_t attrs;	/* attribute list */
 };
 
+struct compat_fastrpc_ioctl_invoke_crc {
+	struct compat_fastrpc_ioctl_invoke inv;
+	compat_uptr_t fds;	/* fd list */
+	compat_uptr_t attrs;	/* attribute list */
+	compat_uptr_t crc;	/* crc list */
+};
+
 struct compat_fastrpc_ioctl_mmap {
 	compat_int_t fd;	/* ion fd */
 	compat_uint_t flags;	/* flags for dsp to map with */
 	compat_uptr_t vaddrin;	/* optional virtual address */
-	compat_ssize_t size;	/* size */
+	compat_size_t size;	/* size */
 	compat_uptr_t vaddrout;	/* dsps virtual address */
 };
 
 struct compat_fastrpc_ioctl_munmap {
 	compat_uptr_t vaddrout;	/* address to unmap */
-	compat_ssize_t size;	/* size */
+	compat_size_t size;	/* size */
 };
 
 struct compat_fastrpc_ioctl_init {
@@ -99,15 +109,28 @@ struct compat_fastrpc_ioctl_perf {	/* kernel performance data */
 	compat_uptr_t keys;
 };
 
+#define FASTRPC_CONTROL_LATENCY   (1)
+struct compat_fastrpc_ctrl_latency {
+	compat_uint_t enable;	/* latency control enable */
+	compat_uint_t level;	/* level of control */
+};
+
+struct compat_fastrpc_ioctl_control {
+	compat_uint_t req;
+	union {
+		struct compat_fastrpc_ctrl_latency lp;
+	};
+};
+
 static int compat_get_fastrpc_ioctl_invoke(
-			struct compat_fastrpc_ioctl_invoke_attrs __user *inv32,
-			struct fastrpc_ioctl_invoke_attrs __user **inva,
+			struct compat_fastrpc_ioctl_invoke_crc __user *inv32,
+			struct fastrpc_ioctl_invoke_crc __user **inva,
 			unsigned int cmd)
 {
 	compat_uint_t u, sc;
-	compat_ssize_t s;
+	compat_size_t s;
 	compat_uptr_t p;
-	struct fastrpc_ioctl_invoke_attrs *inv;
+	struct fastrpc_ioctl_invoke_crc *inv;
 	union compat_remote_arg *pra32;
 	union remote_arg *pra;
 	int err, len, j;
@@ -146,9 +169,15 @@ static int compat_get_fastrpc_ioctl_invoke(
 		err |= put_user(p, (compat_uptr_t *)&inv->fds);
 	}
 	err |= put_user(NULL, &inv->attrs);
-	if (cmd == COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS) {
+	if ((cmd == COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS) ||
+		(cmd == COMPAT_FASTRPC_IOCTL_INVOKE_CRC)) {
 		err |= get_user(p, &inv32->attrs);
 		err |= put_user(p, (compat_uptr_t *)&inv->attrs);
+	}
+	err |= put_user(NULL, (compat_uptr_t __user **)&inv->crc);
+	if (cmd == COMPAT_FASTRPC_IOCTL_INVOKE_CRC) {
+		err |= get_user(p, &inv32->crc);
+		err |= put_user(p, (compat_uptr_t __user *)&inv->crc);
 	}
 
 	*inva = inv;
@@ -161,7 +190,7 @@ static int compat_get_fastrpc_ioctl_mmap(
 {
 	compat_uint_t u;
 	compat_int_t i;
-	compat_ssize_t s;
+	compat_size_t s;
 	compat_uptr_t p;
 	int err;
 
@@ -195,7 +224,7 @@ static int compat_get_fastrpc_ioctl_munmap(
 			struct fastrpc_ioctl_munmap __user *unmap)
 {
 	compat_uptr_t p;
-	compat_ssize_t s;
+	compat_size_t s;
 	int err;
 
 	err = get_user(p, &unmap32->vaddrout);
@@ -217,6 +246,25 @@ static int compat_get_fastrpc_ioctl_perf(
 	err |= put_user(p, &perf->data);
 	err |= get_user(p, &perf32->keys);
 	err |= put_user(p, &perf->keys);
+
+	return err;
+}
+
+static int compat_get_fastrpc_ioctl_control(
+			struct compat_fastrpc_ioctl_control __user *ctrl32,
+			struct fastrpc_ioctl_control __user *ctrl)
+{
+	compat_uptr_t p;
+	int err;
+
+	err = get_user(p, &ctrl32->req);
+	err |= put_user(p, &ctrl->req);
+	if (p == FASTRPC_CONTROL_LATENCY) {
+		err |= get_user(p, &ctrl32->lp.enable);
+		err |= put_user(p, &ctrl->lp.enable);
+		err |= get_user(p, &ctrl32->lp.level);
+		err |= put_user(p, &ctrl->lp.level);
+	}
 
 	return err;
 }
@@ -273,9 +321,10 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	case COMPAT_FASTRPC_IOCTL_INVOKE:
 	case COMPAT_FASTRPC_IOCTL_INVOKE_FD:
 	case COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS:
+	case COMPAT_FASTRPC_IOCTL_INVOKE_CRC:
 	{
-		struct compat_fastrpc_ioctl_invoke_attrs __user *inv32;
-		struct fastrpc_ioctl_invoke_attrs __user *inv;
+		struct compat_fastrpc_ioctl_invoke_crc __user *inv32;
+		struct fastrpc_ioctl_invoke_crc __user *inv;
 
 		inv32 = compat_ptr(arg);
 		VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(inv32,
@@ -283,7 +332,7 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 		if (err)
 			return err;
 		return filp->f_op->unlocked_ioctl(filp,
-				FASTRPC_IOCTL_INVOKE_ATTRS, (unsigned long)inv);
+				FASTRPC_IOCTL_INVOKE_CRC, (unsigned long)inv);
 	}
 	case COMPAT_FASTRPC_IOCTL_MMAP:
 	{
@@ -369,6 +418,24 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	case FASTRPC_IOCTL_SETMODE:
 		return filp->f_op->unlocked_ioctl(filp, cmd,
 						(unsigned long)compat_ptr(arg));
+	case COMPAT_FASTRPC_IOCTL_CONTROL:
+	{
+		struct compat_fastrpc_ioctl_control __user *ctrl32;
+		struct fastrpc_ioctl_control __user *ctrl;
+
+		ctrl32 = compat_ptr(arg);
+		VERIFY(err, NULL != (ctrl = compat_alloc_user_space(
+							sizeof(*ctrl))));
+		if (err)
+			return -EFAULT;
+		VERIFY(err, 0 == compat_get_fastrpc_ioctl_control(ctrl32,
+							ctrl));
+		if (err)
+			return err;
+		err = filp->f_op->unlocked_ioctl(filp, FASTRPC_IOCTL_CONTROL,
+							(unsigned long)ctrl);
+		return err;
+	}
 	case COMPAT_FASTRPC_IOCTL_GETPERF:
 	{
 		struct compat_fastrpc_ioctl_perf __user *perf32;

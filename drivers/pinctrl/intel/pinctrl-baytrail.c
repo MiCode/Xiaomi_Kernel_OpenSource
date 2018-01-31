@@ -1250,10 +1250,12 @@ static int byt_pin_config_set(struct pinctrl_dev *pctl_dev,
 			debounce = readl(db_reg);
 			debounce &= ~BYT_DEBOUNCE_PULSE_MASK;
 
+			if (arg)
+				conf |= BYT_DEBOUNCE_EN;
+			else
+				conf &= ~BYT_DEBOUNCE_EN;
+
 			switch (arg) {
-			case 0:
-				conf &= BYT_DEBOUNCE_EN;
-				break;
 			case 375:
 				debounce |= BYT_DEBOUNCE_PULSE_375US;
 				break;
@@ -1276,7 +1278,9 @@ static int byt_pin_config_set(struct pinctrl_dev *pctl_dev,
 				debounce |= BYT_DEBOUNCE_PULSE_24MS;
 				break;
 			default:
-				ret = -EINVAL;
+				if (arg)
+					ret = -EINVAL;
+				break;
 			}
 
 			if (!ret)
@@ -1462,7 +1466,7 @@ static void byt_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 			   val & BYT_INPUT_EN ? "  " : "in",
 			   val & BYT_OUTPUT_EN ? "   " : "out",
 			   val & BYT_LEVEL ? "hi" : "lo",
-			   comm->pad_map[i], comm->pad_map[i] * 32,
+			   comm->pad_map[i], comm->pad_map[i] * 16,
 			   conf0 & 0x7,
 			   conf0 & BYT_TRIG_NEG ? " fall" : "     ",
 			   conf0 & BYT_TRIG_POS ? " rise" : "     ",

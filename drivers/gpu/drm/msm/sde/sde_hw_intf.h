@@ -16,6 +16,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_hw_blk.h"
 
 struct sde_hw_intf;
 
@@ -61,6 +62,7 @@ struct intf_status {
  * @ get_status: returns if timing engine is enabled or not
  * @ setup_misr: enables/disables MISR in HW register
  * @ collect_misr: reads and stores MISR data from HW register
+ * @ get_line_count: reads current vertical line counter
  */
 struct sde_hw_intf_ops {
 	void (*setup_timing_gen)(struct sde_hw_intf *intf,
@@ -83,10 +85,12 @@ struct sde_hw_intf_ops {
 			bool enable, u32 frame_count);
 
 	u32 (*collect_misr)(struct sde_hw_intf *intf);
+
+	u32 (*get_line_count)(struct sde_hw_intf *intf);
 };
 
 struct sde_hw_intf {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* intf */
@@ -97,6 +101,16 @@ struct sde_hw_intf {
 	/* ops */
 	struct sde_hw_intf_ops ops;
 };
+
+/**
+ * to_sde_hw_intf - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_intf *to_sde_hw_intf(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_intf, base);
+}
 
 /**
  * sde_hw_intf_init(): Initializes the intf driver for the passed

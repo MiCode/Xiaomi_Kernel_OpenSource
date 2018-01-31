@@ -64,7 +64,7 @@ do {									\
 #define ITCHIN			(0xEF4)
 #define ITTRIGIN		(0xEF8)
 
-#define CTI_MAX_TRIGGERS	(8)
+#define CTI_MAX_TRIGGERS	(32)
 #define CTI_MAX_CHANNELS	(4)
 #define AFFINITY_LEVEL_L2	1
 
@@ -670,6 +670,7 @@ void coresight_cti_reset(struct coresight_cti *cti)
 	struct cti_drvdata *drvdata;
 	unsigned long flag;
 	int trig;
+	int refcnt;
 
 	if (IS_ERR_OR_NULL(cti))
 		return;
@@ -678,6 +679,7 @@ void coresight_cti_reset(struct coresight_cti *cti)
 
 	mutex_lock(&drvdata->mutex);
 
+	refcnt = drvdata->refcnt;
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	if (cti_cpu_verify_access(drvdata))
 		goto err;
@@ -692,6 +694,8 @@ void coresight_cti_reset(struct coresight_cti *cti)
 			cti_trigout_gpio_disable(drvdata);
 	}
 
+	if (refcnt)
+		pm_runtime_put(drvdata->dev);
 	mutex_unlock(&drvdata->mutex);
 	return;
 err:

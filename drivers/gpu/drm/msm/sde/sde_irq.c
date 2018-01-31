@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,23 @@
 #include "sde_irq.h"
 #include "sde_core_irq.h"
 
+static uint32_t g_sde_irq_status;
+
+void sde_irq_update(struct msm_kms *msm_kms, bool enable)
+{
+	struct sde_kms *sde_kms = to_sde_kms(msm_kms);
+
+	if (!msm_kms || !sde_kms) {
+		SDE_ERROR("invalid kms arguments\n");
+		return;
+	}
+
+	if (enable)
+		enable_irq(sde_kms->irq_num);
+	else
+		disable_irq(sde_kms->irq_num);
+}
+
 irqreturn_t sde_irq(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
@@ -26,6 +43,9 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 
 	sde_kms->hw_intr->ops.get_interrupt_sources(sde_kms->hw_intr,
 			&interrupts);
+
+	/* store irq status in case of irq-storm debugging */
+	g_sde_irq_status = interrupts;
 
 	/*
 	 * Taking care of MDP interrupt
@@ -40,101 +60,52 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 	 */
 	while (interrupts) {
 		irq_hw_number_t hwirq = fls(interrupts) - 1;
+		unsigned int mapping;
+		int rc;
 
-		generic_handle_irq(irq_find_mapping(
-				sde_kms->irq_controller.domain, hwirq));
+		mapping = irq_find_mapping(sde_kms->irq_controller.domain,
+				hwirq);
+		if (mapping == 0) {
+			SDE_EVT32(hwirq, SDE_EVTLOG_ERROR);
+			goto error;
+		}
+
+		rc = generic_handle_irq(mapping);
+		if (rc < 0) {
+			SDE_EVT32(hwirq, mapping, rc, SDE_EVTLOG_ERROR);
+			goto error;
+		}
+
 		interrupts &= ~(1 << hwirq);
 	}
 
 	return IRQ_HANDLED;
+
+error:
+	/* bad situation, inform irq system, it may disable overall MDSS irq */
+	return IRQ_NONE;
 }
-
-static void sde_hw_irq_mask(struct irq_data *irqd)
-{
-	struct sde_kms *sde_kms;
-
-	if (!irqd || !irq_data_get_irq_chip_data(irqd)) {
-		SDE_ERROR("invalid parameters irqd %d\n", irqd != 0);
-		return;
-	}
-	sde_kms = irq_data_get_irq_chip_data(irqd);
-
-	/* memory barrier */
-	smp_mb__before_atomic();
-	clear_bit(irqd->hwirq, &sde_kms->irq_controller.enabled_mask);
-	/* memory barrier */
-	smp_mb__after_atomic();
-}
-
-static void sde_hw_irq_unmask(struct irq_data *irqd)
-{
-	struct sde_kms *sde_kms;
-
-	if (!irqd || !irq_data_get_irq_chip_data(irqd)) {
-		SDE_ERROR("invalid parameters irqd %d\n", irqd != 0);
-		return;
-	}
-	sde_kms = irq_data_get_irq_chip_data(irqd);
-
-	/* memory barrier */
-	smp_mb__before_atomic();
-	set_bit(irqd->hwirq, &sde_kms->irq_controller.enabled_mask);
-	/* memory barrier */
-	smp_mb__after_atomic();
-}
-
-static struct irq_chip sde_hw_irq_chip = {
-	.name = "sde",
-	.irq_mask = sde_hw_irq_mask,
-	.irq_unmask = sde_hw_irq_unmask,
-};
-
-static int sde_hw_irqdomain_map(struct irq_domain *domain,
-		unsigned int irq, irq_hw_number_t hwirq)
-{
-	struct sde_kms *sde_kms;
-	int rc;
-
-	if (!domain || !domain->host_data) {
-		SDE_ERROR("invalid parameters domain %d\n", domain != 0);
-		return -EINVAL;
-	}
-	sde_kms = domain->host_data;
-
-	irq_set_chip_and_handler(irq, &sde_hw_irq_chip, handle_level_irq);
-	rc = irq_set_chip_data(irq, sde_kms);
-
-	return rc;
-}
-
-static const struct irq_domain_ops sde_hw_irqdomain_ops = {
-	.map = sde_hw_irqdomain_map,
-	.xlate = irq_domain_xlate_onecell,
-};
 
 void sde_irq_preinstall(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct device *dev;
-	struct irq_domain *domain;
 
 	if (!sde_kms->dev || !sde_kms->dev->dev) {
 		pr_err("invalid device handles\n");
 		return;
 	}
-	dev = sde_kms->dev->dev;
 
-	domain = irq_domain_add_linear(dev->of_node, 32,
-			&sde_hw_irqdomain_ops, sde_kms);
-	if (!domain) {
-		pr_err("failed to add irq_domain\n");
+	sde_core_irq_preinstall(sde_kms);
+
+	sde_kms->irq_num = platform_get_irq(sde_kms->dev->platformdev, 0);
+	if (sde_kms->irq_num < 0) {
+		SDE_ERROR("invalid irq number %d\n", sde_kms->irq_num);
 		return;
 	}
 
-	sde_kms->irq_controller.enabled_mask = 0;
-	sde_kms->irq_controller.domain = domain;
-
-	sde_core_irq_preinstall(sde_kms);
+	/* disable irq until power event enables it */
+	if (!sde_kms->splash_data.cont_splash_en)
+		irq_set_status_flags(sde_kms->irq_num, IRQ_NOAUTOEN);
 }
 
 int sde_irq_postinstall(struct msm_kms *kms)
@@ -162,9 +133,5 @@ void sde_irq_uninstall(struct msm_kms *kms)
 	}
 
 	sde_core_irq_uninstall(sde_kms);
-
-	if (sde_kms->irq_controller.domain) {
-		irq_domain_remove(sde_kms->irq_controller.domain);
-		sde_kms->irq_controller.domain = NULL;
-	}
+	sde_core_irq_domain_fini(sde_kms);
 }

@@ -67,6 +67,48 @@
 #define SDE_DRM_BITMASK_COUNT       64
 
 /**
+ * Framebuffer modes for "fb_translation_mode" PLANE and CONNECTOR property
+ *
+ * @SDE_DRM_FB_NON_SEC:          IOMMU configuration for this framebuffer mode
+ *                               is non-secure domain and requires
+ *                               both stage I and stage II translations when
+ *                               this buffer is accessed by the display HW.
+ *                               This is the default mode of all frambuffers.
+ * @SDE_DRM_FB_SEC:              IOMMU configuration for this framebuffer mode
+ *                               is secure domain and requires
+ *                               both stage I and stage II translations when
+ *                               this buffer is accessed by the display HW.
+ * @SDE_DRM_FB_NON_SEC_DIR_TRANS: IOMMU configuration for this framebuffer mode
+ *                               is non-secure domain and requires
+ *                               only stage II translation when
+ *                               this buffer is accessed by the display HW.
+ * @SDE_DRM_FB_SEC_DIR_TRANS:    IOMMU configuration for this framebuffer mode
+ *                               is secure domain and requires
+ *                               only stage II translation when
+ *                               this buffer is accessed by the display HW.
+ */
+
+#define SDE_DRM_FB_NON_SEC              0
+#define SDE_DRM_FB_SEC                  1
+#define SDE_DRM_FB_NON_SEC_DIR_TRANS    2
+#define SDE_DRM_FB_SEC_DIR_TRANS        3
+
+/**
+ * Secure levels for "security_level" CRTC property.
+ *                        CRTC property which specifies what plane types
+ *                        can be attached to this CRTC. Plane component
+ *                        derives the plane type based on the FB_MODE.
+ * @ SDE_DRM_SEC_NON_SEC: Both Secure and non-secure plane types can be
+ *                        attached to this CRTC. This is the default state of
+ *                        the CRTC.
+ * @ SDE_DRM_SEC_ONLY:    Only secure planes can be added to this CRTC. If a
+ *                        CRTC is instructed to be in this mode it follows the
+ *                        platform dependent restrictions.
+ */
+#define SDE_DRM_SEC_NON_SEC            0
+#define SDE_DRM_SEC_ONLY               1
+
+/**
  * struct sde_drm_pix_ext_v1 - version 1 of pixel ext structure
  * @num_ext_pxls_lr: Number of total horizontal pixels
  * @num_ext_pxls_tb: Number of total vertical lines
@@ -253,6 +295,44 @@ struct sde_drm_scaler_v2 {
 	struct sde_drm_de_v1 de;
 };
 
+/* Number of dest scalers supported */
+#define SDE_MAX_DS_COUNT 2
+
+/*
+ * Destination scaler flag config
+ */
+#define SDE_DRM_DESTSCALER_ENABLE           0x1
+#define SDE_DRM_DESTSCALER_SCALE_UPDATE     0x2
+#define SDE_DRM_DESTSCALER_ENHANCER_UPDATE  0x4
+#define SDE_DRM_DESTSCALER_PU_ENABLE        0x8
+
+/**
+ * struct sde_drm_dest_scaler_cfg - destination scaler config structure
+ * @flags:      Flag to switch between mode for destination scaler
+ *              refer to destination scaler flag config
+ * @index:      Destination scaler selection index
+ * @lm_width:   Layer mixer width configuration
+ * @lm_height:  Layer mixer height configuration
+ * @scaler_cfg: The scaling parameters for all the mode except disable
+ *              Userspace pointer to struct sde_drm_scaler_v2
+ */
+struct sde_drm_dest_scaler_cfg {
+	uint32_t flags;
+	uint32_t index;
+	uint32_t lm_width;
+	uint32_t lm_height;
+	uint64_t scaler_cfg;
+};
+
+/**
+ * struct sde_drm_dest_scaler_data - destination scaler data struct
+ * @num_dest_scaler: Number of dest scalers to be configured
+ * @ds_cfg:          Destination scaler block configuration
+ */
+struct sde_drm_dest_scaler_data {
+	uint32_t num_dest_scaler;
+	struct sde_drm_dest_scaler_cfg ds_cfg[SDE_MAX_DS_COUNT];
+};
 
 /*
  * Define constants for struct sde_drm_csc
@@ -355,5 +435,15 @@ struct sde_drm_roi_v1 {
 	uint32_t num_rects;
 	struct drm_clip_rect roi[SDE_MAX_ROI_V1];
 };
+
+/**
+ * Define extended power modes supported by the SDE connectors.
+ */
+#define SDE_MODE_DPMS_ON	0
+#define SDE_MODE_DPMS_LP1	1
+#define SDE_MODE_DPMS_LP2	2
+#define SDE_MODE_DPMS_STANDBY	3
+#define SDE_MODE_DPMS_SUSPEND	4
+#define SDE_MODE_DPMS_OFF	5
 
 #endif /* _SDE_DRM_H_ */

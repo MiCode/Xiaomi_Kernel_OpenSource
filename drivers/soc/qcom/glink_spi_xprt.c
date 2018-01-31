@@ -111,7 +111,7 @@ struct glink_cmpnt {
  * @xprt_cfg:			The transport configuration for the glink core
  *				assocaited with this edge.
  * @subsys_name:		Name of the remote subsystem in the edge.
- * @spi_dev:			Pointer to the connectingSPI Device.
+ * @spi_ops:			Function pointers for ops provided by spi.
  * @fifo_size:			Size of the FIFO at the remote end.
  * @tx_fifo_start:		Base Address of the TX FIFO.
  * @tx_fifo_end:		End Address of the TX FIFO.
@@ -121,6 +121,8 @@ struct glink_cmpnt {
  * @tx_fifo_write_reg_addr:	Address of the TX FIFO Write Index Register.
  * @rx_fifo_read_reg_addr:	Address of the RX FIFO Read Index Register.
  * @rx_fifo_write_reg_addr:	Address of the RX FIFO Write Index Register.
+ * @tx_fifo_write:		Internal write index for TX FIFO.
+ * @rx_fifo_read:		Internal read index for RX FIFO.
  * @kwork:			Work to be executed when receiving data.
  * @kworker:			Handle to the entity processing @kwork.
  * @task:			Handle to the task context that runs @kworker.
@@ -147,7 +149,7 @@ struct edge_info {
 	struct glink_transport_if xprt_if;
 	struct glink_core_transport_cfg xprt_cfg;
 	char subsys_name[GLINK_NAME_SIZE];
-	struct spi_device *spi_dev;
+	struct wcd_spi_ops spi_ops;
 
 	uint32_t fifo_size;
 	uint32_t tx_fifo_start;
@@ -158,6 +160,8 @@ struct edge_info {
 	unsigned int tx_fifo_write_reg_addr;
 	unsigned int rx_fifo_read_reg_addr;
 	unsigned int rx_fifo_write_reg_addr;
+	uint32_t tx_fifo_write;
+	uint32_t rx_fifo_read;
 
 	struct kthread_work kwork;
 	struct kthread_worker kworker;
@@ -286,11 +290,14 @@ static int glink_spi_xprt_rx_data(struct edge_info *einfo, void *src,
 {
 	struct wcd_spi_msg spi_msg;
 
+	if (unlikely(!einfo->spi_ops.read_dev))
+		return -EINVAL;
+
 	memset(&spi_msg, 0, sizeof(spi_msg));
 	spi_msg.data = dst;
 	spi_msg.remote_addr = (uint32_t)(size_t)src;
 	spi_msg.len = (size_t)size;
-	return wcd_spi_data_read(einfo->spi_dev, &spi_msg);
+	return einfo->spi_ops.read_dev(einfo->spi_ops.spi_dev, &spi_msg);
 }
 
 /**
@@ -310,11 +317,14 @@ static int glink_spi_xprt_tx_data(struct edge_info *einfo, void *src,
 {
 	struct wcd_spi_msg spi_msg;
 
+	if (unlikely(!einfo->spi_ops.write_dev))
+		return -EINVAL;
+
 	memset(&spi_msg, 0, sizeof(spi_msg));
 	spi_msg.data = src;
 	spi_msg.remote_addr = (uint32_t)(size_t)dst;
 	spi_msg.len = (size_t)size;
-	return wcd_spi_data_write(einfo->spi_dev, &spi_msg);
+	return einfo->spi_ops.write_dev(einfo->spi_ops.spi_dev, &spi_msg);
 }
 
 /**
@@ -368,6 +378,19 @@ static int glink_spi_xprt_write_avail(struct edge_info *einfo)
 	int write_avail;
 	int ret;
 
+	if (unlikely(!einfo->tx_fifo_start)) {
+		ret = glink_spi_xprt_reg_read(einfo,
+			einfo->tx_fifo_write_reg_addr, &einfo->tx_fifo_write);
+		if (ret < 0) {
+			pr_err("%s: Error %d reading %s tx_fifo_write_reg_addr %d\n",
+				__func__, ret, einfo->xprt_cfg.edge,
+				einfo->tx_fifo_write_reg_addr);
+			return 0;
+		}
+		einfo->tx_fifo_start = einfo->tx_fifo_write;
+	}
+	write_id = einfo->tx_fifo_write;
+
 	ret = glink_spi_xprt_reg_read(einfo, einfo->tx_fifo_read_reg_addr,
 				   &read_id);
 	if (ret < 0) {
@@ -377,20 +400,8 @@ static int glink_spi_xprt_write_avail(struct edge_info *einfo)
 		return 0;
 	}
 
-	ret = glink_spi_xprt_reg_read(einfo, einfo->tx_fifo_write_reg_addr,
-				&write_id);
-	if (ret < 0) {
-		pr_err("%s: Error %d reading %s tx_fifo_write_reg_addr %d\n",
-			__func__, ret, einfo->xprt_cfg.edge,
-			einfo->tx_fifo_write_reg_addr);
-		return 0;
-	}
-
 	if (!read_id || !write_id)
 		return 0;
-
-	if (unlikely(!einfo->tx_fifo_start))
-		einfo->tx_fifo_start = write_id;
 
 	if (read_id > write_id)
 		write_avail = read_id - write_id;
@@ -421,14 +432,18 @@ static int glink_spi_xprt_read_avail(struct edge_info *einfo)
 	int read_avail;
 	int ret;
 
-	ret = glink_spi_xprt_reg_read(einfo, einfo->rx_fifo_read_reg_addr,
-				   &read_id);
-	if (ret < 0) {
-		pr_err("%s: Error %d reading %s rx_fifo_read_reg_addr %d\n",
-			__func__, ret, einfo->xprt_cfg.edge,
-			einfo->rx_fifo_read_reg_addr);
-		return 0;
+	if (unlikely(!einfo->rx_fifo_start)) {
+		ret = glink_spi_xprt_reg_read(einfo,
+			einfo->rx_fifo_read_reg_addr, &einfo->rx_fifo_read);
+		if (ret < 0) {
+			pr_err("%s: Error %d reading %s rx_fifo_read_reg_addr %d\n",
+				__func__, ret, einfo->xprt_cfg.edge,
+				einfo->rx_fifo_read_reg_addr);
+			return 0;
+		}
+		einfo->rx_fifo_start = einfo->rx_fifo_read;
 	}
+	read_id = einfo->rx_fifo_read;
 
 	ret = glink_spi_xprt_reg_read(einfo, einfo->rx_fifo_write_reg_addr,
 				&write_id);
@@ -441,9 +456,6 @@ static int glink_spi_xprt_read_avail(struct edge_info *einfo)
 
 	if (!read_id || !write_id)
 		return 0;
-
-	if (unlikely(!einfo->rx_fifo_start))
-		einfo->rx_fifo_start = read_id;
 
 	if (read_id <= write_id)
 		read_avail = write_id - read_id;
@@ -471,15 +483,7 @@ static int glink_spi_xprt_rx_cmd(struct edge_info *einfo, void *dst,
 	uint32_t offset = 0;
 	int ret;
 
-	ret = glink_spi_xprt_reg_read(einfo, einfo->rx_fifo_read_reg_addr,
-				   &read_id);
-	if (ret < 0) {
-		pr_err("%s: Error %d reading %s rx_fifo_read_reg_addr %d\n",
-			__func__, ret, einfo->xprt_cfg.edge,
-			einfo->rx_fifo_read_reg_addr);
-		return ret;
-	}
-
+	read_id = einfo->rx_fifo_read;
 	do {
 		if ((read_id + size_to_read) >=
 		    (einfo->rx_fifo_start + einfo->fifo_size))
@@ -504,6 +508,9 @@ static int glink_spi_xprt_rx_cmd(struct edge_info *einfo, void *dst,
 		pr_err("%s: Error %d writing %s rx_fifo_read_reg_addr %d\n",
 			__func__, ret, einfo->xprt_cfg.edge,
 			einfo->rx_fifo_read_reg_addr);
+	else
+		einfo->rx_fifo_read = read_id;
+
 	return ret;
 }
 
@@ -526,15 +533,7 @@ static int glink_spi_xprt_tx_cmd_safe(struct edge_info *einfo, void *src,
 	uint32_t offset = 0;
 	int ret;
 
-	ret = glink_spi_xprt_reg_read(einfo, einfo->tx_fifo_write_reg_addr,
-				&write_id);
-	if (ret < 0) {
-		pr_err("%s: Error %d reading %s tx_fifo_write_reg_addr %d\n",
-			__func__, ret, einfo->xprt_cfg.edge,
-			einfo->tx_fifo_write_reg_addr);
-		return ret;
-	}
-
+	write_id = einfo->tx_fifo_write;
 	do {
 		if ((write_id + size_to_write) >=
 		    (einfo->tx_fifo_start + einfo->fifo_size))
@@ -559,6 +558,9 @@ static int glink_spi_xprt_tx_cmd_safe(struct edge_info *einfo, void *src,
 		pr_err("%s: Error %d writing %s tx_fifo_write_reg_addr %d\n",
 			__func__, ret, einfo->xprt_cfg.edge,
 			einfo->tx_fifo_write_reg_addr);
+	else
+		einfo->tx_fifo_write = write_id;
+
 	return ret;
 }
 
@@ -1236,6 +1238,8 @@ static int ssr(struct glink_transport_if *if_ptr)
 	einfo->tx_blocked_signal_sent = false;
 	einfo->tx_fifo_start = 0;
 	einfo->rx_fifo_start = 0;
+	einfo->tx_fifo_write = 0;
+	einfo->rx_fifo_read = 0;
 	einfo->fifo_size = DEFAULT_FIFO_SIZE;
 	einfo->xprt_if.glink_core_if_ptr->link_down(&einfo->xprt_if);
 
@@ -1796,27 +1800,20 @@ static int glink_wdsp_cmpnt_event_handler(struct device *dev,
 {
 	struct edge_info *einfo = dev_get_drvdata(dev);
 	struct glink_cmpnt *cmpnt = &einfo->cmpnt;
-	struct device *sdev;
-	struct spi_device *spi_dev;
+	int rc = -EINVAL;
 
 	switch (event) {
 	case WDSP_EVENT_PRE_BOOTUP:
 		if (cmpnt && cmpnt->master_dev &&
 		    cmpnt->master_ops &&
-		    cmpnt->master_ops->get_dev_for_cmpnt)
-			sdev = cmpnt->master_ops->get_dev_for_cmpnt(
-				cmpnt->master_dev, WDSP_CMPNT_TRANSPORT);
-		else
-			sdev = NULL;
+		    cmpnt->master_ops->get_devops_for_cmpnt)
+			rc = cmpnt->master_ops->get_devops_for_cmpnt(
+				cmpnt->master_dev, WDSP_CMPNT_TRANSPORT,
+				&einfo->spi_ops);
 
-		if (!sdev) {
+		if (rc)
 			dev_err(dev, "%s: Failed to get transport device\n",
 				__func__);
-			break;
-		}
-
-		spi_dev = to_spi_device(sdev);
-		einfo->spi_dev = spi_dev;
 		break;
 	case WDSP_EVENT_POST_BOOTUP:
 		einfo->in_ssr = false;

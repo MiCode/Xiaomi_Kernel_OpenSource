@@ -12,6 +12,7 @@
 
 #include <linux/ipa_mhi.h>
 #include <linux/ipa_uc_offload.h>
+#include <linux/ipa_wdi3.h>
 #include "ipa_common_i.h"
 
 #ifndef _IPA_API_H_
@@ -33,6 +34,9 @@ struct ipa_api_controller {
 
 	int (*ipa_cfg_ep_nat)(u32 clnt_hdl,
 		const struct ipa_ep_cfg_nat *ipa_ep_cfg);
+
+	int (*ipa_cfg_ep_conn_track)(u32 clnt_hdl,
+		const struct ipa_ep_cfg_conn_track *ipa_ep_cfg);
 
 	int (*ipa_cfg_ep_hdr)(u32 clnt_hdl,
 		const struct ipa_ep_cfg_hdr *ipa_ep_cfg);
@@ -111,13 +115,29 @@ struct ipa_api_controller {
 
 	int (*ipa_reset_flt)(enum ipa_ip_type ip);
 
-	int (*allocate_nat_device)(struct ipa_ioc_nat_alloc_mem *mem);
+	int (*ipa_allocate_nat_device)(struct ipa_ioc_nat_alloc_mem *mem);
+
+	int (*ipa_allocate_nat_table)(
+		struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
+
+	int (*ipa_allocate_ipv6ct_table)(
+		struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
 
 	int (*ipa_nat_init_cmd)(struct ipa_ioc_v4_nat_init *init);
 
+	int (*ipa_ipv6ct_init_cmd)(struct ipa_ioc_ipv6ct_init *init);
+
 	int (*ipa_nat_dma_cmd)(struct ipa_ioc_nat_dma_cmd *dma);
 
+	int (*ipa_table_dma_cmd)(struct ipa_ioc_nat_dma_cmd *dma);
+
 	int (*ipa_nat_del_cmd)(struct ipa_ioc_v4_nat_del *del);
+
+	int (*ipa_del_nat_table)(struct ipa_ioc_nat_ipv6ct_table_del *del);
+
+	int (*ipa_del_ipv6ct_table)(struct ipa_ioc_nat_ipv6ct_table_del *del);
+
+	int (*ipa_nat_mdfy_pdn)(struct ipa_ioc_nat_pdn_entry *mdfy_pdn);
 
 	int (*ipa_send_msg)(struct ipa_msg_meta *meta, void *buff,
 		ipa_msg_free_fn callback);
@@ -321,6 +341,8 @@ struct ipa_api_controller {
 
 	int (*ipa_stop_gsi_channel)(u32 clnt_hdl);
 
+	int (*ipa_start_gsi_channel)(u32 clnt_hdl);
+
 	struct iommu_domain *(*ipa_get_smmu_domain)(void);
 
 	int (*ipa_disable_apps_wan_cons_deaggr)(uint32_t agg_size,
@@ -375,6 +397,30 @@ struct ipa_api_controller {
 		int ipa_ep_idx_dl);
 
 	struct device *(*ipa_get_pdev)(void);
+
+	int (*ipa_ntn_uc_reg_rdyCB)(void (*ipauc_ready_cb)(void *user_data),
+		void *user_data);
+
+	void (*ipa_ntn_uc_dereg_rdyCB)(void);
+
+	int (*ipa_conn_wdi3_pipes)(struct ipa_wdi3_conn_in_params *in,
+		struct ipa_wdi3_conn_out_params *out);
+
+	int (*ipa_disconn_wdi3_pipes)(int ipa_ep_idx_tx,
+		int ipa_ep_idx_rx);
+
+	int (*ipa_enable_wdi3_pipes)(int ipa_ep_idx_tx,
+		int ipa_ep_idx_rx);
+
+	int (*ipa_disable_wdi3_pipes)(int ipa_ep_idx_tx,
+		int ipa_ep_idx_rx);
+
+	int (*ipa_tz_unlock_reg)(struct ipa_tz_unlock_reg_info *reg_info,
+		u16 num_regs);
+
+	int (*ipa_get_smmu_params)(struct ipa_smmu_in_params *in,
+		struct ipa_smmu_out_params *out);
+	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
 };
 
 #ifdef CONFIG_IPA

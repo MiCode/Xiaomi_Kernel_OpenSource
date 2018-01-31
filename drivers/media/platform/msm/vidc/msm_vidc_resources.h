@@ -17,12 +17,9 @@
 #include <linux/devfreq.h>
 #include <linux/platform_device.h>
 #include <media/msm_vidc.h>
-#define MAX_BUFFER_TYPES 32
+#include <linux/soc/qcom/llcc-qcom.h>
 
-struct platform_version_table {
-	u32 version_mask;
-	u32 version_shift;
-};
+#define MAX_BUFFER_TYPES 32
 
 struct dcvs_table {
 	u32 load;
@@ -34,11 +31,6 @@ struct dcvs_table {
 struct dcvs_limit {
 	u32 min_mbpf;
 	u32 fps;
-};
-
-struct imem_ab_table {
-	u32 core_freq;
-	u32 imem_ab;
 };
 
 struct reg_value_pair {
@@ -115,18 +107,12 @@ struct bus_info {
 	struct devfreq_dev_profile devfreq_prof;
 	struct devfreq *devfreq;
 	struct msm_bus_client_handle *client;
+	bool is_prfm_gov_used;
 };
 
 struct bus_set {
 	struct bus_info *bus_tbl;
 	u32 count;
-};
-
-enum imem_type {
-	IMEM_NONE,
-	IMEM_OCMEM,
-	IMEM_VMEM,
-	IMEM_MAX,
 };
 
 struct allowed_clock_rates_table {
@@ -145,25 +131,36 @@ struct clock_freq_table {
 	u32 count;
 };
 
+struct subcache_info {
+	const char *name;
+	bool isactive;
+	bool isset;
+	struct llcc_slice_desc *subcache;
+};
+
+struct subcache_set {
+	struct subcache_info *subcache_tbl;
+	u32 count;
+};
+
 struct msm_vidc_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
 	uint32_t register_size;
 	uint32_t irq;
-	struct platform_version_table *pf_ver_tbl;
+	uint32_t sku_version;
 	struct allowed_clock_rates_table *allowed_clks_tbl;
 	u32 allowed_clks_tbl_size;
 	struct clock_freq_table clock_freq_tbl;
 	struct dcvs_table *dcvs_tbl;
 	uint32_t dcvs_tbl_size;
 	struct dcvs_limit *dcvs_limit;
-	struct imem_ab_table *imem_ab_tbl;
-	u32 imem_ab_tbl_size;
+	bool sys_cache_present;
+	bool sys_cache_res_set;
+	struct subcache_set subcache_set;
 	struct reg_set reg_set;
 	struct addr_set qdss_addr_set;
 	struct buffer_usage_set buffer_usage_set;
-	uint32_t imem_size;
-	enum imem_type imem_type;
 	uint32_t max_load;
 	uint32_t max_hq_mbs_per_frame;
 	uint32_t max_hq_fps;
@@ -184,14 +181,20 @@ struct msm_vidc_platform_resources {
 	uint32_t pm_qos_latency_us;
 	uint32_t max_inst_count;
 	uint32_t max_secure_inst_count;
+	int msm_vidc_hw_rsp_timeout;
+	int msm_vidc_firmware_unload_delay;
+	uint32_t msm_vidc_pwr_collapse_delay;
+	bool non_fatal_pagefaults;
+	bool cache_pagetables;
+	struct msm_vidc_codec_data *codec_data;
+	int codec_data_count;
+	struct msm_vidc_csc_coeff *csc_coeff_data;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
 {
 	return !list_empty(&res->context_banks);
 }
-
-extern uint32_t msm_vidc_pwr_collapse_delay;
 
 #endif
 

@@ -1,0 +1,88 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,mlp356477_2800mah {
+	/* #mlp356477_2800mah_averaged_MasterSlave_Aug14th2017*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,fastchg-current-ma = <4200>;
+	qcom,batt-id-kohm = <82>;
+	qcom,battery-beta = <4250>;
+	qcom,jeita-fcc-ranges = <0   150   560000
+				 151 450  4200000
+				 451 550  2380000>;
+	qcom,jeita-fv-ranges =  <0   150  4150000
+				 151 450  4400000
+				 451 550  4150000>;
+	qcom,battery-type =
+		"mlp356477_2800mah_averaged_masterslave_aug14th2017";
+	qcom,checksum = <0x71B8>;
+	qcom,gui-version = "PM660GUI - 0.0.0.44";
+	qcom,fg-profile-data = [
+		 60 1F BE 05
+		 75 0A 40 06
+		 81 1D F1 06
+		 B4 12 CC 1D
+		 CF 18 2A 22
+		 49 3D 4B 4A
+		 52 00 00 00
+		 18 00 00 00
+		 00 00 00 9C
+		 0C CC BA CA
+		 2B 00 08 00
+		 C5 E2 F9 ED
+		 30 05 D5 01
+		 9E 06 62 12
+		 4E E2 82 2B
+		 2D 06 09 20
+		 27 00 14 00
+		 DD 1F 70 05
+		 9E 0A 23 06
+		 81 1D DD EC
+		 4C 12 D2 1D
+		 DB 18 1F 23
+		 3E 45 5E 53
+		 52 00 00 00
+		 0D 00 00 00
+		 00 00 B8 D5
+		 37 CA 89 BB
+		 25 00 00 00
+		 AE EA F9 ED
+		 BF 05 9D FA
+		 DD 05 3E 01
+		 B7 F5 8A 22
+		 C9 33 CC FF
+		 07 10 00 00
+		 34 0B 66 46
+		 25 00 40 00
+		 87 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

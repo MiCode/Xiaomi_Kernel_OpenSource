@@ -1,0 +1,93 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm845-qvr.dtsi"
+#include "sdm845-camera-sensor-mtp.dtsi"
+
+&vendor {
+	qcom,battery-data {
+		#include "fg-gen3-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 126 GPIO_ACTIVE_LOW>;
+};
+
+&usb1 {
+	status = "ok";
+	dwc3@a800000 {
+		maximum-speed = "high-speed";
+		dr_mode = "host";
+	};
+};
+
+&qusb_phy1 {
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	status = "ok";
+};
+
+&tlmm {
+	pmx_ts_rst_active {
+		ts_rst_active: ts_rst_active {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_rst_suspend {
+		ts_rst_suspend: ts_rst_suspend {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+};
+
+&soc {
+	hbtp {
+		compatible = "qcom,hbtp-input";
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_rst_active>;
+		pinctrl-1 = <&ts_rst_suspend>;
+		vcc_ana-supply = <&pm8998_l28>;
+		vcc_dig-supply = <&pm8998_l14>;
+		qcom,afe-load = <20000>;
+		qcom,afe-vtg-min = <3000000>;
+		qcom,afe-vtg-max = <3000000>;
+		qcom,dig-load = <40000>;
+		qcom,dig-vtg-min = <1800000>;
+		qcom,dig-vtg-max = <1800000>;
+		qcom,fb-resume-delay-us = <1000>;
+		qcom,afe-force-power-on;
+		qcom,afe-power-on-delay-us = <6>;
+		qcom,afe-power-off-delay-us = <6>;
+	};
+};

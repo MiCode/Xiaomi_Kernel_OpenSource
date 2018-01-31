@@ -25,5 +25,5 @@
 
 /* clocks id */
 #define QDSS_CLK			0
-
+#define QDSS_AO_CLK			1
 #endif

@@ -1070,6 +1070,7 @@ static void passdown_endio(struct bio *bio)
 	 * to unmap (we ignore err).
 	 */
 	queue_passdown_pt2(bio->bi_private);
+	bio_put(bio);
 }
 
 static void process_prepared_discard_passdown_pt1(struct dm_thin_new_mapping *m)
@@ -1088,6 +1089,19 @@ static void process_prepared_discard_passdown_pt1(struct dm_thin_new_mapping *m)
 	r = dm_thin_remove_range(tc->td, m->virt_begin, m->virt_end);
 	if (r) {
 		metadata_operation_failed(pool, "dm_thin_remove_range", r);
+		bio_io_error(m->bio);
+		cell_defer_no_holder(tc, m->cell);
+		mempool_free(m, pool->mapping_pool);
+		return;
+	}
+
+	/*
+	 * Increment the unmapped blocks.  This prevents a race between the
+	 * passdown io and reallocation of freed blocks.
+	 */
+	r = dm_pool_inc_data_range(pool->pmd, m->data_block, data_end);
+	if (r) {
+		metadata_operation_failed(pool, "dm_pool_inc_data_range", r);
 		bio_io_error(m->bio);
 		cell_defer_no_holder(tc, m->cell);
 		mempool_free(m, pool->mapping_pool);
@@ -1113,19 +1127,6 @@ static void process_prepared_discard_passdown_pt1(struct dm_thin_new_mapping *m)
 			r = issue_discard(&op, m->data_block, data_end);
 			end_discard(&op, r);
 		}
-	}
-
-	/*
-	 * Increment the unmapped blocks.  This prevents a race between the
-	 * passdown io and reallocation of freed blocks.
-	 */
-	r = dm_pool_inc_data_range(pool->pmd, m->data_block, data_end);
-	if (r) {
-		metadata_operation_failed(pool, "dm_pool_inc_data_range", r);
-		bio_io_error(m->bio);
-		cell_defer_no_holder(tc, m->cell);
-		mempool_free(m, pool->mapping_pool);
-		return;
 	}
 }
 

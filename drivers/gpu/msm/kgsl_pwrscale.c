@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/hrtimer.h>
 #include <linux/devfreq_cooling.h>
+#include <linux/pm_opp.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -372,7 +373,7 @@ static bool popp_stable(struct kgsl_device *device)
 		}
 		if (nap_time && go_time) {
 			percent_nap = 100 * nap_time;
-			do_div(percent_nap, nap_time + go_time);
+			div64_s64(percent_nap, nap_time + go_time);
 		}
 		trace_kgsl_popp_nap(device, (int)nap_time / 1000, nap,
 				percent_nap);
@@ -530,9 +531,9 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	struct kgsl_device *device = dev_get_drvdata(dev);
 	struct kgsl_pwrctrl *pwr;
 	struct kgsl_pwrlevel *pwr_level;
-	int level, i;
+	int level;
+	unsigned int i;
 	unsigned long cur_freq, rec_freq;
-	struct dev_pm_opp *opp;
 
 	if (device == NULL)
 		return -ENODEV;
@@ -551,20 +552,7 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 		return 0;
 	}
 
-	/*
-	 * Thermal framework might have disabled/enabled OPP entries
-	 * for mitigation. So find the recommended frequency matching
-	 * the available opp entries
-	 */
-	rcu_read_lock();
 	rec_freq = *freq;
-	opp = devfreq_recommended_opp(dev, &rec_freq, flags);
-	if (IS_ERR(opp)) {
-		rcu_read_unlock();
-		return PTR_ERR(opp);
-	}
-	rec_freq = dev_pm_opp_get_freq(opp);
-	rcu_read_unlock();
 
 	mutex_lock(&device->mutex);
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
@@ -574,7 +562,12 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	/* If the governor recommends a new frequency, update it here */
 	if (rec_freq != cur_freq) {
 		level = pwr->max_pwrlevel;
-		for (i = pwr->min_pwrlevel; i >= pwr->max_pwrlevel; i--)
+		/*
+		 * Array index of pwrlevels[] should be within the permitted
+		 * power levels, i.e., from max_pwrlevel to min_pwrlevel.
+		 */
+		for (i = pwr->min_pwrlevel; (i >= pwr->max_pwrlevel
+					  && i <= pwr->min_pwrlevel); i--)
 			if (rec_freq <= pwr->pwrlevels[i].gpu_freq) {
 				if (pwr->thermal_cycle == CYCLE_ACTIVE)
 					level = _thermal_adjust(pwr, i);
@@ -609,7 +602,7 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 	struct kgsl_device *device = dev_get_drvdata(dev);
 	struct kgsl_pwrctrl *pwrctrl;
 	struct kgsl_pwrscale *pwrscale;
-	ktime_t tmp;
+	ktime_t tmp1, tmp2;
 
 	if (device == NULL)
 		return -ENODEV;
@@ -620,6 +613,8 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 	pwrctrl = &device->pwrctrl;
 
 	mutex_lock(&device->mutex);
+
+	tmp1 = ktime_get();
 	/*
 	 * If the GPU clock is on grab the latest power counter
 	 * values.  Otherwise the most recent ACTIVE values will
@@ -627,9 +622,9 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 	 */
 	kgsl_pwrscale_update_stats(device);
 
-	tmp = ktime_get();
-	stat->total_time = ktime_us_delta(tmp, pwrscale->time);
-	pwrscale->time = tmp;
+	tmp2 = ktime_get();
+	stat->total_time = ktime_us_delta(tmp2, pwrscale->time);
+	pwrscale->time = tmp1;
 
 	stat->busy_time = pwrscale->accum_stats.busy_time;
 
@@ -835,12 +830,16 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	}
 
 	b = pwr->bus_mod;
-	if (_check_fast_hint(bus_flag) &&
-		((pwr_level->bus_freq + pwr->bus_mod) < pwr_level->bus_max))
+	if (_check_fast_hint(bus_flag))
 		pwr->bus_mod++;
-	else if (_check_slow_hint(bus_flag) &&
-		((pwr_level->bus_freq + pwr->bus_mod) > pwr_level->bus_min))
+	else if (_check_slow_hint(bus_flag))
 		pwr->bus_mod--;
+
+	/* trim calculated change to fit range */
+	if (pwr_level->bus_freq + pwr->bus_mod < pwr_level->bus_min)
+		pwr->bus_mod = -(pwr_level->bus_freq - pwr_level->bus_min);
+	else if (pwr_level->bus_freq + pwr->bus_mod > pwr_level->bus_max)
+		pwr->bus_mod = pwr_level->bus_max - pwr_level->bus_freq;
 
 	/* Update bus vote if AB or IB is modified */
 	if ((pwr->bus_mod != b) || (pwr->bus_ab_mbytes != ab_mbytes)) {
@@ -858,6 +857,125 @@ int kgsl_busmon_get_cur_freq(struct device *dev, unsigned long *freq)
 	return 0;
 }
 
+/*
+ * opp_notify - Callback function registered to receive OPP events.
+ * @nb: The notifier block
+ * @type: The event type. Two OPP events are expected in this function:
+ *      - OPP_EVENT_ENABLE: an GPU OPP is enabled. The in_opp parameter
+ *	contains the OPP that is enabled
+ *	- OPP_EVENT_DISALBE: an GPU OPP is disabled. The in_opp parameter
+ *	contains the OPP that is disabled.
+ * @in_opp: the GPU OPP whose status is changed and triggered the event
+ *
+ * GPU OPP event callback function. The function subscribe GPU OPP status
+ * change and update thermal power level accordingly.
+ */
+
+static int opp_notify(struct notifier_block *nb,
+	unsigned long type, void *in_opp)
+{
+	int result = -EINVAL, level, min_level, max_level;
+	struct kgsl_pwrctrl *pwr = container_of(nb, struct kgsl_pwrctrl, nb);
+	struct kgsl_device *device = container_of(pwr,
+			struct kgsl_device, pwrctrl);
+	struct device *dev = &device->pdev->dev;
+	struct dev_pm_opp *opp;
+	unsigned long min_freq = 0, max_freq = pwr->pwrlevels[0].gpu_freq;
+
+	if (type != OPP_EVENT_ENABLE && type != OPP_EVENT_DISABLE)
+		return result;
+
+	rcu_read_lock();
+	opp = dev_pm_opp_find_freq_floor(dev, &max_freq);
+	if (IS_ERR(opp)) {
+		rcu_read_unlock();
+		return PTR_ERR(opp);
+	}
+
+	max_freq = dev_pm_opp_get_freq(opp);
+	if (!max_freq) {
+		rcu_read_unlock();
+		return result;
+	}
+
+	opp = dev_pm_opp_find_freq_ceil(dev, &min_freq);
+	if (IS_ERR(opp))
+		min_freq = pwr->pwrlevels[pwr->min_pwrlevel].gpu_freq;
+
+	rcu_read_unlock();
+
+	mutex_lock(&device->mutex);
+
+	max_level = pwr->thermal_pwrlevel;
+	min_level = pwr->thermal_pwrlevel_floor;
+
+	/* Thermal limit cannot be lower than lowest non-zero operating freq */
+	for (level = 0; level < (pwr->num_pwrlevels - 1); level++)
+		if (pwr->pwrlevels[level].gpu_freq == max_freq)
+			max_level = level;
+		if (pwr->pwrlevels[level].gpu_freq == min_freq)
+			min_level = level;
+
+
+	pwr->thermal_pwrlevel = max_level;
+	pwr->thermal_pwrlevel_floor = min_level;
+
+	/* Update the current level using the new limit */
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
+/*
+ * kgsl_opp_add_notifier - add a fine grained notifier.
+ * @dev: The device
+ * @nb: Notifier block that will receive updates.
+ *
+ * Add a notifier to receive GPU OPP_EVENT_* events
+ * from the OPP framework.
+ */
+static int kgsl_opp_add_notifier(struct device *dev,
+		struct notifier_block *nb)
+{
+	struct srcu_notifier_head *nh;
+	int ret = 0;
+
+	rcu_read_lock();
+	nh = dev_pm_opp_get_notifier(dev);
+	if (IS_ERR(nh))
+		ret = PTR_ERR(nh);
+	rcu_read_unlock();
+	if (!ret)
+		ret = srcu_notifier_chain_register(nh, nb);
+
+	return ret;
+}
+
+/*
+ * kgsl_opp_remove_notifier - remove registered opp event notifier.
+ * @dev: The device
+ * @nb: Notifier block that will receive updates.
+ *
+ * Remove gpu notifier that receives GPU OPP_EVENT_* events
+ * from the OPP framework.
+ */
+static int kgsl_opp_remove_notifier(struct device *dev,
+		struct notifier_block *nb)
+{
+	struct srcu_notifier_head *nh;
+	int ret = 0;
+
+	rcu_read_lock();
+	nh = dev_pm_opp_get_notifier(dev);
+	if (IS_ERR(nh))
+		ret = PTR_ERR(nh);
+	rcu_read_unlock();
+	if (!ret)
+		ret = srcu_notifier_chain_unregister(nh, nb);
+
+	return ret;
+}
 
 /*
  * kgsl_pwrscale_init - Initialize pwrscale.
@@ -887,6 +1005,10 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	pwr = &device->pwrctrl;
 	gpu_profile = &pwrscale->gpu_profile;
 	profile = &pwrscale->gpu_profile.profile;
+
+	pwr->nb.notifier_call = opp_notify;
+
+	kgsl_opp_add_notifier(dev, &pwr->nb);
 
 	srcu_init_notifier_head(&pwrscale->nh);
 
@@ -927,8 +1049,7 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 				&data->bin.ctxt_aware_target_pwrlevel))
 			data->bin.ctxt_aware_target_pwrlevel = 1;
 
-		if ((data->bin.ctxt_aware_target_pwrlevel < 0) ||
-			(data->bin.ctxt_aware_target_pwrlevel >
+		if ((data->bin.ctxt_aware_target_pwrlevel >
 						pwr->num_pwrlevels))
 			data->bin.ctxt_aware_target_pwrlevel = 1;
 
@@ -1042,7 +1163,9 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 {
 	int i;
 	struct kgsl_pwrscale *pwrscale;
+	struct kgsl_pwrctrl *pwr;
 
+	pwr = &device->pwrctrl;
 	pwrscale = &device->pwrscale;
 	if (!pwrscale->devfreqptr)
 		return;
@@ -1057,6 +1180,7 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	kgsl_midframe = NULL;
 	device->pwrscale.devfreqptr = NULL;
 	srcu_cleanup_notifier_head(&device->pwrscale.nh);
+	kgsl_opp_remove_notifier(&device->pdev->dev, &pwr->nb);
 	for (i = 0; i < KGSL_PWREVENT_MAX; i++)
 		kfree(pwrscale->history[i].events);
 }

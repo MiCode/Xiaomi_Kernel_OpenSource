@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s: " fmt, __func__
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
 #include <linux/clk-provider.h>
 #include <linux/clk.h>
@@ -30,7 +30,7 @@ struct qmp_pkt {
 	void *data;
 };
 
-#define DEFINE_CLK_AOP_QMP(_name, _class, _res, _estate, _dstate)	\
+#define DEFINE_CLK_AOP_QMP(_name, _class, _res, _estate, _dstate, _flags) \
 	static struct clk_aop_qmp _name = {				\
 		.msg.class = #_class,					\
 		.msg.res = #_res,					\
@@ -40,7 +40,7 @@ struct qmp_pkt {
 			.ops = &aop_qmp_clk_ops,			\
 			.name = #_name,					\
 			.num_parents = 0,				\
-			.flags = CLK_ENABLE_HAND_OFF,			\
+			.flags = _flags,				\
 		},							\
 	}
 
@@ -139,6 +139,12 @@ static int clk_aop_qmp_prepare(struct clk_hw *hw)
 	struct clk_aop_qmp *clk = to_aop_qmp_clk(hw);
 
 	mutex_lock(&clk_aop_lock);
+	/*
+	 * Return early if the clock has been enabled already. This
+	 * is to avoid issues with sending duplicate enable requests.
+	 */
+	if (clk->enabled)
+		goto err;
 
 	if (clk->level)
 		rate = clk->level;
@@ -179,6 +185,9 @@ static void clk_aop_qmp_unprepare(struct clk_hw *hw)
 
 	mutex_lock(&clk_aop_lock);
 
+	if (!clk->enabled)
+		goto err;
+
 	rate = clk->disable_state;
 
 	snprintf(mbox_msg, MAX_LEN, "{class: %s, res: %s, val: %ld}",
@@ -214,12 +223,24 @@ static const struct clk_ops aop_qmp_clk_ops = {
 	.is_enabled	= clk_aop_qmp_is_enabled,
 };
 
-DEFINE_CLK_AOP_QMP(qdss_qmp_clk, clock, qdss,
-		QDSS_CLK_LEVEL_DYNAMIC, QDSS_CLK_LEVEL_OFF);
+DEFINE_CLK_AOP_QMP(qdss_qmp_clk, clock, qdss, QDSS_CLK_LEVEL_DYNAMIC,
+			QDSS_CLK_LEVEL_OFF, CLK_ENABLE_HAND_OFF);
+DEFINE_CLK_AOP_QMP(qdss_ao_qmp_clk, clock, qdss_ao, QDSS_CLK_LEVEL_DYNAMIC,
+			QDSS_CLK_LEVEL_OFF, 0);
 
 static struct clk_hw *aop_qmp_clk_hws[] = {
 	[QDSS_CLK] = &qdss_qmp_clk.hw,
+	[QDSS_AO_CLK] = &qdss_ao_qmp_clk.hw,
 };
+
+/*
+ * Due to HW limitations on v1, the qdss_ao clock was not supported by the clock
+ * driver on AOP.
+ */
+static void aop_qmp_fixup_v1(void)
+{
+	aop_qmp_clk_hws[QDSS_AO_CLK] = NULL;
+}
 
 static int qmp_update_client(struct clk_hw *hw, struct device *dev,
 		struct mbox_chan *mbox)
@@ -250,7 +271,7 @@ static int qmp_update_client(struct clk_hw *hw, struct device *dev,
 
 static int aop_qmp_clk_probe(struct platform_device *pdev)
 {
-	struct clk *clk;
+	struct clk *clk = NULL;
 	struct device_node *np = pdev->dev.of_node;
 	struct mbox_chan *mbox = NULL;
 	int num_clks = ARRAY_SIZE(aop_qmp_clk_hws);
@@ -264,7 +285,12 @@ static int aop_qmp_clk_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,aop-qmp-clk-v1"))
+		aop_qmp_fixup_v1();
+
 	for (i = 1; i < num_clks; i++) {
+		if (!aop_qmp_clk_hws[i])
+			continue;
 		ret = qmp_update_client(aop_qmp_clk_hws[i], &pdev->dev, mbox);
 		if (ret < 0) {
 			dev_err(&pdev->dev, "Failed to update QMP client %d\n",
@@ -273,13 +299,17 @@ static int aop_qmp_clk_probe(struct platform_device *pdev)
 		}
 	}
 
-	for (i = 0; i < num_clks; i++) {
-		ret = clk_aop_qmp_prepare(aop_qmp_clk_hws[i]);
-		if (ret < 0)
-			goto fail;
-	}
+	/*
+	 * Proxy vote on the QDSS clock. This is needed to avoid issues with
+	 * excessive requests on the QMP layer during the QDSS driver probe.
+	 */
+	ret = clk_aop_qmp_prepare(&qdss_qmp_clk.hw);
+	if (ret < 0)
+		goto fail;
 
 	for (i = 0; i < num_clks; i++) {
+		if (!aop_qmp_clk_hws[i])
+			continue;
 		clk = devm_clk_register(&pdev->dev, aop_qmp_clk_hws[i]);
 		if (IS_ERR(clk)) {
 			ret = PTR_ERR(clk);
@@ -303,7 +333,8 @@ fail:
 }
 
 static const struct of_device_id aop_qmp_clk_of_match[] = {
-	{ .compatible = "qcom,aop-qmp-clk", },
+	{ .compatible = "qcom,aop-qmp-clk-v1" },
+	{ .compatible = "qcom,aop-qmp-clk-v2" },
 	{}
 };
 

@@ -315,6 +315,13 @@ static struct key *request_user_key(const char *master_desc, const u8 **master_k
 
 	down_read(&ukey->sem);
 	upayload = user_key_payload(ukey);
+	if (!upayload) {
+		/* key was revoked before we acquired its semaphore */
+		up_read(&ukey->sem);
+		key_put(ukey);
+		ukey = ERR_PTR(-EKEYREVOKED);
+		goto error;
+	}
 	*master_key = upayload->data;
 	*master_keylen = upayload->datalen;
 error:
@@ -437,7 +444,7 @@ static struct skcipher_request *init_skcipher_req(const u8 *key,
 static struct key *request_master_key(struct encrypted_key_payload *epayload,
 				      const u8 **master_key, size_t *master_keylen)
 {
-	struct key *mkey = NULL;
+	struct key *mkey = ERR_PTR(-EINVAL);
 
 	if (!strncmp(epayload->master_desc, KEY_TRUSTED_PREFIX,
 		     KEY_TRUSTED_PREFIX_LEN)) {
@@ -480,12 +487,9 @@ static int derived_key_encrypt(struct encrypted_key_payload *epayload,
 	struct skcipher_request *req;
 	unsigned int encrypted_datalen;
 	u8 iv[AES_BLOCK_SIZE];
-	unsigned int padlen;
-	char pad[16];
 	int ret;
 
 	encrypted_datalen = roundup(epayload->decrypted_datalen, blksize);
-	padlen = encrypted_datalen - epayload->decrypted_datalen;
 
 	req = init_skcipher_req(derived_key, derived_keylen);
 	ret = PTR_ERR(req);
@@ -493,11 +497,10 @@ static int derived_key_encrypt(struct encrypted_key_payload *epayload,
 		goto out;
 	dump_decrypted_data(epayload);
 
-	memset(pad, 0, sizeof pad);
 	sg_init_table(sg_in, 2);
 	sg_set_buf(&sg_in[0], epayload->decrypted_data,
 		   epayload->decrypted_datalen);
-	sg_set_buf(&sg_in[1], pad, padlen);
+	sg_set_page(&sg_in[1], ZERO_PAGE(0), AES_BLOCK_SIZE, 0);
 
 	sg_init_table(sg_out, 1);
 	sg_set_buf(sg_out, epayload->encrypted_data, encrypted_datalen);
@@ -584,8 +587,13 @@ static int derived_key_decrypt(struct encrypted_key_payload *epayload,
 	struct skcipher_request *req;
 	unsigned int encrypted_datalen;
 	u8 iv[AES_BLOCK_SIZE];
-	char pad[16];
+	u8 *pad;
 	int ret;
+
+	/* Throwaway buffer to hold the unused zero padding at the end */
+	pad = kmalloc(AES_BLOCK_SIZE, GFP_KERNEL);
+	if (!pad)
+		return -ENOMEM;
 
 	encrypted_datalen = roundup(epayload->decrypted_datalen, blksize);
 	req = init_skcipher_req(derived_key, derived_keylen);
@@ -594,13 +602,12 @@ static int derived_key_decrypt(struct encrypted_key_payload *epayload,
 		goto out;
 	dump_encrypted_data(epayload, encrypted_datalen);
 
-	memset(pad, 0, sizeof pad);
 	sg_init_table(sg_in, 1);
 	sg_init_table(sg_out, 2);
 	sg_set_buf(sg_in, epayload->encrypted_data, encrypted_datalen);
 	sg_set_buf(&sg_out[0], epayload->decrypted_data,
 		   epayload->decrypted_datalen);
-	sg_set_buf(&sg_out[1], pad, sizeof pad);
+	sg_set_buf(&sg_out[1], pad, AES_BLOCK_SIZE);
 
 	memcpy(iv, epayload->iv, sizeof(iv));
 	skcipher_request_set_crypt(req, sg_in, sg_out, encrypted_datalen, iv);
@@ -612,6 +619,7 @@ static int derived_key_decrypt(struct encrypted_key_payload *epayload,
 		goto out;
 	dump_decrypted_data(epayload);
 out:
+	kfree(pad);
 	return ret;
 }
 
@@ -866,7 +874,7 @@ static int encrypted_update(struct key *key, struct key_preparsed_payload *prep)
 	size_t datalen = prep->datalen;
 	int ret = 0;
 
-	if (test_bit(KEY_FLAG_NEGATIVE, &key->flags))
+	if (key_is_negative(key))
 		return -ENOKEY;
 	if (datalen <= 0 || datalen > 32767 || !prep->data)
 		return -EINVAL;

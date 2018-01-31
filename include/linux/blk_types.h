@@ -81,6 +81,12 @@ struct bio {
 	struct bio_set		*bi_pool;
 
 	/*
+	 * When using dircet-io (O_DIRECT), we can't get the inode from a bio
+	 * by walking bio->bi_io_vec->bv_page->mapping->host
+	 * since the page is anon.
+	 */
+	struct inode		*bi_dio_inode;
+	/*
 	 * We can inline a number of vecs at the end of the bio, to avoid
 	 * double allocations for a small number of bio_vecs. This member
 	 * MUST obviously be kept at the very end of the bio.
@@ -125,6 +131,15 @@ struct bio {
  * BVEC_POOL_IDX()
  */
 #define BIO_RESET_BITS	10
+
+
+/*
+ * Added for Req based dm which need to perform post processing. This flag
+ * ensures blk_update_request does not free the bios or request, this is done
+ * at the dm level
+ */
+#define BIO_DONTFREE	10
+#define BIO_INLINECRYPT	11
 
 /*
  * We support 6 different bvec pools, the last one is magic in that it

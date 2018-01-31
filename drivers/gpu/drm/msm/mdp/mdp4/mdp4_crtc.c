@@ -133,7 +133,7 @@ static void unref_cursor_worker(struct drm_flip_work *work, void *val)
 		container_of(work, struct mdp4_crtc, unref_cursor_work);
 	struct mdp4_kms *mdp4_kms = get_kms(&mdp4_crtc->base);
 
-	msm_gem_put_iova(val, mdp4_kms->id);
+	msm_gem_put_iova(val, mdp4_kms->aspace);
 	drm_gem_object_unreference_unlocked(val);
 }
 
@@ -378,7 +378,8 @@ static void update_cursor(struct drm_crtc *crtc)
 		if (next_bo) {
 			/* take a obj ref + iova ref when we start scanning out: */
 			drm_gem_object_reference(next_bo);
-			msm_gem_get_iova_locked(next_bo, mdp4_kms->id, &iova);
+			msm_gem_get_iova_locked(next_bo, mdp4_kms->aspace,
+				&iova);
 
 			/* enable cursor: */
 			mdp4_write(mdp4_kms, REG_MDP4_DMA_CURSOR_SIZE(dma),
@@ -435,7 +436,7 @@ static int mdp4_crtc_cursor_set(struct drm_crtc *crtc,
 	}
 
 	if (cursor_bo) {
-		ret = msm_gem_get_iova(cursor_bo, mdp4_kms->id, &iova);
+		ret = msm_gem_get_iova(cursor_bo, mdp4_kms->aspace, &iova);
 		if (ret)
 			goto fail;
 	} else {

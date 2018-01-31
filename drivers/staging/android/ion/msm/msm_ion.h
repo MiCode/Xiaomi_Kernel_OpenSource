@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,8 @@ enum ion_permission_type {
 	IPT_TYPE_MFC_SHAREDMEM = 1,
 	IPT_TYPE_MDP_WRITEBACK = 2,
 };
+
+#define ION_FLAGS_CP_MASK	0x7FFF0000
 
 /*
  * This flag allows clients when mapping into the IOMMU to specify to
@@ -172,6 +174,8 @@ int msm_ion_do_cache_offset_op(
 		void *vaddr, unsigned int offset, unsigned long len,
 		unsigned int cmd);
 
+bool is_buffer_hlos_assigned(struct ion_buffer *buffer);
+
 #else
 static inline struct ion_client *msm_ion_client_create(const char *name)
 {
@@ -200,6 +204,10 @@ int msm_ion_do_cache_offset_op(
 	return -ENODEV;
 }
 
+static bool is_buffer_hlos_assigned(struct ion_buffer *buffer)
+{
+	return true;
+}
 #endif /* CONFIG_ION */
 
 #endif

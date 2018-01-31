@@ -14,17 +14,29 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
 #include <linux/io-pgtable-fast.h>
+#include <linux/pci.h>
 #include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <trace/events/iommu.h>
+
+#include <soc/qcom/secure_buffer.h>
+#include <linux/arm-smmu-errata.h>
 
 /* some redundant definitions... :( TODO: move to io-pgtable-fast.h */
 #define FAST_PAGE_SHIFT		12
 #define FAST_PAGE_SIZE (1UL << FAST_PAGE_SHIFT)
 #define FAST_PAGE_MASK (~(PAGE_SIZE - 1))
 #define FAST_PTE_ADDR_MASK		((av8l_fast_iopte)0xfffffffff000)
+#define FAST_MAIR_ATTR_IDX_CACHE	1
+#define FAST_PTE_ATTRINDX_SHIFT		2
+#define FAST_PTE_ATTRINDX_MASK		0x7
+#define FAST_PTE_SH_SHIFT		8
+#define FAST_PTE_SH_MASK	   (((av8l_fast_iopte)0x3) << FAST_PTE_SH_SHIFT)
+#define FAST_PTE_SH_OS             (((av8l_fast_iopte)2) << FAST_PTE_SH_SHIFT)
+#define FAST_PTE_SH_IS             (((av8l_fast_iopte)3) << FAST_PTE_SH_SHIFT)
 
 static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 				 bool coherent)
@@ -54,6 +66,36 @@ static void fast_dmac_clean_range(struct dma_fast_smmu_mapping *mapping,
 {
 	if (!mapping->is_smmu_pt_coherent)
 		dmac_clean_range(start, end);
+}
+
+static bool __fast_is_pte_coherent(av8l_fast_iopte *ptep)
+{
+	int attr_idx = (*ptep & (FAST_PTE_ATTRINDX_MASK <<
+			FAST_PTE_ATTRINDX_SHIFT)) >>
+			FAST_PTE_ATTRINDX_SHIFT;
+
+	if ((attr_idx == FAST_MAIR_ATTR_IDX_CACHE) &&
+		(((*ptep & FAST_PTE_SH_MASK) == FAST_PTE_SH_IS) ||
+		  (*ptep & FAST_PTE_SH_MASK) == FAST_PTE_SH_OS))
+		return true;
+
+	return false;
+}
+
+static bool is_dma_coherent(struct device *dev, unsigned long attrs)
+{
+	bool is_coherent;
+
+	if (attrs & DMA_ATTR_FORCE_COHERENT)
+		is_coherent = true;
+	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
+		is_coherent = false;
+	else if (is_device_dma_coherent(dev))
+		is_coherent = true;
+	else
+		is_coherent = false;
+
+	return is_coherent;
 }
 
 /*
@@ -115,9 +157,18 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 					 unsigned long attrs,
 					 size_t size)
 {
-	unsigned long bit, prev_search_start, nbits = size >> FAST_PAGE_SHIFT;
-	unsigned long align = (1 << get_order(size)) - 1;
+	unsigned long bit, prev_search_start, nbits;
+	unsigned long align;
+	unsigned long guard_len;
+	dma_addr_t iova;
 
+	if (mapping->min_iova_align)
+		guard_len = ALIGN(size, mapping->min_iova_align) - size;
+	else
+		guard_len = 0;
+
+	nbits = (size + guard_len) >> FAST_PAGE_SHIFT;
+	align = (1 << get_order(size + guard_len)) - 1;
 	bit = bitmap_find_next_zero_area(
 		mapping->bitmap, mapping->num_4k_pages, mapping->next_start,
 		nbits, align);
@@ -154,7 +205,16 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 		av8l_fast_clear_stale_ptes(mapping->pgtbl_pmds, skip_sync);
 	}
 
-	return (bit << FAST_PAGE_SHIFT) + mapping->base;
+	iova =  (bit << FAST_PAGE_SHIFT) + mapping->base;
+	if (guard_len &&
+		iommu_map(mapping->domain, iova + size,
+			page_to_phys(mapping->guard_page),
+			guard_len, ARM_SMMU_GUARD_PROT)) {
+
+		bitmap_clear(mapping->bitmap, bit, nbits);
+		return DMA_ERROR_CODE;
+	}
+	return iova;
 }
 
 /*
@@ -248,7 +308,17 @@ static void __fast_smmu_free_iova(struct dma_fast_smmu_mapping *mapping,
 				  dma_addr_t iova, size_t size)
 {
 	unsigned long start_bit = (iova - mapping->base) >> FAST_PAGE_SHIFT;
-	unsigned long nbits = size >> FAST_PAGE_SHIFT;
+	unsigned long nbits;
+	unsigned long guard_len;
+
+	if (mapping->min_iova_align) {
+		guard_len = ALIGN(size, mapping->min_iova_align) - size;
+		iommu_unmap(mapping->domain, iova + size, guard_len);
+	} else {
+		guard_len = 0;
+	}
+	nbits = (size + guard_len) >> FAST_PAGE_SHIFT;
+
 
 	/*
 	 * We don't invalidate TLBs on unmap.  We invalidate TLBs on map
@@ -313,7 +383,7 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	int nptes = len >> FAST_PAGE_SHIFT;
 	bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
 	int prot = __fast_dma_direction_to_prot(dir);
-	bool is_coherent = is_device_dma_coherent(dev);
+	bool is_coherent = is_dma_coherent(dev, attrs);
 
 	prot = __get_iommu_pgprot(attrs, prot, is_coherent);
 
@@ -336,6 +406,8 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
 
 	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	trace_map(mapping->domain, iova, phys_to_map, len, prot);
 	return iova + offset_from_phys_to_map;
 
 fail_free_iova:
@@ -357,7 +429,7 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 	int nptes = len >> FAST_PAGE_SHIFT;
 	struct page *page = phys_to_page((*pmd & FAST_PTE_ADDR_MASK));
 	bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
-	bool is_coherent = is_device_dma_coherent(dev);
+	bool is_coherent = is_dma_coherent(dev, attrs);
 
 	if (!skip_sync && !is_coherent)
 		__fast_dma_page_dev_to_cpu(page, offset, size, dir);
@@ -365,8 +437,10 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 	spin_lock_irqsave(&mapping->lock, flags);
 	av8l_fast_unmap_public(pmd, len);
 	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
-	__fast_smmu_free_iova(mapping, iova, len);
+	__fast_smmu_free_iova(mapping, iova - offset, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	trace_unmap(mapping->domain, iova - offset, len, len);
 }
 
 static void fast_smmu_sync_single_for_cpu(struct device *dev,
@@ -377,7 +451,7 @@ static void fast_smmu_sync_single_for_cpu(struct device *dev,
 	unsigned long offset = iova & ~FAST_PAGE_MASK;
 	struct page *page = phys_to_page((*pmd & FAST_PTE_ADDR_MASK));
 
-	if (!is_device_dma_coherent(dev))
+	if (!__fast_is_pte_coherent(pmd))
 		__fast_dma_page_dev_to_cpu(page, offset, size, dir);
 }
 
@@ -389,7 +463,7 @@ static void fast_smmu_sync_single_for_device(struct device *dev,
 	unsigned long offset = iova & ~FAST_PAGE_MASK;
 	struct page *page = phys_to_page((*pmd & FAST_PTE_ADDR_MASK));
 
-	if (!is_device_dma_coherent(dev))
+	if (!__fast_is_pte_coherent(pmd))
 		__fast_dma_page_cpu_to_dev(page, offset, size, dir);
 }
 
@@ -397,7 +471,8 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 			    int nents, enum dma_data_direction dir,
 			    unsigned long attrs)
 {
-	return -EINVAL;
+	/* 0 indicates error */
+	return 0;
 }
 
 static void fast_smmu_unmap_sg(struct device *dev,
@@ -469,7 +544,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	struct sg_mapping_iter miter;
 	unsigned int count = ALIGN(size, SZ_4K) >> PAGE_SHIFT;
 	int prot = IOMMU_READ | IOMMU_WRITE; /* TODO: extract from attrs */
-	bool is_coherent = is_device_dma_coherent(dev);
+	bool is_coherent = is_dma_coherent(dev, attrs);
 	pgprot_t remap_prot = __get_dma_pgprot(attrs, PAGE_KERNEL, is_coherent);
 	struct page **pages;
 
@@ -591,7 +666,7 @@ static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	unsigned long uaddr = vma->vm_start;
 	struct page **pages;
 	int i, nr_pages, ret = 0;
-	bool coherent = is_device_dma_coherent(dev);
+	bool coherent = is_dma_coherent(dev, attrs);
 
 	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot,
 					     coherent);
@@ -611,9 +686,67 @@ static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	return ret;
 }
 
-static int fast_smmu_dma_supported(struct device *dev, u64 mask)
+static int fast_smmu_get_sgtable(struct device *dev, struct sg_table *sgt,
+				void *cpu_addr, dma_addr_t dma_addr,
+				size_t size, unsigned long attrs)
 {
-	return mask <= 0xffffffff;
+	unsigned int n_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	struct vm_struct *area;
+
+	area = find_vm_area(cpu_addr);
+	if (!area || !area->pages)
+		return -EINVAL;
+
+	return sg_alloc_table_from_pages(sgt, area->pages, n_pages, 0, size,
+					GFP_KERNEL);
+}
+
+static dma_addr_t fast_smmu_dma_map_resource(
+			struct device *dev, phys_addr_t phys_addr,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs)
+{
+	struct dma_fast_smmu_mapping *mapping = dev->archdata.mapping->fast;
+	size_t offset = phys_addr & ~FAST_PAGE_MASK;
+	size_t len = round_up(size + offset, FAST_PAGE_SIZE);
+	dma_addr_t dma_addr;
+	int prot;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mapping->lock, flags);
+	dma_addr = __fast_smmu_alloc_iova(mapping, attrs, len);
+	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	if (dma_addr == DMA_ERROR_CODE)
+		return dma_addr;
+
+	prot = __fast_dma_direction_to_prot(dir);
+	prot |= IOMMU_MMIO;
+
+	if (iommu_map(mapping->domain, dma_addr, phys_addr - offset,
+			len, prot)) {
+		spin_lock_irqsave(&mapping->lock, flags);
+		__fast_smmu_free_iova(mapping, dma_addr, len);
+		spin_unlock_irqrestore(&mapping->lock, flags);
+		return DMA_ERROR_CODE;
+	}
+	return dma_addr + offset;
+}
+
+static void fast_smmu_dma_unmap_resource(
+			struct device *dev, dma_addr_t addr,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs)
+{
+	struct dma_fast_smmu_mapping *mapping = dev->archdata.mapping->fast;
+	size_t offset = addr & ~FAST_PAGE_MASK;
+	size_t len = round_up(size + offset, FAST_PAGE_SIZE);
+	unsigned long flags;
+
+	iommu_unmap(mapping->domain, addr - offset, len);
+	spin_lock_irqsave(&mapping->lock, flags);
+	__fast_smmu_free_iova(mapping, addr - offset, len);
+	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
 static int fast_smmu_mapping_error(struct device *dev,
@@ -659,6 +792,7 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
 	.alloc = fast_smmu_alloc,
 	.free = fast_smmu_free,
 	.mmap = fast_smmu_mmap_attrs,
+	.get_sgtable = fast_smmu_get_sgtable,
 	.map_page = fast_smmu_map_page,
 	.unmap_page = fast_smmu_unmap_page,
 	.sync_single_for_cpu = fast_smmu_sync_single_for_cpu,
@@ -667,7 +801,8 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
 	.unmap_sg = fast_smmu_unmap_sg,
 	.sync_sg_for_cpu = fast_smmu_sync_sg_for_cpu,
 	.sync_sg_for_device = fast_smmu_sync_sg_for_device,
-	.dma_supported = fast_smmu_dma_supported,
+	.map_resource = fast_smmu_dma_map_resource,
+	.unmap_resource = fast_smmu_dma_unmap_resource,
 	.mapping_error = fast_smmu_mapping_error,
 };
 
@@ -714,31 +849,93 @@ err:
 	return ERR_PTR(-ENOMEM);
 }
 
+/*
+ * Based off of similar code from dma-iommu.c, but modified to use a different
+ * iova allocator
+ */
+static void fast_smmu_reserve_pci_windows(struct device *dev,
+			    struct dma_fast_smmu_mapping *mapping)
+{
+	struct pci_host_bridge *bridge;
+	struct resource_entry *window;
+	phys_addr_t start, end;
+	struct pci_dev *pci_dev;
+	unsigned long flags;
+
+	if (!dev_is_pci(dev))
+		return;
+
+	pci_dev = to_pci_dev(dev);
+	bridge = pci_find_host_bridge(pci_dev->bus);
+
+	spin_lock_irqsave(&mapping->lock, flags);
+	resource_list_for_each_entry(window, &bridge->windows) {
+		if (resource_type(window->res) != IORESOURCE_MEM &&
+		    resource_type(window->res) != IORESOURCE_IO)
+			continue;
+
+		start = round_down(window->res->start - window->offset,
+				FAST_PAGE_SIZE);
+		end = round_up(window->res->end - window->offset,
+				FAST_PAGE_SIZE);
+		start = max_t(unsigned long, mapping->base, start);
+		end = min_t(unsigned long, mapping->base + mapping->size, end);
+		if (start >= end)
+			continue;
+
+		dev_dbg(dev, "iova allocator reserved 0x%pa-0x%pa\n",
+				&start, &end);
+
+		start = (start - mapping->base) >> FAST_PAGE_SHIFT;
+		end = (end - mapping->base) >> FAST_PAGE_SHIFT;
+		bitmap_set(mapping->bitmap, start, end - start);
+	}
+	spin_unlock_irqrestore(&mapping->lock, flags);
+}
+
+static int fast_smmu_errata_init(struct dma_iommu_mapping *mapping)
+{
+	struct dma_fast_smmu_mapping *fast = mapping->fast;
+	int vmid = VMID_HLOS;
+	int min_iova_align = 0;
+
+	iommu_domain_get_attr(mapping->domain,
+			DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,
+			&min_iova_align);
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_SECURE_VMID, &vmid);
+	if (vmid >= VMID_LAST || vmid < 0)
+		vmid = VMID_HLOS;
+
+	if (min_iova_align) {
+		fast->min_iova_align = ARM_SMMU_MIN_IOVA_ALIGN;
+		fast->guard_page = arm_smmu_errata_get_guard_page(vmid);
+		if (!fast->guard_page)
+			return -ENOMEM;
+	}
+	return 0;
+}
+
 /**
- * fast_smmu_attach_device
+ * fast_smmu_init_mapping
  * @dev: valid struct device pointer
  * @mapping: io address space mapping structure (returned from
- *	fast_smmu_create_mapping)
+ *	arm_iommu_create_mapping)
  *
- * Attaches specified io address space mapping to the provided device,
- * this replaces the dma operations (dma_map_ops pointer) with the
- * IOMMU aware version. More than one client might be attached to
- * the same io address space mapping.
+ * Called the first time a device is attached to this mapping.
+ * Not for dma client use.
  */
-int fast_smmu_attach_device(struct device *dev,
+int fast_smmu_init_mapping(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
-	int atomic_domain = 1;
+	int err;
 	struct iommu_domain *domain = mapping->domain;
 	struct iommu_pgtbl_info info;
 	u64 size = (u64)mapping->bits << PAGE_SHIFT;
 
-	if (mapping->base + size > (SZ_1G * 4ULL))
+	if (mapping->base + size > (SZ_1G * 4ULL)) {
+		dev_err(dev, "Iova end address too large\n");
 		return -EINVAL;
-
-	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC,
-				  &atomic_domain))
-		return -EINVAL;
+	}
 
 	mapping->fast = __fast_smmu_create_mapping_sized(mapping->base, size);
 	if (IS_ERR(mapping->fast))
@@ -746,46 +943,50 @@ int fast_smmu_attach_device(struct device *dev,
 	mapping->fast->domain = domain;
 	mapping->fast->dev = dev;
 
-	if (iommu_attach_device(domain, dev))
-		return -EINVAL;
+	if (fast_smmu_errata_init(mapping))
+		goto release_mapping;
+
+	fast_smmu_reserve_pci_windows(dev, mapping->fast);
 
 	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PGTBL_INFO,
 				  &info)) {
 		dev_err(dev, "Couldn't get page table info\n");
-		fast_smmu_detach_device(dev, mapping);
-		return -EINVAL;
+		err = -EINVAL;
+		goto release_mapping;
 	}
 	mapping->fast->pgtbl_pmds = info.pmds;
 
 	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT,
-				  &mapping->fast->is_smmu_pt_coherent))
-		return -EINVAL;
+				  &mapping->fast->is_smmu_pt_coherent)) {
+		err = -EINVAL;
+		goto release_mapping;
+	}
 
 	mapping->fast->notifier.notifier_call = fast_smmu_notify;
 	av8l_register_notify(&mapping->fast->notifier);
 
-	dev->archdata.mapping = mapping;
-	set_dma_ops(dev, &fast_smmu_dma_ops);
-
+	mapping->ops = &fast_smmu_dma_ops;
 	return 0;
+
+release_mapping:
+	kfree(mapping->fast->bitmap);
+	kfree(mapping->fast);
+	return err;
 }
-EXPORT_SYMBOL(fast_smmu_attach_device);
 
 /**
- * fast_smmu_detach_device
- * @dev: valid struct device pointer
+ * fast_smmu_release_mapping
+ * @kref: dma_iommu_mapping->kref
  *
- * Detaches the provided device from a previously attached map.
- * This voids the dma operations (dma_map_ops pointer)
+ * Cleans up the given iommu mapping.
  */
-void fast_smmu_detach_device(struct device *dev,
-			     struct dma_iommu_mapping *mapping)
+void fast_smmu_release_mapping(struct kref *kref)
 {
-	iommu_detach_device(mapping->domain, dev);
-	dev->archdata.mapping = NULL;
-	set_dma_ops(dev, NULL);
+	struct dma_iommu_mapping *mapping =
+		container_of(kref, struct dma_iommu_mapping, kref);
 
 	kvfree(mapping->fast->bitmap);
 	kfree(mapping->fast);
+	iommu_domain_free(mapping->domain);
+	kfree(mapping);
 }
-EXPORT_SYMBOL(fast_smmu_detach_device);

@@ -19,7 +19,6 @@
 #define __MSM_DRM_H__
 
 #include "drm.h"
-#include <stddef.h>
 #include "sde_drm.h"
 
 #if defined(__cplusplus)
@@ -60,6 +59,50 @@ extern "C" {
 struct drm_msm_timespec {
 	__s64 tv_sec;          /* seconds */
 	__s64 tv_nsec;         /* nanoseconds */
+};
+
+/*
+ * HDR Metadata
+ * These are defined as per EDID spec and shall be used by the sink
+ * to set the HDR metadata for playback from userspace.
+ */
+
+#define HDR_PRIMARIES_COUNT   3
+
+/* HDR EOTF */
+#define HDR_EOTF_SDR_LUM_RANGE	0x0
+#define HDR_EOTF_HDR_LUM_RANGE	0x1
+#define HDR_EOTF_SMTPE_ST2084	0x2
+#define HDR_EOTF_HLG		0x3
+
+#define DRM_MSM_EXT_HDR_METADATA
+struct drm_msm_ext_hdr_metadata {
+	__u32 hdr_state;        /* HDR state */
+	__u32 eotf;             /* electro optical transfer function */
+	__u32 hdr_supported;    /* HDR supported */
+	__u32 display_primaries_x[HDR_PRIMARIES_COUNT]; /* Primaries x */
+	__u32 display_primaries_y[HDR_PRIMARIES_COUNT]; /* Primaries y */
+	__u32 white_point_x;    /* white_point_x */
+	__u32 white_point_y;    /* white_point_y */
+	__u32 max_luminance;    /* Max luminance */
+	__u32 min_luminance;    /* Min Luminance */
+	__u32 max_content_light_level; /* max content light level */
+	__u32 max_average_light_level; /* max average light level */
+};
+
+/**
+ * HDR sink properties
+ * These are defined as per EDID spec and shall be used by the userspace
+ * to determine the HDR properties to be set to the sink.
+ */
+#define DRM_MSM_EXT_HDR_PROPERTIES
+struct drm_msm_ext_hdr_properties {
+	__u8 hdr_metadata_type_one;   /* static metadata type one */
+	__u32 hdr_supported;          /* HDR supported */
+	__u32 hdr_eotf;               /* electro optical transfer function */
+	__u32 hdr_max_luminance;      /* Max luminance */
+	__u32 hdr_avg_luminance;      /* Avg luminance */
+	__u32 hdr_min_luminance;      /* Min Luminance */
 };
 
 #define MSM_PARAM_GPU_ID     0x01
@@ -321,6 +364,11 @@ struct drm_msm_event_resp {
 /* sde custom events */
 #define DRM_EVENT_HISTOGRAM 0x80000000
 #define DRM_EVENT_AD_BACKLIGHT 0x80000001
+#define DRM_EVENT_CRTC_POWER 0x80000002
+#define DRM_EVENT_SYS_BACKLIGHT 0x80000003
+#define DRM_EVENT_SDE_POWER 0x80000004
+#define DRM_EVENT_IDLE_NOTIFY 0x80000005
+#define DRM_EVENT_PANEL_DEAD 0x80000006 /* ESD event */
 
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)

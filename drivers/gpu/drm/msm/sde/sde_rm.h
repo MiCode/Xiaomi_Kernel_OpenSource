@@ -22,18 +22,27 @@
 
 /**
  * enum sde_rm_topology_name - HW resource use case in use by connector
- * @SDE_RM_TOPOLOGY_UNKNOWN: No topology in use currently
- * @SDE_RM_TOPOLOGY_SINGLEPIPE: 1 LM, 1 PP, 1 INTF/WB
- * @SDE_RM_TOPOLOGY_DUALPIPE: 2 LM, 2 PP, 2 INTF/WB
- * @SDE_RM_TOPOLOGY_PPSPLIT: 1 LM, 2 PPs, 2 INTF/WB
- * @SDE_RM_TOPOLOGY_DUALPIPEMERGE: 2 LM, 2 PP, 3DMux, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_NONE:                 No topology in use currently
+ * @SDE_RM_TOPOLOGY_SINGLEPIPE:           1 LM, 1 PP, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:       1 LM, 1 DSC, 1 PP, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE:             2 LM, 2 PP, 2 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE_DSC:         2 LM, 2 DSC, 2 PP, 2 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE:     2 LM, 2 PP, 3DMux, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC: 2 LM, 2 PP, 3DMux, 1 DSC, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:    2 LM, 2 PP, 2 DSC Merge, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_PPSPLIT:              1 LM, 2 PPs, 2 INTF/WB
  */
 enum sde_rm_topology_name {
-	SDE_RM_TOPOLOGY_UNKNOWN = 0,
+	SDE_RM_TOPOLOGY_NONE = 0,
 	SDE_RM_TOPOLOGY_SINGLEPIPE,
+	SDE_RM_TOPOLOGY_SINGLEPIPE_DSC,
 	SDE_RM_TOPOLOGY_DUALPIPE,
+	SDE_RM_TOPOLOGY_DUALPIPE_DSC,
+	SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE,
+	SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC,
+	SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,
 	SDE_RM_TOPOLOGY_PPSPLIT,
-	SDE_RM_TOPOLOGY_DUALPIPEMERGE,
+	SDE_RM_TOPOLOGY_MAX,
 };
 
 /**
@@ -47,18 +56,13 @@ enum sde_rm_topology_name {
  *                               Normal behavior would not impact the
  *                               reservation list during the AtomicTest phase.
  * @SDE_RM_TOPCTL_DSPP: Require layer mixers with DSPP capabilities
- * @SDE_RM_TOPCTL_FORCE_TILING: Require kernel to split across multiple layer
- *                              mixers, despite width fitting within capability
- *                              of a single layer mixer.
- * @SDE_RM_TOPCTL_PPSPLIT: Require kernel to use pingpong split pipe
- *                         configuration instead of dual pipe.
+ * @SDE_RM_TOPCTL_DS  : Require layer mixers with DS capabilities
  */
 enum sde_rm_topology_control {
 	SDE_RM_TOPCTL_RESERVE_LOCK,
 	SDE_RM_TOPCTL_RESERVE_CLEAR,
 	SDE_RM_TOPCTL_DSPP,
-	SDE_RM_TOPCTL_FORCE_TILING,
-	SDE_RM_TOPCTL_PPSPLIT,
+	SDE_RM_TOPCTL_DS,
 };
 
 /**
@@ -70,6 +74,7 @@ enum sde_rm_topology_control {
  * @hw_mdp: hardware object for mdp_top
  * @lm_max_width: cached layer mixer maximum width
  * @rsvp_next_seq: sequence number for next reservation for debugging purposes
+ * @rm_lock: resource manager mutex
  */
 struct sde_rm {
 	struct drm_device *dev;
@@ -78,6 +83,7 @@ struct sde_rm {
 	struct sde_hw_mdp *hw_mdp;
 	uint32_t lm_max_width;
 	uint32_t rsvp_next_seq;
+	struct mutex rm_lock;
 };
 
 /**
@@ -101,6 +107,15 @@ struct sde_rm_hw_iter {
 };
 
 /**
+ * sde_rm_get_topology_name - get the name of the given topology config
+ * @topology: msm_display_topology topology config
+ * @Return: name of the given topology
+ */
+enum sde_rm_topology_name sde_rm_get_topology_name(
+	struct msm_display_topology topology);
+
+
+/**
  * sde_rm_init - Read hardware catalog and create reservation tracking objects
  *	for all HW blocks.
  * @rm: SDE Resource Manager handle
@@ -111,7 +126,7 @@ struct sde_rm_hw_iter {
  */
 int sde_rm_init(struct sde_rm *rm,
 		struct sde_mdss_cfg *cat,
-		void *mmio,
+		void __iomem *mmio,
 		struct drm_device *dev);
 
 /**
@@ -190,5 +205,29 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *iter);
  * @Return: 0 on success or error
  */
 int sde_rm_check_property_topctl(uint64_t val);
+
+/**
+ * sde_rm_cont_splash_res_init - Read the current MDSS configuration
+ *	to update the splash data structure with the topology
+ *	configured by the bootloader.
+ * @priv: DRM private structure handle
+ * @rm: SDE Resource Manager handle
+ * @splash_data: Pointer to the splash_data structure to be updated.
+ * @cat: Pointer to the SDE catalog
+ * @Return: 0 on success or error
+ */
+int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
+				struct sde_rm *rm,
+				struct sde_splash_data *splash_data,
+				struct sde_mdss_cfg *cat);
+
+/**
+ * sde_rm_update_topology - sets topology property of the connector
+ * @conn_state: drm state of the connector
+ * @topology: topology selected for the display
+ * @return: 0 on success or error
+ */
+int sde_rm_update_topology(struct drm_connector_state *conn_state,
+	struct msm_display_topology *topology);
 
 #endif /* __SDE_RM_H__ */

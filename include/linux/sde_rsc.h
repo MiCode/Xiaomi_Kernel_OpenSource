@@ -21,6 +21,9 @@
 
 #define MAX_RSC_CLIENT_NAME_LEN 128
 
+/* DRM Object IDs are numbered excluding 0, use 0 to indicate invalid CRTC */
+#define SDE_RSC_INVALID_CRTC_ID 0
+
 /**
  * event will be triggered before sde core power collapse,
  * mdss gdsc is still on
@@ -79,6 +82,7 @@ enum sde_rsc_state {
  * @current_state:   current client state
  * @crtc_id:		crtc_id associated with this rsc client.
  * @rsc_index:	rsc index of a client - only index "0" valid.
+ * @id:		Index of client. It will be assigned during client_create call
  * @list:	list to attach client master list
  */
 struct sde_rsc_client {
@@ -86,6 +90,7 @@ struct sde_rsc_client {
 	short current_state;
 	int crtc_id;
 	u32 rsc_index;
+	u32 id;
 	struct list_head list;
 };
 
@@ -112,15 +117,16 @@ struct sde_rsc_event {
  *
  * @fps:	panel te interval
  * @vtotal:	current vertical total (height + vbp + vfp)
- * @jitter:	panel can set the jitter to wake up rsc/solver early
- *              This value causes mdp core to exit certain mode
- *              early. Default is 10% jitter
+ * @jitter_numer: panel jitter numerator value. This config causes rsc/solver
+ *                early before te. Default is 0.8% jitter.
+ * @jitter_denom: panel jitter denominator.
  * @prefill_lines:	max prefill lines based on panel
  */
 struct sde_rsc_cmd_config {
 	u32 fps;
 	u32 vtotal;
-	u32 jitter;
+	u32 jitter_numer;
+	u32 jitter_denom;
 	u32 prefill_lines;
 };
 
@@ -166,24 +172,62 @@ void sde_rsc_client_destroy(struct sde_rsc_client *client);
  * @config:	 fps, vtotal, porches, etc configuration for command mode
  *               panel
  * @crtc_id:	 current client's crtc id
+ * @wait_vblank_crtc_id:	Output parameter. If set to non-zero, rsc hw
+ *				state update requires a wait for one vblank on
+ *				the primary crtc. In that case, this output
+ *				param will be set to the crtc on which to wait.
+ *				If SDE_RSC_INVALID_CRTC_ID, no wait necessary
  *
  * Return: error code.
  */
 int sde_rsc_client_state_update(struct sde_rsc_client *client,
 	enum sde_rsc_state state,
-	struct sde_rsc_cmd_config *config, int crtc_id);
+	struct sde_rsc_cmd_config *config, int crtc_id,
+	int *wait_vblank_crtc_id);
+
+/**
+ * sde_rsc_client_get_vsync_refcount() - returns the status of the vsync
+ * refcount, to signal if the client needs to reset the refcounting logic
+ * @client:	 Client pointer provided by sde_rsc_client_create().
+ *
+ * Return: true if the state update has completed.
+ */
+int sde_rsc_client_get_vsync_refcount(
+		struct sde_rsc_client *caller_client);
+
+/**
+ * sde_rsc_client_reset_vsync_refcount() - reduces the refcounting
+ * logic that waits for the vsync.
+ * @client:	 Client pointer provided by sde_rsc_client_create().
+ *
+ * Return: true if the state update has completed.
+ */
+int sde_rsc_client_reset_vsync_refcount(
+		struct sde_rsc_client *caller_client);
+
+/**
+ * sde_rsc_client_is_state_update_complete() - check if state update is complete
+ * RSC state transition is not complete until HW receives VBLANK signal. This
+ * function checks RSC HW to determine whether that signal has been received.
+ * @client:	 Client pointer provided by sde_rsc_client_create().
+ *
+ * Return: true if the state update has completed.
+ */
+bool sde_rsc_client_is_state_update_complete(
+		struct sde_rsc_client *caller_client);
 
 /**
  * sde_rsc_client_vote() - ab/ib vote from rsc client
  *
  * @client:	 Client pointer provided by sde_rsc_client_create().
+ * @bus_id:	 data bus identifier
  * @ab:		 aggregated bandwidth vote from client.
  * @ib:		 instant bandwidth vote from client.
  *
  * Return: error code.
  */
 int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
-	u64 ab_vote, u64 ib_vote);
+	u32 bus_id, u64 ab_vote, u64 ib_vote);
 
 /**
  * sde_rsc_register_event - register a callback function for an event
@@ -204,6 +248,23 @@ struct sde_rsc_event *sde_rsc_register_event(int rsc_index, uint32_t event_type,
  */
 void sde_rsc_unregister_event(struct sde_rsc_event *event);
 
+/**
+ * is_sde_rsc_available - check if display rsc available.
+ * @rsc_index:   A client will be created on this RSC. As of now only
+ *               SDE_RSC_INDEX is valid rsc index.
+ * Returns: true if rsc is available; false in all other cases
+ */
+bool is_sde_rsc_available(int rsc_index);
+
+/**
+ * get_sde_rsc_current_state - gets the current state of sde rsc.
+ * @rsc_index:   A client will be created on this RSC. As of now only
+ *               SDE_RSC_INDEX is valid rsc index.
+ * Returns: current state if rsc available; SDE_RSC_IDLE_STATE for
+ *          all other cases
+ */
+enum sde_rsc_state get_sde_rsc_current_state(int rsc_index);
+
 #else
 
 static inline struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index,
@@ -218,13 +279,32 @@ static inline void sde_rsc_client_destroy(struct sde_rsc_client *client)
 
 static inline int sde_rsc_client_state_update(struct sde_rsc_client *client,
 	enum sde_rsc_state state,
-	struct sde_rsc_cmd_config *config, int crtc_id)
+	struct sde_rsc_cmd_config *config, int crtc_id,
+	int *wait_vblank_crtc_id)
 {
 	return 0;
 }
 
+int sde_rsc_client_get_vsync_refcount(
+		struct sde_rsc_client *caller_client)
+{
+	return 0;
+}
+
+int sde_rsc_client_reset_vsync_refcount(
+		struct sde_rsc_client *caller_client)
+{
+	return 0;
+}
+
+static inline bool sde_rsc_client_is_state_update_complete(
+		struct sde_rsc_client *caller_client)
+{
+	return false;
+}
+
 static inline int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
-	u64 ab_vote, u64 ib_vote)
+	u32 bus_id, u64 ab_vote, u64 ib_vote)
 {
 	return 0;
 }
@@ -240,6 +320,15 @@ static inline void sde_rsc_unregister_event(struct sde_rsc_event *event)
 {
 }
 
+static inline bool is_sde_rsc_available(int rsc_index)
+{
+	return false;
+}
+
+static inline enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)
+{
+	return SDE_RSC_IDLE_STATE;
+}
 #endif /* CONFIG_DRM_SDE_RSC */
 
 #endif /* _SDE_RSC_H_ */

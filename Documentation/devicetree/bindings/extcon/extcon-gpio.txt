@@ -1,0 +1,32 @@
+GPIO Extcon device
+
+This is a virtual device used to generate USB cable states from the USB ID pin
+connected to a GPIO pin.
+
+Required properties:
+- compatible: Should be "extcon-gpio"
+- extcon-id: The unique id of specific external connector.
+	     Valid range is 0 (EXTCON_NONE) to 63 (EXTCON_NUM).
+	     Refer include/linux/extcon.h for details.
+- gpio: Specify GPIO (see gpio binding)
+- debounce-ms: Debounce time for GPIO IRQ in ms
+- irq-flags: interrupt flags (edge/level). Refer to "include/dt-bindings/interrupt-controller/irq.h"
+- pinctrl-names, pinctrl-0, pinctrl-1,.. pinctrl-n: Refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+  for these optional properties
+
+Example:
+	extcon_storage_cd {
+		compatible = "extcon-gpio";
+		extcon-id = <62>; /* EXTCON_MECHANICAL */
+		gpio = <&tlmm 126 GPIO_ACTIVE_LOW>;
+		debounce-ms = <200>;
+		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
+	}
+
+	&ufshc_card {
+		extcon = <&extcon_storage_cd>;
+	};
+
+	&sd_card {
+		extcon = <&extcon_storage_cd>;
+	};

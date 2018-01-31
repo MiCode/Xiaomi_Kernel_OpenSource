@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,7 +191,7 @@ static int ipa3_mhi_get_ch_poll_cfg(enum ipa_client_type client,
 static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	int ipa_ep_idx, struct start_gsi_channel *params)
 {
-	int res;
+	int res = 0;
 	struct gsi_evt_ring_props ev_props;
 	struct ipa_mhi_msi_info *msi;
 	struct gsi_chan_props ch_props;
@@ -241,7 +241,6 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		if (res) {
 			IPA_MHI_ERR("gsi_alloc_evt_ring failed %d\n", res);
 			goto fail_alloc_evt;
-			return res;
 		}
 		IPA_MHI_DBG("client %d, caching event ring hdl %lu\n",
 				client,
@@ -253,6 +252,22 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		IPA_MHI_DBG("event ring already exists: evt_ring_hdl=%lu\n",
 			*params->cached_gsi_evt_ring_hdl);
 		ep->gsi_evt_ring_hdl = *params->cached_gsi_evt_ring_hdl;
+	}
+
+	if (params->ev_ctx_host->wp == params->ev_ctx_host->rbase) {
+		IPA_MHI_ERR("event ring wp is not updated. base=wp=0x%llx\n",
+			params->ev_ctx_host->wp);
+		goto fail_alloc_ch;
+	}
+
+	IPA_MHI_DBG("Ring event db: evt_ring_hdl=%lu host_wp=0x%llx\n",
+		ep->gsi_evt_ring_hdl, params->ev_ctx_host->wp);
+	res = gsi_ring_evt_ring_db(ep->gsi_evt_ring_hdl,
+		params->ev_ctx_host->wp);
+	if (res) {
+		IPA_MHI_ERR("fail to ring evt ring db %d. hdl=%lu wp=0x%llx\n",
+			res, ep->gsi_evt_ring_hdl, params->ev_ctx_host->wp);
+		goto fail_alloc_ch;
 	}
 
 	memset(&ch_props, 0, sizeof(ch_props));
@@ -287,6 +302,10 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		ep_cfg->ipa_if_tlv * ch_props.re_size;
 	ch_scratch.mhi.outstanding_threshold =
 		min(ep_cfg->ipa_if_tlv / 2, 8) * ch_props.re_size;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		ch_scratch.mhi.max_outstanding_tre = 0;
+		ch_scratch.mhi.outstanding_threshold = 0;
+	}
 	ch_scratch.mhi.oob_mod_threshold = 4;
 	if (params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
 		params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_ENABLE) {
@@ -341,6 +360,14 @@ int ipa3_mhi_init_engine(struct ipa_mhi_init_engine *params)
 		return -EINVAL;
 	}
 
+	if ((IPA_MHI_MAX_UL_CHANNELS + IPA_MHI_MAX_DL_CHANNELS) >
+		((ipa3_ctx->mhi_evid_limits[1] -
+		ipa3_ctx->mhi_evid_limits[0]) + 1)) {
+		IPAERR("Not enough event rings for MHI\n");
+		ipa_assert();
+		return -EINVAL;
+	}
+
 	/* Initialize IPA MHI engine */
 	gsi_ep_info = ipa3_get_gsi_ep_info(IPA_CLIENT_MHI_PROD);
 	if (!gsi_ep_info) {
@@ -391,6 +418,8 @@ int ipa3_connect_mhi_pipe(struct ipa_mhi_connect_params_internal *in,
 		IPA_MHI_ERR("NULL args\n");
 		return -EINVAL;
 	}
+
+	in->start.gsi.evchid += ipa3_ctx->mhi_evid_limits[0];
 
 	client = in->sys->client;
 	ipa_ep_idx = ipa3_get_ep_mapping(client);
@@ -612,6 +641,8 @@ int ipa3_mhi_destroy_channel(enum ipa_client_type client)
 	}
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
+	IPA_ACTIVE_CLIENTS_INC_EP(client);
+
 	IPA_MHI_DBG("reset event ring (hdl: %lu, ep: %d)\n",
 		ep->gsi_evt_ring_hdl, ipa_ep_idx);
 
@@ -633,8 +664,10 @@ int ipa3_mhi_destroy_channel(enum ipa_client_type client)
 		goto fail;
 	}
 
+	IPA_ACTIVE_CLIENTS_DEC_EP(client);
 	return 0;
 fail:
+	IPA_ACTIVE_CLIENTS_DEC_EP(client);
 	return res;
 }
 

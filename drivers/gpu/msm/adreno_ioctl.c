@@ -31,14 +31,19 @@ long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 	 * during start(), so it is not safe to take an
 	 * active count inside that function.
 	 */
-	result = kgsl_active_count_get(device);
 
-	if (result == 0) {
-		result = adreno_perfcounter_get(adreno_dev,
+	result = adreno_perfcntr_active_oob_get(adreno_dev);
+	if (result) {
+		mutex_unlock(&device->mutex);
+		return (long)result;
+	}
+
+	result = adreno_perfcounter_get(adreno_dev,
 			get->groupid, get->countable, &get->offset,
 			&get->offset_hi, PERFCOUNTER_FLAG_NONE);
-		kgsl_active_count_put(device);
-	}
+
+	adreno_perfcntr_active_oob_put(adreno_dev);
+
 	mutex_unlock(&device->mutex);
 
 	return (long) result;
@@ -138,7 +143,7 @@ long adreno_ioctl_helper(struct kgsl_device_private *dev_priv,
 
 	if (WARN_ON(_IOC_SIZE(cmds[i].cmd) > sizeof(data))) {
 		if (__ratelimit(&_rs))
-			WARN(1, "data too big for ioctl 0x%08X: %d/%ld\n",
+			WARN(1, "data too big for ioctl 0x%08X: %d/%zu\n",
 				cmd, _IOC_SIZE(cmds[i].cmd), sizeof(data));
 		return -EINVAL;
 	}

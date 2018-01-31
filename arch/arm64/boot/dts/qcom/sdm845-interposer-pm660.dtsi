@@ -1,0 +1,445 @@
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	/delete-node/regulator-pm8998-s4;
+};
+
+&dsi_sharp_4k_dsc_video_display {
+	/delete-property/ vddio-supply;
+};
+
+&dsi_sharp_4k_dsc_cmd_display {
+	/delete-property/ vddio-supply;
+};
+
+&dsi_sharp_1080_cmd_display {
+	/delete-property/ vddio-supply;
+};
+
+&dsi_dual_sharp_1080_120hz_cmd_display {
+	/delete-property/ vddio-supply;
+};
+
+&dsi_dual_nt35597_truly_video_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&dsi_dual_nt35597_truly_cmd_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&dsi_nt35597_truly_dsc_cmd_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&dsi_nt35597_truly_dsc_video_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&dsi_dual_nt35597_video_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&dsi_dual_nt35597_cmd_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&dsi_dual_nt36850_truly_cmd_display {
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+};
+
+&sde_dp {
+	status = "disabled";
+	/delete-property/ vdda-1p2-supply;
+	/delete-property/ vdda-0p9-supply;
+	/delete-property/ qcom,dp-usbpd-detection;
+};
+
+&mdss_dp_pll {
+	status = "disabled";
+};
+
+&bluetooth {
+	/delete-property/ qca,bt-vdd-io-supply;
+	/delete-property/ qca,bt-vdd-xtal-supply;
+	/delete-property/ qca,bt-vdd-core-supply;
+	/delete-property/ qca,bt-vdd-pa-supply;
+	/delete-property/ qca,bt-vdd-ldo-supply;
+};
+
+&ufsphy_mem {
+	/delete-property/ vdda-phy-supply;
+	/delete-property/ vdda-pll-supply;
+};
+
+&ufshc_mem {
+	/delete-property/ vcc-supply;
+	/delete-property/ vccq2-supply;
+	/delete-property/ qcom,vddp-ref-clk-supply;
+};
+
+&sdhc_2 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdd-io-supply;
+};
+
+&vendor {
+	extcon_usb1 {
+		/delete-property/ id-gpio;
+		/delete-property/ vbus-gpio;
+		/delete-property/ pinctrl-names;
+		/delete-property/ pinctrl-0;
+	};
+
+	usb1_vbus_vreg {
+		/delete-property/ gpio;
+		/delete-property/ pinctrl-names;
+		/delete-property/ pinctrl-0;
+	};
+};
+
+&qupv3_se3_i2c {
+	nq@28 {
+		/delete-property/ qcom,nq-clkreq;
+		/* delete "nfc_clk_default" -- PMIC GPIO */
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+	};
+};
+
+&pcie0 {
+	/delete-property/ vreg-1.8-supply;
+	/delete-property/ vreg-0.9-supply;
+	/delete-property/ vreg-cx-supply;
+};
+
+&pcie1 {
+	/delete-property/ vreg-1.8-supply;
+	/delete-property/ vreg-0.9-supply;
+	/delete-property/ vreg-cx-supply;
+};
+
+&cam_csiphy0 {
+	/delete-property/ mipi-csi-vdd-supply;
+};
+
+&cam_csiphy1 {
+	/delete-property/ mipi-csi-vdd-supply;
+};
+
+&cam_csiphy2 {
+	/delete-property/ mipi-csi-vdd-supply;
+};
+
+&led_flash_rear {
+	/delete-property/ flash-source;
+	/delete-property/ torch-source;
+	/delete-property/ switch-source;
+};
+
+&led_flash_rear_aux {
+	/delete-property/ flash-source;
+	/delete-property/ torch-source;
+	/delete-property/ switch-source;
+};
+
+&led_flash_front {
+	/delete-property/ flash-source;
+	/delete-property/ torch-source;
+	/delete-property/ switch-source;
+};
+
+&led_flash_iris {
+	/delete-property/ flash-source;
+	/delete-property/ torch-source;
+	/delete-property/ switch-source;
+};
+
+&actuator_regulator {
+	/delete-property/ vin-supply;
+};
+
+
+&eeprom_rear {
+	/delete-property/ cam_vio-supply;
+	/delete-property/ cam_vana-supply;
+};
+
+&eeprom_rear_aux {
+	/delete-property/ cam_vio-supply;
+	/delete-property/ cam_vana-supply;
+};
+
+&eeprom_front {
+	/delete-property/ cam_vio-supply;
+	/delete-property/ cam_vana-supply;
+};
+
+&cam_cci {
+	qcom,cam-sensor@0 {
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vana-supply;
+	};
+
+	qcom,cam-sensor@1 {
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vana-supply;
+	};
+
+	qcom,cam-sensor@2 {
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vana-supply;
+	};
+
+	qcom,cam-sensor@3 {
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vana-supply;
+	};
+
+};
+
+&clock_gcc {
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_cx_ao-supply;
+};
+
+&clock_videocc {
+	/delete-property/ vdd_cx-supply;
+};
+
+&clock_camcc {
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_mx-supply;
+};
+
+&clock_dispcc {
+	/delete-property/ vdd_cx-supply;
+};
+
+&clock_gpucc {
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_mx-supply;
+};
+
+&clock_gfx {
+	/delete-property/ vdd_gfx-supply;
+};
+
+&clock_cpucc {
+	/delete-property/ vdd_l3_mx_ao-supply;
+	/delete-property/ vdd_pwrcl_mx_ao-supply;
+};
+
+&pil_modem {
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_mx-supply;
+};
+
+&gpu_gx_gdsc {
+	/delete-property/ parent-supply;
+};
+
+&soc {
+	/delete-node/ gpio_keys;
+
+	qcom,mss@4080000 {
+		/delete-property/ vdd_mss-supply;
+	};
+
+	qcom,lpass@17300000 {
+		/delete-property/ vdd_cx-supply;
+	};
+
+	qcom,ssc@5c00000 {
+		/delete-property/ vdd_cx-supply;
+		/delete-property/ vdd_mx-supply;
+	};
+
+	qcom,spss@1880000 {
+		/delete-property/ vdd_cx-supply;
+		/delete-property/ vdd_mx-supply;
+	};
+
+	qcom,turing@8300000 {
+		/delete-property/ vdd_cx-supply;
+	};
+
+	qcom,qbt1000 {
+		/delete-property/ qcom,finger-detect-gpio;
+	};
+
+	qcom,icnss@18800000 {
+		/delete-property/ vdd-0.8-cx-mx-supply;
+		/delete-property/ vdd-1.8-xo-supply;
+		/delete-property/ vdd-1.3-rfa-supply;
+		/delete-property/ vdd-3.3-ch0-supply;
+	};
+
+	qcom,mdss_dsi_ctrl0@ae94000 {
+		vdda-1p2-supply = <&pm660_l1>;
+	};
+
+	qcom,mdss_dsi_ctrl1@ae96000 {
+		vdda-1p2-supply = <&pm660_l1>;
+	};
+
+	qcom,mdss_dsi_phy0@ae94400 {
+		vdda-0p9-supply = <&pm660l_l1>;
+	};
+
+	qcom,mdss_dsi_phy0@ae96400 {
+		vdda-0p9-supply = <&pm660l_l1>;
+	};
+
+	gpio-regulator@1 {
+		/delete-property/ gpio;
+		/delete-property/ vin-supply;
+		/delete-property/ pinctrl-names;
+		/delete-property/ pinctrl-0;
+	};
+
+	gpio-regulator@2 {
+		/delete-property/ gpio;
+		/delete-property/ vin-supply;
+		/delete-property/ pinctrl-names;
+		/delete-property/ pinctrl-0;
+	};
+
+	gpio-regulator@4 {
+		/delete-property/ gpio;
+		/delete-property/ vin-supply;
+		/delete-property/ pinctrl-names;
+		/delete-property/ pinctrl-0;
+	};
+
+	/delete-node/ qcom,spmi-debug@6b22000;
+
+};
+
+&wil6210 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+};
+
+&usb0 {
+	/delete-property/ extcon;
+};
+
+&qusb_phy0 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdda18-supply;
+	/delete-property/ vdda33-supply;
+};
+
+&usb_qmp_dp_phy {
+	/delete-property/ vdd-supply;
+	/delete-property/ core-supply;
+};
+
+&qusb_phy1 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdda18-supply;
+	/delete-property/ vdda33-supply;
+};
+
+&usb_qmp_phy {
+	/delete-property/ vdd-supply;
+	/delete-property/ core-supply;
+};
+
+&soc {
+	/* Delete all regulators */
+	/delete-node/ rpmh-regulator-ebilvl;
+	/delete-node/ rpmh-regulator-smpa2;
+	/delete-node/ rpmh-regulator-smpa3;
+	/delete-node/ rpmh-regulator-smpa5;
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-smpa7;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa6;
+	/delete-node/ rpmh-regulator-ldoa7;
+	/delete-node/ rpmh-regulator-ldoa8;
+	/delete-node/ rpmh-regulator-ldoa9;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa15;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-ldoa17;
+	/delete-node/ rpmh-regulator-ldoa18;
+	/delete-node/ rpmh-regulator-ldoa19;
+	/delete-node/ rpmh-regulator-ldoa20;
+	/delete-node/ rpmh-regulator-ldoa21;
+	/delete-node/ rpmh-regulator-ldoa22;
+	/delete-node/ rpmh-regulator-ldoa23;
+	/delete-node/ rpmh-regulator-ldoa24;
+	/delete-node/ rpmh-regulator-ldoa25;
+	/delete-node/ rpmh-regulator-ldoa26;
+	/delete-node/ rpmh-regulator-lcxlvl;
+	/delete-node/ rpmh-regulator-ldoa28;
+	/delete-node/ rpmh-regulator-vsa1;
+	/delete-node/ rpmh-regulator-vsa2;
+	/delete-node/ rpmh-regulator-bobb1;
+	/delete-node/ rpmh-regulator-gfxlvl;
+	/delete-node/ rpmh-regulator-msslvl;
+	/delete-node/ rpmh-regulator-smpc3;
+};
+
+&spmi_bus {
+	/delete-node/ qcom,pm8998@0;
+	/delete-node/ qcom,pm8998@1;
+	/delete-node/ qcom,pm8005@4;
+	/delete-node/ qcom,pm8005@5;
+};
+
+/delete-node/ &pmi8998_lsid0;
+/delete-node/ &pmi8998_lsid1;
+/delete-node/ &ext_5v_boost;
+
+#include "pm660.dtsi"
+#include "pm660l.dtsi"
+#include "sdm670-regulator.dtsi"
+#include "sdm670-pmic-overlay.dtsi"
+
+&soc {
+	/delete-node/ thermal-zones;
+};
+
+&lmh_dcvs1 {
+	/delete-property/ isens_vref-supply;
+	/delete-property/ isens-vref-settings;
+};
+
+&pm660l_wled {
+	qcom,led-strings-list = [01 02];
+};

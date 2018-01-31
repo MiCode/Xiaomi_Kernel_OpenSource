@@ -10,9 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/errno.h>
-#include <linux/log2.h>
-#include <linux/hash.h>
 #include "hfi_packetization.h"
 #include "msm_vidc_debug.h"
 
@@ -24,16 +21,6 @@
  * space.  So before indexing them, we apply log2 to use a more
  * sensible index.
  */
-static int profile_table[] = {
-	[ilog2(HAL_H264_PROFILE_BASELINE)] = HFI_H264_PROFILE_BASELINE,
-	[ilog2(HAL_H264_PROFILE_MAIN)] = HFI_H264_PROFILE_MAIN,
-	[ilog2(HAL_H264_PROFILE_HIGH)] = HFI_H264_PROFILE_HIGH,
-	[ilog2(HAL_H264_PROFILE_CONSTRAINED_BASE)] =
-		HFI_H264_PROFILE_CONSTRAINED_BASE,
-	[ilog2(HAL_H264_PROFILE_CONSTRAINED_HIGH)] =
-		HFI_H264_PROFILE_CONSTRAINED_HIGH,
-	[ilog2(HAL_VPX_PROFILE_VERSION_1)] = HFI_VPX_PROFILE_VERSION_1,
-};
 
 static int entropy_mode[] = {
 	[ilog2(HAL_H264_ENTROPY_CAVLC)] = HFI_H264_ENTROPY_CAVLC,
@@ -71,6 +58,8 @@ static int color_format[] = {
 	[ilog2(HAL_COLOR_FORMAT_NV12_UBWC)] =  HFI_COLOR_FORMAT_NV12_UBWC,
 	[ilog2(HAL_COLOR_FORMAT_NV12_TP10_UBWC)] =
 			HFI_COLOR_FORMAT_YUV420_TP10_UBWC,
+	/*P010 10bit format*/
+	[ilog2(HAL_COLOR_FORMAT_P010)] =  HFI_COLOR_FORMAT_P010,
 };
 
 static int nal_type[] = {
@@ -99,9 +88,6 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 		hal_type = ilog2(hal_type);
 
 	switch (property) {
-	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
-		return (hal_type >= ARRAY_SIZE(profile_table)) ?
-			-ENOTSUPP : profile_table[hal_type];
 	case HAL_PARAM_VENC_H264_ENTROPY_CONTROL:
 		return (hal_type >= ARRAY_SIZE(entropy_mode)) ?
 			-ENOTSUPP : entropy_mode[hal_type];
@@ -168,6 +154,9 @@ enum hal_video_codec vidc_get_hal_codec(u32 hfi_codec)
 	case HFI_VIDEO_CODEC_VP9:
 		hal_codec = HAL_VIDEO_CODEC_VP9;
 		break;
+	case HFI_VIDEO_CODEC_TME:
+		hal_codec = HAL_VIDEO_CODEC_TME;
+		break;
 	default:
 		dprintk(VIDC_INFO, "%s: invalid codec 0x%x\n",
 			__func__, hfi_codec);
@@ -223,6 +212,9 @@ u32 vidc_get_hfi_codec(enum hal_video_codec hal_codec)
 		break;
 	case HAL_VIDEO_CODEC_VP9:
 		hfi_codec = HFI_VIDEO_CODEC_VP9;
+		break;
+	case HAL_VIDEO_CODEC_TME:
+		hfi_codec = HFI_VIDEO_CODEC_TME;
 		break;
 	default:
 		dprintk(VIDC_INFO, "%s: invalid codec 0x%x\n",
@@ -333,37 +325,56 @@ int create_pkt_cmd_sys_coverage_config(
 
 int create_pkt_cmd_sys_set_resource(
 		struct hfi_cmd_sys_set_resource_packet *pkt,
-		struct vidc_resource_hdr *resource_hdr,
-		void *resource_value)
+		struct vidc_resource_hdr *res_hdr,
+		void *res_value)
 {
 	int rc = 0;
+	u32 i = 0;
 
-	if (!pkt || !resource_hdr || !resource_value)
+	if (!pkt || !res_hdr || !res_value) {
+		dprintk(VIDC_ERR,
+			"Invalid paramas pkt %pK res_hdr %pK res_value %pK\n",
+				pkt, res_hdr, res_value);
 		return -EINVAL;
+	}
 
 	pkt->packet_type = HFI_CMD_SYS_SET_RESOURCE;
 	pkt->size = sizeof(struct hfi_cmd_sys_set_resource_packet);
-	pkt->resource_handle = hash32_ptr(resource_hdr->resource_handle);
+	pkt->resource_handle = hash32_ptr(res_hdr->resource_handle);
 
-	switch (resource_hdr->resource_id) {
-	case VIDC_RESOURCE_OCMEM:
-	case VIDC_RESOURCE_VMEM:
+	switch (res_hdr->resource_id) {
+	case VIDC_RESOURCE_SYSCACHE:
 	{
-		struct hfi_resource_ocmem *hfioc_mem =
-			(struct hfi_resource_ocmem *)
-			&pkt->rg_resource_data[0];
+		struct hfi_resource_syscache_info_type *res_sc_info =
+			(struct hfi_resource_syscache_info_type *) res_value;
+		struct hfi_resource_subcache_type *res_sc =
+			(struct hfi_resource_subcache_type *)
+				&(res_sc_info->rg_subcache_entries[0]);
 
-		phys_addr_t imem_addr = (phys_addr_t)resource_value;
+		struct hfi_resource_syscache_info_type *hfi_sc_info =
+			(struct hfi_resource_syscache_info_type *)
+				&pkt->rg_resource_data[0];
 
-		pkt->resource_type = HFI_RESOURCE_OCMEM;
-		pkt->size += sizeof(struct hfi_resource_ocmem) - sizeof(u32);
-		hfioc_mem->size = (u32)resource_hdr->size;
-		hfioc_mem->mem = imem_addr;
+		struct hfi_resource_subcache_type *hfi_sc =
+			(struct hfi_resource_subcache_type *)
+			&(hfi_sc_info->rg_subcache_entries[0]);
+
+		pkt->resource_type = HFI_RESOURCE_SYSCACHE;
+		hfi_sc_info->num_entries = res_sc_info->num_entries;
+
+		pkt->size += (sizeof(struct hfi_resource_subcache_type))
+				 * hfi_sc_info->num_entries;
+
+		for (i = 0; i < hfi_sc_info->num_entries; i++) {
+			hfi_sc[i] = res_sc[i];
+		dprintk(VIDC_DBG, "entry hfi#%d, sc_id %d, size %d\n",
+				 i, hfi_sc[i].sc_id, hfi_sc[i].size);
+		}
 		break;
 	}
 	default:
-		dprintk(VIDC_ERR, "Invalid resource_id %d\n",
-					resource_hdr->resource_id);
+		dprintk(VIDC_ERR,
+			"Invalid resource_id %d\n", res_hdr->resource_id);
 		rc = -ENOTSUPP;
 	}
 
@@ -372,27 +383,34 @@ int create_pkt_cmd_sys_set_resource(
 
 int create_pkt_cmd_sys_release_resource(
 		struct hfi_cmd_sys_release_resource_packet *pkt,
-		struct vidc_resource_hdr *resource_hdr)
+		struct vidc_resource_hdr *res_hdr)
 {
 	int rc = 0;
 
-	if (!pkt)
+	if (!pkt || !res_hdr) {
+		dprintk(VIDC_ERR,
+			"Invalid paramas pkt %pK res_hdr %pK\n",
+				pkt, res_hdr);
 		return -EINVAL;
+	}
 
 	pkt->size = sizeof(struct hfi_cmd_sys_release_resource_packet);
 	pkt->packet_type = HFI_CMD_SYS_RELEASE_RESOURCE;
-	pkt->resource_handle = hash32_ptr(resource_hdr->resource_handle);
+	pkt->resource_handle = hash32_ptr(res_hdr->resource_handle);
 
-	switch (resource_hdr->resource_id) {
-	case VIDC_RESOURCE_OCMEM:
-	case VIDC_RESOURCE_VMEM:
-		pkt->resource_type = HFI_RESOURCE_OCMEM;
+	switch (res_hdr->resource_id) {
+	case VIDC_RESOURCE_SYSCACHE:
+		pkt->resource_type = HFI_RESOURCE_SYSCACHE;
 		break;
 	default:
-		dprintk(VIDC_ERR, "Invalid resource_id %d\n",
-					resource_hdr->resource_id);
+		dprintk(VIDC_ERR,
+			 "Invalid resource_id %d\n", res_hdr->resource_id);
 		rc = -ENOTSUPP;
 	}
+
+	dprintk(VIDC_DBG,
+		"rel_res: pkt_type 0x%x res_type 0x%x prepared\n",
+		pkt->packet_type, pkt->resource_type);
 
 	return rc;
 }
@@ -490,13 +508,13 @@ static u32 get_hfi_buffer(int hal_buffer)
 		buffer = HFI_BUFFER_EXTRADATA_OUTPUT2;
 		break;
 	case HAL_BUFFER_INTERNAL_SCRATCH:
-		buffer = HFI_BUFFER_INTERNAL_SCRATCH;
+		buffer = HFI_BUFFER_COMMON_INTERNAL_SCRATCH;
 		break;
 	case HAL_BUFFER_INTERNAL_SCRATCH_1:
-		buffer = HFI_BUFFER_INTERNAL_SCRATCH_1;
+		buffer = HFI_BUFFER_COMMON_INTERNAL_SCRATCH_1;
 		break;
 	case HAL_BUFFER_INTERNAL_SCRATCH_2:
-		buffer = HFI_BUFFER_INTERNAL_SCRATCH_2;
+		buffer = HFI_BUFFER_COMMON_INTERNAL_SCRATCH_2;
 		break;
 	case HAL_BUFFER_INTERNAL_PERSIST:
 		buffer = HFI_BUFFER_INTERNAL_PERSIST;
@@ -594,6 +612,9 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_VPX_COLORSPACE:
 		ret = HFI_PROPERTY_PARAM_VDEC_VPX_COLORSPACE_EXTRADATA;
 		break;
+	case HAL_EXTRADATA_UBWC_CR_STATS_INFO:
+		ret = HFI_PROPERTY_PARAM_VDEC_UBWC_CR_STAT_INFO_EXTRADATA;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
 		break;
@@ -643,6 +664,26 @@ static u32 get_hfi_ltr_mode(enum ltr_mode ltr_mode_type)
 		break;
 	}
 	return ltrmode;
+}
+
+static u32 get_hfi_work_mode(enum hal_work_mode work_mode)
+{
+	u32 hfi_work_mode;
+
+	switch (work_mode) {
+	case VIDC_WORK_MODE_1:
+		hfi_work_mode = HFI_WORKMODE_1;
+		break;
+	case VIDC_WORK_MODE_2:
+		hfi_work_mode = HFI_WORKMODE_2;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid work mode: %#x\n",
+			work_mode);
+		hfi_work_mode = HFI_WORKMODE_2;
+		break;
+	}
+	return hfi_work_mode;
 }
 
 int create_pkt_cmd_session_set_buffers(
@@ -843,8 +884,6 @@ int create_pkt_cmd_session_ftb(struct hfi_cmd_session_fill_buffer_packet *pkt,
 		output_frame->device_addr, output_frame->timestamp,
 		output_frame->alloc_len, output_frame->filled_len,
 		output_frame->offset);
-	dprintk(VIDC_DBG, "### Q OUTPUT BUFFER ###: %d, %d, %d\n",
-			pkt->alloc_len, pkt->filled_len, pkt->offset);
 
 	return rc;
 }
@@ -919,6 +958,8 @@ int create_pkt_cmd_session_set_property(
 	pkt->packet_type = HFI_CMD_SESSION_SET_PROPERTY;
 	pkt->session_id = hash32_ptr(session);
 	pkt->num_properties = 1;
+
+	dprintk(VIDC_DBG, "Setting HAL Property = 0x%x\n", ptype);
 
 	switch (ptype) {
 	case HAL_CONFIG_FRAME_RATE:
@@ -1163,8 +1204,7 @@ int create_pkt_cmd_session_set_property(
 		 * HFI level
 		 */
 		hfi->level = prop->level;
-		hfi->profile = hal_to_hfi_type(HAL_PARAM_PROFILE_LEVEL_CURRENT,
-				prop->profile);
+		hfi->profile = prop->profile;
 		if (hfi->profile <= 0) {
 			hfi->profile = HFI_H264_PROFILE_HIGH;
 			dprintk(VIDC_WARN,
@@ -1213,10 +1253,8 @@ int create_pkt_cmd_session_set_property(
 			pkt->rg_property_data[1] = HFI_RATE_CONTROL_CBR_VFR;
 			break;
 		case HAL_RATE_CONTROL_VBR_CFR:
-			pkt->rg_property_data[1] = HFI_RATE_CONTROL_VBR_CFR;
-			break;
 		case HAL_RATE_CONTROL_VBR_VFR:
-			pkt->rg_property_data[1] = HFI_RATE_CONTROL_VBR_VFR;
+			pkt->rg_property_data[1] = HFI_RATE_CONTROL_VBR_CFR;
 			break;
 		case HAL_RATE_CONTROL_MBR_CFR:
 			pkt->rg_property_data[1] = HFI_RATE_CONTROL_MBR_CFR;
@@ -1268,7 +1306,7 @@ int create_pkt_cmd_session_set_property(
 		struct hal_quantization *hal_quant =
 			(struct hal_quantization *) pdata;
 		pkt->rg_property_data[0] =
-			HFI_PROPERTY_CONFIG_VENC_SESSION_QP;
+			HFI_PROPERTY_CONFIG_VENC_FRAME_QP;
 		hfi = (struct hfi_quantization *) &pkt->rg_property_data[1];
 		hfi->qp_packed = hal_quant->qpi | hal_quant->qpp << 8 |
 			hal_quant->qpb << 16;
@@ -1335,20 +1373,24 @@ int create_pkt_cmd_session_set_property(
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VDEC_CONCEAL_COLOR;
 		hfi = (struct hfi_conceal_color *) &pkt->rg_property_data[1];
-		if (hfi)
-			hfi->conceal_color =
+		if (hfi) {
+			hfi->conceal_color_8bit =
 				((struct hfi_conceal_color *) pdata)->
-				conceal_color;
-		pkt->size += sizeof(u32) * 2;
+				conceal_color_8bit;
+			hfi->conceal_color_10bit =
+				((struct hfi_conceal_color *) pdata)->
+				conceal_color_10bit;
+		}
+		pkt->size += sizeof(u32) + sizeof(struct hfi_conceal_color);
 		break;
 	}
-	case HAL_CONFIG_VPE_OPERATIONS:
+	case HAL_PARAM_VPE_ROTATION:
 	{
-		struct hfi_operations_type *hfi;
-		struct hal_operations *prop =
-			(struct hal_operations *) pdata;
-		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VPE_OPERATIONS;
-		hfi = (struct hfi_operations_type *) &pkt->rg_property_data[1];
+		struct hfi_vpe_rotation_type *hfi;
+		struct hal_vpe_rotation *prop =
+			(struct hal_vpe_rotation *) pdata;
+		pkt->rg_property_data[0] = HFI_PROPERTY_PARAM_VPE_ROTATION;
+		hfi = (struct hfi_vpe_rotation_type *)&pkt->rg_property_data[1];
 		switch (prop->rotate) {
 		case HAL_ROTATE_NONE:
 			hfi->rotation = HFI_ROTATE_NONE;
@@ -1378,13 +1420,16 @@ int create_pkt_cmd_session_set_property(
 		case HAL_FLIP_VERTICAL:
 			hfi->flip = HFI_FLIP_VERTICAL;
 			break;
+		case HAL_FLIP_BOTH:
+			hfi->flip = HFI_FLIP_HORIZONTAL | HFI_FLIP_VERTICAL;
+			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid flip setting: %#x\n",
 				prop->flip);
 			rc = -EINVAL;
 			break;
 		}
-		pkt->size += sizeof(u32) + sizeof(struct hfi_operations_type);
+		pkt->size += sizeof(u32) + sizeof(struct hfi_vpe_rotation_type);
 		break;
 	}
 	case HAL_PARAM_VENC_INTRA_REFRESH:
@@ -1478,30 +1523,22 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
-	case HAL_PARAM_VENC_H264_VUI_TIMING_INFO:
+	case HAL_PARAM_VENC_VUI_TIMING_INFO:
 	{
-		struct hfi_h264_vui_timing_info *hfi;
-		struct hal_h264_vui_timing_info *timing_info = pdata;
+		struct hfi_vui_timing_info *hfi;
+		struct hal_vui_timing_info *timing_info = pdata;
 
 		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_H264_VUI_TIMING_INFO;
+			HFI_PROPERTY_PARAM_VENC_VUI_TIMING_INFO;
 
-		hfi = (struct hfi_h264_vui_timing_info *)&pkt->
+		hfi = (struct hfi_vui_timing_info *)&pkt->
 			rg_property_data[1];
 		hfi->enable = timing_info->enable;
 		hfi->fixed_frame_rate = timing_info->fixed_frame_rate;
 		hfi->time_scale = timing_info->time_scale;
 
 		pkt->size += sizeof(u32) +
-			sizeof(struct hfi_h264_vui_timing_info);
-		break;
-	}
-	case HAL_CONFIG_VPE_DEINTERLACE:
-	{
-		create_pkt_enable(pkt->rg_property_data,
-				HFI_PROPERTY_CONFIG_VPE_DEINTERLACE,
-				((struct hal_enable *)pdata)->enable);
-		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+			sizeof(struct hfi_vui_timing_info);
 		break;
 	}
 	case HAL_PARAM_VENC_GENERATE_AUDNAL:
@@ -1593,6 +1630,13 @@ int create_pkt_cmd_session_set_property(
 				HFI_PROPERTY_PARAM_VPE_COLOR_SPACE_CONVERSION;
 		hfi = (struct hfi_vpe_color_space_conversion *)
 			&pkt->rg_property_data[1];
+
+		hfi->input_color_primaries = hal->input_color_primaries;
+		if (hal->custom_matrix_enabled)
+			/* Bit Mask to enable all custom values */
+			hfi->custom_matrix_enabled = 0x7;
+		else
+			hfi->custom_matrix_enabled = 0x0;
 		memcpy(hfi->csc_matrix, hal->csc_matrix,
 				sizeof(hfi->csc_matrix));
 		memcpy(hfi->csc_bias, hal->csc_bias, sizeof(hfi->csc_bias));
@@ -1829,11 +1873,28 @@ int create_pkt_cmd_session_set_property(
 			(struct hfi_video_work_mode *)
 			&pkt->rg_property_data[1];
 
-		work_mode->video_work_mode = hal->video_work_mode;
+		work_mode->video_work_mode = get_hfi_work_mode(
+						hal->video_work_mode);
 
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_WORK_MODE;
 		pkt->size += sizeof(u32) + sizeof(*work_mode);
+		break;
+	}
+	case HAL_PARAM_VENC_HDR10_PQ_SEI:
+	{
+		struct hfi_hdr10_pq_sei *hfi;
+		struct hal_hdr10_pq_sei *prop =
+			(struct hal_hdr10_pq_sei *) pdata;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_HDR10_PQ_SEI;
+		hfi = (struct hfi_hdr10_pq_sei *)
+			&pkt->rg_property_data[1];
+
+		memcpy(hfi, prop, sizeof(*hfi));
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_hdr10_pq_sei);
 		break;
 	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */

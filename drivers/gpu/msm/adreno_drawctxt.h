@@ -40,6 +40,7 @@ struct kgsl_context;
  * @pending: Priority list node for the dispatcher list of pending contexts
  * @wq: Workqueue structure for contexts to sleep pending room in the queue
  * @waiting: Workqueue structure for contexts waiting for a timestamp or event
+ * @timeout: Workqueue structure for contexts waiting to invalidate
  * @queued: Number of commands queued in the drawqueue
  * @fault_policy: GFT fault policy set in _skip_cmd();
  * @debug_root: debugfs entry for this context.
@@ -68,6 +69,7 @@ struct adreno_context {
 	struct plist_node pending;
 	wait_queue_head_t wq;
 	wait_queue_head_t waiting;
+	wait_queue_head_t timeout;
 
 	int queued;
 	unsigned int fault_policy;

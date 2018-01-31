@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
@@ -243,7 +245,7 @@ static void clk_rpmh_unprepare(struct clk_hw *hw)
 
 	if (ret) {
 		c->state = c->valid_state_mask;
-		WARN(1, "%s failed to disable\n", c->res_name);
+		WARN(1, "clk: %s failed to disable\n", c->res_name);
 	}
 
 out:
@@ -315,9 +317,46 @@ static const struct clk_rpmh_desc clk_rpmh_sdm845 = {
 
 static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,rpmh-clk-sdm845", .data = &clk_rpmh_sdm845},
+	{ .compatible = "qcom,rpmh-clk-sdm670", .data = &clk_rpmh_sdm845},
+	{ .compatible = "qcom,rpmh-clk-sdxpoorwills", .data = &clk_rpmh_sdm845},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
+
+static void clk_rpmh_sdm670_fixup(void)
+{
+	sdm845_rpmh_clocks[RPMH_RF_CLK3] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK3_A] = NULL;
+}
+
+static void clk_rpmh_sdxpoorwills_fixup(void)
+{
+	sdm845_rpmh_clocks[RPMH_LN_BB_CLK2] = NULL;
+	sdm845_rpmh_clocks[RPMH_LN_BB_CLK2_A] = NULL;
+	sdm845_rpmh_clocks[RPMH_LN_BB_CLK3] = NULL;
+	sdm845_rpmh_clocks[RPMH_LN_BB_CLK3_A] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK2] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK2_A] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK3] = NULL;
+	sdm845_rpmh_clocks[RPMH_RF_CLK3_A] = NULL;
+}
+
+static int clk_rpmh_fixup(struct platform_device *pdev)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,rpmh-clk-sdm670"))
+		clk_rpmh_sdm670_fixup();
+	else if (!strcmp(compat, "qcom,rpmh-clk-sdxpoorwills"))
+		clk_rpmh_sdxpoorwills_fixup();
+
+	return 0;
+}
 
 static int clk_rpmh_probe(struct platform_device *pdev)
 {
@@ -386,6 +425,10 @@ static int clk_rpmh_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
+	ret = clk_rpmh_fixup(pdev);
+	if (ret)
+		return ret;
+
 	hw_clks = desc->clks;
 	num_clks = desc->num_clks;
 
@@ -402,6 +445,11 @@ static int clk_rpmh_probe(struct platform_device *pdev)
 	data->clk_num = num_clks;
 
 	for (i = 0; i < num_clks; i++) {
+		if (!hw_clks[i]) {
+			clks[i] = ERR_PTR(-ENOENT);
+			continue;
+		}
+
 		rpmh_clk = to_clk_rpmh(hw_clks[i]);
 		rpmh_clk->res_addr = cmd_db_get_addr(rpmh_clk->res_name);
 		if (!rpmh_clk->res_addr) {
@@ -449,7 +497,7 @@ static int __init clk_rpmh_init(void)
 {
 	return platform_driver_register(&clk_rpmh_driver);
 }
-core_initcall(clk_rpmh_init);
+subsys_initcall(clk_rpmh_init);
 
 static void __exit clk_rpmh_exit(void)
 {

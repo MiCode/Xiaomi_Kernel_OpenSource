@@ -548,9 +548,9 @@ static void nfs_write_error_remove_page(struct nfs_page *req)
 {
 	nfs_unlock_request(req);
 	nfs_end_page_writeback(req);
-	nfs_release_request(req);
 	generic_error_remove_page(page_file_mapping(req->wb_page),
 				  req->wb_page);
+	nfs_release_request(req);
 }
 
 /*
@@ -1859,6 +1859,8 @@ int nfs_commit_inode(struct inode *inode, int how)
 	if (res)
 		error = nfs_generic_commit_list(inode, &head, how, &cinfo);
 	nfs_commit_end(cinfo.mds);
+	if (res == 0)
+		return res;
 	if (error < 0)
 		goto out_error;
 	if (!may_wait)

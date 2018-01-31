@@ -1,36 +1,24 @@
-ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging
+ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging -Idrivers/gpu/drm/msm/dp
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
 ccflags-y += -Idrivers/media/platform/msm/sde/rotator
+ccflags-y += -Idrivers/gpu/drm/msm/hdmi
 
 msm_drm-y := \
-	hdmi/hdmi.o \
-	hdmi/hdmi_audio.o \
-	hdmi/hdmi_bridge.o \
-	hdmi/hdmi_connector.o \
-	hdmi/hdmi_i2c.o \
-	hdmi/hdmi_phy.o \
-	hdmi/hdmi_phy_8960.o \
-	hdmi/hdmi_phy_8x60.o \
-	hdmi/hdmi_phy_8x74.o \
-	edp/edp.o \
-	edp/edp_aux.o \
-	edp/edp_bridge.o \
-	edp/edp_connector.o \
-	edp/edp_ctrl.o \
-	edp/edp_phy.o \
-	mdp/mdp_format.o \
-	mdp/mdp_kms.o \
-	mdp/mdp5/mdp5_cfg.o \
-	mdp/mdp5/mdp5_ctl.o \
-	mdp/mdp5/mdp5_crtc.o \
-	mdp/mdp5/mdp5_encoder.o \
-	mdp/mdp5/mdp5_irq.o \
-	mdp/mdp5/mdp5_mdss.o \
-	mdp/mdp5/mdp5_kms.o \
-	mdp/mdp5/mdp5_plane.o \
-	mdp/mdp5/mdp5_smp.o \
+	dp/dp_usbpd.o \
+	dp/dp_parser.o \
+	dp/dp_power.o \
+	dp/dp_catalog.o \
+	dp/dp_aux.o \
+	dp/dp_panel.o \
+	dp/dp_link.o \
+	dp/dp_ctrl.o \
+	dp/dp_audio.o \
+	dp/dp_debug.o \
+	dp/dp_display.o \
+	dp/dp_drm.o \
+	dp/dp_hdcp2p2.o \
 	sde/sde_crtc.o \
 	sde/sde_encoder.o \
 	sde/sde_encoder_phys_vid.o \
@@ -51,6 +39,37 @@ msm_drm-y := \
 	sde/sde_hw_reg_dma_v1_color_proc.o \
 	sde/sde_hw_color_proc_v4.o \
 	sde/sde_hw_ad4.o \
+	sde_edid_parser.o \
+	sde_hdcp_1x.o
+
+msm_drm-$(CONFIG_DRM_MSM_HDMI) += hdmi/hdmi.o \
+	hdmi/hdmi_audio.o \
+	hdmi/hdmi_bridge.o \
+	hdmi/hdmi_connector.o \
+	hdmi/hdmi_i2c.o \
+	hdmi/hdmi_phy.o \
+	hdmi/hdmi_phy_8960.o \
+	hdmi/hdmi_phy_8x60.o \
+	hdmi/hdmi_phy_8x74.o \
+
+msm_drm-$(CONFIG_DRM_MSM_EDP) += edp/edp.o \
+	edp/edp_aux.o \
+	edp/edp_bridge.o \
+	edp/edp_connector.o \
+	edp/edp_ctrl.o \
+	edp/edp_phy.o \
+
+msm_drm-$(CONFIG_DRM_MSM_MDP5) += mdp/mdp_format.o \
+	mdp/mdp_kms.o \
+	mdp/mdp5/mdp5_cfg.o \
+	mdp/mdp5/mdp5_ctl.o \
+	mdp/mdp5/mdp5_crtc.o \
+	mdp/mdp5/mdp5_encoder.o \
+	mdp/mdp5/mdp5_irq.o \
+	mdp/mdp5/mdp5_mdss.o \
+	mdp/mdp5/mdp5_kms.o \
+	mdp/mdp5/mdp5_plane.o \
+	mdp/mdp5/mdp5_smp.o \
 
 msm_drm-$(CONFIG_DRM_SDE_RSC) += sde_rsc.o \
 	sde_rsc_hw.o \
@@ -74,9 +93,9 @@ msm_drm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
 
 msm_drm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
 msm_drm-$(CONFIG_SYNC_FILE) += sde/sde_fence.o
-msm_drm-$(CONFIG_COMMON_CLK) += mdp/mdp4/mdp4_lvds_pll.o
-msm_drm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_pll_8960.o
-msm_drm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_phy_8996.o
+msm_drm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_lvds_pll.o
+msm_drm-$(CONFIG_DRM_MSM_HDMI) += hdmi/hdmi_pll_8960.o
+msm_drm-$(CONFIG_DRM_MSM_HDMI) += hdmi/hdmi_phy_8996.o
 
 msm_drm-$(CONFIG_DRM_MSM_HDMI_HDCP) += hdmi/hdmi_hdcp.o
 
@@ -142,7 +161,8 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	sde/sde_hw_color_processing_v1_7.o \
 	sde/sde_reg_dma.o \
 	sde/sde_hw_reg_dma_v1.o \
-	sde/sde_hw_dsc.o
+	sde/sde_hw_dsc.o \
+	sde/sde_hw_ds.o
 
 msm_drm-$(CONFIG_DRM_SDE_WB) += sde/sde_wb.o \
 	sde/sde_encoder_phys_wb.o
@@ -155,6 +175,7 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_gem_prime.o \
 	msm_gem_submit.o \
 	msm_gem_shrinker.o \
+	msm_gem_vma.o \
 	msm_gpu.o \
 	msm_iommu.o \
 	msm_smmu.o \

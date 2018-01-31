@@ -48,9 +48,6 @@ struct hwmon_node {
 	unsigned int hyst_trigger_count;
 	unsigned int hyst_length;
 	unsigned int idle_mbps;
-	unsigned int low_power_ceil_mbps;
-	unsigned int low_power_io_percent;
-	unsigned int low_power_delay;
 	unsigned int mbps_zones[NUM_MBPS_ZONES];
 
 	unsigned long prev_ab;
@@ -65,7 +62,6 @@ struct hwmon_node {
 	unsigned long hyst_mbps;
 	unsigned long hyst_trig_win;
 	unsigned long hyst_en;
-	unsigned long above_low_power;
 	unsigned long prev_req;
 	unsigned int wake;
 	unsigned int down_cnt;
@@ -317,7 +313,7 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	unsigned long meas_mbps_zone;
 	unsigned long hist_lo_tol, hyst_lo_tol;
 	struct bw_hwmon *hw = node->hw;
-	unsigned int new_bw, io_percent;
+	unsigned int new_bw, io_percent = node->io_percent;
 	ktime_t ts;
 	unsigned int ms = 0;
 
@@ -352,17 +348,6 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 		if (node->hist_mem)
 			node->hist_mem--;
 	}
-
-	/* Keep track of whether we are in low power mode consistently. */
-	if (meas_mbps > node->low_power_ceil_mbps)
-		node->above_low_power = node->low_power_delay;
-	if (node->above_low_power)
-		node->above_low_power--;
-
-	if (node->above_low_power)
-		io_percent = node->io_percent;
-	else
-		io_percent = node->low_power_io_percent;
 
 	/*
 	 * The AB value that corresponds to the lowest mbps zone greater than
@@ -785,9 +770,6 @@ gov_attr(hist_memory, 0U, 90U);
 gov_attr(hyst_trigger_count, 0U, 90U);
 gov_attr(hyst_length, 0U, 90U);
 gov_attr(idle_mbps, 0U, 2000U);
-gov_attr(low_power_ceil_mbps, 0U, 2500U);
-gov_attr(low_power_io_percent, 1U, 100U);
-gov_attr(low_power_delay, 1U, 60U);
 gov_list_attr(mbps_zones, NUM_MBPS_ZONES, 0U, UINT_MAX);
 
 static struct attribute *dev_attr[] = {
@@ -804,9 +786,6 @@ static struct attribute *dev_attr[] = {
 	&dev_attr_hyst_trigger_count.attr,
 	&dev_attr_hyst_length.attr,
 	&dev_attr_idle_mbps.attr,
-	&dev_attr_low_power_ceil_mbps.attr,
-	&dev_attr_low_power_io_percent.attr,
-	&dev_attr_low_power_delay.attr,
 	&dev_attr_mbps_zones.attr,
 	&dev_attr_throttle_adj.attr,
 	NULL,
@@ -820,10 +799,12 @@ static struct attribute_group dev_attr_group = {
 static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 					unsigned int event, void *data)
 {
-	int ret;
+	int ret = 0;
 	unsigned int sample_ms;
 	struct hwmon_node *node;
 	struct bw_hwmon *hw;
+
+	mutex_lock(&state_lock);
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
@@ -834,7 +815,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 
 		ret = gov_start(df);
 		if (ret)
-			return ret;
+			goto out;
 
 		dev_dbg(df->dev.parent,
 			"Enabled dev BW HW monitor governor\n");
@@ -864,7 +845,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		if (ret) {
 			dev_err(df->dev.parent,
 				"Unable to resume HW monitor (%d)\n", ret);
-			return ret;
+			goto out;
 		}
 		break;
 
@@ -874,7 +855,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 			dev_err(df->dev.parent,
 				"Unable to suspend BW HW mon governor (%d)\n",
 				ret);
-			return ret;
+			goto out;
 		}
 
 		dev_dbg(df->dev.parent, "Suspended BW HW mon governor\n");
@@ -886,14 +867,17 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 			dev_err(df->dev.parent,
 				"Unable to resume BW HW mon governor (%d)\n",
 				ret);
-			return ret;
+			goto out;
 		}
 
 		dev_dbg(df->dev.parent, "Resumed BW HW mon governor\n");
 		break;
 	}
 
-	return 0;
+out:
+	mutex_unlock(&state_lock);
+
+	return ret;
 }
 
 static struct devfreq_governor devfreq_gov_bw_hwmon = {
@@ -935,9 +919,6 @@ int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon)
 	node->guard_band_mbps = 100;
 	node->decay_rate = 90;
 	node->io_percent = 16;
-	node->low_power_ceil_mbps = 0;
-	node->low_power_io_percent = 16;
-	node->low_power_delay = 60;
 	node->bw_step = 190;
 	node->sample_ms = 50;
 	node->up_scale = 0;

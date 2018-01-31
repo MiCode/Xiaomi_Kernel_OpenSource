@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,7 +45,7 @@
 #define HFI_ERR_SYS_SESSION_IN_USE			(HFI_COMMON_BASE + 0x7)
 #define HFI_ERR_SYS_SESSION_ID_OUT_OF_RANGE	(HFI_COMMON_BASE + 0x8)
 #define HFI_ERR_SYS_UNSUPPORTED_DOMAIN		(HFI_COMMON_BASE + 0x9)
-
+#define HFI_ERR_SYS_NOC_ERROR			(HFI_COMMON_BASE + 0x11)
 #define HFI_ERR_SESSION_FATAL			(HFI_COMMON_BASE + 0x1001)
 #define HFI_ERR_SESSION_INVALID_PARAMETER	(HFI_COMMON_BASE + 0x1002)
 #define HFI_ERR_SESSION_BAD_POINTER		(HFI_COMMON_BASE + 0x1003)
@@ -81,15 +81,18 @@
 #define HFI_VIDEO_CODEC_VP8				0x00001000
 #define HFI_VIDEO_CODEC_HEVC				0x00002000
 #define HFI_VIDEO_CODEC_VP9				0x00004000
+#define HFI_VIDEO_CODEC_TME				0x00008000
 
-#define HFI_PROFILE_UNKNOWN					0x00000000
+#define HFI_PROFILE_UNKNOWN				0x00000000
+#define HFI_LEVEL_UNKNOWN				0x00000000
+
 #define HFI_H264_PROFILE_BASELINE			0x00000001
 #define HFI_H264_PROFILE_MAIN				0x00000002
 #define HFI_H264_PROFILE_HIGH				0x00000004
-#define HFI_H264_PROFILE_STEREO_HIGH		0x00000008
+#define HFI_H264_PROFILE_STEREO_HIGH			0x00000008
 #define HFI_H264_PROFILE_MULTIVIEW_HIGH		0x00000010
-#define HFI_H264_PROFILE_CONSTRAINED_BASE	0x00000020
-#define HFI_H264_PROFILE_CONSTRAINED_HIGH	0x00000040
+#define HFI_H264_PROFILE_CONSTRAINED_BASE		0x00000020
+#define HFI_H264_PROFILE_CONSTRAINED_HIGH		0x00000040
 
 #define HFI_LEVEL_UNKNOWN					0x00000000
 #define HFI_H264_LEVEL_1					0x00000001
@@ -112,22 +115,17 @@
 
 #define HFI_MPEG2_PROFILE_SIMPLE			0x00000001
 #define HFI_MPEG2_PROFILE_MAIN				0x00000002
-#define HFI_MPEG2_PROFILE_422				0x00000004
-#define HFI_MPEG2_PROFILE_SNR				0x00000008
-#define HFI_MPEG2_PROFILE_SPATIAL			0x00000010
-#define HFI_MPEG2_PROFILE_HIGH				0x00000020
 
 #define HFI_MPEG2_LEVEL_LL					0x00000001
 #define HFI_MPEG2_LEVEL_ML					0x00000002
-#define HFI_MPEG2_LEVEL_H14					0x00000004
-#define HFI_MPEG2_LEVEL_HL					0x00000008
+#define HFI_MPEG2_LEVEL_HL					0x00000004
 
-#define HFI_VPX_PROFILE_SIMPLE				0x00000001
-#define HFI_VPX_PROFILE_ADVANCED			0x00000002
-#define HFI_VPX_PROFILE_VERSION_0			0x00000004
-#define HFI_VPX_PROFILE_VERSION_1			0x00000008
-#define HFI_VPX_PROFILE_VERSION_2			0x00000010
-#define HFI_VPX_PROFILE_VERSION_3			0x00000020
+#define HFI_VP8_PROFILE_MAIN			0x00000001
+
+#define HFI_VP8_LEVEL_VERSION_0			0x00000001
+#define HFI_VP8_LEVEL_VERSION_1			0x00000002
+#define HFI_VP8_LEVEL_VERSION_2			0x00000004
+#define HFI_VP8_LEVEL_VERSION_3			0x00000008
 
 #define  HFI_HEVC_PROFILE_MAIN			0x00000001
 #define  HFI_HEVC_PROFILE_MAIN10		0x00000002
@@ -150,11 +148,25 @@
 #define HFI_HEVC_TIER_MAIN	0x1
 #define HFI_HEVC_TIER_HIGH0	0x2
 
+#define  HFI_TME_PROFILE_DEFAULT	0x00000001
+#define  HFI_TME_PROFILE_FRC		0x00000002
+#define  HFI_TME_PROFILE_ASW		0x00000004
+#define  HFI_TME_PROFILE_DFS_BOKEH	0x00000008
+
+#define HFI_TME_LEVEL_INTEGER		0x00000001
+
 #define HFI_BUFFER_INPUT				(HFI_COMMON_BASE + 0x1)
 #define HFI_BUFFER_OUTPUT				(HFI_COMMON_BASE + 0x2)
 #define HFI_BUFFER_OUTPUT2				(HFI_COMMON_BASE + 0x3)
 #define HFI_BUFFER_INTERNAL_PERSIST		(HFI_COMMON_BASE + 0x4)
 #define HFI_BUFFER_INTERNAL_PERSIST_1		(HFI_COMMON_BASE + 0x5)
+#define HFI_BUFFER_COMMON_INTERNAL_SCRATCH	(HFI_COMMON_BASE + 0x6)
+#define HFI_BUFFER_COMMON_INTERNAL_SCRATCH_1	(HFI_COMMON_BASE + 0x7)
+#define HFI_BUFFER_COMMON_INTERNAL_SCRATCH_2	(HFI_COMMON_BASE + 0x8)
+#define HFI_BUFFER_COMMON_INTERNAL_RECON	(HFI_COMMON_BASE + 0x9)
+#define HFI_BUFFER_EXTRADATA_OUTPUT		(HFI_COMMON_BASE + 0xA)
+#define HFI_BUFFER_EXTRADATA_OUTPUT2		(HFI_COMMON_BASE + 0xB)
+#define HFI_BUFFER_EXTRADATA_INPUT		(HFI_COMMON_BASE + 0xC)
 
 #define  HFI_BITDEPTH_8				(HFI_COMMON_BASE + 0x0)
 #define  HFI_BITDEPTH_9				(HFI_COMMON_BASE + 0x1)
@@ -222,6 +234,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x011)
 #define  HFI_PROPERTY_PARAM_WORK_MODE                       \
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x015)
+#define  HFI_PROPERTY_TME_VERSION_SUPPORTED                 \
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x016)
 
 #define HFI_PROPERTY_CONFIG_COMMON_START				\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x2000)
@@ -283,7 +297,7 @@ struct hfi_buffer_info {
 	 (HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01C)
 #define HFI_PROPERTY_PARAM_VENC_VIDEO_SIGNAL_INFO	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01D)
-#define HFI_PROPERTY_PARAM_VENC_H264_VUI_TIMING_INFO	\
+#define HFI_PROPERTY_PARAM_VENC_VUI_TIMING_INFO	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01E)
 #define HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x022)
@@ -307,6 +321,10 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x033)
 #define  HFI_PROPERTY_PARAM_VENC_IFRAMESIZE			\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x034)
+#define  HFI_PROPERTY_PARAM_VENC_SEND_OUTPUT_FOR_SKIPPED_FRAMES	\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x035)
+#define  HFI_PROPERTY_PARAM_VENC_HDR10_PQ_SEI			\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x036)
 
 #define HFI_PROPERTY_CONFIG_VENC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_COMMON_OFFSET + 0x6000)
@@ -320,8 +338,6 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x004)
 #define  HFI_PROPERTY_CONFIG_VENC_SLICE_SIZE                \
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x005)
-#define HFI_PROPERTY_PARAM_VPE_COMMON_START				\
-	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x7000)
 #define  HFI_PROPERTY_CONFIG_VENC_SYNC_FRAME_SEQUENCE_HEADER	\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x008)
 #define  HFI_PROPERTY_CONFIG_VENC_MARKLTRFRAME			\
@@ -334,18 +350,20 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00E)
 #define HFI_PROPERTY_CONFIG_VENC_BASELAYER_PRIORITYID		\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00F)
-#define HFI_PROPERTY_CONFIG_VENC_SESSION_QP			\
+#define HFI_PROPERTY_CONFIG_VENC_BLUR_FRAME_SIZE		\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x010)
+#define HFI_PROPERTY_CONFIG_VENC_FRAME_QP			\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x012)
 
+#define HFI_PROPERTY_PARAM_VPE_COMMON_START				\
+	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x7000)
+#define HFI_PROPERTY_PARAM_VPE_ROTATION				\
+	(HFI_PROPERTY_PARAM_VPE_COMMON_START + 0x001)
+#define HFI_PROPERTY_PARAM_VPE_COLOR_SPACE_CONVERSION		\
+	(HFI_PROPERTY_PARAM_VPE_COMMON_START + 0x002)
 
 #define HFI_PROPERTY_CONFIG_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x8000)
-#define  HFI_PROPERTY_CONFIG_VENC_BLUR_FRAME_SIZE		\
-	(HFI_PROPERTY_CONFIG_COMMON_START + 0x010)
-#define HFI_PROPERTY_CONFIG_VPE_DEINTERLACE				\
-	(HFI_PROPERTY_CONFIG_VPE_COMMON_START + 0x001)
-#define HFI_PROPERTY_CONFIG_VPE_OPERATIONS				\
-	(HFI_PROPERTY_CONFIG_VPE_COMMON_START + 0x002)
 
 struct hfi_pic_struct {
 	u32 progressive_only;
@@ -456,7 +474,7 @@ struct hfi_frame_rate {
 
 #define HFI_INTRA_REFRESH_NONE				(HFI_COMMON_BASE + 0x1)
 #define HFI_INTRA_REFRESH_CYCLIC			(HFI_COMMON_BASE + 0x2)
-#define HFI_INTRA_REFRESH_RANDOM			(HFI_COMMON_BASE + 0x3)
+#define HFI_INTRA_REFRESH_RANDOM			(HFI_COMMON_BASE + 0x5)
 
 struct hfi_intra_refresh {
 	u32 mode;
@@ -467,13 +485,14 @@ struct hfi_idr_period {
 	u32 idr_period;
 };
 
-struct hfi_operations_type {
+struct hfi_vpe_rotation_type {
 	u32 rotation;
 	u32 flip;
 };
 
 struct hfi_conceal_color {
-	u32 conceal_color;
+	u32 conceal_color_8bit;
+	u32 conceal_color_10bit;
 };
 
 struct hfi_intra_period {
@@ -589,7 +608,7 @@ struct hfi_video_signal_metadata {
 	u32 matrix_coeffs;
 };
 
-struct hfi_h264_vui_timing_info {
+struct hfi_vui_timing_info {
 	u32 enable;
 	u32 fixed_frame_rate;
 	u32 time_scale;
@@ -699,6 +718,8 @@ struct hfi_max_sessions_supported {
 };
 
 struct hfi_vpe_color_space_conversion {
+	u32 input_color_primaries;
+	u32 custom_matrix_enabled;
 	u32 csc_matrix[HFI_MAX_MATRIX_COEFFS];
 	u32 csc_bias[HFI_MAX_BIAS_COEFFS];
 	u32 csc_limit[HFI_MAX_LIMIT_COEFFS];
@@ -711,30 +732,18 @@ struct hfi_vpe_color_space_conversion {
 
 #define HFI_FLIP_NONE					(HFI_COMMON_BASE + 0x1)
 #define HFI_FLIP_HORIZONTAL				(HFI_COMMON_BASE + 0x2)
-#define HFI_FLIP_VERTICAL				(HFI_COMMON_BASE + 0x3)
+#define HFI_FLIP_VERTICAL				(HFI_COMMON_BASE + 0x4)
 
-struct hfi_operations {
-	u32 rotate;
-	u32 flip;
-};
+#define HFI_RESOURCE_SYSCACHE 0x00000002
 
-#define HFI_RESOURCE_OCMEM 0x00000001
-
-struct hfi_resource_ocmem {
+struct hfi_resource_subcache_type {
 	u32 size;
-	u32 mem;
+	u32 sc_id;
 };
 
-struct hfi_resource_ocmem_requirement {
-	u32 session_domain;
-	u32 width;
-	u32 height;
-	u32 size;
-};
-
-struct hfi_resource_ocmem_requirement_info {
+struct hfi_resource_syscache_info_type {
 	u32 num_entries;
-	struct hfi_resource_ocmem_requirement rg_requirements[1];
+	struct hfi_resource_subcache_type rg_subcache_entries[1];
 };
 
 struct hfi_property_sys_image_version_info_type {
@@ -1053,4 +1062,24 @@ struct hfi_cmd_sys_test_ssr_packet {
 	u32 packet_type;
 	u32 trigger_type;
 };
+
+struct hfi_mastering_display_colour_sei_payload {
+	u32 display_primariesX[3];
+	u32 display_primariesY[3];
+	u32 white_pointX;
+	u32 white_pointY;
+	u32 max_display_mastering_luminance;
+	u32 min_display_mastering_luminance;
+};
+
+struct hfi_content_light_level_sei_payload {
+	u32 max_content_light;
+	u32 max_pic_average_light;
+};
+
+struct hfi_hdr10_pq_sei {
+	struct hfi_mastering_display_colour_sei_payload mdisp_info;
+	struct hfi_content_light_level_sei_payload cll_info;
+};
+
 #endif

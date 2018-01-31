@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight System Trace Macrocell driver
  *
@@ -211,6 +211,7 @@ static void stm_disable(struct coresight_device *csdev,
 	if (local_read(&drvdata->mode) == CS_MODE_SYSFS) {
 		spin_lock(&drvdata->spinlock);
 		stm_disable_hw(drvdata);
+		drvdata->enable = false;
 		spin_unlock(&drvdata->spinlock);
 
 		/* Wait until the engine has completely stopped */
@@ -729,7 +730,7 @@ static u32 stm_num_stimulus_port(struct stm_drvdata *drvdata)
 	numsp &= 0x1ffff;
 	if (!numsp)
 		numsp = STM_32_CHANNEL;
-	return numsp;
+	return STM_32_CHANNEL;
 }
 
 static void stm_init_default_data(struct stm_drvdata *drvdata)

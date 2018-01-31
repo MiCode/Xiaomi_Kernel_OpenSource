@@ -685,7 +685,7 @@ static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 		dev_err(device->dev, "CP initialization failed to idle\n");
-		kgsl_device_snapshot(device, NULL);
+		kgsl_device_snapshot(device, NULL, false);
 	}
 
 	return ret;
@@ -1533,6 +1533,10 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 			A3XX_UCHE_CACHE_INVALIDATE0_REG),
 	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE1,
 			A3XX_UCHE_CACHE_INVALIDATE1_REG),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
+			A3XX_RBBM_PERFCTR_RBBM_0_LO),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
+			A3XX_RBBM_PERFCTR_RBBM_0_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 				A3XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
@@ -1823,7 +1827,7 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_device *adreno_dev,
 
 	if (ret) {
 		KGSL_DRV_ERR(device, "microcode bootstrap failed to idle\n");
-		kgsl_device_snapshot(device, NULL);
+		kgsl_device_snapshot(device, NULL, false);
 	}
 
 	/* Clear the chicken bit for speed up on A430 and its derivatives */
@@ -1919,5 +1923,5 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.perfcounter_close = a3xx_perfcounter_close,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,
-	.coresight = &a3xx_coresight,
+	.coresight = {&a3xx_coresight},
 };

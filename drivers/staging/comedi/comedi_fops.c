@@ -2385,6 +2385,7 @@ static ssize_t comedi_write(struct file *file, const char __user *buf,
 			continue;
 		}
 
+		set_current_state(TASK_RUNNING);
 		wp = async->buf_write_ptr;
 		n1 = min(n, async->prealloc_bufsz - wp);
 		n2 = n - n1;
@@ -2517,6 +2518,8 @@ static ssize_t comedi_read(struct file *file, char __user *buf, size_t nbytes,
 			}
 			continue;
 		}
+
+		set_current_state(TASK_RUNNING);
 		rp = async->buf_read_ptr;
 		n1 = min(n, async->prealloc_bufsz - rp);
 		n2 = n - n1;
@@ -2898,9 +2901,6 @@ static int __init comedi_init(void)
 
 	comedi_class->dev_groups = comedi_dev_groups;
 
-	/* XXX requires /proc interface */
-	comedi_proc_init();
-
 	/* create devices files for legacy/manual use */
 	for (i = 0; i < comedi_num_legacy_minors; i++) {
 		struct comedi_device *dev;
@@ -2908,6 +2908,7 @@ static int __init comedi_init(void)
 		dev = comedi_alloc_board_minor(NULL);
 		if (IS_ERR(dev)) {
 			comedi_cleanup_board_minors();
+			class_destroy(comedi_class);
 			cdev_del(&comedi_cdev);
 			unregister_chrdev_region(MKDEV(COMEDI_MAJOR, 0),
 						 COMEDI_NUM_MINORS);
@@ -2916,6 +2917,9 @@ static int __init comedi_init(void)
 		/* comedi_alloc_board_minor() locked the mutex */
 		mutex_unlock(&dev->mutex);
 	}
+
+	/* XXX requires /proc interface */
+	comedi_proc_init();
 
 	return 0;
 }

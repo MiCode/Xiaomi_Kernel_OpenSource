@@ -50,6 +50,8 @@
 #define ROTTOP_START_CTRL_TRIG_SEL_REGDMA       2
 #define ROTTOP_START_CTRL_TRIG_SEL_MDP          3
 
+#define ROTTOP_OP_MODE_ROT_OUT_MASK             (0x3 << 4)
+
 /* SDE_ROT_SSPP:
  * OFFSET=0x0A8900
  */
@@ -81,6 +83,8 @@
 #define ROT_SSPP_CREQ_LUT                       (SDE_ROT_SSPP_OFFSET+0x68)
 #define ROT_SSPP_QOS_CTRL                       (SDE_ROT_SSPP_OFFSET+0x6C)
 #define ROT_SSPP_SRC_ADDR_SW_STATUS             (SDE_ROT_SSPP_OFFSET+0x70)
+#define ROT_SSPP_CREQ_LUT_0                     (SDE_ROT_SSPP_OFFSET+0x74)
+#define ROT_SSPP_CREQ_LUT_1                     (SDE_ROT_SSPP_OFFSET+0x78)
 #define ROT_SSPP_CURRENT_SRC0_ADDR              (SDE_ROT_SSPP_OFFSET+0xA4)
 #define ROT_SSPP_CURRENT_SRC1_ADDR              (SDE_ROT_SSPP_OFFSET+0xA8)
 #define ROT_SSPP_CURRENT_SRC2_ADDR              (SDE_ROT_SSPP_OFFSET+0xAC)
@@ -167,6 +171,8 @@
 #define ROT_WB_CREQ_LUT                         (SDE_ROT_WB_OFFSET+0x08C)
 #define ROT_WB_QOS_CTRL                         (SDE_ROT_WB_OFFSET+0x090)
 #define ROT_WB_SYS_CACHE_MODE                   (SDE_ROT_WB_OFFSET+0x094)
+#define ROT_WB_CREQ_LUT_0                       (SDE_ROT_WB_OFFSET+0x098)
+#define ROT_WB_CREQ_LUT_1                       (SDE_ROT_WB_OFFSET+0x09C)
 #define ROT_WB_UBWC_STATIC_CTRL                 (SDE_ROT_WB_OFFSET+0x144)
 #define ROT_WB_SBUF_STATUS_PLANE0               (SDE_ROT_WB_OFFSET+0x148)
 #define ROT_WB_SBUF_STATUS_PLANE1               (SDE_ROT_WB_OFFSET+0x14C)
@@ -292,5 +298,9 @@
 #define REGDMA_INT_ERR_MASK             0x000F0000
 #define REGDMA_TIMESTAMP_REG            ROT_SSPP_TPG_PATTERN_GEN_INIT_VAL
 #define REGDMA_RESET_STATUS_REG         ROT_SSPP_TPG_RGB_MAPPING
+
+#define REGDMA_INT_0_MASK               0x101
+#define REGDMA_INT_1_MASK               0x202
+#define REGDMA_INT_2_MASK               0x404
 
 #endif /*_SDE_ROTATOR_R3_HWIO_H */

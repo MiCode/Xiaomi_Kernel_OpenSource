@@ -32,3 +32,12 @@ config REGMAP_IRQ
 
 config REGMAP_SWR
 	tristate
+
+config REGMAP_ALLOW_WRITE_DEBUGFS
+	depends on REGMAP && DEBUG_FS
+	bool "Allow REGMAP debugfs write"
+	default n
+	help
+	  Say 'y' here to allow the regmap debugfs write. Regmap debugfs write
+	  could be risky when accessing some essential hardwares, so it is not
+	  recommended to enable this option on any production device.

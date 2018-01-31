@@ -187,6 +187,10 @@ Optional property:
 			2000mW, while on a 10'' tablet is around
 			4500mW.
 
+- disable-thermal-zone: Disable the thermal zone monitoring by default. These
+  Type:bool		thermal zones will be enabled by userspace daemons
+			based on usecase.
+
 - tracks-low:		Indicates that the temperature sensor tracks the low
   Type: bool		thresholds, so the governors may mitigate by ensuring
 			timing closures and other low temperature operating

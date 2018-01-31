@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -10,6 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
 #include <linux/export.h>
 #include <linux/module.h>
@@ -181,7 +183,7 @@ static struct clk_hw *qcom_cc_clk_hw_get(struct of_phandle_args *clkspec,
 	unsigned int idx = clkspec->args[0];
 
 	if (idx >= cc->num_rclks) {
-		pr_err("%s: invalid index %u\n", __func__, idx);
+		pr_err("invalid index %u\n", idx);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -274,5 +276,27 @@ int qcom_cc_probe(struct platform_device *pdev, const struct qcom_cc_desc *desc)
 	return qcom_cc_really_probe(pdev, desc, regmap);
 }
 EXPORT_SYMBOL_GPL(qcom_cc_probe);
+
+int qcom_cc_register_rcg_dfs(struct platform_device *pdev,
+			 const struct qcom_cc_dfs_desc *desc)
+{
+	struct clk_dfs *clks = desc->clks;
+	size_t num_clks = desc->num_clks;
+	int i, ret = 0;
+
+	for (i = 0; i < num_clks; i++) {
+		ret = clk_rcg2_get_dfs_clock_rate(clks[i].rcg, &pdev->dev,
+						clks[i].rcg_flags);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"Failed calculating DFS frequencies for %s\n",
+				clk_hw_get_name(&(clks[i].rcg)->clkr.hw));
+			break;
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(qcom_cc_register_rcg_dfs);
 
 MODULE_LICENSE("GPL v2");

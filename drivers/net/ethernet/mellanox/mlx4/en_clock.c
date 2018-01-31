@@ -88,10 +88,17 @@ void mlx4_en_remove_timestamp(struct mlx4_en_dev *mdev)
 	}
 }
 
+#define MLX4_EN_WRAP_AROUND_SEC	10UL
+/* By scheduling the overflow check every 5 seconds, we have a reasonably
+ * good chance we wont miss a wrap around.
+ * TOTO: Use a timer instead of a work queue to increase the guarantee.
+ */
+#define MLX4_EN_OVERFLOW_PERIOD (MLX4_EN_WRAP_AROUND_SEC * HZ / 2)
+
 void mlx4_en_ptp_overflow_check(struct mlx4_en_dev *mdev)
 {
 	bool timeout = time_is_before_jiffies(mdev->last_overflow_check +
-					      mdev->overflow_period);
+					      MLX4_EN_OVERFLOW_PERIOD);
 	unsigned long flags;
 
 	if (timeout) {
@@ -236,7 +243,6 @@ static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
 	.enable		= mlx4_en_phc_enable,
 };
 
-#define MLX4_EN_WRAP_AROUND_SEC	10ULL
 
 /* This function calculates the max shift that enables the user range
  * of MLX4_EN_WRAP_AROUND_SEC values in the cycles register.
@@ -245,13 +251,9 @@ static u32 freq_to_shift(u16 freq)
 {
 	u32 freq_khz = freq * 1000;
 	u64 max_val_cycles = freq_khz * 1000 * MLX4_EN_WRAP_AROUND_SEC;
-	u64 tmp_rounded =
-		roundup_pow_of_two(max_val_cycles) > max_val_cycles ?
-		roundup_pow_of_two(max_val_cycles) - 1 : UINT_MAX;
-	u64 max_val_cycles_rounded = is_power_of_2(max_val_cycles + 1) ?
-		max_val_cycles : tmp_rounded;
+	u64 max_val_cycles_rounded = 1ULL << fls64(max_val_cycles - 1);
 	/* calculate max possible multiplier in order to fit in 64bit */
-	u64 max_mul = div_u64(0xffffffffffffffffULL, max_val_cycles_rounded);
+	u64 max_mul = div64_u64(ULLONG_MAX, max_val_cycles_rounded);
 
 	/* This comes from the reverse of clocksource_khz2mult */
 	return ilog2(div_u64(max_mul * freq_khz, 1000000));
@@ -261,7 +263,6 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
 {
 	struct mlx4_dev *dev = mdev->dev;
 	unsigned long flags;
-	u64 ns, zero = 0;
 
 	/* mlx4_en_init_timestamp is called for each netdev.
 	 * mdev->ptp_clock is common for all ports, skip initialization if
@@ -284,13 +285,6 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
 	timecounter_init(&mdev->clock, &mdev->cycles,
 			 ktime_to_ns(ktime_get_real()));
 	write_unlock_irqrestore(&mdev->clock_lock, flags);
-
-	/* Calculate period in seconds to call the overflow watchdog - to make
-	 * sure counter is checked at least once every wrap around.
-	 */
-	ns = cyclecounter_cyc2ns(&mdev->cycles, mdev->cycles.mask, zero, &zero);
-	do_div(ns, NSEC_PER_SEC / 2 / HZ);
-	mdev->overflow_period = ns;
 
 	/* Configure the PHC */
 	mdev->ptp_clock_info = mlx4_en_ptp_clock_info;

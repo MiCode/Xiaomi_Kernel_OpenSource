@@ -1419,6 +1419,8 @@ union security_list_options {
 					size_t *len);
 	int (*inode_create)(struct inode *dir, struct dentry *dentry,
 				umode_t mode);
+	int (*inode_post_create)(struct inode *dir, struct dentry *dentry,
+				umode_t mode);
 	int (*inode_link)(struct dentry *old_dentry, struct inode *dir,
 				struct dentry *new_dentry);
 	int (*inode_unlink)(struct inode *dir, struct dentry *dentry);
@@ -1706,6 +1708,7 @@ struct security_hook_heads {
 	struct list_head inode_free_security;
 	struct list_head inode_init_security;
 	struct list_head inode_create;
+	struct list_head inode_post_create;
 	struct list_head inode_link;
 	struct list_head inode_unlink;
 	struct list_head inode_symlink;
@@ -1920,6 +1923,13 @@ static inline void security_delete_hooks(struct security_hook_list *hooks,
 		list_del_rcu(&hooks[i].list);
 }
 #endif /* CONFIG_SECURITY_SELINUX_DISABLE */
+
+/* Currently required to handle SELinux runtime hook disable. */
+#ifdef CONFIG_SECURITY_WRITABLE_HOOKS
+#define __lsm_ro_after_init
+#else
+#define __lsm_ro_after_init	__ro_after_init
+#endif /* CONFIG_SECURITY_WRITABLE_HOOKS */
 
 extern int __init security_module_enable(const char *module);
 extern void __init capability_add_hooks(void);

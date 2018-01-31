@@ -12,9 +12,10 @@
 
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/thermal/thermal.h>
 
 &spmi_bus {
-	qcom,pmi8998@2 {
+	pmi8998_lsid0: qcom,pmi8998@2 {
 		compatible = "qcom,spmi-pmic";
 		reg = <0x2 SPMI_USID>;
 		#address-cells = <2>;
@@ -26,16 +27,23 @@
 			qcom,fab-id-valid;
 		};
 
+		pmi8998_misc: qcom,misc@900 {
+			compatible = "qcom,qpnp-misc";
+			reg = <0x900 0x100>;
+		};
+
 		qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 		};
 
-		qcom,temp-alarm@2400 {
-			compatible = "qcom,qpnp-temp-alarm";
+		pmi8998_tz: qcom,temp-alarm@2400 {
+			compatible = "qcom,spmi-temp-alarm";
 			reg = <0x2400 0x100>;
 			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
-			label = "pmi8998_tz";
+			io-channels = <&pmi8998_rradc 7>;
+			io-channel-names = "thermal";
+			#thermal-sensor-cells = <0>;
 		};
 
 		pmi8998_gpios: pinctrl@c000 {
@@ -63,7 +71,7 @@
 			qcom,gpios-disallowed = <4 7 13>;
 		};
 
-		qcom,qpnp-qnovo@1500 {
+		pmi8998_qnovo: qcom,qpnp-qnovo@1500 {
 			compatible = "qcom,qpnp-qnovo";
 			reg = <0x1500 0x100>;
 			interrupts = <0x2 0x15 0x0 IRQ_TYPE_NONE>;
@@ -75,6 +83,7 @@
 			compatible = "qcom,qpnp-smb2";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pmi8998_revid>;
 
@@ -89,9 +98,12 @@
 
 			qcom,boost-threshold-ua = <100000>;
 			qcom,wipower-max-uw = <5000000>;
+			dpdm-supply = <&qusb_phy0>;
 
 			qcom,thermal-mitigation
 					= <3000000 1500000 1000000 500000>;
+			qcom,auto-recharge-soc;
+			qcom,suspend-input-on-debug-batt;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -209,7 +221,7 @@
 			compatible = "qcom,qpnp-pdphy";
 			reg = <0x1700 0x100>;
 			vdd-pdphy-supply = <&pm8998_l24>;
-			vbus-supply = <&smb2_vbus>;
+			vbus-supply = <&ext_5v_boost>;
 			vconn-supply = <&smb2_vconn>;
 			interrupts = <0x2 0x17 0x0 IRQ_TYPE_EDGE_RISING>,
 				     <0x2 0x17 0x1 IRQ_TYPE_EDGE_RISING>,
@@ -268,9 +280,13 @@
 			io-channels = <&pmi8998_rradc 0>;
 			io-channel-names = "rradc_batt_id";
 			qcom,rradc-base = <0x4500>;
-			qcom,fg-esr-timer-awake = <96>;
-			qcom,fg-esr-timer-asleep = <256>;
+			qcom,fg-esr-timer-awake = <96 96>;
+			qcom,fg-esr-timer-asleep = <256 256>;
+			qcom,fg-esr-timer-charging = <0 96>;
 			qcom,cycle-counter-en;
+			qcom,hold-soc-while-full;
+			qcom,fg-auto-recharge-soc;
+			qcom,fg-recharge-soc-thr = <98>;
 			status = "okay";
 
 			qcom,fg-batt-soc@4000 {
@@ -317,7 +333,8 @@
 				reg = <0x4400 0x100>;
 				interrupts = <0x2 0x44 0x0 IRQ_TYPE_EDGE_BOTH>,
 					     <0x2 0x44 0x1 IRQ_TYPE_EDGE_BOTH>,
-					     <0x2 0x44 0x2 IRQ_TYPE_EDGE_BOTH>;
+					     <0x2 0x44 0x2
+							IRQ_TYPE_EDGE_RISING>;
 				interrupt-names = "ima-rdy",
 						  "mem-xcp",
 						  "dma-grant";
@@ -325,7 +342,7 @@
 		};
 	};
 
-	qcom,pmi8998@3 {
+	pmi8998_lsid1: qcom,pmi8998@3 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x3 SPMI_USID>;
 		#address-cells = <2>;
@@ -427,7 +444,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "red";
-				linux,default-trigger = "battery-charging";
 			};
 
 			green_led: qcom,rgb_1 {
@@ -439,7 +455,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "green";
-				linux,default-trigger = "battery-full";
 			};
 
 			blue_led: qcom,rgb_2 {
@@ -451,7 +466,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "blue";
-				linux,default-trigger = "boot-indication";
 			};
 		};
 
@@ -469,6 +483,10 @@
 
 				regulator-min-microvolt = <4600000>;
 				regulator-max-microvolt = <6000000>;
+
+				interrupts = <0x3 0xdc 0x2
+						IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "ibb-sc-err";
 
 				qcom,qpnp-ibb-min-voltage = <1400000>;
 				qcom,qpnp-ibb-step-size = <100000>;
@@ -503,8 +521,11 @@
 				regulator-max-microvolt = <6000000>;
 
 				interrupts = <0x3 0xde 0x0
+						IRQ_TYPE_EDGE_RISING>,
+					     <0x3 0xde 0x1
 						IRQ_TYPE_EDGE_RISING>;
-				interrupt-names = "lab-vreg-ok";
+				interrupt-names = "lab-vreg-ok", "lab-sc-err";
+
 				qcom,qpnp-lab-min-voltage = <4600000>;
 				qcom,qpnp-lab-step-size = <100000>;
 				qcom,qpnp-lab-slew-rate = <5000>;
@@ -521,7 +542,7 @@
 									<1600>;
 				qcom,qpnp-lab-limit-maximum-current = <1600>;
 				qcom,qpnp-lab-limit-max-current-enable;
-				qcom,qpnp-lab-ps-threshold = <20>;
+				qcom,qpnp-lab-ps-threshold = <70>;
 				qcom,qpnp-lab-ps-enable;
 				qcom,qpnp-lab-nfet-size = <100>;
 				qcom,qpnp-lab-pfet-size = <100>;
@@ -556,6 +577,7 @@
 			qcom,en-ext-pfet-sc-pro;
 			qcom,pmic-revid = <&pmi8998_revid>;
 			qcom,loop-auto-gm-en;
+			qcom,auto-calibration-enable;
 			status = "disabled";
 		};
 
@@ -667,6 +689,36 @@
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
 			};
+
+			pmi8998_switch2: qcom,led_switch_2 {
+				label = "switch";
+				qcom,led-name = "led:switch_2";
+				qcom,led-mask = <4>;
+				qcom,default-led-trigger = "switch2_trigger";
+			};
+
+		};
+
+		pmi8998_haptics: qcom,haptics@c000 {
+			compatible = "qcom,qpnp-haptics";
+			reg = <0xc000 0x100>;
+			interrupts = <0x3 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x3 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "hap-sc-irq", "hap-play-irq";
+			qcom,pmic-revid = <&pmi8998_revid>;
+			qcom,pmic-misc = <&pmi8998_misc>;
+			qcom,misc-clk-trim-error-reg = <0xf3>;
+			qcom,actuator-type = <0>;
+			qcom,play-mode = "direct";
+			qcom,vmax-mv = <3200>;
+			qcom,ilim-ma = <800>;
+			qcom,sc-dbc-cycles = <8>;
+			qcom,wave-play-rate-us = <6667>;
+			qcom,en-brake;
+			qcom,lra-high-z = "opt1";
+			qcom,lra-auto-res-mode = "qwd";
+			qcom,lra-res-cal-period = <4>;
+			status = "disabled";
 		};
 	};
 };
@@ -680,7 +732,7 @@
 
 		trips {
 			ibat_high: low-ibat {
-				temperature = <4200>;
+				temperature = <5000>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -694,7 +746,7 @@
 
 		trips {
 			ibat_vhigh: ibat_vhigh {
-				temperature = <4300>;
+				temperature = <6000>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -709,7 +761,7 @@
 
 		trips {
 			low_vbat: low-vbat {
-				temperature = <3300>;
+				temperature = <3200>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -717,19 +769,27 @@
 		cooling-maps {
 			vbat_cpu4 {
 				trip = <&low_vbat>;
-				cooling-device = <&CPU4 22 22>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			vbat_cpu5 {
 				trip = <&low_vbat>;
-				cooling-device = <&CPU5 22 22>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			vbat_map6 {
 				trip = <&low_vbat>;
-				cooling-device = <&CPU6 22 22>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			vbat_map7 {
 				trip = <&low_vbat>;
-				cooling-device = <&CPU7 22 22>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
@@ -742,7 +802,7 @@
 
 		trips {
 			low-vbat {
-				temperature = <3100>;
+				temperature = <2800>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -757,7 +817,7 @@
 
 		trips {
 			low-vbat {
-				temperature = <2900>;
+				temperature = <2600>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -780,19 +840,51 @@
 		cooling-maps {
 			soc_cpu4 {
 				trip = <&low_soc>;
-				cooling-device = <&CPU4 22 22>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			soc_cpu5 {
 				trip = <&low_soc>;
-				cooling-device = <&CPU5 22 22>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			soc_map6 {
 				trip = <&low_soc>;
-				cooling-device = <&CPU6 22 22>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			soc_map7 {
 				trip = <&low_soc>;
-				cooling-device = <&CPU7 22 22>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pmi8998_tz {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pmi8998_tz>;
+
+		trips {
+			pmi8998_trip0: pmi8998-trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			 pmi8998_trip1: pmi8998-trip1 {
+				temperature = <125000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			 pmi8998_trip2: pmi8998-trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
 			};
 		};
 	};

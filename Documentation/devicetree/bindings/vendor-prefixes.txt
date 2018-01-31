@@ -24,6 +24,7 @@ ampire	Ampire Co., Ltd.
 ams	AMS AG
 amstaos	AMS-Taos Inc.
 analogix	Analogix Semiconductor, Inc.
+android	Google
 apm	Applied Micro Circuits Corporation (APM)
 aptina	Aptina Imaging
 arasan	Arasan Chip Systems
@@ -38,6 +39,7 @@ atmel	Atmel Corporation
 auo	AU Optronics Corporation
 auvidea Auvidea GmbH
 avago	Avago Technologies
+avia	avia semiconductor
 avic	Shanghai AVIC Optoelectronics Co., Ltd.
 axis	Axis Communications AB
 boe	BOE Technology Group Co., Ltd.
@@ -270,6 +272,7 @@ sunchip	Shenzhen Sunchip Technology Co., Ltd
 SUNW	Sun Microsystems, Inc
 swir	Sierra Wireless
 syna	Synaptics Inc.
+synaptics	Synaptics Inc.
 synology	Synology, Inc.
 tbs	TBS Technologies
 tcg	Trusted Computing Group

@@ -14,10 +14,43 @@
 /dts-v1/;
 
 #include "sdm845.dtsi"
+#include "sdm845-sde-display.dtsi"
 #include "sdm845-qrd.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. sdm845 4K Display Panel QRD";
 	compatible = "qcom,sdm845-qrd", "qcom,sdm845", "qcom,qrd";
 	qcom,board-id = <11 1>;
+};
+
+&dsi_nt35597_truly_dsc_cmd_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&dsi_sharp_4k_dsc_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 52 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+	qcom,mdss-dsi-panel-orientation = "180";
+};
+
+&dsi_sharp_4k_dsc_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 52 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+	qcom,mdss-dsi-panel-orientation = "180";
+};
+
+&dsi_sharp_4k_dsc_video_display {
+	qcom,dsi-display-active;
 };

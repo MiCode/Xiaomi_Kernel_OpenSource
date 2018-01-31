@@ -16,6 +16,7 @@
 #include "sde_hw_lm.h"
 #include "sde_hw_mdss.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define LM_OP_MODE                        0x00
 #define LM_OUT_SIZE                       0x04
@@ -71,7 +72,7 @@ static inline int _stage_offset(struct sde_hw_mixer *ctx, enum sde_stage stage)
 	if (stage == SDE_STAGE_BASE)
 		rc = -EINVAL;
 	else if (stage <= sblk->maxblendstages)
-		rc = sblk->blendstage_base[stage - 1];
+		rc = sblk->blendstage_base[stage - SDE_STAGE_0];
 	else
 		rc = -EINVAL;
 
@@ -198,7 +199,7 @@ static void sde_hw_lm_setup_dim_layer(struct sde_hw_mixer *ctx,
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 	int stage_off;
-	u32 val = 0;
+	u32 val = 0, alpha = 0;
 
 	stage_off = _stage_offset(ctx, dim_layer->stage);
 	if (stage_off < 0) {
@@ -206,13 +207,13 @@ static void sde_hw_lm_setup_dim_layer(struct sde_hw_mixer *ctx,
 		return;
 	}
 
-	val = (dim_layer->color_fill.color_1 & 0xFFF) << 16 |
-			(dim_layer->color_fill.color_0 & 0xFFF);
+	alpha = dim_layer->color_fill.color_3 & 0xFF;
+	val = ((dim_layer->color_fill.color_1 << 2) & 0xFFF) << 16 |
+			((dim_layer->color_fill.color_0 << 2) & 0xFFF);
 	SDE_REG_WRITE(c, LM_FG_COLOR_FILL_COLOR_0 + stage_off, val);
 
-	val = 0;
-	val = (dim_layer->color_fill.color_3 & 0xFFF) << 16 |
-			(dim_layer->color_fill.color_2 & 0xFFF);
+	val = (alpha << 4) << 16 |
+			((dim_layer->color_fill.color_2 << 2) & 0xFFF);
 	SDE_REG_WRITE(c, LM_FG_COLOR_FILL_COLOR_1 + stage_off, val);
 
 	val = dim_layer->rect.h << 16 | dim_layer->rect.w;
@@ -222,9 +223,14 @@ static void sde_hw_lm_setup_dim_layer(struct sde_hw_mixer *ctx,
 	SDE_REG_WRITE(c, LM_FG_COLOR_FILL_XY + stage_off, val);
 
 	val = BIT(16); /* enable dim layer */
+	val |= SDE_BLEND_FG_ALPHA_FG_CONST | SDE_BLEND_BG_ALPHA_BG_CONST;
 	if (dim_layer->flags & SDE_DRM_DIM_LAYER_EXCLUSIVE)
 		val |= BIT(17);
+	else
+		val &= ~BIT(17);
 	SDE_REG_WRITE(c, LM_BLEND0_OP + stage_off, val);
+	val = (alpha << 16) | (0xff - alpha);
+	SDE_REG_WRITE(c, LM_BLEND0_CONST_ALPHA + stage_off, val);
 }
 
 static void sde_hw_lm_setup_misr(struct sde_hw_mixer *ctx,
@@ -256,7 +262,7 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 		unsigned long features)
 {
 	ops->setup_mixer_out = sde_hw_lm_setup_out;
-	if (IS_SDM845_TARGET(m->hwversion))
+	if (IS_SDM845_TARGET(m->hwversion) || IS_SDM670_TARGET(m->hwversion))
 		ops->setup_blend_config = sde_hw_lm_setup_blend_config_sdm845;
 	else
 		ops->setup_blend_config = sde_hw_lm_setup_blend_config;
@@ -272,12 +278,18 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 	}
 };
 
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
+
 struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m)
 {
 	struct sde_hw_mixer *c;
 	struct sde_lm_cfg *cfg;
+	int rc;
 
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
@@ -294,13 +306,26 @@ struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
 	c->cap = cfg;
 	_setup_mixer_ops(m, &c->ops, c->cap->features);
 
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_LM, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_lm_destroy(struct sde_hw_mixer *lm)
 {
+	if (lm)
+		sde_hw_blk_destroy(&lm->base);
 	kfree(lm);
 }

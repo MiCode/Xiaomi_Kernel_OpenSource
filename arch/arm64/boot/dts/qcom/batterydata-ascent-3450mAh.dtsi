@@ -1,0 +1,60 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,ascent-3450mah {
+	/* #Ascent_860_82209_0000_3450mAh_averaged_MasterSlave_Sept28th2015*/
+	qcom,max-voltage-uv = <4350000>;
+	qcom,nom-batt-capacity-mah = <3450>;
+	qcom,batt-id-kohm = <60>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "ascent_3450mah";
+	qcom,chg-rslow-comp-c1 = <6834679>;
+	qcom,chg-rslow-comp-c2 = <20647220>;
+	qcom,chg-rs-to-rslow = <915002>;
+	qcom,chg-rslow-comp-thr = <0xD5>;
+	qcom,checksum = <0xE50C>;
+	qcom,fg-profile-data = [
+		 C5 83 25 77
+		 AB 7B CA 74
+		 4C 83 7F 5B
+		 EB 80 ED 8C
+		 EA 81 61 9B
+		 A6 BE 2B D0
+		 55 0E D6 83
+		 09 77 25 7B
+		 03 74 49 83
+		 CC 70 0C 70
+		 0C 85 67 82
+		 E6 93 27 B5
+		 61 C0 58 10
+		 23 0D 50 59
+		 CE 6E 71 FD
+		 CD 15 CC 3F
+		 1D 36 00 00
+		 B9 47 29 3B
+		 1D 2E 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 D8 6A E7 69
+		 B3 7C 4E 7A
+		 7E 77 77 70
+		 40 77 0D 73
+		 22 76 96 6A
+		 71 65 20 B0
+		 2C 97 63 12
+		 64 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

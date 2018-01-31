@@ -6,6 +6,7 @@
  * Copyright (c) 2006 Jiri Benc <jbenc@suse.cz>
  * Copyright 2008, Johannes Berg <johannes@sipsolutions.net>
  * Copyright 2013-2014  Intel Mobile Communications GmbH
+ * Copyright (c) 2016        Intel Deutschland GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -790,6 +791,7 @@ static int ieee80211_open(struct net_device *dev)
 static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
 			      bool going_down)
 {
+	struct ieee80211_sub_if_data *txq_sdata = sdata;
 	struct ieee80211_local *local = sdata->local;
 	struct fq *fq = &local->fq;
 	unsigned long flags;
@@ -930,6 +932,9 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
 
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_AP_VLAN:
+		txq_sdata = container_of(sdata->bss,
+					 struct ieee80211_sub_if_data, u.ap);
+
 		mutex_lock(&local->mtx);
 		list_del(&sdata->u.vlan.list);
 		mutex_unlock(&local->mtx);
@@ -1000,8 +1005,17 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
 	}
 	spin_unlock_irqrestore(&local->queue_stop_reason_lock, flags);
 
-	if (sdata->vif.txq) {
-		struct txq_info *txqi = to_txq_info(sdata->vif.txq);
+	if (txq_sdata->vif.txq) {
+		struct txq_info *txqi = to_txq_info(txq_sdata->vif.txq);
+
+		/*
+		 * FIXME FIXME
+		 *
+		 * We really shouldn't purge the *entire* txqi since that
+		 * contains frames for the other AP_VLANs (and possibly
+		 * the AP itself) as well, but there's no API in FQ now
+		 * to be able to filter.
+		 */
 
 		spin_lock_bh(&fq->lock);
 		ieee80211_txq_purge(local, txqi);
@@ -1307,6 +1321,26 @@ static void ieee80211_iface_work(struct work_struct *work)
 		} else if (ieee80211_is_action(mgmt->frame_control) &&
 			   mgmt->u.action.category == WLAN_CATEGORY_VHT) {
 			switch (mgmt->u.action.u.vht_group_notif.action_code) {
+			case WLAN_VHT_ACTION_OPMODE_NOTIF: {
+				struct ieee80211_rx_status *status;
+				enum nl80211_band band;
+				u8 opmode;
+
+				status = IEEE80211_SKB_RXCB(skb);
+				band = status->band;
+				opmode = mgmt->u.action.u.vht_opmode_notif.operating_mode;
+
+				mutex_lock(&local->sta_mtx);
+				sta = sta_info_get_bss(sdata, mgmt->sa);
+
+				if (sta)
+					ieee80211_vht_handle_opmode(sdata, sta,
+								    opmode,
+								    band);
+
+				mutex_unlock(&local->sta_mtx);
+				break;
+			}
 			case WLAN_VHT_ACTION_GROUPID_MGMT:
 				ieee80211_process_mu_groups(sdata, mgmt);
 				break;

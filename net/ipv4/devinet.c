@@ -1380,7 +1380,7 @@ skip:
 
 static bool inetdev_valid_mtu(unsigned int mtu)
 {
-	return mtu >= 68;
+	return mtu >= IPV4_MIN_MTU;
 }
 
 static void inetdev_send_gratuitous_arp(struct net_device *dev,
@@ -2228,6 +2228,8 @@ static struct devinet_sysctl_table {
 					      "route_localnet"),
 		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
 					      "drop_unicast_in_l2_multicast"),
+		DEVINET_SYSCTL_RW_ENTRY(NF_IPV4_DEFRAG_SKIP,
+					"nf_ipv4_defrag_skip"),
 	},
 };
 

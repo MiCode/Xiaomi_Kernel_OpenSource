@@ -12,6 +12,7 @@
 
 #include "cam_subdev.h"
 #include "cam_node.h"
+#include "cam_debug_util.h"
 
 /**
  * cam_subdev_subscribe_event()
@@ -63,7 +64,7 @@ static long cam_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 			(struct cam_control *) arg);
 		break;
 	default:
-		pr_err("Invalid command %d for %s!\n", cmd,
+		CAM_ERR(CAM_CORE, "Invalid command %d for %s", cmd,
 			node->name);
 		rc = -EINVAL;
 	}
@@ -75,7 +76,27 @@ end:
 static long cam_subdev_compat_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, unsigned long arg)
 {
-	return cam_subdev_ioctl(sd, cmd, compat_ptr(arg));
+	struct cam_control cmd_data;
+	int rc;
+
+	if (copy_from_user(&cmd_data, (void __user *)arg,
+		sizeof(cmd_data))) {
+		CAM_ERR(CAM_CORE, "Failed to copy from user_ptr=%pK size=%zu",
+			(void __user *)arg, sizeof(cmd_data));
+		return -EFAULT;
+	}
+	rc = cam_subdev_ioctl(sd, cmd, &cmd_data);
+	if (!rc) {
+		if (copy_to_user((void __user *)arg, &cmd_data,
+			sizeof(cmd_data))) {
+			CAM_ERR(CAM_CORE,
+				"Failed to copy to user_ptr=%pK size=%zu",
+				(void __user *)arg, sizeof(cmd_data));
+			rc = -EFAULT;
+		}
+	}
+
+	return rc;
 }
 #endif
 
@@ -110,16 +131,12 @@ int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 	int rc;
 	struct cam_node *node = NULL;
 
-	if (!sd || !pdev || !name) {
-		rc = -EINVAL;
-		goto err;
-	}
+	if (!sd || !pdev || !name)
+		return -EINVAL;
 
 	node = kzalloc(sizeof(*node), GFP_KERNEL);
-	if (!node) {
-		rc = -ENOMEM;
-		goto err;
-	}
+	if (!node)
+		return -ENOMEM;
 
 	/* Setup camera v4l2 subdevice */
 	sd->pdev = pdev;
@@ -129,10 +146,11 @@ int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 	sd->sd_flags =
 		V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	sd->ent_function = dev_type;
+
 	rc = cam_register_subdev(sd);
 	if (rc) {
-		pr_err("%s: cam_register_subdev() failed for dev: %s!\n",
-			__func__, sd->name);
+		CAM_ERR(CAM_CORE, "cam_register_subdev() failed for dev: %s",
+			sd->name);
 		goto err;
 	}
 	platform_set_drvdata(sd->pdev, sd);

@@ -513,8 +513,10 @@ static void __socket_close_channel(struct diag_socket_info *info)
 		info->hdl->sk->sk_user_data = NULL;
 		info->hdl->sk->sk_data_ready = NULL;
 		write_unlock_bh(&info->hdl->sk->sk_callback_lock);
+		mutex_lock(&info->socket_info_mutex);
 		sock_release(info->hdl);
 		info->hdl = NULL;
+		mutex_unlock(&info->socket_info_mutex);
 		wake_up_interruptible(&info->read_wait_q);
 	}
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s exiting\n", info->name);
@@ -820,6 +822,8 @@ static void __diag_socket_init(struct diag_socket_info *info)
 		break;
 	}
 
+	if (info->port_type == PORT_TYPE_CLIENT)
+		mutex_init(&info->socket_info_mutex);
 	info->svc_id = DIAG_SVC_ID;
 	info->ins_id = ins_base + ins_offset;
 	info->inited = 1;
@@ -1031,6 +1035,8 @@ static void __diag_socket_exit(struct diag_socket_info *info)
 	diagfwd_deregister(info->peripheral, info->type, (void *)info);
 	info->fwd_ctxt = NULL;
 	info->hdl = NULL;
+	if (info->port_type == PORT_TYPE_CLIENT)
+		mutex_destroy(&info->socket_info_mutex);
 	if (info->wq)
 		destroy_workqueue(info->wq);
 
@@ -1119,13 +1125,28 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		read_msg.msg_name = &src_addr;
 		read_msg.msg_namelen = sizeof(src_addr);
 
+		if (info->port_type != PORT_TYPE_SERVER) {
+			mutex_lock(&info->socket_info_mutex);
+			if (!info->hdl) {
+				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				"%s closing read thread\n",
+					info->name);
+				mutex_unlock(&info->socket_info_mutex);
+				goto fail;
+			}
+		}
 		pkt_len = kernel_recvmsg(info->hdl, &read_msg, &iov, 1, 0,
 					 MSG_PEEK);
-		if (pkt_len <= 0)
+		if (pkt_len <= 0) {
+			if (info->port_type != PORT_TYPE_SERVER)
+				mutex_unlock(&info->socket_info_mutex);
 			break;
+		}
 
 		if (pkt_len > bytes_remaining) {
 			buf_full = 1;
+			if (info->port_type != PORT_TYPE_SERVER)
+				mutex_unlock(&info->socket_info_mutex);
 			break;
 		}
 
@@ -1135,6 +1156,8 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 
 		read_len = kernel_recvmsg(info->hdl, &read_msg, &iov, 1,
 					  pkt_len, 0);
+		if (info->port_type != PORT_TYPE_SERVER)
+			mutex_unlock(&info->socket_info_mutex);
 		if (read_len <= 0)
 			goto fail;
 
@@ -1211,7 +1234,16 @@ static int diag_socket_write(void *ctxt, unsigned char *buf, int len)
 	write_msg.msg_name = &info->remote_addr;
 	write_msg.msg_namelen = sizeof(info->remote_addr);
 	write_msg.msg_flags |= MSG_DONTWAIT;
+	if (info->port_type != PORT_TYPE_SERVER) {
+		mutex_lock(&info->socket_info_mutex);
+		if (!info->hdl) {
+			mutex_unlock(&info->socket_info_mutex);
+			return -ENODEV;
+		}
+	}
 	write_len = kernel_sendmsg(info->hdl, &write_msg, &iov, 1, len);
+	if (info->port_type != PORT_TYPE_SERVER)
+		mutex_unlock(&info->socket_info_mutex);
 	if (write_len < 0) {
 		err = write_len;
 		/*

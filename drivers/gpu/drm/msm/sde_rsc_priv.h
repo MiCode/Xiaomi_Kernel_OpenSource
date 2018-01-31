@@ -25,30 +25,39 @@
 
 #define MAX_RSC_COUNT		5
 
+#define ALL_MODES_DISABLED	0x0
+#define ONLY_MODE_0_ENABLED	0x1
+#define ONLY_MODE_0_1_ENABLED	0x3
+#define ALL_MODES_ENABLED	0x7
+
+#define MAX_COUNT_SIZE_SUPPORTED	128
+
 struct sde_rsc_priv;
 
 /**
  * rsc_mode_req: sde rsc mode request information
  * MODE_READ: read vsync status
- * MODE0_UPDATE: mode0 status , this should be 0x0
- * MODE1_UPDATE: mode1 status , this should be 0x1
- * MODE2_UPDATE: mode2 status , this should be 0x2
+ * MODE_UPDATE: mode timeslot update
+ *            0x0: all modes are disabled.
+ *            0x1: Mode-0 is enabled and other two modes are disabled.
+ *            0x3: Mode-0 & Mode-1 are enabled and mode-2 is disabled.
+ *            0x7: all modes are enabled.
  */
 enum rsc_mode_req {
 	MODE_READ,
-	MODE0_UPDATE = 0x1,
-	MODE1_UPDATE = 0x2,
-	MODE2_UPDATE = 0x3,
+	MODE_UPDATE = 0x1,
 };
 
 /**
  * rsc_vsync_req: sde rsc vsync request information
  * VSYNC_READ: read vsync status
+ * VSYNC_READ_VSYNC0: read value vsync0 timestamp (cast to int from u32)
  * VSYNC_ENABLE: enable rsc wrapper vsync status
  * VSYNC_DISABLE: disable rsc wrapper vsync status
  */
 enum rsc_vsync_req {
 	VSYNC_READ,
+	VSYNC_READ_VSYNC0,
 	VSYNC_ENABLE,
 	VSYNC_DISABLE,
 };
@@ -57,11 +66,14 @@ enum rsc_vsync_req {
  * struct sde_rsc_hw_ops - sde resource state coordinator hardware ops
  * @init:			Initialize the sequencer, solver, qtimer,
 				etc. hardware blocks on RSC.
+ * @timer_update:		update the static wrapper time and pdc/rsc
+				backoff time.
  * @tcs_wait:			Waits for TCS block OK to allow sending a
  *				TCS command.
  * @hw_vsync:			Enables the vsync on RSC block.
  * @tcs_use_ok:			set TCS set to high to allow RSC to use it.
  * @is_amc_mode:		Check current amc mode status
+ * @debug_dump:			dump debug bus registers or enable debug bus
  * @state_update:		Enable/override the solver based on rsc state
  *                              status (command/video)
  * @mode_show:			shows current mode status, mode0/1/2
@@ -70,15 +82,17 @@ enum rsc_vsync_req {
 
 struct sde_rsc_hw_ops {
 	int (*init)(struct sde_rsc_priv *rsc);
+	int (*timer_update)(struct sde_rsc_priv *rsc);
 	int (*tcs_wait)(struct sde_rsc_priv *rsc);
 	int (*hw_vsync)(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 		char *buffer, int buffer_size, u32 mode);
 	int (*tcs_use_ok)(struct sde_rsc_priv *rsc);
 	bool (*is_amc_mode)(struct sde_rsc_priv *rsc);
+	void (*debug_dump)(struct sde_rsc_priv *rsc, u32 mux_sel);
 	int (*state_update)(struct sde_rsc_priv *rsc, enum sde_rsc_state state);
 	int (*debug_show)(struct seq_file *s, struct sde_rsc_priv *rsc);
 	int (*mode_ctrl)(struct sde_rsc_priv *rsc, enum rsc_mode_req request,
-		char *buffer, int buffer_size, bool mode);
+		char *buffer, int buffer_size, u32 mode);
 };
 
 /**
@@ -135,6 +149,8 @@ struct sde_rsc_timer_config {
  *			and ab/ib vote on display rsc
  * master_drm:		Primary client waits for vsync on this drm object based
  *			on crtc id
+ * rsc_vsync_wait:   Refcount to indicate if we have to wait for the vsync.
+ * rsc_vsync_waitq:   Queue to wait for the vsync.
  */
 struct sde_rsc_priv {
 	u32 version;
@@ -163,6 +179,8 @@ struct sde_rsc_priv {
 	struct sde_rsc_client *primary_client;
 
 	struct drm_device *master_drm;
+	atomic_t rsc_vsync_wait;
+	wait_queue_head_t rsc_vsync_waitq;
 };
 
 /**

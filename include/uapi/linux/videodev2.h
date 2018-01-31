@@ -613,6 +613,7 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_VP8      v4l2_fourcc('V', 'P', '8', '0') /* VP8 */
 #define V4L2_PIX_FMT_VP9      v4l2_fourcc('V', 'P', '9', '0') /* VP9 */
 #define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C') /* for HEVC stream */
+#define V4L2_PIX_FMT_TME v4l2_fourcc('T', 'M', 'E', '0') /* for TME stream */
 
 /*  Vendor-specific formats   */
 #define V4L2_PIX_FMT_CPIA1    v4l2_fourcc('C', 'P', 'I', 'A') /* cpia1 YUV */
@@ -717,6 +718,8 @@ struct v4l2_pix_format {
 	v4l2_fourcc('T', 'P', '1', '0') /* Y/CbCr 4:2:0 TP10 */
 #define V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010 \
 	v4l2_fourcc('P', '0', '1', '0') /* Y/CbCr 4:2:0 P10 */
+#define V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS \
+	v4l2_fourcc('Q', 'P', '1', '0') /* Y/CbCr 4:2:0 P10 Venus*/
 
 /* SDR formats - used only for Software Defined Radio devices */
 #define V4L2_SDR_FMT_CU8          v4l2_fourcc('C', 'U', '0', '8') /* IQ u8 */
@@ -1013,6 +1016,7 @@ struct v4l2_buffer {
 #define V4L2_QCOM_BUF_INPUT_UNSUPPORTED		0x01000000
 #define V4L2_QCOM_BUF_FLAG_EOS			0x02000000
 #define V4L2_QCOM_BUF_FLAG_READONLY		0x04000000
+#define V4L2_QCOM_BUF_FLAG_PERF_MODE		0x20000000
 #define V4L2_MSM_BUF_FLAG_DEFER			0x40000000
 #define V4L2_QCOM_BUF_FLAG_IDRFRAME		0x80000000
 

@@ -1,0 +1,154 @@
+* Qualcomm Technologies, Inc. MSM Camera CDM
+
+CDM (Camera Data Mover) is module intended to provide means for fast programming
+camera registers and lookup tables.
+
+=======================
+Required Node Structure
+=======================
+CDM Interface node takes care of the handling has HW nodes and provide interface
+for camera clients.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,cam-cdm-intf".
+
+- label
+  Usage: required
+  Value type: <string>
+  Definition: Should be "cam-cdm-intf".
+
+- num-hw-cdm
+  Usage: required
+  Value type: <u32>
+  Definition: Number of supported HW blocks.
+
+- cdm-client-names
+  Usage: required
+  Value type: <string>
+  Definition: List of Clients supported by CDM interface.
+
+Example:
+	qcom,cam-cdm-intf {
+		compatible = "qcom,cam-cdm-intf";
+		label = "cam-cdm-intf";
+		num-hw-cdm = <1>;
+		cdm-client-names = "vfe",
+			"jpeg-dma",
+			"jpeg",
+			"fd";
+	};
+
+=======================
+Required Node Structure
+=======================
+CDM HW node provides interface for camera clients through
+to CDM interface node.
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Node instance number.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,cam-cdm-intf".
+
+- label
+  Usage: required
+  Value type: <string>
+  Definition: Should be "cpas-cdm".
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the register resources.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- reg-cam-base
+  Usage: required
+  Value type: <u32>
+  Definition: Offset of the register space compared to
+              to Camera base register space.
+
+- interrupt-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: optional
+  Value type: <u32>
+  Definition: Interrupt associated with CDM HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for CDM HW.
+
+- camss-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed
+              in "regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for CDM HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for CDM HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- cdm-client-names
+  Usage: required
+  Value type: <string>
+  Definition: List of Clients supported by CDM HW node.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: minsvs, lowsvs, svs, svs_l1, nominal, turbo.
+
+Example:
+	qcom,cpas-cdm0@ac48000 {
+		cell-index = <0>;
+		compatible = "qcom,cam170-cpas-cdm0";
+		label = "cpas-cdm0";
+		reg = <0xac48000 0x1000>;
+		reg-names = "cpas-cdm";
+		interrupts = <0 461 0>;
+		interrupt-names = "cpas-cdm";
+		regulator-names = "camss";
+		camss-supply = <&titan_top_gdsc>;
+		clock-names = "soc_ahb_clk",
+			"titan_top_ahb_clk",
+			"cam_axi_clk",
+			"camcc_slow_ahb_clk_src",
+			"cpas_top_ahb_clk",
+			"camnoc_axi_clk";
+		clocks = <&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AXI_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
+		qcom,clock-rates = <0 80000000 80000000 80000000 80000000 80000000>;
+		cdm-client-names = "ife";
+		clock-cntl-level = "turbo";
+		status = "ok";
+	};

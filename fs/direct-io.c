@@ -411,6 +411,7 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	if (dio->is_async && dio->op == REQ_OP_READ && dio->should_dirty)
 		bio_set_pages_dirty(bio);
 
+	bio->bi_dio_inode = dio->inode;
 	dio->bio_bdev = bio->bi_bdev;
 
 	if (sdio->submit_io) {
@@ -424,6 +425,18 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	sdio->logical_offset_in_bio = 0;
 }
 
+struct inode *dio_bio_get_inode(struct bio *bio)
+{
+	struct inode *inode = NULL;
+
+	if (bio == NULL)
+		return NULL;
+
+	inode = bio->bi_dio_inode;
+
+	return inode;
+}
+EXPORT_SYMBOL(dio_bio_get_inode);
 /*
  * Release any resources in case of a failure
  */
@@ -587,7 +600,7 @@ static int dio_set_defer_completion(struct dio *dio)
 /*
  * Call into the fs to map some more disk blocks.  We record the current number
  * of available blocks at sdio->blocks_available.  These are in units of the
- * fs blocksize, (1 << inode->i_blkbits).
+ * fs blocksize, i_blocksize(inode).
  *
  * The fs is allowed to map lots of blocks at once.  If it wants to do that,
  * it uses the passed inode-relative block number as the file offset, as usual.
@@ -835,7 +848,8 @@ out:
 	 */
 	if (sdio->boundary) {
 		ret = dio_send_cur_page(dio, sdio, map_bh);
-		dio_bio_submit(dio, sdio);
+		if (sdio->bio)
+			dio_bio_submit(dio, sdio);
 		put_page(sdio->cur_page);
 		sdio->cur_page = NULL;
 	}

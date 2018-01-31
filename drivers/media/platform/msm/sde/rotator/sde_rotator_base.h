@@ -23,6 +23,7 @@
 #include "sde_rotator_io_util.h"
 #include "sde_rotator_smmu.h"
 #include "sde_rotator_formats.h"
+#include <linux/pm_qos.h>
 
 /* HW Revisions for different targets */
 #define SDE_GET_MAJOR_REV(rev)	((rev) >> 28)
@@ -39,6 +40,10 @@
 #define SDE_MDP_HW_REV_300	SDE_MDP_REV(3, 0, 0)	/* 8998 v1.0 */
 #define SDE_MDP_HW_REV_301	SDE_MDP_REV(3, 0, 1)	/* 8998 v1.1 */
 #define SDE_MDP_HW_REV_400	SDE_MDP_REV(4, 0, 0)	/* sdm845 v1.0 */
+#define SDE_MDP_HW_REV_410	SDE_MDP_REV(4, 1, 0)	/* sdm670 v1.0 */
+
+#define SDE_MDP_VBIF_4_LEVEL_REMAPPER	4
+#define SDE_MDP_VBIF_8_LEVEL_REMAPPER	8
 
 struct sde_mult_factor {
 	uint32_t numer;
@@ -59,6 +64,18 @@ struct sde_mdp_set_ot_params {
 	u32 rotsts_busy_mask;
 };
 
+/*
+ * struct sde_mdp_vbif_halt_params: parameters for issue halt request to vbif
+ * @xin_id: xin port number of vbif
+ * @reg_off_mdp_clk_ctrl: reg offset for vbif clock control
+ * @bit_off_mdp_clk_ctrl: bit offset for vbif clock control
+ */
+struct sde_mdp_vbif_halt_params {
+	u32 xin_id;
+	u32 reg_off_mdp_clk_ctrl;
+	u32 bit_off_mdp_clk_ctrl;
+};
+
 enum sde_bus_vote_type {
 	VOTE_INDEX_DISABLE,
 	VOTE_INDEX_19_MHZ,
@@ -77,7 +94,17 @@ enum sde_qos_settings {
 	SDE_QOS_PER_PIPE_LUT,
 	SDE_QOS_SIMPLIFIED_PREFILL,
 	SDE_QOS_VBLANK_PANIC_CTRL,
+	SDE_QOS_LUT,
+	SDE_QOS_DANGER_LUT,
+	SDE_QOS_SAFE_LUT,
 	SDE_QOS_MAX,
+};
+
+enum sde_inline_qos_settings {
+	SDE_INLINE_QOS_LUT,
+	SDE_INLINE_QOS_DANGER_LUT,
+	SDE_INLINE_QOS_SAFE_LUT,
+	SDE_INLINE_QOS_MAX,
 };
 
 /**
@@ -98,6 +125,7 @@ enum sde_rot_type {
  * @SDE_CAPS_R3_1P5_DOWNSCALE: 1.5x downscale rotator support
  * @SDE_CAPS_SBUF_1: stream buffer support for inline rotation
  * @SDE_CAPS_UBWC_2: universal bandwidth compression version 2
+ * @SDE_CAPS_PARTIALWR: partial write override
  */
 enum sde_caps_settings {
 	SDE_CAPS_R1_WB,
@@ -106,6 +134,7 @@ enum sde_caps_settings {
 	SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
 	SDE_CAPS_SBUF_1,
 	SDE_CAPS_UBWC_2,
+	SDE_CAPS_PARTIALWR,
 	SDE_CAPS_MAX,
 };
 
@@ -113,6 +142,12 @@ enum sde_bus_clients {
 	SDE_ROT_RT,
 	SDE_ROT_NRT,
 	SDE_MAX_BUS_CLIENTS
+};
+
+enum sde_rot_op {
+	SDE_ROT_RD,
+	SDE_ROT_WR,
+	SDE_ROT_OP_MAX
 };
 
 enum sde_rot_regdump_access {
@@ -136,6 +171,7 @@ struct sde_smmu_client {
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
 	int domain;
+	u32 sid;
 };
 
 /*
@@ -163,6 +199,14 @@ struct sde_rot_regdump {
 	u32 offset;
 	u32 len;
 	enum sde_rot_regdump_access access;
+	u32 value;
+};
+
+struct sde_rot_lut_cfg {
+	u32 creq_lut_0;
+	u32 creq_lut_1;
+	u32 danger_lut;
+	u32 safe_lut;
 };
 
 struct sde_rot_data_type {
@@ -177,6 +221,7 @@ struct sde_rot_data_type {
 
 	/* bitmap to track qos applicable settings */
 	DECLARE_BITMAP(sde_qos_map, SDE_QOS_MAX);
+	DECLARE_BITMAP(sde_inline_qos_map, SDE_QOS_MAX);
 
 	/* bitmap to track capability settings */
 	DECLARE_BITMAP(sde_caps_map, SDE_CAPS_MAX);
@@ -196,6 +241,14 @@ struct sde_rot_data_type {
 	u32 *vbif_nrt_qos;
 	u32 npriority_lvl;
 
+	struct pm_qos_request pm_qos_rot_cpu_req;
+	u32 rot_pm_qos_cpu_count;
+	u32 rot_pm_qos_cpu_mask;
+	u32 rot_pm_qos_cpu_dma_latency;
+
+	u32 vbif_memtype_count;
+	u32 *vbif_memtype;
+
 	int iommu_attached;
 	int iommu_ref_cnt;
 
@@ -209,6 +262,11 @@ struct sde_rot_data_type {
 
 	void *sde_rot_hw;
 	int sec_cam_en;
+
+	u32 enable_cdp[SDE_ROT_OP_MAX];
+
+	struct sde_rot_lut_cfg lut_cfg[SDE_ROT_OP_MAX];
+	struct sde_rot_lut_cfg inline_lut_cfg[SDE_ROT_OP_MAX];
 
 	struct ion_client *iclient;
 
@@ -236,6 +294,10 @@ u32 sde_apply_comp_ratio_factor(u32 quota,
 u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd);
 
 void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params);
+
+void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params);
+
+int sde_mdp_init_vbif(void);
 
 #define SDE_VBIF_WRITE(mdata, offset, value) \
 		(sde_reg_w(&mdata->vbif_nrt_io, offset, value, 0))

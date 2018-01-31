@@ -25,7 +25,7 @@
 #define IRQ_SOURCE_DSI1		BIT(5)
 #define IRQ_SOURCE_HDMI		BIT(8)
 #define IRQ_SOURCE_EDP		BIT(12)
-#define	IRQ_SOURCE_MHL		BIT(16)
+#define IRQ_SOURCE_MHL		BIT(16)
 
 /**
  * sde_intr_type - HW Interrupt Type
@@ -55,6 +55,7 @@
  * @SDE_IRQ_TYPE_SFI_CMD_2_OUT:		DSI CMD2 static frame INTR out-of static
  * @SDE_IRQ_TYPE_PROG_LINE:		Programmable Line interrupt
  * @SDE_IRQ_TYPE_AD4_BL_DONE:		AD4 backlight
+ * @SDE_IRQ_TYPE_CTL_START:		Control start
  * @SDE_IRQ_TYPE_RESERVED:		Reserved for expansion
  */
 enum sde_intr_type {
@@ -84,6 +85,7 @@ enum sde_intr_type {
 	SDE_IRQ_TYPE_SFI_CMD_2_OUT,
 	SDE_IRQ_TYPE_PROG_LINE,
 	SDE_IRQ_TYPE_AD4_BL_DONE,
+	SDE_IRQ_TYPE_CTL_START,
 	SDE_IRQ_TYPE_RESERVED,
 };
 
@@ -137,6 +139,16 @@ struct sde_hw_intr_ops {
 			int irq_idx);
 
 	/**
+	 * disable_irq_nolock - Disable IRQ based on IRQ index without lock
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 * @return:	0 for success, otherwise failure
+	 */
+	int (*disable_irq_nolock)(
+			struct sde_hw_intr *intr,
+			int irq_idx);
+
+	/**
 	 * clear_all_irqs - Clears all the interrupts (i.e. acknowledges
 	 *                  any asserted IRQs). Useful during reset.
 	 * @intr:	HW interrupt handle
@@ -185,6 +197,26 @@ struct sde_hw_intr_ops {
 			int irq_idx);
 
 	/**
+	 * clear_intr_status_nolock() - clears the HW interrupts without lock
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 */
+	void (*clear_intr_status_nolock)(
+			struct sde_hw_intr *intr,
+			int irq_idx);
+
+	/**
+	 * clear_intr_status_force_mask() - clear the HW interrupts
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 * @irq_mask:	irq mask to clear
+	 */
+	void (*clear_intr_status_force_mask)(
+			struct sde_hw_intr *intr,
+			int irq_idx,
+			u32 irq_mask);
+
+	/**
 	 * get_interrupt_status - Gets HW interrupt status, and clear if set,
 	 *                        based on given lookup IRQ index.
 	 * @intr:	HW interrupt handle
@@ -192,6 +224,28 @@ struct sde_hw_intr_ops {
 	 * @clear:	True to clear irq after read
 	 */
 	u32 (*get_interrupt_status)(
+			struct sde_hw_intr *intr,
+			int irq_idx,
+			bool clear);
+
+	/**
+	 * get_intr_status_nolock - nolock version of get_interrupt_status
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 * @clear:	True to clear irq after read
+	 */
+	u32 (*get_intr_status_nolock)(
+			struct sde_hw_intr *intr,
+			int irq_idx,
+			bool clear);
+
+	/**
+	 * get_intr_status_nomask - nolock version of get_interrupt_status
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 * @clear:	True to clear irq after read
+	 */
+	u32 (*get_intr_status_nomask)(
 			struct sde_hw_intr *intr,
 			int irq_idx,
 			bool clear);
@@ -230,8 +284,7 @@ struct sde_hw_intr_ops {
  * @cache_irq_mask:   array of IRQ enable masks reg storage created during init
  * @save_irq_status:  array of IRQ status reg storage created during init
  * @irq_idx_tbl_size: total number of irq_idx mapped in the hw_interrupts
- * @mask_lock:        spinlock for accessing IRQ mask
- * @status_lock:      spinlock for accessing IRQ status
+ * @irq_lock:         spinlock for accessing IRQ resources
  */
 struct sde_hw_intr {
 	struct sde_hw_blk_reg_map hw;
@@ -239,8 +292,7 @@ struct sde_hw_intr {
 	u32 *cache_irq_mask;
 	u32 *save_irq_status;
 	u32 irq_idx_tbl_size;
-	spinlock_t mask_lock;
-	spinlock_t status_lock;
+	spinlock_t irq_lock;
 };
 
 /**

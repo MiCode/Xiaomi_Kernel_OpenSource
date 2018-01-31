@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdm450.dtsi"
+#include "pmi8950.dtsi"
+#include "msm8953-cdp.dtsi"
+#include "msm8953-pmi8950.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM450 + PMI8950 CDP";
+	compatible = "qcom,sdm450-cdp", "qcom,sdm450", "qcom,cdp";
+	qcom,board-id = <1 0>;
+	qcom,pmic-id = <0x010016 0x010011 0x0 0x0>;
+};

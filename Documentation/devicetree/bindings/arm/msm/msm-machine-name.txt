@@ -1,0 +1,63 @@
+Msm Machine Name
+
+Machine name is used to:
+	1. show up in the beginning of kernel message.
+	Example:
+		[    0.000000] Machine: Qualcomm Technologies, Inc. MSM8953 PMI8950 MTP
+	2. show up as arch description when do dump stack.
+	Example:
+		[    1.222319] WARNING: CPU: 2 PID: 1 at kernel/lib/debugobjects.c:263 debug_print_object+0xa8/0xb0
+		[    1.222334] Modules linked in:
+		[    1.222362] CPU: 2 PID: 1 Comm: swapper/0 Not tainted 4.9.65+ #71
+		[    1.222376] Hardware name: Qualcomm Technologies, Inc. MSM8953 PMI8950 MTP (DT)
+		[    1.222392] task: ffffffc0ed1b0080 task.stack: ffffffc0ed1b8000
+		[    1.222408] PC is at debug_print_object+0xa8/0xb0
+		[    1.222424] LR is at debug_print_object+0xa8/0xb0
+
+Msm machine name is a string concatenated from:
+	1. constant string contain msm information: "Qualcomm Technologies, Inc.".
+	2. string of device tree property "qcom,msm-name".
+	3. string of device tree property "qcom,pmic-name".
+	4. string of device tree property "model".
+
+The reason for using msm machine Name is single board overlay device tree
+may applied to multiple soc device trees. The "model" property in soc device
+tree is overwritten with board overlay device tree. So the final string in
+"model" property can only contain Board information. And "qcom,msm-name"
+and "qcom,pmic-name" property is introduced.
+
+Optional properties:
+- qcom,msm-name: The name string of MSM SoC chip
+- qcom,pmic-name: The name string of MSM Pmic chip
+
+Required properties:
+- model: in soc device tree
+	Contain the soc and pmic information.
+	Will be overwritten by model string in board overlay device tree.
+	It will be used in bootloader for debug purpose.
+- model: in board overlay device tree
+	Contain the board information. It is the final model string that
+	kernel can see.
+
+Note:
+When device tree property qcom,msm-name and qcom,pmic-name exist, it will
+use concatenated msm machine name string for final machine name.
+When device tree property qcom,msm-name and qcom,pmic-name doesn't exist,
+it will use model property string for final machine name.
+
+Example:
+* In soc device tree:
+	/ {
+		model = "Qualcomm Technologies, Inc. APQ 8953 + PMI8950 SOC";
+		compatible = "qcom,apq8053";
+		qcom,pmic-id = <0x010016 0x010011 0x0 0x0>;
+		qcom,pmic-name = "PMI8950";
+		qcom,msm-id = <293 0x0>;
+		qcom,msm-name = "APQ8053";
+	};
+* In board overlay device tree:
+	/ {
+		model = "MTP";
+		compatible = "qcom,mtp";
+	};
+

@@ -255,16 +255,17 @@ void av8l_fast_unmap_public(av8l_fast_iopte *ptep, size_t size)
 	__av8l_fast_unmap(ptep, size, true);
 }
 
-/* upper layer must take care of TLB invalidation */
 static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			      size_t size)
 {
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
+	struct io_pgtable *iop = &data->iop;
 	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, iova);
 	unsigned long nptes = size >> AV8L_FAST_PAGE_SHIFT;
 
 	__av8l_fast_unmap(ptep, size, false);
 	dmac_clean_range(ptep, ptep + nptes);
+	io_pgtable_tlb_flush_all(iop);
 
 	return size;
 }
@@ -395,11 +396,16 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 	for (i = 0; i < 4; ++i) {
 		for (j = 0; j < 512; ++j) {
 			av8l_fast_iopte pte, *pudp;
+			void *addr;
 
 			page = alloc_page(GFP_KERNEL | __GFP_ZERO);
 			if (!page)
 				goto err_free_pages;
 			pages[pg++] = page;
+
+			addr = page_address(page);
+			dmac_clean_range(addr, addr + SZ_4K);
+
 			pte = page_to_phys(page) | AV8L_FAST_PTE_TYPE_TABLE;
 			pudp = data->puds[i] + j;
 			*pudp = pte;

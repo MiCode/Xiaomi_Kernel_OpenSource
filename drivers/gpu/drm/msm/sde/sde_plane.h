@@ -34,7 +34,6 @@
  * @rot90: true if rotation of 90 degree is required
  * @hflip: true if horizontal flip is required
  * @vflip: true if vertical flip is required
- * @mmu_id: iommu identifier for input/output buffers
  * @rot_cmd: rotator configuration command
  * @nplane: total number of drm plane attached to rotator
  * @in_fb: input fb attached to rotator
@@ -64,7 +63,6 @@ struct sde_plane_rot_state {
 	bool rot90;
 	bool hflip;
 	bool vflip;
-	u32 mmu_id;
 	struct sde_hw_rot_cmd rot_cmd;
 	int nplane;
 	/* input */
@@ -91,34 +89,78 @@ struct sde_plane_rot_state {
 	int out_xpos;
 };
 
+/* dirty bits for update function */
+#define SDE_PLANE_DIRTY_RECTS	0x1
+#define SDE_PLANE_DIRTY_FORMAT	0x2
+#define SDE_PLANE_DIRTY_SHARPEN	0x4
+#define SDE_PLANE_DIRTY_PERF	0x8
+#define SDE_PLANE_DIRTY_FB_TRANSLATION_MODE	0x10
+#define SDE_PLANE_DIRTY_ALL	0xFFFFFFFF
+
+/**
+ * enum sde_plane_sclcheck_state - User scaler data status
+ *
+ * @SDE_PLANE_SCLCHECK_NONE: No user data provided
+ * @SDE_PLANE_SCLCHECK_INVALID: Invalid user data provided
+ * @SDE_PLANE_SCLCHECK_SCALER_V1: Valid scaler v1 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V1_CHECK: Unchecked scaler v1 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V2: Valid scaler v2 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V2_CHECK: Unchecked scaler v2 data
+ */
+enum sde_plane_sclcheck_state {
+	SDE_PLANE_SCLCHECK_NONE,
+	SDE_PLANE_SCLCHECK_INVALID,
+	SDE_PLANE_SCLCHECK_SCALER_V1,
+	SDE_PLANE_SCLCHECK_SCALER_V1_CHECK,
+	SDE_PLANE_SCLCHECK_SCALER_V2,
+	SDE_PLANE_SCLCHECK_SCALER_V2_CHECK,
+};
+
 /**
  * struct sde_plane_state: Define sde extension of drm plane state object
  * @base:	base drm plane state object
+ * @property_state: Local storage for msm_prop properties
  * @property_values:	cached plane property values
- * @property_blobs:	blob properties
+ * @aspace:	pointer to address space for input/output buffers
  * @input_fence:	dereferenced input fence pointer
  * @stage:	assigned by crtc blender
  * @excl_rect:	exclusion rect values
  * @dirty:	bitmask for which pipe h/w config functions need to be updated
  * @multirect_index: index of the rectangle of SSPP
  * @multirect_mode: parallel or time multiplex multirect mode
+ * @const_alpha_en: const alpha channel is enabled for this HW pipe
  * @pending:	whether the current update is still pending
+ * @defer_prepare_fb:	indicate if prepare_fb call was deferred
+ * @scaler3_cfg: configuration data for scaler3
+ * @pixel_ext: configuration data for pixel extensions
+ * @scaler_check_state: indicates status of user provided pixel extension data
+ * @cdp_cfg:	CDP configuration
  */
 struct sde_plane_state {
 	struct drm_plane_state base;
-	uint64_t property_values[PLANE_PROP_COUNT];
-	struct drm_property_blob *property_blobs[PLANE_PROP_BLOBCOUNT];
+	struct msm_property_state property_state;
+	struct msm_property_value property_values[PLANE_PROP_COUNT];
+	struct msm_gem_address_space *aspace;
 	void *input_fence;
 	enum sde_stage stage;
 	struct sde_rect excl_rect;
 	uint32_t dirty;
 	uint32_t multirect_index;
 	uint32_t multirect_mode;
+	bool const_alpha_en;
 	bool pending;
+	bool defer_prepare_fb;
+
+	/* scaler configuration */
+	struct sde_hw_scaler3_cfg scaler3_cfg;
+	struct sde_hw_pixel_ext pixel_ext;
+	enum sde_plane_sclcheck_state scaler_check_state;
 
 	/* @sc_cfg: system_cache configuration */
 	struct sde_hw_pipe_sc_cfg sc_cfg;
 	struct sde_plane_rot_state rot;
+
+	struct sde_hw_pipe_cdp_cfg cdp_cfg;
 };
 
 /**
@@ -140,8 +182,8 @@ struct sde_multirect_plane_states {
  * @X: Property index, from enum msm_mdp_plane_property
  * Returns: Integer value of requested property
  */
-#define sde_plane_get_property(S, X) \
-	((S) && ((X) < PLANE_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
+#define sde_plane_get_property(S, X) ((S) && ((X) < PLANE_PROP_COUNT) ? \
+	((S)->property_values[(X)].value) : 0)
 
 /**
  * sde_plane_pipe - return sspp identifier for the given plane
@@ -159,27 +201,74 @@ enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
 bool is_sde_plane_virtual(struct drm_plane *plane);
 
 /**
+ * sde_plane_confirm_hw_rsvps - reserve an sbuf resource, if needed
+ * @plane: Pointer to DRM plane object
+ * @state: Pointer to plane state
+ * @cstate: Pointer to crtc state containing the resource pool
+ * Returns: Zero on success
+ */
+int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
+		const struct drm_plane_state *state,
+		struct drm_crtc_state *cstate);
+
+/**
  * sde_plane_get_ctl_flush - get control flush mask
  * @plane:   Pointer to DRM plane object
  * @ctl: Pointer to control hardware
- * @flush: Pointer to updated flush mask
+ * @flush_sspp: Pointer to sspp flush control word
+ * @flush_rot: Pointer to rotator flush control word
  */
 void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
-		u32 *flush);
+		u32 *flush_sspp, u32 *flush_rot);
 
 /**
- * sde_plane_is_sbuf_mode - return status of stream buffer mode
- * @plane:   Pointer to DRM plane object
- * @prefill: Pointer to updated prefill in stream buffer mode (optional)
- * Returns: true if plane is in stream buffer mode
+ * sde_plane_rot_get_prefill - calculate rotator start prefill
+ * @plane: Pointer to drm plane
+ * return: prefill time in lines
  */
-bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill);
+u32 sde_plane_rot_get_prefill(struct drm_plane *plane);
+
+/**
+ * sde_plane_restore - restore hw state if previously power collapsed
+ * @plane: Pointer to drm plane structure
+ */
+void sde_plane_restore(struct drm_plane *plane);
 
 /**
  * sde_plane_flush - final plane operations before commit flush
  * @plane: Pointer to drm plane structure
  */
 void sde_plane_flush(struct drm_plane *plane);
+
+/**
+ * sde_plane_halt_requests - control halting of vbif transactions for this plane
+ *	This function isn't thread safe. Plane halt enable/disable requests
+ *	should always be made from the same commit cycle.
+ * @plane: Pointer to drm plane structure
+ * @enable: Whether to enable/disable halting of vbif transactions
+ */
+void sde_plane_halt_requests(struct drm_plane *plane, bool enable);
+
+/**
+ * sde_plane_reset_rot - reset rotator operations before commit kickoff
+ * @plane: Pointer to drm plane structure
+ * @state: Pointer to plane state associated with reset request
+ * Returns: Zero on success
+ */
+int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state);
+
+/**
+ * sde_plane_kickoff_rot - final plane rotator operations before commit kickoff
+ * @plane: Pointer to drm plane structure
+ * Returns: Zero on success
+ */
+int sde_plane_kickoff_rot(struct drm_plane *plane);
+
+/**
+ * sde_plane_set_error: enable/disable error condition
+ * @plane: pointer to drm_plane structure
+ */
+void sde_plane_set_error(struct drm_plane *plane, bool error);
 
 /**
  * sde_plane_init - create new sde plane for the given pipe
@@ -201,8 +290,13 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
  *				      against hw limitations
  * @plane: drm plate states of the multirect pair
  */
-
 int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane);
+
+/**
+ * sde_plane_clear_multirect - clear multirect bits for the given pipe
+ * @drm_state: Pointer to DRM plane state
+ */
+void sde_plane_clear_multirect(const struct drm_plane_state *drm_state);
 
 /**
  * sde_plane_wait_input_fence - wait for input fence object
@@ -221,5 +315,23 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms);
  */
 int sde_plane_color_fill(struct drm_plane *plane,
 		uint32_t color, uint32_t alpha);
+
+/**
+ * sde_plane_set_revalidate - sets revalidate flag which forces a full
+ *	validation of the plane properties in the next atomic check
+ * @plane: Pointer to DRM plane object
+ * @enable: Boolean to set/unset the flag
+ */
+void sde_plane_set_revalidate(struct drm_plane *plane, bool enable);
+
+/**
+ * sde_plane_helper_reset_properties - reset properties to default values in the
+ *	given DRM plane state object
+ * @plane: Pointer to DRM plane object
+ * @plane_state: Pointer to DRM plane state object
+ * Returns: 0 on success, negative errno on failure
+ */
+int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
+		struct drm_plane_state *plane_state);
 
 #endif /* _SDE_PLANE_H_ */

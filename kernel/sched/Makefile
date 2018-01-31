@@ -17,9 +17,8 @@ endif
 
 obj-y += core.o loadavg.o clock.o cputime.o
 obj-y += idle_task.o fair.o rt.o deadline.o stop_task.o
-obj-y += wait.o swait.o completion.o idle.o sched_avg.o
-obj-$(CONFIG_SCHED_HMP) += hmp.o boost.o
-obj-$(CONFIG_SMP) += cpupri.o cpudeadline.o energy.o
+obj-y += wait.o swait.o completion.o idle.o
+obj-$(CONFIG_SMP) += cpupri.o cpudeadline.o energy.o sched_avg.o
 obj-$(CONFIG_SCHED_WALT) += walt.o boost.o
 obj-$(CONFIG_SCHED_AUTOGROUP) += auto_group.o
 obj-$(CONFIG_SCHEDSTATS) += stats.o
@@ -30,4 +29,3 @@ obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 obj-$(CONFIG_CPU_FREQ_GOV_SCHEDUTIL) += cpufreq_schedutil.o
 obj-$(CONFIG_SCHED_CORE_CTL) += core_ctl.o
 obj-$(CONFIG_CPU_FREQ_GOV_SCHED) += cpufreq_sched.o
-obj-$(CONFIG_CPU_FREQ_GOV_SCHEDUTIL) += cpufreq_schedutil.o

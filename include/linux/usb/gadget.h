@@ -58,7 +58,7 @@ enum gsi_ep_op {
 	GSI_EP_OP_STORE_DBL_INFO,
 	GSI_EP_OP_ENABLE_GSI,
 	GSI_EP_OP_UPDATEXFER,
-	GSI_EP_OP_RING_IN_DB,
+	GSI_EP_OP_RING_DB,
 	GSI_EP_OP_ENDXFER,
 	GSI_EP_OP_GET_CH_INFO,
 	GSI_EP_OP_GET_XFER_IDX,
@@ -81,12 +81,18 @@ enum gsi_ep_op {
  * @buf_len: Size of each individual buffer is determined based on aggregation
  *	negotiated as per the protocol. In case of no aggregation supported by
  *	the protocol, we use default values.
+ * @db_reg_phs_addr_lsb: IPA channel doorbell register's physical address LSB
+ * @mapped_db_reg_phs_addr_lsb: doorbell LSB IOVA address mapped with IOMMU
+ * @db_reg_phs_addr_msb: IPA channel doorbell register's physical address MSB
  */
 struct usb_gsi_request {
 	void *buf_base_addr;
 	dma_addr_t dma;
 	size_t num_bufs;
 	size_t buf_len;
+	u32 db_reg_phs_addr_lsb;
+	dma_addr_t mapped_db_reg_phs_addr_lsb;
+	u32 db_reg_phs_addr_msb;
 };
 
 /*
@@ -520,7 +526,6 @@ struct usb_gadget {
 	unsigned			is_selfpowered:1;
 	unsigned			deactivated:1;
 	unsigned			connected:1;
-	bool				l1_supported;
 	bool				remote_wakeup;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
@@ -1121,12 +1126,12 @@ extern struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,
 int msm_ep_config(struct usb_ep *ep);
 int msm_ep_unconfig(struct usb_ep *ep);
 void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
-int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr, u32 size,
+int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr, u32 size,
 	u8 dst_pipe_idx);
 bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
 int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
 #else
-static inline int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr,
+static inline int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr,
 	u32 size, u8 dst_pipe_idx)
 {	return -ENODEV; }
 

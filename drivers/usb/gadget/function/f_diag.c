@@ -291,7 +291,7 @@ static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 	}
 
 update_dload:
-	pr_debug("%s: dload:%p pid:%x serial_num:%s\n",
+	pr_debug("%s: dload:%pK pid:%x serial_num:%s\n",
 				__func__, diag_dload, local_diag_dload.pid,
 				local_diag_dload.serial_number);
 
@@ -386,9 +386,11 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 	ch->priv = priv;
 	ch->notify = notify;
 
-	spin_lock_irqsave(&ch_lock, flags);
-	list_add_tail(&ch->list, &usb_diag_ch_list);
-	spin_unlock_irqrestore(&ch_lock, flags);
+	if (!found) {
+		spin_lock_irqsave(&ch_lock, flags);
+		list_add_tail(&ch->list, &usb_diag_ch_list);
+		spin_unlock_irqrestore(&ch_lock, flags);
+	}
 
 	return ch;
 }
@@ -863,6 +865,7 @@ static struct diag_context *diag_context_init(const char *name)
 	struct diag_context *dev;
 	struct usb_diag_ch *_ch;
 	int found = 0;
+	unsigned long flags;
 
 	pr_debug("%s\n", __func__);
 
@@ -872,9 +875,19 @@ static struct diag_context *diag_context_init(const char *name)
 			break;
 		}
 	}
+
 	if (!found) {
-		pr_err("%s: unable to get diag usb channel\n", __func__);
-		return ERR_PTR(-ENODEV);
+		pr_warn("%s: unable to get diag usb channel\n", __func__);
+
+		_ch = kzalloc(sizeof(*_ch), GFP_KERNEL);
+		if (_ch == NULL)
+			return ERR_PTR(-ENOMEM);
+
+		_ch->name = name;
+
+		spin_lock_irqsave(&ch_lock, flags);
+		list_add_tail(&_ch->list, &usb_diag_ch_list);
+		spin_unlock_irqrestore(&ch_lock, flags);
 	}
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);

@@ -139,6 +139,7 @@ qcom,bcm-name:		The name used to fetch details about the bcm device from
 			the command DB driver.
 qcom,drv-id:		The DRV id associated with the RSC, used to differentiate
 			between RSCS owned by different execution environments.
+qcom,defer-init-qos:	Flag to force defer initial QoS configuration at probe time.
 
 
 Example:

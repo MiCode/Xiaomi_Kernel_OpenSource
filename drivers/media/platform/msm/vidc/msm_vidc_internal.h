@@ -33,7 +33,6 @@
 #include <media/videobuf2-v4l2.h>
 #include <media/msm_vidc.h>
 #include <media/msm_media_info.h>
-
 #include "vidc_hfi_api.h"
 
 #define MSM_VIDC_DRV_NAME "msm_vidc_driver"
@@ -46,13 +45,15 @@
 #define MIN_SUPPORTED_HEIGHT 32
 #define DEFAULT_FPS 15
 #define MIN_NUM_OUTPUT_BUFFERS 1
+#define MIN_NUM_OUTPUT_BUFFERS_VP9 6
 #define MIN_NUM_CAPTURE_BUFFERS 1
 #define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 #define MAX_NUM_CAPTURE_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 
+#define MAX_SUPPORTED_INSTANCES 16
 
 /* Maintains the number of FTB's between each FBD over a window */
-#define DCVS_FTB_WINDOW 32
+#define DCVS_FTB_WINDOW 16
 
 #define V4L2_EVENT_VIDC_BASE  10
 
@@ -84,7 +85,6 @@ enum vidc_core_state {
 	VIDC_CORE_UNINIT = 0,
 	VIDC_CORE_INIT,
 	VIDC_CORE_INIT_DONE,
-	VIDC_CORE_INVALID
 };
 
 /*
@@ -141,15 +141,89 @@ enum buffer_owner {
 
 struct vidc_freq_data {
 	struct list_head list;
-	ion_phys_addr_t device_addr;
+	u32 device_addr;
 	unsigned long freq;
+	bool turbo;
+};
+
+struct vidc_input_cr_data {
+	struct list_head list;
+	u32 index;
+	u32 input_cr;
+};
+
+struct recon_buf {
+	struct list_head list;
+	u32 buffer_index;
+	u32 CR;
+	u32 CF;
+};
+
+struct eos_buf {
+	struct list_head list;
+	struct msm_smem smem;
 };
 
 struct internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
-	struct msm_smem *handle;
+	struct msm_smem smem;
 	enum buffer_owner buffer_ownership;
+};
+
+struct msm_vidc_csc_coeff {
+	u32 *vpe_csc_custom_matrix_coeff;
+	u32 *vpe_csc_custom_bias_coeff;
+	u32 *vpe_csc_custom_limit_coeff;
+};
+
+struct msm_vidc_buf_data {
+	struct list_head list;
+	u32 index;
+	u32 mark_data;
+	u32 mark_target;
+};
+
+struct msm_vidc_common_data {
+	char key[128];
+	int value;
+};
+
+struct msm_vidc_codec_data {
+	u32 fourcc;
+	enum session_type session_type;
+	int vpp_cycles;
+	int vsp_cycles;
+	int low_power_cycles;
+};
+
+enum efuse_purpose {
+	SKU_VERSION = 0,
+};
+
+enum sku_version {
+	SKU_VERSION_0 = 0,
+	SKU_VERSION_1,
+	SKU_VERSION_2,
+};
+
+struct msm_vidc_efuse_data {
+	u32 start_address;
+	u32 size;
+	u32 mask;
+	u32 shift;
+	enum efuse_purpose purpose;
+};
+
+struct msm_vidc_platform_data {
+	struct msm_vidc_common_data *common_data;
+	unsigned int common_data_length;
+	struct msm_vidc_codec_data *codec_data;
+	unsigned int codec_data_length;
+	struct msm_vidc_csc_coeff csc_data;
+	struct msm_vidc_efuse_data *efuse_data;
+	unsigned int efuse_data_length;
+	unsigned int sku_version;
 };
 
 struct msm_vidc_format {
@@ -167,7 +241,7 @@ struct msm_vidc_drv {
 	int num_cores;
 	struct dentry *debugfs_root;
 	int thermal_level;
-	u32 platform_version;
+	u32 sku_version;
 };
 
 struct msm_video_device {
@@ -175,9 +249,17 @@ struct msm_video_device {
 	struct video_device vdev;
 };
 
+struct session_crop {
+	u32 left;
+	u32 top;
+	u32 width;
+	u32 height;
+};
+
 struct session_prop {
 	u32 width[MAX_PORT_NUM];
 	u32 height[MAX_PORT_NUM];
+	struct session_crop crop_info;
 	u32 fps;
 	u32 bitrate;
 };
@@ -205,16 +287,29 @@ struct buf_count {
 	int ebd;
 };
 
-struct dcvs_stats {
+struct clock_data {
 	int buffer_counter;
 	int load;
 	int load_low;
+	int load_norm;
 	int load_high;
 	int min_threshold;
 	int max_threshold;
 	unsigned int extra_capture_buffer_count;
 	unsigned int extra_output_buffer_count;
 	enum hal_buffer buffer_type;
+	bool dcvs_mode;
+	unsigned long bitrate;
+	unsigned long min_freq;
+	unsigned long curr_freq;
+	u32 operating_rate;
+	struct msm_vidc_codec_data *entry;
+	u32 core_id;
+	u32 dpb_fourcc;
+	u32 opb_fourcc;
+	enum hal_work_mode work_mode;
+	bool low_latency_mode;
+	bool turbo_mode;
 };
 
 struct profile_data {
@@ -245,6 +340,7 @@ struct msm_vidc_core {
 	struct mutex lock;
 	int id;
 	struct hfi_device *device;
+	struct msm_vidc_platform_data *platform_data;
 	struct msm_video_device vdev[MSM_VIDC_MAX_DEVICES];
 	struct v4l2_device v4l2_dev;
 	struct list_head instances;
@@ -259,7 +355,10 @@ struct msm_vidc_core {
 	struct msm_vidc_capability *capabilities;
 	struct delayed_work fw_unload_work;
 	bool smmu_fault_handled;
-	unsigned long freq;
+	bool trigger_ssr;
+	unsigned long min_freq;
+	unsigned long curr_freq;
+	struct vidc_bus_vote_data *vote_data;
 };
 
 struct msm_vidc_inst {
@@ -272,15 +371,19 @@ struct msm_vidc_inst {
 	enum instance_state state;
 	struct msm_vidc_format fmts[MAX_PORT_NUM];
 	struct buf_queue bufq[MAX_PORT_NUM];
-	struct msm_vidc_list pendingq;
 	struct msm_vidc_list freqs;
+	struct msm_vidc_list input_crs;
 	struct msm_vidc_list scratchbufs;
 	struct msm_vidc_list persistbufs;
 	struct msm_vidc_list pending_getpropq;
 	struct msm_vidc_list outputbufs;
+	struct msm_vidc_list reconbufs;
+	struct msm_vidc_list eosbufs;
 	struct msm_vidc_list registeredbufs;
+	struct msm_vidc_list etb_data;
+	struct msm_vidc_list fbd_data;
 	struct buffer_requirements buff_req;
-	void *mem_client;
+	struct smem_client *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
 	struct v4l2_ctrl **cluster;
@@ -293,28 +396,22 @@ struct msm_vidc_inst {
 	void *priv;
 	struct msm_vidc_debug debug;
 	struct buf_count count;
-	struct dcvs_stats dcvs;
+	struct clock_data clk_data;
 	enum msm_vidc_modes flags;
 	struct msm_vidc_capability capability;
 	u32 buffer_size_limit;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	struct v4l2_ctrl **ctrls;
-	bool dcvs_mode;
 	enum msm_vidc_pixel_depth bit_depth;
 	struct kref kref;
-	unsigned long bitrate;
-	unsigned long freq;
-	u32 buffers_held_in_driver;
-	atomic_t in_flush;
+	bool in_flush;
 	u32 pic_struct;
 	u32 colour_space;
-	u32 operating_rate;
 	u32 profile;
 	u32 level;
 	u32 entropy_mode;
-	struct clock_profile_entry *entry;
-	u32 core_id;
-	enum hal_work_mode work_mode;
+	struct msm_vidc_codec_data *codec_data;
+	struct hal_hdr10_pq_sei hdr10_sei_params;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
@@ -328,9 +425,9 @@ struct msm_vidc_ctrl {
 	u32 id;
 	char name[MAX_NAME_LENGTH];
 	enum v4l2_ctrl_type type;
-	s32 minimum;
-	s32 maximum;
-	s32 default_value;
+	s64 minimum;
+	s64 maximum;
+	s64 default_value;
 	u32 step;
 	u32 menu_skip_mask;
 	u32 flags;
@@ -340,60 +437,49 @@ struct msm_vidc_ctrl {
 void handle_cmd_response(enum hal_command_response cmd, void *data);
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type);
+int msm_vidc_noc_error_info(struct msm_vidc_core *core);
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
 int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst);
 void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
 
-struct buffer_info {
-	struct list_head list;
-	int type;
-	int num_planes;
-	int fd[VIDEO_MAX_PLANES];
-	int buff_off[VIDEO_MAX_PLANES];
-	int size[VIDEO_MAX_PLANES];
-	unsigned long uvaddr[VIDEO_MAX_PLANES];
-	ion_phys_addr_t device_addr[VIDEO_MAX_PLANES];
-	struct msm_smem *handle[VIDEO_MAX_PLANES];
-	enum v4l2_memory memory;
-	u32 v4l2_index;
-	bool pending_deletion;
-	atomic_t ref_count;
-	bool dequeued;
-	bool inactive;
-	bool mapped[VIDEO_MAX_PLANES];
-	int same_fd_ref[VIDEO_MAX_PLANES];
-	struct timeval timestamp;
+enum msm_vidc_flags {
+	MSM_VIDC_FLAG_DEFERRED            = BIT(0),
+	MSM_VIDC_FLAG_RBR_PENDING         = BIT(1),
 };
 
-struct buffer_info *device_to_uvaddr(struct msm_vidc_list *buf_list,
-				ion_phys_addr_t device_addr);
-int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo);
-int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo);
-int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
-				struct buffer_info *binfo);
-int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
-			struct buffer_info *binfo);
-int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
-			struct buffer_info *binfo);
+struct msm_vidc_buffer {
+	struct list_head list;
+	struct kref kref;
+	struct msm_smem smem[VIDEO_MAX_PLANES];
+	struct vb2_v4l2_buffer vvb;
+	enum msm_vidc_flags flags;
+};
 
 void msm_comm_handle_thermal_event(void);
 void *msm_smem_new_client(enum smem_type mtype,
 		void *platform_resources, enum session_type stype);
-struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
-		enum hal_buffer buffer_type, int map_kernel);
-void msm_smem_free(void *clt, struct msm_smem *mem);
+void msm_smem_set_tme_encode_mode(struct smem_client *client, bool enable);
+int msm_smem_alloc(struct smem_client *client,
+		size_t size, u32 align, u32 flags, enum hal_buffer buffer_type,
+		int map_kernel, struct msm_smem *smem);
+int msm_smem_free(void *clt, struct msm_smem *mem);
 void msm_smem_delete_client(void *clt);
-int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
-		enum smem_cache_ops);
-struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
-				enum hal_buffer buffer_type);
 struct context_bank_info *msm_smem_get_context_bank(void *clt,
 		bool is_secure, enum hal_buffer buffer_type);
+int msm_smem_map_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
+int msm_smem_unmap_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
+void *msm_smem_get_dma_buf(int fd);
+void msm_smem_put_dma_buf(void *dma_buf);
+void *msm_smem_get_handle(struct smem_client *client, void *dma_buf);
+void msm_smem_put_handle(struct smem_client *client, void *handle);
+int msm_smem_cache_operations(struct smem_client *client,
+		void *handle, unsigned long offset, unsigned long size,
+		enum smem_cache_ops cache_op);
 void msm_vidc_fw_unload_handler(struct work_struct *work);
-bool msm_smem_compare_buffers(void *clt, int fd, void *priv);
 /*
  * XXX: normally should be in msm_vidc.h, but that's meant for public APIs,
  * whereas this is private
  */
 int msm_vidc_destroy(struct msm_vidc_inst *inst);
+void *vidc_get_drv_data(struct device *dev);
 #endif

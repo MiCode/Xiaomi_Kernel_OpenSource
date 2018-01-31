@@ -28,6 +28,7 @@
 #include <linux/dcache.h>
 #include <linux/namei.h>
 #include <linux/fscrypto.h>
+#include "ext4_ice.h"
 
 static unsigned int num_prealloc_crypto_pages = 32;
 static unsigned int num_prealloc_crypto_ctxs = 128;
@@ -406,6 +407,9 @@ static void completion_pages(struct work_struct *work)
 
 	bio_for_each_segment_all(bv, bio, i) {
 		struct page *page = bv->bv_page;
+	if (ext4_is_ice_enabled())
+		SetPageUptodate(page);
+	else {
 		int ret = fscrypt_decrypt_page(page);
 
 		if (ret) {
@@ -414,6 +418,7 @@ static void completion_pages(struct work_struct *work)
 		} else {
 			SetPageUptodate(page);
 		}
+	}
 		unlock_page(page);
 	}
 	fscrypt_release_ctx(ctx);
@@ -483,9 +488,6 @@ static void fscrypt_destroy(void)
 int fscrypt_initialize(void)
 {
 	int i, res = -ENOMEM;
-
-	if (fscrypt_bounce_page_pool)
-		return 0;
 
 	mutex_lock(&fscrypt_init_mutex);
 	if (fscrypt_bounce_page_pool)

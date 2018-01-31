@@ -23,6 +23,7 @@
 #include <linux/gfp.h>
 #include <linux/slab.h>
 #include <asm/unaligned.h>
+#include <linux/usb/phy.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"
@@ -112,7 +113,7 @@ static int xhci_create_usb3_bos_desc(struct xhci_hcd *xhci, char *buf,
 
 	/* If PSI table exists, add the custom speed attributes from it */
 	if (usb3_1 && xhci->usb3_rhub.psi_count) {
-		u32 ssp_cap_base, bm_attrib, psi;
+		u32 ssp_cap_base, bm_attrib, psi, psi_mant, psi_exp;
 		int offset;
 
 		ssp_cap_base = USB_DT_BOS_SIZE + USB_DT_USB_SS_CAP_SIZE;
@@ -139,6 +140,15 @@ static int xhci_create_usb3_bos_desc(struct xhci_hcd *xhci, char *buf,
 		for (i = 0; i < xhci->usb3_rhub.psi_count; i++) {
 			psi = xhci->usb3_rhub.psi[i];
 			psi &= ~USB_SSP_SUBLINK_SPEED_RSVD;
+			psi_exp = XHCI_EXT_PORT_PSIE(psi);
+			psi_mant = XHCI_EXT_PORT_PSIM(psi);
+
+			/* Shift to Gbps and set SSP Link BIT(14) if 10Gpbs */
+			for (; psi_exp < 3; psi_exp++)
+				psi_mant /= 1000;
+			if (psi_mant >= 10)
+				psi |= BIT(14);
+
 			if ((psi & PLT_MASK) == PLT_SYM) {
 			/* Symmetric, create SSA RX and TX from one PSI entry */
 				put_unaligned_le32(psi, &buf[offset]);
@@ -357,7 +367,7 @@ int xhci_find_slot_id_by_port(struct usb_hcd *hcd, struct xhci_hcd *xhci,
 
 	slot_id = 0;
 	for (i = 0; i < MAX_HC_SLOTS; i++) {
-		if (!xhci->devs[i])
+		if (!xhci->devs[i] || !xhci->devs[i]->udev)
 			continue;
 		speed = xhci->devs[i]->udev->speed;
 		if (((speed >= USB_SPEED_SUPER) == (hcd->speed >= HCD_USB3))
@@ -385,10 +395,6 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 	int i;
 
 	ret = 0;
-	virt_dev = xhci->devs[slot_id];
-	if (!virt_dev)
-		return -ENODEV;
-
 	cmd = xhci_alloc_command(xhci, false, true, GFP_NOIO);
 	if (!cmd) {
 		xhci_dbg(xhci, "Couldn't allocate command structure.\n");
@@ -396,6 +402,13 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 	}
 
 	spin_lock_irqsave(&xhci->lock, flags);
+	virt_dev = xhci->devs[slot_id];
+	if (!virt_dev) {
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		xhci_free_command(xhci, cmd);
+		return -ENODEV;
+	}
+
 	for (i = LAST_EP_INDEX; i > 0; i--) {
 		if (virt_dev->eps[i].ring && virt_dev->eps[i].ring->dequeue) {
 			struct xhci_command *command;
@@ -403,24 +416,25 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 						     GFP_NOWAIT);
 			if (!command) {
 				spin_unlock_irqrestore(&xhci->lock, flags);
-				xhci_free_command(xhci, cmd);
-				return -ENOMEM;
-
+				ret = -ENOMEM;
+				goto cmd_cleanup;
 			}
 
 			ret = xhci_queue_stop_endpoint(xhci, command, slot_id,
-					i, suspend);
+						       i, suspend);
 			if (ret) {
 				spin_unlock_irqrestore(&xhci->lock, flags);
-				goto err_cmd_queue;
+				xhci_free_command(xhci, command);
+				goto cmd_cleanup;
 			}
 		}
 	}
 	ret = xhci_queue_stop_endpoint(xhci, cmd, slot_id, 0, suspend);
 	if (ret) {
 		spin_unlock_irqrestore(&xhci->lock, flags);
-		goto err_cmd_queue;
+		goto cmd_cleanup;
 	}
+
 	xhci_ring_cmd_db(xhci);
 	spin_unlock_irqrestore(&xhci->lock, flags);
 
@@ -432,7 +446,7 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 		ret = -ETIME;
 	}
 
-err_cmd_queue:
+cmd_cleanup:
 	xhci_free_command(xhci, cmd);
 	return ret;
 }
@@ -794,6 +808,9 @@ static u32 xhci_get_port_status(struct usb_hcd *hcd,
 			clear_bit(wIndex, &bus_state->resuming_ports);
 
 			set_bit(wIndex, &bus_state->rexit_ports);
+
+			xhci_test_and_clear_bit(xhci, port_array, wIndex,
+						PORT_PLC);
 			xhci_set_link_state(xhci, port_array, wIndex,
 					XDEV_U0);
 
@@ -1049,6 +1066,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	u16 wake_mask = 0;
 	u16 timeout = 0;
 	u16 test_mode = 0;
+	enum usb_device_speed s = hcd->self.root_hub->speed;
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
@@ -1206,6 +1224,39 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 				break;
 			}
 
+			/*
+			 * For xHCI 1.1 according to section 4.19.1.2.4.1 a
+			 * root hub port's transition to compliance mode upon
+			 * detecting LFPS timeout may be controlled by an
+			 * Compliance Transition Enabled (CTE) flag (not
+			 * software visible). This flag is set by writing 0xA
+			 * to PORTSC PLS field which will allow transition to
+			 * compliance mode the next time LFPS timeout is
+			 * encountered. A warm reset will clear it.
+			 *
+			 * The CTE flag is only supported if the HCCPARAMS2 CTC
+			 * flag is set, otherwise, the compliance substate is
+			 * automatically entered as on 1.0 and prior.
+			 */
+			if (link_state == USB_SS_PORT_LS_COMP_MOD) {
+				if (!HCC2_CTC(xhci->hcc_params2)) {
+					xhci_dbg(xhci, "CTC flag is 0, port already supports entering compliance mode\n");
+					break;
+				}
+
+				if ((temp & PORT_CONNECT)) {
+					xhci_warn(xhci, "Can't set compliance mode when port is connected\n");
+					goto error;
+				}
+
+				xhci_dbg(xhci, "Enable compliance mode transition for port %d\n",
+						wIndex);
+				xhci_set_link_state(xhci, port_array, wIndex,
+						link_state);
+				temp = readl(port_array[wIndex]);
+				break;
+			}
+
 			/* Software should not attempt to set
 			 * port link state above '3' (U3) and the port
 			 * must be enabled.
@@ -1265,6 +1316,10 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			writel(temp, port_array[wIndex]);
 
 			temp = readl(port_array[wIndex]);
+
+			if (s == USB_SPEED_HIGH)
+				usb_phy_start_port_reset(hcd->usb_phy);
+
 			xhci_dbg(xhci, "set port reset, actual port %d status  = 0x%x\n", wIndex, temp);
 			break;
 		case USB_PORT_FEAT_REMOTE_WAKE_MASK:

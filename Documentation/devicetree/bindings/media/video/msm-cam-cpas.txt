@@ -1,0 +1,306 @@
+* Qualcomm Technologies, Inc. MSM Camera CPAS
+
+The MSM camera CPAS device provides dependency definitions for
+enabling Camera CPAS HW and provides the Client definitions
+for all HW blocks that use CPAS driver for BW voting. These
+definitions consist of various properties that define the list
+of clients supported, AHB, AXI master-slave IDs used for BW
+voting.
+
+=======================
+Required Node Structure
+=======================
+The camera CPAS device must be described in four levels of device nodes. The
+first level describes the overall CPAS device. Within it, second level nodes
+describe the list of AXI ports that map different clients for AXI BW voting.
+Third level nodes describe the details of each AXI port having name, mnoc,
+camnoc AXI Bus information. Fourth level nodes describe the details of Bus
+master-slave IDs, ab, ib values for mnoc, camnoc bus interface.
+
+==================================
+First Level Node - CAM CPAS device
+==================================
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Node instance number.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,cam-cpas".
+
+- label
+  Usage: required
+  Value type: <string>
+  Definition: Should be "cpas".
+
+- arch-compat
+  Usage: required
+  Value type: <string>
+  Definition: Should be "cpas_top" or "camss_top".
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the register resources.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- reg-cam-base
+  Usage: required
+  Value type: <u32>
+  Definition: Offset of the register space compared to
+              to Camera base register space.
+
+- interrupt-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: optional
+  Value type: <u32>
+  Definition: Interrupt associated with CAMNOC HW.
+
+- qcom,cpas-hw-ver
+  Usage: required
+  Value type: <u32>
+  Definition: CAM HW Version information.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for CPAS HW.
+
+- camss-vdd-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed
+              in "regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for CPAS HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for CPAS HW.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: minsvs, lowsvs, svs, svs_l1, nominal, turbo.
+
+- qcom,msm-bus,name
+- qcom,msm-bus,num-cases
+- qcom,msm-bus,num-paths
+- qcom,msm-bus,vectors-KBps
+  Please refer Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+  for the properties above.
+
+- vdd-corners
+  Usage: required
+  Value type: <u32>
+  Definition: List of vdd corners to map for ahb level.
+
+- vdd-corner-ahb-mapping
+  Usage: required
+  Value type: <string>
+  Definition: List of ahb level strings corresponds to vdd-corners.
+  Supported strings: suspend, svs, nominal, turbo
+
+- client-id-based
+  Usage: required
+  Value type: <empty>
+  Definition: Bool property specifying whether CPAS clients are ID based.
+
+- client-names
+  Usage: required
+  Value type: <string>
+  Definition: List of Clients supported by CPAS.
+
+- client-axi-port-names
+  Usage: required
+  Value type: <string>
+  Definition: AXI Port name for each client.
+
+- client-bus-camnoc-based
+  Usage: required
+  Value type: <empty>
+  Definition: Bool property specifying whether Clients are connected
+              through CAMNOC for AXI access.
+
+===================================================================
+Third Level Node - CAM AXI Port properties
+===================================================================
+- qcom,axi-port-name
+  Usage: required
+  Value type: <string>
+  Definition: Name of the AXI Port.
+
+===================================================================
+Fourth Level Node - CAM AXI Bus properties
+===================================================================
+
+- qcom,msm-bus,name
+- qcom,msm-bus,num-cases
+- qcom,msm-bus,num-paths
+- qcom,msm-bus,vectors-KBps
+  Please refer Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+  for the properties above.
+
+- qcom,msm-bus-vector-dyn-vote
+  Usage: optional
+  Value type: <empty>
+  Definition: Bool property specifying whether this bus client
+              is dynamic vote based.
+
+Example:
+
+	qcom,cam-cpas@ac40000 {
+		cell-index = <0>;
+		compatible = "qcom,cam-cpas";
+		label = "cpas";
+		arch-compat = "cpas_top";
+		status = "ok";
+		reg-names = "cam_cpas_top", "cam_camnoc";
+		reg = <0xac40000 0x1000>,
+			<0xac42000 0x5000>;
+		reg-cam-base = <0x40000 0x42000>;
+		interrupt-names = "cpas_camnoc";
+		interrupts = <0 459 0>;
+		qcom,cpas-hw-ver = <0x170100>; /* Titan v170 v1.0.0 */
+		regulator-names = "camss-vdd";
+		camss-vdd-supply = <&titan_top_gdsc>;
+		clock-names = "gcc_ahb_clk",
+			"gcc_axi_clk",
+			"soc_ahb_clk",
+			"cpas_ahb_clk",
+			"slow_ahb_clk_src",
+			"camnoc_axi_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
+		src-clock-name = "slow_ahb_clk_src";
+		clock-rates = <0 0 0 0 80000000 0>;
+		clock-cntl-level = "turbo";
+		qcom,msm-bus,name = "cam_ahb";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 300000>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>;
+		client-id-based;
+		client-names =
+			"ife0", "ife1", "ife2", "ipe0",
+			"ipe1", "cam-cdm-intf0", "cpas-cdm0", "bps0",
+			"icp0", "jpeg-dma0", "jpeg0", "fd0";
+		client-axi-port-names =
+			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
+			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
+			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1";
+		client-bus-camnoc-based;
+		qcom,axi-port-list {
+			qcom,axi-port1 {
+				qcom,axi-port-name = "cam_hf_1";
+				qcom,axi-port-mnoc {
+					qcom,msm-bus,name = "cam_hf_1_mnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+				qcom,axi-port-camnoc {
+					qcom,msm-bus,name = "cam_hf_1_camnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+			};
+			qcom,axi-port2 {
+				qcom,axi-port-name = "cam_hf_2";
+				qcom,axi-port-mnoc {
+					qcom,msm-bus,name = "cam_hf_2_mnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+				qcom,axi-port-camnoc {
+					qcom,msm-bus,name = "cam_hf_1_camnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+			};
+			qcom,axi-port3 {
+				qcom,axi-port-name = "cam_sf_1";
+				qcom,axi-port-mnoc {
+					qcom,msm-bus,name = "cam_sf_1_mnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_SF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_SF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+				qcom,axi-port-camnoc {
+					qcom,msm-bus,name = "cam_sf_1_camnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_SF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_SF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+			};
+		};
+	};

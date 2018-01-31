@@ -37,6 +37,7 @@
 
 enum {
 	MDSS_DSI_PLL_10NM,
+	MDSS_DP_PLL_10NM,
 	MDSS_UNKNOWN_PLL,
 };
 
@@ -81,6 +82,8 @@ struct mdss_pll_resources {
 	 */
 	void __iomem	*pll_base;
 	void __iomem	*phy_base;
+	void __iomem	*ln_tx0_base;
+	void __iomem	*ln_tx1_base;
 	void __iomem	*gdsc_base;
 	void __iomem	*dyn_pll_base;
 
@@ -94,6 +97,9 @@ struct mdss_pll_resources {
 	 * suspend/resume scenario. Cached the vco rate for such plls.
 	 */
 	unsigned long	vco_cached_rate;
+	u32		cached_cfg0;
+	u32		cached_cfg1;
+	u32		cached_outdiv;
 
 	/* dsi/edp/hmdi pll interface type */
 	u32		pll_interface_type;

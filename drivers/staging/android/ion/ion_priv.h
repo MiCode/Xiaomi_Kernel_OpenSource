@@ -2,7 +2,7 @@
  * drivers/staging/android/ion/ion_priv.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,6 +26,7 @@
 #include <linux/rbtree.h>
 #include <linux/seq_file.h>
 
+#include "msm_ion_priv.h"
 #include <linux/sched.h>
 #include <linux/shrinker.h>
 #include <linux/types.h>
@@ -216,8 +217,8 @@ struct ion_heap {
 	struct task_struct *task;
 
 	int (*debug_show)(struct ion_heap *heap, struct seq_file *, void *);
-	atomic_t total_allocated;
-	atomic_t total_handles;
+	atomic_long_t total_allocated;
+	atomic_long_t total_handles;
 };
 
 /**
@@ -293,7 +294,10 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 
 int ion_heap_is_system_secure_heap_type(enum ion_heap_type type);
 int get_secure_vmid(unsigned long flags);
+int get_vmid(unsigned long flags);
 bool is_secure_vmid_valid(int vmid);
+unsigned int count_set_bits(unsigned long val);
+int populate_vm_list(unsigned long flags, unsigned int *vm_list, int nelems);
 
 /**
  * Functions to help assign/unassign sg_table for System Secure Heap

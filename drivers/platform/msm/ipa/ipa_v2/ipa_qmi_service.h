@@ -31,9 +31,39 @@
 #define SUBSYS_MODEM "modem"
 
 #define IPAWANDBG(fmt, args...) \
-	pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+#define IPAWANDBG_LOW(fmt, args...) \
+	do { \
+		pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
 #define IPAWANERR(fmt, args...) \
-	pr_err(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+#define IPAWANINFO(fmt, args...) \
+	do { \
+		pr_info(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
 
 extern struct ipa_qmi_context *ipa_qmi_ctx;
 extern struct mutex ipa_qmi_lock;
@@ -146,6 +176,9 @@ int rmnet_ipa_set_tether_client_pipe(struct wan_ioctl_set_tether_client_pipe
 
 int rmnet_ipa_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	bool reset);
+
+int rmnet_ipa_query_tethering_stats_all(
+	struct wan_ioctl_query_tether_stats_all *data);
 
 int rmnet_ipa_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data);
 

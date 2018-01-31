@@ -600,12 +600,6 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 			cfs_rq->throttle_count);
 	SEQ_printf(m, "  .%-30s: %d\n", "runtime_enabled",
 			cfs_rq->runtime_enabled);
-#ifdef CONFIG_SCHED_WALT
-	SEQ_printf(m, "  .%-30s: %d\n", "nr_big_tasks",
-			cfs_rq->hmp_stats.nr_big_tasks);
-	SEQ_printf(m, "  .%-30s: %llu\n", "cumulative_runnable_avg",
-			cfs_rq->hmp_stats.cumulative_runnable_avg);
-#endif
 #endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -698,10 +692,6 @@ do {									\
 	P(cpu_capacity);
 #endif
 #ifdef CONFIG_SCHED_WALT
-#ifdef CONFIG_SCHED_HMP
-	P(static_cpu_pwr_cost);
-	P(cluster->static_cluster_pwr_cost);
-#endif
 	P(cluster->load_scale_factor);
 	P(cluster->capacity);
 	P(cluster->max_possible_capacity);
@@ -710,10 +700,10 @@ do {									\
 	P(cluster->max_freq);
 	P(cluster->exec_scale_factor);
 #ifdef CONFIG_SCHED_WALT
-	P(hmp_stats.nr_big_tasks);
+	P(walt_stats.nr_big_tasks);
 #endif
-	SEQ_printf(m, "  .%-30s: %llu\n", "hmp_stats.cumulative_runnable_avg",
-			rq->hmp_stats.cumulative_runnable_avg);
+	SEQ_printf(m, "  .%-30s: %llu\n", "walt_stats.cumulative_runnable_avg",
+			rq->walt_stats.cumulative_runnable_avg);
 #endif
 #undef P
 #undef PN
@@ -794,10 +784,6 @@ static void sched_debug_header(struct seq_file *m)
 	P(sysctl_sched_child_runs_first);
 	P(sysctl_sched_features);
 #ifdef CONFIG_SCHED_WALT
-#ifdef CONFIG_SCHED_HMP
-	P(sched_upmigrate);
-	P(sched_downmigrate);
-#endif
 	P(sched_init_task_load_windows);
 	P(min_capacity);
 	P(max_capacity);
@@ -965,9 +951,6 @@ static void sched_show_numa(struct task_struct *p, struct seq_file *m)
 void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 {
 	unsigned long nr_switches;
-	unsigned int load_avg;
-
-	load_avg = pct_task_load(p);
 
 	SEQ_printf(m, "%s (%d, #threads: %d)\n", p->comm, task_pid_nr(p),
 						get_nr_threads(p));
@@ -1025,11 +1008,35 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 		P_SCHEDSTAT(se.statistics.nr_wakeups_affine_attempts);
 		P_SCHEDSTAT(se.statistics.nr_wakeups_passive);
 		P_SCHEDSTAT(se.statistics.nr_wakeups_idle);
-#if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
-		__P(load_avg);
-#ifdef CONFIG_SCHED_HMP
+		/* eas */
+		/* select_idle_sibling() */
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_attempts);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_idle);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_cache_affine);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_suff_cap);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_idle_cpu);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_count);
+		/* select_energy_cpu_brute() */
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_attempts);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_sync);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_idle_bt);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_insuff_cap);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_no_nrg_sav);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_nrg_sav);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_count);
+		/* find_best_target() */
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_attempts);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_no_cpu);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_no_sd);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_pref_idle);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_count);
+		/* cas */
+		/* select_task_rq_fair() */
+		P_SCHEDSTAT(se.statistics.nr_wakeups_cas_attempts);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_cas_count);
+ 
+#ifdef CONFIG_SCHED_WALT
 		P(ravg.demand);
-#endif
 #endif
 		avg_atom = p->se.sum_exec_runtime;
 		if (nr_switches)

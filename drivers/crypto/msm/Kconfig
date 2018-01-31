@@ -2,7 +2,7 @@
 config CRYPTO_DEV_QCOM_ICE
 	tristate "Inline Crypto Module"
 	default n
-	depends on PFK && BLK_DEV_DM
+	depends on BLK_DEV_DM
 	help
 	  This driver supports Inline Crypto Engine for QTI chipsets, MSM8994
 	  and later, to accelerate crypto operations for storage needs.

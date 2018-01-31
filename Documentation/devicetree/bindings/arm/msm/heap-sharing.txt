@@ -1,0 +1,44 @@
+* Memory Share Driver (MEMSHARE)
+
+The Memshare driver implements a Kernel QMI service on the
+LA-APSS, which is responsible for providing contiguous physical
+memory to MPSS for use cases when the modem requires additional
+memory (e.g. GPS).
+
+Required properties for Memshare
+
+-Root Node-
+
+- compatible:	Must be "qcom,memshare"
+
+Required properties for child nodes:
+
+- compatible:	Must be "qcom,memshare-peripheral"
+
+- qcom,peripheral-size:	Indicates the size (in bytes) required for that child.
+
+- qcom,client-id:	Indicates the client id of the child node.
+
+- label:	Indicates the peripheral information for the node. Should be one of
+  the following:
+  - modem	/* Represent Modem Peripheral */
+  - adsp	/* Represent ADSP Peripheral */
+  - wcnss	/* Represent WCNSS Peripheral */
+
+Optional properties for child nodes:
+
+- qcom,allocate-boot-time:	Indicates whether clients needs boot time memory allocation.
+
+Example:
+
+qcom,memshare {
+	compatible = "qcom,memshare";
+
+	qcom,client_1 {
+		compatible = "qcom,memshare-peripheral";
+		qcom,peripheral-size = <0x200000>;
+		qcom,client-id = <0>;
+		qcom,allocate-boot-time;
+		label = "modem";
+	};
+};

@@ -99,11 +99,17 @@ static inline bool ptr_ring_full_bh(struct ptr_ring *r)
 
 /* Note: callers invoking this in a loop must use a compiler barrier,
  * for example cpu_relax(). Callers must hold producer_lock.
+ * Callers are responsible for making sure pointer that is being queued
+ * points to a valid data.
  */
 static inline int __ptr_ring_produce(struct ptr_ring *r, void *ptr)
 {
 	if (unlikely(!r->size) || r->queue[r->producer])
 		return -ENOSPC;
+
+	/* Make sure the pointer we are storing points to a valid data. */
+	/* Pairs with smp_read_barrier_depends in __ptr_ring_consume. */
+	smp_wmb();
 
 	r->queue[r->producer++] = ptr;
 	if (unlikely(r->producer >= r->size))
@@ -244,6 +250,9 @@ static inline void *__ptr_ring_consume(struct ptr_ring *r)
 	if (ptr)
 		__ptr_ring_discard_one(r);
 
+	/* Make sure anyone accessing data through the pointer is up to date. */
+	/* Pairs with smp_wmb in __ptr_ring_produce. */
+	smp_read_barrier_depends();
 	return ptr;
 }
 
@@ -340,9 +349,9 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
 	__PTR_RING_PEEK_CALL_v; \
 })
 
-static inline void **__ptr_ring_init_queue_alloc(int size, gfp_t gfp)
+static inline void **__ptr_ring_init_queue_alloc(unsigned int size, gfp_t gfp)
 {
-	return kzalloc(ALIGN(size * sizeof(void *), SMP_CACHE_BYTES), gfp);
+	return kcalloc(size, sizeof(void *), gfp);
 }
 
 static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
@@ -417,7 +426,8 @@ static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
  * In particular if you consume ring in interrupt or BH context, you must
  * disable interrupts/BH when doing so.
  */
-static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
+static inline int ptr_ring_resize_multiple(struct ptr_ring **rings,
+					   unsigned int nrings,
 					   int size,
 					   gfp_t gfp, void (*destroy)(void *))
 {
@@ -425,7 +435,7 @@ static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
 	void ***queues;
 	int i;
 
-	queues = kmalloc(nrings * sizeof *queues, gfp);
+	queues = kmalloc_array(nrings, sizeof(*queues), gfp);
 	if (!queues)
 		goto noqueues;
 

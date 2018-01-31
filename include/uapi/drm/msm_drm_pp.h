@@ -28,17 +28,35 @@ struct drm_msm_pcc_coeff {
 
 /**
  * struct drm_msm_pcc - pcc feature structure
- * flags: for customizing operations
- * r: red coefficients.
- * g: green coefficients.
- * b: blue coefficients.
+ * @flags: for customizing operations
+ * @r: red coefficients.
+ * @g: green coefficients.
+ * @b: blue coefficients.
+ * @r_rr: second order coefficients
+ * @r_gg: second order coefficients
+ * @r_bb: second order coefficients
+ * @g_rr: second order coefficients
+ * @g_gg: second order coefficients
+ * @g_bb: second order coefficients
+ * @b_rr: second order coefficients
+ * @b_gg: second order coefficients
+ * @b_bb: second order coefficients
  */
-
+#define DRM_MSM_PCC3
 struct drm_msm_pcc {
 	__u64 flags;
 	struct drm_msm_pcc_coeff r;
 	struct drm_msm_pcc_coeff g;
 	struct drm_msm_pcc_coeff b;
+	__u32 r_rr;
+	__u32 r_gg;
+	__u32 r_bb;
+	__u32 g_rr;
+	__u32 g_gg;
+	__u32 g_bb;
+	__u32 b_rr;
+	__u32 b_gg;
+	__u32 b_bb;
 };
 
 /* struct drm_msm_pa_vlut - picture adjustment vLUT structure
@@ -51,7 +69,39 @@ struct drm_msm_pa_vlut {
 	__u32 val[PA_VLUT_SIZE];
 };
 
-/* struct drm_msm_memcol - Memory color feature strucuture.
+#define PA_HSIC_HUE_ENABLE (1 << 0)
+#define PA_HSIC_SAT_ENABLE (1 << 1)
+#define PA_HSIC_VAL_ENABLE (1 << 2)
+#define PA_HSIC_CONT_ENABLE (1 << 3)
+/**
+ * struct drm_msm_pa_hsic - pa hsic feature structure
+ * @flags: flags for the feature customization, values can be:
+ *         - PA_HSIC_HUE_ENABLE: Enable hue adjustment
+ *         - PA_HSIC_SAT_ENABLE: Enable saturation adjustment
+ *         - PA_HSIC_VAL_ENABLE: Enable value adjustment
+ *         - PA_HSIC_CONT_ENABLE: Enable contrast adjustment
+ *
+ * @hue: hue setting
+ * @saturation: saturation setting
+ * @value: value setting
+ * @contrast: contrast setting
+ */
+#define DRM_MSM_PA_HSIC
+struct drm_msm_pa_hsic {
+	__u64 flags;
+	__u32 hue;
+	__u32 saturation;
+	__u32 value;
+	__u32 contrast;
+};
+
+#define MEMCOL_PROT_HUE (1 << 0)
+#define MEMCOL_PROT_SAT (1 << 1)
+#define MEMCOL_PROT_VAL (1 << 2)
+#define MEMCOL_PROT_CONT (1 << 3)
+#define MEMCOL_PROT_SIXZONE (1 << 4)
+#define MEMCOL_PROT_BLEND (1 << 5)
+/* struct drm_msm_memcol - Memory color feature structure.
  *                         Skin, sky, foliage features are supported.
  * @prot_flags: Bit mask for enabling protection feature.
  * @color_adjust_p0: Adjustment curve.
@@ -78,6 +128,42 @@ struct drm_msm_memcol {
 	__u32 val_region;
 };
 
+#define DRM_MSM_SIXZONE
+#define SIXZONE_LUT_SIZE 384
+#define SIXZONE_HUE_ENABLE (1 << 0)
+#define SIXZONE_SAT_ENABLE (1 << 1)
+#define SIXZONE_VAL_ENABLE (1 << 2)
+/* struct drm_msm_sixzone_curve - Sixzone HSV adjustment curve structure.
+ * @p0: Hue adjustment.
+ * @p1: Saturation/Value adjustment.
+ */
+struct drm_msm_sixzone_curve {
+	__u32 p1;
+	__u32 p0;
+};
+
+/* struct drm_msm_sixzone - Sixzone feature structure.
+ * @flags: for feature customization, values can be:
+ *         - SIXZONE_HUE_ENABLE: Enable hue adjustment
+ *         - SIXZONE_SAT_ENABLE: Enable saturation adjustment
+ *         - SIXZONE_VAL_ENABLE: Enable value adjustment
+ * @threshold: threshold qualifier.
+ * @adjust_p0: Adjustment curve.
+ * @adjust_p1: Adjustment curve.
+ * @sat_hold: Saturation hold info.
+ * @val_hold: Value hold info.
+ * @curve: HSV adjustment curve lut.
+ */
+struct drm_msm_sixzone {
+	__u64 flags;
+	__u32 threshold;
+	__u32 adjust_p0;
+	__u32 adjust_p1;
+	__u32 sat_hold;
+	__u32 val_hold;
+	struct drm_msm_sixzone_curve curve[SIXZONE_LUT_SIZE];
+};
+
 #define GAMUT_3D_MODE_17 1
 #define GAMUT_3D_MODE_5 2
 #define GAMUT_3D_MODE_13 3
@@ -86,6 +172,7 @@ struct drm_msm_memcol {
 #define GAMUT_3D_MODE5_TBL_SZ 32
 #define GAMUT_3D_MODE13_TBL_SZ 550
 #define GAMUT_3D_SCALE_OFF_SZ 16
+#define GAMUT_3D_SCALEB_OFF_SZ 12
 #define GAMUT_3D_TBL_NUM 4
 #define GAMUT_3D_SCALE_OFF_TBL_NUM 3
 #define GAMUT_3D_MAP_EN (1 << 0)
@@ -96,8 +183,8 @@ struct drm_msm_memcol {
  * @c2_c1: Holds c2/c1 values
  */
 struct drm_msm_3d_col {
-	__u32 c0;
 	__u32 c2_c1;
+	__u32 c0;
 };
 /**
  * struct drm_msm_3d_gamut - 3d gamut feature structure
@@ -133,6 +220,37 @@ struct drm_msm_pgc_lut {
 	__u32 c0[PGC_TBL_LEN];
 	__u32 c1[PGC_TBL_LEN];
 	__u32 c2[PGC_TBL_LEN];
+};
+
+#define IGC_TBL_LEN 256
+#define IGC_DITHER_ENABLE (1 << 0)
+/**
+ * struct drm_msm_igc_lut - igc lut feature structure
+ * @flags: flags for the feature customization, values can be:
+ *             - IGC_DITHER_ENABLE: Enable dither functionality
+ * @c0: color0 component lut
+ * @c1: color1 component lut
+ * @c2: color2 component lut
+ * @strength: dither strength, considered valid when IGC_DITHER_ENABLE
+ *            is set in flags. Strength value based on source bit width.
+ */
+struct drm_msm_igc_lut {
+	__u64 flags;
+	__u32 c0[IGC_TBL_LEN];
+	__u32 c1[IGC_TBL_LEN];
+	__u32 c2[IGC_TBL_LEN];
+	__u32 strength;
+};
+
+#define HIST_V_SIZE 256
+/**
+ * struct drm_msm_hist - histogram feature structure
+ * @flags: for customizing operations
+ * @data: histogram data
+ */
+struct drm_msm_hist {
+	__u64 flags;
+	__u32 data[HIST_V_SIZE];
 };
 
 #define AD4_LUT_GRP0_SIZE 33
@@ -279,6 +397,28 @@ struct drm_msm_ad4_cfg {
 	__u32 cfg_param_051;
 	__u32 cfg_param_052;
 	__u32 cfg_param_053;
+};
+
+#define DITHER_MATRIX_SZ 16
+
+/**
+ * struct drm_msm_dither - dither feature structure
+ * @flags: for customizing operations
+ * @temporal_en: temperal dither enable
+ * @c0_bitdepth: c0 component bit depth
+ * @c1_bitdepth: c1 component bit depth
+ * @c2_bitdepth: c2 component bit depth
+ * @c3_bitdepth: c2 component bit depth
+ * @matrix: dither strength matrix
+ */
+struct drm_msm_dither {
+	__u64 flags;
+	__u32 temporal_en;
+	__u32 c0_bitdepth;
+	__u32 c1_bitdepth;
+	__u32 c2_bitdepth;
+	__u32 c3_bitdepth;
+	__u32 matrix[DITHER_MATRIX_SZ];
 };
 
 #endif /* _MSM_DRM_PP_H_ */

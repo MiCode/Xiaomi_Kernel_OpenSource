@@ -33,15 +33,17 @@ struct dsi_bridge {
 };
 
 /**
- * dsi_conn_post_init - callback to perform additional initialization steps
+ * dsi_conn_set_info_blob - callback to perform info blob initialization
  * @connector: Pointer to drm connector structure
  * @info: Pointer to sde connector info structure
  * @display: Pointer to private display handle
+ * @mode_info: Pointer to mode info structure
  * Returns: Zero on success
  */
-int dsi_conn_post_init(struct drm_connector *connector,
+int dsi_conn_set_info_blob(struct drm_connector *connector,
 		void *info,
-		void *display);
+		void *display,
+		struct msm_mode_info *mode_info);
 
 /**
  * dsi_conn_detect - callback to determine if connector is connected
@@ -64,6 +66,26 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 		void *display);
 
 /**
+ * dsi_connector_put_modes - callback to free up drm modes of the connector
+ * @connector: Pointer to drm connector structure
+ * @display: Pointer to private display handle
+ */
+void dsi_connector_put_modes(struct drm_connector *connector,
+	void *display);
+
+/**
+ * dsi_conn_get_mode_info - retrieve information on the mode selected
+ * @drm_mode: Display mode set for the display
+ * @mode_info: Out parameter. information of the mode.
+ * @max_mixer_width: max width supported by HW layer mixer
+ * @display: Pointer to private display structure
+ * Returns: Zero on success
+ */
+int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
+	struct msm_mode_info *mode_info, u32 max_mixer_width,
+	void *display);
+
+/**
  * dsi_conn_mode_valid - callback to determine if specified mode is valid
  * @connector: Pointer to drm connector structure
  * @mode: Pointer to drm mode structure
@@ -73,6 +95,16 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 enum drm_mode_status dsi_conn_mode_valid(struct drm_connector *connector,
 		struct drm_display_mode *mode,
 		void *display);
+
+/**
+ * dsi_conn_enable_event - callback to notify DSI driver of event registeration
+ * @connector: Pointer to drm connector structure
+ * @event_idx: Connector event index
+ * @enable: Whether or not the event is enabled
+ * @display: Pointer to private display handle
+ */
+void dsi_conn_enable_event(struct drm_connector *connector,
+		uint32_t event_idx, bool enable, void *display);
 
 struct dsi_bridge *dsi_drm_bridge_init(struct dsi_display *display,
 		struct drm_device *dev,
@@ -90,5 +122,20 @@ void dsi_drm_bridge_cleanup(struct dsi_bridge *bridge);
 int dsi_conn_pre_kickoff(struct drm_connector *connector,
 		void *display,
 		struct msm_display_kickoff_params *params);
+
+/**
+ * dsi_display_post_kickoff - program post kickoff-time features
+ * @connector: Pointer to drm connector structure
+ * Returns: Zero on success
+ */
+int dsi_conn_post_kickoff(struct drm_connector *connector);
+
+/**
+ * dsi_convert_to_drm_mode - Update drm mode with dsi mode information
+ * @dsi_mode: input parameter. structure having dsi mode information.
+ * @drm_mode: output parameter. DRM mode set for the display
+ */
+void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
+				struct drm_display_mode *drm_mode);
 
 #endif /* _DSI_DRM_H_ */

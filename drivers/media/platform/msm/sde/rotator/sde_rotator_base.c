@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include "sde_rotator_util.h"
 #include "sde_rotator_trace.h"
 #include "sde_rotator_debug.h"
+#include "sde_rotator_dev.h"
 
 static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 {
@@ -139,13 +140,50 @@ static bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
 	return clk_forced_on;
 }
 
+void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	u32 reg_val;
+	bool forced_on;
+
+	if (!mdata || !params || !params->reg_off_mdp_clk_ctrl) {
+		SDEROT_ERR("null input parameter\n");
+		return;
+	}
+
+	if (params->xin_id > MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN1) {
+		SDEROT_ERR("xin_id:%d exceed max limit\n", params->xin_id);
+		return;
+	}
+
+	forced_on = force_on_xin_clk(params->bit_off_mdp_clk_ctrl,
+		params->reg_off_mdp_clk_ctrl, true);
+
+	SDEROT_EVTLOG(forced_on, params->xin_id);
+
+	reg_val = SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0);
+	SDE_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+		reg_val | BIT(params->xin_id));
+
+	/* this is a polling operation */
+	sde_mdp_wait_for_xin_halt(params->xin_id);
+
+	reg_val = SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0);
+	SDE_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+		reg_val & ~BIT(params->xin_id));
+
+	if (forced_on)
+		force_on_xin_clk(params->bit_off_mdp_clk_ctrl,
+			params->reg_off_mdp_clk_ctrl, false);
+}
+
 u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	struct sde_mdp_format_params *fmt;
 	u32 ot_lim;
 	u32 is_yuv;
-	u32 res;
+	u64 res;
 
 	ot_lim = (is_rd) ? mdata->default_ot_rd_limit :
 				mdata->default_ot_wr_limit;
@@ -161,7 +199,11 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 	if (false == test_bit(SDE_QOS_OTLIM, mdata->sde_qos_map))
 		goto exit;
 
+	width = min_t(u32, width, SDE_ROT_MAX_IMG_WIDTH);
+	height = min_t(u32, height, SDE_ROT_MAX_IMG_HEIGHT);
+
 	res = width * height;
+	res = res * fps;
 
 	fmt = sde_get_format_params(pixfmt);
 
@@ -172,17 +214,14 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 
 	is_yuv = sde_mdp_is_yuv_format(fmt);
 
-	SDEROT_DBG("w:%d h:%d fps:%d pixfmt:%8.8x yuv:%d res:%d rd:%d\n",
+	SDEROT_DBG("w:%d h:%d fps:%d pixfmt:%8.8x yuv:%d res:%llu rd:%d\n",
 		width, height, fps, pixfmt, is_yuv, res, is_rd);
 
-	if (!is_yuv)
-		goto exit;
-
-	if ((res <= RES_1080p) && (fps <= 30))
+	if (res <= (RES_1080p * 30))
 		ot_lim = 2;
-	else if ((res <= RES_1080p) && (fps <= 60))
+	else if (res <= (RES_1080p * 60))
 		ot_lim = 4;
-	else if ((res <= RES_UHD) && (fps <= 30))
+	else if (res <= (RES_UHD * 30))
 		ot_lim = 8;
 
 exit:
@@ -227,9 +266,10 @@ void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 ot_lim;
-	u32 reg_off_vbif_lim_conf = (params->xin_id / 4) * 4 +
-		params->reg_off_vbif_lim_conf;
-	u32 bit_off_vbif_lim_conf = (params->xin_id % 4) * 8;
+	u32 reg_off_vbif_lim_conf = ((params->xin_id / mdata->npriority_lvl)
+					* mdata->npriority_lvl)
+					+ params->reg_off_vbif_lim_conf;
+	u32 bit_off_vbif_lim_conf = (params->xin_id % mdata->npriority_lvl) * 8;
 	u32 reg_val;
 	u32 sts;
 	bool forced_on;
@@ -280,6 +320,59 @@ void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params)
 	SDEROT_EVTLOG(params->num, params->xin_id, ot_lim);
 exit:
 	return;
+}
+
+/*
+ * sde_mdp_set_vbif_memtype - set memtype output for the given xin port
+ * @mdata: pointer to global rotator data
+ * @xin_id: xin identifier
+ * @memtype: memtype output configuration
+ * return: none
+ */
+static void sde_mdp_set_vbif_memtype(struct sde_rot_data_type *mdata,
+		u32 xin_id, u32 memtype)
+{
+	u32 reg_off;
+	u32 bit_off;
+	u32 reg_val;
+
+	/*
+	 * Assume 4 bits per bit field, 8 fields per 32-bit register.
+	 */
+	if (xin_id >= 8)
+		return;
+
+	reg_off = MMSS_VBIF_NRT_VBIF_OUT_AXI_AMEMTYPE_CONF0;
+
+	bit_off = (xin_id & 0x7) * 4;
+	reg_val = SDE_VBIF_READ(mdata, reg_off);
+	reg_val &= ~(0x7 << bit_off);
+	reg_val |= (memtype & 0x7) << bit_off;
+	SDE_VBIF_WRITE(mdata, reg_off, reg_val);
+}
+
+/*
+ * sde_mdp_init_vbif - initialize static vbif configuration
+ * return: 0 if success; error code otherwise
+ */
+int sde_mdp_init_vbif(void)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	int i;
+
+	if (!mdata)
+		return -EINVAL;
+
+	if (mdata->vbif_memtype_count && mdata->vbif_memtype) {
+		for (i = 0; i < mdata->vbif_memtype_count; i++)
+			sde_mdp_set_vbif_memtype(mdata, i,
+					mdata->vbif_memtype[i]);
+
+		SDEROT_DBG("amemtype=0x%x\n", SDE_VBIF_READ(mdata,
+				MMSS_VBIF_NRT_VBIF_OUT_AXI_AMEMTYPE_CONF0));
+	}
+
+	return 0;
 }
 
 struct reg_bus_client *sde_reg_bus_vote_client_create(char *client_name)
@@ -397,6 +490,32 @@ static int sde_mdp_parse_dt_prop_len(struct platform_device *pdev,
 	return len;
 }
 
+static void sde_mdp_parse_vbif_memtype(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc;
+
+	mdata->vbif_memtype_count = sde_mdp_parse_dt_prop_len(pdev,
+			"qcom,mdss-rot-vbif-memtype");
+	mdata->vbif_memtype = kzalloc(sizeof(u32) *
+			mdata->vbif_memtype_count, GFP_KERNEL);
+	if (!mdata->vbif_memtype) {
+		mdata->vbif_memtype_count = 0;
+		return;
+	}
+
+	rc = sde_mdp_parse_dt_handler(pdev,
+		"qcom,mdss-rot-vbif-memtype", mdata->vbif_memtype,
+			mdata->vbif_memtype_count);
+	if (rc) {
+		SDEROT_DBG("vbif memtype not found\n");
+		kfree(mdata->vbif_memtype);
+		mdata->vbif_memtype = NULL;
+		mdata->vbif_memtype_count = 0;
+		return;
+	}
+}
+
 static void sde_mdp_parse_vbif_qos(struct platform_device *pdev,
 		struct sde_rot_data_type *mdata)
 {
@@ -408,15 +527,150 @@ static void sde_mdp_parse_vbif_qos(struct platform_device *pdev,
 			"qcom,mdss-rot-vbif-qos-setting");
 	mdata->vbif_nrt_qos = kzalloc(sizeof(u32) *
 			mdata->npriority_lvl, GFP_KERNEL);
-	if (!mdata->vbif_nrt_qos)
+	if (!mdata->vbif_nrt_qos) {
+		mdata->npriority_lvl = 0;
 		return;
+	}
 
 	rc = sde_mdp_parse_dt_handler(pdev,
 		"qcom,mdss-rot-vbif-qos-setting", mdata->vbif_nrt_qos,
 			mdata->npriority_lvl);
 	if (rc) {
 		SDEROT_DBG("vbif setting not found\n");
+		kfree(mdata->vbif_nrt_qos);
+		mdata->vbif_nrt_qos = NULL;
+		mdata->npriority_lvl = 0;
 		return;
+	}
+}
+
+static void sde_mdp_parse_cdp_setting(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc;
+	u32 len, data[SDE_ROT_OP_MAX] = {0};
+
+	len = sde_mdp_parse_dt_prop_len(pdev,
+			"qcom,mdss-rot-cdp-setting");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-cdp-setting", data, len);
+		if (rc) {
+			SDEROT_ERR("invalid CDP setting\n");
+			goto end;
+		}
+
+		set_bit(SDE_QOS_CDP, mdata->sde_qos_map);
+		mdata->enable_cdp[SDE_ROT_RD] = data[SDE_ROT_RD];
+		mdata->enable_cdp[SDE_ROT_WR] = data[SDE_ROT_WR];
+		return;
+	}
+end:
+	clear_bit(SDE_QOS_CDP, mdata->sde_qos_map);
+}
+
+static void sde_mdp_parse_rot_lut_setting(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc;
+	u32 len, data[4];
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-rot-qos-lut");
+	if (len == 4) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-qos-lut", data, len);
+		if (!rc) {
+			mdata->lut_cfg[SDE_ROT_RD].creq_lut_0 = data[0];
+			mdata->lut_cfg[SDE_ROT_RD].creq_lut_1 = data[1];
+			mdata->lut_cfg[SDE_ROT_WR].creq_lut_0 = data[2];
+			mdata->lut_cfg[SDE_ROT_WR].creq_lut_1 = data[3];
+			set_bit(SDE_QOS_LUT, mdata->sde_qos_map);
+		} else {
+			SDEROT_DBG("qos lut setting not found\n");
+		}
+	}
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-rot-danger-lut");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-danger-lut", data, len);
+		if (!rc) {
+			mdata->lut_cfg[SDE_ROT_RD].danger_lut
+							= data[SDE_ROT_RD];
+			mdata->lut_cfg[SDE_ROT_WR].danger_lut
+							= data[SDE_ROT_WR];
+			set_bit(SDE_QOS_DANGER_LUT, mdata->sde_qos_map);
+		} else {
+			SDEROT_DBG("danger lut setting not found\n");
+		}
+	}
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-rot-safe-lut");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-safe-lut", data, len);
+		if (!rc) {
+			mdata->lut_cfg[SDE_ROT_RD].safe_lut = data[SDE_ROT_RD];
+			mdata->lut_cfg[SDE_ROT_WR].safe_lut = data[SDE_ROT_WR];
+			set_bit(SDE_QOS_SAFE_LUT, mdata->sde_qos_map);
+		} else {
+			SDEROT_DBG("safe lut setting not found\n");
+		}
+	}
+}
+
+static void sde_mdp_parse_inline_rot_lut_setting(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc;
+	u32 len, data[4];
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-inline-rot-qos-lut");
+	if (len == 4) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-inline-rot-qos-lut", data, len);
+		if (!rc) {
+			mdata->inline_lut_cfg[SDE_ROT_RD].creq_lut_0 = data[0];
+			mdata->inline_lut_cfg[SDE_ROT_RD].creq_lut_1 = data[1];
+			mdata->inline_lut_cfg[SDE_ROT_WR].creq_lut_0 = data[2];
+			mdata->inline_lut_cfg[SDE_ROT_WR].creq_lut_1 = data[3];
+			set_bit(SDE_INLINE_QOS_LUT, mdata->sde_inline_qos_map);
+		} else {
+			SDEROT_DBG("inline qos lut setting not found\n");
+		}
+	}
+
+	len = sde_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-inline-rot-danger-lut");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-inline-rot-danger-lut", data, len);
+		if (!rc) {
+			mdata->inline_lut_cfg[SDE_ROT_RD].danger_lut
+							= data[SDE_ROT_RD];
+			mdata->inline_lut_cfg[SDE_ROT_WR].danger_lut
+							= data[SDE_ROT_WR];
+			set_bit(SDE_INLINE_QOS_DANGER_LUT,
+					mdata->sde_inline_qos_map);
+		} else {
+			SDEROT_DBG("inline danger lut setting not found\n");
+		}
+	}
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-inline-rot-safe-lut");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-inline-rot-safe-lut", data, len);
+		if (!rc) {
+			mdata->inline_lut_cfg[SDE_ROT_RD].safe_lut
+							= data[SDE_ROT_RD];
+			mdata->inline_lut_cfg[SDE_ROT_WR].safe_lut
+							= data[SDE_ROT_WR];
+			set_bit(SDE_INLINE_QOS_SAFE_LUT,
+					mdata->sde_inline_qos_map);
+		} else {
+			SDEROT_DBG("inline safe lut setting not found\n");
+		}
 	}
 }
 
@@ -444,11 +698,40 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 		SDEROT_DBG(
 			"Could not read optional property: highest bank bit\n");
 
+	sde_mdp_parse_cdp_setting(pdev, mdata);
+
 	sde_mdp_parse_vbif_qos(pdev, mdata);
+
+	sde_mdp_parse_vbif_memtype(pdev, mdata);
+
+	sde_mdp_parse_rot_lut_setting(pdev, mdata);
+
+	sde_mdp_parse_inline_rot_lut_setting(pdev, mdata);
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-rot-qos-cpu-mask", &data);
+	mdata->rot_pm_qos_cpu_mask = (!rc ? data : 0);
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		 "qcom,mdss-rot-qos-cpu-dma-latency", &data);
+	mdata->rot_pm_qos_cpu_dma_latency = (!rc ? data : 0);
+
+	sde_rotator_pm_qos_add(mdata);
 
 	mdata->mdp_base = mdata->sde_io.base + SDE_MDP_OFFSET;
 
 	return 0;
+}
+
+static void sde_mdp_destroy_dt_misc(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	kfree(mdata->vbif_memtype);
+	mdata->vbif_memtype = NULL;
+	kfree(mdata->vbif_rt_qos);
+	mdata->vbif_rt_qos = NULL;
+	kfree(mdata->vbif_nrt_qos);
+	mdata->vbif_nrt_qos = NULL;
 }
 
 #define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)	\
@@ -605,6 +888,7 @@ void sde_rotator_base_destroy(struct sde_rot_data_type *mdata)
 
 	sde_rot_res = NULL;
 	sde_mdp_bus_scale_unregister(mdata);
+	sde_mdp_destroy_dt_misc(pdev, mdata);
 	sde_rot_iounmap(&mdata->vbif_nrt_io);
 	sde_rot_iounmap(&mdata->sde_io);
 	devm_kfree(&pdev->dev, mdata);

@@ -141,7 +141,8 @@ void kvm_async_pf_task_wait(u32 token)
 
 	n.token = token;
 	n.cpu = smp_processor_id();
-	n.halted = is_idle_task(current) || preempt_count() > 1;
+	n.halted = is_idle_task(current) || preempt_count() > 1 ||
+		   rcu_preempt_depth();
 	init_swait_queue_head(&n.wq);
 	hlist_add_head(&n.link, &b->list);
 	raw_spin_unlock(&b->lock);
@@ -152,6 +153,8 @@ void kvm_async_pf_task_wait(u32 token)
 		if (hlist_unhashed(&n.link))
 			break;
 
+		rcu_irq_exit();
+
 		if (!n.halted) {
 			local_irq_enable();
 			schedule();
@@ -160,11 +163,11 @@ void kvm_async_pf_task_wait(u32 token)
 			/*
 			 * We cannot reschedule. So halt.
 			 */
-			rcu_irq_exit();
 			native_safe_halt();
-			rcu_irq_enter();
 			local_irq_disable();
 		}
+
+		rcu_irq_enter();
 	}
 	if (!n.halted)
 		finish_swait(&n.wq, &wait);

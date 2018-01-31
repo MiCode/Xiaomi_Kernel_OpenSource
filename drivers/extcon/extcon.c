@@ -482,6 +482,21 @@ int extcon_sync(struct extcon_dev *edev, unsigned int id)
 }
 EXPORT_SYMBOL_GPL(extcon_sync);
 
+int extcon_blocking_sync(struct extcon_dev *edev, unsigned int id, bool val)
+{
+	int index;
+
+	if (!edev)
+		return -EINVAL;
+
+	index = find_cable_index_by_id(edev, id);
+	if (index < 0)
+		return index;
+
+	return blocking_notifier_call_chain(&edev->bnh[index], val, edev);
+}
+EXPORT_SYMBOL(extcon_blocking_sync);
+
 /**
  * extcon_get_state() - Get the state of a external connector.
  * @edev:	the extcon device that has the cable.
@@ -906,39 +921,52 @@ int extcon_register_notifier(struct extcon_dev *edev, unsigned int id,
 	unsigned long flags;
 	int ret, idx = -EINVAL;
 
-	if (!nb)
+	if (!edev || !nb)
 		return -EINVAL;
 
-	if (edev) {
-		idx = find_cable_index_by_id(edev, id);
-		if (idx < 0)
-			return idx;
+	idx = find_cable_index_by_id(edev, id);
+	if (idx < 0)
+		return idx;
 
-		spin_lock_irqsave(&edev->lock, flags);
-		ret = raw_notifier_chain_register(&edev->nh[idx], nb);
-		spin_unlock_irqrestore(&edev->lock, flags);
-	} else {
-		struct extcon_dev *extd;
-
-		mutex_lock(&extcon_dev_list_lock);
-		list_for_each_entry(extd, &extcon_dev_list, entry) {
-			idx = find_cable_index_by_id(extd, id);
-			if (idx >= 0)
-				break;
-		}
-		mutex_unlock(&extcon_dev_list_lock);
-
-		if (idx >= 0) {
-			edev = extd;
-			return extcon_register_notifier(extd, id, nb);
-		} else {
-			ret = -ENODEV;
-		}
-	}
+	spin_lock_irqsave(&edev->lock, flags);
+	ret = raw_notifier_chain_register(&edev->nh[idx], nb);
+	spin_unlock_irqrestore(&edev->lock, flags);
 
 	return ret;
 }
 EXPORT_SYMBOL_GPL(extcon_register_notifier);
+
+int extcon_register_blocking_notifier(struct extcon_dev *edev, unsigned int id,
+			struct notifier_block *nb)
+{
+	int idx = -EINVAL;
+
+	if (!edev || !nb)
+		return -EINVAL;
+
+	idx = find_cable_index_by_id(edev, id);
+	if (idx < 0)
+		return idx;
+
+	return blocking_notifier_chain_register(&edev->bnh[idx], nb);
+}
+EXPORT_SYMBOL(extcon_register_blocking_notifier);
+
+int extcon_unregister_blocking_notifier(struct extcon_dev *edev,
+			unsigned int id, struct notifier_block *nb)
+{
+	int idx;
+
+	if (!edev || !nb)
+		return -EINVAL;
+
+	idx = find_cable_index_by_id(edev, id);
+	if (idx < 0)
+		return idx;
+
+	return blocking_notifier_chain_unregister(&edev->bnh[idx], nb);
+}
+EXPORT_SYMBOL(extcon_unregister_blocking_notifier);
 
 /**
  * extcon_unregister_notifier() - Unregister a notifiee from the extcon device.
@@ -1218,6 +1246,13 @@ int extcon_dev_register(struct extcon_dev *edev)
 	edev->nh = devm_kzalloc(&edev->dev,
 			sizeof(*edev->nh) * edev->max_supported, GFP_KERNEL);
 	if (!edev->nh) {
+		ret = -ENOMEM;
+		goto err_dev;
+	}
+
+	edev->bnh = devm_kzalloc(&edev->dev,
+			sizeof(*edev->bnh) * edev->max_supported, GFP_KERNEL);
+	if (!edev->bnh) {
 		ret = -ENOMEM;
 		goto err_dev;
 	}

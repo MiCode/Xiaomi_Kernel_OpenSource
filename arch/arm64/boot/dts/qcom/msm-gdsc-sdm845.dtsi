@@ -181,6 +181,8 @@
 		qcom,poll-cfg-gdscr;
 		qcom,support-hw-trigger;
 		status = "disabled";
+		proxy-supply = <&mdss_core_gdsc>;
+		qcom,proxy-consumer-enable;
 	};
 
 	/* GDSCs in Graphics CC */
@@ -196,26 +198,14 @@
 		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
 		qcom,no-status-check-on-disable;
 		qcom,gds-timeout = <500>;
+		qcom,clk-dis-wait-val = <8>;
 		status = "disabled";
-	};
-
-	gpu_gx_domain_addr: syscon@0x5091508 {
-		compatible = "syscon";
-		reg = <0x5091508 0x4>;
-	};
-
-	gpu_gx_sw_reset: syscon@0x5091008 {
-		compatible = "syscon";
-		reg = <0x5091008 0x4>;
 	};
 
 	gpu_gx_gdsc: qcom,gdsc@0x509100c {
 		compatible = "qcom,gdsc";
 		regulator-name = "gpu_gx_gdsc";
 		reg = <0x509100c 0x4>;
-		domain-addr = <&gpu_gx_domain_addr>;
-		sw-reset = <&gpu_gx_sw_reset>;
-		qcom,reset-aon-logic;
 		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};

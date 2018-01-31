@@ -57,8 +57,11 @@
 #define TSENS_TM_CODE_BIT_MASK			0xfff
 #define TSENS_TM_CODE_SIGN_BIT			0x800
 #define TSENS_TM_SCALE_DECI_MILLIDEG		100
+#define TSENS_DEBUG_WDOG_TRIGGER_COUNT		5
+#define TSENS_TM_WATCHDOG_LOG(n)		((n) + 0x13c)
 
 #define TSENS_EN				BIT(0)
+#define TSENS_CTRL_SENSOR_EN_MASK(n)		((n >> 3) & 0xffff)
 
 static void msm_tsens_convert_temp(int last_temp, int *temp)
 {
@@ -91,7 +94,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	if (code & TSENS_TM_SN_STATUS_VALID_BIT) {
 		msm_tsens_convert_temp(last_temp, temp);
-		return 0;
+		goto dbg;
 	}
 
 	code = readl_relaxed_no_log(sensor_addr +
@@ -100,7 +103,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	if (code & TSENS_TM_SN_STATUS_VALID_BIT) {
 		last_temp = last_temp2;
 		msm_tsens_convert_temp(last_temp, temp);
-		return 0;
+		goto dbg;
 	}
 
 	code = readl_relaxed_no_log(sensor_addr +
@@ -110,7 +113,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	if (code & TSENS_TM_SN_STATUS_VALID_BIT) {
 		last_temp = last_temp3;
 		msm_tsens_convert_temp(last_temp, temp);
-		return 0;
+		goto dbg;
 	}
 
 	if (last_temp == last_temp2)
@@ -120,6 +123,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	msm_tsens_convert_temp(last_temp, temp);
 
+dbg:
 	if (tmdev->ops->dbg)
 		tmdev->ops->dbg(tmdev, (u32) sensor->hw_id,
 					TSENS_DBG_LOG_TEMP_READS, temp);
@@ -296,13 +300,11 @@ fail:
 static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 {
 	struct tsens_device *tm = data;
-	unsigned int i, status;
+	unsigned int i, status, wd_log, wd_mask;
 	unsigned long flags;
-	void __iomem *sensor_status_addr;
-	void __iomem *sensor_int_mask_addr;
+	void __iomem *sensor_status_addr, *sensor_int_mask_addr;
 	void __iomem *sensor_critical_addr;
-	void __iomem *wd_critical_addr;
-	int wd_mask;
+	void __iomem *wd_critical_addr, *wd_log_addr;
 
 	sensor_status_addr = TSENS_TM_SN_STATUS(tm->tsens_tm_addr);
 	sensor_int_mask_addr =
@@ -311,6 +313,7 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		TSENS_TM_SN_CRITICAL_THRESHOLD(tm->tsens_tm_addr);
 	wd_critical_addr =
 		TSENS_TM_CRITICAL_INT_STATUS(tm->tsens_tm_addr);
+	wd_log_addr = TSENS_TM_WATCHDOG_LOG(tm->tsens_tm_addr);
 
 	if (tm->ctrl_data->wd_bark) {
 		wd_mask = readl_relaxed(wd_critical_addr);
@@ -325,7 +328,15 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 			writel_relaxed(wd_mask & ~(TSENS_TM_CRITICAL_WD_BARK),
 				(TSENS_TM_CRITICAL_INT_CLEAR
 				(tm->tsens_tm_addr)));
-			tm->tsens_dbg.tsens_critical_wd_cnt++;
+			wd_log = readl_relaxed(wd_log_addr);
+			if (wd_log >= TSENS_DEBUG_WDOG_TRIGGER_COUNT) {
+				pr_err("Watchdog count:%d\n", wd_log);
+				if (tm->ops->dbg)
+					tm->ops->dbg(tm, 0,
+					TSENS_DBG_LOG_BUS_ID_DATA, NULL);
+				BUG();
+			}
+
 			return IRQ_HANDLED;
 		}
 	}
@@ -490,12 +501,26 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int tsens2xxx_hw_sensor_en(struct tsens_device *tmdev,
+					u32 sensor_id)
+{
+	void __iomem *srot_addr;
+	unsigned int srot_val, sensor_en;
+
+	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+	srot_val = readl_relaxed(srot_addr);
+	srot_val = TSENS_CTRL_SENSOR_EN_MASK(srot_val);
+
+	sensor_en = ((1 << sensor_id) & srot_val);
+
+	return sensor_en;
+}
+
 static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 {
 	void __iomem *srot_addr;
 	void __iomem *sensor_int_mask_addr;
-	unsigned int srot_val;
-	int crit_mask;
+	unsigned int srot_val, crit_mask, crit_val;
 
 	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
 	srot_val = readl_relaxed(srot_addr);
@@ -508,19 +533,47 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 		sensor_int_mask_addr =
 			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_tm_addr);
 		crit_mask = readl_relaxed(sensor_int_mask_addr);
-		writel_relaxed(
-			crit_mask | tmdev->ctrl_data->cycle_compltn_monitor_val,
-			(TSENS_TM_CRITICAL_INT_MASK
-			(tmdev->tsens_tm_addr)));
+		crit_val = TSENS_TM_CRITICAL_CYCLE_MONITOR;
+		if (tmdev->ctrl_data->cycle_compltn_monitor_mask)
+			writel_relaxed((crit_mask | crit_val),
+				(TSENS_TM_CRITICAL_INT_MASK
+				(tmdev->tsens_tm_addr)));
+		else
+			writel_relaxed((crit_mask & ~crit_val),
+				(TSENS_TM_CRITICAL_INT_MASK
+				(tmdev->tsens_tm_addr)));
 		/*Update critical cycle monitoring*/
 		mb();
 	}
+
+	if (tmdev->ctrl_data->wd_bark) {
+		sensor_int_mask_addr =
+			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_tm_addr);
+		crit_mask = readl_relaxed(sensor_int_mask_addr);
+		crit_val = TSENS_TM_CRITICAL_WD_BARK;
+		if (tmdev->ctrl_data->wd_bark_mask)
+			writel_relaxed((crit_mask | crit_val),
+			(TSENS_TM_CRITICAL_INT_MASK
+			(tmdev->tsens_tm_addr)));
+		else
+			writel_relaxed((crit_mask & ~crit_val),
+			(TSENS_TM_CRITICAL_INT_MASK
+			(tmdev->tsens_tm_addr)));
+		/*Update watchdog monitoring*/
+		mb();
+	}
+
 	writel_relaxed(TSENS_TM_CRITICAL_INT_EN |
 		TSENS_TM_UPPER_INT_EN | TSENS_TM_LOWER_INT_EN,
 		TSENS_TM_INT_EN(tmdev->tsens_tm_addr));
 
 	spin_lock_init(&tmdev->tsens_crit_lock);
 	spin_lock_init(&tmdev->tsens_upp_low_lock);
+
+	if (tmdev->ctrl_data->mtc) {
+		if (tmdev->ops->dbg)
+			tmdev->ops->dbg(tmdev, 0, TSENS_DBG_MTC_DATA, NULL);
+	}
 
 	return 0;
 }
@@ -571,28 +624,33 @@ static const struct tsens_ops ops_tsens2xxx = {
 	.set_trips	= tsens2xxx_set_trip_temp,
 	.interrupts_reg	= tsens2xxx_register_interrupts,
 	.dbg		= tsens2xxx_dbg,
+	.sensor_en	= tsens2xxx_hw_sensor_en,
 };
 
 const struct tsens_data data_tsens2xxx = {
 	.cycle_monitor			= false,
-	.cycle_compltn_monitor_val	= 0,
+	.cycle_compltn_monitor_mask	= 1,
 	.wd_bark			= false,
-	.wd_bark_val			= 0,
+	.wd_bark_mask			= 1,
 	.ops				= &ops_tsens2xxx,
+	.mtc				= true,
 };
 
 const struct tsens_data data_tsens23xx = {
 	.cycle_monitor			= true,
-	.cycle_compltn_monitor_val	= 0,
+	.cycle_compltn_monitor_mask	= 1,
 	.wd_bark			= true,
-	.wd_bark_val			= 0,
+	.wd_bark_mask			= 1,
 	.ops				= &ops_tsens2xxx,
+	.mtc				= false,
 };
 
 const struct tsens_data data_tsens24xx = {
 	.cycle_monitor			= true,
-	.cycle_compltn_monitor_val	= 0,
+	.cycle_compltn_monitor_mask	= 1,
 	.wd_bark			= true,
-	.wd_bark_val			= 1,
+	/* Enable Watchdog monitoring by unmasking */
+	.wd_bark_mask			= 0,
 	.ops				= &ops_tsens2xxx,
+	.mtc				= false,
 };

@@ -93,7 +93,10 @@ static struct rule_node_info *gen_node(u32 id, void *data)
 
 	if (!node_match) {
 		node_match = kzalloc(sizeof(struct rule_node_info), GFP_KERNEL);
+		if (!node_match) {
+			pr_err("%s: Cannot allocate memory", __func__);
 			goto exit_node_match;
+		}
 
 		node_match->id = id;
 		node_match->cur_rule = NULL;
@@ -410,8 +413,10 @@ void print_all_rules(void)
 {
 	struct rule_node_info *node_it = NULL;
 
+	mutex_lock(&msm_bus_rules_lock);
 	list_for_each_entry(node_it, &node_list, link)
 		print_rules(node_it);
+	mutex_unlock(&msm_bus_rules_lock);
 }
 
 void print_rules_buf(char *buf, int max_buf)
@@ -421,6 +426,7 @@ void print_rules_buf(char *buf, int max_buf)
 	int i;
 	int cnt = 0;
 
+	mutex_lock(&msm_bus_rules_lock);
 	list_for_each_entry(node_it, &node_list, link) {
 		cnt += scnprintf(buf + cnt, max_buf - cnt,
 			"\n Now printing rules for Node %d cur_rule %d\n",
@@ -452,6 +458,7 @@ void print_rules_buf(char *buf, int max_buf)
 					node_rule->rule_ops.mode);
 		}
 	}
+	mutex_unlock(&msm_bus_rules_lock);
 }
 
 static int copy_rule(struct bus_rule_type *src, struct rules_def *node_rule,
@@ -716,11 +723,12 @@ bool msm_rule_are_rules_registered(void)
 {
 	bool ret = false;
 
+	mutex_lock(&msm_bus_rules_lock);
 	if (list_empty(&node_list))
 		ret = false;
 	else
 		ret = true;
-
+	mutex_unlock(&msm_bus_rules_lock);
 	return ret;
 }
 

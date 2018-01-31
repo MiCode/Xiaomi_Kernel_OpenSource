@@ -15,6 +15,7 @@
  */
 
 #include <linux/etherdevice.h>
+#include <net/netlink.h>
 #include "wil6210.h"
 #include "wmi.h"
 #include "ftm.h"
@@ -24,6 +25,10 @@
 bool disable_ap_sme;
 module_param(disable_ap_sme, bool, 0444);
 MODULE_PARM_DESC(disable_ap_sme, " let user space handle AP mode SME");
+
+static bool ignore_reg_hints = true;
+module_param(ignore_reg_hints, bool, 0444);
+MODULE_PARM_DESC(ignore_reg_hints, " Ignore OTA regulatory hints (Default: true)");
 
 #define CHAN60G(_channel, _flags) {				\
 	.band			= NL80211_BAND_60GHZ,		\
@@ -41,6 +46,12 @@ static struct ieee80211_channel wil_60ghz_channels[] = {
 /* channel 4 not supported yet */
 };
 
+#ifdef CONFIG_PM
+static struct wiphy_wowlan_support wil_wowlan_support = {
+	.flags = WIPHY_WOWLAN_ANY | WIPHY_WOWLAN_DISCONNECT,
+};
+#endif
+
 /* Vendor id to be used in vendor specific command and events
  * to user space.
  * NOTE: The authoritative place for definition of QCA_NL80211_VENDOR_ID,
@@ -50,6 +61,62 @@ static struct ieee80211_channel wil_60ghz_channels[] = {
  */
 
 #define QCA_NL80211_VENDOR_ID	0x001374
+
+#define WIL_MAX_RF_SECTORS (128)
+#define WIL_CID_ALL (0xff)
+
+enum qca_wlan_vendor_attr_rf_sector {
+	QCA_ATTR_MAC_ADDR = 6,
+	QCA_ATTR_PAD = 13,
+	QCA_ATTR_TSF = 29,
+	QCA_ATTR_DMG_RF_SECTOR_INDEX = 30,
+	QCA_ATTR_DMG_RF_SECTOR_TYPE = 31,
+	QCA_ATTR_DMG_RF_MODULE_MASK = 32,
+	QCA_ATTR_DMG_RF_SECTOR_CFG = 33,
+	QCA_ATTR_DMG_RF_SECTOR_MAX,
+};
+
+enum qca_wlan_vendor_attr_dmg_rf_sector_type {
+	QCA_ATTR_DMG_RF_SECTOR_TYPE_RX,
+	QCA_ATTR_DMG_RF_SECTOR_TYPE_TX,
+	QCA_ATTR_DMG_RF_SECTOR_TYPE_MAX
+};
+
+enum qca_wlan_vendor_attr_dmg_rf_sector_cfg {
+	QCA_ATTR_DMG_RF_SECTOR_CFG_INVALID = 0,
+	QCA_ATTR_DMG_RF_SECTOR_CFG_MODULE_INDEX,
+	QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE0,
+	QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE1,
+	QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE2,
+	QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_HI,
+	QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_LO,
+	QCA_ATTR_DMG_RF_SECTOR_CFG_DTYPE_X16,
+
+	/* keep last */
+	QCA_ATTR_DMG_RF_SECTOR_CFG_AFTER_LAST,
+	QCA_ATTR_DMG_RF_SECTOR_CFG_MAX =
+	QCA_ATTR_DMG_RF_SECTOR_CFG_AFTER_LAST - 1
+};
+
+static const struct
+nla_policy wil_rf_sector_policy[QCA_ATTR_DMG_RF_SECTOR_MAX + 1] = {
+	[QCA_ATTR_MAC_ADDR] = { .len = ETH_ALEN },
+	[QCA_ATTR_DMG_RF_SECTOR_INDEX] = { .type = NLA_U16 },
+	[QCA_ATTR_DMG_RF_SECTOR_TYPE] = { .type = NLA_U8 },
+	[QCA_ATTR_DMG_RF_MODULE_MASK] = { .type = NLA_U32 },
+	[QCA_ATTR_DMG_RF_SECTOR_CFG] = { .type = NLA_NESTED },
+};
+
+static const struct
+nla_policy wil_rf_sector_cfg_policy[QCA_ATTR_DMG_RF_SECTOR_CFG_MAX + 1] = {
+	[QCA_ATTR_DMG_RF_SECTOR_CFG_MODULE_INDEX] = { .type = NLA_U8 },
+	[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE0] = { .type = NLA_U32 },
+	[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE1] = { .type = NLA_U32 },
+	[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE2] = { .type = NLA_U32 },
+	[QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_HI] = { .type = NLA_U32 },
+	[QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_LO] = { .type = NLA_U32 },
+	[QCA_ATTR_DMG_RF_SECTOR_CFG_DTYPE_X16] = { .type = NLA_U32 },
+};
 
 enum qca_nl80211_vendor_subcmds {
 	QCA_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA = 128,
@@ -61,7 +128,24 @@ enum qca_nl80211_vendor_subcmds {
 	QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS = 134,
 	QCA_NL80211_VENDOR_SUBCMD_AOA_ABORT_MEAS = 135,
 	QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS_RESULT = 136,
+	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SECTOR_CFG = 139,
+	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SECTOR_CFG = 140,
+	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SELECTED_SECTOR = 141,
+	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SELECTED_SECTOR = 142,
 };
+
+static int wil_rf_sector_get_cfg(struct wiphy *wiphy,
+				 struct wireless_dev *wdev,
+				 const void *data, int data_len);
+static int wil_rf_sector_set_cfg(struct wiphy *wiphy,
+				 struct wireless_dev *wdev,
+				 const void *data, int data_len);
+static int wil_rf_sector_get_selected(struct wiphy *wiphy,
+				      struct wireless_dev *wdev,
+				      const void *data, int data_len);
+static int wil_rf_sector_set_selected(struct wiphy *wiphy,
+				      struct wireless_dev *wdev,
+				      const void *data, int data_len);
 
 /* vendor specific commands */
 static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
@@ -106,6 +190,36 @@ static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = wil_aoa_abort_measurement
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SECTOR_CFG,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_rf_sector_get_cfg
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SECTOR_CFG,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_rf_sector_set_cfg
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd =
+			QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SELECTED_SECTOR,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_rf_sector_get_selected
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd =
+			QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SELECTED_SECTOR,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_rf_sector_set_selected
 	},
 };
 
@@ -236,12 +350,12 @@ int wil_cid_fill_sinfo(struct wil6210_priv *wil, int cid,
 
 	wil_dbg_wmi(wil, "Link status for CID %d: {\n"
 		    "  MCS %d TSF 0x%016llx\n"
-		    "  BF status 0x%08x SNR 0x%08x SQI %d%%\n"
+		    "  BF status 0x%08x RSSI %d SQI %d%%\n"
 		    "  Tx Tpt %d goodput %d Rx goodput %d\n"
 		    "  Sectors(rx:tx) my %d:%d peer %d:%d\n""}\n",
 		    cid, le16_to_cpu(reply.evt.bf_mcs),
 		    le64_to_cpu(reply.evt.tsf), reply.evt.status,
-		    le32_to_cpu(reply.evt.snr_val),
+		    reply.evt.rssi,
 		    reply.evt.sqi,
 		    le32_to_cpu(reply.evt.tx_tpt),
 		    le32_to_cpu(reply.evt.tx_goodput),
@@ -275,7 +389,11 @@ int wil_cid_fill_sinfo(struct wil6210_priv *wil, int cid,
 
 	if (test_bit(wil_status_fwconnected, wil->status)) {
 		sinfo->filled |= BIT(NL80211_STA_INFO_SIGNAL);
-		sinfo->signal = reply.evt.sqi;
+		if (test_bit(WMI_FW_CAPABILITY_RSSI_REPORTING,
+			     wil->fw_capabilities))
+			sinfo->signal = reply.evt.rssi;
+		else
+			sinfo->signal = reply.evt.sqi;
 	}
 
 	return rc;
@@ -336,6 +454,34 @@ static int wil_cfg80211_dump_station(struct wiphy *wiphy,
 	return rc;
 }
 
+static int wil_cfg80211_start_p2p_device(struct wiphy *wiphy,
+					 struct wireless_dev *wdev)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+
+	wil_dbg_misc(wil, "start_p2p_device: entered\n");
+	wil->p2p.p2p_dev_started = 1;
+	return 0;
+}
+
+static void wil_cfg80211_stop_p2p_device(struct wiphy *wiphy,
+					 struct wireless_dev *wdev)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	struct wil_p2p_info *p2p = &wil->p2p;
+
+	if (!p2p->p2p_dev_started)
+		return;
+
+	wil_dbg_misc(wil, "stop_p2p_device: entered\n");
+	mutex_lock(&wil->mutex);
+	mutex_lock(&wil->p2p_wdev_mutex);
+	wil_p2p_stop_radio_operations(wil);
+	p2p->p2p_dev_started = 0;
+	mutex_unlock(&wil->p2p_wdev_mutex);
+	mutex_unlock(&wil->mutex);
+}
+
 static struct wireless_dev *
 wil_cfg80211_add_iface(struct wiphy *wiphy, const char *name,
 		       unsigned char name_assign_type,
@@ -384,6 +530,7 @@ static int wil_cfg80211_del_iface(struct wiphy *wiphy,
 		return -EINVAL;
 	}
 
+	wil_cfg80211_stop_p2p_device(wiphy, wdev);
 	wil_p2p_wdev_free(wil);
 
 	return 0;
@@ -474,22 +621,23 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 	}
 	mutex_unlock(&wil->p2p_wdev_mutex);
 
-	/* social scan on P2P_DEVICE is handled as p2p search */
-	if (wdev->iftype == NL80211_IFTYPE_P2P_DEVICE &&
-	    wil_p2p_is_social_scan(request)) {
+	if (wdev->iftype == NL80211_IFTYPE_P2P_DEVICE) {
 		if (!wil->p2p.p2p_dev_started) {
 			wil_err(wil, "P2P search requested on stopped P2P device\n");
 			rc = -EIO;
 			goto out;
 		}
-		wil->scan_request = request;
-		wil->radio_wdev = wdev;
-		rc = wil_p2p_search(wil, request);
-		if (rc) {
-			wil->radio_wdev = wil_to_wdev(wil);
-			wil->scan_request = NULL;
+		/* social scan on P2P_DEVICE is handled as p2p search */
+		if (wil_p2p_is_social_scan(request)) {
+			wil->scan_request = request;
+			wil->radio_wdev = wdev;
+			rc = wil_p2p_search(wil, request);
+			if (rc) {
+				wil->radio_wdev = wil_to_wdev(wil);
+				wil->scan_request = NULL;
+			}
+			goto out;
 		}
-		goto out;
 	}
 
 	(void)wil_p2p_stop_discovery(wil);
@@ -499,9 +647,9 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 
 	for (i = 0; i < request->n_ssids; i++) {
 		wil_dbg_misc(wil, "SSID[%d]", i);
-		print_hex_dump_bytes("SSID ", DUMP_PREFIX_OFFSET,
-				     request->ssids[i].ssid,
-				     request->ssids[i].ssid_len);
+		wil_hex_dump_misc("SSID ", DUMP_PREFIX_OFFSET, 16, 1,
+				  request->ssids[i].ssid,
+				  request->ssids[i].ssid_len, true);
 	}
 
 	if (request->n_ssids)
@@ -538,8 +686,8 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 	}
 
 	if (request->ie_len)
-		print_hex_dump_bytes("Scan IE ", DUMP_PREFIX_OFFSET,
-				     request->ie, request->ie_len);
+		wil_hex_dump_misc("Scan IE ", DUMP_PREFIX_OFFSET, 16, 1,
+				  request->ie, request->ie_len, true);
 	else
 		wil_dbg_misc(wil, "Scan has no IE's\n");
 
@@ -763,9 +911,11 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	rc = wmi_send(wil, WMI_CONNECT_CMDID, &conn, sizeof(conn));
 	if (rc == 0) {
 		netif_carrier_on(ndev);
+		wil6210_bus_request(wil, WIL_MAX_BUS_REQUEST_KBPS);
+		wil->bss = bss;
 		/* Connect can take lots of time */
 		mod_timer(&wil->connect_timer,
-			  jiffies + msecs_to_jiffies(2000));
+			  jiffies + msecs_to_jiffies(5000));
 	} else {
 		clear_bit(wil_status_fwconnecting, wil->status);
 	}
@@ -791,6 +941,7 @@ static int wil_cfg80211_disconnect(struct wiphy *wiphy,
 		return 0;
 	}
 
+	wil->locally_generated_disc = true;
 	rc = wmi_call(wil, WMI_DISCONNECT_CMDID, NULL, 0,
 		      WMI_DISCONNECT_EVENTID, NULL, 0,
 		      WIL6210_DISCONNECT_TO_MS);
@@ -825,7 +976,7 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 			 u64 *cookie)
 {
 	const u8 *buf = params->buf;
-	size_t len = params->len;
+	size_t len = params->len, total;
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 	int rc;
 	bool tx_status = false;
@@ -844,9 +995,17 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	 */
 
 	wil_dbg_misc(wil, "mgmt_tx\n");
-	print_hex_dump_bytes("mgmt tx frame ", DUMP_PREFIX_OFFSET, buf, len);
+	wil_hex_dump_misc("mgmt tx frame ", DUMP_PREFIX_OFFSET, 16, 1, buf,
+			  len, true);
 
-	cmd = kmalloc(sizeof(*cmd) + len, GFP_KERNEL);
+	if (len < sizeof(struct ieee80211_hdr_3addr))
+		return -EINVAL;
+
+	total = sizeof(*cmd) + len;
+	if (total < len)
+		return -EINVAL;
+
+	cmd = kmalloc(total, GFP_KERNEL);
 	if (!cmd) {
 		rc = -ENOMEM;
 		goto out;
@@ -856,7 +1015,7 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	cmd->len = cpu_to_le16(len);
 	memcpy(cmd->payload, buf, len);
 
-	rc = wmi_call(wil, WMI_SW_TX_REQ_CMDID, cmd, sizeof(*cmd) + len,
+	rc = wmi_call(wil, WMI_SW_TX_REQ_CMDID, cmd, total,
 		      WMI_SW_TX_COMPLETE_EVENTID, &evt, sizeof(evt), 2000);
 	if (rc == 0)
 		tx_status = !evt.evt.status;
@@ -872,9 +1031,8 @@ static int wil_cfg80211_set_channel(struct wiphy *wiphy,
 				    struct cfg80211_chan_def *chandef)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
-	struct wireless_dev *wdev = wil_to_wdev(wil);
 
-	wdev->preset_chandef = *chandef;
+	wil->monitor_chandef = *chandef;
 
 	return 0;
 }
@@ -1177,18 +1335,18 @@ static int _wil_cfg80211_merge_extra_ies(const u8 *ies1, u16 ies1_len,
 
 static void wil_print_bcon_data(struct cfg80211_beacon_data *b)
 {
-	print_hex_dump_bytes("head     ", DUMP_PREFIX_OFFSET,
-			     b->head, b->head_len);
-	print_hex_dump_bytes("tail     ", DUMP_PREFIX_OFFSET,
-			     b->tail, b->tail_len);
-	print_hex_dump_bytes("BCON IE  ", DUMP_PREFIX_OFFSET,
-			     b->beacon_ies, b->beacon_ies_len);
-	print_hex_dump_bytes("PROBE    ", DUMP_PREFIX_OFFSET,
-			     b->probe_resp, b->probe_resp_len);
-	print_hex_dump_bytes("PROBE IE ", DUMP_PREFIX_OFFSET,
-			     b->proberesp_ies, b->proberesp_ies_len);
-	print_hex_dump_bytes("ASSOC IE ", DUMP_PREFIX_OFFSET,
-			     b->assocresp_ies, b->assocresp_ies_len);
+	wil_hex_dump_misc("head     ", DUMP_PREFIX_OFFSET, 16, 1,
+			  b->head, b->head_len, true);
+	wil_hex_dump_misc("tail     ", DUMP_PREFIX_OFFSET, 16, 1,
+			  b->tail, b->tail_len, true);
+	wil_hex_dump_misc("BCON IE  ", DUMP_PREFIX_OFFSET, 16, 1,
+			  b->beacon_ies, b->beacon_ies_len, true);
+	wil_hex_dump_misc("PROBE    ", DUMP_PREFIX_OFFSET, 16, 1,
+			  b->probe_resp, b->probe_resp_len, true);
+	wil_hex_dump_misc("PROBE IE ", DUMP_PREFIX_OFFSET, 16, 1,
+			  b->proberesp_ies, b->proberesp_ies_len, true);
+	wil_hex_dump_misc("ASSOC IE ", DUMP_PREFIX_OFFSET, 16, 1,
+			  b->assocresp_ies, b->assocresp_ies_len, true);
 }
 
 /* internal functions for device reset and starting AP */
@@ -1282,6 +1440,7 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	wil->pbss = pbss;
 
 	netif_carrier_on(ndev);
+	wil6210_bus_request(wil, WIL_MAX_BUS_REQUEST_KBPS);
 
 	rc = wmi_pcp_start(wil, bi, wmi_nettype, chan, hidden_ssid, is_go);
 	if (rc)
@@ -1297,6 +1456,7 @@ err_bcast:
 	wmi_pcp_stop(wil);
 err_pcp_start:
 	netif_carrier_off(ndev);
+	wil6210_bus_request(wil, WIL_DEFAULT_BUS_REQUEST_KBPS);
 out:
 	mutex_unlock(&wil->mutex);
 	return rc;
@@ -1382,8 +1542,8 @@ static int wil_cfg80211_start_ap(struct wiphy *wiphy,
 	wil_dbg_misc(wil, "BI %d DTIM %d\n", info->beacon_interval,
 		     info->dtim_period);
 	wil_dbg_misc(wil, "PBSS %d\n", info->pbss);
-	print_hex_dump_bytes("SSID ", DUMP_PREFIX_OFFSET,
-			     info->ssid, info->ssid_len);
+	wil_hex_dump_misc("SSID ", DUMP_PREFIX_OFFSET, 16, 1,
+			  info->ssid, info->ssid_len, true);
 	wil_print_bcon_data(bcon);
 	wil_print_crypto(wil, crypto);
 
@@ -1403,7 +1563,10 @@ static int wil_cfg80211_stop_ap(struct wiphy *wiphy,
 	wil_dbg_misc(wil, "stop_ap\n");
 
 	netif_carrier_off(ndev);
+	wil6210_bus_request(wil, WIL_DEFAULT_BUS_REQUEST_KBPS);
 	wil_set_recovery_state(wil, fw_recovery_idle);
+
+	set_bit(wil_status_resetting, wil->status);
 
 	mutex_lock(&wil->mutex);
 
@@ -1605,46 +1768,12 @@ static int wil_cfg80211_change_bss(struct wiphy *wiphy,
 	return 0;
 }
 
-static int wil_cfg80211_start_p2p_device(struct wiphy *wiphy,
-					 struct wireless_dev *wdev)
-{
-	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
-
-	wil_dbg_misc(wil, "start_p2p_device: entered\n");
-	wil->p2p.p2p_dev_started = 1;
-	return 0;
-}
-
-static void wil_cfg80211_stop_p2p_device(struct wiphy *wiphy,
-					 struct wireless_dev *wdev)
-{
-	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
-	struct wil_p2p_info *p2p = &wil->p2p;
-
-	if (!p2p->p2p_dev_started)
-		return;
-
-	wil_dbg_misc(wil, "stop_p2p_device: entered\n");
-	mutex_lock(&wil->mutex);
-	mutex_lock(&wil->p2p_wdev_mutex);
-	wil_p2p_stop_radio_operations(wil);
-	p2p->p2p_dev_started = 0;
-	mutex_unlock(&wil->p2p_wdev_mutex);
-	mutex_unlock(&wil->mutex);
-}
-
 static int wil_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 				       struct net_device *dev,
 				       bool enabled, int timeout)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 	enum wmi_ps_profile_type ps_profile;
-	int rc;
-
-	if (!test_bit(WMI_FW_CAPABILITY_PS_CONFIG, wil->fw_capabilities)) {
-		wil_err(wil, "set_power_mgmt not supported\n");
-		return -EOPNOTSUPP;
-	}
 
 	wil_dbg_misc(wil, "enabled=%d, timeout=%d\n",
 		     enabled, timeout);
@@ -1654,11 +1783,108 @@ static int wil_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 	else
 		ps_profile = WMI_PS_PROFILE_TYPE_PS_DISABLED;
 
-	rc  = wmi_ps_dev_profile_cfg(wil, ps_profile);
-	if (rc)
-		wil_err(wil, "wmi_ps_dev_profile_cfg failed (%d)\n", rc);
+	return wil_ps_update(wil, ps_profile);
+}
 
+static int wil_cfg80211_suspend(struct wiphy *wiphy,
+				struct cfg80211_wowlan *wow)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	int rc;
+
+	/* Setting the wakeup trigger based on wow is TBD */
+
+	if (test_bit(wil_status_suspended, wil->status)) {
+		wil_dbg_pm(wil, "trying to suspend while suspended\n");
+		return 0;
+	}
+
+	rc = wil_can_suspend(wil, false);
+	if (rc)
+		goto out;
+
+	wil_dbg_pm(wil, "suspending\n");
+
+	mutex_lock(&wil->mutex);
+	mutex_lock(&wil->p2p_wdev_mutex);
+	wil_p2p_stop_radio_operations(wil);
+	wil_abort_scan(wil, true);
+	mutex_unlock(&wil->p2p_wdev_mutex);
+	mutex_unlock(&wil->mutex);
+
+out:
 	return rc;
+}
+
+static int wil_cfg80211_resume(struct wiphy *wiphy)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+
+	wil_dbg_pm(wil, "resuming\n");
+
+	return 0;
+}
+
+static int
+wil_cfg80211_sched_scan_start(struct wiphy *wiphy,
+			      struct net_device *dev,
+			      struct cfg80211_sched_scan_request *request)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	int i, rc;
+
+	wil_dbg_misc(wil,
+		     "sched scan start: n_ssids %d, ie_len %zu, flags 0x%x\n",
+		     request->n_ssids, request->ie_len, request->flags);
+	for (i = 0; i < request->n_ssids; i++) {
+		wil_dbg_misc(wil, "SSID[%d]:", i);
+		wil_hex_dump_misc("SSID ", DUMP_PREFIX_OFFSET, 16, 1,
+				  request->ssids[i].ssid,
+				  request->ssids[i].ssid_len, true);
+	}
+	wil_dbg_misc(wil, "channels:");
+	for (i = 0; i < request->n_channels; i++)
+		wil_dbg_misc(wil, " %d%s", request->channels[i]->hw_value,
+			     i == request->n_channels - 1 ? "\n" : "");
+	wil_dbg_misc(wil, "n_match_sets %d, min_rssi_thold %d, delay %d\n",
+		     request->n_match_sets, request->min_rssi_thold,
+		     request->delay);
+	for (i = 0; i < request->n_match_sets; i++) {
+		struct cfg80211_match_set *ms = &request->match_sets[i];
+
+		wil_dbg_misc(wil, "MATCHSET[%d]: rssi_thold %d\n",
+			     i, ms->rssi_thold);
+		wil_hex_dump_misc("SSID ", DUMP_PREFIX_OFFSET, 16, 1,
+				  ms->ssid.ssid,
+				  ms->ssid.ssid_len, true);
+	}
+	wil_dbg_misc(wil, "n_scan_plans %d\n", request->n_scan_plans);
+	for (i = 0; i < request->n_scan_plans; i++) {
+		struct cfg80211_sched_scan_plan *sp = &request->scan_plans[i];
+
+		wil_dbg_misc(wil, "SCAN PLAN[%d]: interval %d iterations %d\n",
+			     i, sp->interval, sp->iterations);
+	}
+
+	rc = wmi_set_ie(wil, WMI_FRAME_PROBE_REQ, request->ie_len, request->ie);
+	if (rc)
+		return rc;
+	return wmi_start_sched_scan(wil, request);
+}
+
+static int
+wil_cfg80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	int rc;
+
+	rc = wmi_stop_sched_scan(wil);
+	/* device would return error if it thinks PNO is already stopped.
+	 * ignore the return code so user space and driver gets back in-sync
+	 */
+	wil_dbg_misc(wil, "sched scan stopped (%d)\n", rc);
+
+	return 0;
 }
 
 static struct cfg80211_ops wil_cfg80211_ops = {
@@ -1692,6 +1918,10 @@ static struct cfg80211_ops wil_cfg80211_ops = {
 	.start_p2p_device = wil_cfg80211_start_p2p_device,
 	.stop_p2p_device = wil_cfg80211_stop_p2p_device,
 	.set_power_mgmt = wil_cfg80211_set_power_mgmt,
+	.suspend = wil_cfg80211_suspend,
+	.resume = wil_cfg80211_resume,
+	.sched_scan_start = wil_cfg80211_sched_scan_start,
+	.sched_scan_stop = wil_cfg80211_sched_scan_stop,
 };
 
 static void wil_wiphy_init(struct wiphy *wiphy)
@@ -1720,7 +1950,7 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 
 	wiphy->bands[NL80211_BAND_60GHZ] = &wil_band_60ghz;
 
-	/* TODO: figure this out */
+	/* may change after reading FW capabilities */
 	wiphy->signal_type = CFG80211_SIGNAL_TYPE_UNSPEC;
 
 	wiphy->cipher_suites = wil_cipher_suites;
@@ -1732,6 +1962,15 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 	wiphy->vendor_commands = wil_nl80211_vendor_commands;
 	wiphy->vendor_events = wil_nl80211_vendor_events;
 	wiphy->n_vendor_events = ARRAY_SIZE(wil_nl80211_vendor_events);
+
+	if (ignore_reg_hints) {
+		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
+		wiphy->regulatory_flags |= REGULATORY_COUNTRY_IE_IGNORE;
+	}
+
+#ifdef CONFIG_PM
+	wiphy->wowlan = &wil_wowlan_support;
+#endif
 }
 
 struct wireless_dev *wil_cfg80211_init(struct device *dev)
@@ -1789,4 +2028,452 @@ void wil_p2p_wdev_free(struct wil6210_priv *wil)
 		cfg80211_unregister_wdev(p2p_wdev);
 		kfree(p2p_wdev);
 	}
+}
+
+static int wil_rf_sector_status_to_rc(u8 status)
+{
+	switch (status) {
+	case WMI_RF_SECTOR_STATUS_SUCCESS:
+		return 0;
+	case WMI_RF_SECTOR_STATUS_BAD_PARAMETERS_ERROR:
+		return -EINVAL;
+	case WMI_RF_SECTOR_STATUS_BUSY_ERROR:
+		return -EAGAIN;
+	case WMI_RF_SECTOR_STATUS_NOT_SUPPORTED_ERROR:
+		return -EOPNOTSUPP;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int wil_rf_sector_get_cfg(struct wiphy *wiphy,
+				 struct wireless_dev *wdev,
+				 const void *data, int data_len)
+{
+	struct wil6210_priv *wil = wdev_to_wil(wdev);
+	int rc;
+	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	u16 sector_index;
+	u8 sector_type;
+	u32 rf_modules_vec;
+	struct wmi_get_rf_sector_params_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_get_rf_sector_params_done_event evt;
+	} __packed reply;
+	struct sk_buff *msg;
+	struct nlattr *nl_cfgs, *nl_cfg;
+	u32 i;
+	struct wmi_rf_sector_info *si;
+
+	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	rc = nla_parse(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data, data_len,
+		       wil_rf_sector_policy);
+	if (rc) {
+		wil_err(wil, "Invalid rf sector ATTR\n");
+		return rc;
+	}
+
+	if (!tb[QCA_ATTR_DMG_RF_SECTOR_INDEX] ||
+	    !tb[QCA_ATTR_DMG_RF_SECTOR_TYPE] ||
+	    !tb[QCA_ATTR_DMG_RF_MODULE_MASK]) {
+		wil_err(wil, "Invalid rf sector spec\n");
+		return -EINVAL;
+	}
+
+	sector_index = nla_get_u16(
+		tb[QCA_ATTR_DMG_RF_SECTOR_INDEX]);
+	if (sector_index >= WIL_MAX_RF_SECTORS) {
+		wil_err(wil, "Invalid sector index %d\n", sector_index);
+		return -EINVAL;
+	}
+
+	sector_type = nla_get_u8(tb[QCA_ATTR_DMG_RF_SECTOR_TYPE]);
+	if (sector_type >= QCA_ATTR_DMG_RF_SECTOR_TYPE_MAX) {
+		wil_err(wil, "Invalid sector type %d\n", sector_type);
+		return -EINVAL;
+	}
+
+	rf_modules_vec = nla_get_u32(
+		tb[QCA_ATTR_DMG_RF_MODULE_MASK]);
+	if (rf_modules_vec >= BIT(WMI_MAX_RF_MODULES_NUM)) {
+		wil_err(wil, "Invalid rf module mask 0x%x\n", rf_modules_vec);
+		return -EINVAL;
+	}
+
+	cmd.sector_idx = cpu_to_le16(sector_index);
+	cmd.sector_type = sector_type;
+	cmd.rf_modules_vec = rf_modules_vec & 0xFF;
+	memset(&reply, 0, sizeof(reply));
+	rc = wmi_call(wil, WMI_GET_RF_SECTOR_PARAMS_CMDID, &cmd, sizeof(cmd),
+		      WMI_GET_RF_SECTOR_PARAMS_DONE_EVENTID,
+		      &reply, sizeof(reply),
+		      500);
+	if (rc)
+		return rc;
+	if (reply.evt.status) {
+		wil_err(wil, "get rf sector cfg failed with status %d\n",
+			reply.evt.status);
+		return wil_rf_sector_status_to_rc(reply.evt.status);
+	}
+
+	msg = cfg80211_vendor_cmd_alloc_reply_skb(
+		wiphy, 64 * WMI_MAX_RF_MODULES_NUM);
+	if (!msg)
+		return -ENOMEM;
+
+	if (nla_put_u64_64bit(msg, QCA_ATTR_TSF,
+			      le64_to_cpu(reply.evt.tsf),
+			      QCA_ATTR_PAD))
+		goto nla_put_failure;
+
+	nl_cfgs = nla_nest_start(msg, QCA_ATTR_DMG_RF_SECTOR_CFG);
+	if (!nl_cfgs)
+		goto nla_put_failure;
+	for (i = 0; i < WMI_MAX_RF_MODULES_NUM; i++) {
+		if (!(rf_modules_vec & BIT(i)))
+			continue;
+		nl_cfg = nla_nest_start(msg, i);
+		if (!nl_cfg)
+			goto nla_put_failure;
+		si = &reply.evt.sectors_info[i];
+		if (nla_put_u8(msg, QCA_ATTR_DMG_RF_SECTOR_CFG_MODULE_INDEX,
+			       i) ||
+		    nla_put_u32(msg, QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE0,
+				le32_to_cpu(si->etype0)) ||
+		    nla_put_u32(msg, QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE1,
+				le32_to_cpu(si->etype1)) ||
+		    nla_put_u32(msg, QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE2,
+				le32_to_cpu(si->etype2)) ||
+		    nla_put_u32(msg, QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_HI,
+				le32_to_cpu(si->psh_hi)) ||
+		    nla_put_u32(msg, QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_LO,
+				le32_to_cpu(si->psh_lo)) ||
+		    nla_put_u32(msg, QCA_ATTR_DMG_RF_SECTOR_CFG_DTYPE_X16,
+				le32_to_cpu(si->dtype_swch_off)))
+			goto nla_put_failure;
+		nla_nest_end(msg, nl_cfg);
+	}
+
+	nla_nest_end(msg, nl_cfgs);
+	rc = cfg80211_vendor_cmd_reply(msg);
+	return rc;
+nla_put_failure:
+	kfree_skb(msg);
+	return -ENOBUFS;
+}
+
+static int wil_rf_sector_set_cfg(struct wiphy *wiphy,
+				 struct wireless_dev *wdev,
+				 const void *data, int data_len)
+{
+	struct wil6210_priv *wil = wdev_to_wil(wdev);
+	int rc, tmp;
+	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_MAX + 1];
+	u16 sector_index, rf_module_index;
+	u8 sector_type;
+	u32 rf_modules_vec = 0;
+	struct wmi_set_rf_sector_params_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_set_rf_sector_params_done_event evt;
+	} __packed reply;
+	struct nlattr *nl_cfg;
+	struct wmi_rf_sector_info *si;
+
+	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	rc = nla_parse(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data, data_len,
+		       wil_rf_sector_policy);
+	if (rc) {
+		wil_err(wil, "Invalid rf sector ATTR\n");
+		return rc;
+	}
+
+	if (!tb[QCA_ATTR_DMG_RF_SECTOR_INDEX] ||
+	    !tb[QCA_ATTR_DMG_RF_SECTOR_TYPE] ||
+	    !tb[QCA_ATTR_DMG_RF_SECTOR_CFG]) {
+		wil_err(wil, "Invalid rf sector spec\n");
+		return -EINVAL;
+	}
+
+	sector_index = nla_get_u16(
+		tb[QCA_ATTR_DMG_RF_SECTOR_INDEX]);
+	if (sector_index >= WIL_MAX_RF_SECTORS) {
+		wil_err(wil, "Invalid sector index %d\n", sector_index);
+		return -EINVAL;
+	}
+
+	sector_type = nla_get_u8(tb[QCA_ATTR_DMG_RF_SECTOR_TYPE]);
+	if (sector_type >= QCA_ATTR_DMG_RF_SECTOR_TYPE_MAX) {
+		wil_err(wil, "Invalid sector type %d\n", sector_type);
+		return -EINVAL;
+	}
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cmd.sector_idx = cpu_to_le16(sector_index);
+	cmd.sector_type = sector_type;
+	nla_for_each_nested(nl_cfg, tb[QCA_ATTR_DMG_RF_SECTOR_CFG],
+			    tmp) {
+		rc = nla_parse_nested(tb2, QCA_ATTR_DMG_RF_SECTOR_CFG_MAX,
+				      nl_cfg, wil_rf_sector_cfg_policy);
+		if (rc) {
+			wil_err(wil, "invalid sector cfg\n");
+			return -EINVAL;
+		}
+
+		if (!tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_MODULE_INDEX] ||
+		    !tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE0] ||
+		    !tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE1] ||
+		    !tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE2] ||
+		    !tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_HI] ||
+		    !tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_LO] ||
+		    !tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_DTYPE_X16]) {
+			wil_err(wil, "missing cfg params\n");
+			return -EINVAL;
+		}
+
+		rf_module_index = nla_get_u8(
+			tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_MODULE_INDEX]);
+		if (rf_module_index >= WMI_MAX_RF_MODULES_NUM) {
+			wil_err(wil, "invalid RF module index %d\n",
+				rf_module_index);
+			return -EINVAL;
+		}
+		rf_modules_vec |= BIT(rf_module_index);
+		si = &cmd.sectors_info[rf_module_index];
+		si->etype0 = cpu_to_le32(nla_get_u32(
+			tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE0]));
+		si->etype1 = cpu_to_le32(nla_get_u32(
+			tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE1]));
+		si->etype2 = cpu_to_le32(nla_get_u32(
+			tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_ETYPE2]));
+		si->psh_hi = cpu_to_le32(nla_get_u32(
+			tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_HI]));
+		si->psh_lo = cpu_to_le32(nla_get_u32(
+			tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_PSH_LO]));
+		si->dtype_swch_off = cpu_to_le32(nla_get_u32(
+			tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_DTYPE_X16]));
+	}
+
+	cmd.rf_modules_vec = rf_modules_vec & 0xFF;
+	memset(&reply, 0, sizeof(reply));
+	rc = wmi_call(wil, WMI_SET_RF_SECTOR_PARAMS_CMDID, &cmd, sizeof(cmd),
+		      WMI_SET_RF_SECTOR_PARAMS_DONE_EVENTID,
+		      &reply, sizeof(reply),
+		      500);
+	if (rc)
+		return rc;
+	return wil_rf_sector_status_to_rc(reply.evt.status);
+}
+
+static int wil_rf_sector_get_selected(struct wiphy *wiphy,
+				      struct wireless_dev *wdev,
+				      const void *data, int data_len)
+{
+	struct wil6210_priv *wil = wdev_to_wil(wdev);
+	int rc;
+	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	u8 sector_type, mac_addr[ETH_ALEN];
+	int cid = 0;
+	struct wmi_get_selected_rf_sector_index_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_get_selected_rf_sector_index_done_event evt;
+	} __packed reply;
+	struct sk_buff *msg;
+
+	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	rc = nla_parse(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data, data_len,
+		       wil_rf_sector_policy);
+	if (rc) {
+		wil_err(wil, "Invalid rf sector ATTR\n");
+		return rc;
+	}
+
+	if (!tb[QCA_ATTR_DMG_RF_SECTOR_TYPE]) {
+		wil_err(wil, "Invalid rf sector spec\n");
+		return -EINVAL;
+	}
+	sector_type = nla_get_u8(tb[QCA_ATTR_DMG_RF_SECTOR_TYPE]);
+	if (sector_type >= QCA_ATTR_DMG_RF_SECTOR_TYPE_MAX) {
+		wil_err(wil, "Invalid sector type %d\n", sector_type);
+		return -EINVAL;
+	}
+
+	if (tb[QCA_ATTR_MAC_ADDR]) {
+		ether_addr_copy(mac_addr, nla_data(tb[QCA_ATTR_MAC_ADDR]));
+		cid = wil_find_cid(wil, mac_addr);
+		if (cid < 0) {
+			wil_err(wil, "invalid MAC address %pM\n", mac_addr);
+			return -ENOENT;
+		}
+	} else {
+		if (test_bit(wil_status_fwconnected, wil->status)) {
+			wil_err(wil, "must specify MAC address when connected\n");
+			return -EINVAL;
+		}
+	}
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cid = (u8)cid;
+	cmd.sector_type = sector_type;
+	memset(&reply, 0, sizeof(reply));
+	rc = wmi_call(wil, WMI_GET_SELECTED_RF_SECTOR_INDEX_CMDID,
+		      &cmd, sizeof(cmd),
+		      WMI_GET_SELECTED_RF_SECTOR_INDEX_DONE_EVENTID,
+		      &reply, sizeof(reply),
+		      500);
+	if (rc)
+		return rc;
+	if (reply.evt.status) {
+		wil_err(wil, "get rf selected sector cfg failed with status %d\n",
+			reply.evt.status);
+		return wil_rf_sector_status_to_rc(reply.evt.status);
+	}
+
+	msg = cfg80211_vendor_cmd_alloc_reply_skb(
+		wiphy, 64 * WMI_MAX_RF_MODULES_NUM);
+	if (!msg)
+		return -ENOMEM;
+
+	if (nla_put_u64_64bit(msg, QCA_ATTR_TSF,
+			      le64_to_cpu(reply.evt.tsf),
+			      QCA_ATTR_PAD) ||
+	    nla_put_u16(msg, QCA_ATTR_DMG_RF_SECTOR_INDEX,
+			le16_to_cpu(reply.evt.sector_idx)))
+		goto nla_put_failure;
+
+	rc = cfg80211_vendor_cmd_reply(msg);
+	return rc;
+nla_put_failure:
+	kfree_skb(msg);
+	return -ENOBUFS;
+}
+
+static int wil_rf_sector_wmi_set_selected(struct wil6210_priv *wil,
+					  u16 sector_index,
+					  u8 sector_type, u8 cid)
+{
+	struct wmi_set_selected_rf_sector_index_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_set_selected_rf_sector_index_done_event evt;
+	} __packed reply;
+	int rc;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.sector_idx = cpu_to_le16(sector_index);
+	cmd.sector_type = sector_type;
+	cmd.cid = (u8)cid;
+	memset(&reply, 0, sizeof(reply));
+	rc = wmi_call(wil, WMI_SET_SELECTED_RF_SECTOR_INDEX_CMDID,
+		      &cmd, sizeof(cmd),
+		      WMI_SET_SELECTED_RF_SECTOR_INDEX_DONE_EVENTID,
+		      &reply, sizeof(reply),
+		      500);
+	if (rc)
+		return rc;
+	return wil_rf_sector_status_to_rc(reply.evt.status);
+}
+
+static int wil_rf_sector_set_selected(struct wiphy *wiphy,
+				      struct wireless_dev *wdev,
+				      const void *data, int data_len)
+{
+	struct wil6210_priv *wil = wdev_to_wil(wdev);
+	int rc;
+	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	u16 sector_index;
+	u8 sector_type, mac_addr[ETH_ALEN], i;
+	int cid = 0;
+
+	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	rc = nla_parse(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data, data_len,
+		       wil_rf_sector_policy);
+	if (rc) {
+		wil_err(wil, "Invalid rf sector ATTR\n");
+		return rc;
+	}
+
+	if (!tb[QCA_ATTR_DMG_RF_SECTOR_INDEX] ||
+	    !tb[QCA_ATTR_DMG_RF_SECTOR_TYPE]) {
+		wil_err(wil, "Invalid rf sector spec\n");
+		return -EINVAL;
+	}
+
+	sector_index = nla_get_u16(
+		tb[QCA_ATTR_DMG_RF_SECTOR_INDEX]);
+	if (sector_index >= WIL_MAX_RF_SECTORS &&
+	    sector_index != WMI_INVALID_RF_SECTOR_INDEX) {
+		wil_err(wil, "Invalid sector index %d\n", sector_index);
+		return -EINVAL;
+	}
+
+	sector_type = nla_get_u8(tb[QCA_ATTR_DMG_RF_SECTOR_TYPE]);
+	if (sector_type >= QCA_ATTR_DMG_RF_SECTOR_TYPE_MAX) {
+		wil_err(wil, "Invalid sector type %d\n", sector_type);
+		return -EINVAL;
+	}
+
+	if (tb[QCA_ATTR_MAC_ADDR]) {
+		ether_addr_copy(mac_addr, nla_data(tb[QCA_ATTR_MAC_ADDR]));
+		if (!is_broadcast_ether_addr(mac_addr)) {
+			cid = wil_find_cid(wil, mac_addr);
+			if (cid < 0) {
+				wil_err(wil, "invalid MAC address %pM\n",
+					mac_addr);
+				return -ENOENT;
+			}
+		} else {
+			if (sector_index != WMI_INVALID_RF_SECTOR_INDEX) {
+				wil_err(wil, "broadcast MAC valid only with unlocking\n");
+				return -EINVAL;
+			}
+			cid = -1;
+		}
+	} else {
+		if (test_bit(wil_status_fwconnected, wil->status)) {
+			wil_err(wil, "must specify MAC address when connected\n");
+			return -EINVAL;
+		}
+		/* otherwise, using cid=0 for unassociated station */
+	}
+
+	if (cid >= 0) {
+		rc = wil_rf_sector_wmi_set_selected(wil, sector_index,
+						    sector_type, cid);
+	} else {
+		/* unlock all cids */
+		rc = wil_rf_sector_wmi_set_selected(
+			wil, WMI_INVALID_RF_SECTOR_INDEX, sector_type,
+			WIL_CID_ALL);
+		if (rc == -EINVAL) {
+			for (i = 0; i < WIL6210_MAX_CID; i++) {
+				rc = wil_rf_sector_wmi_set_selected(
+					wil, WMI_INVALID_RF_SECTOR_INDEX,
+					sector_type, i);
+				/* the FW will silently ignore and return
+				 * success for unused cid, so abort the loop
+				 * on any other error
+				 */
+				if (rc) {
+					wil_err(wil, "unlock cid %d failed with status %d\n",
+						i, rc);
+					break;
+				}
+			}
+		}
+	}
+
+	return rc;
 }

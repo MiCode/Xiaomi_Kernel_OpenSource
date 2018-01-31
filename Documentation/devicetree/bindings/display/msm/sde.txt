@@ -52,6 +52,9 @@ Required properties
 				The number of offsets defined should reflect the
 				amount of mixers that can drive data to a panel
 				interface.
+- qcom,sde-dspp-top-off:		Offset address for the dspp top block.
+				The offset is calculated from register "mdp_phys"
+				defined in reg property.
 - qcom,sde-dspp-off: 		Array of offset addresses for the available dspp
 				blocks. These offsets are calculated from
 				register "mdp_phys" defined in reg property.
@@ -122,16 +125,33 @@ Optional properties:
 				configuration value.
 - qcom,sde-ubwc-swizzle:	Property to specify the default UBWC swizzle
 				configuration value.
+- qcom,sde-smart-panel-align-mode: A u32 property to specify the align mode for
+				split display on smart panel. Possible values:
+				0x0 - no alignment
+				0xc - align at start of frame
+				0xd - align at start of line
 - qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal
 				control feature is available on each source pipe.
 - qcom,sde-has-src-split:	Boolean property to indicate if source split
 				feature is available or not.
 - qcom,sde-has-dim-layer:	Boolean property to indicate if mixer has dim layer
 				feature is available or not.
+- qcom,sde-has-idle-pc:		Boolean property to indicate if target has idle
+				power collapse feature available or not.
 - qcom,sde-has-mixer-gc:	Boolean property to indicate if mixer has gamma correction
 				feature available or not.
-- qcom,sde-has-cdp:		Boolean property to indicate if cdp feature is
-				available or not.
+- qcom,sde-has-dest-scaler: 	Boolean property to indicate if destination scaler
+				feature is available or not.
+- qcom,sde-max-dest-scaler-input-linewidth: A u32 value indicates the
+				maximum input line width to destination scaler.
+- qcom,sde-max-dest-scaler-output-linewidth: A u32 value indicates the
+				maximum output line width of destination scaler.
+- qcom,sde-dest-scaler-top-off: A u32 value provides the
+				offset from mdp base to destination scaler block.
+- qcom,sde-dest-scaler-top-size: A u32 value indicates the address range for ds top
+- qcom,sde-dest-scaler-off: 	Array of u32 offsets indicate the qseed3 scaler blocks
+				offset from destination scaler top offset.
+- qcom,sde-dest-scaler-size:    A u32 value indicates the address range for each scaler block
 - qcom,sde-sspp-clk-ctrl:	Array of offsets describing clk control
 				offsets for dynamic clock gating. 1st value
 				in the array represents offset of the control
@@ -146,10 +166,6 @@ Optional properties:
 				control register. Number of offsets defined should
 				match the number of offsets defined in
 				property: qcom,sde-sspp-off.
-- qcom,sde-sspp-danger-lut:	A 3 cell property, with a format of <linear, tile, nrt>,
-				indicating the danger luts on sspp.
-- qcom,sde-sspp-safe-lut:	A 3 cell property, with a format of <linear, tile, nrt>,
-				indicating the safe luts on sspp.
 - qcom,sde-sspp-excl-rect:	Array of u32 values indicating exclusion rectangle
 				support on each sspp.
 - qcom,sde-sspp-smart-dma-priority:	Array of u32 values indicating hw pipe
@@ -182,6 +198,9 @@ Optional properties:
 - qcom,sde-te-size:		A u32 value indicates the te block address range.
 - qcom,sde-te2-size:		A u32 value indicates the te2 block address range.
 - qcom,sde-dsc-off:	 	A u32 offset indicates the dsc block offset on pingpong.
+- qcom,sde-dither-off:		A u32 offset indicates the dither block offset on pingpong.
+- qcom,sde-dither-version:	A u32 value indicates the dither block version.
+- qcom,sde-dither-size:		A u32 value indicates the dither block address range.
 - qcom,sde-sspp-vig-blocks:	A node that lists the blocks inside the VIG hardware. The
 				block entries will contain the offset and version (if needed)
 				of each feature block. The presence of a block entry
@@ -208,6 +227,7 @@ Optional properties:
 				e.g. qcom,sde-dspp-blocks
 				-- qcom,sde-dspp-pcc: offset and version of PCC hardware
 				-- qcom,sde-dspp-gc: offset and version of GC hardware
+				-- qcom,sde-dspp-igc: offset and version of IGC hardware
 				-- qcom,sde-dspp-hsic: offset and version of global PA adjustment
 				-- qcom,sde-dspp-memcolor: offset and version of PA memcolor hardware
 				-- qcom,sde-dspp-sixzone: offset and version of PA sixzone hardware
@@ -238,6 +258,8 @@ Optional properties:
 				of (pps, OT limit), where pps is pixel per second and
 				OT limit is the write limit to apply if the given
 				pps is not exceeded.
+- qcom,sde-vbif-memtype-0:	Array of u32 vbif memory type settings, group 0
+- qcom,sde-vbif-memtype-1:	Array of u32 vbif memory type settings, group 1
 - qcom,sde-wb-id:		Array of writeback ids corresponding to the
 				offsets defined in property: qcom,sde-wb-off.
 - qcom,sde-wb-clk-ctrl:		Array of 2 cell property describing clk control
@@ -272,12 +294,117 @@ Optional properties:
 				applied in scenarios where panel interface can
 				be more tolerant to memory latency such as
 				command mode panels.
+- qcom,sde-core-ib-ff:		A string entry indicating the fudge factor for
+				core ib calculation.
+- qcom,sde-core-clk-ff:		A string entry indicating the fudge factor for
+				core clock calculation.
+- qcom,sde-min-core-ib-kbps:	This u32 value indicates the minimum mnoc ib
+				vote in Kbps that can be reduced without hitting underflow.
+				BW calculation logic will choose the IB bandwidth requirement
+				based on usecase if this floor value is not defined.
+- qcom,sde-min-llcc-ib-kbps:	This u32 value indicates the minimum llcc ib
+				vote in Kbps that can be reduced without hitting underflow.
+				BW calculation logic will choose the IB bandwidth requirement
+				based on usecase if this floor value is not defined.
+- qcom,sde-min-dram-ib-kbps:	This u32 value indicates the minimum dram ib
+				vote in Kbps that can be reduced without hitting underflow.
+				BW calculation logic will choose the IB bandwidth requirement
+				based on usecase if this floor value is not defined.
+- qcom,sde-comp-ratio-rt:	A string entry indicating the compression ratio
+				for each supported compressed format on realtime interface.
+				The string is composed of one or more of
+				<fourcc code>/<vendor code>/<modifier>/<compression ratio>
+				separated with spaces.
+- qcom,sde-comp-ratio-nrt:	A string entry indicating the compression ratio
+				for each supported compressed format on non-realtime interface.
+				The string is composed of one or more of
+				<fourcc code>/<vendor code>/<modifier>/<compression ratio>
+				separated with spaces.
+- qcom,sde-undersized-prefill-lines:	A u32 value indicates the size of undersized prefill in lines.
+- qcom,sde-xtra-prefill-lines:	A u32 value indicates the extra prefill in lines.
+- qcom,sde-dest-scale-prefill-lines:	A u32 value indicates the latency of destination scaler in lines.
+- qcom,sde-macrotile-prefill-lines:	A u32 value indicates the latency of macrotile in lines.
+- qcom,sde-yuv-nv12-prefill-lines:	A u32 value indicates the latency of yuv/nv12 in lines.
+- qcom,sde-linear-prefill-lines:	A u32 value indicates the latency of linear in lines.
+- qcom,sde-downscaling-prefill-lines:	A u32 value indicates the latency of downscaling in lines.
+- qcom,sde-max-per-pipe-bw-kbps:	Array of u32 value indicates the max per pipe bandwidth in Kbps.
+- qcom,sde-amortizable-threshold:	This value indicates the min for traffic shaping in lines.
+- qcom,sde-vbif-qos-rt-remap:	This array is used to program vbif qos remapper register
+				priority for realtime clients.
+- qcom,sde-vbif-qos-nrt-remap:	This array is used to program vbif qos remapper register
+				priority for non-realtime clients.
+- qcom,sde-danger-lut:		A 4 cell property, with a format of <linear,
+				tile, nrt, cwb>,
+				indicating the danger luts on sspp.
+- qcom,sde-safe-lut-linear:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for linear format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-macrotile:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for macrotile format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-nrt:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for nrt (e.g wfd) on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-safe-lut-cwb:	Array of 2 cell property, with a format of
+				<fill level, lut> in ascending fill level
+				indicating the safe luts for cwb on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-qos-lut-linear:	Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for linear format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-qos-lut-macrotile:	Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for macrotile format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-qos-lut-nrt:		Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for nrt (e.g wfd) on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-qos-lut-cwb:		Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for cwb on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-cdp-setting:		Array of 2 cell property, with a format of
+				<read enable, write enable> for cdp use cases in
+				order of <real_time>, and <non_real_time>.
+- qcom,sde-qos-cpu-mask:	A u32 value indicating desired PM QoS CPU affine mask.
+- qcom,sde-qos-cpu-dma-latency:	A u32 value indicating desired PM QoS CPU DMA latency in usec.
+- qcom,sde-inline-rot-xin:	An integer array of xin-ids related to inline
+				rotation.
+- qcom,sde-inline-rot-xin-type:	A string array indicating the type of xin,
+				namely sspp or wb. Number of entries should match
+				the number of xin-ids defined in
+				property: qcom,sde-inline-rot-xin
+- qcom,sde-inline-rot-clk-ctrl:	Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register. Number of offsets defined should
+				match the number of xin-ids defined in
+				property: qcom,sde-inline-rot-xin
+- #power-domain-cells:		Number of cells in a power-domain specifier and should contain 0.
+- qcom,sde-mixer-display-pref:  A string array indicating the preferred display type
+				for the mixer block. Possible values:
+				"primary" - preferred for primary display
+				"none" - no preference on display
+- qcom,sde-ctl-display-pref:    A string array indicating the preferred display type
+                                for the ctl block. Possible values:
+				"primary" - preferred for primary display
+				"none" - no preference on display
 
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
 				mdss blocks.
 - qcom,sde-data-bus:		Property to provide Bus scaling for data bus access for
 				mdss blocks.
+- qcom,sde-llcc-bus:		Property to provide Bus scaling for data bus access for
+				mnoc to llcc.
+- qcom,sde-ebi-bus:		Property to provide Bus scaling for data bus access for
+				llcc to ebi.
 
 - qcom,sde-inline-rotator:	A 2 cell property, with format of (rotator phandle,
 				instance id), of inline rotator device.
@@ -294,17 +421,23 @@ Bus Scaling Data:
 				* Current values of src & dst are defined at
 				include/linux/msm-bus-board.h
 
+SMMU Subnodes:
+- smmu_sde_****:		Child nodes representing sde smmu virtual
+				devices
+
 Subnode properties:
-- compatible :          Compatible name used in smmu v2.
-                        smmu_v2 names should be:
-                        "qcom,smmu-mdp-unsec"   - smmu context bank device for
-                                                unsecure mdp domain.
-                        "qcom,smmu-rot-unsec"   - smmu context bank device for
-                                                unsecure rotation domain.
-                        "qcom,smmu-mdp-sec"     - smmu context bank device for
-                                                secure mdp domain.
-                        "qcom,smmu-rot-sec"     - smmu context bank device for
-                                                secure rotation domain.
+- compatible:			Compatible names used for smmu devices.
+				names should be:
+				"qcom,smmu_sde_unsec": smmu context bank device
+				for unsecure sde real time domain.
+				"qcom,smmu_sde_sec": smmu context bank device
+				for secure sde real time domain.
+				"qcom,smmu_sde_nrt_unsec": smmu context bank device
+				for unsecure sde non-real time domain.
+				"qcom,smmu_sde_nrt_sec": smmu context bank device
+				for secure sde non-real time domain.
+
+
 Please refer to ../../interrupt-controller/interrupts.txt for a general
 description of interrupt bindings.
 
@@ -342,15 +475,23 @@ Example:
     interrupt-controller;
     #interrupt-cells = <1>;
     iommus = <&mdp_smmu 0>;
+    #power-domain-cells = <0>;
 
     qcom,sde-off = <0x1000>;
     qcom,sde-ctl-off = <0x00002000 0x00002200 0x00002400
 		     0x00002600 0x00002800>;
+    qcom,sde-ctl-display-pref = "primary", "none", "none",
+	             "none", "none";
     qcom,sde-mixer-off = <0x00045000 0x00046000
 			0x00047000 0x0004a000>;
+    qcom,sde-mixer-display-pref = "primary", "none",
+	                "none", "none";
+    qcom,sde-dspp-top-off = <0x1300>;
     qcom,sde-dspp-off = <0x00055000 0x00057000>;
     qcom,sde-dspp-ad-off = <0x24000 0x22800>;
     qcom,sde-dspp-ad-version = <0x00030000>;
+    qcom,sde-dest-scaler-top-off = <0x00061000>;
+    qcom,sde-dest-scaler-off = <0x800 0x1000>;
     qcom,sde-wb-off = <0x00066000>;
     qcom,sde-wb-xin-id = <6>;
     qcom,sde-intf-off = <0x0006b000 0x0006b800
@@ -399,19 +540,22 @@ Example:
     qcom,sde-ubwc-version = <0x100>;
     qcom,sde-ubwc-static = <0x100>;
     qcom,sde-ubwc-swizzle = <0>;
+    qcom,sde-smart-panel-align-mode = <0xd>;
     qcom,sde-panic-per-pipe;
-    qcom,sde-has-cdp;
     qcom,sde-has-src-split;
     qcom,sde-has-dim-layer;
     qcom,sde-sspp-src-size = <0x100>;
     qcom,sde-mixer-size = <0x100>;
     qcom,sde-ctl-size = <0x100>;
+    qcom,sde-dspp-top-size = <0xc>;
     qcom,sde-dspp-size = <0x100>;
     qcom,sde-intf-size = <0x100>;
     qcom,sde-dsc-size = <0x100>;
     qcom,sde-cdm-size = <0x100>;
     qcom,sde-pp-size = <0x100>;
     qcom,sde-wb-size = <0x100>;
+    qcom,sde-dest-scaler-top-size = <0xc>;
+    qcom,sde-dest-scaler-size = <0x800>;
     qcom,sde-len = <0x100>;
     qcom,sde-wb-linewidth = <2560>;
     qcom,sde-sspp-scale-size = <0x100>;
@@ -420,6 +564,10 @@ Example:
     qcom,sde-csc-type = "csc-10bit";
     qcom,sde-highest-bank-bit = <15>;
     qcom,sde-has-mixer-gc;
+    qcom,sde-has-idle-pc;
+    qcom,sde-has-dest-scaler;
+    qcom,sde-max-dest-scaler-input-linewidth = <2048>;
+    qcom,sde-max-dest-scaler-output-linewidth = <2560>;
     qcom,sde-sspp-max-rects = <1 1 1 1
 				1 1 1 1
 				1 1
@@ -441,8 +589,38 @@ Example:
     qcom,sde-wb-id = <2>;
     qcom,sde-wb-clk-ctrl = <0x2bc 16>;
 
-    qcom,sde-sspp-danger-lut = <0x000f 0xffff 0x0000>;
-    qcom,sde-sspp-safe-lut = <0xfffc 0xff00 0xffff>;
+    qcom,sde-danger-lut = <0x0000000f 0x0000ffff 0x00000000
+            0x00000000>;
+    qcom,sde-safe-lut = <0xfffc 0xff00 0xffff 0xffff>;
+    qcom,sde-qos-lut-linear =
+            <4 0x00000000 0x00000357>,
+            <5 0x00000000 0x00003357>,
+            <6 0x00000000 0x00023357>,
+            <7 0x00000000 0x00223357>,
+            <8 0x00000000 0x02223357>,
+            <9 0x00000000 0x22223357>,
+            <10 0x00000002 0x22223357>,
+            <11 0x00000022 0x22223357>,
+            <12 0x00000222 0x22223357>,
+            <13 0x00002222 0x22223357>,
+            <14 0x00012222 0x22223357>,
+            <0 0x00112222 0x22223357>;
+    qcom,sde-qos-lut-macrotile =
+            <10 0x00000003 0x44556677>,
+            <11 0x00000033 0x44556677>,
+            <12 0x00000233 0x44556677>,
+            <13 0x00002233 0x44556677>,
+            <14 0x00012233 0x44556677>,
+            <0 0x00112233 0x44556677>;
+    qcom,sde-qos-lut-nrt =
+            <0 0x00000000 0x00000000>;
+    qcom,sde-qos-lut-cwb =
+            <0 0x75300000 0x00000000>;
+
+    qcom,sde-cdp-setting = <1 1>, <1 0>;
+
+    qcom,sde-qos-cpu-mask = <0x3>;
+    qcom,sde-qos-cpu-dma-latency = <300>;
 
     qcom,sde-vbif-off = <0 0>;
     qcom,sde-vbif-id = <0 1>;
@@ -452,12 +630,35 @@ Example:
         <124416000 4>, <248832000 16>;
     qcom,sde-vbif-dynamic-ot-wr-limit = <62208000 2>,
         <124416000 4>, <248832000 16>;
+    qcom,sde-vbif-memtype-0 = <3 3 3 3 3 3 3 3>;
+    qcom,sde-vbif-memtype-1 = <3 3 3 3 3 3>;
 
     qcom,sde-dram-channels = <2>;
     qcom,sde-num-nrt-paths = <1>;
 
     qcom,sde-max-bw-high-kbps = <9000000>;
     qcom,sde-max-bw-low-kbps = <9000000>;
+
+    qcom,sde-core-ib-ff = "1.1";
+    qcom,sde-core-clk-ff = "1.0";
+    qcom,sde-min-core-ib-kbps = <2400000>;
+    qcom,sde-min-llcc-ib-kbps = <800000>;
+    qcom,sde-min-dram-ib-kbps = <800000>;
+    qcom,sde-comp-ratio-rt = "NV12/5/1/1.1 AB24/5/1/1.2 XB24/5/1/1.3";
+    qcom,sde-comp-ratio-nrt = "NV12/5/1/1.1 AB24/5/1/1.2 XB24/5/1/1.3";
+    qcom,sde-undersized-prefill-lines = <4>;
+    qcom,sde-xtra-prefill-lines = <5>;
+    qcom,sde-dest-scale-prefill-lines = <6>;
+    qcom,sde-macrotile-prefill-lines = <7>;
+    qcom,sde-yuv-nv12-prefill-lines = <8>;
+    qcom,sde-linear-prefill-lines = <9>;
+    qcom,sde-downscaling-prefill-lines = <10>;
+    qcom,sde-max-per-pipe-bw-kbps = <2400000 2400000 2400000 2400000
+        2400000 2400000 2400000 2400000>;
+    qcom,sde-amortizable-threshold = <11>;
+
+    qcom,sde-vbif-qos-rt-remap = <3 3 4 4 5 5 6 6>;
+    qcom,sde-vbif-qos-nrt-remap = <3 3 3 3 3 3 3 3>;
 
     qcom,sde-sspp-vig-blocks {
         qcom,sde-vig-csc-off = <0x320>;
@@ -476,6 +677,7 @@ Example:
     };
 
     qcom,sde-dspp-blocks {
+        qcom,sde-dspp-igc = <0x0 0x00010000>;
         qcom,sde-dspp-pcc = <0x1700 0x00010000>;
         qcom,sde-dspp-gc = <0x17c0 0x00010000>;
         qcom,sde-dspp-hsic = <0x0 0x00010000>;
@@ -496,6 +698,9 @@ Example:
     };
 
     qcom,sde-inline-rotator = <&mdss_rotator 0>;
+    qcom,sde-inline-rot-xin = <10 11>;
+    qcom,sde-inline-rot-xin-type = "sspp", "wb";
+    qcom,sde-inline-rot-clk-ctrl = <0x2bc 0x8>, <0x2bc 0xc>;
 
     qcom,platform-supply-entries {
        #address-cells = <1>;
@@ -525,6 +730,24 @@ Example:
             <22 512 0 6400000>, <23 512 0 6400000>,
                 <25 512 0 6400000>;
     };
+    qcom,sde-llcc-bus {
+        qcom,msm-bus,name = "mdss_sde_llcc";
+        qcom,msm-bus,num-cases = <3>;
+        qcom,msm-bus,num-paths = <1>;
+        qcom,msm-bus,vectors-KBps =
+            <132 770 0 0>,
+            <132 770 0 6400000>,
+            <132 770 0 6400000>;
+    };
+    qcom,sde-ebi-bus {
+        qcom,msm-bus,name = "mdss_sde_ebi";
+        qcom,msm-bus,num-cases = <3>;
+        qcom,msm-bus,num-paths = <1>;
+        qcom,msm-bus,vectors-KBps =
+            <129 512 0 0>,
+            <129 512 0 6400000>,
+            <129 512 0 6400000>;
+    };
 
     qcom,sde-reg-bus {
         /* Reg Bus Scale Settings */
@@ -538,4 +761,14 @@ Example:
               <1 590 0 160000>,
               <1 590 0 320000>;
         };
+
+    smmu_kms_unsec: qcom,smmu_kms_unsec_cb {
+        compatible = "qcom,smmu_sde_unsec";
+        iommus = <&mmss_smmu 0>;
+    };
+
+    smmu_kms_sec: qcom,smmu_kms_sec_cb {
+        compatible = "qcom,smmu_sde_sec";
+        iommus = <&mmss_smmu 1>;
+    };
   };

@@ -18,18 +18,24 @@
 #include "sde_hw_util.h"
 #include "sde_hw_blk.h"
 
+#define SDE_HW_ROT_NAME_SIZE	80
+
 struct sde_hw_rot;
 
 /**
  * enum sde_hw_rot_cmd_type - type of rotator hardware command
  * @SDE_HW_ROT_CMD_VALDIATE: validate rotator command; do not commit
  * @SDE_HW_ROT_CMD_COMMIT: commit/execute rotator command
+ * @SDE_HW_ROT_CMD_START: mdp is ready to start
  * @SDE_HW_ROT_CMD_CLEANUP: cleanup rotator command after it is done
+ * @SDE_HW_ROT_CMD_RESET: request rotator h/w reset
  */
 enum sde_hw_rot_cmd_type {
 	SDE_HW_ROT_CMD_VALIDATE,
 	SDE_HW_ROT_CMD_COMMIT,
+	SDE_HW_ROT_CMD_START,
 	SDE_HW_ROT_CMD_CLEANUP,
+	SDE_HW_ROT_CMD_RESET,
 };
 
 /**
@@ -67,6 +73,7 @@ enum sde_hw_rot_cmd_type {
  * @dst_rect_y: destination rectangle y coordinate
  * @dst_rect_w: destination rectangle width
  * @dst_rect_h: destination rectangle height
+ * @crtc_h: sspp output height
  * @priv_handle: private handle of rotator driver (output)
  */
 struct sde_hw_rot_cmd {
@@ -104,6 +111,7 @@ struct sde_hw_rot_cmd {
 	u32 dst_rect_y;
 	u32 dst_rect_w;
 	u32 dst_rect_h;
+	u32 crtc_h;
 	void *priv_handle;
 };
 
@@ -127,6 +135,7 @@ struct sde_hw_rot_ops {
  * @hw: hardware address map
  * @idx: instance index
  * @caps: capabilities bitmask
+ * @catalog: pointer to hardware catalog
  * @ops: operation table
  * @rot_ctx: pointer to private rotator context
  * @format_caps: pointer to pixel format capability  array
@@ -135,8 +144,10 @@ struct sde_hw_rot_ops {
 struct sde_hw_rot {
 	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
+	char name[SDE_HW_ROT_NAME_SIZE];
 	int idx;
 	const struct sde_rot_cfg *caps;
+	struct sde_mdss_cfg *catalog;
 	struct sde_hw_rot_ops ops;
 	void *rot_ctx;
 	struct sde_format_extended *format_caps;

@@ -14,6 +14,7 @@
 #define _SDE_FORMATS_H
 
 #include <drm/drm_fourcc.h>
+#include "msm_gem.h"
 #include "sde_hw_mdss.h"
 
 /**
@@ -63,6 +64,8 @@ uint32_t sde_populate_formats(
  * @w:               width of the buffer
  * @h:               height of the buffer
  * @layout:          layout of the buffer
+ * @pitches:         array of size [SDE_MAX_PLANES] to populate
+ *		     pitch for each plane
  *
  * Return: size of the buffer
  */
@@ -70,7 +73,8 @@ int sde_format_get_plane_sizes(
 		const struct sde_format *fmt,
 		const uint32_t w,
 		const uint32_t h,
-		struct sde_hw_fmt_layout *layout);
+		struct sde_hw_fmt_layout *layout,
+		const uint32_t *pitches);
 
 /**
  * sde_format_get_block_size - get block size of given format when
@@ -103,7 +107,7 @@ int sde_format_check_modified_format(
 /**
  * sde_format_populate_layout - populate the given format layout based on
  *                     mmu, fb, and format found in the fb
- * @mmu_id:            mmu id handle
+ * @aspace:            address space pointer
  * @fb:                framebuffer pointer
  * @fmtl:              format layout structure to populate
  *
@@ -111,14 +115,14 @@ int sde_format_check_modified_format(
  *         are the same as before or 0 if new addresses were populated
  */
 int sde_format_populate_layout(
-		int mmu_id,
+		struct msm_gem_address_space *aspace,
 		struct drm_framebuffer *fb,
 		struct sde_hw_fmt_layout *fmtl);
 
 /**
  * sde_format_populate_layout_with_roi - populate the given format layout
  *                     based on mmu, fb, roi, and format found in the fb
- * @mmu_id:            mmu id handle
+ * @aspace:            address space pointer
  * @fb:                framebuffer pointer
  * @roi:               region of interest (optional)
  * @fmtl:              format layout structure to populate
@@ -126,7 +130,7 @@ int sde_format_populate_layout(
  * Return: error code on failure, 0 on success
  */
 int sde_format_populate_layout_with_roi(
-		int mmu_id,
+		struct msm_gem_address_space *aspace,
 		struct drm_framebuffer *fb,
 		struct sde_rect *roi,
 		struct sde_hw_fmt_layout *fmtl);
@@ -136,6 +140,8 @@ int sde_format_populate_layout_with_roi(
  * @format:            DRM pixel format
  * @width:             pixel width
  * @height:            pixel height
+ * @pitches:           array of size [SDE_MAX_PLANES] to populate
+ *		       pitch for each plane
  * @modifiers:         array to populate with drm modifiers, can be NULL
  * @modifiers_len:     length of modifers array
  *
@@ -145,6 +151,7 @@ uint32_t sde_format_get_framebuffer_size(
 		const uint32_t format,
 		const uint32_t width,
 		const uint32_t height,
+		const uint32_t *pitches,
 		const uint64_t *modifiers,
 		const uint32_t modifiers_len);
 

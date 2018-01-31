@@ -31,7 +31,6 @@
 
 #define SERVREG_LOC_SERVICE_INSTANCE_ID			1
 
-#define QMI_RESP_BIT_SHIFT(x)				(x << 16)
 #define QMI_SERVREG_LOC_SERVER_INITIAL_TIMEOUT		2000
 #define QMI_SERVREG_LOC_SERVER_TIMEOUT			2000
 #define INITIAL_TIMEOUT					100000
@@ -150,11 +149,10 @@ static void service_locator_recv_msg(struct work_struct *work)
 
 	do {
 		pr_debug("Notified about a Receive event\n");
-		ret = qmi_recv_msg(service_locator.clnt_handle);
-		if (ret < 0)
-			pr_err("Error receiving message rc:%d. Retrying...\n",
-								ret);
-	} while (ret == 0);
+	} while ((ret = qmi_recv_msg(service_locator.clnt_handle)) == 0);
+
+	if (ret != -ENOMSG)
+		pr_err("Error receiving message rc:%d\n", ret);
 
 }
 
@@ -191,7 +189,7 @@ static int servreg_loc_send_msg(struct msg_desc *req_desc,
 	 */
 	rc = qmi_send_req_wait(service_locator.clnt_handle, req_desc, req,
 		sizeof(*req), resp_desc, resp, sizeof(*resp),
-		msecs_to_jiffies(QMI_SERVREG_LOC_SERVER_TIMEOUT));
+		QMI_SERVREG_LOC_SERVER_TIMEOUT);
 	if (rc < 0) {
 		pr_err("QMI send req failed for client %s, ret - %d\n",
 			pd->client_name, rc);
@@ -199,9 +197,9 @@ static int servreg_loc_send_msg(struct msg_desc *req_desc,
 	}
 
 	/* Check the response */
-	if (QMI_RESP_BIT_SHIFT(resp->resp.result) != QMI_RESULT_SUCCESS_V01) {
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
 		pr_err("QMI request for client %s failed 0x%x\n",
-			pd->client_name, QMI_RESP_BIT_SHIFT(resp->resp.error));
+			pd->client_name, resp->resp.error);
 		return -EREMOTEIO;
 	}
 	return rc;
@@ -220,7 +218,7 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 		return -EAGAIN;
 	}
 
-	req = kmalloc(sizeof(
+	req = kzalloc(sizeof(
 		struct qmi_servreg_loc_get_domain_list_req_msg_v01),
 		GFP_KERNEL);
 	if (!req) {
@@ -228,7 +226,7 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 		rc = -ENOMEM;
 		goto out;
 	}
-	resp = kmalloc(sizeof(
+	resp = kzalloc(sizeof(
 		struct qmi_servreg_loc_get_domain_list_resp_msg_v01),
 		GFP_KERNEL);
 	if (!resp) {
@@ -267,7 +265,6 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 			pd->total_domains = resp->total_domains;
 			if (!resp->total_domains) {
 				pr_err("No matching domains found\n");
-				rc = -EIO;
 				goto out;
 			}
 

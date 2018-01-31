@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,9 +15,13 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
+#include <linux/spinlock.h>
 #include "msm_bus_core.h"
 #include "msm_bus_noc.h"
 #include "msm_bus_rpmh.h"
+
+static DEFINE_SPINLOCK(noc_lock);
 
 /* NOC_QOS generic */
 #define __CLZ(x) ((8 * sizeof(uint32_t)) - 1 - __fls(x))
@@ -29,18 +33,51 @@
 #define MAX_SAT_FIELD (NOC_QOS_SATn_SAT_BMSK >> NOC_QOS_SATn_SAT_SHFT)
 #define MIN_SAT_FIELD	1
 #define MIN_BW_FIELD	1
+#define QM_BASE	0x010B8000
+#define MSM_BUS_FAB_MEM_NOC 6152
 
 #define NOC_QOS_REG_BASE(b, o)		((b) + (o))
 
-#define NOC_QOS_PRIORITYn_ADDR(b, o, n, d)	\
+#define NOC_QOS_MAINCTL_LOWn_ADDR(b, o, n, d)	\
 	(NOC_QOS_REG_BASE(b, o) + 0x8 + (d) * (n))
-enum noc_qos_id_priorityn {
-	NOC_QOS_PRIORITYn_RMSK		= 0x0000000f,
-	NOC_QOS_PRIORITYn_MAXn		= 32,
-	NOC_QOS_PRIORITYn_P1_BMSK	= 0xc,
-	NOC_QOS_PRIORITYn_P1_SHFT	= 0x2,
-	NOC_QOS_PRIORITYn_P0_BMSK	= 0x3,
-	NOC_QOS_PRIORITYn_P0_SHFT	= 0x0,
+enum noc_qos_id_mainctl_lown {
+	NOC_QOS_MCTL_DFLT_PRIOn_BMSK	= 0x00000070,
+	NOC_QOS_MCTL_DFLT_PRIOn_SHFT	= 0x4,
+	NOC_QOS_MCTL_URGFWD_ENn_BMSK	= 0x00000008,
+	NOC_QOS_MCTL_URGFWD_ENn_SHFT	= 0x3,
+	NOC_QOS_MCTL_LIMIT_ENn_BMSK	= 0x00000001,
+	NOC_QOS_MCTL_LIMIT_ENn_SHFT	= 0x0,
+};
+
+#define NOC_QOS_LIMITBWn_ADDR(b, o, n, d)	\
+	(NOC_QOS_REG_BASE(b, o) + 0x18 + (d) * (n))
+enum noc_qos_id_limitbwn {
+	NOC_QOS_LIMITBW_BWn_BMSK	= 0x000007FF,
+	NOC_QOS_LIMITBW_BWn_SHFT	= 0x0,
+	NOC_QOS_LIMITBW_SATn_BMSK	= 0x03FF0000,
+	NOC_QOS_LIMITBW_SATn_SHFT	= 0x11,
+};
+
+#define NOC_QOS_REGUL0CTLn_ADDR(b, o, n, d)	\
+	(NOC_QOS_REG_BASE(b, o) + 0x40 + (d) * (n))
+enum noc_qos_id_regul0ctln {
+	NOC_QOS_REGUL0CTL_HI_PRIOn_BMSK	= 0x00007000,
+	NOC_QOS_REGUL0CTL_HI_PRIOn_SHFT	= 0x8,
+	NOC_QOS_REGUL0CTL_LW_PRIOn_BMSK	= 0x00000700,
+	NOC_QOS_REGUL0CTL_LW_PRIOn_SHFT	= 0xC,
+	NOC_QOS_REGUL0CTL_WRENn_BMSK	= 0x00000002,
+	NOC_QOS_REGUL0CTL_WRENn_SHFT	= 0x1,
+	NOC_QOS_REGUL0CTL_RDENn_BMSK	= 0x00000001,
+	NOC_QOS_REGUL0CTL_RDENn_SHFT	= 0x0,
+};
+
+#define NOC_QOS_REGUL0BWn_ADDR(b, o, n, d)	\
+	(NOC_QOS_REG_BASE(b, o) + 0x48 + (d) * (n))
+enum noc_qos_id_regul0bwbwn {
+	NOC_QOS_REGUL0BW_BWn_BMSK	= 0x000007FF,
+	NOC_QOS_REGUL0BW_BWn_SHFT	= 0x0,
+	NOC_QOS_REGUL0BW_SATn_BMSK	= 0x03FF0000,
+	NOC_QOS_REGUL0BW_SATn_SHFT	= 0x11,
 };
 
 #define NOC_QOS_MODEn_ADDR(b, o, n, d) \
@@ -71,6 +108,18 @@ enum noc_qos_id_saturationn {
 	NOC_QOS_SATn_SAT_SHFT		= 0x0,
 };
 
+#define QM_CLn_TH_LVL_MUX_ADDR(b, o, n, d)	\
+	(NOC_QOS_REG_BASE(b, o) + 0x8C0 + (d) * (n))
+enum qm_cl_id_th_lvl_mux_cfg {
+	QM_CLn_TH_LVL_SW_OVERRD_BMSK	= 0x80000000,
+	QM_CLn_TH_LVL_SW_OVERRD_SHFT	= 0x1F,
+	QM_CLn_TH_LVL_SW_BMSK		= 0x00000007,
+	QM_CLn_TH_LVL_SW_SHFT		= 0x0,
+};
+
+static void __iomem *qm_base;
+static void __iomem *memnoc_qos_base;
+
 static int noc_div(uint64_t *a, uint32_t b)
 {
 	if ((*a > 0) && (*a < b)) {
@@ -100,14 +149,6 @@ static uint64_t noc_bw(uint32_t bw_field, uint32_t qos_freq)
 /**
  * Calculate the max BW in Bytes/s for a given time-base.
  */
-static uint32_t noc_bw_ceil(long int bw_field, uint32_t qos_freq_khz)
-{
-	uint64_t bw_temp = 2 * qos_freq_khz * bw_field;
-	uint32_t scale = 1000 * BW_SCALE;
-
-	noc_div(&bw_temp, scale);
-	return bw_temp * 1000000;
-}
 #define MAX_BW(timebase) noc_bw_ceil(MAX_BW_FIELD, (timebase))
 
 /**
@@ -129,190 +170,172 @@ static uint32_t noc_ws(uint64_t bw, uint32_t sat, uint32_t qos_freq)
 }
 #define MAX_WS(bw, timebase) noc_ws((bw), MAX_SAT_FIELD, (timebase))
 
-/* Calculate bandwidth field value for requested bandwidth  */
-static uint32_t noc_bw_field(uint64_t bw_bps, uint32_t qos_freq_khz)
+static void noc_set_qm_th_lvl_cfg(void __iomem *base, uint32_t off,
+		uint32_t n, uint32_t delta,
+		uint32_t override_val, uint32_t override)
 {
-	uint32_t bw_field = 0;
+	writel_relaxed(((override << QM_CLn_TH_LVL_SW_OVERRD_SHFT) |
+		(override_val & QM_CLn_TH_LVL_SW_BMSK)),
+		QM_CLn_TH_LVL_MUX_ADDR(base, off, n, delta));
 
-	if (bw_bps) {
-		uint32_t rem;
-		uint64_t bw_capped = min_t(uint64_t, bw_bps,
-						MAX_BW(qos_freq_khz));
-		uint64_t bwc = bw_capped * BW_SCALE;
-		uint64_t qf = 2 * qos_freq_khz * 1000;
-
-		rem = noc_div(&bwc, qf);
-		bw_field = (uint32_t)max_t(unsigned long, bwc, MIN_BW_FIELD);
-		bw_field = (uint32_t)min_t(unsigned long, bw_field,
-								MAX_BW_FIELD);
-	}
-
-	MSM_BUS_DBG("NOC: bw_field: %u\n", bw_field);
-	return bw_field;
-}
-
-static uint32_t noc_sat_field(uint64_t bw, uint32_t ws, uint32_t qos_freq)
-{
-	uint32_t sat_field = 0;
-
-	if (bw) {
-		/* Limit to max bw and scale bw to 100 KB increments */
-		uint64_t tbw, tscale;
-		uint64_t bw_scaled = min_t(uint64_t, bw, MAX_BW(qos_freq));
-		uint32_t rem = noc_div(&bw_scaled, 100000);
-
-		/**
-		 *	SATURATION =
-		 *	(BW [MBps] * integration window [us] *
-		 *		time base frequency [MHz]) / (256 * 16)
-		 */
-		tbw = bw_scaled * ws * qos_freq;
-		tscale = BW_SCALE * SAT_SCALE * 1000000LL;
-		rem = noc_div(&tbw, tscale);
-		sat_field = (uint32_t)max_t(unsigned long, tbw, MIN_SAT_FIELD);
-		sat_field = (uint32_t)min_t(unsigned long, sat_field,
-							MAX_SAT_FIELD);
-	}
-
-	MSM_BUS_DBG("NOC: sat_field: %d\n", sat_field);
-	return sat_field;
-}
-
-static void noc_set_qos_mode(void __iomem *base, uint32_t qos_off,
-		uint32_t mport, uint32_t qos_delta, uint8_t mode,
-		uint8_t perm_mode)
-{
-	if (mode < NOC_QOS_MODE_MAX &&
-		((1 << mode) & perm_mode)) {
-		uint32_t reg_val;
-
-		reg_val = readl_relaxed(NOC_QOS_MODEn_ADDR(base, qos_off,
-			mport, qos_delta)) & NOC_QOS_MODEn_RMSK;
-		writel_relaxed(((reg_val & (~(NOC_QOS_MODEn_MODE_BMSK))) |
-			(mode & NOC_QOS_MODEn_MODE_BMSK)),
-			NOC_QOS_MODEn_ADDR(base, qos_off, mport, qos_delta));
-	}
-	/* Ensure qos mode is set before exiting */
+	/* Ensure QM CFG is set before exiting */
 	wmb();
 }
 
-static void noc_set_qos_priority(void __iomem *base, uint32_t qos_off,
+static void noc_set_qos_dflt_prio(void __iomem *base, uint32_t qos_off,
 		uint32_t mport, uint32_t qos_delta,
-		struct msm_bus_noc_qos_priority *priority)
+		uint32_t prio)
 {
 	uint32_t reg_val, val;
 
-	reg_val = readl_relaxed(NOC_QOS_PRIORITYn_ADDR(base, qos_off, mport,
-		qos_delta)) & NOC_QOS_PRIORITYn_RMSK;
-	val = priority->p1 << NOC_QOS_PRIORITYn_P1_SHFT;
-	writel_relaxed(((reg_val & (~(NOC_QOS_PRIORITYn_P1_BMSK))) |
-		(val & NOC_QOS_PRIORITYn_P1_BMSK)),
-		NOC_QOS_PRIORITYn_ADDR(base, qos_off, mport, qos_delta));
+	reg_val = readl_relaxed(NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = prio << NOC_QOS_MCTL_DFLT_PRIOn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_MCTL_DFLT_PRIOn_BMSK))) |
+		(val & NOC_QOS_MCTL_DFLT_PRIOn_BMSK)),
+		NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport, qos_delta));
 
-	reg_val = readl_relaxed(NOC_QOS_PRIORITYn_ADDR(base, qos_off, mport,
-								qos_delta))
-		& NOC_QOS_PRIORITYn_RMSK;
-	writel_relaxed(((reg_val & (~(NOC_QOS_PRIORITYn_P0_BMSK))) |
-		(priority->p0 & NOC_QOS_PRIORITYn_P0_BMSK)),
-		NOC_QOS_PRIORITYn_ADDR(base, qos_off, mport, qos_delta));
 	/* Ensure qos priority is set before exiting */
 	wmb();
 }
 
-static void msm_bus_noc_set_qos_bw(void __iomem *base, uint32_t qos_off,
-		uint32_t qos_freq, uint32_t mport, uint32_t qos_delta,
-		uint8_t perm_mode, struct msm_bus_noc_qos_bw *qbw)
+static void noc_enable_qos_limiter(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta, uint32_t lim_en)
 {
-	uint32_t reg_val, val, mode;
+	uint32_t reg_val, val;
+	reg_val = readl_relaxed(NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = lim_en << NOC_QOS_MCTL_LIMIT_ENn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_MCTL_LIMIT_ENn_BMSK))) |
+		(val & NOC_QOS_MCTL_LIMIT_ENn_BMSK)),
+		NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport, qos_delta));
 
-	if (!qos_freq) {
-		MSM_BUS_DBG("Zero QoS Freq\n");
-		return;
-	}
-
-	/* If Limiter or Regulator modes are not supported, bw not available*/
-	if (perm_mode & (NOC_QOS_PERM_MODE_LIMITER |
-		NOC_QOS_PERM_MODE_REGULATOR)) {
-		uint32_t bw_val = noc_bw_field(qbw->bw, qos_freq);
-		uint32_t sat_val = noc_sat_field(qbw->bw, qbw->ws,
-			qos_freq);
-
-		MSM_BUS_DBG("NOC: BW: perm_mode: %d bw_val: %d, sat_val: %d\n",
-			perm_mode, bw_val, sat_val);
-		/*
-		 * If in Limiter/Regulator mode, first go to fixed mode.
-		 * Clear QoS accumulator
-		 **/
-		mode = readl_relaxed(NOC_QOS_MODEn_ADDR(base, qos_off,
-			mport, qos_delta)) & NOC_QOS_MODEn_MODE_BMSK;
-		if (mode == NOC_QOS_MODE_REGULATOR || mode ==
-			NOC_QOS_MODE_LIMITER) {
-			reg_val = readl_relaxed(NOC_QOS_MODEn_ADDR(
-				base, qos_off, mport, qos_delta));
-			val = NOC_QOS_MODE_FIXED;
-			writel_relaxed((reg_val & (~(NOC_QOS_MODEn_MODE_BMSK)))
-				| (val & NOC_QOS_MODEn_MODE_BMSK),
-				NOC_QOS_MODEn_ADDR(base, qos_off, mport,
-								qos_delta));
-		}
-
-		reg_val = readl_relaxed(NOC_QOS_BWn_ADDR(base, qos_off, mport,
-								qos_delta));
-		val = bw_val << NOC_QOS_BWn_BW_SHFT;
-		writel_relaxed(((reg_val & (~(NOC_QOS_BWn_BW_BMSK))) |
-			(val & NOC_QOS_BWn_BW_BMSK)),
-			NOC_QOS_BWn_ADDR(base, qos_off, mport, qos_delta));
-
-		MSM_BUS_DBG("NOC: BW: Wrote value: 0x%x\n", ((reg_val &
-			(~NOC_QOS_BWn_BW_BMSK)) | (val &
-			NOC_QOS_BWn_BW_BMSK)));
-
-		reg_val = readl_relaxed(NOC_QOS_SATn_ADDR(base, qos_off,
-			mport, qos_delta));
-		val = sat_val << NOC_QOS_SATn_SAT_SHFT;
-		writel_relaxed(((reg_val & (~(NOC_QOS_SATn_SAT_BMSK))) |
-			(val & NOC_QOS_SATn_SAT_BMSK)),
-			NOC_QOS_SATn_ADDR(base, qos_off, mport, qos_delta));
-
-		MSM_BUS_DBG("NOC: SAT: Wrote value: 0x%x\n", ((reg_val &
-			(~NOC_QOS_SATn_SAT_BMSK)) | (val &
-			NOC_QOS_SATn_SAT_BMSK)));
-
-		/* Set mode back to what it was initially */
-		reg_val = readl_relaxed(NOC_QOS_MODEn_ADDR(base, qos_off,
-			mport, qos_delta));
-		writel_relaxed((reg_val & (~(NOC_QOS_MODEn_MODE_BMSK)))
-			| (mode & NOC_QOS_MODEn_MODE_BMSK),
-			NOC_QOS_MODEn_ADDR(base, qos_off, mport, qos_delta));
-		/* Ensure that all writes for bandwidth registers have
-		 * completed before returning
-		 */
-		wmb();
-	}
+	/* Ensure we disable/enable limiter before exiting*/
+	wmb();
 }
 
-uint8_t msm_bus_noc_get_qos_mode(void __iomem *base, uint32_t qos_off,
-	uint32_t mport, uint32_t qos_delta, uint32_t mode, uint32_t perm_mode)
+static void noc_set_qos_limit_bw(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta, uint32_t bw)
 {
-	if (perm_mode == NOC_QOS_MODES_ALL_PERM)
-		return readl_relaxed(NOC_QOS_MODEn_ADDR(base, qos_off,
-			mport, qos_delta)) & NOC_QOS_MODEn_MODE_BMSK;
-	else
-		return 31 - __CLZ(mode &
-			NOC_QOS_MODES_ALL_PERM);
+	uint32_t reg_val, val;
+	reg_val = readl_relaxed(NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = bw << NOC_QOS_LIMITBW_BWn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_LIMITBW_BWn_BMSK))) |
+		(val & NOC_QOS_LIMITBW_BWn_BMSK)),
+		NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport, qos_delta));
+
+	/* Ensure we set limiter bw before exiting*/
+	wmb();
 }
 
-void msm_bus_noc_get_qos_priority(void __iomem *base, uint32_t qos_off,
-	uint32_t mport, uint32_t qos_delta,
-	struct msm_bus_noc_qos_priority *priority)
+static void noc_set_qos_limit_sat(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta, uint32_t sat)
 {
-	priority->p1 = (readl_relaxed(NOC_QOS_PRIORITYn_ADDR(base, qos_off,
-		mport, qos_delta)) & NOC_QOS_PRIORITYn_P1_BMSK) >>
-		NOC_QOS_PRIORITYn_P1_SHFT;
+	uint32_t reg_val, val;
+	reg_val = readl_relaxed(NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = sat << NOC_QOS_LIMITBW_SATn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_LIMITBW_SATn_BMSK))) |
+		(val & NOC_QOS_LIMITBW_SATn_BMSK)),
+		NOC_QOS_LIMITBWn_ADDR(base, qos_off, mport, qos_delta));
 
-	priority->p0 = (readl_relaxed(NOC_QOS_PRIORITYn_ADDR(base, qos_off,
-		mport, qos_delta)) & NOC_QOS_PRIORITYn_P0_BMSK) >>
-		NOC_QOS_PRIORITYn_P0_SHFT;
+	/* Ensure we set limiter sat before exiting*/
+	wmb();
+}
+
+static void noc_set_qos_limiter(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta,
+		struct msm_bus_noc_limiter *lim, uint32_t lim_en)
+{
+	noc_enable_qos_limiter(base, qos_off, mport, qos_delta, 0);
+	noc_set_qos_limit_bw(base, qos_off, mport, qos_delta, lim->bw);
+	noc_set_qos_limit_sat(base, qos_off, mport, qos_delta, lim->sat);
+	noc_enable_qos_limiter(base, qos_off, mport, qos_delta, lim_en);
+}
+
+static void noc_set_qos_regulator(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta,
+		struct msm_bus_noc_regulator *reg,
+		struct msm_bus_noc_regulator_mode *reg_mode)
+{
+	uint32_t reg_val, val;
+
+	reg_val = readl_relaxed(NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport,
+		qos_delta)) & (NOC_QOS_REGUL0CTL_WRENn_BMSK |
+						NOC_QOS_REGUL0CTL_RDENn_BMSK);
+
+	writel_relaxed((reg_val & (~(NOC_QOS_REGUL0CTL_WRENn_BMSK |
+						NOC_QOS_REGUL0CTL_RDENn_BMSK))),
+		NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport, qos_delta));
+
+	/* Ensure qos regulator is disabled before configuring */
+	wmb();
+
+	reg_val = readl_relaxed(NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport,
+		qos_delta)) & NOC_QOS_REGUL0CTL_HI_PRIOn_BMSK;
+	val = reg->hi_prio << NOC_QOS_REGUL0CTL_HI_PRIOn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_REGUL0CTL_HI_PRIOn_BMSK))) |
+		(val & NOC_QOS_REGUL0CTL_HI_PRIOn_BMSK)),
+		NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport, qos_delta));
+
+	reg_val = readl_relaxed(NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport,
+		qos_delta)) & NOC_QOS_REGUL0CTL_LW_PRIOn_BMSK;
+	val = reg->low_prio << NOC_QOS_REGUL0CTL_LW_PRIOn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_REGUL0CTL_LW_PRIOn_BMSK))) |
+		(val & NOC_QOS_REGUL0CTL_LW_PRIOn_BMSK)),
+		NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport, qos_delta));
+
+	reg_val = readl_relaxed(NOC_QOS_REGUL0BWn_ADDR(base, qos_off, mport,
+		qos_delta)) & NOC_QOS_REGUL0BW_BWn_BMSK;
+	val = reg->bw << NOC_QOS_REGUL0BW_BWn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_REGUL0BW_BWn_BMSK))) |
+		(val & NOC_QOS_REGUL0BW_BWn_BMSK)),
+		NOC_QOS_REGUL0BWn_ADDR(base, qos_off, mport, qos_delta));
+
+	reg_val = readl_relaxed(NOC_QOS_REGUL0BWn_ADDR(base, qos_off, mport,
+		qos_delta)) & NOC_QOS_REGUL0BW_SATn_BMSK;
+	val = reg->sat << NOC_QOS_REGUL0BW_SATn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_REGUL0BW_SATn_BMSK))) |
+		(val & NOC_QOS_REGUL0BW_SATn_BMSK)),
+		NOC_QOS_REGUL0BWn_ADDR(base, qos_off, mport, qos_delta));
+
+	/* Ensure regulator is configured before possibly enabling */
+	wmb();
+
+	reg_val = readl_relaxed(NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = reg_mode->write << NOC_QOS_REGUL0CTL_WRENn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_REGUL0CTL_WRENn_BMSK))) |
+		(val & NOC_QOS_REGUL0CTL_WRENn_BMSK)),
+		NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport, qos_delta));
+
+	reg_val = readl_relaxed(NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = reg_mode->read << NOC_QOS_REGUL0CTL_RDENn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_REGUL0CTL_RDENn_BMSK))) |
+		(val & NOC_QOS_REGUL0CTL_RDENn_BMSK)),
+		NOC_QOS_REGUL0CTLn_ADDR(base, qos_off, mport, qos_delta));
+
+	/* Ensure regulator is ready before exiting */
+	wmb();
+}
+
+static void noc_set_qos_forwarding(void __iomem *base, uint32_t qos_off,
+		uint32_t mport, uint32_t qos_delta,
+		bool urg_fwd_en)
+{
+	uint32_t reg_val, val;
+
+	reg_val = readl_relaxed(NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport,
+		qos_delta));
+	val = (urg_fwd_en ? 1:0) << NOC_QOS_MCTL_URGFWD_ENn_SHFT;
+	writel_relaxed(((reg_val & (~(NOC_QOS_MCTL_URGFWD_ENn_BMSK))) |
+		(val & NOC_QOS_MCTL_URGFWD_ENn_BMSK)),
+		NOC_QOS_MAINCTL_LOWn_ADDR(base, qos_off, mport, qos_delta));
+
+	/* Ensure qos priority is set before exiting */
+	wmb();
 }
 
 void msm_bus_noc_get_qos_bw(void __iomem *base, uint32_t qos_off,
@@ -336,28 +359,18 @@ void msm_bus_noc_get_qos_bw(void __iomem *base, uint32_t qos_off,
 	}
 }
 
-static bool msm_bus_noc_update_bw_reg(int mode)
-{
-	bool ret = false;
-
-	if ((mode == NOC_QOS_MODE_LIMITER) ||
-			(mode == NOC_QOS_MODE_REGULATOR))
-		ret = true;
-
-	return ret;
-}
-
 static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
+				struct msm_bus_node_device_type *fabdev,
 				void __iomem *qos_base,
 				uint32_t qos_off, uint32_t qos_delta,
 				uint32_t qos_freq)
 {
-	struct msm_bus_noc_qos_priority prio;
+	struct msm_bus_noc_qos_params *qos_params;
 	int ret = 0;
 	int i;
+	unsigned long flags;
 
-	prio.p1 = info->node_info->qos_params.prio1;
-	prio.p0 = info->node_info->qos_params.prio0;
+	qos_params = &info->node_info->qos_params;
 
 	if (!info->node_info->qport) {
 		MSM_BUS_DBG("No QoS Ports to init\n");
@@ -365,215 +378,96 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 		goto err_qos_init;
 	}
 
+	if (!qm_base) {
+		qm_base = ioremap_nocache(QM_BASE, 0x4000);
+		if (!qm_base) {
+			MSM_BUS_ERR("%s: Error remapping address 0x%zx",
+				__func__, (size_t)QM_BASE);
+			ret = -ENOMEM;
+			goto err_qos_init;
+		}
+	}
+
+	spin_lock_irqsave(&noc_lock, flags);
+
+	if (fabdev->node_info->id == MSM_BUS_FAB_MEM_NOC)
+		memnoc_qos_base = qos_base;
+
 	for (i = 0; i < info->node_info->num_qports; i++) {
-		if (info->node_info->qos_params.mode != NOC_QOS_MODE_BYPASS) {
-			noc_set_qos_priority(qos_base, qos_off,
-					info->node_info->qport[i], qos_delta,
-					&prio);
-
-			if (info->node_info->qos_params.mode !=
-							NOC_QOS_MODE_FIXED) {
-				struct msm_bus_noc_qos_bw qbw;
-
-				qbw.ws = info->node_info->qos_params.ws;
-				qbw.bw = 0;
-				msm_bus_noc_set_qos_bw(qos_base, qos_off,
-					qos_freq,
+		noc_set_qos_dflt_prio(qos_base, qos_off,
 					info->node_info->qport[i],
 					qos_delta,
-					info->node_info->qos_params.mode,
-					&qbw);
-			}
-		}
+					qos_params->prio_dflt);
 
-		noc_set_qos_mode(qos_base, qos_off, info->node_info->qport[i],
-				qos_delta, info->node_info->qos_params.mode,
-				(1 << info->node_info->qos_params.mode));
+		noc_set_qos_limiter(qos_base, qos_off,
+					info->node_info->qport[i],
+					qos_delta,
+					&qos_params->limiter,
+					qos_params->limiter_en);
+
+		noc_set_qos_regulator(qos_base, qos_off,
+					info->node_info->qport[i],
+					qos_delta,
+					&qos_params->reg,
+					&qos_params->reg_mode);
+
+		noc_set_qos_forwarding(qos_base, qos_off,
+					info->node_info->qport[i],
+					qos_delta,
+					qos_params->urg_fwd_en);
 	}
+	spin_unlock_irqrestore(&noc_lock, flags);
+
 err_qos_init:
 	return ret;
 }
 
-static int msm_bus_noc_set_bw(struct msm_bus_node_device_type *dev,
-				void __iomem *qos_base,
-				uint32_t qos_off, uint32_t qos_delta,
-				uint32_t qos_freq)
+int msm_bus_noc_throttle_wa(bool enable)
 {
-	int ret = 0;
-	uint64_t bw = 0;
-	int i;
-	struct msm_bus_node_info_type *info = dev->node_info;
+	unsigned long flags;
 
-	if (info && info->num_qports &&
-		((info->qos_params.mode == NOC_QOS_MODE_REGULATOR) ||
-		(info->qos_params.mode ==
-			NOC_QOS_MODE_LIMITER))) {
-		struct msm_bus_noc_qos_bw qos_bw;
+	spin_lock_irqsave(&noc_lock, flags);
 
-		bw = msm_bus_div64(info->num_qports,
-				dev->node_bw[ACTIVE_CTX].sum_ab);
-
-		for (i = 0; i < info->num_qports; i++) {
-			if (!info->qport) {
-				MSM_BUS_DBG("No qos ports to update!\n");
-				break;
-			}
-
-			qos_bw.bw = bw;
-			qos_bw.ws = info->qos_params.ws;
-			msm_bus_noc_set_qos_bw(qos_base, qos_off, qos_freq,
-				info->qport[i], qos_delta,
-				(1 << info->qos_params.mode), &qos_bw);
-			MSM_BUS_DBG("NOC: QoS: Update mas_bw: ws: %u\n",
-				qos_bw.ws);
-		}
-	}
-	return ret;
-}
-
-static int msm_bus_noc_set_lim_mode(struct msm_bus_node_device_type *info,
-				void __iomem *qos_base, uint32_t qos_off,
-				uint32_t qos_delta, uint32_t qos_freq,
-				u64 lim_bw)
-{
-	int i;
-
-	if (info && info->node_info->num_qports) {
-		struct msm_bus_noc_qos_bw qos_bw;
-
-		if (lim_bw != info->node_info->lim_bw) {
-			for (i = 0; i < info->node_info->num_qports; i++) {
-				qos_bw.bw = lim_bw;
-				qos_bw.ws = info->node_info->qos_params.ws;
-					msm_bus_noc_set_qos_bw(qos_base,
-					qos_off, qos_freq,
-					info->node_info->qport[i], qos_delta,
-					(1 << NOC_QOS_MODE_LIMITER), &qos_bw);
-			}
-			info->node_info->lim_bw = lim_bw;
-		}
-
-		for (i = 0; i < info->node_info->num_qports; i++) {
-			noc_set_qos_mode(qos_base, qos_off,
-					info->node_info->qport[i],
-					qos_delta,
-					NOC_QOS_MODE_LIMITER,
-					(1 << NOC_QOS_MODE_LIMITER));
-		}
+	if (!qm_base) {
+		MSM_BUS_ERR("QM CFG base address not found!");
+		goto noc_throttle_exit;
 	}
 
+	if (enable) {
+		noc_set_qm_th_lvl_cfg(qm_base, 0x1000, 8, 0x4, 0x3, 0x1);
+		noc_set_qm_th_lvl_cfg(qm_base, 0x1000, 9, 0x4, 0x3, 0x1);
+	} else {
+		noc_set_qm_th_lvl_cfg(qm_base, 0x1000, 8, 0x4, 0, 0);
+		noc_set_qm_th_lvl_cfg(qm_base, 0x1000, 9, 0x4, 0, 0);
+	}
+
+noc_throttle_exit:
+	spin_unlock_irqrestore(&noc_lock, flags);
 	return 0;
 }
+EXPORT_SYMBOL(msm_bus_noc_throttle_wa);
 
-static int msm_bus_noc_set_reg_mode(struct msm_bus_node_device_type *info,
-				void __iomem *qos_base, uint32_t qos_off,
-				uint32_t qos_delta, uint32_t qos_freq,
-				u64 lim_bw)
+int msm_bus_noc_priority_wa(bool enable)
 {
-	int i;
+	unsigned long flags;
 
-	if (info && info->node_info->num_qports) {
-		struct msm_bus_noc_qos_priority prio;
-		struct msm_bus_noc_qos_bw qos_bw;
-
-		for (i = 0; i < info->node_info->num_qports; i++) {
-			prio.p1 =
-				info->node_info->qos_params.reg_prio1;
-			prio.p0 =
-				info->node_info->qos_params.reg_prio0;
-			noc_set_qos_priority(qos_base, qos_off,
-					info->node_info->qport[i],
-					qos_delta,
-					&prio);
-		}
-
-		if (lim_bw != info->node_info->lim_bw) {
-			for (i = 0; i < info->node_info->num_qports; i++) {
-				qos_bw.bw = lim_bw;
-				qos_bw.ws = info->node_info->qos_params.ws;
-				msm_bus_noc_set_qos_bw(qos_base, qos_off,
-					qos_freq,
-					info->node_info->qport[i], qos_delta,
-					(1 << NOC_QOS_MODE_REGULATOR), &qos_bw);
-			}
-			info->node_info->lim_bw = lim_bw;
-		}
-
-		for (i = 0; i < info->node_info->num_qports; i++) {
-			noc_set_qos_mode(qos_base, qos_off,
-					info->node_info->qport[i],
-					qos_delta,
-					NOC_QOS_MODE_REGULATOR,
-					(1 << NOC_QOS_MODE_REGULATOR));
-		}
+	spin_lock_irqsave(&noc_lock, flags);
+	if (!memnoc_qos_base) {
+		MSM_BUS_ERR("Memnoc QoS Base address not found!");
+		goto noc_priority_exit;
 	}
+
+	if (enable)
+		noc_set_qos_dflt_prio(memnoc_qos_base, 0x10000, 0,
+								0x1000, 7);
+	else
+		noc_set_qos_dflt_prio(memnoc_qos_base, 0x10000, 0,
+								0x1000, 6);
+noc_priority_exit:
+	spin_unlock_irqrestore(&noc_lock, flags);
 	return 0;
 }
-
-static int msm_bus_noc_set_def_mode(struct msm_bus_node_device_type *info,
-				void __iomem *qos_base, uint32_t qos_off,
-				uint32_t qos_delta, uint32_t qos_freq,
-				u64 lim_bw)
-{
-	int i;
-
-	for (i = 0; i < info->node_info->num_qports; i++) {
-		if (info->node_info->qos_params.mode ==
-						NOC_QOS_MODE_FIXED) {
-			struct msm_bus_noc_qos_priority prio;
-
-			prio.p1 =
-				info->node_info->qos_params.prio1;
-			prio.p0 =
-				info->node_info->qos_params.prio0;
-			noc_set_qos_priority(qos_base, qos_off,
-					info->node_info->qport[i],
-					qos_delta, &prio);
-		}
-		noc_set_qos_mode(qos_base, qos_off,
-			info->node_info->qport[i],
-			qos_delta,
-			info->node_info->qos_params.mode,
-			(1 << info->node_info->qos_params.mode));
-	}
-	return 0;
-}
-
-static int msm_bus_noc_limit_mport(struct msm_bus_node_device_type *info,
-				void __iomem *qos_base, uint32_t qos_off,
-				uint32_t qos_delta, uint32_t qos_freq,
-				int enable_lim, u64 lim_bw)
-{
-	int ret = 0;
-
-	if (!(info && info->node_info->num_qports)) {
-		MSM_BUS_ERR("Invalid Node info or no Qports to program");
-		ret = -ENXIO;
-		goto exit_limit_mport;
-	}
-
-	if (lim_bw) {
-		switch (enable_lim) {
-		case THROTTLE_REG:
-			msm_bus_noc_set_reg_mode(info, qos_base, qos_off,
-						qos_delta, qos_freq, lim_bw);
-			break;
-		case THROTTLE_ON:
-			msm_bus_noc_set_lim_mode(info, qos_base, qos_off,
-						qos_delta, qos_freq, lim_bw);
-			break;
-		default:
-			msm_bus_noc_set_def_mode(info, qos_base, qos_off,
-						qos_delta, qos_freq, lim_bw);
-			break;
-		}
-	} else
-		msm_bus_noc_set_def_mode(info, qos_base, qos_off,
-					qos_delta, qos_freq, lim_bw);
-
-exit_limit_mport:
-	return ret;
-}
+EXPORT_SYMBOL(msm_bus_noc_priority_wa);
 
 int msm_bus_noc_set_ops(struct msm_bus_node_device_type *bus_dev)
 {
@@ -581,9 +475,6 @@ int msm_bus_noc_set_ops(struct msm_bus_node_device_type *bus_dev)
 		return -ENODEV;
 
 	bus_dev->fabdev->noc_ops.qos_init = msm_bus_noc_qos_init;
-	bus_dev->fabdev->noc_ops.set_bw = msm_bus_noc_set_bw;
-	bus_dev->fabdev->noc_ops.limit_mport = msm_bus_noc_limit_mport;
-	bus_dev->fabdev->noc_ops.update_bw_reg = msm_bus_noc_update_bw_reg;
 
 	return 0;
 }

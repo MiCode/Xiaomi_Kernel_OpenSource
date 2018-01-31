@@ -40,6 +40,7 @@ struct bpf_reg_state {
 	 */
 	s64 min_value;
 	u64 max_value;
+	bool value_from_signed;
 };
 
 enum bpf_stack_slot_type {
@@ -66,7 +67,11 @@ struct bpf_verifier_state_list {
 };
 
 struct bpf_insn_aux_data {
-	enum bpf_reg_type ptr_type;	/* pointer type for load/store insns */
+	union {
+		enum bpf_reg_type ptr_type;     /* pointer type for load/store insns */
+		struct bpf_map *map_ptr;        /* pointer for call insn into lookup_elem */
+	};
+	bool seen; /* this insn was processed by the verifier */
 };
 
 #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -325,9 +325,9 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.core = 6,
 		.major = 3,
 		.minor = 0,
-		.patchid = ANY_ID,
-		.features = ADRENO_64BIT |
-			ADRENO_GPMU | ADRENO_RPMH,
+		.patchid = 0,
+		.features = ADRENO_64BIT | ADRENO_RPMH |
+			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_LM,
 		.sqefw_name = "a630_sqe.fw",
 		.zap_name = "a630_zap",
 		.gpudev = &adreno_a6xx_gpudev,
@@ -335,9 +335,48 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
 		.gpmufw_name = "a630_gmu.bin",
-		.gpmu_major = 0x0,
-		.gpmu_minor = 0x005,
+		.gpmu_major = 0x1,
+		.gpmu_minor = 0x003,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
+	},
+	{
+		.gpurev = ADRENO_REV_A630,
+		.core = 6,
+		.major = 3,
+		.minor = 0,
+		.patchid = ANY_ID,
+		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_IFPC |
+			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION |
+			ADRENO_IOCOHERENT | ADRENO_PREEMPTION,
+		.sqefw_name = "a630_sqe.fw",
+		.zap_name = "a630_zap",
+		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_size = SZ_1M,
+		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
+		.gpmufw_name = "a630_gmu.bin",
+		.gpmu_major = 0x1,
+		.gpmu_minor = 0x003,
+		.gpmu_tsens = 0x000C000D,
+		.max_power = 5448,
+	},
+	{
+		.gpurev = ADRENO_REV_A615,
+		.core = 6,
+		.major = 1,
+		.minor = 5,
+		.patchid = ANY_ID,
+		.features = ADRENO_64BIT | ADRENO_RPMH |
+			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC,
+		.sqefw_name = "a630_sqe.fw",
+		.zap_name = "a615_zap",
+		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_size = SZ_512K,
+		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
+		.gpmufw_name = "a630_gmu.bin",
+		.gpmu_major = 0x1,
+		.gpmu_minor = 0x003,
 	},
 };

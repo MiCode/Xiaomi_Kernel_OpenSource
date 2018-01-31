@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/err.h>
@@ -38,8 +40,6 @@
 #define DISP_CC_MISC_CMD	0x8000
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
-#define F_SLEW(f, s, h, m, n, src_freq) { (f), (s), (2 * (h) - 1), (m), (n), \
-					(src_freq) }
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_CX_NUM, 1, vdd_corner);
 
@@ -80,8 +80,8 @@ static const struct parent_map disp_cc_parent_map_1[] = {
 
 static const char * const disp_cc_parent_names_1[] = {
 	"bi_tcxo",
-	"dp_phy_pll_link_clk",
-	"dp_phy_pll_vco_div_clk",
+	"dp_link_clk_divsel_ten",
+	"dp_vco_divided_clk_src_mux",
 	"core_bi_pll_test_se",
 };
 
@@ -126,13 +126,18 @@ static const char * const disp_cc_parent_names_4[] = {
 };
 
 static struct pll_vco fabia_vco[] = {
-	{ 250000000, 2000000000, 0 },
+	{ 249600000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
 };
 
 static const struct pll_config disp_cc_pll0_config = {
+	.l = 0x15,
+	.frac = 0x7c00,
+};
+
+static const struct pll_config disp_cc_pll0_config_v2 = {
 	.l = 0x2c,
-	.frac = 0xcaab,
+	.frac = 0xcaaa,
 };
 
 static struct clk_alpha_pll disp_cc_pll0 = {
@@ -217,12 +222,11 @@ static struct clk_rcg2 disp_cc_mdss_dp_aux_clk_src = {
 	},
 };
 
-/* Need to get the exact frequencies that are supported */
 static const struct freq_tbl ftbl_disp_cc_mdss_dp_crypto_clk_src[] = {
-	F( 108000000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
-	F( 180000000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
-	F( 360000000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
-	F( 540000000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 108000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 180000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 360000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 540000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
 	{ }
 };
 
@@ -236,23 +240,22 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
 		.name = "disp_cc_mdss_dp_crypto_clk_src",
 		.parent_names = disp_cc_parent_names_1,
 		.num_parents = 4,
-		.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
+		.flags = CLK_GET_RATE_NOCACHE,
 		.ops = &clk_rcg2_ops,
 		VDD_CX_FMAX_MAP5(
-			MIN, 12800000,
-			LOWER, 108000000,
-			LOW, 180000000,
-			LOW_L1, 360000000,
-			NOMINAL, 540000000),
+			MIN, 12800,
+			LOWER, 108000,
+			LOW, 180000,
+			LOW_L1, 360000,
+			NOMINAL, 540000),
 	},
 };
 
-/* Need to get the exact frequencies that are supported */
 static const struct freq_tbl ftbl_disp_cc_mdss_dp_link_clk_src[] = {
-	F_SLEW( 162000000, P_DP_PHY_PLL_LINK_CLK,   2,   0,   0,  324000000),
-	F_SLEW( 270000000, P_DP_PHY_PLL_LINK_CLK,   2,   0,   0,  540000000),
-	F_SLEW( 540000000, P_DP_PHY_PLL_LINK_CLK,   2,   0,   0, 1080000000),
-	F_SLEW( 810000000, P_DP_PHY_PLL_LINK_CLK,   2,   0,   0, 1620000000),
+	F( 162000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 270000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 540000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 810000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
 	{ }
 };
 
@@ -269,11 +272,11 @@ static struct clk_rcg2 disp_cc_mdss_dp_link_clk_src = {
 		.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
 		.ops = &clk_rcg2_ops,
 		VDD_CX_FMAX_MAP5(
-			MIN, 19200000,
-			LOWER, 162000000,
-			LOW, 270000000,
-			LOW_L1, 540000000,
-			NOMINAL, 810000000),
+			MIN, 19200,
+			LOWER, 162000,
+			LOW, 270000,
+			LOW_L1, 540000,
+			NOMINAL, 810000),
 	},
 };
 
@@ -284,17 +287,15 @@ static struct clk_rcg2 disp_cc_mdss_dp_pixel1_clk_src = {
 	.parent_map = disp_cc_parent_map_1,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_mdss_dp_pixel1_clk_src",
-		.parent_names = (const char *[]){
-			"dp_phy_pll_vco_div_clk",
-		},
-		.num_parents = 1,
+		.parent_names = disp_cc_parent_names_1,
+		.num_parents = 4,
 		.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
 		.ops = &clk_dp_ops,
 		VDD_CX_FMAX_MAP4(
-			MIN, 19200000,
-			LOWER, 202500000,
-			LOW, 296735905,
-			LOW_L1, 675000000),
+			MIN, 19200,
+			LOWER, 202500,
+			LOW, 296735,
+			LOW_L1, 675000),
 	},
 };
 
@@ -305,17 +306,15 @@ static struct clk_rcg2 disp_cc_mdss_dp_pixel_clk_src = {
 	.parent_map = disp_cc_parent_map_1,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_mdss_dp_pixel_clk_src",
-		.parent_names = (const char *[]){
-			"dp_phy_pll_vco_div_clk",
-		},
-		.num_parents = 1,
+		.parent_names = disp_cc_parent_names_1,
+		.num_parents = 4,
 		.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
 		.ops = &clk_dp_ops,
 		VDD_CX_FMAX_MAP4(
-			MIN, 19200000,
-			LOWER, 202500000,
-			LOW, 296735905,
-			LOW_L1, 675000000),
+			MIN, 19200,
+			LOWER, 202500,
+			LOW, 296735,
+			LOW_L1, 675000),
 	},
 };
 
@@ -368,6 +367,33 @@ static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src[] = {
 	F(275000000, P_DISP_CC_PLL0_OUT_MAIN, 1.5, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(412500000, P_DISP_CC_PLL0_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src_sdm845_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(85714286, P_GPLL0_OUT_MAIN, 7, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
+	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
+	F(344000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
+	F(430000000, P_DISP_CC_PLL0_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src_sdm670[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(85714286, P_GPLL0_OUT_MAIN, 7, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
+	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(286666667, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
+	F(344000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
+	F(430000000, P_DISP_CC_PLL0_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -437,6 +463,15 @@ static const struct freq_tbl ftbl_disp_cc_mdss_rot_clk_src[] = {
 	F(165000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(412500000, P_DISP_CC_PLL0_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_disp_cc_mdss_rot_clk_src_sdm845_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
+	F(344000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
+	F(430000000, P_DISP_CC_PLL0_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -664,23 +699,7 @@ static struct clk_branch disp_cc_mdss_dp_link_clk = {
 	},
 };
 
-static struct clk_regmap_div disp_cc_mdss_dp_link_div_clk_src = {
-	.reg = 0x2150,
-	.shift = 0,
-	.width = 2,
-	.clkr = {
-		.hw.init = &(struct clk_init_data){
-			.name = "disp_cc_mdss_dp_link_div_clk_src",
-			.parent_names = (const char *[]){
-				"disp_cc_mdss_dp_link_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
-			.ops = &clk_regmap_div_ops,
-		},
-	},
-};
-
+/* reset state of disp_cc_mdss_dp_link_div_clk_src divider is 0x3 (div 4) */
 static struct clk_branch disp_cc_mdss_dp_link_intf_clk = {
 	.halt_reg = 0x2044,
 	.halt_check = BRANCH_HALT,
@@ -690,10 +709,10 @@ static struct clk_branch disp_cc_mdss_dp_link_intf_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_mdss_dp_link_intf_clk",
 			.parent_names = (const char *[]){
-				"disp_cc_mdss_dp_link_div_clk_src",
+				"disp_cc_mdss_dp_link_clk_src",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
+			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -955,8 +974,6 @@ static struct clk_regmap *disp_cc_sdm845_clocks[] = {
 					&disp_cc_mdss_dp_crypto_clk_src.clkr,
 	[DISP_CC_MDSS_DP_LINK_CLK] = &disp_cc_mdss_dp_link_clk.clkr,
 	[DISP_CC_MDSS_DP_LINK_CLK_SRC] = &disp_cc_mdss_dp_link_clk_src.clkr,
-	[DISP_CC_MDSS_DP_LINK_DIV_CLK_SRC] =
-					&disp_cc_mdss_dp_link_div_clk_src.clkr,
 	[DISP_CC_MDSS_DP_LINK_INTF_CLK] = &disp_cc_mdss_dp_link_intf_clk.clkr,
 	[DISP_CC_MDSS_DP_PIXEL1_CLK] = &disp_cc_mdss_dp_pixel1_clk.clkr,
 	[DISP_CC_MDSS_DP_PIXEL1_CLK_SRC] =
@@ -987,8 +1004,6 @@ static struct clk_regmap *disp_cc_sdm845_clocks[] = {
 };
 
 static const struct qcom_reset_map disp_cc_sdm845_resets[] = {
-	[DISP_CC_MDSS_CORE_BCR] = { 0x2000 },
-	[DISP_CC_MDSS_GCC_CLOCKS_BCR] = { 0x4000 },
 	[DISP_CC_MDSS_RSCC_BCR] = { 0x5000 },
 };
 
@@ -1010,9 +1025,91 @@ static const struct qcom_cc_desc disp_cc_sdm845_desc = {
 
 static const struct of_device_id disp_cc_sdm845_match_table[] = {
 	{ .compatible = "qcom,dispcc-sdm845" },
+	{ .compatible = "qcom,dispcc-sdm845-v2" },
+	{ .compatible = "qcom,dispcc-sdm670" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, disp_cc_sdm845_match_table);
+
+static void disp_cc_sdm845_fixup_sdm845v2(struct regmap *regmap)
+{
+	clk_fabia_pll_configure(&disp_cc_pll0, regmap,
+		&disp_cc_pll0_config_v2);
+	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		180000000;
+	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		275000000;
+	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		328580000;
+	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		180000000;
+	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		275000000;
+	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		328580000;
+	disp_cc_mdss_dp_pixel1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		337500;
+	disp_cc_mdss_dp_pixel_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		337500;
+	disp_cc_mdss_mdp_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_mdp_clk_src_sdm845_v2;
+	disp_cc_mdss_mdp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		171428571;
+	disp_cc_mdss_mdp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		344000000;
+	disp_cc_mdss_mdp_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		430000000;
+	disp_cc_mdss_pclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		280000000;
+	disp_cc_mdss_pclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		430000000;
+	disp_cc_mdss_pclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		430000000;
+	disp_cc_mdss_pclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		280000000;
+	disp_cc_mdss_pclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		430000000;
+	disp_cc_mdss_pclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		430000000;
+	disp_cc_mdss_rot_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_rot_clk_src_sdm845_v2;
+	disp_cc_mdss_rot_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		171428571;
+	disp_cc_mdss_rot_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		344000000;
+	disp_cc_mdss_rot_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		430000000;
+}
+
+static void disp_cc_sdm845_fixup_sdm670(struct regmap *regmap)
+{
+	disp_cc_sdm845_fixup_sdm845v2(regmap);
+
+	disp_cc_mdss_mdp_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_mdp_clk_src_sdm670;
+	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		358000000;
+	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		358000000;
+}
+
+static int disp_cc_sdm845_fixup(struct platform_device *pdev,
+						struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,dispcc-sdm845-v2"))
+		disp_cc_sdm845_fixup_sdm845v2(regmap);
+	else if (!strcmp(compat, "qcom,dispcc-sdm670"))
+		disp_cc_sdm845_fixup_sdm670(regmap);
+
+	return 0;
+}
 
 static int disp_cc_sdm845_probe(struct platform_device *pdev)
 {
@@ -1038,6 +1135,10 @@ static int disp_cc_sdm845_probe(struct platform_device *pdev)
 	/* Enable clock gating for DSI and MDP clocks */
 	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x7f0, 0x7f0);
 
+	ret = disp_cc_sdm845_fixup(pdev, regmap);
+	if (ret)
+		return ret;
+
 	ret = qcom_cc_really_probe(pdev, &disp_cc_sdm845_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register Display CC clocks\n");
@@ -1060,7 +1161,7 @@ static int __init disp_cc_sdm845_init(void)
 {
 	return platform_driver_register(&disp_cc_sdm845_driver);
 }
-core_initcall(disp_cc_sdm845_init);
+subsys_initcall(disp_cc_sdm845_init);
 
 static void __exit disp_cc_sdm845_exit(void)
 {

@@ -84,7 +84,7 @@ static struct usb_interface_descriptor uvc_control_intf = {
 	.bNumEndpoints		= 1,
 	.bInterfaceClass	= USB_CLASS_VIDEO,
 	.bInterfaceSubClass	= UVC_SC_VIDEOCONTROL,
-	.bInterfaceProtocol	= 0x00,
+	.bInterfaceProtocol	= 0x01,
 	.iInterface		= 0,
 };
 
@@ -594,6 +594,14 @@ uvc_function_bind(struct usb_configuration *c, struct usb_function *f)
 	opts->streaming_maxpacket = clamp(opts->streaming_maxpacket, 1U, 3072U);
 	opts->streaming_maxburst = min(opts->streaming_maxburst, 15U);
 
+	/* For SS, wMaxPacketSize has to be 1024 if bMaxBurst is not 0 */
+	if (opts->streaming_maxburst &&
+	    (opts->streaming_maxpacket % 1024) != 0) {
+		opts->streaming_maxpacket = roundup(opts->streaming_maxpacket, 1024);
+		INFO(cdev, "overriding streaming_maxpacket to %d\n",
+		     opts->streaming_maxpacket);
+	}
+
 	/* Fill in the FS/HS/SS Video Streaming specific descriptors from the
 	 * module parameters.
 	 *
@@ -788,16 +796,18 @@ static struct usb_function_instance *uvc_alloc_inst(void)
 	cd->bmControls[2]		= 0;
 
 	pd = &opts->uvc_processing;
-	pd->bLength			= UVC_DT_PROCESSING_UNIT_SIZE(2);
+	pd->bLength			= UVC_DT_PROCESSING_UNIT_SIZE(3);
 	pd->bDescriptorType		= USB_DT_CS_INTERFACE;
 	pd->bDescriptorSubType		= UVC_VC_PROCESSING_UNIT;
 	pd->bUnitID			= 2;
 	pd->bSourceID			= 1;
 	pd->wMaxMultiplier		= cpu_to_le16(16*1024);
-	pd->bControlSize		= 2;
-	pd->bmControls[0]		= 1;
-	pd->bmControls[1]		= 0;
+	pd->bControlSize		= 3;
+	pd->bmControls[0]		= 64;
+	pd->bmControls[1]		= 16;
+	pd->bmControls[2]		= 1;
 	pd->iProcessing			= 0;
+	pd->bmVideoStandards		= 0;
 
 	od = &opts->uvc_output_terminal;
 	od->bLength			= UVC_DT_OUTPUT_TERMINAL_SIZE;
@@ -923,5 +933,18 @@ static struct usb_function *uvc_alloc(struct usb_function_instance *fi)
 }
 
 DECLARE_USB_FUNCTION_INIT(uvc, uvc_alloc_inst, uvc_alloc);
+
+static int uvc_init(void)
+{
+	return usb_function_register(&uvcusb_func);
+}
+module_init(uvc_init);
+
+static void __exit uvc_exit(void)
+{
+	usb_function_unregister(&uvcusb_func);
+}
+module_exit(uvc_exit);
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Laurent Pinchart");

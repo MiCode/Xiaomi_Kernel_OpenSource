@@ -204,6 +204,7 @@ struct sde_dbg_buf {
  * ram segment size allocation. Each rotator context can be any priority. A
  * incremental timestamp is used to identify and assigned to each context.
  * @list: list of pending context
+ * @sequence_id: unique sequence identifier for rotation request
  * @sbuf_mode: true if stream buffer is requested
  * @start_ctrl: start control register update value
  * @sys_cache_mode: sys cache mode register update value
@@ -216,8 +217,9 @@ struct sde_hw_rotator_context {
 	struct sde_rot_hw_resource *hwres;
 	enum   sde_rot_queue_prio q_id;
 	u32    session_id;
-	u32    *regdma_base;
-	u32    *regdma_wrptr;
+	u32    sequence_id;
+	char __iomem *regdma_base;
+	char __iomem *regdma_wrptr;
 	u32    timestamp;
 	struct completion rot_comp;
 	wait_queue_head_t regdma_waitq;
@@ -229,6 +231,7 @@ struct sde_hw_rotator_context {
 	bool   is_secure;
 	bool   is_traffic_shaping;
 	bool   sbuf_mode;
+	bool   abort;
 	u32    start_ctrl;
 	u32    sys_cache_mode;
 	u32    op_mode;
@@ -257,10 +260,10 @@ struct sde_hw_rotator_resource_info {
  * @sbuf_ctx: list of active sbuf context in FIFO order
  * @vid_trigger: video mode trigger select
  * @cmd_trigger: command mode trigger select
- * @inpixfmts: array of supported input pixel formats forucc
- * @num_inpixfmt: size of the supported input pixel format array
- * @outpixfmts: array of supported output pixel formats in fourcc
- * @num_outpixfmt: size of the supported output pixel formats array
+ * @inpixfmts: array of supported input pixel formats fourcc per mode
+ * @num_inpixfmt: size of the supported input pixel format array per mode
+ * @outpixfmts: array of supported output pixel formats in fourcc per mode
+ * @num_outpixfmt: size of the supported output pixel formats array per mode
  * @downscale_caps: capability string of scaling
  * @maxlinewidth: maximum line width supported
  */
@@ -278,7 +281,7 @@ struct sde_hw_rotator {
 	u32    cmd_queue[SDE_HW_ROT_REGDMA_RAM_SIZE];
 
 	/* Cmd Queue Write Ptr */
-	u32   *cmd_wr_ptr[ROT_QUEUE_MAX][SDE_HW_ROT_REGDMA_TOTAL_CTX];
+	char __iomem *cmd_wr_ptr[ROT_QUEUE_MAX][SDE_HW_ROT_REGDMA_TOTAL_CTX];
 
 	/* Rotator Context */
 	struct sde_hw_rotator_context
@@ -318,10 +321,10 @@ struct sde_hw_rotator {
 
 	struct list_head sbuf_ctx[ROT_QUEUE_MAX];
 
-	u32 *inpixfmts;
-	u32 num_inpixfmt;
-	u32 *outpixfmts;
-	u32 num_outpixfmt;
+	const u32 *inpixfmts[SDE_ROTATOR_MODE_MAX];
+	u32 num_inpixfmt[SDE_ROTATOR_MODE_MAX];
+	const u32 *outpixfmts[SDE_ROTATOR_MODE_MAX];
+	u32 num_outpixfmt[SDE_ROTATOR_MODE_MAX];
 	const char *downscale_caps;
 	u32 maxlinewidth;
 };
@@ -347,7 +350,7 @@ static inline u32 sde_hw_rotator_get_regdma_ctxidx(
  * @ctx: Rotator Context
  * return: base segment address
  */
-static inline u32 *sde_hw_rotator_get_regdma_segment_base(
+static inline char __iomem *sde_hw_rotator_get_regdma_segment_base(
 		struct sde_hw_rotator_context *ctx)
 {
 	SDEROT_DBG("regdma base @slot[%d]: %p\n",
@@ -363,11 +366,11 @@ static inline u32 *sde_hw_rotator_get_regdma_segment_base(
  * @ctx: Rotator Context
  * return: segment address
  */
-static inline u32 *sde_hw_rotator_get_regdma_segment(
+static inline char __iomem *sde_hw_rotator_get_regdma_segment(
 		struct sde_hw_rotator_context *ctx)
 {
 	u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
-	u32 *addr = ctx->regdma_wrptr;
+	char __iomem *addr = ctx->regdma_wrptr;
 
 	SDEROT_DBG("regdma slot[%d] ==> %p\n", idx, addr);
 	return addr;
@@ -381,7 +384,7 @@ static inline u32 *sde_hw_rotator_get_regdma_segment(
  */
 static inline void sde_hw_rotator_put_regdma_segment(
 		struct sde_hw_rotator_context *ctx,
-		u32 *wrptr)
+		char __iomem *wrptr)
 {
 	u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
 
@@ -402,7 +405,7 @@ static inline void sde_hw_rotator_put_ctx(struct sde_hw_rotator_context *ctx)
 	spin_lock_irqsave(&rot->rotisr_lock, flags);
 	rot->rotCtx[ctx->q_id][idx] = ctx;
 	if (ctx->sbuf_mode)
-		list_add_tail(&rot->sbuf_ctx[ctx->q_id], &ctx->list);
+		list_add_tail(&ctx->list, &rot->sbuf_ctx[ctx->q_id]);
 	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
 
 	SDEROT_DBG("rotCtx[%d][%d] <== ctx:%p | session-id:%d\n",

@@ -169,8 +169,21 @@ enum sde_reg_dma_blk {
 };
 
 /**
+ * enum sde_reg_dma_last_cmd_mode - defines enums for kick off mode.
+ * @REG_DMA_WAIT4_COMP: last_command api will wait for max of 1 msec allowing
+ *			reg dma trigger to complete.
+ * @REG_DMA_NOWAIT: last_command api will not wait for reg dma trigger
+ *		    completion.
+ */
+enum sde_reg_dma_last_cmd_mode {
+	REG_DMA_WAIT4_COMP,
+	REG_DMA_NOWAIT,
+};
+
+/**
  * struct sde_reg_dma_buffer - defines reg dma buffer structure.
  * @drm_gem_object *buf: drm gem handle for the buffer
+ * @asapce : pointer to address space
  * @buffer_size: buffer size
  * @index: write pointer index
  * @iova: device address
@@ -180,6 +193,7 @@ enum sde_reg_dma_blk {
  */
 struct sde_reg_dma_buffer {
 	struct drm_gem_object *buf;
+	struct msm_gem_address_space *aspace;
 	u32 buffer_size;
 	u32 index;
 	u32 iova;
@@ -251,6 +265,7 @@ struct sde_reg_dma_kickoff_cfg {
  * @alloc_reg_dma_buf: allocate reg dma buffer
  * @dealloc_reg_dma: de-allocate reg dma buffer
  * @reset_reg_dma_buf: reset the buffer to init state
+ * @last_command: notify control that last command is queued
  */
 struct sde_hw_reg_dma_ops {
 	int (*check_support)(enum sde_reg_dma_features feature,
@@ -262,6 +277,8 @@ struct sde_hw_reg_dma_ops {
 	struct sde_reg_dma_buffer* (*alloc_reg_dma_buf)(u32 size);
 	int (*dealloc_reg_dma)(struct sde_reg_dma_buffer *lut_buf);
 	int (*reset_reg_dma_buf)(struct sde_reg_dma_buffer *buf);
+	int (*last_command)(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q,
+			enum sde_reg_dma_last_cmd_mode mode);
 };
 
 /**
@@ -298,4 +315,9 @@ int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
  *                            who call this api.
  */
 struct sde_hw_reg_dma_ops *sde_reg_dma_get_ops(void);
+
+/**
+ * sde_reg_dma_deinit() - de-initialize the reg dma
+ */
+void sde_reg_dma_deinit(void);
 #endif /* _SDE_REG_DMA_H */

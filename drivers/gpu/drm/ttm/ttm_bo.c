@@ -1343,7 +1343,6 @@ int ttm_bo_clean_mm(struct ttm_bo_device *bdev, unsigned mem_type)
 		       mem_type);
 		return ret;
 	}
-	fence_put(man->move);
 
 	man->use_type = false;
 	man->has_type = false;
@@ -1354,6 +1353,9 @@ int ttm_bo_clean_mm(struct ttm_bo_device *bdev, unsigned mem_type)
 
 		ret = (*man->func->takedown)(man);
 	}
+
+	fence_put(man->move);
+	man->move = NULL;
 
 	return ret;
 }
@@ -1602,7 +1604,14 @@ EXPORT_SYMBOL(ttm_bo_unmap_virtual);
 int ttm_bo_wait(struct ttm_buffer_object *bo,
 		bool interruptible, bool no_wait)
 {
-	long timeout = no_wait ? 0 : 15 * HZ;
+	long timeout = 15 * HZ;
+
+	if (no_wait) {
+		if (reservation_object_test_signaled_rcu(bo->resv, true))
+			return 0;
+		else
+			return -EBUSY;
+	}
 
 	timeout = reservation_object_wait_timeout_rcu(bo->resv, true,
 						      interruptible, timeout);

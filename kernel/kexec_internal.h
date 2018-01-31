@@ -37,6 +37,8 @@ struct kexec_buf {
 };
 
 void kimage_file_post_load_cleanup(struct kimage *image);
+extern char kexec_purgatory[];
+extern size_t kexec_purgatory_size;
 #else /* CONFIG_KEXEC_FILE */
 static inline void kimage_file_post_load_cleanup(struct kimage *image) { }
 #endif /* CONFIG_KEXEC_FILE */

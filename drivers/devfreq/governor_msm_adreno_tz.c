@@ -236,7 +236,7 @@ static int tz_init_ca(struct devfreq_msm_adreno_tz_data *priv)
 {
 	unsigned int tz_ca_data[2];
 	struct scm_desc desc = {0};
-	unsigned int *tz_buf;
+	u8 *tz_buf;
 	int ret;
 
 	/* Set data for TZ */
@@ -281,7 +281,7 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 			scm_is_call_available(SCM_SVC_DCVS, TZ_UPDATE_ID_64) &&
 			scm_is_call_available(SCM_SVC_DCVS, TZ_RESET_ID_64)) {
 		struct scm_desc desc = {0};
-		unsigned int *tz_buf;
+		u8 *tz_buf;
 
 		if (!is_scm_armv8()) {
 			ret = scm_call(SCM_SVC_DCVS, TZ_INIT_ID_64,
@@ -548,10 +548,6 @@ static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 					(devfreq->profile),
 					struct msm_adreno_extended_profile,
 					profile);
-	if (devfreq == NULL) {
-		pr_err(TAG "NULL defvreq passed to tz_handler\n");
-		return -EFAULT;
-	}
 
 	switch (event) {
 	case DEVFREQ_GOV_START:

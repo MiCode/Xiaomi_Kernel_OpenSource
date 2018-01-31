@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/jiffies.h>
 #include "sched.h"
 #include <linux/of.h>
 #include <linux/sched/core_ctl.h>
@@ -33,7 +32,7 @@ static inline void boost_kick(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	if (!test_and_set_bit(BOOST_KICK, &rq->hmp_flags))
+	if (!test_and_set_bit(BOOST_KICK, &rq->walt_flags))
 		smp_send_reschedule(cpu);
 }
 
@@ -58,14 +57,14 @@ int got_boost_kick(void)
 	int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
 
-	return test_bit(BOOST_KICK, &rq->hmp_flags);
+	return test_bit(BOOST_KICK, &rq->walt_flags);
 }
 
 void clear_boost_kick(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	clear_bit(BOOST_KICK, &rq->hmp_flags);
+	clear_bit(BOOST_KICK, &rq->walt_flags);
 }
 
 /*
@@ -91,7 +90,7 @@ static void set_boost_policy(int type)
 		return;
 	}
 
-	if (min_possible_efficiency != max_possible_efficiency) {
+	if (sysctl_sched_is_big_little) {
 		boost_policy = SCHED_BOOST_ON_BIG;
 		return;
 	}
@@ -140,7 +139,6 @@ static void _sched_set_boost(int old_val, int type)
 	case RESTRAINED_BOOST:
 		freq_aggr_threshold_backup =
 			update_freq_aggregate_threshold(1);
-		mod_timer(&sched_grp_timer, jiffies + 1);
 		break;
 
 	default:

@@ -5,14 +5,17 @@ Qualcomm Technologies, Inc. Adreno GPU
 Required properties:
 - label:		A string used as a descriptive name for the device.
 - compatible:		Must be "qcom,kgsl-3d0" and "qcom,kgsl-3d"
-- reg:			Specifies the register base address and size. The second interval
-			specifies the shader memory base address and size.
+- reg:			Specifies the register base address and size, the shader memory
+			base address and size (if it exists), and the base address and size
+			of the CX_DBGC block (if it exists).
 - reg-names:		Resource names used for the physical address of device registers
 			and shader memory. "kgsl_3d0_reg_memory" gives the physical address
 			and length of device registers while "kgsl_3d0_shader_memory" gives
 			physical address and length of device shader memory.  If
 			specified, "qfprom_memory" gives the range for the efuse
-			registers used for various configuration options.
+			registers used for various configuration options. If specified,
+			"kgsl_3d0_cx_dbgc_memory" gives the physical address and length
+			of the CX DBGC block.
 - interrupts:		Interrupt mapping for GPU IRQ.
 - interrupt-names:	String property to describe the name of the interrupt.
 - qcom,id:		An integer used as an identification number for the device.
@@ -93,6 +96,7 @@ Optional Properties:
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
+- qcom,disable-wake-on-touch:   Boolean. Disables the GPU power up on a touch input event.
 - qcom,disable-busy-time-burst:
 				Boolean. Disables the busy time burst to avoid switching
 				of power level for large frames based on the busy time limit.
@@ -120,6 +124,12 @@ Optional Properties:
 				mask   - mask for the relevant bits in the efuse register.
 				shift  - number of bits to right shift to get the speed bin
 				value.
+- qcom,gpu-disable-fuse:	GPU disable fuse
+				<offset mask shift>
+				offset - offset of the efuse register from the base.
+				mask   - mask for the relevant bits in the efuse register.
+				shift  - number of bits to right shift to get the disable_gpu
+				fuse bit value.
 - qcom,highest-bank-bit:
 				Specify the bit of the highest DDR bank. This
 				is programmed into protected registers and also
@@ -142,6 +152,9 @@ Optional Properties:
 				Disables L2PC on masked CPUs when any of Graphics
 				rendering thread is running on masked CPUs.
 				Bit 0 is for CPU-0, bit 1 is for CPU-1...
+
+- qcom,l2pc-update-queue:
+				Disables L2PC on masked CPUs at queue time when it's true.
 
 - qcom,snapshot-size:
 				Specify the size of snapshot in bytes. This will override
@@ -184,6 +197,9 @@ GPU Quirks:
 - qcom,gpu-quirk-hfi-use-reg:
 				Use registers to replace DCVS HFI message to avoid GMU failure
 				to access system memory during IFPC
+- qcom,gpu-quirk-limit-uche-gbif-rw:
+				Limit number of read and write transactions from UCHE block to
+				GBIF to avoid possible deadlock between GBIF, SMMU and MEMNOC.
 
 KGSL Memory Pools:
 - qcom,gpu-mempools:		Container for sets of GPU mempools.Multiple sets
@@ -202,24 +218,47 @@ Properties:
 - qcom,mempool-allocate:	Allocate memory from the system memory when the
 				reserved pool exhausted.
 
+SOC Hardware revisions:
+- qcom,soc-hw-revisions:
+		Container of sets of SOC hardware revisions specified by
+		qcom,soc-hw-revision.
+Properties:
+- compatible:
+		Must be qcom,soc-hw-revisions.
+
+- qcom,soc-hw-revision:
+		Defines a SOC hardware revision.
+
+Properties:
+- reg:
+		Identifier for the hardware revision - must match the value read
+		from the hardware.
+- qcom,chipid:
+		GPU Chip ID to be used for this hardware revision.
+- qcom,gpu-quirk-*:
+		GPU quirks applicable for this hardware revision.
+
 GPU LLC slice info:
 - cache-slice-names:		List of LLC cache slices for GPU transactions
 				and pagetable walk.
 - cache-slices:			phandle to the system LLC driver, cache slice index.
 
+
+GPU coresight info:
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
 properties can be found in:
 Documentation/devicetree/bindings/coresight/coresight.txt
 
-- coresight-id           Unique integer identifier for the bus.
-- coresight-name         Unique descriptive name of the bus.
-- coresight-nr-inports   Number of input ports on the bus.
-- coresight-outports     List of output port numbers on the bus.
-- coresight-child-list   List of phandles pointing to the children of this
+- qcom,gpu-coresights:	 Container for sets of GPU coresight sources.
+- coresight-id:          Unique integer identifier for the bus.
+- coresight-name:        Unique descriptive name of the bus.
+- coresight-nr-inports:  Number of input ports on the bus.
+- coresight-outports:    List of output port numbers on the bus.
+- coresight-child-list:  List of phandles pointing to the children of this
                          component.
-- coresight-child-ports  List of input port numbers of the children.
-- coresight-atid         The unique ATID value of the coresight device
+- coresight-child-ports: List of input port numbers of the children.
+- coresight-atid:        The unique ATID value of the coresight device
 
 Example of A330 GPU in MSM8916:
 
@@ -273,6 +312,28 @@ Example of A330 GPU in MSM8916:
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <5>;
+
+		qcom,soc-hw-revisions {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible="qcom,soc-hw-revisions";
+
+			qcom,soc-hw-revision@0 {
+				reg = <0>;
+
+				qcom,chipid = <0x06010500>;
+				qcom,gpu-quirk-hfi-use-reg;
+				qcom,gpu-quirk-limit-uche-gbif-rw;
+			};
+
+			qcom,soc-hw-revision@1 {
+				reg = <1>;
+
+				qcom,chipid = <0x06010501>;
+				qcom,gpu-quirk-hfi-use-reg;
+			};
+		};
 
 		/* GPU Mempools */
 		qcom,gpu-mempools {

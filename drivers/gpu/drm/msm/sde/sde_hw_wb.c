@@ -16,6 +16,7 @@
 #include "sde_hw_wb.h"
 #include "sde_formats.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define WB_DST_FORMAT			0x000
 #define WB_DST_OP_MODE			0x004
@@ -41,12 +42,20 @@
 #define WB_N16_INIT_PHASE_Y_C12		0x06C
 #define WB_OUT_SIZE			0x074
 #define WB_ALPHA_X_VALUE		0x078
+#define WB_DANGER_LUT			0x084
+#define WB_SAFE_LUT			0x088
+#define WB_QOS_CTRL			0x090
+#define WB_CREQ_LUT_0			0x098
+#define WB_CREQ_LUT_1			0x09C
 #define WB_UBWC_STATIC_CTRL		0x144
 #define WB_CSC_BASE			0x260
 #define WB_DST_ADDR_SW_STATUS		0x2B0
-#define WB_CDP_CTRL			0x2B4
+#define WB_CDP_CNTL			0x2B4
 #define WB_OUT_IMAGE_SIZE		0x2C0
 #define WB_OUT_XY			0x2C4
+
+/* WB_QOS_CTRL */
+#define WB_QOS_CTRL_DANGER_SAFE_EN	BIT(0)
 
 static struct sde_wb_cfg *_wb_offset(enum sde_wb wb,
 		struct sde_mdss_cfg *m,
@@ -88,7 +97,6 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 	u32 write_config = 0;
 	u32 opmode = 0;
 	u32 dst_addr_sw = 0;
-	u32 cdp_settings = 0x0;
 
 	chroma_samp = fmt->chroma_sample;
 
@@ -157,18 +165,6 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 	SDE_REG_WRITE(c, WB_OUT_SIZE, outsize);
 	SDE_REG_WRITE(c, WB_DST_WRITE_CONFIG, write_config);
 	SDE_REG_WRITE(c, WB_DST_ADDR_SW_STATUS, dst_addr_sw);
-
-	/* Enable CDP */
-	cdp_settings = BIT(0);
-
-	if (!SDE_FORMAT_IS_LINEAR(fmt))
-		cdp_settings |= BIT(1);
-
-	/* Enable 64 transactions if line mode*/
-	if (data->intf_mode == INTF_MODE_WB_LINE)
-		cdp_settings |= BIT(3);
-
-	SDE_REG_WRITE(c, WB_CDP_CTRL, cdp_settings);
 }
 
 static void sde_hw_wb_roi(struct sde_hw_wb *ctx, struct sde_hw_wb_cfg *wb)
@@ -185,6 +181,68 @@ static void sde_hw_wb_roi(struct sde_hw_wb *ctx, struct sde_hw_wb_cfg *wb)
 	SDE_REG_WRITE(c, WB_OUT_SIZE, out_size);
 }
 
+static void sde_hw_wb_setup_danger_safe_lut(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_qos_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	if (!ctx || !cfg)
+		return;
+
+	SDE_REG_WRITE(c, WB_DANGER_LUT, cfg->danger_lut);
+	SDE_REG_WRITE(c, WB_SAFE_LUT, cfg->safe_lut);
+}
+
+static void sde_hw_wb_setup_creq_lut(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_qos_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	if (!ctx || !cfg)
+		return;
+
+	if (ctx->caps && test_bit(SDE_WB_QOS_8LVL, &ctx->caps->features)) {
+		SDE_REG_WRITE(c, WB_CREQ_LUT_0, cfg->creq_lut);
+		SDE_REG_WRITE(c, WB_CREQ_LUT_1, cfg->creq_lut >> 32);
+	}
+}
+
+static void sde_hw_wb_setup_qos_ctrl(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_qos_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 qos_ctrl = 0;
+
+	if (!ctx || !cfg)
+		return;
+
+	if (cfg->danger_safe_en)
+		qos_ctrl |= WB_QOS_CTRL_DANGER_SAFE_EN;
+
+	SDE_REG_WRITE(c, WB_QOS_CTRL, qos_ctrl);
+}
+
+static void sde_hw_wb_setup_cdp(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_cdp_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 cdp_cntl = 0;
+
+	if (!ctx || !cfg)
+		return;
+
+	c = &ctx->hw;
+
+	if (cfg->enable)
+		cdp_cntl |= BIT(0);
+	if (cfg->ubwc_meta_enable)
+		cdp_cntl |= BIT(1);
+	if (cfg->preload_ahead == SDE_WB_CDP_PRELOAD_AHEAD_64)
+		cdp_cntl |= BIT(3);
+
+	SDE_REG_WRITE(c, WB_CDP_CNTL, cdp_cntl);
+}
+
 static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 	unsigned long features)
 {
@@ -193,7 +251,22 @@ static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 
 	if (test_bit(SDE_WB_XY_ROI_OFFSET, &features))
 		ops->setup_roi = sde_hw_wb_roi;
+
+	if (test_bit(SDE_WB_QOS, &features)) {
+		ops->setup_danger_safe_lut =
+			sde_hw_wb_setup_danger_safe_lut;
+		ops->setup_creq_lut = sde_hw_wb_setup_creq_lut;
+		ops->setup_qos_ctrl = sde_hw_wb_setup_qos_ctrl;
+	}
+
+	if (test_bit(SDE_WB_CDP, &features))
+		ops->setup_cdp = sde_hw_wb_setup_cdp;
 }
+
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
 
 struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,
 		void __iomem *addr,
@@ -202,6 +275,7 @@ struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,
 {
 	struct sde_hw_wb *c;
 	struct sde_wb_cfg *cfg;
+	int rc;
 
 	if (!addr || !m || !hw_mdp)
 		return ERR_PTR(-EINVAL);
@@ -225,13 +299,26 @@ struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,
 	_setup_wb_ops(&c->ops, c->caps->features);
 	c->hw_mdp = hw_mdp;
 
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_WB, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_wb_destroy(struct sde_hw_wb *hw_wb)
 {
+	if (hw_wb)
+		sde_hw_blk_destroy(&hw_wb->base);
 	kfree(hw_wb);
 }

@@ -80,6 +80,10 @@
 #define VDD_PDPHY_VOL_MAX		3088000 /* uV */
 #define VDD_PDPHY_HPM_LOAD		3000 /* uA */
 
+/* timers */
+#define RECEIVER_RESPONSE_TIME		15	/* tReceiverResponse */
+#define HARD_RESET_COMPLETE_TIME	5	/* tHardResetComplete */
+
 struct usb_pdphy {
 	struct device *dev;
 	struct regmap *regmap;
@@ -96,8 +100,8 @@ struct usb_pdphy {
 	int msg_tx_discarded_irq;
 	int msg_rx_discarded_irq;
 
-	void (*signal_cb)(struct usbpd *pd, enum pd_sig_type type);
-	void (*msg_rx_cb)(struct usbpd *pd, enum pd_msg_type type,
+	void (*signal_cb)(struct usbpd *pd, enum pd_sig_type sig);
+	void (*msg_rx_cb)(struct usbpd *pd, enum pd_sop_type sop,
 			  u8 *buf, size_t len);
 	void (*shutdown_cb)(struct usbpd *pd);
 
@@ -334,15 +338,6 @@ int pd_phy_update_roles(enum data_role dr, enum power_role pr)
 }
 EXPORT_SYMBOL(pd_phy_update_roles);
 
-int pd_phy_update_spec_rev(enum pd_spec_rev rev)
-{
-	struct usb_pdphy *pdphy = __pdphy;
-
-	return pdphy_masked_write(pdphy, USB_PDPHY_MSG_CONFIG,
-			MSG_CONFIG_SPEC_REV_MASK, rev);
-}
-EXPORT_SYMBOL(pd_phy_update_spec_rev);
-
 int pd_phy_open(struct pd_phy_params *params)
 {
 	int ret;
@@ -377,7 +372,9 @@ int pd_phy_open(struct pd_phy_params *params)
 	if (ret)
 		return ret;
 
-	ret = pd_phy_update_spec_rev(params->spec_rev);
+	/* PD 2.0  phy */
+	ret = pdphy_masked_write(pdphy, USB_PDPHY_MSG_CONFIG,
+			MSG_CONFIG_SPEC_REV_MASK, USBPD_REV_20);
 	if (ret)
 		return ret;
 
@@ -407,14 +404,13 @@ int pd_phy_open(struct pd_phy_params *params)
 }
 EXPORT_SYMBOL(pd_phy_open);
 
-int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms)
+int pd_phy_signal(enum pd_sig_type sig)
 {
 	u8 val;
 	int ret;
 	struct usb_pdphy *pdphy = __pdphy;
 
-	dev_dbg(pdphy->dev, "%s: type %d timeout %u\n", __func__, type,
-			timeout_ms);
+	dev_dbg(pdphy->dev, "%s: type %d\n", __func__, sig);
 
 	if (!pdphy) {
 		pr_err("%s: pdphy not found\n", __func__);
@@ -434,7 +430,7 @@ int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms)
 
 	usleep_range(2, 3);
 
-	val = (type == CABLE_RESET_SIG ? TX_CONTROL_FRAME_TYPE_CABLE_RESET : 0)
+	val = (sig == CABLE_RESET_SIG ? TX_CONTROL_FRAME_TYPE_CABLE_RESET : 0)
 		| TX_CONTROL_SEND_SIGNAL;
 
 	ret = pdphy_reg_write(pdphy, USB_PDPHY_TX_CONTROL, val);
@@ -442,7 +438,8 @@ int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms)
 		return ret;
 
 	ret = wait_event_interruptible_timeout(pdphy->tx_waitq,
-		pdphy->tx_status != -EINPROGRESS, msecs_to_jiffies(timeout_ms));
+		pdphy->tx_status != -EINPROGRESS,
+		msecs_to_jiffies(HARD_RESET_COMPLETE_TIME));
 	if (ret <= 0) {
 		dev_err(pdphy->dev, "%s: failed ret %d", __func__, ret);
 		return ret ? ret : -ETIMEDOUT;
@@ -453,7 +450,7 @@ int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms)
 	if (pdphy->tx_status)
 		return pdphy->tx_status;
 
-	if (type == HARD_RESET_SIG)
+	if (sig == HARD_RESET_SIG)
 		/* Frame filter is reconfigured in pd_phy_open() */
 		return pdphy_reg_write(pdphy, USB_PDPHY_FRAME_FILTER, 0);
 
@@ -461,16 +458,15 @@ int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms)
 }
 EXPORT_SYMBOL(pd_phy_signal);
 
-int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
-	enum pd_msg_type type, unsigned int timeout_ms)
+int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 {
 	u8 val;
 	int ret;
 	size_t total_len = data_len + USB_PDPHY_MSG_HDR_LEN;
 	struct usb_pdphy *pdphy = __pdphy;
 
-	dev_dbg(pdphy->dev, "%s: hdr %x frame type %d timeout %u\n",
-			__func__, hdr, type, timeout_ms);
+	dev_dbg(pdphy->dev, "%s: hdr %x frame sop_type %d\n",
+			__func__, hdr, sop);
 
 	if (data && data_len)
 		print_hex_dump_debug("tx data obj:", DUMP_PREFIX_NONE, 32, 4,
@@ -490,6 +486,12 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 		dev_err(pdphy->dev, "%s: invalid data object len %zu\n",
 			__func__, data_len);
 		return -EINVAL;
+	}
+
+	ret = pdphy_reg_read(pdphy, &val, USB_PDPHY_RX_ACKNOWLEDGE, 1);
+	if (ret || val) {
+		dev_err(pdphy->dev, "%s: RX message pending\n", __func__);
+		return -EBUSY;
 	}
 
 	pdphy->tx_status = -EINPROGRESS;
@@ -518,14 +520,15 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 
 	usleep_range(2, 3);
 
-	val = TX_CONTROL_RETRY_COUNT | (type << 2) | TX_CONTROL_SEND_MSG;
+	val = TX_CONTROL_RETRY_COUNT | (sop << 2) | TX_CONTROL_SEND_MSG;
 
 	ret = pdphy_reg_write(pdphy, USB_PDPHY_TX_CONTROL, val);
 	if (ret)
 		return ret;
 
 	ret = wait_event_interruptible_timeout(pdphy->tx_waitq,
-		pdphy->tx_status != -EINPROGRESS, msecs_to_jiffies(timeout_ms));
+		pdphy->tx_status != -EINPROGRESS,
+		msecs_to_jiffies(RECEIVER_RESPONSE_TIME));
 	if (ret <= 0) {
 		dev_err(pdphy->dev, "%s: failed ret %d", __func__, ret);
 		return ret ? ret : -ETIMEDOUT;
@@ -534,7 +537,7 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 	if (hdr && !pdphy->tx_status)
 		pdphy->tx_bytes += data_len + USB_PDPHY_MSG_HDR_LEN;
 
-	return pdphy->tx_status ? pdphy->tx_status : data_len;
+	return pdphy->tx_status ? pdphy->tx_status : 0;
 }
 EXPORT_SYMBOL(pd_phy_write);
 
@@ -578,6 +581,10 @@ EXPORT_SYMBOL(pd_phy_close);
 static irqreturn_t pdphy_msg_tx_irq(int irq, void *data)
 {
 	struct usb_pdphy *pdphy = data;
+
+	/* TX already aborted by received signal */
+	if (pdphy->tx_status != -EINPROGRESS)
+		return IRQ_HANDLED;
 
 	if (irq == pdphy->msg_tx_irq) {
 		pdphy->msg_tx_cnt++;
@@ -632,6 +639,10 @@ static irqreturn_t pdphy_sig_rx_irq_thread(int irq, void *data)
 	if (pdphy->signal_cb)
 		pdphy->signal_cb(pdphy->usbpd, frame_type);
 
+	if (pdphy->tx_status == -EINPROGRESS) {
+		pdphy->tx_status = -EBUSY;
+		wake_up(&pdphy->tx_waitq);
+	}
 done:
 	return IRQ_HANDLED;
 }
@@ -664,7 +675,7 @@ static int pd_phy_bist_mode(u8 bist_mode)
 			BIST_MODE_MASK | BIST_ENABLE, bist_mode | BIST_ENABLE);
 }
 
-static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
+static irqreturn_t pdphy_msg_rx_irq(int irq, void *data)
 {
 	u8 size, rx_status, frame_type;
 	u8 buf[32];
@@ -805,8 +816,8 @@ static int pdphy_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = pdphy_request_irq(pdphy, pdev->dev.of_node,
-		&pdphy->msg_rx_irq, "msg-rx", NULL,
-		pdphy_msg_rx_irq_thread, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+		&pdphy->msg_rx_irq, "msg-rx", pdphy_msg_rx_irq,
+		NULL, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
 		return ret;
 

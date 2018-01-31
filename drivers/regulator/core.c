@@ -2408,6 +2408,14 @@ static void regulator_disable_work(struct work_struct *work)
 	count = rdev->deferred_disables;
 	rdev->deferred_disables = 0;
 
+	/*
+	 * Workqueue functions queue the new work instance while the previous
+	 * work instance is being processed. Cancel the queued work instance
+	 * as the work instance under processing does the job of the queued
+	 * work instance.
+	 */
+	cancel_delayed_work(&rdev->disable_work);
+
 	for (i = 0; i < count; i++) {
 		ret = _regulator_disable(rdev);
 		if (ret != 0)
@@ -2451,10 +2459,10 @@ int regulator_disable_deferred(struct regulator *regulator, int ms)
 
 	mutex_lock(&rdev->mutex);
 	rdev->deferred_disables++;
+	mod_delayed_work(system_power_efficient_wq, &rdev->disable_work,
+			 msecs_to_jiffies(ms));
 	mutex_unlock(&rdev->mutex);
 
-	queue_delayed_work(system_power_efficient_wq, &rdev->disable_work,
-			   msecs_to_jiffies(ms));
 	return 0;
 }
 EXPORT_SYMBOL_GPL(regulator_disable_deferred);
@@ -2980,7 +2988,8 @@ static int regulator_set_voltage_unlocked(struct regulator *regulator,
 		goto out2;
 
 	if (rdev->supply && (rdev->desc->min_dropout_uV ||
-				!rdev->desc->ops->get_voltage)) {
+				!(rdev->desc->ops->get_voltage ||
+					rdev->desc->ops->get_voltage_sel))) {
 		int current_supply_uV;
 		int selector;
 
@@ -4175,6 +4184,7 @@ static void rdev_deinit_debugfs(struct regulator_dev *rdev)
 		debugfs_remove_recursive(rdev->debugfs);
 		if (rdev->debug_consumer)
 			rdev->debug_consumer->debugfs = NULL;
+		rdev->debugfs = NULL;
 		regulator_put(rdev->debug_consumer);
 	}
 }
@@ -4187,6 +4197,10 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 	struct regulator *regulator;
 	const struct regulator_ops *ops;
 	mode_t mode;
+
+	/* Check if debugfs directory already exists */
+	if (rdev->debugfs)
+		return;
 
 	/* Avoid duplicate debugfs directory names */
 	if (parent && rname == rdev->desc->name) {
@@ -4212,8 +4226,10 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 
 	regulator = regulator_get(NULL, rdev_get_name(rdev));
 	if (IS_ERR(regulator)) {
-		rdev_err(rdev, "regulator get failed, ret=%ld\n",
-			PTR_ERR(regulator));
+		rdev_deinit_debugfs(rdev);
+		if (PTR_ERR(regulator) != -EPROBE_DEFER)
+			rdev_err(rdev, "regulator get failed, ret=%ld\n",
+				 PTR_ERR(regulator));
 		return;
 	}
 	rdev->debug_consumer = regulator;
@@ -4282,6 +4298,8 @@ static int regulator_register_resolve_supply(struct device *dev, void *data)
 
 	if (regulator_resolve_supply(rdev))
 		rdev_dbg(rdev, "unable to resolve supply\n");
+	else
+		rdev_init_debugfs(rdev);
 
 	return 0;
 }
@@ -4895,6 +4913,16 @@ static int __init regulator_init_complete(void)
 	 */
 	if (of_have_populated_dt())
 		has_full_constraints = true;
+
+	/*
+	 * Regulators may had failed to resolve their input supplies
+	 * when were registered, either because the input supply was
+	 * not registered yet or because its parent device was not
+	 * bound yet. So attempt to resolve the input supplies for
+	 * pending regulators before trying to disable unused ones.
+	 */
+	class_for_each_device(&regulator_class, NULL, NULL,
+			      regulator_register_resolve_supply);
 
 	/* If we have a full configuration then disable any regulators
 	 * we have permission to change the status for and which are

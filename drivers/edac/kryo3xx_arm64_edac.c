@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
+#include <linux/cpu_pm.h>
 #include <linux/interrupt.h>
 #include <linux/of_irq.h>
 
@@ -29,10 +30,11 @@ module_param(poll_msec, int, 0444);
 #endif
 
 #ifdef CONFIG_EDAC_KRYO3XX_ARM64_PANIC_ON_CE
-#define ARM64_ERP_PANIC_ON_CE 1
+static bool panic_on_ce = 1;
 #else
-#define ARM64_ERP_PANIC_ON_CE 0
+static bool panic_on_ce;
 #endif
+module_param_named(panic_on_ce, panic_on_ce, bool, 0664);
 
 #ifdef CONFIG_EDAC_KRYO3XX_ARM64_PANIC_ON_UE
 #define ARM64_ERP_PANIC_ON_UE 1
@@ -62,7 +64,7 @@ static inline void set_errxctlr_el1(void)
 
 static inline void set_errxmisc_overflow(void)
 {
-	u64 val = 0x7F7F00000000;
+	u64 val = 0x7F7F00000000ULL;
 
 	asm volatile("msr s3_0_c5_c5_0, %0" : : "r" (val));
 }
@@ -118,12 +120,14 @@ static const struct errors_edac errors[] = {
 #define DATA_BUF_ERR		0x2
 #define CACHE_DATA_ERR		0x6
 #define CACHE_TAG_DIRTY_ERR	0x7
-#define TLB_PARITY_ERR		0x8
-#define BUS_ERROR		0x18
+#define TLB_PARITY_ERR_DATA	0x8
+#define TLB_PARITY_ERR_TAG	0x9
+#define BUS_ERROR		0x12
 
 struct erp_drvdata {
 	struct edac_device_ctl_info *edev_ctl;
 	struct erp_drvdata __percpu **erp_cpu_drvdata;
+	struct notifier_block nb_pm;
 	int ppi;
 };
 
@@ -217,9 +221,12 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 		edac_printk(KERN_CRIT, EDAC_CPU, "ECC Error from cache tag or dirty RAM\n");
 		break;
 
-	case TLB_PARITY_ERR:
+	case TLB_PARITY_ERR_DATA:
 		edac_printk(KERN_CRIT, EDAC_CPU, "Parity error on TLB RAM\n");
 		break;
+
+	case TLB_PARITY_ERR_TAG:
+		edac_printk(KERN_CRIT, EDAC_CPU, "Parity error on TLB DATA\n");
 
 	case BUS_ERROR:
 		edac_printk(KERN_CRIT, EDAC_CPU, "Bus Error\n");
@@ -232,6 +239,8 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 	else
 		edac_printk(KERN_CRIT, EDAC_CPU,
 			"Way: %d\n", (int) KRYO3XX_ERRXMISC_WAY(errxmisc) >> 2);
+
+	edev_ctl->panic_on_ce = panic_on_ce;
 	errors[errorcode].func(edev_ctl, smp_processor_id(),
 				level, errors[errorcode].msg);
 }
@@ -283,6 +292,16 @@ static void kryo3xx_check_l1_l2_ecc(void *info)
 	spin_unlock_irqrestore(&local_handler_lock, flags);
 }
 
+static bool l3_is_bus_error(u64 errxstatus)
+{
+	if (KRYO3XX_ERRXSTATUS_SERR(errxstatus) == BUS_ERROR) {
+		edac_printk(KERN_CRIT, EDAC_CPU, "Bus Error\n");
+		return true;
+	}
+
+	return false;
+}
+
 static void kryo3xx_check_l3_scu_error(struct edac_device_ctl_info *edev_ctl)
 {
 	u64 errxstatus = 0;
@@ -296,6 +315,11 @@ static void kryo3xx_check_l3_scu_error(struct edac_device_ctl_info *edev_ctl)
 
 	if (KRYO3XX_ERRXSTATUS_VALID(errxstatus) &&
 		KRYO3XX_ERRXMISC_LVL(errxmisc) == L3) {
+		if (l3_is_bus_error(errxstatus)) {
+			if (edev_ctl->panic_on_ue)
+				panic("Causing panic due to Bus Error\n");
+			return;
+		}
 		if (KRYO3XX_ERRXSTATUS_UE(errxstatus)) {
 			edac_printk(KERN_CRIT, EDAC_CPU, "Detected L3 uncorrectable error\n");
 			dump_err_reg(KRYO3XX_L3_UE, L3, errxstatus, errxmisc,
@@ -345,17 +369,44 @@ static void initialize_registers(void *info)
 	set_errxmisc_overflow();
 }
 
+static void init_regs_on_cpu(bool all_cpus)
+{
+	int cpu;
+
+	write_errselr_el1(0);
+	if (all_cpus) {
+		for_each_possible_cpu(cpu)
+			smp_call_function_single(cpu, initialize_registers,
+						NULL, 1);
+	} else
+		initialize_registers(NULL);
+
+	write_errselr_el1(1);
+	initialize_registers(NULL);
+}
+
+static int kryo3xx_pmu_cpu_pm_notify(struct notifier_block *self,
+				unsigned long action, void *v)
+{
+	switch (action) {
+	case CPU_PM_EXIT:
+		init_regs_on_cpu(false);
+		kryo3xx_check_l3_scu_error(panic_handler_drvdata->edev_ctl);
+		kryo3xx_check_l1_l2_ecc(panic_handler_drvdata->edev_ctl);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int kryo3xx_cpu_erp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct erp_drvdata *drv;
 	int rc = 0;
 	int fail = 0;
-	int cpu;
 
-	for_each_possible_cpu(cpu)
-		smp_call_function_single(cpu, initialize_registers, NULL, 1);
-
+	init_regs_on_cpu(true);
 
 	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
 
@@ -379,8 +430,9 @@ static int kryo3xx_cpu_erp_probe(struct platform_device *pdev)
 	drv->edev_ctl->mod_name = dev_name(dev);
 	drv->edev_ctl->dev_name = dev_name(dev);
 	drv->edev_ctl->ctl_name = "cache";
-	drv->edev_ctl->panic_on_ce = ARM64_ERP_PANIC_ON_CE;
+	drv->edev_ctl->panic_on_ce = panic_on_ce;
 	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
+	drv->nb_pm.notifier_call = kryo3xx_pmu_cpu_pm_notify;
 	platform_set_drvdata(pdev, drv);
 
 	rc = edac_device_add_device(drv->edev_ctl);
@@ -404,6 +456,8 @@ static int kryo3xx_cpu_erp_probe(struct platform_device *pdev)
 		rc = -ENODEV;
 		goto out_dev;
 	}
+
+	cpu_pm_register_notifier(&(drv->nb_pm));
 
 	return 0;
 

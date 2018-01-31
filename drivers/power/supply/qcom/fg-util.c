@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/sort.h>
 #include "fg-core.h"
 
 void fg_circ_buf_add(struct fg_circ_buf *buf, int val)
@@ -21,7 +22,9 @@ void fg_circ_buf_add(struct fg_circ_buf *buf, int val)
 
 void fg_circ_buf_clr(struct fg_circ_buf *buf)
 {
-	memset(buf, 0, sizeof(*buf));
+	buf->size = 0;
+	buf->head = 0;
+	memset(buf->arr, 0, sizeof(buf->arr));
 }
 
 int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg)
@@ -36,6 +39,39 @@ int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg)
 		result += buf->arr[i];
 
 	*avg = div_s64(result, buf->size);
+	return 0;
+}
+
+static int cmp_int(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
+int fg_circ_buf_median(struct fg_circ_buf *buf, int *median)
+{
+	int *temp;
+
+	if (buf->size == 0)
+		return -ENODATA;
+
+	if (buf->size == 1) {
+		*median = buf->arr[0];
+		return 0;
+	}
+
+	temp = kmalloc_array(buf->size, sizeof(*temp), GFP_KERNEL);
+	if (!temp)
+		return -ENOMEM;
+
+	memcpy(temp, buf->arr, buf->size * sizeof(*temp));
+	sort(temp, buf->size, sizeof(*temp), cmp_int, NULL);
+
+	if (buf->size % 2)
+		*median = temp[buf->size / 2];
+	else
+		*median = (temp[buf->size / 2 - 1] + temp[buf->size / 2]) / 2;
+
+	kfree(temp);
 	return 0;
 }
 
@@ -106,14 +142,17 @@ static struct fg_dbgfs dbgfs_data = {
 static bool is_usb_present(struct fg_chip *chip)
 {
 	union power_supply_propval pval = {0, };
+	int rc;
 
 	if (!chip->usb_psy)
 		chip->usb_psy = power_supply_get_by_name("usb");
 
-	if (chip->usb_psy)
-		power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_PRESENT, &pval);
-	else
+	if (!chip->usb_psy)
+		return false;
+
+	rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (rc < 0)
 		return false;
 
 	return pval.intval != 0;
@@ -122,14 +161,17 @@ static bool is_usb_present(struct fg_chip *chip)
 static bool is_dc_present(struct fg_chip *chip)
 {
 	union power_supply_propval pval = {0, };
+	int rc;
 
 	if (!chip->dc_psy)
 		chip->dc_psy = power_supply_get_by_name("dc");
 
-	if (chip->dc_psy)
-		power_supply_get_property(chip->dc_psy,
-				POWER_SUPPLY_PROP_PRESENT, &pval);
-	else
+	if (!chip->dc_psy)
+		return false;
+
+	rc = power_supply_get_property(chip->dc_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (rc < 0)
 		return false;
 
 	return pval.intval != 0;
@@ -138,6 +180,25 @@ static bool is_dc_present(struct fg_chip *chip)
 bool is_input_present(struct fg_chip *chip)
 {
 	return is_usb_present(chip) || is_dc_present(chip);
+}
+
+bool is_qnovo_en(struct fg_chip *chip)
+{
+	union power_supply_propval pval = {0, };
+	int rc;
+
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE, &pval);
+	if (rc < 0)
+		return false;
+
+	return pval.intval != 0;
 }
 
 #define EXPONENT_SHIFT		11
@@ -205,8 +266,7 @@ static inline bool fg_sram_address_valid(u16 address, int len)
 int fg_sram_write(struct fg_chip *chip, u16 address, u8 offset,
 			u8 *val, int len, int flags)
 {
-	int rc = 0;
-	bool tried_again = false;
+	int rc = 0, tries = 0;
 	bool atomic_access = false;
 
 	if (!chip)
@@ -230,10 +290,8 @@ int fg_sram_write(struct fg_chip *chip, u16 address, u8 offset,
 		reinit_completion(&chip->soc_update);
 		enable_irq(chip->irqs[SOC_UPDATE_IRQ].irq);
 		atomic_access = true;
-	} else {
-		flags = FG_IMA_DEFAULT;
 	}
-wait:
+
 	/*
 	 * Atomic access mean waiting upon SOC_UPDATE interrupt from
 	 * FG_ALG and do the transaction after that. This is to make
@@ -242,26 +300,36 @@ wait:
 	 * FG cycle (~1.47 seconds).
 	 */
 	if (atomic_access) {
-		/* Wait for SOC_UPDATE completion */
-		rc = wait_for_completion_interruptible_timeout(
-			&chip->soc_update,
-			msecs_to_jiffies(SOC_UPDATE_WAIT_MS));
+		for (tries = 0; tries < 2; tries++) {
+			/* Wait for SOC_UPDATE completion */
+			rc = wait_for_completion_interruptible_timeout(
+				&chip->soc_update,
+				msecs_to_jiffies(SOC_UPDATE_WAIT_MS));
+			if (rc > 0) {
+				rc = 0;
+				break;
+			} else if (!rc) {
+				rc = -ETIMEDOUT;
+			}
+		}
 
-		/* If we were interrupted wait again one more time. */
-		if (rc == -ERESTARTSYS && !tried_again) {
-			tried_again = true;
-			goto wait;
-		} else if (rc <= 0) {
+		if (rc < 0) {
 			pr_err("wait for soc_update timed out rc=%d\n", rc);
 			goto out;
 		}
 	}
 
-	rc = fg_interleaved_mem_write(chip, address, offset, val, len,
-			atomic_access);
+	if (chip->use_dma)
+		rc = fg_direct_mem_write(chip, address, offset, val, len,
+				false);
+	else
+		rc = fg_interleaved_mem_write(chip, address, offset, val, len,
+				atomic_access);
+
 	if (rc < 0)
 		pr_err("Error in writing SRAM address 0x%x[%d], rc=%d\n",
 			address, offset, rc);
+
 out:
 	if (atomic_access)
 		disable_irq_nosync(chip->irqs[SOC_UPDATE_IRQ].irq);
@@ -288,9 +356,14 @@ int fg_sram_read(struct fg_chip *chip, u16 address, u8 offset,
 
 	if (!(flags & FG_IMA_NO_WLOCK))
 		vote(chip->awake_votable, SRAM_READ, true, 0);
+
 	mutex_lock(&chip->sram_rw_lock);
 
-	rc = fg_interleaved_mem_read(chip, address, offset, val, len);
+	if (chip->use_dma)
+		rc = fg_direct_mem_read(chip, address, offset, val, len);
+	else
+		rc = fg_interleaved_mem_read(chip, address, offset, val, len);
+
 	if (rc < 0)
 		pr_err("Error in reading SRAM address 0x%x[%d], rc=%d\n",
 			address, offset, rc);
@@ -420,6 +493,33 @@ int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val)
 out:
 	mutex_unlock(&chip->bus_lock);
 	return rc;
+}
+
+int fg_dump_regs(struct fg_chip *chip)
+{
+	int i, rc;
+	u8 buf[256];
+
+	if (!chip)
+		return -EINVAL;
+
+	rc = fg_read(chip, chip->batt_soc_base, buf, sizeof(buf));
+	if (rc < 0)
+		return rc;
+
+	pr_info("batt_soc_base registers:\n");
+	for (i = 0; i < sizeof(buf); i++)
+		pr_info("%04x:%02x\n", chip->batt_soc_base + i, buf[i]);
+
+	rc = fg_read(chip, chip->mem_if_base, buf, sizeof(buf));
+	if (rc < 0)
+		return rc;
+
+	pr_info("mem_if_base registers:\n");
+	for (i = 0; i < sizeof(buf); i++)
+		pr_info("%04x:%02x\n", chip->mem_if_base + i, buf[i]);
+
+	return 0;
 }
 
 int64_t twos_compliment_extend(int64_t val, int sign_bit_pos)

@@ -13,6 +13,11 @@
 #ifndef _SDE_HW_DSC_H
 #define _SDE_HW_DSC_H
 
+#include "sde_hw_catalog.h"
+#include "sde_hw_mdss.h"
+#include "sde_hw_util.h"
+#include "sde_hw_blk.h"
+
 struct sde_hw_dsc;
 struct msm_display_dsc_info;
 
@@ -52,16 +57,26 @@ struct sde_hw_dsc_ops {
 };
 
 struct sde_hw_dsc {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* dsc */
 	enum sde_dsc idx;
-	const struct sde_dsc_cfg *dsc_hw_cap;
+	const struct sde_dsc_cfg *caps;
 
 	/* ops */
 	struct sde_hw_dsc_ops ops;
 };
+
+/**
+ * sde_hw_dsc - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_dsc *to_sde_hw_dsc(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_dsc, base);
+}
 
 /**
  * sde_hw_dsc_init - initializes the dsc block for the passed

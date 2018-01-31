@@ -10,6 +10,9 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm845-pmic-overlay.dtsi"
+#include "sdm845-pinctrl-overlay.dtsi"
+
 &pmi8998_charger {
 	qcom,suspend-input;
 };

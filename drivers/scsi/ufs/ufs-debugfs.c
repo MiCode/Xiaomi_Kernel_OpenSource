@@ -850,8 +850,8 @@ static const struct file_operations ufsdbg_host_regs_fops = {
 static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 {
 	int err = 0;
-	int buff_len = QUERY_DESC_DEVICE_MAX_SIZE;
-	u8 desc_buf[QUERY_DESC_DEVICE_MAX_SIZE];
+	int buff_len = QUERY_DESC_DEVICE_DEF_SIZE;
+	u8 desc_buf[QUERY_DESC_DEVICE_DEF_SIZE];
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 
 	struct desc_field_offset device_desc_field_name[] = {
@@ -950,6 +950,10 @@ static int ufsdbg_show_hba_show(struct seq_file *file, void *data)
 	seq_printf(file, "hba->saved_err = 0x%x\n", hba->saved_err);
 	seq_printf(file, "hba->saved_uic_err = 0x%x\n", hba->saved_uic_err);
 
+	seq_printf(file, "power_mode_change_cnt = %d\n",
+			hba->ufs_stats.power_mode_change_cnt);
+	seq_printf(file, "hibern8_exit_cnt = %d\n",
+			hba->ufs_stats.hibern8_exit_cnt);
 	return 0;
 }
 
@@ -1467,6 +1471,11 @@ static int ufsdbg_read_err_state(void *data, u64 *val)
 void ufsdbg_set_err_state(struct ufs_hba *hba)
 {
 	hba->debugfs_files.err_occurred = true;
+}
+
+void ufsdbg_clr_err_state(struct ufs_hba *hba)
+{
+	hba->debugfs_files.err_occurred = false;
 }
 
 DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_err_state,

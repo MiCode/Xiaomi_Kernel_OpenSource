@@ -43,6 +43,7 @@ struct bpf_map {
 	u32 max_entries;
 	u32 map_flags;
 	u32 pages;
+	bool unpriv_array;
 	struct user_struct *user;
 	const struct bpf_map_ops *ops;
 	struct work_struct work;
@@ -189,6 +190,7 @@ struct bpf_prog_aux {
 struct bpf_array {
 	struct bpf_map map;
 	u32 elem_size;
+	u32 index_mask;
 	/* 'ownership' of prog_array is claimed by the first program that
 	 * is going to use this map or by the first program which FD is stored
 	 * in the map to make sure that all callers and callees have the same
@@ -243,6 +245,8 @@ struct bpf_map *bpf_map_inc(struct bpf_map *map, bool uref);
 void bpf_map_put_with_uref(struct bpf_map *map);
 void bpf_map_put(struct bpf_map *map);
 int bpf_map_precharge_memlock(u32 pages);
+void *bpf_map_area_alloc(size_t size);
+void bpf_map_area_free(void *base);
 
 extern int sysctl_unprivileged_bpf_disabled;
 

@@ -14,11 +14,12 @@
 unsigned int sysctl_sched_cfs_boost __read_mostly;
 
 #ifdef CONFIG_CGROUP_SCHEDTUNE
-static bool schedtune_initialized = false;
-#endif /* CONFIG_CGROUP_SCHEDTUNE */
+bool schedtune_initialized = false;
+#endif
 
 unsigned int sysctl_sched_cfs_boost __read_mostly;
 
+extern struct reciprocal_value schedtune_spc_rdiv;
 extern struct target_nrg schedtune_target_nrg;
 
 /* Performance Boost region (B) threshold params */
@@ -680,6 +681,9 @@ int schedtune_task_boost(struct task_struct *p)
 	struct schedtune *st;
 	int task_boost;
 
+	if (!unlikely(schedtune_initialized))
+		return 0;
+
 	/* Get task boost value */
 	rcu_read_lock();
 	st = task_schedtune(p);
@@ -693,6 +697,9 @@ int schedtune_prefer_idle(struct task_struct *p)
 {
 	struct schedtune *st;
 	int prefer_idle;
+
+	if (!unlikely(schedtune_initialized))
+		return 0;
 
 	/* Get prefer_idle value */
 	rcu_read_lock();
@@ -1066,10 +1073,6 @@ schedtune_add_cluster_nrg(
 			 * Assume we have EM data only at the CPU and
 			 * the upper CLUSTER level
 			 */
-			BUG_ON(!cpumask_equal(
-				sched_group_cpus(sg),
-				sched_group_cpus(sd2->parent->groups)
-				));
 			break;
 		}
 	}
@@ -1130,9 +1133,12 @@ schedtune_init(void)
 	pr_info("schedtune: configured to support global boosting only\n");
 #endif /* CONFIG_CGROUP_SCHEDTUNE */
 
+	schedtune_spc_rdiv = reciprocal_value(100);
+
 	return 0;
 
 nodata:
+	pr_warning("schedtune: disabled!\n");
 	rcu_read_unlock();
 	return -EINVAL;
 }

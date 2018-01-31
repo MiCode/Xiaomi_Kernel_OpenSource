@@ -1020,8 +1020,7 @@ static int try_to_merge_one_page(struct vm_area_struct *vma,
 		goto out;
 
 	if (PageTransCompound(page)) {
-		err = split_huge_page(page);
-		if (err)
+		if (split_huge_page(page))
 			goto out_unlock;
 	}
 
@@ -1965,6 +1964,7 @@ int rmap_walk_ksm(struct page *page, struct rmap_walk_control *rwc)
 	stable_node = page_stable_node(page);
 	if (!stable_node)
 		return ret;
+
 again:
 	hlist_for_each_entry(rmap_item, &stable_node->hlist, hlist) {
 		struct anon_vma *anon_vma = rmap_item->anon_vma;

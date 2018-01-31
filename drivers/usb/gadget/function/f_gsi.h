@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,8 +37,7 @@
 
 #define GSI_NUM_IN_BUFFERS 15
 #define GSI_IN_BUFF_SIZE 2048
-#define GSI_NUM_OUT_BUFFERS 15
-#define GSI_ECM_NUM_OUT_BUFFERS 31
+#define GSI_NUM_OUT_BUFFERS 14
 #define GSI_OUT_AGGR_SIZE 24576
 
 #define GSI_IN_RNDIS_AGGR_SIZE 9216
@@ -121,6 +120,20 @@ enum gsi_ctrl_notify_state {
 	GSI_CTRL_NOTIFY_SPEED,
 	GSI_CTRL_NOTIFY_OFFLINE,
 	GSI_CTRL_NOTIFY_RESPONSE_AVAILABLE,
+};
+
+enum rndis_class_id {
+	RNDIS_ID_UNKNOWN,
+	WIRELESS_CONTROLLER_REMOTE_NDIS,
+	MISC_ACTIVE_SYNC,
+	MISC_RNDIS_OVER_ETHERNET,
+	MISC_RNDIS_OVER_WIFI,
+	MISC_RNDIS_OVER_WIMAX,
+	MISC_RNDIS_OVER_WWAN,
+	MISC_RNDIS_FOR_IPV4,
+	MISC_RNDIS_FOR_IPV6,
+	MISC_RNDIS_FOR_GPRS,
+	RNDIS_ID_MAX,
 };
 
 #define MAXQUEUELEN 128
@@ -219,10 +232,6 @@ struct gsi_data_port {
 	struct ipa_usb_teth_params ipa_init_params;
 	int in_channel_handle;
 	int out_channel_handle;
-	u32 in_db_reg_phs_addr_lsb;
-	u32 in_db_reg_phs_addr_msb;
-	u32 out_db_reg_phs_addr_lsb;
-	u32 out_db_reg_phs_addr_msb;
 	u32 in_xfer_rsc_index;
 	u32 out_xfer_rsc_index;
 	u16 in_last_trb_addr;
@@ -259,6 +268,7 @@ struct f_gsi {
 	struct rndis_params *params;
 	atomic_t connected;
 	bool data_interface_up;
+	enum rndis_class_id rndis_id;
 
 	const struct usb_endpoint_descriptor *in_ep_desc_backup;
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
@@ -266,6 +276,7 @@ struct f_gsi {
 	struct gsi_data_port d_port;
 	struct gsi_ctrl_port c_port;
 	void *ipc_log_ctxt;
+	bool rmnet_dtr_status;
 };
 
 static inline struct f_gsi *func_to_gsi(struct usb_function *f)
@@ -573,7 +584,7 @@ static struct usb_endpoint_descriptor rndis_gsi_fs_notify_desc = {
 static struct usb_endpoint_descriptor rndis_gsi_fs_in_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
-
+	.wMaxPacketSize =	cpu_to_le16(64),
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
@@ -581,13 +592,13 @@ static struct usb_endpoint_descriptor rndis_gsi_fs_in_desc = {
 static struct usb_endpoint_descriptor rndis_gsi_fs_out_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
-
+	.wMaxPacketSize =	cpu_to_le16(64),
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
 
 static struct usb_descriptor_header *gsi_eth_fs_function[] = {
-	(struct usb_descriptor_header *) &gsi_eth_fs_function,
+	(struct usb_descriptor_header *) &rndis_gsi_iad_descriptor,
 	/* control interface matches ACM, not Ethernet */
 	(struct usb_descriptor_header *) &rndis_gsi_control_intf,
 	(struct usb_descriptor_header *) &rndis_gsi_header_desc,
@@ -1341,6 +1352,14 @@ static struct usb_interface_descriptor qdss_gsi_data_intf_desc = {
 	.bInterfaceProtocol =	0xff,
 };
 
+static struct usb_endpoint_descriptor qdss_gsi_fs_data_desc = {
+	.bLength              =	 USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType      =	 USB_DT_ENDPOINT,
+	.bEndpointAddress     =	 USB_DIR_IN,
+	.bmAttributes         =	 USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize       =	 cpu_to_le16(64),
+};
+
 static struct usb_endpoint_descriptor qdss_gsi_hs_data_desc = {
 	.bLength              =	 USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType      =	 USB_DT_ENDPOINT,
@@ -1365,6 +1384,12 @@ static struct usb_ss_ep_comp_descriptor qdss_gsi_data_ep_comp_desc = {
 	.wBytesPerInterval    =	 0,
 };
 
+static struct usb_descriptor_header *qdss_gsi_fs_data_only_desc[] = {
+	(struct usb_descriptor_header *) &qdss_gsi_data_intf_desc,
+	(struct usb_descriptor_header *) &qdss_gsi_fs_data_desc,
+	NULL,
+};
+
 static struct usb_descriptor_header *qdss_gsi_hs_data_only_desc[] = {
 	(struct usb_descriptor_header *) &qdss_gsi_data_intf_desc,
 	(struct usb_descriptor_header *) &qdss_gsi_hs_data_desc,
@@ -1380,7 +1405,7 @@ static struct usb_descriptor_header *qdss_gsi_ss_data_only_desc[] = {
 
 /* string descriptors: */
 static struct usb_string qdss_gsi_string_defs[] = {
-	[0].s = "QDSS DATA",
+	[0].s = "DPL Data",
 	{}, /* end of list */
 };
 

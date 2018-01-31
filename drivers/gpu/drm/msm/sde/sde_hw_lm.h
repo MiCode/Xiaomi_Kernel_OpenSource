@@ -15,6 +15,7 @@
 
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_hw_blk.h"
 
 struct sde_hw_mixer;
 
@@ -89,7 +90,7 @@ struct sde_hw_lm_ops {
 };
 
 struct sde_hw_mixer {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* lm */
@@ -104,6 +105,16 @@ struct sde_hw_mixer {
 	/* store mixer info specific to display */
 	struct sde_hw_mixer_cfg cfg;
 };
+
+/**
+ * to_sde_hw_mixer - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_mixer *to_sde_hw_mixer(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_mixer, base);
+}
 
 /**
  * sde_hw_lm_init(): Initializes the mixer hw driver object.

@@ -1,0 +1,87 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,mlp446579_3800mah {
+	/* #MLP446579_3800mAh_averaged_MasterSlave_Oct9th2017*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,fastchg-current-ma = <3800>;
+	qcom,batt-id-kohm = <91>;
+	qcom,battery-beta = <4250>;
+	qcom,jeita-fcc-ranges = <0   150  760000
+				 151 450  3800000
+				 451 550  1900000>;
+	qcom,jeita-fv-ranges =  <0   150  4150000
+				 151 450  4400000
+				 451 550  4150000>;
+	qcom,battery-type = "mlp446579_3800mah_averaged_masterslave_oct9th2017";
+	qcom,checksum = <0x3F0A>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+		 64 1F B8 05
+		 8F 0A 0F 06
+		 A0 1D F3 FC
+		 41 13 70 1D
+		 1E 18 1E 23
+		 92 45 88 52
+		 52 00 00 00
+		 12 00 00 00
+		 00 00 04 00
+		 FD D4 68 C3
+		 23 00 08 00
+		 C3 D2 52 DC
+		 33 05 BB FB
+		 84 05 BE 13
+		 18 07 9E 2B
+		 21 06 09 20
+		 27 00 14 00
+		 B7 1F A2 05
+		 8E 0A 1C 06
+		 7F 1D D9 ED
+		 20 12 FE 1D
+		 F4 18 0A 23
+		 4C 45 49 53
+		 54 00 00 00
+		 0E 00 00 00
+		 00 00 F8 07
+		 03 00 27 B2
+		 1A 00 00 00
+		 FE E2 52 DC
+		 FE 05 79 FA
+		 56 05 D5 FA
+		 27 F5 5C 22
+		 BC 33 CC FF
+		 07 10 00 00
+		 F0 0E 66 46
+		 1A 00 40 00
+		 A7 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

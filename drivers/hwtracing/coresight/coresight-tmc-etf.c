@@ -171,8 +171,11 @@ out:
 	if (!used)
 		kfree(buf);
 
-	if (!ret)
+	if (!ret) {
+		coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
+		coresight_cti_map_trigout(drvdata->cti_flush, 1, 0);
 		dev_info(drvdata->dev, "TMC-ETB/ETF enabled\n");
+	}
 
 	return ret;
 }
@@ -243,6 +246,9 @@ static void tmc_disable_etf_sink(struct coresight_device *csdev)
 		tmc_etb_disable_hw(drvdata);
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+	coresight_cti_unmap_trigout(drvdata->cti_flush, 1, 0);
 
 	dev_info(drvdata->dev, "TMC-ETB/ETF disabled\n");
 }
@@ -478,6 +484,36 @@ static void tmc_update_etf_buffer(struct coresight_device *csdev,
 	CS_LOCK(drvdata->base);
 }
 
+static void tmc_abort_etf_sink(struct coresight_device *csdev)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	unsigned long flags;
+	enum tmc_mode mode;
+
+	spin_lock_irqsave(&drvdata->spinlock, flags);
+	if (drvdata->reading)
+		goto out0;
+
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
+		tmc_etb_disable_hw(drvdata);
+	} else {
+
+		mode = readl_relaxed(drvdata->base + TMC_MODE);
+		if (mode == TMC_MODE_CIRCULAR_BUFFER)
+			tmc_etb_disable_hw(drvdata);
+		else
+			goto out1;
+	}
+out0:
+	drvdata->enable = false;
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	dev_info(drvdata->dev, "TMC aborted\n");
+	return;
+out1:
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+}
+
 static const struct coresight_ops_sink tmc_etf_sink_ops = {
 	.enable		= tmc_enable_etf_sink,
 	.disable	= tmc_disable_etf_sink,
@@ -486,6 +522,7 @@ static const struct coresight_ops_sink tmc_etf_sink_ops = {
 	.set_buffer	= tmc_set_etf_buffer,
 	.reset_buffer	= tmc_reset_etf_buffer,
 	.update_buffer	= tmc_update_etf_buffer,
+	.abort		= tmc_abort_etf_sink,
 };
 
 static const struct coresight_ops_link tmc_etf_link_ops = {
@@ -521,11 +558,13 @@ int tmc_read_prepare_etb(struct tmc_drvdata *drvdata)
 		goto out;
 	}
 
-	/* There is no point in reading a TMC in HW FIFO mode */
-	mode = readl_relaxed(drvdata->base + TMC_MODE);
-	if (mode != TMC_MODE_CIRCULAR_BUFFER) {
-		ret = -EINVAL;
-		goto out;
+	if (drvdata->enable) {
+		/* There is no point in reading a TMC in HW FIFO mode */
+		mode = readl_relaxed(drvdata->base + TMC_MODE);
+		if (mode != TMC_MODE_CIRCULAR_BUFFER) {
+			ret = -EINVAL;
+			goto out;
+		}
 	}
 
 	val = local_read(&drvdata->mode);
@@ -565,11 +604,13 @@ int tmc_read_unprepare_etb(struct tmc_drvdata *drvdata)
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
-	/* There is no point in reading a TMC in HW FIFO mode */
-	mode = readl_relaxed(drvdata->base + TMC_MODE);
-	if (mode != TMC_MODE_CIRCULAR_BUFFER) {
-		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-		return -EINVAL;
+	if (drvdata->enable) {
+		/* There is no point in reading a TMC in HW FIFO mode */
+		mode = readl_relaxed(drvdata->base + TMC_MODE);
+		if (mode != TMC_MODE_CIRCULAR_BUFFER) {
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			return -EINVAL;
+		}
 	}
 
 	/* Re-enable the TMC if need be */

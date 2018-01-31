@@ -177,22 +177,23 @@ static void receive_ack_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
 {
 	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct pending_msg *msg = NULL, *next;
+	bool in_queue = false;
 
 	trace_kgsl_hfi_receive(rsp->ret_hdr.id,
 		rsp->ret_hdr.size,
 		rsp->ret_hdr.seqnum);
 
-	spin_lock(&hfi->msglock);
+	spin_lock_bh(&hfi->msglock);
 	list_for_each_entry_safe(msg, next, &hfi->msglist, node) {
 		if (msg->msg_id == rsp->ret_hdr.id &&
 				msg->seqnum == rsp->ret_hdr.seqnum) {
-			list_del(&msg->node);
+			in_queue = true;
 			break;
 		}
 	}
-	spin_unlock(&hfi->msglock);
 
-	if (msg == NULL) {
+	if (in_queue == false) {
+		spin_unlock_bh(&hfi->msglock);
 		dev_err(&gmu->pdev->dev,
 				"Cannot find receiver of ack msg with id=%d\n",
 				rsp->ret_hdr.id);
@@ -201,6 +202,7 @@ static void receive_ack_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
 
 	memcpy(&msg->results, (void *) rsp, rsp->hdr.size << 2);
 	complete(&msg->msg_complete);
+	spin_unlock_bh(&hfi->msglock);
 }
 
 static void receive_err_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
@@ -229,13 +231,13 @@ static int hfi_send_msg(struct gmu_device *gmu, struct hfi_msg_hdr *msg,
 	ret_msg->msg_id = msg->id;
 	ret_msg->seqnum = msg->seqnum;
 
-	spin_lock(&hfi->msglock);
+	spin_lock_bh(&hfi->msglock);
 	list_add_tail(&ret_msg->node, &hfi->msglist);
-	spin_unlock(&hfi->msglock);
+	spin_unlock_bh(&hfi->msglock);
 
 	if (hfi_cmdq_write(gmu, HFI_CMD_QUEUE, msg) != size) {
 		rc = -EINVAL;
-		goto error;
+		goto done;
 	}
 
 	rc = wait_for_completion_timeout(
@@ -245,14 +247,15 @@ static int hfi_send_msg(struct gmu_device *gmu, struct hfi_msg_hdr *msg,
 		dev_err(&gmu->pdev->dev,
 				"Receiving GMU ack %d timed out\n", msg->id);
 		rc = -ETIMEDOUT;
-		goto error;
+		goto done;
 	}
 
-	return 0;
-error:
-	spin_lock(&hfi->msglock);
+	/* If we got here we succeeded */
+	rc = 0;
+done:
+	spin_lock_bh(&hfi->msglock);
 	list_del(&ret_msg->node);
-	spin_unlock(&hfi->msglock);
+	spin_unlock_bh(&hfi->msglock);
 	return rc;
 }
 
@@ -275,8 +278,7 @@ int hfi_send_gmu_init(struct gmu_device *gmu, uint32_t boot_state)
 	int rc = 0;
 	struct pending_msg msg;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *)&init_msg,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &init_msg.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -306,8 +308,7 @@ int hfi_get_fw_version(struct gmu_device *gmu,
 	int rc = 0;
 	struct pending_msg msg;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *)&fw_ver,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &fw_ver.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -343,8 +344,7 @@ int hfi_send_lmconfig(struct gmu_device *gmu)
 		lmconfig.lm_enable_bitmask =
 			(1 << (gmu->lm_dcvs_level + 1)) - 1;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *) &lmconfig,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &lmconfig.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -385,8 +385,7 @@ int hfi_send_perftbl(struct gmu_device *gmu)
 
 	}
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *)&dcvstbl,
-			msg_size, &msg);
+	rc = hfi_send_msg(gmu, &dcvstbl.hdr, msg_size, &msg);
 	if (rc)
 		return rc;
 
@@ -438,8 +437,7 @@ int hfi_send_bwtbl(struct gmu_device *gmu)
 					gmu->rpmh_votes.cnoc_votes.
 					cmd_data[i][j];
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *) &bwtbl,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &bwtbl.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -449,6 +447,22 @@ int hfi_send_bwtbl(struct gmu_device *gmu)
 		dev_err(&gmu->pdev->dev,
 			"gmu send bw table failed with error=%d\n", rc);
 	return rc;
+}
+
+static int hfi_send_test(struct gmu_device *gmu)
+{
+	struct hfi_test_cmd test_msg = {
+		.hdr = {
+			.id = H2F_MSG_TEST,
+			.size = sizeof(test_msg) >> 2,
+			.type = HFI_MSG_CMD,
+		},
+	};
+	uint32_t msg_size_dwords = (sizeof(test_msg)) >> 2;
+	struct pending_msg msg;
+
+	return hfi_send_msg(gmu, (struct hfi_msg_hdr *)&test_msg.hdr,
+			msg_size_dwords, &msg);
 }
 
 int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
@@ -475,8 +489,7 @@ int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
 	int rc = 0;
 	struct pending_msg msg;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *)&dcvs_cmd,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &dcvs_cmd.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -508,8 +521,7 @@ int hfi_notify_slumber(struct gmu_device *gmu,
 	if (init_perf_idx >= MAX_GX_LEVELS || init_bw_idx >= MAX_GX_LEVELS)
 		return -EINVAL;
 
-	rc = hfi_send_msg(gmu, (struct hfi_msg_hdr *) &slumber_cmd,
-			msg_size_dwords, &msg);
+	rc = hfi_send_msg(gmu, &slumber_cmd.hdr, msg_size_dwords, &msg);
 	if (rc)
 		return rc;
 
@@ -573,43 +585,37 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 	if (result)
 		return result;
 
-	if (boot_state == GMU_COLD_BOOT) {
-		major = adreno_dev->gpucore->gpmu_major;
-		minor = adreno_dev->gpucore->gpmu_minor;
+	major = adreno_dev->gpucore->gpmu_major;
+	minor = adreno_dev->gpucore->gpmu_minor;
+	result = hfi_get_fw_version(gmu,
+			FW_VERSION(major, minor), &ver);
+	if (result)
+		dev_err(dev, "Failed to get FW version via HFI\n");
 
-		result = hfi_get_fw_version(gmu,
-				FW_VERSION(major, minor), &ver);
-		if (result)
-			dev_err(dev, "Failed to get FW version via HFI\n");
+	gmu->ver = ver;
+	if (major != FW_VER_MAJOR(ver))
+		WARN_ONCE(1, "FW version major %d error (expect %d)\n",
+				FW_VER_MAJOR(ver),
+				adreno_dev->gpucore->gpmu_major);
 
-		gmu->ver = ver;
-		if (major != FW_VER_MAJOR(ver))
-			dev_err(dev, "FW version major %d error (expect %d)\n",
-					FW_VER_MAJOR(ver),
-					adreno_dev->gpucore->gpmu_major);
+	if (minor > FW_VER_MINOR(ver))
+		WARN_ONCE(1, "FW version minor %d error (expect %d)\n",
+				FW_VER_MINOR(ver),
+				adreno_dev->gpucore->gpmu_minor);
 
-		if (minor > FW_VER_MINOR(ver))
-			dev_err(dev, "FW version minor %d error (expect %d)\n",
-					FW_VER_MINOR(ver),
-					adreno_dev->gpucore->gpmu_minor);
+	result = hfi_send_perftbl(gmu);
+	if (result)
+		return result;
 
-		result = hfi_send_perftbl(gmu);
+	result = hfi_send_bwtbl(gmu);
+	if (result)
+		return result;
+
+	/* Tell the GMU we are sending no more HFIs until the next boot */
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+		result = hfi_send_test(gmu);
 		if (result)
 			return result;
-
-		result = hfi_send_bwtbl(gmu);
-		if (result)
-			return result;
-
-		/*
-		 * FW is not ready for LM configuration
-		 * without powering on GPU.
-		 */
-		/*
-		 * result = hfi_send_lmconfig(gmu);
-		 * if (result)
-		 * return result;
-		 */
 	}
 
 	set_bit(GMU_HFI_ON, &gmu->flags);

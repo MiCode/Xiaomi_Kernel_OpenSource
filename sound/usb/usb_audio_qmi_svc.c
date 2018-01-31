@@ -26,7 +26,9 @@
 #include <linux/qmi_encdec.h>
 #include <soc/qcom/msm_qmi_interface.h>
 #include <linux/iommu.h>
+#include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
+#include <linux/usb/audio-v3.h>
 
 #include "usbaudio.h"
 #include "card.h"
@@ -44,8 +46,7 @@
 /*  event ring iova base address */
 #define IOVA_BASE 0x1000
 
-#define IOVA_DCBA_BASE 0x2000
-#define IOVA_XFER_RING_BASE (IOVA_DCBA_BASE + PAGE_SIZE * (SNDRV_CARDS + 1))
+#define IOVA_XFER_RING_BASE (IOVA_BASE + PAGE_SIZE * (SNDRV_CARDS + 1))
 #define IOVA_XFER_BUF_BASE (IOVA_XFER_RING_BASE + PAGE_SIZE * SNDRV_CARDS * 32)
 #define IOVA_XFER_RING_MAX (IOVA_XFER_BUF_BASE - PAGE_SIZE)
 #define IOVA_XFER_BUF_MAX (0xfffff000 - PAGE_SIZE)
@@ -67,6 +68,8 @@ struct intf_info {
 	unsigned long xfer_buf_va;
 	size_t xfer_buf_size;
 	phys_addr_t xfer_buf_pa;
+	unsigned int data_ep_pipe;
+	unsigned int sync_ep_pipe;
 	u8 *xfer_buf;
 	u8 intf_num;
 	u8 pcm_card_num;
@@ -80,10 +83,9 @@ struct uaudio_dev {
 	/* audio control interface */
 	struct usb_host_interface *ctrl_intf;
 	unsigned int card_num;
+	unsigned int usb_core_id;
 	atomic_t in_use;
 	struct kref kref;
-	unsigned long dcba_iova;
-	size_t dcba_size;
 	wait_queue_head_t disconnect_wq;
 
 	/* interface specific */
@@ -100,9 +102,6 @@ struct uaudio_qmi_dev {
 	struct iommu_domain *domain;
 
 	/* list to keep track of available iova */
-	struct list_head dcba_list;
-	size_t dcba_iova_size;
-	unsigned long curr_dcba_iova;
 	struct list_head xfer_ring_list;
 	size_t xfer_ring_iova_size;
 	unsigned long curr_xfer_ring_iova;
@@ -149,7 +148,6 @@ static struct msg_desc uaudio_stream_ind_desc = {
 
 enum mem_type {
 	MEM_EVENT_RING,
-	MEM_DCBA,
 	MEM_XFER_RING,
 	MEM_XFER_BUF,
 };
@@ -174,6 +172,26 @@ enum usb_qmi_audio_format {
 	USB_QMI_PCM_FORMAT_U32_LE,
 	USB_QMI_PCM_FORMAT_U32_BE,
 };
+
+static enum usb_audio_device_speed_enum_v01
+get_speed_info(enum usb_device_speed udev_speed)
+{
+	switch (udev_speed) {
+	case USB_SPEED_LOW:
+		return USB_AUDIO_DEVICE_SPEED_LOW_V01;
+	case USB_SPEED_FULL:
+		return USB_AUDIO_DEVICE_SPEED_FULL_V01;
+	case USB_SPEED_HIGH:
+		return USB_AUDIO_DEVICE_SPEED_HIGH_V01;
+	case USB_SPEED_SUPER:
+		return USB_AUDIO_DEVICE_SPEED_SUPER_V01;
+	case USB_SPEED_SUPER_PLUS:
+		return USB_AUDIO_DEVICE_SPEED_SUPER_PLUS_V01;
+	default:
+		pr_err("%s: udev speed %d\n", __func__, udev_speed);
+		return USB_AUDIO_DEVICE_SPEED_INVALID_V01;
+	}
+}
 
 static unsigned long uaudio_get_iova(unsigned long *curr_iova,
 	size_t *curr_iova_size, struct list_head *head, size_t size)
@@ -274,10 +292,6 @@ static unsigned long uaudio_iommu_map(enum mem_type mtype, phys_addr_t pa,
 		if (uaudio_qdev->er_phys_addr == pa)
 			map = false;
 		break;
-	case MEM_DCBA:
-		va = uaudio_get_iova(&uaudio_qdev->curr_dcba_iova,
-		&uaudio_qdev->dcba_iova_size, &uaudio_qdev->dcba_list, size);
-		break;
 	case MEM_XFER_RING:
 		va = uaudio_get_iova(&uaudio_qdev->curr_xfer_ring_iova,
 		&uaudio_qdev->xfer_ring_iova_size, &uaudio_qdev->xfer_ring_list,
@@ -362,10 +376,7 @@ static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
 		else
 			unmap = false;
 		break;
-	case MEM_DCBA:
-		uaudio_put_iova(va, size, &uaudio_qdev->dcba_list,
-		&uaudio_qdev->dcba_iova_size);
-		break;
+
 	case MEM_XFER_RING:
 		uaudio_put_iova(va, size, &uaudio_qdev->xfer_ring_list,
 		&uaudio_qdev->xfer_ring_iova_size);
@@ -406,10 +417,13 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	int protocol, card_num, pcm_dev_num;
 	void *hdr_ptr;
 	u8 *xfer_buf;
-	u32 len, mult, remainder, xfer_buf_len;
-	unsigned long va, tr_data_va = 0, tr_sync_va = 0, dcba_va = 0,
-	xfer_buf_va = 0;
-	phys_addr_t xhci_pa, xfer_buf_pa;
+	unsigned int data_ep_pipe = 0, sync_ep_pipe = 0;
+	u32 len, mult, remainder, xfer_buf_len, sg_len, i, total_len = 0;
+	unsigned long va, va_sg, tr_data_va = 0, tr_sync_va = 0;
+	phys_addr_t xhci_pa, xfer_buf_pa, tr_data_pa = 0, tr_sync_pa = 0;
+	dma_addr_t dma;
+	struct sg_table sgt;
+	struct scatterlist *sg;
 
 	iface = usb_ifnum_to_if(subs->dev, subs->interface);
 	if (!iface) {
@@ -427,12 +441,14 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	protocol = altsd->bInterfaceProtocol;
 
 	/* get format type */
-	fmt = snd_usb_find_csint_desc(alts->extra, alts->extralen, NULL,
-			UAC_FORMAT_TYPE);
-	if (!fmt) {
-		pr_err("%s: %u:%d : no UAC_FORMAT_TYPE desc\n", __func__,
-			subs->interface, subs->altset_idx);
-		goto err;
+	if (protocol != UAC_VERSION_3) {
+		fmt = snd_usb_find_csint_desc(alts->extra, alts->extralen, NULL,
+				UAC_FORMAT_TYPE);
+		if (!fmt) {
+			pr_err("%s: %u:%d : no UAC_FORMAT_TYPE desc\n",
+				__func__, subs->interface, subs->altset_idx);
+			goto err;
+		}
 	}
 
 	if (!uadev[card_num].ctrl_intf) {
@@ -440,12 +456,15 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		goto err;
 	}
 
-	hdr_ptr = snd_usb_find_csint_desc(uadev[card_num].ctrl_intf->extra,
-					uadev[card_num].ctrl_intf->extralen,
-					NULL, UAC_HEADER);
-	if (!hdr_ptr) {
-		pr_err("%s: no UAC_HEADER desc\n", __func__);
-		goto err;
+	if (protocol != UAC_VERSION_3) {
+		hdr_ptr = snd_usb_find_csint_desc(
+				uadev[card_num].ctrl_intf->extra,
+				uadev[card_num].ctrl_intf->extralen,
+				NULL, UAC_HEADER);
+		if (!hdr_ptr) {
+			pr_err("%s: no UAC_HEADER desc\n", __func__);
+			goto err;
+		}
 	}
 
 	if (protocol == UAC_VERSION_1) {
@@ -473,6 +492,31 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		resp->usb_audio_spec_revision =
 			((struct uac2_ac_header_descriptor *)hdr_ptr)->bcdADC;
 		resp->usb_audio_spec_revision_valid = 1;
+	} else if (protocol == UAC_VERSION_3) {
+		switch (le16_to_cpu(get_endpoint(alts, 0)->wMaxPacketSize)) {
+		case BADD_MAXPSIZE_SYNC_MONO_16:
+		case BADD_MAXPSIZE_SYNC_STEREO_16:
+		case BADD_MAXPSIZE_ASYNC_MONO_16:
+		case BADD_MAXPSIZE_ASYNC_STEREO_16: {
+			resp->usb_audio_subslot_size = SUBSLOTSIZE_16_BIT;
+			break;
+		}
+
+		case BADD_MAXPSIZE_SYNC_MONO_24:
+		case BADD_MAXPSIZE_SYNC_STEREO_24:
+		case BADD_MAXPSIZE_ASYNC_MONO_24:
+		case BADD_MAXPSIZE_ASYNC_STEREO_24: {
+			resp->usb_audio_subslot_size = SUBSLOTSIZE_24_BIT;
+			break;
+		}
+
+		default:
+			pr_err("%d: %u: Invalid wMaxPacketSize\n",
+				subs->interface, subs->altset_idx);
+			ret = -EINVAL;
+			goto err;
+		}
+		resp->usb_audio_subslot_size_valid = 1;
 	} else {
 		pr_err("%s: unknown protocol version %x\n", __func__, protocol);
 		goto err;
@@ -490,16 +534,17 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 			subs->data_endpoint->ep_num);
 		goto err;
 	}
+	data_ep_pipe = subs->data_endpoint->pipe;
 	memcpy(&resp->std_as_data_ep_desc, &ep->desc, sizeof(ep->desc));
 	resp->std_as_data_ep_desc_valid = 1;
 
-	xhci_pa = usb_get_xfer_ring_dma_addr(subs->dev, ep);
-	if (!xhci_pa) {
+	tr_data_pa = usb_get_xfer_ring_phys_addr(subs->dev, ep, &dma);
+	if (!tr_data_pa) {
 		pr_err("%s:failed to get data ep ring dma address\n", __func__);
 		goto err;
 	}
 
-	resp->xhci_mem_info.tr_data.pa = xhci_pa;
+	resp->xhci_mem_info.tr_data.pa = dma;
 
 	if (subs->sync_endpoint) {
 		ep = usb_pipe_endpoint(subs->dev, subs->sync_endpoint->pipe);
@@ -507,21 +552,29 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 			pr_debug("%s: implicit fb on data ep\n", __func__);
 			goto skip_sync_ep;
 		}
+		sync_ep_pipe = subs->sync_endpoint->pipe;
 		memcpy(&resp->std_as_sync_ep_desc, &ep->desc, sizeof(ep->desc));
 		resp->std_as_sync_ep_desc_valid = 1;
 
-		xhci_pa = usb_get_xfer_ring_dma_addr(subs->dev, ep);
-		if (!xhci_pa) {
+		tr_sync_pa = usb_get_xfer_ring_phys_addr(subs->dev, ep, &dma);
+		if (!tr_sync_pa) {
 			pr_err("%s:failed to get sync ep ring dma address\n",
 				__func__);
 			goto err;
 		}
-		resp->xhci_mem_info.tr_sync.pa = xhci_pa;
+		resp->xhci_mem_info.tr_sync.pa = dma;
 	}
 
 skip_sync_ep:
 	resp->interrupter_num = uaudio_qdev->intr_num;
 	resp->interrupter_num_valid = 1;
+
+	ret = usb_get_controller_id(subs->dev);
+	if (ret < 0)
+		goto err;
+
+	resp->controller_num =  ret;
+	resp->controller_num_valid = 1;
 
 	/*  map xhci data structures PA memory to iova */
 
@@ -532,8 +585,8 @@ skip_sync_ep:
 			ret);
 		goto err;
 	}
-	xhci_pa = usb_get_sec_event_ring_dma_addr(subs->dev,
-			resp->interrupter_num);
+	xhci_pa = usb_get_sec_event_ring_phys_addr(subs->dev,
+			resp->interrupter_num, &dma);
 	if (!xhci_pa) {
 		pr_err("%s: failed to get sec event ring dma address\n",
 		__func__);
@@ -546,37 +599,20 @@ skip_sync_ep:
 
 	resp->xhci_mem_info.evt_ring.va = PREPEND_SID_TO_IOVA(va,
 						uaudio_qdev->sid);
-	resp->xhci_mem_info.evt_ring.pa = xhci_pa;
+	resp->xhci_mem_info.evt_ring.pa = dma;
 	resp->xhci_mem_info.evt_ring.size = PAGE_SIZE;
 	uaudio_qdev->er_phys_addr = xhci_pa;
 
-	/* dcba */
-	xhci_pa = usb_get_dcba_dma_addr(subs->dev);
-	if (!xhci_pa) {
-		pr_err("%s:failed to get dcba dma address\n", __func__);
+	resp->speed_info = get_speed_info(subs->dev->speed);
+	if (resp->speed_info == USB_AUDIO_DEVICE_SPEED_INVALID_V01)
 		goto unmap_er;
-	}
 
-	if (!uadev[card_num].dcba_iova) { /* mappped per usb device */
-		va = uaudio_iommu_map(MEM_DCBA, xhci_pa, PAGE_SIZE);
-		if (!va)
-			goto unmap_er;
-
-		uadev[card_num].dcba_iova = va;
-		uadev[card_num].dcba_size = PAGE_SIZE;
-	}
-
-	dcba_va = uadev[card_num].dcba_iova;
-	resp->xhci_mem_info.dcba.va = PREPEND_SID_TO_IOVA(dcba_va,
-						uaudio_qdev->sid);
-	resp->xhci_mem_info.dcba.pa = xhci_pa;
-	resp->xhci_mem_info.dcba.size = PAGE_SIZE;
+	resp->speed_info_valid = 1;
 
 	/* data transfer ring */
-	xhci_pa = resp->xhci_mem_info.tr_data.pa;
-	va = uaudio_iommu_map(MEM_XFER_RING, xhci_pa, PAGE_SIZE);
+	va = uaudio_iommu_map(MEM_XFER_RING, tr_data_pa, PAGE_SIZE);
 	if (!va)
-		goto unmap_dcba;
+		goto unmap_er;
 
 	tr_data_va = va;
 	resp->xhci_mem_info.tr_data.va = PREPEND_SID_TO_IOVA(va,
@@ -588,7 +624,7 @@ skip_sync_ep:
 		goto skip_sync;
 
 	xhci_pa = resp->xhci_mem_info.tr_sync.pa;
-	va = uaudio_iommu_map(MEM_XFER_RING, xhci_pa, PAGE_SIZE);
+	va = uaudio_iommu_map(MEM_XFER_RING, tr_sync_pa, PAGE_SIZE);
 	if (!va)
 		goto unmap_data;
 
@@ -617,18 +653,32 @@ skip_sync:
 	if (!xfer_buf)
 		goto unmap_sync;
 
+	dma_get_sgtable(subs->dev->bus->sysdev, &sgt, xfer_buf, xfer_buf_pa,
+			len);
+
+	va = 0;
+	for_each_sg(sgt.sgl, sg, sgt.nents, i) {
+		sg_len = PAGE_ALIGN(sg->offset + sg->length);
+		va_sg = uaudio_iommu_map(MEM_XFER_BUF,
+			page_to_phys(sg_page(sg)), sg_len);
+		if (!va_sg)
+			goto unmap_xfer_buf;
+
+		if (!va)
+			va = va_sg;
+
+		total_len += sg_len;
+	}
+
 	resp->xhci_mem_info.xfer_buff.pa = xfer_buf_pa;
 	resp->xhci_mem_info.xfer_buff.size = len;
 
-	va = uaudio_iommu_map(MEM_XFER_BUF, xfer_buf_pa, len);
-	if (!va)
-		goto unmap_sync;
-
-	xfer_buf_va = va;
 	resp->xhci_mem_info.xfer_buff.va = PREPEND_SID_TO_IOVA(va,
 						uaudio_qdev->sid);
 
 	resp->xhci_mem_info_valid = 1;
+
+	sg_free_table(&sgt);
 
 	if (!atomic_read(&uadev[card_num].in_use)) {
 		kref_init(&uadev[card_num].kref);
@@ -649,15 +699,18 @@ skip_sync:
 	}
 
 	uadev[card_num].card_num = card_num;
+	uadev[card_num].usb_core_id = resp->controller_num;
 
 	/* cache intf specific info to use it for unmap and free xfer buf */
 	uadev[card_num].info[info_idx].data_xfer_ring_va = tr_data_va;
 	uadev[card_num].info[info_idx].data_xfer_ring_size = PAGE_SIZE;
 	uadev[card_num].info[info_idx].sync_xfer_ring_va = tr_sync_va;
 	uadev[card_num].info[info_idx].sync_xfer_ring_size = PAGE_SIZE;
-	uadev[card_num].info[info_idx].xfer_buf_va = xfer_buf_va;
+	uadev[card_num].info[info_idx].xfer_buf_va = va;
 	uadev[card_num].info[info_idx].xfer_buf_pa = xfer_buf_pa;
 	uadev[card_num].info[info_idx].xfer_buf_size = len;
+	uadev[card_num].info[info_idx].data_ep_pipe = data_ep_pipe;
+	uadev[card_num].info[info_idx].sync_ep_pipe = sync_ep_pipe;
 	uadev[card_num].info[info_idx].xfer_buf = xfer_buf;
 	uadev[card_num].info[info_idx].pcm_card_num = card_num;
 	uadev[card_num].info[info_idx].pcm_dev_num = pcm_dev_num;
@@ -670,14 +723,13 @@ skip_sync:
 	return 0;
 
 unmap_xfer_buf:
-	uaudio_iommu_unmap(MEM_XFER_BUF, xfer_buf_va, len);
+	if (va)
+		uaudio_iommu_unmap(MEM_XFER_BUF, va, total_len);
 unmap_sync:
 	usb_free_coherent(subs->dev, len, xfer_buf, xfer_buf_pa);
 	uaudio_iommu_unmap(MEM_XFER_RING, tr_sync_va, PAGE_SIZE);
 unmap_data:
 	uaudio_iommu_unmap(MEM_XFER_RING, tr_data_va, PAGE_SIZE);
-unmap_dcba:
-	uaudio_iommu_unmap(MEM_DCBA, dcba_va, PAGE_SIZE);
 unmap_er:
 	uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE);
 err:
@@ -687,6 +739,26 @@ err:
 static void uaudio_dev_intf_cleanup(struct usb_device *udev,
 	struct intf_info *info)
 {
+
+	struct usb_host_endpoint *ep;
+
+	if (info->data_ep_pipe) {
+		ep = usb_pipe_endpoint(udev, info->data_ep_pipe);
+		if (!ep)
+			pr_debug("%s: no data ep\n", __func__);
+		else
+			usb_stop_endpoint(udev, ep);
+		info->data_ep_pipe = 0;
+	}
+	if (info->sync_ep_pipe) {
+		ep = usb_pipe_endpoint(udev, info->sync_ep_pipe);
+		if (!ep)
+			pr_debug("%s: no sync ep\n", __func__);
+		else
+			usb_stop_endpoint(udev, ep);
+		info->sync_ep_pipe = 0;
+	}
+
 	uaudio_iommu_unmap(MEM_XFER_RING, info->data_xfer_ring_va,
 		info->data_xfer_ring_size);
 	info->data_xfer_ring_va = 0;
@@ -723,11 +795,6 @@ static void uaudio_dev_cleanup(struct uaudio_dev *dev)
 			dev->info[if_idx].intf_num, dev->card_num);
 	}
 
-	/* iommu_unmap dcba iova for a usb device */
-	uaudio_iommu_unmap(MEM_DCBA, dev->dcba_iova, dev->dcba_size);
-
-	dev->dcba_iova = 0;
-	dev->dcba_size = 0;
 	dev->num_intf = 0;
 
 	/* free interface info */
@@ -776,6 +843,8 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 		pr_debug("%s: sending qmi indication disconnect\n", __func__);
 		disconnect_ind.dev_event = USB_AUDIO_DEV_DISCONNECT_V01;
 		disconnect_ind.slot_id = dev->udev->slot_id;
+		disconnect_ind.controller_num = dev->usb_core_id;
+		disconnect_ind.controller_num_valid = 1;
 		ret = qmi_send_ind(svc->uaudio_svc_hdl, svc->curr_conn,
 				&uaudio_stream_ind_desc, &disconnect_ind,
 				sizeof(disconnect_ind));
@@ -1197,11 +1266,7 @@ static int uaudio_qmi_plat_probe(struct platform_device *pdev)
 		goto free_domain;
 	}
 
-	/* initialize dcba, xfer ring and xfer buf iova list */
-	INIT_LIST_HEAD(&uaudio_qdev->dcba_list);
-	uaudio_qdev->curr_dcba_iova = IOVA_DCBA_BASE;
-	uaudio_qdev->dcba_iova_size = SNDRV_CARDS * PAGE_SIZE;
-
+	/* initialize xfer ring and xfer buf iova list */
 	INIT_LIST_HEAD(&uaudio_qdev->xfer_ring_list);
 	uaudio_qdev->curr_xfer_ring_iova = IOVA_XFER_RING_BASE;
 	uaudio_qdev->xfer_ring_iova_size =

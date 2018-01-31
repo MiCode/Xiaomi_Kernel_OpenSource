@@ -89,8 +89,14 @@ SoCs:
 - SDM845
   compatible = "qcom,sdm845"
 
-- SDM830
-  compatible = "qcom,sdm830"
+- SDM670
+  compatible = "qcom,sdm670"
+
+- QCS605
+  compatible = "qcom,qcs605"
+
+- SDA670
+  compatible = "qcom,sda670"
 
 - MSM8952
   compatible = "qcom,msm8952"
@@ -100,6 +106,15 @@ SoCs:
 
 - MSM8953
   compatible = "qcom,msm8953"
+
+- SDM450
+  compatible = "qcom,sdm450"
+
+- SDM632
+  compatible = "qcom,sdm632"
+
+- SDA632
+  compatible = "qcom,sda632"
 
 - MSM8937
   compatible = "qcom,msm8937"
@@ -157,7 +172,14 @@ Generic board variants:
 - RUMI device:
   compatible = "qcom,rumi"
 
+- VR device:
+  compatible = "qcom,qvr"
 
+- HDK device:
+  compatible = "qcom,hdk"
+
+- IPC device:
+  compatible = "qcom,ipc"
 
 Boards (SoC type + board variant):
 
@@ -188,6 +210,7 @@ compatible = "qcom,apq8017-cdp"
 compatible = "qcom,apq8017-mtp"
 compatible = "qcom,apq8053-cdp"
 compatible = "qcom,apq8053-mtp"
+compatible = "qcom,apq8053-ipc"
 compatible = "qcom,mdm9630-cdp"
 compatible = "qcom,mdm9630-mtp"
 compatible = "qcom,mdm9630-sim"
@@ -267,10 +290,19 @@ compatible = "qcom,sdm845-cdp"
 compatible = "qcom,sdm845-mtp"
 compatible = "qcom,sdm845-mtp"
 compatible = "qcom,sdm845-qrd"
-compatible = "qcom,sdm830-sim"
-compatible = "qcom,sdm830-rumi"
-compatible = "qcom,sdm830-cdp"
-compatible = "qcom,sdm830-mtp"
+compatible = "qcom,sdm845-qvr"
+compatible = "qcom,sda845-cdp"
+compatible = "qcom,sda845-mtp"
+compatible = "qcom,sda845-qrd"
+compatible = "qcom,sda845-hdk"
+compatible = "qcom,sdm670-rumi"
+compatible = "qcom,sdm670-cdp"
+compatible = "qcom,sdm670-mtp"
+compatible = "qcom,sdm670-qrd"
+compatible = "qcom,qcs605-cdp"
+compatible = "qcom,qcs605-mtp"
+compatible = "qcom,sda670-cdp"
+compatible = "qcom,sda670-mtp"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
 compatible = "qcom,msm8952-qrd"
@@ -289,8 +321,13 @@ compatible = "qcom,msm8953-rumi"
 compatible = "qcom,msm8953-sim"
 compatible = "qcom,msm8953-cdp"
 compatible = "qcom,msm8953-mtp"
+compatible = "qcom,msm8953-ipc"
 compatible = "qcom,msm8953-qrd"
 compatible = "qcom,msm8953-qrd-sku3"
+compatible = "qcom,sdm450-mtp"
+compatible = "qcom,sdm450-cdp"
+compatible = "qcom,sdm450-qrd"
+compatible = "qcom,sdm632-rumi"
 compatible = "qcom,mdm9640-cdp"
 compatible = "qcom,mdm9640-mtp"
 compatible = "qcom,mdm9640-rumi"
@@ -306,3 +343,5 @@ compatible = "qcom,mdmcalifornium-mtp"
 compatible = "qcom,apq8009-cdp"
 compatible = "qcom,apq8009-mtp"
 compatible = "qcom,sdxpoorwills-rumi"
+compatible = "qcom,sdxpoorwills-mtp"
+compatible = "qcom,sdxpoorwills-cdp"
