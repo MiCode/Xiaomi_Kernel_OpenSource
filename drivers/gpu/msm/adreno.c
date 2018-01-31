@@ -771,6 +771,7 @@ static struct {
 	{ ADRENO_QUIRK_SECVID_SET_ONCE, "qcom,gpu-quirk-secvid-set-once" },
 	{ ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW,
 			"qcom,gpu-quirk-limit-uche-gbif-rw" },
+	{ ADRENO_QUIRK_MMU_SECURE_CB_ALT, "qcom,gpu-quirk-mmu-secure-cb-alt" },
 };
 
 static struct device_node *
