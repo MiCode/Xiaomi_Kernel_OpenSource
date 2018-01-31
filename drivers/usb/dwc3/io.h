@@ -76,7 +76,7 @@ static inline void dwc3_masked_write_readback(void __iomem *base,
 	writel_relaxed(write_val, base + offset - DWC3_GLOBALS_REGS_START);
 
 	/* Read back to see if value was written */
-	tmp = readl_relaxed(base + offset);
+	tmp = readl_relaxed(base + offset - DWC3_GLOBALS_REGS_START);
 
 	dwc3_trace(trace_dwc3_masked_write_readback,
 			"addr %p readback val %08x",
