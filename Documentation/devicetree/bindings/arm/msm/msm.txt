@@ -119,6 +119,12 @@ SoCs:
 - MSM8937
   compatible = "qcom,msm8937"
 
+- SDM439
+  compatible = "qcom,sdm439"
+
+- SDM429
+  compatible = "qcom,sdm429"
+
 - MDM9640
   compatible = "qcom,mdm9640"
 
@@ -321,6 +327,12 @@ compatible = "qcom,msm8937-mtp"
 compatible = "qcom,msm8937-qrd"
 compatible = "qcom,msm8937-pmi8950-qrd-sku1"
 compatible = "qcom,msm8937-pmi8937-qrd-sku2"
+compatible = "qcom,sdm429-cdp"
+compatible = "qcom,sdm429-mtp"
+compatible = "qcom,sdm429-qrd"
+compatible = "qcom,sdm439-cdp"
+compatible = "qcom,sdm439-mtp"
+compatible = "qcom,sdm439-qrd"
 compatible = "qcom,msm8953-rumi"
 compatible = "qcom,msm8953-sim"
 compatible = "qcom,msm8953-cdp"

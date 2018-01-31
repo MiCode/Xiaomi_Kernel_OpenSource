@@ -1,0 +1,139 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	/* Deleting all pm8937 regulators */
+	/delete-node/ rpm-regulator-smpa1;
+	/delete-node/ rpm-regulator-smpa2;
+	/delete-node/ rpm-regulator-smpa3;
+	/delete-node/ rpm-regulator-smpa4;
+	/delete-node/ rpm-regulator-ldoa2;
+	/delete-node/ rpm-regulator-ldoa3;
+	/delete-node/ rpm-regulator-ldoa5;
+	/delete-node/ rpm-regulator-ldoa6;
+	/delete-node/ rpm-regulator-ldoa7;
+	/delete-node/ rpm-regulator-ldoa8;
+	/delete-node/ rpm-regulator-ldoa9;
+	/delete-node/ rpm-regulator-ldoa10;
+	/delete-node/ rpm-regulator-ldoa11;
+	/delete-node/ rpm-regulator-ldoa12;
+	/delete-node/ rpm-regulator-ldoa13;
+	/delete-node/ rpm-regulator-ldoa14;
+	/delete-node/ rpm-regulator-ldoa15;
+	/delete-node/ rpm-regulator-ldoa16;
+	/delete-node/ rpm-regulator-ldoa17;
+	/delete-node/ rpm-regulator-ldoa19;
+	/delete-node/ rpm-regulator-ldoa22;
+	/delete-node/ rpm-regulator-ldoa23;
+};
+
+&spmi_bus {
+	/delete-node/ qcom,pm8937@0;
+	/delete-node/ qcom,pm8937@1;
+};
+
+&thermal_zones {
+	/delete-node/ pa-therm1-adc;
+	/delete-node/ xo-therm-adc;
+	/delete-node/ xo-therm-buf-adc;
+	/delete-node/ case-therm-adc;
+	/delete-node/ pa-therm0-adc;
+};
+
+&soc {
+	/delete-node/ regulator@01946004;
+	/delete-node/ regulator@b018000;
+	/delete-node/ eldo2;
+	/delete-node/ adv_vreg;
+
+	qcom,gcc@1800000 {
+		/delete-property/ vdd_dig-supply;
+		/delete-property/ vdd_sr2_dig-supply;
+		/delete-property/ vdd_sr2_pll-supply;
+		/delete-property/ vdd_hf_dig-supply;
+		/delete-property/ vdd_hf_pll-supply;
+	};
+
+	qcom,cpu-clock-8939@b111050 {
+		/delete-property/ vdd-c0-supply;
+		/delete-property/ vdd-c1-supply;
+		/delete-property/ vdd-cci-supply;
+	};
+
+	usb@78db000 {
+		/delete-property/ hsusb_vdd_dig-supply;
+		/delete-property/ HSUSB_1p8-supply;
+		/delete-property/ HSUSB_3p3-supply;
+	};
+
+	qcom,lpass@c200000 {
+		/delete-property/ vdd_cx-supply;
+	};
+
+	qcom,pronto@a21b000 {
+		/delete-property/ vdd_pronto_pll-supply;
+	};
+
+	qcom,wcnss-wlan@0a000000 {
+		/delete-property/ qcom,pronto-vddmx-supply;
+		/delete-property/ qcom,pronto-vddcx-supply;
+		/delete-property/ qcom,pronto-vddpx-supply;
+		/delete-property/ qcom,iris-vddxo-supply;
+		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-supply;
+		/delete-property/ qcom,iris-vdddig-supply;
+		/delete-property/ qcom,wcnss-adc_tm;
+	};
+};
+
+&pil_mss {
+	/delete-property/ vdd_mss-supply;
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_cx-voltage;
+	/delete-property/ vdd_mx-supply;
+	/delete-property/ vdd_mx-uV;
+	/delete-property/ vdd_pll-supply;
+};
+
+&mdss_dsi {
+	/delete-property/ vdda-supply;
+	/delete-property/ vddio-supply;
+};
+
+&usb_otg {
+	/delete-property/ hsusb_vdd_dig-supply;
+	/delete-property/ HSUSB_1p8-supply;
+	/delete-property/ HSUSB_3p3-supply;
+};
+
+&mdss_dsi0_pll {
+	/delete-property/ vddio-supply;
+};
+
+&mdss_dsi1_pll {
+	/delete-property/ vddio-supply;
+};
+
+&mdss_dsi0 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+};
+
+&mdss_dsi1 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+};
+
+#include "pm8953.dtsi"
+#include "pm8953-rpm-regulator.dtsi"
+#include "sdm439-regulator.dtsi"
