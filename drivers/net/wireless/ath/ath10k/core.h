@@ -967,6 +967,7 @@ struct ath10k {
 	struct completion peer_delete_done;
 	bool is_bmi;
 	enum ieee80211_sta_state sta_state;
+	bool rri_on_ddr;
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };

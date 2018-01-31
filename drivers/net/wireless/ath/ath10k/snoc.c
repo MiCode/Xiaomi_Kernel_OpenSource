@@ -646,10 +646,6 @@ static int ath10k_snoc_hif_tx_sg(struct ath10k *ar, u8 pipe_id,
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 	struct ath10k_snoc_pipe *snoc_pipe;
 	struct ath10k_ce_pipe *ce_pipe;
-	struct ath10k_ce_ring *src_ring;
-	unsigned int nentries_mask;
-	unsigned int sw_index;
-	unsigned int write_index;
 	int err, i = 0;
 
 	if (!ar_snoc)
@@ -660,18 +656,7 @@ static int ath10k_snoc_hif_tx_sg(struct ath10k *ar, u8 pipe_id,
 
 	snoc_pipe = &ar_snoc->pipe_info[pipe_id];
 	ce_pipe = snoc_pipe->ce_hdl;
-	src_ring = ce_pipe->src_ring;
 	spin_lock_bh(&ar_snoc->opaque_ctx.ce_lock);
-
-	nentries_mask = src_ring->nentries_mask;
-	sw_index = src_ring->sw_index;
-	write_index = src_ring->write_index;
-
-	if (unlikely(CE_RING_DELTA(nentries_mask,
-				   write_index, sw_index - 1) < n_items)) {
-		err = -ENOBUFS;
-		goto err;
-	}
 
 	for (i = 0; i < n_items - 1; i++) {
 		ath10k_dbg(ar, ATH10K_DBG_SNOC,
@@ -967,6 +952,8 @@ static void ath10k_snoc_hif_power_down(struct ath10k *ar)
 
 	if (!atomic_read(&ar_snoc->pm_ops_inprogress))
 		ath10k_snoc_qmi_wlan_disable(ar);
+
+	ce_remove_rri_on_ddr(ar);
 }
 
 int ath10k_snoc_get_ce_id(struct ath10k *ar, int irq)
@@ -1120,6 +1107,8 @@ static int ath10k_snoc_bus_configure(struct ath10k *ar)
 			   __func__, ret);
 		return ret;
 	}
+
+	ce_config_rri_on_ddr(ar);
 
 	return 0;
 }

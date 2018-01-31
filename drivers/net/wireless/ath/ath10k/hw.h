@@ -332,6 +332,12 @@ struct ath10k_hw_ce_dst_src_wm_regs {
 	struct ath10k_hw_ce_regs_addr_map *wm_high;
 };
 
+struct ath10k_hw_ce_ctrl1_upd {
+	u32 shift;
+	u32 mask;
+	u32 enable;
+};
+
 struct ath10k_hw_ce_regs {
 	u32 sr_base_addr;
 	u32 sr_size_addr;
@@ -355,6 +361,7 @@ struct ath10k_hw_ce_regs {
 	struct ath10k_hw_ce_host_ie *host_ie;
 	struct ath10k_hw_ce_dst_src_wm_regs *wm_srcr;
 	struct ath10k_hw_ce_dst_src_wm_regs *wm_dstr;
+	struct ath10k_hw_ce_ctrl1_upd *upd;
 };
 
 extern struct ath10k_hw_ce_regs wcn3990_ce_regs;
