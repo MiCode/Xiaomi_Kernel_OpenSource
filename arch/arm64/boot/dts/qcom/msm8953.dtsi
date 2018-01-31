@@ -19,9 +19,10 @@
 #include <dt-bindings/clock/msm-clocks-8953.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8953";
+	model = "Qualcomm Technologies, Inc. MSM8953";
 	compatible = "qcom,msm8953";
 	qcom,msm-id = <293 0x0>;
+	qcom,msm-name = "MSM8953";
 	interrupt-parent = <&intc>;
 
 	chosen {
@@ -504,6 +505,16 @@
 		qcom,msm-bus,vectors-KBps =
 				<84 512 0 0>,
 				<84 512 500 800>;
+		status = "disabled";
+	};
+
+	blsp1_serial1: serial@78b0000 {
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
+		reg = <0x78b0000 0x200>;
+		interrupts = <0 108 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core", "iface";
 		status = "disabled";
 	};
 
@@ -1070,7 +1081,7 @@
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 		};
 
-	qcom,wdt@b017000 {
+	wdog: qcom,wdt@b017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,7 +93,10 @@ void update_recon_stats(struct msm_vidc_inst *inst,
 
 	frame_size = (msm_vidc_get_mbs_per_frame(inst) / (32 * 8) * 3) / 2;
 
-	CF = recon_stats->complexity_number / frame_size;
+	if (frame_size)
+		CF = recon_stats->complexity_number / frame_size;
+	else
+		CF = MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR;
 
 	mutex_lock(&inst->reconbufs.lock);
 	list_for_each_entry(binfo, &inst->reconbufs.list, list) {

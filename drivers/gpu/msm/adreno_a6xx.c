@@ -63,6 +63,9 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a615, a615_gbif },
 };
 
+
+static unsigned long a6xx_oob_state_bitmask;
+
 struct kgsl_hwcg_reg {
 	unsigned int off;
 	unsigned int val;
@@ -324,7 +327,6 @@ static struct reg_list_pair {
 static struct reg_list_pair a6xx_ifpc_pwrup_reglist[] = {
 	{ A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x0 },
 	{ A6XX_CP_CHICKEN_DBG, 0x0 },
-	{ A6XX_CP_ADDR_MODE_CNTL, 0x0 },
 	{ A6XX_CP_DBG_ECO_CNTL, 0x0 },
 	{ A6XX_CP_PROTECT_CNTL, 0x0 },
 	{ A6XX_CP_PROTECT_REG, 0x0 },
@@ -1083,8 +1085,8 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
 					A6XX_CP_RB_CNTL_DEFAULT);
 
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			rb->buffer_desc.gpuaddr);
+	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
+			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc.gpuaddr);
 
 	ret = a6xx_microcode_load(adreno_dev);
 	if (ret)
@@ -1451,7 +1453,7 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret = 0;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!kgsl_gmu_isenabled(device) || !clear_mask)
 		return 0;
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set_mask);
@@ -1467,6 +1469,8 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, clear_mask);
 
+	set_bit((fls(clear_mask) - 1), &a6xx_oob_state_bitmask);
+
 	trace_kgsl_gmu_oob_set(set_mask);
 	return ret;
 }
@@ -1481,10 +1485,15 @@ static inline void a6xx_oob_clear(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!kgsl_gmu_isenabled(device) || !clear_mask)
 		return;
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, clear_mask);
+	if (test_and_clear_bit(fls(clear_mask) - 1,
+				&a6xx_oob_state_bitmask))
+		kgsl_gmu_regwrite(device,
+			A6XX_GMU_HOST2GMU_INTR_SET,
+			clear_mask);
+
 	trace_kgsl_gmu_oob_clear(clear_mask);
 }
 
@@ -2308,6 +2317,9 @@ static int a6xx_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
 		ret = a6xx_gmu_suspend(device);
 		break;
 	case GMU_FW_STOP:
+		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+			a6xx_oob_clear(adreno_dev,
+					OOB_BOOT_SLUMBER_CLEAR_MASK);
 		ret = a6xx_rpmh_power_off_gpu(device);
 		break;
 	case GMU_DCVS_NOHFI:

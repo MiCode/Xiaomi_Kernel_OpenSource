@@ -4720,6 +4720,8 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	unsigned char device_ctrl;
+	const struct synaptics_dsx_board_data *bdata =
+			rmi4_data->hw_if->board_data;
 
 	if (rmi4_data->stay_awake)
 		return 0;
@@ -4762,9 +4764,10 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		synaptics_rmi4_free_fingers(rmi4_data);
 	}
 
-	if (rmi4_data->ts_pinctrl)
-		pinctrl_select_state(rmi4_data->ts_pinctrl,
-					rmi4_data->pinctrl_state_suspend);
+	if (bdata->reset_gpio >= 0) {
+		gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
+		msleep(bdata->reset_active_ms);
+	}
 
 	synaptics_rmi4_enable_reg(rmi4_data, false);
 
@@ -4790,6 +4793,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
+	const struct synaptics_dsx_board_data *bdata =
+			rmi4_data->hw_if->board_data;
 	if (rmi4_data->stay_awake)
 		return 0;
 
@@ -4801,9 +4806,13 @@ static int synaptics_rmi4_resume(struct device *dev)
 
 	synaptics_rmi4_enable_reg(rmi4_data, true);
 
-	if (rmi4_data->ts_pinctrl)
-		pinctrl_select_state(rmi4_data->ts_pinctrl,
-			rmi4_data->pinctrl_state_active);
+	if (bdata->reset_gpio >= 0) {
+		gpio_set_value(bdata->reset_gpio, bdata->reset_on_state);
+		msleep(bdata->reset_active_ms);
+		gpio_set_value(bdata->reset_gpio, !bdata->reset_on_state);
+		msleep(bdata->reset_delay_ms);
+	}
+
 
 	rmi4_data->current_page = MASK_8BIT;
 

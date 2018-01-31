@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6045,6 +6045,16 @@ int msm_comm_session_continue(void *instance)
 		inst->prop.width[CAPTURE_PORT] = inst->reconfig_width;
 		inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
 		inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
+		if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+			rc = msm_comm_queue_output_buffers(inst);
+			if (rc) {
+				dprintk(VIDC_ERR,
+						"Failed to queue output buffers: %d\n",
+						rc);
+				goto sess_continue_fail;
+			}
+		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		dprintk(VIDC_DBG,
 				"session_continue not supported for encoder");

@@ -290,7 +290,7 @@
 };
 
 &soc {
-	cpuss_dump {
+	cpuss_dump: cpuss_dump {
 		compatible = "qcom,cpuss-dump";
 		qcom,l2_dump0 {
 			/* L2 cache dump for A53 cluster */

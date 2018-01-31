@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -741,10 +741,6 @@ static int ipa3_usb_register_pm(enum ipa3_usb_transport_type ttype)
 		&ipa3_usb_ctx->ttype_ctx[ttype];
 	int result;
 
-	/* create PM resources for the first tethering protocol only */
-	if (ipa3_usb_ctx->num_init_prot > 0)
-		return 0;
-
 	memset(&ttype_ctx->pm_ctx.reg_params, 0,
 		sizeof(ttype_ctx->pm_ctx.reg_params));
 	ttype_ctx->pm_ctx.reg_params.name = (ttype == IPA_USB_TRANSPORT_DPL) ?
@@ -1024,11 +1020,11 @@ int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 	return 0;
 
 teth_prot_init_fail:
-	if ((IPA3_USB_IS_TTYPE_DPL(ttype))
-		|| (ipa3_usb_ctx->num_init_prot == 0)) {
-		if (ipa_pm_is_used()) {
-			ipa3_usb_deregister_pm(ttype);
-		} else {
+	if (ipa_pm_is_used()) {
+		ipa3_usb_deregister_pm(ttype);
+	} else {
+		if ((IPA3_USB_IS_TTYPE_DPL(ttype))
+			|| (ipa3_usb_ctx->num_init_prot == 0)) {
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_valid =
 				false;
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.cons_valid =
@@ -1332,6 +1328,10 @@ static int ipa3_usb_request_xdci_channel(
 	chan_params.chan_scratch.xdci.outstanding_threshold =
 		((params->teth_prot == IPA_USB_MBIM) ? 1 : 2) *
 		chan_params.chan_params.re_size;
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		chan_params.chan_scratch.xdci.outstanding_threshold = 0;
+
 	/* max_outstanding_tre is set in ipa3_request_gsi_channel() */
 	result = ipa3_request_gsi_channel(&chan_params, out_params);
 	if (result) {
@@ -2462,13 +2462,14 @@ int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		goto bad_params;
 	}
 
-	if (IPA3_USB_IS_TTYPE_DPL(ttype) ||
-		(ipa3_usb_ctx->num_init_prot == 0)) {
-		if (!ipa3_usb_set_state(IPA_USB_INVALID, false, ttype))
-			IPA_USB_ERR("failed to change state to invalid\n");
-		if (ipa_pm_is_used()) {
-			ipa3_usb_deregister_pm(ttype);
-		} else {
+	if (ipa_pm_is_used()) {
+		ipa3_usb_deregister_pm(ttype);
+	} else {
+		if (IPA3_USB_IS_TTYPE_DPL(ttype) ||
+			(ipa3_usb_ctx->num_init_prot == 0)) {
+			if (!ipa3_usb_set_state(IPA_USB_INVALID, false, ttype))
+				IPA_USB_ERR(
+					"failed to change state to invalid\n");
 			ipa_rm_delete_resource(
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_params.name);
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_valid =

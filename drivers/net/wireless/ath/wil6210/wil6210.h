@@ -83,18 +83,18 @@ static inline u32 WIL_GET_BITS(u32 x, int b0, int b1)
  */
 #define WIL_MAX_MPDU_OVERHEAD	(62)
 
-struct wil_suspend_stats {
+struct wil_suspend_count_stats {
 	unsigned long successful_suspends;
-	unsigned long failed_suspends;
 	unsigned long successful_resumes;
+	unsigned long failed_suspends;
 	unsigned long failed_resumes;
-	unsigned long rejected_by_device;
+};
+
+struct wil_suspend_stats {
+	struct wil_suspend_count_stats r_off;
+	struct wil_suspend_count_stats r_on;
+	unsigned long rejected_by_device; /* only radio on */
 	unsigned long rejected_by_host;
-	unsigned long long total_suspend_time;
-	unsigned long long min_suspend_time;
-	unsigned long long max_suspend_time;
-	ktime_t collection_start;
-	ktime_t suspend_start_time;
 };
 
 /* Calculate MAC buffer size for the firmware. It includes all overhead,
@@ -440,7 +440,7 @@ enum { /* for wil6210_priv.status */
 	wil_status_fwconnected,
 	wil_status_dontscan,
 	wil_status_mbox_ready, /* MBOX structures ready */
-	wil_status_irqen, /* FIXME: interrupts enabled - for debug */
+	wil_status_irqen, /* interrupts enabled - for debug */
 	wil_status_napi_en, /* NAPI enabled protected by wil->mutex */
 	wil_status_resetting, /* reset in progress */
 	wil_status_suspending, /* suspend in progress */
@@ -657,6 +657,7 @@ struct wil6210_priv {
 	unsigned long last_fw_recovery; /* jiffies of last fw recovery */
 	wait_queue_head_t wq; /* for all wait_event() use */
 	/* profile */
+	struct cfg80211_chan_def monitor_chandef;
 	u32 monitor_flags;
 	u32 privacy; /* secure connection? */
 	u8 hidden_ssid; /* relevant in AP mode */
@@ -712,7 +713,7 @@ struct wil6210_priv {
 	struct wil_sta_info sta[WIL6210_MAX_CID];
 	int bcast_vring;
 	u32 vring_idle_trsh; /* HW fetches up to 16 descriptors at once  */
-	bool use_extended_dma_addr; /* indicates whether we are using 48 bits */
+	u32 dma_addr_size; /* indicates dma addr size */
 	/* scan */
 	struct cfg80211_scan_request *scan_request;
 
@@ -1041,8 +1042,8 @@ int wil_pm_runtime_get(struct wil6210_priv *wil);
 void wil_pm_runtime_put(struct wil6210_priv *wil);
 
 int wil_can_suspend(struct wil6210_priv *wil, bool is_runtime);
-int wil_suspend(struct wil6210_priv *wil, bool is_runtime);
-int wil_resume(struct wil6210_priv *wil, bool is_runtime);
+int wil_suspend(struct wil6210_priv *wil, bool is_runtime, bool keep_radio_on);
+int wil_resume(struct wil6210_priv *wil, bool is_runtime, bool keep_radio_on);
 bool wil_is_wmi_idle(struct wil6210_priv *wil);
 int wmi_resume(struct wil6210_priv *wil);
 int wmi_suspend(struct wil6210_priv *wil);
@@ -1076,4 +1077,9 @@ int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
 				bool fst_link_loss);
 
 int wmi_set_snr_thresh(struct wil6210_priv *wil, short omni, short direct);
+
+int wmi_start_sched_scan(struct wil6210_priv *wil,
+			 struct cfg80211_sched_scan_request *request);
+int wmi_stop_sched_scan(struct wil6210_priv *wil);
+
 #endif /* __WIL6210_H__ */

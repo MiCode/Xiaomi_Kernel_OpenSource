@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -240,7 +240,7 @@ static int calculate_throughput(void)
 	struct ipa_pm_client *client;
 
 	/* Create a basic array to hold throughputs*/
-	for (i = 0, n = 0; i < IPA_PM_MAX_CLIENTS; i++) {
+	for (i = 1, n = 0; i < IPA_PM_MAX_CLIENTS; i++) {
 		client = ipa_pm_ctx->clients[i];
 		if (client != NULL && IPA_PM_STATE_ACTIVE(client->state)) {
 			/* default case */
@@ -414,7 +414,6 @@ static void activate_work_func(struct work_struct *work)
 	complete_all(&client->complete);
 
 	if (dec_clk) {
-		ipa_set_tag_process_before_gating(true);
 		if (!client->skip_clk_vote)
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL(client->name);
 
@@ -465,7 +464,6 @@ static void delayed_deferred_deactivate_work_func(struct work_struct *work)
 		client->state = IPA_PM_DEACTIVATED;
 		IPA_PM_DBG_STATE(client->hdl, client->name, client->state);
 		spin_unlock_irqrestore(&client->state_lock, flags);
-		ipa_set_tag_process_before_gating(true);
 		if (!client->skip_clk_vote)
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL(client->name);
 
@@ -489,7 +487,8 @@ static int find_next_open_array_element(const char *name)
 
 	n = -ENOBUFS;
 
-	for (i = IPA_PM_MAX_CLIENTS - 1; i >= 0; i--) {
+	/* 0 is not a valid handle */
+	for (i = IPA_PM_MAX_CLIENTS - 1; i >= 1; i--) {
 		if (ipa_pm_ctx->clients[i] == NULL) {
 			n = i;
 			continue;
@@ -1043,7 +1042,7 @@ int ipa_pm_deactivate_all_deferred(void)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < IPA_PM_MAX_CLIENTS; i++) {
+	for (i = 1; i < IPA_PM_MAX_CLIENTS; i++) {
 		client = ipa_pm_ctx->clients[i];
 
 		if (client == NULL)
@@ -1073,7 +1072,6 @@ int ipa_pm_deactivate_all_deferred(void)
 			IPA_PM_DBG_STATE(client->hdl, client->name,
 				client->state);
 			spin_unlock_irqrestore(&client->state_lock, flags);
-			ipa_set_tag_process_before_gating(true);
 			if (!client->skip_clk_vote)
 				IPA_ACTIVE_CLIENTS_DEC_SPECIAL(client->name);
 			deactivate_client(client->hdl);
@@ -1126,7 +1124,6 @@ int ipa_pm_deactivate_sync(u32 hdl)
 	spin_unlock_irqrestore(&client->state_lock, flags);
 
 	/* else case (Deactivates all Activated cases)*/
-	ipa_set_tag_process_before_gating(true);
 	if (!client->skip_clk_vote)
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL(client->name);
 
@@ -1280,7 +1277,7 @@ int ipa_pm_stat(char *buf, int size)
 	cnt += result;
 
 
-	for (i = 0; i < IPA_PM_MAX_CLIENTS; i++) {
+	for (i = 1; i < IPA_PM_MAX_CLIENTS; i++) {
 		client = ipa_pm_ctx->clients[i];
 
 		if (client == NULL)

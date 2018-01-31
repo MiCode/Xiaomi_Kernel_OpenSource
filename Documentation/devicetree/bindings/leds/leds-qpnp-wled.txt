@@ -80,6 +80,13 @@ Optional properties for WLED:
 			  or disabled.
 - qcom,auto-calibration-enable : A boolean property which enables auto-calibration
 				 of the WLED sink configuration.
+- qcom,wled-brightness-map	: Array of brightness map codes of size 256.
+				  These codes will be mapped to the brightness
+				  level requested in the scale of 0-4095. Code
+				  entry is of 16 bit size.
+- qcom,wled-stepper-en	: A boolean property to specify if stepper algorithm
+			  needs to be enabled. This needs the brightness map
+			  table to be specified.
 
 Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.
@@ -123,4 +130,5 @@ Example:
 		qcom,en-phase-stag;
 		qcom,led-strings-list = [00 01 02 03];
 		qcom,en-ext-pfet-sc-pro;
+		qcom,wled-brightness-map = /bits/ 16  <0 . . 4095>;
 	};

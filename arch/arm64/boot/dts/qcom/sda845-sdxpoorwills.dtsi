@@ -1,0 +1,271 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdm3 {
+	pinctrl-names = "default", "mdm_active", "mdm_suspend";
+	pinctrl-0 = <&ap2mdm_pon_reset_default>;
+	pinctrl-1 = <&ap2mdm_active &mdm2ap_active>;
+	pinctrl-2 = <&ap2mdm_sleep &mdm2ap_sleep>;
+	interrupt-map = <0 &tlmm 24 0x3
+			1 &tlmm 21 0x3>;
+	qcom,mdm2ap-errfatal-gpio = <&tlmm 24 0x00>;
+	qcom,ap2mdm-errfatal-gpio = <&tlmm 23 0x00>;
+	qcom,mdm2ap-status-gpio   = <&tlmm 22 0x00>;
+	qcom,ap2mdm-status-gpio   = <&tlmm 21 0x00>;
+	qcom,ap2mdm-soft-reset-gpio = <&pm8998_gpios 10 0>;
+	qcom,mdm-link-info = "0304_00.01.00";
+	status = "ok";
+};
+
+&pm8998_gpios {
+	ap2mdm_pon_reset {
+		ap2mdm_pon_reset_default: ap2mdm_pon_reset_default {
+			/* MDM PON conrol*/
+			pins = "gpio10";
+			function = "normal";
+			output-low;
+			power-source = <0>;
+		};
+	};
+};
+
+&pil_modem {
+	status = "disabled";
+};
+
+&pcie0_wake_default {
+	config {
+	       /delete-property/ bias-pull-down;
+	};
+};
+
+&led_flash_rear {
+	status = "disabled";
+};
+
+&led_flash_front {
+	status = "disabled";
+};
+
+&ois_rear {
+	status = "disabled";
+};
+
+&eeprom_rear {
+	status = "disabled";
+};
+
+&eeprom_rear_aux {
+	status = "disabled";
+};
+
+&eeprom_front {
+	status = "disabled";
+};
+
+&soc {
+	qcom,cam-req-mgr {
+		status = "disabled";
+	};
+
+	cam_csiphy0: qcom,csiphy@ac65000 {
+		status = "disabled";
+	};
+
+	cam_csiphy1: qcom,csiphy@ac66000 {
+		status = "disabled";
+	};
+
+	cam_csiphy2: qcom,csiphy@ac67000 {
+		status = "disabled";
+	};
+
+	cam_cci: qcom,cci@ac4a000 {
+		status = "disabled";
+
+		i2c_freq_100Khz: qcom,i2c_standard_mode {
+			status = "disabled";
+		};
+
+		i2c_freq_400Khz: qcom,i2c_fast_mode {
+			status = "disabled";
+		};
+
+		i2c_freq_custom: qcom,i2c_custom_mode {
+			status = "disabled";
+		};
+
+		i2c_freq_1Mhz: qcom,i2c_fast_plus_mode {
+			status = "disabled";
+		};
+	};
+
+	qcom,cam_smmu {
+		status = "disabled";
+
+		msm_cam_smmu_ife {
+			ife_iova_mem_map: iova-mem-map {
+				iova-mem-region-io {
+					status = "disabled";
+				};
+			};
+		};
+
+		msm_cam_smmu_jpeg {
+			jpeg_iova_mem_map: iova-mem-map {
+				iova-mem-region-io {
+					status = "disabled";
+				};
+			};
+		};
+
+		msm_cam_smmu_icp {
+			icp_iova_mem_map: iova-mem-map {
+				iova-mem-region-firmware {
+					status = "disabled";
+				};
+
+				iova-mem-region-shared {
+					status = "disabled";
+				};
+
+				iova-mem-region-io {
+					status = "disabled";
+				};
+			};
+		};
+
+		msm_cam_smmu_cpas_cdm {
+			cpas_cdm_iova_mem_map: iova-mem-map {
+				iova-mem-region-io {
+					status = "disabled";
+				};
+			};
+		};
+
+		msm_cam_smmu_fd {
+			fd_iova_mem_map: iova-mem-map {
+				iova-mem-region-io {
+					status = "disabled";
+				};
+			};
+		};
+	};
+
+	qcom,cam-cpas@ac40000 {
+		status = "disabled";
+	};
+
+	qcom,cam-cdm-intf {
+		status = "disabled";
+	};
+
+	qcom,cpas-cdm0@ac48000 {
+		status = "disabled";
+	};
+
+	qcom,cam-isp {
+		status = "disabled";
+	};
+
+	cam_csid0: qcom,csid0@acb3000 {
+		status = "disabled";
+	};
+
+	cam_vfe0: qcom,vfe0@acaf000 {
+		status = "disabled";
+	};
+
+	cam_csid1: qcom,csid1@acba000 {
+		status = "disabled";
+	};
+
+	cam_vfe1: qcom,vfe1@acb6000 {
+		status = "disabled";
+	};
+
+	cam_csid_lite: qcom,csid-lite@acc8000 {
+		status = "disabled";
+	};
+
+	cam_vfe_lite: qcom,vfe-lite@acc4000 {
+		status = "disabled";
+	};
+
+	qcom,cam-icp {
+		status = "disabled";
+	};
+
+	cam_a5: qcom,a5@ac00000 {
+		status = "disabled";
+	};
+
+	cam_ipe0: qcom,ipe0 {
+		status = "disabled";
+	};
+
+	cam_ipe1: qcom,ipe1 {
+		status = "disabled";
+	};
+
+	cam_bps: qcom,bps {
+		status = "disabled";
+	};
+
+	clock_camcc: qcom,camcc@ad00000 {
+		status = "disabled";
+	};
+
+	qcom,cam-jpeg {
+		status = "disabled";
+	};
+
+	cam_jpeg_enc: qcom,jpegenc@ac4e000 {
+		status = "disabled";
+	};
+
+	cam_jpeg_dma: qcom,jpegdma@0xac52000 {
+		status = "disabled";
+	};
+
+	qcom,cam-fd {
+		status = "disabled";
+	};
+
+	cam_fd: qcom,fd@ac5a000  {
+		status = "disabled";
+	};
+
+	qcom,cam-sensor@0 {
+		status = "disabled";
+	};
+
+	qcom,cam-sensor@1 {
+		status = "disabled";
+	};
+
+	qcom,cam-sensor@2 {
+		status = "disabled";
+	};
+
+	qcom,cam-sensor@3 {
+		status = "disabled";
+	};
+
+	cam_csiphy3: qcom,csiphy@ac68000 {
+		status = "disabled";
+	};
+};
+
+&wil6210 {
+	status = "disabled";
+};

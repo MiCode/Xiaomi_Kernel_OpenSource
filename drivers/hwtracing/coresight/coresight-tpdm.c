@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3600,6 +3600,11 @@ static ssize_t tpdm_show_cmb_read_interface_state(struct device *dev,
 		return -EPERM;
 
 	mutex_lock(&drvdata->lock);
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
 	TPDM_UNLOCK(drvdata);
 	val = tpdm_readl(drvdata, TPDM_CMB_READVAL);
 	TPDM_LOCK(drvdata);
@@ -3622,6 +3627,11 @@ static ssize_t tpdm_show_cmb_read_ctl_reg(struct device *dev,
 		return -EPERM;
 
 	mutex_lock(&drvdata->lock);
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
 	TPDM_UNLOCK(drvdata);
 	val = tpdm_readl(drvdata, TPDM_CMB_READCTL);
 	TPDM_LOCK(drvdata);
@@ -3650,6 +3660,11 @@ static ssize_t tpdm_store_cmb_read_ctl_reg(struct device *dev,
 		return -EPERM;
 
 	mutex_lock(&drvdata->lock);
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
 	TPDM_UNLOCK(drvdata);
 	tpdm_writel(drvdata, val, TPDM_CMB_READCTL);
 	TPDM_LOCK(drvdata);
@@ -3748,6 +3763,11 @@ static ssize_t tpdm_store_cmb_markr(struct device *dev,
 		return -EPERM;
 
 	mutex_lock(&drvdata->lock);
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
 	TPDM_UNLOCK(drvdata);
 	tpdm_writel(drvdata, val, TPDM_CMB_MARKR);
 	TPDM_LOCK(drvdata);

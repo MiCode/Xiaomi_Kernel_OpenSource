@@ -662,9 +662,10 @@ static int cam_cpas_util_get_ahb_level(struct cam_hw_info *cpas_hw,
 
 	opp = dev_pm_opp_find_freq_ceil(dev, &corner_freq);
 	if (IS_ERR(opp)) {
-		CAM_ERR(CAM_CPAS, "Error on OPP freq :%ld, %pK",
+		CAM_DBG(CAM_CPAS, "OPP Ceil not available for freq :%ld, %pK",
 			corner_freq, opp);
-		return -EINVAL;
+		*req_level = CAM_TURBO_VOTE;
+		return 0;
 	}
 
 	corner = dev_pm_opp_get_voltage(opp);

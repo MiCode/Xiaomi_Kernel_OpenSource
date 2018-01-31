@@ -647,11 +647,11 @@ static int setup_gsi_xfer(struct spi_transfer *xfer,
 					&mas->gsi[mas->num_xfers].desc_cb;
 	mas->gsi[mas->num_xfers].tx_cookie =
 			dmaengine_submit(mas->gsi[mas->num_xfers].tx_desc);
-	if (mas->num_rx_eot)
+	if (cmd & SPI_RX_ONLY)
 		mas->gsi[mas->num_xfers].rx_cookie =
 			dmaengine_submit(mas->gsi[mas->num_xfers].rx_desc);
 	dma_async_issue_pending(mas->tx);
-	if (mas->num_rx_eot)
+	if (cmd & SPI_RX_ONLY)
 		dma_async_issue_pending(mas->rx);
 	mas->num_xfers++;
 	return ret;
@@ -726,7 +726,6 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 		memset(mas->gsi, 0,
 				(sizeof(struct spi_geni_gsi) * NUM_SPI_XFER));
 		geni_se_select_mode(mas->base, GSI_DMA);
-		dmaengine_resume(mas->tx);
 		ret = spi_geni_map_buf(mas, spi_msg);
 	} else {
 		dev_err(mas->dev, "%s: Couldn't select mode %d", __func__,
@@ -743,10 +742,8 @@ static int spi_geni_unprepare_message(struct spi_master *spi_mas,
 
 	mas->cur_speed_hz = 0;
 	mas->cur_word_len = 0;
-	if (mas->cur_xfer_mode == GSI_DMA) {
-		dmaengine_pause(mas->tx);
+	if (mas->cur_xfer_mode == GSI_DMA)
 		spi_geni_unmap_buf(mas, spi_msg);
-	}
 	return 0;
 }
 

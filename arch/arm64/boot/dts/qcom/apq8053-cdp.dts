@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,9 @@
 /dts-v1/;
 
 #include "apq8053.dtsi"
+#include "pmi8950.dtsi"
 #include "msm8953-cdp.dtsi"
+#include "msm8953-pmi8950.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8053 + PMI8950 CDP";

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -302,6 +302,10 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		ep_cfg->ipa_if_tlv * ch_props.re_size;
 	ch_scratch.mhi.outstanding_threshold =
 		min(ep_cfg->ipa_if_tlv / 2, 8) * ch_props.re_size;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		ch_scratch.mhi.max_outstanding_tre = 0;
+		ch_scratch.mhi.outstanding_threshold = 0;
+	}
 	ch_scratch.mhi.oob_mod_threshold = 4;
 	if (params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
 		params->ch_ctx_host->brstmode == IPA_MHI_BURST_MODE_ENABLE) {
