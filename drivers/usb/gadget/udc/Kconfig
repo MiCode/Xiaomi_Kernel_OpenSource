@@ -391,7 +391,6 @@ config USB_GADGET_XILINX
 
 config USB_CI13XXX_MSM
 	tristate "MIPS USB CI13xxx for MSM"
-	depends on ARCH_MSM
 	select USB_MSM_OTG
 	help
 	  MSM SoC has chipidea USB controller.  This driver uses
