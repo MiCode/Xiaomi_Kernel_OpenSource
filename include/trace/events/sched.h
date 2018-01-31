@@ -1430,22 +1430,36 @@ TRACE_EVENT(sched_contrib_scale_f,
 );
 
 #ifdef CONFIG_SMP
+
+#ifdef CONFIG_SCHED_WALT
+extern unsigned int sysctl_sched_use_walt_cpu_util;
+extern unsigned int sysctl_sched_use_walt_task_util;
+extern unsigned int sched_ravg_window;
+extern unsigned int walt_disabled;
+#endif
+
 /*
  * Tracepoint for accounting sched averages for tasks.
  */
 TRACE_EVENT(sched_load_avg_task,
-	TP_PROTO(struct task_struct *tsk, struct sched_avg *avg),
-	TP_ARGS(tsk, avg),
+
+	TP_PROTO(struct task_struct *tsk, struct sched_avg *avg, void *_ravg),
+
+	TP_ARGS(tsk, avg, _ravg),
+
 	TP_STRUCT__entry(
 		__array( char,	comm,	TASK_COMM_LEN		)
 		__field( pid_t,	pid				)
 		__field( int,	cpu				)
 		__field( unsigned long,	load_avg		)
 		__field( unsigned long,	util_avg		)
+		__field( unsigned long,	util_avg_pelt		)
+		__field( u32,		util_avg_walt		)
 		__field( u64,		load_sum		)
 		__field( u32,		util_sum		)
 		__field( u32,		period_contrib		)
 	),
+
 	TP_fast_assign(
 		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
 		__entry->pid			= tsk->pid;
@@ -1455,79 +1469,124 @@ TRACE_EVENT(sched_load_avg_task,
 		__entry->load_sum		= avg->load_sum;
 		__entry->util_sum		= avg->util_sum;
 		__entry->period_contrib		= avg->period_contrib;
+		__entry->util_avg_pelt  = avg->util_avg;
+		__entry->util_avg_walt  = 0;
+#ifdef CONFIG_SCHED_WALT
+		__entry->util_avg_walt = ((struct ravg*)_ravg)->demand /
+					 (sched_ravg_window >> SCHED_CAPACITY_SHIFT);
+		if (!walt_disabled && sysctl_sched_use_walt_task_util)
+			__entry->util_avg = __entry->util_avg_walt;
+#endif
 	),
-	TP_printk("comm=%s pid=%d cpu=%d load_avg=%lu util_avg=%lu load_sum=%llu"
+	TP_printk("comm=%s pid=%d cpu=%d load_avg=%lu util_avg=%lu "
+			"util_avg_pelt=%lu util_avg_walt=%u load_sum=%llu"
 		  " util_sum=%u period_contrib=%u",
 		  __entry->comm,
 		  __entry->pid,
 		  __entry->cpu,
 		  __entry->load_avg,
 		  __entry->util_avg,
+		  __entry->util_avg_pelt,
+		  __entry->util_avg_walt,
 		  (u64)__entry->load_sum,
 		  (u32)__entry->util_sum,
 		  (u32)__entry->period_contrib)
 );
+
 /*
  * Tracepoint for accounting sched averages for cpus.
  */
 TRACE_EVENT(sched_load_avg_cpu,
+
 	TP_PROTO(int cpu, struct cfs_rq *cfs_rq),
+
 	TP_ARGS(cpu, cfs_rq),
+
 	TP_STRUCT__entry(
 		__field( int,	cpu				)
 		__field( unsigned long,	load_avg		)
 		__field( unsigned long,	util_avg		)
+		__field( unsigned long,	util_avg_pelt		)
+		__field( u32,		util_avg_walt		)
 	),
+
 	TP_fast_assign(
 		__entry->cpu			= cpu;
 		__entry->load_avg		= cfs_rq->avg.load_avg;
 		__entry->util_avg		= cfs_rq->avg.util_avg;
+		__entry->util_avg_pelt	= cfs_rq->avg.util_avg;
+		__entry->util_avg_walt	= 0;
+#ifdef CONFIG_SCHED_WALT
+		__entry->util_avg_walt = div64_ul(cpu_rq(cpu)->prev_runnable_sum,
+					 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
+		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+			__entry->util_avg		= __entry->util_avg_walt;
+#endif
 	),
-	TP_printk("cpu=%d load_avg=%lu util_avg=%lu",
-		  __entry->cpu, __entry->load_avg, __entry->util_avg)
+
+	TP_printk("cpu=%d load_avg=%lu util_avg=%lu "
+			  "util_avg_pelt=%lu util_avg_walt=%u",
+		  __entry->cpu, __entry->load_avg, __entry->util_avg,
+		  __entry->util_avg_pelt, __entry->util_avg_walt)
 );
+
 /*
  * Tracepoint for sched_tune_config settings
  */
 TRACE_EVENT(sched_tune_config,
+
 	TP_PROTO(int boost),
+
 	TP_ARGS(boost),
+
 	TP_STRUCT__entry(
 		__field( int,	boost		)
 	),
+
 	TP_fast_assign(
 		__entry->boost 	= boost;
 	),
+
 	TP_printk("boost=%d ", __entry->boost)
 );
+
 /*
  * Tracepoint for accounting CPU  boosted utilization
  */
 TRACE_EVENT(sched_boost_cpu,
+
 	TP_PROTO(int cpu, unsigned long util, long margin),
+
 	TP_ARGS(cpu, util, margin),
+
 	TP_STRUCT__entry(
 		__field( int,		cpu			)
 		__field( unsigned long,	util			)
 		__field(long,		margin			)
 	),
+
 	TP_fast_assign(
 		__entry->cpu	= cpu;
 		__entry->util	= util;
 		__entry->margin	= margin;
 	),
+
 	TP_printk("cpu=%d util=%lu margin=%ld",
 		  __entry->cpu,
 		  __entry->util,
 		  __entry->margin)
 );
+
 /*
  * Tracepoint for schedtune_tasks_update
  */
 TRACE_EVENT(sched_tune_tasks_update,
+
 	TP_PROTO(struct task_struct *tsk, int cpu, int tasks, int idx,
 		int boost, int max_boost),
+
 	TP_ARGS(tsk, cpu, tasks, idx, boost, max_boost),
+
 	TP_STRUCT__entry(
 		__array( char,	comm,	TASK_COMM_LEN	)
 		__field( pid_t,		pid		)
@@ -1537,6 +1596,7 @@ TRACE_EVENT(sched_tune_tasks_update,
 		__field( int,		boost		)
 		__field( int,		max_boost	)
 	),
+
 	TP_fast_assign(
 		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
 		__entry->pid		= tsk->pid;
@@ -1546,54 +1606,111 @@ TRACE_EVENT(sched_tune_tasks_update,
 		__entry->boost		= boost;
 		__entry->max_boost	= max_boost;
 	),
+
 	TP_printk("pid=%d comm=%s "
 			"cpu=%d tasks=%d idx=%d boost=%d max_boost=%d",
 		__entry->pid, __entry->comm,
 		__entry->cpu, __entry->tasks, __entry->idx,
 		__entry->boost, __entry->max_boost)
 );
+
 /*
  * Tracepoint for schedtune_boostgroup_update
  */
 TRACE_EVENT(sched_tune_boostgroup_update,
+
 	TP_PROTO(int cpu, int variation, int max_boost),
+
 	TP_ARGS(cpu, variation, max_boost),
+
 	TP_STRUCT__entry(
 		__field( int,	cpu		)
 		__field( int,	variation	)
 		__field( int,	max_boost	)
 	),
+
 	TP_fast_assign(
 		__entry->cpu		= cpu;
 		__entry->variation	= variation;
 		__entry->max_boost	= max_boost;
 	),
+
 	TP_printk("cpu=%d variation=%d max_boost=%d",
 		__entry->cpu, __entry->variation, __entry->max_boost)
 );
+
 /*
  * Tracepoint for accounting task boosted utilization
  */
 TRACE_EVENT(sched_boost_task,
+
 	TP_PROTO(struct task_struct *tsk, unsigned long util, long margin),
+
 	TP_ARGS(tsk, util, margin),
+
 	TP_STRUCT__entry(
 		__array( char,	comm,	TASK_COMM_LEN		)
 		__field( pid_t,		pid			)
 		__field( unsigned long,	util			)
 		__field( long,		margin			)
+
 	),
+
 	TP_fast_assign(
 		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
 		__entry->pid	= tsk->pid;
 		__entry->util	= util;
 		__entry->margin	= margin;
 	),
+
 	TP_printk("comm=%s pid=%d util=%lu margin=%ld",
 		  __entry->comm, __entry->pid,
 		  __entry->util,
 		  __entry->margin)
 );
+
+/*
+ * Tracepoint for find_best_target
+ */
+TRACE_EVENT(sched_find_best_target,
+
+	TP_PROTO(struct task_struct *tsk, bool prefer_idle,
+		unsigned long min_util, int start_cpu,
+		int best_idle, int best_active, int target),
+
+	TP_ARGS(tsk, prefer_idle, min_util, start_cpu,
+		best_idle, best_active, target),
+
+	TP_STRUCT__entry(
+		__array( char,	comm,	TASK_COMM_LEN	)
+		__field( pid_t,	pid			)
+		__field( unsigned long,	min_util	)
+		__field( bool,	prefer_idle		)
+		__field( int,	start_cpu		)
+		__field( int,	best_idle		)
+		__field( int,	best_active		)
+		__field( int,	target			)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		__entry->pid		= tsk->pid;
+		__entry->min_util	= min_util;
+		__entry->prefer_idle	= prefer_idle;
+		__entry->start_cpu 	= start_cpu;
+		__entry->best_idle	= best_idle;
+		__entry->best_active	= best_active;
+		__entry->target		= target;
+	),
+
+	TP_printk("pid=%d comm=%s prefer_idle=%d start_cpu=%d "
+		  "best_idle=%d best_active=%d target=%d",
+		__entry->pid, __entry->comm,
+		__entry->prefer_idle, __entry->start_cpu,
+		__entry->best_idle, __entry->best_active,
+		__entry->target)
+);
+
 /*
  * Tracepoint for accounting sched group energy
  */
