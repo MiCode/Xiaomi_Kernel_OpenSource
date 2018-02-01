@@ -1,0 +1,36 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-audio-lpass.dtsi"
+
+&msm_audio_ion {
+	iommus = <&apps_smmu 0x1b21 0x0>;
+	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
+};
+
+&soc {
+	qcom,avtimer@170f7000 {
+		compatible = "qcom,avtimer";
+		reg = <0x170f700c 0x4>,
+		      <0x170f7010 0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+		qcom,clk-div = <192>;
+		qcom,clk-mult = <10>;
+	};
+};
+
+&slim_aud {
+	msm_dai_slim {
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+};
