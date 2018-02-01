@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,13 +19,13 @@
 #include <linux/io.h>
 #include <linux/list.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 #include <linux/qcom-geni-se.h>
-#include <linux/slab.h>
 #include <linux/spinlock.h>
 
 #define GENI_SE_IOMMU_VA_START	(0x40000000)
@@ -46,7 +46,7 @@ static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000, 100000000};
  * @bus_bw:		Client handle to the bus bandwidth request.
  * @bus_mas_id:		Master Endpoint ID for bus BW request.
  * @bus_slv_id:		Slave Endpoint ID for bus BW request.
- * @ab_ib_lock:		Lock to protect the bus ab & ib values, list.
+ * @geni_dev_lock:		Lock to protect the bus ab & ib values, list.
  * @ab_list_head:	Sorted resource list based on average bus BW.
  * @ib_list_head:	Sorted resource list based on instantaneous bus BW.
  * @cur_ab:		Current Bus Average BW request value.
@@ -67,7 +67,7 @@ struct geni_se_device {
 	struct msm_bus_client_handle *bus_bw;
 	u32 bus_mas_id;
 	u32 bus_slv_id;
-	struct mutex ab_ib_lock;
+	struct mutex geni_dev_lock;
 	struct list_head ab_list_head;
 	struct list_head ib_list_head;
 	unsigned long cur_ab;
@@ -402,7 +402,7 @@ EXPORT_SYMBOL(geni_setup_s_cmd);
  */
 void geni_cancel_m_cmd(void __iomem *base)
 {
-	geni_write_reg(M_GENI_CMD_CANCEL, base, SE_GENI_S_CMD_CTRL_REG);
+	geni_write_reg(M_GENI_CMD_CANCEL, base, SE_GENI_M_CMD_CTRL_REG);
 }
 EXPORT_SYMBOL(geni_cancel_m_cmd);
 
@@ -576,13 +576,6 @@ void se_config_packing(void __iomem *base, int bpw,
 }
 EXPORT_SYMBOL(se_config_packing);
 
-static void se_geni_clks_off(struct se_geni_rsc *rsc)
-{
-	clk_disable_unprepare(rsc->se_clk);
-	clk_disable_unprepare(rsc->s_ahb_clk);
-	clk_disable_unprepare(rsc->m_ahb_clk);
-}
-
 static bool geni_se_check_bus_bw(struct geni_se_device *geni_se_dev)
 {
 	int i;
@@ -616,7 +609,7 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list)))
 		return -EINVAL;
 
-	mutex_lock(&geni_se_dev->ab_ib_lock);
+	mutex_lock(&geni_se_dev->geni_dev_lock);
 	list_del_init(&rsc->ab_list);
 	geni_se_dev->cur_ab -= rsc->ab;
 
@@ -637,9 +630,40 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
 		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
 		    rsc->ab, rsc->ib, bus_bw_update);
-	mutex_unlock(&geni_se_dev->ab_ib_lock);
+	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
+
+/**
+ * se_geni_clks_off() - Turn off clocks associated with the serial
+ *                      engine
+ * @rsc:	Handle to resources associated with the serial engine.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int se_geni_clks_off(struct se_geni_rsc *rsc)
+{
+	int ret = 0;
+	struct geni_se_device *geni_se_dev;
+
+	if (unlikely(!rsc || !rsc->wrapper_dev))
+		return -EINVAL;
+
+	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
+	if (unlikely(!geni_se_dev || !geni_se_dev->bus_bw))
+		return -ENODEV;
+
+	clk_disable_unprepare(rsc->se_clk);
+	clk_disable_unprepare(rsc->s_ahb_clk);
+	clk_disable_unprepare(rsc->m_ahb_clk);
+
+	ret = geni_se_rmv_ab_ib(geni_se_dev, rsc);
+	if (ret)
+		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+			"%s: Error %d during bus_bw_update\n", __func__, ret);
+	return ret;
+}
+EXPORT_SYMBOL(se_geni_clks_off);
 
 /**
  * se_geni_resources_off() - Turn off resources associated with the serial
@@ -660,42 +684,17 @@ int se_geni_resources_off(struct se_geni_rsc *rsc)
 	if (unlikely(!geni_se_dev || !geni_se_dev->bus_bw))
 		return -ENODEV;
 
-	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
-	if (ret) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d pinctrl_select_state\n", __func__, ret);
-		return ret;
-	}
-	se_geni_clks_off(rsc);
-	ret = geni_se_rmv_ab_ib(geni_se_dev, rsc);
+	ret = se_geni_clks_off(rsc);
 	if (ret)
 		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d during bus_bw_update\n", __func__, ret);
+			"%s: Error %d turning off clocks\n", __func__, ret);
+	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
+	if (ret)
+		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+			"%s: Error %d pinctrl_select_state\n", __func__, ret);
 	return ret;
 }
 EXPORT_SYMBOL(se_geni_resources_off);
-
-static int se_geni_clks_on(struct se_geni_rsc *rsc)
-{
-	int ret;
-
-	ret = clk_prepare_enable(rsc->m_ahb_clk);
-	if (ret)
-		return ret;
-
-	ret = clk_prepare_enable(rsc->s_ahb_clk);
-	if (ret) {
-		clk_disable_unprepare(rsc->m_ahb_clk);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(rsc->se_clk);
-	if (ret) {
-		clk_disable_unprepare(rsc->s_ahb_clk);
-		clk_disable_unprepare(rsc->m_ahb_clk);
-	}
-	return ret;
-}
 
 static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 			     struct se_geni_rsc *rsc)
@@ -705,7 +704,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 	bool bus_bw_update = false;
 	int ret = 0;
 
-	mutex_lock(&geni_se_dev->ab_ib_lock);
+	mutex_lock(&geni_se_dev->geni_dev_lock);
 	list_add(&rsc->ab_list, &geni_se_dev->ab_list_head);
 	geni_se_dev->cur_ab += rsc->ab;
 
@@ -729,9 +728,58 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
 		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
 		    rsc->ab, rsc->ib, bus_bw_update);
-	mutex_unlock(&geni_se_dev->ab_ib_lock);
+	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
+
+/**
+ * se_geni_clks_on() - Turn on clocks associated with the serial
+ *                     engine
+ * @rsc:	Handle to resources associated with the serial engine.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int se_geni_clks_on(struct se_geni_rsc *rsc)
+{
+	int ret = 0;
+	struct geni_se_device *geni_se_dev;
+
+	if (unlikely(!rsc || !rsc->wrapper_dev))
+		return -EINVAL;
+
+	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
+	if (unlikely(!geni_se_dev))
+		return -EPROBE_DEFER;
+
+	ret = geni_se_add_ab_ib(geni_se_dev, rsc);
+	if (ret) {
+		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+			"%s: Error %d during bus_bw_update\n", __func__, ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(rsc->m_ahb_clk);
+	if (ret)
+		goto clks_on_err1;
+
+	ret = clk_prepare_enable(rsc->s_ahb_clk);
+	if (ret)
+		goto clks_on_err2;
+
+	ret = clk_prepare_enable(rsc->se_clk);
+	if (ret)
+		goto clks_on_err3;
+	return 0;
+
+clks_on_err3:
+	clk_disable_unprepare(rsc->s_ahb_clk);
+clks_on_err2:
+	clk_disable_unprepare(rsc->m_ahb_clk);
+clks_on_err1:
+	geni_se_rmv_ab_ib(geni_se_dev, rsc);
+	return ret;
+}
+EXPORT_SYMBOL(se_geni_clks_on);
 
 /**
  * se_geni_resources_on() - Turn on resources associated with the serial
@@ -752,10 +800,10 @@ int se_geni_resources_on(struct se_geni_rsc *rsc)
 	if (unlikely(!geni_se_dev))
 		return -EPROBE_DEFER;
 
-	ret = geni_se_add_ab_ib(geni_se_dev, rsc);
+	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_active);
 	if (ret) {
 		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d during bus_bw_update\n", __func__, ret);
+			"%s: Error %d pinctrl_select_state\n", __func__, ret);
 		return ret;
 	}
 
@@ -763,17 +811,9 @@ int se_geni_resources_on(struct se_geni_rsc *rsc)
 	if (ret) {
 		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
 			"%s: Error %d during clks_on\n", __func__, ret);
-		geni_se_rmv_ab_ib(geni_se_dev, rsc);
-		return ret;
+		pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
 	}
 
-	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_active);
-	if (ret) {
-		GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
-			"%s: Error %d pinctrl_select_state\n", __func__, ret);
-		se_geni_clks_off(rsc);
-		geni_se_rmv_ab_ib(geni_se_dev, rsc);
-	}
 	return ret;
 }
 EXPORT_SYMBOL(se_geni_resources_on);
@@ -838,24 +878,29 @@ int geni_se_clk_tbl_get(struct se_geni_rsc *rsc, unsigned long **tbl)
 	struct geni_se_device *geni_se_dev;
 	int i;
 	unsigned long prev_freq = 0;
+	int ret = 0;
 
 	if (unlikely(!rsc || !rsc->wrapper_dev || !rsc->se_clk || !tbl))
 		return -EINVAL;
 
-	*tbl = NULL;
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
 	if (unlikely(!geni_se_dev))
 		return -EPROBE_DEFER;
+	mutex_lock(&geni_se_dev->geni_dev_lock);
+	*tbl = NULL;
 
 	if (geni_se_dev->clk_perf_tbl) {
 		*tbl = geni_se_dev->clk_perf_tbl;
-		return geni_se_dev->num_clk_levels;
+		ret = geni_se_dev->num_clk_levels;
+		goto exit_se_clk_tbl_get;
 	}
 
-	geni_se_dev->clk_perf_tbl = kzalloc(sizeof(unsigned long) *
+	geni_se_dev->clk_perf_tbl = kzalloc(sizeof(*geni_se_dev->clk_perf_tbl) *
 						MAX_CLK_PERF_LEVEL, GFP_KERNEL);
-	if (!geni_se_dev->clk_perf_tbl)
-		return -ENOMEM;
+	if (!geni_se_dev->clk_perf_tbl) {
+		ret = -ENOMEM;
+		goto exit_se_clk_tbl_get;
+	}
 
 	for (i = 0; i < MAX_CLK_PERF_LEVEL; i++) {
 		geni_se_dev->clk_perf_tbl[i] = clk_round_rate(rsc->se_clk,
@@ -868,7 +913,10 @@ int geni_se_clk_tbl_get(struct se_geni_rsc *rsc, unsigned long **tbl)
 	}
 	geni_se_dev->num_clk_levels = i;
 	*tbl = geni_se_dev->clk_perf_tbl;
-	return geni_se_dev->num_clk_levels;
+	ret = geni_se_dev->num_clk_levels;
+exit_se_clk_tbl_get:
+	mutex_unlock(&geni_se_dev->geni_dev_lock);
+	return ret;
 }
 EXPORT_SYMBOL(geni_se_clk_tbl_get);
 
@@ -1248,6 +1296,76 @@ int geni_se_iommu_free_buf(struct device *wrapper_dev, dma_addr_t *iova,
 }
 EXPORT_SYMBOL(geni_se_iommu_free_buf);
 
+/**
+ * geni_se_dump_dbg_regs() - Print relevant registers that capture most
+ *			accurately the state of an SE.
+ * @_dev:		Pointer to the SE's device.
+ * @iomem:		Base address of the SE's register space.
+ * @ipc:		IPC log context handle.
+ *
+ * This function is used to print out all the registers that capture the state
+ * of an SE to help debug any errors.
+ *
+ * Return:	None
+ */
+void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
+				void *ipc)
+{
+	u32 m_cmd0 = 0;
+	u32 m_irq_status = 0;
+	u32 geni_status = 0;
+	u32 geni_ios = 0;
+	u32 dma_rx_irq = 0;
+	u32 dma_tx_irq = 0;
+	u32 rx_fifo_status = 0;
+	u32 tx_fifo_status = 0;
+	u32 se_dma_dbg = 0;
+	u32 m_cmd_ctrl = 0;
+	u32 se_dma_rx_len = 0;
+	u32 se_dma_rx_len_in = 0;
+	u32 se_dma_tx_len = 0;
+	u32 se_dma_tx_len_in = 0;
+	struct geni_se_device *geni_se_dev;
+
+	if (!ipc)
+		return;
+
+	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
+	if (unlikely(!geni_se_dev || !geni_se_dev->bus_bw))
+		return;
+	if (unlikely(list_empty(&rsc->ab_list) || list_empty(&rsc->ib_list))) {
+		GENI_SE_DBG(ipc, false, NULL, "%s: Clocks not on\n", __func__);
+		return;
+	}
+	m_cmd0 = geni_read_reg(base, SE_GENI_M_CMD0);
+	m_irq_status = geni_read_reg(base, SE_GENI_M_IRQ_STATUS);
+	geni_status = geni_read_reg(base, SE_GENI_STATUS);
+	geni_ios = geni_read_reg(base, SE_GENI_IOS);
+	dma_rx_irq = geni_read_reg(base, SE_DMA_TX_IRQ_STAT);
+	dma_tx_irq = geni_read_reg(base, SE_DMA_RX_IRQ_STAT);
+	rx_fifo_status = geni_read_reg(base, SE_GENI_RX_FIFO_STATUS);
+	tx_fifo_status = geni_read_reg(base, SE_GENI_TX_FIFO_STATUS);
+	se_dma_dbg = geni_read_reg(base, SE_DMA_DEBUG_REG0);
+	m_cmd_ctrl = geni_read_reg(base, SE_GENI_M_CMD_CTRL_REG);
+	se_dma_rx_len = geni_read_reg(base, SE_DMA_RX_LEN);
+	se_dma_rx_len_in = geni_read_reg(base, SE_DMA_RX_LEN_IN);
+	se_dma_tx_len = geni_read_reg(base, SE_DMA_TX_LEN);
+	se_dma_tx_len_in = geni_read_reg(base, SE_DMA_TX_LEN_IN);
+
+	GENI_SE_DBG(ipc, false, NULL,
+	"%s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
+	__func__, m_cmd0, m_irq_status, geni_status, geni_ios);
+	GENI_SE_DBG(ipc, false, NULL,
+	"dma_rx_irq:0x%x, dma_tx_irq:0x%x, rx_fifo_sts:0x%x, tx_fifo_sts:0x%x\n"
+	, dma_rx_irq, dma_tx_irq, rx_fifo_status, tx_fifo_status);
+	GENI_SE_DBG(ipc, false, NULL,
+	"se_dma_dbg:0x%x, m_cmd_ctrl:0x%x, dma_rxlen:0x%x, dma_rxlen_in:0x%x\n",
+	se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
+	GENI_SE_DBG(ipc, false, NULL,
+	"dma_txlen:0x%x, dma_txlen_in:0x%x\n", se_dma_tx_len, se_dma_tx_len_in);
+}
+EXPORT_SYMBOL(geni_se_dump_dbg_regs);
+
 static const struct of_device_id geni_se_dt_match[] = {
 	{ .compatible = "qcom,qupv3-geni-se", },
 	{ .compatible = "qcom,qupv3-geni-se-cb", },
@@ -1327,7 +1445,7 @@ static int geni_se_probe(struct platform_device *pdev)
 	mutex_init(&geni_se_dev->iommu_lock);
 	INIT_LIST_HEAD(&geni_se_dev->ab_list_head);
 	INIT_LIST_HEAD(&geni_se_dev->ib_list_head);
-	mutex_init(&geni_se_dev->ab_ib_lock);
+	mutex_init(&geni_se_dev->geni_dev_lock);
 	geni_se_dev->log_ctx = ipc_log_context_create(NUM_LOG_PAGES,
 						dev_name(geni_se_dev->dev), 0);
 	if (!geni_se_dev->log_ctx)

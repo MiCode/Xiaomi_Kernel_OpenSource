@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,6 +117,7 @@ struct se_geni_rsc {
 #define SE_HW_PARAM_0			(0xE24)
 #define SE_HW_PARAM_1			(0xE28)
 #define SE_DMA_GENERAL_CFG		(0xE30)
+#define SE_DMA_DEBUG_REG0		(0xE40)
 
 /* GENI_OUTPUT_CTRL fields */
 #define DEFAULT_IO_OUTPUT_CTRL_MSK	(GENMASK(6, 0))
@@ -546,6 +547,24 @@ void se_config_packing(void __iomem *base, int bpw, int pack_words,
 		       bool msb_to_lsb);
 
 /**
+ * se_geni_clks_off() - Turn off clocks associated with the serial
+ *                      engine
+ * @rsc:	Handle to resources associated with the serial engine.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int se_geni_clks_off(struct se_geni_rsc *rsc);
+
+/**
+ * se_geni_clks_on() - Turn on clocks associated with the serial
+ *                     engine
+ * @rsc:	Handle to resources associated with the serial engine.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int se_geni_clks_on(struct se_geni_rsc *rsc);
+
+/**
  * se_geni_resources_off() - Turn off resources associated with the serial
  *                           engine
  * @rsc:	Handle to resources associated with the serial engine.
@@ -736,6 +755,22 @@ int geni_se_iommu_unmap_buf(struct device *wrapper_dev, dma_addr_t *iova,
 int geni_se_iommu_free_buf(struct device *wrapper_dev, dma_addr_t *iova,
 			   void *buf, size_t size);
 
+
+/**
+ * geni_se_dump_dbg_regs() - Print relevant registers that capture most
+ *			accurately the state of an SE; meant to be called
+ *			in case of errors to help debug.
+ * @_dev:		Pointer to the SE's device.
+ * @iomem:		Base address of the SE's register space.
+ * @ipc:		IPC log context handle.
+ *
+ * This function is used to print out all the registers that capture the state
+ * of an SE to help debug any errors.
+ *
+ * Return:	None
+ */
+void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
+				void *ipc);
 #else
 static inline unsigned int geni_read_reg_nolog(void __iomem *base, int offset)
 {
@@ -825,6 +860,16 @@ static inline void se_config_packing(void __iomem *base, int bpw,
 {
 }
 
+static inline int se_geni_clks_on(struct se_geni_rsc *rsc)
+{
+	return -ENXIO;
+}
+
+static inline int se_geni_clks_off(struct se_geni_rsc *rsc)
+{
+	return -ENXIO;
+}
+
 static inline int se_geni_resources_on(struct se_geni_rsc *rsc)
 {
 	return -ENXIO;
@@ -905,6 +950,11 @@ static inline int geni_se_iommu_free_buf(struct device *wrapper_dev,
 				dma_addr_t *iova, void *buf, size_t size)
 {
 	return -ENXIO;
+}
+
+static void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
+				void *ipc)
+{
 }
 
 #endif
