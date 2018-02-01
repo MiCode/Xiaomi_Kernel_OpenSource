@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,10 +162,10 @@ enum qpnp_pon_version {
 };
 
 enum pon_type {
-	PON_KPDPWR,
-	PON_RESIN,
-	PON_CBLPWR,
-	PON_KPDPWR_RESIN,
+	PON_KPDPWR	 = PON_POWER_ON_TYPE_KPDPWR,
+	PON_RESIN	 = PON_POWER_ON_TYPE_RESIN,
+	PON_CBLPWR	 = PON_POWER_ON_TYPE_CBLPWR,
+	PON_KPDPWR_RESIN = PON_POWER_ON_TYPE_KPDPWR_RESIN,
 };
 
 struct qpnp_pon_config {
