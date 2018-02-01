@@ -2420,13 +2420,18 @@ static struct sched_cluster *best_cluster(struct related_thread_group *grp,
 					u64 total_demand, bool group_boost)
 {
 	struct sched_cluster *cluster = NULL;
+	struct sched_cluster *last_best_cluster = sched_cluster[0];
 
 	for_each_sched_cluster(cluster) {
+		if (cpumask_weight(&cluster->cpus) <= 1)
+			continue;
+
+		last_best_cluster = cluster;
 		if (group_will_fit(cluster, grp, total_demand, group_boost))
-			return cluster;
+			break;
 	}
 
-	return sched_cluster[0];
+	return last_best_cluster;
 }
 
 int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
