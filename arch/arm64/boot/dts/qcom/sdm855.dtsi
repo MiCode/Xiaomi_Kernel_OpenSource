@@ -839,8 +839,11 @@
 	};
 
 	clock_gpucc: qcom,gpucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gpucc_clocks";
+		compatible = "qcom,gpucc-sdm855";
+		reg = <0x2c90000 0x9000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_mx-supply = <&pm855l_s4_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -2216,9 +2219,6 @@
 &gpu_gx_gdsc {
 	parent-supply = <&pm855l_s2_level>;
 	qcom,vote-parent-supply-voltage;
-	clock-names = "core_root_clk";
-	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
-	qcom,force-enable-root-clk;
 	status = "ok";
 };
 
