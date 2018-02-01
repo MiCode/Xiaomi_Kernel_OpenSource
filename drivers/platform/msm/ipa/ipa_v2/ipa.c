@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3591,8 +3591,8 @@ int ipa2_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	} else {
 		IPADBG_LOW("clocks are gated, not setting rate\n");
+		ipa_active_clients_unlock();
 	}
-	ipa_active_clients_unlock();
 	IPADBG_LOW("Done\n");
 	return 0;
 }
