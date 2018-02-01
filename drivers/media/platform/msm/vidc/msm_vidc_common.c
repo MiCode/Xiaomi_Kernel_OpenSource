@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,8 @@
 #define V4L2_EVENT_RELEASE_BUFFER_REFERENCE \
 		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
+
+#define TRIGGER_SSR_LOCK_RETRIES 5
 
 const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
@@ -5305,6 +5307,7 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 {
 	int rc = 0;
 	struct hfi_device *hdev;
+	int try_lock_counter = TRIGGER_SSR_LOCK_RETRIES;
 
 	if (!core || !core->device) {
 		dprintk(VIDC_WARN, "Invalid parameters: %pK\n", core);
@@ -5312,7 +5315,13 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	}
 	hdev = core->device;
 
-	mutex_lock(&core->lock);
+	while (try_lock_counter) {
+		if (mutex_trylock(&core->lock))
+			break;
+		try_lock_counter--;
+		if (!try_lock_counter)
+			return -EBUSY;
+	}
 	if (core->state == VIDC_CORE_INIT_DONE) {
 		/*
 		 * In current implementation user-initiated SSR triggers
