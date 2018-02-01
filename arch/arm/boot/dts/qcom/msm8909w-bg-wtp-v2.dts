@@ -266,6 +266,8 @@
 
 	config {
 		pins = "gpio98";
+		/delete-property/ bias-pull-down;
+		bias-disable; /* No PULL */
 	};
 };
 
