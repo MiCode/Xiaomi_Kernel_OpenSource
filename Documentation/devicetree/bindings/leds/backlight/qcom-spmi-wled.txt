@@ -94,6 +94,11 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Definition: Interrupt names associated with the interrupts.
 		    Currently supported interrupts are "sc-irq" and "ovp-irq".
 
+- qcom,auto-calibration
+	Usage:      optional
+	Value type: <bool>
+	Definition: Enables auto-calibration of the WLED sink configuration.
+
 Example:
 
 qcom-wled@d800 {

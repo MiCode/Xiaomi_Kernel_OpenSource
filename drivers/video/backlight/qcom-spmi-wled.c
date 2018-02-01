@@ -38,10 +38,13 @@
 #define  WLED_CTRL_SC_FAULT_BIT		BIT(2)
 
 #define WLED_CTRL_INT_RT_STS		0x10
+#define  WLED_CTRL_OVP_FLT_RT_STS_BIT	BIT(1)
 
 #define WLED_CTRL_MOD_ENABLE		0x46
 #define  WLED_CTRL_MOD_EN_MASK		BIT(7)
 #define  WLED_CTRL_MODULE_EN_SHIFT	7
+
+#define WLED_CTRL_FDBK_OP		0x48
 
 #define WLED_CTRL_SWITCH_FREQ		0x4c
 #define  WLED_CTRL_SWITCH_FREQ_MASK	GENMASK(3, 0)
@@ -99,6 +102,7 @@ struct wled_config {
 	int ovp_irq;
 	bool en_cabc;
 	bool ext_pfet_sc_pro_en;
+	bool auto_calib_enabled;
 };
 
 struct wled {
@@ -108,17 +112,24 @@ struct wled {
 	struct mutex lock;
 	struct wled_config cfg;
 	ktime_t last_sc_event_time;
+	ktime_t start_ovp_fault_time;
 	u16 sink_addr;
 	u16 ctrl_addr;
+	u16 auto_calibration_ovp_count;
 	u32 brightness;
 	u32 sc_count;
 	bool prev_state;
 	bool ovp_irq_disabled;
+	bool auto_calib_done;
+	bool force_mod_disable;
 };
 
 static int wled_module_enable(struct wled *wled, int val)
 {
 	int rc;
+
+	if (wled->force_mod_disable)
+		return 0;
 
 	rc = regmap_update_bits(wled->regmap, wled->ctrl_addr +
 			WLED_CTRL_MOD_ENABLE, WLED_CTRL_MOD_EN_MASK,
@@ -187,12 +198,10 @@ static int wled_set_brightness(struct wled *wled, u16 brightness)
 	v[1] = (brightness >> 8) & 0xf;
 
 	for (i = 0; (string_cfg >> i) != 0; i++) {
-		if (string_cfg & BIT(i)) {
-			rc = regmap_bulk_write(wled->regmap, wled->sink_addr +
-					WLED_SINK_BRIGHT_LSB_REG(i), v, 2);
-			if (rc < 0)
-				return rc;
-		}
+		rc = regmap_bulk_write(wled->regmap, wled->sink_addr +
+				WLED_SINK_BRIGHT_LSB_REG(i), v, 2);
+		if (rc < 0)
+			return rc;
 	}
 
 	return 0;
@@ -297,6 +306,288 @@ unlock_mutex:
 	return IRQ_HANDLED;
 }
 
+#define AUTO_CALIB_BRIGHTNESS		200
+static int wled_auto_calibrate(struct wled *wled)
+{
+	int rc = 0, i;
+	u32 sink_config = 0, int_sts;
+	u8 reg = 0, sink_test = 0, sink_valid = 0;
+	u8 string_cfg = wled->cfg.string_cfg;
+
+	if (wled->auto_calib_done)
+		return 0;
+
+	/* read configured sink configuration */
+	rc = regmap_read(wled->regmap, wled->sink_addr +
+			WLED_SINK_CURR_SINK_EN, &sink_config);
+	if (rc < 0) {
+		pr_err("Failed to read SINK configuration rc=%d\n", rc);
+		goto failed_calib;
+	}
+
+	/* disable the module before starting calibration */
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_MOD_ENABLE,
+			WLED_CTRL_MOD_EN_MASK, 0);
+	if (rc < 0) {
+		pr_err("Failed to disable WLED module rc=%d\n", rc);
+		goto failed_calib;
+	}
+
+	/* set low brightness across all sinks */
+	rc = wled_set_brightness(wled, AUTO_CALIB_BRIGHTNESS);
+	if (rc < 0) {
+		pr_err("Failed to set brightness for calibration rc=%d\n", rc);
+		goto failed_calib;
+	}
+
+	if (wled->cfg.en_cabc) {
+		for (i = 0; (string_cfg >> i) != 0; i++) {
+			reg = 0;
+			rc = regmap_update_bits(wled->regmap, wled->sink_addr +
+					WLED_SINK_CABC_REG(i),
+					WLED_SINK_CABC_MASK, reg);
+			if (rc < 0)
+				goto failed_calib;
+		}
+	}
+
+	/* disable all sinks */
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED_SINK_CURR_SINK_EN, 0);
+	if (rc < 0) {
+		pr_err("Failed to disable all sinks rc=%d\n", rc);
+		goto failed_calib;
+	}
+
+	/* iterate through the strings one by one */
+	for (i = 0; (string_cfg >> i) != 0; i++) {
+		sink_test = 1 << (WLED_SINK_CURR_SINK_SHFT + i);
+
+		/* Enable feedback control */
+		rc = regmap_write(wled->regmap, wled->ctrl_addr +
+				WLED_CTRL_FDBK_OP, i + 1);
+		if (rc < 0) {
+			pr_err("Failed to enable feedback for SINK %d rc = %d\n",
+				i + 1, rc);
+			goto failed_calib;
+		}
+
+		/* enable the sink */
+		rc = regmap_write(wled->regmap, wled->sink_addr +
+				WLED_SINK_CURR_SINK_EN, sink_test);
+		if (rc < 0) {
+			pr_err("Failed to configure SINK %d rc=%d\n",
+						i + 1, rc);
+			goto failed_calib;
+		}
+
+		/* Enable the module */
+		rc = regmap_update_bits(wled->regmap, wled->ctrl_addr +
+				WLED_CTRL_MOD_ENABLE,
+				WLED_CTRL_MOD_EN_MASK,
+				WLED_CTRL_MOD_EN_MASK);
+		if (rc < 0) {
+			pr_err("Failed to enable WLED module rc=%d\n", rc);
+			goto failed_calib;
+		}
+
+		usleep_range(WLED_SOFT_START_DLY_US,
+			     WLED_SOFT_START_DLY_US + 1000);
+
+		rc = regmap_read(wled->regmap, wled->ctrl_addr +
+				 WLED_CTRL_INT_RT_STS, &int_sts);
+		if (rc < 0) {
+			pr_err("Error in reading WLED_INT_RT_STS rc=%d\n", rc);
+			goto failed_calib;
+		}
+
+		if (int_sts & WLED_CTRL_OVP_FAULT_BIT)
+			pr_debug("WLED OVP fault detected with SINK %d\n",
+						i + 1);
+		else
+			sink_valid |= sink_test;
+
+		/* Disable the module */
+		rc = regmap_update_bits(wled->regmap,
+				wled->ctrl_addr + WLED_CTRL_MOD_ENABLE,
+				WLED_CTRL_MOD_EN_MASK, 0);
+		if (rc < 0) {
+			pr_err("Failed to disable WLED module rc=%d\n", rc);
+			goto failed_calib;
+		}
+	}
+
+	if (sink_valid == sink_config) {
+		pr_debug("WLED auto-calibration complete, default sink-config=%x OK!\n",
+						sink_config);
+	} else {
+		pr_warn("Invalid WLED default sink config=%x changing it to=%x\n",
+						sink_config, sink_valid);
+		sink_config = sink_valid;
+	}
+
+	if (!sink_config) {
+		pr_err("No valid WLED sinks found\n");
+		wled->force_mod_disable = true;
+		goto failed_calib;
+	}
+
+	/* write the new sink configuration */
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED_SINK_CURR_SINK_EN,
+			sink_config);
+	if (rc < 0) {
+		pr_err("Failed to reconfigure the default sink rc=%d\n", rc);
+		goto failed_calib;
+	}
+
+	/* MODULATOR_EN setting for valid sinks */
+	for (i = 0; (string_cfg >> i) != 0; i++) {
+		if (wled->cfg.en_cabc) {
+			reg = WLED_SINK_CABC_EN;
+			rc = regmap_update_bits(wled->regmap, wled->sink_addr +
+						WLED_SINK_CABC_REG(i),
+						WLED_SINK_CABC_MASK, reg);
+			if (rc < 0)
+				goto failed_calib;
+		}
+
+		if (sink_config & (1 << (WLED_SINK_CURR_SINK_SHFT + i)))
+			reg = WLED_SINK_REG_STR_MOD_EN;
+		else
+			reg = 0x0; /* disable modulator_en for unused sink */
+
+		rc = regmap_write(wled->regmap, wled->sink_addr +
+				WLED_SINK_MOD_EN_REG(i), reg);
+		if (rc < 0) {
+			pr_err("Failed to configure MODULATOR_EN rc=%d\n", rc);
+			goto failed_calib;
+		}
+	}
+
+	/* restore the feedback setting */
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_FDBK_OP, 0);
+	if (rc < 0) {
+		pr_err("Failed to restore feedback setting rc=%d\n", rc);
+		goto failed_calib;
+	}
+
+	/* restore  brightness */
+	rc = wled_set_brightness(wled, wled->brightness);
+	if (rc < 0) {
+		pr_err("Failed to set brightness after calibration rc=%d\n",
+			rc);
+		goto failed_calib;
+	}
+
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_MOD_ENABLE,
+			WLED_CTRL_MOD_EN_MASK,
+			WLED_CTRL_MOD_EN_MASK);
+	if (rc < 0) {
+		pr_err("Failed to enable WLED module rc=%d\n", rc);
+		goto failed_calib;
+	}
+
+	/* delay for WLED soft-start */
+	usleep_range(WLED_SOFT_START_DLY_US,
+		     WLED_SOFT_START_DLY_US + 1000);
+
+	wled->auto_calib_done = true;
+
+failed_calib:
+	return rc;
+}
+
+#define WLED_AUTO_CAL_OVP_COUNT		5
+#define WLED_AUTO_CAL_CNT_DLY_US	1000000	/* 1 second */
+static bool wled_auto_cal_required(struct wled *wled)
+{
+	s64 elapsed_time_us;
+
+	/*
+	 * Check if the OVP fault was an occasional one
+	 * or if its firing continuously, the latter qualifies
+	 * for an auto-calibration check.
+	 */
+	if (!wled->auto_calibration_ovp_count) {
+		wled->start_ovp_fault_time = ktime_get();
+		wled->auto_calibration_ovp_count++;
+	} else {
+		elapsed_time_us = ktime_us_delta(ktime_get(),
+				wled->start_ovp_fault_time);
+		if (elapsed_time_us > WLED_AUTO_CAL_CNT_DLY_US)
+			wled->auto_calibration_ovp_count = 0;
+		else
+			wled->auto_calibration_ovp_count++;
+
+		if (wled->auto_calibration_ovp_count >=
+				WLED_AUTO_CAL_OVP_COUNT) {
+			wled->auto_calibration_ovp_count = 0;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static int wled_auto_calibrate_at_init(struct wled *wled)
+{
+	int rc;
+	u32 fault_status = 0, rt_status = 0;
+
+	if (!wled->cfg.auto_calib_enabled)
+		return 0;
+
+	rc = regmap_read(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_INT_RT_STS,
+			&rt_status);
+	if (rc < 0)
+		pr_err("Failed to read RT status rc=%d\n", rc);
+
+	rc = regmap_read(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_FAULT_STATUS,
+			&fault_status);
+	if (rc < 0)
+		pr_err("Failed to read fault status rc=%d\n", rc);
+
+	if ((rt_status & WLED_CTRL_OVP_FLT_RT_STS_BIT) ||
+			(fault_status & WLED_CTRL_OVP_FAULT_BIT)) {
+		mutex_lock(&wled->lock);
+		rc = wled_auto_calibrate(wled);
+		if (!rc)
+			wled->auto_calib_done = true;
+		mutex_unlock(&wled->lock);
+	}
+
+	return rc;
+}
+
+static void handle_ovp_fault(struct wled *wled)
+{
+	int rc;
+
+	if (!wled->cfg.auto_calib_enabled)
+		return;
+
+	mutex_lock(&wled->lock);
+	if (wled->cfg.ovp_irq > 0 && !wled->ovp_irq_disabled) {
+		disable_irq_nosync(wled->cfg.ovp_irq);
+		wled->ovp_irq_disabled = true;
+	}
+
+	if (wled_auto_cal_required(wled))
+		wled_auto_calibrate(wled);
+
+	if (wled->cfg.ovp_irq > 0 && wled->ovp_irq_disabled) {
+		enable_irq(wled->cfg.ovp_irq);
+		wled->ovp_irq_disabled = false;
+	}
+	mutex_unlock(&wled->lock);
+}
+
 static irqreturn_t wled_ovp_irq_handler(int irq, void *_wled)
 {
 	struct wled *wled = _wled;
@@ -321,6 +612,9 @@ static irqreturn_t wled_ovp_irq_handler(int irq, void *_wled)
 		(WLED_CTRL_OVP_FAULT_BIT | WLED_CTRL_ILIM_FAULT_BIT))
 		pr_err("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
 			int_sts, fault_sts);
+
+	if (fault_sts & WLED_CTRL_OVP_FAULT_BIT)
+		handle_ovp_fault(wled);
 
 	return IRQ_HANDLED;
 }
@@ -397,6 +691,10 @@ static int wled_setup(struct wled *wled)
 		return rc;
 	}
 
+	rc = wled_auto_calibrate_at_init(wled);
+	if (rc < 0)
+		return rc;
+
 	if (sc_irq >= 0) {
 		rc = devm_request_threaded_irq(&wled->pdev->dev, sc_irq,
 				NULL, wled_sc_irq_handler, IRQF_ONESHOT,
@@ -435,7 +733,7 @@ static int wled_setup(struct wled *wled)
 				NULL, wled_ovp_irq_handler, IRQF_ONESHOT,
 				"wled_ovp_irq", wled);
 		if (rc < 0) {
-			dev_err(&wled->pdev->dev, "Unable to request ovp(%d) IRQ(err:%d)\n",
+			pr_err("Unable to request ovp(%d) IRQ(err:%d)\n",
 				ovp_irq, rc);
 			return rc;
 		}
@@ -459,7 +757,8 @@ static const struct wled_config wled_config_defaults = {
 	.switch_freq = 11,
 	.string_cfg = 0xf,
 	.en_cabc = 0,
-	.ext_pfet_sc_pro_en = 1,
+	.ext_pfet_sc_pro_en = 0,
+	.auto_calib_enabled = 0,
 };
 
 struct wled_var_cfg {
@@ -566,6 +865,7 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	} bool_opts[] = {
 		{ "qcom,en-cabc", &cfg->en_cabc, },
 		{ "qcom,ext-pfet-sc-pro", &cfg->ext_pfet_sc_pro_en, },
+		{ "qcom,auto-calibration", &cfg->auto_calib_enabled, },
 	};
 
 	prop_addr = of_get_address(dev->of_node, 0, NULL, NULL);
