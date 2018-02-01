@@ -1,4 +1,4 @@
-/* Copyright (c) 2007, 2012-2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007, 2012-2013, 2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -89,8 +89,8 @@ const uint32_t pack_patt_lut[MDP_IMGTYPE_LIMIT] = {
 };
 
 const uint32_t swapped_pack_patt_lut[MDP_IMGTYPE_LIMIT] = {
-	[MDP_RGB_565] = PPP_GET_PACK_PATTERN(0, CLR_B, CLR_G, CLR_R, 8),
-	[MDP_BGR_565] = PPP_GET_PACK_PATTERN(0, CLR_R, CLR_G, CLR_B, 8),
+	[MDP_RGB_565] = PPP_GET_PACK_PATTERN(0, CLR_R, CLR_G, CLR_B, 8),
+	[MDP_BGR_565] = PPP_GET_PACK_PATTERN(0, CLR_B, CLR_G, CLR_R, 8),
 	[MDP_RGB_888] = PPP_GET_PACK_PATTERN(0, CLR_B, CLR_G, CLR_R, 8),
 	[MDP_BGR_888] = PPP_GET_PACK_PATTERN(0, CLR_R, CLR_G, CLR_B, 8),
 	[MDP_BGRA_8888] = PPP_GET_PACK_PATTERN(CLR_ALPHA, CLR_R,
