@@ -1214,6 +1214,10 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 
 	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
 
+	if (plat_priv->driver_ops && plat_priv->driver_ops->update_status)
+		plat_priv->driver_ops->update_status(pci_priv->pci_dev,
+						     CNSS_FW_DOWN);
+
 	switch (reason) {
 	case MHI_CB_EE_RDDM:
 		cnss_reason = CNSS_REASON_RDDM;

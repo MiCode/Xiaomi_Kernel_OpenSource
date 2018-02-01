@@ -571,7 +571,8 @@ static int cnss_driver_call_probe(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
-	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
+	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
+	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
 		ret = plat_priv->driver_ops->reinit(pci_priv->pci_dev,
 						    pci_priv->pci_device_id);
 		if (ret) {
@@ -588,6 +589,7 @@ static int cnss_driver_call_probe(struct cnss_plat_data *plat_priv)
 				    ret);
 			goto out;
 		}
+		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 		set_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
 	}
@@ -614,7 +616,8 @@ static int cnss_driver_call_remove(struct cnss_plat_data *plat_priv)
 		return -EINVAL;
 	}
 
-	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
+	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
+	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
 		plat_priv->driver_ops->shutdown(pci_priv->pci_dev);
 	} else if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		plat_priv->driver_ops->remove(pci_priv->pci_dev);
@@ -652,7 +655,9 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 		complete(&plat_priv->power_up_complete);
 	}
 
-	if (ret)
+	if (ret && test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+		goto out;
+	else if (ret)
 		goto shutdown;
 
 	return 0;
@@ -662,6 +667,10 @@ shutdown:
 	cnss_suspend_pci_link(plat_priv->bus_priv);
 	cnss_power_off_device(plat_priv);
 
+	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
+	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
+
+out:
 	return ret;
 }
 
@@ -1527,11 +1536,6 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 		if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
 			set_bit(CNSS_FW_BOOT_RECOVERY,
 				&plat_priv->driver_state);
-		} else if (test_bit(CNSS_DRIVER_LOADING,
-			   &plat_priv->driver_state)) {
-			cnss_pr_err("Driver probe is in progress, ignore recovery\n");
-			ret = -EINVAL;
-			goto out;
 		}
 		break;
 	}
