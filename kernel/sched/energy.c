@@ -188,7 +188,6 @@ static int sched_energy_probe(struct platform_device *pdev)
 
 		max_frequencies[cpu] = ULONG_MAX;
 
-		rcu_read_lock();
 		opp = dev_pm_opp_find_freq_floor(cpu_dev,
 						 &max_frequencies[cpu]);
 		if (IS_ERR_OR_NULL(opp)) {
@@ -196,9 +195,8 @@ static int sched_energy_probe(struct platform_device *pdev)
 				ret = -EPROBE_DEFER;
 			else
 				ret = PTR_ERR(opp);
-			goto exit_rcu_unlock;
+			goto exit;
 		}
-		rcu_read_unlock();
 
 		/* Convert HZ to KHZ */
 		max_frequencies[cpu] /= 1000;
@@ -265,9 +263,6 @@ static int sched_energy_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "Sched-energy-costs capacity updated\n");
 	return 0;
-
-exit_rcu_unlock:
-	rcu_read_unlock();
 
 exit:
 	if (ret != -EPROBE_DEFER)
