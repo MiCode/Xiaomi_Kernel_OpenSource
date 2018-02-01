@@ -274,12 +274,15 @@ static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
 static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 {
 	struct sde_hdcp_init_data hdcp_init_data;
+	struct dp_parser *parser;
 	int rc = 0;
 
 	if (!dp) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
+
+	parser = dp->parser;
 
 	mutex_init(&dp->hdcp_mutex);
 
@@ -290,13 +293,14 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 	hdcp_init_data.mutex         = &dp->hdcp_mutex;
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.notify_status = dp_display_notify_hdcp_status_cb;
-	hdcp_init_data.core_io       = &dp->parser->io.ctrl_io;
-	hdcp_init_data.dp_ahb        = &dp->parser->io.dp_ahb;
-	hdcp_init_data.dp_aux        = &dp->parser->io.dp_aux;
-	hdcp_init_data.dp_link       = &dp->parser->io.dp_link;
-	hdcp_init_data.dp_p0         = &dp->parser->io.dp_p0;
-	hdcp_init_data.qfprom_io     = &dp->parser->io.qfprom_io;
-	hdcp_init_data.hdcp_io       = &dp->parser->io.hdcp_io;
+	hdcp_init_data.dp_ahb        = &parser->get_io(parser, "dp_ahb")->io;
+	hdcp_init_data.dp_aux        = &parser->get_io(parser, "dp_aux")->io;
+	hdcp_init_data.dp_link       = &parser->get_io(parser, "dp_link")->io;
+	hdcp_init_data.dp_p0         = &parser->get_io(parser, "dp_p0")->io;
+	hdcp_init_data.qfprom_io     = &parser->get_io(parser,
+						"qfprom_physical")->io;
+	hdcp_init_data.hdcp_io       = &parser->get_io(parser,
+						"hdcp_physical")->io;
 	hdcp_init_data.revision      = &dp->panel->link_info.revision;
 
 	dp->hdcp.hdcp1 = sde_hdcp_1x_init(&hdcp_init_data);
@@ -853,7 +857,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto error_catalog;
 	}
 
-	dp->catalog = dp_catalog_get(dev, &dp->parser->io);
+	dp->catalog = dp_catalog_get(dev, dp->parser);
 	if (IS_ERR(dp->catalog)) {
 		rc = PTR_ERR(dp->catalog);
 		pr_err("failed to initialize catalog, rc = %d\n", rc);
@@ -945,7 +949,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	}
 
 	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
-				dp->link, dp->aux, &dp->dp_display.connector);
+				dp->link, dp->aux, &dp->dp_display.connector,
+				dp->catalog);
 	if (IS_ERR(dp->debug)) {
 		rc = PTR_ERR(dp->debug);
 		pr_err("failed to initialize debug, rc = %d\n", rc);

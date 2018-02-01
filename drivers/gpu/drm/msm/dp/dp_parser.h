@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,35 +56,25 @@ struct dp_display_data {
 };
 
 /**
- * struct dp_ctrl_resource - controller's IO related data
- *
- * @dp_ahb: controller's ahb mapped memory address
- * @dp_aux: controller's aux mapped memory address
- * @dp_link: controller's link mapped memory address
- * @dp_p0: controller's p0 mapped memory address
- * @phy_io: phy's mapped memory address
- * @ln_tx0_io: USB-DP lane TX0's mapped memory address
- * @ln_tx1_io: USB-DP lane TX1's mapped memory address
- * @dp_cc_io: DP cc's mapped memory address
- * @qfprom_io: qfprom's mapped memory address
- * @dp_pll_io: DP PLL mapped memory address
- * @usb3_dp_com: USB3 DP PHY combo mapped memory address
- * @hdcp_io: hdcp's mapped memory address
+ * struct dp_io_data - data structure to store DP IO related info
+ * @name: name of the IO
+ * @buf: buffer corresponding to IO for debugging
+ * @io: io data which give len and mapped address
+ */
+struct dp_io_data {
+	const char *name;
+	u8 *buf;
+	struct dss_io_data io;
+};
+
+/**
+ * struct dp_io - data struct to store array of DP IO info
+ * @len: total number of IOs
+ * @data: pointer to an array of DP IO data structures.
  */
 struct dp_io {
-	struct dss_io_data ctrl_io;
-	struct dss_io_data dp_ahb;
-	struct dss_io_data dp_aux;
-	struct dss_io_data dp_link;
-	struct dss_io_data dp_p0;
-	struct dss_io_data phy_io;
-	struct dss_io_data ln_tx0_io;
-	struct dss_io_data ln_tx1_io;
-	struct dss_io_data dp_cc_io;
-	struct dss_io_data qfprom_io;
-	struct dss_io_data dp_pll_io;
-	struct dss_io_data usb3_dp_com;
-	struct dss_io_data hdcp_io;
+	u32 len;
+	struct dp_io_data *data;
 };
 
 /**
@@ -171,6 +161,9 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @ctrl_resouce: controller's register address realated data
  * @disp_data: controller's display related data
  * @parse: function to be called by client to parse device tree.
+ * @get_io: function to be called by client to get io data.
+ * @get_io_buf: function to be called by client to get io buffers.
+ * @clear_io_buf: function to be called by client to clear io buffers.
  */
 struct dp_parser {
 	struct platform_device *pdev;
@@ -184,6 +177,9 @@ struct dp_parser {
 	u32 max_pclk_khz;
 
 	int (*parse)(struct dp_parser *parser);
+	struct dp_io_data *(*get_io)(struct dp_parser *parser, char *name);
+	void (*get_io_buf)(struct dp_parser *parser, char *name);
+	void (*clear_io_buf)(struct dp_parser *parser);
 };
 
 /**
