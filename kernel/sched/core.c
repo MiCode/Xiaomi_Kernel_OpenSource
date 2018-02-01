@@ -1105,9 +1105,17 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	if (cpumask_equal(&p->cpus_allowed, new_mask))
 		goto out;
 
-	if (!cpumask_intersects(new_mask, cpu_valid_mask)) {
-		ret = -EINVAL;
-		goto out;
+	cpumask_andnot(&allowed_mask, new_mask, cpu_isolated_mask);
+	cpumask_and(&allowed_mask, &allowed_mask, cpu_valid_mask);
+
+	dest_cpu = cpumask_any(&allowed_mask);
+	if (dest_cpu >= nr_cpu_ids) {
+		cpumask_and(&allowed_mask, cpu_valid_mask, new_mask);
+		dest_cpu = cpumask_any(&allowed_mask);
+		if (!cpumask_intersects(new_mask, cpu_valid_mask)) {
+			ret = -EINVAL;
+			goto out;
+		}
 	}
 
 	do_set_cpus_allowed(p, new_mask);
@@ -1126,7 +1134,6 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	if (cpumask_test_cpu(task_cpu(p), &allowed_mask))
 		goto out;
 
-	dest_cpu = cpumask_any_and(cpu_valid_mask, new_mask);
 	if (task_running(rq, p) || p->state == TASK_WAKING) {
 		struct migration_arg arg = { p, dest_cpu };
 		/* Need help from migration thread: drop lock and wait. */
@@ -4753,6 +4760,8 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 	cpumask_var_t cpus_allowed, new_mask;
 	struct task_struct *p;
 	int retval;
+	int dest_cpu;
+	cpumask_t allowed_mask;
 
 	rcu_read_lock();
 
@@ -4814,20 +4823,26 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 	}
 #endif
 again:
-	retval = __set_cpus_allowed_ptr(p, new_mask, true);
-
-	if (!retval) {
-		cpuset_cpus_allowed(p, cpus_allowed);
-		if (!cpumask_subset(new_mask, cpus_allowed)) {
-			/*
-			 * We must have raced with a concurrent cpuset
-			 * update. Just reset the cpus_allowed to the
-			 * cpuset's cpus_allowed
-			 */
-			cpumask_copy(new_mask, cpus_allowed);
-			goto again;
+	cpumask_andnot(&allowed_mask, new_mask, cpu_isolated_mask);
+	dest_cpu = cpumask_any_and(cpu_active_mask, &allowed_mask);
+	if (dest_cpu < nr_cpu_ids) {
+		retval = __set_cpus_allowed_ptr(p, new_mask, true);
+		if (!retval) {
+			cpuset_cpus_allowed(p, cpus_allowed);
+			if (!cpumask_subset(new_mask, cpus_allowed)) {
+				/*
+				 * We must have raced with a concurrent cpuset
+				 * update. Just reset the cpus_allowed to the
+				 * cpuset's cpus_allowed
+				 */
+				cpumask_copy(new_mask, cpus_allowed);
+				goto again;
+			}
 		}
+	} else {
+		retval = -EINVAL;
 	}
+
 out_free_new_mask:
 	free_cpumask_var(new_mask);
 out_free_cpus_allowed:
@@ -4891,6 +4906,14 @@ long sched_getaffinity(pid_t pid, struct cpumask *mask)
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	cpumask_and(mask, &p->cpus_allowed, cpu_active_mask);
+
+	/* The userspace tasks are forbidden to run on
+	 * isolated CPUs. So exclude isolated CPUs from
+	 * the getaffinity.
+	 */
+	if (!(p->flags & PF_KTHREAD))
+		cpumask_andnot(mask, mask, cpu_isolated_mask);
+
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 
 out_unlock:
