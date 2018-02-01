@@ -502,7 +502,7 @@
 
 		trips {
 			pm660_vbat_adc: vbat-adc {
-				temperature = <3300>;
+				temperature = <3200>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -532,7 +532,7 @@
 
 		trips {
 			vbat-low {
-				temperature = <3100>;
+				temperature = <2800>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -548,7 +548,7 @@
 
 		trips {
 			vbat-too-low {
-				temperature = <2900>;
+				temperature = <2600>;
 				hysteresis = <0>;
 				type = "passive";
 			};
