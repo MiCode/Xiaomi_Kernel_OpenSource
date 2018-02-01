@@ -1,0 +1,18 @@
+* RPMH Master Stats
+
+Differet Subsystems maintains master data in SMEM.
+It tells about the individual masters information at any given
+time like "system sleep counts", "system sleep last entered at"
+and "system sleep accumulated duration" etc. These stats can be
+show to the user using the debugfs interface of the kernel.
+To achieve this, device tree node has been added.
+
+The required properties for rpmh-master-stats are:
+
+- compatible: "qcom,rpmh-master-stats".
+
+Example:
+
+qcom,rpmh-master-stats {
+	compatible = "qcom,rpmh-master-stats";
+};
