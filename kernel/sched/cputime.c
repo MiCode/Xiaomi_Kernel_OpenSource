@@ -1,6 +1,7 @@
 /*
  * Simple CPU accounting cgroup controller
  */
+#include <linux/cpufreq_times.h>
 #include "sched.h"
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -128,6 +129,11 @@ void account_user_time(struct task_struct *p, u64 cputime)
 
 	/* Account for user time used */
 	acct_account_cputime(p);
+
+#ifdef CONFIG_CPU_FREQ_TIMES
+	/* Account power usage for user time */
+	cpufreq_acct_update_power(p, cputime);
+#endif
 }
 
 /*
@@ -172,6 +178,10 @@ void account_system_index_time(struct task_struct *p,
 
 	/* Account for system time used */
 	acct_account_cputime(p);
+#ifdef CONFIG_CPU_FREQ_TIMES
+	/* Account power usage for system time */
+	cpufreq_acct_update_power(p, cputime);
+#endif
 }
 
 /*
