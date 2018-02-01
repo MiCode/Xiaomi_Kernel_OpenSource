@@ -24,6 +24,7 @@
 
 &usb3 {
 	vbus_dwc3-supply = <&smbcharger_charger_otg>;
+	extcon = <&pmi8940_charger>;
 };
 
 &labibb {
