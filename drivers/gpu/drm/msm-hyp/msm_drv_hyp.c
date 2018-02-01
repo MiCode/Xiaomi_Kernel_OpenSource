@@ -161,6 +161,7 @@ struct drm_msm_hyp_gem {
 #define DRM_MSM_HYP_GEM_GET            0x1
 #define DRM_MSM_HYP_GEM_PUT            0x2
 #define DRM_MSM_HYP_GEM_QRY            0x3
+#define DRM_MSM_HYP_QRY_CLT_ID         0x4
 
 #define DRM_IOCTL_MSM_HYP_GEM_GET\
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_HYP_GEM_GET, struct drm_msm_hyp_gem)
@@ -168,6 +169,10 @@ struct drm_msm_hyp_gem {
 	DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_HYP_GEM_PUT, struct drm_msm_hyp_gem)
 #define DRM_IOCTL_MSM_HYP_GEM_QRY\
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_HYP_GEM_QRY, struct drm_msm_hyp_gem)
+#define DRM_IOCTL_MSM_HYP_QRY_CLT_ID\
+	DRM_IOR(DRM_COMMAND_BASE + DRM_MSM_HYP_QRY_CLT_ID, u32)
+
+#define CLIENT_ID_LEN_IN_CHARS         5
 
 static ssize_t msm_drm_write(struct file *filp, const char __user *buffer,
 				size_t count, loff_t *offset)
@@ -306,6 +311,50 @@ static int msm_ioctl_gem_put(struct drm_device *dev, void *data,
 	return ret;
 }
 
+static int _msm_parse_dt(struct device_node *node, u32 *client_id)
+{
+	int len = 0;
+	int ret = 0;
+	const char *client_id_str;
+
+	client_id_str = of_get_property(node, "qcom,client-id", &len);
+	if (len != CLIENT_ID_LEN_IN_CHARS) {
+		DBG("client_id_str len(%d) is invalid\n", len);
+		ret = -EINVAL;
+	} else {
+		/* Try node as a hex value */
+		ret = kstrtouint(client_id_str, 16, client_id);
+		if (ret) {
+			/* Otherwise, treat at 4cc code */
+			*client_id = fourcc_code(client_id_str[0],
+						client_id_str[1],
+						client_id_str[2],
+						client_id_str[3]);
+
+			ret = 0;
+		}
+	}
+
+	return ret;
+}
+
+static int msm_ioctl_query_client_id(struct drm_device *dev, void *data,
+				 struct drm_file *file_priv)
+{
+	struct platform_device *pdev = dev->platformdev;
+	u32 *arg = (u32 *)data;
+	int ret = 0;
+
+	if (!pdev || !pdev->dev.of_node) {
+		DBG("pdev not found\n");
+		return -ENODEV;
+	}
+
+	ret = _msm_parse_dt(pdev->dev.of_node, arg);
+
+	return ret;
+}
+
 static const struct file_operations fops = {
 	.owner              = THIS_MODULE,
 	.open               = drm_open,
@@ -323,6 +372,8 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_HYP_GEM_PUT,  msm_ioctl_gem_put,
 		DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_HYP_GEM_QRY,  msm_ioctl_gem_query,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_HYP_QRY_CLT_ID,  msm_ioctl_query_client_id,
 		DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
