@@ -158,6 +158,13 @@ static struct usb_endpoint_descriptor hs_as_in_ep_desc  = {
 	.bInterval =		4, /* poll 1 per millisecond */
 };
 
+static struct usb_ss_ep_comp_descriptor ss_as_in_comp_desc = {
+	 .bLength =		 sizeof(ss_as_in_comp_desc),
+	 .bDescriptorType =	 USB_DT_SS_ENDPOINT_COMP,
+
+	 .wBytesPerInterval =	cpu_to_le16(IN_EP_MAX_PACKET_SIZE),
+};
+
 /* Standard ISO IN Endpoint Descriptor for highspeed */
 static struct usb_endpoint_descriptor fs_as_in_ep_desc  = {
 	.bLength =		USB_DT_ENDPOINT_AUDIO_SIZE,
@@ -194,6 +201,26 @@ static struct usb_descriptor_header *hs_audio_desc[] = {
 	(struct usb_descriptor_header *)&as_type_i_desc,
 
 	(struct usb_descriptor_header *)&hs_as_in_ep_desc,
+	(struct usb_descriptor_header *)&as_iso_in_desc,
+	NULL,
+};
+
+static struct usb_descriptor_header *ss_audio_desc[] = {
+	(struct usb_descriptor_header *)&ac_interface_desc,
+	(struct usb_descriptor_header *)&ac_header_desc,
+
+	(struct usb_descriptor_header *)&input_terminal_desc,
+	(struct usb_descriptor_header *)&output_terminal_desc,
+	(struct usb_descriptor_header *)&feature_unit_desc,
+
+	(struct usb_descriptor_header *)&as_interface_alt_0_desc,
+	(struct usb_descriptor_header *)&as_interface_alt_1_desc,
+	(struct usb_descriptor_header *)&as_header_desc,
+
+	(struct usb_descriptor_header *)&as_type_i_desc,
+
+	(struct usb_descriptor_header *)&hs_as_in_ep_desc,
+	(struct usb_descriptor_header *)&ss_as_in_comp_desc,
 	(struct usb_descriptor_header *)&as_iso_in_desc,
 	NULL,
 };
@@ -673,6 +700,7 @@ audio_bind(struct usb_configuration *c, struct usb_function *f)
 
 	f->fs_descriptors = fs_audio_desc;
 	f->hs_descriptors = hs_audio_desc;
+	f->ss_descriptors = ss_audio_desc;
 
 	for (i = 0, status = 0; i < IN_EP_REQ_COUNT && status == 0; i++) {
 		req = audio_request_new(ep, IN_EP_MAX_PACKET_SIZE);
