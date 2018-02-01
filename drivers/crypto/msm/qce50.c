@@ -5976,13 +5976,6 @@ static int qce_smmu_init(struct qce_device *pce_dev)
 		goto ext_fail_set_attr;
 	}
 
-	ret = iommu_domain_set_attr(mapping->domain,
-				DOMAIN_ATTR_UPSTREAM_IOVA_ALLOCATOR, &attr);
-	if (ret < 0) {
-		pr_err("Set UPSTREAM_IOVA_ALLOCATOR failed, err = %d\n", ret);
-		goto ext_fail_set_attr;
-	}
-
 	ret = arm_iommu_attach_device(pce_dev->pdev, mapping);
 	if (ret < 0) {
 		pr_err("Attach device failed, err = %d\n", ret);

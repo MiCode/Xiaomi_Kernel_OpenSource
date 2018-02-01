@@ -245,9 +245,11 @@ static void req_done(unsigned long data)
 			pqce->active_command = new_req;
 			spin_unlock_irqrestore(&podev->lock, flags);
 
-			new_req->err = 0;
-			/* start a new request */
-			ret = start_req(pqce, new_req);
+			if (new_req) {
+				new_req->err = 0;
+				/* start a new request */
+				ret = start_req(pqce, new_req);
+			}
 			if (unlikely(new_req && ret)) {
 				new_req->err = ret;
 				complete(&new_req->complete);
