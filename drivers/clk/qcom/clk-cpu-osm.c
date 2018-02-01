@@ -604,10 +604,11 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		lval = data & GENMASK(7, 0);
 		core_count = CORE_COUNT_VAL(data);
 
+		/* Save the frequencies in terms of KHz */
 		if (!src)
 			table[i].frequency = OSM_INIT_RATE / 1000;
 		else
-			table[i].frequency = XO_RATE * lval;
+			table[i].frequency = (XO_RATE * lval) / 1000;
 		table[i].driver_data = table[i].frequency;
 
 		if (core_count == SINGLE_CORE_COUNT)
