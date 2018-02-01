@@ -1002,6 +1002,9 @@ static void remove_dirconn_tlmm(struct irq_data *d, irq_hw_number_t irq)
 	int offset = 0;
 	unsigned int virt = 0;
 
+	if (!parent_data)
+		return;
+
 	virt = irq_find_mapping(parent_data->domain, irq);
 	msm_dirconn_uncfg_reg(d, offset);
 	irq_set_handler_data(virt, NULL);
