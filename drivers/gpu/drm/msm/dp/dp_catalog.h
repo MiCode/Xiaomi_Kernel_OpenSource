@@ -181,6 +181,7 @@ struct dp_catalog_priv {
 	void *data;
 
 	void (*put)(struct dp_catalog *catalog);
+	void (*set_exe_mode)(struct dp_catalog *dp_catalog, char *mode);
 };
 
 struct dp_catalog {
@@ -189,6 +190,10 @@ struct dp_catalog {
 	struct dp_catalog_audio audio;
 	struct dp_catalog_panel panel;
 	struct dp_catalog_priv priv;
+
+	void (*set_exe_mode)(struct dp_catalog *dp_catalog, char *mode);
+	int (*get_reg_dump)(struct dp_catalog *dp_catalog,
+		char *mode, u8 **out_buf, u32 *out_buf_len);
 };
 
 static inline u8 dp_ecc_get_g0_value(u8 data)
@@ -259,7 +264,7 @@ static inline u8 dp_header_get_parity(u32 data)
 struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser);
 void dp_catalog_put(struct dp_catalog *catalog);
 
-int dp_catalog_get_v420(struct device *dev, struct dp_catalog *dp_catalog,
-			struct dp_parser *parser);
+int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
+		void *io);
 
 #endif /* _DP_CATALOG_H_ */

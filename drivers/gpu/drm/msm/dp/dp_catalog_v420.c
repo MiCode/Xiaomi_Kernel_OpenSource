@@ -17,9 +17,6 @@
 #include "dp_catalog.h"
 #include "dp_reg.h"
 
-#define dp_read(offset) readl_relaxed((offset))
-#define dp_write(offset, data) writel_relaxed((data), (offset))
-
 #define dp_catalog_get_priv_v420(x) ({ \
 	struct dp_catalog *dp_catalog; \
 	dp_catalog = container_of(x, struct dp_catalog, x); \
@@ -44,15 +41,62 @@ static u8 const vm_voltage_swing[MAX_VOLTAGE_LEVELS][MAX_PRE_EMP_LEVELS] = {
 	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
+struct dp_catalog_io {
+	struct dp_io_data *dp_ahb;
+	struct dp_io_data *dp_aux;
+	struct dp_io_data *dp_link;
+	struct dp_io_data *dp_p0;
+	struct dp_io_data *dp_phy;
+	struct dp_io_data *dp_ln_tx0;
+	struct dp_io_data *dp_ln_tx1;
+	struct dp_io_data *dp_mmss_cc;
+	struct dp_io_data *dp_pll;
+	struct dp_io_data *usb3_dp_com;
+	struct dp_io_data *hdcp_physical;
+};
+
 struct dp_catalog_private_v420 {
 	struct device *dev;
-	struct dp_io *io;
+	struct dp_catalog_io *io;
+
+	char exe_mode[SZ_4];
 };
+
+static static u32 dp_read(struct dp_catalog_private_v420 *catalog,
+		struct dp_io_data *io_data, u32 offset)
+{
+	u32 data = 0;
+
+	if (!strcmp(catalog->exe_mode, "hw") ||
+	    !strcmp(catalog->exe_mode, "all")) {
+		data = readl_relaxed(io_data->io.base + offset);
+	} else if (!strcmp(catalog->exe_mode, "sw")) {
+		if (io_data->buf)
+			memcpy(&data, io_data->buf + offset, sizeof(offset));
+	}
+
+	return data;
+}
+
+static void dp_write(struct dp_catalog_private_v420 *catalog,
+		struct dp_io_data *io_data, u32 offset, u32 data)
+{
+	if (!strcmp(catalog->exe_mode, "hw") ||
+	    !strcmp(catalog->exe_mode, "all"))
+		writel_relaxed(data, io_data->io.base + offset);
+
+	if (!strcmp(catalog->exe_mode, "sw") ||
+	    !strcmp(catalog->exe_mode, "all")) {
+		if (io_data->buf)
+			memcpy(io_data->buf + offset, &data, sizeof(data));
+	}
+}
 
 static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 		struct dp_aux_cfg *cfg)
 {
 	struct dp_catalog_private_v420 *catalog;
+	struct dp_io_data *io_data;
 	int i = 0;
 
 	if (!aux || !cfg) {
@@ -62,11 +106,12 @@ static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 
 	catalog = dp_catalog_get_priv_v420(aux);
 
-	dp_write(catalog->io->phy_io.base + DP_PHY_PD_CTL, 0x7D);
+	io_data = catalog->io->dp_phy;
+	dp_write(catalog, io_data, DP_PHY_PD_CTL, 0x7D);
 	wmb(); /* make sure PD programming happened */
 
 	/* Turn on BIAS current for PHY/PLL */
-	dp_write(catalog->io->dp_pll_io.base +
+	dp_write(catalog, io_data,
 		QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3d);
 
 	/* DP AUX CFG register programming */
@@ -74,12 +119,11 @@ static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 		pr_debug("%s: offset=0x%08x, value=0x%08x\n",
 			dp_phy_aux_config_type_to_string(i),
 			cfg[i].offset, cfg[i].lut[cfg[i].current_index]);
-		dp_write(catalog->io->phy_io.base + cfg[i].offset,
+		dp_write(catalog, io_data, cfg[i].offset,
 			cfg[i].lut[cfg[i].current_index]);
 	}
 
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_INTERRUPT_MASK_V420,
-		0x1F);
+	dp_write(catalog, io_data, DP_PHY_AUX_INTERRUPT_MASK_V420, 0x1F);
 }
 
 static void dp_catalog_ctrl_config_msa_v420(struct dp_catalog_ctrl *ctrl,
@@ -93,7 +137,7 @@ static void dp_catalog_ctrl_config_msa_v420(struct dp_catalog_ctrl *ctrl,
 	u32 const link_rate_hbr2 = 540000;
 	u32 const link_rate_hbr3 = 810000;
 	struct dp_catalog_private_v420 *catalog;
-	void __iomem *base_cc, *base_ctrl;
+	struct dp_io_data *io_data;
 
 	if (!ctrl || !rate) {
 		pr_err("invalid input\n");
@@ -121,10 +165,10 @@ static void dp_catalog_ctrl_config_msa_v420(struct dp_catalog_ctrl *ctrl,
 		 */
 		mvid = (u32) mvid_calc;
 	} else {
-		base_cc = catalog->io->dp_cc_io.base;
+		io_data = catalog->io->dp_mmss_cc;
 
-		pixel_m = dp_read(base_cc + MMSS_DP_PIXEL_M_V420);
-		pixel_n = dp_read(base_cc + MMSS_DP_PIXEL_N_V420);
+		pixel_m = dp_read(catalog, io_data, MMSS_DP_PIXEL_M_V420);
+		pixel_n = dp_read(catalog, io_data, MMSS_DP_PIXEL_N_V420);
 		pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
 
 		mvid = (pixel_m & 0xFFFF) * 5;
@@ -139,10 +183,10 @@ static void dp_catalog_ctrl_config_msa_v420(struct dp_catalog_ctrl *ctrl,
 			nvid *= 3;
 	}
 
-	base_ctrl = catalog->io->ctrl_io.base;
+	io_data = catalog->io->dp_link;
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
-	dp_write(base_ctrl + DP_SOFTWARE_MVID, mvid);
-	dp_write(base_ctrl + DP_SOFTWARE_NVID, nvid);
+	dp_write(catalog, io_data, DP_SOFTWARE_MVID, mvid);
+	dp_write(catalog, io_data, DP_SOFTWARE_NVID, nvid);
 }
 
 static void dp_catalog_ctrl_phy_lane_cfg_v420(struct dp_catalog_ctrl *ctrl,
@@ -151,6 +195,7 @@ static void dp_catalog_ctrl_phy_lane_cfg_v420(struct dp_catalog_ctrl *ctrl,
 	u32 info = 0x0;
 	struct dp_catalog_private_v420 *catalog;
 	u8 orientation = BIT(!!flipped);
+	struct dp_io_data *io_data;
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -158,19 +203,20 @@ static void dp_catalog_ctrl_phy_lane_cfg_v420(struct dp_catalog_ctrl *ctrl,
 	}
 
 	catalog = dp_catalog_get_priv_v420(ctrl);
+	io_data = catalog->io->dp_phy;
 
 	info |= (ln_cnt & 0x0F);
 	info |= ((orientation & 0x0F) << 4);
 	pr_debug("Shared Info = 0x%x\n", info);
 
-	dp_write(catalog->io->phy_io.base + DP_PHY_SPARE0_V420, info);
+	dp_write(catalog, io_data, DP_PHY_SPARE0_V420, info);
 }
 
 static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
 		u8 v_level, u8 p_level)
 {
 	struct dp_catalog_private_v420 *catalog;
-	void __iomem *base0, *base1;
+	struct dp_io_data *io_data;
 	u8 value0, value1;
 
 	if (!ctrl || !((v_level < MAX_VOLTAGE_LEVELS)
@@ -180,8 +226,6 @@ static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
 	}
 
 	catalog = dp_catalog_get_priv_v420(ctrl);
-	base0 = catalog->io->ln_tx0_io.base;
-	base1 = catalog->io->ln_tx1_io.base;
 
 	pr_debug("hw: v=%d p=%d\n", v_level, p_level);
 
@@ -189,10 +233,13 @@ static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
 	value1 = vm_pre_emphasis[v_level][p_level];
 
 	/* program default setting first */
-	dp_write(base0 + TXn_TX_DRV_LVL_V420, 0x2A);
-	dp_write(base1 + TXn_TX_DRV_LVL_V420, 0x2A);
-	dp_write(base0 + TXn_TX_EMP_POST1_LVL, 0x20);
-	dp_write(base1 + TXn_TX_EMP_POST1_LVL, 0x20);
+	io_data = catalog->io->dp_ln_tx0;
+	dp_write(catalog, io_data, TXn_TX_DRV_LVL_V420, 0x2A);
+	dp_write(catalog, io_data, TXn_TX_EMP_POST1_LVL, 0x20);
+
+	io_data = catalog->io->dp_ln_tx1;
+	dp_write(catalog, io_data, TXn_TX_DRV_LVL_V420, 0x2A);
+	dp_write(catalog, io_data, TXn_TX_EMP_POST1_LVL, 0x20);
 
 	/* Enable MUX to use Cursor values from these registers */
 	value0 |= BIT(5);
@@ -200,10 +247,13 @@ static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
 
 	/* Configure host and panel only if both values are allowed */
 	if (value0 != 0xFF && value1 != 0xFF) {
-		dp_write(base0 + TXn_TX_DRV_LVL_V420, value0);
-		dp_write(base1 + TXn_TX_DRV_LVL_V420, value0);
-		dp_write(base0 + TXn_TX_EMP_POST1_LVL, value1);
-		dp_write(base1 + TXn_TX_EMP_POST1_LVL, value1);
+		io_data = catalog->io->dp_ln_tx0;
+		dp_write(catalog, io_data, TXn_TX_DRV_LVL_V420, value0);
+		dp_write(catalog, io_data, TXn_TX_EMP_POST1_LVL, value1);
+
+		io_data = catalog->io->dp_ln_tx1;
+		dp_write(catalog, io_data, TXn_TX_DRV_LVL_V420, value0);
+		dp_write(catalog, io_data, TXn_TX_EMP_POST1_LVL, value1);
 
 		pr_debug("hw: vx_value=0x%x px_value=0x%x\n",
 			value0, value1);
@@ -224,12 +274,24 @@ static void dp_catalog_put_v420(struct dp_catalog *catalog)
 	devm_kfree(catalog_priv->dev, catalog_priv);
 }
 
-int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
-			struct dp_parser *parser)
+static void dp_catalog_set_exe_mode_v420(struct dp_catalog *catalog, char *mode)
 {
 	struct dp_catalog_private_v420 *catalog_priv;
 
-	if (!dev || !catalog || !parser) {
+	if (!catalog || !catalog->priv.data)
+		return;
+
+	catalog_priv = catalog->priv.data;
+
+	strlcpy(catalog_priv->exe_mode, mode, sizeof(catalog_priv->exe_mode));
+}
+
+int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
+		void *io)
+{
+	struct dp_catalog_private_v420 *catalog_priv;
+
+	if (!dev || !catalog) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
@@ -239,10 +301,12 @@ int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
 		return -ENOMEM;
 
 	catalog_priv->dev = dev;
-	catalog_priv->io = &parser->io;
+	catalog_priv->io = io;
 	catalog->priv.data = catalog_priv;
 
 	catalog->priv.put          = dp_catalog_put_v420;
+	catalog->priv.set_exe_mode = dp_catalog_set_exe_mode_v420;
+
 	catalog->aux.setup         = dp_catalog_aux_setup_v420;
 	catalog->ctrl.config_msa   = dp_catalog_ctrl_config_msa_v420;
 	catalog->ctrl.phy_lane_cfg = dp_catalog_ctrl_phy_lane_cfg_v420;

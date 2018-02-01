@@ -50,6 +50,33 @@ struct dp_aux_private {
 	u8 *edid;
 };
 
+#ifdef CONFIG_DYNAMIC_DEBUG
+static void dp_aux_hex_dump(struct drm_dp_aux *drm_aux,
+		struct drm_dp_aux_msg *msg)
+{
+	DEFINE_DYNAMIC_DEBUG_METADATA(ddm, "dp aux tracker");
+
+	if (unlikely(ddm.flags & _DPRINTK_FLAGS_PRINT)) {
+		u8 buf[SZ_64];
+		struct dp_aux_private *aux = container_of(drm_aux,
+			struct dp_aux_private, drm_aux);
+
+		snprintf(buf, SZ_64, "[drm-dp] %5s %5s %5xh(%2zu): ",
+			aux->native ? "NATIVE" : "I2C",
+			aux->read ? "READ" : "WRITE",
+			msg->address, msg->size);
+
+		print_hex_dump(KERN_DEBUG, buf, DUMP_PREFIX_NONE,
+			8, 1, msg->buffer, msg->size, false);
+	}
+}
+#else
+static void dp_aux_hex_dump(struct drm_dp_aux *drm_aux,
+		struct drm_dp_aux_msg *msg)
+{
+}
+#endif
+
 static char *dp_aux_get_error(u32 aux_error)
 {
 	switch (aux_error) {
@@ -444,7 +471,6 @@ error:
 static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 		struct drm_dp_aux_msg *msg)
 {
-	u8 buf[SZ_64];
 	u32 timeout;
 	ssize_t ret;
 	struct dp_aux_private *aux = container_of(drm_aux,
@@ -482,13 +508,7 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 	}
 
 	if (aux->aux_error_num == DP_AUX_ERR_NONE) {
-		snprintf(buf, SZ_64, "[drm-dp] dbg: %5s %5s %5xh(%2zu): ",
-			aux->native ? "NATIVE" : "I2C",
-			aux->read ? "READ" : "WRITE",
-			msg->address, msg->size);
-
-		print_hex_dump(KERN_DEBUG, buf,
-			DUMP_PREFIX_NONE, 8, 1, msg->buffer, msg->size, false);
+		dp_aux_hex_dump(drm_aux, msg);
 
 		msg->reply = aux->native ?
 			DP_AUX_NATIVE_REPLY_ACK : DP_AUX_I2C_REPLY_ACK;
@@ -511,7 +531,6 @@ end:
 static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 		struct drm_dp_aux_msg *msg)
 {
-	u8 buf[SZ_64];
 	ssize_t ret;
 	int const retry_count = 5;
 	struct dp_aux_private *aux = container_of(drm_aux,
@@ -544,13 +563,7 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 		if (aux->read)
 			dp_aux_cmd_fifo_rx(aux, msg);
 
-		snprintf(buf, SZ_64, "[drm-dp] %5s %5s %5xh(%2zu): ",
-			aux->native ? "NATIVE" : "I2C",
-			aux->read ? "READ" : "WRITE",
-			msg->address, msg->size);
-
-		print_hex_dump(KERN_DEBUG, buf,
-			DUMP_PREFIX_NONE, 8, 1, msg->buffer, msg->size, false);
+		dp_aux_hex_dump(drm_aux, msg);
 
 		msg->reply = aux->native ?
 			DP_AUX_NATIVE_REPLY_ACK : DP_AUX_I2C_REPLY_ACK;
