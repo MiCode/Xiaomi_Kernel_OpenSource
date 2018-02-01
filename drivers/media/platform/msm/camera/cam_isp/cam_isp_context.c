@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -896,6 +896,29 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	return rc;
 }
 
+static int __cam_isp_ctx_sof_in_flush(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	int rc = 0;
+	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
+
+	if (!evt_data) {
+		CAM_ERR(CAM_ISP, "in valid sof event data");
+		return -EINVAL;
+	}
+	ctx_isp->frame_id++;
+	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
+	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
+		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
+
+	if (--ctx_isp->frame_skip_count == 0)
+		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	else
+		CAM_ERR(CAM_ISP, "Skip currect SOF");
+
+	return rc;
+}
+
 static struct cam_isp_ctx_irq_ops
 	cam_isp_ctx_activated_state_machine_irq[CAM_ISP_CTX_ACTIVATED_MAX] = {
 	/* SOF */
@@ -966,6 +989,17 @@ static struct cam_isp_ctx_irq_ops
 	},
 	/* HALT */
 	{
+	},
+	/* FLUSH */
+	{
+		.irq_ops = {
+			NULL,
+			__cam_isp_ctx_sof_in_flush,
+			NULL,
+			NULL,
+			NULL,
+			__cam_isp_ctx_buf_done_in_applied,
+		},
 	},
 };
 
@@ -1170,6 +1204,24 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	return rc;
 }
 
+static int __cam_isp_ctx_flush_req_in_activated(
+	struct cam_context *ctx,
+	struct cam_req_mgr_flush_request *flush_req)
+{
+	int rc = 0;
+	struct cam_isp_context *ctx_isp;
+
+	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
+	spin_lock_bh(&ctx->lock);
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_FLUSH;
+	ctx_isp->frame_skip_count = 2;
+	spin_unlock_bh(&ctx->lock);
+
+	CAM_DBG(CAM_ISP, "Flush request in state %d", ctx->state);
+	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
+	return rc;
+}
+
 static int __cam_isp_ctx_flush_req_in_ready(
 	struct cam_context *ctx,
 	struct cam_req_mgr_flush_request *flush_req)
@@ -1230,7 +1282,19 @@ static struct cam_ctx_ops
 		.crm_ops = {},
 		.irq_ops = NULL,
 	},
+	/* HW ERROR */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
 	/* HALT */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
+	/* FLUSH */
 	{
 		.ioctl_ops = {},
 		.crm_ops = {},
@@ -1601,9 +1665,22 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_buf_done_in_bubble_applied,
 		},
 	},
-
+	/* HW ERROR */
+	{
+	},
 	/* HALT */
 	{
+	},
+	/* FLUSH */
+	{
+		.irq_ops = {
+			NULL,
+			__cam_isp_ctx_sof_in_flush,
+			NULL,
+			NULL,
+			NULL,
+			__cam_isp_ctx_buf_done_in_applied,
+		},
 	},
 };
 
@@ -1660,14 +1737,25 @@ static struct cam_ctx_ops
 		.crm_ops = {},
 		.irq_ops = NULL,
 	},
+	/* HW ERROR */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
 	/* HALT */
 	{
 		.ioctl_ops = {},
 		.crm_ops = {},
 		.irq_ops = NULL,
 	},
+	/* FLUSHED */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
 };
-
 
 /* top level state machine */
 static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
@@ -2212,6 +2300,58 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_isp_ctx_link_pause(struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_isp_hw_cmd_args   hw_cmd_args;
+	struct cam_isp_context      *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_PAUSE_HW;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+
+	return rc;
+}
+
+static int __cam_isp_ctx_link_resume(struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_isp_hw_cmd_args   hw_cmd_args;
+	struct cam_isp_context      *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_RESUME_HW;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+
+	return rc;
+}
+
+static int __cam_isp_ctx_process_evt(struct cam_context *ctx,
+	struct cam_req_mgr_link_evt_data *link_evt_data)
+{
+	int rc = 0;
+
+	switch (link_evt_data->evt_type) {
+	case CAM_REQ_MGR_LINK_EVT_ERR:
+		/* No need to handle this message now */
+		break;
+	case CAM_REQ_MGR_LINK_EVT_PAUSE:
+		__cam_isp_ctx_link_pause(ctx);
+		break;
+	case CAM_REQ_MGR_LINK_EVT_RESUME:
+		__cam_isp_ctx_link_resume(ctx);
+		break;
+	default:
+		CAM_WARN(CAM_ISP, "Unknown event from CRM");
+		break;
+	}
+	return rc;
+}
+
 static int __cam_isp_ctx_unlink_in_activated(struct cam_context *ctx,
 	struct cam_req_mgr_core_dev_link_setup *unlink)
 {
@@ -2343,7 +2483,8 @@ static struct cam_ctx_ops
 		.crm_ops = {
 			.unlink = __cam_isp_ctx_unlink_in_activated,
 			.apply_req = __cam_isp_ctx_apply_req,
-			.flush_req = __cam_isp_ctx_flush_req_in_top_state,
+			.flush_req = __cam_isp_ctx_flush_req_in_activated,
+			.process_evt = __cam_isp_ctx_process_evt,
 		},
 		.irq_ops = __cam_isp_ctx_handle_irq_in_activated,
 	},

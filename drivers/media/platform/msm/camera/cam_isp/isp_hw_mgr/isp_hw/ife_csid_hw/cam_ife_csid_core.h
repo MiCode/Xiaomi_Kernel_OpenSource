@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -368,7 +368,6 @@ struct cam_ife_csid_cid_data {
 	uint32_t                     dt;
 	uint32_t                     cnt;
 	uint32_t                     tpg_set;
-	int                          pixel_count;
 };
 
 

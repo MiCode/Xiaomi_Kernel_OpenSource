@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,8 +141,21 @@ int cam_ipe_disable_soc_resources(struct cam_hw_soc_info *soc_info,
 int cam_ipe_update_clk_rate(struct cam_hw_soc_info *soc_info,
 	uint32_t clk_rate)
 {
+	int32_t src_clk_idx;
+
 	if (!soc_info)
 		return -EINVAL;
+
+	src_clk_idx = soc_info->src_clk_idx;
+
+	if ((soc_info->clk_level_valid[CAM_TURBO_VOTE] == true) &&
+		(soc_info->clk_rate[CAM_TURBO_VOTE][src_clk_idx] != 0) &&
+		(clk_rate > soc_info->clk_rate[CAM_TURBO_VOTE][src_clk_idx])) {
+		CAM_DBG(CAM_ICP, "clk_rate %d greater than max, reset to %d",
+			clk_rate,
+			soc_info->clk_rate[CAM_TURBO_VOTE][src_clk_idx]);
+		clk_rate = soc_info->clk_rate[CAM_TURBO_VOTE][src_clk_idx];
+	}
 
 	return cam_soc_util_set_clk_rate(soc_info->clk[soc_info->src_clk_idx],
 		soc_info->clk_name[soc_info->src_clk_idx], clk_rate);
