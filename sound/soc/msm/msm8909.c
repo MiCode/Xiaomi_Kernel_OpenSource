@@ -73,6 +73,8 @@ static atomic_t quat_mi2s_clk_ref;
 static atomic_t quin_mi2s_clk_ref;
 static atomic_t auxpcm_mi2s_clk_ref;
 
+static struct snd_info_entry *codec_root;
+
 static int msm_enable_dig_cdc_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
 static int msm_mclk_event(struct snd_soc_dapm_widget *w,
@@ -1201,6 +1203,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
+	struct snd_card *card;
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -1218,6 +1222,18 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
+	card = rtd->card->snd_card;
+	if (!codec_root) {
+		codec_root = snd_register_module_info(card->module, "codecs",
+						      card->proc_root);
+		if (codec_root)
+			msm_dig_codec_info_create_codec_entry(codec_root,
+							      codec);
+		else
+			pr_debug("%s: Cannot create codecs module entry\n",
+				 __func__);
+	}
+	pdata->codec_root = codec_root;
 	return 0;
 }
 

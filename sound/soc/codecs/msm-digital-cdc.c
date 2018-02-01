@@ -39,6 +39,8 @@
 #define CF_MIN_3DB_75HZ			0x1
 #define CF_MIN_3DB_150HZ		0x2
 
+#define MSM_DIG_CDC_VERSION_ENTRY_SIZE 32
+
 static unsigned long rx_digital_gain_reg[] = {
 	MSM89XX_CDC_CORE_RX1_VOL_CTL_B2_CTL,
 	MSM89XX_CDC_CORE_RX2_VOL_CTL_B2_CTL,
@@ -1023,11 +1025,85 @@ static void msm_digit_cdc_update_digit_regulator(
 	dev_err(msm_cdc->dev, "Error: regulator not found:%s\n", name);
 }
 
+static ssize_t msm_dig_codec_version_read(struct snd_info_entry *entry,
+					   void *file_private_data,
+					   struct file *file,
+					   char __user *buf, size_t count,
+					   loff_t pos)
+{
+	char buffer[MSM_DIG_CDC_VERSION_ENTRY_SIZE];
+	int len = 0;
+
+	len = snprintf(buffer, sizeof(buffer), "MSM8909_1_0\n");
+
+	return simple_read_from_buffer(buf, count, &pos, buffer, len);
+}
+
+static struct snd_info_entry_ops msm_dig_codec_info_ops = {
+	.read = msm_dig_codec_version_read,
+};
+
+/*
+ * msm_dig_codec_info_create_codec_entry - creates msm digital codec module
+ * @codec_root: The parent directory
+ * @codec: Codec instance
+ *
+ * Creates msm digital codec module and version entry under the given
+ * parent directory.
+ *
+ * Return: 0 on success or negative error code on failure.
+ */
+int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
+					   struct snd_soc_codec *codec)
+{
+	struct snd_info_entry *version_entry;
+	struct msm_dig_priv *msm_dig_cdc;
+	struct snd_soc_card *card;
+
+	if (!codec_root || !codec)
+		return -EINVAL;
+
+	msm_dig_cdc = snd_soc_codec_get_drvdata(codec);
+	card = codec->component.card;
+	msm_dig_cdc->entry = snd_register_module_info(codec_root->module,
+							     "msm_digital_codec",
+							     codec_root);
+	if (!msm_dig_cdc->entry) {
+		dev_dbg(codec->dev, "%s: failed to create msm-digital entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry = snd_info_create_card_entry(card->snd_card,
+						   "version",
+						   msm_dig_cdc->entry);
+	if (!version_entry) {
+		dev_dbg(codec->dev,
+			"%s: failed to create msm-digital version entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry->private_data = msm_dig_cdc;
+	version_entry->size = MSM_DIG_CDC_VERSION_ENTRY_SIZE;
+	version_entry->content = SNDRV_INFO_CONTENT_DATA;
+	version_entry->c.ops = &msm_dig_codec_info_ops;
+
+	if (snd_info_register(version_entry) < 0) {
+		snd_info_free_entry(version_entry);
+		return -ENOMEM;
+	}
+	msm_dig_cdc->version_entry = version_entry;
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_dig_codec_info_create_codec_entry);
+
 static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 {
 	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
-	int i;
+	int i, ret = 0;
 
 	msm_dig_cdc->codec = codec;
 
@@ -1053,6 +1129,19 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 				&msm_dig_cdc->on_demand_list[ON_DEMAND_DIGIT]);
 	atomic_set(&msm_dig_cdc->on_demand_list[ON_DEMAND_DIGIT].ref,
 		   0);
+
+	msm_dig_cdc->fw_data = devm_kzalloc(codec->dev,
+					   sizeof(*(msm_dig_cdc->fw_data)),
+					   GFP_KERNEL);
+	if (!msm_dig_cdc->fw_data)
+		return -ENOMEM;
+
+	ret = wcd_cal_create_hwdep(msm_dig_cdc->fw_data,
+		WCD9XXX_CODEC_HWDEP_NODE, codec);
+	if (ret < 0) {
+		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
+		return ret;
+	}
 
 	snd_soc_dapm_ignore_suspend(dapm, "AIF1 Playback");
 	snd_soc_dapm_ignore_suspend(dapm, "AIF1 Capture");
