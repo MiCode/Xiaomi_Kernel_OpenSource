@@ -3399,7 +3399,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 				break;
 			}
 		}
-		if (range.addr) {
+		if (range.addr && !of_property_read_bool(dev->of_node,
+							 "restrict-access")) {
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[4] = {VMID_HLOS, VMID_MSS_MSA, VMID_SSC_Q6,
 						VMID_ADSP_Q6};
