@@ -1296,7 +1296,6 @@
 		clock-names = "core_clk_src", "core_clk",
 			"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
-		status = "disabled";
 	};
 
 	qcom_rng: qrng@e3000 {
@@ -1312,7 +1311,6 @@
 			<1 618 0 800>;          /* 100 MB/s */
 		clocks = <&clock_gcc clk_gcc_prng_ahb_clk>;
 		clock-names = "iface_clk";
-		status = "disabled";
 	};
 
 	qcom_crypto: qcrypto@720000 {
@@ -1345,7 +1343,6 @@
 		qcom,use-sw-hmac-algo;
 		qcom,use-sw-aead-algo;
 		qcom,ce-opp-freq = <100000000>;
-		status = "disabled";
 	};
 
 	qcom_cedev: qcedev@720000 {
@@ -1371,7 +1368,6 @@
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
-		status = "disabled";
 	};
 
 };
