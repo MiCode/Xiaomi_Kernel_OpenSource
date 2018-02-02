@@ -1736,8 +1736,7 @@ struct wmi_tlv_mgmt_tx_hdr {
 	__le32 vdev_id;
 	__le32 desc_id;
 	__le32 chanfreq;
-	__le32 paddr_lo;
-	__le32 paddr_hi;
+	__le64 paddr;
 	__le32 frame_len;
 	__le32 buf_len;
 } __packed;
