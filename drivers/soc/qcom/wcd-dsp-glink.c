@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,9 +79,6 @@ struct wdsp_glink_ch {
 	int channel_state;
 	struct mutex mutex;
 
-	/* To free up the channel memory */
-	bool free_mem;
-
 	/* Glink local channel open work */
 	struct work_struct lcl_ch_open_wrk;
 
@@ -90,6 +87,9 @@ struct wdsp_glink_ch {
 
 	/* Wait for ch connect state before sending any command */
 	wait_queue_head_t ch_connect_wait;
+
+	/* Wait for ch local and remote disconnect before channel free */
+	wait_queue_head_t ch_free_wait;
 
 	/*
 	 * Glink channel configuration. This has to be the last
@@ -334,7 +334,6 @@ static void wdsp_glink_notify_state(void *handle, const void *priv,
 				ch->ch_cfg.name);
 
 		wake_up(&ch->ch_connect_wait);
-		mutex_unlock(&ch->mutex);
 	} else if (event == GLINK_LOCAL_DISCONNECTED) {
 		/*
 		 * Don't use dev_dbg here as dev may not be valid if channel
@@ -343,22 +342,20 @@ static void wdsp_glink_notify_state(void *handle, const void *priv,
 		pr_debug("%s: channel: %s disconnected locally\n",
 			 __func__, ch->ch_cfg.name);
 		mutex_unlock(&ch->mutex);
-
-		if (ch->free_mem) {
-			kfree(ch);
-			ch = NULL;
-		}
+		wake_up(&ch->ch_free_wait);
+		return;
 	} else if (event == GLINK_REMOTE_DISCONNECTED) {
 		dev_dbg(wpriv->dev, "%s: remote channel: %s disconnected remotely\n",
 			 __func__, ch->ch_cfg.name);
-		mutex_unlock(&ch->mutex);
 		/*
 		 * If remote disconnect happens, local side also has
 		 * to close the channel as per glink design in a
 		 * separate work_queue.
 		 */
-		queue_work(wpriv->work_queue, &ch->lcl_ch_cls_wrk);
+		if (wpriv && wpriv->work_queue != NULL)
+			queue_work(wpriv->work_queue, &ch->lcl_ch_cls_wrk);
 	}
+	mutex_unlock(&ch->mutex);
 }
 
 /*
@@ -626,6 +623,7 @@ static int wdsp_glink_ch_info_init(struct wdsp_glink_priv *wpriv,
 		INIT_WORK(&ch[i]->lcl_ch_open_wrk, wdsp_glink_lcl_ch_open_wrk);
 		INIT_WORK(&ch[i]->lcl_ch_cls_wrk, wdsp_glink_lcl_ch_cls_wrk);
 		init_waitqueue_head(&ch[i]->ch_connect_wait);
+		init_waitqueue_head(&ch[i]->ch_free_wait);
 	}
 
 	INIT_WORK(&wpriv->ch_open_cls_wrk, wdsp_glink_ch_open_cls_wrk);
@@ -1034,34 +1032,45 @@ static int wdsp_glink_release(struct inode *inode, struct file *file)
 
 	if (wpriv->glink_state.handle)
 		glink_unregister_link_state_cb(wpriv->glink_state.handle);
+	/*
+	 * Wait for channel local and remote disconnect state notifications
+	 * before freeing channel memory.
+	 */
+	for (i = 0; i < wpriv->no_of_channels; i++) {
+		if (wpriv->ch && wpriv->ch[i]) {
+			/*
+			 * Only close glink channel from here if REMOTE has
+			 * not already disconnected it
+			 */
+			if (wpriv->ch[i]->channel_state == GLINK_CONNECTED)
+				wdsp_glink_close_ch(wpriv->ch[i]);
+
+			ret = wait_event_timeout(wpriv->ch[i]->ch_free_wait,
+					(wpriv->ch[i]->channel_state ==
+					GLINK_LOCAL_DISCONNECTED),
+					msecs_to_jiffies(TIMEOUT_MS));
+			if (!ret) {
+				pr_err("%s: glink ch %s failed to notify states properly %d\n",
+					__func__, wpriv->ch[i]->ch_cfg.name,
+					wpriv->ch[i]->channel_state);
+				ret = -EINVAL;
+				goto done;
+			}
+		}
+	}
 
 	flush_workqueue(wpriv->work_queue);
 	destroy_workqueue(wpriv->work_queue);
+	wpriv->work_queue = NULL;
 
-	/*
-	 * Clean up glink channel memory in channel state
-	 * callback only if close channels are called from here.
-	 */
-	if (wpriv->ch) {
-		for (i = 0; i < wpriv->no_of_channels; i++) {
-			if (wpriv->ch[i]) {
-				wpriv->ch[i]->free_mem = true;
-				/*
-				 * Channel handle NULL means channel is already
-				 * closed. Free the channel memory here itself.
-				 */
-				if (!wpriv->ch[i]->handle) {
-					kfree(wpriv->ch[i]);
-					wpriv->ch[i] = NULL;
-				} else {
-					wdsp_glink_close_ch(wpriv->ch[i]);
-				}
-			}
+	for (i = 0; i < wpriv->no_of_channels; i++) {
+		if (wpriv->ch && wpriv->ch[i]) {
+			kfree(wpriv->ch[i]);
+			wpriv->ch[i] = NULL;
 		}
-
-		kfree(wpriv->ch);
-		wpriv->ch = NULL;
 	}
+	kfree(wpriv->ch);
+	wpriv->ch = NULL;
 
 	mutex_destroy(&wpriv->glink_mutex);
 	mutex_destroy(&wpriv->rsp_mutex);
