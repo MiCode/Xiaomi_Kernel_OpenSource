@@ -1,0 +1,25 @@
+/*
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&kgsl_smmu {
+	attach-impl-defs = <0x6000 0x270>,
+		<0x6060 0x1055>,
+		<0x6800 0x6>,
+		<0x6900 0x3ff>,
+		<0x6924 0x204>,
+		<0x6928 0x10800>,
+		<0x6930 0x400>,
+		<0x6960 0xffffffff>,
+		<0x6b64 0xa0000>,
+		<0x6b68 0xaaab92a>;
+};
