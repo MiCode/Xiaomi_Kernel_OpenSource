@@ -225,9 +225,8 @@
 		pmi632_vib: qcom,vibrator@5700 {
 			compatible = "qcom,qpnp-vibrator-ldo";
 			reg = <0x5700 0x100>;
-			qcom,vib-ldo-volt-uv = <1504000>;
+			qcom,vib-ldo-volt-uv = <3000000>;
 			qcom,vib-overdrive-volt-uv = <3544000>;
-			status = "disabled";
 		};
 
 		pmi632_pwm_1: pwm@b300 {
