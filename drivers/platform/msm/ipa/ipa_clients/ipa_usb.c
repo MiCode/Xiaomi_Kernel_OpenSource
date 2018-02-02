@@ -747,6 +747,10 @@ static int ipa3_usb_register_pm(enum ipa3_usb_transport_type ttype)
 		&ipa3_usb_ctx->ttype_ctx[ttype];
 	int result;
 
+	/* there is one PM resource for teth and one for DPL */
+	if (!IPA3_USB_IS_TTYPE_DPL(ttype) && ipa3_usb_ctx->num_init_prot > 0)
+		return 0;
+
 	memset(&ttype_ctx->pm_ctx.reg_params, 0,
 		sizeof(ttype_ctx->pm_ctx.reg_params));
 	ttype_ctx->pm_ctx.reg_params.name = (ttype == IPA_USB_TRANSPORT_DPL) ?
@@ -1026,11 +1030,11 @@ int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 	return 0;
 
 teth_prot_init_fail:
-	if (ipa_pm_is_used()) {
-		ipa3_usb_deregister_pm(ttype);
-	} else {
-		if ((IPA3_USB_IS_TTYPE_DPL(ttype))
-			|| (ipa3_usb_ctx->num_init_prot == 0)) {
+	if ((IPA3_USB_IS_TTYPE_DPL(ttype))
+		|| (ipa3_usb_ctx->num_init_prot == 0)) {
+		if (ipa_pm_is_used()) {
+			ipa3_usb_deregister_pm(ttype);
+		} else {
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_valid =
 				false;
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.cons_valid =
@@ -2539,14 +2543,15 @@ int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		goto bad_params;
 	}
 
-	if (ipa_pm_is_used()) {
-		ipa3_usb_deregister_pm(ttype);
-	} else {
-		if (IPA3_USB_IS_TTYPE_DPL(ttype) ||
-			(ipa3_usb_ctx->num_init_prot == 0)) {
-			if (!ipa3_usb_set_state(IPA_USB_INVALID, false, ttype))
-				IPA_USB_ERR(
-					"failed to change state to invalid\n");
+	if (IPA3_USB_IS_TTYPE_DPL(ttype) ||
+		(ipa3_usb_ctx->num_init_prot == 0)) {
+		if (!ipa3_usb_set_state(IPA_USB_INVALID, false, ttype))
+			IPA_USB_ERR(
+				"failed to change state to invalid\n");
+		if (ipa_pm_is_used()) {
+			ipa3_usb_deregister_pm(ttype);
+			ipa3_usb_ctx->ttype_ctx[ttype].ipa_usb_notify_cb = NULL;
+		} else {
 			ipa_rm_delete_resource(
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_params.name);
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_valid =
