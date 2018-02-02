@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,10 +123,12 @@ struct cam_hw_start_args {
  * struct cam_hw_stop_args - Payload for stop command
  *
  * @ctxt_to_hw_map:        HW context from the acquire
+ * @args:                  Arguments to pass for stop
  *
  */
 struct cam_hw_stop_args {
 	void              *ctxt_to_hw_map;
+	void              *args;
 };
 
 /**
