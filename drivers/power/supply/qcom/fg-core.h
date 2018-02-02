@@ -336,7 +336,7 @@ struct fg_cyc_ctr_data {
 	bool		started[BUCKET_COUNT];
 	u16		count[BUCKET_COUNT];
 	u8		last_soc[BUCKET_COUNT];
-	int		id;
+	char		counter[BUCKET_COUNT * 8];
 	struct mutex	lock;
 };
 

@@ -2327,21 +2327,30 @@ out:
 	mutex_unlock(&chip->cyc_ctr.lock);
 }
 
-static int fg_get_cycle_count(struct fg_dev *fg)
+static const char *fg_get_cycle_count(struct fg_dev *fg)
 {
 	struct fg_gen3_chip *chip = container_of(fg, struct fg_gen3_chip, fg);
-	int count;
+	int i, len = 0;
+	char *buf;
 
 	if (!chip->cyc_ctr.en)
-		return 0;
+		return NULL;
 
-	if ((chip->cyc_ctr.id <= 0) || (chip->cyc_ctr.id > BUCKET_COUNT))
-		return -EINVAL;
-
+	buf = chip->cyc_ctr.counter;
 	mutex_lock(&chip->cyc_ctr.lock);
-	count = chip->cyc_ctr.count[chip->cyc_ctr.id - 1];
+	for (i = 0; i < BUCKET_COUNT; i++) {
+		if (sizeof(chip->cyc_ctr.counter) - len < 8) {
+			pr_err("Invalid length %d\n", len);
+			mutex_unlock(&chip->cyc_ctr.lock);
+			return NULL;
+		}
+
+		len += snprintf(buf+len, 8, "%d ", chip->cyc_ctr.count[i]);
+	}
 	mutex_unlock(&chip->cyc_ctr.lock);
-	return count;
+
+	buf[len] = '\0';
+	return buf;
 }
 
 static void status_change_work(struct work_struct *work)
@@ -3435,11 +3444,8 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		pval->intval = fg->bp.float_volt_uv;
 		break;
-	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		pval->intval = fg_get_cycle_count(fg);
-		break;
-	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
-		pval->intval = chip->cyc_ctr.id;
+	case POWER_SUPPLY_PROP_CYCLE_COUNTS:
+		pval->strval = fg_get_cycle_count(fg);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		rc = fg_get_charge_raw(fg, &pval->intval);
@@ -3506,15 +3512,6 @@ static int fg_psy_set_property(struct power_supply *psy,
 	int rc = 0;
 
 	switch (psp) {
-	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
-		if ((pval->intval > 0) && (pval->intval <= BUCKET_COUNT)) {
-			chip->cyc_ctr.id = pval->intval;
-		} else {
-			pr_err("rejecting invalid cycle_count_id = %d\n",
-				pval->intval);
-			return -EINVAL;
-		}
-		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 		rc = fg_set_constant_chg_voltage(fg, pval->intval);
 		break;
@@ -3597,7 +3594,6 @@ static int fg_property_is_writeable(struct power_supply *psy,
 						enum power_supply_property psp)
 {
 	switch (psp) {
-	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 	case POWER_SUPPLY_PROP_CC_STEP:
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
@@ -3669,8 +3665,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
-	POWER_SUPPLY_PROP_CYCLE_COUNT,
-	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
+	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
@@ -4672,8 +4667,6 @@ static int fg_parse_dt(struct fg_gen3_chip *chip)
 	}
 
 	chip->cyc_ctr.en = of_property_read_bool(node, "qcom,cycle-counter-en");
-	if (chip->cyc_ctr.en)
-		chip->cyc_ctr.id = 1;
 
 	chip->dt.force_load_profile = of_property_read_bool(node,
 					"qcom,fg-force-load-profile");
