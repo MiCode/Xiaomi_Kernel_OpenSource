@@ -5879,7 +5879,6 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
 	 * efficient, with a 0 energy variation.
 	 */
 	eenv->next_idx = EAS_CPU_PRV;
-	eenv->cpu[cpu_idx].nrg_delta = 0;
 
 	/*
 	 * Compare the other CPU candidates to find a CPU which can be
