@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2029,7 +2029,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"Couldn't find reg in node = %s rc = %d\n",
 			pdev->dev.of_node->full_name, rc);
-		return rc;
+		goto err_out;
 	}
 	pon->base = base;
 
@@ -2041,7 +2041,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 			pon->num_pon_config++;
 		} else {
 			pr_err("Unknown sub-node\n");
-			return -EINVAL;
+			rc = -EINVAL;
+			goto err_out;
 		}
 	}
 
@@ -2053,7 +2054,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "Error in pon_regulator_init rc: %d\n",
 			rc);
-		return rc;
+		goto err_out;
 	}
 
 	if (!pon->num_pon_config)
@@ -2072,7 +2073,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		dev_err(&pon->pdev->dev,
 			"Unable to read PON_PERPH_SUBTYPE register rc: %d\n",
 			rc);
-		return rc;
+		goto err_out;
 	}
 	pon->subtype = temp;
 
@@ -2083,7 +2084,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		dev_err(&pon->pdev->dev,
 			"Unable to read addr=%x, rc(%d)\n",
 			QPNP_PON_REVISION2(pon), rc);
-		return rc;
+		goto err_out;
 	}
 
 	pon->pon_ver = temp;
@@ -2100,7 +2101,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		dev_err(&pon->pdev->dev,
 			"Invalid PON_PERPH_SUBTYPE value %x\n",
 			pon->subtype);
-		return -EINVAL;
+		goto err_out;
 	}
 
 	pr_debug("%s: pon_subtype=%x, pon_version=%x\n", __func__,
@@ -2111,7 +2112,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		dev_err(&pon->pdev->dev,
 			"Unable to store/clear WARM_RESET_REASONx registers rc: %d\n",
 			rc);
-		return rc;
+		goto err_out;
 	}
 
 	/* PON reason */
@@ -2120,7 +2121,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		dev_err(&pon->pdev->dev,
 			"Unable to read PON_RESASON1 reg rc: %d\n",
 			rc);
-		return rc;
+		goto err_out;
 	}
 
 	if (sys_reset)
@@ -2147,14 +2148,14 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		rc = read_gen2_pon_off_reason(pon, &poff_sts,
 						&reason_index_offset);
 		if (rc)
-			return rc;
+			goto err_out;
 	} else {
 		rc = regmap_bulk_read(pon->regmap, QPNP_POFF_REASON1(pon),
 			buf, 2);
 		if (rc) {
 			dev_err(&pon->pdev->dev, "Unable to read POFF_REASON regs rc:%d\n",
 				rc);
-			return rc;
+			goto err_out;
 		}
 		poff_sts = buf[0] | (buf[1] << 8);
 	}
@@ -2186,7 +2187,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 			dev_err(&pon->pdev->dev,
 				"Unable to read s3 timer rc:%d\n",
 				rc);
-			return rc;
+			goto err_out;
 		}
 	} else {
 		if (s3_debounce > QPNP_PON_S3_TIMER_SECS_MAX) {
@@ -2205,7 +2206,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to do SEC_ACCESS rc:%d\n",
 				rc);
-			return rc;
+			goto err_out;
 		}
 
 		rc = qpnp_pon_masked_write(pon, QPNP_PON_S3_DBC_CTL(pon),
@@ -2214,7 +2215,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to set S3 debounce rc:%d\n",
 				rc);
-			return rc;
+			goto err_out;
 		}
 	}
 
@@ -2225,7 +2226,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	if (rc && rc != -EINVAL) {
 		dev_err(&pon->pdev->dev, "Unable to read s3 timer rc: %d\n",
 			rc);
-		return rc;
+		goto err_out;
 	}
 
 	if (!strcmp(s3_src, "kpdpwr"))
@@ -2247,7 +2248,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to program s3 source rc: %d\n",
 			rc);
-		return rc;
+		goto err_out;
 	}
 
 	dev_set_drvdata(&pdev->dev, pon);
@@ -2259,7 +2260,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev,
 			"Unable to initialize PON configurations rc: %d\n", rc);
-		return rc;
+		goto err_out;
 	}
 
 	rc = of_property_read_u32(pon->pdev->dev.of_node,
@@ -2268,21 +2269,21 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		if (rc != -EINVAL) {
 			dev_err(&pdev->dev,
 				"Unable to read debounce delay rc: %d\n", rc);
-			return rc;
+			goto err_out;
 		}
 	} else {
 		rc = qpnp_pon_set_dbc(pon, delay);
 		if (rc) {
 			dev_err(&pdev->dev,
 				"Unable to set PON debounce delay rc=%d\n", rc);
-			return rc;
+			goto err_out;
 		}
 	}
 	rc = qpnp_pon_get_dbc(pon, &pon->dbc_time_us);
 	if (rc) {
 		dev_err(&pdev->dev,
 			"Unable to get PON debounce delay rc=%d\n", rc);
-		return rc;
+		goto err_out;
 	}
 
 	pon->kpdpwr_dbc_enable = of_property_read_bool(pon->pdev->dev.of_node,
@@ -2295,7 +2296,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		if (rc != -EINVAL) {
 			dev_err(&pdev->dev, "Unable to read warm reset poweroff type rc: %d\n",
 				rc);
-			return rc;
+			goto err_out;
 		}
 		pon->warm_reset_poff_type = -EINVAL;
 	} else if (pon->warm_reset_poff_type <= PON_POWER_OFF_RESERVED ||
@@ -2311,7 +2312,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		if (rc != -EINVAL) {
 			dev_err(&pdev->dev, "Unable to read hard reset poweroff type rc: %d\n",
 				rc);
-			return rc;
+			goto err_out;
 		}
 		pon->hard_reset_poff_type = -EINVAL;
 	} else if (pon->hard_reset_poff_type <= PON_POWER_OFF_RESERVED ||
@@ -2327,7 +2328,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		if (rc != -EINVAL) {
 			dev_err(&pdev->dev, "Unable to read shutdown poweroff type rc: %d\n",
 				rc);
-			return rc;
+			goto err_out;
 		}
 		pon->shutdown_poff_type = -EINVAL;
 	} else if (pon->shutdown_poff_type <= PON_POWER_OFF_RESERVED ||
@@ -2339,7 +2340,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	rc = device_create_file(&pdev->dev, &dev_attr_debounce_us);
 	if (rc) {
 		dev_err(&pdev->dev, "sys file creation failed rc: %d\n", rc);
-		return rc;
+		goto err_out;
 	}
 
 	if (of_property_read_bool(pdev->dev.of_node,
@@ -2347,7 +2348,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		if (sys_reset) {
 			dev_err(&pdev->dev,
 				"qcom,system-reset property shouldn't be used along with qcom,secondary-pon-reset property\n");
-			return -EINVAL;
+			rc = -EINVAL;
+			goto err_out;
 		}
 		spin_lock_irqsave(&spon_list_slock, flags);
 		list_add(&pon->list, &spon_dev_list);
@@ -2361,6 +2363,10 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 
 	qpnp_pon_debugfs_init(pdev);
 	return 0;
+
+err_out:
+	sys_reset_dev = NULL;
+	return rc;
 }
 
 static int qpnp_pon_remove(struct platform_device *pdev)
