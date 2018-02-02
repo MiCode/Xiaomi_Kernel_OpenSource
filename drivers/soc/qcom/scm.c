@@ -96,9 +96,8 @@ static int scm_remap_error(int err)
 	case SCM_ENOMEM:
 		return -ENOMEM;
 	case SCM_EBUSY:
-		return SCM_EBUSY;
 	case SCM_V2_EBUSY:
-		return SCM_V2_EBUSY;
+		return -EBUSY;
 	}
 	return -EINVAL;
 }
