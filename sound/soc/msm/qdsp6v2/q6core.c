@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@ enum ver_query_status {
 
 struct q6core_avcs_ver_info {
 	enum ver_query_status status;
-	struct avcs_fwk_ver_info avcs_fwk_ver_info;
+	struct avcs_fwk_ver_info *ver_info;
 };
 
 struct q6core_str {
@@ -82,9 +82,48 @@ struct generic_get_data_ {
 };
 static struct generic_get_data_ *generic_get_data;
 
+static int parse_fwk_version_info(uint32_t *payload)
+{
+	size_t ver_size;
+	int num_services;
+
+	pr_debug("%s: Payload info num services %d\n",
+		 __func__, payload[4]);
+
+	/*
+	 * payload1[4] is the number of services running on DSP
+	 * Based on this info, we copy the payload into core
+	 * avcs version info structure.
+	 */
+	num_services = payload[4];
+	if (num_services > VSS_MAX_AVCS_NUM_SERVICES) {
+		pr_err("%s: num_services: %d greater than max services: %d\n",
+		       __func__, num_services, VSS_MAX_AVCS_NUM_SERVICES);
+		return -EINVAL;
+	}
+
+	/*
+	 * Dynamically allocate memory for all
+	 * the services based on num_services
+	 */
+	ver_size = sizeof(struct avcs_get_fwk_version) +
+		   num_services * sizeof(struct avs_svc_api_info);
+	if (q6core_lcl.q6core_avcs_ver_info.ver_info != NULL)
+		pr_warn("%s: Version info is not NULL\n", __func__);
+	q6core_lcl.q6core_avcs_ver_info.ver_info =
+		kzalloc(ver_size, GFP_ATOMIC);
+	if (q6core_lcl.q6core_avcs_ver_info.ver_info == NULL)
+		return -ENOMEM;
+
+	memcpy(q6core_lcl.q6core_avcs_ver_info.ver_info, (uint8_t *) payload,
+	       ver_size);
+	return 0;
+}
+
 static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 {
 	uint32_t *payload1;
+	int ret = 0;
 
 	if (data == NULL) {
 		pr_err("%s: data argument is null\n", __func__);
@@ -204,8 +243,13 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 	case AVCS_CMDRSP_GET_FWK_VERSION:
 		pr_debug("%s: Received AVCS_CMDRSP_GET_FWK_VERSION\n",
 			 __func__);
+		payload1 = data->payload;
 		q6core_lcl.q6core_avcs_ver_info.status = VER_QUERY_SUPPORTED;
 		q6core_lcl.avcs_fwk_ver_resp_received = 1;
+		ret = parse_fwk_version_info(payload1);
+		if (ret < 0)
+			pr_err("%s: Failed to parse payload:%d\n",
+			       __func__, ret);
 		wake_up(&q6core_lcl.avcs_fwk_ver_req_wait);
 		break;
 	default:
@@ -318,10 +362,59 @@ done:
 	return ret;
 }
 
-int q6core_get_avcs_fwk_ver_info(uint32_t service_id,
-				 struct avcs_fwk_ver_info *ver_info)
+int q6core_get_service_version(uint32_t service_id,
+			       struct avcs_fwk_ver_info *ver_info,
+			       size_t size)
 {
+	struct avcs_fwk_ver_info *cached_ver_info = NULL;
+	int i;
+	uint32_t num_services;
+	size_t ver_size;
 	int ret;
+
+	if (ver_info == NULL) {
+		pr_err("%s: ver_info is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = q6core_get_fwk_version_size(service_id);
+	if (ret < 0) {
+		pr_err("%s: Failed to get service size for service id %d with error %d\n",
+		       __func__, service_id, ret);
+		return ret;
+	}
+
+	ver_size = ret;
+	if (ver_size != size) {
+		pr_err("%s: Expected size %zu and provided size %zu do not match\n",
+		       __func__, ver_size, size);
+		return -EINVAL;
+	}
+
+	cached_ver_info = q6core_lcl.q6core_avcs_ver_info.ver_info;
+	num_services = cached_ver_info->avcs_fwk_version.num_services;
+
+	if (service_id == AVCS_SERVICE_ID_ALL) {
+		memcpy(ver_info, cached_ver_info, ver_size);
+		return 0;
+	}
+
+	ver_info->avcs_fwk_version = cached_ver_info->avcs_fwk_version;
+	for (i = 0; i < num_services; i++) {
+		if (cached_ver_info->services[i].service_id == service_id) {
+			ver_info->services[0] = cached_ver_info->services[i];
+			return 0;
+		}
+	}
+	pr_err("%s: No service matching service ID %d\n", __func__, service_id);
+	return -EINVAL;
+}
+EXPORT_SYMBOL(q6core_get_service_version);
+
+size_t q6core_get_fwk_version_size(uint32_t service_id)
+{
+	int ret = 0;
+	uint32_t num_services;
 
 	mutex_lock(&(q6core_lcl.ver_lock));
 	pr_debug("%s: q6core_avcs_ver_info.status(%d)\n", __func__,
@@ -329,12 +422,14 @@ int q6core_get_avcs_fwk_ver_info(uint32_t service_id,
 
 	switch (q6core_lcl.q6core_avcs_ver_info.status) {
 	case VER_QUERY_SUPPORTED:
-		ret = 0;
+		pr_debug("%s: AVCS FWK version query already attempted\n",
+			 __func__);
 		break;
 	case VER_QUERY_UNSUPPORTED:
 		ret = -EOPNOTSUPP;
 		break;
 	case VER_QUERY_UNATTEMPTED:
+		pr_debug("%s: Attempting AVCS FWK version query\n", __func__);
 		if (q6core_is_adsp_ready()) {
 			ret = q6core_send_get_avcs_fwk_ver_cmd();
 		} else {
@@ -351,9 +446,21 @@ int q6core_get_avcs_fwk_ver_info(uint32_t service_id,
 	}
 	mutex_unlock(&(q6core_lcl.ver_lock));
 
+	if (ret)
+		goto done;
+
+	num_services = q6core_lcl.q6core_avcs_ver_info.ver_info
+			       ->avcs_fwk_version.num_services;
+
+	ret = sizeof(struct avcs_get_fwk_version);
+	if (service_id == AVCS_SERVICE_ID_ALL)
+		ret += num_services * sizeof(struct avs_svc_api_info);
+	else
+		ret += sizeof(struct avs_svc_api_info);
+done:
 	return ret;
 }
-EXPORT_SYMBOL(q6core_get_avcs_fwk_ver_info);
+EXPORT_SYMBOL(q6core_get_fwk_version_size);
 
 int32_t core_set_license(uint32_t key, uint32_t module_id)
 {
