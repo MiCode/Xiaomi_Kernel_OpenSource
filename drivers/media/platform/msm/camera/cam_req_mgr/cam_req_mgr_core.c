@@ -1442,9 +1442,9 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 		if (device->ops && device->ops->flush_req)
 			rc = device->ops->flush_req(&flush_req);
 	}
+	complete(&link->workq_comp);
 	mutex_unlock(&link->req.lock);
 
-	complete(&link->workq_comp);
 end:
 	return rc;
 }
