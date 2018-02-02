@@ -2225,18 +2225,34 @@ static int dsi_display_ctrl_init(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *ctrl;
 
-	for (i = 0 ; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		rc = dsi_ctrl_host_init(ctrl->ctrl,
-				display->is_cont_splash_enabled);
-		if (rc) {
-			pr_err("[%s] failed to init host_%d, rc=%d\n",
-			       display->name, i, rc);
-			goto error_host_deinit;
+	/* when ULPS suspend feature is enabled, we will keep the lanes in
+	 * ULPS during suspend state and clamp DSI phy. Hence while resuming
+	 * we will programe DSI controller as part of core clock enable.
+	 * After that we should not re-configure DSI controller again here for
+	 * usecases where we are resuming from ulps suspend as it might put
+	 * the HW in bad state.
+	 */
+	if (!display->panel->ulps_suspend_enabled || !display->ulps_enabled) {
+		for (i = 0 ; i < display->ctrl_count; i++) {
+			ctrl = &display->ctrl[i];
+			rc = dsi_ctrl_host_init(ctrl->ctrl,
+					display->is_cont_splash_enabled);
+			if (rc) {
+				pr_err("[%s] failed to init host_%d, rc=%d\n",
+				       display->name, i, rc);
+				goto error_host_deinit;
+			}
+		}
+	} else {
+		for (i = 0 ; i < display->ctrl_count; i++) {
+			ctrl = &display->ctrl[i];
+			rc = dsi_ctrl_update_host_init_state(ctrl->ctrl, true);
+			if (rc)
+				pr_debug("host init update failed rc=%d\n", rc);
 		}
 	}
 
-	return 0;
+	return rc;
 error_host_deinit:
 	for (i = i - 1; i >= 0; i--) {
 		ctrl = &display->ctrl[i];
