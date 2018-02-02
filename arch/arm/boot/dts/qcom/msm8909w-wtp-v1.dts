@@ -165,6 +165,7 @@
 		pinctrl-names = "nfc_active","nfc_suspend";
 		pinctrl-0 = <&nfcw_int_active &nfcv2k_disable_active>;
 		pinctrl-1 = <&nfcw_int_suspend &nfcv2k_disable_suspend>;
+		clocks = <&clock_rpm clk_bb_clk3_pin>;
 		clock-names = "ref_clk";
 	};
 };
