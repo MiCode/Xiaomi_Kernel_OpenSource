@@ -726,4 +726,9 @@ void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable);
 int dsi_ctrl_get_host_engine_init_state(struct dsi_ctrl *dsi_ctrl,
 		bool *state);
 
+/**
+ * dsi_ctrl_update_host_init_state() - Set the host initialization state
+ */
+int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool en);
+
 #endif /* _DSI_CTRL_H_ */
