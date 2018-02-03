@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,9 +147,6 @@ static int msm_dma_put_device_address(u32 flags,
 	}
 
 	trace_msm_smem_buffer_iommu_op_start("UNMAP", 0, 0, 0, 0, 0);
-	msm_dma_unmap_sg(mapping_info->dev, mapping_info->table->sgl,
-		mapping_info->table->nents, DMA_BIDIRECTIONAL,
-		mapping_info->buf);
 	dma_buf_unmap_attachment(mapping_info->attach,
 		mapping_info->table, DMA_BIDIRECTIONAL);
 	dma_buf_detach(mapping_info->buf, mapping_info->attach);
@@ -402,24 +399,6 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 	mem->size = size;
 	mem->dma_buf = dbuf;
 
-	if (map_kernel) {
-		mem->pages = size/PAGE_SIZE;
-		for (page_count = 1; page_count <= mem->pages; page_count++) {
-			kvaddr = dma_buf_kmap(dbuf, page_count);
-			if (IS_ERR_OR_NULL(kvaddr)) {
-				dprintk(VIDC_ERR,
-					"Failed to map shared mem in kernel\n");
-				rc = -EIO;
-				goto fail_map;
-			}
-			if (page_count == 1)
-				mem->kvaddr = kvaddr;
-		}
-	} else {
-		mem->kvaddr = NULL;
-		mem->pages = 0;
-	}
-
 	rc = msm_dma_get_device_address(dbuf, align, &iova,
 			&buffer_size, flags, buffer_type,
 			session_type, res, &mem->mapping_info);
@@ -434,6 +413,26 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 			&iova, mem->device_addr);
 		goto fail_device_address;
 	}
+
+	if (map_kernel) {
+		mem->pages = size/PAGE_SIZE;
+		dma_buf_begin_cpu_access(dbuf, DMA_BIDIRECTIONAL);
+		for (page_count = 0; page_count < mem->pages; page_count++) {
+			kvaddr = dma_buf_kmap(dbuf, page_count);
+			if (IS_ERR_OR_NULL(kvaddr)) {
+				dprintk(VIDC_ERR,
+					"Failed to map shared mem in kernel\n");
+				rc = -EIO;
+				goto fail_map;
+			}
+			if (!page_count)
+				mem->kvaddr = kvaddr;
+		}
+	} else {
+		mem->kvaddr = NULL;
+		mem->pages = 0;
+	}
+
 	dprintk(VIDC_DBG,
 		"%s: dma_buf = %pK, device_addr = %x, size = %d, kvaddr = %pK, buffer_type = %#x, flags = %#lx\n",
 		__func__, mem->dma_buf, mem->device_addr, mem->size,
@@ -446,12 +445,13 @@ fail_map:
 	mapped_pages = page_count;
 	if (mem->kvaddr) {
 		kvaddr = mem->kvaddr;
-		for (page_count = 1; page_count < mapped_pages; page_count++) {
+		for (page_count = 0; page_count < mapped_pages; page_count++) {
 			dma_buf_kunmap(mem->dma_buf, page_count, kvaddr);
 			kvaddr += PAGE_SIZE;
 		}
 		mem->pages = 0;
 		mem->kvaddr = NULL;
+		dma_buf_end_cpu_access(mem->dma_buf, DMA_BIDIRECTIONAL);
 	}
 	dma_buf_put(dbuf);
 fail_shared_mem_alloc:
@@ -477,12 +477,13 @@ static int free_dma_mem(struct msm_smem *mem)
 
 	if (mem->kvaddr) {
 		kvaddr = mem->kvaddr;
-		for (page_count = 1; page_count <= mem->pages; page_count++) {
+		for (page_count = 0; page_count < mem->pages; page_count++) {
 			dma_buf_kunmap(mem->dma_buf, page_count, kvaddr);
 			kvaddr += PAGE_SIZE;
 		}
 		mem->pages = 0;
 		mem->kvaddr = NULL;
+		dma_buf_end_cpu_access(mem->dma_buf, DMA_BIDIRECTIONAL);
 	}
 
 	if (mem->dma_buf) {
