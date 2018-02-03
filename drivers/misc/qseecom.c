@@ -1,6 +1,6 @@
 /*Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1856,6 +1856,8 @@ static int __qseecom_process_blocked_on_listener_legacy(
 	struct qseecom_command_scm_resp continue_resp;
 	bool found_app = false;
 	unsigned long flags;
+	sigset_t new_sigset;
+	sigset_t old_sigset;
 
 	if (!resp || !data) {
 		pr_err("invalid resp or data pointer\n");
@@ -1897,22 +1899,22 @@ static int __qseecom_process_blocked_on_listener_legacy(
 	ptr_app->blocked_on_listener_id = resp->data;
 
 	/* sleep until listener is available */
+	sigfillset(&new_sigset);
+	sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
+
 	do {
 		qseecom.app_block_ref_cnt++;
 		ptr_app->app_blocked = true;
 		mutex_unlock(&app_access_lock);
-		if (wait_event_freezable(
+		wait_event_freezable(
 			list_ptr->listener_block_app_wq,
-			!list_ptr->listener_in_use)) {
-			pr_err("Interrupted: listener_id %d, app_id %d\n",
-				resp->data, ptr_app->app_id);
-			ret = -ERESTARTSYS;
-			goto exit;
-		}
+			!list_ptr->listener_in_use);
 		mutex_lock(&app_access_lock);
 		ptr_app->app_blocked = false;
 		qseecom.app_block_ref_cnt--;
 	}  while (list_ptr->listener_in_use);
+
+	sigprocmask(SIG_SETMASK, &old_sigset, NULL);
 
 	ptr_app->blocked_on_listener_id = 0;
 	/* notify the blocked app that listener is available */
@@ -1947,6 +1949,8 @@ static int __qseecom_process_blocked_on_listener_smcinvoke(
 	struct qseecom_continue_blocked_request_ireq ireq;
 	struct qseecom_command_scm_resp continue_resp;
 	unsigned int session_id;
+	sigset_t new_sigset;
+	sigset_t old_sigset;
 
 	if (!resp) {
 		pr_err("invalid resp pointer\n");
@@ -1962,21 +1966,22 @@ static int __qseecom_process_blocked_on_listener_smcinvoke(
 	}
 	pr_debug("lsntr %d in_use = %d\n",
 			resp->data, list_ptr->listener_in_use);
+
 	/* sleep until listener is available */
+	sigfillset(&new_sigset);
+	sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
+
 	do {
 		qseecom.app_block_ref_cnt++;
 		mutex_unlock(&app_access_lock);
-		if (wait_event_freezable(
+		wait_event_freezable(
 			list_ptr->listener_block_app_wq,
-			!list_ptr->listener_in_use)) {
-			pr_err("Interrupted: listener_id %d, session_id %d\n",
-				resp->data, session_id);
-			ret = -ERESTARTSYS;
-			goto exit;
-		}
+			!list_ptr->listener_in_use);
 		mutex_lock(&app_access_lock);
 		qseecom.app_block_ref_cnt--;
 	}  while (list_ptr->listener_in_use);
+
+	sigprocmask(SIG_SETMASK, &old_sigset, NULL);
 
 	/* notify TZ that listener is available */
 	pr_warn("Lsntr %d is available, unblock session(%d) in TZ\n",
