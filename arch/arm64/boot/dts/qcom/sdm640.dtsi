@@ -33,6 +33,11 @@
 		serial0 = &qupv3_se0_2uart;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
+		spi0 = &qupv3_se4_spi;
+		i2c0 = &qupv3_se5_i2c;
+		i2c1 = &qupv3_se1_i2c;
+		i2c2 = &qupv3_se3_i2c;
+		hsuart0 = &qupv3_se7_4uart;
 	};
 
 	cpus {
@@ -952,6 +957,46 @@
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
+	};
+
+	slim_aud: slim@62dc0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x62dc0000 0x2c000>,
+			<0x62d84000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x7c0000>;
+		qcom,ea-pc = <0x2f0>;
+		status = "disabled";
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x17e6 0x0>,
+				 <&apps_smmu 0x17ed 0x0>,
+				 <&apps_smmu 0x17ee 0x1>,
+				 <&apps_smmu 0x17f0 0x1>;
+		};
+
+	};
+
+	slim_qca: slim@62e40000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x62e40000 0x2c000>,
+			<0x62e04000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 291 0>, <0 292 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		status = "disabled";
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_qca_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x17f3 0x0>;
+		};
 	};
 };
 
