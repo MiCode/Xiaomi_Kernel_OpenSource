@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2484,6 +2484,12 @@ int cam_req_mgr_sync_config(
 	if ((sync_info->num_links < 0) ||
 		(sync_info->num_links > MAX_LINKS_PER_SESSION)) {
 		CAM_ERR(CAM_CRM, "Invalid num links %d", sync_info->num_links);
+		return -EINVAL;
+	}
+
+	if ((!sync_info->link_hdls[0]) || (!sync_info->link_hdls[1])) {
+		CAM_WARN(CAM_CRM, "Invalid link handles 0x%x 0x%x",
+			sync_info->link_hdls[0], sync_info->link_hdls[1]);
 		return -EINVAL;
 	}
 
