@@ -19,5 +19,33 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+
+		qupv3_se0_2uart_pins: qupv3_se0_2uart_pins {
+			qupv3_se0_2uart_active: qupv3_se0_2uart_active {
+				mux {
+					pins = "gpio16", "gpio17";
+					function = "qup00";
+				};
+
+				config {
+					pins = "gpio16", "gpio17";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se0_2uart_sleep: qupv3_se0_2uart_sleep {
+				mux {
+					pins = "gpio16", "gpio17";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio16", "gpio17";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
 	};
 };
