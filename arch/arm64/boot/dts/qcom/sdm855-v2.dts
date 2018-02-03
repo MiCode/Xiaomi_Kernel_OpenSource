@@ -17,5 +17,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM855 v2 SoC";
 	compatible = "qcom,sdm855";
+	qcom,pmic-name = "PM855";
 	qcom,board-id = <0 0>;
 };

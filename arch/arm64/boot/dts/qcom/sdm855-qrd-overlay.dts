@@ -21,8 +21,7 @@
 #include "sdm855-qrd.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM855 v1 QRD";
+	model = "QRD";
 	compatible = "qcom,sdm855-qrd", "qcom,sdm855", "qcom,qrd";
-	qcom,msm-id = <339 0x0>;
 	qcom,board-id = <11 0>;
 };

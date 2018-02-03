@@ -21,8 +21,7 @@
 #include "sdm855-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM855 v1 MTP";
+	model = "MTP";
 	compatible = "qcom,sdm855-mtp", "qcom,sdm855", "qcom,mtp";
-	qcom,msm-id = <339 0x0>;
 	qcom,board-id = <8 0>;
 };
