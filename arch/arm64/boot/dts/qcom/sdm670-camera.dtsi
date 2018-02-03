@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -913,12 +913,12 @@
 				<&clock_camcc CAM_CC_IPE_0_CLK>,
 				<&clock_camcc CAM_CC_IPE_0_CLK_SRC>;
 
-		clock-rates = <0 0 0 0 240000000>,
+		clock-rates =
 			<0 0 0 0 404000000>,
 			<0 0 0 0 480000000>,
 			<0 0 0 0 538000000>,
 			<0 0 0 0 600000000>;
-		clock-cntl-level = "lowsvs", "svs",
+		clock-cntl-level = "svs",
 			"svs_l1", "nominal", "turbo";
 		status = "ok";
 	};
@@ -940,12 +940,12 @@
 				<&clock_camcc CAM_CC_IPE_1_CLK>,
 				<&clock_camcc CAM_CC_IPE_1_CLK_SRC>;
 
-		clock-rates = <0 0 0 0 240000000>,
+		clock-rates =
 			<0 0 0 0 404000000>,
 			<0 0 0 0 480000000>,
 			<0 0 0 0 538000000>,
 			<0 0 0 0 600000000>;
-		clock-cntl-level = "lowsvs", "svs",
+		clock-cntl-level = "svs",
 			"svs_l1", "nominal", "turbo";
 		status = "ok";
 	};
@@ -967,12 +967,12 @@
 				<&clock_camcc CAM_CC_BPS_CLK>,
 				<&clock_camcc CAM_CC_BPS_CLK_SRC>;
 
-		clock-rates = <0 0 0 0 200000000>,
+		clock-rates =
 			<0 0 0 0 404000000>,
 			<0 0 0 0 480000000>,
 			<0 0 0 0 600000000>,
 			<0 0 0 0 600000000>;
-		clock-cntl-level = "lowsvs", "svs",
+		clock-cntl-level = "svs",
 			"svs_l1", "nominal", "turbo";
 		status = "ok";
 	};
