@@ -1066,6 +1066,8 @@ static int _request_firmware_load(struct firmware_priv *fw_priv,
 
 	retval = fw_state_wait_timeout(&buf->fw_st, timeout);
 	if (retval < 0) {
+		dev_err(f_dev, "%s: firmware state wait timeout: rc = %d\n",
+				__func__, retval);
 		mutex_lock(&fw_lock);
 		fw_load_abort(fw_priv);
 		mutex_unlock(&fw_lock);
