@@ -130,9 +130,11 @@ Regulator sub-node required properties:
 				controlled.
 
 PON sub-node required properties:
-- qcom,pon-type			The type of PON/RESET source. The driver
-				currently supports KPDPWR(0), RESIN(1) and
-				CBLPWR(2) pon/reset sources.
+- qcom,pon-type			The type of PON/RESET source. Supported values:
+				0 = KPDPWR
+				1 = RESIN
+				2 = CBLPWR
+				3 = KPDPWR_RESIN
 
 PON sub-node optional properties:
 - qcom,pull-up			The initial state of the reset pin under
@@ -167,8 +169,13 @@ property is defined and is set to 1.
 				Supported values are:
 				- 0, 10, 50, 100, 250, 500, 1000, 2000
 - qcom,s2-type			The type of reset associated with this source.
-				The supported resets are:
-				SOFT(0), WARM(1), SHUTDOWN(4), HARD(7)
+				Supported values:
+				0 = SOFT_RESET (legacy)
+				1 = WARM_RESET
+				4 = SHUTDOWN
+				5 = DVDD_SHUTDOWN
+				7 = HARD_RESET
+				8 = DVDD_HARD_RESET
 
 Example:
 	qcom,power-on@800 {

@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017-2018, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +14,7 @@
 #ifndef QPNP_PON_H
 #define QPNP_PON_H
 
+#include <dt-bindings/input/qcom,qpnp-power-on.h>
 #include <linux/errno.h>
 
 /**
@@ -44,9 +46,9 @@ enum pon_trigger_source {
  */
 enum pon_power_off_type {
 	PON_POWER_OFF_RESERVED		= 0x00,
-	PON_POWER_OFF_WARM_RESET	= 0x01,
-	PON_POWER_OFF_SHUTDOWN		= 0x04,
-	PON_POWER_OFF_HARD_RESET	= 0x07,
+	PON_POWER_OFF_WARM_RESET	= PON_POWER_OFF_TYPE_WARM_RESET,
+	PON_POWER_OFF_SHUTDOWN		= PON_POWER_OFF_TYPE_SHUTDOWN,
+	PON_POWER_OFF_HARD_RESET	= PON_POWER_OFF_TYPE_HARD_RESET,
 	PON_POWER_OFF_MAX_TYPE		= 0x10,
 };
 
