@@ -54,7 +54,7 @@
 
 struct dbm;
 
-struct dbm *usb_get_dbm_by_phandle(struct device *dev, const char *phandle);
+struct dbm *dwc3_init_dbm(struct device *dev, void __iomem *base);
 
 int dbm_soft_reset(struct dbm *dbm, bool enter_reset);
 int dbm_ep_config(struct dbm  *dbm, u8 usb_ep, u8 bam_pipe, bool producer,

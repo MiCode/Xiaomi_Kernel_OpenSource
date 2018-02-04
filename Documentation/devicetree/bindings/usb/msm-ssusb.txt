@@ -52,7 +52,6 @@ Optional properties :
   regulator node to the USB controller.
 - qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
 		TX fifo allocation in bytes
-- qcom,usb-dbm : phandle for the DBM device
 - qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
   after USB is kept into LPM.
 - qcom,ext-hub-reset-gpio: This corresponds to gpio which is used for HUB reset.
@@ -82,6 +81,10 @@ Optional properties :
 - qcom,smmu-s1-bypass: If present, configure SMMU to bypass stage 1 translation.
 - qcom,no-vbus-vote-with-type-C: If present, then do not try to get and enable VBUS
 	regulator in type-C host mode from dwc3-msm driver.
+- qcom,dbm-version: If present, specifies DBM version. Currently "1.4" or "1.5"
+	are supported. If omitted, assume HW supports "1.5".
+- qcom,reset-ep-after-lpm-resume: If present, dbm requires ep reset after
+	going to lpm
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
