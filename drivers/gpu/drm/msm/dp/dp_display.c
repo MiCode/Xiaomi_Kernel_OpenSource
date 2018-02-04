@@ -65,6 +65,8 @@ struct dp_display_private {
 	bool power_on;
 	bool audio_supported;
 
+	atomic_t aborted;
+
 	struct platform_device *pdev;
 	struct dentry *root;
 	struct completion notification_comp;
@@ -645,6 +647,11 @@ static int dp_display_handle_disconnect(struct dp_display_private *dp)
 	int rc;
 
 	rc = dp_display_process_hpd_low(dp);
+	if (rc) {
+		/* cancel any pending request */
+		dp->ctrl->abort(dp->ctrl);
+		dp->aux->abort(dp->aux);
+	}
 
 	mutex_lock(&dp->session_lock);
 	if (rc && dp->power_on)
@@ -687,6 +694,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
 
 	/* cancel any pending request */
+	atomic_set(&dp->aborted, 1);
 	dp->ctrl->abort(dp->ctrl);
 	dp->aux->abort(dp->aux);
 
@@ -695,6 +703,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	flush_workqueue(dp->wq);
 
 	dp_display_handle_disconnect(dp);
+	atomic_set(&dp->aborted, 0);
 end:
 	return rc;
 }
@@ -786,6 +795,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		queue_delayed_work(dp->wq, &dp->connect_work, 0);
 	} else {
 		/* cancel any pending request */
+		atomic_set(&dp->aborted, 1);
 		dp->ctrl->abort(dp->ctrl);
 		dp->aux->abort(dp->aux);
 
@@ -794,6 +804,7 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		flush_workqueue(dp->wq);
 
 		dp_display_handle_disconnect(dp);
+		atomic_set(&dp->aborted, 0);
 	}
 
 	return 0;
@@ -807,6 +818,11 @@ static void dp_display_connect_work(struct work_struct *work)
 
 	if (dp->dp_display.is_connected) {
 		pr_debug("HPD already on\n");
+		return;
+	}
+
+	if (atomic_read(&dp->aborted)) {
+		pr_err("aborted\n");
 		return;
 	}
 
@@ -1062,6 +1078,11 @@ static int dp_display_enable(struct dp_display *dp_display)
 		goto end;
 	}
 
+	if (atomic_read(&dp->aborted)) {
+		pr_err("aborted\n");
+		goto end;
+	}
+
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 
 	rc = dp->ctrl->on(dp->ctrl);
@@ -1091,6 +1112,11 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 
 	if (!dp->power_on) {
 		pr_debug("Link not setup, return\n");
+		goto end;
+	}
+
+	if (atomic_read(&dp->aborted)) {
+		pr_err("aborted\n");
 		goto end;
 	}
 
@@ -1369,6 +1395,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	dp->pdev = pdev;
 	dp->name = "drm_dp";
 	dp->audio_status = -ENODEV;
+	atomic_set(&dp->aborted, 0);
 
 	rc = dp_display_create_workqueue(dp);
 	if (rc) {
