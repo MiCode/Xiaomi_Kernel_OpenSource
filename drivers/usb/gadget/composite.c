@@ -349,8 +349,11 @@ int usb_function_deactivate(struct usb_function *function)
 
 	spin_lock_irqsave(&cdev->lock, flags);
 
-	if (cdev->deactivations == 0)
+	if (cdev->deactivations == 0) {
+		spin_unlock_irqrestore(&cdev->lock, flags);
 		status = usb_gadget_deactivate(cdev->gadget);
+		spin_lock_irqsave(&cdev->lock, flags);
+	}
 	if (status == 0)
 		cdev->deactivations++;
 
@@ -381,8 +384,11 @@ int usb_function_activate(struct usb_function *function)
 		status = -EINVAL;
 	else {
 		cdev->deactivations--;
-		if (cdev->deactivations == 0)
+		if (cdev->deactivations == 0) {
+			spin_unlock_irqrestore(&cdev->lock, flags);
 			status = usb_gadget_activate(cdev->gadget);
+			spin_lock_irqsave(&cdev->lock, flags);
+		}
 	}
 
 	spin_unlock_irqrestore(&cdev->lock, flags);
@@ -2004,8 +2010,9 @@ unknown:
 				if (value < 0) {
 					DBG(cdev, "ep_queue --> %d\n", value);
 					req->status = 0;
-					composite_setup_complete(gadget->ep0,
-								 req);
+					if (value != -ESHUTDOWN)
+						composite_setup_complete(
+							gadget->ep0, req);
 				}
 			}
 			return value;
@@ -2091,7 +2098,8 @@ try_fun_setup:
 		if (value < 0) {
 			DBG(cdev, "ep_queue --> %d\n", value);
 			req->status = 0;
-			composite_setup_complete(gadget->ep0, req);
+			if (value != -ESHUTDOWN)
+				composite_setup_complete(gadget->ep0, req);
 		}
 	} else if (value == USB_GADGET_DELAYED_STATUS && w_length != 0) {
 		WARN(cdev,
@@ -2134,7 +2142,7 @@ static ssize_t suspended_show(struct device *dev, struct device_attribute *attr,
 	struct usb_gadget *gadget = dev_to_usb_gadget(dev);
 	struct usb_composite_dev *cdev = get_gadget_data(gadget);
 
-	return sprintf(buf, "%d\n", cdev->suspended);
+	return snprintf(buf, PAGE_SIZE, "%d\n", cdev->suspended);
 }
 static DEVICE_ATTR_RO(suspended);
 
@@ -2297,14 +2305,18 @@ void composite_dev_cleanup(struct usb_composite_dev *cdev)
 			usb_ep_dequeue(cdev->gadget->ep0, cdev->os_desc_req);
 
 		kfree(cdev->os_desc_req->buf);
+		cdev->os_desc_req->buf = NULL;
 		usb_ep_free_request(cdev->gadget->ep0, cdev->os_desc_req);
+		cdev->os_desc_req = NULL;
 	}
 	if (cdev->req) {
 		if (cdev->setup_pending)
 			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 
 		kfree(cdev->req->buf);
+		cdev->req->buf = NULL;
 		usb_ep_free_request(cdev->gadget->ep0, cdev->req);
+		cdev->req = NULL;
 	}
 	cdev->next_string_id = 0;
 	device_remove_file(&cdev->gadget->dev, &dev_attr_suspended);
@@ -2522,7 +2534,13 @@ void usb_composite_setup_continue(struct usb_composite_dev *cdev)
 	spin_lock_irqsave(&cdev->lock, flags);
 
 	if (cdev->delayed_status == 0) {
+		if (!cdev->config) {
+			spin_unlock_irqrestore(&cdev->lock, flags);
+			return;
+		}
+		spin_unlock_irqrestore(&cdev->lock, flags);
 		WARN(cdev, "%s: Unexpected call\n", __func__);
+		return;
 
 	} else if (--cdev->delayed_status == 0) {
 		DBG(cdev, "%s: Completing delayed status\n", __func__);

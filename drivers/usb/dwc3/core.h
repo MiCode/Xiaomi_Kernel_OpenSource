@@ -473,6 +473,9 @@
 #define DWC3_DEV_IMOD_INTERVAL_SHIFT	0
 #define DWC3_DEV_IMOD_INTERVAL_MASK	(0xffff << 0)
 
+#define DWC_CTRL_COUNT	10
+#define NUM_LOG_PAGES	12
+
 /* Structures */
 
 struct dwc3_trb;
@@ -501,6 +504,35 @@ struct dwc3_event_buffer {
 	dma_addr_t		dma;
 
 	struct dwc3		*dwc;
+};
+
+struct dwc3_gadget_events {
+	unsigned int	disconnect;
+	unsigned int	reset;
+	unsigned int	connect;
+	unsigned int	wakeup;
+	unsigned int	link_status_change;
+	unsigned int	eopf;
+	unsigned int	suspend;
+	unsigned int	sof;
+	unsigned int	erratic_error;
+	unsigned int	overflow;
+	unsigned int	vendor_dev_test_lmp;
+	unsigned int	cmdcmplt;
+	unsigned int	unknown_event;
+};
+
+struct dwc3_ep_events {
+	unsigned int	xfercomplete;
+	unsigned int	xfernotready;
+	unsigned int	control_data;
+	unsigned int	control_status;
+	unsigned int	xferinprogress;
+	unsigned int	rxtxfifoevent;
+	unsigned int	streamevent;
+	unsigned int	epcmdcomplete;
+	unsigned int	unknown_event;
+	unsigned int	total;
 };
 
 #define DWC3_EP_FLAG_STALLED	BIT(0)
@@ -535,6 +567,9 @@ struct dwc3_event_buffer {
  * @name: a human readable name e.g. ep1out-bulk
  * @direction: true for TX, false for RX
  * @stream_capable: true when streams are enabled
+ * @dbg_ep_events: different events counter for endpoint
+ * @dbg_ep_events_diff: differential events counter for endpoint
+ * @dbg_ep_events_ts: timestamp for previous event counters
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
@@ -587,6 +622,9 @@ struct dwc3_ep {
 
 	unsigned		direction:1;
 	unsigned		stream_capable:1;
+	struct dwc3_ep_events	dbg_ep_events;
+	struct dwc3_ep_events	dbg_ep_events_diff;
+	struct timespec		dbg_ep_events_ts;
 };
 
 enum dwc3_phy {
@@ -760,6 +798,8 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
+#define MAX_INTR_STATS					10
+
 /**
  * struct dwc3 - representation of our controller
  * @drd_work: workqueue used for role swapping
@@ -865,6 +905,14 @@ struct dwc3_scratchpad_array {
  * 	3	- Reserved
  * @imod_interval: set the interrupt moderation interval in 250ns
  *                 increments or 0 to disable.
+ * @index: dwc3's instance number
+ * @dwc_ipc_log_ctxt: dwc3 ipc log context
+ * @xhci_imod_value: imod value to use with xhci
+ * @core_id: usb core id to differentiate different controller
+ * @irq_cnt: total irq count
+ * @bh_completion_time: time taken for taklet completion
+ * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
+ * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1017,6 +1065,21 @@ struct dwc3 {
 	unsigned		tx_de_emphasis:2;
 
 	u16			imod_interval;
+
+	unsigned int		index;
+	void			*dwc_ipc_log_ctxt;
+	struct dwc3_gadget_events	dbg_gadget_events;
+	u32			xhci_imod_value;
+	int			core_id;
+
+	/* IRQ timing statistics */
+	unsigned long		irq_cnt;
+	unsigned int		bh_completion_time[MAX_INTR_STATS];
+	unsigned int		bh_handled_evt_cnt[MAX_INTR_STATS];
+	ktime_t			irq_start_time[MAX_INTR_STATS];
+	unsigned int		irq_completion_time[MAX_INTR_STATS];
+	unsigned int		irq_event_count[MAX_INTR_STATS];
+	unsigned int		irq_dbg_index;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))
