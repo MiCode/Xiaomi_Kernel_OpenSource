@@ -212,6 +212,9 @@ struct qpnp_pon {
 	int			warm_reset_poff_type;
 	int			hard_reset_poff_type;
 	int			shutdown_poff_type;
+	int			resin_warm_reset_type;
+	int			resin_hard_reset_type;
+	int			resin_shutdown_type;
 	u16			base;
 	u8			subtype;
 	u8			pon_ver;
@@ -219,7 +222,12 @@ struct qpnp_pon {
 	u8			warm_reset_reason2;
 	bool			is_spon;
 	bool			store_hard_reset_reason;
+	bool			resin_hard_reset_disable;
+	bool			resin_shutdown_disable;
+	bool			ps_hold_hard_reset_disable;
+	bool			ps_hold_shutdown_disable;
 	bool			kpdpwr_dbc_enable;
+	bool			resin_pon_reset;
 	ktime_t			kpdpwr_last_release_time;
 };
 
@@ -478,6 +486,7 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 		enum pon_power_off_type type)
 {
 	int rc;
+	bool disable = false;
 	u16 rst_en_reg;
 
 	if (pon->pon_ver == QPNP_PON_GEN1_V1)
@@ -497,10 +506,12 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 	case PON_POWER_OFF_HARD_RESET:
 		if (pon->hard_reset_poff_type != -EINVAL)
 			type = pon->hard_reset_poff_type;
+		disable = pon->ps_hold_hard_reset_disable;
 		break;
 	case PON_POWER_OFF_SHUTDOWN:
 		if (pon->shutdown_poff_type != -EINVAL)
 			type = pon->shutdown_poff_type;
+		disable = pon->ps_hold_shutdown_disable;
 		break;
 	default:
 		break;
@@ -511,6 +522,13 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 		dev_err(&pon->pdev->dev,
 			"Unable to write to addr=%hx, rc(%d)\n",
 			rst_en_reg, rc);
+
+	/*
+	 * Check if ps-hold power off configuration needs to be disabled.
+	 * If yes, then return without configuring.
+	 */
+	if (disable)
+		return rc;
 
 	/*
 	 * We need 10 sleep clock cycles here. But since the clock is
@@ -533,7 +551,80 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 			"Unable to write to addr=%hx, rc(%d)\n",
 			rst_en_reg, rc);
 
-	dev_dbg(&pon->pdev->dev, "power off type = 0x%02X\n", type);
+	dev_dbg(&pon->pdev->dev, "ps_hold power off type = 0x%02X\n", type);
+	return rc;
+}
+
+static int qpnp_resin_pon_reset_config(struct qpnp_pon *pon,
+		enum pon_power_off_type type)
+{
+	int rc;
+	bool disable = false;
+	u16 rst_en_reg;
+
+	if (pon->pon_ver == QPNP_PON_GEN1_V1)
+		rst_en_reg = QPNP_PON_RESIN_S2_CNTL(pon);
+	else
+		rst_en_reg = QPNP_PON_RESIN_S2_CNTL2(pon);
+
+	/*
+	 * Based on the poweroff type set for a PON device through device tree
+	 * change the type being configured into PON_RESIN_S2_CTL.
+	 */
+	switch (type) {
+	case PON_POWER_OFF_WARM_RESET:
+		if (pon->resin_warm_reset_type != -EINVAL)
+			type = pon->resin_warm_reset_type;
+		break;
+	case PON_POWER_OFF_HARD_RESET:
+		if (pon->resin_hard_reset_type != -EINVAL)
+			type = pon->resin_hard_reset_type;
+		disable = pon->resin_hard_reset_disable;
+		break;
+	case PON_POWER_OFF_SHUTDOWN:
+		if (pon->resin_shutdown_type != -EINVAL)
+			type = pon->resin_shutdown_type;
+		disable = pon->resin_shutdown_disable;
+		break;
+	default:
+		break;
+	}
+
+	rc = qpnp_pon_masked_write(pon, rst_en_reg, QPNP_PON_S2_CNTL_EN, 0);
+	if (rc)
+		dev_err(&pon->pdev->dev,
+			"Unable to write to addr=%hx, rc(%d)\n",
+			rst_en_reg, rc);
+
+	/*
+	 * Check if resin power off configuration needs to be disabled.
+	 * If yes, then return without configuring.
+	 */
+	if (disable)
+		return rc;
+
+	/*
+	 * We need 10 sleep clock cycles here. But since the clock is
+	 * internally generated, we need to add 50% tolerance to be
+	 * conservative.
+	 */
+	udelay(500);
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_RESIN_S2_CNTL(pon),
+				   QPNP_PON_S2_CNTL_TYPE_MASK, type);
+	if (rc)
+		dev_err(&pon->pdev->dev,
+			"Unable to write to addr=%x, rc(%d)\n",
+				QPNP_PON_RESIN_S2_CNTL(pon), rc);
+
+	rc = qpnp_pon_masked_write(pon, rst_en_reg, QPNP_PON_S2_CNTL_EN,
+						    QPNP_PON_S2_CNTL_EN);
+	if (rc)
+		dev_err(&pon->pdev->dev,
+			"Unable to write to addr=%hx, rc(%d)\n",
+			rst_en_reg, rc);
+
+	dev_dbg(&pon->pdev->dev, "resin power off type = 0x%02X\n", type);
 	return rc;
 }
 
@@ -587,6 +678,15 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 				"Error configuring secondary PON rc: %d\n",
 				rc);
 			goto out;
+		}
+		if (pon->resin_pon_reset) {
+			rc = qpnp_resin_pon_reset_config(pon, type);
+			if (rc) {
+				dev_err(&pon->pdev->dev,
+					"Error configuring secondary PON resin rc: %d\n",
+					rc);
+				goto out;
+			}
 		}
 	}
 	/* Set ship mode here if it has been requested */
@@ -2337,6 +2437,69 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		pon->shutdown_poff_type = -EINVAL;
 	}
 
+	pon->ps_hold_hard_reset_disable =
+					of_property_read_bool(pdev->dev.of_node,
+					"qcom,ps-hold-hard-reset-disable");
+	pon->ps_hold_shutdown_disable = of_property_read_bool(pdev->dev.of_node,
+					"qcom,ps-hold-shutdown-disable");
+
+
+	pon->resin_pon_reset = of_property_read_bool(pdev->dev.of_node,
+					"qcom,resin-pon-reset");
+
+	rc = of_property_read_u32(pon->pdev->dev.of_node,
+				"qcom,resin-warm-reset-type",
+				&pon->resin_warm_reset_type);
+	if (rc) {
+		if (rc != -EINVAL) {
+			dev_err(&pdev->dev, "Unable to read resin warm reset poweroff type rc: %d\n",
+				rc);
+			goto err_out;
+		}
+		pon->resin_warm_reset_type = -EINVAL;
+	} else if (pon->resin_warm_reset_type <= PON_POWER_OFF_RESERVED ||
+			pon->resin_warm_reset_type >= PON_POWER_OFF_MAX_TYPE) {
+		dev_err(&pdev->dev, "Invalid resin-warm-reset-type\n");
+		pon->resin_warm_reset_type = -EINVAL;
+	}
+
+	rc = of_property_read_u32(pon->pdev->dev.of_node,
+				"qcom,resin-hard-reset-type",
+				&pon->resin_hard_reset_type);
+	if (rc) {
+		if (rc != -EINVAL) {
+			dev_err(&pdev->dev, "Unable to read resin hard reset poweroff type rc: %d\n",
+				rc);
+			goto err_out;
+		}
+		pon->resin_hard_reset_type = -EINVAL;
+	} else if (pon->resin_hard_reset_type <= PON_POWER_OFF_RESERVED ||
+			pon->resin_hard_reset_type >= PON_POWER_OFF_MAX_TYPE) {
+		dev_err(&pdev->dev, "Invalid resin-hard-reset-type\n");
+		pon->resin_hard_reset_type = -EINVAL;
+	}
+
+	rc = of_property_read_u32(pon->pdev->dev.of_node,
+				"qcom,resin-shutdown-type",
+				&pon->resin_shutdown_type);
+	if (rc) {
+		if (rc != -EINVAL) {
+			dev_err(&pdev->dev, "Unable to read resin shutdown poweroff type rc: %d\n",
+				rc);
+			goto err_out;
+		}
+		pon->resin_shutdown_type = -EINVAL;
+	} else if (pon->resin_shutdown_type <= PON_POWER_OFF_RESERVED ||
+			pon->resin_shutdown_type >= PON_POWER_OFF_MAX_TYPE) {
+		dev_err(&pdev->dev, "Invalid resin-shutdown-type\n");
+		pon->resin_shutdown_type = -EINVAL;
+	}
+
+	pon->resin_hard_reset_disable = of_property_read_bool(pdev->dev.of_node,
+					"qcom,resin-hard-reset-disable");
+	pon->resin_shutdown_disable = of_property_read_bool(pdev->dev.of_node,
+					"qcom,resin-shutdown-disable");
+
 	rc = device_create_file(&pdev->dev, &dev_attr_debounce_us);
 	if (rc) {
 		dev_err(&pdev->dev, "sys file creation failed rc: %d\n", rc);
@@ -2365,7 +2528,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	return 0;
 
 err_out:
-	sys_reset_dev = NULL;
+	if (sys_reset)
+		sys_reset_dev = NULL;
 	return rc;
 }
 
