@@ -932,6 +932,38 @@ static void msm_dirconn_irq_mask(struct irq_data *d)
 		parent_data->chip->irq_mask(parent_data);
 }
 
+static void msm_dirconn_irq_enable(struct irq_data *d)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+	irq_hw_number_t dir_conn_irq = 0;
+
+	if (!parent_data)
+		return;
+
+	if (is_gpio_dual_edge(d, &dir_conn_irq)) {
+		struct irq_data *dir_conn_data =
+			irq_get_irq_data(irq_find_mapping(parent_data->domain,
+						dir_conn_irq));
+
+		if (dir_conn_data &&
+				dir_conn_data->chip->irq_set_irqchip_state)
+			dir_conn_data->chip->irq_set_irqchip_state(
+					dir_conn_data,
+					IRQCHIP_STATE_PENDING, 0);
+
+		if (dir_conn_data && dir_conn_data->chip->irq_unmask)
+			dir_conn_data->chip->irq_unmask(dir_conn_data);
+	}
+
+	if (parent_data->chip->irq_set_irqchip_state)
+		parent_data->chip->irq_set_irqchip_state(parent_data,
+						IRQCHIP_STATE_PENDING, 0);
+
+	if (parent_data->chip->irq_unmask)
+		parent_data->chip->irq_unmask(parent_data);
+}
+
 static void msm_dirconn_irq_unmask(struct irq_data *d)
 {
 	struct irq_desc *desc = irq_data_to_desc(d);
@@ -1171,6 +1203,7 @@ static int msm_dirconn_irq_set_type(struct irq_data *d, unsigned int type)
 static struct irq_chip msm_dirconn_irq_chip = {
 	.name			= "msmgpio-dc",
 	.irq_mask		= msm_dirconn_irq_mask,
+	.irq_enable		= msm_dirconn_irq_enable,
 	.irq_unmask		= msm_dirconn_irq_unmask,
 	.irq_eoi		= msm_dirconn_irq_eoi,
 	.irq_ack		= msm_dirconn_irq_ack,
