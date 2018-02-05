@@ -1239,6 +1239,10 @@ igmp_link_local_mcast_reports - BOOLEAN
 	224.0.0.X range.
 	Default TRUE
 
+nf_ipv4_defrag_skip - BOOLEAN
+	Skip defragmentation per interface if set.
+	Default : 0 (always defrag)
+
 Alexey Kuznetsov.
 kuznet@ms2.inr.ac.ru
 
