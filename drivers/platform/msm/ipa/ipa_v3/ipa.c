@@ -4566,8 +4566,6 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		IPADBG("teth_bridge initialized");
 	}
 
-	ipa3_debugfs_init();
-
 	result = ipa3_uc_interface_init();
 	if (result)
 		IPAERR(":ipa Uc interface init failed (%d)\n", -result);
@@ -4604,6 +4602,8 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_trigger_ipa_ready_cbs();
 	complete_all(&ipa3_ctx->init_completion_obj);
 	pr_info("IPA driver initialization was successful.\n");
+
+	ipa3_debugfs_init();
 
 	return 0;
 
