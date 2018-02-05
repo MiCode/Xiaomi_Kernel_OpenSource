@@ -55,18 +55,15 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 
 static bool is_dma_coherent(struct device *dev, unsigned long attrs)
 {
-	bool is_coherent;
 
 	if (attrs & DMA_ATTR_FORCE_COHERENT)
-		is_coherent = true;
+		return true;
 	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
-		is_coherent = false;
+		return false;
 	else if (is_device_dma_coherent(dev))
-		is_coherent = true;
+		return true;
 	else
-		is_coherent = false;
-
-	return is_coherent;
+		return false;
 }
 static struct gen_pool *atomic_pool __ro_after_init;
 
@@ -708,6 +705,9 @@ static void flush_page(struct device *dev, const void *virt, phys_addr_t phys)
 	__dma_flush_area(virt, PAGE_SIZE);
 }
 
+static struct page **__atomic_get_pages(void *addr);
+static struct page **__iommu_get_pages(void *cpu_addr, unsigned long attrs);
+
 static void *__iommu_alloc_attrs(struct device *dev, size_t size,
 				 dma_addr_t *handle, gfp_t gfp,
 				 unsigned long attrs)
@@ -726,7 +726,8 @@ static void *__iommu_alloc_attrs(struct device *dev, size_t size,
 	 * Some drivers rely on this, and we probably don't want the
 	 * possibility of stale kernel data being read by devices anyway.
 	 */
-	gfp |= __GFP_ZERO;
+	if (!(attrs & DMA_ATTR_SKIP_ZEROING))
+		gfp |= __GFP_ZERO;
 
 	if (!gfpflags_allow_blocking(gfp)) {
 		struct page *page;
@@ -817,11 +818,10 @@ static void __iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 		__free_from_pool(cpu_addr, size);
 	} else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS) {
 		struct page *page = vmalloc_to_page(cpu_addr);
-
 		iommu_dma_unmap_page(dev, handle, iosize, 0, attrs);
 		dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
 		dma_common_free_remap(cpu_addr, size, VM_USERMAP, false);
-	} else if (is_vmalloc_addr(cpu_addr)){
+	} else if (is_vmalloc_addr(cpu_addr)) {
 		struct vm_struct *area = find_vm_area(cpu_addr);
 
 		if (WARN_ON(!area || !area->pages))
@@ -891,11 +891,12 @@ static void __iommu_sync_single_for_cpu(struct device *dev,
 					enum dma_data_direction dir)
 {
 	phys_addr_t phys;
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 
-	if (is_device_dma_coherent(dev))
+	if (!domain || iommu_is_iova_coherent(domain, dev_addr))
 		return;
 
-	phys = iommu_iova_to_phys(iommu_get_domain_for_dev(dev), dev_addr);
+	phys = iommu_iova_to_phys(domain, dev_addr);
 	__dma_unmap_area(phys_to_virt(phys), size, dir);
 }
 
@@ -904,11 +905,12 @@ static void __iommu_sync_single_for_device(struct device *dev,
 					   enum dma_data_direction dir)
 {
 	phys_addr_t phys;
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 
-	if (is_device_dma_coherent(dev))
+	if (!domain || iommu_is_iova_coherent(domain, dev_addr))
 		return;
 
-	phys = iommu_iova_to_phys(iommu_get_domain_for_dev(dev), dev_addr);
+	phys = iommu_iova_to_phys(domain, dev_addr);
 	__dma_map_area(phys_to_virt(phys), size, dir);
 }
 
@@ -943,9 +945,11 @@ static void __iommu_sync_sg_for_cpu(struct device *dev,
 				    enum dma_data_direction dir)
 {
 	struct scatterlist *sg;
+	dma_addr_t iova = sg_dma_address(sgl);
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 	int i;
 
-	if (is_device_dma_coherent(dev))
+	if (!domain || iommu_is_iova_coherent(domain, iova))
 		return;
 
 	for_each_sg(sgl, sg, nelems, i)
@@ -957,9 +961,11 @@ static void __iommu_sync_sg_for_device(struct device *dev,
 				       enum dma_data_direction dir)
 {
 	struct scatterlist *sg;
+	dma_addr_t iova = sg_dma_address(sgl);
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 	int i;
 
-	if (is_device_dma_coherent(dev))
+	if (!domain || iommu_is_iova_coherent(domain, iova))
 		return;
 
 	for_each_sg(sgl, sg, nelems, i)
