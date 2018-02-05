@@ -611,9 +611,12 @@ int ping_getfrag(void *from, char *to,
 	if (offset == 0) {
 		if (fraglen < sizeof(struct icmphdr))
 			BUG();
-		if (csum_partial_copy_fromiovecend(to + sizeof(struct icmphdr),
-			    pfh->iov, 0, fraglen - sizeof(struct icmphdr),
-			    &pfh->wcheck))
+		if ((fraglen - sizeof(struct icmphdr)) &&
+		    csum_partial_copy_fromiovecend
+					(to + sizeof(struct icmphdr),
+					pfh->iov, 0,
+					fraglen - sizeof(struct icmphdr),
+					&pfh->wcheck))
 			return -EFAULT;
 	} else if (offset < sizeof(struct icmphdr)) {
 			BUG();
