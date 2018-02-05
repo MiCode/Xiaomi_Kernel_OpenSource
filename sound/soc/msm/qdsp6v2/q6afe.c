@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1074,7 +1074,7 @@ static int q6afe_svc_set_params_v1(int index, struct mem_mapping_hdr *mem_hdr,
 	svc_set_param->apr_hdr.pkt_size = size;
 	svc_set_param->apr_hdr.src_port = 0;
 	svc_set_param->apr_hdr.dest_port = 0;
-	svc_set_param->apr_hdr.token = IDX_GLOBAL_CFG;
+	svc_set_param->apr_hdr.token = index;
 	svc_set_param->apr_hdr.opcode = AFE_SVC_CMD_SET_PARAM;
 	svc_set_param->payload_size = packed_data_size;
 
@@ -1121,7 +1121,7 @@ static int q6afe_svc_set_params_v2(int index, struct mem_mapping_hdr *mem_hdr,
 	svc_set_param->apr_hdr.pkt_size = size;
 	svc_set_param->apr_hdr.src_port = 0;
 	svc_set_param->apr_hdr.dest_port = 0;
-	svc_set_param->apr_hdr.token = IDX_GLOBAL_CFG;
+	svc_set_param->apr_hdr.token = index;
 	svc_set_param->apr_hdr.opcode = AFE_SVC_CMD_SET_PARAM_V2;
 	svc_set_param->payload_size = packed_data_size;
 
