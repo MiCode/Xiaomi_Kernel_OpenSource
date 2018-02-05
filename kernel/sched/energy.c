@@ -18,8 +18,6 @@
  */
 #define pr_fmt(fmt) "sched-energy: " fmt
 
-#define DEBUG
-
 #include <linux/gfp.h>
 #include <linux/of.h>
 #include <linux/printk.h>
@@ -76,6 +74,9 @@ void init_sched_energy_costs(void)
 	int sd_level, i, nstates, cpu;
 	const __be32 *val;
 
+	if (!sched_is_energy_aware())
+		return;
+
 	for_each_possible_cpu(cpu) {
 		cn = of_get_cpu_node(cpu, NULL);
 		if (!cn) {
@@ -101,11 +102,17 @@ void init_sched_energy_costs(void)
 
 			sge = kcalloc(1, sizeof(struct sched_group_energy),
 				      GFP_NOWAIT);
+			if (!sge)
+				goto out;
 
 			nstates = (prop->length / sizeof(u32)) / 2;
 			cap_states = kcalloc(nstates,
 					     sizeof(struct capacity_state),
 					     GFP_NOWAIT);
+			if (!cap_states) {
+				kfree(sge);
+				goto out;
+			}
 
 			for (i = 0, val = prop->value; i < nstates; i++) {
 				cap_states[i].cap = SCHED_CAPACITY_SCALE;
@@ -119,6 +126,8 @@ void init_sched_energy_costs(void)
 			prop = of_find_property(cp, "idle-cost-data", NULL);
 			if (!prop || !prop->value) {
 				pr_warn("No idle-cost data, skipping sched_energy init\n");
+				kfree(sge);
+				kfree(cap_states);
 				goto out;
 			}
 
@@ -126,6 +135,11 @@ void init_sched_energy_costs(void)
 			idle_states = kcalloc(nstates,
 					      sizeof(struct idle_state),
 					      GFP_NOWAIT);
+			if (!idle_states) {
+				kfree(sge);
+				kfree(cap_states);
+				goto out;
+			}
 
 			for (i = 0, val = prop->value; i < nstates; i++)
 				idle_states[i].power = be32_to_cpup(val++);
@@ -223,8 +237,9 @@ static int sched_energy_probe(struct platform_device *pdev)
 		sge_l0 = sge_array[cpu][SD_LEVEL0];
 		if (sge_l0 && sge_l0->nr_cap_states > 0) {
 			int i;
+			int ncapstates = sge_l0->nr_cap_states;
 
-			for (i = 0; i < sge_l0->nr_cap_states; i++) {
+			for (i = 0; i < ncapstates; i++) {
 				int sd_level;
 				unsigned long freq, cap;
 
@@ -251,7 +266,19 @@ static int sched_energy_probe(struct platform_device *pdev)
 					cpu, freq, sge_l0->cap_states[i].cap,
 					sge_l0->cap_states[i].power);
 			}
+
+			dev_info(&pdev->dev,
+				"cpu=%d eff=%d [freq=%ld cap=%ld power_d0=%ld] -> [freq=%ld cap=%ld power_d0=%ld]\n",
+				cpu, efficiency,
+				sge_l0->cap_states[0].frequency,
+				sge_l0->cap_states[0].cap,
+				sge_l0->cap_states[0].power,
+				sge_l0->cap_states[ncapstates - 1].frequency,
+				sge_l0->cap_states[ncapstates - 1].cap,
+				sge_l0->cap_states[ncapstates - 1].power
+				);
 		}
+
 
 		dev_dbg(&pdev->dev,
 			"cpu=%d efficiency=%d max_frequency=%ld max_efficiency=%d cpu_max_capacity=%ld\n",
