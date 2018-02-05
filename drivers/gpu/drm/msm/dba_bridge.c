@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -205,7 +205,8 @@ static void _dba_bridge_disable(struct drm_bridge *bridge)
 	}
 
 	if (d_bridge->ops.video_on) {
-		rc = d_bridge->ops.video_on(d_bridge->dba_ctx, false, NULL, 0);
+		rc = d_bridge->ops.video_on(d_bridge->dba_ctx,
+				false, NULL, 0);
 		if (rc)
 			SDE_ERROR("video off failed ret=%d\n", rc);
 	}
@@ -213,9 +214,18 @@ static void _dba_bridge_disable(struct drm_bridge *bridge)
 
 static void _dba_bridge_post_disable(struct drm_bridge *bridge)
 {
+	int rc = 0;
+	struct dba_bridge *d_bridge = to_dba_bridge(bridge);
+
 	if (!bridge) {
 		SDE_ERROR("Invalid params\n");
 		return;
+	}
+
+	if (d_bridge->ops.power_on) {
+		rc = d_bridge->ops.power_on(d_bridge->dba_ctx, false, 0);
+		if (rc)
+			SDE_ERROR("power off failed ret=%d\n", rc);
 	}
 }
 
