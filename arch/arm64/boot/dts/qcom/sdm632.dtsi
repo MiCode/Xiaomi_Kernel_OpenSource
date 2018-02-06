@@ -20,3 +20,14 @@
 	qcom,msm-id = <349 0x0>;
 };
 
+&clock_gcc {
+	compatible = "qcom,gcc-sdm632";
+};
+
+&clock_debug {
+	compatible = "qcom,cc-debug-sdm632";
+};
+
+&clock_gcc_gfx {
+	compatible = "qcom,gcc-gfx-sdm632";
+};
