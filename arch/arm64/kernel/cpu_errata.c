@@ -29,6 +29,18 @@ is_affected_midr_range(const struct arm64_cpu_capabilities *entry)
 				       entry->midr_range_max);
 }
 
+static bool __maybe_unused
+is_kryo_midr(const struct arm64_cpu_capabilities *entry)
+{
+	u32 model;
+
+	model = read_cpuid_id();
+	model &= MIDR_IMPLEMENTOR_MASK | (0xf00 << MIDR_PARTNUM_SHIFT) |
+		MIDR_ARCHITECTURE_MASK;
+
+	return model == entry->midr_model;
+}
+
 #ifdef CONFIG_HARDEN_BRANCH_PREDICTOR
 #include <asm/mmu_context.h>
 #include <asm/cacheflush.h>
@@ -139,16 +151,24 @@ static void __maybe_unused qcom_link_stack_sanitization(void)
 		     : "=&r" (tmp));
 }
 
-static int __maybe_unused qcom_enable_link_stack_sanitization(void *data)
+static void __maybe_unused qcom_bp_hardening(void)
+{
+	qcom_link_stack_sanitization();
+	if (psci_ops.get_version)
+		psci_ops.get_version();
+}
+
+static int __maybe_unused enable_qcom_bp_hardening(void *data)
 {
 	const struct arm64_cpu_capabilities *entry = data;
 
-	install_bp_hardening_cb(entry, qcom_link_stack_sanitization,
-				__qcom_hyp_sanitize_link_stack_start,
-				__qcom_hyp_sanitize_link_stack_end);
-
+	install_bp_hardening_cb(entry,
+				(bp_hardening_cb_t)qcom_bp_hardening,
+				__psci_hyp_bp_inval_start,
+				__psci_hyp_bp_inval_end);
 	return 0;
 }
+
 #endif	/* CONFIG_HARDEN_BRANCH_PREDICTOR */
 
 #define MIDR_RANGE(model, min, max) \
@@ -256,6 +276,12 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.capability = ARM64_HARDEN_BRANCH_PREDICTOR,
 		MIDR_ALL_VERSIONS(MIDR_KRYO2XX_GOLD),
 		.enable = enable_psci_bp_hardening,
+	},
+	{
+		.capability = ARM64_HARDEN_BRANCH_PREDICTOR,
+		.midr_model = MIDR_QCOM_KRYO,
+		.matches = is_kryo_midr,
+		.enable = enable_qcom_bp_hardening,
 	},
 #endif
 	{
