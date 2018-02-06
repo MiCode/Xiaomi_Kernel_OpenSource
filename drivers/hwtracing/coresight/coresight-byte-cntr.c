@@ -236,7 +236,7 @@ void tmc_etr_byte_cntr_stop(struct byte_cntr *byte_cntr_data)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->enable = false;
-	coresight_csr_set_byte_cntr(0);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 }
@@ -250,7 +250,7 @@ static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->read_active = false;
 
-	coresight_csr_set_byte_cntr(0);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 	return 0;
@@ -268,7 +268,8 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 		return -EINVAL;
 	}
 
-	coresight_csr_set_byte_cntr(byte_cntr_data->block_size);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr,
+				byte_cntr_data->block_size);
 	fp->private_data = byte_cntr_data;
 	nonseekable_open(in, fp);
 	byte_cntr_data->enable = true;
@@ -371,6 +372,7 @@ struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 
 	tmcdrvdata = drvdata;
 	byte_cntr_data->byte_cntr_irq = byte_cntr_irq;
+	byte_cntr_data->csr = drvdata->csr;
 	atomic_set(&byte_cntr_data->irq_cnt, 0);
 	init_waitqueue_head(&byte_cntr_data->wq);
 	mutex_init(&byte_cntr_data->byte_cntr_lock);
