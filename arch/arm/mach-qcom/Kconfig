@@ -130,6 +130,18 @@ config ARCH_MSM8917
 	select COMMON_CLK
 	select COMMON_CLK_QCOM
 
+config ARCH_MSM8937
+	bool "Enable support for MSM8937"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_QCOM
+
 config ARCH_SCUBA
 	bool "Enable Support for Qualcomm Technologies, Inc. SCUBA"
 	select COMMON_CLK_QCOM
