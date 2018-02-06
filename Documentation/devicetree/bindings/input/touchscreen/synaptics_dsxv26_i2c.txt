@@ -18,6 +18,7 @@ Optional property:
  - vcc_i2c-supply			   : analog voltage power supply needed to power device.
  - synaptics,pwr-reg-name	   : power reg name of digital voltage.
  - synaptics,bus-reg-name	   : bus reg name of analog voltage.
+ - synaptics,do-not-disable-regulators	   : If specified, regulators cannot be disabled/enabled during suspend/resume.
  - synaptics,irq-on-state      : status of irq gpio.
  - synaptics,cap-button-codes  : virtual key code mappings to be used.
  - synaptics,vir-button-codes  : virtual key code and the response region on panel.
@@ -26,6 +27,7 @@ Optional property:
  - synaptics,y-flip		       : modify orientation of the y axis.
  - synaptics,reset-delay-ms	   : reset delay for controller (ms), default 100.
  - synaptics,max-y-for-2d	   : maximal y value of the panel.
+ - synaptics,bus-lpm-cur-uA	   : I2C bus idle mode current setting.
  - clock-names			: Clock names used for secure touch. They are: "iface_clk", "core_clk"
  - clocks			: Defined if 'clock-names' DT property is defined. These clocks
 				  are associated with the underlying I2C bus.
