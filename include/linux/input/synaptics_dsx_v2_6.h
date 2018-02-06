@@ -59,6 +59,7 @@ struct synaptics_dsx_button_map {
  * @y_flip: y flip flag
  * @swap_axes: swap axes flag
  * @resume_in_workqueue: defer resume function to workqueue
+ * @resume_in_workqueue: do not disable/enable regulators in suspend/resume
  * @irq_gpio: attention interrupt GPIO
  * @irq_on_state: attention interrupt active state
  * @power_gpio: power switch GPIO
@@ -75,6 +76,7 @@ struct synaptics_dsx_button_map {
  * @power_delay_ms: delay time to wait after powering up device
  * @reset_delay_ms: delay time to wait after resetting device
  * @reset_active_ms: reset active time
+ * @bus_lpm_cur_uA: low power mode current setting for bus
  * @byte_delay_us: delay time between two bytes of SPI data
  * @block_delay_us: delay time between two SPI transfers
  * @pwr_reg_name: pointer to name of regulator for power control
@@ -88,12 +90,14 @@ struct synaptics_dsx_board_data {
 	bool swap_axes;
 	bool resume_in_workqueue;
 	bool wakeup_gesture_en;
+	bool dont_disable_regs;
 	int irq_gpio;
 	int irq_on_state;
 	int power_gpio;
 	int power_on_state;
 	int reset_gpio;
 	int reset_on_state;
+	int bus_lpm_cur_uA;
 	int max_y_for_2d;
 	unsigned long irq_flags;
 	unsigned short i2c_addr;
