@@ -220,7 +220,15 @@ dtbo-$(CONFIG_ARCH_SDM450) += msm8953-mtp-overlay.dtbo \
 	msm8953-cdp-overlay.dtbo \
 	msm8953-rcm-overlay.dtbo \
 	msm8953-qrd-overlay.dtbo \
-	msm8953-iot-mtp-overlay.dtbo
+	msm8953-iot-mtp-overlay.dtbo \
+	sdm450-cdp-s2-overlay.dtbo \
+	sdm450-mtp-s3-overlay.dtbo \
+	sdm450-qrd-sku4-overlay.dtbo
+
+dtbo-$(CONFIG_ARCH_SDM632) += sdm632-rumi-overlay.dtbo \
+	sdm450-cdp-s2-overlay.dtbo \
+	sdm450-mtp-s3-overlay.dtbo \
+	sdm450-qrd-sku4-overlay.dtbo
 
 msm8953-mtp-overlay.dtbo-base := sdm450.dtb \
 	msm8953.dtb \
@@ -251,6 +259,14 @@ msm8953-ext-codec-mtp-overlay.dtbo-base := msm8953.dtb \
 msm8953-ext-codec-rcm-overlay.dtbo-base := msm8953.dtb \
 	apq8053.dtb
 msm8953-cdp-1200p-overlay.dtbo-base := msm8953.dtb
+sdm450-cdp-s2-overlay.dtbo-base := sdm450-pmi632.dtb \
+	sdm632.dtb \
+	msm8953-pmi632.dtb
+sdm450-mtp-s3-overlay.dtbo-base := sdm450-pmi632.dtb \
+	sdm632.dtb
+sdm450-qrd-sku4-overlay.dtbo-base := sdm450-pmi632.dtb \
+	sdm632.dtb
+sdm632-rumi-overlay.dtbo-base := sdm632.dtb
 
 else
 dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
@@ -274,7 +290,8 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	msm8953-pmi8937-cdp.dtb \
 	msm8953-pmi8937-mtp.dtb \
 	msm8953-pmi8940-ext-codec-mtp.dtb \
-	msm8953-pmi8937-ext-codec-mtp.dtb
+	msm8953-pmi8937-ext-codec-mtp.dtb \
+	msm8953-pmi632-cdp-s2.dtb
 
 dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \

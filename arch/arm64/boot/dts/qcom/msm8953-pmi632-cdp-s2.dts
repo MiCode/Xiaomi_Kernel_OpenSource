@@ -11,24 +11,16 @@
  * GNU General Public License for more details.
  */
 
+/dts-v1/;
+
 #include "msm8953.dtsi"
-#include "sdm632-cpu.dtsi"
+#include "sdm450-pmi632-cdp-s2.dtsi"
+#include "sdm450-pmi632.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM632";
-	compatible = "qcom,sdm632";
-	qcom,msm-id = <349 0x0>;
-	qcom,msm-name = "SDM632";
+	model = "Qualcomm Technologies, Inc. msm8953 + PMI632 CDP S2";
+	compatible = "qcom,msm8953-cdp", "qcom,msm8953", "qcom,cdp";
+	qcom,board-id = <1 2>;
+	qcom,pmic-id = <0x010016 0x25 0xC 0x0>;
 };
 
-&clock_gcc {
-	compatible = "qcom,gcc-sdm632";
-};
-
-&clock_debug {
-	compatible = "qcom,cc-debug-sdm632";
-};
-
-&clock_gcc_gfx {
-	compatible = "qcom,gcc-gfx-sdm632";
-};
