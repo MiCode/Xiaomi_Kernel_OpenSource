@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,8 @@
 
 #define PA_LUTV_DSPP_CTRL_OFF	0x4c
 #define PA_LUTV_DSPP_SWAP_OFF	0x18
+
+#define PA_DITH_DSPP_MATRIX_OFF	0x4
 
 #define PA_HUE_MASK		0xFFF
 #define PA_SAT_MASK		0xFFFF
@@ -970,4 +972,46 @@ void sde_lock_dspp_hist_v1_7(struct sde_hw_dspp *ctx, void *cfg)
 
 	/* lock hist buffer */
 	SDE_REG_WRITE(&ctx->hw, offset_ctl, 1);
+}
+
+void sde_setup_dspp_dither_v1_7(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_pa_dither *dither;
+	u32 ctrl_off, matrix_off;
+	u32 opmode, data, i;
+
+	if (!hw_cfg || (hw_cfg->len != sizeof(struct drm_msm_pa_dither) &&
+			hw_cfg->payload)) {
+		DRM_ERROR("hw %pK payload %pK size %d expected sz %zd\n",
+			hw_cfg, ((hw_cfg) ? hw_cfg->payload : NULL),
+			((hw_cfg) ? hw_cfg->len : 0),
+			sizeof(struct drm_msm_pa_dither));
+		return;
+	}
+
+	ctrl_off = ctx->cap->sblk->dither.base;
+	matrix_off = ctrl_off + PA_DITH_DSPP_MATRIX_OFF;
+
+	/* Turn off feature */
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("Disable DSPP dither feature\n");
+		SDE_REG_WRITE(&ctx->hw, ctrl_off, 0);
+		return;
+	}
+	DRM_DEBUG_DRIVER("Enable DSPP Dither feature\n");
+	dither = hw_cfg->payload;
+
+	for (i = 0; i < DITHER_MATRIX_SZ; i += 4) {
+		data = (dither->matrix[i] & REG_MASK(4)) |
+			((dither->matrix[i + 1] & REG_MASK(4)) << 4) |
+			((dither->matrix[i + 2] & REG_MASK(4)) << 8) |
+			((dither->matrix[i + 3] & REG_MASK(4)) << 12);
+		SDE_REG_WRITE(&ctx->hw, matrix_off + i, data);
+	}
+
+	opmode = BIT(0);
+	opmode |= (dither->offset_en) ? BIT(1) : 0;
+	opmode |= ((dither->strength) & REG_MASK(4)) << 4;
+	SDE_REG_WRITE(&ctx->hw, ctrl_off, opmode);
 }
