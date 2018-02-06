@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (C) 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -389,47 +390,47 @@ struct synaptics_rmi4_udg_handle {
 
 static struct device_attribute attrs[] = {
 	__ATTR(engine_enable, 0220,
-			synaptics_rmi4_show_error,
+			NULL,
 			udg_sysfs_engine_enable_store),
 	__ATTR(detection_enable, 0220,
-			synaptics_rmi4_show_error,
+			NULL,
 			udg_sysfs_detection_enable_store),
 	__ATTR(detection_score, 0444,
 			udg_sysfs_detection_score_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(detection_index, 0444,
 			udg_sysfs_detection_index_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(registration_enable, 0220,
-			synaptics_rmi4_show_error,
+			NULL,
 			udg_sysfs_registration_enable_store),
 	__ATTR(registration_begin, 0220,
-			synaptics_rmi4_show_error,
+			NULL,
 			udg_sysfs_registration_begin_store),
 	__ATTR(registration_status, 0444,
 			udg_sysfs_registration_status_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(template_size, 0444,
 			udg_sysfs_template_size_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(template_max_index, 0444,
 			udg_sysfs_template_max_index_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(template_detection, 0444,
 			udg_sysfs_template_detection_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(template_index, 0220,
-			synaptics_rmi4_show_error,
+			NULL,
 			udg_sysfs_template_index_store),
 	__ATTR(template_valid, 0664,
 			udg_sysfs_template_valid_show,
 			udg_sysfs_template_valid_store),
 	__ATTR(template_clear, 0220,
-			synaptics_rmi4_show_error,
+			NULL,
 			udg_sysfs_template_clear_store),
 	__ATTR(trace_size, 0444,
 			udg_sysfs_trace_size_show,
-			synaptics_rmi4_store_error),
+			NULL),
 };
 
 static struct bin_attribute template_data = {

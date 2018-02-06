@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (C) 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -198,23 +199,13 @@
 static ssize_t concat(test_sysfs, _##propname##_show)(\
 		struct device *dev,\
 		struct device_attribute *attr,\
-		char *buf);\
-\
-static struct device_attribute dev_attr_##propname =\
-		__ATTR(propname, 0444,\
-		concat(test_sysfs, _##propname##_show),\
-		synaptics_rmi4_store_error);
+		char *buf);
 
 #define store_prototype(propname)\
 static ssize_t concat(test_sysfs, _##propname##_store)(\
 		struct device *dev,\
 		struct device_attribute *attr,\
-		const char *buf, size_t count);\
-\
-static struct device_attribute dev_attr_##propname =\
-		__ATTR(propname, 0220,\
-		synaptics_rmi4_show_error,\
-		concat(test_sysfs, _##propname##_store));
+		const char *buf, size_t count);
 
 #define show_store_prototype(propname)\
 static ssize_t concat(test_sysfs, _##propname##_show)(\
