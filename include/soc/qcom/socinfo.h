@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,6 +108,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda670")
 #define early_machine_is_msm8953()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8953")
+#define early_machine_is_msm8937()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8937")
 #define early_machine_is_sdm450()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm450")
 #define early_machine_is_sdm632()	\
@@ -155,6 +157,7 @@
 #define early_machine_is_qcs605()	0
 #define early_machine_is_sda670()	0
 #define early_machine_is_msm8953()	0
+#define early_machine_is_msm8937()	0
 #define early_machine_is_sdm450()	0
 #define early_machine_is_sdm632()	0
 #endif
@@ -225,6 +228,7 @@ enum msm_cpu {
 	MSM_CPU_SDM450,
 	MSM_CPU_SDM632,
 	MSM_CPU_SDA632,
+	MSM_CPU_8937
 };
 
 struct msm_soc_info {
