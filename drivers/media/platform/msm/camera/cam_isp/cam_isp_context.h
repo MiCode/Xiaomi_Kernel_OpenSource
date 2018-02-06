@@ -82,22 +82,22 @@ struct cam_isp_ctx_irq_ops {
  *                         the request has been completed.
  * @bubble_report:         Flag to track if bubble report is active on
  *                         current request
- * @packet_opcode_type:    Request packet opcode type,
- *                         ie INIT packet or update packet
+ * @hw_update_data:        HW update data for this request
  *
  */
 struct cam_isp_ctx_req {
-	struct cam_ctx_request          *base;
+	struct cam_ctx_request               *base;
 
-	struct cam_hw_update_entry       cfg[CAM_ISP_CTX_CFG_MAX];
-	uint32_t                         num_cfg;
-	struct cam_hw_fence_map_entry    fence_map_out[CAM_ISP_CTX_RES_MAX];
-	uint32_t                         num_fence_map_out;
-	struct cam_hw_fence_map_entry    fence_map_in[CAM_ISP_CTX_RES_MAX];
-	uint32_t                         num_fence_map_in;
-	uint32_t                         num_acked;
-	int32_t                          bubble_report;
-	uint32_t                         packet_opcode_type;
+	struct cam_hw_update_entry            cfg[CAM_ISP_CTX_CFG_MAX];
+	uint32_t                              num_cfg;
+	struct cam_hw_fence_map_entry         fence_map_out
+						[CAM_ISP_CTX_RES_MAX];
+	uint32_t                              num_fence_map_out;
+	struct cam_hw_fence_map_entry         fence_map_in[CAM_ISP_CTX_RES_MAX];
+	uint32_t                              num_fence_map_in;
+	uint32_t                              num_acked;
+	int32_t                               bubble_report;
+	struct cam_isp_prepare_hw_update_data hw_update_data;
 };
 
 /**

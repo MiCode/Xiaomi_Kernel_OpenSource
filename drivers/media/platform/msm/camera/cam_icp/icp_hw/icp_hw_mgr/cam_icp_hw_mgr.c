@@ -1597,8 +1597,7 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 		ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
 		ctx_data =
 			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
-		if ((ctx_data->state == CAM_ICP_CTX_STATE_RELEASE) ||
-			(ctx_data->state == CAM_ICP_CTX_STATE_IN_USE))
+		if (ctx_data->state != CAM_ICP_CTX_STATE_FREE)
 			complete(&ctx_data->wait_complete);
 
 		break;
@@ -2098,7 +2097,7 @@ static int cam_icp_mgr_abort_handle(
 	int rc = 0;
 	unsigned long rem_jiffies;
 	size_t packet_size;
-	int timeout = 5000;
+	int timeout = 100;
 	struct hfi_cmd_work_data *task_data;
 	struct hfi_cmd_ipebps_async *abort_cmd;
 	struct crm_workq_task *task;
@@ -2161,7 +2160,7 @@ static int cam_icp_mgr_destroy_handle(
 	struct cam_icp_hw_ctx_data *ctx_data)
 {
 	int rc = 0;
-	int timeout = 5000;
+	int timeout = 100;
 	unsigned long rem_jiffies;
 	size_t packet_size;
 	struct hfi_cmd_work_data *task_data;
@@ -2539,10 +2538,10 @@ static int cam_icp_mgr_icp_resume(struct cam_icp_hw_mgr *hw_mgr)
 	if (hw_mgr->fw_download  == false) {
 		CAM_DBG(CAM_ICP, "Downloading FW");
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		cam_icp_mgr_hw_open(hw_mgr, &downloadFromResume);
+		rc = cam_icp_mgr_hw_open(hw_mgr, &downloadFromResume);
 		mutex_lock(&hw_mgr->hw_mgr_mutex);
 		CAM_DBG(CAM_ICP, "FW Download Done Exit");
-		return 0;
+		return rc;
 	}
 
 	rc = a5_dev_intf->hw_ops.init(a5_dev_intf->hw_priv, NULL, 0);

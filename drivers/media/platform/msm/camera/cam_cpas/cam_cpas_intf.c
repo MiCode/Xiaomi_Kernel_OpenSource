@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -366,7 +366,6 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 	switch (cmd->op_code) {
 	case CAM_QUERY_CAP: {
 		struct cam_cpas_query_cap query;
-		uint32_t cam_cpas;
 
 		rc = copy_from_user(&query, (void __user *) cmd->handle,
 			sizeof(query));
@@ -377,7 +376,8 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 		}
 
 		rc = cam_cpas_get_hw_info(&query.camera_family,
-			&query.camera_version, &query.cpas_version, &cam_cpas);
+			&query.camera_version, &query.cpas_version,
+			&query.reserved);
 		if (rc)
 			break;
 
