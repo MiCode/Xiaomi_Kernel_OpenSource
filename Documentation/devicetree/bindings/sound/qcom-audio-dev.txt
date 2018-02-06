@@ -1729,6 +1729,9 @@ Optional Properties:
 - qcom,msm-mi2s-master: This property is used to inform machine driver
   if MSM is the clock master of mi2s. 1 means master and 0 means slave. The
   first entry is primary mi2s; the second entry is secondary mi2s, and so on.
+- qcom,mi2s-aqt-enabled: This property is used to inform machine driver
+  if AQT1000 codec is enabled or not. If this is enabled then codec name
+  for TERT_MI2S needs to be overridden with AQT codec.
 - qcom,msm-mi2s-ext-mclk: This property is used to inform machine driver
   if MCLK from MSM is used for any external audio connections. 1 means used
   as external mclk source and 0 indicate not used. The first entry is
