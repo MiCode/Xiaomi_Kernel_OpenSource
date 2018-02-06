@@ -54,6 +54,8 @@
 			synaptics,power-delay-ms = <200>;
 			synaptics,reset-delay-ms = <200>;
 			synaptics,max-y-for-2d = <389>;
+			synaptics,bus-lpm-cur-uA = <450>;
+			synaptics,do-not-disable-regulators;
 			synaptics,wakeup-gestures-en;
 			synaptics,resume-in-workqueue;
 			synaptics,x-flip;
