@@ -2,7 +2,7 @@
  * drivers/staging/android/ion/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -40,6 +40,7 @@
 #define ION_QSECOM_HEAP_NAME	"qsecom"
 #define ION_SECURE_HEAP_NAME	"secure_heap"
 #define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
+#define ION_AUDIO_HEAP_NAME    "audio"
 
 /**
  * Debug feature. Make ION allocations DMA

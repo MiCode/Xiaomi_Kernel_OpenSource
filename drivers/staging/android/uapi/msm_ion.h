@@ -38,6 +38,12 @@ enum ion_heap_ids {
 };
 
 /**
+ * Newly added heap ids have to be #define(d) since all API changes must
+ * include a new #define.
+ */
+#define ION_AUDIO_HEAP_ID		28
+
+/**
  * Flags to be used when allocating from the secure heap for
  * content protection
  */
