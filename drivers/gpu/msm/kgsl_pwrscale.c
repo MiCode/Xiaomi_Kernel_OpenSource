@@ -910,12 +910,12 @@ static int opp_notify(struct notifier_block *nb,
 	min_level = pwr->thermal_pwrlevel_floor;
 
 	/* Thermal limit cannot be lower than lowest non-zero operating freq */
-	for (level = 0; level < (pwr->num_pwrlevels - 1); level++)
+	for (level = 0; level < (pwr->num_pwrlevels - 1); level++) {
 		if (pwr->pwrlevels[level].gpu_freq == max_freq)
 			max_level = level;
 		if (pwr->pwrlevels[level].gpu_freq == min_freq)
 			min_level = level;
-
+	}
 
 	pwr->thermal_pwrlevel = max_level;
 	pwr->thermal_pwrlevel_floor = min_level;
