@@ -328,6 +328,79 @@
 			compatible = "qcom,msm-bcl-soc";
 			#thermal-sensor-cells = <0>;
 		};
+
+		pm855b_fg: qpnp,fg {
+			compatible = "qcom,fg-gen4";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,pmic-revid = <&pm855b_revid>;
+			status = "okay";
+
+			qcom,fg-batt-soc@4000 {
+				status = "okay";
+				reg = <0x4000 0x100>;
+				interrupts = <0x2 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x2
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x3
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x4 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x5
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x6 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x7 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "soc-update",
+						  "soc-ready",
+						  "bsoc-delta",
+						  "msoc-delta",
+						  "msoc-low",
+						  "msoc-empty",
+						  "msoc-high",
+						  "msoc-full";
+			};
+
+			qcom,fg-batt-info@4100 {
+				status = "okay";
+				reg = <0x4100 0x100>;
+				interrupts = <0x2 0x41 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x41 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x41 0x3
+							IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "vbatt-low",
+						  "vbatt-pred-delta",
+						  "esr-delta";
+			};
+
+			qcom,fg-rradc@4200 {
+				status = "okay";
+				reg = <0x4200 0x100>;
+				interrupts = <0x2 0x42 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x42 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x42 0x2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x42 0x3 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x42 0x4 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "batt-missing",
+						  "batt-id",
+						  "batt-temp-delta",
+						  "batt-temp-hot",
+						  "batt-temp-cold";
+			};
+
+			qcom,fg-memif@4300 {
+				status = "okay";
+				reg = <0x4300 0x100>;
+				interrupts = <0x2 0x43 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x43 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x43 0x2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x43 0x3
+							IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "ima-rdy",
+						  "ima-xcp",
+						  "dma-xcp",
+						  "dma-grant";
+			};
+		};
 	};
 
 	qcom,pm855b@3 {
