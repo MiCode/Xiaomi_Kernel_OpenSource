@@ -83,18 +83,18 @@ static inline u32 WIL_GET_BITS(u32 x, int b0, int b1)
  */
 #define WIL_MAX_MPDU_OVERHEAD	(62)
 
-struct wil_suspend_stats {
+struct wil_suspend_count_stats {
 	unsigned long successful_suspends;
-	unsigned long failed_suspends;
 	unsigned long successful_resumes;
+	unsigned long failed_suspends;
 	unsigned long failed_resumes;
-	unsigned long rejected_by_device;
+};
+
+struct wil_suspend_stats {
+	struct wil_suspend_count_stats r_off;
+	struct wil_suspend_count_stats r_on;
+	unsigned long rejected_by_device; /* only radio on */
 	unsigned long rejected_by_host;
-	unsigned long long total_suspend_time;
-	unsigned long long min_suspend_time;
-	unsigned long long max_suspend_time;
-	ktime_t collection_start;
-	ktime_t suspend_start_time;
 };
 
 /* Calculate MAC buffer size for the firmware. It includes all overhead,
@@ -1043,8 +1043,8 @@ int wil_pm_runtime_get(struct wil6210_priv *wil);
 void wil_pm_runtime_put(struct wil6210_priv *wil);
 
 int wil_can_suspend(struct wil6210_priv *wil, bool is_runtime);
-int wil_suspend(struct wil6210_priv *wil, bool is_runtime);
-int wil_resume(struct wil6210_priv *wil, bool is_runtime);
+int wil_suspend(struct wil6210_priv *wil, bool is_runtime, bool keep_radio_on);
+int wil_resume(struct wil6210_priv *wil, bool is_runtime, bool keep_radio_on);
 bool wil_is_wmi_idle(struct wil6210_priv *wil);
 int wmi_resume(struct wil6210_priv *wil);
 int wmi_suspend(struct wil6210_priv *wil);

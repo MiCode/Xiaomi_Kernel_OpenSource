@@ -1804,9 +1804,8 @@ static int wil_cfg80211_suspend(struct wiphy *wiphy,
 	wil_dbg_pm(wil, "suspending\n");
 
 	mutex_lock(&wil->mutex);
-	wil_p2p_stop_discovery(wil);
-
 	mutex_lock(&wil->p2p_wdev_mutex);
+	wil_p2p_stop_radio_operations(wil);
 	wil_abort_scan(wil, true);
 	mutex_unlock(&wil->p2p_wdev_mutex);
 	mutex_unlock(&wil->mutex);
