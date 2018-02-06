@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include "msm_sd.h"
 #include "cam_hw_ops.h"
 #include <media/ais/msm_ais_buf_mgr.h>
+#include "msm_camera_diag_util.h"
 
 
 static struct v4l2_device *msm_v4l2_dev;
@@ -1384,6 +1385,12 @@ static int msm_probe(struct platform_device *pdev)
 		goto v4l2_fail;
 	}
 
+	rc = msm_camera_diag_init();
+	if (rc < 0) {
+		pr_err("%s: failed to init diag clk list\n", __func__);
+		goto v4l2_fail;
+	}
+
 	goto probe_end;
 
 v4l2_fail:
@@ -1428,6 +1435,7 @@ static int __init msm_init(void)
 
 static void __exit msm_exit(void)
 {
+	msm_camera_diag_uninit();
 	platform_driver_unregister(&msm_driver);
 }
 

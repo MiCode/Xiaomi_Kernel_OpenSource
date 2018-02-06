@@ -22,4 +22,5 @@ obj-$(CONFIG_MSM_AIS_JPEG) += jpeg_10/
 obj-$(CONFIG_MSM_AIS_JPEGDMA) += jpeg_dma/
 obj-$(CONFIG_MSM_AIS) += msm_buf_mgr/
 obj-$(CONFIG_MSM_AIS) += msm_ais_mgr/
+obj-$(CONFIG_MSM_AIS) += msm_ais_diag/
 obj-$(CONFIG_MSM_AIS_FD) += fd/

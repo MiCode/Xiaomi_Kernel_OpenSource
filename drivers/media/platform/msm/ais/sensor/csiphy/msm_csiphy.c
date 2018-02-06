@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include "include/msm_csiphy_3_4_2_1_hwreg.h"
 #include "include/msm_csiphy_3_5_hwreg.h"
 #include "cam_hw_ops.h"
+#include "msm_camera_diag_util.h"
 
 #define DBG_CSIPHY 0
 #define SOF_DEBUG_ENABLE 1
@@ -1264,6 +1265,20 @@ static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 		}
 
 		break;
+	case CSIPHY_READ_REG_LIST_CMD:
+	{
+		struct msm_camera_reg_list_cmd reg_list_cmd;
+
+		if (copy_from_user(&reg_list_cmd,
+				(void __user *)cdata->cfg.csiphy_reg_list_cmd,
+				sizeof(struct msm_camera_reg_list_cmd))) {
+			pr_err("%s: %d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		rc = msm_camera_get_reg_list(csiphy_dev->base, &reg_list_cmd);
+		break;
+	}
 	default:
 		pr_err("%s: %d failed\n", __func__, __LINE__);
 		rc = -ENOIOCTLCMD;

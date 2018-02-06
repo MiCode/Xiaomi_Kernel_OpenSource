@@ -847,6 +847,24 @@ static int msm_isp_proc_cmd_list(struct vfe_device *vfe_dev, void *arg)
 }
 #endif /* CONFIG_COMPAT */
 
+static int process_isp_cmd_ext(struct vfe_device *vfe_dev, void *arg)
+{
+	int rc = 0;
+	struct msm_vfe_cmd_ext *cmd = (struct msm_vfe_cmd_ext *)arg;
+
+	switch (cmd->type) {
+		case VFE_GET_BUFQ_STATE: {
+			mutex_lock(&vfe_dev->buf_mgr->lock);
+			rc = msm_isp_proc_buf_cmd(vfe_dev->buf_mgr,
+					VIDIOC_MSM_ISP_CMD_EXT, arg);
+			mutex_unlock(&vfe_dev->buf_mgr->lock);
+			break;
+		}
+	}
+
+	return rc;
+}
+
 static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
@@ -983,12 +1001,14 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_FETCH_ENG_START:
-	case VIDIOC_MSM_ISP_MAP_BUF_START_FE:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_start_fetch_engine(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 
+	case VIDIOC_MSM_ISP_CMD_EXT:
+		process_isp_cmd_ext(vfe_dev, arg);
+		break;
 	case VIDIOC_MSM_ISP_FETCH_ENG_MULTI_PASS_START:
 	case VIDIOC_MSM_ISP_MAP_BUF_START_MULTI_PASS_FE:
 		mutex_lock(&vfe_dev->core_mutex);
@@ -2350,16 +2370,6 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	mutex_lock(&vfe_dev->realtime_mutex);
 	mutex_lock(&vfe_dev->core_mutex);
 
-	/* Enable vfe clks to wake up from XO shutdown mode */
-	if (vfe_dev->pdev->id == 0)
-		id = CAM_AHB_CLIENT_VFE0;
-	else
-		id = CAM_AHB_CLIENT_VFE1;
-	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SVS_VOTE) < 0)
-		pr_err("%s: failed to vote for AHB\n", __func__);
-	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(vfe_dev, 1);
-	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 1);
-
 	if (!vfe_dev->vfe_open_cnt) {
 		pr_err("%s invalid state open cnt %d\n", __func__,
 			vfe_dev->vfe_open_cnt);
@@ -2374,6 +2384,17 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		return 0;
 	}
+
+	/* Enable vfe clks to wake up from XO shutdown mode */
+	if (vfe_dev->pdev->id == 0)
+		id = CAM_AHB_CLIENT_VFE0;
+	else
+		id = CAM_AHB_CLIENT_VFE1;
+	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SVS_VOTE) < 0)
+		pr_err("%s: failed to vote for AHB\n", __func__);
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(vfe_dev, 1);
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 1);
+
 	/* Unregister page fault handler */
 	cam_smmu_reg_client_page_fault_handler(
 		vfe_dev->buf_mgr->iommu_hdl,
