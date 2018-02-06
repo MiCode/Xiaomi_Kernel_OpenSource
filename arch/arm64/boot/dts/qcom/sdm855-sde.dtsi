@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 		compatible = "qcom,sde-kms";
 		reg = <0x0ae00000 0x84208>,
 		      <0x0aeb0000 0x2008>,
-		      <0x0aeac000 0xf0>;
+		      <0x0aeac000 0x214>;
 		reg-names = "mdp_phys",
 			"vbif_phys",
 			"regdma_phys";
@@ -217,7 +217,7 @@
 		qcom,sde-inline-rot-clk-ctrl = <0x2bc 0x8>, <0x2bc 0xc>;
 
 		qcom,sde-reg-dma-off = <0>;
-		qcom,sde-reg-dma-version = <0x1>;
+		qcom,sde-reg-dma-version = <0x00010001>;
 		qcom,sde-reg-dma-trigger-off = <0x119c>;
 
 		qcom,sde-sspp-vig-blocks {
