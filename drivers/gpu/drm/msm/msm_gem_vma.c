@@ -21,14 +21,15 @@
 
 /* SDE address space operations */
 static void smmu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt)
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		unsigned int flags)
 {
 	if (!vma->iova)
 		return;
 
 	if (aspace) {
 		aspace->mmu->funcs->unmap_dma_buf(aspace->mmu, sgt,
-				DMA_BIDIRECTIONAL);
+				DMA_BIDIRECTIONAL, flags);
 	}
 
 	vma->iova = 0;
@@ -188,7 +189,8 @@ msm_gem_smmu_address_space_create(struct drm_device *dev, struct msm_mmu *mmu,
 
 /* GPU address space operations */
 static void iommu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt)
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		unsigned int flags)
 {
 	if (!aspace || !vma->iova)
 		return;
@@ -297,10 +299,11 @@ void msm_gem_address_space_put(struct msm_gem_address_space *aspace)
 
 void
 msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt)
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		unsigned int flags)
 {
 	if (aspace && aspace->ops->unmap)
-		aspace->ops->unmap(aspace, vma, sgt);
+		aspace->ops->unmap(aspace, vma, sgt, flags);
 }
 
 int

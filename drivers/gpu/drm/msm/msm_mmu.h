@@ -44,7 +44,7 @@ struct msm_mmu_funcs {
 	int (*map_dma_buf)(struct msm_mmu *mmu, struct sg_table *sgt,
 			int dir, u32 flags);
 	void (*unmap_dma_buf)(struct msm_mmu *mmu, struct sg_table *sgt,
-			int dir);
+			int dir, u32 flags);
 	void (*destroy)(struct msm_mmu *mmu);
 	bool (*is_domain_secure)(struct msm_mmu *mmu);
 	int (*set_attribute)(struct msm_mmu *mmu,

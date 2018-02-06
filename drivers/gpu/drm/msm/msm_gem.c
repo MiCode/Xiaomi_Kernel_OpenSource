@@ -19,6 +19,7 @@
 #include <linux/shmem_fs.h>
 #include <linux/dma-buf.h>
 #include <linux/pfn_t.h>
+#include <linux/ion.h>
 
 #include "msm_drv.h"
 #include "msm_fence.h"
@@ -381,7 +382,8 @@ static void put_iova(struct drm_gem_object *obj)
 	WARN_ON(!mutex_is_locked(&msm_obj->lock));
 
 	list_for_each_entry_safe(vma, tmp, &msm_obj->vmas, list) {
-		msm_gem_unmap_vma(vma->aspace, vma, msm_obj->sgt);
+		msm_gem_unmap_vma(vma->aspace, vma, msm_obj->sgt,
+				msm_obj->flags);
 		/*
 		 * put_iova removes the domain connected to the obj which makes
 		 * the aspace inaccessible. Store the aspace, as it is used to
@@ -411,6 +413,16 @@ int msm_gem_get_iova(struct drm_gem_object *obj,
 
 	if (!vma) {
 		struct page **pages;
+
+		/* perform delayed import for buffers without existing sgt */
+		if ((msm_obj->flags & MSM_BO_EXTBUF) && !(msm_obj->sgt)) {
+			ret = msm_gem_delayed_import(obj);
+			if (ret) {
+				DRM_ERROR("delayed dma-buf import failed %d\n",
+						ret);
+				goto unlock;
+			}
+		}
 
 		vma = add_vma(obj, aspace);
 		if (IS_ERR(vma)) {
@@ -1058,6 +1070,65 @@ struct drm_gem_object *msm_gem_new(struct drm_device *dev,
 	return _msm_gem_new(dev, size, flags, false);
 }
 
+int msm_gem_delayed_import(struct drm_gem_object *obj)
+{
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct msm_gem_object *msm_obj;
+	uint32_t size;
+	int npages;
+	int ret = 0;
+
+	if (!obj) {
+		DRM_ERROR("NULL drm gem object\n");
+		return -EINVAL;
+	}
+
+	msm_obj = to_msm_bo(obj);
+
+	if (!obj->import_attach) {
+		DRM_ERROR("NULL dma_buf_attachment in drm gem object\n");
+		return -EINVAL;
+	}
+
+	attach = obj->import_attach;
+	attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
+
+	if (msm_obj->flags & MSM_BO_SKIPSYNC)
+		attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
+	if (msm_obj->flags & MSM_BO_KEEPATTRS)
+		attach->dma_map_attrs |=
+				DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
+
+	/*
+	 * dma_buf_map_attachment will call dma_map_sg for ion buffer
+	 * mapping, and iova will get mapped when the function returns.
+	 */
+	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(sgt)) {
+		ret = PTR_ERR(sgt);
+		DRM_ERROR("dma_buf_map_attachment failure, err=%d\n",
+				ret);
+		goto fail_import;
+	}
+
+	size = PAGE_ALIGN(attach->dmabuf->size);
+	npages = size >> PAGE_SHIFT;
+
+	msm_obj->sgt = sgt;
+	ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages,
+			NULL, npages);
+	if (ret) {
+		DRM_ERROR("fail drm_prime_sg_to_page_addr_arrays, err=%d\n",
+				ret);
+		goto fail_import;
+	}
+
+fail_import:
+	return ret;
+}
+
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		struct dma_buf *dmabuf, struct sg_table *sgt)
 {
@@ -1065,6 +1136,7 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 	struct drm_gem_object *obj = NULL;
 	uint32_t size;
 	int ret, npages;
+	unsigned long flags = 0;
 
 	/* if we don't have IOMMU, don't bother pretending we can import: */
 	if (!iommu_present(&platform_bus_type)) {
@@ -1081,7 +1153,7 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 
 	drm_gem_private_object_init(dev, obj, size);
 
-	npages = size / PAGE_SIZE;
+	npages = size >> PAGE_SHIFT;
 
 	msm_obj = to_msm_bo(obj);
 	mutex_lock(&msm_obj->lock);
@@ -1093,10 +1165,31 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		goto fail;
 	}
 
-	ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages, NULL, npages);
+	/*
+	 * If sg table is NULL, user should call msm_gem_delayed_import to add
+	 * back the sg table to the drm gem object
+	 */
+	if (sgt) {
+		ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages,
+				NULL, npages);
+		if (ret) {
+			mutex_unlock(&msm_obj->lock);
+			goto fail;
+		}
+	} else {
+		msm_obj->flags |= MSM_BO_EXTBUF;
+	}
+
+	/*
+	 * For all uncached buffers, there is no need to perform cache
+	 * maintenance on dma map/unmap time.
+	 */
+	ret = dma_buf_get_flags(dmabuf, &flags);
 	if (ret) {
-		mutex_unlock(&msm_obj->lock);
-		goto fail;
+		DRM_ERROR("dma_buf_get_flags failure, err=%d\n", ret);
+	} else if ((flags & ION_FLAG_CACHED) == 0) {
+		DRM_DEBUG("Buffer is uncached type\n");
+		msm_obj->flags |= MSM_BO_SKIPSYNC;
 	}
 
 	mutex_unlock(&msm_obj->lock);

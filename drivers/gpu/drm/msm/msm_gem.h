@@ -24,7 +24,9 @@
 
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
-#define MSM_BO_KEEPATTRS     0x20000000     /* keep h/w bus attributes */
+#define MSM_BO_KEEPATTRS     0x20000000    /* keep h/w bus attributes */
+#define MSM_BO_SKIPSYNC      0x40000000    /* skip dmabuf cpu sync */
+#define MSM_BO_EXTBUF        0x80000000    /* indicate BO is an import buffer */
 
 struct msm_gem_object;
 
@@ -33,7 +35,7 @@ struct msm_gem_aspace_ops {
 		struct sg_table *sgt, int npages, unsigned int flags);
 
 	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt);
+		struct sg_table *sgt, unsigned int flags);
 
 	void (*destroy)(struct msm_gem_address_space *);
 	void (*add_to_active)(struct msm_gem_address_space *,

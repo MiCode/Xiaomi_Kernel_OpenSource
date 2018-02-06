@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -224,13 +224,17 @@ static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 		return -ENOMEM;
 	}
 
-	if (flags & MSM_BO_KEEPATTRS)
-		attrs |= DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
-
-	ret = dma_map_sg_attrs(client->dev, sgt->sgl, sgt->nents, dir, attrs);
-	if (ret != sgt->nents) {
-		DRM_ERROR("dma map sg failed\n");
-		return -ENOMEM;
+	/*
+	 * For import buffer type, dma_map_sg_attrs is called during
+	 * dma_buf_map_attachment and is not required to call again
+	 */
+	if (!(flags & MSM_BO_EXTBUF)) {
+		ret = dma_map_sg_attrs(client->dev, sgt->sgl, sgt->nents, dir,
+				attrs);
+		if (!ret) {
+			DRM_ERROR("dma map sg failed\n");
+			return -ENOMEM;
+		}
 	}
 
 	if (sgt && sgt->sgl) {
@@ -246,7 +250,7 @@ static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 
 
 static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
-		int dir)
+		int dir, u32 flags)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
@@ -264,7 +268,8 @@ static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 				dir);
 	}
 
-	dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir);
+	if (!(flags & MSM_BO_EXTBUF))
+		dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir);
 }
 
 static bool msm_smmu_is_domain_secure(struct msm_mmu *mmu)

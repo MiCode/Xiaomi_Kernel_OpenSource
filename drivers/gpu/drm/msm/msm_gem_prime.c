@@ -19,6 +19,7 @@
 #include "msm_gem.h"
 
 #include <linux/dma-buf.h>
+#include <linux/ion.h>
 
 struct sg_table *msm_gem_prime_get_sg_table(struct drm_gem_object *obj)
 {
@@ -83,9 +84,10 @@ struct drm_gem_object *msm_gem_prime_import(struct drm_device *dev,
 					    struct dma_buf *dma_buf)
 {
 	struct dma_buf_attachment *attach;
-	struct sg_table *sgt;
+	struct sg_table *sgt = NULL;
 	struct drm_gem_object *obj;
 	struct device *attach_dev;
+	unsigned long flags = 0;
 	int ret;
 
 	if (!dma_buf)
@@ -117,14 +119,32 @@ struct drm_gem_object *msm_gem_prime_import(struct drm_device *dev,
 
 	get_dma_buf(dma_buf);
 
-	attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
-	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR(sgt)) {
-		ret = PTR_ERR(sgt);
-		DRM_ERROR("dma_buf_map_attachment failure, err=%d\n", ret);
-		goto fail_detach;
+	/*
+	 * For cached buffers where CPU access is required, dma_map_attachment
+	 * must be called now to allow user-space to perform cpu sync begin/end
+	 * otherwise do delayed mapping during the commit.
+	 */
+	ret = dma_buf_get_flags(dma_buf, &flags);
+	if (ret) {
+		DRM_ERROR("dma_buf_get_flags failure, err=%d\n", ret);
+		goto fail_put;
+	} else if (flags & ION_FLAG_CACHED) {
+		attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
+		sgt = dma_buf_map_attachment(
+				attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR(sgt)) {
+			ret = PTR_ERR(sgt);
+			DRM_ERROR(
+			"dma_buf_map_attachment failure, err=%d\n",
+				ret);
+			goto fail_detach;
+		}
 	}
 
+	/*
+	 * If importing a NULL sg table (i.e. for uncached buffers),
+	 * create a drm gem object with only the dma buf attachment.
+	 */
 	obj = dev->driver->gem_prime_import_sg_table(dev, attach, sgt);
 	if (IS_ERR(obj)) {
 		ret = PTR_ERR(obj);
@@ -137,9 +157,11 @@ struct drm_gem_object *msm_gem_prime_import(struct drm_device *dev,
 	return obj;
 
 fail_unmap:
-	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+	if (sgt)
+		dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
 fail_detach:
 	dma_buf_detach(dma_buf, attach);
+fail_put:
 	dma_buf_put(dma_buf);
 
 	return ERR_PTR(ret);

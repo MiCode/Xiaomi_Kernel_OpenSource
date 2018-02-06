@@ -657,7 +657,8 @@ void msm_atomic_state_clear(struct drm_atomic_state *state);
 void msm_atomic_state_free(struct drm_atomic_state *state);
 
 void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt);
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		unsigned int flags);
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt, int npages,
 		unsigned int flags);
@@ -785,6 +786,7 @@ void *msm_gem_kernel_new_locked(struct drm_device *dev, uint32_t size,
 		struct drm_gem_object **bo, uint64_t *iova);
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		struct dma_buf *dmabuf, struct sg_table *sgt);
+int msm_gem_delayed_import(struct drm_gem_object *obj);
 
 void msm_framebuffer_set_kmap(struct drm_framebuffer *fb, bool enable);
 void msm_framebuffer_set_keepattrs(struct drm_framebuffer *fb, bool enable);
