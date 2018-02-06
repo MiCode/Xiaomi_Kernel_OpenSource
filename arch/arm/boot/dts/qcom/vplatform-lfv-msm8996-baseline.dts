@@ -13,57 +13,17 @@
 /dts-v1/;
 
 #include "skeleton64.dtsi"
+#include "vplatform-lfv-msm8996-common.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996";
 	compatible = "qcom,msm8996";
 	qcom,msm-id = <246 0x0>;
+};
 
-	psci {
-		compatible = "arm,psci-1.0";
-		method = "smc";
-	};
-
-	soc: soc {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		virtual-interrupt-parent = "gic";
-		ranges = <0 0 0 0xffffffff>;
-		compatible = "simple-bus";
-
-		qcom,mpm2-sleep-counter@4a3000 {
-			compatible = "qcom,mpm2-sleep-counter";
-			reg = <0x004a3000 0x1000>;
-			clock-frequency = <32768>;
-		};
-
-		qcom,msm-imem@66bf000 {
-			compatible = "qcom,msm-imem";
-			reg = <0x66bf000 0x1000>; /* Address and size of IMEM */
-			ranges = <0x0 0x66bf000 0x1000>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			boot_stats@6b0 {
-				compatible = "qcom,msm-imem-boot_stats";
-				reg = <0x6b0 32>;
-			};
-		};
-
-		wdog: qcom,wdt@9830000 {
-			compatible = "qcom,msm-watchdog";
-			reg = <0x9830000 0x1000>;
-			reg-names = "wdt-base";
-			interrupts = <0 28 0>, <0 29 0>;
-			qcom,bark-time = <11000>;
-			qcom,pet-time = <10000>;
-			qcom,ipi-ping;
-			qcom,wakeup-enable;
-		};
-
-		qcom,hab {
-			compatible = "qcom,hab";
-			vmid = <3>;
-		};
+&soc {
+	qcom,hab {
+		compatible = "qcom,hab";
+		vmid = <3>;
 	};
 };
