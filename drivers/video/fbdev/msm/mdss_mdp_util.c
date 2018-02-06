@@ -420,8 +420,8 @@ static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
 
 	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC ||
 		fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC) {
-		uint32_t y_stride_alignment, uv_stride_alignment;
-		uint32_t y_height_alignment, uv_height_alignment;
+		uint32_t y_stride_alignment = 0, uv_stride_alignment = 0;
+		uint32_t y_height_alignment = 0, uv_height_alignment = 0;
 		uint32_t y_tile_width = fmt_ubwc->micro.tile_width;
 		uint32_t y_tile_height = fmt_ubwc->micro.tile_height;
 		uint32_t uv_tile_width = y_tile_width / 2;
@@ -517,12 +517,11 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 	if (ps == NULL)
 		return -EINVAL;
 
-	memset(ps, 0, sizeof(struct mdss_mdp_plane_sizes));
-
 	if ((w > MAX_IMG_WIDTH) || (h > MAX_IMG_HEIGHT))
 		return -ERANGE;
 
 	bpp = fmt->bpp;
+	memset(ps, 0, sizeof(struct mdss_mdp_plane_sizes));
 
 	if (mdss_mdp_is_ubwc_format(fmt)) {
 		rc = mdss_mdp_get_ubwc_plane_size(fmt, w, h, ps);
@@ -1002,8 +1001,8 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 		}
 		data->srcp_f = f;
 
-		if (MAJOR(f.file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
-			fb_num = MINOR(f.file->f_dentry->d_inode->i_rdev);
+		if (MAJOR(f.file->f_path.dentry->d_inode->i_rdev) == FB_MAJOR) {
+			fb_num = MINOR(f.file->f_path.dentry->d_inode->i_rdev);
 			ret = mdss_fb_get_phys_info(start, len, fb_num);
 			if (ret)
 				pr_err("mdss_fb_get_phys_info() failed\n");
@@ -1051,7 +1050,7 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 			struct sg_table *sg_ptr = NULL;
 
 			do {
-				ihandle = ion_import_dma_buf(iclient,
+				ihandle = ion_import_dma_buf_fd(iclient,
 							     img->memory_id);
 				if (IS_ERR_OR_NULL(ihandle)) {
 					ret = -EINVAL;
@@ -1140,7 +1139,7 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 			ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
 					data->srcp_table, domain,
 					&data->addr, &data->len, dir);
-			if (IS_ERR_VALUE(ret)) {
+			if (IS_ERR_VALUE((unsigned long)ret)) {
 				pr_err("smmu map dma buf failed: (%d)\n", ret);
 				goto err_unmap;
 			}

@@ -1717,7 +1717,7 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 			lut_offset = mdata->scaler_off->dest_base +
 				mdata->scaler_off->dest_scaler_lut_off[id];
 			/*TODO : set pixel fmt to RGB101010 */
-			return -ENOTSUP;
+			return -ENOTSUPP;
 		} else {
 			return -EINVAL;
 		}

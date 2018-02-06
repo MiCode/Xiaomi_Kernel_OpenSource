@@ -13,7 +13,7 @@
 #ifndef __MDSS_HDMI_TX_H__
 #define __MDSS_HDMI_TX_H__
 
-#include <linux/switch.h>
+#include <linux/extcon.h>
 #include "mdss_hdmi_util.h"
 #include "mdss_hdmi_panel.h"
 #include "mdss_cec_core.h"
@@ -72,7 +72,7 @@ struct hdmi_tx_ctrl {
 	struct mutex tx_lock;
 	struct list_head cable_notify_handlers;
 	struct kobject *kobj;
-	struct switch_dev sdev;
+	struct extcon_dev sdev;
 	struct workqueue_struct *workq;
 	struct hdmi_util_ds_data ds_data;
 	struct completion hpd_int_done;

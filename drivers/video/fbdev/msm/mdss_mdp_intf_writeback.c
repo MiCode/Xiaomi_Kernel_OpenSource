@@ -794,7 +794,7 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
 
 	ret = mdss_iommu_ctrl(1);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		pr_err("IOMMU attach failed\n");
 		return ret;
 	}

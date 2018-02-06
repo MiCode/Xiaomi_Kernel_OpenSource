@@ -369,7 +369,7 @@ static inline void hdmi_tx_send_cable_notification(
 	}
 	state = hdmi_ctrl->sdev.state;
 
-	switch_set_state(&hdmi_ctrl->sdev, val);
+	extcon_set_state_sync(&hdmi_ctrl->sdev, EXTCON_DISP_HDMI, state);
 
 	DEV_INFO("%s: cable state %s %d\n", __func__,
 		hdmi_ctrl->sdev.state == state ?
@@ -2803,7 +2803,7 @@ static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hpd;
 }
 
-int msm_hdmi_register_audio_codec(struct platform_device *pdev,
+int msm_mdss_hdmi_register_audio_codec(struct platform_device *pdev,
 	struct msm_hdmi_audio_codec_ops *ops)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
@@ -2819,7 +2819,7 @@ int msm_hdmi_register_audio_codec(struct platform_device *pdev,
 
 	return 0;
 } /* hdmi_tx_audio_register */
-EXPORT_SYMBOL(msm_hdmi_register_audio_codec);
+EXPORT_SYMBOL(msm_mdss_hdmi_register_audio_codec);
 
 static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
@@ -3304,7 +3304,7 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->hdcp_ops = NULL;
 	hdmi_ctrl->hdcp_data = NULL;
 
-	switch_dev_unregister(&hdmi_ctrl->sdev);
+	extcon_dev_unregister(&hdmi_ctrl->sdev);
 	if (hdmi_ctrl->workq)
 		destroy_workqueue(hdmi_ctrl->workq);
 	mutex_destroy(&hdmi_ctrl->tx_lock);
@@ -3407,7 +3407,7 @@ static int hdmi_tx_init_switch_dev(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	hdmi_ctrl->sdev.name = "hdmi";
-	rc = switch_dev_register(&hdmi_ctrl->sdev);
+	rc = extcon_set_state_sync(&hdmi_ctrl->sdev, EXTCON_DISP_HDMI, false);
 	if (rc) {
 		DEV_ERR("%s: display switch registration failed\n", __func__);
 		goto end;
@@ -3581,7 +3581,7 @@ static int hdmi_tx_evt_handle_register(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return 0;
 
 primary_err:
-	switch_dev_unregister(&hdmi_ctrl->sdev);
+	extcon_dev_unregister(&hdmi_ctrl->sdev);
 switch_err:
 	hdmi_tx_deinit_features(hdmi_ctrl, HDMI_TX_FEAT_MAX);
 init_err:

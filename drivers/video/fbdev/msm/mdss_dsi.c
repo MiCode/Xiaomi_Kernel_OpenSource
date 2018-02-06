@@ -26,6 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/msm-bus.h>
 #include <linux/pm_qos.h>
+#include <linux/mdss_io_util.h>
 
 #include "mdss.h"
 #include "mdss_panel.h"
@@ -352,6 +353,13 @@ static int mdss_dsi_panel_power_lp(struct mdss_panel_data *pdata, int enable)
 	return 0;
 }
 
+int msm_dss_config_vreg_opt_mode(struct dss_vreg *in_vreg,
+	int num_vreg, enum dss_vreg_mode mode)
+{
+/* stub: FIX ME.Should be sourced from mdss_io_util.c */
+	return 0;
+}
+
 static int mdss_dsi_panel_power_ulp(struct mdss_panel_data *pdata,
 					int enable)
 {
@@ -405,7 +413,7 @@ static int mdss_dsi_panel_power_ulp(struct mdss_panel_data *pdata,
 int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	int power_state)
 {
-	int ret;
+	int ret = 0;
 	struct mdss_panel_info *pinfo;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
@@ -1033,9 +1041,9 @@ static int mdss_dsi_debugfs_setup(struct mdss_panel_data *pdata,
 			   &dfs->override_flag);
 
 	debugfs_create_bool("cmd_sync_wait_broadcast", 0644, dfs->root,
-			    (u32 *)&dfs_ctrl->cmd_sync_wait_broadcast);
+		&dfs_ctrl->cmd_sync_wait_broadcast);
 	debugfs_create_bool("cmd_sync_wait_trigger", 0644, dfs->root,
-			    (u32 *)&dfs_ctrl->cmd_sync_wait_trigger);
+		&dfs_ctrl->cmd_sync_wait_trigger);
 
 	debugfs_create_file("dsi_on_cmd_state", 0644, dfs->root,
 		&dfs_ctrl->on_cmds.link_state, &mdss_dsi_cmd_state_fop);
@@ -2028,7 +2036,7 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl_pdata = NULL;
-	struct mdss_panel_info *pinfo, *spinfo;
+	struct mdss_panel_info *pinfo, *spinfo = NULL;
 	int rc = 0;
 
 	if (pdata == NULL) {
@@ -3748,12 +3756,6 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
-	if (util->display_disabled) {
-		pr_info("%s: Display is disabled, not progressing with dsi probe\n",
-			__func__);
-		return -ENOTSUPP;
-	}
-
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("%s: DSI driver only supports device tree probe\n",
 			__func__);
@@ -3924,7 +3926,7 @@ static int mdss_dsi_irq_init(struct device *dev, int irq_no,
 	int ret;
 
 	ret = devm_request_irq(dev, irq_no, mdss_dsi_isr,
-				IRQF_DISABLED, "DSI", ctrl);
+				0, "DSI", ctrl);
 	if (ret) {
 		pr_err("msm_dsi_irq_init request_irq() failed!\n");
 		return ret;

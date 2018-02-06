@@ -196,7 +196,7 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 
 vreg_unconfig:
 if (type == DSS_REG_LDO)
-	regulator_set_optimum_mode(curr_vreg->vreg, 0);
+	regulator_set_load(curr_vreg->vreg, 0);
 
 vreg_set_voltage_fail:
 	regulator_put(curr_vreg->vreg);
@@ -237,7 +237,7 @@ int msm_dss_config_vreg_opt_mode(struct dss_vreg *in_vreg, int num_vreg,
 		DEV_DBG("%s: Setting optimum mode %d for %s (load=%d)\n",
 			__func__, mode, in_vreg[i].vreg_name,
 			in_vreg[i].load[mode]);
-		rc = regulator_set_optimum_mode(in_vreg[i].vreg,
+		rc = regulator_set_load(in_vreg[i].vreg,
 					in_vreg[i].load[mode]);
 		if (rc < 0) {
 			DEV_ERR("%pS->%s: %s set opt mode failed. rc=%d\n",
@@ -246,7 +246,7 @@ int msm_dss_config_vreg_opt_mode(struct dss_vreg *in_vreg, int num_vreg,
 			goto error;
 		} else {
 			/*
-			 * regulator_set_optimum_mode can return non-zero
+			 * regulator_set_load can return non-zero
 			 * value for success. However, this API is expected
 			 * to return 0 for success.
 			 */
@@ -277,7 +277,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 			if (in_vreg[i].pre_on_sleep && need_sleep)
 				usleep_range(in_vreg[i].pre_on_sleep * 1000,
 					in_vreg[i].pre_on_sleep * 1000);
-			rc = regulator_set_optimum_mode(in_vreg[i].vreg,
+			rc = regulator_set_load(in_vreg[i].vreg,
 				in_vreg[i].load[DSS_REG_MODE_ENABLE]);
 			if (rc < 0) {
 				DEV_ERR("%pS->%s: %s set opt m fail\n",
@@ -301,7 +301,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 			if (in_vreg[i].pre_off_sleep)
 				usleep_range(in_vreg[i].pre_off_sleep * 1000,
 					in_vreg[i].pre_off_sleep * 1000);
-			regulator_set_optimum_mode(in_vreg[i].vreg,
+			regulator_set_load(in_vreg[i].vreg,
 				in_vreg[i].load[DSS_REG_MODE_DISABLE]);
 
 			if (regulator_is_enabled(in_vreg[i].vreg))
@@ -315,7 +315,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 	return rc;
 
 disable_vreg:
-	regulator_set_optimum_mode(in_vreg[i].vreg,
+	regulator_set_load(in_vreg[i].vreg,
 					in_vreg[i].load[DSS_REG_MODE_DISABLE]);
 
 vreg_set_opt_mode_fail:
@@ -323,7 +323,7 @@ vreg_set_opt_mode_fail:
 		if (in_vreg[i].pre_off_sleep)
 			usleep_range(in_vreg[i].pre_off_sleep * 1000,
 				in_vreg[i].pre_off_sleep * 1000);
-		regulator_set_optimum_mode(in_vreg[i].vreg,
+		regulator_set_load(in_vreg[i].vreg,
 			in_vreg[i].load[DSS_REG_MODE_DISABLE]);
 		regulator_disable(in_vreg[i].vreg);
 		if (in_vreg[i].post_off_sleep)
