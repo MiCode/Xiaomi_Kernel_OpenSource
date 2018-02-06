@@ -69,6 +69,7 @@
 #define F_DIAG_DCI_EXTENDED_HEADER_SUPPORT	14
 #define F_DIAG_DIAGID_SUPPORT	15
 #define F_DIAG_PKT_HEADER_UNTAG			16
+#define F_DIAG_PD_BUFFERING		17
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
@@ -86,7 +87,8 @@
 #define ENABLE_PKT_HEADER_UNTAGGING		1
 #define DISABLE_PKT_HEADER_UNTAGGING	0
 
-#define DIAG_MODE_PKT_LEN	36
+#define DIAG_MODE_PKT_LEN		36
+#define DIAG_MODE_PKT_LEN_V2	37
 
 struct diag_ctrl_pkt_header_t {
 	uint32_t pkt_id;
@@ -172,6 +174,21 @@ struct diag_ctrl_msg_diagmode {
 	uint32_t event_stale_timer_val;
 } __packed;
 
+struct diag_ctrl_msg_diagmode_v2 {
+	uint32_t ctrl_pkt_id;
+	uint32_t ctrl_pkt_data_len;
+	uint32_t version;
+	uint32_t sleep_vote;
+	uint32_t real_time;
+	uint32_t use_nrt_values;
+	uint32_t commit_threshold;
+	uint32_t sleep_threshold;
+	uint32_t sleep_time;
+	uint32_t drain_timer_val;
+	uint32_t event_stale_timer_val;
+	uint8_t diag_id;
+} __packed;
+
 struct diag_ctrl_msg_stm {
 	uint32_t ctrl_pkt_id;
 	uint32_t ctrl_pkt_data_len;
@@ -250,6 +267,15 @@ struct diag_ctrl_peripheral_tx_mode {
 	uint8_t tx_mode;
 } __packed;
 
+struct diag_ctrl_peripheral_tx_mode_v2 {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint8_t diag_id;
+	uint8_t stream_id;
+	uint8_t tx_mode;
+} __packed;
+
 struct diag_ctrl_drain_immediate {
 	uint32_t pkt_id;
 	uint32_t len;
@@ -257,10 +283,28 @@ struct diag_ctrl_drain_immediate {
 	uint8_t stream_id;
 } __packed;
 
+struct diag_ctrl_drain_immediate_v2 {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint8_t diag_id;
+	uint8_t stream_id;
+} __packed;
+
 struct diag_ctrl_set_wq_val {
 	uint32_t pkt_id;
 	uint32_t len;
 	uint32_t version;
+	uint8_t stream_id;
+	uint8_t high_wm_val;
+	uint8_t low_wm_val;
+} __packed;
+
+struct diag_ctrl_set_wq_val_v2 {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint8_t diag_id;
 	uint8_t stream_id;
 	uint8_t high_wm_val;
 	uint8_t low_wm_val;
@@ -290,9 +334,10 @@ void diag_update_proc_vote(uint16_t proc, uint8_t vote, int index);
 void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index);
 void diag_real_time_work_fn(struct work_struct *work);
 int diag_send_stm_state(uint8_t peripheral, uint8_t stm_control_data);
-int diag_send_peripheral_drain_immediate(uint8_t peripheral);
+int diag_send_peripheral_drain_immediate(uint8_t pd,
+			uint8_t diag_id, int peripheral);
 int diag_send_buffering_tx_mode_pkt(uint8_t peripheral,
-				    struct diag_buffering_mode_t *params);
+		    uint8_t diag_id, struct diag_buffering_mode_t *params);
 int diag_send_buffering_wm_values(uint8_t peripheral,
-				  struct diag_buffering_mode_t *params);
+		    uint8_t diag_id, struct diag_buffering_mode_t *params);
 #endif
