@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,14 +191,16 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_ERR(CAM_SENSOR,
 				"Already some pkt in offset req : %lld",
 				csl_packet->header.request_id);
-			rc = delete_request(i2c_reg_settings);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-				"Failed in Deleting the err: %d", rc);
-				return rc;
-			}
+			/*
+			 * Update req mgr even in case of failure.
+			 * This will help not to wait indefinitely
+			 * and freeze. If this log is triggered then
+			 * fix it.
+			 */
+			cam_sensor_update_req_mgr(s_ctrl, csl_packet);
+			return 0;
 		}
-	break;
+		break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP: {
 		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||

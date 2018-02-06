@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@ enum cam_isp_ctx_activated_substate {
 	CAM_ISP_CTX_ACTIVATED_BUBBLE_APPLIED,
 	CAM_ISP_CTX_ACTIVATED_HW_ERROR,
 	CAM_ISP_CTX_ACTIVATED_HALT,
+	CAM_ISP_CTX_ACTIVATED_FLUSH,
 	CAM_ISP_CTX_ACTIVATED_MAX,
 };
 
@@ -116,6 +117,7 @@ struct cam_isp_ctx_req {
  * @subscribe_event:       The irq event mask that CRM subscribes to, IFE will
  *                         invoke CRM cb at those event.
  * @last_applied_req_id:   Last applied request id
+ * @frame_skip_count:      Number of frame to skip before change state
  *
  */
 struct cam_isp_context {
@@ -135,6 +137,7 @@ struct cam_isp_context {
 	int64_t                          reported_req_id;
 	uint32_t                         subscribe_event;
 	int64_t                          last_applied_req_id;
+	uint32_t                         frame_skip_count;
 };
 
 /**

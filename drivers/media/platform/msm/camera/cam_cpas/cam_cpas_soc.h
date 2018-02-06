@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,5 +61,7 @@ int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 int cam_cpas_soc_deinit_resources(struct cam_hw_soc_info *soc_info);
 int cam_cpas_soc_enable_resources(struct cam_hw_soc_info *soc_info,
 	enum cam_vote_level default_level);
-int cam_cpas_soc_disable_resources(struct cam_hw_soc_info *soc_info);
+int cam_cpas_soc_disable_resources(struct cam_hw_soc_info *soc_info,
+	bool disable_clocks, bool disble_irq);
+int cam_cpas_soc_disable_irq(struct cam_hw_soc_info *soc_info);
 #endif /* _CAM_CPAS_SOC_H_ */
