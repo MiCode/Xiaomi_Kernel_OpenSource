@@ -62,6 +62,17 @@ config REGULATOR_COOLING_DEVICE
 
 	  If you want this support, you should say Y here.
 
+config QTI_BCL_PMIC5
+	bool "BCL driver for BCL peripherals in PMIC5"
+	depends on SPMI && THERMAL_OF
+	help
+	  Say Y here to enable this BCL driver for PMIC5. This driver
+	  provides routines to configure and monitor the BCL
+	  PMIC peripheral. This driver registers the battery current and
+	  voltage sensors with the thermal core framework and can take
+	  threshold input and notify the thermal core when the threshold is
+	  reached.
+
 config MSM_BCL_PERIPHERAL_CTL
 	bool "BCL driver to control the PMIC BCL peripheral"
 	depends on SPMI && THERMAL_OF
