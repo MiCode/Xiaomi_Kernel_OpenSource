@@ -102,15 +102,6 @@ int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id, u32 clk_ctrl)
 		"wait failed for pipe halt:xin_id %u, clk_ctrl %u, rc %u\n",
 			xin_id, clk_ctrl, rc);
 		SDE_EVT32(xin_id, clk_ctrl, rc, SDE_EVTLOG_ERROR);
-		return rc;
-	}
-
-	status = vbif->ops.get_halt_ctrl(vbif, xin_id);
-	if (status == 0) {
-		SDE_ERROR("halt failed for pipe xin_id %u halt clk_ctrl %u\n",
-			       xin_id, clk_ctrl);
-		SDE_EVT32(xin_id, clk_ctrl, SDE_EVTLOG_ERROR);
-		return -ETIMEDOUT;
 	}
 
 	/* open xin client to enable transactions */
@@ -118,7 +109,7 @@ int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id, u32 clk_ctrl)
 	if (forced_on)
 		mdp->ops.setup_clk_force_ctrl(mdp, clk_ctrl, false);
 
-	return 0;
+	return rc;
 }
 
 /**

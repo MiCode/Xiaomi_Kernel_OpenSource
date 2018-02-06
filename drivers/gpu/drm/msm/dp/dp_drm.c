@@ -287,12 +287,11 @@ int dp_connector_pre_kickoff(struct drm_connector *connector,
 	return dp->pre_kickoff(dp, params->hdr_meta);
 }
 
-int dp_connector_post_init(struct drm_connector *connector,
-		void *info, void *display, struct msm_mode_info *mode_info)
+int dp_connector_post_init(struct drm_connector *connector, void *display)
 {
 	struct dp_display *dp_display = display;
 
-	if (!info || !dp_display)
+	if (!dp_display)
 		return -EINVAL;
 
 	dp_display->connector = connector;
@@ -509,9 +508,6 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 	debug = dp_disp->get_debug(dp_disp);
 
 	mode->vrefresh = drm_mode_vrefresh(mode);
-
-	if (mode->vrefresh > 60)
-		return MODE_BAD;
 
 	if (mode->clock > dp_disp->max_pclk_khz)
 		return MODE_BAD;

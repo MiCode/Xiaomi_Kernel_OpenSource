@@ -200,9 +200,13 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 	if (kstrtoint(buf, 10, &hpd) != 0)
 		goto end;
 
-	debug->usbpd->connect(debug->usbpd, hpd);
+	hpd &= 0x3;
+
+	debug->dp_debug.psm_enabled = !!(hpd & BIT(1));
+
+	debug->usbpd->simulate_connect(debug->usbpd, !!(hpd & BIT(0)));
 end:
-	return -len;
+	return len;
 }
 
 static ssize_t dp_debug_write_edid_modes(struct file *file,
@@ -666,7 +670,10 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 
 	dir = debugfs_create_dir(DEBUG_NAME, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
-		rc = PTR_ERR(dir);
+		if (!dir)
+			rc = -EINVAL;
+		else
+			rc = PTR_ERR(dir);
 		pr_err("[%s] debugfs create dir failed, rc = %d\n",
 		       DEBUG_NAME, rc);
 		goto error;
@@ -749,6 +756,8 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	return 0;
 
 error_remove_dir:
+	if (!file)
+		rc = -EINVAL;
 	debugfs_remove_recursive(dir);
 error:
 	return rc;
