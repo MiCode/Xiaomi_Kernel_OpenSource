@@ -15,6 +15,7 @@ Optional properties:
 - qcom,rpc-latency-us:	FastRPC QoS latency vote
 - qcom,adsp-remoteheap-vmid:  FastRPC remote heap VMID list
 - qcom,fastrpc-adsp-audio-pdr:  Flag to enable ADSP Audio PDR
+- qcom,fastrpc-adsp-sensors-pdr: Flag to enable Sensors PDR
 
 Optional subnodes:
 - qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context
@@ -25,12 +26,17 @@ Subnode Required properties:
 - iommus : 		A list of phandle and IOMMU specifier pairs that describe the
 			IOMMU master interfaces of the device
 
+Subnode Optional properties:
+- shared-cb : 		Present if context bank need to be shared
+
+
 Example:
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-adsp";
 		qcom,fastrpc-glink;
 		qcom,rpc-latency-us = <2343>;
 		qcom,adsp-remoteheap-vmid = <22 37>;
+		qcom,fastrpc-adsp-sensors-pdr;
 
 		qcom,msm_fastrpc_compute_cb_1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -41,6 +47,7 @@ Example:
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 9>,
+			shared-cb;
 		};
 	};
 
