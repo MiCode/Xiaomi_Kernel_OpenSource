@@ -393,6 +393,8 @@ struct mmc_card {
 /* Make sure CMDQ is empty before queuing DCMD */
 #define MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD (1 << 17)
 
+#define MMC_QUIRK_QCA9379_SETTINGS (1 << 18)	/* QCA9379 card settings*/
+
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */
  	unsigned int		pref_erase;	/* in sectors */
@@ -691,6 +693,11 @@ static inline bool mmc_enable_qca6574_settings(const struct mmc_card *c)
 static inline bool mmc_enable_qca9377_settings(const struct mmc_card *c)
 {
 	return c->quirks & MMC_QUIRK_QCA9377_SETTINGS;
+}
+
+static inline bool mmc_enable_qca9379_settings(const struct mmc_card *c)
+{
+	return c->quirks & MMC_QUIRK_QCA9379_SETTINGS;
 }
 
 #define mmc_card_name(c)	((c)->cid.prod_name)
