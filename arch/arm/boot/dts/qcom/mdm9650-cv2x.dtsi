@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,6 +102,7 @@
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&can_rst_on>;
 		pinctrl-1 = <&can_rst_off>;
+		status = "disabled";
 	};
 };
 
