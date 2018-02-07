@@ -1174,10 +1174,6 @@ static int a5xx_pm_resume(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
-
-	/* Restore all the counters before turning on the GPMU */
-	a5xx_counters_restore(gpu);
-
 	/* Turn the RBCCU domain first to limit the chances of voltage droop */
 	gpu_write(gpu, REG_A5XX_GPMU_RBCCU_POWER_CNTL, 0x778000);
 
@@ -1200,6 +1196,8 @@ static int a5xx_pm_resume(struct msm_gpu *gpu)
 	if (ret)
 		DRM_ERROR("%s: timeout waiting for SP GDSC enable\n",
 			gpu->name);
+
+	a5xx_counters_restore(gpu);
 
 	return ret;
 }
