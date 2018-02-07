@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -281,8 +281,11 @@ static void pack_rsp_and_send(unsigned char *buf, int len)
 		 * draining responses when we are in Memory Device Mode.
 		 */
 		if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE ||
-				driver->logging_mode == DIAG_MULTI_MODE)
+				driver->logging_mode == DIAG_MULTI_MODE) {
+			mutex_lock(&driver->md_session_lock);
 			chk_logging_wakeup();
+			mutex_unlock(&driver->md_session_lock);
+		}
 	}
 	if (driver->rsp_buf_busy) {
 		pr_err("diag: unable to get hold of response buffer\n");
@@ -350,8 +353,11 @@ static void encode_rsp_and_send(unsigned char *buf, int len)
 		 * draining responses when we are in Memory Device Mode.
 		 */
 		if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE ||
-				driver->logging_mode == DIAG_MULTI_MODE)
+				driver->logging_mode == DIAG_MULTI_MODE) {
+			mutex_lock(&driver->md_session_lock);
 			chk_logging_wakeup();
+			mutex_unlock(&driver->md_session_lock);
+		}
 	}
 
 	if (driver->rsp_buf_busy) {
@@ -387,12 +393,13 @@ void diag_send_rsp(unsigned char *buf, int len)
 	struct diag_md_session_t *session_info = NULL;
 	uint8_t hdlc_disabled;
 
+	mutex_lock(&driver->md_session_lock);
 	session_info = diag_md_session_get_peripheral(APPS_DATA);
 	if (session_info)
 		hdlc_disabled = session_info->hdlc_disabled;
 	else
 		hdlc_disabled = driver->hdlc_disabled;
-
+	mutex_unlock(&driver->md_session_lock);
 	if (hdlc_disabled)
 		pack_rsp_and_send(buf, len);
 	else
@@ -460,6 +467,7 @@ void diag_update_md_clients(unsigned int type)
 	int i, j;
 
 	mutex_lock(&driver->diagchar_mutex);
+	mutex_lock(&driver->md_session_lock);
 	for (i = 0; i < NUM_MD_SESSIONS; i++) {
 		if (driver->md_session_map[i] != NULL)
 			for (j = 0; j < driver->num_clients; j++) {
@@ -471,6 +479,7 @@ void diag_update_md_clients(unsigned int type)
 				}
 			}
 	}
+	mutex_unlock(&driver->md_session_lock);
 	wake_up_interruptible(&driver->wait_q);
 	mutex_unlock(&driver->diagchar_mutex);
 }
@@ -871,22 +880,22 @@ void diag_send_error_rsp(unsigned char *buf, int len)
 	diag_send_rsp(driver->apps_rsp_buf, len + 1);
 }
 
-int diag_process_apps_pkt(unsigned char *buf, int len,
-			struct diag_md_session_t *info)
+int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 {
-	int i;
+	int i, p_mask = 0;
 	int mask_ret;
 	int write_len = 0;
 	unsigned char *temp = NULL;
 	struct diag_cmd_reg_entry_t entry;
 	struct diag_cmd_reg_entry_t *temp_entry = NULL;
 	struct diag_cmd_reg_t *reg_item = NULL;
+	struct diag_md_session_t *info = NULL;
 
 	if (!buf)
 		return -EIO;
 
 	/* Check if the command is a supported mask command */
-	mask_ret = diag_process_apps_masks(buf, len, info);
+	mask_ret = diag_process_apps_masks(buf, len, pid);
 	if (mask_ret > 0) {
 		diag_send_rsp(driver->apps_rsp_buf, mask_ret);
 		return 0;
@@ -919,11 +928,15 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	if (temp_entry) {
 		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
 								entry);
+		mutex_lock(&driver->md_session_lock);
+		info = diag_md_session_get_pid(pid);
 		if (info) {
-			if (MD_PERIPHERAL_MASK(reg_item->proc) &
-				info->peripheral_mask)
+			p_mask = info->peripheral_mask;
+			mutex_unlock(&driver->md_session_lock);
+			if (MD_PERIPHERAL_MASK(reg_item->proc) & p_mask)
 				write_len = diag_send_data(reg_item, buf, len);
 		} else {
+			mutex_unlock(&driver->md_session_lock);
 			if (MD_PERIPHERAL_MASK(reg_item->proc) &
 				driver->logging_mask)
 				diag_send_error_rsp(buf, len);
@@ -1088,10 +1101,13 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 		 */
 		pr_debug("diag: In %s, disabling HDLC encoding\n",
 		       __func__);
+		mutex_lock(&driver->md_session_lock);
+		info = diag_md_session_get_pid(pid);
 		if (info)
 			info->hdlc_disabled = 1;
 		else
 			driver->hdlc_disabled = 1;
+		mutex_unlock(&driver->md_session_lock);
 		diag_update_md_clients(HDLC_SUPPORT_TYPE);
 		mutex_unlock(&driver->hdlc_disable_mutex);
 		return 0;
@@ -1105,8 +1121,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	return 0;
 }
 
-void diag_process_hdlc_pkt(void *data, unsigned len,
-			   struct diag_md_session_t *info)
+void diag_process_hdlc_pkt(void *data, unsigned len, int pid)
 {
 	int err = 0;
 	int ret = 0;
@@ -1166,7 +1181,7 @@ void diag_process_hdlc_pkt(void *data, unsigned len,
 		}
 
 		err = diag_process_apps_pkt(driver->hdlc_buf,
-					    driver->hdlc_buf_len, info);
+					    driver->hdlc_buf_len, pid);
 		if (err < 0)
 			goto fail;
 	} else {
@@ -1280,9 +1295,11 @@ static int diagfwd_mux_close(int id, int mode)
 
 static uint8_t hdlc_reset;
 
-static void hdlc_reset_timer_start(struct diag_md_session_t *info)
+static void hdlc_reset_timer_start(int pid)
 {
+	struct diag_md_session_t *info = NULL;
 	mutex_lock(&driver->md_session_lock);
+	info = diag_md_session_get_pid(pid);
 	if (!hdlc_timer_in_progress) {
 		hdlc_timer_in_progress = 1;
 		if (info)
@@ -1324,15 +1341,16 @@ void diag_md_hdlc_reset_timer_func(unsigned long pid)
 }
 
 static void diag_hdlc_start_recovery(unsigned char *buf, int len,
-				     struct diag_md_session_t *info)
+				     int pid)
 {
 	int i;
 	static uint32_t bad_byte_counter;
 	unsigned char *start_ptr = NULL;
 	struct diag_pkt_frame_t *actual_pkt = NULL;
+	struct diag_md_session_t *info = NULL;
 
 	hdlc_reset = 1;
-	hdlc_reset_timer_start(info);
+	hdlc_reset_timer_start(pid);
 
 	actual_pkt = (struct diag_pkt_frame_t *)buf;
 	for (i = 0; i < len; i++) {
@@ -1351,10 +1369,13 @@ static void diag_hdlc_start_recovery(unsigned char *buf, int len,
 			pr_err("diag: In %s, re-enabling HDLC encoding\n",
 					__func__);
 			mutex_lock(&driver->hdlc_disable_mutex);
+			mutex_lock(&driver->md_session_lock);
+			info = diag_md_session_get_pid(pid);
 			if (info)
 				info->hdlc_disabled = 0;
 			else
 				driver->hdlc_disabled = 0;
+			mutex_unlock(&driver->md_session_lock);
 			mutex_unlock(&driver->hdlc_disable_mutex);
 			diag_update_md_clients(HDLC_SUPPORT_TYPE);
 
@@ -1367,12 +1388,11 @@ static void diag_hdlc_start_recovery(unsigned char *buf, int len,
 		mutex_lock(&driver->hdlc_recovery_mutex);
 		driver->incoming_pkt.processing = 0;
 		mutex_unlock(&driver->hdlc_recovery_mutex);
-		diag_process_non_hdlc_pkt(start_ptr, len - i, info);
+		diag_process_non_hdlc_pkt(start_ptr, len - i, pid);
 	}
 }
 
-void diag_process_non_hdlc_pkt(unsigned char *buf, int len,
-			       struct diag_md_session_t *info)
+void diag_process_non_hdlc_pkt(unsigned char *buf, int len, int pid)
 {
 	int err = 0;
 	uint16_t pkt_len = 0;
@@ -1428,11 +1448,11 @@ void diag_process_non_hdlc_pkt(unsigned char *buf, int len,
 		if (*(uint8_t *)(data_ptr + actual_pkt->length) !=
 						CONTROL_CHAR) {
 			mutex_unlock(&driver->hdlc_recovery_mutex);
-			diag_hdlc_start_recovery(buf, len, info);
+			diag_hdlc_start_recovery(buf, len, pid);
 			mutex_lock(&driver->hdlc_recovery_mutex);
 		}
 		err = diag_process_apps_pkt(data_ptr,
-					    actual_pkt->length, info);
+					    actual_pkt->length, pid);
 		if (err) {
 			pr_err("diag: In %s, unable to process incoming data packet, err: %d\n",
 			       __func__, err);
@@ -1454,7 +1474,7 @@ start:
 		pkt_len = actual_pkt->length;
 
 		if (actual_pkt->start != CONTROL_CHAR) {
-			diag_hdlc_start_recovery(buf, len, info);
+			diag_hdlc_start_recovery(buf, len, pid);
 			diag_send_error_rsp(buf, len);
 			goto end;
 		}
@@ -1463,7 +1483,7 @@ start:
 			pr_err("diag: In %s, incoming data is too large for the request buffer %d\n",
 			       __func__, pkt_len);
 			mutex_unlock(&driver->hdlc_recovery_mutex);
-			diag_hdlc_start_recovery(buf, len, info);
+			diag_hdlc_start_recovery(buf, len, pid);
 			break;
 		}
 		if ((pkt_len + header_len) > (len - read_bytes)) {
@@ -1480,13 +1500,13 @@ start:
 		if (*(uint8_t *)(data_ptr + actual_pkt->length) !=
 						CONTROL_CHAR) {
 			mutex_unlock(&driver->hdlc_recovery_mutex);
-			diag_hdlc_start_recovery(buf, len, info);
+			diag_hdlc_start_recovery(buf, len, pid);
 			mutex_lock(&driver->hdlc_recovery_mutex);
 		}
 		else
 			hdlc_reset = 0;
 		err = diag_process_apps_pkt(data_ptr,
-					    actual_pkt->length, info);
+					    actual_pkt->length, pid);
 		if (err) {
 			mutex_unlock(&driver->hdlc_recovery_mutex);
 			break;
@@ -1505,9 +1525,9 @@ static int diagfwd_mux_read_done(unsigned char *buf, int len, int ctxt)
 		return -EINVAL;
 
 	if (!driver->hdlc_disabled)
-		diag_process_hdlc_pkt(buf, len, NULL);
+		diag_process_hdlc_pkt(buf, len, 0);
 	else
-		diag_process_non_hdlc_pkt(buf, len, NULL);
+		diag_process_non_hdlc_pkt(buf, len, 0);
 
 	diag_mux_queue_read(ctxt);
 	return 0;
