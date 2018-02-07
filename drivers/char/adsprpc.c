@@ -66,6 +66,9 @@
 #define AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME   "audio_pdr_adsprpc"
 #define AUDIO_PDR_ADSP_SERVICE_NAME              "avs/audio"
 
+#define SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME   "sensors_pdr_adsprpc"
+#define SENSORS_PDR_ADSP_SERVICE_NAME              "tms/servreg"
+
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
 #define NUM_CHANNELS	4	/* adsp, mdsp, slpi, cdsp*/
@@ -122,7 +125,7 @@
 			(int64_t *)(perf_ptr + offset)\
 				: (int64_t *)NULL) : (int64_t *)NULL)
 
-static int fastrpc_audio_pdr_notifier_cb(struct notifier_block *nb,
+static int fastrpc_pdr_notifier_cb(struct notifier_block *nb,
 					unsigned long code,
 					void *data);
 static struct dentry *debugfs_root;
@@ -382,7 +385,13 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.spdname =
 					AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
 				.pdrnb.notifier_call =
-						fastrpc_audio_pdr_notifier_cb,
+						fastrpc_pdr_notifier_cb,
+			},
+			{
+				.spdname =
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				.pdrnb.notifier_call =
+						fastrpc_pdr_notifier_cb,
 			}
 		},
 	},
@@ -1848,7 +1857,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	VERIFY(err, 0 == (err = fastrpc_channel_open(fl)));
 	if (err)
 		goto bail;
-	if (init->flags == FASTRPC_INIT_ATTACH) {
+	if (init->flags == FASTRPC_INIT_ATTACH ||
+			init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
 		remote_arg_t ra[1];
 		int tgid = fl->tgid;
 
@@ -1860,7 +1870,12 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		ioctl.fds = NULL;
 		ioctl.attrs = NULL;
 		ioctl.crc = NULL;
-		fl->pd = 0;
+		if (init->flags == FASTRPC_INIT_ATTACH)
+			fl->pd = 0;
+		else if (init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
+			fl->spdname = SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME;
+			fl->pd = 2;
+		}
 		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
 			FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 		if (err)
@@ -1970,6 +1985,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 
+		fl->pd = 1;
 		inbuf.pgid = current->tgid;
 		inbuf.namelen = init->filelen;
 		inbuf.pageslen = 0;
@@ -2547,7 +2563,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (err)
 		goto bail;
 
-	VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp->ctx & ~1)) &&
+	VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp->ctx & ~3)) &&
 		me->ctxtable[index]->magic == FASTRPC_CTX_MAGIC));
 	if (err)
 		goto bail;
@@ -3199,7 +3215,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-static int fastrpc_audio_pdr_notifier_cb(struct notifier_block *pdrnb,
+static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 					unsigned long code,
 					void *data)
 {
@@ -3232,28 +3248,50 @@ static int fastrpc_audio_pdr_notifier_cb(struct notifier_block *pdrnb,
 }
 
 static int fastrpc_get_service_location_notify(struct notifier_block *nb,
-					     unsigned long opcode, void *data)
+				unsigned long opcode, void *data)
 {
 	struct fastrpc_static_pd *spd;
 	struct pd_qmi_client_data *pdr = data;
-	int curr_state = 0;
+	int curr_state = 0, i = 0;
 
 	spd = container_of(nb, struct fastrpc_static_pd, get_service_nb);
 	if (opcode == LOCATOR_DOWN) {
 		pr_err("ADSPRPC: Audio PD restart notifier locator down\n");
 		return NOTIFY_DONE;
 	}
+	for (i = 0; i < pdr->total_domains; i++) {
+		if ((!strcmp(spd->spdname, "audio_pdr_adsprpc"))
+					&& (!strcmp(pdr->domain_list[i].name,
+						"msm/adsp/audio_pd"))) {
+			goto pdr_register;
+		} else if ((!strcmp(spd->spdname, "sensors_pdr_adsprpc"))
+					&& (!strcmp(pdr->domain_list[i].name,
+						"msm/adsp/sensor_pd"))) {
+			goto pdr_register;
+		}
+	}
+	return NOTIFY_DONE;
 
-	if (pdr->total_domains == 1) {
-		spd->pdrhandle = service_notif_register_notifier(
-				pdr->domain_list[0].name,
-				pdr->domain_list[0].instance_id,
-				&spd->pdrnb, &curr_state);
-		if (IS_ERR(spd->pdrhandle))
-			pr_err("ADSPRPC: Unable to register notifier\n");
-	} else
-		pr_err("ADSPRPC: Service returned invalid domains\n");
+pdr_register:
+	if (!spd->pdrhandle) {
+		spd->pdrhandle =
+			service_notif_register_notifier(
+			pdr->domain_list[i].name,
+			pdr->domain_list[i].instance_id,
+			&spd->pdrnb, &curr_state);
+	} else {
+		pr_err("ADSPRPC: %s is already registered\n", spd->spdname);
+	}
 
+	if (IS_ERR(spd->pdrhandle))
+		pr_err("ADSPRPC: Unable to register notifier\n");
+
+	if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
+		pr_info("ADSPRPC: %s is up\n", spd->spdname);
+		spd->ispdup = 1;
+	} else if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01) {
+		pr_info("ADSPRPC: %s is uninitialzed\n", spd->spdname);
+	}
 	return NOTIFY_DONE;
 }
 
@@ -3525,6 +3563,24 @@ static int fastrpc_probe(struct platform_device *pdev)
 		ret = get_service_location(
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
 				AUDIO_PDR_ADSP_SERVICE_NAME,
+				&me->channel[0].spd[session].get_service_nb);
+		if (ret)
+			pr_err("ADSPRPC: Get service location failed: %d\n",
+								ret);
+	}
+	if (of_property_read_bool(dev->of_node,
+					"qcom,fastrpc-adsp-sensors-pdr")) {
+		int session;
+
+		VERIFY(err, !fastrpc_get_adsp_session(
+			SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME, &session));
+		if (err)
+			goto spdbail;
+		me->channel[0].spd[session].get_service_nb.notifier_call =
+					fastrpc_get_service_location_notify;
+		ret = get_service_location(
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				SENSORS_PDR_ADSP_SERVICE_NAME,
 				&me->channel[0].spd[session].get_service_nb);
 		if (ret)
 			pr_err("ADSPRPC: Get service location failed: %d\n",
