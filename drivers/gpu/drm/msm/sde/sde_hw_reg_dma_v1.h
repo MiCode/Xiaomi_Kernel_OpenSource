@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,12 @@
  * @reg_dma - reg_dma hw info structure exposing capabilities.
  */
 int init_v1(struct sde_hw_reg_dma *reg_dma);
+
+/**
+ * init_v11() - initialize the reg dma v11 driver by installing v11 ops
+ * @reg_dma - reg_dma hw info structure exposing capabilities.
+ */
+int init_v11(struct sde_hw_reg_dma *reg_dma);
 
 /**
  * deinit_v1() - free up any resources allocated during the v1 reg dma init
