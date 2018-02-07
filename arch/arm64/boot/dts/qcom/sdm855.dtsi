@@ -2397,7 +2397,7 @@
 		#mbox-cells = <1>;
 	};
 
-	qmp_npu1: qcom,qmp-npu-high@9818200 {
+	qmp_npu1: qcom,qmp-npu-high@981a000 {
 		compatible = "qcom,qmp-mbox";
 		reg = <0x9818000 0x8000>, <0x17c00010 0x4>;
 		reg-names = "msgram", "irq-reg-base";
@@ -2406,7 +2406,7 @@
 
 		label = "npu_qmp_high";
 		priority = <1>;
-		mbox-desc-offset = <0x200>;
+		mbox-desc-offset = <0x2000>;
 		#mbox-cells = <1>;
 	};
 
