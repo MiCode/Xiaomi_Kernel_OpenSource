@@ -19,10 +19,10 @@
 };
 
 &soc {
-	audio_load_mod {
-		compatible = "qcom,audio-load-mod";
-		audio_test_mod {
-			compatible = "qcom,audio-test-mod";
+	qcom,msm-audio-apr {
+		compatible = "qcom,msm-audio-apr";
+		msm_audio_apr_dummy {
+			compatible = "qcom,msm-audio-apr-dummy";
 		};
 	};
 
