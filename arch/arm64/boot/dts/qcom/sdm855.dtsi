@@ -1705,6 +1705,26 @@
 			transport = "spi";
 			tx-descriptors = <0x12000 0x12004>;
 			rx-descriptors = <0x1200c 0x12010>;
+
+			wdsp_ctrl {
+				qcom,glink-channels = "g_glink_ctrl";
+				intents = <0x400 1>;
+			};
+
+			wdsp_ild {
+				qcom,glink-channels =
+					"g_glink_persistent_data_ild";
+			};
+
+			wdsp_nild {
+				qcom,glink-channels =
+					"g_glink_persistent_data_nild";
+			};
+
+			wdsp_data {
+				qcom,glink-channels = "g_glink_audio_data";
+				intents = <0x1000 2>;
+			};
 		};
 	};
 
