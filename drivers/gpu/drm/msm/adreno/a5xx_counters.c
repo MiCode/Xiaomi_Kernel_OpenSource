@@ -355,13 +355,13 @@ static struct adreno_counter a5xx_counters_alwayson[1] = {
 
 static struct adreno_counter a5xx_counters_ccu[] = {
 	{ REG_A5XX_RBBM_PERFCTR_CCU_0_LO, REG_A5XX_RBBM_PERFCTR_CCU_0_HI,
-		REG_A5XX_RB_PERFCTR_CCU_SEL_0 },
+		REG_A5XX_RB_PERFCTR_CCU_SEL_0, 40 },
 	{ REG_A5XX_RBBM_PERFCTR_CCU_1_LO, REG_A5XX_RBBM_PERFCTR_CCU_1_HI,
-		REG_A5XX_RB_PERFCTR_CCU_SEL_1 },
+		REG_A5XX_RB_PERFCTR_CCU_SEL_1, 41 },
 	{ REG_A5XX_RBBM_PERFCTR_CCU_2_LO, REG_A5XX_RBBM_PERFCTR_CCU_2_HI,
-		REG_A5XX_RB_PERFCTR_CCU_SEL_2 },
+		REG_A5XX_RB_PERFCTR_CCU_SEL_2, 42 },
 	{ REG_A5XX_RBBM_PERFCTR_CCU_3_LO, REG_A5XX_RBBM_PERFCTR_CCU_3_HI,
-		REG_A5XX_RB_PERFCTR_CCU_SEL_3 },
+		REG_A5XX_RB_PERFCTR_CCU_SEL_3, 43 },
 };
 
 static struct adreno_counter a5xx_counters_cmp[] = {
@@ -599,9 +599,9 @@ static struct adreno_counter a5xx_counters_vsc[] = {
 
 static struct adreno_counter a5xx_counters_power_ccu[] = {
 	{ REG_A5XX_CCU_POWER_COUNTER_0_LO, REG_A5XX_CCU_POWER_COUNTER_0_HI,
-		REG_A5XX_RB_POWERCTR_CCU_SEL_0, 40 },
+		REG_A5XX_RB_POWERCTR_CCU_SEL_0 },
 	{ REG_A5XX_CCU_POWER_COUNTER_1_LO, REG_A5XX_CCU_POWER_COUNTER_1_HI,
-		REG_A5XX_RB_POWERCTR_CCU_SEL_1, 41 },
+		REG_A5XX_RB_POWERCTR_CCU_SEL_1 },
 };
 
 static struct adreno_counter a5xx_counters_power_cp[] = {
