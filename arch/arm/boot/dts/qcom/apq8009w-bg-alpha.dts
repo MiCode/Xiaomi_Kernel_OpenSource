@@ -194,6 +194,33 @@
 	status = "disabled";
 };
 
+&sdc1_clk_off {
+	config {
+		pins = "sdc1_clk";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
+&sdc1_cmd_off {
+	config {
+		pins = "sdc1_cmd";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
+&sdc1_data_off {
+	config {
+		pins = "sdc1_data";
+		bias-disable; /* NO pull */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
 &sdhc_2 {
 	status = "disabled";
 };
