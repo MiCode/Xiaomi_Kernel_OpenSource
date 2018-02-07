@@ -359,6 +359,7 @@ static int ssr_bg_cb(struct notifier_block *this,
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		bge.e_type = BG_AFTER_POWER_UP;
+		bgcom_set_spi_state(BGCOM_SPI_FREE);
 		send_uevent(&bge);
 		break;
 	}
