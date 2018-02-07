@@ -1873,7 +1873,7 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 
 	p->cpu_cycles = cur_cycles;
 
-	trace_sched_get_task_cpu_cycles(cpu, event, rq->cc.cycles, rq->cc.time);
+	trace_sched_get_task_cpu_cycles(cpu, event, rq->cc.cycles, rq->cc.time, p);
 }
 
 static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
@@ -2805,7 +2805,7 @@ static unsigned long thermal_cap_cpu[NR_CPUS];
 
 unsigned long thermal_cap(int cpu)
 {
-	return thermal_cap_cpu[cpu] ?: cpu_rq(cpu)->cpu_capacity_orig;
+	return thermal_cap_cpu[cpu] ?: SCHED_CAPACITY_SCALE;
 }
 
 unsigned long do_thermal_cap(int cpu, unsigned long thermal_max_freq)
@@ -3033,7 +3033,7 @@ int walt_proc_update_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos)
 {
-	int ret, cpu;
+	int ret;
 	unsigned int *data = (unsigned int *)table->data;
 	static DEFINE_MUTEX(mutex);
 

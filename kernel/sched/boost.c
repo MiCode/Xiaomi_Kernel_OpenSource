@@ -44,7 +44,7 @@ static void boost_kick_cpus(void)
 	if (boost_policy != SCHED_BOOST_ON_BIG)
 		return;
 
-	cpumask_copy(&kick_mask, cpu_online_mask);
+	cpumask_andnot(&kick_mask, cpu_online_mask, cpu_isolated_mask);
 
 	for_each_cpu(i, &kick_mask) {
 		if (cpu_capacity(i) != max_capacity)
