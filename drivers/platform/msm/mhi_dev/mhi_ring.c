@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,9 +71,7 @@ int mhi_dev_fetch_ring_elements(struct mhi_dev_ring *ring,
 			host_addr.device_va = ring->ring_shadow.device_va;
 			host_addr.host_pa = ring->ring_shadow.host_pa;
 			host_addr.virt_addr = &ring->ring_cache[0];
-			host_addr.phy_addr = (ring->ring_cache_dma_handle +
-				sizeof(union mhi_dev_ring_element_type) *
-				start);
+			host_addr.phy_addr = ring->ring_cache_dma_handle;
 			host_addr.size = (end *
 				sizeof(union mhi_dev_ring_element_type));
 			mhi_dev_read_from_host(ring->mhi_dev, &host_addr);
@@ -386,7 +384,7 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 
 	ring->ring_ctx_shadow = ring->ring_ctx;
 
-	if (ring->type != RING_TYPE_ER) {
+	if (ring->type != RING_TYPE_ER || ring->type != RING_TYPE_CH) {
 		rc = mhi_dev_cache_ring(ring, wr_offset);
 		if (rc)
 			return rc;
