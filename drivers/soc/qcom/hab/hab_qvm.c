@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -375,12 +375,12 @@ static void hab_shmem_shutdown(struct platform_device *pdev)
 	int i;
 	struct qvm_channel *dev;
 	struct physical_channel *pchan;
-	struct hab_device hab_dev;
+	struct hab_device *hab_dev;
 
 	for (i = 0; i < hab_driver.ndevices; i++) {
-		hab_dev = hab_driver.devp[i];
-		pr_debug("detaching %s\n", hab_dev.name);
-		list_for_each_entry(pchan, &hab_dev.pchannels, node) {
+		hab_dev = &hab_driver.devp[i];
+		pr_debug("detaching %s\n", hab_dev->name);
+		list_for_each_entry(pchan, &hab_dev->pchannels, node) {
 			dev = (struct qvm_channel *)pchan->hyp_data;
 			dev->guest_ctrl->detach = 0;
 		}
