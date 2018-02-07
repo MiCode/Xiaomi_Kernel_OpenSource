@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -140,6 +140,7 @@ struct cam_iommu_cb_set {
 	struct work_struct smmu_work;
 	struct mutex payload_list_lock;
 	struct list_head payload_list;
+	u32 non_fatal_fault;
 };
 
 static const struct of_device_id msm_cam_smmu_dt_match[] = {
@@ -2902,6 +2903,15 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 			rc = -ENODEV;
 			goto end;
 		}
+
+		iommu_cb_set.non_fatal_fault = 1;
+		if (iommu_domain_set_attr(cb->mapping->domain,
+			DOMAIN_ATTR_NON_FATAL_FAULTS,
+			&iommu_cb_set.non_fatal_fault) < 0) {
+			CAM_ERR(CAM_SMMU,
+				"Error: failed to set non fatal fault attribute");
+		}
+
 	} else {
 		CAM_ERR(CAM_SMMU, "Context bank does not have IO region");
 		rc = -ENODEV;
