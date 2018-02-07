@@ -815,11 +815,9 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 	if (rc)
 		goto end;
 
-	if (ctx->ctxt_to_hw_map) {
-		rc = cam_context_flush_ctx_to_hw(ctx);
-		if (rc)
-			goto end;
-	}
+	rc = cam_context_flush_ctx_to_hw(ctx);
+	if (rc)
+		goto end;
 
 	/* stop hw first */
 	if (ctx->hw_mgr_intf->hw_stop) {
