@@ -1760,11 +1760,13 @@ static void wiphy_update_regulatory(struct wiphy *wiphy,
 	if (ignore_reg_update(wiphy, initiator)) {
 		/*
 		 * Regulatory updates set by CORE are ignored for custom
-		 * regulatory cards. Let us notify the changes to the driver,
+		 * regulatory cards and for self managed regulatory.
+		 * Let us notify the changes to the driver,
 		 * as some drivers used this to restore its orig_* reg domain.
 		 */
-		if (initiator == NL80211_REGDOM_SET_BY_CORE &&
-		    wiphy->regulatory_flags & REGULATORY_CUSTOM_REG)
+		if ((initiator == NL80211_REGDOM_SET_BY_CORE &&
+		     wiphy->regulatory_flags & REGULATORY_CUSTOM_REG) ||
+		    (wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED))
 			reg_call_notifier(wiphy, lr);
 		return;
 	}
