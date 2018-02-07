@@ -916,6 +916,22 @@
  *	does not result in a change for the current association. Currently,
  *	only the %NL80211_ATTR_IE data is used and updated with this command.
  *
+ * @NL80211_CMD_SET_PMK: For offloaded 4-Way handshake, set the PMK or PMK-R0
+ *	for the given authenticator address (specified with &NL80211_ATTR_MAC).
+ *	When &NL80211_ATTR_PMKR0_NAME is set, &NL80211_ATTR_PMK specifies the
+ *	PMK-R0, otherwise it specifies the PMK.
+ * @NL80211_CMD_DEL_PMK: For offloaded 4-Way handshake, delete the previously
+ *	configured PMK for the authenticator address identified by
+ *	&NL80211_ATTR_MAC.
+ * @NL80211_CMD_PORT_AUTHORIZED: An event that indicates that the 4 way
+ *	handshake was completed successfully by the driver. The BSSID is
+ *	specified with &NL80211_ATTR_MAC. Drivers that support 4 way handshake
+ *	offload should send this event after indicating 802.11 association with
+ *	&NL80211_CMD_CONNECT or &NL80211_CMD_ROAM. If the 4 way handshake failed
+ *	&NL80211_CMD_DISCONNECT should be indicated instead.
+ *
+ * @NL80211_CMD_RELOAD_REGDB: Request that the regdb firmware file is reloaded.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -1114,6 +1130,13 @@ enum nl80211_commands {
 	NL80211_CMD_SET_MULTICAST_TO_UNICAST,
 
 	NL80211_CMD_UPDATE_CONNECT_PARAMS,
+
+	NL80211_CMD_SET_PMK,
+	NL80211_CMD_DEL_PMK,
+
+	NL80211_CMD_PORT_AUTHORIZED,
+
+	NL80211_CMD_RELOAD_REGDB,
 
 	/* add new commands above here */
 
@@ -2036,6 +2059,20 @@ enum nl80211_commands {
  * @NL80211_ATTR_PMK: PMK for the PMKSA identified by %NL80211_ATTR_PMKID.
  *	This is used with @NL80211_CMD_SET_PMKSA.
  *
+ * @NL80211_ATTR_SCHED_SCAN_MULTI: flag attribute which user-space shall use to
+ *	indicate that it supports multiple active scheduled scan requests.
+ * @NL80211_ATTR_SCHED_SCAN_MAX_REQS: indicates maximum number of scheduled
+ *	scan request that may be active for the device (u32).
+ *
+ * @NL80211_ATTR_WANT_1X_4WAY_HS: flag attribute which user-space can include
+ *	in %NL80211_CMD_CONNECT to indicate that for 802.1X authentication it
+ *	wants to use the supported offload of the 4-way handshake.
+ * @NL80211_ATTR_PMKR0_NAME: PMK-R0 Name for offloaded FT.
+ * @NL80211_ATTR_PORT_AUTHORIZED: flag attribute used in %NL80211_CMD_ROAMED
+ *	notification indicating that that 802.1X authentication was done by
+ *	the driver or is not needed (because roaming used the Fast Transition
+ *	protocol).
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -2454,6 +2491,13 @@ enum nl80211_attrs {
 	NL80211_ATTR_FILS_CACHE_ID,
 
 	NL80211_ATTR_PMK,
+
+	NL80211_ATTR_SCHED_SCAN_MULTI,
+	NL80211_ATTR_SCHED_SCAN_MAX_REQS,
+
+	NL80211_ATTR_WANT_1X_4WAY_HS,
+	NL80211_ATTR_PMKR0_NAME,
+	NL80211_ATTR_PORT_AUTHORIZED,
 
 	/* add attributes here, update the policy in nl80211.c */
 
