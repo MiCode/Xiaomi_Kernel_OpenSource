@@ -3704,6 +3704,7 @@ void ath10k_mgmt_over_wmi_tx_work(struct work_struct *work)
 {
 	struct ath10k *ar = container_of(work, struct ath10k, wmi_mgmt_tx_work);
 	struct sk_buff *skb;
+	dma_addr_t paddr;
 	int ret;
 
 	for (;;) {
@@ -3711,11 +3712,26 @@ void ath10k_mgmt_over_wmi_tx_work(struct work_struct *work)
 		if (!skb)
 			break;
 
-		ret = ath10k_wmi_mgmt_tx(ar, skb);
-		if (ret) {
-			ath10k_warn(ar, "failed to transmit management frame via WMI: %d\n",
-				    ret);
-			ieee80211_free_txskb(ar->hw, skb);
+		if (QCA_REV_WCN3990(ar)) {
+			paddr = dma_map_single(ar->dev, skb->data,
+					       skb->len, DMA_TO_DEVICE);
+			if (!paddr)
+				continue;
+			ret = ath10k_wmi_mgmt_tx_send(ar, skb, paddr);
+			if (ret) {
+				ath10k_warn(ar, "failed to transmit management frame by ref via WMI: %d\n",
+					    ret);
+				dma_unmap_single(ar->dev, paddr, skb->len,
+						 DMA_FROM_DEVICE);
+				ieee80211_free_txskb(ar->hw, skb);
+			}
+		} else {
+			ret = ath10k_wmi_mgmt_tx(ar, skb);
+			if (ret) {
+				ath10k_warn(ar, "failed to transmit management frame via WMI: %d\n",
+					    ret);
+				ieee80211_free_txskb(ar->hw, skb);
+			}
 		}
 	}
 }
