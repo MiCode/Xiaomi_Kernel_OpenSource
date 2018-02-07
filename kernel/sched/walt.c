@@ -3033,7 +3033,7 @@ int walt_proc_update_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos)
 {
-	int ret, cpu;
+	int ret;
 	unsigned int *data = (unsigned int *)table->data;
 	static DEFINE_MUTEX(mutex);
 

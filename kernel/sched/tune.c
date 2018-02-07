@@ -52,8 +52,8 @@ struct schedtune {
 	 */
 	bool colocate;
 
-/* Controls whether further updates are allowed to the colocate flag */
-bool colocate_update_disabled;
+	/* Controls whether further updates are allowed to the colocate flag */
+	bool colocate_update_disabled;
 #endif /* CONFIG_SCHED_WALT */
 
 	/* Hint to bias scheduling of tasks on that SchedTune CGroup
