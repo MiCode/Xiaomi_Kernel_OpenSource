@@ -3,7 +3,7 @@
  * drivers/staging/android/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -142,6 +142,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	buffer->dev = dev;
 	buffer->size = len;
 	INIT_LIST_HEAD(&buffer->attachments);
+	INIT_LIST_HEAD(&buffer->vmas);
 	mutex_init(&buffer->lock);
 	mutex_lock(&dev->buffer_lock);
 	ion_buffer_add(dev, buffer);
@@ -350,6 +351,41 @@ void ion_pages_sync_for_device(struct device *dev, struct page *page,
 	dma_sync_sg_for_device(dev, &sg, 1, dir);
 }
 
+static void ion_vm_open(struct vm_area_struct *vma)
+{
+	struct ion_buffer *buffer = vma->vm_private_data;
+	struct ion_vma_list *vma_list;
+
+	vma_list = kmalloc(sizeof(*vma_list), GFP_KERNEL);
+	if (!vma_list)
+		return;
+	vma_list->vma = vma;
+	mutex_lock(&buffer->lock);
+	list_add(&vma_list->list, &buffer->vmas);
+	mutex_unlock(&buffer->lock);
+}
+
+static void ion_vm_close(struct vm_area_struct *vma)
+{
+	struct ion_buffer *buffer = vma->vm_private_data;
+	struct ion_vma_list *vma_list, *tmp;
+
+	mutex_lock(&buffer->lock);
+	list_for_each_entry_safe(vma_list, tmp, &buffer->vmas, list) {
+		if (vma_list->vma != vma)
+			continue;
+		list_del(&vma_list->list);
+		kfree(vma_list);
+		break;
+	}
+	mutex_unlock(&buffer->lock);
+}
+
+static const struct vm_operations_struct ion_vma_ops = {
+	.open = ion_vm_open,
+	.close = ion_vm_close,
+};
+
 static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
@@ -363,6 +399,10 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 
 	if (!(buffer->flags & ION_FLAG_CACHED))
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+	vma->vm_private_data = buffer;
+	vma->vm_ops = &ion_vma_ops;
+	ion_vm_open(vma);
 
 	mutex_lock(&buffer->lock);
 	/* now map it to userspace */
@@ -395,8 +435,58 @@ static void ion_dma_buf_kunmap(struct dma_buf *dmabuf, unsigned long offset,
 {
 }
 
-static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
-					enum dma_data_direction direction)
+static void ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
+			       unsigned int nents, unsigned long offset,
+			       unsigned long length,
+			       enum dma_data_direction dir, bool for_cpu)
+{
+	int i;
+	struct scatterlist *sg;
+	unsigned int len = 0;
+
+	for_each_sg(sgl, sg, nents, i) {
+		unsigned int sg_offset, sg_left, size = 0;
+
+		len += sg->length;
+		if (len <= offset)
+			continue;
+
+		sg_left = len - offset;
+		sg_offset = sg->length - sg_left;
+
+		size = (length < sg_left) ? length : sg_left;
+		if (for_cpu)
+			dma_sync_single_range_for_cpu(dev, sg->dma_address,
+						      sg_offset, size, dir);
+		else
+			dma_sync_single_range_for_device(dev, sg->dma_address,
+							 sg_offset, size, dir);
+
+		offset += size;
+		length -= size;
+
+		if (length == 0)
+			break;
+	}
+}
+
+static void ion_sgl_sync_mapped(struct device *dev, struct scatterlist *sgl,
+				unsigned int nents, struct list_head *vmas,
+				enum dma_data_direction dir, bool for_cpu)
+{
+	struct ion_vma_list *vma_list;
+
+	list_for_each_entry(vma_list, vmas, list) {
+		struct vm_area_struct *vma = vma_list->vma;
+
+		ion_sgl_sync_range(dev, sgl, nents, vma->vm_pgoff * PAGE_SIZE,
+				   vma->vm_end - vma->vm_start, dir, for_cpu);
+	}
+}
+
+static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+					  enum dma_data_direction direction,
+					  bool sync_only_mapped)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	void *vaddr;
@@ -411,19 +501,24 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		mutex_unlock(&buffer->lock);
 	}
 
-
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
-		dma_sync_sg_for_cpu(a->dev, a->table->sgl, a->table->nents,
-				    direction);
+		if (sync_only_mapped)
+			ion_sgl_sync_mapped(a->dev, a->table->sgl,
+					    a->table->nents, &buffer->vmas,
+					    direction, true);
+		else
+			dma_sync_sg_for_cpu(a->dev, a->table->sgl,
+					    a->table->nents, direction);
 	}
 	mutex_unlock(&buffer->lock);
 
 	return 0;
 }
 
-static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
-				      enum dma_data_direction direction)
+static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+					enum dma_data_direction direction,
+					bool sync_only_mapped)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
@@ -436,8 +531,89 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
-		dma_sync_sg_for_device(a->dev, a->table->sgl, a->table->nents,
-				       direction);
+		if (sync_only_mapped)
+			ion_sgl_sync_mapped(a->dev, a->table->sgl,
+					    a->table->nents, &buffer->vmas,
+					    direction, false);
+		else
+			dma_sync_sg_for_device(a->dev, a->table->sgl,
+					       a->table->nents, direction);
+	}
+	mutex_unlock(&buffer->lock);
+
+	return 0;
+}
+
+static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+					enum dma_data_direction direction)
+{
+	return __ion_dma_buf_begin_cpu_access(dmabuf, direction, false);
+}
+
+static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+				      enum dma_data_direction direction)
+{
+	return __ion_dma_buf_end_cpu_access(dmabuf, direction, false);
+}
+
+static int ion_dma_buf_begin_cpu_access_umapped(struct dma_buf *dmabuf,
+						enum dma_data_direction dir)
+{
+	return __ion_dma_buf_begin_cpu_access(dmabuf, dir, true);
+}
+
+static int ion_dma_buf_end_cpu_access_umapped(struct dma_buf *dmabuf,
+					      enum dma_data_direction dir)
+{
+	return __ion_dma_buf_end_cpu_access(dmabuf, dir, true);
+}
+
+static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
+						enum dma_data_direction dir,
+						unsigned int offset,
+						unsigned int len)
+{
+	struct ion_buffer *buffer = dmabuf->priv;
+	void *vaddr;
+	struct ion_dma_buf_attachment *a;
+
+	/*
+	 * TODO: Move this elsewhere because we don't always need a vaddr
+	 */
+	if (buffer->heap->ops->map_kernel) {
+		mutex_lock(&buffer->lock);
+		vaddr = ion_buffer_kmap_get(buffer);
+		mutex_unlock(&buffer->lock);
+	}
+
+	mutex_lock(&buffer->lock);
+	list_for_each_entry(a, &buffer->attachments, list) {
+		ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
+				   offset, len, dir, true);
+	}
+	mutex_unlock(&buffer->lock);
+
+	return 0;
+}
+
+static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
+					      enum dma_data_direction direction,
+					      unsigned int offset,
+					      unsigned int len)
+{
+	struct ion_buffer *buffer = dmabuf->priv;
+	struct ion_dma_buf_attachment *a;
+
+	if (buffer->heap->ops->map_kernel) {
+		mutex_lock(&buffer->lock);
+		ion_buffer_kmap_put(buffer);
+		mutex_unlock(&buffer->lock);
+	}
+
+	mutex_lock(&buffer->lock);
+	list_for_each_entry(a, &buffer->attachments, list) {
+		ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
+				   offset, len, direction, false);
 	}
 	mutex_unlock(&buffer->lock);
 
@@ -462,6 +638,10 @@ static const struct dma_buf_ops dma_buf_ops = {
 	.detach = ion_dma_buf_detatch,
 	.begin_cpu_access = ion_dma_buf_begin_cpu_access,
 	.end_cpu_access = ion_dma_buf_end_cpu_access,
+	.begin_cpu_access_umapped = ion_dma_buf_begin_cpu_access_umapped,
+	.end_cpu_access_umapped = ion_dma_buf_end_cpu_access_umapped,
+	.begin_cpu_access_partial = ion_dma_buf_begin_cpu_access_partial,
+	.end_cpu_access_partial = ion_dma_buf_end_cpu_access_partial,
 	.map_atomic = ion_dma_buf_kmap,
 	.unmap_atomic = ion_dma_buf_kunmap,
 	.map = ion_dma_buf_kmap,
