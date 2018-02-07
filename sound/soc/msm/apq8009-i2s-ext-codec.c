@@ -144,6 +144,7 @@ static int apq8009_auxpcm_rate = 8000;
 static atomic_t pri_mi2s_clk_ref;
 static atomic_t quat_mi2s_clk_ref;
 static atomic_t auxpcm_mi2s_clk_ref;
+static int tdm_i2s_switch_enable = -EINVAL;
 
 static int apq8009_enable_extcodec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
@@ -1480,6 +1481,9 @@ static int msm_tdm_startup(struct snd_pcm_substream *substream)
 		if (ret < 0)
 			pr_err("%s: failed to activate primary TDM gpio set\n",
 				 __func__);
+		/* Enable I2S switch to turn on TDM mics for SOM*/
+		if (tdm_i2s_switch_enable >= 0)
+			gpio_direction_output(tdm_i2s_switch_enable, 1);
 		break;
 	default:
 		pr_err("dai id 0x%x not supported", cpu_dai->id);
@@ -1517,6 +1521,9 @@ static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
 				__func__, "pri_tdm");
 			return;
 		}
+
+		if (tdm_i2s_switch_enable >= 0)
+			gpio_direction_output(tdm_i2s_switch_enable, 0);
 		break;
 	default:
 		break;
@@ -2733,7 +2740,6 @@ static int apq8009_asoc_machine_probe(struct platform_device *pdev)
 	const char *mclk = "qcom,msm-mclk-freq";
 	const char *type = NULL;
 	int ret, id;
-	int tdm_i2s_switch_enable = -EINVAL;
 
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct apq8009_asoc_mach_data), GFP_KERNEL);
@@ -2842,7 +2848,6 @@ static int apq8009_asoc_machine_probe(struct platform_device *pdev)
 			pr_err("%s: Failed to request gpio\n", __func__);
 			goto err;
 		}
-		gpio_direction_output(tdm_i2s_switch_enable, 1);
 	} else
 		dev_err(&pdev->dev, "Looking up %s property in node %s failed\n",
 			"qcom,tdm-i2s-switch-enable",
