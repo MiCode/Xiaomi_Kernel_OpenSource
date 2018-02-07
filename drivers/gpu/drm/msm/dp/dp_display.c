@@ -654,9 +654,23 @@ end:
 	return rc;
 }
 
+static void dp_display_handle_maintenance_req(struct dp_display_private *dp)
+{
+	mutex_lock(&dp->audio->ops_lock);
+
+	if (dp->audio_supported)
+		dp->audio->off(dp->audio);
+
+	dp->ctrl->link_maintenance(dp->ctrl);
+
+	if (dp->audio_supported)
+		dp->audio->on(dp->audio);
+
+	mutex_unlock(&dp->audio->ops_lock);
+}
+
 static void dp_display_attention_work(struct work_struct *work)
 {
-	bool req_handled;
 	struct dp_display_private *dp = container_of(work,
 			struct dp_display_private, attention_work);
 
@@ -687,17 +701,20 @@ static void dp_display_attention_work(struct work_struct *work)
 		return;
 	}
 
-	mutex_lock(&dp->audio->ops_lock);
-	req_handled = dp->ctrl->handle_sink_request(dp->ctrl);
-	mutex_unlock(&dp->audio->ops_lock);
+	if (dp->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
+		dp->ctrl->process_phy_test_request(dp->ctrl);
+		return;
+	}
 
-	/*
-	 * reconfigure audio if test was executed
-	 * which could have changed the controller's state
-	 */
-	if (req_handled && dp->audio_supported) {
-		dp->audio->off(dp->audio);
-		dp->audio->on(dp->audio);
+	if (dp->link->sink_request & DP_LINK_STATUS_UPDATED) {
+		dp_display_handle_maintenance_req(dp);
+		return;
+	}
+
+	if (dp->link->sink_request & DP_TEST_LINK_TRAINING) {
+		dp->link->send_test_response(dp->link);
+		dp_display_handle_maintenance_req(dp);
+		return;
 	}
 }
 
@@ -1178,6 +1195,7 @@ static int dp_display_get_modes(struct dp_display *dp,
 static int dp_display_pre_kickoff(struct dp_display *dp_display,
 			struct drm_msm_ext_hdr_metadata *hdr)
 {
+	int rc = 0;
 	struct dp_display_private *dp;
 
 	if (!dp_display) {
@@ -1187,7 +1205,10 @@ static int dp_display_pre_kickoff(struct dp_display *dp_display,
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	return dp->panel->setup_hdr(dp->panel, hdr);
+	if (hdr->hdr_supported && dp->panel->hdr_supported(dp->panel))
+		rc = dp->panel->setup_hdr(dp->panel, hdr);
+
+	return rc;
 }
 
 static int dp_display_create_workqueue(struct dp_display_private *dp)

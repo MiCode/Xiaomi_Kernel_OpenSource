@@ -171,7 +171,7 @@ struct dp_catalog_panel {
 	u32 display_hctl;
 
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
-	void (*config_hdr)(struct dp_catalog_panel *panel);
+	void (*config_hdr)(struct dp_catalog_panel *panel, bool en);
 	void (*tpg_config)(struct dp_catalog_panel *panel, bool enable);
 	void (*config_spd)(struct dp_catalog_panel *panel);
 };

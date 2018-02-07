@@ -74,6 +74,7 @@ static void dp_audio_stream_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_STREAM, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x02;
 	parity_byte = dp_header_get_parity(new_value);
@@ -87,7 +88,8 @@ static void dp_audio_stream_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_STREAM, DP_AUDIO_SDP_HEADER_2);
-	new_value = value;
+	value &= 0xffff0000;
+	new_value = 0x0;
 	parity_byte = dp_header_get_parity(new_value);
 	value |= ((new_value << HEADER_BYTE_2_BIT)
 			| (parity_byte << PARITY_BYTE_2_BIT));
@@ -100,6 +102,7 @@ static void dp_audio_stream_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 3 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_STREAM, DP_AUDIO_SDP_HEADER_3);
+	value &= 0x0000ffff;
 
 	new_value = audio->channels - 1;
 	parity_byte = dp_header_get_parity(new_value);
@@ -121,6 +124,7 @@ static void dp_audio_timestamp_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_TIMESTAMP, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x1;
 	parity_byte = dp_header_get_parity(new_value);
@@ -134,6 +138,7 @@ static void dp_audio_timestamp_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_TIMESTAMP, DP_AUDIO_SDP_HEADER_2);
+	value &= 0xffff0000;
 
 	new_value = 0x17;
 	parity_byte = dp_header_get_parity(new_value);
@@ -147,6 +152,7 @@ static void dp_audio_timestamp_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 3 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_TIMESTAMP, DP_AUDIO_SDP_HEADER_3);
+	value &= 0x0000ffff;
 
 	new_value = (0x0 | (0x11 << 2));
 	parity_byte = dp_header_get_parity(new_value);
@@ -167,6 +173,7 @@ static void dp_audio_infoframe_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_INFOFRAME, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x84;
 	parity_byte = dp_header_get_parity(new_value);
@@ -180,6 +187,7 @@ static void dp_audio_infoframe_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_INFOFRAME, DP_AUDIO_SDP_HEADER_2);
+	value &= 0xffff0000;
 
 	new_value = 0x1b;
 	parity_byte = dp_header_get_parity(new_value);
@@ -193,6 +201,7 @@ static void dp_audio_infoframe_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 3 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_INFOFRAME, DP_AUDIO_SDP_HEADER_3);
+	value &= 0x0000ffff;
 
 	new_value = (0x0 | (0x11 << 2));
 	parity_byte = dp_header_get_parity(new_value);
@@ -213,6 +222,7 @@ static void dp_audio_copy_management_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_COPYMANAGEMENT, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x05;
 	parity_byte = dp_header_get_parity(new_value);
@@ -226,6 +236,7 @@ static void dp_audio_copy_management_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_COPYMANAGEMENT, DP_AUDIO_SDP_HEADER_2);
+	value &= 0xffff0000;
 
 	new_value = 0x0F;
 	parity_byte = dp_header_get_parity(new_value);
@@ -239,6 +250,7 @@ static void dp_audio_copy_management_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 3 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_COPYMANAGEMENT, DP_AUDIO_SDP_HEADER_3);
+	value &= 0x0000ffff;
 
 	new_value = 0x0;
 	parity_byte = dp_header_get_parity(new_value);
@@ -259,6 +271,7 @@ static void dp_audio_isrc_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 1 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_ISRC, DP_AUDIO_SDP_HEADER_1);
+	value &= 0x0000ffff;
 
 	new_value = 0x06;
 	parity_byte = dp_header_get_parity(new_value);
@@ -272,6 +285,7 @@ static void dp_audio_isrc_sdp(struct dp_audio_private *audio)
 	/* Config header and parity byte 2 */
 	value = dp_audio_get_header(catalog,
 			DP_AUDIO_SDP_ISRC, DP_AUDIO_SDP_HEADER_2);
+	value &= 0xffff0000;
 
 	new_value = 0x0F;
 	parity_byte = dp_header_get_parity(new_value);

@@ -1168,9 +1168,17 @@ static bool dp_ctrl_use_fixed_nvid(struct dp_ctrl_private *ctrl)
 	return false;
 }
 
-static int dp_ctrl_link_maintenance(struct dp_ctrl_private *ctrl)
+static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 {
 	int ret = 0;
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		pr_err("Invalid input data\n");
+		return -EINVAL;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl);
 	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
@@ -1214,9 +1222,17 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl_private *ctrl)
 	return ret;
 }
 
-static void dp_ctrl_process_phy_test_request(struct dp_ctrl_private *ctrl)
+static void dp_ctrl_process_phy_test_request(struct dp_ctrl *dp_ctrl)
 {
 	int ret = 0;
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		pr_err("Invalid input data\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	if (!ctrl->link->phy_params.phy_test_pattern_sel) {
 		pr_debug("no test pattern selected by sink\n");
@@ -1292,45 +1308,6 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 
 	pr_debug("%s: %s\n", success ? "success" : "failed",
 			dp_link_get_phy_test_pattern(pattern_requested));
-}
-
-static bool dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl)
-{
-	struct dp_ctrl_private *ctrl;
-	u32 sink_request = 0x0;
-	bool req_handled = false;
-
-	if (!dp_ctrl) {
-		pr_err("invalid input\n");
-		goto end;
-	}
-
-	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
-	sink_request = ctrl->link->sink_request;
-
-	if (sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
-		pr_info("PHY_TEST_PATTERN\n");
-		dp_ctrl_process_phy_test_request(ctrl);
-
-		req_handled = true;
-	}
-
-	if (sink_request & DP_LINK_STATUS_UPDATED) {
-		pr_info("DP_LINK_STATUS_UPDATED\n");
-		dp_ctrl_link_maintenance(ctrl);
-
-		req_handled = true;
-	}
-
-	if (sink_request & DP_TEST_LINK_TRAINING) {
-		pr_info("DP_TEST_LINK_TRAINING\n");
-		ctrl->link->send_test_response(ctrl->link);
-		dp_ctrl_link_maintenance(ctrl);
-
-		req_handled = true;
-	}
-end:
-	return req_handled;
 }
 
 static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
@@ -1505,7 +1482,8 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->abort     = dp_ctrl_abort;
 	dp_ctrl->isr       = dp_ctrl_isr;
 	dp_ctrl->reset	   = dp_ctrl_reset;
-	dp_ctrl->handle_sink_request = dp_ctrl_handle_sink_request;
+	dp_ctrl->link_maintenance = dp_ctrl_link_maintenance;
+	dp_ctrl->process_phy_test_request = dp_ctrl_process_phy_test_request;
 
 	return dp_ctrl;
 error:
