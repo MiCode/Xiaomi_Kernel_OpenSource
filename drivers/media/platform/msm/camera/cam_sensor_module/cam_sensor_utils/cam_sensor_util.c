@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,7 +147,7 @@ int32_t cam_sensor_handle_poll(
 		sizeof(uint32_t);
 	(*byte_cnt) += sizeof(struct cam_cmd_conditional_wait);
 
-	(*offset) += 1;
+	*offset = 1;
 	*list_ptr = &(i2c_list->list);
 
 	return rc;
@@ -191,7 +191,7 @@ int32_t cam_sensor_handle_random_write(
 		i2c_list->i2c_settings.
 			reg_setting[cnt].data_mask = 0;
 	}
-	(*offset) += cnt;
+	*offset = cnt;
 	*list = &(i2c_list->list);
 
 	return rc;
@@ -246,7 +246,7 @@ static int32_t cam_sensor_handle_continuous_write(
 		i2c_list->i2c_settings.
 			reg_setting[cnt].data_mask = 0;
 	}
-	(*offset) += cnt;
+	*offset = cnt;
 	*list = &(i2c_list->list);
 
 	return rc;
