@@ -1,6 +1,6 @@
 /* Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2013 Qualcomm Atheros, Inc.
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1063,6 +1063,7 @@ static int ath10k_snoc_get_soc_info(struct ath10k *ar)
 static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 {
 	struct ath10k_wlan_enable_cfg cfg;
+	enum ath10k_driver_mode mode;
 	int pipe_num;
 	struct ath10k_ce_tgt_pipe_cfg tgt_cfg[CE_COUNT_MAX];
 
@@ -1093,8 +1094,9 @@ static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 	cfg.shadow_reg_cfg = (struct ath10k_shadow_reg_cfg *)
 		&target_shadow_reg_cfg_map;
 
-	return ath10k_snoc_qmi_wlan_enable(ar, &cfg,
-					   ATH10K_MISSION, "5.1.0.26N");
+	mode = ar->testmode.utf_monitor ? ATH10K_FTM : ATH10K_MISSION;
+	return ath10k_snoc_qmi_wlan_enable(ar, &cfg, mode,
+					   "5.1.0.26N");
 }
 
 static int ath10k_snoc_bus_configure(struct ath10k *ar)
