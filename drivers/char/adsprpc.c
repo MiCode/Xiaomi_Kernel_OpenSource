@@ -363,6 +363,7 @@ struct fastrpc_file {
 	int qos_request;
 	struct mutex map_mutex;
 	struct mutex fl_map_mutex;
+	int refcount;
 };
 
 static struct fastrpc_apps gfa;
@@ -1925,6 +1926,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (!strcmp(proc_name, "audiopd")) {
 			fl->spdname = AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME;
 			VERIFY(err, !fastrpc_mmap_remove_pdr(fl));
+			if (err)
+				goto bail;
 		}
 
 		if (!me->staticpd_flags) {
@@ -2523,7 +2526,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		fastrpc_mmap_free(map, 1);
 	}
 	mutex_unlock(&fl->fl_map_mutex);
-	if (fl->ssrcount == fl->apps->channel[cid].ssrcount)
+	if (fl->refcount && (fl->ssrcount == fl->apps->channel[cid].ssrcount))
 		kref_put_mutex(&fl->apps->channel[cid].kref,
 				fastrpc_channel_close, &fl->apps->smd_mutex);
 	if (fl->sctx)
@@ -2816,6 +2819,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		}
 	}
 	fl->ssrcount = me->channel[cid].ssrcount;
+	fl->refcount = 1;
 	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
 	    (me->channel[cid].chan == NULL)) {
 		VERIFY(err, 0 == fastrpc_glink_register(cid, me));
@@ -2883,6 +2887,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 		fl->debugfs_file = debugfs_file;
 	memset(&fl->perf, 0, sizeof(fl->perf));
 	fl->qos_request = 0;
+	fl->refcount = 0;
 	filp->private_data = fl;
 	mutex_init(&fl->map_mutex);
 	mutex_init(&fl->fl_map_mutex);
