@@ -112,6 +112,13 @@
  */
 #define DMA_ATTR_PRIVILEGED		(1UL << 17)
 
+/*
+ * DMA_ATTR_IOMMU_USE_LLC_NWA: Overrides the bus attributes to use the System
+ * Cache(LLC) with allocation policy as Inner Non-Cacheable, Outer Cacheable:
+ * Write-Back, Read-Allocate, No Write-Allocate policy.
+ */
+#define DMA_ATTR_IOMMU_USE_LLC_NWA	(1UL << 18)
+
 #define DMA_ERROR_CODE       (~(dma_addr_t)0)
 
 /*
