@@ -54,6 +54,23 @@
 				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
 			};
 		};
+
+		pm855_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xa00>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>,
+					<0x0 0xc8 0 IRQ_TYPE_NONE>,
+					<0x0 0xc9 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm855_gpio1", "pm855_gpio3",
+					"pm855_gpio4", "pm855_gpio6",
+					"pm855_gpio9", "pm855_gpio10";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <2 5 7 8>;
+		};
 	};
 
 	qcom,pm855@1 {

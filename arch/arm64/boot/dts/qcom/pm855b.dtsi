@@ -38,6 +38,28 @@
 			clocks = <&clock_rpmh RPMH_CXO_CLK>;
 			clock-names = "xo";
 		};
+
+		pm855b_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xc00>;
+			interrupts = <0x2 0xc0 0 IRQ_TYPE_NONE>,
+					<0x2 0xc1 0 IRQ_TYPE_NONE>,
+					<0x2 0xc4 0 IRQ_TYPE_NONE>,
+					<0x2 0xc5 0 IRQ_TYPE_NONE>,
+					<0x2 0xc7 0 IRQ_TYPE_NONE>,
+					<0x2 0xc8 0 IRQ_TYPE_NONE>,
+					<0x2 0xc9 0 IRQ_TYPE_NONE>,
+					<0x2 0xca 0 IRQ_TYPE_NONE>,
+					<0x2 0xcb 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm855b_gpio1", "pm855b_gpio2",
+					"pm855b_gpio5", "pm855b_gpio6",
+					"pm855b_gpio8", "pm855b_gpio9",
+					"pm855b_gpio10", "pm855b_gpio11",
+					"pm855b_gpio12";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <3 4 7>;
+		};
 	};
 
 	qcom,pm855b@3 {
