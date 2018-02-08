@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,9 +51,9 @@ module_param(poll_msec, int, 0444);
 #define L2_GOLD_BIT 0x8
 #define L2_GOLD_TLB_BIT 0x2
 
-#define L1 0x1
-#define L2 0x2
-#define L3 0x3
+#define L1 0x0
+#define L2 0x1
+#define L3 0x2
 
 #define EDAC_CPU	"kryo_edac"
 
@@ -216,7 +216,7 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 {
 	edac_printk(KERN_CRIT, EDAC_CPU, "ERRXSTATUS_EL1: %llx\n", errxstatus);
 	edac_printk(KERN_CRIT, EDAC_CPU, "ERRXMISC_EL1: %llx\n", errxmisc);
-	edac_printk(KERN_CRIT, EDAC_CPU, "Cache level: L%d\n", level);
+	edac_printk(KERN_CRIT, EDAC_CPU, "Cache level: L%d\n", level + 1);
 
 	switch (KRYO_ERRXSTATUS_SERR(errxstatus)) {
 	case DATA_BUF_ERR:
@@ -281,7 +281,7 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 		}
 	}
 	switch (level) {
-	case 1:
+	case L1:
 		if (KRYO_ERRXSTATUS_UE(errxstatus))
 			dump_err_reg(KRYO_L1_UE, level, errxstatus, errxmisc,
 					edev_ctl);
@@ -289,7 +289,7 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 			dump_err_reg(KRYO_L1_CE, level, errxstatus, errxmisc,
 					edev_ctl);
 		break;
-	case 2:
+	case L2:
 		if (KRYO_ERRXSTATUS_UE(errxstatus))
 			dump_err_reg(KRYO_L2_UE, level, errxstatus, errxmisc,
 					edev_ctl);
