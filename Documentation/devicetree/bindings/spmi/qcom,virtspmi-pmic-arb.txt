@@ -1,0 +1,24 @@
+QTI Virtual SPMI controller (Virtual PMIC Arbiter)
+
+The Virtual SPMI PMIC Arbiter is a frontend proxy based on backend virtual device.
+
+Required properties:
+- compatible : should be "qcom,virtspmi-pmic-arb".
+- reg-names  : must contain:
+     "core" - core registers
+
+- reg : address + size pairs describing the Virtual PMIC arb register sets;
+        order must correspond with the order of entries in reg-names
+- #address-cells : must be set to 2
+- #size-cells : must be set to 0
+
+Example Virtual PMIC-Arbiter:
+
+	spmi {
+		compatible = "qcom,virtspmi-pmic-arb";
+		reg-names = "core";
+		reg = <0xfc4cf000 0x1000>;
+
+		#address-cells = <2>;
+		#size-cells = <0>;
+	};
