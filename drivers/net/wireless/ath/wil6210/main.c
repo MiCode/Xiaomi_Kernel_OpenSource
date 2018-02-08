@@ -791,6 +791,14 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil)
 	else
 		wiphy->signal_type = CFG80211_SIGNAL_TYPE_UNSPEC;
 
+	if (test_bit(WMI_FW_CAPABILITY_PNO, wil->fw_capabilities)) {
+		wiphy->max_sched_scan_reqs = 1;
+		wiphy->max_sched_scan_ssids = WMI_MAX_PNO_SSID_NUM;
+		wiphy->max_match_sets = WMI_MAX_PNO_SSID_NUM;
+		wiphy->max_sched_scan_ie_len = WMI_MAX_IE_LEN;
+		wiphy->max_sched_scan_plans = WMI_MAX_PLANS_NUM;
+	}
+
 	if (wil->platform_ops.set_features) {
 		features = (test_bit(WMI_FW_CAPABILITY_REF_CLOCK_CONTROL,
 				     wil->fw_capabilities) &&

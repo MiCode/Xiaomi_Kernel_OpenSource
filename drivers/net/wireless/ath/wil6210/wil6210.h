@@ -1079,4 +1079,8 @@ int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
 
 int wmi_set_snr_thresh(struct wil6210_priv *wil, short omni, short direct);
 
+int wmi_start_sched_scan(struct wil6210_priv *wil,
+			 struct cfg80211_sched_scan_request *request);
+int wmi_stop_sched_scan(struct wil6210_priv *wil);
+
 #endif /* __WIL6210_H__ */
