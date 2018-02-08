@@ -23,8 +23,7 @@
 #include <sound/core.h>
 #include <sound/asound.h>
 #include <linux/usb.h>
-#include <linux/qmi_encdec.h>
-#include <soc/qcom/msm_qmi_interface.h>
+#include <linux/soc/qcom/qmi.h>
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
@@ -118,32 +117,25 @@ static struct uaudio_qmi_dev *uaudio_qdev;
 
 struct uaudio_qmi_svc {
 	struct qmi_handle *uaudio_svc_hdl;
-	void *curr_conn;
-	struct work_struct recv_msg_work;
 	struct work_struct qmi_disconnect_work;
 	struct workqueue_struct *uaudio_wq;
+	struct sockaddr_qrtr *client_sq;
 	ktime_t t_request_recvd;
 	ktime_t t_resp_sent;
 };
 
 static struct uaudio_qmi_svc *uaudio_svc;
+static void handle_uaudio_stream_req(struct qmi_handle *handle,
+			struct sockaddr_qrtr *sq,
+			struct qmi_txn *txn,
+			const void *decoded_msg);
 
-static struct msg_desc uaudio_stream_req_desc = {
-	.max_msg_len = QMI_UAUDIO_STREAM_REQ_MSG_V01_MAX_MSG_LEN,
+static struct qmi_msg_handler uaudio_stream_req_handlers = {
+	.type = QMI_REQUEST,
 	.msg_id = QMI_UAUDIO_STREAM_REQ_V01,
-	.ei_array = qmi_uaudio_stream_req_msg_v01_ei,
-};
-
-static struct msg_desc uaudio_stream_resp_desc = {
-	.max_msg_len = QMI_UAUDIO_STREAM_RESP_MSG_V01_MAX_MSG_LEN,
-	.msg_id = QMI_UAUDIO_STREAM_RESP_V01,
-	.ei_array = qmi_uaudio_stream_resp_msg_v01_ei,
-};
-
-static struct msg_desc uaudio_stream_ind_desc = {
-	.max_msg_len = QMI_UAUDIO_STREAM_IND_MSG_V01_MAX_MSG_LEN,
-	.msg_id = QMI_UADUIO_STREAM_IND_V01,
-	.ei_array = qmi_uaudio_stream_ind_msg_v01_ei,
+	.ei = qmi_uaudio_stream_req_msg_v01_ei,
+	.decoded_size = QMI_UAUDIO_STREAM_REQ_MSG_V01_MAX_MSG_LEN,
+	.fn = handle_uaudio_stream_req,
 };
 
 enum mem_type {
@@ -844,9 +836,11 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 		disconnect_ind.slot_id = dev->udev->slot_id;
 		disconnect_ind.controller_num = dev->usb_core_id;
 		disconnect_ind.controller_num_valid = 1;
-		ret = qmi_send_ind(svc->uaudio_svc_hdl, svc->curr_conn,
-				&uaudio_stream_ind_desc, &disconnect_ind,
-				sizeof(disconnect_ind));
+		ret = qmi_send_indication(svc->uaudio_svc_hdl, svc->client_sq,
+				QMI_UADUIO_STREAM_IND_V01,
+				QMI_UAUDIO_STREAM_IND_MSG_V01_MAX_MSG_LEN,
+				qmi_uaudio_stream_ind_msg_v01_ei,
+				&disconnect_ind);
 		if (ret < 0) {
 			pr_err("%s: qmi send failed wiht err: %d\n",
 					__func__, ret);
@@ -954,7 +948,10 @@ static int info_idx_from_ifnum(int card_num, int intf_num, bool enable)
 	return -EINVAL;
 }
 
-static int handle_uaudio_stream_req(void *req_h, void *req)
+static void handle_uaudio_stream_req(struct qmi_handle *handle,
+			struct sockaddr_qrtr *sq,
+			struct qmi_txn *txn,
+			const void *decoded_msg)
 {
 	struct qmi_uaudio_stream_req_msg_v01 *req_msg;
 	struct qmi_uaudio_stream_resp_msg_v01 resp = {{0}, 0};
@@ -966,7 +963,7 @@ static int handle_uaudio_stream_req(void *req_h, void *req)
 	u8 pcm_card_num, pcm_dev_num, direction;
 	int info_idx = -EINVAL, ret = 0;
 
-	req_msg = (struct qmi_uaudio_stream_req_msg_v01 *)req;
+	req_msg = (struct qmi_uaudio_stream_req_msg_v01 *)decoded_msg;
 
 	if (!req_msg->audio_format_valid || !req_msg->bit_rate_valid ||
 	!req_msg->number_of_ch_valid || !req_msg->xfer_buff_size_valid) {
@@ -998,6 +995,7 @@ static int handle_uaudio_stream_req(void *req_h, void *req)
 		goto response;
 	}
 
+	svc->client_sq = sq;
 	subs = find_snd_usb_substream(pcm_card_num, pcm_dev_num, direction,
 					&chip, uaudio_disconnect_cb);
 	if (!subs || !chip || atomic_read(&chip->shutdown)) {
@@ -1060,32 +1058,15 @@ response:
 	resp.internal_status_valid = 1;
 	resp.status = ret ? USB_AUDIO_STREAM_REQ_FAILURE_V01 : ret;
 	resp.status_valid = 1;
-	ret = qmi_send_resp_from_cb(svc->uaudio_svc_hdl, svc->curr_conn, req_h,
-			&uaudio_stream_resp_desc, &resp, sizeof(resp));
+	ret = qmi_send_response(svc->uaudio_svc_hdl, sq, txn,
+			QMI_UAUDIO_STREAM_RESP_V01,
+			QMI_UAUDIO_STREAM_RESP_MSG_V01_MAX_MSG_LEN,
+			qmi_uaudio_stream_resp_msg_v01_ei, &resp);
 
 	svc->t_resp_sent = ktime_get();
 
 	pr_debug("%s: t_resp sent - t_req recvd (in ms) %lld\n", __func__,
 		ktime_to_ms(ktime_sub(svc->t_resp_sent, svc->t_request_recvd)));
-
-	return ret;
-}
-
-static int uaudio_qmi_svc_connect_cb(struct qmi_handle *handle,
-			       void *conn_h)
-{
-	struct uaudio_qmi_svc *svc = uaudio_svc;
-
-	if (svc->uaudio_svc_hdl != handle || !conn_h) {
-		pr_err("%s: handle mismatch\n", __func__);
-		return -EINVAL;
-	}
-	if (svc->curr_conn) {
-		pr_err("%s: Service is busy\n", __func__);
-		return -ECONNREFUSED;
-	}
-	svc->curr_conn = conn_h;
-	return 0;
 }
 
 static void uaudio_qmi_disconnect_work(struct work_struct *w)
@@ -1125,105 +1106,31 @@ static void uaudio_qmi_disconnect_work(struct work_struct *w)
 	}
 }
 
-static int uaudio_qmi_svc_disconnect_cb(struct qmi_handle *handle,
-				  void *conn_h)
+static void uaudio_qmi_svc_disconnect_cb(struct qmi_handle *handle,
+				  unsigned int node, unsigned int port)
 {
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 
-	if (svc->uaudio_svc_hdl != handle || svc->curr_conn != conn_h) {
+	pr_debug("%s: client node:%x port:%x\n", __func__, node, port);
+	if (svc->uaudio_svc_hdl != handle) {
 		pr_err("%s: handle mismatch\n", __func__);
-		return -EINVAL;
+		return;
 	}
 
-	svc->curr_conn = NULL;
-	queue_work(svc->uaudio_wq, &svc->qmi_disconnect_work);
-
-	return 0;
-}
-
-static int uaudio_qmi_svc_req_cb(struct qmi_handle *handle, void *conn_h,
-			void *req_h, unsigned int msg_id, void *req)
-{
-	int ret;
-	struct uaudio_qmi_svc *svc = uaudio_svc;
-
-	if (svc->uaudio_svc_hdl != handle || svc->curr_conn != conn_h) {
-		pr_err("%s: handle mismatch\n", __func__);
-		return -EINVAL;
+	if (svc->client_sq == NULL) {
+		pr_debug("%s: client is not connected.\n", __func__);
+		return;
 	}
 
-	switch (msg_id) {
-	case QMI_UAUDIO_STREAM_REQ_V01:
-		ret = handle_uaudio_stream_req(req_h, req);
-		break;
-
-	default:
-		ret = -ENOTSUPP;
-		break;
-	}
-	return ret;
-}
-
-static int uaudio_qmi_svc_req_desc_cb(unsigned int msg_id,
-	struct msg_desc **req_desc)
-{
-	int ret;
-
-	pr_debug("%s: msg_id %d\n", __func__, msg_id);
-
-	switch (msg_id) {
-	case QMI_UAUDIO_STREAM_REQ_V01:
-		*req_desc = &uaudio_stream_req_desc;
-		ret = sizeof(struct qmi_uaudio_stream_req_msg_v01);
-		break;
-
-	default:
-		ret = -ENOTSUPP;
-		break;
-	}
-	return ret;
-}
-
-static void uaudio_qmi_svc_recv_msg(struct work_struct *w)
-{
-	int ret;
-	struct uaudio_qmi_svc *svc = container_of(w, struct uaudio_qmi_svc,
-		recv_msg_work);
-
-	do {
-		pr_debug("%s: Notified about a Receive Event", __func__);
-	} while ((ret = qmi_recv_msg(svc->uaudio_svc_hdl)) == 0);
-
-	if (ret != -ENOMSG)
-		pr_err("%s: Error receiving message\n", __func__);
-}
-
-static void uaudio_qmi_svc_ntfy(struct qmi_handle *handle,
-		enum qmi_event_type event, void *priv)
-{
-	struct uaudio_qmi_svc *svc = uaudio_svc;
-
-	pr_debug("%s: event %d", __func__, event);
-
-	svc->t_request_recvd = ktime_get();
-
-	switch (event) {
-	case QMI_RECV_MSG:
-		queue_work(svc->uaudio_wq, &svc->recv_msg_work);
-		break;
-	default:
-		break;
+	if (svc->client_sq->sq_node == node &&
+			svc->client_sq->sq_port == port) {
+		queue_work(svc->uaudio_wq, &svc->qmi_disconnect_work);
+		svc->client_sq = NULL;
 	}
 }
 
-static struct qmi_svc_ops_options uaudio_svc_ops_options = {
-	.version = 1,
-	.service_id = UAUDIO_STREAM_SERVICE_ID_V01,
-	.service_vers = UAUDIO_STREAM_SERVICE_VERS_V01,
-	.connect_cb = uaudio_qmi_svc_connect_cb,
-	.disconnect_cb = uaudio_qmi_svc_disconnect_cb,
-	.req_desc_cb = uaudio_qmi_svc_req_desc_cb,
-	.req_cb = uaudio_qmi_svc_req_cb,
+static struct qmi_ops uaudio_svc_ops_options = {
+	.del_client = uaudio_qmi_svc_disconnect_cb,
 };
 
 static int uaudio_qmi_plat_probe(struct platform_device *pdev)
@@ -1324,28 +1231,39 @@ static int uaudio_qmi_svc_init(void)
 		goto free_svc;
 	}
 
-	svc->uaudio_svc_hdl = qmi_handle_create(uaudio_qmi_svc_ntfy, NULL);
+	svc->uaudio_svc_hdl = kzalloc(sizeof(*svc), GFP_KERNEL);
 	if (!svc->uaudio_svc_hdl) {
-		pr_err("%s: Error creating svc_hdl\n", __func__);
-		ret = -EFAULT;
+		ret = -ENOMEM;
 		goto destroy_uaudio_wq;
 	}
 
-	ret = qmi_svc_register(svc->uaudio_svc_hdl, &uaudio_svc_ops_options);
+	ret = qmi_handle_init(svc->uaudio_svc_hdl,
+				QMI_UAUDIO_STREAM_REQ_MSG_V01_MAX_MSG_LEN,
+				&uaudio_svc_ops_options,
+				&uaudio_stream_req_handlers);
 	if (ret < 0) {
 		pr_err("%s:Error registering uaudio svc %d\n", __func__, ret);
-		goto destroy_svc_handle;
+		goto free_svc_hdl;
 	}
 
-	INIT_WORK(&svc->recv_msg_work, uaudio_qmi_svc_recv_msg);
+	ret = qmi_add_server(svc->uaudio_svc_hdl, UAUDIO_STREAM_SERVICE_ID_V01,
+					UAUDIO_STREAM_SERVICE_VERS_V01, 0);
+	if (ret < 0) {
+		pr_err("%s: failed to add uaudio svc server :%d\n",
+							__func__, ret);
+		goto release_uaudio_svs_hdl;
+	}
+
 	INIT_WORK(&svc->qmi_disconnect_work, uaudio_qmi_disconnect_work);
 
 	uaudio_svc = svc;
 
 	return 0;
 
-destroy_svc_handle:
-	qmi_handle_destroy(svc->uaudio_svc_hdl);
+release_uaudio_svs_hdl:
+	qmi_handle_release(svc->uaudio_svc_hdl);
+free_svc_hdl:
+	kfree(svc->uaudio_svc_hdl);
 destroy_uaudio_wq:
 	destroy_workqueue(svc->uaudio_wq);
 free_svc:
@@ -1357,10 +1275,10 @@ static void uaudio_qmi_svc_exit(void)
 {
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 
-	qmi_svc_unregister(svc->uaudio_svc_hdl);
+	qmi_handle_release(svc->uaudio_svc_hdl);
 	flush_workqueue(svc->uaudio_wq);
-	qmi_handle_destroy(svc->uaudio_svc_hdl);
 	destroy_workqueue(svc->uaudio_wq);
+	kfree(svc->uaudio_svc_hdl);
 	kfree(svc);
 	uaudio_svc = NULL;
 }

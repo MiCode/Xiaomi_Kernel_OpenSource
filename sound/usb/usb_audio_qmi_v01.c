@@ -10,13 +10,11 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/qmi_encdec.h>
-
-#include <soc/qcom/msm_qmi_interface.h>
+#include <linux/soc/qcom/qmi.h>
 
 #include "usb_audio_qmi_v01.h"
 
-static struct elem_info mem_info_v01_ei[] = {
+static struct qmi_elem_info mem_info_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_8_BYTE,
 		.elem_len       = 1,
@@ -51,7 +49,7 @@ static struct elem_info mem_info_v01_ei[] = {
 	},
 };
 
-static struct elem_info apps_mem_info_v01_ei[] = {
+static struct qmi_elem_info apps_mem_info_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -109,7 +107,7 @@ static struct elem_info apps_mem_info_v01_ei[] = {
 	},
 };
 
-static struct elem_info usb_endpoint_descriptor_v01_ei[] = {
+static struct qmi_elem_info usb_endpoint_descriptor_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_1_BYTE,
 		.elem_len       = 1,
@@ -189,7 +187,7 @@ static struct elem_info usb_endpoint_descriptor_v01_ei[] = {
 	},
 };
 
-static struct elem_info usb_interface_descriptor_v01_ei[] = {
+static struct qmi_elem_info usb_interface_descriptor_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_1_BYTE,
 		.elem_len       = 1,
@@ -278,7 +276,7 @@ static struct elem_info usb_interface_descriptor_v01_ei[] = {
 	},
 };
 
-struct elem_info qmi_uaudio_stream_req_msg_v01_ei[] = {
+struct qmi_elem_info qmi_uaudio_stream_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_1_BYTE,
 		.elem_len       = 1,
@@ -376,7 +374,7 @@ struct elem_info qmi_uaudio_stream_req_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info qmi_uaudio_stream_resp_msg_v01_ei[] = {
+struct qmi_elem_info qmi_uaudio_stream_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -386,7 +384,7 @@ struct elem_info qmi_uaudio_stream_resp_msg_v01_ei[] = {
 		.offset         = offsetof(
 					struct qmi_uaudio_stream_resp_msg_v01,
 					resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_OPT_FLAG,
@@ -679,7 +677,7 @@ struct elem_info qmi_uaudio_stream_resp_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info qmi_uaudio_stream_ind_msg_v01_ei[] = {
+struct qmi_elem_info qmi_uaudio_stream_ind_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_SIGNED_4_BYTE_ENUM,
 		.elem_len       = 1,
