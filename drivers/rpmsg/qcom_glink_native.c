@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +102,8 @@ struct glink_core_rx_intent {
 struct qcom_glink {
 	struct device *dev;
 
+	const char *name;
+
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox_chan;
 
@@ -129,6 +132,13 @@ enum {
 	GLINK_STATE_OPEN,
 	GLINK_STATE_CLOSING,
 };
+
+struct qcom_glink_device {
+	struct rpmsg_device rpdev;
+	struct qcom_glink *glink;
+};
+
+#define to_glink_device(_x) container_of(_x, struct qcom_glink_device, rpdev)
 
 /**
  * struct glink_channel - internal representation of a channel
@@ -1337,6 +1347,10 @@ static struct device_node *qcom_glink_match_channel(struct device_node *node,
 	return NULL;
 }
 
+static const struct rpmsg_device_ops glink_chrdev_ops = {
+	.create_ept = qcom_glink_create_ept,
+};
+
 static const struct rpmsg_device_ops glink_device_ops = {
 	.create_ept = qcom_glink_create_ept,
 	.announce_create = qcom_glink_announce_create,
@@ -1545,6 +1559,30 @@ static void qcom_glink_work(struct work_struct *work)
 	}
 }
 
+static void qcom_glink_device_release(struct device *dev)
+{
+	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
+	struct qcom_glink_device *gdev = to_glink_device(rpdev);
+
+	kfree(gdev);
+}
+
+static int qcom_glink_create_chrdev(struct qcom_glink *glink)
+{
+	struct qcom_glink_device *gdev;
+
+	gdev = kzalloc(sizeof(*gdev), GFP_KERNEL);
+	if (!gdev)
+		return -ENOMEM;
+
+	gdev->glink = glink;
+	gdev->rpdev.ops = &glink_chrdev_ops;
+	gdev->rpdev.dev.parent = glink->dev;
+	gdev->rpdev.dev.release = qcom_glink_device_release;
+
+	return rpmsg_chrdev_register_device(&gdev->rpdev);
+}
+
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   unsigned long features,
 					   struct qcom_glink_pipe *rx,
@@ -1575,6 +1613,10 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	idr_init(&glink->lcids);
 	idr_init(&glink->rcids);
 
+	ret = of_property_read_string(dev->of_node, "label", &glink->name);
+	if (ret < 0)
+		glink->name = dev->of_node->name;
+
 	glink->mbox_client.dev = dev;
 	glink->mbox_chan = mbox_request_channel(&glink->mbox_client, 0);
 	if (IS_ERR(glink->mbox_chan)) {
@@ -1598,6 +1640,10 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	ret = qcom_glink_send_version(glink);
 	if (ret)
 		return ERR_PTR(ret);
+
+	ret = qcom_glink_create_chrdev(glink);
+	if (ret)
+		dev_err(glink->dev, "failed to register chrdev\n");
 
 	return glink;
 }
