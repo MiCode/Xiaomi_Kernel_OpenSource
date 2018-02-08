@@ -1,4 +1,5 @@
-/* Copyright (c) 2011-2014, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, 2017-2018, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +37,8 @@ int cam_io_w_mb(uint32_t data, void __iomem *addr)
 	/* Ensure previous writes are done */
 	wmb();
 	writel_relaxed_no_log(data, addr);
+	/* Ensure previous writes are done */
+	wmb();
 
 	return 0;
 }
@@ -68,6 +71,8 @@ uint32_t cam_io_r_mb(void __iomem *addr)
 	rmb();
 	data = readl_relaxed(addr);
 	CAM_DBG(CAM_UTIL, "0x%pK %08x", addr, data);
+	/* Ensure previous read is done */
+	rmb();
 
 	return data;
 }
@@ -113,6 +118,8 @@ int  cam_io_memcpy_mb(void __iomem *dest_addr,
 		CAM_DBG(CAM_UTIL, "0x%pK %08x", d, *s);
 		writel_relaxed(*s++, d++);
 	}
+	/* Ensure previous writes are done */
+	wmb();
 
 	return 0;
 }
