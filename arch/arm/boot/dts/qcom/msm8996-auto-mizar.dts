@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,17 +23,6 @@
 	compatible = "qcom,msm8996-adp", "qcom,msm8996", "qcom,adp";
 	qcom,msm-id = <315 0x10001>;
 	qcom,board-id = <0x06010019 0>, <0x00010001 0>;
-};
-
-&spi_9 {
-	status = "ok";
-	can-controller@0 {
-		compatible = "renesas,rh850";
-		reg = <0>;
-		interrupt-parent = <&tlmm>;
-		interrupts = <122 0>;
-		spi-max-frequency = <5000000>;
-	};
 };
 
 &soc {
