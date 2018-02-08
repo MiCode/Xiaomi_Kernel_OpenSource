@@ -664,10 +664,12 @@ static inline bool sde_crtc_is_reset_required(struct drm_crtc *crtc)
  * @crtc: Pointer to drm crtc structure
  * @func: Pointer to callback function
  * @usr: Pointer to user data to be passed to callback
+ * @color_processing_event: True if color processing event
  * Returns: Zero on success
  */
 int sde_crtc_event_queue(struct drm_crtc *crtc,
-		void (*func)(struct drm_crtc *crtc, void *usr), void *usr);
+		void (*func)(struct drm_crtc *crtc, void *usr),
+		void *usr, bool color_processing_event);
 
 /**
  * sde_crtc_res_add - add given resource to resource pool in crtc state

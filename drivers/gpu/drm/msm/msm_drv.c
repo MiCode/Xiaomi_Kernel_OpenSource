@@ -668,6 +668,27 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		}
 	}
 
+	/**
+	 * Since pp interrupt is heavy weight, try to queue the work
+	 * into a dedicated worker thread, so that they dont interrupt
+	 * other important events.
+	 */
+	kthread_init_worker(&priv->pp_event_worker);
+	priv->pp_event_thread = kthread_run(kthread_worker_fn,
+			&priv->pp_event_worker, "pp_event");
+
+	ret = sched_setscheduler(priv->pp_event_thread,
+						SCHED_FIFO, &param);
+	if (ret)
+		pr_warn("pp_event thread priority update failed: %d\n",
+								ret);
+
+	if (IS_ERR(priv->pp_event_thread)) {
+		dev_err(dev, "failed to create pp_event kthread\n");
+		priv->pp_event_thread = NULL;
+		goto fail;
+	}
+
 	ret = drm_vblank_init(ddev, priv->num_crtcs);
 	if (ret < 0) {
 		dev_err(dev, "failed to initialize vblank\n");
