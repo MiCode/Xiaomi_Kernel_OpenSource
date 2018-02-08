@@ -93,6 +93,10 @@ struct io_pgtable_cfg {
 	 *	set in TCR for the page table walker. Use attributes specified
 	 *	by the upstream hw instead.
 	 *
+	 * IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA: Override the attributes
+	 *	set in TCR for the page table walker with Write-Back,
+	 *	no Write-Allocate cacheable encoding.
+	 *
 	 */
 	#define IO_PGTABLE_QUIRK_ARM_NS		BIT(0)
 	#define IO_PGTABLE_QUIRK_NO_PERMS	BIT(1)
@@ -101,6 +105,7 @@ struct io_pgtable_cfg {
 	#define IO_PGTABLE_QUIRK_NO_DMA		BIT(4)
 	#define IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE BIT(5)
 	#define IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT	BIT(6)
+	#define IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA	BIT(7)
 	unsigned long			quirks;
 	unsigned long			pgsize_bitmap;
 	unsigned int			ias;

@@ -169,15 +169,18 @@
 #define ARM_LPAE_TCR_PS_48_BIT		0x5ULL
 
 #define ARM_LPAE_MAIR_ATTR_SHIFT(n)	((n) << 3)
+#define ARM_LPAE_MAIR1_ATTR_SHIFT(n)	((n-4) << 3)
 #define ARM_LPAE_MAIR_ATTR_MASK		0xff
 #define ARM_LPAE_MAIR_ATTR_DEVICE	0x04
 #define ARM_LPAE_MAIR_ATTR_NC		0x44
 #define ARM_LPAE_MAIR_ATTR_WBRWA	0xff
 #define ARM_LPAE_MAIR_ATTR_UPSTREAM	0xf4
+#define ARM_LPAE_MAIR_ATTR_LLC_NWA	0xe4
 #define ARM_LPAE_MAIR_ATTR_IDX_NC	0
 #define ARM_LPAE_MAIR_ATTR_IDX_CACHE	1
 #define ARM_LPAE_MAIR_ATTR_IDX_DEV	2
 #define ARM_LPAE_MAIR_ATTR_IDX_UPSTREAM	3
+#define ARM_LPAE_MAIR_ATTR_IDX_LLC_NWA	0x4ULL
 
 /* IOPTE accessors */
 #define iopte_deref(pte, d)						\
@@ -582,6 +585,9 @@ static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
 				<< ARM_LPAE_PTE_ATTRINDX_SHIFT);
 		else if (prot & IOMMU_USE_UPSTREAM_HINT)
 			pte |= (ARM_LPAE_MAIR_ATTR_IDX_UPSTREAM
+				<< ARM_LPAE_PTE_ATTRINDX_SHIFT);
+		else if (prot & IOMMU_USE_LLC_NWA)
+			pte |= (ARM_LPAE_MAIR_ATTR_IDX_LLC_NWA
 				<< ARM_LPAE_PTE_ATTRINDX_SHIFT);
 	} else {
 		pte = ARM_LPAE_PTE_HAP_FAULT;
@@ -1117,7 +1123,8 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	if (cfg->quirks & ~(IO_PGTABLE_QUIRK_ARM_NS
 			  | IO_PGTABLE_QUIRK_NO_DMA
 			  | IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT
-			  | IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE))
+			  | IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE
+			  | IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA))
 		return NULL;
 
 	data = arm_lpae_alloc_pgtable(cfg);
@@ -1138,6 +1145,15 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 		reg = (ARM_LPAE_TCR_SH_OS << ARM_LPAE_TCR_SH0_SHIFT) |
 			(ARM_LPAE_TCR_RGN_NC << ARM_LPAE_TCR_IRGN0_SHIFT) |
 			(ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_ORGN0_SHIFT);
+	else if ((cfg->quirks & IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA) &&
+		(cfg->quirks & IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE))
+		reg = (ARM_LPAE_TCR_SH_NS << ARM_LPAE_TCR_SH0_SHIFT) |
+			(ARM_LPAE_TCR_RGN_NC << ARM_LPAE_TCR_IRGN0_SHIFT) |
+			(ARM_LPAE_TCR_RGN_WB << ARM_LPAE_TCR_ORGN0_SHIFT);
+	else if (cfg->quirks & IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA)
+		reg = (ARM_LPAE_TCR_SH_OS << ARM_LPAE_TCR_SH0_SHIFT) |
+			(ARM_LPAE_TCR_RGN_NC << ARM_LPAE_TCR_IRGN0_SHIFT) |
+			(ARM_LPAE_TCR_RGN_WB << ARM_LPAE_TCR_ORGN0_SHIFT);
 	else
 		reg = (ARM_LPAE_TCR_SH_OS << ARM_LPAE_TCR_SH0_SHIFT) |
 			(ARM_LPAE_TCR_RGN_NC << ARM_LPAE_TCR_IRGN0_SHIFT) |
@@ -1195,7 +1211,11 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	       << ARM_LPAE_MAIR_ATTR_SHIFT(ARM_LPAE_MAIR_ATTR_IDX_UPSTREAM));
 
 	cfg->arm_lpae_s1_cfg.mair[0] = reg;
-	cfg->arm_lpae_s1_cfg.mair[1] = 0;
+
+	reg = ARM_LPAE_MAIR_ATTR_LLC_NWA
+	      << ARM_LPAE_MAIR1_ATTR_SHIFT(ARM_LPAE_MAIR_ATTR_IDX_LLC_NWA);
+
+	cfg->arm_lpae_s1_cfg.mair[1] = reg;
 
 	/* Looking good; allocate a pgd */
 	data->pgd = __arm_lpae_alloc_pages(data->pgd_size, GFP_KERNEL,
