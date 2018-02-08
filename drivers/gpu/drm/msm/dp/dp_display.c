@@ -20,7 +20,6 @@
 #include <linux/debugfs.h>
 #include <linux/component.h>
 #include <linux/of_irq.h>
-#include <linux/hdcp_qseecom.h>
 #include <linux/soc/qcom/fsa4480-i2c.h>
 
 #include "sde_connector.h"
@@ -237,25 +236,21 @@ static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 
 	if (ops && ops->feature_supported)
 		hdcp2_present = ops->feature_supported(fd);
-	else
-		hdcp2_present = false;
 
-	pr_debug("hdcp2p2: %s\n",
-			hdcp2_present ? "supported" : "not supported");
-
-	if (IS_ENABLED(CONFIG_HDCP_QSEECOM) && !hdcp2_present) {
-		hdcp1_present = hdcp1_check_if_supported_load_app();
-		if (hdcp1_present) {
-			fd = dp->hdcp.hdcp1;
-			ops = sde_hdcp_1x_start(fd);
-			dp->link->hdcp_status.hdcp_version = HDCP_VERSION_1X;
-		}
-	} else {
+	if (hdcp2_present)
 		dp->link->hdcp_status.hdcp_version = HDCP_VERSION_2P2;
-	}
 
-	pr_debug("hdcp1x: %s\n",
-			hdcp1_present ? "supported" : "not supported");
+	if (!hdcp2_present) {
+		fd = dp->hdcp.hdcp1;
+		if (fd)
+			ops = sde_hdcp_1x_start(fd);
+
+		if (ops && ops->feature_supported)
+			hdcp1_present = ops->feature_supported(fd);
+
+		if (hdcp1_present)
+			dp->link->hdcp_status.hdcp_version = HDCP_VERSION_1X;
+	}
 
 	if (hdcp2_present || hdcp1_present) {
 		dp->hdcp.data = fd;
@@ -264,6 +259,9 @@ static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 		dp->hdcp.data = NULL;
 		dp->hdcp.ops = NULL;
 	}
+
+	pr_debug("HDCP version supported: %s\n",
+		sde_hdcp_version(dp->link->hdcp_status.hdcp_version));
 }
 
 static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)

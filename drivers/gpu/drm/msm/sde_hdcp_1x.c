@@ -19,7 +19,6 @@
 #include <linux/stat.h>
 #include <linux/iopoll.h>
 #include <linux/msm_hdcp.h>
-#include <linux/hdcp_qseecom.h>
 #include <drm/drm_dp_helper.h>
 #include "sde_hdcp.h"
 #include "hdmi.xml.h"
@@ -225,6 +224,7 @@ struct sde_hdcp_1x {
 	struct sde_hdcp_int_set int_set;
 	struct sde_hdcp_sink_addr_map sink_addr;
 	struct workqueue_struct *workq;
+	void *hdcp1_handle;
 };
 
 static int sde_hdcp_1x_count_one(u8 *array, u8 len)
@@ -269,15 +269,10 @@ static int sde_hdcp_1x_load_keys(void *input)
 	dp_link = hdcp->init_data.dp_link;
 	reg_set = &hdcp->reg_set;
 
-	if (!IS_ENABLED(CONFIG_HDCP_QSEECOM)) {
+	if (hdcp1_set_keys(hdcp->hdcp1_handle, &aksv_msb, &aksv_lsb)) {
+		pr_err("setting hdcp SW keys failed\n");
 		rc = -EINVAL;
 		goto end;
-	} else {
-		if (hdcp1_set_keys(&aksv_msb, &aksv_lsb)) {
-			pr_err("setting hdcp SW keys failed\n");
-			rc = -EINVAL;
-			goto end;
-		}
 	}
 
 	pr_debug("%s: AKSV=%02x%08x\n", SDE_HDCP_STATE_NAME,
@@ -1109,8 +1104,7 @@ static void sde_hdcp_1x_auth_work(struct work_struct *work)
 	 * program hw to enable encryption as soon as
 	 * authentication is successful.
 	 */
-	if (IS_ENABLED(CONFIG_HDCP_QSEECOM))
-		hdcp1_set_enc(true);
+	hdcp1_set_enc(hdcp->hdcp1_handle, true);
 
 	rc = sde_hdcp_1x_authentication_part1(hdcp);
 	if (rc)
@@ -1258,8 +1252,7 @@ static void sde_hdcp_1x_off(void *input)
 		pr_debug("%s: Deleted hdcp auth work\n",
 			SDE_HDCP_STATE_NAME);
 
-	if (IS_ENABLED(CONFIG_HDCP_QSEECOM))
-		hdcp1_set_enc(false);
+	hdcp1_set_enc(hdcp->hdcp1_handle, false);
 
 	reg = DSS_REG_R(io, reg_set->reset);
 	DSS_REG_W(io, reg_set->reset, reg | reg_set->reset_bit);
@@ -1369,6 +1362,18 @@ error:
 	return rc;
 }
 
+static bool sde_hdcp_1x_feature_supported(void *input)
+{
+	struct sde_hdcp_1x *hdcp = (struct sde_hdcp_1x *)input;
+
+	if (!hdcp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	return hdcp1_feature_supported(hdcp->hdcp1_handle);
+}
+
 void sde_hdcp_1x_deinit(void *input)
 {
 	struct sde_hdcp_1x *hdcp = (struct sde_hdcp_1x *)input;
@@ -1380,6 +1385,8 @@ void sde_hdcp_1x_deinit(void *input)
 
 	if (hdcp->workq)
 		destroy_workqueue(hdcp->workq);
+
+	hdcp1_deinit(hdcp->hdcp1_handle);
 
 	kfree(hdcp);
 } /* hdcp_1x_deinit */
@@ -1484,6 +1491,7 @@ void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data)
 		.cp_irq = sde_hdcp_1x_cp_irq,
 		.reauthenticate = sde_hdcp_1x_reauthenticate,
 		.authenticate = sde_hdcp_1x_authenticate,
+		.feature_supported = sde_hdcp_1x_feature_supported,
 		.off = sde_hdcp_1x_off
 	};
 
@@ -1511,8 +1519,13 @@ void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data)
 	hdcp->workq = create_workqueue(name);
 	if (!hdcp->workq) {
 		pr_err("Error creating workqueue\n");
-		kfree(hdcp);
-		goto error;
+		goto workqueue_error;
+	}
+
+	hdcp->hdcp1_handle = hdcp1_init();
+	if (!hdcp->hdcp1_handle) {
+		pr_err("Error creating HDCP 1.x handle\n");
+		goto hdcp1_handle_error;
 	}
 
 	sde_hdcp_1x_update_client_reg_set(hdcp);
@@ -1527,7 +1540,10 @@ void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data)
 		SDE_HDCP_STATE_NAME);
 
 	return (void *)hdcp;
-
+hdcp1_handle_error:
+	destroy_workqueue(hdcp->workq);
+workqueue_error:
+	kfree(hdcp);
 error:
 	return NULL;
 } /* hdcp_1x_init */
