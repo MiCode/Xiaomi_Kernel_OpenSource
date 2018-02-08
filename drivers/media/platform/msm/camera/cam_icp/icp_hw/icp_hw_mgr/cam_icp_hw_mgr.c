@@ -2862,8 +2862,23 @@ static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 			packet->header.op_code & 0xff);
 		return -EINVAL;
 	}
-	CAM_DBG(CAM_ICP, "number of cmd/patch info: %u %u",
-			packet->num_cmd_buf, packet->num_patches);
+
+	if (packet->num_io_configs > IPE_IO_IMAGES_MAX) {
+		CAM_ERR(CAM_ICP, "Invalid number of io configs: %d %d",
+			IPE_IO_IMAGES_MAX, packet->num_io_configs);
+		return -EINVAL;
+	}
+
+	if (packet->num_cmd_buf > CAM_ICP_CTX_MAX_CMD_BUFFERS) {
+		CAM_ERR(CAM_ICP, "Invalid number of cmd buffers: %d %d",
+			CAM_ICP_CTX_MAX_CMD_BUFFERS, packet->num_cmd_buf);
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_ICP, "number of cmd/patch info: %u %u %u %u",
+			packet->num_cmd_buf,
+			packet->num_io_configs, IPE_IO_IMAGES_MAX,
+			packet->num_patches);
 	return 0;
 }
 
