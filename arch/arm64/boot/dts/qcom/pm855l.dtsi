@@ -26,6 +26,11 @@
 			reg = <0x100 0x100>;
 		};
 
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+		};
+
 		pm855l_tz: qcom,temp-alarm@2400 {
 			compatible = "qcom,spmi-temp-alarm";
 			reg = <0x2400 0x100>;
