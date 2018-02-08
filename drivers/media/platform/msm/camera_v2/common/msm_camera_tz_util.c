@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,8 +25,8 @@
 #define MSM_CAMERA_TZ_BOOT_PROTECTED (false)
 
 /* Update version major number in case the HLOS-TA interface is changed*/
-#define TA_IF_VERSION_MAJ	    1
-#define TA_IF_VERSION_MIN	    2
+#define TA_IF_VERSION_MAJ	    2
+#define TA_IF_VERSION_MIN	    1
 
 #undef CDBG
 #ifdef MSM_CAMERA_TZ_UTIL_VERBOSE

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,7 @@
 #define MSM_CAMERA_TZ_HW_BLOCK_CPP      0x0000000010
 
 enum msm_camera_tz_cmd_id_t {
-	MSM_CAMERA_TZ_CMD_NONE,
+	MSM_CAMERA_TZ_CMD_NONE = 56000,
 	MSM_CAMERA_TZ_CMD_GET_IF_VERSION,
 	MSM_CAMERA_TZ_CMD_POWER_UP,
 	MSM_CAMERA_TZ_CMD_POWER_DOWN,
