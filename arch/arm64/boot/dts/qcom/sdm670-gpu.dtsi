@@ -146,6 +146,7 @@
 				qcom,chipid = <0x06010500>;
 				qcom,gpu-quirk-hfi-use-reg;
 				qcom,gpu-quirk-limit-uche-gbif-rw;
+				qcom,gpu-quirk-mmu-secure-cb-alt;
 			};
 
 			qcom,soc-hw-revision-1 {
@@ -505,6 +506,11 @@
 		};
 
 		gfx3d_secure: gfx3d_secure {
+			compatible = "qcom,smmu-kgsl-cb";
+			iommus = <&kgsl_smmu 2>;
+		};
+
+		gfx3d_secure_alt: gfx3d_secure_alt {
 			compatible = "qcom,smmu-kgsl-cb";
 			iommus = <&kgsl_smmu 2>, <&kgsl_smmu 1>;
 		};
