@@ -66,6 +66,8 @@
 #define NUM_CHANNELS	4		/* adsp,sdsp,mdsp,cdsp */
 #define NUM_SESSIONS	9		/*8 compute, 1 cpz*/
 #define FASTRPC_CTX_MAGIC (0xbeeddeed)
+#define FASTRPC_CTX_MAX (256)
+#define FASTRPC_CTXID_MASK (0xFF0)
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
 
@@ -177,6 +179,7 @@ struct smq_invoke_ctx {
 	struct overlap **overps;
 	struct smq_msg msg;
 	unsigned int magic;
+	uint64_t ctxid;
 };
 
 struct fastrpc_ctx_lst {
@@ -246,6 +249,8 @@ struct fastrpc_apps {
 	struct ion_client *client;
 	struct device *dev;
 	bool glink;
+	spinlock_t ctxlock;
+	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
 };
 
 struct fastrpc_mmap {
@@ -909,7 +914,8 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 			 struct fastrpc_ioctl_invoke_attrs *invokefd,
 			 struct smq_invoke_ctx **po)
 {
-	int err = 0, bufs, size = 0;
+	int err = 0, bufs, ii, size = 0;
+	struct fastrpc_apps *me = &gfa;
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ctx_lst *clst = &fl->clst;
 	struct fastrpc_ioctl_invoke *invoke = &invokefd->inv;
@@ -969,6 +975,21 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	hlist_add_head(&ctx->hn, &clst->pending);
 	spin_unlock(&fl->hlock);
 
+	spin_lock(&me->ctxlock);
+	for (ii = 0; ii < FASTRPC_CTX_MAX; ii++) {
+		if (!me->ctxtable[ii]) {
+			me->ctxtable[ii] = ctx;
+			ctx->ctxid = (ptr_to_uint64(ctx) & ~0xFFF)|(ii << 4);
+			break;
+		}
+	}
+	spin_unlock(&me->ctxlock);
+	VERIFY(err, ii < FASTRPC_CTX_MAX);
+	if (err) {
+		pr_err("adsprpc: out of context memory\n");
+		goto bail;
+	}
+
 	*po = ctx;
 bail:
 	if (ctx && err)
@@ -990,6 +1011,7 @@ static void context_save_interrupted(struct smq_invoke_ctx *ctx)
 static void context_free(struct smq_invoke_ctx *ctx)
 {
 	int i;
+	struct fastrpc_apps *me = &gfa;
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
 	spin_lock(&ctx->fl->hlock);
@@ -999,6 +1021,17 @@ static void context_free(struct smq_invoke_ctx *ctx)
 		fastrpc_mmap_free(ctx->maps[i]);
 	fastrpc_buf_free(ctx->buf, 1);
 	ctx->magic = 0;
+	ctx->ctxid = 0;
+
+	spin_lock(&me->ctxlock);
+	for (i = 0; i < FASTRPC_CTX_MAX; i++) {
+		if (me->ctxtable[i] == ctx) {
+			me->ctxtable[i] = NULL;
+			break;
+		}
+	}
+	spin_unlock(&me->ctxlock);
+
 	kfree(ctx);
 }
 
@@ -1437,7 +1470,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	msg->tid = current->pid;
 	if (kernel)
 		msg->pid = 0;
-	msg->invoke.header.ctx = ptr_to_uint64(ctx) | fl->pd;
+	msg->invoke.header.ctx = ctx->ctxid | fl->pd;
 	msg->invoke.header.handle = handle;
 	msg->invoke.header.sc = ctx->sc;
 	msg->invoke.page.addr = ctx->buf ? ctx->buf->phys : 0;
@@ -1471,20 +1504,31 @@ static void fastrpc_smd_read_handler(int cid)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct smq_invoke_rsp rsp = {0};
-	struct smq_invoke_ctx *ctx;
 	int ret = 0, err = 0;
+	uint32_t index;
 
 	do {
 		ret = smd_read_from_cb(me->channel[cid].chan, &rsp,
 					sizeof(rsp));
 		if (ret != sizeof(rsp))
 			break;
-		ctx = (struct smq_invoke_ctx *)(uint64_to_ptr(rsp.ctx));
-		VERIFY(err, (ctx && ctx->magic == FASTRPC_CTX_MAGIC));
+		index = (uint32_t)((rsp.ctx & FASTRPC_CTXID_MASK) >> 4);
+		VERIFY(err, index < FASTRPC_CTX_MAX);
 		if (err)
 			goto bail;
-		context_notify_user(uint64_to_ptr(rsp.ctx), rsp.retval);
+
+		VERIFY(err, !IS_ERR_OR_NULL(me->ctxtable[index]));
+		if (err)
+			goto bail;
+
+		VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp.ctx & ~1)) &&
+			me->ctxtable[index]->magic == FASTRPC_CTX_MAGIC));
+		if (err)
+			goto bail;
+
+		context_notify_user(me->ctxtable[index], rsp.retval);
 	} while (ret == sizeof(rsp));
+
 bail:
 	if (err)
 		pr_err("adsprpc: invalid response or context\n");
@@ -1514,6 +1558,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	INIT_HLIST_HEAD(&me->drivers);
 	INIT_HLIST_HEAD(&me->maps);
 	spin_lock_init(&me->hlock);
+	spin_lock_init(&me->ctxlock);
 	mutex_init(&me->smd_mutex);
 	me->channel = &gcinfo[0];
 	for (i = 0; i < NUM_CHANNELS; i++) {
@@ -2172,14 +2217,32 @@ static void fastrpc_glink_notify_rx(void *handle, const void *priv,
 	const void *pkt_priv, const void *ptr, size_t size)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)ptr;
-	int len = size;
+	struct fastrpc_apps *me = &gfa;
+	uint32_t index;
+	int err = 0;
 
-	while (len >= sizeof(*rsp) && rsp) {
-		rsp->ctx = rsp->ctx & ~1;
-		context_notify_user(uint64_to_ptr(rsp->ctx), rsp->retval);
-		rsp++;
-		len = len - sizeof(*rsp);
-	}
+	VERIFY(err, (rsp && size >= sizeof(*rsp)));
+	if (err)
+		goto bail;
+
+	index = (uint32_t)((rsp->ctx & FASTRPC_CTXID_MASK) >> 4);
+	VERIFY(err, index < FASTRPC_CTX_MAX);
+	if (err)
+		goto bail;
+
+	VERIFY(err, !IS_ERR_OR_NULL(me->ctxtable[index]));
+	if (err)
+		goto bail;
+
+	VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp->ctx & ~1)) &&
+		me->ctxtable[index]->magic == FASTRPC_CTX_MAGIC));
+	if (err)
+		goto bail;
+
+	context_notify_user(me->ctxtable[index], rsp->retval);
+bail:
+	if (err)
+		pr_err("adsprpc: invalid response or context\n");
 	glink_rx_done(handle, ptr, true);
 }
 
@@ -2245,6 +2308,8 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	cid = fl->cid;
 
+	(void)fastrpc_release_current_dsp_process(fl);
+
 	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
@@ -2253,7 +2318,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		kfree(fl);
 		return 0;
 	}
-	(void)fastrpc_release_current_dsp_process(fl);
+
 	spin_lock(&fl->hlock);
 	fl->file_close = 1;
 	spin_unlock(&fl->hlock);
