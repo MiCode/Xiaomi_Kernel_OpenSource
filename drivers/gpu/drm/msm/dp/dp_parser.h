@@ -25,6 +25,8 @@ enum dp_pm_type {
 	DP_CORE_PM,
 	DP_CTRL_PM,
 	DP_PHY_PM,
+	DP_STREAM0_PM,
+	DP_STREAM1_PM,
 	DP_MAX_PM
 };
 
@@ -34,6 +36,8 @@ static inline const char *dp_parser_pm_name(enum dp_pm_type module)
 	case DP_CORE_PM:	return "DP_CORE_PM";
 	case DP_CTRL_PM:	return "DP_CTRL_PM";
 	case DP_PHY_PM:		return "DP_PHY_PM";
+	case DP_STREAM0_PM:	return "DP_STREAM0_PM";
+	case DP_STREAM1_PM:	return "DP_STREAM1_PM";
 	default:		return "???";
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,8 @@ struct dp_power_private {
 	struct platform_device *pdev;
 	struct clk *pixel_clk_rcg;
 	struct clk *pixel_parent;
+	struct clk *pixel1_clk_rcg;
+	struct clk *pixel1_parent;
 
 	struct dp_power dp_power;
 	struct sde_power_client *dp_core_client;
@@ -31,6 +33,8 @@ struct dp_power_private {
 
 	bool core_clks_on;
 	bool link_clks_on;
+	bool strm0_clks_on;
+	bool strm1_clks_on;
 };
 
 static int dp_power_regulator_init(struct dp_power_private *power)
@@ -142,11 +146,13 @@ static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 static int dp_power_clk_init(struct dp_power_private *power, bool enable)
 {
 	int rc = 0;
-	struct dss_module_power *core, *ctrl;
+	struct dss_module_power *core, *ctrl, *strm0, *strm1;
 	struct device *dev;
 
 	core = &power->parser->mp[DP_CORE_PM];
 	ctrl = &power->parser->mp[DP_CTRL_PM];
+	strm0 = &power->parser->mp[DP_STREAM0_PM];
+	strm1 = &power->parser->mp[DP_STREAM1_PM];
 
 	dev = &power->pdev->dev;
 
@@ -171,6 +177,20 @@ static int dp_power_clk_init(struct dp_power_private *power, bool enable)
 			goto ctrl_get_error;
 		}
 
+		rc = msm_dss_get_clk(dev, strm0->clk_config, strm0->num_clk);
+		if (rc) {
+			pr_err("failed to get %s clk. err=%d\n",
+				dp_parser_pm_name(DP_STREAM0_PM), rc);
+			goto strm0_get_error;
+		}
+
+		rc = msm_dss_get_clk(dev, strm1->clk_config, strm1->num_clk);
+		if (rc) {
+			pr_err("failed to get %s clk. err=%d\n",
+				dp_parser_pm_name(DP_STREAM1_PM), rc);
+			goto strm1_get_error;
+		}
+
 		power->pixel_clk_rcg = devm_clk_get(dev, "pixel_clk_rcg");
 		if (IS_ERR(power->pixel_clk_rcg)) {
 			pr_debug("Unable to get DP pixel clk RCG\n");
@@ -182,6 +202,18 @@ static int dp_power_clk_init(struct dp_power_private *power, bool enable)
 			pr_debug("Unable to get DP pixel RCG parent\n");
 			power->pixel_parent = NULL;
 		}
+
+		power->pixel1_clk_rcg = devm_clk_get(dev, "pixel1_clk_rcg");
+		if (IS_ERR(power->pixel1_clk_rcg)) {
+			pr_debug("Unable to get DP pixel1 clk RCG\n");
+			power->pixel1_clk_rcg = NULL;
+		}
+
+		power->pixel1_parent = devm_clk_get(dev, "pixel1_parent");
+		if (IS_ERR(power->pixel1_parent)) {
+			pr_debug("Unable to get DP pixel1 RCG parent\n");
+			power->pixel1_parent = NULL;
+		}
 	} else {
 		if (power->pixel_parent)
 			devm_clk_put(dev, power->pixel_parent);
@@ -189,12 +221,24 @@ static int dp_power_clk_init(struct dp_power_private *power, bool enable)
 		if (power->pixel_clk_rcg)
 			devm_clk_put(dev, power->pixel_clk_rcg);
 
+		if (power->pixel1_parent)
+			devm_clk_put(dev, power->pixel1_parent);
+
+		if (power->pixel1_clk_rcg)
+			devm_clk_put(dev, power->pixel1_clk_rcg);
+
 		msm_dss_put_clk(ctrl->clk_config, ctrl->num_clk);
 		msm_dss_put_clk(core->clk_config, core->num_clk);
+		msm_dss_put_clk(strm0->clk_config, strm0->num_clk);
+		msm_dss_put_clk(strm1->clk_config, strm1->num_clk);
 	}
 
 	return rc;
 
+strm1_get_error:
+	msm_dss_put_clk(strm0->clk_config, strm0->num_clk);
+strm0_get_error:
+	msm_dss_put_clk(ctrl->clk_config, ctrl->num_clk);
 ctrl_get_error:
 	msm_dss_put_clk(core->clk_config, core->num_clk);
 exit:
@@ -255,7 +299,9 @@ static int dp_power_clk_enable(struct dp_power *dp_power,
 
 	mp = &power->parser->mp[pm_type];
 
-	if ((pm_type != DP_CORE_PM) && (pm_type != DP_CTRL_PM)) {
+	if ((pm_type != DP_CORE_PM) && (pm_type != DP_CTRL_PM) &&
+			(pm_type != DP_STREAM0_PM) &&
+			(pm_type != DP_STREAM1_PM)) {
 		pr_err("unsupported power module: %s\n",
 				dp_parser_pm_name(pm_type));
 		return -EINVAL;
@@ -271,6 +317,18 @@ static int dp_power_clk_enable(struct dp_power *dp_power,
 		if ((pm_type == DP_CTRL_PM)
 			&& (power->link_clks_on)) {
 			pr_debug("links clks already enabled\n");
+			return 0;
+		}
+
+		if ((pm_type == DP_STREAM0_PM)
+			&& (power->strm0_clks_on)) {
+			pr_debug("strm0 clks already enabled\n");
+			return 0;
+		}
+
+		if ((pm_type == DP_STREAM1_PM)
+			&& (power->strm1_clks_on)) {
+			pr_debug("strm1 clks already enabled\n");
 			return 0;
 		}
 
@@ -298,15 +356,21 @@ static int dp_power_clk_enable(struct dp_power *dp_power,
 
 	if (pm_type == DP_CORE_PM)
 		power->core_clks_on = enable;
-	else
+	else if (pm_type == DP_CTRL_PM)
 		power->link_clks_on = enable;
+	else if (pm_type == DP_STREAM0_PM)
+		power->strm0_clks_on = enable;
+	else if (pm_type == DP_STREAM1_PM)
+		power->strm1_clks_on = enable;
 
 	pr_debug("%s clocks for %s\n",
 			enable ? "enable" : "disable",
 			dp_parser_pm_name(pm_type));
-	pr_debug("link_clks:%s core_clks:%s\n",
+	pr_debug("link_clks:%s core_clks:%s strm0_clks:%s strm1_clks:%s\n",
 		power->link_clks_on ? "on" : "off",
-		power->core_clks_on ? "on" : "off");
+		power->core_clks_on ? "on" : "off",
+		power->strm0_clks_on ? "on" : "off",
+		power->strm1_clks_on ? "on" : "off");
 error:
 	return rc;
 }

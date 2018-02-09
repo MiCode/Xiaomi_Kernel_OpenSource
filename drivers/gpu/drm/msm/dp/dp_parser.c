@@ -426,12 +426,17 @@ static int dp_parser_init_clk_data(struct dp_parser *parser)
 {
 	int num_clk = 0, i = 0, rc = 0;
 	int core_clk_count = 0, ctrl_clk_count = 0;
+	int strm0_clk_count = 0, strm1_clk_count = 0;
 	const char *core_clk = "core";
 	const char *ctrl_clk = "ctrl";
+	const char *strm0_clk = "strm0";
+	const char *strm1_clk = "strm1";
 	const char *clk_name;
 	struct device *dev = &parser->pdev->dev;
 	struct dss_module_power *core_power = &parser->mp[DP_CORE_PM];
 	struct dss_module_power *ctrl_power = &parser->mp[DP_CTRL_PM];
+	struct dss_module_power *strm0_power = &parser->mp[DP_STREAM0_PM];
+	struct dss_module_power *strm1_power = &parser->mp[DP_STREAM1_PM];
 
 	num_clk = of_property_count_strings(dev->of_node, "clock-names");
 	if (num_clk <= 0) {
@@ -449,6 +454,12 @@ static int dp_parser_init_clk_data(struct dp_parser *parser)
 
 		if (dp_parser_check_prefix(ctrl_clk, clk_name))
 			ctrl_clk_count++;
+
+		if (dp_parser_check_prefix(strm0_clk, clk_name))
+			strm0_clk_count++;
+
+		if (dp_parser_check_prefix(strm1_clk, clk_name))
+			strm1_clk_count++;
 	}
 
 	/* Initialize the CORE power module */
@@ -484,8 +495,42 @@ static int dp_parser_init_clk_data(struct dp_parser *parser)
 		goto ctrl_clock_error;
 	}
 
+	/* Initialize the STREAM0 power module */
+	if (strm0_clk_count <= 0) {
+		pr_debug("no strm0 clocks are defined\n");
+	} else {
+		strm0_power->num_clk = strm0_clk_count;
+		strm0_power->clk_config = devm_kzalloc(dev,
+			sizeof(struct dss_clk) * strm0_power->num_clk,
+			GFP_KERNEL);
+		if (!strm0_power->clk_config) {
+			strm0_power->num_clk = 0;
+			rc = -EINVAL;
+			goto strm0_clock_error;
+		}
+	}
+
+	/* Initialize the STREAM1 power module */
+	if (strm1_clk_count <= 0) {
+		pr_debug("no strm1 clocks are defined\n");
+	} else {
+		strm1_power->num_clk = strm1_clk_count;
+		strm1_power->clk_config = devm_kzalloc(dev,
+			sizeof(struct dss_clk) * strm1_power->num_clk,
+			GFP_KERNEL);
+		if (!strm1_power->clk_config) {
+			strm1_power->num_clk = 0;
+			rc = -EINVAL;
+			goto strm1_clock_error;
+		}
+	}
+
 	return rc;
 
+strm1_clock_error:
+	dp_parser_put_clk_data(dev, strm0_power);
+strm0_clock_error:
+	dp_parser_put_clk_data(dev, ctrl_power);
 ctrl_clock_error:
 	dp_parser_put_clk_data(dev, core_power);
 exit:
@@ -498,15 +543,23 @@ static int dp_parser_clock(struct dp_parser *parser)
 	int num_clk = 0;
 	int core_clk_index = 0, ctrl_clk_index = 0;
 	int core_clk_count = 0, ctrl_clk_count = 0;
+	int strm0_clk_index = 0, strm1_clk_index = 0;
+	int strm0_clk_count = 0, strm1_clk_count = 0;
 	const char *clk_name;
 	const char *core_clk = "core";
 	const char *ctrl_clk = "ctrl";
+	const char *strm0_clk = "strm0";
+	const char *strm1_clk = "strm1";
 	struct device *dev = &parser->pdev->dev;
-	struct dss_module_power *core_power = &parser->mp[DP_CORE_PM];
-	struct dss_module_power *ctrl_power = &parser->mp[DP_CTRL_PM];
+	struct dss_module_power *core_power;
+	struct dss_module_power *ctrl_power;
+	struct dss_module_power *strm0_power;
+	struct dss_module_power *strm1_power;
 
 	core_power = &parser->mp[DP_CORE_PM];
 	ctrl_power = &parser->mp[DP_CTRL_PM];
+	strm0_power = &parser->mp[DP_STREAM0_PM];
+	strm1_power = &parser->mp[DP_STREAM1_PM];
 
 	rc =  dp_parser_init_clk_data(parser);
 	if (rc) {
@@ -517,8 +570,10 @@ static int dp_parser_clock(struct dp_parser *parser)
 
 	core_clk_count = core_power->num_clk;
 	ctrl_clk_count = ctrl_power->num_clk;
+	strm0_clk_count = strm0_power->num_clk;
+	strm1_clk_count = strm1_power->num_clk;
 
-	num_clk = core_clk_count + ctrl_clk_count;
+	num_clk = of_property_count_strings(dev->of_node, "clock-names");
 
 	for (i = 0; i < num_clk; i++) {
 		of_property_read_string_index(dev->of_node, "clock-names",
@@ -543,6 +598,22 @@ static int dp_parser_clock(struct dp_parser *parser)
 				clk->type = DSS_CLK_PCLK;
 			else
 				clk->type = DSS_CLK_AHB;
+		} else if (dp_parser_check_prefix(strm0_clk, clk_name) &&
+			   strm0_clk_index < strm0_clk_count) {
+			struct dss_clk *clk =
+				&strm0_power->clk_config[strm0_clk_index];
+			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
+			strm0_clk_index++;
+
+			clk->type = DSS_CLK_PCLK;
+		} else if (dp_parser_check_prefix(strm1_clk, clk_name) &&
+			   strm1_clk_index < strm1_clk_count) {
+			struct dss_clk *clk =
+				&strm1_power->clk_config[strm1_clk_index];
+			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
+			strm1_clk_index++;
+
+			clk->type = DSS_CLK_PCLK;
 		}
 	}
 

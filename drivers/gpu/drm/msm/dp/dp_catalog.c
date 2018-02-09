@@ -80,6 +80,7 @@ struct dp_catalog_io {
 	struct dp_io_data *dp_pll;
 	struct dp_io_data *usb3_dp_com;
 	struct dp_io_data *hdcp_physical;
+	struct dp_io_data *dp_p1;
 };
 
 /* audio related catalog functions */
@@ -1688,6 +1689,7 @@ static void dp_catalog_get_io_buf(struct dp_catalog_private *catalog)
 	dp_catalog_fill_io_buf(usb3_dp_com);
 	dp_catalog_fill_io_buf(dp_mmss_cc);
 	dp_catalog_fill_io_buf(hdcp_physical);
+	dp_catalog_fill_io_buf(dp_p1);
 }
 
 static void dp_catalog_get_io(struct dp_catalog_private *catalog)
@@ -1705,6 +1707,7 @@ static void dp_catalog_get_io(struct dp_catalog_private *catalog)
 	dp_catalog_fill_io(usb3_dp_com);
 	dp_catalog_fill_io(dp_mmss_cc);
 	dp_catalog_fill_io(hdcp_physical);
+	dp_catalog_fill_io(dp_p1);
 }
 
 static void dp_catalog_set_exe_mode(struct dp_catalog *dp_catalog, char *mode)
