@@ -17,6 +17,7 @@
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
 #include <sound/apr_audio-v2.h>
+#include "wcdcal-hwdep.h"
 
 #define HPHL_PA_DISABLE (0x01 << 1)
 #define HPHR_PA_DISABLE (0x01 << 2)
@@ -109,8 +110,6 @@ struct msm_dig_priv {
 	s32 dmic_1_2_clk_cnt;
 	bool dec_active[NUM_DECIMATORS];
 	int version;
-	/* Entry for version info */
-	struct snd_info_entry *entry;
 	char __iomem *dig_base;
 	struct regmap *regmap;
 	struct notifier_block nblock;
@@ -121,6 +120,11 @@ struct msm_dig_priv {
 	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
 	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;
+	/* cal info for codec */
+	struct fw_info *fw_data;
+	/* Entry for version info */
+	struct snd_info_entry *entry;
+	struct snd_info_entry *version_entry;
 };
 
 struct msm_cdc_pdata {
@@ -146,6 +150,7 @@ struct msm_asoc_mach_data {
 	struct device_node *pdm_gpio_p; /* used by pinctrl API */
 	struct device_node *dmic_gpio_p; /* used by pinctrl API */
 	struct snd_soc_codec *codec;
+	struct snd_info_entry *codec_root;
 	int mclk_freq;
 	bool native_clk_set;
 	int lb_mode;
@@ -169,4 +174,6 @@ struct msm_asoc_mach_data {
 
 extern int msm_digcdc_mclk_enable(struct snd_soc_codec *codec,
 			int mclk_enable, bool dapm);
+int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
+					  struct snd_soc_codec *codec);
 #endif
