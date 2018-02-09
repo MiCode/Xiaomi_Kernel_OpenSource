@@ -468,13 +468,13 @@ static void q6asm_session_free(struct audio_client *ac)
 	ac->cb = NULL;
 	ac->priv = NULL;
 
-	spin_lock_irqsave(&ac->no_wait_que_spinlock, flags);
+	spin_lock(&ac->no_wait_que_spinlock);
 	list_for_each_safe(ptr, next, &ac->no_wait_que) {
 		node = list_entry(ptr, struct asm_no_wait_node, list);
 		list_del(&node->list);
 		kfree(node);
 	}
-	spin_unlock_irqrestore(&ac->no_wait_que_spinlock, flags);
+	spin_unlock(&ac->no_wait_que_spinlock);
 
 	kfree(ac);
 	spin_unlock_irqrestore(&(session[session_id].session_lock), flags);
