@@ -1,6 +1,6 @@
 /* QTI crypto Driver
  *
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,6 +107,7 @@ struct qcedev_control {
 	struct qcedev_async_req *active_command;
 	spinlock_t lock;
 	struct tasklet_struct done_tasklet;
+	struct list_head context_banks;
 };
 
 struct qcedev_handle {
