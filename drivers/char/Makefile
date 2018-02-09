@@ -61,3 +61,7 @@ obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
 obj-$(CONFIG_XILLYBUS)		+= xillybus/
 obj-$(CONFIG_POWERNV_OP_PANEL)	+= powernv-op-panel.o
 obj-$(CONFIG_DIAG_CHAR)		+= diag/
+obj-$(CONFIG_MSM_ADSPRPC)	+= adsprpc.o
+ifdef CONFIG_COMPAT
+  obj-$(CONFIG_MSM_ADSPRPC)	+= adsprpc_compat.o
+endif
