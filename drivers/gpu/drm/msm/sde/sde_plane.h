@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -93,6 +93,10 @@ struct sde_plane_rot_state {
 #define SDE_PLANE_DIRTY_SHARPEN	0x4
 #define SDE_PLANE_DIRTY_PERF	0x8
 #define SDE_PLANE_DIRTY_FB_TRANSLATION_MODE	0x10
+#define SDE_PLANE_DIRTY_VIG_GAMUT 0x20
+#define SDE_PLANE_DIRTY_VIG_IGC 0x40
+#define SDE_PLANE_DIRTY_DMA_IGC 0x80
+#define SDE_PLANE_DIRTY_DMA_GC 0x100
 #define SDE_PLANE_DIRTY_ALL	0xFFFFFFFF
 
 /**

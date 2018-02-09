@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -195,6 +195,7 @@ enum {
 	SSPP_SCALE_SIZE,
 	SSPP_VIG_BLOCKS,
 	SSPP_RGB_BLOCKS,
+	SSPP_DMA_BLOCKS,
 	SSPP_EXCL_RECT,
 	SSPP_SMART_DMA,
 	SSPP_MAX_PER_PIPE_BW,
@@ -208,6 +209,8 @@ enum {
 	VIG_HSIC_PROP,
 	VIG_MEMCOLOR_PROP,
 	VIG_PCC_PROP,
+	VIG_GAMUT_PROP,
+	VIG_IGC_PROP,
 	VIG_PROP_MAX,
 };
 
@@ -216,6 +219,12 @@ enum {
 	RGB_SCALER_LEN,
 	RGB_PCC_PROP,
 	RGB_PROP_MAX,
+};
+
+enum {
+	DMA_IGC_PROP,
+	DMA_GC_PROP,
+	DMA_PROP_MAX,
 };
 
 enum {
@@ -473,6 +482,7 @@ static struct sde_prop_type sspp_prop[] = {
 	{SSPP_SCALE_SIZE, "qcom,sde-sspp-scale-size", false, PROP_TYPE_U32},
 	{SSPP_VIG_BLOCKS, "qcom,sde-sspp-vig-blocks", false, PROP_TYPE_NODE},
 	{SSPP_RGB_BLOCKS, "qcom,sde-sspp-rgb-blocks", false, PROP_TYPE_NODE},
+	{SSPP_DMA_BLOCKS, "qcom,sde-sspp-dma-blocks", false, PROP_TYPE_NODE},
 	{SSPP_EXCL_RECT, "qcom,sde-sspp-excl-rect", false, PROP_TYPE_U32_ARRAY},
 	{SSPP_SMART_DMA, "qcom,sde-sspp-smart-dma-priority", false,
 		PROP_TYPE_U32_ARRAY},
@@ -488,12 +498,19 @@ static struct sde_prop_type vig_prop[] = {
 	{VIG_MEMCOLOR_PROP, "qcom,sde-vig-memcolor", false,
 		PROP_TYPE_U32_ARRAY},
 	{VIG_PCC_PROP, "qcom,sde-vig-pcc", false, PROP_TYPE_U32_ARRAY},
+	{VIG_GAMUT_PROP, "qcom,sde-vig-gamut", false, PROP_TYPE_U32_ARRAY},
+	{VIG_IGC_PROP, "qcom,sde-vig-igc", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type rgb_prop[] = {
 	{RGB_SCALER_OFF, "qcom,sde-rgb-scaler-off", false, PROP_TYPE_U32},
 	{RGB_SCALER_LEN, "qcom,sde-rgb-scaler-size", false, PROP_TYPE_U32},
 	{RGB_PCC_PROP, "qcom,sde-rgb-pcc", false, PROP_TYPE_U32_ARRAY},
+};
+
+static struct sde_prop_type dma_prop[] = {
+	{DMA_IGC_PROP, "qcom,sde-dma-igc", false, PROP_TYPE_U32_ARRAY},
+	{DMA_GC_PROP, "qcom,sde-dma-gc", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type ctl_prop[] = {
@@ -1010,6 +1027,30 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 		set_bit(SDE_SSPP_PCC, &sspp->features);
 	}
 
+	if (prop_exists[VIG_GAMUT_PROP]) {
+		sblk->gamut_blk.id = SDE_SSPP_VIG_GAMUT;
+		snprintf(sblk->gamut_blk.name, SDE_HW_BLK_NAME_LEN,
+			"sspp_vig_gamut%u", sspp->id - SSPP_VIG0);
+		sblk->gamut_blk.base = PROP_VALUE_ACCESS(prop_value,
+			VIG_GAMUT_PROP, 0);
+		sblk->gamut_blk.version = PROP_VALUE_ACCESS(prop_value,
+			VIG_GAMUT_PROP, 1);
+		sblk->gamut_blk.len = 0;
+		set_bit(SDE_SSPP_VIG_GAMUT, &sspp->features);
+	}
+
+	if (prop_exists[VIG_IGC_PROP]) {
+		sblk->igc_blk[0].id = SDE_SSPP_VIG_IGC;
+		snprintf(sblk->igc_blk[0].name, SDE_HW_BLK_NAME_LEN,
+			"sspp_vig_igc%u", sspp->id - SSPP_VIG0);
+		sblk->igc_blk[0].base = PROP_VALUE_ACCESS(prop_value,
+			VIG_IGC_PROP, 0);
+		sblk->igc_blk[0].version = PROP_VALUE_ACCESS(prop_value,
+			VIG_IGC_PROP, 1);
+		sblk->igc_blk[0].len = 0;
+		set_bit(SDE_SSPP_VIG_IGC, &sspp->features);
+	}
+
 	sblk->format_list = sde_cfg->vig_formats;
 	sblk->virt_format_list = sde_cfg->dma_formats;
 }
@@ -1089,8 +1130,11 @@ static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
 
 static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 	struct sde_sspp_cfg *sspp, struct sde_sspp_sub_blks *sblk,
-	struct sde_prop_value *prop_value, u32 *dma_count)
+	bool prop_exists[][DMA_PROP_MAX], struct sde_prop_value *prop_value,
+	u32 *dma_count, u32 dgm_count)
 {
+	u32 i = 0;
+
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
 	sblk->format_list = sde_cfg->dma_formats;
@@ -1104,6 +1148,60 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 	if (sde_cfg->vbif_qos_nlvl == 8)
 		set_bit(SDE_SSPP_QOS_8LVL, &sspp->features);
 	(*dma_count)++;
+
+	if (!prop_value)
+		return;
+
+	sblk->num_igc_blk = dgm_count;
+	sblk->num_gc_blk = dgm_count;
+	for (i = 0; i < dgm_count; i++) {
+		if (prop_exists[i][DMA_IGC_PROP]) {
+			sblk->igc_blk[i].id = SDE_SSPP_DMA_IGC;
+			snprintf(sblk->igc_blk[i].name, SDE_HW_BLK_NAME_LEN,
+				"sspp_dma_igc%u", sspp->id - SSPP_DMA0);
+			sblk->igc_blk[i].base = PROP_VALUE_ACCESS(
+				&prop_value[i * DMA_PROP_MAX], DMA_IGC_PROP, 0);
+			sblk->igc_blk[i].version = PROP_VALUE_ACCESS(
+				&prop_value[i * DMA_PROP_MAX], DMA_IGC_PROP, 1);
+			sblk->igc_blk[i].len = 0;
+			set_bit(SDE_SSPP_DMA_IGC, &sspp->features);
+		}
+
+		if (prop_exists[i][DMA_GC_PROP]) {
+			sblk->gc_blk[i].id = SDE_SSPP_DMA_GC;
+			snprintf(sblk->gc_blk[0].name, SDE_HW_BLK_NAME_LEN,
+				"sspp_dma_gc%u", sspp->id - SSPP_DMA0);
+			sblk->gc_blk[i].base = PROP_VALUE_ACCESS(
+				&prop_value[i * DMA_PROP_MAX], DMA_GC_PROP, 0);
+			sblk->gc_blk[i].version = PROP_VALUE_ACCESS(
+				&prop_value[i * DMA_PROP_MAX], DMA_GC_PROP, 1);
+			sblk->gc_blk[i].len = 0;
+			set_bit(SDE_SSPP_DMA_GC, &sspp->features);
+		}
+	}
+}
+
+static int sde_dgm_parse_dt(struct device_node *np, u32 index,
+	struct sde_prop_value *prop_value, bool *prop_exists)
+{
+	int rc = 0;
+	u32 child_idx = 0;
+	int prop_count[DMA_PROP_MAX] = {0};
+	struct device_node *dgm_snp = NULL;
+
+	for_each_child_of_node(np, dgm_snp) {
+		if (index != child_idx++)
+			continue;
+		rc = _validate_dt_entry(dgm_snp, dma_prop, ARRAY_SIZE(dma_prop),
+				prop_count, NULL);
+		if (rc)
+			return rc;
+		rc = _read_dt_entry(dgm_snp, dma_prop, ARRAY_SIZE(dma_prop),
+				prop_count, prop_exists,
+				prop_value);
+	}
+
+	return rc;
 }
 
 static int sde_sspp_parse_dt(struct device_node *np,
@@ -1113,12 +1211,15 @@ static int sde_sspp_parse_dt(struct device_node *np,
 	int vig_prop_count[VIG_PROP_MAX], rgb_prop_count[RGB_PROP_MAX];
 	bool prop_exists[SSPP_PROP_MAX], vig_prop_exists[VIG_PROP_MAX];
 	bool rgb_prop_exists[RGB_PROP_MAX];
+	bool dgm_prop_exists[SSPP_SUBBLK_COUNT_MAX][DMA_PROP_MAX];
 	struct sde_prop_value *prop_value = NULL;
 	struct sde_prop_value *vig_prop_value = NULL, *rgb_prop_value = NULL;
+	struct sde_prop_value *dgm_prop_value = NULL;
 	const char *type;
 	struct sde_sspp_cfg *sspp;
 	struct sde_sspp_sub_blks *sblk;
 	u32 vig_count = 0, dma_count = 0, rgb_count = 0, cursor_count = 0;
+	u32 dgm_count = 0;
 	struct device_node *snp = NULL;
 
 	prop_value = kcalloc(SSPP_PROP_MAX,
@@ -1177,6 +1278,23 @@ static int sde_sspp_parse_dt(struct device_node *np,
 				rgb_prop_value);
 	}
 
+	/* get dma feature dt properties if they exist */
+	snp = of_get_child_by_name(np, sspp_prop[SSPP_DMA_BLOCKS].prop_name);
+	if (snp) {
+		dgm_count = of_get_child_count(snp);
+		if (dgm_count > 0 && dgm_count <= SSPP_SUBBLK_COUNT_MAX) {
+			dgm_prop_value = kzalloc(dgm_count * DMA_PROP_MAX *
+					sizeof(struct sde_prop_value),
+					GFP_KERNEL);
+			if (!dgm_prop_value)
+				return -ENOMEM;
+			for (i = 0; i < dgm_count; i++)
+				sde_dgm_parse_dt(snp, i,
+					&dgm_prop_value[i * DMA_PROP_MAX],
+					&dgm_prop_exists[i][0]);
+		}
+	}
+
 	for (i = 0; i < off_count; i++) {
 		sspp = sde_cfg->sspp + i;
 		sblk = kzalloc(sizeof(*sblk), GFP_KERNEL);
@@ -1225,8 +1343,9 @@ static int sde_sspp_parse_dt(struct device_node *np,
 								&cursor_count);
 		} else if (!strcmp(type, "dma")) {
 			/* No prop values for DMA pipes */
-			_sde_sspp_setup_dma(sde_cfg, sspp, sblk, NULL,
-								&dma_count);
+			_sde_sspp_setup_dma(sde_cfg, sspp, sblk,
+				dgm_prop_exists, dgm_prop_value, &dma_count,
+				dgm_count);
 		} else {
 			SDE_ERROR("invalid sspp type:%s\n", type);
 			rc = -EINVAL;
@@ -1281,6 +1400,7 @@ end:
 	kfree(prop_value);
 	kfree(vig_prop_value);
 	kfree(rgb_prop_value);
+	kfree(dgm_prop_value);
 	return rc;
 }
 
