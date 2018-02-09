@@ -374,6 +374,7 @@ put_name:
 	lower_dentry = d_hash_and_lookup(lower_dir_dentry, &dname);
 	if (IS_ERR(lower_dentry))
 		return lower_dentry;
+
 	if (!lower_dentry) {
 		/* We called vfs_path_lookup earlier, and did not get a negative
 		 * dentry then. Don't confuse the lower filesystem by forcing
