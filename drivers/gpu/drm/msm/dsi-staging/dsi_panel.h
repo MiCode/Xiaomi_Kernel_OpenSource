@@ -170,6 +170,7 @@ struct dsi_panel {
 
 	bool lp11_init;
 	bool ulps_enabled;
+	bool ulps_suspend_enabled;
 	bool allow_phy_power_off;
 
 	bool panel_initialized;

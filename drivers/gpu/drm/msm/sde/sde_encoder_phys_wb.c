@@ -124,7 +124,12 @@ static void sde_encoder_phys_wb_set_qos_remap(
 	}
 
 	wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	crtc = phys_enc->parent->crtc;
+	if (!wb_enc->crtc) {
+		SDE_ERROR("invalid crtc");
+		return;
+	}
+
+	crtc = wb_enc->crtc;
 
 	if (!wb_enc->hw_wb || !wb_enc->hw_wb->caps) {
 		SDE_ERROR("invalid writeback hardware\n");
@@ -1137,6 +1142,12 @@ static void sde_encoder_phys_wb_enable(struct sde_encoder_phys *phys_enc)
 	wb_enc->wb_dev = sde_wb_connector_get_wb(connector);
 
 	phys_enc->enable_state = SDE_ENC_ENABLED;
+
+	/*
+	 * cache the crtc in wb_enc on enable for duration of use case
+	 * for correctly servicing asynchronous irq events and timers
+	 */
+	wb_enc->crtc = phys_enc->parent->crtc;
 }
 
 /**
@@ -1182,6 +1193,7 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 	sde_encoder_phys_wb_wait_for_commit_done(phys_enc);
 exit:
 	phys_enc->enable_state = SDE_ENC_DISABLED;
+	wb_enc->crtc = NULL;
 }
 
 /**

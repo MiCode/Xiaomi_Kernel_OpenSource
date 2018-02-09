@@ -42,9 +42,10 @@ struct dp_display {
 	int (*unprepare)(struct dp_display *dp_display);
 	int (*request_irq)(struct dp_display *dp_display);
 	struct dp_debug *(*get_debug)(struct dp_display *dp_display);
-	void (*send_hpd_event)(struct dp_display *dp_display);
+	void (*post_open)(struct dp_display *dp_display);
 	int (*pre_kickoff)(struct dp_display *dp_display,
 				struct drm_msm_ext_hdr_metadata *hdr_meta);
+	void (*post_init)(struct dp_display *dp_display);
 };
 
 int dp_display_get_num_of_displays(void);

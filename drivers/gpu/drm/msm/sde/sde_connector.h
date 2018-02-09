@@ -220,10 +220,10 @@ struct sde_connector_ops {
 	int (*post_kickoff)(struct drm_connector *connector);
 
 	/**
-	 * send_hpd_event - send HPD uevent notification to userspace
+	 * post_open - calls connector to process post open functionalities
 	 * @display: Pointer to private display structure
 	 */
-	void (*send_hpd_event)(void *display);
+	void (*post_open)(void *display);
 
 	/**
 	 * check_status - check status of connected display panel
@@ -705,4 +705,11 @@ int sde_connector_get_mode_info(struct drm_connector_state *conn_state,
  * conn: Pointer to drm_connector struct
  */
 void sde_conn_timeline_status(struct drm_connector *conn);
+
+/**
+ * sde_connector_helper_bridge_disable - helper function for drm bridge disable
+ * @connector: Pointer to DRM connector object
+ */
+void sde_connector_helper_bridge_disable(struct drm_connector *connector);
+
 #endif /* _SDE_CONNECTOR_H_ */

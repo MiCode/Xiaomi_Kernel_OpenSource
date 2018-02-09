@@ -893,7 +893,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = dp_connector_mode_valid,
 		.get_info   = dp_connector_get_info,
 		.get_mode_info  = dp_connector_get_mode_info,
-		.send_hpd_event = dp_connector_send_hpd_event,
+		.post_open  = dp_connector_post_open,
 		.check_status = NULL,
 		.pre_kickoff  = dp_connector_pre_kickoff,
 	};
@@ -1825,8 +1825,8 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 		sde_conn = to_sde_connector(connector);
 
-		if (sde_conn->ops.send_hpd_event)
-			sde_conn->ops.send_hpd_event(sde_conn->display);
+		if (sde_conn->ops.post_open)
+			sde_conn->ops.post_open(sde_conn->display);
 	}
 	drm_connector_list_iter_end(&conn_iter);
 	mutex_unlock(&dev->mode_config.mutex);
@@ -1839,7 +1839,6 @@ static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
 {
 	struct dsi_display_mode *modes = NULL;
 	u32 count = 0;
-	u32 size = 0;
 	int rc = 0;
 
 	rc = dsi_display_get_mode_count(display, &count);
@@ -1849,18 +1848,12 @@ static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
 	}
 
 	SDE_DEBUG("num of modes = %d\n", count);
-	size = count * sizeof(*modes);
-	modes = kzalloc(size,  GFP_KERNEL);
-	if (!modes) {
-		count = 0;
-		goto end;
-	}
 
-	rc = dsi_display_get_modes(display, modes);
+	rc = dsi_display_get_modes(display, &modes);
 	if (rc) {
 		SDE_ERROR("failed to get modes, rc=%d\n", rc);
 		count = 0;
-		goto error;
+		return rc;
 	}
 
 	/* TODO; currently consider modes[0] as the preferred mode */
@@ -1870,9 +1863,6 @@ static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
 		drm_mode->hdisplay, drm_mode->vdisplay);
 	drm_mode_set_name(drm_mode);
 	drm_mode_set_crtcinfo(drm_mode, 0);
-error:
-	kfree(modes);
-end:
 	return rc;
 }
 
