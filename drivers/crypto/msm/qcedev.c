@@ -36,6 +36,7 @@
 #include <crypto/hash.h>
 #include "qcedevi.h"
 #include "qce.h"
+#include "qcedev_smmu.h"
 
 #include <linux/compat.h>
 #include "compat_qcedev.h"
@@ -63,6 +64,14 @@ static DEFINE_MUTEX(hash_access_lock);
 static dev_t qcedev_device_no;
 static struct class *driver_class;
 static struct device *class_dev;
+
+MODULE_DEVICE_TABLE(of, qcedev_match);
+
+static const struct of_device_id qcedev_match[] = {
+	{	.compatible = "qcom,qcedev"},
+	{	.compatible = "qcom,qcedev,context-bank"},
+	{}
+};
 
 static int qcedev_control_clocks(struct qcedev_control *podev, bool enable)
 {
@@ -1863,7 +1872,7 @@ static inline long qcedev_ioctl(struct file *file,
 	return err;
 }
 
-static int qcedev_probe(struct platform_device *pdev)
+static int qcedev_probe_device(struct platform_device *pdev)
 {
 	void *handle = NULL;
 	int rc = 0;
@@ -1906,6 +1915,8 @@ static int qcedev_probe(struct platform_device *pdev)
 	podev->high_bw_req_count = 0;
 	INIT_LIST_HEAD(&podev->ready_commands);
 	podev->active_command = NULL;
+
+	INIT_LIST_HEAD(&podev->context_banks);
 
 	spin_lock_init(&podev->lock);
 
@@ -1965,6 +1976,14 @@ static int qcedev_probe(struct platform_device *pdev)
 		podev->platform_support.sha_hmac = platform_support->sha_hmac;
 	}
 
+	rc = of_platform_populate(pdev->dev.of_node, qcedev_match,
+			NULL, &pdev->dev);
+	if (rc) {
+		pr_err("%s: err: of_platform_populate failed: %d\n",
+			__func__, rc);
+		goto exit_qce_close;
+	}
+
 	return 0;
 
 exit_qce_close:
@@ -1984,7 +2003,23 @@ exit_destroy_class:
 exit_unreg_chrdev_region:
 	unregister_chrdev_region(qcedev_device_no, 1);
 
+	podev->bus_scale_handle = 0;
+	platform_set_drvdata(pdev, NULL);
+	podev->pdev = NULL;
+	podev->qce = NULL;
+
 	return rc;
+}
+
+static int qcedev_probe(struct platform_device *pdev)
+{
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,qcedev"))
+		return qcedev_probe_device(pdev);
+	else if (of_device_is_compatible(pdev->dev.of_node,
+		"qcom,qcedev,context-bank"))
+		return qcedev_parse_context_bank(pdev);
+
+	return -EINVAL;
 };
 
 static int qcedev_remove(struct platform_device *pdev)
@@ -2054,12 +2089,6 @@ resume_exit:
 	mutex_unlock(&qcedev_sent_bw_req);
 	return 0;
 }
-
-static const struct of_device_id qcedev_match[] = {
-	{	.compatible = "qcom,qcedev",
-	},
-	{}
-};
 
 static struct platform_driver qcedev_plat_driver = {
 	.probe = qcedev_probe,

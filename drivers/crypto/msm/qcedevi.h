@@ -109,6 +109,7 @@ struct qcedev_control {
 	struct qcedev_async_req *active_command;
 	spinlock_t lock;
 	struct tasklet_struct done_tasklet;
+	struct list_head context_banks;
 };
 
 struct qcedev_handle {
