@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -746,15 +746,12 @@ out:
 	return rc;
 }
 
-#define MEM_GRANT_WAIT_MS	200
+#define MEM_GNT_WAIT_TIME_US	10000
+#define MEM_GNT_RETRIES		50
 static int fg_direct_mem_request(struct fg_chip *chip, bool request)
 {
-	int rc, ret;
+	int rc, ret, i = 0;
 	u8 val, mask;
-	bool tried_again = false;
-
-	if (request)
-		reinit_completion(&chip->mem_grant);
 
 	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
 	val = request ? MEM_ACCESS_REQ_BIT : 0;
@@ -769,7 +766,7 @@ static int fg_direct_mem_request(struct fg_chip *chip, bool request)
 	rc = fg_masked_write(chip, MEM_IF_MEM_ARB_CFG(chip), mask, val);
 	if (rc < 0) {
 		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
-		return rc;
+		goto release;
 	}
 
 	if (request)
@@ -780,43 +777,45 @@ static int fg_direct_mem_request(struct fg_chip *chip, bool request)
 	if (!request)
 		return 0;
 
-wait:
-	ret = wait_for_completion_interruptible_timeout(
-		&chip->mem_grant, msecs_to_jiffies(MEM_GRANT_WAIT_MS));
-	/* If we were interrupted wait again one more time. */
-	if (ret <= 0) {
-		if ((ret == -ERESTARTSYS || ret == 0) && !tried_again) {
-			pr_debug("trying again, ret=%d\n", ret);
-			tried_again = true;
-			goto wait;
-		} else {
-			pr_err("wait for mem_grant timed out ret=%d\n",
-				ret);
-			fg_dump_regs(chip);
+	/*
+	 * HW takes 5 cycles (200 KHz clock) to grant access after requesting
+	 * for DMA. Wait for 40 us before polling for MEM_GNT first time.
+	 */
+	usleep_range(40, 41);
+
+	while (i < MEM_GNT_RETRIES) {
+		rc = fg_read(chip, MEM_IF_INT_RT_STS(chip), &val, 1);
+		if (rc < 0) {
+			pr_err("Error in reading MEM_IF_INT_RT_STS, rc=%d\n",
+				rc);
+			goto release;
 		}
+
+		if (val & MEM_GNT_BIT)
+			return 0;
+
+		usleep_range(MEM_GNT_WAIT_TIME_US, MEM_GNT_WAIT_TIME_US + 1);
+		i++;
 	}
 
-	if (ret <= 0) {
-		val = 0;
-		mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
-		rc = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip), mask,
-					val);
-		if (rc < 0) {
-			pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n",
-				rc);
-			return rc;
-		}
+	rc = -ETIMEDOUT;
+	pr_err("wait for mem_grant timed out, val=0x%x\n", val);
+	fg_dump_regs(chip);
 
-		mask = MEM_ARB_LO_LATENCY_EN_BIT | MEM_ARB_REQ_BIT;
-		rc = fg_masked_write(chip, MEM_IF_MEM_ARB_CFG(chip), mask,
-					val);
-		if (rc < 0) {
-			pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n",
-				rc);
-			return rc;
-		}
+release:
+	val = 0;
+	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
+	ret = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip), mask, val);
+	if (ret < 0) {
+		pr_err("failed to configure mem_if_mem_intf_cfg rc=%d\n", rc);
+		return ret;
+	}
 
-		return -ETIMEDOUT;
+	mask = MEM_ARB_LO_LATENCY_EN_BIT | MEM_ARB_REQ_BIT;
+	ret = fg_masked_write(chip, MEM_IF_MEM_ARB_CFG(chip), mask, val);
+	if (ret < 0) {
+		pr_err("failed to configure mem_if_mem_arb_cfg rc:%d\n", rc);
+		return ret;
 	}
 
 	return rc;
