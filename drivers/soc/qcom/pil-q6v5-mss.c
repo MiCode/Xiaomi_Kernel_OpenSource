@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +179,16 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	return ret;
 }
 
+static void modem_intr_handler_helper(struct modem_data *drv)
+{
+	if (drv->subsys_desc.system_debug &&
+			!gpio_get_value(drv->subsys_desc.err_fatal_gpio))
+		panic("%s: System ramdump requested. Triggering device restart!\n",
+							__func__);
+	subsys_set_crash_status(drv->subsys, CRASH_STATUS_WDOG_BITE);
+	restart_modem(drv);
+}
+
 static irqreturn_t modem_wdog_bite_intr_handler(int irq, void *dev_id)
 {
 	struct modem_data *drv = subsys_to_drv(dev_id);
@@ -187,12 +197,19 @@ static irqreturn_t modem_wdog_bite_intr_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	pr_err("Watchdog bite received from modem software!\n");
-	if (drv->subsys_desc.system_debug &&
-			!gpio_get_value(drv->subsys_desc.err_fatal_gpio))
-		panic("%s: System ramdump requested. Triggering device restart!\n",
-							__func__);
-	subsys_set_crash_status(drv->subsys, CRASH_STATUS_WDOG_BITE);
-	restart_modem(drv);
+	modem_intr_handler_helper(drv);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t modem_periph_hang_intr_handler(int irq, void *dev_id)
+{
+	struct modem_data *drv = subsys_to_drv(dev_id);
+
+	if (drv->ignore_errors)
+		return IRQ_HANDLED;
+
+	pr_err("Modem hang detected by AOP!\n");
+	modem_intr_handler_helper(drv);
 	return IRQ_HANDLED;
 }
 
@@ -211,6 +228,7 @@ static int pil_subsys_init(struct modem_data *drv,
 	drv->subsys_desc.err_fatal_handler = modem_err_fatal_intr_handler;
 	drv->subsys_desc.stop_ack_handler = modem_stop_ack_intr_handler;
 	drv->subsys_desc.wdog_bite_handler = modem_wdog_bite_intr_handler;
+	drv->subsys_desc.periph_hang_handler = modem_periph_hang_intr_handler;
 
 	drv->q6->desc.modem_ssr = false;
 	drv->q6->desc.signal_aop = of_property_read_bool(pdev->dev.of_node,
