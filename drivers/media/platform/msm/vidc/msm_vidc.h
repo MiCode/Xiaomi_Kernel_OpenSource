@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,9 +26,9 @@ enum smem_type {
 };
 
 enum smem_prop {
-	SMEM_UNCACHED = 1,
-	SMEM_CACHED = 2,
-	SMEM_SECURE = 3,
+	SMEM_UNCACHED = 0x1,
+	SMEM_CACHED = 0x2,
+	SMEM_SECURE = 0x4,
 };
 
 /* NOTE: if you change this enum you MUST update the
