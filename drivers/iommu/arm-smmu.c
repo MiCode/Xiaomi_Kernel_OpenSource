@@ -4391,8 +4391,12 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		smmu->features |= ARM_SMMU_FEAT_COHERENT_WALK;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res)
-		smmu->phys_addr = res->start;
+	if (res == NULL) {
+		dev_err(dev, "no MEM resource info\n");
+		return -EINVAL;
+	}
+
+	smmu->phys_addr = res->start;
 	smmu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(smmu->base))
 		return PTR_ERR(smmu->base);
