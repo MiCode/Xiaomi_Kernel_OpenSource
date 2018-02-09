@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,9 +35,10 @@ struct cam_icp_context {
  * cam_icp_context_init() - ICP context init
  * @ctx: Pointer to context
  * @hw_intf: Pointer to ICP hardware interface
+ * @ctx_id: ID for this context
  */
 int cam_icp_context_init(struct cam_icp_context *ctx,
-	struct cam_hw_mgr_intf *hw_intf);
+	struct cam_hw_mgr_intf *hw_intf, uint32_t ctx_id);
 
 /**
  * cam_icp_context_deinit() - ICP context deinit

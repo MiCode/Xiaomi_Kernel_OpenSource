@@ -148,12 +148,14 @@ struct cam_isp_context {
  * @ctx:                ISP context obj to be initialized
  * @bridge_ops:         Bridge call back funciton
  * @hw_intf:            ISP hw manager interface
+ * @ctx_id:             ID for this context
  *
  */
 int cam_isp_context_init(struct cam_isp_context *ctx,
 	struct cam_context *ctx_base,
 	struct cam_req_mgr_kmd_ops *bridge_ops,
-	struct cam_hw_mgr_intf *hw_intf);
+	struct cam_hw_mgr_intf *hw_intf,
+	uint32_t ctx_id);
 
 /**
  * cam_isp_context_deinit()
