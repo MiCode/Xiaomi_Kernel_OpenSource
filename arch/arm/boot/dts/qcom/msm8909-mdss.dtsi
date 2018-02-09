@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016,2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,6 +152,29 @@
 				00 00 00 00 0f 00 00 01 97
 				00 c0 00 00 00 00 00 01 bb];
 		};
+	};
+
+	mdss_spi: qcom,mdss_spi {
+			compatible = "qcom,mdss-spi-display";
+			label = "mdss spi panel";
+
+			qcom,mdss-fb-map = <&mdss_fb0>;
+			qcom,mdss-mdp = <&mdss_mdp>;
+			vdd-supply = <&pm8909_l17>;
+			vddio-supply = <&pm8909_l6>;
+
+			qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+				qcom,panel-supply-entry@0 {
+					reg = <0>;
+					qcom,supply-name = "vdd";
+					qcom,supply-min-voltage = <2850000>;
+					qcom,supply-max-voltage = <2850000>;
+					qcom,supply-enable-load = <100000>;
+					qcom,supply-disable-load = <100>;
+				};
+			};
 	};
 };
 

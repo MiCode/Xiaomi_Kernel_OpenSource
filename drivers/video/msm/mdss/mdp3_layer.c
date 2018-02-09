@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,6 +194,7 @@ static int __mdp3_map_layer_buffer(struct msm_fb_data_type *mfd,
 	struct msmfb_data img;
 	bool is_panel_type_cmd = false;
 	struct mdp3_img_data data;
+	int intf_type;
 	int rc = 0;
 
 	layer = &input_layer[0];
@@ -205,23 +206,24 @@ static int __mdp3_map_layer_buffer(struct msm_fb_data_type *mfd,
 		goto err;
 	}
 
+	intf_type = mdp3_get_ion_client(mfd);
 	memset(&img, 0, sizeof(img));
 	img.memory_id = buffer->planes[0].fd;
 	img.offset = buffer->planes[0].offset;
 
 	memset(&data, 0, sizeof(struct mdp3_img_data));
 
-	if (mfd->panel.type == MIPI_CMD_PANEL)
+	if (mfd->panel.type == MIPI_CMD_PANEL || intf_type == MDP3_CLIENT_SPI)
 		is_panel_type_cmd = true;
 	if (is_panel_type_cmd) {
-		rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);
+		rc = mdp3_iommu_enable(intf_type);
 		if (rc) {
 			pr_err("fail to enable iommu\n");
 			return rc;
 		}
 	}
 
-	rc = mdp3_get_img(&img, &data, MDP3_CLIENT_DMA_P);
+	rc = mdp3_get_img(&img, &data, intf_type);
 	if (rc) {
 		pr_err("fail to get overlay buffer\n");
 		goto err;
@@ -257,7 +259,7 @@ int mdp3_layer_pre_commit(struct msm_fb_data_type *mfd,
 	struct mdp3_session_data *mdp3_session;
 	struct mdp3_dma *dma;
 	int layer_count = commit->input_layer_cnt;
-	int stride, format;
+	int stride, format, client;
 
 	/* Handle NULL commit */
 	if (!layer_count) {
@@ -270,7 +272,8 @@ int mdp3_layer_pre_commit(struct msm_fb_data_type *mfd,
 
 	mutex_lock(&mdp3_session->lock);
 
-	mdp3_bufq_deinit(&mdp3_session->bufq_in);
+	client = mdp3_get_ion_client(mfd);
+	mdp3_bufq_deinit(&mdp3_session->bufq_in, client);
 
 	layer_list = commit->input_layers;
 	layer = &layer_list[0];

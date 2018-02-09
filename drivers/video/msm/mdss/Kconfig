@@ -21,6 +21,16 @@ config FB_MSM_MDSS_HDMI_MHL_SII8334
 	  MHL (Mobile High-Definition Link) technology
 	  uses USB connector to output HDMI content
 
+config FB_MSM_MDSS_SPI_PANEL
+	depends on FB_MSM_MDSS
+	bool "Support SPI panel feature"
+	default n
+	---help---
+	The MDSS SPI Panel provides support for transmittimg SPI signals of
+	MDSS frame buffer data to connected panel. Limited by SPI rate, the
+	current max fps only reach to 27 fps, and limited by MDP hardware
+	architecture only supply on MDP3
+
 config FB_MSM_MDSS_MHL3
 	depends on FB_MSM_MDSS_HDMI_PANEL
 	bool "MHL3 SII8620 Support"

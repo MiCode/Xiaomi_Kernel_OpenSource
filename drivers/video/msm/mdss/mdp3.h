@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2014, 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2018, The Linux Foundation. All rights reserved.
+ *
  * Copyright (C) 2007 Google Incorporated
  *
  * This program is free software; you can redistribute it and/or modify
@@ -85,6 +86,7 @@ enum {
 	MDP3_CLIENT_DSI = 1,
 	MDP3_CLIENT_PPP,
 	MDP3_CLIENT_IOMMU,
+	MDP3_CLIENT_SPI,
 	MDP3_CLIENT_MAX,
 };
 
@@ -210,6 +212,8 @@ struct mdp3_hw_resource {
 	bool solid_fill_vote_en;
 	struct list_head reg_bus_clist;
 	struct mutex reg_bus_lock;
+	int bklt_level;
+	int bklt_update;
 
 	u32 max_bw;
 
@@ -269,6 +273,7 @@ int mdp3_misr_get(struct mdp_misr *misr_resp);
 void mdp3_enable_regulator(int enable);
 void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 				uint32_t interval);
+void mdp3_check_spi_panel_status(struct work_struct *work, uint32_t interval);
 int mdp3_dynamic_clock_gating_ctrl(int enable);
 int mdp3_footswitch_ctrl(int enable);
 int mdp3_qos_remapper_setup(struct mdss_panel_data *panel);
@@ -280,6 +285,8 @@ void mdp3_calc_dma_res(struct mdss_panel_info *panel_info, u64 *clk_rate,
 		u64 *ab, u64 *ib, uint32_t bpp);
 void mdp3_clear_irq(u32 interrupt_mask);
 int mdp3_enable_panic_ctrl(void);
+
+void mdss_spi_panel_bl_ctrl_update(struct mdss_panel_data *pdata, u32 bl_level);
 
 int mdp3_layer_pre_commit(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *commit);
