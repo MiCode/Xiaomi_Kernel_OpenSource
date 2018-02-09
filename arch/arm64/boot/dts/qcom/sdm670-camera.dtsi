@@ -892,7 +892,7 @@
 			<0 0 200000000 0 0 0 0 600000000>;
 		clock-cntl-level = "svs", "turbo";
 		fw_name = "CAMERA_ICP.elf";
-		ubwc-cfg = <0x77 0x1DF>;
+		ubwc-cfg = <0x73 0x1CF>;
 		status = "ok";
 	};
 

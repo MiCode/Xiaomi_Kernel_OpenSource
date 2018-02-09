@@ -277,6 +277,12 @@ struct cam_icp_clk_info {
  * @ipe1_enable: Flag for IPE1
  * @bps_enable: Flag for BPS
  * @core_info: 32 bit value , tells IPE0/1 and BPS
+ * @a5_dev_intf : Device interface for A5
+ * @ipe0_dev_intf: Device interface for IPE0
+ * @ipe1_dev_intf: Device interface for IPE1
+ * @bps_dev_intf: Device interface for BPS
+ * @ipe_clk_state: IPE clock state flag
+ * @bps_clk_state: BPS clock state flag
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -319,6 +325,8 @@ struct cam_icp_hw_mgr {
 	struct cam_hw_intf *ipe0_dev_intf;
 	struct cam_hw_intf *ipe1_dev_intf;
 	struct cam_hw_intf *bps_dev_intf;
+	bool ipe_clk_state;
+	bool bps_clk_state;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);
