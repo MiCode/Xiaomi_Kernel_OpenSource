@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1072,8 +1072,6 @@ static int qpnp_wled_sink_config(struct qpnp_wled *wled)
 				if (rc < 0)
 					return rc;
 
-				module_enable = 0;
-
 				val = 0;
 				/* Disable all the sinks */
 				rc = qpnp_wled_write_reg(wled, &val,
@@ -1081,6 +1079,8 @@ static int qpnp_wled_sink_config(struct qpnp_wled *wled)
 							 (wled->sink_base));
 				if (rc < 0)
 					return rc;
+
+				module_enable = 0;
 			}
 
 			rc = qpnp_wled_write_reg(wled, &mod_temp,
@@ -1129,28 +1129,29 @@ static int qpnp_wled_sink_config(struct qpnp_wled *wled)
 	}
 
 	if (sink_reg != sink_cfg) {
-		if (module_enable) {
-			/* Disable module */
-			rc = qpnp_wled_module_en(wled, wled->ctrl_base, false);
-			if (rc < 0)
-				return rc;
+		/* Disable module */
+		rc = qpnp_wled_module_en(wled, wled->ctrl_base, false);
+		if (rc < 0)
+			return rc;
 
-			module_enable = 0;
-		}
+		module_enable = 0;
+	}
 
-		/* Disable all the sinks */
+	if (!module_enable) {
+		/* Enable all the sinks */
 		rc = qpnp_wled_write_reg(wled, &sink_cfg,
 					 QPNP_WLED_CURR_SINK_REG(
 					 wled->sink_base));
 		if (rc < 0)
 			return rc;
+
+		/* Enable module */
+		rc = qpnp_wled_module_en(wled, wled->ctrl_base, true);
+		if (rc < 0)
+			return rc;
 	}
 
-	/* Enable module */
-	if (!module_enable)
-		rc = qpnp_wled_module_en(wled, wled->ctrl_base, true);
-
-	return rc;
+	return 0;
 }
 
 /* Configure WLED registers */
