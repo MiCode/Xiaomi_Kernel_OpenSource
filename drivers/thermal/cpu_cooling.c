@@ -79,6 +79,7 @@ struct time_in_idle {
  * struct cpufreq_cooling_device - data for cooling device with cpufreq
  * @id: unique integer value corresponding to each cpufreq_cooling_device
  *	registered.
+ * @cpu_id: The CPU for which the cooling device will do the mitigation.
  * @last_load: load measured by the latest call to cpufreq_get_requested_power()
  * @cpufreq_state: integer value representing the current state of cpufreq
  *	cooling	devices.
@@ -104,6 +105,7 @@ struct time_in_idle {
 struct cpufreq_cooling_device {
 	int id;
 	u32 last_load;
+	int cpu_id;
 	unsigned int cpufreq_state;
 	unsigned int clipped_freq;
 	unsigned int cpufreq_floor_state;
@@ -168,10 +170,12 @@ static int cpufreq_cooling_pm_notify(struct notifier_block *nb,
 	case PM_POST_SUSPEND:
 		mutex_lock(&cooling_list_lock);
 		list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
+			if (cpufreq_cdev->cpu_id == -1)
+				continue;
 			mutex_lock(&core_isolate_lock);
 			if (cpufreq_cdev->cpufreq_state ==
 				cpufreq_cdev->max_level) {
-				cpu = cpufreq_cdev->policy->cpu;
+				cpu = cpufreq_cdev->cpu_id;
 				/*
 				 * Unlock this lock before calling
 				 * schedule_isolate. as this could lead to
@@ -212,6 +216,9 @@ static int cpufreq_hp_offline(unsigned int offline_cpu)
 		if (!cpumask_test_cpu(offline_cpu,
 					cpufreq_cdev->policy->related_cpus))
 			continue;
+		if (cpufreq_cdev->cpu_id != -1 &&
+				offline_cpu != cpufreq_cdev->cpu_id)
+			continue;
 
 		mutex_lock(&core_isolate_lock);
 		if ((cpufreq_cdev->cpufreq_state == cpufreq_cdev->max_level) &&
@@ -238,6 +245,9 @@ static int cpufreq_hp_online(unsigned int online_cpu)
 	list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
 		if (!cpumask_test_cpu(online_cpu,
 					cpufreq_cdev->policy->related_cpus))
+			continue;
+		if (cpufreq_cdev->cpu_id != -1 &&
+				online_cpu != cpufreq_cdev->cpu_id)
 			continue;
 
 		mutex_lock(&core_isolate_lock);
@@ -654,7 +664,8 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 		return 0;
 
 	mutex_lock(&core_isolate_lock);
-	cpu = cpufreq_cdev->policy->cpu;
+	cpu = (cpufreq_cdev->cpu_id == -1) ?
+		cpufreq_cdev->policy->cpu : cpufreq_cdev->cpu_id;
 	prev_state = cpufreq_cdev->cpufreq_state;
 	cpufreq_cdev->cpufreq_state = state;
 	mutex_unlock(&core_isolate_lock);
@@ -944,7 +955,7 @@ __cpufreq_cooling_register(struct device_node *np,
 	struct thermal_cooling_device *cdev;
 	struct cpufreq_cooling_device *cpufreq_cdev;
 	char dev_name[THERMAL_NAME_LENGTH];
-	unsigned int freq, i, num_cpus;
+	unsigned int freq, i, num_cpus, cpu_idx;
 	int ret;
 	struct thermal_cooling_device_ops *cooling_ops;
 	bool first;
@@ -973,6 +984,13 @@ __cpufreq_cooling_register(struct device_node *np,
 	if (!cpufreq_cdev->idle_time) {
 		cdev = ERR_PTR(-ENOMEM);
 		goto free_cdev;
+	}
+	cpufreq_cdev->cpu_id = -1;
+	for_each_cpu(cpu_idx, policy->related_cpus) {
+		if (np == of_cpu_device_node_get(cpu_idx)) {
+			cpufreq_cdev->cpu_id = cpu_idx;
+			break;
+		}
 	}
 
 	/* Last level will indicate the core will be isolated. */
