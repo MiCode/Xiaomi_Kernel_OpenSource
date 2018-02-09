@@ -3187,7 +3187,7 @@ static int cam_ife_hw_mgr_check_irq_for_dual_vfe(
 		(event_cnt[core_idx1] &&
 		(event_cnt[core_idx1] - event_cnt[core_idx0] > 1))) {
 
-		CAM_WARN(CAM_ISP,
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"One of the VFE cound not generate hw event %d",
 			hw_event_type);
 		rc = -1;
