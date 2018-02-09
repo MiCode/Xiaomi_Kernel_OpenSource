@@ -1846,6 +1846,9 @@ static void sde_cp_notify_hist_event(struct drm_crtc *crtc_drm, void *arg)
 	struct drm_event event;
 	struct drm_msm_hist *hist_data;
 	struct drm_msm_hist tmp_hist_data;
+	struct msm_drm_private *priv;
+	struct sde_kms *kms;
+	int ret;
 	u32 i, j;
 
 	if (!crtc_drm) {
@@ -1861,6 +1864,20 @@ static void sde_cp_notify_hist_event(struct drm_crtc *crtc_drm, void *arg)
 
 	if (!crtc->hist_blob)
 		return;
+
+	kms = get_kms(crtc_drm);
+	if (!kms || !kms->dev) {
+		SDE_ERROR("invalid arg(s)\n");
+		return;
+	}
+
+	priv = kms->dev->dev_private;
+	ret = sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	if (ret) {
+		SDE_ERROR("failed to enable power resource %d\n", ret);
+		SDE_EVT32(ret, SDE_EVTLOG_ERROR);
+		return;
+	}
 
 	/* read histogram data into blob */
 	hist_data = (struct drm_msm_hist *)crtc->hist_blob->data;
@@ -1881,6 +1898,8 @@ static void sde_cp_notify_hist_event(struct drm_crtc *crtc_drm, void *arg)
 		}
 	}
 
+	sde_power_resource_enable(&priv->phandle, kms->core_client,
+					false);
 	/* send histogram event with blob id */
 	event.length = sizeof(u32);
 	event.type = DRM_EVENT_HISTOGRAM;
