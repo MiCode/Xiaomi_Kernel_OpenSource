@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +29,65 @@ struct msm_eeprom_ctrl_t;
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
 #define PROPERTY_MAXSIZE 32
+
+/* define eeprom information */
+#define SEMCO 0x03
+#define LITEON 0x01
+#define SUNNY 0x15
+#define QTECH 0x06
+#define OFILM 0x07
+#define PRIMAX1 0x09
+#define PRIMAX 0x25
+
+#define IMX268 0x03
+#define DUAL_IMX386_S5K3M3 0x0B
+#define IMX386 0x0D
+#define S5K3M3 0x0F
+#define S5K4H9 0x10
+#define OV5675 0x0A
+
+#define SAGIT 0x07
+#define CENTAUR 0x08
+#define CHIRON 0x10
+
+struct module_info_t {
+	uint16_t module_num;
+	char name[16];
+};
+
+struct project_info_t {
+	uint16_t pro_num;
+	char name[16];
+};
+
+struct sensor_info_t {
+	uint16_t sensor_num;
+	char name[16];
+};
+
+struct module_info_t module_info[] = {
+	{SEMCO,  "_semco"},
+	{LITEON, "_liteon"},
+	{SUNNY,  "_sunny"},
+	{QTECH,  "_qtech"},
+	{OFILM,  "_ofilm"},
+	{PRIMAX, "_primax"},
+	{PRIMAX1, "_primax"}, /* for sagit*/
+};
+
+struct project_info_t project_info[] = {
+	{SAGIT, "sagit_"},
+	{CHIRON, "chiron_"},
+};
+
+struct sensor_info_t sensor_info[] = {
+	{IMX268, "imx268"},
+	{DUAL_IMX386_S5K3M3, "imx386"},
+	{IMX386, "imx386"},
+	{S5K3M3, "s5k3m3"},
+	{S5K4H9, "s5k4h9"},
+	{OV5675, "ov5675"},
+};
 
 struct msm_eeprom_ctrl_t {
 	struct platform_device *pdev;

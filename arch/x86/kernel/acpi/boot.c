@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2001, 2002 Paul Diefenbaugh <paul.s.diefenbaugh@intel.com>
  *  Copyright (C) 2001 Jun Nakajima <jun.nakajima@intel.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -327,6 +328,14 @@ static void __init mp_override_legacy_irq(u8 bus_irq, u8 polarity, u8 trigger,
 	int ioapic;
 	int pin;
 	struct mpc_intsrc mp_irq;
+
+	/*
+	 * Check bus_irq boundary.
+	 */
+	if (bus_irq >= NR_IRQS_LEGACY) {
+		pr_warn("Invalid bus_irq %u for legacy override\n", bus_irq);
+		return;
+	}
 
 	/*
 	 * Convert 'gsi' to 'ioapic.pin'.

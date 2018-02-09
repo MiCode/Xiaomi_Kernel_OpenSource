@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,9 @@
 
 static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl;
 static struct msm_camera_i2c_fn_t msm_sensor_secure_func_tbl;
+
+static uint8_t fusion_id[16];
+static uint8_t fuse_id_len;
 
 static void msm_sensor_adjust_mclk(struct msm_camera_power_ctrl_t *ctrl)
 {
@@ -268,7 +272,7 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	pr_debug("%s: read id: 0x%x expected id 0x%x:\n",
+	pr_info("%s: read id: 0x%x expected id 0x%x:\n",
 			__func__, chipid, slave_info->sensor_id);
 	if (msm_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
 		pr_err("%s chip id %x does not match %x\n",
@@ -324,6 +328,35 @@ static int msm_sensor_get_af_status(struct msm_sensor_ctrl_t *s_ctrl,
 	return 0;
 }
 
+static int msm_sensor_read_fusion_id_len(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
+{
+	uint8_t *len = (uint8_t *)argp;
+	int rc = 0;
+
+	if (len == NULL)
+		return 0;
+
+	*len = fuse_id_len;
+
+	return rc;
+}
+
+static int msm_sensor_read_fusion_id(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
+{
+	struct sensorb_info_fusion_id32 *data32 = (struct sensorb_info_fusion_id32 *)argp;
+	char *data = NULL;
+	int rc = 0;
+	uint32_t length = 0;
+
+	data = (char *) compat_ptr(data32->data_buffer);
+	length = fuse_id_len > sizeof(fusion_id) ? sizeof(fusion_id) : fuse_id_len;
+	rc = copy_to_user(data, (char *)fusion_id, fuse_id_len);
+	if (rc != 0)
+		pr_err("%s: copy data to userspace fail,rc = %d\n", __func__, rc);
+
+	return rc;
+}
+
 static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
@@ -343,6 +376,10 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 #endif
 			rc = s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
 		return rc;
+	case VIDIOC_MSM_READ_FUSION_ID_LEN:
+		return msm_sensor_read_fusion_id_len(s_ctrl, argp);
+	case VIDIOC_MSM_READ_FUSION_ID:
+		return msm_sensor_read_fusion_id(s_ctrl, argp);
 	case VIDIOC_MSM_SENSOR_GET_AF_STATUS:
 		return msm_sensor_get_af_status(s_ctrl, argp);
 	case VIDIOC_MSM_SENSOR_RELEASE:
@@ -365,6 +402,9 @@ static long msm_sensor_subdev_do_ioctl(
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
 	switch (cmd) {
+	case VIDIOC_MSM_READ_FUSION_ID32:
+		cmd = VIDIOC_MSM_READ_FUSION_ID;
+		return msm_sensor_subdev_ioctl(sd, cmd, arg);
 	case VIDIOC_MSM_SENSOR_CFG32:
 		cmd = VIDIOC_MSM_SENSOR_CFG;
 	default:
@@ -378,6 +418,85 @@ long msm_sensor_subdev_fops_ioctl(struct file *file,
 	return video_usercopy(file, cmd, arg, msm_sensor_subdev_do_ioctl);
 }
 
+int msm_sensor_get_fuseid(struct msm_sensor_ctrl_t *s_ctrl, struct msm_camera_i2c_reg_setting *conf_array)
+{
+	int rc = 0;
+	struct msm_camera_i2c_client *sensor_i2c_client;
+	uint16_t flag[1] = {0};
+	uint8_t i = 0;
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	sensor_i2c_client->addr_type = conf_array->addr_type;
+	CDBG("%s: sensor_name = %s, addr = 0x%x\n", __func__, s_ctrl->sensordata->sensor_name, sensor_i2c_client->cci_client->sid);
+
+	fuse_id_len = 0;
+
+	if (strnstr(s_ctrl->sensordata->sensor_name, "imx", strlen(s_ctrl->sensordata->sensor_name))) {
+		CDBG("%s: sony\n", __func__);
+		for (i = 0; i < (conf_array->size - 1); i++) {
+			rc =  sensor_i2c_client->i2c_func_tbl->i2c_write(sensor_i2c_client, conf_array->reg_setting->reg_addr, conf_array->reg_setting->reg_data, conf_array->data_type);
+			if (rc < 0) {
+				pr_err("write 0x%0x fail\n", conf_array->reg_setting->reg_addr);
+				return rc;
+			}
+			conf_array->reg_setting++;
+		}
+
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0x0A01, flag, MSM_CAMERA_I2C_BYTE_DATA);
+		if (rc < 0)
+			pr_err("read 0x0A01 fail\n");
+		if (flag[0] != 1) {
+			CDBG("%d: flag = %d\n", __LINE__, flag[0]);
+			msleep(20);
+		}
+
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read_seq(sensor_i2c_client, conf_array->reg_setting->reg_addr, fusion_id, 8);
+		if (rc < 0)
+			pr_err("read data fail\n");
+
+		for (i = 0; i < 8; i++)
+			CDBG("data_sony[%d] = 0x%x\n", i, fusion_id[i]);
+		fuse_id_len = 8;
+	} else if (strnstr(s_ctrl->sensordata->sensor_name, "s5k", strlen(s_ctrl->sensordata->sensor_name))) {
+		CDBG("%s: samsung\n", __func__);
+		for (i = 0; i < 2; i++) {
+			rc = sensor_i2c_client->i2c_func_tbl->i2c_write(sensor_i2c_client, conf_array->reg_setting->reg_addr, conf_array->reg_setting->reg_data, conf_array->data_type);
+			if (rc < 0) {
+				pr_err("write 0x%0x fail\n", conf_array->reg_setting->reg_addr);
+				return rc;
+			}
+			conf_array->reg_setting++;
+		}
+
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read_seq(sensor_i2c_client, conf_array->reg_setting->reg_addr, fusion_id, 6);
+		if (rc < 0)
+			pr_err("%d: read data fail\n", __LINE__);
+		for (i = 0; i < (conf_array->size - 2); i++)
+			CDBG("data_samsung[%d] = 0x%x\n", i, fusion_id[i]);
+		fuse_id_len = conf_array->size - 2;
+	} else if (strnstr(s_ctrl->sensordata->sensor_name, "ov", strlen(s_ctrl->sensordata->sensor_name))) {
+		pr_err("%s: OmniVision\n", __func__);
+		for (i = 0; i < conf_array->size; i++) {
+			rc = sensor_i2c_client->i2c_func_tbl->i2c_write(sensor_i2c_client, conf_array->reg_setting->reg_addr, conf_array->reg_setting->reg_data, conf_array->data_type);
+			if (rc < 0) {
+				pr_err("write 0x%0x fail\n", conf_array->reg_setting->reg_addr);
+				return rc;
+			}
+			conf_array->reg_setting++;
+		}
+
+		msleep(50);
+		rc =  sensor_i2c_client->i2c_func_tbl->i2c_read_seq(sensor_i2c_client, 0x7000, fusion_id, 16);
+		if (rc < 0)
+			pr_err("%d: read data fail\n", __LINE__);
+
+		for (i = 0; i < 16; i++)
+			CDBG("data_OmniVision[%d] = 0x%x\n", i, fusion_id[i]);
+
+		fuse_id_len = 16;
+	}
+	return rc;
+}
+
 static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 	void __user *argp)
 {
@@ -388,6 +507,61 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
 		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
 	switch (cdata->cfgtype) {
+	case CFG_GET_SENSOR_FUSION_ID: {
+		struct msm_camera_i2c_reg_setting32 f_conf_array32;
+		struct msm_camera_i2c_reg_setting f_conf_array;
+		struct msm_camera_i2c_reg_array *f_reg_setting = NULL;
+
+		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
+			pr_err("%s:%d failed: invalid state %d\n", __func__,
+				__LINE__, s_ctrl->sensor_state);
+			rc = -EFAULT;
+			break;
+		}
+
+		if (copy_from_user(&f_conf_array32,
+			(void *)compat_ptr(cdata->cfg.setting),
+			sizeof(struct msm_camera_i2c_reg_setting32))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		f_conf_array.addr_type = f_conf_array32.addr_type;
+		f_conf_array.data_type = f_conf_array32.data_type;
+		f_conf_array.delay = f_conf_array32.delay;
+		f_conf_array.size = f_conf_array32.size;
+		f_conf_array.reg_setting = compat_ptr(f_conf_array32.reg_setting);
+
+		if (!f_conf_array.size ||
+			f_conf_array.size > I2C_REG_DATA_MAX) {
+			pr_err("%s:%d failed, size = %d\n", __func__, __LINE__, f_conf_array.size);
+			rc = -EFAULT;
+			break;
+		}
+
+		f_reg_setting = kzalloc(f_conf_array.size *
+			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
+		if (!f_reg_setting) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(f_reg_setting,
+			(void *)(f_conf_array.reg_setting),
+			f_conf_array.size *
+			sizeof(struct msm_camera_i2c_reg_array))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			kfree(f_reg_setting);
+			rc = -EFAULT;
+			break;
+		}
+
+		f_conf_array.reg_setting = f_reg_setting;
+
+		rc = msm_sensor_get_fuseid(s_ctrl, &f_conf_array);
+		break;
+	}
 	case CFG_GET_SENSOR_INFO:
 		memcpy(cdata->cfg.sensor_info.sensor_name,
 			s_ctrl->sensordata->sensor_name,

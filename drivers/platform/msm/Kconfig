@@ -224,4 +224,11 @@ config MSM_EXT_DISPLAY
 	  Enabling this option adds MSM External Display Driver.
 	  External Display driver was added to support the communication
 	  between external display driver and its couterparts.
+
+config GPIO_RF
+	tristate "setting gpio for RF"
+	default n
+	help
+	 Enable this module if dynamically change RF paramaters by monitor status of GPIO.
+
 endmenu

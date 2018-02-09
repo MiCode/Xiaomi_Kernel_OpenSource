@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +52,7 @@
 					39 01 00 00 78 00 03 f0 a5 a5
 					39 01 00 00 00 00 02 35 00
 					39 01 00 00 00 00 02 53 20
+					39 01 00 00 00 00 02 51 60
 					05 01 00 00 05 00 02 29 00];
 		qcom,mdss-dsi-off-command = [05 01 00 00 3c 00 02 28 00
 					05 01 00 00 b4 00 02 10 00];
@@ -135,7 +137,6 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-lp11-init;
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
-		qcom,mdss-dsi-bl-dcs-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <255>;
 		qcom,mdss-pan-physical-width-dimension = <68>;

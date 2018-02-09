@@ -2,6 +2,7 @@
  * linux/kernel/irq/pm.c
  *
  * Copyright (C) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file contains power management functions related to interrupts.
  */

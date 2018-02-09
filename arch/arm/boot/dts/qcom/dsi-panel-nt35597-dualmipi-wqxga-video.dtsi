@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +69,7 @@
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;
 		qcom,mdss-dsi-lane-3-state;
+		qcom,cmd-sync-wait-broadcast;
 		qcom,mdss-dsi-panel-timings = [e2 36 24 00 66 6a 28 38 2a 03 04 00];
 		qcom,mdss-dsi-t-clk-post = <0x0d>;
 		qcom,mdss-dsi-t-clk-pre = <0x2d>;

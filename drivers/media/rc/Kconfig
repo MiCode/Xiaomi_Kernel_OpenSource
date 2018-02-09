@@ -4,6 +4,13 @@ config RC_CORE
 	depends on INPUT
 	default y
 
+config SPI_PEELIR
+	tristate "PEELIR"
+	default y
+
+	---help---
+	  Enable this option if you use peelir
+
 source "drivers/media/rc/keymaps/Kconfig"
 
 menuconfig RC_DECODERS

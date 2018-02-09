@@ -5,6 +5,7 @@
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -269,6 +270,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(current_qnovo),
 	POWER_SUPPLY_ATTR(voltage_qnovo),
 	POWER_SUPPLY_ATTR(rerun_aicl),
+	POWER_SUPPLY_ATTR(charger_type),
 	POWER_SUPPLY_ATTR(cycle_count_id),
 	POWER_SUPPLY_ATTR(safety_timer_expired),
 	POWER_SUPPLY_ATTR(restricted_charging),
@@ -303,6 +305,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(pd_voltage_max),
 	POWER_SUPPLY_ATTR(pd_voltage_min),
 	POWER_SUPPLY_ATTR(sdp_current_max),
+	POWER_SUPPLY_ATTR(rerun_apsd),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */

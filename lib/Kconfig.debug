@@ -194,6 +194,21 @@ config ENABLE_MUST_CHECK
 	  suppress the "warning: ignoring return value of 'foo', declared with
 	  attribute warn_unused_result" messages.
 
+config FIRE_WATCHDOG
+	bool "Provide watchdog trigger"
+	default n
+	depends on PRINTK && QCOM_WATCHDOG_V2
+	help
+	  Provide a way to trigger watchdog for debugging purpose.
+
+config DUMP_ALL_STACKS
+	bool "Show all task stack information in logbuf on panic"
+	default n
+	depends on PRINTK && QCOM_WATCHDOG_V2
+	help
+	  Selecting this option for debugging purpose to dump all task stack
+	  under watchdog disable condition.
+
 config FRAME_WARN
 	int "Warn for stack frames larger than (needs gcc 4.4)"
 	range 0 8192
@@ -272,6 +287,64 @@ config DEBUG_FS
 
 	  For detailed documentation on the debugfs API, see
 	  Documentation/DocBook/filesystems.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST0
+	hex "First digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST1
+	hex "Second digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST2
+	hex "Third digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST3
+	hex "Fourth digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_DIGEST4
+	hex "Fifth digest value for debugfs protection"
+	depends on DEBUG_FS
+	help
+	  Enable this option to be able to require password during mount debugfs.
+
+	  If unsure, say N.
+
+config DEBUG_FS_WHITE_LIST
+	string "The debugfs protection white list"
+	depends on DEBUG_FS
+	help
+	  Enable this option to set the directory path list separated by colon
+	  which don't need to protect by password.
+
+	  If unsure, say N.
+
+config DEBUG_FS_PRINT_DIGEST
+	bool "Print debugfs digest value for debug purpose"
+	depends on DEBUG_FS
+	default n
+	help
+	  Enable this option to print the calculated digest value.
 
 	  If unsure, say N.
 
@@ -876,7 +949,7 @@ config PANIC_TIMEOUT
 config SCHED_DEBUG
 	bool "Collect scheduler debugging info"
 	depends on DEBUG_KERNEL && PROC_FS
-	default y
+	default n
 	help
 	  If you say Y here, the /proc/sched_debug file will be provided
 	  that can help debug the scheduler. The runtime overhead of this

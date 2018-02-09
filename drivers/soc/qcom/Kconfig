@@ -947,4 +947,9 @@ config MSM_CACHE_M4M_ERP64_PANIC_ON_UE
          Say 'Y' here to cause kernel panic when uncorrectable cache/M4M errors
          are detected.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	  Provide a interface for reading CPU serial number
+
 source "drivers/soc/qcom/memshare/Kconfig"

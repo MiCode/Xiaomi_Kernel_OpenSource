@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +33,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/input/qpnp-power-on.h>
 #include <linux/power_supply.h>
+#include <linux/sched.h>
 
 #define PMIC_VER_8941           0x01
 #define PMIC_VERSION_REG        0x0105
@@ -66,6 +68,7 @@
 	((pon)->base + PON_OFFSET((pon)->subtype, 0xA, 0xC2))
 #define QPNP_POFF_REASON1(pon) \
 	((pon)->base + PON_OFFSET((pon)->subtype, 0xC, 0xC5))
+#define QPNP_POFF_REASON2(pon)			((pon)->base + 0xD)
 #define QPNP_PON_WARM_RESET_REASON2(pon)	((pon)->base + 0xB)
 #define QPNP_PON_OFF_REASON(pon)		((pon)->base + 0xC7)
 #define QPNP_FAULT_REASON1(pon)			((pon)->base + 0xC8)
@@ -202,6 +205,8 @@ struct qpnp_pon {
 	struct pon_regulator	*pon_reg_cfg;
 	struct list_head	list;
 	struct delayed_work	bark_work;
+	struct delayed_work	collect_d_work;
+	bool			collect_d_in_progress;
 	struct dentry		*debugfs;
 	int			pon_trigger_reason;
 	int			pon_power_off_reason;
@@ -231,6 +236,8 @@ module_param_named(
 static struct qpnp_pon *sys_reset_dev;
 static DEFINE_SPINLOCK(spon_list_slock);
 static LIST_HEAD(spon_dev_list);
+static u32 comb_reset_time;
+static bool comb_reset_enable;
 
 static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
 	0, 32, 56, 80, 138, 184, 272, 408, 608, 904, 1352, 2048,
@@ -631,6 +638,103 @@ int qpnp_pon_is_warm_reset(void)
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
 
+int qpnp_pon_is_ps_hold_reset(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	int reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = regmap_read(pon->regmap, QPNP_POFF_REASON1(pon), &reg);
+	if (rc) {
+		dev_err(&pon->pdev->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_POFF_REASON1(pon), rc);
+		return 0;
+	}
+
+	/* The bit 1 is 1, means by PS_HOLD/MSM controlled shutdown */
+	if (reg & 0x2)
+		return 1;
+
+	dev_info(&pon->pdev->dev,
+			"hw_reset reason1 is 0x%x\n",
+			reg);
+
+	rc = regmap_read(pon->regmap, QPNP_POFF_REASON2(pon), &reg);
+
+	dev_info(&pon->pdev->dev,
+			"hw_reset reason2 is 0x%x\n",
+			reg);
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_ps_hold_reset);
+
+int qpnp_pon_is_lck(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	int reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = regmap_read(pon->regmap, QPNP_PON_WARM_RESET_REASON1(pon),
+			 &reg);
+	if (rc) {
+		dev_err(&pon->pdev->dev, "Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_WARM_RESET_REASON1(pon), rc);
+		return 0;
+	}
+
+	/* The bit 5 is 1, means the power on reason is KPDPWR_AND_RESIN */
+	if (reg & 0x20)
+		return 1;
+
+	dev_info(&pon->pdev->dev,
+			"warm_reset reason1 is 0x%x\n",
+			reg);
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lck);
+
+int qpnp_pon_is_lpk(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	int reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = regmap_read(pon->regmap, QPNP_POFF_REASON1(pon), &reg);
+	if (rc) {
+		dev_err(&pon->pdev->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_POFF_REASON1(pon), rc);
+		return 0;
+	}
+
+	/* The bit 7 is 1, means the off reason is powerkey */
+	if (reg & 0x80)
+		return 1;
+
+	dev_info(&pon->pdev->dev,
+			"hw_reset reason1 is 0x%x\n",
+			reg);
+
+	rc = regmap_read(pon->regmap, QPNP_POFF_REASON2(pon), &reg);
+
+	dev_info(&pon->pdev->dev,
+			"hw_reset reason2 is 0x%x\n",
+			reg);
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lpk);
+
 /**
  * qpnp_pon_wd_config - Disable the wd in a warm reset.
  * @enable: to enable or disable the PON watch dog
@@ -844,6 +948,19 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 		return -EINVAL;
 	}
 
+	if (comb_reset_enable == true) {
+		if (((pon_rt_sts & 0x3) == 0x3) && (pon->collect_d_in_progress == false) &&
+			(cfg->key_code == 116 || cfg->key_code == 114)) {
+			pon->collect_d_in_progress = true;
+			schedule_delayed_work(&pon->collect_d_work,
+							msecs_to_jiffies(comb_reset_time - 200));
+		} else if ((pon->collect_d_in_progress == true) && ((pon_rt_sts & 0x3) != 0x3) &&
+			(cfg->key_code == 116 || cfg->key_code == 114)) {
+			cancel_delayed_work(&pon->collect_d_work);
+			pon->collect_d_in_progress = false;
+		}
+	}
+
 	pr_debug("PMIC input: code=%d, sts=0x%hhx\n",
 					cfg->key_code, pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
@@ -868,6 +985,35 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	cfg->old_state = !!key_status;
 
 	return 0;
+}
+
+static void collect_d_work_func(struct work_struct *work)
+{
+	int rc;
+	int tmp_console = console_loglevel;
+	uint pon_rt_sts = 0;
+	struct qpnp_pon *pon =
+		container_of(work, struct qpnp_pon, collect_d_work.work);
+
+	/* check the RT status to get the current status of the line */
+	rc = regmap_read(pon->regmap, QPNP_PON_RT_STS(pon), &pon_rt_sts);
+	if (rc) {
+		dev_err(&pon->pdev->dev, "Unable to read PON RT status\n");
+		goto err_return;
+	}
+
+	if ((pon_rt_sts & 0x3) == 0x3) {
+		console_verbose();
+		pr_err("------ collect D-state processes info before long comb key ------\n");
+		show_state_filter_single(TASK_UNINTERRUPTIBLE);
+		pr_err("------ collect R-state processes info before long comb key ------\n");
+		show_state_filter_single(TASK_RUNNING);
+		pr_err("------ end collecting D&R-state processes info ------\n");
+		console_loglevel = tmp_console;
+	}
+err_return:
+	pon->collect_d_in_progress = false;
+	return;
 }
 
 static irqreturn_t qpnp_kpdpwr_irq(int irq, void *_pon)
@@ -1532,6 +1678,10 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 				dev_err(&pon->pdev->dev,
 					"Incorrect reset type specified\n");
 				return -EINVAL;
+			}
+			if (cfg->pon_type == PON_KPDPWR_RESIN) {
+				comb_reset_time = cfg->s1_timer + cfg->s2_timer;
+				comb_reset_enable = true;
 			}
 		}
 		/*
@@ -2253,6 +2403,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, pon);
 
 	INIT_DELAYED_WORK(&pon->bark_work, bark_work_func);
+	pon->collect_d_in_progress = false;
+	INIT_DELAYED_WORK(&pon->collect_d_work, collect_d_work_func);
 
 	/* register the PON configurations */
 	rc = qpnp_pon_config_init(pon);
@@ -2371,6 +2523,7 @@ static int qpnp_pon_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_debounce_us);
 
 	cancel_delayed_work_sync(&pon->bark_work);
+	cancel_delayed_work_sync(&pon->collect_d_work);
 
 	if (pon->pon_input)
 		input_unregister_device(pon->pon_input);

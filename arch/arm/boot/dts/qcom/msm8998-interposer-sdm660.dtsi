@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3038,34 +3039,53 @@
 };
 
 &gdsc_venus {
+	clock-names = "bus_clk", "maxi_clk", "core_clk";
+	clocks = <&clock_mmss clk_mmss_video_axi_clk>,
+		 <&clock_mmss clk_mmss_video_maxi_clk>,
+		 <&clock_mmss clk_mmss_video_core_clk>;
 	status = "ok";
 };
 
 &gdsc_venus_core0 {
+	clock-names = "core0_clk";
+	clocks = <&clock_mmss clk_mmss_video_subcore0_clk>;
 	status = "ok";
 	qcom,support-hw-trigger;
 };
 
 &gdsc_venus_core1 {
+	clock-names = "core1_clk";
+	clocks = <&clock_mmss clk_mmss_video_subcore1_clk>;
 	status = "ok";
 	qcom,support-hw-trigger;
 };
 
 &gdsc_camss_top {
+	clock-names = "bus_clk", "vfe_axi";
+	clocks = <&clock_mmss clk_mmss_camss_cpp_axi_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe_vbif_axi_clk>;
 	status = "ok";
 };
 
 &gdsc_vfe0 {
+	clock-names = "core0_clk" , "core0_stream_clk";
+	clocks = <&clock_mmss clk_mmss_camss_vfe0_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe0_stream_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_vfe1 {
+	clock-names = "core1_clk" , "core1_stream_clk";
+	clocks = <&clock_mmss clk_mmss_camss_vfe1_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe1_stream_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_cpp {
+	clock-names = "core_clk";
+	clocks = <&clock_mmss clk_mmss_camss_cpp_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	qcom,support-hw-trigger;
 	status = "ok";
@@ -3105,6 +3125,7 @@
 #include "msm8998-bus.dtsi"
 #include "msm8998-gpu.dtsi"
 #include "msm8998-pinctrl.dtsi"
+#include "sagit-msmcobalt-audio.dtsi"
 #include "msm8998-mdss.dtsi"
 #include "msm8998-mdss-pll.dtsi"
 #include "msm8998-blsp.dtsi"
@@ -3151,5 +3172,4 @@
 			qcom,bus-max = <0>;
 		};
 	};
-
 };

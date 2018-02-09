@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -385,11 +386,9 @@
 			qcom,fg-memif@4400 {
 				status = "okay";
 				reg = <0x4400 0x100>;
-				interrupts = <0x2 0x44 0x0 IRQ_TYPE_EDGE_BOTH>,
-					     <0x2 0x44 0x1 IRQ_TYPE_EDGE_BOTH>,
+				interrupts = <0x2 0x44 0x1 IRQ_TYPE_EDGE_BOTH>,
 					     <0x2 0x44 0x2 IRQ_TYPE_EDGE_BOTH>;
-				interrupt-names = "ima-rdy",
-						  "mem-xcp",
+				interrupt-names = "mem-xcp",
 						  "dma-grant";
 			};
 		};
@@ -497,8 +496,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "red";
-				linux,default-trigger =
-					"battery-charging";
 			};
 
 			green_led: qcom,rgb_1 {
@@ -510,7 +507,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "green";
-				linux,default-trigger = "battery-full";
 			};
 
 			blue_led: qcom,rgb_2 {
@@ -522,7 +518,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "blue";
-				linux,default-trigger = "boot-indication";
 			};
 		};
 
@@ -620,7 +615,7 @@
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";
 			qcom,vref-uv = <127500>;
-			qcom,switch-freq-khz = <800>;
+			qcom,switch-freq-khz = <600>;
 			qcom,ovp-mv = <29600>;
 			qcom,ilim-ma = <970>;
 			qcom,boost-duty-ns = <26>;
@@ -692,7 +687,7 @@
 				qcom,id = <0>;
 				qcom,current-ma = <1000>;
 				qcom,duration-ms = <1280>;
-				qcom,ires-ua = <12500>;
+				qcom,ires-ua = <13000>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
@@ -705,7 +700,7 @@
 				qcom,id = <1>;
 				qcom,current-ma = <1000>;
 				qcom,duration-ms = <1280>;
-				qcom,ires-ua = <12500>;
+				qcom,ires-ua = <13000>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
@@ -726,11 +721,11 @@
 			pmi8998_torch0: qcom,torch_0 {
 				label = "torch";
 				qcom,led-name = "led:torch_0";
-				qcom,max-current = <500>;
+				qcom,max-current = <200>;
 				qcom,default-led-trigger = "torch0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <300>;
-				qcom,ires-ua = <12500>;
+				qcom,current-ma = <75>;
+				qcom,ires-ua = <13000>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
@@ -738,11 +733,11 @@
 			pmi8998_torch1: qcom,torch_1 {
 				label = "torch";
 				qcom,led-name = "led:torch_1";
-				qcom,max-current = <500>;
+				qcom,max-current = <200>;
 				qcom,default-led-trigger = "torch1_trigger";
 				qcom,id = <1>;
-				qcom,current-ma = <300>;
-				qcom,ires-ua = <12500>;
+				qcom,current-ma = <75>;
+				qcom,ires-ua = <13000>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};

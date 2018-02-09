@@ -1,0 +1,69 @@
+
+qcom,d5_atl_3400mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3400>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "d5_atl";
+	qcom,checksum = <0xE38B>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+			6C 1F B7 05
+			69 0A AD FC
+			7B 1D 4A 07
+			48 12 15 14
+			7E 18 52 23
+			F9 44 C2 53
+			55 00 00 00
+			0E 00 00 00
+			00 00 FC 07
+			C6 C5 D8 C2
+			20 00 08 00
+			04 D3 CA E4
+			F7 F4 CB EA
+			77 01 C7 0B
+			05 FC D9 2A
+			18 06 09 20
+			27 00 14 00
+			48 1D 4E E3
+			8D FA 54 CC
+			EF 1C 68 02
+			3F 0D 89 0A
+			FA 19 D3 1B
+			3E 3D B2 4A
+			70 00 00 00
+			12 00 00 00
+			00 00 05 CC
+			D8 C2 27 C3
+			1B 00 00 00
+			D7 EA CA E4
+			26 EC 52 E3
+			85 00 70 03
+			83 03 0F 1B
+			B3 33 CC FF
+			07 10 00 00
+			4A 0D 66 46
+			1B 00 40 00
+			49 01 0A FA
+			FF 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+	];
+};

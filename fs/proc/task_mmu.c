@@ -1426,7 +1426,7 @@ const struct file_operations proc_pagemap_operations = {
 #endif /* CONFIG_PROC_PAGE_MONITOR */
 
 #ifdef CONFIG_PROCESS_RECLAIM
-static int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
+int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
 				unsigned long end, struct mm_walk *walk)
 {
 	struct reclaim_param *rp = walk->private;
@@ -1439,7 +1439,7 @@ static int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
 	int reclaimed;
 
 	split_huge_page_pmd(vma, addr, pmd);
-	if (pmd_trans_unstable(pmd) || !rp->nr_to_reclaim)
+	if (pmd_trans_unstable(pmd) || ((rp->mode == 0) && !rp->nr_to_reclaim))
 		return 0;
 cont:
 	isolated = 0;
@@ -1453,6 +1453,9 @@ cont:
 		if (!page)
 			continue;
 
+		if (page_mapcount(page) != 1)
+			continue;
+
 		if (isolate_lru_page(page))
 			continue;
 
@@ -1461,7 +1464,7 @@ cont:
 				page_is_file_cache(page));
 		isolated++;
 		rp->nr_scanned++;
-		if ((isolated >= SWAP_CLUSTER_MAX) || !rp->nr_to_reclaim)
+		if (isolated >= SWAP_CLUSTER_MAX || ((rp->mode == 0) && !rp->nr_to_reclaim))
 			break;
 	}
 	pte_unmap_unlock(pte - 1, ptl);
@@ -1471,11 +1474,16 @@ cont:
 	if (rp->nr_to_reclaim < 0)
 		rp->nr_to_reclaim = 0;
 
-	if (rp->nr_to_reclaim && (addr != end))
+	if (rp->mode == 0) {
+		if (rp->nr_to_reclaim && (addr != end))
 		goto cont;
+	} else {
+		if (addr != end)
+		goto cont;
+	}
 
 	cond_resched();
-	return 0;
+	return (rp->nr_to_reclaim == 0) ? -EPIPE : 0;
 }
 
 enum reclaim_type {
@@ -1503,7 +1511,8 @@ struct reclaim_param reclaim_task_anon(struct task_struct *task,
 	reclaim_walk.mm = mm;
 	reclaim_walk.pmd_entry = reclaim_pte_range;
 
-	rp.nr_to_reclaim = nr_to_reclaim;
+	rp.nr_to_reclaim = INT_MAX;
+	rp.mode = 0;
 	reclaim_walk.private = &rp;
 
 	down_read(&mm->mmap_sem);
@@ -1546,6 +1555,7 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 	unsigned long start = 0;
 	unsigned long end = 0;
 	struct reclaim_param rp;
+	int ret;
 
 	memset(buffer, 0, sizeof(buffer));
 	if (count > sizeof(buffer) - 1)
@@ -1600,6 +1610,7 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 	if (!task)
 		return -ESRCH;
 
+	printk("reclaim_pid:%d\n", task->pid);
 	mm = get_task_mm(task);
 	if (!mm)
 		goto out;
@@ -1609,6 +1620,7 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 
 	rp.nr_to_reclaim = ~0;
 	rp.nr_reclaimed = 0;
+	rp.mode = 1;
 	reclaim_walk.private = &rp;
 
 	down_read(&mm->mmap_sem);
@@ -1621,9 +1633,11 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 				continue;
 
 			rp.vma = vma;
-			walk_page_range(max(vma->vm_start, start),
+			ret = walk_page_range(max(vma->vm_start, start),
 					min(vma->vm_end, end),
 					&reclaim_walk);
+			if (ret)
+				break;
 			vma = vma->vm_next;
 		}
 	} else {
@@ -1638,8 +1652,10 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 				continue;
 
 			rp.vma = vma;
-			walk_page_range(vma->vm_start, vma->vm_end,
+			ret = walk_page_range(vma->vm_start, vma->vm_end,
 				&reclaim_walk);
+			if (ret)
+				break;
 		}
 	}
 
@@ -1648,6 +1664,7 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 	mmput(mm);
 out:
 	put_task_struct(task);
+	printk("reclaim count:%d\n", (int)count);
 	return count;
 
 out_err:

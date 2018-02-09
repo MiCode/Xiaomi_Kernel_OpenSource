@@ -48,6 +48,7 @@ arm64-obj-$(CONFIG_MSM_APP_SETTINGS)	+= app_setting.o
 arm64-obj-$(CONFIG_HIBERNATION)		+= hibernate.o hibernate-asm.o
 arm64-obj-$(CONFIG_ARM64_ACPI_PARKING_PROTOCOL)	+= acpi_parking_protocol.o
 arm64-obj-$(CONFIG_PARAVIRT)		+= paravirt.o
+arm64-obj-$(CONFIG_BOOT_INFO)		+= bootinfo.o
 
 obj-y					+= $(arm64-obj-y) vdso/ probes/
 obj-m					+= $(arm64-obj-m)

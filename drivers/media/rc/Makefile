@@ -37,3 +37,5 @@ obj-$(CONFIG_IR_TTUSBIR) += ttusbir.o
 obj-$(CONFIG_RC_ST) += st_rc.o
 obj-$(CONFIG_IR_SUNXI) += sunxi-cir.o
 obj-$(CONFIG_IR_IMG) += img-ir/
+# peelir using spi
+obj-$(CONFIG_SPI_PEELIR) += peelir.o

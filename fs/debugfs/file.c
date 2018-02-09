@@ -23,23 +23,128 @@
 #include <linux/atomic.h>
 #include <linux/device.h>
 
-static ssize_t default_read_file(struct file *file, char __user *buf,
-				 size_t count, loff_t *ppos)
+static bool debugfs_can_access(struct super_block *sb, char *path)
 {
-	return 0;
+	struct debugfs_fs_info *fsi = sb->s_fs_info;
+	struct debugfs_mount_opts *opts = &fsi->mount_opts;
+
+	if (!opts->privilege) {
+#ifdef CONFIG_DEBUG_FS_WHITE_LIST
+		int len = strlen(path);
+		while (len != 0) {
+			char *match = strnstr(CONFIG_DEBUG_FS_WHITE_LIST, path, strlen(CONFIG_DEBUG_FS_WHITE_LIST));
+			if (match && match[len] == ':' && *--match == ':')
+				return true; /* always pass white list */
+
+			while (--len != 0) { /* move to parent */
+				if (path[len] == '/') {
+					path[len] = '\0';
+					break;
+				}
+			}
+		}
+#endif
+		return false;
+	}
+
+	return true;
 }
 
-static ssize_t default_write_file(struct file *file, const char __user *buf,
+static int debugfs_dir_readdir(struct file *file, struct dir_context *ctx)
+{
+	char buf[256];
+	char *path = dentry_path(file->f_path.dentry, buf, sizeof(buf));
+
+	strlcpy(buf, path, sizeof(buf));
+	if (strlen(path) != 1) /* not root */
+		strlcat(buf, "/", sizeof(buf));
+
+	if (debugfs_can_access(file->f_inode->i_sb, buf)) {
+		return dcache_readdir(file, ctx);
+	} else
+		return 0;
+}
+
+const struct file_operations debugfs_dir_operations = {
+	.open		= dcache_dir_open,
+	.release	= dcache_dir_close,
+	.iterate	= debugfs_dir_readdir,
+};
+
+static int debugfs_open_file(struct inode *inode, struct file *file)
+{
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	char *path, buf[256];
+	int rc = -EPERM;
+
+	path = dentry_path(file->f_path.dentry, buf, sizeof(buf));
+	if (debugfs_can_access(file->f_inode->i_sb, path)) {
+		if (fop && fop->open)
+			rc = fop->open(inode, file);
+		else
+			rc = simple_open(inode, file);
+	}
+
+	return rc;
+}
+
+static int debugfs_release_file(struct inode *inode, struct file *file)
+{
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	if (fop && fop->release)
+		return fop->release(inode, file);
+	else
+		return 0;
+}
+
+static loff_t debugfs_llseek_file(struct file *file, loff_t offset, int origin)
+{
+	struct inode *inode = file->f_path.dentry->d_inode;
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	if (fop && fop->llseek)
+		return fop->llseek(file, offset, origin);
+	else
+		return noop_llseek(file, offset, origin);
+}
+
+static ssize_t debugfs_read_file(struct file *file, char __user *buf,
+				 size_t count, loff_t *ppos)
+{
+	struct inode *inode = file->f_path.dentry->d_inode;
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	if (fop && fop->read)
+		return fop->read(file, buf, count, ppos);
+	else
+		return 0;
+}
+
+static ssize_t debugfs_write_file(struct file *file, const char __user *buf,
 				   size_t count, loff_t *ppos)
 {
-	return count;
+	struct inode *inode = file->f_path.dentry->d_inode;
+	struct debugfs_inode *dinode = (struct debugfs_inode *)inode;
+	const struct file_operations *fop = (struct file_operations *)dinode->pfops;
+
+	if (fop && fop->write)
+		return fop->write(file, buf, count, ppos);
+	else
+		return count;
 }
 
 const struct file_operations debugfs_file_operations = {
-	.read =		default_read_file,
-	.write =	default_write_file,
-	.open =		simple_open,
-	.llseek =	noop_llseek,
+	.read =		debugfs_read_file,
+	.write =	debugfs_write_file,
+	.open =		debugfs_open_file,
+	.release =	debugfs_release_file,
+	.llseek =	debugfs_llseek_file,
 };
 
 static struct dentry *debugfs_create_mode(const char *name, umode_t mode,

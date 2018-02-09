@@ -59,6 +59,7 @@
 #include <linux/delay.h>
 #include <linux/cpuset.h>
 #include <linux/atomic.h>
+#include <linux/freezer.h>
 
 /*
  * pidlists linger the following amount before being destroyed.  The goal
@@ -2691,6 +2692,7 @@ static int cgroup_procs_write_permission(struct task_struct *task,
 	 * need to check permissions on one of them.
 	 */
 	if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
+	    !uid_eq(cred->euid, GLOBAL_SYSTEM_UID) &&
 	    !uid_eq(cred->euid, tcred->uid) &&
 	    !uid_eq(cred->euid, tcred->suid) &&
 	    !ns_capable(tcred->user_ns, CAP_SYS_NICE))
@@ -2820,6 +2822,22 @@ int cgroup_attach_task_all(struct task_struct *from, struct task_struct *tsk)
 	return retval;
 }
 EXPORT_SYMBOL_GPL(cgroup_attach_task_all);
+
+#ifdef CONFIG_FROZEN_APP
+void cgroup_thawed_by_pid(int pid_nr)
+{
+	struct task_struct *ptask;
+
+	ptask = find_task_by_vpid(pid_nr);
+	if (ptask) {
+		get_task_struct(ptask);
+		freezer_change_state_to_thawed(ptask);
+		put_task_struct(ptask);
+		return;
+	}
+	return;
+}
+#endif
 
 static ssize_t cgroup_tasks_write(struct kernfs_open_file *of,
 				  char *buf, size_t nbytes, loff_t off)

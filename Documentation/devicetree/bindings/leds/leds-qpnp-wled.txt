@@ -78,8 +78,6 @@ Optional properties for WLED:
 - qcom,lcd-psm-ctrl	: A boolean property to specify if PSM needs to be
 			  controlled dynamically when WLED module is enabled
 			  or disabled.
-- qcom,auto-calibration-enable : A boolean property which enables auto-calibration
-				 of the WLED sink configuration.
 
 Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.

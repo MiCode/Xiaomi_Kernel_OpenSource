@@ -194,14 +194,6 @@ static int proc_print_scsidevice(struct device *dev, void *data)
 			seq_putc(s, ' ');
 	}
 
-	seq_puts(s, " Model: ");
-	for (i = 0; i < 16; i++) {
-		if (sdev->model[i] >= 0x20)
-			seq_putc(s, sdev->model[i]);
-		else
-			seq_putc(s, ' ');
-	}
-
 	seq_puts(s, " Rev: ");
 	for (i = 0; i < 4; i++) {
 		if (sdev->rev[i] >= 0x20)

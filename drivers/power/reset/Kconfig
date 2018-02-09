@@ -103,6 +103,12 @@ config QCOM_DLOAD_MODE
 		make the kernel reboot on a kernel panic - that must be
 		enabled via another mechanism.
 
+config ALLOW_REBOOT_TO_EDL
+	bool "Whether allow reboot to edl mode"
+	depends on QCOM_DLOAD_MODE
+	help
+	  This config choose Whether allow reboot to edl mode.
+
 config POWER_RESET_QNAP
 	bool "QNAP power-off driver"
 	depends on OF_GPIO && PLAT_ORION

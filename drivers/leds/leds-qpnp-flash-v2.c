@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,7 +143,7 @@
 #define	FLASH_LED_IRES_BASE			3
 #define	FLASH_LED_IRES_DIVISOR			2500
 #define	FLASH_LED_IRES_MIN_UA			5000
-#define	FLASH_LED_IRES_DEFAULT_UA		12500
+#define	FLASH_LED_IRES_DEFAULT_UA		13000
 #define	FLASH_LED_IRES_DEFAULT_VAL		0x00
 #define	FLASH_LED_HDRM_VOL_SHIFT		4
 #define	FLASH_LED_HDRM_VOL_DEFAULT_MV		0x80
@@ -1075,9 +1076,12 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	int rc, i, addr_offset;
 	u8 val, mask;
 
+	pr_err("snode->enabled = %d, on = %d", snode->enabled, on);
 	if (snode->enabled == on) {
-		pr_debug("Switch node is already %s!\n",
+		pr_err("Switch node is already %s!\n",
 			on ? "enabled" : "disabled");
+		if (on)
+			qpnp_flash_led_switch_disable(snode);
 		return 0;
 	}
 
@@ -1154,8 +1158,10 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		rc = qpnp_flash_led_masked_write(led,
 				FLASH_LED_REG_MOD_CTRL(led->base),
 				FLASH_LED_MOD_CTRL_MASK, FLASH_LED_MOD_ENABLE);
-		if (rc < 0)
+		if (rc < 0) {
+			pr_err("qpnp_flash_led_masked_write fail\n");
 			return rc;
+		}
 	}
 	led->enable++;
 
@@ -1186,8 +1192,10 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	rc = qpnp_flash_led_masked_write(led,
 					FLASH_LED_EN_LED_CTRL(led->base),
 					snode->led_mask, val);
-	if (rc < 0)
+	if (rc < 0) {
+		pr_err("qpnp_flash_led_masked_write fail\n");
 		return rc;
+	}
 
 	snode->enabled = true;
 	return 0;

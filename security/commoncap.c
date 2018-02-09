@@ -35,6 +35,11 @@
 #include <linux/android_aid.h>
 #endif
 
+#define CONFIG_MI_ROOT_DETECT 1
+#ifdef CONFIG_MI_ROOT_DETECT
+#include <linux/mi_root_detect.h>
+#endif
+
 /*
  * If a non-root user executes a setuid-root binary in
  * !secure(SECURE_NOROOT) mode, then we raise capabilities.
@@ -90,14 +95,28 @@ int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 	 */
 	for (;;) {
 		/* Do we have the necessary capabilities? */
-		if (ns == cred->user_ns)
+		if (ns == cred->user_ns) {
+#ifdef CONFIG_MI_ROOT_DETECT
+			/* mi root detect start */
+			if (cap_raised(cred->cap_effective, cap)) {
+				if (audit && cap != CAP_SETPCAP &&
+				   inspect_illegal_root_capability(cap)) {
+					/* illegal root cap !setpacap" */
+					record_illegal_root(cap);
+				}
+				return 0;
+			} else {
+				return -EPERM;
+			}
+#else
 			return cap_raised(cred->cap_effective, cap) ? 0 : -EPERM;
-
+#endif
+		}
 		/* Have we tried all of the parent namespaces? */
 		if (ns == &init_user_ns)
 			return -EPERM;
 
-		/* 
+		/*
 		 * The owner of the user namespace in the parent of the
 		 * user namespace has all caps.
 		 */
@@ -774,6 +793,18 @@ static inline void cap_emulate_setxuid(struct cred *new, const struct cred *old)
  */
 int cap_task_fix_setuid(struct cred *new, const struct cred *old, int flags)
 {
+#ifdef CONFIG_MI_ROOT_DETECT
+	/* mi root detect start */
+	if ((old->euid.val != 0 && new->euid.val == 0) ||
+		(old->uid.val != 0 && new->uid.val == 0)   ||
+		(old->suid.val != 0 && new->suid.val == 0) ||
+		(old->fsuid.val != 0 && new->fsuid.val == 0)) {
+		if (inspect_illegal_root_capability(-1)) {
+			/* illegal root uid" */
+			record_illegal_root(-1);
+		}
+	}
+#endif
 	switch (flags) {
 	case LSM_SETID_RE:
 	case LSM_SETID_ID:
@@ -816,7 +847,7 @@ int cap_task_fix_setuid(struct cred *new, const struct cred *old, int flags)
  * task_setnice, assumes that
  *   . if capable(cap_sys_nice), then those actions should be allowed
  *   . if not capable(cap_sys_nice), but acting on your own processes,
- *   	then those actions should be allowed
+ *	then those actions should be allowed
  * This is insufficient now since you can call code without suid, but
  * yet with increased caps.
  * So we check for increased caps on the target process.
@@ -961,6 +992,15 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 		new = prepare_creds();
 		if (!new)
 			return -ENOMEM;
+
+#ifdef CONFIG_MI_ROOT_DETECT
+		/* mi root detect start */
+		if (inspect_illegal_root_capability(CAP_SETPCAP)) {
+			/* illegal root cap setpacap" */
+			record_illegal_root(CAP_SETPCAP);
+		}
+#endif
+
 		new->securebits = arg2;
 		return commit_creds(new);
 

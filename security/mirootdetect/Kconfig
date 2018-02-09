@@ -1,0 +1,5 @@
+config MI_ROOT_DETECT
+	bool "Mi Root Detect Driver"
+	default y
+	---help---
+	  Enable support for root detect action

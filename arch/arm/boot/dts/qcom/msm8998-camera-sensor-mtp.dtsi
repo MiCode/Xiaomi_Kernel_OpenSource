@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -236,30 +237,22 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <270>;
-		qcom,led-flash-src = <&led_flash0>;
-		qcom,actuator-src = <&actuator0>;
-		qcom,ois-src = <&ois0>;
-		qcom,eeprom-src = <&eeprom0>;
 		cam_vio-supply = <&pm8998_lvs1>;
-		cam_vana-supply = <&pmi8998_bob>;
-		cam_vdig-supply = <&pm8998_s3>;
-		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3312000 1352000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1352000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		qcom,cam-vreg-name = "cam_vio";
+		qcom,cam-vreg-min-voltage = <0>;
+		qcom,cam-vreg-max-voltage = <0>;
+		qcom,cam-vreg-op-mode = <0>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk0_active
-				 &cam_sensor_rear_active>;
-		pinctrl-1 = <&cam_sensor_mclk0_suspend
-				 &cam_sensor_rear_suspend>;
+		pinctrl-0 = <&cam_sensor_mclk0_active &cam_sensor_rear_active>;
+		pinctrl-1 = <&cam_sensor_mclk0_suspend &cam_sensor_rear_suspend>;
 		gpios = <&tlmm 13 0>,
 			<&tlmm 30 0>,
 			<&pm8998_gpios 20 0>,
-			<&tlmm 29 0>;
+			<&tlmm 78 0>;
 		qcom,gpio-reset = <1>;
-		qcom,gpio-vdig = <2>;
-		qcom,gpio-vana = <3>;
+		qcom,gpio-vana = <2>;
+		qcom,gpio-vdig = <3>;
 		qcom,gpio-req-tbl-num = <0 1 2 3>;
 		qcom,gpio-req-tbl-flags = <1 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
@@ -280,35 +273,33 @@
 		cell-index = <1>;
 		compatible = "qcom,camera";
 		reg = <0x1>;
-		qcom,csiphy-sd-index = <1>;
-		qcom,csid-sd-index = <1>;
+		qcom,csiphy-sd-index = <2>;
+		qcom,csid-sd-index = <2>;
 		qcom,mount-angle = <90>;
-		qcom,eeprom-src = <&eeprom1>;
 		qcom,led-flash-src = <&led_flash0>;
 		qcom,actuator-src = <&actuator1>;
-		cam_vdig-supply = <&pm8998_lvs1>;
 		cam_vio-supply = <&pm8998_lvs1>;
-		cam_vana-supply = <&pmi8998_bob>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
-		qcom,cam-vreg-min-voltage = <0 0 3312000>;
-		qcom,cam-vreg-max-voltage = <0 0 3600000>;
-		qcom,cam-vreg-op-mode = <0 0 80000>;
+		qcom,cam-vreg-name = "cam_vio";
+		qcom,cam-vreg-min-voltage = <0>;
+		qcom,cam-vreg-max-voltage = <0>;
+		qcom,cam-vreg-op-mode = <0>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk2_active
-				 &cam_sensor_rear2_active>;
-		pinctrl-1 = <&cam_sensor_mclk2_suspend
-				 &cam_sensor_rear2_suspend>;
+		pinctrl-0 = <&cam_sensor_mclk2_active &cam_sensor_rear_active>;
+		pinctrl-1 = <&cam_sensor_mclk2_suspend &cam_sensor_rear_suspend>;
 		gpios = <&tlmm 15 0>,
 			<&tlmm 9 0>,
-			<&tlmm 8 0>;
+			<&pm8998_gpios 20 0>,
+			<&tlmm 78 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-vana = <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK1",
-					  "CAM_RESET1",
-					  "CAM_VANA1";
+		qcom,gpio-vdig = <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
+					"CAM_RESET2",
+					"CAM_VDIG",
+					"CAM_VANA";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <1>;

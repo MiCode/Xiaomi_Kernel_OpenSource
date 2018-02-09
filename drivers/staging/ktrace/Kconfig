@@ -1,0 +1,6 @@
+config KTRACE
+	bool "enable ktrace"
+	select DEBUG_FS
+	default y
+	help
+	  add kernel trace, such as slow path time, direct reclaim time

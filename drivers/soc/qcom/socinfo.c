@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +67,9 @@ enum {
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
 	HW_PLATFORM_ADP = 25,
+	HW_PLATFORM_SAGIT = 30,
+	HW_PLATFORM_CHIRON = 32,
+	HW_PLATFORM_CHIRON_S = 33,
 	HW_PLATFORM_INVALID
 };
 
@@ -87,6 +91,9 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
 	[HW_PLATFORM_ADP] = "ADP",
+	[HW_PLATFORM_SAGIT] = "SAGIT",
+	[HW_PLATFORM_CHIRON] = "CHIRON",
+	[HW_PLATFORM_CHIRON_S] = "CHIRON_S",
 };
 
 enum {
@@ -551,7 +558,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* Cobalt IDs */
 	[292] = {MSM_CPU_8998, "MSM8998"},
-	[319] = {MSM_CPU_8998, "APQ8098"},
+	[319] = {MSM_CPU_8998, "APQ8998"},
 
 	/* Hamster ID */
 	[306] = {MSM_CPU_HAMSTER, "MSMHAMSTER"},
@@ -1259,6 +1266,10 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 246;
 		strlcpy(dummy_socinfo.build_id, "msm8996 - ",
 			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8996_auto()) {
+		dummy_socinfo.id = 310;
+		strlcpy(dummy_socinfo.build_id, "msm8996-auto - ",
+		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm8929()) {
 		dummy_socinfo.id = 268;
 		strlcpy(dummy_socinfo.build_id, "msm8929 - ",
@@ -1303,9 +1314,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 346;
 		strlcpy(dummy_socinfo.build_id, "sda636 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_apq8098()) {
+	} else if (early_machine_is_apq8998()) {
 		dummy_socinfo.id = 319;
-		strlcpy(dummy_socinfo.build_id, "apq8098 - ",
+		strlcpy(dummy_socinfo.build_id, "apq8998 - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
@@ -1572,6 +1583,39 @@ static void socinfo_select_format(void)
 		socinfo_format = socinfo->v0_1.format;
 	}
 }
+
+uint32_t get_hw_version_platform(void)
+{
+	uint32_t hw_type = socinfo_get_platform_type();
+	if (hw_type == HW_PLATFORM_SAGIT)
+		return HARDWARE_PLATFORM_SAGIT;
+	else if (hw_type == HW_PLATFORM_CHIRON)
+		return HARDWARE_PLATFORM_CHIRON;
+	else if (hw_type == HW_PLATFORM_CHIRON_S)
+		return HARDWARE_PLATFORM_CHIRON_S;
+	else
+		return HARDWARE_PLATFORM_UNKNOWN;
+}
+EXPORT_SYMBOL(get_hw_version_platform);
+
+#define HW_MAJOR_VERSION_SHIFT 16
+#define HW_MAJOR_VERSION_MASK  0xFFFF0000
+#define HW_MINOR_VERSION_SHIFT 0
+#define HW_MINOR_VERSION_MASK  0x0000FFFF
+
+uint32_t get_hw_version_major(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_MAJOR_VERSION_MASK) >> HW_MAJOR_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_major);
+
+uint32_t get_hw_version_minor(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_MINOR_VERSION_MASK) >> HW_MINOR_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_minor);
 
 int __init socinfo_init(void)
 {

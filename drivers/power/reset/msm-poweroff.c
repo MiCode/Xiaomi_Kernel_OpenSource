@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,10 +73,9 @@ static void scm_disable_sdi(void);
 
 static int in_panic;
 static int dload_type = SCM_DLOAD_FULLDUMP;
-static int download_mode = 1;
+static int download_mode;
 static struct kobject dload_kobj;
 static void *dload_mode_addr, *dload_type_addr;
-static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
 #ifdef CONFIG_RANDOMIZE_BASE
 static void *kaslr_imem_addr;
@@ -148,16 +148,19 @@ static void set_dload_mode(int on)
 	ret = scm_set_dload_mode(on ? dload_type : 0, 0);
 	if (ret)
 		pr_err("Failed to set secure DLOAD mode: %d\n", ret);
+	if (!on)
+		scm_disable_sdi();
+	else
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 
-	dload_mode_enabled = on;
 }
 
-static bool get_dload_mode(void)
+int get_dload_mode(void)
 {
-	return dload_mode_enabled;
+	return download_mode;
 }
 
-static void enable_emergency_dload_mode(void)
+__attribute__((unused)) static void enable_emergency_dload_mode(void)
 {
 	int ret;
 
@@ -301,7 +304,10 @@ static void msm_restart_prepare(const char *cmd)
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 	}
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -333,11 +339,17 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
+#ifdef CONFIG_ALLOW_REBOOT_TO_EDL
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
+#endif
 		} else {
+			qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();
@@ -379,6 +391,8 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 
 	msm_restart_prepare(cmd);
 
+	if (!get_dload_mode())
+		scm_disable_sdi();
 #ifdef CONFIG_QCOM_DLOAD_MODE
 	/*
 	 * Trigger a watchdog bite here and if this fails,
@@ -403,6 +417,9 @@ static void do_msm_poweroff(void)
 	set_dload_mode(0);
 	scm_disable_sdi();
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
+	qpnp_pon_set_restart_reason(
+		PON_RESTART_REASON_UNKNOWN);
+	__raw_writel(0x0, restart_reason);
 
 	halt_spmi_pmic_arbiter();
 	deassert_ps_hold();
@@ -643,6 +660,10 @@ skip_sysfs_create:
 					   "tcsr-boot-misc-detect");
 	if (mem)
 		tcsr_boot_misc_detect = mem->start;
+
+	qpnp_pon_set_restart_reason(
+		PON_RESTART_REASON_UNKNOWN);
+	__raw_writel(0x77665510, restart_reason);
 
 	pm_power_off = do_msm_poweroff;
 	arm_pm_restart = do_msm_restart;

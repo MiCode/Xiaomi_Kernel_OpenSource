@@ -1,0 +1,5 @@
+config RTMM
+	bool "enable runtime mem optimization"
+	select DEBUG_FS
+	help
+	  Thie module is created by MIUI to optimize mem performance.

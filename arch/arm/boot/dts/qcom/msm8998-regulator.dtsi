@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -222,8 +223,8 @@
 	rpm-regulator-ldoa6 {
 		status = "okay";
 		pm8998_l6: regulator-l6 {
-			regulator-min-microvolt = <1808000>;
-			regulator-max-microvolt = <1808000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 			status = "okay";
 		};
 	};
@@ -306,8 +307,8 @@
 	rpm-regulator-ldoa14 {
 		status = "okay";
 		pm8998_l14: regulator-l14 {
-			regulator-min-microvolt = <1880000>;
-			regulator-max-microvolt = <1880000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 			proxy-supply = <&pm8998_l14>;
 			qcom,proxy-consumer-enable;
 			qcom,proxy-consumer-current = <32000>;
@@ -1131,6 +1132,30 @@
 		qcom,corner-acc-map = <0x1 0x0>;
 		qcom,acc-sel-l1-bit-pos = <0>;
 		qcom,acc-sel-l1-bit-size = <1>;
+	};
+
+	disp_vddts_vreg: disp_vddts_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddts_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 50 0>;
+		 };
+
+	fp_vdd_vreg: fp_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "fp_vdd_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 35 0>;
+	};
+
+	fp_d5_vdd_vreg: fp_d5_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "fp_d5_vdd_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 77 0>;
 	};
 };
 

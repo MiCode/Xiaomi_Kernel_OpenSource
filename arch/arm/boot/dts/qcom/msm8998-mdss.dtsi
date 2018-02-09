@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,7 +213,7 @@
 
 		qcom,mdss-pp-offsets {
 			qcom,mdss-sspp-mdss-igc-lut-off = <0x2000>;
-			qcom,mdss-sspp-vig-pcc-off = <0x1b00>;
+			qcom,mdss-sspp-vig-pcc-off = <0x1780>;
 			qcom,mdss-sspp-rgb-pcc-off = <0x380>;
 			qcom,mdss-sspp-dma-pcc-off = <0x380>;
 			qcom,mdss-lm-pgc-off = <0x3c0>;
@@ -670,3 +671,5 @@
 		qcom,pluggable;
 	};
 };
+
+#include "msm8998-mdss-panels.dtsi"

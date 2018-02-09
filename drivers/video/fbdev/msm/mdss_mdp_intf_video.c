@@ -1269,7 +1269,7 @@ static void mdss_mdp_video_underrun_intr_done(void *arg)
 	ctl->underrun_cnt++;
 	MDSS_XLOG(ctl->num, ctl->underrun_cnt);
 	trace_mdp_video_underrun_done(ctl->num, ctl->underrun_cnt);
-	pr_debug("display underrun detected for ctl=%d count=%d\n", ctl->num,
+	pr_info("display underrun detected for ctl=%d count=%d\n", ctl->num,
 			ctl->underrun_cnt);
 
 	if (!test_bit(MDSS_CAPS_3D_MUX_UNDERRUN_RECOVERY_SUPPORTED,

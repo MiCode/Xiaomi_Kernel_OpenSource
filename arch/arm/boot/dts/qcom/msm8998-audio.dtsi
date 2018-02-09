@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,7 +83,6 @@
 
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
-		qcom,us-euro-gpios = <&wcd_us_euro_gpio>;
 		qcom,hph-en0-gpio = <&hph_en0_gpio>;
 		qcom,hph-en1-gpio = <&hph_en1_gpio>;
 		qcom,tasha-mclk-clk-freq = <9600000>;
@@ -112,6 +112,8 @@
 				<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
 				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
+				<&dai_mi2s0>, <&dai_mi2s1>,
+				<&dai_mi2s2>, <&dai_mi2s3>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
 				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
@@ -137,7 +139,9 @@
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
 				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
-				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913";
+				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3";
 		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
 		asoc-codec-names = "msm-stub-codec.1",
 				   "msm-ext-disp-audio-codec-rx";
@@ -216,8 +220,6 @@
 		qcom,hph-en1-gpio = <&tavil_hph_en1>;
 		qcom,tavil-mclk-clk-freq = <9600000>;
 
-		qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
-		qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -304,20 +306,6 @@
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&wcd_gnd_mic_swap_active>;
 		pinctrl-1 = <&wcd_gnd_mic_swap_idle>;
-	};
-
-	wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl@59 {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&wcd_usbc_analog_en1_active>;
-		pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
-	};
-
-	wcd_usbc_analog_en2n_gpio: msm_cdc_pinctrl@60 {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&wcd_usbc_analog_en2n_active>;
-		pinctrl-1 = <&wcd_usbc_analog_en2n_idle>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {

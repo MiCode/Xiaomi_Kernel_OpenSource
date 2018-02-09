@@ -125,9 +125,6 @@ static int qti_ice_setting_config(struct request *req,
 		return -EPERM;
 	}
 
-	if (!setting)
-		return -EINVAL;
-
 	if ((short)(crypto_data->key_index) >= 0) {
 
 		memcpy(&setting->crypto_data, crypto_data,

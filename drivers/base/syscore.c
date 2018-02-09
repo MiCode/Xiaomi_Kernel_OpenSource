@@ -2,6 +2,7 @@
  *  syscore.c - Execution of system core operations.
  *
  *  Copyright (C) 2011 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  This file is released under the GPLv2.
  */

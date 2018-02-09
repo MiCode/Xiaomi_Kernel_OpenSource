@@ -1417,7 +1417,7 @@ static int msm_ispif_stop_frame_boundary(struct ispif_device *ispif,
 		rc = readl_poll_timeout(ispif->base + intf_addr, stop_flag,
 					(stop_flag & 0xF) == 0xF,
 					ISPIF_TIMEOUT_SLEEP_US,
-					ISPIF_TIMEOUT_ALL_US);
+					(params->reserved_param ? params->reserved_param : ISPIF_TIMEOUT_ALL_US));
 		if (rc < 0)
 			goto end;
 		if (cid_right_mask) {

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -114,11 +115,12 @@
 #define ELF_EXEC_PAGESIZE	PAGE_SIZE
 
 /*
- * This is the base location for PIE (ET_DYN with INTERP) loads. On
- * 64-bit, this is raised to 4GB to leave the entire 32-bit address
- * space open for things that want to use the area for 32-bit pointers.
+ * This is the location that an ET_DYN program is loaded if exec'ed.  Typical
+ * use of this is to invoke "./ld.so someprog" to test out a new version of
+ * the loader.  We need to make sure that it is out of the way of the program
+ * that it will "exec", and that there is sufficient room for the brk.
  */
-#define ELF_ET_DYN_BASE		0x100000000UL
+#define ELF_ET_DYN_BASE	(2 * TASK_SIZE_64 / 3)
 
 #ifndef __ASSEMBLY__
 
@@ -169,8 +171,7 @@ extern int arch_setup_additional_pages(struct linux_binprm *bprm,
 
 #ifdef CONFIG_COMPAT
 
-/* PIE load location for compat arm. Must match ARM ELF_ET_DYN_BASE. */
-#define COMPAT_ELF_ET_DYN_BASE		0x000400000UL
+#define COMPAT_ELF_ET_DYN_BASE		(2 * TASK_SIZE_32 / 3)
 
 /* AArch32 registers. */
 #define COMPAT_ELF_NGREG		18

@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2004 Greg Kroah-Hartman <greg@kroah.com>
  *  Copyright (C) 2004 IBM Inc.
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License version
@@ -17,7 +18,7 @@
 
 #include <linux/fs.h>
 #include <linux/seq_file.h>
-
+#include <linux/cryptohash.h>
 #include <linux/types.h>
 
 struct device;
@@ -39,11 +40,29 @@ struct debugfs_regset32 {
 	void __iomem *base;
 };
 
+struct debugfs_mount_opts {
+	kuid_t uid;
+	kgid_t gid;
+	umode_t mode;
+	bool privilege;
+	char passwd[SHA_MESSAGE_BYTES];
+};
+
+struct debugfs_fs_info {
+	struct debugfs_mount_opts mount_opts;
+};
+
+struct debugfs_inode {
+	struct inode vfs_inode;
+	void *pfops;
+};
+
 extern struct dentry *arch_debugfs_dir;
 
 #if defined(CONFIG_DEBUG_FS)
 
 /* declared over in file.c */
+extern const struct file_operations debugfs_dir_operations;
 extern const struct file_operations debugfs_file_operations;
 
 struct dentry *debugfs_create_file(const char *name, umode_t mode,

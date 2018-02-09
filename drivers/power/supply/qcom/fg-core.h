@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -287,6 +288,7 @@ struct fg_batt_props {
 	int		float_volt_uv;
 	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
+	int		nom_cap_uah;
 };
 
 struct fg_cyc_ctr_data {
@@ -434,12 +436,14 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			report_full;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct delayed_work	ttf_work;
 	struct delayed_work	sram_dump_work;
+	struct delayed_work	soc_work;
 };
 
 /* Debugfs data structures are below */

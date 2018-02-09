@@ -4,6 +4,7 @@
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
  * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -246,6 +247,7 @@ static u32 ufs_query_desc_max_size[] = {
 	QUERY_DESC_RFU_MAX_SIZE,
 	QUERY_DESC_GEOMETRY_MAZ_SIZE,
 	QUERY_DESC_POWER_MAX_SIZE,
+	QUERY_DESC_HEALTH_MAX_SIZE,
 	QUERY_DESC_RFU_MAX_SIZE,
 };
 
@@ -885,10 +887,9 @@ static void ufshcd_print_pwr_info(struct ufs_hba *hba)
 	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_PWR_EN))
 		return;
 
-	dev_err(hba->dev, "%s:[RX, TX]: gear=[%d, %d], lane[%d, %d], pwr[%s, %s], rate = %d\n",
+	dev_err(hba->dev, "%s:[RX, TX]: gear=[%d, %d], pwr[%s, %s], rate = %d\n",
 		 __func__,
 		 hba->pwr_info.gear_rx, hba->pwr_info.gear_tx,
-		 hba->pwr_info.lane_rx, hba->pwr_info.lane_tx,
 		 names[hba->pwr_info.pwr_rx],
 		 names[hba->pwr_info.pwr_tx],
 		 hba->pwr_info.hs_rate);
@@ -3791,6 +3792,16 @@ static inline int ufshcd_read_power_desc(struct ufs_hba *hba,
 int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size)
 {
 	return ufshcd_read_desc(hba, QUERY_DESC_IDN_DEVICE, 0, buf, size);
+}
+
+int ufshcd_read_health_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_HEALTH, 0, buf, size);
+}
+
+int ufshcd_read_configration_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_CONFIGURAION, 0, buf, size);
 }
 
 /**
@@ -7413,6 +7424,13 @@ static void ufshcd_apply_pm_quirks(struct ufs_hba *hba)
 				hba->spm_lvl);
 		}
 	}
+}
+
+static char serial[QUERY_DESC_STRING_MAX_SIZE] = {0};
+
+char *ufs_get_serial(void)
+{
+	return serial;
 }
 
 /**

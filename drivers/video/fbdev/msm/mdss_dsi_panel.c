@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,8 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 #include <linux/string.h>
+#include <linux/hwinfo.h>
+#include <linux/mdss_io_util.h>
 
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
@@ -32,7 +35,57 @@
 
 #define VSYNC_DELAY msecs_to_jiffies(17)
 
+#define PANEL_READ_CNT    32
+#define XY_COORDINATE_NUM    3
+
+#define HWCOMPONENT_NAME "display"
+#define HWCOMPONENT_KEY_LCD "LCD"
+#define DISPLAY_SKINCE_MODE 0x400000
+
+#define HWMON_CONPONENT_NAME "display"
+#define HWMON_KEY_ACTIVE "panel_active"
+#define HWMON_KEY_REFRESH "panel_refresh"
+#define HWMON_KEY_BOOTTIME "kernel_boottime"
+#define HWMON_KEY_DAYS "kernel_days"
+#define HWMON_KEY_BL_AVG "bl_level_avg"
+#define HWMON_KEY_BL_HIGH "bl_level_high"
+#define HWMON_KEY_BL_LOW "bl_level_low"
+#define DAY_SECS (60*60*24)
+
+
+#define DISPLAY_OFF_MODE 0x60000
+#define DISPLAY_ON_MODE 0x70000
+
+#define PANEL_DIMMING_ON_CMD 0x500
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
+
+static bool mdss_panel_reset_skip;
+static struct mdss_panel_info *mdss_pinfo;
+
+bool mdss_prim_panel_is_dead(void)
+{
+	if (mdss_pinfo)
+		return mdss_pinfo->panel_dead;
+	return false;
+}
+
+void mdss_panel_reset_skip_enable(bool enable)
+{
+	mdss_panel_reset_skip = enable;
+}
+
+void mdss_dsi_ulps_enable(bool enable)
+{
+	if (mdss_pinfo)
+		mdss_pinfo->ulps_feature_enabled = enable;
+}
+
+void mdss_dsi_ulps_suspend_enable(bool enable)
+{
+	if (mdss_pinfo)
+		mdss_pinfo->ulps_suspend_enabled = enable;
+}
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -126,6 +179,17 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	}
 }
 
+static char rbuf[PANEL_READ_CNT];
+static void mdss_dsi_dcs_read_cb(u32 cb_result)
+{
+	u32 i;
+
+	pr_info("%s: 0x%x. \n", __func__, cb_result);
+	for (i = 0; i < cb_result; i++)
+		pr_debug("0x%x ", rbuf[i]);
+	pr_debug("\n");
+}
+
 static char dcs_cmd[2] = {0x54, 0x00}; /* DTYPE_DCS_READ */
 static struct dsi_cmd_desc dcs_read_cmd = {
 	{DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(dcs_cmd)},
@@ -203,6 +267,8 @@ static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 		cmdreq.flags  |= CMD_REQ_LP_MODE;
 	else if (pcmds->link_state == DSI_HS_MODE)
 		cmdreq.flags |= CMD_REQ_HS_MODE;
+	if (pinfo->esd_panel_onoff_tpg && ctrl->panel_data.panel_info.panel_dead)
+		cmdreq.flags |= CMD_REQ_DMA_TPG;
 
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
@@ -372,6 +438,47 @@ ret:
 	return rc;
 }
 
+static void mdss_dsi_panel_count(struct mdss_panel_data *pdata, int enable)
+{
+	static u64 timestamp_panelon;
+	char ch[64] = {0};
+
+	if (enable) {
+		/* get panel on timestamp */
+		timestamp_panelon = get_jiffies_64();
+	} else {
+		u32 delta_days = 0;
+		struct timespec rtctime;
+
+		/* caculate panel active duration */
+		getnstimeofday(&rtctime);
+		if (pdata->panel_info.bootRTCtime != 0) {
+			if (rtctime.tv_sec > pdata->panel_info.bootRTCtime) {
+				if (rtctime.tv_sec - pdata->panel_info.bootRTCtime > 10 * 365 * DAY_SECS) {
+					pdata->panel_info.bootRTCtime = rtctime.tv_sec;
+				} else {
+					if (rtctime.tv_sec - pdata->panel_info.bootRTCtime > DAY_SECS) {
+						delta_days = (rtctime.tv_sec - pdata->panel_info.bootRTCtime) / DAY_SECS;
+						pdata->panel_info.bootdays += delta_days;
+						pdata->panel_info.bootRTCtime = rtctime.tv_sec -
+							((rtctime.tv_sec - pdata->panel_info.bootRTCtime) % DAY_SECS);
+					}
+				}
+			} else {
+				pr_err("RTC time rollback!\n");
+				pdata->panel_info.bootRTCtime = rtctime.tv_sec;
+			}
+		} else {
+			pr_info("panel_info.bootRTCtime init!\n");
+			pdata->panel_info.bootRTCtime = rtctime.tv_sec;
+		}
+		memset(ch, 0, sizeof(ch));
+		snprintf(ch, sizeof(ch), "%llu", pdata->panel_info.bootdays);
+	}
+
+	return;
+}
+
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -387,6 +494,20 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				panel_data);
 
 	pinfo = &(ctrl_pdata->panel_data.panel_info);
+
+	mdss_dsi_panel_count(pdata, enable);
+
+	/* For TDDI ddic panel, LCD shares reset pin with touch.
+	 * If gesture wakeup feature is enabled, the reset pin
+	 * should be controlled by touch. In this case, reset pin
+	 * would keep high state when panel is off. Meanwhile,
+	 * reset action would be done by touch when panel is on.
+	 */
+	if (mdss_panel_reset_skip && !pinfo->panel_dead) {
+		pr_info("%s: panel reset skip\n", __func__);
+		return rc;
+	}
+
 	if ((mdss_dsi_is_right_ctrl(ctrl_pdata) &&
 		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) ||
 			pinfo->is_dba_panel) {
@@ -790,6 +911,435 @@ static int mdss_dsi_panel_apply_display_setting(struct mdss_panel_data *pdata,
 	return 0;
 }
 
+static void value2str(char *pbuf, char read_cnt, int bit_valide)
+{
+	int i = 0;
+	int param_nb = 0;
+	int write_len = 0;
+	char *pTemp = pbuf;
+
+	/* pbuf - buffer size must >= 256 */
+	for (i = 0; i < read_cnt; i++) {
+		if (bit_valide & 0x1 && ((pTemp + 8) < (pbuf + BUF_LEN_MAX))) {
+			write_len = scnprintf(pTemp, 8, "p%d=%d", param_nb, rbuf[i]);
+			pTemp += write_len;
+			param_nb++;
+		}
+		bit_valide = bit_valide >> 1;
+	}
+	pr_info("read %s  from panel\n", pbuf);
+}
+
+static inline void mdss_panel_disparam_set(struct mdss_dsi_ctrl_pdata *ctrl, uint32_t param)
+{
+	int ret = 0;
+	uint32_t temp = 0;
+
+	temp = param & 0x0000000F;
+	switch (temp) {
+	case 0x1:		/*warm*/
+		if (ctrl->dispparam_warm_cmds.cmd_cnt) {
+			pr_info("warm\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_warm_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x2:		/*normal*/
+		if (ctrl->dispparam_default_cmds.cmd_cnt) {
+			pr_info("normal\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_default_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x3:		/*cold*/
+		if (ctrl->dispparam_cold_cmds.cmd_cnt) {
+			pr_info("cold\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_cold_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x4:		/*gamma reload*/
+		if (ctrl->dispparam_gammareload_cmds.cmd_cnt) {
+			pr_info("gammare load\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_gammareload_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x5:
+		if (ctrl->dispparam_papermode_cmds.cmd_cnt) {
+			pr_info("paper mode\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_papermode_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x6:
+		if (ctrl->dispparam_papermode1_cmds.cmd_cnt) {
+			pr_info("paper mode 1\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_papermode1_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x7:
+		if (ctrl->dispparam_papermode2_cmds.cmd_cnt) {
+			pr_info("paper mode 2\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_papermode2_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x8:
+		if (ctrl->dispparam_papermode3_cmds.cmd_cnt) {
+			pr_info("paper mode 3\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_papermode3_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x9:
+		if (ctrl->dispparam_papermode4_cmds.cmd_cnt) {
+			pr_info("paper mode 4\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_papermode4_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xa:
+		if (ctrl->dispparam_papermode5_cmds.cmd_cnt) {
+			pr_info("paper mode 5\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_papermode5_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xb:
+		if (ctrl->dispparam_papermode6_cmds.cmd_cnt) {
+			pr_info("paper mode 6\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_papermode6_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xc:
+		if (ctrl->dispparam_papermode7_cmds.cmd_cnt) {
+			pr_info("paper mode 7\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_papermode7_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xe:
+		if (ctrl->xy_coordinate_cmds.cmd && ctrl->xy_coordinate_cmds.param_num < PANEL_READ_CNT) {
+			ret = mdss_dsi_panel_cmd_read(ctrl, ctrl->xy_coordinate_cmds.cmd, 0x00,
+						(void *)mdss_dsi_dcs_read_cb, rbuf, ctrl->xy_coordinate_cmds.param_num);
+			if (ret > 0 && ret < PANEL_READ_CNT) {
+				pr_info("read %d bytes from panel, read_cnt:%d\n", ret, ctrl->xy_coordinate_cmds.param_num);
+				value2str(ctrl->panel_read_data, ret, ctrl->xy_coordinate_cmds.params_bit);
+			}
+		}
+		pr_info("read panel command:0x%x, count:%d\n", ctrl->xy_coordinate_cmds.cmd, ctrl->xy_coordinate_cmds.param_num);
+		break;
+
+	default:
+		break;
+	}
+
+	temp = param & 0x0000F000;
+	switch (temp) {
+	case 0xF000:		/*level 0*/
+		if (ctrl->dispparam_level0_cmds.cmd_cnt) {
+			pr_info("level 0\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_level0_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x1000:		/*level 1*/
+		if (ctrl->dispparam_level1_cmds.cmd_cnt) {
+			pr_info("level 1\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_level1_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x2000:		/*level 2*/
+		if (ctrl->dispparam_level2_cmds.cmd_cnt) {
+			pr_info("level 2\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_level2_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x3000:		/*level 3*/
+		if (ctrl->dispparam_level3_cmds.cmd_cnt) {
+			pr_info("level 3\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_level3_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x4000:		/*level 4*/
+		if (ctrl->dispparam_level4_cmds.cmd_cnt) {
+			pr_info("level4\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_level4_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x5000:		/*level 5*/
+		if (ctrl->dispparam_level5_cmds.cmd_cnt) {
+			pr_info("level 5\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_level5_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x6000:		/*level 6*/
+		if (ctrl->dispparam_level6_cmds.cmd_cnt) {
+			pr_info("level6\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_level6_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xA000:		/*night mode 1*/
+		if (ctrl->dispparam_nightmode1_cmds.cmd_cnt) {
+			pr_info("night mode 1\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_nightmode1_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xB000:		/*night mode 2*/
+		if (ctrl->dispparam_nightmode2_cmds.cmd_cnt) {
+			pr_info("night mode 2\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_nightmode2_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xC000:		/*night mode 3*/
+		if (ctrl->dispparam_nightmode3_cmds.cmd_cnt) {
+			pr_info("night mode 3\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_nightmode3_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xD000:		/*night mode 4*/
+		if (ctrl->dispparam_nightmode4_cmds.cmd_cnt) {
+			pr_info("night mode 4\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_nightmode4_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xE000:		/*night mode 5*/
+		if (ctrl->dispparam_nightmode5_cmds.cmd_cnt) {
+			pr_info("night mode5\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_nightmode5_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	}
+
+	temp = param & 0x000F0000;
+	switch (temp) {
+	case 0x10000:
+		mdss_dsi_panel_cmd_read(ctrl, 0xAB, 0x00, (void *)mdss_dsi_dcs_read_cb, rbuf, 8);
+		break;
+	case 0x20000:
+		if (ctrl->dispparam_test_cmds.cmd_cnt) {
+			pr_info("test\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_test_cmds, CMD_REQ_COMMIT);
+		}
+		pr_info("NT 1-cut2 3-cut4: %d\n",
+				mdss_dsi_panel_cmd_read(ctrl, 0x3A, 0x00, (void *)mdss_dsi_dcs_read_cb, rbuf, 8));
+
+		break;
+	case DISPLAY_OFF_MODE:
+		 if (ctrl->displayoff_cmds.cmd_cnt) {
+			pr_info("display off mode\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->displayoff_cmds, CMD_REQ_COMMIT);
+		 }
+		 break;
+	case DISPLAY_ON_MODE:
+		 if (ctrl->displayon_cmds.cmd_cnt) {
+			pr_info("display on mode\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->displayon_cmds, CMD_REQ_COMMIT);
+		 }
+		 break;
+	case 0xA0000:
+		if (ctrl->dispparam_idleon_cmds.cmd_cnt) {
+			pr_info("idleon\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_idleon_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xF0000:
+		if (ctrl->dispparam_idleoff_cmds.cmd_cnt) {
+			pr_info("idleoff\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_idleoff_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	default:
+		break;
+	}
+
+	temp = param & 0x00F00000;
+	switch (temp) {
+	case 0x100000:
+		if (ctrl->dispparam_normal1_cmds.cmd_cnt) {
+			pr_info("normal mode1\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_normal1_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x200000:
+		if (ctrl->dispparam_normal2_cmds.cmd_cnt) {
+			pr_info("normal mode2\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_normal2_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x300000:
+		if (ctrl->dispparam_srgb_cmds.cmd_cnt) {
+			pr_info("sRGB\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_srgb_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case DISPLAY_SKINCE_MODE:
+		if (ctrl->dispparam_skin_ce_cmds.cmd_cnt) {
+			pr_info("skin ce\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_skin_ce_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	default:
+		break;
+	}
+
+	temp = param & 0x000000F0;
+	switch (temp) {
+	case 0x10:		/*ce on default*/
+		if (ctrl->dispparam_ceon_cmds.cmd_cnt) {
+			pr_info("ceon\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_ceon_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xA0:		/*vivid weak*/
+		if (ctrl->dispparam_vividweak_cmds.cmd_cnt) {
+			pr_info("vividweak\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_vividweak_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xB0:		/*vidid strong*/
+		if (ctrl->dispparam_vividstrong_cmds.cmd_cnt) {
+			pr_info("vividstrong\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_vividstrong_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xC0:		/*smart weak*/
+		if (ctrl->dispparam_smartweak_cmds.cmd_cnt) {
+			pr_info("smartweak\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_smartweak_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xD0:		/*smart strong*/
+		if (ctrl->dispparam_smartstrong_cmds.cmd_cnt) {
+			pr_info("smartstrong\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_smartstrong_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xE0:		/*vidid off and smart off*/
+		if (ctrl->dispparam_vividoff_cmds.cmd_cnt) {
+			pr_info("vivid off\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_vividoff_cmds, CMD_REQ_COMMIT);
+		}
+		if (ctrl->dispparam_smartoff_cmds.cmd_cnt) {
+			pr_info("smart off\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_smartoff_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xF0:		/*ce off*/
+		if (ctrl->dispparam_ceoff_cmds.cmd_cnt) {
+			pr_info("ceoff\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_ceoff_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	default:
+		break;
+	}
+
+	temp = param & 0x00000F00;
+	switch (temp) {
+	case 0x100:		/*cabc on*/
+		if (ctrl->dispparam_cabcon_cmds.cmd_cnt) {
+			pr_info("cabcon\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_cabcon_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x200:		/*cabc gui on*/
+		if (ctrl->dispparam_cabcguion_cmds.cmd_cnt) {
+			pr_info("cabcguion\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_cabcguion_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x300:		/*cabc still on*/
+		if (ctrl->dispparam_cabcstillon_cmds.cmd_cnt) {
+			pr_info("cabcstillon\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_cabcstillon_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x400:		/*cabc movie on*/
+		if (ctrl->dispparam_cabcmovieon_cmds.cmd_cnt) {
+			pr_info("cabcmovieon\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_cabcmovieon_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0x500:
+		if (ctrl->dispparam_dimmingon_cmds.cmd_cnt) {
+			pr_info("dimmingon\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_dimmingon_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xA00:		/*smart contrast on*/
+		if (ctrl->dispparam_scon_cmds.cmd_cnt) {
+			pr_info("smart contrast\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_scon_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xB00:		/*sre on*/
+		if (ctrl->dispparam_sreon_cmds.cmd_cnt) {
+			pr_info("sreon\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_sreon_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xC00:		/*sre off*/
+		if (ctrl->dispparam_sreoff_cmds.cmd_cnt) {
+			pr_info("sreoff\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_sreoff_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	case 0xF00:		/*cabc off*/
+		if (ctrl->dispparam_cabcoff_cmds.cmd_cnt) {
+			pr_info("cabcoff\n");
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->dispparam_cabcoff_cmds, CMD_REQ_COMMIT);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static int mdss_dsi_panel_dispparam(struct mdss_panel_data *pdata)
+{
+	#define PANEL_ON_DISPARAM_MASK 0xF0000000
+
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+	int rc = 0;
+	uint32_t param;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	if ((pdata->panel_info.panel_paramstatus & PANEL_ON_DISPARAM_MASK)
+			== PANEL_ON_DISPARAM_MASK) {
+		pdata->panel_info.panel_on_param =
+			pdata->panel_info.panel_paramstatus & (~PANEL_ON_DISPARAM_MASK);
+		pr_info("Panel on param updated 0x%x\n", pdata->panel_info.panel_on_param);
+		return rc;
+	}
+
+	if (pdata->panel_info.panel_power_state == MDSS_PANEL_POWER_OFF) {
+		pr_err("Opreration not permitted because panel is power-off\n");
+		return -EINVAL;
+	}
+
+	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+			panel_data);
+
+	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+
+	param = pdata->panel_info.panel_paramstatus;
+	pr_info("param 0x%x\n", param);
+	/* support oled hbm mode */
+	switch (param) {
+	case 0xD00:
+		pdata->panel_info.is_oled_hbm_mode = false;
+		return rc;
+	case 0xE00:
+		pdata->panel_info.is_oled_hbm_mode = true;
+		return rc;
+	}
+	if (!ctrl->dsi_pipe_ready) {
+		pr_err("%s: index=%d pid=%d, mipi dsi pipe are not ready !!!\n", __func__,
+				ctrl->ndx, current->pid);
+		return rc;
+	}
+
+	mdss_panel_disparam_set(ctrl, param);
+
+	return rc;
+}
+
+
 static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 							int mode)
 {
@@ -846,11 +1396,55 @@ static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 		mdss_dsi_panel_dsc_pps_send(ctrl_pdata, &pdata->panel_info);
 }
 
+static void mdss_dsi_panel_wled_cabc_ctrl(struct led_trigger *trig,
+			bool enable)
+{
+	struct led_classdev *led_cdev;
+
+	if (!trig)
+		return;
+
+	list_for_each_entry(led_cdev, &trig->led_cdevs, trig_list)
+		qpnp_wled_cabc(led_cdev, enable);
+}
+
+static void mdss_dsi_panel_bl_count(struct mdss_panel_data *pdata,
+							u32 bl_level)
+{
+	static u32 last_bl_level;
+	static u64 last_bl_start;
+	u64 bl_level_end = 0;
+	char ch[64] = {0};
+
+	bl_level_end = get_jiffies_64();
+	if (last_bl_level > 0) {
+		pdata->panel_info.bl_level_integral += last_bl_level * (bl_level_end - last_bl_start);
+		pdata->panel_info.bl_duration += (bl_level_end - last_bl_start);
+	}
+
+
+	if (last_bl_level > 3071) {
+		pdata->panel_info.bl_highlevel_duration += (bl_level_end - last_bl_start);
+	} else if (last_bl_level > 0) {
+		pdata->panel_info.bl_lowlevel_duration += (bl_level_end - last_bl_start);
+	}
+
+	last_bl_level = bl_level;
+	last_bl_start = bl_level_end;
+
+	if (bl_level == 0) {
+		memset(ch, 0, sizeof(ch));
+	}
+
+	return;
+}
+
 static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+	int ret = 0;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -873,6 +1467,30 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	if ((bl_level < pdata->panel_info.bl_min) && (bl_level != 0))
 		bl_level = pdata->panel_info.bl_min;
+
+	if (bl_level == 0) {
+		pr_debug("%s: set display off when bl_level=0\n", __func__);
+		if (ctrl_pdata->panel_data.panel_info.disable_cabc) {
+			ret = mdss_dsi_panel_cmd_read(ctrl_pdata, 0x52, 0x00,
+						(void *)mdss_dsi_dcs_read_cb, rbuf, 1);
+			if (ret > 0 && ctrl_pdata->bklt_level * rbuf[0] >= 255)
+				led_trigger_event(bl_led_trigger, ctrl_pdata->bklt_level * rbuf[0] / 255);
+			mdss_dsi_panel_wled_cabc_ctrl(bl_led_trigger, 0);
+		}
+		disable_esd_thread_sync();
+		mdss_panel_disparam_set(ctrl_pdata, DISPLAY_OFF_MODE);
+		ctrl_pdata->dsi_panel_off_mode = true;
+		if (ctrl_pdata->panel_data.panel_info.disable_cabc)
+			mdss_dsi_panel_wled_cabc_ctrl(bl_led_trigger, 1);
+	} else {
+		if (ctrl_pdata->bklt_level == 0 && ctrl_pdata->dsi_panel_off_mode == true) {
+			pr_debug("%s: set display on when bklt_level=0\n", __func__);
+			mdss_panel_disparam_set(ctrl_pdata, DISPLAY_ON_MODE);
+			enable_esd_thread();
+		}
+	}
+
+	mdss_dsi_panel_bl_count(pdata, bl_level);
 
 	/* enable the backlight gpio if present */
 	mdss_dsi_bl_gpio_ctrl(pdata, bl_level);
@@ -913,6 +1531,20 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			__func__);
 		break;
 	}
+
+	if (ctrl_pdata->bklt_level == 0 && bl_level) {
+		if (pdata->panel_info.panel_on_dimming_delay)
+			schedule_delayed_work(&ctrl_pdata->cmds_work,
+				msecs_to_jiffies(pdata->panel_info.panel_on_dimming_delay));
+	}
+	ctrl_pdata->bklt_level = bl_level;
+}
+
+static void panelon_dimming_enable_delayed_work(struct work_struct *work)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl = container_of(work,
+				struct mdss_dsi_ctrl_pdata, cmds_work.work);
+	mdss_panel_disparam_set(ctrl, PANEL_DIMMING_ON_CMD);
 }
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
@@ -931,7 +1563,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s: ndx=%d\n", __func__, ctrl->ndx);
+	pr_info("%s: ndx=%d\n", __func__, ctrl->ndx);
 
 	if (pinfo->dcs_cmd_by_left) {
 		if (ctrl->ndx != DSI_CTRL_LEFT)
@@ -950,6 +1582,9 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if (on_cmds->cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, on_cmds, CMD_REQ_COMMIT);
 
+	if (!pinfo->panel_on_dimming_delay)
+		mdss_panel_disparam_set(ctrl, PANEL_DIMMING_ON_CMD);
+
 	if (pinfo->compression_mode == COMPRESSION_DSC)
 		mdss_dsi_panel_dsc_pps_send(ctrl, pinfo);
 
@@ -959,8 +1594,10 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	/* Ensure low persistence mode is set as before */
 	mdss_dsi_panel_apply_display_setting(pdata, pinfo->persist_mode);
 
+	ctrl->dsi_panel_off_mode = false;
+
 end:
-	pr_debug("%s:-\n", __func__);
+	pr_info("%s:-\n", __func__);
 	return ret;
 }
 
@@ -999,7 +1636,7 @@ static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 	}
 
 end:
-	pr_debug("%s:-\n", __func__);
+	pr_info("%s:-\n", __func__);
 	return 0;
 }
 
@@ -1017,7 +1654,9 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s: ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
+	pr_info("%s: ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
+
+	cancel_delayed_work_sync(&ctrl->cmds_work);
 
 	if (pinfo->dcs_cmd_by_left) {
 		if (ctrl->ndx != DSI_CTRL_LEFT)
@@ -2030,6 +2669,24 @@ static void mdss_dsi_parse_esd_params(struct device_node *np,
 	const char *string;
 	struct mdss_panel_info *pinfo = &ctrl->panel_data.panel_info;
 
+	pinfo->esd_err_irq = 0;
+	pinfo->esd_err_irq_gpio = of_get_named_gpio_flags(np,
+		"qcom,esd-err-irq-gpio", 0, NULL);
+
+	if (gpio_is_valid(pinfo->esd_err_irq_gpio)) {
+		pinfo->esd_err_irq = gpio_to_irq(pinfo->esd_err_irq_gpio);
+		rc = gpio_request(pinfo->esd_err_irq_gpio, "esd_err_irq_gpio");
+		if (rc) {
+			pr_err("%s: Failed to get gpio %d (code: %d)",
+					__func__, pinfo->esd_err_irq_gpio, rc);
+		} else {
+			gpio_direction_input(pinfo->esd_err_irq_gpio);
+		}
+	}
+
+	pinfo->esd_panel_onoff_tpg = of_property_read_bool(np,
+			"qcom,esd-panel-onoff-tpg");
+
 	pinfo->esd_check_enabled = of_property_read_bool(np,
 		"qcom,esd-check-enabled");
 
@@ -2051,6 +2708,8 @@ static void mdss_dsi_parse_esd_params(struct device_node *np,
 			ctrl->status_error_count = 0;
 			ctrl->check_read_status =
 				mdss_dsi_nt35596_read_status;
+		} else if (!strcmp(string, "reg_multi_read")) {
+			ctrl->status_mode = ESD_REG_MULTI;
 		} else if (!strcmp(string, "te_signal_check")) {
 			if (pinfo->mipi.mode == DSI_CMD_MODE) {
 				ctrl->status_mode = ESD_TE;
@@ -2071,6 +2730,9 @@ static void mdss_dsi_parse_esd_params(struct device_node *np,
 	mdss_dsi_parse_dcs_cmds(np, &ctrl->status_cmds,
 			"qcom,mdss-dsi-panel-status-command",
 				"qcom,mdss-dsi-panel-status-command-state");
+
+	if ((ctrl->status_mode == ESD_REG_MULTI))
+		return;
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-max-error-count",
 		&tmp);
@@ -2708,7 +3370,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	u32 tmp;
-	int rc, len = 0;
+	int xy_coordinate[XY_COORDINATE_NUM], rc, len = 0;
 	const char *data;
 	static const char *pdest;
 	const char *bridge_chip_name;
@@ -2916,11 +3578,140 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
 
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->mcap_on_cmds,
+		"qcom,mdss-dsi-panel-mcap-on-cmds", "qcom,mdss-dsi-panel-mcap-on-cmds-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->mcap_off_cmds,
+		"qcom,mdss-dsi-panel-mcap-off-cmds", "qcom,mdss-dsi-panel-mcap-off-cmds-state");
+
 	rc = of_property_read_u32(np, "qcom,adjust-timer-wakeup-ms", &tmp);
 	pinfo->adjust_timer_delay_ms = (!rc ? tmp : 0);
 
 	pinfo->mipi.force_clk_lane_hs = of_property_read_bool(np,
 		"qcom,mdss-dsi-force-clock-lane-hs");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_cmds,
+		"qcom,mdss-dsi-dispparam-command", "qcom,mdss-dsi-dispparam-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_ceon_cmds,
+		"qcom,mdss-dsi-dispparam-ceon-command", "qcom,mdss-dsi-dispparam-ceon-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_ceoff_cmds,
+		"qcom,mdss-dsi-dispparam-ceoff-command", "qcom,mdss-dsi-dispparam-ceoff-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_cabcon_cmds,
+		"qcom,mdss-dsi-dispparam-cabcon-command", "qcom,mdss-dsi-dispparam-cabcon-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_cabcguion_cmds,
+		"qcom,mdss-dsi-dispparam-cabcguion-command", "qcom,mdss-dsi-dispparam-cabcguion-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_cabcstillon_cmds,
+		"qcom,mdss-dsi-dispparam-cabcstillon-command", "qcom,mdss-dsi-dispparam-cabcstillon-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_cabcmovieon_cmds,
+		"qcom,mdss-dsi-dispparam-cabcmovieon-command", "qcom,mdss-dsi-dispparam-cabcmovieon-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_dimmingon_cmds,
+		"qcom,mdss-dsi-dispparam-dimmingon-command", "qcom,mdss-dsi-dispparam-dimmingon-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_cabcoff_cmds,
+		"qcom,mdss-dsi-dispparam-cabcoff-command", "qcom,mdss-dsi-dispparam-cabcoff-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_gammareload_cmds,
+		"qcom,mdss-dsi-dispparam-gammareload-command", "qcom,mdss-dsi-dispparam-gammareload-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_warm_cmds,
+		"qcom,mdss-dsi-dispparam-warm-command", "qcom,mdss-dsi-dispparam-warm-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_default_cmds,
+		"qcom,mdss-dsi-dispparam-default-command", "qcom,mdss-dsi-dispparam-default-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_cold_cmds,
+		"qcom,mdss-dsi-dispparam-cold-command", "qcom,mdss-dsi-dispparam-cold-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_papermode_cmds,
+		"qcom,mdss-dsi-dispparam-papermode-command", "qcom,mdss-dsi-dispparam-papermode-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_papermode1_cmds,
+		"qcom,mdss-dsi-dispparam-papermode1-command", "qcom,mdss-dsi-dispparam-papermode1-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_papermode2_cmds,
+		"qcom,mdss-dsi-dispparam-papermode2-command", "qcom,mdss-dsi-dispparam-papermode2-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_papermode3_cmds,
+		"qcom,mdss-dsi-dispparam-papermode3-command", "qcom,mdss-dsi-dispparam-papermode3-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_papermode4_cmds,
+		"qcom,mdss-dsi-dispparam-papermode4-command", "qcom,mdss-dsi-dispparam-papermode4-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_papermode5_cmds,
+		"qcom,mdss-dsi-dispparam-papermode5-command", "qcom,mdss-dsi-dispparam-papermode5-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_papermode6_cmds,
+		"qcom,mdss-dsi-dispparam-papermode6-command", "qcom,mdss-dsi-dispparam-papermode6-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_papermode7_cmds,
+		"qcom,mdss-dsi-dispparam-papermode7-command", "qcom,mdss-dsi-dispparam-papermode7-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_vividweak_cmds,
+		"qcom,mdss-dsi-dispparam-vividweak-command", "qcom,mdss-dsi-dispparam-vividweak-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_vividstrong_cmds,
+		"qcom,mdss-dsi-dispparam-vividstrong-command", "qcom,mdss-dsi-dispparam-vividstrong-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_vividoff_cmds,
+		"qcom,mdss-dsi-dispparam-vividoff-command", "qcom,mdss-dsi-dispparam-vividoff-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_smartweak_cmds,
+		"qcom,mdss-dsi-dispparam-smartweak-command", "qcom,mdss-dsi-dispparam-smartweak-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_smartstrong_cmds,
+		"qcom,mdss-dsi-dispparam-smartstrong-command", "qcom,mdss-dsi-dispparam-smartstrong-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_smartoff_cmds,
+		"qcom,mdss-dsi-dispparam-smartoff-command", "qcom,mdss-dsi-dispparam-smartoff-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_scon_cmds,
+		"qcom,mdss-dsi-dispparam-scon-command", "qcom,mdss-dsi-dispparam-scon-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_sreon_cmds,
+		"qcom,mdss-dsi-dispparam-sreon-command", "qcom,mdss-dsi-dispparam-sreon-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_sreoff_cmds,
+		"qcom,mdss-dsi-dispparam-sreoff-command", "qcom,mdss-dsi-dispparam-sreoff-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_level0_cmds,
+			"qcom,mdss-dsi-dispparam-level0-command", "qcom,mdss-dsi-dispparam-level0-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_level1_cmds,
+			"qcom,mdss-dsi-dispparam-level1-command", "qcom,mdss-dsi-dispparam-level1-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_level2_cmds,
+			"qcom,mdss-dsi-dispparam-level2-command", "qcom,mdss-dsi-dispparam-level2-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_level3_cmds,
+			"qcom,mdss-dsi-dispparam-level3-command", "qcom,mdss-dsi-dispparam-level3-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_level4_cmds,
+			"qcom,mdss-dsi-dispparam-level4-command", "qcom,mdss-dsi-dispparam-level4-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_level5_cmds,
+			"qcom,mdss-dsi-dispparam-level5-command", "qcom,mdss-dsi-dispparam-level5-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_level6_cmds,
+			"qcom,mdss-dsi-dispparam-level6-command", "qcom,mdss-dsi-dispparam-level6-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_nightmode1_cmds,
+			"qcom,mdss-dsi-dispparam-nightmode1-command", "qcom,mdss-dsi-dispparam-nightmode1-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_nightmode2_cmds,
+			"qcom,mdss-dsi-dispparam-nightmode2-command", "qcom,mdss-dsi-dispparam-nightmode2-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_nightmode3_cmds,
+			"qcom,mdss-dsi-dispparam-nightmode3-command", "qcom,mdss-dsi-dispparam-nightmode3-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_nightmode4_cmds,
+			"qcom,mdss-dsi-dispparam-nightmode4-command", "qcom,mdss-dsi-dispparam-nightmode4-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_nightmode5_cmds,
+			"qcom,mdss-dsi-dispparam-nightmode5-command", "qcom,mdss-dsi-dispparam-nightmode5-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_idleon_cmds,
+		"qcom,mdss-dsi-dispparam-idleon-command", "qcom,mdss-dsi-dispparam-idleon-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_idleoff_cmds,
+		"qcom,mdss-dsi-dispparam-idleoff-command", "qcom,mdss-dsi-dispparam-idleoff-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_test_cmds,
+		"qcom,mdss-dsi-dispparam-test-command", "qcom,mdss-dsi-dispparam-test-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_normal1_cmds,
+		"qcom,mdss-dsi-dispparam-normal1-command", "qcom,mdss-dsi-dispparam-normal1-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_normal2_cmds,
+		"qcom,mdss-dsi-dispparam-normal2-command", "qcom,mdss-dsi-dispparam-normal2-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_srgb_cmds,
+		"qcom,mdss-dsi-dispparam-srgb-command", "qcom,mdss-dsi-dispparam-srgb-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->dispparam_skin_ce_cmds,
+		"qcom,mdss-dsi-dispparam-skin-ce-command", "qcom,mdss-dsi-dispparam-skin-ce-command-state");
+
+
+	rc = of_property_read_u32_array(np, "qcom,mdss-dsi-panel-xy-coordinate", xy_coordinate, XY_COORDINATE_NUM);
+	if (rc) {
+		pr_debug("%s:%d, Unable to read panel xy coordinate\n",
+		       __func__, __LINE__);
+	} else {
+		ctrl_pdata->xy_coordinate_cmds.cmd = xy_coordinate[0];
+		ctrl_pdata->xy_coordinate_cmds.param_num = xy_coordinate[1];
+		ctrl_pdata->xy_coordinate_cmds.params_bit = xy_coordinate[2];
+	}
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->displayoff_cmds,
+		"qcom,mdss-dsi-displayoff-command", "qcom,mdss-dsi-displayoff-command-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->displayon_cmds,
+		"qcom,mdss-dsi-displayon-command", "qcom,mdss-dsi-displayon-command-state");
 
 	rc = mdss_dsi_parse_panel_features(np, ctrl_pdata);
 	if (rc) {
@@ -2970,6 +3761,9 @@ int mdss_dsi_panel_init(struct device_node *node,
 	int rc = 0;
 	static const char *panel_name;
 	struct mdss_panel_info *pinfo;
+	bool dispparam_enabled;
+	int panel_id = -1;
+	static const char *panel_model;
 
 	if (!node || !ctrl_pdata) {
 		pr_err("%s: Invalid arguments\n", __func__);
@@ -2977,6 +3771,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 	}
 
 	pinfo = &ctrl_pdata->panel_data.panel_info;
+	mdss_pinfo = pinfo;
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	pinfo->panel_name[0] = '\0';
@@ -2994,10 +3789,54 @@ int mdss_dsi_panel_init(struct device_node *node,
 		return rc;
 	}
 
+	INIT_DELAYED_WORK(&ctrl_pdata->cmds_work, panelon_dimming_enable_delayed_work);
+
+	pinfo->panel_active = 0;
+	pinfo->kickoff_count = 0;
+	pinfo->bl_duration = 0;
+	pinfo->bl_level_integral = 0;
+	pinfo->bl_highlevel_duration = 0;
+	pinfo->bl_lowlevel_duration = 0;
+
+	rc = of_property_read_u32(node, "qcom,mdss-panel-on-dimming-delay", &pinfo->panel_on_dimming_delay);
+	if (rc) {
+		pinfo->panel_on_dimming_delay = 0;
+		pr_info("Panel on dimming delay disabled\n");
+	} else
+		pr_info("Panel on dimming delay %d ms\n", pinfo->panel_on_dimming_delay);
+
+	rc = of_property_read_u32(node, "qcom,mdss-dsi-panel-id", &panel_id);
+	if (rc) {
+		pr_info("%s: panel id parse failed\n", __func__);
+		panel_id = -1;
+	}
+	update_hardware_info(TYPE_PANEL, panel_id);
+
+	panel_model = of_get_property(node, "qcom,mdss-dsi-panel-model", NULL);
+
 	pinfo->dynamic_switch_pending = false;
 	pinfo->is_lpm_mode = false;
 	pinfo->esd_rdy = false;
 	pinfo->persist_mode = false;
+
+	pinfo->ccbb_enabled = of_property_read_bool(node,
+							"qcom,dispccbb-enabled");
+	pinfo->bl_notify_enabled = of_property_read_bool(node,
+						"qcom,dispblnotify-enabled");
+	dispparam_enabled = of_property_read_bool(node,
+						   "qcom,dispparam-enabled");
+	pinfo->disable_cabc = of_property_read_bool(node,
+						"qcom,disp-paneloff-disablecabc-enabled");
+
+	if (dispparam_enabled) {
+		 pr_info("%s:%d Dispparam enabled.\n", __func__, __LINE__);
+		 ctrl_pdata->panel_data.panel_info.dispparam_enabled = 1;
+		 ctrl_pdata->dispparam_fnc = mdss_dsi_panel_dispparam;
+	} else {
+		 pr_info("%s:%d Dispparam disabled.\n", __func__, __LINE__);
+		 ctrl_pdata->panel_data.panel_info.dispparam_enabled = 0;
+		 ctrl_pdata->dispparam_fnc = NULL;
+	}
 
 	ctrl_pdata->on = mdss_dsi_panel_on;
 	ctrl_pdata->post_panel_on = mdss_dsi_post_panel_on;

@@ -4,6 +4,7 @@
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -221,6 +222,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_CURRENT_QNOVO,
 	POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
 	POWER_SUPPLY_PROP_RERUN_AICL,
+	POWER_SUPPLY_PROP_CHARGER_TYPE,
 	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
 	POWER_SUPPLY_PROP_SAFETY_TIMER_EXPIRED,
 	POWER_SUPPLY_PROP_RESTRICTED_CHARGING,
@@ -255,6 +257,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_RERUN_APSD,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */

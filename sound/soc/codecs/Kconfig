@@ -113,7 +113,6 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TAS2552 if I2C
 	select SND_SOC_TAS5086 if I2C
 	select SND_SOC_TAS571X if I2C
-	select SND_SOC_TFA9879 if I2C
 	select SND_SOC_TLV320AIC23_I2C if I2C
 	select SND_SOC_TLV320AIC23_SPI if SPI_MASTER
 	select SND_SOC_TLV320AIC26 if SPI_MASTER
@@ -180,6 +179,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM9705 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9712 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9713 if SND_SOC_AC97_BUS
+	select SND_SOC_TFA98XX if I2C
+	select SND_SOC_TAS2559 if I2C
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -660,10 +661,6 @@ config SND_SOC_TAS571X
 	tristate "Texas Instruments TAS5711/TAS5717/TAS5719 power amplifiers"
 	depends on I2C
 
-config SND_SOC_TFA9879
-	tristate "NXP Semiconductors TFA9879 amplifier"
-	depends on I2C
-
 config SND_SOC_TLV320AIC23
 	tristate
 
@@ -766,6 +763,9 @@ config SND_SOC_WCD_CPE
 config AUDIO_EXT_CLK
 	tristate
 	default y if SND_SOC_WCD9335=y || SND_SOC_WCD9330=y || SND_SOC_SDM660_CDC=y
+
+config SND_SOC_USB_HEADSET
+	tristate
 
 config SND_SOC_WCD_MBHC
 	tristate
@@ -983,6 +983,12 @@ config SND_SOC_NAU8825
 config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
+
+config SND_SOC_TFA98XX
+	tristate
+
+config SND_SOC_TAS2559
+	tristate
 
 config SND_SOC_MSM_STUB
 	tristate

@@ -8,6 +8,7 @@
  * interface.
  *
  * Copyright (C) 2010 IBM Corperation
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Author: John Stultz <john.stultz@linaro.org>
  *
