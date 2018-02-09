@@ -399,7 +399,7 @@
 		qcom,mdss-inline-rot-safe-lut = <0x0000f000 0x0000ff00>;
 
 		qcom,mdss-rot-qos-cpu-mask = <0xf>;
-		qcom,mdss-rot-qos-cpu-dma-latency = <75>;
+		qcom,mdss-rot-qos-cpu-dma-latency = <67>;
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;

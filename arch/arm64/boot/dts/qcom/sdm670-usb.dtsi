@@ -27,7 +27,7 @@
 };
 
 &usb0 {
-	qcom,pm-qos-latency = <601>; /* CPU-CLUSTER-WFI-LVL latency +1 */
+	qcom,pm-qos-latency = <67>; /* CPU WFI latency + 1 */
 	extcon = <0>, <0>, <&eud>, <0>, <0>;
 };
 
