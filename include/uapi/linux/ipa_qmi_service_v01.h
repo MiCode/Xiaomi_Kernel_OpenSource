@@ -39,6 +39,8 @@
 #ifndef IPA_QMI_SERVICE_V01_H
 #define IPA_QMI_SERVICE_V01_H
 
+#include <linux/types.h>
+
 #define QMI_IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS_V01 2
 #define QMI_IPA_IPFLTR_NUM_MEQ_32_EQNS_V01 2
 #define QMI_IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS_V01 2
@@ -2000,5 +2002,12 @@ struct ipa_configure_ul_firewall_rules_ind_msg_v01 {
 #define QMI_IPA_INSTALL_UL_FIREWALL_RULES_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_INSTALL_UL_FIREWALL_RULES_IND_MAX_MSG_LEN_V01 11
 /* Service Object Accessor */
+
+/* This is the largest MAX_MSG_LEN we have for all the messages
+ * we expect to receive. This argument will be used in
+ * qmi_handle_init to allocate a receive buffer for the socket
+ * associated with our qmi_handle
+ */
+#define QMI_IPA_MAX_MSG_LEN 22685
 
 #endif/* IPA_QMI_SERVICE_V01_H */

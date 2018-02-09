@@ -112,7 +112,7 @@ config IPA3
 
 config RMNET_IPA3
 	tristate "IPA3 RMNET WWAN Network Device"
-	depends on IPA3 && MSM_QMI_INTERFACE
+	depends on IPA3 && QCOM_QMI_HELPERS
 	help
 	  This WWAN Network Driver implements network stack class device.
 	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
