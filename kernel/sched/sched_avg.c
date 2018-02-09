@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2017, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,43 @@ void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg,
 }
 EXPORT_SYMBOL(sched_get_nr_running_avg);
 
+static DEFINE_PER_CPU(atomic64_t, last_busy_time) = ATOMIC64_INIT(0);
+
+#define BUSY_NR_RUN		3
+#define BUSY_LOAD_FACTOR	10
+
+#ifdef CONFIG_SCHED_HMP
+static inline void update_last_busy_time(int cpu, bool dequeue,
+				unsigned long prev_nr_run, u64 curr_time)
+{
+	bool nr_run_trigger = false, load_trigger = false;
+
+	if (!hmp_capable() || is_min_capacity_cpu(cpu))
+		return;
+
+	if (prev_nr_run >= BUSY_NR_RUN && per_cpu(nr, cpu) < BUSY_NR_RUN)
+		nr_run_trigger = true;
+
+	if (dequeue) {
+		u64 load;
+
+		load = cpu_rq(cpu)->hmp_stats.cumulative_runnable_avg;
+		load = scale_load_to_cpu(load, cpu);
+
+		if (load * BUSY_LOAD_FACTOR > sched_ravg_window)
+			load_trigger = true;
+	}
+
+	if (nr_run_trigger || load_trigger)
+		atomic64_set(&per_cpu(last_busy_time, cpu), curr_time);
+}
+#else
+static inline void update_last_busy_time(int cpu, bool dequeue,
+				unsigned long prev_nr_run, u64 curr_time)
+{
+}
+#endif
+
 /**
  * sched_update_nr_prod
  * @cpu: The core id of the nr running driver.
@@ -147,9 +184,16 @@ void sched_update_nr_prod(int cpu, long delta, bool inc)
 	if (per_cpu(nr, cpu) > per_cpu(nr_max, cpu))
 		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
 
+	update_last_busy_time(cpu, !inc, nr_running, curr_time);
+
 	per_cpu(nr_prod_sum, cpu) += nr_running * diff;
 	per_cpu(nr_big_prod_sum, cpu) += nr_eligible_big_tasks(cpu) * diff;
 	per_cpu(iowait_prod_sum, cpu) += nr_iowait_cpu(cpu) * diff;
 	spin_unlock_irqrestore(&per_cpu(nr_lock, cpu), flags);
 }
 EXPORT_SYMBOL(sched_update_nr_prod);
+
+u64 sched_get_cpu_last_busy_time(int cpu)
+{
+	return atomic64_read(&per_cpu(last_busy_time, cpu));
+}
