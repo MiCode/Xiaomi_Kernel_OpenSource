@@ -1782,7 +1782,7 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 	int ret = 0;
 	char *test_cl = "test-client";
 	bool log_transaction = false;
-	u64 slp_ib, slp_ab;
+	u64 dual_ib, dual_ab, act_ib, act_ab;
 
 	rt_mutex_lock(&msm_bus_adhoc_lock);
 
@@ -1803,15 +1803,20 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 	}
 
 	if (cl->active_only) {
-		slp_ib = 0;
-		slp_ab = 0;
+		act_ib = ib;
+		act_ab = ab;
+		dual_ib = 0;
+		dual_ab = 0;
 	} else {
-		slp_ib = ib;
-		slp_ab = ab;
+		dual_ib = ib;
+		dual_ab = ab;
+		act_ib = 0;
+		act_ab = 0;
 	}
 
-	ret = update_path(cl->mas_dev, cl->slv, ib, ab, slp_ib, slp_ab,
-		cl->cur_act_ib, cl->cur_act_ab, cl->first_hop, cl->active_only);
+	ret = update_path(cl->mas_dev, cl->slv, act_ib, act_ab, dual_ib,
+		dual_ab, cl->cur_act_ib, cl->cur_act_ab, cl->first_hop,
+							cl->active_only);
 
 	if (ret) {
 		MSM_BUS_ERR("%s: Update path failed! %d active_only %d\n",
@@ -1820,10 +1825,10 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 	}
 
 	commit_data();
-	cl->cur_act_ib = ib;
-	cl->cur_act_ab = ab;
-	cl->cur_slp_ib = slp_ib;
-	cl->cur_slp_ab = slp_ab;
+	cl->cur_act_ib = act_ib;
+	cl->cur_act_ab = act_ab;
+	cl->cur_dual_ib = dual_ib;
+	cl->cur_dual_ab = dual_ab;
 
 	if (log_transaction)
 		getpath_debug(cl->mas, cl->first_hop, cl->active_only);
@@ -1835,7 +1840,7 @@ exit_update_request:
 }
 
 static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
-				u64 act_ib, u64 slp_ib, u64 slp_ab)
+				u64 act_ib, u64 dual_ib, u64 dual_ab)
 {
 	int ret = 0;
 
@@ -1848,18 +1853,18 @@ static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
 
 	if ((cl->cur_act_ib == act_ib) &&
 		(cl->cur_act_ab == act_ab) &&
-		(cl->cur_slp_ib == slp_ib) &&
-		(cl->cur_slp_ab == slp_ab)) {
+		(cl->cur_dual_ib == dual_ib) &&
+		(cl->cur_dual_ab == dual_ab)) {
 		MSM_BUS_ERR("No change in vote");
 		goto exit_change_context;
 	}
 
-	if (!slp_ab && !slp_ib)
+	if (!dual_ab && !dual_ib)
 		cl->active_only = true;
-	msm_bus_dbg_rec_transaction(cl, cl->cur_act_ab, cl->cur_slp_ib);
-	ret = update_path(cl->mas_dev, cl->slv, act_ib, act_ab, slp_ib, slp_ab,
-				cl->cur_act_ab, cl->cur_act_ab,  cl->first_hop,
-				cl->active_only);
+	msm_bus_dbg_rec_transaction(cl, cl->cur_act_ab, cl->cur_dual_ib);
+	ret = update_path(cl->mas_dev, cl->slv, act_ib, act_ab, dual_ib,
+				dual_ab, cl->cur_act_ab, cl->cur_act_ab,
+				cl->first_hop, cl->active_only);
 	if (ret) {
 		MSM_BUS_ERR("%s: Update path failed! %d active_only %d\n",
 				__func__, ret, cl->active_only);
@@ -1868,8 +1873,8 @@ static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
 	commit_data();
 	cl->cur_act_ib = act_ib;
 	cl->cur_act_ab = act_ab;
-	cl->cur_slp_ib = slp_ib;
-	cl->cur_slp_ab = slp_ab;
+	cl->cur_dual_ib = dual_ib;
+	cl->cur_dual_ab = dual_ab;
 //	trace_bus_update_request_end(cl->name);
 exit_change_context:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
