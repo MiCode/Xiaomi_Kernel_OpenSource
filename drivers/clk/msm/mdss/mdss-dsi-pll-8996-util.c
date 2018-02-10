@@ -53,52 +53,6 @@ int get_mdss_pixel_mux_sel_8996(struct mux_clk *clk)
 	return 0;
 }
 
-static int mdss_pll_read_stored_trim_codes(
-		struct mdss_pll_resources *dsi_pll_res, s64 vco_clk_rate,
-		int *pll_trim_codes)
-{
-	int i;
-	int rc = 0;
-	bool found = false;
-
-	if (!dsi_pll_res->dfps) {
-		rc = -EINVAL;
-		goto end_read;
-	}
-
-	for (i = 0; i < dsi_pll_res->dfps->panel_dfps.frame_rate_cnt; i++) {
-		struct dfps_codes_info *codes_info =
-			&dsi_pll_res->dfps->codes_dfps[i];
-
-		pr_debug("valid=%d frame_rate=%d, vco_rate=%d, code %d %d\n",
-			codes_info->is_valid, codes_info->frame_rate,
-			codes_info->clk_rate, codes_info->pll_codes.pll_codes_1,
-			codes_info->pll_codes.pll_codes_2);
-
-		if (vco_clk_rate != codes_info->clk_rate &&
-				codes_info->is_valid)
-			continue;
-
-		pll_trim_codes[0] =
-			codes_info->pll_codes.pll_codes_1;
-		pll_trim_codes[1] =
-			codes_info->pll_codes.pll_codes_2;
-		found = true;
-		break;
-	}
-
-	if (!found) {
-		rc = -EINVAL;
-		goto end_read;
-	}
-
-	pr_debug("core_kvco_code=0x%x core_vco_tune=0x%x\n",
-			pll_trim_codes[0], pll_trim_codes[1]);
-
-end_read:
-	return rc;
-}
-
 int post_n1_div_set_div(struct div_clk *clk, int div)
 {
 	struct mdss_pll_resources *pll = clk->priv;
@@ -1091,8 +1045,7 @@ int shadow_pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
 	struct mdss_pll_resources *pll = vco->priv;
 	struct dsi_pll_db *pdb;
-	s64 vco_clk_rate = (s64)rate;
-	int pll_trim_codes[2];
+	int pll_trim_codes[2] = {0, 0};
 
 	if (!pll) {
 		pr_err("PLL data not found\n");
@@ -1102,12 +1055,6 @@ int shadow_pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 	pdb = pll->priv;
 	if (!pdb) {
 		pr_err("No priv data found\n");
-		return -EINVAL;
-	}
-
-	rc = mdss_pll_read_stored_trim_codes(pll, vco_clk_rate, pll_trim_codes);
-	if (rc) {
-		pr_err("cannot find pll codes rate=%lld\n", vco_clk_rate);
 		return -EINVAL;
 	}
 
