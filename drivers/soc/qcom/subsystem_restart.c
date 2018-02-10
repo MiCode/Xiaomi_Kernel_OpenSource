@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -550,6 +550,10 @@ static void enable_all_irqs(struct subsys_device *dev)
 		enable_irq(dev->desc->wdog_bite_irq);
 		irq_set_irq_wake(dev->desc->wdog_bite_irq, 1);
 	}
+	if (dev->desc->periph_hang_irq && dev->desc->periph_hang_handler) {
+		enable_irq(dev->desc->periph_hang_irq);
+		irq_set_irq_wake(dev->desc->periph_hang_irq, 1);
+	}
 	if (dev->desc->err_fatal_irq && dev->desc->err_fatal_handler)
 		enable_irq(dev->desc->err_fatal_irq);
 	if (dev->desc->stop_ack_irq && dev->desc->stop_ack_handler)
@@ -567,6 +571,10 @@ static void disable_all_irqs(struct subsys_device *dev)
 	if (dev->desc->wdog_bite_irq && dev->desc->wdog_bite_handler) {
 		disable_irq(dev->desc->wdog_bite_irq);
 		irq_set_irq_wake(dev->desc->wdog_bite_irq, 0);
+	}
+	if (dev->desc->periph_hang_irq && dev->desc->periph_hang_handler) {
+		disable_irq(dev->desc->periph_hang_irq);
+		irq_set_irq_wake(dev->desc->periph_hang_irq, 0);
 	}
 	if (dev->desc->err_fatal_irq && dev->desc->err_fatal_handler)
 		disable_irq(dev->desc->err_fatal_irq);
@@ -1507,6 +1515,10 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 	if (ret > 0)
 		desc->wdog_bite_irq = ret;
 
+	ret = platform_get_irq(pdev, 1);
+	if (ret > 0)
+		desc->periph_hang_irq = ret;
+
 	if (of_property_read_bool(pdev->dev.of_node,
 					"qcom,pil-generic-irq-handler")) {
 		ret = platform_get_irq(pdev, 0);
@@ -1568,6 +1580,18 @@ static int subsys_setup_irqs(struct subsys_device *subsys)
 		disable_irq(desc->wdog_bite_irq);
 	}
 
+	if (desc->periph_hang_irq && desc->periph_hang_handler) {
+		ret = devm_request_irq(desc->dev, desc->periph_hang_irq,
+			desc->periph_hang_handler,
+			IRQF_TRIGGER_RISING, desc->name, desc);
+		if (ret < 0) {
+			dev_err(desc->dev, "[%s]: Unable to register periph hang handler!: %d\n",
+				desc->name, ret);
+			return ret;
+		}
+		disable_irq(desc->periph_hang_irq);
+	}
+
 	if (desc->generic_irq && desc->generic_handler) {
 		ret = devm_request_irq(desc->dev, desc->generic_irq,
 			desc->generic_handler,
@@ -1608,6 +1632,8 @@ static void subsys_free_irqs(struct subsys_device *subsys)
 		devm_free_irq(desc->dev, desc->stop_ack_irq, desc);
 	if (desc->wdog_bite_irq && desc->wdog_bite_handler)
 		devm_free_irq(desc->dev, desc->wdog_bite_irq, desc);
+	if (desc->periph_hang_irq && desc->periph_hang_handler)
+		devm_free_irq(desc->dev, desc->periph_hang_irq, desc);
 	if (desc->err_ready_irq)
 		devm_free_irq(desc->dev, desc->err_ready_irq, subsys);
 }
