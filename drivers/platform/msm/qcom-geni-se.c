@@ -31,6 +31,14 @@
 #define GENI_SE_IOMMU_VA_START	(0x40000000)
 #define GENI_SE_IOMMU_VA_SIZE	(0xC0000000)
 
+#ifdef CONFIG_ARM64
+#define GENI_SE_DMA_PTR_L(ptr) ((u32)ptr)
+#define GENI_SE_DMA_PTR_H(ptr) ((u32)(ptr >> 32))
+#else
+#define GENI_SE_DMA_PTR_L(ptr) ((u32)ptr)
+#define GENI_SE_DMA_PTR_H(ptr) 0
+#endif
+
 #define NUM_LOG_PAGES 2
 #define MAX_CLK_PERF_LEVEL 32
 static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000, 100000000};
@@ -999,8 +1007,8 @@ int geni_se_tx_dma_prep(struct device *wrapper_dev, void __iomem *base,
 		return ret;
 
 	geni_write_reg(7, base, SE_DMA_TX_IRQ_EN_SET);
-	geni_write_reg((u32)(*tx_dma), base, SE_DMA_TX_PTR_L);
-	geni_write_reg((u32)((*tx_dma) >> 32), base, SE_DMA_TX_PTR_H);
+	geni_write_reg(GENI_SE_DMA_PTR_L(*tx_dma), base, SE_DMA_TX_PTR_L);
+	geni_write_reg(GENI_SE_DMA_PTR_H(*tx_dma), base, SE_DMA_TX_PTR_H);
 	geni_write_reg(1, base, SE_DMA_TX_ATTR);
 	geni_write_reg(tx_len, base, SE_DMA_TX_LEN);
 	return 0;
@@ -1033,8 +1041,8 @@ int geni_se_rx_dma_prep(struct device *wrapper_dev, void __iomem *base,
 		return ret;
 
 	geni_write_reg(7, base, SE_DMA_RX_IRQ_EN_SET);
-	geni_write_reg((u32)(*rx_dma), base, SE_DMA_RX_PTR_L);
-	geni_write_reg((u32)((*rx_dma) >> 32), base, SE_DMA_RX_PTR_H);
+	geni_write_reg(GENI_SE_DMA_PTR_L(*rx_dma), base, SE_DMA_RX_PTR_L);
+	geni_write_reg(GENI_SE_DMA_PTR_H(*rx_dma), base, SE_DMA_RX_PTR_H);
 	/* RX does not have EOT bit */
 	geni_write_reg(0, base, SE_DMA_RX_ATTR);
 	geni_write_reg(rx_len, base, SE_DMA_RX_LEN);
