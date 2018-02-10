@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/coresight.h>
+#include <linux/clk.h>
 
 #include "coresight-priv.h"
 
@@ -78,6 +79,7 @@ struct csr_drvdata {
 	struct coresight_device	*csdev;
 	uint32_t		blksize;
 	struct coresight_csr		csr;
+	struct clk		*clk;
 	spinlock_t		spin_lock;
 	bool			usb_bam_support;
 	bool			hwctrl_set_support;
@@ -244,6 +246,68 @@ struct coresight_csr *coresight_csr_get(const char *name)
 }
 EXPORT_SYMBOL(coresight_csr_get);
 
+static ssize_t csr_show_timestamp(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	ssize_t size = 0;
+	uint64_t time_tick = 0;
+	uint32_t val, time_val0, time_val1;
+	int ret;
+	unsigned long flags;
+
+	struct csr_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (IS_ERR_OR_NULL(drvdata) || !drvdata->timestamp_support) {
+		dev_err(dev, "Invalid param\n");
+		return 0;
+	}
+
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+	CSR_UNLOCK(drvdata);
+
+	val = csr_readl(drvdata, CSR_TIMESTAMPCTRL);
+
+	val  = val & ~BIT(0);
+	csr_writel(drvdata, val, CSR_TIMESTAMPCTRL);
+
+	val  = val | BIT(0);
+	csr_writel(drvdata, val, CSR_TIMESTAMPCTRL);
+
+	time_val0 = csr_readl(drvdata, CSR_QDSSTIMEVAL0);
+	time_val1 = csr_readl(drvdata, CSR_QDSSTIMEVAL1);
+
+	CSR_LOCK(drvdata);
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+
+	clk_disable_unprepare(drvdata->clk);
+
+	time_tick |= (uint64_t)time_val1 << 32;
+	time_tick |= (uint64_t)time_val0;
+	size = scnprintf(buf, PAGE_SIZE, "%llu\n", time_tick);
+	dev_dbg(dev, "timestamp : %s\n", buf);
+	return size;
+}
+
+static DEVICE_ATTR(timestamp, 0444, csr_show_timestamp, NULL);
+
+static struct attribute *csr_attrs[] = {
+	&dev_attr_timestamp.attr,
+	NULL,
+};
+
+static struct attribute_group csr_attr_grp = {
+	.attrs = csr_attrs,
+};
+static const struct attribute_group *csr_attr_grps[] = {
+	&csr_attr_grp,
+	NULL,
+};
+
 static int csr_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -263,6 +327,10 @@ static int csr_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
+
+	drvdata->clk = devm_clk_get(dev, "apb_pclk");
+	if (IS_ERR(drvdata->clk))
+		dev_dbg(dev, "csr not config clk\n");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "csr-base");
 	if (!res)
@@ -312,6 +380,9 @@ static int csr_probe(struct platform_device *pdev)
 	desc->type = CORESIGHT_DEV_TYPE_NONE;
 	desc->pdata = pdev->dev.platform_data;
 	desc->dev = &pdev->dev;
+	if (drvdata->timestamp_support)
+		desc->groups = csr_attr_grps;
+
 	drvdata->csdev = coresight_register(desc);
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
