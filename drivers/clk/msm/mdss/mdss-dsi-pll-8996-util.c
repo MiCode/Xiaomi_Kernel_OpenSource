@@ -1141,7 +1141,7 @@ int shadow_pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 	return rc;
 }
 
-unsigned long pll_vco_get_rate_8996(struct clk *c)
+static unsigned long pll_vco_get_rate_8996(struct clk *c)
 {
 	u64 vco_rate, multiplier = BIT(20);
 	s32 div_frac_start;

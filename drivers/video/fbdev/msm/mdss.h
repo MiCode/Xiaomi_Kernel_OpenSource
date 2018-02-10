@@ -209,7 +209,7 @@ struct reg_bus_client {
 struct mdss_smmu_client {
 	struct device *dev;
 	struct dma_iommu_mapping *mmu_mapping;
-	struct dss_module_power mp;
+	struct mdss_module_power mp;
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
 	bool handoff_pending;
@@ -283,9 +283,9 @@ struct mdss_data_type {
 	struct mdss_panel_data *pdata;
 
 	struct platform_device *pdev;
-	struct dss_io_data mdss_io;
-	struct dss_io_data vbif_io;
-	struct dss_io_data vbif_nrt_io;
+	struct mdss_io_data mdss_io;
+	struct mdss_io_data vbif_io;
+	struct mdss_io_data vbif_nrt_io;
 	char __iomem *mdp_base;
 
 	struct mdss_smmu_client mdss_smmu[MDSS_IOMMU_MAX_DOMAIN];
@@ -590,14 +590,14 @@ static inline bool mdss_has_quirk(struct mdss_data_type *mdata,
 }
 
 #define MDSS_VBIF_WRITE(mdata, offset, value, nrt_vbif) \
-		(nrt_vbif ? dss_reg_w(&mdata->vbif_nrt_io, offset, value, 0) :\
-		dss_reg_w(&mdata->vbif_io, offset, value, 0))
+		(nrt_vbif ? mdss_reg_w(&mdata->vbif_nrt_io, offset, value, 0) :\
+		mdss_reg_w(&mdata->vbif_io, offset, value, 0))
 #define MDSS_VBIF_READ(mdata, offset, nrt_vbif) \
-		(nrt_vbif ? dss_reg_r(&mdata->vbif_nrt_io, offset, 0) :\
-		dss_reg_r(&mdata->vbif_io, offset, 0))
+		(nrt_vbif ? mdss_reg_r(&mdata->vbif_nrt_io, offset, 0) :\
+		mdss_reg_r(&mdata->vbif_io, offset, 0))
 #define MDSS_REG_WRITE(mdata, offset, value) \
-		dss_reg_w(&mdata->mdss_io, offset, value, 0)
+		mdss_reg_w(&mdata->mdss_io, offset, value, 0)
 #define MDSS_REG_READ(mdata, offset) \
-		dss_reg_r(&mdata->mdss_io, offset, 0)
+		mdss_reg_r(&mdata->mdss_io, offset, 0)
 
 #endif /* MDSS_H */
