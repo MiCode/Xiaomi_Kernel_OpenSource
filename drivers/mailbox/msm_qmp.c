@@ -266,7 +266,7 @@ static void qmp_notify_timeout(struct work_struct *work)
 		return;
 	}
 	QMP_ERR(mbox->mdev->ilc, "tx timeout for %d\n", mbox->idx_in_flight);
-	iowrite32(0, mbox->mdev->msgram + mbox->mcore_mbox_offset);
+	iowrite32(0, mbox->desc + mbox->mcore_mbox_offset);
 	mbox->tx_sent = false;
 	spin_unlock_irqrestore(&mbox->tx_lock, flags);
 	mbox_chan_txdone(chan, err);
@@ -377,10 +377,11 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 
 	if (!mbox || !data || mbox->local_state != CHANNEL_CONNECTED)
 		return -EINVAL;
+
 	mdev = mbox->mdev;
 
 	spin_lock_irqsave(&mbox->tx_lock, flags);
-	addr = mdev->msgram + mbox->mcore_mbox_offset;
+	addr = mbox->desc + mbox->mcore_mbox_offset;
 	if (mbox->tx_sent) {
 		spin_unlock_irqrestore(&mbox->tx_lock, flags);
 		return -EAGAIN;
@@ -468,7 +469,7 @@ static void qmp_recv_data(struct qmp_mbox *mbox, u32 mbox_of)
 	void __iomem *addr;
 	struct qmp_pkt *pkt;
 
-	addr = mbox->mdev->msgram + mbox_of;
+	addr = mbox->desc + mbox_of;
 	pkt = &mbox->rx_pkt;
 	pkt->size = ioread32(addr);
 
@@ -615,14 +616,14 @@ static void __qmp_rx_worker(struct qmp_mbox *mbox)
 			send_irq(mdev);
 		}
 
-		msg_len = ioread32(mdev->msgram + desc.ucore.mailbox_offset);
+		msg_len = ioread32(mbox->desc + desc.ucore.mailbox_offset);
 		if (msg_len && !mbox->rx_disabled)
 			qmp_recv_data(mbox, desc.ucore.mailbox_offset);
 
 		spin_lock_irqsave(&mbox->tx_lock, flags);
 		idx = mbox->idx_in_flight;
 		if (mbox->tx_sent) {
-			msg_len = ioread32(mdev->msgram +
+			msg_len = ioread32(mbox->desc +
 						mbox->mcore_mbox_offset);
 			if (msg_len == 0) {
 				mbox->tx_sent = false;
