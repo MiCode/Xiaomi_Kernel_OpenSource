@@ -2412,7 +2412,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	struct msm_compression_info *comp_info = NULL;
 	struct drm_display_mode *cur_mode = NULL;
 	struct msm_mode_info mode_info;
-	struct drm_connector *drm_conn = NULL;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -2503,10 +2502,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
 
 	_sde_encoder_virt_enable_helper(drm_enc);
-
-	/* Enable ESD thread */
-	drm_conn = sde_enc->cur_master->connector;
-	sde_connector_schedule_status_work(drm_conn, true);
 }
 
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
@@ -3448,21 +3443,71 @@ exit:
 	_sde_encoder_power_enable(sde_enc, false);
 }
 
+int sde_encoder_poll_line_counts(struct drm_encoder *drm_enc)
+{
+	static const uint64_t timeout_us = 50000;
+	static const uint64_t sleep_us = 20;
+	struct sde_encoder_virt *sde_enc;
+	ktime_t cur_ktime, exp_ktime;
+	uint32_t line_count, tmp, i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!sde_enc->cur_master ||
+			!sde_enc->cur_master->ops.get_line_count) {
+		SDE_DEBUG_ENC(sde_enc, "can't get master line count\n");
+		SDE_EVT32(DRMID(drm_enc), SDE_EVTLOG_ERROR);
+		return -EINVAL;
+	}
+
+	exp_ktime = ktime_add_ms(ktime_get(), timeout_us / 1000);
+
+	line_count = sde_enc->cur_master->ops.get_line_count(
+			sde_enc->cur_master);
+
+	for (i = 0; i < (timeout_us * 2 / sleep_us); ++i) {
+		tmp = line_count;
+		line_count = sde_enc->cur_master->ops.get_line_count(
+				sde_enc->cur_master);
+		if (line_count < tmp) {
+			SDE_EVT32(DRMID(drm_enc), line_count);
+			return 0;
+		}
+
+		cur_ktime = ktime_get();
+		if (ktime_compare_safe(exp_ktime, cur_ktime) <= 0)
+			break;
+
+		usleep_range(sleep_us / 2, sleep_us);
+	}
+
+	SDE_EVT32(DRMID(drm_enc), line_count, SDE_EVTLOG_ERROR);
+	return -ETIMEDOUT;
+}
+
 int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
+	struct sde_kms *sde_kms = NULL;
+	struct msm_drm_private *priv = NULL;
 	bool needs_hw_reset = false;
 	uint32_t ln_cnt1, ln_cnt2;
 	unsigned int i;
 	int rc, ret = 0;
 
-	if (!drm_enc || !params) {
+	if (!drm_enc || !params || !drm_enc->dev ||
+		!drm_enc->dev->dev_private) {
 		SDE_ERROR("invalid args\n");
 		return -EINVAL;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
@@ -3531,7 +3576,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		}
 	}
 
-	if (_sde_encoder_is_dsc_enabled(drm_enc)) {
+	if (_sde_encoder_is_dsc_enabled(drm_enc) &&
+		!sde_kms->splash_data.cont_splash_en) {
 		rc = _sde_encoder_dsc_setup(sde_enc, params);
 		if (rc) {
 			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n", rc);
@@ -4399,8 +4445,8 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 		return ret;
 	}
 
-	if (conn->encoder) {
-		conn->state->best_encoder = conn->encoder;
+	if (sde_conn->encoder) {
+		conn->state->best_encoder = sde_conn->encoder;
 		SDE_DEBUG_ENC(sde_enc,
 			"configured cstate->best_encoder to ID = %d\n",
 			conn->state->best_encoder->base.id);

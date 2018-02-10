@@ -222,11 +222,11 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 		u32 *flush_sspp, u32 *flush_rot);
 
 /**
- * sde_plane_rot_calc_prefill - calculate rotator start prefill
+ * sde_plane_rot_get_prefill - calculate rotator start prefill
  * @plane: Pointer to drm plane
- * return: prefill time in line
+ * return: prefill time in lines
  */
-u32 sde_plane_rot_calc_prefill(struct drm_plane *plane);
+u32 sde_plane_rot_get_prefill(struct drm_plane *plane);
 
 /**
  * sde_plane_restore - restore hw state if previously power collapsed

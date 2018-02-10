@@ -153,6 +153,13 @@ struct sde_hw_ctl_ops {
 	int (*reset)(struct sde_hw_ctl *c);
 
 	/**
+	 * get_reset - check ctl reset status bit
+	 * @ctx    : ctl path ctx pointer
+	 * Returns: current value of ctl reset status
+	 */
+	u32 (*get_reset)(struct sde_hw_ctl *ctx);
+
+	/**
 	 * hard_reset - force reset on ctl_path
 	 * @ctx    : ctl path ctx pointer
 	 * @enable : whether to enable/disable hard reset
@@ -275,15 +282,6 @@ struct sde_hw_ctl {
 	/* ops */
 	struct sde_hw_ctl_ops ops;
 };
-
-/**
- * sde_unstage_pipe_for_cont_splash - Unstage pipes for continuous splash
- * @data: pointer to sde splash data
- * @mmio: mapped register io address of MDP
- * @return: error code
- */
-int sde_unstage_pipe_for_cont_splash(struct sde_splash_data *data,
-		void __iomem *mmio);
 
 /**
  * sde_hw_ctl - convert base object sde_hw_base to container

@@ -95,6 +95,7 @@
 #define PROP_BITVALUE_ACCESS(p, i, j, k)	((p + i)->bit_value[j][k])
 
 #define DEFAULT_SBUF_HEADROOM		(20)
+#define DEFAULT_SBUF_PREFILL		(128)
 
 /*
  * Default parameter values
@@ -2073,6 +2074,7 @@ static int sde_rot_parse_dt(struct device_node *np,
 	if (sde_cfg->rot_count) {
 		sde_cfg->has_sbuf = true;
 		sde_cfg->sbuf_headroom = DEFAULT_SBUF_HEADROOM;
+		sde_cfg->sbuf_prefill = DEFAULT_SBUF_PREFILL;
 	}
 
 end:
@@ -3293,7 +3295,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_301) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
-	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_401))
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_401) ||
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410))
 		sde_cfg->has_hdr = true;
 
 	index = sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
