@@ -130,6 +130,8 @@ enum cam_req_mgr_link_state {
  * @apply_data    : pointer which various tables will update during traverse
  * @in_q          : input request queue pointer
  * @validate_only : Whether to validate only and/or update settings
+ * @self_link     : To indicate whether the check is for the given link or the
+ *                  other sync link
  */
 struct cam_req_mgr_traverse {
 	int32_t                       idx;
@@ -138,6 +140,7 @@ struct cam_req_mgr_traverse {
 	struct cam_req_mgr_apply     *apply_data;
 	struct cam_req_mgr_req_queue *in_q;
 	bool                          validate_only;
+	bool                          self_link;
 };
 
 /**
