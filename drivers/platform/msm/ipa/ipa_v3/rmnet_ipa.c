@@ -1620,7 +1620,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		case RMNET_IOCTL_GET_DRIVER_NAME:
 			memcpy(&ext_ioctl_data.u.if_name,
 				IPA_NETDEV()->name, IFNAMSIZ);
-			extend_ioctl_data.u.if_name[IFNAMSIZ - 1] = '\0';
+			ext_ioctl_data.u.if_name[IFNAMSIZ - 1] = '\0';
 			if (copy_to_user((u8 *)ifr->ifr_ifru.ifru_data,
 					&ext_ioctl_data,
 					sizeof(struct rmnet_ioctl_extended_s)))
@@ -1644,7 +1644,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 					&rmnet_ipa3_ctx->add_mux_channel_lock);
 				return -EFAULT;
 			}
-			extend_ioctl_data.u.rmnet_mux_val.vchannel_name
+			ext_ioctl_data.u.rmnet_mux_val.vchannel_name
 				[IFNAMSIZ-1] = '\0';
 			IPAWANDBG("ADD_MUX_CHANNEL(%d, name: %s)\n",
 			ext_ioctl_data.u.rmnet_mux_val.mux_id,
@@ -3464,7 +3464,7 @@ static inline bool rmnet_ipa3_check_any_client_inited
 )
 {
 	int i = 0;
-	struct ipa_tether_device_info *teth_ptr;
+	struct ipa_tether_device_info *teth_ptr = NULL;
 
 	for (; i < IPA_MAX_NUM_HW_PATH_CLIENTS; i++) {
 		teth_ptr = &rmnet_ipa3_ctx->tether_device[device_type];
@@ -3487,7 +3487,7 @@ static inline int rmnet_ipa3_get_lan_client_info
 )
 {
 	int i = 0;
-	struct ipa_tether_device_info *teth_ptr;
+	struct ipa_tether_device_info *teth_ptr = NULL;
 
 	IPAWANDBG("Client MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
 		mac[0], mac[1], mac[2],
@@ -3516,7 +3516,7 @@ static inline int rmnet_ipa3_delete_lan_client_info
 {
 	struct ipa_lan_client *lan_client = NULL;
 	int i;
-	struct ipa_tether_device_info *teth_ptr;
+	struct ipa_tether_device_info *teth_ptr = NULL;
 
 	/* Check if the request is to clean up all clients. */
 	teth_ptr = &rmnet_ipa3_ctx->tether_device[device_type];
@@ -3529,7 +3529,7 @@ static inline int rmnet_ipa3_delete_lan_client_info
 		for (i = 0; i < IPA_MAX_NUM_HW_PATH_CLIENTS; i++)
 			teth_ptr->lan_client[i].client_idx = -1;
 	} else {
-		lan_client = teth_ptr->lan_client[lan_clnt_idx];
+		lan_client = &teth_ptr->lan_client[lan_clnt_idx];
 
 		/* Reset the client info before sending the message. */
 		memset(lan_client, 0, sizeof(struct ipa_lan_client));
@@ -3554,7 +3554,7 @@ int rmnet_ipa3_set_lan_client_info(
 	struct wan_ioctl_lan_client_info *data)
 {
 	struct ipa_lan_client *lan_client = NULL;
-	struct ipa_tether_device_info *teth_ptr;
+	struct ipa_tether_device_info *teth_ptr = NULL;
 
 
 	IPAWANDBG("Client MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -3588,7 +3588,7 @@ int rmnet_ipa3_set_lan_client_info(
 	}
 
 	teth_ptr = &rmnet_ipa3_ctx->tether_device[data->device_type];
-	lan_client = teth_ptr->lan_client[data->client_idx];
+	lan_client = &teth_ptr->lan_client[data->client_idx];
 
 	memcpy(lan_client->mac, data->mac, IPA_MAC_ADDR_SIZE);
 
@@ -3631,9 +3631,8 @@ int rmnet_ipa3_set_lan_client_info(
 int rmnet_ipa3_clear_lan_client_info(
 	struct wan_ioctl_lan_client_info *data)
 {
-
 	struct ipa_lan_client *lan_client = NULL;
-
+	struct ipa_tether_device_info *teth_ptr = NULL;
 
 	IPAWANDBG("Client MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
 		data->mac[0], data->mac[1], data->mac[2],
@@ -3653,9 +3652,9 @@ int rmnet_ipa3_clear_lan_client_info(
 		return -EINVAL;
 	}
 
-	mutex_lock(&rmnet_ipa3_ctx->per_client_stats_guard);
 	teth_ptr = &rmnet_ipa3_ctx->tether_device[data->device_type];
-	lan_client = teth_ptr->lan_client[data->client_idx];
+	mutex_lock(&rmnet_ipa3_ctx->per_client_stats_guard);
+	lan_client = &teth_ptr->lan_client[data->client_idx];
 
 	if (!data->client_init) {
 		/* check if the client is already de-inited. */
@@ -3775,7 +3774,7 @@ int rmnet_ipa3_query_per_client_stats(
 	struct ipa_get_stats_per_client_resp_msg_v01 *resp;
 	int rc, lan_clnt_idx, lan_clnt_idx1, i;
 	struct ipa_lan_client *lan_client = NULL;
-	struct ipa_tether_device_info *teth_ptr;
+	struct ipa_tether_device_info *teth_ptr = NULL;
 
 	IPAWANDBG("Client MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
 		data->client_info[0].mac[0],
@@ -3813,7 +3812,7 @@ int rmnet_ipa3_query_per_client_stats(
 		}
 
 		teth_ptr = &rmnet_ipa3_ctx->tether_device[data->device_type];
-		lan_client = teth_ptr->lan_client[lan_clnt_idx1];
+		lan_client = &teth_ptr->lan_client[lan_clnt_idx1];
 
 		/*
 		 * Check if disconnect flag is set and
@@ -3939,7 +3938,7 @@ int rmnet_ipa3_query_per_client_stats(
 static int __init ipa3_wwan_init(void)
 {
 	int i, j;
-	struct ipa_tether_device_info *teth_ptr;
+	struct ipa_tether_device_info *teth_ptr = NULL;
 
 	rmnet_ipa3_ctx = kzalloc(sizeof(*rmnet_ipa3_ctx), GFP_KERNEL);
 

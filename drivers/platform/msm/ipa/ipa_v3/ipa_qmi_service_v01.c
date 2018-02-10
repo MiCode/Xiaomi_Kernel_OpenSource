@@ -11,7 +11,6 @@
  *
  */
 
-#include <linux/qmi_encdec.h>
 #include <linux/ipa_qmi_service_v01.h>
 
 #include <linux/soc/qcom/qmi.h>
@@ -1110,7 +1109,7 @@ struct qmi_elem_info ipa3_init_modem_driver_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -1207,7 +1206,7 @@ struct qmi_elem_info ipa3_init_modem_driver_cmplt_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_cmplt_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -1274,7 +1273,7 @@ struct qmi_elem_info ipa3_indication_reg_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_indication_reg_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -1293,7 +1292,7 @@ struct qmi_elem_info ipa3_master_driver_init_complt_ind_msg_data_v01_ei[] = {
 		.offset		= offsetof(struct
 			ipa_master_driver_init_complt_ind_msg_v01,
 			master_driver_init_status),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -1472,7 +1471,7 @@ struct qmi_elem_info ipa3_install_fltr_rule_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_install_fltr_rule_resp_msg_v01,
 			resp),
-		.ei_array       = get_qmi_response_type_v01_ei(),
+		.ei_array       = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -1804,7 +1803,7 @@ struct qmi_elem_info ipa3_fltr_installed_notif_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_fltr_installed_notif_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -1871,7 +1870,7 @@ struct qmi_elem_info ipa3_enable_force_clear_datapath_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_enable_force_clear_datapath_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -1909,7 +1908,7 @@ struct qmi_elem_info
 		.offset		= offsetof(
 			struct ipa_disable_force_clear_datapath_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -2236,7 +2235,7 @@ struct qmi_elem_info ipa3_config_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_config_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -2374,7 +2373,7 @@ struct qmi_elem_info ipa3_get_data_stats_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_get_data_stats_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -2602,7 +2601,7 @@ struct qmi_elem_info ipa3_get_apn_data_stats_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_get_apn_data_stats_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -2721,7 +2720,7 @@ struct qmi_elem_info ipa3_set_data_usage_quota_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_set_data_usage_quota_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -2769,7 +2768,7 @@ struct qmi_elem_info ipa3_stop_data_usage_quota_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_stop_data_usage_quota_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -2918,7 +2917,7 @@ struct qmi_elem_info ipa3_install_fltr_rule_resp_ex_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_install_fltr_rule_resp_ex_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -2957,7 +2956,7 @@ struct qmi_elem_info ipa3_install_fltr_rule_resp_ex_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_per_client_stats_info_type_data_v01_ei[] = {
+struct qmi_elem_info ipa3_per_client_stats_info_type_data_v01_ei[] = {
 	{
 			.data_type	= QMI_UNSIGNED_4_BYTE,
 			.elem_len	= 1,
@@ -3073,7 +3072,7 @@ struct elem_info ipa3_per_client_stats_info_type_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_ul_firewall_rule_type_data_v01_ei[] = {
+struct qmi_elem_info ipa3_ul_firewall_rule_type_data_v01_ei[] = {
 	{
 			.data_type	= QMI_UNSIGNED_4_BYTE,
 			.elem_len	= 1,
@@ -3101,7 +3100,7 @@ struct elem_info ipa3_ul_firewall_rule_type_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_ul_firewall_config_result_type_data_v01_ei[] = {
+struct qmi_elem_info ipa3_ul_firewall_config_result_type_data_v01_ei[] = {
 	{
 			.data_type	= QMI_UNSIGNED_4_BYTE,
 			.elem_len	= 1,
@@ -3129,7 +3128,7 @@ struct elem_info ipa3_ul_firewall_config_result_type_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_enable_per_client_stats_req_msg_data_v01_ei[] = {
+struct qmi_elem_info ipa3_enable_per_client_stats_req_msg_data_v01_ei[] = {
 	{
 				.data_type	= QMI_UNSIGNED_1_BYTE,
 				.elem_len	= 1,
@@ -3147,7 +3146,7 @@ struct elem_info ipa3_enable_per_client_stats_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_enable_per_client_stats_resp_msg_data_v01_ei[] = {
+struct qmi_elem_info ipa3_enable_per_client_stats_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -3157,7 +3156,7 @@ struct elem_info ipa3_enable_per_client_stats_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_enable_per_client_stats_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -3166,7 +3165,7 @@ struct elem_info ipa3_enable_per_client_stats_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_get_stats_per_client_req_msg_data_v01_ei[] = {
+struct qmi_elem_info ipa3_get_stats_per_client_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -3214,7 +3213,7 @@ struct elem_info ipa3_get_stats_per_client_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_get_stats_per_client_resp_msg_data_v01_ei[] = {
+struct qmi_elem_info ipa3_get_stats_per_client_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -3224,7 +3223,7 @@ struct elem_info ipa3_get_stats_per_client_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_get_stats_per_client_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -3266,7 +3265,7 @@ struct elem_info ipa3_get_stats_per_client_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_configure_ul_firewall_rules_req_msg_data_v01_ei[] = {
+struct qmi_elem_info ipa3_configure_ul_firewall_rules_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_DATA_LEN,
 		.elem_len	= 1,
@@ -3346,7 +3345,7 @@ struct elem_info ipa3_configure_ul_firewall_rules_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei[] = {
+struct qmi_elem_info ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -3356,7 +3355,7 @@ struct elem_info ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_configure_ul_firewall_rules_resp_msg_v01,
 			resp),
-		.ei_array	= get_qmi_response_type_v01_ei(),
+		.ei_array	= qmi_response_type_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -3365,7 +3364,7 @@ struct elem_info ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa3_configure_ul_firewall_rules_ind_msg_data_v01_ei[] = {
+struct qmi_elem_info ipa3_configure_ul_firewall_rules_ind_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,

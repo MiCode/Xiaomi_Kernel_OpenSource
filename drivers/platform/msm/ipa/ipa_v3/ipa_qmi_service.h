@@ -69,6 +69,10 @@
 				DEV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
+struct ipa_q6_all_client_params {
+	struct sockaddr_qrtr sq;
+};
+
 extern struct ipa3_qmi_context *ipa3_qmi_ctx;
 
 struct ipa3_qmi_context {
@@ -88,6 +92,7 @@ struct ipa3_qmi_context {
 		ipa_configure_ul_firewall_rules_req_msg_cache
 			[MAX_NUM_QMI_RULE_CACHE];
 	bool modem_cfg_emb_pipe_flt;
+	struct ipa_q6_all_client_params ipa_q6_client_params;
 };
 
 struct ipa3_rmnet_mux_val {
@@ -99,9 +104,12 @@ struct ipa3_rmnet_mux_val {
 	uint32_t  hdr_hdl;
 };
 
-extern struct qmi_elem_info ipa3_init_modem_driver_req_msg_data_v01_ei[];
-extern struct qmi_elem_info ipa3_init_modem_driver_resp_msg_data_v01_ei[];
-extern struct qmi_elem_info ipa3_indication_reg_req_msg_data_v01_ei[];
+extern struct qmi_elem_info
+	ipa3_init_modem_driver_req_msg_data_v01_ei[];
+extern struct qmi_elem_info
+	ipa3_init_modem_driver_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info
+	ipa3_indication_reg_req_msg_data_v01_ei[];
 extern struct qmi_elem_info ipa3_indication_reg_resp_msg_data_v01_ei[];
 
 extern struct qmi_elem_info
