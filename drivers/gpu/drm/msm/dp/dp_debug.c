@@ -16,7 +16,6 @@
 
 #include <linux/debugfs.h>
 
-#include "dp_parser.h"
 #include "dp_power.h"
 #include "dp_catalog.h"
 #include "dp_aux.h"
@@ -38,10 +37,14 @@ struct dp_debug_private {
 
 	int vdo;
 
+	char exe_mode[SZ_32];
+	char reg_dump[SZ_32];
+
 	struct dp_usbpd *usbpd;
 	struct dp_link *link;
 	struct dp_panel *panel;
 	struct dp_aux *aux;
+	struct dp_catalog *catalog;
 	struct drm_connector **connector;
 	struct device *dev;
 	struct work_struct sim_work;
@@ -395,6 +398,36 @@ static ssize_t dp_debug_tpg_write(struct file *file,
 
 	debug->dp_debug.tpg_state = tpg_state;
 bail:
+	return len;
+}
+
+static ssize_t dp_debug_write_exe_mode(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char *buf;
+	size_t len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len = min_t(size_t, count, SZ_32 - 1);
+	buf = memdup_user(user_buff, len);
+	buf[len] = '\0';
+
+	if (sscanf(buf, "%3s", debug->exe_mode) != 1)
+		goto end;
+
+	if (strcmp(debug->exe_mode, "hw") &&
+	    strcmp(debug->exe_mode, "sw") &&
+	    strcmp(debug->exe_mode, "all"))
+		goto end;
+
+	debug->catalog->set_exe_mode(debug->catalog, debug->exe_mode);
+end:
 	return len;
 }
 
@@ -910,6 +943,71 @@ end:
 	return len;
 }
 
+static ssize_t dp_debug_write_dump(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_32];
+	size_t len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_32 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
+	buf[len] = '\0';
+
+	if (sscanf(buf, "%31s", debug->reg_dump) != 1)
+		goto end;
+
+	/* qfprom register dump not supported */
+	if (!strcmp(debug->reg_dump, "qfprom_physical"))
+		strlcpy(debug->reg_dump, "clear", sizeof(debug->reg_dump));
+end:
+	return len;
+}
+
+static ssize_t dp_debug_read_dump(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	int rc = 0;
+	struct dp_debug_private *debug = file->private_data;
+	u8 *buf = NULL;
+	u32 len = 0;
+	char prefix[SZ_32];
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	if (!debug->usbpd->hpd_high || !strlen(debug->reg_dump))
+		goto end;
+
+	rc = debug->catalog->get_reg_dump(debug->catalog,
+		debug->reg_dump, &buf, &len);
+	if (rc)
+		goto end;
+
+	snprintf(prefix, sizeof(prefix), "%s: ", debug->reg_dump);
+	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_NONE,
+		16, 4, buf, len, false);
+
+	if (copy_to_user(user_buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+end:
+	return len;
+}
+
 static const struct file_operations dp_debug_fops = {
 	.open = simple_open,
 	.read = dp_debug_read_info,
@@ -947,6 +1045,10 @@ static const struct file_operations bw_code_fops = {
 	.read = dp_debug_bw_code_read,
 	.write = dp_debug_bw_code_write,
 };
+static const struct file_operations exe_mode_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_exe_mode,
+};
 
 static const struct file_operations tpg_fops = {
 	.open = simple_open,
@@ -968,6 +1070,12 @@ static const struct file_operations sim_fops = {
 static const struct file_operations attention_fops = {
 	.open = simple_open,
 	.write = dp_debug_write_attention,
+};
+
+static const struct file_operations dump_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_dump,
+	.read = dp_debug_read_dump,
 };
 
 static int dp_debug_init(struct dp_debug *dp_debug)
@@ -1032,7 +1140,14 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
 		       DEBUG_NAME, rc);
-		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("exe_mode", 0644, dir,
+			debug, &exe_mode_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs register failed, rc=%d\n",
+		       DEBUG_NAME, rc);
 	}
 
 	file = debugfs_create_file("edid", 0644, dir,
@@ -1092,6 +1207,16 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_file("dump", 0644, dir,
+		debug, &dump_fops);
+
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs dump failed, rc=%d\n",
+			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
 	return 0;
 
 error_remove_dir:
@@ -1112,13 +1237,14 @@ static void dp_debug_sim_work(struct work_struct *work)
 
 struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 			struct dp_usbpd *usbpd, struct dp_link *link,
-			struct dp_aux *aux, struct drm_connector **connector)
+			struct dp_aux *aux, struct drm_connector **connector,
+			struct dp_catalog *catalog)
 {
 	int rc = 0;
 	struct dp_debug_private *debug;
 	struct dp_debug *dp_debug;
 
-	if (!dev || !panel || !usbpd || !link) {
+	if (!dev || !panel || !usbpd || !link || !catalog) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
@@ -1139,6 +1265,7 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 	debug->aux = aux;
 	debug->dev = dev;
 	debug->connector = connector;
+	debug->catalog = catalog;
 
 	dp_debug = &debug->dp_debug;
 	dp_debug->vdisplay = 0;

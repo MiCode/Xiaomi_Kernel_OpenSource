@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,100 +20,44 @@
 
 static void dp_parser_unmap_io_resources(struct dp_parser *parser)
 {
+	int i = 0;
 	struct dp_io *io = &parser->io;
 
-	msm_dss_iounmap(&io->dp_ahb);
-	msm_dss_iounmap(&io->dp_aux);
-	msm_dss_iounmap(&io->dp_link);
-	msm_dss_iounmap(&io->dp_p0);
-	msm_dss_iounmap(&io->phy_io);
-	msm_dss_iounmap(&io->ln_tx0_io);
-	msm_dss_iounmap(&io->ln_tx0_io);
-	msm_dss_iounmap(&io->dp_pll_io);
-	msm_dss_iounmap(&io->dp_cc_io);
-	msm_dss_iounmap(&io->usb3_dp_com);
-	msm_dss_iounmap(&io->qfprom_io);
-	msm_dss_iounmap(&io->hdcp_io);
+	for (i = 0; i < io->len; i++)
+		msm_dss_iounmap(&io->data[i].io);
 }
 
-static int dp_parser_ctrl_res(struct dp_parser *parser)
+static int dp_parser_reg(struct dp_parser *parser)
 {
-	int rc = 0;
-	u32 index;
+	int rc = 0, i = 0;
+	u32 reg_count;
 	struct platform_device *pdev = parser->pdev;
-	struct device_node *of_node = parser->pdev->dev.of_node;
 	struct dp_io *io = &parser->io;
+	struct device *dev = &pdev->dev;
 
-	rc = of_property_read_u32(of_node, "cell-index", &index);
-	if (rc) {
-		pr_err("cell-index not specified, rc=%d\n", rc);
-		goto err;
+	reg_count = of_property_count_strings(dev->of_node, "reg-names");
+	if (reg_count <= 0) {
+		pr_err("no reg defined\n");
+		return -EINVAL;
 	}
 
-	rc = msm_dss_ioremap_byname(pdev, &io->dp_ahb, "dp_ahb");
-	if (rc) {
-		pr_err("unable to remap dp io resources\n");
-		goto err;
+	io->len = reg_count;
+	io->data = devm_kzalloc(dev, sizeof(struct dp_io_data) * reg_count,
+			GFP_KERNEL);
+	if (!io->data)
+		return -ENOMEM;
+
+	for (i = 0; i < reg_count; i++) {
+		of_property_read_string_index(dev->of_node,
+				"reg-names", i,	&io->data[i].name);
+		rc = msm_dss_ioremap_byname(pdev, &io->data[i].io,
+			io->data[i].name);
+		if (rc) {
+			pr_err("unable to remap %s resources\n",
+				io->data[i].name);
+			goto err;
+		}
 	}
-
-	rc = msm_dss_ioremap_byname(pdev, &io->dp_aux, "dp_aux");
-	if (rc) {
-		pr_err("unable to remap dp io resources\n");
-		goto err;
-	}
-
-	rc = msm_dss_ioremap_byname(pdev, &io->dp_link, "dp_link");
-	if (rc) {
-		pr_err("unable to remap dp io resources\n");
-		goto err;
-	}
-
-	rc = msm_dss_ioremap_byname(pdev, &io->dp_p0, "dp_p0");
-	if (rc) {
-		pr_err("unable to remap dp io resources\n");
-		goto err;
-	}
-
-	rc = msm_dss_ioremap_byname(pdev, &io->phy_io, "dp_phy");
-	if (rc) {
-		pr_err("unable to remap dp PHY resources\n");
-		goto err;
-	}
-
-	rc = msm_dss_ioremap_byname(pdev, &io->ln_tx0_io, "dp_ln_tx0");
-	if (rc) {
-		pr_err("unable to remap dp TX0 resources\n");
-		goto err;
-	}
-
-	rc = msm_dss_ioremap_byname(pdev, &io->ln_tx1_io, "dp_ln_tx1");
-	if (rc) {
-		pr_err("unable to remap dp TX1 resources\n");
-		goto err;
-	}
-
-	rc = msm_dss_ioremap_byname(pdev, &io->dp_pll_io, "dp_pll");
-	if (rc) {
-		pr_err("unable to remap DP PLL resources\n");
-		goto err;
-	}
-
-	rc = msm_dss_ioremap_byname(pdev, &io->usb3_dp_com, "usb3_dp_com");
-	if (rc) {
-		pr_err("unable to remap USB3 DP com resources\n");
-		goto err;
-	}
-
-	if (msm_dss_ioremap_byname(pdev, &io->dp_cc_io, "dp_mmss_cc")) {
-		pr_err("unable to remap dp MMSS_CC resources\n");
-		goto err;
-	}
-
-	if (msm_dss_ioremap_byname(pdev, &io->qfprom_io, "qfprom_physical"))
-		pr_warn("unable to remap dp qfprom resources\n");
-
-	if (msm_dss_ioremap_byname(pdev, &io->hdcp_io, "hdcp_physical"))
-		pr_warn("unable to remap dp hdcp resources\n");
 
 	return 0;
 err:
@@ -618,7 +562,7 @@ static int dp_parser_parse(struct dp_parser *parser)
 		goto err;
 	}
 
-	rc = dp_parser_ctrl_res(parser);
+	rc = dp_parser_reg(parser);
 	if (rc)
 		goto err;
 
@@ -647,6 +591,74 @@ err:
 	return rc;
 }
 
+static struct dp_io_data *dp_parser_get_io(struct dp_parser *dp_parser,
+				char *name)
+{
+	int i = 0;
+	struct dp_io *io;
+
+	if (!dp_parser) {
+		pr_err("invalid input\n");
+		goto err;
+	}
+
+	io = &dp_parser->io;
+
+	for (i = 0; i < io->len; i++) {
+		struct dp_io_data *data = &io->data[i];
+
+		if (!strcmp(data->name, name))
+			return data;
+	}
+err:
+	return NULL;
+}
+
+static void dp_parser_get_io_buf(struct dp_parser *dp_parser, char *name)
+{
+	int i = 0;
+	struct dp_io *io;
+
+	if (!dp_parser) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	io = &dp_parser->io;
+
+	for (i = 0; i < io->len; i++) {
+		struct dp_io_data *data = &io->data[i];
+
+		if (!strcmp(data->name, name)) {
+			if (!data->buf)
+				data->buf = devm_kzalloc(&dp_parser->pdev->dev,
+					data->io.len, GFP_KERNEL);
+		}
+	}
+}
+
+static void dp_parser_clear_io_buf(struct dp_parser *dp_parser)
+{
+	int i = 0;
+	struct dp_io *io;
+
+	if (!dp_parser) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	io = &dp_parser->io;
+
+	for (i = 0; i < io->len; i++) {
+		struct dp_io_data *data = &io->data[i];
+
+		if (data->buf)
+			devm_kfree(&dp_parser->pdev->dev, data->buf);
+
+		data->buf = NULL;
+	}
+}
+
 struct dp_parser *dp_parser_get(struct platform_device *pdev)
 {
 	struct dp_parser *parser;
@@ -656,6 +668,9 @@ struct dp_parser *dp_parser_get(struct platform_device *pdev)
 		return ERR_PTR(-ENOMEM);
 
 	parser->parse = dp_parser_parse;
+	parser->get_io = dp_parser_get_io;
+	parser->get_io_buf = dp_parser_get_io_buf;
+	parser->clear_io_buf = dp_parser_clear_io_buf;
 	parser->pdev = pdev;
 
 	return parser;
@@ -679,5 +694,7 @@ void dp_parser_put(struct dp_parser *parser)
 		dp_parser_put_gpio_data(&parser->pdev->dev, &power[i]);
 	}
 
+	dp_parser_clear_io_buf(parser);
+	devm_kfree(&parser->pdev->dev, parser->io.data);
 	devm_kfree(&parser->pdev->dev, parser);
 }
