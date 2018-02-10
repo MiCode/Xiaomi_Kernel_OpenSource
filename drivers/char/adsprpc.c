@@ -26,6 +26,7 @@
 #include <linux/msm_ion.h>
 #include <soc/qcom/secure_buffer.h>
 #include <soc/qcom/glink.h>
+#include <soc/qcom/smd.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/service-notifier.h>
@@ -198,7 +199,6 @@ struct smq_invoke_ctx {
 	remote_arg_t *lpra;
 	remote_arg64_t *rpra;
 	int *fds;
-	unsigned int *attrs;
 	struct fastrpc_mmap **maps;
 	struct fastrpc_buf *buf;
 	size_t used;
@@ -207,8 +207,9 @@ struct smq_invoke_ctx {
 	struct overlap *overs;
 	struct overlap **overps;
 	struct smq_msg msg;
-	uint32_t *crc;
 	unsigned int magic;
+	unsigned int *attrs;
+	uint32_t *crc;
 };
 
 struct fastrpc_ctx_lst {
@@ -261,6 +262,7 @@ struct fastrpc_channel_ctx {
 	struct completion workport;
 	struct notifier_block nb;
 	struct kref kref;
+	int channel;
 	int sesscount;
 	int ssrcount;
 	void *handle;
@@ -288,6 +290,8 @@ struct fastrpc_apps {
 	struct ion_client *client;
 	struct device *dev;
 	unsigned int latency;
+	bool glink;
+	bool legacy;
 };
 
 struct fastrpc_mmap {
@@ -371,6 +375,7 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 	{
 		.name = "adsprpc-smd",
 		.subsys = "adsp",
+		.channel = SMD_APPS_QDSP,
 		.link.link_info.edge = "lpass",
 		.link.link_info.transport = "smem",
 		.spd = {
@@ -385,12 +390,14 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 	{
 		.name = "mdsprpc-smd",
 		.subsys = "modem",
+		.channel = SMD_APPS_MODEM,
 		.link.link_info.edge = "mpss",
 		.link.link_info.transport = "smem",
 	},
 	{
 		.name = "sdsprpc-smd",
 		.subsys = "slpi",
+		.channel = SMD_APPS_DSPS,
 		.link.link_info.edge = "dsps",
 		.link.link_info.transport = "smem",
 	},
@@ -1029,6 +1036,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 			 struct fastrpc_ioctl_invoke_crc *invokefd,
 			 struct smq_invoke_ctx **po)
 {
+	struct fastrpc_apps *me = &gfa;
 	int err = 0, bufs, size = 0;
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ctx_lst *clst = &fl->clst;
@@ -1051,9 +1059,14 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	ctx->maps = (struct fastrpc_mmap **)(&ctx[1]);
 	ctx->lpra = (remote_arg_t *)(&ctx->maps[bufs]);
 	ctx->fds = (int *)(&ctx->lpra[bufs]);
-	ctx->attrs = (unsigned int *)(&ctx->fds[bufs]);
-	ctx->overs = (struct overlap *)(&ctx->attrs[bufs]);
-	ctx->overps = (struct overlap **)(&ctx->overs[bufs]);
+	if (me->legacy) {
+		ctx->overs = (struct overlap *)(&ctx->fds[bufs]);
+		ctx->overps = (struct overlap **)(&ctx->overs[bufs]);
+	} else {
+		ctx->attrs = (unsigned int *)(&ctx->fds[bufs]);
+		ctx->overs = (struct overlap *)(&ctx->attrs[bufs]);
+		ctx->overps = (struct overlap **)(&ctx->overs[bufs]);
+	}
 
 	K_COPY_FROM_USER(err, kernel, (void *)ctx->lpra, invoke->pra,
 					bufs * sizeof(*ctx->lpra));
@@ -1237,6 +1250,7 @@ static void fastrpc_file_list_dtor(struct fastrpc_apps *me)
 
 static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 {
+	struct fastrpc_apps *me = &gfa;
 	remote_arg64_t *rpra;
 	remote_arg_t *lpra = ctx->lpra;
 	struct smq_invoke_buf *list;
@@ -1266,10 +1280,16 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		size_t len = lpra[i].buf.len;
 
 		mutex_lock(&ctx->fl->fl_map_mutex);
-		if (ctx->fds[i] && (ctx->fds[i] != -1))
+		if (ctx->fds[i] && (ctx->fds[i] != -1)) {
+			unsigned int attrs = 0;
+
+			if (ctx->attrs)
+				attrs = ctx->attrs[i];
+
 			fastrpc_mmap_create(ctx->fl, ctx->fds[i],
-					ctx->attrs[i], buf, len,
+					attrs, buf, len,
 					mflags, &ctx->maps[i]);
+		}
 		mutex_unlock(&ctx->fl->fl_map_mutex);
 		ipage += 1;
 	}
@@ -1286,8 +1306,13 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		ipage += 1;
 	}
 	mutex_unlock(&ctx->fl->fl_map_mutex);
-	metalen = copylen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
-				 (sizeof(uint32_t) * M_CRCLIST);
+	if (!me->legacy) {
+		metalen = copylen = (size_t)&ipage[0] +
+				(sizeof(uint64_t) * M_FDLIST) +
+				(sizeof(uint32_t) * M_CRCLIST);
+	} else {
+		metalen = copylen = (size_t)&ipage[0];
+	}
 
 	/* calculate len requreed for copying */
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
@@ -1383,11 +1408,13 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		pages[i].addr = map->phys;
 		pages[i].size = map->size;
 	}
-	fdlist = (uint64_t *)&pages[bufs + handles];
-	for (i = 0; i < M_FDLIST; i++)
-		fdlist[i] = 0;
-	crclist = (uint32_t *)&fdlist[M_FDLIST];
-	memset(crclist, 0, sizeof(uint32_t)*M_CRCLIST);
+	if (!me->legacy) {
+		fdlist = (uint64_t *)&pages[bufs + handles];
+		for (i = 0; i < M_FDLIST; i++)
+			fdlist[i] = 0;
+		crclist = (uint32_t *)&fdlist[M_FDLIST];
+		memset(crclist, 0, sizeof(uint32_t)*M_CRCLIST);
+	}
 
 	/* copy non ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_COPY),
@@ -1466,11 +1493,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		    remote_arg_t *upra)
 {
+	struct fastrpc_apps *me = &gfa;
 	uint32_t sc = ctx->sc;
 	struct smq_invoke_buf *list;
 	struct smq_phy_page *pages;
 	struct fastrpc_mmap *mmap;
-	uint64_t *fdlist;
+	uint64_t *fdlist = NULL;
 	uint32_t *crclist = NULL;
 
 	remote_arg64_t *rpra = ctx->rpra;
@@ -1482,8 +1510,10 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	handles = REMOTE_SCALARS_INHANDLES(sc) + REMOTE_SCALARS_OUTHANDLES(sc);
 	list = smq_invoke_buf_start(ctx->rpra, sc);
 	pages = smq_phy_page_start(sc, list);
-	fdlist = (uint64_t *)(pages + inbufs + outbufs + handles);
-	crclist = (uint32_t *)(fdlist + M_FDLIST);
+	if (!me->legacy) {
+		fdlist = (uint64_t *)(pages + inbufs + outbufs + handles);
+		crclist = (uint32_t *)(fdlist + M_FDLIST);
+	}
 
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		if (!ctx->maps[i]) {
@@ -1501,7 +1531,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		}
 	}
 	mutex_lock(&ctx->fl->fl_map_mutex);
-	if (inbufs + outbufs + handles) {
+	if (fdlist && (inbufs + outbufs + handles)) {
 		for (i = 0; i < M_FDLIST; i++) {
 			if (!fdlist[i])
 				break;
@@ -1601,7 +1631,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	struct smq_msg *msg = &ctx->msg;
 	struct fastrpc_file *fl = ctx->fl;
 	struct fastrpc_channel_ctx *channel_ctx = &fl->apps->channel[fl->cid];
-	int err = 0;
+	int err = 0, len;
 
 	VERIFY(err, NULL != channel_ctx->chan);
 	if (err)
@@ -1617,21 +1647,72 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	msg->invoke.header.sc = ctx->sc;
 	msg->invoke.page.addr = ctx->buf ? ctx->buf->phys : 0;
 	msg->invoke.page.size = buf_page_size(ctx->used);
-
-	if (fl->ssrcount != channel_ctx->ssrcount) {
-		err = -ECONNRESET;
-		goto bail;
-	}
-	VERIFY(err, channel_ctx->link.port_state ==
+	if (fl->apps->glink) {
+		if (fl->ssrcount != channel_ctx->ssrcount) {
+			err = -ECONNRESET;
+			goto bail;
+		}
+		VERIFY(err, channel_ctx->link.port_state ==
 			FASTRPC_LINK_CONNECTED);
-	if (err)
-		goto bail;
-	err = glink_tx(channel_ctx->chan,
-		(void *)&fl->apps->channel[fl->cid], msg, sizeof(*msg),
-		GLINK_TX_REQ_INTENT);
+		if (err)
+			goto bail;
+		err = glink_tx(channel_ctx->chan,
+			(void *)&fl->apps->channel[fl->cid], msg, sizeof(*msg),
+			GLINK_TX_REQ_INTENT);
+	} else {
+		spin_lock(&fl->apps->hlock);
+		len = smd_write((smd_channel_t *)
+				channel_ctx->chan,
+				msg, sizeof(*msg));
+		spin_unlock(&fl->apps->hlock);
+		VERIFY(err, len == sizeof(*msg));
+	}
  bail:
 	return err;
 }
+
+static void fastrpc_smd_read_handler(int cid)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct smq_invoke_rsp rsp = {0};
+	struct smq_invoke_ctx *ctx;
+	int ret = 0, err = 0;
+
+	do {
+		ret = smd_read_from_cb(me->channel[cid].chan, &rsp,
+					sizeof(rsp));
+		if (ret != sizeof(rsp))
+			break;
+		ctx = (struct smq_invoke_ctx *)(uint64_to_ptr(rsp.ctx & ~1));
+		VERIFY(err, (ctx && ctx->magic == FASTRPC_CTX_MAGIC));
+		if (err)
+			goto bail;
+		context_notify_user(uint64_to_ptr(rsp.ctx & ~1), rsp.retval);
+	} while (ret == sizeof(rsp));
+bail:
+	if (err)
+		pr_err("adsprpc: invalid response or context\n");
+
+}
+
+static void smd_event_handler(void *priv, unsigned int event)
+{
+	struct fastrpc_apps *me = &gfa;
+	int cid = (int)(uintptr_t)priv;
+
+	switch (event) {
+	case SMD_EVENT_OPEN:
+		complete(&me->channel[cid].workport);
+		break;
+	case SMD_EVENT_CLOSE:
+		fastrpc_notify_drivers(me, cid);
+		break;
+	case SMD_EVENT_DATA:
+		fastrpc_smd_read_handler(cid);
+		break;
+	}
+}
+
 
 static void fastrpc_init(struct fastrpc_apps *me)
 {
@@ -2366,10 +2447,11 @@ static void fastrpc_channel_close(struct kref *kref)
 
 	ctx = container_of(kref, struct fastrpc_channel_ctx, kref);
 	cid = ctx - &gcinfo[0];
-	fastrpc_glink_close(ctx->chan, cid);
+	if (!me->glink)
+		smd_close(ctx->chan);
+	else
+		fastrpc_glink_close(ctx->chan, cid);
 	ctx->chan = NULL;
-	glink_unregister_link_state_cb(ctx->link.link_notify_handle);
-	ctx->link.link_notify_handle = NULL;
 	mutex_unlock(&me->smd_mutex);
 	pr_info("'closed /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
@@ -2818,13 +2900,18 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	fl->ssrcount = me->channel[cid].ssrcount;
 	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
 	    (me->channel[cid].chan == NULL)) {
-		VERIFY(err, 0 == fastrpc_glink_register(cid, me));
-		if (err)
-			goto bail;
-		VERIFY(err, 0 == fastrpc_glink_open(cid));
-		if (err)
-			goto bail;
-
+		if (me->glink) {
+			VERIFY(err, 0 == fastrpc_glink_register(cid, me));
+			if (err)
+				goto bail;
+			VERIFY(err, 0 == fastrpc_glink_open(cid));
+		} else {
+		VERIFY(err, !smd_named_open_on_edge(FASTRPC_SMD_GUID,
+				gcinfo[cid].channel,
+				(smd_channel_t **)&me->channel[cid].chan,
+				(void *)(uintptr_t)cid,
+				smd_event_handler));
+		}
 		VERIFY(err,
 			 wait_for_completion_timeout(&me->channel[cid].workport,
 						RPC_TIMEOUT));
@@ -2835,13 +2922,15 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		kref_init(&me->channel[cid].kref);
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
-		err = glink_queue_rx_intent(me->channel[cid].chan, NULL,
-			FASTRPC_GLINK_INTENT_LEN);
-		err |= glink_queue_rx_intent(me->channel[cid].chan, NULL,
-			FASTRPC_GLINK_INTENT_LEN);
-		if (err)
-			pr_warn("adsprpc: initial intent fail for %d err %d\n",
-					 cid, err);
+		if (me->glink) {
+			err = glink_queue_rx_intent(me->channel[cid].chan, NULL,
+				FASTRPC_GLINK_INTENT_LEN);
+			err |= glink_queue_rx_intent(me->channel[cid].chan,
+				NULL, FASTRPC_GLINK_INTENT_LEN);
+			if (err)
+				pr_warn("adsprpc: initial intent fail for %d err %d\n",
+					cid, err);
+		}
 		if (cid == 0 && me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			if (fastrpc_mmap_remove_ssr(fl))
@@ -2881,7 +2970,6 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->cid = -1;
 	if (debugfs_file != NULL)
 		fl->debugfs_file = debugfs_file;
-	memset(&fl->perf, 0, sizeof(fl->perf));
 	fl->qos_request = 0;
 	filp->private_data = fl;
 	mutex_init(&fl->map_mutex);
@@ -3164,7 +3252,10 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		ctx->ssrcount++;
 		ctx->issubsystemup = 0;
 		if (ctx->chan) {
-			fastrpc_glink_close(ctx->chan, cid);
+			if (me->glink)
+				fastrpc_glink_close(ctx->chan, cid);
+			else
+				smd_close(ctx->chan);
 			ctx->chan = NULL;
 			pr_info("'restart notifier: closed /dev/%s c %d %d'\n",
 				 gcinfo[cid].name, MAJOR(me->dev_no), cid);
@@ -3254,6 +3345,8 @@ static const struct of_device_id fastrpc_match_table[] = {
 	{ .compatible = "qcom,msm-fastrpc-adsp", },
 	{ .compatible = "qcom,msm-fastrpc-compute", },
 	{ .compatible = "qcom,msm-fastrpc-compute-cb", },
+	{ .compatible = "qcom,msm-fastrpc-legacy-compute", },
+	{ .compatible = "qcom,msm-fastrpc-legacy-compute-cb", },
 	{ .compatible = "qcom,msm-adsprpc-mem-region", },
 	{}
 };
@@ -3322,6 +3415,85 @@ bail:
 	return err;
 }
 
+static int fastrpc_cb_legacy_probe(struct device *dev)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_channel_ctx *chan;
+	struct fastrpc_session_ctx *first_sess = NULL, *sess = NULL;
+	const char *name;
+	unsigned int *sids = NULL, sids_size = 0;
+	int err = 0, ret = 0, i;
+
+	unsigned int start = 0x80000000;
+
+	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
+					 "label", NULL)));
+	if (err)
+		goto bail;
+
+	for (i = 0; i < NUM_CHANNELS; i++) {
+		if (!gcinfo[i].name)
+			continue;
+		if (!strcmp(name, gcinfo[i].name))
+			break;
+	}
+	VERIFY(err, i < NUM_CHANNELS);
+	if (err)
+		goto bail;
+
+	chan = &gcinfo[i];
+	VERIFY(err, chan->sesscount < NUM_SESSIONS);
+	if (err)
+		goto bail;
+
+	first_sess  = &chan->session[chan->sesscount];
+
+	VERIFY(err, NULL != of_get_property(dev->of_node,
+				"sids", &sids_size));
+	if (err)
+		goto bail;
+
+	VERIFY(err, NULL != (sids = kzalloc(sids_size, GFP_KERNEL)));
+	if (err)
+		goto bail;
+	ret = of_property_read_u32_array(dev->of_node, "sids", sids,
+					sids_size/sizeof(unsigned int));
+	if (ret)
+		goto bail;
+
+	VERIFY(err, !IS_ERR_OR_NULL(first_sess->smmu.mapping =
+				arm_iommu_create_mapping(&platform_bus_type,
+						start, 0x78000000)));
+	if (err)
+		goto bail;
+
+	VERIFY(err, !arm_iommu_attach_device(dev, first_sess->smmu.mapping));
+	if (err)
+		goto bail;
+
+
+	for (i = 0; i < sids_size/sizeof(unsigned int); i++) {
+		VERIFY(err, chan->sesscount < NUM_SESSIONS);
+		if (err)
+			goto bail;
+		sess = &chan->session[chan->sesscount];
+		sess->smmu.cb = sids[i];
+		sess->smmu.dev = dev;
+		sess->smmu.mapping = first_sess->smmu.mapping;
+		sess->smmu.enabled = 1;
+		sess->used = 0;
+		sess->smmu.coherent = false;
+		sess->smmu.secure = false;
+		chan->sesscount++;
+	}
+	me->legacy = 1;
+bail:
+	kfree(sids);
+	return err;
+}
+
+
+
 static void init_secure_vmid_list(struct device *dev, char *prop_name,
 						struct secure_vm *destvm)
 {
@@ -3387,6 +3559,16 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute-cb"))
 		return fastrpc_cb_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-fastrpc-legacy-compute")) {
+		me->glink = false;
+	}
+
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-fastrpc-legacy-compute-cb")){
+		return fastrpc_cb_legacy_probe(dev);
+	}
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-adsprpc-mem-region")) {
@@ -3506,6 +3688,7 @@ static int __init fastrpc_device_init(void)
 
 	fastrpc_init(me);
 	me->dev = NULL;
+	me->glink = true;
 	VERIFY(err, 0 == platform_driver_register(&fastrpc_driver));
 	if (err)
 		goto register_bail;
