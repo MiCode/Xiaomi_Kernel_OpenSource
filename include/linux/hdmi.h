@@ -179,6 +179,7 @@ enum hdmi_spd_sdi {
 	HDMI_SPD_SDI_SACD,
 	HDMI_SPD_SDI_HDDVD,
 	HDMI_SPD_SDI_PMP,
+	HDMI_SPD_SDI_MAX = 0xff,
 };
 
 struct hdmi_spd_infoframe {
@@ -252,6 +253,9 @@ enum hdmi_audio_coding_type_ext {
 	HDMI_AUDIO_CODING_TYPE_EXT_DRA,
 	HDMI_AUDIO_CODING_TYPE_EXT_MPEG4_HE_AAC_SURROUND,
 	HDMI_AUDIO_CODING_TYPE_EXT_MPEG4_AAC_LC_SURROUND = 10,
+
+	/* Maximum reserved value */
+	HDMI_AUDIO_CODING_TYPE_EXT_MAX = 0x1f,
 };
 
 struct hdmi_audio_infoframe {
