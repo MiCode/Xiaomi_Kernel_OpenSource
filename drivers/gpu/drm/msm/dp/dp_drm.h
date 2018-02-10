@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,15 +32,13 @@ struct dp_bridge {
 };
 
 /**
- * dp_connector_pre_kickoff - callback to perform pre kickoff initialization
- * @connector: Pointer to drm connector structure
+ * dp_connector_config_hdr - callback to configure HDR
  * @display: Pointer to private display handle
- * @params: Pointer to kickoff parameters
+ * @c_state: connect state data
  * Returns: Zero on success
  */
-int dp_connector_pre_kickoff(struct drm_connector *connector,
-		void *display,
-		struct msm_display_kickoff_params *params);
+int dp_connector_config_hdr(void *display,
+		struct sde_connector_state *c_state);
 
 /**
  * dp_connector_post_init - callback to perform additional initialization steps
