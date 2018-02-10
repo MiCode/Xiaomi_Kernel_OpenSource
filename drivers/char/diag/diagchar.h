@@ -22,6 +22,7 @@
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <linux/device.h>
+#include <soc/qcom/smd.h>
 #include <linux/atomic.h>
 #include "diagfwd_bridge.h"
 

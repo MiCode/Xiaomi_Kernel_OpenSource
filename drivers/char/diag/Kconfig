@@ -34,4 +34,11 @@ config DIAGFWD_BRIDGE_CODE
 	  become available, this bridge driver enables DIAG traffic over MHI
 	  and SMUX.
 
+config DIAG_USES_SMD
+	bool "Enable diag internal interface over SMD"
+	depends on DIAG_CHAR && MSM_SMD
+	help
+	  Diag over SMD enables exchanging diagnostic information between
+	  application processor and peripherals over SDM.
+
 endmenu
