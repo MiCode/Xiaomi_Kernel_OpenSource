@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -927,7 +927,7 @@ static int fast_smmu_errata_init(struct dma_iommu_mapping *mapping)
 int fast_smmu_init_mapping(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
-	int err;
+	int err = 0;
 	struct iommu_domain *domain = mapping->domain;
 	struct iommu_pgtbl_info info;
 	u64 size = (u64)mapping->bits << PAGE_SHIFT;
