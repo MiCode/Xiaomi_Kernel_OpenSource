@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016,2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,7 @@ struct msm_thermal_data {
 	uint32_t freq_limit;
 	int32_t vdd_rstr_temp_degC;
 	int32_t vdd_rstr_temp_hyst_degC;
+	int32_t vdd_rstr_sensor_id;
 	int32_t vdd_mx_min;
 	int32_t vdd_cx_min;
 	int32_t psm_temp_degC;

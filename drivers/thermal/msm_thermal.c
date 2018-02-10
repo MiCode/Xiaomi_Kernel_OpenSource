@@ -6102,6 +6102,13 @@ static int probe_vdd_rstr(struct device_node *node,
 	if (ret)
 		goto read_node_fail;
 
+	/*
+	 * Monitor only this sensor if defined, otherwise monitor all tsens
+	 */
+	key = "qcom,vdd-restriction-sensor-id";
+	if (of_property_read_u32(node, key, &data->vdd_rstr_sensor_id))
+		data->vdd_rstr_sensor_id = MONITOR_ALL_TSENS;
+
 	for_each_child_of_node(node, child_node) {
 		rails_cnt++;
 	}
@@ -6174,7 +6181,7 @@ static int probe_vdd_rstr(struct device_node *node,
 			goto read_node_fail;
 		}
 		ret = sensor_mgr_init_threshold(&thresh[MSM_VDD_RESTRICTION],
-			MONITOR_ALL_TSENS,
+			data->vdd_rstr_sensor_id,
 			data->vdd_rstr_temp_hyst_degC, data->vdd_rstr_temp_degC,
 			vdd_restriction_notify);
 		if (ret) {
@@ -7110,6 +7117,10 @@ static void thermal_vdd_config_read(struct seq_file *m, void *data)
 				msm_thermal_info.vdd_rstr_temp_degC);
 		seq_printf(m, "threshold clear:%d degC\n",
 				msm_thermal_info.vdd_rstr_temp_hyst_degC);
+		if (msm_thermal_info.vdd_rstr_sensor_id != MONITOR_ALL_TSENS)
+			seq_printf(m, "tsens sensor:tsens_tz_sensor%d\n",
+				msm_thermal_info.vdd_rstr_sensor_id);
+
 		for (i = 0; i < rails_cnt; i++) {
 			if (!strcmp(rails[i].name, "vdd-dig")
 				&& rails[i].num_levels)
