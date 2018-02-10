@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,7 @@ struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	void __iomem		*vls_clamp_reg;
+	void __iomem		*pcs_clamp_enable_reg;
 	void __iomem		*tcsr_usb3_dp_phymode;
 
 	struct regulator	*vdd;
@@ -187,6 +188,8 @@ static void msm_ssusb_qmp_clamp_enable(struct msm_ssphy_qmp *phy, bool val)
 	case USB_PHY_TYPE_USB3_OR_DP:
 	case USB_PHY_TYPE_USB3:
 		writel_relaxed(!!val, phy->vls_clamp_reg);
+		if (phy->pcs_clamp_enable_reg)
+			writel_relaxed(!val, phy->pcs_clamp_enable_reg);
 		break;
 	default:
 		break;
@@ -888,6 +891,16 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		if (IS_ERR(phy->vls_clamp_reg)) {
 			dev_err(dev, "couldn't find vls_clamp_reg address.\n");
 			return PTR_ERR(phy->vls_clamp_reg);
+		}
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"pcs_clamp_enable_reg");
+	if (res) {
+		phy->pcs_clamp_enable_reg = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->pcs_clamp_enable_reg)) {
+			dev_err(dev, "err getting pcs_clamp_enable_reg address.\n");
+			return PTR_ERR(phy->pcs_clamp_enable_reg);
 		}
 	}
 
