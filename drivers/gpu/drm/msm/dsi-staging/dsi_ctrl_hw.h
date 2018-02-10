@@ -296,6 +296,7 @@ enum dsi_error_int_type {
  * struct dsi_ctrl_cmd_dma_info - command buffer information
  * @offset:        IOMMU VA for command buffer address.
  * @length:        Length of the command buffer.
+ * @datatype:      Datatype of cmd.
  * @en_broadcast:  Enable broadcast mode if set to true.
  * @is_master:     Is master in broadcast mode.
  * @use_lpm:       Use low power mode for command transmission.
@@ -303,6 +304,7 @@ enum dsi_error_int_type {
 struct dsi_ctrl_cmd_dma_info {
 	u32 offset;
 	u32 length;
+	u8  datatype;
 	bool en_broadcast;
 	bool is_master;
 	bool use_lpm;
@@ -493,6 +495,25 @@ struct dsi_ctrl_hw_ops {
 	 * transmit the command.
 	 */
 	void (*kickoff_command)(struct dsi_ctrl_hw *ctrl,
+				struct dsi_ctrl_cmd_dma_info *cmd,
+				u32 flags);
+
+	/**
+	 * kickoff_command_non_embedded_mode() - cmd in non embedded mode
+	 * @ctrl:          Pointer to the controller host hardware.
+	 * @cmd:           Command information.
+	 * @flags:         Modifiers for command transmission.
+	 *
+	 * If command length is greater than DMA FIFO size of 256 bytes we use
+	 * this non- embedded mode.
+	 * The controller hardware is programmed with address and size of the
+	 * command buffer. The transmission is kicked off if
+	 * DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER flag is not set. If this flag is
+	 * set, caller should make a separate call to trigger_command_dma() to
+	 * transmit the command.
+	 */
+
+	void (*kickoff_command_non_embedded_mode)(struct dsi_ctrl_hw *ctrl,
 				struct dsi_ctrl_cmd_dma_info *cmd,
 				u32 flags);
 

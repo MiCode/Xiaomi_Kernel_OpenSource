@@ -71,7 +71,8 @@
 
 #define DBG_CTRL_STOP_FTRACE	BIT(0)
 #define DBG_CTRL_PANIC_UNDERRUN	BIT(1)
-#define DBG_CTRL_MAX			BIT(2)
+#define DBG_CTRL_RESET_HW_PANIC	BIT(2)
+#define DBG_CTRL_MAX			BIT(3)
 
 /**
  * struct sde_dbg_reg_offset - tracking for start and end of region
@@ -2709,7 +2710,6 @@ void sde_dbg_ctrl(const char *name, ...)
 	va_list args;
 	char *blk_name = NULL;
 
-
 	/* no debugfs controlled events are enabled, just return */
 	if (!sde_dbg_base.debugfs_ctrl)
 		return;
@@ -2738,8 +2738,16 @@ void sde_dbg_ctrl(const char *name, ...)
 			pr_debug("panic underrun\n");
 			panic("underrun");
 		}
+
+		if (!strcmp(blk_name, "reset_hw_panic") &&
+				sde_dbg_base.debugfs_ctrl &
+				DBG_CTRL_RESET_HW_PANIC) {
+			pr_debug("reset hw panic\n");
+			panic("reset_hw");
+		}
 	}
 
+	va_end(args);
 }
 
 

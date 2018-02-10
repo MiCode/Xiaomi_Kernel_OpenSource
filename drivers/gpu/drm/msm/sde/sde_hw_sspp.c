@@ -260,13 +260,13 @@ static void _sspp_setup_csc10_opmode(struct sde_hw_pipe *ctx,
  */
 static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		const struct sde_format *fmt,
-		bool blend_enabled, u32 flags,
+		bool const_alpha_en, u32 flags,
 		enum sde_sspp_multirect_index rect_mode)
 {
 	struct sde_hw_blk_reg_map *c;
 	u32 chroma_samp, unpack, src_format;
 	u32 opmode = 0;
-	u32 fast_clear = 0;
+	u32 alpha_en_mask = 0;
 	u32 op_mode_off, unpack_pat_off, format_off;
 	u32 idx;
 
@@ -329,11 +329,10 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 			SDE_FETCH_CONFIG_RESET_VALUE |
 			ctx->mdp->highest_bank_bit << 18);
 		if (IS_UBWC_20_SUPPORTED(ctx->catalog->ubwc_version)) {
-			fast_clear = (fmt->alpha_enable && blend_enabled) ?
-				BIT(31) : 0;
+			alpha_en_mask = const_alpha_en ? BIT(31) : 0;
 			SDE_REG_WRITE(c, SSPP_UBWC_STATIC_CTRL,
-					fast_clear | (ctx->mdp->ubwc_swizzle) |
-					(ctx->mdp->highest_bank_bit << 4));
+				alpha_en_mask | (ctx->mdp->ubwc_swizzle) |
+				(ctx->mdp->highest_bank_bit << 4));
 		}
 	}
 

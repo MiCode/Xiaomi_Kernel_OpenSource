@@ -93,21 +93,24 @@ TRACE_EVENT(sde_perf_set_ot,
 )
 
 TRACE_EVENT(sde_perf_update_bus,
-	TP_PROTO(int client, unsigned long long ab_quota,
+	TP_PROTO(int client, u32 bus_id, unsigned long long ab_quota,
 	unsigned long long ib_quota),
-	TP_ARGS(client, ab_quota, ib_quota),
+	TP_ARGS(client, bus_id, ab_quota, ib_quota),
 	TP_STRUCT__entry(
 			__field(int, client)
+			__field(u32, bus_id);
 			__field(u64, ab_quota)
 			__field(u64, ib_quota)
 	),
 	TP_fast_assign(
 			__entry->client = client;
+			__entry->bus_id = bus_id;
 			__entry->ab_quota = ab_quota;
 			__entry->ib_quota = ib_quota;
 	),
-	TP_printk("Request client:%d ab=%llu ib=%llu",
+	TP_printk("Request client:%d bus_id:%d ab=%llu ib=%llu",
 			__entry->client,
+			__entry->bus_id,
 			__entry->ab_quota,
 			__entry->ib_quota)
 )
@@ -209,41 +212,111 @@ TRACE_EVENT(sde_evtlog,
 )
 
 TRACE_EVENT(sde_perf_crtc_update,
-	TP_PROTO(u32 crtc, u64 bw_ctl_mnoc, u64 bw_ctl_llcc,
-			u64 bw_ctl_ebi, u32 core_clk_rate,
-			bool stop_req, u32 update_bus, u32 update_clk),
-	TP_ARGS(crtc, bw_ctl_mnoc, bw_ctl_llcc, bw_ctl_ebi, core_clk_rate,
-		stop_req, update_bus, update_clk),
+	TP_PROTO(u32 crtc,
+			u64 bw_ctl_mnoc, u64 per_pipe_ib_mnoc,
+			u64 bw_ctl_llcc, u64 per_pipe_ib_llcc,
+			u64 bw_ctl_ebi, u64 per_pipe_ib_ebi,
+			u32 core_clk_rate, bool stop_req,
+			u32 update_bus, u32 update_clk, int params),
+	TP_ARGS(crtc,
+		bw_ctl_mnoc, per_pipe_ib_mnoc,
+		bw_ctl_llcc, per_pipe_ib_llcc,
+		bw_ctl_ebi, per_pipe_ib_ebi,
+		core_clk_rate, stop_req,
+		update_bus, update_clk, params),
+	TP_STRUCT__entry(
+			__field(u32, crtc)
+			__field(u64, bw_ctl_mnoc)
+			__field(u64, per_pipe_ib_mnoc)
+			__field(u64, bw_ctl_llcc)
+			__field(u64, per_pipe_ib_llcc)
+			__field(u64, bw_ctl_ebi)
+			__field(u64, per_pipe_ib_ebi)
+			__field(u32, core_clk_rate)
+			__field(bool, stop_req)
+			__field(u32, update_bus)
+			__field(u32, update_clk)
+			__field(int, params)
+	),
+	TP_fast_assign(
+			__entry->crtc = crtc;
+			__entry->bw_ctl_mnoc = bw_ctl_mnoc;
+			__entry->per_pipe_ib_mnoc = per_pipe_ib_mnoc;
+			__entry->bw_ctl_llcc = bw_ctl_llcc;
+			__entry->per_pipe_ib_llcc = per_pipe_ib_llcc;
+			__entry->bw_ctl_ebi = bw_ctl_ebi;
+			__entry->per_pipe_ib_ebi = per_pipe_ib_ebi;
+			__entry->core_clk_rate = core_clk_rate;
+			__entry->stop_req = stop_req;
+			__entry->update_bus = update_bus;
+			__entry->update_clk = update_clk;
+			__entry->params = params;
+	),
+	 TP_printk(
+		"crtc=%d mnoc=[%llu %llu] llcc=[%llu %llu] ebi=[%llu %llu] clk=%u stop=%d ubus=%d uclk=%d %d",
+			__entry->crtc,
+			__entry->bw_ctl_mnoc,
+			__entry->per_pipe_ib_mnoc,
+			__entry->bw_ctl_llcc,
+			__entry->per_pipe_ib_llcc,
+			__entry->bw_ctl_ebi,
+			__entry->per_pipe_ib_ebi,
+			__entry->core_clk_rate,
+			__entry->stop_req,
+			__entry->update_bus,
+			__entry->update_clk,
+			__entry->params)
+);
+
+TRACE_EVENT(sde_perf_calc_crtc,
+	TP_PROTO(u32 crtc,
+			u64 bw_ctl_mnoc,
+			u64 bw_ctl_llcc,
+			u64 bw_ctl_ebi,
+			u64 ib_mnoc,
+			u64 ib_llcc,
+			u64 ib_ebi,
+			u32 core_clk_rate
+			),
+	TP_ARGS(crtc,
+			bw_ctl_mnoc,
+			bw_ctl_llcc,
+			bw_ctl_ebi,
+			ib_mnoc,
+			ib_llcc,
+			ib_ebi,
+			core_clk_rate),
 	TP_STRUCT__entry(
 			__field(u32, crtc)
 			__field(u64, bw_ctl_mnoc)
 			__field(u64, bw_ctl_llcc)
 			__field(u64, bw_ctl_ebi)
+			__field(u64, ib_mnoc)
+			__field(u64, ib_llcc)
+			__field(u64, ib_ebi)
 			__field(u32, core_clk_rate)
-			__field(bool, stop_req)
-			__field(u32, update_bus)
-			__field(u32, update_clk)
+
 	),
 	TP_fast_assign(
 			__entry->crtc = crtc;
 			__entry->bw_ctl_mnoc = bw_ctl_mnoc;
 			__entry->bw_ctl_llcc = bw_ctl_llcc;
 			__entry->bw_ctl_ebi = bw_ctl_ebi;
+			__entry->ib_mnoc = ib_mnoc;
+			__entry->ib_llcc = ib_llcc;
+			__entry->ib_ebi = ib_ebi;
 			__entry->core_clk_rate = core_clk_rate;
-			__entry->stop_req = stop_req;
-			__entry->update_bus = update_bus;
-			__entry->update_clk = update_clk;
 	),
 	 TP_printk(
-		"crtc=%d bw_mnoc=%llu bw_llcc=%llu bw_ebi=%llu clk_rate=%u stop_req=%d u_bus=%d u_clk=%d",
+		"crtc=%d mnoc=[%llu, %llu] llcc=[%llu %llu] ebi=[%llu, %llu] clk_rate=%u",
 			__entry->crtc,
 			__entry->bw_ctl_mnoc,
+			__entry->ib_mnoc,
 			__entry->bw_ctl_llcc,
+			__entry->ib_llcc,
 			__entry->bw_ctl_ebi,
-			__entry->core_clk_rate,
-			__entry->stop_req,
-			__entry->update_bus,
-			__entry->update_clk)
+			__entry->ib_ebi,
+			__entry->core_clk_rate)
 );
 
 #define SDE_ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
