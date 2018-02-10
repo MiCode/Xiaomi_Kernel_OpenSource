@@ -17,7 +17,6 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/file.h>
-#include <linux/sync.h>
 #include <linux/uaccess.h>
 #include <linux/of.h>
 #include <linux/clk.h>
@@ -28,6 +27,7 @@
 #include "mdss_rotator_internal.h"
 #include "mdss_mdp.h"
 #include "mdss_debug.h"
+#include "mdss_sync.h"
 
 /* waiting for hw time out, 3 vsync for 30fps*/
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
@@ -374,21 +374,11 @@ static bool mdss_rotator_is_work_pending(struct mdss_rot_mgr *mgr,
 	return false;
 }
 
-static void mdss_rotator_install_fence_fd(struct mdss_rot_entry_container *req)
-{
-	int i = 0;
-
-	for (i = 0; i < req->count; i++)
-		sync_fence_install(req->entries[i].output_fence,
-				req->entries[i].output_fence_fd);
-}
-
 static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 {
 	int ret = 0, fd;
 	u32 val;
-	struct sync_pt *sync_pt;
-	struct sync_fence *fence;
+	struct mdss_fence *fence;
 	struct mdss_rot_timeline *rot_timeline;
 
 	if (!entry->queue)
@@ -397,24 +387,15 @@ static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 	rot_timeline = &entry->queue->timeline;
 
 	mutex_lock(&rot_timeline->lock);
-	val = rot_timeline->next_value + 1;
+	val = 1;
 
-	sync_pt = sw_sync_pt_create(rot_timeline->timeline, val);
-	if (sync_pt == NULL) {
+	fence = mdss_get_sync_fence(rot_timeline->timeline,
+					rot_timeline->fence_name, NULL, val);
+	if (fence == NULL) {
 		pr_err("cannot create sync point\n");
 		goto sync_pt_create_err;
 	}
-
-	/* create fence */
-	fence = sync_fence_create(rot_timeline->fence_name, sync_pt);
-	if (fence == NULL) {
-		pr_err("%s: cannot create fence\n", rot_timeline->fence_name);
-		sync_pt_free(sync_pt);
-		ret = -ENOMEM;
-		goto sync_pt_create_err;
-	}
-
-	fd = get_unused_fd_flags(0);
+	fd = mdss_get_sync_fence_fd(fence);
 	if (fd < 0) {
 		pr_err("get_unused_fd_flags failed error:0x%x\n", fd);
 		ret = fd;
@@ -426,12 +407,13 @@ static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 
 	entry->output_fence_fd = fd;
 	entry->output_fence = fence;
-	pr_debug("output sync point created at val=%u\n", val);
+	pr_debug("output sync point created at %s:val=%u\n",
+		mdss_get_sync_fence_name(fence), val);
 
 	return 0;
 
 get_fd_err:
-	sync_fence_put(fence);
+	mdss_put_sync_fence(fence);
 sync_pt_create_err:
 	mutex_unlock(&rot_timeline->lock);
 	return ret;
@@ -442,7 +424,7 @@ static void mdss_rotator_clear_fence(struct mdss_rot_entry *entry)
 	struct mdss_rot_timeline *rot_timeline;
 
 	if (entry->input_fence) {
-		sync_fence_put(entry->input_fence);
+		mdss_put_sync_fence(entry->input_fence);
 		entry->input_fence = NULL;
 	}
 
@@ -450,7 +432,7 @@ static void mdss_rotator_clear_fence(struct mdss_rot_entry *entry)
 
 	/* fence failed to copy to user space */
 	if (entry->output_fence) {
-		sync_fence_put(entry->output_fence);
+		mdss_put_sync_fence(entry->output_fence);
 		entry->output_fence = NULL;
 		put_unused_fd(entry->output_fence_fd);
 
@@ -475,7 +457,7 @@ static int mdss_rotator_signal_output(struct mdss_rot_entry *entry)
 	}
 
 	mutex_lock(&rot_timeline->lock);
-	sw_sync_timeline_inc(rot_timeline->timeline, 1);
+	mdss_inc_timeline(rot_timeline->timeline, 1);
 	mutex_unlock(&rot_timeline->lock);
 
 	entry->output_signaled = true;
@@ -492,8 +474,8 @@ static int mdss_rotator_wait_for_input(struct mdss_rot_entry *entry)
 		return 0;
 	}
 
-	ret = sync_fence_wait(entry->input_fence, ROT_FENCE_WAIT_TIMEOUT);
-	sync_fence_put(entry->input_fence);
+	ret = mdss_wait_sync_fence(entry->input_fence, ROT_FENCE_WAIT_TIMEOUT);
+	mdss_put_sync_fence(entry->input_fence);
 	entry->input_fence = NULL;
 	return ret;
 }
@@ -867,7 +849,7 @@ static int mdss_rotator_init_queue(struct mdss_rot_mgr *mgr)
 		snprintf(name, sizeof(name), "rot_timeline_%d", i);
 		pr_debug("timeline name=%s\n", name);
 		mgr->queues[i].timeline.timeline =
-			sw_sync_timeline_create(name);
+			mdss_create_timeline(name);
 		if (!mgr->queues[i].timeline.timeline) {
 			ret = -EPERM;
 			break;
@@ -896,11 +878,11 @@ static void mdss_rotator_deinit_queue(struct mdss_rot_mgr *mgr)
 			destroy_workqueue(mgr->queues[i].rot_work_queue);
 
 		if (mgr->queues[i].timeline.timeline) {
-			struct sync_timeline *obj;
+			struct mdss_timeline *obj;
 
-			obj = (struct sync_timeline *)
+			obj = (struct mdss_timeline *)
 				mgr->queues[i].timeline.timeline;
-			sync_timeline_destroy(obj);
+			mdss_destroy_timeline(obj);
 		}
 	}
 	devm_kfree(&mgr->pdev->dev, mgr->queues);
@@ -1524,8 +1506,8 @@ static int mdss_rotator_add_request(struct mdss_rot_mgr *mgr,
 		}
 
 		if (item->input.fence >= 0) {
-			entry->input_fence =
-				sync_fence_fdget(item->input.fence);
+			entry->input_fence = mdss_get_fd_sync_fence(
+							    item->input.fence);
 			if (!entry->input_fence) {
 				pr_err("invalid input fence fd\n");
 				return -EINVAL;
@@ -2263,7 +2245,6 @@ static int mdss_rotator_handle_request(struct mdss_rot_mgr *mgr,
 		goto handle_request_err1;
 	}
 
-	mdss_rotator_install_fence_fd(req);
 	mdss_rotator_queue_request(mgr, private, req);
 
 	mutex_unlock(&mgr->lock);
@@ -2423,7 +2404,6 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 		goto handle_request32_err1;
 	}
 
-	mdss_rotator_install_fence_fd(req);
 	mdss_rotator_queue_request(mgr, private, req);
 
 	mutex_unlock(&mgr->lock);
