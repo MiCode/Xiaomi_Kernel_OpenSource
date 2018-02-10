@@ -2044,6 +2044,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 		return;
 	}
 
+	mutex_lock(&inst->flush_lock);
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 
@@ -2086,6 +2087,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	v4l2_event_queue_fh(&inst->event_handler, &flush_event);
 
 exit:
+	mutex_unlock(&inst->flush_lock);
 	put_inst(inst);
 }
 
@@ -5117,6 +5119,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
+	mutex_lock(&inst->flush_lock);
 	/* enable in flush */
 	inst->in_flush = true;
 
@@ -5170,6 +5173,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		rc = call_hfi_op(hdev, session_flush, inst->session,
 			HAL_FLUSH_OUTPUT);
 	}
+	mutex_unlock(&inst->flush_lock);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Sending flush to firmware failed, flush out all buffers\n");
@@ -6582,6 +6586,7 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 	bool found = false;
 	int i = 0;
 
+	mutex_lock(&inst->flush_lock);
 	mutex_lock(&inst->registeredbufs.lock);
 	found = false;
 	/* check if mbuf was not removed by any chance */
@@ -6662,6 +6667,7 @@ unlock:
 			print_vidc_buffer(VIDC_ERR,
 				"rbr qbuf failed", inst, mbuf);
 	}
+	mutex_unlock(&inst->flush_lock);
 }
 
 int msm_comm_unmap_vidc_buffer(struct msm_vidc_inst *inst,
