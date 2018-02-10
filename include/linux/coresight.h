@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -274,6 +274,9 @@ of_get_coresight_platform_data(struct device *dev,
 				const struct device_node *node);
 extern struct coresight_cti_data *of_get_coresight_cti_data(
 				struct device *dev, struct device_node *node);
+extern int of_get_coresight_csr_name(struct device_node *node,
+				const char **csr_name);
+
 #else
 static inline int of_coresight_get_cpu(const struct device_node *node)
 { return 0; }
@@ -281,6 +284,8 @@ static inline struct coresight_platform_data *of_get_coresight_platform_data(
 	struct device *dev, const struct device_node *node) { return NULL; }
 static inlint struct coresight_cti_data *of_get_coresight_cti_data(
 		struct device *dev, struct device_node *node) { return NULL; }
+static inline int of_get_coresight_csr_name(struct device_node *node,
+		const char **csr_name){ return -EINVAL; }
 #endif
 
 #ifdef CONFIG_PID_NS

@@ -219,6 +219,8 @@ struct tmc_drvdata {
 	bool			enable_to_bam;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
+	struct coresight_csr	*csr;
+	const char		*csr_name;
 	struct byte_cntr	*byte_cntr;
 	struct dma_iommu_mapping *iommu_mapping;
 };
