@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -174,9 +174,6 @@
 
 /* Number of times to poll the AHB fence in ISR */
 #define FENCE_RETRY_MAX 100
-
-/* Number of times to see if INT_0_STATUS changed or not */
-#define STATUS_RETRY_MAX 3
 
 /* One cannot wait forever for the core to idle, so set an upper limit to the
  * amount of time to wait for the core to go idle
