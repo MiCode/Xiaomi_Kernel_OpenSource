@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,6 +161,7 @@ static const struct ipa_ep_confing ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_TEST4_CONS]         = {true, 15},
 
 
+	[IPA_2_6L][IPA_CLIENT_USB_PROD]          =  {true,  1},
 	[IPA_2_6L][IPA_CLIENT_APPS_LAN_WAN_PROD]  = {true,  4},
 	[IPA_2_6L][IPA_CLIENT_APPS_CMD_PROD]      = {true,  3},
 	[IPA_2_6L][IPA_CLIENT_Q6_LAN_PROD]        = {true,  6},

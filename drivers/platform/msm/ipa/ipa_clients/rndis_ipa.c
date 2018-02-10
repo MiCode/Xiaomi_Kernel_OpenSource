@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -574,13 +574,15 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 		goto fail_set_device_ethernet;
 	}
 	RNDIS_IPA_DEBUG("Device Ethernet address set %pM\n", net->dev_addr);
-
+#ifdef CONFIG_IPA3
 	if (ipa_is_vlan_mode(IPA_VLAN_IF_RNDIS,
 		&rndis_ipa_ctx->is_vlan_mode)) {
 		RNDIS_IPA_ERROR("couldn't acquire vlan mode, is ipa ready?\n");
-		goto fail_get_vlan_mode;
+		goto fail_hdrs_cfg;
 	}
-
+#else
+	rndis_ipa_ctx->is_vlan_mode = 0;
+#endif
 	RNDIS_IPA_DEBUG("is_vlan_mode %d\n", rndis_ipa_ctx->is_vlan_mode);
 
 	result = rndis_ipa_hdrs_cfg
@@ -631,7 +633,6 @@ fail_register_netdev:
 fail_register_tx:
 	rndis_ipa_hdrs_destroy(rndis_ipa_ctx);
 fail_hdrs_cfg:
-fail_get_vlan_mode:
 fail_set_device_ethernet:
 	rndis_ipa_debugfs_destroy(rndis_ipa_ctx);
 fail_netdev_priv:
