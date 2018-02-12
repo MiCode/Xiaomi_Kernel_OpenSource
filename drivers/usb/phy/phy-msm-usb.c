@@ -3905,6 +3905,7 @@ static struct platform_device *msm_otg_add_pdev(
 			goto error;
 	}
 
+	arch_setup_dma_ops(&pdev->dev, 0, DMA_BIT_MASK(32), NULL, false);
 	retval = platform_device_add(pdev);
 	if (retval)
 		goto error;

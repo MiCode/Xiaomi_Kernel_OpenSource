@@ -3841,6 +3841,7 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 			(unsigned long) mEp);
 	}
 
+	arch_setup_dma_ops(&udc->gadget.dev, 0, DMA_BIT_MASK(32), NULL, false);
 	for (i = 0; i < hw_ep_max/2; i++) {
 		for (j = RX; j <= TX; j++) {
 			int k = i + j * hw_ep_max/2;
