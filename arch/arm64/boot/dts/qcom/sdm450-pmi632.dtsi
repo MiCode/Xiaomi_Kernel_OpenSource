@@ -26,3 +26,8 @@
 	qcom,ps-hold-hard-reset-disable;
 	qcom,ps-hold-shutdown-disable;
 };
+
+&usb3 {
+	extcon = <&pmi632_charger>;
+	vbus_dwc3-supply = <&smb5_vbus>;
+};
