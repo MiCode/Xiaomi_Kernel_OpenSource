@@ -32,7 +32,6 @@
 #include <linux/of.h>
 #include <linux/dma-mapping.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/irqchip/msm-mpm-irq.h>
 #include <linux/pm_wakeup.h>
 #include <linux/reset.h>
 #include <linux/extcon.h>
@@ -143,12 +142,6 @@ enum usb_vdd_value {
  * @default_mode: Default operational mode. Applicable only if
  *              OTG switch is controller by user.
  * @pmic_id_irq: IRQ number assigned for PMIC USB ID line.
- * @mpm_otgsessvld_int: MPM wakeup pin assigned for OTG SESSVLD
- *              interrupt. Used when .otg_control == OTG_PHY_CONTROL.
- * @mpm_dpshv_int: MPM wakeup pin assigned for DP SHV interrupt.
- *		Used during host bus suspend.
- * @mpm_dmshv_int: MPM wakeup pin assigned for DM SHV interrupt.
- *		Used during host bus suspend.
  * @disable_reset_on_disconnect: perform USB PHY and LINK reset
  *              on USB cable disconnection.
  * @pnoc_errata_fix: workaround needed for PNOC hardware bug that
@@ -201,9 +194,6 @@ struct msm_otg_platform_data {
 	enum usb_mode_type default_mode;
 	enum msm_usb_phy_type phy_type;
 	int pmic_id_irq;
-	unsigned int mpm_otgsessvld_int;
-	unsigned int mpm_dpshv_int;
-	unsigned int mpm_dmshv_int;
 	bool disable_reset_on_disconnect;
 	bool pnoc_errata_fix;
 	bool enable_lpm_on_dev_suspend;
@@ -1626,8 +1616,7 @@ phcd_retry:
 			msm_otg_enter_phy_retention(motg);
 			motg->lpm_flags |= PHY_RETENTIONED;
 		}
-	} else if (device_bus_suspend && !dcp &&
-			(pdata->mpm_dpshv_int || pdata->mpm_dmshv_int)) {
+	} else if (device_bus_suspend && !dcp) {
 		/* DP DM HV interrupts are used for bus resume from XO off */
 		msm_otg_enable_phy_hv_int(motg);
 		if (motg->caps & ALLOW_PHY_RETENTION && pdata->vddmin_gpio) {
@@ -1700,15 +1689,6 @@ phcd_retry:
 			enable_irq_wake(motg->pdata->pmic_id_irq);
 		if (motg->ext_id_irq)
 			enable_irq_wake(motg->ext_id_irq);
-		if (pdata->otg_control == OTG_PHY_CONTROL &&
-			pdata->mpm_otgsessvld_int)
-			msm_mpm_set_pin_wake(pdata->mpm_otgsessvld_int, 1);
-		if ((host_bus_suspend || device_bus_suspend) &&
-				pdata->mpm_dpshv_int)
-			msm_mpm_set_pin_wake(pdata->mpm_dpshv_int, 1);
-		if ((host_bus_suspend || device_bus_suspend) &&
-				pdata->mpm_dmshv_int)
-			msm_mpm_set_pin_wake(pdata->mpm_dmshv_int, 1);
 	}
 	if (bus)
 		clear_bit(HCD_FLAG_HW_ACCESSIBLE, &(bus_to_hcd(bus))->flags);
@@ -1875,15 +1855,6 @@ skip_phy_resume:
 			disable_irq_wake(motg->pdata->pmic_id_irq);
 		if (motg->ext_id_irq)
 			disable_irq_wake(motg->ext_id_irq);
-		if (pdata->otg_control == OTG_PHY_CONTROL &&
-			pdata->mpm_otgsessvld_int)
-			msm_mpm_set_pin_wake(pdata->mpm_otgsessvld_int, 0);
-		if ((motg->host_bus_suspend || motg->device_bus_suspend) &&
-			pdata->mpm_dpshv_int)
-			msm_mpm_set_pin_wake(pdata->mpm_dpshv_int, 0);
-		if ((motg->host_bus_suspend || motg->device_bus_suspend) &&
-			pdata->mpm_dmshv_int)
-			msm_mpm_set_pin_wake(pdata->mpm_dmshv_int, 0);
 	}
 	if (bus)
 		set_bit(HCD_FLAG_HW_ACCESSIBLE, &(bus_to_hcd(bus))->flags);
@@ -4368,10 +4339,6 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	of_property_read_u32(node, "qcom,hsusb-log2-itc",
 				&pdata->log2_itc);
 
-	of_property_read_u32(node, "qcom,hsusb-otg-mpm-dpsehv-int",
-				&pdata->mpm_dpshv_int);
-	of_property_read_u32(node, "qcom,hsusb-otg-mpm-dmsehv-int",
-				&pdata->mpm_dmshv_int);
 	pdata->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (pdata->pmic_id_irq < 0)
 		pdata->pmic_id_irq = 0;
@@ -4919,14 +4886,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 	}
 	disable_irq(motg->async_irq);
 
-	if (pdata->otg_control == OTG_PHY_CONTROL && pdata->mpm_otgsessvld_int)
-		msm_mpm_enable_pin(pdata->mpm_otgsessvld_int, 1);
-
-	if (pdata->mpm_dpshv_int)
-		msm_mpm_enable_pin(pdata->mpm_dpshv_int, 1);
-	if (pdata->mpm_dmshv_int)
-		msm_mpm_enable_pin(pdata->mpm_dmshv_int, 1);
-
 	phy->init = msm_otg_reset;
 	phy->set_power = msm_otg_set_power;
 	phy->set_suspend = msm_otg_set_suspend;
@@ -5049,8 +5008,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 				motg->pdata->enable_phy_id_pullup)
 		motg->caps = ALLOW_PHY_RETENTION | ALLOW_PHY_REGULATORS_LPM;
 
-	if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)
-		motg->caps |= ALLOW_HOST_PHY_RETENTION;
+	motg->caps |= ALLOW_HOST_PHY_RETENTION;
 
 	device_create_file(&pdev->dev, &dev_attr_dpdm_pulldown_enable);
 
@@ -5275,17 +5233,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	usb_remove_phy(phy);
 	free_irq(motg->irq, motg);
 
-	if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)
-		device_remove_file(&pdev->dev,
-				&dev_attr_dpdm_pulldown_enable);
-	if (motg->pdata->otg_control == OTG_PHY_CONTROL &&
-		motg->pdata->mpm_otgsessvld_int)
-		msm_mpm_enable_pin(motg->pdata->mpm_otgsessvld_int, 0);
-
-	if (motg->pdata->mpm_dpshv_int)
-		msm_mpm_enable_pin(motg->pdata->mpm_dpshv_int, 0);
-	if (motg->pdata->mpm_dmshv_int)
-		msm_mpm_enable_pin(motg->pdata->mpm_dmshv_int, 0);
+	device_remove_file(&pdev->dev, &dev_attr_dpdm_pulldown_enable);
 
 	/*
 	 * Put PHY in low power mode.
