@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,9 +17,6 @@
 #include "cam_vfe_hw_intf.h"
 #include "cam_ife_csid_hw_intf.h"
 #include "cam_tasklet_util.h"
-
-/* MAX IFE instance */
-#define CAM_IFE_HW_NUM_MAX                       4
 
 /* enum cam_ife_hw_mgr_res_type - manager resource node type */
 enum cam_ife_hw_mgr_res_type {

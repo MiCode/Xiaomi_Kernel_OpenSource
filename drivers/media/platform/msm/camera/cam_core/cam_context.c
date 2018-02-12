@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,6 +196,30 @@ int cam_context_handle_crm_flush_req(struct cam_context *ctx,
 	return rc;
 }
 
+int cam_context_handle_crm_process_evt(struct cam_context *ctx,
+	struct cam_req_mgr_link_evt_data *process_evt)
+{
+	int rc = 0;
+
+	if (!ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "Context is not ready");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].crm_ops.process_evt) {
+		rc = ctx->state_machine[ctx->state].crm_ops.process_evt(ctx,
+			process_evt);
+	} else {
+		/* handling of this message is optional */
+		CAM_DBG(CAM_CORE, "No crm process evt in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
+	}
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
 int cam_context_handle_acquire_dev(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
 {
@@ -257,10 +281,10 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
 int cam_context_handle_flush_dev(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
-	int rc;
+	int rc = 0;
 
 	if (!ctx->state_machine) {
-		CAM_ERR(CAM_CORE, "context is not ready");
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
@@ -274,9 +298,8 @@ int cam_context_handle_flush_dev(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].ioctl_ops.flush_dev(
 			ctx, cmd);
 	} else {
-		CAM_ERR(CAM_CORE, "No flush device in dev %d, state %d",
+		CAM_WARN(CAM_CORE, "No flush device in dev %d, state %d",
 			ctx->dev_hdl, ctx->state);
-		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
 

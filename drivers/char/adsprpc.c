@@ -706,13 +706,24 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			goto bail;
 		}
 		map->phys = sg_dma_address(map->table->sgl);
+
 		if (sess->smmu.cb) {
 			map->phys += ((uint64_t)sess->smmu.cb << 32);
 			map->size = sg_dma_len(map->table->sgl);
 		} else {
 			map->size = buf_page_size(len);
 		}
+
 		vmid = fl->apps->channel[fl->cid].vmid;
+		if (!sess->smmu.enabled && !vmid) {
+			VERIFY(err, map->phys >= me->range.addr &&
+			map->phys + map->size <=
+			me->range.addr + me->range.size);
+			if (err) {
+				pr_err("adsprpc: mmap fail out of range\n");
+				goto bail;
+			}
+		}
 		if (vmid) {
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[2] = {VMID_HLOS, vmid};
@@ -2091,12 +2102,13 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 		goto bail;
 	mutex_lock(&fl->fl_map_mutex);
 	fastrpc_mmap_free(map, 0);
+	mutex_unlock(&fl->fl_map_mutex);
 bail:
 	if (err && map) {
 		mutex_lock(&fl->fl_map_mutex);
 		fastrpc_mmap_add(map);
+		mutex_unlock(&fl->fl_map_mutex);
 	}
-	mutex_unlock(&fl->fl_map_mutex);
 	mutex_unlock(&fl->map_mutex);
 	return err;
 }
@@ -3096,6 +3108,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 					srcVM, 1, destVM, destVMperm, 4));
 			if (err)
 				goto bail;
+			me->range.addr = range.addr;
+			me->range.size = range.size;
 		}
 		return 0;
 	}

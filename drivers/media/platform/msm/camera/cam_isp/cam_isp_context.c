@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,7 +86,8 @@ static int __cam_isp_ctx_enqueue_init_request(
 		struct cam_ctx_request, list);
 	req_isp_old = (struct cam_isp_ctx_req *) req_old->req_priv;
 	req_isp_new = (struct cam_isp_ctx_req *) req->req_priv;
-	if (req_isp_old->packet_opcode_type == CAM_ISP_PACKET_INIT_DEV) {
+	if (req_isp_old->hw_update_data.packet_opcode_type ==
+		CAM_ISP_PACKET_INIT_DEV) {
 		if ((req_isp_old->num_cfg + req_isp_new->num_cfg) >=
 			CAM_ISP_CTX_CFG_MAX) {
 			CAM_WARN(CAM_ISP, "Can not merge INIT pkt");
@@ -896,6 +897,29 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	return rc;
 }
 
+static int __cam_isp_ctx_sof_in_flush(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	int rc = 0;
+	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
+
+	if (!evt_data) {
+		CAM_ERR(CAM_ISP, "in valid sof event data");
+		return -EINVAL;
+	}
+	ctx_isp->frame_id++;
+	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
+	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
+		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
+
+	if (--ctx_isp->frame_skip_count == 0)
+		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	else
+		CAM_ERR(CAM_ISP, "Skip currect SOF");
+
+	return rc;
+}
+
 static struct cam_isp_ctx_irq_ops
 	cam_isp_ctx_activated_state_machine_irq[CAM_ISP_CTX_ACTIVATED_MAX] = {
 	/* SOF */
@@ -967,6 +991,17 @@ static struct cam_isp_ctx_irq_ops
 	/* HALT */
 	{
 	},
+	/* FLUSH */
+	{
+		.irq_ops = {
+			NULL,
+			__cam_isp_ctx_sof_in_flush,
+			NULL,
+			NULL,
+			NULL,
+			__cam_isp_ctx_buf_done_in_applied,
+		},
+	},
 };
 
 static int __cam_isp_ctx_apply_req_in_activated_state(
@@ -1037,6 +1072,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	cfg.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	cfg.hw_update_entries = req_isp->cfg;
 	cfg.num_hw_update_entries = req_isp->num_cfg;
+	cfg.priv  = &req_isp->hw_update_data;
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc) {
@@ -1170,6 +1206,24 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	return rc;
 }
 
+static int __cam_isp_ctx_flush_req_in_activated(
+	struct cam_context *ctx,
+	struct cam_req_mgr_flush_request *flush_req)
+{
+	int rc = 0;
+	struct cam_isp_context *ctx_isp;
+
+	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
+	spin_lock_bh(&ctx->lock);
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_FLUSH;
+	ctx_isp->frame_skip_count = 2;
+	spin_unlock_bh(&ctx->lock);
+
+	CAM_DBG(CAM_ISP, "Flush request in state %d", ctx->state);
+	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
+	return rc;
+}
+
 static int __cam_isp_ctx_flush_req_in_ready(
 	struct cam_context *ctx,
 	struct cam_req_mgr_flush_request *flush_req)
@@ -1230,7 +1284,19 @@ static struct cam_ctx_ops
 		.crm_ops = {},
 		.irq_ops = NULL,
 	},
+	/* HW ERROR */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
 	/* HALT */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
+	/* FLUSH */
 	{
 		.ioctl_ops = {},
 		.crm_ops = {},
@@ -1601,9 +1667,22 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_buf_done_in_bubble_applied,
 		},
 	},
-
+	/* HW ERROR */
+	{
+	},
 	/* HALT */
 	{
+	},
+	/* FLUSH */
+	{
+		.irq_ops = {
+			NULL,
+			__cam_isp_ctx_sof_in_flush,
+			NULL,
+			NULL,
+			NULL,
+			__cam_isp_ctx_buf_done_in_applied,
+		},
 	},
 };
 
@@ -1660,14 +1739,25 @@ static struct cam_ctx_ops
 		.crm_ops = {},
 		.irq_ops = NULL,
 	},
+	/* HW ERROR */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
 	/* HALT */
 	{
 		.ioctl_ops = {},
 		.crm_ops = {},
 		.irq_ops = NULL,
 	},
+	/* FLUSHED */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
 };
-
 
 /* top level state machine */
 static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
@@ -1729,7 +1819,6 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_req_mgr_add_request    add_req;
 	struct cam_isp_context           *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
-	struct cam_isp_prepare_hw_update_data    hw_update_data;
 
 	CAM_DBG(CAM_ISP, "get free request object......");
 
@@ -1780,7 +1869,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	cfg.max_in_map_entries = CAM_ISP_CTX_RES_MAX;
 	cfg.out_map_entries = req_isp->fence_map_out;
 	cfg.in_map_entries = req_isp->fence_map_in;
-	cfg.priv  = &hw_update_data;
+	cfg.priv  = &req_isp->hw_update_data;
 
 	CAM_DBG(CAM_ISP, "try to prepare config packet......");
 
@@ -1795,7 +1884,6 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req_isp->num_fence_map_out = cfg.num_out_map_entries;
 	req_isp->num_fence_map_in = cfg.num_in_map_entries;
 	req_isp->num_acked = 0;
-	req_isp->packet_opcode_type = hw_update_data.packet_opcode_type;
 
 	CAM_DBG(CAM_ISP, "num_entry: %d, num fence out: %d, num fence in: %d",
 		req_isp->num_cfg, req_isp->num_fence_map_out,
@@ -1805,9 +1893,11 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req->status = 1;
 
 	CAM_DBG(CAM_ISP, "Packet request id 0x%llx packet opcode:%d",
-		packet->header.request_id, req_isp->packet_opcode_type);
+		packet->header.request_id,
+		req_isp->hw_update_data.packet_opcode_type);
 
-	if (req_isp->packet_opcode_type == CAM_ISP_PACKET_INIT_DEV) {
+	if (req_isp->hw_update_data.packet_opcode_type ==
+		CAM_ISP_PACKET_INIT_DEV) {
 		if (ctx->state < CAM_CTX_ACTIVATED) {
 			rc = __cam_isp_ctx_enqueue_init_request(ctx, req);
 			if (rc)
@@ -2052,7 +2142,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd)
 {
 	int rc = 0;
-	struct cam_hw_start_args         arg;
+	struct cam_hw_config_args        arg;
 	struct cam_ctx_request          *req;
 	struct cam_isp_ctx_req          *req_isp;
 	struct cam_isp_context          *ctx_isp =
@@ -2080,9 +2170,11 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		rc = -EFAULT;
 		goto end;
 	}
+
 	arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	arg.hw_update_entries = req_isp->cfg;
 	arg.num_hw_update_entries = req_isp->num_cfg;
+	arg.priv  = &req_isp->hw_update_data;
 
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
@@ -2209,6 +2301,58 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 	if (rc)
 		CAM_ERR(CAM_ISP, "Release device failed rc=%d", rc);
 
+	return rc;
+}
+
+static int __cam_isp_ctx_link_pause(struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_isp_hw_cmd_args   hw_cmd_args;
+	struct cam_isp_context      *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_PAUSE_HW;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+
+	return rc;
+}
+
+static int __cam_isp_ctx_link_resume(struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_isp_hw_cmd_args   hw_cmd_args;
+	struct cam_isp_context      *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_RESUME_HW;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+
+	return rc;
+}
+
+static int __cam_isp_ctx_process_evt(struct cam_context *ctx,
+	struct cam_req_mgr_link_evt_data *link_evt_data)
+{
+	int rc = 0;
+
+	switch (link_evt_data->evt_type) {
+	case CAM_REQ_MGR_LINK_EVT_ERR:
+		/* No need to handle this message now */
+		break;
+	case CAM_REQ_MGR_LINK_EVT_PAUSE:
+		__cam_isp_ctx_link_pause(ctx);
+		break;
+	case CAM_REQ_MGR_LINK_EVT_RESUME:
+		__cam_isp_ctx_link_resume(ctx);
+		break;
+	default:
+		CAM_WARN(CAM_ISP, "Unknown event from CRM");
+		break;
+	}
 	return rc;
 }
 
@@ -2343,7 +2487,8 @@ static struct cam_ctx_ops
 		.crm_ops = {
 			.unlink = __cam_isp_ctx_unlink_in_activated,
 			.apply_req = __cam_isp_ctx_apply_req,
-			.flush_req = __cam_isp_ctx_flush_req_in_top_state,
+			.flush_req = __cam_isp_ctx_flush_req_in_activated,
+			.process_evt = __cam_isp_ctx_process_evt,
 		},
 		.irq_ops = __cam_isp_ctx_handle_irq_in_activated,
 	},

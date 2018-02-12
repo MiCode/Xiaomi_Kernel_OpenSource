@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -761,7 +761,7 @@ static int cam_mem_mgr_cleanup_table(void)
 				"Buffer inactive at idx=%d, continuing", i);
 			continue;
 		} else {
-			CAM_INFO(CAM_CRM,
+			CAM_DBG(CAM_CRM,
 			"Active buffer at idx=%d, possible leak needs unmapping",
 			i);
 			cam_mem_mgr_unmap_active_buf(i);

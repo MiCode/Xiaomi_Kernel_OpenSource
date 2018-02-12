@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,10 @@
 #include <linux/list.h>
 #include <uapi/media/cam_isp.h>
 #include "cam_hw_mgr_intf.h"
+
+/* MAX IFE instance */
+#define CAM_IFE_HW_NUM_MAX   4
+#define CAM_IFE_RDI_NUM_MAX  4
 
 /**
  *  enum cam_isp_hw_event_type - Collection of the ISP hardware events
@@ -47,15 +51,38 @@ enum cam_isp_hw_err_type {
 };
 
 /**
+ * struct cam_isp_bw_config_internal - Internal Bandwidth configuration
+ *
+ * @usage_type:                 Usage type (Single/Dual)
+ * @num_rdi:                    Number of RDI votes
+ * @left_pix_vote:              Bandwidth vote for left ISP
+ * @right_pix_vote:             Bandwidth vote for right ISP
+ * @rdi_vote:                   RDI bandwidth requirements
+ */
+
+struct cam_isp_bw_config_internal {
+	uint32_t                       usage_type;
+	uint32_t                       num_rdi;
+	struct cam_isp_bw_vote         left_pix_vote;
+	struct cam_isp_bw_vote         right_pix_vote;
+	struct cam_isp_bw_vote         rdi_vote[CAM_IFE_RDI_NUM_MAX];
+};
+
+/**
  * struct cam_isp_prepare_hw_update_data - hw prepare data
  *
  * @packet_opcode_type:     Packet header opcode in the packet header
- *                   this opcode defines, packet is init packet or
- *                   update packet
+ *                          this opcode defines, packet is init packet or
+ *                          update packet
+ * @bw_config:              BW config information
+ * @bw_config_valid:        Flag indicating whether the bw_config at the index
+ *                          is valid or not
  *
  */
 struct cam_isp_prepare_hw_update_data {
-	uint32_t      packet_opcode_type;
+	uint32_t                          packet_opcode_type;
+	struct cam_isp_bw_config_internal bw_config[CAM_IFE_HW_NUM_MAX];
+	bool                              bw_config_valid[CAM_IFE_HW_NUM_MAX];
 };
 
 
@@ -130,6 +157,8 @@ struct cam_isp_hw_error_event_data {
 /* enum cam_isp_hw_mgr_command - Hardware manager command type */
 enum cam_isp_hw_mgr_command {
 	CAM_ISP_HW_MGR_CMD_IS_RDI_ONLY_CONTEXT,
+	CAM_ISP_HW_MGR_CMD_PAUSE_HW,
+	CAM_ISP_HW_MGR_CMD_RESUME_HW,
 	CAM_ISP_HW_MGR_CMD_MAX,
 };
 

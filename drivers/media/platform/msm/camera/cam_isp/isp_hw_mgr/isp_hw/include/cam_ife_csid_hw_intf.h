@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,7 +75,6 @@ struct cam_ife_csid_hw_caps {
  * @cid:          cid (DT_ID) value for path, this is applicable for CSID path
  *                reserve
  * @node_res :    Reserved resource structure pointer
- * @pixel_count:  Number of pixel resources
  *
  */
 struct cam_csid_hw_reserve_resource_args {
@@ -87,7 +86,6 @@ struct cam_csid_hw_reserve_resource_args {
 	uint32_t                                  master_idx;
 	uint32_t                                  cid;
 	struct cam_isp_resource_node             *node_res;
-	int                                       pixel_count;
 };
 
 /**
