@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,9 +22,19 @@
 		status = "ok";
 	};
 
-	led_flash_front: qcom,camera-flash@1 {
+	led_flash_rear_aux: qcom,camera-flash@1 {
 		cell-index = <1>;
 		reg = <0x01 0x00>;
+		compatible = "qcom,camera-flash";
+		flash-source = <&pm660l_flash0 &pm660l_flash1>;
+		torch-source = <&pm660l_torch0 &pm660l_torch1>;
+		switch-source = <&pm660l_switch0>;
+		status = "ok";
+	};
+
+	led_flash_front: qcom,camera-flash@2 {
+		cell-index = <2>;
+		reg = <0x02 0x00>;
 		compatible = "qcom,camera-flash";
 		flash-source = <&pm660l_flash2>;
 		torch-source = <&pm660l_torch2>;
@@ -309,6 +319,7 @@
 		sensor-position-roll = <90>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
+		led-flash-src = <&led_flash_rear_aux>;
 		eeprom-src = <&eeprom_rear_aux>;
 		cam_vio-supply = <&camera_vio_ldo>;
 		cam_vana-supply = <&camera_vana_ldo>;
