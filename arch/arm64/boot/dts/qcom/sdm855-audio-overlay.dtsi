@@ -90,6 +90,22 @@
 				       <&glink_spi_xprt_wdsp 2>;
 		qcom,img-filename = "cpe_9360";
 	};
+
+	aqt_rst_gpio: msm_cdc_pinctrl@80 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
+	clock_audio_lnbb: audio_ext_clk_lnbb {
+		status = "ok";
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <1>;
+		clock-names = "osr_clk";
+		clocks = <&clock_rpmh RPMH_LN_BB_CLK2>;
+		#clock-cells = <1>;
+	};
 };
 
 &slim_aud {
@@ -113,7 +129,7 @@
 
 		cdc-vdd-buck-sido-supply = <&pm855_s4>;
 		qcom,cdc-vdd-buck-sido-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-buck-sido-current = <250000>;
+		qcom,cdc-vdd-buck-sido-current = <228000>;
 
 		cdc-vdd-px-supply = <&pm855_s4>;
 		qcom,cdc-vdd-px-voltage = <1800000 1800000>;
@@ -121,7 +137,7 @@
 
 		cdc-vdd-mic-bias-supply = <&pm855l_bob>;
 		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
-		qcom,cdc-vdd-mic-bias-current = <20000>;
+		qcom,cdc-vdd-mic-bias-current = <16800>;
 
 		cdc-vdd-pa-supply = <&pm855l_bob>;
 		qcom,cdc-vdd-pa-voltage = <3300000 3300000>;
@@ -154,5 +170,45 @@
 			qcom,mem-base-addr = <0x100000>;
 		};
 
+	};
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+	aqt1000_cdc: aqt1000-i2c-codec@d {
+		compatible = "qcom,aqt1000-i2c-codec";
+		reg = <0x0d>;
+
+		qcom,aqt-rst-gpio-node = <&aqt_rst_gpio>;
+
+		clock-names = "aqt_clk";
+		clocks = <&clock_audio_lnbb>;
+
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&tlmm>;
+		qcom,gpio-connect = <&tlmm 125 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&aqt_intr_default>;
+
+		cdc-vdd-rxtx-supply = <&pm855_s4>;
+		qcom,cdc-vdd-rxtx-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-rxtx-current = <33300>;
+
+		cdc-vdd-buck-supply = <&pm855_s4>;
+		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-buck-current = <650000>;
+
+		cdc-vdd-vbat-supply = <&pm8551_bob>;
+		qcom,cdc-vdd-vbat-voltage = <3300000 3300000>;
+		qcom,cdc-vdd-vbat-current = <5000>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-rxtx",
+					   "cdc-vdd-buck",
+					   "cdc-vdd-vbat";
+
+		qcom,cdc-ext-clk-rate = <19200000>;
+		qcom,cdc-mclk-clk-rate = <9600000>;
+		qcom,cdc-micbias1-mv = <1800>;
 	};
 };
