@@ -27,6 +27,7 @@
 #include <linux/pmic-voter.h>
 #include "smb5-reg.h"
 #include "smb5-lib.h"
+#include "schgm-flash.h"
 
 static struct smb_params smb5_pmi632_params = {
 	.fcc			= {
@@ -371,6 +372,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_SCOPE,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -379,6 +381,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 {
 	struct smb5 *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
+	union power_supply_propval pval;
 	int rc = 0;
 
 	switch (psp) {
@@ -475,6 +478,15 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_TYPE:
 		val->intval = chg->connector_type;
+		break;
+	case POWER_SUPPLY_PROP_SCOPE:
+		val->intval = POWER_SUPPLY_SCOPE_UNKNOWN;
+		rc = smblib_get_prop_usb_present(chg, &pval);
+		if (rc < 0)
+			break;
+		val->intval = pval.intval ? POWER_SUPPLY_SCOPE_DEVICE
+				: chg->otg_present ? POWER_SUPPLY_SCOPE_SYSTEM
+						: POWER_SUPPLY_SCOPE_UNKNOWN;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -701,6 +713,8 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 	POWER_SUPPLY_PROP_FCC_DELTA,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_FLASH_ACTIVE,
+	POWER_SUPPLY_PROP_FLASH_TRIGGER,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -734,6 +748,12 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_get_icl_current(chg, &val->intval);
 		break;
+	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
+		val->intval = chg->flash_active;
+		break;
+	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
+		rc = schgm_flash_get_vreg_ok(chg, &val->intval);
+		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
@@ -764,6 +784,9 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_icl_current(chg, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
+		chg->flash_active = val->intval;
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -1367,6 +1390,13 @@ static int smb5_init_hw(struct smb5 *chip)
 					: POWER_SUPPLY_CONNECTOR_TYPEC;
 	pr_debug("Connector type=%s\n", type ? "Micro USB" : "TypeC");
 
+	/*
+	 * PMI632 based hw init:
+	 * - Initialize flash module for PMI632
+	 */
+	if (chg->smb_version == PMI632_SUBTYPE)
+		schgm_flash_init(chg);
+
 	smblib_rerun_apsd_if_required(chg);
 
 	/* vote 0mA on usb_icl for non battery platforms */
@@ -1828,6 +1858,39 @@ static struct smb_irq_info smb5_irqs[] = {
 	[TEMP_CHANGE_SMB_IRQ] = {
 		.name		= "temp-change-smb",
 		.handler	= default_irq_handler,
+	},
+	/* FLASH */
+	[VREG_OK_IRQ] = {
+		.name		= "vreg-ok",
+		.handler	= schgm_flash_default_irq_handler,
+	},
+	[ILIM_S2_IRQ] = {
+		.name		= "ilim2-s2",
+		.handler	= schgm_flash_ilim2_irq_handler,
+	},
+	[ILIM_S1_IRQ] = {
+		.name		= "ilim1-s1",
+		.handler	= schgm_flash_default_irq_handler,
+	},
+	[VOUT_DOWN_IRQ] = {
+		.name		= "vout-down",
+		.handler	= schgm_flash_default_irq_handler,
+	},
+	[VOUT_UP_IRQ] = {
+		.name		= "vout-up",
+		.handler	= schgm_flash_default_irq_handler,
+	},
+	[FLASH_STATE_CHANGE_IRQ] = {
+		.name		= "flash-state-change",
+		.handler	= schgm_flash_state_change_irq_handler,
+	},
+	[TORCH_REQ_IRQ] = {
+		.name		= "torch-req",
+		.handler	= schgm_flash_default_irq_handler,
+	},
+	[FLASH_EN_IRQ] = {
+		.name		= "flash-en",
+		.handler	= schgm_flash_default_irq_handler,
 	},
 };
 
