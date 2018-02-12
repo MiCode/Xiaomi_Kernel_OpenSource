@@ -71,6 +71,8 @@
 #define SQ_CTRL1_CHIRP_DISABLE		0x20
 #define SQ_CTRL2_CHIRP_DISABLE		0x80
 
+#define DEBUG_CTRL1_OVERRIDE_VAL	0x09
+
 /* PERIPH_SS_PHY_REFGEN_NORTH_BG_CTRL register bits */
 #define BANDGAP_BYPASS			BIT(0)
 
@@ -84,6 +86,7 @@ enum qusb_phy_reg {
 	BIAS_CTRL_2,
 	SQ_CTRL1,
 	SQ_CTRL2,
+	DEBUG_CTRL1,
 	USB2_PHY_REG_MAX,
 };
 
@@ -552,6 +555,11 @@ static int qusb_phy_init(struct usb_phy *phy)
 		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
 			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
 				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+
+	/* if soc revision is mentioned override DEBUG_CTRL1 value */
+	if (qphy->soc_min_rev)
+		writel_relaxed(DEBUG_CTRL1_OVERRIDE_VAL,
+				qphy->base + qphy->phy_reg[DEBUG_CTRL1]);
 
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
@@ -1228,7 +1236,7 @@ skip_pinctrl_config:
 	 * qusb_phy_disable_chirp is not required if soc version is
 	 * mentioned and is not base version.
 	 */
-	if (qphy->soc_min_rev == 0)
+	if (!qphy->soc_min_rev)
 		qphy->phy.disable_chirp	= qusb_phy_disable_chirp;
 
 	qphy->phy.start_port_reset	= qusb_phy_enable_ext_pulldown;
