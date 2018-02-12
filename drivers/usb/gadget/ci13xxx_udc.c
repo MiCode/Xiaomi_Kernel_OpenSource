@@ -3855,6 +3855,20 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 
 			mEp->ep.name      = mEp->name;
 			mEp->ep.ops       = &usb_ep_ops;
+
+			if (i == 0) {
+				mEp->ep.caps.type_control = true;
+			} else {
+				mEp->ep.caps.type_iso = true;
+				mEp->ep.caps.type_bulk = true;
+				mEp->ep.caps.type_int = true;
+			}
+
+			if (j == TX)
+				mEp->ep.caps.dir_in = true;
+			else
+				mEp->ep.caps.dir_out = true;
+
 			usb_ep_set_maxpacket_limit(&mEp->ep,
 				k ? USHRT_MAX : CTRL_PAYLOAD_MAX);
 
