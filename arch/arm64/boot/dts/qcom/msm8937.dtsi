@@ -880,6 +880,11 @@
 		qcom,bus-clk-rate = <748800000 200000000 100000000>;
 		qcom,max-nominal-sysclk-rate = <133330000>;
 
+		resets = <&clock_gcc GCC_USB_HS_BCR>,
+			 <&clock_gcc GCC_QUSB2_PHY_BCR>,
+			 <&clock_gcc GCC_USB2_HS_PHY_ONLY_BCR>;
+		reset-names = "core_reset", "phy_reset", "phy_por_reset";
+
 		qcom,usbbam@78c4000 {
 			compatible = "qcom,usb-bam-msm";
 			reg = <0x78c4000 0x17000>;
