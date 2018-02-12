@@ -3927,9 +3927,9 @@ static int msm_otg_setup_devices(struct platform_device *ofdev,
 
 	if (!init) {
 		if (gadget_pdev) {
-			platform_device_unregister(gadget_pdev);
 			device_remove_file(&gadget_pdev->dev,
 					   &dev_attr_perf_mode);
+			platform_device_unregister(gadget_pdev);
 		}
 		if (host_pdev)
 			platform_device_unregister(host_pdev);
@@ -4845,7 +4845,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 		goto disable_core_clk;
 	}
 
-	ret = request_irq(motg->irq, msm_otg_irq, IRQF_SHARED,
+	ret = devm_request_irq(&pdev->dev, motg->irq, msm_otg_irq, IRQF_SHARED,
 					"msm_otg", motg);
 	if (ret) {
 		dev_err(&pdev->dev, "request irq failed\n");
@@ -4870,19 +4870,20 @@ static int msm_otg_probe(struct platform_device *pdev)
 		udelay(200);
 		writeb_relaxed(0x0, USB2_PHY_USB_PHY_IRQ_CMD);
 
-		ret = request_irq(motg->phy_irq, msm_otg_phy_irq_handler,
-				IRQF_TRIGGER_RISING, "msm_otg_phy_irq", motg);
+		ret = devm_request_irq(&pdev->dev, motg->phy_irq,
+			msm_otg_phy_irq_handler, IRQF_TRIGGER_RISING,
+			"msm_otg_phy_irq", motg);
 		if (ret < 0) {
 			dev_err(&pdev->dev, "phy_irq request fail %d\n", ret);
-			goto free_irq;
+			goto destroy_wq;
 		}
 	}
 
-	ret = request_irq(motg->async_irq, msm_otg_irq,
+	ret = devm_request_irq(&pdev->dev, motg->async_irq, msm_otg_irq,
 				IRQF_TRIGGER_RISING, "msm_otg", motg);
 	if (ret) {
 		dev_err(&pdev->dev, "request irq failed (ASYNC INT)\n");
-		goto free_phy_irq;
+		goto destroy_wq;
 	}
 	disable_irq(motg->async_irq);
 
@@ -4905,7 +4906,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	ret = usb_add_phy(&motg->phy, USB_PHY_TYPE_USB2);
 	if (ret) {
 		dev_err(&pdev->dev, "usb_add_phy failed\n");
-		goto free_async_irq;
+		goto destroy_wq;
 	}
 
 	ret = usb_phy_regulator_init(motg);
@@ -4920,12 +4921,12 @@ static int msm_otg_probe(struct platform_device *pdev)
 
 		if (gpio_is_valid(motg->pdata->usb_id_gpio)) {
 			/* usb_id_gpio request */
-			ret = gpio_request(motg->pdata->usb_id_gpio,
-							"USB_ID_GPIO");
+			ret = devm_gpio_request(&pdev->dev,
+						motg->pdata->usb_id_gpio,
+						"USB_ID_GPIO");
 			if (ret < 0) {
 				dev_err(&pdev->dev, "gpio req failed for id\n");
-				motg->pdata->usb_id_gpio = 0;
-				goto remove_phy;
+				goto phy_reg_deinit;
 			}
 
 			/*
@@ -4942,7 +4943,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 						"qcom,hub-reset-gpio");
 				if (ret < 0) {
 					dev_err(&pdev->dev, "gpio req failed for hub reset\n");
-					goto remove_phy;
+					goto phy_reg_deinit;
 				}
 				gpio_direction_output(
 					motg->pdata->hub_reset_gpio, 1);
@@ -4954,7 +4955,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 						"qcom,sw-sel-gpio");
 				if (ret < 0) {
 					dev_err(&pdev->dev, "gpio req failed for switch sel\n");
-					goto remove_phy;
+					goto phy_reg_deinit;
 				}
 				if (gpio_get_value(motg->pdata->usb_id_gpio))
 					gpio_direction_input(
@@ -4974,14 +4975,14 @@ static int msm_otg_probe(struct platform_device *pdev)
 		}
 
 		if (id_irq) {
-			ret = request_irq(id_irq,
+			ret = devm_request_irq(&pdev->dev, id_irq,
 					  msm_id_irq,
 					  IRQF_TRIGGER_RISING |
 					  IRQF_TRIGGER_FALLING,
 					  "msm_otg", motg);
 			if (ret) {
 				dev_err(&pdev->dev, "request irq failed for ID\n");
-				goto remove_phy;
+				goto phy_reg_deinit;
 			}
 		} else {
 			/* PMIC does USB ID detection and notifies through
@@ -5122,21 +5123,17 @@ otg_remove_devices:
 	if (pdev->dev.of_node)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 remove_cdev:
-	if (!motg->ext_chg_device) {
+	if (motg->ext_chg_device) {
 		device_destroy(motg->ext_chg_class, motg->ext_chg_dev);
 		cdev_del(&motg->ext_chg_cdev);
 		class_destroy(motg->ext_chg_class);
 		unregister_chrdev_region(motg->ext_chg_dev, 1);
 	}
+	pm_runtime_disable(&pdev->dev);
+phy_reg_deinit:
+	devm_regulator_unregister(motg->phy.dev, motg->dpdm_rdev);
 remove_phy:
 	usb_remove_phy(&motg->phy);
-free_async_irq:
-	free_irq(motg->async_irq, motg);
-free_phy_irq:
-	if (motg->phy_irq)
-		free_irq(motg->phy_irq, motg);
-free_irq:
-	free_irq(motg->irq, motg);
 destroy_wq:
 	destroy_workqueue(motg->otg_wq);
 disable_core_clk:
@@ -5202,7 +5199,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	extcon_unregister_notifier(motg->extcon_vbus, EXTCON_USB,
 							&motg->vbus_nb);
 
-	if (!motg->ext_chg_device) {
+	if (motg->ext_chg_device) {
 		device_destroy(motg->ext_chg_class, motg->ext_chg_dev);
 		cdev_del(&motg->ext_chg_cdev);
 		class_destroy(motg->ext_chg_class);
@@ -5226,12 +5223,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
 
-	if (motg->phy_irq)
-		free_irq(motg->phy_irq, motg);
-	if (motg->pdata->pmic_id_irq)
-		free_irq(motg->pdata->pmic_id_irq, motg);
 	usb_remove_phy(phy);
-	free_irq(motg->irq, motg);
 
 	device_remove_file(&pdev->dev, &dev_attr_dpdm_pulldown_enable);
 
