@@ -1,0 +1,59 @@
+GENI based Qualcomm Universal Peripheral (QUP) Serial Peripheral Interface (SPI)
+
+The QUP v3 core is a GENI based AHB slave that provides a common data path
+(an output FIFO and an input FIFO) for serial peripheral interface (SPI)
+mini-core.
+
+SPI in master mode supports up to 50MHz, up to four chip selects, programmable
+data path from 4 bits to 32 bits and numerous protocol variants.
+
+Required properties:
+- compatible:	  Should contain "qcom,spi-geni"
+- reg:		  Should contain base register location and length
+- interrupts:	  Interrupt number used by this controller
+- clocks:	  Should contain the core clock and the AHB clock.
+- clock-names:	  Should be "core" for the core clock and "iface" for the
+		  AHB clock.
+- pinctrl-names:  Property should contain "default" and "sleep" for the
+		  pin configurations during the usecase and during idle.
+- pinctrl-x:	  phandle to the default/sleep pin configurations.
+- #address-cells: Number of cells required to define a chip select
+		  address on the SPI bus. Should be set to 1.
+- #size-cells:	  Should be zero.
+- spi-max-frequency: Specifies maximum SPI clock frequency,
+		     Units - Hz. Definition as per
+		     Documentation/devicetree/bindings/spi/spi-bus.txt
+- qcom,wrapper-core: Wrapper QUPv3 core containing this SPI controller.
+
+Optional properties:
+- qcom,rt:	Specifies if the framework worker thread for this
+		controller device should have "real-time" priority.
+
+SPI slave nodes must be children of the SPI master node and can contain
+properties described in Documentation/devicetree/bindings/spi/spi-bus.txt
+
+Example:
+
+	qupv3_spi10: spi@a84000 {
+		compatible = "qcom,spi-geni";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0xa84000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qup_1_spi_2_active>;
+		pinctrl-1 = <&qup_1_spi_2_sleep>;
+		interrupts = <GIC_SPI 354 0>;
+		spi-max-frequency = <19200000>;
+		qcom,wrapper-core = <&qupv3_0>;
+
+		dev@0 {
+			compatible = "dummy,slave";
+			reg = <0>;
+			spi-max-frequency = <9600000>;
+		};
+	};
