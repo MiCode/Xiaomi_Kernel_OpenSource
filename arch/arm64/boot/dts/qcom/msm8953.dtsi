@@ -167,6 +167,7 @@
 #include "msm8953-gpu.dtsi"
 #include "msm8953-mdss.dtsi"
 #include "msm8953-mdss-pll.dtsi"
+#include "msm8953-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
