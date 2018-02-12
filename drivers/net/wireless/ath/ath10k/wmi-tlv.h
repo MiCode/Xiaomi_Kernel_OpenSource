@@ -322,6 +322,7 @@ enum wmi_tlv_event_id {
 	WMI_TLV_TBTTOFFSET_UPDATE_EVENTID,
 	WMI_TLV_OFFLOAD_BCN_TX_STATUS_EVENTID,
 	WMI_TLV_OFFLOAD_PROB_RESP_TX_STATUS_EVENTID,
+	WMI_TLV_MGMT_TX_COMPLETION_EVENTID,
 	WMI_TLV_TX_DELBA_COMPLETE_EVENTID = WMI_TLV_EV(WMI_TLV_GRP_BA_NEG),
 	WMI_TLV_TX_ADDBA_COMPLETE_EVENTID,
 	WMI_TLV_BA_RSP_SSN_EVENTID,
@@ -898,6 +899,7 @@ enum wmi_tlv_tag {
 	WMI_TLV_TAG_STRUCT_HL_1_0_SVC_OFFSET = 176,
 
 	WMI_TLV_TAG_STRUCT_MGMT_TX_CMD = 0x1A6,
+	WMI_TLV_TAG_STRUCT_MGMT_TX_COMPL,
 	WMI_TLV_TAG_STRUCT_PEER_DELETE_RESP_EVENT = 0x1C3,
 
 	WMI_TLV_TAG_MAX
@@ -1185,6 +1187,17 @@ struct wmi_tlv {
 	__le16 tag;
 	u8 value[0];
 } __packed;
+
+struct ath10k_mgmt_tx_pkt_addr {
+	void *vaddr;
+	dma_addr_t paddr;
+};
+
+struct wmi_tlv_mgmt_tx_compl_ev {
+	__le32 desc_id;
+	__le32 status;
+	__le32 pdev_id;
+};
 
 #define WMI_TLV_MGMT_RX_NUM_RSSI 4
 
