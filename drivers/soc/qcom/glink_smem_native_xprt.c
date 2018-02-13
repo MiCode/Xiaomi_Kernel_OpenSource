@@ -216,7 +216,6 @@ struct edge_info {
 	bool tx_blocked_signal_sent;
 	struct kthread_work kwork;
 	struct kthread_worker kworker;
-	struct work_struct wakeup_work;
 	struct task_struct *task;
 	struct tasklet_struct tasklet;
 	struct srcu_struct use_ref;
@@ -854,6 +853,39 @@ static bool get_rx_fifo(struct edge_info *einfo)
 }
 
 /**
+ * tx_wakeup_worker() - worker function to wakeup tx blocked thread
+ * @work:	kwork associated with the edge to process commands on.
+ */
+static void tx_wakeup_worker(struct edge_info *einfo)
+{
+	struct glink_transport_if xprt_if = einfo->xprt_if;
+	bool trigger_wakeup = false;
+	bool trigger_resume = false;
+	unsigned long flags;
+
+	if (einfo->in_ssr)
+		return;
+
+	spin_lock_irqsave(&einfo->write_lock, flags);
+	if (fifo_write_avail(einfo)) {
+		if (einfo->tx_blocked_signal_sent)
+			einfo->tx_blocked_signal_sent = false;
+		if (einfo->tx_resume_needed) {
+			einfo->tx_resume_needed = false;
+			trigger_resume = true;
+		}
+	}
+	if (waitqueue_active(&einfo->tx_blocked_queue)) { /* tx waiting ?*/
+		trigger_wakeup = true;
+	}
+	spin_unlock_irqrestore(&einfo->write_lock, flags);
+	if (trigger_wakeup)
+		wake_up_all(&einfo->tx_blocked_queue);
+	if (trigger_resume)
+		xprt_if.glink_core_if_ptr->tx_resume(&xprt_if);
+}
+
+/**
  * __rx_worker() - process received commands on a specific edge
  * @einfo:	Edge to process commands on.
  * @atomic_ctx:	Indicates if the caller is in atomic context and requires any
@@ -903,7 +935,7 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 
 	if ((atomic_ctx) && ((einfo->tx_resume_needed) ||
 		(waitqueue_active(&einfo->tx_blocked_queue)))) /* tx waiting ?*/
-		schedule_work(&einfo->wakeup_work);
+		tx_wakeup_worker(einfo);
 
 	/*
 	 * Access to the fifo needs to be synchronized, however only the calls
@@ -1208,39 +1240,6 @@ static void rx_worker_atomic(unsigned long param)
 	struct edge_info *einfo = (struct edge_info *)param;
 
 	__rx_worker(einfo, true);
-}
-
-/**
- * tx_wakeup_worker() - worker function to wakeup tx blocked thread
- * @work:	kwork associated with the edge to process commands on.
- */
-static void tx_wakeup_worker(struct work_struct *work)
-{
-	struct edge_info *einfo;
-	bool trigger_wakeup = false;
-	unsigned long flags;
-	int rcu_id;
-
-	einfo = container_of(work, struct edge_info, wakeup_work);
-	rcu_id = srcu_read_lock(&einfo->use_ref);
-	if (einfo->in_ssr) {
-		srcu_read_unlock(&einfo->use_ref, rcu_id);
-		return;
-	}
-	if (einfo->tx_resume_needed && fifo_write_avail(einfo)) {
-		einfo->tx_resume_needed = false;
-		einfo->xprt_if.glink_core_if_ptr->tx_resume(
-						&einfo->xprt_if);
-	}
-	spin_lock_irqsave(&einfo->write_lock, flags);
-	if (waitqueue_active(&einfo->tx_blocked_queue)) { /* tx waiting ?*/
-		einfo->tx_blocked_signal_sent = false;
-		trigger_wakeup = true;
-	}
-	spin_unlock_irqrestore(&einfo->write_lock, flags);
-	if (trigger_wakeup)
-		wake_up_all(&einfo->tx_blocked_queue);
-	srcu_read_unlock(&einfo->use_ref, rcu_id);
 }
 
 /**
@@ -2425,7 +2424,6 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 	init_waitqueue_head(&einfo->tx_blocked_queue);
 	kthread_init_work(&einfo->kwork, rx_worker);
 	kthread_init_worker(&einfo->kworker);
-	INIT_WORK(&einfo->wakeup_work, tx_wakeup_worker);
 	tasklet_init(&einfo->tasklet, rx_worker_atomic, (unsigned long)einfo);
 	einfo->read_from_fifo = read_from_fifo;
 	einfo->write_to_fifo = write_to_fifo;
@@ -2541,7 +2539,6 @@ request_irq_fail:
 reg_xprt_fail:
 smem_alloc_fail:
 	kthread_flush_worker(&einfo->kworker);
-	flush_work(&einfo->wakeup_work);
 	kthread_stop(einfo->task);
 	einfo->task = NULL;
 	tasklet_kill(&einfo->tasklet);
@@ -2629,7 +2626,6 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 	init_waitqueue_head(&einfo->tx_blocked_queue);
 	kthread_init_work(&einfo->kwork, rx_worker);
 	kthread_init_worker(&einfo->kworker);
-	INIT_WORK(&einfo->wakeup_work, tx_wakeup_worker);
 	tasklet_init(&einfo->tasklet, rx_worker_atomic, (unsigned long)einfo);
 	einfo->intentless = true;
 	einfo->read_from_fifo = memcpy32_fromio;
@@ -2790,7 +2786,6 @@ request_irq_fail:
 reg_xprt_fail:
 toc_init_fail:
 	kthread_flush_worker(&einfo->kworker);
-	flush_work(&einfo->wakeup_work);
 	kthread_stop(einfo->task);
 	einfo->task = NULL;
 	tasklet_kill(&einfo->tasklet);
@@ -2922,7 +2917,6 @@ static int glink_mailbox_probe(struct platform_device *pdev)
 	init_waitqueue_head(&einfo->tx_blocked_queue);
 	kthread_init_work(&einfo->kwork, rx_worker);
 	kthread_init_worker(&einfo->kworker);
-	INIT_WORK(&einfo->wakeup_work, tx_wakeup_worker);
 	tasklet_init(&einfo->tasklet, rx_worker_atomic, (unsigned long)einfo);
 	einfo->read_from_fifo = read_from_fifo;
 	einfo->write_to_fifo = write_to_fifo;
@@ -3043,7 +3037,6 @@ request_irq_fail:
 reg_xprt_fail:
 smem_alloc_fail:
 	kthread_flush_worker(&einfo->kworker);
-	flush_work(&einfo->wakeup_work);
 	kthread_stop(einfo->task);
 	einfo->task = NULL;
 	tasklet_kill(&einfo->tasklet);
