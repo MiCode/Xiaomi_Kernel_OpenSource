@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,9 +59,11 @@
 #define TSENS_TM_SCALE_DECI_MILLIDEG		100
 #define TSENS_DEBUG_WDOG_TRIGGER_COUNT		5
 #define TSENS_TM_WATCHDOG_LOG(n)		((n) + 0x13c)
-
 #define TSENS_EN				BIT(0)
 #define TSENS_CTRL_SENSOR_EN_MASK(n)		((n >> 3) & 0xffff)
+#define TSENS_TM_TRDY(n)			((n) + 0xe4)
+#define TSENS_TM_TRDY_FIRST_ROUND_COMPLETE	BIT(3)
+#define TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT	3
 
 static void msm_tsens_convert_temp(int last_temp, int *temp)
 {
@@ -79,7 +81,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 {
 	struct tsens_device *tmdev = NULL;
 	unsigned int code;
-	void __iomem *sensor_addr;
+	void __iomem *sensor_addr, *trdy;
 	int last_temp = 0, last_temp2 = 0, last_temp3 = 0;
 
 	if (!sensor)
@@ -87,6 +89,14 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	tmdev = sensor->tmdev;
 	sensor_addr = TSENS_TM_SN_STATUS(tmdev->tsens_tm_addr);
+	trdy = TSENS_TM_TRDY(tmdev->tsens_tm_addr);
+
+	code = readl_relaxed_no_log(trdy);
+	if (!((code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) >>
+			TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT)) {
+		pr_err("TSENS device first round not complete0x%x\n", code);
+		return -ENODATA;
+	}
 
 	code = readl_relaxed_no_log(sensor_addr +
 			(sensor->hw_id << TSENS_STATUS_ADDR_OFFSET));
