@@ -581,8 +581,9 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl);
 /**
  * dsi_display_check_status() - check if panel is dead or alive
  * @display:            Handle to display.
+ * @te_check_override:	Whether check for TE from panel or default check
  */
-int dsi_display_check_status(void *display);
+int dsi_display_check_status(void *display, bool te_check_override);
 
 /**
  * dsi_display_cmd_transfer() - transfer command to the panel
