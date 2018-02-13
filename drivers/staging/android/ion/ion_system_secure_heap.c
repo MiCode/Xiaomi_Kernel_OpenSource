@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/workqueue.h>
 #include <linux/uaccess.h>
+#include <linux/kernel.h>
 
 #include "ion_system_secure_heap.h"
 #include "ion_system_heap.h"
@@ -37,7 +38,7 @@ struct ion_system_secure_heap {
 struct prefetch_info {
 	struct list_head list;
 	int vmid;
-	size_t size;
+	u64 size;
 	bool shrink;
 };
 
@@ -171,7 +172,7 @@ static void process_one_shrink(struct ion_heap *sys_heap,
 
 	pool_size = ion_system_secure_heap_page_pool_total(sys_heap,
 							   info->vmid);
-	size = min(pool_size, info->size);
+	size = min_t(size_t, pool_size, info->size);
 	ret = sys_heap->ops->allocate(sys_heap, &buffer, size, buffer.flags);
 	if (ret) {
 		pr_debug("%s: Failed to shrink 0x%zx, ret = %d\n",
@@ -214,7 +215,7 @@ static int alloc_prefetch_info(
 			bool shrink, struct list_head *items)
 {
 	struct prefetch_info *info;
-	size_t __user *user_sizes;
+	u64 __user *user_sizes;
 	int err;
 	unsigned int nr_sizes, vmid, i;
 

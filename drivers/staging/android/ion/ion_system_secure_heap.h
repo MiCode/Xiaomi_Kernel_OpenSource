@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,19 +14,6 @@
 
 #ifndef _ION_SYSTEM_SECURE_HEAP_H
 #define _ION_SYSTEM_SECURE_HEAP_H
-
-struct ion_prefetch_regions {
-	unsigned int vmid;
-	size_t __user *sizes;
-	unsigned int nr_sizes;
-};
-
-struct ion_prefetch_data {
-	int heap_id;
-	unsigned long len;
-	struct ion_prefetch_regions __user *regions;
-	unsigned int nr_regions;
-};
 
 int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *data);
 int ion_system_secure_heap_drain(struct ion_heap *heap, void *data);
