@@ -3518,6 +3518,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->no_vbus_vote_type_c = of_property_read_bool(node,
 					"qcom,no-vbus-vote-with-type-C");
 
+	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Mark type-C as true by default */
 	mdwc->type_c = true;
 
@@ -3543,7 +3544,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_psy;
 
-	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_state(mdwc->extcon_vbus,
 							EXTCON_USB))
