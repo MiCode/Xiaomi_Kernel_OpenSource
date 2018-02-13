@@ -160,6 +160,37 @@ static inline bool guest_cpuid_has_rdtscp(struct kvm_vcpu *vcpu)
 	return best && (best->edx & bit(X86_FEATURE_RDTSCP));
 }
 
+static inline bool guest_cpuid_has_ibpb(struct kvm_vcpu *vcpu)
+{
+	struct kvm_cpuid_entry2 *best;
+
+	best = kvm_find_cpuid_entry(vcpu, 0x80000008, 0);
+	if (best && (best->ebx & bit(X86_FEATURE_IBPB)))
+		return true;
+	best = kvm_find_cpuid_entry(vcpu, 7, 0);
+	return best && (best->edx & bit(X86_FEATURE_SPEC_CTRL));
+}
+
+static inline bool guest_cpuid_has_ibrs(struct kvm_vcpu *vcpu)
+{
+	struct kvm_cpuid_entry2 *best;
+
+	best = kvm_find_cpuid_entry(vcpu, 0x80000008, 0);
+	if (best && (best->ebx & bit(X86_FEATURE_IBRS)))
+		return true;
+	best = kvm_find_cpuid_entry(vcpu, 7, 0);
+	return best && (best->edx & bit(X86_FEATURE_SPEC_CTRL));
+}
+
+static inline bool guest_cpuid_has_arch_capabilities(struct kvm_vcpu *vcpu)
+{
+	struct kvm_cpuid_entry2 *best;
+
+	best = kvm_find_cpuid_entry(vcpu, 7, 0);
+	return best && (best->edx & bit(X86_FEATURE_ARCH_CAPABILITIES));
+}
+
+
 /*
  * NRIPS is provided through cpuidfn 0x8000000a.edx bit 3
  */
