@@ -3012,6 +3012,10 @@ sub process {
 			} elsif ($line =~ /^\+.*\bEFI_GUID\s*\(/) {
 				$msg_type = "";
 
+			# Long copyright statements are another special case
+			} elsif ($rawline =~ /^\+.\*.*copyright.*\(c\).*$/i) {
+				$msg_type = "";
+
 			# Otherwise set the alternate message types
 
 			# a comment starts before $max_line_length
