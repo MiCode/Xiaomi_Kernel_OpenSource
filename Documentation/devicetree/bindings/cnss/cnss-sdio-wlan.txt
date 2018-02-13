@@ -1,0 +1,57 @@
+* Qualcomm Technologies, Inc. Connectivity SubSystem Platform Driver
+
+This platform driver adds support for the CNSS subsystem used for SDIO
+based Wi-Fi devices. It also adds support to manage two 1.8V voltage
+regulators and WLAN power enable 3.3V regulators. The main purpose of this
+device tree entry below is to invoke the CNSS SDIO platform driver
+and provide handle to the WLAN power enable 3.3V pmic GPIO and two 1.8V
+PMIC voltage regulator resources.
+
+Required properties:
+  - compatible: "qcom,cnss_sdio"
+  - reg: memory resource to save firmware dump, optional.
+  - reg-names: memory resource name.
+  - subsys-name: cnss sdio subsytem device name, required.
+  - vdd-wlan-supply: phandle to the WLAN vdd regulator device tree node.
+  - vdd-wlan-dsrc-supply: phandle to the WLAN dsrc vdd regulator device tree node.
+  - vdd-wlan-io-supply: phandle to the WLAN IO regulator device tree node.
+  - vdd-wlan-xtal-supply: phandle to the WLAM XTAL regulator device tree node.
+
+Optional properties:
+  - pinctrl-names: Names corresponding to the numbered pinctrl states
+  - pinctrl-<n>: Pinctrl states as described in
+                bindings/pinctrl/pinctrl-bindings.txt
+  - qcom,is-antenna-shared: Enabled for Platforms with both sdio and pcie QCA
+                           Chipsets are attached.
+  - qcom,cnss-enable-bus-bandwidth: Boolean - Define this property when target
+					support to vote for bus bandwidth.
+  - qcom,msm-bus,name: client name for msm bus register.
+  - qcom,msm-bus,num-cases: number of cases for bus scaling.
+  - qcom,msm-bus,num-paths: number of paths for bus scale vector.
+  - qcom,msm-bus,vectors-KBps: bus scale vector table.
+  - qcom,skip-wlan-en-toggle: Boolean property to be enabled for platforms where
+                           wlan_en toggling is not supported.
+Example:
+	qcom,cnss-sdio {
+		compatible = "qcom,cnss_sdio";
+		reg = <0x87a00000, 0x200000>;
+		reg-names = "ramdump";
+		subsys-name = "AR6320";
+		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-dsrc-supply = <&sdcard_ext_vreg>;
+		vdd-wlan-io-supply = <&mdm9607_l11>;
+		vdd-wlan-xtal-supply = <&mdm9607_l2>;
+		qcom,is-antenna-shared;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&cnss_sdio_active>;
+		pinctrl-1 = <&cnss_sdio_sleep>;
+		qcom,cnss-enable-bus-bandwidth;
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<79 512 0 0>,			/* No vote */
+				<79 512 6250 200000>,		/* 50 Mbps */
+				<79 512 25000 200000>,		/* 200 Mbps */
+				<79 512 2048000 4096000>;	/* MAX */
+	};
