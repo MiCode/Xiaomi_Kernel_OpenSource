@@ -581,8 +581,10 @@ int dsi_display_set_backlight(struct drm_connector *connector,
  * dsi_display_check_status() - check if panel is dead or alive
  * @connector:          Pointer to drm connector structure
  * @display:            Handle to display.
+ * @te_check_override:	Whether check for TE from panel or default check
  */
-int dsi_display_check_status(struct drm_connector *connector, void *display);
+int dsi_display_check_status(struct drm_connector *connector, void *display,
+				bool te_check_override);
 
 /**
  * dsi_display_cmd_transfer() - transfer command to the panel
