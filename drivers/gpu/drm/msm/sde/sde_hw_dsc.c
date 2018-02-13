@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,9 @@
 #define DSC_RANGE_MIN_QP                0x074
 #define DSC_RANGE_MAX_QP                0x0B0
 #define DSC_RANGE_BPG_OFFSET            0x0EC
+
+#define DSC_CTL(m)     \
+	(((m == DSC_NONE) || (m >= DSC_MAX)) ? 0 : (0x1800 - 0x3FC * (m - 1)))
 
 static void sde_hw_dsc_disable(struct sde_hw_dsc *dsc)
 {
@@ -171,6 +174,29 @@ static void sde_hw_dsc_config_thresh(struct sde_hw_dsc *hw_dsc,
 	}
 }
 
+static void sde_hw_dsc_bind_pingpong_blk(
+		struct sde_hw_dsc *hw_dsc,
+		bool enable,
+		const enum sde_pingpong pp)
+{
+	struct sde_hw_blk_reg_map *c;
+	int mux_cfg = 0xF;
+	u32 dsc_ctl_offset;
+
+	if (!hw_dsc)
+		return;
+
+	c = &hw_dsc->hw;
+	dsc_ctl_offset = DSC_CTL(hw_dsc->idx);
+
+	if (enable)
+		mux_cfg = (pp - PINGPONG_0) & 0x7;
+
+	if (dsc_ctl_offset)
+		SDE_REG_WRITE(c, dsc_ctl_offset, mux_cfg);
+}
+
+
 static struct sde_dsc_cfg *_dsc_offset(enum sde_dsc dsc,
 		struct sde_mdss_cfg *m,
 		void __iomem *addr,
@@ -193,11 +219,13 @@ static struct sde_dsc_cfg *_dsc_offset(enum sde_dsc dsc,
 }
 
 static void _setup_dsc_ops(struct sde_hw_dsc_ops *ops,
-		unsigned long cap)
+		unsigned long features)
 {
 	ops->dsc_disable = sde_hw_dsc_disable;
 	ops->dsc_config = sde_hw_dsc_config;
 	ops->dsc_config_thresh = sde_hw_dsc_config_thresh;
+	if (test_bit(SDE_DSC_OUTPUT_CTRL, &features))
+		ops->bind_pingpong_blk = sde_hw_dsc_bind_pingpong_blk;
 };
 
 static struct sde_hw_blk_ops sde_hw_ops = {

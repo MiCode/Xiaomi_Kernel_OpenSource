@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,6 +108,7 @@ enum sde_hw_blk_type {
 	SDE_HW_BLK_WB,
 	SDE_HW_BLK_DSC,
 	SDE_HW_BLK_ROT,
+	SDE_HW_BLK_MERGE_3D,
 	SDE_HW_BLK_MAX,
 };
 
@@ -205,6 +206,7 @@ enum sde_pingpong {
 	PINGPONG_2,
 	PINGPONG_3,
 	PINGPONG_4,
+	PINGPONG_5,
 	PINGPONG_S0,
 	PINGPONG_MAX
 };
@@ -272,6 +274,8 @@ enum sde_cwb {
 	CWB_1,
 	CWB_2,
 	CWB_3,
+	CWB_4,
+	CWB_5,
 	CWB_MAX
 };
 
@@ -309,6 +313,13 @@ enum sde_inline_rot {
 	INLINE_ROT0_SSPP,
 	INLINE_ROT0_WB,
 	INLINE_ROT_MAX
+};
+
+enum sde_merge_3d {
+	MERGE_3D_0 = 1,
+	MERGE_3D_1,
+	MERGE_3D_2,
+	MERGE_3D_MAX
 };
 
 /**

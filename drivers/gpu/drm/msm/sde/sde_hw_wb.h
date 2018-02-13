@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,6 +127,16 @@ struct sde_hw_wb_ops {
 	 */
 	void (*setup_cdp)(struct sde_hw_wb *ctx,
 			struct sde_hw_wb_cdp_cfg *cfg);
+
+	/**
+	 * bind_pingpong_blk - enable/disable the connection with pp
+	 * @ctx: Pointer to wb context
+	 * @enable: enable/disable connection
+	 * @pp: pingpong blk id
+	 */
+	void (*bind_pingpong_blk)(struct sde_hw_wb *ctx,
+			bool enable,
+			const enum sde_pingpong pp);
 };
 
 /**

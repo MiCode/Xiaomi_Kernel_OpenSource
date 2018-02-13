@@ -1469,11 +1469,10 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct sde_hw_mixer *lm;
 	struct sde_hw_stage_cfg *stage_cfg;
 	struct sde_rect plane_crtc_roi;
-
-	u32 flush_mask, flush_sbuf, prefill;
+	uint32_t prefill;
 	uint32_t stage_idx, lm_idx;
 	int zpos_cnt[SDE_STAGE_MAX + 1] = { 0 };
-	int i;
+	int i, rot_id = 0;
 	bool bg_alpha_enable = false;
 
 	if (!sde_crtc || !crtc->state || !mixer) {
@@ -1487,9 +1486,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	cstate = to_sde_crtc_state(crtc->state);
 
 	cstate->sbuf_prefill_line = _sde_crtc_calc_inline_prefill(crtc);
-	sde_crtc->sbuf_flush_mask_old = sde_crtc->sbuf_flush_mask_all;
-	sde_crtc->sbuf_flush_mask_all = 0x0;
-	sde_crtc->sbuf_flush_mask_delta = 0x0;
+	sde_crtc->sbuf_rot_id_old = sde_crtc->sbuf_rot_id;
+	sde_crtc->sbuf_rot_id = 0x0;
+	sde_crtc->sbuf_rot_id_delta = 0x0;
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		state = plane->state;
@@ -1509,13 +1508,16 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		if (prefill)
 			cstate->sbuf_prefill_line = prefill;
 
-		sde_plane_get_ctl_flush(plane, ctl, &flush_mask, &flush_sbuf);
+		sde_plane_ctl_flush(plane, ctl, true);
+		rot_id = sde_plane_get_sbuf_id(plane);
 
-		/* save sbuf flush value for later */
+		/* save sbuf id for later */
 		if (old_state && drm_atomic_get_existing_plane_state(
-					old_state->state, plane))
-			sde_crtc->sbuf_flush_mask_delta |= flush_sbuf;
-		sde_crtc->sbuf_flush_mask_all |= flush_sbuf;
+					old_state->state, plane) &&
+				!sde_crtc->sbuf_rot_id_old)
+			sde_crtc->sbuf_rot_id_delta = rot_id;
+		if (!sde_crtc->sbuf_rot_id)
+			sde_crtc->sbuf_rot_id = rot_id;
 
 		SDE_DEBUG("crtc %d stage:%d - plane %d sspp %d fb %d\n",
 				crtc->base.id,
@@ -1539,7 +1541,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->src_w >> 16, state->src_h >> 16,
 				state->crtc_x, state->crtc_y,
 				state->crtc_w, state->crtc_h,
-				flush_sbuf != 0);
+				rot_id != 0);
 
 		stage_idx = zpos_cnt[pstate->stage]++;
 		stage_cfg->stage[pstate->stage][stage_idx] =
@@ -1556,7 +1558,6 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
 			_sde_crtc_setup_blend_cfg(mixer + lm_idx, pstate,
 								format);
-			mixer[lm_idx].flush_mask |= flush_mask;
 
 			if (bg_alpha_enable && !format->alpha_enable)
 				mixer[lm_idx].mixer_op_mode = 0;
@@ -1653,6 +1654,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc,
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
+	struct sde_ctl_flush_cfg cfg = {0,};
 
 	int i;
 
@@ -1676,7 +1678,6 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc,
 			return;
 		}
 		mixer[i].mixer_op_mode = 0;
-		mixer[i].flush_mask = 0;
 		if (mixer[i].hw_ctl->ops.clear_all_blendstages)
 			mixer[i].hw_ctl->ops.clear_all_blendstages(
 					mixer[i].hw_ctl);
@@ -1711,18 +1712,15 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc,
 
 		lm->ops.setup_alpha_out(lm, mixer[i].mixer_op_mode);
 
-		mixer[i].pipe_mask = mixer[i].flush_mask;
-		mixer[i].flush_mask |= ctl->ops.get_bitmask_mixer(ctl,
-			mixer[i].hw_lm->idx);
-
 		/* stage config flush mask */
-		ctl->ops.update_pending_flush(ctl, mixer[i].flush_mask);
+		ctl->ops.update_bitmask_mixer(ctl, mixer[i].hw_lm->idx, 1);
+		ctl->ops.get_pending_flush(ctl, &cfg);
 
 		SDE_DEBUG("lm %d, op_mode 0x%X, ctl %d, flush mask 0x%x\n",
 			mixer[i].hw_lm->idx - LM_0,
 			mixer[i].mixer_op_mode,
 			ctl->idx - CTL_0,
-			mixer[i].flush_mask);
+			cfg.pending_flush_mask);
 
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
 			&sde_crtc->stage_cfg);
@@ -2199,7 +2197,7 @@ static void _sde_crtc_dest_scaler_setup(struct drm_crtc *crtc)
 	struct sde_hw_ds *hw_ds;
 	struct sde_hw_ds_cfg *cfg;
 	struct sde_kms *kms;
-	u32 flush_mask = 0, op_mode = 0;
+	u32 op_mode = 0;
 	u32 lm_idx = 0, num_mixers = 0;
 	int i, count = 0;
 	bool ds_dirty = false;
@@ -2275,14 +2273,9 @@ static void _sde_crtc_dest_scaler_setup(struct drm_crtc *crtc)
 			/*
 			 * Dest scaler shares the flush bit of the LM in control
 			 */
-			if (hw_ctl->ops.get_bitmask_mixer) {
-				flush_mask = hw_ctl->ops.get_bitmask_mixer(
-						hw_ctl, hw_lm->idx);
-				SDE_DEBUG("Set lm[%d] flush = %d",
-					hw_lm->idx, flush_mask);
-				hw_ctl->ops.update_pending_flush(hw_ctl,
-							flush_mask);
-			}
+			if (hw_ctl && hw_ctl->ops.update_bitmask_mixer)
+				hw_ctl->ops.update_bitmask_mixer(
+						hw_ctl, hw_lm->idx, 1);
 		}
 	}
 }
@@ -3479,7 +3472,7 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 	struct drm_plane *plane;
 	struct sde_crtc *sde_crtc;
 	struct sde_hw_ctl *ctl, *master_ctl;
-	u32 flush_mask;
+	enum sde_rot rot_id = SDE_NONE;
 	int i, rc = 0;
 
 	if (!crtc || !cstate)
@@ -3488,29 +3481,28 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 
 	/*
-	 * Update sbuf configuration and flush bits if either the rot_op_mode
+	 * Update sbuf configuration and flush rotator if the rot_op_mode
 	 * is different or a rotator commit was performed.
 	 *
-	 * In the case where the rot_op_mode has changed, further require that
-	 * the transition is either to or from offline mode unless
-	 * sbuf_flush_mask_delta is also non-zero (i.e., a corresponding plane
-	 * update was provided to the current commit).
+	 * In case where the rot_op_mode has changed, further require that
+	 * the transition is either to or from offline mode unless corresponding
+	 * plane update was provided to current commit.
 	 */
-	flush_mask = sde_crtc->sbuf_flush_mask_delta;
+	rot_id = sde_crtc->sbuf_rot_id_delta;
 	if ((sde_crtc->sbuf_op_mode_old != cstate->sbuf_cfg.rot_op_mode) &&
 		(sde_crtc->sbuf_op_mode_old == SDE_CTL_ROT_OP_MODE_OFFLINE ||
-		cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE))
-		flush_mask |= sde_crtc->sbuf_flush_mask_all |
-			sde_crtc->sbuf_flush_mask_old;
+		 cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE))
+		rot_id |= sde_crtc->sbuf_rot_id |
+			sde_crtc->sbuf_rot_id_old;
 
-	if (!flush_mask &&
+	if (!rot_id &&
 		cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
 		return 0;
 
 	SDE_ATRACE_BEGIN("crtc_kickoff_rot");
 
 	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE &&
-			sde_crtc->sbuf_flush_mask_delta) {
+			sde_crtc->sbuf_rot_id_delta) {
 		drm_atomic_crtc_for_each_plane(plane, crtc) {
 			rc = sde_plane_kickoff_rot(plane);
 			if (rc) {
@@ -3540,8 +3532,8 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 	}
 
 	/* only update sbuf_cfg and flush for master ctl */
-	if (master_ctl && master_ctl->ops.update_pending_flush) {
-		master_ctl->ops.update_pending_flush(master_ctl, flush_mask);
+	if (master_ctl && master_ctl->ops.update_bitmask_rot) {
+		master_ctl->ops.update_bitmask_rot(master_ctl, rot_id, 1);
 
 		/* explicitly trigger rotator for async modes */
 		if (cstate->sbuf_cfg.rot_op_mode ==
@@ -3549,8 +3541,8 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 				master_ctl->ops.trigger_rot_start)
 			master_ctl->ops.trigger_rot_start(master_ctl);
 		SDE_EVT32(DRMID(crtc), master_ctl->idx - CTL_0,
-				sde_crtc->sbuf_flush_mask_all,
-				sde_crtc->sbuf_flush_mask_delta);
+				sde_crtc->sbuf_rot_id,
+				sde_crtc->sbuf_rot_id_delta);
 	}
 
 	/* save this in sde_crtc for next commit cycle */
@@ -3562,30 +3554,32 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 
 /**
  * _sde_crtc_remove_pipe_flush - remove staged pipes from flush mask
- * @sde_crtc: Pointer to sde crtc structure
+ * @crtc: Pointer to crtc structure
  */
-static void _sde_crtc_remove_pipe_flush(struct sde_crtc *sde_crtc)
+static void _sde_crtc_remove_pipe_flush(struct drm_crtc *crtc)
 {
+	struct drm_plane *plane;
+	struct drm_plane_state *state;
+	struct sde_crtc *sde_crtc;
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *ctl;
-	u32 i, n, flush_mask;
 
-	if (!sde_crtc)
+	if (!crtc)
 		return;
 
+	sde_crtc = to_sde_crtc(crtc);
 	mixer = sde_crtc->mixers;
-	n = min_t(size_t, sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
-	for (i = 0; i < n; i++) {
-		ctl = mixer[i].hw_ctl;
-		if (!ctl || !ctl->ops.get_pending_flush ||
-				!ctl->ops.clear_pending_flush ||
-				!ctl->ops.update_pending_flush)
+	if (!mixer)
+		return;
+	ctl = mixer->hw_ctl;
+
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		state = plane->state;
+		if (!state)
 			continue;
 
-		flush_mask = ctl->ops.get_pending_flush(ctl);
-		flush_mask &= ~mixer[i].pipe_mask;
-		ctl->ops.clear_pending_flush(ctl);
-		ctl->ops.update_pending_flush(ctl, flush_mask);
+		/* clear plane flush bitmask */
+		sde_plane_ctl_flush(plane, ctl, false);
 	}
 }
 
@@ -3696,7 +3690,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	/* provide safe "border color only" commit configuration for later */
 	cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
 	_sde_crtc_commit_kickoff_rot(crtc, cstate);
-	_sde_crtc_remove_pipe_flush(sde_crtc);
+	_sde_crtc_remove_pipe_flush(crtc);
 	_sde_crtc_blend_setup(crtc, old_state, false);
 
 	/* take h/w components out of reset */
@@ -3753,7 +3747,7 @@ static bool _sde_crtc_prepare_for_kickoff_rot(struct drm_device *dev,
 	cstate = to_sde_crtc_state(crtc->state);
 
 	/* default to ASYNC mode for inline rotation */
-	cstate->sbuf_cfg.rot_op_mode = sde_crtc->sbuf_flush_mask_all ?
+	cstate->sbuf_cfg.rot_op_mode = sde_crtc->sbuf_rot_id ?
 		SDE_CTL_ROT_OP_MODE_INLINE_ASYNC : SDE_CTL_ROT_OP_MODE_OFFLINE;
 
 	if (cstate->sbuf_cfg.rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
@@ -3897,7 +3891,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	sde_vbif_clear_errors(sde_kms);
 
 	if (is_error) {
-		_sde_crtc_remove_pipe_flush(sde_crtc);
+		_sde_crtc_remove_pipe_flush(crtc);
 		_sde_crtc_blend_setup(crtc, old_state, false);
 	}
 

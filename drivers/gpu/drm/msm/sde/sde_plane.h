@@ -212,14 +212,13 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
 		const struct drm_plane_state *state);
 
 /**
- * sde_plane_get_ctl_flush - get control flush mask
+ * sde_plane_ctl_flush - set/clear control flush mask
  * @plane:   Pointer to DRM plane object
  * @ctl: Pointer to control hardware
- * @flush_sspp: Pointer to sspp flush control word
- * @flush_rot: Pointer to rotator flush control word
+ * @set: set if true else clear
  */
-void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
-		u32 *flush_sspp, u32 *flush_rot);
+void sde_plane_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
+		bool set);
 
 /**
  * sde_plane_rot_get_prefill - calculate rotator start prefill
@@ -333,5 +332,13 @@ void sde_plane_set_revalidate(struct drm_plane *plane, bool enable);
  */
 int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
 		struct drm_plane_state *plane_state);
+
+/**
+ * sde_plane_get_sbuf_id - returns the hw_rot id if sspp of given plane is
+ *                           in streaming buffer mode
+ * @plane: pointer to drm plane
+ * return: sde_rot if sspp is in stream buffer mode
+ */
+int sde_plane_get_sbuf_id(struct drm_plane *plane);
 
 #endif /* _SDE_PLANE_H_ */

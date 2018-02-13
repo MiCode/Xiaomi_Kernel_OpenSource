@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -813,7 +813,6 @@ void sde_setup_dspp_pa_vlut_v1_8(struct sde_hw_dspp *ctx, void *cfg)
 	u32 ctrl_off, swap_off;
 	u32 tmp = 0;
 	int i = 0, j = 0;
-	u32 flush_mask = 0;
 
 	if (!ctx) {
 		DRM_ERROR("invalid input parameter NULL ctx\n");
@@ -853,11 +852,8 @@ void sde_setup_dspp_pa_vlut_v1_8(struct sde_hw_dspp *ctx, void *cfg)
 
 exit:
 	/* update flush bit */
-	if (ctl && ctl->ops.get_bitmask_dspp_pavlut) {
-		ctl->ops.get_bitmask_dspp_pavlut(ctl, &flush_mask, ctx->idx);
-		if (ctl->ops.update_pending_flush)
-			ctl->ops.update_pending_flush(ctl, flush_mask);
-	}
+	if (ctl && ctl->ops.update_bitmask_dspp_pavlut)
+		ctl->ops.update_bitmask_dspp_pavlut(ctl, ctx->idx, 1);
 }
 
 void sde_setup_dspp_gc_v1_7(struct sde_hw_dspp *ctx, void *cfg)

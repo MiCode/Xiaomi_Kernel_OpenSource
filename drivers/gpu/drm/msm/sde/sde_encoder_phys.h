@@ -236,6 +236,7 @@ struct sde_encoder_irq {
  * @parent_ops:		Callbacks exposed by the parent to the phys_enc
  * @hw_mdptop:		Hardware interface to the top registers
  * @hw_ctl:		Hardware interface to the ctl registers
+ * @hw_intf:		Hardware interface to INTF registers
  * @hw_cdm:		Hardware interface to the cdm registers
  * @cdm_cfg:		Chroma-down hardware configuration
  * @hw_pp:		Hardware interface to the ping pong registers
@@ -245,6 +246,9 @@ struct sde_encoder_irq {
  * @split_role:		Role to play in a split-panel configuration
  * @intf_mode:		Interface mode
  * @intf_idx:		Interface index on sde hardware
+ * @intf_cfg:		Interface hardware configuration
+ * @intf_cfg_v1:        Interface hardware configuration to be used if control
+ *                      path supports SDE_CTL_ACTIVE_CFG
  * @comp_type:      Type of compression supported
  * @enc_spinlock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  * @enable_state:	Enable state tracking
@@ -269,6 +273,7 @@ struct sde_encoder_phys {
 	struct sde_encoder_virt_ops parent_ops;
 	struct sde_hw_mdp *hw_mdptop;
 	struct sde_hw_ctl *hw_ctl;
+	struct sde_hw_intf *hw_intf;
 	struct sde_hw_cdm *hw_cdm;
 	struct sde_hw_cdm_cfg cdm_cfg;
 	struct sde_hw_pingpong *hw_pp;
@@ -277,6 +282,8 @@ struct sde_encoder_phys {
 	enum sde_enc_split_role split_role;
 	enum sde_intf_mode intf_mode;
 	enum sde_intf intf_idx;
+	struct sde_hw_intf_cfg intf_cfg;
+	struct sde_hw_intf_cfg_v1 intf_cfg_v1;
 	enum msm_display_compression_type comp_type;
 	spinlock_t *enc_spinlock;
 	enum sde_enc_enable_state enable_state;
@@ -300,7 +307,6 @@ static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
  * struct sde_encoder_phys_vid - sub-class of sde_encoder_phys to handle video
  *	mode specific operations
  * @base:	Baseclass physical encoder structure
- * @hw_intf:	Hardware interface to the intf registers
  * @timing_params: Current timing parameter
  * @rot_fetch:	Prefill for inline rotation
  * @error_count: Number of consecutive kickoffs that experienced an error
@@ -308,7 +314,6 @@ static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
-	struct sde_hw_intf *hw_intf;
 	struct intf_timing_params timing_params;
 	struct intf_prog_fetch rot_fetch;
 	int error_count;
@@ -366,7 +371,6 @@ struct sde_encoder_phys_cmd {
  * @wbdone_complete:	for wbdone irq synchronization
  * @wb_cfg:		Writeback hardware configuration
  * @cdp_cfg:		Writeback CDP configuration
- * @intf_cfg:		Interface hardware configuration
  * @wb_roi:		Writeback region-of-interest
  * @wb_fmt:		Writeback pixel format
  * @wb_fb:		Pointer to current writeback framebuffer
@@ -391,7 +395,6 @@ struct sde_encoder_phys_wb {
 	struct completion wbdone_complete;
 	struct sde_hw_wb_cfg wb_cfg;
 	struct sde_hw_wb_cdp_cfg cdp_cfg;
-	struct sde_hw_intf_cfg intf_cfg;
 	struct sde_rect wb_roi;
 	const struct sde_format *wb_fmt;
 	struct drm_framebuffer *wb_fb;
@@ -592,5 +595,13 @@ int sde_encoder_helper_register_irq(struct sde_encoder_phys *phys_enc,
  */
 int sde_encoder_helper_unregister_irq(struct sde_encoder_phys *phys_enc,
 		enum sde_intr_idx intr_idx);
+
+/**
+ * sde_encoder_helper_update_intf_cfg - update interface configuration for
+ *                                      single control path.
+ * @phys_enc: Pointer to physical encoder structure
+ */
+void sde_encoder_helper_update_intf_cfg(
+		struct sde_encoder_phys *phys_enc);
 
 #endif /* __sde_encoder_phys_H__ */

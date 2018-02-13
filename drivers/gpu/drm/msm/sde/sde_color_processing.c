@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -835,7 +835,6 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 	bool set_dspp_flush = false, set_lm_flush = false;
 	struct sde_cp_node *prop_node = NULL, *n = NULL;
 	struct sde_hw_ctl *ctl;
-	uint32_t flush_mask = 0;
 	u32 num_mixers = 0, i = 0;
 
 	if (!crtc || !crtc->dev) {
@@ -892,18 +891,15 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 		ctl = sde_crtc->mixers[i].hw_ctl;
 		if (!ctl)
 			continue;
-		if (set_dspp_flush && ctl->ops.get_bitmask_dspp
+		if (set_dspp_flush && ctl->ops.update_bitmask_dspp
 				&& sde_crtc->mixers[i].hw_dspp) {
-			ctl->ops.get_bitmask_dspp(ctl,
-					&flush_mask,
-					sde_crtc->mixers[i].hw_dspp->idx);
-			ctl->ops.update_pending_flush(ctl, flush_mask);
+			ctl->ops.update_bitmask_dspp(ctl,
+					sde_crtc->mixers[i].hw_dspp->idx, 1);
 		}
-		if (set_lm_flush && ctl->ops.get_bitmask_mixer
+		if (set_lm_flush && ctl->ops.update_bitmask_mixer
 				&& sde_crtc->mixers[i].hw_lm) {
-			flush_mask = ctl->ops.get_bitmask_mixer(ctl,
-					sde_crtc->mixers[i].hw_lm->idx);
-			ctl->ops.update_pending_flush(ctl, flush_mask);
+			ctl->ops.update_bitmask_mixer(ctl,
+					sde_crtc->mixers[i].hw_lm->idx, 1);
 		}
 	}
 exit:

@@ -247,6 +247,7 @@ enum {
 	DITHER_OFF,
 	DITHER_LEN,
 	DITHER_VER,
+	PP_MERGE_3D_ID,
 	PP_PROP_MAX,
 };
 
@@ -595,6 +596,7 @@ static struct sde_prop_type pp_prop[] = {
 	{DITHER_OFF, "qcom,sde-dither-off", false, PROP_TYPE_U32_ARRAY},
 	{DITHER_LEN, "qcom,sde-dither-size", false, PROP_TYPE_U32},
 	{DITHER_VER, "qcom,sde-dither-version", false, PROP_TYPE_U32},
+	{PP_MERGE_3D_ID, "qcom,sde-pp-merge-3d-id", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type dsc_prop[] = {
@@ -652,6 +654,11 @@ static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
 	[REG_DMA_TRIGGER_OFF] = {REG_DMA_TRIGGER_OFF,
 		"qcom,sde-reg-dma-trigger-off", false,
 		PROP_TYPE_U32},
+};
+
+static struct sde_prop_type merge_3d_prop[] = {
+	{HW_OFF, "qcom,sde-merge-3d-off", false, PROP_TYPE_U32_ARRAY},
+	{HW_LEN, "qcom,sde-merge-3d-size", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type inline_rot_prop[INLINE_ROT_PROP_MAX] = {
@@ -1459,6 +1466,8 @@ static int sde_ctl_parse_dt(struct device_node *np,
 			set_bit(SDE_CTL_PINGPONG_SPLIT, &ctl->features);
 		if (sde_cfg->has_sbuf)
 			set_bit(SDE_CTL_SBUF, &ctl->features);
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+			set_bit(SDE_CTL_ACTIVE_CFG, &ctl->features);
 	}
 end:
 	kfree(prop_value);
@@ -1707,6 +1716,8 @@ static int sde_intf_parse_dt(struct device_node *np,
 
 		if (sde_cfg->has_sbuf)
 			set_bit(SDE_INTF_ROT_START, &intf->features);
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+			set_bit(SDE_INTF_INPUT_CTRL, &intf->features);
 	}
 
 end:
@@ -1802,6 +1813,9 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 			set_bit(SDE_WB_UBWC, &wb->features);
 
 		set_bit(SDE_WB_XY_ROI_OFFSET, &wb->features);
+
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+			set_bit(SDE_WB_INPUT_CTRL, &wb->features);
 
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[wb->clk_ctrl].reg_off =
@@ -2401,6 +2415,9 @@ static int sde_dsc_parse_dt(struct device_node *np,
 
 		if (!prop_exists[DSC_LEN])
 			dsc->len = DEFAULT_SDE_HW_BLOCK_LEN;
+
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+			set_bit(SDE_DSC_OUTPUT_CTRL, &dsc->features);
 	}
 
 end:
@@ -2772,6 +2789,12 @@ static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		sblk->dither.len = PROP_VALUE_ACCESS(prop_value, DITHER_LEN, 0);
 		sblk->dither.version = PROP_VALUE_ACCESS(prop_value, DITHER_VER,
 								0);
+
+		if (prop_exists[PP_MERGE_3D_ID]) {
+			set_bit(SDE_PINGPONG_MERGE_3D, &pp->features);
+			pp->merge_3d_id = PROP_VALUE_ACCESS(prop_value,
+					PP_MERGE_3D_ID, i) + 1;
+		}
 	}
 
 end:
@@ -3236,6 +3259,51 @@ end:
 	return rc;
 }
 
+static int sde_parse_merge_3d_dt(struct device_node *np,
+		struct sde_mdss_cfg *sde_cfg)
+{
+	int rc, prop_count[HW_PROP_MAX], off_count, i;
+	struct sde_prop_value *prop_value = NULL;
+	bool prop_exists[HW_PROP_MAX];
+	struct sde_merge_3d_cfg *merge_3d;
+
+	prop_value = kcalloc(HW_PROP_MAX, sizeof(struct sde_prop_value),
+			GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto fail;
+	}
+
+	rc = _validate_dt_entry(np, merge_3d_prop, ARRAY_SIZE(merge_3d_prop),
+		prop_count, &off_count);
+	if (rc)
+		goto error;
+
+	sde_cfg->merge_3d_count = off_count;
+
+	rc = _read_dt_entry(np, merge_3d_prop, ARRAY_SIZE(merge_3d_prop),
+			prop_count,
+			prop_exists, prop_value);
+	if (rc)
+		goto error;
+
+	for (i = 0; i < off_count; i++) {
+		merge_3d = sde_cfg->merge_3d + i;
+		merge_3d->base = PROP_VALUE_ACCESS(prop_value, HW_OFF, i);
+		merge_3d->id = MERGE_3D_0 + i;
+		snprintf(merge_3d->name, SDE_HW_BLK_NAME_LEN, "merge_3d_%u",
+				merge_3d->id -  MERGE_3D_0);
+		merge_3d->len = PROP_VALUE_ACCESS(prop_value, HW_LEN, 0);
+	}
+
+	return 0;
+error:
+	sde_cfg->merge_3d_count = 0;
+	kfree(prop_value);
+fail:
+	return rc;
+}
+
 static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	uint32_t hw_rev)
 {
@@ -3360,6 +3428,10 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
+	} else if (IS_SDM855_TARGET(hw_rev)) {
+		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
@@ -3496,6 +3568,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_parse_reg_dma_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = sde_parse_merge_3d_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 

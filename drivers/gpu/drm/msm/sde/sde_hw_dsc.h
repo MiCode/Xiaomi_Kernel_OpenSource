@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,16 @@ struct sde_hw_dsc_ops {
 	 */
 	void (*dsc_config_thresh)(struct sde_hw_dsc *hw_dsc,
 			struct msm_display_dsc_info *dsc);
+
+	/**
+	 * bind_pingpong_blk - enable/disable the connection with pp
+	 * @hw_dsc: Pointer to dsc context
+	 * @enable: enable/disable connection
+	 * @pp: pingpong blk id
+	 */
+	void (*bind_pingpong_blk)(struct sde_hw_dsc *hw_dsc,
+			bool enable,
+			const enum sde_pingpong pp);
 };
 
 struct sde_hw_dsc {

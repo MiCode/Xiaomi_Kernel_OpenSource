@@ -109,9 +109,7 @@ struct sde_crtc_retire_event {
  * @hw_dspp:	DSPP HW driver context
  * @hw_ds:	DS HW driver context
  * @encoder:	Encoder attached to this lm & ctl
- * @mixer_op_mode:	mixer blending operation mode
- * @flush_mask:	mixer flush mask for ctl, mixer and pipe
- * @pipe_mask:	mixer flush mask for pipe
+ * @mixer_op_mode: mixer blending operation mode
  */
 struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
@@ -120,8 +118,6 @@ struct sde_crtc_mixer {
 	struct sde_hw_ds *hw_ds;
 	struct drm_encoder *encoder;
 	u32 mixer_op_mode;
-	u32 flush_mask;
-	u32 pipe_mask;
 };
 
 /**
@@ -216,9 +212,9 @@ struct sde_crtc_event {
  * @misr_frame_count  : misr frame count provided by client
  * @misr_data     : store misr data before turning off the clocks.
  * @sbuf_op_mode_old : inline rotator op mode for previous commit cycle
- * @sbuf_flush_mask_old: inline rotator flush mask for previous commit
- * @sbuf_flush_mask_all: inline rotator flush mask for all attached planes
- * @sbuf_flush_mask_delta: inline rotator flush mask for current delta state
+ * @sbuf_rot_id   : inline rotator block id for attached planes
+ * @sbuf_rot_id_old: inline rotator id for previous commit
+ * @sbuf_rot_id_delta: inline rotator id for current delta state
  * @idle_notify_work: delayed worker to notify idle timeout to user space
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
@@ -287,9 +283,9 @@ struct sde_crtc {
 	u32 misr_data[CRTC_DUAL_MIXERS];
 
 	u32 sbuf_op_mode_old;
-	u32 sbuf_flush_mask_old;
-	u32 sbuf_flush_mask_all;
-	u32 sbuf_flush_mask_delta;
+	u32 sbuf_rot_id;
+	u32 sbuf_rot_id_old;
+	u32 sbuf_rot_id_delta;
 	struct kthread_delayed_work idle_notify_work;
 
 	struct sde_power_event *power_event;

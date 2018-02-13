@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@
 #define WB_CREQ_LUT_0			0x098
 #define WB_CREQ_LUT_1			0x09C
 #define WB_UBWC_STATIC_CTRL		0x144
+#define WB_MUX				0x150
 #define WB_CSC_BASE			0x260
 #define WB_DST_ADDR_SW_STATUS		0x2B0
 #define WB_CDP_CNTL			0x2B4
@@ -243,6 +244,24 @@ static void sde_hw_wb_setup_cdp(struct sde_hw_wb *ctx,
 	SDE_REG_WRITE(c, WB_CDP_CNTL, cdp_cntl);
 }
 
+static void sde_hw_wb_bind_pingpong_blk(
+		struct sde_hw_wb *ctx,
+		bool enable,
+		const enum sde_pingpong pp)
+{
+	struct sde_hw_blk_reg_map *c;
+	int mux_cfg = 0xF;
+
+	if (!ctx)
+		return;
+
+	c = &ctx->hw;
+	if (enable)
+		mux_cfg = (pp - PINGPONG_0) & 0x7;
+
+	SDE_REG_WRITE(c, WB_MUX, mux_cfg);
+}
+
 static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 	unsigned long features)
 {
@@ -261,6 +280,9 @@ static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 
 	if (test_bit(SDE_WB_CDP, &features))
 		ops->setup_cdp = sde_hw_wb_setup_cdp;
+
+	if (test_bit(SDE_WB_INPUT_CTRL, &features))
+		ops->bind_pingpong_blk = sde_hw_wb_bind_pingpong_blk;
 }
 
 static struct sde_hw_blk_ops sde_hw_ops = {

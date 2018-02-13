@@ -1664,6 +1664,24 @@ u32 sde_plane_rot_get_prefill(struct drm_plane *plane)
 }
 
 /**
+ * sde_plane_get_sbuf_id - returns the hw_rot id if sspp of given plane is
+ *                           in streaming buffer mode
+ * @plane: pointer to drm plane
+ * return: sde_rot if sspp is in stream buffer mode
+ */
+int sde_plane_get_sbuf_id(struct drm_plane *plane)
+{
+	struct sde_plane_state *pstate = plane && plane->state ?
+		to_sde_plane_state(plane->state) : NULL;
+	struct sde_plane_rot_state *rstate = pstate ? &pstate->rot : NULL;
+
+	if (rstate && rstate->out_sbuf && rstate->rot_hw)
+		return rstate->rot_hw->idx;
+
+	return 0;
+}
+
+/**
  * sde_plane_rot_calc_cfg - calculate rotator/sspp configuration by
  *	enumerating over all planes attached to the same rotator
  * @plane: Pointer to drm plane
@@ -2992,35 +3010,25 @@ int sde_plane_confirm_hw_rsvps(struct drm_plane *plane,
 }
 
 /**
- * sde_plane_get_ctl_flush - get control flush for the given plane
+ * sde_plane_ctl_flush - set/clear control flush bitmask for the given plane
  * @plane: Pointer to drm plane structure
  * @ctl: Pointer to hardware control driver
- * @flush_sspp: Pointer to sspp flush control word
- * @flush_rot: Pointer to rotator flush control word
+ * @set: set if true else clear
  */
-void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
-		u32 *flush_sspp, u32 *flush_rot)
+void sde_plane_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
+		bool set)
 {
-	struct sde_plane_state *pstate;
-	struct sde_plane_rot_state *rstate;
-
-	if (!plane || !flush_sspp) {
+	if (!plane || !ctl) {
 		SDE_ERROR("invalid parameters\n");
 		return;
 	}
 
-	pstate = to_sde_plane_state(plane->state);
-	rstate = &pstate->rot;
-
-	*flush_sspp = ctl->ops.get_bitmask_sspp(ctl, sde_plane_pipe(plane));
-
-	if (!flush_rot)
+	if (!ctl->ops.update_bitmask_sspp) {
+		SDE_ERROR("invalid ops\n");
 		return;
+	}
 
-	*flush_rot = 0x0;
-	if (rstate && rstate->out_sbuf && rstate->rot_hw &&
-			ctl->ops.get_bitmask_rot)
-		ctl->ops.get_bitmask_rot(ctl, flush_rot, rstate->rot_hw->idx);
+	ctl->ops.update_bitmask_sspp(ctl, sde_plane_pipe(plane), set);
 }
 
 static int sde_plane_prepare_fb(struct drm_plane *plane,

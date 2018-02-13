@@ -47,11 +47,13 @@
 #define SDE_HW_VER_400	SDE_HW_VER(4, 0, 0) /* sdm845 v1.0 */
 #define SDE_HW_VER_401	SDE_HW_VER(4, 0, 1) /* sdm845 v2.0 */
 #define SDE_HW_VER_410	SDE_HW_VER(4, 1, 0) /* sdm670 v1.0 */
+#define SDE_HW_VER_500	SDE_HW_VER(5, 0, 0) /* sdm855 v1.0 */
 
 #define IS_MSM8996_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_170)
 #define IS_MSM8998_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_300)
 #define IS_SDM845_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
 #define IS_SDM670_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_410)
+#define IS_SDM855_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_500)
 
 #define SDE_HW_BLK_NAME_LEN	16
 
@@ -67,6 +69,16 @@
 
 #define MAX_XIN_COUNT 16
 #define SSPP_SUBBLK_COUNT_MAX 2
+
+#define SDE_CTL_CFG_VERSION_1_0_0       0x100
+#define MAX_INTF_PER_CTL_V1                 2
+#define MAX_DSC_PER_CTL_V1                  2
+#define MAX_CWB_PER_CTL_V1                  2
+#define MAX_MERGE_3D_PER_CTL_V1             2
+#define MAX_WB_PER_CTL_V1                   1
+#define MAX_CDM_PER_CTL_V1                  1
+#define IS_SDE_CTL_REV_100(rev) \
+	((rev) == SDE_CTL_CFG_VERSION_1_0_0)
 
 /**
  * Supported UBWC feature versions
@@ -209,6 +221,7 @@ enum {
  * @SDE_PINGPONG_SLAVE      PP block is a suitable slave for split fifo
  * @SDE_PINGPONG_DSC,       Display stream compression blocks
  * @SDE_PINGPONG_DITHER,    Dither blocks
+ * @SDE_PINGPONG_MERGE_3D,  Separate MERGE_3D block exists
  * @SDE_PINGPONG_MAX
  */
 enum {
@@ -218,7 +231,18 @@ enum {
 	SDE_PINGPONG_SLAVE,
 	SDE_PINGPONG_DSC,
 	SDE_PINGPONG_DITHER,
+	SDE_PINGPONG_MERGE_3D,
 	SDE_PINGPONG_MAX
+};
+
+/** DSC sub-blocks
+ * @SDE_DSC_OUTPUT_CTRL         Supports the control of the pp id which gets
+ *                              the pixel output from this DSC.
+ * @SDE_DSC_MAX
+ */
+enum {
+	SDE_DSC_OUTPUT_CTRL = 0x1,
+	SDE_DSC_MAX
 };
 
 /**
@@ -227,6 +251,8 @@ enum {
  * @SDE_CTL_PINGPONG_SPLIT      CTL supports pingpong split
  * @SDE_CTL_SBUF                CTL supports inline stream buffer
  * @SDE_CTL_PRIMARY_PREF        CTL preferred for primary display
+ * @SDE_CTL_ACTIVE_CFG          CTL configuration is specified using active
+ *                              blocks
  * @SDE_CTL_MAX
  */
 enum {
@@ -234,16 +260,20 @@ enum {
 	SDE_CTL_PINGPONG_SPLIT,
 	SDE_CTL_SBUF,
 	SDE_CTL_PRIMARY_PREF,
+	SDE_CTL_ACTIVE_CFG,
 	SDE_CTL_MAX
 };
 
 /**
  * INTF sub-blocks
  * @SDE_INTF_ROT_START          INTF supports rotator start trigger
+ * @SDE_INTF_INPUT_CTRL         Supports the setting of pp block from which
+ *                              pixel data arrives to this INTF
  * @SDE_INTF_MAX
  */
 enum {
 	SDE_INTF_ROT_START = 0x1,
+	SDE_INTF_INPUT_CTRL,
 	SDE_INTF_MAX
 };
 
@@ -266,6 +296,8 @@ enum {
  * @SDE_WB_QOS,             Writeback supports QoS control, danger/safe/creq
  * @SDE_WB_QOS_8LVL,        Writeback supports 8-level QoS control
  * @SDE_WB_CDP              Writeback supports client driven prefetch
+ * @SDE_WB_INPUT_CTRL       Writeback supports from which pp block input pixel
+ *                          data arrives.
  * @SDE_WB_MAX              maximum value
  */
 enum {
@@ -284,6 +316,7 @@ enum {
 	SDE_WB_QOS,
 	SDE_WB_QOS_8LVL,
 	SDE_WB_CDP,
+	SDE_WB_INPUT_CTRL,
 	SDE_WB_MAX
 };
 
@@ -662,16 +695,19 @@ struct sde_ds_cfg {
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
  * @sblk               sub-blocks information
+ * @merge_3d_id        merge_3d block id
  */
 struct sde_pingpong_cfg  {
 	SDE_HW_BLK_INFO;
 	const struct sde_pingpong_sub_blks *sblk;
+	int merge_3d_id;
 };
 
 /**
  * struct sde_dsc_cfg - information of DSC blocks
  * @id                 enum identifying this block
  * @base               register offset of this block
+ * @len:               length of hardware block
  * @features           bit mask identifying sub-blocks/features
  */
 struct sde_dsc_cfg {
@@ -726,6 +762,17 @@ struct sde_wb_cfg {
 	u32 vbif_idx;
 	u32 xin_id;
 	enum sde_clk_ctrl_type clk_ctrl;
+};
+
+/**
+ * struct sde_merge_3d_cfg - information of merge_3d blocks
+ * @id                 enum identifying this block
+ * @base               register offset of this block
+ * @len:               length of hardware block
+ * @features           bit mask identifying sub-blocks/features
+ */
+struct sde_merge_3d_cfg {
+	SDE_HW_BLK_INFO;
 };
 
 /**
@@ -928,6 +975,7 @@ struct sde_perf_cfg {
  * @qseed_type         qseed2 or qseed3 support.
  * @csc_type           csc or csc_10bit support.
  * @smart_dma_rev      Supported version of SmartDMA feature.
+ * @ctl_rev            supported version of control path.
  * @has_src_split      source split feature status
  * @has_cdp            Client driven prefetch feature status
  * @has_wb_ubwc        UBWC feature supported on WB
@@ -954,6 +1002,7 @@ struct sde_mdss_cfg {
 	u32 qseed_type;
 	u32 csc_type;
 	u32 smart_dma_rev;
+	u32 ctl_rev;
 	bool has_src_split;
 	bool has_cdp;
 	bool has_dim_layer;
@@ -1015,6 +1064,9 @@ struct sde_mdss_cfg {
 	struct sde_reg_dma_cfg dma_cfg;
 
 	u32 ad_count;
+
+	u32 merge_3d_count;
+	struct sde_merge_3d_cfg merge_3d[MAX_BLOCKS];
 
 	/* Add additional block data structures here */
 
