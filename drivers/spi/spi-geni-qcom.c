@@ -371,7 +371,7 @@ static struct msm_gpi_tre *setup_config0_tre(struct spi_transfer *xfer,
 	c0_tre->dword[1] = MSM_GPI_SPI_CONFIG0_TRE_DWORD1(0, cs_clk_delay,
 							inter_words_delay);
 	c0_tre->dword[2] = MSM_GPI_SPI_CONFIG0_TRE_DWORD2(idx, div);
-	c0_tre->dword[3] = MSM_GPI_SPI_CONFIG0_TRE_DWORD3(0, 0, 0, 1);
+	c0_tre->dword[3] = MSM_GPI_SPI_CONFIG0_TRE_DWORD3(0, 0, 0, 0, 1);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
 		"%s: flags 0x%x word %d pack %d idx %d div %d\n",
 		__func__, flags, word_len, pack, idx, div);
@@ -404,7 +404,7 @@ static struct msm_gpi_tre *setup_go_tre(int cmd, int cs, int rx_len, int flags,
 		chain = 1;
 		eob = 0;
 	}
-	go_tre->dword[3] = MSM_GPI_SPI_GO_TRE_DWORD3(0, eot, eob, chain);
+	go_tre->dword[3] = MSM_GPI_SPI_GO_TRE_DWORD3(0, 0, eot, eob, chain);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
 		"%s: rx len %d flags 0x%x cs %d cmd %d eot %d eob %d chain %d\n",
 		__func__, rx_len, flags, cs, cmd, eot, eob, chain);
@@ -422,7 +422,7 @@ static struct msm_gpi_tre *setup_dma_tre(struct msm_gpi_tre *tre,
 	tre->dword[0] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(buf);
 	tre->dword[1] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(buf);
 	tre->dword[2] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(len);
-	tre->dword[3] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, is_tx, 0, 0);
+	tre->dword[3] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, is_tx, 0, 0);
 	return tre;
 }
 

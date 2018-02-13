@@ -459,7 +459,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		cfg0->dword[1] = MSM_GPI_I2C_CONFIG0_TRE_DWORD1(0, 0);
 		cfg0->dword[2] = MSM_GPI_I2C_CONFIG0_TRE_DWORD2(0,
 								itr->clk_div);
-		cfg0->dword[3] = MSM_GPI_I2C_CONFIG0_TRE_DWORD3(0, 0, 0, 1);
+		cfg0->dword[3] = MSM_GPI_I2C_CONFIG0_TRE_DWORD3(0, 0, 0, 0, 1);
 
 		gi2c->tx_cb.userdata = gi2c;
 		gi2c->rx_cb.userdata = gi2c;
@@ -493,10 +493,12 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 
 		if (msgs[i].flags & I2C_M_RD) {
 			go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(msgs[i].len);
-			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(0, 0, 1, 0);
+			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(0, 0, 0, 1,
+									0);
 		} else {
 			go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(0);
-			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(0, 0, 0, 1);
+			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(0, 0, 0, 0,
+									1);
 		}
 
 		sg_set_buf(&gi2c->tx_sg[index++], &gi2c->go_t,
@@ -513,7 +515,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			gi2c->rx_t.dword[2] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(msgs[i].len);
 			gi2c->rx_t.dword[3] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 1, 0, 0);
+				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
 
 			sg_set_buf(&gi2c->rx_sg, &gi2c->rx_t,
 						 sizeof(gi2c->rx_t));
@@ -544,7 +546,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			gi2c->tx_t.dword[2] =
 				MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(msgs[i].len);
 			gi2c->tx_t.dword[3] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 1, 0, 0);
+				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
 
 			sg_set_buf(&gi2c->tx_sg[index++], &gi2c->tx_t,
 							  sizeof(gi2c->tx_t));
