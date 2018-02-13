@@ -134,6 +134,27 @@
 
 		qcom,gpu-speed-bin = <0x41a0 0x1fe00000 21>;
 
+		qcom,soc-hw-rev-efuse = <0x414c 28 0x3>;
+
+		qcom,soc-hw-revisions {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,soc-hw-revisions";
+
+			qcom,soc-hw-revision-0 {
+				qcom,soc-hw-revision = <0>;
+				qcom,chipid = <0x06010500>;
+				qcom,gpu-quirk-hfi-use-reg;
+				qcom,gpu-quirk-limit-uche-gbif-rw;
+			};
+
+			qcom,soc-hw-revision-1 {
+				qcom,soc-hw-revision = <1>;
+				qcom,chipid = <0x06010501>;
+				qcom,gpu-quirk-hfi-use-reg;
+			};
+		};
+
 		qcom,gpu-coresights {
 			#address-cells = <1>;
 			#size-cells = <0>;
