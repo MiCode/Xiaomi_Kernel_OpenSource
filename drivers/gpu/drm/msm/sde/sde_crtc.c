@@ -1190,7 +1190,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 			sde_crtc->vblank_requested) {
 		ret = _sde_crtc_vblank_enable_no_lock(sde_crtc, false);
 		if (ret)
-			SDE_ERROR("%s vblank enable failed: %d\n",
+			SDE_ERROR("%s vblank disable failed: %d\n",
 				sde_crtc->name, ret);
 	}
 
@@ -1491,16 +1491,18 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 	sde_crtc = to_sde_crtc(crtc);
 
 	mutex_lock(&sde_crtc->crtc_lock);
-	SDE_EVT32(DRMID(&sde_crtc->base), en, sde_crtc->enabled,
-			sde_crtc->suspend, sde_crtc->vblank_requested);
-	if (sde_crtc->enabled && !sde_crtc->suspend) {
-		ret = _sde_crtc_vblank_enable_no_lock(sde_crtc, en);
-		if (ret)
-			SDE_ERROR("%s vblank enable failed: %d\n",
-					sde_crtc->name, ret);
-	}
+	if (sde_crtc->vblank_requested != en) {
+		SDE_EVT32(DRMID(&sde_crtc->base), en, sde_crtc->enabled,
+				sde_crtc->suspend, sde_crtc->vblank_requested);
+		if (sde_crtc->enabled && !sde_crtc->suspend) {
+			ret = _sde_crtc_vblank_enable_no_lock(sde_crtc, en);
+			if (ret)
+				SDE_ERROR("%s vblank enable failed: %d\n",
+						sde_crtc->name, ret);
+		}
 
-	sde_crtc->vblank_requested = en;
+		sde_crtc->vblank_requested = en;
+	}
 	mutex_unlock(&sde_crtc->crtc_lock);
 
 	return 0;
