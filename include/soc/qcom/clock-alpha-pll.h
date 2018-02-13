@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@ struct alpha_pll_masks {
 	u32 alpha_en_mask;	/* alpha_en bit */
 	u32 output_mask;	/* pllout_* bits */
 	u32 post_div_mask;
+	u32 cal_l_val_mask;
 
 	u32 test_ctl_lo_mask;
 	u32 test_ctl_hi_mask;
@@ -61,6 +62,7 @@ struct alpha_pll_clk {
 	u32 config_ctl_val;	/* config register init value */
 	u32 test_ctl_lo_val;	/* test control settings */
 	u32 test_ctl_hi_val;
+	u32 cal_l_val;		/* Calibration L value */
 
 	struct alpha_pll_vco_tbl *vco_tbl;
 	u32 num_vco;
