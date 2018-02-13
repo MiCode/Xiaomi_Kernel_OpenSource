@@ -23,6 +23,7 @@
 	qcom,ap2mdm-status-gpio   = <&tlmm 135 0x00>;
 	qcom,ap2mdm-soft-reset-gpio = <&pm855l_gpios 9 0>;
 	qcom,mdm-link-info = "0304_00.01.00";
+	qcom,esoc-skip-restart-for-mdm-crash;
 	status = "ok";
 };
 
