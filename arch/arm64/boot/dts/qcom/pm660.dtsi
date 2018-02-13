@@ -374,7 +374,7 @@
 			#clock-cells = <1>;
 			qcom,cxo-freq = <19200000>;
 			qcom,clkdiv-id = <1>;
-			qcom,clkdiv-init-freq = <19200000>;
+			qcom,clkdiv-init-freq = <9600000>;
 			status = "disabled";
 		};
 	};

@@ -945,9 +945,6 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 
-	if (!mfd)
-		return;
-
 	mfd->shutdown_pending = true;
 
 	/* wake up threads waiting on idle or kickoff queues */
@@ -1864,7 +1861,7 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 	/* Start Display thread */
 	if (mfd->disp_thread == NULL) {
 		ret = mdss_fb_start_disp_thread(mfd);
-		if (IS_ERR_VALUE(ret))
+		if (IS_ERR_VALUE((unsigned long)ret))
 			return ret;
 	}
 
@@ -2290,7 +2287,7 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 			pr_debug("vm_start=%x vm_end=%x vm_page_prot=%ld\n",
 					(unsigned int)vma->vm_start,
 					(unsigned int)vma->vm_end,
-					(unsigned long int)vma->vm_page_prot);
+				(unsigned long int)vma->vm_page_prot.pgprot);
 
 			io_remap_pfn_range(vma, addr, page_to_pfn(page), len,
 					vma->vm_page_prot);
@@ -3182,7 +3179,7 @@ static int mdss_fb_pan_display_ex(struct fb_info *info,
 	if (var->yoffset > (info->var.yres_virtual - info->var.yres))
 		return -EINVAL;
 
-	ret = mdss_fb_pan_idle(mfd);
+	ret = mdss_fb_wait_for_kickoff(mfd);
 	if (ret) {
 		pr_err("wait_for_kick failed. rc=%d\n", ret);
 		return ret;
@@ -3513,7 +3510,7 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 
 	if (var->grayscale > 1) {
 		format = mdss_grayscale_to_mdp_format(var->grayscale);
-		if (!IS_ERR_VALUE(format))
+		if (!IS_ERR_VALUE((unsigned long)format))
 			pinfo->out_format = format;
 		else
 			pr_warn("Failed to map grayscale value (%d) to an MDP format\n",
@@ -3593,7 +3590,7 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 {
 	struct msm_sync_pt_data *sync_pt_data = &mfd->mdp_sync_pt_data;
 	struct msm_fb_backup_type *fb_backup = &mfd->msm_fb_backup;
-	int ret = -ENOTSUP;
+	int ret = -ENOTSUPP;
 	u32 new_dsi_mode, dynamic_dsi_switch = 0;
 
 	if (!sync_pt_data->async_wait_fences)
@@ -3648,7 +3645,7 @@ skip_commit:
 	if (!ret)
 		mdss_fb_update_backlight(mfd);
 
-	if (IS_ERR_VALUE(ret) || !sync_pt_data->flushed) {
+	if (IS_ERR_VALUE((unsigned long)ret) || !sync_pt_data->flushed) {
 		mdss_fb_release_kickoff(mfd);
 		mdss_fb_signal_timeline(sync_pt_data);
 		if ((mfd->panel.type == MIPI_CMD_PANEL) &&
@@ -3823,7 +3820,7 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 		mdss_fb_var_to_panelinfo(var, panel_info);
 		rc = mdss_fb_send_panel_event(mfd, MDSS_EVENT_CHECK_PARAMS,
 			panel_info);
-		if (IS_ERR_VALUE(rc)) {
+		if (IS_ERR_VALUE((unsigned long)rc)) {
 			kfree(panel_info);
 			return rc;
 		}
@@ -3984,7 +3981,7 @@ static int mdss_fb_set_par(struct fb_info *info)
 				mfd->fbi->var.yres) * mfd->fb_page;
 
 	old_format = mdss_grayscale_to_mdp_format(var->grayscale);
-	if (!IS_ERR_VALUE(old_format)) {
+	if (!IS_ERR_VALUE((unsigned long)old_format)) {
 		if (old_format != mfd->panel_info->out_format)
 			mfd->panel_reconfig = true;
 	}
@@ -4796,7 +4793,7 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 {
 	struct msm_fb_data_type *mfd;
 	void __user *argp = (void __user *)arg;
-	int ret = -ENOTSUP;
+	int ret = -ENOTSUPP;
 	struct mdp_buf_sync buf_sync;
 	unsigned int dsi_mode = 0;
 	struct mdss_panel_data *pdata = NULL;
@@ -4884,7 +4881,7 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	}
 
-	if (ret == -ENOTSUP)
+	if (ret == -ENOTSUPP)
 		pr_err("unsupported ioctl (%x)\n", cmd);
 
 exit:

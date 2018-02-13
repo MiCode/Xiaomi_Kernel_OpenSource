@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -669,35 +669,6 @@
 			qcom,bcms = <&bcm_cn0>;
 		};
 
-		mas_qhm_tic: mas-qhm-tic {
-			cell-id = <MSM_BUS_MASTER_TIC>;
-			label = "mas-qhm-tic";
-			qcom,buswidth = <4>;
-			qcom,agg-ports = <1>;
-			qcom,connections = <&slv_qhs_tlmm_south
-				&slv_qhs_camera_cfg &slv_qhs_sdc4
-				&slv_qhs_sdc2 &slv_qhs_mnoc_cfg
-				&slv_qhs_ufs_mem_cfg &slv_qhs_glm
-				&slv_qhs_pdm &slv_qhs_a2_noc_cfg
-				&slv_qhs_qdss_cfg &slv_qhs_display_cfg
-				&slv_qhs_tcsr &slv_qhs_dcc_cfg
-				&slv_qhs_ddrss_cfg &slv_qns_cnoc_a2noc
-				&slv_qhs_snoc_cfg &slv_qhs_phy_refgen_south
-				&slv_qhs_gpuss_cfg &slv_qhs_venus_cfg
-				&slv_qhs_tsif &slv_qhs_compute_dsp_cfg
-				&slv_qhs_aop &slv_qhs_qupv3_north
-				&slv_srvc_cnoc &slv_qhs_usb3_0
-				&slv_qhs_ipa &slv_qhs_cpr_cx
-				&slv_qhs_a1_noc_cfg &slv_qhs_aoss
-				&slv_qhs_prng &slv_qhs_vsense_ctrl_cfg
-				&slv_qhs_emmc_cfg &slv_qhs_qupv3_south
-				&slv_qhs_spdm &slv_qhs_crypto0_cfg
-				&slv_qhs_pimem_cfg &slv_qhs_tlmm_north
-				&slv_qhs_clk_ctl &slv_qhs_imem_cfg>;
-			qcom,bus-dev = <&fab_config_noc>;
-			qcom,bcms = <&bcm_cn0>;
-		};
-
 		mas_qnm_snoc: mas-qnm-snoc {
 			cell-id = <MSM_BUS_SNOC_CNOC_MAS>;
 			label = "mas-qnm-snoc";
@@ -719,36 +690,6 @@
 				&slv_qhs_cpr_cx &slv_qhs_a1_noc_cfg
 				&slv_qhs_aoss &slv_qhs_prng
 				&slv_qhs_vsense_ctrl_cfg &slv_qhs_emmc_cfg
-				&slv_qhs_qupv3_south &slv_qhs_spdm
-				&slv_qhs_crypto0_cfg &slv_qhs_pimem_cfg
-				&slv_qhs_tlmm_north &slv_qhs_clk_ctl
-				&slv_qhs_imem_cfg>;
-			qcom,bus-dev = <&fab_config_noc>;
-			qcom,bcms = <&bcm_cn0>;
-		};
-
-		mas_xm_qdss_dap: mas-xm-qdss-dap {
-			cell-id = <MSM_BUS_MASTER_QDSS_DAP>;
-			label = "mas-xm-qdss-dap";
-			qcom,buswidth = <8>;
-			qcom,agg-ports = <1>;
-			qcom,connections = <&slv_qhs_tlmm_south
-				&slv_qhs_camera_cfg
-				&slv_qhs_sdc4
-				&slv_qhs_sdc2 &slv_qhs_mnoc_cfg
-				&slv_qhs_ufs_mem_cfg &slv_qhs_glm
-				&slv_qhs_pdm &slv_qhs_a2_noc_cfg
-				&slv_qhs_qdss_cfg &slv_qhs_display_cfg
-				&slv_qhs_tcsr &slv_qhs_dcc_cfg
-				&slv_qhs_ddrss_cfg &slv_qns_cnoc_a2noc
-				&slv_qhs_snoc_cfg &slv_qhs_phy_refgen_south
-				&slv_qhs_gpuss_cfg &slv_qhs_venus_cfg
-				&slv_qhs_tsif &slv_qhs_compute_dsp_cfg
-				&slv_qhs_aop &slv_qhs_qupv3_north
-				&slv_srvc_cnoc &slv_qhs_usb3_0
-				&slv_qhs_ipa &slv_qhs_cpr_cx
-				&slv_qhs_a1_noc_cfg &slv_qhs_aoss
-				&slv_qhs_prng &slv_qhs_vsense_ctrl_cfg
 				&slv_qhs_qupv3_south &slv_qhs_spdm
 				&slv_qhs_crypto0_cfg &slv_qhs_pimem_cfg
 				&slv_qhs_tlmm_north &slv_qhs_clk_ctl

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3822,6 +3822,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 static const struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8953" },
+	{ .compatible = "qcom,gcc-sdm632" },
 	{},
 };
 
@@ -3871,6 +3872,7 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 
 static const struct of_device_id msm_clock_debug_match_table[] = {
 	{ .compatible = "qcom,cc-debug-8953" },
+	{ .compatible = "qcom,cc-debug-sdm632" },
 	{}
 };
 
@@ -3983,6 +3985,7 @@ pclk1_fail:
 
 static const struct of_device_id msm_clock_mdss_match_table[] = {
 	{ .compatible = "qcom,gcc-mdss-8953" },
+	{ .compatible = "qcom,gcc-mdss-sdm632" },
 	{}
 };
 
@@ -4072,7 +4075,16 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 	u32 regval;
+	struct clk *xo_clk;
 	bool compat_bin = false;
+
+	/* Require the GCC-RPM-XO clock to be registered first */
+	xo_clk = devm_clk_get(&pdev->dev, "xo");
+	if (IS_ERR(xo_clk)) {
+		if (PTR_ERR(xo_clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get xo clock\n");
+		return PTR_ERR(xo_clk);
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -4122,6 +4134,7 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 static const struct of_device_id msm_clock_gfx_match_table[] = {
 	{ .compatible = "qcom,gcc-gfx-8953" },
 	{ .compatible = "qcom,gcc-gfx-sdm450" },
+	{ .compatible = "qcom,gcc-gfx-sdm632" },
 	{}
 };
 

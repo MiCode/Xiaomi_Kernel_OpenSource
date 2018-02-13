@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,9 @@ static enum vidc_status hfi_map_err_status(u32 hfi_err)
 		break;
 	case HFI_ERR_SYS_FATAL:
 		vidc_err = VIDC_ERR_HW_FATAL;
+		break;
+	case HFI_ERR_SYS_NOC_ERROR:
+		vidc_err = VIDC_ERR_NOC_ERROR;
 		break;
 	case HFI_ERR_SYS_VERSION_MISMATCH:
 	case HFI_ERR_SYS_INVALID_PARAMETER:
@@ -316,11 +319,14 @@ static int hfi_process_evt_release_buffer_ref(u32 device_id,
 	return 0;
 }
 
-static int hfi_process_sys_error(u32 device_id, struct msm_vidc_cb_info *info)
+static int hfi_process_sys_error(u32 device_id,
+	struct hfi_msg_event_notify_packet *pkt,
+	struct msm_vidc_cb_info *info)
 {
 	struct msm_vidc_cb_cmd_done cmd_done = {0};
 
 	cmd_done.device_id = device_id;
+	cmd_done.status = hfi_map_err_status(pkt->event_data1);
 
 	info->response_type = HAL_SYS_ERROR;
 	info->response.cmd = cmd_done;
@@ -373,7 +379,7 @@ static int hfi_process_event_notify(u32 device_id,
 	case HFI_EVENT_SYS_ERROR:
 		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d, %#x\n",
 			pkt->event_data1, pkt->event_data2);
-		return hfi_process_sys_error(device_id, info);
+		return hfi_process_sys_error(device_id, pkt, info);
 	case HFI_EVENT_SESSION_ERROR:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR[%#x]\n",
 				pkt->session_id);

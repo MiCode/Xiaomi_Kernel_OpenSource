@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (C) 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +41,7 @@
 #include <linux/ctype.h>
 #include <linux/hrtimer.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
 #define SYSFS_FOLDER_NAME "f54"
@@ -198,23 +199,13 @@
 static ssize_t concat(test_sysfs, _##propname##_show)(\
 		struct device *dev,\
 		struct device_attribute *attr,\
-		char *buf);\
-\
-static struct device_attribute dev_attr_##propname =\
-		__ATTR(propname, S_IRUGO,\
-		concat(test_sysfs, _##propname##_show),\
-		synaptics_rmi4_store_error);
+		char *buf);
 
 #define store_prototype(propname)\
 static ssize_t concat(test_sysfs, _##propname##_store)(\
 		struct device *dev,\
 		struct device_attribute *attr,\
-		const char *buf, size_t count);\
-\
-static struct device_attribute dev_attr_##propname =\
-		__ATTR(propname, S_IWUGO,\
-		synaptics_rmi4_show_error,\
-		concat(test_sysfs, _##propname##_store));
+		const char *buf, size_t count);
 
 #define show_store_prototype(propname)\
 static ssize_t concat(test_sysfs, _##propname##_show)(\
@@ -228,7 +219,7 @@ static ssize_t concat(test_sysfs, _##propname##_store)(\
 		const char *buf, size_t count);\
 \
 static struct device_attribute dev_attr_##propname =\
-		__ATTR(propname, (S_IRUGO | S_IWUGO),\
+		__ATTR(propname, 0664,\
 		concat(test_sysfs, _##propname##_show),\
 		concat(test_sysfs, _##propname##_store));
 

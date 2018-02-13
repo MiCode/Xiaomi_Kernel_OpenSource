@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1316,33 +1316,6 @@ static struct clk_branch gcc_gp3_clk = {
 	},
 };
 
-static struct clk_branch gcc_mss_cfg_ahb_clk = {
-	.halt_reg = 0x40000,
-	.halt_check = BRANCH_HALT,
-	.hwcg_reg = 0x40000,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x40000,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_cfg_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_gate2 gcc_mss_gpll0_div_clk_src = {
-	.udelay = 500,
-	.clkr = {
-		.enable_reg = 0x6d004,
-		.enable_mask = BIT(17),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mss_gpll0_div_clk_src",
-			.ops = &clk_gate2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_pcie_0_clkref_clk = {
 	.halt_reg = 0x88004,
 	.halt_check = BRANCH_HALT,
@@ -1794,8 +1767,6 @@ static struct clk_regmap *gcc_sdxpoorwills_clocks[] = {
 	[GCC_GP2_CLK_SRC] = &gcc_gp2_clk_src.clkr,
 	[GCC_GP3_CLK] = &gcc_gp3_clk.clkr,
 	[GCC_GP3_CLK_SRC] = &gcc_gp3_clk_src.clkr,
-	[GCC_MSS_CFG_AHB_CLK] = &gcc_mss_cfg_ahb_clk.clkr,
-	[GCC_MSS_GPLL0_DIV_CLK_SRC] = &gcc_mss_gpll0_div_clk_src.clkr,
 	[GCC_PCIE_0_CLKREF_CLK] = &gcc_pcie_0_clkref_clk.clkr,
 	[GCC_PCIE_AUX_CLK] = &gcc_pcie_aux_clk.clkr,
 	[GCC_PCIE_AUX_PHY_CLK_SRC] = &gcc_pcie_aux_phy_clk_src.clkr,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,7 @@
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
 
-#if defined(CONFIG_IOMMU_DEBUG_TRACKING) || defined(CONFIG_IOMMU_TESTS)
+#if defined(CONFIG_IOMMU_TESTS)
 
 static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
 {
@@ -170,6 +170,8 @@ struct iommu_debug_device {
 	u64 phys;
 	size_t len;
 	struct list_head list;
+	struct mutex clk_lock;
+	unsigned int clk_count;
 };
 
 static int iommu_debug_build_phoney_sg_table(struct device *dev,
@@ -1195,6 +1197,7 @@ static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 		return -ENOMEM;
 	}
 
+	val = VMID_CP_CAMERA;
 	if (is_secure && iommu_domain_set_attr(ddev->domain,
 					       DOMAIN_ATTR_SECURE_VMID,
 					       &val)) {
@@ -1485,6 +1488,10 @@ static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
 	ssize_t retval;
 	size_t buflen;
 
+	if (kptr_restrict != 0) {
+		pr_err("kptr_restrict needs to be disabled.\n");
+		return -EPERM;
+	}
 	if (!dev->archdata.mapping) {
 		pr_err("No mapping. Did you already attach?\n");
 		return -EINVAL;
@@ -1552,6 +1559,10 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 	ssize_t retval;
 	size_t buflen;
 
+	if (kptr_restrict != 0) {
+		pr_err("kptr_restrict needs to be disabled.\n");
+		return -EPERM;
+	}
 	if (!ddev->domain) {
 		pr_err("No domain. Did you already attach?\n");
 		return -EINVAL;
@@ -1600,6 +1611,10 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 	ssize_t retval;
 	size_t buflen;
 
+	if (kptr_restrict != 0) {
+		pr_err("kptr_restrict needs to be disabled.\n");
+		return -EPERM;
+	}
 	if (!dev->archdata.mapping) {
 		pr_err("No mapping. Did you already attach?\n");
 		return -EINVAL;
@@ -2046,20 +2061,34 @@ static ssize_t iommu_debug_config_clocks_write(struct file *file,
 		return -EFAULT;
 	}
 
+	mutex_lock(&ddev->clk_lock);
 	switch (buf) {
 	case '0':
+		if (ddev->clk_count == 0) {
+			dev_err(dev, "Config clocks already disabled\n");
+			break;
+		}
+
+		if (--ddev->clk_count > 0)
+			break;
+
 		dev_err(dev, "Disabling config clocks\n");
 		iommu_disable_config_clocks(ddev->domain);
 		break;
 	case '1':
+		if (ddev->clk_count++ > 0)
+			break;
+
 		dev_err(dev, "Enabling config clocks\n");
 		if (iommu_enable_config_clocks(ddev->domain))
 			dev_err(dev, "Failed!\n");
 		break;
 	default:
 		dev_err(dev, "Invalid value. Should be 0 or 1.\n");
+		mutex_unlock(&ddev->clk_lock);
 		return -EINVAL;
 	}
+	mutex_unlock(&ddev->clk_lock);
 
 	return count;
 }
@@ -2109,6 +2138,9 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 	if (!of_find_property(dev->of_node, "iommus", NULL))
 		return 0;
 
+	if (!of_device_is_compatible(dev->of_node, "iommu-debug-test"))
+		return 0;
+
 	/* Hold a reference count */
 	if (!iommu_group_get(dev))
 		return 0;
@@ -2116,6 +2148,7 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 	ddev = kzalloc(sizeof(*ddev), GFP_KERNEL);
 	if (!ddev)
 		return -ENODEV;
+	mutex_init(&ddev->clk_lock);
 	ddev->dev = dev;
 	dir = debugfs_create_dir(dev_name(dev), debugfs_tests_dir);
 	if (!dir) {

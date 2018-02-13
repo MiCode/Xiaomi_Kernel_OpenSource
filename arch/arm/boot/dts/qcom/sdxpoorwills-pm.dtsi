@@ -1,0 +1,95 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+&soc {
+
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			label = "system";
+			qcom,psci-mode-shift = <0>;
+			qcom,psci-mode-mask = <0xf>;
+
+			qcom,pm-cluster-level@0 {
+				reg = <0>;
+				label = "cx_active";
+				qcom,psci-mode = <0x0>;
+				qcom,latency-us = <270>;
+				qcom,ss-power = <455>;
+				qcom,energy-overhead = <270621>;
+				qcom,time-overhead = <500>;
+			};
+
+			qcom,pm-cluster-level@1 {
+				reg = <1>;
+				label = "cx_min";
+				qcom,psci-mode = <0x0>;
+				qcom,latency-us = <285>;
+				qcom,ss-power = <442>;
+				qcom,energy-overhead = <306621>;
+				qcom,time-overhead = <540>;
+				qcom,min-child-idx = <2>;
+				qcom,notify-rpm;
+				qcom,is-reset;
+			};
+
+			qcom,pm-cpu@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				qcom,cpu = <&CPU0>;
+
+				qcom,pm-cpu-level@0{
+					reg = <0>;
+					label = "wfi";
+					qcom,psci-cpu-mode = <0x1>;
+					qcom,latency-us = <1>;
+					qcom,ss-power = <473>;
+					qcom,energy-overhead = <100000>;
+					qcom,time-overhead = <25>;
+				};
+
+				qcom,pm-cpu-level@1 {
+					reg = <1>;
+					label ="standalone_pc";
+					qcom,psci-cpu-mode = <0x4>;
+					qcom,latency-us = <240>;
+					qcom,ss-power = <467>;
+					qcom,energy-overhead = <202781>;
+					qcom,time-overhead = <420>;
+					qcom,use-broadcast-timer;
+					qcom,is-reset;
+				};
+
+				qcom,pm-cpu-level@2 {
+					reg = <2>;
+					label = "system-pc";
+					qcom,psci-cpu-mode = <0x8>;
+					qcom,latency-us = <270>;
+					qcom,ss-power = <455>;
+					qcom,energy-overhead = <270621>;
+					qcom,time-overhead = <500>;
+					qcom,use-broadcast-timer;
+					qcom,is-reset;
+				};
+			};
+		};
+	};
+};

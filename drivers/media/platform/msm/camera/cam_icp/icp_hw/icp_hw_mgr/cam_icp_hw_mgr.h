@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,6 +183,8 @@ struct cam_ctx_clk_info {
  * @temp_payload: Payload for destroy handle data
  * @ctx_id: Context Id
  * @clk_info: Current clock info of a context
+ * @watch_dog: watchdog timer handle
+ * @watch_dog_reset_counter: Counter for watch dog reset
  */
 struct cam_icp_hw_ctx_data {
 	void *context_priv;
@@ -200,6 +202,8 @@ struct cam_icp_hw_ctx_data {
 	struct ipe_bps_destroy temp_payload;
 	uint32_t ctx_id;
 	struct cam_ctx_clk_info clk_info;
+	struct cam_req_mgr_timer *watch_dog;
+	uint32_t watch_dog_reset_counter;
 };
 
 /**
@@ -222,6 +226,7 @@ struct icp_cmd_generic_blob {
  * @compressed_bw: Current compressed bandwidth voting
  * @hw_type: IPE/BPS device type
  * @watch_dog: watchdog timer handle
+ * @watch_dog_reset_counter: Counter for watch dog reset
  */
 struct cam_icp_clk_info {
 	uint32_t base_clk;
@@ -232,6 +237,7 @@ struct cam_icp_clk_info {
 	uint64_t compressed_bw;
 	uint32_t hw_type;
 	struct cam_req_mgr_timer *watch_dog;
+	uint32_t watch_dog_reset_counter;
 };
 
 /**

@@ -1740,6 +1740,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				IPAWANERR("Failed to allocate memory.\n");
 				return -ENOMEM;
 			}
+			extend_ioctl_data.u.if_name[IFNAMSIZ-1] = '\0';
 			len = sizeof(wan_msg->upstream_ifname) >
 			sizeof(extend_ioctl_data.u.if_name) ?
 				sizeof(extend_ioctl_data.u.if_name) :
@@ -4025,6 +4026,10 @@ static int __init ipa3_wwan_init(void)
 	ipa3_qmi_init();
 
 	/* Register for Modem SSR */
+	/* SSR is not supported yet on IPA 4.0 */
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_0)
+		return platform_driver_register(&rmnet_ipa_driver);
+
 	rmnet_ipa3_ctx->subsys_notify_handle = subsys_notif_register_notifier(
 			SUBSYS_MODEM,
 			&ipa3_ssr_notifier);

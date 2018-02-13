@@ -911,7 +911,7 @@ static int ipxip6_rcv(struct sk_buff *skb, u8 ipproto,
 		if (t->parms.collect_md) {
 			tun_dst = ipv6_tun_rx_dst(skb, 0, 0, 0);
 			if (!tun_dst)
-				return 0;
+				goto drop;
 		}
 		ret = __ip6_tnl_rcv(t, skb, tpi, tun_dst, dscp_ecn_decapsulate,
 				    log_ecn_error);
@@ -1080,10 +1080,11 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
 			memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
 			neigh_release(neigh);
 		}
-	} else if (!(t->parms.flags &
-		     (IP6_TNL_F_USE_ORIG_TCLASS | IP6_TNL_F_USE_ORIG_FWMARK))) {
-		/* enable the cache only only if the routing decision does
-		 * not depend on the current inner header value
+	} else if (t->parms.proto != 0 && !(t->parms.flags &
+					    (IP6_TNL_F_USE_ORIG_TCLASS |
+					     IP6_TNL_F_USE_ORIG_FWMARK))) {
+		/* enable the cache only if neither the outer protocol nor the
+		 * routing decision depends on the current inner header value
 		 */
 		use_cache = true;
 	}

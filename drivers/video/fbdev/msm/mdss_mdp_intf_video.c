@@ -926,7 +926,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 
 	intfs_num = ctl->intf_num - MDSS_MDP_INTF0;
 	ret = mdss_mdp_video_intfs_stop(ctl, ctl->panel_data, intfs_num);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		pr_err("unable to stop video interface: %d\n", ret);
 		return ret;
 	}
@@ -1512,7 +1512,7 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		}
 
 		rc = mdss_iommu_ctrl(1);
-		if (IS_ERR_VALUE(rc)) {
+		if (IS_ERR_VALUE((unsigned long)rc)) {
 			pr_err("IOMMU attach failed\n");
 			return rc;
 		}
@@ -2166,7 +2166,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 
 	intfs_num = ctl->intf_num - MDSS_MDP_INTF0;
 	ret = mdss_mdp_video_intfs_setup(ctl, ctl->panel_data, intfs_num);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		pr_err("unable to set video interface: %d\n", ret);
 		return ret;
 	}

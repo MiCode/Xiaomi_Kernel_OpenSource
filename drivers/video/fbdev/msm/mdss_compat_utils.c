@@ -4307,7 +4307,7 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	}
 
-	if (ret == -ENOTSUP)
+	if (ret == -ENOTSUPP)
 		pr_err("%s: unsupported ioctl\n", __func__);
 	else if (ret)
 		pr_debug("%s: ioctl err cmd=%u ret=%d\n", __func__, cmd, ret);

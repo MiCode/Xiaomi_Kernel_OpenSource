@@ -607,7 +607,7 @@ source "drivers/char/xillybus/Kconfig"
 
 config MSM_ADSPRPC
         tristate "QTI ADSP RPC driver"
-        depends on MSM_GLINK
+        depends on MSM_GLINK || MSM_SMD
         help
           Provides a communication mechanism that allows for clients to
           make remote method invocations across processor boundary to

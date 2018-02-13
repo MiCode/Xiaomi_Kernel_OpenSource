@@ -104,6 +104,13 @@ First Level Node - FG Gen3 device
 		    this property is not specified, then the default value used
 		    will be 75mA.
 
+- qcom,fg-cutoff-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum Battery current (in mA) used for cutoff SOC
+		    estimate. If this property is not specified, then a default
+		    value of 500 mA will be applied.
+
 - qcom,fg-delta-soc-thr
 	Usage:      optional
 	Value type: <u32>

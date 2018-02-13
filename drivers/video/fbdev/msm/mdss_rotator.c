@@ -230,7 +230,7 @@ static void mdss_rotator_set_clk_rate(struct mdss_rot_mgr *mgr,
 			pr_err("unable to round rate err=%ld\n", clk_rate);
 		} else if (clk_rate != clk_get_rate(clk)) {
 			ret = clk_set_rate(clk, clk_rate);
-			if (IS_ERR_VALUE(ret)) {
+			if (IS_ERR_VALUE((unsigned long)ret)) {
 				pr_err("clk_set_rate failed, err:%d\n", ret);
 			} else {
 				pr_debug("rotator clk rate=%lu\n", clk_rate);
@@ -545,7 +545,7 @@ static int mdss_rotator_map_and_check_data(struct mdss_rot_entry *entry)
 
 	ATRACE_BEGIN(__func__);
 	ret = mdss_iommu_ctrl(1);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE((unsigned long)ret)) {
 		ATRACE_END(__func__);
 		return ret;
 	}
@@ -697,7 +697,7 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 	struct mdss_rot_hw_resource *hw;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 pipe_ndx, offset = mdss_mdp_get_wb_ctl_support(mdata, true);
-	int ret;
+	int ret = 0;
 
 	hw = devm_kzalloc(&mgr->pdev->dev, sizeof(struct mdss_rot_hw_resource),
 		GFP_KERNEL);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,6 +201,8 @@
 		qcom,aux-clk-sync;
 
 		qcom,ep-latency = <10>;
+
+		qcom,phy-status-offset = <0x974>;
 
 		qcom,boot-option = <0x1>;
 
@@ -534,6 +536,8 @@
 		qcom,ep-latency = <10>;
 
 		qcom,slv-addr-space-size = <0x20000000>;
+
+		qcom,phy-status-offset = <0x1aac>;
 
 		qcom,boot-option = <0x1>;
 

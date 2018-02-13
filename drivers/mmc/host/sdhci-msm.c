@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm Technologies, Inc. MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@
 #include <linux/iopoll.h>
 #include <linux/msm-bus.h>
 #include <linux/pm_runtime.h>
+#include <linux/nvmem-consumer.h>
 #include <trace/events/mmc.h>
 
 #include "sdhci-msm.h"
@@ -1885,6 +1886,65 @@ static void sdhci_msm_pm_qos_parse(struct device *dev,
 	}
 }
 
+#ifdef CONFIG_NVMEM
+/* Parse qfprom data for deciding on errata work-arounds */
+static long qfprom_read(struct device *dev, const char *name)
+{
+	struct nvmem_cell *cell;
+	ssize_t len = 0;
+	u32 *buf, val = 0;
+	long err = 0;
+
+	cell = nvmem_cell_get(dev, name);
+	if (IS_ERR(cell)) {
+		err = PTR_ERR(cell);
+		dev_err(dev, "failed opening nvmem cell err : %ld\n", err);
+		/* If entry does not exist, then that is not an error */
+		if (err == -ENOENT)
+			err = 0;
+		return err;
+	}
+
+	buf = (u32 *)nvmem_cell_read(cell, &len);
+	if (IS_ERR(buf) || !len) {
+		dev_err(dev, "Failed reading nvmem cell, err: %u, bytes fetched: %zd\n",
+				*buf, len);
+		if (!IS_ERR(buf)) {
+			kfree(buf);
+			err = -EINVAL;
+		} else {
+			err = PTR_ERR(buf);
+		}
+	} else {
+		val = *buf;
+		kfree(buf);
+	}
+
+	nvmem_cell_put(cell);
+	return err ? err : (long) val;
+}
+
+/* Reads the SoC version */
+static int sdhci_msm_get_socrev(struct device *dev,
+				struct sdhci_msm_host *msm_host)
+{
+
+	msm_host->soc_min_rev  = qfprom_read(dev, "minor_rev");
+
+	if (msm_host->soc_min_rev < 0)
+		dev_err(dev, "failed getting soc_min_rev, err : %d\n",
+				msm_host->soc_min_rev);
+	return msm_host->soc_min_rev;
+}
+#else
+/* Reads the SoC version */
+static int sdhci_msm_get_socrev(struct device *dev,
+				struct sdhci_msm_host *msm_host)
+{
+	return 0;
+}
+#endif
+
 /* Parse platform data */
 static
 struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
@@ -2061,6 +2121,13 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 
 	if (!of_property_read_u32(np, "qcom,ddr-config", &pdata->ddr_config))
 		pdata->rclk_wa = true;
+
+	/*
+	 * rclk_wa is not required if soc version is mentioned and
+	 * is not base version.
+	 */
+	if (msm_host->soc_min_rev != 0)
+		pdata->rclk_wa = false;
 
 	return pdata;
 out:
@@ -4170,11 +4237,10 @@ void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
 		group->latency = PM_QOS_DEFAULT_VALUE;
 		pm_qos_add_request(&group->req, PM_QOS_CPU_DMA_LATENCY,
 			group->latency);
-		pr_info("%s (): voted for group #%d (mask=0x%lx) latency=%d (0x%p)\n",
+		pr_info("%s (): voted for group #%d (mask=0x%lx) latency=%d\n",
 			__func__, i,
 			group->req.cpus_affine.bits[0],
-			group->latency,
-			&latency[i].latency[SDHCI_PERFORMANCE_MODE]);
+			group->latency);
 	}
 	msm_host->pm_qos_prev_cpu = -1;
 	msm_host->pm_qos_group_enable = true;
@@ -4530,6 +4596,12 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc = host->mmc;
 	msm_host->pdev = pdev;
 
+	ret = sdhci_msm_get_socrev(&pdev->dev, msm_host);
+	if (ret == -EPROBE_DEFER) {
+		dev_err(&pdev->dev, "SoC version rd: fail: defer for now\n");
+		goto pltfm_free;
+	}
+
 	/* get the ice device vops if present */
 	ret = sdhci_msm_ice_get_dev(host);
 	if (ret == -EPROBE_DEFER) {
@@ -4735,8 +4807,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			goto vreg_deinit;
 		}
 		writel_relaxed(readl_relaxed(tlmm_mem) | 0x2, tlmm_mem);
-		dev_dbg(&pdev->dev, "tlmm reg %pa value 0x%08x\n",
-				&tlmm_memres->start, readl_relaxed(tlmm_mem));
 	}
 
 	/*

@@ -1117,7 +1117,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 7, 0, 8, 16, IPA_EE_UC } },
+			{ 6, 2, 8, 16, IPA_EE_UC } },
 	[IPA_4_0][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
@@ -1153,13 +1153,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 9, 1, 8, 16, IPA_EE_UC } },
-	[IPA_4_0][IPA_CLIENT_Q6_LAN_PROD]         = {
-			true, IPA_v4_0_GROUP_UL_DL,
-			true,
-			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
-			QMB_MASTER_SELECT_DDR,
-			{ 6, 2, 12, 24, IPA_EE_Q6 } },
+			{ 9, 0, 8, 16, IPA_EE_UC } },
 	[IPA_4_0][IPA_CLIENT_Q6_WAN_PROD]         = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
@@ -1196,13 +1190,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{7, 0, 8, 16, IPA_EE_UC } },
+			{ 7, 9, 8, 16, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST4_PROD]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 8, 10, 8, 16, IPA_EE_AP } },
+			{8, 10, 8, 16, IPA_EE_AP } },
 
 
 	[IPA_4_0][IPA_CLIENT_WLAN1_CONS]          = {
@@ -1210,7 +1204,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 18, 2, 6, 9, IPA_EE_UC } },
+			{ 18, 3, 6, 9, IPA_EE_UC } },
 	[IPA_4_0][IPA_CLIENT_WLAN2_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -1258,7 +1252,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 22, 3, 17, 17, IPA_EE_UC } },
+			{ 22, 1, 17, 17, IPA_EE_UC } },
 	[IPA_4_0][IPA_CLIENT_Q6_LAN_CONS]         = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -1284,25 +1278,25 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 12, 2, 5, 5, IPA_EE_AP } },
+			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST1_CONS]           = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 12, 2, 5, 5, IPA_EE_AP } },
+			QMB_MASTER_SELECT_PCIE,
+			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST2_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 18, 2, 6, 9, IPA_EE_UC } },
+			{ 12, 2, 5, 5, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 20, 13, 9, 9, IPA_EE_AP } },
+			QMB_MASTER_SELECT_PCIE,
+			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST4_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
@@ -1318,12 +1312,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_4_0_MHI */
-	[IPA_4_0_MHI][IPA_CLIENT_USB_PROD]            = {
-			false, IPA_EP_NOT_ALLOCATED,
-			true,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ -1, -1, -1, -1, -1 } },
 	[IPA_4_0_MHI][IPA_CLIENT_APPS_WAN_PROD]   = {
 			true, IPA_v4_0_MHI_GROUP_DDR,
 			true,
@@ -1342,12 +1330,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_PCIE,
 			{ 1, 0, 8, 16, IPA_EE_AP } },
-	[IPA_4_0_MHI][IPA_CLIENT_Q6_LAN_PROD]         = {
-			true, IPA_v4_0_MHI_GROUP_DDR,
-			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
-			QMB_MASTER_SELECT_DDR,
-			{ 6, 2, 12, 24, IPA_EE_Q6 } },
 	[IPA_4_0_MHI][IPA_CLIENT_Q6_WAN_PROD]         = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
@@ -1404,18 +1386,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_DDR,
 			{ 8, 10, 8, 16, IPA_EE_AP } },
 
-	[IPA_4_0_MHI][IPA_CLIENT_USB_CONS]            = {
-			false, IPA_EP_NOT_ALLOCATED,
-			false,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ -1, -1, -1, -1, -1 } },
-	[IPA_4_0_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
-			false, IPA_EP_NOT_ALLOCATED,
-			false,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ -1, -1, -1, -1, -1 } },
+
 	[IPA_4_0_MHI][IPA_CLIENT_APPS_LAN_CONS]       = {
 			true, IPA_v4_0_MHI_GROUP_DDR,
 			false,
@@ -1470,25 +1441,25 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 12, 2, 5, 5, IPA_EE_AP } },
+			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_TEST1_CONS]           = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 12, 2, 5, 5, IPA_EE_AP } },
+			QMB_MASTER_SELECT_PCIE,
+			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_TEST2_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
-			{ 18, 11, 6, 9, IPA_EE_AP } },
+			QMB_MASTER_SELECT_DDR,
+			{ 12, 2, 5, 5, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 20, 13, 9, 9, IPA_EE_AP } },
+			QMB_MASTER_SELECT_PCIE,
+			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0_MHI][IPA_CLIENT_TEST4_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,

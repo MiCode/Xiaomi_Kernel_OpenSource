@@ -42,7 +42,7 @@
 #include <linux/types.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
 #define SYN_I2C_RETRY_TIMES 10
@@ -987,19 +987,19 @@ static struct i2c_driver synaptics_rmi4_i2c_driver = {
 	.id_table = synaptics_rmi4_id_table,
 };
 
-int synaptics_rmi4_bus_init(void)
+int synaptics_rmi4_bus_init_v26(void)
 {
 	return i2c_add_driver(&synaptics_rmi4_i2c_driver);
 }
-EXPORT_SYMBOL(synaptics_rmi4_bus_init);
+EXPORT_SYMBOL(synaptics_rmi4_bus_init_v26);
 
-void synaptics_rmi4_bus_exit(void)
+void synaptics_rmi4_bus_exit_v26(void)
 {
 	i2c_del_driver(&synaptics_rmi4_i2c_driver);
 
 	return;
 }
-EXPORT_SYMBOL(synaptics_rmi4_bus_exit);
+EXPORT_SYMBOL(synaptics_rmi4_bus_exit_v26);
 
 MODULE_AUTHOR("Synaptics, Inc.");
 MODULE_DESCRIPTION("Synaptics DSX I2C Bus Support Module");

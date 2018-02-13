@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -99,13 +100,35 @@ struct msm_pingroup {
 	unsigned intr_detection_bit:5;
 	unsigned intr_detection_width:5;
 	unsigned dir_conn_en_bit:8;
-}
+};
+
+/**
+ * struct msm_gpio_mux_input - Map GPIO to Mux pin
+ * @mux::	The mux pin to which the GPIO is connected to
+ * @gpio:	GPIO pin number
+ * @init:	Setup PDC connection at probe
+ */
+struct msm_gpio_mux_input {
+	unsigned int mux;
+	unsigned int gpio;
+	bool init;
+};
+
+/**
+ * struct msm_pdc_mux_output - GPIO mux pin to PDC port
+ * @mux:	GPIO mux pin number
+ * @hwirq:	The PDC port (hwirq) that GPIO is connected to
+ */
+struct msm_pdc_mux_output {
+	unsigned int mux;
+	irq_hw_number_t hwirq;
+};
 
 /**
  * struct msm_dir_conn - Direct GPIO connect configuration
  * @gpio:	GPIO pin number
  * @hwirq:	The GIC interrupt that the pin is connected to
- */;
+ */
 struct msm_dir_conn {
 	unsigned int gpio;
 	irq_hw_number_t hwirq;
@@ -122,8 +145,12 @@ struct msm_dir_conn {
  * @ngpio:      The number of pingroups the driver should expose as GPIOs.
  * @dir_conn:   An array describing all the pins directly connected to GIC.
  * @ndirconns:  The number of pins directly connected to GIC
- * @dir_conn_offsets:   Direct connect register offsets for each tile.
  * @dir_conn_irq_base:  Direct connect interrupt base register for kpss.
+ * @gpio_mux_in:	Map of GPIO pin to the hwirq.
+ * @n_gpioc_mux_in:	The number of entries in @pdc_mux_in.
+ * @pdc_mux_out:	Map of GPIO mux to PDC port.
+ * @n_pdc_mux_out:	The number of entries in @pdc_mux_out.
+ * @n_pdc_offset:	The offset for the PDC mux pins
  */
 struct msm_pinctrl_soc_data {
 	const struct pinctrl_pin_desc *pins;
@@ -136,6 +163,11 @@ struct msm_pinctrl_soc_data {
 	const struct msm_dir_conn *dir_conn;
 	unsigned int n_dir_conns;
 	unsigned int dir_conn_irq_base;
+	struct msm_pdc_mux_output *pdc_mux_out;
+	unsigned int n_pdc_mux_out;
+	struct msm_gpio_mux_input *gpio_mux_in;
+	unsigned int n_gpio_mux_in;
+	unsigned int n_pdc_mux_offset;
 };
 
 int msm_pinctrl_probe(struct platform_device *pdev,

@@ -206,8 +206,8 @@
 	qcom,vdd-io-current-level = <200 22000>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &storage_cd>;
-	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &storage_cd>;
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &storage_cd>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &storage_cd>;
 
 	cd-gpios = <&tlmm 126 GPIO_ACTIVE_HIGH>;
 
@@ -216,4 +216,31 @@
 
 &wil6210 {
 	status = "ok";
+};
+
+&qupv3_se5_i2c {
+	status = "ok";
+	synaptics_dsx@20 {
+		compatible = "synaptics,dsx-i2c";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0x2008>;
+		vdd-supply = <&pm8998_l14>;
+		avdd-supply = <&pm8998_l28>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+				"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		synaptics,pwr-reg-name = "avdd";
+		synaptics,bus-reg-name = "vdd";
+		synaptics,ub-i2c-addr = <0x2c>;
+		synaptics,irq-gpio = <&tlmm 122 0x2008>;
+		synaptics,reset-gpio = <&tlmm 99 0x0>;
+		synaptics,irq-on-state = <0>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+	};
 };

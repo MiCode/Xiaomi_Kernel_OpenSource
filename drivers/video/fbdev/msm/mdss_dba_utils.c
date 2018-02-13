@@ -14,7 +14,7 @@
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <video/msm_dba.h>
-#include <linux/switch.h>
+#include <linux/extcon.h>
 
 #include "mdss_dba_utils.h"
 #include "mdss_hdmi_edid.h"
@@ -32,8 +32,8 @@ struct mdss_dba_utils_data {
 	bool hpd_state;
 	bool audio_switch_registered;
 	bool display_switch_registered;
-	struct switch_dev sdev_display;
-	struct switch_dev sdev_audio;
+	struct extcon_dev sdev_display;
+	struct extcon_dev sdev_audio;
 	struct kobject *kobj;
 	struct mdss_panel_info *pinfo;
 	void *dba_data;
@@ -103,7 +103,7 @@ static void mdss_dba_utils_notify_display(
 
 	state = udata->sdev_display.state;
 
-	switch_set_state(&udata->sdev_display, val);
+	extcon_set_state_sync(&udata->sdev_display, 0, val);
 
 	pr_debug("cable state %s %d\n",
 		udata->sdev_display.state == state ?
@@ -128,7 +128,7 @@ static void mdss_dba_utils_notify_audio(
 
 	state = udata->sdev_audio.state;
 
-	switch_set_state(&udata->sdev_audio, val);
+	extcon_set_state_sync(&udata->sdev_audio, 0, val);
 
 	pr_debug("audio state %s %d\n",
 		udata->sdev_audio.state == state ?
@@ -485,7 +485,7 @@ static int mdss_dba_utils_init_switch_dev(struct mdss_dba_utils_data *udata,
 
 	/* create switch device to update display modules */
 	udata->sdev_display.name = "hdmi";
-	rc = switch_dev_register(&udata->sdev_display);
+	rc = extcon_dev_register(&udata->sdev_display);
 	if (rc) {
 		pr_err("display switch registration failed\n");
 		goto end;
@@ -495,7 +495,7 @@ static int mdss_dba_utils_init_switch_dev(struct mdss_dba_utils_data *udata,
 
 	/* create switch device to update audio modules */
 	udata->sdev_audio.name = "hdmi_audio";
-	ret = switch_dev_register(&udata->sdev_audio);
+	ret = extcon_dev_register(&udata->sdev_audio);
 	if (ret) {
 		pr_err("audio switch registration failed\n");
 		goto end;
@@ -895,10 +895,10 @@ void mdss_dba_utils_deinit(void *data)
 	}
 
 	if (udata->audio_switch_registered)
-		switch_dev_unregister(&udata->sdev_audio);
+		extcon_dev_unregister(&udata->sdev_audio);
 
 	if (udata->display_switch_registered)
-		switch_dev_unregister(&udata->sdev_display);
+		extcon_dev_unregister(&udata->sdev_display);
 
 	if (udata->kobj)
 		mdss_dba_utils_sysfs_remove(udata->kobj);

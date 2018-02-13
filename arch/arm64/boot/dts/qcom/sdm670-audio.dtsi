@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,10 +12,6 @@
  */
 
 #include "msm-audio-lpass.dtsi"
-#include "sdm670-wcd.dtsi"
-#include "sdm670-wsa881x.dtsi"
-#include "sdm670-lpi.dtsi"
-#include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
 &msm_audio_ion {
 	iommus = <&apps_smmu 0x1801 0x0>;
@@ -23,6 +19,13 @@
 };
 
 &soc {
+	audio_load_mod {
+		compatible = "qcom,audio-load-mod";
+		audio_test_mod {
+			compatible = "qcom,audio-test-mod";
+		};
+	};
+
 	qcom,avtimer@62cf700c {
 		compatible = "qcom,avtimer";
 		reg = <0x62cf700c 0x4>,
@@ -73,6 +76,72 @@
 			<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>;
 		asoc-cpu-names = "msm-dai-q6-dp.24608",
 			"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+			"msm-dai-q6-mi2s.4",
+			"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+			"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
+			"msm-dai-q6-auxpcm.5",
+			"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+			"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+			"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
+			"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+			"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+			"msm-dai-q6-dev.16394", "msm-dai-q6-dev.16395",
+			"msm-dai-q6-dev.16396",
+			"msm-dai-q6-dev.16398", "msm-dai-q6-dev.16399",
+			"msm-dai-q6-dev.16400", "msm-dai-q6-dev.16401",
+			"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+			"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+			"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+			"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+			"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
+			"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+			"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+			"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
+			"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
+			"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929";
+	};
+
+	tasha_snd: sound-tasha {
+		status = "disabled";
+		compatible = "qcom,sdm670-asoc-snd-tasha";
+		qcom,model = "sdm670-tasha-snd-card";
+		qcom,wcn-btfm;
+		qcom,mi2s-audio-intf;
+		qcom,auxpcm-audio-intf;
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+			<&loopback>, <&compress>, <&hostless>,
+			<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>,
+			<&pcm_noirq>, <&cpe3>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+			"msm-pcm-dsp.2", "msm-voip-dsp",
+			"msm-pcm-voice", "msm-pcm-loopback",
+			"msm-compress-dsp", "msm-pcm-hostless",
+			"msm-pcm-afe", "msm-lsm-client",
+			"msm-pcm-routing", "msm-cpe-lsm",
+			"msm-compr-dsp", "msm-pcm-dsp-noirq",
+			"msm-cpe-lsm.3";
+		asoc-cpu = <&dai_mi2s0>, <&dai_mi2s1>,
+			<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s4>,
+			<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+			<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
+			<&dai_quin_auxpcm>,
+			<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+			<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
+			<&sb_4_rx>, <&sb_4_tx>, <&sb_5_rx>, <&sb_5_tx>,
+			<&sb_6_rx>, <&sb_7_rx>, <&sb_7_tx>,
+			<&sb_8_rx>, <&sb_8_tx>,
+			<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
+			<&afe_proxy_tx>, <&incall_record_rx>,
+			<&incall_record_tx>, <&incall_music_rx>,
+			<&incall_music_2_rx>,
+			<&usb_audio_rx>, <&usb_audio_tx>,
+			<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+			<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+			<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+			<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
+			<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>;
+		asoc-cpu-names = "msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 			"msm-dai-q6-mi2s.4",
 			"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",

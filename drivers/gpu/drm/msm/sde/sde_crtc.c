@@ -2511,9 +2511,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 							SDE_EVTLOG_FUNC_CASE3);
 		}
 
-		if (fevent->event & SDE_ENCODER_FRAME_EVENT_DONE)
-			sde_core_perf_crtc_update(crtc, 0, false);
-
 		if (fevent->event & (SDE_ENCODER_FRAME_EVENT_DONE
 					| SDE_ENCODER_FRAME_EVENT_ERROR))
 			frame_done = true;
@@ -2596,6 +2593,8 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
 	smmu_state = &sde_crtc->smmu_state;
+
+	sde_core_perf_crtc_update(crtc, 0, false);
 
 	/* complete secure transitions if any */
 	if (smmu_state->transition_type == POST_COMMIT)
@@ -3276,7 +3275,8 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	 * smmu state is attached,
 	 */
 	if ((smmu_state->state != DETACHED) &&
-			(smmu_state->state != DETACH_ALL_REQ))
+			(smmu_state->state != DETACH_ALL_REQ) &&
+			sde_crtc->enabled)
 		sde_cp_crtc_apply_properties(crtc);
 
 	/*
@@ -4487,28 +4487,41 @@ static int pstate_cmp(const void *a, const void *b)
 }
 
 static int _sde_crtc_excl_rect_overlap_check(struct plane_state pstates[],
-	int cnt, int curr_cnt, struct sde_rect *excl_rect, int z_pos)
+	int cnt, int curr_cnt, struct sde_rect *excl_rect)
 {
 	struct sde_rect dst_rect, intersect;
 	int i, rc = -EINVAL;
 	const struct drm_plane_state *pstate;
 
-	/* start checking from next plane */
-	for (i = curr_cnt; i < cnt; i++) {
+	for (i = 0; i < cnt; i++) {
+		if (i == curr_cnt)
+			continue;
+
 		pstate = pstates[i].drm_pstate;
 		POPULATE_RECT(&dst_rect, pstate->crtc_x, pstate->crtc_y,
 				pstate->crtc_w, pstate->crtc_h, false);
 		sde_kms_rect_intersect(&dst_rect, excl_rect, &intersect);
 
+		/* complete intersection of excl_rect is required */
 		if (intersect.w == excl_rect->w && intersect.h == excl_rect->h
-				/* next plane may be on same z-order */
-				&& z_pos != pstates[i].stage) {
+			    /* intersecting rect should be in another z_order */
+			    && pstates[curr_cnt].stage != pstates[i].stage) {
 			rc = 0;
 			goto end;
 		}
 	}
 
-	SDE_ERROR("excl rect does not find top overlapping rect\n");
+	SDE_ERROR(
+	    "no overlapping rect for [%d] z_pos:%d, excl_rect:{%d,%d,%d,%d}\n",
+			i, pstates[curr_cnt].stage,
+			excl_rect->x, excl_rect->y, excl_rect->w, excl_rect->h);
+	for (i = 0; i < cnt; i++) {
+		pstate = pstates[i].drm_pstate;
+		SDE_ERROR("[%d] p:%d, z_pos:%d, src:{%d,%d,%d,%d}\n",
+				i, pstate->plane->base.id, pstates[i].stage,
+				pstate->crtc_x, pstate->crtc_y,
+				pstate->crtc_w, pstate->crtc_h);
+	}
 end:
 	return rc;
 }
@@ -4550,9 +4563,9 @@ static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 		pstate = pstates[i].drm_pstate;
 		sde_pstate = to_sde_plane_state(pstate);
 		if (sde_pstate->excl_rect.w && sde_pstate->excl_rect.h) {
-			/* check overlap on all top z-order */
+			/* check overlap on any other z-order */
 			rc = _sde_crtc_excl_rect_overlap_check(pstates, cnt,
-			     i + 1, &sde_pstate->excl_rect, pstates[i].stage);
+			     i, &sde_pstate->excl_rect);
 			if (rc)
 				goto end;
 		}
@@ -6120,6 +6133,7 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 			INIT_LIST_HEAD(&node->list);
 			node->func = custom_events[i].func;
 			node->event = event;
+			spin_lock_init(&node->state_lock);
 			break;
 		}
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,11 +60,16 @@ bool arm_smmu_skip_write(void __iomem *addr);
 
 /* Donot write to smmu global space with CONFIG_MSM_TZ_SMMU */
 #undef writel_relaxed
+#undef writeq_relaxed
 #define writel_relaxed(v, c)	do {					\
 	if (!arm_smmu_skip_write(c))					\
 		((void)__raw_writel((__force u32)cpu_to_le32(v), (c)));	\
 	} while (0)
 
+#define writeq_relaxed(v, c) do {					\
+	if (!arm_smmu_skip_write(c))					\
+		((void)__raw_writeq((__force u64)cpu_to_le64(v), (c)));	\
+	} while (0)
 #else
 
 static inline int msm_tz_smmu_atos_start(struct device *dev, int cb_num)

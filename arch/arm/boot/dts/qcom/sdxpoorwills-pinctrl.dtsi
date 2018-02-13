@@ -13,11 +13,13 @@
 &soc {
 	tlmm: pinctrl@3900000 {
 		compatible = "qcom,sdxpoorwills-pinctrl";
-		reg = <0x3900000 0x300000>;
+		reg = <0x3900000 0x300000>,
+			<0xB204900 0x280>;
 		interrupts = <0 212 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
+		interrupt-parent = <&pdc>;
 		#interrupt-cells = <2>;
 
 		uart2_console_active: uart2_console_active {

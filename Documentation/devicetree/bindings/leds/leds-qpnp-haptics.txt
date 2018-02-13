@@ -118,6 +118,18 @@ Properties:
 
 Following properties are specific only to LRA vibrators.
 
+- qcom,lra-auto-mode
+  Usage:      optional
+  Value type: <empty>
+  Definition: If specified, a set of pre-configured settings will be applied
+		based on the pattern duration. For example, for a duration of
+		< 20 ms (short duration), one set of settings will be applied
+		and for a duration of >= 20 ms (long duration), another set of
+		settings will be applied. The parameters configured in the
+		driver when this property is specified is based on the LRA
+		tested internally. Those parameters should be fine-tuned or
+		adjusted based on the LRA used on different hardware platforms.
+
 - qcom,lra-auto-res-mode
   Usage:      optional
   Value type: <string>
@@ -200,9 +212,13 @@ Following properties are applicable only when "qcom,play-mode" is set to
 - qcom,wave-samples
   Usage:      optional
   Value type: <prop-encoded-array>
-  Definition: Wave samples in an array of 8 elements. Each element takes the
+  Definition: Wave samples in an array of 32 elements. Each element takes the
 		following representation, bit 0: unused, bits[5:1] : amplitude,
 		bit 6: overdrive, bit 7: sign. Default sample value is 0x3E.
+		Since the hardware supports configuring upto 8 samples, a set
+		of 8 samples will be configured initially and the next set will
+		be configured upon the play interrupt until all the samples are
+		configured and played.
 
 Following properties are applicable only when "qcom,play-mode" is set to
 "pwm".

@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (C) 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,7 +44,7 @@
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
 #define CHAR_DEVICE_NAME "rmi"
@@ -118,7 +119,7 @@ struct rmidev_data {
 static struct bin_attribute attr_data = {
 	.attr = {
 		.name = "data",
-		.mode = (S_IRUGO | S_IWUGO),
+		.mode = 0664,
 	},
 	.size = 0,
 	.read = rmidev_sysfs_data_show,
@@ -126,25 +127,25 @@ static struct bin_attribute attr_data = {
 };
 
 static struct device_attribute attrs[] = {
-	__ATTR(open, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(open, 0220,
+			NULL,
 			rmidev_sysfs_open_store),
-	__ATTR(release, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(release, 0220,
+			NULL,
 			rmidev_sysfs_release_store),
-	__ATTR(attn_state, S_IRUGO,
+	__ATTR(attn_state, 0444,
 			rmidev_sysfs_attn_state_show,
-			synaptics_rmi4_store_error),
-	__ATTR(pid, S_IRUGO | S_IWUGO,
+			NULL),
+	__ATTR(pid, 0664,
 			rmidev_sysfs_pid_show,
 			rmidev_sysfs_pid_store),
-	__ATTR(term, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(term, 0220,
+			NULL,
 			rmidev_sysfs_term_store),
-	__ATTR(intr_mask, S_IRUGO | S_IWUGO,
+	__ATTR(intr_mask, 0444,
 			rmidev_sysfs_intr_mask_show,
 			rmidev_sysfs_intr_mask_store),
-	__ATTR(concurrent, S_IRUGO | S_IWUGO,
+	__ATTR(concurrent, 0444,
 			rmidev_sysfs_concurrent_show,
 			rmidev_sysfs_concurrent_store),
 };
@@ -155,7 +156,7 @@ static struct class *rmidev_device_class;
 
 static struct rmidev_handle *rmidev;
 
-DECLARE_COMPLETION(rmidev_remove_complete);
+DECLARE_COMPLETION(rmidev_remove_complete_v26);
 
 static irqreturn_t rmidev_sysfs_irq(int irq, void *data)
 {
@@ -562,17 +563,23 @@ static ssize_t rmidev_read(struct file *filp, char __user *buf,
 		return -EBADF;
 	}
 
-	if (count == 0)
-		return 0;
+	mutex_lock(&(dev_data->file_mutex));
+
+	if (*f_pos > REG_ADDR_LIMIT) {
+		retval = -EFAULT;
+		goto clean_up;
+	}
 
 	if (count > (REG_ADDR_LIMIT - *f_pos))
 		count = REG_ADDR_LIMIT - *f_pos;
 
+	if (count == 0) {
+		retval = 0;
+		goto clean_up;
+	}
 	address = (unsigned short)(*f_pos);
 
 	rmidev_allocate_buffer(count);
-
-	mutex_lock(&(dev_data->file_mutex));
 
 	retval = synaptics_rmi4_reg_read(rmidev->rmi4_data,
 			*f_pos,
@@ -633,18 +640,26 @@ static ssize_t rmidev_write(struct file *filp, const char __user *buf,
 		return -EBADF;
 	}
 
-	if (count == 0)
-		return 0;
+	mutex_lock(&(dev_data->file_mutex));
+
+	if (*f_pos > REG_ADDR_LIMIT) {
+		retval = -EFAULT;
+		goto unlock;
+	}
 
 	if (count > (REG_ADDR_LIMIT - *f_pos))
 		count = REG_ADDR_LIMIT - *f_pos;
 
+	if (count == 0) {
+		retval = 0;
+		goto unlock;
+	}
 	rmidev_allocate_buffer(count);
 
-	if (copy_from_user(rmidev->tmpbuf, buf, count))
+	if (copy_from_user(rmidev->tmpbuf, buf, count)) {
 		return -EFAULT;
-
-	mutex_lock(&(dev_data->file_mutex));
+		goto unlock;
+	}
 
 	retval = synaptics_rmi4_reg_write(rmidev->rmi4_data,
 			*f_pos,
@@ -653,6 +668,7 @@ static ssize_t rmidev_write(struct file *filp, const char __user *buf,
 	if (retval >= 0)
 		*f_pos += retval;
 
+unlock:
 	mutex_unlock(&(dev_data->file_mutex));
 
 	return retval;
@@ -1016,7 +1032,7 @@ static void rmidev_remove_device(struct synaptics_rmi4_data *rmi4_data)
 	rmidev = NULL;
 
 exit:
-	complete(&rmidev_remove_complete);
+	complete(&rmidev_remove_complete_v26);
 
 	return;
 }
@@ -1045,7 +1061,7 @@ static void __exit rmidev_module_exit(void)
 {
 	synaptics_rmi4_new_function(&rmidev_module, false);
 
-	wait_for_completion(&rmidev_remove_complete);
+	wait_for_completion(&rmidev_remove_complete_v26);
 
 	return;
 }

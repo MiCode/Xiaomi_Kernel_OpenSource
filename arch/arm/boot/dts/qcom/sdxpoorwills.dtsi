@@ -17,12 +17,13 @@
 #include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/clock/qcom,aop-qmp.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDX POORWILLS";
 	compatible = "qcom,sdxpoorwills";
 	qcom,msm-id = <334 0x0>, <335 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	reserved-memory {
 		#address-cells = <1>;
@@ -69,6 +70,7 @@
 		CPU0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
+			enable-method = "psci";
 			reg = <0x0>;
 			#cooling-cells = <2>;
 		};
@@ -78,6 +80,11 @@
 		qpic_nand1 = &qnand_1;
 		pci-domain0 = &pcie0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC/SD/SDIO slot */
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
 	};
 
 	soc: soc { };
@@ -95,6 +102,15 @@
 		#interrupt-cells = <3>;
 		reg = <0x17800000 0x1000>,
 		      <0x17802000 0x1000>;
+		interrupt-parent = <&intc>;
+	};
+
+	pdc: interrupt-controller@b210000{
+		compatible = "qcom,pdc-sdxpoorwills";
+		reg = <0xb210000 0x30000>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
 	};
 
 	timer {
@@ -221,6 +237,13 @@
 		#clock-cells = <1>;
 		mboxes = <&apps_rsc 0>;
 		mbox-names = "apps";
+	};
+
+	clock_aop: qcom,aopclk {
+		compatible = "qcom,aop-qmp-clk-v1";
+		#clock-cells = <1>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "qdss_clk";
 	};
 
 	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
@@ -583,6 +606,8 @@
 		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
+		qcom,arm-smmu;
+		qcom,smmu-fast-map;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <5>;
@@ -721,6 +746,29 @@
 			compatible = "qcom,smp2pgpio-map-ipa-1-in";
 			gpios = <&smp2pgpio_ipa_1_in 0 0>;
 		};
+
+		ipa_smmu_ap: ipa_smmu_ap {
+			compatible = "qcom,ipa-smmu-ap-cb";
+			iommus = <&apps_smmu 0x5E0 0x0>;
+			qcom,iova-mapping = <0x20000000 0x40000000>;
+			qcom,additional-mapping =
+			/* modem tables in IMEM */
+			<0x14686000 0x14686000 0x3000>;
+		};
+
+		ipa_smmu_wlan: ipa_smmu_wlan {
+			compatible = "qcom,ipa-smmu-wlan-cb";
+			iommus = <&apps_smmu 0x5E1 0x0>;
+			qcom,additional-mapping =
+			/* ipa-uc ram */
+			<0x1E60000 0x1E60000 0xA000>;
+		};
+
+		ipa_smmu_uc: ipa_smmu_uc {
+			compatible = "qcom,ipa-smmu-uc-cb";
+			iommus = <&apps_smmu 0x5E2 0x0>;
+			qcom,iova-mapping = <0x40000000 0x20000000>;
+		};
 	};
 
 	qmp_aop: qcom,qmp-aop@c300000 {
@@ -756,6 +804,7 @@
 #include "sdxpoorwills-audio.dtsi"
 #include "sdxpoorwills-ion.dtsi"
 #include "msm-arm-smmu-sdxpoorwills.dtsi"
+#include "sdxpoorwills-coresight.dtsi"
 
 &soc {
 	emac_hw: qcom,emac@00020000 {
@@ -801,3 +850,16 @@
 		};
 	};
 };
+
+#include "pmxpoorwills.dtsi"
+#include "sdxpoorwills-blsp.dtsi"
+#include "sdxpoorwills-regulator.dtsi"
+#include "sdxpoorwills-smp2p.dtsi"
+#include "sdxpoorwills-usb.dtsi"
+#include "sdxpoorwills-pcie.dtsi"
+#include "sdxpoorwills-bus.dtsi"
+#include "sdxpoorwills-thermal.dtsi"
+#include "sdxpoorwills-audio.dtsi"
+#include "sdxpoorwills-ion.dtsi"
+#include "msm-arm-smmu-sdxpoorwills.dtsi"
+#include "sdxpoorwills-pm.dtsi"

@@ -300,15 +300,17 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		gsi_channel_info.gevntcount_hi_addr;
 	in_params->dir = GSI_CHAN_DIR_FROM_GSI;
 	in_params->xfer_ring_len = gsi_channel_info.xfer_ring_len;
-	in_params->xfer_ring_base_addr = gsi_channel_info.xfer_ring_base_addr;
 	in_params->xfer_scratch.last_trb_addr_iova =
 					gsi_channel_info.last_trb_addr;
-	in_params->xfer_ring_base_addr = in_params->xfer_ring_base_addr_iova =
+	in_params->xfer_ring_base_addr_iova =
 					gsi_channel_info.xfer_ring_base_addr;
 	in_params->data_buff_base_len = d_port->in_request.buf_len *
 					d_port->in_request.num_bufs;
-	in_params->data_buff_base_addr = in_params->data_buff_base_addr_iova =
-					d_port->in_request.dma;
+	in_params->data_buff_base_addr_iova = d_port->in_request.dma;
+	in_params->sgt_xfer_rings = &d_port->in_request.sgt_trb_xfer_ring;
+	in_params->sgt_data_buff = &d_port->in_request.sgt_data_buff;
+	log_event_dbg("%s(): IN: sgt_xfer_rings:%pK sgt_data_buff:%pK\n",
+		__func__, in_params->sgt_xfer_rings, in_params->sgt_data_buff);
 	in_params->xfer_scratch.const_buffer_size =
 		gsi_channel_info.const_buffer_size;
 	in_params->xfer_scratch.depcmd_low_addr =
@@ -340,14 +342,19 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		out_params->dir = GSI_CHAN_DIR_TO_GSI;
 		out_params->xfer_ring_len =
 			gsi_channel_info.xfer_ring_len;
-		out_params->xfer_ring_base_addr =
-			out_params->xfer_ring_base_addr_iova =
+		out_params->xfer_ring_base_addr_iova =
 			gsi_channel_info.xfer_ring_base_addr;
 		out_params->data_buff_base_len = d_port->out_request.buf_len *
 			d_port->out_request.num_bufs;
-		out_params->data_buff_base_addr =
-			out_params->data_buff_base_addr_iova =
+		out_params->data_buff_base_addr_iova =
 			d_port->out_request.dma;
+		out_params->sgt_xfer_rings =
+			&d_port->out_request.sgt_trb_xfer_ring;
+		out_params->sgt_data_buff = &d_port->out_request.sgt_data_buff;
+		log_event_dbg("%s(): OUT: sgt_xfer_rings:%pK sgt_data_buff:%pK\n",
+			__func__, out_params->sgt_xfer_rings,
+			out_params->sgt_data_buff);
+
 		out_params->xfer_scratch.last_trb_addr_iova =
 			gsi_channel_info.last_trb_addr;
 		out_params->xfer_scratch.const_buffer_size =
@@ -501,10 +508,12 @@ static void ipa_disconnect_work_handler(struct gsi_data_port *d_port)
 	gsi->d_port.in_channel_handle = -EINVAL;
 	gsi->d_port.out_channel_handle = -EINVAL;
 
-	usb_gsi_ep_op(gsi->d_port.in_ep, NULL, GSI_EP_OP_FREE_TRBS);
+	usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
+							GSI_EP_OP_FREE_TRBS);
 
 	if (gsi->d_port.out_ep)
-		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_FREE_TRBS);
+		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
+							GSI_EP_OP_FREE_TRBS);
 
 	/* free buffers allocated with each TRB */
 	gsi_free_trb_buffer(gsi);
@@ -1949,6 +1958,11 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 			ret = -ENOMEM;
 			goto fail1;
 		}
+
+		dma_get_sgtable(dev->parent,
+			&gsi->d_port.in_request.sgt_data_buff,
+			gsi->d_port.in_request.buf_base_addr,
+			gsi->d_port.in_request.dma, len_in);
 	}
 
 	if (gsi->d_port.out_ep && !gsi->d_port.out_request.buf_base_addr) {
@@ -1968,6 +1982,11 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 			ret = -ENOMEM;
 			goto fail;
 		}
+
+		dma_get_sgtable(dev->parent,
+			&gsi->d_port.out_request.sgt_data_buff,
+			gsi->d_port.out_request.buf_base_addr,
+			gsi->d_port.out_request.dma, len_out);
 	}
 
 	log_event_dbg("finished allocating trb's buffer\n");
@@ -1998,6 +2017,7 @@ static void gsi_free_trb_buffer(struct f_gsi *gsi)
 			gsi->d_port.out_request.buf_base_addr,
 			gsi->d_port.out_request.dma);
 		gsi->d_port.out_request.buf_base_addr = NULL;
+		sg_free_table(&gsi->d_port.out_request.sgt_data_buff);
 	}
 
 	if (gsi->d_port.in_ep &&
@@ -2008,6 +2028,7 @@ static void gsi_free_trb_buffer(struct f_gsi *gsi)
 			gsi->d_port.in_request.buf_base_addr,
 			gsi->d_port.in_request.dma);
 		gsi->d_port.in_request.buf_base_addr = NULL;
+		sg_free_table(&gsi->d_port.in_request.sgt_data_buff);
 	}
 }
 
@@ -3069,7 +3090,7 @@ static ssize_t gsi_info_show(struct config_item *item, char *page)
 				ipa_chnl_params->xfer_ring_len);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "IN TRB Base Addr: ", (unsigned int)
-			ipa_chnl_params->xfer_ring_base_addr);
+			ipa_chnl_params->xfer_ring_base_addr_iova);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "GEVENTCNTLO IN Addr: ",
 			ipa_chnl_params->gevntcount_low_addr);
@@ -3103,7 +3124,7 @@ static ssize_t gsi_info_show(struct config_item *item, char *page)
 			ipa_chnl_params->xfer_ring_len);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "OUT TRB Base Addr: ", (unsigned int)
-			ipa_chnl_params->xfer_ring_base_addr);
+			ipa_chnl_params->xfer_ring_base_addr_iova);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "GEVENTCNTLO OUT Addr: ",
 			ipa_chnl_params->gevntcount_low_addr);

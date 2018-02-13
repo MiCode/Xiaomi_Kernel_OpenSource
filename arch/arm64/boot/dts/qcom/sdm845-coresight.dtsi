@@ -18,6 +18,23 @@
 		reg-names = "csr-base";
 
 		coresight-name = "coresight-csr";
+		qcom,usb-bam-support;
+		qcom,hwctrl-set-support;
+		qcom,set-byte-cntr-support;
+
+		qcom,blk-size = <1>;
+	};
+
+	swao_csr: csr@6b0e000 {
+		compatible = "qcom,coresight-csr";
+		reg = <0x6b0e000 0x1000>;
+		reg-names = "csr-base";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		coresight-name = "coresight-swao-csr";
+		qcom,timestamp-support;
 
 		qcom,blk-size = <1>;
 	};
@@ -113,6 +130,7 @@
 		reg-names = "tmc-base";
 
 		coresight-name = "coresight-tmc-etf-swao";
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -286,6 +304,7 @@
 
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti8>;
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -310,6 +329,7 @@
 
 		coresight-name = "coresight-tmc-etf";
 		coresight-ctis = <&cti0 &cti8>;
+		coresight-csr = <&csr>;
 		arm,default-sink;
 
 		clocks = <&clock_aop QDSS_CLK>;
@@ -414,6 +434,7 @@
 			    "ddr-ch23-ctrl";
 
 		coresight-name = "coresight-hwevent";
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";

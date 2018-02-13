@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1307,9 +1307,12 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	do {
 		if (!regulator_is_enabled(gmu->cx_gdsc))
 			return 0;
-		cond_resched();
+		usleep_range(10, 100);
 
 	} while (!(time_after(jiffies, t)));
+
+	if (!regulator_is_enabled(gmu->cx_gdsc))
+		return 0;
 
 	dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout");
 	return -ETIMEDOUT;
@@ -1635,6 +1638,8 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		unsigned int fence_mask)
 {
 	unsigned int status, i;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int reg_offset = gpudev->reg_offsets->offsets[offset];
 
 	adreno_writereg(adreno_dev, offset, val);
 
@@ -1659,6 +1664,6 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	}
 
 	dev_err(adreno_dev->dev.dev,
-		"GMU fenced register write timed out: reg %x\n", offset);
+		"GMU fenced register write timed out: reg 0x%x\n", reg_offset);
 	return -ETIMEDOUT;
 }

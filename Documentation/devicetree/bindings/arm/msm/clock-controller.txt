@@ -12,10 +12,14 @@ the compatible string to indicate the revision.
 Required properties:
 - compatible:           Must be one of following,
 			"qcom,gcc-8953"
+			"qcom,gcc-sdm632"
 			"qcom,cc-debug-8953"
+			"qcom,cc-debug-sdm632"
 			"qcom,gcc-mdss-8953"
+			"qcom,gcc-mdss-sdm632"
                         "qcom,gcc-gfx-8953"
                         "qcom,gcc-gfx-sdm450"
+                        "qcom,gcc-gfx-sdm632"
 
 - reg:                  Pairs of physical base addresses and region sizes of
                         memory mapped registers.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -992,10 +992,11 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 
 	if (core->smmu_fault_handled) {
 		if (core->resources.non_fatal_pagefaults) {
-			msm_vidc_noc_error_info(core);
-			MSM_VIDC_ERROR(true);
+			dprintk(VIDC_ERR,
+					"%s: non-fatal pagefault address: %lx\n",
+					__func__, iova);
+			return 0;
 		}
-		return -ENOSYS;
 	}
 
 	dprintk(VIDC_ERR, "%s - faulting address: %lx\n", __func__, iova);

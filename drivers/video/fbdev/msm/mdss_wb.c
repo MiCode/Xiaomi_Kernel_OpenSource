@@ -22,7 +22,8 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/version.h>
-#include <linux/switch.h>
+#include <linux/extcon.h>
+#include <linux/module.h>
 
 #include "mdss_panel.h"
 #include "mdss_wb.h"
@@ -94,6 +95,11 @@ static int mdss_wb_parse_dt(struct platform_device *pdev,
 	return 0;
 }
 
+static const unsigned int mdss_wb_disp_supported_cable[] = {
+	EXTCON_DISP_HMD + 1, /* For WFD */
+	EXTCON_NONE,
+};
+
 static int mdss_wb_dev_init(struct mdss_wb_ctrl *wb_ctrl)
 {
 	int rc = 0;
@@ -103,8 +109,11 @@ static int mdss_wb_dev_init(struct mdss_wb_ctrl *wb_ctrl)
 		return -ENODEV;
 	}
 
+	memset(&wb_ctrl->sdev, 0x0, sizeof(wb_ctrl->sdev));
+	wb_ctrl->sdev.supported_cable = mdss_wb_disp_supported_cable;
+	wb_ctrl->sdev.dev.parent = &wb_ctrl->pdev->dev;
 	wb_ctrl->sdev.name = "wfd";
-	rc = switch_dev_register(&wb_ctrl->sdev);
+	rc = extcon_dev_register(&wb_ctrl->sdev);
 	if (rc) {
 		pr_err("Failed to setup switch dev for writeback panel");
 		return rc;
@@ -120,7 +129,7 @@ static int mdss_wb_dev_uninit(struct mdss_wb_ctrl *wb_ctrl)
 		return -ENODEV;
 	}
 
-	switch_dev_unregister(&wb_ctrl->sdev);
+	extcon_dev_unregister(&wb_ctrl->sdev);
 	return 0;
 }
 

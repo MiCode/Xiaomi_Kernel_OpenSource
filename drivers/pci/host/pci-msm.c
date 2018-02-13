@@ -50,8 +50,7 @@
 #include <linux/ipc_logging.h>
 #include <linux/msm_pcie.h>
 
-#define PCIE_VENDOR_ID_RCP		0x17cb
-#define PCIE_DEVICE_ID_RCP		0x0106
+#define PCIE_VENDOR_ID_QCOM		0x17cb
 
 #define PCIE20_L1SUB_CONTROL1		0x1E4
 #define PCIE20_PARF_DBI_BASE_ADDR       0x350
@@ -63,7 +62,6 @@
 
 #define PCIE_N_SW_RESET(n)			(PCS_PORT(n) + 0x00)
 #define PCIE_N_POWER_DOWN_CONTROL(n)		(PCS_PORT(n) + 0x04)
-#define PCIE_N_PCS_STATUS(n)			(PCS_PORT(n) + 0x174)
 
 #define PCIE_GEN3_COM_INTEGLOOP_GAIN1_MODE0	0x0154
 #define PCIE_GEN3_L0_DRVR_CTRL0			0x080c
@@ -71,7 +69,6 @@
 #define PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS	0x08a8
 #define PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS	0x08ac
 #define PCIE_GEN3_L0_DEBUG_BUS_STATUS4		0x08bc
-#define PCIE_GEN3_PCIE_PHY_PCS_STATUS		0x1aac
 
 #define PCIE20_PARF_SYS_CTRL	     0x00
 #define PCIE20_PARF_PM_CTRL		0x20
@@ -590,6 +587,7 @@ struct msm_pcie_dev_t {
 	uint32_t			switch_latency;
 	uint32_t			wr_halt_size;
 	uint32_t			slv_addr_space_size;
+	uint32_t			phy_status_offset;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	uint32_t			perst_delay_us_min;
@@ -996,11 +994,7 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
-	u32 pos = (dev->max_link_speed == GEN2_SPEED) ?
-		PCIE_N_PCS_STATUS(dev->rc_idx) :
-		PCIE_GEN3_PCIE_PHY_PCS_STATUS;
-
-	if (readl_relaxed(dev->phy + pos) & BIT(6))
+	if (readl_relaxed(dev->phy + dev->phy_status_offset) & BIT(6))
 		return false;
 	else
 		return true;
@@ -1258,6 +1252,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->wr_halt_size);
 	PCIE_DBG_FS(dev, "slv_addr_space_size: 0x%x\n",
 		dev->slv_addr_space_size);
+	PCIE_DBG_FS(dev, "phy_status_offset: 0x%x\n",
+		dev->phy_status_offset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -5812,6 +5808,21 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		"RC%d: slv-addr-space-size: 0x%x.\n",
 		rc_idx, msm_pcie_dev[rc_idx].slv_addr_space_size);
 
+	msm_pcie_dev[rc_idx].phy_status_offset = 0;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,phy-status-offset",
+				&msm_pcie_dev[rc_idx].phy_status_offset);
+	if (ret) {
+		PCIE_ERR(&msm_pcie_dev[rc_idx],
+			"RC%d: failed to get PCIe PHY status offset.\n",
+			rc_idx);
+		goto decrease_rc_num;
+	} else {
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: phy-status-offset: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].phy_status_offset);
+	}
+
 	msm_pcie_dev[rc_idx].cpl_timeout = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,cpl-timeout",
@@ -6208,10 +6219,10 @@ static void msm_pcie_fixup_early(struct pci_dev *dev)
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "hdr_type %d\n", dev->hdr_type);
-	if (dev->hdr_type == 1)
+	if (pci_is_root_bus(dev->bus))
 		dev->class = (dev->class & 0xff) | (PCI_CLASS_BRIDGE_PCI << 8);
 }
-DECLARE_PCI_FIXUP_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+DECLARE_PCI_FIXUP_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 			msm_pcie_fixup_early);
 
 /* Suspend the PCIe link */
@@ -6294,7 +6305,8 @@ static void msm_pcie_fixup_suspend(struct pci_dev *dev)
 
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
-	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED)
+	if (pcie_dev->link_status != MSM_PCIE_LINK_ENABLED ||
+		!pci_is_root_bus(dev->bus))
 		return;
 
 	spin_lock_irqsave(&pcie_dev->cfg_lock,
@@ -6319,7 +6331,7 @@ static void msm_pcie_fixup_suspend(struct pci_dev *dev)
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
-DECLARE_PCI_FIXUP_SUSPEND(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+DECLARE_PCI_FIXUP_SUSPEND(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 			  msm_pcie_fixup_suspend);
 
 /* Resume the PCIe link */
@@ -6393,7 +6405,7 @@ static void msm_pcie_fixup_resume(struct pci_dev *dev)
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
 	if ((pcie_dev->link_status != MSM_PCIE_LINK_DISABLED) ||
-		pcie_dev->user_suspend)
+		pcie_dev->user_suspend || !pci_is_root_bus(dev->bus))
 		return;
 
 	mutex_lock(&pcie_dev->recovery_lock);
@@ -6405,7 +6417,7 @@ static void msm_pcie_fixup_resume(struct pci_dev *dev)
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
-DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 				 msm_pcie_fixup_resume);
 
 static void msm_pcie_fixup_resume_early(struct pci_dev *dev)
@@ -6416,7 +6428,7 @@ static void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
 	if ((pcie_dev->link_status != MSM_PCIE_LINK_DISABLED) ||
-		pcie_dev->user_suspend)
+		pcie_dev->user_suspend || !pci_is_root_bus(dev->bus))
 		return;
 
 	mutex_lock(&pcie_dev->recovery_lock);
@@ -6427,7 +6439,7 @@ static void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
-DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 				 msm_pcie_fixup_resume_early);
 
 int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,

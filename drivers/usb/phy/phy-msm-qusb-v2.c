@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/debugfs.h>
 #include <linux/hrtimer.h>
 
@@ -146,7 +147,64 @@ struct qusb_phy {
 	u8			tune[5];
 
 	struct hrtimer		timer;
+	int			soc_min_rev;
 };
+
+#ifdef CONFIG_NVMEM
+/* Parse qfprom data for deciding on errata work-arounds */
+static long qfprom_read(struct device *dev, const char *name)
+{
+	struct nvmem_cell *cell;
+	ssize_t len = 0;
+	u32 *buf, val = 0;
+	long err = 0;
+
+	cell = nvmem_cell_get(dev, name);
+	if (IS_ERR(cell)) {
+		err = PTR_ERR(cell);
+		dev_err(dev, "failed opening nvmem cell err : %ld\n", err);
+		/* If entry does not exist, then that is not an error */
+		if (err == -ENOENT)
+			err = 0;
+		return err;
+	}
+
+	buf = (u32 *)nvmem_cell_read(cell, &len);
+	if (IS_ERR(buf) || !len) {
+		dev_err(dev, "Failed reading nvmem cell, err: %u, bytes fetched: %zd\n",
+				*buf, len);
+		if (!IS_ERR(buf)) {
+			kfree(buf);
+			err = -EINVAL;
+		} else {
+			err = PTR_ERR(buf);
+		}
+	} else {
+		val = *buf;
+		kfree(buf);
+	}
+
+	nvmem_cell_put(cell);
+	return err ? err : (long) val;
+}
+
+/* Reads the SoC version */
+static int qusb_phy_get_socrev(struct device *dev, struct qusb_phy *qphy)
+{
+	qphy->soc_min_rev  = qfprom_read(dev, "minor_rev");
+	if (qphy->soc_min_rev < 0)
+		dev_err(dev, "failed getting soc_min_rev, err : %d\n",
+				qphy->soc_min_rev);
+
+	return qphy->soc_min_rev;
+};
+#else
+/* Reads the SoC version */
+static int qusb_phy_get_socrev(struct device *dev, struct qusb_phy *qphy)
+{
+	return 0;
+}
+#endif
 
 static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
 {
@@ -1125,6 +1183,11 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(qphy->vdda18);
 	}
 
+	ret = qusb_phy_get_socrev(&pdev->dev, qphy);
+	if (ret == -EPROBE_DEFER) {
+		dev_err(&pdev->dev, "SoC version rd: fail: defer for now\n");
+		return ret;
+	}
 	qphy->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(qphy->pinctrl)) {
 		ret = PTR_ERR(qphy->pinctrl);
@@ -1159,7 +1222,14 @@ skip_pinctrl_config:
 	qphy->phy.type			= USB_PHY_TYPE_USB2;
 	qphy->phy.notify_connect        = qusb_phy_notify_connect;
 	qphy->phy.notify_disconnect     = qusb_phy_notify_disconnect;
-	qphy->phy.disable_chirp		= qusb_phy_disable_chirp;
+
+	/*
+	 * qusb_phy_disable_chirp is not required if soc version is
+	 * mentioned and is not base version.
+	 */
+	if (qphy->soc_min_rev == 0)
+		qphy->phy.disable_chirp	= qusb_phy_disable_chirp;
+
 	qphy->phy.start_port_reset	= qusb_phy_enable_ext_pulldown;
 
 	ret = usb_add_phy_dev(&qphy->phy);

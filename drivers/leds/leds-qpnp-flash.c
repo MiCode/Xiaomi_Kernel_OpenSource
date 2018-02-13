@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1207,7 +1207,7 @@ error_regulator_enable:
 	return rc;
 }
 
-int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+static int qpnp_flash_led_prepare_v1(struct led_trigger *trig, int options,
 					int *max_current)
 {
 	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
@@ -2468,6 +2468,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	led->pdev = pdev;
 	led->current_addr = FLASH_LED0_CURRENT(led->base);
 	led->current2_addr = FLASH_LED1_CURRENT(led->base);
+	qpnp_flash_led_prepare = qpnp_flash_led_prepare_v1;
 
 	led->pdata = devm_kzalloc(&pdev->dev, sizeof(*led->pdata), GFP_KERNEL);
 	if (!led->pdata)

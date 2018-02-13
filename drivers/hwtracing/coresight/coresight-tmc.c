@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  *
@@ -609,6 +609,17 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->cti_reset = coresight_cti_get(ctidata->names[1]);
 		if (IS_ERR(drvdata->cti_reset))
 			dev_err(dev, "failed to get reset cti\n");
+	}
+
+	ret = of_get_coresight_csr_name(adev->dev.of_node, &drvdata->csr_name);
+	if (ret) {
+		dev_err(dev, "No csr data\n");
+	} else{
+		drvdata->csr = coresight_csr_get(drvdata->csr_name);
+		if (IS_ERR(drvdata->csr)) {
+			dev_err(dev, "failed to get csr, defer probe\n");
+			return -EPROBE_DEFER;
+		}
 	}
 
 	desc.pdata = pdata;

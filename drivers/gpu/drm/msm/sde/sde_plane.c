@@ -2379,6 +2379,29 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 					(u64) &rstate->rot_hw->base);
 			rstate->out_fbo = NULL;
 		}
+
+		/*
+		 * For video mode, reject any downscale factor greater than or
+		 * equal to 1.1x
+		 *
+		 * Check the downscale factor first to avoid querying the
+		 * interface mode unnecessarily.
+		 */
+		if ((rstate->out_src_h >> 16) * 10 >= state->crtc_h * 11 &&
+				sde_crtc_get_intf_mode(state->crtc) ==
+				INTF_MODE_VIDEO) {
+			SDE_DEBUG_PLANE(psde,
+					"inline %d with invalid scale, %dx%d, %dx%d\n",
+					rstate->sequence_id,
+					rstate->out_src_w, rstate->out_src_h,
+					state->crtc_w, state->crtc_h);
+			SDE_EVT32(DRMID(plane), rstate->sequence_id,
+					rstate->out_src_w >> 16,
+					rstate->out_src_h >> 16,
+					state->crtc_w, state->crtc_h,
+					SDE_EVTLOG_ERROR);
+			return -EINVAL;
+		}
 	} else {
 
 		SDE_DEBUG("plane%d.%d bypass rotator\n", plane->base.id,
@@ -3257,7 +3280,8 @@ static void _sde_plane_sspp_atomic_check_mode_changed(struct sde_plane *psde,
 
 	if (!fb || !old_fb) {
 		SDE_DEBUG_PLANE(psde, "can't compare fb handles\n");
-	} else if (fb->pixel_format != old_fb->pixel_format) {
+	} else if ((fb->pixel_format != old_fb->pixel_format) ||
+			pstate->const_alpha_en != old_pstate->const_alpha_en) {
 		SDE_DEBUG_PLANE(psde, "format change\n");
 		pstate->dirty |= SDE_PLANE_DIRTY_FORMAT | SDE_PLANE_DIRTY_RECTS;
 	} else {
@@ -3569,7 +3593,8 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 
 	pstate->const_alpha_en = fmt->alpha_enable &&
 		(SDE_DRM_BLEND_OP_OPAQUE !=
-		 sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
+		 sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP)) &&
+		(pstate->stage != SDE_STAGE_0);
 
 modeset_update:
 	if (!ret)

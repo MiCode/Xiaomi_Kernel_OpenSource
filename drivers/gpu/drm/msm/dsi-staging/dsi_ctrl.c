@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2087,11 +2087,14 @@ int dsi_ctrl_set_roi(struct dsi_ctrl *dsi_ctrl, struct dsi_rect *roi,
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-	if (!dsi_rect_is_equal(&dsi_ctrl->roi, roi)) {
+	if ((!dsi_rect_is_equal(&dsi_ctrl->roi, roi)) ||
+			dsi_ctrl->modeupdated) {
 		*changed = true;
 		memcpy(&dsi_ctrl->roi, roi, sizeof(dsi_ctrl->roi));
+		dsi_ctrl->modeupdated = false;
 	} else
 		*changed = false;
+
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
 }
@@ -2647,6 +2650,7 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active;
 	ctrl->mode_bounds.h = ctrl->host_config.video_timing.v_active;
 	memcpy(&ctrl->roi, &ctrl->mode_bounds, sizeof(ctrl->mode_bounds));
+	ctrl->modeupdated = true;
 	ctrl->roi.x = 0;
 error:
 	mutex_unlock(&ctrl->ctrl_lock);
@@ -2672,9 +2676,6 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
-
-	mutex_lock(&dsi_ctrl->ctrl_lock);
-	mutex_unlock(&dsi_ctrl->ctrl_lock);
 
 	return rc;
 }

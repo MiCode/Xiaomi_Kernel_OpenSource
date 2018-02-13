@@ -1251,7 +1251,6 @@ int get_cluster_id(struct lpm_cluster *cluster, int *aff_lvl)
 
 		state_id |= (level->psci_id & cluster->psci_mode_mask)
 					<< cluster->psci_mode_shift;
-		(*aff_lvl)++;
 
 		/*
 		 * We may have updated the broadcast timers, update
@@ -1259,6 +1258,8 @@ int get_cluster_id(struct lpm_cluster *cluster, int *aff_lvl)
 		 */
 		if (level->notify_rpm)
 			system_sleep_update_wakeup();
+		if (level->psci_id)
+			(*aff_lvl)++;
 	}
 unlock_and_return:
 	spin_unlock(&cluster->sync_lock);
@@ -1730,6 +1731,18 @@ static struct platform_driver lpm_driver = {
 static int __init lpm_levels_module_init(void)
 {
 	int rc;
+
+#ifdef CONFIG_ARM
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		rc = arm_cpuidle_init(smp_processor_id());
+		if (rc) {
+			pr_err("CPU%d ARM CPUidle init failed (%d)\n", cpu, rc);
+			return rc;
+		}
+	}
+#endif
 
 	rc = platform_driver_register(&lpm_driver);
 	if (rc) {

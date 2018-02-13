@@ -37,6 +37,7 @@ Required properties:
 		     MSIs, virtual IRQ's (INT#), link state notifications.
   - perst-gpio: PERST GPIO specified by PCIe spec.
   - wake-gpio: WAKE GPIO specified by PCIe spec.
+  - phy-status-offset: Offset from PCIe PHY base to check if PCIe PHY is up.
   - <supply-name>-supply: phandle to the regulator device tree node.
     Refer to the schematics for the corresponding voltage regulators.
     vreg-1.8-supply: phandle to the analog supply for the PCIe controller.
@@ -274,6 +275,7 @@ Example:
 		qcom,switch-latency = <100>;
 		qcom,wr-halt-size = <0xa>; /* 1KB */
 		qcom,slv-addr-space-size = <0x1000000>; /* 16MB */
+		qcom,phy-status-offset = <0x800>;
 		qcom,cpl-timeout = <0x2>;
 
 		iommus = <&anoc0_smmu>;

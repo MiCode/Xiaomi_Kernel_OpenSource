@@ -816,6 +816,16 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 	if (!dwc->gadget_driver)
 		goto out;
 
+	/*
+	 * Workaround for SNPS STAR: 9001046257 which affects dwc3 core
+	 * 3.10a or earlier. LPM Not rejected during control transfer. Device
+	 * is programmed to reject LPM when SETUP packet is received and
+	 * ACK LPM after completing STATUS stage.
+	 */
+	if (dwc->has_lpm_erratum && dwc->revision <= DWC3_REVISION_310A)
+		dwc3_masked_write_readback(dwc->regs, DWC3_DCTL,
+			DWC3_DCTL_LPM_ERRATA_MASK, DWC3_DCTL_LPM_ERRATA(0));
+
 	trace_dwc3_ctrl_req(ctrl);
 
 	len = le16_to_cpu(ctrl->wLength);
@@ -990,6 +1000,11 @@ static void dwc3_ep0_complete_status(struct dwc3 *dwc,
 	dbg_print(dep->number, "DONE", status, "STATUS");
 	dwc->ep0state = EP0_SETUP_PHASE;
 	dwc3_ep0_out_start(dwc);
+
+	if (dwc->has_lpm_erratum && dwc->revision <= DWC3_REVISION_310A)
+		dwc3_masked_write_readback(dwc->regs, DWC3_DCTL,
+			DWC3_DCTL_LPM_ERRATA_MASK,
+			DWC3_DCTL_LPM_ERRATA(dwc->lpm_nyet_threshold));
 }
 
 static void dwc3_ep0_xfer_complete(struct dwc3 *dwc,

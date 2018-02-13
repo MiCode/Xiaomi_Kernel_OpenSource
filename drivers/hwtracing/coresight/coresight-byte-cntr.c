@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,17 +23,23 @@
 static struct tmc_drvdata *tmcdrvdata;
 
 static void tmc_etr_read_bytes(struct byte_cntr *byte_cntr_data, loff_t *ppos,
-			       size_t bytes, size_t *len)
+			       size_t bytes, size_t *len, char **bufp)
 {
-	if (*len >= bytes) {
-		atomic_dec(&byte_cntr_data->irq_cnt);
+
+	if (*bufp >= (char *)(tmcdrvdata->vaddr + tmcdrvdata->size))
+		*bufp = tmcdrvdata->vaddr;
+
+	if (*len >= bytes)
 		*len = bytes;
-	} else {
-		if (((uint32_t)*ppos % bytes) + *len > bytes)
-			*len = bytes - ((uint32_t)*ppos % bytes);
-		if ((*len + (uint32_t)*ppos) % bytes == 0)
-			atomic_dec(&byte_cntr_data->irq_cnt);
-	}
+	else if (((uint32_t)*ppos % bytes) + *len > bytes)
+		*len = bytes - ((uint32_t)*ppos % bytes);
+
+	if ((*bufp + *len) > (char *)(tmcdrvdata->vaddr +
+		tmcdrvdata->size))
+		*len = (char *)(tmcdrvdata->vaddr + tmcdrvdata->size) -
+			*bufp;
+	if (*len == bytes || (*len + (uint32_t)*ppos) % bytes == 0)
+		atomic_dec(&byte_cntr_data->irq_cnt);
 }
 
 static void tmc_etr_sg_read_pos(loff_t *ppos,
@@ -96,7 +102,7 @@ static void tmc_etr_sg_read_pos(loff_t *ppos,
 		if (*len >= (bytes - ((uint32_t)*ppos % bytes)))
 			*len = bytes - ((uint32_t)*ppos % bytes);
 
-		if ((*len + (uint32_t)*ppos) % bytes == 0)
+		if (*len == bytes || (*len + (uint32_t)*ppos) % bytes == 0)
 			atomic_dec(&tmcdrvdata->byte_cntr->irq_cnt);
 	}
 
@@ -153,11 +159,12 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 			if (!byte_cntr_data->read_active)
 				goto err0;
 		}
-		bufp = (char *)(tmcdrvdata->vaddr + *ppos);
+		bufp = (char *)(tmcdrvdata->buf + *ppos);
 
 		if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
 			tmc_etr_read_bytes(byte_cntr_data, ppos,
-					   byte_cntr_data->block_size, &len);
+					   byte_cntr_data->block_size, &len,
+					   &bufp);
 		else
 			tmc_etr_sg_read_pos(ppos, byte_cntr_data->block_size, 0,
 					    &len, &bufp);
@@ -179,7 +186,7 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 			if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
 				tmc_etr_read_bytes(byte_cntr_data, ppos,
 						   byte_cntr_data->block_size,
-						   &len);
+						   &len, &bufp);
 			else
 				tmc_etr_sg_read_pos(ppos,
 						    byte_cntr_data->block_size,
@@ -229,7 +236,7 @@ void tmc_etr_byte_cntr_stop(struct byte_cntr *byte_cntr_data)
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->enable = false;
-	coresight_csr_set_byte_cntr(0);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 }
@@ -243,7 +250,7 @@ static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->read_active = false;
 
-	coresight_csr_set_byte_cntr(0);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 	return 0;
@@ -261,7 +268,8 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 		return -EINVAL;
 	}
 
-	coresight_csr_set_byte_cntr(byte_cntr_data->block_size);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr,
+				byte_cntr_data->block_size);
 	fp->private_data = byte_cntr_data;
 	nonseekable_open(in, fp);
 	byte_cntr_data->enable = true;
@@ -364,6 +372,7 @@ struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 
 	tmcdrvdata = drvdata;
 	byte_cntr_data->byte_cntr_irq = byte_cntr_irq;
+	byte_cntr_data->csr = drvdata->csr;
 	atomic_set(&byte_cntr_data->irq_cnt, 0);
 	init_waitqueue_head(&byte_cntr_data->wq);
 	mutex_init(&byte_cntr_data->byte_cntr_lock);

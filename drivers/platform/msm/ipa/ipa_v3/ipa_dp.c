@@ -222,7 +222,13 @@ static void ipa3_send_nop_desc(struct work_struct *work)
 	tx_pkt->no_unmap_dma = true;
 	tx_pkt->sys = sys;
 	spin_lock_bh(&sys->spinlock);
+	if (unlikely(!sys->nop_pending)) {
+		spin_unlock_bh(&sys->spinlock);
+		kmem_cache_free(ipa3_ctx->tx_pkt_wrapper_cache, tx_pkt);
+		return;
+	}
 	list_add_tail(&tx_pkt->link, &sys->head_desc_list);
+	sys->nop_pending = false;
 	spin_unlock_bh(&sys->spinlock);
 
 	memset(&nop_xfer, 0, sizeof(nop_xfer));
@@ -273,6 +279,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	int result;
 	u32 mem_flag = GFP_ATOMIC;
 	const struct ipa_gsi_ep_config *gsi_ep_cfg;
+	bool send_nop = false;
 
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
@@ -410,10 +417,14 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	}
 	kfree(gsi_xfer_elem_array);
 
+	if (sys->use_comm_evt_ring && !sys->nop_pending) {
+		sys->nop_pending = true;
+		send_nop = true;
+	}
 	spin_unlock_bh(&sys->spinlock);
 
 	/* set the timer for sending the NOP descriptor */
-	if (sys->use_comm_evt_ring && !hrtimer_active(&sys->db_timer)) {
+	if (send_nop) {
 		ktime_t time = ktime_set(0, IPA_TX_SEND_COMPL_NOP_DELAY_NS);
 
 		IPADBG_LOW("scheduling timer for ch %lu\n",

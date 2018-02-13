@@ -249,8 +249,9 @@ static int __init psci_features(u32 psci_func_id)
 }
 
 #ifdef CONFIG_CPU_IDLE
-static DEFINE_PER_CPU_READ_MOSTLY(u32 *, psci_power_state);
+static __maybe_unused DEFINE_PER_CPU_READ_MOSTLY(u32 *, psci_power_state);
 
+#ifdef CONFIG_DT_IDLE_STATES
 static int psci_dt_cpu_init_idle(struct device_node *cpu_node, int cpu)
 {
 	int i, ret, count = 0;
@@ -303,6 +304,10 @@ free_mem:
 	kfree(psci_states);
 	return ret;
 }
+#else
+static int psci_dt_cpu_init_idle(struct device_node *cpu_node, int cpu)
+{ return 0; }
+#endif
 
 #ifdef CONFIG_ACPI
 #include <acpi/processor.h>

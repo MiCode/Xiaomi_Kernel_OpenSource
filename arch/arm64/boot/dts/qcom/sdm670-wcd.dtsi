@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,6 +162,22 @@
 			pinctrl-names = "aud_active", "aud_sleep";
 			pinctrl-0 = <&hph_en1_wcd_active>;
 			pinctrl-1 = <&hph_en1_wcd_sleep>;
+		};
+	};
+
+	tasha_codec {
+		wsa_spkr_sd1: msm_cdc_pinctrll {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&tasha_spkr_1_sd_n_active>;
+			pinctrl-1 = <&tasha_spkr_1_sd_n_sleep>;
+		};
+
+		wsa_spkr_sd2: msm_cdc_pinctrlr {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&tasha_spkr_2_sd_n_active>;
+			pinctrl-1 = <&tasha_spkr_2_sd_n_sleep>;
 		};
 	};
 };

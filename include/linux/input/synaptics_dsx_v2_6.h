@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (C) 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,13 +35,13 @@
 #ifndef _SYNAPTICS_DSX_H_
 #define _SYNAPTICS_DSX_H_
 
-#define PLATFORM_DRIVER_NAME "synaptics_dsx"
-#define STYLUS_DRIVER_NAME "synaptics_dsx_stylus"
-#define ACTIVE_PEN_DRIVER_NAME "synaptics_dsx_active_pen"
-#define PROXIMITY_DRIVER_NAME "synaptics_dsx_proximity"
-#define GESTURE_DRIVER_NAME "synaptics_dsx_gesture"
-#define I2C_DRIVER_NAME "synaptics_dsx_i2c"
-#define SPI_DRIVER_NAME "synaptics_dsx_spi"
+#define PLATFORM_DRIVER_NAME "synaptics_dsxv26"
+#define STYLUS_DRIVER_NAME "synaptics_dsxv26_stylus"
+#define ACTIVE_PEN_DRIVER_NAME "synaptics_dsxv26_active_pen"
+#define PROXIMITY_DRIVER_NAME "synaptics_dsxv26_proximity"
+#define GESTURE_DRIVER_NAME "synaptics_dsxv26_gesture"
+#define I2C_DRIVER_NAME "synaptics_dsxv26"
+#define SPI_DRIVER_NAME "synaptics_dsxv26"
 
 /*
  * struct synaptics_dsx_button_map - button map
@@ -57,6 +58,7 @@ struct synaptics_dsx_button_map {
  * @x_flip: x flip flag
  * @y_flip: y flip flag
  * @swap_axes: swap axes flag
+ * @resume_in_workqueue: defer resume function to workqueue
  * @irq_gpio: attention interrupt GPIO
  * @irq_on_state: attention interrupt active state
  * @power_gpio: power switch GPIO
@@ -84,6 +86,7 @@ struct synaptics_dsx_board_data {
 	bool x_flip;
 	bool y_flip;
 	bool swap_axes;
+	bool resume_in_workqueue;
 	int irq_gpio;
 	int irq_on_state;
 	int power_gpio;

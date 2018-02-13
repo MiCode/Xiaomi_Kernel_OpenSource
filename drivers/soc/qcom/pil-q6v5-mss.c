@@ -167,6 +167,11 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	if (ret)
 		return ret;
 
+	pil_mss_remove_proxy_votes(&drv->q6->desc);
+	ret = pil_mss_make_proxy_votes(&drv->q6->desc);
+	if (ret)
+		return ret;
+
 	ret = pil_mss_reset_load_mba(&drv->q6->desc);
 	if (ret)
 		return ret;

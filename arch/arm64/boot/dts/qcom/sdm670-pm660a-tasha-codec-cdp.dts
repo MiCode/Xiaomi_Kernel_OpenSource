@@ -16,7 +16,7 @@
 #include "sdm670.dtsi"
 #include "sdm670-cdp.dtsi"
 #include "pm660a.dtsi"
-#include "sdm670-audio-overlay.dtsi"
+#include "sdm670-tasha-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM670 PM660 + PM660A Tasha Codec CDP";

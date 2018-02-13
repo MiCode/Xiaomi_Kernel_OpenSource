@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2487,6 +2487,12 @@ int cam_req_mgr_sync_config(
 		return -EINVAL;
 	}
 
+	if ((!sync_info->link_hdls[0]) || (!sync_info->link_hdls[1])) {
+		CAM_WARN(CAM_CRM, "Invalid link handles 0x%x 0x%x",
+			sync_info->link_hdls[0], sync_info->link_hdls[1]);
+		return -EINVAL;
+	}
+
 	mutex_lock(&g_crm_core_dev->crm_lock);
 	/* session hdl's priv data is cam session struct */
 	cam_session = (struct cam_req_mgr_core_session *)
@@ -2607,8 +2613,11 @@ end:
 int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 {
 	int                               rc = 0;
-	int                               i;
+	int                               i, j;
 	struct cam_req_mgr_core_link     *link = NULL;
+
+	struct cam_req_mgr_connected_device *dev = NULL;
+	struct cam_req_mgr_link_evt_data     evt_data;
 
 	if (!control) {
 		CAM_ERR(CAM_CRM, "Control command is NULL");
@@ -2639,9 +2648,29 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 					link->link_hdl);
 				rc = -EFAULT;
 			}
+			/* notify nodes */
+			for (j = 0; j < link->num_devs; j++) {
+				dev = &link->l_dev[j];
+				evt_data.evt_type = CAM_REQ_MGR_LINK_EVT_RESUME;
+				evt_data.link_hdl =  link->link_hdl;
+				evt_data.dev_hdl = dev->dev_hdl;
+				evt_data.req_id = 0;
+				if (dev->ops && dev->ops->process_evt)
+					dev->ops->process_evt(&evt_data);
+			}
 		} else if (control->ops == CAM_REQ_MGR_LINK_DEACTIVATE) {
 			/* Destroy SOF watchdog timer */
 			crm_timer_exit(&link->watchdog);
+			/* notify nodes */
+			for (j = 0; j < link->num_devs; j++) {
+				dev = &link->l_dev[j];
+				evt_data.evt_type = CAM_REQ_MGR_LINK_EVT_PAUSE;
+				evt_data.link_hdl =  link->link_hdl;
+				evt_data.dev_hdl = dev->dev_hdl;
+				evt_data.req_id = 0;
+				if (dev->ops && dev->ops->process_evt)
+					dev->ops->process_evt(&evt_data);
+			}
 		} else {
 			CAM_ERR(CAM_CRM, "Invalid link control command");
 			rc = -EINVAL;

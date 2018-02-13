@@ -19,8 +19,6 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 
-#include <linux/msm_iommu_domains.h>
-
 #include "mdss_dsi_clk.h"
 #include "mdp3_dma.h"
 #include "mdss_fb.h"
@@ -111,7 +109,6 @@ struct mdp3_bus_handle_map {
 struct mdp3_iommu_domain_map {
 	u32 domain_type;
 	char *client_name;
-	struct msm_iova_partition partitions[1];
 	int npartitions;
 	int domain_idx;
 	struct iommu_domain *domain;

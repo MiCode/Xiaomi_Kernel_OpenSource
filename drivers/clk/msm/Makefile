@@ -17,3 +17,6 @@ obj-$(CONFIG_ARCH_MSM8953)	+= clock-gcc-8953.o
 obj-$(CONFIG_ARCH_MSM8953)	+= clock-cpu-8953.o
 obj-$(CONFIG_ARCH_MSM8953)	+= clock-rcgwr.o
 endif
+
+obj-y               += mdss/
+

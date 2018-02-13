@@ -14,6 +14,7 @@ Optional properties:
 - qcom,fastrpc-glink:	Flag to use glink instead of smd for IPC
 - qcom,rpc-latency-us:	FastRPC QoS latency vote
 - qcom,adsp-remoteheap-vmid:  FastRPC remote heap VMID list
+- qcom,fastrpc-adsp-audio-pdr:  Flag to enable ADSP Audio PDR
 
 Optional subnodes:
 - qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context
@@ -73,9 +74,11 @@ Remote Heap:
 Required properties:
 - compatible : Must be "qcom,msm-adsprpc-mem-region"
 - memory-region : CMA region which is owned by this device
+- restrict-access : Blocking vote for hyp_assign_phys function call
 
 Example:
        qcom,adsprpc-mem {
                compatible = "qcom,msm-adsprpc-mem-region";
                memory-region = <&adsp_mem>;
+               restrict-access;
        };
