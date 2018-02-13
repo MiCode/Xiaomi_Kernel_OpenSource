@@ -119,10 +119,6 @@ Optional Properties:
 	- qcom,msm-bus,num-cases
 	- qcom,msm-bus,num-paths
 	- qcom,msm-bus,vectors-KBps
-  - qcom,scm-dev-id: If present then device id value is passed to secure channel
-	manager(scm) driver. scm driver uses this device id to restore PCIe
-	controller related security configuration after coming out of the controller
-	power collapse.
   - resets: reset specifier pair consists of phandle for the reset controller
     and reset lines used by this controller.
   - reset-names: reset signal name strings sorted in the same order as the resets
@@ -286,6 +282,4 @@ Example:
 		qcom,msm-bus,vectors-KBps =
 				<45 512 0 0>,
 				<45 512 500 800>;
-
-		qcom,scm-dev-id = <11>;
 	};
