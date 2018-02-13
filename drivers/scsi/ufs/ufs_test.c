@@ -537,8 +537,8 @@ static void ufs_test_random_async_query(void *data, async_cookie_t cookie)
 {
 	int op;
 	struct ufs_hba *hba = (struct ufs_hba *)data;
-	int buff_len = QUERY_DESC_UNIT_MAX_SIZE;
-	u8 desc_buf[QUERY_DESC_UNIT_MAX_SIZE];
+	int buff_len = QUERY_DESC_UNIT_DEF_SIZE;
+	u8 desc_buf[QUERY_DESC_UNIT_DEF_SIZE];
 	bool flag;
 	u32 att;
 	int ret = 0;
