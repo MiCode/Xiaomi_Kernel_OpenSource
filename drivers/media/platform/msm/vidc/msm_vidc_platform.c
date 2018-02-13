@@ -153,11 +153,11 @@ static struct msm_vidc_common_data sdm855_common_data[] = {
 	},
 	{
 		.key = "qcom,power-collapse-delay",
-		.value = 1500,
+		.value = 150000,
 	},
 	{
 		.key = "qcom,hw-resp-timeout",
-		.value = 1000,
+		.value = 10000,
 	},
 	{
 		.key = "qcom,debug-timeout",
