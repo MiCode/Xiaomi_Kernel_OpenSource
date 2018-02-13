@@ -68,6 +68,8 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_0_slv_axi_clk", 0, true},
 	{NULL, "pcie_0_aux_clk", 1000000, true},
 	{NULL, "pcie_0_ldo", 0, true},
+	{NULL, "pcie_0_sleep_clk", 0, false},
+	{NULL, "pcie_0_slv_q2a_axi_clk", 0, false},
 };
 
 static struct ep_pcie_clk_info_t
@@ -82,13 +84,13 @@ static struct ep_pcie_reset_info_t
 };
 
 static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
-	{"parf",	0, 0},
-	{"phy",		0, 0},
-	{"mmio",	0, 0},
-	{"msi",		0, 0},
-	{"dm_core",	0, 0},
-	{"elbi",	0, 0},
-	{"iatu",	0, 0},
+	{"parf",	NULL, NULL},
+	{"phy",		NULL, NULL},
+	{"mmio",	NULL, NULL},
+	{"msi",		NULL, NULL},
+	{"dm_core",	NULL, NULL},
+	{"elbi",	NULL, NULL},
+	{"iatu",	NULL, NULL},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -319,8 +321,8 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 				break;
 			}
 			EP_PCIE_DBG(dev,
-				"PCIe V%d: set rate for clk %s.\n",
-				dev->rev, info->name);
+				"PCIe V%d: set rate %d for clk %s.\n",
+				dev->rev, info->freq, info->name);
 		}
 
 		rc = clk_prepare_enable(info->hdl);
@@ -529,6 +531,47 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 				0xf, dev->link_speed);
 	}
 
+	if (dev->active_config) {
+		struct resource *dbi = dev->res[EP_PCIE_RES_DM_CORE].resource;
+		u32 dbi_lo = dbi->start;
+
+		EP_PCIE_DBG2(dev, "PCIe V%d: Enable L1.\n", dev->rev);
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
+
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
+					0, BIT(0));
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI,
+					0x200);
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
+					0x0);
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR_HI,
+					0x100);
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR,
+					dbi_lo);
+
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: DBI base:0x%x.\n", dev->rev,
+			readl_relaxed(dev->parf + PCIE20_PARF_DBI_BASE_ADDR));
+
+		if (dev->phy_rev >= 6) {
+			struct resource *atu =
+					dev->res[EP_PCIE_RES_IATU].resource;
+			u32 atu_lo = atu->start;
+
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: configure MSB of ATU base for flipping and LSB as 0x%x.\n",
+				dev->rev, atu_lo);
+			ep_pcie_write_reg(dev->parf,
+					PCIE20_PARF_ATU_BASE_ADDR_HI, 0x100);
+			ep_pcie_write_reg(dev->parf, PCIE20_PARF_ATU_BASE_ADDR,
+					atu_lo);
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: LSB of ATU base:0x%x.\n",
+				dev->rev, readl_relaxed(dev->parf
+						+ PCIE20_PARF_ATU_BASE_ADDR));
+		}
+	}
+
 	/* Read halts write */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_AXI_MSTR_RD_HALT_NO_WRITES,
 			0, BIT(0));
@@ -646,13 +689,6 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		EP_PCIE_DBG(dev, "PCIe V%d: PCIE20_PARF_INT_ALL_MASK:0x%x\n",
 			dev->rev,
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
-	}
-
-	if (dev->active_config) {
-		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
-
-		EP_PCIE_DBG2(dev, "PCIe V%d: Enable L1.\n", dev->rev);
-		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 	}
 }
 
@@ -877,12 +913,10 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 		ret = of_property_read_u32_array(
 			(&pdev->dev)->of_node,
 			"max-clock-frequency-hz", clkfreq, cnt);
-		if (ret) {
-			EP_PCIE_ERR(dev,
-				"PCIe V%d: invalid max-clock-frequency-hz property:%d\n",
+		if (ret)
+			EP_PCIE_DBG2(dev,
+				"PCIe V%d: cannot get max-clock-frequency-hz property from DT:%d\n",
 				dev->rev, ret);
-			goto out;
-		}
 	}
 
 	for (i = 0; i < EP_PCIE_MAX_VREG; i++) {
@@ -1385,18 +1419,8 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	}
 
 checkbme:
-	if (dev->active_config) {
-		ep_pcie_write_mask(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
-					0, BIT(0));
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI,
-					0x200);
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
-					0x0);
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR_HI,
-					0x100);
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR,
-					0x7FFFE000);
-	}
+	if (dev->active_config)
+		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
 
 	if (!(opt & EP_PCIE_OPT_ENUM_ASYNC)) {
 		/* Wait for up to 1000ms for BME to be set */
