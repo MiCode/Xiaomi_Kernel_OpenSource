@@ -1,10 +1,6 @@
 /* include/linux/msm_hdmi.h
  *
-<<<<<<< HEAD
  * Copyright (c) 2014-2015, 2018, The Linux Foundation. All rights reserved.
-=======
- * Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
->>>>>>> dfa46f9... fbdev: msm: fix compilation error
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
