@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,6 +186,17 @@ static struct adv7533_reg_cfg adv7533_video_en[] = {
 	{I2C_ADDR_CEC_DSI, 0x05, 0xC8, 0},
 	/* GC packet enable */
 	{I2C_ADDR_MAIN, 0x40, 0x80, 0},
+};
+
+static struct adv7533_reg_cfg adv7533_video_disable[] = {
+	/* Timing Generator Disable */
+	{I2C_ADDR_CEC_DSI, 0x27, 0x4B, 0},
+	/* SPDIF disable */
+	{I2C_ADDR_MAIN, 0x0B, 0x00, 0},
+	/* Gate CEC Clock */
+	{I2C_ADDR_CEC_DSI, 0x05, 0xF8, 0},
+	/* power down */
+	{I2C_ADDR_MAIN, 0x41, 0x50, 0},
 };
 
 static struct adv7533_reg_cfg adv7533_cec_en[] = {
@@ -1379,6 +1390,12 @@ static int adv7533_power_on(void *client, bool on, u32 flags)
 	mutex_lock(&pdata->ops_mutex);
 
 	if (on && !pdata->is_power_on) {
+		if (gpio_is_valid(pdata->switch_gpio)) {
+			gpio_set_value(pdata->switch_gpio,
+				pdata->switch_flags);
+			msleep(ADV7533_RESET_DELAY);
+		}
+
 		adv7533_write_array(pdata, adv7533_init_setup,
 					sizeof(adv7533_init_setup));
 
@@ -1394,6 +1411,12 @@ static int adv7533_power_on(void *client, bool on, u32 flags)
 		adv7533_write(pdata, I2C_ADDR_MAIN, 0x41, 0x50);
 		pdata->is_power_on = false;
 
+		if (gpio_is_valid(pdata->switch_gpio)) {
+			gpio_set_value(pdata->switch_gpio,
+				!pdata->switch_flags);
+			msleep(ADV7533_RESET_DELAY);
+		}
+		ret = 0;
 		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_HPD_DISCONNECT);
 	}
@@ -1556,48 +1579,56 @@ static int adv7533_video_on(void *client, bool on,
 	u8 reg_val = 0;
 	struct adv7533 *pdata = adv7533_get_platform_data(client);
 
-	if (!pdata || !cfg) {
+	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
+		return -EINVAL;
+	} else if (on && !cfg) {
+		pr_err("%s: invalid cfg data for power on\n", __func__);
 		return -EINVAL;
 	}
 
 	mutex_lock(&pdata->ops_mutex);
 
-	/* DSI lane configuration */
-	lanes = (cfg->num_of_input_lanes << 4);
-	adv7533_write(pdata, I2C_ADDR_CEC_DSI, 0x1C, lanes);
+	if (on) {
+		/* DSI lane configuration */
+		lanes = (cfg->num_of_input_lanes << 4);
+		adv7533_write(pdata, I2C_ADDR_CEC_DSI, 0x1C, lanes);
 
-	adv7533_video_setup(pdata, cfg);
+		adv7533_video_setup(pdata, cfg);
 
-	/* hdmi/dvi mode */
-	if (cfg->hdmi_mode)
-		adv7533_write(pdata, I2C_ADDR_MAIN, 0xAF, 0x06);
-	else
-		adv7533_write(pdata, I2C_ADDR_MAIN, 0xAF, 0x04);
+		/* hdmi/dvi mode */
+		if (cfg->hdmi_mode)
+			adv7533_write(pdata, I2C_ADDR_MAIN, 0xAF, 0x06);
+		else
+			adv7533_write(pdata, I2C_ADDR_MAIN, 0xAF, 0x04);
 
-	/* set scan info for AVI Infoframe*/
-	if (cfg->scaninfo) {
-		adv7533_read(pdata, I2C_ADDR_MAIN, 0x55, &reg_val, 1);
-		reg_val |= cfg->scaninfo & (BIT(1) | BIT(0));
-		adv7533_write(pdata, I2C_ADDR_MAIN, 0x55, reg_val);
-	}
+		/* set scan info for AVI Infoframe*/
+		if (cfg->scaninfo) {
+			adv7533_read(pdata, I2C_ADDR_MAIN, 0x55, &reg_val, 1);
+			reg_val |= cfg->scaninfo & (BIT(1) | BIT(0));
+			adv7533_write(pdata, I2C_ADDR_MAIN, 0x55, reg_val);
+		}
 
-	/*
-	 * aspect ratio and sync polarity set up.
-	 * Currently adv only supports 16:9 or 4:3 aspect ratio
-	 * configuration.
-	 */
-	if (cfg->h_active * 3 - cfg->v_active * 4) {
-		adv7533_write(pdata, I2C_ADDR_MAIN, 0x17, 0x02);
-		adv7533_write(pdata, I2C_ADDR_MAIN, 0x56, 0x28);
+		/*
+		 * aspect ratio and sync polarity set up.
+		 * Currently adv only supports 16:9 or 4:3 aspect ratio
+		 * configuration.
+		 */
+		if (cfg->h_active * 3 - cfg->v_active * 4) {
+			adv7533_write(pdata, I2C_ADDR_MAIN, 0x17, 0x02);
+			adv7533_write(pdata, I2C_ADDR_MAIN, 0x56, 0x28);
+		} else {
+			/* 4:3 aspect ratio */
+			adv7533_write(pdata, I2C_ADDR_MAIN, 0x17, 0x00);
+			adv7533_write(pdata, I2C_ADDR_MAIN, 0x56, 0x18);
+		}
+
+		adv7533_write_array(pdata, adv7533_video_en,
+					sizeof(adv7533_video_en));
 	} else {
-		/* 4:3 aspect ratio */
-		adv7533_write(pdata, I2C_ADDR_MAIN, 0x17, 0x00);
-		adv7533_write(pdata, I2C_ADDR_MAIN, 0x56, 0x18);
+		adv7533_write_array(pdata, adv7533_video_disable,
+				sizeof(adv7533_video_disable));
 	}
-
-	adv7533_write_array(pdata, adv7533_video_en,
-				sizeof(adv7533_video_en));
 
 	mutex_unlock(&pdata->ops_mutex);
 	return ret;
