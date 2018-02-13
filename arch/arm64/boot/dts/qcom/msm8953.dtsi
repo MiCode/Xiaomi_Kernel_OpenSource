@@ -1876,6 +1876,11 @@
 		qcom,wcnss-adc_tm = <&pm8953_adc_tm>;
 	};
 
+	ssc_sensors: qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		status = "ok";
+	};
+
 };
 
 #include "pm8953-rpm-regulator.dtsi"
