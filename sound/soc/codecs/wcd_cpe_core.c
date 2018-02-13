@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -334,6 +334,14 @@ static int wcd_cpe_load_each_segment(struct wcd_cpe_core *core,
 	else {
 		dev_err(core->dev, "%s invalid flags 0x%x\n",
 			__func__, phdr->p_flags);
+		goto done;
+	}
+
+	if (phdr->p_filesz != split_fw->size) {
+		dev_err(core->dev,
+			"%s: %s size mismatch, phdr_size: 0x%x fw_size: 0x%zx",
+			__func__, split_fname, phdr->p_filesz, split_fw->size);
+		ret = -EINVAL;
 		goto done;
 	}
 
