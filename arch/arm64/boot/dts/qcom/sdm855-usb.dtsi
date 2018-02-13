@@ -1,0 +1,279 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/qcom,gcc-sdm855.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
+
+&soc {
+	/* Primary USB port related controller */
+	usb0: ssusb@a600000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0x0a600000 0x100000>,
+			<0x088ee000 0x400>;
+		reg-names = "core_base", "ahb2phy_base";
+
+		iommus = <&apps_smmu 0x140 0x0>;
+		qcom,smmu-s1-bypass;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		interrupts = <0 489 0>, <0 130 0>, <0 486 0>, <0 488 0>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"ss_phy_irq", "dm_hs_phy_irq";
+		qcom,use-pdc-interrupts;
+
+		USB3_GDSC-supply = <&usb30_prim_gdsc>;
+		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
+			<&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
+			<&clock_gcc GCC_USB30_PRIM_MOCK_UTMI_CLK>,
+			<&clock_gcc GCC_USB30_PRIM_SLEEP_CLK>,
+			/*
+			 * GCC_USB3_SEC_CLKREF_CLK provides ref_clk for both
+			 * USB instances. Hence GCC_USB3_PRIM_CLKREF_CLK is not
+			 * used here.
+			 */
+			 <&clock_gcc GCC_USB3_SEC_CLKREF_CLK>;
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
+					"utmi_clk", "sleep_clk", "xo";
+
+		resets = <&clock_gcc GCC_USB30_PRIM_BCR>;
+		reset-names = "core_reset";
+
+		qcom,core-clk-rate = <200000000>;
+		qcom,core-clk-rate-hs = <66666667>;
+		qcom,num-gsi-evt-buffs = <0x3>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+
+		qcom,msm-bus,name = "usb0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <3>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_EBI_CH0 0 0>,
+			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_IPA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 0>,
+			<MSM_BUS_MASTER_USB3
+				MSM_BUS_SLAVE_EBI_CH0 1000000 2500000>,
+			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_IPA_CFG 0 2400>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 40000>;
+
+		dwc3@a600000 {
+			compatible = "snps,dwc3";
+			reg = <0x0a600000 0xcd00>;
+			interrupts = <0 133 0>;
+			usb-phy = <&usb2_phy0>, <&usb_qmp_dp_phy>;
+			linux,sysdev_is_parent;
+			snps,disable-clk-gating;
+			snps,has-lpm-erratum;
+			snps,hird-threshold = /bits/ 8 <0x10>;
+			snps,usb3_lpm_capable;
+			usb-core-id = <0>;
+			maximum-speed = "super-speed";
+			dr_mode = "otg";
+		};
+	};
+
+	/* Primary USB port related High Speed PHY */
+	usb2_phy0: hsphy@88e2000 {
+		compatible = "qcom,usb-hsphy-snps-femto";
+		reg = <0x88e2000 0x110>;
+		reg-names = "hsusb_phy_base";
+
+		vdd-supply = <&pm855_l5>;
+		vdda18-supply = <&pm855_l12>;
+		vdda33-supply = <&pm855_l2>;
+		qcom,vdd-voltage-level = <0 880000 880000>;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "ref_clk_src";
+
+		resets = <&clock_gcc GCC_QUSB2PHY_PRIM_BCR>;
+		reset-names = "phy_reset";
+	};
+
+	/* Primary USB port related QMP USB DP Combo PHY */
+	usb_qmp_dp_phy: ssphy@88e8000 {
+		compatible = "qcom,usb-ssphy-qmp-dp-combo";
+		reg = <0x88e8000 0x3000>;
+		reg-names = "qmp_phy_base";
+
+		vdd-supply = <&pm855_l3>;
+		qcom,vdd-voltage-level = <0 880000 880000>;
+		core-supply = <&pm855_l5>;
+		qcom,core-voltage-level = <0 880000 880000>;
+		qcom,vbus-valid-override;
+		qcom,qmp-phy-init-seq =
+			/* <reg_offset, value, delay> */
+			<0x1010 0x01 0x00 /* QSERDES_COM_SSC_EN_CENTER */
+			 0x101c 0x31 0x00 /* QSERDES_COM_SSC_PER1 */
+			 0x1020 0x01 0x00 /* QSERDES_COM_SSC_PER2 */
+			 0x1024 0xde 0x00 /* QSERDES_COM_SSC_STEP_SIZE1_MODE0 */
+			 0x1028 0x07 0x00 /* QSERDES_COM_SSC_STEP_SIZE2_MODE0 */
+			 0x1030 0xde 0x00 /* QSERDES_COM_SSC_STEP_SIZE1_MODE1 */
+			 0x1034 0x07 0x00 /* QSERDES_COM_SSC_STEP_SIZE2_MODE1 */
+			 0x1050 0x0a 0x00 /* QSERDES_COM_SYSCLK_BUF_ENABLE */
+			 0x1074 0x06 0x00 /* QSERDES_COM_CP_CTRL_MODE0 */
+			 0x1078 0x06 0x00 /* QSERDES_COM_CP_CTRL_MODE1 */
+			 0x107c 0x16 0x00 /* QSERDES_COM_PLL_RCTRL_MODE0 */
+			 0x1080 0x16 0x00 /* QSERDES_COM_PLL_RCTRL_MODE1 */
+			 0x1084 0x36 0x00 /* QSERDES_COM_PLL_CCTRL_MODE0 */
+			 0x1088 0x36 0x00 /* QSERDES_COM_PLL_CCTRL_MODE1 */
+			 0x1094 0x1a 0x00 /* QSERDES_COM_SYSCLK_EN_SEL */
+			 0x10a4 0x04 0x00 /* QSERDES_COM_LOCK_CMP_EN */
+			 0x10ac 0x14 0x00 /* QSERDES_COM_LOCK_CMP1_MODE0 */
+			 0x10b0 0x34 0x00 /* QSERDES_COM_LOCK_CMP2_MODE0 */
+			 0x10b4 0x34 0x00 /* QSERDES_COM_LOCK_CMP1_MODE1 */
+			 0x10b8 0x82 0x00 /* QSERDES_COM_LOCK_CMP2_MODE1 */
+			 0x10bc 0x82 0x00 /* QSERDES_COM_DEC_START_MODE0 */
+			 0x10c4 0x82 0x00 /* QSERDES_COM_DEC_START_MODE1 */
+			 0x10cc 0xab 0x00 /* COM_DIV_FRAC_START1_MODE0 */
+			 0x10d0 0xea 0x00 /* COM_DIV_FRAC_START2_MODE0 */
+			 0x10d4 0x02 0x00 /* COM_DIV_FRAC_START3_MODE0 */
+			 0x10d8 0xab 0x00 /* COM_DIV_FRAC_START1_MODE1 */
+			 0x10dc 0xea 0x00 /* COM_DIV_FRAC_START2_MODE1 */
+			 0x10e0 0x02 0x00 /* COM_DIV_FRAC_START3_MODE1 */
+			 0x1108 0x00 0x00 /* QSERDES_COM_VCO_TUNE_CTRL */
+			 0x110c 0x02 0x00 /* QSERDES_COM_VCO_TUNE_MAP */
+			 0x1110 0x24 0x00 /* QSERDES_COM_VCO_TUNE1_MODE0 */
+			 0x1118 0x24 0x00 /* QSERDES_COM_VCO_TUNE1_MODE1 */
+			 0x111c 0x02 0x00 /* QSERDES_COM_VCO_TUNE2_MODE1 */
+			 0x1158 0x01 0x00 /* QSERDES_COM_HSCLK_SEL */
+			 0x116c 0x08 0x00 /* QSERDES_COM_CORECLK_DIV_MODE1 */
+			 0x11ac 0xca 0x00 /* COM_BIN_VCOCAL_CMP_CODE1_MODE0 */
+			 0x11b0 0x1e 0x00 /* COM_BIN_VCOCAL_CMP_CODE2_MODE0 */
+			 0x11b4 0xca 0x00 /* COM_BIN_VCOCAL_CMP_CODE1_MODE1 */
+			 0x11b8 0x1e 0x00 /* COM_BIN_VCOCAL_CMP_CODE2_MODE1 */
+			 0x11bc 0x11 0x00 /* QSERDES_COM_BIN_VCOCAL_HSCLK_SEL */
+			 0x1284 0x05 0x00 /* QSERDES_TXA_LANE_MODE_1 */
+			 0x129c 0x12 0x00 /* QSERDES_TXA_RCV_DETECT_LVL_2 */
+			 0x1414 0x04 0x00 /* QSERDES_RXA_UCDR_SO_GAIN */
+			 0x1430 0x2f 0x00 /* RXA_UCDR_FASTLOCK_FO_GAIN */
+			 0x1434 0x7f 0x00 /* RXA_UCDR_SO_SATURATION_AND_ENABL */
+			 0x143c 0xff 0x00 /* RXA_UCDR_FASTLOCK_COUNT_LOW */
+			 0x1440 0x0f 0x00 /* RXA_UCDR_FASTLOCK_COUNT_HIGH */
+			 0x1444 0x99 0x00 /* QSERDES_RXA_UCDR_PI_CONTROLS */
+			 0x144c 0x04 0x00 /* QSERDES_RXA_UCDR_SB2_THRESH1 */
+			 0x1450 0x08 0x00 /* QSERDES_RXA_UCDR_SB2_THRESH2 */
+			 0x1454 0x05 0x00 /* QSERDES_RXA_UCDR_SB2_GAIN1 */
+			 0x1458 0x05 0x00 /* QSERDES_RXA_UCDR_SB2_GAIN2 */
+			 0x14d8 0x03 0x00 /* QSERDES_RXA_VGA_CAL_CNTRL2 */
+			 0x14ec 0x0f 0x00 /* RXA_RX_EQU_ADAPTOR_CNTRL2 */
+			 0x14f0 0x4a 0x00 /* RXA_RX_EQU_ADAPTOR_CNTRL3 */
+			 0x14f4 0x08 0x00 /* RXA_RX_EQU_ADAPTOR_CNTRL4 */
+			 0x14f8 0xc0 0x00 /* RXA_RX_IDAC_TSETTLE_LOW */
+			 0x14fc 0x00 0x00 /* QSERDES_RXA_RX_IDAC_TSETTLE_HIGH */
+			 0x1510 0x77 0x00 /* RXA_RX_EQ_OFFSET_ADAPTOR_CNTRL1 */
+			 0x1514 0x80 0x00 /* RXA_RX_OFFSET_ADAPTOR_CNTRL2 */
+			 0x151c 0x04 0x00 /* QSERDES_RXA_SIGDET_CNTRL */
+			 0x1524 0x0e 0x00 /* RXA_SIGDET_DEGLITCH_CNTRL */
+			 0x1570 0x36 0x00 /* QSERDES_RXA_RX_MODE_00_LOW */
+			 0x1574 0x36 0x00 /* QSERDES_RXA_RX_MODE_00_HIGH */
+			 0x1578 0xb6 0x00 /* QSERDES_RXA_RX_MODE_00_HIGH2 */
+			 0x157c 0x17 0x00 /* QSERDES_RXA_RX_MODE_00_HIGH3 */
+			 0x1580 0x7c 0x00 /* QSERDES_RXA_RX_MODE_00_HIGH4 */
+			 0x1584 0xd4 0x00 /* QSERDES_RXA_RX_MODE_01_LOW */
+			 0x1588 0x54 0x00 /* QSERDES_RXA_RX_MODE_01_HIGH */
+			 0x158c 0xdb 0x00 /* QSERDES_RXA_RX_MODE_01_HIGH2 */
+			 0x1590 0x39 0x00 /* QSERDES_RXA_RX_MODE_01_HIGH3 */
+			 0x1594 0x31 0x00 /* QSERDES_RXA_RX_MODE_01_HIGH4 */
+			 0x15b4 0x04 0x00 /* QSERDES_RXA_DFE_EN_TIMER */
+			 0x15b8 0x30 0x00 /* RXA_DFE_CTLE_POST_CAL_OFFSET */
+			 0x1684 0x05 0x00 /* QSERDES_TXB_LANE_MODE_1 */
+			 0x169c 0x12 0x00 /* QSERDES_TXB_RCV_DETECT_LVL_2 */
+			 0x1814 0x04 0x00 /* QSERDES_RXB_UCDR_SO_GAIN */
+			 0x1830 0x2f 0x00 /* RXB_UCDR_FASTLOCK_FO_GAIN */
+			 0x1834 0x7f 0x00 /* RXB_UCDR_SO_SATURATION_AND_ENABL */
+			 0x183c 0xff 0x00 /* RXB_UCDR_FASTLOCK_COUNT_LOW */
+			 0x1840 0x0f 0x00 /* RXB_UCDR_FASTLOCK_COUNT_HIGH */
+			 0x1844 0x99 0x00 /* QSERDES_RXB_UCDR_PI_CONTROLS */
+			 0x184c 0x04 0x00 /* QSERDES_RXB_UCDR_SB2_THRESH1 */
+			 0x1850 0x08 0x00 /* QSERDES_RXB_UCDR_SB2_THRESH2 */
+			 0x1854 0x05 0x00 /* QSERDES_RXB_UCDR_SB2_GAIN1 */
+			 0x1858 0x05 0x00 /* QSERDES_RXB_UCDR_SB2_GAIN2 */
+			 0x18d8 0x03 0x00 /* QSERDES_RXB_VGA_CAL_CNTRL2 */
+			 0x18ec 0x0f 0x00 /* RXB_RX_EQU_ADAPTOR_CNTRL2 */
+			 0x18f0 0x4a 0x00 /* RXB_RX_EQU_ADAPTOR_CNTRL3 */
+			 0x18f4 0x08 0x00 /* RXB_RX_EQU_ADAPTOR_CNTRL4 */
+			 0x18f8 0xc0 0x00 /* QSERDES_RXB_RX_IDAC_TSETTLE_LOW */
+			 0x18fc 0x00 0x00 /* RXB_RX_IDAC_TSETTLE_HIGH */
+			 0x1910 0x77 0x00 /* RXB_RX_EQ_OFFSET_ADAPTOR_CNTRL1 */
+			 0x1914 0x80 0x00 /* RXB_RX_OFFSET_ADAPTOR_CNTRL2 */
+			 0x191c 0x04 0x00 /* QSERDES_RXB_SIGDET_CNTRL */
+			 0x1924 0x0e 0x00 /* RXB_SIGDET_DEGLITCH_CNTRL */
+			 0x1970 0x36 0x00 /* QSERDES_RXB_RX_MODE_00_LOW */
+			 0x1974 0x36 0x00 /* QSERDES_RXB_RX_MODE_00_HIGH */
+			 0x1978 0xb6 0x00 /* QSERDES_RXB_RX_MODE_00_HIGH2 */
+			 0x197c 0x17 0x00 /* QSERDES_RXB_RX_MODE_00_HIGH3 */
+			 0x1980 0x7c 0x00 /* QSERDES_RXB_RX_MODE_00_HIGH4 */
+			 0x1984 0xd4 0x00 /* QSERDES_RXB_RX_MODE_01_LOW */
+			 0x1988 0x54 0x00 /* QSERDES_RXB_RX_MODE_01_HIGH */
+			 0x198c 0xdb 0x00 /* QSERDES_RXB_RX_MODE_01_HIGH2 */
+			 0x1990 0x39 0x00 /* QSERDES_RXB_RX_MODE_01_HIGH3 */
+			 0x1994 0x31 0x00 /* QSERDES_RXB_RX_MODE_01_HIGH4 */
+			 0x19b4 0x04 0x00 /* QSERDES_RXB_DFE_EN_TIMER */
+			 0x19b8 0x30 0x00 /* RXB_DFE_CTLE_POST_CAL_OFFSET */
+			 0x1cc4 0xd0 0x00 /* PCS_LOCK_DETECT_CONFIG1 */
+			 0x1cc8 0x17 0x00 /* PCS_LOCK_DETECT_CONFIG2 */
+			 0x1ccc 0x20 0x00 /* PCS_LOCK_DETECT_CONFIG3 */
+			 0x1d88 0x88 0x00 /* PCS_RX_SIGDET_LVL */
+			 0x1dc0 0x88 0x00 /* PCS_ALIGN_DETECT_CONFIG1 */
+			 0x1dc4 0x13 0x00 /* PCS_ALIGN_DETECT_CONFIG2 */
+			 0x1ddc 0x0d 0x00 /* PCS_EQ_CONFIG1 */
+			 0x1f18 0x64 0x00 /* PCS_USB3_LFPS_DET_HIGH_COUNT_VAL */
+			 0x1f28 0x55 0x00 /* PCS_USB3_RXEQTRAINING_LOCK_TIME */
+			 0x1f2c 0x30 0x00 /* PCS_USB3_RXEQTRAINING_WAIT_TIME */
+			 0x1f30 0x05 0x00 /* PCS_USB3_RXEQTRAINING_CTLE_TIME */
+			 0x1f34 0x15 0x00 /* USB3_RXEQTRAINING_WAIT_TIME_S2 */
+			 0x1f38 0x04 0x00 /* USB3_RXEQTRAINING_DFE_TIME_S2 */
+			 0xffffffff 0xffffffff 0x00>;
+
+		qcom,qmp-phy-reg-offset =
+			<0x1c14 /* USB3_DP_PCS_PCS_STATUS1 */
+			 0x1f08 /* USB3_DP_PCS_AUTONOMOUS_MODE_CTRL */
+			 0x1f14 /* USB3_DP_PCS_LFPS_RXTERM_IRQ_CLEAR */
+			 0x1c40 /* USB3_DP_PCS_POWER_DOWN_CONTROL */
+			 0x1c00 /* USB3_DP_PCS_SW_RESET */
+			 0x1c44 /* USB3_DP_PCS_START_CONTROL */
+			 0x2a18 /* USB3_DP_DP_PHY_PD_CTL */
+			 0x0008 /* USB3_DP_COM_POWER_DOWN_CTRL */
+			 0x0004 /* USB3_DP_COM_SW_RESET */
+			 0x001c /* USB3_DP_COM_RESET_OVRD_CTRL */
+			 0x0000 /* USB3_DP_COM_PHY_MODE_CTRL */
+			 0x0010 /* USB3_DP_COM_TYPEC_CTRL */
+			 0x000c /* USB3_DP_COM_SWI_CTRL */
+			 0x1a0c>; /* USB3_DP_PCS_MISC_CLAMP_ENABLE */
+
+		clocks = <&clock_gcc GCC_USB3_PRIM_PHY_AUX_CLK>,
+			<&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
+			<&clock_rpmh RPMH_CXO_CLK>,
+			<&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
+			<&clock_gcc GCC_USB3_PRIM_PHY_COM_AUX_CLK>;
+		clock-names = "aux_clk", "pipe_clk", "ref_clk_src",
+				"ref_clk", "com_aux_clk";
+
+		resets = <&clock_gcc GCC_USB3_DP_PHY_PRIM_BCR>,
+			<&clock_gcc GCC_USB3_PHY_PRIM_BCR>;
+		reset-names = "global_phy_reset", "phy_reset";
+	};
+
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&apps_smmu 0x182f 0x0>;
+		qcom,usb-audio-stream-id = <0xf>;
+		qcom,usb-audio-intr-num = <2>;
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+};
