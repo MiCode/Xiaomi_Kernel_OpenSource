@@ -16,6 +16,7 @@
 
 #include <linux/list.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/err.h>
 
 #include "msm_drv.h"
@@ -305,6 +306,90 @@ end:
 	dsi_panel_release_panel_lock(display->panel);
 }
 
+static irqreturn_t dsi_display_panel_te_irq_handler(int irq, void *data)
+{
+	struct dsi_display *display = (struct dsi_display *)data;
+
+	/*
+	 * This irq handler is used for sole purpose of identifying
+	 * ESD attacks on panel and we can safely assume IRQ_HANDLED
+	 * in case of display not being initialized yet
+	 */
+	if (!display)
+		return IRQ_HANDLED;
+
+	atomic_set(&display->te_irq_triggered, 1);
+
+	return IRQ_HANDLED;
+}
+
+static void dsi_display_change_te_irq_status(struct dsi_display *display,
+					bool enable)
+{
+	if (!display) {
+		pr_err("Invalid params\n");
+		return;
+	}
+
+	/* Handle unbalanced irq enable/disbale calls */
+	if (enable && !display->is_te_irq_enabled) {
+		atomic_set(&display->te_irq_triggered, 1);
+		enable_irq(gpio_to_irq(display->disp_te_gpio));
+		display->is_te_irq_enabled = true;
+	} else if (!enable && display->is_te_irq_enabled) {
+		disable_irq(gpio_to_irq(display->disp_te_gpio));
+		atomic_set(&display->te_irq_triggered, 0);
+		display->is_te_irq_enabled = false;
+	}
+}
+
+static void dsi_display_register_te_irq(struct dsi_display *display)
+{
+	int rc;
+	struct platform_device *pdev;
+	struct device *dev;
+
+	pdev = display->pdev;
+	if (!pdev) {
+		pr_err("invalid platform device\n");
+		return;
+	}
+
+	dev = &pdev->dev;
+	if (!dev) {
+		pr_err("invalid device\n");
+		return;
+	}
+
+	rc = devm_request_irq(dev, gpio_to_irq(display->disp_te_gpio),
+			dsi_display_panel_te_irq_handler, IRQF_TRIGGER_FALLING,
+			"TE_GPIO", display);
+	if (rc) {
+		pr_err("TE request_irq failed for ESD rc:%d\n", rc);
+		return;
+	}
+
+	disable_irq(gpio_to_irq(display->disp_te_gpio));
+	display->is_te_irq_enabled = false;
+}
+
+static bool dsi_display_is_te_based_esd(struct dsi_display *display)
+{
+	u32 status_mode = 0;
+
+	if (!display->panel) {
+		pr_err("Invalid panel data\n");
+		return false;
+	}
+
+	status_mode = display->panel->esd_config.status_mode;
+
+	if (status_mode == ESD_MODE_PANEL_TE &&
+			gpio_is_valid(display->disp_te_gpio))
+		return true;
+	return false;
+}
+
 /* Allocate memory for cmd dma tx buffer */
 static int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
 {
@@ -413,6 +498,27 @@ static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 	}
 
 	return false;
+}
+
+static void dsi_display_parse_te_gpio(struct dsi_display *display)
+{
+	struct platform_device *pdev;
+	struct device *dev;
+
+	pdev = display->pdev;
+	if (!pdev) {
+		pr_err("Inavlid platform device\n");
+		return;
+	}
+
+	dev = &pdev->dev;
+	if (!dev) {
+		pr_err("Inavlid platform device\n");
+		return;
+	}
+
+	display->disp_te_gpio = of_get_named_gpio(dev->of_node,
+					"qcom,platform-te-gpio", 0);
 }
 
 static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
@@ -559,12 +665,16 @@ static int dsi_display_status_bta_request(struct dsi_display *display)
 
 static int dsi_display_status_check_te(struct dsi_display *display)
 {
-	int rc = 0;
+	int const esd_check_success = 1;
 
-	pr_debug(" ++\n");
-	/* TODO: wait for TE interrupt from panel */
+	if (atomic_read(&display->te_irq_triggered)) {
+		atomic_set(&display->te_irq_triggered, 0);
+	} else {
+		pr_err("ESD check failed\n");
+		return -EINVAL;
+	}
 
-	return rc;
+	return esd_check_success;
 }
 
 int dsi_display_check_status(struct drm_connector *connector, void *display)
@@ -3020,6 +3130,9 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		goto error;
 	}
 
+	/* Parse TE gpio */
+	dsi_display_parse_te_gpio(display);
+
 	pr_debug("success\n");
 error:
 	return rc;
@@ -4119,6 +4232,9 @@ static int dsi_display_bind(struct device *dev,
 			goto error;
 		}
 	}
+
+	/* register te irq handler */
+	dsi_display_register_te_irq(display);
 
 	goto error;
 
@@ -5286,6 +5402,9 @@ int dsi_display_prepare(struct dsi_display *display)
 
 	mode = display->panel->cur_mode;
 
+	if (dsi_display_is_te_based_esd(display))
+		dsi_display_change_te_irq_status(display, true);
+
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		if (display->is_cont_splash_enabled) {
 			pr_err("DMS is not supposed to be set on first frame\n");
@@ -5891,6 +6010,10 @@ int dsi_display_unprepare(struct dsi_display *display)
 	if (rc)
 		pr_err("[%s] display wake up failed, rc=%d\n",
 		       display->name, rc);
+
+	/* Disable panel TE irq */
+	if (dsi_display_is_te_based_esd(display))
+		dsi_display_change_te_irq_status(display, false);
 
 	rc = dsi_panel_unprepare(display->panel);
 	if (rc)

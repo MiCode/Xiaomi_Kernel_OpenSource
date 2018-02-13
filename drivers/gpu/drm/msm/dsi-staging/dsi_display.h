@@ -135,6 +135,9 @@ struct dsi_display_clk_info {
  * @is_cont_splash_enabled:  Is continuous splash enabled
  * @sw_te_using_wd:   Is software te enabled
  * @display_lock:     Mutex for dsi_display interface.
+ * @disp_te_gpio:     GPIO for panel TE interrupt.
+ * @is_te_irq_enabled:bool to specify whether TE interrupt is enabled.
+ * @te_irq_triggered: atomic state notifying panel TE interrupt.
  * @ctrl_count:       Number of DSI interfaces required by panel.
  * @ctrl:             Controller information for DSI display.
  * @panel:            Handle to DSI panel.
@@ -178,6 +181,9 @@ struct dsi_display {
 	bool is_cont_splash_enabled;
 	bool sw_te_using_wd;
 	struct mutex display_lock;
+	int disp_te_gpio;
+	bool is_te_irq_enabled;
+	atomic_t te_irq_triggered;
 
 	u32 ctrl_count;
 	struct dsi_display_ctrl ctrl[MAX_DSI_CTRLS_PER_DISPLAY];
