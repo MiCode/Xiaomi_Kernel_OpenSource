@@ -1041,7 +1041,7 @@ Example of child node that would have qcom,wdsp-cmpnt-dev-name property
 * SDM855 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,sdm855-asoc-snd-pahu"
+- compatible : "qcom,sdm855-asoc-snd-pahu-aqt"
 - qcom,model : The user-visible name of this sound card.
 - qcom,pahu-ext-clk-freq : External CLK frequency value for pahu codec
 - qcom,audio-routing : A list of the connections between audio components.
@@ -1073,8 +1073,8 @@ Optional properties:
 Example:
 
 	sound-pahu {
-		compatible = "qcom,sdm855-asoc-snd-pahu";
-		qcom,model = "sdm855-pahu-snd-card";
+		compatible = "qcom,sdm855-asoc-snd-pahu-aqt";
+		qcom,model = "sdm855-pahu-aqt-snd-card";
 		qcom,ext-disp-audio-rx;
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
