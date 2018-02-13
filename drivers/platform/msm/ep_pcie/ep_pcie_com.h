@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,24 @@
 #define PCIE20_PLR_IATU_LAR            0x914
 #define PCIE20_PLR_IATU_LTAR           0x918
 #define PCIE20_PLR_IATU_UTAR           0x91c
+
+#define PCIE20_IATU_BASE(n)            (n * 0x200)
+
+#define PCIE20_IATU_O_CTRL1(n)         (PCIE20_IATU_BASE(n) + 0x00)
+#define PCIE20_IATU_O_CTRL2(n)         (PCIE20_IATU_BASE(n) + 0x04)
+#define PCIE20_IATU_O_LBAR(n)          (PCIE20_IATU_BASE(n) + 0x08)
+#define PCIE20_IATU_O_UBAR(n)          (PCIE20_IATU_BASE(n) + 0x0c)
+#define PCIE20_IATU_O_LAR(n)           (PCIE20_IATU_BASE(n) + 0x10)
+#define PCIE20_IATU_O_LTAR(n)          (PCIE20_IATU_BASE(n) + 0x14)
+#define PCIE20_IATU_O_UTAR(n)          (PCIE20_IATU_BASE(n) + 0x18)
+
+#define PCIE20_IATU_I_CTRL1(n)         (PCIE20_IATU_BASE(n) + 0x100)
+#define PCIE20_IATU_I_CTRL2(n)         (PCIE20_IATU_BASE(n) + 0x104)
+#define PCIE20_IATU_I_LBAR(n)          (PCIE20_IATU_BASE(n) + 0x108)
+#define PCIE20_IATU_I_UBAR(n)          (PCIE20_IATU_BASE(n) + 0x10c)
+#define PCIE20_IATU_I_LAR(n)           (PCIE20_IATU_BASE(n) + 0x110)
+#define PCIE20_IATU_I_LTAR(n)          (PCIE20_IATU_BASE(n) + 0x114)
+#define PCIE20_IATU_I_UTAR(n)          (PCIE20_IATU_BASE(n) + 0x118)
 
 #define PCIE20_MHICFG                  0x110
 #define PCIE20_BHI_EXECENV             0x228
@@ -202,6 +220,7 @@ enum ep_pcie_res {
 	EP_PCIE_RES_MSI,
 	EP_PCIE_RES_DM_CORE,
 	EP_PCIE_RES_ELBI,
+	EP_PCIE_RES_IATU,
 	EP_PCIE_MAX_RES,
 };
 
@@ -292,6 +311,7 @@ struct ep_pcie_dev_t {
 	void __iomem                 *msi;
 	void __iomem                 *dm_core;
 	void __iomem                 *elbi;
+	void __iomem                 *iatu;
 
 	struct msm_bus_scale_pdata   *bus_scale_table;
 	u32                          bus_client;
