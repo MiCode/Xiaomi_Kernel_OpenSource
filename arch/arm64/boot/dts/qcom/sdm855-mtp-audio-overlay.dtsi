@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,20 +10,11 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/plugin/;
-
-#include <dt-bindings/clock/qcom,gcc-sdm855.h>
-#include <dt-bindings/clock/qcom,camcc-sdm855.h>
-#include <dt-bindings/clock/qcom,rpmh.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
-#include "sdm855-cdp.dtsi"
 #include "sdm855-audio-overlay.dtsi"
 
-/ {
-	model = "Qualcomm Technologies, Inc. SDM855 v1 CDP";
-	compatible = "qcom,sdm855-cdp", "qcom,sdm855", "qcom,cdp";
-	qcom,msm-id = <339 0x0>;
-	qcom,board-id = <1 0>;
+&soc {
+	sound-pahu {
+		qcom,wsa-max-devs = <1>;
+	};
 };
+
