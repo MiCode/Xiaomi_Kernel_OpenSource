@@ -1352,7 +1352,7 @@ static int cam_icp_mgr_cleanup_ctx(struct cam_icp_hw_ctx_data *ctx_data)
 				ctx_data->hfi_frame_process.in_resource[i]);
 			cam_sync_destroy(
 				ctx_data->hfi_frame_process.in_resource[i]);
-			ctx_data->hfi_frame_process.in_free_resource[i] = 0;
+			ctx_data->hfi_frame_process.in_resource[i] = 0;
 		}
 		hfi_frame_process->fw_process_flag[i] = false;
 		clear_bit(i, ctx_data->hfi_frame_process.bitmap);
@@ -1366,7 +1366,7 @@ static int cam_icp_mgr_cleanup_ctx(struct cam_icp_hw_ctx_data *ctx_data)
 			ctx_data->hfi_frame_process.in_free_resource[i]);
 		cam_sync_destroy(
 			ctx_data->hfi_frame_process.in_free_resource[i]);
-		ctx_data->hfi_frame_process.in_resource[i] = 0;
+		ctx_data->hfi_frame_process.in_free_resource[i] = 0;
 	}
 
 	return 0;
@@ -1449,8 +1449,6 @@ static int cam_icp_mgr_process_msg_frame_process(uint32_t *msg_ptr)
 	if (ioconfig_ack->err_type != HFI_ERR_SYS_NONE) {
 		CAM_ERR(CAM_ICP, "failed with error : %u",
 		ioconfig_ack->err_type);
-		cam_icp_mgr_handle_frame_process(msg_ptr,
-			ICP_FRAME_PROCESS_FAILURE);
 		return -EIO;
 	}
 
@@ -1774,10 +1772,14 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 		read_len = read_len << BYTE_WORD_SHIFT;
 		msg_ptr = (uint32_t *)icp_hw_mgr.msg_buf;
 		while (true) {
-			rc = cam_icp_process_msg_pkt_type(hw_mgr, msg_ptr,
+			cam_icp_process_msg_pkt_type(hw_mgr, msg_ptr,
 				&msg_processed_len);
-			if (rc)
-				return rc;
+
+			if (!msg_processed_len) {
+				CAM_ERR(CAM_ICP, "Failed to read");
+				rc = -EINVAL;
+				break;
+			}
 
 			read_len -= msg_processed_len;
 			if (read_len > 0) {
