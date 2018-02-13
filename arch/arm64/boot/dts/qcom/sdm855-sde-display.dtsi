@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,11 +113,15 @@
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
-		qcom,platform-te-gpio = <&tlmm 10 0>;
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 8 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
-		qcom,panel-mode-gpio = <&tlmm 52 0>;
+		qcom,panel-mode-gpio = <&tlmm 7 0>;
 
 		qcom,dsi-panel = <&dsi_sharp_4k_dsc_video>;
+		vddio-supply = <&pm855_l14>;
 
 	};
 
@@ -132,11 +136,15 @@
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
-		qcom,platform-te-gpio = <&tlmm 10 0>;
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 8 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
-		qcom,panel-mode-gpio = <&tlmm 52 0>;
+		qcom,panel-mode-gpio = <&tlmm 7 0>;
 
 		qcom,dsi-panel = <&dsi_sharp_4k_dsc_cmd>;
+		vddio-supply = <&pm855_l14>;
 
 	};
 
@@ -265,6 +273,9 @@
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 
 		qcom,dsi-panel = <&dsi_sim_vid>;
 	};
@@ -280,6 +291,9 @@
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 
 		qcom,dsi-panel = <&dsi_dual_sim_vid>;
 	};
@@ -295,6 +309,9 @@
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 
 		qcom,dsi-panel = <&dsi_sim_cmd>;
 	};
@@ -310,6 +327,9 @@
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 
 		qcom,dsi-panel = <&dsi_dual_sim_cmd>;
 	};
@@ -325,6 +345,9 @@
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 
 		qcom,dsi-panel = <&dsi_sim_dsc_375_cmd>;
 	};
@@ -340,7 +363,9 @@
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
-
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 
 		qcom,dsi-panel = <&dsi_dual_sim_dsc_375_cmd>;
 	};
@@ -433,12 +458,12 @@
 };
 
 &dsi_sharp_4k_dsc_video {
-	qcom,mdss-dsi-t-clk-post = <0x0c>;
-	qcom,mdss-dsi-t-clk-pre = <0x27>;
+	qcom,mdss-dsi-t-clk-post = <0x10>;
+	qcom,mdss-dsi-t-clk-pre = <0x25>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 18 06 06 21 20 06
-				06 04 03 04 00];
+			qcom,mdss-dsi-panel-phy-timings = [00 54 09 12 21 22 09
+				13 10 03 04 00 37 16];
 			qcom,display-topology = <2 2 2>;
 			qcom,default-topology-index = <0>;
 		};
@@ -450,8 +475,8 @@
 	qcom,mdss-dsi-t-clk-pre = <0x27>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 18 06 06 21 20 06
-				06 04 03 04 00];
+			qcom,mdss-dsi-panel-phy-timings = [00 54 09 12 21 22 09
+				13 10 03 04 00 37 16];
 			qcom,display-topology = <2 2 2>;
 			qcom,default-topology-index = <0>;
 		};

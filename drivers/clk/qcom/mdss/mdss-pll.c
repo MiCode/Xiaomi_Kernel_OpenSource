@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +129,8 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 		pll_res->pll_interface_type = MDSS_DSI_PLL_10NM;
 	if (!strcmp(compatible_stream, "qcom,mdss_dp_pll_10nm"))
 		pll_res->pll_interface_type = MDSS_DP_PLL_10NM;
+	if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_7nm"))
+		pll_res->pll_interface_type = MDSS_DSI_PLL_7NM;
 	else
 		goto err;
 
@@ -156,6 +158,9 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 		break;
 	case MDSS_DP_PLL_10NM:
 		rc = dp_pll_clock_register_10nm(pdev, pll_res);
+		break;
+	case MDSS_DSI_PLL_7NM:
+		rc = dsi_pll_clock_register_7nm(pdev, pll_res);
 		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
@@ -385,6 +390,7 @@ static int mdss_pll_remove(struct platform_device *pdev)
 static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_dsi_pll_10nm"},
 	{.compatible = "qcom,mdss_dp_pll_10nm"},
+	{.compatible = "qcom,mdss_dsi_pll_7nm"},
 	{}
 };
 
