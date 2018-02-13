@@ -2385,6 +2385,19 @@ static void ctx_resched(struct perf_cpu_context *cpuctx,
 	perf_pmu_enable(cpuctx->ctx.pmu);
 }
 
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+static LIST_HEAD(dormant_event_list);
+static DEFINE_SPINLOCK(dormant_event_list_lock);
+
+static void perf_prepare_install_in_context(struct perf_event *event)
+{
+	spin_lock(&dormant_event_list_lock);
+	event->state = PERF_EVENT_STATE_DORMANT;
+	list_add_tail(&event->dormant_event_entry, &dormant_event_list);
+	spin_unlock(&dormant_event_list_lock);
+}
+#endif
+
 /*
  * Cross CPU call to install and enable a performance event
  *
@@ -2461,6 +2474,13 @@ perf_install_in_context(struct perf_event_context *ctx,
 	 */
 	smp_store_release(&event->ctx, ctx);
 
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+	if (!cpu_online(cpu)) {
+		perf_prepare_install_in_context(event);
+		return;
+	}
+#endif
+
 	if (!task) {
 		cpu_function_call(cpu, __perf_install_in_context, event);
 		return;
@@ -2529,6 +2549,35 @@ again:
 	add_event_to_ctx(event, ctx);
 	raw_spin_unlock_irq(&ctx->lock);
 }
+
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+static void perf_deferred_install_in_context(int cpu)
+{
+	struct perf_event *event, *tmp;
+	struct perf_event_context *ctx;
+
+	spin_lock(&dormant_event_list_lock);
+	list_for_each_entry_safe(event, tmp, &dormant_event_list,
+						dormant_event_entry) {
+		if (cpu != event->cpu)
+			continue;
+
+		list_del(&event->dormant_event_entry);
+		event->state = PERF_EVENT_STATE_INACTIVE;
+		spin_unlock(&dormant_event_list_lock);
+
+		ctx = event->ctx;
+		perf_event__state_init(event);
+
+		mutex_lock(&ctx->mutex);
+		perf_install_in_context(ctx, event, cpu);
+		mutex_unlock(&ctx->mutex);
+
+		spin_lock(&dormant_event_list_lock);
+	}
+	spin_unlock(&dormant_event_list_lock);
+}
+#endif
 
 /*
  * Put a event into inactive state and update time fields.
@@ -4381,10 +4430,11 @@ int perf_event_release_kernel(struct perf_event *event)
 	 *  back online.
 	 */
 #if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
-	if (!cpu_online(event->cpu)) {
-		if (event->state == PERF_EVENT_STATE_ZOMBIE)
-			return 0;
+	if (event->state == PERF_EVENT_STATE_ZOMBIE)
+		return 0;
 
+	if (!cpu_online(event->cpu) &&
+		event->state == PERF_EVENT_STATE_ACTIVE) {
 		event->state = PERF_EVENT_STATE_ZOMBIE;
 
 		spin_lock(&zombie_list_lock);
@@ -4393,6 +4443,11 @@ int perf_event_release_kernel(struct perf_event *event)
 
 		return 0;
 	}
+
+	spin_lock(&dormant_event_list_lock);
+	if (event->state == PERF_EVENT_STATE_DORMANT)
+		list_del(&event->dormant_event_entry);
+	spin_unlock(&dormant_event_list_lock);
 #endif
 
 	/*
@@ -4693,6 +4748,15 @@ perf_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	struct perf_event *event = file->private_data;
 	struct perf_event_context *ctx;
 	int ret;
+
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+	spin_lock(&dormant_event_list_lock);
+	if (event->state == PERF_EVENT_STATE_DORMANT) {
+		spin_unlock(&dormant_event_list_lock);
+		return 0;
+	}
+	spin_unlock(&dormant_event_list_lock);
+#endif
 
 	ctx = perf_event_ctx_lock(event);
 	ret = __perf_read(event, buf, count);
@@ -9582,6 +9646,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	mutex_init(&event->child_mutex);
 	INIT_LIST_HEAD(&event->child_list);
 
+	INIT_LIST_HEAD(&event->dormant_event_entry);
 	INIT_LIST_HEAD(&event->group_entry);
 	INIT_LIST_HEAD(&event->event_entry);
 	INIT_LIST_HEAD(&event->sibling_list);
@@ -10308,23 +10373,6 @@ SYSCALL_DEFINE5(perf_event_open,
 		goto err_locked;
 	}
 
-	if (!task) {
-		/*
-		 * Check if the @cpu we're creating an event for is online.
-		 *
-		 * We use the perf_cpu_context::ctx::mutex to serialize against
-		 * the hotplug notifiers. See perf_event_{init,exit}_cpu().
-		 */
-		struct perf_cpu_context *cpuctx =
-			container_of(ctx, struct perf_cpu_context, ctx);
-
-		if (!cpuctx->online) {
-			err = -ENODEV;
-			goto err_locked;
-		}
-	}
-
-
 	/*
 	 * Must be under the same ctx::mutex as perf_install_in_context(),
 	 * because we need to serialize with concurrent event creation.
@@ -10604,21 +10652,6 @@ perf_event_create_kernel_counter(struct perf_event_attr *attr, int cpu,
 	if (ctx->task == TASK_TOMBSTONE) {
 		err = -ESRCH;
 		goto err_unlock;
-	}
-
-	if (!task) {
-		/*
-		 * Check if the @cpu we're creating an event for is online.
-		 *
-		 * We use the perf_cpu_context::ctx::mutex to serialize against
-		 * the hotplug notifiers. See perf_event_{init,exit}_cpu().
-		 */
-		struct perf_cpu_context *cpuctx =
-			container_of(ctx, struct perf_cpu_context, ctx);
-		if (!cpuctx->online) {
-			err = -ENODEV;
-			goto err_unlock;
-		}
 	}
 
 	if (!exclusive_event_installable(event, ctx)) {
@@ -11371,6 +11404,7 @@ int perf_event_start_swevents(unsigned int cpu)
 	int idx;
 
 	perf_event_zombie_cleanup(cpu);
+	perf_deferred_install_in_context(cpu);
 
 	idx = srcu_read_lock(&pmus_srcu);
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
