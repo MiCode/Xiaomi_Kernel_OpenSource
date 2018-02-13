@@ -4922,6 +4922,13 @@ static int afe_sidetone(u16 tx_port_id, u16 rx_port_id, bool enable)
 	mid = st_cal_info->mid;
 	mutex_unlock(&this_afe.cal_data[cal_index]->lock);
 
+	packed_param_size =
+		sizeof(param_hdr) * 2 + sizeof(gain_data) + sizeof(cfg_data);
+	packed_param_data = kzalloc(packed_param_size, GFP_KERNEL);
+	if (!packed_param_data)
+		return -ENOMEM;
+	packed_param_size = 0;
+
 	/* Set gain data. */
 	param_hdr.module_id = AFE_MODULE_LOOPBACK;
 	param_hdr.instance_id = INSTANCE_ID_0;
