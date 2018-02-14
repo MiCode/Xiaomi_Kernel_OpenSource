@@ -1310,6 +1310,8 @@ static int ath10k_core_fetch_firmware_files(struct ath10k *ar)
 		__set_bit(ATH10K_FW_FEATURE_WOWLAN_SUPPORT,
 			  fw_file->fw_features);
 		__set_bit(WMI_SERVICE_WOW, ar->wmi.svc_map);
+		__set_bit(ATH10K_FW_FEATURE_NO_NWIFI_DECAP_4ADDR_PADDING,
+			  fw_file->fw_features);
 		return 0;
 	}
 
