@@ -183,7 +183,7 @@ TRACE_EVENT(sched_get_task_cpu_cycles,
 		__entry->cycles		= cycles;
 		__entry->exec_time	= exec_time;
 		__entry->freq		= cpu_cycles_to_freq(cycles, exec_time);
-		__entry->legacy_freq	= cpu_cur_freq(cpu);
+		__entry->legacy_freq	= sched_cpu_legacy_freq(cpu);
 		__entry->pid		= p->pid;
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 	),

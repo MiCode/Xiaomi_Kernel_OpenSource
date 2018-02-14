@@ -229,6 +229,14 @@ static inline unsigned int cpu_cur_freq(int cpu)
 	return cpu_rq(cpu)->cluster->cur_freq;
 }
 
+static inline unsigned int sched_cpu_legacy_freq(int cpu)
+{
+	unsigned long curr_cap = arch_scale_freq_capacity(NULL, cpu);
+
+	return (curr_cap * (u64) cpu_rq(cpu)->cluster->max_freq) >>
+		SCHED_CAPACITY_SHIFT;
+}
+
 static inline void
 move_list(struct list_head *dst, struct list_head *src, bool sync_rcu)
 {
