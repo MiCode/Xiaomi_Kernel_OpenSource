@@ -3,7 +3,7 @@ Qualcomm GLINK edge binding
 This binding describes a Qualcomm GLINK edge, a fifo based mechanism for
 communication between subsystem-pairs on various Qualcomm platforms. Three types
 of edges can be described by the binding; the GLINK RPM edge, a SMEM based edge,
-and a GLINK SPSS edge.
+a GLINK SPSS edge and a SPI based edge.
 
 - compatible:
 	Usage: required for glink-rpm
@@ -49,6 +49,23 @@ remote proc of the allocated smem.
 	Value type: <prop-encoded-array>
 	Definition: address and size pairs describing the GLINK SPSS registers,
 		    the order must match the entries in reg-names
+
+= GLINK SPI
+The following bindings are required for a GLINK SPI edge. They describe the
+physical address where the FIFO descriptors are located. The wcd-spi driver
+uses these physical address when writing to the spi bus.
+
+- tx-descriptors:
+	Usage: required for glink-spi
+	Value type: <u32 array>
+	Definition: must contain the physical addresses of the outgoing FIFO
+		    head and tail descriptors. The array should be <head tail>
+
+- rx-descriptors:
+	Usage: required for glink-spi
+	Value type: <u32 array>
+	Definition: must contain the physical addresses of the incoming FIFO
+		    head and tail descriptors. The array should be <head tail>
 
 = GLINK DEVICES
 Each subnode of the GLINK node represent function tied to a virtual
