@@ -5175,12 +5175,15 @@ int dsi_display_prepare(struct dsi_display *display)
 	mode = display->panel->cur_mode;
 
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
+		if (display->is_cont_splash_enabled) {
+			pr_err("DMS is not supposed to be set on first frame\n");
+			return -EINVAL;
+		}
 		/* update dsi ctrl for new mode */
 		rc = dsi_display_pre_switch(display);
 		if (rc)
 			pr_err("[%s] panel pre-prepare-res-switch failed, rc=%d\n",
-				   display->name, rc);
-
+					display->name, rc);
 		goto error;
 	}
 
