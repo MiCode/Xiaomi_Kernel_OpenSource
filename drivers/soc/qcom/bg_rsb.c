@@ -128,6 +128,9 @@ struct bgrsb_priv {
 	uint32_t calbrtion_cpi;
 
 	uint8_t bttn_configs;
+
+	bool calibration_needed;
+	bool is_calibrd;
 };
 
 static void *bgrsb_drv;
@@ -406,7 +409,13 @@ static void bgrsb_bgdown_work(struct work_struct *work)
 		else
 			pr_err("Failed to unvote LDO-11 on BG down\n");
 	}
-	pr_debug("RSB current state is : %d\n", dev->bgrsb_current_state);
+
+	pr_info("RSB current state is : %d\n", dev->bgrsb_current_state);
+
+	if (dev->bgrsb_current_state == BGRSB_STATE_INIT) {
+		if (dev->is_calibrd)
+			dev->calibration_needed = true;
+	}
 }
 
 static void bgrsb_glink_bgdown_work(struct work_struct *work)
@@ -635,6 +644,11 @@ static void bgrsb_enable_rsb(struct work_struct *work)
 	}
 	dev->bgrsb_current_state = BGRSB_STATE_RSB_ENABLED;
 	pr_debug("RSB Enabled\n");
+
+	if (dev->calibration_needed) {
+		dev->calibration_needed = false;
+		queue_work(dev->bgrsb_wq, &dev->rsb_calibration_work);
+	}
 }
 
 static void bgrsb_disable_rsb(struct work_struct *work)
@@ -688,6 +702,7 @@ static void bgrsb_calibration(struct work_struct *work)
 		pr_err("Failed to send interval value to BG\n");
 		return;
 	}
+	dev->is_calibrd = true;
 	pr_debug("RSB Calibbered\n");
 }
 
