@@ -17,7 +17,6 @@
 #include "cam_cpas_hw.h"
 
 #define CAM_REGULATOR_LEVEL_MAX 16
-
 /**
  * struct cam_cpas_vdd_ahb_mapping : Voltage to ahb level mapping
  *
@@ -42,7 +41,8 @@ struct cam_cpas_vdd_ahb_mapping {
  * @axi_port_list_node : Node representing AXI Ports list
  * @num_vdd_ahb_mapping : Number of vdd to ahb level mapping supported
  * @vdd_ahb : AHB level mapping info for the supported vdd levels
- *
+ * @soc_id : SOC id
+ * @hw_rev : Camera hw revision
  */
 struct cam_cpas_private_soc {
 	const char *arch_compat;
@@ -54,6 +54,8 @@ struct cam_cpas_private_soc {
 	struct device_node *axi_port_list_node;
 	uint32_t num_vdd_ahb_mapping;
 	struct cam_cpas_vdd_ahb_mapping vdd_ahb[CAM_REGULATOR_LEVEL_MAX];
+	uint32_t soc_id;
+	uint32_t hw_rev;
 };
 
 int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
