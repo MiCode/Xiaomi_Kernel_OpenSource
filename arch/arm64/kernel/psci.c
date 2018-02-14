@@ -38,24 +38,7 @@
 
 #define PSCI_POWER_STATE_BIT	BIT(30)
 
-struct psci_power_state {
-	u16	id;
-	u8	type;
-	u8	affinity_level;
-};
-
-struct psci_operations {
-	int (*cpu_suspend)(unsigned long state_id,
-			   unsigned long entry_point);
-	int (*cpu_off)(struct psci_power_state state);
-	int (*cpu_on)(unsigned long cpuid, unsigned long entry_point);
-	int (*migrate)(unsigned long cpuid);
-	int (*affinity_info)(unsigned long target_affinity,
-			unsigned long lowest_affinity_level);
-	int (*migrate_info_type)(void);
-};
-
-static struct psci_operations psci_ops;
+struct psci_operations psci_ops;
 
 static int (*invoke_psci_fn)(u64, u64, u64, u64);
 typedef int (*psci_initcall_t)(const struct device_node *);
@@ -307,6 +290,7 @@ static int __init psci_1_0_init(struct device_node *np)
 	}
 
 	pr_info("Using standard PSCI v0.2 function IDs\n");
+	psci_ops.get_version = psci_get_version;
 	psci_function_id[PSCI_FN_CPU_SUSPEND] = PSCI_0_2_FN64_CPU_SUSPEND;
 	psci_ops.cpu_suspend = psci_cpu_suspend;
 
@@ -360,6 +344,7 @@ static int __init psci_0_2_init(struct device_node *np)
 	}
 
 	pr_info("Using standard PSCI v0.2 function IDs\n");
+	psci_ops.get_version = psci_get_version;
 	psci_function_id[PSCI_FN_CPU_SUSPEND] = PSCI_0_2_FN64_CPU_SUSPEND;
 	psci_ops.cpu_suspend = psci_cpu_suspend;
 
@@ -402,6 +387,7 @@ static int __init psci_0_1_init(struct device_node *np)
 		goto out_put_node;
 
 	pr_info("Using PSCI v0.1 Function IDs from DT\n");
+	psci_ops.get_version = psci_get_version;
 
 	if (!of_property_read_u32(np, "cpu_suspend", &id)) {
 		psci_function_id[PSCI_FN_CPU_SUSPEND] = id;
