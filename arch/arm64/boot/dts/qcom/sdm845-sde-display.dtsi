@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-cmd.dtsi"
 #include "dsi-panel-nt36850-truly-dualmipi-wqhd-cmd.dtsi"
+#include "dsi-panel-test-dualmipi-oled-cmd.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
@@ -474,6 +475,31 @@
 		vddio-supply = <&pm8998_l14>;
 		lab-supply = <&lab_regulator>;
 		ibb-supply = <&ibb_regulator>;
+	};
+
+	dsi_dual_test_cmd_display: qcom,dsi-display@17 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_dual_test_cmd";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+				<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 10 0>;
+		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
+
+		qcom,dsi-panel = <&dsi_dual_test_cmd>;
+		vddio-supply = <&pm8998_l14>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
+		oled-vdda-supply = <&pm8998_l22>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
