@@ -93,7 +93,10 @@ void update_recon_stats(struct msm_vidc_inst *inst,
 
 	frame_size = (msm_vidc_get_mbs_per_frame(inst) / (32 * 8) * 3) / 2;
 
-	CF = recon_stats->complexity_number / frame_size;
+	if (frame_size)
+		CF = recon_stats->complexity_number / frame_size;
+	else
+		CF = MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR;
 
 	mutex_lock(&inst->reconbufs.lock);
 	list_for_each_entry(binfo, &inst->reconbufs.list, list) {
