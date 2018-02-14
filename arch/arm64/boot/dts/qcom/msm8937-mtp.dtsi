@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include "msm8937-pinctrl.dtsi"
 &blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";
@@ -65,3 +66,51 @@
 
 	status = "ok";
 };
+
+#include "msm8937-mdss-panels.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,pluggable;
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
+};
+
+&dsi_truly_1080_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+
+&dsi_truly_1080_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,ulps-enabled;
+	qcom,partial-update-enabled;
+	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
+};
+
