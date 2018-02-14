@@ -1303,6 +1303,13 @@ config CRYPTO_SPECK
 
 	  If unsure, say N.
 
+config CRYPTO_SPECK_NEON
+	tristate "NEON accelerated Speck cipher algorithms"
+	depends on ARM && KERNEL_MODE_NEON
+	select CRYPTO_BLKCIPHER
+	select CRYPTO_GF128MUL
+	select CRYPTO_SPECK
+
 config CRYPTO_TEA
 	tristate "TEA, XTEA and XETA cipher algorithms"
 	select CRYPTO_ALGAPI
