@@ -268,4 +268,24 @@ struct dsi_phy_hw {
 	struct dsi_phy_hw_ops ops;
 };
 
+/**
+ * dsi_phy_conv_phy_to_logical_lane() - Convert physical to logical lane
+ * @lane_map:     logical lane
+ * @phy_lane:     physical lane
+ *
+ * Return: Error code on failure. Lane number on success.
+ */
+int dsi_phy_conv_phy_to_logical_lane(
+	struct dsi_lane_map *lane_map, enum dsi_phy_data_lanes phy_lane);
+
+/**
+ * dsi_phy_conv_logical_to_phy_lane() - Convert logical to physical lane
+ * @lane_map:     physical lane
+ * @lane:         logical lane
+ *
+ * Return: Error code on failure. Lane number on success.
+ */
+int dsi_phy_conv_logical_to_phy_lane(
+	struct dsi_lane_map *lane_map, enum dsi_logical_lane lane);
+
 #endif /* _DSI_PHY_HW_H_ */
