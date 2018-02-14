@@ -11,13 +11,11 @@
  *
  */
 
-#include <linux/qmi_encdec.h>
-
-#include <soc/qcom/msm_qmi_interface.h>
+#include <linux/soc/qcom/qmi.h>
 
 #include "thermal_mitigation_device_service_v01.h"
 
-static struct elem_info tmd_mitigation_dev_id_type_v01_ei[] = {
+static struct qmi_elem_info tmd_mitigation_dev_id_type_v01_ei[] = {
 	{
 		.data_type      = QMI_STRING,
 		.elem_len       = QMI_TMD_MITIGATION_DEV_ID_LENGTH_MAX_V01 + 1,
@@ -35,7 +33,7 @@ static struct elem_info tmd_mitigation_dev_id_type_v01_ei[] = {
 	},
 };
 
-static struct elem_info tmd_mitigation_dev_list_type_v01_ei[] = {
+static struct qmi_elem_info tmd_mitigation_dev_list_type_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -64,7 +62,7 @@ static struct elem_info tmd_mitigation_dev_list_type_v01_ei[] = {
 	},
 };
 
-struct elem_info tmd_get_mitigation_device_list_req_msg_v01_ei[] = {
+struct qmi_elem_info tmd_get_mitigation_device_list_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_EOTI,
 		.is_array       = NO_ARRAY,
@@ -72,7 +70,7 @@ struct elem_info tmd_get_mitigation_device_list_req_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info tmd_get_mitigation_device_list_resp_msg_v01_ei[] = {
+struct qmi_elem_info tmd_get_mitigation_device_list_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -82,7 +80,7 @@ struct elem_info tmd_get_mitigation_device_list_resp_msg_v01_ei[] = {
 		.offset         = offsetof(
 			struct tmd_get_mitigation_device_list_resp_msg_v01,
 			resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_OPT_FLAG,
@@ -123,7 +121,7 @@ struct elem_info tmd_get_mitigation_device_list_resp_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info tmd_set_mitigation_level_req_msg_v01_ei[] = {
+struct qmi_elem_info tmd_set_mitigation_level_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -152,7 +150,7 @@ struct elem_info tmd_set_mitigation_level_req_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info tmd_set_mitigation_level_resp_msg_v01_ei[] = {
+struct qmi_elem_info tmd_set_mitigation_level_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -162,7 +160,7 @@ struct elem_info tmd_set_mitigation_level_resp_msg_v01_ei[] = {
 		.offset         = offsetof(
 			struct tmd_set_mitigation_level_resp_msg_v01,
 				resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -171,7 +169,7 @@ struct elem_info tmd_set_mitigation_level_resp_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info tmd_get_mitigation_level_req_msg_v01_ei[] = {
+struct qmi_elem_info tmd_get_mitigation_level_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -190,7 +188,7 @@ struct elem_info tmd_get_mitigation_level_req_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info tmd_get_mitigation_level_resp_msg_v01_ei[] = {
+struct qmi_elem_info tmd_get_mitigation_level_resp_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -200,7 +198,7 @@ struct elem_info tmd_get_mitigation_level_resp_msg_v01_ei[] = {
 		.offset         = offsetof(
 				struct tmd_get_mitigation_level_resp_msg_v01,
 					resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_OPT_FLAG,
@@ -249,7 +247,8 @@ struct elem_info tmd_get_mitigation_level_resp_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info tmd_register_notification_mitigation_level_req_msg_v01_ei[] = {
+struct qmi_elem_info
+	tmd_register_notification_mitigation_level_req_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
@@ -268,7 +267,8 @@ struct elem_info tmd_register_notification_mitigation_level_req_msg_v01_ei[] = {
 	},
 };
 
-struct elem_info tmd_register_notification_mitigation_level_resp_msg_v01_ei[]
+struct qmi_elem_info
+	tmd_register_notification_mitigation_level_resp_msg_v01_ei[]
 									= {
 	{
 		.data_type      = QMI_STRUCT,
@@ -279,7 +279,7 @@ struct elem_info tmd_register_notification_mitigation_level_resp_msg_v01_ei[]
 		.offset         = offsetof(
 		struct tmd_register_notification_mitigation_level_resp_msg_v01,
 				resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -288,7 +288,8 @@ struct elem_info tmd_register_notification_mitigation_level_resp_msg_v01_ei[]
 	},
 };
 
-struct elem_info tmd_deregister_notification_mitigation_level_req_msg_v01_ei[]
+struct qmi_elem_info
+	tmd_deregister_notification_mitigation_level_req_msg_v01_ei[]
 									= {
 	{
 		.data_type      = QMI_STRUCT,
@@ -308,7 +309,8 @@ struct elem_info tmd_deregister_notification_mitigation_level_req_msg_v01_ei[]
 	},
 };
 
-struct elem_info tmd_deregister_notification_mitigation_level_resp_msg_v01_ei[]
+struct qmi_elem_info
+	tmd_deregister_notification_mitigation_level_resp_msg_v01_ei[]
 									= {
 	{
 		.data_type      = QMI_STRUCT,
@@ -319,7 +321,7 @@ struct elem_info tmd_deregister_notification_mitigation_level_resp_msg_v01_ei[]
 		.offset         = offsetof(struct
 		tmd_deregister_notification_mitigation_level_resp_msg_v01,
 					   resp),
-		.ei_array      = get_qmi_response_type_v01_ei(),
+		.ei_array      = qmi_response_type_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -328,7 +330,7 @@ struct elem_info tmd_deregister_notification_mitigation_level_resp_msg_v01_ei[]
 	},
 };
 
-struct elem_info tmd_mitigation_level_report_ind_msg_v01_ei[] = {
+struct qmi_elem_info tmd_mitigation_level_report_ind_msg_v01_ei[] = {
 	{
 		.data_type      = QMI_STRUCT,
 		.elem_len       = 1,
