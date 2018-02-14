@@ -90,6 +90,8 @@ struct ipa_pm_register_params {
 	bool skip_clk_vote;
 };
 
+#ifdef CONFIG_IPA3
+
 int ipa_pm_register(struct ipa_pm_register_params *params, u32 *hdl);
 int ipa_pm_associate_ipa_cons_to_client(u32 hdl, enum ipa_client_type consumer);
 int ipa_pm_activate(u32 hdl);
@@ -106,5 +108,81 @@ int ipa_pm_handle_suspend(u32 pipe_bitmask);
 int ipa_pm_deactivate_all_deferred(void);
 int ipa_pm_stat(char *buf, int size);
 int ipa_pm_exceptions_stat(char *buf, int size);
+
+#else
+
+static inline int ipa_pm_register(
+	struct ipa_pm_register_params *params, u32 *hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_associate_ipa_cons_to_client(
+	u32 hdl, enum ipa_client_type consumer)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_activate(u32 hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_activate_sync(u32 hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_deferred_deactivate(u32 hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_deactivate_sync(u32 hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_set_perf_profile(u32 hdl, int throughput)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_deregister(u32 hdl)
+{
+	return -EPERM;
+}
+
+/* IPA Internal Functions */
+static inline int ipa_pm_init(struct ipa_pm_init_params *params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_destroy(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_handle_suspend(u32 pipe_bitmask)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_deactivate_all_deferred(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_stat(char *buf, int size)
+{
+	return -EPERM;
+}
+
+static inline int ipa_pm_exceptions_stat(char *buf, int size)
+{
+	return -EPERM;
+}
+#endif
 
 #endif /* _IPA_PM_H_ */
