@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,6 +116,7 @@
 #define SDE_INTR_CTL_2_START BIT(11)
 #define SDE_INTR_CTL_3_START BIT(12)
 #define SDE_INTR_CTL_4_START BIT(13)
+#define SDE_INTR_CTL_5_START BIT(23)
 
 /**
  * Concurrent WB overflow interrupt status bit definitions
@@ -337,7 +338,7 @@ static const struct sde_irq_type sde_irq_map[] = {
 	/* irq_idx: 40 */
 	{ SDE_IRQ_TYPE_PING_PONG_RD_PTR, PINGPONG_S0,
 		SDE_INTR_PING_PONG_S0_RD_PTR, 1},
-	/* irq_idx: 41-45 */
+	/* irq_idx: 41-46 */
 	{ SDE_IRQ_TYPE_CTL_START, CTL_0,
 		SDE_INTR_CTL_0_START, 1},
 	{ SDE_IRQ_TYPE_CTL_START, CTL_1,
@@ -348,10 +349,12 @@ static const struct sde_irq_type sde_irq_map[] = {
 		SDE_INTR_CTL_3_START, 1},
 	{ SDE_IRQ_TYPE_CTL_START, CTL_4,
 		SDE_INTR_CTL_4_START, 1},
-	/* irq_idx: 46-47 */
+	{ SDE_IRQ_TYPE_CTL_START, CTL_5,
+		SDE_INTR_CTL_5_START, 1},
+	/* irq_idx: 47-48 */
 	{ SDE_IRQ_TYPE_CWB_OVERFLOW, CWB_2, SDE_INTR_CWB_2_OVERFLOW, 1},
 	{ SDE_IRQ_TYPE_CWB_OVERFLOW, CWB_3, SDE_INTR_CWB_3_OVERFLOW, 1},
-	/* irq_idx: 48-51 */
+	/* irq_idx: 49-52 */
 	{ SDE_IRQ_TYPE_PING_PONG_TEAR_CHECK, PINGPONG_0,
 		SDE_INTR_PING_PONG_0_TEAR_DETECTED, 1},
 	{ SDE_IRQ_TYPE_PING_PONG_TEAR_CHECK, PINGPONG_1,
@@ -360,12 +363,11 @@ static const struct sde_irq_type sde_irq_map[] = {
 		SDE_INTR_PING_PONG_2_TEAR_DETECTED, 1},
 	{ SDE_IRQ_TYPE_PING_PONG_TEAR_CHECK, PINGPONG_3,
 		SDE_INTR_PING_PONG_3_TEAR_DETECTED, 1},
-	/* irq_idx: 52-55 */
+	/* irq_idx: 53-55 */
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
 	{ SDE_IRQ_TYPE_PING_PONG_TEAR_CHECK, PINGPONG_S0,
 		SDE_INTR_PING_PONG_S0_TEAR_DETECTED, 1},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
 	/* irq_idx: 56-59 */
 	{ SDE_IRQ_TYPE_PING_PONG_TE_CHECK, PINGPONG_0,
 		SDE_INTR_PING_PONG_0_TE_DETECTED, 1},

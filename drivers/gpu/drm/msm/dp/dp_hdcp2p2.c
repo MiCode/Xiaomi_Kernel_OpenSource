@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -861,9 +861,14 @@ void *sde_dp_hdcp2p2_init(struct sde_hdcp_init_data *init_data)
 	register_data.device_type = HDCP_TXMTR_DP;
 	register_data.client_ctx = ctrl;
 
-	rc = hdcp_library_register(&register_data);
-	if (rc) {
-		pr_err("Unable to register with HDCP 2.2 library\n");
+
+	if (IS_ENABLED(CONFIG_HDCP_QSEECOM)) {
+		rc = hdcp_library_register(&register_data);
+		if (rc) {
+			pr_err("Unable to register with HDCP 2.2 library\n");
+			goto error;
+		}
+	} else {
 		goto error;
 	}
 

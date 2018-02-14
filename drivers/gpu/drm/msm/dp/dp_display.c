@@ -237,8 +237,9 @@ static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 	pr_debug("hdcp2p2: %s\n",
 			dp->hdcp.hdcp2_present ? "supported" : "not supported");
 
-	if (!dp->hdcp.hdcp2_present) {
-		dp->hdcp.hdcp1_present = hdcp1_check_if_supported_load_app();
+	if (IS_ENABLED(CONFIG_HDCP_QSEECOM) && !dp->hdcp.hdcp2_present) {
+		dp->hdcp.hdcp1_present =
+			hdcp1_check_if_supported_load_app();
 
 		if (dp->hdcp.hdcp1_present) {
 			fd = dp->hdcp.hdcp1;
