@@ -3060,12 +3060,16 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 {
 	struct sde_hw_ctl *ctl;
 	int pending_kickoff_cnt;
+	unsigned long lock_flags;
+	struct sde_encoder_virt *sde_enc;
 
 	if (!drm_enc || !phys) {
 		SDE_ERROR("invalid argument(s), drm_enc %d, phys_enc %d\n",
 				drm_enc != 0, phys != 0);
 		return;
 	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	if (!phys->hw_pp) {
 		SDE_ERROR("invalid pingpong hw\n");
@@ -3086,6 +3090,9 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		return;
 	}
 
+	/* update pending counts and trigger kickoff ctl flush atomically */
+	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
+
 	pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
 
 	if (phys->ops.is_master && phys->ops.is_master(phys))
@@ -3096,6 +3103,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		ctl->ops.update_pending_flush(ctl, extra_flush);
 
 	phys->ops.trigger_flush(phys);
+
+	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 
 	if (ctl->ops.get_pending_flush) {
 		struct sde_ctl_flush_cfg pending_flush = {0,};
@@ -3268,7 +3277,6 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 {
 	struct sde_hw_ctl *ctl;
 	uint32_t i;
-	unsigned long lock_flags;
 	struct sde_ctl_flush_cfg pending_flush = {0,};
 
 	if (!sde_enc) {
@@ -3276,12 +3284,10 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 		return;
 	}
 
-	/*
-	 * Trigger LUT DMA flush, this might need a wait, so we need
-	 * to do this outside of the atomic context
-	 */
+	/* don't perform flush/start operations for slave encoders */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		enum sde_rm_topology_name topology = SDE_RM_TOPOLOGY_NONE;
 		bool wait_for_dma = false;
 
 		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
@@ -3292,27 +3298,12 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 			continue;
 
 		if (phys->ops.wait_dma_trigger)
-			wait_for_dma = phys->ops.wait_dma_trigger(phys);
+			wait_for_dma = phys->ops.wait_dma_trigger(
+					phys);
 
 		if (phys->hw_ctl->ops.reg_dma_flush)
 			phys->hw_ctl->ops.reg_dma_flush(phys->hw_ctl,
 					wait_for_dma);
-	}
-
-	/* update pending counts and trigger kickoff ctl flush atomically */
-	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
-
-	/* don't perform flush/start operations for slave encoders */
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-		enum sde_rm_topology_name topology = SDE_RM_TOPOLOGY_NONE;
-
-		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
-			continue;
-
-		ctl = phys->hw_ctl;
-		if (!ctl)
-			continue;
 
 		if (phys->connector)
 			topology = sde_connector_get_topology_name(
@@ -3344,7 +3335,6 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 
 	_sde_encoder_trigger_start(sde_enc->cur_master);
 
-	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 }
 
 static void _sde_encoder_ppsplit_swap_intf_for_right_only_update(
