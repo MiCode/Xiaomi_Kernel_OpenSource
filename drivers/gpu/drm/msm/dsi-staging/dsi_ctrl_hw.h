@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,8 @@
  * @DSI_CTRL_VERSION_UNKNOWN: Unknown controller version
  * @DSI_CTRL_VERSION_1_4:     DSI host v1.4 controller
  * @DSI_CTRL_VERSION_2_0:     DSI host v2.0 controller
+ * @DSI_CTRL_VERSION_2_2:     DSI host v2.2 controller
+ * @DSI_CTRL_VERSION_2_3:     DSI host v2.3 controller
  * @DSI_CTRL_VERSION_MAX:     max version
  */
 enum dsi_ctrl_version {
@@ -41,6 +43,7 @@ enum dsi_ctrl_version {
 	DSI_CTRL_VERSION_1_4,
 	DSI_CTRL_VERSION_2_0,
 	DSI_CTRL_VERSION_2_2,
+	DSI_CTRL_VERSION_2_3,
 	DSI_CTRL_VERSION_MAX
 };
 

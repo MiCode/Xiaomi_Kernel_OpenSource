@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,8 @@ struct phy_clk_params {
 	u32 hs_trail_buf;
 	u32 hs_rqst_buf;
 	u32 hs_exit_buf;
+	u32 clk_pre_buf;
+	u32 clk_post_buf;
 };
 
 /**
@@ -139,6 +141,24 @@ void dsi_phy_hw_v3_0_calc_hs_trail(struct phy_clk_params *clk_params,
 		struct phy_timing_desc *desc);
 
 void dsi_phy_hw_v3_0_update_timing_params(struct dsi_phy_per_lane_cfgs *timing,
+		struct phy_timing_desc *desc);
+
+/* DSI PHY timing functions for 7nm */
+void dsi_phy_hw_v4_0_get_default_phy_params(struct phy_clk_params *params);
+
+int32_t dsi_phy_hw_v4_0_calc_clk_zero(s64 rec_temp1, s64 mult);
+
+int32_t dsi_phy_hw_v4_0_calc_clk_trail_rec_min(s64 temp_mul,
+		s64 frac, s64 mult);
+
+int32_t dsi_phy_hw_v4_0_calc_clk_trail_rec_max(s64 temp1, s64 mult);
+
+int32_t dsi_phy_hw_v4_0_calc_hs_zero(s64 temp1, s64 mult);
+
+void dsi_phy_hw_v4_0_calc_hs_trail(struct phy_clk_params *clk_params,
+		struct phy_timing_desc *desc);
+
+void dsi_phy_hw_v4_0_update_timing_params(struct dsi_phy_per_lane_cfgs *timing,
 		struct phy_timing_desc *desc);
 
 #endif /* _DSI_PHY_TIMING_CALC_H_ */
