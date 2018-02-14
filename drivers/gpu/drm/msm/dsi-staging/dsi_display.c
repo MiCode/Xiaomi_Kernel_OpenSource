@@ -16,6 +16,7 @@
 
 #include <linux/list.h>
 #include <linux/of.h>
+#include <linux/of_graph.h>
 #include <linux/err.h>
 
 #include "msm_drv.h"
@@ -2162,15 +2163,111 @@ error:
 	return rc;
 }
 
+/* initialize dsi_panel using ext bridge's setting */
+static int dsi_display_populate_ext_bridge_config(struct dsi_display *display,
+	struct mipi_dsi_device *dsi)
+{
+	struct dsi_panel *panel = display->panel;
+
+	if (!panel) {
+		pr_err("Invalid param\n");
+		return -EINVAL;
+	}
+
+	pr_debug("DSI[%s]: channel=%d, lanes=%d, format=%d, mode_flags=%lx\n",
+		dsi->name, dsi->channel, dsi->lanes,
+		dsi->format, dsi->mode_flags);
+
+	panel->host_config.data_lanes = 0;
+	if (dsi->lanes > 0)
+		panel->host_config.data_lanes |= DSI_DATA_LANE_0;
+	if (dsi->lanes > 1)
+		panel->host_config.data_lanes |= DSI_DATA_LANE_1;
+	if (dsi->lanes > 2)
+		panel->host_config.data_lanes |= DSI_DATA_LANE_2;
+	if (dsi->lanes > 3)
+		panel->host_config.data_lanes |= DSI_DATA_LANE_3;
+
+	switch (dsi->format) {
+	case MIPI_DSI_FMT_RGB888:
+		panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB888;
+		break;
+	case MIPI_DSI_FMT_RGB666:
+		panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB666_LOOSE;
+		break;
+	case MIPI_DSI_FMT_RGB666_PACKED:
+		panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB666;
+		break;
+	case MIPI_DSI_FMT_RGB565:
+	default:
+		panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB565;
+		break;
+	}
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		panel->panel_mode = DSI_OP_VIDEO_MODE;
+
+		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
+			panel->video_config.traffic_mode =
+					DSI_VIDEO_TRAFFIC_BURST_MODE;
+		else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
+			panel->video_config.traffic_mode =
+					DSI_VIDEO_TRAFFIC_SYNC_PULSES;
+		else
+			panel->video_config.traffic_mode =
+					DSI_VIDEO_TRAFFIC_SYNC_START_EVENTS;
+
+		panel->video_config.hsa_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HSA;
+		panel->video_config.hbp_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HBP;
+		panel->video_config.hfp_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HFP;
+		panel->video_config.pulse_mode_hsa_he =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HSE;
+		panel->video_config.bllp_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BLLP;
+		panel->video_config.eof_bllp_lp11_en =
+			dsi->mode_flags & MIPI_DSI_MODE_VIDEO_EOF_BLLP;
+	} else {
+		panel->panel_mode = DSI_OP_CMD_MODE;
+		pr_err("command mode not supported by ext bridge\n");
+		return -ENOTSUPP;
+	}
+
+	/* TODO: add calc for these 2 values */
+	panel->host_config.t_clk_post = 0x03;
+	panel->host_config.t_clk_pre = 0x24;
+
+	panel->bl_config.type = DSI_BACKLIGHT_UNKNOWN;
+
+	return 0;
+}
+
 static int dsi_host_attach(struct mipi_dsi_host *host,
 			   struct mipi_dsi_device *dsi)
 {
-	return 0;
+	struct dsi_display *display = to_dsi_display(host);
+	int ret = 0;
+
+	if (!host || !dsi) {
+		pr_err("Invalid param\n");
+		return -EINVAL;
+	}
+
+	pr_debug("host attach\n");
+
+	if (dsi_display_has_ext_bridge(display))
+		ret = dsi_display_populate_ext_bridge_config(display, dsi);
+
+	return ret;
 }
+
 
 static int dsi_host_detach(struct mipi_dsi_host *host,
 			   struct mipi_dsi_device *dsi)
 {
+	pr_debug("host detach\n");
 	return 0;
 }
 
@@ -2847,11 +2944,31 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 	of_node = of_parse_phandle(display->pdev->dev.of_node,
 				   "qcom,dsi-panel", 0);
 	if (!of_node) {
-		pr_err("No Panel device present\n");
-		rc = -ENODEV;
-		goto error;
+		struct device_node *endpoint;
+
+		endpoint = of_graph_get_next_endpoint(
+				display->pdev->dev.of_node, NULL);
+		if (!endpoint) {
+			pr_err("no endpoint for ext bridge\n");
+			rc = -ENODEV;
+			goto error;
+		}
+
+		of_node = of_graph_get_remote_port_parent(endpoint);
+		of_node_put(endpoint);
+		if (!of_node) {
+			pr_err("no valid ext bridge\n");
+			rc = -ENODEV;
+			goto error;
+		}
+		of_node_put(of_node);
+
+		display->panel_of = of_node;
+		/* TODO: split support */
+		display->type = DSI_DISPLAY_EXT_BRIDGE;
 	} else {
 		display->panel_of = of_node;
+		display->type = DSI_DISPLAY_SINGLE;
 	}
 
 error:
@@ -2863,6 +2980,8 @@ static int dsi_display_res_init(struct dsi_display *display)
 	int rc = 0;
 	int i;
 	struct dsi_display_ctrl *ctrl;
+	enum dsi_panel_type panel_type =
+		dsi_display_has_ext_bridge(display) ? EXT_BRIDGE : DSI_PANEL;
 
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
@@ -2885,7 +3004,8 @@ static int dsi_display_res_init(struct dsi_display *display)
 	}
 
 	display->panel = dsi_panel_get(&display->pdev->dev, display->panel_of,
-						display->cmdline_topology);
+					display->cmdline_topology, panel_type);
+
 	if (IS_ERR_OR_NULL(display->panel)) {
 		rc = PTR_ERR(display->panel);
 		pr_err("failed to get panel, rc=%d\n", rc);
@@ -3300,9 +3420,9 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	struct dsi_display_mode_priv_info *priv_info;
 
 	priv_info = mode->priv_info;
-	if (!priv_info) {
+	if (!dsi_display_has_ext_bridge(display) && !priv_info) {
 		pr_err("[%s] failed to get private info of the display mode",
-			display->name);
+				display->name);
 		return -EINVAL;
 	}
 
@@ -3339,7 +3459,8 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 		}
 	}
 
-	if (priv_info->phy_timing_len) {
+	/* ext bridge calculates these timing params by phy driver */
+	if (priv_info && priv_info->phy_timing_len) {
 		for (i = 0; i < display->ctrl_count; i++) {
 			ctrl = &display->ctrl[i];
 			 rc = dsi_phy_set_timing_params(ctrl->phy,
@@ -3424,6 +3545,12 @@ static int dsi_display_splash_res_init(struct  dsi_display *display)
 {
 	int rc = 0;
 
+	/* Continuous splash not supported by external bridge */
+	if (dsi_display_has_ext_bridge(display)) {
+		display->is_cont_splash_enabled = false;
+		return 0;
+	}
+
 	/* Vote for gdsc required to read register address space */
 
 	display->cont_splash_client = sde_power_client_create(display->phandle,
@@ -3436,7 +3563,9 @@ static int dsi_display_splash_res_init(struct  dsi_display *display)
 		return -EINVAL;
 	}
 
-	/* Verify whether continuous splash is enabled or not */
+	/*
+	 * Verify whether continuous splash is enabled or not.
+	 */
 	display->is_cont_splash_enabled =
 		dsi_display_get_cont_splash_status(display);
 	if (!display->is_cont_splash_enabled) {
@@ -4029,7 +4158,7 @@ int dsi_display_drm_bridge_init(struct dsi_display *display,
 	}
 
 	if (display->bridge) {
-		pr_err("display is already initialize\n");
+		pr_err("display is already initialized\n");
 		goto error;
 	}
 
@@ -4046,6 +4175,56 @@ int dsi_display_drm_bridge_init(struct dsi_display *display,
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
+}
+
+int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
+		struct drm_encoder *enc, struct drm_connector *connector)
+{
+	int rc = 0;
+	struct drm_bridge *ext_bridge;
+	struct msm_drm_private *priv = NULL;
+
+	if (!display || !display->drm_dev || !enc) {
+		pr_err("invalid param(s)\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&display->display_lock);
+	priv = display->drm_dev->dev_private;
+
+	if (!priv) {
+		pr_err("Private data is not present\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (!display->bridge) {
+		pr_err("dsi bridge is not initialize\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	ext_bridge = of_drm_find_bridge(display->panel_of);
+	if (!ext_bridge) {
+		pr_err("ext brige not found\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	/* update connector ops in ext bridge */
+	drm_bridge_connector_init(ext_bridge, connector);
+
+	/* insert ext bridge to the bridge chain */
+	display->bridge->base.next = ext_bridge;
+	ext_bridge->encoder = enc;
+	priv->bridges[priv->num_bridges++] = ext_bridge;
+
+	drm_bridge_attach(display->drm_dev, ext_bridge);
+
+error:
+	mutex_unlock(&display->display_lock);
+	return rc;
+
 }
 
 int dsi_display_drm_bridge_deinit(struct dsi_display *display)
@@ -4125,6 +4304,44 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
+}
+
+int dsi_display_ext_bridge_get_info(struct msm_display_info *info, void *disp)
+{
+	struct dsi_display *display;
+	int i;
+
+	if (!info || !disp) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	display = disp;
+	if (!display->panel) {
+		pr_err("invalid display panel\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&display->display_lock);
+
+	memset(info, 0, sizeof(struct msm_display_info));
+
+	info->intf_type = DRM_MODE_CONNECTOR_DSI;
+	info->num_of_h_tiles = display->ctrl_count;
+	for (i = 0; i < info->num_of_h_tiles; i++)
+		info->h_tile_instance[i] = display->ctrl[i].ctrl->cell_index;
+
+	/*
+	 * TODO: these info need come from ext bridge.
+	 * using drm_connector->status, connector->polled.
+	 */
+	info->is_connected = true;
+	info->is_primary = true;
+	info->capabilities |= (MSM_DISPLAY_CAP_VID_MODE |
+		MSM_DISPLAY_CAP_EDID | MSM_DISPLAY_CAP_HOT_PLUG);
+
+	mutex_unlock(&display->display_lock);
+	return 0;
 }
 
 static int dsi_display_get_mode_count_no_lock(struct dsi_display *display,
@@ -4990,6 +5207,9 @@ static int dsi_display_calc_ctrl_roi(const struct dsi_display *display,
 	struct dsi_rect req_roi = { 0 };
 	int rc = 0;
 
+	if (dsi_display_has_ext_bridge(display))
+		return 0;
+
 	cur_mode = display->panel->cur_mode;
 	if (!cur_mode)
 		return 0;
@@ -5042,6 +5262,9 @@ static int dsi_display_set_roi(struct dsi_display *display,
 
 	if (!display || !rois || !display->panel)
 		return -EINVAL;
+
+	if (dsi_display_has_ext_bridge(display))
+		return 0;
 
 	cur_mode = display->panel->cur_mode;
 	if (!cur_mode)
@@ -5197,7 +5420,7 @@ int dsi_display_enable(struct dsi_display *display)
 		}
 	}
 
-	if (mode->priv_info->dsc_enabled) {
+	if (mode->priv_info && mode->priv_info->dsc_enabled) {
 		mode->priv_info->dsc.pic_width *= display->ctrl_count;
 		rc = dsi_panel_update_pps(display->panel);
 		if (rc) {

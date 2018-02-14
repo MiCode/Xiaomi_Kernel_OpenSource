@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1071,8 +1071,7 @@ int dsi_clk_req_state(void *client, enum dsi_clk_type clk,
 
 DEFINE_MUTEX(dsi_mngr_clk_mutex);
 
-int dsi_display_clk_ctrl(void *handle,
-	enum dsi_clk_type clk_type, enum dsi_clk_state clk_state)
+int dsi_display_clk_ctrl(void *handle, u32 clk_type, u32 clk_state)
 {
 	int rc = 0;
 

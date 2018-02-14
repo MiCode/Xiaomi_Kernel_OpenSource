@@ -66,6 +66,10 @@ Optional properties:
 - qcom,dsi-display:       Specifies dsi display is present
 - qcom,hdmi-display:      Specifies hdmi is present
 - qcom,dp-display:        Specified dp is present
+- ports:                  This video port is used when external bridge is present. The connection is modelled
+                          using the OF graph bindings specified in Documentation/devicetree/bindings/graph.txt.
+                          Video port 0 is for the bridge output. The remote endpoint phandle should be
+                          mipi_dsi_device device node.
 - qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
 					a particular "type" of DSI module. The module "types"
 					can be "core", "ctrl", and "phy". Within the same type,
