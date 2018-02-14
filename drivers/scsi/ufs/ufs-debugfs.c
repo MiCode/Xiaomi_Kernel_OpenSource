@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -954,6 +954,49 @@ static int ufsdbg_show_hba_show(struct seq_file *file, void *data)
 			hba->ufs_stats.power_mode_change_cnt);
 	seq_printf(file, "hibern8_exit_cnt = %d\n",
 			hba->ufs_stats.hibern8_exit_cnt);
+
+	seq_printf(file, "pa_err_cnt_total = %d\n",
+			hba->ufs_stats.pa_err_cnt_total);
+	seq_printf(file, "pa_lane_0_err_cnt = %d\n",
+			hba->ufs_stats.pa_err_cnt[UFS_EC_PA_LANE_0]);
+	seq_printf(file, "pa_lane_1_err_cnt = %d\n",
+			hba->ufs_stats.pa_err_cnt[UFS_EC_PA_LANE_1]);
+	seq_printf(file, "pa_line_reset_err_cnt = %d\n",
+			hba->ufs_stats.pa_err_cnt[UFS_EC_PA_LINE_RESET]);
+	seq_printf(file, "dl_err_cnt_total = %d\n",
+			hba->ufs_stats.dl_err_cnt_total);
+	seq_printf(file, "dl_nac_received_err_cnt = %d\n",
+			hba->ufs_stats.dl_err_cnt[UFS_EC_DL_NAC_RECEIVED]);
+	seq_printf(file, "dl_tcx_replay_timer_expired_err_cnt = %d\n",
+	hba->ufs_stats.dl_err_cnt[UFS_EC_DL_TCx_REPLAY_TIMER_EXPIRED]);
+	seq_printf(file, "dl_afcx_request_timer_expired_err_cnt = %d\n",
+	hba->ufs_stats.dl_err_cnt[UFS_EC_DL_AFCx_REQUEST_TIMER_EXPIRED]);
+	seq_printf(file, "dl_fcx_protection_timer_expired_err_cnt = %d\n",
+	hba->ufs_stats.dl_err_cnt[UFS_EC_DL_FCx_PROTECT_TIMER_EXPIRED]);
+	seq_printf(file, "dl_crc_err_cnt = %d\n",
+			hba->ufs_stats.dl_err_cnt[UFS_EC_DL_CRC_ERROR]);
+	seq_printf(file, "dll_rx_buffer_overflow_err_cnt = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_RX_BUFFER_OVERFLOW]);
+	seq_printf(file, "dl_max_frame_length_exceeded_err_cnt = %d\n",
+		hba->ufs_stats.dl_err_cnt[UFS_EC_DL_MAX_FRAME_LENGTH_EXCEEDED]);
+	seq_printf(file, "dl_wrong_sequence_number_err_cnt = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_WRONG_SEQUENCE_NUMBER]);
+	seq_printf(file, "dl_afc_frame_syntax_err_cnt = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_AFC_FRAME_SYNTAX_ERROR]);
+	seq_printf(file, "dl_nac_frame_syntax_err_cnt = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_NAC_FRAME_SYNTAX_ERROR]);
+	seq_printf(file, "dl_eof_syntax_err_cnt = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_EOF_SYNTAX_ERROR]);
+	seq_printf(file, "dl_frame_syntax_err_cnt = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_FRAME_SYNTAX_ERROR]);
+	seq_printf(file, "dl_bad_ctrl_symbol_type_err_cnt = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_BAD_CTRL_SYMBOL_TYPE]);
+	seq_printf(file, "dl_pa_init_err_cnt = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_PA_INIT_ERROR]);
+	seq_printf(file, "dl_pa_error_ind_received = %d\n",
+		   hba->ufs_stats.dl_err_cnt[UFS_EC_DL_PA_ERROR_IND_RECEIVED]);
+	seq_printf(file, "dme_err_cnt = %d\n", hba->ufs_stats.dme_err_cnt);
+
 	return 0;
 }
 
