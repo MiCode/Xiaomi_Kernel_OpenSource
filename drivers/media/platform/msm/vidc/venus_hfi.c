@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -992,8 +992,8 @@ static inline int __boot_firmware(struct venus_hfi_device *device)
 
 	__write_register(device, VIDC_CTRL_INIT, 0x1);
 	while (!ctrl_status && count < max_tries) {
-		ctrl_status = __read_register(device, VIDC_CPU_CS_SCIACMDARG0);
-		if ((ctrl_status & 0xFE) == 0x4) {
+		ctrl_status = __read_register(device, VIDC_CTRL_STATUS);
+		if ((ctrl_status & VIDC_CTRL_ERROR_STATUS__M) == 0x4) {
 			dprintk(VIDC_ERR, "invalid setting for UC_REGION\n");
 			break;
 		}
@@ -1423,9 +1423,9 @@ static void __setup_ucregion_memory_map(struct venus_hfi_device *device)
 	__write_register(device, VIDC_UC_REGION_ADDR,
 			(u32)device->iface_q_table.align_device_addr);
 	__write_register(device, VIDC_UC_REGION_SIZE, SHARED_QSIZE);
-	__write_register(device, VIDC_CPU_CS_SCIACMDARG2,
+	__write_register(device, VIDC_QTBL_ADDR,
 			(u32)device->iface_q_table.align_device_addr);
-	__write_register(device, VIDC_CPU_CS_SCIACMDARG1, 0x01);
+	__write_register(device, VIDC_QTBL_INFO, 0x01);
 	if (device->sfr.align_device_addr)
 		__write_register(device, VIDC_SFR_ADDR,
 				(u32)device->sfr.align_device_addr);
@@ -1833,8 +1833,7 @@ static void __core_clear_interrupt(struct venus_hfi_device *device)
 
 	if (intr_status & VIDC_WRAPPER_INTR_STATUS_A2H_BMSK ||
 		intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK ||
-		intr_status &
-			VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_INIT_IDLE_MSG_BMSK) {
+		intr_status & VIDC_CTRL_INIT_IDLE_MSG_BMSK) {
 		device->intr_status |= intr_status;
 		device->reg_count++;
 		dprintk(VIDC_DBG,
@@ -2741,13 +2740,13 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 				"Core is in bad state, Skipping power collapse\n");
 		goto skip_power_off;
 	}
-	pc_ready = __read_register(device, VIDC_CPU_CS_SCIACMDARG0) &
-		VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_PC_READY;
+	pc_ready = __read_register(device, VIDC_CTRL_STATUS) &
+		VIDC_CTRL_STATUS_PC_READY;
 	if (!pc_ready) {
 		wfi_status = __read_register(device,
 				VIDC_WRAPPER_CPU_STATUS);
 		idle_status = __read_register(device,
-				VIDC_CPU_CS_SCIACMDARG0);
+				VIDC_CTRL_STATUS);
 		if (!(wfi_status & BIT(0))) {
 			dprintk(VIDC_WARN,
 				"Skipping PC as wfi_status (%#x) bit not set\n",
@@ -2772,9 +2771,9 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 			wfi_status = __read_register(device,
 					VIDC_WRAPPER_CPU_STATUS);
 			pc_ready = __read_register(device,
-					VIDC_CPU_CS_SCIACMDARG0);
+					VIDC_CTRL_STATUS);
 			if ((wfi_status & BIT(0)) && (pc_ready &
-				VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_PC_READY))
+				VIDC_CTRL_STATUS_PC_READY))
 				break;
 			usleep_range(150, 250);
 			count++;
@@ -3343,7 +3342,7 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 		dprintk(VIDC_DBG, "Clock: %s prepared and enabled\n", cl->name);
 	}
 
-	__write_register(device, VIDC_WRAPPER_CLOCK_CONFIG, 0);
+	__write_register(device, VIDC_WRAPPER_CPU_CGC_DIS, 0);
 	__write_register(device, VIDC_WRAPPER_CPU_CLOCK_CONFIG, 0);
 	return rc;
 
@@ -3921,6 +3920,7 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 static int __venus_power_on(struct venus_hfi_device *device)
 {
 	int rc = 0;
+	u32 mask_val = 0;
 
 	if (device->power_enabled)
 		return 0;
@@ -3959,8 +3959,13 @@ static int __venus_power_on(struct venus_hfi_device *device)
 	 */
 	__set_registers(device);
 
-	__write_register(device, VIDC_WRAPPER_INTR_MASK,
-			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK);
+	/* All interrupts should be disabled initially 0x1F6 : Reset value */
+	mask_val = __read_register(device, VIDC_WRAPPER_INTR_MASK);
+
+	/* Write 0 to unmask CPU and WD interrupts */
+	mask_val &= ~(VIDC_WRAPPER_INTR_MASK_A2HWD_BMSK |
+			VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK);
+	__write_register(device, VIDC_WRAPPER_INTR_MASK, mask_val);
 	device->intr_status = 0;
 	enable_irq(device->hal_data->irq);
 

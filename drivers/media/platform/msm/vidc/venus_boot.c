@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,25 +35,16 @@
 #include "venus_boot.h"
 
 /* VENUS WRAPPER registers */
-#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v1 \
-				(VIDC_WRAPPER_BASE_OFFS + 0x1018)
-#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v1 \
-				(VIDC_WRAPPER_BASE_OFFS + 0x101C)
-#define VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v1 \
+#define VENUS_WRAPPER_SEC_CPA_START_ADDR			\
 				(VIDC_WRAPPER_BASE_OFFS + 0x1020)
-#define VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v1 \
+#define VENUS_WRAPPER_SEC_CPA_END_ADDR				\
 				(VIDC_WRAPPER_BASE_OFFS + 0x1024)
-
-#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v2 \
-				(VIDC_WRAPPER_BASE_OFFS + 0x1020)
-#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v2 \
-				(VIDC_WRAPPER_BASE_OFFS + 0x1024)
-#define VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v2 \
+#define VENUS_WRAPPER_SEC_FW_START_ADDR				\
 				(VIDC_WRAPPER_BASE_OFFS + 0x1028)
-#define VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v2 \
+#define VENUS_WRAPPER_SEC_FW_END_ADDR				\
 				(VIDC_WRAPPER_BASE_OFFS + 0x102C)
 
-#define VENUS_WRAPPER_SW_RESET	(VIDC_WRAPPER_BASE_OFFS + 0x3000)
+#define VENUS_WRAPPER_A9SS_SW_RESET	(VIDC_WRAPPER_BASE_OFFS + 0x3000)
 
 /* VENUS VBIF registers */
 #define VENUS_VBIF_CLKON_FORCE_ON			BIT(0)
@@ -210,27 +201,15 @@ static int pil_venus_auth_and_reset(void)
 
 	if (iommu_present) {
 		u32 cpa_start_addr, cpa_end_addr, fw_start_addr, fw_end_addr;
-		/* Get the cpa and fw start/end addr based on Venus version */
-		if (venus_data->hw_ver_major == 0x1 &&
-				venus_data->hw_ver_minor <= 1) {
-			cpa_start_addr =
-				VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v1;
-			cpa_end_addr =
-				VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v1;
-			fw_start_addr =
-				VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v1;
-			fw_end_addr =
-				VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v1;
-		} else {
-			cpa_start_addr =
-				VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v2;
-			cpa_end_addr =
-				VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v2;
-			fw_start_addr =
-				VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v2;
-			fw_end_addr =
-				VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v2;
-		}
+		/* Get the cpa and fw start/end addr */
+		cpa_start_addr =
+			VENUS_WRAPPER_SEC_CPA_START_ADDR;
+		cpa_end_addr =
+			VENUS_WRAPPER_SEC_CPA_END_ADDR;
+		fw_start_addr =
+			VENUS_WRAPPER_SEC_FW_START_ADDR;
+		fw_end_addr =
+			VENUS_WRAPPER_SEC_FW_END_ADDR;
 
 		/* Program CPA start and end address */
 		writel_relaxed(0, reg_base + cpa_start_addr);
@@ -303,7 +282,7 @@ static int pil_venus_auth_and_reset(void)
 		}
 	}
 	/* Bring Arm9 out of reset */
-	writel_relaxed(0, reg_base + VENUS_WRAPPER_SW_RESET);
+	writel_relaxed(0, reg_base + VENUS_WRAPPER_A9SS_SW_RESET);
 
 	venus_data->is_booted = 1;
 	return 0;
@@ -328,9 +307,9 @@ static int pil_venus_shutdown(void)
 		return 0;
 
 	/* Assert the reset to ARM9 */
-	reg = readl_relaxed(reg_base + VENUS_WRAPPER_SW_RESET);
+	reg = readl_relaxed(reg_base + VENUS_WRAPPER_A9SS_SW_RESET);
 	reg |= BIT(4);
-	writel_relaxed(reg, reg_base + VENUS_WRAPPER_SW_RESET);
+	writel_relaxed(reg, reg_base + VENUS_WRAPPER_A9SS_SW_RESET);
 
 	/* Make sure reset is asserted before the mapping is removed */
 	mb();
