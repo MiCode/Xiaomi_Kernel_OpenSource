@@ -44,31 +44,6 @@ enum usb_noc_mode {
 };
 
 /**
- * Different states involved in USB charger detection.
- *
- * USB_CHG_STATE_UNDEFINED	USB charger is not connected or detection
- *                              process is not yet started.
- * USB_CHG_STATE_IN_PROGRESS	Charger detection in progress
- * USB_CHG_STATE_WAIT_FOR_DCD	Waiting for Data pins contact.
- * USB_CHG_STATE_DCD_DONE	Data pin contact is detected.
- * USB_CHG_STATE_PRIMARY_DONE	Primary detection is completed (Detects
- *                              between SDP and DCP/CDP).
- * USB_CHG_STATE_SECONDARY_DONE	Secondary detection is completed (Detects
- *                              between DCP and CDP).
- * USB_CHG_STATE_DETECTED	USB charger type is determined.
- *
- */
-enum usb_chg_state {
-	USB_CHG_STATE_UNDEFINED = 0,
-	USB_CHG_STATE_IN_PROGRESS,
-	USB_CHG_STATE_WAIT_FOR_DCD,
-	USB_CHG_STATE_DCD_DONE,
-	USB_CHG_STATE_PRIMARY_DONE,
-	USB_CHG_STATE_SECONDARY_DONE,
-	USB_CHG_STATE_DETECTED,
-};
-
-/**
  * USB charger types
  *
  * USB_INVALID_CHARGER	Invalid USB charger.
@@ -151,17 +126,11 @@ enum usb_id_state {
  * @async_int: IRQ line on which ASYNC interrupt arrived in LPM.
  * @cur_power: The amount of mA available from downstream port.
  * @otg_wq: Strict order otg workqueue for OTG works (SM/ID/SUSPEND).
- * @chg_work: Charger detection work.
- * @chg_state: The state of charger detection process.
  * @chg_type: The type of charger attached.
  * @bus_perf_client: Bus performance client handle to request BUS bandwidth
  * @host_bus_suspend: indicates host bus suspend or not.
  * @device_bus_suspend: indicates device bus suspend or not.
  * @bus_clks_enabled: indicates pcnoc/snoc/bimc clocks are on or not.
- * @chg_check_timer: The timer used to implement the workaround to detect
- *               very slow plug in of wall charger.
- * @bc1p2_current_max: Max charging current allowed as per bc1.2 chg detection
- * @typec_current_max: Max charging current allowed as per type-c chg detection
  * @is_ext_chg_dcp: To indicate whether charger detected by external entity
 		SMB hardware is DCP charger or not.
  * @ext_id_irq: IRQ for ID interrupt.
@@ -210,7 +179,6 @@ struct msm_otg {
 #define ID		0
 #define B_SESS_VLD	1
 #define A_BUS_SUSPEND	14
-#define B_FALSE_SDP	18
 	unsigned long inputs;
 	struct work_struct sm_work;
 	bool sm_work_pending;
@@ -222,9 +190,7 @@ struct msm_otg {
 	int async_int;
 	unsigned int cur_power;
 	struct workqueue_struct *otg_wq;
-	struct delayed_work chg_work;
 	struct delayed_work id_status_work;
-	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	unsigned int dcd_time;
 	unsigned long caps;
@@ -232,7 +198,6 @@ struct msm_otg {
 	bool host_bus_suspend;
 	bool device_bus_suspend;
 	bool bus_clks_enabled;
-	struct timer_list chg_check_timer;
 	/*
 	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v
 	 * analog regulators while going to low power mode.
@@ -282,17 +247,8 @@ struct msm_otg {
 #define PHY_REGULATORS_LPM	BIT(4)
 	int reset_counter;
 	unsigned int online;
-	unsigned int host_mode;
-	unsigned int bc1p2_current_max;
-	unsigned int typec_current_max;
 
 	dev_t ext_chg_dev;
-	struct cdev ext_chg_cdev;
-	struct class *ext_chg_class;
-	struct device *ext_chg_device;
-	bool ext_chg_opened;
-	enum usb_ext_chg_status ext_chg_active;
-	struct completion ext_chg_wait;
 	struct pinctrl *phy_pinctrl;
 	bool is_ext_chg_dcp;
 	struct qpnp_vadc_chip	*vadc_dev;

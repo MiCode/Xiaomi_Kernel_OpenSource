@@ -171,8 +171,6 @@ Optional properties :
 	devicetree/bindings/usb/android-dev.txt for details about "streaming-func" property.
 - qcom,axi-prefetch-enable: If present, AXI64 interface will be used for transferring data
        to/from DDR by controller.
-- qcom,enable-sdp-typec-current-limit: Indicates whether type-c current for SDP CHARGER to
-	be limited.
 - qcom,enable-phy-id-pullup: If present, PHY can keep D+ pull-up resistor on USB ID line
 	during cable disconnect.
 - qcom,max-svs-sysclk-rate: Indicates system clock frequency voted by driver in
