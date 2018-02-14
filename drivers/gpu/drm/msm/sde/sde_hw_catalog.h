@@ -1004,6 +1004,11 @@ struct sde_perf_cfg {
  * @max_mixer_blendstages max layer mixer blend stages or
  *                       supported z order
  * @max_wb_linewidth   max writeback line width support.
+ * @max_display_width   maximum display width support.
+ * @max_display_height  maximum display height support.
+ * @max_lm_per_display  maximum layer mixer per display
+ * @min_display_width   minimum display width support.
+ * @min_display_height  minimum display height support.
  * @qseed_type         qseed2 or qseed3 support.
  * @csc_type           csc or csc_10bit support.
  * @smart_dma_rev      Supported version of SmartDMA feature.
@@ -1036,6 +1041,13 @@ struct sde_mdss_cfg {
 	u32 max_mixer_width;
 	u32 max_mixer_blendstages;
 	u32 max_wb_linewidth;
+
+	u32 max_display_width;
+	u32 max_display_height;
+	u32 min_display_width;
+	u32 min_display_height;
+	u32 max_lm_per_display;
+
 	u32 qseed_type;
 	u32 csc_type;
 	u32 smart_dma_rev;
