@@ -481,7 +481,8 @@ static void dspp_3d_gamutv4_off(struct sde_hw_dspp *ctx, void *cfg)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
 }
 
-void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
+static void reg_dmav1_setup_dspp_3d_gamutv4_common(struct sde_hw_dspp *ctx,
+		void *cfg, u32 scale_tbl_a_len, u32 scale_tbl_b_len)
 {
 	struct drm_msm_3d_gamut *payload;
 	struct sde_reg_dma_kickoff_cfg kick_off;
@@ -553,9 +554,9 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 
 	if (op_mode & GAMUT_MAP_EN) {
 		if (scale_off == GAMUT_SCALEA_OFFSET_OFF)
-			scale_tbl_len = GAMUT_SCALE_OFF_LEN;
+			scale_tbl_len = scale_tbl_a_len;
 		else
-			scale_tbl_len = GAMUT_SCALE_OFF_LEN_12;
+			scale_tbl_len = scale_tbl_b_len;
 
 		for (i = 0; i < GAMUT_3D_SCALE_OFF_TBL_NUM; i++) {
 			scale_tbl_off = ctx->cap->sblk->gamut.base + scale_off +
@@ -587,6 +588,18 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
+}
+
+void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
+{
+	reg_dmav1_setup_dspp_3d_gamutv4_common(ctx, cfg, GAMUT_SCALE_OFF_LEN,
+		GAMUT_SCALE_OFF_LEN_12);
+}
+
+void reg_dmav1_setup_dspp_3d_gamutv41(struct sde_hw_dspp *ctx, void *cfg)
+{
+	reg_dmav1_setup_dspp_3d_gamutv4_common(ctx, cfg, GAMUT_SCALE_OFF_LEN,
+		GAMUT_SCALE_OFF_LEN);
 }
 
 void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)

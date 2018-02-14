@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,15 @@
  * @cfg: pointer to sde_hw_cp_cfg
  */
 void sde_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * sde_setup_dspp_3d_gamutv41 - Function for 3d gamut v4_1 version feature
+ *                             programming.
+ * @ctx: dspp ctx pointer
+ * @cfg: pointer to sde_hw_cp_cfg
+ */
+void sde_setup_dspp_3d_gamutv41(struct sde_hw_dspp *ctx, void *cfg);
+
 /**
  * sde_setup_dspp_igcv3 - Function for igc v3 version feature
  *                             programming.
@@ -29,6 +38,7 @@ void sde_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg);
  * @cfg: pointer to sde_hw_cp_cfg
  */
 void sde_setup_dspp_igcv3(struct sde_hw_dspp *ctx, void *cfg);
+
 /**
  * sde_setup_dspp_pccv4 - Function for pcc v4 version feature
  *                             programming.

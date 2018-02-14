@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,6 +131,16 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 				else
 					c->ops.setup_gamut =
 						sde_setup_dspp_3d_gamutv4;
+			} else if (c->cap->sblk->gamut.version ==
+					SDE_COLOR_PROCESS_VER(0x4, 1)) {
+				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
+				if (!ret) {
+					c->ops.setup_gamut =
+					    reg_dmav1_setup_dspp_3d_gamutv41;
+				} else {
+					c->ops.setup_gamut =
+					    sde_setup_dspp_3d_gamutv41;
+				}
 			}
 			break;
 		case SDE_DSPP_GC:
