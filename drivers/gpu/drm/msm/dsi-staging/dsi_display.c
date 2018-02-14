@@ -909,6 +909,62 @@ error:
 	return rc;
 }
 
+static ssize_t debugfs_esd_trigger_check(struct file *file,
+				  const char __user *user_buf,
+				  size_t user_len,
+				  loff_t *ppos)
+{
+	struct dsi_display *display = file->private_data;
+	char *buf;
+	int rc = 0;
+	u32 esd_trigger;
+
+	if (!display)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	if (user_len > sizeof(u32))
+		return -EINVAL;
+
+	buf = kzalloc(user_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	if (copy_from_user(buf, user_buf, user_len)) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	buf[user_len] = '\0'; /* terminate the string */
+
+	if (kstrtouint(buf, 10, &esd_trigger)) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (esd_trigger != 1) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	display->esd_trigger = esd_trigger;
+
+	if (display->esd_trigger) {
+		rc = dsi_panel_trigger_esd_attack(display->panel);
+		if (rc) {
+			pr_err("Failed to trigger ESD attack\n");
+			return rc;
+		}
+	}
+
+	rc = user_len;
+error:
+	kfree(buf);
+	return rc;
+}
+
 static ssize_t debugfs_misr_read(struct file *file,
 				 char __user *user_buf,
 				 size_t user_len,
@@ -985,6 +1041,11 @@ static const struct file_operations misr_data_fops = {
 	.write = debugfs_misr_setup,
 };
 
+static const struct file_operations esd_trigger_fops = {
+	.open = simple_open,
+	.write = debugfs_esd_trigger_check,
+};
+
 static int dsi_display_debugfs_init(struct dsi_display *display)
 {
 	int rc = 0;
@@ -1008,6 +1069,18 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 	if (IS_ERR_OR_NULL(dump_file)) {
 		rc = PTR_ERR(dump_file);
 		pr_err("[%s] debugfs create dump info file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	dump_file = debugfs_create_file("esd_trigger",
+					0644,
+					dir,
+					display,
+					&esd_trigger_fops);
+	if (IS_ERR_OR_NULL(dump_file)) {
+		rc = PTR_ERR(dump_file);
+		pr_err("[%s] debugfs for esd trigger file failed, rc=%d\n",
 		       display->name, rc);
 		goto error_remove_dir;
 	}

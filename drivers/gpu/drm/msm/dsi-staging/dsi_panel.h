@@ -214,6 +214,8 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 				int topology_override,
 				enum dsi_panel_type type);
 
+int dsi_panel_trigger_esd_attack(struct dsi_panel *panel);
+
 void dsi_panel_put(struct dsi_panel *panel);
 
 int dsi_panel_drv_init(struct dsi_panel *panel, struct mipi_dsi_host *host);
