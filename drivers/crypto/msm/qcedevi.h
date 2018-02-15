@@ -21,6 +21,7 @@
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/fips_status.h>
 #include "qce.h"
+#include "qcedev_smmu.h"
 
 #define CACHE_LINE_SIZE 32
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE
@@ -108,6 +109,7 @@ struct qcedev_control {
 	spinlock_t lock;
 	struct tasklet_struct done_tasklet;
 	struct list_head context_banks;
+	struct qcedev_mem_client *mem_client;
 };
 
 struct qcedev_handle {
@@ -115,6 +117,8 @@ struct qcedev_handle {
 	struct qcedev_control *cntl;
 	/* qce internal sha context*/
 	struct qcedev_sha_ctxt sha_ctxt;
+	/* qcedev mapped buffer list */
+	struct qcedev_buffer_list registeredbufs;
 };
 
 void qcedev_cipher_req_cb(void *cookie, unsigned char *icv,

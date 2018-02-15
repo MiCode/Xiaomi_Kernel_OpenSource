@@ -1,7 +1,7 @@
 /*
  * QTI CE 32-bit compatibility syscall for 64-bit systems
  *
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -254,6 +254,75 @@ static int compat_put_qcedev_cipher_op_req(
 	return err;
 }
 
+static int compat_xfer_qcedev_map_buf_req(
+			struct compat_qcedev_map_buf_req __user *data32,
+			struct qcedev_map_buf_req __user *data, bool to_get)
+{
+	int rc = 0, i = 0, fd = -1;
+	uint32_t fd_size, fd_offset, num_fds, buf_vaddr;
+
+	if (to_get) {
+		/* copy from compat struct */
+		for (i = 0; i < QCEDEV_MAX_BUFFERS; i++) {
+			rc |= get_user(fd, &data32->fd[i]);
+			rc |= put_user(fd, &data->fd[i]);
+			rc |= get_user(fd_size, &data32->fd_size[i]);
+			rc |= put_user(fd_size, &data->fd_size[i]);
+			rc |= get_user(fd_offset, &data32->fd_offset[i]);
+			rc |= put_user(fd_offset, &data->fd_offset[i]);
+			rc |= get_user(buf_vaddr, &data32->buf_vaddr[i]);
+			rc |= put_user(buf_vaddr, &data->buf_vaddr[i]);
+		}
+
+		rc |= get_user(num_fds, &data32->num_fds);
+		rc |= put_user(num_fds, &data->num_fds);
+	} else {
+		/* copy to compat struct */
+		for (i = 0; i < QCEDEV_MAX_BUFFERS; i++) {
+			rc |= get_user(fd, &data->fd[i]);
+			rc |= put_user(fd, &data32->fd[i]);
+			rc |= get_user(fd_size, &data->fd_size[i]);
+			rc |= put_user(fd_size, &data32->fd_size[i]);
+			rc |= get_user(fd_offset, &data->fd_offset[i]);
+			rc |= put_user(fd_offset, &data32->fd_offset[i]);
+			rc |= get_user(buf_vaddr, &data->buf_vaddr[i]);
+			rc |= put_user(buf_vaddr, &data32->buf_vaddr[i]);
+		}
+		rc |= get_user(num_fds, &data->num_fds);
+		rc |= put_user(num_fds, &data32->num_fds);
+	}
+
+	return rc;
+}
+
+static int compat_xfer_qcedev_unmap_buf_req(
+			struct compat_qcedev_unmap_buf_req __user *data32,
+			struct qcedev_unmap_buf_req __user *data, bool to_get)
+{
+	int i = 0, rc = 0, fd = -1;
+	uint32_t num_fds;
+
+	if (to_get) {
+		/* copy from compat struct */
+		for (i = 0; i < QCEDEV_MAX_BUFFERS; i++) {
+			rc |= get_user(fd, &data32->fd[i]);
+			rc |= put_user(fd, &data->fd[i]);
+		}
+		rc |= get_user(num_fds, &data32->num_fds);
+		rc |= put_user(num_fds, &data->num_fds);
+	} else {
+		/* copy to compat struct */
+		for (i = 0; i < QCEDEV_MAX_BUFFERS; i++) {
+			rc |= get_user(fd, &data->fd[i]);
+			rc |= put_user(fd, &data32->fd[i]);
+		}
+		rc |= get_user(num_fds, &data->num_fds);
+		rc |= put_user(num_fds, &data32->num_fds);
+	}
+	return rc;
+}
+
+
 static int compat_get_qcedev_sha_op_req(
 		struct compat_qcedev_sha_op_req __user *data32,
 		struct qcedev_sha_op_req __user *data)
@@ -359,6 +428,10 @@ static unsigned int convert_cmd(unsigned int cmd)
 		return QCEDEV_IOCTL_GET_SHA_REQ;
 	case COMPAT_QCEDEV_IOCTL_GET_CMAC_REQ:
 		return QCEDEV_IOCTL_GET_CMAC_REQ;
+	case COMPAT_QCEDEV_IOCTL_MAP_BUF_REQ:
+		return QCEDEV_IOCTL_MAP_BUF_REQ;
+	case COMPAT_QCEDEV_IOCTL_UNMAP_BUF_REQ:
+		return QCEDEV_IOCTL_UNMAP_BUF_REQ;
 	default:
 		return cmd;
 	}
@@ -411,6 +484,46 @@ long compat_qcedev_ioctl(struct file *file,
 		ret = qcedev_ioctl(file, convert_cmd(cmd), (unsigned long)data);
 		err = compat_put_qcedev_sha_op_req(data32, data);
 		return ret ? ret : err;
+	}
+	case COMPAT_QCEDEV_IOCTL_MAP_BUF_REQ: {
+		struct compat_qcedev_map_buf_req __user *data32;
+		struct qcedev_map_buf_req __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+		if (!data)
+			return -EINVAL;
+
+		err = compat_xfer_qcedev_map_buf_req(data32, data, true);
+		if (err)
+			return err;
+
+		ret = qcedev_ioctl(file, convert_cmd(cmd), (unsigned long)data);
+		err = compat_xfer_qcedev_map_buf_req(data32, data, false);
+		return ret ? ret : err;
+
+		break;
+	}
+	case COMPAT_QCEDEV_IOCTL_UNMAP_BUF_REQ: {
+		struct compat_qcedev_unmap_buf_req __user *data32;
+		struct qcedev_unmap_buf_req __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+		if (!data)
+			return -EINVAL;
+
+		err = compat_xfer_qcedev_unmap_buf_req(data32, data, true);
+		if (err)
+			return err;
+
+		ret = qcedev_ioctl(file, convert_cmd(cmd), (unsigned long)data);
+		err = compat_xfer_qcedev_unmap_buf_req(data32, data, false);
+		return ret ? ret : err;
+
+		break;
 	}
 	default:
 		return -ENOIOCTLCMD;
