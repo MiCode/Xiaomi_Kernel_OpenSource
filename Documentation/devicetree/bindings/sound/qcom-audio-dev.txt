@@ -2966,6 +2966,10 @@ Required properties:
 			   with the glink client
 - vdd-spkr-supply: BG codec supply's speaker regulator device tree node.
 
+Optional properties:
+- qcom,bg-speaker-connected: This flag will notify BG codec driver that speaker
+			is connected to target or not. Based on this flag BG
+			codec driver will send smart pa init params to BG.
 
 Example:
 
