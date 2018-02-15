@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,9 @@ static inline struct dp_pll_vco_clk *to_dp_vco_hw(struct clk_hw *hw)
 }
 
 int dp_pll_clock_register_10nm(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
+
+int dp_pll_clock_register_7nm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 
 #endif /* __MDSS_DP_PLL_H */
