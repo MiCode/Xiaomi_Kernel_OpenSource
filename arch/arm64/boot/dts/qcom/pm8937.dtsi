@@ -92,6 +92,24 @@
 					  "pm8937_mpp3", "pm8937_mpp4";
 			gpio-controller;
 			#gpio-cells = <2>;
+
+			case_therm {
+				cas_therm_default: cas_therm_default {
+					pins = "mpp4";
+					function = "analog";
+					input-enable;
+					qcom,amux-route = <3>;
+				};
+			};
+
+			pa_therm1 {
+				pa_therm1_default: pa_therm1_default {
+					pins = "mpp2";
+					function = "analog";
+					input-enable;
+					qcom,amux-route = <1>;
+				};
+			};
 		};
 
 		pm8937_gpios: gpios {
@@ -120,6 +138,9 @@
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
+			#thermal-sensor-cells = <1>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pa_therm1_default &cas_therm_default>;
 
 			chan@5 {
 				label = "vcoin";
@@ -304,6 +325,83 @@
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <9>;
 			#pwm-cells = <2>;
+		};
+	};
+};
+
+&thermal_zones {
+	pa-therm1-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8937_vadc 0x11>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	xo-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8937_vadc 0x32>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	xo-therm-buf-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8937_vadc 0x3c>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	case-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8937_vadc 0x13>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	pa-therm0-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8937_adc_tm 0x36>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
 		};
 	};
 };
