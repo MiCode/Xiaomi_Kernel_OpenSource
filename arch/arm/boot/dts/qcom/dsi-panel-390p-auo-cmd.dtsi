@@ -92,5 +92,7 @@
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 20>;
 		/* clk = totlaH * totalV * bpp* 66fps */
 		qcom,mdss-dsi-panel-clockrate = <276705792>;
+		qcom,esd-check-enabled;
+		qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
 	};
 };
