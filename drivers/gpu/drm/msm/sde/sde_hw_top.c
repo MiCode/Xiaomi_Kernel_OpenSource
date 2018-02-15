@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include "sde_kms.h"
 
 #define SSPP_SPARE                        0x28
+#define UBWC_DEC_HW_VERSION               0x058
 #define UBWC_STATIC                       0x144
 
 #define FLD_SPLIT_DISPLAY_CMD             BIT(1)
@@ -340,17 +341,31 @@ static void sde_hw_setup_dce(struct sde_hw_mdp *mdp, u32 dce_sel)
 void sde_hw_reset_ubwc(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m)
 {
 	struct sde_hw_blk_reg_map c;
+	u32 ubwc_version;
 
 	if (!mdp || !m)
-		return;
-
-	if (!IS_UBWC_20_SUPPORTED(m->ubwc_version))
 		return;
 
 	/* force blk offset to zero to access beginning of register region */
 	c = mdp->hw;
 	c.blk_off = 0x0;
-	SDE_REG_WRITE(&c, UBWC_STATIC, m->mdp[0].ubwc_static);
+	ubwc_version = SDE_REG_READ(&c, UBWC_DEC_HW_VERSION);
+
+	if (IS_UBWC_20_SUPPORTED(ubwc_version)) {
+		SDE_REG_WRITE(&c, UBWC_STATIC, m->mdp[0].ubwc_static);
+	} else if (IS_UBWC_30_SUPPORTED(ubwc_version)) {
+		u32 reg = m->mdp[0].ubwc_static |
+			(m->mdp[0].ubwc_swizzle & 0x1) |
+			((m->mdp[0].highest_bank_bit & 0x3) << 4) |
+			((m->macrotile_mode & 0x1) << 12);
+
+		if (IS_UBWC_30_SUPPORTED(m->ubwc_version))
+			reg |= BIT(10);
+
+		SDE_REG_WRITE(&c, UBWC_STATIC, reg);
+	} else {
+		SDE_ERROR("Unsupported UBWC version 0x%08x\n", ubwc_version);
+	}
 }
 
 static void sde_hw_intf_audio_select(struct sde_hw_mdp *mdp)
