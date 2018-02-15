@@ -437,6 +437,7 @@ link_check_failed:
 
 link_prealloc_failed:
 	mutex_unlock(&user->cons_lock);
+	key_put(key);
 	kleave(" = %d [prelink]", ret);
 	return ret;
 
@@ -465,6 +466,9 @@ static struct key *construct_key_and_link(struct keyring_search_context *ctx,
 	ret = construct_get_dest_keyring(&dest_keyring);
 	if (ret)
 		goto error;
+
+	if (ctx->index_key.type == &key_type_keyring)
+		return ERR_PTR(-EPERM);
 
 	user = key_user_lookup(current_fsuid());
 	if (!user) {
