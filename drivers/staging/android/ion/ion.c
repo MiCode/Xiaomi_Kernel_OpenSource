@@ -435,6 +435,17 @@ static void ion_dma_buf_kunmap(struct dma_buf *dmabuf, unsigned long offset,
 {
 }
 
+static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
+{
+	struct ion_buffer *buffer = dmabuf->priv;
+
+	return buffer->vaddr;
+}
+
+static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
+{
+}
+
 static void ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
 			       unsigned int nents, unsigned long offset,
 			       unsigned long length,
@@ -646,6 +657,8 @@ static const struct dma_buf_ops dma_buf_ops = {
 	.unmap_atomic = ion_dma_buf_kunmap,
 	.map = ion_dma_buf_kmap,
 	.unmap = ion_dma_buf_kunmap,
+	.vmap = ion_dma_buf_vmap,
+	.vunmap = ion_dma_buf_vunmap,
 	.get_flags = ion_dma_buf_get_flags,
 };
 
