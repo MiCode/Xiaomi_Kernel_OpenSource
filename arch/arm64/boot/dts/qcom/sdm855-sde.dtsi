@@ -119,7 +119,7 @@
 		qcom,sde-sspp-smart-dma-priority = <5 6 7 8 1 2 3 4>;
 		qcom,sde-smart-dma-rev = "smart_dma_v2";
 
-		qcom,sde-mixer-pair-mask = <2 1 6 0 0 3>;
+		qcom,sde-mixer-pair-mask = <2 1 4 3 6 5>;
 
 		qcom,sde-mixer-blend-op-off = <0x20 0x38 0x50 0x68 0x80 0x98
 						0xb0 0xc8 0xe0 0xf8 0x110>;
