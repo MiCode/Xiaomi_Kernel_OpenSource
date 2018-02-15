@@ -396,7 +396,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_wb &sde_dp>;
+	connectors = <&sde_wb>;
 };
 
 &dsi_dual_nt35597_truly_video {
