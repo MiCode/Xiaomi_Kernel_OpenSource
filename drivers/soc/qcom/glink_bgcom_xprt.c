@@ -1290,7 +1290,7 @@ static int tx_data(struct glink_transport_if *if_ptr, uint16_t cmd_id,
 	if (cmd.id == TRACER_PKT_CMD)
 		tracer_pkt_log_event((void *)(pctx->data), GLINK_XPRT_TX);
 
-	bgcom_resume(&einfo->bgcom_handle);
+	bgcom_resume(einfo->bgcom_handle);
 	bgcom_ahb_write(einfo->bgcom_handle, (uint32_t)(size_t)dst,
 				ALIGN(tx_size, WORD_SIZE)/WORD_SIZE,
 				data_start);
@@ -1708,7 +1708,7 @@ static int glink_bgcom_suspend(struct platform_device *pdev,
 	suspend = !(einfo->activity_flag);
 	spin_unlock_irqrestore(&einfo->activity_lock, flags);
 	if (suspend)
-		rc = bgcom_suspend(&einfo->bgcom_handle);
+		rc = bgcom_suspend(einfo->bgcom_handle);
 	if (rc < 0)
 		GLINK_ERR("%s: Could not suspend activity_flag %d, rc %d\n",
 			__func__, einfo->activity_flag, rc);
