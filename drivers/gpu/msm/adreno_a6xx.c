@@ -791,13 +791,14 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 			0x1);
 
+	a6xx_protect_init(adreno_dev);
+
 	if (!patch_reglist && (adreno_dev->pwrup_reglist.gpuaddr != 0)) {
 		a6xx_patch_pwrup_reglist(adreno_dev);
 		patch_reglist = true;
 	}
 
 	a6xx_preemption_start(adreno_dev);
-	a6xx_protect_init(adreno_dev);
 
 	/*
 	 * We start LM here because we want all the following to be up
