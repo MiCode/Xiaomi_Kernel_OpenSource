@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,12 +11,12 @@
  */
 
 &soc {
-	mdss_dsi0_pll: qcom,mdss_dsi_pll@ae94a00 {
-		compatible = "qcom,mdss_dsi_pll_10nm";
+	mdss_dsi0_pll: qcom,mdss_dsi_pll@ae94900 {
+		compatible = "qcom,mdss_dsi_pll_7nm";
 		label = "MDSS DSI 0 PLL";
 		cell-index = <0>;
 		#clock-cells = <1>;
-		reg = <0xae94a00 0x1e0>,
+		reg = <0xae94900 0x260>,
 		      <0xae94400 0x800>,
 		      <0xaf03000 0x8>;
 		reg-names = "pll_base", "phy_base", "gdsc_base";
@@ -38,12 +38,12 @@
 		};
 	};
 
-	mdss_dsi1_pll: qcom,mdss_dsi_pll@ae96a00 {
-		compatible = "qcom,mdss_dsi_pll_10nm";
+	mdss_dsi1_pll: qcom,mdss_dsi_pll@ae96900 {
+		compatible = "qcom,mdss_dsi_pll_7nm";
 		label = "MDSS DSI 1 PLL";
 		cell-index = <1>;
 		#clock-cells = <1>;
-		reg = <0xae96a00 0x1e0>,
+		reg = <0xae96900 0x260>,
 		      <0xae96400 0x800>,
 		      <0xaf03000 0x8>;
 		reg-names = "pll_base", "phy_base", "gdsc_base";
