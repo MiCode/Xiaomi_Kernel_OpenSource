@@ -112,7 +112,7 @@ config ARM_ARCH_TIMER_EVTSTREAM
 
 config ARM_ARCH_TIMER_VCT_ACCESS
 	bool "Support for ARM architected timer virtual counter access in userspace"
-	default n
+	default !ARM64
 	depends on ARM_ARCH_TIMER
 	help
 	  This option enables support for reading the ARM architected timer's
