@@ -1,2 +1,3 @@
 header-y += radio-iris.h
 header-y += radio-iris-commands.h
+header-y += msm_vidc_utils.h
