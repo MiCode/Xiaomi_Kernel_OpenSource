@@ -200,7 +200,7 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 		traverse_data->in_q->slot[curr_idx].skip_idx);
 
 	if ((tbl->inject_delay > 0) &&
-		(traverse_data->validate_only == false)) {
+		(traverse_data->self_link == true)) {
 		CAM_DBG(CAM_CRM, "Injecting Delay of one frame");
 		apply_data[tbl->pd].req_id = -1;
 		tbl->inject_delay--;
@@ -444,8 +444,8 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
 
 			apply_req.trigger_point = trigger;
-			CAM_DBG(CAM_CRM, "SEND: pd %d req_id %lld",
-				pd, apply_req.request_id);
+			CAM_DBG(CAM_CRM, "SEND: link_hdl: %x pd %d req_id %lld",
+				link->link_hdl, pd, apply_req.request_id);
 			if (dev->ops && dev->ops->apply_req) {
 				rc = dev->ops->apply_req(&apply_req);
 				if (rc < 0)
@@ -479,12 +479,14 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
  *             traversed through
  * @idx      : index within input request queue
  * @validate_only : Whether to validate only and/or update settings
+ * @self_link : To indicate whether the validation is for the given link or
+ *              other sync link
  *
  * @return   : 0 for success, negative for failure
  *
  */
 static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
-	int32_t idx, bool validate_only)
+	int32_t idx, bool validate_only, bool self_link)
 {
 	int                            rc;
 	struct cam_req_mgr_traverse    traverse_data;
@@ -506,21 +508,24 @@ static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
 	traverse_data.in_q = in_q;
 	traverse_data.result = 0;
 	traverse_data.validate_only = validate_only;
+	traverse_data.self_link = self_link;
 	/*
 	 *  Traverse through all pd tables, if result is success,
 	 *  apply the settings
 	 */
 
 	rc = __cam_req_mgr_traverse(&traverse_data);
-	CAM_DBG(CAM_CRM, "SOF: idx %d result %x pd_mask %x rc %d",
-		idx, traverse_data.result, link->pd_mask, rc);
+	CAM_DBG(CAM_CRM,
+		"SOF: idx %d self_link %d validate %d result %x pd_mask %x rc %d",
+		idx, traverse_data.self_link, traverse_data.validate_only,
+		traverse_data.result, link->pd_mask, rc);
 
 	if (!rc && traverse_data.result == link->pd_mask) {
 		CAM_DBG(CAM_CRM,
-			"APPLY: link_hdl= %x idx= %d, validate_only=%d, req_id= %lld :%lld :%lld",
+			"APPLY: link_hdl= %x idx= %d, req_id= %lld :%lld :%lld",
 			link->link_hdl, idx,
-			traverse_data.validate_only,
-			apply_data[2].req_id, apply_data[1].req_id,
+			apply_data[2].req_id,
+			apply_data[1].req_id,
 			apply_data[0].req_id);
 	} else
 		rc = -EAGAIN;
@@ -710,7 +715,7 @@ static int __cam_req_mgr_process_sync_req(
 		link->sof_counter++;
 	}
 
-	rc = __cam_req_mgr_check_link_is_ready(link, slot->idx, true);
+	rc = __cam_req_mgr_check_link_is_ready(link, slot->idx, true, true);
 	if (rc) {
 		CAM_DBG(CAM_CRM,
 			"Req: %lld [My link]not available link: %x, rc=%d",
@@ -723,7 +728,7 @@ static int __cam_req_mgr_process_sync_req(
 
 	if (sync_slot_idx != -1) {
 		rc = __cam_req_mgr_check_link_is_ready(
-			sync_link, sync_slot_idx, true);
+			sync_link, sync_slot_idx, true, false);
 		CAM_DBG(CAM_CRM, "sync_slot_idx=%d, status=%d, rc=%d",
 			sync_slot_idx,
 			sync_link->req.in_q->slot[sync_slot_idx].status,
@@ -743,7 +748,21 @@ static int __cam_req_mgr_process_sync_req(
 				req_id, sync_link->link_hdl);
 			goto failure;
 		}
-		__cam_req_mgr_check_link_is_ready(link, slot->idx, false);
+
+		CAM_DBG(CAM_CRM,
+			"Req: %lld ready to apply on link: %x [validation successful]",
+			req_id, link->link_hdl);
+		/*
+		 *  At this point all validation is successfully done
+		 *  and we can proceed to apply the given request.
+		 *  Ideally the next call should return success.
+		 */
+		rc = __cam_req_mgr_check_link_is_ready(link,
+			slot->idx, false, true);
+
+		if (rc) {
+			CAM_WARN(CAM_CRM, "Unexpected return value rc: %d", rc);
+		}
 	} else {
 		CAM_DBG(CAM_CRM,
 			"Req: %lld [Other link] not ready to apply on link: %x",
@@ -821,7 +840,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 			rc = __cam_req_mgr_process_sync_req(link, slot);
 		else
 			rc = __cam_req_mgr_check_link_is_ready(link,
-				slot->idx, false);
+				slot->idx, false, true);
 
 		if (rc < 0) {
 			/*
@@ -2165,10 +2184,9 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 
 	/* Cleanup request tables and unlink devices */
 	rc = __cam_req_mgr_destroy_link_info(link);
-	if (rc) {
-		CAM_ERR(CAM_CORE, "Unlink failed. Cannot proceed");
-		goto done;
-	}
+	if (rc)
+		CAM_ERR(CAM_CORE,
+			"Unlink for all devices was not successful");
 
 	/* Free memory holding data of linked devs */
 	__cam_req_mgr_destroy_subdev(link->l_dev);
@@ -2180,7 +2198,6 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 			rc, link->link_hdl);
 	}
 
-done:
 	mutex_unlock(&link->lock);
 	return rc;
 }
