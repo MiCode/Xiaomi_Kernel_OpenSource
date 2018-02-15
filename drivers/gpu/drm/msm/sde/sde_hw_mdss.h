@@ -609,4 +609,57 @@ struct sde_splash_data {
 	bool cont_splash_en;
 };
 
+/**
+ * struct sde_hw_tear_check - Struct contains parameters to configure
+ *	tear-effect module. This structure is used to configure tear-check
+ *	logic present either in ping-pong or in interface module.
+ * @vsync_count:	Ratio of MDP VSYNC clk freq(Hz) to refresh rate divided
+ *                      by no of lines
+ * @sync_cfg_height:	Total vertical lines (display height - 1)
+ * @vsync_init_val:	Init value to which the read pointer gets loaded at
+ *                      vsync edge
+ * @sync_threshold_start: Read pointer threshold start ROI for write operation
+ * @sync_threshold_continue: The minimum number of lines the write pointer
+ *                           needs to be above the read pointer
+ * @start_pos:	The position from which the start_threshold value is added
+ * @rd_ptr_irq:	The read pointer line at which interrupt has to be generated
+ * @hw_vsync_mode:	Sync with external frame sync input
+ */
+struct sde_hw_tear_check {
+	u32 vsync_count;
+	u32 sync_cfg_height;
+	u32 vsync_init_val;
+	u32 sync_threshold_start;
+	u32 sync_threshold_continue;
+	u32 start_pos;
+	u32 rd_ptr_irq;
+	u8 hw_vsync_mode;
+};
+
+/**
+ * struct sde_hw_autorefresh - Struct contains parameters to configure
+ *            auto-refresh mode for command mode panels
+ * @enable:	Enalbe or disable the auto-refresh mode
+ * @frame_count:	Auto-refresh frame counter at which update occurs
+ */
+struct sde_hw_autorefresh {
+	bool  enable;
+	u32 frame_count;
+};
+
+/**
+ * struct sde_hw_pp_vsync_info - Struct contains parameters to configure
+ *        read and write pointers for command mode panels
+ * @rd_ptr_init_val:	Value of rd pointer at vsync edge
+ * @rd_ptr_frame_count:	num frames sent since enabling interface
+ * @rd_ptr_line_count:	current line on panel (rd ptr)
+ * @wr_ptr_line_count:	current line within pp fifo (wr ptr)
+ */
+struct sde_hw_pp_vsync_info {
+	u32 rd_ptr_init_val;
+	u32 rd_ptr_frame_count;
+	u32 rd_ptr_line_count;
+	u32 wr_ptr_line_count;
+};
+
 #endif  /* _SDE_HW_MDSS_H */
