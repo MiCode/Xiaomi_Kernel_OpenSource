@@ -1132,6 +1132,9 @@ static int icnss_hw_power_off(struct icnss_priv *priv)
 	if (test_bit(HW_ALWAYS_ON, &quirks))
 		return 0;
 
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return 0;
+
 	icnss_pr_dbg("HW Power off: 0x%lx\n", priv->state);
 
 	spin_lock(&priv->on_off_lock);
