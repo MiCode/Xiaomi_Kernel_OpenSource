@@ -27,10 +27,11 @@
  * @dev - Device this is mapped to. Used as key
  * @sgl - The scatterlist for this mapping
  * @nents - Number of entries in sgl
- * @dir - The direction for the unmap.
+ * @dir - The direction for the map.
  * @meta - Backpointer to the meta this guy belongs to.
  * @ref - for reference counting this mapping
  * @attrs - dma mapping attributes
+ * @buf_start_addr - address of start of buffer
  *
  * Represents a mapping of one dma_buf buffer to a particular device
  * and address range. There may exist other mappings of this buffer in
@@ -46,6 +47,7 @@ struct msm_iommu_map {
 	struct msm_iommu_meta *meta;
 	struct kref ref;
 	unsigned long attrs;
+	dma_addr_t buf_start_addr;
 };
 
 struct msm_iommu_meta {
@@ -218,6 +220,9 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		}
 		iommu_map->nents = nents;
 		iommu_map->dev = dev;
+		iommu_map->dir = dir;
+		iommu_map->attrs = attrs;
+		iommu_map->buf_start_addr = sg_phys(sg);
 
 		kref_init(&iommu_map->ref);
 		if (late_unmap)
@@ -226,23 +231,42 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		msm_iommu_add(iommu_meta, iommu_map);
 
 	} else {
-		sg->dma_address = iommu_map->sgl->dma_address;
-		sg->dma_length = iommu_map->sgl->dma_length;
+		if (nents == iommu_map->nents &&
+		    dir == iommu_map->dir &&
+		    (attrs & ~DMA_ATTR_SKIP_CPU_SYNC) ==
+		    (iommu_map->attrs & ~DMA_ATTR_SKIP_CPU_SYNC) &&
+		    sg_phys(sg) == iommu_map->buf_start_addr) {
+			sg->dma_address = iommu_map->sgl->dma_address;
+			sg->dma_length = iommu_map->sgl->dma_length;
 
-		kref_get(&iommu_map->ref);
+			kref_get(&iommu_map->ref);
 
-		if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
-			dma_sync_sg_for_device(dev, iommu_map->sgl,
+			if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
+				dma_sync_sg_for_device(dev, iommu_map->sgl,
 					iommu_map->nents, iommu_map->dir);
 
-		if (is_device_dma_coherent(dev))
-			/*
-			 * Ensure all outstanding changes for coherent
-			 * buffers are applied to the cache before any
-			 * DMA occurs.
-			 */
-			dmb(ish);
-		ret = nents;
+			if (is_device_dma_coherent(dev))
+				/*
+				 * Ensure all outstanding changes for coherent
+				 * buffers are applied to the cache before any
+				 * DMA occurs.
+				 */
+				dmb(ish);
+			ret = nents;
+		} else {
+			bool start_diff = (sg_phys(sg) !=
+					   iommu_map->buf_start_addr);
+
+			dev_err(dev, "lazy map request differs:\n"
+				"req dir:%d, original dir:%d\n"
+				"req nents:%d, original nents:%d\n"
+				"req map attrs:%lu, original map attrs:%lu\n"
+				"req buffer start address differs:%d\n",
+				dir, iommu_map->dir, nents,
+				iommu_map->nents, attrs, iommu_map->attrs,
+				start_diff);
+			ret = -EINVAL;
+		}
 	}
 	mutex_unlock(&iommu_meta->lock);
 	return ret;
@@ -360,13 +384,9 @@ void msm_dma_unmap_sg_attrs(struct device *dev, struct scatterlist *sgl,
 		goto out;
 	}
 
-	/*
-	 * Save direction for later use when we actually unmap.
-	 * Not used right now but in the future if we go to coherent mapping
-	 * API we might want to call the appropriate API when client asks
-	 * to unmap
-	 */
-	iommu_map->dir = dir;
+	if (dir != iommu_map->dir)
+		WARN(1, "%s: (%pK) dir:%d differs from original dir:%d\n",
+		     __func__, dma_buf, dir, iommu_map->dir);
 
 	if (attrs && ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0))
 		dma_sync_sg_for_cpu(dev, iommu_map->sgl, iommu_map->nents, dir);
