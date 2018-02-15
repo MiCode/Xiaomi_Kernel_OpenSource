@@ -570,6 +570,9 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 			inst->clk_data.entry->vpp_cycles;
 
 		vpp_cycles = mbs_per_second * vpp_cycles_per_mb;
+		/* 21 / 20 is overhead factor */
+		vpp_cycles = (vpp_cycles * 21)/
+				(inst->clk_data.work_route * 20);
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
@@ -577,8 +580,12 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 		vsp_cycles += (inst->clk_data.bitrate * 10) / 7;
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		vpp_cycles = mbs_per_second * inst->clk_data.entry->vpp_cycles;
+		/* 21 / 20 is overhead factor */
+		vpp_cycles = (vpp_cycles * 21)/
+				(inst->clk_data.work_route * 20);
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
+
 		/* 10 / 7 is overhead factor */
 		vsp_cycles += ((inst->prop.fps * filled_len * 8) * 10) / 7;
 
