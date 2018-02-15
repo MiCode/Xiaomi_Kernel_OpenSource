@@ -328,8 +328,10 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 			      enum dma_data_direction direction)
 {
 	if (attachment->dma_map_attrs & DMA_ATTR_DELAYED_UNMAP)
-		msm_dma_unmap_sg(attachment->dev, table->sgl, table->nents,
-				 direction, attachment->dmabuf);
+		msm_dma_unmap_sg_attrs(attachment->dev, table->sgl,
+				       table->nents, direction,
+				       attachment->dmabuf,
+				       attachment->dma_map_attrs);
 	else
 		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
 				   direction, attachment->dma_map_attrs);

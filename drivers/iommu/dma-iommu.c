@@ -346,6 +346,12 @@ int dma_info_to_prot(enum dma_data_direction dir, bool coherent,
 	if (attrs & DMA_ATTR_PRIVILEGED)
 		prot |= IOMMU_PRIV;
 
+	if (!(attrs & DMA_ATTR_EXEC_MAPPING))
+		prot |= IOMMU_NOEXEC;
+
+	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
+		prot |= IOMMU_USE_UPSTREAM_HINT;
+
 	switch (dir) {
 	case DMA_BIDIRECTIONAL:
 		return prot | IOMMU_READ | IOMMU_WRITE;
@@ -364,6 +370,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	struct iommu_dma_cookie *cookie = domain->iova_cookie;
 	struct iova_domain *iovad = &cookie->iovad;
 	unsigned long shift, iova_len, iova = 0;
+	dma_addr_t limit;
 
 	if (cookie->type == IOMMU_DMA_MSI_COOKIE) {
 		cookie->msi_iova += size;
@@ -384,12 +391,24 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	if (domain->geometry.force_aperture)
 		dma_limit = min(dma_limit, domain->geometry.aperture_end);
 
+	/*
+	 * Ensure iova is within range specified in iommu_dma_init_domain().
+	 * This also prevents unnecessary work iterating through the entire
+	 * rb_tree.
+	 */
+	limit = min_t(dma_addr_t, DMA_BIT_MASK(32) >> shift,
+						iovad->dma_32bit_pfn);
+
 	/* Try to get PCI devices a SAC address */
 	if (dma_limit > DMA_BIT_MASK(32) && dev_is_pci(dev))
-		iova = alloc_iova_fast(iovad, iova_len, DMA_BIT_MASK(32) >> shift);
+		iova = alloc_iova_fast(iovad, iova_len, limit);
 
-	if (!iova)
-		iova = alloc_iova_fast(iovad, iova_len, dma_limit >> shift);
+	if (!iova) {
+		limit = min_t(dma_addr_t, dma_limit >> shift,
+						iovad->dma_32bit_pfn);
+
+		iova = alloc_iova_fast(iovad, iova_len, limit);
+	}
 
 	return (dma_addr_t)iova << shift;
 }
