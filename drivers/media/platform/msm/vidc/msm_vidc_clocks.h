@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@ int msm_dcvs_try_enable(struct msm_vidc_inst *inst);
 int msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
 int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst);
 void msm_comm_free_freq_table(struct msm_vidc_inst *inst);
+int msm_vidc_decide_work_route(struct msm_vidc_inst *inst);
 int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst);
 int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst);
 void msm_print_core_status(struct msm_vidc_core *core, u32 core_id);

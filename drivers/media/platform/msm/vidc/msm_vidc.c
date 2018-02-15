@@ -907,6 +907,14 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	/* Decide work route for current session */
+	rc = msm_vidc_decide_work_route(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to decide work route for session %pK\n", inst);
+		goto fail_start;
+	}
+
 	/* Decide work mode for current session */
 	rc = msm_vidc_decide_work_mode(inst);
 	if (rc) {

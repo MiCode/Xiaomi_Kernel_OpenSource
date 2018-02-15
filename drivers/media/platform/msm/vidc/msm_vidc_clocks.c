@@ -948,12 +948,12 @@ int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 		inst->clk_data.extra_capture_buffer_count;
 }
 
-int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
+int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_video_work_mode pdata;
-	struct hal_enable latency;
+	struct hal_video_work_route pdata;
+	u32 yuv_size = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -963,8 +963,83 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 	}
 
 	hdev = inst->core->device;
+
+	pdata.video_work_route = 2;
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		switch (inst->fmts[OUTPUT_PORT].fourcc) {
+		case V4L2_PIX_FMT_MPEG2:
+			pdata.video_work_route = 1;
+			break;
+		case V4L2_PIX_FMT_H264:
+			if (inst->pic_struct !=
+				MSM_VIDC_PIC_STRUCT_PROGRESSIVE)
+				pdata.video_work_route = 1;
+			break;
+		}
+	} else if (inst->session_type == MSM_VIDC_ENCODER) {
+		u32 rc_mode = 0;
+		u32 slice_mode = 0;
+
+		switch (inst->fmts[CAPTURE_PORT].fourcc) {
+		case V4L2_PIX_FMT_VP8:
+		case V4L2_PIX_FMT_TME:
+			pdata.video_work_route = 1;
+			goto decision_done;
+		}
+
+		yuv_size = inst->prop.height[CAPTURE_PORT] *
+				inst->prop.width[CAPTURE_PORT];
+
+		if ((yuv_size <= 1920 * 1088) &&
+			inst->prop.fps <= 60) {
+			rc_mode =  msm_comm_g_ctrl_for_id(inst,
+					V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+			slice_mode =  msm_comm_g_ctrl_for_id(inst,
+					V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
+
+			if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) ||
+				(slice_mode ==
+				V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES)) {
+				pdata.video_work_route = 1;
+			}
+		}
+	} else {
+		return -EINVAL;
+	}
+
+decision_done:
+
+	inst->clk_data.work_route = pdata.video_work_route;
+	rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VIDEO_WORK_ROUTE,
+			(void *)&pdata);
+	if (rc)
+		dprintk(VIDC_WARN,
+			" Failed to configure work route %pK\n", inst);
+
+	return rc;
+}
+
+int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hal_video_work_mode pdata;
+	struct hal_enable latency;
+	u32 yuv_size = 0;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR,
+			"%s Invalid args: Inst = %pK\n",
+			__func__, inst);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
 	if (inst->clk_data.low_latency_mode) {
 		pdata.video_work_mode = VIDC_WORK_MODE_1;
+
 		goto decision_done;
 	}
 
@@ -976,19 +1051,33 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 			break;
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_HEVC:
-			if (inst->prop.height[OUTPUT_PORT] *
-				inst->prop.width[OUTPUT_PORT] <=
-					1280 * 720)
+			yuv_size = inst->prop.height[OUTPUT_PORT] *
+				inst->prop.width[OUTPUT_PORT];
+			if ((inst->pic_struct !=
+				 MSM_VIDC_PIC_STRUCT_PROGRESSIVE) ||
+				(yuv_size  <= 1280 * 720))
 				pdata.video_work_mode = VIDC_WORK_MODE_1;
 			break;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		u32 rc_mode = 0;
+		u32 slice_mode = 0;
 
 		pdata.video_work_mode = VIDC_WORK_MODE_1;
+
+		switch (inst->fmts[CAPTURE_PORT].fourcc) {
+		case V4L2_PIX_FMT_VP8:
+		case V4L2_PIX_FMT_TME:
+			goto decision_done;
+		}
+
+		slice_mode =  msm_comm_g_ctrl_for_id(inst,
+				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
 		rc_mode =  msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-		if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
+		if ((slice_mode == V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) &&
+			((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) ||
+			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR)))
 			pdata.video_work_mode = VIDC_WORK_MODE_2;
 	} else {
 		return -EINVAL;
@@ -1002,7 +1091,7 @@ decision_done:
 			(void *)&pdata);
 	if (rc)
 		dprintk(VIDC_WARN,
-				" Failed to configure Work Mode %pK\n", inst);
+			" Failed to configure Work Mode %pK\n", inst);
 
 	/* For WORK_MODE_1, set Low Latency mode by default to HW. */
 
@@ -1013,8 +1102,6 @@ decision_done:
 			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
 			(void *)&latency);
 	}
-
-	rc = msm_comm_scale_clocks_and_bus(inst);
 
 	return rc;
 }

@@ -309,6 +309,7 @@ struct clock_data {
 	enum hal_work_mode work_mode;
 	bool low_latency_mode;
 	bool turbo_mode;
+	u32 work_route;
 };
 
 struct profile_data {
