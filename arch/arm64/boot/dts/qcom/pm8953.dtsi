@@ -106,6 +106,7 @@
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
+			#thermal-sensor-cells = <1>;
 
 			chan@5 {
 				label = "vcoin";
@@ -305,6 +306,36 @@
 };
 
 &thermal_zones {
+	xo-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8953_vadc 0x32>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	xo-therm-buf-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8953_vadc 0x3c>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
 	pm8953_tz {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
