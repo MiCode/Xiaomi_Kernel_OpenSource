@@ -25,7 +25,7 @@
 	model = "Qualcomm Technologies, Inc. SDM640";
 	compatible = "qcom,sdm640";
 	qcom,msm-id = <355 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	aliases {
 		serial0 = &qupv3_se0_2uart;
@@ -479,6 +479,14 @@
 		      <0x17a60000 0x100000>;    /* GICR * 8 */
 		interrupts = <1 9 4>;
 		interrupt-parent = <&intc>;
+	};
+
+	pdc: interrupt-controller@b220000{
+		compatible = "qcom,pdc-sdm640";
+		reg = <0xb220000 0x400>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
 	};
 
 	timer {
