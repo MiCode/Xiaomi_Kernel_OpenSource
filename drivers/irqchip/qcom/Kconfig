@@ -14,3 +14,9 @@ config QTI_PDC_SDM855
         help
           QTI Power Domain Controller for SDM855
 
+config QTI_PDC_SDM640
+        bool "QTI PDC SDM640"
+        select QTI_PDC
+        default y if ARCH_SDM640
+        help
+          QTI Power Domain Controller for SDM640
