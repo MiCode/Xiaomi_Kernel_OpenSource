@@ -43,6 +43,7 @@
 #include <linux/nls.h>
 #include <linux/of.h>
 #include <linux/blkdev.h>
+#include <asm/unaligned.h>
 
 #include "ufshcd.h"
 #include "ufshci.h"
@@ -249,6 +250,7 @@ static u32 ufs_query_desc_max_size[] = {
 	QUERY_DESC_RFU_MAX_SIZE,
 	QUERY_DESC_GEOMETRY_MAZ_SIZE,
 	QUERY_DESC_POWER_MAX_SIZE,
+	QUERY_DESC_HEALTH_MAX_SIZE,
 	QUERY_DESC_RFU_MAX_SIZE,
 };
 
@@ -9234,10 +9236,99 @@ static void ufshcd_add_spm_lvl_sysfs_nodes(struct ufs_hba *hba)
 		dev_err(hba->dev, "Failed to create sysfs for spm_lvl\n");
 }
 
+static ssize_t ufs_sysfs_read_desc_param(struct ufs_hba *hba,
+				  enum desc_idn desc_id,
+				  u8 desc_index,
+				  u8 param_offset,
+				  u8 *sysfs_buf,
+				  u8 param_size)
+{
+	u8 desc_buf[8] = {0};
+	int ret;
+
+	if (param_size > 8)
+		return -EINVAL;
+
+	pm_runtime_get_sync(hba->dev);
+	ret = ufshcd_read_desc_param(hba, desc_id, desc_index,
+				param_offset, desc_buf, param_size);
+	pm_runtime_put_sync(hba->dev);
+
+	if (ret)
+		return -EINVAL;
+	switch (param_size) {
+	case 1:
+		ret = snprintf(sysfs_buf, PAGE_SIZE, "0x%02X\n", *desc_buf);
+		break;
+	case 2:
+		ret = snprintf(sysfs_buf, PAGE_SIZE, "0x%04X\n",
+			get_unaligned_be16(desc_buf));
+		break;
+	case 4:
+		ret = snprintf(sysfs_buf, PAGE_SIZE, "0x%08X\n",
+			get_unaligned_be32(desc_buf));
+		break;
+	case 8:
+		ret = snprintf(sysfs_buf, PAGE_SIZE, "0x%016llX\n",
+			get_unaligned_be64(desc_buf));
+		break;
+	}
+
+	return ret;
+}
+
+
+#define UFS_DESC_PARAM(_name, _puname, _duname, _size)			\
+	static ssize_t _name##_show(struct device *dev,			\
+		struct device_attribute *attr, char *buf)			\
+{									\
+	struct ufs_hba *hba = dev_get_drvdata(dev); 		\
+	return ufs_sysfs_read_desc_param(hba, QUERY_DESC_IDN_##_duname, \
+		0, _duname##_DESC_PARAM##_puname, buf, _size);		\
+}									\
+static DEVICE_ATTR_RO(_name)
+
+#define UFS_HEALTH_DESC_PARAM(_name, _uname, _size)			\
+		UFS_DESC_PARAM(_name, _uname, HEALTH, _size)
+
+UFS_HEALTH_DESC_PARAM(eol_info, _EOL_INFO, 1);
+UFS_HEALTH_DESC_PARAM(life_time_estimation_a, _LIFE_TIME_EST_A, 1);
+UFS_HEALTH_DESC_PARAM(life_time_estimation_b, _LIFE_TIME_EST_B, 1);
+
+static struct attribute *ufs_sysfs_health_descriptor[] = {
+	&dev_attr_eol_info.attr,
+	&dev_attr_life_time_estimation_a.attr,
+	&dev_attr_life_time_estimation_b.attr,
+	NULL,
+};
+
+static const struct attribute_group ufs_sysfs_health_descriptor_group = {
+	.name = "health_descriptor",
+	.attrs = ufs_sysfs_health_descriptor,
+};
+
+static const struct attribute_group *ufs_sysfs_groups[] = {
+	&ufs_sysfs_health_descriptor_group,
+	NULL,
+};
+
+
+static void ufshcd_add_desc_sysfs_nodes(struct device *dev)
+{
+	int ret;
+
+	ret = sysfs_create_groups(&dev->kobj, ufs_sysfs_groups);
+	if (ret)
+		dev_err(dev,
+			"%s: sysfs groups creation failed (err = %d)\n",
+			__func__, ret);
+}
+
 static inline void ufshcd_add_sysfs_nodes(struct ufs_hba *hba)
 {
 	ufshcd_add_rpm_lvl_sysfs_nodes(hba);
 	ufshcd_add_spm_lvl_sysfs_nodes(hba);
+	ufshcd_add_desc_sysfs_nodes(hba->dev);
 }
 
 static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
