@@ -737,18 +737,21 @@ int cnss_pm_request_resume(struct cnss_pci_data *pci_priv)
 int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
+	int i;
 
-	if (!fw_mem->va && fw_mem->size) {
-		fw_mem->va = dma_alloc_coherent(&pci_priv->pci_dev->dev,
-						fw_mem->size, &fw_mem->pa,
-						GFP_KERNEL);
-		if (!fw_mem->va) {
-			cnss_pr_err("Failed to allocate memory for FW, size: 0x%zx\n",
-				    fw_mem->size);
-			fw_mem->size = 0;
+	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
+		if (!fw_mem[i].va && fw_mem[i].size) {
+			fw_mem[i].va =
+				dma_alloc_coherent(&pci_priv->pci_dev->dev,
+						   fw_mem[i].size,
+						   &fw_mem[i].pa, GFP_KERNEL);
+			if (!fw_mem[i].va) {
+				cnss_pr_err("Failed to allocate memory for FW, size: 0x%zx, type: %u\n",
+					    fw_mem[i].size, fw_mem[i].type);
 
-			return -ENOMEM;
+				return -ENOMEM;
+			}
 		}
 	}
 
@@ -758,17 +761,25 @@ int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 static void cnss_pci_free_fw_mem(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
+	int i;
 
-	if (fw_mem->va && fw_mem->size) {
-		cnss_pr_dbg("Freeing memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx\n",
-			    fw_mem->va, &fw_mem->pa, fw_mem->size);
-		dma_free_coherent(&pci_priv->pci_dev->dev, fw_mem->size,
-				  fw_mem->va, fw_mem->pa);
-		fw_mem->va = NULL;
-		fw_mem->pa = 0;
-		fw_mem->size = 0;
+	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
+		if (fw_mem[i].va && fw_mem[i].size) {
+			cnss_pr_dbg("Freeing memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx, type: %u\n",
+				    fw_mem[i].va, &fw_mem[i].pa,
+				    fw_mem[i].size, fw_mem[i].type);
+			dma_free_coherent(&pci_priv->pci_dev->dev,
+					  fw_mem[i].size, fw_mem[i].va,
+					  fw_mem[i].pa);
+			fw_mem[i].va = NULL;
+			fw_mem[i].pa = 0;
+			fw_mem[i].size = 0;
+			fw_mem[i].type = 0;
+		}
 	}
+
+	plat_priv->fw_mem_seg_len = 0;
 }
 
 int cnss_pci_load_m3(struct cnss_pci_data *pci_priv)
