@@ -847,6 +847,10 @@
 				  <CONTROL_TCS 0>;
 	};
 
+	system_pm {
+		compatible = "qcom,system-pm";
+		mboxes = <&apps_rsc 0>;
+	};
 };
 
 #include "sdm640-pinctrl.dtsi"
