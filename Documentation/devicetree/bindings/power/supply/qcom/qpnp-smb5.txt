@@ -114,12 +114,6 @@ Charger specific properties:
 		SOC. If this property is not specified, then auto recharge will
 		be based off battery voltage.
 
-- qcom,micro-usb
-  Usage:      optional
-  Value type: <empty>
-  Definition: Boolean flag which indicates that the platform only support
-		micro usb port.
-
 - qcom,suspend-input-on-debug-batt
   Usage:      optional
   Value type: <empty>
