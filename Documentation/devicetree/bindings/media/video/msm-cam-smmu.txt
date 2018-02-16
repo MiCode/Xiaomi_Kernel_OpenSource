@@ -1,0 +1,142 @@
+* Qualcomm Technologies, Inc. MSM Camera SMMU
+
+The MSM camera SMMU device provides SMMU context bank definitions
+for all HW blocks that need to map IOVA to physical memory. These
+definitions consist of various properties that define how the
+IOVA address space is laid out for each HW block in the camera
+subsystem.
+
+=======================
+Required Node Structure
+=======================
+The camera SMMU device must be described in three levels of device nodes. The
+first level describes the overall SMMU device. Within it, second level nodes
+describe individual context banks that map different stream ids. There can
+also be second level nodes describing firmware device nodes. Each HW block
+such as IFE, ICP maps into these second level device nodes. All context bank
+specific properties that define how the IOVA is laid out is contained within
+third level device nodes within the second level device nodes.
+
+During the kernel initialization all the devices are probed recursively and
+a device pointer is created for each context bank keeping track of the IOVA
+mapping information.
+
+Duplicate regions of the same type are not allowed within the same
+context bank. All context banks must contain an IO region at the very least.
+
+==================================
+First Level Node - CAM SMMU device
+==================================
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,msm-cam-smmu".
+
+===================================================================
+Second Level Node - CAM SMMU context bank device or firmware device
+===================================================================
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,msm-cam-smmu-cb" or "qcom,msm-cam-smmu-fw-dev".
+
+- memory-region
+  Usage: optional
+  Value type: <phandle>
+  Definition: Should specify the phandle of the memory region for firmware.
+		allocation
+
+- iommus
+  Usage: required
+  Value type: <phandle u32 u32>
+  Definition: first cell is phandle of the iommu, second cell is stream id
+              and third cell is SMR mask.
+
+- label
+  Usage: required
+  Value type: <string>
+  Definition: Should specify a string label to identify the context bank.
+
+- qcom,secure-cb
+  Usage: optional
+  Value type: boolean
+  Definition: Specifies if the context bank is a secure context bank.
+
+=============================================
+Third Level Node - CAM SMMU memory map device
+=============================================
+- iova-region-name
+  Usage: required
+  Value type: <string>
+  Definition: Should specify a string label to identify the IOVA region.
+
+- iova-region-start
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify start IOVA for region.
+
+- iova-region-len
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify length for IOVA region.
+
+- iova-region-id
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the numerical identifier for IOVA region.
+	Allowed values are: 0x00 to 0x03
+		- Firmware region: 0x00
+		- Shared region: 0x01
+		- Scratch region: 0x02
+		- IO region: 0x03
+
+- iova-granularity
+  Usage: optional
+  Value type: <u32>
+  Definition: Should specify IOVA granularity for shared memory region.
+
+Example:
+	qcom,cam_smmu@0 {
+		compatible = "qcom,msm-cam-smmu";
+
+		msm_cam_smmu_icp {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0x1078>,
+				<&apps_smmu 0x1020>,
+				<&apps_smmu 0x1028>,
+				<&apps_smmu 0x1040>,
+				<&apps_smmu 0x1048>,
+				<&apps_smmu 0x1030>,
+				<&apps_smmu 0x1050>;
+			label = "icp";
+			icp_iova_mem_map: iova-mem-map {
+				iova-mem-region-firmware {
+					/* Firmware region is 5MB */
+				        iova-region-name = "firmware";
+				        iova-region-start = <0x0>;
+				        iova-region-len = <0x500000>;
+					iova-region-id = <0x0>;
+					status = "ok";
+				};
+
+			        iova-mem-region-shared {
+					/* Shared region is 100MB long */
+				        iova-region-name = "shared";
+				        iova-region-start = <0x7400000>;
+				        iova-region-len = <0x6400000>;
+					iova-region-id = <0x1>;
+					iova-granularity = <0x15>;
+					status = "ok";
+				};
+
+			        iova-mem-region-io {
+				        /* IO region is approximately 3.5 GB */
+				        iova-region-name = "io";
+					iova-region-start = <0xd800000>;
+				        iova-region-len = <0xd2800000>;
+				        iova-region-id = <0x3>;
+				        status = "ok";
+				};
+			};
+		};
+	};
