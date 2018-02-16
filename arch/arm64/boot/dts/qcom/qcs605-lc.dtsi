@@ -19,6 +19,10 @@
 	model = "Qualcomm Technologies, Inc. QCS605 SoC";
 	compatible = "qcom,qcs605";
 
+	chosen {
+		bootargs = "core_ctl_disable_cpumask=0-3";
+	};
+
 	cpus {
 		/delete-node/ cpu@200;
 		/delete-node/ cpu@300;
