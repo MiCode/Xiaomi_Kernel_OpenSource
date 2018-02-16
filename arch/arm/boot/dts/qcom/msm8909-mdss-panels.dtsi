@@ -23,7 +23,6 @@
 #include "dsi-panel-auo-qvga-cmd.dtsi"
 #include "dsi-panel-auo-cx-qvga-cmd.dtsi"
 #include "dsi-panel-390p-auo-cmd.dtsi"
-#include "spi-panel-st7789v2-qvga-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -56,8 +55,8 @@
 		qcom,panel-supply-entry@0 {
 			reg = <0>;
 			qcom,supply-name = "vdd";
-			qcom,supply-min-voltage = <2850000>;
-			qcom,supply-max-voltage = <2850000>;
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
 		};
