@@ -1591,6 +1591,9 @@ static int gsi_function_ctrl_port_init(struct f_gsi *gsi)
 	case USB_PROT_DPL_ETHER:
 		cdev_name = ETHER_DPL_CTRL_NAME;
 		break;
+	case USB_PROT_GPS_CTRL:
+		cdev_name = GSI_GPS_CTRL_NAME;
+		break;
 	default:
 		break;
 	}
@@ -2461,6 +2464,11 @@ static void gsi_suspend(struct usb_function *f)
 		return;
 	}
 
+	if (!gsi->data_interface_up) {
+		log_event_dbg("%s: suspend done\n", __func__);
+		return;
+	}
+
 	block_db = true;
 	usb_gsi_ep_op(gsi->d_port.in_ep, (void *)&block_db,
 			GSI_EP_OP_SET_CLR_BLOCK_DBL);
@@ -2489,6 +2497,11 @@ static void gsi_resume(struct usb_function *f)
 
 	/* Check any pending cpkt, and queue immediately on resume */
 	gsi_ctrl_send_notification(gsi);
+
+	if (!gsi->data_interface_up) {
+		log_event_dbg("%s: resume done\n", __func__);
+		return;
+	}
 
 	/*
 	 * Linux host does not send RNDIS_MSG_INIT or non-zero
@@ -2783,9 +2796,11 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 			goto fail;
 	}
 
-	status = gsi->data_id = usb_interface_id(c, f);
-	if (status < 0)
-		goto fail;
+	if (gsi->prot_id != USB_PROT_GPS_CTRL) {
+		status = gsi->data_id = usb_interface_id(c, f);
+		if (status < 0)
+			goto fail;
+	}
 
 	switch (gsi->prot_id) {
 	case USB_PROT_RNDIS_IPA:
@@ -3076,6 +3091,18 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 		name = "dpl_usb";
 		break;
+	case USB_PROT_GPS_CTRL:
+		info.string_defs = gps_string_defs;
+		info.ctrl_str_idx = 0;
+		info.ctrl_desc = &gps_interface_desc;
+		info.fs_notify_desc = &gps_fs_notify_desc;
+		info.hs_notify_desc = &gps_hs_notify_desc;
+		info.ss_notify_desc = &gps_ss_notify_desc;
+		info.fs_desc_hdr = gps_fs_function;
+		info.hs_desc_hdr = gps_hs_function;
+		info.ss_desc_hdr = gps_ss_function;
+		info.notify_buf_len = sizeof(struct usb_cdc_notification);
+		break;
 	default:
 		log_event_err("%s: Invalid prot id %d", __func__,
 							gsi->prot_id);
@@ -3085,6 +3112,9 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	status = gsi_update_function_bind_params(gsi, cdev, &info);
 	if (status)
 		goto dereg_rndis;
+
+	if (gsi->prot_id == USB_PROT_GPS_CTRL)
+		goto skip_ipa_init;
 
 	if (is_ext_prot_ether(gsi->prot_id)) {
 		if (!name)
@@ -3236,6 +3266,10 @@ static int gsi_bind_config(struct f_gsi *gsi)
 	case USB_PROT_DPL_ETHER:
 		gsi->function.name = "dpl";
 		gsi->function.strings = qdss_gsi_strings;
+		break;
+	case USB_PROT_GPS_CTRL:
+		gsi->function.name = "gps";
+		gsi->function.strings = gps_strings;
 		break;
 	default:
 		log_event_err("%s: invalid prot id %d", __func__, gsi->prot_id);
