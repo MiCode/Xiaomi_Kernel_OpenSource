@@ -1839,6 +1839,7 @@ static const struct qcom_reset_map gcc_sdxpoorwills_resets[] = {
 	[GCC_USB30_BCR] = { 0xb000 },
 	[GCC_USB3_PHY_BCR] = { 0xc000 },
 	[GCC_USB3PHY_PHY_BCR] = { 0xc004 },
+	[GCC_QUSB2PHY_BCR] = { 0xd000 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0xe000 },
 };
 
