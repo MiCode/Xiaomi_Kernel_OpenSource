@@ -64,6 +64,11 @@ Profile data node optional properties:
 			battery thermistor. This should be exactly 6 bytes
 			in length.
 			Example: [01 02 03 04 05 06]
+- qcom,therm-coefficients: Array of thermal coefficients that will be used in
+			battery profile for GEN4 FG. This should be exactly of
+			size 5.
+- qcom,therm-center-offset: Specifies the resistor divide ratio between pull-up
+			resistor and the thermistor for GEN4 FG.
 - qcom,soc-based-step-chg: A bool property to indicate if the battery will
 			perform SoC (State of Charge) based step charging.
 			If yes, the low and high thresholds defined in
