@@ -355,11 +355,35 @@ static int msm_ioctl_query_client_id(struct drm_device *dev, void *data,
 	return ret;
 }
 
+static long msm_drm_ioctl(struct file *filp,
+	unsigned int cmd, unsigned long arg)
+{
+	switch (cmd) {
+	case DRM_IOCTL_PRIME_FD_TO_HANDLE:
+	{
+		struct drm_prime_handle cmd_data;
+
+		if (copy_from_user(&cmd_data, (void __user *)arg,
+				sizeof(struct drm_prime_handle)) != 0)
+			return -EFAULT;
+		cmd_data.handle = cmd_data.fd;
+		if (copy_to_user((void __user *)arg, &cmd_data,
+				sizeof(struct drm_prime_handle)) != 0)
+			return -EFAULT;
+		return 0;
+	}
+	case DRM_IOCTL_GEM_CLOSE:
+		return 0;
+	default:
+		return drm_ioctl(filp, cmd, arg);
+	}
+}
+
 static const struct file_operations fops = {
 	.owner              = THIS_MODULE,
 	.open               = drm_open,
 	.release            = drm_release,
-	.unlocked_ioctl     = drm_ioctl,
+	.unlocked_ioctl     = msm_drm_ioctl,
 	.poll               = drm_poll,
 	.read               = drm_read,
 	.write              = msm_drm_write,
