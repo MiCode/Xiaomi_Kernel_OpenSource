@@ -2712,7 +2712,7 @@ static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 	int rc, prop_count[PP_PROP_MAX], i;
 	struct sde_prop_value *prop_value = NULL;
 	bool prop_exists[PP_PROP_MAX];
-	u32 off_count;
+	u32 off_count, major_version;
 	struct sde_pingpong_cfg *pp;
 	struct sde_pingpong_sub_blks *sblk;
 
@@ -2761,7 +2761,10 @@ static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		sblk->te.id = SDE_PINGPONG_TE;
 		snprintf(sblk->te.name, SDE_HW_BLK_NAME_LEN, "te_%u",
 				pp->id - PINGPONG_0);
-		set_bit(SDE_PINGPONG_TE, &pp->features);
+
+		major_version = SDE_HW_MAJOR(sde_cfg->hwversion);
+		if (major_version < SDE_HW_MAJOR(SDE_HW_VER_500))
+			set_bit(SDE_PINGPONG_TE, &pp->features);
 
 		sblk->te2.base = PROP_VALUE_ACCESS(prop_value, TE2_OFF, i);
 		if (sblk->te2.base) {
@@ -2813,6 +2816,7 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	struct sde_prop_value *prop_value = NULL;
 	bool prop_exists[SDE_PROP_MAX];
 	const char *type;
+	u32 major_version;
 
 	if (!cfg) {
 		SDE_ERROR("invalid argument\n");
@@ -2899,6 +2903,10 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 
 	cfg->mdp[0].smart_panel_align_mode =
 		PROP_VALUE_ACCESS(prop_value, SMART_PANEL_ALIGN_MODE, 0);
+
+	major_version = SDE_HW_MAJOR(sde_cfg->hwversion);
+	if (major_version < SDE_HW_MAJOR(SDE_HW_VER_500))
+		set_bit(SDE_MDP_VSYNC_SEL, &cfg->mdp[0].features);
 
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "qseedv3")) {
