@@ -2391,8 +2391,8 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 	if (err)
 		goto bail;
 	mutex_lock(&fl->fl_map_mutex);
-	if (!fastrpc_mmap_find(fl, ud->fd, ud->va, ud->len, 0, 0, &map)) {
-		pr_err("mapping not found to unamp %x va %llx %x\n",
+	if (fastrpc_mmap_find(fl, ud->fd, ud->va, ud->len, 0, 0, &map)) {
+		pr_err("adsprpc: mapping not found to unmap %d va %llx %x\n",
 			ud->fd, (unsigned long long)ud->va,
 			(unsigned int)ud->len);
 		err = -1;
