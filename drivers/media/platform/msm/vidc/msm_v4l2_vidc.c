@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -369,6 +369,8 @@ static ssize_t msm_vidc_link_name_show(struct device *dev,
 			return snprintf(buf, PAGE_SIZE, "venus_dec");
 		else if (dev == &core->vdev[MSM_VIDC_ENCODER].vdev.dev)
 			return snprintf(buf, PAGE_SIZE, "venus_enc");
+		else if (dev == &core->vdev[MSM_VIDC_CVP].vdev.dev)
+			return snprintf(buf, PAGE_SIZE, "venus_cvp");
 		else
 			return 0;
 	else
@@ -570,6 +572,30 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 		goto err_enc_attr_link_name;
 	}
 
+	/* setup the cvp device */
+	core->vdev[MSM_VIDC_CVP].vdev.release =
+		msm_vidc_release_video_device;
+	core->vdev[MSM_VIDC_CVP].vdev.fops = &msm_v4l2_vidc_fops;
+	core->vdev[MSM_VIDC_CVP].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
+	core->vdev[MSM_VIDC_CVP].vdev.vfl_dir = VFL_DIR_M2M;
+	core->vdev[MSM_VIDC_CVP].type = MSM_VIDC_CVP;
+	core->vdev[MSM_VIDC_CVP].vdev.v4l2_dev = &core->v4l2_dev;
+	rc = video_register_device(&core->vdev[MSM_VIDC_CVP].vdev,
+				VFL_TYPE_GRABBER, nr + 2);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to register video cvp device");
+		goto err_cvp_register;
+	}
+
+	video_set_drvdata(&core->vdev[MSM_VIDC_CVP].vdev, core);
+	dev = &core->vdev[MSM_VIDC_CVP].vdev.dev;
+	rc = device_create_file(dev, &dev_attr_link_name);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to create link name sysfs for cvp");
+		goto err_cvp_attr_link_name;
+	}
+
 	/* finish setting up the 'core' */
 	mutex_lock(&vidc_driver->lock);
 	if (vidc_driver->num_cores  + 1 > MSM_VIDC_CORES_MAX) {
@@ -624,6 +650,11 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 err_fail_sub_device_probe:
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
 err_cores_exceeded:
+	device_remove_file(&core->vdev[MSM_VIDC_CVP].vdev.dev,
+			&dev_attr_link_name);
+err_cvp_attr_link_name:
+	video_unregister_device(&core->vdev[MSM_VIDC_CVP].vdev);
+err_cvp_register:
 	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
 			&dev_attr_link_name);
 err_enc_attr_link_name:
@@ -695,6 +726,9 @@ static int msm_vidc_remove(struct platform_device *pdev)
 		venus_boot_deinit();
 
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
+	device_remove_file(&core->vdev[MSM_VIDC_CVP].vdev.dev,
+				&dev_attr_link_name);
+	video_unregister_device(&core->vdev[MSM_VIDC_CVP].vdev);
 	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
 				&dev_attr_link_name);
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);

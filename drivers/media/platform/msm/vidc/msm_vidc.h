@@ -89,6 +89,7 @@ enum core_id {
 enum session_type {
 	MSM_VIDC_ENCODER = 0,
 	MSM_VIDC_DECODER,
+	MSM_VIDC_CVP,
 	MSM_VIDC_UNKNOWN,
 	MSM_VIDC_MAX_DEVICES = MSM_VIDC_UNKNOWN,
 };
