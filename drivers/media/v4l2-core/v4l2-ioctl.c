@@ -1371,6 +1371,12 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 			descr = "VP9"; break;
 		case V4L2_PIX_FMT_TME:
 			descr = "TME"; break;
+		case V4L2_PIX_FMT_HEVC_HYBRID:
+			descr = "HEVC Hybrid"; break;
+		case V4L2_PIX_FMT_DIVX_311:
+			descr = "DIVX311"; break;
+		case V4L2_PIX_FMT_DIVX:
+			descr = "DIVX"; break;
 		default:
 			WARN(1, "Unknown pixelformat 0x%08x\n", fmt->pixelformat);
 			if (fmt->description[0])
