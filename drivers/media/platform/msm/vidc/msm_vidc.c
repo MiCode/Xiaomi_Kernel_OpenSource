@@ -1291,6 +1291,21 @@ int msm_vidc_dqevent(void *inst, struct v4l2_event *event)
 }
 EXPORT_SYMBOL(msm_vidc_dqevent);
 
+int msm_vidc_private(void *vidc_inst, unsigned int cmd,
+		struct msm_vidc_arg *arg)
+{
+	int rc = 0;
+	struct msm_vidc_inst *inst = (struct msm_vidc_inst *)vidc_inst;
+
+	if (!inst || !arg) {
+		dprintk(VIDC_ERR, "%s: invalid args\n", __func__);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL(msm_vidc_private);
+
 static bool msm_vidc_check_for_inst_overload(struct msm_vidc_core *core)
 {
 	u32 instance_count = 0;

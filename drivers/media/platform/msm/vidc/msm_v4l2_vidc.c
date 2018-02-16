@@ -31,6 +31,7 @@
 #include "msm_vidc_resources.h"
 #include "venus_boot.h"
 #include "vidc_hfi_api.h"
+#include "msm_v4l2_private.h"
 
 #define BASE_DEVICE_NUMBER 32
 
@@ -292,6 +293,7 @@ static const struct v4l2_file_operations msm_v4l2_vidc_fops = {
 	.open = msm_v4l2_open,
 	.release = msm_v4l2_close,
 	.unlocked_ioctl = video_ioctl2,
+	.compat_ioctl32 = msm_v4l2_private,
 	.poll = msm_v4l2_poll,
 };
 
