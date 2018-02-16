@@ -38,6 +38,7 @@
 #define ION_MM_HEAP_NAME	"mm"
 #define ION_SPSS_HEAP_NAME	"spss"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
+#define ION_QSECOM_TA_HEAP_NAME	"qsecom_ta"
 #define ION_SECURE_HEAP_NAME	"secure_heap"
 #define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
 #define ION_AUDIO_HEAP_NAME    "audio"
