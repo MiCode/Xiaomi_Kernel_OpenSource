@@ -359,6 +359,40 @@
 				regulator-name = "smb5-vbus";
 			};
 		};
+
+		pmi632_qg: qpnp,qg {
+			compatible = "qcom,qpnp-qg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,vbatt-empty-mv = <3200>;
+			qcom,vbatt-low-mv = <3500>;
+			qcom,vbatt-cutoff-mv = <3400>;
+			qcom,qg-iterm-ma = <100>;
+
+			qcom,qg-vadc = <&pmi632_vadc>;
+			qcom,pmic-revid = <&pmi632_revid>;
+
+			qcom,qgauge@4800 {
+				status = "okay";
+				reg = <0x4800 0x100>;
+				interrupts = <0x2 0x48 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x48 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x48 0x2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x48 0x3 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x48 0x4 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "qg-batt-missing",
+						  "qg-vbat-low",
+						  "qg-vbat-empty",
+						  "qg-fifo-done",
+						  "qg-good-ocv";
+			};
+
+			qcom,qg-sdam@b100 {
+				status = "okay";
+				reg = <0xb100 0x100>;
+			};
+		};
 	};
 
 	pmi632_3: qcom,pmi632@3 {

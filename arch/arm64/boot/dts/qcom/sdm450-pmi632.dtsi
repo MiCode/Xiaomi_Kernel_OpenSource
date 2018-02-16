@@ -31,3 +31,16 @@
 	extcon = <&pmi632_charger>;
 	vbus_dwc3-supply = <&smb5_vbus>;
 };
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-ascent-3450mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
+
+&pmi632_qg {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,rbat-conn-mohm = <20>;
+};
