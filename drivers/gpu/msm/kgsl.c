@@ -3422,7 +3422,13 @@ long kgsl_ioctl_sparse_phys_free(struct kgsl_device_private *dev_priv,
 	if (entry == NULL)
 		return -EINVAL;
 
+	if (!kgsl_mem_entry_set_pend(entry)) {
+		kgsl_mem_entry_put(entry);
+		return -EBUSY;
+	}
+
 	if (entry->memdesc.cur_bindings != 0) {
+		kgsl_mem_entry_unset_pend(entry);
 		kgsl_mem_entry_put(entry);
 		return -EINVAL;
 	}
@@ -3491,7 +3497,13 @@ long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
 	if (entry == NULL)
 		return -EINVAL;
 
+	if (!kgsl_mem_entry_set_pend(entry)) {
+		kgsl_mem_entry_put(entry);
+		return -EBUSY;
+	}
+
 	if (entry->bind_tree.rb_node != NULL) {
+		kgsl_mem_entry_unset_pend(entry);
 		kgsl_mem_entry_put(entry);
 		return -EINVAL;
 	}
