@@ -1187,7 +1187,9 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 				req_isp->fence_map_out[i].sync_id = -1;
 			}
 		}
+		spin_lock_bh(&ctx->lock);
 		list_add_tail(&req->list, &ctx->free_req_list);
+		spin_unlock_bh(&ctx->lock);
 	}
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
