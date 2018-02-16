@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,7 +63,6 @@ static u8 const vm_voltage_swing[4][4] = {
 	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
-/* audio related catalog functions */
 struct dp_catalog_private {
 	struct device *dev;
 	struct dp_io *io;
@@ -1294,6 +1293,7 @@ static void dp_catalog_audio_config_sdp(struct dp_catalog_audio *audio)
 	dp_write(base + MMSS_DP_SDP_CFG2, sdp_cfg2);
 }
 
+/* audio related catalog functions */
 static void dp_catalog_audio_get_header(struct dp_catalog_audio *audio)
 {
 	struct dp_catalog_private *catalog;
@@ -1528,7 +1528,34 @@ static void dp_catalog_panel_config_spd(struct dp_catalog_panel *panel)
 	dp_write(base + MMSS_DP_SDP_CFG3, 0x0);
 }
 
-struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
+static int dp_catalog_init(struct device *dev, struct dp_catalog *catalog,
+			struct dp_parser *parser)
+{
+	int rc = 0;
+
+	if (parser->hw_cfg.phy_version == DP_PHY_VERSION_4_2_0)
+		rc = dp_catalog_get_v420(dev, catalog, parser);
+
+	return rc;
+}
+
+void dp_catalog_put(struct dp_catalog *dp_catalog)
+{
+	struct dp_catalog_private *catalog;
+
+	if (!dp_catalog)
+		return;
+
+	if (dp_catalog->priv.data && dp_catalog->priv.put)
+		dp_catalog->priv.put(dp_catalog);
+
+	catalog = container_of(dp_catalog, struct dp_catalog_private,
+				dp_catalog);
+
+	devm_kfree(catalog->dev, catalog);
+}
+
+struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 {
 	int rc = 0;
 	struct dp_catalog *dp_catalog;
@@ -1583,7 +1610,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.config_spd = dp_catalog_panel_config_spd,
 	};
 
-	if (!io) {
+	if (!parser) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
@@ -1596,7 +1623,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 	}
 
 	catalog->dev = dev;
-	catalog->io = io;
+	catalog->io = &parser->io;
 
 	dp_catalog = &catalog->dp_catalog;
 
@@ -1605,20 +1632,13 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 	dp_catalog->audio = audio;
 	dp_catalog->panel = panel;
 
+	rc = dp_catalog_init(dev, dp_catalog, parser);
+	if (rc) {
+		dp_catalog_put(dp_catalog);
+		goto error;
+	}
+
 	return dp_catalog;
 error:
 	return ERR_PTR(rc);
-}
-
-void dp_catalog_put(struct dp_catalog *dp_catalog)
-{
-	struct dp_catalog_private *catalog;
-
-	if (!dp_catalog)
-		return;
-
-	catalog = container_of(dp_catalog, struct dp_catalog_private,
-				dp_catalog);
-
-	devm_kfree(catalog->dev, catalog);
 }

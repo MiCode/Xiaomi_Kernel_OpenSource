@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -176,11 +176,19 @@ struct dp_catalog_panel {
 	void (*config_spd)(struct dp_catalog_panel *panel);
 };
 
+struct dp_catalog;
+struct dp_catalog_priv {
+	void *data;
+
+	void (*put)(struct dp_catalog *catalog);
+};
+
 struct dp_catalog {
 	struct dp_catalog_aux aux;
 	struct dp_catalog_ctrl ctrl;
 	struct dp_catalog_audio audio;
 	struct dp_catalog_panel panel;
+	struct dp_catalog_priv priv;
 };
 
 static inline u8 dp_ecc_get_g0_value(u8 data)
@@ -248,7 +256,10 @@ static inline u8 dp_header_get_parity(u32 data)
 	return parity_byte;
 }
 
-struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io);
+struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser);
 void dp_catalog_put(struct dp_catalog *catalog);
+
+int dp_catalog_get_v420(struct device *dev, struct dp_catalog *dp_catalog,
+			struct dp_parser *parser);
 
 #endif /* _DP_CATALOG_H_ */

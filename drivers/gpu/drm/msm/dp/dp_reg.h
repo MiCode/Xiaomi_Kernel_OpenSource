@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,6 +207,10 @@
 #define TXn_TX_EMP_POST1_LVL			(0x000C)
 #define TXn_TX_DRV_LVL				(0x001C)
 
+#define DP_PHY_AUX_INTERRUPT_MASK_V420		(0x0054)
+#define DP_PHY_SPARE0_V420			(0x00C8)
+#define TXn_TX_DRV_LVL_V420			(0x0014)
+
 #define QSERDES_COM_BIAS_EN_CLKBUFLR_EN		(0x004)
 
 /* DP MMSS_CC registers */
@@ -214,6 +218,8 @@
 #define MMSS_DP_LINK_CFG_RCGR			(0x013C)
 #define MMSS_DP_PIXEL_M				(0x0174)
 #define MMSS_DP_PIXEL_N				(0x0178)
+#define MMSS_DP_PIXEL_M_V420			(0x01B4)
+#define MMSS_DP_PIXEL_N_V420			(0x01B8)
 
 /* DP HDCP 1.3 registers */
 #define DP_HDCP_CTRL                                   (0x0A0)
