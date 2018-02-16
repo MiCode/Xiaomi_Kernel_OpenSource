@@ -25,6 +25,10 @@ dtb-$(CONFIG_ARCH_SDM855)	+= sdm855-rumi.dtb \
 	sdm855-qrd.dtb
 endif
 
+dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-rumi.dtb \
+	sdmshrike-mtp.dtb \
+	sdmshrike-cdp.dtb
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb *.dtbo
