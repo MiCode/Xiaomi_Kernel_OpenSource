@@ -926,7 +926,6 @@ static void ipa3_q6_clnt_quota_reached_ind_cb(struct qmi_handle *handle,
 	const void *data)
 {
 	struct ipa_data_usage_quota_reached_ind_msg_v01 *qmi_ind;
-	int rc = 0;
 
 	if (handle != ipa_q6_clnt) {
 		IPAWANERR("Wrong client\n");
@@ -1272,7 +1271,6 @@ int ipa3_qmi_service_init(uint32_t wan_platform_type)
 
 void ipa3_qmi_service_exit(void)
 {
-	int ret = 0;
 
 	workqueues_stopped = true;
 

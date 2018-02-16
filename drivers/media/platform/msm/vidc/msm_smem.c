@@ -132,7 +132,6 @@ static int msm_dma_put_device_address(u32 flags,
 	enum hal_buffer buffer_type)
 {
 	int rc = 0;
-	struct context_bank_info *cb = NULL;
 
 	if (!mapping_info) {
 		dprintk(VIDC_WARN, "Invalid mapping_info\n");
@@ -198,7 +197,6 @@ int msm_smem_map_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem)
 	u32 temp = 0;
 	unsigned long buffer_size = 0;
 	unsigned long align = SZ_4K;
-	unsigned long dma_flags = 0;
 	struct dma_buf *dbuf;
 	unsigned long ion_flags = 0;
 

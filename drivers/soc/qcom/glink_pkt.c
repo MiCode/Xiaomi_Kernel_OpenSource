@@ -695,9 +695,7 @@ static void glink_pkt_deinit(void)
  */
 static int glink_pkt_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
-	struct glink_pkt_device *gpdev;
 	struct device_node *cn;
 	int ret;
 

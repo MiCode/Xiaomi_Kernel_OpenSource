@@ -222,7 +222,6 @@ static void root_service_service_ind_cb(struct qmi_handle *qmi,
 				struct qmi_client_info, clnt_handle);
 	struct qmi_servreg_notif_state_updated_ind_msg_v01 ind_msg =
 		*((struct qmi_servreg_notif_state_updated_ind_msg_v01 *)data);
-	int rc;
 
 	pr_info("Indication received from %s, state: 0x%x, trans-id: %d\n",
 		ind_msg.service_name, ind_msg.curr_state,

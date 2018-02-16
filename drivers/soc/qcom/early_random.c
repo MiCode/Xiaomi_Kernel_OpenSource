@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2017, The Linux Foundation. All rights
+/* Copyright (c) 2013-2014, 2016-2018, The Linux Foundation. All rights
  * reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,6 @@ struct tz_prng_data {
 	uint32_t	out_buf_sz;
 } __packed;
 
-DEFINE_SCM_BUFFER(common_scm_buf);
 #define RANDOM_BUFFER_SIZE	PAGE_SIZE
 char random_buffer[RANDOM_BUFFER_SIZE] __aligned(PAGE_SIZE);
 

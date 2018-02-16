@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,7 +90,6 @@ static int init_rq_attribs(void)
 static int __init msm_rq_stats_init(void)
 {
 	int ret;
-	int i;
 
 #ifndef CONFIG_SMP
 	/* Bail out if this is not an SMP Target */

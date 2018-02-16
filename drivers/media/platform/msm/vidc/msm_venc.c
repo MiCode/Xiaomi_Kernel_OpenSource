@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1226,7 +1226,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_h264_db_control h264_db_control;
 	struct hal_enable enable;
 	struct hal_quantization quant;
-	struct hal_preserve_text_quality preserve_text_quality;
 	u32 property_id = 0, property_val = 0;
 	void *pdata = NULL;
 	struct v4l2_ctrl *temp_ctrl = NULL;

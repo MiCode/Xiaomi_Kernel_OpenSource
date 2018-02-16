@@ -318,7 +318,7 @@ static void kryo_check_l1_l2_ecc(void *info)
 	if (KRYO_ERRXSTATUS_VALID(errxstatus)) {
 		errxmisc = read_errxmisc_el1();
 		edac_printk(KERN_CRIT, EDAC_CPU,
-		"Kryo CPU%d detected a L1/L2 cache error, errxstatus = %lx, errxmisc = %lx\n",
+		"Kryo CPU%d detected a L1/L2 cache error, errxstatus = %llx, errxmisc = %llx\n",
 		cpu, errxstatus, errxmisc);
 
 		kryo_parse_l1_l2_cache_error(errxstatus, errxmisc, edev_ctl,
