@@ -144,6 +144,9 @@ enum {
  * @SDE_SSPP_VIG_GAMUT,      VIG 3D LUT Gamut
  * @SDE_SSPP_DMA_IGC,        DMA 1D LUT IGC
  * @SDE_SSPP_DMA_GC,         DMA 1D LUT GC
+ * @SDE_SSPP_INVERSE_PMA     Alpha unmultiply (PMA) support
+ * @SDE_SSPP_DGM_INVERSE_PMA Alpha unmultiply (PMA) support in DGM block
+ * @SDE_SSPP_DGM_CSC         Support of color space conversion in DGM block
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -170,6 +173,9 @@ enum {
 	SDE_SSPP_VIG_GAMUT,
 	SDE_SSPP_DMA_IGC,
 	SDE_SSPP_DMA_GC,
+	SDE_SSPP_INVERSE_PMA,
+	SDE_SSPP_DGM_INVERSE_PMA,
+	SDE_SSPP_DGM_CSC,
 	SDE_SSPP_MAX
 };
 
@@ -466,7 +472,8 @@ struct sde_qos_lut_tbl {
  * @igc_blk: 1D LUT IGC block
  * @num_gc_blk: number of GC block
  * @gc_blk: 1D LUT GC block
-
+ * @num_dgm_csc_blk: number of DGM CSC blocks
+ * @dgm_csc_blk: DGM CSC blocks
  * @format_list: Pointer to list of supported formats
  * @virt_format_list: Pointer to list of supported formats for virtual planes
  */
@@ -492,6 +499,8 @@ struct sde_sspp_sub_blks {
 	struct sde_pp_blk igc_blk[SSPP_SUBBLK_COUNT_MAX];
 	u32 num_gc_blk;
 	struct sde_pp_blk gc_blk[SSPP_SUBBLK_COUNT_MAX];
+	u32 num_dgm_csc_blk;
+	struct sde_pp_blk dgm_csc_blk[SSPP_SUBBLK_COUNT_MAX];
 
 	const struct sde_format_extended *format_list;
 	const struct sde_format_extended *virt_format_list;

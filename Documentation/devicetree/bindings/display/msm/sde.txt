@@ -214,6 +214,8 @@ Optional properties:
 				-- qcom,sde-vig-memcolor: offset and version of PA memcolor hardware
 				-- qcom,sde-vig-gamut: offset and version of 3D LUT Gamut hardware
 				-- qcom,sde-vig-igc: offset and version of 1D LUT IGC hardware
+				-- qcom,sde-vig-inverse-pma: Boolean property to indicate if
+				inverse PMA feature is available on VIG pipe
 - qcom,sde-sspp-dma-blocks:	A node that lists the blocks inside the DMA hardware. There
 				can be more than one instance of this binding, in which case the
 				entry would be appended with dgm entry index. Each entry will
@@ -224,6 +226,9 @@ Optional properties:
 				-- dgm@0
 				-- qcom,sde-dma-igc: offset and version of DMA IGC
 				-- qcom,sde-dma-gc: offset and version of DMA GC
+				-- qcom,sde-dma-inverse-pma: Boolean property to indicate if
+				inverse PMA feature is available on DMA pipe
+				-- qcom,sde-dma-csc-off: offset of CSC hardware
 - qcom,sde-sspp-rgb-blocks:	A node that lists the blocks inside the RGB hardware. The
 				block entries will contain the offset and version (if needed)
 				of each feature block. The presence of a block entry
@@ -680,16 +685,21 @@ Example:
         qcom,sde-vig-hsic = <0x200 0x00010000>;
         qcom,sde-vig-memcolor = <0x200 0x00010000>;
         qcom,sde-vig-pcc = <0x1780 0x00010000>;
+        qcom,sde-vig-inverse-pma;
     };
 
     qcom,sde-sspp-dma-blocks {
 	dgm@0 {
 		qcom,sde-dma-igc = <0x400 0x00050000>;
 		qcom,sde-dma-gc = <0x600 0x00050000>;
+		qcom,sde-dma-inverse-pma;
+		qcom,sde-dma-csc-off = <0x200>;
 	}
 	dgm@1 {
 		qcom,sde-dma-igc = <0x1400 0x00050000>;
 		qcom,sde-dma-gc = <0x600 0x00050000>;
+		qcom,sde-dma-inverse-pma;
+		qcom,sde-dma-csc-off = <0x1200>;
 	}
     };
 

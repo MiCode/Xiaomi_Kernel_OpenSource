@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,8 @@ static u32 sde_hw_util_log_mask = SDE_DBG_MASK_NONE;
 	(QSEED3_LUT_SIZE * QSEED3_CIRCULAR_LUTS * sizeof(u32))
 #define QSEED3_SEP_LUT_SIZE \
 	(QSEED3_LUT_SIZE * QSEED3_SEPARABLE_LUTS * sizeof(u32))
+
+#define CSC_MATRIX_SHIFT                   7
 
 void sde_reg_write(struct sde_hw_blk_reg_map *c,
 		u32 reg_off,
@@ -370,29 +372,42 @@ u32 sde_hw_get_scaler3_ver(struct sde_hw_blk_reg_map *c,
 	return SDE_REG_READ(c, QSEED3_HW_VERSION + scaler_offset);
 }
 
+void sde_hw_csc_matrix_coeff_setup(struct sde_hw_blk_reg_map *c,
+		u32 csc_reg_off, struct sde_csc_cfg *data)
+{
+	u32 val;
+
+	if (!c || !data)
+		return;
+
+	/* matrix coeff - convert S15.16 to S4.9 */
+	val = ((data->csc_mv[0] >> CSC_MATRIX_SHIFT) & 0x1FFF) |
+		(((data->csc_mv[1] >> CSC_MATRIX_SHIFT) & 0x1FFF) << 16);
+	SDE_REG_WRITE(c, csc_reg_off, val);
+	val = ((data->csc_mv[2] >> CSC_MATRIX_SHIFT) & 0x1FFF) |
+		(((data->csc_mv[3] >> CSC_MATRIX_SHIFT) & 0x1FFF) << 16);
+	SDE_REG_WRITE(c, csc_reg_off + 0x4, val);
+	val = ((data->csc_mv[4] >> CSC_MATRIX_SHIFT) & 0x1FFF) |
+		(((data->csc_mv[5] >> CSC_MATRIX_SHIFT) & 0x1FFF) << 16);
+	SDE_REG_WRITE(c, csc_reg_off + 0x8, val);
+	val = ((data->csc_mv[6] >> CSC_MATRIX_SHIFT) & 0x1FFF) |
+		(((data->csc_mv[7] >> CSC_MATRIX_SHIFT) & 0x1FFF) << 16);
+	SDE_REG_WRITE(c, csc_reg_off + 0xc, val);
+	val = (data->csc_mv[8] >> CSC_MATRIX_SHIFT) & 0x1FFF;
+	SDE_REG_WRITE(c, csc_reg_off + 0x10, val);
+}
+
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map *c,
 		u32 csc_reg_off,
 		struct sde_csc_cfg *data, bool csc10)
 {
-	static const u32 matrix_shift = 7;
 	u32 clamp_shift = csc10 ? 16 : 8;
 	u32 val;
 
-	/* matrix coeff - convert S15.16 to S4.9 */
-	val = ((data->csc_mv[0] >> matrix_shift) & 0x1FFF) |
-		(((data->csc_mv[1] >> matrix_shift) & 0x1FFF) << 16);
-	SDE_REG_WRITE(c, csc_reg_off, val);
-	val = ((data->csc_mv[2] >> matrix_shift) & 0x1FFF) |
-		(((data->csc_mv[3] >> matrix_shift) & 0x1FFF) << 16);
-	SDE_REG_WRITE(c, csc_reg_off + 0x4, val);
-	val = ((data->csc_mv[4] >> matrix_shift) & 0x1FFF) |
-		(((data->csc_mv[5] >> matrix_shift) & 0x1FFF) << 16);
-	SDE_REG_WRITE(c, csc_reg_off + 0x8, val);
-	val = ((data->csc_mv[6] >> matrix_shift) & 0x1FFF) |
-		(((data->csc_mv[7] >> matrix_shift) & 0x1FFF) << 16);
-	SDE_REG_WRITE(c, csc_reg_off + 0xc, val);
-	val = (data->csc_mv[8] >> matrix_shift) & 0x1FFF;
-	SDE_REG_WRITE(c, csc_reg_off + 0x10, val);
+	if (!c || !data)
+		return;
+
+	sde_hw_csc_matrix_coeff_setup(c, csc_reg_off, data);
 
 	/* Pre clamp */
 	val = (data->csc_pre_lv[0] << clamp_shift) | data->csc_pre_lv[1];

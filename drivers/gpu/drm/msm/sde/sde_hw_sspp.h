@@ -342,7 +342,7 @@ struct sde_hw_sspp_ops {
 			enum sde_sspp_multirect_index index);
 
 	/**
-	 * setup_csc - setup color space coversion
+	 * setup_csc - setup color space conversion
 	 * @ctx: Pointer to pipe context
 	 * @data: Pointer to config structure
 	 */
@@ -545,6 +545,24 @@ struct sde_hw_sspp_ops {
 	void (*setup_secure_address)(struct sde_hw_pipe *ctx,
 			enum sde_sspp_multirect_index index,
 		bool enable);
+
+	/**
+	 * setup_inverse_pma - enable/disable alpha unmultiply unit (PMA)
+	 * @ctx: Pointer to pipe context
+	 * @index: Rectangle index in multirect
+	 * @enable: PMA enable/disable settings
+	 */
+	void (*setup_inverse_pma)(struct sde_hw_pipe *ctx,
+			enum sde_sspp_multirect_index index, u32 enable);
+
+	/**
+	 * setup_dgm_csc - setup DGM color space conversion block and update lut
+	 * @ctx: Pointer to pipe context
+	 * @index: Rectangle index in multirect
+	 * @data: Pointer to config structure
+	 */
+	void (*setup_dgm_csc)(struct sde_hw_pipe *ctx,
+		enum sde_sspp_multirect_index index, struct sde_csc_cfg *data);
 };
 
 /**
