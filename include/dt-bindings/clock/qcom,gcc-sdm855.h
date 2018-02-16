@@ -245,14 +245,18 @@
 #define GCC_QUPV3_WRAPPER_2_BCR					14
 #define GCC_QUSB2PHY_PRIM_BCR					15
 #define GCC_QUSB2PHY_SEC_BCR					16
-#define GCC_SDCC2_BCR						17
-#define GCC_SDCC4_BCR						18
-#define GCC_TSIF_BCR						19
-#define GCC_UFS_CARD_BCR					20
-#define GCC_UFS_PHY_BCR						21
-#define GCC_USB30_PRIM_BCR					22
-#define GCC_USB30_SEC_BCR					23
-#define GCC_USB_PHY_CFG_AHB2PHY_BCR				24
+#define GCC_USB3_PHY_PRIM_BCR					17
+#define GCC_USB3_DP_PHY_PRIM_BCR				18
+#define GCC_USB3_PHY_SEC_BCR					19
+#define GCC_USB3PHY_PHY_SEC_BCR					20
+#define GCC_SDCC2_BCR						21
+#define GCC_SDCC4_BCR						22
+#define GCC_TSIF_BCR						23
+#define GCC_UFS_CARD_BCR					24
+#define GCC_UFS_PHY_BCR						25
+#define GCC_USB30_PRIM_BCR					26
+#define GCC_USB30_SEC_BCR					27
+#define GCC_USB_PHY_CFG_AHB2PHY_BCR				28
 
 /* Dummy clocks for rate measurement */
 #define MEASURE_ONLY_SNOC_CLK					0
