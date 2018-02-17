@@ -58,6 +58,15 @@ config QCOM_SDM855_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_SDMSHRIKE_LLCC
+	tristate "Qualcomm Technologies, Inc. SDMSHRIKE LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  This configuration option enables LLCC driver specific to SDMSHRIKE.
+	  Say 'Y' here to enable the LLCC driver for SDMSHRIKE which provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
 config QCOM_LLCC_AMON
 	tristate "Qualcomm Technologies, Inc. LLCC Activity Monitor(AMON) driver"
 	depends on QCOM_LLCC
