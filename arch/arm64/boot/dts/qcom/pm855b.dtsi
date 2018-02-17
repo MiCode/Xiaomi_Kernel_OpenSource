@@ -21,6 +21,11 @@
 		#address-cells = <2>;
 		#size-cells = <0>;
 
+		pm855b_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
 		qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
@@ -70,6 +75,8 @@
 			compatible = "qcom,qpnp-smb5";
 			#address-cells = <1>;
 			#size-cells = <1>;
+
+			qcom,pmic-revid = <&pm855b_revid>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
