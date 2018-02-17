@@ -17,8 +17,10 @@
 #define _WOW_H_
 
 struct ath10k_wow {
+	u32 wakeup_reason;
 	u32 max_num_patterns;
 	struct completion wakeup_completed;
+	struct cfg80211_wowlan_wakeup wakeup;
 	struct wiphy_wowlan_support wowlan_support;
 };
 

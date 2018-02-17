@@ -174,6 +174,10 @@ struct ath10k_wmi {
 	const struct wmi_ops *ops;
 	const struct wmi_peer_flags_map *peer_flags;
 
+	u32 mgmt_max_num_pending_tx;
+	struct idr mgmt_pending_tx;
+	/* Protects access to mgmt_pending_tx, mgmt_max_num_pending_tx */
+	spinlock_t mgmt_tx_lock;
 	u32 num_mem_chunks;
 	u32 rx_decap_mode;
 	struct ath10k_mem_chunk mem_chunks[WMI_MAX_MEM_REQS];
@@ -967,6 +971,7 @@ struct ath10k {
 	struct completion peer_delete_done;
 	bool is_bmi;
 	enum ieee80211_sta_state sta_state;
+	bool rri_on_ddr;
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };

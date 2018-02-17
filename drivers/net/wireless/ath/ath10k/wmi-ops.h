@@ -29,6 +29,8 @@ struct wmi_ops {
 			 struct wmi_scan_ev_arg *arg);
 	int (*pull_mgmt_rx)(struct ath10k *ar, struct sk_buff *skb,
 			    struct wmi_mgmt_rx_ev_arg *arg);
+	int (*pull_mgmt_tx_compl)(struct ath10k *ar, struct sk_buff *skb,
+				  struct wmi_tlv_mgmt_tx_compl_ev_arg *arg);
 	int (*pull_ch_info)(struct ath10k *ar, struct sk_buff *skb,
 			    struct wmi_ch_info_ev_arg *arg);
 	int (*pull_peer_delete_resp)(struct ath10k *ar, struct sk_buff *skb,
@@ -127,6 +129,9 @@ struct wmi_ops {
 					     enum wmi_force_fw_hang_type type,
 					     u32 delay_ms);
 	struct sk_buff *(*gen_mgmt_tx)(struct ath10k *ar, struct sk_buff *skb);
+	struct sk_buff *(*gen_mgmt_tx_send)(struct ath10k *ar,
+					    struct sk_buff *skb,
+					    dma_addr_t paddr);
 	struct sk_buff *(*gen_dbglog_cfg)(struct ath10k *ar, u64 module_enable,
 					  u32 log_level);
 	struct sk_buff *(*gen_pktlog_enable)(struct ath10k *ar, u32 filter);
@@ -239,6 +244,16 @@ ath10k_wmi_pull_scan(struct ath10k *ar, struct sk_buff *skb,
 		return -EOPNOTSUPP;
 
 	return ar->wmi.ops->pull_scan(ar, skb, arg);
+}
+
+static inline int
+ath10k_wmi_pull_mgmt_tx_compl(struct ath10k *ar, struct sk_buff *skb,
+			      struct wmi_tlv_mgmt_tx_compl_ev_arg *arg)
+{
+	if (!ar->wmi.ops->pull_mgmt_tx_compl)
+		return -EOPNOTSUPP;
+
+	return ar->wmi.ops->pull_mgmt_tx_compl(ar, skb, arg);
 }
 
 static inline int
@@ -391,12 +406,33 @@ ath10k_wmi_get_txbf_conf_scheme(struct ath10k *ar)
 }
 
 static inline int
+ath10k_wmi_mgmt_tx_send(struct ath10k *ar, struct sk_buff *msdu,
+			dma_addr_t paddr)
+{
+	struct sk_buff *skb;
+	int ret;
+
+	if (!ar->wmi.ops->gen_mgmt_tx_send)
+		return -EOPNOTSUPP;
+
+	skb = ar->wmi.ops->gen_mgmt_tx_send(ar, msdu, paddr);
+	if (IS_ERR(skb))
+		return PTR_ERR(skb);
+
+	ret = ath10k_wmi_cmd_send(ar, skb,
+				  ar->wmi.cmd->mgmt_tx_send_cmdid);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static inline int
 ath10k_wmi_mgmt_tx(struct ath10k *ar, struct sk_buff *msdu)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(msdu);
 	struct sk_buff *skb;
 	int ret;
-	u32 mgmt_tx_cmdid;
 
 	if (!ar->wmi.ops->gen_mgmt_tx)
 		return -EOPNOTSUPP;
@@ -405,12 +441,8 @@ ath10k_wmi_mgmt_tx(struct ath10k *ar, struct sk_buff *msdu)
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
-	if (QCA_REV_WCN3990(ar))
-		mgmt_tx_cmdid = ar->wmi.cmd->mgmt_tx_send_cmdid;
-	else
-		mgmt_tx_cmdid = ar->wmi.cmd->mgmt_tx_cmdid;
-
-	ret = ath10k_wmi_cmd_send(ar, skb, mgmt_tx_cmdid);
+	ret = ath10k_wmi_cmd_send(ar, skb,
+				  ar->wmi.cmd->mgmt_tx_cmdid);
 	if (ret)
 		return ret;
 

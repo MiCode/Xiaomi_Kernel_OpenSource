@@ -1710,6 +1710,7 @@ static int ath10k_core_init_firmware_features(struct ath10k *ar)
 		ar->fw_stats_req_mask = WMI_STAT_PDEV | WMI_STAT_VDEV |
 			WMI_STAT_PEER;
 		ar->max_spatial_stream = WMI_MAX_SPATIAL_STREAM;
+		ar->wmi.mgmt_max_num_pending_tx = TARGET_TLV_MGMT_NUM_MSDU_DESC;
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_10_4:
 		ar->max_num_peers = TARGET_10_4_NUM_PEERS;
@@ -2371,6 +2372,7 @@ struct ath10k *ath10k_core_create(size_t priv_size, struct device *dev,
 		ar->fw_flags = &wcn3990_fw_flags;
 		ar->shadow_reg_value = &wcn3990_shadow_reg_value;
 		ar->shadow_reg_address = &wcn3990_shadow_reg_address;
+		ar->rri_on_ddr = true;
 		break;
 	default:
 		ath10k_err(ar, "unsupported core hardware revision %d\n",

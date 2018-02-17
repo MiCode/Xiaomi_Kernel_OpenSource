@@ -322,6 +322,7 @@ enum wmi_tlv_event_id {
 	WMI_TLV_TBTTOFFSET_UPDATE_EVENTID,
 	WMI_TLV_OFFLOAD_BCN_TX_STATUS_EVENTID,
 	WMI_TLV_OFFLOAD_PROB_RESP_TX_STATUS_EVENTID,
+	WMI_TLV_MGMT_TX_COMPLETION_EVENTID,
 	WMI_TLV_TX_DELBA_COMPLETE_EVENTID = WMI_TLV_EV(WMI_TLV_GRP_BA_NEG),
 	WMI_TLV_TX_ADDBA_COMPLETE_EVENTID,
 	WMI_TLV_BA_RSP_SSN_EVENTID,
@@ -898,6 +899,7 @@ enum wmi_tlv_tag {
 	WMI_TLV_TAG_STRUCT_HL_1_0_SVC_OFFSET = 176,
 
 	WMI_TLV_TAG_STRUCT_MGMT_TX_CMD = 0x1A6,
+	WMI_TLV_TAG_STRUCT_MGMT_TX_COMPL,
 	WMI_TLV_TAG_STRUCT_PEER_DELETE_RESP_EVENT = 0x1C3,
 
 	WMI_TLV_TAG_MAX
@@ -1186,6 +1188,17 @@ struct wmi_tlv {
 	u8 value[0];
 } __packed;
 
+struct ath10k_mgmt_tx_pkt_addr {
+	void *vaddr;
+	dma_addr_t paddr;
+};
+
+struct wmi_tlv_mgmt_tx_compl_ev {
+	__le32 desc_id;
+	__le32 status;
+	__le32 pdev_id;
+};
+
 #define WMI_TLV_MGMT_RX_NUM_RSSI 4
 
 struct wmi_tlv_mgmt_rx_ev {
@@ -1254,6 +1267,8 @@ struct wmi_tlv_rdy_ev {
 	__le32 status;
 } __packed;
 
+#define WMI_TLV_TX_MSDU_ID_NEW_PARTITION_SUPPORT  BIT(10)
+
 struct wmi_tlv_resource_config {
 	__le32 num_vdevs;
 	__le32 num_peers;
@@ -1291,6 +1306,11 @@ struct wmi_tlv_resource_config {
 	__le32 keep_alive_pattern_size;
 	__le32 max_tdls_concurrent_sleep_sta;
 	__le32 max_tdls_concurrent_buffer_sta;
+	__le32 wmi_send_separate;
+	__le32 num_ocb_vdevs;
+	__le32 num_ocb_channels;
+	__le32 num_ocb_schedules;
+	__le32 host_capab;
 } __packed;
 
 struct wmi_tlv_init_cmd {
@@ -1729,8 +1749,7 @@ struct wmi_tlv_mgmt_tx_hdr {
 	__le32 vdev_id;
 	__le32 desc_id;
 	__le32 chanfreq;
-	__le32 paddr_lo;
-	__le32 paddr_hi;
+	__le64 paddr;
 	__le32 frame_len;
 	__le32 buf_len;
 } __packed;

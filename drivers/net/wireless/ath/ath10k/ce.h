@@ -42,6 +42,8 @@ struct ath10k_ce_pipe;
 
 #define CE_DESC_FLAGS_GET_MASK		0x1F
 #define CE_DESC_37BIT_ADDR_MASK		0x1FFFFFFFFF
+#define CE_DDR_RRI_MASK			0xFFFF
+#define CE_DDR_RRI_SHIFT		16
 
 /* Following desc flags are used in QCA99X0 */
 #define CE_DESC_FLAGS_HOST_INT_DIS	(1 << 2)
@@ -211,6 +213,8 @@ struct bus_opaque {
 	spinlock_t ce_lock;
 	const struct ath10k_bus_ops *bus_ops;
 	struct ath10k_ce_pipe ce_states[CE_COUNT_MAX];
+	u32 *vaddr_rri_on_ddr;
+	dma_addr_t paddr_rri_on_ddr;
 };
 
 /*==================Send====================*/
@@ -288,6 +292,8 @@ void ath10k_ce_deinit_pipe(struct ath10k *ar, unsigned int ce_id);
 int ath10k_ce_alloc_pipe(struct ath10k *ar, int ce_id,
 			 const struct ce_attr *attr);
 void ath10k_ce_free_pipe(struct ath10k *ar, int ce_id);
+void ce_config_rri_on_ddr(struct ath10k *ar);
+void ce_remove_rri_on_ddr(struct ath10k *ar);
 
 /*==================CE Engine Shutdown=======================*/
 /*

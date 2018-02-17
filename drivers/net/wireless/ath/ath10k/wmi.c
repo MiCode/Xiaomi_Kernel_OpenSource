@@ -2287,6 +2287,59 @@ int ath10k_wmi_tlv_event_peer_delete_resp(struct ath10k *ar,
 	return 0;
 }
 
+static int wmi_tlv_process_mgmt_tx_comp(struct ath10k *ar, u32 desc_id,
+					u32 status)
+{
+	struct ath10k_mgmt_tx_pkt_addr *pkt_addr;
+	struct ath10k_wmi *wmi = &ar->wmi;
+	struct ieee80211_tx_info *info;
+	struct sk_buff *msdu;
+	int ret = 0;
+
+	spin_lock_bh(&wmi->mgmt_tx_lock);
+	pkt_addr = idr_find(&wmi->mgmt_pending_tx, desc_id);
+	if (!pkt_addr) {
+		ath10k_warn(ar, "received mgmt tx completion for invalid msdu_id: %d\n",
+			    desc_id);
+		ret = -ENOENT;
+		goto tx_comp_process_done;
+	}
+
+	msdu = pkt_addr->vaddr;
+	dma_unmap_single(ar->dev, pkt_addr->paddr,
+			 msdu->len, DMA_FROM_DEVICE);
+	info = IEEE80211_SKB_CB(msdu);
+	if (!status)
+		info->flags |= IEEE80211_TX_STAT_ACK;
+	else
+		info->flags |= status;
+	ieee80211_tx_status_irqsafe(ar->hw, msdu);
+	ret = 0;
+
+tx_comp_process_done:
+	idr_remove(&wmi->mgmt_pending_tx, desc_id);
+	spin_unlock_bh(&wmi->mgmt_tx_lock);
+
+	return ret;
+}
+
+int ath10k_wmi_tlv_event_mgmt_tx_compl(struct ath10k *ar, struct sk_buff *skb)
+{
+	int ret;
+	struct wmi_tlv_mgmt_tx_compl_ev_arg arg;
+
+	ret = ath10k_wmi_pull_mgmt_tx_compl(ar, skb, &arg);
+	if (ret) {
+		ath10k_warn(ar, "failed to parse mgmt comp event: %d\n", ret);
+		return ret;
+	}
+
+	wmi_tlv_process_mgmt_tx_comp(ar, arg.desc_id, arg.status);
+	ath10k_dbg(ar, ATH10K_DBG_WMI, "WMI_TLV_MGMT_TX_COMPLETION_EVENTID\n");
+
+	return 0;
+}
+
 int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb)
 {
 	struct wmi_mgmt_rx_ev_arg arg = {};
@@ -4215,6 +4268,7 @@ void ath10k_wmi_event_wow_wakeup_host(struct ath10k *ar, struct sk_buff *skb)
 		return;
 	}
 
+	ar->wow.wakeup_reason = ev.wake_reason;
 	ath10k_dbg(ar, ATH10K_DBG_WMI, "wow wakeup host reason %s\n",
 		   wow_reason(ev.wake_reason));
 }
@@ -8307,6 +8361,11 @@ int ath10k_wmi_attach(struct ath10k *ar)
 
 	INIT_WORK(&ar->svc_rdy_work, ath10k_wmi_event_service_ready_work);
 
+	if (QCA_REV_WCN3990(ar)) {
+		spin_lock_init(&ar->wmi.mgmt_tx_lock);
+		idr_init(&ar->wmi.mgmt_pending_tx);
+	}
+
 	return 0;
 }
 
@@ -8326,8 +8385,32 @@ void ath10k_wmi_free_host_mem(struct ath10k *ar)
 	ar->wmi.num_mem_chunks = 0;
 }
 
+static int ath10k_wmi_mgmt_tx_clean_up_pending(int msdu_id, void *ptr,
+					       void *ctx)
+{
+	struct ath10k_mgmt_tx_pkt_addr *pkt_addr = ptr;
+	struct ath10k *ar = ctx;
+	struct sk_buff *msdu;
+
+	ath10k_dbg(ar, ATH10K_DBG_WMI,
+		   "force cleanup mgmt msdu_id %hu\n", msdu_id);
+
+	msdu = pkt_addr->vaddr;
+	dma_unmap_single(ar->dev, pkt_addr->paddr,
+			 msdu->len, DMA_FROM_DEVICE);
+	ieee80211_free_txskb(ar->hw, msdu);
+
+	return 0;
+}
+
 void ath10k_wmi_detach(struct ath10k *ar)
 {
+	if (QCA_REV_WCN3990(ar)) {
+		idr_for_each(&ar->wmi.mgmt_pending_tx,
+			     ath10k_wmi_mgmt_tx_clean_up_pending, ar);
+		idr_destroy(&ar->wmi.mgmt_pending_tx);
+	}
+
 	cancel_work_sync(&ar->svc_rdy_work);
 
 	if (ar->svc_rdy_skb)
