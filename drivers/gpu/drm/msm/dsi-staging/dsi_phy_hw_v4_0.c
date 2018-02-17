@@ -80,36 +80,6 @@
 #define DSIPHY_LNX_LPRX_CTRL(n)                    (0x214 + (0x80 * (n)))
 #define DSIPHY_LNX_TX_DCTRL(n)                     (0x218 + (0x80 * (n)))
 
-static inline int dsi_conv_phy_to_logical_lane(
-	struct dsi_lane_map *lane_map, enum dsi_phy_data_lanes phy_lane)
-{
-	int i = 0;
-
-	if (phy_lane > DSI_PHYSICAL_LANE_3)
-		return -EINVAL;
-
-	for (i = DSI_LOGICAL_LANE_0; i < (DSI_LANE_MAX - 1); i++) {
-		if (lane_map->lane_map_v2[i] == phy_lane)
-			break;
-	}
-	return i;
-}
-
-static inline int dsi_conv_logical_to_phy_lane(
-	struct dsi_lane_map *lane_map, enum dsi_logical_lane lane)
-{
-	int i = 0;
-
-	if (lane > (DSI_LANE_MAX - 1))
-		return -EINVAL;
-
-	for (i = DSI_LOGICAL_LANE_0; i < (DSI_LANE_MAX - 1); i++) {
-		if (BIT(i) == lane_map->lane_map_v2[lane])
-			break;
-	}
-	return i;
-}
-
 static int dsi_phy_hw_v4_0_is_pll_on(struct dsi_phy_hw *phy)
 {
 	u32 data = 0;
@@ -122,7 +92,7 @@ static int dsi_phy_hw_v4_0_is_pll_on(struct dsi_phy_hw *phy)
 static void dsi_phy_hw_v4_0_config_lpcdrx(struct dsi_phy_hw *phy,
 	struct dsi_phy_cfg *cfg, bool enable)
 {
-	int phy_lane_0 = dsi_conv_logical_to_phy_lane(&cfg->lane_map,
+	int phy_lane_0 = dsi_phy_conv_logical_to_phy_lane(&cfg->lane_map,
 			DSI_LOGICAL_LANE_0);
 	/*
 	 * LPRX and CDRX need to enabled only for physical data lane

@@ -1013,6 +1013,50 @@ int dsi_phy_set_timing_params(struct msm_dsi_phy *phy,
 	return rc;
 }
 
+/**
+ * dsi_phy_conv_phy_to_logical_lane() - Convert physical to logical lane
+ * @lane_map:     logical lane
+ * @phy_lane:     physical lane
+ *
+ * Return: Error code on failure. Lane number on success.
+ */
+int dsi_phy_conv_phy_to_logical_lane(
+	struct dsi_lane_map *lane_map, enum dsi_phy_data_lanes phy_lane)
+{
+	int i = 0;
+
+	if (phy_lane > DSI_PHYSICAL_LANE_3)
+		return -EINVAL;
+
+	for (i = DSI_LOGICAL_LANE_0; i < (DSI_LANE_MAX - 1); i++) {
+		if (lane_map->lane_map_v2[i] == phy_lane)
+			break;
+	}
+	return i;
+}
+
+/**
+ * dsi_phy_conv_logical_to_phy_lane() - Convert logical to physical lane
+ * @lane_map:     physical lane
+ * @lane:         logical lane
+ *
+ * Return: Error code on failure. Lane number on success.
+ */
+int dsi_phy_conv_logical_to_phy_lane(
+	struct dsi_lane_map *lane_map, enum dsi_logical_lane lane)
+{
+	int i = 0;
+
+	if (lane > (DSI_LANE_MAX - 1))
+		return -EINVAL;
+
+	for (i = DSI_LOGICAL_LANE_0; i < (DSI_LANE_MAX - 1); i++) {
+		if (BIT(i) == lane_map->lane_map_v2[lane])
+			break;
+	}
+	return i;
+}
+
 void dsi_phy_drv_register(void)
 {
 	platform_driver_register(&dsi_phy_platform_driver);
