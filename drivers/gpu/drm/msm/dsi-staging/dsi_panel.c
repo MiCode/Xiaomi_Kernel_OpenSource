@@ -2580,54 +2580,23 @@ static void dsi_panel_esd_config_deinit(struct drm_panel_esd_config *esd_config)
 	kfree(esd_config->status_cmd.cmds);
 }
 
-static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
-				     struct device_node *of_node)
+int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel,
+				struct device_node *of_node)
 {
+	struct drm_panel_esd_config *esd_config;
 	int rc = 0;
 	u32 tmp;
 	u32 i, status_len, *lenp;
 	struct property *data;
-	const char *string;
-	struct drm_panel_esd_config *esd_config;
-	u8 *esd_mode = NULL;
 
-	esd_config = &panel->esd_config;
-	esd_config->status_mode = ESD_MODE_MAX;
-	esd_config->esd_enabled = of_property_read_bool(of_node,
-		"qcom,esd-check-enabled");
-
-	if (!esd_config->esd_enabled)
-		return 0;
-
-	rc = of_property_read_string(of_node,
-			"qcom,mdss-dsi-panel-status-check-mode", &string);
-	if (!rc) {
-		if (!strcmp(string, "bta_check")) {
-			esd_config->status_mode = ESD_MODE_SW_BTA;
-		} else if (!strcmp(string, "reg_read")) {
-			esd_config->status_mode = ESD_MODE_REG_READ;
-		} else if (!strcmp(string, "te_signal_check")) {
-			if (panel->panel_mode == DSI_OP_CMD_MODE) {
-				esd_config->status_mode = ESD_MODE_PANEL_TE;
-			} else {
-				pr_err("TE-ESD not valid for video mode\n");
-				rc = -EINVAL;
-				goto error;
-			}
-		} else {
-			pr_err("No valid panel-status-check-mode string\n");
-			rc = -EINVAL;
-			goto error;
-		}
-	} else {
-		pr_debug("status check method not defined!\n");
-		rc = -EINVAL;
-		goto error;
+	if (!panel || !of_node) {
+		pr_err("Invalid Params\n");
+		return -EINVAL;
 	}
 
-	if ((esd_config->status_mode == ESD_MODE_SW_BTA) ||
-		(esd_config->status_mode == ESD_MODE_PANEL_TE))
-		return 0;
+	esd_config = &panel->esd_config;
+	if (!esd_config)
+		return -EINVAL;
 
 	dsi_panel_parse_cmd_sets_sub(&esd_config->status_cmd,
 				DSI_CMD_SET_PANEL_STATUS, of_node);
@@ -2702,8 +2671,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 	}
 
 	esd_config->status_buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!esd_config->status_buf)
+	if (!esd_config->status_buf) {
+		rc = -ENOMEM;
 		goto error4;
+	}
 
 	rc = of_property_read_u32_array(of_node,
 		"qcom,mdss-dsi-panel-status-value",
@@ -2713,15 +2684,6 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 		memset(esd_config->status_value, 0,
 				esd_config->groups * status_len);
 	}
-
-	if (panel->esd_config.status_mode == ESD_MODE_REG_READ)
-		esd_mode = "register_read";
-	else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA)
-		esd_mode = "bta_trigger";
-	else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE)
-		esd_mode = "te_check";
-
-	pr_info("ESD enabled with mode: %s\n", esd_mode);
 
 	return 0;
 
@@ -2734,6 +2696,70 @@ error2:
 	kfree(esd_config->status_cmds_rlen);
 error1:
 	kfree(esd_config->status_cmd.cmds);
+error:
+	return rc;
+}
+
+static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+	int rc = 0;
+	const char *string;
+	struct drm_panel_esd_config *esd_config;
+	u8 *esd_mode = NULL;
+
+	esd_config = &panel->esd_config;
+	esd_config->status_mode = ESD_MODE_MAX;
+	esd_config->esd_enabled = of_property_read_bool(of_node,
+		"qcom,esd-check-enabled");
+
+	if (!esd_config->esd_enabled)
+		return 0;
+
+	rc = of_property_read_string(of_node,
+			"qcom,mdss-dsi-panel-status-check-mode", &string);
+	if (!rc) {
+		if (!strcmp(string, "bta_check")) {
+			esd_config->status_mode = ESD_MODE_SW_BTA;
+		} else if (!strcmp(string, "reg_read")) {
+			esd_config->status_mode = ESD_MODE_REG_READ;
+		} else if (!strcmp(string, "te_signal_check")) {
+			if (panel->panel_mode == DSI_OP_CMD_MODE) {
+				esd_config->status_mode = ESD_MODE_PANEL_TE;
+			} else {
+				pr_err("TE-ESD not valid for video mode\n");
+				rc = -EINVAL;
+				goto error;
+			}
+		} else {
+			pr_err("No valid panel-status-check-mode string\n");
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		pr_debug("status check method not defined!\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (panel->esd_config.status_mode == ESD_MODE_REG_READ) {
+		rc = dsi_panel_parse_esd_reg_read_configs(panel, of_node);
+		if (rc) {
+			pr_err("failed to parse esd reg read mode params, rc=%d\n",
+						rc);
+			goto error;
+		}
+		esd_mode = "register_read";
+	} else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA) {
+		esd_mode = "bta_trigger";
+	} else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE) {
+		esd_mode = "te_check";
+	}
+
+	pr_info("ESD enabled with mode: %s\n", esd_mode);
+
+	return 0;
+
 error:
 	panel->esd_config.esd_enabled = false;
 	return rc;
