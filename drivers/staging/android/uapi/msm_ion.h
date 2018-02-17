@@ -1,6 +1,8 @@
 #ifndef _UAPI_LINUX_MSM_ION_H
 #define _UAPI_LINUX_MSM_ION_H
 
+#include <linux/types.h>
+
 #define ION_BIT(nr) (1U << (nr))
 
 /**
@@ -79,5 +81,26 @@ enum ion_heap_ids {
  * Macro should be used with ion_heap_ids defined above.
  */
 #define ION_HEAP(bit)			ION_BIT(bit)
+
+#define ION_IOC_MSM_MAGIC 'M'
+
+struct ion_prefetch_regions {
+	__u32 vmid;
+	__u64 __user *sizes;
+	__u32 nr_sizes;
+};
+
+struct ion_prefetch_data {
+	__u32 heap_id;
+	__u64 len;
+	struct ion_prefetch_regions __user *regions;
+	__u32 nr_regions;
+};
+
+#define ION_IOC_PREFETCH		_IOWR(ION_IOC_MSM_MAGIC, 3, \
+						struct ion_prefetch_data)
+
+#define ION_IOC_DRAIN			_IOWR(ION_IOC_MSM_MAGIC, 4, \
+						struct ion_prefetch_data)
 
 #endif /* _UAPI_LINUX_MSM_ION_H */
