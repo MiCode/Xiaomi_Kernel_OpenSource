@@ -1529,8 +1529,10 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	int rc = 0;
 	struct dp_panel_private *panel;
 	struct dp_panel *dp_panel;
+	struct sde_connector *sde_conn;
 
-	if (!in->dev || !in->catalog || !in->aux || !in->link) {
+	if (!in->dev || !in->catalog || !in->aux ||
+			!in->link || !in->connector) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
@@ -1553,6 +1555,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
 	dp_panel->stream_id = DP_STREAM_MAX;
+	dp_panel->connector = in->connector;
 
 	dp_panel->init = dp_panel_init_panel_info;
 	dp_panel->deinit = dp_panel_deinit_panel_info;
@@ -1569,6 +1572,9 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->setup_hdr = dp_panel_setup_hdr;
 	dp_panel->hdr_supported = dp_panel_hdr_supported;
 	dp_panel->set_stream_id = dp_panel_set_stream_id;
+
+	sde_conn = to_sde_connector(dp_panel->connector);
+	sde_conn->drv_panel = dp_panel;
 
 	dp_panel_edid_register(panel);
 

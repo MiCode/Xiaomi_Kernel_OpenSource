@@ -408,7 +408,7 @@ static void dp_display_send_hpd_event(struct dp_display_private *dp)
 		bpp[HPD_STRING_SIZE], pattern[HPD_STRING_SIZE];
 	char *envp[5];
 
-	connector = dp->dp_display.connector;
+	connector = dp->dp_display.base_connector;
 
 	if (!connector) {
 		pr_err("connector not set\n");
@@ -417,7 +417,7 @@ static void dp_display_send_hpd_event(struct dp_display_private *dp)
 
 	connector->status = connector->funcs->detect(connector, false);
 
-	dev = dp->dp_display.connector->dev;
+	dev = connector->dev;
 
 	snprintf(name, HPD_STRING_SIZE, "name=%s", connector->name);
 	snprintf(status, HPD_STRING_SIZE, "status=%s",
@@ -454,10 +454,10 @@ static void dp_display_post_open(struct dp_display *dp_display)
 		return;
 	}
 
-	connector = dp->dp_display.connector;
+	connector = dp->dp_display.base_connector;
 
 	if (!connector) {
-		pr_err("connector not set\n");
+		pr_err("base connector not set\n");
 		return;
 	}
 
@@ -509,10 +509,11 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 		dp->debug->psm_enabled = false;
 	}
 
-	if (!dp->dp_display.connector)
+	if (!dp->dp_display.base_connector)
 		return 0;
 
-	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
+	rc = dp->panel->read_sink_caps(dp->panel,
+			dp->dp_display.base_connector);
 	if (rc) {
 		/*
 		 * ETIMEDOUT --> cable may have been removed
@@ -925,6 +926,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	panel_in.aux = dp->aux;
 	panel_in.catalog = &dp->catalog->panel;
 	panel_in.link = dp->link;
+	panel_in.connector = dp->dp_display.base_connector;
 
 	dp->panel = dp_panel_get(&panel_in);
 	if (IS_ERR(dp->panel)) {
@@ -970,8 +972,10 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	}
 
 	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
-				dp->link, dp->aux, &dp->dp_display.connector,
+				dp->link, dp->aux,
+				&dp->dp_display.base_connector,
 				dp->catalog);
+
 	if (IS_ERR(dp->debug)) {
 		rc = PTR_ERR(dp->debug);
 		pr_err("failed to initialize debug, rc = %d\n", rc);
@@ -1032,50 +1036,60 @@ end:
 	pr_debug("%s\n", rc ? "failed" : "success");
 }
 
-static int dp_display_set_mode(struct dp_display *dp_display,
+static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
 		struct dp_display_mode *mode)
 {
 	const u32 num_components = 3, default_bpp = 24;
 	struct dp_display_private *dp;
+	struct dp_panel *dp_panel;
 
-	if (!dp_display) {
+	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
+
+	dp_panel = panel;
+	if (!dp_panel->connector) {
+		pr_err("invalid connector input\n");
+		return -EINVAL;
+	}
+
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
 	mutex_lock(&dp->session_lock);
 	mode->timing.bpp =
-		dp_display->connector->display_info.bpc * num_components;
+		dp_panel->connector->display_info.bpc * num_components;
 	if (!mode->timing.bpp)
 		mode->timing.bpp = default_bpp;
 
 	mode->timing.bpp = dp->panel->get_mode_bpp(dp->panel,
 			mode->timing.bpp, mode->timing.pixel_clk_khz);
 
-	dp->panel->pinfo = mode->timing;
-	dp->panel->init(dp->panel);
+	dp_panel->pinfo = mode->timing;
+	dp_panel->init(dp_panel);
 	mutex_unlock(&dp->session_lock);
 
 	return 0;
 }
 
-static int dp_display_prepare(struct dp_display *dp)
+static int dp_display_prepare(struct dp_display *dp, void *panel)
 {
 	return 0;
 }
 
-static int dp_display_enable(struct dp_display *dp_display)
+static int dp_display_enable(struct dp_display *dp_display, void *panel)
 {
 	int rc = 0;
 	struct dp_display_private *dp;
+	struct dp_panel *dp_panel;
 
-	if (!dp_display) {
+	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+	dp_panel = panel;
 
 	mutex_lock(&dp->session_lock);
 
@@ -1091,30 +1105,32 @@ static int dp_display_enable(struct dp_display *dp_display)
 
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 
-	dp->panel->set_stream_id(dp->panel, DP_STREAM_0);
+	dp_panel->set_stream_id(dp->panel, DP_STREAM_0);
 
 	rc = dp->ctrl->on(dp->ctrl);
 	if (!rc)
 		dp->power_on = true;
 
 	if (dp->debug->tpg_state)
-		dp->panel->tpg_config(dp->panel, true);
+		dp_panel->tpg_config(dp_panel, true);
 
 end:
 	mutex_unlock(&dp->session_lock);
 	return rc;
 }
 
-static int dp_display_post_enable(struct dp_display *dp_display)
+static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
+	struct dp_panel *dp_panel;
 
-	if (!dp_display) {
+	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+	dp_panel = panel;
 
 	mutex_lock(&dp->session_lock);
 
@@ -1128,7 +1144,7 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 		goto end;
 	}
 
-	dp->panel->spd_config(dp->panel);
+	dp_panel->spd_config(dp_panel);
 
 	if (dp->audio_supported) {
 		dp->audio->bw_code = dp->link->link_params.bw_code;
@@ -1145,7 +1161,7 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ / 2);
 	}
 
-	dp->panel->setup_hdr(dp->panel, NULL);
+	dp_panel->setup_hdr(dp_panel, NULL);
 end:
 	/* clear framework event notifier */
 	dp_display->post_open = NULL;
@@ -1156,11 +1172,11 @@ end:
 	return 0;
 }
 
-static int dp_display_pre_disable(struct dp_display *dp_display)
+static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
 
-	if (!dp_display) {
+	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
@@ -1196,19 +1212,21 @@ end:
 	return 0;
 }
 
-static int dp_display_disable(struct dp_display *dp_display)
+static int dp_display_disable(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
 	struct drm_connector *connector;
 	struct sde_connector_state *c_state;
+	struct dp_panel *dp_panel;
 
-	if (!dp_display) {
+	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
-	connector = dp->dp_display.connector;
+	dp_panel = panel;
+	connector = dp_panel->connector;
 	c_state = to_sde_connector_state(connector->state);
 
 	mutex_lock(&dp->session_lock);
@@ -1219,7 +1237,8 @@ static int dp_display_disable(struct dp_display *dp_display)
 	}
 
 	dp->ctrl->off(dp->ctrl);
-	dp->panel->deinit(dp->panel);
+	dp_panel->set_stream_id(dp_panel, DP_STREAM_MAX);
+	dp_panel->deinit(dp_panel);
 	dp->aux->deinit(dp->aux);
 
 	connector->hdr_eotf = 0;
@@ -1292,32 +1311,39 @@ static struct dp_debug *dp_get_debug(struct dp_display *dp_display)
 	return dp->debug;
 }
 
-static int dp_display_unprepare(struct dp_display *dp)
+static int dp_display_unprepare(struct dp_display *dp, void *panel)
 {
 	return 0;
 }
 
-static int dp_display_validate_mode(struct dp_display *dp, u32 mode_pclk_khz)
+static int dp_display_validate_mode(struct dp_display *dp, void *panel,
+		u32 mode_pclk_khz)
 {
 	const u32 num_components = 3, default_bpp = 24;
 	struct dp_display_private *dp_display;
 	struct drm_dp_link *link_info;
 	u32 mode_rate_khz = 0, supported_rate_khz = 0, mode_bpp = 0;
+	struct dp_panel *dp_panel;
 
-	if (!dp || !mode_pclk_khz || !dp->connector) {
+	if (!dp || !mode_pclk_khz || !panel) {
 		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	dp_panel = panel;
+	if (!dp_panel->connector) {
+		pr_err("invalid connector\n");
 		return -EINVAL;
 	}
 
 	dp_display = container_of(dp, struct dp_display_private, dp_display);
 	link_info = &dp_display->panel->link_info;
 
-	mode_bpp = dp->connector->display_info.bpc * num_components;
+	mode_bpp = dp_panel->connector->display_info.bpc * num_components;
 	if (!mode_bpp)
 		mode_bpp = default_bpp;
 
-	mode_bpp = dp_display->panel->get_mode_bpp(dp_display->panel,
-			mode_bpp, mode_pclk_khz);
+	mode_bpp = dp_panel->get_mode_bpp(dp_panel, mode_bpp, mode_pclk_khz);
 
 	mode_rate_khz = mode_pclk_khz * mode_bpp;
 	supported_rate_khz = link_info->num_lanes * link_info->rate * 8;
@@ -1328,40 +1354,48 @@ static int dp_display_validate_mode(struct dp_display *dp, u32 mode_pclk_khz)
 	return MODE_OK;
 }
 
-static int dp_display_get_modes(struct dp_display *dp,
+static int dp_display_get_modes(struct dp_display *dp, void *panel,
 	struct dp_display_mode *dp_mode)
 {
 	struct dp_display_private *dp_display;
+	struct dp_panel *dp_panel;
 	int ret = 0;
 
-	if (!dp || !dp->connector) {
+	if (!dp || !panel) {
 		pr_err("invalid params\n");
+		return 0;
+	}
+
+	dp_panel = panel;
+	if (!dp_panel->connector) {
+		pr_err("invalid connector\n");
 		return 0;
 	}
 
 	dp_display = container_of(dp, struct dp_display_private, dp_display);
 
-	ret = dp_display->panel->get_modes(dp_display->panel,
-		dp->connector, dp_mode);
+	ret = dp_panel->get_modes(dp_panel, dp_panel->connector, dp_mode);
 	if (dp_mode->timing.pixel_clk_khz)
 		dp->max_pclk_khz = dp_mode->timing.pixel_clk_khz;
 	return ret;
 }
 
-static int dp_display_config_hdr(struct dp_display *dp_display,
+static int dp_display_config_hdr(struct dp_display *dp_display, void *panel,
 			struct drm_msm_ext_hdr_metadata *hdr)
 {
 	int rc = 0;
 	struct dp_display_private *dp;
+	struct dp_panel *dp_panel;
 
-	if (!dp_display) {
+	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+	dp_panel = panel;
 
-	rc = dp->panel->setup_hdr(dp->panel, hdr);
+	rc = dp_panel->setup_hdr(dp_panel, hdr);
 
 	return rc;
 }

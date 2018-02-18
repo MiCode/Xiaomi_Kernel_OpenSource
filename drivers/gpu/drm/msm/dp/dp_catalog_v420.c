@@ -132,7 +132,7 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 					bool fixed_nvid)
 {
 	u32 pixel_m, pixel_n;
-	u32 mvid, nvid;
+	u32 mvid, nvid, reg_off = 0;
 	u64 mvid_calc;
 	u32 const nvid_fixed = 0x8000;
 	u32 const link_rate_hbr2 = 540000;
@@ -142,6 +142,11 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 
 	if (!panel || !rate) {
 		pr_err("invalid input\n");
+		return;
+	}
+
+	if (panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", panel->stream_id);
 		return;
 	}
 
@@ -168,8 +173,13 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 	} else {
 		io_data = catalog->io->dp_mmss_cc;
 
-		pixel_m = dp_read(catalog, io_data, MMSS_DP_PIXEL_M_V420);
-		pixel_n = dp_read(catalog, io_data, MMSS_DP_PIXEL_N_V420);
+		if (panel->stream_id == DP_STREAM_1)
+			reg_off = MMSS_DP_PIXEL1_M_V420 - MMSS_DP_PIXEL_M_V420;
+
+		pixel_m = dp_read(catalog, io_data,
+				MMSS_DP_PIXEL_M_V420 + reg_off);
+		pixel_n = dp_read(catalog, io_data,
+				MMSS_DP_PIXEL_N_V420 + reg_off);
 		pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
 
 		mvid = (pixel_m & 0xFFFF) * 5;
@@ -185,9 +195,13 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 	}
 
 	io_data = catalog->io->dp_link;
+
+	if (panel->stream_id == DP_STREAM_1)
+		reg_off = DP1_SOFTWARE_MVID - DP_SOFTWARE_MVID;
+
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
-	dp_write(catalog, io_data, DP_SOFTWARE_MVID, mvid);
-	dp_write(catalog, io_data, DP_SOFTWARE_NVID, nvid);
+	dp_write(catalog, io_data, DP_SOFTWARE_MVID + reg_off, mvid);
+	dp_write(catalog, io_data, DP_SOFTWARE_NVID + reg_off, nvid);
 }
 
 static void dp_catalog_ctrl_phy_lane_cfg_v420(struct dp_catalog_ctrl *ctrl,

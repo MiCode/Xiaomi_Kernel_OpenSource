@@ -21,6 +21,7 @@
 #include "dp_link.h"
 #include "dp_usbpd.h"
 #include "sde_edid_parser.h"
+#include "sde_connector.h"
 
 enum dp_lane_count {
 	DP_LANE_COUNT_1	= 1,
@@ -57,6 +58,7 @@ struct dp_panel_in {
 	struct dp_aux *aux;
 	struct dp_link *link;
 	struct dp_catalog_panel *catalog;
+	struct drm_connector *connector;
 };
 
 struct dp_panel {
@@ -80,6 +82,9 @@ struct dp_panel {
 	 * Client sets the stream id value using set_stream_id interface.
 	 */
 	enum dp_stream_id stream_id;
+
+	/* DRM connector assosiated with this panel */
+	struct drm_connector *connector;
 
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel);
