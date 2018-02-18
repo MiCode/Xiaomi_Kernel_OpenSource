@@ -214,6 +214,151 @@
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <1>;
 		};
+
+		pmi632_charger: qcom,qpnp-smb5 {
+			compatible = "qcom,qpnp-smb5";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,pmic-revid = <&pmi632_revid>;
+			dpdm-supply = <&qusb_phy>;
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts =
+					<0x2 0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x4 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x5 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x6 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x10 0x7 IRQ_TYPE_LEVEL_HIGH>;
+
+				interrupt-names = "chgr-error",
+						  "chg-state-change",
+						  "step-chg-state-change",
+						  "step-chg-soc-update-fail",
+						  "step-chg-soc-update-req",
+						  "fg-fvcal-qualified",
+						  "vph-alarm",
+						  "vph-drop-prechg";
+			};
+
+			qcom,dcdc@1100 {
+				reg = <0x1100 0x100>;
+				interrupts =
+					<0x2 0x11 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x11 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x11 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x11 0x3 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x11 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x11 0x5 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x11 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x11 0x7 IRQ_TYPE_EDGE_BOTH>;
+
+				interrupt-names = "otg-fail",
+						  "otg-oc-disable-sw",
+						  "otg-oc-hiccup",
+						  "bsm-active",
+						  "high-duty-cycle",
+						  "input-current-limiting",
+						  "concurrent-mode-disable",
+						  "switcher-power-ok";
+			};
+
+			qcom,batif@1200 {
+				reg = <0x1200 0x100>;
+				interrupts =
+					<0x2 0x12 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x12 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x12 0x2 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x5 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x6 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x7 IRQ_TYPE_LEVEL_HIGH>;
+
+				interrupt-names = "bat-temp",
+						  "all-chnl-conv-done",
+						  "bat-ov",
+						  "bat-low",
+						  "bat-therm-or-id-missing",
+						  "bat-terminal-missing",
+						  "buck-oc",
+						  "vph-ov";
+			};
+
+			qcom,usb@1300 {
+				reg = <0x1300 0x100>;
+				interrupts =
+					<0x2 0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x2 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x4 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x13 0x5 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x13 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x13 0x7 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "usbin-collapse",
+						  "usbin-vashdn",
+						  "usbin-uv",
+						  "usbin-ov",
+						  "usbin-plugin",
+						  "usbin-revi-change",
+						  "usbin-src-change",
+						  "usbin-icl-change";
+			};
+
+			qcom,typec@1500 {
+				reg = <0x1500 0x100>;
+				interrupts =
+					<0x2 0x15 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x15 0x1 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x15 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x15 0x3 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x15 0x4 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x15 0x5 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x15 0x6 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x15 0x7 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "typec-or-rid-detect-change",
+						  "typec-vpd-detect",
+						  "typec-cc-state-change",
+						  "typec-vconn-oc",
+						  "typec-vbus-change",
+						  "typec-attach-detach",
+						  "typec-legacy-cable-detect",
+						  "typec-try-snk-src-detect";
+			};
+
+			qcom,misc@1600 {
+				reg = <0x1600 0x100>;
+				interrupts =
+					<0x2 0x16 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x2 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x16 0x3 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x16 0x4 IRQ_TYPE_LEVEL_HIGH>,
+					<0x2 0x16 0x5 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x6 IRQ_TYPE_EDGE_FALLING>,
+					<0x2 0x16 0x7 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "wdog-snarl",
+						  "wdog-bark",
+						  "aicl-fail",
+						  "aicl-done",
+						  "smb-en",
+						  "imp-trigger",
+						  "temp-change",
+						  "temp-change-smb";
+			};
+
+			smb5_vbus: qcom,smb5-vbus {
+				regulator-name = "smb5-vbus";
+			};
+		};
 	};
 
 	pmi632_3: qcom,pmi632@3 {
