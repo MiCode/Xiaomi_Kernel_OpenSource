@@ -375,6 +375,17 @@ config QCOM_EARLY_RANDOM
           may not be truly random. Select this option to make an early call
           to get some random data to put in the pool. If unsure, say N.
 
+config MSM_SPSS_UTILS
+	depends on MSM_PIL
+	bool "Secure Processor Utilities"
+	help
+	  spss-utils driver selects Secure Processor firmware file name.
+	  The firmware file name for dev, test or production is selected
+	  based on two fuses.
+	  Different file name is used for differnt SPSS HW versions,
+	  because the SPSS firmware size is too small to support multiple
+	  HW versions.
+
 config QTI_RPMH_API
 	bool "QTI RPMH (h/w accelerators) Communication API"
 	select MAILBOX
