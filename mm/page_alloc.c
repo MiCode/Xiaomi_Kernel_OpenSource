@@ -3288,6 +3288,46 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
 	return NULL;
 }
 
+#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER
+static inline bool
+should_compact_lmk_retry(struct alloc_context *ac, int order, int alloc_flags)
+{
+	struct zone *zone;
+	struct zoneref *z;
+
+	/* Let costly order requests check for compaction progress */
+	if (order > PAGE_ALLOC_COSTLY_ORDER)
+		return false;
+
+	/*
+	 * For (0 < order < PAGE_ALLOC_COSTLY_ORDER) allow the shrinkers
+	 * to run and free up memory. Do not let these allocations fail
+	 * if shrinkers can free up memory. This is similar to
+	 * should_compact_retry implementation for !CONFIG_COMPACTION.
+	 */
+	for_each_zone_zonelist_nodemask(zone, z, ac->zonelist,
+				ac->high_zoneidx, ac->nodemask) {
+		unsigned long available;
+
+		available = zone_reclaimable_pages(zone);
+		available +=
+			zone_page_state_snapshot(zone, NR_FREE_PAGES);
+
+		if (__zone_watermark_ok(zone, 0, min_wmark_pages(zone),
+			ac_classzone_idx(ac), alloc_flags, available))
+			return true;
+	}
+
+	return false;
+}
+#else
+static inline bool
+should_compact_lmk_retry(struct alloc_context *ac, int order, int alloc_flags)
+{
+	return false;
+}
+#endif
+
 static inline bool
 should_compact_retry(struct alloc_context *ac, int order, int alloc_flags,
 		     enum compact_result compact_result,
@@ -3299,6 +3339,9 @@ should_compact_retry(struct alloc_context *ac, int order, int alloc_flags,
 
 	if (!order)
 		return false;
+
+	if (should_compact_lmk_retry(ac, order, alloc_flags))
+		return true;
 
 	if (compaction_made_progress(compact_result))
 		(*compaction_retries)++;
@@ -3537,7 +3580,8 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
 	 * their order will become available due to high fragmentation so
 	 * always increment the no progress counter for them
 	 */
-	if (did_some_progress && order <= PAGE_ALLOC_COSTLY_ORDER)
+	if ((did_some_progress && order <= PAGE_ALLOC_COSTLY_ORDER) ||
+			IS_ENABLED(CONFIG_ANDROID_LOW_MEMORY_KILLER))
 		*no_progress_loops = 0;
 	else
 		(*no_progress_loops)++;
@@ -3815,7 +3859,8 @@ retry:
 	 * implementation of the compaction depends on the sufficient amount
 	 * of free memory (see __compaction_suitable)
 	 */
-	if (did_some_progress > 0 &&
+	if ((did_some_progress > 0 ||
+			IS_ENABLED(CONFIG_ANDROID_LOW_MEMORY_KILLER)) &&
 			should_compact_retry(ac, order, alloc_flags,
 				compact_result, &compact_priority,
 				&compaction_retries))
