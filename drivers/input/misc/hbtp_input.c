@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,6 +86,7 @@ struct hbtp_data {
 	u32 power_on_delay;
 	u32 power_off_delay;
 	bool manage_pin_ctrl;
+	bool init_completion_done_once;
 	struct kobject *sysfs_kobject;
 	s16 ROI[MAX_ROI_SIZE];
 	s16 accelBuffer[MAX_ACCEL_SIZE];
@@ -599,7 +600,6 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 	enum hbtp_afe_power_cmd power_cmd;
 	enum hbtp_afe_signal afe_signal;
 	enum hbtp_afe_power_ctrl afe_power_ctrl;
-	static bool init_completion_not_done = true;
 
 	switch (cmd) {
 	case HBTP_SET_ABSPARAM:
@@ -715,8 +715,6 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 			mutex_lock(&hbtp->mutex);
 			if (!hbtp->power_suspended) {
 				complete(&hbtp->power_resume_sig);
-				pr_err("%s: ***VVK*** power_resume_sig completed\n",
-					__func__);
 			} else {
 				pr_err("%s: resume signal in wrong state\n",
 					__func__);
@@ -727,8 +725,6 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 			mutex_lock(&hbtp->mutex);
 			if (hbtp->power_suspended) {
 				complete(&hbtp->power_suspend_sig);
-				pr_err("%s: ***VVK*** power_suspend_sig completed\n",
-					__func__);
 			} else {
 				pr_err("%s: suspend signal in wrong state\n",
 					__func__);
@@ -788,17 +784,13 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 			mutex_lock(&hbtp->mutex);
-			if (init_completion_not_done) {
-				init_completion(&hbtp->power_resume_sig);
-				init_completion(&hbtp->power_suspend_sig);
-				init_completion_not_done = false;
-				pr_err("%s: ***VVK*** init_completion\n",
-					__func__);
-			} else {
+			if (hbtp->init_completion_done_once) {
 				reinit_completion(&hbtp->power_resume_sig);
 				reinit_completion(&hbtp->power_suspend_sig);
-				pr_err("%s: ***VVK*** reinit_completion\n",
-					__func__);
+			} else {
+				init_completion(&hbtp->power_resume_sig);
+				init_completion(&hbtp->power_suspend_sig);
+				hbtp->init_completion_done_once = true;
 			}
 			hbtp->power_sig_enabled = true;
 			mutex_unlock(&hbtp->mutex);
@@ -1204,8 +1196,6 @@ static int hbtp_dsi_panel_suspend(struct hbtp_data *ts)
 			if (ts->power_sig_enabled) {
 				pr_debug("%s: power_sig is enabled, wait for signal\n",
 					__func__);
-				pr_err("%s: *VVK* wait_for_completion power_suspend_sig\n",
-					__func__);
 				mutex_unlock(&hbtp->mutex);
 				rc = wait_for_completion_interruptible_timeout(
 					&hbtp->power_suspend_sig,
@@ -1215,8 +1205,6 @@ static int hbtp_dsi_panel_suspend(struct hbtp_data *ts)
 						__func__);
 				}
 				mutex_lock(&hbtp->mutex);
-				pr_err("%s: *VVK* wait_for_completion power_suspend done\n",
-					__func__);
 				pr_debug("%s: Wait is done for suspend\n",
 					__func__);
 			} else {
@@ -1263,8 +1251,6 @@ static int hbtp_dsi_panel_early_resume(struct hbtp_data *ts)
 			if (ts->power_sig_enabled) {
 				pr_err("%s: power_sig is enabled, wait for signal\n",
 					__func__);
-				pr_err("%s: *VVK* wait_for_completion power_resume_sig\n",
-					__func__);
 				mutex_unlock(&hbtp->mutex);
 				rc = wait_for_completion_interruptible_timeout(
 					&hbtp->power_resume_sig,
@@ -1274,8 +1260,6 @@ static int hbtp_dsi_panel_early_resume(struct hbtp_data *ts)
 						__func__);
 				}
 				mutex_lock(&hbtp->mutex);
-				pr_err("%s: *VVK* wait_for_completion power_resume done\n",
-					__func__);
 				pr_debug("%s: wait is done\n", __func__);
 			} else {
 				pr_debug("%s: power_sig is NOT enabled\n",
@@ -1478,6 +1462,7 @@ static int __init hbtp_init(void)
 	mutex_init(&hbtp->mutex);
 	mutex_init(&hbtp->sensormutex);
 	hbtp->display_status = 1;
+	hbtp->init_completion_done_once = false;
 
 	error = misc_register(&hbtp_input_misc);
 	if (error) {
