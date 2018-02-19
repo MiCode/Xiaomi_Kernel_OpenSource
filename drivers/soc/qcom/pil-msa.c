@@ -367,10 +367,14 @@ int pil_mss_shutdown(struct pil_desc *pil)
 									ret);
 	}
 
+	pil_mss_pdc_sync(drv, 1);
+	udelay(200);
 	pil_mss_restart_reg(drv, true);
 	/* Wait 6 32kHz sleep cycles for reset */
 	udelay(200);
 	ret =  pil_mss_restart_reg(drv, false);
+	udelay(200);
+	pil_mss_pdc_sync(drv, false);
 
 	if (drv->is_booted) {
 		pil_mss_disable_clks(drv);
