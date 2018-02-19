@@ -93,7 +93,8 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 		event.length = sizeof(u32);
 		msm_mode_object_event_notify(&c_conn->base.base,
 				c_conn->base.dev, &event, (u8 *)&brightness);
-		c_conn->ops.set_backlight(c_conn->display, bl_lvl);
+		c_conn->ops.set_backlight(&c_conn->base,
+				c_conn->display, bl_lvl);
 	}
 
 	return 0;
@@ -242,7 +243,7 @@ static int _sde_connector_get_default_dither_cfg_v1(
 		return 0;
 	}
 
-	dst_format = c_conn->ops.get_dst_format(c_conn->display);
+	dst_format = c_conn->ops.get_dst_format(&c_conn->base, c_conn->display);
 	switch (dst_format) {
 	case DSI_PIXEL_FORMAT_RGB888:
 		dither_cfg->c0_bitdepth = 8;
@@ -400,7 +401,7 @@ int sde_connector_get_info(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
-	return c_conn->ops.get_info(info, c_conn->display);
+	return c_conn->ops.get_info(&c_conn->base, info, c_conn->display);
 }
 
 void sde_connector_schedule_status_work(struct drm_connector *connector,
@@ -511,7 +512,8 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	SDE_DEBUG("bl_scale = %u, bl_scale_ad = %u, bl_level = %u\n",
 		bl_config->bl_scale, bl_config->bl_scale_ad,
 		bl_config->bl_level);
-	rc = c_conn->ops.set_backlight(dsi_display, bl_config->bl_level);
+	rc = c_conn->ops.set_backlight(&c_conn->base,
+			dsi_display, bl_config->bl_level);
 
 	return rc;
 }
@@ -994,7 +996,8 @@ static int _sde_connector_set_ext_hdr_info(
 	}
 
 	if (c_conn->ops.config_hdr)
-		rc = c_conn->ops.config_hdr(c_conn->display, c_state);
+		rc = c_conn->ops.config_hdr(&c_conn->base,
+				c_conn->display, c_state);
 end:
 	return rc;
 }
@@ -1454,7 +1457,7 @@ static ssize_t _sde_debugfs_conn_cmd_tx_write(struct file *file,
 		goto end;
 
 	mutex_lock(&c_conn->lock);
-	rc = c_conn->ops.cmd_transfer(c_conn->display, buffer,
+	rc = c_conn->ops.cmd_transfer(&c_conn->base, c_conn->display, buffer,
 			buf_size);
 	c_conn->last_cmd_tx_sts = !rc ? true : false;
 	mutex_unlock(&c_conn->lock);
@@ -1657,7 +1660,7 @@ static void sde_connector_check_status_work(struct work_struct *work)
 		return;
 	}
 
-	rc = conn->ops.check_status(conn->display);
+	rc = conn->ops.check_status(&conn->base, conn->display);
 	mutex_unlock(&conn->lock);
 
 	if (conn->force_panel_dead) {
@@ -1720,7 +1723,7 @@ static int sde_connector_populate_mode_info(struct drm_connector *conn,
 
 		memset(&mode_info, 0, sizeof(mode_info));
 
-		rc = c_conn->ops.get_mode_info(mode, &mode_info,
+		rc = c_conn->ops.get_mode_info(&c_conn->base, mode, &mode_info,
 			sde_kms->catalog->max_mixer_width,
 			c_conn->display);
 		if (rc) {

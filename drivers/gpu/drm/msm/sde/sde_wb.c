@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -296,7 +296,8 @@ done:
 	return rc;
 }
 
-int sde_wb_get_info(struct msm_display_info *info, void *display)
+int sde_wb_get_info(struct drm_connector *connector,
+		struct msm_display_info *info, void *display)
 {
 	struct sde_wb_device *wb_dev = display;
 
@@ -318,8 +319,10 @@ int sde_wb_get_info(struct msm_display_info *info, void *display)
 	return 0;
 }
 
-int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
-	struct msm_mode_info *mode_info, u32 max_mixer_width, void *display)
+int sde_wb_get_mode_info(struct drm_connector *connector,
+		const struct drm_display_mode *drm_mode,
+		struct msm_mode_info *mode_info,
+		u32 max_mixer_width, void *display)
 {
 	const u32 dual_lm = 2;
 	const u32 single_lm = 1;

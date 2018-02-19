@@ -276,7 +276,7 @@ static const struct drm_bridge_funcs dp_bridge_ops = {
 	.mode_set     = dp_bridge_mode_set,
 };
 
-int dp_connector_config_hdr(void *display,
+int dp_connector_config_hdr(struct drm_connector *connector, void *display,
 	struct sde_connector_state *c_state)
 {
 	struct dp_display *dp = display;
@@ -304,8 +304,10 @@ int dp_connector_post_init(struct drm_connector *connector, void *display)
 	return 0;
 }
 
-int dp_connector_get_mode_info(const struct drm_display_mode *drm_mode,
-	struct msm_mode_info *mode_info, u32 max_mixer_width, void *display)
+int dp_connector_get_mode_info(struct drm_connector *connector,
+		const struct drm_display_mode *drm_mode,
+		struct msm_mode_info *mode_info,
+		u32 max_mixer_width, void *display)
 {
 	const u32 dual_lm = 2;
 	const u32 single_lm = 1;
@@ -331,7 +333,8 @@ int dp_connector_get_mode_info(const struct drm_display_mode *drm_mode,
 	return 0;
 }
 
-int dp_connector_get_info(struct msm_display_info *info, void *data)
+int dp_connector_get_info(struct drm_connector *connector,
+		struct msm_display_info *info, void *data)
 {
 	struct dp_display *display = data;
 
@@ -364,7 +367,7 @@ enum drm_connector_status dp_connector_detect(struct drm_connector *conn,
 
 	/* get display dp_info */
 	memset(&info, 0x0, sizeof(info));
-	rc = dp_connector_get_info(&info, display);
+	rc = dp_connector_get_info(conn, &info, display);
 	if (rc) {
 		pr_err("failed to get display info, rc=%d\n", rc);
 		return connector_status_disconnected;
@@ -382,7 +385,7 @@ enum drm_connector_status dp_connector_detect(struct drm_connector *conn,
 	return status;
 }
 
-void dp_connector_post_open(void *display)
+void dp_connector_post_open(struct drm_connector *connector, void *display)
 {
 	struct dp_display *dp;
 

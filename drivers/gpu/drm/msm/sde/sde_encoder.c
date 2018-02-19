@@ -961,7 +961,7 @@ static int sde_encoder_virt_atomic_check(
 	if (!ret && sde_conn && drm_atomic_crtc_needs_modeset(crtc_state)) {
 		struct msm_display_topology *topology = NULL;
 
-		ret = sde_conn->ops.get_mode_info(adj_mode,
+		ret = sde_conn->ops.get_mode_info(&sde_conn->base, adj_mode,
 				&sde_conn_state->mode_info,
 				sde_kms->catalog->max_mixer_width,
 				sde_conn->display);
@@ -2511,7 +2511,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	sde_conn = to_sde_connector(conn);
 	sde_conn_state = to_sde_connector_state(conn->state);
 	if (sde_conn && sde_conn_state) {
-		ret = sde_conn->ops.get_mode_info(adj_mode,
+		ret = sde_conn->ops.get_mode_info(&sde_conn->base, adj_mode,
 				&sde_conn_state->mode_info,
 				sde_kms->catalog->max_mixer_width,
 				sde_conn->display);
@@ -4827,10 +4827,11 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 		return -EINVAL;
 	}
 
-	ret = sde_conn->ops.get_mode_info(&encoder->crtc->state->adjusted_mode,
-				&sde_conn_state->mode_info,
-				sde_kms->catalog->max_mixer_width,
-				sde_conn->display);
+	ret = sde_conn->ops.get_mode_info(&sde_conn->base,
+			&encoder->crtc->state->adjusted_mode,
+			&sde_conn_state->mode_info,
+			sde_kms->catalog->max_mixer_width,
+			sde_conn->display);
 	if (ret) {
 		SDE_ERROR_ENC(sde_enc,
 			"conn: ->get_mode_info failed. ret=%d\n", ret);

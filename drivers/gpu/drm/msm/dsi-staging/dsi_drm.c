@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -332,9 +332,10 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	return true;
 }
 
-int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
-	struct msm_mode_info *mode_info,
-	u32 max_mixer_width, void *display)
+int dsi_conn_get_mode_info(struct drm_connector *connector,
+		const struct drm_display_mode *drm_mode,
+		struct msm_mode_info *mode_info,
+		u32 max_mixer_width, void *display)
 {
 	struct dsi_display_mode dsi_mode;
 	struct dsi_mode_info *timing;
@@ -523,7 +524,7 @@ enum drm_connector_status dsi_conn_detect(struct drm_connector *conn,
 
 	/* get display dsi_info */
 	memset(&info, 0x0, sizeof(info));
-	rc = dsi_display_get_info(&info, display);
+	rc = dsi_display_get_info(conn, &info, display);
 	if (rc) {
 		pr_err("failed to get display info, rc=%d\n", rc);
 		return connector_status_disconnected;
@@ -640,7 +641,7 @@ int dsi_conn_pre_kickoff(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
-	return dsi_display_pre_kickoff(display, params);
+	return dsi_display_pre_kickoff(connector, display, params);
 }
 
 void dsi_conn_enable_event(struct drm_connector *connector,
@@ -653,7 +654,8 @@ void dsi_conn_enable_event(struct drm_connector *connector,
 	event_info.event_cb = sde_connector_trigger_event;
 	event_info.event_usr_ptr = connector;
 
-	dsi_display_enable_event(display, event_idx, &event_info, enable);
+	dsi_display_enable_event(connector, display,
+			event_idx, &event_info, enable);
 }
 
 int dsi_conn_post_kickoff(struct drm_connector *connector)

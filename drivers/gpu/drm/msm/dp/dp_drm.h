@@ -33,11 +33,13 @@ struct dp_bridge {
 
 /**
  * dp_connector_config_hdr - callback to configure HDR
+ * @connector: Pointer to drm connector structure
  * @display: Pointer to private display handle
  * @c_state: connect state data
  * Returns: Zero on success
  */
-int dp_connector_config_hdr(void *display,
+int dp_connector_config_hdr(struct drm_connector *connector,
+		void *display,
 		struct sde_connector_state *c_state);
 
 /**
@@ -81,23 +83,34 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 
 /**
  * dp_connector_get_mode_info - retrieve information of the mode selected
+ * @connector: Pointer to drm connector structure
  * @drm_mode: Display mode set for the display
  * @mode_info: Out parameter. Information of the mode
  * @max_mixer_width: max width supported by HW layer mixer
  * @display: Pointer to private display structure
  * Returns: zero on success
  */
-int dp_connector_get_mode_info(const struct drm_display_mode *drm_mode,
+int dp_connector_get_mode_info(struct drm_connector *connector,
+		const struct drm_display_mode *drm_mode,
 		struct msm_mode_info *mode_info,
 		u32 max_mixer_width, void *display);
 
-int dp_connector_get_info(struct msm_display_info *info, void *display);
+/**
+ * dp_connector_get_info - retrieve connector display info
+ * @connector: Pointer to drm connector structure
+ * @info: Out parameter. Information of the connected display
+ * @display: Pointer to private display structure
+ * Returns: zero on success
+ */
+int dp_connector_get_info(struct drm_connector *connector,
+		struct msm_display_info *info, void *display);
 
 /**
  * dp_connector_post_open - handle the post open functionalites
+ * @connector: Pointer to drm connector structure
  * @display: Pointer to private display structure
  */
-void dp_connector_post_open(void *display);
+void dp_connector_post_open(struct drm_connector *connector, void *display);
 
 int dp_drm_bridge_init(void *display,
 	struct drm_encoder *encoder);

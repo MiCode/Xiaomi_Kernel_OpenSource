@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,9 +81,10 @@ void dsi_connector_put_modes(struct drm_connector *connector,
  * @display: Pointer to private display structure
  * Returns: Zero on success
  */
-int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
-	struct msm_mode_info *mode_info, u32 max_mixer_width,
-	void *display);
+int dsi_conn_get_mode_info(struct drm_connector *connector,
+		const struct drm_display_mode *drm_mode,
+		struct msm_mode_info *mode_info, u32 max_mixer_width,
+		void *display);
 
 /**
  * dsi_conn_mode_valid - callback to determine if specified mode is valid
