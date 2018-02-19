@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/sched_energy.h>
 
 #include <asm/cputype.h>
 #include <asm/topology.h>
@@ -505,125 +506,31 @@ topology_populated:
 	update_cpu_capacity(cpuid);
 }
 
-/*
- * ARM TC2 specific energy cost model data. There are no unit requirements for
- * the data. Data can be normalized to any reference point, but the
- * normalization must be consistent. That is, one bogo-joule/watt must be the
- * same quantity for all data, but we don't care what it is.
- */
-static struct idle_state idle_states_cluster_a7[] = {
-	 { .power = 25 }, /* arch_cpu_idle() (active idle) = WFI */
-	 { .power = 25 }, /* WFI */
-	 { .power = 10 }, /* cluster-sleep-l */
-	};
-
-static struct idle_state idle_states_cluster_a15[] = {
-	 { .power = 70 }, /* arch_cpu_idle() (active idle) = WFI */
-	 { .power = 70 }, /* WFI */
-	 { .power = 25 }, /* cluster-sleep-b */
-	};
-
-static struct capacity_state cap_states_cluster_a7[] = {
-	/* Cluster only power */
-	 { .cap =  150, .power = 2967, }, /*  350 MHz */
-	 { .cap =  172, .power = 2792, }, /*  400 MHz */
-	 { .cap =  215, .power = 2810, }, /*  500 MHz */
-	 { .cap =  258, .power = 2815, }, /*  600 MHz */
-	 { .cap =  301, .power = 2919, }, /*  700 MHz */
-	 { .cap =  344, .power = 2847, }, /*  800 MHz */
-	 { .cap =  387, .power = 3917, }, /*  900 MHz */
-	 { .cap =  430, .power = 4905, }, /* 1000 MHz */
-	};
-
-static struct capacity_state cap_states_cluster_a15[] = {
-	/* Cluster only power */
-	 { .cap =  426, .power =  7920, }, /*  500 MHz */
-	 { .cap =  512, .power =  8165, }, /*  600 MHz */
-	 { .cap =  597, .power =  8172, }, /*  700 MHz */
-	 { .cap =  682, .power =  8195, }, /*  800 MHz */
-	 { .cap =  768, .power =  8265, }, /*  900 MHz */
-	 { .cap =  853, .power =  8446, }, /* 1000 MHz */
-	 { .cap =  938, .power = 11426, }, /* 1100 MHz */
-	 { .cap = 1024, .power = 15200, }, /* 1200 MHz */
-	};
-
-static struct sched_group_energy energy_cluster_a7 = {
-	  .nr_idle_states = ARRAY_SIZE(idle_states_cluster_a7),
-	  .idle_states    = idle_states_cluster_a7,
-	  .nr_cap_states  = ARRAY_SIZE(cap_states_cluster_a7),
-	  .cap_states     = cap_states_cluster_a7,
-};
-
-static struct sched_group_energy energy_cluster_a15 = {
-	  .nr_idle_states = ARRAY_SIZE(idle_states_cluster_a15),
-	  .idle_states    = idle_states_cluster_a15,
-	  .nr_cap_states  = ARRAY_SIZE(cap_states_cluster_a15),
-	  .cap_states     = cap_states_cluster_a15,
-};
-
-static struct idle_state idle_states_core_a7[] = {
-	 { .power = 0 }, /* arch_cpu_idle (active idle) = WFI */
-	 { .power = 0 }, /* WFI */
-	 { .power = 0 }, /* cluster-sleep-l */
-	};
-
-static struct idle_state idle_states_core_a15[] = {
-	 { .power = 0 }, /* arch_cpu_idle (active idle) = WFI */
-	 { .power = 0 }, /* WFI */
-	 { .power = 0 }, /* cluster-sleep-b */
-	};
-
-static struct capacity_state cap_states_core_a7[] = {
-	/* Power per cpu */
-	 { .cap =  150, .power =  187, }, /*  350 MHz */
-	 { .cap =  172, .power =  275, }, /*  400 MHz */
-	 { .cap =  215, .power =  334, }, /*  500 MHz */
-	 { .cap =  258, .power =  407, }, /*  600 MHz */
-	 { .cap =  301, .power =  447, }, /*  700 MHz */
-	 { .cap =  344, .power =  549, }, /*  800 MHz */
-	 { .cap =  387, .power =  761, }, /*  900 MHz */
-	 { .cap =  430, .power = 1024, }, /* 1000 MHz */
-	};
-
-static struct capacity_state cap_states_core_a15[] = {
-	/* Power per cpu */
-	 { .cap =  426, .power = 2021, }, /*  500 MHz */
-	 { .cap =  512, .power = 2312, }, /*  600 MHz */
-	 { .cap =  597, .power = 2756, }, /*  700 MHz */
-	 { .cap =  682, .power = 3125, }, /*  800 MHz */
-	 { .cap =  768, .power = 3524, }, /*  900 MHz */
-	 { .cap =  853, .power = 3846, }, /* 1000 MHz */
-	 { .cap =  938, .power = 5177, }, /* 1100 MHz */
-	 { .cap = 1024, .power = 6997, }, /* 1200 MHz */
-	};
-
-static struct sched_group_energy energy_core_a7 = {
-	  .nr_idle_states = ARRAY_SIZE(idle_states_core_a7),
-	  .idle_states    = idle_states_core_a7,
-	  .nr_cap_states  = ARRAY_SIZE(cap_states_core_a7),
-	  .cap_states     = cap_states_core_a7,
-};
-
-static struct sched_group_energy energy_core_a15 = {
-	  .nr_idle_states = ARRAY_SIZE(idle_states_core_a15),
-	  .idle_states    = idle_states_core_a15,
-	  .nr_cap_states  = ARRAY_SIZE(cap_states_core_a15),
-	  .cap_states     = cap_states_core_a15,
-};
-
 /* sd energy functions */
 static inline
 const struct sched_group_energy * const cpu_cluster_energy(int cpu)
 {
-	return cpu_topology[cpu].socket_id ? &energy_cluster_a7 :
-			&energy_cluster_a15;
+	struct sched_group_energy *sge = sge_array[cpu][SD_LEVEL1];
+
+	if (sched_is_energy_aware() && !sge) {
+		pr_warn("Invalid sched_group_energy for Cluster%d\n", cpu);
+		return NULL;
+	}
+
+	return sge;
 }
 
 static inline
 const struct sched_group_energy * const cpu_core_energy(int cpu)
 {
-	return cpu_topology[cpu].socket_id ? &energy_core_a7 :
-			&energy_core_a15;
+	struct sched_group_energy *sge = sge_array[cpu][SD_LEVEL0];
+
+	if (sched_is_energy_aware() && !sge) {
+		pr_warn("Invalid sched_group_energy for CPU%d\n", cpu);
+		return NULL;
+	}
+
+	return sge;
 }
 
 static inline int cpu_corepower_flags(void)
@@ -688,4 +595,5 @@ void __init init_cpu_topology(void)
 
 	/* Set scheduler topology descriptor */
 	set_sched_topology(arm_topology);
+	init_sched_energy_costs();
 }
