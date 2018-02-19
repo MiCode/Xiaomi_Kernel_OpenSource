@@ -82,6 +82,50 @@ ftm_txrx_offset_store(struct device *dev,
 static DEVICE_ATTR_RW(ftm_txrx_offset);
 
 static ssize_t
+board_file_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+
+	wil_get_board_file(wil, buf, PAGE_SIZE);
+	strlcat(buf, "\n", PAGE_SIZE);
+	return strlen(buf);
+}
+
+static ssize_t
+board_file_store(struct device *dev,
+		 struct device_attribute *attr,
+		 const char *buf, size_t count)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	size_t len;
+
+	mutex_lock(&wil->mutex);
+
+	kfree(wil->board_file);
+	wil->board_file = NULL;
+
+	len = count;
+	if (buf[count - 1] == '\n')
+		len--;
+	len = strnlen(buf, len);
+	if (len > 0) {
+		wil->board_file = kmalloc(len + 1, GFP_KERNEL);
+		if (!wil->board_file) {
+			mutex_unlock(&wil->mutex);
+			return -ENOMEM;
+		}
+		strlcpy(wil->board_file, buf, len + 1);
+	}
+	mutex_unlock(&wil->mutex);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(board_file);
+
+static ssize_t
 thermal_throttling_show(struct device *dev, struct device_attribute *attr,
 			char *buf)
 {
@@ -291,6 +335,7 @@ static DEVICE_ATTR_RW(snr_thresh);
 
 static struct attribute *wil6210_sysfs_entries[] = {
 	&dev_attr_ftm_txrx_offset.attr,
+	&dev_attr_board_file.attr,
 	&dev_attr_thermal_throttling.attr,
 	&dev_attr_fst_link_loss.attr,
 	&dev_attr_snr_thresh.attr,

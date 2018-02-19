@@ -706,6 +706,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 	wmi_event_flush(wil);
 	destroy_workqueue(wil->wq_service);
 	destroy_workqueue(wil->wmi_wq);
+	kfree(wil->board_file);
 }
 
 static void wil_shutdown_bl(struct wil6210_priv *wil)
