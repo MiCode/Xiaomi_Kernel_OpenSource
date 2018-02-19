@@ -21,6 +21,10 @@
 	qcom,msm-name = "SDM632";
 };
 
+&clock_gcc_mdss {
+	compatible = "qcom,gcc-mdss-sdm632";
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sdm632";
 };
