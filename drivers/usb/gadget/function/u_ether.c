@@ -21,6 +21,8 @@
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
+#include <linux/if_arp.h>
+#include <linux/msm_rmnet.h>
 
 #include "u_ether.h"
 
@@ -89,6 +91,8 @@ struct eth_dev {
 	struct work_struct	rx_work;
 
 	unsigned long		todo;
+	unsigned long		flags;
+	unsigned short		rx_needed_headroom;
 #define	WORK_RX_MEMORY		0
 
 	bool			zlp;
@@ -159,6 +163,25 @@ static int ueth_change_mtu(struct net_device *net, int new_mtu)
 	net->mtu = new_mtu;
 
 	return 0;
+}
+
+static int ueth_change_mtu_ip(struct net_device *net, int new_mtu)
+{
+	struct eth_dev	*dev = netdev_priv(net);
+	unsigned long	flags;
+	int		status = 0;
+
+	spin_lock_irqsave(&dev->lock, flags);
+	if (new_mtu <= 0)
+		status = -EINVAL;
+	else
+		net->mtu = new_mtu;
+
+	DBG(dev, "[%s] MTU change: old=%d new=%d\n", net->name,
+					net->mtu, new_mtu);
+	spin_unlock_irqrestore(&dev->lock, flags);
+
+	return status;
 }
 
 static void eth_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *p)
@@ -900,14 +923,175 @@ static int get_ether_addr_str(u8 dev_addr[ETH_ALEN], char *str, int len)
 	return 18;
 }
 
+static int ether_ioctl(struct net_device *, struct ifreq *, int);
+
 static const struct net_device_ops eth_netdev_ops = {
 	.ndo_open		= eth_open,
 	.ndo_stop		= eth_stop,
 	.ndo_start_xmit		= eth_start_xmit,
+	.ndo_do_ioctl		= ether_ioctl,
 	.ndo_change_mtu		= ueth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
 };
+
+static const struct net_device_ops eth_netdev_ops_ip = {
+	.ndo_open		= eth_open,
+	.ndo_stop		= eth_stop,
+	.ndo_start_xmit		= eth_start_xmit,
+	.ndo_do_ioctl		= ether_ioctl,
+	.ndo_change_mtu		= ueth_change_mtu_ip,
+	.ndo_set_mac_address	= NULL,
+	.ndo_validate_addr	= NULL,
+};
+
+static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
+{
+	struct rmnet_ioctl_extended_s ext_cmd;
+	struct eth_dev *eth_dev = netdev_priv(dev);
+	int rc = 0;
+
+	rc = copy_from_user(&ext_cmd, ifr->ifr_ifru.ifru_data,
+			    sizeof(struct rmnet_ioctl_extended_s));
+
+	if (rc) {
+		DBG(eth_dev, "%s(): copy_from_user() failed\n", __func__);
+		return rc;
+	}
+
+	switch (ext_cmd.extended_ioctl) {
+	case RMNET_IOCTL_GET_SUPPORTED_FEATURES:
+		ext_cmd.u.data = 0;
+		break;
+
+	case RMNET_IOCTL_SET_MRU:
+		if (netif_running(dev))
+			return -EBUSY;
+
+		/* 16K max */
+		if ((size_t)ext_cmd.u.data > 0x4000)
+			return -EINVAL;
+
+		if (eth_dev->port_usb) {
+			eth_dev->port_usb->is_fixed = true;
+			eth_dev->port_usb->fixed_out_len =
+				(size_t) ext_cmd.u.data;
+			DBG(eth_dev, "[%s] rmnet_ioctl(): SET MRU to %u\n",
+				dev->name, eth_dev->port_usb->fixed_out_len);
+		} else {
+			pr_err("[%s]: %s: SET MRU failed. Cable disconnected\n",
+				dev->name, __func__);
+			return -ENODEV;
+		}
+		break;
+
+	case RMNET_IOCTL_GET_MRU:
+		if (eth_dev->port_usb) {
+			ext_cmd.u.data = eth_dev->port_usb->is_fixed ?
+					eth_dev->port_usb->fixed_out_len :
+					dev->mtu;
+		} else {
+			pr_err("[%s]: %s: GET MRU failed. Cable disconnected\n",
+				dev->name, __func__);
+			return -ENODEV;
+		}
+		break;
+
+	case RMNET_IOCTL_GET_DRIVER_NAME:
+		strlcpy(ext_cmd.u.if_name, dev->name,
+			sizeof(ext_cmd.u.if_name));
+		break;
+
+	default:
+		break;
+	}
+
+	rc = copy_to_user(ifr->ifr_ifru.ifru_data, &ext_cmd,
+			  sizeof(struct rmnet_ioctl_extended_s));
+
+	if (rc)
+		DBG(eth_dev, "%s(): copy_to_user() failed\n", __func__);
+	return rc;
+}
+
+static int ether_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	struct eth_dev	*eth_dev = netdev_priv(dev);
+	void __user *addr = (void __user *) ifr->ifr_ifru.ifru_data;
+	int		prev_mtu = dev->mtu;
+	u32		state, old_opmode;
+	int		rc = -EFAULT;
+
+	old_opmode = eth_dev->flags;
+	/* Process IOCTL command */
+	switch (cmd) {
+	case RMNET_IOCTL_SET_LLP_ETHERNET:	/*Set Ethernet protocol*/
+		/* Perform Ethernet config only if in IP mode currently*/
+		if (test_bit(RMNET_MODE_LLP_IP, &eth_dev->flags)) {
+			ether_setup(dev);
+			dev->mtu = prev_mtu;
+			dev->netdev_ops = &eth_netdev_ops;
+			clear_bit(RMNET_MODE_LLP_IP, &eth_dev->flags);
+			set_bit(RMNET_MODE_LLP_ETH, &eth_dev->flags);
+			DBG(eth_dev, "[%s] ioctl(): set Ethernet proto mode\n",
+					dev->name);
+		}
+		if (test_bit(RMNET_MODE_LLP_ETH, &eth_dev->flags))
+			rc = 0;
+		break;
+
+	case RMNET_IOCTL_SET_LLP_IP:		/* Set RAWIP protocol*/
+		/* Perform IP config only if in Ethernet mode currently*/
+		if (test_bit(RMNET_MODE_LLP_ETH, &eth_dev->flags)) {
+			/* Undo config done in ether_setup() */
+			dev->header_ops = NULL;  /* No header */
+			dev->type = ARPHRD_RAWIP;
+			dev->hard_header_len = 0;
+			dev->mtu = prev_mtu;
+			dev->addr_len = 0;
+			dev->flags &= ~(IFF_BROADCAST | IFF_MULTICAST);
+			dev->netdev_ops = &eth_netdev_ops_ip;
+			clear_bit(RMNET_MODE_LLP_ETH, &eth_dev->flags);
+			set_bit(RMNET_MODE_LLP_IP, &eth_dev->flags);
+			DBG(eth_dev, "[%s] ioctl(): set IP protocol mode\n",
+					dev->name);
+		}
+		if (test_bit(RMNET_MODE_LLP_IP, &eth_dev->flags))
+			rc = 0;
+		break;
+
+	case RMNET_IOCTL_GET_LLP:	/* Get link protocol state */
+		state = eth_dev->flags & (RMNET_MODE_LLP_ETH
+						| RMNET_MODE_LLP_IP);
+		if (copy_to_user(addr, &state, sizeof(state)))
+			break;
+		rc = 0;
+		break;
+
+	case RMNET_IOCTL_SET_RX_HEADROOM:	/* Set RX headroom */
+		if (copy_from_user(&eth_dev->rx_needed_headroom, addr,
+					sizeof(eth_dev->rx_needed_headroom)))
+			break;
+		DBG(eth_dev, "[%s] ioctl(): set RX HEADROOM: %x\n",
+				dev->name, eth_dev->rx_needed_headroom);
+		rc = 0;
+		break;
+
+	case RMNET_IOCTL_EXTENDED:
+		rc = rmnet_ioctl_extended(dev, ifr);
+		break;
+
+	default:
+		pr_err("[%s] error: ioctl called for unsupported cmd[%d]",
+			dev->name, cmd);
+		rc = -EINVAL;
+	}
+
+	DBG(eth_dev, "[%s] %s: cmd=0x%x opmode old=0x%08x new=0x%08lx\n",
+		dev->name, __func__, cmd, old_opmode, eth_dev->flags);
+
+	return rc;
+}
 
 static struct device_type gadget_type = {
 	.name	= "gadget",
@@ -968,6 +1152,9 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g,
 
 	net->ethtool_ops = &ops;
 
+	/* set operation mode to eth by default */
+	set_bit(RMNET_MODE_LLP_ETH, &dev->flags);
+
 	dev->gadget = g;
 	SET_NETDEV_DEV(net, &g->dev);
 	SET_NETDEV_DEVTYPE(net, &gadget_type);
@@ -1025,6 +1212,10 @@ struct net_device *gether_setup_name_default(const char *netname)
 	net->netdev_ops = &eth_netdev_ops;
 
 	net->ethtool_ops = &ops;
+
+	/* set operation mode to eth by default */
+	set_bit(RMNET_MODE_LLP_ETH, &dev->flags);
+
 	SET_NETDEV_DEVTYPE(net, &gadget_type);
 
 	return net;
