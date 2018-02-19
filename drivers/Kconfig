@@ -171,6 +171,8 @@ source "drivers/vme/Kconfig"
 
 source "drivers/pwm/Kconfig"
 
+source "drivers/gpu/msm/Kconfig"
+
 source "drivers/irqchip/Kconfig"
 
 source "drivers/ipack/Kconfig"
