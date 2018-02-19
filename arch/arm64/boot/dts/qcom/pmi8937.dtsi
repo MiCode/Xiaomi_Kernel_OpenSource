@@ -153,7 +153,7 @@
 			#gpio-cells = <2>;
 		};
 
-		pmi8937_charger: qcom,qpnp-smbcharger {
+		qpnp_smbcharger: qcom,qpnp-smbcharger {
 			compatible = "qcom,qpnp-smbcharger";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -268,7 +268,7 @@
 			};
 		};
 
-		pmi8937_fg: qcom,fg {
+		qpnp_fg: qcom,fg {
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;

@@ -14,6 +14,8 @@
 /dts-v1/;
 
 #include "msm8953.dtsi"
+#include "pmi8940.dtsi"
+#include "msm8953-pmi8940.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8940 SOC";

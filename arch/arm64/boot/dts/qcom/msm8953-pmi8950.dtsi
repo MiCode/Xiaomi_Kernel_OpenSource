@@ -29,10 +29,10 @@
 
 &usb3 {
 	vbus_dwc3-supply = <&smbcharger_charger_otg>;
-	extcon = <&pmi8950_charger>;
+	extcon = <&qpnp_smbcharger>;
 };
 
-&pmi8950_charger {
+&qpnp_smbcharger {
 	qcom,external-typec;
 	qcom,typec-psy-name = "typec";
 };
@@ -45,24 +45,4 @@
 &mdss_dsi1 {
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
-};
-
-&dsi_panel_pwr_supply {
-		qcom,panel-supply-entry@2 {
-			reg = <2>;
-			qcom,supply-name = "lab";
-			qcom,supply-min-voltage = <4600000>;
-			qcom,supply-max-voltage = <6000000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-		};
-		qcom,panel-supply-entry@3 {
-			reg = <3>;
-			qcom,supply-name = "ibb";
-			qcom,supply-min-voltage = <4600000>;
-			qcom,supply-max-voltage = <6000000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-			qcom,supply-post-on-sleep = <10>;
-		};
 };
