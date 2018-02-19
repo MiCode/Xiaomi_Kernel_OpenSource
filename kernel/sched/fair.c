@@ -6833,8 +6833,11 @@ static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 static int start_cpu(bool boosted)
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	int start_cpu;
 
-	return boosted ? rd->max_cap_orig_cpu : rd->min_cap_orig_cpu;
+	start_cpu = boosted ? rd->max_cap_orig_cpu : rd->min_cap_orig_cpu;
+
+	return walt_start_cpu(start_cpu);
 }
 
 static inline int find_best_target(struct task_struct *p, int *backup_cpu,
@@ -7119,6 +7122,34 @@ retry:
 			goto retry;
 		}
 
+		if (!sysctl_sched_is_big_little && !prefer_idle) {
+
+			/*
+			 * If we find an idle CPU in the primary cluster,
+			 * stop the search. We select this idle CPU or
+			 * the active CPU (if there is one), whichever
+			 * saves the energy.
+			 */
+			if (best_idle_cpu != -1)
+				break;
+
+			if (fbt_env->placement_boost) {
+				target_capacity = ULONG_MAX;
+				continue;
+			}
+
+			/*
+			 * If we found an active CPU and its utilization
+			 * is below the minimum packing threshold (overlap),
+			 * no need to search further. Otherwise reset
+			 * the target_capacity and continue the search.
+			 */
+			if (target_cpu != -1 && target_util <
+					sched_smp_overlap_capacity)
+				break;
+
+			target_capacity = ULONG_MAX;
+		}
 	} while (sg = sg->next, sg != sd->groups);
 
 	if (best_idle_cpu != -1 && !is_packing_eligible(p, target_cpu, fbt_env,
