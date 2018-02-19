@@ -98,3 +98,9 @@ SCHED_FEAT(MIN_CAPACITY_CAPPING, false)
  * OFF: Use whichever of target or backup saves most.
  */
 SCHED_FEAT(FBT_STRICT_ORDER, false)
+/*
+ * Enforce schedtune.prefer_idle to take need_idle path.
+ * ON: schedtune.prefer_idle is replaced with need_idle
+ * OFF: schedtune.prefer_idle is honored as is.
+ */
+SCHED_FEAT(EAS_USE_NEED_IDLE, true)

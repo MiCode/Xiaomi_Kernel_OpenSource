@@ -7251,7 +7251,12 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 #endif
 
 	fbt_env.rtg_target = rtg_target;
-	fbt_env.need_idle = wake_to_idle(p);
+	if (sched_feat(EAS_USE_NEED_IDLE) && prefer_idle) {
+		fbt_env.need_idle = true;
+		prefer_idle = false;
+	} else {
+		fbt_env.need_idle = wake_to_idle(p);
+	}
 	fbt_env.placement_boost = task_sched_boost(p) ?
 				  sched_boost_policy() != SCHED_BOOST_NONE :
 				  false;
