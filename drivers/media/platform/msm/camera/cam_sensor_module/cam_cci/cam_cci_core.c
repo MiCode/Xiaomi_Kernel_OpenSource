@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,45 +183,46 @@ static void cam_cci_dump_registers(struct cci_device *cci_dev,
 	uint32_t read_val = 0;
 	uint32_t i = 0;
 	uint32_t reg_offset = 0;
+	void __iomem *base = cci_dev->soc_info.reg_map[0].mem_base;
 
 	/* CCI Top Registers */
-	CAM_DBG(CAM_CCI, "****CCI TOP Registers ****");
+	CAM_INFO(CAM_CCI, "****CCI TOP Registers ****");
 	for (i = 0; i < DEBUG_TOP_REG_COUNT; i++) {
 		reg_offset = DEBUG_TOP_REG_START + i * 4;
-		read_val = cam_io_r_mb(cci_dev->base + reg_offset);
-		CAM_DBG(CAM_CCI, "offset = 0x%X value = 0x%X",
+		read_val = cam_io_r_mb(base + reg_offset);
+		CAM_INFO(CAM_CCI, "offset = 0x%X value = 0x%X",
 			reg_offset, read_val);
 	}
 
 	/* CCI Master registers */
-	CAM_DBG(CAM_CCI, "****CCI MASTER %d Registers ****",
+	CAM_INFO(CAM_CCI, "****CCI MASTER %d Registers ****",
 		master);
 	for (i = 0; i < DEBUG_MASTER_REG_COUNT; i++) {
 		if (i == 6)
 			continue;
 		reg_offset = DEBUG_MASTER_REG_START + master*0x100 + i * 4;
-		read_val = cam_io_r_mb(cci_dev->base + reg_offset);
-		CAM_DBG(CAM_CCI, "offset = 0x%X value = 0x%X",
+		read_val = cam_io_r_mb(base + reg_offset);
+		CAM_INFO(CAM_CCI, "offset = 0x%X value = 0x%X",
 			reg_offset, read_val);
 	}
 
 	/* CCI Master Queue registers */
-	CAM_DBG(CAM_CCI, " **** CCI MASTER%d QUEUE%d Registers ****",
+	CAM_INFO(CAM_CCI, " **** CCI MASTER%d QUEUE%d Registers ****",
 		master, queue);
 	for (i = 0; i < DEBUG_MASTER_QUEUE_REG_COUNT; i++) {
 		reg_offset = DEBUG_MASTER_QUEUE_REG_START +  master*0x200 +
 			queue*0x100 + i * 4;
-		read_val = cam_io_r_mb(cci_dev->base + reg_offset);
-		CAM_DBG(CAM_CCI, "offset = 0x%X value = 0x%X",
+		read_val = cam_io_r_mb(base + reg_offset);
+		CAM_INFO(CAM_CCI, "offset = 0x%X value = 0x%X",
 			reg_offset, read_val);
 	}
 
 	/* CCI Interrupt registers */
-	CAM_DBG(CAM_CCI, " ****CCI Interrupt Registers ****");
+	CAM_INFO(CAM_CCI, " ****CCI Interrupt Registers ****");
 	for (i = 0; i < DEBUG_INTR_REG_COUNT; i++) {
 		reg_offset = DEBUG_INTR_REG_START + i * 4;
-		read_val = cam_io_r_mb(cci_dev->base + reg_offset);
-		CAM_DBG(CAM_CCI, "offset = 0x%X value = 0x%X",
+		read_val = cam_io_r_mb(base + reg_offset);
+		CAM_INFO(CAM_CCI, "offset = 0x%X value = 0x%X",
 			reg_offset, read_val);
 	}
 }
