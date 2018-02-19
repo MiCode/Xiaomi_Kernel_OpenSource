@@ -585,8 +585,8 @@
 			size = <0 0x5c00000>;
 		};
 
-		cont_splash_memory: cont_splash_region@9d400000 {
-			reg = <0x0 0x9d400000 0x0 0x02400000>;
+		cont_splash_memory: cont_splash_region@9c000000 {
+			reg = <0x0 0x9c000000 0x0 0x02400000>;
 			label = "cont_splash_region";
 		};
 
@@ -2139,6 +2139,7 @@
 		compatible = "qcom,pil-tz-generic";
 		qcom,pas-id = <0xf>;
 		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
 		memory-region = <&pil_ipa_fw_mem>;
 	};
 
@@ -2838,14 +2839,14 @@
 
 	qfprom: qfprom@0x780000 {
 		compatible	= "qcom,qfprom";
-		reg		= <0x00780000 0x1000>;
+		reg		= <0x00784000 0x1000>;
 		#address-cells	= <1>;
 		#size-cells	= <1>;
 		ranges;
 
-		minor_rev: minor_rev@0x78014c {
+		minor_rev: minor_rev@0x78414c {
 			reg = <0x14c 0x4>;
-			bits = <0x1c 0x2>;
+			bits = <0 30>; /* Access 30 bits from bit offset 0 */
 		};
 	};
 

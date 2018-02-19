@@ -135,6 +135,8 @@ IPA SMMU sub nodes
 - qcom,additional-mapping: specifies any addtional mapping needed for this
 				context bank. The format is <iova pa size>
 
+- qcom,ipa-q6-smem-size: specifies the Q6 SMEM partition size
+
 IPA SMP2P sub nodes
 
 -compatible: "qcom,smp2pgpio-map-ipa-1-out" - represents the out gpio from

@@ -24,13 +24,15 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 131 0>, <0 130 0>, <0 59 0>;
-		interrupt-names = "hs_phy_irq", "pwr_event_irq", "ss_phy_irq";
+		interrupts = <0 197 0>, <0 130 0>, <0 196 0>, <0 198 0>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+			"ss_phy_irq", "dm_hs_phy_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		qcom,usb-dbm = <&dbm_1p5>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,num-gsi-evt-buffs = <0x3>;
+		qcom,use-pdc-interrupts;
 
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
 			 <&clock_gcc GCC_SYS_NOC_USB3_CLK>,
@@ -70,6 +72,7 @@
 			usb-phy = <&usb2_phy>, <&usb3_qmp_phy>;
 			tx-fifo-resize;
 			linux,sysdev_is_parent;
+			snps,bus-suspend-enable;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
@@ -139,9 +142,11 @@
 	usb3_qmp_phy: ssphy@ff0000 {
 		compatible = "qcom,usb-ssphy-qmp-v2";
 		reg = <0xff0000 0x1000>,
-		    <0x01fcb244 0x4>;
+		    <0x01fcb244 0x4>,
+		    <0x00ff088c 0x4>;
 		reg-names = "qmp_phy_base",
-			"vls_clamp_reg";
+			"vls_clamp_reg",
+			"pcs_clamp_enable_reg";
 
 		vdd-supply = <&pmxpoorwills_l4>;
 		core-supply = <&pmxpoorwills_l1>;

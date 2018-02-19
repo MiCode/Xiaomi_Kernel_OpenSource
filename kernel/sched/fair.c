@@ -11430,6 +11430,141 @@ kick_active_balance(struct rq *rq, struct task_struct *p, int new_cpu)
 	return rc;
 }
 
+#ifdef CONFIG_SCHED_WALT
+struct walt_rotate_work {
+	struct work_struct w;
+	struct task_struct *src_task;
+	struct task_struct *dst_task;
+	int src_cpu;
+	int dst_cpu;
+};
+
+static DEFINE_PER_CPU(struct walt_rotate_work, walt_rotate_works);
+
+static void walt_rotate_work_func(struct work_struct *work)
+{
+	struct walt_rotate_work *wr = container_of(work,
+				struct walt_rotate_work, w);
+
+	migrate_swap(wr->src_task, wr->dst_task);
+
+	put_task_struct(wr->src_task);
+	put_task_struct(wr->dst_task);
+
+	clear_reserved(wr->src_cpu);
+	clear_reserved(wr->dst_cpu);
+}
+
+void walt_rotate_work_init(void)
+{
+	int i;
+
+	for_each_possible_cpu(i) {
+		struct walt_rotate_work *wr = &per_cpu(walt_rotate_works, i);
+
+		INIT_WORK(&wr->w, walt_rotate_work_func);
+	}
+}
+
+#define WALT_ROTATION_THRESHOLD_NS	16000000
+static void walt_check_for_rotation(struct rq *src_rq)
+{
+	u64 wc, wait, max_wait = 0, run, max_run = 0;
+	int deserved_cpu = nr_cpu_ids, dst_cpu = nr_cpu_ids;
+	int i, src_cpu = cpu_of(src_rq);
+	struct rq *dst_rq;
+	struct walt_rotate_work *wr = NULL;
+
+	if (!walt_rotation_enabled)
+		return;
+
+	if (got_boost_kick())
+		return;
+
+	if (is_max_capacity_cpu(src_cpu))
+		return;
+
+	wc = ktime_get_ns();
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (is_max_capacity_cpu(i))
+			break;
+
+		if (is_reserved(i))
+			continue;
+
+		if (!rq->misfit_task || rq->curr->sched_class !=
+						&fair_sched_class)
+			continue;
+
+		wait = wc - rq->curr->last_enqueued_ts;
+		if (wait > max_wait) {
+			max_wait = wait;
+			deserved_cpu = i;
+		}
+	}
+
+	if (deserved_cpu != src_cpu)
+		return;
+
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (!is_max_capacity_cpu(i))
+			continue;
+
+		if (is_reserved(i))
+			continue;
+
+		if (rq->curr->sched_class != &fair_sched_class)
+			continue;
+
+		if (rq->nr_running > 1)
+			continue;
+
+		run = wc - rq->curr->last_enqueued_ts;
+
+		if (run < WALT_ROTATION_THRESHOLD_NS)
+			continue;
+
+		if (run > max_run) {
+			max_run = run;
+			dst_cpu = i;
+		}
+	}
+
+	if (dst_cpu == nr_cpu_ids)
+		return;
+
+	dst_rq = cpu_rq(dst_cpu);
+
+	double_rq_lock(src_rq, dst_rq);
+	if (dst_rq->curr->sched_class == &fair_sched_class) {
+		get_task_struct(src_rq->curr);
+		get_task_struct(dst_rq->curr);
+
+		mark_reserved(src_cpu);
+		mark_reserved(dst_cpu);
+		wr = &per_cpu(walt_rotate_works, src_cpu);
+
+		wr->src_task = src_rq->curr;
+		wr->dst_task = dst_rq->curr;
+
+		wr->src_cpu = src_cpu;
+		wr->dst_cpu = dst_cpu;
+	}
+	double_rq_unlock(src_rq, dst_rq);
+
+	if (wr)
+		queue_work_on(src_cpu, system_highpri_wq, &wr->w);
+}
+#else
+static inline void walt_check_for_rotation(struct rq *rq)
+{
+}
+#endif
+
 static DEFINE_RAW_SPINLOCK(migration_lock);
 void check_for_migration(struct rq *rq, struct task_struct *p)
 {
@@ -11459,6 +11594,8 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 					&rq->active_balance_work);
 				return;
 			}
+		} else {
+			walt_check_for_rotation(rq);
 		}
 		raw_spin_unlock(&migration_lock);
 	}

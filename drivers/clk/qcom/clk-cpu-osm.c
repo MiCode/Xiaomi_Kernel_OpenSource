@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include <linux/sched.h>
 #include <linux/cpufreq.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include <linux/regulator/consumer.h>
 #include <dt-bindings/clock/qcom,cpucc-sdm845.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
@@ -47,6 +48,7 @@
 #define MAX_CLUSTER_CNT			3
 #define MAX_MEM_ACC_VAL_PER_LEVEL	3
 #define CORE_COUNT_VAL(val)		((val & GENMASK(18, 16)) >> 16)
+#define CURRENT_LVAL(val)		((val & GENMASK(23, 16)) >> 16)
 
 #define OSM_REG_SIZE			32
 
@@ -54,6 +56,7 @@
 #define FREQ_REG			0x110
 #define VOLT_REG			0x114
 #define CORE_DCVS_CTRL			0xbc
+#define PSTATE_STATUS			0x700
 
 #define DCVS_PERF_STATE_DESIRED_REG_0_V1	0x780
 #define DCVS_PERF_STATE_DESIRED_REG_0_V2	0x920
@@ -74,6 +77,7 @@ struct osm_entry {
 	u16 virtual_corner;
 	u16 open_loop_volt;
 	long frequency;
+	u32 lval;
 	u16 ccount;
 };
 
@@ -205,7 +209,7 @@ static int clk_cpu_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct clk_osm *c = to_clk_osm(hw);
 	struct clk_hw *p_hw = clk_hw_get_parent(hw);
 	struct clk_osm *parent = to_clk_osm(p_hw);
-	int index = 0;
+	int core_num, index = 0;
 
 	if (!c || !parent)
 		return -EINVAL;
@@ -217,8 +221,9 @@ static int clk_cpu_set_rate(struct clk_hw *hw, unsigned long rate,
 		return -EINVAL;
 	}
 
+	core_num = parent->per_core_dcvs ? c->core_num : 0;
 	clk_osm_write_reg(parent, index,
-				DCVS_PERF_STATE_DESIRED_REG(c->core_num,
+				DCVS_PERF_STATE_DESIRED_REG(core_num,
 							is_sdm845v1));
 
 	/* Make sure the write goes through before proceeding */
@@ -227,19 +232,52 @@ static int clk_cpu_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static int clk_pwrcl_set_rate(struct clk_hw *hw, unsigned long rate,
+						unsigned long parent_rate)
+{
+	struct clk_hw *p_hw = clk_hw_get_parent(hw);
+	struct clk_osm *parent = to_clk_osm(p_hw);
+	int ret, index = 0, count = 40;
+	u32 curr_lval;
+
+	ret = clk_cpu_set_rate(hw, rate, parent_rate);
+	if (ret)
+		return ret;
+
+	index = clk_osm_search_table(parent->osm_table,
+					parent->num_entries, rate);
+	if (index < 0)
+		return -EINVAL;
+
+	/*
+	 * Poll the CURRENT_FREQUENCY value of the PSTATE_STATUS register to
+	 * check if the L_VAL has been updated.
+	 */
+	while (count-- > 0) {
+		curr_lval = CURRENT_LVAL(clk_osm_read_reg(parent,
+								PSTATE_STATUS));
+		if (curr_lval <= parent->osm_table[index].lval)
+			return 0;
+		udelay(50);
+	}
+	pr_err("cannot set %s to %lu\n", clk_hw_get_name(hw), rate);
+	return -ETIMEDOUT;
+}
+
 static unsigned long clk_cpu_recalc_rate(struct clk_hw *hw,
 					unsigned long parent_rate)
 {
 	struct clk_osm *c = to_clk_osm(hw);
 	struct clk_hw *p_hw = clk_hw_get_parent(hw);
 	struct clk_osm *parent = to_clk_osm(p_hw);
-	int index = 0;
+	int core_num, index = 0;
 
 	if (!c || !parent)
 		return -EINVAL;
 
+	core_num = parent->per_core_dcvs ? c->core_num : 0;
 	index = clk_osm_read_reg(parent,
-				DCVS_PERF_STATE_DESIRED_REG(c->core_num,
+				DCVS_PERF_STATE_DESIRED_REG(core_num,
 							is_sdm845v1));
 	return parent->osm_table[index].frequency;
 }
@@ -262,6 +300,8 @@ static int l3_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct clk_osm *cpuclk = to_clk_osm(hw);
 	int index = 0;
 	unsigned long r_rate;
+	int count = 40;
+	u32 curr_lval;
 
 	if (!cpuclk)
 		return -EINVAL;
@@ -288,6 +328,25 @@ static int l3_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	/* Make sure the write goes through before proceeding */
 	clk_osm_mb(cpuclk);
 
+	/*
+	 * Poll the CURRENT_FREQUENCY value of the PSTATE_STATUS register to
+	 * check if the L_VAL has been updated.
+	 */
+	if (cpuclk->rate >= cpuclk->mx_turbo_freq &&
+					rate < cpuclk->mx_turbo_freq) {
+		while (count-- > 0) {
+			curr_lval = CURRENT_LVAL(clk_osm_read_reg(cpuclk,
+								PSTATE_STATUS));
+			if (curr_lval <= cpuclk->osm_table[index].lval) {
+				cpuclk->rate = rate;
+				return 0;
+			}
+			udelay(50);
+		}
+		pr_err("cannot set %s to %lu\n", clk_hw_get_name(hw), rate);
+		return -ETIMEDOUT;
+	}
+	cpuclk->rate = rate;
 	return 0;
 }
 
@@ -318,7 +377,14 @@ static const struct clk_ops clk_ops_l3_osm = {
 	.debug_init = clk_debug_measure_add,
 };
 
-static const struct clk_ops clk_ops_core = {
+static const struct clk_ops clk_ops_pwrcl_core = {
+	.set_rate = clk_pwrcl_set_rate,
+	.round_rate = clk_cpu_round_rate,
+	.recalc_rate = clk_cpu_recalc_rate,
+	.debug_init = clk_debug_measure_add,
+};
+
+static const struct clk_ops clk_ops_perfcl_core = {
 	.set_rate = clk_cpu_set_rate,
 	.round_rate = clk_cpu_round_rate,
 	.recalc_rate = clk_cpu_recalc_rate,
@@ -338,6 +404,7 @@ static struct clk_init_data osm_clks_init[] = {
 		.name = "l3_clk",
 		.parent_names = (const char *[]){ "bi_tcxo_ao" },
 		.num_parents = 1,
+		.flags = CLK_CHILD_NO_RATE_PROP,
 		.ops = &clk_ops_l3_osm,
 		.vdd_class = &vdd_l3_mx_ao,
 	},
@@ -381,7 +448,7 @@ static struct clk_osm cpu0_pwrcl_clk = {
 		.parent_names = (const char *[]){ "pwrcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_pwrcl_core,
 	},
 };
 
@@ -394,7 +461,7 @@ static struct clk_osm cpu1_pwrcl_clk = {
 		.parent_names = (const char *[]){ "pwrcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_pwrcl_core,
 	},
 };
 
@@ -407,7 +474,7 @@ static struct clk_osm cpu2_pwrcl_clk = {
 		.parent_names = (const char *[]){ "pwrcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_pwrcl_core,
 	},
 };
 
@@ -420,7 +487,7 @@ static struct clk_osm cpu3_pwrcl_clk = {
 		.parent_names = (const char *[]){ "pwrcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_pwrcl_core,
 	},
 };
 
@@ -433,7 +500,7 @@ static struct clk_osm cpu4_pwrcl_clk = {
 		.parent_names = (const char *[]){ "pwrcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_pwrcl_core,
 	},
 };
 
@@ -446,7 +513,7 @@ static struct clk_osm cpu5_pwrcl_clk = {
 		.parent_names = (const char *[]){ "pwrcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_pwrcl_core,
 	},
 };
 
@@ -466,7 +533,7 @@ static struct clk_osm cpu4_perfcl_clk = {
 		.parent_names = (const char *[]){ "perfcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_perfcl_core,
 	},
 };
 
@@ -479,7 +546,7 @@ static struct clk_osm cpu5_perfcl_clk = {
 		.parent_names = (const char *[]){ "perfcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_perfcl_core,
 	},
 };
 
@@ -492,7 +559,7 @@ static struct clk_osm cpu6_perfcl_clk = {
 		.parent_names = (const char *[]){ "perfcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_perfcl_core,
 	},
 };
 
@@ -505,7 +572,7 @@ static struct clk_osm cpu7_perfcl_clk = {
 		.parent_names = (const char *[]){ "perfcl_clk" },
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_ops_core,
+		.ops = &clk_ops_perfcl_core,
 	},
 };
 
@@ -974,6 +1041,7 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 		src = ((data & GENMASK(31, 30)) >> 30);
 		lval = (data & GENMASK(7, 0));
 		c->osm_table[i].ccount = CORE_COUNT_VAL(data);
+		c->osm_table[i].lval = lval;
 
 		if (!src)
 			c->osm_table[i].frequency = OSM_INIT_RATE;

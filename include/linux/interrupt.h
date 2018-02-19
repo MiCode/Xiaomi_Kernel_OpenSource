@@ -14,6 +14,7 @@
 #include <linux/hrtimer.h>
 #include <linux/kref.h>
 #include <linux/workqueue.h>
+#include <linux/sched.h>
 
 #include <linux/atomic.h>
 #include <asm/ptrace.h>
@@ -496,6 +497,13 @@ DECLARE_PER_CPU(__u32, active_softirqs);
 static inline struct task_struct *this_cpu_ksoftirqd(void)
 {
 	return this_cpu_read(ksoftirqd);
+}
+
+static inline bool ksoftirqd_running_on(int cpu)
+{
+	struct task_struct *tsk = per_cpu(ksoftirqd, cpu);
+
+	return tsk && (tsk->state == TASK_RUNNING);
 }
 
 /* Tasklets --- multithreaded analogue of BHs.

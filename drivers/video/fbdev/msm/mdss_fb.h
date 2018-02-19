@@ -171,11 +171,12 @@ struct disp_info_notify {
 struct msm_sync_pt_data {
 	char *fence_name;
 	u32 acq_fen_cnt;
-	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
+	struct mdss_fence *acq_fen[MDP_MAX_FENCE_FD];
 	u32 temp_fen_cnt;
-	struct sync_fence *temp_fen[MDP_MAX_FENCE_FD];
+	struct mdss_fence *temp_fen[MDP_MAX_FENCE_FD];
 
-	struct sw_sync_timeline *timeline;
+	struct mdss_timeline *timeline;
+	struct mdss_timeline *timeline_retire;
 	int timeline_value;
 	u32 threshold;
 	u32 retire_threshold;
@@ -186,7 +187,7 @@ struct msm_sync_pt_data {
 	struct mutex sync_mutex;
 	struct notifier_block notifier;
 
-	struct sync_fence *(*get_retire_fence)
+	struct mdss_fence *(*get_retire_fence)
 		(struct msm_sync_pt_data *sync_pt_data);
 };
 
@@ -452,7 +453,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl);
 void mdss_fb_update_backlight(struct msm_fb_data_type *mfd);
 int mdss_fb_wait_for_fence(struct msm_sync_pt_data *sync_pt_data);
 void mdss_fb_signal_timeline(struct msm_sync_pt_data *sync_pt_data);
-struct sync_fence *mdss_fb_sync_get_fence(struct sw_sync_timeline *timeline,
+struct mdss_fence *mdss_fb_sync_get_fence(struct mdss_timeline *timeline,
 				const char *fence_name, int val);
 int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp);
 int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state);

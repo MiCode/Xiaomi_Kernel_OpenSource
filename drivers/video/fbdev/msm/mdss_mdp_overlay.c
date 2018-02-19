@@ -25,7 +25,6 @@
 #include <linux/msm_mdp.h>
 #include <linux/memblock.h>
 #include <linux/sort.h>
-#include <linux/sw_sync.h>
 #include <linux/kmemleak.h>
 #include <linux/kthread.h>
 #include <asm/div64.h>
@@ -39,6 +38,7 @@
 #include "mdss_smmu.h"
 #include "mdss_mdp_wfd.h"
 #include "mdss_dsi_clk.h"
+#include "mdss_sync.h"
 
 #define VSYNC_PERIOD 16
 #define BORDERFILL_NDX	0x0BF000BF
@@ -6340,11 +6340,11 @@ static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val)
 
 	mutex_lock(&mfd->mdp_sync_pt_data.sync_mutex);
 	if (mdp5_data->retire_cnt > 0) {
-		sw_sync_timeline_inc(mdp5_data->vsync_timeline, val);
+		mdss_inc_timeline(mdp5_data->vsync_timeline, val);
 		mdp5_data->retire_cnt -= min(val, mdp5_data->retire_cnt);
 		pr_debug("Retire signaled! timeline val=%d remaining=%d\n",
-				mdp5_data->vsync_timeline->value,
-				mdp5_data->retire_cnt);
+			mdss_get_timeline_retire_ts(mdp5_data->vsync_timeline),
+			mdp5_data->retire_cnt);
 
 		if (mdp5_data->retire_cnt == 0) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
@@ -6356,7 +6356,7 @@ static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val)
 	mutex_unlock(&mfd->mdp_sync_pt_data.sync_mutex);
 }
 
-static struct sync_fence *
+static struct mdss_fence *
 __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
 {
 	struct msm_fb_data_type *mfd;
@@ -6379,7 +6379,7 @@ __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
 		return ERR_PTR(-EPERM);
 	}
 
-	value = mdp5_data->vsync_timeline->value + 1 + mdp5_data->retire_cnt;
+	value = 1 + mdp5_data->retire_cnt;
 	mdp5_data->retire_cnt++;
 
 	return mdss_fb_sync_get_fence(mdp5_data->vsync_timeline,
@@ -6420,7 +6420,7 @@ static int __vsync_retire_setup(struct msm_fb_data_type *mfd)
 	struct sched_param param = { .sched_priority = 5 };
 
 	snprintf(name, sizeof(name), "mdss_fb%d_retire", mfd->index);
-	mdp5_data->vsync_timeline = sw_sync_timeline_create(name);
+	mdp5_data->vsync_timeline = mdss_create_timeline(name);
 	if (mdp5_data->vsync_timeline == NULL) {
 		pr_err("cannot vsync create time line");
 		return -ENOMEM;

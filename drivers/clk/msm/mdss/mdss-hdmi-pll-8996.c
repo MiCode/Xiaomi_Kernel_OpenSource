@@ -31,14 +31,14 @@
 #define HDMI_CLKS_PLL_DIVSEL                     0
 #define HDMI_CORECLK_DIV                         5
 #define HDMI_REF_CLOCK                           19200000
-#define HDMI_64B_ERR_VAL                         0xFFFFFFFFFFFFFFFF
+#define HDMI_64B_ERR_VAL                         0xFFFFFFFFFFFFFFFFULL
 #define HDMI_VERSION_8996_V1                     1
 #define HDMI_VERSION_8996_V2                     2
 #define HDMI_VERSION_8996_V3                     3
 #define HDMI_VERSION_8996_V3_1_8                 4
 
-#define HDMI_VCO_MAX_FREQ                        12000000000
-#define HDMI_VCO_MIN_FREQ                        8000000000
+#define HDMI_VCO_MAX_FREQ                        12000000000UL
+#define HDMI_VCO_MIN_FREQ                        8000000000UL
 #define HDMI_2400MHZ_BIT_CLK_HZ                  2400000000UL
 #define HDMI_2250MHZ_BIT_CLK_HZ                  2250000000UL
 #define HDMI_2000MHZ_BIT_CLK_HZ                  2000000000UL
@@ -2566,7 +2566,7 @@ static enum handoff hdmi_8996_vco_handoff(struct clk *c)
 	return ret;
 }
 
-const struct clk_ops hdmi_8996_v1_vco_clk_ops = {
+static const struct clk_ops hdmi_8996_v1_vco_clk_ops = {
 	.enable = hdmi_8996_v1_vco_enable,
 	.set_rate = hdmi_8996_v1_vco_set_rate,
 	.get_rate = hdmi_8996_vco_get_rate,
@@ -2576,7 +2576,7 @@ const struct clk_ops hdmi_8996_v1_vco_clk_ops = {
 	.handoff = hdmi_8996_vco_handoff,
 };
 
-const struct clk_ops hdmi_8996_v2_vco_clk_ops = {
+static const struct clk_ops hdmi_8996_v2_vco_clk_ops = {
 	.enable = hdmi_8996_v2_vco_enable,
 	.set_rate = hdmi_8996_v2_vco_set_rate,
 	.get_rate = hdmi_8996_vco_get_rate,
@@ -2586,7 +2586,7 @@ const struct clk_ops hdmi_8996_v2_vco_clk_ops = {
 	.handoff = hdmi_8996_vco_handoff,
 };
 
-const struct clk_ops hdmi_8996_v3_vco_clk_ops = {
+static const struct clk_ops hdmi_8996_v3_vco_clk_ops = {
 	.enable = hdmi_8996_v3_vco_enable,
 	.set_rate = hdmi_8996_v3_vco_set_rate,
 	.get_rate = hdmi_8996_vco_get_rate,
@@ -2596,7 +2596,7 @@ const struct clk_ops hdmi_8996_v3_vco_clk_ops = {
 	.handoff = hdmi_8996_vco_handoff,
 };
 
-const struct clk_ops hdmi_8996_v3_1p8_vco_clk_ops = {
+static const struct clk_ops hdmi_8996_v3_1p8_vco_clk_ops = {
 	.enable = hdmi_8996_v3_1p8_vco_enable,
 	.set_rate = hdmi_8996_v3_1p8_vco_set_rate,
 	.get_rate = hdmi_8996_vco_get_rate,

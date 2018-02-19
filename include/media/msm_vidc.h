@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,6 +72,8 @@ struct msm_smem {
 	unsigned long flags;
 	enum hal_buffer buffer_type;
 	struct dma_mapping_info mapping_info;
+	int mem_type;
+	void *smem_priv;
 };
 
 enum smem_cache_ops {
@@ -104,6 +106,8 @@ int msm_vidc_querycap(void *instance, struct v4l2_capability *cap);
 int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
 int msm_vidc_s_fmt(void *instance, struct v4l2_format *f);
 int msm_vidc_g_fmt(void *instance, struct v4l2_format *f);
+int msm_vidc_release_buffers(void *instance, int buffer_type);
+int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b);
 int msm_vidc_s_ctrl(void *instance, struct v4l2_control *a);
 int msm_vidc_s_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
 int msm_vidc_g_ext_ctrl(void *instance, struct v4l2_ext_controls *a);

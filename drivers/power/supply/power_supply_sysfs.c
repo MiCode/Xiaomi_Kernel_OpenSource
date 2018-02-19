@@ -321,6 +321,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(sdp_current_max),
 	POWER_SUPPLY_ATTR(connector_type),
 	POWER_SUPPLY_ATTR(parallel_batfet_mode),
+	POWER_SUPPLY_ATTR(parallel_fcc_max),
 	POWER_SUPPLY_ATTR(min_icl),
 	POWER_SUPPLY_ATTR(moisture_detected),
 	/* Local extensions of type int64_t */

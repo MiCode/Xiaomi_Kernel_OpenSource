@@ -47,6 +47,7 @@ struct dp_debug {
  * @usbpd: instance of usbpd module
  * @link: instance of link module
  * @connector: double pointer to display connector
+ * @catalog: instance of catalog module
  * return: pointer to allocated debug module data
  *
  * This function sets up the debug module and provides a way
@@ -54,7 +55,8 @@ struct dp_debug {
  */
 struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 			struct dp_usbpd *usbpd, struct dp_link *link,
-			struct dp_aux *aux, struct drm_connector **connector);
+			struct dp_aux *aux, struct drm_connector **connector,
+			struct dp_catalog *catalog);
 /**
  * dp_debug_put()
  *

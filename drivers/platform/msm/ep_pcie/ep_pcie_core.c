@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,8 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_0_slv_axi_clk", 0, true},
 	{NULL, "pcie_0_aux_clk", 1000000, true},
 	{NULL, "pcie_0_ldo", 0, true},
+	{NULL, "pcie_0_sleep_clk", 0, false},
+	{NULL, "pcie_0_slv_q2a_axi_clk", 0, false},
 };
 
 static struct ep_pcie_clk_info_t
@@ -82,12 +84,13 @@ static struct ep_pcie_reset_info_t
 };
 
 static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
-	{"parf",	0, 0},
-	{"phy",		0, 0},
-	{"mmio",	0, 0},
-	{"msi",		0, 0},
-	{"dm_core",	0, 0},
-	{"elbi",	0, 0}
+	{"parf",	NULL, NULL},
+	{"phy",		NULL, NULL},
+	{"mmio",	NULL, NULL},
+	{"msi",		NULL, NULL},
+	{"dm_core",	NULL, NULL},
+	{"elbi",	NULL, NULL},
+	{"iatu",	NULL, NULL},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -318,8 +321,8 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 				break;
 			}
 			EP_PCIE_DBG(dev,
-				"PCIe V%d: set rate for clk %s.\n",
-				dev->rev, info->name);
+				"PCIe V%d: set rate %d for clk %s.\n",
+				dev->rev, info->freq, info->name);
 		}
 
 		rc = clk_prepare_enable(info->hdl);
@@ -528,6 +531,47 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 				0xf, dev->link_speed);
 	}
 
+	if (dev->active_config) {
+		struct resource *dbi = dev->res[EP_PCIE_RES_DM_CORE].resource;
+		u32 dbi_lo = dbi->start;
+
+		EP_PCIE_DBG2(dev, "PCIe V%d: Enable L1.\n", dev->rev);
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
+
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
+					0, BIT(0));
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI,
+					0x200);
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
+					0x0);
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR_HI,
+					0x100);
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR,
+					dbi_lo);
+
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: DBI base:0x%x.\n", dev->rev,
+			readl_relaxed(dev->parf + PCIE20_PARF_DBI_BASE_ADDR));
+
+		if (dev->phy_rev >= 6) {
+			struct resource *atu =
+					dev->res[EP_PCIE_RES_IATU].resource;
+			u32 atu_lo = atu->start;
+
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: configure MSB of ATU base for flipping and LSB as 0x%x.\n",
+				dev->rev, atu_lo);
+			ep_pcie_write_reg(dev->parf,
+					PCIE20_PARF_ATU_BASE_ADDR_HI, 0x100);
+			ep_pcie_write_reg(dev->parf, PCIE20_PARF_ATU_BASE_ADDR,
+					atu_lo);
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: LSB of ATU base:0x%x.\n",
+				dev->rev, readl_relaxed(dev->parf
+						+ PCIE20_PARF_ATU_BASE_ADDR));
+		}
+	}
+
 	/* Read halts write */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_AXI_MSTR_RD_HALT_NO_WRITES,
 			0, BIT(0));
@@ -646,13 +690,6 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 			dev->rev,
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
 	}
-
-	if (dev->active_config) {
-		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
-
-		EP_PCIE_DBG2(dev, "PCIe V%d: Enable L1.\n", dev->rev);
-		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
-	}
 }
 
 static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev)
@@ -670,6 +707,26 @@ static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev)
 
 	ep_pcie_write_reg(dev->parf, PCIE20_PARF_MHI_BASE_ADDR_LOWER, lower);
 	ep_pcie_write_reg(dev->parf, PCIE20_PARF_MHI_BASE_ADDR_UPPER, 0x0);
+
+	if (dev->phy_rev >= 6) {
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_I_CTRL1(0), 0x0);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_I_LTAR(0), lower);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_I_UTAR(0), 0x0);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_I_CTRL2(0),
+					0xc0000000);
+
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: Inbound iATU configuration.\n", dev->rev);
+		EP_PCIE_DBG(dev, "PCIE20_IATU_I_CTRL1(0):0x%x\n",
+			readl_relaxed(dev->iatu + PCIE20_IATU_I_CTRL1(0)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_I_LTAR(0):0x%x\n",
+			readl_relaxed(dev->iatu + PCIE20_IATU_I_LTAR(0)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_I_UTAR(0):0x%x\n",
+			readl_relaxed(dev->iatu + PCIE20_IATU_I_UTAR(0)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_I_CTRL2(0):0x%x\n",
+			readl_relaxed(dev->iatu + PCIE20_IATU_I_CTRL2(0)));
+		return;
+	}
 
 	/* program inbound address translation using region 0 */
 	ep_pcie_write_reg(dev->dm_core, PCIE20_PLR_IATU_VIEWPORT, 0x80000000);
@@ -700,6 +757,49 @@ static void ep_pcie_config_outbound_iatu_entry(struct ep_pcie_dev_t *dev,
 	EP_PCIE_DBG(dev,
 		"PCIe V%d: region:%d; lower:0x%x; limit:0x%x; target_lower:0x%x; target_upper:0x%x\n",
 		dev->rev, region, lower, limit, tgt_lower, tgt_upper);
+
+	if (dev->phy_rev >= 6) {
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_CTRL1(region),
+					0x0);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_LBAR(region),
+					lower);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_UBAR(region),
+					upper);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_LAR(region),
+					limit);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_LTAR(region),
+					tgt_lower);
+		ep_pcie_write_reg(dev->iatu, PCIE20_IATU_O_UTAR(region),
+					tgt_upper);
+		ep_pcie_write_mask(dev->iatu + PCIE20_IATU_O_CTRL2(region),
+					0, BIT(31));
+
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: Outbound iATU configuration.\n", dev->rev);
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_CTRL1:0x%x\n",
+			readl_relaxed(dev->iatu
+					+ PCIE20_IATU_O_CTRL1(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_LBAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_LBAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_UBAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_UBAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_LAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_LAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_LTAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_LTAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_UTAR:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_UTAR(region)));
+		EP_PCIE_DBG(dev, "PCIE20_IATU_O_CTRL2:0x%x\n",
+			readl_relaxed(dev->iatu +
+					PCIE20_IATU_O_CTRL2(region)));
+
+		return;
+	}
 
 	/* program outbound address translation using an input region */
 	ep_pcie_write_reg(dev->dm_core, PCIE20_PLR_IATU_VIEWPORT, region);
@@ -813,12 +913,10 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 		ret = of_property_read_u32_array(
 			(&pdev->dev)->of_node,
 			"max-clock-frequency-hz", clkfreq, cnt);
-		if (ret) {
-			EP_PCIE_ERR(dev,
-				"PCIe V%d: invalid max-clock-frequency-hz property:%d\n",
+		if (ret)
+			EP_PCIE_DBG2(dev,
+				"PCIe V%d: cannot get max-clock-frequency-hz property from DT:%d\n",
 				dev->rev, ret);
-			goto out;
-		}
 	}
 
 	for (i = 0; i < EP_PCIE_MAX_VREG; i++) {
@@ -1037,6 +1135,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->msi = dev->res[EP_PCIE_RES_MSI].base;
 	dev->dm_core = dev->res[EP_PCIE_RES_DM_CORE].base;
 	dev->elbi = dev->res[EP_PCIE_RES_ELBI].base;
+	dev->iatu = dev->res[EP_PCIE_RES_IATU].base;
 
 out:
 	kfree(clkfreq);
@@ -1051,6 +1150,7 @@ static void ep_pcie_release_resources(struct ep_pcie_dev_t *dev)
 	dev->phy = NULL;
 	dev->mmio = NULL;
 	dev->msi = NULL;
+	dev->iatu = NULL;
 
 	if (dev->bus_client) {
 		msm_bus_scale_unregister_client(dev->bus_client);
@@ -1319,18 +1419,8 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	}
 
 checkbme:
-	if (dev->active_config) {
-		ep_pcie_write_mask(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
-					0, BIT(0));
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI,
-					0x200);
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
-					0x0);
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR_HI,
-					0x100);
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR,
-					0x7FFFE000);
-	}
+	if (dev->active_config)
+		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
 
 	if (!(opt & EP_PCIE_OPT_ENUM_ASYNC)) {
 		/* Wait for up to 1000ms for BME to be set */

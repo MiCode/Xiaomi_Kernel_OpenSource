@@ -15,10 +15,8 @@
 #define MDSS_MDP_ROTATOR_INTERNAL_H
 
 #include <linux/list.h>
-#include <linux/sync.h>
 #include <linux/file.h>
 #include <linux/mdss_rotator.h>
-#include <linux/sw_sync.h>
 #include <linux/mutex.h>
 #include <linux/types.h>
 #include <linux/cdev.h>
@@ -52,7 +50,7 @@ struct mdss_rot_entry_cb_intf {
 
 struct mdss_rot_timeline {
 	struct mutex lock;
-	struct sw_sync_timeline *timeline;
+	struct mdss_timeline *timeline;
 	u32 next_value;
 	char fence_name[32];
 };
@@ -95,10 +93,10 @@ struct mdss_rot_entry {
 	struct mdss_mdp_data src_buf;
 	struct mdss_mdp_data dst_buf;
 
-	struct sync_fence *input_fence;
+	struct mdss_fence *input_fence;
 
 	int output_fence_fd;
-	struct sync_fence *output_fence;
+	struct mdss_fence *output_fence;
 	bool output_signaled;
 
 	u32 dnsc_factor_w;
@@ -174,7 +172,7 @@ struct mdss_rot_mgr {
 	struct mdss_rot_bus_data_type reg_bus;
 
 	/* Module power is only used for regulator management */
-	struct dss_module_power module_power;
+	struct mdss_module_power module_power;
 	bool regulator_enable;
 
 	struct mutex clk_lock;

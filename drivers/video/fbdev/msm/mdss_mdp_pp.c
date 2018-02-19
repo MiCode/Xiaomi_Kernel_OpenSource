@@ -7209,6 +7209,13 @@ int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version)
 		ret = -EINVAL;
 		goto exit_version;
 	}
+	/* PA dither is not supported by driver */
+	if (version->pp_feature == PA_DITHER) {
+		pr_warn("unsupported feature %d\n", version->pp_feature);
+		version->version_info = 0;
+		ret = 0;
+		goto exit_version;
+	}
 	if (version->pp_feature >= PP_FEATURE_MAX) {
 		pr_err("invalid feature passed %d\n", version->pp_feature);
 		ret = -EINVAL;

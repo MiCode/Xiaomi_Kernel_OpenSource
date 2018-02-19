@@ -30,6 +30,7 @@ Optional properties:
   - qcom,smmu-s1-bypass: Boolean context flag to set SMMU to S1 bypass
   - qcom,wlan-msa-fixed-region: phandle, specifier pairs to children of /reserved-memory
   - qcom,gpio-force-fatal-error: SMP2P bit triggered by WLAN FW to force error fatal.
+  - qcom,gpio-early-crash-ind: SMP2P bit triggered by WLAN FW to indicate FW is in assert.
 
 Example:
 
@@ -61,4 +62,5 @@ Example:
 	vdd-0.8-cx-mx-supply = <&pm8998_l5>;
 	qcom,vdd-0.8-cx-mx-config = <800000 800000 2400 1000>;
 	qcom,gpio-forced-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
+	qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
     };

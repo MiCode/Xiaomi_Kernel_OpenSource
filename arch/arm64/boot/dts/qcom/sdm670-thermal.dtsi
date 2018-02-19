@@ -584,12 +584,12 @@
 
 		trips {
 			gold_trip0: gold-trip0 {
-				temperature = <45000>;
+				temperature = <47000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
 			silver_trip1: silver-trip1 {
-				temperature = <50000>;
+				temperature = <52000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -645,23 +645,23 @@
 
 		trips {
 			modem_trip0: modem-trip0 {
-				temperature = <44000>;
+				temperature = <48000>;
 				hysteresis = <4000>;
 				type = "passive";
 			};
 			modem_trip1: modem-trip1 {
-				temperature = <46000>;
-				hysteresis = <3000>;
+				temperature = <50000>;
+				hysteresis = <4000>;
 				type = "passive";
 			};
 			modem_trip2: modem-trip2 {
-				temperature = <48000>;
-				hysteresis = <3000>;
+				temperature = <52000>;
+				hysteresis = <2000>;
 				type = "passive";
 			};
 			modem_trip3: modem-trip3 {
-				temperature = <55000>;
-				hysteresis = <5000>;
+				temperature = <56000>;
+				hysteresis = <4000>;
 				type = "passive";
 			};
 		};

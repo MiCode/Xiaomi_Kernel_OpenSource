@@ -4026,9 +4026,10 @@ static int __init ipa3_wwan_init(void)
 	ipa3_qmi_init();
 
 	/* Register for Modem SSR */
-	/* SSR is not supported yet on IPA 4.0 */
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_0)
-		return platform_driver_register(&rmnet_ipa_driver);
+	if (ipa3_ctx != NULL)
+		/* SSR is not supported yet on IPA 4.0 */
+		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_0)
+			return platform_driver_register(&rmnet_ipa_driver);
 
 	rmnet_ipa3_ctx->subsys_notify_handle = subsys_notif_register_notifier(
 			SUBSYS_MODEM,

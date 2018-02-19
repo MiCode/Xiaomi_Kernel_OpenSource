@@ -17,8 +17,6 @@
 #include <linux/err.h>
 #include <linux/string.h>
 #include <linux/clk/msm-clock-generic.h>
-#include <linux/of_address.h>
-#include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
 #include <linux/memblock.h>
 
@@ -28,16 +26,16 @@ int mdss_pll_util_resource_init(struct platform_device *pdev,
 					struct mdss_pll_resources *pll_res)
 {
 	int rc = 0;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
-	rc = msm_dss_config_vreg(&pdev->dev,
+	rc = msm_mdss_config_vreg(&pdev->dev,
 				mp->vreg_config, mp->num_vreg, 1);
 	if (rc) {
 		pr_err("Vreg config failed rc=%d\n", rc);
 		goto vreg_err;
 	}
 
-	rc = msm_dss_get_clk(&pdev->dev, mp->clk_config, mp->num_clk);
+	rc = msm_mdss_get_clk(&pdev->dev, mp->clk_config, mp->num_clk);
 	if (rc) {
 		pr_err("Clock get failed rc=%d\n", rc);
 		goto clk_err;
@@ -46,7 +44,7 @@ int mdss_pll_util_resource_init(struct platform_device *pdev,
 	return rc;
 
 clk_err:
-	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
+	msm_mdss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
 	return rc;
 }
@@ -59,11 +57,11 @@ vreg_err:
  * This is a helper function to retrieve the regulator information
  * for each pll resource.
  */
-struct dss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
+struct mdss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
 		, char *name)
 {
 
-	struct dss_vreg *regulator = NULL;
+	struct mdss_vreg *regulator = NULL;
 	int i;
 
 	if ((pll_res == NULL) || (pll_res->mp.vreg_config == NULL)) {
@@ -88,17 +86,17 @@ error:
 void mdss_pll_util_resource_deinit(struct platform_device *pdev,
 					 struct mdss_pll_resources *pll_res)
 {
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
-	msm_dss_put_clk(mp->clk_config, mp->num_clk);
+	msm_mdss_put_clk(mp->clk_config, mp->num_clk);
 
-	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
+	msm_mdss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
 }
 
 void mdss_pll_util_resource_release(struct platform_device *pdev,
 					struct mdss_pll_resources *pll_res)
 {
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
 	devm_kfree(&pdev->dev, mp->clk_config);
 	devm_kfree(&pdev->dev, mp->vreg_config);
@@ -110,36 +108,37 @@ int mdss_pll_util_resource_enable(struct mdss_pll_resources *pll_res,
 								bool enable)
 {
 	int rc = 0;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
 	if (enable) {
-		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
+		rc = msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg,
+					  enable);
 		if (rc) {
 			pr_err("Failed to enable vregs rc=%d\n", rc);
 			goto vreg_err;
 		}
 
-		rc = msm_dss_clk_set_rate(mp->clk_config, mp->num_clk);
+		rc = msm_mdss_clk_set_rate(mp->clk_config, mp->num_clk);
 		if (rc) {
 			pr_err("Failed to set clock rate rc=%d\n", rc);
 			goto clk_err;
 		}
 
-		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
+		rc = msm_mdss_enable_clk(mp->clk_config, mp->num_clk, enable);
 		if (rc) {
 			pr_err("clock enable failed rc:%d\n", rc);
 			goto clk_err;
 		}
 	} else {
-		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
+		msm_mdss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
-		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
+		msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
 	}
 
 	return rc;
 
 clk_err:
-	msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
+	msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
 	return rc;
 }
@@ -151,7 +150,7 @@ static int mdss_pll_util_parse_dt_supply(struct platform_device *pdev,
 	u32 tmp = 0;
 	struct device_node *of_node = NULL, *supply_root_node = NULL;
 	struct device_node *supply_node = NULL;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
 	of_node = pdev->dev.of_node;
 
@@ -173,7 +172,7 @@ static int mdss_pll_util_parse_dt_supply(struct platform_device *pdev,
 	}
 	pr_debug("vreg found. count=%d\n", mp->num_vreg);
 
-	mp->vreg_config = devm_kzalloc(&pdev->dev, sizeof(struct dss_vreg) *
+	mp->vreg_config = devm_kzalloc(&pdev->dev, sizeof(struct mdss_vreg) *
 						mp->num_vreg, GFP_KERNEL);
 	if (!mp->vreg_config) {
 		rc = -ENOMEM;
@@ -298,7 +297,7 @@ static int mdss_pll_util_parse_dt_clock(struct platform_device *pdev,
 					struct mdss_pll_resources *pll_res)
 {
 	u32 i = 0, rc = 0;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 	const char *clock_name;
 	u32 clock_rate;
 
@@ -310,7 +309,7 @@ static int mdss_pll_util_parse_dt_clock(struct platform_device *pdev,
 	}
 
 	mp->clk_config = devm_kzalloc(&pdev->dev,
-			sizeof(struct dss_clk) * mp->num_clk, GFP_KERNEL);
+			sizeof(struct mdss_clk) * mp->num_clk, GFP_KERNEL);
 	if (!mp->clk_config) {
 		rc = -ENOMEM;
 		mp->num_clk = 0;
@@ -337,90 +336,11 @@ clk_err:
 	return rc;
 }
 
-static void mdss_pll_free_bootmem(u32 mem_addr, u32 size)
-{
-	unsigned long pfn_start, pfn_end, pfn_idx;
-
-	pfn_start = mem_addr >> PAGE_SHIFT;
-	pfn_end = (mem_addr + size) >> PAGE_SHIFT;
-	for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
-		free_reserved_page(pfn_to_page(pfn_idx));
-}
-
-static int mdss_pll_util_parse_dt_dfps(struct platform_device *pdev,
-					struct mdss_pll_resources *pll_res)
-{
-	int rc = 0;
-	struct device_node *pnode;
-	const u32 *addr;
-	struct vm_struct *area;
-	u64 size;
-	u32 offsets[2];
-	unsigned long virt_add;
-
-	pnode = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
-	if (IS_ERR_OR_NULL(pnode)) {
-		rc = PTR_ERR(pnode);
-		goto pnode_err;
-	}
-
-	addr = of_get_address(pnode, 0, &size, NULL);
-	if (!addr) {
-		pr_err("failed to parse the dfps memory address\n");
-		rc = -EINVAL;
-		goto pnode_err;
-	}
-	/* maintain compatibility for 32/64 bit */
-	offsets[0] = (u32) of_read_ulong(addr, 2);
-	offsets[1] = (u32) size;
-
-	area = get_vm_area(offsets[1], VM_IOREMAP);
-	if (!area) {
-		rc = -ENOMEM;
-		goto dfps_mem_err;
-	}
-
-	virt_add = (unsigned long)area->addr;
-	rc = ioremap_page_range(virt_add, (virt_add + offsets[1]),
-			offsets[0], PAGE_KERNEL);
-	if (rc) {
-		rc = -ENOMEM;
-		goto ioremap_err;
-	}
-
-	pll_res->dfps = kzalloc(sizeof(struct dfps_info), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(pll_res->dfps)) {
-		rc = PTR_ERR(pll_res->dfps);
-		pr_err("couldn't allocate dfps kernel memory\n");
-		goto addr_err;
-	}
-
-	/* memcopy complete dfps structure from kernel virtual memory */
-	memcpy_fromio(pll_res->dfps, area->addr, sizeof(struct dfps_info));
-
-addr_err:
-	if (virt_add)
-		unmap_kernel_range(virt_add, (unsigned long) size);
-ioremap_err:
-	if (area)
-		vfree(area->addr);
-dfps_mem_err:
-	/* free the dfps memory here */
-	memblock_free(offsets[0], offsets[1]);
-	mdss_pll_free_bootmem(offsets[0], offsets[1]);
-pnode_err:
-	if (pnode)
-		of_node_put(pnode);
-
-	dma_release_declared_memory(&pdev->dev);
-	return rc;
-}
-
 int mdss_pll_util_resource_parse(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc = 0;
-	struct dss_module_power *mp = &pll_res->mp;
+	struct mdss_module_power *mp = &pll_res->mp;
 
 	rc = mdss_pll_util_parse_dt_supply(pdev, pll_res);
 	if (rc) {
@@ -433,9 +353,6 @@ int mdss_pll_util_resource_parse(struct platform_device *pdev,
 		pr_err("clock name parsing failed rc=%d", rc);
 		goto clk_err;
 	}
-
-	if (mdss_pll_util_parse_dt_dfps(pdev, pll_res))
-		pr_err("dfps not enabled!\n");
 
 	return rc;
 

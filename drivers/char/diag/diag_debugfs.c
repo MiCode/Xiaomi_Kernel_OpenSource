@@ -32,6 +32,7 @@
 #include "diag_dci.h"
 #include "diag_usb.h"
 #include "diagfwd_peripheral.h"
+#include "diagfwd_smd.h"
 #include "diagfwd_socket.h"
 #include "diagfwd_glink.h"
 #include "diag_debugfs.h"
@@ -42,6 +43,7 @@ static struct dentry *diag_dbgfs_dent;
 static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
 static int diag_dbgfs_usbinfo_index;
+static int diag_dbgfs_smdinfo_index;
 static int diag_dbgfs_socketinfo_index;
 static int diag_dbgfs_glinkinfo_index;
 static int diag_dbgfs_hsicinfo_index;
@@ -478,6 +480,112 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 	kfree(buf);
 	return ret;
 }
+
+#ifdef CONFIG_DIAG_USES_SMD
+static ssize_t diag_dbgfs_read_smdinfo(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *ppos)
+{
+	char *buf = NULL;
+	int ret = 0;
+	int i = 0;
+	int j = 0;
+	unsigned int buf_size;
+	unsigned int bytes_remaining = 0;
+	unsigned int bytes_written = 0;
+	unsigned int bytes_in_buffer = 0;
+	struct diag_smd_info *smd_info = NULL;
+	struct diagfwd_info *fwd_ctxt = NULL;
+
+	if (diag_dbgfs_smdinfo_index >= NUM_PERIPHERALS) {
+		/* Done. Reset to prepare for future requests */
+		diag_dbgfs_smdinfo_index = 0;
+		return 0;
+	}
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	buf_size = DEBUG_BUF_SIZE;
+	bytes_remaining = buf_size;
+	for (i = 0; i < NUM_TYPES; i++) {
+		for (j = 0; j < NUM_PERIPHERALS; j++) {
+			switch (i) {
+			case TYPE_DATA:
+				smd_info = &smd_data[j];
+				break;
+			case TYPE_CNTL:
+				smd_info = &smd_cntl[j];
+				break;
+			case TYPE_DCI:
+				smd_info = &smd_dci[j];
+				break;
+			case TYPE_CMD:
+				smd_info = &smd_cmd[j];
+				break;
+			case TYPE_DCI_CMD:
+				smd_info = &smd_dci_cmd[j];
+				break;
+			default:
+				return -EINVAL;
+			}
+
+			fwd_ctxt = (struct diagfwd_info *)(smd_info->fwd_ctxt);
+
+			bytes_written = scnprintf(buf+bytes_in_buffer,
+				bytes_remaining,
+				"name\t\t:\t%s\n"
+				"hdl\t\t:\t%pK\n"
+				"inited\t\t:\t%d\n"
+				"opened\t\t:\t%d\n"
+				"diag_state\t:\t%d\n"
+				"fifo size\t:\t%d\n"
+				"open pending\t:\t%d\n"
+				"close pending\t:\t%d\n"
+				"read pending\t:\t%d\n"
+				"buf_1 busy\t:\t%d\n"
+				"buf_2 busy\t:\t%d\n"
+				"bytes read\t:\t%lu\n"
+				"bytes written\t:\t%lu\n"
+				"fwd inited\t:\t%d\n"
+				"fwd opened\t:\t%d\n"
+				"fwd ch_open\t:\t%d\n\n",
+				smd_info->name,
+				smd_info->hdl,
+				smd_info->inited,
+				atomic_read(&smd_info->opened),
+				atomic_read(&smd_info->diag_state),
+				smd_info->fifo_size,
+				work_pending(&smd_info->open_work),
+				work_pending(&smd_info->close_work),
+				work_pending(&smd_info->read_work),
+				(fwd_ctxt && fwd_ctxt->buf_1) ?
+				atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
+				(fwd_ctxt && fwd_ctxt->buf_2) ?
+				atomic_read(&fwd_ctxt->buf_2->in_busy) : -1,
+				(fwd_ctxt) ? fwd_ctxt->read_bytes : 0,
+				(fwd_ctxt) ? fwd_ctxt->write_bytes : 0,
+				(fwd_ctxt) ? fwd_ctxt->inited : -1,
+				(fwd_ctxt) ?
+				atomic_read(&fwd_ctxt->opened) : -1,
+				(fwd_ctxt) ? fwd_ctxt->ch_open : -1);
+			bytes_in_buffer += bytes_written;
+
+			/* Check if there is room to add another table entry */
+			bytes_remaining = buf_size - bytes_in_buffer;
+
+			if (bytes_remaining < bytes_written)
+				break;
+		}
+	}
+	diag_dbgfs_smdinfo_index = i+1;
+	*ppos = 0;
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
+
+	kfree(buf);
+	return ret;
+}
+#endif
 
 static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 					  size_t count, loff_t *ppos)
@@ -944,6 +1052,12 @@ const struct file_operations diag_dbgfs_status_ops = {
 	.read = diag_dbgfs_read_status,
 };
 
+#ifdef CONFIG_DIAG_USES_SMD
+static const struct file_operations diag_dbgfs_smdinfo_ops = {
+	.read = diag_dbgfs_read_smdinfo,
+};
+#endif
+
 const struct file_operations diag_dbgfs_socketinfo_ops = {
 	.read = diag_dbgfs_read_socketinfo,
 };
@@ -988,6 +1102,13 @@ int diag_debugfs_init(void)
 				    &diag_dbgfs_status_ops);
 	if (!entry)
 		goto err;
+
+#ifdef CONFIG_DIAG_USES_SMD
+	entry = debugfs_create_file("smdinfo", 0444, diag_dbgfs_dent, NULL,
+				    &diag_dbgfs_smdinfo_ops);
+	if (!entry)
+		goto err;
+#endif
 
 	entry = debugfs_create_file("socketinfo", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_socketinfo_ops);
@@ -1050,6 +1171,7 @@ int diag_debugfs_init(void)
 	diag_dbgfs_table_index = 0;
 	diag_dbgfs_mempool_index = 0;
 	diag_dbgfs_usbinfo_index = 0;
+	diag_dbgfs_smdinfo_index = 0;
 	diag_dbgfs_socketinfo_index = 0;
 	diag_dbgfs_hsicinfo_index = 0;
 	diag_dbgfs_bridgeinfo_index = 0;

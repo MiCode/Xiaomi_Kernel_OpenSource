@@ -736,7 +736,7 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 
 	operating_rate = operating_rate >> 16;
 
-	if ((curr_operating_rate + ops_left) >= operating_rate ||
+	if ((curr_operating_rate * (1 + ops_left)) >= operating_rate ||
 			!msm_vidc_clock_scaling ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW) {
 		dprintk(VIDC_DBG,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -859,7 +859,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	count = of_property_count_strings(of_node, "reg-names");
 	if (count <= 0) {
-		CAM_WARN(CAM_UTIL, "no reg-names found for: %s",
+		CAM_DBG(CAM_UTIL, "no reg-names found for: %s",
 			soc_info->dev_name);
 		count = 0;
 	}
@@ -896,7 +896,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 	rc = of_property_read_string_index(of_node, "interrupt-names", 0,
 		&soc_info->irq_name);
 	if (rc) {
-		CAM_WARN(CAM_UTIL, "No interrupt line preset for: %s",
+		CAM_DBG(CAM_UTIL, "No interrupt line preset for: %s",
 			soc_info->dev_name);
 		rc = 0;
 	} else {

@@ -395,27 +395,22 @@
 
 		trips {
 			batt_trip1: batt-trip1 {
-				temperature = <40000>;
-				hysteresis = <2000>;
+				temperature = <50000>;
+				hysteresis = <4000>;
 				type = "passive";
 			};
 			batt_trip2: batt-trip2 {
-				temperature = <45000>;
+				temperature = <52000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
 			batt_trip3: batt-trip3 {
-				temperature = <48000>;
-				hysteresis = <3000>;
-				type = "passive";
-			};
-			batt_trip4: batt-trip4 {
-				temperature = <50000>;
+				temperature = <54000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
-			batt_trip5: batt-trip5 {
-				temperature = <52000>;
+			batt_trip4: batt-trip4 {
+				temperature = <56000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
@@ -432,14 +427,10 @@
 			};
 			battery_lvl3 {
 				trip = <&batt_trip3>;
-				cooling-device = <&pm660_charger 3 3>;
+				cooling-device = <&pm660_charger 4 4>;
 			};
 			battery_lvl4 {
 				trip = <&batt_trip4>;
-				cooling-device = <&pm660_charger 4 4>;
-			};
-			battery_lvl5 {
-				trip = <&batt_trip5>;
 				cooling-device = <&pm660_charger 5 5>;
 			};
 		};

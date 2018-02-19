@@ -2257,7 +2257,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			if (autorefresh_enabled) {
 				SDE_DEBUG_ENC(sde_enc,
 					"not handling early wakeup since auto refresh is enabled\n");
-				mutex_lock(&sde_enc->rc_lock);
+				mutex_unlock(&sde_enc->rc_lock);
 				return 0;
 			}
 
@@ -2327,6 +2327,16 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	connector_list = &sde_kms->dev->mode_config.connector_list;
 
 	SDE_EVT32(DRMID(drm_enc));
+
+	/*
+	 * cache the crtc in sde_enc on enable for duration of use case
+	 * for correctly servicing asynchronous irq events and timers
+	 */
+	if (!drm_enc->crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+	sde_enc->crtc = drm_enc->crtc;
 
 	list_for_each_entry(conn_iter, connector_list, head)
 		if (conn_iter->encoder == drm_enc)
@@ -2529,16 +2539,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		SDE_ERROR("power resource is not enabled\n");
 		return;
 	}
-
-	/*
-	 * cache the crtc in sde_enc on enable for duration of use case
-	 * for correctly servicing asynchronous irq events and timers
-	 */
-	if (!drm_enc->crtc) {
-		SDE_ERROR("invalid crtc\n");
-		return;
-	}
-	sde_enc->crtc = drm_enc->crtc;
 
 	ret = _sde_encoder_get_mode_info(drm_enc, &mode_info);
 	if (ret) {

@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,16 +8,15 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
 
-/dts-v1/;
+#ifndef __VENUS_BOOT_H__
+#define __VENUS_BOOT_H__
+#include "msm_vidc_resources.h"
 
-#include "qcs605.dtsi"
-#include "qcs605-lc-mtp.dtsi"
+int venus_boot_init(struct msm_vidc_platform_resources *res,
+		struct context_bank_info *cb);
+void venus_boot_deinit(void);
 
-/ {
-	model = "Qualcomm Technologies, Inc. QC605 LC Groot + PM8005 MTP";
-	compatible = "qcom,qcs605-mtp", "qcom,qcs605", "qcom,mtp";
-	qcom,board-id = <8 4>;
-
-};
+#endif /* __VENUS_BOOT_H__ */

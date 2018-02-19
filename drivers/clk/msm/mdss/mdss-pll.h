@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,37 +46,10 @@ enum {
 	MDSS_PLL_TARGET_8909,
 };
 
-#define DFPS_MAX_NUM_OF_FRAME_RATES 20
-
-struct dfps_panel_info {
-	uint32_t enabled;
-	uint32_t frame_rate_cnt;
-	uint32_t frame_rate[DFPS_MAX_NUM_OF_FRAME_RATES]; /* hz */
-};
-
-struct dfps_pll_codes {
-	uint32_t pll_codes_1;
-	uint32_t pll_codes_2;
-};
-
-struct dfps_codes_info {
-	uint32_t is_valid;
-	uint32_t frame_rate;	/* hz */
-	uint32_t clk_rate;	/* hz */
-	struct dfps_pll_codes pll_codes;
-};
-
-struct dfps_info {
-	struct dfps_panel_info panel_dfps;
-	struct dfps_codes_info codes_dfps[DFPS_MAX_NUM_OF_FRAME_RATES];
-	void *dfps_fb_base;
-	uint32_t chip_serial;
-};
-
 struct mdss_pll_resources {
 
 	/* Pll specific resources like GPIO, power supply, clocks, etc*/
-	struct dss_module_power mp;
+	struct mdss_module_power mp;
 
 	/*
 	 * dsi/edp/hmdi plls' base register, phy, gdsc and dynamic refresh
@@ -219,6 +192,6 @@ int mdss_pll_util_resource_enable(struct mdss_pll_resources *pll_res,
 								bool enable);
 int mdss_pll_util_resource_parse(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
-struct dss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
+struct mdss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
 		, char *name);
 #endif

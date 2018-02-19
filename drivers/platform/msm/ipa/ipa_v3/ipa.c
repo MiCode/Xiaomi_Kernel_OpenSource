@@ -5973,6 +5973,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	int bypass = 1;
 	u32 iova_ap_mapping[2];
 	u32 add_map_size;
+	u32 q6_smem_size;
 	const u32 *add_map;
 	void *smem_addr;
 	int i;
@@ -6089,9 +6090,18 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		}
 	}
 
-	/* map SMEM memory for IPA table accesses */
-	smem_addr = smem_alloc(SMEM_IPA_FILTER_TABLE, IPA_SMEM_SIZE,
-		SMEM_MODEM, 0);
+	result = of_property_read_u32_array(dev->of_node,
+			"qcom,ipa-q6-smem-size", &q6_smem_size, 1);
+	if (result) {
+		IPADBG("ipa q6 smem size = %d\n", IPA_SMEM_SIZE);
+		/* map SMEM memory for IPA table accesses */
+		smem_addr = smem_alloc(SMEM_IPA_FILTER_TABLE, IPA_SMEM_SIZE,
+				SMEM_MODEM, 0);
+	} else {
+		IPADBG("ipa q6 smem size = %d\n", q6_smem_size);
+		smem_addr = smem_alloc(SMEM_IPA_FILTER_TABLE, q6_smem_size,
+				SMEM_MODEM, 0);
+	}
 	if (smem_addr) {
 		phys_addr_t iova = smem_virt_to_phys(smem_addr);
 		phys_addr_t pa = iova;
