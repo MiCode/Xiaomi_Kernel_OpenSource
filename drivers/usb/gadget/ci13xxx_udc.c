@@ -3678,6 +3678,7 @@ static int ci13xxx_stop(struct usb_gadget *gadget)
 		spin_lock_irqsave(udc->lock, flags);
 	}
 
+	udc->driver = NULL;
 	spin_unlock_irqrestore(udc->lock, flags);
 
 	usb_ep_free_request(&udc->ep0in.ep, udc->status);
