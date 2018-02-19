@@ -699,6 +699,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 	wmi_event_flush(wil);
 	destroy_workqueue(wil->wq_service);
 	destroy_workqueue(wil->wmi_wq);
+	kfree(wil->board_file);
 }
 
 static void wil_shutdown_bl(struct wil6210_priv *wil)
@@ -1136,7 +1137,8 @@ void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)
 /* construct actual board file name to use */
 void wil_get_board_file(struct wil6210_priv *wil, char *buf, size_t len)
 {
-	const char *board_file = WIL_BOARD_FILE_NAME;
+	const char *board_file = wil->board_file ?
+					wil->board_file : WIL_BOARD_FILE_NAME;
 	const char *ext;
 	int prefix_len;
 
