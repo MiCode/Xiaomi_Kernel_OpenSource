@@ -46,7 +46,7 @@
 		eeprom-src = <&eeprom_rear_aux>;
 		cam_vio-supply = <&camera_vio_ldo>;
 		cam_vana-supply = <&camera_vana_ldo>;
-		cam_vdig-supply = <&camera_ldo>;
+		cam_vdig-supply = <&camera_rear_ldo>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vdig", "cam_vio", "cam_vana",
 			"cam_clk";
