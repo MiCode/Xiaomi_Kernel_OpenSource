@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -317,7 +318,6 @@
 #define clk_ln_bb_clk				0x3ab0b36d
 #define clk_ln_bb_a_clk				0xc7257ea8
 
-
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux			0x8121ac15
 #define clk_rpm_debug_mux			0x25cd1f3a
@@ -340,5 +340,12 @@
 #define clk_audio_ap_clk			0x312ac429
 #define clk_audio_pmi_clk			0xb7ba2274
 #define clk_audio_lpass_mclk			0x575ec22b
+
+/* GCC block resets */
+#define GCC_CAMSS_MICRO_BCR			0
+#define GCC_USB_FS_BCR				1
+#define GCC_USB_HS_BCR				2
+#define GCC_USB2_HS_PHY_ONLY_BCR		3
+#define GCC_QUSB2_PHY_BCR			4
 
 #endif
