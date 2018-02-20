@@ -226,8 +226,12 @@ static int mdss_inc_timeline_locked(struct mdss_timeline *tl,
 		int increment)
 {
 	struct mdss_fence *f, *next;
+	s32 val;
 
-	tl->value += increment;
+	val = tl->next_value - tl->value;
+	if (val >= increment)
+		tl->value += increment;
+
 	list_for_each_entry_safe(f, next, &tl->fence_list_head, fence_list) {
 		if (fence_is_signaled_locked(&f->base)) {
 			pr_debug("%s signaled\n", f->name);
@@ -255,7 +259,8 @@ void mdss_resync_timeline(struct mdss_timeline *tl)
 	spin_lock_irqsave(&tl->lock, flags);
 	val = tl->next_value - tl->value;
 	if (val > 0) {
-		pr_warn("flush %s:%d\n", tl->name, val);
+		pr_warn("flush %s:%d TL(Nxt %d , Crnt %d)\n", tl->name, val,
+			tl->next_value, tl->value);
 		mdss_inc_timeline_locked(tl, val);
 	}
 	spin_unlock_irqrestore(&tl->lock, flags);
@@ -388,7 +393,19 @@ int mdss_wait_sync_fence(struct mdss_fence *fence,
 		pr_debug("fence signaled\n");
 		rc = 0;
 	} else if (rc == 0) {
-		pr_debug("fence timeout\n");
+		struct fence *input_fence = (struct fence *) fence;
+		char timeline_str[MDSS_SYNC_NAME_SIZE];
+
+		if (input_fence->ops->timeline_value_str)
+			input_fence->ops->timeline_value_str(input_fence,
+					timeline_str, MDSS_SYNC_NAME_SIZE);
+		pr_err(
+			"drv:%s timeline:%s seqno:%d timeline:%s status:0x%x\n",
+			input_fence->ops->get_driver_name(input_fence),
+			input_fence->ops->get_timeline_name(input_fence),
+			input_fence->seqno, timeline_str,
+			input_fence->ops->signaled ?
+			input_fence->ops->signaled(input_fence) : 0xffffffff);
 		rc = -ETIMEDOUT;
 	}
 
