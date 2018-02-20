@@ -431,6 +431,10 @@ int snd_usb_init_sample_rate(struct snd_usb_audio *chip, int iface,
 
 	case UAC_VERSION_2:
 		return set_sample_rate_v2(chip, iface, alts, fmt, rate);
+
+	/* Clock rate is fixed at 48 kHz for BADD devices */
+	case UAC_VERSION_3:
+		return 0;
 	}
 }
 
