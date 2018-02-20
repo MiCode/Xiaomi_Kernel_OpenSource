@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -137,6 +137,7 @@ struct sde_encoder_virt_ops {
  * @wait_dma_trigger:		Returns true if lut dma has to trigger and wait
  *                              unitl transaction is complete.
  * @wait_for_active:		Wait for display scan line to be in active area
+ * @setup_vsync_source:		Configure vsync source selection for cmd mode.
  */
 
 struct sde_encoder_phys_ops {
@@ -186,6 +187,8 @@ struct sde_encoder_phys_ops {
 	int (*get_wr_line_count)(struct sde_encoder_phys *phys);
 	bool (*wait_dma_trigger)(struct sde_encoder_phys *phys);
 	int (*wait_for_active)(struct sde_encoder_phys *phys);
+	void (*setup_vsync_source)(struct sde_encoder_phys *phys,
+			u32 vsync_source, bool is_dummy);
 };
 
 /**
@@ -265,6 +268,7 @@ struct sde_encoder_irq {
  *                              fences that have to be signalled.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
  * @irq:			IRQ tracking structures
+ * @has_intf_te:		Interface TE configuration support
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -295,6 +299,7 @@ struct sde_encoder_phys {
 	atomic_t pending_retire_fence_cnt;
 	wait_queue_head_t pending_kickoff_wq;
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
+	bool has_intf_te;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
@@ -496,6 +501,15 @@ void sde_encoder_helper_trigger_flush(struct sde_encoder_phys *phys_enc);
  * @phys_enc: Pointer to physical encoder structure
  */
 void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc);
+
+/**
+ * sde_encoder_helper_vsync_config - configure vsync source for cmd mode
+ * @phys_enc: Pointer to physical encoder structure
+ * @vsync_source: vsync source selection
+ * @is_dummy: used only for RSC
+ */
+void sde_encoder_helper_vsync_config(struct sde_encoder_phys *phys_enc,
+			u32 vsync_source, bool is_dummy);
 
 /**
  * sde_encoder_helper_wait_event_timeout - wait for event with timeout

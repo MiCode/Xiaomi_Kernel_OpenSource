@@ -1748,6 +1748,10 @@ static int sde_intf_parse_dt(struct device_node *np,
 			set_bit(SDE_INTF_ROT_START, &intf->features);
 		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
 			set_bit(SDE_INTF_INPUT_CTRL, &intf->features);
+
+		if (IS_SDE_MAJOR_MINOR_SAME((sde_cfg->hwversion),
+				SDE_HW_VER_500))
+			set_bit(SDE_INTF_TE, &intf->features);
 	}
 
 end:
