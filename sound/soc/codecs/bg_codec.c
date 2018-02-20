@@ -90,6 +90,7 @@ struct bg_cdc_priv {
 	struct platform_device *pdev_child;
 	struct work_struct bg_cdc_add_child_devices_work;
 	struct delayed_work bg_cdc_pktzr_init_work;
+	struct delayed_work bg_cdc_cal_init_work;
 	unsigned long status_mask;
 	struct bg_hw_params hw_params;
 	struct notifier_block bg_pm_nb;
@@ -288,6 +289,34 @@ err1:
 	kfree(init_head);
 err2:
 	return ret;
+}
+
+static void bg_cdc_cal_init(struct work_struct *work)
+{
+	struct bg_cdc_priv *bg_cdc;
+	struct delayed_work *dwork;
+	int ret = 0;
+
+	dwork = to_delayed_work(work);
+	bg_cdc = container_of(dwork, struct bg_cdc_priv,
+				bg_cdc_cal_init_work);
+	mutex_lock(&bg_cdc->bg_cdc_lock);
+	if (!bg_cdc->bg_cal_updated) {
+		ret = bg_cdc_enable_regulator(bg_cdc->spkr_vreg, true);
+		if (ret < 0) {
+			pr_err("%s: enable_regulator failed %d\n", __func__,
+				ret);
+		} else {
+			ret =  bg_cdc_cal(bg_cdc);
+			if (ret < 0) {
+				bg_cdc_enable_regulator(bg_cdc->spkr_vreg,
+							false);
+				pr_err("%s: failed to send cal data\n",
+					__func__);
+			}
+		}
+	}
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
 }
 
 static int _bg_codec_hw_params(struct bg_cdc_priv *bg_cdc)
@@ -874,6 +903,8 @@ static void bg_cdc_pktzr_init(struct work_struct *work)
 
 	if (rsp.buf)
 		kzfree(rsp.buf);
+	schedule_delayed_work(&bg_cdc->bg_cdc_cal_init_work,
+			      msecs_to_jiffies(5000));
 }
 
 static int bg_cdc_bg_device_up(struct bg_cdc_priv *bg_cdc)
@@ -1045,6 +1076,11 @@ static int bg_cdc_codec_remove(struct snd_soc_codec *codec)
 	struct bg_cdc_priv *bg_cdc = dev_get_drvdata(codec->dev);
 	pr_debug("In func %s\n", __func__);
 	pktzr_deinit();
+
+	if (delayed_work_pending(&bg_cdc->bg_cdc_pktzr_init_work))
+		cancel_delayed_work_sync(&bg_cdc->bg_cdc_pktzr_init_work);
+	if (delayed_work_pending(&bg_cdc->bg_cdc_cal_init_work))
+		cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
 	if (adsp_state_notifier)
 		subsys_notif_unregister_notifier(adsp_state_notifier,
 						 &bg_cdc->bg_adsp_nb);
@@ -1226,6 +1262,8 @@ static int bg_cdc_probe(struct platform_device *pdev)
 		  bg_cdc_add_child_devices);
 	INIT_DELAYED_WORK(&bg_cdc->bg_cdc_pktzr_init_work,
 		  bg_cdc_pktzr_init);
+	INIT_DELAYED_WORK(&bg_cdc->bg_cdc_cal_init_work,
+		  bg_cdc_cal_init);
 	schedule_work(&bg_cdc->bg_cdc_add_child_devices_work);
 	mutex_init(&bg_cdc->bg_cdc_lock);
 	bg_cdc->bg_pm_nb.notifier_call = bg_pm_event;
