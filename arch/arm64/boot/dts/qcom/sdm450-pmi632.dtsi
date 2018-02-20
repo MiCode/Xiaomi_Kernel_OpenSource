@@ -28,6 +28,7 @@
 };
 
 &usb3 {
-	extcon = <&pmi632_charger>;
+	extcon = <&pmi632_charger>, <&pmi632_charger>, <0>,
+		 <&pmi632_charger>, <&pmi632_charger>;
 	vbus_dwc3-supply = <&smb5_vbus>;
 };
