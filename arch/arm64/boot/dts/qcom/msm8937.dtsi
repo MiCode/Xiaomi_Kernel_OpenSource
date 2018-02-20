@@ -166,6 +166,7 @@
 #include "msm8937-smp2p.dtsi"
 #include "msm8937-bus.dtsi"
 #include "msm8937-pm.dtsi"
+#include "msm8937-gpu.dtsi"
 
 &soc {
 	#address-cells = <1>;
