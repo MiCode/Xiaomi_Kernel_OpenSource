@@ -1,0 +1,40 @@
+* Qualcomm Technologies, Inc. MSM CSI Phy
+
+Required properties:
+- cell-index: csi phy hardware core index
+- compatible :
+    - "qcom,csiphy"
+    - "qcom,csiphy-v2.0"
+    - "qcom,csiphy-v2.2"
+    - "qcom,csiphy-v3.0"
+    - "qcom,csiphy-v3.1"
+    - "qcom,csiphy-v3.1.1"
+    - "qcom,csiphy-v3.2"
+    - "qcom,csiphy-v3.4.2"
+    - "qcom,csiphy-v3.5"
+    - "qcom,csiphy-v5.0"
+    - "qcom,csiphy-v5.01"
+- reg : offset and length of the register set for the device
+    for the csiphy operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the csiphy interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+- clock-names: name of the clocks required for the device
+- qcom,clock-rates: clock rate in Hz
+	- 0 if appropriate clock is required but doesn't have to apply the rate
+
+Example:
+
+   qcom,csiphy@fda0ac00 {
+       cell-index = <0>;
+       compatible = "qcom,csiphy-v2.0", "qcom,csiphy";
+       reg = <0xfda0ac00 0x200>;
+       reg-names = "csiphy";
+       interrupts = <0 78 0>;
+       interrupt-names = "csiphy";
+       clock-names = "camss_top_ahb_clk",
+                "ispif_ahb_clk", "csiphy_timer_src_clk",
+                "csiphy_timer_clk";
+       qcom,clock-rates = <0 0 200000000 0>;
+   };

@@ -1903,6 +1903,7 @@
 #include "msm8953-regulator.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm8953-thermal.dtsi"
+#include "msm8953-camera.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";

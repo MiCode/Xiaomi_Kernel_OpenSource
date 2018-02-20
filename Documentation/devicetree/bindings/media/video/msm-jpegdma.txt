@@ -1,0 +1,74 @@
+* Qualcomm Technologies, Inc. MSM JPEG DMA
+
+Jpeg dma hardware block.
+
+Jpeg dma can replicate and downscale yuv frames.
+Supported formats: Monochrome, NV12 and NV21.
+
+Required properties:
+- compatible : "qcom,jpegdma".
+- reg : offset and length of the register set of jpeg dma device and
+    vbif device for the jpeg dma operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the jpeg interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+- mmagic-vdd-supply: phandle to GDSC regulator controlling mmagic.
+- camss-vdd-supply: phandle to GDSC regulator controlling camss.
+- clock-names : names of clocks required for the device.
+- clocks : clocks required for the device.
+- qcom,clock-rates: should specify clock rates in Hz to each clocks
+    property defined.
+- qcom,max-ds-factor: should specify the max dma downscale factor,
+    supported by HW.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+	below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+
+Optional properties:
+- qcom,vbif-reg-settings: relative address offsets and value pairs for VBIF registers.
+- qcom,qos-reg-settings: relative address offsets and value pairs for QoS registers.
+- qcom,prefetch-reg-settings: relative address offsets and value pairs for
+  MMU prefetch registers.
+
+Example:
+	qcom,jpegdma@aa0000 {
+		compatible = "qcom,jpegdma";
+		reg = <0xaa0000 0x4000>,
+			<0xa60000 0x3000>;
+		reg-names = "jpegdma_core", "jpeg_vbif";
+		interrupts = <0 304 0>;
+		interrupt-names = "jpeg";
+		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		vdd-supply = <&gdsc_jpeg>;
+		qcom,vdd-names = "mmagic-vdd", "camss-vdd", "vdd";
+		clock-names =  "core_clk", "iface_clk", "bus_clk0",
+				"camss_top_ahb_clk", "camss_ahb_clk", "smmu_jpeg_axi_clk",
+				"mmss_mmagic_ahb_clk", "mmssnoc_axi_clk",
+				"mmagic_camss_axi_clk";
+		clocks = <&clock_mmss clk_camss_jpeg_dma_clk>,
+			<&clock_mmss clk_camss_jpeg_ahb_clk>,
+			<&clock_mmss clk_camss_jpeg_axi_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
+			<&clock_mmss clk_camss_ahb_clk>,
+			<&clock_mmss clk_smmu_jpeg_axi_clk>,
+			<&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_gcc  clk_mmssnoc_axi_clk>,
+			<&clock_mmss clk_mmagic_camss_axi_clk>;
+		qcom,clock-rates = <266670000 0 0 0 0 0 0 0 0>,
+		qcom,vbif-reg-settings = <0x4 0x1>;
+		qcom,prefetch-reg-settings = <0x18c 0x11>,
+			<0x1a0 0x31>,
+			<0x1b0 0x31>;
+		qcom,msm-bus,name = "msm_camera_jpeg_dma";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
+		qcom,max-ds-factor = <128>;
+		status = "ok";
+	};
