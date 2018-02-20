@@ -134,6 +134,7 @@ struct bgrsb_priv {
 };
 
 static void *bgrsb_drv;
+static int bgrsb_enable(struct bgrsb_priv *dev, bool enable);
 
 int bgrsb_send_input(struct event *evnt)
 {
@@ -420,14 +421,25 @@ static void bgrsb_bgdown_work(struct work_struct *work)
 
 static void bgrsb_glink_bgdown_work(struct work_struct *work)
 {
+	int rc;
 	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
 							rsb_glink_down_work);
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED) {
-		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) == 0)
-			dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
-		else
-			pr_err("Failed to unvote LDO-15 on BG down\n");
+
+		rc = bgrsb_enable(dev, false);
+		if (rc != 0) {
+			pr_err("Failed to send disable command to BG\n");
+			return;
+		}
+
+		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) != 0) {
+			pr_err("Failed to un-vote LDO-15\n");
+			return;
+		}
+
+		dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
+		pr_info("RSB Disabled\n");
 	}
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_CONFIGURED) {
@@ -495,6 +507,18 @@ static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
 
 err_ret:
 	mutex_unlock(&dev->glink_mutex);
+	return rc;
+}
+
+static int bgrsb_enable(struct bgrsb_priv *dev, bool enable)
+{
+	int rc = 0;
+	struct bgrsb_msg req = {0};
+
+	req.cmd_id = 0x02;
+	req.data = enable ? 0x01 : 0x00;
+
+	rc = bgrsb_tx_msg(dev, &req, BGRSB_MSG_SIZE);
 	return rc;
 }
 
@@ -620,7 +644,6 @@ static int bgrsb_ssr_register(struct bgrsb_priv *dev)
 static void bgrsb_enable_rsb(struct work_struct *work)
 {
 	int rc = 0;
-	struct bgrsb_msg req = {0};
 	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
 								rsb_up_work);
 
@@ -631,10 +654,7 @@ static void bgrsb_enable_rsb(struct work_struct *work)
 
 	if (bgrsb_ldo_work(dev, BGRSB_ENABLE_LDO15) == 0) {
 
-		req.cmd_id = 0x02;
-		req.data = 0x01;
-
-		rc = bgrsb_tx_msg(dev, &req, BGRSB_MSG_SIZE);
+		rc = bgrsb_enable(dev, true);
 		if (rc != 0) {
 			pr_err("Failed to send enable command to BG\n");
 			bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15);
@@ -654,16 +674,12 @@ static void bgrsb_enable_rsb(struct work_struct *work)
 static void bgrsb_disable_rsb(struct work_struct *work)
 {
 	int rc = 0;
-	struct bgrsb_msg req = {0};
 	struct bgrsb_priv *dev = container_of(work, struct bgrsb_priv,
 								rsb_down_work);
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED) {
 
-		req.cmd_id = 0x02;
-		req.data = 0x00;
-
-		rc = bgrsb_tx_msg(dev, &req, BGRSB_MSG_SIZE);
+		rc = bgrsb_enable(dev, false);
 		if (rc != 0) {
 			pr_err("Failed to send disable command to BG\n");
 			return;
@@ -954,6 +970,7 @@ static int bg_rsb_remove(struct platform_device *pdev)
 
 static int bg_rsb_resume(struct platform_device *pdev)
 {
+	int rc;
 	struct bgrsb_priv *dev = platform_get_drvdata(pdev);
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_CONFIGURED)
@@ -961,6 +978,12 @@ static int bg_rsb_resume(struct platform_device *pdev)
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_INIT) {
 		if (bgrsb_ldo_work(dev, BGRSB_ENABLE_LDO11) == 0) {
+			rc = bgrsb_configr_rsb(dev, true);
+			if (rc != 0) {
+				pr_err("BG failed to configure RSB %d\n", rc);
+				bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11);
+				return rc;
+			}
 			dev->bgrsb_current_state = BGRSB_STATE_RSB_CONFIGURED;
 			pr_debug("RSB Cofigured\n");
 			return 0;
@@ -979,7 +1002,7 @@ static int bg_rsb_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if (dev->bgrsb_current_state == BGRSB_STATE_RSB_ENABLED) {
 		if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO15) != 0)
-			return -EINVAL;
+			goto ret_err;
 	}
 
 	if (bgrsb_ldo_work(dev, BGRSB_DISABLE_LDO11) == 0) {
@@ -987,6 +1010,8 @@ static int bg_rsb_suspend(struct platform_device *pdev, pm_message_t state)
 		pr_debug("RSB Init\n");
 		return 0;
 	}
+
+ret_err:
 	pr_err("RSB failed to suspend\n");
 	return -EINVAL;
 }
