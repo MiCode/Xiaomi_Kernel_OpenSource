@@ -56,6 +56,19 @@
 			bias-disable;
 		};
 	};
+
+	usb_vbus_detect: usb_vbus_detect {
+		mux {
+			pins = "gpio97";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio97";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
 };
 
 &soc {
@@ -147,6 +160,24 @@
 				<79 512 6250 200000>,     /* 50 Mbps */
 				<79 512 25000 200000>,    /* 200 Mbps */
 				<79 512 2048000 4096000>; /* MAX */
+	};
+
+	vbus_otg_supply: vbus_otg_supply {
+		compatible = "regulator-fixed";
+		regulator-name = "vbus_otg";
+		status = "ok";
+		enable-active-high;
+		gpio = <&pm8916_gpios 3 0>;
+	};
+
+	usb_detect: qcom,gpio-usbdetect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <97 0>;
+		interrupt-names = "vbus_det_irq";
+		pinctrl-names = "usb_vbus_detect";
+		pinctrl-0 = <&usb_vbus_detect>;
+		qcom,gpio-mode-sel = <&msm_gpio 97 0>;
 	};
 };
 
@@ -245,10 +276,8 @@
 	interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
 	interrupt-names = "core_irq", "async_irq", "phy_irq";
 
-	qcom,hsusb-otg-mode = <1>; /* peripheral mode */
-	qcom,hsusb-otg-otg-control= <3>;
-	qcom,hsusb-otg-default-mode= <1>; /* peripheral mode */
-	vbus_otg-supply = <&smb1360_otg_supply>;
+	qcom,hsusb-otg-mode = <3>;
+	vbus_otg-supply = <&vbus_otg_supply>;
 };
 
 &mdss_fb0 {
