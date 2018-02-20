@@ -28,3 +28,7 @@
 &pcie0 {
 	status = "disabled";
 };
+
+&mhi_device {
+	status = "okay";
+};
