@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -598,6 +598,26 @@ bool sde_detect_hdmi_monitor(void *input)
 	return drm_detect_hdmi_monitor(edid_ctrl->edid);
 }
 
+void sde_parse_edid(void *input)
+{
+	struct sde_edid_ctrl *edid_ctrl;
+
+	if (!input) {
+		SDE_ERROR("Invalid input\n");
+		return;
+	}
+
+	edid_ctrl = (struct sde_edid_ctrl *)(input);
+
+	if (edid_ctrl->edid) {
+		sde_edid_extract_vendor_id(edid_ctrl);
+		_sde_edid_extract_audio_data_blocks(edid_ctrl);
+		_sde_edid_extract_speaker_allocation_data(edid_ctrl);
+	} else {
+		SDE_ERROR("edid not present\n");
+	}
+}
+
 void sde_get_edid(struct drm_connector *connector,
 				  struct i2c_adapter *adapter, void **input)
 {
@@ -609,10 +629,8 @@ void sde_get_edid(struct drm_connector *connector,
 	if (!edid_ctrl->edid)
 		SDE_ERROR("EDID read failed\n");
 
-	if (edid_ctrl->edid) {
-		sde_edid_extract_vendor_id(edid_ctrl);
-		_sde_edid_extract_audio_data_blocks(edid_ctrl);
-		_sde_edid_extract_speaker_allocation_data(edid_ctrl);
-	}
+	if (edid_ctrl->edid)
+		sde_parse_edid(edid_ctrl);
+
 	SDE_EDID_DEBUG("%s -\n", __func__);
 };
