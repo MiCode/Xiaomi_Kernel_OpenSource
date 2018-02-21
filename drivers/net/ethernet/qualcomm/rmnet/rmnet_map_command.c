@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,11 @@ static u8 rmnet_map_do_flow_control(struct sk_buff *skb,
 	}
 
 	ep = rmnet_get_endpoint(port, mux_id);
+	if (!ep) {
+		kfree_skb(skb);
+		return RX_HANDLER_CONSUMED;
+	}
+
 	vnd = ep->egress_dev;
 
 	ip_family = cmd->flow_control.ip_family;
