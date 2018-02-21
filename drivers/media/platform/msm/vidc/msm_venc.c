@@ -133,14 +133,6 @@ static const char *const mbi_statistics[] = {
 	"Mode 3"
 };
 
-static const char *const intra_refresh_modes[] = {
-	"None",
-	"Cyclic",
-	"Adaptive",
-	"Cyclic Adaptive",
-	"Random"
-};
-
 static const char *const timestamp_mode[] = {
 	"Honor",
 	"Ignore",
@@ -565,7 +557,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
-		.id = V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB,
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE_CYCLIC,
 		.name = "Cyclic Intra Refresh MBs",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
@@ -673,17 +665,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
 		.step = 1,
 		.default_value = V4L2_MPEG_MSM_VIDC_DISABLE,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB,
-		.name = "Intra Refresh CIR MBS",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 0,
-		.maximum = MAX_INTRA_REFRESH_MBS,
-		.default_value = 0,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME,
@@ -1545,7 +1526,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &enable;
 		break;
 	}
-	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB:
+	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE_CYCLIC:
 	{
 		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
 

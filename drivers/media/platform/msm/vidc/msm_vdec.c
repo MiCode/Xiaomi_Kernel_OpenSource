@@ -85,9 +85,6 @@ static const char *const vp9_level[] = {
 static const char *const mpeg2_profile[] = {
 	"Simple",
 	"Main",
-	"422",
-	"Snr Scalable",
-	"Spatial Scalable",
 	"High",
 };
 
@@ -125,14 +122,27 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE,
 		.name = "Picture Type Decoding",
-		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.minimum = 0,
-		.maximum = 1,
-		.default_value = 0,
-		.step = 1,
+		.type = V4L2_CTRL_TYPE_BITMASK,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_I,
+		.maximum = (V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_I |
+				V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_P |
+				V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_B),
+		.default_value = (V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_I |
+				  V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_P |
+				  V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_B),
+		.step = 0,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE,
+		.name = "Sync Frame Decode",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
+		.default_value = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.step = 1,
+		},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_SECURE,
 		.name = "Secure mode",
@@ -823,13 +833,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE:
 		property_id = HAL_PARAM_VDEC_PICTURE_TYPE_DECODE;
-		enable_picture.picture_type = 0;
-		if (ctrl->val & V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_I)
-			enable_picture.picture_type |= HAL_PICTURE_I;
-		if (ctrl->val & V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_P)
-			enable_picture.picture_type |= HAL_PICTURE_P;
-		if (ctrl->val & V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_B)
-			enable_picture.picture_type |= HAL_PICTURE_B;
+		enable_picture.picture_type = ctrl->val;
 		pdata = &enable_picture;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE:
