@@ -1001,6 +1001,7 @@ struct sde_perf_cfg {
  * @has_cdp            Client driven prefetch feature status
  * @has_wb_ubwc        UBWC feature supported on WB
  * @ubwc_version       UBWC feature version (0x0 for not supported)
+ * @ubwc_bw_calc_version indicate how UBWC BW has to be calculated
  * @has_sbuf           indicate if stream buffer is available
  * @sbuf_headroom      stream buffer headroom in lines
  * @sbuf_prefill       stream buffer prefill default in lines
@@ -1030,6 +1031,7 @@ struct sde_mdss_cfg {
 	bool has_dim_layer;
 	bool has_wb_ubwc;
 	u32 ubwc_version;
+	u32 ubwc_bw_calc_version;
 	bool has_sbuf;
 	u32 sbuf_headroom;
 	u32 sbuf_prefill;

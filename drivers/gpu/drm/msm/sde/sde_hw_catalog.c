@@ -154,6 +154,7 @@ enum sde_prop {
 	DEST_SCALER,
 	SMART_PANEL_ALIGN_MODE,
 	MACROTILE_MODE,
+	UBWC_BW_CALC_VERSION,
 	SDE_PROP_MAX,
 };
 
@@ -425,6 +426,8 @@ static struct sde_prop_type sde_prop[] = {
 	{SMART_PANEL_ALIGN_MODE, "qcom,sde-smart-panel-align-mode",
 			false, PROP_TYPE_U32},
 	{MACROTILE_MODE, "qcom,sde-macrotile-mode", false, PROP_TYPE_U32},
+	{UBWC_BW_CALC_VERSION, "qcom,sde-ubwc-bw-calc-version", false,
+			PROP_TYPE_U32},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -2917,6 +2920,9 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	cfg->macrotile_mode = PROP_VALUE_ACCESS(prop_value, MACROTILE_MODE, 0);
 	if (!prop_exists[MACROTILE_MODE])
 		cfg->macrotile_mode = DEFAULT_SDE_UBWC_MACROTILE_MODE;
+
+	cfg->ubwc_bw_calc_version =
+		PROP_VALUE_ACCESS(prop_value, UBWC_BW_CALC_VERSION, 0);
 
 	cfg->mdp[0].ubwc_static = PROP_VALUE_ACCESS(prop_value, UBWC_STATIC, 0);
 	if (!prop_exists[UBWC_STATIC])
