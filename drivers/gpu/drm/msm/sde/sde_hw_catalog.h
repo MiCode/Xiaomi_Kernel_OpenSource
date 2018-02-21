@@ -136,6 +136,7 @@ enum {
  * @SDE_SSPP_EXCL_RECT,      SSPP supports exclusion rect
  * @SDE_SSPP_SMART_DMA_V1,   SmartDMA 1.0 support
  * @SDE_SSPP_SMART_DMA_V2,   SmartDMA 2.0 support
+ * @SDE_SSPP_SMART_DMA_V2p5, SmartDMA 2.5 support
  * @SDE_SSPP_SBUF,           SSPP support inline stream buffer
  * @SDE_SSPP_TS_PREFILL      Supports prefill with traffic shaper
  * @SDE_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
@@ -165,6 +166,7 @@ enum {
 	SDE_SSPP_EXCL_RECT,
 	SDE_SSPP_SMART_DMA_V1,
 	SDE_SSPP_SMART_DMA_V2,
+	SDE_SSPP_SMART_DMA_V2p5,
 	SDE_SSPP_SBUF,
 	SDE_SSPP_TS_PREFILL,
 	SDE_SSPP_TS_PREFILL_REC1,
@@ -1145,7 +1147,8 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg);
 static inline bool sde_hw_sspp_multirect_enabled(const struct sde_sspp_cfg *cfg)
 {
 	return test_bit(SDE_SSPP_SMART_DMA_V1, &cfg->features) ||
-			 test_bit(SDE_SSPP_SMART_DMA_V2, &cfg->features);
+			 test_bit(SDE_SSPP_SMART_DMA_V2, &cfg->features) ||
+			 test_bit(SDE_SSPP_SMART_DMA_V2p5, &cfg->features);
 }
 
 static inline sde_hw_intf_te_supported(const struct sde_mdss_cfg *sde_cfg)
