@@ -595,10 +595,8 @@ static void _sde_hw_sspp_setup_scaler3(struct sde_hw_pipe *ctx,
 		|| !scaler3_cfg || !ctx || !ctx->cap || !ctx->cap->sblk)
 		return;
 
-	if (!scaler3_cfg->enable) {
-		SDE_REG_WRITE(&ctx->hw, QSEED3_OP_MODE + idx, 0x0);
-		return;
-	}
+	if (!scaler3_cfg->enable)
+		goto end;
 
 	op_mode |= BIT(0);
 	op_mode |= (scaler3_cfg->y_rgb_filter_cfg & 0x3) << 16;
@@ -607,9 +605,6 @@ static void _sde_hw_sspp_setup_scaler3(struct sde_hw_pipe *ctx,
 		op_mode |= BIT(12);
 		op_mode |= (scaler3_cfg->uv_filter_cfg & 0x3) << 24;
 	}
-
-	if (!SDE_FORMAT_IS_DX(sspp->layout.format))
-		op_mode |= BIT(14);
 
 	op_mode |= (scaler3_cfg->blend_cfg & 1) << 31;
 	op_mode |= (scaler3_cfg->dir_en) ? BIT(4) : 0;
@@ -638,10 +633,6 @@ static void _sde_hw_sspp_setup_scaler3(struct sde_hw_pipe *ctx,
 		_sde_hw_sspp_setup_scaler3_lut(ctx, scaler3_cfg);
 
 	if (ctx->cap->sblk->scaler_blk.version == 0x1002) {
-		if (sspp->layout.format->alpha_enable) {
-			op_mode |= BIT(10);
-			op_mode |= (scaler3_cfg->alpha_filter_cfg & 0x1) << 30;
-		}
 		phase_init =
 			((scaler3_cfg->init_phase_x[0] & 0x3F) << 0) |
 			((scaler3_cfg->init_phase_y[0] & 0x3F) << 8) |
@@ -649,10 +640,6 @@ static void _sde_hw_sspp_setup_scaler3(struct sde_hw_pipe *ctx,
 			((scaler3_cfg->init_phase_y[1] & 0x3F) << 24);
 		SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_INIT + idx, phase_init);
 	} else {
-		if (sspp->layout.format->alpha_enable) {
-			op_mode |= BIT(10);
-			op_mode |= (scaler3_cfg->alpha_filter_cfg & 0x3) << 29;
-		}
 		SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_INIT_Y_H + idx,
 			scaler3_cfg->init_phase_x[0] & 0x1FFFFF);
 		SDE_REG_WRITE(&ctx->hw, QSEED3_PHASE_INIT_Y_V + idx,
@@ -683,6 +670,17 @@ static void _sde_hw_sspp_setup_scaler3(struct sde_hw_pipe *ctx,
 
 	SDE_REG_WRITE(&ctx->hw, QSEED3_DST_SIZE + idx, dst);
 
+end:
+	if (!SDE_FORMAT_IS_DX(sspp->layout.format))
+		op_mode |= BIT(14);
+
+	if (sspp->layout.format->alpha_enable) {
+		op_mode |= BIT(10);
+		if (ctx->cap->sblk->scaler_blk.version == 0x1002)
+			op_mode |= (scaler3_cfg->alpha_filter_cfg & 0x1) << 30;
+		else
+			op_mode |= (scaler3_cfg->alpha_filter_cfg & 0x3) << 29;
+	}
 	SDE_REG_WRITE(&ctx->hw, QSEED3_OP_MODE + idx, op_mode);
 }
 
