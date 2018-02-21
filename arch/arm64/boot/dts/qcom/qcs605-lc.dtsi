@@ -91,6 +91,13 @@
 			};
 		};
 	};
+
+	qcom,chd_silver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x17e00058 0x17e10058>;
+		qcom,config-arr = <0x17e00060 0x17e10060>;
+	};
 };
 
 &pm660_temp_alarm {

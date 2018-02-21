@@ -1675,7 +1675,7 @@
 		};
 	};
 
-	qcom,chd_sliver {
+	qcom,chd_silver {
 		compatible = "qcom,core-hang-detect";
 		label = "silver";
 		qcom,threshold-arr = <0x17e00058 0x17e10058 0x17e20058
