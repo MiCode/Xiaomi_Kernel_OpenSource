@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -167,7 +167,7 @@ static int cam_icp_probe(struct platform_device *pdev)
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		g_icp_dev.ctx_icp[i].base = &g_icp_dev.ctx[i];
 		rc = cam_icp_context_init(&g_icp_dev.ctx_icp[i],
-					hw_mgr_intf);
+					hw_mgr_intf, i);
 		if (rc) {
 			CAM_ERR(CAM_ICP, "ICP context init failed");
 			goto ctx_fail;
