@@ -528,6 +528,21 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
+	spss_utils: qcom,spss_utils {
+		compatible = "qcom,spss-utils";
+		/* spss fuses physical address */
+		qcom,spss-fuse1-addr = <0x007841c4>;
+		qcom,spss-fuse1-bit = <27>;
+		qcom,spss-fuse2-addr = <0x007841c4>;
+		qcom,spss-fuse2-bit = <26>;
+		qcom,spss-dev-firmware-name  = "spss1d";  /* 8 chars max */
+		qcom,spss-test-firmware-name = "spss1t";  /* 8 chars max */
+		qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+		qcom,spss-debug-reg-addr = <0x01886020>;
+		qcom,spss-emul-type-reg-addr = <0x01fc8004>;
+		status = "ok";
+	};
+
 	jtag_mm0: jtagmm@7040000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x7040000 0x1000>;
