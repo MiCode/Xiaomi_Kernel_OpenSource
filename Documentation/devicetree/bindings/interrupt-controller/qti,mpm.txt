@@ -1,0 +1,65 @@
+QTI MPM interrupt controller
+
+MPM (MSM sleep Power Manager) is QTI's platform parent interrupt controller.
+It manages subsystem wakeups and resources during sleep. This driver marks
+the wakeup interrupts in APSS such that it monitors the interrupts when the
+system is asleep, wakes up the APSS when one of these interrupts occur and
+replays it to the subsystem interrupt controller after it becomes operational.
+
+Platform interrupt controller MPM is next in hierarchy, followed by others.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should contain "qcom,mpm" for mpm pin data
+	and the respective target compatible flag.
+
+- interrupts:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: should specify the IRQ used by remote processor to wakeup APSS.
+
+- interrupt-parent:
+	Usage: required
+	Value type: <phandle>
+	Definition: Specifies the interrupt parent necessary for hierarchical domain to operate.
+
+- interrupt-controller:
+	Usage: required
+	Value type: <bool>
+	Definition: Identifies the node as an interrupt controller.
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Specifies the base physical address to trigger an interrupt into remote processor.
+
+-reg-names:
+	Usage: required
+	Value type: <string>, <string>
+	Definition: Specifies the address field names.
+
+- qcom,num-mpm-irqs:
+	Usage: optional
+	Value type: <value>
+	Defination: Specifies the number of interrupts supported.
+
+Example:
+
+mpm: mpm@7781b8 {
+	compatible = "qcom,mpm";
+	interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
+	reg = <0x7781b8 0x1000>,
+	    <0x17911008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
+	reg-names = "vmpm", "ipc";
+	qcom,num-mpm-irqs = <96>;
+
+	wakegic: wake-gic {
+		compatible = "qcom,mpm-gic", "qcom,mpm-gic-msm8953";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+	};
+};
