@@ -2364,6 +2364,16 @@ fail:
 	return ret;
 }
 
+static void sde_kms_init_shared_hw(struct sde_kms *sde_kms)
+{
+	if (!sde_kms || !sde_kms->hw_mdp || !sde_kms->catalog)
+		return;
+
+	if (sde_kms->hw_mdp->ops.reset_ubwc)
+		sde_kms->hw_mdp->ops.reset_ubwc(sde_kms->hw_mdp,
+						sde_kms->catalog);
+}
+
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
@@ -2379,6 +2389,7 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
+		sde_kms_init_shared_hw(sde_kms);
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
 		sde_irq_update(msm_kms, false);
 	}
