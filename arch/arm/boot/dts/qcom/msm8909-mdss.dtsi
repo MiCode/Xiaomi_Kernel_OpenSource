@@ -153,29 +153,6 @@
 				00 c0 00 00 00 00 00 01 bb];
 		};
 	};
-
-	mdss_spi: qcom,mdss_spi {
-			compatible = "qcom,mdss-spi-display";
-			label = "mdss spi panel";
-
-			qcom,mdss-fb-map = <&mdss_fb0>;
-			qcom,mdss-mdp = <&mdss_mdp>;
-			vdd-supply = <&pm8909_l17>;
-			vddio-supply = <&pm8909_l6>;
-
-			qcom,panel-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-				qcom,panel-supply-entry@0 {
-					reg = <0>;
-					qcom,supply-name = "vdd";
-					qcom,supply-min-voltage = <2850000>;
-					qcom,supply-max-voltage = <2850000>;
-					qcom,supply-enable-load = <100000>;
-					qcom,supply-disable-load = <100>;
-				};
-			};
-	};
 };
 
 #include "msm8909-mdss-panels.dtsi"

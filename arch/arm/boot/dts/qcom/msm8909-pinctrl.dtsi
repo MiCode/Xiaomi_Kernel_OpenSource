@@ -289,7 +289,7 @@
 		pmx_mdss {
 			mdss_dsi_active: mdss_dsi_active {
 				mux {
-					pins = "gpio25", "gpio37", "gpio59";
+					pins = "gpio25", "gpio37";
 					function = "gpio";
 				};
 
@@ -302,7 +302,7 @@
 
 			mdss_dsi_suspend: mdss_dsi_suspend {
 				mux {
-					pins = "gpio25", "gpio37", "gpio59";
+					pins = "gpio25", "gpio37";
 					function = "gpio";
 				};
 

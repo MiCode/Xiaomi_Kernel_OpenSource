@@ -75,13 +75,6 @@
 
 	spi@78b8000 {  /* BLSP1 QUP4 */
 		status = "ok";
-		qcom,mdss_spi_client {
-			reg = <0>;
-			compatible = "qcom,mdss-spi-client";
-			label = "MDSS SPI QUP4 CLIENT";
-			dc-gpio = <&msm_gpio 59 0>;
-			spi-max-frequency = <50000000>;
-		};
 	};
 
 	qcom,msm-ssc-sensors {
