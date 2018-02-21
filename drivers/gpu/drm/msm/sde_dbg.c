@@ -57,6 +57,9 @@
 
 /* print debug ranges in groups of 4 u32s */
 #define REG_DUMP_ALIGN		16
+#define DBG_CTRL_STOP_FTRACE        BIT(0)
+#define DBG_CTRL_PANIC_UNDERRUN     BIT(1)
+#define DBG_CTRL_MAX                BIT(2)
 
 /**
  * struct sde_dbg_reg_offset - tracking for start and end of region
@@ -180,6 +183,7 @@ static struct sde_dbg_base {
 
 	struct sde_dbg_sde_debug_bus dbgbus_sde;
 	struct sde_dbg_vbif_debug_bus dbgbus_vbif_rt;
+	u32 debugfs_ctrl;
 } sde_dbg_base;
 
 /* sde_dbg_base_evtlog - global pointer to main sde event log for macro use */
@@ -1557,6 +1561,45 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 	}
 }
 
+void sde_dbg_ctrl(const char *name, ...)
+{
+	int i = 0;
+	va_list args;
+	char *blk_name = NULL;
+
+
+	/* no debugfs controlled events are enabled, just return */
+	if (!sde_dbg_base.debugfs_ctrl)
+		return;
+
+	va_start(args, name);
+
+	while ((blk_name = va_arg(args, char*))) {
+		if (i++ >= SDE_EVTLOG_MAX_DATA) {
+			pr_err("could not parse all dbg arguments\n");
+			break;
+		}
+
+		if (IS_ERR_OR_NULL(blk_name))
+			break;
+
+		if (!strcmp(blk_name, "stop_ftrace") &&
+				sde_dbg_base.debugfs_ctrl &
+				DBG_CTRL_STOP_FTRACE) {
+			pr_debug("tracing off\n");
+			tracing_off();
+		}
+
+		if (!strcmp(blk_name, "panic_underrun") &&
+				sde_dbg_base.debugfs_ctrl &
+				DBG_CTRL_PANIC_UNDERRUN) {
+			pr_debug("panic underrun\n");
+			panic("underrun");
+		}
+	}
+
+}
+
 /*
  * sde_dbg_debugfs_open - debugfs open handler for evtlog dump
  * @inode: debugfs inode
@@ -1619,6 +1662,82 @@ static const struct file_operations sde_evtlog_fops = {
 	.open = sde_dbg_debugfs_open,
 	.read = sde_evtlog_dump_read,
 	.write = sde_evtlog_dump_write,
+};
+
+/**
+ * sde_dbg_ctrl_read - debugfs read handler for debug ctrl read
+ * @file: file handler
+ * @buff: user buffer content for debugfs
+ * @count: size of user buffer
+ * @ppos: position offset of user buffer
+ */
+static ssize_t sde_dbg_ctrl_read(struct file *file, char __user *buff,
+		size_t count, loff_t *ppos)
+{
+	ssize_t len = 0;
+	char buf[24] = {'\0'};
+
+	if (!buff || !ppos)
+		return -EINVAL;
+
+	if (*ppos)
+		return 0;	/* the end */
+
+	len = snprintf(buf, sizeof(buf), "0x%x\n", sde_dbg_base.debugfs_ctrl);
+	pr_debug("%s: ctrl:0x%x len:0x%zx\n",
+		__func__, sde_dbg_base.debugfs_ctrl, len);
+
+	if ((count < sizeof(buf)) || copy_to_user(buff, buf, len)) {
+		pr_err("error copying the buffer! count:0x%zx\n", count);
+		return -EFAULT;
+	}
+
+	*ppos += len;	/* increase offset */
+	return len;
+}
+
+/**
+ * sde_dbg_ctrl_write - debugfs read handler for debug ctrl write
+ * @file: file handler
+ * @user_buf: user buffer content from debugfs
+ * @count: size of user buffer
+ * @ppos: position offset of user buffer
+ */
+static ssize_t sde_dbg_ctrl_write(struct file *file,
+	const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	u32 dbg_ctrl = 0;
+	char buf[24];
+
+	if (!file) {
+		pr_err("DbgDbg: %s: error no file --\n", __func__);
+		return -EINVAL;
+	}
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0; /* end of string */
+
+	if (kstrtouint(buf, 0, &dbg_ctrl)) {
+		pr_err("%s: error in the number of bytes\n", __func__);
+		return -EFAULT;
+	}
+
+	pr_debug("dbg_ctrl_read:0x%x\n", dbg_ctrl);
+	sde_dbg_base.debugfs_ctrl = dbg_ctrl;
+
+	return count;
+}
+
+static const struct file_operations sde_dbg_ctrl_fops = {
+	.open = sde_dbg_debugfs_open,
+	.read = sde_dbg_ctrl_read,
+	.write = sde_dbg_ctrl_write,
 };
 
 void sde_dbg_init_dbg_buses(u32 hwversion)
@@ -1695,6 +1814,8 @@ int sde_dbg_init(struct dentry *debugfs_root, struct device *dev,
 	for (i = 0; i < SDE_EVTLOG_ENTRY; i++)
 		sde_dbg_base.evtlog->logs[i].counter = i;
 
+	debugfs_create_file("dbg_ctrl", 0600, sde_dbg_base.root, NULL,
+			&sde_dbg_ctrl_fops);
 	debugfs_create_file("dump", 0600, sde_dbg_base.root, NULL,
 						&sde_evtlog_fops);
 	debugfs_create_u32("enable", 0600, sde_dbg_base.root,
