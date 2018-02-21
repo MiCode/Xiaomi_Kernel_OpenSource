@@ -150,6 +150,12 @@ First Level Node - QGAUGE device
 	Definition: Time in seconds beyond which shutdown SOC is ignored.
 		    If not specified the default value is 360 secs.
 
+- qcom,hold-soc-while-full
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when defined holds SOC at 100% when
+		    the battery is full until recharge starts.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================
