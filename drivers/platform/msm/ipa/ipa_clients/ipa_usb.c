@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -740,10 +740,6 @@ static int ipa3_usb_register_pm(enum ipa3_usb_transport_type ttype)
 	struct ipa3_usb_transport_type_ctx *ttype_ctx =
 		&ipa3_usb_ctx->ttype_ctx[ttype];
 	int result;
-
-	/* create PM resources for the first tethering protocol only */
-	if (ipa3_usb_ctx->num_init_prot > 0)
-		return 0;
 
 	/* create PM resources for the first tethering protocol only */
 	if (ipa3_usb_ctx->num_init_prot > 0)
@@ -2459,9 +2455,11 @@ int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 	if (IPA3_USB_IS_TTYPE_DPL(ttype) ||
 		(ipa3_usb_ctx->num_init_prot == 0)) {
 		if (!ipa3_usb_set_state(IPA_USB_INVALID, false, ttype))
-			IPA_USB_ERR("failed to change state to invalid\n");
+			IPA_USB_ERR(
+				"failed to change state to invalid\n");
 		if (ipa_pm_is_used()) {
 			ipa3_usb_deregister_pm(ttype);
+			ipa3_usb_ctx->ttype_ctx[ttype].ipa_usb_notify_cb = NULL;
 		} else {
 			ipa_rm_delete_resource(
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_params.name);
