@@ -637,6 +637,8 @@ int init_v11(struct sde_hw_reg_dma *cfg)
 	v1_supported[IGC] = DSPP_IGC | GRP_DSPP_HW_BLK_SELECT |
 				GRP_VIG_HW_BLK_SELECT | GRP_DMA_HW_BLK_SELECT;
 	v1_supported[GC] = GRP_DMA_HW_BLK_SELECT | GRP_DSPP_HW_BLK_SELECT;
+	v1_supported[HSIC] = GRP_DSPP_HW_BLK_SELECT;
+	v1_supported[SIX_ZONE] = GRP_DSPP_HW_BLK_SELECT;
 
 	return 0;
 }

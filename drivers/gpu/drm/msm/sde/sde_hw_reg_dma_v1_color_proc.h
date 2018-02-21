@@ -68,18 +68,18 @@ void reg_dmav1_setup_dspp_igcv31(struct sde_hw_dspp *ctx, void *cfg);
 void reg_dmav1_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
- * reg_dmav1_setup_dspp_pa_hsicv18() - pa hsic v18 impl using reg dma v1.
+ * reg_dmav1_setup_dspp_pa_hsicv17() - pa hsic v17 impl using reg dma v1.
  * @ctx: dspp ctx info
  * @cfg: pointer to struct sde_hw_cp_cfg
  */
-void reg_dmav1_setup_dspp_pa_hsicv18(struct sde_hw_dspp *ctx, void *cfg);
+void reg_dmav1_setup_dspp_pa_hsicv17(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
- * reg_dmav1_setup_dspp_sixzonev18() - sixzone v18 impl using reg dma v1.
+ * reg_dmav1_setup_dspp_sixzonev17() - sixzone v17 impl using reg dma v1.
  * @ctx: dspp ctx info
  * @cfg: pointer to struct sde_hw_cp_cfg
  */
-void reg_dmav1_setup_dspp_sixzonev18(struct sde_hw_dspp *ctx, void *cfg);
+void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
  * reg_dmav1_deinit_dspp_ops() - deinitialize the dspp feature op for sde v4

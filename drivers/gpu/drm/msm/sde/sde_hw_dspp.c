@@ -72,8 +72,13 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 		case SDE_DSPP_HSIC:
 			if (c->cap->sblk->hsic.version ==
 				SDE_COLOR_PROCESS_VER(0x1, 0x7))
-				c->ops.setup_pa_hsic =
-					sde_setup_dspp_pa_hsic_v17;
+				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
+				if (!ret)
+					c->ops.setup_pa_hsic =
+						reg_dmav1_setup_dspp_pa_hsicv17;
+				else
+					c->ops.setup_pa_hsic =
+						sde_setup_dspp_pa_hsic_v17;
 			break;
 		case SDE_DSPP_MEMCOLOR:
 			if (c->cap->sblk->memcolor.version ==
@@ -91,8 +96,13 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 		case SDE_DSPP_SIXZONE:
 			if (c->cap->sblk->sixzone.version ==
 				SDE_COLOR_PROCESS_VER(0x1, 0x7))
-				c->ops.setup_sixzone =
-					sde_setup_dspp_sixzone_v17;
+				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
+				if (!ret)
+					c->ops.setup_sixzone =
+						reg_dmav1_setup_dspp_sixzonev17;
+				else
+					c->ops.setup_sixzone =
+						sde_setup_dspp_sixzone_v17;
 			break;
 		case SDE_DSPP_VLUT:
 			if (c->cap->sblk->vlut.version ==
