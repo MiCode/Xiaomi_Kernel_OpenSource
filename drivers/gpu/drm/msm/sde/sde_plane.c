@@ -1717,10 +1717,7 @@ static int sde_plane_rot_calc_cfg(struct drm_plane *plane,
 	rstate = &pstate->rot;
 
 	in_rot = &rstate->in_rot_rect;
-	in_rot->x1 = state->src_x;
-	in_rot->y1 = state->src_y;
-	in_rot->x2 = state->src_x + state->src_w;
-	in_rot->y2 = state->src_y + state->src_h;
+	*in_rot = drm_plane_state_src(state);
 
 	out_rot = &rstate->out_rot_rect;
 	dst_x = sde_plane_get_property(pstate, PLANE_PROP_ROT_DST_X);
@@ -1794,12 +1791,7 @@ static int sde_plane_rot_calc_cfg(struct drm_plane *plane,
 		dst_h = sde_plane_get_property(attached_pstate,
 				PLANE_PROP_ROT_DST_H);
 		if (!dst_w && !dst_h) {
-			attached_out_rect.x1 = attached_state->src_x;
-			attached_out_rect.y1 = attached_state->src_y;
-			attached_out_rect.x2 = attached_out_rect.x1 +
-					attached_state->src_w;
-			attached_out_rect.y2 = attached_out_rect.y1 +
-					attached_state->src_h;
+			attached_out_rect = drm_plane_state_src(attached_state);
 			drm_rect_rotate(&attached_out_rect,
 					state->fb->width << 16,
 					state->fb->height << 16,
