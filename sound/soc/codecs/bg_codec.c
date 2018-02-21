@@ -106,6 +106,7 @@ struct bg_cdc_priv {
 	bool bg_cal_updated;
 	bool adsp_dev_up;
 	bool bg_dev_up;
+	bool bg_spk_connected;
 	struct regulator *spkr_vreg;
 	uint16_t num_sessions;
 };
@@ -230,7 +231,7 @@ static int bg_cdc_cal(struct bg_cdc_priv *bg_cdc)
 		bg_cdc->hwdep_spk_cal = NULL;
 
 	if (bg_cdc->hwdep_mic_cal) {
-		pr_debug("%s:mic cal size %d", __func__,
+		pr_debug("%s:mic cal size %d\n", __func__,
 				bg_cdc->hwdep_mic_cal->size);
 		memcpy(init_params, &bg_cdc->hwdep_mic_cal->size,
 				sizeof(bg_cdc->hwdep_mic_cal->size));
@@ -239,7 +240,8 @@ static int bg_cdc_cal(struct bg_cdc_priv *bg_cdc)
 				bg_cdc->hwdep_mic_cal->size);
 		init_params += bg_cdc->hwdep_mic_cal->size;
 	} else {
-		pr_debug("%s:default mic cal size %d", __func__, mic_blob_size);
+		pr_debug("%s:default mic cal size %d\n", __func__,
+				mic_blob_size);
 		memcpy(init_params, &mic_blob_size,
 			sizeof(mic_blob_size));
 		init_params += sizeof(mic_blob_size);
@@ -247,23 +249,26 @@ static int bg_cdc_cal(struct bg_cdc_priv *bg_cdc)
 		sizeof(app_mic_init_params));
 		init_params += sizeof(app_mic_init_params);
 	}
-	if (bg_cdc->hwdep_spk_cal) {
-		pr_debug("%s: spk cal size %d", __func__,
-				bg_cdc->hwdep_spk_cal->size);
-		memcpy(init_params, &bg_cdc->hwdep_spk_cal->size,
-				sizeof(bg_cdc->hwdep_spk_cal->size));
-		init_params += sizeof(bg_cdc->hwdep_spk_cal->size);
-		memcpy(init_params, bg_cdc->hwdep_spk_cal->data,
-				bg_cdc->hwdep_spk_cal->size);
-	} else {
-		pr_debug("%s: default spk cal size %d", __func__,
-				spk_blob_size);
-		memcpy(init_params, &spk_blob_size,
-			sizeof(spk_blob_size));
-		init_params += sizeof(spk_blob_size);
-		memcpy(init_params, smart_pa_init_params,
-			sizeof(smart_pa_init_params));
-	}
+	if (bg_cdc->bg_spk_connected) {
+		if (bg_cdc->hwdep_spk_cal) {
+			pr_debug("%s: spk cal size %d\n", __func__,
+					bg_cdc->hwdep_spk_cal->size);
+			memcpy(init_params, &bg_cdc->hwdep_spk_cal->size,
+					sizeof(bg_cdc->hwdep_spk_cal->size));
+			init_params += sizeof(bg_cdc->hwdep_spk_cal->size);
+			memcpy(init_params, bg_cdc->hwdep_spk_cal->data,
+					bg_cdc->hwdep_spk_cal->size);
+		} else {
+			pr_debug("%s: default spk cal size %d\n", __func__,
+					spk_blob_size);
+			memcpy(init_params, &spk_blob_size,
+				sizeof(spk_blob_size));
+			init_params += sizeof(spk_blob_size);
+			memcpy(init_params, smart_pa_init_params,
+				sizeof(smart_pa_init_params));
+		}
+	} else
+		pr_debug("%s: spk not connected ignoring spk cal\n", __func__);
 	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
 	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
 	if (!rsp.buf) {
@@ -606,6 +611,10 @@ static int bg_cdc_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (!bg_cdc->bg_spk_connected) {
+			pr_err("%s:speaker not connected\n", __func__);
+			return -EINVAL;
+		}
 		bg_cdc->hw_params.rx_sample_rate = params_rate(params);
 		bg_cdc->hw_params.rx_bit_width = params_width(params);
 		bg_cdc->hw_params.rx_num_channels = params_channels(params);
@@ -1199,6 +1208,11 @@ static int bg_cdc_probe(struct platform_device *pdev)
 		}
 		dev_dbg(&pdev->dev, "%s: got regulator handle\n", __func__);
 	}
+	bg_cdc->bg_spk_connected = of_property_read_bool(pdev->dev.of_node,
+						"qcom,bg-speaker-connected");
+	if (!bg_cdc->bg_spk_connected)
+		dev_info(&pdev->dev, "%s: speaker not connected to target %d\n",
+			__func__, bg_cdc->bg_spk_connected);
 
 	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_bg_cdc,
 					bg_cdc_dai, ARRAY_SIZE(bg_cdc_dai));

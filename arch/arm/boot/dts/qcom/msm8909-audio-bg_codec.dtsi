@@ -187,6 +187,7 @@
 		status = "disabled";
 		compatible = "qcom,bg-codec";
 		qcom,subsys-name = "modem";
+		qcom,bg-speaker-connected;
 		qcom,bg-glink {
 			compatible = "qcom,bg-cdc-glink";
 			qcom,msm-glink-channels = <4>;
