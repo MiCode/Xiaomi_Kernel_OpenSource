@@ -3797,13 +3797,6 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	clk_set_rate(&apss_ahb_clk_src.c, 19200000);
 	clk_prepare_enable(&apss_ahb_clk_src.c);
 
-	clk_prepare_enable(&gcc_blsp1_ahb_clk.c);
-	clk_prepare_enable(&gcc_usb30_master_clk.c);
-	clk_prepare_enable(&gcc_usb30_mock_utmi_clk.c);
-	clk_prepare_enable(&gcc_blsp1_uart1_apps_clk.c);
-	clk_prepare_enable(&gcc_apss_ahb_clk.c);
-	clk_prepare_enable(&gcc_crypto_ahb_clk.c);
-	clk_prepare_enable(&gcc_crypto_axi_clk.c);
 	/*
 	 * Hold an active set vote for PCNOC AHB source. Sleep set
 	 * vote is 0.
