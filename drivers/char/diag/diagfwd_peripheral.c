@@ -1106,8 +1106,11 @@ void *diagfwd_request_write_buf(struct diagfwd_info *fwd_info)
 	int index;
 	unsigned long flags;
 
+	if (!fwd_info)
+		return NULL;
 	spin_lock_irqsave(&fwd_info->write_buf_lock, flags);
-	for (index = 0 ; index < NUM_WRITE_BUFFERS; index++) {
+	for (index = 0; (index < NUM_WRITE_BUFFERS) && fwd_info->buf_ptr[index];
+		index++) {
 		if (!atomic_read(&(fwd_info->buf_ptr[index]->in_busy))) {
 			atomic_set(&(fwd_info->buf_ptr[index]->in_busy), 1);
 			buf = fwd_info->buf_ptr[index]->data;
@@ -1529,7 +1532,8 @@ int diagfwd_write_buffer_done(struct diagfwd_info *fwd_info, const void *ptr)
 	if (!fwd_info || !ptr)
 		return found;
 	spin_lock_irqsave(&fwd_info->write_buf_lock, flags);
-	for (index = 0; index < NUM_WRITE_BUFFERS; index++) {
+	for (index = 0; (index < NUM_WRITE_BUFFERS) && fwd_info->buf_ptr[index];
+		index++) {
 		if (fwd_info->buf_ptr[index]->data == ptr) {
 			atomic_set(&fwd_info->buf_ptr[index]->in_busy, 0);
 			found = 1;
