@@ -1119,7 +1119,7 @@ void reg_dmav1_setup_dspp_sixzonev17(struct sde_hw_dspp *ctx, void *cfg)
 	struct sde_hw_cp_cfg *hw_cfg = cfg;
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	struct drm_msm_sixzone *sixzone;
-	u32 reg = 0, hold = 0, local_hold = 0;
+	u32 reg = 0, local_hold = 0;
 	u32 opcode = 0, local_opcode = 0;
 	int rc;
 

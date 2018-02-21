@@ -225,7 +225,7 @@ static void _update_vsync_source(struct sde_hw_mdp *mdp,
 		struct sde_vsync_source_cfg *cfg)
 {
 	struct sde_hw_blk_reg_map *c;
-	u32 reg, wd_load_value, wd_ctl, wd_ctl2, i;
+	u32 reg, wd_load_value, wd_ctl, wd_ctl2;
 
 	if (!mdp || !cfg)
 		return;
@@ -285,7 +285,7 @@ static void sde_hw_setup_vsync_source(struct sde_hw_mdp *mdp,
 		struct sde_vsync_source_cfg *cfg)
 {
 	struct sde_hw_blk_reg_map *c;
-	u32 reg, wd_load_value, wd_ctl, wd_ctl2, i;
+	u32 reg, i;
 	static const u32 pp_offset[PINGPONG_MAX] = {0xC, 0x8, 0x4, 0x13, 0x18};
 
 	if (!mdp || !cfg || (cfg->pp_count > ARRAY_SIZE(cfg->ppnumber)))

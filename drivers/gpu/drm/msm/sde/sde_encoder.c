@@ -1620,7 +1620,7 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 			struct msm_display_info *disp_info, bool is_dummy)
 {
 	struct sde_encoder_phys *phys;
-	int i, rc = 0;
+	int i;
 	u32 vsync_source;
 
 	if (!sde_enc || !disp_info) {
