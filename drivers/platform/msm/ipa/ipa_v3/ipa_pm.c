@@ -688,6 +688,11 @@ int ipa_pm_register(struct ipa_pm_register_params *params, u32 *hdl)
 		return -EINVAL;
 	}
 
+	if (ipa_pm_ctx == NULL) {
+		IPA_PM_ERR("PM_ctx is null\n");
+		return -EINVAL;
+	}
+
 	if (params == NULL || hdl == NULL || params->name == NULL) {
 		IPA_PM_ERR("Invalid Params\n");
 		return -EINVAL;
