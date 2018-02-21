@@ -273,12 +273,12 @@
 
 	};
 
-	dcc: dcc@b3000 {
-		compatible = "qcom,dcc";
-		reg = <0xb3000 0x1000>,
-		      <0xb4000 0x2000>;
+	dcc: dcc_v2@b2000 {
+		compatible = "qcom,dcc_v2";
+		reg = <0x000b2000 0x1000>,
+		      <0x000bf800 0x800>;
 		reg-names = "dcc-base", "dcc-ram-base";
-		qcom,save-reg;
+		dcc-ram-offset = <0x400>;
 	};
 
 	rpm_bus: qcom,rpm-smd {
@@ -670,3 +670,5 @@
 &gdsc_oxili_gx {
 	status = "ok";
 };
+
+#include "qcs405-coresight.dtsi"
