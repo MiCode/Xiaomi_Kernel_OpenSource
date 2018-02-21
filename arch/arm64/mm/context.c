@@ -38,7 +38,16 @@ static cpumask_t tlb_flush_pending;
 
 #define ASID_MASK		(~GENMASK(asid_bits - 1, 0))
 #define ASID_FIRST_VERSION	(1UL << asid_bits)
-#define NUM_USER_ASIDS		ASID_FIRST_VERSION
+
+#ifdef CONFIG_UNMAP_KERNEL_AT_EL0
+#define NUM_USER_ASIDS		(ASID_FIRST_VERSION >> 1)
+#define asid2idx(asid)		(((asid) & ~ASID_MASK) >> 1)
+#define idx2asid(idx)		(((idx) << 1) & ~ASID_MASK)
+#else
+#define NUM_USER_ASIDS		(ASID_FIRST_VERSION)
+#define asid2idx(asid)		((asid) & ~ASID_MASK)
+#define idx2asid(idx)		asid2idx(idx)
+#endif
 
 static void flush_context(unsigned int cpu)
 {
@@ -65,7 +74,7 @@ static void flush_context(unsigned int cpu)
 		 */
 		if (asid == 0)
 			asid = per_cpu(reserved_asids, i);
-		__set_bit(asid & ~ASID_MASK, asid_map);
+		__set_bit(asid2idx(asid), asid_map);
 		per_cpu(reserved_asids, i) = asid;
 	}
 
@@ -76,13 +85,28 @@ static void flush_context(unsigned int cpu)
 		__flush_icache_all();
 }
 
-static int is_reserved_asid(u64 asid)
+static bool check_update_reserved_asid(u64 asid, u64 newasid)
 {
 	int cpu;
-	for_each_possible_cpu(cpu)
-		if (per_cpu(reserved_asids, cpu) == asid)
-			return 1;
-	return 0;
+	bool hit = false;
+
+	/*
+	 * Iterate over the set of reserved ASIDs looking for a match.
+	 * If we find one, then we can update our mm to use newasid
+	 * (i.e. the same ASID in the current generation) but we can't
+	 * exit the loop early, since we need to ensure that all copies
+	 * of the old ASID are updated to reflect the mm. Failure to do
+	 * so could result in us missing the reserved ASID in a future
+	 * generation.
+	 */
+	for_each_possible_cpu(cpu) {
+		if (per_cpu(reserved_asids, cpu) == asid) {
+			hit = true;
+			per_cpu(reserved_asids, cpu) = newasid;
+		}
+	}
+
+	return hit;
 }
 
 static u64 new_context(struct mm_struct *mm, unsigned int cpu)
@@ -92,27 +116,29 @@ static u64 new_context(struct mm_struct *mm, unsigned int cpu)
 	u64 generation = atomic64_read(&asid_generation);
 
 	if (asid != 0) {
+		u64 newasid = generation | (asid & ~ASID_MASK);
+
 		/*
 		 * If our current ASID was active during a rollover, we
 		 * can continue to use it and this was just a false alarm.
 		 */
-		if (is_reserved_asid(asid))
-			return generation | (asid & ~ASID_MASK);
+		if (check_update_reserved_asid(asid, newasid))
+			return newasid;
 
 		/*
 		 * We had a valid ASID in a previous life, so try to re-use
 		 * it if possible.
 		 */
-		asid &= ~ASID_MASK;
-		if (!__test_and_set_bit(asid, asid_map))
-			goto bump_gen;
+		if (!__test_and_set_bit(asid2idx(asid), asid_map))
+			return newasid;
 	}
 
 	/*
 	 * Allocate a free ASID. If we can't find one, take a note of the
-	 * currently active ASIDs and mark the TLBs as requiring flushes.
-	 * We always count from ASID #1, as we use ASID #0 when setting a
-	 * reserved TTBR0 for the init_mm.
+	 * currently active ASIDs and mark the TLBs as requiring flushes.  We
+	 * always count from ASID #2 (index 1), as we use ASID #0 when setting
+	 * a reserved TTBR0 for the init_mm and we allocate ASIDs in even/odd
+	 * pairs.
 	 */
 	asid = find_next_zero_bit(asid_map, NUM_USER_ASIDS, cur_idx);
 	if (asid != NUM_USER_ASIDS)
@@ -129,10 +155,7 @@ static u64 new_context(struct mm_struct *mm, unsigned int cpu)
 set_asid:
 	__set_bit(asid, asid_map);
 	cur_idx = asid;
-
-bump_gen:
-	asid |= generation;
-	return asid;
+	return idx2asid(asid) | generation;
 }
 
 void check_and_switch_context(struct mm_struct *mm, unsigned int cpu)
@@ -174,6 +197,12 @@ switch_mm_fastpath:
 	 */
 	if (!system_uses_ttbr0_pan())
 		cpu_switch_mm(mm->pgd, mm);
+}
+
+/* Errata workaround post TTBRx_EL1 update. */
+asmlinkage void post_ttbr_update_workaround(void)
+{
+	arm64_apply_bp_hardening();
 }
 
 static int asids_init(void)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,7 @@
 #define IPA_TO_USB_CLIENT IPA_CLIENT_USB_CONS
 #define INACTIVITY_MSEC_DELAY 100
 #define DEFAULT_OUTSTANDING_HIGH 64
-#define DEFAULT_OUTSTANDING_LOW 32
+#define DEFAULT_OUTSTANDING_LOW 48
 #define DEBUGFS_TEMP_BUF_SIZE 4
 #define RNDIS_IPA_PKT_TYPE 0x00000001
 #define RNDIS_IPA_DFLT_RT_HDL 0

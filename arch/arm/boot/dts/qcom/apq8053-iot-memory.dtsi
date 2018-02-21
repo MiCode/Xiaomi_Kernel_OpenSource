@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,14 +12,14 @@
  */
 
 &modem_mem {
-	reg = <0x0 0x86c00000 0x0 0x1e00000>;
+	reg = <0x0 0x86c00000 0x0 0x1800000>;
 };
 
 &adsp_fw_mem {
-	reg = <0x0 0x88a00000 0x0 0x1100000>;
+	reg = <0x0 0x88400000 0x0 0x1100000>;
 };
 
 &wcnss_fw_mem {
-	reg = <0x0 0x89b00000 0x0 0x700000>;
+	reg = <0x0 0x89500000 0x0 0x700000>;
 };
 

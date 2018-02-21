@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -392,7 +392,6 @@
 &mss {
 	/delete-property/qcom,qdsp6v61-1-1;
 	qcom,qdsp6v62-1-4;
-	/delete-property/interrupts;
 };
 
 &mhi_device {
