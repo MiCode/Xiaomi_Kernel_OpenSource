@@ -2504,6 +2504,9 @@ static int sde_cdm_parse_dt(struct device_node *np,
 		/* intf3 and wb2 for cdm block */
 		cdm->wb_connect = sde_cfg->wb_count ? BIT(WB_2) : BIT(31);
 		cdm->intf_connect = sde_cfg->intf_count ? BIT(INTF_3) : BIT(31);
+
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+			set_bit(SDE_CDM_INPUT_CTRL, &cdm->features);
 	}
 
 end:

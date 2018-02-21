@@ -336,6 +336,16 @@ enum {
 	SDE_WB_MAX
 };
 
+/* CDM features
+ * @SDE_CDM_INPUT_CTRL     CDM supports from which pp block intput pixel data
+ *                         arrives
+ * @SDE_CDM_MAX            maximum value
+ */
+enum {
+	SDE_CDM_INPUT_CTRL = 0x1,
+	SDE_CDM_MAX
+};
+
 /**
  * VBIF sub-blocks and features
  * @SDE_VBIF_QOS_OTLIM        VBIF supports OT Limit

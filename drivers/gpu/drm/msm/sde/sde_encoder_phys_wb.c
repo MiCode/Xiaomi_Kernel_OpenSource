@@ -165,12 +165,14 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 {
 	struct sde_hw_cdm *hw_cdm;
 	struct sde_hw_cdm_cfg *cdm_cfg;
+	struct sde_hw_pingpong *hw_pp;
 	int ret;
 
 	if (!phys_enc || !format)
 		return;
 
 	cdm_cfg = &phys_enc->cdm_cfg;
+	hw_pp = phys_enc->hw_pp;
 	hw_cdm = phys_enc->hw_cdm;
 	if (!hw_cdm)
 		return;
@@ -244,6 +246,11 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 			return;
 		}
 	}
+
+	/* setup which pp blk will connect to this cdm */
+	if (hw_pp && hw_cdm->ops.bind_pingpong_blk)
+		hw_cdm->ops.bind_pingpong_blk(hw_cdm, true,
+				hw_pp->idx);
 
 	if (hw_cdm && hw_cdm->ops.enable) {
 		ret = hw_cdm->ops.enable(hw_cdm, cdm_cfg);
