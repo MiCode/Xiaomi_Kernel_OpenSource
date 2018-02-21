@@ -548,7 +548,8 @@ static ssize_t func_type_store(struct device *dev,
 	if (strlen(buf) >= 10)
 		return -EINVAL;
 
-	strlcpy(str, buf, sizeof(str));
+	if (sscanf(buf, "%9s", str) != 1)
+		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
 	if (drvdata->enable) {
@@ -592,7 +593,8 @@ static ssize_t data_sink_store(struct device *dev,
 	if (strlen(buf) >= 10)
 		return -EINVAL;
 
-	strlcpy(str, buf, sizeof(str));
+	if (sscanf(buf, "%9s", str) != 1)
+		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
 	if (drvdata->enable) {
