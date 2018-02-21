@@ -12,6 +12,7 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/clock/qcom,gcc-sdmshrike.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 
@@ -350,6 +351,16 @@
 		mboxes = <&apps_rsc 0>;
 		mbox-names = "apps";
 		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,gcc-sdmshrike";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm855_2_s3_level>;
+		vdd_cx_ao-supply = <&pm855_2_s3_level_ao>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 };
 
