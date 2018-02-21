@@ -88,6 +88,15 @@
 				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
 				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
 				"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929";
+		fsa4480-i2c-handle = <&fsa4480>;
+	};
+};
+
+&qupv3_se12_i2c {
+	status = "ok";
+	fsa4480: fsa4480@43 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x43>;
 	};
 };
 
