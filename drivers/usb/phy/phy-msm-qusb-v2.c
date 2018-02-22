@@ -71,6 +71,7 @@
 #define SQ_CTRL1_CHIRP_DISABLE		0x20
 #define SQ_CTRL2_CHIRP_DISABLE		0x80
 
+#define PORT_TUNE1_OVERRIDE_VAL		0xc5
 #define DEBUG_CTRL1_OVERRIDE_VAL	0x09
 
 /* PERIPH_SS_PHY_REFGEN_NORTH_BG_CTRL register bits */
@@ -151,6 +152,7 @@ struct qusb_phy {
 
 	struct hrtimer		timer;
 	int			soc_min_rev;
+	bool			host_chirp_erratum;
 };
 
 #ifdef CONFIG_NVMEM
@@ -198,6 +200,9 @@ static long qfprom_read(struct device *dev, const char *name)
 /* Reads the SoC version */
 static int qusb_phy_get_socrev(struct device *dev, struct qusb_phy *qphy)
 {
+	if (!qphy->host_chirp_erratum)
+		return 0;
+
 	qphy->soc_min_rev  = qfprom_read(dev, "minor_rev");
 	if (qphy->soc_min_rev < 0)
 		dev_err(dev, "failed getting soc_min_rev, err : %d\n",
@@ -475,6 +480,15 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 	qusb_phy_write_seq(qphy->base, qphy->qusb_phy_host_init_seq,
 			qphy->host_init_seq_len, 0);
 
+	/* If soc revision is mentioned and host_chirp_erratum flag is set
+	 * then override TUNE1 and DEBUG_CTRL1
+	 */
+	if (qphy->soc_min_rev && qphy->host_chirp_erratum) {
+		writel_relaxed(PORT_TUNE1_OVERRIDE_VAL,
+				qphy->base + qphy->phy_reg[PORT_TUNE1]);
+		writel_relaxed(DEBUG_CTRL1_OVERRIDE_VAL,
+				qphy->base + qphy->phy_reg[DEBUG_CTRL1]);
+	}
 	/* Ensure above write is completed before turning ON ref clk */
 	wmb();
 
@@ -559,11 +573,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
 			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
 				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
-
-	/* if soc revision is mentioned override DEBUG_CTRL1 value */
-	if (qphy->soc_min_rev)
-		writel_relaxed(DEBUG_CTRL1_OVERRIDE_VAL,
-				qphy->base + qphy->phy_reg[DEBUG_CTRL1]);
 
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
@@ -1169,6 +1178,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		else
 			return -ENOMEM;
 	}
+
+	qphy->host_chirp_erratum = of_property_read_bool(dev->of_node,
+					"qcom,host-chirp-erratum");
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) qphy->vdd_levels,
