@@ -417,6 +417,7 @@ static int snd_usb_audio_free(struct snd_usb_audio *chip)
 	list_for_each_entry_safe(ep, n, &chip->ep_list, list)
 		snd_usb_endpoint_free(ep);
 
+	mutex_destroy(&chip->dev_lock);
 	mutex_destroy(&chip->mutex);
 	if (!atomic_read(&chip->shutdown))
 		dev_set_drvdata(&chip->dev->dev, NULL);
@@ -476,6 +477,7 @@ static int snd_usb_audio_create(struct usb_interface *intf,
 	}
 
 	mutex_init(&chip->mutex);
+	mutex_init(&chip->dev_lock);
 	init_waitqueue_head(&chip->shutdown_wait);
 	chip->index = idx;
 	chip->dev = dev;
@@ -761,6 +763,8 @@ static void usb_audio_disconnect(struct usb_interface *intf)
 		return;
 
 	card = chip->card;
+	if (chip->disconnect_cb)
+		chip->disconnect_cb(chip);
 
 	mutex_lock(&register_mutex);
 	if (atomic_inc_return(&chip->shutdown) == 1) {
@@ -796,8 +800,6 @@ static void usb_audio_disconnect(struct usb_interface *intf)
 	if (chip->num_interfaces <= 0) {
 		usb_chip[chip->index] = NULL;
 		mutex_unlock(&register_mutex);
-		if (chip->disconnect_cb)
-			chip->disconnect_cb(chip);
 		snd_card_free_when_closed(card);
 	} else {
 		mutex_unlock(&register_mutex);
