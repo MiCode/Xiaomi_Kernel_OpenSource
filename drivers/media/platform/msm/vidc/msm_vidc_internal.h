@@ -143,6 +143,7 @@ struct vidc_freq_data {
 	struct list_head list;
 	u32 device_addr;
 	unsigned long freq;
+	bool turbo;
 };
 
 struct vidc_input_cr_data {
