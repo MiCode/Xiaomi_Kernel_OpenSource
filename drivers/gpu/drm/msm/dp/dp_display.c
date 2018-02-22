@@ -930,7 +930,7 @@ static void dp_display_connect_work(struct work_struct *work)
 	struct dp_display_private *dp = container_of(dw,
 			struct dp_display_private, connect_work);
 
-	if (dp->dp_display.is_connected) {
+	if (dp->dp_display.is_connected && dp_display_framework_ready(dp)) {
 		pr_debug("HPD already on\n");
 		return;
 	}
@@ -1255,6 +1255,11 @@ static int dp_display_enable(struct dp_display *dp_display, void *panel)
 
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 
+	if (dp->debug->psm_enabled) {
+		dp->link->psm_config(dp->link, &dp->panel->link_info, false);
+		dp->debug->psm_enabled = false;
+	}
+
 	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active);
 	if (!rc)
 		dp->power_on = true;
@@ -1433,7 +1438,6 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 	if (dp->usbpd->hpd_high && !dp_display_is_sink_count_zero(dp) &&
 			dp->usbpd->alt_mode_cfg_done && !dp->mst.mst_active) {
 		dp_display->post_open = dp_display_post_open;
-		dp->dp_display.is_connected = false;
 		dp->dp_display.is_sst_connected = false;
 	}
 
