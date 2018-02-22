@@ -45,6 +45,12 @@
 #define AR_DB			(1 << 22)
 #define AR_G			(1 << 23)
 
+#ifdef __x86_64__
+# define INT80_CLOBBERS "r8", "r9", "r10", "r11"
+#else
+# define INT80_CLOBBERS
+#endif
+
 static int nerrs;
 
 /* Points to an array of 1024 ints, each holding its own index. */
@@ -360,9 +366,24 @@ static void do_simple_tests(void)
 	install_invalid(&desc, false);
 
 	desc.seg_not_present = 0;
-	desc.read_exec_only = 0;
 	desc.seg_32bit = 1;
+	desc.read_exec_only = 0;
+	desc.limit = 0xfffff;
+
 	install_valid(&desc, AR_DPL3 | AR_TYPE_RWDATA | AR_S | AR_P | AR_DB);
+
+	desc.limit_in_pages = 1;
+
+	install_valid(&desc, AR_DPL3 | AR_TYPE_RWDATA | AR_S | AR_P | AR_DB | AR_G);
+	desc.read_exec_only = 1;
+	install_valid(&desc, AR_DPL3 | AR_TYPE_RODATA | AR_S | AR_P | AR_DB | AR_G);
+	desc.contents = 1;
+	desc.read_exec_only = 0;
+	install_valid(&desc, AR_DPL3 | AR_TYPE_RWDATA_EXPDOWN | AR_S | AR_P | AR_DB | AR_G);
+	desc.read_exec_only = 1;
+	install_valid(&desc, AR_DPL3 | AR_TYPE_RODATA_EXPDOWN | AR_S | AR_P | AR_DB | AR_G);
+
+	desc.limit = 0;
 	install_invalid(&desc, true);
 }
 
@@ -634,7 +655,7 @@ static int invoke_set_thread_area(void)
 	asm volatile ("int $0x80"
 		      : "=a" (ret), "+m" (low_user_desc) :
 			"a" (243), "b" (low_user_desc)
-		      : "flags");
+		      : INT80_CLOBBERS);
 	return ret;
 }
 
@@ -703,7 +724,7 @@ static void test_gdt_invalidation(void)
 			"+a" (eax)
 		      : "m" (low_user_desc_clear),
 			[arg1] "r" ((unsigned int)(unsigned long)low_user_desc_clear)
-		      : "flags");
+		      : INT80_CLOBBERS);
 
 	if (sel != 0) {
 		result = "FAIL";
@@ -734,7 +755,7 @@ static void test_gdt_invalidation(void)
 			"+a" (eax)
 		      : "m" (low_user_desc_clear),
 			[arg1] "r" ((unsigned int)(unsigned long)low_user_desc_clear)
-		      : "flags");
+		      : INT80_CLOBBERS);
 
 	if (sel != 0) {
 		result = "FAIL";
@@ -767,7 +788,7 @@ static void test_gdt_invalidation(void)
 			"+a" (eax)
 		      : "m" (low_user_desc_clear),
 			[arg1] "r" ((unsigned int)(unsigned long)low_user_desc_clear)
-		      : "flags");
+		      : INT80_CLOBBERS);
 
 #ifdef __x86_64__
 	syscall(SYS_arch_prctl, ARCH_GET_FS, &new_base);
@@ -820,7 +841,7 @@ static void test_gdt_invalidation(void)
 			"+a" (eax)
 		      : "m" (low_user_desc_clear),
 			[arg1] "r" ((unsigned int)(unsigned long)low_user_desc_clear)
-		      : "flags");
+		      : INT80_CLOBBERS);
 
 #ifdef __x86_64__
 	syscall(SYS_arch_prctl, ARCH_GET_GS, &new_base);

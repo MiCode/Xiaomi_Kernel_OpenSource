@@ -272,6 +272,7 @@ static int nbd_send_cmd(struct nbd_device *nbd, struct nbd_cmd *cmd)
 	int result, flags;
 	struct nbd_request request;
 	unsigned long size = blk_rq_bytes(req);
+	struct bio *bio;
 	u32 type;
 
 	if (req->cmd_type == REQ_TYPE_DRV_PRIV)
@@ -305,16 +306,20 @@ static int nbd_send_cmd(struct nbd_device *nbd, struct nbd_cmd *cmd)
 		return -EIO;
 	}
 
-	if (type == NBD_CMD_WRITE) {
-		struct req_iterator iter;
+	if (type != NBD_CMD_WRITE)
+		return 0;
+
+	flags = 0;
+	bio = req->bio;
+	while (bio) {
+		struct bio *next = bio->bi_next;
+		struct bvec_iter iter;
 		struct bio_vec bvec;
-		/*
-		 * we are really probing at internals to determine
-		 * whether to set MSG_MORE or not...
-		 */
-		rq_for_each_segment(bvec, req, iter) {
-			flags = 0;
-			if (!rq_iter_last(bvec, iter))
+
+		bio_for_each_segment(bvec, bio, iter) {
+			bool is_last = !next && bio_iter_last(bvec, iter);
+
+			if (is_last)
 				flags = MSG_MORE;
 			dev_dbg(nbd_to_dev(nbd), "request %p: sending %d bytes data\n",
 				cmd, bvec.bv_len);
@@ -325,7 +330,16 @@ static int nbd_send_cmd(struct nbd_device *nbd, struct nbd_cmd *cmd)
 					result);
 				return -EIO;
 			}
+			/*
+			 * The completion might already have come in,
+			 * so break for the last one instead of letting
+			 * the iterator do it. This prevents use-after-free
+			 * of the bio.
+			 */
+			if (is_last)
+				break;
 		}
+		bio = next;
 	}
 	return 0;
 }
@@ -654,7 +668,10 @@ static int __nbd_ioctl(struct block_device *bdev, struct nbd_device *nbd,
 		return nbd_size_set(nbd, bdev, nbd->blksize, arg);
 
 	case NBD_SET_TIMEOUT:
-		nbd->tag_set.timeout = arg * HZ;
+		if (arg) {
+			nbd->tag_set.timeout = arg * HZ;
+			blk_queue_rq_timeout(nbd->disk->queue, arg * HZ);
+		}
 		return 0;
 
 	case NBD_SET_FLAGS:

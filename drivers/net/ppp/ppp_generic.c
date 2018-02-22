@@ -958,6 +958,7 @@ static __net_exit void ppp_exit_net(struct net *net)
 	unregister_netdevice_many(&list);
 	rtnl_unlock();
 
+	mutex_destroy(&pn->all_ppp_mutex);
 	idr_destroy(&pn->units_idr);
 }
 
@@ -1001,17 +1002,18 @@ static int ppp_unit_register(struct ppp *ppp, int unit, bool ifname_is_set)
 	if (!ifname_is_set)
 		snprintf(ppp->dev->name, IFNAMSIZ, "ppp%i", ppp->file.index);
 
+	mutex_unlock(&pn->all_ppp_mutex);
+
 	ret = register_netdevice(ppp->dev);
 	if (ret < 0)
 		goto err_unit;
 
 	atomic_inc(&ppp_unit_count);
 
-	mutex_unlock(&pn->all_ppp_mutex);
-
 	return 0;
 
 err_unit:
+	mutex_lock(&pn->all_ppp_mutex);
 	unit_put(&pn->units_idr, ppp->file.index);
 err:
 	mutex_unlock(&pn->all_ppp_mutex);

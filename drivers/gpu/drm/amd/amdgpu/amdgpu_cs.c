@@ -240,6 +240,8 @@ free_partial_kdata:
 	for (; i >= 0; i--)
 		drm_free_large(p->chunks[i].kdata);
 	kfree(p->chunks);
+	p->chunks = NULL;
+	p->nchunks = 0;
 put_ctx:
 	amdgpu_ctx_put(p->ctx);
 free_chunk:
@@ -413,6 +415,10 @@ static bool amdgpu_cs_try_evict(struct amdgpu_cs_parser *p,
 		/* If we reached our current BO we can forget it */
 		if (candidate == lobj)
 			break;
+
+		/* We can't move pinned BOs here */
+		if (bo->pin_count)
+			continue;
 
 		other = amdgpu_mem_type_to_domain(bo->tbo.mem.mem_type);
 

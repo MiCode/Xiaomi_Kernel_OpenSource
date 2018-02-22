@@ -1806,6 +1806,8 @@ static void nfs_commit_release_pages(struct nfs_commit_data *data)
 		set_bit(NFS_CONTEXT_RESEND_WRITES, &req->wb_context->flags);
 	next:
 		nfs_unlock_and_release_request(req);
+		/* Latency breaker */
+		cond_resched();
 	}
 	nfss = NFS_SERVER(data->inode);
 	if (atomic_long_read(&nfss->writeback) < NFS_CONGESTION_OFF_THRESH)
@@ -1859,6 +1861,8 @@ int nfs_commit_inode(struct inode *inode, int how)
 	if (res)
 		error = nfs_generic_commit_list(inode, &head, how, &cinfo);
 	nfs_commit_end(cinfo.mds);
+	if (res == 0)
+		return res;
 	if (error < 0)
 		goto out_error;
 	if (!may_wait)
