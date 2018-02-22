@@ -307,8 +307,8 @@
 };
 
 &usb_otg {
-	interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
-	interrupt-names = "core_irq", "async_irq", "phy_irq";
+	interrupts = <0 134 0>, <0 140 0>;
+	interrupt-names = "core_irq", "async_irq";
 
 	qcom,hsusb-otg-mode = <3>;
 	vbus_otg-supply = <&vbus_otg_supply>;
