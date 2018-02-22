@@ -49,6 +49,10 @@ struct thermal_instance {
 	struct device_attribute attr;
 	char weight_attr_name[THERMAL_NAME_LENGTH];
 	struct device_attribute weight_attr;
+	char upper_attr_name[THERMAL_NAME_LENGTH];
+	struct device_attribute upper_attr;
+	char lower_attr_name[THERMAL_NAME_LENGTH];
+	struct device_attribute lower_attr;
 	struct list_head tz_node; /* node in tz->thermal_instances */
 	struct list_head cdev_node; /* node in cdev->thermal_instances */
 	unsigned int weight; /* The weight of the cooling device */
@@ -79,10 +83,26 @@ thermal_cooling_device_trip_point_show(struct device *,
 				       struct device_attribute *, char *);
 ssize_t thermal_cooling_device_weight_show(struct device *,
 					   struct device_attribute *, char *);
+ssize_t
+thermal_cooling_device_lower_limit_show(struct device *dev,
+				       struct device_attribute *attr,
+				       char *buf);
+ssize_t
+thermal_cooling_device_upper_limit_show(struct device *dev,
+				       struct device_attribute *attr,
+				       char *buf);
 
 ssize_t thermal_cooling_device_weight_store(struct device *,
 					    struct device_attribute *,
 					    const char *, size_t);
+ssize_t
+thermal_cooling_device_lower_limit_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count);
+ssize_t
+thermal_cooling_device_upper_limit_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count);
 
 #ifdef CONFIG_THERMAL_GOV_STEP_WISE
 int thermal_gov_step_wise_register(void);
@@ -124,6 +144,14 @@ static inline int thermal_gov_power_allocator_register(void) { return 0; }
 static inline void thermal_gov_power_allocator_unregister(void) {}
 #endif /* CONFIG_THERMAL_GOV_POWER_ALLOCATOR */
 
+#ifdef CONFIG_THERMAL_GOV_LOW_LIMITS
+int thermal_gov_low_limits_register(void);
+void thermal_gov_low_limits_unregister(void);
+#else
+static inline int thermal_gov_low_limits_register(void) { return 0; }
+static inline void thermal_gov_low_limits_unregister(void) {}
+#endif /* CONFIG_THERMAL_GOV_LOW_LIMITS */
+
 /* device tree support */
 #ifdef CONFIG_THERMAL_OF
 int of_parse_thermal_zones(void);
@@ -132,6 +160,10 @@ int of_thermal_get_ntrips(struct thermal_zone_device *);
 bool of_thermal_is_trip_valid(struct thermal_zone_device *, int);
 const struct thermal_trip *
 of_thermal_get_trip_points(struct thermal_zone_device *);
+int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
+			      enum thermal_trip_type type,
+			      int *low, int *high);
+void of_thermal_handle_trip(struct thermal_zone_device *tz);
 #else
 static inline int of_parse_thermal_zones(void) { return 0; }
 static inline void of_thermal_destroy_zones(void) { }
@@ -149,6 +181,15 @@ of_thermal_get_trip_points(struct thermal_zone_device *tz)
 {
 	return NULL;
 }
+static inline int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
+					    enum thermal_trip_type type,
+					    int *low, int *high)
+{
+	return -ENODEV;
+}
+static inline
+void of_thermal_handle_trip(struct thermal_zone_device *tz)
+{ }
 #endif
 
 #endif /* __THERMAL_CORE_H__ */
