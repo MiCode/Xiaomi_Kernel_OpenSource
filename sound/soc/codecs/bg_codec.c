@@ -84,6 +84,10 @@ struct bg_hw_params {
 	u32 tx_num_channels;
 };
 
+struct bg_dai_data {
+	DECLARE_BITMAP(status_cdc_channel, NUM_CODEC_DAIS);
+};
+
 struct bg_cdc_priv {
 	struct device *dev;
 	struct snd_soc_codec *codec;
@@ -109,6 +113,7 @@ struct bg_cdc_priv {
 	bool bg_dev_up;
 	bool bg_spk_connected;
 	struct regulator *spkr_vreg;
+	struct bg_dai_data dai_data;
 	uint16_t num_sessions;
 	uint16_t bg_cal_init_delay;
 };
@@ -195,6 +200,11 @@ static int bg_cdc_enable_regulator(struct regulator *spkr_vreg, bool enable)
 		ret = regulator_disable(spkr_vreg);
 		if (ret < 0) {
 			pr_err("Failed to set spkr_vreg mode %d\n", ret);
+			goto err_vreg_regulator;
+		}
+		ret = regulator_set_optimum_mode(spkr_vreg, 0);
+		if (ret < 0) {
+			pr_err("Failed to set optimum  mode %d\n", ret);
 			goto err_vreg_regulator;
 		}
 	}
@@ -362,6 +372,11 @@ static int _bg_codec_hw_params(struct bg_cdc_priv *bg_cdc)
 	if (delayed_work_pending(&bg_cdc->bg_cdc_cal_init_work))
 		cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
 	mutex_lock(&bg_cdc->bg_cdc_lock);
+	if (!bg_cdc->bg_dev_up) {
+		pr_err("%s: Bg ssr in progress\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
 	if (!bg_cdc->bg_cal_updated) {
 		ret = bg_cdc_enable_regulator(bg_cdc->spkr_vreg, true);
 		if (ret < 0) {
@@ -377,15 +392,17 @@ static int _bg_codec_hw_params(struct bg_cdc_priv *bg_cdc)
 	} else {
 		pr_debug("%s:cal data already sent to BG", __func__);
 	}
-	mutex_unlock(&bg_cdc->bg_cdc_lock);
 
 	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
 	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
-	if (!rsp.buf)
-		return -ENOMEM;
+	if (!rsp.buf) {
+		ret = -ENOMEM;
+		goto err;
+	}
 	memcpy(&hw_params, &bg_cdc->hw_params, sizeof(hw_params));
 	/* Send command to BG to set_params */
 	ret = pktzr_cmd_set_params(&hw_params, sizeof(hw_params), &rsp);
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
 	if (ret < 0)
 		pr_err("pktzr cmd set params failed with error %d\n", ret);
 
@@ -412,31 +429,44 @@ static int _bg_codec_start(struct bg_cdc_priv *bg_cdc, int dai_id)
 	}
 
 	mutex_lock(&bg_cdc->bg_cdc_lock);
-	if (bg_cdc->num_sessions == 0) {
+	if ((bg_cdc->num_sessions == 0) &&
+	    (bg_cdc->bg_dev_up)) {
 		/* set regulator to normal mode */
 		ret = regulator_set_optimum_mode(bg_cdc->spkr_vreg, 100000);
 		if (ret < 0) {
 			pr_err("Fail to set spkr_vreg mode%d\n", ret);
-			mutex_unlock(&bg_cdc->bg_cdc_lock);
-			return ret;
+			goto err;
 		}
 	}
 	bg_cdc->num_sessions++;
-	mutex_unlock(&bg_cdc->bg_cdc_lock);
-
+	if (!bg_cdc->bg_dev_up) {
+		pr_err("%s: Bg ssr in progress\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	if (test_bit(dai_id, bg_cdc->dai_data.status_cdc_channel)) {
+		pr_debug("%s: dai_id %d ports already opened\n",
+				__func__, dai_id);
+		ret =  -EINVAL;
+		goto err;
+	}
 	codec_start.route_to_bg = bg_cdc->src[dai_id];
 	pr_debug("%s active_session %x route_to_bg %d\n",
 		__func__, codec_start.active_session, codec_start.route_to_bg);
 	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
 	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
-	if (!rsp.buf)
-		return -ENOMEM;
+	if (!rsp.buf) {
+		ret = -ENOMEM;
+		goto err;
+	}
 	ret = pktzr_cmd_start(&codec_start, sizeof(codec_start), &rsp);
 	if (ret < 0)
 		pr_err("pktzr cmd start failed %d\n", ret);
 
+	set_bit(dai_id, bg_cdc->dai_data.status_cdc_channel);
 	kfree(rsp.buf);
-
+err:
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
 	return ret;
 }
 
@@ -452,22 +482,34 @@ static int _bg_codec_stop(struct bg_cdc_priv *bg_cdc, int dai_id)
 		pr_err("%s:Invalid dai id %d", __func__, dai_id);
 		return -EINVAL;
 	}
+	mutex_lock(&bg_cdc->bg_cdc_lock);
+	if (bg_cdc->num_sessions > 0)
+		bg_cdc->num_sessions--;
+	if (!bg_cdc->bg_dev_up) {
+		pr_err("%s: Bg ssr in progress\n", __func__);
+		if (test_bit(dai_id, bg_cdc->dai_data.status_cdc_channel))
+			clear_bit(dai_id, bg_cdc->dai_data.status_cdc_channel);
+		ret = -EINVAL;
+		goto err;
+	}
+	if (!(test_bit(dai_id, bg_cdc->dai_data.status_cdc_channel))) {
+		pr_debug("%s: dai_id %d ports already closed\n",
+				__func__, dai_id);
+		ret = -EINVAL;
+		goto err;
+	}
 	codec_start.route_to_bg = bg_cdc->src[dai_id];
 	pr_debug("%s active_session %x route_to_bg %d\n",
 		__func__, codec_start.active_session, codec_start.route_to_bg);
 	rsp.buf_size = sizeof(struct graphite_basic_rsp_result);
 	rsp.buf = kzalloc(rsp.buf_size, GFP_KERNEL);
-	if (!rsp.buf)
-		return -ENOMEM;
-	if (bg_cdc->bg_dev_up) {
-		ret = pktzr_cmd_stop(&codec_start, sizeof(codec_start), &rsp);
+	if (!rsp.buf) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	ret = pktzr_cmd_stop(&codec_start, sizeof(codec_start), &rsp);
 	if (ret < 0)
 		pr_err("pktzr cmd stop failed with error %d\n", ret);
-	}
-
-	mutex_lock(&bg_cdc->bg_cdc_lock);
-	if (bg_cdc->num_sessions > 0)
-		bg_cdc->num_sessions--;
 
 	if ((bg_cdc->num_sessions == 0) && (bg_cdc->bg_dev_up)) {
 		/* Reset the regulator mode if this is the last session */
@@ -475,8 +517,12 @@ static int _bg_codec_stop(struct bg_cdc_priv *bg_cdc, int dai_id)
 		if (ret < 0)
 			pr_err("Failed to set spkr_vreg mode%d\n", ret);
 	}
+	clear_bit(dai_id, bg_cdc->dai_data.status_cdc_channel);
 	mutex_unlock(&bg_cdc->bg_cdc_lock);
 	kfree(rsp.buf);
+	return ret;
+err:
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
 	return ret;
 }
 
@@ -665,10 +711,14 @@ static int bg_cdc_hw_params(struct snd_pcm_substream *substream,
 	pr_debug("%s: dai_name = %s DAI-ID %x rate %d width %d num_ch %d\n",
 		 __func__, dai->name, dai->id, params_rate(params),
 		 params_width(params), params_channels(params));
+	mutex_lock(&bg_cdc->bg_cdc_lock);
 	if (!bg_cdc->bg_dev_up) {
-		pr_err("%s:Bg ssr in progress\n", __func__);
+		pr_err("%s: Bg ssr in progress\n", __func__);
+		mutex_unlock(&bg_cdc->bg_cdc_lock);
 		return -EINVAL;
 	}
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
+
 	bg_cdc->hw_params.active_session = get_active_session_id(dai->id);
 	if (bg_cdc->hw_params.active_session == 0) {
 		pr_err("%s:Invalid dai id %d", __func__, dai->id);
@@ -991,10 +1041,14 @@ static int bg_state_callback(struct notifier_block *nb, unsigned long value,
 
 	if (value == SUBSYS_BEFORE_SHUTDOWN) {
 		bg_cdc_bg_device_down(bg_cdc);
+		mutex_lock(&bg_cdc->bg_cdc_lock);
 		bg_cdc->bg_dev_up = false;
+		mutex_unlock(&bg_cdc->bg_cdc_lock);
 	} else if (value == SUBSYS_AFTER_POWERUP) {
 		bg_cdc_bg_device_up(bg_cdc);
+		mutex_lock(&bg_cdc->bg_cdc_lock);
 		bg_cdc->bg_dev_up = true;
+		mutex_unlock(&bg_cdc->bg_cdc_lock);
 	}
 	return NOTIFY_OK;
 }
@@ -1096,10 +1150,12 @@ static int bg_cdc_pm_suspend(struct bg_cdc_priv *bg_cdc)
 		cancel_delayed_work_sync(&bg_cdc->bg_cdc_pktzr_init_work);
 	if (delayed_work_pending(&bg_cdc->bg_cdc_cal_init_work))
 		cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
+	mutex_lock(&bg_cdc->bg_cdc_lock);
 	if (bg_cdc->bg_cal_updated) {
 		bg_cdc_enable_regulator(bg_cdc->spkr_vreg, false);
 		bg_cdc->bg_cal_updated = false;
 	}
+	mutex_unlock(&bg_cdc->bg_cdc_lock);
 	return 0;
 }
 
@@ -1211,6 +1267,9 @@ static int bg_cdc_probe(struct platform_device *pdev)
 			goto err_cdc_reg;
 		}
 		dev_dbg(&pdev->dev, "%s: got regulator handle\n", __func__);
+	} else {
+		ret = -EINVAL;
+		goto err_cdc_reg;
 	}
 	bg_cdc->bg_spk_connected = of_property_read_bool(pdev->dev.of_node,
 						"qcom,bg-speaker-connected");
@@ -1223,6 +1282,7 @@ static int bg_cdc_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "%s: Codec registration failed, ret = %d\n",
 			__func__, ret);
+		regulator_put(bg_cdc->spkr_vreg);
 		goto err_cdc_reg;
 	}
 
