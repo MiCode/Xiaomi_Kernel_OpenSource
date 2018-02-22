@@ -25,7 +25,7 @@
 #include <linux/hash.h>
 #include <linux/msm_ion.h>
 #include <soc/qcom/secure_buffer.h>
-#include <soc/qcom/glink.h>
+#include <linux/rpmsg.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/scatterlist.h>
@@ -68,18 +68,12 @@
 #define FASTRPC_CTX_MAGIC (0xbeeddeed)
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
-
-#define FASTRPC_LINK_STATE_DOWN   (0x0)
-#define FASTRPC_LINK_STATE_UP     (0x1)
-#define FASTRPC_LINK_DISCONNECTED (0x0)
-#define FASTRPC_LINK_CONNECTING   (0x1)
-#define FASTRPC_LINK_CONNECTED    (0x3)
-#define FASTRPC_LINK_DISCONNECTING (0x7)
-#define FASTRPC_LINK_REMOTE_DISCONNECTING (0x8)
-#define FASTRPC_GLINK_INTENT_LEN  (64)
-
+#define ADSP_DOMAIN_ID (0)
+#define MDSP_DOMAIN_ID (1)
+#define SDSP_DOMAIN_ID (2)
+#define CDSP_DOMAIN_ID (3)
 #define PERF_KEYS \
-	"count:flush:map:copy:glink:getargs:putargs:invalidate:invoke:tid:ptr"
+	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke:tid:ptr"
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
 #define FASTRPC_STATIC_HANDLE_MAX (20)
 #define FASTRPC_LATENCY_CTRL_ENB  (1)
@@ -108,8 +102,6 @@
 			(int64_t *)(perf_ptr + offset)\
 				: (int64_t *)NULL) : (int64_t *)NULL)
 
-static int fastrpc_glink_open(int cid);
-static void fastrpc_glink_close(void *chan, int cid);
 static struct dentry *debugfs_root;
 static struct dentry *debugfs_global_file;
 
@@ -224,18 +216,10 @@ struct fastrpc_session_ctx {
 	int used;
 };
 
-struct fastrpc_glink_info {
-	int link_state;
-	int port_state;
-	struct glink_open_config cfg;
-	struct glink_link_info link_info;
-	void *link_notify_handle;
-};
-
 struct fastrpc_channel_ctx {
 	char *name;
 	char *subsys;
-	void *chan;
+	struct rpmsg_device *chan;
 	struct device *dev;
 	struct fastrpc_session_ctx session[NUM_SESSIONS];
 	struct completion work;
@@ -251,7 +235,6 @@ struct fastrpc_channel_ctx {
 	struct secure_vm rhvm;
 	int ramdumpenabled;
 	void *remoteheap_ramdump_dev;
-	struct fastrpc_glink_info link;
 };
 
 struct fastrpc_apps {
@@ -269,6 +252,7 @@ struct fastrpc_apps {
 	struct ion_client *client;
 	struct device *dev;
 	unsigned int latency;
+	int rpmsg_register;
 };
 
 struct fastrpc_mmap {
@@ -350,26 +334,18 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 	{
 		.name = "adsprpc-smd",
 		.subsys = "adsp",
-		.link.link_info.edge = "lpass",
-		.link.link_info.transport = "smem",
 	},
 	{
 		.name = "mdsprpc-smd",
 		.subsys = "modem",
-		.link.link_info.edge = "mpss",
-		.link.link_info.transport = "smem",
 	},
 	{
 		.name = "sdsprpc-smd",
 		.subsys = "slpi",
-		.link.link_info.edge = "dsps",
-		.link.link_info.transport = "smem",
 	},
 	{
 		.name = "cdsprpc-smd",
 		.subsys = "cdsp",
-		.link.link_info.edge = "cdsp",
-		.link.link_info.transport = "smem",
 	},
 };
 
@@ -1562,13 +1538,12 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		err = -ECONNRESET;
 		goto bail;
 	}
-	VERIFY(err, channel_ctx->link.port_state ==
-			FASTRPC_LINK_CONNECTED);
-	if (err)
+	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->chan));
+	if (err) {
+		err = -ECONNRESET;
 		goto bail;
-	err = glink_tx(channel_ctx->chan,
-		(void *)&fl->apps->channel[fl->cid], msg, sizeof(*msg),
-		GLINK_TX_REQ_INTENT);
+	}
+	err = rpmsg_send(channel_ctx->chan->ept, (void *)msg, sizeof(*msg));
  bail:
 	return err;
 }
@@ -2219,23 +2194,6 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	return err;
 }
 
-static void fastrpc_channel_close(struct kref *kref)
-{
-	struct fastrpc_apps *me = &gfa;
-	struct fastrpc_channel_ctx *ctx;
-	int cid;
-
-	ctx = container_of(kref, struct fastrpc_channel_ctx, kref);
-	cid = ctx - &gcinfo[0];
-	fastrpc_glink_close(ctx->chan, cid);
-	ctx->chan = NULL;
-	glink_unregister_link_state_cb(ctx->link.link_notify_handle);
-	ctx->link.link_notify_handle = NULL;
-	mutex_unlock(&me->smd_mutex);
-	pr_info("'closed /dev/%s c %d %d'\n", gcinfo[cid].name,
-						MAJOR(me->dev_no), cid);
-}
-
 static void fastrpc_context_list_dtor(struct fastrpc_file *fl);
 
 static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
@@ -2269,27 +2227,83 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 	return err;
 }
 
-static bool fastrpc_glink_notify_rx_intent_req(void *h, const void *priv,
-						size_t size)
+static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 {
-	if (glink_queue_rx_intent(h, NULL, size))
-		return false;
-	return true;
+	int err = 0;
+	int cid = -1;
+	struct fastrpc_apps *me = &gfa;
+
+	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
+	if (err)
+		return -EINVAL;
+
+	if (!strcmp(rpdev->dev.parent->of_node->name, "cdsp"))
+		cid = CDSP_DOMAIN_ID;
+	else if (!strcmp(rpdev->dev.parent->of_node->name, "adsp"))
+		cid = ADSP_DOMAIN_ID;
+	else if (!strcmp(rpdev->dev.parent->of_node->name, "dsps"))
+		cid = SDSP_DOMAIN_ID;
+	else if (!strcmp(rpdev->dev.parent->of_node->name, "mdsp"))
+		cid = MDSP_DOMAIN_ID;
+
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+	mutex_lock(&me->smd_mutex);
+	gcinfo[cid].chan = rpdev;
+	mutex_unlock(&me->smd_mutex);
+	pr_debug("adsprpc: rpmsg probe of %s cid %d successful\n",
+		rpdev->dev.parent->of_node->name, cid);
+bail:
+	if (err)
+		pr_err("adsprpc: rpmsg probe of %s cid %d failed\n",
+			rpdev->dev.parent->of_node->name, cid);
+	return err;
 }
 
-static void fastrpc_glink_notify_tx_done(void *handle, const void *priv,
-		const void *pkt_priv, const void *ptr)
+static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 {
+	int err = 0;
+	int cid = -1;
+	struct fastrpc_apps *me = &gfa;
+
+	VERIFY(err, !IS_ERR_OR_NULL(rpdev));
+	if (err)
+		return;
+
+	if (!strcmp(rpdev->dev.parent->of_node->name, "cdsp"))
+		cid = CDSP_DOMAIN_ID;
+	else if (!strcmp(rpdev->dev.parent->of_node->name, "adsp"))
+		cid = ADSP_DOMAIN_ID;
+	else if (!strcmp(rpdev->dev.parent->of_node->name, "dsps"))
+		cid = SDSP_DOMAIN_ID;
+	else if (!strcmp(rpdev->dev.parent->of_node->name, "mdsp"))
+		cid = MDSP_DOMAIN_ID;
+
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+	mutex_lock(&me->smd_mutex);
+	gcinfo[cid].chan = NULL;
+	mutex_unlock(&me->smd_mutex);
+	fastrpc_notify_drivers(me, cid);
+	pr_debug("adsprpc: rpmsg remove of %s cid %d successful\n",
+		rpdev->dev.parent->of_node->name, cid);
+bail:
+	if (err)
+		pr_err("adsprpc: rpmsg remove of %s cid %d failed\n",
+			rpdev->dev.parent->of_node->name, cid);
+	return;
 }
 
-static void fastrpc_glink_notify_rx(void *handle, const void *priv,
-	const void *pkt_priv, const void *ptr, size_t size)
+static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
+	int len, void *priv, u32 addr)
 {
-	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)ptr;
+	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)data;
 	struct smq_invoke_ctx *ctx;
 	int err = 0;
 
-	VERIFY(err, (rsp && size >= sizeof(*rsp)));
+	VERIFY(err, (rsp && len >= sizeof(*rsp)));
 	if (err)
 		goto bail;
 
@@ -2302,32 +2316,7 @@ static void fastrpc_glink_notify_rx(void *handle, const void *priv,
 bail:
 	if (err)
 		pr_err("adsprpc: invalid response or context\n");
-	glink_rx_done(handle, ptr, true);
-}
-
-static void fastrpc_glink_notify_state(void *handle, const void *priv,
-				unsigned int event)
-{
-	struct fastrpc_apps *me = &gfa;
-	int cid = (int)(uintptr_t)priv;
-	struct fastrpc_glink_info *link;
-
-	if (cid < 0 || cid >= NUM_CHANNELS)
-		return;
-	link = &me->channel[cid].link;
-	switch (event) {
-	case GLINK_CONNECTED:
-		link->port_state = FASTRPC_LINK_CONNECTED;
-		complete(&me->channel[cid].workport);
-		break;
-	case GLINK_LOCAL_DISCONNECTED:
-		link->port_state = FASTRPC_LINK_DISCONNECTED;
-		break;
-	case GLINK_REMOTE_DISCONNECTED:
-		break;
-	default:
-		break;
-	}
+	return err;
 }
 
 static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int secure,
@@ -2382,9 +2371,6 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 		fastrpc_mmap_free(map, 1);
 	}
-	if (fl->ssrcount == fl->apps->channel[cid].ssrcount)
-		kref_put_mutex(&fl->apps->channel[cid].kref,
-				fastrpc_channel_close, &fl->apps->smd_mutex);
 	if (fl->sctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->sctx);
 	if (fl->secsctx)
@@ -2422,118 +2408,6 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 		file->private_data = NULL;
 	}
 	return 0;
-}
-
-static void fastrpc_link_state_handler(struct glink_link_state_cb_info *cb_info,
-					 void *priv)
-{
-	struct fastrpc_apps *me = &gfa;
-	int cid = (int)((uintptr_t)priv);
-	struct fastrpc_glink_info *link;
-
-	if (cid < 0 || cid >= NUM_CHANNELS)
-		return;
-
-	link = &me->channel[cid].link;
-	switch (cb_info->link_state) {
-	case GLINK_LINK_STATE_UP:
-		link->link_state = FASTRPC_LINK_STATE_UP;
-		complete(&me->channel[cid].work);
-		break;
-	case GLINK_LINK_STATE_DOWN:
-		link->link_state = FASTRPC_LINK_STATE_DOWN;
-		break;
-	default:
-		pr_err("adsprpc: unknown link state %d\n", cb_info->link_state);
-		break;
-	}
-}
-
-static int fastrpc_glink_register(int cid, struct fastrpc_apps *me)
-{
-	int err = 0;
-	struct fastrpc_glink_info *link;
-
-	VERIFY(err, (cid >= 0 && cid < NUM_CHANNELS));
-	if (err)
-		goto bail;
-
-	link = &me->channel[cid].link;
-	if (link->link_notify_handle != NULL)
-		goto bail;
-
-	link->link_info.glink_link_state_notif_cb = fastrpc_link_state_handler;
-	link->link_notify_handle = glink_register_link_state_cb(
-					&link->link_info,
-					(void *)((uintptr_t)cid));
-	VERIFY(err, !IS_ERR_OR_NULL(me->channel[cid].link.link_notify_handle));
-	if (err) {
-		link->link_notify_handle = NULL;
-		goto bail;
-	}
-	VERIFY(err, wait_for_completion_timeout(&me->channel[cid].work,
-			RPC_TIMEOUT));
-bail:
-	return err;
-}
-
-static void fastrpc_glink_close(void *chan, int cid)
-{
-	int err = 0;
-	struct fastrpc_glink_info *link;
-
-	VERIFY(err, (cid >= 0 && cid < NUM_CHANNELS));
-	if (err)
-		return;
-	link = &gfa.channel[cid].link;
-
-	if (link->port_state == FASTRPC_LINK_CONNECTED ||
-		link->port_state == FASTRPC_LINK_REMOTE_DISCONNECTING) {
-		link->port_state = FASTRPC_LINK_DISCONNECTING;
-		glink_close(chan);
-	}
-}
-
-static int fastrpc_glink_open(int cid)
-{
-	int err = 0;
-	void *handle = NULL;
-	struct fastrpc_apps *me = &gfa;
-	struct glink_open_config *cfg;
-	struct fastrpc_glink_info *link;
-
-	VERIFY(err, (cid >= 0 && cid < NUM_CHANNELS));
-	if (err)
-		goto bail;
-	link = &me->channel[cid].link;
-	cfg = &me->channel[cid].link.cfg;
-	VERIFY(err, (link->link_state == FASTRPC_LINK_STATE_UP));
-	if (err)
-		goto bail;
-
-	VERIFY(err, (link->port_state == FASTRPC_LINK_DISCONNECTED));
-	if (err)
-		goto bail;
-
-	link->port_state = FASTRPC_LINK_CONNECTING;
-	cfg->priv = (void *)(uintptr_t)cid;
-	cfg->edge = gcinfo[cid].link.link_info.edge;
-	cfg->transport = gcinfo[cid].link.link_info.transport;
-	cfg->name = FASTRPC_GLINK_GUID;
-	cfg->notify_rx = fastrpc_glink_notify_rx;
-	cfg->notify_tx_done = fastrpc_glink_notify_tx_done;
-	cfg->notify_state = fastrpc_glink_notify_state;
-	cfg->notify_rx_intent_req = fastrpc_glink_notify_rx_intent_req;
-	handle = glink_open(cfg);
-	VERIFY(err, !IS_ERR_OR_NULL(handle));
-	if (err) {
-		if (link->port_state == FASTRPC_LINK_CONNECTING)
-			link->port_state = FASTRPC_LINK_DISCONNECTED;
-		goto bail;
-	}
-	me->channel[cid].chan = handle;
-bail:
-	return err;
 }
 
 static int fastrpc_debugfs_open(struct inode *inode, struct file *filp)
@@ -2674,33 +2548,16 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		}
 	}
 	fl->ssrcount = me->channel[cid].ssrcount;
-	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
-	    (me->channel[cid].chan == NULL)) {
-		VERIFY(err, 0 == fastrpc_glink_register(cid, me));
-		if (err)
-			goto bail;
-		VERIFY(err, 0 == fastrpc_glink_open(cid));
-		if (err)
-			goto bail;
-
-		VERIFY(err,
-			 wait_for_completion_timeout(&me->channel[cid].workport,
-						RPC_TIMEOUT));
+	if (1) {
+		VERIFY(err, NULL != me->channel[cid].chan);
 		if (err) {
-			me->channel[cid].chan = NULL;
+			err = -ENOTCONN;
 			goto bail;
 		}
-		kref_init(&me->channel[cid].kref);
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
-		err = glink_queue_rx_intent(me->channel[cid].chan, NULL,
-			FASTRPC_GLINK_INTENT_LEN);
-		err |= glink_queue_rx_intent(me->channel[cid].chan, NULL,
-			FASTRPC_GLINK_INTENT_LEN);
-		if (err)
-			pr_warn("adsprpc: initial intent fail for %d err %d\n",
-					 cid, err);
-		if (cid == 0 && me->channel[cid].ssrcount !=
+
+		if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			if (fastrpc_mmap_remove_ssr(fl))
 				pr_err("ADSPRPC: SSR: Failed to unmap remote heap\n");
@@ -3020,16 +2877,9 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		mutex_lock(&me->smd_mutex);
 		ctx->ssrcount++;
 		ctx->issubsystemup = 0;
-		if (ctx->chan) {
-			fastrpc_glink_close(ctx->chan, cid);
-			ctx->chan = NULL;
-			pr_info("'restart notifier: closed /dev/%s c %d %d'\n",
-				 gcinfo[cid].name, MAJOR(me->dev_no), cid);
-		}
 		mutex_unlock(&me->smd_mutex);
 		if (cid == 0)
 			me->staticpd_flags = 0;
-		fastrpc_notify_drivers(me, cid);
 	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
 		if (me->channel[0].remoteheap_ramdump_dev &&
 				notifdata->enable_ramdump) {
@@ -3242,11 +3092,6 @@ static void fastrpc_deinit(void)
 	int i, j;
 
 	for (i = 0; i < NUM_CHANNELS; i++, chan++) {
-		if (chan->chan) {
-			kref_put_mutex(&chan->kref,
-				fastrpc_channel_close, &me->smd_mutex);
-			chan->chan = NULL;
-		}
 		for (j = 0; j < NUM_SESSIONS; j++) {
 			struct fastrpc_session_ctx *sess = &chan->session[j];
 
@@ -3270,6 +3115,28 @@ static struct platform_driver fastrpc_driver = {
 		.name = "fastrpc",
 		.owner = THIS_MODULE,
 		.of_match_table = fastrpc_match_table,
+	},
+};
+
+static const struct rpmsg_device_id fastrpc_rpmsg_match[] = {
+	{ FASTRPC_GLINK_GUID },
+	{ },
+};
+
+static const struct of_device_id fastrpc_rpmsg_of_match[] = {
+	{ .compatible = "qcom,msm-fastrpc-rpmsg" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, fastrpc_rpmsg_of_match);
+
+static struct rpmsg_driver fastrpc_rpmsg_client = {
+	.id_table = fastrpc_rpmsg_match,
+	.probe = fastrpc_rpmsg_probe,
+	.remove = fastrpc_rpmsg_remove,
+	.callback = fastrpc_rpmsg_callback,
+	.drv = {
+		.name = "qcom,msm_fastrpc_rpmsg",
+		.of_match_table = fastrpc_rpmsg_of_match,
 	},
 };
 
@@ -3324,6 +3191,14 @@ static int __init fastrpc_device_init(void)
 	VERIFY(err, !IS_ERR_OR_NULL(me->client));
 	if (err)
 		goto device_create_bail;
+	err = register_rpmsg_driver(&fastrpc_rpmsg_client);
+	if (err) {
+		pr_err("adsprpc: register_rpmsg_driver: failed with err %d\n",
+			err);
+		goto device_create_bail;
+	}
+	me->rpmsg_register = 1;
+
 	debugfs_root = debugfs_create_dir("adsprpc", NULL);
 	return 0;
 device_create_bail:
@@ -3363,6 +3238,8 @@ static void __exit fastrpc_device_exit(void)
 	cdev_del(&me->cdev);
 	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
 	ion_client_destroy(me->client);
+	if (me->rpmsg_register == 1)
+		unregister_rpmsg_driver(&fastrpc_rpmsg_client);
 	debugfs_remove_recursive(debugfs_root);
 }
 
