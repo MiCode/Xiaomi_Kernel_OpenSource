@@ -173,28 +173,6 @@ struct msm_vidc_input_crop_payload {
 	unsigned int height;
 };
 
-struct msm_vidc_misr_info {
-	unsigned int misr_dpb_luma;
-	unsigned int misr_dpb_chroma;
-	unsigned int misr_opb_luma;
-	unsigned int misr_opb_chroma;
-};
-struct msm_vidc_output_crop_payload {
-	unsigned int size;
-	unsigned int version;
-	unsigned int port_index;
-	unsigned int left;
-	unsigned int top;
-	unsigned int display_width;
-	unsigned int display_height;
-	unsigned int width;
-	unsigned int height;
-	unsigned int frame_num;
-	unsigned int bit_depth_y;
-	unsigned int bit_depth_c;
-	struct msm_vidc_misr_info misr_info[2];
-};
-
 struct msm_vidc_extradata_index {
 	unsigned int type;
 	union {
