@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,14 +32,14 @@
 		#address-cells = <1>;
 		ranges;
 		interrupts =	<GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 681 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 682 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 683 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 687 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 688 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 689 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 688 IRQ_TYPE_LEVEL_HIGH>;
 
 		gfx_0_tbu: gfx_0_tbu@0x2CC5000 {
 			compatible = "qcom,qsmmuv500-tbu";
