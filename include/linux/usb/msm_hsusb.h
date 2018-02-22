@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -523,6 +523,7 @@ struct msm_otg {
 #define PHY_REGULATORS_LPM	BIT(4)
 	int reset_counter;
 	struct power_supply usb_psy;
+	enum power_supply_type usb_supply_type;
 	unsigned int online;
 	unsigned int host_mode;
 	unsigned int voltage_max;
