@@ -83,3 +83,7 @@
 		};
 	};
 };
+
+&msm_gpu {
+	/delete-node/qcom,gpu-mempools;
+};
