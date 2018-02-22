@@ -547,6 +547,10 @@ static const struct of_device_id mpm_gic_chip_data_table[] = {
 MODULE_DEVICE_TABLE(of, mpm_gic_chip_data_table);
 
 static const struct of_device_id mpm_gpio_chip_data_table[] = {
+	{
+		.compatible = "qcom,mpm-gpio-msm8953",
+		.data = mpm_msm8953_gpio_chip_data,
+	},
 	{}
 };
 
