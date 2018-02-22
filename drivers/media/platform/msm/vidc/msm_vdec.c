@@ -750,7 +750,7 @@ static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
 
 int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
-	int rc = 0;
+	int rc = 0, fourcc = 0;
 	struct hal_enable_picture enable_picture;
 	struct hal_enable hal_property;
 	enum hal_property property_id = 0;
@@ -796,12 +796,13 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE:
 		property_id = HAL_PARAM_VDEC_PICTURE_TYPE_DECODE;
+		enable_picture.picture_type = 0;
 		if (ctrl->val & V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_I)
-			enable_picture.picture_type = HAL_PICTURE_I;
-		else
-			enable_picture.picture_type = HAL_PICTURE_I |
-				HAL_PICTURE_P | HAL_PICTURE_B |
-				HAL_PICTURE_IDR;
+			enable_picture.picture_type |= HAL_PICTURE_I;
+		if (ctrl->val & V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_P)
+			enable_picture.picture_type |= HAL_PICTURE_P;
+		if (ctrl->val & V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_B)
+			enable_picture.picture_type |= HAL_PICTURE_B;
 		pdata = &enable_picture;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE:
@@ -941,6 +942,13 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		switch (ctrl->val) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY:
+			/* Release DPBs if it was previously split mode */
+			rc = msm_comm_release_output_buffers(inst, false);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"%s Release output buffers failed\n",
+					__func__);
+
 			multi_stream.buffer_type = HAL_BUFFER_OUTPUT;
 			multi_stream.enable = true;
 			pdata = &multi_stream;
@@ -965,6 +973,30 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					rc);
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY:
+			switch (inst->bit_depth) {
+			case MSM_VIDC_BIT_DEPTH_8:
+				fourcc = V4L2_PIX_FMT_NV12_UBWC;
+				break;
+			case MSM_VIDC_BIT_DEPTH_10:
+				fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC;
+				break;
+			default:
+				fourcc = V4L2_PIX_FMT_NV12_UBWC;
+				dprintk(VIDC_ERR,
+					"Invalid bit depth. Setting DPB as NV12UBWC");
+				break;
+			}
+
+			rc = msm_comm_set_color_format(inst,
+						HAL_BUFFER_OUTPUT, fourcc);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s Failed setting output color format : %d\n",
+					__func__, rc);
+				break;
+			}
+			inst->clk_data.dpb_fourcc = fourcc;
+
 			multi_stream.buffer_type = HAL_BUFFER_OUTPUT2;
 			multi_stream.enable = true;
 			pdata = &multi_stream;
@@ -975,8 +1007,9 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				dprintk(VIDC_ERR,
 					"Failed :Enabling OUTPUT2 port : %d\n",
 					rc);
-					break;
+				break;
 			}
+
 			multi_stream.buffer_type = HAL_BUFFER_OUTPUT;
 			multi_stream.enable = false;
 			pdata = &multi_stream;
@@ -1005,6 +1038,20 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					"Failed setting OUTPUT2 size : %d\n",
 					rc);
 
+			rc = msm_comm_try_get_bufreqs(inst);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s Failed to get buffer reqs : %d\n",
+					__func__, rc);
+				break;
+			}
+
+			rc = msm_vidc_update_host_buff_counts(inst);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s Failed: update buff counts : %d\n",
+					__func__, rc);
+			}
 			break;
 		default:
 			dprintk(VIDC_ERR,
