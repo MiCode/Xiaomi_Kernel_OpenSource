@@ -1607,6 +1607,9 @@ void sde_dbg_ctrl(const char *name, ...)
  */
 static int sde_dbg_debugfs_open(struct inode *inode, struct file *file)
 {
+	if (!inode || !file)
+		return -EINVAL;
+
 	/* non-seekable */
 	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
 	file->private_data = inode->i_private;
@@ -1625,6 +1628,9 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 {
 	ssize_t len = 0;
 	char evtlog_buf[SDE_EVTLOG_BUF_MAX];
+
+	if (!buff || !ppos)
+		return -EINVAL;
 
 	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog, evtlog_buf,
 			SDE_EVTLOG_BUF_MAX);
@@ -1857,7 +1863,14 @@ void sde_dbg_destroy(void)
  */
 static int sde_dbg_reg_base_release(struct inode *inode, struct file *file)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
+
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
+	if (!dbg)
+		return -ENODEV;
 
 	mutex_lock(&sde_dbg_base.mutex);
 	if (dbg && dbg->buf) {
@@ -1881,12 +1894,16 @@ static int sde_dbg_reg_base_release(struct inode *inode, struct file *file)
 static ssize_t sde_dbg_reg_base_offset_write(struct file *file,
 		const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
 	u32 off = 0;
 	u32 cnt = DEFAULT_BASE_REG_CNT;
 	char buf[24];
 	ssize_t rc = count;
 
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
 	if (!dbg)
 		return -ENODEV;
 
@@ -1920,6 +1937,9 @@ static ssize_t sde_dbg_reg_base_offset_write(struct file *file,
 		goto exit;
 	}
 
+	if (cnt == 0)
+		return -EINVAL;
+
 	dbg->off = off;
 	dbg->cnt = cnt;
 
@@ -1940,17 +1960,29 @@ exit:
 static ssize_t sde_dbg_reg_base_offset_read(struct file *file,
 			char __user *buff, size_t count, loff_t *ppos)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
 	int len = 0;
 	char buf[24] = {'\0'};
 
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
 	if (!dbg)
 		return -ENODEV;
+
+	if (!ppos)
+		return -EINVAL;
 
 	if (*ppos)
 		return 0;	/* the end */
 
 	mutex_lock(&sde_dbg_base.mutex);
+	if (dbg->off % sizeof(u32)) {
+		mutex_unlock(&sde_dbg_base.mutex);
+		return -EFAULT;
+	}
+
 	len = snprintf(buf, sizeof(buf), "0x%08zx %zx\n", dbg->off, dbg->cnt);
 	if (len < 0 || len >= sizeof(buf)) {
 		mutex_unlock(&sde_dbg_base.mutex);
@@ -1978,11 +2010,15 @@ static ssize_t sde_dbg_reg_base_offset_read(struct file *file,
 static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 		const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
 	size_t off;
 	u32 data, cnt;
 	char buf[24];
 
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
 	if (!dbg)
 		return -ENODEV;
 
@@ -2028,13 +2064,20 @@ static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 			char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
 	size_t len;
 
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
 	if (!dbg) {
 		pr_err("invalid handle\n");
 		return -ENODEV;
 	}
+
+	if (!ppos)
+		return -EINVAL;
 
 	mutex_lock(&sde_dbg_base.mutex);
 	if (!dbg->buf) {
