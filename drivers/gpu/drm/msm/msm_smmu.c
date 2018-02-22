@@ -249,7 +249,7 @@ static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 				&sgt->sgl->dma_address, sgt->sgl->dma_length,
 				dir, attrs);
 		SDE_EVT32(sgt->sgl->dma_address, sgt->sgl->dma_length,
-				dir, attrs);
+				dir, attrs, client->secure);
 	}
 
 	return 0;
@@ -272,7 +272,7 @@ static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 				&sgt->sgl->dma_address, sgt->sgl->dma_length,
 				dir);
 		SDE_EVT32(sgt->sgl->dma_address, sgt->sgl->dma_length,
-				dir);
+				dir, client->secure);
 	}
 
 	if (!(flags & MSM_BO_EXTBUF))
