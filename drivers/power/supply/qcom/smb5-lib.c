@@ -707,20 +707,21 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg)
 	int rc;
 	union power_supply_propval val;
 
-	if (!chg->suspend_input_on_debug_batt)
-		return;
-
 	rc = power_supply_get_property(chg->bms_psy,
 			POWER_SUPPLY_PROP_DEBUG_BATTERY, &val);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't get debug battery prop rc=%d\n", rc);
 		return;
 	}
-
-	vote(chg->usb_icl_votable, DEBUG_BOARD_VOTER, val.intval, 0);
-	vote(chg->dc_suspend_votable, DEBUG_BOARD_VOTER, val.intval, 0);
-	if (val.intval)
-		pr_info("Input suspended: Fake battery\n");
+	if (chg->suspend_input_on_debug_batt) {
+		vote(chg->usb_icl_votable, DEBUG_BOARD_VOTER, val.intval, 0);
+		vote(chg->dc_suspend_votable, DEBUG_BOARD_VOTER, val.intval, 0);
+		if (val.intval)
+			pr_info("Input suspended: Fake battery\n");
+	} else {
+		vote(chg->chg_disable_votable, DEBUG_BOARD_VOTER,
+					val.intval, 0);
+	}
 }
 
 int smblib_rerun_apsd_if_required(struct smb_charger *chg)
