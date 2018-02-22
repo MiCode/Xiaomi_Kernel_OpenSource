@@ -940,7 +940,7 @@ static int cnss_register_esoc(struct cnss_plat_data *plat_priv)
 		of_property_read_bool(dev->of_node,
 				      "qcom,notify-modem-status");
 
-	if (esoc_info->notify_modem_status)
+	if (!esoc_info->notify_modem_status)
 		goto out;
 
 	ret = of_property_read_string_index(dev->of_node, "esoc-names", 0,
@@ -1172,23 +1172,18 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 static void cnss_qca6290_crash_shutdown(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
-	int ret = 0;
 
 	cnss_pr_dbg("Crash shutdown with driver_state 0x%lx\n",
 		    plat_priv->driver_state);
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) ||
 	    test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
-	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state))
-		return;
-
-	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM_KERNEL_PANIC);
-	if (ret) {
-		cnss_pr_err("Fail to complete RDDM, err = %d\n", ret);
+	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Ignore crash shutdown\n");
 		return;
 	}
 
-	cnss_pci_collect_dump_info(pci_priv);
+	cnss_pci_collect_dump_info(pci_priv, true);
 }
 
 static int cnss_powerup(struct cnss_plat_data *plat_priv)
@@ -1443,7 +1438,6 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 	struct cnss_subsys_info *subsys_info =
 		&plat_priv->subsys_info;
-	int ret = 0;
 
 	plat_priv->recovery_count++;
 
@@ -1467,12 +1461,7 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 		break;
 	case CNSS_REASON_RDDM:
 		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
-		ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM);
-		if (ret) {
-			cnss_pr_err("Failed to complete RDDM, err = %d\n", ret);
-			break;
-		}
-		cnss_pci_collect_dump_info(pci_priv);
+		cnss_pci_collect_dump_info(pci_priv, false);
 		break;
 	case CNSS_REASON_DEFAULT:
 	case CNSS_REASON_TIMEOUT:

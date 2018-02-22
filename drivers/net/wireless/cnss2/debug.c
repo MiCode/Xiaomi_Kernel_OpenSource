@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,6 @@
 #include "main.h"
 #include "debug.h"
 #include "pci.h"
-
-#define CNSS_IPC_LOG_PAGES		32
 
 void *cnss_ipc_log_context;
 
@@ -172,7 +170,7 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 	} else if (sysfs_streq(cmd, "shutdown")) {
 		ret = cnss_driver_event_post(plat_priv,
 					     CNSS_DRIVER_EVENT_POWER_DOWN,
-					     CNSS_EVENT_SYNC, NULL);
+					     0, NULL);
 		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 	} else {
 		cnss_pr_err("Device boot debugfs command is invalid\n");
