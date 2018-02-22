@@ -116,6 +116,10 @@
 #define MSM_CAMERA_ERR_MAPPING		(MSM_CAMERA_ERR_EVT_BASE + 2)
 #define MSM_CAMERA_ERR_DEVICE_BUSY	(MSM_CAMERA_ERR_EVT_BASE + 3)
 
+/* data.status - success values should be same as above*/
+#define MSM_CAMERA_CMD_SUCCESS      0x00000001
+#define MSM_CAMERA_BUF_MAP_SUCCESS  0x00000002
+
 /* The msm_v4l2_event_data structure should match the
  * v4l2_event.u.data field.
  * should not exceed 16 elements */
