@@ -2,6 +2,13 @@
 # QCOM Soc drivers
 #
 source "drivers/soc/qcom/hab/Kconfig"
+config MSM_PASR
+	bool "MSM DDR Partial Array Self-Refresh Driver"
+	help
+	  RPM controls DDR functionaliy. This driver
+	  is an interface for linux memory hotplug to RPM
+	  for start/stop self-refresh of hot added or removed
+	  memory in DDR.
 
 config MSM_INRUSH_CURRENT_MITIGATION
 	bool "Inrush-current mitigation Driver"
