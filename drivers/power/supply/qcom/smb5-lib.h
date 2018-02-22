@@ -70,6 +70,8 @@ enum print_reason {
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
 
+#define VBAT_TO_VRAW_ADC(v)		div_u64((u64)v * 1000000UL, 194637UL)
+
 enum smb_mode {
 	PARALLEL_MASTER = 0,
 	PARALLEL_SLAVE,
@@ -344,6 +346,7 @@ struct smb_charger {
 	bool			use_extcon;
 	bool			otg_present;
 	int			hw_max_icl_ua;
+	int			auto_recharge_soc;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -372,6 +375,8 @@ struct smb_charger {
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
 int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val);
 int smblib_write(struct smb_charger *chg, u16 addr, u8 val);
+int smblib_batch_write(struct smb_charger *chg, u16 addr, u8 *val, int count);
+int smblib_batch_read(struct smb_charger *chg, u16 addr, u8 *val, int count);
 
 int smblib_get_charge_param(struct smb_charger *chg,
 			    struct smb_chg_param *param, int *val_u);
