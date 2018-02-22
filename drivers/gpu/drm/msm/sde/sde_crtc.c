@@ -4654,6 +4654,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct plane_state *pstates = NULL;
 	struct sde_crtc_state *cstate;
+	struct sde_kms *kms;
 
 	const struct drm_plane_state *pstate;
 	struct drm_plane *plane;
@@ -4668,6 +4669,13 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
+		return -EINVAL;
+	}
+
+	kms = _sde_crtc_get_kms(crtc);
+
+	if (!kms || !kms->catalog) {
+		SDE_ERROR("invalid parameters\n");
 		return -EINVAL;
 	}
 
@@ -4742,6 +4750,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			continue;
 
 		pstates[cnt].sde_pstate = to_sde_plane_state(pstate);
+		pstates[cnt].sde_pstate->pipe_order_flags = 0x0;
 		pstates[cnt].drm_pstate = pstate;
 		pstates[cnt].stage = sde_plane_get_property(
 				pstates[cnt].sde_pstate, PLANE_PROP_ZPOS);
@@ -4912,6 +4921,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		if (right_rect.x < left_rect.x) {
 			swap(left_pid, right_pid);
 			swap(left_rect, right_rect);
+			swap(prv_pstate, cur_pstate);
 		}
 
 		/**
@@ -4921,7 +4931,8 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		 * - planes in source split must be contiguous in width
 		 * - planes in source split must have same dest yoff and height
 		 */
-		if (right_pid < left_pid) {
+		if ((right_pid < left_pid) &&
+			!kms->catalog->pipe_order_type) {
 			SDE_ERROR(
 				"invalid src split cfg. priority mismatch. stage: %d left: %d right: %d\n",
 				stage, left_pid, right_pid);
@@ -4943,6 +4954,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			rc = -EINVAL;
 			goto end;
 		}
+
+		if (kms->catalog->pipe_order_type)
+			cur_pstate->sde_pstate->pipe_order_flags =
+				SDE_SSPP_RIGHT;
 	}
 
 	rc = _sde_crtc_check_rois(crtc, state);
