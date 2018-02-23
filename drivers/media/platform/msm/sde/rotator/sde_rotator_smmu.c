@@ -344,7 +344,7 @@ int sde_smmu_map_dma_buf(struct dma_buf *dma_buf,
 
 	rc = dma_map_sg_attrs(sde_smmu->dev, table->sgl, table->nents, dir,
 			attrs);
-	if (rc != table->nents) {
+	if (!rc) {
 		SDEROT_ERR("dma map sg failed\n");
 		return -ENOMEM;
 	}
