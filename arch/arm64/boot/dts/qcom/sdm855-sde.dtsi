@@ -466,7 +466,7 @@
 		reg-names = "dsi_ctrl", "disp_cc_base";
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <4 0>;
-		vdda-1p2-supply = <&pm855_l3>;
+		vdda-1p2-supply = <&pm855l_l3>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE0_INTF_CLK>,
@@ -501,7 +501,7 @@
 		reg-names = "dsi_ctrl", "disp_cc_base";
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <5 0>;
-		vdda-1p2-supply = <&pm855_l3>;
+		vdda-1p2-supply = <&pm855l_l3>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE1_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE1_CLK_SRC>,
 			<&clock_dispcc DISP_CC_MDSS_BYTE1_INTF_CLK>,
