@@ -83,18 +83,12 @@ struct dp_catalog_aux {
 };
 
 struct dp_catalog_ctrl {
-	u32 dp_tu;
-	u32 valid_boundary;
-	u32 valid_boundary2;
 	u32 isr;
 
 	void (*state_ctrl)(struct dp_catalog_ctrl *ctrl, u32 state);
-	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl, u32 config);
+	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl);
 	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl);
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);
-	void (*config_misc)(struct dp_catalog_ctrl *ctrl, u32 cc, u32 tb);
-	void (*config_msa)(struct dp_catalog_ctrl *ctrl, u32 rate,
-				u32 stream_rate_khz, bool fixed_nvid);
 	void (*set_pattern)(struct dp_catalog_ctrl *ctrl, u32 pattern);
 	void (*reset)(struct dp_catalog_ctrl *ctrl);
 	void (*usb_reset)(struct dp_catalog_ctrl *ctrl, bool flip);
@@ -107,7 +101,6 @@ struct dp_catalog_ctrl {
 	void (*update_vx_px)(struct dp_catalog_ctrl *ctrl, u8 v_level,
 				u8 p_level);
 	void (*get_interrupt)(struct dp_catalog_ctrl *ctrl);
-	void (*update_transfer_unit)(struct dp_catalog_ctrl *ctrl);
 	u32 (*read_hdcp_status)(struct dp_catalog_ctrl *ctrl);
 	void (*send_phy_pattern)(struct dp_catalog_ctrl *ctrl,
 			u32 pattern);
@@ -170,10 +163,22 @@ struct dp_catalog_panel {
 	u32 hsync_ctl;
 	u32 display_hctl;
 
+	/* TU */
+	u32 dp_tu;
+	u32 valid_boundary;
+	u32 valid_boundary2;
+
+	u32 misc_val;
+
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
 	void (*config_hdr)(struct dp_catalog_panel *panel, bool en);
 	void (*tpg_config)(struct dp_catalog_panel *panel, bool enable);
 	void (*config_spd)(struct dp_catalog_panel *panel);
+	void (*config_misc)(struct dp_catalog_panel *panel);
+	void (*config_msa)(struct dp_catalog_panel *panel,
+			u32 rate, u32 stream_rate_khz, bool fixed_nvid);
+	void (*update_transfer_unit)(struct dp_catalog_panel *panel);
+	void (*config_ctrl)(struct dp_catalog_panel *panel, u32 cfg);
 };
 
 struct dp_catalog;

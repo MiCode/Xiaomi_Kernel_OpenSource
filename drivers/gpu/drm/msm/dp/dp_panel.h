@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,7 +78,7 @@ struct dp_panel {
 
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel);
-	int (*timing_cfg)(struct dp_panel *dp_panel);
+	int (*hw_cfg)(struct dp_panel *dp_panel);
 	int (*read_sink_caps)(struct dp_panel *dp_panel,
 		struct drm_connector *connector);
 	u32 (*get_min_req_link_rate)(struct dp_panel *dp_panel);

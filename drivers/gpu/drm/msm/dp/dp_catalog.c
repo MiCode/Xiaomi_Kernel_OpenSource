@@ -659,22 +659,23 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en)
 	dp_write(catalog, io_data, MMSS_DP_SDP_CFG3, 0x00);
 }
 
-static void dp_catalog_ctrl_update_transfer_unit(struct dp_catalog_ctrl *ctrl)
+static void dp_catalog_panel_update_transfer_unit(
+		struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
 
-	if (!ctrl) {
+	if (!panel) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	catalog = dp_catalog_get_priv(ctrl);
+	catalog = dp_catalog_get_priv(panel);
 	io_data = catalog->io.dp_link;
 
-	dp_write(catalog, io_data, DP_VALID_BOUNDARY, ctrl->valid_boundary);
-	dp_write(catalog, io_data, DP_TU, ctrl->dp_tu);
-	dp_write(catalog, io_data, DP_VALID_BOUNDARY_2, ctrl->valid_boundary2);
+	dp_write(catalog, io_data, DP_VALID_BOUNDARY, panel->valid_boundary);
+	dp_write(catalog, io_data, DP_TU, panel->dp_tu);
+	dp_write(catalog, io_data, DP_VALID_BOUNDARY_2, panel->valid_boundary2);
 }
 
 static void dp_catalog_ctrl_state_ctrl(struct dp_catalog_ctrl *ctrl, u32 state)
@@ -693,10 +694,11 @@ static void dp_catalog_ctrl_state_ctrl(struct dp_catalog_ctrl *ctrl, u32 state)
 	dp_write(catalog, io_data, DP_STATE_CTRL, state);
 }
 
-static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u32 cfg)
+static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
+	u32 cfg;
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -704,6 +706,27 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u32 cfg)
 	}
 
 	catalog = dp_catalog_get_priv(ctrl);
+	io_data = catalog->io.dp_link;
+
+	cfg = dp_read(catalog, io_data, DP_CONFIGURATION_CTRL);
+	cfg |= 0x02000000;
+	dp_write(catalog, io_data, DP_CONFIGURATION_CTRL, cfg);
+
+	pr_debug("DP_CONFIGURATION_CTRL=0x%x\n", cfg);
+}
+
+static void dp_catalog_panel_config_ctrl(struct dp_catalog_panel *panel,
+		u32 cfg)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data;
+
+	if (!panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(panel);
 	io_data = catalog->io.dp_link;
 
 	pr_debug("DP_CONFIGURATION_CTRL=0x%x\n", cfg);
@@ -758,31 +781,24 @@ static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
 	}
 }
 
-static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
-					u32 cc, u32 tb)
+static void dp_catalog_panel_config_misc(struct dp_catalog_panel *panel)
 {
-	u32 misc_val = cc;
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
 
-	if (!ctrl) {
+	if (!panel) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	catalog = dp_catalog_get_priv(ctrl);
+	catalog = dp_catalog_get_priv(panel);
 	io_data = catalog->io.dp_link;
 
-	misc_val = dp_read(catalog, io_data, DP_MISC1_MISC0);
-	misc_val |= cc;
-	misc_val |= (tb << 5);
-	misc_val |= BIT(0); /* Configure clock to synchronous mode */
-
-	pr_debug("misc settings = 0x%x\n", misc_val);
-	dp_write(catalog, io_data, DP_MISC1_MISC0, misc_val);
+	pr_debug("misc settings = 0x%x\n", panel->misc_val);
+	dp_write(catalog, io_data, DP_MISC1_MISC0, panel->misc_val);
 }
 
-static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
+static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
 					u32 rate, u32 stream_rate_khz,
 					bool fixed_nvid)
 {
@@ -795,12 +811,12 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
 
-	if (!ctrl) {
+	if (!panel) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	catalog = dp_catalog_get_priv(ctrl);
+	catalog = dp_catalog_get_priv(panel);
 	if (fixed_nvid) {
 		pr_debug("use fixed NVID=0x%x\n", nvid_fixed);
 		nvid = nvid_fixed;
@@ -1787,8 +1803,6 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.config_ctrl    = dp_catalog_ctrl_config_ctrl,
 		.lane_mapping   = dp_catalog_ctrl_lane_mapping,
 		.mainlink_ctrl  = dp_catalog_ctrl_mainlink_ctrl,
-		.config_misc    = dp_catalog_ctrl_config_misc,
-		.config_msa     = dp_catalog_ctrl_config_msa,
 		.set_pattern    = dp_catalog_ctrl_set_pattern,
 		.reset          = dp_catalog_ctrl_reset,
 		.usb_reset      = dp_catalog_ctrl_usb_reset,
@@ -1799,7 +1813,6 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.phy_lane_cfg   = dp_catalog_ctrl_phy_lane_cfg,
 		.update_vx_px   = dp_catalog_ctrl_update_vx_px,
 		.get_interrupt  = dp_catalog_ctrl_get_interrupt,
-		.update_transfer_unit = dp_catalog_ctrl_update_transfer_unit,
 		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
 		.send_phy_pattern    = dp_catalog_ctrl_send_phy_pattern,
 		.read_phy_pattern = dp_catalog_ctrl_read_phy_pattern,
@@ -1818,6 +1831,10 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.config_hdr = dp_catalog_panel_config_hdr,
 		.tpg_config = dp_catalog_panel_tpg_cfg,
 		.config_spd = dp_catalog_panel_config_spd,
+		.config_misc = dp_catalog_panel_config_misc,
+		.config_msa = dp_catalog_panel_config_msa,
+		.update_transfer_unit = dp_catalog_panel_update_transfer_unit,
+		.config_ctrl = dp_catalog_panel_config_ctrl,
 	};
 
 	if (!dev || !parser) {
