@@ -68,6 +68,8 @@
 #define CAM_ICP_CTX_STATE_ACQUIRED  0x2
 #define CAM_ICP_CTX_STATE_RELEASE   0x3
 
+#define CAM_ICP_CTX_MAX_CMD_BUFFERS 0x2
+
 /**
  * struct icp_hfi_mem_info
  * @qtbl: Memory info of queue table
