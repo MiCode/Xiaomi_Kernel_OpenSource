@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,9 @@
 
 #define pr_fmt(fmt) "AXI: NOC: %s(): " fmt, __func__
 
+#include <linux/bitops.h>
+#include <linux/sched.h>
+#include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/msm-bus-board.h>
@@ -29,8 +32,22 @@
 #define MAX_SAT_FIELD (NOC_QOS_SATn_SAT_BMSK >> NOC_QOS_SATn_SAT_SHFT)
 #define MIN_SAT_FIELD	1
 #define MIN_BW_FIELD	1
+#define READ_TIMEOUT_MS	msecs_to_jiffies(1)
+#define READ_DELAY_US	10
 
 #define NOC_QOS_REG_BASE(b, o)		((b) + (o))
+
+/*Sideband Manager Disable Macros*/
+#define DISABLE_SBM_FLAGOUTCLR0_LOW_OFF		0x80
+#define DISABLE_SBM_FLAGOUTCLR0_HIGH_OFF	0x84
+#define DISABLE_SBM_FLAGOUTSET0_LOW_OFF		0x88
+#define DISABLE_SBM_FLAGOUTSET0_HIGH_OFF	0x8C
+#define DISABLE_SBM_FLAGOUTSTATUS0_LOW_OFF	0x90
+#define DISABLE_SBM_FLAGOUTSTATUS0_HIGH_OFF	0x94
+#define DISABLE_SBM_SENSEIN0_LOW_OFF		0x100
+#define DISABLE_SBM_SENSEIN0_HIGH_OFF		0x104
+
+#define DISABLE_SBM_REG_BASE(b, o, d)	((b) + (o) + (d))
 
 #define NOC_QOS_MAINCTL_LOWn_ADDR(b, o, n, d)	\
 	(NOC_QOS_REG_BASE(b, o) + 0x8 + (d) * (n))
@@ -361,12 +378,87 @@ err_qos_init:
 	return ret;
 }
 
+static int msm_bus_noc_sbm_config(struct msm_bus_node_device_type *node_dev,
+				void __iomem *noc_base, uint32_t sbm_offset,
+				bool enable)
+{
+	int ret = 0, idx;
+	unsigned long j, j_timeout;
+	uint32_t flagset_offset, flagclr_offset, sense_offset;
+
+	for (idx = 0; idx < node_dev->node_info->num_disable_ports; idx++) {
+		uint32_t disable_port = node_dev->node_info->disable_ports[idx];
+		uint32_t reg_val = 0;
+
+		if (disable_port >= 64) {
+			return -EINVAL;
+		} else if (disable_port < 32) {
+			flagset_offset = DISABLE_SBM_FLAGOUTSET0_LOW_OFF;
+			flagclr_offset = DISABLE_SBM_FLAGOUTCLR0_LOW_OFF;
+			sense_offset = DISABLE_SBM_SENSEIN0_LOW_OFF;
+		} else {
+			flagset_offset = DISABLE_SBM_FLAGOUTSET0_HIGH_OFF;
+			flagclr_offset = DISABLE_SBM_FLAGOUTCLR0_HIGH_OFF;
+			sense_offset = DISABLE_SBM_SENSEIN0_HIGH_OFF;
+			disable_port = disable_port - 32;
+		}
+
+		if (enable) {
+			reg_val |= 0x1 << disable_port;
+			writel_relaxed(reg_val, DISABLE_SBM_REG_BASE(noc_base,
+					sbm_offset, flagclr_offset));
+			/* Ensure SBM reconnect took place */
+			wmb();
+
+			j = jiffies;
+			j_timeout = j + READ_TIMEOUT_MS;
+			while (((0x1 << disable_port) &
+				readl_relaxed(DISABLE_SBM_REG_BASE(noc_base,
+				sbm_offset, sense_offset)))) {
+				udelay(READ_DELAY_US);
+				j = jiffies;
+				if (time_after(j, j_timeout)) {
+					MSM_BUS_ERR("%s: SBM enable timeout.\n",
+								 __func__);
+					goto sbm_timeout;
+				}
+			}
+		} else {
+			reg_val |= 0x1 << disable_port;
+			writel_relaxed(reg_val, DISABLE_SBM_REG_BASE(noc_base,
+					sbm_offset, flagset_offset));
+			/* Ensure SBM disconnect took place */
+			wmb();
+
+			j = jiffies;
+			j_timeout = j + READ_TIMEOUT_MS;
+			while (!((0x1 << disable_port) &
+				readl_relaxed(DISABLE_SBM_REG_BASE(noc_base,
+				sbm_offset, sense_offset)))) {
+				udelay(READ_DELAY_US);
+				j = jiffies;
+				if (time_after(j, j_timeout)) {
+					MSM_BUS_ERR("%s: SBM disable timeout.\n"
+								, __func__);
+					goto sbm_timeout;
+				}
+			}
+		}
+	}
+	return ret;
+
+sbm_timeout:
+	return -ETIME;
+
+}
+
 int msm_bus_noc_set_ops(struct msm_bus_node_device_type *bus_dev)
 {
 	if (!bus_dev)
 		return -ENODEV;
 
 	bus_dev->fabdev->noc_ops.qos_init = msm_bus_noc_qos_init;
+	bus_dev->fabdev->noc_ops.sbm_config = msm_bus_noc_sbm_config;
 
 	return 0;
 }

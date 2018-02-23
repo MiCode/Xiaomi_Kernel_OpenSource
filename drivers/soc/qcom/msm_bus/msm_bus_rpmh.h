@@ -52,6 +52,9 @@ struct msm_bus_noc_ops {
 			uint32_t qos_delta, uint32_t qos_freq, int enable_lim,
 			uint64_t lim_bw);
 	bool (*update_bw_reg)(int mode);
+	int (*sbm_config)(struct msm_bus_node_device_type *node_dev,
+			void __iomem *noc_base, uint32_t sbm_offset,
+			bool enable);
 };
 
 struct nodebw {
@@ -111,6 +114,7 @@ struct msm_bus_fab_device_type {
 	uint32_t base_offset;
 	uint32_t qos_freq;
 	uint32_t qos_off;
+	uint32_t sbm_offset;
 	struct msm_bus_noc_ops noc_ops;
 	enum msm_bus_hw_sel bus_type;
 	bool bypass_qos_prg;
@@ -189,6 +193,8 @@ struct msm_bus_node_info_type {
 	struct rule_update_path_info rule;
 	uint64_t lim_bw;
 	bool defer_qos;
+	uint32_t *disable_ports;
+	int num_disable_ports;
 	struct node_agg_params_type agg_params;
 };
 
