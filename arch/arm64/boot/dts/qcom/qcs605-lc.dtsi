@@ -132,53 +132,70 @@
 &soc {
 	qcom,turing@8300000 {
 		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&pm8005_s1_level>;
 	};
 
 	qcom,lpass@62400000 {
 		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&pm8005_s1_level>;
 	};
 };
 
 &clock_cpucc {
 	/delete-property/ vdd_l3_mx_ao-supply;
 	/delete-property/ vdd_pwrcl_mx_ao-supply;
+	vdd_l3_mx_ao-supply = <&pm660_s2_level_ao>;
+	vdd_pwrcl_mx_ao-supply = <&pm660_s2_level_ao>;
 };
 
 &clock_gcc {
 	/delete-property/ vdd_cx-supply;
 	/delete-property/ vdd_cx_ao-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+	vdd_cx_ao-supply = <&pm8005_s1_level_ao>;
 };
 
 &clock_videocc {
 	/delete-property/ vdd_cx-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
 };
 
 &clock_camcc {
 	/delete-property/ vdd_mx-supply;
 	/delete-property/ vdd_cx-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+	vdd_mx-supply = <&pm660_s2_level>;
 };
 
 &clock_dispcc {
 	/delete-property/ vdd_cx-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
 };
 
 &clock_gpucc {
 	/delete-property/ vdd_mx-supply;
 	/delete-property/ vdd_cx-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+	vdd_mx-supply = <&pm660_s2_level>;
 };
 
 &pil_modem {
 	/delete-property/ vdd_mx-supply;
 	/delete-property/ vdd_cx-supply;
 	/delete-property/ vdd_mss-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+	vdd_mx-supply = <&pm660_s2_level>;
+	vdd_mss-supply = <&pm8005_s1_level>;
 };
 
 &clock_gfx {
 	/delete-property/ vdd_gfx-supply;
+	vdd_gfx-supply = <&pm8005_s2>;
 };
 
 &gpu_gx_gdsc {
 	/delete-property/ parent-supply;
+	parent-supply = <&pm8005_s2>;
 };
 
 &mdss_dsi_phy0 {
