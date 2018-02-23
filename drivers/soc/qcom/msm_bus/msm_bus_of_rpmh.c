@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,6 +166,11 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 			&fab_dev->base_offset);
 	if (ret)
 		dev_dbg(&pdev->dev, "Bus base offset is missing\n");
+
+	ret = of_property_read_u32(dev_node, "qcom,sbm-offset",
+			&fab_dev->sbm_offset);
+	if (ret)
+		dev_dbg(&pdev->dev, "sbm disable offset is missing\n");
 
 	ret = of_property_read_u32(dev_node, "qcom,qos-off",
 			&fab_dev->qos_off);
@@ -374,6 +379,25 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	}
 	node_info->qport = get_arr(pdev, dev_node, "qcom,qport",
 			&node_info->num_qports);
+
+	node_info->num_disable_ports = of_property_count_elems_of_size(dev_node,
+			 "qcom,disable-ports", sizeof(uint32_t));
+
+	if (node_info->num_disable_ports < 0) {
+		node_info->num_disable_ports = 0;
+		dev_dbg(&pdev->dev, "no disable ports\n");
+	}
+
+	if (node_info->num_disable_ports) {
+		node_info->disable_ports = devm_kcalloc(&pdev->dev,
+			node_info->num_disable_ports, sizeof(uint32_t),
+							GFP_KERNEL);
+		if (!node_info->disable_ports)
+			return NULL;
+		ret = of_property_read_u32_array(dev_node, "qcom,disable-ports",
+					node_info->disable_ports,
+					node_info->num_disable_ports);
+	}
 
 	if (of_get_property(dev_node, "qcom,connections", &size)) {
 		node_info->num_connections = size / sizeof(int);
