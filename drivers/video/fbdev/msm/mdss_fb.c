@@ -3014,7 +3014,8 @@ static void mdss_fb_release_fences(struct msm_fb_data_type *mfd)
 	if (sync_pt_data->timeline) {
 		val = sync_pt_data->threshold +
 			atomic_read(&sync_pt_data->commit_cnt);
-		mdss_inc_timeline(sync_pt_data->timeline, val);
+		mdss_resync_timeline(sync_pt_data->timeline);
+		mdss_resync_timeline(sync_pt_data->timeline_retire);
 		sync_pt_data->timeline_value += val;
 		atomic_set(&sync_pt_data->commit_cnt, 0);
 	}
