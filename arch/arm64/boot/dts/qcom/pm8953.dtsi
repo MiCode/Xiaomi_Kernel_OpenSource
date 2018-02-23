@@ -295,13 +295,11 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pm8953_pwm: pwm@bc00 {
+		pm8953_pwm: qcom,pwms@bc00 {
 			status = "disabled";
-			compatible = "qcom,qpnp-pwm";
+			compatible = "qcom,pwm-lpg";
 			reg = <0xbc00 0x100>;
-			reg-names = "qpnp-lpg-channel-base";
-			qcom,channel-id = <0>;
-			qcom,supported-sizes = <6>, <9>;
+			reg-names = "lpg-base";
 			#pwm-cells = <2>;
 		};
 	};
