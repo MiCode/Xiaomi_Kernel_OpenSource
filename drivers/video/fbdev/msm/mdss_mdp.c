@@ -2124,6 +2124,7 @@ static u32 mdss_mdp_scaler_init(struct mdss_data_type *mdata,
 			return -EINVAL;
 	}
 
+	mutex_init(&mdata->scaler_off->scaler_lock);
 	return 0;
 }
 
