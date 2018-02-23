@@ -1013,6 +1013,7 @@ static unsigned num_emulated_msrs;
  * can be used by a hypervisor to validate requested CPU features.
  */
 static u32 msr_based_features[] = {
+	MSR_F10H_DECFG,
 };
 
 static unsigned int num_msr_based_features;
