@@ -80,6 +80,8 @@ struct clk_osm {
 	unsigned long rate;
 };
 
+static bool is_sdmshrike;
+
 static inline struct clk_osm *to_clk_osm(struct clk_hw *_hw)
 {
 	return container_of(_hw, struct clk_osm, hw);
@@ -394,6 +396,18 @@ static struct clk_osm cpu6_perfcl_clk = {
 	},
 };
 
+static struct clk_osm cpu7_perfcl_clk = {
+	.core_num = 3,
+	.total_cycle_counter = 0,
+	.prev_cycle_counter = 0,
+	.hw.init = &(struct clk_init_data){
+		.name = "cpu7_perfcl_clk",
+		.parent_names = (const char *[]){ "perfcl_clk" },
+		.num_parents = 1,
+		.ops = &clk_ops_core,
+	},
+};
+
 static struct clk_osm perfpcl_clk = {
 	.cluster_num = 3,
 	.hw.init = &osm_clks_init[3],
@@ -427,6 +441,18 @@ static struct clk_hw *osm_qcom_clk_hws[] = {
 	[PERFCL_CLK] = &perfcl_clk.hw,
 	[CPU7_PERFPCL_CLK] = &cpu7_perfpcl_clk.hw,
 	[PERFPCL_CLK] = &perfpcl_clk.hw,
+	[CPU7_PERFCL_CLK] = NULL,
+};
+
+struct clk_osm *clk_cpu_map[] = {
+	&cpu0_pwrcl_clk,
+	&cpu1_pwrcl_clk,
+	&cpu2_pwrcl_clk,
+	&cpu3_pwrcl_clk,
+	&cpu4_perfcl_clk,
+	&cpu5_perfcl_clk,
+	&cpu6_perfcl_clk,
+	&cpu7_perfpcl_clk,
 };
 
 static struct clk_osm *logical_cpu_to_clk(int cpu)
@@ -435,16 +461,6 @@ static struct clk_osm *logical_cpu_to_clk(int cpu)
 	const u32 *cell;
 	u64 hwid;
 	static struct clk_osm *cpu_clk_map[NR_CPUS];
-	struct clk_osm *clk_cpu_map[] = {
-		&cpu0_pwrcl_clk,
-		&cpu1_pwrcl_clk,
-		&cpu2_pwrcl_clk,
-		&cpu3_pwrcl_clk,
-		&cpu4_perfcl_clk,
-		&cpu5_perfcl_clk,
-		&cpu6_perfcl_clk,
-		&cpu7_perfpcl_clk,
-	};
 
 	if (!cpu_clk_map[cpu]) {
 		cpu_node = of_get_cpu_node(cpu, NULL);
@@ -959,6 +975,9 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (is_sdmshrike)
+		return 0;
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"osm_perfpcl_base");
 	if (!res) {
@@ -979,6 +998,15 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 	return 0;
 }
 
+static void clk_cpu_osm_driver_sdmshrike_fixup(void)
+{
+	osm_qcom_clk_hws[CPU7_PERFPCL_CLK] = NULL;
+	osm_qcom_clk_hws[PERFPCL_CLK] = NULL;
+	osm_qcom_clk_hws[CPU7_PERFCL_CLK] = &cpu7_perfcl_clk.hw;
+
+	clk_cpu_map[7] = &cpu7_perfcl_clk;
+}
+
 static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 {
 	int rc = 0, i;
@@ -989,6 +1017,11 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	struct cpu_cycle_counter_cb cycle_counter_cb = {
 		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,
 	};
+
+	is_sdmshrike = of_device_is_compatible(pdev->dev.of_node,
+				"qcom,clk-cpu-osm-sdmshrike");
+	if (is_sdmshrike)
+		clk_cpu_osm_driver_sdmshrike_fixup();
 
 	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data),
 								GFP_KERNEL);
@@ -1054,6 +1087,9 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	/* Register OSM l3, pwr and perf clocks with Clock Framework */
 	for (i = 0; i < num_clks; i++) {
+		if (!osm_qcom_clk_hws[i])
+			continue;
+
 		clk = devm_clk_register(&pdev->dev, osm_qcom_clk_hws[i]);
 		if (IS_ERR(clk)) {
 			dev_err(&pdev->dev, "Unable to register CPU clock at index %d\n",
@@ -1105,6 +1141,7 @@ exit:
 
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,clk-cpu-osm" },
+	{ .compatible = "qcom,clk-cpu-osm-sdmshrike" },
 	{}
 };
 
