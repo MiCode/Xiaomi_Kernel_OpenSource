@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -223,10 +223,13 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	struct dma_iommu_mapping *mapping;
 	int atomic_ctx = 1;
 	int s1_bypass = 1;
+	int fast = 1;
+
+	cnss_pr_dbg("Initializing SMMU\n");
 
 	dev = &pci_priv->pci_dev->dev;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type,
+	mapping = arm_iommu_create_mapping(dev->bus,
 					   pci_priv->smmu_iova_start,
 					   pci_priv->smmu_iova_len);
 	if (IS_ERR(mapping)) {
@@ -235,22 +238,35 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 		goto out;
 	}
 
-	ret = iommu_domain_set_attr(mapping->domain,
-				    DOMAIN_ATTR_ATOMIC,
-				    &atomic_ctx);
-	if (ret) {
-		pr_err("Failed to set SMMU atomic_ctx attribute, err = %d\n",
-		       ret);
-		goto release_mapping;
-	}
+	if (pci_priv->smmu_s1_enable) {
+		cnss_pr_dbg("Enabling SMMU S1 stage\n");
 
-	ret = iommu_domain_set_attr(mapping->domain,
-				    DOMAIN_ATTR_S1_BYPASS,
-				    &s1_bypass);
-	if (ret) {
-		pr_err("Failed to set SMMU s1_bypass attribute, err = %d\n",
-		       ret);
-		goto release_mapping;
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_ATOMIC,
+					    &atomic_ctx);
+		if (ret) {
+			pr_err("Failed to set SMMU atomic_ctx attribute, err = %d\n",
+			       ret);
+			goto release_mapping;
+		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_FAST,
+					    &fast);
+		if (ret) {
+			pr_err("Failed to set SMMU fast attribute, err = %d\n",
+			       ret);
+			goto release_mapping;
+		}
+	} else {
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_S1_BYPASS,
+					    &s1_bypass);
+		if (ret) {
+			pr_err("Failed to set SMMU s1_bypass attribute, err = %d\n",
+			       ret);
+			goto release_mapping;
+		}
 	}
 
 	ret = arm_iommu_attach_device(dev, mapping);
@@ -1443,6 +1459,10 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	res = platform_get_resource_byname(plat_priv->plat_dev, IORESOURCE_MEM,
 					   "smmu_iova_base");
 	if (res) {
+		if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+					  "qcom,smmu-s1-enable"))
+			pci_priv->smmu_s1_enable = true;
+
 		pci_priv->smmu_iova_start = res->start;
 		pci_priv->smmu_iova_len = resource_size(res);
 		cnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: %zu\n",
