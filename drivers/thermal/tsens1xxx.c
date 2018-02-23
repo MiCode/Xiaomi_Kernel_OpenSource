@@ -53,6 +53,7 @@
 #define TSENS_TRDY_RDY_MAX_TIME		2100
 #define TSENS_THRESHOLD_MAX_CODE	0x3ff
 #define TSENS_THRESHOLD_MIN_CODE	0x0
+#define TSENS_SCALE_MILLIDEG		1000
 
 /* eeprom layout data for 8937 */
 #define BASE0_MASK	0x000000ff
@@ -303,6 +304,7 @@ static int tsens1xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	}
 
 	*temp = code_to_degc(last_temp, sensor);
+	*temp = *temp * TSENS_SCALE_MILLIDEG;
 
 	return 0;
 }
@@ -386,6 +388,7 @@ static int tsens1xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 	spin_lock_irqsave(&tmdev->tsens_upp_low_lock, flags);
 
 	if (high_temp != INT_MAX) {
+		high_temp /= TSENS_SCALE_MILLIDEG;
 		high_code = degc_to_code(high_temp, tm_sensor);
 		tmdev->sensor[tm_sensor->hw_id].thr_state.high_adc_code =
 							high_code;
@@ -407,6 +410,7 @@ static int tsens1xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 	}
 
 	if (low_temp != INT_MIN) {
+		low_temp /= TSENS_SCALE_MILLIDEG;
 		low_code = degc_to_code(low_temp, tm_sensor);
 		tmdev->sensor[tm_sensor->hw_id].thr_state.low_adc_code =
 							low_code;
