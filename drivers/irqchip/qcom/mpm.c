@@ -20,6 +20,7 @@
 #include <linux/irq.h>
 #include <linux/tick.h>
 #include <linux/irqchip.h>
+#include <linux/irqchip/arm-gic-v3.h>
 #include <linux/irqdomain.h>
 #include <linux/interrupt.h>
 #include<linux/ktime.h>
@@ -296,10 +297,34 @@ static int msm_mpm_gic_chip_translate(struct irq_domain *d,
 	if (is_of_node(fwspec->fwnode)) {
 		if (fwspec->param_count < 3)
 			return -EINVAL;
-		*hwirq = fwspec->param[1];
+
+		switch (fwspec->param[0]) {
+		case 0:			/* SPI */
+			*hwirq = fwspec->param[1] + 32;
+			break;
+		case 1:			/* PPI */
+			*hwirq = fwspec->param[1] + 16;
+			break;
+		case GIC_IRQ_TYPE_LPI:	/* LPI */
+			*hwirq = fwspec->param[1];
+			break;
+		default:
+			return -EINVAL;
+		}
+
 		*type = fwspec->param[2] & IRQ_TYPE_SENSE_MASK;
 		return 0;
 	}
+
+	if (is_fwnode_irqchip(fwspec->fwnode)) {
+		if (fwspec->param_count != 2)
+			return -EINVAL;
+
+		*hwirq = fwspec->param[0];
+		*type = fwspec->param[1];
+		return 0;
+	}
+
 	return -EINVAL;
 }
 
