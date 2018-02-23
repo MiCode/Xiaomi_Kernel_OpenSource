@@ -7330,15 +7330,15 @@ static int wake_cap(struct task_struct *p, int cpu, int prev_cpu)
 	return !task_fits_capacity(p, min_cap, cpu);
 }
 
-bool __cpu_overutilized(int cpu, unsigned long util)
+bool __cpu_overutilized(int cpu, int delta)
 {
-	return (capacity_orig_of(cpu) * 1024 <
-		util * capacity_margin);
+	return (capacity_orig_of(cpu) * 1024) <
+		((cpu_util(cpu) + delta) * capacity_margin);
 }
 
 bool cpu_overutilized(int cpu)
 {
-	return __cpu_overutilized(cpu, cpu_util(cpu));
+	return __cpu_overutilized(cpu, 0);
 }
 
 DEFINE_PER_CPU(struct energy_env, eenv_cache);
@@ -7503,7 +7503,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 {
 	int use_fbt = sched_feat(FIND_BEST_TARGET);
 	int cpu_iter, eas_cpu_idx = EAS_CPU_NXT;
-	int energy_cpu = -1;
+	int energy_cpu = -1, delta = 0;
 	struct energy_env *eenv;
 	struct cpumask *rtg_target = find_rtg_target(p);
 	struct find_best_target_env fbt_env;
@@ -7591,8 +7591,15 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		return energy_cpu;
 	}
 
+#ifdef CONFIG_SCHED_WALT
+	if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
+			p->state == TASK_WAKING)
+		delta = task_util(p);
+#endif
 	if (use_fbt && (fbt_env.placement_boost || fbt_env.need_idle ||
-		(rtg_target && !cpumask_test_cpu(prev_cpu, rtg_target))))
+		(rtg_target && !cpumask_test_cpu(prev_cpu, rtg_target)) ||
+		 __cpu_overutilized(prev_cpu, delta) ||
+		 !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu)))
 		return eenv->cpu[EAS_CPU_NXT].cpu_id;
 
 	/* find most energy-efficient CPU */
@@ -12186,7 +12193,7 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 	int new_cpu = -1;
 	int cpu = smp_processor_id();
 	int prev_cpu = task_cpu(p);
-	struct sched_domain *tmp, *sd = NULL;
+	struct sched_domain *sd = NULL;
 
 	if (rq->misfit_task) {
 		if (rq->curr->state != TASK_RUNNING ||
@@ -12198,14 +12205,7 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 
 		raw_spin_lock(&migration_lock);
 		rcu_read_lock();
-		for_each_domain(cpu, tmp) {
-			if (!sd_overutilized(tmp) &&
-			    cpumask_test_cpu(prev_cpu, sched_domain_span(tmp)))
-				sd = tmp;
-		}
-		if (sd)
-			new_cpu = find_energy_efficient_cpu(sd, p, cpu,
-								prev_cpu, 0);
+		new_cpu = find_energy_efficient_cpu(sd, p, cpu,	prev_cpu, 0);
 		rcu_read_unlock();
 		if ((new_cpu != -1) &&
 			(capacity_orig_of(new_cpu) > capacity_orig_of(cpu))) {
