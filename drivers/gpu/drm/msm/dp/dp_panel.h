@@ -76,6 +76,11 @@ struct dp_panel {
 	/* debug */
 	u32 max_bw_code;
 
+	/* By default, stream_id is assigned to DP_INVALID_STREAM.
+	 * Client sets the stream id value using set_stream_id interface.
+	 */
+	enum dp_stream_id stream_id;
+
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel);
 	int (*hw_cfg)(struct dp_panel *dp_panel);
@@ -94,6 +99,8 @@ struct dp_panel {
 	void (*tpg_config)(struct dp_panel *dp_panel, bool enable);
 	int (*spd_config)(struct dp_panel *dp_panel);
 	bool (*hdr_supported)(struct dp_panel *dp_panel);
+	int (*set_stream_id)(struct dp_panel *dp_panel,
+			enum dp_stream_id stream_id);
 };
 
 /**

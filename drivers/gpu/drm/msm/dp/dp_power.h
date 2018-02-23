@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@ struct dp_power {
 	int (*deinit)(struct dp_power *power);
 	int (*clk_enable)(struct dp_power *power, enum dp_pm_type pm_type,
 				bool enable);
-	int (*set_pixel_clk_parent)(struct dp_power *power);
+	int (*set_pixel_clk_parent)(struct dp_power *power, u32 stream_id);
 	int (*power_client_init)(struct dp_power *power,
 				struct sde_power_handle *phandle);
 	void (*power_client_deinit)(struct dp_power *power);

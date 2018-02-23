@@ -36,6 +36,13 @@
 #define DP_INTR_FRAME_END		BIT(6)
 #define DP_INTR_CRC_UPDATED		BIT(9)
 
+/* stream id */
+enum dp_stream_id {
+	DP_STREAM_0,
+	DP_STREAM_1,
+	DP_STREAM_MAX,
+};
+
 struct dp_catalog_hdr_data {
 	u32 ext_header_byte0;
 	u32 ext_header_byte1;
@@ -169,6 +176,8 @@ struct dp_catalog_panel {
 	u32 valid_boundary2;
 
 	u32 misc_val;
+
+	enum dp_stream_id stream_id;
 
 	int (*timing_cfg)(struct dp_catalog_panel *panel);
 	void (*config_hdr)(struct dp_catalog_panel *panel, bool en);

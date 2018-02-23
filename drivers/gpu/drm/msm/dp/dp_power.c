@@ -16,6 +16,7 @@
 
 #include <linux/clk.h>
 #include "dp_power.h"
+#include "dp_catalog.h"
 
 #define DP_CLIENT_NAME_SIZE	20
 
@@ -535,21 +536,28 @@ static void dp_power_client_deinit(struct dp_power *dp_power)
 	dp_power_regulator_deinit(power);
 }
 
-static int dp_power_set_pixel_clk_parent(struct dp_power *dp_power)
+static int dp_power_set_pixel_clk_parent(struct dp_power *dp_power, u32 strm_id)
 {
 	int rc = 0;
 	struct dp_power_private *power;
 
-	if (!dp_power) {
-		pr_err("invalid power data\n");
+	if (!dp_power || strm_id >= DP_STREAM_MAX) {
+		pr_err("invalid power data. stream %d\n", strm_id);
 		rc = -EINVAL;
 		goto exit;
 	}
 
 	power = container_of(dp_power, struct dp_power_private, dp_power);
 
-	if (power->pixel_clk_rcg && power->pixel_parent)
-		clk_set_parent(power->pixel_clk_rcg, power->pixel_parent);
+	if (strm_id == DP_STREAM_0) {
+		if (power->pixel_clk_rcg && power->pixel_parent)
+			clk_set_parent(power->pixel_clk_rcg,
+					power->pixel_parent);
+	} else if (strm_id == DP_STREAM_1) {
+		if (power->pixel1_clk_rcg && power->pixel1_parent)
+			clk_set_parent(power->pixel1_clk_rcg,
+					power->pixel1_parent);
+	}
 exit:
 	return rc;
 }

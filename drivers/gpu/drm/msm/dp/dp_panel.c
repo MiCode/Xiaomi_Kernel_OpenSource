@@ -633,6 +633,9 @@ static void dp_panel_config_tr_unit(struct dp_panel *dp_panel)
 		return;
 	}
 
+	if (dp_panel->stream_id != DP_STREAM_0)
+		return;
+
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	catalog = panel->catalog;
 
@@ -1052,6 +1055,11 @@ static void dp_panel_tpg_config(struct dp_panel *dp_panel, bool enable)
 		return;
 	}
 
+	if (dp_panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", dp_panel->stream_id);
+		return;
+	}
+
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	catalog = panel->catalog;
 	pinfo = &panel->dp_panel.pinfo;
@@ -1288,6 +1296,11 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 		goto end;
 	}
 
+	if (dp_panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", dp_panel->stream_id);
+		return -EINVAL;
+	}
+
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	hdr = &panel->catalog->hdr_data;
 
@@ -1336,8 +1349,10 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	else
 		memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 cached:
-	if (panel->panel_on)
+	if (panel->panel_on) {
+		panel->catalog->stream_id = dp_panel->stream_id;
 		panel->catalog->config_hdr(panel->catalog, panel->hdr_state);
+	}
 end:
 	return rc;
 }
@@ -1353,6 +1368,11 @@ static int dp_panel_spd_config(struct dp_panel *dp_panel)
 		goto end;
 	}
 
+	if (dp_panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", dp_panel->stream_id);
+		return -EINVAL;
+	}
+
 	if (!dp_panel->spd_enabled) {
 		pr_debug("SPD Infoframe not enabled\n");
 		goto end;
@@ -1363,6 +1383,8 @@ static int dp_panel_spd_config(struct dp_panel *dp_panel)
 	panel->catalog->spd_vendor_name = panel->spd_vendor_name;
 	panel->catalog->spd_product_description =
 		panel->spd_product_description;
+
+	panel->catalog->stream_id = dp_panel->stream_id;
 	panel->catalog->config_spd(panel->catalog);
 end:
 	return rc;
@@ -1465,16 +1487,39 @@ static void dp_panel_config_msa(struct dp_panel *dp_panel)
 
 static int dp_panel_hw_cfg(struct dp_panel *dp_panel)
 {
+	struct dp_panel_private *panel;
+
 	if (!dp_panel) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
+
+	if (dp_panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id: %d\n", dp_panel->stream_id);
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	panel->catalog->stream_id = dp_panel->stream_id;
 
 	dp_panel_config_ctrl(dp_panel);
 	dp_panel_config_misc(dp_panel);
 	dp_panel_config_msa(dp_panel);
 	dp_panel_config_tr_unit(dp_panel);
 	dp_panel_config_timing(dp_panel);
+
+	return 0;
+}
+
+static int dp_panel_set_stream_id(struct dp_panel *dp_panel,
+		enum dp_stream_id stream_id)
+{
+	if (!dp_panel || stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid input. stream_id: %d\n", stream_id);
+		return -EINVAL;
+	}
+
+	dp_panel->stream_id = stream_id;
 
 	return 0;
 }
@@ -1507,6 +1552,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->spd_enabled = true;
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
+	dp_panel->stream_id = DP_STREAM_MAX;
 
 	dp_panel->init = dp_panel_init_panel_info;
 	dp_panel->deinit = dp_panel_deinit_panel_info;
@@ -1522,6 +1568,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->spd_config = dp_panel_spd_config;
 	dp_panel->setup_hdr = dp_panel_setup_hdr;
 	dp_panel->hdr_supported = dp_panel_hdr_supported;
+	dp_panel->set_stream_id = dp_panel_set_stream_id;
 
 	dp_panel_edid_register(panel);
 

@@ -538,14 +538,33 @@ static int dp_ctrl_enable_stream_clocks(struct dp_ctrl_private *ctrl,
 {
 	int ret = 0;
 
-	ctrl->power->set_pixel_clk_parent(ctrl->power);
+	ret = ctrl->power->set_pixel_clk_parent(ctrl->power,
+			dp_panel->stream_id);
 
-	dp_ctrl_set_clock_rate(ctrl, "strm0_pixel_clk", DP_STREAM0_PM,
-			dp_panel->pinfo.pixel_clk_khz);
+	if (ret)
+		return ret;
 
-	ret = ctrl->power->clk_enable(ctrl->power, DP_STREAM0_PM, true);
-	if (ret) {
-		pr_err("Unabled to start stream0 clocks\n");
+	if (dp_panel->stream_id == DP_STREAM_0) {
+		dp_ctrl_set_clock_rate(ctrl, "strm0_pixel_clk", DP_STREAM0_PM,
+				dp_panel->pinfo.pixel_clk_khz);
+
+		ret = ctrl->power->clk_enable(ctrl->power, DP_STREAM0_PM, true);
+		if (ret) {
+			pr_err("Unabled to start stream0 clocks\n");
+			ret = -EINVAL;
+		}
+	} else if (dp_panel->stream_id == DP_STREAM_1) {
+		dp_ctrl_set_clock_rate(ctrl, "strm1_pixel_clk", DP_STREAM1_PM,
+				dp_panel->pinfo.pixel_clk_khz);
+
+		ret = ctrl->power->clk_enable(ctrl->power, DP_STREAM1_PM, true);
+		if (ret) {
+			pr_err("Unabled to start stream1 clocks\n");
+			ret = -EINVAL;
+		}
+	} else {
+		pr_err("Invalid stream:%d for clk enable\n",
+				dp_panel->stream_id);
 		ret = -EINVAL;
 	}
 
@@ -557,12 +576,17 @@ static int dp_ctrl_disable_stream_clocks(struct dp_ctrl_private *ctrl,
 {
 	int ret = 0;
 
-	ret = ctrl->power->clk_enable(ctrl->power,
+	if (dp_panel->stream_id == DP_STREAM_0) {
+		return ctrl->power->clk_enable(ctrl->power,
 				DP_STREAM0_PM, false);
-
-	if (ret)
-		pr_err("Invalid stream for clk disable\n");
-
+	} else if (dp_panel->stream_id == DP_STREAM_1) {
+		return ctrl->power->clk_enable(ctrl->power,
+				DP_STREAM1_PM, false);
+	} else {
+		pr_err("Invalid stream:%d for clk disable\n",
+				dp_panel->stream_id);
+		ret = -EINVAL;
+	}
 	return ret;
 }
 static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip, bool reset)
