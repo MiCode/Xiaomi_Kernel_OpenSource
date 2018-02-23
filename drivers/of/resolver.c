@@ -21,9 +21,6 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 
-/* illegal phandle value (set when unresolved) */
-#define OF_PHANDLE_ILLEGAL	0xdeadbeef
-
 /**
  * Find a node with the give full name by recursively following any of
  * the child node links.
