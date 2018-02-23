@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -509,11 +509,6 @@ struct hfi_msg_sys_session_abort_done_packet {
 	u32 packet_type;
 	u32 session_id;
 	u32 error_type;
-};
-
-struct hfi_msg_sys_idle_packet {
-	u32 size;
-	u32 packet_type;
 };
 
 struct hfi_msg_sys_ping_ack_packet {

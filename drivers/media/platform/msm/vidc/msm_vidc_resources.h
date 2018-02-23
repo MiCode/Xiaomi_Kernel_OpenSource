@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,7 +170,6 @@ struct msm_vidc_platform_resources {
 	struct bus_set bus_set;
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
-	bool sys_idle_indicator;
 	bool slave_side_cp;
 	struct list_head context_banks;
 	bool thermal_mitigable;
