@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,6 +219,14 @@ static struct usb_interface_descriptor dpl_data_intf_desc = {
 	.bInterfaceProtocol =	0xff,
 };
 
+static struct usb_endpoint_descriptor dpl_fs_data_desc = {
+	.bLength              =	 USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType      =	 USB_DT_ENDPOINT,
+	.bEndpointAddress     =	 USB_DIR_IN,
+	.bmAttributes         =	 USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize       =	 cpu_to_le16(64),
+};
+
 static struct usb_endpoint_descriptor dpl_hs_data_desc = {
 	.bLength              =	 USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType      =	 USB_DT_ENDPOINT,
@@ -241,6 +249,12 @@ static struct usb_ss_ep_comp_descriptor dpl_data_ep_comp_desc = {
 	.bMaxBurst            =	 1,
 	.bmAttributes         =	 0,
 	.wBytesPerInterval    =	 0,
+};
+
+static struct usb_descriptor_header *dpl_fs_data_only_desc[] = {
+	(struct usb_descriptor_header *) &dpl_data_intf_desc,
+	(struct usb_descriptor_header *) &dpl_fs_data_desc,
+	NULL,
 };
 
 static struct usb_descriptor_header *dpl_hs_data_only_desc[] = {
@@ -1087,10 +1101,10 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	} else {
 		info.string_defs = dpl_string_defs;
 		info.data_desc = &dpl_data_intf_desc;
-		info.fs_in_desc = &dpl_hs_data_desc;
+		info.fs_in_desc = &dpl_fs_data_desc;
 		info.hs_in_desc = &dpl_hs_data_desc;
 		info.ss_in_desc = &dpl_ss_data_desc;
-		info.fs_desc_hdr = dpl_hs_data_only_desc;
+		info.fs_desc_hdr = dpl_fs_data_only_desc;
 		info.hs_desc_hdr = dpl_hs_data_only_desc;
 		info.ss_desc_hdr = dpl_ss_data_only_desc;
 	}
