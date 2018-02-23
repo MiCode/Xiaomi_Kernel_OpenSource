@@ -356,6 +356,8 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 	struct cam_ife_csid_reg_offset  *csid_reg;
 	int rc = 0;
 	uint32_t val = 0, i;
+	uint32_t status;
+
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -369,8 +371,6 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 
 	CAM_DBG(CAM_ISP, "CSID:%d Csid reset",
 		csid_hw->hw_intf->hw_idx);
-
-	init_completion(&csid_hw->csid_top_complete);
 
 	/* Mask all interrupts */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
@@ -417,21 +417,19 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 		cam_io_w_mb(0x2, soc_info->reg_map[0].mem_base +
 			csid_reg->rdi_reg[i]->csid_rdi_cfg0_addr);
 
-	/* perform the top CSID HW reset */
-	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb,
+	/* perform the top CSID HW and SW registers reset */
+	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb_sw_all,
 		soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_rst_strobes_addr);
 
-	CAM_DBG(CAM_ISP, " Waiting for reset complete from irq handler");
-	rc = wait_for_completion_timeout(&csid_hw->csid_top_complete,
-		msecs_to_jiffies(IFE_CSID_TIMEOUT));
-	if (rc <= 0) {
-		CAM_ERR(CAM_ISP, "CSID:%d reset completion in fail rc = %d",
-			 csid_hw->hw_intf->hw_idx, rc);
-		if (rc == 0)
-			rc = -ETIMEDOUT;
-	} else {
-		rc = 0;
+	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_top_irq_status_addr,
+			status, (status & 0x1) == 0x1,
+		CAM_IFE_CSID_TIMEOUT_SLEEP_US, CAM_IFE_CSID_TIMEOUT_ALL_US);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "CSID:%d csid_reset fail rc = %d",
+			  csid_hw->hw_intf->hw_idx, rc);
+		rc = -ETIMEDOUT;
 	}
 
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
@@ -907,7 +905,7 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	int rc = 0;
 	struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info              *soc_info;
-	uint32_t i, status, val;
+	uint32_t i, val;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -936,42 +934,10 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 		goto err;
 	}
 
-
-	CAM_DBG(CAM_ISP, "CSID:%d enable top irq interrupt",
-		csid_hw->hw_intf->hw_idx);
-
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_UP;
-	/* Enable the top IRQ interrupt */
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_top_irq_mask_addr);
-
+	/* Reset CSID top */
 	rc = cam_ife_csid_global_reset(csid_hw);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "CSID:%d csid_reset fail rc = %d",
-			  csid_hw->hw_intf->hw_idx, rc);
-		rc = -ETIMEDOUT;
-		goto disable_soc;
-	}
-
-	/*
-	 * Reset the SW registers
-	 * SW register reset also reset the mask irq, so poll the irq status
-	 * to check the reset complete.
-	 */
-	CAM_DBG(CAM_ISP, "CSID:%d Reset Software registers",
-			csid_hw->hw_intf->hw_idx);
-
-	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb_sw_all,
-		soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_rst_strobes_addr);
-
-	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_top_irq_status_addr,
-			status, (status & 0x1) == 0x1,
-		CAM_IFE_CSID_TIMEOUT_SLEEP_US, CAM_IFE_CSID_TIMEOUT_ALL_US);
-	if (rc < 0) {
-		CAM_ERR(CAM_ISP, "software register reset timeout.....");
-		rc = -ETIMEDOUT;
 		goto disable_soc;
 	}
 
@@ -2171,6 +2137,7 @@ static int cam_ife_csid_reset_retain_sw_reg(
 	struct cam_ife_csid_reg_offset *csid_reg =
 		csid_hw->csid_info->csid_reg;
 
+	init_completion(&csid_hw->csid_top_complete);
 	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb,
 		csid_hw->hw_info->soc_info.reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_rst_strobes_addr);
