@@ -2692,6 +2692,52 @@ void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host)
 			msm_host_offset->CORE_PWRCTL_CTL), irq_flags);
 }
 
+static int sdhci_msm_clear_pwrctl_status(struct sdhci_host *host, u8 value)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	const struct sdhci_msm_offset *msm_host_offset = msm_host->offset;
+	int ret = 0, retry = 10;
+
+	/*
+	 * There is a rare HW scenario where the first clear pulse could be
+	 * lost when actual reset and clear/read of status register is
+	 * happening at a time. Hence, retry for at least 10 times to make
+	 * sure status register is cleared. Otherwise, this will result in
+	 * a spurious power IRQ resulting in system instability.
+	 */
+	do {
+		if (retry == 0) {
+			pr_err("%s: Timedout clearing (0x%x) pwrctl status register\n",
+				mmc_hostname(host->mmc), value);
+			sdhci_msm_dump_pwr_ctrl_regs(host);
+			WARN_ON(1);
+			ret = -EBUSY;
+			break;
+		}
+
+		/*
+		 * Clear the PWRCTL_STATUS interrupt bits by writing to the
+		 * corresponding bits in the PWRCTL_CLEAR register.
+		 */
+		sdhci_msm_writeb_relaxed(value, host,
+				msm_host_offset->CORE_PWRCTL_CLEAR);
+		/*
+		 * SDHC has core_mem and hc_mem device memory and these memory
+		 * addresses do not fall within 1KB region. Hence, any update
+		 * to core_mem address space would require an mb() to ensure
+		 * this gets completed before its next update to registers
+		 * within hc_mem.
+		 */
+		mb();
+		retry--;
+		udelay(10);
+	} while (value & sdhci_msm_readb_relaxed(host,
+				msm_host_offset->CORE_PWRCTL_STATUS));
+
+	return ret;
+}
+
 static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 {
 	struct sdhci_host *host = (struct sdhci_host *)data;
@@ -2704,7 +2750,6 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	int ret = 0;
 	int pwr_state = 0, io_level = 0;
 	unsigned long flags;
-	int retry = 10;
 
 	irq_status = sdhci_msm_readb_relaxed(host,
 		msm_host_offset->CORE_PWRCTL_STATUS);
@@ -2712,40 +2757,7 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	pr_debug("%s: Received IRQ(%d), status=0x%x\n",
 		mmc_hostname(msm_host->mmc), irq, irq_status);
 
-	/* Clear the interrupt */
-	sdhci_msm_writeb_relaxed(irq_status, host,
-		msm_host_offset->CORE_PWRCTL_CLEAR);
-
-	/*
-	 * SDHC has core_mem and hc_mem device memory and these memory
-	 * addresses do not fall within 1KB region. Hence, any update to
-	 * core_mem address space would require an mb() to ensure this gets
-	 * completed before its next update to registers within hc_mem.
-	 */
-	mb();
-	/*
-	 * There is a rare HW scenario where the first clear pulse could be
-	 * lost when actual reset and clear/read of status register is
-	 * happening at a time. Hence, retry for at least 10 times to make
-	 * sure status register is cleared. Otherwise, this will result in
-	 * a spurious power IRQ resulting in system instability.
-	 */
-	while (irq_status & sdhci_msm_readb_relaxed(host,
-		msm_host_offset->CORE_PWRCTL_STATUS)) {
-		if (retry == 0) {
-			pr_err("%s: Timedout clearing (0x%x) pwrctl status register\n",
-				mmc_hostname(host->mmc), irq_status);
-			sdhci_msm_dump_pwr_ctrl_regs(host);
-			BUG_ON(1);
-		}
-		sdhci_msm_writeb_relaxed(irq_status, host,
-			msm_host_offset->CORE_PWRCTL_CLEAR);
-		retry--;
-		udelay(10);
-	}
-	if (likely(retry < 10))
-		pr_debug("%s: success clearing (0x%x) pwrctl status register, retries left %d\n",
-				mmc_hostname(host->mmc), irq_status, retry);
+	sdhci_msm_clear_pwrctl_status(host, irq_status);
 
 	/* Handle BUS ON/OFF*/
 	if (irq_status & CORE_PWRCTL_BUS_ON) {
@@ -3124,6 +3136,7 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	u8 irq_status;
 	const struct sdhci_msm_offset *msm_host_offset =
 					msm_host->offset;
 
@@ -3131,10 +3144,9 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 		!msm_host->regs_restore.is_valid)
 		return;
 
+	writel_relaxed(0, host->ioaddr + msm_host_offset->CORE_PWRCTL_MASK);
 	writel_relaxed(msm_host->regs_restore.vendor_func, host->ioaddr +
 			msm_host_offset->CORE_VENDOR_SPEC);
-	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_mask,
-			host->ioaddr + msm_host_offset->CORE_PWRCTL_MASK);
 	writel_relaxed(msm_host->regs_restore.vendor_func2,
 			host->ioaddr +
 			msm_host_offset->CORE_VENDOR_SPEC_FUNC2);
@@ -3145,8 +3157,6 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 			SDHCI_CLOCK_CONTROL);
 	sdhci_writel(host, msm_host->regs_restore.hc_3c_3e,
 			SDHCI_AUTO_CMD_ERR);
-	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_ctl,
-			host->ioaddr + msm_host_offset->CORE_PWRCTL_CTL);
 	sdhci_writel(host, msm_host->regs_restore.hc_38_3a,
 			SDHCI_SIGNAL_ENABLE);
 	sdhci_writel(host, msm_host->regs_restore.hc_34_36,
@@ -3161,6 +3171,24 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 	writel_relaxed(msm_host->regs_restore.testbus_config, host->ioaddr +
 			msm_host_offset->CORE_TESTBUS_CONFIG);
 	msm_host->regs_restore.is_valid = false;
+
+	/*
+	 * Clear the PWRCTL_STATUS register.
+	 * There is a rare HW scenario where the first clear pulse could be
+	 * lost when actual reset and clear/read of status register is
+	 * happening at a time. Hence, retry for at least 10 times to make
+	 * sure status register is cleared. Otherwise, this will result in
+	 * a spurious power IRQ resulting in system instability.
+	 */
+	irq_status = sdhci_msm_readb_relaxed(host,
+				msm_host_offset->CORE_PWRCTL_STATUS);
+
+	sdhci_msm_clear_pwrctl_status(host, irq_status);
+
+	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_ctl,
+			host->ioaddr + msm_host_offset->CORE_PWRCTL_CTL);
+	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_mask,
+			host->ioaddr + msm_host_offset->CORE_PWRCTL_MASK);
 
 	pr_debug("%s: %s: registers restored. PWRCTL_MASK = 0x%x\n",
 		mmc_hostname(host->mmc), __func__,
