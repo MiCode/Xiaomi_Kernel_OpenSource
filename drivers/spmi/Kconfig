@@ -24,4 +24,13 @@ config SPMI_MSM_PMIC_ARB
 	  This is required for communicating with Qualcomm PMICs and
 	  other devices that have the SPMI interface.
 
+config VIRTSPMI_MSM_PMIC_ARB
+	tristate "QTI MSM Virtual SPMI Controller (Virtual PMIC Arbiter)"
+	depends on ARCH_QCOM || COMPILE_TEST
+	depends on HAS_IOMEM
+	default ARCH_QCOM
+	help
+	  This is a virtual SPMI frontend driver for QTI MSM virtual
+	  platform.
+
 endif
