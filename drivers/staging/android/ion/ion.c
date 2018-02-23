@@ -145,6 +145,24 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	INIT_LIST_HEAD(&buffer->attachments);
 	INIT_LIST_HEAD(&buffer->vmas);
 	mutex_init(&buffer->lock);
+
+	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
+		int i;
+		struct scatterlist *sg;
+
+		/*
+		 * this will set up dma addresses for the sglist -- it is not
+		 * technically correct as per the dma api -- a specific
+		 * device isn't really taking ownership here.  However, in
+		 * practice on our systems the only dma_address space is
+		 * physical addresses.
+		 */
+		for_each_sg(table->sgl, sg, table->nents, i) {
+			sg_dma_address(sg) = sg_phys(sg);
+			sg_dma_len(sg) = sg->length;
+		}
+	}
+
 	mutex_lock(&dev->buffer_lock);
 	ion_buffer_add(dev, buffer);
 	mutex_unlock(&dev->buffer_lock);
@@ -538,6 +556,23 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		goto out;
 
 	mutex_lock(&buffer->lock);
+
+	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
+		struct device *dev = buffer->heap->priv;
+		struct sg_table *table = buffer->sg_table;
+
+		if (sync_only_mapped)
+			ion_sgl_sync_mapped(dev, table->sgl,
+					    table->nents, &buffer->vmas,
+					    direction, true);
+		else
+			dma_sync_sg_for_cpu(dev, table->sgl,
+					    table->nents, direction);
+
+		mutex_unlock(&buffer->lock);
+		goto out;
+	}
+
 	list_for_each_entry(a, &buffer->attachments, list) {
 		if (!a->dma_mapped)
 			continue;
@@ -579,6 +614,21 @@ static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		goto out;
 
 	mutex_lock(&buffer->lock);
+	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
+		struct device *dev = buffer->heap->priv;
+		struct sg_table *table = buffer->sg_table;
+
+		if (sync_only_mapped)
+			ion_sgl_sync_mapped(dev, table->sgl,
+					    table->nents, &buffer->vmas,
+					    direction, false);
+		else
+			dma_sync_sg_for_device(dev, table->sgl,
+					       table->nents, direction);
+		mutex_unlock(&buffer->lock);
+		goto out;
+	}
+
 	list_for_each_entry(a, &buffer->attachments, list) {
 		if (!a->dma_mapped)
 			continue;
@@ -649,6 +699,17 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 		goto out;
 
 	mutex_lock(&buffer->lock);
+	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
+		struct device *dev = buffer->heap->priv;
+		struct sg_table *table = buffer->sg_table;
+
+		ion_sgl_sync_range(dev, table->sgl, table->nents,
+				   offset, len, dir, true);
+
+		mutex_unlock(&buffer->lock);
+		goto out;
+	}
+
 	list_for_each_entry(a, &buffer->attachments, list) {
 		if (!a->dma_mapped)
 			continue;
@@ -686,6 +747,17 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 		goto out;
 
 	mutex_lock(&buffer->lock);
+	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
+		struct device *dev = buffer->heap->priv;
+		struct sg_table *table = buffer->sg_table;
+
+		ion_sgl_sync_range(dev, table->sgl, table->nents,
+				   offset, len, direction, false);
+
+		mutex_unlock(&buffer->lock);
+		goto out;
+	}
+
 	list_for_each_entry(a, &buffer->attachments, list) {
 		if (!a->dma_mapped)
 			continue;

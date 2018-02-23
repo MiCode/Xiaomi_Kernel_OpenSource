@@ -52,7 +52,11 @@
  * As default set to 'false' since ION allocations
  * are no longer required to be DMA ready
  */
+#ifdef CONFIG_ION_FORCE_DMA_SYNC
+#define MAKE_ION_ALLOC_DMA_READY 1
+#else
 #define MAKE_ION_ALLOC_DMA_READY 0
+#endif
 
 /**
  * struct ion_platform_heap - defines a heap in the given platform
