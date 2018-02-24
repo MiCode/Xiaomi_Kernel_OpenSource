@@ -11,6 +11,7 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDMSHRIKE";
@@ -284,5 +285,31 @@
 			status = "disabled";
 		};
 	};
+
+	qcom,llcc@9200000 {
+		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
+		reg = <0x9200000 0x450000>;
+		reg-names = "llcc_base";
+		qcom,llcc-banks-off = <0x0 0x80000 0x100000 0x180000
+					0x200000 0x280000 0x300000 0x380000>;
+		qcom,llcc-broadcast-off = <0x400000>;
+
+		llcc: qcom,sdmshrike-llcc {
+			compatible = "qcom,sdmshrike-llcc";
+			#cache-cells = <1>;
+			max-slices = <32>;
+		};
+
+		qcom,llcc-erp {
+			compatible = "qcom,llcc-erp";
+			interrupt-names = "ecc_irq";
+			interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		qcom,llcc-amon {
+			compatible = "qcom,llcc-amon";
+		};
+	};
 };
 
+#include "sdmshrike-pinctrl.dtsi"

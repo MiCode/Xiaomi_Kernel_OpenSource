@@ -19,3 +19,4 @@ obj-$(CONFIG_PINCTRL_QCOM_SPMI_PMIC) += pinctrl-spmi-mpp.o
 obj-$(CONFIG_PINCTRL_QCOM_SSBI_PMIC) += pinctrl-ssbi-gpio.o
 obj-$(CONFIG_PINCTRL_QCOM_SSBI_PMIC) += pinctrl-ssbi-mpp.o
 obj-$(CONFIG_PINCTRL_SDM855) += pinctrl-sdm855.o
+obj-$(CONFIG_PINCTRL_SDMSHRIKE) += pinctrl-sdmshrike.o
