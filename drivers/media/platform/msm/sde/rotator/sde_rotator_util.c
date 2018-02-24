@@ -892,7 +892,6 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 	int domain;
 	struct scatterlist *sg;
 	unsigned int i;
-	struct sg_table *table;
 	unsigned long flags = 0;
 
 	if (data->addr && data->len)
