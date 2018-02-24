@@ -858,7 +858,7 @@ static int sde_hw_ctl_intf_cfg_v1(struct sde_hw_ctl *ctx,
 			cwb_active |= BIT(cfg->cwb[i] - CWB_0);
 	}
 
-	for (i = 0; cfg->cdm_count; i++) {
+	for (i = 0; i < cfg->cdm_count; i++) {
 		if (cfg->cdm[i])
 			cdm_active |= BIT(cfg->cdm[i] - CDM_0);
 	}

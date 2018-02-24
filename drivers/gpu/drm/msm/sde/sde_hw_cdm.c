@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,8 @@
 
 #define CDM_HDMI_PACK_OP_MODE              0x200
 #define CDM_CSC_10_MATRIX_COEFF_0          0x004
+
+#define CDM_MUX                            0x224
 
 /**
  * Horizontal coefficients for cosite chroma downscale
@@ -260,6 +262,25 @@ void sde_hw_cdm_disable(struct sde_hw_cdm *ctx)
 		ctx->hw_mdp->ops.setup_cdm_output(ctx->hw_mdp, &cdm_cfg);
 }
 
+static void sde_hw_cdm_bind_pingpong_blk(
+		struct sde_hw_cdm *ctx,
+		bool enable,
+		const enum sde_pingpong pp)
+{
+	struct sde_hw_blk_reg_map *c;
+	int mux_cfg = 0xF;
+
+	if (!ctx)
+		return;
+
+	c = &ctx->hw;
+	if (enable)
+		mux_cfg = (pp - PINGPONG_0) & 0x7;
+
+	SDE_REG_WRITE(c, CDM_MUX, mux_cfg);
+}
+
+
 static void _setup_cdm_ops(struct sde_hw_cdm_ops *ops,
 	unsigned long features)
 {
@@ -267,6 +288,8 @@ static void _setup_cdm_ops(struct sde_hw_cdm_ops *ops,
 	ops->setup_cdwn = sde_hw_cdm_setup_cdwn;
 	ops->enable = sde_hw_cdm_enable;
 	ops->disable = sde_hw_cdm_disable;
+	if (features & BIT(SDE_CDM_INPUT_CTRL))
+		ops->bind_pingpong_blk = sde_hw_cdm_bind_pingpong_blk;
 }
 
 static struct sde_hw_blk_ops sde_hw_ops = {
