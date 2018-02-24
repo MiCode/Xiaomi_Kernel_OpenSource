@@ -332,32 +332,31 @@
 		compatible = "qcom,vfe";
 		num_child = <2>;
 	};
-/*
- *	qcom,cam_smmu {
- *		status = "ok";
- *		compatible = "qcom,msm-cam-smmu";
- *		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
- *			compatible = "qcom,qsmmu-cam-cb";
- *			iommus = <&apps_iommu 0x400>,
- *				<&apps_iommu 0x2800>;
- *			label = "vfe";
- *			qcom,scratch-buf-support;
- *		};
- *
- *
- *		msm_cam_smmu_cb3: msm_cam_smmu_cb3 {
- *			compatible = "qcom,qsmmu-cam-cb";
- *			iommus = <&apps_iommu 0x1c00>;
- *			label = "cpp";
- *		};
- *
- *		msm_cam_smmu_cb4: msm_cam_smmu_cb4 {
- *			compatible = "qcom,qsmmu-cam-cb";
- *			iommus = <&apps_iommu 0x1800>;
- *			label = "jpeg_enc0";
- *		};
- *	};
- */
+
+	qcom,cam_smmu {
+		status = "ok";
+		compatible = "qcom,msm-cam-smmu";
+		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_iommu 0x400 0x00>,
+				<&apps_iommu 0x2800 0x00>;
+			label = "vfe";
+			qcom,scratch-buf-support;
+		};
+
+		msm_cam_smmu_cb3: msm_cam_smmu_cb3 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_iommu 0x1c00 0x00>;
+			label = "cpp";
+		};
+
+		msm_cam_smmu_cb4: msm_cam_smmu_cb4 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_iommu 0x1800 0x00>;
+			label = "jpeg_enc0";
+		};
+	};
+
 	qcom,jpeg@1b1c000 {
 		status = "ok";
 		cell-index = <0>;
@@ -422,6 +421,8 @@
 		qcom,clock-rates = <0 180000000 0 0 180000000 0 0>;
 		qcom,min-clock-rate = <100000000>;
 		qcom,bus-master = <1>;
+		resets = <&clock_gcc GCC_CAMSS_MICRO_BCR>;
+		reset-names = "micro_iface_reset";
 		qcom,msm-bus,name = "msm_camera_cpp";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -429,6 +430,7 @@
 			<106 512 0 0>,
 			<106 512 0 0>;
 		qcom,msm-bus-vector-dyn-vote;
+		qcom,micro-reset;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <156>;
 			qcom,plane-base = <141>;
