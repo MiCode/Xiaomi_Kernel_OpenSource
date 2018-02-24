@@ -15,6 +15,7 @@
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
 
 #include <linux/of_gpio.h>
+#include <linux/of_platform.h>
 
 #include "dp_parser.h"
 
@@ -155,6 +156,30 @@ static int dp_parser_misc(struct dp_parser *parser)
 		"qcom,max-pclk-frequency-khz", &parser->max_pclk_khz);
 	if (rc)
 		parser->max_pclk_khz = DP_MAX_PIXEL_CLK_KHZ;
+
+	return 0;
+}
+
+static int dp_parser_msm_hdcp_dev(struct dp_parser *parser)
+{
+	struct device_node *node;
+	struct platform_device *pdev;
+
+	node = of_find_compatible_node(NULL, NULL, "qcom,msm-hdcp");
+	if (!node) {
+		// This is a non-fatal error, module initialization can proceed
+		pr_warn("couldn't find msm-hdcp node\n");
+		return 0;
+	}
+
+	pdev = of_find_device_by_node(node);
+	if (!pdev) {
+		// This is a non-fatal error, module initialization can proceed
+		pr_warn("couldn't find msm-hdcp pdev\n");
+		return 0;
+	}
+
+	parser->msm_hdcp_dev = &pdev->dev;
 
 	return 0;
 }
@@ -587,6 +612,10 @@ static int dp_parser_parse(struct dp_parser *parser)
 		goto err;
 
 	rc = dp_parser_pinctrl(parser);
+	if (rc)
+		goto err;
+
+	rc = dp_parser_msm_hdcp_dev(parser);
 err:
 	return rc;
 }

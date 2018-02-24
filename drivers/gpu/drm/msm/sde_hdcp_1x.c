@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/stat.h>
 #include <linux/iopoll.h>
+#include <linux/msm_hdcp.h>
 #include <linux/hdcp_qseecom.h>
 #include <drm/drm_dp_helper.h>
 #include "sde_hdcp.h"
@@ -213,8 +214,7 @@ struct sde_hdcp_1x {
 	bool sink_r0_ready;
 	bool reauth;
 	bool ksv_ready;
-	enum sde_hdcp_states hdcp_state;
-	struct HDCP_V2V1_MSG_TOPOLOGY cached_tp;
+	enum sde_hdcp_state hdcp_state;
 	struct HDCP_V2V1_MSG_TOPOLOGY current_tp;
 	struct delayed_work hdcp_auth_work;
 	struct completion r0_checked;
@@ -226,17 +226,6 @@ struct sde_hdcp_1x {
 	struct sde_hdcp_sink_addr_map sink_addr;
 	struct workqueue_struct *workq;
 };
-
-const char *sde_hdcp_state_name(enum sde_hdcp_states hdcp_state)
-{
-	switch (hdcp_state) {
-	case HDCP_STATE_INACTIVE:	return "HDCP_STATE_INACTIVE";
-	case HDCP_STATE_AUTHENTICATING:	return "HDCP_STATE_AUTHENTICATING";
-	case HDCP_STATE_AUTHENTICATED:	return "HDCP_STATE_AUTHENTICATED";
-	case HDCP_STATE_AUTH_FAIL:	return "HDCP_STATE_AUTH_FAIL";
-	default:			return "???";
-	}
-}
 
 static int sde_hdcp_1x_count_one(u8 *array, u8 len)
 {
@@ -1062,30 +1051,12 @@ error:
 	return rc;
 }
 
-static void sde_hdcp_1x_cache_topology(struct sde_hdcp_1x *hdcp)
-{
-	if (!hdcp || !hdcp->init_data.dp_ahb || !hdcp->init_data.dp_aux ||
-		!hdcp->init_data.dp_link || !hdcp->init_data.dp_p0) {
-		pr_err("invalid input\n");
-		return;
-	}
-
-	memcpy((void *)&hdcp->cached_tp,
-		(void *) &hdcp->current_tp,
-		sizeof(hdcp->cached_tp));
-	hdcp1_cache_repeater_topology((void *)&hdcp->cached_tp);
-}
-
-static void sde_hdcp_1x_notify_topology(void)
-{
-	hdcp1_notify_topology();
-}
-
 static void sde_hdcp_1x_update_auth_status(struct sde_hdcp_1x *hdcp)
 {
 	if (sde_hdcp_1x_state(HDCP_STATE_AUTHENTICATED)) {
-		sde_hdcp_1x_cache_topology(hdcp);
-		sde_hdcp_1x_notify_topology();
+		msm_hdcp_cache_repeater_topology(hdcp->init_data.msm_hdcp_dev,
+						&hdcp->current_tp);
+		msm_hdcp_notify_topology(hdcp->init_data.msm_hdcp_dev);
 	}
 
 	if (hdcp->init_data.notify_status &&
@@ -1262,11 +1233,9 @@ static void sde_hdcp_1x_off(void *input)
 	 * Also, need to set the state to inactive here so that any ongoing
 	 * reauth works will know that the HDCP session has been turned off.
 	 */
-	mutex_lock(hdcp->init_data.mutex);
 	DSS_REG_W(io, isr->int_reg,
 		DSS_REG_R(io, isr->int_reg) & ~HDCP_INT_EN);
 	hdcp->hdcp_state = HDCP_STATE_INACTIVE;
-	mutex_unlock(hdcp->init_data.mutex);
 
 	/* complete any wait pending */
 	complete_all(&hdcp->sink_r0_available);
@@ -1510,7 +1479,7 @@ void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data)
 		.off = sde_hdcp_1x_off
 	};
 
-	if (!init_data || !init_data->mutex || !init_data->notify_status ||
+	if (!init_data || !init_data->notify_status ||
 		!init_data->workq || !init_data->cb_data) {
 		pr_err("invalid input\n");
 		goto error;

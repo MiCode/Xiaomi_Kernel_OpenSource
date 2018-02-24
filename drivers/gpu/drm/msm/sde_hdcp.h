@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,17 +30,21 @@ enum sde_hdcp_client_id {
 	HDCP_CLIENT_DP,
 };
 
-enum sde_hdcp_states {
+enum sde_hdcp_state {
 	HDCP_STATE_INACTIVE,
 	HDCP_STATE_AUTHENTICATING,
 	HDCP_STATE_AUTHENTICATED,
 	HDCP_STATE_AUTH_FAIL,
-	HDCP_STATE_AUTH_ENC_NONE,
-	HDCP_STATE_AUTH_ENC_1X,
-	HDCP_STATE_AUTH_ENC_2P2
+};
+
+enum sde_hdcp_version {
+	HDCP_VERSION_NONE,
+	HDCP_VERSION_1X,
+	HDCP_VERSION_2P2
 };
 
 struct sde_hdcp_init_data {
+	struct device *msm_hdcp_dev;
 	struct dss_io_data *core_io;
 	struct dss_io_data *dp_ahb;
 	struct dss_io_data *dp_aux;
@@ -52,7 +56,7 @@ struct sde_hdcp_init_data {
 	struct mutex *mutex;
 	struct workqueue_struct *workq;
 	void *cb_data;
-	void (*notify_status)(void *cb_data, enum sde_hdcp_states status);
+	void (*notify_status)(void *cb_data, enum sde_hdcp_state state);
 	u8 sink_rx_status;
 	unsigned char *revision;
 	u32 phy_addr;
@@ -69,11 +73,32 @@ struct sde_hdcp_ops {
 	void (*off)(void *hdcp_ctrl);
 };
 
+static inline const char *sde_hdcp_state_name(enum sde_hdcp_state hdcp_state)
+{
+	switch (hdcp_state) {
+	case HDCP_STATE_INACTIVE:	return "HDCP_STATE_INACTIVE";
+	case HDCP_STATE_AUTHENTICATING:	return "HDCP_STATE_AUTHENTICATING";
+	case HDCP_STATE_AUTHENTICATED:	return "HDCP_STATE_AUTHENTICATED";
+	case HDCP_STATE_AUTH_FAIL:	return "HDCP_STATE_AUTH_FAIL";
+	default:			return "???";
+	}
+}
+
+static inline const char *sde_hdcp_version(enum sde_hdcp_version hdcp_version)
+{
+	switch (hdcp_version) {
+	case HDCP_VERSION_NONE:		return "HDCP_VERSION_NONE";
+	case HDCP_VERSION_1X:		return "HDCP_VERSION_1X";
+	case HDCP_VERSION_2P2:		return "HDCP_VERSION_2P2";
+	default:			return "???";
+	}
+}
+
 void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data);
 void sde_hdcp_1x_deinit(void *input);
 struct sde_hdcp_ops *sde_hdcp_1x_start(void *input);
 void *sde_dp_hdcp2p2_init(struct sde_hdcp_init_data *init_data);
 void sde_dp_hdcp2p2_deinit(void *input);
-const char *sde_hdcp_state_name(enum sde_hdcp_states hdcp_state);
+const char *sde_hdcp_state_name(enum sde_hdcp_state hdcp_state);
 struct sde_hdcp_ops *sde_dp_hdcp2p2_start(void *input);
 #endif /* __SDE_HDCP_H__ */
