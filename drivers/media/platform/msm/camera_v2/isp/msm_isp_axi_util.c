@@ -935,8 +935,12 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	}
 
 	if (frame_src == VFE_PIX_0) {
-		vfe_dev->isp_page->kernel_sofid =
-			vfe_dev->axi_data.src_info[frame_src].frame_id;
+		if (vfe_dev->isp_page == NULL)
+			pr_err("Invalid ISP PAGE");
+		else
+			vfe_dev->isp_page->kernel_sofid =
+				vfe_dev->axi_data.src_info[frame_src].frame_id;
+
 		if (!src_info->frame_id &&
 			!src_info->reg_update_frame_id &&
 			((src_info->frame_id -

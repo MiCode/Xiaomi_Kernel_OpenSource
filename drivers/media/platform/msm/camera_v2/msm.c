@@ -350,8 +350,11 @@ static inline int __msm_sd_register_subdev(struct v4l2_subdev *sd)
 		return -EINVAL;
 
 	rc = v4l2_device_register_subdev(msm_v4l2_dev, sd);
-	if (rc < 0)
+	if (rc < 0) {
+		pr_err("v4l2_device_register_subdev: failed for %s", sd->name);
+		WARN_ON(1);
 		return rc;
+	}
 
 	/* Register a device node for every subdev marked with the
 	 * V4L2_SUBDEV_FL_HAS_DEVNODE flag.
@@ -1303,7 +1306,7 @@ static ssize_t write_logsync(struct file *file, const char __user *buf,
 	uint64_t seq_num = 0;
 	int ret;
 
-	if (copy_from_user(lbuf, buf, sizeof(lbuf)))
+	if (copy_from_user(lbuf, buf, sizeof(lbuf) - 1))
 		return -EFAULT;
 
 	ret = kstrtoull(lbuf, 0, &seq_num);
@@ -1366,8 +1369,7 @@ static int msm_probe(struct platform_device *pdev)
 			0, NULL)) < 0))
 		goto entity_fail;
 
-	pvdev->vdev->entity.function = MEDIA_ENT_F_IO_V4L;
-	//pvdev->vdev->entity.group_id = QCAMERA_VNODE_GROUP_ID;
+	pvdev->vdev->entity.function = QCAMERA_VNODE_GROUP_ID;
 #endif
 
 	msm_v4l2_dev->notify = msm_sd_notify;

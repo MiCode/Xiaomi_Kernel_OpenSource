@@ -515,11 +515,7 @@ static int32_t msm_laser_led_platform_probe(struct platform_device *pdev)
 		ARRAY_SIZE(laser_led_ctrl->msm_sd.sd.name),
 		"msm_camera_laser_led");
 	media_entity_pads_init(&laser_led_ctrl->msm_sd.sd.entity, 0, NULL);
-	laser_led_ctrl->msm_sd.sd.entity.function = MEDIA_ENT_F_IO_V4L;
-	/*
-	 * laser_led_ctrl->msm_sd.sd.entity.group_id
-	 *	 = MSM_CAMERA_SUBDEV_LASER_LED;
-	 */
+	laser_led_ctrl->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_LASER_LED;
 	laser_led_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x1;
 	msm_sd_register(&laser_led_ctrl->msm_sd);
 

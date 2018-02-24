@@ -693,7 +693,7 @@ int vfe_hw_probe(struct platform_device *pdev)
 	spin_lock_init(&req_history_lock);
 	spin_lock_init(&vfe_dev->completion_lock);
 	media_entity_pads_init(&vfe_dev->subdev.sd.entity, 0, NULL);
-	vfe_dev->subdev.sd.entity.function = MEDIA_ENT_F_IO_V4L;
+	vfe_dev->subdev.sd.entity.function = MSM_CAMERA_SUBDEV_VFE;
 	//vfe_dev->subdev.sd.entity.group_id = MSM_CAMERA_SUBDEV_VFE;
 	vfe_dev->subdev.sd.entity.name = pdev->name;
 	vfe_dev->subdev.close_seq = MSM_SD_CLOSE_1ST_CATEGORY | 0x2;

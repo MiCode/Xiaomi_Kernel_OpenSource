@@ -14,9 +14,12 @@
 #ifndef __UAPI_MSM_CAMERA_H
 #define __UAPI_MSM_CAMERA_H
 
+#define CAM_API_V1
+
 #include <linux/videodev2.h>
 #include <linux/types.h>
 #include <linux/ioctl.h>
+#include <linux/media.h>
 
 #include <linux/msm_ion.h>
 
@@ -1986,8 +1989,7 @@ struct img_plane_info {
 
 #define QCAMERA_NAME "qcamera"
 #define QCAMERA_SERVER_NAME "qcamera_server"
-#define QCAMERA_DEVICE_GROUP_ID 1
-#define QCAMERA_VNODE_GROUP_ID 2
+#define QCAMERA_VNODE_GROUP_ID MEDIA_ENT_F_IO_V4L
 
 enum msm_cam_subdev_type {
 	CSIPHY_DEV,

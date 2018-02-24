@@ -1743,7 +1743,7 @@ static int csiphy_probe(struct platform_device *pdev)
 	snprintf(new_csiphy_dev->msm_sd.sd.name,
 		ARRAY_SIZE(new_csiphy_dev->msm_sd.sd.name), "msm_csiphy");
 	media_entity_pads_init(&new_csiphy_dev->msm_sd.sd.entity, 0, NULL);
-	new_csiphy_dev->msm_sd.sd.entity.function = MEDIA_ENT_F_IO_V4L;
+	new_csiphy_dev->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_CSIPHY;
 	new_csiphy_dev->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x4;
 	msm_sd_register(&new_csiphy_dev->msm_sd);
 

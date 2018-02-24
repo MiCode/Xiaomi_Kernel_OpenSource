@@ -2095,11 +2095,11 @@ static int msm_cci_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	v4l2_subdev_init(&new_cci_dev->msm_sd.sd, &msm_cci_subdev_ops);
-	new_cci_dev->msm_sd.sd.internal_ops = &msm_cci_internal_ops;
 	snprintf(new_cci_dev->msm_sd.sd.name,
 			ARRAY_SIZE(new_cci_dev->msm_sd.sd.name), "msm_cci");
 	v4l2_set_subdevdata(&new_cci_dev->msm_sd.sd, new_cci_dev);
 	platform_set_drvdata(pdev, &new_cci_dev->msm_sd.sd);
+
 	CDBG("%s sd %pK\n", __func__, &new_cci_dev->msm_sd.sd);
 	if (pdev->dev.of_node)
 		of_property_read_u32((&pdev->dev)->of_node,
@@ -2141,6 +2141,13 @@ static int msm_cci_probe(struct platform_device *pdev)
 	}
 
 	msm_camera_enable_irq(new_cci_dev->irq, false);
+
+	new_cci_dev->pdev = pdev;
+	new_cci_dev->msm_sd.sd.internal_ops = &msm_cci_internal_ops;
+	new_cci_dev->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	media_entity_pads_init(&new_cci_dev->msm_sd.sd.entity, 0, NULL);
+	new_cci_dev->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_CCI;
+	new_cci_dev->msm_sd.sd.entity.name = new_cci_dev->msm_sd.sd.name;
 	new_cci_dev->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x6;
 	msm_sd_register(&new_cci_dev->msm_sd);
 	new_cci_dev->pdev = pdev;

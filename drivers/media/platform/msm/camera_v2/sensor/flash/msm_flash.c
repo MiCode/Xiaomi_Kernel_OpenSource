@@ -1314,7 +1314,7 @@ static int32_t msm_flash_platform_probe(struct platform_device *pdev)
 		ARRAY_SIZE(flash_ctrl->msm_sd.sd.name),
 		"msm_camera_flash");
 	media_entity_pads_init(&flash_ctrl->msm_sd.sd.entity, 0, NULL);
-	flash_ctrl->msm_sd.sd.entity.function = MEDIA_ENT_F_IO_V4L;
+	flash_ctrl->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_FLASH;
 	flash_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x1;
 	msm_sd_register(&flash_ctrl->msm_sd);
 
