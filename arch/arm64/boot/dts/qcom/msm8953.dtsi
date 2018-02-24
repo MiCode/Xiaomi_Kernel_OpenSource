@@ -1921,6 +1921,7 @@
 #include "msm-gdsc-8916.dtsi"
 #include "msm8953-thermal.dtsi"
 #include "msm8953-camera.dtsi"
+#include "msm8953-audio.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";

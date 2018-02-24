@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include "msm8953-audio-cdp.dtsi"
+
 &blsp1_uart0 {
 	status = "ok";
 	pinctrl-names = "default";
