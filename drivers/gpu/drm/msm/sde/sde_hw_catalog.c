@@ -1081,7 +1081,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 		set_bit(SDE_SSPP_INVERSE_PMA, &sspp->features);
 
 	sblk->format_list = sde_cfg->vig_formats;
-	sblk->virt_format_list = sde_cfg->dma_formats;
+	sblk->virt_format_list = sde_cfg->virt_vig_formats;
 }
 
 static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
@@ -3373,6 +3373,7 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 {
 	int rc = 0;
 	uint32_t dma_list_size, vig_list_size, wb2_list_size;
+	uint32_t virt_vig_list_size;
 	uint32_t cursor_list_size = 0;
 	uint32_t index = 0;
 
@@ -3391,12 +3392,14 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 
 	dma_list_size = ARRAY_SIZE(plane_formats);
 	vig_list_size = ARRAY_SIZE(plane_formats_yuv);
+	virt_vig_list_size = ARRAY_SIZE(plane_formats);
 	wb2_list_size = ARRAY_SIZE(wb2_formats);
 
 	dma_list_size += ARRAY_SIZE(rgb_10bit_formats);
 	vig_list_size += ARRAY_SIZE(rgb_10bit_formats)
 		+ ARRAY_SIZE(tp10_ubwc_formats)
 		+ ARRAY_SIZE(p010_formats);
+	virt_vig_list_size += ARRAY_SIZE(rgb_10bit_formats);
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)))
 		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
@@ -3414,6 +3417,13 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	sde_cfg->vig_formats = kcalloc(vig_list_size,
 		sizeof(struct sde_format_extended), GFP_KERNEL);
 	if (!sde_cfg->vig_formats) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	sde_cfg->virt_vig_formats = kcalloc(virt_vig_list_size,
+		sizeof(struct sde_format_extended), GFP_KERNEL);
+	if (!sde_cfg->virt_vig_formats) {
 		rc = -ENOMEM;
 		goto end;
 	}
@@ -3451,10 +3461,15 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
-
 	index += sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, tp10_ubwc_formats,
 		ARRAY_SIZE(tp10_ubwc_formats));
+
+	index = sde_copy_formats(sde_cfg->virt_vig_formats, virt_vig_list_size,
+		0, plane_formats, ARRAY_SIZE(plane_formats));
+	index += sde_copy_formats(sde_cfg->virt_vig_formats, virt_vig_list_size,
+		index, rgb_10bit_formats,
+		ARRAY_SIZE(rgb_10bit_formats));
 
 	index = sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
 		0, wb2_formats, ARRAY_SIZE(wb2_formats));
@@ -3544,6 +3559,7 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 	kfree(sde_cfg->cursor_formats);
 	kfree(sde_cfg->vig_formats);
 	kfree(sde_cfg->wb_formats);
+	kfree(sde_cfg->virt_vig_formats);
 
 	kfree(sde_cfg);
 }
