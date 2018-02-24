@@ -6707,24 +6707,127 @@ void sched_move_task(struct task_struct *tsk)
 }
 
 #ifdef CONFIG_PROC_SYSCTL
+static int find_capacity_margin_levels(void)
+{
+	int cpu, max_clusters;
+
+	for (cpu = max_clusters = 0; cpu < num_possible_cpus();) {
+		cpu += cpumask_weight(topology_core_cpumask(cpu));
+		max_clusters++;
+	}
+
+	/*
+	 * Capacity margin levels is number of clusters available in
+	 * the system subtracted by 1.
+	 */
+	return max_clusters - 1;
+}
+
+static void sched_update_up_migrate_values(int cap_margin_levels,
+				const struct cpumask *cluster_cpus[])
+{
+	int i, cpu;
+
+	if (cap_margin_levels > 1) {
+		/*
+		 * No need to worry about CPUs in last cluster
+		 * if there are more than 2 clusters in the system
+		 */
+		for (i = 0; i < cap_margin_levels; i++)
+			if (cluster_cpus[i])
+				for_each_cpu(cpu, cluster_cpus[i])
+					sched_capacity_margin_up[cpu] =
+					sysctl_sched_capacity_margin_up[i];
+	} else {
+		for_each_possible_cpu(cpu)
+			sched_capacity_margin_up[cpu] =
+				sysctl_sched_capacity_margin_up[0];
+	}
+}
+
+static void sched_update_down_migrate_values(int cap_margin_levels,
+				const struct cpumask *cluster_cpus[])
+{
+	int i, cpu;
+
+	if (cap_margin_levels > 1) {
+		/*
+		 * Skip first cluster as down migrate value isn't needed
+		 */
+		for (i = 0; i < cap_margin_levels; i++)
+			if (cluster_cpus[i+1])
+				for_each_cpu(cpu, cluster_cpus[i+1])
+					sched_capacity_margin_down[cpu] =
+					sysctl_sched_capacity_margin_down[i];
+	} else {
+		for_each_possible_cpu(cpu)
+			sched_capacity_margin_down[cpu] =
+				sysctl_sched_capacity_margin_down[0];
+	}
+}
+
+static int sched_update_updown_migrate_values(unsigned int *data,
+					int cap_margin_levels, int ret)
+{
+	int i, cpu;
+	static const struct cpumask *cluster_cpus[MAX_CLUSTERS];
+
+	for (i = cpu = 0; (!cluster_cpus[i]) &&
+				cpu < num_possible_cpus(); i++) {
+		cluster_cpus[i] = topology_core_cpumask(cpu);
+		cpu += cpumask_weight(topology_core_cpumask(cpu));
+	}
+
+	if (data == &sysctl_sched_capacity_margin_up[0])
+		sched_update_up_migrate_values(cap_margin_levels,
+							cluster_cpus);
+	else if (data == &sysctl_sched_capacity_margin_down[0])
+		sched_update_down_migrate_values(cap_margin_levels,
+							cluster_cpus);
+	else
+		ret = -EINVAL;
+
+	return ret;
+}
+
 int sched_updown_migrate_handler(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp,
 				 loff_t *ppos)
 {
-	int ret;
+	int ret, i;
 	unsigned int *data = (unsigned int *)table->data;
 	unsigned int old_val;
 	static DEFINE_MUTEX(mutex);
+	static int cap_margin_levels = -1;
 
 	mutex_lock(&mutex);
 	old_val = *data;
 
+	if (cap_margin_levels == -1 ||
+		table->maxlen != (sizeof(unsigned int) * cap_margin_levels)) {
+		cap_margin_levels = find_capacity_margin_levels();
+		table->maxlen = sizeof(unsigned int) * cap_margin_levels;
+	}
+
+	if (cap_margin_levels <= 0) {
+		mutex_unlock(&mutex);
+		return -EINVAL;
+	}
+
 	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
 
-	if (!ret && write && sysctl_sched_capacity_margin_up >
-				sysctl_sched_capacity_margin_down) {
-		ret = -EINVAL;
-		*data = old_val;
+	if (!ret && write) {
+		for (i = 0; i < cap_margin_levels; i++) {
+			if (sysctl_sched_capacity_margin_up[i] >
+					sysctl_sched_capacity_margin_down[i]) {
+				*data = old_val;
+				mutex_unlock(&mutex);
+				return -EINVAL;
+			}
+		}
+
+		ret = sched_update_updown_migrate_values(data,
+						cap_margin_levels, ret);
 	}
 	mutex_unlock(&mutex);
 
