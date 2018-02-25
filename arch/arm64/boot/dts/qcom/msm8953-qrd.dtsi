@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 &soc {
 	i2c@78b7000 { /* BLSP1 QUP3 */
 		/delete-node/ synaptics@4b;
