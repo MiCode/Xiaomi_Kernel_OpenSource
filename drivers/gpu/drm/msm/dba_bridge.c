@@ -123,10 +123,16 @@ error:
 
 static void _dba_bridge_pre_enable(struct drm_bridge *bridge)
 {
+	struct dba_bridge *d_bridge;
+
 	if (!bridge) {
 		SDE_ERROR("Invalid params\n");
 		return;
 	}
+
+	d_bridge = to_dba_bridge(bridge);
+	if (d_bridge->ops.power_on)
+		d_bridge->ops.power_on(d_bridge->dba_ctx, true, 0);
 }
 
 static void _dba_bridge_enable(struct drm_bridge *bridge)
