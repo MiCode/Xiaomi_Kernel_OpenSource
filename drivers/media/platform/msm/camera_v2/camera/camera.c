@@ -917,9 +917,7 @@ int camera_init_v4l2(struct device *dev, unsigned int *session)
 	rc = media_entity_pads_init(&pvdev->vdev->entity, 0, NULL);
 	if (WARN_ON(rc < 0))
 		goto entity_fail;
-	pvdev->vdev->entity.function = MEDIA_ENT_F_IO_V4L;
-	//TODO: Use entity.name in from userspcae to find device.
-	//pvdev->vdev->entity.group_id = QCAMERA_VNODE_GROUP_ID;
+	pvdev->vdev->entity.function = QCAMERA_VNODE_GROUP_ID;
 #endif
 
 	v4l2_dev->notify = NULL;

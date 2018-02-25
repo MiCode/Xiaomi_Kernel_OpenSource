@@ -4579,15 +4579,6 @@ static int cpp_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (of_find_property(pdev->dev.of_node, "qcom,cpp-cx-ipeak", NULL)) {
-		cpp_dev->cpp_cx_ipeak = cx_ipeak_register(
-			pdev->dev.of_node, "qcom,cpp-cx-ipeak");
-		if (cpp_dev->cpp_cx_ipeak)
-			CPP_DBG("Cx ipeak Registration Successful ");
-		else
-			pr_err("Cx ipeak Registration Unsuccessful");
-	}
-
 	rc = msm_camera_get_reset_info(pdev,
 			&cpp_dev->micro_iface_reset);
 	if (rc < 0) {
@@ -4596,7 +4587,6 @@ static int cpp_probe(struct platform_device *pdev)
 				__func__);
 		goto get_reg_err;
 	}
-
 	rc = msm_camera_get_regulator_info(pdev, &cpp_dev->cpp_vdd,
 		&cpp_dev->num_reg);
 	if (rc < 0) {
@@ -4625,7 +4615,7 @@ static int cpp_probe(struct platform_device *pdev)
 		goto bus_de_init;
 
 	media_entity_pads_init(&cpp_dev->msm_sd.sd.entity, 0, NULL);
-	cpp_dev->msm_sd.sd.entity.function = MEDIA_ENT_F_IO_V4L;
+	cpp_dev->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_CPP;
 	cpp_dev->msm_sd.sd.entity.name = pdev->name;
 	cpp_dev->msm_sd.close_seq = MSM_SD_CLOSE_3RD_CATEGORY;
 	msm_sd_register(&cpp_dev->msm_sd);

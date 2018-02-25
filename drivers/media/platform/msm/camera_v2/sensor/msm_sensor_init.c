@@ -187,7 +187,7 @@ static int __init msm_sensor_init_module(void)
 	s_init->msm_sd.sd.internal_ops = &msm_sensor_init_internal_ops;
 	s_init->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	media_entity_pads_init(&s_init->msm_sd.sd.entity, 0, NULL);
-	s_init->msm_sd.sd.entity.function = MEDIA_ENT_F_IO_V4L;
+	s_init->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_SENSOR_INIT;
 	s_init->msm_sd.sd.entity.name = s_init->msm_sd.sd.name;
 	s_init->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x6;
 	ret = msm_sd_register(&s_init->msm_sd);

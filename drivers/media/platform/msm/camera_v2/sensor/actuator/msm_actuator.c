@@ -1895,7 +1895,7 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	act_ctrl_t->msm_sd.sd.internal_ops = &msm_actuator_internal_ops;
 	act_ctrl_t->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	media_entity_pads_init(&act_ctrl_t->msm_sd.sd.entity, 0, NULL);
-	act_ctrl_t->msm_sd.sd.entity.function = MEDIA_ENT_F_IO_V4L;
+	act_ctrl_t->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_ACTUATOR;
 	act_ctrl_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&act_ctrl_t->msm_sd);
 	msm_cam_copy_v4l2_subdev_fops(&msm_actuator_v4l2_subdev_fops);
@@ -2007,7 +2007,7 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	snprintf(msm_actuator_t->msm_sd.sd.name,
 		ARRAY_SIZE(msm_actuator_t->msm_sd.sd.name), "msm_actuator");
 	media_entity_pads_init(&msm_actuator_t->msm_sd.sd.entity, 0, NULL);
-	msm_actuator_t->msm_sd.sd.entity.function = MEDIA_ENT_F_IO_V4L;
+	msm_actuator_t->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_ACTUATOR;
 	msm_actuator_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&msm_actuator_t->msm_sd);
 	msm_actuator_t->actuator_state = ACT_DISABLE_STATE;

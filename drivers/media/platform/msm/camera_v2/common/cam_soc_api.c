@@ -710,7 +710,7 @@ int msm_camera_regulator_set_mode(struct msm_cam_regulator *vdd_info,
 			CDBG("name : %s, enable : %d\n", tmp->name, mode);
 			if (mode) {
 				rc = regulator_set_mode(tmp->vdd,
-					REGULATOR_MODE_FAST);
+					REGULATOR_MODE_NORMAL);
 				if (rc < 0) {
 					pr_err("regulator enable failed %d\n",
 						i);
