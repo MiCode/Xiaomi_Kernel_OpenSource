@@ -3170,22 +3170,6 @@ int msm_tdm_startup(struct snd_pcm_substream *substream)
 			return -EINVAL;
 		}
 
-		if (pdata->vaddr_gpio_mux_mic_ext_clk_ctl) {
-			val = ioread32(pdata->vaddr_gpio_mux_mic_ext_clk_ctl);
-			val = val | 0x00000001;
-			iowrite32(val, pdata->vaddr_gpio_mux_mic_ext_clk_ctl);
-		} else {
-			return -EINVAL;
-		}
-
-		if (pdata->vaddr_gpio_mux_sec_tlmm_ctl) {
-			val = ioread32(pdata->vaddr_gpio_mux_sec_tlmm_ctl);
-			val = val | 0x00000002;
-			iowrite32(val, pdata->vaddr_gpio_mux_sec_tlmm_ctl);
-		} else {
-			return -EINVAL;
-		}
-
 		if (pdata->vaddr_gpio_mux_spkr_ctl) {
 			val = ioread32(pdata->vaddr_gpio_mux_spkr_ctl);
 			val = val | 0x00000002;
