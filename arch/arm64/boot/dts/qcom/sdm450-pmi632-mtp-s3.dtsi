@@ -38,24 +38,3 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,mdss-dsi-pwm-gpio = <&pm8953_gpios 8 0>;
 };
-
-&dsi_panel_pwr_supply {
-	qcom,panel-supply-entry@2 {
-		reg = <2>;
-		qcom,supply-name = "lab";
-		qcom,supply-min-voltage = <4600000>;
-		qcom,supply-max-voltage = <6000000>;
-		qcom,supply-enable-load = <100000>;
-		qcom,supply-disable-load = <100>;
-	};
-	qcom,panel-supply-entry@3 {
-		reg = <3>;
-		qcom,supply-name = "ibb";
-		qcom,supply-min-voltage = <4600000>;
-		qcom,supply-max-voltage = <6000000>;
-		qcom,supply-enable-load = <100000>;
-		qcom,supply-disable-load = <100>;
-		qcom,supply-post-on-sleep = <10>;
-	};
-};
-
