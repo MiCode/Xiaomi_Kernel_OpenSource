@@ -72,3 +72,13 @@ config MSM_BCL_PERIPHERAL_CTL
 	  voltage sensors with the thermal core framework and can take
 	  threshold input and notify the thermal core when the threshold is
 	  reached.
+
+config QTI_BCL_SOC_DRIVER
+	bool "QTI Battery state of charge sensor driver"
+	depends on THERMAL_OF
+	help
+	  This driver registers battery state of charge as a sensor with
+	  thermal zone. This sensor can monitor for state of charge
+	  threshold and notify the thermal framework.
+
+	  If you want this support, you should say Y here.
