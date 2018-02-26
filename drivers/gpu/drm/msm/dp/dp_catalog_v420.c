@@ -62,7 +62,7 @@ struct dp_catalog_private_v420 {
 	char exe_mode[SZ_4];
 };
 
-static static u32 dp_read(struct dp_catalog_private_v420 *catalog,
+static u32 dp_read(struct dp_catalog_private_v420 *catalog,
 		struct dp_io_data *io_data, u32 offset)
 {
 	u32 data = 0;
