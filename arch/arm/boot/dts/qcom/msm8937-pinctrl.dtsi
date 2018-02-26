@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,7 +50,20 @@
 			};
 
 		};
-
+		gpio_led_pins {
+			gpio_led_off: gpio_led_off {
+				mux {
+					pins = "gpio45";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio45";
+					drive-strength = <6>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
 		i2c_2 {
 			i2c_2_active: i2c_2_active {
 				/* active state */
@@ -289,7 +303,102 @@
 				};
 			};
 		};
+		fpc_spi_active: fpc_spi_active {
+			mux {
+				pins = "gpio20", "gpio21", "gpio22", "gpio23";
+				function = "blsp_spi6";
+			};
+			config {
+				pins = "gpio20", "gpio21", "gpio22", "gpio23";
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+		fpc_reset_reset: fpc_reset_reset {
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-low;
+			};
+		};
+		fpc_reset_active: fpc_reset_active {
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-high;
+			};
+		};
 
+		fpc_irq_active: fpc_irq_active {
+			mux {
+				pins = "gpio9";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio9";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				input-enable;
+			};
+		};
+		goodix_spi_active: goodix_spi_active {
+			mux {
+				pins = "gpio20", "gpio21", "gpio22", "gpio23";
+				function = "blsp_spi6";
+			};
+			config {
+				pins = "gpio20", "gpio21", "gpio22", "gpio23";
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+		goodix_reset_reset: goodix_reset_reset {
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-low;
+			};
+		};
+		goodix_reset_active: goodix_reset_active {
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-high;
+			};
+		};
+
+		goodix_irq_active: goodix_irq_active {
+			mux {
+				pins = "gpio9";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio9";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				input-enable;
+			};
+		};
 		wcnss_pmux_5wire {
 			/* Active configuration of bus pins */
 			wcnss_default: wcnss_default {

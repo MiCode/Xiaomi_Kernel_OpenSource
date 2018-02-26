@@ -1,0 +1,90 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8940.dtsi"
+#include "msm8937-pmi8950-qrd-sku1_S88536AA2.dtsi"
+#include "msm8940-pinctrl.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8940-PMI8950 QRD SKU7";
+	compatible = "qcom,msm8940-qrd-sku7", "qcom,msm8940-qrd",
+			"qcom,msm8940", "qcom,qrd";
+	qcom,board-id= <0x1000b 1>, <0x2000b 1>;
+	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-qrd-Desay-4v4-4100mah.dtsi"
+		#include "batterydata-qrd-Atl-4v4-4100mah.dtsi"
+		#include "batterydata-qrd-Coslight-4v4-4100mah.dtsi"
+		#include "batterydata-qrd-Default-4v4-4100mah.dtsi"
+	};
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,float-voltage-mv = <4400>;
+	qcom,chg-inhibit-fg;
+	qcom,thermal-mitigation = <2000 1500 1200 700 0>;
+	status = "okay";
+	qcom,vchg_sns-vadc = <&pmi8950_vadc>;
+	qcom,vchg-adc-channel-id = <3>;
+};
+
+&pmi8950_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,cold-bat-decidegc = <(0)>;
+	qcom,cool-bat-decidegc = <(150)>;
+	qcom,hot-bat-decidegc = <550>;
+	qcom,warm-bat-decidegc = <450>;
+	qcom,warm-bat-india-decidegc = <500>;
+	qcom,fg-iterm-ma = <180>;
+	qcom,fg-chg-iterm-ma = <130>;
+	qcom,resume-soc = <99>;
+	qcom,resume-soc-raw = <253>;
+	qcom,vbat-estimate-diff-mv = <100>;
+	qcom,fg-cutoff-voltage-mv = <3400>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,cl-max-increment-deciperc = <1>;
+	qcom,cl-max-decrement-deciperc = <1>;
+	qcom,fg-delta-soc = <1>;
+	qcom,bad-battery-detection-enable;
+	qcom,hold-soc-while-full;
+	qcom,thermal-coefficients = [B7 85 B2 49 71 35];
+};
+
+&usb_otg {
+	qcom,usbin-vadc = <&pmi8950_vadc>;
+};
+&soc {
+	sound {
+		qcom,model = "msm8920-sku7-snd-card";
+	};
+
+	i2c@78b7000 {
+		synaptics@4b {
+			vdd-supply = <&pm8937_l10>;
+		};
+	};
+};
+
+&i2c_2 {
+	pericom-type-c@1d {
+		status="disabled";
+	};
+};

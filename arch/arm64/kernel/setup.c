@@ -85,6 +85,8 @@ unsigned int compat_elf_hwcap __read_mostly = COMPAT_ELF_HWCAP_DEFAULT;
 unsigned int compat_elf_hwcap2 __read_mostly;
 #endif
 
+extern void pstore_ram_reserve_memory(void);
+
 DECLARE_BITMAP(cpu_hwcaps, ARM64_NCAPS);
 
 unsigned int boot_reason;
@@ -494,6 +496,10 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_SMP
 	smp_init_cpus();
 	smp_build_mpidr_hash();
+#endif
+
+#ifdef CONFIG_PSTORE
+	pstore_ram_reserve_memory();
 #endif
 
 #ifdef CONFIG_VT

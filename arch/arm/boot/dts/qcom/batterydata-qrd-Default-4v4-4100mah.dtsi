@@ -1,0 +1,48 @@
+
+qcom,2312470_wingtech_a12atl_4000mah_default {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <1>;
+	qcom,battery-beta = <4150>;
+	qcom,battery-type = "Generic_Battery";
+	qcom,chg-rslow-comp-c1 = <3011278>;
+	qcom,chg-rslow-comp-c2 = <4185582>;
+	qcom,chg-rs-to-rslow = <966005>;
+	qcom,chg-rslow-comp-thr = <0xA3>;
+	qcom,checksum = <0x90C2>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+			E1 83 CD 7C
+			FA 80 DE 76
+			69 83 6B 75
+			2B 8A 24 95
+			12 82 86 9A
+			72 BD 12 CA
+			56 11 EC 83
+			B5 7C C8 80
+			55 76 5A 83
+			A6 60 5E 81
+			ED 8D 54 82
+			99 99 E9 BC
+			CD C9 54 0E
+			65 10 A4 58
+			14 70 EE FC
+			0F 36 44 3D
+			FD 2E 00 00
+			60 3F 44 33
+			35 3F 00 00
+			00 00 00 00
+			00 00 00 00
+			F7 6B DA 6A
+			5F 63 D8 80
+			EB 6F 3C 62
+			B5 57 6B 78
+			DF 6E AE 60
+			8A 84 5B A3
+			17 A8 63 2D
+			65 A0 71 0C
+			28 00 FF 36
+			F0 11 30 03
+			00 00 00 0C
+	];
+};

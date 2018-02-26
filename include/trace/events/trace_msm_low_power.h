@@ -1,4 +1,5 @@
 /* Copyright (c) 2012, 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +82,30 @@ TRACE_EVENT(cpu_idle_exit,
 		__entry->index,
 		__entry->success)
 );
+
+TRACE_EVENT(cluster_cfg_rcgr,
+
+		TP_PROTO(const char *name, int value, bool save_restore),
+
+		TP_ARGS(name, value, save_restore),
+
+		TP_STRUCT__entry(
+		__field(const char *, name)
+		__field(int, value)
+		__field(bool, save_restore)
+		),
+
+		TP_fast_assign(
+		__entry->name = name;
+		__entry->value = value;
+		__entry->save_restore = save_restore;
+		),
+
+		TP_printk("cluster_name:%s val:%d save_restore:%d",
+		__entry->name,
+		__entry->value,
+		__entry->save_restore)
+		);
 
 TRACE_EVENT(cpu_idle_enter_cpu_freq,
 

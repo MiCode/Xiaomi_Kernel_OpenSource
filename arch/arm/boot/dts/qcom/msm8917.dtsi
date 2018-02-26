@@ -55,7 +55,7 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
 		};
 
 		modem_mem: modem_region@0 {
@@ -752,10 +752,10 @@
 		HSUSB_1p8-supply = <&pm8917_l7>;
 		HSUSB_3p3-supply = <&pm8917_l13>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
-		vbus_otg-supply = <&smbcharger_charger_otg>;
-
+		qcom,hsusb-otg-phy-init-seq =
+				<0x53 0x80 0x32 0x81 0x07 0x82 0x13 0x83 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
-		qcom,hsusb-otg-mode = <3>; /* OTG mode */
+		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
 		qcom,dp-manual-pullup;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
@@ -765,7 +765,7 @@
 		qcom,axi-prefetch-enable;
 		qcom,enable-sdp-typec-current-limit;
 		qcom,hsusb-otg-delay-lpm;
-
+		qcom,hsusb-otg-default-mode = <1>;
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1112,6 +1112,18 @@
 		};
 	};
 
+	sn_fuse: snfuse@0xa0128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0xa0128 0x4>;
+		reg-names = "sn-base";
+	};
+
+	sec_boot_fuse: secbootfuse@0xa41d0 {
+		compatible = "qcom,sec-boot-fuse";
+		reg = <0xa41d0 0x4>;
+		reg-names = "sec-boot-base";
+	};
+
 	qcom,smdtty {
 		compatible = "qcom,smdtty";
 
@@ -1283,9 +1295,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84A00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x84A00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;

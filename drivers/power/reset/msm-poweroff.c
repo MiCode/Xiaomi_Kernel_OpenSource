@@ -154,17 +154,18 @@ static bool get_dload_mode(void)
 
 static void enable_emergency_dload_mode(void)
 {
+#ifdef	WT_COMPILE_FACTORY_VERSION
 	int ret;
 
 	if (emergency_dload_mode_addr) {
 		__raw_writel(EMERGENCY_DLOAD_MAGIC1,
-				emergency_dload_mode_addr);
+					emergency_dload_mode_addr);
 		__raw_writel(EMERGENCY_DLOAD_MAGIC2,
-				emergency_dload_mode_addr +
-				sizeof(unsigned int));
+					emergency_dload_mode_addr +
+					sizeof(unsigned int));
 		__raw_writel(EMERGENCY_DLOAD_MAGIC3,
-				emergency_dload_mode_addr +
-				(2 * sizeof(unsigned int)));
+					emergency_dload_mode_addr +
+					(2 * sizeof(unsigned int)));
 
 		/* Need disable the pmic wdt, then the emergency dload mode
 		 * will not auto reset. */
@@ -175,6 +176,9 @@ static void enable_emergency_dload_mode(void)
 	ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
 	if (ret)
 		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
+#else
+	pr_err("Failed to set secure EDLOAD mode: Xiaomi Required\n");
+#endif
 }
 
 static int dload_set(const char *val, struct kernel_param *kp)
@@ -264,6 +268,17 @@ static void halt_spmi_pmic_arbiter(void)
 	}
 }
 
+static bool device_locked_flag;
+static int __init device_locked(char *str)
+{
+	if (strcmp(str, "1"))
+		device_locked_flag = false;
+	else
+		device_locked_flag = true;
+	return 1;
+}
+__setup("device_locked=", device_locked);
+
 static void msm_restart_prepare(const char *cmd)
 {
 	bool need_warm_reset = false;
@@ -322,15 +337,22 @@ static void msm_restart_prepare(const char *cmd)
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_KEYS_CLEAR);
 			__raw_writel(0x7766550a, restart_reason);
-		} else if (!strncmp(cmd, "oem-", 4)) {
+		} else if (!strncmp(cmd, "fastmmi", 7))  {
+			       __raw_writel(0x77665505, restart_reason);
+		}  else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
 			int ret;
 			ret = kstrtoul(cmd + 4, 16, &code);
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
+#ifdef WT_COMPILE_FACTORY_VERSION
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
+#else
+		} else if (!strncmp(cmd, "edl", 3) && !device_locked_flag) {
+			enable_emergency_dload_mode();
+#endif
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}

@@ -8,7 +8,8 @@ enum pid_type
 	PIDTYPE_PID,
 	PIDTYPE_PGID,
 	PIDTYPE_SID,
-	PIDTYPE_MAX
+	PIDTYPE_MAX,
+	__PIDTYPE_TGID
 };
 
 /*

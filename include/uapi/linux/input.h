@@ -481,6 +481,8 @@ struct input_keymap_entry {
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+#define KEY_NEXTSONG_NEW		250
+#define KEY_PREVIOUSSONG_NEW		251
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100

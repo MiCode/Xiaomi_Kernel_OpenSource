@@ -29,6 +29,8 @@
 #include "leds.h"
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/wakelock.h>
+
 
 #define FLASH_LED_PERIPHERAL_SUBTYPE(base)			(base + 0x05)
 #define FLASH_SAFETY_TIMER(base)				(base + 0x40)
@@ -246,6 +248,8 @@ struct qpnp_flash_led {
 	struct workqueue_struct		*ordered_workq;
 	struct qpnp_vadc_chip		*vadc_dev;
 	struct mutex			flash_led_lock;
+	struct wake_lock		flashlight_led_lock;
+	struct qpnp_flash_led_buffer		*log;
 	struct dentry			*dbgfs_root;
 	int				num_leds;
 	u16				base;
@@ -1246,6 +1250,8 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 	/* Global lock is to synchronize between the flash leds and torch */
 	mutex_lock(&led->flash_led_lock);
+
+	dev_dbg(&led->spmi_dev->dev, "wt flash_node.cdev.name=%s\n", flash_node->cdev.name);
 	/* Local lock is to synchronize for one led instance */
 	mutex_lock(&flash_node->cdev.led_access);
 
@@ -1801,6 +1807,8 @@ error_enable_gpio:
 	return;
 }
 
+
+extern  int32_t wt_flash_flashlight(bool boolean);
 static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 						enum led_brightness value)
 {
@@ -1818,6 +1826,22 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 		value = flash_node->cdev.max_brightness;
 
 	flash_node->cdev.brightness = value;
+
+
+	pr_debug("WT flash_node.cdev.name=%s, brightness=%d, id=%d, flash_node->type=%d\n", flash_node->cdev.name,
+			flash_node->cdev.brightness, flash_node->id, flash_node->type);
+
+	if (!strcmp(flash_node->cdev.name, "flashlight")) {
+		pr_info("wt_flash_flashlight  enter value=%d\n", value);
+		if (value > 0)  {
+			wt_flash_flashlight(true);
+			wake_lock(&led->flashlight_led_lock);
+		} else{
+			wt_flash_flashlight(false);
+			wake_unlock(&led->flashlight_led_lock);
+		}
+	}
+
 	if (led->flash_node[led->num_leds - 1].id ==
 						FLASH_LED_SWITCH) {
 		if (flash_node->type == TORCH)
@@ -2506,6 +2530,8 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 	}
 
 	mutex_init(&led->flash_led_lock);
+	wake_lock_init(&led->flashlight_led_lock, WAKE_LOCK_SUSPEND,
+			"flashlight_led_lock_wt");
 
 	led->ordered_workq = alloc_ordered_workqueue("flash_led_workqueue", 0);
 	if (!led->ordered_workq) {
@@ -2645,6 +2671,7 @@ error_led_register:
 		led_classdev_unregister(&led->flash_node[i].cdev);
 	}
 	mutex_destroy(&led->flash_led_lock);
+	wake_lock_destroy(&led->flashlight_led_lock);
 	destroy_workqueue(led->ordered_workq);
 
 	return rc;
@@ -2670,6 +2697,7 @@ static int qpnp_flash_led_remove(struct spmi_device *spmi)
 	}
 	debugfs_remove_recursive(led->dbgfs_root);
 	mutex_destroy(&led->flash_led_lock);
+	wake_lock_destroy(&led->flashlight_led_lock);
 	destroy_workqueue(led->ordered_workq);
 
 	return 0;

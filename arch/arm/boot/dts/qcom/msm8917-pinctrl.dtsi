@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +69,53 @@
 				};
 			};
 		};
+		smb_int_pin {
+			pins = "gpio61";
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "smb_int_gpio";
+			smb_int_default: smb_int_default {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+		bq_int_default: bq_int_default {
+			mux {
+				pins = "gpio25";
+				function ="gpio";
+			};
+			config {
+				pins = "gpio25";
+				drive-strength = <2>;
+				bias-pull-up;
 
+			};
+		};
+		tps65132_en_default: tps65132_en_default {
+			mux {
+				pins = "gpio126", "gpio127";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio126", "gpio127";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+		gpio_led_pins {
+			gpio_led_off: gpio_led_off {
+				mux {
+					pins = "gpio45";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio45";
+					drive-strength = <6>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+		};
 		pmx_ts_reset_suspend {
 			ts_reset_suspend: ts_reset_suspend {
 				mux {
@@ -871,24 +918,24 @@
 		pri-tlmm-lines {
 			pri_tlmm_lines_act: pri_tlmm_lines_act {
 				mux {
-					pins = "gpio85", "gpio88";
+					pins = "gpio88";
 					function = "pri_mi2s";
 				};
 
 				config {
-					pins = "gpio85", "gpio88";
+					pins = "gpio88";
 					drive-strength = <8>;
 				};
 			};
 
 			pri_tlmm_lines_sus: pri_tlmm_lines_sus {
 				mux {
-					pins = "gpio85", "gpio88";
+					pins = "gpio88";
 					function = "pri_mi2s";
 				};
 
 				config {
-					pins = "gpio85", "gpio88";
+					pins = "gpio88";
 					drive-strength = <2>;
 					bias-pull-down;
 				};
@@ -1007,7 +1054,7 @@
 				config {
 					pins = "gpio6", "gpio7";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-down;
 				};
 			};
 		};
@@ -1182,12 +1229,12 @@
 
 		usbc_int_default: usbc_int_default {
 			mux {
-				pins = "gpio97", "gpio131";
+				pins = "gpio131";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio97", "gpio131";
+				pins = "gpio131";
 				drive-strength = <2>;
 				bias-pull-up;
 			};

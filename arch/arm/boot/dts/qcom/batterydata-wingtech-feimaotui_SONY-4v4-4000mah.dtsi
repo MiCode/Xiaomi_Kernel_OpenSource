@@ -1,0 +1,123 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+qcom,wingtech-feimaotui-4v4-4000mah-data {
+	qcom,default-rbatt-mohm = <140>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fcc-mah = <2300>;
+	qcom,rbatt-capacitive-mohm = <50>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,batt-id-kohm = <30>;
+	qcom,flat-ocv-threshold-uv = <3800000>;
+	qcom,battery-type = "wingtech-feimaotui-4v4-3000mah";
+
+	qcom,fcc-temp-lut {
+		qcom,lut-col-legend = <(-20) 0 25 40 60>;
+		qcom,lut-data = <2343 2340 2338 2336 2328>;
+	};
+
+	qcom,pc-temp-ocv-lut {
+		qcom,lut-col-legend = <(-20) 0 25 45 60>;
+		qcom,lut-row-legend = <100 95 90 85 80>,
+				<75 70 65 60 55>,
+				<50 45 40 35 30>,
+				<25 20 16 13 11>,
+				<10 9 8 7 6>,
+				<5 4 3 2 1>,
+				<0>;
+		qcom,lut-data = <4328 4328 4328 4328 4086>,
+				<4240 4262 4266 4264 4076>,
+				<4172 4206 4208 4206 4056>,
+				<4106 4154 4154 4152 4046>,
+				<4070 4102 4102 4100 4036>,
+				<3995 4058 4062 4054 4020>,
+				<3919 3962 3992 3998 4002>,
+				<3882 3923 3960 3963 3961>,
+				<3843 3897 3914 3920 3919>,
+				<3808 3864 3870 3870 3869>,
+				<3791 3836 3840 3840 3840>,
+				<3778 3812 3818 3818 3817>,
+				<3766 3792 3800 3800 3798>,
+				<3756 3778 3784 3784 3782>,
+				<3744 3768 3770 3767 3762>,
+				<3734 3756 3756 3746 3734>,
+				<3720 3738 3736 3726 3713>,
+				<3706 3718 3714 3705 3691>,
+				<3692 3706 3696 3688 3675>,
+				<3680 3700 3690 3682 3670>,
+				<3672 3698 3689 3681 3669>,
+				<3662 3694 3688 3680 3668>,
+				<3651 3692 3686 3678 3666>,
+				<3636 3686 3682 3674 3660>,
+				<3618 3674 3670 3659 3640>,
+				<3594 3646 3639 3626 3602>,
+				<3560 3606 3592 3577 3552>,
+				<3514 3548 3530 3516 3490>,
+				<3446 3466 3448 3432 3404>,
+				<3322 3341 3320 3303 3274>,
+				<3000 3000 3000 3000 3006>;
+	};
+
+	qcom,rbatt-sf-lut {
+		qcom,lut-col-legend = <(-20) 0 25 40 60>;
+		qcom,lut-row-legend = <100 95 90 85 80>,
+				<75 70 65 60 55>,
+				<50 45 40 35 30>,
+				<25 20 16 13 11>,
+				<10 9 8 7 6>,
+				<5 4 3 2 1>,
+				<0>;
+		qcom,lut-data = <1043 230 99 86 81>,
+				<1043 230 99 86 81>,
+				<1019 239 101 86 81>,
+				<984 247 104 87 82>,
+				<1009 251 109 91 84>,
+				<948 267 119 95 84>,
+				<893 223 119 96 86>,
+				<909 222 131 103 90>,
+				<906 230 119 108 95>,
+				<909 229 102 89 83>,
+				<950 228 100 86 81>,
+				<997 230 100 87 82>,
+				<1050 233 102 89 84>,
+				<1109 236 104 91 86>,
+				<1172 247 103 90 84>,
+				<1244 259 101 85 80>,
+				<1326 269 101 86 81>,
+				<1387 273 103 87 81>,
+				<1409 284 101 86 81>,
+				<1307 281 101 86 82>,
+				<1342 286 102 87 83>,
+				<1385 297 104 89 85>,
+				<1431 309 107 91 88>,
+				<1492 320 111 94 89>,
+				<1656 328 111 93 86>,
+				<1879 329 106 90 84>,
+				<2169 339 108 91 87>,
+				<2589 366 112 95 90>,
+				<3226 413 119 103 96>,
+				<5120 493 147 131 133>,
+				<53073 27234 27502 34136 15022>;
+	};
+
+	qcom,ibat-acc-lut {
+		qcom,lut-col-legend = <(-20) 0 25>;
+		qcom,lut-row-legend = <0 250 500 1000>;
+		qcom,lut-data = <2296 2305 2292>,
+				<1000 2256 2274>,
+				<626 2164 2262>,
+				<70 1732 2232>;
+	};
+};

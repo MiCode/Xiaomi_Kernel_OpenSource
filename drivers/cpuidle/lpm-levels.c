@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +94,16 @@ DEFINE_PER_CPU(struct clk *, cpu_clocks);
 static struct clk *l2_clk;
 
 static const int num_dbg_elements = 0x100;
+
+void __iomem *perf_cfg_rcgr;
+void __iomem *pwr_cfg_rcgr;
+
+void __iomem *perf_cmd_rcgr;
+void __iomem *pwr_cmd_rcgr;
+
+static int perf_prev_cfg;
+static int pwr_prev_cfg;
+
 static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 				unsigned long action, void *hcpu);
 
@@ -614,13 +625,103 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 	return best_level;
 }
 
+void save_cfg_cmd_rcgr(int cluster_id)
+{
+	int val = 0;
+	if (cluster_id == 0) {
+		perf_prev_cfg = __raw_readl(perf_cfg_rcgr);
+
+		__raw_writel(0x403, perf_cfg_rcgr);
+
+		val = __raw_readl(perf_cmd_rcgr);
+		val |= 0x1;
+		__raw_writel(val, perf_cmd_rcgr);
+
+		while (1) {
+			val = __raw_readl(perf_cmd_rcgr);
+			val &= 0x1;
+			if (!val)
+				break;
+		}
+		trace_cluster_cfg_rcgr("perf", perf_prev_cfg, false);
+	} else {
+		pwr_prev_cfg = __raw_readl(pwr_cfg_rcgr);
+
+		__raw_writel(0x403, pwr_cfg_rcgr);
+
+		val = __raw_readl(pwr_cmd_rcgr);
+		val |= 0x1;
+		__raw_writel(val, pwr_cmd_rcgr);
+		while (1) {
+			val = __raw_readl(pwr_cmd_rcgr);
+			val &= 0x1;
+			if (!val)
+				break;
+		}
+		trace_cluster_cfg_rcgr("pwr", pwr_prev_cfg, false);
+	}
+}
+
+void restore_cfg_cmd_rcgr(int cluster_id)
+{
+	int val = 0;
+	if (cluster_id == 0) {
+
+		__raw_writel(perf_prev_cfg, perf_cfg_rcgr);
+
+		val = __raw_readl(perf_cmd_rcgr);
+		val |= 0x1;
+		__raw_writel(val, perf_cmd_rcgr);
+
+		while (1) {
+			val = __raw_readl(perf_cmd_rcgr);
+			val &= 0x1;
+			if (!val)
+				break;
+		}
+		trace_cluster_cfg_rcgr("perf", perf_prev_cfg, true);
+	} else {
+
+		__raw_writel(pwr_prev_cfg, pwr_cfg_rcgr);
+
+		val = __raw_readl(pwr_cmd_rcgr);
+		val |= 0x1;
+		__raw_writel(val, pwr_cmd_rcgr);
+		while (1) {
+			val = __raw_readl(pwr_cmd_rcgr);
+			val &= 0x1;
+			if (!val)
+				break;
+		}
+		trace_cluster_cfg_rcgr("pwr", pwr_prev_cfg, true);
+	}
+}
+
 static void cluster_notify(struct lpm_cluster *cluster,
 		struct lpm_cluster_level *level, bool enter)
 {
-	if (level->is_reset && enter)
+	if (level->is_reset && enter) {
+
+		if (!level->notify_rpm) {
+			if (smp_processor_id() < 4)
+				save_cfg_cmd_rcgr(0);
+			else
+				save_cfg_cmd_rcgr(1);
+		}
+
 		cpu_cluster_pm_enter(cluster->aff_level);
-	else if (level->is_reset && !enter)
+
+	} else if (level->is_reset && !enter) {
+
+		if (!level->notify_rpm) {
+			if (smp_processor_id() < 4)
+				restore_cfg_cmd_rcgr(0);
+			else
+				restore_cfg_cmd_rcgr(1);
+		}
+
 		cpu_cluster_pm_exit(cluster->aff_level);
+	}
 }
 
 static int cluster_configure(struct lpm_cluster *cluster, int idx,
@@ -1391,6 +1492,12 @@ static int lpm_probe(struct platform_device *pdev)
 				__func__);
 		goto failed;
 	}
+
+	perf_cfg_rcgr = ioremap(0xB011054, sizeof(uint32_t));
+	pwr_cfg_rcgr = ioremap(0xB111054, sizeof(uint32_t));
+	perf_cmd_rcgr = ioremap(0xB011050, sizeof(uint32_t));
+	pwr_cmd_rcgr = ioremap(0xB111050, sizeof(uint32_t));
+
 	register_hotcpu_notifier(&lpm_cpu_nblk);
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {

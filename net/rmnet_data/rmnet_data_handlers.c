@@ -401,19 +401,20 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 		skb->dev = ep->egress_dev;
 
 	if ((config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3) ||
-	    (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV4)) {
+			(config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV4)) {
 		ckresult = rmnet_map_checksum_downlink_packet(skb);
 		trace_rmnet_map_checksum_downlink_packet(skb, ckresult);
 		rmnet_stats_dl_checksum(ckresult);
 		if (likely((ckresult == RMNET_MAP_CHECKSUM_OK)
-			    || (ckresult == RMNET_MAP_CHECKSUM_SKIPPED)))
+				|| (ckresult == RMNET_MAP_CHECKSUM_SKIPPED)))
 			skb->ip_summed |= CHECKSUM_UNNECESSARY;
 		else if (ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION
-			&& ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT
-			&& ckresult != RMNET_MAP_CHECKSUM_VALID_FLAG_NOT_SET
-			&& ckresult != RMNET_MAP_CHECKSUM_FRAGMENTED_PACKET) {
+				&& ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT
+				&& ckresult != RMNET_MAP_CHECKSUM_VALID_FLAG_NOT_SET
+				&& ckresult != RMNET_MAP_CHECKSUM_VALIDATION_FAILED
+				&& ckresult != RMNET_MAP_CHECKSUM_FRAGMENTED_PACKET) {
 			rmnet_kfree_skb(skb,
-				RMNET_STATS_SKBFREE_INGRESS_BAD_MAP_CKSUM);
+					RMNET_STATS_SKBFREE_INGRESS_BAD_MAP_CKSUM);
 			return RX_HANDLER_CONSUMED;
 		}
 	}

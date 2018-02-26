@@ -1,0 +1,5 @@
+
+config TOUCHSCREEN_GT915L
+	tristate "ATMEL GT915L touchpanel driver"
+	depends on CONFIG_INPUT_TOUCHSCREEN
+	default n

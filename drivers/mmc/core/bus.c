@@ -169,6 +169,9 @@ static int mmc_bus_suspend(struct device *dev)
 	if (mmc_bus_needs_resume(host))
 		return 0;
 	ret = host->bus_ops->suspend(host);
+	if (ret && dev->driver && drv->resume)
+		drv->resume(card);
+
 	return ret;
 }
 

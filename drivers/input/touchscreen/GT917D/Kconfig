@@ -1,0 +1,5 @@
+
+config TOUCHSCREEN_GT917D
+	tristate "ATMEL GT917D touchpanel driver"
+	depends on CONFIG_INPUT_TOUCHSCREEN
+	default n

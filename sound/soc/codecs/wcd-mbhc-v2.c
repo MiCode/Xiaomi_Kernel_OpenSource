@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +67,9 @@ enum wcd_mbhc_cs_mb_en_flag {
 	WCD_MBHC_EN_PULLUP,
 	WCD_MBHC_EN_NONE,
 };
+#ifdef CONFIG_C3B_BQ2560X
+static int wt_correct_accessory_type
+#endif
 
 static void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 				struct snd_soc_jack *jack, int status, int mask)
@@ -335,11 +339,15 @@ out_micb_en:
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_PULLUP);
 		else
 			/* enable current source and disable mb, pullup*/
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 
+#if defined(CONFIG_C3N_SMB358) || defined(CONFIG_C3B_BQ2560X)
+
+#else
 		/* configure cap settings properly when micbias is disabled */
 		if (mbhc->mbhc_cb->set_cap_mode)
 			mbhc->mbhc_cb->set_cap_mode(codec, micbias1, false);
+#endif
 		break;
 	case WCD_EVENT_PRE_HPHL_PA_OFF:
 		mutex_lock(&mbhc->hphl_pa_lock);
@@ -355,7 +363,7 @@ out_micb_en:
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		else
 			/* Disable micbias, pullup & enable cs */
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		mutex_unlock(&mbhc->hphl_pa_lock);
 		break;
 	case WCD_EVENT_PRE_HPHR_PA_OFF:
@@ -372,7 +380,7 @@ out_micb_en:
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		else
 			/* Disable micbias, pullup & enable cs */
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		mutex_unlock(&mbhc->hphr_pa_lock);
 		break;
 	case WCD_EVENT_PRE_HPHL_PA_ON:
@@ -600,7 +608,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
-		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
+		msm8x16_wcd_codec_set_headset_state(mbhc->hph_status);
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
@@ -716,6 +724,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
+		msm8x16_wcd_codec_set_headset_state(mbhc->hph_status);
 	}
 	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
 }
@@ -813,7 +822,7 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 	enum snd_jack_types jack_type;
 
 	pr_debug("%s: enter current_plug(%d) new_plug(%d)\n",
-		 __func__, mbhc->current_plug, plug_type);
+		__func__, mbhc->current_plug, plug_type);
 
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
@@ -822,6 +831,10 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 		goto exit;
 	}
 
+#ifdef CONFIG_C3B_BQ2560X
+	wt_correct_accessory_type = false;
+#endif
+
 	if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
 		/*
 		 * Nothing was reported previously
@@ -829,12 +842,34 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 		 */
 		wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
 	} else if (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
-			if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE)
-				wcd_mbhc_report_plug(mbhc, 0,
-						SND_JACK_HEADPHONE);
-			if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET)
-				wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
+		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE)
+			wcd_mbhc_report_plug(mbhc, 0,
+				SND_JACK_HEADPHONE);
+		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET)
+			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
+
+#ifndef CONFIG_C3B_BQ2560X
 		wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
+#else
+		if (mbhc->impedance_detect) {
+			mbhc->mbhc_cb->compute_impedance(mbhc,
+					&mbhc->zl, &mbhc->zr);
+			pr_err("%s: RL %d ohm, RR %d ohm\n", __func__, mbhc->zl, mbhc->zr);
+			if ((mbhc->zl > 20000) && (mbhc->zr > 20000)) {
+				pr_debug("%s: special accessory \n", __func__);
+				if (mbhc->mbhc_cfg->swap_gnd_mic &&
+						mbhc->mbhc_cfg->swap_gnd_mic(mbhc->codec)) {
+					pr_debug("%s: US_EU gpio present,flip switch again\n"
+							, __func__);
+				}
+				wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADSET);
+				wt_correct_accessory_type = true;
+			} else {
+				wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
+			}
+		}
+#endif
+
 	} else if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
 		if (mbhc->mbhc_cfg->enable_anc_mic_detect)
 			anc_mic_found = wcd_mbhc_detect_anc_plug_type(mbhc);
@@ -1079,9 +1114,9 @@ static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 							WCD_MBHC_EN_PULLUP);
 			else
 				wcd_enable_curr_micbias(mbhc,
-							WCD_MBHC_EN_CS);
+							WCD_MBHC_EN_MB);
 		} else if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		} else {
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
 		}
@@ -1414,6 +1449,14 @@ report:
 			mbhc->btn_press_intr);
 	WCD_MBHC_RSC_LOCK(mbhc);
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+
+#ifdef CONFIG_C3B_BQ2560X
+	if (wt_correct_accessory_type == true) {
+		plug_type = MBHC_PLUG_TYPE_HEADSET;
+		wt_correct_accessory_type = false;
+	}
+#endif
+
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 enable_supply:
 	if (mbhc->mbhc_cb->mbhc_micbias_control)
@@ -1440,8 +1483,16 @@ exit:
 		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM, true);
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
-	if (mbhc->mbhc_cb->set_cap_mode)
+	if (mbhc->mbhc_cb->set_cap_mode) {
+#if defined(CONFIG_C3N_SMB358) || defined(CONFIG_C3B_BQ2560X)
+
+		if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
+			mbhc->mbhc_cb->set_cap_mode(codec, micbias1, true);
+			pr_err("%s:set_cap_mode micbias1=%d, micbias2 = %d==>true , MBHC_PLUG_TYPE_HEADSET\n", __func__, micbias1, micbias2);
+		} else
+#endif
 		mbhc->mbhc_cb->set_cap_mode(codec, micbias1, micbias2);
+	}
 
 	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
 		mbhc->mbhc_cb->hph_pull_down_ctrl(codec, true);
