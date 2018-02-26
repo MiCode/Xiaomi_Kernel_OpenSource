@@ -324,6 +324,10 @@
 	};
 };
 
+&adsp_mem {
+	size = <0 0xc800000>;
+};
+
 &qupv3_se9_2uart {
 	status = "ok";
 };
