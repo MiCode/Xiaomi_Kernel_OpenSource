@@ -36,6 +36,11 @@
 		qca,bt-vdd-pa-current-level = <0>; /* LPM/PFM */
 		qca,bt-vdd-ldo-current-level = <0>; /* LPM/PFM */
 	};
+
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen4-batterydata-alium-3600mah.dtsi"
+	};
 };
 
 &qupv3_se13_4uart {
@@ -202,6 +207,10 @@
 &pm855l_wled {
 	qcom,string-cfg= <7>;
 	status = "ok";
+};
+
+&pm855b_fg {
+	qcom,battery-data = <&mtp_batterydata>;
 };
 
 &sdhc_2 {
