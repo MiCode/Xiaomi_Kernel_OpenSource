@@ -38,6 +38,8 @@ struct qg_param {
 };
 
 struct qg_kernel_data {
+	unsigned int			seq_no;
+	unsigned int			fifo_time;
 	unsigned int			fifo_length;
 	struct fifo_data		fifo[MAX_FIFO_LENGTH];
 	struct qg_param			param[QG_MAX];
