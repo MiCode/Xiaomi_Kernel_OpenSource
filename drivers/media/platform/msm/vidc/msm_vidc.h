@@ -30,6 +30,7 @@ enum smem_prop {
 	SMEM_UNCACHED = 0x1,
 	SMEM_CACHED = 0x2,
 	SMEM_SECURE = 0x4,
+	SMEM_ADSP = 0x8,
 };
 
 /* NOTE: if you change this enum you MUST update the
