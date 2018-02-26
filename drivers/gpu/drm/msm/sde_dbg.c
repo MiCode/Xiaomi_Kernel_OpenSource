@@ -165,6 +165,7 @@ struct sde_dbg_vbif_debug_bus {
  * @enable_reg_dump: whether to dump registers into memory, kernel log, or both
  * @dbgbus_sde: debug bus structure for the sde
  * @dbgbus_vbif_rt: debug bus structure for the realtime vbif
+ * @dump_all: dump all entries in register dump
  */
 static struct sde_dbg_base {
 	struct sde_dbg_evtlog *evtlog;
@@ -183,6 +184,7 @@ static struct sde_dbg_base {
 
 	struct sde_dbg_sde_debug_bus dbgbus_sde;
 	struct sde_dbg_vbif_debug_bus dbgbus_vbif_rt;
+	bool dump_all;
 	u32 debugfs_ctrl;
 } sde_dbg_base;
 
@@ -1452,7 +1454,7 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
  */
 static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 	u32 len, bool do_panic, const char *name, bool dump_dbgbus_sde,
-	bool dump_dbgbus_vbif_rt)
+	bool dump_dbgbus_vbif_rt, bool dump_all)
 {
 	int i;
 
@@ -1464,7 +1466,8 @@ static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 				sde_dbg_base.enable_reg_dump);
 	}
 
-	sde_evtlog_dump_all(sde_dbg_base.evtlog);
+	if (dump_all)
+		sde_evtlog_dump_all(sde_dbg_base.evtlog);
 
 	if (dump_dbgbus_sde)
 		_sde_dbg_dump_sde_dbg_bus(&sde_dbg_base.dbgbus_sde);
@@ -1488,7 +1491,8 @@ static void _sde_dump_work(struct work_struct *work)
 		ARRAY_SIZE(sde_dbg_base.req_dump_blks),
 		sde_dbg_base.work_panic, "evtlog_workitem",
 		sde_dbg_base.dbgbus_sde.cmn.include_in_deferred_work,
-		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work);
+		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work,
+		sde_dbg_base.dump_all);
 }
 
 void sde_dbg_dump(bool queue_work, const char *name, ...)
@@ -1497,6 +1501,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 	bool do_panic = false;
 	bool dump_dbgbus_sde = false;
 	bool dump_dbgbus_vbif_rt = false;
+	bool dump_all = false;
 	va_list args;
 	char *blk_name = NULL;
 	struct sde_dbg_reg_base *blk_base = NULL;
@@ -1514,6 +1519,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 
 	memset(sde_dbg_base.req_dump_blks, 0,
 			sizeof(sde_dbg_base.req_dump_blks));
+	sde_dbg_base.dump_all = false;
 
 	va_start(args, name);
 	i = 0;
@@ -1535,6 +1541,8 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 						blk_name);
 			}
 		}
+		if (!strcmp(blk_name, "all"))
+			dump_all = true;
 
 		if (!strcmp(blk_name, "dbg_bus"))
 			dump_dbgbus_sde = true;
@@ -1554,10 +1562,11 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 				dump_dbgbus_sde;
 		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work =
 				dump_dbgbus_vbif_rt;
+		sde_dbg_base.dump_all = dump_all;
 		schedule_work(&sde_dbg_base.dump_work);
 	} else {
 		_sde_dump_array(blk_arr, blk_len, do_panic, name,
-				dump_dbgbus_sde, dump_dbgbus_vbif_rt);
+				dump_dbgbus_sde, dump_dbgbus_vbif_rt, dump_all);
 	}
 }
 
@@ -1633,7 +1642,7 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 		return -EINVAL;
 
 	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog, evtlog_buf,
-			SDE_EVTLOG_BUF_MAX);
+			SDE_EVTLOG_BUF_MAX, true);
 	if (copy_to_user(buff, evtlog_buf, len))
 		return -EFAULT;
 	*ppos += len;

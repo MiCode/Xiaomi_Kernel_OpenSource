@@ -17,9 +17,10 @@
 #include <linux/debugfs.h>
 #include <linux/list.h>
 
-#define SDE_EVTLOG_DATA_LIMITER	(-1)
+#define SDE_EVTLOG_DATA_LIMITER	(0xC0DEBEEF)
 #define SDE_EVTLOG_FUNC_ENTRY	0x1111
 #define SDE_EVTLOG_FUNC_EXIT	0x2222
+#define SDE_EVTLOG_ERROR	0xebad
 
 #define SDE_DBG_DUMP_DATA_LIMITER (NULL)
 
@@ -52,7 +53,7 @@ enum sde_dbg_dump_flag {
  * number must be greater than print entry to prevent out of bound evtlog
  * entry array access.
  */
-#define SDE_EVTLOG_ENTRY	(SDE_EVTLOG_PRINT_ENTRY * 4)
+#define SDE_EVTLOG_ENTRY	(SDE_EVTLOG_PRINT_ENTRY * 8)
 #define SDE_EVTLOG_MAX_DATA 15
 #define SDE_EVTLOG_BUF_MAX 512
 #define SDE_EVTLOG_BUF_ALIGN 32
@@ -77,6 +78,7 @@ struct sde_dbg_evtlog {
 	struct sde_dbg_evtlog_log logs[SDE_EVTLOG_ENTRY];
 	u32 first;
 	u32 last;
+	u32 last_dump;
 	u32 curr;
 	u32 next;
 	u32 enable;
@@ -179,10 +181,12 @@ bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog, u32 flag);
  * @evtlog:		pointer to evtlog
  * @evtlog_buf:		target buffer to print into
  * @evtlog_buf_size:	size of target buffer
+ * @update_last_entry:»       whether or not to stop at most recent entry
  * Returns:		number of bytes written to buffer
  */
 ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
-		char *evtlog_buf, ssize_t evtlog_buf_size);
+		char *evtlog_buf, ssize_t evtlog_buf_size,
+		bool update_last_entry);
 
 /**
  * sde_dbg_init_dbg_buses - initialize debug bus dumping support for the chipset
@@ -288,7 +292,8 @@ static inline bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog,
 }
 
 static inline ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
-		char *evtlog_buf, ssize_t evtlog_buf_size)
+		char *evtlog_buf, ssize_t evtlog_buf_size,
+		bool update_last_entry)
 {
 	return 0;
 }
