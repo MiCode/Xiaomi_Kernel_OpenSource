@@ -323,8 +323,7 @@ static irqreturn_t dsi_display_panel_te_irq_handler(int irq, void *data)
 	if (!display)
 		return IRQ_HANDLED;
 
-	atomic_set(&display->te_irq_triggered, 1);
-
+	complete_all(&display->esd_te_gate);
 	return IRQ_HANDLED;
 }
 
@@ -338,12 +337,10 @@ static void dsi_display_change_te_irq_status(struct dsi_display *display,
 
 	/* Handle unbalanced irq enable/disbale calls */
 	if (enable && !display->is_te_irq_enabled) {
-		atomic_set(&display->te_irq_triggered, 1);
 		enable_irq(gpio_to_irq(display->disp_te_gpio));
 		display->is_te_irq_enabled = true;
 	} else if (!enable && display->is_te_irq_enabled) {
 		disable_irq(gpio_to_irq(display->disp_te_gpio));
-		atomic_set(&display->te_irq_triggered, 0);
 		display->is_te_irq_enabled = false;
 	}
 }
@@ -373,6 +370,8 @@ static void dsi_display_register_te_irq(struct dsi_display *display)
 		pr_err("TE request_irq failed for ESD rc:%d\n", rc);
 		return;
 	}
+
+	init_completion(&display->esd_te_gate);
 
 	disable_irq(gpio_to_irq(display->disp_te_gpio));
 	display->is_te_irq_enabled = false;
@@ -673,16 +672,21 @@ static int dsi_display_status_bta_request(struct dsi_display *display)
 
 static int dsi_display_status_check_te(struct dsi_display *display)
 {
-	int const esd_check_success = 1;
+	int rc = 1;
+	int const esd_te_timeout = msecs_to_jiffies(3*20);
 
-	if (atomic_read(&display->te_irq_triggered)) {
-		atomic_set(&display->te_irq_triggered, 0);
-	} else {
+	dsi_display_change_te_irq_status(display, true);
+
+	reinit_completion(&display->esd_te_gate);
+	if (!wait_for_completion_timeout(&display->esd_te_gate,
+				esd_te_timeout)) {
 		pr_err("ESD check failed\n");
-		return -EINVAL;
+		rc = -EINVAL;
 	}
 
-	return esd_check_success;
+	dsi_display_change_te_irq_status(display, false);
+
+	return rc;
 }
 
 int dsi_display_check_status(void *display)
@@ -5454,9 +5458,6 @@ int dsi_display_prepare(struct dsi_display *display)
 
 	mode = display->panel->cur_mode;
 
-	if (dsi_display_is_te_based_esd(display))
-		dsi_display_change_te_irq_status(display, true);
-
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		if (display->is_cont_splash_enabled) {
 			pr_err("DMS is not supposed to be set on first frame\n");
@@ -5983,10 +5984,6 @@ int dsi_display_unprepare(struct dsi_display *display)
 	if (rc)
 		pr_err("[%s] display wake up failed, rc=%d\n",
 		       display->name, rc);
-
-	/* Disable panel TE irq */
-	if (dsi_display_is_te_based_esd(display))
-		dsi_display_change_te_irq_status(display, false);
 
 	rc = dsi_panel_unprepare(display->panel);
 	if (rc)
