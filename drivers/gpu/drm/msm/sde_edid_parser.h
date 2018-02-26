@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,6 +120,14 @@ void sde_edid_deinit(void **edid_ctrl);
 void sde_get_edid(struct drm_connector *connector,
 struct i2c_adapter *adapter,
 void **edid_ctrl);
+
+/**
+ * sde_parse_edid() - parses edid info.
+ * @edid_ctrl:   Handle to the edid_ctrl structure.
+ *
+ * Return: void.
+ */
+void sde_parse_edid(void *edid_ctrl);
 
 /**
  * sde_free_edid() - free edid structure.
