@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -296,7 +296,7 @@ static int cam_destroy_hdl(int32_t dev_hdl, int dev_hdl_type)
 
 	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
 	if (idx >= CAM_REQ_MGR_MAX_HANDLES) {
-		CAM_ERR(CAM_CRM, "Invalid idx");
+		CAM_ERR(CAM_CRM, "Invalid idx %d", idx);
 		goto destroy_hdl_fail;
 	}
 

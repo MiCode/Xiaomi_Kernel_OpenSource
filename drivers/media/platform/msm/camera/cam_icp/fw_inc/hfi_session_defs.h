@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,30 @@
 #define HFI_IPEBPS_HANDLE_TYPE_BPS                      0x1
 #define HFI_IPEBPS_HANDLE_TYPE_IPE_RT                   0x2
 #define HFI_IPEBPS_HANDLE_TYPE_IPE_NON_RT               0x3
+
+/**
+ * struct abort_data
+ * @num_req_ids: Number of req ids
+ * @num_req_id: point to specific req id
+ *
+ * create abort data
+ */
+struct abort_data {
+	uint32_t num_req_ids;
+	uint32_t num_req_id[1];
+};
+
+/**
+ * struct hfi_cmd_data
+ * @abort: abort data
+ * @user data: user supplied argument
+ *
+ * create session abort data
+ */
+struct hfi_cmd_abort {
+	struct abort_data abort;
+	uint64_t user_data;
+} __packed;
 
 /**
  * struct hfi_cmd_abort_destroy

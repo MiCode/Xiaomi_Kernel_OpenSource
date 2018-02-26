@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -401,8 +401,8 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 			to_sde_encoder_phys_vid(phys_enc);
 	struct sde_hw_ctl *hw_ctl;
 	unsigned long lock_flags;
-	u32 flush_register = ~0;
 	u32 reset_status = 0;
+	u32 flush_register = ~0;
 	int new_cnt = -1, old_cnt = -1;
 	u32 event = 0;
 
