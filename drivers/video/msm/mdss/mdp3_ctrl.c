@@ -186,6 +186,7 @@ static void mdp3_dispatch_clk_off(struct work_struct *work)
 		return;
 
 	mutex_lock(&session->lock);
+	MDSS_XLOG(0x111);
 	if (session->vsync_enabled ||
 		atomic_read(&session->vsync_countdown) > 0) {
 		mutex_unlock(&session->lock);
@@ -204,6 +205,7 @@ static void mdp3_dispatch_clk_off(struct work_struct *work)
 retry_dma_done:
 		rc = wait_for_completion_timeout(&session->dma_completion,
 							WAIT_DMA_TIMEOUT);
+		MDSS_XLOG(0x222);
 		if (rc <= 0) {
 			struct mdss_panel_data *panel;
 
@@ -1054,9 +1056,10 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	MDSS_XLOG(XLOG_FUNC_ENTRY, __LINE__, mdss_fb_is_power_on_ulp(mfd),
 		mfd->panel_power_state);
 	panel = mdp3_session->panel;
-	mutex_lock(&mdp3_session->lock);
 
 	cancel_work_sync(&mdp3_session->clk_off_work);
+	mutex_lock(&mdp3_session->lock);
+	MDSS_XLOG(0x111);
 	pr_debug("Requested power state = %d\n", mfd->panel_power_state);
 	if (mdss_fb_is_power_on_lp(mfd)) {
 		/*
@@ -1517,6 +1520,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	}
 	mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 
+	cancel_work_sync(&mdp3_session->clk_off_work);
 	mutex_lock(&mdp3_session->lock);
 
 	if (!mdp3_session->status) {
@@ -1524,11 +1528,10 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		mutex_unlock(&mdp3_session->lock);
 		return -EPERM;
 	}
-
+	MDSS_XLOG(0x111);
 	mdp3_ctrl_notify(mdp3_session, MDP_NOTIFY_FRAME_BEGIN);
 	data = mdp3_bufq_pop(&mdp3_session->bufq_in);
 	if (data) {
-		cancel_work_sync(&mdp3_session->clk_off_work);
 		mdp3_ctrl_reset_countdown(mdp3_session, mfd);
 		mdp3_ctrl_clk_enable(mfd, 1);
 		stride = mdp3_session->dma->source_config.stride;
