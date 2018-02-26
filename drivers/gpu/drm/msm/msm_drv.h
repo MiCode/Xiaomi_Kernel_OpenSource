@@ -375,6 +375,9 @@ struct msm_drm_private {
 
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
+
+	/* update the flag when msm driver receives shutdown notification */
+	bool shutdown_in_progress;
 };
 
 struct msm_format {

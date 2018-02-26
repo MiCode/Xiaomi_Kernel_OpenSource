@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -2199,6 +2199,28 @@ static const struct platform_device_id msm_id[] = {
 	{ }
 };
 
+static void msm_pdev_shutdown(struct platform_device *pdev)
+{
+	struct drm_device *ddev = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = NULL;
+
+	if (!ddev) {
+		DRM_ERROR("invalid drm device node\n");
+		return;
+	}
+
+	priv = ddev->dev_private;
+	if (!priv) {
+		DRM_ERROR("invalid msm drm private node\n");
+		return;
+	}
+
+	msm_lastclose(ddev);
+
+	/* set this after lastclose to allow kickoff from lastclose */
+	priv->shutdown_in_progress = true;
+}
+
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,mdp" },      /* mdp4 */
 	{ .compatible = "qcom,sde-kms" },  /* sde  */
@@ -2209,6 +2231,7 @@ MODULE_DEVICE_TABLE(of, dt_match);
 static struct platform_driver msm_platform_driver = {
 	.probe      = msm_pdev_probe,
 	.remove     = msm_pdev_remove,
+	.shutdown   = msm_pdev_shutdown,
 	.driver     = {
 		.name   = "msm_drm",
 		.of_match_table = dt_match,
