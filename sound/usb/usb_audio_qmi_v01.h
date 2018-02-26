@@ -101,7 +101,7 @@ struct qmi_uaudio_stream_req_msg_v01 {
 	uint32_t xfer_buff_size;
 };
 #define QMI_UAUDIO_STREAM_REQ_MSG_V01_MAX_MSG_LEN 39
-extern struct elem_info qmi_uaudio_stream_req_msg_v01_ei[];
+extern struct qmi_elem_info qmi_uaudio_stream_req_msg_v01_ei[];
 
 struct qmi_uaudio_stream_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
@@ -135,7 +135,7 @@ struct qmi_uaudio_stream_resp_msg_v01 {
 	uint8_t controller_num;
 };
 #define QMI_UAUDIO_STREAM_RESP_MSG_V01_MAX_MSG_LEN 202
-extern struct elem_info qmi_uaudio_stream_resp_msg_v01_ei[];
+extern struct qmi_elem_info qmi_uaudio_stream_resp_msg_v01_ei[];
 
 struct qmi_uaudio_stream_ind_msg_v01 {
 	enum usb_audio_device_indication_enum_v01 dev_event;
@@ -162,6 +162,6 @@ struct qmi_uaudio_stream_ind_msg_v01 {
 	uint8_t controller_num;
 };
 #define QMI_UAUDIO_STREAM_IND_MSG_V01_MAX_MSG_LEN 181
-extern struct elem_info qmi_uaudio_stream_ind_msg_v01_ei[];
+extern struct qmi_elem_info qmi_uaudio_stream_ind_msg_v01_ei[];
 
 #endif

@@ -164,7 +164,7 @@ source "sound/usb/line6/Kconfig"
 
 config SND_USB_AUDIO_QMI
 	tristate "USB Audio QMI Service driver"
-	depends on MSM_QMI_INTERFACE
+	depends on QCOM_QMI_HELPERS
 	help
 	  Starts USB Audio QMI server to communicate with remote entity
 	  to perform operations like enable or disable particular audio
