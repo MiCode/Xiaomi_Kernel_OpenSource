@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -233,13 +233,6 @@ static int cam_vfe_camif_resource_start(
 
 	CAM_DBG(CAM_ISP, "hw id:%d core_cfg val:%d", camif_res->hw_intf->hw_idx,
 		val);
-
-	cam_io_w_mb(0x00400040, rsrc_data->mem_base +
-		rsrc_data->camif_reg->camif_config);
-	cam_io_w_mb(0x1, rsrc_data->mem_base +
-			rsrc_data->camif_reg->line_skip_pattern);
-	cam_io_w_mb(0x1, rsrc_data->mem_base +
-			rsrc_data->camif_reg->pixel_skip_pattern);
 
 	/* epoch config with 20 line */
 	cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
