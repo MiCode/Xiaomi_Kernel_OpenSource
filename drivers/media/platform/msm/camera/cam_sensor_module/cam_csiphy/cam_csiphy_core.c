@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,9 +71,9 @@ void cam_csiphy_reset(struct csiphy_device *csiphy_dev)
 			csiphy_reset_reg[i].reg_addr);
 
 		usleep_range(csiphy_dev->ctrl_reg->
-			csiphy_reset_reg[i].delay * 100,
+			csiphy_reset_reg[i].delay * 1000,
 			csiphy_dev->ctrl_reg->
-			csiphy_reset_reg[i].delay * 100 + 1000);
+			csiphy_reset_reg[i].delay * 1000 + 10);
 	}
 }
 
@@ -285,6 +285,10 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 					csiphybase +
 					csiphy_dev->ctrl_reg->
 					csiphy_common_reg[i].reg_addr);
+				usleep_range(csiphy_dev->ctrl_reg->
+					csiphy_common_reg[i].delay*1000,
+					csiphy_dev->ctrl_reg->
+					csiphy_common_reg[i].delay*1000 + 10);
 			break;
 			case CSIPHY_DEFAULT_PARAMS:
 				cam_io_w_mb(csiphy_dev->ctrl_reg->
@@ -292,6 +296,10 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 					csiphybase +
 					csiphy_dev->ctrl_reg->
 					csiphy_common_reg[i].reg_addr);
+				usleep_range(csiphy_dev->ctrl_reg->
+					csiphy_common_reg[i].delay*1000,
+					csiphy_dev->ctrl_reg->
+					csiphy_common_reg[i].delay*1000 + 10);
 			break;
 			default:
 			break;
@@ -505,6 +513,13 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		bridge_params.v4l2_sub_dev_flag = 0;
 		bridge_params.media_entity_flag = 0;
 		bridge_params.priv = csiphy_dev;
+
+		if (csiphy_acq_params.combo_mode >= 2) {
+			CAM_ERR(CAM_CSIPHY, "Invalid combo_mode %d",
+				csiphy_acq_params.combo_mode);
+			rc = -EINVAL;
+			goto release_mutex;
+		}
 
 		csiphy_acq_dev.device_handle =
 			cam_create_device_hdl(&bridge_params);
