@@ -596,7 +596,7 @@
 		compatible = "qcom,dp-display";
 
 		gdsc-supply = <&mdss_core_gdsc>;
-		vdda-1p2-supply = <&pm855_l3>;
+		vdda-1p2-supply = <&pm855l_l3>;
 		vdda-0p9-supply = <&pm855_l5>;
 
 		reg =	<0xae90000 0x0dc>,
