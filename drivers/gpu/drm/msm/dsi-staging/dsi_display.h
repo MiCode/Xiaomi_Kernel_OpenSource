@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation.All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation.All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -289,12 +289,14 @@ int dsi_display_drm_bridge_deinit(struct dsi_display *display);
 
 /**
  * dsi_display_get_info() - returns the display properties
+ * @connector:        Pointer to drm connector structure
  * @info:             Pointer to the structure where info is stored.
  * @disp:             Handle to the display.
  *
  * Return: error code.
  */
-int dsi_display_get_info(struct msm_display_info *info, void *disp);
+int dsi_display_get_info(struct drm_connector *connector,
+		struct msm_display_info *info, void *disp);
 
 /**
  * dsi_display_get_mode_count() - get number of modes supported by the display
@@ -519,30 +521,44 @@ int dsi_dispaly_static_frame(struct dsi_display *display, bool enable);
 
 /**
  * dsi_display_enable_event() - enable interrupt based connector event
+ * @connector:          Pointer to drm connector structure
  * @display:            Handle to display.
  * @event_idx:          Event index.
  * @event_info:         Event callback definition.
  * @enable:             Whether to enable/disable the event interrupt.
  */
-void dsi_display_enable_event(struct dsi_display *display,
+void dsi_display_enable_event(struct drm_connector *connector,
+		struct dsi_display *display,
 		uint32_t event_idx, struct dsi_event_cb_info *event_info,
 		bool enable);
 
-int dsi_display_set_backlight(void *display, u32 bl_lvl);
+/**
+ * dsi_display_set_backlight() - set backlight
+ * @connector:          Pointer to drm connector structure
+ * @display:            Handle to display.
+ * @bl_lvl:             Backlight level.
+ * @event_info:         Event callback definition.
+ * @enable:             Whether to enable/disable the event interrupt.
+ */
+int dsi_display_set_backlight(struct drm_connector *connector,
+		void *display, u32 bl_lvl);
 
 /**
  * dsi_display_check_status() - check if panel is dead or alive
+ * @connector:          Pointer to drm connector structure
  * @display:            Handle to display.
  */
-int dsi_display_check_status(void *display);
+int dsi_display_check_status(struct drm_connector *connector, void *display);
 
 /**
  * dsi_display_cmd_transfer() - transfer command to the panel
+ * @connector:          Pointer to drm connector structure
  * @display:            Handle to display.
  * @cmd_buf:            Command buffer
  * @cmd_buf_len:        Command buffer length in bytes
  */
-int dsi_display_cmd_transfer(void *display, const char *cmd_buffer,
+int dsi_display_cmd_transfer(struct drm_connector *connector,
+		void *display, const char *cmd_buffer,
 		u32 cmd_buf_len);
 
 /**
@@ -578,18 +594,23 @@ int dsi_display_set_power(struct drm_connector *connector,
 
 /*
  * dsi_display_pre_kickoff - program kickoff-time features
+ * @connector: Pointer to drm connector structure
  * @display: Pointer to private display structure
  * @params: Parameters for kickoff-time programming
  * Returns: Zero on success
  */
-int dsi_display_pre_kickoff(struct dsi_display *display,
+int dsi_display_pre_kickoff(struct drm_connector *connector,
+		struct dsi_display *display,
 		struct msm_display_kickoff_params *params);
 /**
  * dsi_display_get_dst_format() - get dst_format from DSI display
+ * @connector:        Pointer to drm connector structure
  * @display:         Handle to display
  *
  * Return: enum dsi_pixel_format type
  */
-enum dsi_pixel_format dsi_display_get_dst_format(void *display);
+enum dsi_pixel_format dsi_display_get_dst_format(
+		struct drm_connector *connector,
+		void *display);
 
 #endif /* _DSI_DISPLAY_H_ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,21 +189,25 @@ int sde_wb_connector_set_property(struct drm_connector *connector,
 
 /**
  * sde_wb_get_info - retrieve writeback 'display' information
+ * @connector: Pointer to drm connector structure
  * @info: Pointer to display info structure
  * @display: Pointer to private display structure
  * Returns: Zero on success
  */
-int sde_wb_get_info(struct msm_display_info *info, void *display);
+int sde_wb_get_info(struct drm_connector *connector,
+		struct msm_display_info *info, void *display);
 
 /**
  * sde_wb_get_mode_info - retrieve information of the mode selected
+ * @connector: Pointer to drm connector structure
  * @drm_mode: Display mode set for the display
  * @mode_info: Out parameter. information of the mode.
  * @max_mixer_width: max width supported by HW layer mixer
  * @display: Pointer to private display structure
  * Returns: zero on success
  */
-int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
+int sde_wb_get_mode_info(struct drm_connector *connector,
+		const struct drm_display_mode *drm_mode,
 		struct msm_mode_info *mode_info, u32 max_mixer_width,
 		void *display);
 

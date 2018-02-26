@@ -75,7 +75,8 @@ void dsi_rect_intersect(const struct dsi_rect *r1,
 	}
 }
 
-int dsi_display_set_backlight(void *display, u32 bl_lvl)
+int dsi_display_set_backlight(struct drm_connector *connector,
+		void *display, u32 bl_lvl)
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
@@ -520,7 +521,7 @@ static int dsi_display_status_check_te(struct dsi_display *display)
 	return rc;
 }
 
-int dsi_display_check_status(void *display)
+int dsi_display_check_status(struct drm_connector *connector, void *display)
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
@@ -605,7 +606,8 @@ static int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
 	return rc;
 }
 
-int dsi_display_cmd_transfer(void *display, const char *cmd_buf,
+int dsi_display_cmd_transfer(struct drm_connector *connector,
+		void *display, const char *cmd_buf,
 		u32 cmd_buf_len)
 {
 	struct dsi_display *dsi_display = display;
@@ -669,7 +671,9 @@ int dsi_display_soft_reset(void *display)
 	return rc;
 }
 
-enum dsi_pixel_format dsi_display_get_dst_format(void *display)
+enum dsi_pixel_format dsi_display_get_dst_format(
+		struct drm_connector *connector,
+		void *display)
 {
 	enum dsi_pixel_format format = DSI_PIXEL_FORMAT_MAX;
 	struct dsi_display *dsi_display = (struct dsi_display *)display;
@@ -1340,7 +1344,8 @@ static int dsi_display_phy_idle_off(struct dsi_display *display)
 	return 0;
 }
 
-void dsi_display_enable_event(struct dsi_display *display,
+void dsi_display_enable_event(struct drm_connector *connector,
+		struct dsi_display *display,
 		uint32_t event_idx, struct dsi_event_cb_info *event_info,
 		bool enable)
 {
@@ -4062,7 +4067,8 @@ int dsi_display_drm_bridge_deinit(struct dsi_display *display)
 	return rc;
 }
 
-int dsi_display_get_info(struct msm_display_info *info, void *disp)
+int dsi_display_get_info(struct drm_connector *connector,
+		struct msm_display_info *info, void *disp)
 {
 	struct dsi_display *display;
 	struct dsi_panel_phy_props phy_props;
@@ -5085,7 +5091,8 @@ static int dsi_display_set_roi(struct dsi_display *display,
 	return rc;
 }
 
-int dsi_display_pre_kickoff(struct dsi_display *display,
+int dsi_display_pre_kickoff(struct drm_connector *connector,
+		struct dsi_display *display,
 		struct msm_display_kickoff_params *params)
 {
 	int rc = 0;

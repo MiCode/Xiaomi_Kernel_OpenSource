@@ -977,7 +977,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		encoder = NULL;
 
 		memset(&info, 0x0, sizeof(info));
-		rc = dsi_display_get_info(&info, display);
+		rc = dsi_display_get_info(NULL, &info, display);
 		if (rc) {
 			SDE_ERROR("dsi get_info %d failed\n", i);
 			continue;
@@ -1019,7 +1019,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		encoder = NULL;
 
 		memset(&info, 0x0, sizeof(info));
-		rc = sde_wb_get_info(&info, display);
+		rc = sde_wb_get_info(NULL, &info, display);
 		if (rc) {
 			SDE_ERROR("wb get_info %d failed\n", i);
 			continue;
@@ -1060,7 +1060,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		encoder = NULL;
 
 		memset(&info, 0x0, sizeof(info));
-		rc = dp_connector_get_info(&info, display);
+		rc = dp_connector_get_info(NULL, &info, display);
 		if (rc) {
 			SDE_ERROR("dp get_info %d failed\n", i);
 			continue;
@@ -1888,7 +1888,8 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 		sde_conn = to_sde_connector(connector);
 
 		if (sde_conn->ops.post_open)
-			sde_conn->ops.post_open(sde_conn->display);
+			sde_conn->ops.post_open(&sde_conn->base,
+					sde_conn->display);
 	}
 	drm_connector_list_iter_end(&conn_iter);
 	mutex_unlock(&dev->mode_config.mutex);
@@ -1940,7 +1941,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 			SDE_DEBUG("encoder name = %s\n", encoder->name);
 		}
 		memset(&info, 0x0, sizeof(info));
-		rc = dsi_display_get_info(&info, display);
+		rc = dsi_display_get_info(NULL, &info, display);
 		if (rc) {
 			SDE_ERROR("dsi get_info %d failed\n", i);
 			encoder = NULL;

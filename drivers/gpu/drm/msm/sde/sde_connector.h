@@ -85,11 +85,13 @@ struct sde_connector_ops {
 
 	/**
 	 * update_pps - update pps command for the display panel
+	 * @connector: Pointer to drm connector structure
 	 * @pps_cmd: Pointer to pps command
 	 * @display: Pointer to private display handle
 	 * Returns: Zero on success
 	 */
-	int (*update_pps)(char *pps_cmd, void *display);
+	int (*update_pps)(struct drm_connector *connector,
+			char *pps_cmd, void *display);
 
 	/**
 	 * mode_valid - determine if specified mode is valid
@@ -134,21 +136,25 @@ struct sde_connector_ops {
 
 	/**
 	 * get_info - get display information
+	 * @connector: Pointer to drm connector structure
 	 * @info: Pointer to msm display info structure
 	 * @display: Pointer to private display structure
 	 * Returns: Zero on success
 	 */
-	int (*get_info)(struct msm_display_info *info, void *display);
+	int (*get_info)(struct drm_connector *connector,
+			struct msm_display_info *info, void *display);
 
 	/**
 	 * get_mode_info - retrieve mode information
+	 * @connector: Pointer to drm connector structure
 	 * @drm_mode: Display mode set for the display
 	 * @mode_info: Out parameter. information of the display mode
 	 * @max_mixer_width: max width supported by HW layer mixer
 	 * @display: Pointer to private display structure
 	 * Returns: Zero on success
 	 */
-	int (*get_mode_info)(const struct drm_display_mode *drm_mode,
+	int (*get_mode_info)(struct drm_connector *connector,
+			const struct drm_display_mode *drm_mode,
 			struct msm_mode_info *mode_info,
 			u32 max_mixer_width, void *display);
 
@@ -162,7 +168,14 @@ struct sde_connector_ops {
 	void (*enable_event)(struct drm_connector *connector,
 			uint32_t event_idx, bool enable, void *display);
 
-	int (*set_backlight)(void *display, u32 bl_lvl);
+	/**
+	 * set_backlight - set backlight level
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display structure
+	 * @bl_lvel: Backlight level
+	 */
+	int (*set_backlight)(struct drm_connector *connector,
+			void *display, u32 bl_lvl);
 
 	/**
 	 * soft_reset - perform a soft reset on the connector
@@ -207,10 +220,12 @@ struct sde_connector_ops {
 
 	/**
 	 * get_dst_format - get dst_format from display
+	 * @connector: Pointer to drm connector structure
 	 * @display: Pointer to private display handle
 	 * Returns: dst_format of display
 	 */
-	enum dsi_pixel_format (*get_dst_format)(void *display);
+	enum dsi_pixel_format (*get_dst_format)(struct drm_connector *connector,
+			void *display);
 
 	/**
 	 * post_kickoff - display to program post kickoff-time features
@@ -223,32 +238,36 @@ struct sde_connector_ops {
 	 * post_open - calls connector to process post open functionalities
 	 * @display: Pointer to private display structure
 	 */
-	void (*post_open)(void *display);
+	void (*post_open)(struct drm_connector *connector, void *display);
 
 	/**
 	 * check_status - check status of connected display panel
+	 * @connector: Pointer to drm connector structure
 	 * @display: Pointer to private display handle
 	 * Returns: positive value for success, negetive or zero for failure
 	 */
-	int (*check_status)(void *display);
+	int (*check_status)(struct drm_connector *connector, void *display);
 
 	/**
 	 * cmd_transfer - Transfer command to the connected display panel
+	 * @connector: Pointer to drm connector structure
 	 * @display: Pointer to private display handle
 	 * @cmd_buf: Command buffer
 	 * @cmd_buf_len: Command buffer length in bytes
 	 * Returns: Zero for success, negetive for failure
 	 */
-	int (*cmd_transfer)(void *display, const char *cmd_buf,
+	int (*cmd_transfer)(struct drm_connector *connector,
+			void *display, const char *cmd_buf,
 			u32 cmd_buf_len);
 
 	/**
 	 * config_hdr - configure HDR
+	 * @connector: Pointer to drm connector structure
 	 * @display: Pointer to private display handle
 	 * @c_state: Pointer to connector state
 	 * Returns: Zero on success, negative error code for failures
 	 */
-	int (*config_hdr)(void *display,
+	int (*config_hdr)(struct drm_connector *connector, void *display,
 		struct sde_connector_state *c_state);
 
 };
@@ -285,6 +304,7 @@ struct sde_connector_evt {
  * @encoder: Pointer to preferred drm encoder
  * @panel: Pointer to drm panel, if present
  * @display: Pointer to private display data structure
+ * @drv_panel: Pointer to interface driver's panel module, if present
  * @mmu_secure: MMU id for secure buffers
  * @mmu_unsecure: MMU id for unsecure buffers
  * @name: ASCII name of connector
@@ -320,6 +340,7 @@ struct sde_connector {
 	struct drm_encoder *encoder;
 	struct drm_panel *panel;
 	void *display;
+	void *drv_panel;
 
 	struct msm_gem_address_space *aspace[SDE_IOMMU_DOMAIN_MAX];
 
