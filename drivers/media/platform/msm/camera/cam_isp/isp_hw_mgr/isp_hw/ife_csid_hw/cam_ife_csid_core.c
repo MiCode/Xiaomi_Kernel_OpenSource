@@ -856,6 +856,11 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	path_data->height  = reserve->in_port->height;
 	path_data->start_line = reserve->in_port->line_start;
 	path_data->end_line = reserve->in_port->line_stop;
+	path_data->crop_enable = true;
+	CAM_DBG(CAM_ISP, "Res id: %d height:%d line_start %d line_stop %d",
+		reserve->res_id, reserve->in_port->height,
+		reserve->in_port->line_start, reserve->in_port->line_stop);
+
 	if (reserve->in_port->res_type == CAM_ISP_IFE_IN_RES_TPG) {
 		path_data->dt = CAM_IFE_CSID_TPG_DT_VAL;
 		path_data->vc = CAM_IFE_CSID_TPG_VC_VAL;
@@ -865,7 +870,6 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	}
 
 	if (reserve->sync_mode == CAM_ISP_HW_SYNC_MASTER) {
-		path_data->crop_enable = 1;
 		path_data->start_pixel = reserve->in_port->left_start;
 		path_data->end_pixel = reserve->in_port->left_stop;
 		path_data->width  = reserve->in_port->left_width;
@@ -876,7 +880,6 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 			csid_hw->hw_intf->hw_idx, path_data->start_line,
 			path_data->end_line);
 	} else if (reserve->sync_mode == CAM_ISP_HW_SYNC_SLAVE) {
-		path_data->crop_enable = 1;
 		path_data->start_pixel = reserve->in_port->right_start;
 		path_data->end_pixel = reserve->in_port->right_stop;
 		path_data->width  = reserve->in_port->right_width;
@@ -887,9 +890,13 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 			csid_hw->hw_intf->hw_idx, path_data->start_line,
 			path_data->end_line);
 	} else {
-		path_data->crop_enable = 0;
 		path_data->width  = reserve->in_port->left_width;
 		path_data->start_pixel = reserve->in_port->left_start;
+		path_data->end_pixel = reserve->in_port->left_stop;
+		CAM_DBG(CAM_ISP, "Res id: %d left width %d start: %d stop:%d",
+			reserve->res_id, reserve->in_port->left_width,
+			reserve->in_port->left_start,
+			reserve->in_port->left_stop);
 	}
 
 	CAM_DBG(CAM_ISP, "Res %d width %d height %d", reserve->res_id,
@@ -1635,6 +1642,10 @@ static int cam_ife_csid_init_config_rdi_path(
 		path_data->out_format, &path_format, &plain_fmt);
 	if (rc)
 		return rc;
+
+	/* if path decode format is payload only then RDI crop is not applied */
+	if (path_format == 0xF)
+		path_data->crop_enable = 0;
 
 	/*
 	 * RDI path config and enable the time stamp capture
