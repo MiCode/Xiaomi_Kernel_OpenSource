@@ -1752,12 +1752,11 @@ void dp_catalog_put(struct dp_catalog *dp_catalog)
 	if (!dp_catalog)
 		return;
 
-	if (dp_catalog->priv.data && dp_catalog->priv.put)
-		dp_catalog->priv.put(dp_catalog);
-
-	catalog->parser->clear_io_buf(catalog->parser);
 	catalog = container_of(dp_catalog, struct dp_catalog_private,
 				dp_catalog);
+
+	if (dp_catalog->priv.data && dp_catalog->priv.put)
+		dp_catalog->priv.put(dp_catalog);
 
 	catalog->parser->clear_io_buf(catalog->parser);
 	devm_kfree(catalog->dev, catalog);
