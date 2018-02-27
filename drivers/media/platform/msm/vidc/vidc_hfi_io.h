@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,6 +147,12 @@
 #define VENUS_VBIF_AXI_HALT_CTRL0_HALT_REQ		BIT(0)
 #define VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK		BIT(0)
 #define VENUS_VBIF_AXI_HALT_ACK_TIMEOUT_US		500000
+
+#define VENUS_WRAPPER_AXI_HALT 0x000E2008
+#define VENUS_WRAPPER_AXI_HALT_STATUS 0x000E200C
+
+#define BRIC_AXI_HALT BIT(16)
+#define BRIC_AXI_HALT_ACK BIT(16)
 
 #define VIDC_VENUS0_WRAPPER_VBIF_REQ_PRIORITY \
 	(VIDC_WRAPPER_BASE_OFFS + 0x20)
