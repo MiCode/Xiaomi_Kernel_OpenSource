@@ -38,15 +38,6 @@
 #include "sde_power_handle.h"
 #include "sde_core_perf.h"
 #include "sde_trace.h"
-#include <soc/qcom/scm.h>
-#include "soc/qcom/secure_buffer.h"
-
-/* defines for secure channel call */
-#define SEC_SID_CNT               2
-#define SEC_SID_MASK_0            0x80881
-#define SEC_SID_MASK_1            0x80C81
-#define MEM_PROTECT_SD_CTRL_SWITCH 0x18
-#define MDP_DEVICE_ID            0x1A
 
 #define SDE_PSTATES_MAX (SDE_STAGE_MAX * 4)
 #define SDE_MULTIRECT_PLANE_MAX (SDE_STAGE_MAX * 2)
@@ -1795,8 +1786,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	struct drm_plane *plane;
 	struct drm_encoder *encoder;
 	struct sde_crtc *sde_crtc;
-	struct sde_crtc_state *cstate;
-	struct sde_crtc_smmu_state_data *smmu_state;
+	struct sde_kms *sde_kms;
+	struct sde_kms_smmu_state_data *smmu_state;
 	uint32_t translation_mode = 0, secure_level;
 	int ops  = 0;
 	bool post_commit = false;
@@ -1806,9 +1797,12 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms)
+		return -EINVAL;
+
+	smmu_state = &sde_kms->smmu_state;
 	sde_crtc = to_sde_crtc(crtc);
-	cstate = to_sde_crtc_state(crtc->state);
-	smmu_state = &sde_crtc->smmu_state;
 	secure_level = sde_crtc_get_secure_level(crtc, crtc->state);
 
 	SDE_DEBUG("crtc%d, secure_level%d old_valid_fb%d\n",
@@ -1850,6 +1844,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			break;
 	}
 
+	mutex_lock(&sde_kms->secure_transition_lock);
+
 	switch (translation_mode) {
 	case SDE_DRM_FB_SEC_DIR_TRANS:
 		/* secure display usecase */
@@ -1857,7 +1853,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 				(secure_level == SDE_DRM_SEC_ONLY)) {
 			smmu_state->state = DETACH_ALL_REQ;
 			smmu_state->transition_type = PRE_COMMIT;
-			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
+			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
 			if (old_valid_fb) {
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE  |
 					SDE_KMS_OPS_CLEANUP_PLANE_FB);
@@ -1866,9 +1862,10 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		} else if (smmu_state->state == ATTACHED) {
 			smmu_state->state = DETACH_SEC_REQ;
 			smmu_state->transition_type = PRE_COMMIT;
-			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
+			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
 		}
 		break;
+
 	case SDE_DRM_FB_SEC:
 	case SDE_DRM_FB_NON_SEC:
 		if ((smmu_state->state == DETACHED_SEC) ||
@@ -1876,7 +1873,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			smmu_state->state = ATTACH_SEC_REQ;
 			smmu_state->transition_type = post_commit ?
 				POST_COMMIT : PRE_COMMIT;
-			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
+			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
 			if (old_valid_fb)
 				ops |= SDE_KMS_OPS_WAIT_FOR_TX_DONE;
 		} else if ((smmu_state->state == DETACHED) ||
@@ -1884,16 +1881,16 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			smmu_state->state = ATTACH_ALL_REQ;
 			smmu_state->transition_type = post_commit ?
 				POST_COMMIT : PRE_COMMIT;
-			ops |= SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE;
+			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
 			if (old_valid_fb)
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE |
 				 SDE_KMS_OPS_CLEANUP_PLANE_FB);
 		}
 		break;
+
 	default:
 		SDE_ERROR("invalid plane fb_mode:%d\n", translation_mode);
-		ops = 0;
-		return -EINVAL;
+		ops = -EINVAL;
 	}
 
 	SDE_DEBUG("SMMU State:%d, type:%d ops:%x\n", smmu_state->state,
@@ -1903,55 +1900,10 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		SDE_EVT32(DRMID(crtc), secure_level, translation_mode,
 				smmu_state->state, smmu_state->transition_type,
 				ops, old_valid_fb, SDE_EVTLOG_FUNC_EXIT);
+
+	mutex_unlock(&sde_kms->secure_transition_lock);
+
 	return ops;
-}
-
-/**
- * _sde_crtc_scm_call - makes secure channel call to switch the VMIDs
- * @vimd: switch the stage 2 translation to this VMID.
- */
-static int _sde_crtc_scm_call(int vmid)
-{
-	struct scm_desc desc = {0};
-	uint32_t num_sids;
-	uint32_t *sec_sid;
-	uint32_t mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_SWITCH;
-	int ret = 0;
-
-	/* This info should be queried from catalog */
-	num_sids = SEC_SID_CNT;
-	sec_sid = kcalloc(num_sids, sizeof(uint32_t), GFP_KERNEL);
-	if (!sec_sid)
-		return -ENOMEM;
-
-	/**
-	 * derive this info from device tree/catalog, this is combination of
-	 * smr mask and SID for secure
-	 */
-	sec_sid[0] = SEC_SID_MASK_0;
-	sec_sid[1] = SEC_SID_MASK_1;
-	dmac_flush_range(sec_sid, sec_sid + num_sids);
-
-	SDE_DEBUG("calling scm_call for vmid %d", vmid);
-
-	desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
-	desc.args[0] = MDP_DEVICE_ID;
-	desc.args[1] = SCM_BUFFER_PHYS(sec_sid);
-	desc.args[2] = sizeof(uint32_t) * num_sids;
-	desc.args[3] =  vmid;
-
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
-				mem_protect_sd_ctrl_id), &desc);
-	if (ret) {
-		SDE_ERROR("Error:scm_call2, vmid (%lld): ret%d\n",
-				desc.args[3], ret);
-	}
-	SDE_EVT32(mem_protect_sd_ctrl_id,
-			desc.args[0], desc.args[3], num_sids,
-			sec_sid[0], sec_sid[1], ret);
-
-	kfree(sec_sid);
-	return ret;
 }
 
 /**
@@ -2022,179 +1974,6 @@ void sde_crtc_timeline_status(struct drm_crtc *crtc)
 
 	sde_crtc = to_sde_crtc(crtc);
 	sde_fence_timeline_status(&sde_crtc->output_fence, &crtc->base);
-}
-
-static int _sde_crtc_detach_all_cb(struct sde_kms *sde_kms)
-{
-	u32 ret = 0;
-
-	if (atomic_inc_return(&sde_kms->detach_all_cb) > 1)
-		goto end;
-
-	/* detach_all_contexts */
-	ret = sde_kms_mmu_detach(sde_kms, false);
-	if (ret) {
-		SDE_ERROR("failed to detach all cb ret:%d\n", ret);
-		goto end;
-	}
-
-	ret = _sde_crtc_scm_call(VMID_CP_SEC_DISPLAY);
-	if (ret)
-		goto end;
-
-end:
-	return ret;
-}
-
-static int _sde_crtc_attach_all_cb(struct sde_kms *sde_kms)
-{
-	u32 ret = 0;
-
-	if (atomic_dec_return(&sde_kms->detach_all_cb) != 0)
-		goto end;
-
-	ret = _sde_crtc_scm_call(VMID_CP_PIXEL);
-	if (ret)
-		goto end;
-
-	/* attach_all_contexts */
-	ret = sde_kms_mmu_attach(sde_kms, false);
-	if (ret) {
-		SDE_ERROR("failed to attach all cb ret:%d\n", ret);
-		goto end;
-	}
-
-end:
-	return ret;
-}
-
-static int _sde_crtc_detach_sec_cb(struct sde_kms *sde_kms)
-{
-	u32 ret = 0;
-
-	if (atomic_inc_return(&sde_kms->detach_sec_cb) > 1)
-		goto end;
-
-	/* detach secure_context */
-	ret = sde_kms_mmu_detach(sde_kms, true);
-	if (ret) {
-		SDE_ERROR("failed to detach sec cb ret:%d\n", ret);
-		goto end;
-	}
-
-	ret = _sde_crtc_scm_call(VMID_CP_CAMERA_PREVIEW);
-	if (ret)
-		goto end;
-
-end:
-	return ret;
-}
-
-static int _sde_crtc_attach_sec_cb(struct sde_kms *sde_kms)
-{
-	u32 ret = 0;
-
-	if (atomic_dec_return(&sde_kms->detach_sec_cb) != 0)
-		goto end;
-
-	ret = _sde_crtc_scm_call(VMID_CP_PIXEL);
-	if (ret)
-		goto end;
-
-	ret = sde_kms_mmu_attach(sde_kms, true);
-	if (ret) {
-		SDE_ERROR("failed to attach sec cb ret:%d\n", ret);
-		goto end;
-	}
-
-end:
-	return ret;
-}
-
-/**
- * sde_crtc_secure_ctrl - Initiates the operations to swtich  between secure
- *                       and non-secure mode
- * @crtc: Pointer to crtc
- * @post_commit: if this operation is triggered after commit
- */
-int sde_crtc_secure_ctrl(struct drm_crtc *crtc, bool post_commit)
-{
-	struct sde_crtc *sde_crtc;
-	struct sde_crtc_state *cstate;
-	struct sde_kms *sde_kms;
-	struct sde_crtc_smmu_state_data *smmu_state;
-	int ret = 0;
-	int old_smmu_state;
-
-	if (!crtc || !crtc->state) {
-		SDE_ERROR("invalid crtc\n");
-		return -EINVAL;
-	}
-
-	sde_kms = _sde_crtc_get_kms(crtc);
-	if (!sde_kms) {
-		SDE_ERROR("invalid kms\n");
-		return -EINVAL;
-	}
-
-	sde_crtc = to_sde_crtc(crtc);
-	cstate = to_sde_crtc_state(crtc->state);
-	smmu_state = &sde_crtc->smmu_state;
-	old_smmu_state = smmu_state->state;
-
-	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
-			post_commit, SDE_EVTLOG_FUNC_ENTRY);
-
-	if ((!smmu_state->transition_type) ||
-	    ((smmu_state->transition_type == POST_COMMIT) && !post_commit))
-		/* Bail out */
-		return 0;
-
-	mutex_lock(&sde_kms->secure_transition_lock);
-	/* Secure UI use case enable */
-	switch (smmu_state->state) {
-	case DETACH_ALL_REQ:
-		ret = _sde_crtc_detach_all_cb(sde_kms);
-		if (!ret)
-			smmu_state->state = DETACHED;
-		break;
-	/* Secure UI use case disable */
-	case ATTACH_ALL_REQ:
-		ret = _sde_crtc_attach_all_cb(sde_kms);
-		if (!ret)
-			smmu_state->state = ATTACHED;
-		break;
-	/* Secure preview enable */
-	case DETACH_SEC_REQ:
-		ret = _sde_crtc_detach_sec_cb(sde_kms);
-		if (!ret)
-			smmu_state->state = DETACHED_SEC;
-		break;
-	/* Secure preview disable */
-	case ATTACH_SEC_REQ:
-		ret = _sde_crtc_attach_sec_cb(sde_kms);
-		if (!ret)
-			smmu_state->state = ATTACHED;
-		break;
-	default:
-		SDE_ERROR("crtc:%d invalid smmu state:%d transition type:%d\n",
-			crtc->base.id, smmu_state->state,
-			smmu_state->transition_type);
-		break;
-	}
-	mutex_unlock(&sde_kms->secure_transition_lock);
-
-	SDE_DEBUG("crtc: %d, old_state %d new_state %d\n", crtc->base.id,
-			old_smmu_state,
-			smmu_state->state);
-
-	smmu_state->transition_type = NONE;
-	smmu_state->transition_error = ret ? true : false;
-
-	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
-			smmu_state->transition_error, ret,
-			SDE_EVTLOG_FUNC_EXIT);
-	return ret;
 }
 
 static int _sde_validate_hw_resources(struct sde_crtc *sde_crtc)
@@ -2632,7 +2411,6 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state)
 {
 	struct sde_crtc *sde_crtc;
-	struct sde_crtc_smmu_state_data *smmu_state;
 
 	if (!crtc || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
@@ -2641,13 +2419,8 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
-	smmu_state = &sde_crtc->smmu_state;
 
 	sde_core_perf_crtc_update(crtc, 0, false);
-
-	/* complete secure transitions if any */
-	if (smmu_state->transition_type == POST_COMMIT)
-		sde_crtc_secure_ctrl(crtc, true);
 }
 
 /**
@@ -3253,7 +3026,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	struct drm_encoder *encoder;
 	struct drm_device *dev;
 	unsigned long flags;
-	struct sde_crtc_smmu_state_data *smmu_state;
+	struct sde_kms *sde_kms;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -3271,11 +3044,14 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		return;
 	}
 
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms)
+		return;
+
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
-	smmu_state = &sde_crtc->smmu_state;
 
 	if (!sde_crtc->num_mixers) {
 		_sde_crtc_setup_mixers(crtc);
@@ -3318,14 +3094,11 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	/*
 	 * Since CP properties use AXI buffer to program the
-	 * HW, check if context bank is in attached
-	 * state,
+	 * HW, check if context bank is in attached state,
 	 * apply color processing properties only if
 	 * smmu state is attached,
 	 */
-	if ((smmu_state->state != DETACHED) &&
-			(smmu_state->state != DETACH_ALL_REQ) &&
-			sde_crtc->enabled)
+	if (!sde_kms_is_secure_session_inprogress(sde_kms))
 		sde_cp_crtc_apply_properties(crtc);
 
 	/*
@@ -3348,6 +3121,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct msm_drm_thread *event_thread;
 	unsigned long flags;
 	struct sde_crtc_state *cstate;
+	struct sde_kms *sde_kms;
 	int idle_time = 0;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
@@ -3363,6 +3137,12 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	if (!sde_kms_power_resource_is_enabled(crtc->dev)) {
 		SDE_ERROR("power resource is not enabled\n");
+		return;
+	}
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid kms\n");
 		return;
 	}
 
@@ -3439,7 +3219,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	 *                      everything" call below.
 	 */
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
-		if (sde_crtc->smmu_state.transition_error)
+		if (sde_kms->smmu_state.transition_error)
 			sde_plane_set_error(plane, true);
 		sde_plane_flush(plane);
 	}
@@ -4590,7 +4370,8 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	struct drm_encoder *encoder;
 	struct sde_crtc_state *cstate;
 	struct sde_crtc *sde_crtc;
-	struct sde_crtc_smmu_state_data *smmu_state;
+	struct sde_kms *sde_kms;
+	struct sde_kms_smmu_state_data *smmu_state;
 	uint32_t secure;
 	uint32_t fb_ns = 0, fb_sec = 0, fb_sec_dir = 0;
 	int encoder_cnt = 0, i;
@@ -4599,6 +4380,12 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 
 	if (!crtc || !state) {
 		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid kms\n");
 		return -EINVAL;
 	}
 
@@ -4663,7 +4450,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	}
 
 	sde_crtc = to_sde_crtc(crtc);
-	smmu_state = &sde_crtc->smmu_state;
+	smmu_state = &sde_kms->smmu_state;
 	/*
 	 * In video mode check for null commit before transition
 	 * from secure to non secure and vice versa
