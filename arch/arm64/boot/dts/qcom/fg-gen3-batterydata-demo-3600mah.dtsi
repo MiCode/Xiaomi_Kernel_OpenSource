@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,fg-gen3-batterydata-demo-3600mah {
+	qcom,faschg-current-ma = <5000>;
+	qcom,max-voltage-uv = <4350000>;
+	qcom,nom-batt-capacity-mah = <3600>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "fg-gen3-batterydata-demo-3600mah";
+	qcom,checksum = <0xA401>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.54";
+	qcom,fg-profile-data = [
+		B2 1F 79 05
+		86 0A 36 06
+		8D 1D 6F F4
+		39 12 9A 14
+		DC 18 91 22
+		26 3C EB 4B
+		5D 00 00 00
+		11 00 00 00
+		00 00 78 BC
+		26 CD 48 C2
+		1E 00 08 00
+		78 C5 64 E5
+		95 FC 1D F3
+		E1 F5 ED 0B
+		33 FD 8C 2B
+		1E 06 09 20
+		27 00 14 00
+		D8 1F 77 05
+		8B 0A 57 FC
+		59 1D 8B 00
+		33 03 78 0C
+		0F 19 ED 22
+		6B 45 21 53
+		5A 00 00 00
+		0E 00 00 00
+		00 00 F7 07
+		55 C2 AA AA
+		1A 00 00 00
+		B1 EA 64 E5
+		7C 06 93 F2
+		71 FD 9E 03
+		80 0A 7A 22
+		CF 33 CC FF
+		07 10 00 00
+		6F 0E 99 45
+		1A 00 40 00
+		13 01 0A FA
+		FF 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		];
+};

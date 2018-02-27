@@ -107,19 +107,6 @@ int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 	return 0;
 }
 
-int smblib_icl_override(struct smb_charger *chg, bool override)
-{
-	int rc;
-
-	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
-				ICL_OVERRIDE_AFTER_APSD_BIT,
-				override ? ICL_OVERRIDE_AFTER_APSD_BIT : 0);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
-
-	return rc;
-}
-
 int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override)
 {
 	int rc = 0;
@@ -135,6 +122,39 @@ int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override)
 	}
 
 	return rc;
+}
+
+static void smblib_notify_extcon_props(struct smb_charger *chg, int id)
+{
+	union extcon_property_value val;
+	union power_supply_propval prop_val;
+
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC) {
+		smblib_get_prop_typec_cc_orientation(chg, &prop_val);
+		val.intval = ((prop_val.intval == 2) ? 1 : 0);
+		extcon_set_property(chg->extcon, id,
+				EXTCON_PROP_USB_TYPEC_POLARITY, val);
+	}
+
+	val.intval = true;
+	extcon_set_property(chg->extcon, id,
+				EXTCON_PROP_USB_SS, val);
+}
+
+static void smblib_notify_device_mode(struct smb_charger *chg, bool enable)
+{
+	if (enable)
+		smblib_notify_extcon_props(chg, EXTCON_USB);
+
+	extcon_set_state_sync(chg->extcon, EXTCON_USB, enable);
+}
+
+static void smblib_notify_usb_host(struct smb_charger *chg, bool enable)
+{
+	if (enable)
+		smblib_notify_extcon_props(chg, EXTCON_USB_HOST);
+
+	extcon_set_state_sync(chg->extcon, EXTCON_USB_HOST, enable);
 }
 
 /********************
@@ -281,6 +301,48 @@ static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
 /********************
  * REGISTER SETTERS *
  ********************/
+static const struct buck_boost_freq chg_freq_list[] = {
+	[0] = {
+		.freq_khz	= 2400,
+		.val		= 7,
+	},
+	[1] = {
+		.freq_khz	= 2100,
+		.val		= 8,
+	},
+	[2] = {
+		.freq_khz	= 1600,
+		.val		= 11,
+	},
+	[3] = {
+		.freq_khz	= 1200,
+		.val		= 15,
+	},
+};
+
+int smblib_set_chg_freq(struct smb_chg_param *param,
+				int val_u, u8 *val_raw)
+{
+	u8 i;
+
+	if (val_u > param->max_u || val_u < param->min_u)
+		return -EINVAL;
+
+	/* Charger FSW is the configured freqency / 2 */
+	val_u *= 2;
+	for (i = 0; i < ARRAY_SIZE(chg_freq_list); i++) {
+		if (chg_freq_list[i].freq_khz == val_u)
+			break;
+	}
+	if (i == ARRAY_SIZE(chg_freq_list)) {
+		pr_err("Invalid frequency %d Hz\n", val_u / 2);
+		return -EINVAL;
+	}
+
+	*val_raw = chg_freq_list[i].val;
+
+	return 0;
+}
 
 int smblib_set_opt_switcher_freq(struct smb_charger *chg, int fsw_khz)
 {
@@ -316,11 +378,15 @@ int smblib_set_charge_param(struct smb_charger *chg,
 		if (rc < 0)
 			return -EINVAL;
 	} else {
-		if (val_u > param->max_u || val_u < param->min_u) {
-			smblib_err(chg, "%s: %d is out of range [%d, %d]\n",
+		if (val_u > param->max_u || val_u < param->min_u)
+			smblib_dbg(chg, PR_MISC,
+				"%s: %d is out of range [%d, %d]\n",
 				param->name, val_u, param->min_u, param->max_u);
-			return -EINVAL;
-		}
+
+		if (val_u > param->max_u)
+			val_u = param->max_u;
+		if (val_u < param->min_u)
+			val_u = param->min_u;
 
 		val_raw = (val_u - param->min_u) / param->step_u;
 	}
@@ -771,69 +837,46 @@ static int get_sdp_current(struct smb_charger *chg, int *icl_ua)
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 {
 	int rc = 0;
-	bool override;
+	bool hc_mode = false;
 
 	/* suspend and return if 25mA or less is requested */
 	if (icl_ua <= USBIN_25MA)
 		return smblib_set_usb_suspend(chg, true);
 
 	if (icl_ua == INT_MAX)
-		goto override_suspend_config;
+		goto set_mode;
 
 	/* configure current */
-	if (chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
+	if (((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT)
+		|| (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB))
 		&& (chg->real_charger_type == POWER_SUPPLY_TYPE_USB)) {
 		rc = set_sdp_current(chg, icl_ua);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set SDP ICL rc=%d\n", rc);
-			goto enable_icl_changed_interrupt;
+			goto out;
 		}
 	} else {
 		set_sdp_current(chg, 100000);
 		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set HC ICL rc=%d\n", rc);
-			goto enable_icl_changed_interrupt;
+			goto out;
 		}
+		hc_mode = true;
 	}
 
-override_suspend_config:
-	/* determine if override needs to be enforced */
-	override = true;
-	if (icl_ua == INT_MAX) {
-		/* remove override if no voters - hw defaults is desired */
-		override = false;
-	} else if (chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
-		if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
-			/* For std cable with type = SDP never override */
-			override = false;
-		else if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_CDP
-			&& icl_ua == 1500000)
-			/*
-			 * For std cable with type = CDP override only if
-			 * current is not 1500mA
-			 */
-			override = false;
-	}
-
-	/* enforce override */
+set_mode:
 	rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-		USBIN_MODE_CHG_BIT, override ? USBIN_MODE_CHG_BIT : 0);
-
-	rc = smblib_icl_override(chg, override);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't set ICL override rc=%d\n", rc);
-		goto enable_icl_changed_interrupt;
-	}
+		USBIN_MODE_CHG_BIT, hc_mode ? USBIN_MODE_CHG_BIT : 0);
 
 	/* unsuspend after configuring current and override */
 	rc = smblib_set_usb_suspend(chg, false);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't resume input rc=%d\n", rc);
-		goto enable_icl_changed_interrupt;
+		goto out;
 	}
 
-enable_icl_changed_interrupt:
+out:
 	return rc;
 }
 
@@ -844,7 +887,7 @@ int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua)
 	bool override;
 
 	if ((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
-		|| chg->micro_usb_mode)
+		|| chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
 		&& (chg->usb_psy->desc->type == POWER_SUPPLY_TYPE_USB)) {
 		rc = get_sdp_current(chg, icl_ua);
 		if (rc < 0) {
@@ -880,6 +923,9 @@ static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
 			int suspend, const char *client)
 {
 	struct smb_charger *chg = data;
+
+	if (chg->smb_version == PMI632_SUBTYPE)
+		return 0;
 
 	/* resume input if suspend is invalid */
 	if (suspend < 0)
@@ -2053,7 +2099,7 @@ int smblib_set_prop_sdp_current_max(struct smb_charger *chg,
 }
 
 int smblib_set_prop_boost_current(struct smb_charger *chg,
-				    const union power_supply_propval *val)
+					const union power_supply_propval *val)
 {
 	int rc = 0;
 
@@ -2075,6 +2121,9 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 {
 	int rc = 0;
 	u8 power_role;
+
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+		return 0;
 
 	switch (val->intval) {
 	case POWER_SUPPLY_TYPEC_PR_NONE:
@@ -2513,7 +2562,7 @@ static void smblib_micro_usb_plugin(struct smb_charger *chg, bool vbus_rising)
 	} else {
 		chg->typec_present = 0;
 		smblib_update_usb_type(chg);
-		extcon_set_state_sync(chg->extcon, EXTCON_USB, false);
+		smblib_notify_device_mode(chg, false);
 		smblib_uusb_removal(chg);
 	}
 }
@@ -2601,7 +2650,7 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 			smblib_err(chg, "Couldn't disable DPDM rc=%d\n", rc);
 	}
 
-	if (chg->micro_usb_mode)
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
 		smblib_micro_usb_plugin(chg, vbus_rising);
 
 	power_supply_changed(chg->usb_psy);
@@ -2763,37 +2812,6 @@ static void smblib_handle_hvdcp_detect_done(struct smb_charger *chg,
 		   rising ? "rising" : "falling");
 }
 
-static void smblib_notify_extcon_props(struct smb_charger *chg, int id)
-{
-	union extcon_property_value val;
-	union power_supply_propval prop_val;
-
-	smblib_get_prop_typec_cc_orientation(chg, &prop_val);
-	val.intval = ((prop_val.intval == 2) ? 1 : 0);
-	extcon_set_property(chg->extcon, id,
-				EXTCON_PROP_USB_TYPEC_POLARITY, val);
-
-	val.intval = true;
-	extcon_set_property(chg->extcon, id,
-				EXTCON_PROP_USB_SS, val);
-}
-
-static void smblib_notify_device_mode(struct smb_charger *chg, bool enable)
-{
-	if (enable)
-		smblib_notify_extcon_props(chg, EXTCON_USB);
-
-	extcon_set_state_sync(chg->extcon, EXTCON_USB, enable);
-}
-
-static void smblib_notify_usb_host(struct smb_charger *chg, bool enable)
-{
-	if (enable)
-		smblib_notify_extcon_props(chg, EXTCON_USB_HOST);
-
-	extcon_set_state_sync(chg->extcon, EXTCON_USB_HOST, enable);
-}
-
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
 	const struct apsd_result *apsd_result;
@@ -2806,13 +2824,11 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	switch (apsd_result->bit) {
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
-		if (chg->micro_usb_mode)
-			extcon_set_state_sync(chg->extcon, EXTCON_USB,
-					true);
 		/* if not DCP then no hvdcp timeout happens. Enable pd here */
 		vote(chg->pd_disallowed_votable_indirect, APSD_VOTER,
 				false, 0);
-		if (chg->use_extcon)
+		if ((chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+				|| chg->use_extcon)
 			smblib_notify_device_mode(chg, true);
 		break;
 	case OCP_CHARGER_BIT:
@@ -2845,8 +2861,9 @@ irqreturn_t usb_source_change_irq_handler(int irq, void *data)
 	}
 	smblib_dbg(chg, PR_REGISTER, "APSD_STATUS = 0x%02x\n", stat);
 
-	if (chg->micro_usb_mode && (stat & APSD_DTC_STATUS_DONE_BIT)
-			&& !chg->uusb_apsd_rerun_done) {
+	if ((chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+		&& (stat & APSD_DTC_STATUS_DONE_BIT)
+		&& !chg->uusb_apsd_rerun_done) {
 		/*
 		 * Force re-run APSD to handle slow insertion related
 		 * charger-mis-detection.
@@ -3146,12 +3163,12 @@ static void smblib_usb_typec_change(struct smb_charger *chg)
 	power_supply_changed(chg->usb_psy);
 }
 
-irqreturn_t typec_state_change_irq_handler(int irq, void *data)
+irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 
-	if (chg->micro_usb_mode) {
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
 		cancel_delayed_work_sync(&chg->uusb_otg_work);
 		vote(chg->awake_votable, OTG_DELAY_VOTER, true, 0);
 		smblib_dbg(chg, PR_INTERRUPT, "Scheduling OTG work\n");
@@ -3160,7 +3177,16 @@ irqreturn_t typec_state_change_irq_handler(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	if (chg->pr_swap_in_progress) {
+	return IRQ_HANDLED;
+}
+
+irqreturn_t typec_state_change_irq_handler(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	if ((chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+			|| chg->pr_swap_in_progress) {
 		smblib_dbg(chg, PR_INTERRUPT,
 				"Ignoring since pr_swap_in_progress\n");
 		return IRQ_HANDLED;
@@ -3335,10 +3361,20 @@ static void smblib_uusb_otg_work(struct work_struct *work)
 		smblib_err(chg, "Couldn't read TYPE_C_STATUS_3 rc=%d\n", rc);
 		goto out;
 	}
+	otg = !!(stat & U_USB_GROUND_NOVBUS_BIT);
+	if (chg->otg_present != otg)
+		smblib_notify_usb_host(chg, otg);
+	chg->otg_present = otg;
+	if (!otg)
+		chg->boost_current_ua = 0;
 
-	otg = !!(stat & (U_USB_GROUND_NOVBUS_BIT | U_USB_GROUND_BIT));
-	extcon_set_state_sync(chg->extcon, EXTCON_USB_HOST, otg);
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_3 = 0x%02x OTG=%d\n",
+	rc = smblib_set_charge_param(chg, &chg->param.freq_switcher,
+				otg ? chg->chg_freq.freq_below_otg_threshold
+					: chg->chg_freq.freq_removal);
+	if (rc < 0)
+		dev_err(chg->dev, "Error in setting freq_boost rc=%d\n", rc);
+
+	smblib_dbg(chg, PR_REGISTER, "TYPE_C_U_USB_STATUS = 0x%02x OTG=%d\n",
 			stat, otg);
 	power_supply_changed(chg->usb_psy);
 
@@ -3559,13 +3595,6 @@ int smblib_init(struct smb_charger *chg)
 			return rc;
 		}
 
-		rc = smblib_register_notifier(chg);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't register notifier rc=%d\n", rc);
-			return rc;
-		}
-
 		chg->bms_psy = power_supply_get_by_name("bms");
 		chg->pl.psy = power_supply_get_by_name("parallel");
 		if (chg->pl.psy) {
@@ -3575,6 +3604,12 @@ int smblib_init(struct smb_charger *chg)
 					"Couldn't config stat sw rc=%d\n", rc);
 				return rc;
 			}
+		}
+		rc = smblib_register_notifier(chg);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't register notifier rc=%d\n", rc);
+			return rc;
 		}
 		break;
 	case PARALLEL_SLAVE:

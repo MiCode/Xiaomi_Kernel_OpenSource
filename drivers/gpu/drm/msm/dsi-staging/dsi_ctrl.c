@@ -401,6 +401,21 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 	return rc;
 }
 
+bool dsi_ctrl_validate_host_state(struct dsi_ctrl *dsi_ctrl)
+{
+	struct dsi_ctrl_state_info *state = &dsi_ctrl->current_state;
+
+	if (!state) {
+		pr_err("Invalid host state for DSI controller\n");
+		return -EINVAL;
+	}
+
+	if (!state->host_initialized)
+		return true;
+
+	return false;
+}
+
 static void dsi_ctrl_update_state(struct dsi_ctrl *dsi_ctrl,
 				  enum dsi_ctrl_driver_ops op,
 				  u32 op_state)
@@ -1072,10 +1087,10 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 
 		cmdbuf = (u8 *)(dsi_ctrl->vaddr);
 
+		msm_gem_sync(dsi_ctrl->tx_cmd_buf);
 		for (cnt = 0; cnt < length; cnt++)
 			cmdbuf[dsi_ctrl->cmd_len + cnt] = buffer[cnt];
 
-		msm_gem_sync(dsi_ctrl->tx_cmd_buf);
 		dsi_ctrl->cmd_len += length;
 
 		if (!(msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
@@ -3292,6 +3307,25 @@ u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
 		dsi_ctrl->cell_index, dsi_ctrl->misr_cache, misr);
 
 	return misr;
+}
+
+void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl)
+{
+	if (!dsi_ctrl || !dsi_ctrl->hw.ops.error_intr_ctrl
+			|| !dsi_ctrl->hw.ops.clear_error_status) {
+		pr_err("Invalid params\n");
+		return;
+	}
+
+	/*
+	 * Mask DSI error status interrupts and clear error status
+	 * register
+	 */
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, false);
+	dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					DSI_ERROR_INTERRUPT_COUNT);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 /**

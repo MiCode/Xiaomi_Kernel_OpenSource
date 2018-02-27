@@ -560,6 +560,7 @@ struct drm_cmdline_mode {
  * @tile_v_loc: vertical location of this tile
  * @tile_h_size: horizontal size of this tile.
  * @tile_v_size: vertical size of this tile.
+ * @private: connector private data.
  *
  * Each connector may be connected to one or more CRTCs, or may be clonable by
  * another connector if they can share a CRTC.  Each connector also has a specific
@@ -726,6 +727,8 @@ struct drm_connector {
 	uint8_t num_h_tile, num_v_tile;
 	uint8_t tile_h_loc, tile_v_loc;
 	uint16_t tile_h_size, tile_v_size;
+
+	void *private;
 };
 
 #define obj_to_connector(x) container_of(x, struct drm_connector, base)

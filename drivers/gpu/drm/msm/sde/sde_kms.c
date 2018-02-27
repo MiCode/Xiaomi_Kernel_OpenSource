@@ -952,6 +952,17 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.config_hdr = dp_connector_config_hdr,
 		.cmd_transfer = NULL,
 	};
+	static const struct sde_connector_ops ext_bridge_ops = {
+		.set_info_blob = dsi_conn_set_info_blob,
+		.mode_valid = dsi_conn_mode_valid,
+		.get_info = dsi_display_ext_bridge_get_info,
+		.soft_reset = dsi_display_soft_reset,
+		.clk_ctrl = dsi_display_clk_ctrl,
+		.get_mode_info = dsi_conn_ext_bridge_get_mode_info,
+		.get_dst_format = dsi_display_get_dst_format,
+		.enable_event = dsi_conn_enable_event,
+		.cmd_transfer = NULL,
+	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
 	void *display, *connector;
@@ -976,39 +987,95 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		display = sde_kms->dsi_displays[i];
 		encoder = NULL;
 
-		memset(&info, 0x0, sizeof(info));
-		rc = dsi_display_get_info(&info, display);
-		if (rc) {
-			SDE_ERROR("dsi get_info %d failed\n", i);
-			continue;
-		}
+		if (!dsi_display_has_ext_bridge(display)) {
+			memset(&info, 0x0, sizeof(info));
+			rc = dsi_display_get_info(&info, display);
+			if (rc) {
+				SDE_ERROR("dsi get_info %d failed\n", i);
+				continue;
+			}
 
-		encoder = sde_encoder_init(dev, &info);
-		if (IS_ERR_OR_NULL(encoder)) {
-			SDE_ERROR("encoder init failed for dsi %d\n", i);
-			continue;
-		}
+			encoder = sde_encoder_init(dev, &info);
+			if (IS_ERR_OR_NULL(encoder)) {
+				SDE_ERROR("encoder init failed for dsi %d\n",
+					i);
+				continue;
+			}
 
-		rc = dsi_display_drm_bridge_init(display, encoder);
-		if (rc) {
-			SDE_ERROR("dsi bridge %d init failed, %d\n", i, rc);
-			sde_encoder_destroy(encoder);
-			continue;
-		}
+			rc = dsi_display_drm_bridge_init(display, encoder);
+			if (rc) {
+				SDE_ERROR("dsi bridge %d init failed, %d\n",
+					i, rc);
+				sde_encoder_destroy(encoder);
+				continue;
+			}
 
-		connector = sde_connector_init(dev,
-					encoder,
-					0,
-					display,
-					&dsi_ops,
-					DRM_CONNECTOR_POLL_HPD,
-					DRM_MODE_CONNECTOR_DSI);
-		if (connector) {
-			priv->encoders[priv->num_encoders++] = encoder;
+			connector = sde_connector_init(dev,
+						encoder,
+						NULL,
+						display,
+						&dsi_ops,
+						DRM_CONNECTOR_POLL_HPD,
+						DRM_MODE_CONNECTOR_DSI);
+			if (connector) {
+				priv->encoders[priv->num_encoders++] = encoder;
+			} else {
+				SDE_ERROR("dsi %d connector init failed\n", i);
+				dsi_display_drm_bridge_deinit(display);
+				sde_encoder_destroy(encoder);
+			}
 		} else {
-			SDE_ERROR("dsi %d connector init failed\n", i);
-			dsi_display_drm_bridge_deinit(display);
-			sde_encoder_destroy(encoder);
+			memset(&info, 0x0, sizeof(info));
+			rc = dsi_display_ext_bridge_get_info(&info, display);
+			if (rc) {
+				SDE_ERROR("ext get_info %d failed\n", i);
+				continue;
+			}
+
+			encoder = sde_encoder_init(dev, &info);
+			if (IS_ERR_OR_NULL(encoder)) {
+				SDE_ERROR("encoder init failed for ext %d\n",
+					i);
+				continue;
+			}
+
+			rc = dsi_display_drm_bridge_init(display, encoder);
+			if (rc) {
+				SDE_ERROR("dsi bridge %d init failed for ext\n",
+					i);
+				sde_encoder_destroy(encoder);
+				continue;
+			}
+
+			connector = sde_connector_init(dev,
+						encoder,
+						NULL,
+						display,
+						&ext_bridge_ops,
+						DRM_CONNECTOR_POLL_HPD,
+						DRM_MODE_CONNECTOR_DSI);
+			if (connector) {
+				priv->encoders[priv->num_encoders++] = encoder;
+			} else {
+				SDE_ERROR("connector init %d failed for ext\n",
+					i);
+				dsi_display_drm_bridge_deinit(display);
+				sde_encoder_destroy(encoder);
+				continue;
+			}
+
+			rc = dsi_display_drm_ext_bridge_init(display,
+				encoder, connector);
+			if (rc) {
+				struct drm_connector *conn = connector;
+
+				SDE_ERROR("ext bridge %d init failed, %d\n",
+					i, rc);
+				conn->funcs->destroy(connector);
+				dsi_display_drm_bridge_deinit(display);
+				sde_encoder_destroy(encoder);
+				continue;
+			}
 		}
 	}
 

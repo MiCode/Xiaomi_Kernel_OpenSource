@@ -196,6 +196,11 @@ struct smb_chg_param {
 				    u8 *val_raw);
 };
 
+struct buck_boost_freq {
+	int freq_khz;
+	u8 val;
+};
+
 struct smb_chg_freq {
 	unsigned int		freq_5V;
 	unsigned int		freq_6V_8V;
@@ -311,7 +316,7 @@ struct smb_charger {
 	bool			sw_jeita_enabled;
 	bool			is_hdc;
 	bool			chg_done;
-	bool			micro_usb_mode;
+	int			connector_type;
 	bool			otg_en;
 	bool			suspend_input_on_debug_batt;
 	int			otg_attempts;
@@ -329,6 +334,7 @@ struct smb_charger {
 	u8			float_cfg;
 	bool			use_extcon;
 	bool			otg_present;
+	int			hw_max_icl_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -369,6 +375,8 @@ int smblib_mapping_cc_delta_from_field_value(struct smb_chg_param *param,
 					     int val_u, u8 *val_raw);
 int smblib_set_chg_freq(struct smb_chg_param *param,
 				int val_u, u8 *val_raw);
+int smblib_set_prop_boost_current(struct smb_charger *chg,
+				const union power_supply_propval *val);
 int smblib_vbus_regulator_enable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_disable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_is_enabled(struct regulator_dev *rdev);
@@ -390,6 +398,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data);
 irqreturn_t high_duty_cycle_irq_handler(int irq, void *data);
 irqreturn_t switcher_power_ok_irq_handler(int irq, void *data);
 irqreturn_t wdog_bark_irq_handler(int irq, void *data);
+irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -470,8 +479,6 @@ int smblib_set_prop_pd_voltage_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_pd_voltage_min(struct smb_charger *chg,
 				const union power_supply_propval *val);
-int smblib_set_prop_boost_current(struct smb_charger *chg,
-				const union power_supply_propval *val);
 int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_pd_active(struct smb_charger *chg,
@@ -484,7 +491,6 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 				union power_supply_propval *val);
-int smblib_icl_override(struct smb_charger *chg, bool override);
 int smblib_dp_dm(struct smb_charger *chg, int val);
 int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable);
 int smblib_rerun_aicl(struct smb_charger *chg);
