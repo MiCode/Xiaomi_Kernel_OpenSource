@@ -496,6 +496,31 @@ static void rx_fill(struct eth_dev *dev, gfp_t gfp_flags)
 	spin_unlock_irqrestore(&dev->req_lock, flags);
 }
 
+static __be16 ether_ip_type_trans(struct sk_buff *skb,
+	struct net_device *dev)
+{
+	__be16	protocol = 0;
+
+	skb->dev = dev;
+
+	switch (skb->data[0] & 0xf0) {
+	case 0x40:
+		protocol = htons(ETH_P_IP);
+		break;
+	case 0x60:
+		protocol = htons(ETH_P_IPV6);
+		break;
+	default:
+		if ((skb->data[0] & 0x40) == 0x00)
+			protocol = htons(ETH_P_MAP);
+		else
+			pr_debug_ratelimited("[%s] L3 protocol decode error: 0x%02x",
+					dev->name, skb->data[0] & 0xf0);
+	}
+
+	return protocol;
+}
+
 static void process_rx_w(struct work_struct *work)
 {
 	struct eth_dev	*dev = container_of(work, struct eth_dev, rx_work);
@@ -515,7 +540,12 @@ static void process_rx_w(struct work_struct *work)
 			dev_kfree_skb_any(skb);
 			continue;
 		}
-		skb->protocol = eth_type_trans(skb, dev->net);
+
+		if (test_bit(RMNET_MODE_LLP_IP, &dev->flags))
+			skb->protocol = ether_ip_type_trans(skb, dev->net);
+		else
+			skb->protocol = eth_type_trans(skb, dev->net);
+
 		dev->net->stats.rx_packets++;
 		dev->net->stats.rx_bytes += skb->len;
 
