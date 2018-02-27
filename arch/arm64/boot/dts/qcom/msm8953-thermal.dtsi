@@ -253,6 +253,21 @@
 		};
 	};
 
+	case-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8953_vadc 0x13>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
 	gpu1-step {
 		polling-delay-passive = <250>;
 		polling-delay = <0>;
