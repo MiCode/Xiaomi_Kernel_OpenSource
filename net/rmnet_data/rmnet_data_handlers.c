@@ -356,6 +356,7 @@ static rx_handler_result_t __rmnet_deliver_skb
 			napi = get_current_napi_context();
 
 			skb_size = skb->len;
+			skb_get_hash(skb);
 			gro_res = napi_gro_receive(napi, skb);
 			trace_rmnet_gro_downlink(gro_res);
 			rmnet_optional_gro_flush(napi, ep, skb_size);
