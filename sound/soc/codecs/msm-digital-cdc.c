@@ -1066,7 +1066,7 @@ int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 	msm_dig_cdc = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
 	msm_dig_cdc->entry = snd_register_module_info(codec_root->module,
-							     "msm_digital_codec",
+							     "msm-dig-codec",
 							     codec_root);
 	if (!msm_dig_cdc->entry) {
 		dev_dbg(codec->dev, "%s: failed to create msm-digital entry\n",
