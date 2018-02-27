@@ -66,7 +66,7 @@ static void smmu_aspace_add_to_active(
 		struct msm_gem_address_space *aspace,
 		struct msm_gem_object *msm_obj)
 {
-	WARN_ON(!mutex_is_locked(&aspace->dev->struct_mutex));
+	WARN_ON(!mutex_is_locked(&aspace->list_lock));
 	list_move_tail(&msm_obj->iova_list, &aspace->active_list);
 }
 
@@ -76,7 +76,7 @@ static void smmu_aspace_remove_from_active(
 {
 	struct msm_gem_object *msm_obj, *next;
 
-	WARN_ON(!mutex_is_locked(&aspace->dev->struct_mutex));
+	WARN_ON(!mutex_is_locked(&aspace->list_lock));
 
 	list_for_each_entry_safe(msm_obj, next, &aspace->active_list,
 			iova_list) {
@@ -110,18 +110,18 @@ static int smmu_aspace_register_cb(
 	INIT_LIST_HEAD(&aclient->list);
 
 	/* check if callback is already registered */
-	mutex_lock(&aspace->dev->struct_mutex);
+	mutex_lock(&aspace->list_lock);
 	list_for_each_entry(temp, &aspace->clients, list) {
 		if ((temp->cb == aclient->cb) &&
 			(temp->cb_data == aclient->cb_data)) {
 			kfree(aclient);
-			mutex_unlock(&aspace->dev->struct_mutex);
+			mutex_unlock(&aspace->list_lock);
 			return -EEXIST;
 		}
 	}
 
 	list_move_tail(&aclient->list, &aspace->clients);
-	mutex_unlock(&aspace->dev->struct_mutex);
+	mutex_unlock(&aspace->list_lock);
 
 	return 0;
 }
@@ -137,7 +137,7 @@ static int smmu_aspace_unregister_cb(
 	if (!aspace || !cb)
 		return -EINVAL;
 
-	mutex_lock(&aspace->dev->struct_mutex);
+	mutex_lock(&aspace->list_lock);
 	list_for_each_entry(aclient, &aspace->clients, list) {
 		if ((aclient->cb == cb) &&
 			(aclient->cb_data == cb_data)) {
@@ -147,7 +147,7 @@ static int smmu_aspace_unregister_cb(
 			break;
 		}
 	}
-	mutex_unlock(&aspace->dev->struct_mutex);
+	mutex_unlock(&aspace->list_lock);
 
 	return rc;
 }
@@ -183,6 +183,7 @@ msm_gem_smmu_address_space_create(struct drm_device *dev, struct msm_mmu *mmu,
 	INIT_LIST_HEAD(&aspace->active_list);
 	INIT_LIST_HEAD(&aspace->clients);
 	kref_init(&aspace->kref);
+	mutex_init(&aspace->list_lock);
 
 	return aspace;
 }
