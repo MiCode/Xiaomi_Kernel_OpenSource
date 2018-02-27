@@ -411,6 +411,10 @@ config LWTUNNEL
 
 source "net/ipc_router/Kconfig"
 
+config DST_CACHE
+	bool
+	default n
+
 endif   # if NET
 
 # Used by archs to tell that they support BPF_JIT
