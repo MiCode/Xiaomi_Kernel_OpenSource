@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,4 +201,18 @@ out_free_dest_vm:
 	kfree(dest_vm_list);
 out:
 	return ret;
+}
+
+bool hlos_accessible_buffer(struct ion_buffer *buffer)
+{
+	if ((buffer->flags & ION_FLAG_SECURE) &&
+	    !(buffer->flags & ION_FLAG_CP_HLOS) &&
+	    !(buffer->flags & ION_FLAG_CP_SPSS_HLOS_SHARED))
+		return false;
+	else if ((get_secure_vmid(buffer->flags) > 0) &&
+		 !(buffer->flags & ION_FLAG_CP_HLOS) &&
+		 !(buffer->flags & ION_FLAG_CP_SPSS_HLOS_SHARED))
+		return false;
+
+	return true;
 }

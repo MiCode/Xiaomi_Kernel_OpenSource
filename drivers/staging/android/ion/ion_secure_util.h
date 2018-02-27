@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include "ion.h"
 
 #ifndef _ION_SECURE_UTIL_H
 #define _ION_SECURE_UTIL_H
@@ -23,5 +25,7 @@ int ion_hyp_unassign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 				   bool set_page_private);
 int ion_hyp_assign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 				 bool set_page_private);
+
+bool hlos_accessible_buffer(struct ion_buffer *buffer);
 
 #endif /* _ION_SECURE_UTIL_H */
