@@ -47,7 +47,7 @@
 #define HED_EVENT_SIZE_LEN (0x02)
 #define HED_EVENT_DATA_STRT_LEN (0x05)
 
-#define MAX_RETRY 20
+#define MAX_RETRY 200
 
 enum bgcom_state {
 	/*BGCOM Staus ready*/
@@ -962,6 +962,8 @@ static int bg_spi_probe(struct spi_device *spi)
 
 	if (ret)
 		goto err_ret;
+
+	pr_info("Bgcom Probed successfully\n");
 	return ret;
 
 err_ret:
