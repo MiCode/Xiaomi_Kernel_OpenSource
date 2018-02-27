@@ -1750,6 +1750,9 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 	unsigned long tutil = task_util(task);
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1, start_cpu;
+	bool boost_on_big = sched_boost() == FULL_THROTTLE_BOOST ?
+				  (sched_boost_policy() == SCHED_BOOST_ON_BIG) :
+				  false;
 
 	rcu_read_lock();
 
@@ -1761,13 +1764,19 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 	if (!sd)
 		goto unlock;
 
+retry:
 	sg = sd->groups;
 	do {
 		int fcpu = group_first_cpu(sg);
-		unsigned long capacity_orig = capacity_orig_of(fcpu);
+		int capacity_orig = capacity_orig_of(fcpu);
 
-		if (capacity_orig > best_capacity)
-			continue;
+		if (boost_on_big) {
+			if (is_min_capacity_cpu(fcpu))
+				continue;
+		} else {
+			if (capacity_orig > best_capacity)
+				continue;
+		}
 
 		for_each_cpu_and(cpu, lowest_mask, sched_group_span(sg)) {
 			if (cpu_isolated(cpu))
@@ -1820,6 +1829,11 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 		}
 
 	} while (sg = sg->next, sg != sd->groups);
+
+	if (unlikely(boost_on_big) && best_cpu == -1) {
+		boost_on_big = false;
+		goto retry;
+	}
 
 unlock:
 	rcu_read_unlock();
