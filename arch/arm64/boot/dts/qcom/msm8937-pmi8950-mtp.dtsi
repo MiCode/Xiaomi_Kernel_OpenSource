@@ -44,6 +44,10 @@
 	/delete-property/ dpdm-supply;
 };
 
+&usb_otg {
+	extcon = <&qpnp_smbcharger>;
+};
+
 &labibb {
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
