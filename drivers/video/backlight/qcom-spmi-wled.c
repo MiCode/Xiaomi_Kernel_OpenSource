@@ -92,6 +92,16 @@
 #define WLED_SINK_BRIGHT_LSB_REG(n)	(0x57 + (n * 0x10))
 #define WLED_SINK_BRIGHT_MSB_REG(n)	(0x58 + (n * 0x10))
 
+enum wled_version {
+	WLED_PMI8998 = 4,
+	WLED_PM660L,
+};
+
+static const int version_table[] = {
+	[0] = WLED_PMI8998,
+	[1] = WLED_PM660L,
+};
+
 struct wled_config {
 	u32 boost_i_limit;
 	u32 ovp;
@@ -116,6 +126,7 @@ struct wled {
 	u16 auto_calibration_ovp_count;
 	u32 brightness;
 	u32 sc_count;
+	const int *version;
 	int sc_irq;
 	int ovp_irq;
 	bool prev_state;
@@ -123,6 +134,14 @@ struct wled {
 	bool auto_calib_done;
 	bool force_mod_disable;
 };
+
+static inline bool is_wled4(struct wled *wled)
+{
+	if (*wled->version == WLED_PMI8998 || *wled->version == WLED_PM660L)
+		return true;
+
+	return false;
+}
 
 static int wled_module_enable(struct wled *wled, int val)
 {
@@ -746,7 +765,7 @@ static int wled_setup(struct wled *wled)
 	return 0;
 }
 
-static const struct wled_config wled_config_defaults = {
+static const struct wled_config wled4_config_defaults = {
 	.boost_i_limit = 4,
 	.fs_current = 10,
 	.ovp = 1,
@@ -821,36 +840,38 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	struct wled_config *cfg = &wled->cfg;
 	const __be32 *prop_addr;
 	u32 val, c;
-	int rc, i, j;
-
-	const struct {
+	int rc, i, j, size;
+	struct wled_u32_opts {
 		const char *name;
 		u32 *val_ptr;
 		const struct wled_var_cfg *cfg;
-	} u32_opts[] = {
+	};
+
+	const struct wled_u32_opts *u32_opts;
+	const struct wled_u32_opts wled4_opts[] = {
 		{
 			.name = "qcom,boost-current-limit",
 			.val_ptr = &cfg->boost_i_limit,
 			.cfg = &wled_boost_i_limit_cfg,
 		},
 		{
-			"qcom,fs-current-limit",
-			&cfg->fs_current,
+			.name = "qcom,fs-current-limit",
+			.val_ptr = &cfg->fs_current,
 			.cfg = &wled_fs_current_cfg,
 		},
 		{
-			"qcom,ovp",
-			&cfg->ovp,
+			.name = "qcom,ovp",
+			.val_ptr = &cfg->ovp,
 			.cfg = &wled_ovp_cfg,
 		},
 		{
-			"qcom,switching-freq",
-			&cfg->switch_freq,
+			.name = "qcom,switching-freq",
+			.val_ptr = &cfg->switch_freq,
 			.cfg = &wled_switch_freq_cfg,
 		},
 		{
-			"qcom,string-cfg",
-			&cfg->string_cfg,
+			.name = "qcom,string-cfg",
+			.val_ptr = &cfg->string_cfg,
 			.cfg = &wled_string_cfg,
 		},
 	};
@@ -881,8 +902,16 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	if (rc < 0)
 		wled->name = dev->of_node->name;
 
-	*cfg = wled_config_defaults;
-	for (i = 0; i < ARRAY_SIZE(u32_opts); ++i) {
+	if (is_wled4(wled)) {
+		u32_opts = wled4_opts;
+		size = ARRAY_SIZE(wled4_opts);
+		*cfg = wled4_config_defaults;
+	} else {
+		pr_err("Unknown WLED version %d\n", *wled->version);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < size; ++i) {
 		rc = of_property_read_u32(dev->of_node, u32_opts[i].name, &val);
 		if (rc == -EINVAL) {
 			continue;
@@ -951,6 +980,12 @@ static int wled_probe(struct platform_device *pdev)
 	wled->regmap = regmap;
 	wled->pdev = pdev;
 
+	wled->version = of_device_get_match_data(&pdev->dev);
+	if (!wled->version) {
+		dev_err(&pdev->dev, "Unknown device version\n");
+		return -ENODEV;
+	}
+
 	rc = wled_configure(wled, &pdev->dev);
 	if (rc < 0) {
 		pr_err("wled configure failed rc:%d\n", rc);
@@ -981,7 +1016,7 @@ static int wled_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id wled_match_table[] = {
-	{ .compatible = "qcom,pmi8998-spmi-wled",},
+	{ .compatible = "qcom,pmi8998-spmi-wled", .data = &version_table[0] },
 	{ },
 };
 
