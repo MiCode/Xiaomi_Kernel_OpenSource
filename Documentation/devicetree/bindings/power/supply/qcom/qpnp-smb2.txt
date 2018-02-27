@@ -35,6 +35,13 @@ Charger specific properties:
 		addition battery properties will be faked such that the device
 		assumes normal operation.
 
+- qcom,use-extcon
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which specify that SMB2 will act as main charger
+	      to do extcon USB calls. If not defined, other charger driver can
+	      act as main charger to do extcon USB calls.
+
 - qcom,fcc-max-ua
   Usage:      optional
   Value type: <u32>
