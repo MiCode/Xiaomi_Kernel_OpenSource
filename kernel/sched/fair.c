@@ -6953,9 +6953,27 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 
 	if (sched_boost_policy() == SCHED_BOOST_ON_BIG &&
 					task_sched_boost(p))
-		return false;
+		return !is_min_capacity_cpu(cpu);
 
 	return task_fits_capacity(p, capacity, cpu);
+}
+
+static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
+			   struct cpumask *rtg_target)
+{
+	int fcpu = group_first_cpu(sg);
+
+	/* Are all CPUs isolated in this group? */
+	if (!sg->group_weight)
+		return true;
+
+	if (!task_fits_max(p, fcpu))
+		return true;
+
+	if (rtg_target && !cpumask_test_cpu(fcpu, rtg_target))
+		return true;
+
+	return false;
 }
 
 static int start_cpu(bool boosted)
@@ -7001,6 +7019,9 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	/* Scan CPUs in all SDs */
 	sg = sd->groups;
 	do {
+		if (skip_sg(p, sg, rtg_target))
+			continue;
+
 		for_each_cpu_and(i, &p->cpus_allowed, sched_group_span(sg)) {
 			unsigned long capacity_curr = capacity_curr_of(i);
 			unsigned long capacity_orig = capacity_orig_of(i);
@@ -7020,9 +7041,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			if (sched_cpu_high_irqload(i))
 				continue;
 
-			if (rtg_target && !cpumask_test_cpu(i, rtg_target))
-				break;
-
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
 			 * so prev_cpu will receive a negative bias due to the double
@@ -7032,23 +7050,17 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			new_util = wake_util + task_util(p);
 			spare_cap = capacity_orig_of(i) - wake_util;
 
-			switch (placement_boost) {
 			/*
-			 * pick lowest util cpu amongst all > min cap
-			 * CPUs
+			 * When placement boost is active, we traverse CPUs
+			 * other than min capacity CPUs. Pick the CPU which
+			 * has the maximum spare capacity.
 			 */
-			case SCHED_BOOST_ON_BIG:
-				if (is_min_capacity_cpu(i))
-					continue;
-
+			if (placement_boost) {
 				if (spare_cap > target_max_spare_cap) {
 					target_cpu = i;
 					target_max_spare_cap = spare_cap;
 				}
 				continue;
-
-			default:
-				break;
 			}
 
 			/*
