@@ -219,9 +219,14 @@
 			compatible = "qcom,qpnp-smb5";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pmi632_revid>;
 			dpdm-supply = <&qusb_phy>;
+
+			qcom,thermal-mitigation
+				= <3000000 2500000 2000000 1500000
+					1000000 500000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
