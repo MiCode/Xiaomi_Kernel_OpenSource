@@ -248,6 +248,7 @@
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,adc_tm-vadc = <&pm8953_vadc>;
+			#thermal-sensor-cells = <1>;
 		};
 
 		pm8953_rtc: qcom,pm8953_rtc {
