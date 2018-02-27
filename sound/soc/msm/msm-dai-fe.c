@@ -448,6 +448,33 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 	},
 	{
 		.playback = {
+			.stream_name = "SLIMBUS2_HOSTLESS Playback",
+			.aif_name = "SLIM2_DL_HL",
+			.rates = SNDRV_PCM_RATE_8000_192000,
+			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+						SNDRV_PCM_FMTBIT_S24_LE),
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min =     8000,
+			.rate_max =     192000,
+		},
+		.capture = {
+			.stream_name = "SLIMBUS2_HOSTLESS Capture",
+			.aif_name = "SLIM2_UL_HL",
+			.rates = SNDRV_PCM_RATE_8000_48000,
+			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+				    SNDRV_PCM_FMTBIT_S24_LE),
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "SLIMBUS2_HOSTLESS",
+		.probe = fe_dai_probe,
+	},
+	{
+		.playback = {
 			.stream_name = "SLIMBUS3_HOSTLESS Playback",
 			.aif_name = "SLIM3_DL_HL",
 			.rates = SNDRV_PCM_RATE_8000_192000,
