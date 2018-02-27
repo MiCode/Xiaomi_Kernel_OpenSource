@@ -93,7 +93,7 @@
 #define WLED_SINK_BRIGHT_MSB_REG(n)	(0x58 + (n * 0x10))
 
 struct wled_config {
-	u32 i_boost_limit;
+	u32 boost_i_limit;
 	u32 ovp;
 	u32 switch_freq;
 	u32 fs_current;
@@ -632,7 +632,7 @@ static int wled_setup(struct wled *wled)
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_ILIM,
-			WLED_CTRL_ILIM_MASK, wled->cfg.i_boost_limit);
+			WLED_CTRL_ILIM_MASK, wled->cfg.boost_i_limit);
 	if (rc < 0)
 		return rc;
 
@@ -747,7 +747,7 @@ static int wled_setup(struct wled *wled)
 }
 
 static const struct wled_config wled_config_defaults = {
-	.i_boost_limit = 4,
+	.boost_i_limit = 4,
 	.fs_current = 10,
 	.ovp = 1,
 	.switch_freq = 11,
@@ -763,13 +763,13 @@ struct wled_var_cfg {
 	int size;
 };
 
-static const u32 wled_i_boost_limit_values[] = {
+static const u32 wled_boost_i_limit_values[] = {
 	105, 280, 450, 620, 970, 1150, 1300, 1500,
 };
 
-static const struct wled_var_cfg wled_i_boost_limit_cfg = {
-	.values = wled_i_boost_limit_values,
-	.size = ARRAY_SIZE(wled_i_boost_limit_values),
+static const struct wled_var_cfg wled_boost_i_limit_cfg = {
+	.values = wled_boost_i_limit_values,
+	.size = ARRAY_SIZE(wled_boost_i_limit_values),
 };
 
 static const u32 wled_fs_current_values[] = {
@@ -829,9 +829,9 @@ static int wled_configure(struct wled *wled, struct device *dev)
 		const struct wled_var_cfg *cfg;
 	} u32_opts[] = {
 		{
-			"qcom,current-boost-limit",
-			&cfg->i_boost_limit,
-			.cfg = &wled_i_boost_limit_cfg,
+			.name = "qcom,boost-current-limit",
+			.val_ptr = &cfg->boost_i_limit,
+			.cfg = &wled_boost_i_limit_cfg,
 		},
 		{
 			"qcom,fs-current-limit",
