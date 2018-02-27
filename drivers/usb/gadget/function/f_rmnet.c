@@ -19,7 +19,6 @@
 #include <linux/usb_bam.h>
 #include <linux/module.h>
 
-#include "u_rmnet.h"
 #include "u_data_ipa.h"
 #include "configfs.h"
 
@@ -31,13 +30,15 @@
 struct f_rmnet {
 	struct usb_function             func;
 	enum qti_port_type		qti_port_type;
-	enum ipa_func_type		func_type;
+	enum bam_dmux_func_type		bam_dmux_func_type;
+	enum data_xport_type		xport_type;
+	enum ipa_func_type		ipa_func_type;
 	struct grmnet			port;
 	int				ifc_id;
 	atomic_t			online;
 	atomic_t			ctrl_online;
 	struct usb_composite_dev	*cdev;
-	struct gadget_ipa_port		ipa_port;
+	struct data_port		bam_port;
 	spinlock_t			lock;
 
 	/* usb eps*/
@@ -308,11 +309,22 @@ int name_to_prot(struct f_rmnet *dev, const char *name)
 
 	if (!strncasecmp("rmnet", name, MAX_INST_NAME_LEN)) {
 		dev->qti_port_type = QTI_PORT_RMNET;
-		dev->func_type = USB_IPA_FUNC_RMNET;
+		dev->xport_type = BAM2BAM_IPA;
+		dev->ipa_func_type = USB_IPA_FUNC_RMNET;
 	} else if (!strncasecmp("dpl", name, MAX_INST_NAME_LEN)) {
 		dev->qti_port_type = QTI_PORT_DPL;
-		dev->func_type = USB_IPA_FUNC_DPL;
+		dev->xport_type = BAM2BAM_IPA;
+		dev->ipa_func_type = USB_IPA_FUNC_DPL;
+	} else if (!strncasecmp("rmnet_bam_dmux", name, MAX_INST_NAME_LEN)) {
+		dev->qti_port_type = QTI_PORT_RMNET;
+		dev->xport_type = BAM_DMUX;
+		dev->bam_dmux_func_type = BAM_DMUX_FUNC_RMNET;
+	} else if (!strncasecmp("dpl_bam_dmux", name, MAX_INST_NAME_LEN)) {
+		dev->qti_port_type = QTI_PORT_DPL;
+		dev->xport_type = BAM_DMUX;
+		dev->bam_dmux_func_type = BAM_DMUX_FUNC_DPL;
 	}
+
 	return 0;
 
 error:
@@ -380,7 +392,8 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	enum usb_ctrl		usb_bam_type;
 	int bam_pipe_num = (dev->qti_port_type == QTI_PORT_DPL) ? 1 : 0;
 
-	ret = gqti_ctrl_connect(&dev->port, dev->qti_port_type, dev->ifc_id);
+	ret = gqti_ctrl_connect(&dev->port, dev->qti_port_type, dev->ifc_id,
+							dev->xport_type);
 	if (ret) {
 		pr_err("%s: gqti_ctrl_connect failed: err:%d\n",
 			__func__, ret);
@@ -388,31 +401,42 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	}
 	if (dev->qti_port_type == QTI_PORT_DPL)
 		dev->port.send_encap_cmd(QTI_PORT_DPL, NULL, 0);
-	dev->ipa_port.cdev = dev->cdev;
-	ipa_data_port_select(dev->func_type);
-	usb_bam_type = usb_bam_get_bam_type(gadget->name);
+	dev->bam_port.cdev = dev->cdev;
+	if (dev->xport_type == BAM_DMUX) {
+		ret = gbam_connect(&dev->bam_port, dev->bam_dmux_func_type);
+		if (ret)
+			pr_err("%s: gbam_connect failed: err:%d\n",
+				__func__, ret);
+	} else {
+		ipa_data_port_select(dev->ipa_func_type);
+		usb_bam_type = usb_bam_get_bam_type(gadget->name);
 
-	if (dev->ipa_port.in) {
-		dst_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
-			IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-			USB_BAM_DEVICE, bam_pipe_num);
+		if (dev->bam_port.in) {
+			dst_connection_idx = usb_bam_get_connection_idx(
+						usb_bam_type, IPA_P_BAM,
+						PEER_PERIPHERAL_TO_USB,
+						USB_BAM_DEVICE, bam_pipe_num);
+		}
+		if (dev->bam_port.out) {
+			src_connection_idx = usb_bam_get_connection_idx(
+						usb_bam_type, IPA_P_BAM,
+						USB_TO_PEER_PERIPHERAL,
+						USB_BAM_DEVICE, bam_pipe_num);
+		}
+		if (dst_connection_idx < 0 || src_connection_idx < 0) {
+			pr_err("%s: usb_bam_get_connection_idx failed\n",
+				__func__);
+			gqti_ctrl_disconnect(&dev->port, dev->qti_port_type);
+			return -EINVAL;
+		}
+		ret = ipa_data_connect(&dev->bam_port, dev->ipa_func_type,
+				src_connection_idx, dst_connection_idx);
+		if (ret)
+			pr_err("%s: ipa_data_connect failed: err:%d\n",
+				__func__, ret);
 	}
-	if (dev->ipa_port.out) {
-		src_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
-			IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
-			USB_BAM_DEVICE, bam_pipe_num);
-	}
-	if (dst_connection_idx < 0 || src_connection_idx < 0) {
-		pr_err("%s: usb_bam_get_connection_idx failed\n",
-			__func__);
-		gqti_ctrl_disconnect(&dev->port, dev->qti_port_type);
-		return -EINVAL;
-	}
-	ret = ipa_data_connect(&dev->ipa_port, dev->func_type,
-			src_connection_idx, dst_connection_idx);
+
 	if (ret) {
-		pr_err("%s: ipa_data_connect failed: err:%d\n",
-			__func__, ret);
 		gqti_ctrl_disconnect(&dev->port, dev->qti_port_type);
 		return ret;
 	}
@@ -422,7 +446,11 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 static int gport_rmnet_disconnect(struct f_rmnet *dev)
 {
 	gqti_ctrl_disconnect(&dev->port, dev->qti_port_type);
-	ipa_data_disconnect(&dev->ipa_port, dev->func_type);
+	if (dev->xport_type == BAM_DMUX)
+		gbam_disconnect(&dev->bam_port, dev->bam_dmux_func_type);
+	else
+		ipa_data_disconnect(&dev->bam_port, dev->ipa_func_type);
+
 	return 0;
 }
 
@@ -488,7 +516,10 @@ static void frmnet_suspend(struct usb_function *f)
 		usb_ep_fifo_flush(dev->notify);
 		frmnet_purge_responses(dev);
 	}
-	ipa_data_suspend(&dev->ipa_port, dev->func_type, remote_wakeup_allowed);
+
+	if (dev->xport_type == BAM2BAM_IPA)
+		ipa_data_suspend(&dev->bam_port, dev->ipa_func_type,
+							remote_wakeup_allowed);
 }
 
 static void frmnet_resume(struct usb_function *f)
@@ -503,8 +534,9 @@ static void frmnet_resume(struct usb_function *f)
 
 	pr_debug("%s: dev: %pK remote_wakeup: %d\n", __func__, dev,
 			remote_wakeup_allowed);
-
-	ipa_data_resume(&dev->ipa_port, dev->func_type, remote_wakeup_allowed);
+	if (dev->xport_type == BAM2BAM_IPA)
+		ipa_data_resume(&dev->bam_port, dev->ipa_func_type,
+							remote_wakeup_allowed);
 }
 
 static void frmnet_disable(struct usb_function *f)
@@ -557,20 +589,20 @@ frmnet_set_alt(struct usb_function *f, unsigned int intf, unsigned int alt)
 		dev->notify->driver_data = dev;
 	}
 
-	if (dev->ipa_port.in && !dev->ipa_port.in->desc
-		&& config_ep_by_speed(cdev->gadget, f, dev->ipa_port.in)) {
+	if (dev->bam_port.in && !dev->bam_port.in->desc
+		&& config_ep_by_speed(cdev->gadget, f, dev->bam_port.in)) {
 		pr_err("%s(): config_ep_by_speed failed.\n",
 				__func__);
-		dev->ipa_port.in->desc = NULL;
+		dev->bam_port.in->desc = NULL;
 		ret = -EINVAL;
 		goto err_disable_ep;
 	}
 
-	if (dev->ipa_port.out && !dev->ipa_port.out->desc
-		&& config_ep_by_speed(cdev->gadget, f, dev->ipa_port.out)) {
+	if (dev->bam_port.out && !dev->bam_port.out->desc
+		&& config_ep_by_speed(cdev->gadget, f, dev->bam_port.out)) {
 		pr_err("%s(): config_ep_by_speed failed.\n",
 				__func__);
-		dev->ipa_port.out->desc = NULL;
+		dev->bam_port.out->desc = NULL;
 		ret = -EINVAL;
 		goto err_disable_ep;
 	}
@@ -954,7 +986,7 @@ skip_string_id_alloc:
 					__func__);
 			return -ENODEV;
 		}
-		dev->ipa_port.in = ep;
+		dev->bam_port.in = ep;
 		ep->driver_data = cdev;
 	}
 
@@ -966,7 +998,7 @@ skip_string_id_alloc:
 			status = -ENODEV;
 			goto ep_auto_out_fail;
 		}
-		dev->ipa_port.out = ep;
+		dev->bam_port.out = ep;
 		ep->driver_data = cdev;
 	}
 
@@ -1058,11 +1090,11 @@ ep_notify_alloc_fail:
 		dev->notify->driver_data = NULL;
 		dev->notify = NULL;
 ep_auto_notify_fail:
-		dev->ipa_port.out->driver_data = NULL;
-		dev->ipa_port.out = NULL;
+		dev->bam_port.out->driver_data = NULL;
+		dev->bam_port.out = NULL;
 ep_auto_out_fail:
-		dev->ipa_port.in->driver_data = NULL;
-		dev->ipa_port.in = NULL;
+		dev->bam_port.in->driver_data = NULL;
+		dev->bam_port.in = NULL;
 
 	return status;
 }
@@ -1163,7 +1195,11 @@ static void rmnet_free_inst(struct usb_function_instance *f)
 {
 	struct f_rmnet_opts *opts = container_of(f, struct f_rmnet_opts,
 						func_inst);
-	ipa_data_free(opts->dev->func_type);
+	if (opts->dev->xport_type == BAM_DMUX)
+		gbam_cleanup(opts->dev->bam_dmux_func_type);
+	else
+		ipa_data_free(opts->dev->ipa_func_type);
+
 	kfree(opts->dev);
 	kfree(opts);
 }
@@ -1194,14 +1230,20 @@ static int rmnet_set_inst_name(struct usb_function_instance *fi,
 	}
 
 	if (dev->qti_port_type >= QTI_NUM_PORTS ||
-		dev->func_type >= USB_IPA_NUM_FUNCS) {
+		dev->xport_type >= NR_XPORT_TYPES ||
+		dev->ipa_func_type >= USB_IPA_NUM_FUNCS ||
+		dev->bam_dmux_func_type >= BAM_DMUX_NUM_FUNCS) {
 		pr_err("%s: invalid prot\n", __func__);
 		ret = -EINVAL;
 		goto fail;
 	}
 
 	INIT_LIST_HEAD(&dev->cpkt_resp_q);
-	ret = ipa_data_setup(dev->func_type);
+	if (dev->xport_type == BAM_DMUX)
+		ret = gbam_setup(dev->bam_dmux_func_type);
+	else
+		ret = ipa_data_setup(dev->ipa_func_type);
+
 	if (ret)
 		goto fail;
 
