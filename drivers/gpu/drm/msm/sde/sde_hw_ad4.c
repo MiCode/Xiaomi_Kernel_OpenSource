@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -786,6 +786,7 @@ static int ad4_cfg_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 	blk_offset += 4;
 	val = (ad_cfg->cfg_param_027 & (BIT(16) - 1));
 	val |= ((ad_cfg->cfg_param_028 & (BIT(16) - 1)) << 16);
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
 	blk_offset += 4;
 	val = (ad_cfg->cfg_param_029 & (BIT(16) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
