@@ -20,6 +20,7 @@
 #include "msm8909w-pm660-mtp.dtsi"
 #include "msm8909w-pm660-camera.dtsi"
 #include "msm8909w-pm660-camera-sensor-wtp-v1.dtsi"
+#include "spi-panel-st7789v2-qvga-cmd.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 V1 WTP";
@@ -73,8 +74,15 @@
 		/delete-node/ it7260@46;
 	};
 
-	spi@78b8000 {  /* BLSP1 QUP4 */
+	spi@78B8000 {  /* BLSP1 QUP4 */
 		status = "ok";
+		qcom,mdss_spi_client {
+			reg = <0>;
+			compatible = "qcom,mdss-spi-client";
+			label = "MDSS SPI QUP4 CLIENT";
+			dc-gpio = <&msm_gpio 59 0>;
+			spi-max-frequency = <50000000>;
+		};
 	};
 
 	qcom,msm-ssc-sensors {
@@ -119,6 +127,29 @@
 		qcom,cdc-on-demand-supplies = "cdc-vdd-digital";
 
 		qcom,subsys-name = "modem";
+	};
+
+	mdss_spi: qcom,mdss_spi {
+		compatible = "qcom,mdss-spi-display";
+		label = "mdss spi panel";
+
+		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
+		vdd-supply = <&pm660_l18>;
+		vddio-supply = <&pm660_l11>;
+
+		qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <3000000>;
+				qcom,supply-max-voltage = <3000000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
 	};
 };
 
@@ -250,6 +281,27 @@
 &mdss_dsi0{
 	qcom,dsi-pref-prim-pan = <&dsi_auo_390p_cmd>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 37 0>;
+};
+
+&spi_st7789v2_qvga_cmd {
+	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
+	qcom,mdss-spi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-spi-bl-pmic-bank-select = <0>;
+	qcom,cont-splash-enabled;
+};
+
+&mdss_spi {
+	qcom,spi-pref-prim-pan = <&spi_st7789v2_qvga_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_te_active>;
+	pinctrl-1 = <&mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&msm_gpio 24 0>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+	qcom,platform-spi-dc-gpio = <&msm_gpio 59 0>;
+
+	vdd-supply = <&pm660_l18>;
+	vddio-supply = <&pm660_l11>;
 };
 
 &dai_mi2s3 {
