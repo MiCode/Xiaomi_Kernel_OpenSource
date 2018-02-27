@@ -13,6 +13,7 @@
 #include "sde_reg_dma.h"
 #include "sde_hw_reg_dma_v1_color_proc.h"
 #include "sde_hw_color_proc_common_v4.h"
+#include "sde_hw_ctl.h"
 
 /* Reserve space of 128 words for LUT dma payload set-up */
 #define REG_DMA_HEADERS_BUFFER_SZ (sizeof(u32) * 128)
@@ -26,6 +27,8 @@
 #define REG_DMA_PA_MODE_HSIC_MASK 0xE1EFFFFF
 #define REG_DMA_PA_MODE_SZONE_MASK 0x1FEFFFFF
 #define REG_DMA_PA_PWL_HOLD_SZONE_MASK 0x0FFF
+#define PA_LUTV_DSPP_CTRL_OFF 0x4c
+#define PA_LUTV_DSPP_SWAP_OFF 0x18
 
 #define GAMUT_LUT_MEM_SIZE ((sizeof(struct drm_msm_3d_gamut)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
@@ -160,15 +163,6 @@ static int reg_dma_dspp_check(struct sde_hw_dspp *ctx, void *cfg,
 		enum sde_reg_dma_features feature);
 static int reg_dma_sspp_check(struct sde_hw_pipe *ctx, void *cfg,
 		enum sde_reg_dma_features feature);
-static int reg_dma_blk_select(enum sde_reg_dma_features feature,
-		enum sde_reg_dma_blk blk, struct sde_reg_dma_buffer *dma_buf);
-static int reg_dma_write(enum sde_reg_dma_setup_ops ops, u32 off, u32 data_sz,
-			u32 *data, struct sde_reg_dma_buffer *dma_buf,
-			enum sde_reg_dma_features feature,
-			enum sde_reg_dma_blk blk);
-static int reg_dma_kick_off(enum sde_reg_dma_op op, enum sde_reg_dma_queue q,
-		enum sde_reg_dma_trigger_mode mode,
-		struct sde_reg_dma_buffer *dma_buf, struct sde_hw_ctl *ctl);
 
 static int reg_dma_buf_init(struct sde_reg_dma_buffer **buf, u32 size)
 {
@@ -222,76 +216,6 @@ static int reg_dma_dspp_check(struct sde_hw_dspp *ctx, void *cfg,
 	}
 
 	return 0;
-}
-
-static int reg_dma_blk_select(enum sde_reg_dma_features feature,
-		enum sde_reg_dma_blk blk, struct sde_reg_dma_buffer *dma_buf)
-{
-	struct sde_hw_reg_dma_ops *dma_ops;
-	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
-	int rc = 0;
-
-	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(dma_buf);
-	memset(&dma_write_cfg, 0, sizeof(dma_write_cfg));
-	dma_write_cfg.blk = blk;
-	dma_write_cfg.feature = feature;
-	dma_write_cfg.ops = HW_BLK_SELECT;
-	dma_write_cfg.dma_buf = dma_buf;
-
-	rc = dma_ops->setup_payload(&dma_write_cfg);
-	if (rc)
-		DRM_ERROR("write decode select failed ret %d\n", rc);
-
-	return rc;
-}
-
-static int reg_dma_write(enum sde_reg_dma_setup_ops ops, u32 off, u32 data_sz,
-			u32 *data, struct sde_reg_dma_buffer *dma_buf,
-			enum sde_reg_dma_features feature,
-			enum sde_reg_dma_blk blk)
-{
-	struct sde_hw_reg_dma_ops *dma_ops;
-	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
-	int rc;
-
-	dma_ops = sde_reg_dma_get_ops();
-	memset(&dma_write_cfg, 0, sizeof(dma_write_cfg));
-
-	dma_write_cfg.ops = ops;
-	dma_write_cfg.blk_offset = off;
-	dma_write_cfg.data_size = data_sz;
-	dma_write_cfg.data = data;
-	dma_write_cfg.dma_buf = dma_buf;
-	dma_write_cfg.feature = feature;
-	dma_write_cfg.blk = blk;
-	rc = dma_ops->setup_payload(&dma_write_cfg);
-	if (rc)
-		DRM_ERROR("write single reg failed ret %d\n", rc);
-
-	return rc;
-}
-
-static int reg_dma_kick_off(enum sde_reg_dma_op op, enum sde_reg_dma_queue q,
-		enum sde_reg_dma_trigger_mode mode,
-		struct sde_reg_dma_buffer *dma_buf, struct sde_hw_ctl *ctl)
-{
-	struct sde_reg_dma_kickoff_cfg kick_off;
-	struct sde_hw_reg_dma_ops *dma_ops;
-	int rc;
-
-	dma_ops = sde_reg_dma_get_ops();
-	memset(&kick_off, 0, sizeof(kick_off));
-	kick_off.ctl = ctl;
-	kick_off.dma_buf = dma_buf;
-	kick_off.op = op;
-	kick_off.queue_select = q;
-	kick_off.trigger_mode = mode;
-	rc = dma_ops->kick_off(&kick_off);
-	if (rc)
-		DRM_ERROR("failed to kick off ret %d\n", rc);
-
-	return rc;
 }
 
 int reg_dmav1_init_dspp_op_v4(int feature, enum sde_dspp idx)
@@ -355,8 +279,11 @@ int reg_dmav1_init_dspp_op_v4(int feature, enum sde_dspp idx)
 void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 {
 	struct drm_msm_pa_vlut *payload = NULL;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	struct sde_hw_cp_cfg *hw_cfg = cfg;
-	u32 op_mode;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_hw_ctl *ctl = NULL;
 	u32 *data = NULL;
 	int i, j, rc = 0;
 
@@ -364,18 +291,28 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 	if (rc)
 		return;
 
-	op_mode = SDE_REG_READ(&ctx->hw, PA_OP_MODE_OFF);
 	if (!hw_cfg->payload) {
 		DRM_DEBUG_DRIVER("Disable vlut feature\n");
-		SDE_REG_WRITE(&ctx->hw, PA_LUTV_OPMODE_OFF, 0);
-		if (PA_DISABLE_REQUIRED(op_mode))
-			op_mode &= ~PA_EN;
-		SDE_REG_WRITE(&ctx->hw, PA_OP_MODE_OFF, op_mode);
+		SDE_REG_WRITE(&ctx->hw,
+		    ctx->cap->sblk->hist.base + PA_LUTV_DSPP_CTRL_OFF, 0);
+		goto exit;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_pa_vlut)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+				hw_cfg->len, sizeof(struct drm_msm_pa_vlut));
 		return;
 	}
 
-	rc = reg_dma_blk_select(VLUT, dspp_mapping[ctx->idx],
-			dspp_buf[VLUT][ctx->idx]);
+	ctl = hw_cfg->ctl;
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[VLUT][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
+	VLUT, dspp_buf[VLUT][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
 		DRM_ERROR("write decode select failed ret %d\n", rc);
 		return;
@@ -389,28 +326,49 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 	DRM_DEBUG_DRIVER("Enable vlut feature flags %llx\n", payload->flags);
 	for (i = 0, j = 0; i < ARRAY_SIZE(payload->val); i += 2, j++)
 		data[j] = (payload->val[i] & REG_MASK(10)) |
-			((payload->val[i + 1] & REG_MASK(10)) << 16);
+		((payload->val[i + 1] & REG_MASK(10)) << 16);
 
-	rc = reg_dma_write(REG_BLK_WRITE_SINGLE, ctx->cap->sblk->vlut.base,
-			VLUT_LEN, data,
-			dspp_buf[VLUT][ctx->idx], VLUT,
-			dspp_mapping[ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, ctx->cap->sblk->vlut.base, data,
+			sizeof(data), REG_BLK_WRITE_SINGLE, 0, 0, 0);
+
+	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
-		DRM_ERROR("write single reg failed ret %d\n", rc);
+		DRM_ERROR("write pa vlut failed ret %d\n", rc);
 		goto exit;
 	}
 
-	rc = reg_dma_kick_off(REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE,
-			dspp_buf[VLUT][ctx->idx], hw_cfg->ctl);
+	i = 1;
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->hist.base + PA_LUTV_DSPP_CTRL_OFF, &i,
+		sizeof(i), REG_SINGLE_WRITE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("opmode write single reg failed ret %d\n", rc);
+		return;
+	}
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->hist.base + PA_LUTV_DSPP_SWAP_OFF, &i,
+		sizeof(i), REG_SINGLE_WRITE, 0, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("opmode write single reg failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[VLUT][ctx->idx],
+	    REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
 	if (rc) {
 		DRM_ERROR("failed to kick off ret %d\n", rc);
 		goto exit;
 	}
-	SDE_REG_WRITE(&ctx->hw, PA_LUTV_OPMODE_OFF, BIT(0));
-	SDE_REG_WRITE(&ctx->hw, PA_OP_MODE_OFF, op_mode | BIT(20));
 
 exit:
 	kfree(data);
+	/* update flush bit */
+	if (ctl && ctl->ops.update_bitmask_dspp_pavlut)
+		ctl->ops.update_bitmask_dspp_pavlut(ctl, ctx->idx, true);
 }
 
 static int sde_gamut_get_mode_info(u32 pipe, struct drm_msm_3d_gamut *payload,
