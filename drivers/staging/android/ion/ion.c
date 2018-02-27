@@ -298,7 +298,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 {
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	struct sg_table *table;
-	int ret, count, map_attrs;
+	int count, map_attrs;
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
 
 	table = a->table;
@@ -318,16 +318,10 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 					 map_attrs);
 	}
 
-	if (count <= 0) {
-		ret = -ENOMEM;
-		goto err;
-	}
+	if (count <= 0)
+		return ERR_PTR(-ENOMEM);
 
 	return table;
-
-err:
-	free_duped_table(table);
-	return ERR_PTR(ret);
 }
 
 static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
