@@ -2668,6 +2668,18 @@
 			< 1 >;
 	};
 
+	bus_proxy_client: qcom,bus_proxy_client {
+		compatible = "qcom,bus-proxy-client";
+		qcom,msm-bus,name = "bus-proxy-client";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>, <23 512 0 0>,
+			<22 512 0 5000000>, <23 512 0 5000000>;
+		qcom,msm-bus,active-only;
+		status = "ok";
+	};
+
 	devfreq_memlat_0: qcom,cpu0-memlat-mon {
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5>;
