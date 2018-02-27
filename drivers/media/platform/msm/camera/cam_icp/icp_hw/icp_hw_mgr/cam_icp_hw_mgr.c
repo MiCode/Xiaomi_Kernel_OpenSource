@@ -271,7 +271,7 @@ static int32_t cam_icp_deinit_idle_clk(void *priv, void *data)
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		ctx_data = &hw_mgr->ctx_data[i];
 		mutex_lock(&ctx_data->ctx_mutex);
-		if ((ctx_data->state != CAM_ICP_CTX_STATE_FREE) &&
+		if ((ctx_data->state == CAM_ICP_CTX_STATE_ACQUIRED) &&
 			(ICP_DEV_TYPE_TO_CLK_TYPE(ctx_data->
 			icp_dev_acquire_info->dev_type) == clk_info->hw_type))
 			cam_icp_ctx_clk_info_init(ctx_data);
@@ -408,7 +408,7 @@ static void cam_icp_ctx_timer_cb(unsigned long data)
 	struct cam_req_mgr_timer *timer = (struct cam_req_mgr_timer *)data;
 
 	spin_lock_irqsave(&icp_hw_mgr.hw_mgr_lock, flags);
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.msg_work);
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.timer_work);
 	if (!task) {
 		CAM_ERR(CAM_ICP, "no empty task");
 		spin_unlock_irqrestore(&icp_hw_mgr.hw_mgr_lock, flags);
@@ -432,7 +432,7 @@ static void cam_icp_device_timer_cb(unsigned long data)
 	struct cam_req_mgr_timer *timer = (struct cam_req_mgr_timer *)data;
 
 	spin_lock_irqsave(&icp_hw_mgr.hw_mgr_lock, flags);
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.msg_work);
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.timer_work);
 	if (!task) {
 		CAM_ERR(CAM_ICP, "no empty task");
 		spin_unlock_irqrestore(&icp_hw_mgr.hw_mgr_lock, flags);
@@ -473,7 +473,7 @@ static int cam_icp_ctx_timer_start(struct cam_icp_hw_ctx_data *ctx_data)
 	int rc = 0;
 
 	rc = crm_timer_init(&ctx_data->watch_dog,
-		2000, ctx_data, &cam_icp_ctx_timer_cb);
+		200, ctx_data, &cam_icp_ctx_timer_cb);
 	if (rc)
 		CAM_ERR(CAM_ICP, "Failed to start timer");
 
@@ -3751,10 +3751,6 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		}
 	}
 
-	if (!hw_mgr->bps_ctxt_cnt || !hw_mgr->ipe_ctxt_cnt)
-		cam_icp_device_timer_start(hw_mgr);
-
-	cam_icp_ctx_timer_start(ctx_data);
 
 	rc = cam_icp_mgr_ipe_bps_resume(hw_mgr, ctx_data);
 	if (rc) {
@@ -3806,6 +3802,11 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 			(unsigned int)icp_dev_acquire_info->scratch_mem_size,
 			(unsigned int)ctx_data->fw_handle);
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	/* Start device timer*/
+	if (((hw_mgr->bps_ctxt_cnt == 1) || (hw_mgr->ipe_ctxt_cnt == 1)))
+		cam_icp_device_timer_start(hw_mgr);
+	/* Start context timer*/
+	cam_icp_ctx_timer_start(ctx_data);
 	hw_mgr->ctxt_cnt++;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	CAM_DBG(CAM_ICP, "Acquire Done");
@@ -3821,7 +3822,6 @@ create_handle_failed:
 send_ping_failed:
 	cam_icp_mgr_ipe_bps_power_collapse(hw_mgr, ctx_data, 0);
 ipe_bps_resume_failed:
-	cam_icp_ctx_timer_stop(&hw_mgr->ctx_data[ctx_id]);
 ubwc_cfg_failed:
 	if (!hw_mgr->ctxt_cnt)
 		cam_icp_mgr_icp_power_collapse(hw_mgr);
@@ -4013,15 +4013,22 @@ static int cam_icp_mgr_create_wq(void)
 	rc = cam_req_mgr_workq_create("icp_command_queue", ICP_WORKQ_NUM_TASK,
 		&icp_hw_mgr.cmd_work, CRM_WORKQ_USAGE_NON_IRQ);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "unable to create a worker");
+		CAM_ERR(CAM_ICP, "unable to create a command worker");
 		goto cmd_work_failed;
 	}
 
 	rc = cam_req_mgr_workq_create("icp_message_queue", ICP_WORKQ_NUM_TASK,
 		&icp_hw_mgr.msg_work, CRM_WORKQ_USAGE_IRQ);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "unable to create a worker");
+		CAM_ERR(CAM_ICP, "unable to create a message worker");
 		goto msg_work_failed;
+	}
+
+	rc = cam_req_mgr_workq_create("icp_timer_queue", ICP_WORKQ_NUM_TASK,
+		&icp_hw_mgr.timer_work, CRM_WORKQ_USAGE_IRQ);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "unable to create a timer worker");
+		goto timer_work_failed;
 	}
 
 	icp_hw_mgr.cmd_work_data = (struct hfi_cmd_work_data *)
@@ -4036,9 +4043,15 @@ static int cam_icp_mgr_create_wq(void)
 	if (!icp_hw_mgr.msg_work_data)
 		goto msg_work_data_failed;
 
+	icp_hw_mgr.timer_work_data = (struct hfi_msg_work_data *)
+		kzalloc(sizeof(struct hfi_msg_work_data) * ICP_WORKQ_NUM_TASK,
+		GFP_KERNEL);
+	if (!icp_hw_mgr.timer_work_data)
+		goto timer_work_data_failed;
+
 	rc = cam_icp_hw_mgr_create_debugfs_entry();
 	if (rc)
-		goto msg_work_data_failed;
+		goto debugfs_create_failed;
 
 	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
 		icp_hw_mgr.msg_work->task.pool[i].payload =
@@ -4048,10 +4061,20 @@ static int cam_icp_mgr_create_wq(void)
 		icp_hw_mgr.cmd_work->task.pool[i].payload =
 				&icp_hw_mgr.cmd_work_data[i];
 
+	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
+		icp_hw_mgr.timer_work->task.pool[i].payload =
+				&icp_hw_mgr.timer_work_data[i];
 	return 0;
+
+debugfs_create_failed:
+	kfree(icp_hw_mgr.timer_work_data);
+timer_work_data_failed:
+	kfree(icp_hw_mgr.msg_work_data);
 msg_work_data_failed:
 	kfree(icp_hw_mgr.cmd_work_data);
 cmd_work_data_failed:
+	cam_req_mgr_workq_destroy(&icp_hw_mgr.timer_work);
+timer_work_failed:
 	cam_req_mgr_workq_destroy(&icp_hw_mgr.msg_work);
 msg_work_failed:
 	cam_req_mgr_workq_destroy(&icp_hw_mgr.cmd_work);
