@@ -19,7 +19,6 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdm855-cdp.dtsi"
-#include "sdm855-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM855 v1 CDP";
