@@ -6945,7 +6945,7 @@ static inline int task_fits_capacity(struct task_struct *p,
 
 static inline bool task_fits_max(struct task_struct *p, int cpu)
 {
-	unsigned long capacity = capacity_of(cpu);
+	unsigned long capacity = capacity_orig_of(cpu);
 	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity;
 
 	if (capacity == max_capacity)
@@ -7964,7 +7964,8 @@ preempt:
 static inline void update_misfit_task(struct rq *rq, struct task_struct *p)
 {
 #ifdef CONFIG_SMP
-	rq->misfit_task = !task_fits_capacity(p, capacity_of(rq->cpu), rq->cpu);
+	rq->misfit_task = !task_fits_capacity(p, capacity_orig_of(rq->cpu),
+					      rq->cpu);
 #endif
 }
 
