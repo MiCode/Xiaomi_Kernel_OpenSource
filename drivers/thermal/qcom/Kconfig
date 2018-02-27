@@ -71,3 +71,13 @@ config REGULATOR_COOLING_DEVICE
 	  voltage.
 
 	  If you want this support, you should say Y here.
+
+config QTI_BCL_SOC_DRIVER
+	bool "QTI Battery state of charge sensor driver"
+	depends on THERMAL_OF
+	help
+	  This driver registers battery state of charge as a sensor with
+	  thermal zone. This sensor can monitor for state of charge
+	  threshold and notify the thermal framework.
+
+	  If you want this support, you should say Y here.
