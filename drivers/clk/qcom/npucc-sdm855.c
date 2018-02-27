@@ -23,6 +23,7 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
+#include <linux/delay.h>
 #include <linux/reset-controller.h>
 
 #include <dt-bindings/clock/qcom,npucc-sdm855.h>
@@ -38,6 +39,11 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
+#define CRC_SID_FSM_CTRL		0x100c
+#define CRC_SID_FSM_CTRL_SETTING	0x800000
+#define CRC_MND_CFG			0x1010
+#define CRC_MND_CFG_SETTING		0x15010
+
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 
 enum {
@@ -47,6 +53,7 @@ enum {
 	P_GPLL0_OUT_MAIN_DIV,
 	P_NPU_CC_PLL0_OUT_EVEN,
 	P_NPU_CC_PLL1_OUT_EVEN,
+	P_NPU_CC_CRC_DIV,
 };
 
 static const struct parent_map npu_cc_parent_map_0[] = {
@@ -67,16 +74,37 @@ static const char * const npu_cc_parent_names_0[] = {
 	"core_bi_pll_test_se",
 };
 
+static const struct parent_map npu_cc_parent_map_1[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_NPU_CC_PLL1_OUT_EVEN, 1 },
+	{ P_NPU_CC_CRC_DIV, 2 },
+	{ P_GPLL0_OUT_MAIN, 4 },
+	{ P_GPLL0_OUT_MAIN_DIV, 5 },
+	{ P_CORE_BI_PLL_TEST_SE, 7 },
+};
+
+static const char * const npu_cc_parent_names_1[] = {
+	"bi_tcxo",
+	"npu_cc_pll1_out_even",
+	"npu_cc_crc_div",
+	"gcc_npu_gpll0_clk_src",
+	"gcc_npu_gpll0_div_clk_src",
+	"core_bi_pll_test_se",
+};
+
 static struct pll_vco trion_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
 static const struct alpha_pll_config npu_cc_pll0_config = {
-	.l = 0x3E,
-	.alpha = 0x8000,
+	.l = 0x14,
+	.alpha = 0xD555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -133,6 +161,9 @@ static const struct alpha_pll_config npu_cc_pll1_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -175,13 +206,25 @@ static struct clk_alpha_pll_postdiv npu_cc_pll1_out_even = {
 	},
 };
 
+static struct clk_fixed_factor npu_cc_crc_div = {
+	.mult = 1,
+	.div = 2,
+	.hw.init = &(struct clk_init_data){
+		.name = "npu_cc_crc_div",
+		.parent_names = (const char *[]){ "npu_cc_pll0_out_even" },
+		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
 static const struct freq_tbl ftbl_npu_cc_cal_dp_clk_src[] = {
-	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
-	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
-	F(350000000, P_NPU_CC_PLL1_OUT_EVEN, 2, 0, 0),
-	F(400000000, P_NPU_CC_PLL0_OUT_EVEN, 3, 0, 0),
-	F(600000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(715000000, P_NPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(300000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(350000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(400000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(600000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(715000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	{ }
 };
 
@@ -189,19 +232,19 @@ static struct clk_rcg2 npu_cc_cal_dp_clk_src = {
 	.cmd_rcgr = 0x1004,
 	.mnd_width = 0,
 	.hid_width = 5,
-	.parent_map = npu_cc_parent_map_0,
+	.parent_map = npu_cc_parent_map_1,
 	.freq_tbl = ftbl_npu_cc_cal_dp_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "npu_cc_cal_dp_clk_src",
-		.parent_names = npu_cc_parent_names_0,
+		.parent_names = npu_cc_parent_names_1,
 		.num_parents = 6,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 200000000,
+			[VDD_MIN] = 9600000,
 			[VDD_LOWER] = 300000000,
 			[VDD_LOW] = 350000000,
 			[VDD_LOW_L1] = 400000000,
@@ -554,6 +597,40 @@ static const struct of_device_id npu_cc_sdm855_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, npu_cc_sdm855_match_table);
 
+struct regulator *vdd_gdsc;
+
+static int enable_npu_crc(struct regmap *regmap)
+{
+	int ret = 0;
+
+	/* Set npu_cc_cal_cp_clk to a safe frequency */
+	clk_set_rate(npu_cc_cal_dp_clk.clkr.hw.clk,
+		npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_MIN]);
+	/* Turn on the NPU GDSC */
+	ret = regulator_enable(vdd_gdsc);
+	if (ret) {
+		pr_err("Failed to enable the NPU GDSC during CRC sequence\n");
+		return ret;
+	}
+	/* Enable npu_cc_cal_cp_clk */
+	ret = clk_prepare_enable(npu_cc_cal_dp_clk.clkr.hw.clk);
+	if (ret) {
+		pr_err("Failed to enable npu_cc_cal_dp_clk during CRC sequence\n");
+		return ret;
+	}
+	/* Enable MND RC */
+	regmap_write(regmap, CRC_MND_CFG, CRC_MND_CFG_SETTING);
+	regmap_write(regmap, CRC_SID_FSM_CTRL, CRC_SID_FSM_CTRL_SETTING);
+	/* Wait for 16 cycles before continuing */
+	udelay(1);
+	/* Disable npu_cc_cal_cp_clk */
+	clk_disable_unprepare(npu_cc_cal_dp_clk.clkr.hw.clk);
+	/* Turn off the NPU GDSC */
+	regulator_disable(vdd_gdsc);
+
+	return ret;
+}
+
 static int npu_cc_sdm855_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
@@ -573,12 +650,33 @@ static int npu_cc_sdm855_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_cx.regulator[0]);
 	}
 
+	vdd_gdsc = devm_regulator_get(&pdev->dev, "vdd_gdsc");
+	if (IS_ERR(vdd_gdsc)) {
+		if (!(PTR_ERR(vdd_gdsc) == -EPROBE_DEFER))
+			dev_err(&pdev->dev,
+				"Unable to get vdd_gdsc regulator\n");
+		return PTR_ERR(vdd_gdsc);
+	}
+
 	clk_trion_pll_configure(&npu_cc_pll0, regmap, &npu_cc_pll0_config);
 	clk_trion_pll_configure(&npu_cc_pll1, regmap, &npu_cc_pll1_config);
+
+	/* Register the fixed factor clock for CRC divide */
+	ret = devm_clk_hw_register(&pdev->dev, &npu_cc_crc_div.hw);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register CRC divide clock\n");
+		return ret;
+	}
 
 	ret = qcom_cc_really_probe(pdev, &npu_cc_sdm855_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register NPU CC clocks\n");
+		return ret;
+	}
+
+	ret = enable_npu_crc(regmap);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to enable CRC for NPU cal RCG\n");
 		return ret;
 	}
 

@@ -6,11 +6,12 @@ Required properties :
 - reg : shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in
 	     the reg property.
+- vdd_cx-supply: phandle to the CX rail that needs to be voted
+		 on behalf of the NPU CC clocks.
+- vdd_gdsc-supply: phandle to the NPU core GDSC that needs to be
+		   toggled as part of the CRC sequence.
 - #clock-cells : shall contain 1.
 - #reset-cells : shall contain 1.
-
-Optional properties :
-- vdd_<rail>-supply: The logic rail supply.
 
 Example:
 	clock_npucc: qcom,npucc {
@@ -18,6 +19,7 @@ Example:
 		reg = <0x9910000 0x10000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_gdsc-supply = <&npu_core_gdsc>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
