@@ -26,6 +26,7 @@
 
 #define GLINK_LINK_STATE_UP_WAIT_TIMEOUT 5000
 #define APR_MAXIMUM_NUM_OF_RETRIES 2
+#define BG_RX_INTENT_REQ_TIMEOUT_MS 3000
 #define BG_GLINK_NAME "bg-cdc-glink"
 #define BG_GLINK_EDGE "bg"
 #define BG_MAX_NO_OF_INTENTS 20
@@ -284,6 +285,7 @@ void  *bg_cdc_channel_open(struct platform_device *pdev,
 	open_cfg.notify_rx_intent_req = bg_cdc_glink_notify_rx_intent_req;
 	open_cfg.notify_remote_rx_intent = bg_cdc_glink_notify_remote_rx_intent;
 	open_cfg.notify_tx_abort = bg_cdc_glink_notify_tx_abort;
+	open_cfg.rx_intent_req_timeout_ms = BG_RX_INTENT_REQ_TIMEOUT_MS;
 	open_cfg.priv = ch_info;
 
 	ch_info->channel_state = GLINK_REMOTE_DISCONNECTED;
@@ -304,18 +306,6 @@ void  *bg_cdc_channel_open(struct platform_device *pdev,
 		rc = -ETIMEDOUT;
 		goto close_link;
 	}
-
-	/*
-	 * Remote intent is not required for GLINK <--> BG
-	 * designed not to fail the open call.
-	 */
-	rc = wait_event_timeout(ch_info->wait,
-		ch_info->if_remote_intent_ready, 5 * HZ);
-	if (rc == 0)
-		dev_err(&pdev->dev, "%s: TIMEOUT for remote intent readiness\n",
-			__func__);
-
-	pr_err("Remote is ready !!!\n");
 	rc = bg_cdc_glink_rx_intents_config(ch_info,
 				ch_cfg->num_of_intents, ch_cfg->intents_size);
 	if (rc) {
