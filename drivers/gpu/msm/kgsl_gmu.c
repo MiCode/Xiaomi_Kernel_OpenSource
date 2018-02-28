@@ -1559,7 +1559,6 @@ void gmu_remove(struct kgsl_device *device)
 	tasklet_kill(&hfi->tasklet);
 
 	gmu_stop(device);
-	gmu_irq_disable(device);
 
 	while ((i < MAX_GMU_CLKS) && gmu->clks[i]) {
 		gmu->clks[i] = NULL;
