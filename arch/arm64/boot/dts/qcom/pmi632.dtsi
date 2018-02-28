@@ -436,16 +436,19 @@
 				label = "red";
 				pwms = <&pmi632_pwm 0 1000000>;
 				led-sources = <0>;
+				linux,default-trigger = "timer";
 			};
 			green {
 				label = "green";
 				pwms = <&pmi632_pwm 1 1000000>;
 				led-sources = <1>;
+				linux,default-trigger = "timer";
 			};
 			blue {
 				label = "blue";
 				pwms = <&pmi632_pwm 2 1000000>;
 				led-sources = <2>;
+				linux,default-trigger = "timer";
 			};
 		};
 
