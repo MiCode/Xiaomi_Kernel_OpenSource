@@ -32,13 +32,38 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 
 #define BGCOM "bg_com_dev"
+
+#define BGDAEMON_LDO09_LPM_VTG 0
+#define BGDAEMON_LDO09_NPM_VTG 10000
+
+#define BGDAEMON_LDO03_LPM_VTG 0
+#define BGDAEMON_LDO03_NPM_VTG 10000
+
 
 enum {
 	SSR_DOMAIN_BG,
 	SSR_DOMAIN_MODEM,
 	SSR_DOMAIN_MAX,
+};
+
+enum ldo_task {
+	ENABLE_LDO03,
+	ENABLE_LDO09,
+	DISABLE_LDO03,
+	DISABLE_LDO09
+};
+
+struct bgdaemon_regulator {
+	struct regulator *regldo03;
+	struct regulator *regldo09;
+};
+
+struct bgdaemon_priv {
+	struct bgdaemon_regulator rgltr;
+	enum ldo_task ldo_action;
 };
 
 struct bg_event {
@@ -57,8 +82,8 @@ static char *ssr_domains[] = {
 	"modem",
 };
 
+static struct bgdaemon_priv *dev;
 static unsigned bgreset_gpio;
-
 static  DEFINE_MUTEX(bg_char_mutex);
 static  struct cdev              bg_cdev;
 static  struct class             *bg_class;
@@ -83,6 +108,105 @@ static int send_uevent(struct bg_event *pce)
 	snprintf(event_string, ARRAY_SIZE(event_string),
 			"BG_EVENT=%d", pce->e_type);
 	return kobject_uevent_env(&dev_ret->kobj, KOBJ_CHANGE, envp);
+}
+
+static int bgdaemon_configure_regulators(bool state)
+{
+	int retval;
+
+	if (state == true) {
+		retval = regulator_enable(dev->rgltr.regldo03);
+		if (retval)
+			pr_err("Failed to enable LDO-03 regulator:%d\n",
+					retval);
+		retval = regulator_enable(dev->rgltr.regldo09);
+		if (retval)
+			pr_err("Failed to enable LDO-09 regulator:%d\n",
+					retval);
+	}
+	if (state == false) {
+		retval = regulator_disable(dev->rgltr.regldo03);
+		if (retval)
+			pr_err("Failed to disable LDO-03 regulator:%d\n",
+					retval);
+		retval = regulator_disable(dev->rgltr.regldo09);
+		if (retval)
+			pr_err("Failed to disable LDO-09 regulator:%d\n",
+					retval);
+	}
+	return retval;
+}
+static int bgdaemon_init_regulators(struct device *pdev)
+{
+	int rc;
+	struct regulator *reg03;
+	struct regulator *reg09;
+
+	dev = dev_get_drvdata(pdev);
+	reg03 = regulator_get(pdev, "ssr-reg1");
+	if (IS_ERR_OR_NULL(reg03)) {
+		rc = PTR_ERR(reg03);
+		pr_err("Unable to get regulator for LDO-03\n");
+		goto err_ret;
+	}
+	reg09 = regulator_get(pdev, "ssr-reg2");
+	if (IS_ERR_OR_NULL(reg09)) {
+		rc = PTR_ERR(reg09);
+		pr_err("Unable to get regulator for LDO-09\n");
+		goto err_ret;
+	}
+	dev->rgltr.regldo03 = reg03;
+	dev->rgltr.regldo09 = reg09;
+	return 0;
+err_ret:
+	return rc;
+}
+
+static int bgdaemon_ldowork(enum ldo_task do_action)
+{
+	int ret;
+
+	switch (do_action) {
+	case ENABLE_LDO03:
+		ret = regulator_set_optimum_mode(dev->rgltr.regldo03,
+							BGDAEMON_LDO03_NPM_VTG);
+		if (ret < 0) {
+			pr_err("Failed to request LDO-03 voltage:%d\n",
+					ret);
+			goto err_ret;
+		}
+		break;
+	case ENABLE_LDO09:
+		ret = regulator_set_optimum_mode(dev->rgltr.regldo09,
+							BGDAEMON_LDO09_NPM_VTG);
+		if (ret < 0) {
+			pr_err("Failed to request LDO-09 voltage:%d\n",
+					ret);
+			goto err_ret;
+		}
+		break;
+	case DISABLE_LDO03:
+		ret = regulator_set_optimum_mode(dev->rgltr.regldo03,
+							BGDAEMON_LDO03_LPM_VTG);
+		if (ret < 0) {
+			pr_err("Failed to disable LDO-03:%d\n", ret);
+			goto err_ret;
+		}
+		break;
+	case DISABLE_LDO09:
+		ret = regulator_set_optimum_mode(dev->rgltr.regldo09,
+							BGDAEMON_LDO09_LPM_VTG);
+		if (ret < 0) {
+			pr_err("Failed to disable LDO-09:%d\n", ret);
+			goto err_ret;
+		}
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+err_ret:
+	return ret;
 }
 
 static int bgcom_char_open(struct inode *inode, struct file *file)
@@ -245,7 +369,9 @@ static int bg_daemon_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
 	unsigned reset_gpio;
+	int ret;
 
+	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	node = pdev->dev.of_node;
 
 	reset_gpio = of_get_named_gpio(node, "qcom,bg-reset-gpio", 0);
@@ -267,6 +393,21 @@ static int bg_daemon_probe(struct platform_device *pdev)
 	pr_info("bg-soft-reset gpio successfully requested\n");
 	bgreset_gpio = reset_gpio;
 
+	dev_set_drvdata(&pdev->dev, dev);
+	ret = bgdaemon_init_regulators(&pdev->dev);
+	if (ret != 0) {
+		pr_err("Failed to init regulators:%d\n", ret);
+		goto err_device;
+	}
+	ret = bgdaemon_configure_regulators(true);
+	if (ret) {
+		pr_err("Failed to confifigure regulators:%d\n", ret);
+		bgdaemon_configure_regulators(false);
+		goto err_ret;
+	}
+
+err_device:
+	return -ENODEV;
 err_ret:
 	return 0;
 }
@@ -337,6 +478,7 @@ static void __exit exit_bg_com_dev(void)
 	class_destroy(bg_class);
 	cdev_del(&bg_cdev);
 	unregister_chrdev_region(bg_dev, 1);
+	bgdaemon_configure_regulators(false);
 	platform_driver_unregister(&bg_daemon_driver);
 }
 
@@ -353,12 +495,16 @@ static int ssr_bg_cb(struct notifier_block *this,
 	switch (opcode) {
 	case SUBSYS_BEFORE_SHUTDOWN:
 		bge.e_type = BG_BEFORE_POWER_DOWN;
+		bgdaemon_ldowork(ENABLE_LDO03);
+		bgdaemon_ldowork(ENABLE_LDO09);
 		bgcom_bgdown_handler();
 		bgcom_set_spi_state(BGCOM_SPI_BUSY);
 		send_uevent(&bge);
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		bge.e_type = BG_AFTER_POWER_UP;
+		bgdaemon_ldowork(DISABLE_LDO03);
+		bgdaemon_ldowork(DISABLE_LDO09);
 		bgcom_set_spi_state(BGCOM_SPI_FREE);
 		send_uevent(&bge);
 		break;
