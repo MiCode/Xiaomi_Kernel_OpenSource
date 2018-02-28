@@ -1539,6 +1539,12 @@ static void __setup_ucregion_memory_map(struct venus_hfi_device *device)
 	if (device->qdss.align_device_addr)
 		__write_register(device, VIDC_MMAP_ADDR,
 				(u32)device->qdss.align_device_addr);
+	/* initialize DSP QTBL & UCREGION with CPU queues */
+	__write_register(device, HFI_DSP_QTBL_ADDR,
+			(u32)device->iface_q_table.align_device_addr);
+	__write_register(device, HFI_DSP_UC_REGION_ADDR,
+			(u32)device->iface_q_table.align_device_addr);
+	__write_register(device, HFI_DSP_UC_REGION_SIZE, SHARED_QSIZE);
 	if (device->res->domain_cvp) {
 		__write_register(device, HFI_DSP_QTBL_ADDR,
 			(u32)device->dsp_iface_q_table.align_device_addr);
