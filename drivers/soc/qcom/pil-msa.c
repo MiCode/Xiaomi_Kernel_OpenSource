@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,7 +79,7 @@
 /* CX_IPEAK Parameters */
 #define CX_IPEAK_MSS			BIT(5)
 /* Timeout value for MBA boot when minidump is enabled */
-#define MBA_ENCRYPTION_TIMEOUT	3000
+#define MBA_ENCRYPTION_TIMEOUT	5000
 enum scm_cmd {
 	PAS_MEM_SETUP_CMD = 2,
 };
