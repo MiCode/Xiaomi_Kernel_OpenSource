@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +71,11 @@ int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id, u32 clk_ctrl)
 	if (!sde_kms) {
 		SDE_ERROR("invalid argument\n");
 		return -EINVAL;
+	}
+
+	if (!sde_kms_is_vbif_operation_allowed(sde_kms)) {
+		SDE_DEBUG("vbif operations not permitted\n");
+		return 0;
 	}
 
 	vbif = sde_kms->hw_vbif[VBIF_RT];
@@ -225,6 +230,12 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 		SDE_ERROR("invalid arguments\n");
 		return;
 	}
+
+	if (!sde_kms_is_vbif_operation_allowed(sde_kms)) {
+		SDE_DEBUG("vbif operations not permitted\n");
+		return;
+	}
+
 	mdp = sde_kms->hw_mdp;
 
 	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
@@ -293,6 +304,12 @@ bool sde_vbif_set_xin_halt(struct sde_kms *sde_kms,
 		SDE_ERROR("invalid arguments\n");
 		return false;
 	}
+
+	if (!sde_kms_is_vbif_operation_allowed(sde_kms)) {
+		SDE_DEBUG("vbif operations not permitted\n");
+		return true;
+	}
+
 	mdp = sde_kms->hw_mdp;
 
 	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
@@ -352,6 +369,12 @@ void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
 		SDE_ERROR("invalid arguments\n");
 		return;
 	}
+
+	if (!sde_kms_is_vbif_operation_allowed(sde_kms)) {
+		SDE_DEBUG("vbif operations not permitted\n");
+		return;
+	}
+
 	mdp = sde_kms->hw_mdp;
 
 	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
@@ -408,6 +431,11 @@ void sde_vbif_clear_errors(struct sde_kms *sde_kms)
 		return;
 	}
 
+	if (!sde_kms_is_vbif_operation_allowed(sde_kms)) {
+		SDE_DEBUG("vbif operations not permitted\n");
+		return;
+	}
+
 	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
 		vbif = sde_kms->hw_vbif[i];
 		if (vbif && vbif->ops.clear_errors) {
@@ -430,6 +458,11 @@ void sde_vbif_init_memtypes(struct sde_kms *sde_kms)
 
 	if (!sde_kms) {
 		SDE_ERROR("invalid argument\n");
+		return;
+	}
+
+	if (!sde_kms_is_vbif_operation_allowed(sde_kms)) {
+		SDE_DEBUG("vbif operations not permitted\n");
 		return;
 	}
 
