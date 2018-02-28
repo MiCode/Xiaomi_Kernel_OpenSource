@@ -2546,6 +2546,9 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		return;
 	}
 
+	if (drm_enc->crtc && !sde_enc->crtc)
+		sde_enc->crtc = drm_enc->crtc;
+
 	comp_info = &mode_info.comp_info;
 	cur_mode = &sde_enc->base.crtc->state->adjusted_mode;
 
