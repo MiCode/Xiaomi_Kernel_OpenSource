@@ -2143,7 +2143,7 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 		priv_info->phy_timing_len = len;
 	};
 
-	mode->pixel_clk_khz = (DSI_H_TOTAL(&mode->timing) *
+	mode->pixel_clk_khz = (mode->timing.h_active *
 			DSI_V_TOTAL(&mode->timing) *
 			mode->timing.refresh_rate) / 1000;
 	return rc;
