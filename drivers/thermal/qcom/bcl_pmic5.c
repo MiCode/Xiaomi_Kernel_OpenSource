@@ -31,6 +31,7 @@
 
 #define BCL_DRIVER_NAME       "bcl_pmic5"
 #define BCL_MONITOR_EN        0x46
+#define BCL_IRQ_STATUS        0x09
 
 #define BCL_IBAT_HIGH         0x4B
 #define BCL_IBAT_TOO_HIGH     0x4C
@@ -41,6 +42,14 @@
 #define BCL_VBAT_ADC_LOW      0x48
 #define BCL_VBAT_COMP_LOW     0x49
 #define BCL_VBAT_COMP_TLOW    0x4A
+
+#define BCL_IRQ_VCMP_L0       0x1
+#define BCL_IRQ_VCMP_L1       0x2
+#define BCL_IRQ_VCMP_L2       0x4
+#define BCL_IRQ_IBAT_L0       0x10
+#define BCL_IRQ_IBAT_L1       0x20
+#define BCL_IRQ_IBAT_L2       0x40
+
 #define BCL_VBAT_SCALING_UV   49827
 #define BCL_VBAT_NO_READING   127
 #define BCL_VBAT_BASE_MV      2000
@@ -48,20 +57,20 @@
 #define BCL_VBAT_MAX_MV       3600
 
 enum bcl_dev_type {
-	BCL_HIGH_IBAT,
-	BCL_VHIGH_IBAT,
-	BCL_LOW_VBAT,
-	BCL_VLOW_VBAT,
-	BCL_CLOW_VBAT,
+	BCL_IBAT_LVL0,
+	BCL_IBAT_LVL1,
+	BCL_VBAT_LVL0,
+	BCL_VBAT_LVL1,
+	BCL_VBAT_LVL2,
 	BCL_TYPE_MAX,
 };
 
 static char bcl_int_names[BCL_TYPE_MAX][25] = {
-	"bcl-high-ibat",
-	"bcl-very-high-ibat",
-	"bcl-low-vbat",
-	"bcl-very-low-vbat",
-	"bcl-crit-low-vbat",
+	"bcl-ibat-lvl0",
+	"bcl-ibat-lvl1",
+	"bcl-vbat-lvl0",
+	"bcl-vbat-lvl1",
+	"bcl-vbat-lvl2",
 };
 
 struct bcl_peripheral_data {
@@ -70,6 +79,7 @@ struct bcl_peripheral_data {
 	int                     last_val;
 	struct mutex            state_trans_lock;
 	bool			irq_enabled;
+	enum bcl_dev_type	type;
 	struct thermal_zone_of_device_ops ops;
 	struct thermal_zone_device *tz_dev;
 };
@@ -180,11 +190,11 @@ static int bcl_set_ibat(void *data, int low, int high)
 	ibat_ua = thresh_value;
 	convert_ibat_to_adc_val(&thresh_value);
 	val = (int8_t)thresh_value;
-	if (&bcl_perph->param[BCL_HIGH_IBAT] == bat_data) {
+	if (&bcl_perph->param[BCL_IBAT_LVL0] == bat_data) {
 		addr = BCL_IBAT_HIGH;
 		pr_debug("ibat high threshold:%d mA ADC:0x%02x\n",
 				ibat_ua, val);
-	} else if (&bcl_perph->param[BCL_VHIGH_IBAT] == bat_data) {
+	} else if (&bcl_perph->param[BCL_IBAT_LVL1] == bat_data) {
 		addr = BCL_IBAT_TOO_HIGH;
 		pr_debug("ibat too high threshold:%d mA ADC:0x%02x\n",
 				ibat_ua, val);
@@ -218,8 +228,9 @@ static int bcl_read_ibat(void *data, int *adc_value)
 	ret = bcl_read_register(BCL_IBAT_READ, &val);
 	if (ret)
 		goto bcl_read_exit;
-	*adc_value = val;
-	if (*adc_value == 0) {
+	/* IBat ADC reading is in 2's compliment form */
+	*adc_value = sign_extend32(val, 7);
+	if (val == 0) {
 		/*
 		 * The sensor sometime can read a value 0 if there is
 		 * consequtive reads
@@ -229,7 +240,7 @@ static int bcl_read_ibat(void *data, int *adc_value)
 		convert_adc_to_ibat_val(adc_value);
 		bat_data->last_val = *adc_value;
 	}
-	pr_debug("ibat:%d mA\n", bat_data->last_val);
+	pr_debug("ibat:%d mA ADC:0x%02x\n", bat_data->last_val, val);
 
 bcl_read_exit:
 	return ret;
@@ -244,11 +255,11 @@ static int bcl_get_vbat_trip(void *data, int type, int *trip)
 	int16_t addr;
 
 	*trip = 0;
-	if (&bcl_perph->param[BCL_LOW_VBAT] == bat_data)
+	if (&bcl_perph->param[BCL_VBAT_LVL0] == bat_data)
 		addr = BCL_VBAT_ADC_LOW;
-	else if (&bcl_perph->param[BCL_VLOW_VBAT] == bat_data)
+	else if (&bcl_perph->param[BCL_VBAT_LVL1] == bat_data)
 		addr = BCL_VBAT_COMP_LOW;
-	else if (&bcl_perph->param[BCL_CLOW_VBAT] == bat_data)
+	else if (&bcl_perph->param[BCL_VBAT_LVL2] == bat_data)
 		addr = BCL_VBAT_COMP_TLOW;
 	else
 		return -ENODEV;
@@ -260,15 +271,15 @@ static int bcl_get_vbat_trip(void *data, int type, int *trip)
 	if (addr == BCL_VBAT_ADC_LOW) {
 		*trip = val;
 		convert_adc_to_vbat_thresh_val(trip);
-		pr_debug("vbat trip: %d mV\n", val);
+		pr_debug("vbat trip: %d mV ADC:0x%02x\n", *trip, val);
 	} else {
 		*trip = 2250 + val * 25;
 		if (*trip > BCL_VBAT_MAX_MV)
 			*trip = BCL_VBAT_MAX_MV;
-		pr_debug("vbat-%s-low trip: %d mV\n",
+		pr_debug("vbat-%s-low trip: %d mV ADC:0x%02x\n",
 				(addr == BCL_VBAT_COMP_LOW) ?
 				"too" : "critical",
-				bat_data->irq_num);
+				*trip, val);
 	}
 
 	return 0;
@@ -330,6 +341,9 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 {
 	struct bcl_peripheral_data *perph_data =
 		(struct bcl_peripheral_data *)data;
+	unsigned int irq_status = 0;
+	int ret;
+	bool notify = false;
 
 	mutex_lock(&perph_data->state_trans_lock);
 	if (!perph_data->irq_enabled) {
@@ -339,7 +353,60 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 		goto exit_intr;
 	}
 	mutex_unlock(&perph_data->state_trans_lock);
-	of_thermal_handle_trip(perph_data->tz_dev);
+
+	ret = bcl_read_register(BCL_IRQ_STATUS, &irq_status);
+	if (ret) {
+		disable_irq_nosync(irq);
+		perph_data->irq_enabled = false;
+		return IRQ_HANDLED;
+	}
+	pr_debug("Irq:%d triggered for bcl type:%d. status:%u\n",
+			irq, perph_data->type, irq_status);
+	switch (perph_data->type) {
+	case BCL_VBAT_LVL0: /* BCL L0 interrupt */
+		if ((irq_status & BCL_IRQ_VCMP_L0) &&
+		       (bcl_perph->param[BCL_VBAT_LVL0].tz_dev)) {
+			of_thermal_handle_trip(
+				bcl_perph->param[BCL_VBAT_LVL0].tz_dev);
+			notify = true;
+		}
+		if ((irq_status & BCL_IRQ_IBAT_L0) &&
+			(bcl_perph->param[BCL_IBAT_LVL0].tz_dev)) {
+			of_thermal_handle_trip(
+				bcl_perph->param[BCL_IBAT_LVL0].tz_dev);
+			notify = true;
+		}
+		break;
+	case BCL_VBAT_LVL1: /* BCL L1 interrupt */
+		if ((irq_status & BCL_IRQ_VCMP_L1) &&
+			(bcl_perph->param[BCL_VBAT_LVL1].tz_dev)) {
+			of_thermal_handle_trip(
+				bcl_perph->param[BCL_VBAT_LVL1].tz_dev);
+			notify = true;
+		}
+		if ((irq_status & BCL_IRQ_IBAT_L1) &&
+			(bcl_perph->param[BCL_IBAT_LVL1].tz_dev)) {
+			of_thermal_handle_trip(
+				bcl_perph->param[BCL_IBAT_LVL1].tz_dev);
+			notify = true;
+		}
+		break;
+	case BCL_VBAT_LVL2: /* BCL L2 interrupt */
+		if ((irq_status & BCL_IRQ_VCMP_L2) &&
+			(bcl_perph->param[BCL_VBAT_LVL2].tz_dev)) {
+			of_thermal_handle_trip(
+				bcl_perph->param[BCL_VBAT_LVL2].tz_dev);
+			notify = true;
+		}
+		break;
+	default:
+		pr_err("Invalid type%d for interrupt:%d\n",
+				perph_data->type, irq);
+		break;
+	}
+	if (!notify)
+		pr_err_ratelimited("Irq:%d triggered. status:%u\n",
+					irq, irq_status);
 
 	return IRQ_HANDLED;
 
@@ -357,31 +424,27 @@ static int bcl_get_devicetree_data(struct platform_device *pdev)
 	prop = of_get_address(dev_node, 0, NULL, NULL);
 	if (prop) {
 		bcl_perph->fg_bcl_addr = be32_to_cpu(*prop);
-		pr_debug("fg_user_adc@%04x\n", bcl_perph->fg_bcl_addr);
+		pr_debug("fg_bcl@%04x\n", bcl_perph->fg_bcl_addr);
 	} else {
-		dev_err(&pdev->dev, "No fg_user_adc registers found\n");
+		dev_err(&pdev->dev, "No fg_bcl registers found\n");
 		return -ENODEV;
 	}
 
 	return ret;
 }
 
-static void bcl_fetch_trip(struct platform_device *pdev, const char *int_name,
+static void bcl_fetch_trip(struct platform_device *pdev, enum bcl_dev_type type,
 		struct bcl_peripheral_data *data,
 		irqreturn_t (*handle)(int, void *))
 {
 	int ret = 0, irq_num = 0;
+	char *int_name = bcl_int_names[type];
 
 	mutex_lock(&data->state_trans_lock);
 	data->irq_num = 0;
 	data->irq_enabled = false;
-	if (!handle) {
-		mutex_unlock(&data->state_trans_lock);
-		return;
-	}
-
 	irq_num = platform_get_irq_byname(pdev, int_name);
-	if (irq_num) {
+	if (irq_num && handle) {
 		ret = devm_request_threaded_irq(&pdev->dev,
 				irq_num, NULL, handle,
 				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
@@ -395,6 +458,9 @@ static void bcl_fetch_trip(struct platform_device *pdev, const char *int_name,
 		}
 		disable_irq_nosync(irq_num);
 		data->irq_num = irq_num;
+	} else if (irq_num && !handle) {
+		disable_irq_nosync(irq_num);
+		data->irq_num = irq_num;
 	}
 	mutex_unlock(&data->state_trans_lock);
 }
@@ -403,11 +469,11 @@ static void bcl_vbat_init(struct platform_device *pdev,
 		enum bcl_dev_type type)
 {
 	struct bcl_peripheral_data *vbat = &bcl_perph->param[type];
-	irqreturn_t (*handle)(int, void *) = (type == BCL_LOW_VBAT) ?
-						bcl_handle_irq : NULL;
+	irqreturn_t (*handle)(int, void *) = bcl_handle_irq;
 
 	mutex_init(&vbat->state_trans_lock);
-	bcl_fetch_trip(pdev, bcl_int_names[type], vbat, handle);
+	vbat->type = type;
+	bcl_fetch_trip(pdev, type, vbat, handle);
 	vbat->ops.get_temp = bcl_read_vbat;
 	vbat->ops.set_trips = bcl_set_vbat;
 	vbat->ops.get_trip_temp = bcl_get_vbat_trip;
@@ -425,22 +491,44 @@ static void bcl_vbat_init(struct platform_device *pdev,
 
 static void bcl_probe_vbat(struct platform_device *pdev)
 {
-	bcl_vbat_init(pdev, BCL_LOW_VBAT);
-	bcl_vbat_init(pdev, BCL_VLOW_VBAT);
-	bcl_vbat_init(pdev, BCL_CLOW_VBAT);
+	bcl_vbat_init(pdev, BCL_VBAT_LVL0);
+	bcl_vbat_init(pdev, BCL_VBAT_LVL1);
+	bcl_vbat_init(pdev, BCL_VBAT_LVL2);
 }
 
 static void bcl_ibat_init(struct platform_device *pdev,
 				enum bcl_dev_type type)
 {
 	struct bcl_peripheral_data *ibat = &bcl_perph->param[type];
-	irqreturn_t (*handle)(int, void *) = (type == BCL_HIGH_IBAT) ?
-						bcl_handle_irq : NULL;
 
 	mutex_init(&ibat->state_trans_lock);
-	bcl_fetch_trip(pdev, bcl_int_names[type], ibat, handle);
+	ibat->type = type;
+	bcl_fetch_trip(pdev, type, ibat, NULL);
 	ibat->ops.get_temp = bcl_read_ibat;
 	ibat->ops.set_trips = bcl_set_ibat;
+
+	switch (type) {
+	case BCL_IBAT_LVL0:
+		if (!bcl_perph->param[BCL_VBAT_LVL0].irq_num ||
+			ibat->irq_num !=
+			bcl_perph->param[BCL_VBAT_LVL0].irq_num) {
+			pr_err("ibat[%d]: irq %d mismatch\n",
+				type, ibat->irq_num);
+			return;
+		}
+		break;
+	case BCL_IBAT_LVL1:
+		if (!bcl_perph->param[BCL_VBAT_LVL1].irq_num ||
+			ibat->irq_num !=
+			bcl_perph->param[BCL_VBAT_LVL1].irq_num) {
+			pr_err("ibat[%d]: irq %d mismatch\n",
+				type, ibat->irq_num);
+			return;
+		}
+		break;
+	default:
+		return;
+	}
 	ibat->tz_dev = thermal_zone_of_sensor_register(&pdev->dev,
 				type, ibat, &ibat->ops);
 	if (IS_ERR(ibat->tz_dev)) {
@@ -455,8 +543,8 @@ static void bcl_ibat_init(struct platform_device *pdev,
 
 static void bcl_probe_ibat(struct platform_device *pdev)
 {
-	bcl_ibat_init(pdev, BCL_HIGH_IBAT);
-	bcl_ibat_init(pdev, BCL_VHIGH_IBAT);
+	bcl_ibat_init(pdev, BCL_IBAT_LVL0);
+	bcl_ibat_init(pdev, BCL_IBAT_LVL1);
 }
 
 static void bcl_configure_bcl_peripheral(void)
@@ -492,8 +580,8 @@ static int bcl_probe(struct platform_device *pdev)
 	}
 
 	bcl_get_devicetree_data(pdev);
-	bcl_probe_ibat(pdev);
 	bcl_probe_vbat(pdev);
+	bcl_probe_ibat(pdev);
 	bcl_configure_bcl_peripheral();
 
 	dev_set_drvdata(&pdev->dev, bcl_perph);
