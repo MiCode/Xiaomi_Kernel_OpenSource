@@ -17,21 +17,27 @@ Required Parameters:
 	'qcom,bcl-v5' for bcl peripheral in PMIC version 5.
 - reg: <a b> where 'a' is the starting register address of the PMIC
 	peripheral and 'b' is the size of the peripheral address space.
-- interrupts: <a b c> Where 'a' is the SLAVE ID of the PMIC, 'b' is
-		the peripheral ID and 'c' is the interrupt number in PMIC.
+- interrupts: <a b c d> Where,
+		'a' is the SLAVE ID of the PMIC,
+		'b' is the peripheral ID,
+		'c' is the interrupt number in PMIC and
+		'd' is the interrupt type.
 - interrupt-names: user defined names for the interrupts. These
 		interrupt names will be used by the drivers to identify the
 		interrupts, instead of specifying the ID's. bcl driver will
 		accept these standard interrupts.
-		"bcl-low-vbat"
-		"bcl-high-ibat"
+		"bcl-ibat-lvl0",
+		"bcl-ibat-lvl1",
+		"bcl-vbat-lvl0",
+		"bcl-vbat-lvl1",
+		"bcl-vbat-lvl2",
 
 Example:
 	bcl@4200 {
 		compatible = "qcom,bcl-v5";
 		reg = <0x4200 0x100>;
-		interrupts = <0x2 0x42 0x0>,
-				<0x2 0x42 0x1>;
-		interrupt-names = "bcl-high-ibat",
-					"bcl-low-vbat";
+		interrupts = <0x2 0x42 0x0 IRQ_TYPE_NONE>,
+				<0x2 0x42 0x1 IRQ_TYPE_NONE>;
+		interrupt-names = "bcl-ibat-lvl0",
+					"bcl-vbat-lvl0";
 	};
