@@ -24,6 +24,7 @@
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/regmap.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 /* General definitions */
 #define WLED_DEFAULT_BRIGHTNESS		2048
@@ -158,6 +159,7 @@ struct wled {
 	const char *name;
 	struct platform_device *pdev;
 	struct regmap *regmap;
+	struct pmic_revid_data *pmic_rev_id;
 	struct mutex lock;
 	struct wled_config cfg;
 	ktime_t last_sc_event_time;
@@ -1166,6 +1168,7 @@ static u32 wled_values(const struct wled_var_cfg *cfg, u32 idx)
 static int wled_configure(struct wled *wled, struct device *dev)
 {
 	struct wled_config *cfg = &wled->cfg;
+	struct device_node *revid_node;
 	const __be32 *prop_addr;
 	u32 val, c;
 	int rc, i, j, size;
@@ -1267,6 +1270,24 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	rc = of_property_read_string(dev->of_node, "label", &wled->name);
 	if (rc < 0)
 		wled->name = dev->of_node->name;
+
+	if (of_find_property(dev->of_node, "qcom,pmic-revid", NULL)) {
+		revid_node = of_parse_phandle(dev->of_node, "qcom,pmic-revid",
+				0);
+		if (!revid_node) {
+			pr_err("Error in getting revid_node\n");
+			return -EINVAL;
+		}
+
+		wled->pmic_rev_id = get_revid_data(revid_node);
+		of_node_put(revid_node);
+		if (IS_ERR_OR_NULL(wled->pmic_rev_id)) {
+			pr_err("Unable to get pmic_revid rc=%ld\n",
+				PTR_ERR(wled->pmic_rev_id));
+			wled->pmic_rev_id = NULL;
+			return -EPROBE_DEFER;
+		}
+	}
 
 	if (is_wled5(wled)) {
 		u32_opts = wled5_opts;
@@ -1375,6 +1396,14 @@ static int wled_probe(struct platform_device *pdev)
 	/* For WLED5, when CABC is enabled, max brightness is 4095. */
 	if (is_wled5(wled) && wled->cfg.cabc_sel)
 		wled->max_brightness = WLED_MAX_BRIGHTNESS_12B;
+
+	/*
+	 * As per the hardware recommendation, FS current should
+	 * be limited to 20 mA for PM855L v1.0.
+	 */
+	if (wled->pmic_rev_id->rev4 == PM855L_V1P0_REV4 &&
+		wled->cfg.fs_current > 8)
+		wled->cfg.fs_current = 8;
 
 	if (is_wled4(wled))
 		rc = wled4_setup(wled);
