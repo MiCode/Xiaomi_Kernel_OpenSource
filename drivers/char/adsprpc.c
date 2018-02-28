@@ -48,6 +48,7 @@
 #include <soc/qcom/ramdump.h>
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
+
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
 #define TZ_PIL_AUTH_QDSP6_PROC 1
@@ -68,10 +69,15 @@
 #define FASTRPC_CTX_MAGIC (0xbeeddeed)
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
+#ifndef ION_FLAG_CACHED
+#define ION_FLAG_CACHED (1)
+#endif
+
 #define ADSP_DOMAIN_ID (0)
 #define MDSP_DOMAIN_ID (1)
 #define SDSP_DOMAIN_ID (2)
 #define CDSP_DOMAIN_ID (3)
+
 #define PERF_KEYS \
 	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke:tid:ptr"
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
@@ -249,7 +255,6 @@ struct fastrpc_apps {
 	int compat;
 	struct hlist_head drivers;
 	spinlock_t hlock;
-	struct ion_client *client;
 	struct device *dev;
 	unsigned int latency;
 	int rpmsg_register;
@@ -623,15 +628,6 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 		else
 			sess = fl->sctx;
 
-		if (!IS_ERR_OR_NULL(map->handle))
-			ion_free(fl->apps->client, map->handle);
-		if (sess && sess->smmu.enabled) {
-			if (map->size || map->phys)
-				msm_dma_unmap_sg(sess->smmu.dev,
-					map->table->sgl,
-					map->table->nents, DMA_BIDIRECTIONAL,
-					map->buf);
-		}
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (vmid && map->phys) {
 			int srcVM[2] = {VMID_HLOS, vmid};
@@ -664,7 +660,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	int cid = fl->cid;
 	struct fastrpc_channel_ctx *chan = &apps->channel[cid];
 	struct fastrpc_mmap *map = NULL;
-	unsigned long attrs;
 	dma_addr_t region_phys = 0;
 	void *region_vaddr = NULL;
 	unsigned long flags;
@@ -699,12 +694,10 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				(unsigned int)map->attr);
 			map->refs = 2;
 		}
-		VERIFY(err, !IS_ERR_OR_NULL(map->handle =
-				ion_import_dma_buf_fd(fl->apps->client, fd)));
+		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err)
 			goto bail;
-		VERIFY(err, !ion_handle_get_flags(fl->apps->client, map->handle,
-						&flags));
+		VERIFY(err, !dma_buf_get_flags(map->buf, &flags));
 		if (err)
 			goto bail;
 
@@ -725,38 +718,29 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		if (err)
 			goto bail;
 
-		map->uncached = !ION_IS_CACHED(flags);
+		map->uncached = !(flags & ION_FLAG_CACHED);
 		if (map->attr & FASTRPC_ATTR_NOVA && !sess->smmu.coherent)
 			map->uncached = 1;
 
-		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
-		if (err)
-			goto bail;
 		VERIFY(err, !IS_ERR_OR_NULL(map->attach =
 				dma_buf_attach(map->buf, sess->smmu.dev)));
 		if (err)
 			goto bail;
+
+		map->attach->dma_map_attrs |= DMA_ATTR_EXEC_MAPPING;
+		if (map->attr & FASTRPC_ATTR_NON_COHERENT ||
+			(sess->smmu.coherent && map->uncached))
+			map->attach->dma_map_attrs |=
+				DMA_ATTR_FORCE_NON_COHERENT;
+		else if (map->attr & FASTRPC_ATTR_COHERENT)
+			map->attach->dma_map_attrs |= DMA_ATTR_FORCE_COHERENT;
+
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
 			dma_buf_map_attachment(map->attach,
 				DMA_BIDIRECTIONAL)));
 		if (err)
 			goto bail;
-		if (sess->smmu.enabled) {
-			attrs = DMA_ATTR_EXEC_MAPPING;
-
-			if (map->attr & FASTRPC_ATTR_NON_COHERENT ||
-				(sess->smmu.coherent && map->uncached))
-				attrs |= DMA_ATTR_FORCE_NON_COHERENT;
-			else if (map->attr & FASTRPC_ATTR_COHERENT)
-				attrs |= DMA_ATTR_FORCE_COHERENT;
-
-			VERIFY(err, map->table->nents ==
-				msm_dma_map_sg_attrs(sess->smmu.dev,
-				map->table->sgl, map->table->nents,
-				DMA_BIDIRECTIONAL, map->buf, attrs));
-			if (err)
-				goto bail;
-		} else {
+		if (!sess->smmu.enabled) {
 			VERIFY(err, map->table->nents == 1);
 			if (err)
 				goto bail;
@@ -1497,10 +1481,10 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 				buf_page_start(rpra[i].buf.pv)) {
 			continue;
 		}
-		if (map && map->handle)
-			msm_ion_do_cache_op(ctx->fl->apps->client, map->handle,
-				(char *)uint64_to_ptr(rpra[i].buf.pv),
-				rpra[i].buf.len, ION_IOC_INV_CACHES);
+		if (map && map->buf) {
+			dma_buf_begin_cpu_access(map->buf, DMA_BIDIRECTIONAL);
+			dma_buf_end_cpu_access(map->buf, DMA_BIDIRECTIONAL);
+		}
 		else
 			dmac_inv_range((char *)uint64_to_ptr(rpra[i].buf.pv),
 				(char *)uint64_to_ptr(rpra[i].buf.pv
@@ -3187,10 +3171,6 @@ static int __init fastrpc_device_init(void)
 							&me->channel[i].nb);
 	}
 
-	me->client = msm_ion_client_create(DEVICE_NAME);
-	VERIFY(err, !IS_ERR_OR_NULL(me->client));
-	if (err)
-		goto device_create_bail;
 	err = register_rpmsg_driver(&fastrpc_rpmsg_client);
 	if (err) {
 		pr_err("adsprpc: register_rpmsg_driver: failed with err %d\n",
@@ -3198,7 +3178,6 @@ static int __init fastrpc_device_init(void)
 		goto device_create_bail;
 	}
 	me->rpmsg_register = 1;
-
 	debugfs_root = debugfs_create_dir("adsprpc", NULL);
 	return 0;
 device_create_bail:
@@ -3237,7 +3216,6 @@ static void __exit fastrpc_device_exit(void)
 	class_destroy(me->class);
 	cdev_del(&me->cdev);
 	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
-	ion_client_destroy(me->client);
 	if (me->rpmsg_register == 1)
 		unregister_rpmsg_driver(&fastrpc_rpmsg_client);
 	debugfs_remove_recursive(debugfs_root);
