@@ -567,8 +567,6 @@ static int wled_auto_calibrate_at_init(struct wled *wled)
 
 static void handle_ovp_fault(struct wled *wled)
 {
-	int rc;
-
 	if (!wled->cfg.auto_calib_enabled)
 		return;
 
