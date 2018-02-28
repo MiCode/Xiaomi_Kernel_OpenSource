@@ -72,9 +72,6 @@
 
 #define USB_PDPHY_RX_BUFFER		0x80
 
-#define USB_PDPHY_SEC_ACCESS		0xD0
-#define USB_PDPHY_TRIM_3		0xF3
-
 /* VDD regulator */
 #define VDD_PDPHY_VOL_MIN		2800000 /* uV */
 #define VDD_PDPHY_VOL_MAX		3300000 /* uV */
@@ -839,14 +836,6 @@ static int pdphy_probe(struct platform_device *pdev)
 		pdphy_msg_rx_discarded_irq, NULL,
 		(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
-		return ret;
-
-	ret = pdphy_reg_write(pdphy, USB_PDPHY_SEC_ACCESS, 0xA5);
-	if (ret)
-		return ret;
-
-	ret = pdphy_reg_write(pdphy, USB_PDPHY_TRIM_3, 0x2);
-	if (ret)
 		return ret;
 
 	/* usbpd_create() could call back to us, so have __pdphy ready */
