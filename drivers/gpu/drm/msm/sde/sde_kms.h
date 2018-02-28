@@ -146,6 +146,18 @@ enum sde_kms_smmu_state_transition_type {
 };
 
 /**
+ * enum sde_kms_sui_misr_state: state request for enabling/disabling MISR
+ * @NONE: no request
+ * @ENABLE_SUI_MISR_REQ: request to enable sui MISR
+ * @DISABLE_SUI_MISR_REQ: request to disable sui MISR
+ */
+enum sde_kms_sui_misr_state {
+	SUI_MISR_NONE,
+	SUI_MISR_ENABLE_REQ,
+	SUI_MISR_DISABLE_REQ
+};
+
+/**
  * struct sde_kms_smmu_state_data: stores the smmu state and transition type
  * @state: current state of smmu context banks
  * @transition_type: transition request type
@@ -155,6 +167,7 @@ struct sde_kms_smmu_state_data {
 	uint32_t state;
 	uint32_t transition_type;
 	uint32_t transition_error;
+	uint32_t sui_misr_state;
 };
 
 /*
@@ -351,8 +364,7 @@ static inline bool sde_kms_is_secure_session_inprogress(struct sde_kms *sde_kms)
 		return false;
 
 	mutex_lock(&sde_kms->secure_transition_lock);
-	if ((sde_kms->smmu_state.state == DETACHED) ||
-			(sde_kms->smmu_state.state == DETACH_ALL_REQ))
+	if (sde_kms->smmu_state.state == DETACHED)
 		ret = true;
 	mutex_unlock(&sde_kms->secure_transition_lock);
 

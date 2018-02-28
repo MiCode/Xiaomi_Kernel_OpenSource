@@ -932,6 +932,7 @@ struct sde_perf_cfg {
  * @wb_formats         Supported formats for wb
  * @vbif_qos_nlvl      number of vbif QoS priority level
  * @ts_prefill_rev     prefill traffic shaper feature revision
+ * @sui_misr_supported  indicate if secure-ui-misr is supported
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -961,6 +962,8 @@ struct sde_mdss_cfg {
 	bool has_idle_pc;
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
+
+	bool sui_misr_supported;
 
 	bool has_hdr;
 	u32 mdss_count;

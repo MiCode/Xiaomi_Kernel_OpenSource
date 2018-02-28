@@ -1787,6 +1787,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	struct drm_encoder *encoder;
 	struct sde_crtc *sde_crtc;
 	struct sde_kms *sde_kms;
+	struct sde_mdss_cfg *catalog;
 	struct sde_kms_smmu_state_data *smmu_state;
 	uint32_t translation_mode = 0, secure_level;
 	int ops  = 0;
@@ -1804,6 +1805,7 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	smmu_state = &sde_kms->smmu_state;
 	sde_crtc = to_sde_crtc(crtc);
 	secure_level = sde_crtc_get_secure_level(crtc, crtc->state);
+	catalog = sde_kms->catalog;
 
 	SDE_DEBUG("crtc%d, secure_level%d old_valid_fb%d\n",
 			crtc->base.id, secure_level, old_valid_fb);
@@ -1858,6 +1860,9 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE  |
 					SDE_KMS_OPS_CLEANUP_PLANE_FB);
 			}
+			if (catalog->sui_misr_supported)
+				smmu_state->sui_misr_state =
+						SUI_MISR_ENABLE_REQ;
 		/* secure camera usecase */
 		} else if (smmu_state->state == ATTACHED) {
 			smmu_state->state = DETACH_SEC_REQ;
@@ -1885,6 +1890,9 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 			if (old_valid_fb)
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE |
 				 SDE_KMS_OPS_CLEANUP_PLANE_FB);
+			if (catalog->sui_misr_supported)
+				smmu_state->sui_misr_state =
+						SUI_MISR_DISABLE_REQ;
 		}
 		break;
 
@@ -5295,6 +5303,46 @@ end:
 	return ret;
 }
 
+void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count)
+{
+	struct sde_kms *sde_kms;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_mixer *m;
+	int i;
+
+	if (!crtc) {
+		SDE_ERROR("invalid argument\n");
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
+
+	mutex_lock(&sde_crtc->crtc_lock);
+	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
+		SDE_DEBUG("crtc:%d misr enable/disable not allowed\n",
+				DRMID(crtc));
+		mutex_unlock(&sde_crtc->crtc_lock);
+		return;
+	}
+
+	sde_crtc->misr_enable = enable;
+	sde_crtc->misr_frame_count = frame_count;
+	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+		sde_crtc->misr_data[i] = 0;
+		m = &sde_crtc->mixers[i];
+		if (!m->hw_lm || !m->hw_lm->ops.setup_misr)
+			continue;
+
+		m->hw_lm->ops.setup_misr(m->hw_lm, enable, frame_count);
+	}
+	mutex_unlock(&sde_crtc->crtc_lock);
+}
+
 #ifdef CONFIG_DEBUG_FS
 static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 {
@@ -5442,9 +5490,9 @@ static int _sde_debugfs_status_open(struct inode *inode, struct file *file)
 static ssize_t _sde_crtc_misr_setup(struct file *file,
 		const char __user *user_buf, size_t count, loff_t *ppos)
 {
+	struct drm_crtc *crtc;
 	struct sde_crtc *sde_crtc;
-	struct sde_crtc_mixer *m;
-	int i = 0, rc;
+	int rc;
 	char buf[MISR_BUFF_SIZE + 1];
 	u32 frame_count, enable;
 	size_t buff_copy;
@@ -5453,6 +5501,8 @@ static ssize_t _sde_crtc_misr_setup(struct file *file,
 		return -EINVAL;
 
 	sde_crtc = file->private_data;
+	crtc = &sde_crtc->base;
+
 	buff_copy = min_t(size_t, count, MISR_BUFF_SIZE);
 	if (copy_from_user(buf, user_buf, buff_copy)) {
 		SDE_ERROR("buffer copy failed\n");
@@ -5468,18 +5518,7 @@ static ssize_t _sde_crtc_misr_setup(struct file *file,
 	if (rc)
 		return rc;
 
-	mutex_lock(&sde_crtc->crtc_lock);
-	sde_crtc->misr_enable = enable;
-	sde_crtc->misr_frame_count = frame_count;
-	for (i = 0; i < sde_crtc->num_mixers; ++i) {
-		sde_crtc->misr_data[i] = 0;
-		m = &sde_crtc->mixers[i];
-		if (!m->hw_lm || !m->hw_lm->ops.setup_misr)
-			continue;
-
-		m->hw_lm->ops.setup_misr(m->hw_lm, enable, frame_count);
-	}
-	mutex_unlock(&sde_crtc->crtc_lock);
+	sde_crtc_misr_setup(crtc, enable, frame_count);
 	_sde_crtc_power_enable(sde_crtc, false);
 
 	return count;
@@ -5488,7 +5527,9 @@ static ssize_t _sde_crtc_misr_setup(struct file *file,
 static ssize_t _sde_crtc_misr_read(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
+	struct drm_crtc *crtc;
 	struct sde_crtc *sde_crtc;
+	struct sde_kms *sde_kms;
 	struct sde_crtc_mixer *m;
 	int i = 0, rc;
 	u32 misr_status;
@@ -5502,11 +5543,21 @@ static ssize_t _sde_crtc_misr_read(struct file *file,
 		return -EINVAL;
 
 	sde_crtc = file->private_data;
+	crtc = &sde_crtc->base;
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms)
+		return -EINVAL;
+
 	rc = _sde_crtc_power_enable(sde_crtc, true);
 	if (rc)
 		return rc;
 
 	mutex_lock(&sde_crtc->crtc_lock);
+	if (sde_kms_is_secure_session_inprogress(sde_kms)) {
+		SDE_DEBUG("crtc:%d misr read not allowed\n", DRMID(crtc));
+		goto end;
+	}
+
 	if (!sde_crtc->misr_enable) {
 		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
 			"disabled\n");

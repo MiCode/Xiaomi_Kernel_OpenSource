@@ -741,4 +741,12 @@ void sde_crtc_update_cont_splash_mixer_settings(
  */
 uint64_t sde_crtc_get_sbuf_clk(struct drm_crtc_state *state);
 
+/**
+ * sde_crtc_misr_setup - to configure and enable/disable MISR
+ * @crtc: Pointer to drm crtc structure
+ * @enable: boolean to indicate enable/disable misr
+ * @frame_count: frame_count to be configured
+ */
+void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count);
+
 #endif /* _SDE_CRTC_H_ */

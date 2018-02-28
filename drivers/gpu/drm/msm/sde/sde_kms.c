@@ -546,6 +546,31 @@ end:
 	return ret;
 }
 
+static int _sde_kms_sui_misr_ctrl(struct sde_kms *sde_kms,
+		struct drm_crtc *crtc, bool enable)
+{
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	int ret;
+
+	if (enable) {
+		ret = sde_power_resource_enable(&priv->phandle,
+					sde_kms->core_client, true);
+		if (ret) {
+			SDE_ERROR("failed to enable resource, ret:%d\n", ret);
+			return ret;
+		}
+		sde_crtc_misr_setup(crtc, true, 1);
+
+	} else {
+		sde_crtc_misr_setup(crtc, false, 0);
+		sde_power_resource_enable(&priv->phandle,
+					sde_kms->core_client, false);
+	}
+
+	return 0;
+}
+
 static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 		bool post_commit)
 {
@@ -559,12 +584,20 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 	}
 
 	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
-			post_commit, SDE_EVTLOG_FUNC_ENTRY);
+			post_commit, smmu_state->sui_misr_state,
+			SDE_EVTLOG_FUNC_ENTRY);
 
 	if ((!smmu_state->transition_type) ||
 	    ((smmu_state->transition_type == POST_COMMIT) && !post_commit))
 		/* Bail out */
 		return 0;
+
+	/* enable sui misr if requested, before the transition */
+	if (smmu_state->sui_misr_state == SUI_MISR_ENABLE_REQ) {
+		ret = _sde_kms_sui_misr_ctrl(sde_kms, crtc, true);
+		if (ret)
+			goto end;
+	}
 
 	mutex_lock(&sde_kms->secure_transition_lock);
 	switch (smmu_state->state) {
@@ -605,6 +638,15 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 	}
 	mutex_unlock(&sde_kms->secure_transition_lock);
 
+	/* disable sui misr if requested, after the transition */
+	if (!ret && (smmu_state->sui_misr_state == SUI_MISR_DISABLE_REQ)) {
+		ret = _sde_kms_sui_misr_ctrl(sde_kms, crtc, false);
+		if (ret)
+			goto end;
+	}
+
+end:
+	smmu_state->sui_misr_state = NONE;
 	smmu_state->transition_type = NONE;
 	smmu_state->transition_error = ret ? true : false;
 
