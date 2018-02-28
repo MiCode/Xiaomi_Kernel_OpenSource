@@ -281,7 +281,7 @@ int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		color_format = COLOR_FMT_NV12_BPP10_UBWC;
 		break;
-	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010:
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS:
 		color_format = COLOR_FMT_P010;
 		break;
 	default:
