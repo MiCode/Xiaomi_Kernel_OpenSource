@@ -301,7 +301,7 @@
 			label = "cam_snapshot";
 			gpios = <&tlmm 91 GPIO_ACTIVE_LOW>;
 			linux,input-type = <1>;
-			linux,code = <766>;
+			linux,code = <767>;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 			linux,can-disable;
