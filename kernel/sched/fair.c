@@ -6938,7 +6938,7 @@ static inline int task_fits_capacity(struct task_struct *p,
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
 		margin = sched_capacity_margin_down[task_cpu(p)];
 	else
-		margin = sysctl_sched_capacity_margin_up[task_cpu(p)];
+		margin = sched_capacity_margin_up[task_cpu(p)];
 
 	return capacity * 1024 > boosted_task_util(p) * margin;
 }
