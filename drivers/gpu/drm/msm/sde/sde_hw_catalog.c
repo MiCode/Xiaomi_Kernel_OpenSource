@@ -3513,6 +3513,8 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 	} else if (IS_SDM855_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
 		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
