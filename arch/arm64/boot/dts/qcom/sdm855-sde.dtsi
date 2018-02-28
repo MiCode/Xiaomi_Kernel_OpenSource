@@ -610,12 +610,13 @@
 			<0x780000 0x621c>,
 			<0x88ea030 0x10>,
 			<0x88e8000 0x20>,
-			<0x0aee1000 0x034>;
+			<0x0aee1000 0x034>,
+			<0xae91000 0x094>;
 		/* dp_ctrl: dp_ahb, dp_aux, dp_link, dp_p0 */
 		reg-names = "dp_ahb", "dp_aux", "dp_link",
 			"dp_p0", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
 			"dp_mmss_cc", "qfprom_physical", "dp_pll",
-			"usb3_dp_com", "hdcp_physical";
+			"usb3_dp_com", "hdcp_physical", "dp_p1";
 
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <12 0>;
@@ -629,12 +630,18 @@
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK_SRC>,
-			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
+			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK_SRC>,
+			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK>;
 		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
 			"core_usb_ref_clk",
 			"core_usb_pipe_clk", "ctrl_link_clk",
 			"ctrl_link_iface_clk", "ctrl_pixel_clk",
-			"crypto_clk", "pixel_clk_rcg", "pixel_parent";
+			"crypto_clk", "pixel_clk_rcg", "pixel_parent",
+			"pixel1_clk_rcg", "pixel1_parent",
+			"strm0_pixel_clk", "strm1_pixel_clk";
 
 		qcom,phy-version = <0x420>;
 		qcom,aux-cfg0-settings = [20 00];
