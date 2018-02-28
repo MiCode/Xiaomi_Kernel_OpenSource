@@ -1610,6 +1610,7 @@ void sde_encoder_helper_vsync_config(struct sde_encoder_phys *phys_enc,
 
 		vsync_cfg.pp_count = sde_enc->num_phys_encs;
 		vsync_cfg.frame_rate = mode_info.frame_rate;
+		vsync_cfg.vsync_source = vsync_source;
 		vsync_cfg.is_dummy = is_dummy;
 
 		hw_mdptop->ops.setup_vsync_source(hw_mdptop, &vsync_cfg);
