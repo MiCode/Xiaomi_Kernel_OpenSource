@@ -261,6 +261,8 @@ struct sde_encoder_irq {
  *                              fences that have to be signalled.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
  * @irq:			IRQ tracking structures
+ * @cont_splash_single_flush	Variable to check if single flush is enabled.
+ * @cont_splash_settings	Variable to store continuous splash settings.
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -288,6 +290,8 @@ struct sde_encoder_phys {
 	atomic_t pending_retire_fence_cnt;
 	wait_queue_head_t pending_kickoff_wq;
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
+	u32 cont_splash_single_flush;
+	bool cont_splash_settings;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
