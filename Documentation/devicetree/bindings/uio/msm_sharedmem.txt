@@ -1,0 +1,26 @@
+msm_sharedmem provides the shared memory addresses for various clients in user-space
+
+Required properties:
+- compatible:		Must be "qcom,sharedmem-uio"
+- reg : The address and size of the shared memory. The address/sizes may vary.
+	A reg address of Zero indicates that the shared memory is dynamically
+	allocated using dma_alloc_coherent. A non zero reg address is used
+	directly.
+- reg-names : Indicates various client-names.
+- qcom,client-id : The client id for the QMI clients.
+
+Optional properties:
+- qcom,guard-memory:	If this dtsi property is set, then the shared memory
+			region will be guarded by SZ_4K at the start and at the end.
+			This is needed to overcome the XPU limitation on few MSM HW,
+			so as to make this memory not contiguous with other allocations
+			that may possibly happen from other clients.
+
+Example:
+	qcom,msm_sharedmem@0dc80000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0dc80000 0x00180000>,
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+		qcom,guard-memory;
+	};
