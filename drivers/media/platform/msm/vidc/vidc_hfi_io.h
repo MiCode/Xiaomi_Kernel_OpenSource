@@ -28,6 +28,11 @@
 #define VIDC_CPU_CS_A2HSOFTINTENCLR	(VIDC_CPU_CS_BASE_OFFS + 0x14)
 #define VIDC_CPU_CS_A2HSOFTINT		(VIDC_CPU_CS_BASE_OFFS + 0x18)
 #define VIDC_CPU_CS_A2HSOFTINTCLR	(VIDC_CPU_CS_BASE_OFFS + 0x1C)
+#define VIDC_CPU_CS_VMIMSG		(VIDC_CPU_CS_BASE_OFFS + 0x34)
+#define VIDC_CPU_CS_VMIMSGAG0		(VIDC_CPU_CS_BASE_OFFS + 0x38)
+#define VIDC_CPU_CS_VMIMSGAG1		(VIDC_CPU_CS_BASE_OFFS + 0x3C)
+#define VIDC_CPU_CS_VMIMSGAG2		(VIDC_CPU_CS_BASE_OFFS + 0x40)
+#define VIDC_CPU_CS_VMIMSGAG3		(VIDC_CPU_CS_BASE_OFFS + 0x44)
 #define VIDC_CPU_CS_SCIACMD			(VIDC_CPU_CS_BASE_OFFS + 0x48)
 
 /* HFI_CTRL_STATUS */
@@ -141,6 +146,29 @@
 #define VIDC_MMAP_ADDR		VIDC_CPU_CS_SCIBCMDARG0
 #define VIDC_UC_REGION_ADDR	VIDC_CPU_CS_SCIBARG1
 #define VIDC_UC_REGION_SIZE	VIDC_CPU_CS_SCIBARG2
+
+/* HFI_DSP_QTBL_ADDR
+ * 31:3 - HFI_DSP_QTBL_ADDR
+ *        4-byte aligned Address
+ */
+#define HFI_DSP_QTBL_ADDR	VIDC_CPU_CS_VMIMSG
+
+/* HFI_DSP_UC_REGION_ADDR
+ * 31:20 - HFI_DSP_UC_REGION_ADDR
+ *         1MB aligned address.
+ *         Uncached Region start Address. This region covers
+ *         HFI DSP QTable,
+ *         HFI DSP Queue Headers,
+ *         HFI DSP Queues,
+ */
+#define HFI_DSP_UC_REGION_ADDR	VIDC_CPU_CS_VMIMSGAG0
+
+/* HFI_DSP_UC_REGION_SIZE
+ * 31:20 - HFI_DSP_UC_REGION_SIZE
+ *         Multiples of 1MB.
+ *         Size of the DSP_UC_REGION Uncached Region
+ */
+#define HFI_DSP_UC_REGION_SIZE	VIDC_CPU_CS_VMIMSGAG1
 
 /*
  * --------------------------------------------------------------------------

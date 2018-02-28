@@ -645,6 +645,7 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_VP9      v4l2_fourcc('V', 'P', '9', '0') /* VP9 */
 #define V4L2_PIX_FMT_HEVC     v4l2_fourcc('H', 'E', 'V', 'C') /* HEVC stream */
 #define V4L2_PIX_FMT_TME      v4l2_fourcc('T', 'M', 'E', '0') /* TME stream */
+#define V4L2_PIX_FMT_CVP      v4l2_fourcc('C', 'V', 'P', '0') /* CVP stream */
 
 /*  Vendor-specific formats   */
 #define V4L2_PIX_FMT_CPIA1    v4l2_fourcc('C', 'P', 'I', 'A') /* cpia1 YUV */

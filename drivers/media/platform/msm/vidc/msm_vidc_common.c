@@ -22,6 +22,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
+#include "msm_cvp.h"
 
 #define IS_ALREADY_IN_STATE(__p, __d) (\
 	(__p >= __d)\
@@ -872,8 +873,11 @@ enum hal_domain get_hal_domain(int session_type)
 	case MSM_VIDC_DECODER:
 		domain = HAL_VIDEO_DOMAIN_DECODER;
 		break;
+	case MSM_VIDC_CVP:
+		domain = HAL_VIDEO_DOMAIN_CVP;
+		break;
 	default:
-		dprintk(VIDC_ERR, "Wrong domain\n");
+		dprintk(VIDC_ERR, "Wrong domain %d\n", session_type);
 		domain = HAL_UNUSED_DOMAIN;
 		break;
 	}
@@ -911,8 +915,11 @@ enum hal_video_codec get_hal_codec(int fourcc)
 	case V4L2_PIX_FMT_TME:
 		codec = HAL_VIDEO_CODEC_TME;
 		break;
+	case V4L2_PIX_FMT_CVP:
+		codec = HAL_VIDEO_CODEC_CVP;
+		break;
 	default:
-		dprintk(VIDC_ERR, "Wrong codec: %d\n", fourcc);
+		dprintk(VIDC_ERR, "Wrong codec: %#x\n", fourcc);
 		codec = HAL_UNUSED_CODEC;
 		break;
 	}
@@ -1093,7 +1100,7 @@ static void put_inst_helper(struct kref *kref)
 	msm_vidc_destroy(inst);
 }
 
-static void put_inst(struct msm_vidc_inst *inst)
+void put_inst(struct msm_vidc_inst *inst)
 {
 	if (!inst)
 		return;
@@ -1101,7 +1108,7 @@ static void put_inst(struct msm_vidc_inst *inst)
 	kref_put(&inst->kref, put_inst_helper);
 }
 
-static struct msm_vidc_inst *get_inst(struct msm_vidc_core *core,
+struct msm_vidc_inst *get_inst(struct msm_vidc_core *core,
 		void *session_id)
 {
 	struct msm_vidc_inst *inst = NULL;
@@ -1218,8 +1225,7 @@ static void handle_sys_release_res_done(
 			SYS_MSG_INDEX(HAL_SYS_RELEASE_RESOURCE_DONE)]);
 }
 
-static void change_inst_state(struct msm_vidc_inst *inst,
-	enum instance_state state)
+void change_inst_state(struct msm_vidc_inst *inst, enum instance_state state)
 {
 	if (!inst) {
 		dprintk(VIDC_ERR, "Invalid parameter %s\n", __func__);
@@ -1462,6 +1468,14 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 		else
 			msm_comm_generate_session_error(inst);
 
+		signal_session_msg_receipt(cmd, inst);
+		put_inst(inst);
+		return;
+	}
+
+	if (inst->session_type == MSM_VIDC_CVP) {
+		dprintk(VIDC_DBG, "%s: cvp session %#x\n",
+			__func__, hash32_ptr(inst->session));
 		signal_session_msg_receipt(cmd, inst);
 		put_inst(inst);
 		return;
@@ -2688,6 +2702,12 @@ void handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_RELEASE_BUFFER_DONE:
 		handle_session_release_buf_done(cmd, data);
 		break;
+	case HAL_SESSION_REGISTER_BUFFER_DONE:
+		handle_session_register_buffer_done(cmd, data);
+		break;
+	case HAL_SESSION_UNREGISTER_BUFFER_DONE:
+		handle_session_unregister_buffer_done(cmd, data);
+		break;
 	default:
 		dprintk(VIDC_DBG, "response unhandled: %d\n", cmd);
 		break;
@@ -3043,6 +3063,8 @@ static int msm_comm_session_init(int flipped_state,
 		fourcc = inst->fmts[OUTPUT_PORT].fourcc;
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		fourcc = inst->fmts[CAPTURE_PORT].fourcc;
+	} else if (inst->session_type == MSM_VIDC_CVP) {
+		fourcc = V4L2_PIX_FMT_CVP;
 	} else {
 		dprintk(VIDC_ERR, "Invalid session\n");
 		return -EINVAL;
@@ -3663,8 +3685,8 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		return -EINVAL;
 	}
 	dprintk(VIDC_DBG,
-			"Trying to move inst: %pK from: %#x to %#x\n",
-			inst, inst->state, state);
+		"Trying to move inst: %pK (%#x) from: %#x to %#x\n",
+		inst, hash32_ptr(inst->session), inst->state, state);
 
 	mutex_lock(&inst->sync_lock);
 	if (inst->state == MSM_VIDC_CORE_INVALID) {
@@ -3676,7 +3698,8 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 
 	flipped_state = get_flipped_state(inst->state, state);
 	dprintk(VIDC_DBG,
-			"flipped_state = %#x\n", flipped_state);
+		"inst: %pK (%#x) flipped_state = %#x\n",
+		inst, hash32_ptr(inst->session), flipped_state);
 	switch (flipped_state) {
 	case MSM_VIDC_CORE_UNINIT_DONE:
 	case MSM_VIDC_CORE_INIT:

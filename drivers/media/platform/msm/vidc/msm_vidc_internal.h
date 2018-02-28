@@ -302,6 +302,10 @@ struct clock_data {
 	unsigned long bitrate;
 	unsigned long min_freq;
 	unsigned long curr_freq;
+	u32 vpss_cycles;
+	u32 ise_cycles;
+	u32 ddr_bw;
+	u32 sys_cache_bw;
 	u32 operating_rate;
 	struct msm_vidc_codec_data *entry;
 	u32 core_id;
@@ -381,6 +385,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_list reconbufs;
 	struct msm_vidc_list eosbufs;
 	struct msm_vidc_list registeredbufs;
+	struct msm_vidc_list cvpbufs;
 	struct msm_vidc_list etb_data;
 	struct msm_vidc_list fbd_data;
 	struct buffer_requirements buff_req;
@@ -453,6 +458,12 @@ struct msm_vidc_buffer {
 	struct msm_smem smem[VIDEO_MAX_PLANES];
 	struct vb2_v4l2_buffer vvb;
 	enum msm_vidc_flags flags;
+};
+
+struct msm_vidc_cvp_buffer {
+	struct list_head list;
+	struct msm_smem smem;
+	struct msm_cvp_buffer buf;
 };
 
 void msm_comm_handle_thermal_event(void);

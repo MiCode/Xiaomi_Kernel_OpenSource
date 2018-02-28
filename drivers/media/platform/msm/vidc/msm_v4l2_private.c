@@ -16,12 +16,85 @@
 static int convert_from_user(struct msm_vidc_arg *kp, unsigned long arg)
 {
 	int rc = 0;
+	int i;
 	struct msm_vidc_arg __user *up = compat_ptr(arg);
+
+	if (!kp || !up) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
 
 	if (get_user(kp->type, &up->type))
 		return -EFAULT;
 
 	switch (kp->type) {
+	case MSM_CVP_GET_SESSION_INFO:
+	{
+		struct msm_cvp_session_info *k, *u;
+
+		k = &kp->data.session;
+		u = &up->data.session;
+		if (get_user(k->session_id, &u->session_id))
+			return -EFAULT;
+		for (i = 0; i < 10; i++)
+			if (get_user(k->reserved[i], &u->reserved[i]))
+				return -EFAULT;
+		break;
+	}
+	case MSM_CVP_REQUEST_POWER:
+	{
+		struct msm_cvp_request_power *k, *u;
+
+		k = &kp->data.req_power;
+		u = &up->data.req_power;
+		if (get_user(k->clock_cycles_a, &u->clock_cycles_a) ||
+			get_user(k->clock_cycles_b, &u->clock_cycles_b) ||
+			get_user(k->ddr_bw, &u->ddr_bw) ||
+			get_user(k->sys_cache_bw, &u->sys_cache_bw))
+			return -EFAULT;
+		for (i = 0; i < 8; i++)
+			if (get_user(k->reserved[i], &u->reserved[i]))
+				return -EFAULT;
+		break;
+	}
+	case MSM_CVP_REGISTER_BUFFER:
+	{
+		struct msm_cvp_buffer *k, *u;
+
+		k = &kp->data.regbuf;
+		u = &up->data.regbuf;
+		if (get_user(k->type, &u->type) ||
+			get_user(k->index, &u->index) ||
+			get_user(k->fd, &u->fd) ||
+			get_user(k->size, &u->size) ||
+			get_user(k->offset, &u->offset) ||
+			get_user(k->pixelformat, &u->pixelformat) ||
+			get_user(k->flags, &u->flags))
+			return -EFAULT;
+		for (i = 0; i < 5; i++)
+			if (get_user(k->reserved[i], &u->reserved[i]))
+				return -EFAULT;
+		break;
+	}
+	case MSM_CVP_UNREGISTER_BUFFER:
+	{
+		struct msm_cvp_buffer *k, *u;
+
+		k = &kp->data.unregbuf;
+		u = &up->data.unregbuf;
+		if (get_user(k->type, &u->type) ||
+			get_user(k->index, &u->index) ||
+			get_user(k->fd, &u->fd) ||
+			get_user(k->size, &u->size) ||
+			get_user(k->offset, &u->offset) ||
+			get_user(k->pixelformat, &u->pixelformat) ||
+			get_user(k->flags, &u->flags))
+			return -EFAULT;
+		for (i = 0; i < 5; i++)
+			if (get_user(k->reserved[i], &u->reserved[i]))
+				return -EFAULT;
+		break;
+	}
 	default:
 		dprintk(VIDC_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -35,12 +108,85 @@ static int convert_from_user(struct msm_vidc_arg *kp, unsigned long arg)
 static int convert_to_user(struct msm_vidc_arg *kp, unsigned long arg)
 {
 	int rc = 0;
+	int i;
 	struct msm_vidc_arg __user *up = compat_ptr(arg);
+
+	if (!kp || !up) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
 
 	if (put_user(kp->type, &up->type))
 		return -EFAULT;
 
 	switch (kp->type) {
+	case MSM_CVP_GET_SESSION_INFO:
+	{
+		struct msm_cvp_session_info *k, *u;
+
+		k = &kp->data.session;
+		u = &up->data.session;
+		if (put_user(k->session_id, &u->session_id))
+			return -EFAULT;
+		for (i = 0; i < 10; i++)
+			if (put_user(k->reserved[i], &u->reserved[i]))
+				return -EFAULT;
+		break;
+	}
+	case MSM_CVP_REQUEST_POWER:
+	{
+		struct msm_cvp_request_power *k, *u;
+
+		k = &kp->data.req_power;
+		u = &up->data.req_power;
+		if (put_user(k->clock_cycles_a, &u->clock_cycles_a) ||
+			put_user(k->clock_cycles_b, &u->clock_cycles_b) ||
+			put_user(k->ddr_bw, &u->ddr_bw) ||
+			put_user(k->sys_cache_bw, &u->sys_cache_bw))
+			return -EFAULT;
+		for (i = 0; i < 8; i++)
+			if (put_user(k->reserved[i], &u->reserved[i]))
+				return -EFAULT;
+		break;
+	}
+	case MSM_CVP_REGISTER_BUFFER:
+	{
+		struct msm_cvp_buffer *k, *u;
+
+		k = &kp->data.regbuf;
+		u = &up->data.regbuf;
+		if (put_user(k->type, &u->type) ||
+			put_user(k->index, &u->index) ||
+			put_user(k->fd, &u->fd) ||
+			put_user(k->size, &u->size) ||
+			put_user(k->offset, &u->offset) ||
+			put_user(k->pixelformat, &u->pixelformat) ||
+			put_user(k->flags, &u->flags))
+			return -EFAULT;
+		for (i = 0; i < 5; i++)
+			if (put_user(k->reserved[i], &u->reserved[i]))
+				return -EFAULT;
+		break;
+	}
+	case MSM_CVP_UNREGISTER_BUFFER:
+	{
+		struct msm_cvp_buffer *k, *u;
+
+		k = &kp->data.unregbuf;
+		u = &up->data.unregbuf;
+		if (put_user(k->type, &u->type) ||
+			put_user(k->index, &u->index) ||
+			put_user(k->fd, &u->fd) ||
+			put_user(k->size, &u->size) ||
+			put_user(k->offset, &u->offset) ||
+			put_user(k->pixelformat, &u->pixelformat) ||
+			put_user(k->flags, &u->flags))
+			return -EFAULT;
+		for (i = 0; i < 5; i++)
+			if (put_user(k->reserved[i], &u->reserved[i]))
+				return -EFAULT;
+		break;
+	}
 	default:
 		dprintk(VIDC_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);

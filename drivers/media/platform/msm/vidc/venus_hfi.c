@@ -235,6 +235,17 @@ static void __sim_modify_cmd_packet(u8 *packet, struct venus_hfi_device *device)
 		}
 		break;
 	}
+	case HFI_CMD_SESSION_REGISTER_BUFFERS:
+	{
+		struct hfi_cmd_session_register_buffers_packet *pkt =
+			(struct hfi_cmd_session_register_buffers_packet *)
+			packet;
+		struct hfi_buffer_mapping_type *buf =
+			(struct hfi_buffer_mapping_type *)pkt->buffer;
+		for (i = 0; i < pkt->num_buffers; i++)
+			buf[i].device_addr -= fw_bias;
+		break;
+	}
 	default:
 		break;
 	}
@@ -1306,6 +1317,99 @@ static void __set_queue_hdr_defaults(struct hfi_queue_header *q_hdr)
 	q_hdr->qhdr_write_idx = 0x0;
 }
 
+static void __interface_dsp_queues_release(struct venus_hfi_device *device)
+{
+	int i;
+
+	__smem_free(device, &device->dsp_iface_q_table.mem_data);
+	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
+		device->dsp_iface_queues[i].q_hdr = NULL;
+		device->dsp_iface_queues[i].q_array.align_virtual_addr = NULL;
+		device->dsp_iface_queues[i].q_array.align_device_addr = 0;
+	}
+	device->dsp_iface_q_table.align_virtual_addr = NULL;
+	device->dsp_iface_q_table.align_device_addr = 0;
+}
+
+static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
+{
+	int rc = 0;
+	u32 i;
+	struct hfi_queue_table_header *q_tbl_hdr;
+	struct hfi_queue_header *q_hdr;
+	struct vidc_iface_q_info *iface_q;
+	struct vidc_mem_addr *mem_addr;
+	int offset = 0;
+	phys_addr_t fw_bias = 0;
+	size_t q_size;
+
+	q_size = SHARED_QSIZE - ALIGNED_SFR_SIZE - ALIGNED_QDSS_SIZE;
+	mem_addr = &dev->mem_addr;
+	if (!is_iommu_present(dev->res))
+		fw_bias = dev->hal_data->firmware_base;
+	rc = __smem_alloc(dev, mem_addr, q_size, 1, 0,
+			HAL_BUFFER_INTERNAL_CMD_QUEUE);
+	if (rc) {
+		dprintk(VIDC_ERR, "dsp iface_q_table_alloc_fail\n");
+		goto fail_alloc_queue;
+	}
+
+	dev->dsp_iface_q_table.mem_data = mem_addr->mem_data;
+	dev->dsp_iface_q_table.align_virtual_addr =
+			mem_addr->align_virtual_addr;
+	dev->dsp_iface_q_table.align_device_addr =
+			mem_addr->align_device_addr - fw_bias;
+	dev->dsp_iface_q_table.mem_size = VIDC_IFACEQ_TABLE_SIZE;
+	offset = dev->dsp_iface_q_table.mem_size;
+
+	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
+		iface_q = &dev->dsp_iface_queues[i];
+		iface_q->q_array.align_device_addr =
+			mem_addr->align_device_addr + offset - fw_bias;
+		iface_q->q_array.align_virtual_addr =
+			mem_addr->align_virtual_addr + offset;
+		iface_q->q_array.mem_size = VIDC_IFACEQ_QUEUE_SIZE;
+		offset += iface_q->q_array.mem_size;
+		iface_q->q_hdr = VIDC_IFACEQ_GET_QHDR_START_ADDR(
+			dev->dsp_iface_q_table.align_virtual_addr, i);
+		__set_queue_hdr_defaults(iface_q->q_hdr);
+	}
+
+	q_tbl_hdr = (struct hfi_queue_table_header *)
+			dev->dsp_iface_q_table.align_virtual_addr;
+	q_tbl_hdr->qtbl_version = 0;
+	q_tbl_hdr->device_addr = (void *)dev;
+	strlcpy(q_tbl_hdr->name, "msm_v4l2_vidc", sizeof(q_tbl_hdr->name));
+	q_tbl_hdr->qtbl_size = VIDC_IFACEQ_TABLE_SIZE;
+	q_tbl_hdr->qtbl_qhdr0_offset = sizeof(struct hfi_queue_table_header);
+	q_tbl_hdr->qtbl_qhdr_size = sizeof(struct hfi_queue_header);
+	q_tbl_hdr->qtbl_num_q = VIDC_IFACEQ_NUMQ;
+	q_tbl_hdr->qtbl_num_active_q = VIDC_IFACEQ_NUMQ;
+
+	iface_q = &dev->dsp_iface_queues[VIDC_IFACEQ_CMDQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
+	q_hdr->qhdr_type |= HFI_Q_ID_HOST_TO_CTRL_CMD_Q;
+
+	iface_q = &dev->dsp_iface_queues[VIDC_IFACEQ_MSGQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
+	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_MSG_Q;
+
+	iface_q = &dev->dsp_iface_queues[VIDC_IFACEQ_DBGQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
+	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_DEBUG_Q;
+	/*
+	 * Set receive request to zero on debug queue as there is no
+	 * need of interrupt from video hardware for debug messages
+	 */
+	q_hdr->qhdr_rx_req = 0;
+
+fail_alloc_queue:
+	return rc;
+}
+
 static void __interface_queues_release(struct venus_hfi_device *device)
 {
 	int i;
@@ -1364,6 +1468,9 @@ static void __interface_queues_release(struct venus_hfi_device *device)
 
 	device->mem_addr.align_virtual_addr = NULL;
 	device->mem_addr.align_device_addr = 0;
+
+	if (device->res->domain_cvp)
+		__interface_dsp_queues_release(device);
 }
 
 static int __get_qdss_iommu_virtual_addr(struct venus_hfi_device *dev,
@@ -1432,6 +1539,14 @@ static void __setup_ucregion_memory_map(struct venus_hfi_device *device)
 	if (device->qdss.align_device_addr)
 		__write_register(device, VIDC_MMAP_ADDR,
 				(u32)device->qdss.align_device_addr);
+	if (device->res->domain_cvp) {
+		__write_register(device, HFI_DSP_QTBL_ADDR,
+			(u32)device->dsp_iface_q_table.align_device_addr);
+		__write_register(device, HFI_DSP_UC_REGION_ADDR,
+			(u32)device->dsp_iface_q_table.align_device_addr);
+		__write_register(device, HFI_DSP_UC_REGION_SIZE,
+			SHARED_QSIZE - ALIGNED_SFR_SIZE - ALIGNED_QDSS_SIZE);
+	}
 }
 
 static int __interface_queues_init(struct venus_hfi_device *dev)
@@ -1574,6 +1689,14 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 
 	vsfr = (struct hfi_sfr_struct *) dev->sfr.align_virtual_addr;
 	vsfr->bufSize = ALIGNED_SFR_SIZE;
+
+	if (dev->res->domain_cvp) {
+		rc = __interface_dsp_queues_init(dev);
+		if (rc) {
+			dprintk(VIDC_ERR, "dsp_queues_init failed\n");
+			goto fail_alloc_queue;
+		}
+	}
 
 	__setup_ucregion_memory_map(dev);
 	return 0;
@@ -2279,6 +2402,76 @@ static int venus_hfi_session_release_buffers(void *sess,
 
 err_create_pkt:
 	mutex_unlock(&device->lock);
+	return rc;
+}
+
+static int venus_hfi_session_register_buffer(void *sess,
+		struct vidc_register_buffer *buffer)
+{
+	int rc = 0;
+	u8 packet[VIDC_IFACEQ_VAR_LARGE_PKT_SIZE];
+	struct hfi_cmd_session_register_buffers_packet *pkt;
+	struct hal_session *session = sess;
+	struct venus_hfi_device *device;
+
+	if (!session || !session->device || !buffer) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	device = session->device;
+
+	mutex_lock(&device->lock);
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto exit;
+	}
+	pkt = (struct hfi_cmd_session_register_buffers_packet *)packet;
+	rc = call_hfi_pkt_op(device, session_register_buffer, pkt,
+			session, buffer);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: failed to create packet\n", __func__);
+		goto exit;
+	}
+	if (__iface_cmdq_write(session->device, pkt))
+		rc = -ENOTEMPTY;
+exit:
+	mutex_unlock(&device->lock);
+
+	return rc;
+}
+
+static int venus_hfi_session_unregister_buffer(void *sess,
+		struct vidc_unregister_buffer *buffer)
+{
+	int rc = 0;
+	u8 packet[VIDC_IFACEQ_VAR_LARGE_PKT_SIZE];
+	struct hfi_cmd_session_unregister_buffers_packet *pkt;
+	struct hal_session *session = sess;
+	struct venus_hfi_device *device;
+
+	if (!session || !session->device || !buffer) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	device = session->device;
+
+	mutex_lock(&device->lock);
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto exit;
+	}
+	pkt = (struct hfi_cmd_session_unregister_buffers_packet *)packet;
+	rc = call_hfi_pkt_op(device, session_unregister_buffer, pkt,
+			session, buffer);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: failed to create packet\n", __func__);
+		goto exit;
+	}
+	if (__iface_cmdq_write(session->device, pkt))
+		rc = -ENOTEMPTY;
+exit:
+	mutex_unlock(&device->lock);
+
 	return rc;
 }
 
@@ -4499,6 +4692,8 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_clean = venus_hfi_session_clean;
 	hdev->session_set_buffers = venus_hfi_session_set_buffers;
 	hdev->session_release_buffers = venus_hfi_session_release_buffers;
+	hdev->session_register_buffer = venus_hfi_session_register_buffer;
+	hdev->session_unregister_buffer = venus_hfi_session_unregister_buffer;
 	hdev->session_load_res = venus_hfi_session_load_res;
 	hdev->session_release_res = venus_hfi_session_release_res;
 	hdev->session_start = venus_hfi_session_start;

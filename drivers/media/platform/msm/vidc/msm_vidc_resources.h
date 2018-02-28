@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,6 +184,7 @@ struct msm_vidc_platform_resources {
 	int msm_vidc_hw_rsp_timeout;
 	int msm_vidc_firmware_unload_delay;
 	uint32_t msm_vidc_pwr_collapse_delay;
+	bool domain_cvp;
 	bool non_fatal_pagefaults;
 	struct msm_vidc_codec_data *codec_data;
 	int codec_data_count;
