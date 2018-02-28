@@ -1137,12 +1137,22 @@
 		qcom,wakeup-enable;
 	};
 
-	qcom,chd {
+	qcom,chd_silver {
 		compatible = "qcom,core-hang-detect";
+		label = "silver";
 		qcom,threshold-arr = <0xb1880b0 0xb1980b0 0xb1a80b0
-			0xb1b80b0 0xb0880b0 0xb0980b0 0xb0a80b0 0xb0b80b0>;
+			0xb1b80b0>;
 		qcom,config-arr = <0xb1880b8 0xb1980b8 0xb1a80b8
-			0xb1b80b8 0xb0880b8 0xb0980b8 0xb0a80b8 0xb0b80b8>;
+			0xb1b80b8>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0xb0880b0 0xb0980b0 0xb0a80b0
+			0xb0b80b0>;
+		qcom,config-arr = <0xb0880b8 0xb0980b8 0xb0a80b8
+			0xb0b80b8>;
 	};
 
 	qcom,msm-rtb {
