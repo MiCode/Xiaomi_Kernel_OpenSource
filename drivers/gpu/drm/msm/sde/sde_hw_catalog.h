@@ -1033,6 +1033,7 @@ struct sde_perf_cfg {
  * @macrotile_mode     UBWC parameter for macro tile channel distribution
  * @pipe_order_type    indicate if it is required to specify pipe order
  * @delay_prg_fetch_start indicates if throttling the fetch start is required
+ * @sui_misr_supported  indicate if secure-ui-misr is supported
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -1067,6 +1068,8 @@ struct sde_mdss_cfg {
 	u32 macrotile_mode;
 	u32 pipe_order_type;
 	bool delay_prg_fetch_start;
+
+	bool sui_misr_supported;
 
 	bool has_hdr;
 	u32 mdss_count;
