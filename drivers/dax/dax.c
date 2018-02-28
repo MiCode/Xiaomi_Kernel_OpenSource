@@ -453,9 +453,21 @@ static int dax_dev_pmd_fault(struct vm_area_struct *vma, unsigned long addr,
 	return rc;
 }
 
+static int dax_dev_split(struct vm_area_struct *vma, unsigned long addr)
+{
+	struct file *filp = vma->vm_file;
+	struct dax_dev *dax_dev = filp->private_data;
+	struct dax_region *dax_region = dax_dev->region;
+
+	if (!IS_ALIGNED(addr, dax_region->align))
+		return -EINVAL;
+	return 0;
+}
+
 static const struct vm_operations_struct dax_dev_vm_ops = {
 	.fault = dax_dev_fault,
 	.pmd_fault = dax_dev_pmd_fault,
+	.split = dax_dev_split,
 };
 
 static int dax_mmap(struct file *filp, struct vm_area_struct *vma)
