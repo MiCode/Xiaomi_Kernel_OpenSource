@@ -2320,6 +2320,11 @@ static int msm_venc_validate_qp_value(struct msm_vidc_inst *inst,
 	switch (inst->fmts[CAPTURE_PORT].fourcc) {
 	case V4L2_PIX_FMT_VP8:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_VPX_MAX_QP);
+		if (!temp_ctrl) {
+			dprintk(VIDC_ERR,
+				"failed to get control");
+			return -EINVAL;
+		}
 		max = temp_ctrl->maximum;
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_VPX_MIN_QP);
 		min = temp_ctrl->minimum;
@@ -2329,6 +2334,11 @@ static int msm_venc_validate_qp_value(struct msm_vidc_inst *inst,
 	case V4L2_PIX_FMT_H263:
 	case V4L2_PIX_FMT_MPEG4:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP);
+		if (!temp_ctrl) {
+			dprintk(VIDC_ERR,
+				"failed to get control");
+			return -EINVAL;
+		}
 		max = temp_ctrl->maximum;
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP);
 		min = temp_ctrl->minimum;
@@ -2338,6 +2348,11 @@ static int msm_venc_validate_qp_value(struct msm_vidc_inst *inst,
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_HEVC:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_MAX_QP);
+		if (!temp_ctrl) {
+			dprintk(VIDC_ERR,
+				"failed to get control");
+			return -EINVAL;
+		}
 		max = temp_ctrl->maximum;
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_MIN_QP);
 		min = temp_ctrl->minimum;
