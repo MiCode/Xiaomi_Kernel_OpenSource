@@ -8,6 +8,23 @@ The following attributes are read/write.
 
 	force_ro		Enforce read-only access even if write protect switch is off.
 
+	num_wr_reqs_to_start_packing 	This attribute is used to determine
+	the trigger for activating the write packing, in case the write
+	packing control feature is enabled.
+
+	When the MMC manages to reach a point where num_wr_reqs_to_start_packing
+	write requests could be packed, it enables the write packing feature.
+	This allows us to start the write packing only when it is beneficial
+	and has minimum affect on the read latency.
+
+	The number of potential packed requests that will trigger the packing
+	can be configured via sysfs by writing the required value to:
+	/sys/block/<block_dev_name>/num_wr_reqs_to_start_packing.
+
+	The default value of num_wr_reqs_to_start_packing was determined by
+	running parallel lmdd write and lmdd read operations and calculating
+	the max number of packed writes requests.
+
 SD and MMC Device Attributes
 ============================
 
@@ -75,3 +92,51 @@ Note on raw_rpmb_size_mult:
 	"raw_rpmb_size_mult" is a multiple of 128kB block.
 	RPMB size in byte is calculated by using the following equation:
 	RPMB partition size = 128kB x raw_rpmb_size_mult
+
+SD/MMC/SDIO Clock Gating Attribute
+==================================
+
+Read and write access is provided to following attribute.
+This attribute appears only if CONFIG_MMC_CLKGATE is enabled.
+
+	clkgate_delay	Tune the clock gating delay with desired value in milliseconds.
+
+echo <desired delay> > /sys/class/mmc_host/mmcX/clkgate_delay
+
+SD/MMC/SDIO Clock Scaling Attributes
+====================================
+
+Read and write accesses are provided to following attributes.
+
+	polling_interval	Measured in milliseconds, this attribute
+				defines how often we need to check the card
+				usage and make decisions on frequency scaling.
+
+	up_threshold		This attribute defines what should be the
+				average card usage between the polling
+				interval for the mmc core to make a decision
+				on whether it should increase the frequency.
+				For example when it is set to '35' it means
+				that between the checking intervals the card
+				needs to be on average more than 35% in use to
+				scale up the frequency. The value should be
+				between 0 - 100 so that it can be compared
+				against load percentage.
+
+	down_threshold		Similar to up_threshold, but on lowering the
+				frequency. For example, when it is set to '2'
+				it means that between the checking intervals
+				the card needs to be on average less than 2%
+				in use to scale down the clocks to minimum
+				frequency. The value should be between 0 - 100
+				so that it can be compared against load
+				percentage.
+
+	enable			Enable clock scaling for hosts (and cards)
+				that support ultrahigh speed modes
+				(SDR104, DDR50, HS200).
+
+echo <desired value> > /sys/class/mmc_host/mmcX/clk_scaling/polling_interval
+echo <desired value> > /sys/class/mmc_host/mmcX/clk_scaling/up_threshold
+echo <desired value> > /sys/class/mmc_host/mmcX/clk_scaling/down_threshold
+echo <desired value> > /sys/class/mmc_host/mmcX/clk_scaling/enable

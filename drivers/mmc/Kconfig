@@ -12,6 +12,14 @@ menuconfig MMC
 	  If you want MMC/SD/SDIO support, you should say Y here and
 	  also to your specific host controller driver.
 
+config MMC_PERF_PROFILING
+	bool "MMC performance profiling"
+	depends on MMC != n
+	default n
+	help
+	  If you say Y here, support will be added for collecting
+	  performance numbers at the MMC Queue and Host layers.
+
 if MMC
 
 source "drivers/mmc/core/Kconfig"

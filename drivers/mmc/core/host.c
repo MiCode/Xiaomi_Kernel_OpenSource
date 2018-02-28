@@ -4,6 +4,7 @@
  *  Copyright (C) 2003 Russell King, All Rights Reserved.
  *  Copyright (C) 2007-2008 Pierre Ossman
  *  Copyright (C) 2010 Linus Walleij
+ *  Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,6 +25,8 @@
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include <linux/mmc/ring_buffer.h>
+
 #include <linux/mmc/slot-gpio.h>
 
 #include "core.h"
@@ -31,6 +34,10 @@
 #include "slot-gpio.h"
 #include "pwrseq.h"
 #include "sdio_ops.h"
+
+#define MMC_DEVFRQ_DEFAULT_UP_THRESHOLD 35
+#define MMC_DEVFRQ_DEFAULT_DOWN_THRESHOLD 5
+#define MMC_DEVFRQ_DEFAULT_POLLING_MSEC 100
 
 static DEFINE_IDA(mmc_host_ida);
 
@@ -56,6 +63,302 @@ void mmc_unregister_host_class(void)
 	class_unregister(&mmc_host_class);
 }
 
+#ifdef CONFIG_MMC_CLKGATE
+static ssize_t clkgate_delay_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", host->clkgate_delay);
+}
+
+static ssize_t clkgate_delay_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	unsigned long flags, value;
+
+	if (kstrtoul(buf, 0, &value))
+		return -EINVAL;
+
+	spin_lock_irqsave(&host->clk_lock, flags);
+	host->clkgate_delay = value;
+	spin_unlock_irqrestore(&host->clk_lock, flags);
+	return count;
+}
+
+/*
+ * Enabling clock gating will make the core call out to the host
+ * once up and once down when it performs a request or card operation
+ * intermingled in any fashion. The driver will see this through
+ * set_ios() operations with ios.clock field set to 0 to gate (disable)
+ * the block clock, and to the old frequency to enable it again.
+ */
+static void mmc_host_clk_gate_delayed(struct mmc_host *host)
+{
+	unsigned long tick_ns;
+	unsigned long freq = host->ios.clock;
+	unsigned long flags;
+
+	if (!freq) {
+		pr_debug("%s: frequency set to 0 in disable function, this means the clock is already disabled.\n",
+			 mmc_hostname(host));
+		return;
+	}
+	/*
+	 * New requests may have appeared while we were scheduling,
+	 * then there is no reason to delay the check before
+	 * clk_disable().
+	 */
+	spin_lock_irqsave(&host->clk_lock, flags);
+
+	/*
+	 * Delay n bus cycles (at least 8 from MMC spec) before attempting
+	 * to disable the MCI block clock. The reference count may have
+	 * gone up again after this delay due to rescheduling!
+	 */
+	if (!host->clk_requests) {
+		spin_unlock_irqrestore(&host->clk_lock, flags);
+		tick_ns = DIV_ROUND_UP(1000000000, freq);
+		ndelay(host->clk_delay * tick_ns);
+	} else {
+		/* New users appeared while waiting for this work */
+		spin_unlock_irqrestore(&host->clk_lock, flags);
+		return;
+	}
+	mutex_lock(&host->clk_gate_mutex);
+	spin_lock_irqsave(&host->clk_lock, flags);
+	if (!host->clk_requests) {
+		spin_unlock_irqrestore(&host->clk_lock, flags);
+		/* This will set host->ios.clock to 0 */
+		mmc_gate_clock(host);
+		spin_lock_irqsave(&host->clk_lock, flags);
+		pr_debug("%s: gated MCI clock\n", mmc_hostname(host));
+	}
+	spin_unlock_irqrestore(&host->clk_lock, flags);
+	mutex_unlock(&host->clk_gate_mutex);
+}
+
+/*
+ * Internal work. Work to disable the clock at some later point.
+ */
+static void mmc_host_clk_gate_work(struct work_struct *work)
+{
+	struct mmc_host *host = container_of(work, struct mmc_host,
+					      clk_gate_work.work);
+
+	mmc_host_clk_gate_delayed(host);
+}
+
+/**
+ *	mmc_host_clk_hold - ungate hardware MCI clocks
+ *	@host: host to ungate.
+ *
+ *	Makes sure the host ios.clock is restored to a non-zero value
+ *	past this call.	Increase clock reference count and ungate clock
+ *	if we're the first user.
+ */
+void mmc_host_clk_hold(struct mmc_host *host)
+{
+	unsigned long flags;
+
+	/* cancel any clock gating work scheduled by mmc_host_clk_release() */
+	cancel_delayed_work_sync(&host->clk_gate_work);
+	mutex_lock(&host->clk_gate_mutex);
+	spin_lock_irqsave(&host->clk_lock, flags);
+	if (host->clk_gated) {
+		spin_unlock_irqrestore(&host->clk_lock, flags);
+		mmc_ungate_clock(host);
+
+		spin_lock_irqsave(&host->clk_lock, flags);
+		pr_debug("%s: ungated MCI clock\n", mmc_hostname(host));
+	}
+	host->clk_requests++;
+	spin_unlock_irqrestore(&host->clk_lock, flags);
+	mutex_unlock(&host->clk_gate_mutex);
+}
+
+/**
+ *	mmc_host_may_gate_card - check if this card may be gated
+ *	@card: card to check.
+ */
+bool mmc_host_may_gate_card(struct mmc_card *card)
+{
+	/* If there is no card we may gate it */
+	if (!card)
+		return true;
+
+	/*
+	 * SDIO3.0 card allows the clock to be gated off so check if
+	 * that is the case or not.
+	 */
+	if (mmc_card_sdio(card) && card->cccr.async_intr_sup)
+		return true;
+
+	/*
+	 * Don't gate SDIO cards! These need to be clocked at all times
+	 * since they may be independent systems generating interrupts
+	 * and other events. The clock requests counter from the core will
+	 * go down to zero since the core does not need it, but we will not
+	 * gate the clock, because there is somebody out there that may still
+	 * be using it.
+	 */
+	return !(card->quirks & MMC_QUIRK_BROKEN_CLK_GATING);
+}
+
+/**
+ *	mmc_host_clk_release - gate off hardware MCI clocks
+ *	@host: host to gate.
+ *
+ *	Calls the host driver with ios.clock set to zero as often as possible
+ *	in order to gate off hardware MCI clocks. Decrease clock reference
+ *	count and schedule disabling of clock.
+ */
+void mmc_host_clk_release(struct mmc_host *host)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->clk_lock, flags);
+	host->clk_requests--;
+	if (mmc_host_may_gate_card(host->card) &&
+	    !host->clk_requests)
+		queue_delayed_work(host->clk_gate_wq, &host->clk_gate_work,
+				      msecs_to_jiffies(host->clkgate_delay));
+	spin_unlock_irqrestore(&host->clk_lock, flags);
+}
+
+/**
+ *	mmc_host_clk_rate - get current clock frequency setting
+ *	@host: host to get the clock frequency for.
+ *
+ *	Returns current clock frequency regardless of gating.
+ */
+unsigned int mmc_host_clk_rate(struct mmc_host *host)
+{
+	unsigned long freq;
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->clk_lock, flags);
+	if (host->clk_gated)
+		freq = host->clk_old;
+	else
+		freq = host->ios.clock;
+	spin_unlock_irqrestore(&host->clk_lock, flags);
+	return freq;
+}
+
+/**
+ *	mmc_host_clk_init - set up clock gating code
+ *	@host: host with potential clock to control
+ */
+static inline void mmc_host_clk_init(struct mmc_host *host)
+{
+	host->clk_requests = 0;
+	/* Hold MCI clock for 8 cycles by default */
+	host->clk_delay = 8;
+	/*
+	 * Default clock gating delay is 0ms to avoid wasting power.
+	 * This value can be tuned by writing into sysfs entry.
+	 */
+	host->clkgate_delay = 0;
+	host->clk_gated = false;
+	INIT_DELAYED_WORK(&host->clk_gate_work, mmc_host_clk_gate_work);
+	spin_lock_init(&host->clk_lock);
+	mutex_init(&host->clk_gate_mutex);
+}
+
+/**
+ *	mmc_host_clk_exit - shut down clock gating code
+ *	@host: host with potential clock to control
+ */
+static inline void mmc_host_clk_exit(struct mmc_host *host)
+{
+	/*
+	 * Wait for any outstanding gate and then make sure we're
+	 * ungated before exiting.
+	 */
+	if (cancel_delayed_work_sync(&host->clk_gate_work))
+		mmc_host_clk_gate_delayed(host);
+	if (host->clk_gated)
+		mmc_host_clk_hold(host);
+	if (host->clk_gate_wq)
+		destroy_workqueue(host->clk_gate_wq);
+	/* There should be only one user now */
+	WARN_ON(host->clk_requests > 1);
+}
+
+static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
+{
+	host->clkgate_delay_attr.show = clkgate_delay_show;
+	host->clkgate_delay_attr.store = clkgate_delay_store;
+	sysfs_attr_init(&host->clkgate_delay_attr.attr);
+	host->clkgate_delay_attr.attr.name = "clkgate_delay";
+	host->clkgate_delay_attr.attr.mode = 0644;
+	if (device_create_file(&host->class_dev, &host->clkgate_delay_attr))
+		pr_err("%s: Failed to create clkgate_delay sysfs entry\n",
+				mmc_hostname(host));
+}
+
+static inline bool mmc_host_clk_gate_wq_init(struct mmc_host *host)
+{
+	char *wq = NULL;
+	int wq_nl;
+	bool ret = true;
+
+	wq_nl = sizeof("mmc_clk_gate/") + sizeof(mmc_hostname(host)) + 1;
+
+	wq = kzalloc(wq_nl, GFP_KERNEL);
+	if (!wq) {
+		ret = false;
+		goto out;
+	}
+
+	snprintf(wq, wq_nl, "mmc_clk_gate/%s", mmc_hostname(host));
+
+	/*
+	 * Create a work queue with flag WQ_MEM_RECLAIM set for
+	 * mmc clock gate work. Because mmc thread is created with
+	 * flag PF_MEMALLOC set, kernel will check for work queue
+	 * flag WQ_MEM_RECLAIM when flush the work queue. If work
+	 * queue flag WQ_MEM_RECLAIM is not set, kernel warning
+	 * will be triggered.
+	 */
+	host->clk_gate_wq = create_workqueue(wq);
+	if (!host->clk_gate_wq) {
+		ret = false;
+		dev_err(host->parent,
+				"failed to create clock gate work queue\n");
+	}
+
+	kfree(wq);
+out:
+	return ret;
+}
+#else
+
+static inline void mmc_host_clk_init(struct mmc_host *host)
+{
+}
+
+static inline void mmc_host_clk_exit(struct mmc_host *host)
+{
+}
+
+static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
+{
+}
+
+bool mmc_host_may_gate_card(struct mmc_card *card)
+{
+	return false;
+}
+
+static inline bool mmc_host_clk_gate_wq_init(struct mmc_host *host)
+{
+	return true;
+}
+#endif
+
 void mmc_retune_enable(struct mmc_host *host)
 {
 	host->can_retune = 1;
@@ -63,6 +366,7 @@ void mmc_retune_enable(struct mmc_host *host)
 		mod_timer(&host->retune_timer,
 			  jiffies + host->retune_period * HZ);
 }
+EXPORT_SYMBOL(mmc_retune_enable);
 
 /*
  * Pause re-tuning for a small set of operations.  The pause begins after the
@@ -95,6 +399,7 @@ void mmc_retune_disable(struct mmc_host *host)
 	host->retune_now = 0;
 	host->need_retune = 0;
 }
+EXPORT_SYMBOL(mmc_retune_disable);
 
 void mmc_retune_timer_stop(struct mmc_host *host)
 {
@@ -133,7 +438,8 @@ int mmc_retune(struct mmc_host *host)
 	else
 		return 0;
 
-	if (!host->need_retune || host->doing_retune || !host->card)
+	if (!host->need_retune || host->doing_retune || !host->card ||
+			mmc_card_hs400es(host->card))
 		return 0;
 
 	host->need_retune = 0;
@@ -379,6 +685,13 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 		return NULL;
 	}
 
+	if (!mmc_host_clk_gate_wq_init(host)) {
+		kfree(host);
+		return NULL;
+	}
+
+	mmc_host_clk_init(host);
+
 	spin_lock_init(&host->lock);
 	init_waitqueue_head(&host->wq);
 	INIT_DELAYED_WORK(&host->detect, mmc_rescan);
@@ -401,6 +714,217 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 
 EXPORT_SYMBOL(mmc_alloc_host);
 
+static ssize_t show_enable(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+
+	if (!host)
+		return -EINVAL;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", mmc_can_scale_clk(host));
+}
+
+static ssize_t store_enable(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	unsigned long value;
+
+	if (!host || !host->card || kstrtoul(buf, 0, &value))
+		return -EINVAL;
+
+	mmc_get_card(host->card);
+
+	if (!value) {
+		/* Suspend the clock scaling and mask host capability */
+		if (host->clk_scaling.enable)
+			mmc_suspend_clk_scaling(host);
+		host->caps2 &= ~MMC_CAP2_CLK_SCALE;
+		host->clk_scaling.state = MMC_LOAD_HIGH;
+		/* Set to max. frequency when disabling */
+		mmc_clk_update_freq(host, host->card->clk_scaling_highest,
+					host->clk_scaling.state);
+	} else if (value) {
+		/* Unmask host capability and resume scaling */
+		host->caps2 |= MMC_CAP2_CLK_SCALE;
+		if (!host->clk_scaling.enable)
+			mmc_resume_clk_scaling(host);
+	}
+
+	mmc_put_card(host->card);
+
+	return count;
+}
+
+static ssize_t show_up_threshold(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+
+	if (!host)
+		return -EINVAL;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", host->clk_scaling.upthreshold);
+}
+
+#define MAX_PERCENTAGE	100
+static ssize_t store_up_threshold(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	unsigned long value;
+
+	if (!host || kstrtoul(buf, 0, &value) || (value > MAX_PERCENTAGE))
+		return -EINVAL;
+
+	host->clk_scaling.upthreshold = value;
+
+	pr_debug("%s: clkscale_up_thresh set to %lu\n",
+			mmc_hostname(host), value);
+	return count;
+}
+
+static ssize_t show_down_threshold(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+
+	if (!host)
+		return -EINVAL;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			host->clk_scaling.downthreshold);
+}
+
+static ssize_t store_down_threshold(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	unsigned long value;
+
+	if (!host || kstrtoul(buf, 0, &value) || (value > MAX_PERCENTAGE))
+		return -EINVAL;
+
+	host->clk_scaling.downthreshold = value;
+
+	pr_debug("%s: clkscale_down_thresh set to %lu\n",
+			mmc_hostname(host), value);
+	return count;
+}
+
+static ssize_t show_polling(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+
+	if (!host)
+		return -EINVAL;
+
+	return snprintf(buf, PAGE_SIZE, "%lu milliseconds\n",
+			host->clk_scaling.polling_delay_ms);
+}
+
+static ssize_t store_polling(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	unsigned long value;
+
+	if (!host || kstrtoul(buf, 0, &value))
+		return -EINVAL;
+
+	host->clk_scaling.polling_delay_ms = value;
+
+	pr_debug("%s: clkscale_polling_delay_ms set to %lu\n",
+			mmc_hostname(host), value);
+	return count;
+}
+
+DEVICE_ATTR(enable, 0644,
+		show_enable, store_enable);
+DEVICE_ATTR(polling_interval, 0644,
+		show_polling, store_polling);
+DEVICE_ATTR(up_threshold, 0644,
+		show_up_threshold, store_up_threshold);
+DEVICE_ATTR(down_threshold, 0644,
+		show_down_threshold, store_down_threshold);
+
+static struct attribute *clk_scaling_attrs[] = {
+	&dev_attr_enable.attr,
+	&dev_attr_up_threshold.attr,
+	&dev_attr_down_threshold.attr,
+	&dev_attr_polling_interval.attr,
+	NULL,
+};
+
+static struct attribute_group clk_scaling_attr_grp = {
+	.name = "clk_scaling",
+	.attrs = clk_scaling_attrs,
+};
+
+#ifdef CONFIG_MMC_PERF_PROFILING
+static ssize_t
+show_perf(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	int64_t rtime_drv, wtime_drv;
+	unsigned long rbytes_drv, wbytes_drv, flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+
+	rbytes_drv = host->perf.rbytes_drv;
+	wbytes_drv = host->perf.wbytes_drv;
+
+	rtime_drv = ktime_to_us(host->perf.rtime_drv);
+	wtime_drv = ktime_to_us(host->perf.wtime_drv);
+
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return snprintf(buf, PAGE_SIZE, "Write performance at driver Level:"
+					"%lu bytes in %lld microseconds\n"
+					"Read performance at driver Level:"
+					"%lu bytes in %lld microseconds\n",
+					wbytes_drv, wtime_drv,
+					rbytes_drv, rtime_drv);
+}
+
+static ssize_t
+set_perf(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	int64_t value;
+	unsigned long flags;
+
+	sscanf(buf, "%lld", &value);
+	spin_lock_irqsave(&host->lock, flags);
+	if (!value) {
+		memset(&host->perf, 0, sizeof(host->perf));
+		host->perf_enable = false;
+	} else {
+		host->perf_enable = true;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return count;
+}
+
+static DEVICE_ATTR(perf, 0644,
+		show_perf, set_perf);
+
+#endif
+
+static struct attribute *dev_attrs[] = {
+#ifdef CONFIG_MMC_PERF_PROFILING
+	&dev_attr_perf.attr,
+#endif
+	NULL,
+};
+static struct attribute_group dev_attr_grp = {
+	.attrs = dev_attrs,
+};
+
 /**
  *	mmc_add_host - initialise host hardware
  *	@host: mmc host
@@ -422,13 +946,30 @@ int mmc_add_host(struct mmc_host *host)
 
 	led_trigger_register_simple(dev_name(&host->class_dev), &host->led);
 
+	host->clk_scaling.upthreshold = MMC_DEVFRQ_DEFAULT_UP_THRESHOLD;
+	host->clk_scaling.downthreshold = MMC_DEVFRQ_DEFAULT_DOWN_THRESHOLD;
+	host->clk_scaling.polling_delay_ms = MMC_DEVFRQ_DEFAULT_POLLING_MSEC;
+	host->clk_scaling.skip_clk_scale_freq_update = false;
+
 #ifdef CONFIG_DEBUG_FS
 	mmc_add_host_debugfs(host);
 #endif
+	mmc_host_clk_sysfs_init(host);
+	mmc_trace_init(host);
+
+	err = sysfs_create_group(&host->class_dev.kobj, &clk_scaling_attr_grp);
+	if (err)
+		pr_err("%s: failed to create clk scale sysfs group with err %d\n",
+				__func__, err);
 
 #ifdef CONFIG_BLOCK
 	mmc_latency_hist_sysfs_init(host);
 #endif
+
+	err = sysfs_create_group(&host->class_dev.kobj, &dev_attr_grp);
+	if (err)
+		pr_err("%s: failed to create sysfs group with err %d\n",
+							 __func__, err);
 
 	mmc_start_host(host);
 	if (!(host->pm_flags & MMC_PM_IGNORE_PM_NOTIFY))
@@ -461,9 +1002,14 @@ void mmc_remove_host(struct mmc_host *host)
 	mmc_latency_hist_sysfs_exit(host);
 #endif
 
+	sysfs_remove_group(&host->parent->kobj, &dev_attr_grp);
+	sysfs_remove_group(&host->class_dev.kobj, &clk_scaling_attr_grp);
+
 	device_del(&host->class_dev);
 
 	led_trigger_unregister_simple(host->led);
+
+	mmc_host_clk_exit(host);
 }
 
 EXPORT_SYMBOL(mmc_remove_host);
