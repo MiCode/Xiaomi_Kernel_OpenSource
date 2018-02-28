@@ -1274,8 +1274,7 @@ void ch_push_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 	spin_unlock_irqrestore(&ctx->rmt_rx_intent_lst_lock_lhc2, flags);
 
 	GLINK_DBG_CH(ctx, "%s: R[%u]:%zu Pushed remote intent\n", __func__,
-			intent->id,
-			intent->intent_size);
+			riid, size);
 }
 
 /**
