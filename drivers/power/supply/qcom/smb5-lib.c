@@ -654,6 +654,7 @@ int smblib_mapping_cc_delta_from_field_value(struct smb_chg_param *param,
 	return 0;
 }
 
+#define USBIN_100MA	100000
 static void smblib_uusb_removal(struct smb_charger *chg)
 {
 	int rc;
@@ -697,6 +698,15 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	chg->pulse_cnt = 0;
 	chg->uusb_apsd_rerun_done = false;
 
+	/* write back the default FLOAT charger configuration */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				(u8)FLOAT_OPTIONS_MASK, chg->float_cfg);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't write float charger options rc=%d\n",
+			rc);
+
+	/* leave the ICL configured to 100mA for next insertion */
+	vote(chg->usb_icl_votable, DEFAULT_100MA_VOTER, true, USBIN_100MA);
 	/* clear USB ICL vote for USB_PSY_VOTER */
 	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	if (rc < 0)
@@ -762,7 +772,6 @@ static int smblib_get_pulse_cnt(struct smb_charger *chg, int *count)
 }
 
 #define USBIN_25MA	25000
-#define USBIN_100MA	100000
 #define USBIN_150MA	150000
 #define USBIN_500MA	500000
 #define USBIN_900MA	900000
@@ -884,6 +893,9 @@ set_mode:
 		goto out;
 	}
 
+	/* Re-run AICL */
+	if (chg->real_charger_type != POWER_SUPPLY_TYPE_USB)
+		rc = smblib_rerun_aicl(chg);
 out:
 	return rc;
 }
@@ -2112,12 +2124,20 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 			 * Valid FLOAT charger, report the current based
 			 * of Rp
 			 */
-			typec_mode = smblib_get_prop_typec_mode(chg);
-			rp_ua = get_rp_based_dcp_current(chg, typec_mode);
-			rc = vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER,
-								true, rp_ua);
-			if (rc < 0)
-				return rc;
+			if (chg->connector_type ==
+					POWER_SUPPLY_CONNECTOR_TYPEC) {
+				typec_mode = smblib_get_prop_typec_mode(chg);
+				rp_ua = get_rp_based_dcp_current(chg,
+								typec_mode);
+				rc = vote(chg->usb_icl_votable,
+						DYNAMIC_RP_VOTER, true, rp_ua);
+				if (rc < 0) {
+					pr_err("Couldn't vote ICL DYNAMIC_RP_VOTER rc=%d\n",
+							rc);
+					return rc;
+				}
+			}
+			/* No specific handling required for micro-USB */
 		} else {
 			/*
 			 * FLOAT charger detected as SDP by USB driver,
@@ -2126,20 +2146,30 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 			 */
 			chg->real_charger_type = POWER_SUPPLY_TYPE_USB;
 			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
-						true, usb_current);
-			if (rc < 0)
+							true, usb_current);
+			if (rc < 0) {
+				pr_err("Couldn't vote ICL USB_PSY_VOTER rc=%d\n",
+						rc);
 				return rc;
-			rc = vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER,
-							false, 0);
-			if (rc < 0)
-				return rc;
+			}
 		}
 	} else {
 		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
 					true, usb_current);
+		if (rc < 0) {
+			pr_err("Couldn't vote ICL USB_PSY_VOTER rc=%d\n", rc);
+			return rc;
+		}
+
 	}
 
-	return rc;
+	rc = vote(chg->usb_icl_votable, DEFAULT_100MA_VOTER, false, 0);
+	if (rc < 0) {
+		pr_err("Couldn't unvote ICL DEFAULT_100MA_VOTER rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
 }
 
 int smblib_set_prop_sdp_current_max(struct smb_charger *chg,
@@ -2275,9 +2305,6 @@ static int __smblib_set_prop_pd_active(struct smb_charger *chg, bool pd_active)
 		if (rc < 0)
 			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
 									rc);
-
-		/* since PD was found the cable must be non-legacy */
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, false, 0);
 
 		/* clear USB ICL vote for DCP_VOTER */
 		rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
@@ -2886,6 +2913,7 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	switch (apsd_result->bit) {
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
+	case FLOAT_CHARGER_BIT:
 		/* if not DCP then no hvdcp timeout happens. Enable pd here */
 		vote(chg->pd_disallowed_votable_indirect, APSD_VOTER,
 				false, 0);
@@ -2894,12 +2922,13 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 			smblib_notify_device_mode(chg, true);
 		break;
 	case OCP_CHARGER_BIT:
-	case FLOAT_CHARGER_BIT:
+		vote(chg->usb_icl_votable, DEFAULT_100MA_VOTER, false, 0);
 		/* if not DCP then no hvdcp timeout happens, Enable pd here. */
 		vote(chg->pd_disallowed_votable_indirect, APSD_VOTER,
 				false, 0);
 		break;
 	case DCP_CHARGER_BIT:
+		vote(chg->usb_icl_votable, DEFAULT_100MA_VOTER, false, 0);
 		break;
 	default:
 		break;
@@ -3011,7 +3040,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 
 	/* reset input current limit voters */
-	vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 100000);
+	vote(chg->usb_icl_votable, DEFAULT_100MA_VOTER, true, USBIN_100MA);
 	vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
@@ -3019,6 +3048,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 	vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
 	vote(chg->usb_icl_votable, CTM_VOTER, false, 0);
+	vote(chg->usb_icl_votable, DYNAMIC_RP_VOTER, false, 0);
 
 	/* reset power delivery voters */
 	vote(chg->pd_allowed_votable, PD_VOTER, false, 0);
@@ -3149,8 +3179,8 @@ static void smblib_handle_rp_change(struct smb_charger *chg, int typec_mode)
 	 * pre-existing valid vote.
 	 */
 	if (apsd->pst == POWER_SUPPLY_TYPE_USB_FLOAT &&
-		get_client_vote(chg->usb_icl_votable,
-			LEGACY_UNKNOWN_VOTER) <= 100000)
+		(get_client_vote(chg->usb_icl_votable, DEFAULT_100MA_VOTER)
+					<= USBIN_100MA))
 		return;
 
 	/*
@@ -3162,7 +3192,7 @@ static void smblib_handle_rp_change(struct smb_charger *chg, int typec_mode)
 						chg->typec_mode, typec_mode);
 
 	rp_ua = get_rp_based_dcp_current(chg, typec_mode);
-	vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, rp_ua);
+	vote(chg->usb_icl_votable, DYNAMIC_RP_VOTER, true, rp_ua);
 }
 
 static void smblib_handle_typec_cc_state_change(struct smb_charger *chg)
@@ -3731,7 +3761,7 @@ int smblib_init(struct smb_charger *chg)
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
-		rc = qcom_batt_init();
+		rc = qcom_batt_init(chg->smb_version);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't init qcom_batt_init rc=%d\n",
 				rc);
