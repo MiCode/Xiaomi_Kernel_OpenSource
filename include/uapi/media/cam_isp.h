@@ -73,13 +73,20 @@
 #define CAM_ISP_PACKET_META_DMI_COMMON          6
 #define CAM_ISP_PACKET_META_CLOCK               7
 #define CAM_ISP_PACKET_META_CSID                8
-#define CAM_ISP_PACKET_META_MAX                 9
+#define CAM_ISP_PACKET_META_DUAL_CONFIG         9
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_LEFT   10
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_RIGHT  11
+#define CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON 12
 
 /* DSP mode */
 #define CAM_ISP_DSP_MODE_NONE                   0
 #define CAM_ISP_DSP_MODE_ONE_WAY                1
 #define CAM_ISP_DSP_MODE_ROUND                  2
 
+/* ISP Generic Cmd Buffer Blob types */
+#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG      0
+#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG    1
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG       2
 
 /* Query devices */
 /**
@@ -221,5 +228,151 @@ struct cam_isp_resource {
 	uint32_t                       reserved;
 	uint64_t                       res_hdl;
 };
+
+/**
+ * struct cam_isp_port_hfr_config - HFR configuration for this port
+ *
+ * @resource_type:              Resource type
+ * @subsample_pattern:          Subsample pattern. Used in HFR mode. It
+ *                              should be consistent with batchSize and
+ *                              CAMIF programming.
+ * @subsample_period:           Subsample period. Used in HFR mode. It
+ *                              should be consistent with batchSize and
+ *                              CAMIF programming.
+ * @framedrop_pattern:          Framedrop pattern
+ * @framedrop_period:           Framedrop period
+ * @reserved:                   Reserved for alignment
+ */
+struct cam_isp_port_hfr_config {
+	uint32_t                       resource_type;
+	uint32_t                       subsample_pattern;
+	uint32_t                       subsample_period;
+	uint32_t                       framedrop_pattern;
+	uint32_t                       framedrop_period;
+	uint32_t                       reserved;
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_resource_hfr_config - Resource HFR configuration
+ *
+ * @num_ports:                  Number of ports
+ * @reserved:                   Reserved for alignment
+ * @port_hfr_config:            HFR configuration for each IO port
+ */
+struct cam_isp_resource_hfr_config {
+	uint32_t                       num_ports;
+	uint32_t                       reserved;
+	struct cam_isp_port_hfr_config port_hfr_config[1];
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_dual_split_params - dual isp spilt parameters
+ *
+ * @split_point:                Split point information x, where (0 < x < width)
+ *                              left ISP's input ends at x + righ padding and
+ *                              Right ISP's input starts at x - left padding
+ * @right_padding:              Padding added past the split point for left
+ *                              ISP's input
+ * @left_padding:               Padding added before split point for right
+ *                              ISP's input
+ * @reserved:                   Reserved filed for alignment
+ *
+ */
+struct cam_isp_dual_split_params {
+	uint32_t                       split_point;
+	uint32_t                       right_padding;
+	uint32_t                       left_padding;
+	uint32_t                       reserved;
+};
+
+/**
+ * struct cam_isp_dual_stripe_config - stripe config per bus client
+ *
+ * @offset:                     Start horizontal offset relative to
+ *                              output buffer
+ *                              In UBWC mode, this value indicates the H_INIT
+ *                              value in pixel
+ * @width:                      Width of the stripe in bytes
+ * @tileconfig                  Ubwc meta tile config. Contain the partial
+ *                              tile info
+ * @port_id:                    port id of ISP output
+ *
+ */
+struct cam_isp_dual_stripe_config {
+	uint32_t                       offset;
+	uint32_t                       width;
+	uint32_t                       tileconfig;
+	uint32_t                       port_id;
+};
+
+/**
+ * struct cam_isp_dual_config - dual isp configuration
+ *
+ * @num_ports                   Number of isp output ports
+ * @reserved                    Reserved field for alignment
+ * @split_params:               Inpput split parameters
+ * @stripes:                    Stripe information
+ *
+ */
+struct cam_isp_dual_config {
+	uint32_t                           num_ports;
+	uint32_t                           reserved;
+	struct cam_isp_dual_split_params   split_params;
+	struct cam_isp_dual_stripe_config  stripes[1];
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_clock_config - Clock configuration
+ *
+ * @usage_type:                 Usage type (Single/Dual)
+ * @num_rdi:                    Number of RDI votes
+ * @left_pix_hz:                Pixel Clock for Left ISP
+ * @right_pix_hz:               Pixel Clock for Right ISP, valid only if Dual
+ * @rdi_hz:                     RDI Clock. ISP clock will be max of RDI and
+ *                              PIX clocks. For a particular context which ISP
+ *                              HW the RDI is allocated to is not known to UMD.
+ *                              Hence pass the clock and let KMD decide.
+ */
+struct cam_isp_clock_config {
+	uint32_t                       usage_type;
+	uint32_t                       num_rdi;
+	uint64_t                       left_pix_hz;
+	uint64_t                       right_pix_hz;
+	uint64_t                       rdi_hz[1];
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_bw_vote - Bandwidth vote information
+ *
+ * @resource_id:                Resource ID
+ * @reserved:                   Reserved field for alignment
+ * @cam_bw_bps:                 Bandwidth vote for CAMNOC
+ * @ext_bw_bps:                 Bandwidth vote for path-to-DDR after CAMNOC
+ */
+
+struct cam_isp_bw_vote {
+	uint32_t                       resource_id;
+	uint32_t                       reserved;
+	uint64_t                       cam_bw_bps;
+	uint64_t                       ext_bw_bps;
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_bw_config - Bandwidth configuration
+ *
+ * @usage_type:                 Usage type (Single/Dual)
+ * @num_rdi:                    Number of RDI votes
+ * @left_pix_vote:              Bandwidth vote for left ISP
+ * @right_pix_vote:             Bandwidth vote for right ISP
+ * @rdi_vote:                   RDI bandwidth requirements
+ */
+
+struct cam_isp_bw_config {
+	uint32_t                       usage_type;
+	uint32_t                       num_rdi;
+	struct cam_isp_bw_vote         left_pix_vote;
+	struct cam_isp_bw_vote         right_pix_vote;
+	struct cam_isp_bw_vote         rdi_vote[1];
+} __attribute__((packed));
 
 #endif /* __UAPI_CAM_ISP_H__ */

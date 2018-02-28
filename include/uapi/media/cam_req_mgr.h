@@ -22,6 +22,8 @@
 #define CAM_ACTUATOR_DEVICE_TYPE  (CAM_DEVICE_TYPE_BASE + 9)
 #define CAM_CCI_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 10)
 #define CAM_FLASH_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 11)
+#define CAM_EEPROM_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 12)
+#define CAM_OIS_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 13)
 
 /* cam_req_mgr hdl info */
 #define CAM_REQ_MGR_HDL_IDX_POS           8
@@ -47,6 +49,10 @@
 #define CAM_REQ_MGR_SOF_EVENT_SUCCESS           0
 #define CAM_REQ_MGR_SOF_EVENT_ERROR             1
 
+/* Link control operations */
+#define CAM_REQ_MGR_LINK_ACTIVATE               0
+#define CAM_REQ_MGR_LINK_DEACTIVATE             1
+
 /**
  * Request Manager : flush_type
  * @CAM_REQ_MGR_FLUSH_TYPE_ALL: Req mgr will remove all the pending
@@ -59,6 +65,15 @@
 #define CAM_REQ_MGR_FLUSH_TYPE_ALL          0
 #define CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ   1
 #define CAM_REQ_MGR_FLUSH_TYPE_MAX          2
+
+/**
+ * Request Manager : Sync Mode type
+ * @CAM_REQ_MGR_SYNC_MODE_NO_SYNC: Req mgr will apply non-sync mode for this
+ * request.
+ * @CAM_REQ_MGR_SYNC_MODE_SYNC: Req mgr will apply sync mode for this request.
+ */
+#define CAM_REQ_MGR_SYNC_MODE_NO_SYNC   0
+#define CAM_REQ_MGR_SYNC_MODE_SYNC      1
 
 /**
  * struct cam_req_mgr_event_data
@@ -146,37 +161,57 @@ struct cam_req_mgr_flush_info {
  * inluding itself.
  * @bubble_enable: Input Param - Cam req mgr will do bubble recovery if this
  * flag is set.
- * @reserved: reserved field for alignment
+ * @sync_mode: Type of Sync mode for this request
  * @req_id: Input Param - Request Id from which all requests will be flushed
  */
 struct cam_req_mgr_sched_request {
 	int32_t session_hdl;
 	int32_t link_hdl;
 	int32_t bubble_enable;
-	int32_t reserved;
+	int32_t sync_mode;
 	int64_t req_id;
 };
 
 /**
  * struct cam_req_mgr_sync_mode
  * @session_hdl:         Input param - Identifier for CSL session
- * @sync_enable:         Input Param -Enable sync mode or disable
+ * @sync_mode:           Input Param - Type of sync mode
  * @num_links:           Input Param - Num of links in sync mode (Valid only
- *                             when sync_enable is TRUE)
+ *                             when sync_mode is one of SYNC enabled modes)
  * @link_hdls:           Input Param - Array of link handles to be in sync mode
- *                             (Valid only when sync_enable is TRUE)
+ *                             (Valid only when sync_mode is one of SYNC
+ *                             enabled modes)
  * @master_link_hdl:     Input Param - To dictate which link's SOF drives system
- *                             (Valid only when sync_enable is TRUE)
+ *                             (Valid only when sync_mode is one of SYNC
+ *                             enabled modes)
  *
  * @opcode: CAM_REQ_MGR_SYNC_MODE
  */
 struct cam_req_mgr_sync_mode {
 	int32_t session_hdl;
-	int32_t sync_enable;
+	int32_t sync_mode;
 	int32_t num_links;
 	int32_t link_hdls[MAX_LINKS_PER_SESSION];
 	int32_t master_link_hdl;
 	int32_t reserved;
+};
+
+/**
+ * struct cam_req_mgr_link_control
+ * @ops:                 Link operations: activate/deactive
+ * @session_hdl:         Input param - Identifier for CSL session
+ * @num_links:           Input Param - Num of links
+ * @reserved:            reserved field
+ * @link_hdls:           Input Param - Links to be activated/deactivated
+ *
+ * @opcode: CAM_REQ_MGR_LINK_CONTROL
+ */
+struct cam_req_mgr_link_control {
+	int32_t ops;
+	int32_t session_hdl;
+	int32_t num_links;
+	int32_t reserved;
+	int32_t link_hdls[MAX_LINKS_PER_SESSION];
 };
 
 /**
@@ -194,6 +229,7 @@ struct cam_req_mgr_sync_mode {
 #define CAM_REQ_MGR_MAP_BUF                     (CAM_COMMON_OPCODE_MAX + 10)
 #define CAM_REQ_MGR_RELEASE_BUF                 (CAM_COMMON_OPCODE_MAX + 11)
 #define CAM_REQ_MGR_CACHE_OPS                   (CAM_COMMON_OPCODE_MAX + 12)
+#define CAM_REQ_MGR_LINK_CONTROL                (CAM_COMMON_OPCODE_MAX + 13)
 /* end of cam_req_mgr opcodes */
 
 #define CAM_MEM_FLAG_HW_READ_WRITE              (1<<0)
@@ -214,7 +250,8 @@ struct cam_req_mgr_sync_mode {
 /* Maximum allowed buffers in existence */
 #define CAM_MEM_BUFQ_MAX                        1024
 
-#define CAM_MEM_MGR_HDL_IDX_SIZE                16
+#define CAM_MEM_MGR_SECURE_BIT_POS              15
+#define CAM_MEM_MGR_HDL_IDX_SIZE                15
 #define CAM_MEM_MGR_HDL_FD_SIZE                 16
 #define CAM_MEM_MGR_HDL_IDX_END_POS             16
 #define CAM_MEM_MGR_HDL_FD_END_POS              32
@@ -222,10 +259,18 @@ struct cam_req_mgr_sync_mode {
 #define CAM_MEM_MGR_HDL_IDX_MASK      ((1 << CAM_MEM_MGR_HDL_IDX_SIZE) - 1)
 
 #define GET_MEM_HANDLE(idx, fd) \
-	((idx << (CAM_MEM_MGR_HDL_IDX_END_POS - CAM_MEM_MGR_HDL_IDX_SIZE)) | \
+	((idx & CAM_MEM_MGR_HDL_IDX_MASK) | \
 	(fd << (CAM_MEM_MGR_HDL_FD_END_POS - CAM_MEM_MGR_HDL_FD_SIZE))) \
 
 #define CAM_MEM_MGR_GET_HDL_IDX(hdl) (hdl & CAM_MEM_MGR_HDL_IDX_MASK)
+
+#define CAM_MEM_MGR_SET_SECURE_HDL(hdl, flag) \
+	((flag) ? (hdl |= (1 << CAM_MEM_MGR_SECURE_BIT_POS)) : \
+	((hdl) &= ~(1 << CAM_MEM_MGR_SECURE_BIT_POS)))
+
+#define CAM_MEM_MGR_IS_SECURE_HDL(hdl) \
+	(((hdl) & \
+	(1<<CAM_MEM_MGR_SECURE_BIT_POS)) >> CAM_MEM_MGR_SECURE_BIT_POS)
 
 /**
  * memory allocation type
@@ -344,14 +389,14 @@ struct cam_mem_cache_ops_cmd {
  * @error_type: type of error
  * @request_id: request id of frame
  * @device_hdl: device handle
- * @reserved: reserved field
+ * @linke_hdl: link_hdl
  * @resource_size: size of the resource
  */
 struct cam_req_mgr_error_msg {
 	uint32_t error_type;
 	uint32_t request_id;
 	int32_t device_hdl;
-	int32_t reserved;
+	int32_t link_hdl;
 	uint64_t resource_size;
 };
 
@@ -379,6 +424,7 @@ struct cam_req_mgr_frame_msg {
  */
 struct cam_req_mgr_message {
 	int32_t session_hdl;
+	int32_t reserved;
 	union {
 		struct cam_req_mgr_error_msg err_msg;
 		struct cam_req_mgr_frame_msg frame_msg;

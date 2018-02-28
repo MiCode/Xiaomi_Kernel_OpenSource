@@ -45,7 +45,7 @@ enum ion_heap_ids {
  */
 #define ION_QSECOM_TA_HEAP_ID		19
 #define ION_AUDIO_HEAP_ID		28
-
+#define ION_CAMERA_HEAP_ID		20
 /**
  * Flags to be used when allocating from the secure heap for
  * content protection

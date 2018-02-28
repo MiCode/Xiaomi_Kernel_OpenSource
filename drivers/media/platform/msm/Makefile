@@ -5,3 +5,4 @@
 obj-y += sde/
 obj-$(CONFIG_MSM_NPU) += npu/
 obj-$(CONFIG_MSM_VIDC_V4L2) += vidc/
+obj-$(CONFIG_SPECTRA_CAMERA) += camera/
