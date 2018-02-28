@@ -1422,6 +1422,7 @@
 #include "msm8937-regulator.dtsi"
 #include "pm8937.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm8937-coresight.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";
