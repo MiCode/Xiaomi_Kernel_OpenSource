@@ -1,4 +1,4 @@
-Qualcomm Technology MSM8939 CPU clock tree
+Qualcomm Technologies, Inc. MSM8939 CPU clock tree
 
 clock-cpu-8939 is a device that represents the MSM8939 or MSM8952 CPU
 subsystem clock tree. It lists the various power supplies that need to be
