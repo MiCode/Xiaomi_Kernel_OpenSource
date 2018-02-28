@@ -5481,6 +5481,7 @@ static void vmx_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 	u64 cr0;
 
 	vmx->rmode.vm86_active = 0;
+	vcpu->arch.microcode_version = 0x100000000ULL;
 	vmx->spec_ctrl = 0;
 
 	vmx->soft_vnmi_blocked = 0;
