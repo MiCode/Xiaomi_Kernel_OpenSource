@@ -38,3 +38,11 @@ config BUS_AUTO_SUSPEND
 	  during system pm.
 	  This config flag controls the feature per target based. The feature
 	  requires CNSS driver support.
+
+config CNSS_QCA6290
+	bool "Enable CNSS QCA6290 chipset specific changes"
+	---help---
+	  This enables the changes from WLAN host driver that are specific to
+	  CNSS QCA6290 chipset.
+	  These changes are needed to support the new hardware architecture
+	  for CNSS QCA6290 chipset.
