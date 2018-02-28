@@ -507,8 +507,11 @@ static bool _sde_encoder_phys_is_dual_ctl(struct sde_encoder_phys *phys_enc)
 static bool sde_encoder_phys_vid_needs_single_flush(
 		struct sde_encoder_phys *phys_enc)
 {
-	return phys_enc && (_sde_encoder_phys_is_ppsplit(phys_enc) ||
-		_sde_encoder_phys_is_dual_ctl(phys_enc));
+	return phys_enc && (
+		phys_enc->cont_splash_settings ?
+		phys_enc->cont_splash_single_flush :
+		(_sde_encoder_phys_is_ppsplit(phys_enc) ||
+		_sde_encoder_phys_is_dual_ctl(phys_enc)));
 }
 
 static void _sde_encoder_phys_vid_setup_irq_hw_idx(
