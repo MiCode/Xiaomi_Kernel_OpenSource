@@ -812,4 +812,11 @@
 			regulator-max-microvolt = <2856000>;
 		};
 	};
+
+	refgen: refgen-regulator@88e7000 {
+		compatible = "qcom,refgen-regulator";
+		reg = <0x88e7000 0x60>;
+		regulator-name = "refgen";
+		regulator-enable-ramp-delay = <5>;
+	};
 };
