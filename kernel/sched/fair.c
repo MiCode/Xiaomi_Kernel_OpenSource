@@ -7064,19 +7064,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			spare_cap = capacity_orig_of(i) - wake_util;
 
 			/*
-			 * When placement boost is active, we traverse CPUs
-			 * other than min capacity CPUs. Pick the CPU which
-			 * has the maximum spare capacity.
-			 */
-			if (fbt_env->placement_boost) {
-				if (spare_cap > target_max_spare_cap) {
-					target_cpu = i;
-					target_max_spare_cap = spare_cap;
-				}
-				continue;
-			}
-
-			/*
 			 * Cumulative demand may already be accounting for the
 			 * task. If so, add just the boost-utilization to
 			 * the cumulative demand of the cpu.
@@ -7260,9 +7247,17 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			target_cpu = i;
 		}
 
+		/*
+		 * When placement boost is active, we traverse CPUs
+		 * other than min capacity CPUs. Reset the target_capacity
+		 * to keep traversing the other clusters.
+		 */
+		if (fbt_env->placement_boost)
+			target_capacity = ULONG_MAX;
+
 	} while (sg = sg->next, sg != sd->groups);
 
-	if (fbt_env->need_idle) {
+	if (fbt_env->need_idle || fbt_env->placement_boost) {
 		if (best_idle_cpu != -1) {
 			target_cpu = best_idle_cpu;
 			best_idle_cpu = -1;
