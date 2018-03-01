@@ -63,5 +63,13 @@
 			qcom,ipi-ping;
 			qcom,wakeup-enable;
 		};
+
+		spmi_bus: qcom,virtspmi@4400000 {
+			compatible = "qcom,virtspmi-pmic-arb";
+			reg = <0x4400000 0x800000>;
+			reg-names = "core";
+			#address-cells = <2>;
+			#size-cells = <0>;
+		};
 	};
 };
