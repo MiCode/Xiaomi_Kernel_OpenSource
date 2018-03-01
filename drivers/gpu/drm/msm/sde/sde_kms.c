@@ -2343,7 +2343,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 		 * configuration.
 		 */
 		if (conn_iter &&
-			conn_iter->encoder_ids[0] == encoder->base.id) {
+			(conn_iter->encoder_ids[0] == encoder->base.id)) {
 			connector = conn_iter;
 			break;
 		}
