@@ -122,6 +122,8 @@ Optional driver parameters:
 		This interval is the time it takes to toggle the reset of an external modem by
 		holding down the reset pin. The value depends on the external modem's power
 		management boot options. The default value is 203 milliseconds.
+- qcom,esoc-skip-restart-for-mdm-crash: Boolean. If set, the esoc framework would skip the warm
+		reboot phase during the momem crash.
 
 Example:
 	mdm0: qcom,mdm0 {

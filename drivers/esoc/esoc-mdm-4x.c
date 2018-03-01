@@ -285,8 +285,12 @@ force_poff:
 		}
 		break;
 	case ESOC_EXE_DEBUG:
-		mdm->debug = 1;
 		mdm->trig_cnt = 0;
+
+		if (mdm->skip_restart_for_mdm_crash)
+			break;
+
+		mdm->debug = 1;
 		mdm_toggle_soft_reset(mdm, false);
 		/*
 		 * wait for ramdumps to be collected
@@ -940,6 +944,9 @@ static int sdx50m_setup_hw(struct mdm_ctrl *mdm,
 					&esoc->link_info);
 	if (ret)
 		dev_info(mdm->dev, "esoc link info missing\n");
+
+	mdm->skip_restart_for_mdm_crash = of_property_read_bool(node,
+				"qcom,esoc-skip-restart-for-mdm-crash");
 
 	esoc->clink_ops = clink_ops;
 	esoc->parent = mdm->dev;
