@@ -664,6 +664,18 @@ static int dp_parser_catalog(struct dp_parser *parser)
 	return 0;
 }
 
+static int dp_parser_mst(struct dp_parser *parser)
+{
+	struct device *dev = &parser->pdev->dev;
+
+	parser->has_mst = of_property_read_bool(dev->of_node,
+			"qcom,mst-enable");
+
+	pr_debug("mst parsing successful. mst:%d\n", parser->has_mst);
+
+	return 0;
+}
+
 static int dp_parser_parse(struct dp_parser *parser)
 {
 	int rc = 0;
@@ -707,6 +719,10 @@ static int dp_parser_parse(struct dp_parser *parser)
 		goto err;
 
 	rc = dp_parser_msm_hdcp_dev(parser);
+	if (rc)
+		goto err;
+
+	rc = dp_parser_mst(parser);
 err:
 	return rc;
 }

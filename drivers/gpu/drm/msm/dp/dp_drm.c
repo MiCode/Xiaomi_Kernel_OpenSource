@@ -26,7 +26,7 @@
 
 #define to_dp_bridge(x)     container_of((x), struct dp_bridge, base)
 
-static void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
+void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
 			struct dp_display_mode *dp_mode, struct dp_display *dp)
 {
 	memset(dp_mode, 0, sizeof(*dp_mode));
@@ -58,7 +58,7 @@ static void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
 		!!(drm_mode->flags & DRM_MODE_FLAG_NHSYNC);
 }
 
-static void convert_to_drm_mode(const struct dp_display_mode *dp_mode,
+void convert_to_drm_mode(const struct dp_display_mode *dp_mode,
 				struct drm_display_mode *drm_mode)
 {
 	u32 flags = 0;
@@ -151,6 +151,9 @@ static void dp_bridge_pre_enable(struct drm_bridge *drm_bridge)
 		       bridge->id, rc);
 		return;
 	}
+
+	/* for SST force stream id, start slot and total slots to 0 */
+	dp->set_stream_info(dp, bridge->dp_panel, 0, 0, 0);
 
 	rc = dp->enable(dp, bridge->dp_panel);
 	if (rc) {
@@ -421,7 +424,7 @@ int dp_connector_get_info(struct drm_connector *connector,
 
 	info->num_of_h_tiles = 1;
 	info->h_tile_instance[0] = 0;
-	info->is_connected = display->is_connected;
+	info->is_connected = display->is_sst_connected;
 	info->capabilities = MSM_DISPLAY_CAP_VID_MODE | MSM_DISPLAY_CAP_EDID |
 		MSM_DISPLAY_CAP_HOT_PLUG;
 
@@ -499,7 +502,7 @@ int dp_connector_get_modes(struct drm_connector *connector,
 		return 0;
 
 	/* pluggable case assumes EDID is read when HPD */
-	if (dp->is_connected) {
+	if (dp->is_sst_connected) {
 		rc = dp->get_modes(dp, sde_conn->drv_panel, dp_mode);
 		if (!rc)
 			pr_err("failed to get DP sink modes, rc=%d\n", rc);

@@ -83,6 +83,9 @@ struct dp_panel {
 	 */
 	enum dp_stream_id stream_id;
 
+	u32 channel_start_slot;
+	u32 channel_total_slots;
+
 	/* DRM connector assosiated with this panel */
 	struct drm_connector *connector;
 
@@ -105,8 +108,9 @@ struct dp_panel {
 	int (*spd_config)(struct dp_panel *dp_panel);
 	bool (*hdr_supported)(struct dp_panel *dp_panel);
 
-	int (*set_stream_id)(struct dp_panel *dp_panel,
-			enum dp_stream_id stream_id);
+	int (*set_stream_info)(struct dp_panel *dp_panel,
+			enum dp_stream_id stream_id, u32 ch_start_slot,
+			u32 ch_tot_slots);
 
 	int (*read_sink_status)(struct dp_panel *dp_panel, u8 *sts, u32 size);
 	int (*update_edid)(struct dp_panel *dp_panel, struct edid *edid);

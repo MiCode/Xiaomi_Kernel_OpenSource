@@ -118,5 +118,23 @@ int dp_drm_bridge_init(void *display,
 	struct drm_encoder *encoder);
 
 void dp_drm_bridge_deinit(void *display);
+
+/**
+ * convert_to_dp_mode - convert drm mode to dp mode
+ * @drm_mode: Pointer to drm mode
+ * @dp_mode: Point to dp mode
+ * @dp: Pointer to private display structure
+ */
+void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
+			struct dp_display_mode *dp_mode, struct dp_display *dp);
+
+/**
+ * convert_to_drm_mode - convert dp mode to drm mode
+ * @dp_mode: Point to dp mode
+ * @drm_mode: Pointer to drm mode
+ */
+void convert_to_drm_mode(const struct dp_display_mode *dp_mode,
+				struct drm_display_mode *drm_mode);
+
 #endif /* _DP_DRM_H_ */
 

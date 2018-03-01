@@ -36,6 +36,9 @@
 #define DP_INTR_FRAME_END		BIT(6)
 #define DP_INTR_CRC_UPDATED		BIT(9)
 
+#define DP_INTR_MST_DP0_VCPF_SENT	BIT(0)
+#define DP_INTR_MST_DP1_VCPF_SENT	BIT(3)
+
 #define DP_MAX_TIME_SLOTS	64
 
 /* stream id */
@@ -93,6 +96,7 @@ struct dp_catalog_aux {
 
 struct dp_catalog_ctrl {
 	u32 isr;
+	u32 isr5;
 
 	void (*state_ctrl)(struct dp_catalog_ctrl *ctrl, u32 state);
 	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl);

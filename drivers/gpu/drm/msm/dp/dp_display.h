@@ -20,13 +20,32 @@
 
 #include "dp_panel.h"
 
+struct dp_mst_drm_cbs {
+	void (*hpd)(void *display, bool hpd_status);
+	void (*hpd_irq)(void *display);
+};
+
+struct dp_mst_drm_install_info {
+	void *dp_mst_prv_info;
+	const struct dp_mst_drm_cbs *cbs;
+};
+
+struct dp_mst_caps {
+	bool has_mst;
+	u32 max_streams_supported;
+	u32 max_dpcd_transaction_bytes;
+	struct drm_dp_aux *drm_aux;
+};
+
 struct dp_display {
 	struct drm_device *drm_dev;
 	struct dp_bridge *bridge;
 	struct drm_connector *base_connector;
 	void *base_dp_panel;
 	bool is_connected;
+	bool is_sst_connected;
 	u32 max_pclk_khz;
+	void *dp_mst_prv_info;
 
 	int (*enable)(struct dp_display *dp_display, void *panel);
 	int (*post_enable)(struct dp_display *dp_display, void *panel);
@@ -48,8 +67,24 @@ struct dp_display {
 	int (*config_hdr)(struct dp_display *dp_display, void *panel,
 				struct drm_msm_ext_hdr_metadata *hdr_meta);
 	void (*post_init)(struct dp_display *dp_display);
+	int (*mst_install)(struct dp_display *dp_display,
+			struct dp_mst_drm_install_info *mst_install_info);
+	int (*mst_uninstall)(struct dp_display *dp_display);
+	int (*mst_connector_install)(struct dp_display *dp_display,
+			struct drm_connector *connector);
+	int (*mst_connector_uninstall)(struct dp_display *dp_display,
+			struct drm_connector *connector);
+	int (*mst_connector_update_edid)(struct dp_display *dp_display,
+			struct drm_connector *connector,
+			struct edid *edid);
+	int (*get_mst_caps)(struct dp_display *dp_display,
+			struct dp_mst_caps *mst_caps);
+	int (*set_stream_info)(struct dp_display *dp_display,
+			void *panel, u32 ch_id, u32 ch_start_slot,
+			u32 ch_tot_slots);
 };
 
 int dp_display_get_num_of_displays(void);
 int dp_display_get_displays(void **displays, int count);
+int dp_display_get_num_of_streams(void);
 #endif /* _DP_DISPLAY_H_ */

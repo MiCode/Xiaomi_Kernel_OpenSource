@@ -45,6 +45,11 @@
 
 #define DP_INTR_MASK2		(DP_INTERRUPT_STATUS2 << 2)
 
+#define DP_INTERRUPT_STATUS5 \
+	(DP_INTR_MST_DP0_VCPF_SENT | DP_INTR_MST_DP0_VCPF_SENT)
+
+#define DP_INTR_MASK5		(DP_INTERRUPT_STATUS5 << 2)
+
 #define dp_catalog_fill_io(x) { \
 	catalog->io.x = parser->get_io(parser, #x); \
 }
@@ -726,11 +731,13 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl)
 	catalog = dp_catalog_get_priv(ctrl);
 	io_data = catalog->io.dp_link;
 
-	cfg = dp_read(catalog, io_data, DP_CONFIGURATION_CTRL);
+	cfg = dp_read(catalog, io_data, DP_MAINLINK_CTRL);
 	cfg |= 0x02000000;
-	dp_write(catalog, io_data, DP_CONFIGURATION_CTRL, cfg);
+	dp_write(catalog, io_data, DP_MAINLINK_CTRL, cfg);
 
-	pr_debug("DP_CONFIGURATION_CTRL=0x%x\n", cfg);
+	pr_debug("DP_MAINLINK_CTRL=0x%x\n", cfg);
+
+	dp_write(catalog, io_data, DP_MAINLINK_LEVELS, 0xa08);
 }
 
 static void dp_catalog_panel_config_ctrl(struct dp_catalog_panel *panel,
@@ -780,7 +787,7 @@ static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl)
 static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
 						bool enable)
 {
-	u32 mainlink_ctrl;
+	u32 mainlink_ctrl, reg;
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
 
@@ -793,13 +800,18 @@ static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
 	io_data = catalog->io.dp_link;
 
 	if (enable) {
-		dp_write(catalog, io_data, DP_MAINLINK_CTRL, 0x02000000);
+		reg = dp_read(catalog, io_data, DP_MAINLINK_CTRL);
+		mainlink_ctrl = reg & ~(0x03);
+		dp_write(catalog, io_data, DP_MAINLINK_CTRL, mainlink_ctrl);
 		wmb(); /* make sure mainlink is turned off before reset */
-		dp_write(catalog, io_data, DP_MAINLINK_CTRL, 0x02000002);
+		mainlink_ctrl = reg | 0x02;
+		dp_write(catalog, io_data, DP_MAINLINK_CTRL, mainlink_ctrl);
 		wmb(); /* make sure mainlink entered reset */
-		dp_write(catalog, io_data, DP_MAINLINK_CTRL, 0x02000000);
+		mainlink_ctrl = reg & ~(0x03);
+		dp_write(catalog, io_data, DP_MAINLINK_CTRL, mainlink_ctrl);
 		wmb(); /* make sure mainlink reset done */
-		dp_write(catalog, io_data, DP_MAINLINK_CTRL, 0x02000001);
+		mainlink_ctrl = reg | 0x01;
+		dp_write(catalog, io_data, DP_MAINLINK_CTRL, mainlink_ctrl);
 		wmb(); /* make sure mainlink turned on */
 	} else {
 		mainlink_ctrl = dp_read(catalog, io_data, DP_MAINLINK_CTRL);
@@ -1115,9 +1127,11 @@ static void dp_catalog_ctrl_enable_irq(struct dp_catalog_ctrl *ctrl,
 	if (enable) {
 		dp_write(catalog, io_data, DP_INTR_STATUS, DP_INTR_MASK1);
 		dp_write(catalog, io_data, DP_INTR_STATUS2, DP_INTR_MASK2);
+		dp_write(catalog, io_data, DP_INTR_STATUS5, DP_INTR_MASK5);
 	} else {
 		dp_write(catalog, io_data, DP_INTR_STATUS, 0x00);
 		dp_write(catalog, io_data, DP_INTR_STATUS2, 0x00);
+		dp_write(catalog, io_data, DP_INTR_STATUS5, 0x00);
 	}
 }
 
@@ -1170,6 +1184,13 @@ static void dp_catalog_ctrl_get_interrupt(struct dp_catalog_ctrl *ctrl)
 	ack <<= 1;
 	ack |= DP_INTR_MASK2;
 	dp_write(catalog, io_data, DP_INTR_STATUS2, ack);
+
+	ctrl->isr5 = dp_read(catalog, io_data, DP_INTR_STATUS5);
+	ctrl->isr5 &= ~DP_INTR_MASK5;
+	ack = ctrl->isr5 & DP_INTERRUPT_STATUS5;
+	ack <<= 1;
+	ack |= DP_INTR_MASK5;
+	dp_write(catalog, io_data, DP_INTR_STATUS5, ack);
 }
 
 static void dp_catalog_ctrl_phy_reset(struct dp_catalog_ctrl *ctrl)
@@ -1788,7 +1809,7 @@ static void dp_catalog_config_spd_header(struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
-	u32 value, new_value;
+	u32 value, new_value, offset = 0;
 	u8 parity_byte;
 
 	if (!panel || panel->stream_id >= DP_STREAM_MAX)
@@ -1798,10 +1819,10 @@ static void dp_catalog_config_spd_header(struct dp_catalog_panel *panel)
 	io_data = catalog->io.dp_link;
 
 	if (panel->stream_id == DP_STREAM_1)
-		io_data = io_data + (MMSS_DP1_GENERIC0_0 - MMSS_DP_GENERIC0_0);
+		offset = MMSS_DP1_GENERIC0_0 - MMSS_DP_GENERIC0_0;
 
 	/* Config header and parity byte 1 */
-	value = dp_read(catalog, io_data, MMSS_DP_GENERIC1_0);
+	value = dp_read(catalog, io_data, MMSS_DP_GENERIC1_0 + offset);
 
 	new_value = 0x83;
 	parity_byte = dp_header_get_parity(new_value);
@@ -1809,10 +1830,10 @@ static void dp_catalog_config_spd_header(struct dp_catalog_panel *panel)
 			| (parity_byte << PARITY_BYTE_1_BIT));
 	pr_debug("Header Byte 1: value = 0x%x, parity_byte = 0x%x\n",
 			value, parity_byte);
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_0, value);
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_0 + offset, value);
 
 	/* Config header and parity byte 2 */
-	value = dp_read(catalog, io_data, MMSS_DP_GENERIC1_1);
+	value = dp_read(catalog, io_data, MMSS_DP_GENERIC1_1 + offset);
 
 	new_value = 0x1b;
 	parity_byte = dp_header_get_parity(new_value);
@@ -1820,10 +1841,10 @@ static void dp_catalog_config_spd_header(struct dp_catalog_panel *panel)
 			| (parity_byte << PARITY_BYTE_2_BIT));
 	pr_debug("Header Byte 2: value = 0x%x, parity_byte = 0x%x\n",
 			value, parity_byte);
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_1, value);
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_1 + offset, value);
 
 	/* Config header and parity byte 3 */
-	value = dp_read(catalog, io_data, MMSS_DP_GENERIC1_1);
+	value = dp_read(catalog, io_data, MMSS_DP_GENERIC1_1 + offset);
 
 	new_value = (0x0 | (0x12 << 2));
 	parity_byte = dp_header_get_parity(new_value);
@@ -1831,7 +1852,7 @@ static void dp_catalog_config_spd_header(struct dp_catalog_panel *panel)
 			| (parity_byte << PARITY_BYTE_3_BIT));
 	pr_debug("Header Byte 3: value = 0x%x, parity_byte = 0x%x\n",
 			new_value, parity_byte);
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_1, value);
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_1 + offset, value);
 }
 
 static void dp_catalog_panel_config_spd(struct dp_catalog_panel *panel)
@@ -1840,6 +1861,7 @@ static void dp_catalog_panel_config_spd(struct dp_catalog_panel *panel)
 	struct dp_io_data *io_data;
 	u32 spd_cfg = 0, spd_cfg2 = 0;
 	u8 *vendor = NULL, *product = NULL;
+	u32 offset = 0;
 	u32 sdp_cfg_off = 0;
 	u32 sdp_cfg2_off = 0;
 	u32 sdp_cfg3_off = 0;
@@ -1871,39 +1893,45 @@ static void dp_catalog_panel_config_spd(struct dp_catalog_panel *panel)
 	io_data = catalog->io.dp_link;
 
 	if (panel->stream_id == DP_STREAM_1)
-		io_data = io_data + (MMSS_DP1_GENERIC0_0 - MMSS_DP_GENERIC0_0);
+		offset = MMSS_DP1_GENERIC0_0 - MMSS_DP_GENERIC0_0;
 
 	dp_catalog_config_spd_header(panel);
 
 	vendor = panel->spd_vendor_name;
 	product = panel->spd_product_description;
 
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_2, ((vendor[0] & 0x7f) |
-				((vendor[1] & 0x7f) << 8) |
-				((vendor[2] & 0x7f) << 16) |
-				((vendor[3] & 0x7f) << 24)));
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_3, ((vendor[4] & 0x7f) |
-				((vendor[5] & 0x7f) << 8) |
-				((vendor[6] & 0x7f) << 16) |
-				((vendor[7] & 0x7f) << 24)));
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_4, ((product[0] & 0x7f) |
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_2 + offset,
+			((vendor[0] & 0x7f) |
+			((vendor[1] & 0x7f) << 8) |
+			((vendor[2] & 0x7f) << 16) |
+			((vendor[3] & 0x7f) << 24)));
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_3 + offset,
+			((vendor[4] & 0x7f) |
+			((vendor[5] & 0x7f) << 8) |
+			((vendor[6] & 0x7f) << 16) |
+			((vendor[7] & 0x7f) << 24)));
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_4 + offset,
+			((product[0] & 0x7f) |
 			((product[1] & 0x7f) << 8) |
 			((product[2] & 0x7f) << 16) |
 			((product[3] & 0x7f) << 24)));
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_5, ((product[4] & 0x7f) |
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_5 + offset,
+			((product[4] & 0x7f) |
 			((product[5] & 0x7f) << 8) |
 			((product[6] & 0x7f) << 16) |
 			((product[7] & 0x7f) << 24)));
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_6, ((product[8] & 0x7f) |
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_6 + offset,
+			((product[8] & 0x7f) |
 			((product[9] & 0x7f) << 8) |
 			((product[10] & 0x7f) << 16) |
 			((product[11] & 0x7f) << 24)));
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_7, ((product[12] & 0x7f) |
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_7 + offset,
+			((product[12] & 0x7f) |
 			((product[13] & 0x7f) << 8) |
 			((product[14] & 0x7f) << 16) |
 			((product[15] & 0x7f) << 24)));
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_8, device_type);
-	dp_write(catalog, io_data, MMSS_DP_GENERIC1_9, 0x00);
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_8 + offset, device_type);
+	dp_write(catalog, io_data, MMSS_DP_GENERIC1_9 + offset, 0x00);
 
 	if (panel->stream_id == DP_STREAM_1) {
 		sdp_cfg_off = MMSS_DP1_SDP_CFG - MMSS_DP_SDP_CFG;
