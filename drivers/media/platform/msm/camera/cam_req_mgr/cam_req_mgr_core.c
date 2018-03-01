@@ -1684,8 +1684,8 @@ int cam_req_mgr_process_error(void *priv, void *data)
 					evt_data.u.error = err_info->error;
 					if (device->ops &&
 						device->ops->process_evt)
-						rc = device->ops->
-							process_evt(&evt_data);
+						rc = device->ops->process_evt(
+							&evt_data);
 				}
 			}
 			/* Bring processing pointer to bubbled req id */

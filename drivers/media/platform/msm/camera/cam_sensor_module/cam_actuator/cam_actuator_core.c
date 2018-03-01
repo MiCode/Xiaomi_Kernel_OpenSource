@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -193,16 +193,12 @@ static int32_t cam_actuator_i2c_modes_util(
 		for (i = 0; i < size; i++) {
 			rc = camera_io_dev_poll(
 			io_master_info,
-			i2c_list->i2c_settings.
-				reg_setting[i].reg_addr,
-			i2c_list->i2c_settings.
-				reg_setting[i].reg_data,
-			i2c_list->i2c_settings.
-				reg_setting[i].data_mask,
+			i2c_list->i2c_settings.reg_setting[i].reg_addr,
+			i2c_list->i2c_settings.reg_setting[i].reg_data,
+			i2c_list->i2c_settings.reg_setting[i].data_mask,
 			i2c_list->i2c_settings.addr_type,
-				i2c_list->i2c_settings.data_type,
-			i2c_list->i2c_settings.
-				reg_setting[i].delay);
+			i2c_list->i2c_settings.data_type,
+			i2c_list->i2c_settings.reg_setting[i].delay);
 			if (rc < 0) {
 				CAM_ERR(CAM_ACTUATOR,
 					"i2c poll apply setting Fail: %d", rc);
