@@ -1855,7 +1855,7 @@ int xhci_sec_event_ring_cleanup(struct usb_hcd *hcd, unsigned int intr_num)
 {
 	int size;
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
-	struct device	*dev = xhci_to_hcd(xhci)->self.controller;
+	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 
 	if (intr_num >= xhci->max_interrupters) {
 		xhci_err(xhci, "invalid secondary interrupter num %d\n",
@@ -1887,7 +1887,7 @@ void xhci_event_ring_cleanup(struct xhci_hcd *xhci)
 {
 	int size;
 	unsigned int i;
-	struct device	*dev = xhci_to_hcd(xhci)->self.controller;
+	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 
 	/* sec event ring clean up */
 	for (i = 1; i < xhci->max_interrupters; i++)
@@ -1915,7 +1915,7 @@ void xhci_event_ring_cleanup(struct xhci_hcd *xhci)
 
 void xhci_mem_cleanup(struct xhci_hcd *xhci)
 {
-	struct device	*dev = xhci_to_hcd(xhci)->self.controller;
+	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 	int i, j, num_ports;
 
 	cancel_delayed_work_sync(&xhci->cmd_timer);
@@ -2431,7 +2431,7 @@ int xhci_event_ring_setup(struct xhci_hcd *xhci, struct xhci_ring **er,
 	u64 val_64;
 	unsigned int val;
 	struct xhci_segment *seg;
-	struct device *dev = xhci_to_hcd(xhci)->self.controller;
+	struct device *dev = xhci_to_hcd(xhci)->self.sysdev;
 
 	*er = xhci_ring_alloc(xhci, ERST_NUM_SEGS, 1, TYPE_EVENT, 0, flags);
 	if (!*er)
