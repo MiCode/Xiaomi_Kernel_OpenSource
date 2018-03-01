@@ -6967,6 +6967,7 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 struct find_best_target_env {
 	struct cpumask *rtg_target;
 	bool placement_boost;
+	bool need_idle;
 };
 
 static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
@@ -7261,6 +7262,13 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 
 	} while (sg = sg->next, sg != sd->groups);
 
+	if (fbt_env->need_idle) {
+		if (best_idle_cpu != -1) {
+			target_cpu = best_idle_cpu;
+			best_idle_cpu = -1;
+		}
+	}
+
 	/*
 	 * For non latency sensitive tasks, cases B and C in the previous loop,
 	 * we pick the best IDLE CPU only if we was not able to find a target
@@ -7461,6 +7469,12 @@ static inline struct energy_env *get_eenv(struct task_struct *p, int prev_cpu)
 	return eenv;
 }
 
+static inline int wake_to_idle(struct task_struct *p)
+{
+	return (current->flags & PF_WAKE_UP_IDLE) ||
+		 (p->flags & PF_WAKE_UP_IDLE);
+}
+
 static inline struct cpumask *find_rtg_target(struct task_struct *p)
 {
 	struct related_thread_group *grp;
@@ -7498,6 +7512,10 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	struct energy_env *eenv;
 	struct cpumask *rtg_target = find_rtg_target(p);
 	struct find_best_target_env fbt_env;
+	bool need_idle = wake_to_idle(p);
+
+	if (need_idle)
+		sync = 0;
 
 	if (sysctl_sched_sync_hint_enable && sync &&
 				bias_to_waker_cpu(p, cpu, rtg_target)) {
@@ -7553,6 +7571,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 
 		fbt_env.rtg_target = rtg_target;
 		fbt_env.placement_boost = task_placement_boost_enabled(p);
+		fbt_env.need_idle = need_idle;
 
 		/* Find a cpu with sufficient capacity */
 		eenv->cpu[EAS_CPU_NXT].cpu_id = find_best_target(p,
@@ -7577,7 +7596,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		return energy_cpu;
 	}
 
-	if (use_fbt && (rtg_target != NULL || fbt_env.placement_boost))
+	if (use_fbt && (rtg_target != NULL || fbt_env.placement_boost ||
+			fbt_env.need_idle))
 		return eenv->cpu[EAS_CPU_NXT].cpu_id;
 
 	/* find most energy-efficient CPU */
