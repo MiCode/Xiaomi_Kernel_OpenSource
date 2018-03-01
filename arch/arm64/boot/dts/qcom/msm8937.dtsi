@@ -429,6 +429,9 @@
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x78b0000 0x200>;
 		interrupts = <0 108 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+		<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core", "iface";
 		status = "disabled";
 	};
 
