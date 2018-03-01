@@ -411,7 +411,7 @@ static int __write_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 static void __hal_sim_modify_msg_packet(u8 *packet,
 					struct venus_hfi_device *device)
 {
-	struct hfi_msg_sys_session_init_done_packet *sys_idle;
+	struct hfi_msg_sys_session_init_done_packet *init_done;
 	struct hal_session *session = NULL;
 	phys_addr_t fw_bias = 0;
 
@@ -424,16 +424,16 @@ static void __hal_sim_modify_msg_packet(u8 *packet,
 	}
 
 	fw_bias = device->hal_data->firmware_base;
-	sys_idle = (struct hfi_msg_sys_session_init_done_packet *)packet;
-	session = __get_session(device, sys_idle->session_id);
+	init_done = (struct hfi_msg_sys_session_init_done_packet *)packet;
+	session = __get_session(device, init_done->session_id);
 
 	if (!session) {
 		dprintk(VIDC_DBG, "%s: Invalid session id: %x\n",
-				__func__, sys_idle->session_id);
+				__func__, init_done->session_id);
 		return;
 	}
 
-	switch (sys_idle->packet_type) {
+	switch (init_done->packet_type) {
 	case HFI_MSG_SESSION_FILL_BUFFER_DONE:
 		if (session->is_decoder) {
 			struct
@@ -1756,24 +1756,6 @@ static int __sys_set_coverage(struct venus_hfi_device *device, u32 mode)
 	return 0;
 }
 
-static int __sys_set_idle_message(struct venus_hfi_device *device,
-	bool enable)
-{
-	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
-	struct hfi_cmd_sys_set_property_packet *pkt =
-		(struct hfi_cmd_sys_set_property_packet *) &packet;
-
-	if (!enable) {
-		dprintk(VIDC_DBG, "sys_idle_indicator is not enabled\n");
-		return 0;
-	}
-
-	call_hfi_pkt_op(device, sys_idle_indicator, pkt, enable);
-	if (__iface_cmdq_write(device, pkt))
-		return -ENOTEMPTY;
-	return 0;
-}
-
 static int __sys_set_power_control(struct venus_hfi_device *device,
 	bool enable)
 {
@@ -2131,9 +2113,6 @@ static void __set_default_sys_properties(struct venus_hfi_device *device)
 {
 	if (__sys_set_debug(device, msm_vidc_fw_debug))
 		dprintk(VIDC_WARN, "Setting fw_debug msg ON failed\n");
-	if (__sys_set_idle_message(device,
-		device->res->sys_idle_indicator || msm_vidc_sys_idle_indicator))
-		dprintk(VIDC_WARN, "Setting idle response ON failed\n");
 	if (__sys_set_power_control(device, msm_vidc_fw_low_power_mode))
 		dprintk(VIDC_WARN, "Setting h/w power collapse ON failed\n");
 }
@@ -2956,8 +2935,7 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 				wfi_status);
 			goto skip_power_off;
 		}
-		if (device->res->sys_idle_indicator &&
-			!(idle_status & BIT(30))) {
+		if (!(idle_status & BIT(30))) {
 			dprintk(VIDC_WARN,
 				"Skipping PC as idle_status (%#x) bit not set\n",
 				idle_status);

@@ -765,8 +765,6 @@ int read_platform_resources_from_drv_data(
 
 	res->slave_side_cp = find_key_value(platform_data,
 			"qcom,slave-side-cp");
-	res->sys_idle_indicator = find_key_value(platform_data,
-			"qcom,enable-idle-indicator");
 	res->thermal_mitigable = find_key_value(platform_data,
 			"qcom,enable-thermal-mitigation");
 	res->msm_vidc_pwr_collapse_delay = find_key_value(platform_data,

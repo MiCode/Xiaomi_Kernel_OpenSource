@@ -527,11 +527,6 @@ struct hfi_msg_sys_session_abort_done_packet {
 	u32 error_type;
 };
 
-struct hfi_msg_sys_idle_packet {
-	u32 size;
-	u32 packet_type;
-};
-
 struct hfi_msg_sys_ping_ack_packet {
 	u32 size;
 	u32 packet_type;

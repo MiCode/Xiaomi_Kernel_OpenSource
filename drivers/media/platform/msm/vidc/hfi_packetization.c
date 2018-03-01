@@ -264,25 +264,6 @@ int create_pkt_cmd_sys_pc_prep(struct hfi_cmd_sys_pc_prep_packet *pkt)
 	return rc;
 }
 
-int create_pkt_cmd_sys_idle_indicator(
-	struct hfi_cmd_sys_set_property_packet *pkt,
-	u32 enable)
-{
-	struct hfi_enable *hfi;
-
-	if (!pkt)
-		return -EINVAL;
-
-	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-		sizeof(struct hfi_enable) + sizeof(u32);
-	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
-	pkt->num_properties = 1;
-	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_IDLE_INDICATOR;
-	hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-	hfi->enable = enable;
-	return 0;
-}
-
 int create_pkt_cmd_sys_debug_config(
 	struct hfi_cmd_sys_set_property_packet *pkt,
 	u32 mode)
@@ -2031,7 +2012,6 @@ int create_pkt_cmd_session_sync_process(
 static struct hfi_packetization_ops hfi_default = {
 	.sys_init = create_pkt_cmd_sys_init,
 	.sys_pc_prep = create_pkt_cmd_sys_pc_prep,
-	.sys_idle_indicator = create_pkt_cmd_sys_idle_indicator,
 	.sys_power_control = create_pkt_cmd_sys_power_control,
 	.sys_set_resource = create_pkt_cmd_sys_set_resource,
 	.sys_debug_config = create_pkt_cmd_sys_debug_config,

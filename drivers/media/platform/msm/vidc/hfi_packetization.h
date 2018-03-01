@@ -29,8 +29,6 @@ enum hfi_packetization_type {
 struct hfi_packetization_ops {
 	int (*sys_init)(struct hfi_cmd_sys_init_packet *pkt, u32 arch_type);
 	int (*sys_pc_prep)(struct hfi_cmd_sys_pc_prep_packet *pkt);
-	int (*sys_idle_indicator)(struct hfi_cmd_sys_set_property_packet *pkt,
-		u32 enable);
 	int (*sys_power_control)(struct hfi_cmd_sys_set_property_packet *pkt,
 		u32 enable);
 	int (*sys_set_resource)(
