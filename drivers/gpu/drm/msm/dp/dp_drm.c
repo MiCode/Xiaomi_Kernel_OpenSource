@@ -184,7 +184,12 @@ static void dp_bridge_disable(struct drm_bridge *drm_bridge)
 	bridge = to_dp_bridge(drm_bridge);
 	dp = bridge->display;
 
-	if (dp && dp->connector)
+	if (!dp) {
+		pr_err("dp is null\n");
+		return;
+	}
+
+	if (dp->connector)
 		sde_connector_helper_bridge_disable(dp->connector);
 
 	rc = dp->pre_disable(dp);
