@@ -435,6 +435,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	struct msm_kms *kms;
 	struct sde_dbg_power_ctrl dbg_power_ctrl = { NULL };
 	int ret, i;
+	struct sched_param param;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -528,7 +529,12 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 			goto fail;
 		}
 	}
-
+	/**
+	 * this priority was found during empiric testing to have appropriate
+	 * realtime scheduling to process display updates and interact with
+	 * other real time and normal priority task
+	 */
+	param.sched_priority = 16;
 	/* initialize commit thread structure */
 	for (i = 0; i < priv->num_crtcs; i++) {
 		priv->disp_thread[i].crtc_id = priv->crtcs[i]->base.id;
@@ -539,6 +545,11 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 				&priv->disp_thread[i].worker,
 				"crtc_commit:%d",
 				priv->disp_thread[i].crtc_id);
+		ret = sched_setscheduler(priv->disp_thread[i].thread,
+							SCHED_FIFO, &param);
+		if (ret)
+			pr_warn("display thread priority update failed: %d\n",
+									ret);
 
 		if (IS_ERR(priv->disp_thread[i].thread)) {
 			dev_err(dev->dev, "failed to create kthread\n");
