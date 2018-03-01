@@ -158,6 +158,4 @@ struct perf_event_security_struct {
 	u32 sid;  /* SID of perf_event obj creator */
 };
 
-extern unsigned int selinux_checkreqprot;
-
 #endif /* _SELINUX_OBJSEC_H_ */
