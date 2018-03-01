@@ -13,6 +13,18 @@ Qualcomm Technologies, Inc. PMIC chips.
 	Value type: <prop-encoded-array>
 	Definition: Register base of the TRI_LED module and length.
 
+- nvmem-names:
+	Usage: optional
+	Value type: <string>
+	Definition: Nvmem device name for SDAM to do PBS trigger. It must be
+		defined as "pbs_sdam". This is required only for HR_LEDs.
+
+- nvmem:
+	Usage: optional
+	Value type: <phandle>
+	Definition: Phandle of the nvmem device name to access SDAM to do PBS
+		trigger. This is required only for HR_LEDs.
+
 Properties for child nodes:
 - pwms:
 	Usage: required

@@ -18,6 +18,7 @@
 #include <linux/leds.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
@@ -72,10 +73,12 @@ struct qpnp_tri_led_chip {
 	struct device		*dev;
 	struct regmap		*regmap;
 	struct qpnp_led_dev	*leds;
+	struct nvmem_device	*pbs_nvmem;
 	struct mutex		bus_lock;
 	int			num_leds;
 	u16			reg_base;
 	u8			subtype;
+	u8			bitmap;
 };
 
 static int qpnp_tri_led_read(struct qpnp_tri_led_chip *chip, u16 addr, u8 *val)
@@ -128,10 +131,16 @@ static int __tri_led_config_pwm(struct qpnp_led_dev *led,
 	return rc;
 }
 
+#define PBS_ENABLE	1
+#define PBS_DISABLE	2
+#define PBS_ARG		0x42
+#define PBS_TRIG_CLR	0xE6
+#define PBS_TRIG_SET	0xE5
 static int __tri_led_set(struct qpnp_led_dev *led)
 {
 	int rc = 0;
-	u8 val = 0, mask = 0;
+	u8 val = 0, mask = 0, pbs_val;
+	u8 prev_bitmap;
 
 	rc = __tri_led_config_pwm(led, &led->pwm_setting);
 	if (rc < 0) {
@@ -146,6 +155,51 @@ static int __tri_led_set(struct qpnp_led_dev *led)
 		val = 0;
 	else
 		val = mask;
+
+	if (led->chip->subtype == TRILED_SUBTYPE_LED2H0L12 &&
+		led->chip->pbs_nvmem) {
+		/*
+		 * Control BOB_CONFIG_EXT_CTRL2_FORCE_EN for HR_LED through
+		 * PBS trigger. PBS trigger for enable happens if any one of
+		 * LEDs are turned on. PBS trigger for disable happens only
+		 * if both LEDs are turned off.
+		 */
+
+		prev_bitmap = led->chip->bitmap;
+		if (val)
+			led->chip->bitmap |= (1 << led->id);
+		else
+			led->chip->bitmap &= ~(1 << led->id);
+
+		if (!(led->chip->bitmap & prev_bitmap)) {
+			pbs_val = led->chip->bitmap ? PBS_ENABLE : PBS_DISABLE;
+			rc = nvmem_device_write(led->chip->pbs_nvmem, PBS_ARG,
+				1, &pbs_val);
+			if (rc < 0) {
+				dev_err(led->chip->dev, "Couldn't set PBS_ARG, rc=%d\n",
+					rc);
+				return rc;
+			}
+
+			pbs_val = 1;
+			rc = nvmem_device_write(led->chip->pbs_nvmem,
+				PBS_TRIG_CLR, 1, &pbs_val);
+			if (rc < 0) {
+				dev_err(led->chip->dev, "Couldn't set PBS_TRIG_CLR, rc=%d\n",
+					rc);
+				return rc;
+			}
+
+			pbs_val = 1;
+			rc = nvmem_device_write(led->chip->pbs_nvmem,
+				PBS_TRIG_SET, 1, &pbs_val);
+			if (rc < 0) {
+				dev_err(led->chip->dev, "Couldn't set PBS_TRIG_SET, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+	}
 
 	rc = qpnp_tri_led_masked_write(led->chip, TRILED_REG_EN_CTL,
 							mask, val);
@@ -377,6 +431,20 @@ static int qpnp_tri_led_parse_dt(struct qpnp_tri_led_chip *chip)
 		dev_err(chip->dev, "can't support %d leds(max %d)\n",
 				chip->num_leds, TRILED_NUM_MAX);
 		return -EINVAL;
+	}
+
+	if (of_find_property(chip->dev->of_node, "nvmem", NULL)) {
+		chip->pbs_nvmem = devm_nvmem_device_get(chip->dev, "pbs_sdam");
+		if (IS_ERR_OR_NULL(chip->pbs_nvmem)) {
+			rc = PTR_ERR(chip->pbs_nvmem);
+			if (rc != -EPROBE_DEFER) {
+				dev_err(chip->dev, "Couldn't get nvmem device, rc=%d\n",
+					rc);
+				return -ENODEV;
+			}
+			chip->pbs_nvmem = NULL;
+			return rc;
+		}
 	}
 
 	chip->leds = devm_kcalloc(chip->dev, chip->num_leds,
