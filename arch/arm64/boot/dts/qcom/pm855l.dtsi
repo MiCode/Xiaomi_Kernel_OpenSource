@@ -226,6 +226,33 @@
 			qcom,pmic-revid = <&pm855l_revid>;
 			status = "disabled";
 		};
+
+		pm855l_lpg: qcom,pwms@b100 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xb100 0x300>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+		};
+
+		pm855l_rgb_led: qcom,leds@d000 {
+			compatible = "qcom,tri-led";
+			reg = <0xd000 0x100>;
+			red {
+				label = "red";
+				pwms = <&pm855l_lpg 0 1000000>;
+				led-sources = <0>;
+			};
+			green {
+				label = "green";
+				pwms = <&pm855l_lpg 1 1000000>;
+				led-sources = <1>;
+			};
+			blue {
+				label = "blue";
+				pwms = <&pm855l_lpg 2 1000000>;
+				led-sources = <2>;
+			};
+		};
 	};
 };
 
