@@ -936,9 +936,6 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		}
 	}
 
-	if (sde_kms->splash_data.smmu_handoff_pending)
-		sde_kms->splash_data.smmu_handoff_pending = false;
-
 	/*
 	 * NOTE: for secure use cases we want to apply the new HW
 	 * configuration only after completing preparation for secure
@@ -969,6 +966,62 @@ static void sde_kms_commit(struct msm_kms *kms,
 			SDE_EVT32(DRMID(crtc));
 			sde_crtc_commit_kickoff(crtc, old_crtc_state);
 		}
+	}
+}
+
+static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
+		struct drm_atomic_state *old_state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	bool primary_crtc_active = false;
+	struct msm_drm_private *priv;
+	int i, rc = 0;
+
+	priv = sde_kms->dev->dev_private;
+
+	if (!sde_kms->splash_data.resource_handoff_pending)
+		return;
+
+	SDE_EVT32(SDE_EVTLOG_FUNC_CASE1);
+	for_each_crtc_in_state(old_state, crtc, crtc_state, i) {
+		if (crtc->state->active)
+			primary_crtc_active = true;
+		SDE_EVT32(crtc->base.id, crtc->state->active);
+	}
+
+	if (!primary_crtc_active) {
+		SDE_EVT32(SDE_EVTLOG_FUNC_CASE2);
+		return;
+	}
+
+	sde_kms->splash_data.resource_handoff_pending = false;
+
+	if (sde_kms->splash_data.cont_splash_en) {
+		SDE_DEBUG("disabling cont_splash feature\n");
+		sde_kms->splash_data.cont_splash_en = false;
+
+		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
+			sde_power_data_bus_set_quota(&priv->phandle,
+				sde_kms->core_client,
+				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
+				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+
+		sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			false);
+	}
+
+	if (sde_kms->splash_data.splash_base) {
+		_sde_kms_splash_smmu_unmap(sde_kms);
+
+		rc = _sde_kms_release_splash_buffer(
+			sde_kms->splash_data.splash_base,
+			sde_kms->splash_data.splash_size);
+		if (rc)
+			pr_err("failed to release splash memory\n");
+		sde_kms->splash_data.splash_base = 0;
+		sde_kms->splash_data.splash_size = 0;
 	}
 }
 
@@ -1019,39 +1072,9 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
+	_sde_kms_release_splash_resource(sde_kms, old_state);
+
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
-
-	if (sde_kms->splash_data.cont_splash_en) {
-		/* Releasing splash resources as we have first frame update */
-		rc = _sde_kms_splash_smmu_unmap(sde_kms);
-		SDE_DEBUG("Disabling cont_splash feature\n");
-		sde_kms->splash_data.cont_splash_en = false;
-
-		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
-			sde_power_data_bus_set_quota(&priv->phandle,
-				sde_kms->core_client,
-				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
-				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
-				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
-
-		sde_power_resource_enable(&priv->phandle,
-				sde_kms->core_client, false);
-		SDE_DEBUG("removing Vote for MDP Resources\n");
-	}
-
-	/*
-	 * Even for continuous splash disabled cases we have to release
-	 * splash memory reservation back to system after first frame update.
-	 */
-	if (sde_kms->splash_data.splash_base) {
-		rc = _sde_kms_release_splash_buffer(
-				sde_kms->splash_data.splash_base,
-				sde_kms->splash_data.splash_size);
-		if (rc)
-			pr_err("Failed to release splash memory\n");
-		sde_kms->splash_data.splash_base = 0;
-		sde_kms->splash_data.splash_size = 0;
-	}
 }
 
 static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
@@ -2956,8 +2979,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		 * address. To facilitate this requirement we need to have a
 		 * one to one mapping on SMMU until we have our first frame.
 		 */
-		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
-			sde_kms->splash_data.smmu_handoff_pending) {
+		if (i == MSM_SMMU_DOMAIN_UNSECURE) {
 			ret = mmu->funcs->set_attribute(mmu,
 				DOMAIN_ATTR_EARLY_MAP,
 				&early_map);
@@ -2986,27 +3008,27 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		}
 		aspace->domain_attached = true;
 		early_map = 0;
+
 		/* Mapping splash memory block */
 		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
-			sde_kms->splash_data.smmu_handoff_pending) {
+				sde_kms->splash_data.splash_base) {
 			ret = _sde_kms_splash_smmu_map(sde_kms->dev, mmu,
 					&sde_kms->splash_data);
 			if (ret) {
 				SDE_ERROR("failed to map ret:%d\n", ret);
 				goto fail;
 			}
-			/*
-			 * Turning off early map after generating one to one
-			 * mapping for splash address space.
-			 */
-			ret = mmu->funcs->set_attribute(mmu,
-				DOMAIN_ATTR_EARLY_MAP,
-				&early_map);
-			if (ret) {
-				SDE_ERROR("failed to set map att ret:%d\n",
-									ret);
-				goto early_map_fail;
-			}
+		}
+
+		/*
+		 * Turning off early map after generating one to one
+		 * mapping for splash address space.
+		 */
+		ret = mmu->funcs->set_attribute(mmu, DOMAIN_ATTR_EARLY_MAP,
+			&early_map);
+		if (ret) {
+			SDE_ERROR("failed to set map att ret:%d\n", ret);
+			goto early_map_fail;
 		}
 	}
 
@@ -3285,12 +3307,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 					&sde_kms->splash_data,
 					sde_kms->catalog);
 
-	/*
-	 * SMMU handoff is necessary for continuous splash enabled
-	 * scenario.
-	 */
-	if (sde_kms->splash_data.cont_splash_en)
-		sde_kms->splash_data.smmu_handoff_pending = true;
+	sde_kms->splash_data.resource_handoff_pending = true;
 
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,

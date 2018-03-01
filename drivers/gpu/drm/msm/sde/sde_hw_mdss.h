@@ -570,7 +570,8 @@ struct ctl_top {
 /**
  * struct sde_splash_data - Struct contains details of continuous splash
  *	memory region and initial pipeline configuration.
- * @smmu_handoff_pending:boolean to notify handoff from splash memory to smmu
+ * @resource_handoff_pending: boolean to notify boot up resource handoff
+ *			is pending.
  * @splash_base:	Base address of continuous splash region reserved
  *                      by bootloader
  * @splash_size:	Size of continuous splash region
@@ -585,7 +586,7 @@ struct ctl_top {
  * @single_flush_en: Stores if the single flush is enabled.
  */
 struct sde_splash_data {
-	bool smmu_handoff_pending;
+	bool resource_handoff_pending;
 	unsigned long splash_base;
 	u32 splash_size;
 	struct ctl_top top[CTL_MAX - CTL_0];
