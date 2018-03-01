@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/delay.h>
+#include <linux/of.h>
 
 #include <asm/cacheflush.h>
 #include <asm/compiler.h>
@@ -194,6 +195,33 @@ static int scm_remap_error(int err)
 	return -EINVAL;
 }
 
+static int get_hab_vmid(u32 *mm_ip_id)
+{
+	int result, i;
+	struct device_node *hab_node = NULL;
+	int tmp = -1;
+
+	/* parse device tree*/
+	pr_info("parsing hab node in device tree...\n");
+	hab_node = of_find_compatible_node(NULL, NULL, "qcom,hab");
+	if (hab_node) {
+		/* read local vmid of this VM, like 0 for host, 1 for AGL GVM */
+		result = of_property_read_u32(hab_node, "vmid", &tmp);
+		if (!result) {
+			pr_info("local vmid = %d\n", tmp);
+			*mm_ip_id = MM_QCPE_START + tmp;
+			return 0;
+		}
+		pr_err("failed to read local vmid, result = %d\n", result);
+	} else {
+		pr_err("no hab device tree node\n");
+	}
+
+	pr_info("assuming default vmid = 2\n");
+	*mm_ip_id = MM_QCPE_VM2;
+	return 0;
+}
+
 static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 {
 	static bool opened;
@@ -217,7 +245,15 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 		desc->args[5], desc->args[6]);
 
 	if (!opened) {
-		ret = habmm_socket_open(&handle, MM_QCPE_VM1, 0, 0);
+		u32 mm_ip_id;
+
+		ret = get_hab_vmid(&mm_ip_id);
+		if (ret) {
+			pr_err("scm_call_qcpe: get_hab_vmid failed with ret = %d",
+				ret);
+			return ret;
+		}
+		ret = habmm_socket_open(&handle, mm_ip_id, 0, 0);
 		if (ret) {
 			pr_err("scm_call_qcpe: habmm_socket_open failed with ret = %d",
 				ret);
