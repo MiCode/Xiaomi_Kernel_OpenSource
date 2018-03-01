@@ -226,6 +226,8 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 	u8 v_fifo[MAX_FIFO_LENGTH * 2], i_fifo[MAX_FIFO_LENGTH * 2];
 	u32 sample_interval = 0, sample_count = 0, fifo_v = 0, fifo_i = 0;
 
+	chip->kdata.fifo_time = (u32)ktime_get_seconds();
+
 	if (!fifo_length) {
 		pr_debug("No FIFO data\n");
 		return 0;
@@ -279,6 +281,7 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 	}
 
 	chip->kdata.fifo_length = fifo_length;
+	chip->kdata.seq_no = chip->seq_no++ % U32_MAX;
 
 	return rc;
 }
@@ -329,6 +332,9 @@ static int qg_process_accumulator(struct qpnp_qg *chip)
 	chip->kdata.fifo[index].interval = sample_interval;
 	chip->kdata.fifo[index].count = count;
 	chip->kdata.fifo_length++;
+
+	if (chip->kdata.fifo_length == 1)	/* Only accumulator data */
+		chip->kdata.seq_no = chip->seq_no++ % U32_MAX;
 
 	qg_dbg(chip, QG_DEBUG_FIFO, "ACC v_avg=%duV i_avg=%duA interval=%d count=%d\n",
 			chip->kdata.fifo[index].v,
@@ -507,11 +513,8 @@ static void process_udata_work(struct work_struct *work)
 		qg_dbg(chip, QG_DEBUG_SOC, "udata SOC=%d last SOC=%d\n",
 			chip->udata.param[QG_SOC].data, chip->catch_up_soc);
 
-		/* Only scale if SOC has changed */
-		if (chip->catch_up_soc != chip->udata.param[QG_SOC].data) {
-			chip->catch_up_soc = chip->udata.param[QG_SOC].data;
-			qg_scale_soc(chip, false);
-		}
+		chip->catch_up_soc = chip->udata.param[QG_SOC].data;
+		qg_scale_soc(chip, false);
 
 		/* update parameters to SDAM */
 		chip->sdam_data[SDAM_SOC] =
@@ -526,6 +529,10 @@ static void process_udata_work(struct work_struct *work)
 		if (rc < 0)
 			pr_err("Failed to update SDAM params, rc=%d\n", rc);
 	}
+
+	if (chip->udata.param[QG_CHARGE_COUNTER].valid)
+		chip->charge_counter_uah =
+			chip->udata.param[QG_CHARGE_COUNTER].data;
 
 	vote(chip->awake_votable, UDATA_READY_VOTER, false, 0);
 }
@@ -958,6 +965,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BATT_PROFILE_VERSION:
 		pval->intval = chip->bp.qg_profile_version;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+		pval->intval = chip->charge_counter_uah;
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -978,6 +988,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
@@ -1169,15 +1180,13 @@ static ssize_t qg_device_read(struct file *file, char __user *buf, size_t count,
 		goto fail_read;
 	}
 
+
 	if (copy_to_user(buf, &chip->kdata, data_size)) {
 		pr_err("Failed in copy_to_user\n");
 		rc = -EFAULT;
 		goto fail_read;
 	}
 	chip->data_ready = false;
-
-	/* clear data */
-	memset(&chip->kdata, 0, sizeof(chip->kdata));
 
 	/* release all wake sources */
 	vote(chip->awake_votable, GOOD_OCV_VOTER, false, 0);
@@ -1186,7 +1195,11 @@ static ssize_t qg_device_read(struct file *file, char __user *buf, size_t count,
 	vote(chip->awake_votable, SUSPEND_DATA_VOTER, false, 0);
 
 	qg_dbg(chip, QG_DEBUG_DEVICE,
-			"QG device read complete Size=%ld\n", data_size);
+		"QG device read complete Seq_no=%u Size=%ld\n",
+				chip->kdata.seq_no, data_size);
+
+	/* clear data */
+	memset(&chip->kdata, 0, sizeof(chip->kdata));
 
 	mutex_unlock(&chip->data_lock);
 
@@ -1489,7 +1502,8 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 			use_pon_ocv = true;
 			goto done;
 		}
-		qg_dbg(chip, QG_DEBUG_PON, "Shutdown: SOC=%d OCV=%duV time=%dsecs, time_now=%ldsecs\n",
+		qg_dbg(chip, QG_DEBUG_PON, "Shutdown: Valid=%d SOC=%d OCV=%duV time=%dsecs, time_now=%ldsecs\n",
+				shutdown[SDAM_VALID],
 				shutdown[SDAM_SOC],
 				shutdown[SDAM_OCV_UV],
 				shutdown[SDAM_TIME_SEC],

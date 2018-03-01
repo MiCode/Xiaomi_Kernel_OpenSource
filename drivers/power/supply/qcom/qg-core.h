@@ -91,6 +91,8 @@ struct qpnp_qg {
 	int			charge_type;
 	int			next_wakeup_ms;
 	u32			wa_flags;
+	u32			seq_no;
+	u32			charge_counter_uah;
 	ktime_t			last_user_update_time;
 	ktime_t			last_fifo_update_time;
 
