@@ -37,6 +37,9 @@ static inline struct neighbour *__ipv4_neigh_lookup(struct net_device *dev, u32 
 {
 	struct neighbour *n;
 
+	if (dev->flags & (IFF_LOOPBACK | IFF_POINTOPOINT))
+		key = INADDR_ANY;
+
 	rcu_read_lock_bh();
 	n = __ipv4_neigh_lookup_noref(dev, key);
 	if (n && !atomic_inc_not_zero(&n->refcnt))
