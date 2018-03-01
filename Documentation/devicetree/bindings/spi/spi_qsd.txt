@@ -1,0 +1,106 @@
+Qualcomm Serial Peripheral Interface (SPI)
+
+Required properties:
+- compatible : Should be "qcom,spi-qup-v2".
+- reg : Offset and length of the register regions for the device
+- reg-names : Register region names referenced in reg above.
+	Required register resource entries are:
+	"spi_physical" : Physical address of controller register blocks.
+- interrupts : Interrupt numbers used by this controller
+- interrupt-names : Interrupt resource names referenced in interrupts above.
+	Required interrupt resource entries are:
+	"spi_irq" : QUP-core interrupt.
+- spi-max-frequency : Specifies maximum SPI clock frequency, Units - Hz.
+
+Required alias:
+- The desired bus-number is specified via an alias with the following format
+	'spi{n}' where n is the bus number.
+
+Optional properties:
+- qcom,gpio-mosi : GPIO pin number of the MOSI bus line.
+- qcom,gpio-miso : GPIO pin number of the MISO bus line.
+- qcom,gpio-clk  : GPIO pin number of the CLK  bus line.
+- qcom,gpio-cs0  : GPIO pin number of the chipselect0 bus line.
+- qcom,gpio-cs1  : GPIO pin number of the chipselect1 bus line.
+- qcom,gpio-cs2  : GPIO pin number of the chipselect2 bus line.
+- qcom,gpio-cs3  : GPIO pin number of the chipselect3 bus line.
+- qcom,infinite-mode: When missing or set to zero, QUP uses infinite-mode. When
+  value is non-zero, the value is the number of words in maximum transfer
+  length.
+ - qcom,active-only : Vote for core clock when the application processor goes
+  to active state and remove that vote when it goes to idle state. This flag may
+  improve service time of first spi request at the expense of power consumption.
+  When this entry is not present, voting is done by the runtime-pm callbacks.
+ - qcom,master-id : Master endpoint number used for voting on clocks using the
+  bus-scaling driver.
+ - qcom,rt-priority : whether spi message queue is set to run as a realtime task.
+  With this spi transaction message pump with high (realtime) priority to reduce
+  the transfer latency on the bus by minimising the delay between a transfer request
+ - qcom,shared : whether this qup is shared with other ee's
+
+Optional properties which are required for support of BAM-mode:
+- qcom,ver-reg-exists : Boolean. When present, allows driver to verify if HW
+  version support latest features (e.g. BAM) and then enable them. Should be
+  removed for legacy HW.
+- qcom,use-bam : Boolean. When present, enables BAM-mode.
+- qcom,use-pinctrl : Boolean. When present, enables pinctrl frame work to configure GPIO's
+  instead of existing gpio mux hence gpio entries are no more required if present.
+- pinctrl-names : Property must contain "spi_default" and "spi_sleep" if
+  pinctrl is to be used.
+  instead of existing gpio mux hence gpio entries are no more required if present.
+- qcom,bam-consumer-pipe-index : BAM consumer-pipe index.
+- qcom,bam-producer-pipe-index : BAM producer-pipe index.
+- reg-names : register region names referenced in reg.
+	Required register resource for BAM are:
+	"spi_bam_physical" : Physical address of BAM for this controller.
+- interrupt-names : interrupt resource names referenced in interrupts.
+	Required interrupt resource from BAM are:
+	"spi_bam_irq" : BAM interrupt used by the controller.
+
+Optional SPI slave nodes must be children of the SPI master node and contain
+the following properties.
+- reg: (required) chip-select address of the device.
+- compatible : (required) Name of SPI device following generic names.
+- spi-max-frequency : (required) Maximum SPI clocking speed of device in Hz
+- interrupts : (recommended) Should contain the SPI slave interrupt number
+  encoded depending on the type of the interrupt controller.
+- interrupt-parent : (recommended) The phandle for the interrupt controller
+  that services interrupts for this device.
+- spi-cpol : (optional) Empty property indicating device requires inverse
+  clock polarity (CPOL) mode
+- spi-cpha : (optional) Empty property indicating device requires shifted
+  clock phase (CPHA) mode
+- spi-cs-high : (optional) Empty property indicating device requires
+  chip select active high
+
+Example:
+	aliases {
+		spi0 = &spi_0;
+	};
+
+	spi_0: spi@f9923000 {
+		compatible = "qcom,spi-qup-v2";
+
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0xf9923000 0x1000>,
+			<0xf9904000 0x10000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 95 0>, <0 238 0>;
+
+		spi-max-frequency = <19200000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		qcom,gpio-mosi = <&msmgpio 0 0>;
+		qcom,gpio-miso = <&msmgpio 1 0>;
+		qcom,gpio-clk  = <&msmgpio 3 0>;
+		qcom,gpio-cs2  = <&msmgpio 9 0>;
+
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,use-pinctrl;
+		qcom,bam-consumer-pipe-index = <12>;
+		qcom,bam-producer-pipe-index = <13>;
+		qcom,ver-reg-exists;
+		qcom,master-id = <86>;
+		qcom,rt-priority;
+	};
