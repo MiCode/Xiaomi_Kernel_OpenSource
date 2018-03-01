@@ -6126,6 +6126,12 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
 
 	dump_eenv_debug(eenv);
 
+	trace_sched_energy_diff(eenv->p, eenv->cpu[EAS_CPU_PRV].cpu_id,
+				eenv->cpu[EAS_CPU_PRV].energy,
+				eenv->cpu[EAS_CPU_NXT].cpu_id,
+				eenv->cpu[EAS_CPU_NXT].energy,
+				eenv->cpu[EAS_CPU_BKP].cpu_id,
+				eenv->cpu[EAS_CPU_BKP].energy);
 	/*
 	 * Compare the other CPU candidates to find a CPU which can be
 	 * more energy efficient then EAS_CPU_PRV
@@ -7040,6 +7046,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 
 			if (sched_cpu_high_irqload(i))
 				continue;
+
+			trace_sched_cpu_util(i);
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu

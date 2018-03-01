@@ -53,6 +53,53 @@ TRACE_EVENT(sched_kthread_stop_ret,
 );
 
 /*
+ * Tracepoint for task enqueue/dequeue:
+ */
+TRACE_EVENT(sched_enq_deq_task,
+
+	TP_PROTO(struct task_struct *p, bool enqueue, unsigned int cpus_allowed),
+
+	TP_ARGS(p, enqueue, cpus_allowed),
+
+	TP_STRUCT__entry(
+		__array(	char,	comm,	TASK_COMM_LEN	)
+		__field(	pid_t,	pid			)
+		__field(	int,	prio			)
+		__field(	int,	cpu			)
+		__field(	bool,	enqueue			)
+		__field(unsigned int,	nr_running		)
+		__field(unsigned long,	cpu_load		)
+		__field(unsigned int,	rt_nr_running		)
+		__field(unsigned int,	cpus_allowed		)
+		__field(unsigned int,	demand			)
+		__field(unsigned int,	pred_demand		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid		= p->pid;
+		__entry->prio		= p->prio;
+		__entry->cpu		= task_cpu(p);
+		__entry->enqueue	= enqueue;
+		__entry->nr_running	= task_rq(p)->nr_running;
+		__entry->cpu_load	= cpu_util(task_cpu(p));
+		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
+		__entry->cpus_allowed	= cpus_allowed;
+		__entry->demand		= task_load(p);
+		__entry->pred_demand	= task_pl(p);
+	),
+
+	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u affine=%x demand=%u pred_demand=%u",
+			__entry->cpu,
+			__entry->enqueue ? "enqueue" : "dequeue",
+			__entry->comm, __entry->pid,
+			__entry->prio, __entry->nr_running,
+			__entry->cpu_load, __entry->rt_nr_running, __entry->cpus_allowed
+			, __entry->demand, __entry->pred_demand
+			)
+);
+
+/*
  * Tracepoint for waking up a task:
  */
 DECLARE_EVENT_CLASS(sched_wakeup_template,
@@ -1114,6 +1161,75 @@ TRACE_EVENT(sched_find_best_target,
 		__entry->prefer_idle, __entry->start_cpu,
 		__entry->best_idle, __entry->best_active,
 		__entry->target)
+);
+
+TRACE_EVENT(sched_cpu_util,
+
+	TP_PROTO(int cpu),
+
+	TP_ARGS(cpu),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, cpu			)
+		__field(unsigned int, nr_running		)
+		__field(long, cpu_util				)
+		__field(long, cpu_util_cum			)
+		__field(unsigned int, capacity_curr		)
+		__field(unsigned int, capacity			)
+		__field(unsigned int, capacity_orig		)
+		__field(int, idle_state				)
+		__field(u64, irqload				)
+	),
+
+	TP_fast_assign(
+		__entry->cpu			= cpu;
+		__entry->nr_running		= cpu_rq(cpu)->nr_running;
+		__entry->cpu_util		= cpu_util(cpu);
+		__entry->cpu_util_cum		= cpu_util_cum(cpu, 0);
+		__entry->capacity_curr		= capacity_curr_of(cpu);
+		__entry->capacity		= capacity_of(cpu);
+		__entry->capacity_orig		= capacity_orig_of(cpu);
+		__entry->idle_state		= idle_get_state_idx(cpu_rq(cpu));
+		__entry->irqload		= sched_irqload(cpu);
+	),
+
+	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%u capacity=%u capacity_orig=%u idle_state=%d irqload=%llu",
+		__entry->cpu, __entry->nr_running, __entry->cpu_util, __entry->cpu_util_cum, __entry->capacity_curr, __entry->capacity, __entry->capacity_orig, __entry->idle_state, __entry->irqload)
+);
+
+TRACE_EVENT(sched_energy_diff,
+
+	TP_PROTO(struct task_struct *p, int prev_cpu, unsigned int prev_energy,
+		 int next_cpu, unsigned int next_energy,
+		 int backup_cpu, unsigned int backup_energy),
+
+	TP_ARGS(p, prev_cpu, prev_energy, next_cpu, next_energy,
+		backup_cpu, backup_energy),
+
+	TP_STRUCT__entry(
+		__field(int, pid		)
+		__field(int, prev_cpu		)
+		__field(int, prev_energy	)
+		__field(int, next_cpu		)
+		__field(int, next_energy	)
+		__field(int, backup_cpu		)
+		__field(int, backup_energy	)
+	),
+
+	TP_fast_assign(
+		__entry->pid			= p->pid;
+		__entry->prev_cpu		= prev_cpu;
+		__entry->prev_energy		= prev_energy;
+		__entry->next_cpu		= next_cpu;
+		__entry->next_energy		= next_energy;
+		__entry->backup_cpu		= backup_cpu;
+		__entry->backup_energy		= backup_energy;
+	),
+
+	TP_printk("pid=%d prev_cpu=%d prev_energy=%u next_cpu=%d next_energy=%u backup_cpu=%d backup_energy=%u",
+		__entry->pid, __entry->prev_cpu, __entry->prev_energy,
+		__entry->next_cpu, __entry->next_energy,
+		__entry->backup_cpu, __entry->backup_energy)
 );
 
 /*
