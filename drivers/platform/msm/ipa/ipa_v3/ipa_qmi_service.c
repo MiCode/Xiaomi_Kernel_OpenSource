@@ -1045,17 +1045,17 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 
 static void ipa3_q6_clnt_svc_exit(struct work_struct *work)
 {
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = AF_QIPCRTR;
 	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = 0;
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = 0;
+	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_node = 0;
+	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_port = 0;
 }
 
 static int ipa3_q6_clnt_svc_event_notify_svc_new(struct qmi_handle *qmi,
 	struct qmi_service *service)
 {
 	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = AF_QIPCRTR;
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = service->node;
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = service->port;
+	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_node = service->node;
+	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_port = service->port;
 
 	if (!workqueues_stopped) {
 		queue_delayed_work(ipa_clnt_req_workqueue,
