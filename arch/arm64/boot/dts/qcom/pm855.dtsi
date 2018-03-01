@@ -97,6 +97,11 @@
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <2 5 7 8>;
 		};
+
+		pm855_sdam_2: sdam@b100 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0xb100 0x100>;
+		};
 	};
 
 	qcom,pm855@1 {
