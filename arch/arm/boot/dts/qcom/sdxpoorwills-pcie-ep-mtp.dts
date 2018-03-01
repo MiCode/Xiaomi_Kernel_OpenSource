@@ -21,6 +21,10 @@
 	qcom,board-id = <8 0x1>, <8 0x101>;
 };
 
+&vbus_detect {
+	status = "okay";
+};
+
 &pcie_ep {
 	status = "okay";
 };

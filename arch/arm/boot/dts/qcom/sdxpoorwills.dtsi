@@ -895,11 +895,11 @@
 		#mbox-cells = <1>;
 	};
 
-	usb_detect: qcom,gpio-usbdetect {
-		compatible = "qcom,gpio-usbdetect";
+	vbus_detect: qcom,pmd-vbus-det {
+		compatible = "qcom,pmd-vbus-det";
 		interrupt-parent = <&spmi_bus>;
 		interrupts = <0x0 0x0d 0x0 IRQ_TYPE_NONE>;
-		interrupt-names = "vbus_det_irq";
+		interrupt-names = "usb_vbus";
 		status = "disabled";
 	};
 
