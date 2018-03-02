@@ -293,6 +293,13 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-hostless"
 
+* msm-audio-apr
+
+Required properties:
+
+ - compatible : "qcom,msm-audio-apr"
+		This device is added to represent APR module.
+
 * msm-ocmem-audio
 
 Required properties:
@@ -639,6 +646,10 @@ Example:
 
 	qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
+	};
+
+	audio_apr: qcom,msm-audio-apr {
+		compatible = "qcom,msm-audio-apr";
 	};
 
 	qcom,msm-ocmem-audio {
