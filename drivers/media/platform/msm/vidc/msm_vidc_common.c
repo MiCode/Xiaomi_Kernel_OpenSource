@@ -2557,13 +2557,8 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			vb->planes[0].data_offset,
 			vb->planes[0].length);
 
-	time_usec = 0;
-	dprintk(VIDC_DBG,
-			"Set zero timestamp for buffer %pa, filled: %d, (hi:%u, lo:%u)\n",
-			&fill_buf_done->packet_buffer1,
-			fill_buf_done->filled_len1,
-			fill_buf_done->timestamp_hi,
-			fill_buf_done->timestamp_lo);
+	time_usec = fill_buf_done->timestamp_hi;
+	time_usec = (time_usec << 32) | fill_buf_done->timestamp_lo;
 
 	vb->timestamp = (time_usec * NSEC_PER_USEC);
 
