@@ -1201,6 +1201,28 @@ static const struct iommu_gather_ops arm_smmu_s2_tlb_ops_v1 = {
 	.free_pages_exact = arm_smmu_free_pages_exact,
 };
 
+static void msm_smmu_tlb_inv_context(void *cookie)
+{
+}
+
+static void msm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
+					  size_t granule, bool leaf,
+					  void *cookie)
+{
+}
+
+static void msm_smmu_tlb_sync(void *cookie)
+{
+}
+
+static struct iommu_gather_ops msm_smmu_gather_ops = {
+	.tlb_flush_all	= msm_smmu_tlb_inv_context,
+	.tlb_add_flush	= msm_smmu_tlb_inv_range_nosync,
+	.tlb_sync	= msm_smmu_tlb_sync,
+	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
+	.free_pages_exact = arm_smmu_free_pages_exact,
+};
+
 static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
 {
@@ -1760,6 +1782,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		(smmu->model == QCOM_SMMUV500))
 		quirks |= IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE;
 
+	if (arm_smmu_is_slave_side_secure(smmu_domain))
+		tlb_ops = &msm_smmu_gather_ops;
+
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
 	if (ret < 0)
 		goto out_unlock;
@@ -1780,6 +1805,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 				.sec_id = smmu->sec_id,
 				.cbndx = cfg->cbndx,
 			},
+			.tlb		= tlb_ops,
 			.iommu_dev      = smmu->dev,
 		};
 		fmt = ARM_MSM_SECURE;
@@ -2213,8 +2239,6 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	const struct iommu_gather_ops *tlb;
 
 	tlb = smmu_domain->pgtbl_cfg.tlb;
-	if (!tlb)
-		return;
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
