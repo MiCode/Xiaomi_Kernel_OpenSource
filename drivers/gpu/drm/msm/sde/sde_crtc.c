@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1683,7 +1683,6 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	int i, ret = -EINVAL;
-	bool conn_offset = 0;
 
 	if (!crtc || !state) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -1691,20 +1690,13 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 		sde_crtc = to_sde_crtc(crtc);
 		cstate = to_sde_crtc_state(state);
 
-		for (i = 0; i < cstate->num_connectors; ++i) {
-			conn_offset = sde_connector_needs_offset(
-						cstate->connectors[i]);
-			if (conn_offset)
-				break;
-		}
-
 		i = msm_property_index(&sde_crtc->property_info, property);
 		if (i == CRTC_PROP_OUTPUT_FENCE) {
 			int offset = sde_crtc_get_property(cstate,
 					CRTC_PROP_OUTPUT_FENCE_OFFSET);
 
 			ret = sde_fence_create(&sde_crtc->output_fence, val,
-							offset + conn_offset);
+							offset);
 			if (ret)
 				SDE_ERROR("fence create failed\n");
 		} else {
