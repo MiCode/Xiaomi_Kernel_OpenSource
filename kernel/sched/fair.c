@@ -7591,8 +7591,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		return energy_cpu;
 	}
 
-	if (use_fbt && (rtg_target != NULL || fbt_env.placement_boost ||
-			fbt_env.need_idle))
+	if (use_fbt && (fbt_env.placement_boost || fbt_env.need_idle ||
+		(rtg_target && !cpumask_test_cpu(prev_cpu, rtg_target))))
 		return eenv->cpu[EAS_CPU_NXT].cpu_id;
 
 	/* find most energy-efficient CPU */
