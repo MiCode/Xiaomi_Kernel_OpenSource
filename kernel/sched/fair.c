@@ -7006,7 +7006,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			unsigned long capacity_orig = capacity_orig_of(i);
 			unsigned long wake_util, new_util, new_util_cuml;
 
-			if (!cpu_online(i))
+			if (!cpu_online(i) || cpu_isolated(i))
 				continue;
 
 			/*
