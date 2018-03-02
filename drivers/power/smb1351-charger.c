@@ -2888,6 +2888,28 @@ static void smb1351_rerun_apsd_work(struct work_struct *work)
 	smb1351_relax(&chip->smb1351_ws, RERUN_APSD);
 }
 
+static int smb1351_notify_usb_supply_type(struct smb1351_charger *chip,
+					enum power_supply_type type)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	pval.intval = type;
+	rc = chip->usb_psy->set_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+	if (rc < 0) {
+		if (rc == -EINVAL) {
+			rc = chip->usb_psy->set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_TYPE, &pval);
+			if (!rc)
+				return 0;
+		}
+		pr_err("notify charger type to usb_psy failed, rc=%d\n", rc);
+	}
+
+	return rc;
+}
+
 static void smb1351_hvdcp_det_work(struct work_struct *work)
 {
 	int rc;
@@ -2907,8 +2929,8 @@ static void smb1351_hvdcp_det_work(struct work_struct *work)
 	is_hvdcp = !!(reg & (HVDCP_SEL_5V | HVDCP_SEL_9V | HVDCP_SEL_12V));
 	if (is_hvdcp) {
 		pr_debug("HVDCP detected; notifying USB PSY\n");
-		power_supply_set_supply_type(chip->usb_psy,
-			POWER_SUPPLY_TYPE_USB_HVDCP);
+		smb1351_notify_usb_supply_type(chip,
+				POWER_SUPPLY_TYPE_USB_HVDCP);
 	}
 end:
 	smb1351_relax(&chip->smb1351_ws, HVDCP_DETECT);
@@ -2963,7 +2985,7 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
 			}
 		}
-		power_supply_set_supply_type(chip->usb_psy, type);
+		smb1351_notify_usb_supply_type(chip, type);
 		/*
 		 * SMB is now done sampling the D+/D- lines,
 		 * indicate USB driver
@@ -3015,8 +3037,7 @@ static void smb1351_chg_remove_work(struct work_struct *work)
 			pr_debug("set parallel charger un-present!\n");
 			power_supply_set_present(parallel_psy, false);
 		}
-		power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_UNKNOWN);
+		smb1351_notify_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy,
 						chip->chg_present);
 		pr_debug("Set usb psy dp=r dm=r\n");
@@ -3057,8 +3078,8 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 			chip->chg_present = true;
 			pr_debug("updating usb_psy present=%d\n",
 						chip->chg_present);
-			power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_USB);
+			smb1351_notify_usb_supply_type(chip,
+					POWER_SUPPLY_TYPE_USB);
 			power_supply_set_present(chip->usb_psy,
 						chip->chg_present);
 			/* set parallel slave PRESENT */
@@ -3075,8 +3096,8 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 			/* clear parallel slave PRESENT */
 			if (parallel_psy && chip->parallel.slave_detected)
 				power_supply_set_present(parallel_psy, false);
-			power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_UNKNOWN);
+			smb1351_notify_usb_supply_type(chip,
+					POWER_SUPPLY_TYPE_UNKNOWN);
 			power_supply_set_present(chip->usb_psy,
 						chip->chg_present);
 			pr_debug("updating usb_psy present=%d\n",
@@ -3127,8 +3148,7 @@ static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 		/* clear parallel slave PRESENT */
 		if (parallel_psy && chip->parallel.slave_detected)
 			power_supply_set_present(parallel_psy, false);
-		power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_UNKNOWN);
+		smb1351_notify_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
 	} else {
 		chip->usbin_ov = false;
@@ -3649,11 +3669,19 @@ static int smb1351_update_usb_supply_icl(struct smb1351_charger *chip)
 	union power_supply_propval pval = {0, };
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
-			POWER_SUPPLY_PROP_TYPE, &pval);
-	if (rc) {
-		pr_err("Get USB supply type failed, rc=%d\n", rc);
+			POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+	if (rc == -EINVAL) {
+		rc = chip->usb_psy->get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &pval);
+		if (rc < 0) {
+			pr_err("Get USB supply TYPE failed, rc=%d\n", rc);
+			return rc;
+		}
+	} else if (rc < 0) {
+		pr_err("Get USB supply REAL_TYPE failed, rc=%d\n", rc);
 		return rc;
 	}
+
 	type = pval.intval;
 	chip->usb_psy_type = type;
 	rc = chip->usb_psy->get_property(chip->usb_psy,
