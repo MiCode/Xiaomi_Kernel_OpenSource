@@ -120,6 +120,7 @@ enum {
  * @SDE_SSPP_TS_PREFILL      Supports prefill with traffic shaper
  * @SDE_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
  * @SDE_SSPP_CDP             Supports client driven prefetch
+ * @SDE_SSPP_SEC_UI_ALLOWED   Allows secure-ui layers
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -143,6 +144,7 @@ enum {
 	SDE_SSPP_TS_PREFILL,
 	SDE_SSPP_TS_PREFILL_REC1,
 	SDE_SSPP_CDP,
+	SDE_SSPP_SEC_UI_ALLOWED,
 	SDE_SSPP_MAX
 };
 
@@ -933,6 +935,8 @@ struct sde_perf_cfg {
  * @vbif_qos_nlvl      number of vbif QoS priority level
  * @ts_prefill_rev     prefill traffic shaper feature revision
  * @sui_misr_supported  indicate if secure-ui-misr is supported
+ * @sui_allow_xin_mask  mask of all the xin-clients allowed during secure-ui
+ *                         when secure-ui-misr feature is supported
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -964,6 +968,7 @@ struct sde_mdss_cfg {
 	u32 ts_prefill_rev;
 
 	bool sui_misr_supported;
+	u32 sui_allow_xin_mask;
 
 	bool has_hdr;
 	u32 mdss_count;

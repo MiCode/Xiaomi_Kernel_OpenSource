@@ -4375,6 +4375,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 		struct drm_crtc_state *state, struct plane_state pstates[],
 		int cnt)
 {
+	struct drm_plane *plane;
 	struct drm_encoder *encoder;
 	struct sde_crtc_state *cstate;
 	struct sde_crtc *sde_crtc;
@@ -4420,8 +4421,25 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 			return -EINVAL;
 		}
 
-		/* only one blending stage is allowed in sec_crtc */
+		/*
+		 * - only one blending stage is allowed in sec_crtc
+		 * - validate if pipe is allowed for sec-ui updates
+		 */
 		for (i = 1; i < cnt; i++) {
+			if (!pstates[i].drm_pstate
+					|| !pstates[i].drm_pstate->plane) {
+				SDE_ERROR("crtc%d: invalid pstate at i:%d\n",
+						crtc->base.id, i);
+				return -EINVAL;
+			}
+			plane = pstates[i].drm_pstate->plane;
+
+			if (!sde_plane_is_sec_ui_allowed(plane)) {
+				SDE_ERROR("crtc%d: sec-ui not allowed in p%d\n",
+						crtc->base.id, plane->base.id);
+				return -EINVAL;
+			}
+
 			if (pstates[i].stage != pstates[i-1].stage) {
 				SDE_ERROR(
 				  "crtc%d: invalid blend stages %d:%d, %d:%d\n",

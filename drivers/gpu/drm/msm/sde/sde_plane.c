@@ -204,6 +204,18 @@ static bool sde_plane_crtc_enabled(struct drm_plane_state *state)
 			state->crtc->state->enable;
 }
 
+bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+
+	if (!plane)
+		return false;
+
+	psde = to_sde_plane(plane);
+
+	return (psde->features & BIT(SDE_SSPP_SEC_UI_ALLOWED));
+}
+
 /**
  * _sde_plane_calc_fill_level - calculate fill level of the given source format
  * @plane:		Pointer to drm plane
@@ -4370,6 +4382,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			psde->pipe_sblk->maxvdeciexp);
 	sde_kms_info_add_keyint(info, "max_per_pipe_bw",
 			psde->pipe_sblk->max_per_pipe_bw * 1000LL);
+	if (psde->features & BIT(SDE_SSPP_SEC_UI_ALLOWED))
+		sde_kms_info_add_keyint(info, "sec_ui_allowed", 1);
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
 			info->data, SDE_KMS_INFO_DATALEN(info),
 			PLANE_PROP_INFO);
