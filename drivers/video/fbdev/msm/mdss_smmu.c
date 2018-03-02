@@ -316,7 +316,7 @@ static int mdss_smmu_map_dma_buf_v2(struct dma_buf *dma_buf,
 	}
 	ATRACE_END("map_buffer");
 	*iova = table->sgl->dma_address;
-	*size = table->sgl->dma_length;
+	*size = sg_dma_len(table->sgl);
 	return 0;
 }
 

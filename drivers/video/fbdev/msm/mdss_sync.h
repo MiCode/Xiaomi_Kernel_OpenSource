@@ -112,10 +112,11 @@ int mdss_get_sync_fence_fd(struct mdss_fence *fence)
 {
 	return -EBADF;
 }
+
+static inline
 const char *mdss_get_sync_fence_name(struct mdss_fence *fence)
 {
 	return NULL;
-}
 }
 #endif
 

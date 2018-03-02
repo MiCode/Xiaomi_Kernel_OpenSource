@@ -2015,7 +2015,7 @@ static int __compute_vsync_diff(s64 cur_ts,
 {
 	int vsync_diff;
 	int round_up = 0;
-	s64 ts_diff = (cur_ts - base_ts) * display_fp1000s;
+	u64 ts_diff = (cur_ts - base_ts) * display_fp1000s;
 
 	do_div(ts_diff, 1000000);
 	vsync_diff = (int)ts_diff;
@@ -2065,7 +2065,7 @@ static int __calculate_cadence_id(struct mdss_mdp_frc_info *frc_info, int cnt)
 	struct mdss_mdp_frc_cadence_calc *calc = &frc_info->calc;
 	struct mdss_mdp_frc_data *first = &calc->samples[0];
 	struct mdss_mdp_frc_data *last = &calc->samples[cnt-1];
-	s64 ts_diff =
+	u64 ts_diff =
 		(last->timestamp - first->timestamp)
 				* frc_info->display_fp1000s;
 	u32 fcnt_diff =
