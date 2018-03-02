@@ -151,7 +151,7 @@ struct logfs_device_ops {
 	struct page *(*find_first_sb)(struct super_block *sb, u64 *ofs);
 	struct page *(*find_last_sb)(struct super_block *sb, u64 *ofs);
 	int (*write_sb)(struct super_block *sb, struct page *page);
-	int (*readpage)(void *_sb, struct page *page);
+	int (*readpage)(struct file *_sb, struct page *page);
 	void (*writeseg)(struct super_block *sb, u64 ofs, size_t len);
 	int (*erase)(struct super_block *sb, loff_t ofs, size_t len,
 			int ensure_write);
