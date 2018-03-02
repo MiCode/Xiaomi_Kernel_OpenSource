@@ -1739,7 +1739,7 @@ static int __init lpm_levels_module_init(void)
 	int cpu;
 
 	for_each_possible_cpu(cpu) {
-		rc = arm_cpuidle_init(smp_processor_id());
+		rc = arm_cpuidle_init(cpu);
 		if (rc) {
 			pr_err("CPU%d ARM CPUidle init failed (%d)\n", cpu, rc);
 			return rc;
