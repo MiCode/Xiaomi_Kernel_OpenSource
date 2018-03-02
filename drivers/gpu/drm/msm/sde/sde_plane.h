@@ -346,4 +346,10 @@ int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
  */
 int sde_plane_get_sbuf_id(struct drm_plane *plane);
 
+/* sde_plane_is_sec_ui_allowed - indicates if the sspp allows secure-ui layers
+ * @plane: Pointer to DRM plane object
+ * Returns: true if allowed; false otherwise
+ */
+bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane);
+
 #endif /* _SDE_PLANE_H_ */
