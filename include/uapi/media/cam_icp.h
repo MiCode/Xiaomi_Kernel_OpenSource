@@ -56,6 +56,29 @@
 
 #define CAM_ICP_BPS_IO_IMAGES_MAX               0x9
 
+/* Command meta types */
+#define CAM_ICP_CMD_META_GENERIC_BLOB           0x1
+
+/* Generic blon types */
+#define CAM_ICP_CMD_GENERIC_BLOB_CLK            0x1
+
+/**
+ * struct cam_icp_clk_bw_request
+ *
+ * @budget_ns: Time required to process frame
+ * @frame_cycles: Frame cycles needed to process the frame
+ * @rt_flag: Flag to indicate real time stream
+ * @uncompressed_bw: Bandwidth required to process frame
+ * @compressed_bw: Compressed bandwidth to process frame
+ */
+struct cam_icp_clk_bw_request {
+	uint64_t budget_ns;
+	uint32_t frame_cycles;
+	uint32_t rt_flag;
+	uint64_t uncompressed_bw;
+	uint64_t compressed_bw;
+};
+
 /**
  * struct cam_icp_dev_ver - Device information for particular hw type
  *

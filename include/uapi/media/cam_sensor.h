@@ -6,7 +6,9 @@
 #include <media/cam_defs.h>
 
 #define CAM_SENSOR_PROBE_CMD   (CAM_COMMON_OPCODE_MAX + 1)
-#define CAM_SENSOR_MAX_LED_TRIGGERS 3
+#define CAM_FLASH_MAX_LED_TRIGGERS 3
+#define MAX_OIS_NAME_SIZE 32
+#define CAM_CSIPHY_SECURE_MODE_ENABLED 1
 /**
  * struct cam_sensor_query_cap - capabilities info for sensor
  *
@@ -63,6 +65,28 @@ struct cam_actuator_query_cap {
 } __attribute__((packed));
 
 /**
+ * struct cam_eeprom_query_cap_t - capabilities info for eeprom
+ *
+ * @slot_info                  :  Indicates about the slotId or cell Index
+ * @eeprom_kernel_probe        :  Indicates about the kernel or userspace probe
+ */
+struct cam_eeprom_query_cap_t {
+	uint32_t            slot_info;
+	uint16_t            eeprom_kernel_probe;
+	uint16_t            reserved;
+} __attribute__((packed));
+
+/**
+ * struct cam_ois_query_cap_t - capabilities info for ois
+ *
+ * @slot_info                  :  Indicates about the slotId or cell Index
+ */
+struct cam_ois_query_cap_t {
+	uint32_t            slot_info;
+	uint16_t            reserved;
+} __attribute__((packed));
+
+/**
  * struct cam_cmd_i2c_info - Contains slave I2C related info
  *
  * @slave_addr      :    Slave address
@@ -73,6 +97,42 @@ struct cam_cmd_i2c_info {
 	uint16_t    slave_addr;
 	uint8_t     i2c_freq_mode;
 	uint8_t     cmd_type;
+} __attribute__((packed));
+
+/**
+ * struct cam_ois_opcode - Contains OIS opcode
+ *
+ * @prog            :    OIS FW prog register address
+ * @coeff           :    OIS FW coeff register address
+ * @pheripheral     :    OIS pheripheral
+ * @memory          :    OIS memory
+ */
+struct cam_ois_opcode {
+	uint32_t prog;
+	uint32_t coeff;
+	uint32_t pheripheral;
+	uint32_t memory;
+} __attribute__((packed));
+
+/**
+ * struct cam_cmd_ois_info - Contains OIS slave info
+ *
+ * @slave_addr            :    OIS i2c slave address
+ * @i2c_freq_mode         :    i2c frequency mode
+ * @cmd_type              :    Explains type of command
+ * @ois_fw_flag           :    indicates if fw is present or not
+ * @is_ois_calib          :    indicates the calibration data is available
+ * @ois_name              :    OIS name
+ * @opcode                :    opcode
+ */
+struct cam_cmd_ois_info {
+	uint16_t              slave_addr;
+	uint8_t               i2c_freq_mode;
+	uint8_t               cmd_type;
+	uint8_t               ois_fw_flag;
+	uint8_t               is_ois_calib;
+	char                  ois_name[MAX_OIS_NAME_SIZE];
+	struct cam_ois_opcode opcode;
 } __attribute__((packed));
 
 /**
@@ -257,15 +317,15 @@ struct cam_cmd_unconditional_wait {
 
 /**
  * cam_csiphy_info: Provides cmdbuffer structre
- * @lane_mask     :  Lane mask details
- * @lane_assign   :  Lane sensor will be using
- * @csiphy_3phase :  Total number of lanes
- * @combo_mode    :  Info regarding combo_mode is enable / disable
- * @lane_cnt      :  Total number of lanes
- * @reserved
- * @3phase        :  Details whether 3Phase / 2Phase operation
- * @settle_time   :  Settling time in ms
- * @data_rate     :  Data rate
+ * @lane_mask     : Lane mask details
+ * @lane_assign   : Lane sensor will be using
+ * @csiphy_3phase : Total number of lanes
+ * @combo_mode    : Info regarding combo_mode is enable / disable
+ * @lane_cnt      : Total number of lanes
+ * @secure_mode   : Secure mode flag to enable / disable
+ * @3phase        : Details whether 3Phase / 2Phase operation
+ * @settle_time   : Settling time in ms
+ * @data_rate     : Data rate
  *
  */
 struct cam_csiphy_info {
@@ -274,7 +334,7 @@ struct cam_csiphy_info {
 	uint8_t     csiphy_3phase;
 	uint8_t     combo_mode;
 	uint8_t     lane_cnt;
-	uint8_t     reserved;
+	uint8_t     secure_mode;
 	uint64_t    settle_time;
 	uint64_t    data_rate;
 } __attribute__((packed));
@@ -360,7 +420,7 @@ struct cam_flash_set_rer {
 	uint16_t    reserved;
 	uint32_t    led_on_delay_ms;
 	uint32_t    led_off_delay_ms;
-	uint32_t    led_current_ma[CAM_SENSOR_MAX_LED_TRIGGERS];
+	uint32_t    led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__((packed));
 
 /**
@@ -379,7 +439,7 @@ struct cam_flash_set_on_off {
 	uint16_t    count;
 	uint8_t     opcode;
 	uint8_t     cmd_type;
-	uint32_t    led_current_ma[CAM_SENSOR_MAX_LED_TRIGGERS];
+	uint32_t    led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__((packed));
 
 /**
@@ -409,9 +469,9 @@ struct cam_flash_query_curr {
  */
 struct cam_flash_query_cap_info {
 	uint32_t    slot_info;
-	uint32_t    max_current_flash[CAM_SENSOR_MAX_LED_TRIGGERS];
-	uint32_t    max_duration_flash[CAM_SENSOR_MAX_LED_TRIGGERS];
-	uint32_t    max_current_torch[CAM_SENSOR_MAX_LED_TRIGGERS];
+	uint32_t    max_current_flash[CAM_FLASH_MAX_LED_TRIGGERS];
+	uint32_t    max_duration_flash[CAM_FLASH_MAX_LED_TRIGGERS];
+	uint32_t    max_current_torch[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__ ((packed));
 
 #endif
