@@ -889,7 +889,6 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 		int dir)
 {
 	int ret = -EINVAL;
-	int domain;
 	struct scatterlist *sg;
 	unsigned int i;
 	unsigned long flags = 0;
@@ -939,10 +938,9 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 			}
 			data->addr = data->srcp_table->sgl->dma_address;
 			data->len = data->srcp_table->sgl->dma_length;
-			SDEROT_DBG("map %pad/%lx d:%u f:%x\n",
+			SDEROT_DBG("map %pad/%lx f:%x\n",
 					&data->addr,
 					data->len,
-					domain,
 					data->flags);
 			data->mapped = true;
 			ret = 0;
