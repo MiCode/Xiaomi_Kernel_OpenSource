@@ -490,7 +490,7 @@ config LD_DEAD_CODE_DATA_ELIMINATION
 	  is used to distinguish them from label names / C identifiers.
 
 config LTO
-	bool
+	def_bool n
 
 config ARCH_SUPPORTS_LTO_CLANG
 	bool
@@ -499,6 +499,15 @@ config ARCH_SUPPORTS_LTO_CLANG
 	  - compiling with clang,
 	  - compiling inline assembly with clang's integrated assembler,
 	  - and linking with either lld or GNU gold w/ LLVMgold.
+
+choice
+	prompt "Link-Time Optimization (LTO) (EXPERIMENTAL)"
+	default LTO_NONE
+	help
+	  This option turns on Link-Time Optimization (LTO).
+
+config LTO_NONE
+	bool "None"
 
 config LTO_CLANG
 	bool "Use clang Link Time Optimization (LTO) (EXPERIMENTAL)"
@@ -517,6 +526,8 @@ config LTO_CLANG
           If you select this option, you must compile the kernel with clang >=
           5.0 (make CC=clang) and GNU gold from binutils >= 2.27, and have the
           LLVMgold plug-in in LD_LIBRARY_PATH.
+
+endchoice
 
 config CFI
 	bool
