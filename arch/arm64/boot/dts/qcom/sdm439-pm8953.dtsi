@@ -81,6 +81,11 @@
 		/delete-property/ vdd_sr2_pll-supply;
 		/delete-property/ vdd_hf_dig-supply;
 		/delete-property/ vdd_hf_pll-supply;
+		vdd_dig-supply = <&pm8953_s2_level>;
+		vdd_sr2_dig-supply = <&pm8953_s2_level_ao>;
+		vdd_sr2_pll-supply = <&pm8953_l7_ao>;
+		vdd_hf_dig-supply = <&pm8953_s2_level_ao>;
+		vdd_hf_pll-supply = <&pm8953_l7_ao>;
 	};
 
 	qcom,cpu-clock-8939@b111050 {
