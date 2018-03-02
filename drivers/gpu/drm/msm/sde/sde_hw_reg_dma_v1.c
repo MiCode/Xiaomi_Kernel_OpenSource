@@ -435,7 +435,7 @@ static int validate_dma_cfg(struct sde_reg_dma_setup_ops_cfg *cfg)
 	}
 
 	if (cfg->dma_buf->iova & GUARD_BYTES || !cfg->dma_buf->vaddr) {
-		DRM_ERROR("iova not aligned to %zx iova %x kva %pK",
+		DRM_ERROR("iova not aligned to %zx iova %llx kva %pK",
 				ADDR_ALIGN, cfg->dma_buf->iova,
 				cfg->dma_buf->vaddr);
 		return -EINVAL;
@@ -494,8 +494,8 @@ static int validate_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 				(WRITE_TRIGGER);
 
 	if (cfg->dma_buf->iova & GUARD_BYTES) {
-		DRM_ERROR("Address is not aligned to %zx iova %x", ADDR_ALIGN,
-				cfg->dma_buf->iova);
+		DRM_ERROR("Address is not aligned to %zx iova %llx",
+				ADDR_ALIGN, cfg->dma_buf->iova);
 		return -EINVAL;
 	}
 
