@@ -155,6 +155,7 @@ asmlinkage void __arm_smccc_hvc(unsigned long a0, unsigned long a1,
 
 #define SMCCC_SMC_INST	"smc	#0"
 #define SMCCC_HVC_INST	"hvc	#0"
+#define SMCCC_REG(n)	asm("x" # n)
 
 #elif defined(CONFIG_ARM)
 #include <asm/opcodes-sec.h>
@@ -162,6 +163,7 @@ asmlinkage void __arm_smccc_hvc(unsigned long a0, unsigned long a1,
 
 #define SMCCC_SMC_INST	__SMC(0)
 #define SMCCC_HVC_INST	__HVC(0)
+#define SMCCC_REG(n)	asm("r" # n)
 
 #endif
 
@@ -194,47 +196,47 @@ asmlinkage void __arm_smccc_hvc(unsigned long a0, unsigned long a1,
 
 #define __declare_arg_0(a0, res)					\
 	struct arm_smccc_res   *___res = res;				\
-	register u32           r0 asm("r0") = a0;			\
-	register unsigned long r1 asm("r1");				\
-	register unsigned long r2 asm("r2");				\
-	register unsigned long r3 asm("r3")
+	register u32           r0 SMCCC_REG(0) = a0;			\
+	register unsigned long r1 SMCCC_REG(1);				\
+	register unsigned long r2 SMCCC_REG(2);				\
+	register unsigned long r3 SMCCC_REG(3)
 
 #define __declare_arg_1(a0, a1, res)					\
 	struct arm_smccc_res   *___res = res;				\
-	register u32           r0 asm("r0") = a0;			\
-	register typeof(a1)    r1 asm("r1") = a1;			\
-	register unsigned long r2 asm("r2");				\
-	register unsigned long r3 asm("r3")
+	register u32           r0 SMCCC_REG(0) = a0;			\
+	register typeof(a1)    r1 SMCCC_REG(1) = a1;			\
+	register unsigned long r2 SMCCC_REG(2);				\
+	register unsigned long r3 SMCCC_REG(3)
 
 #define __declare_arg_2(a0, a1, a2, res)				\
 	struct arm_smccc_res   *___res = res;				\
-	register u32           r0 asm("r0") = a0;			\
-	register typeof(a1)    r1 asm("r1") = a1;			\
-	register typeof(a2)    r2 asm("r2") = a2;			\
-	register unsigned long r3 asm("r3")
+	register u32           r0 SMCCC_REG(0) = a0;			\
+	register typeof(a1)    r1 SMCCC_REG(1) = a1;			\
+	register typeof(a2)    r2 SMCCC_REG(2) = a2;			\
+	register unsigned long r3 SMCCC_REG(3)
 
 #define __declare_arg_3(a0, a1, a2, a3, res)				\
 	struct arm_smccc_res   *___res = res;				\
-	register u32           r0 asm("r0") = a0;			\
-	register typeof(a1)    r1 asm("r1") = a1;			\
-	register typeof(a2)    r2 asm("r2") = a2;			\
-	register typeof(a3)    r3 asm("r3") = a3
+	register u32           r0 SMCCC_REG(0) = a0;			\
+	register typeof(a1)    r1 SMCCC_REG(1) = a1;			\
+	register typeof(a2)    r2 SMCCC_REG(2) = a2;			\
+	register typeof(a3)    r3 SMCCC_REG(3) = a3
 
 #define __declare_arg_4(a0, a1, a2, a3, a4, res)			\
 	__declare_arg_3(a0, a1, a2, a3, res);				\
-	register typeof(a4) r4 asm("r4") = a4
+	register typeof(a4) r4 SMCCC_REG(4) = a4
 
 #define __declare_arg_5(a0, a1, a2, a3, a4, a5, res)			\
 	__declare_arg_4(a0, a1, a2, a3, a4, res);			\
-	register typeof(a5) r5 asm("r5") = a5
+	register typeof(a5) r5 SMCCC_REG(5) = a5
 
 #define __declare_arg_6(a0, a1, a2, a3, a4, a5, a6, res)		\
 	__declare_arg_5(a0, a1, a2, a3, a4, a5, res);			\
-	register typeof(a6) r6 asm("r6") = a6
+	register typeof(a6) r6 SMCCC_REG(6) = a6
 
 #define __declare_arg_7(a0, a1, a2, a3, a4, a5, a6, a7, res)		\
 	__declare_arg_6(a0, a1, a2, a3, a4, a5, a6, res);		\
-	register typeof(a7) r7 asm("r7") = a7
+	register typeof(a7) r7 SMCCC_REG(7) = a7
 
 #define ___declare_args(count, ...) __declare_arg_ ## count(__VA_ARGS__)
 #define __declare_args(count, ...)  ___declare_args(count, __VA_ARGS__)
