@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,8 @@
 
 #include "cam_debug_util.h"
 #include "cam_lrme_context.h"
+
+static const char lrme_dev_name[] = "lrme";
 
 static int __cam_lrme_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
@@ -208,7 +210,7 @@ static struct cam_ctx_ops
 int cam_lrme_context_init(struct cam_lrme_context *lrme_ctx,
 	struct cam_context *base_ctx,
 	struct cam_hw_mgr_intf *hw_intf,
-	uint64_t index)
+	uint32_t index)
 {
 	int rc = 0;
 
@@ -221,8 +223,8 @@ int cam_lrme_context_init(struct cam_lrme_context *lrme_ctx,
 
 	memset(lrme_ctx, 0, sizeof(*lrme_ctx));
 
-	rc = cam_context_init(base_ctx, "lrme", NULL, hw_intf,
-		lrme_ctx->req_base, CAM_CTX_REQ_MAX);
+	rc = cam_context_init(base_ctx, lrme_dev_name, CAM_LRME, index,
+		NULL, hw_intf, lrme_ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_LRME, "Failed to init context");
 		return rc;

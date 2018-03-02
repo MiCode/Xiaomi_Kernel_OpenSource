@@ -1000,7 +1000,7 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = 0x3;
-	}  else if (rsrc_data->index == 9) {
+	}  else if (rsrc_data->index == 9 || rsrc_data->index == 10) {
 		/* Write master 9 - Raw dump */
 		rsrc_data->width = rsrc_data->width * 2;
 		rsrc_data->stride = rsrc_data->width;

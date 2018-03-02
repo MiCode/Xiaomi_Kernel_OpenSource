@@ -1145,7 +1145,9 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	struct cam_ctx_request           *req;
 	struct cam_ctx_request           *req_temp;
 	struct cam_isp_ctx_req           *req_isp;
+	struct list_head                  flush_list;
 
+	INIT_LIST_HEAD(&flush_list);
 	spin_lock_bh(&ctx->lock);
 	if (list_empty(req_list)) {
 		spin_unlock_bh(&ctx->lock);
@@ -1154,11 +1156,22 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	}
 
 	list_for_each_entry_safe(req, req_temp, req_list, list) {
-		if ((flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ)
-				&& (req->request_id != flush_req->req_id))
-			continue;
-
+		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
+			if (req->request_id != flush_req->req_id) {
+				continue;
+			} else {
+				list_del_init(&req->list);
+				list_add_tail(&req->list, &flush_list);
+				cancel_req_id_found = 1;
+				break;
+			}
+		}
 		list_del_init(&req->list);
+		list_add_tail(&req->list, &flush_list);
+	}
+	spin_unlock_bh(&ctx->lock);
+
+	list_for_each_entry_safe(req, req_temp, &flush_list, list) {
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
 			if (req_isp->fence_map_out[i].sync_id != -1) {
@@ -1175,14 +1188,7 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 			}
 		}
 		list_add_tail(&req->list, &ctx->free_req_list);
-
-		/* If flush request id found, exit the loop */
-		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
-			cancel_req_id_found = 1;
-			break;
-		}
 	}
-	spin_unlock_bh(&ctx->lock);
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
 		!cancel_req_id_found)
@@ -2498,7 +2504,8 @@ static struct cam_ctx_ops
 int cam_isp_context_init(struct cam_isp_context *ctx,
 	struct cam_context *ctx_base,
 	struct cam_req_mgr_kmd_ops *crm_node_intf,
-	struct cam_hw_mgr_intf *hw_intf)
+	struct cam_hw_mgr_intf *hw_intf,
+	uint32_t ctx_id)
 
 {
 	int rc = -1;
@@ -2527,8 +2534,8 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	}
 
 	/* camera context setup */
-	rc = cam_context_init(ctx_base, isp_dev_name, crm_node_intf, hw_intf,
-		ctx->req_base, CAM_CTX_REQ_MAX);
+	rc = cam_context_init(ctx_base, isp_dev_name, CAM_ISP, ctx_id,
+		crm_node_intf, hw_intf, ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Camera Context Base init failed");
 		goto err;

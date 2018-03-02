@@ -25,6 +25,22 @@
 
 static struct cam_req_mgr_core_device *g_crm_core_dev;
 
+void cam_req_mgr_handle_core_shutdown(void)
+{
+	struct cam_req_mgr_core_session *session;
+	struct cam_req_mgr_core_session *tsession;
+	struct cam_req_mgr_session_info ses_info;
+
+	if (!list_empty(&g_crm_core_dev->session_head)) {
+		list_for_each_entry_safe(session, tsession,
+			&g_crm_core_dev->session_head, entry) {
+			ses_info.session_hdl =
+				session->session_hdl;
+			cam_req_mgr_destroy_session(&ses_info);
+		}
+	}
+}
+
 static int __cam_req_mgr_setup_payload(struct cam_req_mgr_core_workq *workq)
 {
 	int32_t                  i = 0;
@@ -183,20 +199,14 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 		tbl->skip_traverse, traverse_data->in_q->slot[curr_idx].status,
 		traverse_data->in_q->slot[curr_idx].skip_idx);
 
-	if (tbl->inject_delay > 0 && (traverse_data->validate_only == false)) {
+	if ((tbl->inject_delay > 0) &&
+		(traverse_data->self_link == true)) {
 		CAM_DBG(CAM_CRM, "Injecting Delay of one frame");
+		apply_data[tbl->pd].req_id = -1;
 		tbl->inject_delay--;
 		/* This pd table is not ready to proceed with asked idx */
 		SET_FAILURE_BIT(traverse_data->result, tbl->pd);
-		apply_data[tbl->pd].req_id = -1;
-		if (tbl->next) {
-			__cam_req_mgr_dec_idx(&next_idx, tbl->pd_delta,
-				tbl->num_slots);
-			traverse_data->idx = next_idx;
-			traverse_data->tbl = tbl->next;
-			rc = __cam_req_mgr_traverse(traverse_data);
-		}
-		return rc;
+		return -EAGAIN;
 	}
 
 	/* Check if req is ready or in skip mode or pd tbl is in skip mode */
@@ -212,14 +222,21 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 		}
 		if (rc >= 0) {
 			SET_SUCCESS_BIT(traverse_data->result, tbl->pd);
+
 			if (traverse_data->validate_only == false) {
 				apply_data[tbl->pd].pd = tbl->pd;
 				apply_data[tbl->pd].req_id =
-					CRM_GET_REQ_ID(traverse_data->in_q,
-					curr_idx);
+					CRM_GET_REQ_ID(
+					traverse_data->in_q, curr_idx);
 				apply_data[tbl->pd].idx = curr_idx;
 
-				/* If traverse is success dec traverse skip */
+				CAM_DBG(CAM_CRM, "req_id: %d with pd of %d",
+				apply_data[tbl->pd].req_id,
+				apply_data[tbl->pd].pd);
+				/*
+				 * If traverse is successful decrement
+				 * traverse skip
+				 */
 				if (tbl->skip_traverse > 0) {
 					apply_data[tbl->pd].req_id = -1;
 					tbl->skip_traverse--;
@@ -231,20 +248,8 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 		}
 	} else {
 		/* This pd table is not ready to proceed with asked idx */
-		if (tbl->slot[curr_idx].state == CRM_REQ_STATE_APPLIED)
-			SET_SUCCESS_BIT(traverse_data->result, tbl->pd);
-		else
-			SET_FAILURE_BIT(traverse_data->result, tbl->pd);
-
-		apply_data[tbl->pd].req_id = -1;
-		if (tbl->next) {
-			__cam_req_mgr_dec_idx(&next_idx, tbl->pd_delta,
-				tbl->num_slots);
-			traverse_data->idx = next_idx;
-			traverse_data->tbl = tbl->next;
-			rc = __cam_req_mgr_traverse(traverse_data);
-		}
-		return rc;
+		SET_FAILURE_BIT(traverse_data->result, tbl->pd);
+		return -EAGAIN;
 	}
 	return 0;
 }
@@ -439,8 +444,8 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
 
 			apply_req.trigger_point = trigger;
-			CAM_DBG(CAM_CRM, "SEND: pd %d req_id %lld",
-				pd, apply_req.request_id);
+			CAM_DBG(CAM_CRM, "SEND: link_hdl: %x pd %d req_id %lld",
+				link->link_hdl, pd, apply_req.request_id);
 			if (dev->ops && dev->ops->apply_req) {
 				rc = dev->ops->apply_req(&apply_req);
 				if (rc < 0)
@@ -468,20 +473,20 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 /**
  * __cam_req_mgr_check_link_is_ready()
  *
- * @brief         : traverse through all request tables and see if
- *                  all devices are ready to apply request settings
- * @link          : pointer to link whose input queue and req tbl are
- *                  traversed through
- * @idx           : index within input request queue
+ * @brief    : traverse through all request tables and see if all devices are
+ *             ready to apply request settings.
+ * @link     : pointer to link whose input queue and req tbl are
+ *             traversed through
+ * @idx      : index within input request queue
  * @validate_only : Whether to validate only and/or update settings
- * @result        : Holds the value that indicates which of the pd
- *                  tables have a req that is ready to be applied
+ * @self_link : To indicate whether the validation is for the given link or
+ *              other sync link
  *
  * @return   : 0 for success, negative for failure
  *
  */
 static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
-	int32_t idx, bool validate_only, int *result)
+	int32_t idx, bool validate_only, bool self_link)
 {
 	int                            rc;
 	struct cam_req_mgr_traverse    traverse_data;
@@ -491,10 +496,10 @@ static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
 	in_q = link->req.in_q;
 
 	apply_data = link->req.apply_data;
+
 	if (validate_only == false) {
 		memset(apply_data, 0,
-			sizeof(struct cam_req_mgr_apply) *
-			CAM_PIPELINE_DELAY_MAX);
+		    sizeof(struct cam_req_mgr_apply) * CAM_PIPELINE_DELAY_MAX);
 	}
 
 	traverse_data.apply_data = apply_data;
@@ -503,27 +508,28 @@ static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
 	traverse_data.in_q = in_q;
 	traverse_data.result = 0;
 	traverse_data.validate_only = validate_only;
+	traverse_data.self_link = self_link;
 	/*
 	 *  Traverse through all pd tables, if result is success,
 	 *  apply the settings
 	 */
 
 	rc = __cam_req_mgr_traverse(&traverse_data);
-	CAM_DBG(CAM_CRM, "SOF: idx %d result %x pd_mask %x rc %d",
-		idx, traverse_data.result, link->pd_mask, rc);
+	CAM_DBG(CAM_CRM,
+		"SOF: idx %d self_link %d validate %d result %x pd_mask %x rc %d",
+		idx, traverse_data.self_link, traverse_data.validate_only,
+		traverse_data.result, link->pd_mask, rc);
 
-	if (!traverse_data.result)
-		return -EAGAIN;
-
-	if (!rc) {
+	if (!rc && traverse_data.result == link->pd_mask) {
 		CAM_DBG(CAM_CRM,
 			"APPLY: link_hdl= %x idx= %d, req_id= %lld :%lld :%lld",
 			link->link_hdl, idx,
-			apply_data[2].req_id, apply_data[1].req_id,
+			apply_data[2].req_id,
+			apply_data[1].req_id,
 			apply_data[0].req_id);
-	}
+	} else
+		rc = -EAGAIN;
 
-	*result = traverse_data.result;
 	return rc;
 }
 
@@ -574,6 +580,11 @@ static void __cam_req_mgr_reset_sof_cnt(
 	link->sof_counter = -1;
 	link->sync_link->sof_counter = -1;
 	link->frame_skip_flag = false;
+
+	CAM_DBG(CAM_CRM,
+		"link_hdl %x self_counter %lld other_counter %lld frame_skip_lag %d",
+		link->link_hdl, link->sof_counter,
+		link->sync_link->sof_counter, link->frame_skip_flag);
 }
 
 /**
@@ -592,6 +603,11 @@ static void __cam_req_mgr_sof_cnt_initialize(
 	link->sof_counter++;
 	link->sync_self_ref = link->sof_counter -
 		link->sync_link->sof_counter;
+
+	CAM_DBG(CAM_CRM,
+		"link_hdl %x self_counter %lld other_counter %lld",
+		link->link_hdl, link->sof_counter,
+		link->sync_link->sof_counter);
 }
 
 /**
@@ -609,6 +625,11 @@ static void __cam_req_mgr_wrap_sof_cnt(
 	link->sof_counter = (MAX_SYNC_COUNT -
 		(link->sync_link->sof_counter));
 	link->sync_link->sof_counter = 0;
+
+	CAM_DBG(CAM_CRM,
+		"link_hdl %x self_counter %lld sync_link_hdl %x other_counter %lld",
+		link->link_hdl, link->sof_counter,
+		link->sync_link->link_hdl, link->sync_link->sof_counter);
 }
 
 /**
@@ -632,12 +653,18 @@ static int __cam_req_mgr_validate_sof_cnt(
 		__cam_req_mgr_wrap_sof_cnt(link);
 
 	sync_diff = link->sof_counter - sync_link->sof_counter;
+
+	CAM_DBG(CAM_CRM,
+		"link[%x] self_counter=%lld other_counter=%lld diff=%lld sync_self_ref=%lld",
+		link->link_hdl, link->sof_counter,
+		sync_link->sof_counter, sync_diff, link->sync_self_ref);
+
 	if (sync_diff != link->sync_self_ref) {
 		link->sync_link->frame_skip_flag = true;
 		CAM_WARN(CAM_CRM,
-			"Detected anomaly, skip link:%d, self=%lld, other=%lld",
+			"Detected anomaly, skip link_hdl %x self_counter=%lld other_counter=%lld sync_self_ref=%lld",
 			link->link_hdl, link->sof_counter,
-			sync_link->sof_counter);
+			sync_link->sof_counter, link->sync_self_ref);
 		rc = -EPERM;
 	}
 
@@ -652,16 +679,12 @@ static int __cam_req_mgr_validate_sof_cnt(
  * @link     : pointer to link whose input queue and req tbl are
  *             traversed through
  * @slot     : pointer to the current slot being processed
- * @result   : Holds the value that indicates which of the pd
- *             tables have a req that is ready to be applied
- *
  * @return   : 0 for success, negative for failure
  *
  */
 static int __cam_req_mgr_process_sync_req(
 	struct cam_req_mgr_core_link *link,
-	struct cam_req_mgr_slot *slot,
-	int *result)
+	struct cam_req_mgr_slot *slot)
 {
 	struct cam_req_mgr_core_link *sync_link = NULL;
 	int64_t req_id = 0;
@@ -674,11 +697,17 @@ static int __cam_req_mgr_process_sync_req(
 
 	sync_link = link->sync_link;
 	req_id = slot->req_id;
+
+	CAM_DBG(CAM_CRM,
+		"link_hdl %x req %lld sync_self_ref %lld sof_counter %lld frame_skip_flag %d sync_link_self_ref %lld",
+		link->link_hdl, req_id, link->sync_self_ref, link->sof_counter,
+		link->frame_skip_flag, link->sync_link->sync_self_ref);
+
 	if (link->sof_counter == -1) {
 		__cam_req_mgr_sof_cnt_initialize(link);
-	} else if (link->frame_skip_flag &&
+	} else if ((link->frame_skip_flag) &&
 		(sync_link->sync_self_ref != -1)) {
-		CAM_DBG(CAM_CRM, "Link[%x] Req[%lld] Resetting values",
+		CAM_DBG(CAM_CRM, "Link[%x] Req[%lld] Resetting values ",
 			link->link_hdl, req_id);
 		__cam_req_mgr_reset_sof_cnt(link);
 		__cam_req_mgr_sof_cnt_initialize(link);
@@ -686,7 +715,7 @@ static int __cam_req_mgr_process_sync_req(
 		link->sof_counter++;
 	}
 
-	rc = __cam_req_mgr_check_link_is_ready(link, slot->idx, true, result);
+	rc = __cam_req_mgr_check_link_is_ready(link, slot->idx, true, true);
 	if (rc) {
 		CAM_DBG(CAM_CRM,
 			"Req: %lld [My link]not available link: %x, rc=%d",
@@ -696,9 +725,10 @@ static int __cam_req_mgr_process_sync_req(
 
 	sync_slot_idx = __cam_req_mgr_find_slot_for_req(
 		sync_link->req.in_q, req_id);
+
 	if (sync_slot_idx != -1) {
 		rc = __cam_req_mgr_check_link_is_ready(
-			sync_link, sync_slot_idx, true, result);
+			sync_link, sync_slot_idx, true, false);
 		CAM_DBG(CAM_CRM, "sync_slot_idx=%d, status=%d, rc=%d",
 			sync_slot_idx,
 			sync_link->req.in_q->slot[sync_slot_idx].status,
@@ -709,8 +739,8 @@ static int __cam_req_mgr_process_sync_req(
 	}
 
 	if ((sync_slot_idx != -1) &&
-		((sync_link->req.in_q->slot[sync_slot_idx].status ==
-		CRM_SLOT_STATUS_REQ_APPLIED) || (rc == 0))) {
+	((sync_link->req.in_q->slot[sync_slot_idx].status ==
+	CRM_SLOT_STATUS_REQ_APPLIED) || (rc == 0))) {
 		rc = __cam_req_mgr_validate_sof_cnt(link, sync_link);
 		if (rc) {
 			CAM_DBG(CAM_CRM,
@@ -718,8 +748,21 @@ static int __cam_req_mgr_process_sync_req(
 				req_id, sync_link->link_hdl);
 			goto failure;
 		}
-		__cam_req_mgr_check_link_is_ready(link, slot->idx, false,
-			result);
+
+		CAM_DBG(CAM_CRM,
+			"Req: %lld ready to apply on link: %x [validation successful]",
+			req_id, link->link_hdl);
+		/*
+		 *  At this point all validation is successfully done
+		 *  and we can proceed to apply the given request.
+		 *  Ideally the next call should return success.
+		 */
+		rc = __cam_req_mgr_check_link_is_ready(link,
+			slot->idx, false, true);
+
+		if (rc) {
+			CAM_WARN(CAM_CRM, "Unexpected return value rc: %d", rc);
+		}
 	} else {
 		CAM_DBG(CAM_CRM,
 			"Req: %lld [Other link] not ready to apply on link: %x",
@@ -736,41 +779,6 @@ failure:
 }
 
 /**
- * __cam_req_mgr_reset_pd_tables()
- *
- * @brief    : resets pd tables based on req getting applied on
- *             from a particular pd table
- * @link     : pointer to link whose input queue and req tbl are
- *             traversed through
- * @slot     : Pointer to the current slot
- * @result   : indicates request of which pd table was successfully
- *             processed
- *
- */
-static void __cam_req_mgr_reset_pd_tables(
-	struct cam_req_mgr_core_link *link,
-	struct cam_req_mgr_slot *slot,
-	int result)
-{
-	int pd_set_bit = 0;
-	int curr_idx = slot->idx;
-	int no_tables = link->req.num_tbl;
-	int max_pd_delay = link->max_delay;
-	struct cam_req_mgr_req_tbl  *tbl = link->req.l_tbl;
-	struct cam_req_mgr_req_queue *in_q = link->req.in_q;
-
-	while (no_tables) {
-		pd_set_bit = (result & (1 << max_pd_delay));
-		if (pd_set_bit)
-			tbl->slot[curr_idx].state = CRM_REQ_STATE_APPLIED;
-		max_pd_delay--;
-		no_tables--;
-		tbl = tbl->next;
-		__cam_req_mgr_dec_idx(&curr_idx, 1, in_q->num_slots);
-	}
-}
-
-/**
  * __cam_req_mgr_process_req()
  *
  * @brief    : processes read index in request queue and traverse through table
@@ -783,7 +791,7 @@ static void __cam_req_mgr_reset_pd_tables(
 static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	uint32_t trigger)
 {
-	int                                  rc = 0, idx, result = 0;
+	int                                  rc = 0, idx;
 	struct cam_req_mgr_slot             *slot = NULL;
 	struct cam_req_mgr_req_queue        *in_q;
 	struct cam_req_mgr_core_session     *session;
@@ -798,9 +806,9 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	 * - if in applied_state, somthign wrong.
 	 * - if in no_req state, no new req
 	 */
-	CAM_DBG(CAM_CRM, "SOF Req[%lld] idx %d req_status %d",
+	CAM_DBG(CAM_CRM, "SOF Req[%lld] idx %d req_status %d link_hdl %x",
 		in_q->slot[in_q->rd_idx].req_id, in_q->rd_idx,
-		in_q->slot[in_q->rd_idx].status);
+		in_q->slot[in_q->rd_idx].status, link->link_hdl);
 
 	slot = &in_q->slot[in_q->rd_idx];
 	if (slot->status == CRM_SLOT_STATUS_NO_REQ) {
@@ -809,8 +817,8 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 		goto error;
 	}
 
-	if (trigger != CAM_TRIGGER_POINT_SOF &&
-			trigger != CAM_TRIGGER_POINT_EOF)
+	if ((trigger != CAM_TRIGGER_POINT_SOF) &&
+		(trigger != CAM_TRIGGER_POINT_EOF))
 		goto error;
 
 	if ((trigger == CAM_TRIGGER_POINT_EOF) &&
@@ -829,11 +837,10 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 		}
 
 		if (slot->sync_mode == CAM_REQ_MGR_SYNC_MODE_SYNC)
-			rc = __cam_req_mgr_process_sync_req(link, slot,
-				&result);
+			rc = __cam_req_mgr_process_sync_req(link, slot);
 		else
 			rc = __cam_req_mgr_check_link_is_ready(link,
-				slot->idx, false, &result);
+				slot->idx, false, true);
 
 		if (rc < 0) {
 			/*
@@ -865,10 +872,10 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 		/* Apply req failed retry at next sof */
 		slot->status = CRM_SLOT_STATUS_REQ_PENDING;
 	} else {
-		CAM_DBG(CAM_CRM, "Applied req[%lld] on link[%x] success",
-			slot->req_id, link->link_hdl);
 		link->trigger_mask |= trigger;
 
+		CAM_DBG(CAM_CRM, "Applied req[%lld] on link[%x] success",
+			slot->req_id, link->link_hdl);
 		spin_lock_bh(&link->link_state_spin_lock);
 		if (link->state == CAM_CRM_LINK_STATE_ERR) {
 			CAM_WARN(CAM_CRM, "Err recovery done idx %d",
@@ -878,30 +885,21 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 		spin_unlock_bh(&link->link_state_spin_lock);
 
 		if (link->trigger_mask == link->subscribe_event) {
-			if (result == link->pd_mask) {
-				slot->status = CRM_SLOT_STATUS_REQ_APPLIED;
-				CAM_DBG(CAM_CRM, "req %d is applied on link %d",
-					slot->req_id, link->link_hdl);
-				idx = in_q->rd_idx;
-				__cam_req_mgr_dec_idx(
-					&idx, link->max_delay + 1,
-					in_q->num_slots);
-				__cam_req_mgr_reset_req_slot(link, idx);
-			} else {
-				CAM_DBG(CAM_CRM,
-					"Req:%lld not applied on all devices",
-				slot->req_id);
-				__cam_req_mgr_reset_pd_tables(link, slot,
-					result);
-				slot->status = CRM_SLOT_STATUS_REQ_PENDING;
-			}
-
+			slot->status = CRM_SLOT_STATUS_REQ_APPLIED;
 			link->trigger_mask = 0;
+			CAM_DBG(CAM_CRM, "req %d is applied on link %x",
+				slot->req_id,
+				link->link_hdl);
+			idx = in_q->rd_idx;
+			__cam_req_mgr_dec_idx(
+				&idx, link->max_delay + 1,
+				in_q->num_slots);
+			__cam_req_mgr_reset_req_slot(link, idx);
 		}
 	}
+
 	mutex_unlock(&session->lock);
 	return rc;
-
 error:
 	mutex_unlock(&session->lock);
 	return rc;
@@ -1138,8 +1136,9 @@ static void __cam_req_mgr_destroy_subdev(
  * @brief    : Cleans up the mem allocated while linking
  * @link     : pointer to link, mem associated with this link is freed
  *
+ * @return   : returns if unlink for any device was success or failure
  */
-static void __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
+static int __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 {
 	int32_t                                 i = 0;
 	struct cam_req_mgr_connected_device    *dev;
@@ -1160,8 +1159,8 @@ static void __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 				rc = dev->ops->link_setup(&link_data);
 				if (rc)
 					CAM_ERR(CAM_CRM,
-						"Unlink failed dev_hdl 0x%x rc=%d",
-						dev->dev_hdl, rc);
+						"Unlink failed dev_hdl %d",
+						dev->dev_hdl);
 			}
 			dev->dev_hdl = 0;
 			dev->parent = NULL;
@@ -1176,6 +1175,8 @@ static void __cam_req_mgr_destroy_link_info(struct cam_req_mgr_core_link *link)
 	link->pd_mask = 0;
 	link->num_devs = 0;
 	link->max_delay = 0;
+
+	return rc;
 }
 
 /**
@@ -1238,6 +1239,9 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 	/*  Loop through and find a free index */
 	for (i = 0; i < MAX_LINKS_PER_SESSION; i++) {
 		if (!session->links[i]) {
+			CAM_DBG(CAM_CRM,
+				"Free link index %d found, num_links=%d",
+				i, session->num_links);
 			session->links[i] = link;
 			break;
 		}
@@ -1442,9 +1446,9 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 		if (device->ops && device->ops->flush_req)
 			rc = device->ops->flush_req(&flush_req);
 	}
+	complete(&link->workq_comp);
 	mutex_unlock(&link->req.lock);
 
-	complete(&link->workq_comp);
 end:
 	return rc;
 }
@@ -1476,12 +1480,11 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 	link = (struct cam_req_mgr_core_link *)priv;
 	task_data = (struct crm_task_payload *)data;
 	sched_req  = (struct cam_req_mgr_sched_request *)&task_data->u;
-	CAM_DBG(CAM_CRM, "link_hdl %x req_id %lld sync_mode %d",
-		sched_req->link_hdl,
-		sched_req->req_id,
-		sched_req->sync_mode);
-
 	in_q = link->req.in_q;
+
+	CAM_DBG(CAM_CRM, "link_hdl %x req_id %lld at slot %d sync_mode %d",
+		sched_req->link_hdl, sched_req->req_id,
+		in_q->wr_idx, sched_req->sync_mode);
 
 	mutex_lock(&link->req.lock);
 	slot = &in_q->slot[in_q->wr_idx];
@@ -1489,9 +1492,6 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 	if (slot->status != CRM_SLOT_STATUS_NO_REQ &&
 		slot->status != CRM_SLOT_STATUS_REQ_APPLIED)
 		CAM_WARN(CAM_CRM, "in_q overwrite %d", slot->status);
-
-	CAM_DBG(CAM_CRM, "sched_req %lld at slot %d sync_mode %d",
-		sched_req->req_id, in_q->wr_idx, sched_req->sync_mode);
 
 	slot->status = CRM_SLOT_STATUS_REQ_ADDED;
 	slot->req_id = sched_req->req_id;
@@ -1875,9 +1875,9 @@ static int cam_req_mgr_cb_notify_err(
 		rc = -EPERM;
 		goto end;
 	}
+	crm_timer_reset(link->watchdog);
 	spin_unlock_bh(&link->link_state_spin_lock);
 
-	crm_timer_reset(link->watchdog);
 	task = cam_req_mgr_workq_get_task(link->workq);
 	if (!task) {
 		CAM_ERR(CAM_CRM, "no empty task req_id %lld", err_info->req_id);
@@ -1938,9 +1938,9 @@ static int cam_req_mgr_cb_notify_trigger(
 		rc = -EPERM;
 		goto end;
 	}
+	crm_timer_reset(link->watchdog);
 	spin_unlock_bh(&link->link_state_spin_lock);
 
-	crm_timer_reset(link->watchdog);
 	task = cam_req_mgr_workq_get_task(link->workq);
 	if (!task) {
 		CAM_ERR(CAM_CRM, "no empty task frame %lld",
@@ -2109,22 +2109,6 @@ error:
 	return rc;
 }
 
-void cam_req_mgr_handle_core_shutdown(void)
-{
-	struct cam_req_mgr_core_session *session;
-	struct cam_req_mgr_core_session *tsession;
-	struct cam_req_mgr_session_info ses_info;
-
-	if (!list_empty(&g_crm_core_dev->session_head)) {
-		list_for_each_entry_safe(session, tsession,
-			&g_crm_core_dev->session_head, entry) {
-			ses_info.session_hdl =
-				session->session_hdl;
-			cam_req_mgr_destroy_session(&ses_info);
-		}
-	}
-}
-
 /* IOCTLs handling section */
 int cam_req_mgr_create_session(
 	struct cam_req_mgr_session_info *ses_info)
@@ -2185,6 +2169,9 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 	mutex_lock(&link->lock);
 	spin_lock_bh(&link->link_state_spin_lock);
 	link->state = CAM_CRM_LINK_STATE_IDLE;
+
+	/* Destroy timer of link */
+	crm_timer_exit(&link->watchdog);
 	spin_unlock_bh(&link->link_state_spin_lock);
 	__cam_req_mgr_print_req_tbl(&link->req);
 
@@ -2192,13 +2179,14 @@ static int __cam_req_mgr_unlink(struct cam_req_mgr_core_link *link)
 	kfree(link->workq->task.pool[0].payload);
 	link->workq->task.pool[0].payload = NULL;
 
-	/* Destroy workq and timer of link */
-	crm_timer_exit(&link->watchdog);
-
+	/* Destroy workq of link */
 	cam_req_mgr_workq_destroy(&link->workq);
 
 	/* Cleanup request tables and unlink devices */
-	__cam_req_mgr_destroy_link_info(link);
+	rc = __cam_req_mgr_destroy_link_info(link);
+	if (rc)
+		CAM_ERR(CAM_CORE,
+			"Unlink for all devices was not successful");
 
 	/* Free memory holding data of linked devs */
 	__cam_req_mgr_destroy_subdev(link->l_dev);
@@ -2504,6 +2492,7 @@ int cam_req_mgr_sync_config(
 	}
 
 	mutex_lock(&cam_session->lock);
+
 	CAM_DBG(CAM_CRM, "link handles %x %x",
 		sync_info->link_hdls[0], sync_info->link_hdls[1]);
 
@@ -2660,7 +2649,9 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 			}
 		} else if (control->ops == CAM_REQ_MGR_LINK_DEACTIVATE) {
 			/* Destroy SOF watchdog timer */
+			spin_lock_bh(&link->link_state_spin_lock);
 			crm_timer_exit(&link->watchdog);
+			spin_unlock_bh(&link->link_state_spin_lock);
 			/* notify nodes */
 			for (j = 0; j < link->num_devs; j++) {
 				dev = &link->l_dev[j];
