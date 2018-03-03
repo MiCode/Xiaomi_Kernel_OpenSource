@@ -7313,7 +7313,7 @@ static int wake_cap(struct task_struct *p, int cpu, int prev_cpu)
 	/* Bring task utilization in sync with prev_cpu */
 	sync_entity_load_avg(&p->se);
 
-	return task_fits_capacity(p, min_cap, cpu);
+	return !task_fits_capacity(p, min_cap, cpu);
 }
 
 bool __cpu_overutilized(int cpu, unsigned long util)
