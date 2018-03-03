@@ -142,3 +142,67 @@ void notify_esoc_clients(struct esoc_clink *esoc_clink, unsigned long evt)
 	spin_unlock_irqrestore(&notify_lock, flags);
 }
 EXPORT_SYMBOL(notify_esoc_clients);
+
+int esoc_register_client_hook(struct esoc_desc *desc,
+				struct esoc_client_hook *client_hook)
+{
+	int i;
+	struct esoc_clink *esoc_clink;
+
+	if (IS_ERR_OR_NULL(desc) || IS_ERR_OR_NULL(client_hook)) {
+		pr_debug("%s: Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	esoc_clink = desc->priv;
+	if (IS_ERR_OR_NULL(esoc_clink)) {
+		pr_debug("%s: Invalid esoc link\n", __func__);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
+		if (i == client_hook->prio &&
+			esoc_clink->client_hook[i] == NULL) {
+			esoc_clink->client_hook[i] = client_hook;
+			dev_dbg(&esoc_clink->dev,
+				"Client hook registration successful\n");
+			return 0;
+		}
+	}
+
+	dev_dbg(&esoc_clink->dev, "Client hook registration failed!\n");
+	return -EINVAL;
+}
+EXPORT_SYMBOL(esoc_register_client_hook);
+
+int esoc_unregister_client_hook(struct esoc_desc *desc,
+				struct esoc_client_hook *client_hook)
+{
+	int i;
+	struct esoc_clink *esoc_clink;
+
+	if (IS_ERR_OR_NULL(desc) || IS_ERR_OR_NULL(client_hook)) {
+		pr_debug("%s: Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	esoc_clink = desc->priv;
+	if (IS_ERR_OR_NULL(esoc_clink)) {
+		pr_debug("%s: Invalid esoc link\n", __func__);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
+		if (i == client_hook->prio &&
+			esoc_clink->client_hook[i] != NULL) {
+			esoc_clink->client_hook[i] = NULL;
+			dev_dbg(&esoc_clink->dev,
+				"Client hook unregistration successful\n");
+			return 0;
+		}
+	}
+
+	dev_dbg(&esoc_clink->dev, "Client hook unregistration failed!\n");
+	return -EINVAL;
+}
+EXPORT_SYMBOL(esoc_unregister_client_hook);

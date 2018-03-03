@@ -15,6 +15,7 @@
 #include <linux/cdev.h>
 #include <linux/completion.h>
 #include <linux/esoc_ctrl.h>
+#include <linux/esoc_client.h>
 #include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -89,6 +90,7 @@ struct esoc_clink {
 	bool primary;
 	bool statusline_not_a_powersource;
 	bool userspace_handle_shutdown;
+	struct esoc_client_hook *client_hook[ESOC_MAX_HOOKS];
 };
 
 /**
