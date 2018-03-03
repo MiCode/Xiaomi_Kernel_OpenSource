@@ -131,6 +131,22 @@
 		vdd-wlan-dsrc-supply = <&dsrc_vreg>;
 		qcom,skip-wlan-en-toggle;
 	};
+
+	glink_mpss: qcom,glink-ssr-modem {
+		compatible = "qcom,glink_ssr";
+		label = "modem";
+		qcom,edge = "mpss";
+		qcom,notify-edges = <&glink_lpass>;
+		qcom,xprt = "smem";
+	};
+
+	glink_lpass: qcom,glink-ssr-adsp {
+		compatible = "qcom,glink_ssr";
+		label = "adsp";
+		qcom,edge = "lpass";
+		qcom,notify-edges = <&glink_mpss>;
+		qcom,xprt = "smem";
+	};
 };
 
 &spi_9 {
