@@ -15,6 +15,7 @@
 	tasha_codec {
 		swr_master {
 			compatible = "qcom,swr-wcd";
+			qcom,swr-num-dev = <2>;
 			#address-cells = <2>;
 			#size-cells = <0>;
 
