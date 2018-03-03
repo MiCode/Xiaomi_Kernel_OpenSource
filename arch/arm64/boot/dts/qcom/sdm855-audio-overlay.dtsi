@@ -300,8 +300,8 @@
 };
 
 &qupv3_se4_i2c {
-	status = "ok";
 	aqt1000_cdc: aqt1000-i2c-codec@d {
+		status = "disabled";
 		compatible = "qcom,aqt1000-i2c-codec";
 		reg = <0x0d>;
 
@@ -325,7 +325,7 @@
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-buck-current = <650000>;
 
-		cdc-vdd-vbat-supply = <&pm8551_bob>;
+		cdc-vdd-vbat-supply = <&pm855l_bob>;
 		qcom,cdc-vdd-vbat-voltage = <3300000 3300000>;
 		qcom,cdc-vdd-vbat-current = <5000>;
 
