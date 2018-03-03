@@ -127,7 +127,7 @@ static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 	dp_write(catalog, io_data, DP_PHY_AUX_INTERRUPT_MASK_V420, 0x1F);
 }
 
-static void dp_catalog_ctrl_config_msa_v420(struct dp_catalog_ctrl *ctrl,
+static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 					u32 rate, u32 stream_rate_khz,
 					bool fixed_nvid)
 {
@@ -140,12 +140,12 @@ static void dp_catalog_ctrl_config_msa_v420(struct dp_catalog_ctrl *ctrl,
 	struct dp_catalog_private_v420 *catalog;
 	struct dp_io_data *io_data;
 
-	if (!ctrl || !rate) {
+	if (!panel || !rate) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	catalog = dp_catalog_get_priv_v420(ctrl);
+	catalog = dp_catalog_get_priv_v420(panel);
 	if (fixed_nvid) {
 		pr_debug("use fixed NVID=0x%x\n", nvid_fixed);
 		nvid = nvid_fixed;
@@ -309,7 +309,7 @@ int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
 	catalog->priv.set_exe_mode = dp_catalog_set_exe_mode_v420;
 
 	catalog->aux.setup         = dp_catalog_aux_setup_v420;
-	catalog->ctrl.config_msa   = dp_catalog_ctrl_config_msa_v420;
+	catalog->panel.config_msa  = dp_catalog_panel_config_msa_v420;
 	catalog->ctrl.phy_lane_cfg = dp_catalog_ctrl_phy_lane_cfg_v420;
 	catalog->ctrl.update_vx_px = dp_catalog_ctrl_update_vx_px_v420;
 

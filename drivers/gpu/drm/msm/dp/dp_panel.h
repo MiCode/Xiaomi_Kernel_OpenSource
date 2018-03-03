@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,9 +76,14 @@ struct dp_panel {
 	/* debug */
 	u32 max_bw_code;
 
+	/* By default, stream_id is assigned to DP_INVALID_STREAM.
+	 * Client sets the stream id value using set_stream_id interface.
+	 */
+	enum dp_stream_id stream_id;
+
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel);
-	int (*timing_cfg)(struct dp_panel *dp_panel);
+	int (*hw_cfg)(struct dp_panel *dp_panel);
 	int (*read_sink_caps)(struct dp_panel *dp_panel,
 		struct drm_connector *connector);
 	u32 (*get_min_req_link_rate)(struct dp_panel *dp_panel);
@@ -94,6 +99,8 @@ struct dp_panel {
 	void (*tpg_config)(struct dp_panel *dp_panel, bool enable);
 	int (*spd_config)(struct dp_panel *dp_panel);
 	bool (*hdr_supported)(struct dp_panel *dp_panel);
+	int (*set_stream_id)(struct dp_panel *dp_panel,
+			enum dp_stream_id stream_id);
 };
 
 /**

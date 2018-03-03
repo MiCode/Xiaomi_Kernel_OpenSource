@@ -1091,13 +1091,15 @@ static int dp_display_enable(struct dp_display *dp_display)
 
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 
+	dp->panel->set_stream_id(dp->panel, DP_STREAM_0);
+
 	rc = dp->ctrl->on(dp->ctrl);
+	if (!rc)
+		dp->power_on = true;
 
 	if (dp->debug->tpg_state)
 		dp->panel->tpg_config(dp->panel, true);
 
-	if (!rc)
-		dp->power_on = true;
 end:
 	mutex_unlock(&dp->session_lock);
 	return rc;

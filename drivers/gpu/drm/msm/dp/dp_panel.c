@@ -16,6 +16,7 @@
 
 #include "dp_panel.h"
 
+#define DP_KHZ_TO_HZ 1000
 #define DP_PANEL_DEFAULT_BPP 24
 #define DP_MAX_DS_PORT_COUNT 1
 
@@ -23,6 +24,20 @@
 #define VSC_SDP_EXTENSION_FOR_COLORIMETRY_SUPPORTED BIT(3)
 #define VSC_EXT_VESA_SDP_SUPPORTED BIT(4)
 #define VSC_EXT_VESA_SDP_CHAINING_SUPPORTED BIT(5)
+
+struct dp_vc_tu_mapping_table {
+	u32 vic;
+	u8 lanes;
+	u8 lrate; /* DP_LINK_RATE -> 162(6), 270(10), 540(20), 810 (30) */
+	u8 bpp;
+	u32 valid_boundary_link;
+	u32 delay_start_link;
+	bool boundary_moderation_en;
+	u32 valid_lower_boundary_link;
+	u32 upper_boundary_count;
+	u32 lower_boundary_count;
+	u32 tu_size_minus1;
+};
 
 enum dp_panel_hdr_pixel_encoding {
 	RGB,
@@ -104,6 +119,549 @@ static const u8 vendor_name[8] = {81, 117, 97, 108, 99, 111, 109, 109};
 static const u8 product_desc[16] = {83, 110, 97, 112, 100, 114, 97, 103,
 	111, 110, 0, 0, 0, 0, 0, 0};
 
+static void dp_panel_get_extra_req_bytes(u64 result_valid,
+					int valid_bdary_link,
+					u64 value1, u64 value2,
+					bool *negative, u64 *result,
+					u64 compare)
+{
+	*negative = false;
+	if (result_valid >= compare) {
+		if (valid_bdary_link
+				>= compare)
+			*result = value1 + value2;
+		else {
+			if (value1 < value2)
+				*negative = true;
+			*result = (value1 >= value2) ?
+				(value1 - value2) : (value2 - value1);
+		}
+	} else {
+		if (valid_bdary_link
+				>= compare) {
+			if (value1 >= value2)
+				*negative = true;
+			*result = (value1 >= value2) ?
+				(value1 - value2) : (value2 - value1);
+		} else {
+			*result = value1 + value2;
+			*negative = true;
+		}
+	}
+}
+
+static u64 roundup_u64(u64 x, u64 y)
+{
+	x += (y - 1);
+	return (div64_ul(x, y) * y);
+}
+
+static u64 rounddown_u64(u64 x, u64 y)
+{
+	u64 rem;
+
+	div64_u64_rem(x, y, &rem);
+	return (x - rem);
+}
+
+static void dp_panel_calc_tu_parameters(struct dp_panel *dp_panel,
+		struct dp_vc_tu_mapping_table *tu_table)
+{
+	u32 const multiplier = 1000000;
+	u64 pclk, lclk;
+	u8 bpp, ln_cnt;
+	int run_idx = 0;
+	u32 lwidth, h_blank;
+	u32 fifo_empty = 0;
+	u32 ratio_scale = 1001;
+	u64 temp, ratio, original_ratio;
+	u64 temp2, reminder;
+	u64 temp3, temp4, result = 0;
+
+	u64 err = multiplier;
+	u64 n_err = 0, n_n_err = 0;
+	bool n_err_neg, nn_err_neg;
+	u8 hblank_margin = 16;
+
+	u8 tu_size, tu_size_desired = 0, tu_size_minus1;
+	int valid_boundary_link;
+	u32 resulting_valid;
+	u64 total_valid;
+	u64 effective_valid;
+	u64 effective_valid_recorded;
+	int n_tus;
+	int n_tus_per_lane;
+	int paired_tus;
+	int remainder_tus;
+	int remainder_tus_upper, remainder_tus_lower;
+	int extra_bytes;
+	int filler_size;
+	int delay_start_link;
+	int boundary_moderation_en = 0;
+	int upper_bdry_cnt = 0;
+	int lower_bdry_cnt = 0;
+	int i_upper_bdry_cnt = 0;
+	int i_lower_bdry_cnt = 0;
+	int valid_lower_boundary_link = 0;
+	int even_distribution_bf = 0;
+	int even_distribution_legacy = 0;
+	int even_distribution = 0;
+	int min_hblank = 0;
+	int extra_pclk_cycles;
+	u8 extra_pclk_cycle_delay = 4;
+	int extra_pclk_cycles_in_link_clk;
+	u64 ratio_by_tu;
+	u64 average_valid2;
+	u64 extra_buffer_margin;
+	int new_valid_boundary_link;
+
+	u64 resulting_valid_tmp;
+	u64 ratio_by_tu_tmp;
+	int n_tus_tmp;
+	int extra_pclk_cycles_tmp;
+	int extra_pclk_cycles_in_lclk_tmp;
+	int extra_req_bytes_new_tmp;
+	int filler_size_tmp;
+	int lower_filler_size_tmp;
+	int delay_start_link_tmp;
+	int min_hblank_tmp = 0;
+	bool extra_req_bytes_is_neg = false;
+	struct dp_panel_info *pinfo = &dp_panel->pinfo;
+
+	u8 dp_brute_force = 1;
+	u64 brute_force_threshold = 10;
+	u64 diff_abs;
+
+	struct dp_panel_private *panel;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	ln_cnt =  panel->link->link_params.lane_count;
+
+	bpp = pinfo->bpp;
+	lwidth = pinfo->h_active;
+	h_blank = pinfo->h_back_porch + pinfo->h_front_porch +
+				pinfo->h_sync_width;
+	pclk = pinfo->pixel_clk_khz * 1000;
+
+	boundary_moderation_en = 0;
+	upper_bdry_cnt = 0;
+	lower_bdry_cnt = 0;
+	i_upper_bdry_cnt = 0;
+	i_lower_bdry_cnt = 0;
+	valid_lower_boundary_link = 0;
+	even_distribution_bf = 0;
+	even_distribution_legacy = 0;
+	even_distribution = 0;
+	min_hblank = 0;
+
+	lclk = drm_dp_bw_code_to_link_rate(
+		panel->link->link_params.bw_code) * DP_KHZ_TO_HZ;
+
+	pr_debug("pclk=%lld, active_width=%d, h_blank=%d\n",
+						pclk, lwidth, h_blank);
+	pr_debug("lclk = %lld, ln_cnt = %d\n", lclk, ln_cnt);
+	ratio = div64_u64_rem(pclk * bpp * multiplier,
+				8 * ln_cnt * lclk, &reminder);
+	ratio = div64_u64((pclk * bpp * multiplier), (8 * ln_cnt * lclk));
+	original_ratio = ratio;
+
+	extra_buffer_margin = roundup_u64(div64_u64(extra_pclk_cycle_delay
+				* lclk * multiplier, pclk), multiplier);
+	extra_buffer_margin = div64_u64(extra_buffer_margin, multiplier);
+
+	/* To deal with cases where lines are not distributable */
+	if (((lwidth % ln_cnt) != 0) && ratio < multiplier) {
+		ratio = ratio * ratio_scale;
+		ratio = ratio < (1000 * multiplier)
+				? ratio : (1000 * multiplier);
+	}
+	pr_debug("ratio = %lld\n", ratio);
+
+	for (tu_size = 32; tu_size <= 64; tu_size++) {
+		temp = ratio * tu_size;
+		temp2 = ((temp / multiplier) + 1) * multiplier;
+		n_err = roundup_u64(temp, multiplier) - temp;
+
+		if (n_err < err) {
+			err = n_err;
+			tu_size_desired = tu_size;
+		}
+	}
+	pr_debug("Info: tu_size_desired = %d\n", tu_size_desired);
+
+	tu_size_minus1 = tu_size_desired - 1;
+
+	valid_boundary_link = roundup_u64(ratio * tu_size_desired, multiplier);
+	valid_boundary_link /= multiplier;
+	n_tus = rounddown((lwidth * bpp * multiplier)
+			/ (8 * valid_boundary_link), multiplier) / multiplier;
+	even_distribution_legacy = n_tus % ln_cnt == 0 ? 1 : 0;
+	pr_debug("Info: n_symbol_per_tu=%d, number_of_tus=%d\n",
+					valid_boundary_link, n_tus);
+
+	extra_bytes = roundup_u64((n_tus + 1)
+			* ((valid_boundary_link * multiplier)
+			- (original_ratio * tu_size_desired)), multiplier);
+	extra_bytes /= multiplier;
+	extra_pclk_cycles = roundup(extra_bytes * 8 * multiplier / bpp,
+			multiplier);
+	extra_pclk_cycles /= multiplier;
+	extra_pclk_cycles_in_link_clk = roundup_u64(div64_u64(extra_pclk_cycles
+				* lclk * multiplier, pclk), multiplier);
+	extra_pclk_cycles_in_link_clk /= multiplier;
+	filler_size = roundup_u64((tu_size_desired - valid_boundary_link)
+						* multiplier, multiplier);
+	filler_size /= multiplier;
+	ratio_by_tu = div64_u64(ratio * tu_size_desired, multiplier);
+
+	pr_debug("extra_pclk_cycles_in_link_clk=%d, extra_bytes=%d\n",
+				extra_pclk_cycles_in_link_clk, extra_bytes);
+	pr_debug("extra_pclk_cycles_in_link_clk=%d\n",
+				extra_pclk_cycles_in_link_clk);
+	pr_debug("filler_size=%d, extra_buffer_margin=%lld\n",
+				filler_size, extra_buffer_margin);
+
+	delay_start_link = ((extra_bytes > extra_pclk_cycles_in_link_clk)
+			? extra_bytes
+			: extra_pclk_cycles_in_link_clk)
+				+ filler_size + extra_buffer_margin;
+	resulting_valid = valid_boundary_link;
+	pr_debug("Info: delay_start_link=%d, filler_size=%d\n",
+				delay_start_link, filler_size);
+	pr_debug("valid_boundary_link=%d ratio_by_tu=%lld\n",
+				valid_boundary_link, ratio_by_tu);
+
+	diff_abs = (resulting_valid >= ratio_by_tu)
+				? (resulting_valid - ratio_by_tu)
+				: (ratio_by_tu - resulting_valid);
+
+	if (err != 0 && ((diff_abs > brute_force_threshold)
+			|| (even_distribution_legacy == 0)
+			|| (dp_brute_force == 1))) {
+		err = multiplier;
+		for (tu_size = 32; tu_size <= 64; tu_size++) {
+			for (i_upper_bdry_cnt = 1; i_upper_bdry_cnt <= 15;
+						i_upper_bdry_cnt++) {
+				for (i_lower_bdry_cnt = 1;
+					i_lower_bdry_cnt <= 15;
+					i_lower_bdry_cnt++) {
+					new_valid_boundary_link =
+						roundup_u64(ratio
+						* tu_size, multiplier);
+					average_valid2 = (i_upper_bdry_cnt
+						* new_valid_boundary_link
+						+ i_lower_bdry_cnt
+						* (new_valid_boundary_link
+							- multiplier))
+						/ (i_upper_bdry_cnt
+							+ i_lower_bdry_cnt);
+					n_tus = rounddown_u64(div64_u64(lwidth
+						* multiplier * multiplier
+						* (bpp / 8), average_valid2),
+							multiplier);
+					n_tus /= multiplier;
+					n_tus_per_lane
+						= rounddown(n_tus
+							* multiplier
+							/ ln_cnt, multiplier);
+					n_tus_per_lane /= multiplier;
+					paired_tus =
+						rounddown((n_tus_per_lane)
+							* multiplier
+							/ (i_upper_bdry_cnt
+							+ i_lower_bdry_cnt),
+							multiplier);
+					paired_tus /= multiplier;
+					remainder_tus = n_tus_per_lane
+							- paired_tus
+						* (i_upper_bdry_cnt
+							+ i_lower_bdry_cnt);
+					if ((remainder_tus
+						- i_upper_bdry_cnt) > 0) {
+						remainder_tus_upper
+							= i_upper_bdry_cnt;
+						remainder_tus_lower =
+							remainder_tus
+							- i_upper_bdry_cnt;
+					} else {
+						remainder_tus_upper
+							= remainder_tus;
+						remainder_tus_lower = 0;
+					}
+					total_valid = paired_tus
+						* (i_upper_bdry_cnt
+						* new_valid_boundary_link
+							+ i_lower_bdry_cnt
+						* (new_valid_boundary_link
+							- multiplier))
+						+ (remainder_tus_upper
+						* new_valid_boundary_link)
+						+ (remainder_tus_lower
+						* (new_valid_boundary_link
+							- multiplier));
+					n_err_neg = nn_err_neg = false;
+					effective_valid
+						= div_u64(total_valid,
+							n_tus_per_lane);
+					n_n_err = (effective_valid
+							>= (ratio * tu_size))
+						? (effective_valid
+							- (ratio * tu_size))
+						: ((ratio * tu_size)
+							- effective_valid);
+					if (effective_valid < (ratio * tu_size))
+						nn_err_neg = true;
+					n_err = (average_valid2
+						>= (ratio * tu_size))
+						? (average_valid2
+							- (ratio * tu_size))
+						: ((ratio * tu_size)
+							- average_valid2);
+					if (average_valid2 < (ratio * tu_size))
+						n_err_neg = true;
+					even_distribution =
+						n_tus % ln_cnt == 0 ? 1 : 0;
+					diff_abs =
+						resulting_valid >= ratio_by_tu
+						? (resulting_valid
+							- ratio_by_tu)
+						: (ratio_by_tu
+							- resulting_valid);
+
+					resulting_valid_tmp = div64_u64(
+						(i_upper_bdry_cnt
+						* new_valid_boundary_link
+						+ i_lower_bdry_cnt
+						* (new_valid_boundary_link
+							- multiplier)),
+						(i_upper_bdry_cnt
+							+ i_lower_bdry_cnt));
+					ratio_by_tu_tmp =
+						original_ratio * tu_size;
+					ratio_by_tu_tmp /= multiplier;
+					n_tus_tmp = rounddown_u64(
+						div64_u64(lwidth
+						* multiplier * multiplier
+						* bpp / 8,
+						resulting_valid_tmp),
+						multiplier);
+					n_tus_tmp /= multiplier;
+
+					temp3 = (resulting_valid_tmp
+						>= (original_ratio * tu_size))
+						? (resulting_valid_tmp
+						- original_ratio * tu_size)
+						: (original_ratio * tu_size)
+						- resulting_valid_tmp;
+					temp3 = (n_tus_tmp + 1) * temp3;
+					temp4 = (new_valid_boundary_link
+						>= (original_ratio * tu_size))
+						? (new_valid_boundary_link
+							- original_ratio
+							* tu_size)
+						: (original_ratio * tu_size)
+						- new_valid_boundary_link;
+					temp4 = (i_upper_bdry_cnt
+							* ln_cnt * temp4);
+
+					temp3 = roundup_u64(temp3, multiplier);
+					temp4 = roundup_u64(temp4, multiplier);
+					dp_panel_get_extra_req_bytes
+						(resulting_valid_tmp,
+						new_valid_boundary_link,
+						temp3, temp4,
+						&extra_req_bytes_is_neg,
+						&result,
+						(original_ratio * tu_size));
+					extra_req_bytes_new_tmp
+						= div64_ul(result, multiplier);
+					if ((extra_req_bytes_is_neg)
+						&& (extra_req_bytes_new_tmp
+							> 1))
+						extra_req_bytes_new_tmp
+						= extra_req_bytes_new_tmp - 1;
+					if (extra_req_bytes_new_tmp == 0)
+						extra_req_bytes_new_tmp = 1;
+					extra_pclk_cycles_tmp =
+						(int)(extra_req_bytes_new_tmp
+						      * 8 * multiplier) / bpp;
+					extra_pclk_cycles_tmp /= multiplier;
+
+					if (extra_pclk_cycles_tmp <= 0)
+						extra_pclk_cycles_tmp = 1;
+					extra_pclk_cycles_in_lclk_tmp =
+						roundup_u64(div64_u64(
+							extra_pclk_cycles_tmp
+							* lclk * multiplier,
+							pclk), multiplier);
+					extra_pclk_cycles_in_lclk_tmp
+						/= multiplier;
+					filler_size_tmp = roundup_u64(
+						(tu_size * multiplier *
+						new_valid_boundary_link),
+						multiplier);
+					filler_size_tmp /= multiplier;
+					lower_filler_size_tmp =
+						filler_size_tmp + 1;
+					if (extra_req_bytes_is_neg)
+						temp3 = (extra_req_bytes_new_tmp
+						> extra_pclk_cycles_in_lclk_tmp
+						? extra_pclk_cycles_in_lclk_tmp
+						: extra_req_bytes_new_tmp);
+					else
+						temp3 = (extra_req_bytes_new_tmp
+						> extra_pclk_cycles_in_lclk_tmp
+						? extra_req_bytes_new_tmp :
+						extra_pclk_cycles_in_lclk_tmp);
+
+					temp4 = lower_filler_size_tmp
+						+ extra_buffer_margin;
+					if (extra_req_bytes_is_neg)
+						delay_start_link_tmp
+							= (temp3 >= temp4)
+							? (temp3 - temp4)
+							: (temp4 - temp3);
+					else
+						delay_start_link_tmp
+							= temp3 + temp4;
+
+					min_hblank_tmp = (int)div64_u64(
+						roundup_u64(
+						div64_u64(delay_start_link_tmp
+						* pclk * multiplier, lclk),
+						multiplier), multiplier)
+						+ hblank_margin;
+
+					if (((even_distribution == 1)
+						|| ((even_distribution_bf == 0)
+						&& (even_distribution_legacy
+								== 0)))
+						&& !n_err_neg && !nn_err_neg
+						&& n_n_err < err
+						&& (n_n_err < diff_abs
+						|| (dp_brute_force == 1))
+						&& (new_valid_boundary_link
+									- 1) > 0
+						&& (h_blank >=
+							(u32)min_hblank_tmp)) {
+						upper_bdry_cnt =
+							i_upper_bdry_cnt;
+						lower_bdry_cnt =
+							i_lower_bdry_cnt;
+						err = n_n_err;
+						boundary_moderation_en = 1;
+						tu_size_desired = tu_size;
+						valid_boundary_link =
+							new_valid_boundary_link;
+						effective_valid_recorded
+							= effective_valid;
+						delay_start_link
+							= delay_start_link_tmp;
+						filler_size = filler_size_tmp;
+						min_hblank = min_hblank_tmp;
+						n_tus = n_tus_tmp;
+						even_distribution_bf = 1;
+
+						pr_debug("upper_bdry_cnt=%d, lower_boundary_cnt=%d, err=%lld, tu_size_desired=%d, valid_boundary_link=%d, effective_valid=%lld\n",
+							upper_bdry_cnt,
+							lower_bdry_cnt, err,
+							tu_size_desired,
+							valid_boundary_link,
+							effective_valid);
+					}
+				}
+			}
+		}
+
+		if (boundary_moderation_en == 1) {
+			resulting_valid = (u32)(upper_bdry_cnt
+					*valid_boundary_link + lower_bdry_cnt
+					* (valid_boundary_link - 1))
+					/ (upper_bdry_cnt + lower_bdry_cnt);
+			ratio_by_tu = original_ratio * tu_size_desired;
+			valid_lower_boundary_link =
+				(valid_boundary_link / multiplier) - 1;
+
+			tu_size_minus1 = tu_size_desired - 1;
+			even_distribution_bf = 1;
+			valid_boundary_link /= multiplier;
+			pr_debug("Info: Boundary_moderation enabled\n");
+		}
+	}
+
+	min_hblank = ((int) roundup_u64(div64_u64(delay_start_link * pclk
+			* multiplier, lclk), multiplier))
+			/ multiplier + hblank_margin;
+	if (h_blank < (u32)min_hblank) {
+		pr_debug(" WARNING: run_idx=%d Programmed h_blank %d is smaller than the min_hblank %d supported.\n",
+					run_idx, h_blank, min_hblank);
+	}
+
+	if (fifo_empty)	{
+		tu_size_minus1 = 31;
+		valid_boundary_link = 32;
+		delay_start_link = 0;
+		boundary_moderation_en = 0;
+	}
+
+	pr_debug("tu_size_minus1=%d valid_boundary_link=%d delay_start_link=%d boundary_moderation_en=%d\n upper_boundary_cnt=%d lower_boundary_cnt=%d valid_lower_boundary_link=%d min_hblank=%d\n",
+		tu_size_minus1, valid_boundary_link, delay_start_link,
+		boundary_moderation_en, upper_bdry_cnt, lower_bdry_cnt,
+		valid_lower_boundary_link, min_hblank);
+
+	tu_table->valid_boundary_link = valid_boundary_link;
+	tu_table->delay_start_link = delay_start_link;
+	tu_table->boundary_moderation_en = boundary_moderation_en;
+	tu_table->valid_lower_boundary_link = valid_lower_boundary_link;
+	tu_table->upper_boundary_count = upper_bdry_cnt;
+	tu_table->lower_boundary_count = lower_bdry_cnt;
+	tu_table->tu_size_minus1 = tu_size_minus1;
+}
+
+static void dp_panel_config_tr_unit(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+	struct dp_catalog_panel *catalog;
+	u32 dp_tu = 0x0;
+	u32 valid_boundary = 0x0;
+	u32 valid_boundary2 = 0x0;
+	struct dp_vc_tu_mapping_table tu_calc_table;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	if (dp_panel->stream_id != DP_STREAM_0)
+		return;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	catalog = panel->catalog;
+
+	dp_panel_calc_tu_parameters(dp_panel, &tu_calc_table);
+
+	dp_tu |= tu_calc_table.tu_size_minus1;
+	valid_boundary |= tu_calc_table.valid_boundary_link;
+	valid_boundary |= (tu_calc_table.delay_start_link << 16);
+
+	valid_boundary2 |= (tu_calc_table.valid_lower_boundary_link << 1);
+	valid_boundary2 |= (tu_calc_table.upper_boundary_count << 16);
+	valid_boundary2 |= (tu_calc_table.lower_boundary_count << 20);
+
+	if (tu_calc_table.boundary_moderation_en)
+		valid_boundary2 |= BIT(0);
+
+	pr_debug("dp_tu=0x%x, valid_boundary=0x%x, valid_boundary2=0x%x\n",
+			dp_tu, valid_boundary, valid_boundary2);
+
+	catalog->dp_tu = dp_tu;
+	catalog->valid_boundary = valid_boundary;
+	catalog->valid_boundary2 = valid_boundary2;
+
+	catalog->update_transfer_unit(catalog);
+}
+
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 {
 	int rlen, rc = 0;
@@ -136,6 +694,9 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 
 			goto end;
 		}
+
+		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK DPCD: ",
+			DUMP_PREFIX_NONE, 8, 1, dp_panel->dpcd, rlen, false);
 	}
 
 	rlen = drm_dp_dpcd_read(panel->aux->drm_aux,
@@ -494,6 +1055,11 @@ static void dp_panel_tpg_config(struct dp_panel *dp_panel, bool enable)
 		return;
 	}
 
+	if (dp_panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", dp_panel->stream_id);
+		return;
+	}
+
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	catalog = panel->catalog;
 	pinfo = &panel->dp_panel.pinfo;
@@ -534,7 +1100,7 @@ static void dp_panel_tpg_config(struct dp_panel *dp_panel, bool enable)
 	panel->catalog->tpg_config(catalog, true);
 }
 
-static int dp_panel_timing_cfg(struct dp_panel *dp_panel)
+static int dp_panel_config_timing(struct dp_panel *dp_panel)
 {
 	int rc = 0;
 	u32 data, total_ver, total_hor;
@@ -730,6 +1296,11 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 		goto end;
 	}
 
+	if (dp_panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", dp_panel->stream_id);
+		return -EINVAL;
+	}
+
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	hdr = &panel->catalog->hdr_data;
 
@@ -778,8 +1349,10 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 	else
 		memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 cached:
-	if (panel->panel_on)
+	if (panel->panel_on) {
+		panel->catalog->stream_id = dp_panel->stream_id;
 		panel->catalog->config_hdr(panel->catalog, panel->hdr_state);
+	}
 end:
 	return rc;
 }
@@ -795,6 +1368,11 @@ static int dp_panel_spd_config(struct dp_panel *dp_panel)
 		goto end;
 	}
 
+	if (dp_panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", dp_panel->stream_id);
+		return -EINVAL;
+	}
+
 	if (!dp_panel->spd_enabled) {
 		pr_debug("SPD Infoframe not enabled\n");
 		goto end;
@@ -805,9 +1383,145 @@ static int dp_panel_spd_config(struct dp_panel *dp_panel)
 	panel->catalog->spd_vendor_name = panel->spd_vendor_name;
 	panel->catalog->spd_product_description =
 		panel->spd_product_description;
+
+	panel->catalog->stream_id = dp_panel->stream_id;
 	panel->catalog->config_spd(panel->catalog);
 end:
 	return rc;
+}
+
+static void dp_panel_config_ctrl(struct dp_panel *dp_panel)
+{
+	u32 config = 0, tbd;
+	u8 *dpcd = dp_panel->dpcd;
+	struct dp_panel_private *panel;
+	struct dp_catalog_panel *catalog;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	catalog = panel->catalog;
+
+	config |= (2 << 13); /* Default-> LSCLK DIV: 1/4 LCLK  */
+	config |= (0 << 11); /* RGB */
+
+	/* Scrambler reset enable */
+	if (dpcd[DP_EDP_CONFIGURATION_CAP] & DP_ALTERNATE_SCRAMBLER_RESET_CAP)
+		config |= (1 << 10);
+
+	tbd = panel->link->get_test_bits_depth(panel->link,
+			dp_panel->pinfo.bpp);
+
+	if (tbd == DP_TEST_BIT_DEPTH_UNKNOWN)
+		tbd = DP_TEST_BIT_DEPTH_8;
+
+	config |= tbd << 8;
+
+	/* Num of Lanes */
+	config |= ((panel->link->link_params.lane_count - 1) << 4);
+
+	if (drm_dp_enhanced_frame_cap(dpcd))
+		config |= 0x40;
+
+	config |= 0x04; /* progressive video */
+
+	config |= 0x03;	/* sycn clock & static Mvid */
+
+	catalog->config_ctrl(catalog, config);
+}
+
+static void dp_panel_config_misc(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+	struct dp_catalog_panel *catalog;
+	u32 misc_val;
+	u32 tb, cc;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	catalog = panel->catalog;
+
+	tb = panel->link->get_test_bits_depth(panel->link, dp_panel->pinfo.bpp);
+	cc = panel->link->get_colorimetry_config(panel->link);
+
+	misc_val = cc;
+	misc_val |= (tb << 5);
+	misc_val |= BIT(0); /* Configure clock to synchronous mode */
+
+	catalog->misc_val = misc_val;
+	catalog->config_misc(catalog);
+}
+
+static bool dp_panel_use_fixed_nvid(struct dp_panel *dp_panel)
+{
+	u8 *dpcd = dp_panel->dpcd;
+
+	/*
+	 * For better interop experience, used a fixed NVID=0x8000
+	 * whenever connected to a VGA dongle downstream.
+	 */
+	if (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT) {
+		u8 type = dpcd[DP_DOWNSTREAMPORT_PRESENT] &
+			DP_DWN_STRM_PORT_TYPE_MASK;
+		if (type == DP_DWN_STRM_PORT_TYPE_ANALOG)
+			return true;
+	}
+
+	return false;
+}
+
+static void dp_panel_config_msa(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+	struct dp_catalog_panel *catalog;
+	u32 rate;
+	u32 stream_rate_khz;
+	bool fixed_nvid;
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	catalog = panel->catalog;
+
+	fixed_nvid = dp_panel_use_fixed_nvid(dp_panel);
+	rate = drm_dp_bw_code_to_link_rate(panel->link->link_params.bw_code);
+	stream_rate_khz = dp_panel->pinfo.pixel_clk_khz;
+
+	catalog->config_msa(catalog, rate, stream_rate_khz, fixed_nvid);
+}
+
+static int dp_panel_hw_cfg(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	if (dp_panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id: %d\n", dp_panel->stream_id);
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	panel->catalog->stream_id = dp_panel->stream_id;
+
+	dp_panel_config_ctrl(dp_panel);
+	dp_panel_config_misc(dp_panel);
+	dp_panel_config_msa(dp_panel);
+	dp_panel_config_tr_unit(dp_panel);
+	dp_panel_config_timing(dp_panel);
+
+	return 0;
+}
+
+static int dp_panel_set_stream_id(struct dp_panel *dp_panel,
+		enum dp_stream_id stream_id)
+{
+	if (!dp_panel || stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid input. stream_id: %d\n", stream_id);
+		return -EINVAL;
+	}
+
+	dp_panel->stream_id = stream_id;
+
+	return 0;
 }
 
 struct dp_panel *dp_panel_get(struct dp_panel_in *in)
@@ -838,10 +1552,11 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->spd_enabled = true;
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
+	dp_panel->stream_id = DP_STREAM_MAX;
 
 	dp_panel->init = dp_panel_init_panel_info;
 	dp_panel->deinit = dp_panel_deinit_panel_info;
-	dp_panel->timing_cfg = dp_panel_timing_cfg;
+	dp_panel->hw_cfg = dp_panel_hw_cfg;
 	dp_panel->read_sink_caps = dp_panel_read_sink_caps;
 	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
 	dp_panel->get_mode_bpp = dp_panel_get_mode_bpp;
@@ -853,6 +1568,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->spd_config = dp_panel_spd_config;
 	dp_panel->setup_hdr = dp_panel_setup_hdr;
 	dp_panel->hdr_supported = dp_panel_hdr_supported;
+	dp_panel->set_stream_id = dp_panel_set_stream_id;
 
 	dp_panel_edid_register(panel);
 

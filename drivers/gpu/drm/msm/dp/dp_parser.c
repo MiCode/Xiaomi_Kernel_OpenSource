@@ -452,8 +452,10 @@ static int dp_parser_init_clk_data(struct dp_parser *parser)
 		if (dp_parser_check_prefix(core_clk, clk_name))
 			core_clk_count++;
 
-		if (dp_parser_check_prefix(ctrl_clk, clk_name))
-			ctrl_clk_count++;
+		if (dp_parser_check_prefix(ctrl_clk, clk_name)) {
+			if (strcmp(clk_name, "ctrl_pixel_clk"))
+				ctrl_clk_count++;
+		}
 
 		if (dp_parser_check_prefix(strm0_clk, clk_name))
 			strm0_clk_count++;
