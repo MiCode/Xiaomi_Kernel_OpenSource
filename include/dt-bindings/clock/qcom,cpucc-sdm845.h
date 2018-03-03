@@ -30,5 +30,6 @@
 #define L3_MISC_VOTE_CLK					13
 #define CPU4_PWRCL_CLK						14
 #define CPU5_PWRCL_CLK						15
+#define L3_GPU_VOTE_CLK						16
 
 #endif
