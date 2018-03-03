@@ -62,11 +62,15 @@ int smblib_write(struct smb_charger *chg, u16 addr, u8 val)
 	return regmap_write(chg->regmap, addr, val);
 }
 
+int smblib_batch_write(struct smb_charger *chg, u16 addr, u8 *val,
+			int count)
+{
+	return regmap_bulk_write(chg->regmap, addr, val, count);
+}
+
 int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val)
 {
-
 	return regmap_update_bits(chg->regmap, addr, mask, val);
-
 }
 
 int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
@@ -707,20 +711,21 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg)
 	int rc;
 	union power_supply_propval val;
 
-	if (!chg->suspend_input_on_debug_batt)
-		return;
-
 	rc = power_supply_get_property(chg->bms_psy,
 			POWER_SUPPLY_PROP_DEBUG_BATTERY, &val);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't get debug battery prop rc=%d\n", rc);
 		return;
 	}
-
-	vote(chg->usb_icl_votable, DEBUG_BOARD_VOTER, val.intval, 0);
-	vote(chg->dc_suspend_votable, DEBUG_BOARD_VOTER, val.intval, 0);
-	if (val.intval)
-		pr_info("Input suspended: Fake battery\n");
+	if (chg->suspend_input_on_debug_batt) {
+		vote(chg->usb_icl_votable, DEBUG_BOARD_VOTER, val.intval, 0);
+		vote(chg->dc_suspend_votable, DEBUG_BOARD_VOTER, val.intval, 0);
+		if (val.intval)
+			pr_info("Input suspended: Fake battery\n");
+	} else {
+		vote(chg->chg_disable_votable, DEBUG_BOARD_VOTER,
+					val.intval, 0);
+	}
 }
 
 int smblib_rerun_apsd_if_required(struct smb_charger *chg)
