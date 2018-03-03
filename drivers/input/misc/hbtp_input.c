@@ -39,6 +39,7 @@
 #define HBTP_HOLD_DURATION_US			(10)
 #define HBTP_PINCTRL_DDIC_SEQ_NUM		(4)
 #define HBTP_WAIT_TIMEOUT_MS			2000
+#define MSC_HBTP_ACTIVE_BLOB			0x05
 
 struct hbtp_data {
 	struct platform_device *pdev;
@@ -91,6 +92,7 @@ struct hbtp_data {
 	s16 ROI[MAX_ROI_SIZE];
 	s16 accelBuffer[MAX_ACCEL_SIZE];
 	u32 display_status;
+	u32 touch_flag;
 };
 
 static struct hbtp_data *hbtp;
@@ -234,6 +236,9 @@ static int hbtp_input_create_input_dev(struct hbtp_input_absinfo *absinfo)
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
+	/* for Blob touch interference feature */
+	input_set_capability(input_dev, EV_MSC, MSC_HBTP_ACTIVE_BLOB);
+
 	for (i = KEY_HOME; i <= KEY_MICMUTE; i++)
 		__set_bit(i, input_dev->keybit);
 
@@ -273,10 +278,12 @@ err_input_reg_dev:
 }
 
 static int hbtp_input_report_events(struct hbtp_data *hbtp_data,
-				struct hbtp_input_mt *mt_data)
+				struct hbtp_input_mt *mt_data, u32 flag)
 {
 	int i;
 	struct hbtp_input_touch *tch;
+	u32 flag_change;
+	bool active_blob;
 
 	for (i = 0; i < HBTP_MAX_FINGER; i++) {
 		tch = &(mt_data->touches[i]);
@@ -331,10 +338,19 @@ static int hbtp_input_report_events(struct hbtp_data *hbtp_data,
 			hbtp_data->touch_status[i] = tch->active;
 		}
 	}
+	flag_change = hbtp_data->touch_flag ^ flag;
+	if (flag_change) {
+		if (flag_change & HBTP_FLAG_ACTIVE_BLOB) {
+			active_blob = (flag & HBTP_FLAG_ACTIVE_BLOB) ?
+				true : false;
 
+			input_event(hbtp_data->input_dev, EV_MSC,
+				MSC_HBTP_ACTIVE_BLOB, active_blob);
+		}
+	}
 	input_report_key(hbtp->input_dev, BTN_TOUCH, mt_data->num_touches > 0);
 	input_sync(hbtp->input_dev);
-
+	hbtp_data->touch_flag = flag;
 	return 0;
 }
 
@@ -595,6 +611,7 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 {
 	int error = 0;
 	struct hbtp_input_mt mt_data;
+	struct hbtp_input_mt_ext mt_data_ext;
 	struct hbtp_input_absinfo absinfo[ABS_MT_LAST - ABS_MT_FIRST + 1];
 	struct hbtp_input_key key_data;
 	enum hbtp_afe_power_cmd power_cmd;
@@ -636,7 +653,26 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		hbtp_input_report_events(hbtp, &mt_data);
+		hbtp_input_report_events(hbtp, &mt_data, 0);
+		error = 0;
+		break;
+
+	case HBTP_SET_TOUCHDATA_EXT:
+		if (!hbtp || !hbtp->input_dev) {
+			pr_err("%s: The input device hasn't been created\n",
+				__func__);
+			return -EFAULT;
+		}
+
+		if (copy_from_user(&mt_data_ext, (void __user *)arg,
+					sizeof(struct hbtp_input_mt_ext))) {
+			pr_err("%s: Error copying data\n", __func__);
+			return -EFAULT;
+		}
+
+		hbtp_input_report_events(hbtp,
+			(struct hbtp_input_mt *)&mt_data_ext,
+			mt_data_ext.flag);
 		error = 0;
 		break;
 
