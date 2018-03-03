@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -303,13 +303,29 @@ static int sde_rsc_clk_enable(struct sde_power_handle *phandle,
 		goto end;
 
 	if (enable) {
+		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
+				enable);
+		if (rc) {
+			pr_err("failed to enable vregs rc=%d\n", rc);
+			goto end;
+		}
+
 		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 		if (rc) {
 			pr_err("clock enable failed rc:%d\n", rc);
+			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
+					!enable);
 			goto end;
 		}
 	} else {
 		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
+
+		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
+				enable);
+		if (rc) {
+			pr_err("failed to disable vregs rc=%d\n", rc);
+			goto end;
+		}
 	}
 
 	phandle->current_usecase_ndx = pclient->usecase_ndx;
