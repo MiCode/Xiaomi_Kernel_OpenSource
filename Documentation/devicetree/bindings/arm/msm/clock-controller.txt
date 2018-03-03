@@ -1,6 +1,6 @@
-Qualcomm Technologies MSM Clock controller
+Qualcomm Technologies, Inc. MSM Clock controller
 
-Qualcomm Technologies MSM Clock controller devices contain PLLs, root clock
+Qualcomm Technologies, Inc. MSM Clock controller devices contain PLLs, root clock
 generators and other clocking hardware blocks that provide stable, low power
 clocking to hardware blocks on Qualcomm Technologies SOCs. The clock controller
 device node lists the power supplies needed to be scaled using the vdd_*-supply
