@@ -11,6 +11,9 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/msm-clocks-8953.h>
+
 &blsp1_uart0 {
 	status = "ok";
 	pinctrl-names = "default";
