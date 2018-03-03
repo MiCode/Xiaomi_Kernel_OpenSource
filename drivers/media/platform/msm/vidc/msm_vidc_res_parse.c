@@ -1184,6 +1184,13 @@ int read_platform_resources_from_dt(
 		goto err_load_max_hw_load;
 	}
 
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,power-conf",
+			&res->power_conf);
+	if (rc) {
+		dprintk(VIDC_DBG,
+			"Failed to read power configuration: %d\n", rc);
+	}
+
 	rc = msm_vidc_populate_legacy_context_bank(res);
 	if (rc) {
 		dprintk(VIDC_ERR,
