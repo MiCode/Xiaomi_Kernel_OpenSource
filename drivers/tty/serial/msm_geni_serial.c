@@ -447,6 +447,8 @@ static void msm_geni_serial_set_mctrl(struct uart_port *uport,
 							SE_UART_MANUAL_RFR);
 	/* Write to flow control must complete before return to client*/
 	mb();
+	IPC_LOG_MSG(port->ipc_log_misc, "%s: Manual_rfr 0x%x\n",
+						__func__, uart_manual_rfr);
 }
 
 static const char *msm_geni_serial_get_type(struct uart_port *uport)
@@ -2540,6 +2542,8 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	 * set this to manual flow on.
 	 */
 	if (!port->manual_flow) {
+		u32 geni_ios;
+
 		uart_manual_rfr |= (UART_MANUAL_RFR_EN | UART_RFR_READY);
 		geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
 							SE_UART_MANUAL_RFR);
@@ -2548,8 +2552,11 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 		 * doing a stop_rx else we could end up flowing off the peer.
 		 */
 		mb();
-		IPC_LOG_MSG(port->ipc_log_pwr, "%s: Manual Flow ON 0x%x\n",
-						 __func__, uart_manual_rfr);
+		geni_ios = geni_read_reg_nolog(port->uport.membase,
+								SE_GENI_IOS);
+		IPC_LOG_MSG(port->ipc_log_pwr, "%s: Manual Flow ON 0x%x 0x%x\n",
+					 __func__, uart_manual_rfr, geni_ios);
+		udelay(10);
 	}
 	stop_rx_sequencer(&port->uport);
 	if ((geni_status & M_GENI_CMD_ACTIVE))
