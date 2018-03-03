@@ -94,7 +94,7 @@ static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
 static struct sde_reg_dma_buffer *sspp_buf[REG_DMA_FEATURES_MAX][SSPP_MAX];
 
 static u32 feature_map[SDE_DSPP_MAX] = {
-	[SDE_DSPP_VLUT] = REG_DMA_FEATURES_MAX,
+	[SDE_DSPP_VLUT] = VLUT,
 	[SDE_DSPP_GAMUT] = GAMUT,
 	[SDE_DSPP_IGC] = IGC,
 	[SDE_DSPP_PCC] = PCC,
@@ -356,7 +356,7 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, ctx->cap->sblk->vlut.base, data,
-			sizeof(data), REG_BLK_WRITE_SINGLE, 0, 0, 0);
+			VLUT_LEN, REG_BLK_WRITE_SINGLE, 0, 0, 0);
 
 	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
