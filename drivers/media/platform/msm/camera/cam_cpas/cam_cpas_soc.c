@@ -140,6 +140,7 @@ int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 	irq_handler_t irq_handler, void *irq_data)
 {
 	int rc = 0;
+	struct cam_cpas_private_soc *soc_private;
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc) {
@@ -172,6 +173,12 @@ int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 		CAM_ERR(CAM_CPAS, "failed in get_custom_info, rc=%d", rc);
 		goto free_soc_private;
 	}
+
+	soc_private = soc_info->soc_private;
+	soc_private->soc_id = cam_soc_util_get_soc_id();
+	soc_private->hw_rev = cam_soc_util_get_hw_revision_node(soc_info);
+	CAM_DBG(CAM_CPAS, "soc id %d hw_rev %d",
+		soc_private->soc_id, soc_private->hw_rev);
 
 	return rc;
 

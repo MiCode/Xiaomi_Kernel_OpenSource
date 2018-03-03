@@ -147,6 +147,13 @@ First Level Node - CAM CPAS device
   Definition: Bool property specifying whether Clients are connected
               through CAMNOC for AXI access.
 
+- nvmem-cells
+  Usage: optional
+  Definition: nvmem cell node
+
+- nvmem-cell-names
+  Usage: required
+  Definition: If nvmem node is present, cell name is required
 ===================================================================
 Third Level Node - CAM AXI Port properties
 ===================================================================
