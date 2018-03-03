@@ -618,7 +618,7 @@ int ipa3_qmi_filter_request_ex_send(
 		return -EINVAL;
 	}
 
-	for (i = 0; i < req->filter_spec_ex_list_len-1; i++) {
+	for (i = 0; i < req->filter_spec_ex_list_len; i++) {
 		if ((req->filter_spec_ex_list[i].ip_type !=
 			QMI_IPA_IP_TYPE_V4_V01) &&
 			(req->filter_spec_ex_list[i].ip_type !=
