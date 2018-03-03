@@ -1058,6 +1058,8 @@ static void sde_hw_sspp_setup_dgm_csc(struct sde_hw_pipe *ctx,
 static void _setup_layer_ops(struct sde_hw_pipe *c,
 		unsigned long features)
 {
+	int ret;
+
 	if (test_bit(SDE_SSPP_SRC, &features)) {
 		c->ops.setup_format = sde_hw_sspp_setup_format;
 		c->ops.setup_rects = sde_hw_sspp_setup_rects;
@@ -1098,6 +1100,10 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 	if (test_bit(SDE_SSPP_SCALER_QSEED3, &features)) {
 		c->ops.setup_scaler = _sde_hw_sspp_setup_scaler3;
 		c->ops.get_scaler_ver = _sde_hw_sspp_get_scaler3_ver;
+		ret = reg_dmav1_init_sspp_op_v4(SDE_SSPP_SCALER_QSEED3,
+				c->idx);
+		if (!ret)
+			c->ops.setup_scaler = reg_dmav1_setup_vig_qseed3;
 	}
 
 	if (test_bit(SDE_SSPP_SBUF, &features)) {
