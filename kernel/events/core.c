@@ -3683,10 +3683,12 @@ struct perf_read_data {
 static int __perf_event_read_cpu(struct perf_event *event, int event_cpu)
 {
 	u16 local_pkg, event_pkg;
+	int local_cpu = smp_processor_id();
+
+	if (cpumask_test_cpu(local_cpu, &event->readable_on_cpus))
+		return local_cpu;
 
 	if (event->group_caps & PERF_EV_CAP_READ_ACTIVE_PKG) {
-		int local_cpu = smp_processor_id();
-
 		event_pkg = topology_physical_package_id(event_cpu);
 		local_pkg = topology_physical_package_id(local_cpu);
 
@@ -3775,7 +3777,8 @@ int perf_event_read_local(struct perf_event *event, u64 *value)
 {
 	unsigned long flags;
 	int ret = 0;
-
+	int local_cpu = smp_processor_id();
+	bool readable = cpumask_test_cpu(local_cpu, &event->readable_on_cpus);
 	/*
 	 * Disabling interrupts avoids all counter scheduling (context
 	 * switches, timer based rotation and IPIs).
@@ -3800,7 +3803,8 @@ int perf_event_read_local(struct perf_event *event, u64 *value)
 
 	/* If this is a per-CPU event, it must be for this CPU */
 	if (!(event->attach_state & PERF_ATTACH_TASK) &&
-	    event->cpu != smp_processor_id()) {
+	    event->cpu != local_cpu &&
+	    !readable) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -3810,7 +3814,7 @@ int perf_event_read_local(struct perf_event *event, u64 *value)
 	 * or local to this CPU. Furthermore it means its ACTIVE (otherwise
 	 * oncpu == -1).
 	 */
-	if (event->oncpu == smp_processor_id())
+	if (event->oncpu == smp_processor_id() || readable)
 		event->pmu->read(event);
 
 	*value = local64_read(&event->count);
@@ -3824,6 +3828,7 @@ static int perf_event_read(struct perf_event *event, bool group)
 {
 	int event_cpu, ret = 0;
 	bool active_event_skip_read = false;
+	bool readable;
 
 	/*
 	 * If event is enabled and currently active on a CPU, update the
@@ -3831,12 +3836,18 @@ static int perf_event_read(struct perf_event *event, bool group)
 	 */
 	event_cpu = READ_ONCE(event->oncpu);
 
+	preempt_disable();
+	readable = cpumask_test_cpu(smp_processor_id(),
+				    &event->readable_on_cpus);
+
 	if (event->state == PERF_EVENT_STATE_ACTIVE) {
-		if ((unsigned int)event_cpu >= nr_cpu_ids)
+		if ((unsigned int)event_cpu >= nr_cpu_ids) {
+			preempt_enable();
 			return 0;
+		}
 		if (cpu_isolated(event_cpu) ||
 			(event->attr.exclude_idle &&
-				per_cpu(is_idle, event_cpu)) ||
+				per_cpu(is_idle, event_cpu) && !readable) ||
 				per_cpu(is_hotplugging, event_cpu))
 			active_event_skip_read = true;
 	}
@@ -3849,7 +3860,6 @@ static int perf_event_read(struct perf_event *event, bool group)
 			.ret = 0,
 		};
 
-		preempt_disable();
 		event_cpu = __perf_event_read_cpu(event, event_cpu);
 
 		/*
@@ -3864,7 +3874,6 @@ static int perf_event_read(struct perf_event *event, bool group)
 		 */
 		(void)smp_call_function_single(event_cpu,
 				__perf_event_read, &data, 1);
-		preempt_enable();
 		ret = data.ret;
 	} else if (event->state == PERF_EVENT_STATE_INACTIVE ||
 			(active_event_skip_read &&
@@ -3888,6 +3897,8 @@ static int perf_event_read(struct perf_event *event, bool group)
 			update_event_times(event);
 		raw_spin_unlock_irqrestore(&ctx->lock, flags);
 	}
+
+	preempt_enable();
 
 	return ret;
 }
