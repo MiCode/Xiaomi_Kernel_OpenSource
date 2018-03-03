@@ -131,10 +131,7 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 		pll_res->pll_interface_type = MDSS_DP_PLL_10NM;
 	else if (!strcmp(compatible_stream, "qcom,mdss_dp_pll_7nm"))
 		pll_res->pll_interface_type = MDSS_DP_PLL_7NM;
-	else
-		goto err;
-
-	if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_7nm"))
+	else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_7nm"))
 		pll_res->pll_interface_type = MDSS_DSI_PLL_7NM;
 	else
 		goto err;
