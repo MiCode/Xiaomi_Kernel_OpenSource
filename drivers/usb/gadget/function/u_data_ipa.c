@@ -477,7 +477,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 		configure_fifo(port->usb_bam_type,
 				port->src_connection_idx,
 				port->port_usb->out);
-		ret = msm_ep_config(gport->out);
+		ret = msm_ep_config(gport->out, port->rx_req);
 		if (ret) {
 			pr_err("msm_ep_config() failed for OUT EP\n");
 			spin_unlock_irqrestore(&port->port_lock, flags);
@@ -502,7 +502,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 		port->tx_req->udc_priv = sps_params;
 		configure_fifo(port->usb_bam_type,
 				port->dst_connection_idx, gport->in);
-		ret = msm_ep_config(gport->in);
+		ret = msm_ep_config(gport->in, port->tx_req);
 		if (ret) {
 			pr_err("msm_ep_config() failed for IN EP\n");
 			spin_unlock_irqrestore(&port->port_lock, flags);
