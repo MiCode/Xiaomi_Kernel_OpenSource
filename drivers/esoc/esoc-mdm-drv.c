@@ -169,6 +169,7 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			 */
 			return 0;
 
+		esoc_clink_queue_request(ESOC_REQ_CRASH_SHUTDOWN, esoc_clink);
 		esoc_client_link_power_off(esoc_clink, true);
 
 		ret = clink_ops->cmd_exe(ESOC_PREPARE_DEBUG,
