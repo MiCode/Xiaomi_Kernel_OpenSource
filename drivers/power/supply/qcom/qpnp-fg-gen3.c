@@ -916,10 +916,15 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 #define DEFAULT_BATT_TYPE	"Unknown Battery"
 #define MISSING_BATT_TYPE	"Missing Battery"
 #define LOADING_BATT_TYPE	"Loading Battery"
+#define SKIP_BATT_TYPE		"Skipped loading battery"
 static const char *fg_get_battery_type(struct fg_chip *chip)
 {
-	if (chip->battery_missing)
+	if (chip->battery_missing ||
+		chip->profile_load_status == PROFILE_MISSING)
 		return MISSING_BATT_TYPE;
+
+	if (chip->profile_load_status == PROFILE_SKIPPED)
+		return SKIP_BATT_TYPE;
 
 	if (chip->bp.batt_type_str) {
 		if (chip->profile_loaded)
@@ -2714,12 +2719,14 @@ static bool is_profile_load_required(struct fg_chip *chip)
 				buf, PROFILE_COMP_LEN, FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in reading battery profile, rc:%d\n", rc);
+			chip->profile_load_status = PROFILE_SKIPPED;
 			return false;
 		}
 		profiles_same = memcmp(chip->batt_profile, buf,
 					PROFILE_COMP_LEN) == 0;
 		if (profiles_same) {
 			fg_dbg(chip, FG_STATUS, "Battery profile is same, not loading it\n");
+			chip->profile_load_status = PROFILE_LOADED;
 			return false;
 		}
 
@@ -2733,6 +2740,7 @@ static bool is_profile_load_required(struct fg_chip *chip)
 				dump_sram(chip->batt_profile, PROFILE_LOAD_WORD,
 					PROFILE_LEN);
 			}
+			chip->profile_load_status = PROFILE_SKIPPED;
 			return false;
 		}
 
@@ -2876,6 +2884,7 @@ static void profile_load_work(struct work_struct *work)
 
 	rc = fg_get_batt_profile(chip);
 	if (rc < 0) {
+		chip->profile_load_status = PROFILE_MISSING;
 		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
 			chip->batt_id_ohms / 1000, rc);
 		goto out;
@@ -2927,6 +2936,7 @@ static void profile_load_work(struct work_struct *work)
 	}
 
 	fg_dbg(chip, FG_STATUS, "SOC is ready\n");
+	chip->profile_load_status = PROFILE_LOADED;
 done:
 	rc = fg_bp_params_config(chip);
 	if (rc < 0)
@@ -2952,7 +2962,10 @@ done:
 
 	batt_psy_initialized(chip);
 	fg_notify_charger(chip);
-	chip->profile_loaded = true;
+
+	if (chip->profile_load_status == PROFILE_LOADED)
+		chip->profile_loaded = true;
+
 	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
 out:
 	chip->soc_reporting_ready = true;
@@ -4312,6 +4325,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	if (chip->battery_missing) {
 		chip->profile_available = false;
 		chip->profile_loaded = false;
+		chip->profile_load_status = PROFILE_NOT_LOADED;
 		chip->soc_reporting_ready = false;
 		chip->batt_id_ohms = -EINVAL;
 		cancel_delayed_work_sync(&chip->pl_enable_work);
