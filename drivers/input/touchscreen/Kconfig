@@ -1136,5 +1136,6 @@ config TOUCHSCREEN_MAXIM_STI
 	  module will be called maxim_sti.
 
 source "drivers/input/touchscreen/gt9xx/Kconfig"
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 endif
