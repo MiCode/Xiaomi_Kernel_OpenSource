@@ -93,13 +93,11 @@
 #define WLED_SINK_BRIGHT_MSB_REG(n)	(0x58 + (n * 0x10))
 
 struct wled_config {
-	u32 i_boost_limit;
+	u32 boost_i_limit;
 	u32 ovp;
 	u32 switch_freq;
 	u32 fs_current;
 	u32 string_cfg;
-	int sc_irq;
-	int ovp_irq;
 	bool en_cabc;
 	bool ext_pfet_sc_pro_en;
 	bool auto_calib_enabled;
@@ -118,6 +116,8 @@ struct wled {
 	u16 auto_calibration_ovp_count;
 	u32 brightness;
 	u32 sc_count;
+	int sc_irq;
+	int ovp_irq;
 	bool prev_state;
 	bool ovp_irq_disabled;
 	bool auto_calib_done;
@@ -145,13 +145,13 @@ static int wled_module_enable(struct wled *wled, int val)
 		usleep_range(WLED_SOFT_START_DLY_US,
 				WLED_SOFT_START_DLY_US + 1000);
 
-		if (wled->cfg.ovp_irq > 0 && wled->ovp_irq_disabled) {
-			enable_irq(wled->cfg.ovp_irq);
+		if (wled->ovp_irq > 0 && wled->ovp_irq_disabled) {
+			enable_irq(wled->ovp_irq);
 			wled->ovp_irq_disabled = false;
 		}
 	} else {
-		if (wled->cfg.ovp_irq > 0 && !wled->ovp_irq_disabled) {
-			disable_irq(wled->cfg.ovp_irq);
+		if (wled->ovp_irq > 0 && !wled->ovp_irq_disabled) {
+			disable_irq(wled->ovp_irq);
 			wled->ovp_irq_disabled = true;
 		}
 	}
@@ -571,16 +571,16 @@ static void handle_ovp_fault(struct wled *wled)
 		return;
 
 	mutex_lock(&wled->lock);
-	if (wled->cfg.ovp_irq > 0 && !wled->ovp_irq_disabled) {
-		disable_irq_nosync(wled->cfg.ovp_irq);
+	if (wled->ovp_irq > 0 && !wled->ovp_irq_disabled) {
+		disable_irq_nosync(wled->ovp_irq);
 		wled->ovp_irq_disabled = true;
 	}
 
 	if (wled_auto_cal_required(wled))
 		wled_auto_calibrate(wled);
 
-	if (wled->cfg.ovp_irq > 0 && wled->ovp_irq_disabled) {
-		enable_irq(wled->cfg.ovp_irq);
+	if (wled->ovp_irq > 0 && wled->ovp_irq_disabled) {
+		enable_irq(wled->ovp_irq);
 		wled->ovp_irq_disabled = false;
 	}
 	mutex_unlock(&wled->lock);
@@ -623,8 +623,6 @@ static int wled_setup(struct wled *wled)
 	u8 sink_en = 0;
 	u32 val;
 	u8 string_cfg = wled->cfg.string_cfg;
-	int sc_irq = wled->cfg.sc_irq;
-	int ovp_irq = wled->cfg.ovp_irq;
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_OVP,
@@ -634,7 +632,7 @@ static int wled_setup(struct wled *wled)
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_ILIM,
-			WLED_CTRL_ILIM_MASK, wled->cfg.i_boost_limit);
+			WLED_CTRL_ILIM_MASK, wled->cfg.boost_i_limit);
 	if (rc < 0)
 		return rc;
 
@@ -693,13 +691,13 @@ static int wled_setup(struct wled *wled)
 	if (rc < 0)
 		return rc;
 
-	if (sc_irq >= 0) {
-		rc = devm_request_threaded_irq(&wled->pdev->dev, sc_irq,
+	if (wled->sc_irq >= 0) {
+		rc = devm_request_threaded_irq(&wled->pdev->dev, wled->sc_irq,
 				NULL, wled_sc_irq_handler, IRQF_ONESHOT,
 				"wled_sc_irq", wled);
 		if (rc < 0) {
 			pr_err("Unable to request sc(%d) IRQ(err:%d)\n",
-				sc_irq, rc);
+				wled->sc_irq, rc);
 			return rc;
 		}
 
@@ -726,13 +724,13 @@ static int wled_setup(struct wled *wled)
 			return rc;
 	}
 
-	if (ovp_irq >= 0) {
-		rc = devm_request_threaded_irq(&wled->pdev->dev, ovp_irq,
+	if (wled->ovp_irq >= 0) {
+		rc = devm_request_threaded_irq(&wled->pdev->dev, wled->ovp_irq,
 				NULL, wled_ovp_irq_handler, IRQF_ONESHOT,
 				"wled_ovp_irq", wled);
 		if (rc < 0) {
 			pr_err("Unable to request ovp(%d) IRQ(err:%d)\n",
-				ovp_irq, rc);
+				wled->ovp_irq, rc);
 			return rc;
 		}
 
@@ -740,7 +738,7 @@ static int wled_setup(struct wled *wled)
 				WLED_CTRL_MOD_ENABLE, &val);
 		/* disable the OVP irq only if the module is not enabled */
 		if (!rc && !(val & WLED_CTRL_MOD_EN_MASK)) {
-			disable_irq(ovp_irq);
+			disable_irq(wled->ovp_irq);
 			wled->ovp_irq_disabled = true;
 		}
 	}
@@ -749,7 +747,7 @@ static int wled_setup(struct wled *wled)
 }
 
 static const struct wled_config wled_config_defaults = {
-	.i_boost_limit = 4,
+	.boost_i_limit = 4,
 	.fs_current = 10,
 	.ovp = 1,
 	.switch_freq = 11,
@@ -765,13 +763,13 @@ struct wled_var_cfg {
 	int size;
 };
 
-static const u32 wled_i_boost_limit_values[] = {
+static const u32 wled_boost_i_limit_values[] = {
 	105, 280, 450, 620, 970, 1150, 1300, 1500,
 };
 
-static const struct wled_var_cfg wled_i_boost_limit_cfg = {
-	.values = wled_i_boost_limit_values,
-	.size = ARRAY_SIZE(wled_i_boost_limit_values),
+static const struct wled_var_cfg wled_boost_i_limit_cfg = {
+	.values = wled_boost_i_limit_values,
+	.size = ARRAY_SIZE(wled_boost_i_limit_values),
 };
 
 static const u32 wled_fs_current_values[] = {
@@ -831,9 +829,9 @@ static int wled_configure(struct wled *wled, struct device *dev)
 		const struct wled_var_cfg *cfg;
 	} u32_opts[] = {
 		{
-			"qcom,current-boost-limit",
-			&cfg->i_boost_limit,
-			.cfg = &wled_i_boost_limit_cfg,
+			.name = "qcom,boost-current-limit",
+			.val_ptr = &cfg->boost_i_limit,
+			.cfg = &wled_boost_i_limit_cfg,
 		},
 		{
 			"qcom,fs-current-limit",
@@ -915,12 +913,12 @@ static int wled_configure(struct wled *wled, struct device *dev)
 			*bool_opts[i].val_ptr = true;
 	}
 
-	wled->cfg.sc_irq = platform_get_irq_byname(wled->pdev, "sc-irq");
-	if (wled->cfg.sc_irq < 0)
+	wled->sc_irq = platform_get_irq_byname(wled->pdev, "sc-irq");
+	if (wled->sc_irq < 0)
 		dev_dbg(&wled->pdev->dev, "sc irq is not used\n");
 
-	wled->cfg.ovp_irq = platform_get_irq_byname(wled->pdev, "ovp-irq");
-	if (wled->cfg.ovp_irq < 0)
+	wled->ovp_irq = platform_get_irq_byname(wled->pdev, "ovp-irq");
+	if (wled->ovp_irq < 0)
 		dev_dbg(&wled->pdev->dev, "ovp irq is not used\n");
 
 	return 0;

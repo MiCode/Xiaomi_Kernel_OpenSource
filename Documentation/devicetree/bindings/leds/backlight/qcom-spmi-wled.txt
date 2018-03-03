@@ -37,7 +37,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Definition: per-string full scale current limit in uA. value from
 		    0 to 30000 with 5000 uA resolution. Default: 25000 uA
 
-- qcom,current-boost-limit
+- qcom,boost-current-limit
 	Usage:      optional
 	Value type: <u32>
 	Definition: ILIM threshold in mA. values are 105, 280, 450, 620, 970,
@@ -111,7 +111,7 @@ qcom-wled@d800 {
 			<0x3 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
 	interrupt-names = "sc-irq", "ovp-irq";
 	qcom,fs-current-limit = <25000>;
-	qcom,current-boost-limit = <970>;
+	qcom,boost-current-limit = <970>;
 	qcom,switching-freq = <800>;
 	qcom,ovp = <29600>;
 	qcom,string-cfg = <15>;
