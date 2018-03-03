@@ -238,7 +238,7 @@ static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 	}
 
 	if (sgt && sgt->sgl) {
-		DRM_DEBUG("%pad/0x%x/0x%x/0x%x/0x%lx\n",
+		DRM_DEBUG("%pad/0x%x/0x%x/0x%lx\n",
 				&sgt->sgl->dma_address, sgt->sgl->dma_length,
 				dir, attrs);
 		SDE_EVT32(sgt->sgl->dma_address, sgt->sgl->dma_length,
@@ -261,7 +261,7 @@ static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 	}
 
 	if (sgt->sgl) {
-		DRM_DEBUG("%pad/0x%x/0x%x/0x%x\n",
+		DRM_DEBUG("%pad/0x%x/0x%x\n",
 				&sgt->sgl->dma_address, sgt->sgl->dma_length,
 				dir);
 		SDE_EVT32(sgt->sgl->dma_address, sgt->sgl->dma_length,
