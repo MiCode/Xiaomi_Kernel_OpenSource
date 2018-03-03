@@ -79,10 +79,10 @@
 			linux,can-disable;
 		};
 	};
+};
 
-	sound-pahu {
-		qcom,wsa-max-devs = <1>;
-	};
+&snd_9360 {
+	qcom,wsa-max-devs = <1>;
 };
 
 &dsi_sharp_4k_dsc_cmd {

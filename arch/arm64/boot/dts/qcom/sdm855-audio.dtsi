@@ -26,7 +26,9 @@
 		qcom,clk-div = <192>;
 		qcom,clk-mult = <10>;
 	};
+};
 
+&audio_apr {
 	snd_9360: sound-pahu {
 		compatible = "qcom,sdm855-asoc-snd-pahu";
 		qcom,model = "sdm855-pahu-snd-card";
