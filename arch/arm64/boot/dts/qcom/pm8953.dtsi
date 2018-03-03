@@ -79,6 +79,24 @@
 
 			gpio-controller;
 			#gpio-cells = <2>;
+
+			case_therm {
+				cas_therm_default: cas_therm_default {
+					pins = "mpp4";
+					function = "analog";
+					input-enable;
+					qcom,amux-route = <3>;
+				};
+			};
+
+			pa_therm1 {
+				pa_therm1_default: pa_therm1_default {
+					pins = "mpp2";
+					function = "analog";
+					input-enable;
+					qcom,amux-route = <1>;
+				};
+			};
 		};
 
 		pm8953_gpios: gpios {
@@ -110,6 +128,8 @@
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
 			#thermal-sensor-cells = <1>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pa_therm1_default &cas_therm_default>;
 
 			chan@5 {
 				label = "vcoin";
