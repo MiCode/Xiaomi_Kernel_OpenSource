@@ -764,4 +764,52 @@
 			qcom,init-mode = <RPMH_REGULATOR_MODE_AUTO>;
 		};
 	};
+
+	rpmh-regulator-smpf2 {
+		compatible = "qcom,rpmh-xob-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "smpf2";
+		pm8009_s2: regulator-pm8009-s2 {
+			regulator-name = "pm8009_s2";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2856000>;
+			regulator-max-microvolt = <2856000>;
+		};
+	};
+
+	rpmh-regulator-ldof2 {
+		compatible = "qcom,rpmh-xob-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldof2";
+		pm8009_l2: regulator-pm8009-l2 {
+			regulator-name = "pm8009_l2";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+		};
+	};
+
+	rpmh-regulator-ldof5 {
+		compatible = "qcom,rpmh-xob-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldof5";
+		pm8009_l5: regulator-pm8009-l5 {
+			regulator-name = "pm8009_l5";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+		};
+	};
+
+	rpmh-regulator-ldof6 {
+		compatible = "qcom,rpmh-xob-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldof6";
+		pm8009_l6: regulator-pm8009-l6 {
+			regulator-name = "pm8009_l6";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <2856000>;
+			regulator-max-microvolt = <2856000>;
+		};
+	};
 };
