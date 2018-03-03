@@ -36,7 +36,6 @@
 
 #include "sched.h"
 #include "walt.h"
-#include "core_ctl.h"
 #include "../workqueue_internal.h"
 #include "../smpboot.h"
 
@@ -768,6 +767,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 		sched_info_queued(rq, p);
 
 	p->sched_class->enqueue_task(rq, p, flags);
+	walt_update_last_enqueue(p);
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -3156,8 +3156,6 @@ void scheduler_tick(void)
 
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
-
-	core_ctl_check(wallclock);
 }
 
 #ifdef CONFIG_NO_HZ_FULL

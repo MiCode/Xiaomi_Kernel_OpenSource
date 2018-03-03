@@ -1740,101 +1740,104 @@ static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
 static int rt_energy_aware_wake_cpu(struct task_struct *task)
 {
 	struct sched_domain *sd;
-	struct sched_group *sg, *sg_target = NULL;
+	struct sched_group *sg;
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	int cpu, best_cpu = -1;
-	struct cpumask search_cpu, backup_search_cpu;
-	unsigned long cpu_capacity, capacity = ULONG_MAX;
+	unsigned long best_capacity = ULONG_MAX;
 	unsigned long util, best_cpu_util = ULONG_MAX;
 	unsigned long best_cpu_util_cum = ULONG_MAX;
 	unsigned long util_cum;
 	unsigned long tutil = task_util(task);
 	int best_cpu_idle_idx = INT_MAX;
-	int cpu_idle_idx = -1;
+	int cpu_idle_idx = -1, start_cpu;
+	bool boost_on_big = sched_boost() == FULL_THROTTLE_BOOST ?
+				  (sched_boost_policy() == SCHED_BOOST_ON_BIG) :
+				  false;
 
 	rcu_read_lock();
-	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(task)));
-	if (!sd) {
-		rcu_read_unlock();
-		return best_cpu;
-	}
 
-	sg = sd->groups;
-	do {
-		cpu = group_first_cpu(sg);
-		cpu_capacity = capacity_orig_of(cpu);
-		if (cpu_capacity < capacity) {
-			capacity = cpu_capacity;
-			sg_target = sg;
-		}
-	} while (sg = sg->next, sg != sd->groups);
-	rcu_read_unlock();
+	start_cpu = cpu_rq(smp_processor_id())->rd->min_cap_orig_cpu;
+	if (start_cpu < 0)
+		goto unlock;
 
-	cpumask_and(&search_cpu, lowest_mask,
-		    sched_group_span(sg_target));
-	cpumask_copy(&backup_search_cpu, lowest_mask);
-	cpumask_andnot(&backup_search_cpu, &backup_search_cpu,
-		       &search_cpu);
+	sd = rcu_dereference(per_cpu(sd_ea, start_cpu));
+	if (!sd)
+		goto unlock;
 
 retry:
-	for_each_cpu(cpu, &search_cpu) {
-		if (cpu_isolated(cpu))
-			continue;
+	sg = sd->groups;
+	do {
+		int fcpu = group_first_cpu(sg);
+		int capacity_orig = capacity_orig_of(fcpu);
 
-		if (sched_cpu_high_irqload(cpu))
-			continue;
-
-		util = cpu_util(cpu);
-
-		if (__cpu_overutilized(cpu, util + tutil))
-			continue;
-
-		/* Find the least loaded CPU */
-		if (util > best_cpu_util)
-			continue;
-
-		/*
-		 * If the previous CPU has same load, keep it as
-		 * best_cpu.
-		 */
-		if (best_cpu_util == util && best_cpu == task_cpu(task))
-			continue;
-
-		/*
-		 * If candidate CPU is the previous CPU, select it.
-		 * Otherwise, if its load is same with best_cpu and in
-		 * a shallower C-state, select it.  If all above
-		 * conditions are same, select the least cumulative
-		 * window demand CPU.
-		 */
-		if (sysctl_sched_cstate_aware)
-			cpu_idle_idx = idle_get_state_idx(cpu_rq(cpu));
-
-		util_cum = cpu_util_cum(cpu, 0);
-		if (cpu != task_cpu(task) && best_cpu_util == util) {
-			if (best_cpu_idle_idx < cpu_idle_idx)
+		if (boost_on_big) {
+			if (is_min_capacity_cpu(fcpu))
 				continue;
-
-			if (best_cpu_idle_idx == cpu_idle_idx &&
-			    best_cpu_util_cum < util_cum)
+		} else {
+			if (capacity_orig > best_capacity)
 				continue;
 		}
 
-		best_cpu_idle_idx = cpu_idle_idx;
-		best_cpu_util_cum = util_cum;
-		best_cpu_util = util;
-		best_cpu = cpu;
+		for_each_cpu_and(cpu, lowest_mask, sched_group_span(sg)) {
+			if (cpu_isolated(cpu))
+				continue;
+
+			if (sched_cpu_high_irqload(cpu))
+				continue;
+
+			util = cpu_util(cpu);
+
+			if (__cpu_overutilized(cpu, util + tutil))
+				continue;
+
+			/* Find the least loaded CPU */
+			if (util > best_cpu_util)
+				continue;
+
+			/*
+			 * If the previous CPU has same load, keep it as
+			 * best_cpu.
+			 */
+			if (best_cpu_util == util && best_cpu == task_cpu(task))
+				continue;
+
+			/*
+			 * If candidate CPU is the previous CPU, select it.
+			 * Otherwise, if its load is same with best_cpu and in
+			 * a shallower C-state, select it.  If all above
+			 * conditions are same, select the least cumulative
+			 * window demand CPU.
+			 */
+			if (sysctl_sched_cstate_aware)
+				cpu_idle_idx = idle_get_state_idx(cpu_rq(cpu));
+
+			util_cum = cpu_util_cum(cpu, 0);
+			if (cpu != task_cpu(task) && best_cpu_util == util) {
+				if (best_cpu_idle_idx < cpu_idle_idx)
+					continue;
+
+				if (best_cpu_idle_idx == cpu_idle_idx &&
+						best_cpu_util_cum < util_cum)
+					continue;
+			}
+
+			best_cpu_idle_idx = cpu_idle_idx;
+			best_cpu_util_cum = util_cum;
+			best_cpu_util = util;
+			best_cpu = cpu;
+			best_capacity = capacity_orig;
+		}
+
+	} while (sg = sg->next, sg != sd->groups);
+
+	if (unlikely(boost_on_big) && best_cpu == -1) {
+		boost_on_big = false;
+		goto retry;
 	}
 
-	if (best_cpu != -1) {
-		return best_cpu;
-	} else if (!cpumask_empty(&backup_search_cpu)) {
-		cpumask_copy(&search_cpu, &backup_search_cpu);
-		cpumask_clear(&backup_search_cpu);
-		goto retry;
-	} else {
-		return best_cpu;
-	}
+unlock:
+	rcu_read_unlock();
+	return best_cpu;
 }
 
 static int find_lowest_rq(struct task_struct *task)
