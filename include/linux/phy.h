@@ -678,6 +678,17 @@ static inline int phy_write_mmd(struct phy_device *phydev, int devad,
 }
 
 /**
+ * phy_interface_mode_is_rgmii - Convenience function for testing if a
+ * PHY interface mode is RGMII (all variants)
+ * @mode: the phy_interface_t enum
+ */
+static inline bool phy_interface_mode_is_rgmii(phy_interface_t mode)
+{
+	return mode >= PHY_INTERFACE_MODE_RGMII &&
+		mode <= PHY_INTERFACE_MODE_RGMII_TXID;
+};
+
+/**
  * phy_write_mmd_indirect - writes data to the MMD registers
  * @phydev: The PHY device
  * @prtad: MMD Address
