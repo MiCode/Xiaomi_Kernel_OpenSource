@@ -541,6 +541,9 @@ static struct drm_mm_node *get_first_hole(const struct drm_mm *mm,
 	if (flags & DRM_MM_SEARCH_BOTTOM_UP) {
 		struct rb_node *node = rb_first(&mm->holes_tree);
 
+		if (!node)
+			return NULL;
+
 		return rb_entry(node, struct drm_mm_node, hole_node);
 	} else if (flags & DRM_MM_SEARCH_BELOW) {
 		return list_entry((mm)->hole_stack.prev,
@@ -555,8 +558,12 @@ static struct drm_mm_node *get_next_hole(struct drm_mm_node *entry,
 		enum drm_mm_search_flags flags)
 {
 	if (flags & DRM_MM_SEARCH_BOTTOM_UP) {
-		return rb_entry(rb_next(&entry->hole_node),
-				struct drm_mm_node, hole_node);
+		struct rb_node *node = rb_next(&entry->hole_node);
+
+		if (!node)
+			return NULL;
+
+		return rb_entry(node, struct drm_mm_node, hole_node);
 	} else if (flags & DRM_MM_SEARCH_BELOW) {
 		return list_entry(entry->hole_stack.prev,
 				struct drm_mm_node, hole_stack);

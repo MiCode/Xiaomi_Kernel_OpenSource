@@ -585,7 +585,7 @@ int msm_gem_get_iova(struct drm_gem_object *obj,
 		obj_remove_domain(domain);
 
 	mutex_unlock(&msm_obj->lock);
-	return 0;
+	return ret;
 }
 
 /* get iova without taking a reference, used in places where you have
