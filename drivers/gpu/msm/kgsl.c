@@ -513,6 +513,16 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 	char name[64];
 	int ret = 0, id;
+	struct kgsl_process_private  *proc_priv = dev_priv->process_priv;
+
+	if (atomic_read(&proc_priv->ctxt_count) > KGSL_MAX_CONTEXTS_PER_PROC) {
+		KGSL_DRV_ERR(device,
+			"Per process context limit reached for pid %u",
+			dev_priv->process_priv->pid);
+		return -ENOSPC;
+	}
+
+	atomic_inc(&proc_priv->ctxt_count);
 
 	id = _kgsl_get_context_id(device);
 	if (id == -ENOSPC) {
@@ -531,7 +541,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 			KGSL_DRV_INFO(device,
 				"cannot have more than %zu contexts due to memstore limitation\n",
 				KGSL_MEMSTORE_MAX);
-
+		atomic_dec(&proc_priv->ctxt_count);
 		return id;
 	}
 
@@ -562,6 +572,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 
 out:
 	if (ret) {
+		atomic_dec(&proc_priv->ctxt_count);
 		write_lock(&device->context_lock);
 		idr_remove(&dev_priv->device->context_idr, id);
 		write_unlock(&device->context_lock);
@@ -645,6 +656,7 @@ kgsl_context_destroy(struct kref *kref)
 			device->pwrctrl.constraint.type = KGSL_CONSTRAINT_NONE;
 		}
 
+		atomic_dec(&context->proc_priv->ctxt_count);
 		idr_remove(&device->context_idr, context->id);
 		context->id = KGSL_CONTEXT_INVALID;
 	}
