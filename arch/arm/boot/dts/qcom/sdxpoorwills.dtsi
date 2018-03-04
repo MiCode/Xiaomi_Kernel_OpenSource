@@ -419,6 +419,23 @@
 		status = "disabled";
 	};
 
+	mhi_device: mhi_dev@1c04000 {
+		compatible = "qcom,msm-mhi-dev";
+		reg = <0x1c04000 0x1000>,
+			<0x1e22000 0x4>,
+			<0x1e22148 0x4>;
+			reg-names = "mhi_mmio_base", "ipa_uc_mbox_crdb",
+			"ipa_uc_mbox_erdb";
+			qcom,mhi-ep-msi = <0>;
+			qcom,mhi-version = <0x1000000>;
+			qcom,use-ipa-software-channel;
+			interrupts = <0 145 0>;
+			interrupt-names = "mhi-device-inta";
+			qcom,mhi-ifc-id = <0x030417cb>;
+			qcom,mhi-interrupt;
+		status = "disabled";
+	};
+
 	gdsc_emac: qcom,gdsc@147004 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_emac";
