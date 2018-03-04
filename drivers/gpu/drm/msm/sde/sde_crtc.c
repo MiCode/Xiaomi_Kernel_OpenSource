@@ -6176,6 +6176,7 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 			INIT_LIST_HEAD(&node->list);
 			node->func = custom_events[i].func;
 			node->event = event;
+			spin_lock_init(&node->state_lock);
 			break;
 		}
 	}
