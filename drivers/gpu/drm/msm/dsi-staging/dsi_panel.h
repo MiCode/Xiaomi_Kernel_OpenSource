@@ -19,7 +19,7 @@
 #include <linux/types.h>
 #include <linux/bitops.h>
 #include <linux/errno.h>
-#include <linux/leds.h>
+#include <linux/backlight.h>
 #include <drm/drm_panel.h>
 #include <drm/msm_drm.h>
 
@@ -102,7 +102,7 @@ struct dsi_backlight_config {
 
 	/* WLED params */
 	struct led_trigger *wled;
-	struct backlight_device *bd;
+	struct backlight_device *raw_bd;
 };
 
 struct dsi_reset_seq {
