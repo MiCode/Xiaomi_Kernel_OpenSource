@@ -18,8 +18,8 @@
 	qcom,pmi632@2 {
 		compatible = "qcom,spmi-pmic";
 		reg = <0x2 SPMI_USID>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 
 		pmi632_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
@@ -412,8 +412,8 @@
 	pmi632_3: qcom,pmi632@3 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x3 SPMI_USID>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 
 		pmi632_vib: qcom,vibrator@5700 {
 			compatible = "qcom,qpnp-vibrator-ldo";

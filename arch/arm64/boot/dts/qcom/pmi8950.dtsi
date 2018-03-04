@@ -18,8 +18,8 @@
 	qcom,pmi8950@2 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x2 SPMI_USID>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 
 		pmi8950_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
