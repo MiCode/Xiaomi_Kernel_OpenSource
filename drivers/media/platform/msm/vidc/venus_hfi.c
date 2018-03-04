@@ -1352,12 +1352,15 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 	int offset = 0;
 	phys_addr_t fw_bias = 0;
 	size_t q_size;
+	u32 flags = 0;
 
 	q_size = SHARED_QSIZE - ALIGNED_SFR_SIZE - ALIGNED_QDSS_SIZE;
 	mem_addr = &dev->mem_addr;
 	if (!is_iommu_present(dev->res))
 		fw_bias = dev->hal_data->firmware_base;
-	rc = __smem_alloc(dev, mem_addr, q_size, 1, 0,
+	/* Allocate dsp queues from ADSP heap_id */
+	flags |= SMEM_ADSP;
+	rc = __smem_alloc(dev, mem_addr, q_size, 1, flags,
 			HAL_BUFFER_INTERNAL_CMD_QUEUE);
 	if (rc) {
 		dprintk(VIDC_ERR, "dsp iface_q_table_alloc_fail\n");

@@ -348,7 +348,12 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 	size = ALIGN(size, SZ_4K);
 
 	if (is_iommu_present(res)) {
-		heap_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
+		if (flags & SMEM_ADSP) {
+			dprintk(VIDC_DBG, "Allocating from ADSP heap\n");
+			heap_mask = ION_HEAP(ION_ADSP_HEAP_ID);
+		} else {
+			heap_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
+		}
 	} else {
 		dprintk(VIDC_DBG,
 			"allocate shared memory from adsp heap size %zx align %d\n",
