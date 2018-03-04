@@ -558,7 +558,7 @@ static void sde_encoder_phys_vid_mode_set(
 		return;
 	}
 
-	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_INTF);
+	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_INTF);
 	for (i = 0; i <= instance; i++) {
 		if (sde_rm_get_hw(rm, &iter))
 			phys_enc->hw_intf = (struct sde_hw_intf *)iter.hw;
