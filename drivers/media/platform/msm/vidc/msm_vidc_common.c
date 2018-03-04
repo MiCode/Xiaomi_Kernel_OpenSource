@@ -2596,7 +2596,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_READONLY)
 		mbuf->vvb.flags |= V4L2_QCOM_BUF_FLAG_READONLY;
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
-		mbuf->vvb.flags |= V4L2_BUF_FLAG_LAST;
+		mbuf->vvb.flags |= V4L2_QCOM_BUF_FLAG_EOS;
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_CODECCONFIG)
 		mbuf->vvb.flags |= V4L2_QCOM_BUF_FLAG_CODECCONFIG;
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_SYNCFRAME)
@@ -3953,7 +3953,7 @@ static void populate_frame_data(struct vidc_frame_data *data,
 		data->filled_len = vb->planes[0].bytesused;
 		data->offset = vb->planes[0].data_offset;
 
-		if (vbuf->flags & V4L2_BUF_FLAG_LAST)
+		if (vbuf->flags & V4L2_QCOM_BUF_FLAG_EOS)
 			data->flags |= HAL_BUFFERFLAG_EOS;
 
 		if (vbuf->flags & V4L2_QCOM_BUF_FLAG_CODECCONFIG)
