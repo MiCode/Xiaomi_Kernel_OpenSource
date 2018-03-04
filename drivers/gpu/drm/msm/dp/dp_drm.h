@@ -27,8 +27,10 @@ struct dp_bridge {
 	struct drm_bridge base;
 	u32 id;
 
+	struct drm_connector *connector;
 	struct dp_display *display;
 	struct dp_display_mode dp_mode;
+	void *dp_panel;
 };
 
 /**

@@ -1524,13 +1524,75 @@ static int dp_panel_set_stream_id(struct dp_panel *dp_panel,
 	return 0;
 }
 
+static int dp_panel_read_sink_sts(struct dp_panel *dp_panel, u8 *sts, u32 size)
+{
+	int rlen, rc = 0;
+	struct dp_panel_private *panel;
+
+	if (!dp_panel || !sts || !size) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_SINK_COUNT_ESI,
+		sts, size);
+	if (rlen != size) {
+		pr_err("dpcd sink sts fail rlen:%d size:%d\n", rlen, size);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	return 0;
+}
+
+static int dp_panel_update_edid(struct dp_panel *dp_panel, struct edid *edid)
+{
+	dp_panel->edid_ctrl->edid = edid;
+	sde_parse_edid(dp_panel->edid_ctrl);
+	return _sde_edid_update_modes(dp_panel->connector, dp_panel->edid_ctrl);
+}
+
+static bool dp_panel_read_mst_cap(struct dp_panel *dp_panel)
+{
+	int rlen;
+	struct dp_panel_private *panel;
+	u8 dpcd;
+	bool mst_cap = false;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		goto end;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_MSTM_CAP,
+		&dpcd, 1);
+	if (rlen < 1) {
+		pr_err("dpcd mstm_cap read failed, rlen=%d\n", rlen);
+		goto end;
+	}
+
+	mst_cap = (mst_cap & DP_MST_CAP)?true:false;
+
+end:
+	pr_debug("dp mst-cap: %d\n", mst_cap);
+
+	return mst_cap;
+}
+
 struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 {
 	int rc = 0;
 	struct dp_panel_private *panel;
 	struct dp_panel *dp_panel;
+	struct sde_connector *sde_conn;
 
-	if (!in->dev || !in->catalog || !in->aux || !in->link) {
+	if (!in->dev || !in->catalog || !in->aux ||
+			!in->link || !in->connector) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
@@ -1553,6 +1615,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
 	dp_panel->stream_id = DP_STREAM_MAX;
+	dp_panel->connector = in->connector;
 
 	dp_panel->init = dp_panel_init_panel_info;
 	dp_panel->deinit = dp_panel_deinit_panel_info;
@@ -1569,6 +1632,12 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->setup_hdr = dp_panel_setup_hdr;
 	dp_panel->hdr_supported = dp_panel_hdr_supported;
 	dp_panel->set_stream_id = dp_panel_set_stream_id;
+	dp_panel->read_sink_status = dp_panel_read_sink_sts;
+	dp_panel->update_edid = dp_panel_update_edid;
+	dp_panel->read_mst_cap = dp_panel_read_mst_cap;
+
+	sde_conn = to_sde_connector(dp_panel->connector);
+	sde_conn->drv_panel = dp_panel;
 
 	dp_panel_edid_register(panel);
 

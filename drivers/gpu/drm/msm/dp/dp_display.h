@@ -23,27 +23,29 @@
 struct dp_display {
 	struct drm_device *drm_dev;
 	struct dp_bridge *bridge;
-	struct drm_connector *connector;
+	struct drm_connector *base_connector;
+	void *base_dp_panel;
 	bool is_connected;
 	u32 max_pclk_khz;
 
-	int (*enable)(struct dp_display *dp_display);
-	int (*post_enable)(struct dp_display *dp_display);
+	int (*enable)(struct dp_display *dp_display, void *panel);
+	int (*post_enable)(struct dp_display *dp_display, void *panel);
 
-	int (*pre_disable)(struct dp_display *dp_display);
-	int (*disable)(struct dp_display *dp_display);
+	int (*pre_disable)(struct dp_display *dp_display, void *panel);
+	int (*disable)(struct dp_display *dp_display, void *panel);
 
-	int (*set_mode)(struct dp_display *dp_display,
+	int (*set_mode)(struct dp_display *dp_display, void *panel,
 			struct dp_display_mode *mode);
-	int (*validate_mode)(struct dp_display *dp_display, u32 mode_pclk_khz);
-	int (*get_modes)(struct dp_display *dp_display,
+	int (*validate_mode)(struct dp_display *dp_display, void *panel,
+			u32 mode_pclk_khz);
+	int (*get_modes)(struct dp_display *dp_display, void *panel,
 		struct dp_display_mode *dp_mode);
-	int (*prepare)(struct dp_display *dp_display);
-	int (*unprepare)(struct dp_display *dp_display);
+	int (*prepare)(struct dp_display *dp_display, void *panel);
+	int (*unprepare)(struct dp_display *dp_display, void *panel);
 	int (*request_irq)(struct dp_display *dp_display);
 	struct dp_debug *(*get_debug)(struct dp_display *dp_display);
 	void (*post_open)(struct dp_display *dp_display);
-	int (*config_hdr)(struct dp_display *dp_display,
+	int (*config_hdr)(struct dp_display *dp_display, void *panel,
 				struct drm_msm_ext_hdr_metadata *hdr_meta);
 	void (*post_init)(struct dp_display *dp_display);
 };

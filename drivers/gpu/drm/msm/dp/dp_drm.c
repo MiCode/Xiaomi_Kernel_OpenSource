@@ -127,26 +127,36 @@ static void dp_bridge_pre_enable(struct drm_bridge *drm_bridge)
 	bridge = to_dp_bridge(drm_bridge);
 	dp = bridge->display;
 
+	if (!bridge->connector) {
+		pr_err("Invalid connector\n");
+		return;
+	}
+
+	if (!bridge->dp_panel) {
+		pr_err("Invalid dp_panel\n");
+		return;
+	}
+
 	/* By this point mode should have been validated through mode_fixup */
-	rc = dp->set_mode(dp, &bridge->dp_mode);
+	rc = dp->set_mode(dp, bridge->dp_panel, &bridge->dp_mode);
 	if (rc) {
 		pr_err("[%d] failed to perform a mode set, rc=%d\n",
 		       bridge->id, rc);
 		return;
 	}
 
-	rc = dp->prepare(dp);
+	rc = dp->prepare(dp, bridge->dp_panel);
 	if (rc) {
 		pr_err("[%d] DP display prepare failed, rc=%d\n",
 		       bridge->id, rc);
 		return;
 	}
 
-	rc = dp->enable(dp);
+	rc = dp->enable(dp, bridge->dp_panel);
 	if (rc) {
 		pr_err("[%d] DP display enable failed, rc=%d\n",
 		       bridge->id, rc);
-		dp->unprepare(dp);
+		dp->unprepare(dp, bridge->dp_panel);
 	}
 }
 
@@ -162,9 +172,19 @@ static void dp_bridge_enable(struct drm_bridge *drm_bridge)
 	}
 
 	bridge = to_dp_bridge(drm_bridge);
+	if (!bridge->connector) {
+		pr_err("Invalid connector\n");
+		return;
+	}
+
+	if (!bridge->dp_panel) {
+		pr_err("Invalid dp_panel\n");
+		return;
+	}
+
 	dp = bridge->display;
 
-	rc = dp->post_enable(dp);
+	rc = dp->post_enable(dp, bridge->dp_panel);
 	if (rc)
 		pr_err("[%d] DP display post enable failed, rc=%d\n",
 		       bridge->id, rc);
@@ -182,12 +202,22 @@ static void dp_bridge_disable(struct drm_bridge *drm_bridge)
 	}
 
 	bridge = to_dp_bridge(drm_bridge);
+	if (!bridge->connector) {
+		pr_err("Invalid connector\n");
+		return;
+	}
+
+	if (!bridge->dp_panel) {
+		pr_err("Invalid dp_panel\n");
+		return;
+	}
+
 	dp = bridge->display;
 
-	if (dp && dp->connector)
-		sde_connector_helper_bridge_disable(dp->connector);
+	if (dp)
+		sde_connector_helper_bridge_disable(bridge->connector);
 
-	rc = dp->pre_disable(dp);
+	rc = dp->pre_disable(dp, bridge->dp_panel);
 	if (rc) {
 		pr_err("[%d] DP display pre disable failed, rc=%d\n",
 		       bridge->id, rc);
@@ -206,16 +236,26 @@ static void dp_bridge_post_disable(struct drm_bridge *drm_bridge)
 	}
 
 	bridge = to_dp_bridge(drm_bridge);
+	if (!bridge->connector) {
+		pr_err("Invalid connector\n");
+		return;
+	}
+
+	if (!bridge->dp_panel) {
+		pr_err("Invalid dp_panel\n");
+		return;
+	}
+
 	dp = bridge->display;
 
-	rc = dp->disable(dp);
+	rc = dp->disable(dp, bridge->dp_panel);
 	if (rc) {
 		pr_err("[%d] DP display disable failed, rc=%d\n",
 		       bridge->id, rc);
 		return;
 	}
 
-	rc = dp->unprepare(dp);
+	rc = dp->unprepare(dp, bridge->dp_panel);
 	if (rc) {
 		pr_err("[%d] DP display unprepare failed, rc=%d\n",
 		       bridge->id, rc);
@@ -236,6 +276,16 @@ static void dp_bridge_mode_set(struct drm_bridge *drm_bridge,
 	}
 
 	bridge = to_dp_bridge(drm_bridge);
+	if (!bridge->connector) {
+		pr_err("Invalid connector\n");
+		return;
+	}
+
+	if (!bridge->dp_panel) {
+		pr_err("Invalid dp_panel\n");
+		return;
+	}
+
 	dp = bridge->display;
 
 	memset(&bridge->dp_mode, 0x0, sizeof(struct dp_display_mode));
@@ -258,6 +308,18 @@ static bool dp_bridge_mode_fixup(struct drm_bridge *drm_bridge,
 	}
 
 	bridge = to_dp_bridge(drm_bridge);
+	if (!bridge->connector) {
+		pr_err("Invalid connector\n");
+		ret = false;
+		goto end;
+	}
+
+	if (!bridge->dp_panel) {
+		pr_err("Invalid dp_panel\n");
+		ret = false;
+		goto end;
+	}
+
 	dp = bridge->display;
 
 	convert_to_dp_mode(mode, &dp_mode, dp);
@@ -280,26 +342,38 @@ int dp_connector_config_hdr(struct drm_connector *connector, void *display,
 	struct sde_connector_state *c_state)
 {
 	struct dp_display *dp = display;
+	struct sde_connector *sde_conn;
 
-	if (!display || !c_state) {
+	if (!display || !c_state || !connector) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
-	return dp->config_hdr(dp, &c_state->hdr_meta);
+	sde_conn = to_sde_connector(connector);
+	if (!sde_conn->drv_panel) {
+		pr_err("invalid dp panel\n");
+		return -EINVAL;
+	}
+
+	return dp->config_hdr(dp, sde_conn->drv_panel, &c_state->hdr_meta);
 }
 
 int dp_connector_post_init(struct drm_connector *connector, void *display)
 {
 	struct dp_display *dp_display = display;
+	struct sde_connector *sde_conn;
 
-	if (!dp_display)
+	if (!dp_display || !connector)
 		return -EINVAL;
 
-	dp_display->connector = connector;
+	dp_display->base_connector = connector;
+	dp_display->bridge->connector = connector;
 
 	if (dp_display->post_init)
 		dp_display->post_init(dp_display);
+
+	sde_conn = to_sde_connector(connector);
+	dp_display->bridge->dp_panel = sde_conn->drv_panel;
 
 	return 0;
 }
@@ -407,9 +481,16 @@ int dp_connector_get_modes(struct drm_connector *connector,
 	struct dp_display *dp;
 	struct dp_display_mode *dp_mode = NULL;
 	struct drm_display_mode *m, drm_mode;
+	struct sde_connector *sde_conn;
 
 	if (!connector || !display)
 		return 0;
+
+	sde_conn = to_sde_connector(connector);
+	if (!sde_conn->drv_panel) {
+		pr_err("invalid dp panel\n");
+		return 0;
+	}
 
 	dp = display;
 
@@ -419,7 +500,7 @@ int dp_connector_get_modes(struct drm_connector *connector,
 
 	/* pluggable case assumes EDID is read when HPD */
 	if (dp->is_connected) {
-		rc = dp->get_modes(dp, dp_mode);
+		rc = dp->get_modes(dp, sde_conn->drv_panel, dp_mode);
 		if (!rc)
 			pr_err("failed to get DP sink modes, rc=%d\n", rc);
 
@@ -507,9 +588,16 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 {
 	struct dp_display *dp_disp;
 	struct dp_debug *debug;
+	struct sde_connector *sde_conn;
 
-	if (!mode || !display) {
+	if (!mode || !display || !connector) {
 		pr_err("invalid params\n");
+		return MODE_ERROR;
+	}
+
+	sde_conn = to_sde_connector(connector);
+	if (!sde_conn->drv_panel) {
+		pr_err("invalid dp panel\n");
 		return MODE_ERROR;
 	}
 
@@ -527,5 +615,6 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 			mode->picture_aspect_ratio != debug->aspect_ratio))
 		return MODE_BAD;
 
-	return dp_disp->validate_mode(dp_disp, mode->clock);
+	return dp_disp->validate_mode(dp_disp, sde_conn->drv_panel,
+			mode->clock);
 }

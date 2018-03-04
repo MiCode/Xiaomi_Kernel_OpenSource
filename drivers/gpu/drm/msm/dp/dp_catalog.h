@@ -36,6 +36,8 @@
 #define DP_INTR_FRAME_END		BIT(6)
 #define DP_INTR_CRC_UPDATED		BIT(9)
 
+#define DP_MAX_TIME_SLOTS	64
+
 /* stream id */
 enum dp_stream_id {
 	DP_STREAM_0,
@@ -112,6 +114,13 @@ struct dp_catalog_ctrl {
 	void (*send_phy_pattern)(struct dp_catalog_ctrl *ctrl,
 			u32 pattern);
 	u32 (*read_phy_pattern)(struct dp_catalog_ctrl *ctrl);
+	void (*mst_config)(struct dp_catalog_ctrl *ctrl, bool enable);
+	void (*trigger_act)(struct dp_catalog_ctrl *ctrl);
+	void (*read_act_complete_sts)(struct dp_catalog_ctrl *ctrl, bool *sts);
+	void (*channel_alloc)(struct dp_catalog_ctrl *ctrl,
+			u32 ch, u32 ch_start_timeslot, u32 tot_ch_cnt);
+	void (*update_rg)(struct dp_catalog_ctrl *ctrl, u32 ch, u32 x_int,
+			u32 y_frac_enum);
 };
 
 #define HEADER_BYTE_2_BIT	 0

@@ -1414,6 +1414,155 @@ end:
 	return ret;
 }
 
+static void dp_catalog_ctrl_mst_config(struct dp_catalog_ctrl *ctrl,
+		bool enable)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data = NULL;
+	u32 reg;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	io_data = catalog->io.dp_link;
+
+	reg = dp_read(catalog, io_data, DP_MAINLINK_CTRL);
+	if (enable)
+		reg |= (0x04000100);
+	else
+		reg &= ~(0x04000100);
+
+	dp_write(catalog, io_data, DP_MAINLINK_CTRL, reg);
+	/* make sure mainlink MST configuration is updated */
+	wmb();
+}
+
+static void dp_catalog_ctrl_trigger_act(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	io_data = catalog->io.dp_link;
+
+	dp_write(catalog, io_data, DP_MST_ACT, 0x1);
+	/* make sure ACT signal is performed */
+	wmb();
+}
+
+static void dp_catalog_ctrl_read_act_complete_sts(struct dp_catalog_ctrl *ctrl,
+		bool *sts)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data = NULL;
+	u32 reg;
+
+	if (!ctrl || !sts) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	*sts = false;
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	io_data = catalog->io.dp_link;
+
+	reg = dp_read(catalog, io_data, DP_MST_ACT);
+
+	if (!reg)
+		*sts = true;
+}
+
+static void dp_catalog_ctrl_channel_alloc(struct dp_catalog_ctrl *ctrl,
+			u32 ch, u32 ch_start_slot, u32 tot_slot_cnt)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data = NULL;
+	u32 i, slot_reg_1, slot_reg_2, slot;
+	u32 reg_off = 0;
+
+	if (!ctrl || ch >= DP_STREAM_MAX) {
+		pr_err("invalid input. ch %d\n", ch);
+		return;
+	}
+
+	if (ch_start_slot > DP_MAX_TIME_SLOTS ||
+			(ch_start_slot + tot_slot_cnt > DP_MAX_TIME_SLOTS)) {
+		pr_err("invalid slots start %d, tot %d\n",
+			ch_start_slot, tot_slot_cnt);
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	io_data = catalog->io.dp_link;
+
+	pr_debug("ch %d, start_slot %d, tot_slot %d\n",
+			ch, ch_start_slot, tot_slot_cnt);
+
+	if (ch == DP_STREAM_1)
+		reg_off = DP_DP1_TIMESLOT_1_32 - DP_DP0_TIMESLOT_1_32;
+
+	slot_reg_1 = dp_read(catalog, io_data, DP_DP0_TIMESLOT_1_32 + reg_off);
+	slot_reg_2 = dp_read(catalog, io_data, DP_DP0_TIMESLOT_33_63 + reg_off);
+
+	ch_start_slot = ch_start_slot - 1;
+	for (i = 0; i < tot_slot_cnt; i++) {
+		if (ch_start_slot < 33) {
+			slot_reg_1 |= BIT(ch_start_slot);
+		} else {
+			slot = ch_start_slot - 33;
+			slot_reg_2 |= BIT(slot);
+		}
+		ch_start_slot++;
+	}
+
+	pr_debug("ch:%d slot_reg_1:%d, slot_reg_2:%d\n", ch,
+			slot_reg_1, slot_reg_2);
+
+	dp_write(catalog, io_data, DP_DP0_TIMESLOT_1_32 + reg_off, slot_reg_1);
+	dp_write(catalog, io_data, DP_DP0_TIMESLOT_33_63 + reg_off, slot_reg_2);
+}
+
+static void dp_catalog_ctrl_update_rg(struct dp_catalog_ctrl *ctrl, u32 ch,
+		u32 x_int, u32 y_frac_enum)
+{
+	struct dp_catalog_private *catalog;
+	struct dp_io_data *io_data = NULL;
+	u32 rg, reg_off = 0;
+
+	if (!ctrl || ch >= DP_STREAM_MAX) {
+		pr_err("invalid input. ch %d\n", ch);
+		return;
+	}
+
+	catalog = dp_catalog_get_priv(ctrl);
+
+	io_data = catalog->io.dp_link;
+
+	rg = y_frac_enum;
+	rg |= (x_int << 16);
+
+	pr_debug("ch: %d x_int:%d y_frac_enum:%d rg:%d\n", ch, x_int,
+			y_frac_enum, rg);
+
+	if (ch == DP_STREAM_1)
+		reg_off = DP_DP1_RG - DP_DP0_RG;
+
+	dp_write(catalog, io_data, DP_DP0_RG + reg_off, rg);
+}
+
 /* panel related catalog functions */
 static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 {
@@ -1902,6 +2051,11 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_parser *parser)
 		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
 		.send_phy_pattern    = dp_catalog_ctrl_send_phy_pattern,
 		.read_phy_pattern = dp_catalog_ctrl_read_phy_pattern,
+		.mst_config = dp_catalog_ctrl_mst_config,
+		.trigger_act = dp_catalog_ctrl_trigger_act,
+		.read_act_complete_sts = dp_catalog_ctrl_read_act_complete_sts,
+		.channel_alloc = dp_catalog_ctrl_channel_alloc,
+		.update_rg = dp_catalog_ctrl_update_rg,
 	};
 	struct dp_catalog_audio audio = {
 		.init       = dp_catalog_audio_init,
