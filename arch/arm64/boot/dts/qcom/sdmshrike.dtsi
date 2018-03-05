@@ -354,3 +354,4 @@
 };
 
 #include "sdmshrike-pinctrl.dtsi"
+#include "sdmshrike-regulators.dtsi"
