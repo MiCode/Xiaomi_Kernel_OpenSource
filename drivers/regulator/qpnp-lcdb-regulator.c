@@ -998,12 +998,13 @@ irq_handled:
 #define VOLTAGE_MIN_STEP_50_MV			4950
 #define VOLTAGE_STEP_100_MV			100
 #define VOLTAGE_STEP_50_MV			50
+#define VOLTAGE_STEP_25_MV			25
 #define VOLTAGE_STEP_50MV_OFFSET		0xA
 static int qpnp_lcdb_set_bst_voltage(struct qpnp_lcdb *lcdb,
 					int voltage_mv, u8 type)
 {
 	int rc = 0;
-	u8 val, mask = 0;
+	u8 val, voltage_step, mask = 0;
 	int bst_voltage_mv;
 	u16 pmic_subtype = lcdb->pmic_rev_id->pmic_subtype;
 	struct ldo_regulator *ldo = &lcdb->ldo;
@@ -1020,10 +1021,16 @@ static int qpnp_lcdb_set_bst_voltage(struct qpnp_lcdb *lcdb,
 		bst_voltage_mv = MAX_BST_VOLTAGE_MV;
 
 	if (bst_voltage_mv != bst->voltage_mv) {
+		if (pmic_subtype == PM660L_SUBTYPE) {
+			mask = PM660_BST_OUTPUT_VOLTAGE_MASK;
+			voltage_step = VOLTAGE_STEP_50_MV;
+		} else {
+			mask =  BST_OUTPUT_VOLTAGE_MASK;
+			voltage_step = VOLTAGE_STEP_25_MV;
+		}
+
 		val = DIV_ROUND_UP(bst_voltage_mv - MIN_BST_VOLTAGE_MV,
-						VOLTAGE_STEP_50_MV);
-		mask = (pmic_subtype == PM660L_SUBTYPE) ?
-			PM660_BST_OUTPUT_VOLTAGE_MASK : BST_OUTPUT_VOLTAGE_MASK;
+							voltage_step);
 		rc = qpnp_lcdb_masked_write(lcdb, lcdb->base +
 					LCDB_BST_OUTPUT_VOLTAGE_REG,
 					mask, val);
@@ -1044,7 +1051,7 @@ static int qpnp_lcdb_get_bst_voltage(struct qpnp_lcdb *lcdb,
 					int *voltage_mv)
 {
 	int rc;
-	u8 val, mask = 0;
+	u8 val, voltage_step, mask = 0;
 	u16 pmic_subtype = lcdb->pmic_rev_id->pmic_subtype;
 
 	rc = qpnp_lcdb_read(lcdb, lcdb->base + LCDB_BST_OUTPUT_VOLTAGE_REG,
@@ -1054,10 +1061,16 @@ static int qpnp_lcdb_get_bst_voltage(struct qpnp_lcdb *lcdb,
 		return rc;
 	}
 
-	mask = (pmic_subtype == PM660L_SUBTYPE) ?
-		PM660_BST_OUTPUT_VOLTAGE_MASK : BST_OUTPUT_VOLTAGE_MASK;
+	if (pmic_subtype == PM660L_SUBTYPE) {
+		mask = PM660_BST_OUTPUT_VOLTAGE_MASK;
+		voltage_step = VOLTAGE_STEP_50_MV;
+	} else {
+		mask =  BST_OUTPUT_VOLTAGE_MASK;
+		voltage_step = VOLTAGE_STEP_25_MV;
+	}
+
 	val &= mask;
-	*voltage_mv = (val * VOLTAGE_STEP_50_MV) + MIN_BST_VOLTAGE_MV;
+	*voltage_mv = (val * voltage_step) + MIN_BST_VOLTAGE_MV;
 
 	return 0;
 }
