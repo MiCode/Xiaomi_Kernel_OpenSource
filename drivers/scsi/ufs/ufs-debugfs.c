@@ -21,6 +21,7 @@
 #include "ufs-debugfs.h"
 #include "unipro.h"
 #include "ufshci.h"
+#include "ufshcd.h"
 
 enum field_width {
 	BYTE	= 1,
@@ -1074,9 +1075,7 @@ static int ufsdbg_power_mode_show(struct seq_file *file, void *data)
 		"L - number of lanes\n"
 		"M - power mode:\n"
 		"\t1 = fast mode\n"
-		"\t2 = slow mode\n"
 		"\t4 = fast-auto mode\n"
-		"\t5 = slow-auto mode\n"
 		"first letter is for RX, second letter is for TX.\n\n");
 
 	return 0;
@@ -1084,16 +1083,14 @@ static int ufsdbg_power_mode_show(struct seq_file *file, void *data)
 
 static bool ufsdbg_power_mode_validate(struct ufs_pa_layer_attr *pwr_mode)
 {
-	if (pwr_mode->gear_rx < UFS_PWM_G1 || pwr_mode->gear_rx > UFS_PWM_G7 ||
-	    pwr_mode->gear_tx < UFS_PWM_G1 || pwr_mode->gear_tx > UFS_PWM_G7 ||
+	if (pwr_mode->gear_rx < UFS_HS_G1 || pwr_mode->gear_rx > UFS_HS_G3 ||
+	    pwr_mode->gear_tx < UFS_HS_G1 || pwr_mode->gear_tx > UFS_HS_G3 ||
 	    pwr_mode->lane_rx < 1 || pwr_mode->lane_rx > 2 ||
 	    pwr_mode->lane_tx < 1 || pwr_mode->lane_tx > 2 ||
-	    (pwr_mode->pwr_rx != FAST_MODE && pwr_mode->pwr_rx != SLOW_MODE &&
-	     pwr_mode->pwr_rx != FASTAUTO_MODE &&
-	     pwr_mode->pwr_rx != SLOWAUTO_MODE) ||
-	    (pwr_mode->pwr_tx != FAST_MODE && pwr_mode->pwr_tx != SLOW_MODE &&
-	     pwr_mode->pwr_tx != FASTAUTO_MODE &&
-	     pwr_mode->pwr_tx != SLOWAUTO_MODE)) {
+	    (pwr_mode->pwr_rx != FAST_MODE &&
+	     pwr_mode->pwr_rx != FASTAUTO_MODE) ||
+	    (pwr_mode->pwr_tx != FAST_MODE &&
+	     pwr_mode->pwr_tx != FASTAUTO_MODE)) {
 		pr_err("%s: power parameters are not valid\n", __func__);
 		return false;
 	}
@@ -1199,14 +1196,65 @@ out:
 static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *desired_pwr_mode)
 {
-	int ret;
+	int ret = 0;
+	bool scale_up = false;
+	u32 scale_down_gear = ufshcd_vops_get_scale_down_gear(hba);
 
 	pm_runtime_get_sync(hba->dev);
+	/* let's not get into low power until clock scaling is completed */
+	hba->ufs_stats.clk_hold.ctx = DBGFS_CFG_PWR_MODE;
+	ufshcd_hold(hba, false);
 	ufshcd_scsi_block_requests(hba);
-	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
-	if (!ret)
+	down_write(&hba->lock);
+	if (ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US)) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	/* Gear scaling needs to be taken care of along with clk scaling */
+	if (desired_pwr_mode->gear_tx != hba->pwr_info.gear_tx ||
+	    desired_pwr_mode->gear_rx != hba->pwr_info.gear_rx) {
+
+		if (desired_pwr_mode->gear_tx > scale_down_gear ||
+		    desired_pwr_mode->gear_rx > scale_down_gear)
+			scale_up = true;
+
+		if (!scale_up) {
+			ret = ufshcd_change_power_mode(hba, desired_pwr_mode);
+			if (ret)
+				goto out;
+		}
+
+		/*
+		 * If auto hibern8 is supported then put the link in
+		 * hibern8 manually, this is to avoid auto hibern8
+		 * racing during clock frequency scaling sequence.
+		 */
+		if (ufshcd_is_auto_hibern8_supported(hba)) {
+			ret = ufshcd_uic_hibern8_enter(hba);
+			if (ret)
+				goto out;
+		}
+
+		ret = ufshcd_scale_clks(hba, scale_up);
+		if (ret)
+			goto out;
+
+		if (ufshcd_is_auto_hibern8_supported(hba))
+			ret = ufshcd_uic_hibern8_exit(hba);
+
+		if (scale_up) {
+			ret = ufshcd_change_power_mode(hba, desired_pwr_mode);
+			if (ret)
+				ufshcd_scale_clks(hba, false);
+		}
+	} else {
 		ret = ufshcd_change_power_mode(hba, desired_pwr_mode);
+	}
+out:
+	up_write(&hba->lock);
 	ufshcd_scsi_unblock_requests(hba);
+	ufshcd_release(hba, false);
 	pm_runtime_put_sync(hba->dev);
 
 	return ret;
