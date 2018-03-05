@@ -197,3 +197,9 @@
 		};
 	};
 };
+
+&thermal_zones {
+	case-therm-step {
+		status = "disabled";
+	};
+};

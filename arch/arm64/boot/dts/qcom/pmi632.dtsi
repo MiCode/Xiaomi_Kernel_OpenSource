@@ -219,9 +219,14 @@
 			compatible = "qcom,qpnp-smb5";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pmi632_revid>;
 			dpdm-supply = <&qusb_phy>;
+
+			qcom,thermal-mitigation
+				= <3000000 2500000 2000000 1500000
+					1000000 500000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -407,6 +412,21 @@
 				reg = <0xb100 0x100>;
 			};
 		};
+
+		bcl_sensor: bcl@3d00 {
+			compatible = "qcom,msm-bcl-pmic5";
+			reg = <0x3d00 0xff>;
+			interrupts = <0x2 0x3d 0x0 IRQ_TYPE_NONE>,
+					<0x2 0x3d 0x1 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-high-ibat",
+						"bcl-low-vbat";
+			#thermal-sensor-cells = <1>;
+		};
+
+		bcl_soc: bcl-soc {
+			compatible = "qcom,msm-bcl-soc";
+			#thermal-sensor-cells = <0>;
+		};
 	};
 
 	pmi632_3: qcom,pmi632@3 {
@@ -572,5 +592,107 @@
 		qcom,flash-source = <&pmi632_flash0 &pmi632_flash1>;
 		qcom,torch-source = <&pmi632_torch0 &pmi632_torch1>;
 		qcom,switch-source = <&pmi632_switch0>;
+	};
+};
+
+&thermal_zones {
+	ibat-high {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 0>;
+
+		trips {
+			pmi632_ibat:ibat-high {
+				temperature = <3500>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	vbat_low {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 2>;
+		tracks-low;
+
+		trips {
+			pmi632_vbat_low: vbat-low {
+				temperature = <3000>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			vbat_map4 {
+				trip = <&pmi632_vbat_low>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map5 {
+				trip = <&pmi632_vbat_low>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map6 {
+				trip = <&pmi632_vbat_low>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map7 {
+				trip = <&pmi632_vbat_low>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	soc {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_soc>;
+		tracks-low;
+
+		trips {
+			pmi632_low_soc: low-soc {
+				temperature = <10>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			soc_map4 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map5 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map6 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map7 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
 	};
 };

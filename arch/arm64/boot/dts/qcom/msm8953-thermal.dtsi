@@ -253,6 +253,21 @@
 		};
 	};
 
+	case-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8953_vadc 0x13>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
 	gpu1-step {
 		polling-delay-passive = <250>;
 		polling-delay = <0>;
@@ -1099,6 +1114,88 @@
 				temperature = <65000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+		};
+	};
+
+	case-therm-step {
+		polling-delay-passive = <2000>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8953_vadc 0x13>;
+		thermal-governor = "step_wise";
+
+		trips {
+			cpus_trip: cpus-trip {
+				temperature = <43000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			modem_trip0: modem-trip0 {
+				temperature = <45000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			modem_trip1: modem-trip1 {
+				temperature = <48000>;
+				hysteresis = <3000>;
+				type = "passive";
+			};
+			modem_trip2: modem-trip2 {
+				temperature = <54000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			skin_cpu0 {
+				trip = <&cpus_trip>;
+				/* throttle from fmax to 1689600KHz */
+				cooling-device = <&CPU0 THERMAL_NO_LIMIT 3>;
+			};
+			skin_cpu1 {
+				trip = <&cpus_trip>;
+				cooling-device = <&CPU1 THERMAL_NO_LIMIT 3>;
+			};
+			skin_cpu2 {
+				trip = <&cpus_trip>;
+				cooling-device = <&CPU2 THERMAL_NO_LIMIT 3>;
+			};
+			skin_cpu3 {
+				trip = <&cpus_trip>;
+				cooling-device = <&CPU3 THERMAL_NO_LIMIT 3>;
+			};
+			skin_cpu4 {
+				trip = <&cpus_trip>;
+				cooling-device = <&CPU4 THERMAL_NO_LIMIT 3>;
+			};
+			skin_cpu5 {
+				trip = <&cpus_trip>;
+				cooling-device = <&CPU5 THERMAL_NO_LIMIT 3>;
+			};
+			skin_cpu6 {
+				trip = <&cpus_trip>;
+				cooling-device = <&CPU6 THERMAL_NO_LIMIT 3>;
+			};
+			skin_cpu7 {
+				trip = <&cpus_trip>;
+				cooling-device = <&CPU7 THERMAL_NO_LIMIT 3>;
+			};
+			modem_lvl1 {
+				trip = <&modem_trip1>;
+				cooling-device = <&modem_pa 2 2>;
+			};
+			modem_lvl2 {
+				trip = <&modem_trip2>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+			modem_proc_lvl1 {
+				trip = <&modem_trip0>;
+				cooling-device = <&modem_proc 1 1>;
+			};
+			modem_proc_lvl2 {
+				trip = <&modem_trip2>;
+				cooling-device = <&modem_proc 3 3>;
 			};
 		};
 	};
