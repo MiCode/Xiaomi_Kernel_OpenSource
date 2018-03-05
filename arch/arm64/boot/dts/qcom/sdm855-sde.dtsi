@@ -326,14 +326,15 @@
 		reg = <0xaf20000 0x1c44>,
 			<0xaf30000 0x3fd4>;
 		reg-names = "drv", "wrapper";
-		qcom,sde-rsc-version = <1>;
+		qcom,sde-rsc-version = <2>;
 		status = "disabled";
 
 		vdd-supply = <&mdss_core_gdsc>;
 		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_NON_GDSC_AHB_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>;
-		clock-names = "vsync_clk", "iface_clk";
-		clock-rate = <0 0>;
+		clock-names = "vsync_clk", "gdsc_clk", "iface_clk";
+		clock-rate = <0 0 0>;
 
 		qcom,sde-dram-channels = <2>;
 
@@ -372,6 +373,20 @@
 			    <20000 20512 0 0>,
 			    <20000 20512 0 6400000>,
 			    <20000 20512 0 6400000>;
+		};
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "mmcx";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
 		};
 	};
 
@@ -531,7 +546,6 @@
 		cell-index = <0>;
 		reg = <0xae94400 0x7c0>;
 		reg-names = "dsi_phy";
-		gdsc-supply = <&mdss_core_gdsc>;
 		vdda-0p9-supply = <&pm855_l5>;
 		qcom,platform-strength-ctrl = [55 03
 						55 03
@@ -564,7 +578,6 @@
 		cell-index = <1>;
 		reg = <0xae96400 0x7c0>;
 		reg-names = "dsi_phy";
-		gdsc-supply = <&mdss_core_gdsc>;
 		vdda-0p9-supply = <&pm855_l5>;
 		qcom,platform-strength-ctrl = [55 03
 						55 03
@@ -595,8 +608,7 @@
 		cell-index = <0>;
 		compatible = "qcom,dp-display";
 
-		gdsc-supply = <&mdss_core_gdsc>;
-		vdda-1p2-supply = <&pm855l_l3>;
+		vdda-1p2-supply = <&pm855_l3>;
 		vdda-0p9-supply = <&pm855_l5>;
 
 		reg =	<0xae90000 0x0dc>,
