@@ -4110,6 +4110,7 @@ otg_remove_devices:
 remove_cdev:
 	pm_runtime_disable(&pdev->dev);
 	device_remove_file(&pdev->dev, &dev_attr_dpdm_pulldown_enable);
+	msm_otg_debugfs_cleanup();
 phy_reg_deinit:
 	devm_regulator_unregister(motg->phy.dev, motg->dpdm_rdev);
 remove_phy:
