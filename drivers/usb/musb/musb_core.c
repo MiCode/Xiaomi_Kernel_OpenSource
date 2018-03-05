@@ -1700,6 +1700,7 @@ musb_vbus_show(struct device *dev, struct device_attribute *attr, char *buf)
 	unsigned long	val;
 	int		vbus;
 
+	pm_runtime_get_sync(dev);
 	spin_lock_irqsave(&musb->lock, flags);
 	val = musb->a_wait_bcon;
 	/* FIXME get_vbus_status() is normally #defined as false...
@@ -1707,6 +1708,7 @@ musb_vbus_show(struct device *dev, struct device_attribute *attr, char *buf)
 	 */
 	vbus = musb_platform_get_vbus_status(musb);
 	spin_unlock_irqrestore(&musb->lock, flags);
+	pm_runtime_put_sync(dev);
 
 	return sprintf(buf, "Vbus %s, timeout %lu msec\n",
 			vbus ? "on" : "off", val);
