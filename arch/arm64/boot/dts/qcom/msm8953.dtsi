@@ -25,10 +25,6 @@
 	qcom,msm-name = "MSM8953";
 	interrupt-parent = <&wakegic>;
 
-	chosen {
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
-	};
-
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
