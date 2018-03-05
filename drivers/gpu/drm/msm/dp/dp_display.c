@@ -779,6 +779,12 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		return -ENODEV;
 	}
 
+	/* check if framework is ready */
+	if (!dp_display_framework_ready(dp)) {
+		pr_err("framework not ready\n");
+		return -ENODEV;
+	}
+
 	if (dp->usbpd->hpd_irq && dp->usbpd->hpd_high &&
 	    dp->power_on) {
 		dp->link->process_request(dp->link);

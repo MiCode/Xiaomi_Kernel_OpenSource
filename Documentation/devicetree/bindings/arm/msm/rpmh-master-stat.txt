@@ -4,15 +4,28 @@ Differet Subsystems maintains master data in SMEM.
 It tells about the individual masters information at any given
 time like "system sleep counts", "system sleep last entered at"
 and "system sleep accumulated duration" etc. These stats can be
-show to the user using the debugfs interface of the kernel.
+displayed using the sysfs interface.
 To achieve this, device tree node has been added.
+
+Additionally, RPMH master stats also maintains application processor's
+master stats. It uses profiling units to calculate power down and power
+up stats.
 
 The required properties for rpmh-master-stats are:
 
-- compatible: "qcom,rpmh-master-stats".
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should be "qcom,rpmh-master-stats-v1".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Specifies physical address of start of profiling unit.
 
 Example:
 
 qcom,rpmh-master-stats {
 	compatible = "qcom,rpmh-master-stats";
+	reg = <0xb221200 0x60>;
 };

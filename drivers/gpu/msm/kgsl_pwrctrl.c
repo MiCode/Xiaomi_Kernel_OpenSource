@@ -2748,6 +2748,7 @@ _aware(struct kgsl_device *device)
 {
 	int status = 0;
 	struct gmu_device *gmu = &device->gmu;
+	unsigned int state = device->state;
 
 	switch (device->state) {
 	case KGSL_STATE_RESET:
@@ -2794,13 +2795,15 @@ _aware(struct kgsl_device *device)
 				WARN_ONCE(1, "Failed to recover GMU\n");
 				if (device->snapshot)
 					device->snapshot->recovered = false;
+				kgsl_pwrctrl_set_state(device, state);
 			} else {
 				if (device->snapshot)
 					device->snapshot->recovered = true;
+				kgsl_pwrctrl_set_state(device,
+					KGSL_STATE_AWARE);
 			}
 
 			clear_bit(GMU_FAULT, &gmu->flags);
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
 			return status;
 		}
 
