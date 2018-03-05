@@ -616,6 +616,7 @@ enum ufshcd_ctx {
 	TM_CMD_SEND,
 	XFR_REQ_COMPL,
 	CLK_SCALE_WORK,
+	DBGFS_CFG_PWR_MODE,
 };
 
 struct ufshcd_clk_ctx {
@@ -823,7 +824,9 @@ struct ufs_hba {
 	void *priv;
 	unsigned int irq;
 	bool is_irq_enabled;
+	bool crash_on_err;
 
+	u32 dev_ref_clk_gating_wait;
 	u32 dev_ref_clk_freq;
 
 	/* Interrupt aggregation support is broken */
@@ -1204,6 +1207,7 @@ extern int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 			       u32 *mib_val, u8 peer);
 extern int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 			struct ufs_pa_layer_attr *desired_pwr_mode);
+extern int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up);
 
 /* UIC command interfaces for DME primitives */
 #define DME_LOCAL	0

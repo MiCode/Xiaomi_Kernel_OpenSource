@@ -44,9 +44,12 @@ enum attr_idn {
 	QUERY_ATTR_IDN_FFU_STATUS               = 0x14,
 	QUERY_ATTR_IDN_PSA_STATE                = 0x15,
 	QUERY_ATTR_IDN_PSA_DATA_SIZE            = 0x16,
+	QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME	= 0x17,
 };
 
 #define QUERY_ATTR_IDN_BOOT_LU_EN_MAX	0x02
+#define QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME \
+		QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME
 
 /* Descriptor idn for Query requests */
 enum desc_idn {
