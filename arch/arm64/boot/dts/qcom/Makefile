@@ -16,7 +16,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm855-v2-cdp-overlay.dtbo \
 		sdm855-v2-mtp-overlay.dtbo \
 		sdm855-v2-rumi-overlay.dtbo \
-		sdm855-v2-qrd-overlay.dtbo
+		sdm855-v2-qrd-overlay.dtbo \
 		sdm855-sdx50m-cdp-overlay.dtbo \
 		sdm855-sdx50m-mtp-overlay.dtbo
 

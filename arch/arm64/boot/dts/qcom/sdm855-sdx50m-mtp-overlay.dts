@@ -19,9 +19,8 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdm855-mtp.dtsi"
-#include "sdm855-mtp-audio-overlay.dtsi"
 
-#include "external-soc.dtsi"
+#include "sdx50m-external-soc.dtsi"
 #include "sdm855-sdx50m.dtsi"
 
 / {
