@@ -1810,7 +1810,7 @@ static int sde_plane_rot_calc_cfg(struct drm_plane *plane,
 		if (attached_out_rect.y1 != rstate->out_src_rect.y1 ||
 			attached_out_rect.y2 != rstate->out_src_rect.y2) {
 			SDE_ERROR(
-				"plane%d.%u src:%dx%d+%d+%d rot:0x%llx fb:%d plane%d.%u src:%dx%d+%d+%d rot:0x%llx fb:%d mismatch\n",
+				"plane%d.%u src:%dx%d+%d+%d rot:0x%x fb:%d plane%d.%u src:%dx%d+%d+%d rot:0x%x fb:%d mismatch\n",
 					plane->base.id,
 					rstate->sequence_id,
 					state->src_w >> 16,
