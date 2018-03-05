@@ -404,4 +404,12 @@
 		gpio = <&tlmm 83 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
+
+	vreg_wlan: vreg_wlan {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_wlan";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pmxpoorwills_gpios 6 GPIO_ACTIVE_HIGH>;
+	};
 };
