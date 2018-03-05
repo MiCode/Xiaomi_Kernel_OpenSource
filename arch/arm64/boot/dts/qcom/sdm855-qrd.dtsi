@@ -48,6 +48,24 @@
 	};
 };
 
+&snd_9360 {
+	qcom,model = "sdm855-pahu-qrd-snd-card";
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"MADINPUT", "MCLK",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
+		"DMIC5", "MIC BIAS4",
+		"MIC BIAS4", "Digital Mic5",
+		"SpkrRight IN", "SPK2 OUT";
+
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_0212>, <&wsa881x_0214>;
+	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4";
 
