@@ -4375,6 +4375,9 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 	debugfs_create_file("misr_data", 0600,
 		sde_enc->debugfs_root, sde_enc, &debugfs_misr_fops);
 
+	debugfs_create_bool("idle_power_collapse", 0600, sde_enc->debugfs_root,
+			&sde_enc->idle_pc_supported);
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++)
 		if (sde_enc->phys_encs[i] &&
 				sde_enc->phys_encs[i]->ops.late_register)
