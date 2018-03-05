@@ -47,9 +47,14 @@
 	status = "disabled";
 };
 
+&mdss_mdp {
+	bridges = <&lt9611>;
+};
+
 &qupv3_se9_i2c {
 	status = "okay";
-	lt9611@3b {
+
+	lt9611: lt,lt9611@3b {
 		compatible = "lt,lt9611";
 		reg = <0x3b>;
 		interrupt-parent = <&tlmm>;
