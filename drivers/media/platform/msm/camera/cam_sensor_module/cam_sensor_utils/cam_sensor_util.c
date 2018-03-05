@@ -1349,7 +1349,8 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 
 			rc = msm_cam_sensor_handle_reg_gpio(
 				power_setting->seq_type,
-				gpio_num_info, 1);
+				gpio_num_info,
+				(int) power_setting->config_val);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
 					"Error in handling VREG GPIO");
@@ -1476,6 +1477,9 @@ power_up_failed:
 				power_setting->data[0] =
 						soc_info->rgltr[vreg_idx];
 
+				regulator_put(
+					soc_info->rgltr[vreg_idx]);
+				soc_info->rgltr[vreg_idx] = NULL;
 			}
 			else
 				CAM_ERR(CAM_SENSOR, "seq_val:%d > num_vreg: %d",
@@ -1575,8 +1579,12 @@ static int cam_config_mclk_reg(struct cam_sensor_power_ctrl_t *ctrl,
 					soc_info->rgltr_op_mode[j],
 					soc_info->rgltr_delay[j]);
 
-					ps->data[0] =
-						soc_info->rgltr[j];
+				ps->data[0] =
+					soc_info->rgltr[j];
+
+				regulator_put(
+					soc_info->rgltr[j]);
+				soc_info->rgltr[j] = NULL;
 			}
 		}
 	}
@@ -1667,6 +1675,10 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 
 					ps->data[0] =
 						soc_info->rgltr[ps->seq_val];
+
+					regulator_put(
+						soc_info->rgltr[ps->seq_val]);
+					soc_info->rgltr[ps->seq_val] = NULL;
 				}
 				else
 					CAM_ERR(CAM_SENSOR,
