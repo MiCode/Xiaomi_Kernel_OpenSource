@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2419,7 +2419,7 @@ static struct clk_regmap_div mmss_mdss_byte0_intf_div_clk = {
 			},
 			.num_parents = 1,
 			.ops = &clk_regmap_div_ops,
-			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
+			.flags = CLK_GET_RATE_NOCACHE,
 		},
 	},
 };
@@ -2476,7 +2476,7 @@ static struct clk_regmap_div mmss_mdss_byte1_intf_div_clk = {
 			},
 			.num_parents = 1,
 			.ops = &clk_regmap_div_ops,
-			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
+			.flags = CLK_GET_RATE_NOCACHE,
 		},
 	},
 };
