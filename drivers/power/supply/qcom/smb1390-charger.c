@@ -209,6 +209,34 @@ static irqreturn_t default_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t irev_irq_handler(int irq, void *data)
+{
+	struct smb1390 *chip = data;
+	int rc;
+
+	pr_debug("IREV IRQ triggered\n");
+
+	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
+			CMD_EN_SWITCHER_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't disable switcher by command mode, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
+			CMD_EN_SWITCHER_BIT, CMD_EN_SWITCHER_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable switcher by command mode, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+out:
+	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
+	return IRQ_HANDLED;
+}
+
 static const struct smb_irq smb_irqs[] = {
 	[SWITCHER_OFF_WINDOW_IRQ] = {
 		.name		= "switcher-off-window",
@@ -227,7 +255,7 @@ static const struct smb_irq smb_irqs[] = {
 	},
 	[IREV_IRQ] = {
 		.name		= "irev-fault",
-		.handler	= default_irq_handler,
+		.handler	= irev_irq_handler,
 		.wake		= true,
 	},
 	[VPH_OV_HARD_IRQ] = {
