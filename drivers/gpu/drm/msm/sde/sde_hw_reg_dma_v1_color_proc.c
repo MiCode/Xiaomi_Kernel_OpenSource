@@ -1685,6 +1685,7 @@ void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg)
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	u32 gamut_base = ctx->cap->sblk->gamut_blk.base - REG_DMA_VIG_SWI_DIFF;
+	bool use_2nd_memory = false;
 
 	rc = reg_dma_sspp_check(ctx, cfg, GAMUT);
 	if (rc)
@@ -1722,9 +1723,14 @@ void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg)
 		DRM_ERROR("write decode select failed ret %d\n", rc);
 		return;
 	}
+	if ((op_mode & (BIT(5) - 1)) >> 2 == gamut_mode_17b)
+		use_2nd_memory = true;
 	for (i = 0; i < GAMUT_3D_TBL_NUM; i++) {
 		reg = GAMUT_TABLE0_SEL << i;
 		reg |= ((tbl_off) & (BIT(11) - 1));
+		/* when bit 11 equals to 1, 2nd memory will be in use */
+		if (use_2nd_memory)
+			reg |= BIT(11);
 		REG_DMA_SETUP_OPS(dma_write_cfg,
 			gamut_base + GAMUT_TABLE_SEL_OFF,
 			&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0, 0);
