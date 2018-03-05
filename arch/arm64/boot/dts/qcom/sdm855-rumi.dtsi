@@ -64,8 +64,11 @@
 		compatible = "qcom,sdm855-asoc-snd-stub";
 		qcom,model = "sdm855-stub-snd-card";
 
-		asoc-platform = <&pcm0>;
-		asoc-platform-names = "msm-pcm-dsp.0";
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK";
+
+		asoc-platform = <&pcm0>, <&routing>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-routing";
 		asoc-cpu = <&sb_0_rx>, <&sb_0_tx>;
 		asoc-cpu-names = "msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385";
 		asoc-codec = <&stub_codec>;
