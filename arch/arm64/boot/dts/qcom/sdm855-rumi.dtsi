@@ -154,3 +154,6 @@
 &usb2_phy0 {
 	status = "disabled";
 };
+&ipa_hw {
+	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
+};
