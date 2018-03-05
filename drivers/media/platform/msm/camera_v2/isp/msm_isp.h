@@ -19,9 +19,6 @@
 #include <linux/io.h>
 #include <linux/list.h>
 #include <linux/delay.h>
-#ifdef CONFIG_MSM_AVTIMER
-#include <linux/avtimer_kernel.h>
-#endif
 #include <media/v4l2-subdev.h>
 #include <media/msmb_isp.h>
 #include <linux/msm-bus.h>
@@ -858,8 +855,6 @@ struct vfe_parent_device {
 	struct platform_device *child_list[VFE_SD_HW_MAX];
 	struct msm_vfe_common_subdev *common_sd;
 };
-
 int vfe_hw_probe(struct platform_device *pdev);
 void msm_isp_update_last_overflow_ab_ib(struct vfe_device *vfe_dev);
-
 #endif
