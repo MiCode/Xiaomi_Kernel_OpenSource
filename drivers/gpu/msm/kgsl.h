@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,11 +51,12 @@
 /* The number of memstore arrays limits the number of contexts allowed.
  * If more contexts are needed, update multiple for MEMSTORE_SIZE
  */
-#define KGSL_MEMSTORE_SIZE	((int)(PAGE_SIZE * 2))
+#define KGSL_MEMSTORE_SIZE	((int)(PAGE_SIZE * 8))
 #define KGSL_MEMSTORE_GLOBAL	(0)
 #define KGSL_PRIORITY_MAX_RB_LEVELS 4
 #define KGSL_MEMSTORE_MAX	(KGSL_MEMSTORE_SIZE / \
 	sizeof(struct kgsl_devmemstore) - 1 - KGSL_PRIORITY_MAX_RB_LEVELS)
+#define KGSL_MAX_CONTEXTS_PER_PROC 200
 
 #define MEMSTORE_RB_OFFSET(rb, field)	\
 	KGSL_MEMSTORE_OFFSET(((rb)->id + KGSL_MEMSTORE_MAX), field)
