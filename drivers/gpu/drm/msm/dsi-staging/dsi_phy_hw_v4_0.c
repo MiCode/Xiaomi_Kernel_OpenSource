@@ -121,7 +121,7 @@ static void dsi_phy_hw_v4_0_lane_settings(struct dsi_phy_hw *phy,
 			    struct dsi_phy_cfg *cfg)
 {
 	int i;
-	u8 tx_dctrl[] = {0x00, 0x00, 0x00, 0x00, 0x01};
+	u8 tx_dctrl[] = {0x00, 0x00, 0x00, 0x04, 0x01};
 
 	/* Strength ctrl settings */
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
@@ -143,9 +143,6 @@ static void dsi_phy_hw_v4_0_lane_settings(struct dsi_phy_hw *phy,
 		DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(i), tx_dctrl[i]);
 	}
 
-	/* Toggle BIT 0 to release freeze I/0 */
-	DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(3), 0x05);
-	DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(3), 0x04);
 }
 
 /**
@@ -201,11 +198,7 @@ void dsi_phy_hw_v4_0_enable(struct dsi_phy_hw *phy,
 
 	/* Remove power down from all blocks */
 	DSI_W32(phy, DSIPHY_CMN_CTRL_0, 0x7f);
-	/*power up lanes */
-	data = DSI_R32(phy, DSIPHY_CMN_CTRL_0);
-	/* TODO: only power up lanes that are used */
-	data |= 0x1F;
-	DSI_W32(phy, DSIPHY_CMN_CTRL_0, data);
+
 	DSI_W32(phy, DSIPHY_CMN_LANE_CTRL0, 0x1F);
 
 	/* Select full-rate mode */
