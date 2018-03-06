@@ -244,6 +244,13 @@ struct dsi_phy_hw_ops {
 	 */
 	int (*phy_lane_reset)(struct dsi_phy_hw *phy);
 
+	/**
+	 * toggle_resync_fifo() - toggle resync retime FIFO to sync data paths
+	 * @phy:      Pointer to DSI PHY hardware object.
+	 * Return:    error code.
+	 */
+	void (*toggle_resync_fifo)(struct dsi_phy_hw *phy);
+
 	void *timing_ops;
 	struct phy_ulps_config_ops ulps_ops;
 };

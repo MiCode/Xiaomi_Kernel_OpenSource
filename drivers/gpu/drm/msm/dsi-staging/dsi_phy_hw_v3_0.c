@@ -88,6 +88,15 @@ void dsi_phy_hw_v3_0_regulator_disable(struct dsi_phy_hw *phy)
 	/* Nothing to be done for DSI PHY regulator disable */
 }
 
+void dsi_phy_hw_v3_0_toggle_resync_fifo(struct dsi_phy_hw *phy)
+{
+	DSI_W32(phy, DSIPHY_CMN_RBUF_CTRL, 0x00);
+	/* ensure that the FIFO is off */
+	wmb();
+	DSI_W32(phy, DSIPHY_CMN_RBUF_CTRL, 0x1);
+	/* ensure that the FIFO is toggled back on */
+	wmb();
+}
 
 static int dsi_phy_hw_v3_0_is_pll_on(struct dsi_phy_hw *phy)
 {

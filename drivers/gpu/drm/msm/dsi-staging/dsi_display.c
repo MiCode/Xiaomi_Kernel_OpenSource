@@ -1779,6 +1779,20 @@ static int dsi_display_phy_reset_config(struct dsi_display *display,
 	return 0;
 }
 
+static void dsi_display_toggle_resync_fifo(struct dsi_display *display)
+{
+	struct dsi_display_ctrl *ctrl;
+	int i;
+
+	if (!display)
+		return;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		dsi_phy_toggle_resync_fifo(ctrl->phy);
+	}
+}
+
 static int dsi_display_ctrl_update(struct dsi_display *display)
 {
 	int rc = 0;
@@ -2609,6 +2623,15 @@ int dsi_post_clkon_cb(void *priv,
 		dsi_display_ctrl_irq_update(display, true);
 	}
 	if (clk & DSI_LINK_CLK) {
+		/*
+		 * Toggle the resync FIFO everytime clock changes, except
+		 * when cont-splash screen transition is going on.
+		 * Toggling resync FIFO during cont splash transition
+		 * can lead to blinks on the display.
+		 */
+		if (!display->is_cont_splash_enabled)
+			dsi_display_toggle_resync_fifo(display);
+
 		if (display->ulps_enabled) {
 			rc = dsi_display_set_ulps(display, false);
 			if (rc) {
