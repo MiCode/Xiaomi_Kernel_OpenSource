@@ -165,6 +165,7 @@
 #include "msm-arm-smmu-8937.dtsi"
 #include "msm8937-smp2p.dtsi"
 #include "msm8937-bus.dtsi"
+#include "msm8937-vidc.dtsi"
 #include "msm8937-pm.dtsi"
 #include "msm8937-gpu.dtsi"
 #include "msm8937-mdss.dtsi"
