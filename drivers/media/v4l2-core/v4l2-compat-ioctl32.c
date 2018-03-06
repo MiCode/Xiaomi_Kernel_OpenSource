@@ -493,7 +493,11 @@ static int get_v4l2_plane32(struct v4l2_plane __user *p64,
 
 	if (copy_in_user(p64, p32, 2 * sizeof(__u32)) ||
 	    copy_in_user(&p64->data_offset, &p32->data_offset,
-			 sizeof(p64->data_offset)))
+			 sizeof(p64->data_offset)) ||
+	    copy_in_user(p64->reserved, p32->reserved,
+			 sizeof(p64->reserved)) ||
+	    copy_in_user(&p64->length, &p32->length,
+			 sizeof(p64->length)))
 		return -EFAULT;
 
 	switch (memory) {
@@ -525,7 +529,9 @@ static int put_v4l2_plane32(struct v4l2_plane __user *p64,
 
 	if (copy_in_user(p32, p64, 2 * sizeof(__u32)) ||
 	    copy_in_user(&p32->data_offset, &p64->data_offset,
-			 sizeof(p64->data_offset)))
+			 sizeof(p64->data_offset)) ||
+	    copy_in_user(p32->reserved, p64->reserved,
+			 sizeof(p64->reserved)))
 		return -EFAULT;
 
 	switch (memory) {
