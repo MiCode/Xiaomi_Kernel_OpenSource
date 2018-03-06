@@ -411,7 +411,6 @@ EXPORT_SYMBOL_GPL(pvclock_gtod_unregister_notifier);
  */
 static inline void tk_update_ktime_data(struct timekeeper *tk)
 {
-	u64 seconds;
 	s64 nsec;
 
 	/*
