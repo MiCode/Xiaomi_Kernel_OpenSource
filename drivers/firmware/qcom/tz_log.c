@@ -23,6 +23,8 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/of.h>
+#include <linux/dma-buf.h>
+#include <linux/ion_kernel.h>
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
@@ -323,6 +325,7 @@ static struct tzdbg tzdbg = {
 };
 
 static struct tzdbg_log_t *g_qsee_log;
+static dma_addr_t coh_pmem;
 static uint32_t debug_rw_buf_size;
 
 /*
@@ -855,94 +858,50 @@ const struct file_operations tzdbg_fops = {
 	.open    = tzdbgfs_open,
 };
 
-static struct ion_client  *g_ion_clnt;
-static struct ion_handle *g_ihandle;
 
 /*
  * Allocates log buffer from ION, registers the buffer at TZ
  */
-static void tzdbg_register_qsee_log_buf(void)
+static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 {
-	/* register log buffer scm request */
-	struct qseecom_reg_log_buf_ireq req;
-
-	/* scm response */
-	struct qseecom_command_scm_resp resp = {};
-	ion_phys_addr_t pa = 0;
 	size_t len;
 	int ret = 0;
+	struct scm_desc desc = {0};
+	void *buf = NULL;
 
-	/* Create ION msm client */
-	g_ion_clnt = msm_ion_client_create("qsee_log");
-	if (g_ion_clnt == NULL) {
-		pr_err("%s: Ion client cannot be created\n", __func__);
+	len = QSEE_LOG_BUF_SIZE;
+	buf = dma_alloc_coherent(&pdev->dev, len, &coh_pmem, GFP_KERNEL);
+	if (buf == NULL) {
+		pr_err("Failed to alloc memory for size %zu\n", len);
 		return;
 	}
 
-	g_ihandle = ion_alloc(g_ion_clnt, QSEE_LOG_BUF_SIZE,
-			4096, ION_HEAP(ION_QSECOM_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL(g_ihandle)) {
-		pr_err("%s: Ion client could not retrieve the handle\n",
-			__func__);
-		goto err1;
-	}
+	g_qsee_log = (struct tzdbg_log_t *)buf;
 
-	ret = ion_phys(g_ion_clnt, g_ihandle, &pa, &len);
-	if (ret) {
-		pr_err("%s: Ion conversion to physical address failed\n",
-			__func__);
-		goto err2;
-	}
-
-	req.qsee_cmd_id = QSEOS_REGISTER_LOG_BUF_COMMAND;
-	req.phy_addr = (uint32_t)pa;
-	req.len = len;
-
-	if (!is_scm_armv8()) {
-		/*  SCM_CALL  to register the log buffer */
-		ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &req, sizeof(req),
-			&resp, sizeof(resp));
-	} else {
-		struct scm_desc desc = {0};
-
-		desc.args[0] = pa;
-		desc.args[1] = len;
-		desc.arginfo = 0x22;
-		ret = scm_call2(SCM_QSEEOS_FNID(1, 6), &desc);
-		resp.result = desc.ret[0];
-	}
+	desc.args[0] = coh_pmem;
+	desc.args[1] = len;
+	desc.arginfo = 0x22;
+	ret = scm_call2(SCM_QSEEOS_FNID(1, 6), &desc);
 
 	if (ret) {
 		pr_err("%s: scm_call to register log buffer failed\n",
 			__func__);
-		goto err2;
+		goto err;
 	}
 
-	if (resp.result != QSEOS_RESULT_SUCCESS) {
+	if (desc.ret[0] != QSEOS_RESULT_SUCCESS) {
 		pr_err(
 		"%s: scm_call to register log buf failed, resp result =%d\n",
-		__func__, resp.result);
-		goto err2;
-	}
-
-	g_qsee_log =
-		(struct tzdbg_log_t *)ion_map_kernel(g_ion_clnt, g_ihandle);
-
-	if (IS_ERR(g_qsee_log)) {
-		pr_err("%s: Couldn't map ion buffer to kernel\n",
-			__func__);
-		goto err2;
+		__func__, desc.ret[0]);
+		goto err;
 	}
 
 	g_qsee_log->log_pos.wrap = g_qsee_log->log_pos.offset = 0;
 	return;
 
-err2:
-	ion_free(g_ion_clnt, g_ihandle);
-	g_ihandle = NULL;
-err1:
-	ion_client_destroy(g_ion_clnt);
-	g_ion_clnt = NULL;
+err:
+	dma_free_coherent(&pdev->dev, len, (void *)g_qsee_log, coh_pmem);
+	return;
 }
 
 static int  tzdbgfs_init(struct platform_device *pdev)
@@ -988,13 +947,9 @@ static void tzdbgfs_exit(struct platform_device *pdev)
 	kzfree(tzdbg.disp_buf);
 	dent_dir = platform_get_drvdata(pdev);
 	debugfs_remove_recursive(dent_dir);
-	if (g_ion_clnt != NULL) {
-		if (!IS_ERR_OR_NULL(g_ihandle)) {
-			ion_unmap_kernel(g_ion_clnt, g_ihandle);
-			ion_free(g_ion_clnt, g_ihandle);
-		}
-		ion_client_destroy(g_ion_clnt);
-	}
+	if (g_qsee_log)
+		dma_free_coherent(&pdev->dev, QSEE_LOG_BUF_SIZE,
+					 (void *)g_qsee_log, coh_pmem);
 }
 
 static int __update_hypdbg_base(struct platform_device *pdev,
@@ -1044,26 +999,19 @@ static void tzdbg_get_tz_version(void)
 {
 	uint32_t smc_id = 0;
 	uint32_t feature = 10;
-	struct qseecom_command_scm_resp resp = {0};
 	struct scm_desc desc = {0};
 	int ret = 0;
 
-	if (!is_scm_armv8()) {
-		ret = scm_call(SCM_SVC_INFO, SCM_SVC_UTIL,  &feature,
-					sizeof(feature), &resp, sizeof(resp));
-	} else {
-		smc_id = TZ_INFO_GET_FEATURE_VERSION_ID;
-		desc.arginfo = TZ_INFO_GET_FEATURE_VERSION_ID_PARAM_ID;
-		desc.args[0] = feature;
-		ret = scm_call2(smc_id, &desc);
-		resp.result = desc.ret[0];
-	}
+	smc_id = TZ_INFO_GET_FEATURE_VERSION_ID;
+	desc.arginfo = TZ_INFO_GET_FEATURE_VERSION_ID_PARAM_ID;
+	desc.args[0] = feature;
+	ret = scm_call2(smc_id, &desc);
 
 	if (ret)
 		pr_err("%s: scm_call to get tz version failed\n",
 				__func__);
 	else
-		tzdbg.tz_version = resp.result;
+		tzdbg.tz_version = desc.ret[0];
 
 }
 
@@ -1151,7 +1099,7 @@ static int tz_log_probe(struct platform_device *pdev)
 	if (tzdbgfs_init(pdev))
 		goto err;
 
-	tzdbg_register_qsee_log_buf();
+	tzdbg_register_qsee_log_buf(pdev);
 
 	tzdbg_get_tz_version();
 
