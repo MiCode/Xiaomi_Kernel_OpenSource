@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,6 +86,7 @@ struct hbtp_data {
 	u32 power_on_delay;
 	u32 power_off_delay;
 	bool manage_pin_ctrl;
+	bool init_completion_done_once;
 	struct kobject *sysfs_kobject;
 	s16 ROI[MAX_ROI_SIZE];
 	s16 accelBuffer[MAX_ACCEL_SIZE];
@@ -783,8 +784,14 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 			mutex_lock(&hbtp->mutex);
-			init_completion(&hbtp->power_resume_sig);
-			init_completion(&hbtp->power_suspend_sig);
+			if (hbtp->init_completion_done_once) {
+				reinit_completion(&hbtp->power_resume_sig);
+				reinit_completion(&hbtp->power_suspend_sig);
+			} else {
+				init_completion(&hbtp->power_resume_sig);
+				init_completion(&hbtp->power_suspend_sig);
+				hbtp->init_completion_done_once = true;
+			}
 			hbtp->power_sig_enabled = true;
 			mutex_unlock(&hbtp->mutex);
 			pr_err("%s: sync_signal option is enabled\n", __func__);
@@ -1455,6 +1462,7 @@ static int __init hbtp_init(void)
 	mutex_init(&hbtp->mutex);
 	mutex_init(&hbtp->sensormutex);
 	hbtp->display_status = 1;
+	hbtp->init_completion_done_once = false;
 
 	error = misc_register(&hbtp_input_misc);
 	if (error) {
