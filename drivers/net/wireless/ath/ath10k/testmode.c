@@ -181,8 +181,15 @@ static int ath10k_tm_fetch_utf_firmware_api_1(struct ath10k *ar,
 static int ath10k_tm_fetch_firmware(struct ath10k *ar)
 {
 	struct ath10k_fw_components *utf_mode_fw;
+	struct ath10k_fw_file *fw_file;
 	int ret;
 
+	if (!ar->is_bmi) {
+		fw_file = &ar->testmode.utf_mode_fw.fw_file;
+		fw_file->wmi_op_version = ATH10K_FW_WMI_OP_VERSION_TLV;
+		fw_file->htt_op_version = ATH10K_FW_HTT_OP_VERSION_TLV;
+		return 0;
+	}
 	ret = ath10k_core_fetch_firmware_api_n(ar, ATH10K_FW_UTF_API2_FILE,
 					       &ar->testmode.utf_mode_fw.fw_file);
 	if (ret == 0) {
