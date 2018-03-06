@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -213,6 +213,7 @@ static void dsi_catalog_phy_3_0_init(struct dsi_phy_hw *phy)
 		dsi_phy_hw_v3_0_is_lanes_in_ulps;
 	phy->ops.phy_timing_val = dsi_phy_hw_timing_val_v3_0;
 	phy->ops.phy_lane_reset = dsi_phy_hw_v3_0_lane_reset;
+	phy->ops.toggle_resync_fifo = dsi_phy_hw_v3_0_toggle_resync_fifo;
 }
 
 /**
