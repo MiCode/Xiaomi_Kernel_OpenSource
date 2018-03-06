@@ -19,6 +19,7 @@
 
 &usb_otg {
 	vbus_otg-supply = <&smb5_vbus>;
+	extcon = <&pmi632_charger>;
 };
 
 &pmi632_pon {
