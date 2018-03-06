@@ -550,7 +550,7 @@ static int camera_v4l2_fh_open(struct file *filep)
 {
 	struct msm_video_device *pvdev = video_drvdata(filep);
 	struct camera_v4l2_private *sp;
-	unsigned int stream_id;
+	unsigned long stream_id;
 
 	sp = kzalloc(sizeof(*sp), GFP_KERNEL);
 	if (!sp)
@@ -627,7 +627,7 @@ static int camera_v4l2_open(struct file *filep)
 	int rc = 0;
 	struct v4l2_event event;
 	struct msm_video_device *pvdev = video_drvdata(filep);
-	unsigned int opn_idx, idx;
+	unsigned long opn_idx, idx;
 
 	if (WARN_ON(!pvdev))
 		return -EIO;
