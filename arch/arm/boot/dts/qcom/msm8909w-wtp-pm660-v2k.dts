@@ -23,7 +23,7 @@
 #include "spi-panel-st7789v2-qvga-cmd.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 V1 WTP";
+	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 WTP V2K";
 	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
 	qcom,msm-id =   <245 0>,
 			<258 0>,
