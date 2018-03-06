@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2011 Texas Instruments, Inc.
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * Ohad Ben-Cohen <ohad@wizery.com>
  * Brian Swetland <swetland@google.com>
@@ -290,6 +291,42 @@ int rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src, u32 dst,
 }
 EXPORT_SYMBOL(rpmsg_trysend_offchannel);
 
+/**
+ * rpmsg_get_sigs() - get the signals for this endpoint
+ * @ept:	the rpmsg endpoint
+ * @sigs:	serial signals bitmask
+ *
+ * Returns 0 on success and an appropriate error value on failure.
+ */
+int rpmsg_get_sigs(struct rpmsg_endpoint *ept, u32 *lsigs, u32 *rsigs)
+{
+	if (WARN_ON(!ept))
+		return -EINVAL;
+	if (!ept->ops->get_sigs)
+		return -ENXIO;
+
+	return ept->ops->get_sigs(ept, lsigs, rsigs);
+}
+EXPORT_SYMBOL(rpmsg_get_sigs);
+
+/**
+ * rpmsg_set_sigs() - set the remote signals for this endpoint
+ * @ept:	the rpmsg endpoint
+ * @sigs:	serial signals bitmask
+ *
+ * Returns 0 on success and an appropriate error value on failure.
+ */
+int rpmsg_set_sigs(struct rpmsg_endpoint *ept, u32 sigs)
+{
+	if (WARN_ON(!ept))
+		return -EINVAL;
+	if (!ept->ops->set_sigs)
+		return -ENXIO;
+
+	return ept->ops->set_sigs(ept, sigs);
+}
+EXPORT_SYMBOL(rpmsg_set_sigs);
+
 /*
  * match an rpmsg channel with a channel info struct.
  * this is used to make sure we're not creating rpmsg devices for channels
@@ -432,6 +469,10 @@ static int rpmsg_dev_probe(struct device *dev)
 
 		rpdev->ept = ept;
 		rpdev->src = ept->addr;
+
+		if (rpdrv->signals)
+			ept->sig_cb = rpdrv->signals;
+
 	}
 
 	err = rpdrv->probe(rpdev);

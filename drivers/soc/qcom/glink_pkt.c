@@ -25,6 +25,7 @@
 #include <linux/of.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#include <linux/termios.h>
 
 /* Define IPC Logging Macros */
 #define GLINK_PKT_IPC_LOG_PAGE_CNT 2
@@ -52,6 +53,38 @@ do {									      \
 	ipc_log_string(glink_pkt_ilctxt, "[%s]: "x, __func__, ##__VA_ARGS__); \
 } while (0)
 
+#define SMD_DTR_SIG BIT(31)
+#define SMD_CTS_SIG BIT(30)
+#define SMD_CD_SIG BIT(29)
+#define SMD_RI_SIG BIT(28)
+
+#define to_smd_signal(sigs) \
+do { \
+	sigs &= 0x0fff; \
+	if (sigs & TIOCM_DTR) \
+		sigs |= SMD_DTR_SIG; \
+	if (sigs & TIOCM_RTS) \
+		sigs |= SMD_CTS_SIG; \
+	if (sigs & TIOCM_CD) \
+		sigs |= SMD_CD_SIG; \
+	if (sigs & TIOCM_RI) \
+		sigs |= SMD_RI_SIG; \
+} while (0)
+
+#define from_smd_signal(sigs) \
+do { \
+	if (sigs & SMD_DTR_SIG) \
+		sigs |= TIOCM_DSR; \
+	if (sigs & SMD_CTS_SIG) \
+		sigs |= TIOCM_CTS; \
+	if (sigs & SMD_CD_SIG) \
+		sigs |= TIOCM_CD; \
+	if (sigs & SMD_RI_SIG) \
+		sigs |= TIOCM_RI; \
+	sigs &= 0x0fff; \
+} while (0)
+
+
 #define MODULE_NAME "glink_pkt"
 static dev_t glink_pkt_major;
 static struct class *glink_pkt_class;
@@ -71,6 +104,7 @@ static DEFINE_IDA(glink_pkt_minor_ida);
  * @queue_lock:	synchronization of @queue operations
  * @queue:	incoming message queue
  * @readq:	wait object for incoming queue
+ * @sig_change:	flag to indicate serial signal change
  * @dev_name:	/dev/@dev_name for glink_pkt device
  * @ch_name:	glink channel to match to
  * @edge:	glink edge to match to
@@ -89,6 +123,7 @@ struct glink_pkt_device {
 	spinlock_t queue_lock;
 	struct sk_buff_head queue;
 	wait_queue_head_t readq;
+	int sig_change;
 
 	const char *dev_name;
 	const char *ch_name;
@@ -156,6 +191,7 @@ static int glink_pkt_rpdev_cb(struct rpmsg_device *rpdev, void *buf, int len,
 			      void *priv, u32 addr)
 {
 	struct glink_pkt_device *gpdev = priv;
+	unsigned long flags;
 	struct sk_buff *skb;
 
 	skb = alloc_skb(len, GFP_ATOMIC);
@@ -164,9 +200,26 @@ static int glink_pkt_rpdev_cb(struct rpmsg_device *rpdev, void *buf, int len,
 
 	skb_put_data(skb, buf, len);
 
-	spin_lock(&gpdev->queue_lock);
+	spin_lock_irqsave(&gpdev->queue_lock, flags);
 	skb_queue_tail(&gpdev->queue, skb);
-	spin_unlock(&gpdev->queue_lock);
+	spin_unlock_irqrestore(&gpdev->queue_lock, flags);
+
+	/* wake up any blocking processes, waiting for new data */
+	wake_up_interruptible(&gpdev->readq);
+
+	return 0;
+}
+
+static int glink_pkt_rpdev_sigs(struct rpmsg_device *rpdev, u32 old, u32 new)
+{
+	struct device_driver *drv = rpdev->dev.driver;
+	struct rpmsg_driver *rpdrv = drv_to_rpdrv(drv);
+	struct glink_pkt_device *gpdev = rpdrv_to_gpdev(rpdrv);
+	unsigned long flags;
+
+	spin_lock_irqsave(&gpdev->queue_lock, flags);
+	gpdev->sig_change = true;
+	spin_unlock_irqrestore(&gpdev->queue_lock, flags);
 
 	/* wake up any blocking processes, waiting for new data */
 	wake_up_interruptible(&gpdev->readq);
@@ -243,13 +296,14 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 	struct glink_pkt_device *gpdev = cdev_to_gpdev(inode->i_cdev);
 	struct device *dev = &gpdev->dev;
 	struct sk_buff *skb;
+	unsigned long flags;
 
 	GLINK_PKT_INFO("for %s by %s:%ld ref_cnt[%d]\n",
 		       gpdev->ch_name, current->comm,
 		       task_pid_nr(current), refcount_read(&gpdev->refcount));
 
 	if (refcount_dec_and_test(&gpdev->refcount)) {
-		spin_lock(&gpdev->queue_lock);
+		spin_lock_irqsave(&gpdev->queue_lock, flags);
 
 		/* Discard all SKBs */
 		while (!skb_queue_empty(&gpdev->queue)) {
@@ -257,7 +311,8 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 			kfree_skb(skb);
 		}
 		wake_up_interruptible(&gpdev->readq);
-		spin_unlock(&gpdev->queue_lock);
+		gpdev->sig_change = false;
+		spin_unlock_irqrestore(&gpdev->queue_lock, flags);
 	}
 
 	put_device(dev);
@@ -404,6 +459,7 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 {
 	struct glink_pkt_device *gpdev = file->private_data;
 	unsigned int mask = 0;
+	unsigned long flags;
 
 	gpdev = file->private_data;
 	if (!gpdev || !refcount_read(&gpdev->refcount)) {
@@ -425,10 +481,13 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 		return POLLHUP;
 	}
 
-	spin_lock(&gpdev->queue_lock);
+	spin_lock_irqsave(&gpdev->queue_lock, flags);
 	if (!skb_queue_empty(&gpdev->queue))
 		mask |= POLLIN | POLLRDNORM;
-	spin_unlock(&gpdev->queue_lock);
+
+	if (gpdev->sig_change)
+		mask |= POLLPRI;
+	spin_unlock_irqrestore(&gpdev->queue_lock, flags);
 
 	mask |= rpmsg_poll(gpdev->rpdev->ept, file, wait);
 
@@ -437,6 +496,47 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 	return mask;
 }
 
+/**
+ * glink_pkt_tiocmset() - set the signals for glink_pkt device
+ * devp:	Pointer to the glink_pkt device structure.
+ * cmd:		IOCTL command.
+ * arg:		Arguments to the ioctl call.
+ *
+ * This function is used to set the signals on the glink pkt device
+ * when userspace client do a ioctl() system call with TIOCMBIS,
+ * TIOCMBIC and TICOMSET.
+ */
+static int glink_pkt_tiocmset(struct glink_pkt_device *gpdev, unsigned int cmd,
+			      unsigned long arg)
+{
+	u32 lsigs, rsigs, val;
+	int ret;
+
+	ret = get_user(val, (u32 *)arg);
+	if (ret)
+		return ret;
+
+	to_smd_signal(val);
+	ret = rpmsg_get_sigs(gpdev->rpdev->ept, &lsigs, &rsigs);
+	if (ret < 0) {
+		GLINK_PKT_ERR("%s: Get signals failed[%d]\n", __func__, ret);
+		return ret;
+	}
+	switch (cmd) {
+	case TIOCMBIS:
+		lsigs |= val;
+		break;
+	case TIOCMBIC:
+		lsigs &= ~val;
+		break;
+	case TIOCMSET:
+		lsigs = val;
+		break;
+	}
+	ret = rpmsg_set_sigs(gpdev->rpdev->ept, lsigs);
+	GLINK_PKT_INFO("sigs[0x%x] ret[%d]\n", lsigs, ret);
+	return ret;
+}
 
 /**
  * glink_pkt_ioctl() - ioctl() syscall for the glink_pkt device
@@ -452,6 +552,8 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 			    unsigned long arg)
 {
 	struct glink_pkt_device *gpdev;
+	unsigned long flags;
+	u32 lsigs, rsigs;
 	int ret;
 
 	gpdev = file->private_data;
@@ -469,9 +571,23 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 	}
 
 	switch (cmd) {
+	case TIOCMGET:
+		spin_lock_irqsave(&gpdev->queue_lock, flags);
+		gpdev->sig_change = false;
+		spin_unlock_irqrestore(&gpdev->queue_lock, flags);
+
+		ret = rpmsg_get_sigs(gpdev->rpdev->ept, &lsigs, &rsigs);
+		from_smd_signal(rsigs);
+		if (!ret)
+			ret = put_user(rsigs, (uint32_t *)arg);
+		break;
+	case TIOCMSET:
+	case TIOCMBIS:
+	case TIOCMBIC:
+		ret = glink_pkt_tiocmset(gpdev, cmd, arg);
+		break;
 	/*
-	 * Need to add support later for GLINK Signals and check with any client
-	 * if they have any intent requirements.
+	 * Need to add support later any intent requirements.
 	 */
 	default:
 		GLINK_PKT_ERR("unrecognized ioctl command 0x%x\n", cmd);
@@ -578,6 +694,7 @@ static int glink_pkt_init_rpmsg(struct glink_pkt_device *gpdev)
 	rpdrv->probe = glink_pkt_rpdev_probe;
 	rpdrv->remove = glink_pkt_rpdev_remove;
 	rpdrv->callback = glink_pkt_rpdev_cb;
+	rpdrv->signals = glink_pkt_rpdev_sigs;
 	rpdrv->id_table = match;
 	rpdrv->drv.name = drv_name;
 
@@ -616,6 +733,7 @@ static int glink_pkt_create_device(struct device *parent,
 
 	/* Default open timeout for open is 120 sec */
 	gpdev->open_tout = 120;
+	gpdev->sig_change = false;
 
 	spin_lock_init(&gpdev->queue_lock);
 	skb_queue_head_init(&gpdev->queue);
