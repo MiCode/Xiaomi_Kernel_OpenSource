@@ -1010,6 +1010,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	*clnt_hdl = ipa_ep_idx;
 
 	if (ep->sys->repl_hdlr == ipa3_fast_replenish_rx_cache) {
+		atomic_set(&ep->sys->repl.pending, 0);
 		ep->sys->repl.capacity = ep->sys->rx_pool_sz + 1;
 		ep->sys->repl.cache = kcalloc(ep->sys->repl.capacity,
 				sizeof(void *), GFP_KERNEL);
@@ -1489,6 +1490,7 @@ static void ipa3_wq_repl_rx(struct work_struct *work)
 	u32 curr;
 
 	sys = container_of(work, struct ipa3_sys_context, repl_work);
+	atomic_set(&sys->repl.pending, 0);
 	curr = atomic_read(&sys->repl.tail_idx);
 
 begin:
@@ -1902,6 +1904,23 @@ fail_kmem_cache_alloc:
 		msecs_to_jiffies(1));
 }
 
+static inline void __trigger_repl_work(struct ipa3_sys_context *sys)
+{
+	int tail, head, avail;
+
+	if (atomic_read(&sys->repl.pending))
+		return;
+
+	tail = atomic_read(&sys->repl.tail_idx);
+	head = atomic_read(&sys->repl.head_idx);
+	avail = (tail - head) % sys->repl.capacity;
+
+	if (avail < sys->repl.capacity / 4) {
+		atomic_set(&sys->repl.pending, 1);
+		queue_work(sys->repl_wq, &sys->repl_work);
+	}
+}
+
 static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 {
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
@@ -1957,7 +1976,7 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 	}
 	spin_unlock_bh(&sys->spinlock);
 
-	queue_work(sys->repl_wq, &sys->repl_work);
+	__trigger_repl_work(sys);
 
 	if (rx_len_cached - sys->len_pending_xfer
 		<= IPA_DEFAULT_SYS_YELLOW_WM) {
