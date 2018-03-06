@@ -2228,6 +2228,7 @@ int ipa3_init_hw(void)
 {
 	u32 ipa_version = 0;
 	u32 val;
+	struct ipahal_reg_counter_cfg cnt_cfg;
 
 	/* Read IPA version and make sure we have access to the registers */
 	ipa_version = ipahal_read_reg(IPA_VERSION);
@@ -2272,6 +2273,10 @@ int ipa3_init_hw(void)
 	}
 
 	ipa3_cfg_qsb();
+
+	/* set granularity for 0.5 msec*/
+	cnt_cfg.aggr_granularity = GRAN_VALUE_500_USEC;
+	ipahal_write_reg_fields(IPA_COUNTER_CFG, &cnt_cfg);
 
 	return 0;
 }

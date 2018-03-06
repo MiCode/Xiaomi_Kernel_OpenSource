@@ -62,7 +62,8 @@
 #define IPA_SIZE_DL_CSUM_META_TRAILER 8
 
 #define IPA_GSI_MAX_CH_LOW_WEIGHT 15
-#define IPA_GSI_EVT_RING_INT_MODT (32 * 1) /* 1ms under 32KHz clock */
+#define IPA_GSI_EVT_RING_INT_MODT (16) /* 0.5ms under 32KHz clock */
+#define IPA_GSI_EVT_RING_INT_MODC (20)
 
 #define IPA_GSI_CH_20_WA_NUM_CH_TO_ALLOC 10
 /* The below virtual channel cannot be used by any entity */
@@ -1758,6 +1759,7 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 		gsi_xfer_elem_one.len = sys->rx_buff_sz;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
 		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -1860,6 +1862,7 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 		gsi_xfer_elem_one.len = sys->rx_buff_sz;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
 		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -1925,6 +1928,7 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 		gsi_xfer_elem_one.len = sys->rx_buff_sz;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
 		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -3567,8 +3571,13 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		ep->gsi_mem_info.evt_ring_base_vaddr =
 			gsi_evt_ring_props.ring_base_vaddr;
 
-		gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
-		gsi_evt_ring_props.int_modc = 1;
+		if (ep->napi_enabled) {
+			gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
+			gsi_evt_ring_props.int_modc = IPA_GSI_EVT_RING_INT_MODC;
+		} else {
+			gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
+			gsi_evt_ring_props.int_modc = 1;
+		}
 
 		IPADBG("client=%d moderation threshold cycles=%u cnt=%u\n",
 			ep->client,

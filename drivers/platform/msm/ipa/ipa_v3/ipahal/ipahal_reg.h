@@ -39,6 +39,7 @@ enum ipahal_reg_name {
 	IPA_SPARE_REG_2,
 	IPA_COMP_CFG,
 	IPA_STATE_AGGR_ACTIVE,
+	IPA_COUNTER_CFG,
 	IPA_ENDP_INIT_HDR_n,
 	IPA_ENDP_INIT_HDR_EXT_n,
 	IPA_ENDP_INIT_AGGR_n,
@@ -348,6 +349,21 @@ struct ipahal_reg_rx_hps_weights {
 	u32 hps_queue_weight_2;
 	u32 hps_queue_weight_3;
 };
+
+/*
+ * struct ipahal_reg_counter_cfg - granularity of counter registers
+ * @aggr_granularity  -Defines the granularity of AGGR timers
+ *	granularity [msec]=(x+1)/(32)
+ */
+struct ipahal_reg_counter_cfg {
+	enum {
+		GRAN_VALUE_125_USEC = 3,
+		GRAN_VALUE_250_USEC = 7,
+		GRAN_VALUE_500_USEC = 15,
+		GRAN_VALUE_MSEC = 31,
+	} aggr_granularity;
+};
+
 
 /*
  * struct ipahal_reg_valmask - holding values and masking for registers

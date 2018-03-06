@@ -2602,6 +2602,8 @@ int gsi_poll_channel(unsigned long chan_hdl,
 	spin_lock_irqsave(&ctx->evtr->ring.slock, flags);
 	if (ctx->evtr->ring.rp == ctx->evtr->ring.rp_local) {
 		/* update rp to see of we have anything new to process */
+		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
+			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
 		rp = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_EV_CH_k_CNTXT_4_OFFS(ctx->evtr->id, ee));
 		rp |= ctx->ring.rp & 0xFFFFFFFF00000000;
