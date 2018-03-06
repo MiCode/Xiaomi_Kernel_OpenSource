@@ -142,6 +142,30 @@ config ARCH_MSM8937
 	select HAVE_CLK_PREPARE
 	select COMMON_CLK_QCOM
 
+config ARCH_SDM439
+	bool "Enable support for SDM439"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_QCOM
+
+config ARCH_SDM429
+	bool "Enable support for SDM429"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_QCOM
+
 config ARCH_SCUBA
 	bool "Enable Support for Qualcomm Technologies, Inc. SCUBA"
 	select COMMON_CLK_QCOM
