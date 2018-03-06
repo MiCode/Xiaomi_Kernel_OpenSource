@@ -2543,7 +2543,8 @@ static int cam_ife_csid_stop(void *hw_priv,
 	/*wait for the path to halt */
 	for (i = 0; i < csid_stop->num_res; i++) {
 		res = csid_stop->node_res[i];
-		if (csid_stop->stop_cmd == CAM_CSID_HALT_AT_FRAME_BOUNDARY)
+		if (res->res_type == CAM_ISP_RESOURCE_PIX_PATH &&
+			csid_stop->stop_cmd == CAM_CSID_HALT_AT_FRAME_BOUNDARY)
 			rc = cam_ife_csid_res_wait_for_halt(csid_hw, res);
 		else
 			res->res_state = CAM_ISP_RESOURCE_STATE_INIT_HW;
