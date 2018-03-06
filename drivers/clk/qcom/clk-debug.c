@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -275,7 +275,7 @@ int clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 	if (clk_set_parent(measure->clk, hw->clk))
 		return 0;
 
-	debugfs_create_file("clk_measure", 0x444, dentry, hw,
+	debugfs_create_file("clk_measure", 0444, dentry, hw,
 					&clk_measure_fops);
 	return 0;
 }
