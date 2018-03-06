@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/export.h>
@@ -270,7 +270,7 @@ void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 		return;
 	}
 
-	debugfs_create_file("clk_measure", 0x444, dentry, hw,
+	debugfs_create_file("clk_measure", 0444, dentry, hw,
 					&clk_measure_fops);
 }
 EXPORT_SYMBOL(clk_debug_measure_add);
