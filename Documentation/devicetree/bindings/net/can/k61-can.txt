@@ -3,7 +3,7 @@
 This driver implements SPI slave protocol for Freescale K61 CAN controller.
 
 Required properties:
-  - compatible: Should be "fsl,k61" or "nxp,mpc5746c".
+  - compatible: Should be "fsl,k61".
   - reg: Should contain SPI chip select.
   - interrupt-parent: Should specify interrupt controller for the interrupt.
   - interrupts: Should contain IRQ line for the CAN controller.

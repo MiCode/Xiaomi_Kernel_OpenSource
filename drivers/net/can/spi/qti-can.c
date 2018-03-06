@@ -1233,7 +1233,6 @@ cleanup_privdata:
 }
 
 static const struct of_device_id qti_can_match_table[] = {
-	{ .compatible = "qcom,renesas,rh850" },
 	{ .compatible = "qcom,nxp,mpc5746c" },
 	{ }
 };
