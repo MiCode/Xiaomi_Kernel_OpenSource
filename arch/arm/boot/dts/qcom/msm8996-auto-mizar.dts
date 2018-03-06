@@ -42,6 +42,7 @@
 
 	qcom,ntn_avb {
 		qcom,ntn-rc-num = <2>;
+		pinctrl-0 = <&ntn_clk_sync &ntn2_clk_sync>;
 	};
 
 	i2c@75b6000 { /* BLSP8 */
@@ -55,6 +56,10 @@
 		};
 	};
 
+	clock_audio: audio_ext_clk {
+		/delete-property/pinctrl-0;
+		/delete-property/pinctrl-1;
+	};
 };
 
 &cci {
@@ -105,6 +110,20 @@
 			drive-strength = <2>;
 			bias-pull-up;
 			output-high;
+		};
+	};
+
+	ntn2_clk_sync: ntn2_clk_sync {
+		mux {
+			pins = "gpio98";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio98";
+			drive-strength = <8>; /* 8 mA */
+			output-low;
+			bias-pull-down;         /* PULL down */
 		};
 	};
 };
