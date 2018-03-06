@@ -4496,21 +4496,8 @@ u32 ipa3_get_num_pipes(void)
 int ipa3_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 {
 	int res = -1;
-	u32 limit;
 
-	/* checking if IPA-HW can support */
-	limit = ipahal_aggr_get_max_byte_limit();
-	if ((agg_size >> 10) > limit) {
-		IPAERR("IPA-AGG byte limit %d\n", limit);
-		IPAERR("exceed aggr_byte_limit\n");
-		return res;
-	}
-	limit = ipahal_aggr_get_max_pkt_limit();
-	if (agg_count > limit) {
-		IPAERR("IPA-AGG pkt limit %d\n", limit);
-		IPAERR("exceed aggr_pkt_limit\n");
-		return res;
-	}
+	/* ipahal will adjust limits based on HW capabilities */
 
 	if (ipa3_ctx) {
 		ipa3_ctx->ipa_client_apps_wan_cons_agg_gro = true;
