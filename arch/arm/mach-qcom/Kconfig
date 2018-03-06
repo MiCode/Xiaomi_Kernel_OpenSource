@@ -114,6 +114,30 @@ config ARCH_MSM8917
 	select HAVE_CLK_PREPARE
 	select COMMON_CLK_MSM
 
+config ARCH_SDM439
+	bool "Enable support for SDM439"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_MSM
+
+config ARCH_SDM429
+	bool "Enable support for SDM429"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select PM_DEVFREQ
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_MSM
+
 config ARCH_SDM450
 	bool "Enable support for SDM450"
 	select CPU_V7
