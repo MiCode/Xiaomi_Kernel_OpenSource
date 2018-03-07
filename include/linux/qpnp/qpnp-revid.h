@@ -162,6 +162,9 @@
 
 #define PM8950_V2P0_REV4	0x02
 
+/* PM8953 */
+#define PM8953_SUBTYPE		0x16
+
 /* PMI8950 */
 #define PMI8950_SUBTYPE		0x11
 
