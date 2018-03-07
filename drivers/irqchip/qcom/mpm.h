@@ -22,5 +22,6 @@ struct mpm_pin {
 };
 
 extern const struct mpm_pin mpm_msm8953_gic_chip_data[];
+extern const struct mpm_pin mpm_msm8953_gpio_chip_data[];
 
 #endif /* __QCOM_MPM_H__ */
