@@ -247,6 +247,20 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 		return rc;
 	}
 
+	/*
+	 * If there is pending data from suspend, append the new FIFO
+	 * data to it.
+	 */
+	if (chip->suspend_data) {
+		j = chip->kdata.fifo_length; /* append the data */
+		chip->suspend_data = false;
+		qg_dbg(chip, QG_DEBUG_FIFO,
+			"Pending suspend-data FIFO length=%d\n", j);
+	} else {
+		/* clear any old pending data */
+		chip->kdata.fifo_length = 0;
+	}
+
 	for (i = 0; i < fifo_length * 2; i = i + 2, j++) {
 		rc = qg_read(chip, chip->qg_base + QG_V_FIFO0_DATA0_REG + i,
 					&v_fifo[i], 2);
@@ -280,7 +294,7 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 					chip->kdata.fifo[j].count);
 	}
 
-	chip->kdata.fifo_length = fifo_length;
+	chip->kdata.fifo_length += fifo_length;
 	chip->kdata.seq_no = chip->seq_no++ % U32_MAX;
 
 	return rc;
@@ -2046,6 +2060,8 @@ static int process_suspend(struct qpnp_qg *chip)
 	int rc;
 	u32 fifo_rt_length = 0, sleep_fifo_length = 0;
 
+	chip->suspend_data = false;
+
 	/* ignore any suspend processing if we are charging */
 	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
 		qg_dbg(chip, QG_DEBUG_PM, "Charging @ suspend - ignore processing\n");
@@ -2104,9 +2120,9 @@ static int process_suspend(struct qpnp_qg *chip)
 
 static int process_resume(struct qpnp_qg *chip)
 {
-	int rc, batt_temp = 0;
 	u8 status2 = 0, rt_status = 0;
-	u32 ocv_uv = 0, soc = 0;
+	u32 ocv_uv = 0;
+	int rc, batt_temp = 0;
 
 	rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status2, 1);
 	if (rc < 0) {
@@ -2128,23 +2144,12 @@ static int process_resume(struct qpnp_qg *chip)
 
 		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
 		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
+		 /* Clear suspend data as there has been a GOOD OCV */
 		chip->suspend_data = false;
-		rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, false);
-		if (rc < 0) {
-			pr_err("Failed to lookup OCV, rc=%d\n", rc);
-			return rc;
-		}
-		chip->catch_up_soc = soc;
-		/* update the SOC immediately */
-		qg_scale_soc(chip, true);
-
-		qg_dbg(chip, QG_DEBUG_PM, "GOOD OCV @ resume good_ocv=%d uV soc=%d\n",
-				ocv_uv, soc);
+		qg_dbg(chip, QG_DEBUG_PM, "GOOD OCV @ resume good_ocv=%d uV\n",
+				ocv_uv);
 	}
-	/*
-	 * If the wakeup was not because of FIFO_DONE
-	 * send the pending data collected during suspend.
-	 */
+
 	rc = qg_read(chip, chip->qg_base + QG_INT_LATCHED_STS_REG,
 						&rt_status, 1);
 	if (rc < 0) {
@@ -2153,17 +2158,22 @@ static int process_resume(struct qpnp_qg *chip)
 	}
 	rt_status &= FIFO_UPDATE_DONE_INT_LAT_STS_BIT;
 
-	if (!rt_status && chip->suspend_data) {
+	qg_dbg(chip, QG_DEBUG_PM, "FIFO_DONE_STS=%d suspend_data=%d good_ocv=%d\n",
+				!!rt_status, chip->suspend_data,
+				chip->kdata.param[QG_GOOD_OCV_UV].valid);
+	/*
+	 * If this is not a wakeup from FIFO-done,
+	 * process the data immediately if - we have data from
+	 * suspend or there is a good OCV.
+	 */
+	if (!rt_status && (chip->suspend_data ||
+			chip->kdata.param[QG_GOOD_OCV_UV].valid)) {
 		vote(chip->awake_votable, SUSPEND_DATA_VOTER, true, 0);
 		/* signal the read thread */
 		chip->data_ready = true;
 		wake_up_interruptible(&chip->qg_wait_q);
+		chip->suspend_data = false;
 	}
-
-	qg_dbg(chip, QG_DEBUG_PM, "fifo_done rt_status=%d suspend_data=%d data_ready=%d\n",
-			!!rt_status, chip->suspend_data, chip->data_ready);
-
-	chip->suspend_data = false;
 
 	return rc;
 }
