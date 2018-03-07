@@ -3808,6 +3808,7 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	udc->gadget.max_speed    = USB_SPEED_HIGH;
 	udc->gadget.is_otg       = 0;
 	udc->gadget.name         = driver->name;
+	udc->gadget.is_chipidea  = true;
 
 	/* alloc resources */
 	udc->qh_pool = dma_pool_create("ci13xxx_qh", dev,
