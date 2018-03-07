@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,9 @@
 #include "msm_prop.h"
 #include "sde_kms.h"
 #include "sde_fence.h"
+
+#define SDE_MODE_HPD_ON        0
+#define SDE_MODE_HPD_OFF       1
 
 #define SDE_CONNECTOR_NAME_SIZE	16
 
@@ -207,6 +210,7 @@ struct sde_connector {
 	struct sde_fence retire_fence;
 	struct sde_connector_ops ops;
 	int dpms_mode;
+	u64 hpd_mode;
 	int lp_mode;
 	int last_panel_power_mode;
 
