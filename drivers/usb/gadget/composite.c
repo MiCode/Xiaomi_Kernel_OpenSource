@@ -1773,7 +1773,8 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				value = min(w_length, (u16) value);
 			break;
 		case USB_DT_BOS:
-			if (gadget_is_superspeed(gadget) ||
+			if ((gadget_is_superspeed(gadget) &&
+				(gadget->speed >= USB_SPEED_SUPER)) ||
 				!disable_l1_for_hs) {
 				value = bos_desc(cdev);
 				value = min(w_length, (u16) value);
