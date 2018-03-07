@@ -489,6 +489,12 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 		writel_relaxed(DEBUG_CTRL1_OVERRIDE_VAL,
 				qphy->base + qphy->phy_reg[DEBUG_CTRL1]);
 	}
+
+	if (qphy->refgen_north_bg_reg)
+		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
+			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
+				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+
 	/* Ensure above write is completed before turning ON ref clk */
 	wmb();
 
