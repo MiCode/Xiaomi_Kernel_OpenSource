@@ -43,6 +43,10 @@ struct cam_cpas_vdd_ahb_mapping {
  * @axi_port_list_node : Node representing AXI Ports list
  * @num_vdd_ahb_mapping : Number of vdd to ahb level mapping supported
  * @vdd_ahb : AHB level mapping info for the supported vdd levels
+ * @control_camnoc_axi_clk : Whether CPAS driver need to set camnoc axi clk freq
+ * @camnoc_bus_width : CAMNOC Bus width
+ * @camnoc_axi_clk_bw_margin : BW Margin in percentage to add while calculating
+ *      camnoc axi clock
  *
  */
 struct cam_cpas_private_soc {
@@ -56,6 +60,9 @@ struct cam_cpas_private_soc {
 	struct device_node *axi_port_list_node;
 	uint32_t num_vdd_ahb_mapping;
 	struct cam_cpas_vdd_ahb_mapping vdd_ahb[CAM_REGULATOR_LEVEL_MAX];
+	bool control_camnoc_axi_clk;
+	uint32_t camnoc_bus_width;
+	uint32_t camnoc_axi_clk_bw_margin;
 };
 
 int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
