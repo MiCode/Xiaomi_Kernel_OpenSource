@@ -144,6 +144,20 @@ Note: The instantaneous bandwidth (IB) value in the vectors-KBps field should
 - qcom,bus-vector-names: specifies string IDs for the corresponding
 bus vectors in the same order as qcom,msm-bus,vectors-KBps property.
 
+* The following parameters are optional, but required in order for PM QoS to be
+enabled and functional in the driver:
+- qcom,pm-qos-cpu-groups:		arrays of unsigned integers representing the cpu groups.
+					The number of values in the array defines the number of cpu-groups.
+					Each value is a bit-mask defining the cpus that take part in that cpu group.
+					i.e. if bit N is set, then cpuN is a part of the cpu group. So basically,
+					a cpu group corelated to a cpu cluster.
+					A PM QoS request object is maintained for each cpu-group.
+- qcom,pm-qos-cpu-group-latency-us:	array of values used for PM QoS voting, one for each cpu-group defined.
+					the number of values must match the number of values defined in
+					qcom,pm-qos-cpu-mask property.
+- qcom,pm-qos-default-cpu:		PM QoS voting is based on the cpu associated with each IO request by the block layer.
+					This defined the default cpu used for PM QoS voting in case a specific cpu value is not available.
+
 - qcom,vddp-ref-clk-supply	 : reference clock to ufs device. Controlled by the host driver.
 - qcom,vddp-ref-clk-max-microamp : specifies max. load that can be drawn for
 				   ref-clk supply.

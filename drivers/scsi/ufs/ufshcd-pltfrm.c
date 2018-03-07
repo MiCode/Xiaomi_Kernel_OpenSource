@@ -350,7 +350,7 @@ static void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba)
 		hba->dev_ref_clk_freq = REF_CLK_FREQ_26_MHZ;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_SMP
 /**
  * ufshcd_pltfrm_suspend - suspend power management function
  * @dev: pointer to device handle

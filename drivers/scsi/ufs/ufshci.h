@@ -93,8 +93,6 @@ enum {
 	MASK_CRYPTO_SUPPORT			= 0x10000000,
 };
 
-#define UFS_MASK(mask, offset)		((mask) << (offset))
-
 /* UFS Version 08h */
 #define MINOR_VERSION_NUM_MASK		UFS_MASK(0xFFFF, 0)
 #define MAJOR_VERSION_NUM_MASK		UFS_MASK(0xFFFF, 16)
