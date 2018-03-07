@@ -44,9 +44,11 @@
 
 static const char *const mpeg_video_rate_control[] = {
 	"VBR CFR",
-	"CBR VFR",
+	"CBR CFR",
 	"MBR CFR",
 	"RC OFF",
+	"CBR VFR",
+	"MBR VFR",
 	NULL
 };
 
@@ -338,14 +340,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Video Framerate and Bitrate Control",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
-		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF,
+		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR,
 		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF,
 		.step = 0,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) |
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) |
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_MBR) |
-		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF)
+		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_RC_OFF) |
+		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) |
+		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR)
 		),
 		.qmenu = mpeg_video_rate_control,
 	},
@@ -1331,7 +1335,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	{
 		struct v4l2_ctrl *hybrid_hp = TRY_GET_CTRL(
 			V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE);
-		if ((ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR)
+		if ((ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR)
 			&& hybrid_hp->val) {
 			dprintk(VIDC_ERR,
 				"CBR_VFR not allowed with Hybrid HP\n");
@@ -1748,7 +1752,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 		rate_control =
 			TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-		if ((rate_control->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR)
+		if ((rate_control->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR)
 			&& ctrl->val) {
 			dprintk(VIDC_ERR,
 				"Hybrid HP not allowed with CBR_VFR\n");
@@ -2029,6 +2033,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 		switch (rc_mode->val) {
 		case V4L2_MPEG_VIDEO_BITRATE_MODE_VBR:
+		case V4L2_MPEG_VIDEO_BITRATE_MODE_CBR:
 		case V4L2_MPEG_VIDEO_BITRATE_MODE_MBR:
 			cfr = true;
 			break;

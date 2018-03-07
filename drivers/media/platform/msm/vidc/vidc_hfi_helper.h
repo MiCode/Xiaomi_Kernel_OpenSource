@@ -942,7 +942,7 @@ struct hfi_cmd_session_set_property_packet {
 	u32 packet_type;
 	u32 session_id;
 	u32 num_properties;
-	u32 rg_property_data[0];
+	u32 rg_property_data[1];
 };
 
 struct hfi_cmd_session_set_buffers_packet {

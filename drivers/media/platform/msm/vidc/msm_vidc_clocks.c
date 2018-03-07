@@ -1048,6 +1048,8 @@ int msm_vidc_decide_work_route(struct msm_vidc_inst *inst)
 					V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
 
 			if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) ||
+				(rc_mode ==
+				 V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) ||
 				(slice_mode ==
 				V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES)) {
 				pdata.video_work_route = 1;
@@ -1127,7 +1129,8 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 				V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
 		if ((slice_mode == V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) &&
 			((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) ||
-			(rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR)))
+			 (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR) ||
+			 (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR)))
 			pdata.video_work_mode = VIDC_WORK_MODE_2;
 	} else {
 		return -EINVAL;
