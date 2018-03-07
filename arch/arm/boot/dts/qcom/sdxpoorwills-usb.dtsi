@@ -126,6 +126,9 @@
 
 		resets = <&clock_gcc GCC_QUSB2PHY_BCR>;
 		reset-names = "phy_reset";
+
+		/* override parameters */
+		qcom,param-override-seq = <0x43 0x70>; /* override_x1 */
 	};
 
 	dbm_1p5: dbm@a6f8000 {
