@@ -183,7 +183,7 @@ static int vspmi_pmic_arb_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 {
 	struct vspmi_pmic_arb *pa = spmi_controller_get_drvdata(ctrl);
 	unsigned long flags;
-	u8 bc = len;
+	u8 bc = len - 1;
 	u32 cmd;
 	int rc;
 
@@ -228,7 +228,7 @@ static int vspmi_pmic_arb_write_cmd(struct spmi_controller *ctrl, u8 opc,
 {
 	struct vspmi_pmic_arb *pa = spmi_controller_get_drvdata(ctrl);
 	unsigned long flags;
-	u8 bc = len;
+	u8 bc = len - 1;
 	u32 cmd;
 	int rc;
 
@@ -270,7 +270,8 @@ static int vspmi_pmic_arb_write_cmd(struct spmi_controller *ctrl, u8 opc,
 
 static u32 vspmi_pmic_arb_fmt_cmd_v1(u8 opc, u8 sid, u16 addr, u8 bc)
 {
-	return (opc << 27) | ((sid & 0xf) << 20) | (addr << 4) | (bc & 0x7);
+	return (opc << 27) | ((sid & 0xf) << 20) | (addr << 4) |
+		   ((bc & 0x7) + 1);
 }
 
 static const struct vspmi_backend_driver_ver_ops pmic_arb_v1 = {
