@@ -329,6 +329,7 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009w-bg-wtp-v1.dtb \
 	apq8009w-bg-wtp-v2.dtb \
 	apq8009w-bg-alpha.dtb \
+	apq8009w-wtp-pm660-v2k.dtb \
 	apq8009-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326-refboard.dtb \
