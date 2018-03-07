@@ -901,8 +901,8 @@
 
 	llcc_pmu: llcc-pmu@90cc000 {
 		compatible = "qcom,qcom-llcc-pmu";
-		reg = <0x090cc000 0x300>, <0x09648000 0x200>;
-		reg-names = "lagg-base", "beac-base";
+		reg = <0x090cc000 0x300>;
+		reg-names = "lagg-base";
 	};
 
 	cpu_cpu_llcc_bw: qcom,cpu-cpu-llcc-bw {
