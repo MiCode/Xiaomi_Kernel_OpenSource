@@ -149,6 +149,8 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 	if (!byte_cntr_data->read_active)
 		goto err0;
 
+	bufp = (char *)(tmcdrvdata->buf + *ppos);
+
 	if (byte_cntr_data->enable) {
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
 			mutex_unlock(&byte_cntr_data->byte_cntr_lock);
@@ -159,7 +161,6 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 			if (!byte_cntr_data->read_active)
 				goto err0;
 		}
-		bufp = (char *)(tmcdrvdata->buf + *ppos);
 
 		if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
 			tmc_etr_read_bytes(byte_cntr_data, ppos,
