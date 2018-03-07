@@ -30,6 +30,19 @@
 	status = "disabled";
 };
 
+&pm8916_gpios {
+	gpio@c200 {
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,src-sel = <0>;
+		qcom,pull = <5>;
+		qcom,master-en = <1>;
+		qcom,vin-sel = <1>;
+		qcom,out-strength = <3>;
+		status = "ok";
+	};
+};
+
 &msm_gpio {
 	hsuart_active: default {
 		mux {
@@ -67,6 +80,19 @@
 			pins = "gpio97";
 			drive-strength = <2>;
 			bias-disable;
+		};
+	};
+
+	usb_id_detect: usb_id_detect {
+		mux {
+			pins = "gpio110";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio110";
+			drive-strength = <2>;
+			bias-pull-up;
 		};
 	};
 };
@@ -175,9 +201,12 @@
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <97 0>;
 		interrupt-names = "vbus_det_irq";
-		pinctrl-names = "usb_vbus_detect";
+		pinctrl-names = "usb_vbus_detect", "usb_id_detect";
 		pinctrl-0 = <&usb_vbus_detect>;
+		pinctrl-1 = <&usb_id_detect>;
 		qcom,gpio-mode-sel = <&msm_gpio 97 0>;
+		qcom,id-det-gpio = <&msm_gpio 110 0>;
+		qcom,dpdm_switch_gpio = <&pm8916_gpios 3 0>;
 	};
 };
 
