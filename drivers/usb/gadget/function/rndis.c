@@ -1144,7 +1144,7 @@ int rndis_rm_hdr(struct gether *port,
 			struct sk_buff *skb,
 			struct sk_buff_head *list)
 {
-	int num_pkts = 1;
+	int num_pkts = 0;
 
 	if (skb->len > rndis_ul_max_xfer_size_rcvd)
 		rndis_ul_max_xfer_size_rcvd = skb->len;
@@ -1153,12 +1153,6 @@ int rndis_rm_hdr(struct gether *port,
 		struct rndis_packet_msg_type *hdr;
 		struct sk_buff          *skb2;
 		u32             msg_len, data_offset, data_len;
-
-		/* some rndis hosts send extra byte to avoid zlp, ignore it */
-		if (skb->len == 1) {
-			dev_kfree_skb_any(skb);
-			return 0;
-		}
 
 		if (skb->len < sizeof *hdr) {
 			pr_err("invalid rndis pkt: skblen:%u hdr_len:%zu",
@@ -1188,9 +1182,12 @@ int rndis_rm_hdr(struct gether *port,
 			return -EINVAL;
 		}
 
+		num_pkts++;
+
 		skb_pull(skb, data_offset + 8);
 
-		if (msg_len == skb->len) {
+		if (data_len == skb->len ||
+				data_len == (skb->len - 1)) {
 			skb_trim(skb, data_len);
 			break;
 		}
@@ -1205,8 +1202,6 @@ int rndis_rm_hdr(struct gether *port,
 		skb_pull(skb, msg_len - sizeof *hdr);
 		skb_trim(skb2, data_len);
 		skb_queue_tail(list, skb2);
-
-		num_pkts++;
 	}
 
 	if (num_pkts > rndis_ul_max_pkt_per_xfer_rcvd)
@@ -1244,7 +1239,9 @@ static int rndis_proc_show(struct seq_file *m, void *v)
 			 "speed     : %d\n"
 			 "cable     : %s\n"
 			 "vendor ID : 0x%08X\n"
-			 "vendor    : %s\n",
+			 "vendor    : %s\n"
+			 "ul-max-xfer-size:%zu max-xfer-size-rcvd: %d\n"
+			 "ul-max-pkts-per-xfer:%d max-pkts-per-xfer-rcvd:%d\n",
 			 param->confignr, (param->used) ? "y" : "n",
 			 ({ char *s = "?";
 			 switch (param->state) {
@@ -1258,7 +1255,13 @@ static int rndis_proc_show(struct seq_file *m, void *v)
 			 param->medium,
 			 (param->media_state) ? 0 : param->speed*100,
 			 (param->media_state) ? "disconnected" : "connected",
-			 param->vendorID, param->vendorDescr);
+			 param->vendorID, param->vendorDescr,
+			 param->dev ? param->max_pkt_per_xfer *
+				 (param->dev->mtu + sizeof(struct ethhdr) +
+				 sizeof(struct rndis_packet_msg_type) + 22) : 0,
+			 rndis_ul_max_xfer_size_rcvd,
+			 param->max_pkt_per_xfer,
+			 rndis_ul_max_pkt_per_xfer_rcvd);
 	return 0;
 }
 
