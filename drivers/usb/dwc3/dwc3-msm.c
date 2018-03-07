@@ -3685,8 +3685,23 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		mdwc->usbdev_nb.notifier_call = msm_dwc3_usbdev_notify;
 		usb_register_atomic_notify(&mdwc->usbdev_nb);
+		ret = dwc3_host_init(dwc);
+		if (ret) {
+			dev_err(mdwc->dev,
+				"%s: failed to add XHCI pdev ret=%d\n",
+				__func__, ret);
+			if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
+				regulator_disable(mdwc->vbus_reg);
 
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
+			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
+			pm_runtime_put_sync(mdwc->dev);
+			dbg_event(0xFF, "pdeverr psync",
+				atomic_read(&mdwc->dev->power.usage_count));
+			usb_unregister_notify(&mdwc->host_nb);
+			return ret;
+		}
+
 		mdwc->in_host_mode = true;
 		dwc3_usb3_phy_suspend(dwc, true);
 
@@ -3731,6 +3746,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
+		dwc3_host_exit(dwc);
 		usb_unregister_notify(&mdwc->host_nb);
 
 		dwc3_usb3_phy_suspend(dwc, false);
@@ -3793,7 +3809,6 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		 */
 		dwc3_msm_block_reset(mdwc, false);
 
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		mdwc->in_device_mode = true;
 		usb_gadget_vbus_connect(&dwc->gadget);
 #ifdef CONFIG_SMP
