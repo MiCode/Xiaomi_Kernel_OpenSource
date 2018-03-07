@@ -2995,7 +2995,12 @@ Required properties:
   in mA
 - qcom,cdc-on-demand-supplies : List of supplies which can be enabled
   dynamically. Supplies in this list are off by default.
-
+- qcom,subsys-name: This value provides the subsystem name where codec
+		is present. This property enables the codec driver to
+		register and receive subsytem restart notification from subsystem
+		and follow appropriate steps to ensure codec is in proper state
+		after subsytem restart. By default codec driver register
+		with ADSP subsystem.
 
 Example:
 
@@ -3007,4 +3012,6 @@ Example:
 		qcom,cdc-vdd-digital-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-digital-current = <5000>;
 		qcom,cdc-on-demand-supplies = "cdc-vdd-digital";
+
+		qcom,subsys-name = "modem";
 	};
