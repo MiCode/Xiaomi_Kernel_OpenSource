@@ -191,6 +191,20 @@ static int __find_index_in_array(int member, const int array[], int length)
 	return -EINVAL;
 }
 
+static int qpnp_lpg_set_glitch_removal(struct qpnp_lpg_channel *lpg, bool en)
+{
+	int rc;
+	u8 mask, val;
+
+	val = en ? LPG_PWM_EN_GLITCH_REMOVAL_MASK : 0;
+	mask = LPG_PWM_EN_GLITCH_REMOVAL_MASK;
+	rc = qpnp_lpg_masked_write(lpg, REG_LPG_PWM_TYPE_CONFIG, mask, val);
+	if (rc < 0)
+		dev_err(lpg->chip->dev, "Write LPG_PWM_TYPE_CONFIG failed, rc=%d\n",
+							rc);
+	return rc;
+}
+
 static int qpnp_lpg_set_pwm_config(struct qpnp_lpg_channel *lpg)
 {
 	int rc;
@@ -410,6 +424,13 @@ static int qpnp_lpg_pwm_enable(struct pwm_chip *pwm_chip,
 		return -ENODEV;
 	}
 
+	rc = qpnp_lpg_set_glitch_removal(lpg, true);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Enable glitch-removal failed, rc=%d\n",
+							rc);
+		return rc;
+	}
+
 	mask = LPG_PWM_SRC_SELECT_MASK | LPG_EN_LPG_OUT_BIT;
 	val = lpg->src_sel << LPG_PWM_SRC_SELECT_SHIFT | LPG_EN_LPG_OUT_BIT;
 
@@ -438,9 +459,16 @@ static void qpnp_lpg_pwm_disable(struct pwm_chip *pwm_chip,
 	val = lpg->src_sel << LPG_PWM_SRC_SELECT_SHIFT;
 
 	rc = qpnp_lpg_masked_write(lpg, REG_LPG_ENABLE_CONTROL, mask, val);
-	if (rc < 0)
+	if (rc < 0) {
 		dev_err(pwm_chip->dev, "Disable PWM output failed for channel %d, rc=%d\n",
 						lpg->lpg_idx, rc);
+		return;
+	}
+
+	rc = qpnp_lpg_set_glitch_removal(lpg, false);
+	if (rc < 0)
+		dev_err(lpg->chip->dev, "Disable glitch-removal failed, rc=%d\n",
+							rc);
 }
 
 #ifdef CONFIG_DEBUG_FS
