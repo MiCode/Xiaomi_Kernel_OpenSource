@@ -2754,11 +2754,6 @@ static inline int sched_update_freq_max_load(const cpumask_t *cpumask)
 	return 0;
 }
 
-static inline void
-sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
-{
-}
-
 #ifdef CONFIG_SCHED_WALT
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
 extern void sched_set_io_is_busy(int val);
