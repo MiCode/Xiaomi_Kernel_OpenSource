@@ -1495,7 +1495,8 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 			pr_err("Failed to read good_ocv rc=%d\n", rc);
 			use_pon_ocv = true;
 		} else {
-			rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, false);
+			rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp,
+							SOC_AVERAGE);
 			if (rc < 0) {
 				pr_err("Failed to lookup SOC (GOOD_OCV) @ PON rc=%d\n",
 					rc);
@@ -1548,7 +1549,7 @@ done:
 			pr_err("Failed to read HW PON ocv rc=%d\n", rc);
 			return rc;
 		}
-		rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, false);
+		rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, SOC_AVERAGE);
 		if (rc < 0) {
 			pr_err("Failed to lookup SOC @ PON rc=%d\n", rc);
 			soc = 50;

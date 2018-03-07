@@ -45,4 +45,10 @@
 #define CAP(min, max, value)			\
 		((min > value) ? min : ((value > max) ? max : value))
 
+enum soc_lookup {
+	SOC_CHARGE,
+	SOC_DISCHARGE,
+	SOC_AVERAGE,
+};
+
 #endif /* __QG_DEFS_H__ */
