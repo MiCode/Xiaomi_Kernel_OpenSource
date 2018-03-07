@@ -1794,14 +1794,6 @@ static void update_all_wiphy_regulatory(enum nl80211_reg_initiator initiator)
 	reg_check_channels();
 }
 
-void cfg80211_send_reg_change_event(struct regulatory_request *request,
-				    struct wiphy *wiphy)
-{
-	request->wiphy_idx  = get_wiphy_idx(wiphy);
-	nl80211_send_reg_change_event(request);
-}
-EXPORT_SYMBOL(cfg80211_send_reg_change_event);
-
 static void handle_channel_custom(struct wiphy *wiphy,
 				  struct ieee80211_channel *chan,
 				  const struct ieee80211_regdomain *regd)
