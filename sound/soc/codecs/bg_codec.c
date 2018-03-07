@@ -871,10 +871,10 @@ static void bg_cdc_pktzr_init(struct work_struct *work)
 	int ret;
 	struct bg_cdc_priv *bg_cdc;
 	struct delayed_work *dwork;
-	int num_of_intents = 2;
-	uint32_t size[2] = {4096, 4096};
+	int num_of_intents = 1;
+	uint32_t size = 4096;
 	struct bg_glink_ch_cfg ch_info[1] = {
-		{"CODEC_CHANNEL", num_of_intents, size}
+		{"CODEC_CHANNEL", num_of_intents, &size}
 	};
 	struct bg_hw_params hw_params;
 	struct pktzr_cmd_rsp rsp;
@@ -911,11 +911,11 @@ static int bg_cdc_bg_device_up(struct bg_cdc_priv *bg_cdc)
 {
 	struct bg_hw_params hw_params;
 	struct pktzr_cmd_rsp rsp;
-	int num_of_intents = 2;
-	uint32_t size[2] = {4096, 4096};
+	int num_of_intents = 1;
+	uint32_t size = 4096;
 	int ret = 0;
 	struct bg_glink_ch_cfg ch_info[1] = {
-		{"CODEC_CHANNEL", num_of_intents, size}
+		{"CODEC_CHANNEL", num_of_intents, &size}
 	};
 	mutex_lock(&bg_cdc->bg_cdc_lock);
 	if (!bg_cdc->bg_cal_updated) {
