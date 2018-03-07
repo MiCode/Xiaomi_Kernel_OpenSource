@@ -412,6 +412,36 @@ static void sde_kms_wait_for_frame_transfer_complete(struct msm_kms *kms,
 	}
 }
 
+static int _sde_kms_secure_ctrl_xin_clients(struct sde_kms *sde_kms,
+			struct drm_crtc *crtc, bool enable)
+{
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	struct sde_mdss_cfg *sde_cfg;
+	struct drm_plane *plane;
+	int i, ret;
+
+	dev = sde_kms->dev;
+	priv = dev->dev_private;
+	sde_cfg = sde_kms->catalog;
+
+	ret = sde_vbif_halt_xin_mask(sde_kms,
+			sde_cfg->sui_block_xin_mask, enable);
+	if (ret) {
+		SDE_ERROR("failed to halt some xin-clients, ret:%d\n", ret);
+		return ret;
+	}
+
+	if (enable) {
+		for (i = 0; i < priv->num_planes; i++) {
+			plane = priv->planes[i];
+			sde_plane_secure_ctrl_xin_client(plane, crtc);
+		}
+	}
+
+	return 0;
+}
+
 /**
  * _sde_kms_scm_call - makes secure channel call to switch the VMIDs
  * @vimd: switch the stage 2 translation to this VMID.
@@ -560,9 +590,18 @@ static int _sde_kms_sui_misr_ctrl(struct sde_kms *sde_kms,
 			SDE_ERROR("failed to enable resource, ret:%d\n", ret);
 			return ret;
 		}
+
 		sde_crtc_misr_setup(crtc, true, 1);
 
+		ret = _sde_kms_secure_ctrl_xin_clients(sde_kms, crtc, true);
+		if (ret) {
+			sde_power_resource_enable(&priv->phandle,
+					sde_kms->core_client, false);
+			return ret;
+		}
+
 	} else {
+		_sde_kms_secure_ctrl_xin_clients(sde_kms, crtc, false);
 		sde_crtc_misr_setup(crtc, false, 0);
 		sde_power_resource_enable(&priv->phandle,
 					sde_kms->core_client, false);

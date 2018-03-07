@@ -18,6 +18,8 @@
 #include "sde_hw_vbif.h"
 #include "sde_trace.h"
 
+#define MAX_XIN_CLIENT	16
+
 /**
  * _sde_vbif_wait_for_xin_halt - wait for the xin to halt
  * @vbif:	Pointer to hardware vbif driver
@@ -476,6 +478,52 @@ void sde_vbif_init_memtypes(struct sde_kms *sde_kms)
 			mutex_unlock(&vbif->mutex);
 		}
 	}
+}
+
+int sde_vbif_halt_xin_mask(struct sde_kms *sde_kms, u32 xin_id_mask,
+				bool halt)
+{
+	struct sde_hw_vbif *vbif;
+	int i = 0, status, rc;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	vbif = sde_kms->hw_vbif[VBIF_RT];
+
+	if (!vbif->ops.get_halt_ctrl || !vbif->ops.set_halt_ctrl)
+		return 0;
+
+	SDE_EVT32(xin_id_mask, halt);
+
+	for (i = 0; i < MAX_XIN_CLIENT; i++) {
+		if (xin_id_mask & BIT(i)) {
+			/* unhalt the xin-clients */
+			if (!halt) {
+				vbif->ops.set_halt_ctrl(vbif, i, false);
+				continue;
+			}
+
+			status = vbif->ops.get_halt_ctrl(vbif, i);
+			if (status)
+				continue;
+
+			/* halt xin-clients and wait for ack */
+			vbif->ops.set_halt_ctrl(vbif, i, true);
+
+			rc = _sde_vbif_wait_for_xin_halt(vbif, i);
+			if (rc) {
+				SDE_ERROR("xin_halt failed for xin:%d, rc:%d\n",
+					i, rc);
+				SDE_EVT32(xin_id_mask, i, rc, SDE_EVTLOG_ERROR);
+				return rc;
+			}
+		}
+	}
+
+	return 0;
 }
 
 #ifdef CONFIG_DEBUG_FS

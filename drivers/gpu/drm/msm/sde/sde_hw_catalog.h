@@ -937,6 +937,8 @@ struct sde_perf_cfg {
  * @sui_misr_supported  indicate if secure-ui-misr is supported
  * @sui_allow_xin_mask  mask of all the xin-clients allowed during secure-ui
  *                         when secure-ui-misr feature is supported
+ * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
+ *                         secure-ui when secure-ui-misr feature is supported
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -969,6 +971,7 @@ struct sde_mdss_cfg {
 
 	bool sui_misr_supported;
 	u32 sui_allow_xin_mask;
+	u32 sui_block_xin_mask;
 
 	bool has_hdr;
 	u32 mdss_count;
