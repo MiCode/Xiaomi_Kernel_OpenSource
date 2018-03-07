@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -831,7 +831,7 @@ static void dci_process_ctrl_status(unsigned char *buf, int len, int token)
 	read_len += sizeof(struct diag_ctrl_dci_status);
 
 	for (i = 0; i < header->count; i++) {
-		if (read_len > len) {
+		if (read_len > (len - 2)) {
 			pr_err("diag: In %s, Invalid length len: %d\n",
 			       __func__, len);
 			return;
@@ -1108,17 +1108,30 @@ void extract_dci_events(unsigned char *buf, int len, int data_source, int token)
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 
-	length =  *(uint16_t *)(buf + 1); /* total length of event series */
-	if (length == 0) {
-		pr_err("diag: Incoming dci event length is invalid\n");
+	if (!buf) {
+		pr_err("diag: In %s buffer is NULL\n", __func__);
 		return;
 	}
 	/*
-	 * Move directly to the start of the event series. 1 byte for
-	 * event code and 2 bytes for the length field.
+	 * 1 byte for event code and 2 bytes for the length field.
 	 * The length field indicates the total length removing the cmd_code
 	 * and the lenght field. The event parsing in that case should happen
 	 * till the end.
+	 */
+	if (len < 3) {
+		pr_err("diag: In %s invalid len: %d\n", __func__, len);
+		return;
+	}
+	length = *(uint16_t *)(buf + 1); /* total length of event series */
+	if ((length == 0) || (len != (length + 3))) {
+		pr_err("diag: Incoming dci event length: %d is invalid\n",
+			length);
+		return;
+	}
+	/*
+	 * Move directly to the start of the event series.
+	 * The event parsing should happen from start of event
+	 * series till the end.
 	 */
 	temp_len = 3;
 	while (temp_len < length) {
@@ -1136,30 +1149,60 @@ void extract_dci_events(unsigned char *buf, int len, int data_source, int token)
 			 * necessary.
 			 */
 			timestamp_len = 8;
-			memcpy(timestamp, buf + temp_len + 2, timestamp_len);
+			if ((temp_len + timestamp_len + 2) <= len)
+				memcpy(timestamp, buf + temp_len + 2,
+					timestamp_len);
+			else {
+				pr_err("diag: Invalid length in %s, len: %d, temp_len: %d",
+						__func__, len, temp_len);
+				return;
+			}
 		}
 		/* 13th and 14th bit represent the payload length */
 		if (((event_id_packet & 0x6000) >> 13) == 3) {
 			payload_len_field = 1;
-			payload_len = *(uint8_t *)
+			if ((temp_len + timestamp_len + 3) <= len) {
+				payload_len = *(uint8_t *)
 					(buf + temp_len + 2 + timestamp_len);
-			if (payload_len < (MAX_EVENT_SIZE - 13)) {
-				/* copy the payload length and the payload */
+			} else {
+				pr_err("diag: Invalid length in %s, len: %d, temp_len: %d",
+						__func__, len, temp_len);
+				return;
+			}
+			if ((payload_len < (MAX_EVENT_SIZE - 13)) &&
+			((temp_len + timestamp_len + payload_len + 3) <= len)) {
+				/*
+				 * Copy the payload length and the payload
+				 * after skipping temp_len bytes for already
+				 * parsed packet, timestamp_len for timestamp
+				 * buffer, 2 bytes for event_id_packet.
+				 */
 				memcpy(event_data + 12, buf + temp_len + 2 +
 							timestamp_len, 1);
 				memcpy(event_data + 13, buf + temp_len + 2 +
 					timestamp_len + 1, payload_len);
 			} else {
-				pr_err("diag: event > %d, payload_len = %d\n",
-					(MAX_EVENT_SIZE - 13), payload_len);
+				pr_err("diag: event > %d, payload_len = %d, temp_len = %d\n",
+				(MAX_EVENT_SIZE - 13), payload_len, temp_len);
 				return;
 			}
 		} else {
 			payload_len_field = 0;
 			payload_len = (event_id_packet & 0x6000) >> 13;
-			/* copy the payload */
-			memcpy(event_data + 12, buf + temp_len + 2 +
+			/*
+			 * Copy the payload after skipping temp_len bytes
+			 * for already parsed packet, timestamp_len for
+			 * timestamp buffer, 2 bytes for event_id_packet.
+			 */
+			if ((payload_len < (MAX_EVENT_SIZE - 12)) &&
+			((temp_len + timestamp_len + payload_len + 2) <= len))
+				memcpy(event_data + 12, buf + temp_len + 2 +
 						timestamp_len, payload_len);
+			else {
+				pr_err("diag: event > %d, payload_len = %d, temp_len = %d\n",
+				(MAX_EVENT_SIZE - 12), payload_len, temp_len);
+				return;
+			}
 		}
 
 		/* Before copying the data to userspace, check if we are still
@@ -1277,18 +1320,18 @@ void extract_dci_log(unsigned char *buf, int len, int data_source, int token)
 		pr_err("diag: In %s buffer is NULL\n", __func__);
 		return;
 	}
-
-	/* The first six bytes for the incoming log packet contains
-	 * Command code (2), the length of the packet (2) and the length
-	 * of the log (2)
+	/*
+	 * The first eight bytes for the incoming log packet contains
+	 * Command code (2), the length of the packet (2), the length
+	 * of the log (2) and log code (2)
 	 */
-	log_code = *(uint16_t *)(buf + 6);
-	read_bytes += sizeof(uint16_t) + 6;
-	if (read_bytes > len) {
-		pr_err("diag: Invalid length in %s, len: %d, read: %d",
-						__func__, len, read_bytes);
+	if (len < 8) {
+		pr_err("diag: In %s invalid len: %d\n", __func__, len);
 		return;
 	}
+
+	log_code = *(uint16_t *)(buf + 6);
+	read_bytes += sizeof(uint16_t) + 6;
 
 	/* parse through log mask table of each client and check mask */
 	mutex_lock(&driver->dci_mutex);

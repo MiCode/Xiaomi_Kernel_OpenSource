@@ -710,6 +710,8 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
 		case MHI_CLIENT_SAHARA_IN:
 		case MHI_CLIENT_EFS_OUT:
 		case MHI_CLIENT_EFS_IN:
+		case MHI_CLIENT_MBIM_OUT:
+		case MHI_CLIENT_MBIM_IN:
 		case MHI_CLIENT_QMI_OUT:
 		case MHI_CLIENT_QMI_IN:
 		case MHI_CLIENT_IP_CTRL_0_OUT:

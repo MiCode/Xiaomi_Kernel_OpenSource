@@ -963,6 +963,7 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 
 		/* set the channel to running */
 		mhi->ch_ctx_cache[ch_id].ch_state = MHI_DEV_CH_STATE_RUNNING;
+		mhi->ch[ch_id].state = MHI_DEV_CH_STARTED;
 		mhi->ch[ch_id].ch_id = ch_id;
 		mhi->ch[ch_id].ring = &mhi->ring[mhi->ch_ring_start + ch_id];
 		mhi->ch[ch_id].ch_type = mhi->ch_ctx_cache[ch_id].ch_type;

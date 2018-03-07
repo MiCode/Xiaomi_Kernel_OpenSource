@@ -446,12 +446,6 @@ static int skcipher_recvmsg(struct kiocb *unused, struct socket *sock,
 		char __user *from = iov->iov_base;
 
 		while (seglen) {
-			sgl = list_first_entry(&ctx->tsgl,
-					       struct skcipher_sg_list, list);
-			sg = sgl->sg;
-
-			while (!sg->length)
-				sg++;
 
 			used = ctx->used;
 			if (!used) {
@@ -473,6 +467,12 @@ static int skcipher_recvmsg(struct kiocb *unused, struct socket *sock,
 			err = -EINVAL;
 			if (!used)
 				goto free;
+			sgl = list_first_entry(&ctx->tsgl,
+						struct skcipher_sg_list, list);
+			sg = sgl->sg;
+
+			while (!sg->length)
+				sg++;
 
 			ablkcipher_request_set_crypt(&ctx->req, sg,
 						     ctx->rsgl.sg, used,

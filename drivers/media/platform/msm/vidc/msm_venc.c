@@ -1169,9 +1169,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_PERF_MODE,
 		.name = "Set Encoder performance mode",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = V4L2_MPEG_VIDC_VIDEO_PERF_MAX_QUALITY,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_PERF_UNINIT,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_PERF_MAX_QUALITY,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_PERF_UNINIT,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -1785,9 +1785,10 @@ static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, int layers)
 
 static inline int msm_venc_power_save_mode_enable(struct msm_vidc_inst *inst)
 {
-	u32 rc = 0;
-	u32 prop_id = 0, power_save_min = 0, power_save_max = 0, inst_load = 0;
+	u32 rc = 0, height = 0, width = 0;
+	u32 prop_id = 0, hq_max = 0, power_conf = 0, inst_load = 0;
 	void *pdata = NULL;
+	bool set_by_client = false, enable_low_power = false;
 	struct hfi_device *hdev = NULL;
 	enum hal_perf_mode venc_mode;
 	enum load_calc_quirks quirks = LOAD_CALC_IGNORE_TURBO_LOAD |
@@ -1798,24 +1799,38 @@ static inline int msm_venc_power_save_mode_enable(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	inst_load = msm_comm_get_inst_load(inst, quirks);
-	power_save_min = inst->capability.mbs_per_sec_power_save.min;
-	power_save_max = inst->capability.mbs_per_sec_power_save.max;
-
-	dprintk(VIDC_DBG,
-		"Power Save Mode min mb's %d max mb's %d inst load %d\n",
-		power_save_min, power_save_max, inst_load);
-
-	if (!power_save_min || !power_save_max)
-		return rc;
-
 	hdev = inst->core->device;
-	if (inst_load >= power_save_min) {
+	inst_load = msm_comm_get_inst_load(inst, quirks);
+	hq_max = inst->capability.mbs_per_sec.max;
+	power_conf = inst->core->resources.power_conf;
+	height = inst->prop.height[CAPTURE_PORT];
+	width = inst->prop.width[CAPTURE_PORT];
+
+	switch (msm_comm_g_ctrl_for_id(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_PERF_MODE)) {
+		case V4L2_MPEG_VIDC_VIDEO_PERF_MAX_QUALITY:
+		case V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE:
+			set_by_client = true;
+			break;
+	}
+
+	if (inst_load > hq_max) {
+		dprintk(VIDC_INFO, "Setting low power w.r.t core limitation\n");
+		enable_low_power = true;
+	} else if (!set_by_client) {
+		if (power_conf && width * height >= power_conf) {
+			dprintk(VIDC_INFO,
+				"Setting low power w.r.t system power recommendation\n");
+			enable_low_power = true;
+		}
+	}
+
+	if (enable_low_power) {
 		prop_id = HAL_CONFIG_VENC_PERF_MODE;
 		venc_mode = HAL_PERF_MODE_POWER_SAVE;
 		pdata = &venc_mode;
 		rc = call_hfi_op(hdev, session_set_property,
-				(void *)inst->session, prop_id, pdata);
+			(void *)inst->session, prop_id, pdata);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"%s: Failed to set power save mode for inst: %pK\n",
@@ -3451,9 +3466,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 		pdata = &venc_mode;
-
-		msm_dcvs_enc_set_power_save_mode(inst,
-			ctrl->val == V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS:
 		if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC) {
