@@ -25,6 +25,11 @@
 	status = "okay";
 };
 
+&usb {
+	status = "okay";
+	extcon = <&vbus_detect>;
+};
+
 &pcie_ep {
 	status = "okay";
 };
