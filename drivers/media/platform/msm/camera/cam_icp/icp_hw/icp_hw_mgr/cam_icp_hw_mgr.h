@@ -255,11 +255,13 @@ struct cam_icp_clk_info {
  * @hfi_mem: Memory for hfi
  * @cmd_work: Work queue for hfi commands
  * @msg_work: Work queue for hfi messages
+ * @timer_work: Work queue for timer watchdog
  * @msg_buf: Buffer for message data from firmware
  * @dbg_buf: Buffer for debug data from firmware
  * @a5_complete: Completion info
  * @cmd_work_data: Pointer to command work queue task
  * @msg_work_data: Pointer to message work queue task
+ * @timer_work_data: Pointer to timer work queue task
  * @ctxt_cnt: Active context count
  * @ipe_ctxt_cnt: IPE Active context count
  * @bps_ctxt_cnt: BPS Active context count
@@ -300,11 +302,13 @@ struct cam_icp_hw_mgr {
 	struct icp_hfi_mem_info hfi_mem;
 	struct cam_req_mgr_core_workq *cmd_work;
 	struct cam_req_mgr_core_workq *msg_work;
+	struct cam_req_mgr_core_workq *timer_work;
 	uint32_t msg_buf[ICP_MSG_BUF_SIZE];
 	uint32_t dbg_buf[ICP_DBG_BUF_SIZE];
 	struct completion a5_complete;
 	struct hfi_cmd_work_data *cmd_work_data;
 	struct hfi_msg_work_data *msg_work_data;
+	struct hfi_msg_work_data *timer_work_data;
 	uint32_t ctxt_cnt;
 	uint32_t ipe_ctxt_cnt;
 	uint32_t bps_ctxt_cnt;
