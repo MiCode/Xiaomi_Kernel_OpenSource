@@ -38,6 +38,7 @@
 #include "vplatform-lfv-ion.dtsi"
 #include "vplatform-lfv-msm8996-pinctrl.dtsi"
 #include "vplatform-lfv-msm8996-blsp.dtsi"
+#include "vplatform-lfv-msm-pm8994.dtsi"
 
 &soc {
 	sdhc_2: sdhci@74a4900 {
