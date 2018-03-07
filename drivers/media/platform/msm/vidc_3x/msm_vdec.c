@@ -2491,6 +2491,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_LEVEL);
+		if (!temp_ctrl) {
+			dprintk(VIDC_ERR,
+				"failed to get control\n");
+			return -EINVAL;
+		}
 		property_id =
 			HAL_PARAM_PROFILE_LEVEL_CURRENT;
 		profile_level.profile = vdec_v4l2_to_hal(ctrl->id,
@@ -2502,6 +2507,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_PROFILE);
+		if (!temp_ctrl) {
+			dprintk(VIDC_ERR,
+				"failed to get control\n");
+			return -EINVAL;
+		}
 		property_id =
 			HAL_PARAM_PROFILE_LEVEL_CURRENT;
 		profile_level.level = vdec_v4l2_to_hal(ctrl->id,
