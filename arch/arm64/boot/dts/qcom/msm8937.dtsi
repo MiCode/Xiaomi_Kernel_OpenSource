@@ -162,9 +162,13 @@
 #include "msm8937-pinctrl.dtsi"
 #include "msm8937-cpu.dtsi"
 #include "msm8937-ion.dtsi"
+#include "msm-arm-smmu-8937.dtsi"
 #include "msm8937-smp2p.dtsi"
 #include "msm8937-bus.dtsi"
 #include "msm8937-pm.dtsi"
+#include "msm8937-gpu.dtsi"
+#include "msm8937-mdss.dtsi"
+#include "msm8937-mdss-pll.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -516,6 +520,17 @@
 		reg = <0x1874000 0x4>,
 			<0xb11101c 0x8>;
 		reg-names = "cc_base", "meas";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,gcc-mdss-8937";
+		clocks = <&mdss_dsi0_pll clk_dsi_pll0_pixel_clk_src>,
+			 <&mdss_dsi0_pll clk_dsi_pll0_byte_clk_src>,
+			 <&mdss_dsi1_pll clk_dsi_pll1_pixel_clk_src>,
+			 <&mdss_dsi1_pll clk_dsi_pll1_byte_clk_src>;
+		clock-names = "pclk0_src", "byte0_src", "pclk1_src",
+			"byte1_src";
 		#clock-cells = <1>;
 	};
 
