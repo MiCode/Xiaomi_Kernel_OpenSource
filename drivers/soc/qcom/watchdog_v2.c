@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
+#include <linux/reboot.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/jiffies.h>
@@ -48,6 +49,35 @@
 #define SCM_SET_REGSAVE_CMD	0x2
 #define SCM_SVC_SEC_WDOG_DIS	0x7
 #define MAX_CPU_CTX_SIZE	2048
+
+static int wdog_set(const char *val, struct kernel_param *kp);
+
+
+static int wdog_fire;
+module_param_call(wdog_fire, wdog_set, param_get_int,
+				  &wdog_fire, 0644);
+
+static int wdog_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	int old_val = wdog_fire;
+
+	ret = param_set_int(val, kp);
+
+	if (ret)
+		return ret;
+
+	if (wdog_fire >> 1) {
+		wdog_fire = old_val;
+		return -EINVAL;
+	}
+
+	if (wdog_fire == 1)
+		kernel_restart(NULL);
+
+	return 0;
+}
+
 
 static struct msm_watchdog_data *wdog_data;
 

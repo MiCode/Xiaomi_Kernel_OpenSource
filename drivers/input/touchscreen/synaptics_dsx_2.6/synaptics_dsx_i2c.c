@@ -43,7 +43,7 @@
 #include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
-#define SYN_I2C_RETRY_TIMES 10
+#define SYN_I2C_RETRY_TIMES 1
 
 /*
 #define I2C_BURST_LIMIT 255

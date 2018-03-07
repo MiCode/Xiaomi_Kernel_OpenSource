@@ -25,6 +25,7 @@
 #include <asm/cacheflush.h>
 #include <asm/cpu_ops.h>
 #include <asm/cputype.h>
+#include <asm/io.h>
 #include <asm/smp_plat.h>
 
 static phys_addr_t cpu_release_addr[NR_CPUS];

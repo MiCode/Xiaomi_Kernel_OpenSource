@@ -296,6 +296,8 @@ struct _mmc_csd {
 #define EXT_CSD_MAX_PACKED_READS	501	/* RO */
 #define EXT_CSD_BKOPS_SUPPORT		502	/* RO */
 #define EXT_CSD_HPI_FEATURES		503	/* RO */
+#define EXT_CSD_LIFE_TIME_EST_TYP_A		268     /* RO */
+#define EXT_CSD_LIFE_TIME_EST_TYP_B		269     /* RO */
 
 /*
  * EXT_CSD field definitions
