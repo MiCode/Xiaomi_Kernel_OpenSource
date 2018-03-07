@@ -25,6 +25,7 @@
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
 #include "dsi_panel.h"
+#include "sde_hw_color_processing.h"
 
 struct sde_cp_node {
 	u32 property_id;
@@ -146,6 +147,24 @@ enum {
 	/* LM feature end*/
 
 	SDE_CP_CRTC_MAX_FEATURES,
+};
+
+#define HIGH_BUS_VOTE_NEEDED(feature) ((feature == SDE_CP_CRTC_DSPP_IGC) |\
+				 (feature == SDE_CP_CRTC_DSPP_GC) |\
+				 (feature == SDE_CP_CRTC_DSPP_SIXZONE) |\
+				 (feature == SDE_CP_CRTC_DSPP_GAMUT))
+
+static u32 crtc_feature_map[SDE_CP_CRTC_MAX_FEATURES] = {
+	[SDE_CP_CRTC_DSPP_IGC] = SDE_DSPP_IGC,
+	[SDE_CP_CRTC_DSPP_PCC] = SDE_DSPP_PCC,
+	[SDE_CP_CRTC_DSPP_GC] = SDE_DSPP_GC,
+	[SDE_CP_CRTC_DSPP_MEMCOL_SKIN] = SDE_DSPP_MEMCOLOR,
+	[SDE_CP_CRTC_DSPP_MEMCOL_SKY] = SDE_DSPP_MEMCOLOR,
+	[SDE_CP_CRTC_DSPP_MEMCOL_FOLIAGE] = SDE_DSPP_MEMCOLOR,
+	[SDE_CP_CRTC_DSPP_SIXZONE] = SDE_DSPP_SIXZONE,
+	[SDE_CP_CRTC_DSPP_GAMUT] = SDE_DSPP_GAMUT,
+	[SDE_CP_CRTC_DSPP_DITHER] = SDE_DSPP_DITHER,
+	[SDE_CP_CRTC_DSPP_VLUT] = SDE_DSPP_VLUT,
 };
 
 #define INIT_PROP_ATTACH(p, crtc, prop, node, feature, val) \
@@ -859,6 +878,10 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 	struct sde_hw_ctl *ctl;
 	uint32_t flush_mask = 0;
 	u32 num_mixers = 0, i = 0;
+	u32 sde_dspp_feature = SDE_DSPP_MAX;
+	struct msm_drm_private *priv = NULL;
+	struct sde_kms *sde_kms = NULL;
+	bool mdss_bus_vote = false;
 
 	if (!crtc || !crtc->dev) {
 		DRM_ERROR("invalid crtc %pK dev %pK\n", crtc,
@@ -875,6 +898,17 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 	num_mixers = sde_crtc->num_mixers;
 	if (!num_mixers) {
 		DRM_DEBUG_DRIVER("no mixers for this crtc\n");
+		return;
+	}
+
+	priv = crtc->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return;
+	}
+	sde_kms = to_sde_kms(priv->kms);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde kms\n");
 		return;
 	}
 
@@ -896,12 +930,28 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 
 	list_for_each_entry_safe(prop_node, n, &sde_crtc->dirty_list,
 				dirty_list) {
+		sde_dspp_feature = crtc_feature_map[prop_node->feature];
+		if (!mdss_bus_vote && HIGH_BUS_VOTE_NEEDED(prop_node->feature)
+			&& !reg_dmav1_dspp_feature_support(sde_dspp_feature)) {
+			sde_power_scale_reg_bus(&priv->phandle,
+				sde_kms->core_client,
+				VOTE_INDEX_HIGH, false);
+			pr_debug("Vote HIGH for data bus: feature %d\n",
+					prop_node->feature);
+			mdss_bus_vote = true;
+		}
 		sde_cp_crtc_setfeature(prop_node, sde_crtc);
 		/* Set the flush flag to true */
 		if (prop_node->is_dspp_feature)
 			set_dspp_flush = true;
 		else
 			set_lm_flush = true;
+	}
+	if (mdss_bus_vote) {
+		sde_power_scale_reg_bus(&priv->phandle, sde_kms->core_client,
+			VOTE_INDEX_LOW, false);
+		pr_debug("Vote LOW for data bus\n");
+		mdss_bus_vote = false;
 	}
 
 	list_for_each_entry_safe(prop_node, n, &sde_crtc->ad_dirty,
