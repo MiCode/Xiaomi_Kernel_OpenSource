@@ -1224,7 +1224,7 @@ static ssize_t qg_device_write(struct file *file, const char __user *buf,
 	}
 
 	if (count != 0 && count < data_size) {
-		pr_err("Invalid datasize %zu expected %zu\n", count, data_size);
+		pr_err("Invalid datasize %zu expected %lu\n", count, data_size);
 		goto fail;
 	}
 
@@ -1336,7 +1336,7 @@ static int get_batt_id_ohm(struct qpnp_qg *chip, u32 *batt_id_ohm)
 		return rc;
 	}
 
-	batt_id_mv = result.physical / 1000;
+	batt_id_mv = div_s64(result.physical, 1000);
 	if (batt_id_mv == 0) {
 		pr_debug("batt_id_mv = 0 from ADC\n");
 		return 0;
