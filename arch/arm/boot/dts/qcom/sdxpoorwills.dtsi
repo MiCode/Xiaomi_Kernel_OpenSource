@@ -1288,6 +1288,9 @@
 				<45 512 98572 655360>, <1 512 98572 1600000>,
 				/* Upto 800 Mbps */
 				<45 512 207108 1146880>, <1 512 207108 3124992>;
+
+		qcom,wlan-smmu-iova-address = <0x10000000 0x10000000>;
+		qcom,wlan-smmu-iova-ipa = <0x20000000 0x10000>;
 	};
 
 	cnss_sdio: qcom,cnss_sdio {
