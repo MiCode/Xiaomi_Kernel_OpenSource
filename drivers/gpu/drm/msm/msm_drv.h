@@ -225,6 +225,7 @@ enum msm_display_compression_type {
  * @MSM_DISPLAY_CAP_HOT_PLUG:           Hot plug detection supported
  * @MSM_DISPLAY_CAP_EDID:               EDID supported
  * @MSM_DISPLAY_ESD_ENABLED:            ESD feature enabled
+ * @MSM_DISPLAY_CAP_MST_MODE:           Display with MST support
  */
 enum msm_display_caps {
 	MSM_DISPLAY_CAP_VID_MODE	= BIT(0),
@@ -232,6 +233,7 @@ enum msm_display_caps {
 	MSM_DISPLAY_CAP_HOT_PLUG	= BIT(2),
 	MSM_DISPLAY_CAP_EDID		= BIT(3),
 	MSM_DISPLAY_ESD_ENABLED		= BIT(4),
+	MSM_DISPLAY_CAP_MST_MODE	= BIT(5),
 };
 
 /**

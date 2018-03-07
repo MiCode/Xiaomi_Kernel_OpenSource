@@ -4505,7 +4505,10 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		*drm_enc_mode = DRM_MODE_ENCODER_TMDS;
 		intf_type = INTF_HDMI;
 	} else if (disp_info->intf_type == DRM_MODE_CONNECTOR_DisplayPort) {
-		*drm_enc_mode = DRM_MODE_ENCODER_TMDS;
+		if (disp_info->capabilities & MSM_DISPLAY_CAP_MST_MODE)
+			*drm_enc_mode = DRM_MODE_ENCODER_DPMST;
+		else
+			*drm_enc_mode = DRM_MODE_ENCODER_TMDS;
 		intf_type = INTF_DP;
 	} else if (disp_info->intf_type == DRM_MODE_CONNECTOR_VIRTUAL) {
 		*drm_enc_mode = DRM_MODE_ENCODER_VIRTUAL;
