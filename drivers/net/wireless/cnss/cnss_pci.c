@@ -234,8 +234,11 @@ static struct cnss_data {
 	struct pci_dev *pdev;
 	const struct pci_device_id *id;
 	struct dma_iommu_mapping *smmu_mapping;
+	bool smmu_s1_bypass;
 	dma_addr_t smmu_iova_start;
 	size_t smmu_iova_len;
+	dma_addr_t smmu_iova_ipa_start;
+	size_t smmu_iova_ipa_len;
 	struct cnss_wlan_vreg_info vreg_info;
 	bool wlan_en_vreg_support;
 	struct cnss_wlan_gpio_info gpio_info;
@@ -1438,6 +1441,8 @@ static int cnss_smmu_init(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
 	int atomic_ctx = 1;
+	int s1_bypass = 1;
+	int fast = 1;
 	int ret;
 
 	mapping = arm_iommu_create_mapping(&platform_bus_type,
@@ -1449,13 +1454,33 @@ static int cnss_smmu_init(struct device *dev)
 		goto map_fail;
 	}
 
-	ret = iommu_domain_set_attr(mapping->domain,
-				    DOMAIN_ATTR_ATOMIC,
-				    &atomic_ctx);
-	if (ret) {
-		pr_err("%s: set atomic_ctx attribute failed, err = %d\n",
-		       __func__, ret);
-		goto set_attr_fail;
+	if (penv->smmu_s1_bypass) {
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_S1_BYPASS,
+					    &s1_bypass);
+		if (ret) {
+			pr_err("%s: set s1 bypass attr failed, err = %d\n",
+			       __func__, ret);
+			goto set_attr_fail;
+		}
+	} else {
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_ATOMIC,
+					    &atomic_ctx);
+		if (ret) {
+			pr_err("%s: set atomic_ctx attr failed, err = %d\n",
+			       __func__, ret);
+			goto set_attr_fail;
+		}
+
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_FAST,
+					    &fast);
+		if (ret) {
+			pr_err("%s: set fast map attr failed, err = %d\n",
+			       __func__, ret);
+			goto set_attr_fail;
+		}
 	}
 
 	ret = arm_iommu_attach_device(dev, mapping);
@@ -1618,7 +1643,6 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 		if (ret) {
 			pr_err("%s: SMMU init failed, err = %d\n",
 			       __func__, ret);
-			goto smmu_init_fail;
 		}
 	}
 
@@ -1714,7 +1738,6 @@ end_dma_alloc:
 	dma_free_coherent(dev, EVICT_BIN_MAX_SIZE, cpu_addr, dma_handle);
 err_unknown:
 err_pcie_suspend:
-smmu_init_fail:
 	cnss_pcie_reset_platform_ops(dev);
 	return ret;
 }
@@ -2867,6 +2890,55 @@ static int cnss_init_dump_entry(void)
 	return msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
 }
 
+struct dma_iommu_mapping *cnss_smmu_get_mapping(void)
+{
+	if (!penv) {
+		pr_err("Invalid penv: data %pK\n", penv);
+		return NULL;
+	}
+
+	return penv->smmu_mapping;
+}
+EXPORT_SYMBOL(cnss_smmu_get_mapping);
+
+int cnss_smmu_map(phys_addr_t paddr, uint32_t *iova_addr, size_t size)
+{
+	unsigned long iova;
+	size_t len;
+	int ret = 0;
+
+	if (!iova_addr) {
+		pr_err("iova_addr is NULL, paddr %pa, size %zu\n",
+		       &paddr, size);
+		return -EINVAL;
+	}
+
+	len = roundup(size + paddr - rounddown(paddr, PAGE_SIZE), PAGE_SIZE);
+	iova = roundup(penv->smmu_iova_ipa_start, PAGE_SIZE);
+
+	if (iova >= penv->smmu_iova_ipa_start + penv->smmu_iova_ipa_len) {
+		pr_err("No IOVA space to map, iova %lx, smmu_iova_ipa_start %pad, smmu_iova_ipa_len %zu\n",
+		       iova,
+		       &penv->smmu_iova_ipa_start,
+		       penv->smmu_iova_ipa_len);
+		return -ENOMEM;
+	}
+
+	ret = iommu_map(penv->smmu_mapping->domain, iova,
+			rounddown(paddr, PAGE_SIZE), len,
+			IOMMU_READ | IOMMU_WRITE);
+	if (ret) {
+		pr_err("PA to IOVA mapping failed, ret %d\n", ret);
+		return ret;
+	}
+
+	penv->smmu_iova_ipa_start = iova + len;
+	*iova_addr = (uint32_t)(iova + paddr - rounddown(paddr, PAGE_SIZE));
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_smmu_map);
+
 static int cnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2877,6 +2949,7 @@ static int cnss_probe(struct platform_device *pdev)
 	struct resource *res;
 	u32 ramdump_size = 0;
 	u32 smmu_iova_address[2];
+	u32 smmu_iova_ipa[2];
 
 	if (penv)
 		return -ENODEV;
@@ -3027,6 +3100,17 @@ skip_ramdump:
 		penv->smmu_iova_start = smmu_iova_address[0];
 		penv->smmu_iova_len = smmu_iova_address[1];
 	}
+
+	if (of_property_read_u32_array(dev->of_node,
+				       "qcom,wlan-smmu-iova-ipa",
+				       smmu_iova_ipa, 2) == 0) {
+		penv->smmu_iova_ipa_start = smmu_iova_ipa[0];
+		penv->smmu_iova_ipa_len = smmu_iova_ipa[1];
+	}
+
+	if (of_property_read_bool(dev->of_node,
+				  "qcom,smmu-s1-bypass"))
+		penv->smmu_s1_bypass = true;
 
 	ret = pci_register_driver(&cnss_wlan_pci_driver);
 	if (ret)
