@@ -2574,6 +2574,24 @@ void sde_plane_halt_requests(struct drm_plane *plane, bool enable)
 				psde->xin_halt_forced_clk, enable);
 }
 
+void sde_plane_secure_ctrl_xin_client(struct drm_plane *plane,
+				struct drm_crtc *crtc)
+{
+	struct sde_plane *psde;
+
+	if (!plane || !crtc) {
+		SDE_ERROR("invalid plane/crtc\n");
+		return;
+	}
+	psde = to_sde_plane(plane);
+
+	/* do all VBIF programming for the sec-ui allowed SSPP */
+	if (psde->features & BIT(SDE_SSPP_SEC_UI_ALLOWED)) {
+		_sde_plane_set_qos_remap(plane);
+		_sde_plane_set_ot_limit(plane, crtc);
+	}
+}
+
 int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state)
 {
 	struct sde_plane *psde;
