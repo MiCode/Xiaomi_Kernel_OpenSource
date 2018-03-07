@@ -3245,8 +3245,16 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->perf.min_prefill_lines = 25;
 		sde_cfg->vbif_qos_nlvl = 4;
 		sde_cfg->ts_prefill_rev = 1;
-	} else if (IS_SDM845_TARGET(hw_rev) || IS_SDM670_TARGET(hw_rev)) {
+	} else if (IS_SDM845_TARGET(hw_rev)) {
 		/* update sdm845 target here */
+		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x3F71;
+	} else if (IS_SDM670_TARGET(hw_rev)) {
+		/* update sdm670 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
