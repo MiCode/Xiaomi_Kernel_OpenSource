@@ -2020,7 +2020,7 @@ static int dwc3_gadget_set_selfpowered(struct usb_gadget *g,
 
 static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 {
-	u32			reg;
+	u32			reg, reg1;
 	u32			timeout = 1500;
 
 	dbg_event(0xFF, "run_stop", is_on);
@@ -2036,6 +2036,17 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 		dwc3_event_buffers_setup(dwc);
 		__dwc3_gadget_start(dwc);
+
+		reg1 = dwc3_readl(dwc->regs, DWC3_DCFG);
+		reg1 &= ~(DWC3_DCFG_SPEED_MASK);
+
+		if (dwc->maximum_speed == USB_SPEED_SUPER_PLUS)
+			reg1 |= DWC3_DCFG_SUPERSPEED_PLUS;
+		else if (dwc->maximum_speed == USB_SPEED_HIGH)
+			reg1 |= DWC3_DCFG_HIGHSPEED;
+		else
+			reg1 |= DWC3_DCFG_SUPERSPEED;
+		dwc3_writel(dwc->regs, DWC3_DCFG, reg1);
 
 		reg |= DWC3_DCTL_RUN_STOP;
 
@@ -2410,7 +2421,7 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 	return 0;
 }
 
-static void dwc3_gadget_set_speed(struct usb_gadget *g,
+static void __maybe_unused dwc3_gadget_set_speed(struct usb_gadget *g,
 				  enum usb_device_speed speed)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
@@ -2489,7 +2500,6 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.pullup			= dwc3_gadget_pullup,
 	.udc_start		= dwc3_gadget_start,
 	.udc_stop		= dwc3_gadget_stop,
-	.udc_set_speed		= dwc3_gadget_set_speed,
 	.restart		= dwc3_gadget_restart_usb_session,
 };
 
@@ -2514,52 +2524,7 @@ static int dwc3_gadget_init_control_endpoint(struct dwc3_ep *dep)
 	return 0;
 }
 
-static int dwc3_gadget_init_in_endpoint(struct dwc3_ep *dep)
-{
-	struct dwc3 *dwc = dep->dwc;
-	int mdwidth;
-	int kbytes;
-	int size;
-
-	mdwidth = DWC3_MDWIDTH(dwc->hwparams.hwparams0);
-	/* MDWIDTH is represented in bits, we need it in bytes */
-	mdwidth /= 8;
-
-	size = dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(dep->number >> 1));
-	if (dwc3_is_usb31(dwc))
-		size = DWC31_GTXFIFOSIZ_TXFDEF(size);
-	else
-		size = DWC3_GTXFIFOSIZ_TXFDEF(size);
-
-	/* FIFO Depth is in MDWDITH bytes. Multiply */
-	size *= mdwidth;
-
-	kbytes = size / 1024;
-	if (kbytes == 0)
-		kbytes = 1;
-
-	/*
-	 * FIFO sizes account an extra MDWIDTH * (kbytes + 1) bytes for
-	 * internal overhead. We don't really know how these are used,
-	 * but documentation say it exists.
-	 */
-	size -= mdwidth * (kbytes + 1);
-	size /= kbytes;
-
-	usb_ep_set_maxpacket_limit(&dep->endpoint, size);
-
-	dep->endpoint.max_streams = 15;
-	dep->endpoint.ops = &dwc3_gadget_ep_ops;
-	list_add_tail(&dep->endpoint.ep_list,
-			&dwc->gadget.ep_list);
-	dep->endpoint.caps.type_iso = true;
-	dep->endpoint.caps.type_bulk = true;
-	dep->endpoint.caps.type_int = true;
-
-	return dwc3_alloc_trb_pool(dep);
-}
-
-static int dwc3_gadget_init_out_endpoint(struct dwc3_ep *dep)
+static int dwc3_gadget_init_in_out_endpoint(struct dwc3_ep *dep)
 {
 	struct dwc3 *dwc = dep->dwc;
 
@@ -2606,10 +2571,8 @@ static int dwc3_gadget_init_endpoint(struct dwc3 *dwc, u8 epnum)
 
 	if (num == 0)
 		ret = dwc3_gadget_init_control_endpoint(dep);
-	else if (direction)
-		ret = dwc3_gadget_init_in_endpoint(dep);
 	else
-		ret = dwc3_gadget_init_out_endpoint(dep);
+		ret = dwc3_gadget_init_in_out_endpoint(dep);
 
 	if (ret)
 		return ret;
@@ -3805,11 +3768,11 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 
 	init_completion(&dwc->ep0_in_setup);
 
-	dwc->gadget.ops			= &dwc3_gadget_ops;
-	dwc->gadget.speed		= USB_SPEED_UNKNOWN;
-	dwc->gadget.sg_supported	= true;
-	dwc->gadget.name		= "dwc3-gadget";
-	dwc->gadget.is_otg		= dwc->dr_mode == USB_DR_MODE_OTG;
+	dwc->gadget.ops                 = &dwc3_gadget_ops;
+	dwc->gadget.speed               = USB_SPEED_UNKNOWN;
+	dwc->gadget.sg_supported        = true;
+	dwc->gadget.name                = "dwc3-gadget";
+	dwc->gadget.is_otg              = dwc->dr_mode == USB_DR_MODE_OTG;
 
 	/*
 	 * FIXME We might be setting max_speed to <SUPER, however versions
@@ -3839,6 +3802,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	 * sure we're starting from a well known location.
 	 */
 
+	dwc->num_eps = DWC3_ENDPOINTS_NUM;
 	ret = dwc3_gadget_init_endpoints(dwc, dwc->num_eps);
 	if (ret)
 		goto err3;
