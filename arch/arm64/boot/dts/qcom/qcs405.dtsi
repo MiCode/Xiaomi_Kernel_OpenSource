@@ -39,6 +39,7 @@
 };
 
 #include "qcs405-pinctrl.dtsi"
+#include "qcs405-blsp.dtsi"
 #include "qcs405-cpu.dtsi"
 
 &soc {
@@ -162,6 +163,30 @@
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,pipe-attr-ee;
+	};
+
+	slim_aud: slim@c1c0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc1c0000 0x2c000>,
+			<0xc184000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 180 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x7c0000>;
+		qcom,ea-pc = <0x2e0>;
+		status = "disabled";
+	};
+
+	slim_qca: slim@c240000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc240000 0x2c000>,
+			<0xc204000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 191 0>, <0 63 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		status = "disabled";
 	};
 
 	blsp1_uart2: serial@78b0000 {
