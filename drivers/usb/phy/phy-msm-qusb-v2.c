@@ -476,7 +476,6 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	qusb_phy_reset(qphy);
 	qusb_phy_write_seq(qphy->base, qphy->qusb_phy_host_init_seq,
 			qphy->host_init_seq_len, 0);
 
@@ -518,6 +517,12 @@ static int qusb_phy_init(struct usb_phy *phy)
 	qusb_phy_enable_clocks(qphy, true);
 
 	qusb_phy_reset(qphy);
+
+	if (qphy->qusb_phy_host_init_seq && qphy->phy.flags & PHY_HOST_MODE) {
+		qusb_phy_host_init(phy);
+		return 0;
+	}
+
 	if (qphy->emulation) {
 		if (qphy->emu_init_seq)
 			qusb_phy_write_seq(qphy->emu_phy_base + 0x8000,
@@ -762,9 +767,6 @@ static int qusb_phy_notify_connect(struct usb_phy *phy,
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 
 	qphy->cable_connected = true;
-
-	if (qphy->qusb_phy_host_init_seq && qphy->phy.flags & PHY_HOST_MODE)
-		qusb_phy_host_init(phy);
 
 	dev_dbg(phy->dev, "QUSB PHY: connect notification cable_connected=%d\n",
 							qphy->cable_connected);
