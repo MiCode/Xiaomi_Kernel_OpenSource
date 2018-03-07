@@ -85,3 +85,15 @@
 &usb2s {
 	status = "okay";
 };
+
+&qusb_phy0 {
+	status = "okay";
+};
+
+&qusb_phy1 {
+	status = "okay";
+};
+
+&ssphy {
+	status = "okay";
+};

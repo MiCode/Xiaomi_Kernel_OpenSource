@@ -243,6 +243,7 @@
 
 		resets = <&clock_virt QUSB2PHY_PRIM_BCR>;
 		reset-names = "phy_reset";
+		status = "disabled";
 	};
 
 	qusb_phy1: qusb@7412000 {
@@ -280,6 +281,7 @@
 
 		resets = <&clock_virt QUSB2PHY_SEC_BCR>;
 		reset-names = "phy_reset";
+		status = "disabled";
 	};
 
 	ssphy: ssphy@7410000 {
@@ -369,6 +371,7 @@
 			 <&clock_virt USB3PHY_PHY_BCR>;
 		reset-names = "phy_reset", "phy_phy_reset";
 		qcom,disable-autonomous-mode;
+		status = "disabled";
 	};
 
 	usb_nop_phy: usb_nop_phy {

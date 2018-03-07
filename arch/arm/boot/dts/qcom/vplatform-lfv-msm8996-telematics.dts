@@ -190,3 +190,11 @@
 	status = "okay";
 	qcom,no-wakeup-src-in-hostmode;
 };
+
+&qusb_phy0 {
+	status = "okay";
+};
+
+&ssphy {
+	status = "okay";
+};
