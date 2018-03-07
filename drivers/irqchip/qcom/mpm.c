@@ -202,19 +202,35 @@ static inline void msm_mpm_set_type(struct irq_data *d,
 	}
 }
 
-static void msm_mpm_chip_mask(struct irq_data *d)
+static void msm_mpm_gpio_chip_mask(struct irq_data *d)
+{
+	msm_mpm_enable_irq(d, false);
+}
+
+static void msm_mpm_gpio_chip_unmask(struct irq_data *d)
+{
+	msm_mpm_enable_irq(d, true);
+}
+
+static int msm_mpm_gpio_chip_set_type(struct irq_data *d, unsigned int type)
+{
+	msm_mpm_set_type(d, type);
+	return 0;
+}
+
+static void msm_mpm_gic_chip_mask(struct irq_data *d)
 {
 	msm_mpm_enable_irq(d, false);
 	irq_chip_mask_parent(d);
 }
 
-static void msm_mpm_chip_unmask(struct irq_data *d)
+static void msm_mpm_gic_chip_unmask(struct irq_data *d)
 {
 	msm_mpm_enable_irq(d, true);
 	irq_chip_unmask_parent(d);
 }
 
-static int msm_mpm_chip_set_type(struct irq_data *d, unsigned int type)
+static int msm_mpm_gic_chip_set_type(struct irq_data *d, unsigned int type)
 {
 	msm_mpm_set_type(d, type);
 	return irq_chip_set_type_parent(d, type);
@@ -223,21 +239,21 @@ static int msm_mpm_chip_set_type(struct irq_data *d, unsigned int type)
 static struct irq_chip msm_mpm_gic_chip = {
 	.name		= "mpm-gic",
 	.irq_eoi	= irq_chip_eoi_parent,
-	.irq_mask	= msm_mpm_chip_mask,
-	.irq_disable	= msm_mpm_chip_mask,
-	.irq_unmask	= msm_mpm_chip_unmask,
+	.irq_mask	= msm_mpm_gic_chip_mask,
+	.irq_disable	= msm_mpm_gic_chip_mask,
+	.irq_unmask	= msm_mpm_gic_chip_unmask,
 	.irq_retrigger	= irq_chip_retrigger_hierarchy,
-	.irq_set_type	= msm_mpm_chip_set_type,
+	.irq_set_type	= msm_mpm_gic_chip_set_type,
 	.flags		= IRQCHIP_MASK_ON_SUSPEND | IRQCHIP_SKIP_SET_WAKE,
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
 };
 
 static struct irq_chip msm_mpm_gpio_chip = {
 	.name		= "mpm-gpio",
-	.irq_mask	= msm_mpm_chip_mask,
-	.irq_disable	= msm_mpm_chip_mask,
-	.irq_unmask	= msm_mpm_chip_unmask,
-	.irq_set_type	= msm_mpm_chip_set_type,
+	.irq_mask	= msm_mpm_gpio_chip_mask,
+	.irq_disable	= msm_mpm_gpio_chip_mask,
+	.irq_unmask	= msm_mpm_gpio_chip_unmask,
+	.irq_set_type	= msm_mpm_gpio_chip_set_type,
 	.flags		= IRQCHIP_MASK_ON_SUSPEND | IRQCHIP_SKIP_SET_WAKE,
 	.irq_retrigger          = irq_chip_retrigger_hierarchy,
 	.irq_set_vcpu_affinity  = irq_chip_set_vcpu_affinity_parent,
@@ -267,7 +283,6 @@ static int msm_mpm_gpio_chip_alloc(struct irq_domain *domain,
 {
 	int ret = 0;
 	struct irq_fwspec *fwspec = data;
-	struct irq_fwspec parent_fwspec;
 	irq_hw_number_t hwirq;
 	unsigned int type = IRQ_TYPE_NONE;
 
@@ -277,10 +292,8 @@ static int msm_mpm_gpio_chip_alloc(struct irq_domain *domain,
 
 	irq_domain_set_hwirq_and_chip(domain, virq, hwirq,
 				&msm_mpm_gpio_chip, NULL);
-	parent_fwspec = *fwspec;
-	parent_fwspec.fwnode = domain->parent->fwnode;
-	return irq_domain_alloc_irqs_parent(domain, virq, nr_irqs,
-					    &parent_fwspec);
+
+	return 0;
 }
 
 static const struct irq_domain_ops msm_mpm_gpio_chip_domain_ops = {
@@ -638,22 +651,21 @@ mpm_map_err:
 
 IRQCHIP_DECLARE(mpm_gic_chip, "qcom,mpm-gic", mpm_gic_chip_init);
 
-static int mpm_gpio_chip_probe(struct platform_device *pdev)
+static int __init mpm_gpio_chip_init(struct device_node *node,
+					struct device_node *parent)
 {
-	struct device_node *node, *parent;
 	struct irq_domain *parent_domain;
 	const struct of_device_id *id;
 
-	node = pdev->dev.of_node;
-	parent = of_irq_find_parent(node);
 	if (!parent) {
-		pr_err("%s(): no parent for mpm-gpio\n", node->full_name);
+		pr_err("%s(): no parent for mpm-gic\n", node->full_name);
 		return -ENXIO;
 	}
+
 	parent_domain = irq_find_host(parent);
 	if (!parent_domain) {
 		pr_err("unable to obtain gpio parent domain defer probe\n");
-		return -EPROBE_DEFER;
+		return -ENXIO;
 	}
 	id = of_match_node(mpm_gpio_chip_data_table, node);
 	if (!id) {
@@ -673,22 +685,4 @@ static int mpm_gpio_chip_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id msm_mpm_dt_match[] = {
-	{ .compatible = "qcom,mpm-gpio"},
-	{ },
-};
-
-static struct platform_driver msm_mpm_driver = {
-	.probe = mpm_gpio_chip_probe,
-	.driver = {
-		.name = "qcom,mpm-gpio",
-		.of_match_table = msm_mpm_dt_match,
-	},
-};
-
-static int __init msm_mpm_gpio_init(void)
-{
-	return platform_driver_register(&msm_mpm_driver);
-}
-
-arch_initcall(msm_mpm_gpio_init)
+IRQCHIP_DECLARE(mpm_gpio_chip, "qcom,mpm-gpio", mpm_gpio_chip_init);
