@@ -136,5 +136,31 @@ void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
 void convert_to_drm_mode(const struct dp_display_mode *dp_mode,
 				struct drm_display_mode *drm_mode);
 
+/**
+ * dp_mst_drm_bridge_init - initialize mst bridge
+ * @display: Pointer to private display structure
+ * @encoder: Pointer to encoder for mst bridge mapping
+ */
+int dp_mst_drm_bridge_init(void *display,
+	struct drm_encoder *encoder);
+
+/**
+ * dp_mst_drm_bridge_deinit - de-initialize mst bridges
+ * @display: Pointer to private display structure
+ */
+void dp_mst_drm_bridge_deinit(void *display);
+
+/**
+ * dp_mst_init - initialize mst objects for the given display
+ * @display: Pointer to private display structure
+ */
+int dp_mst_init(struct dp_display *dp_display);
+
+/**
+ * dp_mst_deinit - de-initialize mst objects for the given display
+ * @display: Pointer to private display structure
+ */
+void dp_mst_deinit(struct dp_display *dp_display);
+
 #endif /* _DP_DRM_H_ */
 

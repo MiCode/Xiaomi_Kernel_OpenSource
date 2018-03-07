@@ -22,6 +22,7 @@ msm_drm-y := \
 	dp/dp_display.o \
 	dp/dp_drm.o \
 	dp/dp_hdcp2p2.o \
+	dp/dp_mst_drm.o \
 	sde/sde_crtc.o \
 	sde/sde_encoder.o \
 	sde/sde_encoder_phys_vid.o \

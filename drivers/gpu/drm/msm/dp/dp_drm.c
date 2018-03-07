@@ -363,6 +363,7 @@ int dp_connector_config_hdr(struct drm_connector *connector, void *display,
 
 int dp_connector_post_init(struct drm_connector *connector, void *display)
 {
+	int rc;
 	struct dp_display *dp_display = display;
 	struct sde_connector *sde_conn;
 
@@ -378,7 +379,9 @@ int dp_connector_post_init(struct drm_connector *connector, void *display)
 	sde_conn = to_sde_connector(connector);
 	dp_display->bridge->dp_panel = sde_conn->drv_panel;
 
-	return 0;
+	rc = dp_mst_init(dp_display);
+
+	return rc;
 }
 
 int dp_connector_get_mode_info(struct drm_connector *connector,
