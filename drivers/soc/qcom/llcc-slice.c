@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,8 @@
 #define LLCC_TRP_STATUSn(n)   (4 + n * 0x1000)
 #define LLCC_TRP_ATTR0_CFGn(n) (0x21000 + 0x8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n) (0x21004 + 0x8 * n)
+#define LLCC_TRP_PCB_ACT 0x21F04
+#define LLCC_TRP_SCID_DIS_CAP_ALLOC 0x21F00
 
 /**
  * Driver data for llcc
@@ -70,6 +72,7 @@ struct llcc_drv_data {
 	u32 b_off;
 	u32 no_banks;
 	unsigned long *llcc_slice_map;
+	bool cap_based_alloc_and_pwr_collapse;
 };
 
 /* Get the slice entry by index */
@@ -328,12 +331,18 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 attr0_cfg;
 	u32 attr1_val;
 	u32 attr0_val;
+	u32 cad_off;
+	u32 pcb_off;
 	u32 max_cap_cacheline;
 	u32 sz;
+	u32 pcb = 0;
+	u32 cad = 0;
 	const struct llcc_slice_config *llcc_table;
 	struct llcc_drv_data *drv = platform_get_drvdata(pdev);
 	struct llcc_slice_desc desc;
 	u32 b_off = drv->b_off;
+	bool cap_based_alloc_and_pwr_collapse =
+		drv->cap_based_alloc_and_pwr_collapse;
 
 	sz = drv->llcc_config_data_sz;
 	llcc_table = drv->slice_data;
@@ -366,6 +375,18 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 
 		regmap_write(drv->llcc_map, attr1_cfg, attr1_val);
 		regmap_write(drv->llcc_map, attr0_cfg, attr0_val);
+
+		if (cap_based_alloc_and_pwr_collapse) {
+			cad_off = b_off + LLCC_TRP_SCID_DIS_CAP_ALLOC;
+			cad |= llcc_table[i].dis_cap_alloc <<
+				llcc_table[i].slice_id;
+			regmap_write(drv->llcc_map, cad_off, cad);
+
+			pcb_off = b_off + LLCC_TRP_PCB_ACT;
+			pcb |= llcc_table[i].retain_on_pc <<
+					llcc_table[i].slice_id;
+			regmap_write(drv->llcc_map, pcb_off, pcb);
+		}
 
 		/* Make sure that the SCT is programmed before activating */
 		mb();
@@ -419,6 +440,10 @@ int qcom_llcc_probe(struct platform_device *pdev,
 		devm_kfree(&pdev->dev, drv_data);
 		return rc;
 	}
+
+	drv_data->cap_based_alloc_and_pwr_collapse =
+		of_property_read_bool(pdev->dev.of_node,
+				      "cap-based-alloc-and-pwr-collapse");
 
 	drv_data->llcc_slice_map = kcalloc(BITS_TO_LONGS(drv_data->max_slices),
 				   sizeof(unsigned long), GFP_KERNEL);
