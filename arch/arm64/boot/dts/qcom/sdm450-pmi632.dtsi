@@ -62,6 +62,64 @@
 };
 
 &thermal_zones {
+	vbat_low {
+		cooling-maps {
+			vbat_map4 {
+				trip = <&pmi632_vbat_low>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map5 {
+				trip = <&pmi632_vbat_low>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map6 {
+				trip = <&pmi632_vbat_low>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map7 {
+				trip = <&pmi632_vbat_low>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	soc {
+		cooling-maps {
+			soc_map4 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map5 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map6 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map7 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
 	case-therm-step {
 		trips {
 			batt_trip1: batt-trip1 {
