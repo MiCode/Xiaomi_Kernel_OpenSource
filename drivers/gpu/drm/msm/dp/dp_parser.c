@@ -455,18 +455,18 @@ static void dp_parser_put_gpio_data(struct device *dev,
 static int dp_parser_init_clk_data(struct dp_parser *parser)
 {
 	int num_clk = 0, i = 0, rc = 0;
-	int core_clk_count = 0, ctrl_clk_count = 0;
+	int core_clk_count = 0, link_clk_count = 0;
 	int strm0_clk_count = 0, strm1_clk_count = 0;
 	const char *core_clk = "core";
-	const char *ctrl_clk = "ctrl";
 	const char *strm0_clk = "strm0";
 	const char *strm1_clk = "strm1";
+	const char *link_clk = "link";
 	const char *clk_name;
 	struct device *dev = &parser->pdev->dev;
 	struct dss_module_power *core_power = &parser->mp[DP_CORE_PM];
-	struct dss_module_power *ctrl_power = &parser->mp[DP_CTRL_PM];
 	struct dss_module_power *strm0_power = &parser->mp[DP_STREAM0_PM];
 	struct dss_module_power *strm1_power = &parser->mp[DP_STREAM1_PM];
+	struct dss_module_power *link_power = &parser->mp[DP_LINK_PM];
 
 	num_clk = of_property_count_strings(dev->of_node, "clock-names");
 	if (num_clk <= 0) {
@@ -482,16 +482,14 @@ static int dp_parser_init_clk_data(struct dp_parser *parser)
 		if (dp_parser_check_prefix(core_clk, clk_name))
 			core_clk_count++;
 
-		if (dp_parser_check_prefix(ctrl_clk, clk_name)) {
-			if (strcmp(clk_name, "ctrl_pixel_clk"))
-				ctrl_clk_count++;
-		}
-
 		if (dp_parser_check_prefix(strm0_clk, clk_name))
 			strm0_clk_count++;
 
 		if (dp_parser_check_prefix(strm1_clk, clk_name))
 			strm1_clk_count++;
+
+		if (dp_parser_check_prefix(link_clk, clk_name))
+			link_clk_count++;
 	}
 
 	/* Initialize the CORE power module */
@@ -508,23 +506,6 @@ static int dp_parser_init_clk_data(struct dp_parser *parser)
 	if (!core_power->clk_config) {
 		rc = -EINVAL;
 		goto exit;
-	}
-
-	/* Initialize the CTRL power module */
-	if (ctrl_clk_count <= 0) {
-		pr_err("no ctrl clocks are defined\n");
-		rc = -EINVAL;
-		goto ctrl_clock_error;
-	}
-
-	ctrl_power->num_clk = ctrl_clk_count;
-	ctrl_power->clk_config = devm_kzalloc(dev,
-			sizeof(struct dss_clk) * ctrl_power->num_clk,
-			GFP_KERNEL);
-	if (!ctrl_power->clk_config) {
-		ctrl_power->num_clk = 0;
-		rc = -EINVAL;
-		goto ctrl_clock_error;
 	}
 
 	/* Initialize the STREAM0 power module */
@@ -557,13 +538,30 @@ static int dp_parser_init_clk_data(struct dp_parser *parser)
 		}
 	}
 
+	/* Initialize the link power module */
+	if (link_clk_count <= 0) {
+		pr_err("no link clocks are defined\n");
+		rc = -EINVAL;
+		goto link_clock_error;
+	}
+
+	link_power->num_clk = link_clk_count;
+	link_power->clk_config = devm_kzalloc(dev,
+			sizeof(struct dss_clk) * link_power->num_clk,
+			GFP_KERNEL);
+	if (!link_power->clk_config) {
+		link_power->num_clk = 0;
+		rc = -EINVAL;
+		goto link_clock_error;
+	}
+
 	return rc;
 
+link_clock_error:
+	dp_parser_put_clk_data(dev, strm1_power);
 strm1_clock_error:
 	dp_parser_put_clk_data(dev, strm0_power);
 strm0_clock_error:
-	dp_parser_put_clk_data(dev, ctrl_power);
-ctrl_clock_error:
 	dp_parser_put_clk_data(dev, core_power);
 exit:
 	return rc;
@@ -573,25 +571,25 @@ static int dp_parser_clock(struct dp_parser *parser)
 {
 	int rc = 0, i = 0;
 	int num_clk = 0;
-	int core_clk_index = 0, ctrl_clk_index = 0;
-	int core_clk_count = 0, ctrl_clk_count = 0;
+	int core_clk_index = 0, link_clk_index = 0;
+	int core_clk_count = 0, link_clk_count = 0;
 	int strm0_clk_index = 0, strm1_clk_index = 0;
 	int strm0_clk_count = 0, strm1_clk_count = 0;
 	const char *clk_name;
 	const char *core_clk = "core";
-	const char *ctrl_clk = "ctrl";
 	const char *strm0_clk = "strm0";
 	const char *strm1_clk = "strm1";
+	const char *link_clk = "link";
 	struct device *dev = &parser->pdev->dev;
 	struct dss_module_power *core_power;
-	struct dss_module_power *ctrl_power;
 	struct dss_module_power *strm0_power;
 	struct dss_module_power *strm1_power;
+	struct dss_module_power *link_power;
 
 	core_power = &parser->mp[DP_CORE_PM];
-	ctrl_power = &parser->mp[DP_CTRL_PM];
 	strm0_power = &parser->mp[DP_STREAM0_PM];
 	strm1_power = &parser->mp[DP_STREAM1_PM];
+	link_power = &parser->mp[DP_LINK_PM];
 
 	rc =  dp_parser_init_clk_data(parser);
 	if (rc) {
@@ -601,7 +599,7 @@ static int dp_parser_clock(struct dp_parser *parser)
 	}
 
 	core_clk_count = core_power->num_clk;
-	ctrl_clk_count = ctrl_power->num_clk;
+	link_clk_count = link_power->num_clk;
 	strm0_clk_count = strm0_power->num_clk;
 	strm1_clk_count = strm1_power->num_clk;
 
@@ -618,15 +616,14 @@ static int dp_parser_clock(struct dp_parser *parser)
 			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
 			clk->type = DSS_CLK_AHB;
 			core_clk_index++;
-		} else if (dp_parser_check_prefix(ctrl_clk, clk_name) &&
-			   ctrl_clk_index < ctrl_clk_count) {
+		} else if (dp_parser_check_prefix(link_clk, clk_name) &&
+			   link_clk_index < link_clk_count) {
 			struct dss_clk *clk =
-				&ctrl_power->clk_config[ctrl_clk_index];
+				&link_power->clk_config[link_clk_index];
 			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
-			ctrl_clk_index++;
+			link_clk_index++;
 
-			if (!strcmp(clk_name, "ctrl_link_clk") ||
-			    !strcmp(clk_name, "ctrl_pixel_clk"))
+			if (!strcmp(clk_name, "link_clk"))
 				clk->type = DSS_CLK_PCLK;
 			else
 				clk->type = DSS_CLK_AHB;
