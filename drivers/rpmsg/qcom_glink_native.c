@@ -159,13 +159,6 @@ enum {
 	GLINK_STATE_CLOSING,
 };
 
-struct qcom_glink_device {
-	struct rpmsg_device rpdev;
-	struct qcom_glink *glink;
-};
-
-#define to_glink_device(_x) container_of(_x, struct qcom_glink_device, rpdev)
-
 /**
  * struct glink_channel - internal representation of a channel
  * @rpdev:	rpdev reference, only used for primary endpoints
@@ -1289,7 +1282,7 @@ static int qcom_glink_announce_create(struct rpmsg_device *rpdev)
 	__be32 *val = defaults;
 	int size;
 
-	if (glink->intentless)
+	if (glink->intentless || !completion_done(&channel->open_ack))
 		return 0;
 
 	prop = of_find_property(np, "qcom,intents", NULL);
@@ -1489,10 +1482,6 @@ static struct device_node *qcom_glink_match_channel(struct device_node *node,
 
 	return NULL;
 }
-
-static const struct rpmsg_device_ops glink_chrdev_ops = {
-	.create_ept = qcom_glink_create_ept,
-};
 
 static const struct rpmsg_device_ops glink_device_ops = {
 	.create_ept = qcom_glink_create_ept,
@@ -1714,9 +1703,9 @@ static ssize_t rpmsg_name_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
-	struct qcom_glink_device *gdev = to_glink_device(rpdev);
+	struct glink_channel *channel = to_glink_channel(rpdev->ept);
 
-	return snprintf(buf, RPMSG_NAME_SIZE, "%s\n", gdev->glink->name);
+	return snprintf(buf, RPMSG_NAME_SIZE, "%s\n", channel->glink->name);
 }
 static DEVICE_ATTR_RO(rpmsg_name);
 
@@ -1729,25 +1718,35 @@ ATTRIBUTE_GROUPS(qcom_glink);
 static void qcom_glink_device_release(struct device *dev)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
-	struct qcom_glink_device *gdev = to_glink_device(rpdev);
+	struct glink_channel *channel = to_glink_channel(rpdev->ept);
 
-	kfree(gdev);
+	/* Release qcom_glink_alloc_channel() reference */
+	kref_put(&channel->refcount, qcom_glink_channel_release);
+	kfree(rpdev);
 }
 
 static int qcom_glink_create_chrdev(struct qcom_glink *glink)
 {
-	struct qcom_glink_device *gdev;
+	struct rpmsg_device *rpdev;
+	struct glink_channel *channel;
 
-	gdev = kzalloc(sizeof(*gdev), GFP_KERNEL);
-	if (!gdev)
+	rpdev = kzalloc(sizeof(*rpdev), GFP_KERNEL);
+	if (!rpdev)
 		return -ENOMEM;
 
-	gdev->glink = glink;
-	gdev->rpdev.ops = &glink_chrdev_ops;
-	gdev->rpdev.dev.parent = glink->dev;
-	gdev->rpdev.dev.release = qcom_glink_device_release;
+	channel = qcom_glink_alloc_channel(glink, "rpmsg_chrdev");
+	if (IS_ERR(channel)) {
+		kfree(rpdev);
+		return PTR_ERR(channel);
+	}
+	channel->rpdev = rpdev;
 
-	return rpmsg_chrdev_register_device(&gdev->rpdev);
+	rpdev->ept = &channel->ept;
+	rpdev->ops = &glink_device_ops;
+	rpdev->dev.parent = glink->dev;
+	rpdev->dev.release = qcom_glink_device_release;
+
+	return rpmsg_chrdev_register_device(rpdev);
 }
 
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
