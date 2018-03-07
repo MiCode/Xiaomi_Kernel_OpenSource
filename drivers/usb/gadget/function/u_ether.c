@@ -511,6 +511,11 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	int length;
 	int retval;
 
+	if (!dev->port_usb) {
+		usb_ep_free_request(ep, req);
+		return;
+	}
+
 	switch (req->status) {
 	default:
 		dev->net->stats.tx_errors++;
@@ -627,11 +632,13 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	unsigned long		flags;
 	struct usb_ep		*in;
 	u16			cdc_filter;
+	bool			multi_pkt_xfer = false;
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
 		in = dev->port_usb->in_ep;
 		cdc_filter = dev->port_usb->cdc_filter;
+		multi_pkt_xfer = dev->port_usb->multi_pkt_xfer;
 	} else {
 		in = NULL;
 		cdc_filter = 0;
@@ -644,7 +651,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	/* Allocate memory for tx_reqs to support multi packet transfer */
-	if (dev->port_usb->multi_pkt_xfer && !dev->tx_req_bufsize)
+	if (multi_pkt_xfer && !dev->tx_req_bufsize)
 		alloc_tx_buffer(dev);
 
 	/* apply outgoing CDC or RNDIS filters */
@@ -714,7 +721,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	dev->tx_skb_hold_count++;
 	spin_unlock_irqrestore(&dev->req_lock, flags);
 
-	if (dev->port_usb->multi_pkt_xfer) {
+	if (multi_pkt_xfer) {
 		memcpy(req->buf + req->length, skb->data, skb->len);
 		req->length = req->length + skb->len;
 		length = req->length;
@@ -787,7 +794,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	if (retval) {
-		if (!dev->port_usb->multi_pkt_xfer)
+		if (!multi_pkt_xfer)
 			dev_kfree_skb_any(skb);
 drop:
 		dev->net->stats.tx_dropped++;
