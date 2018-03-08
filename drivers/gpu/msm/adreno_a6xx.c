@@ -638,7 +638,7 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 	if (adreno_is_a615(adreno_dev))
 		return 0x00000222;
 	else
-		return 0x00020222;
+		return 0x00020202;
 }
 
 static inline unsigned int
