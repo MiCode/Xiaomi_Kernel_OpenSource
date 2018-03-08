@@ -254,6 +254,7 @@ put_vdda18_lpm:
 		dev_err(phy->phy.dev, "Unable to set LPM of vdda18\n");
 
 disable_vdd:
+	ret = regulator_disable(phy->vdd);
 	if (ret)
 		dev_err(phy->phy.dev, "Unable to disable vdd:%d\n",
 								ret);
