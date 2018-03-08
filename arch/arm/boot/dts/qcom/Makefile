@@ -7,6 +7,11 @@ dtb-$(CONFIG_ARCH_SDXPOORWILLS) += sdxpoorwills-rumi.dtb \
 	sdxpoorwills-pcie-ep-cdp.dtb \
 	sdxpoorwills-pcie-ep-mtp.dtb
 
+dtb-$(CONFIG_ARCH_MDM9650) += mdm9650-nand-mtp.dtb \
+	mdm9650-ttp.dtb \
+	mdm9650-v1.1-nand-mtp.dtb \
+	mdm9650-v1.1-nand-cv2x.dtb
+
 targets += dtbs
 targets += $(addprefix ../, $(dtb-y))
 

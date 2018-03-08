@@ -571,6 +571,13 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* sdxpoorwills ID */
 	[334] = {SDX_CPU_SDXPOORWILLS, "SDXPOORWILLS"},
 
+	/* 9650 IDs */
+	[279] = {MSM_CPU_9650, "MDM9650"},
+	[283] = {MSM_CPU_9650, "MDM9650"},
+	[284] = {MSM_CPU_9650, "MDM9650"},
+	[285] = {MSM_CPU_9650, "MDM9650"},
+	[286] = {MSM_CPU_9650, "MDM9650"},
+
 	/* SDM670 ID */
 	[336] = {MSM_CPU_SDM670, "SDM670"},
 
@@ -598,7 +605,6 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* SDM429 and SDM439 ID*/
 	[353] = {MSM_CPU_SDM439, "SDM439"},
 	[354] = {MSM_CPU_SDM429, "SDM429"},
-
 
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -1518,6 +1524,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_qcs605()) {
 		dummy_socinfo.id = 347;
 		strlcpy(dummy_socinfo.build_id, "qcs605 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_mdm9650()) {
+		dummy_socinfo.id = 286;
+		strlcpy(dummy_socinfo.build_id, "mdm9650 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdxpoorwills()) {
 		dummy_socinfo.id = 334;

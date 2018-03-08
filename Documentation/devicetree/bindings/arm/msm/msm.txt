@@ -128,8 +128,8 @@ SoCs:
 - MDM9640
   compatible = "qcom,mdm9640"
 
-- MDMCALIFORNIUM
-  compatible = "qcom,mdmcalifornium"
+- MDM9650
+  compatible = "qcom,mdm9650"
 
 - SDXPOORWILLS
   compatible = "qcom,sdxpoorwills"
@@ -189,6 +189,9 @@ Generic board variants:
 
 - IPC device:
   compatible = "qcom,ipc"
+
+- TTP device:
+  compatible = "qcom,ttp"
 
 Boards (SoC type + board variant):
 
@@ -355,10 +358,8 @@ compatible = "qcom,msmvpipa-sim"
 compatible = "qcom,mdm9607-rumi"
 compatible = "qcom,mdm9607-cdp"
 compatible = "qcom,mdm9607-mtp"
-compatible = "qcom,mdmcalifornium-rumi"
-compatible = "qcom,mdmcalifornium-sim"
-compatible = "qcom,mdmcalifornium-cdp"
-compatible = "qcom,mdmcalifornium-mtp"
+compatible = "qcom,mdm9650-mtp"
+compatible = "qcom,mdm9650-ttp"
 compatible = "qcom,apq8009-cdp"
 compatible = "qcom,apq8009-mtp"
 compatible = "qcom,sdxpoorwills-rumi"
