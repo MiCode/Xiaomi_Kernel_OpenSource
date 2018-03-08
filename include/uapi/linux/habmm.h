@@ -109,7 +109,15 @@ struct hab_unimport {
 #define MM_CLK_VM2	802
 #define MM_CLK_END	803
 
-#define MM_ID_MAX	804
+#define MM_FDE_START  900
+#define MM_FDE_1 901
+#define MM_FDE_END 902
+
+#define MM_BUFFERQ_START  1000
+#define MM_BUFFERQ_1 1001
+#define MM_BUFFERQ_END 1002
+
+#define MM_ID_MAX       1003
 
 #define HABMM_SOCKET_OPEN_FLAGS_SINGLE_BE_SINGLE_FE        0x00000000
 #define HABMM_SOCKET_OPEN_FLAGS_SINGLE_BE_SINGLE_DOMU      0x00000001
