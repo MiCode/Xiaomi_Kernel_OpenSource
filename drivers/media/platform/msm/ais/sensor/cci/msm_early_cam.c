@@ -163,59 +163,6 @@ int msm_ais_enable_clocks(void)
 		return rc;
 	}
 
-	if (new_early_cam_dev->pdev->dev.of_node)
-		of_property_read_u32((&new_early_cam_dev->pdev->dev)->of_node,
-			"cell-index", &new_early_cam_dev->pdev->id);
-
-	rc = msm_camera_get_clk_info_and_rates(new_early_cam_dev->pdev,
-		&new_early_cam_dev->early_cam_clk_info,
-		&new_early_cam_dev->early_cam_clk,
-		&new_early_cam_dev->early_cam_clk_rates,
-		&new_early_cam_dev->num_clk_cases,
-		&new_early_cam_dev->num_clk);
-	if (rc < 0) {
-		pr_err("%s: msm_early_cam_get_clk_info() failed", __func__);
-		return -EFAULT;
-	}
-
-	rc = msm_camera_get_dt_vreg_data(
-		new_early_cam_dev->pdev->dev.of_node,
-		&(new_early_cam_dev->early_cam_vreg),
-		&(new_early_cam_dev->regulator_count));
-	if (rc < 0) {
-		pr_err("%s: msm_camera_get_dt_vreg_data fail\n", __func__);
-		rc = -EFAULT;
-		return rc;
-	}
-
-	if ((new_early_cam_dev->regulator_count < 0) ||
-		(new_early_cam_dev->regulator_count > MAX_REGULATOR)) {
-		pr_err("%s: invalid reg count = %d, max is %d\n", __func__,
-			new_early_cam_dev->regulator_count, MAX_REGULATOR);
-		rc = -EFAULT;
-		return rc;
-	}
-
-	rc = msm_camera_config_vreg(&new_early_cam_dev->pdev->dev,
-		new_early_cam_dev->early_cam_vreg,
-		new_early_cam_dev->regulator_count,
-		NULL,
-		0,
-		&new_early_cam_dev->early_cam_reg_ptr[0], 1);
-	if (rc < 0)
-		pr_err("%s:%d early_cam config_vreg failed\n", __func__,
-			__LINE__);
-
-	rc = msm_camera_enable_vreg(&new_early_cam_dev->pdev->dev,
-		new_early_cam_dev->early_cam_vreg,
-		new_early_cam_dev->regulator_count,
-		NULL,
-		0,
-		&new_early_cam_dev->early_cam_reg_ptr[0], 1);
-	if (rc < 0)
-		pr_err("%s:%d early_cam enable_vreg failed\n", __func__,
-		__LINE__);
-
 	rc = msm_camera_clk_enable(&new_early_cam_dev->pdev->dev,
 		new_early_cam_dev->early_cam_clk_info,
 		new_early_cam_dev->early_cam_clk,
@@ -357,12 +304,10 @@ static int msm_early_cam_probe(struct platform_device *pdev)
 		of_property_read_u32((&pdev->dev)->of_node,
 			"cell-index", &pdev->id);
 
-	rc = msm_camera_get_clk_info_and_rates(pdev,
-		&new_early_cam_dev->early_cam_clk_info,
-		&new_early_cam_dev->early_cam_clk,
-		&new_early_cam_dev->early_cam_clk_rates,
-		&new_early_cam_dev->num_clk_cases,
-		&new_early_cam_dev->num_clk);
+	rc = msm_camera_get_clk_info(pdev,
+				&new_early_cam_dev->early_cam_clk_info,
+				&new_early_cam_dev->early_cam_clk,
+				&new_early_cam_dev->num_clk);
 	if (rc < 0) {
 		pr_err("%s: msm_early_cam_get_clk_info() failed", __func__);
 		kfree(new_early_cam_dev);
