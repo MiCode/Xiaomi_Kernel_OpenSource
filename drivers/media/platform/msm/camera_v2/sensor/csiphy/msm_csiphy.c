@@ -782,10 +782,10 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		ratio = csiphy_dev->csiphy_max_clk/clk_rate;
 		csiphy_params->settle_cnt = csiphy_params->settle_cnt/ratio;
 	}
-	CDBG("%s csiphy_params, mask = 0x%x cnt = %d\n",
+	CDBG("%s csiphy_params, mask = 0x%x cnt = %d, data rate = %lu\n",
 		__func__,
 		csiphy_params->lane_mask,
-		csiphy_params->lane_cnt);
+		csiphy_params->lane_cnt, csiphy_params->data_rate);
 	CDBG("%s csiphy_params, settle cnt = 0x%x csid %d\n",
 		__func__, csiphy_params->settle_cnt,
 		csiphy_params->csid_core);
