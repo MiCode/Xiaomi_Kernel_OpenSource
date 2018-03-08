@@ -2334,8 +2334,7 @@ config FB_MSM
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
-	select SYNC
-	select SW_SYNC
+	select SYNC_FILE
 	---help---
 	  The MSM driver implements a frame buffer interface to
 	  provide access to the display hardware and provide
