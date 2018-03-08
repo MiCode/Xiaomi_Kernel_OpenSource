@@ -1158,6 +1158,12 @@
 			qcom,smdpkt-dev-name = "smdcntl8";
 		};
 
+		qcom,smdpkt-data2 {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA2";
+			qcom,smdpkt-dev-name = "at_mdm0";
+		};
+
 		qcom,smdpkt-apr-apps2 {
 			qcom,smdpkt-remote = "adsp";
 			qcom,smdpkt-port-name = "apr_apps2";
