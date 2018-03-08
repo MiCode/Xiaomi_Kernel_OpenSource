@@ -2012,7 +2012,7 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 		MSM_VFE_TASKLETQ_SIZE;
 	list_add_tail(&queue_cmd->list, &vfe_dev->tasklet_q);
 	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-	tasklet_schedule(&vfe_dev->vfe_tasklet);
+	tasklet_hi_schedule(&vfe_dev->vfe_tasklet);
 }
 
 irqreturn_t msm_isp_process_irq(int irq_num, void *data)
