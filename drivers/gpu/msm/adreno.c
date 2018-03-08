@@ -2525,7 +2525,39 @@ int adreno_set_constraint(struct kgsl_device *device,
 				context->pwr_constraint.sub_type);
 		context->pwr_constraint.type = KGSL_CONSTRAINT_NONE;
 		break;
+	case KGSL_CONSTRAINT_L3_PWRLEVEL: {
+		struct kgsl_device_constraint_pwrlevel pwr;
 
+		if (constraint->size != sizeof(pwr)) {
+			status = -EINVAL;
+			break;
+		}
+
+		if (copy_from_user(&pwr, (void __user *)constraint->data,
+					sizeof(pwr))) {
+			status = -EFAULT;
+			break;
+		}
+		if (pwr.level >= KGSL_CONSTRAINT_PWR_MAXLEVELS)
+			pwr.level = KGSL_CONSTRAINT_PWR_MAXLEVELS-1;
+
+		context->l3_pwr_constraint.type = KGSL_CONSTRAINT_L3_PWRLEVEL;
+		context->l3_pwr_constraint.sub_type = pwr.level;
+		trace_kgsl_user_pwrlevel_constraint(device, context->id,
+			context->l3_pwr_constraint.type,
+			context->l3_pwr_constraint.sub_type);
+		}
+		break;
+	case KGSL_CONSTRAINT_L3_NONE: {
+		unsigned int type = context->l3_pwr_constraint.type;
+
+		if (type == KGSL_CONSTRAINT_L3_PWRLEVEL)
+			trace_kgsl_user_pwrlevel_constraint(device, context->id,
+				KGSL_CONSTRAINT_L3_NONE,
+				context->l3_pwr_constraint.sub_type);
+		context->l3_pwr_constraint.type = KGSL_CONSTRAINT_L3_NONE;
+		}
+		break;
 	default:
 		status = -EINVAL;
 		break;
@@ -2607,7 +2639,27 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 
 			status = adreno_set_constraint(device, context,
 								&constraint);
+			kgsl_context_put(context);
+		}
+		break;
+	case KGSL_PROP_L3_PWR_CONSTRAINT: {
+			struct kgsl_device_constraint constraint;
+			struct kgsl_context *context;
 
+			if (sizebytes != sizeof(constraint))
+				break;
+			if (copy_from_user(&constraint, value,
+				sizeof(constraint))) {
+				status = -EFAULT;
+				break;
+			}
+			context = kgsl_context_get_owner(dev_priv,
+							constraint.context_id);
+
+			if (context == NULL)
+				break;
+			status = adreno_set_constraint(device, context,
+							&constraint);
 			kgsl_context_put(context);
 		}
 		break;

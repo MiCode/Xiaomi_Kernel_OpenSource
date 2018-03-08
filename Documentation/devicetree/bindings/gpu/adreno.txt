@@ -29,7 +29,7 @@ Required properties:
 				Current values of clock-names are:
 				"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
 				"alt_mem_iface_clk", "rbbmtimer_clk",  "alwayson_clk",
-				"iref_clk"
+				"iref_clk", "l3_vote"
 				"core_clk" and "iface_clk" are required and others are optional
 
 - qcom,base-leakage-coefficient: Dynamic leakage coefficient.
@@ -78,7 +78,10 @@ IOMMU Data:
 GPU Power levels:
 - qcom,gpu-pwrlevel-bins:	Container for sets of GPU power levels (see
 				adreno-pwrlevels.txt)
-
+L3 Power levels:
+- qcom,l3-pwrlevels:		Container for sets of L3 power levels, the
+				L3 frequency is adjusted according to the
+				performance hint received from userspace.
 DCVS Core info
 - qcom,dcvs-core-info		Container for the DCVS core info (see
 				dcvs-core-info.txt)

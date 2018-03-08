@@ -762,10 +762,55 @@ adreno_ringbuffer_issue_internal_cmds(struct adreno_ringbuffer *rb,
 		sizedwords, 0, NULL);
 }
 
+static int
+l3_pwrlevel_probe(struct kgsl_device *device, struct device_node *node)
+{
+
+	struct device_node *pwrlevel_node, *child;
+
+	pwrlevel_node = of_find_node_by_name(node, "qcom,l3-pwrlevels");
+
+	if (pwrlevel_node == NULL) {
+		dev_err_once(&device->pdev->dev, "Unable to find 'qcom,l3-pwrlevels'\n");
+		return -EINVAL;
+	}
+
+	device->num_l3_pwrlevels = 0;
+
+	for_each_child_of_node(pwrlevel_node, child) {
+		unsigned int index;
+
+		if (of_property_read_u32(child, "reg", &index))
+			return -EINVAL;
+		if (index >= MAX_L3_LEVELS) {
+			dev_err(&device->pdev->dev, "L3 pwrlevel %d is out of range\n",
+					index);
+			continue;
+		}
+
+		if (index >= device->num_l3_pwrlevels)
+			device->num_l3_pwrlevels = index + 1;
+
+		if (of_property_read_u32(child, "qcom,l3-freq",
+					&device->l3_freq[index]))
+		return -EINVAL;
+
+	}
+
+	return 0;
+
+}
+
 static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 			struct kgsl_drawobj *drawobj)
 {
 	struct kgsl_context *context = drawobj->context;
+	struct device *dev = &device->pdev->dev;
+	unsigned long flags = drawobj->flags;
+	struct device_node *node;
+
+	node = device->pdev->dev.of_node;
+
 	/*
 	 * Check if the context has a constraint and constraint flags are
 	 * set.
@@ -775,6 +820,45 @@ static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 			(drawobj->flags & KGSL_CONTEXT_PWR_CONSTRAINT)))
 		kgsl_pwrctrl_set_constraint(device, &context->pwr_constraint,
 						context->id);
+
+	if (IS_ERR_OR_NULL(device->l3_clk))
+		device->l3_clk = devm_clk_get(dev, "l3_vote");
+
+	if (IS_ERR_OR_NULL(device->l3_clk)) {
+		KGSL_DEV_ERR_ONCE(device, "Unable to get the l3_vote clock. Cannot set the L3 constraint\n");
+		return;
+	}
+
+	if (context->l3_pwr_constraint.type &&
+			((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
+				(flags & KGSL_CONTEXT_PWR_CONSTRAINT))) {
+
+		int ret =  l3_pwrlevel_probe(device, node);
+
+		if (ret)
+			return;
+
+		switch (context->l3_pwr_constraint.type) {
+
+		case KGSL_CONSTRAINT_L3_PWRLEVEL: {
+			unsigned int sub_type;
+
+			sub_type = context->l3_pwr_constraint.sub_type;
+
+			if (sub_type == KGSL_CONSTRAINT_L3_PWR_MED)
+				clk_set_rate(device->l3_clk,
+						device->l3_freq[1]);
+
+			if (sub_type == KGSL_CONSTRAINT_L3_PWR_MAX)
+				clk_set_rate(device->l3_clk,
+						device->l3_freq[2]);
+			}
+			break;
+		case KGSL_CONSTRAINT_L3_NONE:
+			clk_set_rate(device->l3_clk, device->l3_freq[0]);
+			break;
+		}
+	}
 }
 
 static inline int _get_alwayson_counter(struct adreno_device *adreno_dev,

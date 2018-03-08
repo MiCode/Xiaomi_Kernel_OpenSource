@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -185,6 +185,37 @@ int adreno_setproperty_compat(struct kgsl_device_private *dev_priv,
 			status = adreno_set_constraint(device, context,
 								&constraint);
 			kgsl_context_put(context);
+		}
+		break;
+	case KGSL_PROP_L3_PWR_CONSTRAINT: {
+			struct kgsl_device_constraint_compat constraint32;
+			struct kgsl_device_constraint constraint;
+			struct kgsl_context *context;
+
+			if (sizebytes != sizeof(constraint32))
+				break;
+
+			if (copy_from_user(&constraint32, value,
+				sizeof(constraint32))) {
+				status = -EFAULT;
+				break;
+			}
+
+			constraint.type = constraint32.type;
+			constraint.context_id = constraint32.context_id;
+			constraint.data = compat_ptr(constraint32.data);
+			constraint.size = (size_t)constraint32.size;
+
+			context = kgsl_context_get_owner(dev_priv,
+							constraint.context_id);
+
+			if (context == NULL)
+				break;
+
+			status = adreno_set_constraint(device, context,
+							&constraint);
+			kgsl_context_put(context);
+
 		}
 		break;
 	default:
