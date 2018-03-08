@@ -2210,12 +2210,12 @@ static int __uvcg_cnt_strm(void *priv1, void *priv2, void *priv3, int n,
 			struct uvc_frame_mjpeg mf =
 				frm->frame.mf;
 			*size +=
-			UVC_DT_FRAME_UNCOMPRESSED_SIZE(mf.bFrameIntervalType);
+			UVC_DT_FRAME_MJPEG_SIZE(mf.bFrameIntervalType);
 		} else if (frm->fmt_type == UVCG_H264) {
 			struct uvc_frame_h264 hf =
 				frm->frame.hf;
 			*size +=
-			UVC_DT_FRAME_UNCOMPRESSED_SIZE(hf.bNumFrameIntervals);
+			UVC_DT_FRAME_H264_SIZE(hf.bNumFrameIntervals);
 		}
 	}
 	break;
