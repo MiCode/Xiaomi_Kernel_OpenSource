@@ -58,6 +58,7 @@ static struct page *__get_meta_page(struct f2fs_sb_info *sbi, pgoff_t index,
 		.rw = READ_SYNC | REQ_META | REQ_PRIO,
 		.blk_addr = index,
 		.encrypted_page = NULL,
+		.is_meta = is_meta,
 	};
 
 	if (unlikely(!is_meta))
@@ -151,6 +152,7 @@ int ra_meta_pages(struct f2fs_sb_info *sbi, block_t start, int nrpages,
 		.type = META,
 		.rw = sync ? (READ_SYNC | REQ_META | REQ_PRIO) : READA,
 		.encrypted_page = NULL,
+		.is_meta = (type != META_POR),
 	};
 
 	if (unlikely(type == META_POR))

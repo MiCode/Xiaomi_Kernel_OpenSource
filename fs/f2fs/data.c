@@ -147,6 +147,7 @@ int f2fs_submit_page_bio(struct f2fs_io_info *fio)
 	struct bio *bio;
 	struct page *page = fio->encrypted_page ? fio->encrypted_page : fio->page;
 
+	verify_block_addr(fio, fio->blk_addr);
 	trace_f2fs_submit_page_bio(page, fio);
 	f2fs_trace_ios(fio, 0);
 
@@ -172,7 +173,7 @@ void f2fs_submit_page_mbio(struct f2fs_io_info *fio)
 
 	io = is_read ? &sbi->read_io : &sbi->write_io[btype];
 
-	verify_block_addr(sbi, fio->blk_addr);
+	verify_block_addr(fio, fio->blk_addr);
 
 	down_write(&io->io_rwsem);
 

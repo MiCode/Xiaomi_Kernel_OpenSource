@@ -684,6 +684,7 @@ struct f2fs_io_info {
 	block_t blk_addr;	/* block address to be written */
 	struct page *page;	/* page to be written */
 	struct page *encrypted_page;	/* encrypted page */
+	bool is_meta;		/* indicate borrow meta inode mapping or not */
 };
 
 #define is_read_io(rw)	(((rw) & 1) == READ)
