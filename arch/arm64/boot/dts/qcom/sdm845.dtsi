@@ -1267,7 +1267,7 @@
 		vdd_pwrcl_mx_ao-supply = <&pm8998_s6_level_ao>;
 
 		qcom,mx-turbo-freq = <1478400000 1689600000 3300000001>;
-		l3-devs = <&l3_cpu0 &l3_cpu4 &l3_cdsp>;
+		l3-devs = <&l3_cpu0 &l3_cpu4 &l3_cdsp &msm_gpu>;
 
 		clock-names = "xo_ao";
 		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
