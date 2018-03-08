@@ -1248,6 +1248,8 @@ static int dwc3_probe(struct platform_device *pdev)
 				"snps,disable-clk-gating");
 	dwc->enable_bus_suspend = device_property_read_bool(dev,
 					"snps,bus-suspend-enable");
+	dwc->usb3_u1u2_disable = device_property_read_bool(dev,
+					"snps,usb3-u1u2-disable");
 	if (dwc->enable_bus_suspend) {
 		pm_runtime_set_autosuspend_delay(dev, 500);
 		pm_runtime_use_autosuspend(dev);
