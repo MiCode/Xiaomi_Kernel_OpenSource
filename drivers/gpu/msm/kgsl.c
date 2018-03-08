@@ -978,24 +978,6 @@ static void process_release_memory(struct kgsl_process_private *private)
 	}
 }
 
-static void process_release_sync_sources(struct kgsl_process_private *private)
-{
-	struct kgsl_syncsource *syncsource;
-	int next = 0;
-
-	while (1) {
-		spin_lock(&private->syncsource_lock);
-		syncsource = idr_get_next(&private->syncsource_idr, &next);
-		spin_unlock(&private->syncsource_lock);
-
-		if (syncsource == NULL)
-			break;
-
-		kgsl_syncsource_cleanup(private, syncsource);
-		next = next + 1;
-	}
-}
-
 static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 		struct kgsl_process_private *private)
 {
@@ -1014,7 +996,8 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 
 	kgsl_process_uninit_sysfs(private);
 
-	process_release_sync_sources(private);
+	/* Release all syncsource objects from process private */
+	kgsl_syncsource_process_release_syncsources(private);
 
 	/* When using global pagetables, do not detach global pagetable */
 	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)

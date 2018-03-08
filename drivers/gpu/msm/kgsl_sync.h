@@ -108,8 +108,8 @@ long kgsl_ioctl_syncsource_signal_fence(struct kgsl_device_private *dev_priv,
 
 void kgsl_syncsource_put(struct kgsl_syncsource *syncsource);
 
-void kgsl_syncsource_cleanup(struct kgsl_process_private *private,
-					struct kgsl_syncsource *syncsource);
+void kgsl_syncsource_process_release_syncsources(
+		struct kgsl_process_private *private);
 
 void kgsl_dump_fence(struct kgsl_drawobj_sync_event *event,
 					char *fence_str, int len);
@@ -182,8 +182,8 @@ static inline void kgsl_syncsource_put(struct kgsl_syncsource *syncsource)
 
 }
 
-static inline void kgsl_syncsource_cleanup(struct kgsl_process_private *private,
-					struct kgsl_syncsource *syncsource)
+static inline void kgsl_syncsource_process_release_syncsources(
+		struct kgsl_process_private *private)
 {
 
 }
