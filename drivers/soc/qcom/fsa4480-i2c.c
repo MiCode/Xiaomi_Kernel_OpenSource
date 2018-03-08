@@ -66,7 +66,8 @@ static const struct fsa4480_reg_val fsa_reg_i2c_defaults[] = {
 	{FSA4480_DELAY_L_AGND, 0x09},
 };
 
-static void fsa4480_usbc_restore_default(struct fsa4480_priv *fsa_priv)
+static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
+		u32 switch_control, u32 switch_enable)
 {
 	if (!fsa_priv->regmap) {
 		dev_err(fsa_priv->dev, "%s: regmap invalid\n", __func__);
@@ -74,10 +75,10 @@ static void fsa4480_usbc_restore_default(struct fsa4480_priv *fsa_priv)
 	}
 
 	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0x80);
-	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, 0x18);
+	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, switch_control);
 	/* FSA4480 chip hardware requirement */
 	usleep_range(50, 55);
-	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0xF8);
+	regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, switch_enable);
 }
 
 static int fsa4480_usbc_event_changed(struct notifier_block *nb,
@@ -191,7 +192,7 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 	if (!fsa_priv)
 		return -EINVAL;
 
-	fsa4480_usbc_restore_default(fsa_priv);
+	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 	return blocking_notifier_chain_unregister
 					(&fsa_priv->fsa4480_notifier, nb);
 }
@@ -221,20 +222,21 @@ int fsa4480_switch_event(struct device_node *node,
 	if (!fsa_priv->regmap)
 		return -EINVAL;
 
-	regmap_read(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, &switch_control);
-
 	switch (event) {
 	case FSA_MIC_GND_SWAP:
-		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0x80);
+		regmap_read(fsa_priv->regmap, FSA4480_SWITCH_CONTROL,
+				&switch_control);
 		if ((switch_control & 0x07) == 0x07)
-			regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL,
-				     0x00);
+			switch_control = 0x0;
 		else
-			regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL,
-				     0x07);
-		/* FSA4480 chip hardware requirement */
-		usleep_range(50, 55);
-		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0x1F);
+			switch_control = 0x7;
+		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x1F);
+		break;
+	case FSA_USBC_ORIENTATION_CC1:
+		fsa4480_usbc_update_settings(fsa_priv, 0x78, 0xF8);
+		break;
+	case FSA_USBC_ORIENTATION_CC2:
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 		break;
 	default:
 		break;
@@ -266,11 +268,7 @@ static int fsa4480_usbc_analog_setup_switches
 			fsa_priv->usbc_force_pr_mode = true;
 
 		/* activate switches */
-		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0x80);
-		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_CONTROL, 0x00);
-		/* FSA4480 chip hardware requirement */
-		usleep_range(50, 55);
-		regmap_write(fsa_priv->regmap, FSA4480_SWITCH_SETTINGS, 0x1F);
+		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x1F);
 
 		/* notify call chain on event */
 		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
@@ -281,7 +279,7 @@ static int fsa4480_usbc_analog_setup_switches
 				POWER_SUPPLY_TYPEC_NONE, NULL);
 
 		/* deactivate switches */
-		fsa4480_usbc_restore_default(fsa_priv);
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 
 		if (fsa_priv->usbc_force_pr_mode) {
 			pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
@@ -392,7 +390,7 @@ static int fsa4480_remove(struct i2c_client *i2c)
 	if (!fsa_priv)
 		return -EINVAL;
 
-	fsa4480_usbc_restore_default(fsa_priv);
+	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 
 	/* deregister from PMI */
 	power_supply_unreg_notifier(&fsa_priv->psy_nb);
