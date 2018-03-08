@@ -890,6 +890,7 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 {
 	int ret = -EINVAL;
 	struct scatterlist *sg;
+	struct sg_table *sgt = NULL;
 	unsigned int i;
 	unsigned long flags = 0;
 
@@ -925,19 +926,23 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 			}
 		}
 
+		sgt = dma_buf_map_attachment(
+				data->srcp_attachment, dir);
+		if (IS_ERR_OR_NULL(sgt) ||
+				IS_ERR_OR_NULL(sgt->sgl)) {
+			SDEROT_ERR("Failed to map attachment\n");
+			ret = PTR_ERR(sgt);
+			goto err_detach;
+		}
+		data->srcp_table = sgt;
+
+		data->len = 0;
+		for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+			data->len += sg->length;
+		}
+
 		if (sde_mdp_is_map_needed(data)) {
-			data->srcp_table =
-				dma_buf_map_attachment(data->srcp_attachment,
-						dir);
-			if (IS_ERR_OR_NULL(data->srcp_table) ||
-					IS_ERR_OR_NULL(data->srcp_table->sgl)) {
-				SDEROT_ERR("%d Failed to map attachment\n",
-						__LINE__);
-				ret = PTR_ERR(data->srcp_table);
-				goto err_detach;
-			}
 			data->addr = data->srcp_table->sgl->dma_address;
-			data->len = data->srcp_table->sgl->dma_length;
 			SDEROT_DBG("map %pad/%lx f:%x\n",
 					&data->addr,
 					data->len,
@@ -945,19 +950,6 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 			data->mapped = true;
 			ret = 0;
 		} else {
-			struct sg_table *sgt = NULL;
-
-			data->srcp_table = dma_buf_map_attachment(
-					data->srcp_attachment, dir);
-			if (IS_ERR_OR_NULL(data->srcp_table) ||
-					IS_ERR_OR_NULL(data->srcp_table->sgl)) {
-				SDEROT_ERR(
-					"Failed to map attachment for secure camera\n");
-				ret = PTR_ERR(data->srcp_table);
-				goto err_detach;
-			}
-			sgt = data->srcp_table;
-
 			if (sgt->nents != 1) {
 				SDEROT_ERR(
 					"Fail ion buffer mapping for secure camera\n");
@@ -975,10 +967,6 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 			}
 
 			data->addr = sg_phys(data->srcp_table->sgl);
-			data->len = 0;
-			for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-				data->len += sg->length;
-			}
 			ret = 0;
 		}
 	}
