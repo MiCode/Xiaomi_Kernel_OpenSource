@@ -1260,6 +1260,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.check_status = dsi_display_check_status,
 		.enable_event = dsi_conn_enable_event,
 		.cmd_transfer = dsi_display_cmd_transfer,
+		.cont_splash_config = dsi_display_cont_splash_config,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -1273,6 +1274,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_dst_format = NULL,
 		.check_status = NULL,
 		.cmd_transfer = NULL,
+		.cont_splash_config = NULL,
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,
@@ -1285,6 +1287,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.check_status = NULL,
 		.config_hdr = dp_connector_config_hdr,
 		.cmd_transfer = NULL,
+		.cont_splash_config = NULL,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -2272,6 +2275,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 	struct list_head *connector_list = NULL;
 	struct drm_connector *conn_iter = NULL;
 	struct drm_connector *connector = NULL;
+	struct sde_connector *sde_conn = NULL;
 
 	if (!kms) {
 		SDE_ERROR("invalid kms\n");
@@ -2382,6 +2386,10 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 	sde_encoder_update_caps_for_cont_splash(encoder);
 
 	sde_crtc_update_cont_splash_mixer_settings(crtc);
+
+	sde_conn = to_sde_connector(connector);
+	if (sde_conn && sde_conn->ops.cont_splash_config)
+		sde_conn->ops.cont_splash_config(sde_conn->display);
 
 	return rc;
 }
