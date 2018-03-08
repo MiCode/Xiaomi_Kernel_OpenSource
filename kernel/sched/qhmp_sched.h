@@ -1027,6 +1027,9 @@ static inline int sched_cpu_high_irqload(int cpu)
 	return sched_irqload(cpu) >= sysctl_sched_cpu_high_irqload;
 }
 
+static inline bool hmp_capable(void) { return false; }
+static inline bool is_min_capacity_cpu(int cpu) { return true; }
+
 #else	/* CONFIG_SCHED_HMP */
 
 struct hmp_sched_stats;
