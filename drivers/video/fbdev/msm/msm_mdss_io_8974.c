@@ -2033,7 +2033,7 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 {
 	int rc = 0;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
-	int i, *vote_cnt;
+	int i, *vote_cnt = NULL;
 
 	void *m_clk_handle;
 	bool is_ecg = false;

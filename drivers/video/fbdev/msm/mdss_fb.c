@@ -279,7 +279,7 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 				      enum led_brightness value)
 {
 	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
-	int bl_lvl;
+	u64 bl_lvl;
 
 	if (mfd->boot_notification_led) {
 		led_trigger_event(mfd->boot_notification_led, 0);
@@ -518,13 +518,13 @@ static ssize_t mdss_fb_get_fps_info(struct device *dev,
 {
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = fbi->par;
-	unsigned int fps_int, fps_float;
+	u64 fps_int, fps_float;
 
 	if (mfd->panel_power_state != MDSS_PANEL_POWER_ON)
 		mfd->fps_info.measured_fps = 0;
-	fps_int = (unsigned int) mfd->fps_info.measured_fps;
+	fps_int = (u64) mfd->fps_info.measured_fps;
 	fps_float = do_div(fps_int, 10);
-	return scnprintf(buf, PAGE_SIZE, "%d.%d\n", fps_int, fps_float);
+	return scnprintf(buf, PAGE_SIZE, "%llu.%llu\n", fps_int, fps_float);
 
 }
 
@@ -2292,9 +2292,10 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 			pr_debug("vma=%pK, addr=%x len=%ld\n",
 					vma, (unsigned int)addr, len);
 			pr_debug("vm_start=%x vm_end=%x vm_page_prot=%ld\n",
-					(unsigned int)vma->vm_start,
-					(unsigned int)vma->vm_end,
-				(unsigned long int)vma->vm_page_prot.pgprot);
+				(unsigned int)vma->vm_start,
+				(unsigned int)vma->vm_end,
+				(unsigned long int)pgprot_val(
+							vma->vm_page_prot));
 
 			io_remap_pfn_range(vma, addr, page_to_pfn(page), len,
 					vma->vm_page_prot);

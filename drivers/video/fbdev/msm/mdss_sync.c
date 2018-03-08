@@ -58,6 +58,7 @@ struct mdss_timeline {
 	struct list_head fence_list_head;
 };
 
+#if defined(CONFIG_SYNC_FILE)
 /*
  * to_mdss_fence - get mdss fence from fence base object
  * @fence: Pointer to fence base object
@@ -468,3 +469,4 @@ const char *mdss_get_sync_fence_name(struct mdss_fence *fence)
 
 	return fence->name;
 }
+#endif

@@ -5778,7 +5778,7 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			struct mdss_ad_input *input, int wait) {
 	int ret = 0;
 	struct mdss_ad_info *ad;
-	u32 bl;
+	u64 bl;
 	struct mdss_overlay_private *mdp5_data;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);

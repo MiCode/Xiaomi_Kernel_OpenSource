@@ -485,7 +485,8 @@ static void pll_8996_dec_frac_calc(struct mdss_pll_resources *pll,
 	struct dsi_pll_input *pin = &pdb->in;
 	struct dsi_pll_output *pout = &pdb->out;
 	s64 multiplier = BIT(20);
-	s64 dec_start_multiple, dec_start, pll_comp_val;
+	s64 dec_start_multiple, dec_start;
+	u64 pll_comp_val;
 	s32 duration, div_frac_start;
 	s64 vco_clk_rate = pll->vco_current_rate;
 	s64 fref = pll->vco_ref_clk_rate;
@@ -560,8 +561,8 @@ static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
 {
 	struct dsi_pll_input *pin = &pdb->in;
 	struct dsi_pll_output *pout = &pdb->out;
-	s64 data;
-	u32 cnt;
+	u64 data;
+	u64 cnt;
 
 	data = fref * pin->vco_measure_time;
 	do_div(data, 1000000);
