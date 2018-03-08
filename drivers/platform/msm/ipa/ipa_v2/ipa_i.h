@@ -67,6 +67,16 @@
 #define IPA_MAX_NUM_REQ_CACHE 10
 #define IPA_IPC_LOG_PAGES 50
 
+#define IPA_WDI_RX_RING_RES 0
+#define IPA_WDI_RX_RING_RP_RES 1
+#define IPA_WDI_RX_COMP_RING_RES 2
+#define IPA_WDI_RX_COMP_RING_WP_RES 3
+#define IPA_WDI_TX_RING_RES 4
+#define IPA_WDI_CE_RING_RES 5
+#define IPA_WDI_CE_DB_RES 6
+#define IPA_WDI_TX_DB_RES 7
+#define IPA_WDI_MAX_RES 8
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -1578,8 +1588,9 @@ int ipa2_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
 int ipa2_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *), void *priv);
 void ipa2_ntn_uc_dereg_rdyCB(void);
 
-int ipa2_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
-	struct ipa_wdi3_conn_out_params *out);
+int ipa2_conn_wdi3_pipes(struct ipa_wdi_conn_in_params *in,
+	struct ipa_wdi_conn_out_params *out,
+	ipa_wdi_meter_notifier_cb wdi_notify);
 int ipa2_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa2_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa2_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
@@ -1601,6 +1612,9 @@ int ipa2_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
  */
 int ipa2_uc_dereg_rdyCB(void);
 
+int ipa2_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
+		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
+		unsigned long *iova);
 /*
  * Tethering bridge (Rmnet / MBIM)
  */
@@ -1864,7 +1878,7 @@ void ipa_active_clients_lock(void);
 int ipa_active_clients_trylock(unsigned long *flags);
 void ipa_active_clients_unlock(void);
 void ipa_active_clients_trylock_unlock(unsigned long *flags);
-int ipa_wdi_init(void);
+int ipa2_wdi_init(void);
 int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa_tag_process(struct ipa_desc *desc, int num_descs,
 		    unsigned long timeout);
