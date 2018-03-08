@@ -1037,6 +1037,41 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 	return -ENODEV;
 }
 
+static void
+l3_pwrlevel_probe(struct kgsl_device *device, struct device_node *node)
+{
+	struct device_node *pwrlevel_node, *child;
+
+	pwrlevel_node = of_find_node_by_name(node, "qcom,l3-pwrlevels");
+
+	if (pwrlevel_node == NULL)
+		return;
+
+	for_each_available_child_of_node(pwrlevel_node, child) {
+		unsigned int index;
+
+		if (of_property_read_u32(child, "reg", &index))
+			return;
+		if (index >= MAX_L3_LEVELS)
+			continue;
+
+		if (index >= device->num_l3_pwrlevels)
+			device->num_l3_pwrlevels = index + 1;
+
+		if (of_property_read_u32(child, "qcom,l3-freq",
+				&device->l3_freq[index]))
+			continue;
+	}
+
+	device->l3_clk = devm_clk_get(&device->pdev->dev, "l3_vote");
+
+	if (IS_ERR_OR_NULL(device->l3_clk)) {
+		dev_err(&device->pdev->dev,
+			"Unable to get the l3_vote clock\n");
+		device->l3_clk = NULL;
+	}
+}
+
 static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
@@ -1082,6 +1117,8 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	/* Get context aware DCVS properties */
 	adreno_of_get_ca_aware_properties(adreno_dev, node);
+
+	l3_pwrlevel_probe(device, node);
 
 	/* get pm-qos-active-latency, set it to default if not found */
 	if (of_property_read_u32(node, "qcom,pm-qos-active-latency",
@@ -2619,7 +2656,38 @@ int adreno_set_constraint(struct kgsl_device *device,
 				context->pwr_constraint.sub_type);
 		context->pwr_constraint.type = KGSL_CONSTRAINT_NONE;
 		break;
+	case KGSL_CONSTRAINT_L3_PWRLEVEL: {
+		struct kgsl_device_constraint_pwrlevel pwr;
 
+		if (constraint->size != sizeof(pwr)) {
+			status = -EINVAL;
+			break;
+		}
+
+		if (copy_from_user(&pwr, constraint->data, sizeof(pwr))) {
+			status = -EFAULT;
+			break;
+		}
+		if (pwr.level >= KGSL_CONSTRAINT_PWR_MAXLEVELS)
+			pwr.level = KGSL_CONSTRAINT_PWR_MAXLEVELS - 1;
+
+		context->l3_pwr_constraint.type = KGSL_CONSTRAINT_L3_PWRLEVEL;
+		context->l3_pwr_constraint.sub_type = pwr.level;
+		trace_kgsl_user_pwrlevel_constraint(device, context->id,
+			context->l3_pwr_constraint.type,
+			context->l3_pwr_constraint.sub_type);
+		}
+		break;
+	case KGSL_CONSTRAINT_L3_NONE: {
+		unsigned int type = context->l3_pwr_constraint.type;
+
+		if (type == KGSL_CONSTRAINT_L3_PWRLEVEL)
+			trace_kgsl_user_pwrlevel_constraint(device, context->id,
+				KGSL_CONSTRAINT_L3_NONE,
+				context->l3_pwr_constraint.sub_type);
+		context->l3_pwr_constraint.type = KGSL_CONSTRAINT_L3_NONE;
+		}
+		break;
 	default:
 		status = -EINVAL;
 		break;
@@ -2680,7 +2748,8 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 			status = 0;
 		}
 		break;
-	case KGSL_PROP_PWR_CONSTRAINT: {
+	case KGSL_PROP_PWR_CONSTRAINT:
+	case KGSL_PROP_L3_PWR_CONSTRAINT: {
 			struct kgsl_device_constraint constraint;
 			struct kgsl_context *context;
 
