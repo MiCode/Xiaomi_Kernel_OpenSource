@@ -126,4 +126,7 @@
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				18
 #define GCC_EMAC_BCR						19
 
+/* Dummy clocks for rate measurement */
+#define MEASURE_ONLY_IPA_2X_CLK					0
+
 #endif
