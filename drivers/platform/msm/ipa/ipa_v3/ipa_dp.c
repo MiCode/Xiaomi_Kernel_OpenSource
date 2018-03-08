@@ -952,11 +952,13 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 				goto fail_pm;
 			}
 
-			result = ipa_pm_associate_ipa_cons_to_client(
-				ep->sys->pm_hdl, sys_in->client);
-			if (result) {
-				IPAERR("failed to associate IPA PM client\n");
-				goto fail_gen2;
+			if (IPA_CLIENT_IS_APPS_CONS(sys_in->client)) {
+				result = ipa_pm_associate_ipa_cons_to_client(
+					ep->sys->pm_hdl, sys_in->client);
+				if (result) {
+					IPAERR("failed to associate\n");
+					goto fail_gen2;
+				}
 			}
 
 			result = ipa_pm_set_perf_profile(ep->sys->pm_hdl,
