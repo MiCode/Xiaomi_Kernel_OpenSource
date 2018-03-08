@@ -251,6 +251,12 @@ struct sde_connector_ops {
 	int (*config_hdr)(void *display,
 		struct sde_connector_state *c_state);
 
+	/**
+	 * cont_splash_config - initialize splash resources
+	 * @display: Pointer to private display handle
+	 * Returns: zero for success, negetive for failure
+	 */
+	int (*cont_splash_config)(void *display);
 };
 
 /**

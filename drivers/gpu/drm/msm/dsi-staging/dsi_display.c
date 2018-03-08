@@ -544,10 +544,9 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 		}
 	}
 exit:
-	if (rc <= 0) {
-		dsi_display_ctrl_irq_update(display, false);
+	/* mask only error interrupts */
+	if (rc <= 0)
 		dsi_display_mask_ctrl_error_interrupts(display);
-	}
 
 	dsi_display_cmd_engine_disable(display);
 done:
@@ -3644,22 +3643,24 @@ static int _dsi_display_dev_deinit(struct dsi_display *display)
 }
 
 /**
- * dsi_display_splash_res_init() - Initialize resources for continuous splash
- * @display:    Pointer to dsi display
+ * dsi_display_cont_splash_config() - Initialize resources for continuous splash
+ * @dsi_display:    Pointer to dsi display
  * Returns:     Zero on success
  */
-static int dsi_display_splash_res_init(struct  dsi_display *display)
+int dsi_display_cont_splash_config(void *dsi_display)
 {
+	struct dsi_display *display = dsi_display;
 	int rc = 0;
 
 	/* Continuous splash not supported by external bridge */
-	if (dsi_display_has_ext_bridge(display)) {
+	if (!display || dsi_display_has_ext_bridge(display)) {
 		display->is_cont_splash_enabled = false;
 		return 0;
 	}
 
-	/* Vote for gdsc required to read register address space */
+	mutex_lock(&display->display_lock);
 
+	/* Vote for gdsc required to read register address space */
 	display->cont_splash_client = sde_power_client_create(display->phandle,
 						"cont_splash_client");
 	rc = sde_power_resource_enable(display->phandle,
@@ -3667,6 +3668,7 @@ static int dsi_display_splash_res_init(struct  dsi_display *display)
 	if (rc) {
 		pr_err("failed to vote gdsc for continuous splash, rc=%d\n",
 							rc);
+		mutex_unlock(&display->display_lock);
 		return -EINVAL;
 	}
 
@@ -3683,6 +3685,9 @@ static int dsi_display_splash_res_init(struct  dsi_display *display)
 	/* Update splash status for clock manager */
 	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
 				display->is_cont_splash_enabled);
+
+	/* Set up ctrl isr before enabling core clk */
+	dsi_display_ctrl_isr_configure(display, true);
 
 	/* Vote for Core clk and link clk. Votes on ctrl and phy
 	 * regulator are inplicit from  pre clk on callback
@@ -3704,6 +3709,7 @@ static int dsi_display_splash_res_init(struct  dsi_display *display)
 	}
 
 	dsi_config_host_engine_state_for_cont_splash(display);
+	mutex_unlock(&display->display_lock);
 
 	return rc;
 
@@ -3712,6 +3718,7 @@ clks_disabled:
 			DSI_ALL_CLKS, DSI_CLK_OFF);
 
 clk_manager_update:
+	dsi_display_ctrl_isr_configure(display, false);
 	/* Update splash status for clock manager */
 	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
 				false);
@@ -3720,6 +3727,7 @@ splash_disabled:
 	(void)sde_power_resource_enable(display->phandle,
 			display->cont_splash_client, false);
 	display->is_cont_splash_enabled = false;
+	mutex_unlock(&display->display_lock);
 	return rc;
 }
 
@@ -3933,11 +3941,6 @@ static int dsi_display_bind(struct device *dev,
 			goto error;
 		}
 	}
-
-	/* Initialize resources for continuous splash */
-	rc = dsi_display_splash_res_init(display);
-	if (rc)
-		pr_err("Continuous splash resource init failed, rc=%d\n", rc);
 
 	goto error;
 
