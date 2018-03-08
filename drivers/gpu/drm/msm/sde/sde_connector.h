@@ -292,6 +292,13 @@ struct sde_connector_ops {
 	 * Returns: Zero on success, negative error code for failures
 	 */
 	void (*pre_destroy)(struct drm_connector *connector, void *display);
+
+	/**
+	 * cont_splash_config - initialize splash resources
+	 * @display: Pointer to private display handle
+	 * Returns: zero for success, negetive for failure
+	 */
+	int (*cont_splash_config)(void *display);
 };
 
 /**
