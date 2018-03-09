@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,12 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 				SDE_COLOR_PROCESS_VER(0x1, 0x7))
 				c->ops.setup_sixzone =
 					sde_setup_dspp_sixzone_v17;
+			break;
+		case SDE_DSPP_DITHER:
+			if (c->cap->sblk->dither.version ==
+				SDE_COLOR_PROCESS_VER(0x1, 0x7))
+				c->ops.setup_pa_dither =
+					sde_setup_dspp_dither_v1_7;
 			break;
 		case SDE_DSPP_VLUT:
 			if (c->cap->sblk->vlut.version ==
