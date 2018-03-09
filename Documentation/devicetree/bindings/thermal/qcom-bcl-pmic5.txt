@@ -14,7 +14,7 @@ with the multiple BCL peripherals.
 
 Required Parameters:
 - compatible: must be
-	'qcom,msm-bcl-pmic5' for bcl peripheral in PMIC version 5.
+	'qcom,bcl-v5' for bcl peripheral in PMIC version 5.
 - reg: <a b> where 'a' is the starting register address of the PMIC
 	peripheral and 'b' is the size of the peripheral address space.
 - interrupts: <a b c> Where 'a' is the SLAVE ID of the PMIC, 'b' is
@@ -27,11 +27,11 @@ Required Parameters:
 		"bcl-high-ibat"
 
 Example:
-		bcl@4200 {
-			compatible = "qcom,msm-bcl-pmic5";
-			reg = <0x4200 0xFF>;
-			interrupts = <0x2 0x42 0x0>,
-					<0x2 0x42 0x1>;
-			interrupt-names = "bcl-high-ibat",
-						"bcl-low-vbat";
-		};
+	bcl@4200 {
+		compatible = "qcom,bcl-v5";
+		reg = <0x4200 0x100>;
+		interrupts = <0x2 0x42 0x0>,
+				<0x2 0x42 0x1>;
+		interrupt-names = "bcl-high-ibat",
+					"bcl-low-vbat";
+	};
