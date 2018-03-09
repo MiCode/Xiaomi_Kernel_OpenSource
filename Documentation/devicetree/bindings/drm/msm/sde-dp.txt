@@ -68,6 +68,7 @@ DP Controller: Required properties:
 					programmable values.
 - qcom,max-pclk-frequency-khz:	An integer specifying the max. pixel clock in KHz supported by Display Port.
 - qcom,dp-usbpd-detection:	Phandle for the PMI regulator node for USB PHY PD detection.
+- qcom,dp-aux-switch:		Phandle for the driver used to program the AUX switch for Display Port orientation.
 - qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the a particular "type" of DSI module. The module "types"
 					can be "core", "ctrl", and "phy". Within the same type,
 					there can be more than one instance of this binding,
@@ -156,6 +157,7 @@ Example:
 		qcom,dp-usbpd-detection = <&pm855b_pdphy>;
 		qcom,ext-disp = <&ext_disp>;
 		qcom,phy-version = <0x420>;
+		qcom,dp-aux-switch = <&fsa4480>;
 
 		qcom,aux-cfg0-settings = [1c 00];
 		qcom,aux-cfg1-settings = [20 13 23 1d];

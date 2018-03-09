@@ -21,6 +21,7 @@
 #include <linux/component.h>
 #include <linux/of_irq.h>
 #include <linux/hdcp_qseecom.h>
+#include <linux/soc/qcom/fsa4480-i2c.h>
 
 #include "sde_connector.h"
 
@@ -63,6 +64,7 @@ struct dp_display_private {
 	atomic_t aborted;
 
 	struct platform_device *pdev;
+	struct platform_device *aux_switch_pdev;
 	struct dentry *root;
 	struct completion notification_comp;
 
@@ -590,6 +592,36 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 	return rc;
 }
 
+static int dp_display_configure_aux_switch(struct dp_display_private *dp)
+{
+	int rc = 0;
+	enum fsa_function event = FSA_EVENT_MAX;
+
+	if (!dp->aux_switch_pdev) {
+		pr_debug("undefined fsa4480 handle\n");
+		goto end;
+	}
+
+	switch (dp->usbpd->orientation) {
+	case ORIENTATION_CC1:
+		event = FSA_USBC_ORIENTATION_CC1;
+		break;
+	case ORIENTATION_CC2:
+		event = FSA_USBC_ORIENTATION_CC2;
+		break;
+	default:
+		pr_err("invalid orientation\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	rc = fsa4480_switch_event(dp->aux_switch_pdev->dev.of_node, event);
+	if (rc)
+		pr_err("failed to configure fsa4480 i2c device (%d)\n", rc);
+end:
+	return rc;
+}
+
 static int dp_display_usbpd_configure_cb(struct device *dev)
 {
 	int rc = 0;
@@ -607,6 +639,10 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		rc = -ENODEV;
 		goto end;
 	}
+
+	rc = dp_display_configure_aux_switch(dp);
+	if (rc)
+		goto end;
 
 	dp_display_host_init(dp);
 
@@ -1406,6 +1442,52 @@ static int dp_display_create_workqueue(struct dp_display_private *dp)
 	return 0;
 }
 
+static int dp_display_fsa4480_callback(struct notifier_block *self,
+		unsigned long event, void *data)
+{
+	return 0;
+}
+
+static int dp_display_init_aux_switch(struct dp_display_private *dp)
+{
+	int rc = 0;
+	struct device_node *pd = NULL;
+	const char *phandle = "qcom,dp-aux-switch";
+	struct notifier_block nb;
+
+	if (!dp->pdev->dev.of_node) {
+		pr_err("cannot find dev.of_node\n");
+		rc = -ENODEV;
+		goto end;
+	}
+
+	pd = of_parse_phandle(dp->pdev->dev.of_node, phandle, 0);
+	if (!pd) {
+		pr_warn("cannot parse %s handle\n", phandle);
+		goto end;
+	}
+
+	dp->aux_switch_pdev = of_find_device_by_node(pd);
+	if (!dp->aux_switch_pdev) {
+		pr_err("cannot find %s pdev\n", phandle);
+		rc = -ENODEV;
+		goto end;
+	}
+
+	nb.notifier_call = dp_display_fsa4480_callback;
+	nb.priority = 0;
+
+	rc = fsa4480_reg_notifier(&nb, dp->aux_switch_pdev->dev.of_node);
+	if (rc) {
+		pr_err("failed to register notifier (%d)\n", rc);
+		goto end;
+	}
+
+	fsa4480_unreg_notifier(&nb, dp->aux_switch_pdev->dev.of_node);
+end:
+	return rc;
+}
+
 static int dp_display_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1429,6 +1511,12 @@ static int dp_display_probe(struct platform_device *pdev)
 	dp->name = "drm_dp";
 	dp->audio_status = -ENODEV;
 	atomic_set(&dp->aborted, 0);
+
+	rc = dp_display_init_aux_switch(dp);
+	if (rc) {
+		rc = -EPROBE_DEFER;
+		goto error;
+	}
 
 	rc = dp_display_create_workqueue(dp);
 	if (rc) {
