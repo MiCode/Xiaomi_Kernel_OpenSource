@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -749,7 +749,7 @@ static void adv7533_notify_clients(struct msm_dba_device_info *dev,
 u32 adv7533_read_edid(struct adv7533 *pdata, u32 size, char *edid_buf)
 {
 	u32 ret = 0, read_size = size / 2;
-	u8 edid_addr;
+	u8 edid_addr = 0;
 	int ndx;
 
 	if (!pdata || !edid_buf)
@@ -996,7 +996,7 @@ end:
 static void *adv7533_handle_hpd_intr(struct adv7533 *pdata)
 {
 	int ret = 0;
-	u8 hpd_state;
+	u8 hpd_state = 0;
 	u8 connected = 0, disconnected = 0;
 
 	if (!pdata) {
@@ -1028,7 +1028,8 @@ end:
 static int adv7533_enable_interrupts(struct adv7533 *pdata, int interrupts)
 {
 	int ret = 0;
-	u8 reg_val, init_reg_val;
+	u8 reg_val = 0;
+	u8 init_reg_val;
 
 	if (!pdata) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1074,7 +1075,8 @@ end:
 static int adv7533_disable_interrupts(struct adv7533 *pdata, int interrupts)
 {
 	int ret = 0;
-	u8 reg_val, init_reg_val;
+	u8 reg_val = 0;
+	u8 init_reg_val;
 
 	if (!pdata) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1607,7 +1609,7 @@ static int adv7533_hdcp_enable(void *client, bool hdcp_on,
 	bool enc_on, u32 flags)
 {
 	int ret = -EINVAL;
-	u8 reg_val;
+	u8 reg_val = 0;
 	struct adv7533 *pdata =
 		adv7533_get_platform_data(client);
 
