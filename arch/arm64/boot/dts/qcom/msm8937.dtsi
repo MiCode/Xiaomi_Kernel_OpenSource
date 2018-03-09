@@ -739,6 +739,50 @@
 		status = "disabled";
 	};
 
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			 <  960000 >,
+			 < 1094400 >,
+			 < 1209600 >,
+			 < 1248000 >,
+			 < 1344000 >,
+			 < 1401000 >,
+			 < 1497600 >;
+
+		qcom,cpufreq-table-4 =
+			 <  768000 >,
+			 <  902400 >,
+			 <  998400 >,
+			 < 1094400 >,
+			 < 1209600 >;
+	};
+
+	cci_cache: qcom,cci {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpu clk_cci_clk>;
+		governor = "cpufreq";
+		freq-tbl-khz =
+			<  400000 >,
+			<  533333 >;
+	};
+
 	cpubw: qcom,cpubw {
 		compatible = "qcom,devbw";
 		governor = "cpufreq";
@@ -782,6 +826,48 @@
 			<  5712 /*  748.8 MHz */ >,     /* NOM   */
 			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
 			<  7031 /*  921.6 MHz */ >;     /* TURBO */
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map-0 =
+			<  998400  2929 >,      /* SVS   */
+			< 1094400  5053 >,	/* NOM   */
+			< 1248000  5712 >,	/* NOM+  */
+			< 1344000  7031 >,
+			< 1497600  7031 >;	/* TURBO */
+		cpu-to-dev-map-4 =
+			<  806400  2929 >,	/* SVS  */
+			<  902400  5053 >,	/* NOM   */
+			<  998400  6152 >,	/* NOM+  */
+			< 1209600  7031 >;	/* TURBO */
+		};
+
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map-0 =
+			<  998400  400000 >,    /* SVS   */
+			< 1094400  400000 >,	/* NOM   */
+			< 1248000  533333 >,	/* NOM+  */
+			< 1344000  533333 >,
+			< 1497600  533333 >;	/* TURBO */
+		cpu-to-dev-map-4 =
+			<  806400  400000 >,	/* SVS  */
+			<  902400  400000 >,	/* NOM   */
+			<  998400  533333 >,	/* NOM+  */
+			< 1209600  533333 >;	/* TURBO */
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map-0 =
+				< 1094400 2929 >,
+				< 1497600 4248 >;
+			cpu-to-dev-map-4 =
+				<  998400 2929 >,
+				< 1209600 4248 >;
+		};
 	};
 
 	blsp2_uart1: uart@7aef000 {
