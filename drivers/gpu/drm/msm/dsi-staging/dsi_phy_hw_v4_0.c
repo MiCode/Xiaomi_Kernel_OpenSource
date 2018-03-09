@@ -273,6 +273,16 @@ void dsi_phy_hw_v4_0_disable(struct dsi_phy_hw *phy,
 	pr_debug("[DSI_%d]Phy disabled ", phy->index);
 }
 
+void dsi_phy_hw_v4_0_toggle_resync_fifo(struct dsi_phy_hw *phy)
+{
+	DSI_W32(phy, DSIPHY_CMN_RBUF_CTRL, 0x00);
+	/* ensure that the FIFO is off */
+	wmb();
+	DSI_W32(phy, DSIPHY_CMN_RBUF_CTRL, 0x1);
+	/* ensure that the FIFO is toggled back on */
+	wmb();
+}
+
 int dsi_phy_hw_v4_0_wait_for_lane_idle(
 		struct dsi_phy_hw *phy, u32 lanes)
 {
