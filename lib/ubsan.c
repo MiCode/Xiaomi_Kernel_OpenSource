@@ -351,34 +351,6 @@ void __ubsan_handle_type_mismatch_v1(struct type_mismatch_data_v1 *data,
 }
 EXPORT_SYMBOL(__ubsan_handle_type_mismatch_v1);
 
-void __ubsan_handle_nonnull_return(struct nonnull_return_data *data)
-{
-	struct type_mismatch_data_common common_data = {
-		.location = &data->location,
-		.type = data->type,
-		.alignment = data->alignment,
-		.type_check_kind = data->type_check_kind
-	};
-
-	ubsan_type_mismatch_common(&common_data, ptr);
-}
-EXPORT_SYMBOL(__ubsan_handle_nonnull_return);
-
-void __ubsan_handle_type_mismatch_v1(struct type_mismatch_data_v1 *data,
-				unsigned long ptr)
-{
-
-	struct type_mismatch_data_common common_data = {
-		.location = &data->location,
-		.type = data->type,
-		.alignment = 1UL << data->log_alignment,
-		.type_check_kind = data->type_check_kind
-	};
-
-	ubsan_type_mismatch_common(&common_data, ptr);
-}
-EXPORT_SYMBOL(__ubsan_handle_type_mismatch_v1);
-
 void __ubsan_handle_vla_bound_not_positive(struct vla_bound_data *data,
 					unsigned long bound)
 {
