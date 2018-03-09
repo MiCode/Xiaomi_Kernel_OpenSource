@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015,2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -618,15 +618,25 @@ fail:
 struct drm_connector *msm_dsi_manager_ext_bridge_init(u8 id)
 {
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
-	struct drm_device *dev = msm_dsi->dev;
+	struct drm_device *dev;
 	struct drm_encoder *encoder;
 	struct drm_bridge *int_bridge, *ext_bridge;
 	struct drm_connector *connector;
 	struct list_head *connector_list;
 
+	if (!msm_dsi)
+		return ERR_PTR(-EINVAL);
+
+	dev = msm_dsi->dev;
+
 	int_bridge = msm_dsi->bridge;
 	ext_bridge = msm_dsi->external_bridge =
 			msm_dsi_host_get_bridge(msm_dsi->host);
+
+	if (!int_bridge || !ext_bridge) {
+		pr_err("%s: failed to get bridge info\n", __func__);
+		return ERR_PTR(-EINVAL);
+	}
 
 	/*
 	 * HACK: we may not know the external DSI bridge device's mode
@@ -797,7 +807,7 @@ int msm_dsi_manager_register(struct msm_dsi *msm_dsi)
 	int id = msm_dsi->id;
 	int ret;
 
-	if (id > DSI_MAX) {
+	if (id >= DSI_MAX) {
 		pr_err("%s: invalid id %d\n", __func__, id);
 		return -EINVAL;
 	}
