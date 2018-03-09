@@ -708,15 +708,24 @@ static int lt9611_pcr_setup(struct lt9611 *pdata,
 	u32 h_act = 0;
 	struct lt9611_reg_cfg reg_cfg[] = {
 		{0xff, 0x83, 0},
+		{0x0b, 0x01, 0},
+		{0x0c, 0x10, 0},
+		{0x48, 0x00, 0},
+		{0x49, 0x81, 0},
 
-		{0x2d, 0x38, 0}, /* up_lmt */
-		{0x2e, 0x00, 0},
-		{0x31, 0x10, 0}, /* low lmt */
-		{0x32, 0x00, 0},
+		/* stage 1 */
+		{0x21, 0x4a, 0},
+		{0x24, 0x71, 0},
+		{0x25, 0x30, 0},
+		{0x2a, 0x01, 0},
 
-		{0xff, 0x80, 0},
-		{0x11, 0x5a, 0}, /* pcr reset */
-		{0x11, 0xfa, 0},
+		/* stage 2 */
+		{0x4a, 0x40, 0},
+		{0x1d, 0x10, 0},
+
+		/* MK limit */
+		{0x2d, 0x38, 0},
+		{0x31, 0x08, 0},
 	};
 
 	if (!pdata || !cfg) {
@@ -724,54 +733,31 @@ static int lt9611_pcr_setup(struct lt9611 *pdata,
 		return -EINVAL;
 	}
 
+	lt9611_write_array(pdata, reg_cfg, sizeof(reg_cfg));
+
 	h_act = cfg->h_active;
 
 	if (h_act == 1920) {
-		lt9611_write(pdata, 0xff, 0x83);
-		lt9611_write(pdata, 0x48, 0x00);
-		lt9611_write(pdata, 0x49, 0x81);
-
-		lt9611_write(pdata, 0x4a, 0x10);
-		lt9611_write(pdata, 0x1d, 0x10);
-		lt9611_write(pdata, 0x21, 0x41);
-		lt9611_write(pdata, 0x22, 0x40);
-		lt9611_write(pdata, 0x24, 0x11);
-		lt9611_write(pdata, 0x25, 0x30);
 		lt9611_write(pdata, 0x26, 0x37);
-		lt9611_write(pdata, 0x2a, 0x02);
 	} else if (h_act == 3840) {
-		lt9611_write(pdata, 0xff, 0x83);
 		lt9611_write(pdata, 0x0b, 0x03);
 		lt9611_write(pdata, 0x0c, 0xd0);
 		lt9611_write(pdata, 0x48, 0x03);
-		lt9611_write(pdata, 0x49, 0xd0);
-
-		lt9611_write(pdata, 0x4a, 0x01);
-		lt9611_write(pdata, 0x1d, 0x10);
-		lt9611_write(pdata, 0x21, 0x41);
-		lt9611_write(pdata, 0x22, 0x40);
-		lt9611_write(pdata, 0x24, 0x70);
-		lt9611_write(pdata, 0x25, 0x50);
-		lt9611_write(pdata, 0x26, 0x37);
-		lt9611_write(pdata, 0x2a, 0x03);
-	} else if (h_act == 640) {
-		lt9611_write(pdata, 0xff, 0x83);
-		lt9611_write(pdata, 0x0b, 0x01);
-		lt9611_write(pdata, 0x0c, 0x20);
-		lt9611_write(pdata, 0x48, 0x00);
-		lt9611_write(pdata, 0x49, 0x81);
-
+		lt9611_write(pdata, 0x49, 0xe0);
+		lt9611_write(pdata, 0x24, 0x72);
+		lt9611_write(pdata, 0x25, 0x00);
+		lt9611_write(pdata, 0x2a, 0x01);
 		lt9611_write(pdata, 0x4a, 0x10);
 		lt9611_write(pdata, 0x1d, 0x10);
-		lt9611_write(pdata, 0x21, 0x41);
-		lt9611_write(pdata, 0x22, 0x40);
-		lt9611_write(pdata, 0x24, 0x11);
-		lt9611_write(pdata, 0x25, 0x30);
-		lt9611_write(pdata, 0x26, 0x13);
-		lt9611_write(pdata, 0x2a, 0x03);
+		lt9611_write(pdata, 0x26, 0x37);
+	} else if (h_act == 640) {
+		lt9611_write(pdata, 0x26, 0x14);
 	}
 
-	lt9611_write_array(pdata, reg_cfg, sizeof(reg_cfg));
+	/* pcr rst */
+	lt9611_write(pdata, 0xff, 0x80);
+	lt9611_write(pdata, 0x11, 0x5a);
+	lt9611_write(pdata, 0x11, 0xfa);
 
 	return 0;
 }
