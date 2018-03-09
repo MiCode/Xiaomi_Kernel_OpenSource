@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,8 @@ struct smd_pkt_dev {
 	struct work_struct packet_arrival_work;
 	spinlock_t pa_spinlock;
 	int ws_locked;
+
+	int sigs_updated;
 };
 
 
@@ -356,9 +358,12 @@ static long smd_pkt_ioctl(struct file *file, unsigned int cmd,
 	mutex_lock(&smd_pkt_devp->ch_lock);
 	switch (cmd) {
 	case TIOCMGET:
-		D_STATUS("%s TIOCMGET command on smd_pkt_dev id:%d\n",
-			 __func__, smd_pkt_devp->i);
+		smd_pkt_devp->sigs_updated = false;
 		ret = smd_tiocmget(smd_pkt_devp->ch);
+		D_STATUS("%s TIOCMGET command on smd_pkt_dev id:%d [%d]\n",
+			 __func__, smd_pkt_devp->i, ret);
+		if (ret > 0)
+			ret = put_user((uint32_t)ret, (uint32_t __user *)arg);
 		break;
 	case TIOCMSET:
 		ret = get_user(val, (uint32_t *)arg);
@@ -668,6 +673,12 @@ static unsigned int smd_pkt_poll(struct file *file, poll_table *wait)
 		D_POLL("%s sets POLLIN for smd_pkt_dev id: %d\n",
 			__func__, smd_pkt_devp->i);
 	}
+
+	if (smd_pkt_devp->sigs_updated) {
+		mask |= POLLPRI;
+		D_POLL("%s sets POLLPRI for smd_pkt_dev id: %d\n",
+			__func__, smd_pkt_devp->i);
+	}
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
 	return mask;
@@ -772,6 +783,9 @@ static void ch_notify(void *priv, unsigned int event)
 		if (!strcmp(smd_pkt_devp->ch_name, "LOOPBACK"))
 			schedule_delayed_work(&loopback_work,
 					msecs_to_jiffies(1000));
+		break;
+	case SMD_EVENT_STATUS:
+		smd_pkt_devp->sigs_updated = true;
 		break;
 	}
 }
@@ -1099,6 +1113,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 			smd_pkt_devp->ws_locked = 0;
 		}
 		spin_unlock_irqrestore(&smd_pkt_devp->pa_spinlock, flags);
+		smd_pkt_devp->sigs_updated = false;
 	}
 	mutex_unlock(&smd_pkt_devp->tx_lock);
 	mutex_unlock(&smd_pkt_devp->rx_lock);
