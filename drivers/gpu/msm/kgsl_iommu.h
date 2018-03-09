@@ -49,7 +49,8 @@
  */
 #define KGSL_IOMMU_SVM_BASE64		0x700000000ULL
 #define KGSL_IOMMU_SVM_END64		0x800000000ULL
-
+#define CP_APERTURE_REG			0
+#define CP_SMMU_APERTURE_ID		0x1B
 /* TLBSTATUS register fields */
 #define KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE BIT(0)
 
@@ -196,6 +197,9 @@ kgsl_iommu_reg(struct kgsl_iommu_context *ctx, enum kgsl_iommu_reg_map reg)
 {
 	return ctx->regbase + kgsl_iommu_reg_list[reg];
 }
+
+/* Program aperture registers using SCM call */
+int kgsl_program_smmu_aperture(void);
 
 #define KGSL_IOMMU_SET_CTX_REG_Q(_ctx, REG, val) \
 		writeq_relaxed((val), \
