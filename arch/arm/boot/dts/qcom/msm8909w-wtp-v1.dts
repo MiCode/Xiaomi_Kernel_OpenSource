@@ -313,7 +313,7 @@
 	compatible = "qcom,msm8909-audio-codec";
 	qcom,model = "msm8909w-wtp-snd-card";
 	qcom,msm-ext-pa = "quaternary";
-	/delete-property/qcom,split-a2dp;
+	qcom,split-a2dp;
 	qcom,audio-routing =
 		"CDC_CONN", "MCLK",
 		"QUAT_MI2S_RX", "DIGIT_REGULATOR",
