@@ -1621,6 +1621,12 @@
 		qcom,fast-shutdown;
 		qcom,no-cpu-affinity;
 	};
+
+	ssc_sensors: qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		status = "ok";
+	};
+
 };
 
 #include "pm8937-rpm-regulator.dtsi"
