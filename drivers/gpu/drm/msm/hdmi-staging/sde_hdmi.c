@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1600,7 +1600,7 @@ static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 	const char *phandle = "qcom,msm_ext_disp";
 
 	if (!display) {
-		SDE_ERROR("[%s]Invalid params\n", display->name);
+		SDE_ERROR("Invalid params\n");
 		return -EINVAL;
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -240,6 +240,10 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				plane->state->fb->base.id : -1);
 
 		format = to_sde_format(msm_framebuffer_format(pstate->base.fb));
+		if (!format) {
+			SDE_ERROR("%s: get sde format failed\n", __func__);
+			return;
+		}
 
 		/* blend config update */
 		if (pstate->stage != SDE_STAGE_BASE) {
@@ -915,6 +919,11 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	dev = crtc->dev;
 	sde_crtc = to_sde_crtc(crtc);
 	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
+
 	priv = sde_kms->dev->dev_private;
 
 	/*
@@ -1541,6 +1550,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
 	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
 
 	info = kzalloc(sizeof(struct sde_kms_info), GFP_KERNEL);
 	if (!info) {

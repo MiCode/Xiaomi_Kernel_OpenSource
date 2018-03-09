@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2014-2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -303,6 +303,11 @@ static void _sde_plane_set_qos_lut(struct sde_phy_plane *pp,
 				fb->pixel_format,
 				fb->modifier,
 				drm_format_num_planes(fb->pixel_format));
+		if (!fmt) {
+			SDE_ERROR("%s: faile to get fmt\n", __func__);
+			return;
+		}
+
 		total_fl = _sde_plane_calc_fill_level(pp, fmt,
 				pp->pipe_cfg.src_rect.w);
 
@@ -362,6 +367,10 @@ static void _sde_plane_set_danger_lut(struct sde_phy_plane *pp,
 				fb->pixel_format,
 				fb->modifier,
 				drm_format_num_planes(fb->pixel_format));
+		if (!fmt) {
+			SDE_ERROR("%s: fail to get fmt\n", __func__);
+			return;
+		}
 
 		if (SDE_FORMAT_IS_LINEAR(fmt)) {
 			danger_lut = pp->pipe_sblk->danger_lut_linear;
@@ -694,11 +703,11 @@ static inline void _sde_plane_set_scanout(struct sde_phy_plane *pp,
 static int _sde_plane_setup_scaler3_lut(struct sde_phy_plane *pp,
 		struct sde_plane_state *pstate)
 {
-	struct sde_plane *psde = pp->sde_plane;
+	struct sde_plane *psde;
 	struct sde_hw_scaler3_cfg *cfg;
 	int ret = 0;
 
-	if (!pp || !pp->scaler3_cfg) {
+	if (!pp || !pp->sde_plane || !pp->scaler3_cfg) {
 		SDE_ERROR("invalid args\n");
 		return -EINVAL;
 	} else if (!pstate) {
@@ -707,6 +716,7 @@ static int _sde_plane_setup_scaler3_lut(struct sde_phy_plane *pp,
 		return -EINVAL;
 	}
 
+	psde = pp->sde_plane;
 	cfg = pp->scaler3_cfg;
 
 	cfg->dir_lut = msm_property_get_blob(
@@ -1450,7 +1460,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 static int sde_plane_prepare_fb(struct drm_plane *plane,
 		const struct drm_plane_state *new_state)
 {
-	struct drm_framebuffer *fb = new_state->fb;
+	struct drm_framebuffer *fb;
 	struct sde_plane *psde = to_sde_plane(plane);
 	struct sde_plane_state *pstate;
 	int rc;
@@ -1461,6 +1471,7 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	if (!new_state->fb)
 		return 0;
 
+	fb = new_state->fb;
 	pstate = to_sde_plane_state(new_state);
 	rc = _sde_plane_get_aspace(psde, pstate, &psde->aspace);
 
@@ -1800,7 +1811,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		{SDE_DRM_FB_NON_SEC_DIR_TRANS, "non_sec_direct_translation"},
 		{SDE_DRM_FB_SEC_DIR_TRANS, "sec_direct_translation"},
 	};
-	const struct sde_format_extended *format_list;
+	const struct sde_format_extended *format_list = NULL;
 	struct sde_kms_info *info;
 	struct sde_plane *psde = to_sde_plane(plane);
 	int zpos_max = 255;
