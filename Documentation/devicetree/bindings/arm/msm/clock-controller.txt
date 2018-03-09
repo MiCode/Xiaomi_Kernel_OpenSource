@@ -47,6 +47,8 @@ Required properties:
 			"qcom,gcc-mdss-8920"
 			"qcom,gcc-gfx-8953"
 			"qcom,gcc-gfx-sdm450"
+			"qcom,gcc-mdm9607"
+			"qcom,cc-debug-mdm9607"
 
 - reg:                  Pairs of physical base addresses and region sizes of
                         memory mapped registers.
