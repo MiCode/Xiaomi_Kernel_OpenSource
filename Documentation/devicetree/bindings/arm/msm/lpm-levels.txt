@@ -28,6 +28,14 @@ Required properties:
 	mask of the cluster mode in the composite state ID used to define
 	cluster low power modes in PSCI.
 
+Optional properties:
+	- qcom,disable-prediction: This property is used to indicate the LPM
+	governor will not use LPM prediction for this cluster.
+	- qcom,clstr-tmr-add: This property is used as correction timer for
+	wrong prediction by lpm prediction algorithm for cluster predictions.
+	This value should be between 100 to 1500. Higher values would mean
+	longer time staying in shallower state before waking up to select a
+	deeper state in case of wrong prediction.
 	qcom,pm-cluster contains qcom,pm-cluster-level nodes which identify
 	the various low power modes that the cluster can enter. The
 	qcom,pm-cluster node should also include another cluster node or a cpu
@@ -77,8 +85,22 @@ that share the parameters.It contains the following properties.
 	- qcom,pm-cpu-levels: The different low power modes that a CPU could
 	enter. The following section explains the required properties of this
 	node.
-	-qcom,use-prediction: This optional property is used to indicate the
-	the LPM governor is to apply sleep prediction to this cluster.
+
+Optional properties:
+	- qcom,disable-prediction: This property is used to indicate the
+	LPM governor is to disable sleep prediction to this cpu.
+	- qcom,ref-stddev: This property is used as reference standard deviation
+	in lpm prediction algorithm. This value should be between 100 to 1000.
+	Higher value would result in more predictions and thereby resulting in
+	shallower low power modes.
+	- qcom,tmr-add: This property is used as correction timer for wrong
+	prediction by lpm prediction algorithm. This value should be between
+	100 to 1500. Higher values would mean longer time staying in shallower
+	state before waking up to select a deeper state in case of wrong prediction.
+	- qcom,ref-premature-cnt: This property is used as reference premature
+	count to predict next sleep state by the prediction algorithm. This value
+	should be between 1 to 5. Higher value for this parameter would result in
+	less predictions to disallow deeper low power modes.
 
 [Node bindings for qcom,pm-cpu-levels]
  Required properties:
