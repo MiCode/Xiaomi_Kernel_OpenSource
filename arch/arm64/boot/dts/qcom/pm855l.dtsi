@@ -13,6 +13,7 @@
 
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 
 &spmi_bus {
 	qcom,pm855l@4 {
@@ -72,6 +73,37 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <7>;
+		};
+
+		pm855l_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc5";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x4 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			/* Channel node */
+			ref_gnd {
+				reg = <ADC_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vref_1p25 {
+				reg = <ADC_1P25VREF>;
+				label = "vref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			die_temp {
+				reg = <ADC_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
 		};
 	};
 
