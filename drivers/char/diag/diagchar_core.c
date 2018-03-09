@@ -1669,7 +1669,7 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 		}
 		if (!param->diag_id ||
 			(param->pd_val < UPD_WLAN) ||
-			(param->pd_val > NUM_MD_SESSIONS)) {
+			(param->pd_val >= NUM_MD_SESSIONS)) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_id support is not present for the pd mask = %d\n",
 			param->pd_mask);
