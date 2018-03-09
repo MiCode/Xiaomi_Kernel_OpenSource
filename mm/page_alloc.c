@@ -6652,8 +6652,9 @@ void set_pfnblock_flags_mask(struct page *page, unsigned long flags,
  * If @count is not zero, it is okay to include less @count unmovable pages
  *
  * PageLRU check without isolation or lru_lock could race so that
- * MIGRATE_MOVABLE block might include unmovable pages. It means you can't
- * expect this function should be exact.
+ * MIGRATE_MOVABLE block might include unmovable pages. And __PageMovable
+ * check without lock_page also may miss some movable non-lru pages at
+ * race condition. So you can't expect this function should be exact.
  */
 bool has_unmovable_pages(struct zone *zone, struct page *page, int count,
 			 bool skip_hwpoisoned_pages)
@@ -6707,6 +6708,9 @@ bool has_unmovable_pages(struct zone *zone, struct page *page, int count,
 		 * page_count() is not 0.
 		 */
 		if (skip_hwpoisoned_pages && PageHWPoison(page))
+			continue;
+
+		if (__PageMovable(page))
 			continue;
 
 		if (!PageLRU(page))
