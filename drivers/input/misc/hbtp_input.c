@@ -30,7 +30,9 @@
 #include <linux/delay.h>
 #include <linux/completion.h>
 
+#ifdef CONFIG_DRM
 #include <linux/msm_drm_notify.h>
+#endif
 
 #define HBTP_INPUT_NAME			"hbtp_input"
 #define DISP_COORDS_SIZE		2
@@ -99,6 +101,7 @@ static struct hbtp_data *hbtp;
 
 static struct kobject *sensor_kobject;
 
+#ifdef CONFIG_DRM
 static int hbtp_dsi_panel_suspend(struct hbtp_data *ts);
 static int hbtp_dsi_panel_early_resume(struct hbtp_data *ts);
 
@@ -144,6 +147,7 @@ static int dsi_panel_notifier_callback(struct notifier_block *self,
 	}
 	return 0;
 }
+#endif
 
 static ssize_t hbtp_sensor_roi_show(struct file *dev, struct kobject *kobj,
 		struct bin_attribute *attr, char *buf, loff_t pos,
@@ -1206,6 +1210,7 @@ error:
 	return rc;
 }
 
+#ifdef CONFIG_DRM
 static int hbtp_dsi_panel_suspend(struct hbtp_data *ts)
 {
 	int rc;
@@ -1319,6 +1324,7 @@ err_pin_enable:
 	hbtp_pdev_power_on(ts, false);
 	return rc;
 }
+#endif
 
 static int hbtp_pdev_probe(struct platform_device *pdev)
 {
@@ -1481,6 +1487,25 @@ static struct kobj_attribute hbtp_display_attribute =
 		__ATTR(display_pwr, 0660, hbtp_display_pwr_show,
 			hbtp_display_pwr_store);
 
+#ifdef CONFIG_DRM
+static int hbtp_drm_register(struct hbtp_data *ts)
+{
+	int ret = 0;
+
+	ts->dsi_panel_notif.notifier_call = dsi_panel_notifier_callback;
+	ret = msm_drm_register_client(&ts->dsi_panel_notif);
+	if (ret)
+		pr_err("%s: Unable to register dsi_panel_notifier: %d\n",
+			HBTP_INPUT_NAME, ret);
+
+	return ret;
+}
+#else
+static int hbtp_drm_register(struct hbtp_data *ts)
+{
+	return 0;
+}
+#endif
 
 static int __init hbtp_init(void)
 {
@@ -1506,13 +1531,9 @@ static int __init hbtp_init(void)
 		goto err_misc_reg;
 	}
 
-	hbtp->dsi_panel_notif.notifier_call = dsi_panel_notifier_callback;
-	error = msm_drm_register_client(&hbtp->dsi_panel_notif);
-	if (error) {
-		pr_err("%s: Unable to register dsi_panel_notifier: %d\n",
-			HBTP_INPUT_NAME, error);
-		goto err_dsi_panel_reg;
-	}
+	error = hbtp_drm_register(hbtp);
+	if (error)
+		goto err_drm_reg;
 
 	sensor_kobject = kobject_create_and_add("hbtpsensor", kernel_kobj);
 	if (!sensor_kobject) {
@@ -1561,8 +1582,10 @@ err_sysfs_create_vibdata:
 err_sysfs_create_capdata:
 	kobject_put(sensor_kobject);
 err_kobject_create:
+#ifdef CONFIG_DRM
 	msm_drm_unregister_client(&hbtp->dsi_panel_notif);
-err_dsi_panel_reg:
+#endif
+err_drm_reg:
 	misc_deregister(&hbtp_input_misc);
 err_misc_reg:
 	kfree(hbtp->sensor_data);
@@ -1583,8 +1606,9 @@ static void __exit hbtp_exit(void)
 	if (hbtp->input_dev)
 		input_unregister_device(hbtp->input_dev);
 
+#ifdef CONFIG_DRM
 	msm_drm_unregister_client(&hbtp->dsi_panel_notif);
-
+#endif
 	platform_driver_unregister(&hbtp_pdev_driver);
 
 	kfree(hbtp->sensor_data);
