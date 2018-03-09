@@ -47,6 +47,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += subsystem_notif.o
 	obj-y += subsystem_restart.o
 	obj-y += ramdump.o
+	obj-$(CONFIG_MSM_GVM_QUIN) += subsystem_notif_virt.o
 endif
 
 obj-$(CONFIG_QPNP_HAPTIC) += qpnp-haptic.o

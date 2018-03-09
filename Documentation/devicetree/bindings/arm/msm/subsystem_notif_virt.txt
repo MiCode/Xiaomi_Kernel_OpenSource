@@ -1,0 +1,35 @@
+Subsystem Notification Virtual Driver
+
+The guest VM uses this driver to communicate
+subsystem state notifications to a backend driver
+via the virtual device's registers.
+
+[Root level node]
+Required Properties:
+-compatible : Should be "qcom,subsys-notif-virt"
+	for notifications regarding state.
+-reg : The start and size of the virtual device's
+	register set.
+-reg-names :  Should be "vdev_base" for virtual device's
+	base address.
+-subsys-names : The name of the subsystem that the
+	driver is registering to notifications for.
+-offset : The offset from the virtual device's register
+	base where the subsystem state will be written.
+
+Example:
+
+	subsys_notif_virt: qcom,subsys_notif_virt@2D000000 {
+		compatible = "qcom,subsys-notif-virt";
+		reg = <0x2D000000 0x10>;
+		reg-names = "vdev_base";
+		adsp {
+			subsys-name = "adsp";
+			offset = <0>;
+		};
+		mpss {
+			subsys-name = "modem";
+			offset = <8>;
+		};
+	};
+
