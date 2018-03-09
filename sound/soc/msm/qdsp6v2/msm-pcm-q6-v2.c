@@ -52,6 +52,7 @@ static struct audio_locks the_locks;
 static const DECLARE_TLV_DB_LINEAR(msm_pcm_vol_gain, 0,
 			PCM_MASTER_VOL_MAX_STEPS);
 
+
 struct snd_msm {
 	struct snd_card *card;
 	struct snd_pcm *pcm;
@@ -1084,6 +1085,7 @@ static int msm_pcm_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
 	struct msm_audio *prtd;
 	int ret = 0;
 	struct msm_adsp_event_data *event_data = NULL;
+	uint64_t actual_payload_len = 0;
 
 	if (!pdata) {
 		pr_err("%s pdata is NULL\n", __func__);
@@ -1116,6 +1118,15 @@ static int msm_pcm_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
 	    (event_data->event_type >= ADSP_STREAM_EVENT_MAX)) {
 		pr_err("%s: invalid event_type=%d",
 			__func__, event_data->event_type);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	actual_payload_len = sizeof(struct msm_adsp_event_data) +
+							event_data->payload_len;
+	if (actual_payload_len >= U32_MAX) {
+		pr_err("%s payload length 0x%X  exceeds limit",
+			__func__, event_data->payload_len);
 		ret = -EINVAL;
 		goto done;
 	}
