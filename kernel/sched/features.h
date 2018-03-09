@@ -89,7 +89,7 @@ SCHED_FEAT(WA_BIAS, true)
 /*
  * UtilEstimation. Use estimated CPU utilization.
  */
-SCHED_FEAT(UTIL_EST, false)
+SCHED_FEAT(UTIL_EST, true)
 
 /*
  * Energy aware scheduling. Use platform energy model to guide scheduling
