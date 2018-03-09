@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 	model = "Qualcomm Technologies, Inc. MDM 9650";
 	compatible = "qcom,mdm9650";
 	qcom,msm-id = <279 0x10000>, <284 0x10000>, <285 0x10000>,
-		      <286 0x10000>, <283 0x10000>;
+		      <286 0x10000>, <283 0x10000>, <359 0x10000>;
 	interrupt-parent = <&intc>;
 
 	reserved-memory {
