@@ -23,6 +23,9 @@ obj-$(CONFIG_ARCH_MSM8953)	+= clock-cpu-sdm632.o
 
 # MDM9607
 obj-$(CONFIG_ARCH_MDM9607)      +=clock-gcc-mdm9607.o
+
+# MDM9650
+obj-$(CONFIG_ARCH_MDM9650)      += clock-gcc-mdm9650.o
 endif
 
 obj-y               += mdss/
