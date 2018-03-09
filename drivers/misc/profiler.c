@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -169,6 +169,7 @@ static int bw_profiling_get(void __user *argp, struct tz_bw_svc_buf *bwbuf)
 	const int numberofregs = 3;
 	struct profiler_bw_cntrs_req cnt_buf;
 
+	memset(&cnt_buf, 0, sizeof(cnt_buf));
 	bwgetreq = (struct tz_bw_svc_get_req *) &bwbuf->bwreq;
 	/* Allocate memory for get buffer */
 	buf = kzalloc(PAGE_ALIGN(numberofregs * sizeof(uint32_t)), GFP_KERNEL);
