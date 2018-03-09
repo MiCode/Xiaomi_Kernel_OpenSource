@@ -1,0 +1,5 @@
+Himax touch controller
+
+Required properties:
+
+ - compatible			: Should be "himax,hxcommon"
