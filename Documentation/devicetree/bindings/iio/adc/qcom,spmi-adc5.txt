@@ -9,6 +9,7 @@ ADC node:
     Usage: required
     Value type: <string>
     Definition: Should contain "qcom,spmi-adc5" for PMIC5 ADC driver.
+		Should contain "qcom,spmi-adc-rev2" for PMIC refresh ADC driver.
 
 - reg:
     Usage: required
@@ -68,8 +69,10 @@ Channel node properties:
     Value type: <u32>
     Definition: This parameter is used to decrease ADC sampling rate.
             Quicker measurements can be made by reducing decimation ratio.
-            Combined two step decimation values are 250, 420 and 840.
+            For PMIC5 ADC, combined two step decimation values are 250, 420 and 840.
             If property is not found, default value of 840 will be used.
+	    For PMIC refresh ADC, supported decimation values are 256, 512, 1024.
+	    If property is not found, default value of 1024 will be used.
 
 - qcom,ratiometric:
     Usage: optional
@@ -84,11 +87,18 @@ Channel node properties:
     Usage: optional
     Value type: <u32>
     Definition: Time between AMUX getting configured and the ADC starting
-            conversion. Delay = 15us for value 0, 100us * (value) for values 0 < value < 11, and
-            2ms * (value - 10) otherwise.
+            conversion.
+	    For PMIC5, delay = 15us for value 0,
+			100us * (value) for values 0 < value < 11, and
+            		2ms * (value - 10) otherwise.
             Valid values are: 15, 100, 200, 300, 400, 500, 600, 700, 800,
             900 us and 1, 2, 4, 6, 8, 10 ms
             If property is not found, channel will use 15us.
+	    For PMIC rev2, delay = 100us * (value) for values 0 < value < 11, and
+			2ms * (value - 10) otherwise.
+            Valid values are: 0, 100, 200, 300, 400, 500, 600, 700, 800,
+            900 us and 1, 2, 4, 6, 8, 10 ms
+            If property is not found, channel will use 0 us.
 
 - qcom,avg-samples:
     Usage: optional
@@ -117,7 +127,7 @@ Example:
                         reg = <ADC_VPH_PWR>;
                         label = "vph_pwr";
                         qcom,decimation = <840>;
-                        qcom,hw-settle-time = <200>;
+                        qcom,hw-settle-time = <0>;
                         qcom,avg-samples = <1>;
                         qcom,pre-scaling = <1 3>;
                 };
