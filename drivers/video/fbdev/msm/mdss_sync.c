@@ -51,6 +51,7 @@ struct mdss_fence {
 struct mdss_timeline {
 	struct kref kref;
 	spinlock_t lock;
+	spinlock_t list_lock;
 	char name[MDSS_SYNC_NAME_SIZE];
 	u32 next_value;
 	u32 value;
@@ -149,12 +150,13 @@ static bool mdss_fence_signaled(struct fence *fence)
 static void mdss_fence_release(struct fence *fence)
 {
 	struct mdss_fence *f = to_mdss_fence(fence);
-	unsigned long flags;
+	struct mdss_timeline *tl = to_mdss_timeline(fence);
 
-	spin_lock_irqsave(fence->lock, flags);
+	pr_debug("%s for fence %s\n", __func__, f->name);
+	spin_lock(&tl->list_lock);
 	if (!list_empty(&f->fence_list))
 		list_del(&f->fence_list);
-	spin_unlock_irqrestore(fence->lock, flags);
+	spin_unlock(&tl->list_lock);
 	mdss_put_timeline(to_mdss_timeline(fence));
 	kfree_rcu(f, base.rcu);
 }
@@ -203,6 +205,7 @@ struct mdss_timeline *mdss_create_timeline(const char *name)
 	kref_init(&tl->kref);
 	snprintf(tl->name, sizeof(tl->name), "%s", name);
 	spin_lock_init(&tl->lock);
+	spin_lock_init(&tl->list_lock);
 	tl->context = fence_context_alloc(1);
 	INIT_LIST_HEAD(&tl->fence_list_head);
 
@@ -228,15 +231,41 @@ static int mdss_inc_timeline_locked(struct mdss_timeline *tl,
 {
 	struct mdss_fence *f, *next;
 	s32 val;
+	bool is_signaled = false;
+	struct list_head local_list_head;
+	unsigned long flags;
 
+	INIT_LIST_HEAD(&local_list_head);
+
+	spin_lock(&tl->list_lock);
+	if (list_empty(&tl->fence_list_head)) {
+		pr_debug("fence list is empty\n");
+		spin_unlock(&tl->list_lock);
+		return 0;
+	}
+
+	list_for_each_entry_safe(f, next, &tl->fence_list_head, fence_list)
+		list_move(&f->fence_list, &local_list_head);
+	spin_unlock(&tl->list_lock);
+
+	spin_lock_irqsave(&tl->lock, flags);
 	val = tl->next_value - tl->value;
 	if (val >= increment)
 		tl->value += increment;
+	spin_unlock_irqrestore(&tl->lock, flags);
 
-	list_for_each_entry_safe(f, next, &tl->fence_list_head, fence_list) {
-		if (fence_is_signaled_locked(&f->base)) {
+	list_for_each_entry_safe(f, next, &local_list_head, fence_list) {
+		spin_lock_irqsave(&tl->lock, flags);
+		is_signaled = fence_is_signaled_locked(&f->base);
+		spin_unlock_irqrestore(&tl->lock, flags);
+		if (is_signaled) {
 			pr_debug("%s signaled\n", f->name);
 			list_del_init(&f->fence_list);
+			fence_put(&f->base);
+		} else {
+			spin_lock(&tl->list_lock);
+			list_move(&f->fence_list, &tl->fence_list_head);
+			spin_unlock(&tl->list_lock);
 		}
 	}
 
@@ -249,7 +278,6 @@ static int mdss_inc_timeline_locked(struct mdss_timeline *tl,
  */
 void mdss_resync_timeline(struct mdss_timeline *tl)
 {
-	unsigned long flags;
 	s32 val;
 
 	if (!tl) {
@@ -257,14 +285,12 @@ void mdss_resync_timeline(struct mdss_timeline *tl)
 		return;
 	}
 
-	spin_lock_irqsave(&tl->lock, flags);
 	val = tl->next_value - tl->value;
 	if (val > 0) {
 		pr_warn("flush %s:%d TL(Nxt %d , Crnt %d)\n", tl->name, val,
 			tl->next_value, tl->value);
 		mdss_inc_timeline_locked(tl, val);
 	}
-	spin_unlock_irqrestore(&tl->lock, flags);
 }
 
 /*
@@ -278,8 +304,8 @@ struct mdss_fence *mdss_get_sync_fence(
 		u32 *timestamp, int offset)
 {
 	struct mdss_fence *f;
-	unsigned long flags;
 	u32 val;
+	unsigned long flags;
 
 	if (!tl) {
 		pr_err("invalid parameters\n");
@@ -295,9 +321,12 @@ struct mdss_fence *mdss_get_sync_fence(
 	val = tl->next_value + offset;
 	tl->next_value += 1;
 	fence_init(&f->base, &mdss_fence_ops, &tl->lock, tl->context, val);
-	list_add_tail(&f->fence_list, &tl->fence_list_head);
 	mdss_get_timeline(tl);
 	spin_unlock_irqrestore(&tl->lock, flags);
+
+	spin_lock(&tl->list_lock);
+	list_add_tail(&f->fence_list, &tl->fence_list_head);
+	spin_unlock(&tl->list_lock);
 	snprintf(f->name, sizeof(f->name), "%s_%u", fence_name, val);
 
 	if (timestamp)
@@ -316,7 +345,6 @@ struct mdss_fence *mdss_get_sync_fence(
  */
 int mdss_inc_timeline(struct mdss_timeline *tl, int increment)
 {
-	unsigned long flags;
 	int rc;
 
 	if (!tl) {
@@ -324,10 +352,7 @@ int mdss_inc_timeline(struct mdss_timeline *tl, int increment)
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&tl->lock, flags);
 	rc = mdss_inc_timeline_locked(tl, increment);
-	spin_unlock_irqrestore(&tl->lock, flags);
-
 	return rc;
 }
 
