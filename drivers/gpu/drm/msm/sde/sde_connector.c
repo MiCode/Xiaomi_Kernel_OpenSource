@@ -665,7 +665,6 @@ void sde_connector_destroy(struct drm_connector *connector)
 		drm_property_blob_put(c_conn->blob_mode_info);
 	if (c_conn->blob_ext_hdr)
 		drm_property_blob_put(c_conn->blob_ext_hdr);
-	msm_property_destroy(&c_conn->property_info);
 
 	if (c_conn->bl_device)
 		backlight_device_unregister(c_conn->bl_device);
@@ -673,6 +672,7 @@ void sde_connector_destroy(struct drm_connector *connector)
 	mutex_destroy(&c_conn->lock);
 	sde_fence_deinit(&c_conn->retire_fence);
 	drm_connector_cleanup(connector);
+	msm_property_destroy(&c_conn->property_info);
 	kfree(c_conn);
 }
 
