@@ -584,6 +584,9 @@ static void msm_gpio_irq_mask(struct irq_data *d)
 	clear_bit(d->hwirq, pctrl->enabled_irqs);
 
 	spin_unlock_irqrestore(&pctrl->lock, flags);
+
+	if (d->parent_data)
+		irq_chip_mask_parent(d);
 }
 
 static void msm_gpio_irq_enable(struct irq_data *d)
@@ -612,6 +615,9 @@ static void msm_gpio_irq_enable(struct irq_data *d)
 	set_bit(d->hwirq, pctrl->enabled_irqs);
 
 	spin_unlock_irqrestore(&pctrl->lock, flags);
+
+	if (d->parent_data)
+		irq_chip_enable_parent(d);
 }
 
 static void msm_gpio_irq_unmask(struct irq_data *d)
@@ -633,6 +639,9 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 	set_bit(d->hwirq, pctrl->enabled_irqs);
 
 	spin_unlock_irqrestore(&pctrl->lock, flags);
+
+	if (d->parent_data)
+		irq_chip_unmask_parent(d);
 }
 
 static void msm_gpio_irq_ack(struct irq_data *d)
@@ -746,6 +755,9 @@ static int msm_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 
 	spin_unlock_irqrestore(&pctrl->lock, flags);
 
+	if (d->parent_data)
+		irq_chip_set_type_parent(d, type);
+
 	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH))
 		irq_set_handler_locked(d, handle_level_irq);
 	else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
@@ -765,6 +777,9 @@ static int msm_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
 	irq_set_irq_wake(pctrl->irq, on);
 
 	spin_unlock_irqrestore(&pctrl->lock, flags);
+
+	if (d->parent_data)
+		irq_chip_set_wake_parent(d, on);
 
 	return 0;
 }
@@ -839,16 +854,20 @@ static int msm_gpio_domain_translate(struct irq_domain *d,
 static int msm_gpio_domain_alloc(struct irq_domain *domain, unsigned int virq,
 					unsigned int nr_irqs, void *arg)
 {
-	int ret;
+	int ret = 0;
 	irq_hw_number_t hwirq;
-	struct irq_fwspec *fwspec = arg;
+	struct irq_fwspec *fwspec = arg, parent_fwspec;
 
 	ret = msm_gpio_domain_translate(domain, fwspec, &hwirq, NULL);
 	if (ret)
 		return ret;
 
 	msm_gpio_domain_set_info(domain, virq, hwirq);
-	return ret;
+
+	parent_fwspec = *fwspec;
+	parent_fwspec.fwnode = domain->parent->fwnode;
+	return irq_domain_alloc_irqs_parent(domain, virq, nr_irqs,
+						&parent_fwspec);
 }
 
 static const struct irq_domain_ops msm_gpio_domain_ops = {
@@ -873,16 +892,9 @@ static void setup_pdc_gpio(struct irq_domain *domain,
 			unsigned int parent_irq, unsigned int gpio)
 {
 	int irq;
-	struct irq_fwspec fwspec;
-
-	fwspec.fwnode = domain->fwnode;
-	fwspec.param[0] = gpio;
-	fwspec.param[1] = IRQ_TYPE_NONE;
-	fwspec.param_count = 2;
-
 
 	if (gpio != 0) {
-		irq = irq_create_fwspec_mapping(&fwspec);
+		irq = irq_find_mapping(domain, gpio);
 		irq_set_parent(irq, parent_irq);
 		irq_set_chip(irq, &msm_dirconn_irq_chip);
 		irq_set_handler_data(parent_irq, irq_get_irq_data(irq));
@@ -1387,7 +1399,14 @@ static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 
 static int msm_gpiochip_to_irq(struct gpio_chip *chip, unsigned int offset)
 {
-	return irq_find_mapping(chip->irqdomain, offset);
+	struct irq_fwspec fwspec;
+
+	fwspec.fwnode = of_node_to_fwnode(chip->of_node);
+	fwspec.param[0] = offset;
+	fwspec.param[1] = IRQ_TYPE_NONE;
+	fwspec.param_count = 2;
+
+	return irq_create_fwspec_mapping(&fwspec);
 }
 
 static int msm_gpio_init(struct msm_pinctrl *pctrl)
@@ -1395,6 +1414,7 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	struct gpio_chip *chip;
 	int ret;
 	unsigned ngpio = pctrl->soc->ngpios;
+	struct device_node *irq_parent = NULL;
 	struct irq_domain *domain_parent;
 
 	if (WARN_ON(ngpio > MAX_NR_GPIO))
@@ -1407,11 +1427,6 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	chip->parent = pctrl->dev;
 	chip->owner = THIS_MODULE;
 	chip->of_node = pctrl->dev->of_node;
-	chip->irqchip = &msm_gpio_irq_chip;
-	chip->irq_handler = handle_fasteoi_irq;
-	chip->irq_default_type = IRQ_TYPE_NONE;
-	chip->to_irq = msm_gpiochip_to_irq;
-	chip->lock_key = NULL;
 
 	ret = gpiochip_add_data(&pctrl->chip, pctrl);
 	if (ret) {
@@ -1426,25 +1441,43 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 		return ret;
 	}
 
-	domain_parent = irq_find_host(of_irq_find_parent(chip->of_node));
-	if (!domain_parent) {
-		pr_err("unable to find parent domain\n");
-		gpiochip_remove(&pctrl->chip);
-		return -ENXIO;
-	}
+	irq_parent = of_irq_find_parent(chip->of_node);
+	if (of_device_is_compatible(irq_parent, "qcom,mpm-gpio")) {
+		chip->irqchip = &msm_gpio_irq_chip;
+		chip->irq_handler = handle_fasteoi_irq;
+		chip->irq_default_type = IRQ_TYPE_NONE;
+		chip->to_irq = msm_gpiochip_to_irq;
+		chip->lock_key = NULL;
+		domain_parent = irq_find_host(irq_parent);
+		if (!domain_parent) {
+			pr_err("unable to find parent domain\n");
+			gpiochip_remove(&pctrl->chip);
+			return -ENXIO;
+		}
 
-	chip->irqdomain = irq_domain_add_hierarchy(domain_parent, 0,
+		chip->irqdomain = irq_domain_add_hierarchy(domain_parent, 0,
 							chip->ngpio,
 							chip->of_node,
 							&msm_gpio_domain_ops,
 							chip);
-	if (!chip->irqdomain) {
-		dev_err(pctrl->dev, "Failed to add irqchip to gpiochip\n");
-		chip->irqchip = NULL;
-		gpiochip_remove(&pctrl->chip);
-		return -ENOSYS;
+		if (!chip->irqdomain) {
+			dev_err(pctrl->dev, "Failed to add irqchip to gpiochip\n");
+			chip->irqchip = NULL;
+			gpiochip_remove(&pctrl->chip);
+			return -ENXIO;
+		}
+	} else {
+		ret = gpiochip_irqchip_add(chip,
+					&msm_gpio_irq_chip,
+					0,
+					handle_fasteoi_irq,
+					IRQ_TYPE_NONE);
+		if (ret) {
+			dev_err(pctrl->dev, "Failed to add irqchip to gpiochip\n");
+			gpiochip_remove(&pctrl->chip);
+			return ret;
+		}
 	}
-
 	gpiochip_set_chained_irqchip(chip, &msm_gpio_irq_chip,
 				pctrl->irq, msm_gpio_irq_handler);
 
