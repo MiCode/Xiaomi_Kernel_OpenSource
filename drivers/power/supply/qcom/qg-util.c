@@ -122,7 +122,7 @@ int get_fifo_length(struct qpnp_qg *chip, u32 *fifo_length, bool rt)
 	}
 
 	if (rt) {
-		*fifo_length &= COUNT_FIFO_RT_MASK;
+		*fifo_length = reg & COUNT_FIFO_RT_MASK;
 	} else {
 		*fifo_length = (reg & FIFO_LENGTH_MASK) >> FIFO_LENGTH_SHIFT;
 		*fifo_length += 1;
