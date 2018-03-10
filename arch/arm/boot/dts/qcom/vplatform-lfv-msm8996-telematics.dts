@@ -146,6 +146,19 @@
 		qcom,edge = "lpass";
 		qcom,notify-edges = <&glink_mpss>;
 		qcom,xprt = "smem";
+
+	subsys_notif_virt: qcom,subsys_notif_virt@2D000000 {
+		compatible = "qcom,subsys-notif-virt";
+		reg = <0x2D000000 0x10>;
+		reg-names = "vdev_base";
+		adsp {
+			subsys-name = "adsp";
+			offset = <0>;
+		};
+		mpss {
+			subsys-name = "modem";
+			offset = <8>;
+		};
 	};
 };
 
