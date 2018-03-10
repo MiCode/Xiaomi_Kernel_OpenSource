@@ -1055,6 +1055,7 @@ static ssize_t mdss_fb_set_panel_count(struct device *dev,
 		return size;
 	}
 
+	mutex_lock(&mfd->mdss_sysfs_lock);
 	getnstimeofday(&rtctime);
 	if (rtctime.tv_sec > kernel_rtctime) {
 		if (rtctime.tv_sec - kernel_rtctime > 10 * 365 * DAY_SECS) {
@@ -1071,8 +1072,7 @@ static ssize_t mdss_fb_set_panel_count(struct device *dev,
 		pr_err("RTC time rollback!\n");
 		pdata->panel_info.bootRTCtime = kernel_rtctime;
 	}
-
-	mutex_lock(&mfd->mdss_sysfs_lock);
+	mutex_unlock(&mfd->mdss_sysfs_lock);
 
 	return size;
 }
