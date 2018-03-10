@@ -19,6 +19,7 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
+		interrupt-parent = <&wakegpio>;
 		#interrupt-cells = <2>;
 
 		pmx-uartconsole {
