@@ -2699,11 +2699,16 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		ipa_stop_polling_stats();
 		if (atomic_read(&rmnet_ipa3_ctx->is_initialized))
 			platform_driver_unregister(&rmnet_ipa_driver);
+
+		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
+			ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+			ipa3_q6_post_shutdown_cleanup();
 		IPAWANINFO("IPA BEFORE_SHUTDOWN handling is complete\n");
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
 		IPAWANINFO("IPA Received MPSS AFTER_SHUTDOWN\n");
-		if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
+		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
+			ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
 			ipa3_q6_post_shutdown_cleanup();
 		IPAWANINFO("IPA AFTER_SHUTDOWN handling is complete\n");
 		break;
@@ -4026,11 +4031,6 @@ static int __init ipa3_wwan_init(void)
 	ipa3_qmi_init();
 
 	/* Register for Modem SSR */
-	if (ipa3_ctx != NULL)
-		/* SSR is not supported yet on IPA 4.0 */
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_0)
-			return platform_driver_register(&rmnet_ipa_driver);
-
 	rmnet_ipa3_ctx->subsys_notify_handle = subsys_notif_register_notifier(
 			SUBSYS_MODEM,
 			&ipa3_ssr_notifier);
