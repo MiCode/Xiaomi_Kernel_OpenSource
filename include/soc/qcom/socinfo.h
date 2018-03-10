@@ -96,6 +96,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8953")
 #define early_machine_is_sdm450()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm450")
+#define early_machine_is_sda450()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda450")
 #define early_machine_is_msm8937()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8937")
 #define early_machine_is_msm8996()	\
@@ -141,6 +143,7 @@
 #define early_machine_is_msm8952()	0
 #define early_machine_is_msm8953()	0
 #define early_machine_is_sdm450()	0
+#define early_machine_is_sda450()	0
 #define early_machine_is_msm8937()	0
 #define early_machine_is_msm8996()	0
 #define early_machine_is_msm8976() 0
