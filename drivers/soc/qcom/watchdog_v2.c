@@ -112,12 +112,22 @@ static long WDT_HZ = 32765;
 module_param(WDT_HZ, long, 0);
 
 /*
+ * Watchdog ipi optimization:
+ * Does not ping cores in low power mode at pet time to save power.
+ * This feature is enabled by default.
+ *
  * On the kernel command line specify
- * watchdog_v2.ipi_opt_en=1 to enable the watchdog ipi ping
- * optimization. By default it is turned off
+ * watchdog_v2.ipi_en=1 to disable this optimization.
+ * Or, can be turned off, by enabling CONFIG_QCOM_WDOG_IPI_ENABLE.
  */
-static int ipi_opt_en;
-module_param(ipi_opt_en, int, 0);
+#ifdef CONFIG_QCOM_WDOG_IPI_ENABLE
+#define IPI_CORES_IN_LPM 1
+#else
+#define IPI_CORES_IN_LPM 0
+#endif
+
+static int ipi_en = IPI_CORES_IN_LPM;
+module_param(ipi_en, int, 0444);
 
 static void dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
 {
@@ -463,7 +473,7 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 	struct msm_watchdog_data *wdog_dd =
 			(struct msm_watchdog_data *)platform_get_drvdata(pdev);
 
-	if (ipi_opt_en)
+	if (!ipi_en)
 		cpu_pm_unregister_notifier(&wdog_cpu_pm_nb);
 
 	mutex_lock(&wdog_dd->disable_lock);
@@ -709,7 +719,7 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 
 	if (wdog_dd->irq_ppi)
 		enable_percpu_irq(wdog_dd->bark_irq, 0);
-	if (ipi_opt_en)
+	if (!ipi_en)
 		cpu_pm_register_notifier(&wdog_cpu_pm_nb);
 	dev_info(wdog_dd->dev, "MSM Watchdog Initialized\n");
 }
