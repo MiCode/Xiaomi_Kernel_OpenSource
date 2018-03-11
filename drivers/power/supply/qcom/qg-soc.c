@@ -48,6 +48,9 @@ static void get_next_update_time(struct qpnp_qg *chip, int *time_ms)
 
 static bool is_scaling_required(struct qpnp_qg *chip)
 {
+	if (!chip->profile_loaded)
+		return false;
+
 	if ((abs(chip->catch_up_soc - chip->msoc) < chip->dt.delta_soc) &&
 		chip->catch_up_soc != 0 && chip->catch_up_soc != 100)
 		return false;

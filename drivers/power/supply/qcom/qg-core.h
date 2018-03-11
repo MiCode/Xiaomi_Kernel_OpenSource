@@ -43,6 +43,7 @@ struct qg_dt {
 	int			s3_exit_ibat_ua;
 	int			delta_soc;
 	int			rbat_conn_mohm;
+	int			ignore_shutdown_soc_secs;
 };
 
 struct qpnp_qg {
@@ -79,6 +80,7 @@ struct qpnp_qg {
 
 	/* status variable */
 	u32			*debug_mask;
+	bool			qg_device_open;
 	bool			profile_loaded;
 	bool			battery_missing;
 	bool			data_ready;
