@@ -393,33 +393,19 @@ cleanup:
 	return rc;
 }
 
-int lookup_soc_ocv(u32 *soc, u32 ocv_uv, int batt_temp, u8 lookup)
+int lookup_soc_ocv(u32 *soc, u32 ocv_uv, int batt_temp, bool charging)
 {
-	u8 table_index = 0;
-	int soc_avg = 0, soc_charge = 0, soc_discharge = 0;
+	u8 table_index = charging ? TABLE_SOC_OCV1 : TABLE_SOC_OCV2;
 
 	if (!the_battery || !the_battery->profile) {
 		pr_err("Battery profile not loaded\n");
 		return -ENODEV;
 	}
 
-	if (lookup == SOC_AVERAGE) {
-		soc_charge = interpolate_soc(
-				&the_battery->profile[TABLE_SOC_OCV1],
+	*soc = interpolate_soc(&the_battery->profile[table_index],
 				batt_temp, UV_TO_DECIUV(ocv_uv));
-		soc_discharge = interpolate_soc(
-				&the_battery->profile[TABLE_SOC_OCV2],
-				batt_temp, UV_TO_DECIUV(ocv_uv));
-		soc_avg = (soc_charge + soc_discharge) / 2;
-	} else {
-		table_index = (lookup == SOC_CHARGE) ?
-				TABLE_SOC_OCV1 : TABLE_SOC_OCV2;
-		soc_avg = interpolate_soc(
-				&the_battery->profile[table_index],
-				batt_temp, UV_TO_DECIUV(ocv_uv));
-	}
 
-	*soc = CAP(0, 100, DIV_ROUND_CLOSEST(soc_avg, 100));
+	*soc = CAP(0, 100, DIV_ROUND_CLOSEST(*soc, 100));
 
 	return 0;
 }
