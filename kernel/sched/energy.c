@@ -48,6 +48,20 @@ static void free_resources(void)
 	}
 }
 
+void check_max_cap_vs_cpu_scale(int cpu, struct sched_group_energy *sge)
+{
+	unsigned long max_cap, cpu_scale;
+
+	max_cap = sge->cap_states[sge->nr_cap_states - 1].cap;
+	cpu_scale = topology_get_cpu_scale(NULL, cpu);
+
+	if (max_cap == cpu_scale)
+		return;
+
+	pr_warn("CPU%d max energy model capacity=%ld != cpu_scale=%ld\n", cpu,
+		max_cap, cpu_scale);
+}
+
 void init_sched_energy_costs(void)
 {
 	struct device_node *cn, *cp;
@@ -116,6 +130,8 @@ void init_sched_energy_costs(void)
 
 			sge_array[cpu][sd_level] = sge;
 		}
+
+		check_max_cap_vs_cpu_scale(cpu, sge_array[cpu][SD_LEVEL0]);
 	}
 
 	pr_info("Sched-energy-costs installed from DT\n");
