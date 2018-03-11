@@ -77,6 +77,31 @@ config ARCH_MSM8937
 	select HAVE_CLK_PREPARE
 	select COMMON_CLK_MSM
 
+config ARCH_MSM8909
+	bool "Enable support for MSM8909"
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select PINCTRL_MSM_TLMM
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select MSM_RPM_SMD
+	select MSM_RPM_STATS_LOG
+	select MSM_RPM_LOG
+	select MSM_CORTEX_A7
+	select QCOM_SCM if SMP
+	select CPU_FREQ
+	select CPU_FREQ_MSM
+	select PM_DEVFREQ
+	select PM_OPP
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select COMMON_CLK_MSM
+
 config ARCH_SDM450
 	bool "Enable support for SDM450"
 	select CPU_V7
