@@ -349,6 +349,4 @@ void __init init_cpu_topology(void)
 
 	/* Set scheduler topology descriptor */
 	set_sched_topology(arm_topology);
-
-	init_sched_energy_costs();
 }

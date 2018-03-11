@@ -188,8 +188,6 @@ static int __init parse_dt_topology(void)
 	if (!map)
 		goto out;
 
-	init_sched_energy_costs();
-
 	ret = parse_cluster(map, 0);
 	if (ret != 0)
 		goto out_map;
