@@ -12,8 +12,10 @@ the compatible string to indicate the revision.
 Required properties:
 - compatible:           Must be one of following,
 			"qcom,gcc-8953"
+			"qcom,gcc-8909"
 			"qcom,gcc-sdm632"
 			"qcom,cc-debug-8953"
+			"qcom,cc-debug-8909"
 			"qcom,cc-debug-sdm632"
 			"qcom,gcc-mdss-8953"
 			"qcom,gcc-mdss-sdm632"
@@ -28,6 +30,8 @@ Required properties:
 			"qcom,gcc-8920"
 			"qcom,gcc-spm-8952"
 			"qcom,gcc-spm-8937"
+			"qcom,rpmcc-8909"
+			"qcom,rpmcc-8909-pm660"
 			"qcom,cc-debug-8952"
 			"qcom,cc-debug-8953"
 			"qcom,cc-debug-8937"
@@ -36,6 +40,7 @@ Required properties:
 			"qcom,cc-debug-8920"
 			"qcom,gcc-mdss-8953"
 			"qcom,gcc-mdss-8952"
+			"qcom,gcc-mdss-8909"
 			"qcom,gcc-mdss-8937"
 			"qcom,gcc-mdss-8917"
 			"qcom,gcc-mdss-8940"

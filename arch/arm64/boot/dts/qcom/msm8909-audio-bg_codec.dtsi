@@ -1,0 +1,195 @@
+/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	audio_codec_bg: sound {
+		status = "disabled";
+		compatible = "qcom,msm-bg-audio-codec";
+		qcom,model = "msm-bg-snd-card";
+		reg = <0x7702000 0x4>,
+		      <0x7702004 0x4>,
+		      <0x7702008 0x4>,
+		      <0x770200c 0x4>;
+		reg-names = "csr_gp_io_mux_mic_ctl",
+			    "csr_gp_io_mux_spkr_ctl",
+			    "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel",
+			    "csr_gp_io_lpaif_sec_pcm_sec_mode_muxsel";
+
+		qcom,msm-snd-card-id = <0>;
+		qcom,msm-ext-pa = "primary";
+		qcom,tdm-audio-intf;
+		qcom,msm-afe-clk-ver = <1>;
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&lpa>,
+				<&voice_svc>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-pcm-lpa",
+				"msm-voice-svc";
+		asoc-cpu = <&dai_pri_auxpcm>,
+				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>,
+				<&dai_mi2s3>, <&dai_mi2s5>, <&dai_mi2s6>,
+				<&bt_sco_rx>, <&bt_sco_tx>, <&bt_a2dp_rx>,
+				<&int_fm_rx>, <&int_fm_tx>, <&afe_pcm_rx>,
+				<&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>,
+				<&incall_music_rx>, <&incall_music_2_rx>,
+				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+				<&dai_pri_tdm_rx_1>, <&dai_pri_tdm_tx_1>,
+				<&dai_pri_tdm_rx_2>, <&dai_pri_tdm_tx_2>,
+				<&dai_pri_tdm_rx_3>, <&dai_pri_tdm_tx_3>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-mi2s.5", "msm-dai-q6-mi2s.6",
+				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+				"msm-dai-q6-dev.12290", "msm-dai-q6-dev.12292",
+				"msm-dai-q6-dev.12293", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770", "msm-dai-q6-tdm.36864",
+				"msm-dai-q6-tdm.36865", "msm-dai-q6-tdm.36866",
+				"msm-dai-q6-tdm.36867", "msm-dai-q6-tdm.36868",
+				"msm-dai-q6-tdm.36869", "msm-dai-q6-tdm.36870",
+				"msm-dai-q6-tdm.36871";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+	};
+
+	pri_tdm_rx: qcom,msm-dai-tdm-pri-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37120>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36864 36866 36868 36870>;
+		qcom,msm-cpudai-tdm-clk-rate = <0>;
+		qcom,msm-cpudai-tdm-afe-ebit-unsupported;
+		qcom,msm-cpudai-tdm-sec-port-enable;
+		qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&quat_mi2s_active &quat_mi2s_din_active>;
+		pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_din_sleep>;
+		dai_pri_tdm_rx_0: qcom,msm-dai-q6-tdm-pri-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36864>;
+			qcom,msm-cpudai-tdm-sync-mode = <0>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_pri_tdm_rx_1: qcom,msm-dai-q6-tdm-pri-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36866>;
+			qcom,msm-cpudai-tdm-sync-mode = <0>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_pri_tdm_rx_2: qcom,msm-dai-q6-tdm-pri-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36868>;
+			qcom,msm-cpudai-tdm-sync-mode = <0>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_pri_tdm_rx_3: qcom,msm-dai-q6-tdm-pri-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36870>;
+			qcom,msm-cpudai-tdm-sync-mode = <0>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	pri_tdm_tx: qcom,msm-dai-tdm-pri-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37121>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36865 36867 36869 36871>;
+		qcom,msm-cpudai-tdm-clk-rate = <0>;
+		qcom,msm-cpudai-tdm-afe-ebit-unsupported;
+		qcom,msm-cpudai-tdm-sec-port-enable;
+		qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&quat_mi2s_active &quat_mi2s_din_active>;
+		pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_din_sleep>;
+		dai_pri_tdm_tx_0: qcom,msm-dai-q6-tdm-pri-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36865>;
+			qcom,msm-cpudai-tdm-sync-mode = <0>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_pri_tdm_tx_1: qcom,msm-dai-q6-tdm-pri-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36867>;
+			qcom,msm-cpudai-tdm-sync-mode = <0>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_pri_tdm_tx_2: qcom,msm-dai-q6-tdm-pri-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36869>;
+			qcom,msm-cpudai-tdm-sync-mode = <0>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_pri_tdm_tx_3: qcom,msm-dai-q6-tdm-pri-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36871>;
+			qcom,msm-cpudai-tdm-sync-mode = <0>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	wdsp_glink: qcom,wcd-dsp-glink {
+		compatible = "qcom,wcd-dsp-glink";
+		qcom,msm-codec-glink-edge = "bg";
+	};
+
+	bg_cdc: bg_codec {
+		status = "disabled";
+		compatible = "qcom,bg-codec";
+		qcom,subsys-name = "modem";
+		qcom,bg-glink {
+			compatible = "qcom,bg-cdc-glink";
+			qcom,msm-glink-channels = <4>;
+		};
+	};
+};
