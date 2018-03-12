@@ -42,6 +42,11 @@ enum {
 
 extern const u8 clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_MAX][PLL_OFF_MAX_REGS];
 
+struct pll_vco_data {
+	unsigned long freq;
+	u8 post_div_val;
+};
+
 struct pll_vco {
 	unsigned long min_freq;
 	unsigned long max_freq;
@@ -55,6 +60,7 @@ struct pll_vco {
  * @soft_vote_mask: soft voting mask for multiple PLL software instances
  * @vco_table: array of VCO settings
  * @regs: alpha pll register map (see @clk_alpha_pll_regs)
+ * @vco_data: array of VCO data settings like post div
  * @clkr: regmap clock handle
  */
 struct clk_alpha_pll {
@@ -71,14 +77,24 @@ struct clk_alpha_pll {
 
 	const struct pll_vco *vco_table;
 	size_t num_vco;
+
+	const struct pll_vco_data *vco_data;
+	size_t num_vco_data;
+
 #define SUPPORTS_OFFLINE_REQ	BIT(0)
 #define SUPPORTS_FSM_MODE	BIT(2)
+	/*
+	 * Some PLLs support dynamically updating their rate without disabling
+	 * the PLL first. Set this flag to enable this support.
+	 */
 #define SUPPORTS_DYNAMIC_UPDATE	BIT(3)
+#define SUPPORTS_SLEW		BIT(4)
 	/* Associated with soft_vote for multiple PLL software instances */
 #define SUPPORTS_FSM_VOTE	BIT(5)
 	u8 flags;
 
 	struct clk_regmap clkr;
+	unsigned long min_supported_freq;
 };
 
 /**
