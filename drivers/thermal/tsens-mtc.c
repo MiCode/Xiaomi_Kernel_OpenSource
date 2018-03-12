@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,7 @@ struct tsens_device *tsens_controller_is_present(void)
 }
 EXPORT_SYMBOL(tsens_controller_is_present);
 
-static int tsens_mtc_reset_history_counter(unsigned int zone)
+int tsens_mtc_reset_history_counter(unsigned int zone)
 {
 	unsigned int reg_cntl, is_valid;
 	void __iomem *sensor_addr;
