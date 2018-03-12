@@ -403,13 +403,16 @@
 		label = "cpas";
 		arch-compat = "cpas_top";
 		status = "ok";
-		reg-names = "cam_cpas_top", "cam_camnoc";
+		reg-names = "cam_cpas_top", "cam_camnoc", "core_top_csr_tcsr";
 		reg = <0xac40000 0x1000>,
-			<0xac42000 0x5000>;
-		reg-cam-base = <0x40000 0x42000>;
+			<0xac42000 0x5000>,
+			<0x01fc0000 0x30000>;
+		reg-cam-base = <0x40000 0x42000 0x0>;
 		interrupt-names = "cpas_camnoc";
 		interrupts = <0 459 0>;
 		qcom,cpas-hw-ver = <0x170110>; /* Titan v170 v1.1.0 */
+		nvmem-cells = <&minor_rev>;
+		nvmem-cell-names = "minor_rev";
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_ahb_clk",
