@@ -2016,6 +2016,7 @@ static int wil_cfg80211_suspend(struct wiphy *wiphy,
 
 	mutex_lock(&wil->mutex);
 	mutex_lock(&wil->vif_mutex);
+	wil_ftm_stop_operations(wil);
 	wil_p2p_stop_radio_operations(wil);
 	wil_abort_scan_all_vifs(wil, true);
 	mutex_unlock(&wil->vif_mutex);

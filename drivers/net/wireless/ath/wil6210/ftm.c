@@ -969,8 +969,14 @@ void wil_ftm_deinit(struct wil6210_vif *vif)
 
 void wil_ftm_stop_operations(struct wil6210_priv *wil)
 {
-	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
+	int i;
 
-	wil_ftm_cfg80211_session_ended(
-		vif, QCA_WLAN_VENDOR_ATTR_LOC_SESSION_STATUS_ABORTED);
+	for (i = 0; i < wil->max_vifs; i++) {
+		struct wil6210_vif *vif = wil->vifs[i];
+
+		if (!vif)
+			continue;
+		wil_ftm_cfg80211_session_ended(
+			vif, QCA_WLAN_VENDOR_ATTR_LOC_SESSION_STATUS_ABORTED);
+	}
 }

@@ -1495,9 +1495,8 @@ int __wil_down(struct wil6210_priv *wil)
 	}
 	wil_enable_irq(wil);
 
-	wil_ftm_stop_operations(wil);
-
 	mutex_lock(&wil->vif_mutex);
+	wil_ftm_stop_operations(wil);
 	wil_p2p_stop_radio_operations(wil);
 	wil_abort_scan_all_vifs(wil, false);
 	mutex_unlock(&wil->vif_mutex);
