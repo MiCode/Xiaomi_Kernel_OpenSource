@@ -973,6 +973,8 @@ enum msm_isp_ioctl_cmd_code {
 	MSM_ISP_AXI_OUTPUT_CFG,
 	MSM_ISP_START,
 	MSM_ISP_STOP,
+
+	MSM_ISP_SET_CLK_STATUS,
 };
 
 
@@ -1104,5 +1106,8 @@ enum msm_isp_ioctl_cmd_code {
 	_IOWR('V', MSM_ISP_CAMIF_CFG, \
 		struct msm_vfe_camif_cfg)
 
+#define VIDIOC_MSM_ISP_SET_CLK_STATUS \
+	_IOWR('V', MSM_ISP_SET_CLK_STATUS, \
+		unsigned int)
 
 #endif /* __UAPI_MSM_AIS_ISP__ */
