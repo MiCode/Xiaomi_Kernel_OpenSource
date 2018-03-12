@@ -2062,7 +2062,8 @@ void msm_isp_prepare_tasklet_debug_info(struct vfe_device *vfe_dev,
 }
 
 static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1)
+	uint32_t irq_status0, uint32_t irq_status1,
+	uint32_t ping_pong_status)
 {
 	unsigned long flags;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd = NULL;
@@ -2085,8 +2086,8 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	}
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
+	queue_cmd->vfe_pingpong_status = ping_pong_status;
 	msm_isp_get_timestamp(&queue_cmd->ts, vfe_dev);
-
 	queue_cmd->cmd_used = 1;
 	queue_cmd->vfe_dev = vfe_dev;
 
@@ -2100,7 +2101,7 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 {
 	struct vfe_device *vfe_dev = (struct vfe_device *) data;
-	uint32_t irq_status0, irq_status1;
+	uint32_t irq_status0, irq_status1, ping_pong_status;
 	uint32_t error_mask0, error_mask1;
 
 	vfe_dev->hw_info->vfe_ops.irq_ops.
@@ -2111,6 +2112,8 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 			__func__, vfe_dev->pdev->id);
 		return IRQ_HANDLED;
 	}
+	ping_pong_status = vfe_dev->hw_info->vfe_ops.axi_ops.
+		get_pingpong_status(vfe_dev);
 	if (vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq) {
 		vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq(
 				vfe_dev, irq_status0);
@@ -2138,7 +2141,8 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		return IRQ_HANDLED;
 	}
 	msm_isp_prepare_irq_debug_info(vfe_dev, irq_status0, irq_status1);
-	msm_isp_enqueue_tasklet_cmd(vfe_dev, irq_status0, irq_status1);
+	msm_isp_enqueue_tasklet_cmd(vfe_dev, irq_status0, irq_status1,
+					ping_pong_status);
 
 	return IRQ_HANDLED;
 }
@@ -2151,7 +2155,7 @@ void msm_isp_do_tasklet(unsigned long data)
 	struct msm_vfe_irq_ops *irq_ops;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct msm_isp_timestamp ts;
-	uint32_t irq_status0, irq_status1;
+	uint32_t irq_status0, irq_status1, pingpong_status;
 
 	while (1) {
 		spin_lock_irqsave(&tasklet->tasklet_lock, flags);
@@ -2167,6 +2171,7 @@ void msm_isp_do_tasklet(unsigned long data)
 		queue_cmd->vfe_dev = NULL;
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
+		pingpong_status = queue_cmd->vfe_pingpong_status;
 		ts = queue_cmd->ts;
 		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
 		if (vfe_dev->vfe_open_cnt == 0) {
@@ -2191,9 +2196,11 @@ void msm_isp_do_tasklet(unsigned long data)
 		}
 		msm_isp_process_error_info(vfe_dev);
 		irq_ops->process_stats_irq(vfe_dev,
-			irq_status0, irq_status1, &ts);
+			irq_status0, irq_status1,
+			pingpong_status, &ts);
 		irq_ops->process_axi_irq(vfe_dev,
-			irq_status0, irq_status1, &ts);
+			irq_status0, irq_status1,
+			pingpong_status, &ts);
 		irq_ops->process_camif_irq(vfe_dev,
 			irq_status0, irq_status1, &ts);
 		irq_ops->process_reg_update(vfe_dev,
