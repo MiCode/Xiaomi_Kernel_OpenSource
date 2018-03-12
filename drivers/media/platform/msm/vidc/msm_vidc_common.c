@@ -2211,6 +2211,10 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	}
 	/* handle the hw error before core released to get full debug info */
 	msm_vidc_handle_hw_error(core);
+	if (response->status == VIDC_ERR_NOC_ERROR) {
+		dprintk(VIDC_WARN, "Got NOC error");
+		MSM_VIDC_ERROR(true);
+	}
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
 	if (rc) {
@@ -3339,11 +3343,9 @@ int msm_comm_suspend(int core_id)
 		return -EINVAL;
 	}
 
-	mutex_lock(&core->lock);
 	rc = call_hfi_op(hdev, suspend, hdev->hfi_device_data);
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to suspend\n");
-	mutex_unlock(&core->lock);
 
 	return rc;
 }
@@ -3917,13 +3919,17 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		struct eos_buf *binfo = NULL;
 		u32 smem_flags = 0;
 
-		get_inst(inst->core, inst);
+		if (inst->state != MSM_VIDC_START_DONE) {
+			dprintk(VIDC_DBG,
+				"Inst = %pK is not ready for EOS\n", inst);
+			break;
+		}
 
 		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 		if (!binfo) {
 			dprintk(VIDC_ERR, "%s: Out of memory\n", __func__);
 			rc = -ENOMEM;
-			goto exit;
+			break;
 		}
 
 		if (inst->flags & VIDC_SECURE)
@@ -3933,26 +3939,25 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 				SZ_4K, 1, smem_flags,
 				HAL_BUFFER_INPUT, 0, &binfo->smem);
 		if (rc) {
+			kfree(binfo);
 			dprintk(VIDC_ERR,
 				"Failed to allocate output memory\n");
 			rc = -ENOMEM;
-			goto exit;
+			break;
 		}
 
 		mutex_lock(&inst->eosbufs.lock);
 		list_add_tail(&binfo->list, &inst->eosbufs.list);
 		mutex_unlock(&inst->eosbufs.lock);
 
-		if (inst->state != MSM_VIDC_START_DONE) {
-			dprintk(VIDC_DBG,
-				"Inst = %pK is not ready for EOS\n", inst);
-			goto exit;
-		}
-
 		rc = msm_vidc_send_pending_eos_buffers(inst);
-
-exit:
-		put_inst(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed pending_eos_buffers sending\n");
+			list_del(&binfo->list);
+			kfree(binfo);
+			break;
+		}
 		break;
 	}
 	default:

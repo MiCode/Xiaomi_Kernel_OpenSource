@@ -2691,6 +2691,11 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		memcpy(&inst->fmts[fmt->type], fmt,
 				sizeof(struct msm_vidc_format));
 
+		if (get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+			HAL_VIDEO_CODEC_TME) {
+			msm_smem_set_tme_encode_mode(inst->mem_client, true);
+		}
+
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");

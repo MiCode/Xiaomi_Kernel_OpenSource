@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,7 +183,7 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	mutex_lock(&iommu_meta->lock);
 	iommu_map = msm_iommu_lookup(iommu_meta, dev);
 	if (!iommu_map) {
-		iommu_map = kmalloc(sizeof(*iommu_map), GFP_ATOMIC);
+		iommu_map = kmalloc(sizeof(*iommu_map), GFP_KERNEL);
 
 		if (!iommu_map) {
 			ret = -ENOMEM;

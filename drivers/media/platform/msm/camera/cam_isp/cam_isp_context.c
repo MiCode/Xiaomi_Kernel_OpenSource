@@ -1187,7 +1187,9 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 				req_isp->fence_map_out[i].sync_id = -1;
 			}
 		}
+		spin_lock_bh(&ctx->lock);
 		list_add_tail(&req->list, &ctx->free_req_list);
+		spin_unlock_bh(&ctx->lock);
 	}
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
@@ -2221,7 +2223,7 @@ static int __cam_isp_ctx_unlink_in_ready(struct cam_context *ctx,
 }
 
 static int __cam_isp_ctx_stop_dev_in_activated_unlock(
-	struct cam_context *ctx)
+	struct cam_context *ctx, struct cam_start_stop_dev_cmd *stop_cmd)
 {
 	int rc = 0;
 	uint32_t i;
@@ -2240,6 +2242,7 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	/* stop hw first */
 	if (ctx_isp->hw_ctx) {
 		stop.ctxt_to_hw_map = ctx_isp->hw_ctx;
+		stop.args = stop_cmd;
 		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
 			&stop);
 	}
@@ -2288,7 +2291,7 @@ static int __cam_isp_ctx_stop_dev_in_activated(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	__cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+	__cam_isp_ctx_stop_dev_in_activated_unlock(ctx, cmd);
 	ctx->state = CAM_CTX_ACQUIRED;
 	trace_cam_context_state("ISP", ctx);
 	return rc;
@@ -2299,7 +2302,7 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx, NULL);
 	if (rc)
 		CAM_ERR(CAM_ISP, "Stop device failed rc=%d", rc);
 
@@ -2369,7 +2372,8 @@ static int __cam_isp_ctx_unlink_in_activated(struct cam_context *ctx,
 
 	CAM_WARN(CAM_ISP,
 		"Received unlink in activated state. It's unexpected");
-	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+
+	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx, NULL);
 	if (rc)
 		CAM_WARN(CAM_ISP, "Stop device failed rc=%d", rc);
 

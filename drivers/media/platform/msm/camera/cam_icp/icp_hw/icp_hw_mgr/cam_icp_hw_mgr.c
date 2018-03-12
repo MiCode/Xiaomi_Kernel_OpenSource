@@ -271,7 +271,7 @@ static int32_t cam_icp_deinit_idle_clk(void *priv, void *data)
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		ctx_data = &hw_mgr->ctx_data[i];
 		mutex_lock(&ctx_data->ctx_mutex);
-		if ((ctx_data->state != CAM_ICP_CTX_STATE_FREE) &&
+		if ((ctx_data->state == CAM_ICP_CTX_STATE_ACQUIRED) &&
 			(ICP_DEV_TYPE_TO_CLK_TYPE(ctx_data->
 			icp_dev_acquire_info->dev_type) == clk_info->hw_type))
 			cam_icp_ctx_clk_info_init(ctx_data);
@@ -408,7 +408,7 @@ static void cam_icp_ctx_timer_cb(unsigned long data)
 	struct cam_req_mgr_timer *timer = (struct cam_req_mgr_timer *)data;
 
 	spin_lock_irqsave(&icp_hw_mgr.hw_mgr_lock, flags);
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.msg_work);
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.timer_work);
 	if (!task) {
 		CAM_ERR(CAM_ICP, "no empty task");
 		spin_unlock_irqrestore(&icp_hw_mgr.hw_mgr_lock, flags);
@@ -432,7 +432,7 @@ static void cam_icp_device_timer_cb(unsigned long data)
 	struct cam_req_mgr_timer *timer = (struct cam_req_mgr_timer *)data;
 
 	spin_lock_irqsave(&icp_hw_mgr.hw_mgr_lock, flags);
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.msg_work);
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.timer_work);
 	if (!task) {
 		CAM_ERR(CAM_ICP, "no empty task");
 		spin_unlock_irqrestore(&icp_hw_mgr.hw_mgr_lock, flags);
@@ -473,7 +473,7 @@ static int cam_icp_ctx_timer_start(struct cam_icp_hw_ctx_data *ctx_data)
 	int rc = 0;
 
 	rc = crm_timer_init(&ctx_data->watch_dog,
-		2000, ctx_data, &cam_icp_ctx_timer_cb);
+		200, ctx_data, &cam_icp_ctx_timer_cb);
 	if (rc)
 		CAM_ERR(CAM_ICP, "Failed to start timer");
 
@@ -1311,32 +1311,6 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 	return rc;
 err:
 	debugfs_remove_recursive(icp_hw_mgr.dentry);
-	return rc;
-}
-
-static int cam_icp_mgr_process_cmd_and_free_mem(void *priv, void *data)
-{
-	int rc;
-	struct hfi_cmd_work_data *task_data = NULL;
-	struct cam_icp_hw_mgr *hw_mgr;
-
-	if (!data || !priv) {
-		CAM_ERR(CAM_ICP, "Invalid params%pK %pK", data, priv);
-		return -EINVAL;
-	}
-
-	hw_mgr = priv;
-	task_data = (struct hfi_cmd_work_data *)data;
-
-	if (!task_data->data) {
-		CAM_ERR(CAM_ICP, "Invalid data");
-		return -EINVAL;
-	}
-
-	rc = hfi_write_cmd(task_data->data);
-
-	kfree(task_data->data);
-	task_data->data = NULL;
 	return rc;
 }
 
@@ -2214,14 +2188,13 @@ static int cam_icp_mgr_abort_handle(
 	task_data->data = (void *)abort_cmd;
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
-	task->process_cb = cam_icp_mgr_process_cmd_and_free_mem;
+	task->process_cb = cam_icp_mgr_process_cmd;
 	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
 		CRM_TASK_PRIORITY_0);
 	if (rc) {
 		kfree(abort_cmd);
 		return rc;
 	}
-	CAM_DBG(CAM_ICP, "payload data = %pK", task_data->data);
 	CAM_DBG(CAM_ICP, "fw_handle = %x ctx_data = %pK",
 		ctx_data->fw_handle, ctx_data);
 	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
@@ -2278,14 +2251,13 @@ static int cam_icp_mgr_destroy_handle(
 	task_data->data = (void *)destroy_cmd;
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
-	task->process_cb = cam_icp_mgr_process_cmd_and_free_mem;
+	task->process_cb = cam_icp_mgr_process_cmd;
 	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
 		CRM_TASK_PRIORITY_0);
 	if (rc) {
 		kfree(destroy_cmd);
 		return rc;
 	}
-	CAM_DBG(CAM_ICP, "payload data = %pK", task_data->data);
 	CAM_DBG(CAM_ICP, "fw_handle = %x ctx_data = %pK",
 		ctx_data->fw_handle, ctx_data);
 	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
@@ -2862,8 +2834,23 @@ static int cam_icp_mgr_pkt_validation(struct cam_packet *packet)
 			packet->header.op_code & 0xff);
 		return -EINVAL;
 	}
-	CAM_DBG(CAM_ICP, "number of cmd/patch info: %u %u",
-			packet->num_cmd_buf, packet->num_patches);
+
+	if (packet->num_io_configs > IPE_IO_IMAGES_MAX) {
+		CAM_ERR(CAM_ICP, "Invalid number of io configs: %d %d",
+			IPE_IO_IMAGES_MAX, packet->num_io_configs);
+		return -EINVAL;
+	}
+
+	if (packet->num_cmd_buf > CAM_ICP_CTX_MAX_CMD_BUFFERS) {
+		CAM_ERR(CAM_ICP, "Invalid number of cmd buffers: %d %d",
+			CAM_ICP_CTX_MAX_CMD_BUFFERS, packet->num_cmd_buf);
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_ICP, "number of cmd/patch info: %u %u %u %u",
+			packet->num_cmd_buf,
+			packet->num_io_configs, IPE_IO_IMAGES_MAX,
+			packet->num_patches);
 	return 0;
 }
 
@@ -3560,7 +3547,7 @@ static int cam_icp_mgr_create_handle(uint32_t dev_type,
 
 static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data)
 {
-	struct hfi_cmd_ping_pkt *ping_pkt;
+	struct hfi_cmd_ping_pkt ping_pkt;
 	struct hfi_cmd_work_data *task_data;
 	unsigned long rem_jiffies;
 	int timeout = 5000;
@@ -3573,28 +3560,20 @@ static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data)
 		return -ENOMEM;
 	}
 
-	ping_pkt = kzalloc(sizeof(struct hfi_cmd_ping_pkt), GFP_KERNEL);
-	if (!ping_pkt) {
-		rc = -ENOMEM;
-		return rc;
-	}
-	ping_pkt->size = sizeof(struct hfi_cmd_ping_pkt);
-	ping_pkt->pkt_type = HFI_CMD_SYS_PING;
-	ping_pkt->user_data = (uint64_t)ctx_data;
+	ping_pkt.size = sizeof(struct hfi_cmd_ping_pkt);
+	ping_pkt.pkt_type = HFI_CMD_SYS_PING;
+	ping_pkt.user_data = (uint64_t)ctx_data;
 	init_completion(&ctx_data->wait_complete);
 	task_data = (struct hfi_cmd_work_data *)task->payload;
-	task_data->data = (void *)ping_pkt;
+	task_data->data = (void *)&ping_pkt;
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
-	task->process_cb = cam_icp_mgr_process_cmd_and_free_mem;
+	task->process_cb = cam_icp_mgr_process_cmd;
 
 	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
 		CRM_TASK_PRIORITY_0);
-	if (rc) {
-		kfree(ping_pkt);
+	if (rc)
 		return rc;
-	}
-	CAM_DBG(CAM_ICP, "payload data = %pK", task_data->data);
 
 	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
 			msecs_to_jiffies((timeout)));
@@ -3772,10 +3751,6 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		}
 	}
 
-	if (!hw_mgr->bps_ctxt_cnt || !hw_mgr->ipe_ctxt_cnt)
-		cam_icp_device_timer_start(hw_mgr);
-
-	cam_icp_ctx_timer_start(ctx_data);
 
 	rc = cam_icp_mgr_ipe_bps_resume(hw_mgr, ctx_data);
 	if (rc) {
@@ -3827,6 +3802,11 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 			(unsigned int)icp_dev_acquire_info->scratch_mem_size,
 			(unsigned int)ctx_data->fw_handle);
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	/* Start device timer*/
+	if (((hw_mgr->bps_ctxt_cnt == 1) || (hw_mgr->ipe_ctxt_cnt == 1)))
+		cam_icp_device_timer_start(hw_mgr);
+	/* Start context timer*/
+	cam_icp_ctx_timer_start(ctx_data);
 	hw_mgr->ctxt_cnt++;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	CAM_DBG(CAM_ICP, "Acquire Done");
@@ -3842,7 +3822,6 @@ create_handle_failed:
 send_ping_failed:
 	cam_icp_mgr_ipe_bps_power_collapse(hw_mgr, ctx_data, 0);
 ipe_bps_resume_failed:
-	cam_icp_ctx_timer_stop(&hw_mgr->ctx_data[ctx_id]);
 ubwc_cfg_failed:
 	if (!hw_mgr->ctxt_cnt)
 		cam_icp_mgr_icp_power_collapse(hw_mgr);
@@ -4034,15 +4013,22 @@ static int cam_icp_mgr_create_wq(void)
 	rc = cam_req_mgr_workq_create("icp_command_queue", ICP_WORKQ_NUM_TASK,
 		&icp_hw_mgr.cmd_work, CRM_WORKQ_USAGE_NON_IRQ);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "unable to create a worker");
+		CAM_ERR(CAM_ICP, "unable to create a command worker");
 		goto cmd_work_failed;
 	}
 
 	rc = cam_req_mgr_workq_create("icp_message_queue", ICP_WORKQ_NUM_TASK,
 		&icp_hw_mgr.msg_work, CRM_WORKQ_USAGE_IRQ);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "unable to create a worker");
+		CAM_ERR(CAM_ICP, "unable to create a message worker");
 		goto msg_work_failed;
+	}
+
+	rc = cam_req_mgr_workq_create("icp_timer_queue", ICP_WORKQ_NUM_TASK,
+		&icp_hw_mgr.timer_work, CRM_WORKQ_USAGE_IRQ);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "unable to create a timer worker");
+		goto timer_work_failed;
 	}
 
 	icp_hw_mgr.cmd_work_data = (struct hfi_cmd_work_data *)
@@ -4057,9 +4043,15 @@ static int cam_icp_mgr_create_wq(void)
 	if (!icp_hw_mgr.msg_work_data)
 		goto msg_work_data_failed;
 
+	icp_hw_mgr.timer_work_data = (struct hfi_msg_work_data *)
+		kzalloc(sizeof(struct hfi_msg_work_data) * ICP_WORKQ_NUM_TASK,
+		GFP_KERNEL);
+	if (!icp_hw_mgr.timer_work_data)
+		goto timer_work_data_failed;
+
 	rc = cam_icp_hw_mgr_create_debugfs_entry();
 	if (rc)
-		goto msg_work_data_failed;
+		goto debugfs_create_failed;
 
 	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
 		icp_hw_mgr.msg_work->task.pool[i].payload =
@@ -4069,10 +4061,20 @@ static int cam_icp_mgr_create_wq(void)
 		icp_hw_mgr.cmd_work->task.pool[i].payload =
 				&icp_hw_mgr.cmd_work_data[i];
 
+	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
+		icp_hw_mgr.timer_work->task.pool[i].payload =
+				&icp_hw_mgr.timer_work_data[i];
 	return 0;
+
+debugfs_create_failed:
+	kfree(icp_hw_mgr.timer_work_data);
+timer_work_data_failed:
+	kfree(icp_hw_mgr.msg_work_data);
 msg_work_data_failed:
 	kfree(icp_hw_mgr.cmd_work_data);
 cmd_work_data_failed:
+	cam_req_mgr_workq_destroy(&icp_hw_mgr.timer_work);
+timer_work_failed:
 	cam_req_mgr_workq_destroy(&icp_hw_mgr.msg_work);
 msg_work_failed:
 	cam_req_mgr_workq_destroy(&icp_hw_mgr.cmd_work);

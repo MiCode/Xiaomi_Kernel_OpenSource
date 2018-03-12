@@ -1037,16 +1037,23 @@ err:
 
 static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 {
-	int rc = 0;
+	int rc = -EINVAL;
 	struct cam_hw_soc_info             *soc_info;
 	struct cam_ife_csid_reg_offset     *csid_reg;
 
+	/* Check for refcount */
+	if (!csid_hw->hw_info->open_count) {
+		CAM_WARN(CAM_ISP, "Unbalanced disable_hw");
+		return rc;
+	}
 
 	/*  Decrement ref Count */
-	if (csid_hw->hw_info->open_count)
-		csid_hw->hw_info->open_count--;
-	if (csid_hw->hw_info->open_count)
+	csid_hw->hw_info->open_count--;
+
+	if (csid_hw->hw_info->open_count) {
+		rc = 0;
 		return rc;
+	}
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -2536,7 +2543,8 @@ static int cam_ife_csid_stop(void *hw_priv,
 	/*wait for the path to halt */
 	for (i = 0; i < csid_stop->num_res; i++) {
 		res = csid_stop->node_res[i];
-		if (csid_stop->stop_cmd == CAM_CSID_HALT_AT_FRAME_BOUNDARY)
+		if (res->res_type == CAM_ISP_RESOURCE_PIX_PATH &&
+			csid_stop->stop_cmd == CAM_CSID_HALT_AT_FRAME_BOUNDARY)
 			rc = cam_ife_csid_res_wait_for_halt(csid_hw, res);
 		else
 			res->res_state = CAM_ISP_RESOURCE_STATE_INIT_HW;

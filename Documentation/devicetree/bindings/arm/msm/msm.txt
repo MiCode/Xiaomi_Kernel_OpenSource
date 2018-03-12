@@ -169,6 +169,9 @@ Generic board variants:
 - VR device:
   compatible = "qcom,qvr"
 
+- SVR device:
+  compatible = "qcom,svr"
+
 - HDK device:
   compatible = "qcom,hdk"
 
@@ -289,6 +292,7 @@ compatible = "qcom,sda845-cdp"
 compatible = "qcom,sda845-mtp"
 compatible = "qcom,sda845-qrd"
 compatible = "qcom,sda845-hdk"
+compatible = "qcom,sda845-svr"
 compatible = "qcom,sdm670-rumi"
 compatible = "qcom,sdm670-cdp"
 compatible = "qcom,sdm670-mtp"

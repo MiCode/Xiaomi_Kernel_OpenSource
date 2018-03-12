@@ -1686,6 +1686,7 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	struct cam_hw_stop_args          *stop_args = stop_hw_args;
 	struct cam_ife_hw_mgr_res        *hw_mgr_res;
 	struct cam_ife_hw_mgr_ctx        *ctx;
+	enum cam_ife_csid_halt_cmd        csid_halt_type;
 	uint32_t                          i, master_base_idx = 0;
 
 	if (!hw_mgr_priv || !stop_hw_args) {
@@ -1700,6 +1701,12 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 
 	CAM_DBG(CAM_ISP, " Enter...ctx id:%d",
 		ctx->ctx_index);
+
+	/* Set the csid halt command */
+	if (!stop_args->args)
+		csid_halt_type = CAM_CSID_HALT_IMMEDIATELY;
+	else
+		csid_halt_type = CAM_CSID_HALT_AT_FRAME_BOUNDARY;
 
 	/* Note:stop resource will remove the irq mask from the hardware */
 
@@ -1725,7 +1732,7 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 
 	/* Stop the master CSID path first */
 	cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_csid,
-			master_base_idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
+			master_base_idx, csid_halt_type);
 
 	/* stop rest of the CSID paths  */
 	for (i = 0; i < ctx->num_base; i++) {
@@ -1733,19 +1740,19 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 			continue;
 
 		cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_csid,
-			ctx->base[i].idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
+			ctx->base[i].idx, csid_halt_type);
 	}
 
 	/* Stop the master CIDs first */
 	cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_cid,
-			master_base_idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
+			master_base_idx, csid_halt_type);
 
 	/* stop rest of the CIDs  */
 	for (i = 0; i < ctx->num_base; i++) {
 		if (i == master_base_idx)
 			continue;
 		cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_cid,
-			ctx->base[i].idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
+			ctx->base[i].idx, csid_halt_type);
 	}
 
 	if (cam_cdm_stream_off(ctx->cdm_handle))
