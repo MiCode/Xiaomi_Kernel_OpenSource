@@ -2578,6 +2578,7 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 					direction ? "in" : "out");
 		}
 
+		dep->endpoint.ep_num = epnum >> 1;
 		dep->endpoint.name = dep->name;
 
 		if (!(dep->number > 1)) {
