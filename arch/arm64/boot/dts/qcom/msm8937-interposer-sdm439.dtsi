@@ -13,6 +13,7 @@
 
 #include "msm8937.dtsi"
 #include "sdm439-pm8953.dtsi"
+#include "sdm439-audio.dtsi"
 #include "sdm439-pmi632.dtsi"
 
 &soc {
