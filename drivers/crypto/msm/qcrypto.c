@@ -1,6 +1,6 @@
 /* Qualcomm Crypto driver
  *
- * Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3923,7 +3923,7 @@ static int _sha_hmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(&tfm->base);
 	uint8_t	*in_buf;
 	int ret = 0;
-	struct scatterlist sg;
+	struct scatterlist sg = {0};
 	struct ahash_request *ahash_req;
 	struct completion ahash_req_complete;
 
