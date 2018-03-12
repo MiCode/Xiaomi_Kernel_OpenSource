@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -340,6 +340,11 @@ int dsi_pwr_get_dt_vreg_data(struct device *dev,
 int dsi_pwr_enable_regulator(struct dsi_regulator_info *regs, bool enable)
 {
 	int rc = 0;
+
+	if (regs->count == 0) {
+		pr_debug("No valid regulators to enable\n");
+		return 0;
+	}
 
 	if (!regs->vregs) {
 		pr_err("Invalid params\n");
