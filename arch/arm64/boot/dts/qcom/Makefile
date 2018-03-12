@@ -297,7 +297,10 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-cdp.dtb \
 	msm8953-pmi8937-ext-codec-mtp.dtb \
 	msm8953-pmi632-cdp-s2.dtb
 
-dtb-$(CONFIG_ARCH_MSM8937) += msm8937-pmi8950-mtp.dtb
+dtb-$(CONFIG_ARCH_MSM8937) += msm8937-pmi8950-mtp.dtb \
+	msm8937-interposer-sdm439-cdp.dtb \
+	msm8937-interposer-sdm439-mtp.dtb \
+	msm8937-interposer-sdm439-qrd.dtb
 
 dtb-$(CONFIG_ARCH_MSM8917) += msm8917-pmi8950-mtp.dtb
 
@@ -318,6 +321,14 @@ dtb-$(CONFIG_ARCH_SDM632) += sdm632-rumi.dtb \
 	sdm632-cdp-s2.dtb	\
 	sdm632-mtp-s3.dtb	\
 	sdm632-qrd-sku4.dtb
+
+dtb-$(CONFIG_ARCH_SDM439) += sdm439-mtp.dtb \
+	sdm439-cdp.dtb \
+	sdm439-qrd.dtb
+
+dtb-$(CONFIG_ARCH_SDM429) += sdm429-mtp.dtb \
+	sdm429-cdp.dtb \
+	sdm429-qrd.dtb
 
 endif
 

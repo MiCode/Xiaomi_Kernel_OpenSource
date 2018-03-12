@@ -1,0 +1,117 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	/delete-node/ cpus;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu-map {
+
+			cluster0 {
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+				core1 {
+					cpu = <&CPU1>;
+				};
+				core2 {
+					cpu = <&CPU2>;
+				};
+				core3 {
+					cpu = <&CPU3>;
+				};
+			};
+		};
+
+		CPU0: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x100>;
+			enable-method = "psci";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
+			L2_1: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      /* A53 L2 dump not supported */
+			      qcom,dump-size = <0x0>;
+			};
+			L1_I_100: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_100: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU1: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x101>;
+			enable-method = "psci";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
+			L1_I_101: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_101: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU2: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x102>;
+			enable-method = "psci";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
+			L1_I_102: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_102: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU3: cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x103>;
+			enable-method = "psci";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
+			L1_I_103: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_103: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+	};
+
+};

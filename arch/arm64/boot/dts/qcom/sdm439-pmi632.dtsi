@@ -1,0 +1,40 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "pmi632.dtsi"
+
+&pmi632_charger {
+	dpdm-supply = <&usb_otg>;
+};
+
+&usb_otg {
+	vbus_otg-supply = <&smb5_vbus>;
+};
+
+&pmi632_pon {
+	qcom,ps-hold-hard-reset-disable;
+	qcom,ps-hold-shutdown-disable;
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-ascent-3450mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
+
+&pmi632_qg {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,rbat-conn-mohm = <20>;
+};
