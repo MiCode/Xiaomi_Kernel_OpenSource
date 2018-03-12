@@ -37,6 +37,8 @@ enum pll_type {
 /**
  * struct clk_alpha_pll - phase locked loop (PLL)
  * @offset: base address of registers
+ * @soft_vote: soft voting variable for multiple PLL software instances
+ * @soft_vote_mask: soft voting mask for multiple PLL software instances
  * @inited: flag that's set when the PLL is initialized
  * @vco_table: array of VCO settings
  * @vco_data: array of VCO data settings like post div
@@ -46,6 +48,13 @@ struct clk_alpha_pll {
 	u32 offset;
 	struct alpha_pll_config *config;
 	bool inited;
+
+	u32 *soft_vote;
+	u32 soft_vote_mask;
+	/* Soft voting values */
+#define PLL_SOFT_VOTE_PRIMARY	BIT(0)
+#define PLL_SOFT_VOTE_CPU	BIT(1)
+#define PLL_SOFT_VOTE_AUX	BIT(2)
 
 	const struct pll_vco *vco_table;
 	size_t num_vco;
@@ -62,6 +71,8 @@ struct clk_alpha_pll {
 	 */
 #define SUPPORTS_DYNAMIC_UPDATE	BIT(3)
 #define SUPPORTS_SLEW		BIT(4)
+	/* Associated with soft_vote for multiple PLL software instances */
+#define SUPPORTS_FSM_VOTE	BIT(5)
 	u8 flags;
 
 	struct clk_regmap clkr;
