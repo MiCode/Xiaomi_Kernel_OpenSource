@@ -416,6 +416,12 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 
 	dev_dbg(rtd->platform->dev, "%s: ASM loopback stream:%d\n",
 		__func__, substream->stream);
+
+	if (pcm->playback_start && pcm->capture_start) {
+		mutex_unlock(&pcm->lock);
+		return ret;
+	}
+
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		if (!pcm->playback_start)
 			pcm->playback_start = 1;
@@ -424,7 +430,7 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 			pcm->capture_start = 1;
 	}
 
-	if (pcm->instance == 2) {
+	if (pcm->playback_start && pcm->capture_start) {
 		struct snd_soc_pcm_runtime *soc_pcm_rx =
 				pcm->playback_substream->private_data;
 		struct snd_soc_pcm_runtime *soc_pcm_tx =
