@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1036,16 +1036,16 @@ static void fg_cap_learning_post_process(struct fg_dev *fg)
 			QNOVO_CL_SKEW_DECIPCT, chip->cl.final_cc_uah);
 		chip->cl.final_cc_uah = chip->cl.final_cc_uah *
 						(1000 + QNOVO_CL_SKEW_DECIPCT);
-		do_div(chip->cl.final_cc_uah, 1000);
+		div64_s64(chip->cl.final_cc_uah, 1000);
 	}
 
 	max_inc_val = chip->cl.learned_cc_uah
 			* (1000 + chip->dt.cl_max_cap_inc);
-	do_div(max_inc_val, 1000);
+	div64_s64(max_inc_val, 1000);
 
 	min_dec_val = chip->cl.learned_cc_uah
 			* (1000 - chip->dt.cl_max_cap_dec);
-	do_div(min_dec_val, 1000);
+	div64_s64(min_dec_val, 1000);
 
 	old_cap = chip->cl.learned_cc_uah;
 	if (chip->cl.final_cc_uah > max_inc_val)
@@ -1059,7 +1059,7 @@ static void fg_cap_learning_post_process(struct fg_dev *fg)
 	if (chip->dt.cl_max_cap_limit) {
 		max_inc_val = (int64_t)chip->cl.nom_cap_uah * (1000 +
 				chip->dt.cl_max_cap_limit);
-		do_div(max_inc_val, 1000);
+		div64_s64(max_inc_val, 1000);
 		if (chip->cl.final_cc_uah > max_inc_val) {
 			fg_dbg(fg, FG_CAP_LEARN, "learning capacity %lld goes above max limit %lld\n",
 				chip->cl.final_cc_uah, max_inc_val);
@@ -1070,7 +1070,7 @@ static void fg_cap_learning_post_process(struct fg_dev *fg)
 	if (chip->dt.cl_min_cap_limit) {
 		min_dec_val = (int64_t)chip->cl.nom_cap_uah * (1000 -
 				chip->dt.cl_min_cap_limit);
-		do_div(min_dec_val, 1000);
+		div64_s64(min_dec_val, 1000);
 		if (chip->cl.final_cc_uah < min_dec_val) {
 			fg_dbg(fg, FG_CAP_LEARN, "learning capacity %lld goes below min limit %lld\n",
 				chip->cl.final_cc_uah, min_dec_val);
@@ -1582,7 +1582,7 @@ static int fg_rconn_config(struct fg_dev *fg)
 	}
 
 	val *= scaling_factor;
-	do_div(val, 1000);
+	div64_s64(val, 1000);
 	rc = fg_sram_write(fg, ESR_RSLOW_CHG_WORD,
 			ESR_RSLOW_CHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -1599,7 +1599,7 @@ static int fg_rconn_config(struct fg_dev *fg)
 	}
 
 	val *= scaling_factor;
-	do_div(val, 1000);
+	div64_s64(val, 1000);
 	rc = fg_sram_write(fg, ESR_RSLOW_DISCHG_WORD,
 			ESR_RSLOW_DISCHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
