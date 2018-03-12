@@ -1652,7 +1652,8 @@ static void msm_slim_qmi_power_resp_cb(struct qmi_handle *handle,
 				resp->resp.result, get_qmi_error(&resp->resp));
 	}
 
-	complete(&txn->completion);
+	if (txn->qmi && txn->qmi == handle)
+		complete(&txn->completion);
 }
 
 static int msm_slim_qmi_send_power_request(struct msm_slim_ctrl *dev,
