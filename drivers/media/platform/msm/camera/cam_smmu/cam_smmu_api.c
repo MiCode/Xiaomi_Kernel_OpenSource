@@ -1424,14 +1424,14 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 		goto err_put;
 	}
 
-	table = dma_buf_map_attachment(attach, dma_dir);
-	if (IS_ERR_OR_NULL(table)) {
-		rc = PTR_ERR(table);
-		CAM_ERR(CAM_SMMU, "Error: dma buf map attachment failed");
-		goto err_detach;
-	}
-
 	if (region_id == CAM_SMMU_REGION_SHARED) {
+		table = dma_buf_map_attachment(attach, dma_dir);
+		if (IS_ERR_OR_NULL(table)) {
+			rc = PTR_ERR(table);
+			CAM_ERR(CAM_SMMU, "Error: dma map attachment failed");
+			goto err_detach;
+		}
+
 		domain = iommu_cb_set.cb_info[idx].mapping->domain;
 		if (!domain) {
 			CAM_ERR(CAM_SMMU, "CB has no domain set");
@@ -1465,22 +1465,25 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 			*len_ptr = size;
 		}
 	} else if (region_id == CAM_SMMU_REGION_IO) {
-		rc = msm_dma_map_sg_lazy(iommu_cb_set.cb_info[idx].dev,
-		table->sgl, table->nents, dma_dir, buf);
+		attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
 
-		if (rc != table->nents) {
-			CAM_ERR(CAM_SMMU, "Error: msm_dma_map_sg_lazy failed");
-			rc = -ENOMEM;
-			goto err_unmap_sg;
-		} else {
-			*paddr_ptr = sg_dma_address(table->sgl);
-			*len_ptr = (size_t)sg_dma_len(table->sgl);
+		table = dma_buf_map_attachment(attach, dma_dir);
+		if (IS_ERR_OR_NULL(table)) {
+			rc = PTR_ERR(table);
+			CAM_ERR(CAM_SMMU, "Error: dma map attachment failed");
+			goto err_detach;
 		}
+
+		*paddr_ptr = sg_dma_address(table->sgl);
+		*len_ptr = (size_t)sg_dma_len(table->sgl);
 	} else {
 		CAM_ERR(CAM_SMMU, "Error: Wrong region id passed");
 		rc = -EINVAL;
 		goto err_unmap_sg;
 	}
+
+	CAM_DBG(CAM_SMMU, "region_id=%d, paddr=%pK, len=%d",
+		region_id, *paddr_ptr, *len_ptr);
 
 	if (table->sgl) {
 		CAM_DBG(CAM_SMMU,
@@ -1534,11 +1537,6 @@ err_alloc:
 		iommu_unmap(iommu_cb_set.cb_info[idx].mapping->domain,
 			*paddr_ptr,
 			*len_ptr);
-	} else if (region_id == CAM_SMMU_REGION_IO) {
-		dma_unmap_sg(iommu_cb_set.cb_info[idx].dev,
-			table->sgl,
-			table->nents,
-			dma_dir);
 	}
 err_unmap_sg:
 	dma_buf_unmap_attachment(attach, table, dma_dir);
@@ -1650,9 +1648,7 @@ static int cam_smmu_unmap_buf_and_remove_from_list(
 			CAM_ERR(CAM_SMMU, "IOVA free failed");
 
 	} else if (mapping_info->region_id == CAM_SMMU_REGION_IO) {
-		dma_unmap_sg(iommu_cb_set.cb_info[idx].dev,
-			mapping_info->table->sgl, mapping_info->table->nents,
-			mapping_info->dir);
+		mapping_info->attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
 	}
 
 	dma_buf_unmap_attachment(mapping_info->attach,
@@ -2382,7 +2378,7 @@ int cam_smmu_map_user_iova(int handle, int ion_fd,
 		return rc;
 	}
 
-	dma_dir = cam_smmu_translate_dir(dir);
+	dma_dir = (enum dma_data_direction)dir;
 	idx = GET_SMMU_TABLE_IDX(handle);
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
 	if (iommu_cb_set.cb_info[idx].is_secure) {
