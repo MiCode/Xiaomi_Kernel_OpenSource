@@ -1898,6 +1898,13 @@ static void __migrate_timers(unsigned int cpu, bool remove_pinned)
 
 		if (!cpu_online(cpu))
 			BUG_ON(old_base->running_timer);
+		/*
+		 * The current CPUs base clock might be stale. Update it
+		 * before moving the timers over.
+		 */
+		forward_timer_base(new_base);
+
+		BUG_ON(old_base->running_timer);
 
 		for (i = 0; i < WHEEL_SIZE; i++)
 			migrate_timer_list(new_base, old_base->vectors + i,
