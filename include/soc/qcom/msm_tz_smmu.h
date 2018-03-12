@@ -88,6 +88,29 @@ static inline int register_iommu_sec_ptbl(void)
 {
 	return -EINVAL;
 }
+
+static inline size_t msm_secure_smmu_unmap(struct iommu_domain *domain,
+					   unsigned long iova,
+					   size_t size)
+{
+	return -EINVAL;
+}
+
+static inline size_t msm_secure_smmu_map_sg(struct iommu_domain *domain,
+					    unsigned long iova,
+					    struct scatterlist *sg,
+					    unsigned int nents, int prot)
+{
+	return -EINVAL;
+}
+
+static inline int msm_secure_smmu_map(struct iommu_domain *domain,
+				      unsigned long iova,
+				      phys_addr_t paddr, size_t size, int prot)
+{
+	return -EINVAL;
+}
+
 #endif /* CONFIG_MSM_TZ_SMMU */
 
 #endif /* __MSM_TZ_SMMU_H__ */
