@@ -886,18 +886,18 @@ static int opp_notify(struct notifier_block *nb,
 	if (type != OPP_EVENT_ENABLE && type != OPP_EVENT_DISABLE)
 		return result;
 
-	rcu_read_lock();
 	opp = dev_pm_opp_find_freq_floor(dev, &max_freq);
+	dev_pm_opp_put(opp);
+
 	if (IS_ERR(opp)) {
-		rcu_read_unlock();
 		return PTR_ERR(opp);
 	}
 
 	opp = dev_pm_opp_find_freq_ceil(dev, &min_freq);
+	dev_pm_opp_put(opp);
+
 	if (IS_ERR(opp))
 		min_freq = pwr->pwrlevels[pwr->min_pwrlevel].gpu_freq;
-
-	rcu_read_unlock();
 
 	mutex_lock(&device->mutex);
 

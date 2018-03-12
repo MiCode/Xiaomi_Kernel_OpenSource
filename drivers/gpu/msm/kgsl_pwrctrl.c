@@ -2209,16 +2209,14 @@ static void kgsl_pwrctrl_disable_unused_opp(struct kgsl_device *device)
 		return;
 
 	while (1) {
-		rcu_read_lock();
 		opp = dev_pm_opp_find_freq_ceil(dev, &freq);
-		rcu_read_unlock();
-
 		if (IS_ERR(opp))
 			break;
 
 		if (!_gpu_freq_supported(&device->pwrctrl, freq))
 			dev_pm_opp_disable(dev, freq);
 
+		dev_pm_opp_put(opp);
 		freq++;
 	}
 }
