@@ -56,6 +56,8 @@
 #define TZ_PIL_AUTH_QDSP6_PROC 1
 #define ADSP_MMAP_HEAP_ADDR 4
 #define ADSP_MMAP_REMOTE_HEAP_ADDR 8
+#define FASTRPC_DMAHANDLE_NOMAP (16)
+
 #define FASTRPC_ENOSUCH 39
 #define VMID_SSC_Q6     5
 #define VMID_ADSP_Q6    6
@@ -672,6 +674,9 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			dma_free_coherent(me->dev, map->size,
 				(void *)map->va, (dma_addr_t)map->phys);
 		}
+	} else if (map->flags == FASTRPC_DMAHANDLE_NOMAP) {
+		if (!IS_ERR_OR_NULL(map->handle))
+			ion_free(fl->apps->client, map->handle);
 	} else {
 		int destVM[1] = {VMID_HLOS};
 		int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
@@ -751,6 +756,26 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		map->phys = (uintptr_t)region_phys;
 		map->size = len;
 		map->va = (uintptr_t)region_vaddr;
+	} else if (mflags == FASTRPC_DMAHANDLE_NOMAP) {
+		ion_phys_addr_t iphys;
+
+		VERIFY(err, !IS_ERR_OR_NULL(map->handle =
+				ion_import_dma_buf_fd(fl->apps->client, fd)));
+		if (err)
+			goto bail;
+
+		map->uncached = 1;
+		map->buf = NULL;
+		map->attach = NULL;
+		map->table = NULL;
+		map->va = 0;
+		map->phys = 0;
+
+		err = ion_phys(fl->apps->client, map->handle,
+			&iphys, &map->size);
+		if (err)
+			goto bail;
+		map->phys = (uint64_t)iphys;
 	} else {
 		if (map->attr && (map->attr & FASTRPC_ATTR_KEEP_MAP)) {
 			pr_info("adsprpc: buffer mapped with persist attr %x\n",
@@ -1330,8 +1355,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	handles = REMOTE_SCALARS_INHANDLES(sc) + REMOTE_SCALARS_OUTHANDLES(sc);
 	mutex_lock(&ctx->fl->fl_map_mutex);
 	for (i = bufs; i < bufs + handles; i++) {
+		int dmaflags = 0;
+
+		if (ctx->attrs && (ctx->attrs[i] & FASTRPC_ATTR_NOMAP))
+			dmaflags = FASTRPC_DMAHANDLE_NOMAP;
 		VERIFY(err, !fastrpc_mmap_create(ctx->fl, ctx->fds[i],
-				FASTRPC_ATTR_NOVA, 0, 0, 0, &ctx->maps[i]));
+			FASTRPC_ATTR_NOVA, 0, 0, dmaflags, &ctx->maps[i]));
 		if (err) {
 			mutex_unlock(&ctx->fl->fl_map_mutex);
 			goto bail;
