@@ -23,5 +23,6 @@ int get_rtc_time(unsigned long *rtc_time);
 bool is_usb_present(struct qpnp_qg *chip);
 bool is_parallel_enabled(struct qpnp_qg *chip);
 int qg_write_monotonic_soc(struct qpnp_qg *chip, int msoc);
+int qg_get_battery_temp(struct qpnp_qg *chip, int *batt_temp);
 
 #endif

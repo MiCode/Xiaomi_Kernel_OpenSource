@@ -41,8 +41,6 @@ module_param_named(
 	debug_mask, qg_debug_mask, int, 0600
 );
 
-static int qg_get_battery_temp(struct qpnp_qg *chip, int *batt_temp);
-
 static bool is_battery_present(struct qpnp_qg *chip)
 {
 	u8 reg = 0;
@@ -908,33 +906,16 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 		return 0;
 	}
 
-	*soc = chip->msoc;
+	mutex_lock(&chip->soc_lock);
+
+	if (chip->dt.linearize_soc && chip->maint_soc > 0)
+		*soc = chip->maint_soc;
+	else
+		*soc = chip->msoc;
+
+	mutex_unlock(&chip->soc_lock);
 
 	return 0;
-}
-
-static int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
-{
-	int rc = 0;
-	struct qpnp_vadc_result result;
-
-	if (chip->battery_missing) {
-		*temp = 250;
-		return 0;
-	}
-
-	rc = qpnp_vadc_read(chip->vadc_dev, VADC_BAT_THERM_PU2, &result);
-	if (rc) {
-		pr_err("Failed reading adc channel=%d, rc=%d\n",
-					VADC_BAT_THERM_PU2, rc);
-		return rc;
-	}
-	pr_debug("batt_temp = %lld meas = 0x%llx\n",
-			result.physical, result.measurement);
-
-	*temp = (int)result.physical;
-
-	return rc;
 }
 
 static int qg_psy_set_property(struct power_supply *psy,
@@ -1071,9 +1052,8 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	}
 	recharge_soc = prop.intval;
 
-	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d health=%d charge_full=%d\n",
-					chip->msoc, recharge_soc,
-					health, chip->charge_full);
+	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d\n",
+				chip->msoc, health, chip->charge_full);
 	if (chip->charge_done && !chip->charge_full) {
 		if (chip->msoc >= 99 && health == POWER_SUPPLY_HEALTH_GOOD) {
 			chip->charge_full = true;
@@ -1086,9 +1066,14 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	} else if ((!chip->charge_done || chip->msoc < recharge_soc)
 				&& chip->charge_full) {
 		/*
-		 * If recharge has started or discharged below
-		 * recharge_soc, set charge_full as false.
+		 * If recharge or discharge has started and
+		 * if linearize soc dtsi property defined
+		 * scale msoc from 100% for better UX.
 		 */
+		if (chip->dt.linearize_soc && chip->msoc < 99) {
+			chip->maint_soc = FULL_SOC;
+			qg_scale_soc(chip, false);
+		}
 
 		qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full (1->0)\n",
 					chip->msoc, recharge_soc);
@@ -2123,6 +2108,9 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
 					"qcom,hold-soc-while-full");
 
+	chip->dt.linearize_soc = of_property_read_bool(node,
+					"qcom,linearize-soc");
+
 	rc = of_property_read_u32(node, "qcom,rbat-conn-mohm", &temp);
 	if (rc < 0)
 		chip->dt.rbat_conn_mohm = 0;
@@ -2342,6 +2330,7 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	mutex_init(&chip->soc_lock);
 	mutex_init(&chip->data_lock);
 	init_waitqueue_head(&chip->qg_wait_q);
+	chip->maint_soc = -EINVAL;
 
 	rc = qg_parse_dt(chip);
 	if (rc < 0) {

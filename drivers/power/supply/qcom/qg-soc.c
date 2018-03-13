@@ -13,6 +13,7 @@
 #define pr_fmt(fmt)	"QG-K: %s: " fmt, __func__
 
 #include <linux/alarmtimer.h>
+#include <linux/module.h>
 #include <linux/power_supply.h>
 #include <uapi/linux/qg.h>
 #include "qg-sdam.h"
@@ -23,33 +24,55 @@
 
 #define DEFAULT_UPDATE_TIME_MS			64000
 #define SOC_SCALE_HYST_MS			2000
-static void get_next_update_time(struct qpnp_qg *chip, int *time_ms)
+#define SOC_SCALE_LOW_TEMP_THRESHOLD		100
+
+static int qg_delta_soc_interval_ms = 20000;
+module_param_named(
+	delta_soc_interval_ms, qg_delta_soc_interval_ms, int, 0600
+);
+
+static void get_next_update_time(struct qpnp_qg *chip)
 {
-	int rc = 0, full_time_ms = 0, rt_time_ms = 0;
+	int soc_points = 0, batt_temp = 0;
+	int min_delta_soc_interval_ms = qg_delta_soc_interval_ms;
+	int rc = 0, rt_time_ms = 0, full_time_ms = DEFAULT_UPDATE_TIME_MS;
 
-	*time_ms = DEFAULT_UPDATE_TIME_MS;
+	get_fifo_done_time(chip, false, &full_time_ms);
+	get_fifo_done_time(chip, true, &rt_time_ms);
 
-	rc = get_fifo_done_time(chip, false, &full_time_ms);
+	full_time_ms = CAP(0, DEFAULT_UPDATE_TIME_MS,
+				full_time_ms - rt_time_ms);
+
+	soc_points = abs(chip->msoc - chip->catch_up_soc);
+	if (chip->maint_soc > 0)
+		soc_points = max(abs(chip->msoc - chip->maint_soc), soc_points);
+	soc_points /= chip->dt.delta_soc;
+
+	/* Lower the delta soc interval by half at cold */
+	rc = qg_get_battery_temp(chip, &batt_temp);
 	if (rc < 0)
-		return;
+		pr_err("Failed to read battery temperature rc=%d\n", rc);
 
-	rc = get_fifo_done_time(chip, true, &rt_time_ms);
-	if (rc < 0)
-		return;
+	if (batt_temp < SOC_SCALE_LOW_TEMP_THRESHOLD)
+		min_delta_soc_interval_ms = min_delta_soc_interval_ms / 2;
 
-	*time_ms = full_time_ms - rt_time_ms;
+	chip->next_wakeup_ms = (full_time_ms / (soc_points + 1))
+					- SOC_SCALE_HYST_MS;
+	chip->next_wakeup_ms = max(chip->next_wakeup_ms,
+				min_delta_soc_interval_ms);
 
-	if (*time_ms < 0)
-		*time_ms = 0;
-
-	qg_dbg(chip, QG_DEBUG_SOC, "SOC scale next-update-time %d secs\n",
-					*time_ms / 1000);
+	qg_dbg(chip, QG_DEBUG_SOC, "fifo_full_time=%d secs fifo_real_time=%d secs soc_scale_points=%d\n",
+			full_time_ms / 1000, rt_time_ms / 1000, soc_points);
 }
 
 static bool is_scaling_required(struct qpnp_qg *chip)
 {
 	if (!chip->profile_loaded)
 		return false;
+
+	if (chip->maint_soc > 0 &&
+		(abs(chip->maint_soc - chip->msoc) >= chip->dt.delta_soc))
+		return true;
 
 	if ((abs(chip->catch_up_soc - chip->msoc) < chip->dt.delta_soc) &&
 		chip->catch_up_soc != 0 && chip->catch_up_soc != 100)
@@ -75,11 +98,20 @@ static void update_msoc(struct qpnp_qg *chip)
 		/* SOC increased */
 		if (is_usb_present(chip)) /* Increment if USB is present */
 			chip->msoc += chip->dt.delta_soc;
-	} else {
+	} else if (chip->catch_up_soc < chip->msoc) {
 		/* SOC dropped */
 		chip->msoc -= chip->dt.delta_soc;
 	}
 	chip->msoc = CAP(0, 100, chip->msoc);
+
+	if (chip->maint_soc > 0 && chip->msoc < chip->maint_soc) {
+		chip->maint_soc -= chip->dt.delta_soc;
+		chip->maint_soc = CAP(0, 100, chip->maint_soc);
+	}
+
+	/* maint_soc dropped below msoc, skip using it */
+	if (chip->maint_soc <= chip->msoc)
+		chip->maint_soc = -EINVAL;
 
 	/* update the SOC register */
 	rc = qg_write_monotonic_soc(chip, chip->msoc);
@@ -87,13 +119,15 @@ static void update_msoc(struct qpnp_qg *chip)
 		pr_err("Failed to update MSOC register rc=%d\n", rc);
 
 	/* update SDAM with the new MSOC */
+	chip->sdam_data[SDAM_SOC] = chip->msoc;
 	rc = qg_sdam_write(SDAM_SOC, chip->msoc);
 	if (rc < 0)
 		pr_err("Failed to update SDAM with MSOC rc=%d\n", rc);
 
 	qg_dbg(chip, QG_DEBUG_SOC,
-		"SOC scale: Update msoc=%d catch_up_soc=%d delta_soc=%d\n",
-		chip->msoc, chip->catch_up_soc, chip->dt.delta_soc);
+		"SOC scale: Update maint_soc=%d msoc=%d catch_up_soc=%d delta_soc=%d\n",
+				chip->maint_soc, chip->msoc,
+				chip->catch_up_soc, chip->dt.delta_soc);
 }
 
 static void scale_soc_stop(struct qpnp_qg *chip)
@@ -155,8 +189,7 @@ static enum alarmtimer_restart
 
 int qg_scale_soc(struct qpnp_qg *chip, bool force_soc)
 {
-	int soc_points = 0;
-	int rc = 0, time_ms = 0;
+	int rc = 0;
 
 	mutex_lock(&chip->soc_lock);
 
@@ -183,13 +216,7 @@ int qg_scale_soc(struct qpnp_qg *chip, bool force_soc)
 	update_msoc(chip);
 
 	if (is_scaling_required(chip)) {
-		get_next_update_time(chip, &time_ms);
-		soc_points = abs(chip->msoc - chip->catch_up_soc)
-					/ chip->dt.delta_soc;
-		chip->next_wakeup_ms = (time_ms / (soc_points + 1))
-					- SOC_SCALE_HYST_MS;
-		if (chip->next_wakeup_ms < 0)
-			chip->next_wakeup_ms = 1; /* wake up immediately */
+		get_next_update_time(chip);
 		alarm_start_relative(&chip->alarm_timer,
 					ms_to_ktime(chip->next_wakeup_ms));
 	} else {
@@ -198,9 +225,9 @@ int qg_scale_soc(struct qpnp_qg *chip, bool force_soc)
 	}
 
 	qg_dbg(chip, QG_DEBUG_SOC,
-		"SOC scale: msoc=%d catch_up_soc=%d delta_soc=%d soc_points=%d next_wakeup=%d sec\n",
-			chip->msoc, chip->catch_up_soc,	chip->dt.delta_soc,
-			soc_points, chip->next_wakeup_ms / 1000);
+		"SOC scale: msoc=%d catch_up_soc=%d delta_soc=%d next_wakeup=%d sec\n",
+			chip->msoc, chip->catch_up_soc, chip->dt.delta_soc,
+			chip->next_wakeup_ms / 1000);
 
 done_psy:
 	power_supply_changed(chip->qg_psy);
