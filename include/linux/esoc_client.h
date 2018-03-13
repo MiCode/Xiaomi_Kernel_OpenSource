@@ -62,13 +62,13 @@ static inline int esoc_register_client_notifier(struct notifier_block *nb)
 {
 	return -EIO;
 }
-int esoc_register_client_hook(struct esoc_desc *desc,
+static inline int esoc_register_client_hook(struct esoc_desc *desc,
 				struct esoc_client_hook *client_hook)
 {
 	return -EIO;
 }
-int esoc_unregister_client_hook(struct esoc_desc *desc,
-				struct esoc_client_hook *client_hook);
+static inline int esoc_unregister_client_hook(struct esoc_desc *desc,
+				struct esoc_client_hook *client_hook)
 {
 	return -EIO;
 }
