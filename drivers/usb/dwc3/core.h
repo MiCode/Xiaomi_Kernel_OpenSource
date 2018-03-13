@@ -944,6 +944,7 @@ struct dwc3_scratchpad_array {
  * @is_drd: device supports dual-role or not
  * @err_evt_seen: previous event in queue was erratic error
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode
+ * @usb1_l1_disable: if true, disable L1 low power modes in Highspeed mode
  * @in_lpm: indicates if controller is in low power mode (no clocks)
  * @tx_fifo_size: Available RAM size for TX fifo allocation
  * @irq: irq number
@@ -1128,6 +1129,7 @@ struct dwc3 {
 	unsigned		disable_clk_gating:1;
 	unsigned		enable_bus_suspend:1;
 	unsigned		usb3_u1u2_disable:1;
+	unsigned		usb2_l1_disable:1;
 
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
