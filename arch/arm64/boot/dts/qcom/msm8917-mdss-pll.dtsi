@@ -13,6 +13,6 @@
 #include "msm8937-mdss-pll.dtsi"
 
 &mdss_dsi0_pll {
-	vddio-supply = <&pm8917_l6>;
+	vddio-supply = <&pm8937_l6>;
 };
 /delete-node/ &mdss_dsi1_pll;
