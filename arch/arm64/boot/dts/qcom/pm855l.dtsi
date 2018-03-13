@@ -216,6 +216,16 @@
 			};
 		};
 
+		pm855l_wled: qcom,wled@d800 {
+			compatible = "qcom,pm855l-spmi-wled";
+			reg = <0xd800 0x100>, <0xd900 0x100>;
+			reg-names = "wled-ctrl-base", "wled-sink-base";
+			label = "backlight";
+			interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "ovp-irq";
+			qcom,pmic-revid = <&pm855l_revid>;
+			status = "disabled";
+		};
 	};
 };
 
