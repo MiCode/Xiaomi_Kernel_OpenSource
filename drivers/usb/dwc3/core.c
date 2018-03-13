@@ -1072,6 +1072,9 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 	dwc->usb3_lpm_capable = device_property_read_bool(dev,
 				"snps,usb3_lpm_capable");
 
+	dwc->needs_fifo_resize = device_property_read_bool(dev,
+				"tx-fifo-resize");
+
 	dwc->disable_scramble_quirk = device_property_read_bool(dev,
 				"snps,disable_scramble_quirk");
 	dwc->u2exit_lfps_quirk = device_property_read_bool(dev,
