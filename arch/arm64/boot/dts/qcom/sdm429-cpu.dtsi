@@ -154,3 +154,7 @@
 		};
 	};
 };
+
+&soc {
+	/delete-node/ cpuss_dump;
+};
