@@ -278,6 +278,10 @@ static const char *const debug_mux_parent_names[] = {
 	"video_cc_mvs1_core_clk",
 	"video_cc_mvsc_core_clk",
 	"video_cc_xo_clk",
+	"l3_clk",
+	"pwrcl_clk",
+	"perfcl_clk",
+	"perfpcl_clk"
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -780,6 +784,14 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x1, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0x938, 0x940 },
 		{ "video_cc_xo_clk", 0x57, 1, VIDEO_CC,
 			0x8, 0x3F, 0, 0x7, 0, 5, 0xA4C, 0x938, 0x940 },
+		{ "l3_clk", 0xE8, 4, CPU_CC,
+			0x46, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
+		{ "pwrcl_clk", 0xE8, 4, CPU_CC,
+			0x44, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
+		{ "perfcl_clk", 0xE8, 4, CPU_CC,
+			0x45, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
+		{ "perfpcl_clk", 0xE8, 4, CPU_CC,
+			0x47, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
@@ -851,6 +863,10 @@ static int clk_debug_sm8150_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,gpucc", GPU_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
 	if (ret)
 		return ret;
 
