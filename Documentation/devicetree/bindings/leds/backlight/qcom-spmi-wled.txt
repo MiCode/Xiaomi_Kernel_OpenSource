@@ -28,8 +28,20 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 - default-brightness
 	Usage:      optional
 	Value type: <u32>
-	Definition: brightness value on boot, value from: 0-4095
-		    Default: 2048
+	Definition: Brightness value on boot. Default is 2048.
+		    Range of values are:
+		    For pmi8998, it is 0-4095.
+		    For pm855l, this can vary from 0-4095 or 0-32767 depending
+		    on the brightness control mode. If CABC is enabled, 0-4095
+		    range is used.
+
+- max-brightness
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum brightness level. Allowed values are:
+		    For pmi8998, it is 4095.
+		    For pm855l, this can be either 4095 or 32767.
+		    If CABC is enabled, this is capped to 4095.
 
 - qcom,fs-current-limit
 	Usage:      optional
@@ -78,7 +90,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Usage:      optional
 	Value type: <bool>
 	Definition: Specify if external PFET control for short circuit
-		    protection is needed.
+		    protection is needed. This is not applicable for PM855L.
 
 - interrupts
 	Usage:      optional
@@ -99,10 +111,33 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Value type: <bool>
 	Definition: Enables auto-calibration of the WLED sink configuration.
 
+- qcom,modulator-sel
+	Usage:      optional
+	Value type: <u32>
+	Definition: Selects the modulator used for brightness modulation.
+		    Allowed values are:
+		    0 - Modulator A
+		    1 - Modulator B
+		    If not specified, then modulator A will be used by default.
+		    This property is applicable only to WLED5 peripheral.
+
+- qcom,cabc-sel
+	Usage:      optional
+	Value type: <u32>
+	Definition: Selects the CABC pin signal used for brightness modulation.
+		    Allowed values are:
+		    0 - CABC disabled
+		    1 - CABC 1
+		    2 - CABC 2
+		    3 - External signal (e.g. LPG) is used for dimming
+		    This property is applicable only to WLED5 peripheral.
+
 Example:
 
 qcom-wled@d800 {
 	compatible = "qcom,pmi8998-spmi-wled";
+	#address-cells = <1>;
+	#size-cells = <0>;
 	reg = <0xd800 0xd900>;
 	reg-names = "wled-ctrl-base", "wled-sink-base";
 	label = "backlight";
@@ -115,4 +150,17 @@ qcom-wled@d800 {
 	qcom,switching-freq = <800>;
 	qcom,ovp = <29600>;
 	qcom,string-cfg = <15>;
+};
+
+qcom-wled@d800 {
+	compatible = "qcom,pm855l-spmi-wled";
+	#address-cells = <2>;
+	#size-cells = <0>;
+	reg = <0xd800 0x100>, <0xd900 0x100>;
+	reg-names = "wled-ctrl-base", "wled-sink-base";
+	label = "backlight";
+
+	interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "ovp-irq";
+	qcom,string-cfg = <7>;
 };

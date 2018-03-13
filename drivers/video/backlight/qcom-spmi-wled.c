@@ -27,7 +27,8 @@
 
 /* General definitions */
 #define WLED_DEFAULT_BRIGHTNESS		2048
-#define  WLED_MAX_BRIGHTNESS		4095
+#define  WLED_MAX_BRIGHTNESS_12B	4095
+#define  WLED_MAX_BRIGHTNESS_15B	32767
 
 #define WLED_SOFT_START_DLY_US		10000
 
@@ -51,6 +52,7 @@
 
 #define WLED_CTRL_OVP			0x4d
 #define  WLED_CTRL_OVP_MASK		GENMASK(1, 0)
+#define  WLED5_CTRL_OVP_MASK		GENMASK(3, 0)
 
 #define WLED_CTRL_ILIM			0x4e
 #define  WLED_CTRL_ILIM_MASK		GENMASK(2, 0)
@@ -95,19 +97,58 @@
 enum wled_version {
 	WLED_PMI8998 = 4,
 	WLED_PM660L,
+	WLED_PM855L,
 };
 
 static const int version_table[] = {
 	[0] = WLED_PMI8998,
 	[1] = WLED_PM660L,
+	[2] = WLED_PM855L,
 };
 
+/* WLED5 specific sink registers */
+#define WLED5_SINK_MOD_A_EN_REG		0x50
+#define WLED5_SINK_MOD_B_EN_REG		0x60
+#define  WLED5_SINK_MOD_EN		BIT(7)
+
+#define WLED5_SINK_MOD_A_SRC_SEL_REG	0x51
+#define WLED5_SINK_MOD_B_SRC_SEL_REG	0x61
+#define  WLED5_SINK_MOD_SRC_SEL_HIGH	0
+#define  WLED5_SINK_MOD_SRC_SEL_CABC1	BIT(0)
+#define  WLED5_SINK_MOD_SRC_SEL_CABC2	BIT(1)
+#define  WLED5_SINK_MOD_SRC_SEL_EXT	0x03
+#define  WLED5_SINK_MOD_SRC_SEL_MASK	GENMASK(1, 0)
+
+#define WLED5_SINK_MOD_A_BR_WID_SEL_REG	0x52
+#define WLED5_SINK_MOD_B_BR_WID_SEL_REG	0x62
+#define  WLED5_SINK_BRT_WIDTH_12B	0
+#define  WLED5_SINK_BRT_WIDTH_15B	1
+
+#define WLED5_SINK_MOD_A_BRT_LSB_REG	0x53
+#define WLED5_SINK_MOD_A_BRT_MSB_REG	0x54
+#define WLED5_SINK_MOD_B_BRT_LSB_REG	0x63
+#define WLED5_SINK_MOD_B_BRT_MSB_REG	0x64
+
+#define WLED5_SINK_MOD_SYNC_BIT_REG	0x65
+#define  WLED5_SINK_SYNC_MODA_BIT	BIT(0)
+#define  WLED5_SINK_SYNC_MODB_BIT	BIT(1)
+#define  WLED5_SINK_SYNC_MASK		GENMASK(1, 0)
+
+#define WLED5_SINK_FS_CURR_REG(n)	(0x72 + (n * 0x10))
+
+#define WLED5_SINK_SRC_SEL_REG(n)	(0x73 + (n * 0x10))
+#define  WLED5_SINK_SRC_SEL_MODA	0
+#define  WLED5_SINK_SRC_SEL_MODB	1
+#define  WLED5_SINK_SRC_SEL_MASK	GENMASK(1, 0)
+
 struct wled_config {
-	u32 boost_i_limit;
-	u32 ovp;
-	u32 switch_freq;
-	u32 fs_current;
-	u32 string_cfg;
+	int boost_i_limit;
+	int ovp;
+	int switch_freq;
+	int fs_current;
+	int string_cfg;
+	int mod_sel;
+	int cabc_sel;
 	bool en_cabc;
 	bool ext_pfet_sc_pro_en;
 	bool auto_calib_enabled;
@@ -125,6 +166,7 @@ struct wled {
 	u16 ctrl_addr;
 	u16 auto_calibration_ovp_count;
 	u32 brightness;
+	u32 max_brightness;
 	u32 sc_count;
 	const int *version;
 	int sc_irq;
@@ -133,11 +175,42 @@ struct wled {
 	bool ovp_irq_disabled;
 	bool auto_calib_done;
 	bool force_mod_disable;
+	bool cabc_disabled;
+	int (*cabc_config)(struct wled *wled, bool enable);
+};
+
+enum wled5_mod_sel {
+	MOD_A,
+	MOD_B,
+	MOD_MAX,
+};
+
+static const u8 wled5_brt_reg[MOD_MAX] = {
+	[MOD_A] = WLED5_SINK_MOD_A_BRT_LSB_REG,
+	[MOD_B] = WLED5_SINK_MOD_B_BRT_LSB_REG,
+};
+
+static const u8 wled5_src_sel_reg[MOD_MAX] = {
+	[MOD_A] = WLED5_SINK_MOD_A_SRC_SEL_REG,
+	[MOD_B] = WLED5_SINK_MOD_B_SRC_SEL_REG,
+};
+
+static const u8 wled5_brt_wid_sel_reg[MOD_MAX] = {
+	[MOD_A] = WLED5_SINK_MOD_A_BR_WID_SEL_REG,
+	[MOD_B] = WLED5_SINK_MOD_B_BR_WID_SEL_REG,
 };
 
 static inline bool is_wled4(struct wled *wled)
 {
 	if (*wled->version == WLED_PMI8998 || *wled->version == WLED_PM660L)
+		return true;
+
+	return false;
+}
+
+static inline bool is_wled5(struct wled *wled)
+{
+	if (*wled->version == WLED_PM855L)
 		return true;
 
 	return false;
@@ -202,14 +275,53 @@ static int wled_sync_toggle(struct wled *wled)
 	return rc;
 }
 
-static int wled_set_brightness(struct wled *wled, u16 brightness)
+static int wled5_set_brightness(struct wled *wled, u16 brightness)
+{
+	int rc, offset;
+	u16 low_limit = wled->max_brightness * 1 / 1000;
+	u8 val, v[2], brightness_msb_mask;
+
+	/* WLED5's lower limit is 0.1% */
+	if (brightness > 0 && brightness < low_limit)
+		brightness = low_limit;
+
+	brightness_msb_mask = 0xf;
+	if (wled->max_brightness == WLED_MAX_BRIGHTNESS_15B)
+		brightness_msb_mask = 0x7f;
+
+	v[0] = brightness & 0xff;
+	v[1] = (brightness >> 8) & brightness_msb_mask;
+
+	offset = wled5_brt_reg[wled->cfg.mod_sel];
+	rc = regmap_bulk_write(wled->regmap, wled->sink_addr + offset,
+			v, 2);
+	if (rc < 0)
+		return rc;
+
+	/* Update brightness values to modulator in WLED5 */
+	val = (wled->cfg.mod_sel == MOD_A) ? WLED5_SINK_SYNC_MODA_BIT :
+		WLED5_SINK_SYNC_MODB_BIT;
+	rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_MOD_SYNC_BIT_REG,
+			WLED5_SINK_SYNC_MASK, val);
+	if (rc < 0)
+		return rc;
+
+	val = 0;
+	rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_MOD_SYNC_BIT_REG,
+			WLED_SINK_SYNC_MASK, val);
+	return rc;
+}
+
+static int wled4_set_brightness(struct wled *wled, u16 brightness)
 {
 	int rc, i;
-	u16 low_limit = WLED_MAX_BRIGHTNESS * 4 / 1000;
+	u16 low_limit = wled->max_brightness * 4 / 1000;
 	u8 string_cfg = wled->cfg.string_cfg;
 	u8 v[2];
 
-	/* WLED's lower limit of operation is 0.4% */
+	/* WLED4's lower limit of operation is 0.4% */
 	if (brightness > 0 && brightness < low_limit)
 		brightness = low_limit;
 
@@ -222,6 +334,16 @@ static int wled_set_brightness(struct wled *wled, u16 brightness)
 		if (rc < 0)
 			return rc;
 	}
+
+	return 0;
+}
+
+static int wled_set_brightness(struct wled *wled, u16 brightness)
+{
+	if (is_wled4(wled))
+		return wled4_set_brightness(wled, brightness);
+	else if (is_wled5(wled))
+		return wled5_set_brightness(wled, brightness);
 
 	return 0;
 }
@@ -262,10 +384,12 @@ static int wled_update_status(struct backlight_device *bl)
 
 	wled->prev_state = !!brightness;
 
-	rc = wled_sync_toggle(wled);
-	if (rc < 0) {
-		pr_err("wled sync failed rc:%d\n", rc);
-		goto unlock_mutex;
+	if (is_wled4(wled)) {
+		rc = wled_sync_toggle(wled);
+		if (rc < 0) {
+			pr_err("wled sync failed rc:%d\n", rc);
+			goto unlock_mutex;
+		}
 	}
 
 	wled->brightness = brightness;
@@ -325,6 +449,52 @@ unlock_mutex:
 	return IRQ_HANDLED;
 }
 
+static int wled5_cabc_config(struct wled *wled, bool enable)
+{
+	int rc, offset;
+	u8 reg;
+
+	if (wled->cabc_disabled)
+		return 0;
+
+	reg = enable ? wled->cfg.cabc_sel : 0;
+	offset = wled5_src_sel_reg[wled->cfg.mod_sel];
+	rc = regmap_update_bits(wled->regmap, wled->sink_addr + offset,
+			WLED5_SINK_MOD_SRC_SEL_MASK, reg);
+	if (rc < 0) {
+		pr_err("Error in configuring CABC rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!wled->cfg.cabc_sel)
+		wled->cabc_disabled = true;
+
+	return 0;
+}
+
+static int wled4_cabc_config(struct wled *wled, bool enable)
+{
+	int i, rc;
+	u8 reg;
+
+	if (wled->cabc_disabled)
+		return 0;
+
+	for (i = 0; (wled->cfg.string_cfg >> i) != 0; i++) {
+		reg = enable ? WLED_SINK_CABC_EN : 0;
+		rc = regmap_update_bits(wled->regmap, wled->sink_addr +
+				WLED_SINK_CABC_REG(i),
+				WLED_SINK_CABC_MASK, reg);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (!wled->cfg.en_cabc)
+		wled->cabc_disabled = true;
+
+	return 0;
+}
+
 #define AUTO_CALIB_BRIGHTNESS		200
 static int wled_auto_calibrate(struct wled *wled)
 {
@@ -360,16 +530,10 @@ static int wled_auto_calibrate(struct wled *wled)
 		goto failed_calib;
 	}
 
-	if (wled->cfg.en_cabc) {
-		for (i = 0; (string_cfg >> i) != 0; i++) {
-			reg = 0;
-			rc = regmap_update_bits(wled->regmap, wled->sink_addr +
-					WLED_SINK_CABC_REG(i),
-					WLED_SINK_CABC_MASK, reg);
-			if (rc < 0)
-				goto failed_calib;
-		}
-	}
+	/* Disable CABC if it is enabled */
+	rc = wled->cabc_config(wled, false);
+	if (rc < 0)
+		goto failed_calib;
 
 	/* disable all sinks */
 	rc = regmap_write(wled->regmap,
@@ -462,28 +626,28 @@ static int wled_auto_calibrate(struct wled *wled)
 	}
 
 	/* MODULATOR_EN setting for valid sinks */
-	for (i = 0; (string_cfg >> i) != 0; i++) {
-		if (wled->cfg.en_cabc) {
-			reg = WLED_SINK_CABC_EN;
-			rc = regmap_update_bits(wled->regmap, wled->sink_addr +
-						WLED_SINK_CABC_REG(i),
-						WLED_SINK_CABC_MASK, reg);
-			if (rc < 0)
+	if (is_wled4(wled)) {
+		for (i = 0; (string_cfg >> i) != 0; i++) {
+			/* disable modulator_en for unused sink */
+			if (sink_config & (1 << (WLED_SINK_CURR_SINK_SHFT + i)))
+				reg = WLED_SINK_REG_STR_MOD_EN;
+			else
+				reg = 0x0;
+
+			rc = regmap_write(wled->regmap, wled->sink_addr +
+					WLED_SINK_MOD_EN_REG(i), reg);
+			if (rc < 0) {
+				pr_err("Failed to configure MODULATOR_EN rc=%d\n",
+					rc);
 				goto failed_calib;
-		}
-
-		if (sink_config & (1 << (WLED_SINK_CURR_SINK_SHFT + i)))
-			reg = WLED_SINK_REG_STR_MOD_EN;
-		else
-			reg = 0x0; /* disable modulator_en for unused sink */
-
-		rc = regmap_write(wled->regmap, wled->sink_addr +
-				WLED_SINK_MOD_EN_REG(i), reg);
-		if (rc < 0) {
-			pr_err("Failed to configure MODULATOR_EN rc=%d\n", rc);
-			goto failed_calib;
+			}
 		}
 	}
+
+	/* Enable CABC if it needs to be enabled */
+	rc = wled->cabc_config(wled, true);
+	if (rc < 0)
+		goto failed_calib;
 
 	/* restore the feedback setting */
 	rc = regmap_write(wled->regmap,
@@ -636,7 +800,125 @@ static irqreturn_t wled_ovp_irq_handler(int irq, void *_wled)
 	return IRQ_HANDLED;
 }
 
-static int wled_setup(struct wled *wled)
+static int wled5_setup(struct wled *wled)
+{
+	int rc, temp, i;
+	u8 sink_en = 0;
+	u16 addr;
+	u32 val;
+	u8 string_cfg = wled->cfg.string_cfg;
+
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_OVP,
+			WLED5_CTRL_OVP_MASK, wled->cfg.ovp);
+	if (rc < 0)
+		return rc;
+
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_ILIM,
+			WLED_CTRL_ILIM_MASK, wled->cfg.boost_i_limit);
+	if (rc < 0)
+		return rc;
+
+	if (wled->cfg.switch_freq != -EINVAL) {
+		rc = regmap_update_bits(wled->regmap,
+				wled->ctrl_addr + WLED_CTRL_SWITCH_FREQ,
+				WLED_CTRL_SWITCH_FREQ_MASK,
+				wled->cfg.switch_freq);
+		if (rc < 0)
+			return rc;
+	}
+
+	/* Per sink/string configuration */
+	for (i = 0; (string_cfg >> i) != 0; i++) {
+		if (string_cfg & BIT(i)) {
+			addr = wled->sink_addr +
+					WLED5_SINK_FS_CURR_REG(i);
+			rc = regmap_update_bits(wled->regmap, addr,
+					WLED_SINK_FS_MASK,
+					wled->cfg.fs_current);
+			if (rc < 0)
+				return rc;
+
+			addr = wled->sink_addr +
+					WLED5_SINK_SRC_SEL_REG(i);
+			rc = regmap_update_bits(wled->regmap, addr,
+					WLED5_SINK_SRC_SEL_MASK,
+					wled->cfg.mod_sel == MOD_A ?
+					WLED5_SINK_SRC_SEL_MODA :
+					WLED5_SINK_SRC_SEL_MODB);
+
+			temp = i + WLED_SINK_CURR_SINK_SHFT;
+			sink_en |= 1 << temp;
+		}
+	}
+
+	rc = wled5_cabc_config(wled, wled->cfg.cabc_sel ? true : false);
+	if (rc < 0)
+		return rc;
+
+	/* Enable one of the modulators A or B based on mod_sel */
+	addr = wled->sink_addr + WLED5_SINK_MOD_A_EN_REG;
+	val = (wled->cfg.mod_sel == MOD_A) ? WLED5_SINK_MOD_EN : 0;
+	rc = regmap_update_bits(wled->regmap, addr,
+			WLED5_SINK_MOD_EN, val);
+	if (rc < 0)
+		return rc;
+
+	addr = wled->sink_addr + WLED5_SINK_MOD_B_EN_REG;
+	val = (wled->cfg.mod_sel == MOD_B) ? WLED5_SINK_MOD_EN : 0;
+	rc = regmap_update_bits(wled->regmap, addr,
+			WLED5_SINK_MOD_EN, val);
+	if (rc < 0)
+		return rc;
+
+	addr = wled->sink_addr + wled5_brt_wid_sel_reg[wled->cfg.mod_sel];
+	val = (wled->max_brightness == WLED_MAX_BRIGHTNESS_15B)
+		? WLED5_SINK_BRT_WIDTH_15B : WLED5_SINK_BRT_WIDTH_12B;
+	rc = regmap_write(wled->regmap, addr, val);
+	if (rc < 0)
+		return rc;
+
+	rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED_SINK_CURR_SINK_EN,
+			WLED_SINK_CURR_SINK_MASK, sink_en);
+	if (rc < 0)
+		return rc;
+
+	/* This updates only FSC configuration in WLED5 */
+	rc = wled_sync_toggle(wled);
+	if (rc < 0) {
+		pr_err("Failed to toggle sync reg rc:%d\n", rc);
+		return rc;
+	}
+
+	rc = wled_auto_calibrate_at_init(wled);
+	if (rc < 0)
+		return rc;
+
+	if (wled->ovp_irq >= 0) {
+		rc = devm_request_threaded_irq(&wled->pdev->dev, wled->ovp_irq,
+				NULL, wled_ovp_irq_handler, IRQF_ONESHOT,
+				"wled_ovp_irq", wled);
+		if (rc < 0) {
+			pr_err("Unable to request ovp(%d) IRQ(err:%d)\n",
+				wled->ovp_irq, rc);
+			return rc;
+		}
+
+		rc = regmap_read(wled->regmap, wled->ctrl_addr +
+				WLED_CTRL_MOD_ENABLE, &val);
+		/* disable the OVP irq only if the module is not enabled */
+		if (!rc && !(val & WLED_CTRL_MOD_EN_MASK)) {
+			disable_irq(wled->ovp_irq);
+			wled->ovp_irq_disabled = true;
+		}
+	}
+
+	return 0;
+}
+
+static int wled4_setup(struct wled *wled)
 {
 	int rc, temp, i;
 	u8 sink_en = 0;
@@ -661,6 +943,7 @@ static int wled_setup(struct wled *wled)
 	if (rc < 0)
 		return rc;
 
+	/* Per sink/string configuration */
 	for (i = 0; (string_cfg >> i) != 0; i++) {
 		if (string_cfg & BIT(i)) {
 			u16 addr = wled->sink_addr +
@@ -680,19 +963,14 @@ static int wled_setup(struct wled *wled)
 			if (rc < 0)
 				return rc;
 
-			addr = wled->sink_addr +
-					WLED_SINK_CABC_REG(i);
-			rc = regmap_update_bits(wled->regmap, addr,
-					WLED_SINK_CABC_MASK,
-					wled->cfg.en_cabc ?
-					WLED_SINK_CABC_EN : 0);
-			if (rc)
-				return rc;
-
 			temp = i + WLED_SINK_CURR_SINK_SHFT;
 			sink_en |= 1 << temp;
 		}
 	}
+
+	rc = wled4_cabc_config(wled, wled->cfg.en_cabc);
+	if (rc < 0)
+		return rc;
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->sink_addr + WLED_SINK_CURR_SINK_EN,
@@ -771,6 +1049,21 @@ static const struct wled_config wled4_config_defaults = {
 	.ovp = 1,
 	.switch_freq = 11,
 	.string_cfg = 0xf,
+	.mod_sel = -EINVAL,
+	.cabc_sel = -EINVAL,
+	.en_cabc = 0,
+	.ext_pfet_sc_pro_en = 0,
+	.auto_calib_enabled = 0,
+};
+
+static const struct wled_config wled5_config_defaults = {
+	.boost_i_limit = 5,
+	.fs_current = 12,
+	.ovp = 4,
+	.switch_freq = -EINVAL,
+	.string_cfg = 0xf,
+	.mod_sel = 0,
+	.cabc_sel = 0,
 	.en_cabc = 0,
 	.ext_pfet_sc_pro_en = 0,
 	.auto_calib_enabled = 0,
@@ -782,13 +1075,23 @@ struct wled_var_cfg {
 	int size;
 };
 
-static const u32 wled_boost_i_limit_values[] = {
+static const u32 wled4_boost_i_limit_values[] = {
 	105, 280, 450, 620, 970, 1150, 1300, 1500,
 };
 
-static const struct wled_var_cfg wled_boost_i_limit_cfg = {
-	.values = wled_boost_i_limit_values,
-	.size = ARRAY_SIZE(wled_boost_i_limit_values),
+static const struct wled_var_cfg wled4_boost_i_limit_cfg = {
+	.values = wled4_boost_i_limit_values,
+	.size = ARRAY_SIZE(wled4_boost_i_limit_values),
+};
+
+static inline u32 wled5_boost_i_limit_values_fn(u32 idx)
+{
+	return 525 + (idx * 175);
+}
+
+static const struct wled_var_cfg wled5_boost_i_limit_cfg = {
+	.fn = wled5_boost_i_limit_values_fn,
+	.size = 8,
 };
 
 static const u32 wled_fs_current_values[] = {
@@ -801,16 +1104,31 @@ static const struct wled_var_cfg wled_fs_current_cfg = {
 	.size = ARRAY_SIZE(wled_fs_current_values),
 };
 
-static const u32 wled_ovp_values[] = {
+static const u32 wled4_ovp_values[] = {
 	31100, 29600, 19600, 18100,
 };
 
-static const struct wled_var_cfg wled_ovp_cfg = {
-	.values = wled_ovp_values,
-	.size = ARRAY_SIZE(wled_ovp_values),
+static const struct wled_var_cfg wled4_ovp_cfg = {
+	.values = wled4_ovp_values,
+	.size = ARRAY_SIZE(wled4_ovp_values),
 };
 
-static u32 wled_switch_freq_values_fn(u32 idx)
+static inline u32 wled5_ovp_values_fn(u32 idx)
+{
+	/*
+	 * 0000 - 38.5 V
+	 * 0001 - 37 V ..
+	 * 1111 - 16 V
+	 */
+	return 38500 - (idx * 1500);
+}
+
+static const struct wled_var_cfg wled5_ovp_cfg = {
+	.fn = wled5_ovp_values_fn,
+	.size = 16,
+};
+
+static inline u32 wled_switch_freq_values_fn(u32 idx)
 {
 	return 9600 / (1 + idx);
 }
@@ -824,8 +1142,18 @@ static const struct wled_var_cfg wled_string_cfg = {
 	.size = 16,
 };
 
+static const struct wled_var_cfg wled5_mod_sel_cfg = {
+	.size = 2,
+};
+
+static const struct wled_var_cfg wled5_cabc_sel_cfg = {
+	.size = 4,
+};
+
 static u32 wled_values(const struct wled_var_cfg *cfg, u32 idx)
 {
+	if (!cfg)
+		return UINT_MAX;
 	if (idx >= cfg->size)
 		return UINT_MAX;
 	if (cfg->fn)
@@ -852,7 +1180,7 @@ static int wled_configure(struct wled *wled, struct device *dev)
 		{
 			.name = "qcom,boost-current-limit",
 			.val_ptr = &cfg->boost_i_limit,
-			.cfg = &wled_boost_i_limit_cfg,
+			.cfg = &wled4_boost_i_limit_cfg,
 		},
 		{
 			.name = "qcom,fs-current-limit",
@@ -862,7 +1190,7 @@ static int wled_configure(struct wled *wled, struct device *dev)
 		{
 			.name = "qcom,ovp",
 			.val_ptr = &cfg->ovp,
-			.cfg = &wled_ovp_cfg,
+			.cfg = &wled4_ovp_cfg,
 		},
 		{
 			.name = "qcom,switching-freq",
@@ -873,6 +1201,44 @@ static int wled_configure(struct wled *wled, struct device *dev)
 			.name = "qcom,string-cfg",
 			.val_ptr = &cfg->string_cfg,
 			.cfg = &wled_string_cfg,
+		},
+	};
+
+	const struct wled_u32_opts wled5_opts[] = {
+		{
+			.name = "qcom,boost-current-limit",
+			.val_ptr = &cfg->boost_i_limit,
+			.cfg = &wled5_boost_i_limit_cfg,
+		},
+		{
+			.name = "qcom,fs-current-limit",
+			.val_ptr = &cfg->fs_current,
+			.cfg = &wled_fs_current_cfg,
+		},
+		{
+			.name = "qcom,ovp",
+			.val_ptr = &cfg->ovp,
+			.cfg = &wled5_ovp_cfg,
+		},
+		{
+			.name = "qcom,switching-freq",
+			.val_ptr = &cfg->switch_freq,
+			.cfg = &wled_switch_freq_cfg,
+		},
+		{
+			.name = "qcom,string-cfg",
+			.val_ptr = &cfg->string_cfg,
+			.cfg = &wled_string_cfg,
+		},
+		{
+			.name = "qcom,modulator-sel",
+			.val_ptr = &cfg->mod_sel,
+			.cfg = &wled5_mod_sel_cfg,
+		},
+		{
+			.name = "qcom,cabc-sel",
+			.val_ptr = &cfg->cabc_sel,
+			.cfg = &wled5_cabc_sel_cfg,
 		},
 	};
 
@@ -902,10 +1268,16 @@ static int wled_configure(struct wled *wled, struct device *dev)
 	if (rc < 0)
 		wled->name = dev->of_node->name;
 
-	if (is_wled4(wled)) {
+	if (is_wled5(wled)) {
+		u32_opts = wled5_opts;
+		size = ARRAY_SIZE(wled5_opts);
+		*cfg = wled5_config_defaults;
+		wled->cabc_config = wled5_cabc_config;
+	} else if (is_wled4(wled)) {
 		u32_opts = wled4_opts;
 		size = ARRAY_SIZE(wled4_opts);
 		*cfg = wled4_config_defaults;
+		wled->cabc_config = wled4_cabc_config;
 	} else {
 		pr_err("Unknown WLED version %d\n", *wled->version);
 		return -EINVAL;
@@ -992,24 +1364,35 @@ static int wled_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = wled_setup(wled);
+	val = WLED_DEFAULT_BRIGHTNESS;
+	of_property_read_u32(pdev->dev.of_node, "default-brightness", &val);
+	wled->brightness = val;
+
+	val = WLED_MAX_BRIGHTNESS_12B;
+	of_property_read_u32(pdev->dev.of_node, "max-brightness", &val);
+	wled->max_brightness = val;
+
+	/* For WLED5, when CABC is enabled, max brightness is 4095. */
+	if (is_wled5(wled) && wled->cfg.cabc_sel)
+		wled->max_brightness = WLED_MAX_BRIGHTNESS_12B;
+
+	if (is_wled4(wled))
+		rc = wled4_setup(wled);
+	else
+		rc = wled5_setup(wled);
 	if (rc < 0) {
 		pr_err("wled setup failed rc:%d\n", rc);
 		return rc;
 	}
 
 	mutex_init(&wled->lock);
-	val = WLED_DEFAULT_BRIGHTNESS;
-	of_property_read_u32(pdev->dev.of_node, "default-brightness", &val);
-	wled->brightness = val;
-
 	platform_set_drvdata(pdev, wled);
 
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.type = BACKLIGHT_RAW;
 	props.brightness = val;
-	props.max_brightness = WLED_MAX_BRIGHTNESS;
-	bl = devm_backlight_device_register(&pdev->dev, pdev->name,
+	props.max_brightness = wled->max_brightness;
+	bl = devm_backlight_device_register(&pdev->dev, wled->name,
 					    &pdev->dev, wled,
 					    &wled_ops, &props);
 	return PTR_ERR_OR_ZERO(bl);
@@ -1017,6 +1400,7 @@ static int wled_probe(struct platform_device *pdev)
 
 static const struct of_device_id wled_match_table[] = {
 	{ .compatible = "qcom,pmi8998-spmi-wled", .data = &version_table[0] },
+	{ .compatible = "qcom,pm855l-spmi-wled", .data = &version_table[2] },
 	{ },
 };
 
