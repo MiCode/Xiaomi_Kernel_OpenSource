@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -365,13 +365,7 @@
 };
 
 &thermal_zones {
-	xo-therm-cpu-step {
-		status = "disabled";
-	};
-	xo-therm-mdm-step {
-		status = "disabled";
-	};
-	xo-therm-batt-step {
+	xo-therm-step {
 		status = "disabled";
 	};
 };
