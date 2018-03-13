@@ -1209,6 +1209,7 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		val->intval = POWER_SUPPLY_STATUS_FULL;
 		break;
 	case DISABLE_CHARGE:
+	case PAUSE_CHARGE:
 		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		break;
 	default:
