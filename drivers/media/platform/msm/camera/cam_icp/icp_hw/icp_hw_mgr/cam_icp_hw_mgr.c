@@ -380,8 +380,8 @@ static int32_t cam_icp_ctx_timer(void *priv, void *data)
 	ctx_data->clk_info.base_clk = 0;
 
 	clk_update.ahb_vote.type = CAM_VOTE_DYNAMIC;
-	clk_update.ahb_vote.vote.freq = clk_info->curr_clk;
-	clk_update.ahb_vote_valid = true;
+	clk_update.ahb_vote.vote.freq = 0;
+	clk_update.ahb_vote_valid = false;
 	clk_update.axi_vote.compressed_bw = clk_info->compressed_bw;
 	clk_update.axi_vote.uncompressed_bw = clk_info->uncompressed_bw;
 	clk_update.axi_vote_valid = true;
@@ -1018,8 +1018,8 @@ static int cam_icp_update_cpas_vote(struct cam_icp_hw_mgr *hw_mgr,
 	}
 
 	clk_update.ahb_vote.type = CAM_VOTE_DYNAMIC;
-	clk_update.ahb_vote.vote.freq = clk_info->curr_clk;
-	clk_update.ahb_vote_valid = true;
+	clk_update.ahb_vote.vote.freq = 0;
+	clk_update.ahb_vote_valid = false;
 	clk_update.axi_vote.compressed_bw = clk_info->compressed_bw;
 	clk_update.axi_vote.uncompressed_bw = clk_info->uncompressed_bw;
 	clk_update.axi_vote_valid = true;
