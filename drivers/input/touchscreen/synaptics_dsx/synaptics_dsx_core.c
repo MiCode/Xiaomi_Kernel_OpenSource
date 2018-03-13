@@ -472,7 +472,7 @@ static int synaptics_i2c_change_pipe_owner(
 	struct synaptics_rmi4_data *rmi4_data, enum subsystem subsystem)
 {
 	/*scm call descriptor */
-	struct scm_desc desc;
+	struct scm_desc desc = {0};
 	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
 	int ret = 0;
 
