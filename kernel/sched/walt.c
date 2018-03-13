@@ -1909,12 +1909,16 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	update_task_demand(p, rq, event, wallclock);
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
-done:
+
+	if (exiting_task(p))
+		goto done;
+
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
 				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 
+done:
 	p->ravg.mark_start = wallclock;
 
 	run_walt_irq_work(old_window_start, rq);
