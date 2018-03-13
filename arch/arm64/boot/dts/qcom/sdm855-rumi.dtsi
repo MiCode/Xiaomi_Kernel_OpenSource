@@ -91,10 +91,10 @@
 };
 
 &usb0 {
+	extcon = <0>, <0>, <0>;
 	dwc3@a600000 {
-		usb-phy = <&usb_emu_phy>;
+		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
-		dr_mode = "peripheral";
 	};
 };
 
@@ -140,5 +140,13 @@
 };
 
 &slim_qca {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
+&usb2_phy0 {
 	status = "disabled";
 };

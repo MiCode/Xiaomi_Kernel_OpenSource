@@ -1853,39 +1853,6 @@
 		qcom,pipe-attr-ee;
 	};
 
-	usb0: ssusb@a600000 {
-		compatible = "qcom,dwc3";
-		reg = <0x0a600000 0x100000>;
-		reg-names = "base";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-
-		USB3_GDSC-supply = <&usb30_prim_gdsc>;
-
-		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
-			 <&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
-			 <&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
-			 <&clock_gcc GCC_USB30_PRIM_MOCK_UTMI_CLK>,
-			 <&clock_gcc GCC_USB30_PRIM_SLEEP_CLK>,
-			 <&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>;
-
-		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
-			"utmi_clk", "sleep_clk", "xo";
-
-		dwc3@a600000 {
-			compatible = "snps,dwc3";
-			reg = <0x0a600000 0xcd00>;
-			interrupt-parent = <&pdc>;
-			interrupts = <0 133 0>;
-			tx-fifo-resize;
-			linux,sysdev_is_parent;
-			snps,disable-clk-gating;
-			snps,has-lpm-erratum;
-			snps,hird-threshold = /bits/ 8 <0x10>;
-		};
-	};
-
 	tcsr_mutex_block: syscon@1f40000 {
 		compatible = "syscon";
 		reg = <0x1f40000 0x20000>;
@@ -2971,3 +2938,4 @@
 #include "sdm855-audio.dtsi"
 #include "sdm855-vidc.dtsi"
 #include "sdm855-thermal.dtsi"
+#include "sdm855-usb.dtsi"
