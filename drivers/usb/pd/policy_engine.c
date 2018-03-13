@@ -793,8 +793,6 @@ static void pd_send_hard_reset(struct usbpd *pd)
 
 	usbpd_dbg(&pd->dev, "send hard reset");
 
-	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
-	set_power_role(pd, pd->current_pr);
 	pd->hard_reset_count++;
 	pd_phy_signal(HARD_RESET_SIG);
 	pd->in_pr_swap = false;
@@ -826,8 +824,6 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
 
 	usbpd_err(&pd->dev, "hard reset received\n");
 
-	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
-	set_power_role(pd, pd->current_pr);
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
