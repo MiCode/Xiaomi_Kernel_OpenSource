@@ -3574,7 +3574,7 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 static void populate_frame_data(struct vidc_frame_data *data,
 		const struct vb2_buffer *vb, struct msm_vidc_inst *inst)
 {
-	int64_t time_usec;
+	u64 time_usec;
 	int extra_idx;
 	enum v4l2_buf_type type = vb->type;
 	enum vidc_ports port = type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
@@ -5213,7 +5213,7 @@ exit:
 int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 {
 	u32 property_id = 0;
-	u64 us_per_frame = 0;
+	u64 us_per_frame = 0, fps_u64 = 0;
 	void *pdata;
 	int rc = 0, fps = 0;
 	struct hal_frame_rate frame_rate;
@@ -5251,8 +5251,9 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		goto exit;
 	}
 
-	fps = USEC_PER_SEC;
-	do_div(fps, us_per_frame);
+	fps_u64 = USEC_PER_SEC;
+	do_div(fps_u64, us_per_frame);
+	fps = fps_u64;
 
 	if (fps % 15 == 14 || fps % 24 == 23)
 		fps = fps + 1;
