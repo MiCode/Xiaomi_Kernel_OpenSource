@@ -41,7 +41,7 @@
 
 	aliases {
 		serial0 = &qupv3_se12_2uart;
-		hsuart0 = &qupv3_se17_4uart;
+		hsuart0 = &qupv3_se13_4uart;
 	};
 
 	cpus {
