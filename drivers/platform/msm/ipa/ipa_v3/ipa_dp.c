@@ -76,6 +76,8 @@
 
 #define IPA_APPS_BW_FOR_PM 700
 
+#define IPA_SEND_MAX_DESC (20)
+
 static struct sk_buff *ipa3_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys);
@@ -273,7 +275,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	struct ipa3_tx_pkt_wrapper *tx_pkt, *tx_pkt_first;
 	struct ipahal_imm_cmd_pyld *tag_pyld_ret = NULL;
 	struct ipa3_tx_pkt_wrapper *next_pkt;
-	struct gsi_xfer_elem *gsi_xfer_elem_array = NULL;
+	struct gsi_xfer_elem gsi_xfer[IPA_SEND_MAX_DESC];
 	int i = 0;
 	int j;
 	int result;
@@ -290,6 +292,13 @@ int ipa3_send(struct ipa3_sys_context *sys,
 			sys->ep->client);
 		return -EFAULT;
 	}
+	if (unlikely(num_desc > IPA_SEND_MAX_DESC)) {
+		IPAERR("max descriptors reached need=%d max=%d\n",
+			num_desc, IPA_SEND_MAX_DESC);
+		WARN_ON(1);
+		return -EPERM;
+	}
+
 	if (unlikely(num_desc > gsi_ep_cfg->ipa_if_tlv)) {
 		IPAERR("Too many chained descriptors need=%d max=%d\n",
 			num_desc, gsi_ep_cfg->ipa_if_tlv);
@@ -297,11 +306,9 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		return -EPERM;
 	}
 
-	gsi_xfer_elem_array =
-		kzalloc(num_desc * sizeof(struct gsi_xfer_elem),
-		mem_flag);
-	if (!gsi_xfer_elem_array)
-		return -ENOMEM;
+
+	/* initialize only the xfers we use */
+	memset(gsi_xfer, 0, sizeof(gsi_xfer[0]) * num_desc);
 
 	spin_lock_bh(&sys->spinlock);
 
@@ -373,45 +380,45 @@ int ipa3_send(struct ipa3_sys_context *sys,
 
 		list_add_tail(&tx_pkt->link, &sys->head_desc_list);
 
-		gsi_xfer_elem_array[i].addr = tx_pkt->mem.phys_base;
+		gsi_xfer[i].addr = tx_pkt->mem.phys_base;
 
 		/*
 		 * Special treatment for immediate commands, where
 		 * the structure of the descriptor is different
 		 */
 		if (desc[i].type == IPA_IMM_CMD_DESC) {
-			gsi_xfer_elem_array[i].len = desc[i].opcode;
-			gsi_xfer_elem_array[i].type =
+			gsi_xfer[i].len = desc[i].opcode;
+			gsi_xfer[i].type =
 				GSI_XFER_ELEM_IMME_CMD;
 		} else {
-			gsi_xfer_elem_array[i].len = desc[i].len;
-			gsi_xfer_elem_array[i].type =
+			gsi_xfer[i].len = desc[i].len;
+			gsi_xfer[i].type =
 				GSI_XFER_ELEM_DATA;
 		}
 
 		if (i == (num_desc - 1)) {
 			if (!sys->use_comm_evt_ring) {
-				gsi_xfer_elem_array[i].flags |=
+				gsi_xfer[i].flags |=
 					GSI_XFER_FLAG_EOT;
-				gsi_xfer_elem_array[i].flags |=
+				gsi_xfer[i].flags |=
 					GSI_XFER_FLAG_BEI;
 			}
-			gsi_xfer_elem_array[i].xfer_user_data =
+			gsi_xfer[i].xfer_user_data =
 				tx_pkt_first;
 		} else {
-			gsi_xfer_elem_array[i].flags |=
+			gsi_xfer[i].flags |=
 				GSI_XFER_FLAG_CHAIN;
 		}
 	}
 
 	IPADBG_LOW("ch:%lu queue xfer\n", sys->ep->gsi_chan_hdl);
 	result = gsi_queue_xfer(sys->ep->gsi_chan_hdl, num_desc,
-			gsi_xfer_elem_array, true);
+			gsi_xfer, true);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("GSI xfer failed.\n");
 		goto failure;
 	}
-	kfree(gsi_xfer_elem_array);
+
 
 	if (sys->use_comm_evt_ring && !sys->nop_pending) {
 		sys->nop_pending = true;
@@ -458,8 +465,6 @@ failure:
 		kmem_cache_free(ipa3_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}
-
-	kfree(gsi_xfer_elem_array);
 
 	spin_unlock_bh(&sys->spinlock);
 	return -EFAULT;
