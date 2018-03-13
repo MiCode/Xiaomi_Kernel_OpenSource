@@ -132,6 +132,11 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 		    3 - External signal (e.g. LPG) is used for dimming
 		    This property is applicable only to WLED5 peripheral.
 
+- qcom,pmic-revid
+	Usage:      optional
+	Value type: <phandle>
+	Definition: If specified, can be used to get PMIC revision information.
+
 Example:
 
 qcom-wled@d800 {
