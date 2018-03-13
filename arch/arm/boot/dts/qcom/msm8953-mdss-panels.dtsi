@@ -24,6 +24,7 @@
 #include "dsi-panel-lt8912-480p-video.dtsi"
 #include "dsi-panel-lt8912-1080p-video.dtsi"
 #include "dsi-panel-lgd-incell-sw49106-fhd-video.dtsi"
+#include "dsi-panel-hx83100a-800p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -114,4 +115,12 @@
 		24 1B 08 09 05 03 04 a0];
 		qcom,mdss-dsi-t-clk-post = <0x0d>;
 		qcom,mdss-dsi-t-clk-pre = <0x30>;
+};
+
+&dsi_boyi_hx83100a_800p_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [1f 1c 05 06 03 03 04 a0
+		1f 1c 05 06 03 03 04 a0
+		1f 1c 05 06 03 03 04 a0
+		1f 1c 05 06 03 03 04 a0
+		1f 10 05 06 03 03 04 a0];
 };
