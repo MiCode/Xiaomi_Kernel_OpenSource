@@ -4025,6 +4025,7 @@ static int mxt_probe(struct i2c_client *client,
 		len = strlen(data->pdata->cfg_name);
 		if (len > MXT_NAME_MAX_LEN - 1) {
 			dev_err(&client->dev, "Invalid config name\n");
+			error = -EINVAL;
 			goto err_destroy_mutex;
 		}
 
