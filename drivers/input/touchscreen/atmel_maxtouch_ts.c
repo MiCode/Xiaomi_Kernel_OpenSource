@@ -1,7 +1,7 @@
 /*
  * Atmel maXTouch Touchscreen driver
  *
- * Copyright (c) 2014-2015, The Linux Foundation.  All rights reserved.
+ * Copyright (c) 2014-2015, 2018 The Linux Foundation.  All rights reserved.
  *
  * Linux foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
@@ -529,6 +529,8 @@ static ssize_t mxt_debug_msg_read(struct file *filp, struct kobject *kobj,
 
 static int mxt_debug_msg_init(struct mxt_data *data)
 {
+	int ret;
+
 	sysfs_bin_attr_init(&data->debug_msg_attr);
 	data->debug_msg_attr.attr.name = "debug_msg";
 	data->debug_msg_attr.attr.mode = 0666;
@@ -536,11 +538,20 @@ static int mxt_debug_msg_init(struct mxt_data *data)
 	data->debug_msg_attr.write = mxt_debug_msg_write;
 	data->debug_msg_attr.size = data->T5_msg_size * DEBUG_MSG_MAX;
 
-	if (sysfs_create_bin_file(&data->client->dev.kobj,
-				  &data->debug_msg_attr) < 0)
-		dev_info(&data->client->dev, "Debugfs already exists\n");
+	ret = sysfs_create_bin_file(&data->client->dev.kobj,
+				  &data->debug_msg_attr);
+	if (ret < 0) {
+		if (ret == -EEXIST) {
+			dev_info(&data->client->dev,
+					"Debugfs already exists\n");
+			ret = 0;
+		} else {
+			dev_err(&data->client->dev,
+					"Failed to create 'debug_msg' file\n");
+		}
+	}
 
-	return 0;
+	return ret;
 }
 
 static void mxt_debug_msg_remove(struct mxt_data *data)
