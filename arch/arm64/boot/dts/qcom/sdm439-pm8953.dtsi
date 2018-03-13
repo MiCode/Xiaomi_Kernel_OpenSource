@@ -134,6 +134,24 @@
 	/delete-property/ vddio-supply;
 };
 
+&int_codec {
+	/delete-property/ asoc-codec;
+	/delete-property/ msm-vdd-wsa-switch-supply;
+};
+
+&clock_audio {
+	/delete-property/ qcom,audio-ref-clk-gpio;
+};
+
+&wcd9335 {
+	/delete-property/ cdc-vdd-buck-supply;
+	/delete-property/ cdc-buck-sido-supply;
+	/delete-property/ cdc-vdd-tx-h-supply;
+	/delete-property/ cdc-vdd-rx-h-supply;
+	/delete-property/ cdc-vdd-px-supply;
+	/delete-property/ cdc-vdd-mic-bias-supply;
+};
+
 #include "pm8953.dtsi"
 #include "pm8953-rpm-regulator.dtsi"
 #include "sdm439-regulator.dtsi"
