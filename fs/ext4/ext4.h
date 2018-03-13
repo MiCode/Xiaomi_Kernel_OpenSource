@@ -2352,7 +2352,6 @@ static inline void ext4_fname_free_filename(struct ext4_filename *fname) { }
 #define fscrypt_fname_free_buffer	fscrypt_notsupp_fname_free_buffer
 #define fscrypt_fname_disk_to_usr	fscrypt_notsupp_fname_disk_to_usr
 #define fscrypt_fname_usr_to_disk	fscrypt_notsupp_fname_usr_to_disk
-#define fs_using_hardware_encryption fs_notsupp_using_hardware_encryption
 #endif
 
 /* dir.c */

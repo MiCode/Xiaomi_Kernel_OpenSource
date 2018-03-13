@@ -34,7 +34,6 @@
 #define FS_ENCRYPTION_MODE_AES_256_GCM		2
 #define FS_ENCRYPTION_MODE_AES_256_CBC		3
 #define FS_ENCRYPTION_MODE_AES_256_CTS		4
-#define FS_ENCRYPTION_MODE_PRIVATE          127
 
 /**
  * Encryption context for inode
@@ -81,7 +80,6 @@ struct fscrypt_info {
 	u8 ci_flags;
 	struct crypto_skcipher *ci_ctfm;
 	u8 ci_master_key[FS_KEY_DESCRIPTOR_SIZE];
-	u8 ci_raw_key[FS_MAX_KEY_SIZE];
 };
 
 #define FS_CTX_REQUIRES_FREE_ENCRYPT_FL		0x00000001
@@ -178,8 +176,7 @@ static inline bool fscrypt_dummy_context_enabled(struct inode *inode)
 
 static inline bool fscrypt_valid_contents_enc_mode(u32 mode)
 {
-	return (mode == FS_ENCRYPTION_MODE_AES_256_XTS ||
-		mode == FS_ENCRYPTION_MODE_PRIVATE);
+	return (mode == FS_ENCRYPTION_MODE_AES_256_XTS);
 }
 
 static inline bool fscrypt_valid_filenames_enc_mode(u32 mode)
@@ -260,7 +257,6 @@ extern int fscrypt_inherit_context(struct inode *, struct inode *,
 /* keyinfo.c */
 extern int fscrypt_get_encryption_info(struct inode *);
 extern void fscrypt_put_encryption_info(struct inode *, struct fscrypt_info *);
-extern int fs_using_hardware_encryption(struct inode *inode);
 
 /* fname.c */
 extern int fscrypt_setup_filename(struct inode *, const struct qstr *,
@@ -356,11 +352,6 @@ static inline void fscrypt_notsupp_put_encryption_info(struct inode *i,
 					struct fscrypt_info *f)
 {
 	return;
-}
-
-static inline int fs_notsupp_using_hardware_encryption(struct inode *inode)
-{
-	return -EOPNOTSUPP;
 }
 
  /* fname.c */
