@@ -96,3 +96,8 @@
 
 	status = "ok";
 };
+
+&pm855l_wled {
+	qcom,string-cfg= <7>;
+	status = "ok";
+};
