@@ -13,8 +13,8 @@
 #include "msm8937-mdss.dtsi"
 
 &mdss_dsi {
-	vdda-supply = <&pm8917_l2>;
-	vddio-supply = <&pm8917_l6>;
+	vdda-supply = <&pm8937_l2>;
+	vddio-supply = <&pm8937_l6>;
 
 	ranges = <0x1a94000 0x1a94000 0x300
 		0x1a94400 0x1a94400 0x280
@@ -34,8 +34,8 @@
 };
 
 &mdss_dsi0 {
-	vdd-supply = <&pm8917_l17>;
-	vddio-supply = <&pm8917_l6>;
+	vdd-supply = <&pm8937_l17>;
+	vddio-supply = <&pm8937_l6>;
 };
 
 /delete-node/ &mdss_dsi1;
