@@ -9,17 +9,14 @@ The follow section describes the LLCC PMU DT node binding.
 
 Required properties:
 - compatible		: Shall be "qcom,qcom-llcc-pmu"
-- reg			: There shall be two resources, each a pair of the form
-			  < base_address total_size >.  One will represent the
-			  DDR LAGG region, the other will represent the LLCC
-			  BEAC region.
-- reg-names		: There shall be two values, one 'lagg-base', one
-			  'beac-base', corresponding to the order of the two
-			  'reg' values.
+- reg			: There shall be one resource, a pair of the form
+			  < base_address total_size > representing the DDR_LAGG
+			  region.
+- reg-names		: Shall be "lagg-base".
 
 Example:
 	llcc_pmu: llcc-pmu {
 		compatible = "qcom,qcom-llcc-pmu";
-		reg = < 0x090CC000 0x300 >, < 0x09648000 0x110 >;
-		reg-names = "lagg-base", "beac-base";
+		reg = < 0x090CC000 0x300 >;
+		reg-names = "lagg-base";
 	};
