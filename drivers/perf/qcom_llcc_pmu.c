@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,7 @@ static int qcom_llcc_event_init(struct perf_event *event)
 
 	if (config == LLCC_RD_EV) {
 		event->hw.config_base = event->attr.config;
+		event->readable_on_cpus = CPU_MASK_ALL;
 		return 0;
 	} else
 		return -ENOENT;
