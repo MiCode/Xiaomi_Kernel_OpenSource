@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -299,6 +299,7 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 	uint16_t                           total_bytes = 0;
 	uint8_t                           *ptr = NULL;
 	int32_t                            rc = 0, cnt;
+	uint32_t                           fw_size;
 	const struct firmware             *fw = NULL;
 	const char                        *fw_name_prog = NULL;
 	const char                        *fw_name_coeff = NULL;
@@ -306,6 +307,7 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 	char                               name_coeff[32] = {0};
 	struct device                     *dev = &(o_ctrl->pdev->dev);
 	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
+	struct page                       *page = NULL;
 
 	if (!o_ctrl) {
 		CAM_ERR(CAM_OIS, "Invalid Args");
@@ -331,14 +333,18 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
 	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
 	i2c_reg_setting.size = total_bytes;
-	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *)
-		kzalloc(sizeof(struct cam_sensor_i2c_reg_array) * total_bytes,
-		GFP_KERNEL);
-	if (!i2c_reg_setting.reg_setting) {
+	fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *
+		total_bytes) >> PAGE_SHIFT;
+	page = cma_alloc(dev_get_cma_area((o_ctrl->soc_info.dev)),
+		fw_size, 0);
+	if (!page) {
 		CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
 		release_firmware(fw);
 		return -ENOMEM;
 	}
+
+	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *)(
+		page_address(page));
 
 	for (cnt = 0, ptr = (uint8_t *)fw->data; cnt < total_bytes;
 		cnt++, ptr++) {
@@ -355,7 +361,10 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 		CAM_ERR(CAM_OIS, "OIS FW download failed %d", rc);
 		goto release_firmware;
 	}
-	kfree(i2c_reg_setting.reg_setting);
+	cma_release(dev_get_cma_area((o_ctrl->soc_info.dev)),
+		page, fw_size);
+	page = NULL;
+	fw_size = 0;
 	release_firmware(fw);
 
 	rc = request_firmware(&fw, fw_name_coeff, dev);
@@ -368,14 +377,18 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
 	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
 	i2c_reg_setting.size = total_bytes;
-	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *)
-		kzalloc(sizeof(struct cam_sensor_i2c_reg_array) * total_bytes,
-		GFP_KERNEL);
-	if (!i2c_reg_setting.reg_setting) {
+	fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *
+		total_bytes) >> PAGE_SHIFT;
+	page = cma_alloc(dev_get_cma_area((o_ctrl->soc_info.dev)),
+		fw_size, 0);
+	if (!page) {
 		CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
 		release_firmware(fw);
 		return -ENOMEM;
 	}
+
+	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *)(
+		page_address(page));
 
 	for (cnt = 0, ptr = (uint8_t *)fw->data; cnt < total_bytes;
 		cnt++, ptr++) {
@@ -392,7 +405,8 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 		CAM_ERR(CAM_OIS, "OIS FW download failed %d", rc);
 
 release_firmware:
-	kfree(i2c_reg_setting.reg_setting);
+	cma_release(dev_get_cma_area((o_ctrl->soc_info.dev)),
+		page, fw_size);
 	release_firmware(fw);
 
 	return rc;
