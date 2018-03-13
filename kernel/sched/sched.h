@@ -2894,6 +2894,14 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 
 void note_task_waking(struct task_struct *p, u64 wallclock);
 
+static inline bool task_placement_boost_enabled(struct task_struct *p)
+{
+	if (task_sched_boost(p))
+		return sched_boost_policy() != SCHED_BOOST_NONE;
+
+	return false;
+}
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct walt_sched_stats;
@@ -2902,7 +2910,12 @@ struct sched_cluster;
 
 static inline bool task_sched_boost(struct task_struct *p)
 {
-	return true;
+	return false;
+}
+
+static inline bool task_placement_boost_enabled(struct task_struct *p)
+{
+	return false;
 }
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
