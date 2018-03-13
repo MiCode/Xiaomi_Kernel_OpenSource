@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1131,7 +1131,6 @@ static int enable_usb_bam(struct platform_device *pdev)
 {
 	int ret;
 	struct usb_bam_ctx_type *ctx = dev_get_drvdata(&pdev->dev);
-	enum usb_ctrl bam_type = ctx->usb_bam_data->bam_type;
 
 	ret = usb_bam_init(pdev);
 	if (ret)
