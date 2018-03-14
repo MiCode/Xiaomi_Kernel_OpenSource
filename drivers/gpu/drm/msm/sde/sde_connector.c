@@ -328,8 +328,9 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 	struct sde_connector *c_conn = NULL;
 	struct sde_connector_state *c_state = NULL;
 	size_t dither_sz = 0;
+	u32 *p = (u32 *)cfg;
 
-	if (!conn || !state || !(*cfg))
+	if (!conn || !state || !p)
 		return -EINVAL;
 
 	c_conn = to_sde_connector(conn);
