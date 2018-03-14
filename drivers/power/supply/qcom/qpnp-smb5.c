@@ -158,7 +158,8 @@ struct smb_dt_props {
 	int			chg_inhibit_thr_mv;
 	bool			no_battery;
 	bool			hvdcp_disable;
-	bool			auto_recharge_soc;
+	int			auto_recharge_soc;
+	int			auto_recharge_vbat_mv;
 	int			wd_bark_time;
 	int			batt_profile_fcc_ua;
 	int			batt_profile_fv_uv;
@@ -329,8 +330,23 @@ static int smb5_parse_dt(struct smb5 *chip)
 		return -EINVAL;
 	}
 
-	chip->dt.auto_recharge_soc = of_property_read_bool(node,
-						"qcom,auto-recharge-soc");
+	chip->dt.auto_recharge_soc = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,auto-recharge-soc",
+				&chip->dt.auto_recharge_soc);
+	if (!rc && (chip->dt.auto_recharge_soc < 0 ||
+			chip->dt.auto_recharge_soc > 100)) {
+		pr_err("qcom,auto-recharge-soc is incorrect\n");
+		return -EINVAL;
+	}
+	chg->auto_recharge_soc = chip->dt.auto_recharge_soc;
+
+	chip->dt.auto_recharge_vbat_mv = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,auto-recharge-vbat-mv",
+				&chip->dt.auto_recharge_vbat_mv);
+	if (!rc && (chip->dt.auto_recharge_vbat_mv < 0)) {
+		pr_err("qcom,auto-recharge-vbat-mv is incorrect\n");
+		return -EINVAL;
+	}
 
 	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 
@@ -956,6 +972,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_RECHARGE_SOC,
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -1044,6 +1061,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		rc = smblib_get_prop_batt_charge_counter(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_RECHARGE_SOC:
+		val->intval = chg->auto_recharge_soc;
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -1555,13 +1575,64 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
-	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
-			SOC_BASED_RECHG_BIT,
-			chip->dt.auto_recharge_soc ? SOC_BASED_RECHG_BIT : 0);
+	rc = smblib_masked_write(chg, CHGR_CFG2_REG, RECHG_MASK,
+				(chip->dt.auto_recharge_vbat_mv != -EINVAL) ?
+				VBAT_BASED_RECHG_BIT : 0);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure FG_UPDATE_CFG2_SEL_REG rc=%d\n",
+		dev_err(chg->dev, "Couldn't configure VBAT-rechg CHG_CFG2_REG rc=%d\n",
 			rc);
 		return rc;
+	}
+
+	/* program the auto-recharge VBAT threshold */
+	if (chip->dt.auto_recharge_vbat_mv != -EINVAL) {
+		u32 temp = VBAT_TO_VRAW_ADC(chip->dt.auto_recharge_vbat_mv);
+
+		temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
+		rc = smblib_batch_write(chg,
+			CHGR_ADC_RECHARGE_THRESHOLD_MSB_REG, (u8 *)&temp, 2);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure ADC_RECHARGE_THRESHOLD REG rc=%d\n",
+				rc);
+			return rc;
+		}
+		/* Program the sample count for VBAT based recharge to 3 */
+		rc = smblib_masked_write(chg, CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG,
+					NO_OF_SAMPLE_FOR_RCHG,
+					2 << NO_OF_SAMPLE_FOR_RCHG_SHIFT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure CHGR_NO_SAMPLE_FOR_TERM_RCHG_CFG rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	rc = smblib_masked_write(chg, CHGR_CFG2_REG, RECHG_MASK,
+				(chip->dt.auto_recharge_soc != -EINVAL) ?
+				SOC_BASED_RECHG_BIT : VBAT_BASED_RECHG_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure SOC-rechg CHG_CFG2_REG rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* program the auto-recharge threshold */
+	if (chip->dt.auto_recharge_soc != -EINVAL) {
+		rc = smblib_write(chg, CHARGE_RCHG_SOC_THRESHOLD_CFG_REG,
+				(chip->dt.auto_recharge_soc * 255) / 100);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure CHG_RCHG_SOC_REG rc=%d\n",
+				rc);
+			return rc;
+		}
+		/* Program the sample count for SOC based recharge to 1 */
+		rc = smblib_masked_write(chg, CHGR_NO_SAMPLE_TERM_RCHG_CFG_REG,
+						NO_OF_SAMPLE_FOR_RCHG, 0);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure CHGR_NO_SAMPLE_FOR_TERM_RCHG_CFG rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	if (chg->sw_jeita_enabled) {

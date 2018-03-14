@@ -62,11 +62,15 @@ int smblib_write(struct smb_charger *chg, u16 addr, u8 val)
 	return regmap_write(chg->regmap, addr, val);
 }
 
+int smblib_batch_write(struct smb_charger *chg, u16 addr, u8 *val,
+			int count)
+{
+	return regmap_bulk_write(chg->regmap, addr, val, count);
+}
+
 int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val)
 {
-
 	return regmap_update_bits(chg->regmap, addr, mask, val);
-
 }
 
 int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
