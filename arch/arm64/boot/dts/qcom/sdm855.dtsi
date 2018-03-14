@@ -1344,7 +1344,7 @@
 	};
 
 	clock_gpucc: qcom,gpucc {
-		compatible = "qcom,gpucc-sdm855";
+		compatible = "qcom,gpucc-sdm855", "syscon";
 		reg = <0x2c90000 0x9000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm855l_s6_level>;
@@ -1373,6 +1373,7 @@
 		qcom,camcc = <&clock_camcc>;
 		qcom,dispcc = <&clock_dispcc>;
 		qcom,npucc = <&clock_npucc>;
+		qcom,gpucc = <&clock_gpucc>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
