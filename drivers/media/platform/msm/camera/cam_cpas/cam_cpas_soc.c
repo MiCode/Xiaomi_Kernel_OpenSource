@@ -105,6 +105,35 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 	soc_private->axi_camnoc_based = of_property_read_bool(of_node,
 		"client-bus-camnoc-based");
 
+	soc_private->control_camnoc_axi_clk = of_property_read_bool(of_node,
+		"control-camnoc-axi-clk");
+
+	if (soc_private->control_camnoc_axi_clk == true) {
+		rc = of_property_read_u32(of_node, "camnoc-bus-width",
+			&soc_private->camnoc_bus_width);
+		if (rc || (soc_private->camnoc_bus_width == 0)) {
+			CAM_ERR(CAM_CPAS, "Bus width not found rc=%d, %d",
+				rc, soc_private->camnoc_bus_width);
+			return rc;
+		}
+
+		rc = of_property_read_u32(of_node,
+			"camnoc-axi-clk-bw-margin-perc",
+			&soc_private->camnoc_axi_clk_bw_margin);
+
+		if (rc) {
+			/* this is not fatal, overwrite rc */
+			rc = 0;
+			soc_private->camnoc_axi_clk_bw_margin = 0;
+		}
+	}
+
+	CAM_DBG(CAM_CPAS,
+		"control_camnoc_axi_clk=%d, width=%d, margin=%d",
+		soc_private->control_camnoc_axi_clk,
+		soc_private->camnoc_bus_width,
+		soc_private->camnoc_axi_clk_bw_margin);
+
 	count = of_property_count_u32_elems(of_node, "vdd-corners");
 	if ((count > 0) && (count <= CAM_REGULATOR_LEVEL_MAX) &&
 		(of_property_count_strings(of_node, "vdd-corner-ahb-mapping") ==
