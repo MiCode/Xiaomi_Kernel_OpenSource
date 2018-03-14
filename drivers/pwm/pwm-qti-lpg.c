@@ -28,6 +28,7 @@
 
 #define REG_SIZE_PER_LPG	0x100
 
+#define REG_LPG_PERPH_SUBTYPE		0x05
 #define REG_LPG_PWM_SIZE_CLK		0x41
 #define REG_LPG_PWM_FREQ_PREDIV_CLK	0x42
 #define REG_LPG_PWM_TYPE_CONFIG		0x43
@@ -36,9 +37,15 @@
 #define REG_LPG_ENABLE_CONTROL		0x46
 #define REG_LPG_PWM_SYNC		0x47
 
+/* REG_LPG_PERPH_SUBTYPE */
+#define SUBTYPE_PWM			0x0b
+#define SUBTYPE_LPG_LITE		0x11
+
 /* REG_LPG_PWM_SIZE_CLK */
-#define LPG_PWM_SIZE_MASK		BIT(4)
-#define LPG_PWM_SIZE_SHIFT		4
+#define LPG_PWM_SIZE_MASK_LPG		BIT(4)
+#define LPG_PWM_SIZE_MASK_PWM		BIT(2)
+#define LPG_PWM_SIZE_SHIFT_LPG		4
+#define LPG_PWM_SIZE_SHIFT_PWM		2
 #define LPG_PWM_CLK_FREQ_SEL_MASK	GENMASK(1, 0)
 
 /* REG_LPG_PWM_FREQ_PREDIV_CLK */
@@ -95,6 +102,7 @@ struct qpnp_lpg_channel {
 	u32				lpg_idx;
 	u32				reg_base;
 	u8				src_sel;
+	u8				subtype;
 	int				current_period_ns;
 	int				current_duty_ns;
 };
@@ -107,6 +115,23 @@ struct qpnp_lpg_chip {
 	struct mutex		bus_lock;
 	u32			num_lpgs;
 };
+
+static int qpnp_lpg_read(struct qpnp_lpg_channel *lpg, u16 addr, u8 *val)
+{
+	int rc;
+	unsigned int tmp;
+
+	mutex_lock(&lpg->chip->bus_lock);
+	rc = regmap_read(lpg->chip->regmap, lpg->reg_base + addr, &tmp);
+	if (rc < 0)
+		dev_err(lpg->chip->dev, "Read addr 0x%x failed, rc=%d\n",
+				lpg->reg_base + addr, rc);
+	else
+		*val = (u8)tmp;
+	mutex_unlock(&lpg->chip->bus_lock);
+
+	return rc;
+}
 
 static int qpnp_lpg_write(struct qpnp_lpg_channel *lpg, u16 addr, u8 val)
 {
@@ -167,10 +192,24 @@ static int __find_index_in_array(int member, const int array[], int length)
 	return -EINVAL;
 }
 
+static int qpnp_lpg_set_glitch_removal(struct qpnp_lpg_channel *lpg, bool en)
+{
+	int rc;
+	u8 mask, val;
+
+	val = en ? LPG_PWM_EN_GLITCH_REMOVAL_MASK : 0;
+	mask = LPG_PWM_EN_GLITCH_REMOVAL_MASK;
+	rc = qpnp_lpg_masked_write(lpg, REG_LPG_PWM_TYPE_CONFIG, mask, val);
+	if (rc < 0)
+		dev_err(lpg->chip->dev, "Write LPG_PWM_TYPE_CONFIG failed, rc=%d\n",
+							rc);
+	return rc;
+}
+
 static int qpnp_lpg_set_pwm_config(struct qpnp_lpg_channel *lpg)
 {
 	int rc;
-	u8 val, mask;
+	u8 val, mask, shift;
 	int pwm_size_idx, pwm_clk_idx, prediv_idx, clk_exp_idx;
 
 	pwm_size_idx = __find_index_in_array(lpg->pwm_config.pwm_size,
@@ -188,8 +227,16 @@ static int qpnp_lpg_set_pwm_config(struct qpnp_lpg_channel *lpg)
 
 	/* pwm_clk_idx is 1 bit lower than the register value */
 	pwm_clk_idx += 1;
-	val = pwm_size_idx << LPG_PWM_SIZE_SHIFT | pwm_clk_idx;
-	mask = LPG_PWM_SIZE_MASK | LPG_PWM_CLK_FREQ_SEL_MASK;
+	if (lpg->subtype == SUBTYPE_PWM) {
+		shift = LPG_PWM_SIZE_SHIFT_PWM;
+		mask = LPG_PWM_SIZE_MASK_PWM;
+	} else {
+		shift = LPG_PWM_SIZE_SHIFT_LPG;
+		mask = LPG_PWM_SIZE_MASK_LPG;
+	}
+
+	val = pwm_size_idx << shift | pwm_clk_idx;
+	mask |= LPG_PWM_CLK_FREQ_SEL_MASK;
 	rc = qpnp_lpg_masked_write(lpg, REG_LPG_PWM_SIZE_CLK, mask, val);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Write LPG_PWM_SIZE_CLK failed, rc=%d\n",
@@ -378,6 +425,13 @@ static int qpnp_lpg_pwm_enable(struct pwm_chip *pwm_chip,
 		return -ENODEV;
 	}
 
+	rc = qpnp_lpg_set_glitch_removal(lpg, true);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Enable glitch-removal failed, rc=%d\n",
+							rc);
+		return rc;
+	}
+
 	mask = LPG_PWM_SRC_SELECT_MASK | LPG_EN_LPG_OUT_BIT;
 	val = lpg->src_sel << LPG_PWM_SRC_SELECT_SHIFT | LPG_EN_LPG_OUT_BIT;
 
@@ -406,9 +460,16 @@ static void qpnp_lpg_pwm_disable(struct pwm_chip *pwm_chip,
 	val = lpg->src_sel << LPG_PWM_SRC_SELECT_SHIFT;
 
 	rc = qpnp_lpg_masked_write(lpg, REG_LPG_ENABLE_CONTROL, mask, val);
-	if (rc < 0)
+	if (rc < 0) {
 		dev_err(pwm_chip->dev, "Disable PWM output failed for channel %d, rc=%d\n",
 						lpg->lpg_idx, rc);
+		return;
+	}
+
+	rc = qpnp_lpg_set_glitch_removal(lpg, false);
+	if (rc < 0)
+		dev_err(lpg->chip->dev, "Disable glitch-removal failed, rc=%d\n",
+							rc);
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -491,6 +552,12 @@ static int qpnp_lpg_parse_dt(struct qpnp_lpg_chip *chip)
 		chip->lpgs[i].lpg_idx = i;
 		chip->lpgs[i].reg_base = base + i * REG_SIZE_PER_LPG;
 		chip->lpgs[i].src_sel = PWM_OUTPUT;
+		rc = qpnp_lpg_read(&chip->lpgs[i], REG_LPG_PERPH_SUBTYPE,
+				&chip->lpgs[i].subtype);
+		if (rc < 0) {
+			dev_err(chip->dev, "Read subtype failed, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	return rc;
@@ -512,16 +579,15 @@ static int qpnp_lpg_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	mutex_init(&chip->bus_lock);
 	rc = qpnp_lpg_parse_dt(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Devicetree properties parsing failed, rc=%d\n",
 				rc);
-		return rc;
+		goto destroy;
 	}
 
 	dev_set_drvdata(chip->dev, chip);
-
-	mutex_init(&chip->bus_lock);
 	chip->pwm_chip.dev = chip->dev;
 	chip->pwm_chip.base = -1;
 	chip->pwm_chip.npwm = chip->num_lpgs;
@@ -530,9 +596,12 @@ static int qpnp_lpg_probe(struct platform_device *pdev)
 	rc = pwmchip_add(&chip->pwm_chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Add pwmchip failed, rc=%d\n", rc);
-		mutex_destroy(&chip->bus_lock);
+		goto destroy;
 	}
 
+	return 0;
+destroy:
+	mutex_destroy(&chip->bus_lock);
 	return rc;
 }
 

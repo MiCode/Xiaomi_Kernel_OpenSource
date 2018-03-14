@@ -41,8 +41,6 @@
 #define TRILED_NUM_MAX			3
 
 #define PWM_PERIOD_DEFAULT_NS		1000000
-#define LED_BLINK_ON_MS			125
-#define LED_BLINK_OFF_MS		875
 
 struct pwm_setting {
 	u32	pre_period_ns;
@@ -309,8 +307,7 @@ static int qpnp_tri_led_register(struct qpnp_tri_led_chip *chip)
 		led->cdev.blink_set = qpnp_tri_led_set_blink;
 		led->cdev.default_trigger = led->default_trigger;
 		led->cdev.brightness = LED_OFF;
-		led->cdev.blink_delay_on = LED_BLINK_ON_MS;
-		led->cdev.blink_delay_off = LED_BLINK_OFF_MS;
+		led->cdev.flags |= LED_KEEP_TRIGGER;
 
 		rc = devm_led_classdev_register(chip->dev, &led->cdev);
 		if (rc < 0) {
