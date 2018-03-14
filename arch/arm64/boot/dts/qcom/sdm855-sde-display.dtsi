@@ -386,9 +386,8 @@
 };
 
 &sde_dp {
-
+	qcom,dp-usbpd-detection = <&pm855b_pdphy>;
 	qcom,ext-disp = <&ext_disp>;
-
 
 	qcom,aux-en-gpio = <&tlmm 43 0>;
 	qcom,aux-sel-gpio = <&tlmm 51 0>;
