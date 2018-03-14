@@ -158,6 +158,8 @@
 #define DDR_CONFIG_PRG_RCLK_DLY_MASK	0x1FF
 #define DDR_CONFIG_PRG_RCLK_DLY		115
 #define DDR_CONFIG_2_POR_VAL		0x80040873
+#define DLL_USR_CTL_POR_VAL		0x10800
+#define ENABLE_DLL_LOCK_STATUS		(1 << 26)
 
 /* 512 descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 9)
@@ -200,6 +202,7 @@ struct sdhci_msm_offset {
 	u32 CORE_DLL_CONFIG_2;
 	u32 CORE_DDR_CONFIG;
 	u32 CORE_DDR_CONFIG_2;
+	u32 CORE_DLL_USR_CTL; /* Present on SDCC5.1 onwards */
 };
 
 struct sdhci_msm_offset sdhci_msm_offset_mci_removed = {
@@ -229,6 +232,7 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_removed = {
 	.CORE_DLL_CONFIG_2 = 0x254,
 	.CORE_DDR_CONFIG = 0x258,
 	.CORE_DDR_CONFIG_2 = 0x25C,
+	.CORE_DLL_USR_CTL = 0x388,
 };
 
 struct sdhci_msm_offset sdhci_msm_offset_mci_present = {
@@ -793,6 +797,15 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 				msm_host_offset->CORE_DLL_CONFIG_2)
 				& ~CORE_DLL_CLOCK_DISABLE), host->ioaddr +
 				msm_host_offset->CORE_DLL_CONFIG_2);
+	}
+
+	/*
+	 * Configure DLL user control register to enable DLL status
+	 * This setting is applicable to SDCC v5.1 onwards only
+	 */
+	if (msm_host->need_dll_user_ctl) {
+		writel_relaxed(DLL_USR_CTL_POR_VAL | ENABLE_DLL_LOCK_STATUS,
+			host->ioaddr + msm_host_offset->CORE_DLL_USR_CTL);
 	}
 
 	/* Set DLL_EN bit to 1. */
@@ -4563,6 +4576,10 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 		msm_host->ice_hci_support = true;
 		host->cdr_support = true;
 	}
+
+	if ((major == 1) && (minor >= 0x71))
+		msm_host->need_dll_user_ctl = true;
+
 }
 
 #ifdef CONFIG_MMC_CQ_HCI
