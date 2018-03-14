@@ -2376,6 +2376,29 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 
 		/* check if stream buffer is already attached to rotator */
 		_sde_plane_rot_get_fb(plane, pstate, rstate);
+
+		/*
+		 * For video mode, reject any downscale factor greater than or
+		 * equal to 1.1x
+		 *
+		 * Check the downscale factor first to avoid querying the
+		 * interface mode unnecessarily.
+		 */
+		if ((rstate->out_src_h >> 16) * 10 >= state->crtc_h * 11 &&
+				sde_crtc_get_intf_mode(state->crtc) ==
+				INTF_MODE_VIDEO) {
+			SDE_DEBUG_PLANE(psde,
+					"inline %d with invalid scale, %dx%d, %dx%d\n",
+					rstate->sequence_id,
+					rstate->out_src_w, rstate->out_src_h,
+					state->crtc_w, state->crtc_h);
+			SDE_EVT32(DRMID(plane), rstate->sequence_id,
+					rstate->out_src_w >> 16,
+					rstate->out_src_h >> 16,
+					state->crtc_w, state->crtc_h,
+					SDE_EVTLOG_ERROR);
+			return -EINVAL;
+		}
 	} else {
 
 		SDE_DEBUG("plane%d.%d bypass rotator\n", plane->base.id,
