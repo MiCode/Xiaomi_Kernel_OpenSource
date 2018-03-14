@@ -850,6 +850,7 @@ void *sde_dp_hdcp2p2_init(struct sde_hdcp_init_data *init_data)
 			goto error;
 		}
 	} else {
+		rc = 0;
 		goto error;
 	}
 
