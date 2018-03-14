@@ -48,6 +48,7 @@
 	/delete-node/ xo-therm-buf-adc;
 	/delete-node/ case-therm-adc;
 	/delete-node/ pa-therm0-adc;
+	/delete-node/ pm8937_tz;
 };
 
 &soc {
