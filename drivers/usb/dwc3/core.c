@@ -901,7 +901,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 		}
 	}
 
-	dwc3_set_prtcap(dwc, dwc->dr_mode);
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
 
 	return 0;
