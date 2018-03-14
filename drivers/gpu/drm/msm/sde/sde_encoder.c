@@ -2426,7 +2426,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			if (autorefresh_enabled) {
 				SDE_DEBUG_ENC(sde_enc,
 					"not handling early wakeup since auto refresh is enabled\n");
-				mutex_lock(&sde_enc->rc_lock);
+				mutex_unlock(&sde_enc->rc_lock);
 				return 0;
 			}
 
