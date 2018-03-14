@@ -48,6 +48,7 @@
 #define SDE_HW_VER_401	SDE_HW_VER(4, 0, 1) /* sdm845 v2.0 */
 #define SDE_HW_VER_410	SDE_HW_VER(4, 1, 0) /* sdm670 v1.0 */
 #define SDE_HW_VER_500	SDE_HW_VER(5, 0, 0) /* sdm855 v1.0 */
+#define SDE_HW_VER_501	SDE_HW_VER(5, 0, 1) /* sdm855 v2.0 */
 
 #define IS_MSM8996_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_170)
 #define IS_MSM8998_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_300)
