@@ -1317,11 +1317,27 @@ err:
 }
 
 void cam_ife_cam_cdm_callback(uint32_t handle, void *userdata,
-	enum cam_cdm_cb_status status, uint32_t cookie)
+	enum cam_cdm_cb_status status, uint64_t cookie)
 {
-	CAM_DBG(CAM_ISP,
-		"Called by CDM hdl=%x, udata=%pK, status=%d, cookie=%d",
-		 handle, userdata, status, cookie);
+	struct cam_ife_hw_mgr_ctx *ctx = NULL;
+
+	if (!userdata) {
+		CAM_ERR(CAM_ISP, "Invalid args");
+		return;
+	}
+
+	ctx = userdata;
+
+	if (status == CAM_CDM_CB_STATUS_BL_SUCCESS) {
+		complete(&ctx->config_done_complete);
+		CAM_DBG(CAM_ISP,
+			"Called by CDM hdl=%x, udata=%pK, status=%d, cookie=%llu",
+			 handle, userdata, status, cookie);
+	} else {
+		CAM_WARN(CAM_ISP,
+			"Called by CDM hdl=%x, udata=%pK, status=%d, cookie=%llu",
+			 handle, userdata, status, cookie);
+	}
 }
 
 /* entry function: acquire_hw */
@@ -1584,9 +1600,9 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 		cdm_cmd = ctx->cdm_cmd;
 		cdm_cmd->cmd_arrary_count = cfg->num_hw_update_entries;
 		cdm_cmd->type = CAM_CDM_BL_CMD_TYPE_MEM_HANDLE;
-		cdm_cmd->flag = false;
-		cdm_cmd->userdata = NULL;
-		cdm_cmd->cookie = 0;
+		cdm_cmd->flag = true;
+		cdm_cmd->userdata = ctx;
+		cdm_cmd->cookie = cfg->request_id;
 
 		for (i = 0 ; i <= cfg->num_hw_update_entries; i++) {
 			cmd = (cfg->hw_update_entries + i);
@@ -1597,8 +1613,31 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 
 		CAM_DBG(CAM_ISP, "Submit to CDM");
 		rc = cam_cdm_submit_bls(ctx->cdm_handle, cdm_cmd);
-		if (rc)
+		if (rc) {
 			CAM_ERR(CAM_ISP, "Failed to apply the configs");
+			return rc;
+		}
+
+		if (cfg->request_id == 1) {
+			init_completion(&ctx->config_done_complete);
+			rc = wait_for_completion_timeout(
+				&ctx->config_done_complete,
+				msecs_to_jiffies(30));
+			if (rc <= 0) {
+				CAM_ERR(CAM_ISP,
+					"config done completion timeout for req_id=%llu rc = %d",
+					cfg->request_id, rc);
+				if (rc == 0)
+					rc = -ETIMEDOUT;
+			} else {
+				rc = 0;
+				CAM_DBG(CAM_ISP,
+					"config done Success for req_id=%llu",
+					cfg->request_id);
+			}
+
+			rc = 0;
+		}
 	} else {
 		CAM_ERR(CAM_ISP, "No commands to config");
 	}
@@ -1960,6 +1999,8 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 {
 	int                               rc = -1;
 	struct cam_hw_config_args        *start_args = start_hw_args;
+	struct cam_hw_stop_args           stop_args;
+	struct cam_isp_stop_hw_method     stop_hw_method;
 	struct cam_ife_hw_mgr_ctx        *ctx;
 	struct cam_ife_hw_mgr_res        *hw_mgr_res;
 	uint32_t                          i;
@@ -2125,7 +2166,10 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	CAM_DBG(CAM_ISP, "Exit...(success)");
 	return 0;
 err:
-	cam_ife_mgr_stop_hw(hw_mgr_priv, start_hw_args);
+	stop_hw_method.hw_stop_cmd = CAM_CSID_HALT_IMMEDIATELY;
+	stop_args.ctxt_to_hw_map = start_args->ctxt_to_hw_map;
+	stop_args.args = (void *)(&stop_hw_method);
+	cam_ife_mgr_stop_hw(hw_mgr_priv, &stop_args);
 	CAM_DBG(CAM_ISP, "Exit...(rc=%d)", rc);
 	return rc;
 }
@@ -3025,18 +3069,18 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 		return error_status;
 
 	switch (error_status) {
-	case CAM_VFE_IRQ_STATUS_OVERFLOW:
-	case CAM_VFE_IRQ_STATUS_P2I_ERROR:
-	case CAM_VFE_IRQ_STATUS_VIOLATION:
-		CAM_DBG(CAM_ISP, "Enter: error_type (%d)", error_status);
+	case CAM_ISP_HW_ERROR_OVERFLOW:
+	case CAM_ISP_HW_ERROR_P2I_ERROR:
+	case CAM_ISP_HW_ERROR_VIOLATION:
+		CAM_ERR(CAM_ISP, "Enter: error_type (%d)", error_status);
 
 		error_event_data.error_type =
 				CAM_ISP_HW_ERROR_OVERFLOW;
 
 		cam_ife_hw_mgr_process_overflow(ife_hwr_mgr_ctx,
-				&error_event_data,
-				core_idx,
-				&recovery_data);
+			&error_event_data,
+			core_idx,
+			&recovery_data);
 
 		/* Trigger for recovery */
 		recovery_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
@@ -3046,7 +3090,7 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 		CAM_DBG(CAM_ISP, "None error (%d)", error_status);
 	}
 
-	return error_status;
+	return 0;
 }
 
 /*
@@ -3859,8 +3903,8 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	 */
 	if (g_ife_hw_mgr.debug_cfg.enable_recovery) {
 		CAM_DBG(CAM_ISP, "IFE Mgr recovery is enabled");
-	       rc = cam_ife_hw_mgr_handle_camif_error(ife_hwr_mgr_ctx,
-		    evt_payload_priv);
+		rc = cam_ife_hw_mgr_handle_camif_error(ife_hwr_mgr_ctx,
+			evt_payload_priv);
 	} else {
 		CAM_DBG(CAM_ISP, "recovery is not enabled");
 		rc = 0;
