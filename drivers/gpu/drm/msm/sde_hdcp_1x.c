@@ -269,11 +269,15 @@ static int sde_hdcp_1x_load_keys(void *input)
 	dp_link = hdcp->init_data.dp_link;
 	reg_set = &hdcp->reg_set;
 
-	if (IS_ENABLED(CONFIG_HDCP_QSEECOM)  &&
-	    hdcp1_set_keys(&aksv_msb, &aksv_lsb)) {
-		pr_err("setting hdcp SW keys failed\n");
+	if (!IS_ENABLED(CONFIG_HDCP_QSEECOM)) {
 		rc = -EINVAL;
 		goto end;
+	} else {
+		if (hdcp1_set_keys(&aksv_msb, &aksv_lsb)) {
+			pr_err("setting hdcp SW keys failed\n");
+			rc = -EINVAL;
+			goto end;
+		}
 	}
 
 	pr_debug("%s: AKSV=%02x%08x\n", SDE_HDCP_STATE_NAME,
