@@ -4404,9 +4404,8 @@ bool ipa3_is_client_handle_valid(u32 clnt_hdl)
  */
 void ipa3_proxy_clk_unvote(void)
 {
-	if (!ipa3_is_ready())
+	if (ipa3_ctx == NULL)
 		return;
-
 	mutex_lock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 	if (ipa3_ctx->q6_proxy_clk_vote_valid) {
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PROXY_CLK_VOTE");
@@ -4424,9 +4423,8 @@ void ipa3_proxy_clk_unvote(void)
  */
 void ipa3_proxy_clk_vote(void)
 {
-	if (!ipa3_is_ready())
+	if (ipa3_ctx == NULL)
 		return;
-
 	mutex_lock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 	if (!ipa3_ctx->q6_proxy_clk_vote_valid ||
 		(ipa3_ctx->q6_proxy_clk_vote_cnt > 0)) {
