@@ -15,6 +15,7 @@
 
 #include "sdm855-pmic-overlay.dtsi"
 #include "sdm855-audio-overlay.dtsi"
+#include "sdm855-sde-display.dtsi"
 
 &qupv3_se12_2uart {
 	status = "ok";

@@ -11,6 +11,7 @@
  */
 
 #include "msm-audio-lpass.dtsi"
+#include "sdm855-sde-display.dtsi"
 
 &soc {
 	usb_emu_phy: usb_emu_phy@a720000 {
