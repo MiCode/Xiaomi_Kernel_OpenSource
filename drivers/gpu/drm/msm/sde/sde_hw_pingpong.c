@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_pingpong.h"
+#include "sde_dbg.h"
 
 #define PP_TEAR_CHECK_EN                0x000
 #define PP_SYNC_CONFIG_VSYNC            0x004
@@ -159,6 +160,9 @@ struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,
 	c->idx = idx;
 	c->pingpong_hw_cap = cfg;
 	_setup_pingpong_ops(&c->ops, c->pingpong_hw_cap->features);
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
 }

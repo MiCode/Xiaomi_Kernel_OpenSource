@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include "sde_hw_lm.h"
 #include "sde_hw_sspp.h"
 #include "sde_hw_color_processing.h"
+#include "sde_dbg.h"
 
 #define SDE_FETCH_CONFIG_RESET_VALUE   0x00000087
 
@@ -936,6 +937,18 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	hw_pipe->cap = cfg;
 	_setup_layer_ops(hw_pipe, hw_pipe->cap->features);
 	hw_pipe->highest_bank_bit = catalog->mdp[0].highest_bank_bit;
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
+			hw_pipe->hw.blk_off,
+			hw_pipe->hw.blk_off + hw_pipe->hw.length,
+			hw_pipe->hw.xin_id);
+
+	if (cfg->sblk->scaler_blk.len)
+		sde_dbg_reg_register_dump_range(SDE_DBG_NAME,
+			cfg->sblk->scaler_blk.name,
+			cfg->sblk->scaler_blk.base,
+			cfg->sblk->scaler_blk.base + cfg->sblk->scaler_blk.len,
+			hw_pipe->hw.xin_id);
 
 	return hw_pipe;
 }

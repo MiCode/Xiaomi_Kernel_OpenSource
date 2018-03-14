@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -293,7 +293,7 @@ static int msm_unload(struct drm_device *dev)
 				priv->vram.paddr, &attrs);
 	}
 
-	sde_evtlog_destroy();
+	sde_dbg_destroy();
 
 	sde_power_client_destroy(&priv->phandle, priv->pclient);
 	sde_power_resource_deinit(pdev, &priv->phandle);
@@ -423,11 +423,17 @@ static int msm_component_bind_all(struct device *dev,
 }
 #endif
 
+static int msm_power_enable_wrapper(void *handle, void *client, bool enable)
+{
+	return sde_power_resource_enable(handle, client, enable);
+}
+
 static int msm_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
 	struct msm_drm_private *priv;
 	struct msm_kms *kms;
+	struct sde_dbg_power_ctrl dbg_power_ctrl = { NULL };
 	int ret, i;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
@@ -477,9 +483,13 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	if (ret)
 		goto fail;
 
-	ret = sde_evtlog_init(dev->primary->debugfs_root);
+	dbg_power_ctrl.handle = &priv->phandle;
+	dbg_power_ctrl.client = priv->pclient;
+	dbg_power_ctrl.enable_fn = msm_power_enable_wrapper;
+	ret = sde_dbg_init(dev->primary->debugfs_root, &pdev->dev,
+			&dbg_power_ctrl);
 	if (ret) {
-		dev_err(dev->dev, "failed to init evtlog: %d\n", ret);
+		dev_err(dev->dev, "failed to init sde dbg: %d\n", ret);
 		goto fail;
 	}
 
