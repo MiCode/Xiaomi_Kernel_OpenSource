@@ -53,9 +53,6 @@
 #include "sde_trace.h"
 
 /* defines for secure channel call */
-#define SEC_SID_CNT               2
-#define SEC_SID_MASK_0            0x80881
-#define SEC_SID_MASK_1            0x80C81
 #define MEM_PROTECT_SD_CTRL_SWITCH 0x18
 #define MDP_DEVICE_ID            0x1A
 
@@ -444,31 +441,36 @@ static int _sde_kms_secure_ctrl_xin_clients(struct sde_kms *sde_kms,
 
 /**
  * _sde_kms_scm_call - makes secure channel call to switch the VMIDs
- * @vimd: switch the stage 2 translation to this VMID.
+ * @sde_kms: Pointer to sde_kms struct
+ * @vimd: switch the stage 2 translation to this VMID
  */
-static int _sde_kms_scm_call(int vmid)
+static int _sde_kms_scm_call(struct sde_kms *sde_kms, int vmid)
 {
 	struct scm_desc desc = {0};
 	uint32_t num_sids;
 	uint32_t *sec_sid;
 	uint32_t mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_SWITCH;
-	int ret = 0;
+	struct sde_mdss_cfg *sde_cfg = sde_kms->catalog;
+	int ret = 0, i;
 
-	/* This info should be queried from catalog */
-	num_sids = SEC_SID_CNT;
+	num_sids = sde_cfg->sec_sid_mask_count;
+	if (!num_sids) {
+		SDE_ERROR("secure SID masks not configured, vmid 0x%x\n", vmid);
+		return -EINVAL;
+	}
+
 	sec_sid = kcalloc(num_sids, sizeof(uint32_t), GFP_KERNEL);
 	if (!sec_sid)
 		return -ENOMEM;
 
-	/*
-	 * derive this info from device tree/catalog, this is combination of
-	 * smr mask and SID for secure
-	 */
-	sec_sid[0] = SEC_SID_MASK_0;
-	sec_sid[1] = SEC_SID_MASK_1;
+	for (i = 0; i < num_sids; i++) {
+		sec_sid[i] = sde_cfg->sec_sid_mask[i];
+		SDE_DEBUG("sid_mask[%d]: %d\n", i, sec_sid[i]);
+	}
 	dmac_flush_range(sec_sid, sec_sid + num_sids);
 
-	SDE_DEBUG("calling scm_call for vmid %d", vmid);
+	SDE_DEBUG("calling scm_call for vmid 0x%x, num_sids %d",
+				vmid, num_sids);
 
 	desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
 	desc.args[0] = MDP_DEVICE_ID;
@@ -479,7 +481,7 @@ static int _sde_kms_scm_call(int vmid)
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 				mem_protect_sd_ctrl_id), &desc);
 	if (ret)
-		SDE_ERROR("Error:scm_call2, vmid (%lld): ret%d\n",
+		SDE_ERROR("Error:scm_call2, vmid %lld, ret%d\n",
 				desc.args[3], ret);
 	SDE_EVT32(mem_protect_sd_ctrl_id,
 			desc.args[0], desc.args[3], num_sids,
@@ -503,7 +505,7 @@ static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms)
 		goto end;
 	}
 
-	ret = _sde_kms_scm_call(VMID_CP_SEC_DISPLAY);
+	ret = _sde_kms_scm_call(sde_kms, VMID_CP_SEC_DISPLAY);
 	if (ret)
 		goto end;
 
@@ -518,7 +520,7 @@ static int _sde_kms_attach_all_cb(struct sde_kms *sde_kms)
 	if (atomic_dec_return(&sde_kms->detach_all_cb) != 0)
 		goto end;
 
-	ret = _sde_kms_scm_call(VMID_CP_PIXEL);
+	ret = _sde_kms_scm_call(sde_kms, VMID_CP_PIXEL);
 	if (ret)
 		goto end;
 
@@ -547,7 +549,7 @@ static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms)
 		goto end;
 	}
 
-	ret = _sde_kms_scm_call(VMID_CP_CAMERA_PREVIEW);
+	ret = _sde_kms_scm_call(sde_kms, VMID_CP_CAMERA_PREVIEW);
 	if (ret)
 		goto end;
 
@@ -562,7 +564,7 @@ static int _sde_kms_attach_sec_cb(struct sde_kms *sde_kms)
 	if (atomic_dec_return(&sde_kms->detach_sec_cb) != 0)
 		goto end;
 
-	ret = _sde_kms_scm_call(VMID_CP_PIXEL);
+	ret = _sde_kms_scm_call(sde_kms, VMID_CP_PIXEL);
 	if (ret)
 		goto end;
 
