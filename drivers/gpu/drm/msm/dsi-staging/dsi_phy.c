@@ -764,6 +764,16 @@ static int dsi_phy_disable_ulps(struct msm_dsi_phy *phy,
 	return 0;
 }
 
+void dsi_phy_toggle_resync_fifo(struct msm_dsi_phy *phy)
+{
+	if (!phy)
+		return;
+
+	if (!phy->hw.ops.toggle_resync_fifo)
+		return;
+
+	phy->hw.ops.toggle_resync_fifo(&phy->hw);
+}
 
 int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
 		bool enable, bool clamp_enabled)
