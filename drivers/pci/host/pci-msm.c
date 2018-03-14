@@ -5085,20 +5085,6 @@ int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
 		return arch_setup_msi_irq_default(pdev, desc, 1);
 }
 
-static int msm_pcie_get_msi_multiple(int nvec)
-{
-	int msi_multiple = 0;
-
-	while (nvec) {
-		nvec = nvec >> 1;
-		msi_multiple++;
-	}
-	PCIE_GEN_DBG("log2 number of MSI multiple:%d\n",
-		msi_multiple - 1);
-
-	return msi_multiple - 1;
-}
-
 int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
 {
 	struct msi_desc *entry;
@@ -5114,7 +5100,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
 
 	list_for_each_entry(entry, &dev->dev.msi_list, list) {
 		entry->msi_attrib.multiple =
-				msm_pcie_get_msi_multiple(nvec);
+			__ilog2_u32(__roundup_pow_of_two(nvec));
 
 		if (pcie_dev->msi_gicm_addr)
 			ret = arch_setup_msi_irq_qgic(dev, entry, nvec);
