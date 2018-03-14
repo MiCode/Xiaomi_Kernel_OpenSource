@@ -140,7 +140,11 @@ qcom,bcm-name:		The name used to fetch details about the bcm device from
 qcom,drv-id:		The DRV id associated with the RSC, used to differentiate
 			between RSCS owned by different execution environments.
 qcom,defer-init-qos:	Flag to force defer initial QoS configuration at probe time.
-
+qcom,sbm-offset:	The offset used to determine location of Sideband
+			Manager used in the disconnect mechanism when clients
+			remove bandwidth votes.
+qcom,disable-ports:	The ports to disable on the sideband manager when the
+			requirement bandwidth affecting	the node reduces to 0.
 
 Example:
 
@@ -157,6 +161,7 @@ Example:
 		qcom,hw-sel = "NoC";
 		qcom,rpm-en;
 		qcom,nfab = <6>;
+		qcom,sbm-offset = <20000>;
 
 		mas-gfx3d {
 			cell-id = <26>;
@@ -169,6 +174,7 @@ Example:
 			qcom,ws = <10000>;
 			qcom,qport = <2 3>;
 			qcom,mas-hw-id = <6>;
+			qcom,disable-ports = <1 2>;
 		};
 
 		mas-jpeg {
