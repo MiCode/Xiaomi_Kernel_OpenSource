@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +85,13 @@
 #define BATT_THERM_NUM_COEFFS		3
 
 #define MAX_CC_STEPS			20
+
+enum prof_load_status {
+	PROFILE_MISSING,
+	PROFILE_LOADED,
+	PROFILE_SKIPPED,
+	PROFILE_NOT_LOADED,
+};
 
 /* Debug flag definitions */
 enum fg_debug_flag {
@@ -446,6 +453,7 @@ struct fg_chip {
 	enum slope_limit_status	slope_limit_sts;
 	bool			profile_available;
 	bool			profile_loaded;
+	enum prof_load_status	profile_load_status;
 	bool			battery_missing;
 	bool			fg_restarting;
 	bool			charge_full;
