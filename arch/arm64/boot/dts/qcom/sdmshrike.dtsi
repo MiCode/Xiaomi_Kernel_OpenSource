@@ -770,4 +770,5 @@
 #include "sdmshrike-pinctrl.dtsi"
 #include "sdmshrike-regulators.dtsi"
 #include "sdmshrike-ion.dtsi"
+#include "sdmshrike-bus.dtsi"
 #include "msm-arm-smmu-sdmshrike.dtsi"
