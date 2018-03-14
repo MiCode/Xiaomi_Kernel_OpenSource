@@ -88,9 +88,9 @@
 	compatible = "qcom,ufs-phy-qmp-v4";
 
 	vdda-phy-supply = <&pm855_l5>;
-	vdda-pll-supply = <&pm855_l3>;
-	vdda-phy-max-microamp = <87100>;
-	vdda-pll-max-microamp = <18800>;
+	vdda-pll-supply = <&pm855l_l3>;
+	vdda-phy-max-microamp = <90200>;
+	vdda-pll-max-microamp = <19000>;
 
 	status = "ok";
 };
@@ -99,6 +99,7 @@
 	vdd-hba-supply = <&ufs_phy_gdsc>;
 	vdd-hba-fixed-regulator;
 	vcc-supply = <&pm855_l10>;
+	vcc-voltage-level = <2950000 2960000>;
 	vccq2-supply = <&pm855_s4>;
 	vcc-max-microamp = <750000>;
 	vccq2-max-microamp = <750000>;
