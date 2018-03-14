@@ -1231,7 +1231,7 @@ static int uaudio_qmi_svc_init(void)
 		goto free_svc;
 	}
 
-	svc->uaudio_svc_hdl = kzalloc(sizeof(*svc), GFP_KERNEL);
+	svc->uaudio_svc_hdl = kzalloc(sizeof(struct qmi_handle), GFP_KERNEL);
 	if (!svc->uaudio_svc_hdl) {
 		ret = -ENOMEM;
 		goto destroy_uaudio_wq;
