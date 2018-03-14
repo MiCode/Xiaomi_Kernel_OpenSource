@@ -638,7 +638,7 @@ int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
 	return rc;
 }
 
-static void sde_connector_destroy(struct drm_connector *connector)
+void sde_connector_destroy(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
 
@@ -665,7 +665,6 @@ static void sde_connector_destroy(struct drm_connector *connector)
 		drm_property_blob_put(c_conn->blob_mode_info);
 	if (c_conn->blob_ext_hdr)
 		drm_property_blob_put(c_conn->blob_ext_hdr);
-	msm_property_destroy(&c_conn->property_info);
 
 	if (c_conn->bl_device)
 		backlight_device_unregister(c_conn->bl_device);
@@ -673,6 +672,7 @@ static void sde_connector_destroy(struct drm_connector *connector)
 	mutex_destroy(&c_conn->lock);
 	sde_fence_deinit(&c_conn->retire_fence);
 	drm_connector_cleanup(connector);
+	msm_property_destroy(&c_conn->property_info);
 	kfree(c_conn);
 }
 
@@ -1638,6 +1638,46 @@ sde_connector_best_encoder(struct drm_connector *connector)
 	return c_conn->encoder;
 }
 
+static struct drm_encoder *
+sde_connector_atomic_best_encoder(struct drm_connector *connector,
+		struct drm_connector_state *connector_state)
+{
+	struct sde_connector *c_conn;
+	struct drm_encoder *encoder = NULL;
+
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return NULL;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	if (c_conn->ops.atomic_best_encoder)
+		encoder = c_conn->ops.atomic_best_encoder(connector,
+				c_conn->display, connector_state);
+
+	return encoder;
+}
+
+static int sde_connector_atomic_check(struct drm_connector *connector,
+		struct drm_connector_state *new_conn_state)
+{
+	struct sde_connector *c_conn;
+
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return 0;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	if (c_conn->ops.atomic_check)
+		return c_conn->ops.atomic_check(connector,
+				c_conn->display, new_conn_state);
+
+	return 0;
+}
+
 static void sde_connector_check_status_work(struct work_struct *work)
 {
 	struct sde_connector *conn;
@@ -1692,6 +1732,14 @@ static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
 	.get_modes =    sde_connector_get_modes,
 	.mode_valid =   sde_connector_mode_valid,
 	.best_encoder = sde_connector_best_encoder,
+};
+
+static const struct drm_connector_helper_funcs sde_connector_helper_ops_v2 = {
+	.get_modes =    sde_connector_get_modes,
+	.mode_valid =   sde_connector_mode_valid,
+	.best_encoder = sde_connector_best_encoder,
+	.atomic_best_encoder = sde_connector_atomic_best_encoder,
+	.atomic_check = sde_connector_atomic_check,
 };
 
 static int sde_connector_populate_mode_info(struct drm_connector *conn,
@@ -1918,7 +1966,11 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	if (ops)
 		c_conn->ops = *ops;
 
-	c_conn->base.helper_private = &sde_connector_helper_ops;
+	if (ops && ops->atomic_best_encoder && ops->atomic_check)
+		c_conn->base.helper_private = &sde_connector_helper_ops_v2;
+	else
+		c_conn->base.helper_private = &sde_connector_helper_ops;
+
 	c_conn->base.polled = connector_poll;
 	c_conn->base.interlace_allowed = 0;
 	c_conn->base.doublescan_allowed = 0;

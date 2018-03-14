@@ -856,11 +856,14 @@ static int _sde_kms_get_displays(struct sde_kms *sde_kms)
 		sde_kms->dp_display_count =
 			dp_display_get_displays(sde_kms->dp_displays,
 					sde_kms->dp_display_count);
+
+		sde_kms->dp_stream_count = 0;
 	}
 	return 0;
 
 exit_deinit_dp:
 	kfree(sde_kms->dp_displays);
+	sde_kms->dp_stream_count = 0;
 	sde_kms->dp_display_count = 0;
 	sde_kms->dp_displays = NULL;
 
@@ -964,7 +967,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 	}
 
 	max_encoders = sde_kms->dsi_display_count + sde_kms->wb_display_count +
-				sde_kms->dp_display_count;
+				sde_kms->dp_display_count +
+				sde_kms->dp_stream_count;
 	if (max_encoders > ARRAY_SIZE(priv->encoders)) {
 		max_encoders = ARRAY_SIZE(priv->encoders);
 		SDE_ERROR("capping number of displays to %d", max_encoders);

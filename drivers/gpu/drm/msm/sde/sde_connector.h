@@ -270,6 +270,28 @@ struct sde_connector_ops {
 	int (*config_hdr)(struct drm_connector *connector, void *display,
 		struct sde_connector_state *c_state);
 
+	/**
+	 * atomic_best_encoder - atomic best encoder selection for connector
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 * @c_state: Pointer to connector state
+	 * Returns: valid drm_encoder for success
+	 */
+	struct drm_encoder *(*atomic_best_encoder)(
+			struct drm_connector *connector,
+			void *display,
+			struct drm_connector_state *c_state);
+
+	/**
+	 * atomic_check - atomic check handling for connector
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 * @c_state: Pointer to connector state
+	 * Returns: valid drm_encoder for success
+	 */
+	int (*atomic_check)(struct drm_connector *connector,
+			void *display,
+			struct drm_connector_state *c_state);
 };
 
 /**
@@ -305,6 +327,7 @@ struct sde_connector_evt {
  * @panel: Pointer to drm panel, if present
  * @display: Pointer to private display data structure
  * @drv_panel: Pointer to interface driver's panel module, if present
+ * @mst_port: Pointer to mst port, if present
  * @mmu_secure: MMU id for secure buffers
  * @mmu_unsecure: MMU id for unsecure buffers
  * @name: ASCII name of connector
@@ -341,6 +364,7 @@ struct sde_connector {
 	struct drm_panel *panel;
 	void *display;
 	void *drv_panel;
+	void *mst_port;
 
 	struct msm_gem_address_space *aspace[SDE_IOMMU_DOMAIN_MAX];
 
@@ -762,5 +786,11 @@ void sde_conn_timeline_status(struct drm_connector *conn);
  * @connector: Pointer to DRM connector object
  */
 void sde_connector_helper_bridge_disable(struct drm_connector *connector);
+
+/**
+ * sde_connector_destroy - destroy drm connector object
+ * @connector: Pointer to DRM connector object
+ */
+void sde_connector_destroy(struct drm_connector *connector);
 
 #endif /* _SDE_CONNECTOR_H_ */
