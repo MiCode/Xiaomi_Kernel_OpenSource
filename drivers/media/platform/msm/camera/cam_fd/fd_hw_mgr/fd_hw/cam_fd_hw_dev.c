@@ -22,6 +22,7 @@
 #include "cam_fd_hw_core.h"
 #include "cam_fd_hw_soc.h"
 #include "cam_fd_hw_v41.h"
+#include "cam_fd_hw_v501.h"
 
 static int cam_fd_hw_dev_probe(struct platform_device *pdev)
 {
@@ -192,6 +193,10 @@ static const struct of_device_id cam_fd_hw_dt_match[] = {
 	{
 		.compatible = "qcom,fd41",
 		.data = &cam_fd_wrapper120_core410_info,
+	},
+	{
+		.compatible = "qcom,fd501",
+		.data = &cam_fd_wrapper200_core501_info,
 	},
 	{}
 };

@@ -49,7 +49,7 @@ about the device register map, interrupt map, clocks, regulators.
 - compatible
   Usage: required
   Value type: <string>
-  Definition: Should be "qcom,fd501", "qcom,fd41".
+  Definition: Should be one of "qcom,fd41", "qcom,fd501".
 
 - reg-names
   Usage: optional
