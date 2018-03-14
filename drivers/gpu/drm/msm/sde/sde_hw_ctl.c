@@ -97,6 +97,12 @@ static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
 }
 
+static inline u32 sde_hw_ctl_get_flush_register(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	return SDE_REG_READ(c, CTL_FLUSH);
+}
 
 static inline uint32_t sde_hw_ctl_get_bitmask_sspp(struct sde_hw_ctl *ctx,
 	enum sde_sspp sspp)
@@ -459,6 +465,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->update_pending_flush = sde_hw_ctl_update_pending_flush;
 	ops->get_pending_flush = sde_hw_ctl_get_pending_flush;
 	ops->trigger_flush = sde_hw_ctl_trigger_flush;
+	ops->get_flush_register = sde_hw_ctl_get_flush_register;
 	ops->trigger_start = sde_hw_ctl_trigger_start;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
