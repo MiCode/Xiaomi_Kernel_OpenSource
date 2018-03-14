@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -431,10 +431,12 @@ int sde_hdmi_get_property(struct drm_connector *connector,
 /**
  * sde_hdmi_bridge_init() - init sde hdmi bridge
  * @hdmi:          Handle to the hdmi.
+ * @display:       Handle to the sde_hdmi
  *
  * Return: struct drm_bridge *.
  */
-struct drm_bridge *sde_hdmi_bridge_init(struct hdmi *hdmi);
+struct drm_bridge *sde_hdmi_bridge_init(struct hdmi *hdmi,
+			struct sde_hdmi *display);
 
 /**
  * sde_hdmi_set_mode() - Set HDMI mode API.

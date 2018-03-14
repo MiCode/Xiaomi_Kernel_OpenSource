@@ -1353,13 +1353,6 @@ int sde_hdmi_core_enable(struct sde_hdmi *sde_hdmi)
 	const struct hdmi_platform_config *config = hdmi->config;
 	struct device *dev = &hdmi->pdev->dev;
 	int i, ret;
-	struct drm_connector *connector;
-	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms;
-
-	connector = hdmi->connector;
-	priv = connector->dev->dev_private;
-	sde_kms = to_sde_kms(priv->kms);
 
 	for (i = 0; i < config->hpd_reg_cnt; i++) {
 		ret = regulator_enable(hdmi->hpd_regs[i]);
@@ -3216,7 +3209,7 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 
 	hdmi_audio_infoframe_init(&hdmi->audio.infoframe);
 
-	hdmi->bridge = sde_hdmi_bridge_init(hdmi);
+	hdmi->bridge = sde_hdmi_bridge_init(hdmi, display);
 	if (IS_ERR(hdmi->bridge)) {
 		rc = PTR_ERR(hdmi->bridge);
 		SDE_ERROR("failed to create HDMI bridge: %d\n", rc);
