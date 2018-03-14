@@ -38,6 +38,18 @@
 	};
 };
 
+&qupv3_se13_4uart {
+	status = "ok";
+};
+
+&qupv3_se3_spi {
+	status = "ok";
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
