@@ -705,5 +705,18 @@ struct fsl_mc_device_id {
 	const char obj_type[16];
 };
 
+/**
+ * struct mhi_device_id - MHI device identification
+ * @chan: MHI channel name
+ * @driver_data: driver data;
+ */
+
+struct mhi_device_id {
+	const char *chan;
+	kernel_ulong_t driver_data;
+};
+
+
+
 
 #endif /* LINUX_MOD_DEVICETABLE_H */

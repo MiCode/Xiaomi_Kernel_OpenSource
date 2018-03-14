@@ -1,0 +1,136 @@
+MHI Host Interface
+
+MHI used by the host to control and communicate with modem over
+high speed peripheral bus.
+
+==============
+Node Structure
+==============
+
+Main node properties:
+
+- mhi,max-channels
+  Usage: required
+  Value type: <u32>
+  Definition: Maximum number of channels supported by this controller
+
+- mhi,chan-cfg
+  Usage: required
+  Value type: Array of <u32>
+  Definition: Array of tuples describe channel configuration.
+	1st element: Physical channel number
+	2nd element: Transfer ring length in elements
+	3rd element: Event ring associated with this channel
+	4th element: Channel direction as defined by enum dma_data_direction
+		1 = UL data transfer
+		2 = DL data transfer
+	5th element: Channel doorbell mode configuration as defined by
+	enum MHI_BRSTMODE
+		2 = burst mode disabled
+		3 = burst mode enabled
+	6th element: mhi doorbell configuration, valid only when burst mode
+	enabled.
+		0 = Use default (device specific) polling configuration
+		For UL channels, value specifies the timer to poll MHI context
+		in milliseconds.
+		For DL channels, the threshold to poll the MHI context
+		in multiple of eight ring element.
+	7th element: Channel execution enviornment as defined by enum MHI_EE
+		1 = Bootloader stage
+		2 = AMSS mode
+	8th element: data transfer type accepted as defined by enum
+	MHI_XFER_TYPE
+		0 = accept cpu address for buffer
+		1 = accept skb
+		2 = accept scatterlist
+		3 = offload channel, does not accept any transfer type
+	9th element: Bitwise configuration settings for the channel
+		Bit mask:
+		BIT(0) : LPM notify, this channel master requre lpm enter/exit
+		notifications.
+		BIT(1) : Offload channel, MHI host only involved in setting up
+		the data pipe. Not involved in active data transfer.
+
+- mhi,chan-names
+  Usage: required
+  Value type: Array of <string>
+  Definition: Channel names configured in mhi,chan-cfg.
+
+- mhi,ev-cfg
+  Usage: required
+  Value type: Array of <u32>
+  Definition: Array of tuples describe event configuration.
+	1st element: Event ring length in elements
+	2nd element: Interrupt moderation time in ms
+	3rd element: MSI associated with this event ring
+	4th element: Dedicated channel number, if it's a dedicated event ring
+	5th element: Event ring priority, set to 1 for now
+	6th element: Event doorbell mode configuration as defined by
+	enum MHI_BRSTMODE
+		2 = burst mode disabled
+		3 = burst mode enabled
+	7th element: Bitwise configuration settings for the channel
+		Bit mask:
+		BIT(0) : Event ring associated with hardware channels
+		BIT(1) : Client manages the event ring (use by napi_poll)
+		BIT(2) : Event ring associated with offload channel
+		BIT(3) : Event ring dedicated to control events only
+
+- mhi,timeout
+  Usage: optional
+  Value type: <u32>
+  Definition: Maximum timeout in ms wait for state and cmd completion
+
+- mhi,fw-name
+  Usage: optional
+  Value type: <string>
+  Definition: Firmware image name to upload
+
+- mhi,edl-name
+  Usage: optional
+  Value type: <string>
+  Definition: Firmware image name for emergency download
+
+- mhi,fbc-download
+  Usage: optional
+  Value type: <bool>
+  Definition: If set true, image specified by fw-name is for full image
+
+- mhi,sbl-size
+  Usage: optional
+  Value type: <u32>
+  Definition: Size of SBL image in bytes
+
+- mhi,seg-len
+  Usage: optional
+  Value type: <u32>
+  Definition: Size of each segment to allocate for BHIe vector table
+
+Children node properties:
+
+MHI drivers that require DT can add driver specific information as a child node.
+
+- mhi,chan
+  Usage: Required
+  Value type: <string>
+  Definition: Channel name
+
+========
+Example:
+========
+mhi_controller {
+	mhi,max-channels = <105>;
+	mhi,chan-cfg = <0 64 2 1 2 1 2 0 0>, <1 64 2 2 2 1 2 0 0>,
+		       <2 64 1 1 2 1 1 0 0>, <3 64 1 2 2 1 1 0 0>;
+	mhi,chan-names = "LOOPBACK", "LOOPBACK",
+			 "SAHARA", "SAHARA";
+	mhi,ev-cfg = <64 1 1 0 1 2 8>
+		     <64 1 2 0 1 2 0>;
+	mhi,fw-name = "sbl1.mbn";
+	mhi,timeout = <500>;
+
+	children_node {
+		mhi,chan = "LOOPBACK"
+		<driver specific properties>
+	};
+};
