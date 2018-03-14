@@ -549,5 +549,5 @@ struct dbm *dwc3_init_dbm(struct device *dev, void __iomem *base)
 	dbm->dbm_reset_ep_after_lpm = of_property_read_bool(dev->of_node,
 			"qcom,reset-ep-after-lpm-resume");
 
-	return 0;
+	return dbm;
 }

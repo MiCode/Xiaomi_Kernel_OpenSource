@@ -204,7 +204,7 @@ void dwc3_ep_inc_deq(struct dwc3_ep *dep)
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 {
 	int		fifo_size, mdwidth, max_packet = 1024;
-	int		tmp, mult = 1;
+	int		tmp, mult = 1, size;
 
 	if (!dwc->needs_fifo_resize || !dwc->tx_fifo_size)
 		return 0;
@@ -236,9 +236,18 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 	tmp = ((max_packet + mdwidth) * mult) + mdwidth;
 	fifo_size = DIV_ROUND_UP(tmp, mdwidth);
 	dep->fifo_depth = fifo_size;
-	fifo_size |= (dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0)) & 0xffff0000)
-						+ (dwc->last_fifo_depth << 16);
-	dwc->last_fifo_depth += (fifo_size & 0xffff);
+
+	size = dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0));
+	if (dwc3_is_usb31(dwc))
+		size = DWC31_GTXFIFOSIZ_TXFDEF(size);
+	else
+		size = DWC3_GTXFIFOSIZ_TXFDEF(size);
+
+	fifo_size |= (size + (dwc->last_fifo_depth << 16));
+	if (dwc3_is_usb31(dwc))
+		dwc->last_fifo_depth += DWC31_GTXFIFOSIZ_TXFDEF(fifo_size);
+	else
+		dwc->last_fifo_depth += DWC3_GTXFIFOSIZ_TXFDEF(fifo_size);
 
 	dev_dbg(dwc->dev, "%s ep_num:%d last_fifo_depth:%04x fifo_depth:%d\n",
 		dep->endpoint.name, dep->endpoint.ep_num, dwc->last_fifo_depth,
@@ -251,7 +260,11 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 		dev_err(dwc->dev, "Fifosize(%d) > RAM size(%d) %s depth:%d\n",
 			(dwc->last_fifo_depth * mdwidth), dwc->tx_fifo_size,
 			dep->endpoint.name, fifo_size);
-		dwc->last_fifo_depth -= (fifo_size & 0xffff);
+		if (dwc3_is_usb31(dwc))
+			fifo_size = DWC31_GTXFIFOSIZ_TXFDEF(fifo_size);
+		else
+			fifo_size = DWC3_GTXFIFOSIZ_TXFDEF(fifo_size);
+		dwc->last_fifo_depth -= fifo_size;
 		dep->fifo_depth = 0;
 		WARN_ON(1);
 		return -ENOMEM;
@@ -783,7 +796,7 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 	 * Issue StartTransfer here with no-op TRB so we can always rely on No
 	 * Response Update Transfer command.
 	 */
-	if (usb_endpoint_xfer_bulk(desc)) {
+	if (usb_endpoint_xfer_bulk(desc) && !dep->endpoint.endless) {
 		struct dwc3_gadget_ep_cmd_params params;
 		struct dwc3_trb	*trb;
 		dma_addr_t trb_dma;
@@ -2578,6 +2591,7 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 					direction ? "in" : "out");
 		}
 
+		dep->endpoint.ep_num = epnum >> 1;
 		dep->endpoint.name = dep->name;
 
 		if (!(dep->number > 1)) {

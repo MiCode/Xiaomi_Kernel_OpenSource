@@ -78,8 +78,38 @@
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,usb3_lpm_capable;
 			usb-core-id = <0>;
+			tx-fifo-resize;
 			maximum-speed = "super-speed";
 			dr_mode = "otg";
+		};
+
+		qcom,usbbam@a704000 {
+			compatible = "qcom,usb-bam-msm";
+			reg = <0xa704000 0x17000>;
+			interrupts = <0 132 0>;
+
+			qcom,usb-bam-fifo-baseaddr = <0x146bb000>;
+			qcom,usb-bam-num-pipes = <4>;
+			qcom,disable-clk-gating;
+			qcom,usb-bam-override-threshold = <0x4001>;
+			qcom,usb-bam-max-mbps-highspeed = <400>;
+			qcom,usb-bam-max-mbps-superspeed = <3600>;
+			qcom,reset-bam-on-connect;
+
+			qcom,pipe0 {
+				label = "ssusb-qdss-in-0";
+				qcom,usb-bam-mem-type = <2>;
+				qcom,dir = <1>;
+				qcom,pipe-num = <0>;
+				qcom,peer-bam = <0>;
+				qcom,peer-bam-physical-address = <0x6064000>;
+				qcom,src-bam-pipe-index = <0>;
+				qcom,dst-bam-pipe-index = <0>;
+				qcom,data-fifo-offset = <0x0>;
+				qcom,data-fifo-size = <0x1800>;
+				qcom,descriptor-fifo-offset = <0x1800>;
+				qcom,descriptor-fifo-size = <0x800>;
+			};
 		};
 	};
 

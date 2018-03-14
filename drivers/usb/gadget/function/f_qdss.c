@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -477,6 +477,7 @@ static void qdss_eps_disable(struct usb_function *f)
 
 	if (qdss->data_enabled) {
 		usb_ep_disable(qdss->port.data);
+		qdss->port.data->endless = false;
 		qdss->data_enabled = 0;
 	}
 }
@@ -611,9 +612,12 @@ static int qdss_set_alt(struct usb_function *f, unsigned int intf,
 			goto fail;
 		}
 
+		qdss->port.data->endless = true;
 		ret = usb_ep_enable(qdss->port.data);
-		if (ret)
+		if (ret) {
+			qdss->port.data->endless = false;
 			goto fail;
+		}
 
 		qdss->port.data->driver_data = qdss;
 		qdss->data_enabled = 1;
