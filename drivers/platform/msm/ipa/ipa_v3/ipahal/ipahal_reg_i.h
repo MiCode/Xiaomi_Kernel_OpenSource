@@ -422,4 +422,8 @@ int ipahal_reg_init(enum ipa_hw_type ipa_hw_type);
 #define IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_3_BMSK (0xf000)
 #define IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_3_SHFT (0xc)
 
+/* IPA_COUNTER_CFG register */
+#define IPA_COUNTER_CFG_AGGR_GRANULARITY_BMSK (0xff0)
+#define IPA_COUNTER_CFG_AGGR_GRANULARITY_SHFT (0x4)
+
 #endif /* _IPAHAL_REG_I_H_ */

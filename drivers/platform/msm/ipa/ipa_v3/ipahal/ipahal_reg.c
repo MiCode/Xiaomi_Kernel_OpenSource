@@ -36,6 +36,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_SPARE_REG_2),
 	__stringify(IPA_COMP_CFG),
 	__stringify(IPA_STATE_AGGR_ACTIVE),
+	__stringify(IPA_COUNTER_CFG),
 	__stringify(IPA_ENDP_INIT_HDR_n),
 	__stringify(IPA_ENDP_INIT_HDR_EXT_n),
 	__stringify(IPA_ENDP_INIT_AGGR_n),
@@ -1074,6 +1075,9 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 {
 	struct ipa_ep_cfg_aggr *ep_aggr =
 		(struct ipa_ep_cfg_aggr *)fields;
+	u32 byte_limit;
+	u32 pkt_limit;
+
 
 	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_en,
 		IPA_ENDP_INIT_AGGR_n_AGGR_EN_SHFT,
@@ -1083,7 +1087,12 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TYPE_BMSK);
 
-	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_byte_limit,
+	/* make sure aggregation size does not cross HW boundaries */
+	byte_limit = (ep_aggr->aggr_byte_limit >
+		ipahal_aggr_get_max_byte_limit()) ?
+		ipahal_aggr_get_max_byte_limit() :
+		ep_aggr->aggr_byte_limit;
+	IPA_SETFIELD_IN_REG(*val, byte_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_BYTE_LIMIT_BMSK);
 
@@ -1091,7 +1100,12 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_BMSK);
 
-	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_pkt_limit,
+	/* make sure aggregation size does not cross HW boundaries */
+	pkt_limit = (ep_aggr->aggr_pkt_limit >
+		ipahal_aggr_get_max_pkt_limit()) ?
+		ipahal_aggr_get_max_pkt_limit() :
+		ep_aggr->aggr_pkt_limit;
+	IPA_SETFIELD_IN_REG(*val, pkt_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK);
 
@@ -1449,6 +1463,30 @@ static void ipareg_parse_hps_queue_weights(
 		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_3_BMSK);
 }
 
+static void ipareg_construct_counter_cfg(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_counter_cfg *counter_cfg =
+		(struct ipahal_reg_counter_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, counter_cfg->aggr_granularity,
+		IPA_COUNTER_CFG_AGGR_GRANULARITY_SHFT,
+		IPA_COUNTER_CFG_AGGR_GRANULARITY_BMSK);
+}
+
+static void ipareg_parse_counter_cfg(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_counter_cfg *counter_cfg =
+		(struct ipahal_reg_counter_cfg *)fields;
+
+	memset(counter_cfg, 0, sizeof(*counter_cfg));
+
+	counter_cfg->aggr_granularity = IPA_GETFIELD_FROM_REG(val,
+		IPA_COUNTER_CFG_AGGR_GRANULARITY_SHFT,
+		IPA_COUNTER_CFG_AGGR_GRANULARITY_BMSK);
+}
+
 /*
  * struct ipahal_reg_obj - Register H/W information for specific IPA version
  * @construct - CB to construct register value from abstracted structure
@@ -1741,6 +1779,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_5][IPA_HPS_FTCH_ARB_QUEUE_WEIGHT] = {
 		ipareg_construct_hps_queue_weights,
 		ipareg_parse_hps_queue_weights, 0x000005a4, 0},
+	[IPA_HW_v3_5][IPA_COUNTER_CFG] = {
+		ipareg_construct_counter_cfg, ipareg_parse_counter_cfg,
+		0x000001F0, 0 },
 
 	/* IPAv4.0 */
 	[IPA_HW_v4_0][IPA_ENDP_INIT_CTRL_n] = {

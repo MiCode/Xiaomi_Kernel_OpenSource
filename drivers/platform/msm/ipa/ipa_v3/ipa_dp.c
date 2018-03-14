@@ -62,7 +62,8 @@
 #define IPA_SIZE_DL_CSUM_META_TRAILER 8
 
 #define IPA_GSI_MAX_CH_LOW_WEIGHT 15
-#define IPA_GSI_EVT_RING_INT_MODT (32 * 1) /* 1ms under 32KHz clock */
+#define IPA_GSI_EVT_RING_INT_MODT (16) /* 0.5ms under 32KHz clock */
+#define IPA_GSI_EVT_RING_INT_MODC (20)
 
 #define IPA_GSI_CH_20_WA_NUM_CH_TO_ALLOC 10
 /* The below virtual channel cannot be used by any entity */
@@ -74,6 +75,8 @@
 #define IPA_TX_SEND_COMPL_NOP_DELAY_NS (2 * 1000 * 1000)
 
 #define IPA_APPS_BW_FOR_PM 700
+
+#define IPA_SEND_MAX_DESC (20)
 
 static struct sk_buff *ipa3_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys);
@@ -272,7 +275,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	struct ipa3_tx_pkt_wrapper *tx_pkt, *tx_pkt_first;
 	struct ipahal_imm_cmd_pyld *tag_pyld_ret = NULL;
 	struct ipa3_tx_pkt_wrapper *next_pkt;
-	struct gsi_xfer_elem *gsi_xfer_elem_array = NULL;
+	struct gsi_xfer_elem gsi_xfer[IPA_SEND_MAX_DESC];
 	int i = 0;
 	int j;
 	int result;
@@ -289,6 +292,13 @@ int ipa3_send(struct ipa3_sys_context *sys,
 			sys->ep->client);
 		return -EFAULT;
 	}
+	if (unlikely(num_desc > IPA_SEND_MAX_DESC)) {
+		IPAERR("max descriptors reached need=%d max=%d\n",
+			num_desc, IPA_SEND_MAX_DESC);
+		WARN_ON(1);
+		return -EPERM;
+	}
+
 	if (unlikely(num_desc > gsi_ep_cfg->ipa_if_tlv)) {
 		IPAERR("Too many chained descriptors need=%d max=%d\n",
 			num_desc, gsi_ep_cfg->ipa_if_tlv);
@@ -296,11 +306,9 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		return -EPERM;
 	}
 
-	gsi_xfer_elem_array =
-		kzalloc(num_desc * sizeof(struct gsi_xfer_elem),
-		mem_flag);
-	if (!gsi_xfer_elem_array)
-		return -ENOMEM;
+
+	/* initialize only the xfers we use */
+	memset(gsi_xfer, 0, sizeof(gsi_xfer[0]) * num_desc);
 
 	spin_lock_bh(&sys->spinlock);
 
@@ -372,45 +380,45 @@ int ipa3_send(struct ipa3_sys_context *sys,
 
 		list_add_tail(&tx_pkt->link, &sys->head_desc_list);
 
-		gsi_xfer_elem_array[i].addr = tx_pkt->mem.phys_base;
+		gsi_xfer[i].addr = tx_pkt->mem.phys_base;
 
 		/*
 		 * Special treatment for immediate commands, where
 		 * the structure of the descriptor is different
 		 */
 		if (desc[i].type == IPA_IMM_CMD_DESC) {
-			gsi_xfer_elem_array[i].len = desc[i].opcode;
-			gsi_xfer_elem_array[i].type =
+			gsi_xfer[i].len = desc[i].opcode;
+			gsi_xfer[i].type =
 				GSI_XFER_ELEM_IMME_CMD;
 		} else {
-			gsi_xfer_elem_array[i].len = desc[i].len;
-			gsi_xfer_elem_array[i].type =
+			gsi_xfer[i].len = desc[i].len;
+			gsi_xfer[i].type =
 				GSI_XFER_ELEM_DATA;
 		}
 
 		if (i == (num_desc - 1)) {
 			if (!sys->use_comm_evt_ring) {
-				gsi_xfer_elem_array[i].flags |=
+				gsi_xfer[i].flags |=
 					GSI_XFER_FLAG_EOT;
-				gsi_xfer_elem_array[i].flags |=
+				gsi_xfer[i].flags |=
 					GSI_XFER_FLAG_BEI;
 			}
-			gsi_xfer_elem_array[i].xfer_user_data =
+			gsi_xfer[i].xfer_user_data =
 				tx_pkt_first;
 		} else {
-			gsi_xfer_elem_array[i].flags |=
+			gsi_xfer[i].flags |=
 				GSI_XFER_FLAG_CHAIN;
 		}
 	}
 
 	IPADBG_LOW("ch:%lu queue xfer\n", sys->ep->gsi_chan_hdl);
 	result = gsi_queue_xfer(sys->ep->gsi_chan_hdl, num_desc,
-			gsi_xfer_elem_array, true);
+			gsi_xfer, true);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("GSI xfer failed.\n");
 		goto failure;
 	}
-	kfree(gsi_xfer_elem_array);
+
 
 	if (sys->use_comm_evt_ring && !sys->nop_pending) {
 		sys->nop_pending = true;
@@ -457,8 +465,6 @@ failure:
 		kmem_cache_free(ipa3_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}
-
-	kfree(gsi_xfer_elem_array);
 
 	spin_unlock_bh(&sys->spinlock);
 	return -EFAULT;
@@ -1009,6 +1015,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	*clnt_hdl = ipa_ep_idx;
 
 	if (ep->sys->repl_hdlr == ipa3_fast_replenish_rx_cache) {
+		atomic_set(&ep->sys->repl.pending, 0);
 		ep->sys->repl.capacity = ep->sys->rx_pool_sz + 1;
 		ep->sys->repl.cache = kcalloc(ep->sys->repl.capacity,
 				sizeof(void *), GFP_KERNEL);
@@ -1488,6 +1495,7 @@ static void ipa3_wq_repl_rx(struct work_struct *work)
 	u32 curr;
 
 	sys = container_of(work, struct ipa3_sys_context, repl_work);
+	atomic_set(&sys->repl.pending, 0);
 	curr = atomic_read(&sys->repl.tail_idx);
 
 begin:
@@ -1758,6 +1766,7 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 		gsi_xfer_elem_one.len = sys->rx_buff_sz;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
 		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -1860,6 +1869,7 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 		gsi_xfer_elem_one.len = sys->rx_buff_sz;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
 		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -1899,6 +1909,23 @@ fail_kmem_cache_alloc:
 		msecs_to_jiffies(1));
 }
 
+static inline void __trigger_repl_work(struct ipa3_sys_context *sys)
+{
+	int tail, head, avail;
+
+	if (atomic_read(&sys->repl.pending))
+		return;
+
+	tail = atomic_read(&sys->repl.tail_idx);
+	head = atomic_read(&sys->repl.head_idx);
+	avail = (tail - head) % sys->repl.capacity;
+
+	if (avail < sys->repl.capacity / 4) {
+		atomic_set(&sys->repl.pending, 1);
+		queue_work(sys->repl_wq, &sys->repl_work);
+	}
+}
+
 static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 {
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
@@ -1925,6 +1952,7 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 		gsi_xfer_elem_one.len = sys->rx_buff_sz;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
 		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
 		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -1953,7 +1981,7 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 	}
 	spin_unlock_bh(&sys->spinlock);
 
-	queue_work(sys->repl_wq, &sys->repl_work);
+	__trigger_repl_work(sys);
 
 	if (rx_len_cached - sys->len_pending_xfer
 		<= IPA_DEFAULT_SYS_YELLOW_WM) {
@@ -3567,8 +3595,13 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		ep->gsi_mem_info.evt_ring_base_vaddr =
 			gsi_evt_ring_props.ring_base_vaddr;
 
-		gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
-		gsi_evt_ring_props.int_modc = 1;
+		if (ep->napi_enabled) {
+			gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
+			gsi_evt_ring_props.int_modc = IPA_GSI_EVT_RING_INT_MODC;
+		} else {
+			gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
+			gsi_evt_ring_props.int_modc = 1;
+		}
 
 		IPADBG("client=%d moderation threshold cycles=%u cnt=%u\n",
 			ep->client,

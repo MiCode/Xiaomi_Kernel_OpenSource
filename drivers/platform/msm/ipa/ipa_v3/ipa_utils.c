@@ -2228,6 +2228,7 @@ int ipa3_init_hw(void)
 {
 	u32 ipa_version = 0;
 	u32 val;
+	struct ipahal_reg_counter_cfg cnt_cfg;
 
 	/* Read IPA version and make sure we have access to the registers */
 	ipa_version = ipahal_read_reg(IPA_VERSION);
@@ -2272,6 +2273,10 @@ int ipa3_init_hw(void)
 	}
 
 	ipa3_cfg_qsb();
+
+	/* set granularity for 0.5 msec*/
+	cnt_cfg.aggr_granularity = GRAN_VALUE_500_USEC;
+	ipahal_write_reg_fields(IPA_COUNTER_CFG, &cnt_cfg);
 
 	return 0;
 }
@@ -4489,21 +4494,8 @@ u32 ipa3_get_num_pipes(void)
 int ipa3_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 {
 	int res = -1;
-	u32 limit;
 
-	/* checking if IPA-HW can support */
-	limit = ipahal_aggr_get_max_byte_limit();
-	if ((agg_size >> 10) > limit) {
-		IPAERR("IPA-AGG byte limit %d\n", limit);
-		IPAERR("exceed aggr_byte_limit\n");
-		return res;
-	}
-	limit = ipahal_aggr_get_max_pkt_limit();
-	if (agg_count > limit) {
-		IPAERR("IPA-AGG pkt limit %d\n", limit);
-		IPAERR("exceed aggr_pkt_limit\n");
-		return res;
-	}
+	/* ipahal will adjust limits based on HW capabilities */
 
 	if (ipa3_ctx) {
 		ipa3_ctx->ipa_client_apps_wan_cons_agg_gro = true;

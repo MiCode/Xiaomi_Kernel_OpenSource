@@ -633,6 +633,7 @@ struct ipa3_repl_ctx {
 	atomic_t head_idx;
 	atomic_t tail_idx;
 	u32 capacity;
+	atomic_t pending;
 };
 
 /**

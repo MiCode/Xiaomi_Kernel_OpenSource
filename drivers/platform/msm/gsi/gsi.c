@@ -434,14 +434,6 @@ static void gsi_ring_evt_doorbell(struct gsi_evt_ctx *ctx)
 {
 	uint32_t val;
 
-	/* write order MUST be MSB followed by LSB */
-	val = ((ctx->ring.wp_local >> 32) &
-			GSI_EE_n_EV_CH_k_DOORBELL_1_WRITE_PTR_MSB_BMSK) <<
-			GSI_EE_n_EV_CH_k_DOORBELL_1_WRITE_PTR_MSB_SHFT;
-	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_EV_CH_k_DOORBELL_1_OFFS(ctx->id,
-				gsi_ctx->per.ee));
-
 	val = (ctx->ring.wp_local &
 			GSI_EE_n_EV_CH_k_DOORBELL_0_WRITE_PTR_LSB_BMSK) <<
 			GSI_EE_n_EV_CH_k_DOORBELL_0_WRITE_PTR_LSB_SHFT;
@@ -463,14 +455,6 @@ static void gsi_ring_chan_doorbell(struct gsi_chan_ctx *ctx)
 	if (ctx->evtr && ctx->props.dir == GSI_CHAN_DIR_FROM_GSI)
 		gsi_ring_evt_doorbell(ctx->evtr);
 	ctx->ring.wp = ctx->ring.wp_local;
-
-	/* write order MUST be MSB followed by LSB */
-	val = ((ctx->ring.wp_local >> 32) &
-			GSI_EE_n_GSI_CH_k_DOORBELL_1_WRITE_PTR_MSB_BMSK) <<
-			GSI_EE_n_GSI_CH_k_DOORBELL_1_WRITE_PTR_MSB_SHFT;
-	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_DOORBELL_1_OFFS(ctx->props.ch_id,
-				gsi_ctx->per.ee));
 
 	val = (ctx->ring.wp_local &
 			GSI_EE_n_GSI_CH_k_DOORBELL_0_WRITE_PTR_LSB_BMSK) <<
@@ -1100,11 +1084,21 @@ static void gsi_init_evt_ring(struct gsi_evt_ring_props *props,
 static void gsi_prime_evt_ring(struct gsi_evt_ctx *ctx)
 {
 	unsigned long flags;
+	uint32_t val;
 
 	spin_lock_irqsave(&ctx->ring.slock, flags);
 	memset((void *)ctx->ring.base_va, 0, ctx->ring.len);
 	ctx->ring.wp_local = ctx->ring.base +
 		ctx->ring.max_num_elem * ctx->ring.elem_sz;
+
+	/* write order MUST be MSB followed by LSB */
+	val = ((ctx->ring.wp_local >> 32) &
+		GSI_EE_n_EV_CH_k_DOORBELL_1_WRITE_PTR_MSB_BMSK) <<
+		GSI_EE_n_EV_CH_k_DOORBELL_1_WRITE_PTR_MSB_SHFT;
+	gsi_writel(val, gsi_ctx->base +
+		GSI_EE_n_EV_CH_k_DOORBELL_1_OFFS(ctx->id,
+		gsi_ctx->per.ee));
+
 	gsi_ring_evt_doorbell(ctx);
 	spin_unlock_irqrestore(&ctx->ring.slock, flags);
 }
@@ -1966,6 +1960,14 @@ int gsi_start_channel(unsigned long chan_hdl)
 		BUG();
 	}
 
+	/* write order MUST be MSB followed by LSB */
+	val = ((ctx->ring.wp_local >> 32) &
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_WRITE_PTR_MSB_BMSK) <<
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_WRITE_PTR_MSB_SHFT;
+	gsi_writel(val, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_DOORBELL_1_OFFS(ctx->props.ch_id,
+		gsi_ctx->per.ee));
+
 	mutex_unlock(&gsi_ctx->mlock);
 
 	return GSI_STATUS_SUCCESS;
@@ -2602,6 +2604,8 @@ int gsi_poll_channel(unsigned long chan_hdl,
 	spin_lock_irqsave(&ctx->evtr->ring.slock, flags);
 	if (ctx->evtr->ring.rp == ctx->evtr->ring.rp_local) {
 		/* update rp to see of we have anything new to process */
+		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
+			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
 		rp = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_EV_CH_k_CNTXT_4_OFFS(ctx->evtr->id, ee));
 		rp |= ctx->ring.rp & 0xFFFFFFFF00000000;
