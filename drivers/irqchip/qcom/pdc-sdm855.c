@@ -141,6 +141,7 @@ static struct pdc_pin sdm855_data[] = {
 	{123, 670},/*core_bi_px_gpio_89*/
 	{124, 671},/*core_bi_px_gpio_31*/
 	{125, 95},/*core_bi_px_gpio_49*/
+	{-1},
 };
 
 static int __init qcom_pdc_gic_init(struct device_node *node,
