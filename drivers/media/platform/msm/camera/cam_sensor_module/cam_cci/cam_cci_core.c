@@ -473,6 +473,10 @@ static int32_t cam_cci_calc_cmd_len(struct cci_device *cci_dev,
 			if (cmd->reg_addr + 1 ==
 				(cmd+1)->reg_addr) {
 				len += data_len;
+				if (len > cci_dev->payload_size) {
+					len = len - data_len;
+					break;
+				}
 				(*pack)++;
 			} else {
 				break;
