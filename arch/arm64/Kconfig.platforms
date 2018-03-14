@@ -159,6 +159,14 @@ config ARCH_SDMSHRIKE
 	  If you do not wish to build a kernel that runs on this chipset,
 	  say 'N' here.
 
+config ARCH_SDM640
+	bool "Enable Support for Qualcomm Technologies, Inc. SDM640"
+	depends on ARCH_QCOM
+	select COMMON_CLK_QCOM
+	help
+	  This enables support for the SDM640 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_REALTEK
 	bool "Realtek Platforms"
 	help

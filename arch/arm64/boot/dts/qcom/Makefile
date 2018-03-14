@@ -45,6 +45,24 @@ dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-rumi.dtb \
 	sdmshrike-mtp.dtb \
 	sdmshrike-cdp.dtb
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+	dtbo-$(CONFIG_ARCH_SDM640) += \
+		sdm640-cdp-overlay.dtbo \
+		sdm640-mtp-overlay.dtbo \
+		sdm640-rumi-overlay.dtbo \
+		sdm640-qrd-overlay.dtbo \
+
+sdm640-cdp-overlay.dtbo-base := sdm640.dtb
+sdm640-mtp-overlay.dtbo-base := sdm640.dtb
+sdm640-rumi-overlay.dtbo-base := sdm640.dtb
+sdm640-qrd-overlay.dtbo-base := sdm640.dtb
+else
+dtb-$(CONFIG_ARCH_SDM640)	+= sdm640-rumi.dtb \
+	sdm640-mtp.dtb \
+	sdm640-cdp.dtb \
+	sdm640-qrd.dtb
+endif
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb *.dtbo

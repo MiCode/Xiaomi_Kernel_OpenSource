@@ -47,6 +47,9 @@ SoCs:
 - SDMSHRIKE
   compatible = "qcom,sdmshrike"
 
+- SDM640
+  compatible = "qcom,sdm640"
+
 Generic board variants:
 
 - CDP device:
@@ -129,3 +132,7 @@ compatible = "qcom,sdm855-qrd"
 compatible = "qcom,sdmshrike-rumi"
 compatible = "qcom,sdmshrike-mtp"
 compatible = "qcom,sdmshrike-cdp"
+compatible = "qcom,sdm640-rumi"
+compatible = "qcom,sdm640-mtp"
+compatible = "qcom,sdm640-cdp"
+compatible = "qcom,sdm640-qrd"
