@@ -1398,6 +1398,16 @@
 		cell-index = <0>;
 	};
 
+
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x2000>;
+		reg-names = "eud_base";
+		status = "ok";
+	};
+
 	pil_modem: qcom,mss@4080000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x4080000 0x100>;
