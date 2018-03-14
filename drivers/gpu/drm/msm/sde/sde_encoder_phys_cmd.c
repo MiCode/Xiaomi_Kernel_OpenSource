@@ -1024,18 +1024,20 @@ static bool sde_encoder_phys_cmd_is_autorefresh_enabled(
 static void sde_encoder_phys_cmd_connect_te(
 		struct sde_encoder_phys *phys_enc, bool enable)
 {
-	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_intf ||
-			!phys_enc->hw_pp->ops.connect_external_te)
+	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_intf)
+		return;
+
+	if (phys_enc->has_intf_te &&
+			phys_enc->hw_intf->ops.connect_external_te)
+		phys_enc->hw_intf->ops.connect_external_te(phys_enc->hw_intf,
+				enable);
+	else if (phys_enc->hw_pp->ops.connect_external_te)
+		phys_enc->hw_pp->ops.connect_external_te(phys_enc->hw_pp,
+				enable);
+	else
 		return;
 
 	SDE_EVT32(DRMID(phys_enc->parent), enable);
-
-	if (phys_enc->has_intf_te)
-		phys_enc->hw_intf->ops.connect_external_te(phys_enc->hw_intf,
-				enable);
-	else
-		phys_enc->hw_pp->ops.connect_external_te(phys_enc->hw_pp,
-				enable);
 }
 
 static int sde_encoder_phys_cmd_te_get_line_count(
