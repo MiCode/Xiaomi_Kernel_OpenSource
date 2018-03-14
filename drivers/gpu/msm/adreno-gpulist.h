@@ -379,4 +379,23 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_major = 0x1,
 		.gpmu_minor = 0x003,
 	},
+	{
+		.gpurev = ADRENO_REV_A640,
+		.core = 6,
+		.major = 4,
+		.minor = 0,
+		.patchid = ANY_ID,
+		.features = ADRENO_64BIT | ADRENO_RPMH,
+		.sqefw_name = "a630_sqe.fw",
+		.zap_name = "a640_zap",
+		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_size = SZ_1M, //Verified 1MB
+		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
+		.gpmufw_name = "a640_gmu.bin",
+		.gpmu_major = 0x0,
+		.gpmu_minor = 0x005,
+		.gpmu_tsens = 0x000C000D,
+		.max_power = 5448,
+	},
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -213,6 +213,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A540 = 540,
 	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A630 = 630,
+	ADRENO_REV_A640 = 640,
 };
 
 #define ADRENO_START_WARM 0
@@ -1251,6 +1252,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 
 ADRENO_TARGET(a615, ADRENO_REV_A615)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
+ADRENO_TARGET(a640, ADRENO_REV_A640)
 
 static inline int adreno_is_a630v1(struct adreno_device *adreno_dev)
 {
@@ -1877,7 +1879,7 @@ static inline void adreno_perfcntr_active_oob_put(
 
 static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a640(adreno_dev))
 		return true;
 	else
 		return false;

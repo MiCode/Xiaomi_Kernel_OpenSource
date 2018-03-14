@@ -406,6 +406,7 @@
 #define A6XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL      0xF810
 
 #define A6XX_RBBM_VBIF_CLIENT_QOS_CNTL   0x00010
+#define A6XX_RBBM_GBIF_CLIENT_QOS_CNTL   0x00011
 #define A6XX_RBBM_GPR0_CNTL              0x00018
 #define A6XX_RBBM_INTERFACE_HANG_INT_CNTL 0x0001f
 #define A6XX_RBBM_INT_CLEAR_CMD          0x00037
@@ -521,6 +522,7 @@
 #define A6XX_RBBM_CLOCK_HYST_GMU_GX      0x0011a
 #define A6XX_RBBM_CLOCK_MODE_HLSQ	 0x0011b
 #define A6XX_RBBM_CLOCK_DELAY_HLSQ       0x0011c
+#define A6XX_RBBM_CLOCK_HYST_HLSQ        0x0011d
 
 /* DBGC_CFG registers */
 #define A6XX_DBGC_CFG_DBGBUS_SEL_A                  0x600
@@ -809,6 +811,10 @@
 #define GBIF_AXI1_WRITE_DATA_TOTAL_BEATS   47
 
 /* GBIF registers */
+#define A6XX_GBIF_QSB_SIDE0               0x3c03
+#define A6XX_GBIF_QSB_SIDE1               0x3c04
+#define A6XX_GBIF_QSB_SIDE2               0x3c05
+#define A6XX_GBIF_QSB_SIDE3               0x3c06
 #define A6XX_GBIF_HALT                    0x3c45
 #define A6XX_GBIF_HALT_ACK                0x3c46
 #define A6XX_GBIF_HALT_MASK               0x2
