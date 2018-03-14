@@ -263,6 +263,7 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
 			mdp->hw.blk_off, mdp->hw.blk_off + mdp->hw.length,
 			mdp->hw.xin_id);
+	sde_dbg_set_sde_top_offset(mdp->hw.blk_off);
 
 	return mdp;
 }

@@ -178,6 +178,12 @@ ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 		char *evtlog_buf, ssize_t evtlog_buf_size);
 
 /**
+ * sde_dbg_init_dbg_buses - initialize debug bus dumping support for the chipset
+ * @hwversion:		Chipset revision
+ */
+void sde_dbg_init_dbg_buses(u32 hwversion);
+
+/**
  * sde_dbg_init - initialize global sde debug facilities: evtlog, regdump
  * @debugfs_root:	debugfs root in which to create sde debug entries
  * @dev:		device handle
@@ -234,6 +240,12 @@ void sde_dbg_reg_register_dump_range(const char *base_name,
 		const char *range_name, u32 offset_start, u32 offset_end,
 		uint32_t xin_id);
 
+/**
+ * sde_dbg_set_sde_top_offset - set the target specific offset from mdss base
+ *	address of the top registers. Used for accessing debug bus controls.
+ * @blk_off: offset from mdss base of the top block
+ */
+void sde_dbg_set_sde_top_offset(u32 blk_off);
 #else
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
 {
@@ -265,6 +277,10 @@ static inline ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 	return 0;
 }
 
+void sde_dbg_init_dbg_buses(u32 hwversion)
+{
+}
+
 static inline int sde_dbg_init(struct dentry *debugfs_root, struct device *dev,
 		struct sde_dbg_power_ctrl *power_ctrl)
 {
@@ -291,6 +307,9 @@ static inline void sde_dbg_reg_register_dump_range(const char *base_name,
 {
 }
 
+void sde_dbg_set_sde_top_offset(u32 blk_off)
+{
+}
 #endif /* defined(CONFIG_DEBUG_FS) */
 
 
