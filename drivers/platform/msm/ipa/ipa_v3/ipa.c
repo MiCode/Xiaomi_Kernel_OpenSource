@@ -5376,11 +5376,6 @@ fail_mem_ctx:
 	return result;
 }
 
-bool ipa_pm_is_used(void)
-{
-	return (ipa3_ctx) ? ipa3_ctx->use_ipa_pm : false;
-}
-
 static int get_ipa_dts_pm_info(struct platform_device *pdev,
 	struct ipa3_plat_drv_res *ipa_drv_res)
 {
