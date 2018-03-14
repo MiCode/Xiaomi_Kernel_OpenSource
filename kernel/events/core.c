@@ -2617,14 +2617,13 @@ perf_install_in_context(struct perf_event_context *ctx,
 	 */
 	smp_store_release(&event->ctx, ctx);
 
-#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
-	if (per_cpu(is_hotplugging, cpu)) {
-		perf_prepare_install_in_context(event);
-		return;
-	}
-#endif
-
 	if (!task) {
+#if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+		if (per_cpu(is_hotplugging, cpu)) {
+			perf_prepare_install_in_context(event);
+			return;
+		}
+#endif
 		cpu_function_call(cpu, __perf_install_in_context, event);
 		return;
 	}
