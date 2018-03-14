@@ -181,6 +181,7 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * struct dp_parser - DP parser's data exposed to clients
  *
  * @pdev: platform data of the client
+ * @msm_hdcp_dev: device pointer for the HDCP driver
  * @mp: gpio, regulator and clock related data
  * @pinctrl: pin-control related data
  * @disp_data: controller's display related data
@@ -192,6 +193,7 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  */
 struct dp_parser {
 	struct platform_device *pdev;
+	struct device *msm_hdcp_dev;
 	struct dss_module_power mp[DP_MAX_PM];
 	struct dp_pinctrl pinctrl;
 	struct dp_io io;
