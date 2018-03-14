@@ -3683,6 +3683,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
 		usb_register_notify(&mdwc->host_nb);
 
+		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
 		mdwc->usbdev_nb.notifier_call = msm_dwc3_usbdev_notify;
 		usb_register_atomic_notify(&mdwc->usbdev_nb);
 		ret = dwc3_host_init(dwc);
@@ -3749,6 +3750,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dwc3_host_exit(dwc);
 		usb_unregister_notify(&mdwc->host_nb);
 
+		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		dwc3_usb3_phy_suspend(dwc, false);
 		mdwc->in_host_mode = false;
 
@@ -3808,7 +3810,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		 * DBM reset is required, hence perform only DBM reset here.
 		 */
 		dwc3_msm_block_reset(mdwc, false);
-
+		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		mdwc->in_device_mode = true;
 		usb_gadget_vbus_connect(&dwc->gadget);
 #ifdef CONFIG_SMP
