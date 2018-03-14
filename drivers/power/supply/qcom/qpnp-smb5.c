@@ -51,6 +51,13 @@ static struct smb_params smb5_pmi632_params = {
 		.max_u  = 3000000,
 		.step_u = 50000,
 	},
+	.icl_max_stat		= {
+		.name   = "dcdc icl max status",
+		.reg    = ICL_MAX_STATUS_REG,
+		.min_u  = 0,
+		.max_u  = 3000000,
+		.step_u = 50000,
+	},
 	.icl_stat		= {
 		.name   = "input current limit status",
 		.reg    = AICL_ICL_STATUS_REG,
@@ -89,7 +96,7 @@ static struct smb_params smb5_pmi632_params = {
 	},
 };
 
-static struct smb_params smb5_pmi855_params = {
+static struct smb_params smb5_pm855b_params = {
 	.fcc			= {
 		.name   = "fast charge current",
 		.reg    = CHGR_FAST_CHARGE_CURRENT_CFG_REG,
@@ -111,8 +118,15 @@ static struct smb_params smb5_pmi855_params = {
 		.max_u  = 5000000,
 		.step_u = 50000,
 	},
+	.icl_max_stat		= {
+		.name   = "dcdc icl max status",
+		.reg    = ICL_MAX_STATUS_REG,
+		.min_u  = 0,
+		.max_u  = 5000000,
+		.step_u = 50000,
+	},
 	.icl_stat		= {
-		.name   = "input current limit status",
+		.name   = "aicl icl status",
 		.reg    = AICL_ICL_STATUS_REG,
 		.min_u  = 0,
 		.max_u  = 5000000,
@@ -215,7 +229,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 	switch (pmic_rev_id->pmic_subtype) {
 	case PM855B_SUBTYPE:
 		chip->chg.smb_version = PM855B_SUBTYPE;
-		chg->param = smb5_pmi855_params;
+		chg->param = smb5_pm855b_params;
 		chg->name = "pm855b_charger";
 		break;
 	case PMI632_SUBTYPE:
