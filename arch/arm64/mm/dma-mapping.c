@@ -38,7 +38,8 @@
 #include <asm/dma-iommu.h>
 #include <linux/dma-mapping-fast.h>
 #include <linux/msm_dma_iommu_mapping.h>
-
+#include <linux/arm-smmu-errata.h>
+#include <soc/qcom/secure_buffer.h>
 
 
 static int swiotlb __ro_after_init;
@@ -1141,15 +1142,24 @@ static void __dma_clear_buffer(struct page *page, size_t size,
 static inline dma_addr_t __alloc_iova(struct dma_iommu_mapping *mapping,
 				      size_t size)
 {
-	unsigned int order = get_order(size);
+	unsigned int order;
 	unsigned int align = 0;
 	unsigned int count, start;
 	unsigned long flags;
+	dma_addr_t iova;
+	size_t guard_len;
 
+	size = PAGE_ALIGN(size);
+	if (mapping->min_iova_align)
+		guard_len = ALIGN(size, mapping->min_iova_align) - size;
+	else
+		guard_len = 0;
+
+	order = get_order(size + guard_len);
 	if (order > CONFIG_ARM64_DMA_IOMMU_ALIGNMENT)
 		order = CONFIG_ARM64_DMA_IOMMU_ALIGNMENT;
 
-	count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	count = PAGE_ALIGN(size + guard_len) >> PAGE_SHIFT;
 	align = (1 << order) - 1;
 
 	spin_lock_irqsave(&mapping->lock, flags);
@@ -1163,16 +1173,41 @@ static inline dma_addr_t __alloc_iova(struct dma_iommu_mapping *mapping,
 	bitmap_set(mapping->bitmap, start, count);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 
-	return mapping->base + (start << PAGE_SHIFT);
+	iova = mapping->base + (start << PAGE_SHIFT);
+
+	if (guard_len &&
+		iommu_map(mapping->domain, iova + size,
+			page_to_phys(mapping->guard_page),
+			guard_len, ARM_SMMU_GUARD_PROT)) {
+
+		spin_lock_irqsave(&mapping->lock, flags);
+		bitmap_clear(mapping->bitmap, start, count);
+		spin_unlock_irqrestore(&mapping->lock, flags);
+		return DMA_ERROR_CODE;
+	}
+
+	return iova;
 }
 
 static inline void __free_iova(struct dma_iommu_mapping *mapping,
 			       dma_addr_t addr, size_t size)
 {
-	unsigned int start = (addr - mapping->base) >> PAGE_SHIFT;
-	unsigned int count = size >> PAGE_SHIFT;
+	unsigned int start;
+	unsigned int count;
 	unsigned long flags;
+	size_t guard_len;
 
+	addr = addr & PAGE_MASK;
+	size = PAGE_ALIGN(size);
+	if (mapping->min_iova_align) {
+		guard_len = ALIGN(size, mapping->min_iova_align) - size;
+		iommu_unmap(mapping->domain, addr + size, guard_len);
+	} else {
+		guard_len = 0;
+	}
+
+	start = (addr - mapping->base) >> PAGE_SHIFT;
+	count = (size + guard_len) >> PAGE_SHIFT;
 	spin_lock_irqsave(&mapping->lock, flags);
 	bitmap_clear(mapping->bitmap, start, count);
 	spin_unlock_irqrestore(&mapping->lock, flags);
@@ -1940,6 +1975,23 @@ static int
 bitmap_iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 {
 	unsigned int bitmap_size = BITS_TO_LONGS(mapping->bits) * sizeof(long);
+	int vmid = VMID_HLOS;
+	bool min_iova_align = 0;
+
+	iommu_domain_get_attr(mapping->domain,
+			DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN,
+			&min_iova_align);
+	iommu_domain_get_attr(mapping->domain,
+			DOMAIN_ATTR_SECURE_VMID, &vmid);
+	if (vmid >= VMID_LAST || vmid < 0)
+		vmid = VMID_HLOS;
+
+	if (min_iova_align) {
+		mapping->min_iova_align = ARM_SMMU_MIN_IOVA_ALIGN;
+		mapping->guard_page = arm_smmu_errata_get_guard_page(vmid);
+		if (!mapping->guard_page)
+			return -ENOMEM;
+	}
 
 	mapping->bitmap = kzalloc(bitmap_size, GFP_KERNEL | __GFP_NOWARN |
 				__GFP_NORETRY);

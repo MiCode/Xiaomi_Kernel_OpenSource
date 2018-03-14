@@ -22,6 +22,8 @@ struct dma_iommu_mapping {
 	void			*bitmap;
 	size_t			bits;
 	dma_addr_t		base;
+	u32			min_iova_align;
+	struct page		*guard_page;
 
 	struct dma_fast_smmu_mapping *fast;
 };
