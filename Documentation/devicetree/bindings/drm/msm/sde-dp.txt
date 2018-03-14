@@ -153,7 +153,7 @@ Example:
 			"ctrl_link_iface_clk", "ctrl_crypto_clk",
 			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent";
 
-		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
+		qcom,dp-usbpd-detection = <&pm855b_pdphy>;
 		qcom,ext-disp = <&ext_disp>;
 		qcom,phy-version = <0x420>;
 
