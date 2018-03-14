@@ -361,6 +361,13 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(sdp_current_max),
 	POWER_SUPPLY_ATTR(connector_type),
 	POWER_SUPPLY_ATTR(battery_type),
+	POWER_SUPPLY_ATTR(parallel_batfet_mode),
+	POWER_SUPPLY_ATTR(parallel_fcc_max),
+	POWER_SUPPLY_ATTR(min_icl),
+	POWER_SUPPLY_ATTR(moisture_detected),
+	POWER_SUPPLY_ATTR(batt_profile_version),
+	POWER_SUPPLY_ATTR(batt_full_current),
+	POWER_SUPPLY_ATTR(recharge_soc),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
