@@ -117,6 +117,9 @@
 		/* Context aware jump target power level */
 		qcom,ca-target-pwrlevel = <1>;
 
+		/* Enable gpu cooling device */
+		#cooling-cells = <2>;
+
 		/* GPU Mempools */
 		qcom,gpu-mempools {
 			#address-cells= <1>;
