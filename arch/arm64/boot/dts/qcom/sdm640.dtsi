@@ -986,3 +986,4 @@
 };
 
 #include "sdm640-ion.dtsi"
+#include "msm-arm-smmu-sdm640.dtsi"
