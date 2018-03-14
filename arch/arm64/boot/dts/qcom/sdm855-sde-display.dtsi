@@ -122,6 +122,8 @@
 
 		qcom,dsi-panel = <&dsi_sharp_4k_dsc_video>;
 		vddio-supply = <&pm855_l14>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
 
 	};
 
@@ -145,6 +147,8 @@
 
 		qcom,dsi-panel = <&dsi_sharp_4k_dsc_cmd>;
 		vddio-supply = <&pm855_l14>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
 
 	};
 
