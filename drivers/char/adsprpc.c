@@ -3071,7 +3071,6 @@ bail:
 
 static void fastrpc_deinit(void)
 {
-	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *chan = gcinfo;
 	int i, j;
 
