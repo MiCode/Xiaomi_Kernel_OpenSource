@@ -15,6 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/hrtimer.h>
 #include <linux/devfreq_cooling.h>
+#include <linux/pm_opp.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -534,7 +535,6 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	int level;
 	unsigned int i;
 	unsigned long cur_freq, rec_freq;
-	struct dev_pm_opp *opp;
 
 	if (device == NULL)
 		return -ENODEV;
@@ -553,20 +553,7 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 		return 0;
 	}
 
-	/*
-	 * Thermal framework might have disabled/enabled OPP entries
-	 * for mitigation. So find the recommended frequency matching
-	 * the available opp entries
-	 */
-	rcu_read_lock();
 	rec_freq = *freq;
-	opp = devfreq_recommended_opp(dev, &rec_freq, flags);
-	if (IS_ERR(opp)) {
-		rcu_read_unlock();
-		return PTR_ERR(opp);
-	}
-	rec_freq = dev_pm_opp_get_freq(opp);
-	rcu_read_unlock();
 
 	mutex_lock(&device->mutex);
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
@@ -871,6 +858,76 @@ int kgsl_busmon_get_cur_freq(struct device *dev, unsigned long *freq)
 	return 0;
 }
 
+/*
+ * opp_notify - Callback function registered to receive OPP events.
+ * @nb: The notifier block
+ * @type: The event type. Two OPP events are expected in this function:
+ *      - OPP_EVENT_ENABLE: an GPU OPP is enabled. The in_opp parameter
+ *	contains the OPP that is enabled
+ *	- OPP_EVENT_DISALBE: an GPU OPP is disabled. The in_opp parameter
+ *	contains the OPP that is disabled.
+ * @in_opp: the GPU OPP whose status is changed and triggered the event
+ *
+ * GPU OPP event callback function. The function subscribe GPU OPP status
+ * change and update thermal power level accordingly.
+ */
+
+static int opp_notify(struct notifier_block *nb,
+	unsigned long type, void *in_opp)
+{
+	int result = -EINVAL, level, min_level, max_level;
+	struct kgsl_pwrctrl *pwr = container_of(nb, struct kgsl_pwrctrl, nb);
+	struct kgsl_device *device = container_of(pwr,
+			struct kgsl_device, pwrctrl);
+	struct device *dev = &device->pdev->dev;
+	struct dev_pm_opp *opp;
+	unsigned long min_freq = 0, max_freq = pwr->pwrlevels[0].gpu_freq;
+
+	if (type != OPP_EVENT_ENABLE && type != OPP_EVENT_DISABLE)
+		return result;
+
+	rcu_read_lock();
+	opp = dev_pm_opp_find_freq_floor(dev, &max_freq);
+	if (IS_ERR(opp)) {
+		rcu_read_unlock();
+		return PTR_ERR(opp);
+	}
+
+	max_freq = dev_pm_opp_get_freq(opp);
+	if (!max_freq) {
+		rcu_read_unlock();
+		return result;
+	}
+
+	opp = dev_pm_opp_find_freq_ceil(dev, &min_freq);
+	if (IS_ERR(opp))
+		min_freq = pwr->pwrlevels[pwr->min_pwrlevel].gpu_freq;
+
+	rcu_read_unlock();
+
+	mutex_lock(&device->mutex);
+
+	max_level = pwr->thermal_pwrlevel;
+	min_level = pwr->thermal_pwrlevel_floor;
+
+	/* Thermal limit cannot be lower than lowest non-zero operating freq */
+	for (level = 0; level < (pwr->num_pwrlevels - 1); level++)
+		if (pwr->pwrlevels[level].gpu_freq == max_freq)
+			max_level = level;
+		if (pwr->pwrlevels[level].gpu_freq == min_freq)
+			min_level = level;
+
+
+	pwr->thermal_pwrlevel = max_level;
+	pwr->thermal_pwrlevel_floor = min_level;
+
+	/* Update the current level using the new limit */
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
 
 /*
  * kgsl_pwrscale_init - Initialize pwrscale.
@@ -900,6 +957,10 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	pwr = &device->pwrctrl;
 	gpu_profile = &pwrscale->gpu_profile;
 	profile = &pwrscale->gpu_profile.profile;
+
+	pwr->nb.notifier_call = opp_notify;
+
+	dev_pm_opp_register_notifier(dev, &pwr->nb);
 
 	srcu_init_notifier_head(&pwrscale->nh);
 
@@ -1054,7 +1115,9 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 {
 	int i;
 	struct kgsl_pwrscale *pwrscale;
+	struct kgsl_pwrctrl *pwr;
 
+	pwr = &device->pwrctrl;
 	pwrscale = &device->pwrscale;
 	if (!pwrscale->devfreqptr)
 		return;
@@ -1069,6 +1132,7 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	kgsl_midframe = NULL;
 	device->pwrscale.devfreqptr = NULL;
 	srcu_cleanup_notifier_head(&device->pwrscale.nh);
+	dev_pm_opp_register_notifier(&device->pdev->dev, &pwr->nb);
 	for (i = 0; i < KGSL_PWREVENT_MAX; i++)
 		kfree(pwrscale->history[i].events);
 }

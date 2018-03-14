@@ -946,6 +946,8 @@ static struct {
 			"qcom,gpu-quirk-lmloadkill-disable" },
 	{ ADRENO_QUIRK_HFI_USE_REG, "qcom,gpu-quirk-hfi-use-reg" },
 	{ ADRENO_QUIRK_SECVID_SET_ONCE, "qcom,gpu-quirk-secvid-set-once" },
+	{ ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW,
+			"qcom,gpu-quirk-limit-uche-gbif-rw" },
 };
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,
@@ -1084,6 +1086,33 @@ static void adreno_cx_dbgc_probe(struct kgsl_device *device)
 		KGSL_DRV_WARN(device, "cx_dbgc ioremap failed\n");
 }
 
+static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
+{
+	unsigned int row0;
+	unsigned int pte_row0_msb[3];
+	int ret;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (of_property_read_u32_array(device->pdev->dev.of_node,
+		"qcom,gpu-disable-fuse", pte_row0_msb, 3))
+		return false;
+	/*
+	 * Read the fuse value to disable GPU driver if fuse
+	 * is blown. By default(fuse value is 0) GPU is enabled.
+	 */
+	if (adreno_efuse_map(adreno_dev))
+		return false;
+
+	ret = adreno_efuse_read_u32(adreno_dev, pte_row0_msb[0], &row0);
+	adreno_efuse_unmap(adreno_dev);
+
+	if (ret)
+		return false;
+
+	return (row0 >> pte_row0_msb[2]) &
+			pte_row0_msb[1] ? true : false;
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	struct kgsl_device *device;
@@ -1099,6 +1128,11 @@ static int adreno_probe(struct platform_device *pdev)
 
 	device = KGSL_DEVICE(adreno_dev);
 	device->pdev = pdev;
+
+	if (adreno_is_gpu_disabled(adreno_dev)) {
+		pr_err("adreno: GPU is disabled on this device\n");
+		return -ENODEV;
+	}
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	adreno_identify_gpu(adreno_dev);
@@ -1483,7 +1517,7 @@ static void _set_secvid(struct kgsl_device *device)
 		adreno_writereg64(adreno_dev,
 			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
 			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-			KGSL_IOMMU_SECURE_BASE);
+			KGSL_IOMMU_SECURE_BASE(&device->mmu));
 		adreno_writereg(adreno_dev,
 			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
 			KGSL_IOMMU_SECURE_SIZE);
@@ -1814,11 +1848,6 @@ error_oob_clear:
 
 error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);
-	if (gpudev->oob_clear &&
-			ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
-		gpudev->oob_clear(adreno_dev,
-				OOB_BOOT_SLUMBER_CLEAR_MASK);
-	}
 
 error_pwr_off:
 	/* set the state back to original state */
@@ -2072,7 +2101,7 @@ static int adreno_getproperty(struct kgsl_device *device,
 				 * anything to mmap().
 				 */
 				shadowprop.gpuaddr =
-					(unsigned int) device->memstore.gpuaddr;
+					(unsigned long)device->memstore.gpuaddr;
 				shadowprop.size = device->memstore.size;
 				/* GSL needs this to be set, even if it
 				 * appears to be meaningless
