@@ -708,6 +708,8 @@ static int __cam_req_mgr_process_sync_req(
 			"No req applied on corresponding SOF on sync link: %x",
 			sync_link->link_hdl);
 		sync_link->sync_link_sof_skip = false;
+		/*It is to manage compensate inject delay for each pd*/
+		__cam_req_mgr_check_link_is_ready(link, slot->idx, true, true);
 		return -EINVAL;
 	}
 
