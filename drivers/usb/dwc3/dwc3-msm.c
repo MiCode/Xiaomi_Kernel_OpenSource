@@ -2384,8 +2384,13 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dwc3_msm_power_collapse_por(mdwc);
 
 		/* Get initial P3 status and enable IN_P3 event */
-		tmp = dwc3_msm_read_reg_field(mdwc->base,
-			DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
+		if (dwc3_is_usb31(dwc))
+			tmp = dwc3_msm_read_reg_field(mdwc->base,
+				DWC31_LINK_GDBGLTSSM,
+				DWC3_GDBGLTSSM_LINKSTATE_MASK);
+		else
+			tmp = dwc3_msm_read_reg_field(mdwc->base,
+				DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
 		atomic_set(&mdwc->in_p3, tmp == DWC3_LINK_STATE_U3);
 		dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
 					PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
@@ -2560,8 +2565,15 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	/* Check for P3 events */
 	if ((irq_stat & PWR_EVNT_POWERDOWN_OUT_P3_MASK) &&
 			(irq_stat & PWR_EVNT_POWERDOWN_IN_P3_MASK)) {
+		u32 ls;
+
 		/* Can't tell if entered or exit P3, so check LINKSTATE */
-		u32 ls = dwc3_msm_read_reg_field(mdwc->base,
+		if (dwc3_is_usb31(dwc))
+			ls = dwc3_msm_read_reg_field(mdwc->base,
+				DWC31_LINK_GDBGLTSSM,
+				DWC3_GDBGLTSSM_LINKSTATE_MASK);
+		else
+			ls = dwc3_msm_read_reg_field(mdwc->base,
 				DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
 		dev_dbg(mdwc->dev, "%s link state = 0x%04x\n", __func__, ls);
 		atomic_set(&mdwc->in_p3, ls == DWC3_LINK_STATE_U3);

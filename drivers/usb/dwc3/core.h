@@ -159,6 +159,9 @@
 #define DWC3_OEVTEN		0xcc0C
 #define DWC3_OSTS		0xcc10
 
+/* DWC 3.1 Link Registers */
+#define DWC31_LINK_GDBGLTSSM	0xd050
+
 /* Bit fields */
 
 /* Global SoC Bus Configuration Register 1 */
