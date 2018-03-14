@@ -1447,7 +1447,8 @@ static int cluster_cpuidle_register(struct lpm_cluster *cl)
 			struct lpm_cpu_level *cpu_level = &lpm_cpu->levels[i];
 
 			snprintf(st->name, CPUIDLE_NAME_LEN, "C%u\n", i);
-			snprintf(st->desc, CPUIDLE_DESC_LEN, cpu_level->name);
+			snprintf(st->desc, CPUIDLE_DESC_LEN, "%s",
+					cpu_level->name);
 			st->flags = 0;
 			st->exit_latency = cpu_level->pwr.latency_us;
 			st->power_usage = cpu_level->pwr.ss_power;
