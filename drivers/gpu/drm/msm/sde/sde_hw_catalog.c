@@ -3404,7 +3404,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		+ ARRAY_SIZE(p010_formats);
 	virt_vig_list_size += ARRAY_SIZE(rgb_10bit_formats);
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
-		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)))
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_500)))
 		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
 
 	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
@@ -3440,10 +3441,9 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	}
 
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300) ||
-	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_301) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
-	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_401) ||
-	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410))
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410) ||
+	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_500))
 		sde_cfg->has_hdr = true;
 
 	index = sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
@@ -3460,7 +3460,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	index += sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
-		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)))
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_500)))
 		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
