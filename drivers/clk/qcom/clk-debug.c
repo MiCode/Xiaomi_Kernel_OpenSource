@@ -309,7 +309,7 @@ int clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 		return 0;
 	}
 
-	debugfs_create_file("clk_measure", 0x444, dentry, hw,
+	debugfs_create_file("clk_measure", 0444, dentry, hw,
 					&clk_measure_fops);
 	return 0;
 }
