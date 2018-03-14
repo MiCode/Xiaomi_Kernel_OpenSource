@@ -590,6 +590,8 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_7nm *pll,
 	void __iomem *pll_base = rsc->pll_base;
 
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FIVE_1, 0x01);
+	MDSS_PLL_REG_W(pll_base, PLL_VCO_CONFIG_1, 0x00);
+	MDSS_PLL_REG_W(pll_base, PLL_GEAR_BAND_SELECT_CONTROLS, 0x21);
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_FIVE, 0x01);
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_TWO, 0x03);
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_THREE, 0x00);
@@ -601,11 +603,15 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_7nm *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_OUTDIV, 0x00);
 	MDSS_PLL_REG_W(pll_base, PLL_CORE_OVERRIDE, 0x00);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_DIGITAL_TIMERS_TWO, 0x08);
-	MDSS_PLL_REG_W(pll_base, PLL_PLL_PROP_GAIN_RATE_1, 0x08);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_PROP_GAIN_RATE_1, 0x0a);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_BAND_SEL_RATE_1, 0xc0);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_INT_GAIN_IFILT_BAND_1, 0x84);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_INT_GAIN_IFILT_BAND_1, 0x82);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_FL_INT_GAIN_PFILT_BAND_1, 0x4c);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_OVERRIDE, 0x80);
 	MDSS_PLL_REG_W(pll_base, PLL_PFILT, 0x29);
+	MDSS_PLL_REG_W(pll_base, PLL_PFILT, 0x2f);
+	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x2a);
 	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x3f);
 }
 
@@ -766,7 +772,6 @@ static void dsi_pll_commit(struct dsi_pll_7nm *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_CMODE_1, 0x10);
 	MDSS_PLL_REG_W(pll_base, PLL_CLOCK_INVERTERS_1,
 			reg->pll_clock_inverters);
-
 }
 
 static int vco_7nm_set_rate(struct clk_hw *hw, unsigned long rate,

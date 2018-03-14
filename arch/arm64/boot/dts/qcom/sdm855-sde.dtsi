@@ -552,11 +552,11 @@
 						55 03
 						55 03
 						55 00];
-		qcom,platform-lane-config = [00 00 00 00
-						00 00 00 00
-						00 00 00 00
-						00 00 00 00
-						00 00 00 80];
+		qcom,platform-lane-config = [00 00 0a 0a
+						00 00 0a 0a
+						00 00 0a 0a
+						00 00 0a 0a
+						00 00 8a 8a];
 		qcom,platform-regulator-settings = [1d 1d 1d 1d 1d];
 		qcom,phy-supply-entries {
 			#address-cells = <1>;
@@ -585,11 +585,11 @@
 						55 03
 						55 00];
 		qcom,platform-regulator-settings = [1d 1d 1d 1d 1d];
-		qcom,platform-lane-config = [00 00 00 00
-						00 00 00 00
-						00 00 00 00
-						00 00 00 00
-						00 00 00 80];
+		qcom,platform-lane-config = [00 00 0a 0a
+						00 00 0a 0a
+						00 00 0a 0a
+						00 00 0a 0a
+						00 00 8a 8a];
 		qcom,phy-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
