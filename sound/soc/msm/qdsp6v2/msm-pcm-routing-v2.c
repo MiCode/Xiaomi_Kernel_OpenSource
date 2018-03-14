@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16480,7 +16480,7 @@ int msm_routing_set_downmix_control_data(int be_id, int session_id,
 {
 	int i, rc = 0;
 	struct adm_pspd_param_data_t data;
-	struct audproc_chmixer_param_coeff dnmix_cfg;
+	struct audproc_chmixer_param_coeff dnmix_cfg = {0,};
 	uint16_t variable_payload = 0;
 	char *adm_params = NULL;
 	int port_id, copp_idx = 0;

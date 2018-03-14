@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -827,6 +827,11 @@ static int msm_audio_smmu_init_legacy(struct device *dev)
 		return -EINVAL;
 	}
 	msm_audio_ion_data.cb_dev = msm_iommu_get_ctx(cb->name);
+	if (msm_audio_ion_data.cb_dev == NULL) {
+		dev_err(dev, "%s Could not find IOMMU context\n",
+			__func__);
+		return -EINVAL;
+	}
 	cb->addr_range.start = (dma_addr_t) read_val[0];
 	cb->addr_range.size = (size_t) read_val[1];
 	dev_dbg(dev, "%s Legacy iommu usage\n", __func__);

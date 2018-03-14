@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -522,7 +522,7 @@ uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 
 bool q6core_is_adsp_ready(void)
 {
-	int rc;
+	int rc = 0;
 	bool ret = false;
 	struct apr_hdr hdr;
 

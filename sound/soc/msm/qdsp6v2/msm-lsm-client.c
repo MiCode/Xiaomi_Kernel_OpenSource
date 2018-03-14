@@ -570,7 +570,7 @@ static int msm_lsm_reg_model(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int rc = 0;
 	u8 *snd_model_ptr;
-	size_t offset;
+	size_t offset = 0;
 
 	rc = q6lsm_snd_model_buf_alloc(prtd->lsm_client,
 				       p_info->param_size,
