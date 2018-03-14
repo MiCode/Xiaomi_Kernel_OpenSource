@@ -2008,8 +2008,10 @@ static struct sk_buff *rndis_encapsulate_skb(struct sk_buff *skb,
 	}
 
 	if (rndis_ipa_ctx->is_vlan_mode)
-		if (unlikely(skb->protocol != ETH_P_8021Q))
-			RNDIS_IPA_DEBUG("ether_type != ETH_P_8021Q && vlan\n");
+		if (unlikely(skb->protocol != htons(ETH_P_8021Q)))
+			RNDIS_IPA_DEBUG(
+				"ether_type != ETH_P_8021Q && vlan, prot = 0x%X\n"
+				, skb->protocol);
 
 	/* make room at the head of the SKB to put the RNDIS header */
 	rndis_hdr = (struct rndis_pkt_hdr *)skb_push(skb,
