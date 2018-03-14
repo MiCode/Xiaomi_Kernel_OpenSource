@@ -3277,7 +3277,8 @@ static void _sde_plane_sspp_atomic_check_mode_changed(struct sde_plane *psde,
 
 	if (!fb || !old_fb) {
 		SDE_DEBUG_PLANE(psde, "can't compare fb handles\n");
-	} else if (fb->format->format != old_fb->format->format) {
+	} else if ((fb->format->format != old_fb->format->format) ||
+			pstate->const_alpha_en != old_pstate->const_alpha_en) {
 		SDE_DEBUG_PLANE(psde, "format change\n");
 		pstate->dirty |= SDE_PLANE_DIRTY_FORMAT | SDE_PLANE_DIRTY_RECTS;
 	} else {
