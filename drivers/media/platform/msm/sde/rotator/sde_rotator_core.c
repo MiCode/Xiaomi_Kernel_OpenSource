@@ -540,7 +540,7 @@ static int _sde_rotator_secure_session_ctrl(bool enable)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	uint32_t sid_info;
-	struct scm_desc desc;
+	struct scm_desc desc = {0};
 	unsigned int resp = 0;
 	int ret = 0;
 
