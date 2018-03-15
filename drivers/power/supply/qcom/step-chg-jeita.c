@@ -77,6 +77,7 @@ struct step_chg_info {
 	struct power_supply	*batt_psy;
 	struct power_supply	*bms_psy;
 	struct power_supply	*usb_psy;
+	struct power_supply	*main_psy;
 	struct delayed_work	status_change_work;
 	struct delayed_work	get_config_work;
 	struct notifier_block	nb;
@@ -598,6 +599,12 @@ set_jeita_fv:
 
 update_time:
 	chip->jeita_last_update_time = ktime_get();
+
+	if (!chip->main_psy)
+		chip->main_psy = power_supply_get_by_name("main");
+	if (chip->main_psy)
+		power_supply_changed(chip->main_psy);
+
 	return 0;
 
 reschedule:
