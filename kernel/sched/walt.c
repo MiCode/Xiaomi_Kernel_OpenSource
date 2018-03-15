@@ -3082,9 +3082,18 @@ void walt_irq_work(struct irq_work *irq_work)
 		raw_spin_unlock(&cluster->load_lock);
 	}
 
-	for_each_sched_cluster(cluster)
-		for_each_cpu(cpu, &cluster->cpus)
-			cpufreq_update_util(cpu_rq(cpu), flag);
+	for_each_sched_cluster(cluster) {
+		unsigned int num_cpus = cpumask_weight(&cluster->cpus), i = 1;
+
+		for_each_cpu(cpu, &cluster->cpus) {
+			if (i == num_cpus)
+				cpufreq_update_util(cpu_rq(cpu), flag);
+			else
+				cpufreq_update_util(cpu_rq(cpu), flag |
+							SCHED_CPUFREQ_CONTINUE);
+			i++;
+		}
+	}
 
 	for_each_cpu(cpu, cpu_possible_mask)
 		raw_spin_unlock(&cpu_rq(cpu)->lock);
