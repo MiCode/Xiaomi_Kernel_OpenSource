@@ -1267,7 +1267,7 @@ int ehci_hub_control(
 			spin_lock_irqsave(&ehci->lock, flags);
 
 			/* Put all enabled ports into suspend */
-			while (ports--) {
+			while (!ehci->no_testmode_suspend && ports--) {
 				u32 __iomem *sreg =
 						&ehci->regs->port_status[ports];
 
