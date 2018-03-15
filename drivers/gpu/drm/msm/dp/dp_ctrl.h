@@ -25,10 +25,10 @@
 struct dp_ctrl {
 	int (*init)(struct dp_ctrl *dp_ctrl, bool flip, bool reset);
 	void (*deinit)(struct dp_ctrl *dp_ctrl);
-	int (*on)(struct dp_ctrl *dp_ctrl);
+	int (*on)(struct dp_ctrl *dp_ctrl, bool mst_mode);
 	void (*off)(struct dp_ctrl *dp_ctrl);
 	void (*reset)(struct dp_ctrl *dp_ctrl);
-	void (*push_idle)(struct dp_ctrl *dp_ctrl);
+	void (*push_idle)(struct dp_ctrl *dp_ctrl, enum dp_stream_id strm);
 	void (*abort)(struct dp_ctrl *dp_ctrl);
 	void (*isr)(struct dp_ctrl *dp_ctrl);
 	bool (*handle_sink_request)(struct dp_ctrl *dp_ctrl);

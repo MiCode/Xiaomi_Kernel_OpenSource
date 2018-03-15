@@ -20,8 +20,13 @@
 
 #include "dp_ctrl.h"
 
+#define DP_MST_DEBUG(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
+
 #define DP_CTRL_INTR_READY_FOR_VIDEO     BIT(0)
 #define DP_CTRL_INTR_IDLE_PATTERN_SENT  BIT(3)
+
+#define DP_CTRL_INTR_MST_DP0_VCPF_SENT	BIT(0)
+#define DP_CTRL_INTR_MST_DP1_VCPF_SENT	BIT(3)
 
 /* dp state ctrl */
 #define ST_TRAIN_PATTERN_1		BIT(0)
@@ -33,6 +38,10 @@
 #define ST_CUSTOM_80_BIT_PATTERN	BIT(6)
 #define ST_SEND_VIDEO			BIT(7)
 #define ST_PUSH_IDLE			BIT(8)
+#define MST_DP0_PUSH_VCPF		BIT(12)
+#define MST_DP0_FORCE_VCPF		BIT(13)
+#define MST_DP1_PUSH_VCPF		BIT(14)
+#define MST_DP1_FORCE_VCPF		BIT(15)
 
 #define MR_LINK_TRAINING1  0x8
 #define MR_LINK_SYMBOL_ERM 0x80
@@ -56,6 +65,7 @@ struct dp_ctrl_private {
 
 	bool orientation;
 	bool power_on;
+	bool mst_mode;
 
 	atomic_t aborted;
 
@@ -101,10 +111,11 @@ static void dp_ctrl_state_ctrl(struct dp_ctrl_private *ctrl, u32 state)
 	ctrl->catalog->state_ctrl(ctrl->catalog, state);
 }
 
-static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl)
+static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl, enum dp_stream_id strm)
 {
 	int const idle_pattern_completion_timeout_ms = 3 * HZ / 100;
 	struct dp_ctrl_private *ctrl;
+	u32 state;
 
 	if (!dp_ctrl) {
 		pr_err("Invalid input data\n");
@@ -118,6 +129,19 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl)
 		return;
 	}
 
+	if (!ctrl->mst_mode) {
+		state = ST_PUSH_IDLE;
+		goto trigger_idle;
+	}
+
+	if (strm >= DP_STREAM_MAX) {
+		pr_err("mst push idle, invalid stream:%d\n", strm);
+		return;
+	}
+
+	state = (strm == DP_STREAM_0) ? MST_DP0_PUSH_VCPF : MST_DP1_PUSH_VCPF;
+
+trigger_idle:
 	reinit_completion(&ctrl->idle_comp);
 	dp_ctrl_state_ctrl(ctrl, ST_PUSH_IDLE);
 
@@ -141,6 +165,7 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 {
 	if (enable) {
 		ctrl->catalog->lane_mapping(ctrl->catalog);
+		ctrl->catalog->mst_config(ctrl->catalog, ctrl->mst_mode);
 		ctrl->catalog->config_ctrl(ctrl->catalog);
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 	} else {
@@ -658,7 +683,7 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 	ctrl->aux->state &= ~DP_STATE_LINK_MAINTENANCE_FAILED;
 	ctrl->aux->state |= DP_STATE_LINK_MAINTENANCE_STARTED;
 
-	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl);
+	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl, DP_STREAM_0);
 	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
 
 	do {
@@ -727,7 +752,7 @@ static void dp_ctrl_process_phy_test_request(struct dp_ctrl *dp_ctrl)
 
 	pr_debug("start\n");
 
-	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl);
+	ctrl->dp_ctrl.push_idle(&ctrl->dp_ctrl, DP_STREAM_0);
 	/*
 	 * The global reset will need DP link ralated clocks to be
 	 * running. Add the global reset just before disabling the
@@ -736,7 +761,7 @@ static void dp_ctrl_process_phy_test_request(struct dp_ctrl *dp_ctrl)
 	ctrl->dp_ctrl.reset(&ctrl->dp_ctrl);
 	ctrl->dp_ctrl.off(&ctrl->dp_ctrl);
 
-	ret = ctrl->dp_ctrl.on(&ctrl->dp_ctrl);
+	ret = ctrl->dp_ctrl.on(&ctrl->dp_ctrl, ctrl->mst_mode);
 	if (ret)
 		pr_err("failed to enable DP controller\n");
 
@@ -809,6 +834,56 @@ static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
 	ctrl->catalog->reset(ctrl->catalog);
 }
 
+static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
+		struct dp_panel *panel)
+{
+	u32 x_int, y_frac_enum, lanes, bw_code;
+	bool act_complete;
+
+	if (!ctrl->mst_mode) {
+		ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
+		return 0;
+	}
+
+	DP_MST_DEBUG("mst stream channel allocation\n");
+
+	ctrl->catalog->channel_alloc(ctrl->catalog,
+				panel->stream_id,
+				panel->channel_start_slot,
+				panel->channel_total_slots);
+
+	lanes = ctrl->link->link_params.lane_count;
+	bw_code = ctrl->link->link_params.bw_code;
+
+	x_int = (u32)(lanes * panel->channel_total_slots);
+	y_frac_enum = (u32)(256 * ((lanes * lanes *
+				panel->channel_total_slots) - x_int));
+
+	ctrl->catalog->update_rg(ctrl->catalog, panel->stream_id,
+			x_int, y_frac_enum);
+
+	DP_MST_DEBUG("mst stream:%d, start_slot:%d, tot_slots:%d\n",
+			panel->stream_id,
+			panel->channel_start_slot, panel->channel_total_slots);
+
+	DP_MST_DEBUG("mst lane_cnt:%d, bw:%d, x_int:%d, y_frac:%d\n",
+			lanes, bw_code, x_int, y_frac_enum);
+
+	ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
+
+	ctrl->catalog->trigger_act(ctrl->catalog);
+	msleep(20); /* needs 1 frame time */
+
+	ctrl->catalog->read_act_complete_sts(ctrl->catalog, &act_complete);
+
+	if (!act_complete)
+		pr_err("mst act trigger complete failed\n");
+	else
+		DP_MST_DEBUG("mst ACT trigger complete SUCCESS\n");
+
+	return 0;
+}
+
 static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 {
 	int rc = 0;
@@ -826,15 +901,15 @@ static int dp_ctrl_stream_on(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 	if (rc) {
 		pr_err("failure on stream clock enable\n");
 		goto end;
-	} else {
-		ctrl->catalog->state_ctrl(ctrl->catalog, ST_SEND_VIDEO);
-
-		dp_ctrl_wait4video_ready(ctrl);
-		link_ready = ctrl->catalog->mainlink_ready(ctrl->catalog);
-		pr_debug("mainlink %s\n", link_ready ? "READY" : "NOT READY");
-
-		panel->hw_cfg(panel);
 	}
+
+	rc = dp_ctrl_mst_stream_setup(ctrl, panel);
+	if (rc)
+		goto end;
+
+	dp_ctrl_wait4video_ready(ctrl);
+	link_ready = ctrl->catalog->mainlink_ready(ctrl->catalog);
+	pr_debug("mainlink %s\n", link_ready ? "READY" : "NOT READY");
 
 end:
 	return rc;
@@ -852,7 +927,7 @@ static void dp_ctrl_stream_off(struct dp_ctrl *dp_ctrl, struct dp_panel *panel)
 	dp_ctrl_disable_stream_clocks(ctrl, panel);
 }
 
-static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
+static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode)
 {
 	int rc = 0;
 	struct dp_ctrl_private *ctrl;
@@ -867,6 +942,8 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	atomic_set(&ctrl->aborted, 0);
+
+	ctrl->mst_mode = mst_mode;
 	rate = ctrl->panel->link_info.rate;
 
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
@@ -915,8 +992,6 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
 		dp_ctrl_send_phy_test_pattern(ctrl);
 
-	dp_ctrl_stream_on(dp_ctrl, ctrl->panel);
-
 	ctrl->power_on = true;
 
 	pr_debug("End-\n");
@@ -934,8 +1009,6 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	dp_ctrl_stream_off(dp_ctrl, ctrl->panel);
-
 	dp_ctrl_configure_source_link_params(ctrl, false);
 	ctrl->catalog->reset(ctrl->catalog);
 
@@ -944,6 +1017,7 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 
 	dp_ctrl_disable_mainlink_clocks(ctrl);
 
+	ctrl->mst_mode = false;
 	ctrl->power_on = false;
 	pr_debug("DP off done\n");
 }
@@ -963,6 +1037,12 @@ static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl)
 		dp_ctrl_video_ready(ctrl);
 
 	if (ctrl->catalog->isr & DP_CTRL_INTR_IDLE_PATTERN_SENT)
+		dp_ctrl_idle_patterns_sent(ctrl);
+
+	if (ctrl->catalog->isr5 & DP_CTRL_INTR_MST_DP0_VCPF_SENT)
+		dp_ctrl_idle_patterns_sent(ctrl);
+
+	if (ctrl->catalog->isr5 & DP_CTRL_INTR_MST_DP1_VCPF_SENT)
 		dp_ctrl_idle_patterns_sent(ctrl);
 }
 
@@ -996,6 +1076,7 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	ctrl->link     = in->link;
 	ctrl->catalog  = in->catalog;
 	ctrl->dev  = in->dev;
+	ctrl->mst_mode = false;
 
 	dp_ctrl = &ctrl->dp_ctrl;
 
