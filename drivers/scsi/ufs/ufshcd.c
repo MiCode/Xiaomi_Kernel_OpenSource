@@ -620,6 +620,11 @@ static void ufshcd_dme_cmd_log(struct ufs_hba *hba, char *str, u8 cmd_id)
 	ufshcd_cmd_log(hba, str, "dme", 0, cmd_id, 0);
 }
 
+static void ufshcd_custom_cmd_log(struct ufs_hba *hba, char *str)
+{
+	ufshcd_cmd_log(hba, str, "custom", 0, 0, 0);
+}
+
 static void ufshcd_print_cmd_log(struct ufs_hba *hba)
 {
 	int i;
@@ -667,6 +672,10 @@ static void __ufshcd_cmd_log(struct ufs_hba *hba, char *str, char *cmd_type,
 }
 
 static void ufshcd_dme_cmd_log(struct ufs_hba *hba, char *str, u8 cmd_id)
+{
+}
+
+static void ufshcd_custom_cmd_log(struct ufs_hba *hba, char *str)
 {
 }
 
@@ -10134,11 +10143,14 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	if (ret)
 		goto out;
 
+	ufshcd_custom_cmd_log(hba, "waited-for-DB-clear");
+
 	/* scale down the gear before scaling down clocks */
 	if (!scale_up) {
 		ret = ufshcd_scale_gear(hba, false);
 		if (ret)
 			goto clk_scaling_unprepare;
+		ufshcd_custom_cmd_log(hba, "Gear-scaled-down");
 	}
 
 	/*
@@ -10151,17 +10163,20 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
 			return ret;
+		ufshcd_custom_cmd_log(hba, "Hibern8-entered");
 	}
 
 	ret = ufshcd_scale_clks(hba, scale_up);
 	if (ret)
 		goto scale_up_gear;
+	ufshcd_custom_cmd_log(hba, "Clk-freq-switched");
 
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
 		ret = ufshcd_uic_hibern8_exit(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
 			return ret;
+		ufshcd_custom_cmd_log(hba, "Hibern8-Exited");
 	}
 
 	/* scale up the gear after scaling up clocks */
@@ -10171,6 +10186,7 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 			ufshcd_scale_clks(hba, false);
 			goto clk_scaling_unprepare;
 		}
+		ufshcd_custom_cmd_log(hba, "Gear-scaled-up");
 	}
 
 	if (!ret) {
