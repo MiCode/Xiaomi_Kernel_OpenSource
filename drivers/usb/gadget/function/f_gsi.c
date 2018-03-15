@@ -2081,13 +2081,8 @@ static int gsi_set_alt(struct usb_function *f, unsigned int intf,
 		/* for rndis and rmnet alt is always 0 update alt accordingly */
 		if (gsi->prot_id == IPA_USB_RNDIS ||
 				gsi->prot_id == IPA_USB_RMNET ||
-				gsi->prot_id == IPA_USB_DIAG) {
-			if (gsi->d_port.in_ep &&
-				!gsi->d_port.in_ep->driver_data)
+				gsi->prot_id == IPA_USB_DIAG)
 				alt = 1;
-			else
-				alt = 0;
-		}
 
 		if (alt > 1)
 			goto notify_ep_disable;
