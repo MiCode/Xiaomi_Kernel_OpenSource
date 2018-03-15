@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,13 @@
  * idx: dspp idx
  */
 int reg_dmav1_init_dspp_op_v4(int feature, enum sde_dspp idx);
+
+/**
+ * reg_dmav1_dspp_feature_support() - check if dspp feature using REG_DMA
+ *                                    or not.
+ * @feature: dspp feature
+ */
+bool reg_dmav1_dspp_feature_support(int feature);
 
 /**
  * reg_dma_init_sspp_op_v4() - initialize the sspp feature op for sde v4
