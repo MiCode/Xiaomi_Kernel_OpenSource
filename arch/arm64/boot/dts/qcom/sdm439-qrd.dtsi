@@ -104,6 +104,59 @@
 };
 
 &tlmm {
+	pmx_ts_rst_active {
+		ts_rst_active: ts_rst_active {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_rst_suspend {
+		ts_rst_suspend: ts_rst_suspend {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+};
+
+&soc {
+	hbtp {
+		compatible = "qcom,hbtp-input";
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_rst_active>;
+		pinctrl-1 = <&ts_rst_suspend>;
+		vcc_ana-supply = <&pm8953_l10>;
+		vcc_dig-supply = <&pm8953_l5>;
+		qcom,afe-load = <20000>;
+		qcom,afe-vtg-min = <3000000>;
+		qcom,afe-vtg-max = <3000000>;
+		qcom,dig-load = <40000>;
+		qcom,dig-vtg-min = <1800000>;
+		qcom,dig-vtg-max = <1800000>;
+		qcom,fb-resume-delay-us = <1000>;
+		qcom,afe-force-power-on;
+		qcom,afe-power-on-delay-us = <6>;
+		qcom,afe-power-off-delay-us = <6>;
+	};
+};
+
+&tlmm {
 	pmx_mdss {
 		mdss_dsi_active: mdss_dsi_active {
 			mux {
