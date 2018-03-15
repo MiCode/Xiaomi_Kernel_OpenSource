@@ -649,7 +649,7 @@ int mdss_qpic_init(void)
 	if (use_irq && (!qpic_res->irq_requested)) {
 		ret = devm_request_irq(&qpic_res->pdev->dev,
 			qpic_res->irq, qpic_irq_handler,
-			IRQF_DISABLED,	"QPIC", qpic_res);
+			IRQF_TRIGGER_NONE, "QPIC", qpic_res);
 		if (ret) {
 			pr_err("qpic request_irq() failed!\n");
 			use_irq = false;
@@ -776,12 +776,15 @@ static int mdss_qpic_probe(struct platform_device *pdev)
 	}
 
 	qpic_res->qpic_a_clk = clk_get(&pdev->dev, "core_a_clk");
-	if (IS_ERR(qpic_res->qpic_a_clk))
+	if (IS_ERR(qpic_res->qpic_a_clk)) {
+		qpic_res->qpic_a_clk = NULL;
 		pr_err("%s: Can't find core_a_clk", __func__);
-
+	}
 	qpic_res->qpic_clk = clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(qpic_res->qpic_clk))
+	if (IS_ERR(qpic_res->qpic_clk)) {
+		qpic_res->qpic_clk = NULL;
 		pr_err("%s: Can't find core_clk", __func__);
+	}
 
 	qpic_res->irq = res->start;
 	qpic_res->res_init = true;

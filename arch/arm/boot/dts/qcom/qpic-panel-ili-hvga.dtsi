@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,15 +10,12 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "sdxpoorwills-cdp.dtsi"
-#include "sdxpoorwills-display.dtsi"
-#include "qpic-panel-ili-hvga.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDXPOORWILLS CDP";
-	compatible = "qcom,sdxpoorwills-cdp",
-		"qcom,sdxpoorwills", "qcom,cdp";
-	qcom,board-id = <1 0x102>;
+&soc {
+	qcom,mdss_lcdc_ili_hvga {
+		compatible = "qcom,mdss-qpic-panel";
+		label = "ili9488 hvga lcdc panel";
+		qcom,mdss-pan-res = <320 480>;
+		qcom,mdss-pan-bpp = <18>;
+		qcom,refresh_rate = <60>;
+	};
 };
