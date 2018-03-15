@@ -683,7 +683,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 						: POWER_SUPPLY_SCOPE_UNKNOWN;
 		break;
 	case POWER_SUPPLY_PROP_SMB_EN_MODE:
+		mutex_lock(&chg->smb_lock);
 		val->intval = chg->sec_chg_selected;
+		mutex_unlock(&chg->smb_lock);
 		break;
 	case POWER_SUPPLY_PROP_SMB_EN_REASON:
 		val->intval = chg->cp_reason;
@@ -915,6 +917,7 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_FLASH_ACTIVE,
 	POWER_SUPPLY_PROP_FLASH_TRIGGER,
+	POWER_SUPPLY_PROP_TOGGLE_STAT,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -954,6 +957,9 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
 		rc = schgm_flash_get_vreg_ok(chg, &val->intval);
 		break;
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+		val->intval = 0;
+		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
@@ -988,9 +994,29 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
 		chg->flash_active = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+		rc = smblib_toggle_smb_en(chg, val->intval);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static int smb5_usb_main_prop_is_writeable(struct power_supply *psy,
+				enum power_supply_property psp)
+{
+	int rc;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_TOGGLE_STAT:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
 		break;
 	}
 
@@ -1004,6 +1030,7 @@ static const struct power_supply_desc usb_main_psy_desc = {
 	.num_properties	= ARRAY_SIZE(smb5_usb_main_props),
 	.get_property	= smb5_usb_main_get_prop,
 	.set_property	= smb5_usb_main_set_prop,
+	.property_is_writeable = smb5_usb_main_prop_is_writeable,
 };
 
 static int smb5_init_usb_main_psy(struct smb5 *chip)

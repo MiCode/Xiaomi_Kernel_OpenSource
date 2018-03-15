@@ -857,6 +857,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
 
+	mutex_lock(&chg->smb_lock);
 	chg->cp_reason = POWER_SUPPLY_CP_NONE;
 	rc = smblib_select_sec_charger(chg,
 			chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
@@ -864,6 +865,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	if (rc < 0)
 		dev_err(chg->dev, "Couldn't disable secondary charger rc=%d\n",
 			rc);
+	mutex_lock(&chg->smb_lock);
 
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 
@@ -1164,6 +1166,47 @@ int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua)
 	}
 
 	return 0;
+}
+
+int smblib_toggle_smb_en(struct smb_charger *chg, int toggle)
+{
+	int rc = 0;
+
+	if (!toggle)
+		return rc;
+
+	mutex_lock(&chg->smb_lock);
+
+	if (chg->sec_chg_selected == POWER_SUPPLY_CHARGER_SEC_CP) {
+		/* Pull down SMB_EN pin */
+		rc = smblib_select_sec_charger(chg,
+					POWER_SUPPLY_CHARGER_SEC_NONE);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable SMB_EN pin rc=%d\n",
+				rc);
+			goto out;
+		}
+
+		/*
+		 * A minimum of 20us delay is expected before switching on STAT
+		 * pin.
+		 */
+		usleep_range(20, 30);
+
+		/* Pull up SMB_EN pin and enable Charge Pump under HW control */
+		rc = smblib_select_sec_charger(chg,
+					POWER_SUPPLY_CHARGER_SEC_CP);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable CP rc=%d\n",
+				rc);
+			goto out;
+		}
+	}
+
+out:
+	mutex_unlock(&chg->smb_lock);
+
+	return rc;
 }
 
 /*********************
@@ -3025,6 +3068,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		 * For PPS, Charge Pump is preferred over parallel charger if
 		 * present.
 		 */
+		mutex_lock(&chg->smb_lock);
 		if (chg->pd_active == POWER_SUPPLY_PD_PPS_ACTIVE
 						&& chg->sec_cp_present) {
 			rc = smblib_select_sec_charger(chg,
@@ -3035,11 +3079,13 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			else
 				chg->cp_reason = POWER_SUPPLY_CP_PPS;
 		}
+		mutex_unlock(&chg->smb_lock);
 	} else {
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, SDP_100_MA);
 		vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 		vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
 
+		mutex_lock(&chg->smb_lock);
 		chg->cp_reason = POWER_SUPPLY_CP_NONE;
 		rc = smblib_select_sec_charger(chg,
 			chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
@@ -3048,6 +3094,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			dev_err(chg->dev,
 				"Couldn't enable secondary charger rc=%d\n",
 					rc);
+		mutex_unlock(&chg->smb_lock);
 
 		/* PD hard resets failed, rerun apsd */
 		if (chg->ok_to_pd) {
@@ -3593,6 +3640,7 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 
 	/* for QC3, switch to CP if present */
 	if ((apsd_result->bit & QC_3P0_BIT) && chg->sec_cp_present) {
+		mutex_lock(&chg->smb_lock);
 		rc = smblib_select_sec_charger(chg,
 					POWER_SUPPLY_CHARGER_SEC_CP);
 		if (rc < 0)
@@ -3600,6 +3648,7 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 			"Couldn't enable secondary chargers  rc=%d\n", rc);
 		else
 			chg->cp_reason = POWER_SUPPLY_CP_HVDCP3;
+		mutex_unlock(&chg->smb_lock);
 	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
@@ -3932,6 +3981,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
 
+	mutex_lock(&chg->smb_lock);
 	chg->cp_reason = POWER_SUPPLY_CP_NONE;
 	rc = smblib_select_sec_charger(chg,
 			chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
@@ -3939,6 +3989,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	if (rc < 0)
 		dev_err(chg->dev,
 			"Couldn't disable secondary charger rc=%d\n", rc);
+	mutex_unlock(&chg->smb_lock);
 
 	/* disable apsd */
 	rc = smblib_configure_hvdcp_apsd(chg, false);
@@ -4229,14 +4280,17 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 				dev_err(chg->dev, "Couldn't set dc voltage to 2*vph  rc=%d\n",
 					rc);
 
+			mutex_lock(&chg->smb_lock);
 			chg->cp_reason = POWER_SUPPLY_CP_WIRELESS;
 			rc = smblib_select_sec_charger(chg,
 						POWER_SUPPLY_CHARGER_SEC_CP);
 			if (rc < 0)
 				dev_err(chg->dev, "Couldn't enable secondary chargers  rc=%d\n",
 					rc);
+			mutex_unlock(&chg->smb_lock);
 		}
 	} else if (chg->cp_reason == POWER_SUPPLY_CP_WIRELESS) {
+		mutex_lock(&chg->smb_lock);
 		chg->cp_reason = POWER_SUPPLY_CP_NONE;
 		rc = smblib_select_sec_charger(chg,
 			chg->sec_pl_present ?  POWER_SUPPLY_CHARGER_SEC_PL :
@@ -4245,6 +4299,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 			dev_err(chg->dev,
 				"Couldn't disable secondary charger rc=%d\n",
 						rc);
+		mutex_unlock(&chg->smb_lock);
 	}
 
 	power_supply_changed(chg->dc_psy);
@@ -4511,7 +4566,9 @@ static void pl_update_work(struct work_struct *work)
 	if (chg->sec_chg_selected == POWER_SUPPLY_CHARGER_SEC_CP)
 		return;
 
+	mutex_lock(&chg->smb_lock);
 	smblib_select_sec_charger(chg, POWER_SUPPLY_CHARGER_SEC_PL);
+	mutex_unlock(&chg->smb_lock);
 }
 
 static void clear_hdc_work(struct work_struct *work)
@@ -4867,7 +4924,7 @@ int smblib_init(struct smb_charger *chg)
 	union power_supply_propval prop_val;
 	int rc = 0;
 
-	mutex_init(&chg->lock);
+	mutex_init(&chg->smb_lock);
 	INIT_WORK(&chg->bms_update_work, bms_update_work);
 	INIT_WORK(&chg->pl_update_work, pl_update_work);
 	INIT_WORK(&chg->jeita_update_work, jeita_update_work);
@@ -4915,16 +4972,16 @@ int smblib_init(struct smb_charger *chg)
 		if (chg->sec_pl_present) {
 			chg->pl.psy = power_supply_get_by_name("parallel");
 			if (chg->pl.psy) {
+				mutex_lock(&chg->smb_lock);
 				if (chg->sec_chg_selected
 					!= POWER_SUPPLY_CHARGER_SEC_CP) {
 					rc = smblib_select_sec_charger(chg,
 						POWER_SUPPLY_CHARGER_SEC_PL);
-					if (rc < 0) {
+					if (rc < 0)
 						smblib_err(chg, "Couldn't config pl charger rc=%d\n",
 							rc);
-						return rc;
-					}
 				}
+				mutex_unlock(&chg->smb_lock);
 
 				if (chg->smb_temp_max == -EINVAL) {
 					rc = smblib_get_thermal_threshold(chg,
