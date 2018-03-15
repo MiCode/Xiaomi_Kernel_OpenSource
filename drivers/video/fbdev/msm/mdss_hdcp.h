@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,8 @@
 #include <video/msm_hdmi_modes.h>
 #include <soc/qcom/scm.h>
 
+#define HDCP_SRM_CHECK_FAIL 29
+
 enum hdcp_client_id {
 	HDCP_CLIENT_HDMI,
 	HDCP_CLIENT_DP,
@@ -28,6 +30,7 @@ enum hdcp_states {
 	HDCP_STATE_AUTHENTICATING,
 	HDCP_STATE_AUTHENTICATED,
 	HDCP_STATE_AUTH_FAIL,
+	HDCP_STATE_AUTH_FAIL_NOREAUTH,
 	HDCP_STATE_AUTH_ENC_NONE,
 	HDCP_STATE_AUTH_ENC_1X,
 	HDCP_STATE_AUTH_ENC_2P2
