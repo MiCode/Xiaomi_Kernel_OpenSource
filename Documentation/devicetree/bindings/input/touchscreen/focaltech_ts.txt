@@ -30,6 +30,7 @@ Optional properties:
  - focaltech,keys 			: array of key code.
  - focaltech,key-y-coord 	: y coordinate for the keys.
  - focaltech,key-x-coords	: array of x coordinates for the keys.
+ - focaltech,wakeup-gestures-en	: enable wakeup gestures.
 
 Example:
 	i2c@f9923000{
