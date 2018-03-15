@@ -22,6 +22,11 @@
 #define SDE_UBWC_META_BLOCK_SIZE	256
 #define SDE_UBWC_PLANE_SIZE_ALIGNMENT	4096
 
+#define SDE_TILE_HEIGHT_DEFAULT	1
+#define SDE_TILE_HEIGHT_TILED	4
+#define SDE_TILE_HEIGHT_UBWC	4
+#define SDE_TILE_HEIGHT_NV12	8
+
 #define SDE_MAX_IMG_WIDTH		0x3FFF
 #define SDE_MAX_IMG_HEIGHT		0x3FFF
 
@@ -48,8 +53,29 @@ bp, flg, fm, np)                                                          \
 	.bpp = bp,                                                        \
 	.fetch_mode = fm,                                                 \
 	.flag = {(flg)},                                                  \
-	.num_planes = np                                                  \
+	.num_planes = np,                                                 \
+	.tile_height = SDE_TILE_HEIGHT_DEFAULT                            \
 }
+
+#define INTERLEAVED_RGB_FMT_TILED(fmt, a, r, g, b, e0, e1, e2, e3, uc,    \
+alpha, bp, flg, fm, np, th)                                               \
+{                                                                         \
+	.base.pixel_format = DRM_FORMAT_ ## fmt,                          \
+	.fetch_planes = SDE_PLANE_INTERLEAVED,                            \
+	.alpha_enable = alpha,                                            \
+	.element = { (e0), (e1), (e2), (e3) },                            \
+	.bits = { g, b, r, a },                                           \
+	.chroma_sample = SDE_CHROMA_RGB,                                  \
+	.unpack_align_msb = 0,                                            \
+	.unpack_tight = 1,                                                \
+	.unpack_count = uc,                                               \
+	.bpp = bp,                                                        \
+	.fetch_mode = fm,                                                 \
+	.flag = {(flg)},                                                  \
+	.num_planes = np,                                                 \
+	.tile_height = th                                                 \
+}
+
 
 #define INTERLEAVED_YUV_FMT(fmt, a, r, g, b, e0, e1, e2, e3,              \
 alpha, chroma, count, bp, flg, fm, np)                                    \
@@ -66,7 +92,8 @@ alpha, chroma, count, bp, flg, fm, np)                                    \
 	.bpp = bp,                                                        \
 	.fetch_mode = fm,                                                 \
 	.flag = {(flg)},                                                  \
-	.num_planes = np                                                  \
+	.num_planes = np,                                                 \
+	.tile_height = SDE_TILE_HEIGHT_DEFAULT                            \
 }
 
 #define PSEUDO_YUV_FMT(fmt, a, r, g, b, e0, e1, chroma, flg, fm, np)      \
@@ -83,7 +110,27 @@ alpha, chroma, count, bp, flg, fm, np)                                    \
 	.bpp = 2,                                                         \
 	.fetch_mode = fm,                                                 \
 	.flag = {(flg)},                                                  \
-	.num_planes = np                                                  \
+	.num_planes = np,                                                 \
+	.tile_height = SDE_TILE_HEIGHT_DEFAULT                            \
+}
+
+#define PSEUDO_YUV_FMT_TILED(fmt, a, r, g, b, e0, e1, chroma,             \
+flg, fm, np, th)                                                          \
+{                                                                         \
+	.base.pixel_format = DRM_FORMAT_ ## fmt,                          \
+	.fetch_planes = SDE_PLANE_PSEUDO_PLANAR,                          \
+	.alpha_enable = false,                                            \
+	.element = { (e0), (e1), 0, 0 },                                  \
+	.bits = { g, b, r, a },                                           \
+	.chroma_sample = chroma,                                          \
+	.unpack_align_msb = 0,                                            \
+	.unpack_tight = 1,                                                \
+	.unpack_count = 2,                                                \
+	.bpp = 2,                                                         \
+	.fetch_mode = fm,                                                 \
+	.flag = {(flg)},                                                  \
+	.num_planes = np,                                                 \
+	.tile_height = th                                                 \
 }
 
 #define PSEUDO_YUV_FMT_LOOSE(fmt, a, r, g, b, e0, e1, chroma, flg, fm, np)\
@@ -100,8 +147,29 @@ alpha, chroma, count, bp, flg, fm, np)                                    \
 	.bpp = 2,                                                         \
 	.fetch_mode = fm,                                                 \
 	.flag = {(flg)},                                                  \
-	.num_planes = np                                                  \
+	.num_planes = np,                                                 \
+	.tile_height = SDE_TILE_HEIGHT_DEFAULT                            \
 }
+
+#define PSEUDO_YUV_FMT_LOOSE_TILED(fmt, a, r, g, b, e0, e1, chroma,       \
+flg, fm, np, th)                                                          \
+{                                                                         \
+	.base.pixel_format = DRM_FORMAT_ ## fmt,                          \
+	.fetch_planes = SDE_PLANE_PSEUDO_PLANAR,                          \
+	.alpha_enable = false,                                            \
+	.element = { (e0), (e1), 0, 0 },                                  \
+	.bits = { g, b, r, a },                                           \
+	.chroma_sample = chroma,                                          \
+	.unpack_align_msb = 1,                                            \
+	.unpack_tight = 0,                                                \
+	.unpack_count = 2,                                                \
+	.bpp = 2,                                                         \
+	.fetch_mode = fm,                                                 \
+	.flag = {(flg)},                                                  \
+	.num_planes = np,                                                 \
+	.tile_height = th                                                 \
+}
+
 
 #define PLANAR_YUV_FMT(fmt, a, r, g, b, e0, e1, e2, alpha, chroma, bp,    \
 flg, fm, np)                                                      \
@@ -118,7 +186,8 @@ flg, fm, np)                                                      \
 	.bpp = bp,                                                        \
 	.fetch_mode = fm,                                                 \
 	.flag = {(flg)},                                                  \
-	.num_planes = np                                                  \
+	.num_planes = np,                                                 \
+	.tile_height = SDE_TILE_HEIGHT_DEFAULT                            \
 }
 
 /*
@@ -414,75 +483,99 @@ static const struct sde_format sde_format_map[] = {
  * These tables hold the A5x tile formats supported.
  */
 static const struct sde_format sde_format_map_tile[] = {
-	INTERLEAVED_RGB_FMT(ARGB8888,
+	INTERLEAVED_RGB_FMT_TILED(BGR565,
+		0, COLOR_5BIT, COLOR_6BIT, COLOR_5BIT,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, 0, 3,
+		false, 2, 0,
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
+
+	INTERLEAVED_RGB_FMT_TILED(ARGB8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb, 4,
 		true, 4, 0,
-		SDE_FETCH_UBWC, 1),
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
 
-	INTERLEAVED_RGB_FMT(ABGR8888,
+	INTERLEAVED_RGB_FMT_TILED(ABGR8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr, 4,
 		true, 4, 0,
-		SDE_FETCH_UBWC, 1),
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
 
-	INTERLEAVED_RGB_FMT(RGBA8888,
+	INTERLEAVED_RGB_FMT_TILED(XBGR8888,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
+		false, 4, 0,
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
+
+	INTERLEAVED_RGB_FMT_TILED(RGBA8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		true, 4, 0,
-		SDE_FETCH_UBWC, 1),
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
 
-	INTERLEAVED_RGB_FMT(BGRA8888,
+	INTERLEAVED_RGB_FMT_TILED(BGRA8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA, 4,
 		true, 4, 0,
-		SDE_FETCH_UBWC, 1),
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
 
-	INTERLEAVED_RGB_FMT(BGRX8888,
+	INTERLEAVED_RGB_FMT_TILED(BGRX8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA, 4,
 		false, 4, 0,
-		SDE_FETCH_UBWC, 1),
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
 
-	INTERLEAVED_RGB_FMT(XRGB8888,
+	INTERLEAVED_RGB_FMT_TILED(XRGB8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb, 4,
 		false, 4, 0,
-		SDE_FETCH_UBWC, 1),
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
 
-	INTERLEAVED_RGB_FMT(RGBX8888,
+	INTERLEAVED_RGB_FMT_TILED(RGBX8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		false, 4, 0,
-		SDE_FETCH_UBWC, 1),
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
 
-	PSEUDO_YUV_FMT(NV12,
+	INTERLEAVED_RGB_FMT_TILED(ABGR2101010,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
+		true, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
+
+	INTERLEAVED_RGB_FMT_TILED(XBGR2101010,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
+		true, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_UBWC, 1, SDE_TILE_HEIGHT_TILED),
+
+	PSEUDO_YUV_FMT_TILED(NV12,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_420, SDE_FORMAT_FLAG_YUV,
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_NV12),
 
-	PSEUDO_YUV_FMT(NV21,
+	PSEUDO_YUV_FMT_TILED(NV21,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C1_B_Cb,
 		SDE_CHROMA_420, SDE_FORMAT_FLAG_YUV,
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_NV12),
 };
 
 static const struct sde_format sde_format_map_p010_tile[] = {
-	PSEUDO_YUV_FMT_LOOSE(NV12,
+	PSEUDO_YUV_FMT_LOOSE_TILED(NV12,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_420, (SDE_FORMAT_FLAG_YUV | SDE_FORMAT_FLAG_DX),
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_NV12),
 };
 
 static const struct sde_format sde_format_map_tp10_tile[] = {
-	PSEUDO_YUV_FMT(NV12,
+	PSEUDO_YUV_FMT_TILED(NV12,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_420, (SDE_FORMAT_FLAG_YUV | SDE_FORMAT_FLAG_DX),
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_NV12),
 };
 
 /*
@@ -492,42 +585,42 @@ static const struct sde_format sde_format_map_tp10_tile[] = {
  * the data will be passed by user-space.
  */
 static const struct sde_format sde_format_map_ubwc[] = {
-	INTERLEAVED_RGB_FMT(BGR565,
+	INTERLEAVED_RGB_FMT_TILED(BGR565,
 		0, COLOR_5BIT, COLOR_6BIT, COLOR_5BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, 0, 3,
 		false, 2, SDE_FORMAT_FLAG_COMPRESSED,
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_UBWC),
 
-	INTERLEAVED_RGB_FMT(ABGR8888,
+	INTERLEAVED_RGB_FMT_TILED(ABGR8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		true, 4, SDE_FORMAT_FLAG_COMPRESSED,
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_UBWC),
 
-	INTERLEAVED_RGB_FMT(XBGR8888,
+	INTERLEAVED_RGB_FMT_TILED(XBGR8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		false, 4, SDE_FORMAT_FLAG_COMPRESSED,
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_UBWC),
 
-	INTERLEAVED_RGB_FMT(ABGR2101010,
+	INTERLEAVED_RGB_FMT_TILED(ABGR2101010,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		true, 4, SDE_FORMAT_FLAG_DX | SDE_FORMAT_FLAG_COMPRESSED,
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_UBWC),
 
-	INTERLEAVED_RGB_FMT(XBGR2101010,
+	INTERLEAVED_RGB_FMT_TILED(XBGR2101010,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		true, 4, SDE_FORMAT_FLAG_DX | SDE_FORMAT_FLAG_COMPRESSED,
-		SDE_FETCH_UBWC, 2),
+		SDE_FETCH_UBWC, 2, SDE_TILE_HEIGHT_UBWC),
 
-	PSEUDO_YUV_FMT(NV12,
+	PSEUDO_YUV_FMT_TILED(NV12,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_420, SDE_FORMAT_FLAG_YUV |
 				SDE_FORMAT_FLAG_COMPRESSED,
-		SDE_FETCH_UBWC, 4),
+		SDE_FETCH_UBWC, 4, SDE_TILE_HEIGHT_NV12),
 };
 
 static const struct sde_format sde_format_map_p010[] = {
@@ -539,21 +632,21 @@ static const struct sde_format sde_format_map_p010[] = {
 };
 
 static const struct sde_format sde_format_map_p010_ubwc[] = {
-	PSEUDO_YUV_FMT_LOOSE(NV12,
+	PSEUDO_YUV_FMT_LOOSE_TILED(NV12,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_420, (SDE_FORMAT_FLAG_YUV | SDE_FORMAT_FLAG_DX |
 				SDE_FORMAT_FLAG_COMPRESSED),
-		SDE_FETCH_UBWC, 4),
+		SDE_FETCH_UBWC, 4, SDE_TILE_HEIGHT_NV12),
 };
 
 static const struct sde_format sde_format_map_tp10_ubwc[] = {
-	PSEUDO_YUV_FMT(NV12,
+	PSEUDO_YUV_FMT_TILED(NV12,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_420, (SDE_FORMAT_FLAG_YUV | SDE_FORMAT_FLAG_DX |
 				SDE_FORMAT_FLAG_COMPRESSED),
-		SDE_FETCH_UBWC, 4),
+		SDE_FETCH_UBWC, 4, SDE_TILE_HEIGHT_NV12),
 };
 
 /* _sde_get_v_h_subsample_rate - Get subsample rates for all formats we support
