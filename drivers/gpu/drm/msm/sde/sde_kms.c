@@ -857,7 +857,7 @@ static int _sde_kms_get_displays(struct sde_kms *sde_kms)
 			dp_display_get_displays(sde_kms->dp_displays,
 					sde_kms->dp_display_count);
 
-		sde_kms->dp_stream_count = 0;
+		sde_kms->dp_stream_count = dp_display_get_num_of_streams();
 	}
 	return 0;
 
@@ -1060,6 +1060,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 	/* dp */
 	for (i = 0; i < sde_kms->dp_display_count &&
 			priv->num_encoders < max_encoders; ++i) {
+		int idx;
+
 		display = sde_kms->dp_displays[i];
 		encoder = NULL;
 
@@ -1096,6 +1098,26 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 			SDE_ERROR("dp %d connector init failed\n", i);
 			dp_drm_bridge_deinit(display);
 			sde_encoder_destroy(encoder);
+		}
+
+		/* update display cap to MST_MODE for DP MST encoders */
+		info.capabilities |= MSM_DISPLAY_CAP_MST_MODE;
+		for (idx = 0; idx < sde_kms->dp_stream_count; idx++) {
+			info.h_tile_instance[0] = idx;
+			encoder = sde_encoder_init(dev, &info);
+			if (IS_ERR_OR_NULL(encoder)) {
+				SDE_ERROR("dp mst encoder init failed %d\n", i);
+				continue;
+			}
+
+			rc = dp_mst_drm_bridge_init(display, encoder);
+			if (rc) {
+				SDE_ERROR("dp mst bridge %d init failed, %d\n",
+						i, rc);
+				sde_encoder_destroy(encoder);
+				continue;
+			}
+			priv->encoders[priv->num_encoders++] = encoder;
 		}
 	}
 
