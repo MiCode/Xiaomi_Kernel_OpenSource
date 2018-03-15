@@ -220,7 +220,7 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 	},
 	{
 		.key = "qcom,domain-cvp",
-		.value = 0,
+		.value = 1,
 	},
 };
 
