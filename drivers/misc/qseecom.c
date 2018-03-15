@@ -1716,6 +1716,7 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 	data->client.sb_length = req.sb_len;
 	data->client.user_virt_sb_base = (uintptr_t)req.virt_sb_base;
 
+	return ret;
 exit:
 	qseecom_vaddr_unmap(data->client.sb_virt, data->client.sgt,
 			 data->client.attach, data->client.dmabuf);
