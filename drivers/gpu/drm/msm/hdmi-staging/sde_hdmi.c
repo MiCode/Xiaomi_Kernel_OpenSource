@@ -1704,7 +1704,7 @@ static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 	const char *phandle = "qcom,msm_ext_disp";
 
 	if (!display) {
-		SDE_ERROR("[%s]Invalid params\n", display->name);
+		SDE_ERROR("Invalid params\n");
 		return -EINVAL;
 	}
 
