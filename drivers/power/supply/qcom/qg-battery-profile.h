@@ -14,6 +14,6 @@
 
 int qg_batterydata_init(struct device_node *node);
 void qg_batterydata_exit(void);
-int lookup_soc_ocv(u32 *soc, u32 ocv_uv, int batt_temp, u8 lookup);
+int lookup_soc_ocv(u32 *soc, u32 ocv_uv, int batt_temp, bool charging);
 
 #endif /* __QG_BATTERY_PROFILE_H__ */

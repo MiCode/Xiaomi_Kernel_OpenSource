@@ -671,12 +671,22 @@ static irqreturn_t qg_vbat_empty_handler(int irq, void *data)
 static irqreturn_t qg_good_ocv_handler(int irq, void *data)
 {
 	int rc;
+	u8 status = 0;
 	u32 ocv_uv;
 	struct qpnp_qg *chip = data;
 
 	qg_dbg(chip, QG_DEBUG_IRQ, "IRQ triggered\n");
 
 	mutex_lock(&chip->data_lock);
+
+	rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
+	if (rc < 0) {
+		pr_err("Failed to read status2 register rc=%d\n", rc);
+		goto done;
+	}
+
+	if (!(status & GOOD_OCV_BIT))
+		goto done;
 
 	rc = qg_read_ocv(chip, &ocv_uv, GOOD_OCV);
 	if (rc < 0) {
@@ -736,6 +746,10 @@ static int qg_awake_cb(struct votable *votable, void *data, int awake,
 			const char *client)
 {
 	struct qpnp_qg *chip = data;
+
+	/* ignore if the QG device is not open */
+	if (!chip->qg_device_open)
+		return 0;
 
 	if (awake)
 		pm_stay_awake(chip->dev);
@@ -1278,7 +1292,20 @@ static int qg_device_open(struct inode *inode, struct file *file)
 				struct qpnp_qg, qg_cdev);
 
 	file->private_data = chip;
+	chip->qg_device_open = true;
 	qg_dbg(chip, QG_DEBUG_DEVICE, "QG device opened!\n");
+
+	return 0;
+}
+
+static int qg_device_release(struct inode *inode, struct file *file)
+{
+	struct qpnp_qg *chip = container_of(inode->i_cdev,
+				struct qpnp_qg, qg_cdev);
+
+	file->private_data = chip;
+	chip->qg_device_open = false;
+	qg_dbg(chip, QG_DEBUG_DEVICE, "QG device closed!\n");
 
 	return 0;
 }
@@ -1286,6 +1313,7 @@ static int qg_device_open(struct inode *inode, struct file *file)
 static const struct file_operations qg_fops = {
 	.owner		= THIS_MODULE,
 	.open		= qg_device_open,
+	.release	= qg_device_release,
 	.read		= qg_device_read,
 	.write		= qg_device_write,
 	.poll		= qg_device_poll,
@@ -1464,9 +1492,9 @@ static int qg_setup_battery(struct qpnp_qg *chip)
 
 static int qg_determine_pon_soc(struct qpnp_qg *chip)
 {
-	u8 status;
-	int rc, batt_temp = 0;
-	bool use_pon_ocv = false;
+	u8 status = 0, ocv_type = 0;
+	int rc = 0, batt_temp = 0;
+	bool use_pon_ocv = true, use_shutdown_ocv = false;
 	unsigned long rtc_sec = 0;
 	u32 ocv_uv = 0, soc = 0, shutdown[SDAM_MAX] = {0};
 
@@ -1475,85 +1503,77 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 		return 0;
 	}
 
-	rc = qg_get_battery_temp(chip, &batt_temp);
-	if (rc) {
-		pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG,
-					&status, 1);
+	rc = get_rtc_time(&rtc_sec);
 	if (rc < 0) {
-		pr_err("Failed to read status2 register rc=%d\n", rc);
-		return rc;
+		pr_err("Failed to read RTC time rc=%d\n", rc);
+		goto use_pon_ocv;
 	}
 
-	if (status & GOOD_OCV_BIT) {
-		qg_dbg(chip, QG_DEBUG_PON, "Using GOOD_OCV @ PON\n");
-		rc = qg_read_ocv(chip, &ocv_uv, GOOD_OCV);
-		if (rc < 0) {
-			pr_err("Failed to read good_ocv rc=%d\n", rc);
-			use_pon_ocv = true;
-		} else {
-			rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp,
-							SOC_AVERAGE);
-			if (rc < 0) {
-				pr_err("Failed to lookup SOC (GOOD_OCV) @ PON rc=%d\n",
-					rc);
-				use_pon_ocv = true;
-			}
-		}
-	} else {
-		rc = get_rtc_time(&rtc_sec);
-		if (rc < 0) {
-			pr_err("Failed to read RTC time rc=%d\n", rc);
-			use_pon_ocv = true;
+	rc = qg_sdam_read_all(shutdown);
+	if (rc < 0) {
+		pr_err("Failed to read shutdown params rc=%d\n", rc);
+		goto use_pon_ocv;
+	}
+
+	qg_dbg(chip, QG_DEBUG_PON, "Shutdown: Valid=%d SOC=%d OCV=%duV time=%dsecs, time_now=%ldsecs\n",
+			shutdown[SDAM_VALID],
+			shutdown[SDAM_SOC],
+			shutdown[SDAM_OCV_UV],
+			shutdown[SDAM_TIME_SEC],
+			rtc_sec);
+	/*
+	 * Use the shutdown SOC if
+	 * 1. The device was powered off for < ignore_shutdown_time
+	 * 2. SDAM read is a success & SDAM data is valid
+	 */
+	if (shutdown[SDAM_VALID] && is_between(0,
+			chip->dt.ignore_shutdown_soc_secs,
+			(rtc_sec - shutdown[SDAM_TIME_SEC]))) {
+		use_pon_ocv = false;
+		use_shutdown_ocv = true;
+		ocv_uv = shutdown[SDAM_OCV_UV];
+		soc = shutdown[SDAM_SOC];
+		qg_dbg(chip, QG_DEBUG_PON, "Using SHUTDOWN_SOC @ PON\n");
+	}
+
+use_pon_ocv:
+	if (use_pon_ocv == true) {
+		rc = qg_get_battery_temp(chip, &batt_temp);
+		if (rc) {
+			pr_err("Failed to read BATT_TEMP at PON rc=%d\n", rc);
 			goto done;
 		}
 
-		rc = qg_sdam_read_all(shutdown);
+		rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
 		if (rc < 0) {
-			pr_err("Failed to read shutdown params rc=%d\n", rc);
-			use_pon_ocv = true;
+			pr_err("Failed to read status2 register rc=%d\n", rc);
 			goto done;
 		}
-		qg_dbg(chip, QG_DEBUG_PON, "Shutdown: Valid=%d SOC=%d OCV=%duV time=%dsecs, time_now=%ldsecs\n",
-				shutdown[SDAM_VALID],
-				shutdown[SDAM_SOC],
-				shutdown[SDAM_OCV_UV],
-				shutdown[SDAM_TIME_SEC],
-				rtc_sec);
-		/*
-		 * Use the shutdown SOC if
-		 * 1. The device was powered off for < 180 seconds
-		 * 2. SDAM read is a success & SDAM data is valid
-		 */
-		use_pon_ocv = true;
-		if (!rc && shutdown[SDAM_VALID] &&
-			((rtc_sec - shutdown[SDAM_TIME_SEC]) < 180)) {
-			use_pon_ocv = false;
-			ocv_uv = shutdown[SDAM_OCV_UV];
-			soc = shutdown[SDAM_SOC];
-			qg_dbg(chip, QG_DEBUG_PON, "Using SHUTDOWN_SOC @ PON\n");
+
+		if (status & GOOD_OCV_BIT)
+			ocv_type = GOOD_OCV;
+		else
+			ocv_type = PON_OCV;
+
+		qg_dbg(chip, QG_DEBUG_PON, "Using %s @ PON\n",
+				ocv_type == GOOD_OCV ? "GOOD_OCV" : "PON_OCV");
+
+		rc = qg_read_ocv(chip, &ocv_uv, ocv_type);
+		if (rc < 0) {
+			pr_err("Failed to read ocv rc=%d\n", rc);
+			goto done;
+		}
+
+		rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, false);
+		if (rc < 0) {
+			pr_err("Failed to lookup SOC@PON rc=%d\n", rc);
+			goto done;
 		}
 	}
 done:
-	/*
-	 * Use PON OCV if
-	 * OCV_UV is not set or shutdown SOC is invalid.
-	 */
-	if (use_pon_ocv || !ocv_uv || !rtc_sec) {
-		qg_dbg(chip, QG_DEBUG_PON, "Using PON_OCV @ PON\n");
-		rc = qg_read_ocv(chip, &ocv_uv, PON_OCV);
-		if (rc < 0) {
-			pr_err("Failed to read HW PON ocv rc=%d\n", rc);
-			return rc;
-		}
-		rc = lookup_soc_ocv(&soc, ocv_uv, batt_temp, SOC_AVERAGE);
-		if (rc < 0) {
-			pr_err("Failed to lookup SOC @ PON rc=%d\n", rc);
-			soc = 50;
-		}
+	if (rc < 0) {
+		pr_err("Failed to get SOC @ PON, rc=%d\n", rc);
+		return rc;
 	}
 
 	chip->pon_soc = chip->catch_up_soc = chip->msoc = soc;
@@ -1573,10 +1593,9 @@ done:
 	if (rc < 0)
 		pr_err("Failed to update sdam params rc=%d\n", rc);
 
-	pr_info("use_pon_ocv=%d good_ocv=%d ocv_uv=%duV temp=%d soc=%d\n",
+	pr_info("use_pon_ocv=%d use_good_ocv=%d use_shutdown_ocv=%d ocv_uv=%duV soc=%d\n",
 			use_pon_ocv, !!(status & GOOD_OCV_BIT),
-			ocv_uv, batt_temp, chip->msoc);
-
+			use_shutdown_ocv, ocv_uv, chip->msoc);
 	return 0;
 }
 
@@ -1886,6 +1905,7 @@ static int qg_request_irqs(struct qpnp_qg *chip)
 #define DEFAULT_S2_ACC_LENGTH		128
 #define DEFAULT_S2_ACC_INTVL_MS		100
 #define DEFAULT_DELTA_SOC		1
+#define DEFAULT_SHUTDOWN_SOC_SECS	360
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -2043,6 +2063,12 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.delta_soc = temp;
 
+	rc = of_property_read_u32(node, "qcom,ignore-shutdown-soc-secs", &temp);
+	if (rc < 0)
+		chip->dt.ignore_shutdown_soc_secs = DEFAULT_SHUTDOWN_SOC_SECS;
+	else
+		chip->dt.ignore_shutdown_soc_secs = temp;
+
 	rc = of_property_read_u32(node, "qcom,rbat-conn-mohm", &temp);
 	if (rc < 0)
 		chip->dt.rbat_conn_mohm = 0;
@@ -2058,8 +2084,13 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 
 static int process_suspend(struct qpnp_qg *chip)
 {
+	u8 status = 0;
 	int rc;
 	u32 fifo_rt_length = 0, sleep_fifo_length = 0;
+
+	/* skip if profile is not loaded */
+	if (!chip->profile_loaded)
+		return 0;
 
 	chip->suspend_data = false;
 
@@ -2112,6 +2143,9 @@ static int process_suspend(struct qpnp_qg *chip)
 		chip->suspend_data = true;
 	}
 
+	/* read STATUS2 register to clear its last state */
+	qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
+
 	qg_dbg(chip, QG_DEBUG_PM, "FIFO rt_length=%d sleep_fifo_length=%d default_s2_count=%d suspend_data=%d\n",
 			fifo_rt_length, sleep_fifo_length,
 			chip->dt.s2_fifo_length, chip->suspend_data);
@@ -2124,6 +2158,10 @@ static int process_resume(struct qpnp_qg *chip)
 	u8 status2 = 0, rt_status = 0;
 	u32 ocv_uv = 0;
 	int rc, batt_temp = 0;
+
+	/* skip if profile is not loaded */
+	if (!chip->profile_loaded)
+		return 0;
 
 	rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status2, 1);
 	if (rc < 0) {

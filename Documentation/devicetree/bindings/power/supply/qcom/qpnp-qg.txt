@@ -144,6 +144,12 @@ First Level Node - QGAUGE device
 	Value type: <u32>
 	Definition: Resistance of the battery connectors in mOhms.
 
+- qcom,ignore-shutdown-soc-secs
+	Usage:      optional
+	Value type: <u32>
+	Definition: Time in seconds beyond which shutdown SOC is ignored.
+		    If not specified the default value is 360 secs.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================
