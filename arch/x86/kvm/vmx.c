@@ -142,6 +142,12 @@ module_param_named(preemption_timer, enable_preemption_timer, bool, S_IRUGO);
 
 #define VMX_MISC_EMULATED_PREEMPTION_TIMER_RATE 5
 
+#define VMX_VPID_EXTENT_SUPPORTED_MASK		\
+	(VMX_VPID_EXTENT_INDIVIDUAL_ADDR_BIT |	\
+	VMX_VPID_EXTENT_SINGLE_CONTEXT_BIT |	\
+	VMX_VPID_EXTENT_GLOBAL_CONTEXT_BIT |	\
+	VMX_VPID_EXTENT_SINGLE_NON_GLOBAL_BIT)
+
 /*
  * These 2 parameters are used to config the controls for Pause-Loop Exiting:
  * ple_gap:    upper bound on the amount of time between two successive
@@ -2839,8 +2845,7 @@ static void nested_vmx_setup_ctls_msrs(struct vcpu_vmx *vmx)
 	 */
 	if (enable_vpid)
 		vmx->nested.nested_vmx_vpid_caps = VMX_VPID_INVVPID_BIT |
-				VMX_VPID_EXTENT_SINGLE_CONTEXT_BIT |
-				VMX_VPID_EXTENT_GLOBAL_CONTEXT_BIT;
+			VMX_VPID_EXTENT_SUPPORTED_MASK;
 	else
 		vmx->nested.nested_vmx_vpid_caps = 0;
 
@@ -7685,7 +7690,8 @@ static int handle_invvpid(struct kvm_vcpu *vcpu)
 	vmx_instruction_info = vmcs_read32(VMX_INSTRUCTION_INFO);
 	type = kvm_register_readl(vcpu, (vmx_instruction_info >> 28) & 0xf);
 
-	types = (vmx->nested.nested_vmx_vpid_caps >> 8) & 0x7;
+	types = (vmx->nested.nested_vmx_vpid_caps &
+			VMX_VPID_EXTENT_SUPPORTED_MASK) >> 8;
 
 	if (type >= 32 || !(types & (1 << type))) {
 		nested_vmx_failValid(vcpu,
@@ -7707,20 +7713,26 @@ static int handle_invvpid(struct kvm_vcpu *vcpu)
 	}
 
 	switch (type) {
+	case VMX_VPID_EXTENT_INDIVIDUAL_ADDR:
 	case VMX_VPID_EXTENT_SINGLE_CONTEXT:
-		/*
-		 * Old versions of KVM use the single-context version so we
-		 * have to support it; just treat it the same as all-context.
-		 */
+	case VMX_VPID_EXTENT_SINGLE_NON_GLOBAL:
+		if (!vpid) {
+			nested_vmx_failValid(vcpu,
+				VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+			skip_emulated_instruction(vcpu);
+			return 1;
+		}
+		break;
 	case VMX_VPID_EXTENT_ALL_CONTEXT:
-		__vmx_flush_tlb(vcpu, to_vmx(vcpu)->nested.vpid02);
-		nested_vmx_succeed(vcpu);
 		break;
 	default:
-		/* Trap individual address invalidation invvpid calls */
-		BUG_ON(1);
-		break;
+		WARN_ON_ONCE(1);
+		skip_emulated_instruction(vcpu);
+		return 1;
 	}
+
+	__vmx_flush_tlb(vcpu, vmx->nested.vpid02);
+	nested_vmx_succeed(vcpu);
 
 	skip_emulated_instruction(vcpu);
 	return 1;
@@ -8625,7 +8637,6 @@ static void vmx_complete_atomic_exit(struct vcpu_vmx *vmx)
 static void vmx_handle_external_intr(struct kvm_vcpu *vcpu)
 {
 	u32 exit_intr_info = vmcs_read32(VM_EXIT_INTR_INFO);
-	register void *__sp asm(_ASM_SP);
 
 	/*
 	 * If external interrupt exists, IF bit is set in rflags/eflags on the
@@ -8659,7 +8670,7 @@ static void vmx_handle_external_intr(struct kvm_vcpu *vcpu)
 #ifdef CONFIG_X86_64
 			[sp]"=&r"(tmp),
 #endif
-			"+r"(__sp)
+			ASM_CALL_CONSTRAINT
 			:
 			THUNK_TARGET(entry),
 			[ss]"i"(__KERNEL_DS),
@@ -9606,8 +9617,8 @@ static inline bool nested_vmx_merge_msr_bitmap(struct kvm_vcpu *vcpu,
 	 *    updated to reflect this when L1 (or its L2s) actually write to
 	 *    the MSR.
 	 */
-	bool pred_cmd = msr_write_intercepted_l01(vcpu, MSR_IA32_PRED_CMD);
-	bool spec_ctrl = msr_write_intercepted_l01(vcpu, MSR_IA32_SPEC_CTRL);
+	bool pred_cmd = !msr_write_intercepted_l01(vcpu, MSR_IA32_PRED_CMD);
+	bool spec_ctrl = !msr_write_intercepted_l01(vcpu, MSR_IA32_SPEC_CTRL);
 
 	if (!nested_cpu_has_virt_x2apic_mode(vmcs12) &&
 	    !pred_cmd && !spec_ctrl)

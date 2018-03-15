@@ -3029,6 +3029,11 @@ static void si_apply_state_adjust_rules(struct radeon_device *rdev,
 			max_sclk = 75000;
 			max_mclk = 80000;
 		}
+		if ((rdev->pdev->revision == 0xC3) ||
+		    (rdev->pdev->device == 0x6665)) {
+			max_sclk = 60000;
+			max_mclk = 80000;
+		}
 	} else if (rdev->family == CHIP_OLAND) {
 		if ((rdev->pdev->revision == 0xC7) ||
 		    (rdev->pdev->revision == 0x80) ||

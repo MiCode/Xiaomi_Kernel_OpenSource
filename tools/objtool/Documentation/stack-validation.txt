@@ -321,11 +321,10 @@ Errors in .c files
 2. If you're getting any other objtool error in a compiled .c file, it
    may be because the file uses an asm() statement which has a "call"
    instruction.  An asm() statement with a call instruction must declare
-   the use of the stack pointer in its output operand.  For example, on
-   x86_64:
+   the use of the stack pointer in its output operand.  On x86_64, this
+   means adding the ASM_CALL_CONSTRAINT as an output constraint:
 
-     register void *__sp asm("rsp");
-     asm volatile("call func" : "+r" (__sp));
+     asm volatile("call func" : ASM_CALL_CONSTRAINT);
 
    Otherwise the stack frame may not get created before the call.
 

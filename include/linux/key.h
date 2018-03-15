@@ -369,7 +369,10 @@ static inline bool key_is_negative(const struct key *key)
 	return key_read_state(key) < 0;
 }
 
-#define rcu_dereference_key(KEY)					\
+#define dereference_key_rcu(KEY)					\
+	(rcu_dereference((KEY)->payload.rcu_data0))
+
+#define dereference_key_locked(KEY)					\
 	(rcu_dereference_protected((KEY)->payload.rcu_data0,		\
 				   rwsem_is_locked(&((struct key *)(KEY))->sem)))
 

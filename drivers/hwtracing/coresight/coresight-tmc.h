@@ -172,7 +172,7 @@ struct tmc_drvdata {
 	void			*vaddr;
 	u32			size;
 	u32			len;
-	local_t			mode;
+	u32			mode;
 	enum tmc_config_type	config_type;
 	enum tmc_mem_intf_width	memwidth;
 	struct mutex		mem_lock;
