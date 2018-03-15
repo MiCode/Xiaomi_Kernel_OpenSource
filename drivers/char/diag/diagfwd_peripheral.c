@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -316,14 +316,13 @@ static void diagfwd_data_process_done(struct diagfwd_info *fwd_info,
 		diag_ws_release();
 		return;
 	}
-
-	session_info =
-		diag_md_session_get_peripheral(peripheral);
+	mutex_lock(&driver->md_session_lock);
+	session_info = diag_md_session_get_peripheral(peripheral);
 	if (session_info)
 		hdlc_disabled = session_info->hdlc_disabled;
 	else
 		hdlc_disabled = driver->hdlc_disabled;
-
+	mutex_unlock(&driver->md_session_lock);
 	if (hdlc_disabled) {
 		/* The data is raw and and on APPS side HDLC is disabled */
 		if (!buf) {
@@ -638,12 +637,13 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 
 	mutex_lock(&driver->hdlc_disable_mutex);
 	mutex_lock(&fwd_info->data_mutex);
+	mutex_lock(&driver->md_session_lock);
 	session_info = diag_md_session_get_peripheral(fwd_info->peripheral);
 	if (session_info)
 		hdlc_disabled = session_info->hdlc_disabled;
 	else
 		hdlc_disabled = driver->hdlc_disabled;
-
+	mutex_unlock(&driver->md_session_lock);
 	if (!driver->feature[fwd_info->peripheral].encode_hdlc) {
 		if (fwd_info->buf_1 && fwd_info->buf_1->data == buf) {
 			temp_buf = fwd_info->buf_1;
