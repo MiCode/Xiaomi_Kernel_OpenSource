@@ -96,6 +96,8 @@ struct usb_pdphy {
 	int msg_tx_failed_irq;
 	int msg_tx_discarded_irq;
 	int msg_rx_discarded_irq;
+	bool sig_rx_wake_enabled;
+	bool msg_rx_wake_enabled;
 
 	void (*signal_cb)(struct usbpd *pd, enum pd_sig_type sig);
 	void (*msg_rx_cb)(struct usbpd *pd, enum pd_sop_type sop,
@@ -246,11 +248,13 @@ void pdphy_enable_irq(struct usb_pdphy *pdphy, bool enable)
 	if (enable) {
 		enable_irq(pdphy->sig_tx_irq);
 		enable_irq(pdphy->sig_rx_irq);
-		enable_irq_wake(pdphy->sig_rx_irq);
+		pdphy->sig_rx_wake_enabled =
+			!enable_irq_wake(pdphy->sig_rx_irq);
 		enable_irq(pdphy->msg_tx_irq);
 		if (!pdphy->in_test_data_mode) {
 			enable_irq(pdphy->msg_rx_irq);
-			enable_irq_wake(pdphy->msg_rx_irq);
+			pdphy->msg_rx_wake_enabled =
+				!enable_irq_wake(pdphy->msg_rx_irq);
 		}
 		enable_irq(pdphy->msg_tx_failed_irq);
 		enable_irq(pdphy->msg_tx_discarded_irq);
@@ -260,11 +264,16 @@ void pdphy_enable_irq(struct usb_pdphy *pdphy, bool enable)
 
 	disable_irq(pdphy->sig_tx_irq);
 	disable_irq(pdphy->sig_rx_irq);
-	disable_irq_wake(pdphy->sig_rx_irq);
+	if (pdphy->sig_rx_wake_enabled) {
+		disable_irq_wake(pdphy->sig_rx_irq);
+		pdphy->sig_rx_wake_enabled = false;
+	}
 	disable_irq(pdphy->msg_tx_irq);
-	if (!pdphy->in_test_data_mode) {
+	if (!pdphy->in_test_data_mode)
 		disable_irq(pdphy->msg_rx_irq);
+	if (pdphy->msg_rx_wake_enabled) {
 		disable_irq_wake(pdphy->msg_rx_irq);
+		pdphy->msg_rx_wake_enabled = false;
 	}
 	disable_irq(pdphy->msg_tx_failed_irq);
 	disable_irq(pdphy->msg_tx_discarded_irq);
