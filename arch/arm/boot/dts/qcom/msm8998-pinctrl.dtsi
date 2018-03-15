@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,18 @@
 					bias-pull-up;
 				};
 			};
+			i2c_1_bitbang: i2c_1_bitbang {
+				mux {
+					pins = "gpio2", "gpio3";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio2", "gpio3";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		i2c_2 {
@@ -96,6 +108,18 @@
 				mux {
 					pins = "gpio32", "gpio33";
 					function = "blsp_i2c2";
+				};
+
+				config {
+					pins = "gpio32", "gpio33";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+			i2c_2_bitbang: i2c_2_bitbang {
+				mux {
+					pins = "gpio32", "gpio33";
+					function = "gpio";
 				};
 
 				config {
@@ -132,6 +156,18 @@
 					bias-pull-up;
 				};
 			};
+			i2c_3_bitbang: i2c_3_bitbang {
+				mux {
+					pins = "gpio47", "gpio48";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio47", "gpio48";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		i2c_4 {
@@ -152,6 +188,18 @@
 				mux {
 					pins = "gpio10", "gpio11";
 					function = "blsp_i2c4";
+				};
+
+				config {
+					pins = "gpio10", "gpio11";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+			i2c_4_bitbang: i2c_4_bitbang {
+				mux {
+					pins = "gpio10", "gpio11";
+					function = "gpio";
 				};
 
 				config {
@@ -188,6 +236,18 @@
 					bias-disable;
 				};
 			};
+			i2c_5_bitbang: i2c_5_bitbang {
+				mux {
+					pins = "gpio87", "gpio88";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87", "gpio88";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		i2c_6 {
@@ -208,6 +268,18 @@
 				mux {
 					pins = "gpio43", "gpio44";
 					function = "blsp_i2c6";
+				};
+
+				config {
+					pins = "gpio43", "gpio44";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+			i2c_6_bitbang: i2c_6_bitbang {
+				mux {
+					pins = "gpio43", "gpio44";
+					function = "gpio";
 				};
 
 				config {
@@ -306,6 +378,18 @@
 					bias-pull-up;
 				};
 			};
+			i2c_7_bitbang: i2c_7_bitbang {
+				mux {
+					pins = "gpio55", "gpio56";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio55", "gpio56";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		i2c_8 {
@@ -326,6 +410,18 @@
 				mux {
 					pins = "gpio6", "gpio7";
 					function = "blsp_i2c8";
+				};
+
+				config {
+					pins = "gpio6", "gpio7";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+			i2c_8_bitbang: i2c_8_bitbang {
+				mux {
+					pins = "gpio6", "gpio7";
+					function = "gpio";
 				};
 
 				config {
@@ -362,6 +458,18 @@
 					bias-pull-up;
 				};
 			};
+			i2c_9_bitbang: i2c_9_bitbang {
+				mux {
+					pins = "gpio51", "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio51", "gpio52";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		i2c_10 {
@@ -382,6 +490,18 @@
 				mux {
 					pins = "gpio67", "gpio68";
 					function = "blsp_i2c10";
+				};
+
+				config {
+					pins = "gpio67", "gpio68";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+			i2c_10_bitbang: i2c_10_bitbang {
+				mux {
+					pins = "gpio67", "gpio68";
+					function = "gpio";
 				};
 
 				config {
@@ -418,6 +538,18 @@
 					bias-pull-up;
 				};
 			};
+			i2c_11_bitbang: i2c_11_bitbang {
+				mux {
+					pins = "gpio60", "gpio61";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio60", "gpio61";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		i2c_12 {
@@ -438,6 +570,18 @@
 				mux {
 					pins = "gpio83", "gpio84";
 					function = "blsp_i2c12";
+				};
+
+				config {
+					pins = "gpio83", "gpio84";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+			i2c_12_bitbang: i2c_12_bitbang {
+				mux {
+					pins = "gpio83", "gpio84";
+					function = "gpio";
 				};
 
 				config {

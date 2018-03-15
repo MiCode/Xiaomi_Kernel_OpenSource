@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -713,6 +713,19 @@
 					bias-pull-down;
 				};
 			};
+
+			i2c_12_bitbang: i2c_12_bitbang {
+				mux {
+					pins = "gpio87", "gpio88";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87", "gpio88";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		i2c_6 {
@@ -733,6 +746,19 @@
 				mux {
 					pins = "gpio27", "gpio28";
 					function = "blsp_i2c6";
+				};
+
+				config {
+					pins = "gpio27", "gpio28";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			i2c_6_bitbang: i2c_6_bitbang {
+				mux {
+					pins = "gpio27", "gpio28";
+					function = "gpio";
 				};
 
 				config {
@@ -769,6 +795,19 @@
 					bias-pull-up;
 				};
 			};
+
+			i2c_7_bitbang: i2c_7_bitbang {
+				mux {
+					pins = "gpio55", "gpio56";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio55", "gpio56";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		i2c_8 {
@@ -789,6 +828,19 @@
 				mux {
 					pins = "gpio6", "gpio7";
 					function = "blsp_i2c8";
+				};
+
+				config {
+					pins = "gpio6", "gpio7";
+					drive-strength = <4>;
+					bias-pull-up;
+				};
+			};
+
+			i2c_8_bitbang: i2c_8_bitbang {
+				mux {
+					pins = "gpio6", "gpio7";
+					function = "gpio";
 				};
 
 				config {
