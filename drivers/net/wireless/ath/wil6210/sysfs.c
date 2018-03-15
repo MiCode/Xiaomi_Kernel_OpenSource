@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016,2018 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -26,6 +26,7 @@ wil_ftm_txrx_offset_sysfs_show(struct device *dev,
 			       char *buf)
 {
 	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
 	struct {
 		struct wmi_cmd_hdr wmi;
 		struct wmi_tof_get_tx_rx_offset_event evt;
@@ -37,7 +38,7 @@ wil_ftm_txrx_offset_sysfs_show(struct device *dev,
 		return -EOPNOTSUPP;
 
 	memset(&reply, 0, sizeof(reply));
-	rc = wmi_call(wil, WMI_TOF_GET_TX_RX_OFFSET_CMDID, NULL, 0,
+	rc = wmi_call(wil, WMI_TOF_GET_TX_RX_OFFSET_CMDID, vif->mid, NULL, 0,
 		      WMI_TOF_GET_TX_RX_OFFSET_EVENTID,
 		      &reply, sizeof(reply), 100);
 	if (rc < 0)
@@ -59,6 +60,7 @@ wil_ftm_txrx_offset_sysfs_store(struct device *dev,
 				const char *buf, size_t count)
 {
 	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
 	struct wmi_tof_set_tx_rx_offset_cmd cmd;
 	struct {
 		struct wmi_cmd_hdr wmi;
@@ -77,8 +79,8 @@ wil_ftm_txrx_offset_sysfs_store(struct device *dev,
 	cmd.tx_offset = cpu_to_le32(tx_offset);
 	cmd.rx_offset = cpu_to_le32(rx_offset);
 	memset(&reply, 0, sizeof(reply));
-	rc = wmi_call(wil, WMI_TOF_SET_TX_RX_OFFSET_CMDID, &cmd, sizeof(cmd),
-		      WMI_TOF_SET_TX_RX_OFFSET_EVENTID,
+	rc = wmi_call(wil, WMI_TOF_SET_TX_RX_OFFSET_CMDID, vif->mid,
+		      &cmd, sizeof(cmd), WMI_TOF_SET_TX_RX_OFFSET_EVENTID,
 		      &reply, sizeof(reply), 100);
 	if (rc < 0)
 		return rc;
