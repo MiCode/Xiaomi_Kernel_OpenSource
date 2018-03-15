@@ -307,15 +307,13 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		gsi_channel_info.gevntcount_hi_addr;
 	in_params->dir = GSI_CHAN_DIR_FROM_GSI;
 	in_params->xfer_ring_len = gsi_channel_info.xfer_ring_len;
-	in_params->xfer_ring_base_addr = gsi_channel_info.xfer_ring_base_addr;
 	in_params->xfer_scratch.last_trb_addr_iova =
 					gsi_channel_info.last_trb_addr;
-	in_params->xfer_ring_base_addr = in_params->xfer_ring_base_addr_iova =
+	in_params->xfer_ring_base_addr_iova =
 					gsi_channel_info.xfer_ring_base_addr;
 	in_params->data_buff_base_len = d_port->in_request.buf_len *
 					d_port->in_request.num_bufs;
-	in_params->data_buff_base_addr = in_params->data_buff_base_addr_iova =
-					d_port->in_request.dma;
+	in_params->data_buff_base_addr_iova = d_port->in_request.dma;
 	in_params->xfer_scratch.const_buffer_size =
 		gsi_channel_info.const_buffer_size;
 	in_params->xfer_scratch.depcmd_low_addr =
@@ -347,13 +345,11 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		out_params->dir = GSI_CHAN_DIR_TO_GSI;
 		out_params->xfer_ring_len =
 			gsi_channel_info.xfer_ring_len;
-		out_params->xfer_ring_base_addr =
-			out_params->xfer_ring_base_addr_iova =
+		out_params->xfer_ring_base_addr_iova =
 			gsi_channel_info.xfer_ring_base_addr;
 		out_params->data_buff_base_len = d_port->out_request.buf_len *
 			d_port->out_request.num_bufs;
-		out_params->data_buff_base_addr =
-			out_params->data_buff_base_addr_iova =
+		out_params->data_buff_base_addr_iova =
 			d_port->out_request.dma;
 		out_params->xfer_scratch.last_trb_addr_iova =
 			gsi_channel_info.last_trb_addr;
@@ -3020,7 +3016,7 @@ static ssize_t gsi_info_show(struct config_item *item, char *page)
 				ipa_chnl_params->xfer_ring_len);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "IN TRB Base Addr: ", (unsigned int)
-			ipa_chnl_params->xfer_ring_base_addr);
+			ipa_chnl_params->xfer_ring_base_addr_iova);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "GEVENTCNTLO IN Addr: ",
 			ipa_chnl_params->gevntcount_low_addr);
@@ -3054,7 +3050,7 @@ static ssize_t gsi_info_show(struct config_item *item, char *page)
 			ipa_chnl_params->xfer_ring_len);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "OUT TRB Base Addr: ", (unsigned int)
-			ipa_chnl_params->xfer_ring_base_addr);
+			ipa_chnl_params->xfer_ring_base_addr_iova);
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 		"%25s %10x\n", "GEVENTCNTLO OUT Addr: ",
 			ipa_chnl_params->gevntcount_low_addr);
