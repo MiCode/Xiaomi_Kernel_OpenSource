@@ -1877,6 +1877,14 @@ static inline void adreno_perfcntr_active_oob_put(
 	kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
 }
 
+static inline bool adreno_has_sptprac_gdsc(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a615(adreno_dev) || adreno_is_a630(adreno_dev))
+		return true;
+	else
+		return false;
+}
+
 static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a615(adreno_dev) || adreno_is_a640(adreno_dev))

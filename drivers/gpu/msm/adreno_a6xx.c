@@ -1656,6 +1656,8 @@ static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 
 	if (!gmu->pdev)
 		return -EINVAL;
+	if (!adreno_has_sptprac_gdsc(adreno_dev))
+		return 0;
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWERON_CTRL_MASK);
@@ -1681,7 +1683,7 @@ static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
 
-	if (!gmu->pdev)
+	if (!gmu->pdev || !adreno_has_sptprac_gdsc(adreno_dev))
 		return;
 
 	/* Ensure that retention is on */
@@ -1733,7 +1735,7 @@ static bool a6xx_sptprac_is_on(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!kgsl_gmu_isenabled(device) || !adreno_has_sptprac_gdsc(adreno_dev))
 		return true;
 
 	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
