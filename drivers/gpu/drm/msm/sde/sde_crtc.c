@@ -5936,7 +5936,8 @@ static void _sde_crtc_event_cb(struct kthread_work *work)
 }
 
 int sde_crtc_event_queue(struct drm_crtc *crtc,
-		void (*func)(struct drm_crtc *crtc, void *usr), void *usr)
+		void (*func)(struct drm_crtc *crtc, void *usr),
+		void *usr, bool color_processing_event)
 {
 	unsigned long irq_flags;
 	struct sde_crtc *sde_crtc;
@@ -5975,7 +5976,11 @@ int sde_crtc_event_queue(struct drm_crtc *crtc,
 
 	/* queue new event request */
 	kthread_init_work(&event->kt_work, _sde_crtc_event_cb);
-	kthread_queue_work(&priv->event_thread[crtc_id].worker,
+	if (color_processing_event)
+		kthread_queue_work(&priv->pp_event_worker,
+			&event->kt_work);
+	else
+		kthread_queue_work(&priv->event_thread[crtc_id].worker,
 			&event->kt_work);
 
 	return 0;
