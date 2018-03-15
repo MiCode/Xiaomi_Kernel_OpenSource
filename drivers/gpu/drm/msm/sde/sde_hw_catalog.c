@@ -3556,15 +3556,13 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 		}
 
 		/*
-		 * set sec-ui allowed SSPP feature flag based on allowed
+		 * set sec-ui blocked SSPP feature flag based on blocked
 		 * xin-mask if sec-ui-misr feature is enabled;
-		 * otherwise allow for all SSPP
 		 */
-		if (!sde_cfg->sui_misr_supported
-			|| (sde_cfg->sui_misr_supported
-				&& (sde_cfg->sui_allow_xin_mask
-					& BIT(sde_cfg->sspp[i].xin_id))))
-			set_bit(SDE_SSPP_SEC_UI_ALLOWED,
+		if (sde_cfg->sui_misr_supported
+				&& (sde_cfg->sui_block_xin_mask
+					& BIT(sde_cfg->sspp[i].xin_id)))
+			set_bit(SDE_SSPP_BLOCK_SEC_UI,
 					&sde_cfg->sspp[i].features);
 	}
 

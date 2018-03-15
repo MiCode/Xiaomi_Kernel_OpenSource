@@ -260,7 +260,7 @@ bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane)
 
 	psde = to_sde_plane(plane);
 
-	return (psde->features & BIT(SDE_SSPP_SEC_UI_ALLOWED));
+	return !(psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI));
 }
 
 /**
@@ -2585,11 +2585,12 @@ void sde_plane_secure_ctrl_xin_client(struct drm_plane *plane,
 	}
 	psde = to_sde_plane(plane);
 
+	if (psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI))
+		return;
+
 	/* do all VBIF programming for the sec-ui allowed SSPP */
-	if (psde->features & BIT(SDE_SSPP_SEC_UI_ALLOWED)) {
-		_sde_plane_set_qos_remap(plane);
-		_sde_plane_set_ot_limit(plane, crtc);
-	}
+	_sde_plane_set_qos_remap(plane);
+	_sde_plane_set_ot_limit(plane, crtc);
 }
 
 int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state)
@@ -4393,6 +4394,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 
 	if (psde->features & BIT(SDE_SSPP_SEC_UI_ALLOWED))
 		sde_kms_info_add_keyint(info, "sec_ui_allowed", 1);
+	if (psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI))
+		sde_kms_info_add_keyint(info, "block_sec_ui", 1);
 
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
 			info->data, SDE_KMS_INFO_DATALEN(info),

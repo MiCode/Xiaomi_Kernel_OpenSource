@@ -150,6 +150,7 @@ enum {
  * @SDE_SSPP_DGM_INVERSE_PMA Alpha unmultiply (PMA) support in DGM block
  * @SDE_SSPP_DGM_CSC         Support of color space conversion in DGM block
  * @SDE_SSPP_SEC_UI_ALLOWED   Allows secure-ui layers
+ * @SDE_SSPP_BLOCK_SEC_UI    Blocks secure-ui layers
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -181,6 +182,7 @@ enum {
 	SDE_SSPP_DGM_INVERSE_PMA,
 	SDE_SSPP_DGM_CSC,
 	SDE_SSPP_SEC_UI_ALLOWED,
+	SDE_SSPP_BLOCK_SEC_UI,
 	SDE_SSPP_MAX
 };
 
@@ -1036,8 +1038,6 @@ struct sde_perf_cfg {
  * @pipe_order_type    indicate if it is required to specify pipe order
  * @delay_prg_fetch_start indicates if throttling the fetch start is required
  * @sui_misr_supported  indicate if secure-ui-misr is supported
- * @sui_allow_xin_mask  mask of all the xin-clients allowed during secure-ui
- *                         when secure-ui-misr feature is supported
  * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
  *                         secure-ui when secure-ui-misr feature is supported
  */
@@ -1076,7 +1076,6 @@ struct sde_mdss_cfg {
 	bool delay_prg_fetch_start;
 
 	bool sui_misr_supported;
-	u32 sui_allow_xin_mask;
 	u32 sui_block_xin_mask;
 
 	bool has_hdr;
