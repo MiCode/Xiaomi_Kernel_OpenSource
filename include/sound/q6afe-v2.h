@@ -368,4 +368,5 @@ int afe_tdm_port_start(u16 port_id, struct afe_tdm_port_config *tdm_port,
 void afe_set_routing_callback(routing_cb);
 int afe_get_av_dev_drift(struct afe_param_id_dev_timing_stats *timing_stats,
 		u16 port);
+int afe_get_svc_version(uint32_t service_id);
 #endif /* __Q6AFE_V2_H__ */
