@@ -191,4 +191,6 @@ extern const struct clk_ops clk_dp_ops;
 
 extern int clk_rcg2_get_dfs_clock_rate(struct clk_rcg2 *clk,
 				struct device *dev, u8 rcg_flags);
+extern unsigned long
+clk_rcg2_calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div);
 #endif
