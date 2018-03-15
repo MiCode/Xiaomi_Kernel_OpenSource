@@ -59,6 +59,9 @@
 
 static struct workqueue_struct	*uether_wq;
 
+/* Extra buffer size to allocate for tx */
+#define EXTRA_ALLOCATION_SIZE_U_ETH	128
+
 struct eth_dev {
 	/* lock is held while accessing port_usb
 	 */
@@ -104,6 +107,7 @@ struct eth_dev {
 	unsigned long		tx_throttle;
 	unsigned long		rx_throttle;
 	unsigned int		tx_pkts_rcvd;
+	unsigned long		skb_expand_cnt;
 	struct dentry		*uether_dent;
 	struct dentry		*uether_dfile;
 };
@@ -125,7 +129,7 @@ static void uether_debugfs_exit(struct eth_dev *dev);
  * of interconnect, data can be very bursty. tx_qmult is the
  * additional multipler on qmult.
  */
-static unsigned int tx_qmult = 1;
+static unsigned int tx_qmult = 2;
 module_param(tx_qmult, uint, 0644);
 MODULE_PARM_DESC(tx_qmult, "Additional queue length multiplier for tx");
 
@@ -748,17 +752,24 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 {
 	struct eth_dev		*dev = netdev_priv(net);
 	int			length = 0;
+	int			tail_room = 0;
+	int			extra_alloc = 0;
 	int			retval;
 	struct usb_request	*req = NULL;
+	struct sk_buff		*new_skb;
 	unsigned long		flags;
 	struct usb_ep		*in = NULL;
 	u16			cdc_filter = 0;
 	bool			multi_pkt_xfer = false;
+	u32			fixed_in_len = 0;
+	bool			is_fixed = false;
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
 		in = dev->port_usb->in_ep;
 		cdc_filter = dev->port_usb->cdc_filter;
+		is_fixed = dev->port_usb->is_fixed;
+		fixed_in_len = dev->port_usb->fixed_in_len;
 		multi_pkt_xfer = dev->port_usb->multi_pkt_xfer;
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
@@ -880,6 +891,35 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev->tx_skb_hold_count = 0;
 		spin_unlock_irqrestore(&dev->lock, flags);
 	} else {
+		bool do_align = false;
+
+		/* Check if TX buffer should be aligned before queuing to hw */
+		if (dev->gadget->is_chipidea &&
+		    !IS_ALIGNED((size_t)skb->data, 4))
+			do_align = true;
+
+		/*
+		 * Some UDC requires allocation of some extra bytes for
+		 * TX buffer due to hardware requirement. Check if extra
+		 * bytes are already there, otherwise allocate new buffer
+		 * with extra bytes and do memcpy to align skb as well.
+		 */
+		if (dev->gadget->extra_buf_alloc)
+			extra_alloc = EXTRA_ALLOCATION_SIZE_U_ETH;
+		tail_room = skb_tailroom(skb);
+		if (do_align || tail_room < extra_alloc) {
+			pr_debug("%s:align skb and update tail_room %d to %d\n",
+					__func__, tail_room, extra_alloc);
+			tail_room = extra_alloc;
+			new_skb = skb_copy_expand(skb, 0, tail_room,
+						  GFP_ATOMIC);
+			if (!new_skb)
+				return -ENOMEM;
+			dev_kfree_skb_any(skb);
+			skb = new_skb;
+			dev->skb_expand_cnt++;
+		}
+
 		length = skb->len;
 		req->buf = skb->data;
 		req->context = skb;
@@ -888,9 +928,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	req->complete = tx_complete;
 
 	/* NCM requires no zlp if transfer is dwNtbInMaxSize */
-	if (dev->port_usb &&
-	    dev->port_usb->is_fixed &&
-	    length == dev->port_usb->fixed_in_len &&
+	if (is_fixed && length == fixed_in_len &&
 	    (length % in->maxpacket) == 0)
 		req->zero = 0;
 	else
@@ -1525,6 +1563,7 @@ void gether_cleanup(struct eth_dev *dev)
 	uether_debugfs_exit(dev);
 	unregister_netdev(dev->net);
 	flush_work(&dev->work);
+	cancel_work_sync(&dev->rx_work);
 	free_netdev(dev->net);
 }
 EXPORT_SYMBOL_GPL(gether_cleanup);
@@ -1721,6 +1760,8 @@ static int uether_stat_show(struct seq_file *s, void *unused)
 		seq_printf(s, "tx_throttle = %lu\n", dev->tx_throttle);
 		seq_printf(s, "tx_pkts_rcvd=%u\n", dev->tx_pkts_rcvd);
 		seq_printf(s, "rx_throttle = %lu\n", dev->rx_throttle);
+		seq_printf(s, "skb_expand_cnt = %lu\n",
+					dev->skb_expand_cnt);
 	}
 	return ret;
 }
@@ -1741,6 +1782,7 @@ static ssize_t uether_stat_reset(struct file *file,
 	/* Reset tx_throttle */
 	dev->tx_throttle = 0;
 	dev->rx_throttle = 0;
+	dev->skb_expand_cnt = 0;
 	spin_unlock_irqrestore(&dev->lock, flags);
 	return count;
 }
