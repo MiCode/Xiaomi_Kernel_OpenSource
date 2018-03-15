@@ -2903,42 +2903,56 @@
 };
 
 &bps_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &ipe_0_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &ipe_1_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &ife_0_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &ife_1_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &titan_top_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &mdss_core_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
@@ -2955,24 +2969,32 @@
 };
 
 &mvsc_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &mvs0_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &mvs1_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&pm855l_s5_level>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
 
 &npu_core_gdsc {
+	clock-names = "ahb_clk";
+	clocks = <&clock_gcc GCC_NPU_CFG_AHB_CLK>;
 	status = "ok";
 };
 #include "sdm855-pinctrl.dtsi"
