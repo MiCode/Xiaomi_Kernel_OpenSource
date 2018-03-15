@@ -27,6 +27,7 @@
 #include <soc/qcom/subsystem_notif.h>
 #include "bgcom.h"
 #include "linux/bgcom_interface.h"
+#include "bgcom_interface.h"
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
@@ -300,7 +301,7 @@ static int bgchar_write_cmd(struct bg_ui_data *fui_obj_msg, int type)
 	return ret;
 }
 
-static int bg_soft_reset(void)
+int bg_soft_reset(void)
 {
 	/*pull down reset gpio */
 	gpio_direction_output(bgreset_gpio, 0);
@@ -308,6 +309,7 @@ static int bg_soft_reset(void)
 	gpio_set_value(bgreset_gpio, 1);
 	return 0;
 }
+EXPORT_SYMBOL(bg_soft_reset);
 
 static long bg_com_ioctl(struct file *filp,
 		unsigned int ui_bgcom_cmd, unsigned long arg)

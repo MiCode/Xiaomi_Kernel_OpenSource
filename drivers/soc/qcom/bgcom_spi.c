@@ -27,6 +27,7 @@
 #include <linux/kthread.h>
 #include "bgcom.h"
 #include "bgrsb.h"
+#include "bgcom_interface.h"
 
 #define BG_SPI_WORD_SIZE (0x04)
 #define BG_SPI_READ_LEN (0x04)
@@ -781,8 +782,14 @@ int bgcom_resume(void *handle)
 
 unlock:
 	mutex_unlock(&bg_resume_mutex);
+	if (retry == MAX_RETRY) {
+		/* BG failed to resume. Trigger BG soft reset. */
+		pr_err("BG failed to resume\n");
+		bg_soft_reset();
+		return -ETIMEDOUT;
+	}
 	pr_info("BG retries for wake up : %d\n", retry);
-	return (retry == MAX_RETRY ? -ETIMEDOUT : 0);
+	return 0;
 }
 EXPORT_SYMBOL(bgcom_resume);
 
