@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -192,6 +192,8 @@ int diag_mux_switch_logging(int *req_mode, int *peripheral_mask)
 		new_mask = ~(*peripheral_mask) & diag_mux->mux_mask;
 		if (new_mask != DIAG_CON_NONE)
 			*req_mode = DIAG_MULTI_MODE;
+		if (new_mask == DIAG_CON_ALL)
+			*req_mode = DIAG_MEMORY_DEVICE_MODE;
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
 		new_mask = (*peripheral_mask) | diag_mux->mux_mask;
