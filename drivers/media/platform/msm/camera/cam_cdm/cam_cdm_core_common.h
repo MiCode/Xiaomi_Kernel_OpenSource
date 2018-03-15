@@ -16,6 +16,7 @@
 #include "cam_mem_mgr.h"
 
 #define CAM_CDM170_VERSION 0x10000000
+#define CAM_CDM175_VERSION 0x10010000
 
 extern struct cam_cdm_utils_ops CDM170_ops;
 
