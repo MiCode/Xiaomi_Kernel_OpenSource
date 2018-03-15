@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -565,7 +565,7 @@ u32 dsi_ctrl_hw_14_get_cmd_read_data(struct dsi_ctrl_hw *ctrl,
 	u32 read_cnt;
 	u32 rx_byte = 0;
 	u32 repeated_bytes = 0;
-	u8 reg[16];
+	u8 reg[16] = {0};
 	u32 pkt_size = 0;
 	int buf_offset = read_offset;
 

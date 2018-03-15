@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1481,8 +1481,8 @@ static int dsi_display_dfps_update(struct dsi_display *display,
 	m_ctrl = &display->ctrl[display->clk_master_idx];
 	rc = dsi_ctrl_async_timing_update(m_ctrl->ctrl, timing);
 	if (rc) {
-		pr_err("[%s] failed to dfps update host_%d, rc=%d\n",
-				display->name, i, rc);
+		pr_err("[%s] failed to dfps update clock master, rc=%d\n",
+				display->name, rc);
 		goto error;
 	}
 

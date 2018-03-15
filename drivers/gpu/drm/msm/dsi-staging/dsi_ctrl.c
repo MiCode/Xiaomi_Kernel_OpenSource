@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1089,7 +1089,7 @@ error:
 static int dsi_enable_ulps(struct dsi_ctrl *dsi_ctrl)
 {
 	int rc = 0;
-	u32 lanes;
+	u32 lanes = 0;
 	u32 ulps_lanes;
 
 	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
