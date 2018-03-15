@@ -2140,7 +2140,7 @@ static void ipa3_q6_avoid_holb(void)
 	}
 }
 
-static void ipa3_halt_q6_cons_gsi_channels(void)
+static void ipa3_halt_q6_gsi_channels(bool prod)
 {
 	int ep_idx;
 	int client_idx;
@@ -2149,8 +2149,10 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 	int ret;
 	int code = 0;
 
+	/* if prod flag is true, then we halt the producer channels also */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
-		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
+		if (IPA_CLIENT_IS_Q6_CONS(client_idx)
+			|| (IPA_CLIENT_IS_Q6_PROD(client_idx) && prod)) {
 			ep_idx = ipa3_get_ep_mapping(client_idx);
 			if (ep_idx == -1)
 				continue;
@@ -2191,7 +2193,6 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 		}
 	}
 }
-
 
 static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 	enum ipa_rule_type rlt)
@@ -2607,6 +2608,7 @@ void ipa3_q6_post_shutdown_cleanup(void)
 {
 	int client_idx;
 	int ep_idx;
+	bool prod = false;
 
 	IPADBG_LOW("ENTER\n");
 
@@ -2619,7 +2621,17 @@ void ipa3_q6_post_shutdown_cleanup(void)
 
 	/* Handle the issue where SUSPEND was removed for some reason */
 	ipa3_q6_avoid_holb();
-	ipa3_halt_q6_cons_gsi_channels();
+
+	/* halt both prod and cons channels starting at IPAv4 */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		prod = true;
+		ipa3_halt_q6_gsi_channels(prod);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+		IPADBG("Exit without consumer check\n");
+		return;
+	}
+
+	ipa3_halt_q6_gsi_channels(prod);
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
