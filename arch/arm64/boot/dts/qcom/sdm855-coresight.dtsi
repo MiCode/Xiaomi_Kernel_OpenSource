@@ -313,6 +313,7 @@
 		      <0x6064000 0x15000>;
 		reg-names = "tmc-base", "bam-base";
 
+		qcom,smmu-s1-bypass;
 		iommus = <&apps_smmu 0x05e0 0>;
 		arm,buffer-size = <0x400000>;
 

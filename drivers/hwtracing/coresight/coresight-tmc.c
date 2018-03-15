@@ -461,6 +461,7 @@ static DEVICE_ATTR_RW(block_size);
 static int tmc_iommu_init(struct tmc_drvdata *drvdata)
 {
 	struct device_node *node = drvdata->dev->of_node;
+	int s1_bypass;
 	int ret = 0;
 
 	if (!of_property_read_bool(node, "iommus"))
@@ -474,6 +475,15 @@ static int tmc_iommu_init(struct tmc_drvdata *drvdata)
 		goto iommu_map_err;
 	}
 
+	s1_bypass = of_property_read_bool(node, "qcom,smmu-s1-bypass");
+	ret = iommu_domain_set_attr(drvdata->iommu_mapping->domain,
+			DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+	if (ret) {
+		dev_err(drvdata->dev, "IOMMU set s1 bypass (%d) failed (%d)\n",
+			s1_bypass, ret);
+		goto iommu_attach_fail;
+	}
+
 	ret = arm_iommu_attach_device(drvdata->dev, drvdata->iommu_mapping);
 	if (ret) {
 		dev_err(drvdata->dev, "Attach device failed, err = %d\n", ret);
@@ -485,6 +495,7 @@ static int tmc_iommu_init(struct tmc_drvdata *drvdata)
 iommu_attach_fail:
 	arm_iommu_release_mapping(drvdata->iommu_mapping);
 iommu_map_err:
+	drvdata->iommu_mapping = NULL;
 	return ret;
 }
 

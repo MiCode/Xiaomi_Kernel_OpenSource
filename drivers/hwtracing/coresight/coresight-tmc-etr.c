@@ -376,10 +376,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 * If we don't have a buffer release the lock and allocate memory.
 	 * Otherwise keep the lock and move along.
 	 */
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (!drvdata->vaddr) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-		mutex_lock(&drvdata->mem_lock);
 
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
 			/*
@@ -417,9 +417,6 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 	if (drvdata->reading) {
 		ret = -EBUSY;
-		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-		mutex_unlock(&drvdata->mem_lock);
-		return ret;
 		goto out;
 	}
 
@@ -518,6 +515,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		mutex_unlock(&drvdata->mem_lock);
 		return;
 	}
 
