@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -257,7 +257,8 @@ struct diag_glink_info glink_dci_cmd[NUM_PERIPHERALS] = {
 static void diag_state_open_glink(void *ctxt);
 static void diag_state_close_glink(void *ctxt);
 static int diag_glink_write(void *ctxt, unsigned char *buf, int len);
-static int diag_glink_read(void *ctxt, unsigned char *buf, int buf_len);
+static int diag_glink_read(void *ctxt, unsigned char *buf, int buf_len,
+			struct diagfwd_buf_t *fwd_buf);
 static void diag_glink_queue_read(void *ctxt);
 
 static struct diag_peripheral_ops glink_ops = {
@@ -320,7 +321,8 @@ int diag_glink_check_state(void *ctxt)
 	return (int)(atomic_read(&info->diag_state));
 }
 
-static int diag_glink_read(void *ctxt, unsigned char *buf, int buf_len)
+static int diag_glink_read(void *ctxt, unsigned char *buf, int buf_len,
+			struct diagfwd_buf_t *fwd_buf)
 {
 	struct diag_glink_info *glink_info =  NULL;
 	int ret_val = 0;

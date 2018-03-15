@@ -1286,11 +1286,10 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 	 * Logging mode here is reflecting previous mode
 	 * status and will be updated to new mode later.
 	 *
-	 * Keeping the buffers busy for Memory Device Mode.
+	 * Keeping the buffers busy for Memory Device and Multi Mode.
 	 */
 
-	if ((driver->logging_mode != DIAG_USB_MODE) ||
-		driver->usb_connected) {
+	if (driver->logging_mode != DIAG_USB_MODE) {
 		if (fwd_info->buf_1) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
@@ -1701,7 +1700,8 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "issued a read p: %d t: %d buf: %pK\n",
 		 fwd_info->peripheral, fwd_info->type, read_buf);
-	err = fwd_info->p_ops->read(fwd_info->ctxt, read_buf, read_len);
+	err = fwd_info->p_ops->read(fwd_info->ctxt, read_buf, read_len,
+			temp_buf);
 	if (err)
 		goto fail_return;
 
