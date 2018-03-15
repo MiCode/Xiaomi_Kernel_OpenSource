@@ -2654,6 +2654,8 @@ int dsi_pre_clkoff_cb(void *priv,
 				pr_err("%s: failed to disable ulps. rc=%d\n",
 					__func__, rc);
 		}
+		/* dsi will not be able to serve irqs from here on */
+		dsi_display_ctrl_irq_update(display, false);
 	}
 
 	return rc;
@@ -2761,9 +2763,6 @@ int dsi_post_clkoff_cb(void *priv,
 
 	if ((clk_type & DSI_CORE_CLK) &&
 	    (curr_state == DSI_CLK_OFF)) {
-		/* dsi will not be able to serve irqs from here */
-		dsi_display_ctrl_irq_update(display, false);
-
 		rc = dsi_display_phy_power_off(display);
 		if (rc)
 			pr_err("[%s] failed to power off PHY, rc=%d\n",
