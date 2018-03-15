@@ -4690,7 +4690,7 @@ redo:
 	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
 	if (fsr & FSR_FAULT) {
 		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx\n",
-			val);
+			fsr);
 		ret = -EINVAL;
 
 		writel_relaxed(val, cb_base + ARM_SMMU_CB_FSR);
