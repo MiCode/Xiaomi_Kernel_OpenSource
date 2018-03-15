@@ -272,6 +272,19 @@
 			qcom,adc-vdd-reference = <1800>;
 			qcom,adc_tm-vadc = <&pm8953_vadc>;
 			#thermal-sensor-cells = <1>;
+
+			chan@36 {
+				label = "pa_therm0";
+				reg = <0x36>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,decimation = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,btm-channel-number = <0x48>;
+				qcom,fast-avg-setup = <0>;
+				qcom,thermal-node;
+			};
 		};
 
 		pm8953_rtc: qcom,pm8953_rtc {
