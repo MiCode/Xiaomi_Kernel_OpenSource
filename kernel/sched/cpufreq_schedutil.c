@@ -502,7 +502,8 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 				max, sg_cpu->walt_load.nl,
 				sg_cpu->walt_load.pl, flags);
 
-	if (sugov_should_update_freq(sg_policy, time)) {
+	if (sugov_should_update_freq(sg_policy, time) &&
+		!(flags & SCHED_CPUFREQ_CONTINUE)) {
 		if (flags & SCHED_CPUFREQ_RT_DL)
 			next_f = sg_policy->policy->cpuinfo.max_freq;
 		else
