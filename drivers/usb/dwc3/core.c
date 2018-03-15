@@ -122,7 +122,7 @@ static int dwc3_get_dr_mode(struct dwc3 *dwc)
 
 static void dwc3_event_buffers_cleanup(struct dwc3 *dwc);
 
-static void dwc3_set_prtcap(struct dwc3 *dwc, u32 mode)
+void dwc3_set_prtcap(struct dwc3 *dwc, u32 mode)
 {
 	u32 reg;
 
@@ -827,7 +827,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
 	}
 
-	dwc3_set_prtcap(dwc, dwc->dr_mode);
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
 
 	return 0;
