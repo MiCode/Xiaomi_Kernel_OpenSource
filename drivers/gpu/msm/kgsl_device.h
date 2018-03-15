@@ -171,6 +171,8 @@ struct kgsl_functable {
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
 	void (*stop_fault_timer)(struct kgsl_device *device);
+	void (*dispatcher_halt)(struct kgsl_device *device);
+	void (*dispatcher_unhalt)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
