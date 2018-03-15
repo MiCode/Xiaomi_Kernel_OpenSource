@@ -2959,6 +2959,9 @@ static int qpnp_adc_tm_probe(struct platform_device *pdev)
 	if (!chip)
 		return -ENOMEM;
 
+	list_add(&chip->list, &qpnp_adc_tm_device_list);
+	chip->max_channels_available = count_adc_channel_list;
+
 	adc_qpnp = devm_kzalloc(&pdev->dev, sizeof(struct qpnp_adc_drv),
 			GFP_KERNEL);
 	if (!adc_qpnp) {
@@ -3090,7 +3093,6 @@ static int qpnp_adc_tm_probe(struct platform_device *pdev)
 		INIT_LIST_HEAD(&chip->sensor[sen_idx].thr_list);
 		sen_idx++;
 	}
-	chip->max_channels_available = count_adc_channel_list;
 
 	chip->high_thr_wq = alloc_workqueue("qpnp_adc_tm_high_thr_wq",
 							WQ_HIGHPRI, 0);
@@ -3153,7 +3155,6 @@ static int qpnp_adc_tm_probe(struct platform_device *pdev)
 
 	chip->adc_vote_enable = false;
 	dev_set_drvdata(&pdev->dev, chip);
-	list_add(&chip->list, &qpnp_adc_tm_device_list);
 	spin_lock_init(&chip->th_info.adc_tm_low_lock);
 	spin_lock_init(&chip->th_info.adc_tm_high_lock);
 
@@ -3173,6 +3174,7 @@ fail:
 		destroy_workqueue(chip->high_thr_wq);
 	if (chip->low_thr_wq)
 		destroy_workqueue(chip->low_thr_wq);
+	list_del(&chip->list);
 	dev_set_drvdata(&pdev->dev, NULL);
 	return rc;
 }
