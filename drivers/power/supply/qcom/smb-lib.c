@@ -1106,6 +1106,48 @@ static int __smblib_set_prop_typec_power_role(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_toggle_stat(struct smb_charger *chg, int reset)
+{
+	int rc = 0;
+
+	if (reset) {
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			STAT_SW_OVERRIDE_CFG_BIT | 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't pull STAT pin low rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * A minimum of 20us delay is expected before switching on STAT
+		 * pin
+		 */
+		usleep_range(20, 30);
+
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't pull STAT pin high rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't set hardware control rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 /*********************
  * VOTABLE CALLBACKS *
  *********************/
