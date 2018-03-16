@@ -2569,7 +2569,7 @@ void ipa_init_ep_flt_bitmap(void)
 	const struct ipa_gsi_ep_config *gsi_ep_ptr;
 
 	bitmap = 0;
-	if (!ipa3_ctx->ep_flt_bitmap) {
+	if (ipa3_ctx->ep_flt_bitmap) {
 		WARN_ON(1);
 		return;
 	}
