@@ -72,6 +72,11 @@
 			IPA_USB_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
+enum ipa_usb_direction {
+	IPA_USB_DIR_UL,
+	IPA_USB_DIR_DL,
+};
+
 struct ipa_usb_xdci_connect_params_internal {
 	enum ipa_usb_max_usb_packet_size max_pkt_size;
 	u32 ipa_to_usb_clnt_hdl;
@@ -167,7 +172,8 @@ struct ipa3_usb_transport_type_ctx {
 	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *user_data);
 	void *user_data;
 	enum ipa3_usb_state state;
-	struct ipa_usb_xdci_chan_params ch_params;
+	struct ipa_usb_xdci_chan_params ul_ch_params;
+	struct ipa_usb_xdci_chan_params dl_ch_params;
 	struct ipa3_usb_teth_prot_conn_params teth_conn_params;
 };
 
@@ -1072,8 +1078,6 @@ static bool ipa3_usb_check_chan_params(struct ipa_usb_xdci_chan_params *params)
 			params->gevntcount_hi_addr);
 	IPA_USB_DBG_LOW("dir = %d\n", params->dir);
 	IPA_USB_DBG_LOW("xfer_ring_len = %d\n", params->xfer_ring_len);
-	IPA_USB_DBG_LOW("xfer_ring_base_addr = %llx\n",
-		params->xfer_ring_base_addr);
 	IPA_USB_DBG_LOW("last_trb_addr_iova = %x\n",
 		params->xfer_scratch.last_trb_addr_iova);
 	IPA_USB_DBG_LOW("const_buffer_size = %d\n",
@@ -1177,15 +1181,16 @@ static int ipa3_usb_smmu_map_xdci_channel(
 		ipa3_usb_ctx->smmu_reg_map.cnt--;
 	}
 
+
 	result = ipa3_smmu_map_peer_buff(params->xfer_ring_base_addr_iova,
-		params->xfer_ring_base_addr, params->xfer_ring_len, map);
+		params->xfer_ring_len, map, params->sgt_xfer_rings);
 	if (result) {
 		IPA_USB_ERR("failed to map Xfer ring %d\n", result);
 		return result;
 	}
 
 	result = ipa3_smmu_map_peer_buff(params->data_buff_base_addr_iova,
-		params->data_buff_base_addr, params->data_buff_base_len, map);
+		params->data_buff_base_len, map, params->sgt_data_buff);
 	if (result) {
 		IPA_USB_ERR("failed to map TRBs buff %d\n", result);
 		return result;
@@ -1194,8 +1199,46 @@ static int ipa3_usb_smmu_map_xdci_channel(
 	return 0;
 }
 
+static int ipa3_usb_smmu_store_sgt(struct sg_table **out_ch_ptr,
+	struct sg_table *in_sgt_ptr)
+{
+	unsigned int nents;
+
+	if (in_sgt_ptr != NULL) {
+		*out_ch_ptr = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
+		if (*out_ch_ptr == NULL)
+			return -ENOMEM;
+
+		nents = in_sgt_ptr->nents;
+
+		(*out_ch_ptr)->sgl =
+			kcalloc(nents, sizeof(struct scatterlist),
+				GFP_KERNEL);
+		if ((*out_ch_ptr)->sgl == NULL)
+			return -ENOMEM;
+
+		memcpy((*out_ch_ptr)->sgl, in_sgt_ptr->sgl,
+			nents*sizeof((*out_ch_ptr)->sgl));
+		(*out_ch_ptr)->nents = nents;
+		(*out_ch_ptr)->orig_nents = in_sgt_ptr->orig_nents;
+	}
+	return 0;
+}
+
+static int ipa3_usb_smmu_free_sgt(struct sg_table **out_sgt_ptr)
+{
+	if (*out_sgt_ptr != NULL) {
+		kfree((*out_sgt_ptr)->sgl);
+		(*out_sgt_ptr)->sgl = NULL;
+		kfree(*out_sgt_ptr);
+		*out_sgt_ptr = NULL;
+	}
+	return 0;
+}
+
 static int ipa3_usb_request_xdci_channel(
 	struct ipa_usb_xdci_chan_params *params,
+	enum ipa_usb_direction dir,
 	struct ipa_req_chan_out_params *out_params)
 {
 	int result = -EFAULT;
@@ -1204,6 +1247,7 @@ static int ipa3_usb_request_xdci_channel(
 	enum ipa_usb_teth_prot teth_prot;
 	struct ipa_usb_init_params *rndis_ptr;
 	struct ecm_ipa_params *ecm_ptr;
+	struct ipa_usb_xdci_chan_params *xdci_ch_params;
 
 	IPA_USB_DBG_LOW("entry\n");
 	if (params == NULL || out_params == NULL ||
@@ -1271,8 +1315,26 @@ static int ipa3_usb_request_xdci_channel(
 	}
 
 	/* store channel params for SMMU unmap */
-	ipa3_usb_ctx->ttype_ctx[ttype].ch_params = *params;
+	if (dir == IPA_USB_DIR_UL)
+		xdci_ch_params = &ipa3_usb_ctx->ttype_ctx[ttype].ul_ch_params;
+	else
+		xdci_ch_params = &ipa3_usb_ctx->ttype_ctx[ttype].dl_ch_params;
 
+	*xdci_ch_params = *params;
+	result = ipa3_usb_smmu_store_sgt(
+		&xdci_ch_params->sgt_xfer_rings,
+		params->sgt_xfer_rings);
+	if (result) {
+		ipa3_usb_smmu_free_sgt(&xdci_ch_params->sgt_xfer_rings);
+		return result;
+	}
+	result = ipa3_usb_smmu_store_sgt(
+		&xdci_ch_params->sgt_data_buff,
+		params->sgt_data_buff);
+	if (result) {
+		ipa3_usb_smmu_free_sgt(&xdci_ch_params->sgt_data_buff);
+		return result;
+	}
 	chan_params.keep_ipa_awake = params->keep_ipa_awake;
 	chan_params.evt_ring_params.intf = GSI_EVT_CHTYPE_XDCI_EV;
 	chan_params.evt_ring_params.intr = GSI_INTR_IRQ;
@@ -1280,7 +1342,7 @@ static int ipa3_usb_request_xdci_channel(
 	chan_params.evt_ring_params.ring_len = params->xfer_ring_len -
 		chan_params.evt_ring_params.re_size;
 	chan_params.evt_ring_params.ring_base_addr =
-		params->xfer_ring_base_addr;
+		params->xfer_ring_base_addr_iova;
 	chan_params.evt_ring_params.ring_base_vaddr = NULL;
 	chan_params.evt_ring_params.int_modt = 0;
 	chan_params.evt_ring_params.int_modt = 0;
@@ -1300,7 +1362,7 @@ static int ipa3_usb_request_xdci_channel(
 	chan_params.chan_params.re_size = GSI_CHAN_RE_SIZE_16B;
 	chan_params.chan_params.ring_len = params->xfer_ring_len;
 	chan_params.chan_params.ring_base_addr =
-		params->xfer_ring_base_addr;
+		params->xfer_ring_base_addr_iova;
 	chan_params.chan_params.ring_base_vaddr = NULL;
 	chan_params.chan_params.use_db_eng = GSI_CHAN_DB_MODE;
 	chan_params.chan_params.max_prefetch = GSI_ONE_PREFETCH_SEG;
@@ -1343,9 +1405,11 @@ static int ipa3_usb_request_xdci_channel(
 }
 
 static int ipa3_usb_release_xdci_channel(u32 clnt_hdl,
+	enum ipa_usb_direction dir,
 	enum ipa3_usb_transport_type ttype)
 {
 	int result = 0;
+	struct ipa_usb_xdci_chan_params *xdci_ch_params;
 
 	IPA_USB_DBG_LOW("entry\n");
 	if (ttype < 0 || ttype >= IPA_USB_TRANSPORT_MAX) {
@@ -1365,8 +1429,17 @@ static int ipa3_usb_release_xdci_channel(u32 clnt_hdl,
 		return result;
 	}
 
-	result = ipa3_usb_smmu_map_xdci_channel(
-		&ipa3_usb_ctx->ttype_ctx[ttype].ch_params, false);
+	if (dir == IPA_USB_DIR_UL)
+		xdci_ch_params = &ipa3_usb_ctx->ttype_ctx[ttype].ul_ch_params;
+	else
+		xdci_ch_params = &ipa3_usb_ctx->ttype_ctx[ttype].dl_ch_params;
+
+	result = ipa3_usb_smmu_map_xdci_channel(xdci_ch_params, false);
+
+	if (xdci_ch_params->sgt_xfer_rings != NULL)
+		ipa3_usb_smmu_free_sgt(&xdci_ch_params->sgt_xfer_rings);
+	if (xdci_ch_params->sgt_data_buff != NULL)
+		ipa3_usb_smmu_free_sgt(&xdci_ch_params->sgt_data_buff);
 
 	/* Change ipa_usb state to INITIALIZED */
 	if (!ipa3_usb_set_state(IPA_USB_INITIALIZED, false, ttype))
@@ -2129,14 +2202,15 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 
 	if (connect_params->teth_prot != IPA_USB_DIAG) {
 		result = ipa3_usb_request_xdci_channel(ul_chan_params,
-			ul_out_params);
+			IPA_USB_DIR_UL, ul_out_params);
 		if (result) {
 			IPA_USB_ERR("failed to allocate UL channel\n");
 			goto bad_params;
 		}
 	}
 
-	result = ipa3_usb_request_xdci_channel(dl_chan_params, dl_out_params);
+	result = ipa3_usb_request_xdci_channel(dl_chan_params, IPA_USB_DIR_DL,
+		dl_out_params);
 	if (result) {
 		IPA_USB_ERR("failed to allocate DL/DPL channel\n");
 		goto alloc_dl_chan_fail;
@@ -2172,11 +2246,12 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 	return 0;
 
 connect_fail:
-	ipa3_usb_release_xdci_channel(dl_out_params->clnt_hdl,
+	ipa3_usb_release_xdci_channel(dl_out_params->clnt_hdl, IPA_USB_DIR_DL,
 		IPA3_USB_GET_TTYPE(dl_chan_params->teth_prot));
 alloc_dl_chan_fail:
 	if (connect_params->teth_prot != IPA_USB_DIAG)
 		ipa3_usb_release_xdci_channel(ul_out_params->clnt_hdl,
+			IPA_USB_DIR_UL,
 			IPA3_USB_GET_TTYPE(ul_chan_params->teth_prot));
 bad_params:
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
@@ -2248,14 +2323,16 @@ static int ipa_usb_xdci_dismiss_channels(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		IPA_USB_ERR("failed to change state to stopped\n");
 
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
-		result = ipa3_usb_release_xdci_channel(ul_clnt_hdl, ttype);
+		result = ipa3_usb_release_xdci_channel(ul_clnt_hdl,
+			IPA_USB_DIR_UL, ttype);
 		if (result) {
 			IPA_USB_ERR("failed to release UL channel\n");
 			return result;
 		}
 	}
 
-	result = ipa3_usb_release_xdci_channel(dl_clnt_hdl, ttype);
+	result = ipa3_usb_release_xdci_channel(dl_clnt_hdl,
+		IPA_USB_DIR_DL, ttype);
 	if (result) {
 		IPA_USB_ERR("failed to release DL channel\n");
 		return result;
@@ -2865,7 +2942,7 @@ static int __init ipa3_usb_init(void)
 	ipa3_usb_ctx = kzalloc(sizeof(struct ipa3_usb_context), GFP_KERNEL);
 	if (ipa3_usb_ctx == NULL) {
 		pr_err(":ipa_usb init failed\n");
-		return -EFAULT;
+		return -ENOMEM;
 	}
 	memset(ipa3_usb_ctx, 0, sizeof(struct ipa3_usb_context));
 
