@@ -13,8 +13,8 @@
 /dts-v1/;
 /memreserve/ 0x90000000 0x00000100;
 
-#include "sdm855.dtsi"
-#include "sdm855-rumi.dtsi"
+#include "sdmshrike.dtsi"
+#include "sdmshrike-rumi.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDMSHRIKE RUMI";
