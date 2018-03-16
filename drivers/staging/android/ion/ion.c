@@ -203,6 +203,11 @@ static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 
 static void ion_buffer_kmap_put(struct ion_buffer *buffer)
 {
+	if (buffer->kmap_cnt == 0) {
+		WARN(1, "Call dma_buf_begin_cpu_access before dma_buf_end_cpu_access\n");
+		return;
+	}
+
 	buffer->kmap_cnt--;
 	if (!buffer->kmap_cnt) {
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
@@ -443,6 +448,7 @@ static void *ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 
+	WARN(!buffer->vaddr, "Call dma_buf_begin_cpu_access before dma_buf_kmap\n");
 	return buffer->vaddr + offset * PAGE_SIZE;
 }
 
@@ -455,6 +461,7 @@ static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 
+	WARN(!buffer->vaddr, "Call dma_buf_begin_cpu_access before dma_buf_vmap\n");
 	return buffer->vaddr;
 }
 
