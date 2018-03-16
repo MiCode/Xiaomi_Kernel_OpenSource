@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2014-2015, 2018 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -218,8 +218,10 @@ mdp5_plane_duplicate_state(struct drm_plane *plane)
 
 	mdp5_state = kmemdup(to_mdp5_plane_state(plane->state),
 			sizeof(*mdp5_state), GFP_KERNEL);
+	if (!mdp5_state)
+		return NULL;
 
-	if (mdp5_state && mdp5_state->base.fb)
+	if (mdp5_state->base.fb)
 		drm_framebuffer_reference(mdp5_state->base.fb);
 
 	mdp5_state->mode_changed = false;
