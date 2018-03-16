@@ -144,6 +144,10 @@
 	qcom,battery-data = <&qcs_batterydata>;
 };
 
+&pm660_charger {
+	qcom,battery-data = <&qcs_batterydata>;
+};
+
 &int_codec {
 	qcom,model = "sdm670-360cam-snd-card";
 	qcom,audio-routing =
