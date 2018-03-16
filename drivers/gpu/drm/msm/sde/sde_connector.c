@@ -419,6 +419,10 @@ void sde_connector_schedule_status_work(struct drm_connector *connector,
 	if (!c_conn)
 		return;
 
+	/* Return if there is no change in ESD status check condition */
+	if (en == c_conn->esd_status_check)
+		return;
+
 	sde_connector_get_info(connector, &info);
 	if (c_conn->ops.check_status &&
 		(info.capabilities & MSM_DISPLAY_ESD_ENABLED)) {
@@ -435,9 +439,11 @@ void sde_connector_schedule_status_work(struct drm_connector *connector,
 			/* Schedule ESD status check */
 			schedule_delayed_work(&c_conn->status_work,
 				msecs_to_jiffies(interval));
+			c_conn->esd_status_check = true;
 		} else {
 			/* Cancel any pending ESD status check */
 			cancel_delayed_work_sync(&c_conn->status_work);
+			c_conn->esd_status_check = false;
 		}
 	}
 }
@@ -487,8 +493,12 @@ static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 	}
 	c_conn->last_panel_power_mode = mode;
 
+	mutex_unlock(&c_conn->lock);
 	if (mode != SDE_MODE_DPMS_ON)
 		sde_connector_schedule_status_work(connector, false);
+	else
+		sde_connector_schedule_status_work(connector, true);
+	mutex_lock(&c_conn->lock);
 
 	return rc;
 }

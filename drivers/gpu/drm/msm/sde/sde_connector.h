@@ -404,6 +404,8 @@ struct sde_connector {
 	u32 force_panel_dead;
 	u32 esd_status_interval;
 
+	bool esd_status_check;
+
 	bool bl_scale_dirty;
 	u32 bl_scale;
 	u32 bl_scale_ad;
