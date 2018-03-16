@@ -13,6 +13,7 @@
 
 #include "msm8953-qrd.dtsi"
 #include "msm8953-mdss-panels.dtsi"
+#include "msm8953-camera-sensor-qrd.dtsi"
 
 &qusb_phy {
 	qcom,qusb-phy-init-seq = <0x78 0x80

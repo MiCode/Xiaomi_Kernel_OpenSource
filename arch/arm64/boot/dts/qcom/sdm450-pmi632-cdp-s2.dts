@@ -16,7 +16,6 @@
 #include "sdm450.dtsi"
 #include "sdm450-pmi632-cdp-s2.dtsi"
 #include "sdm450-pmi632.dtsi"
-#include "sdm632-camera-sensor-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM450 + PMI632 CDP S2";

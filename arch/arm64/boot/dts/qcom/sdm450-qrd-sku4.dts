@@ -16,7 +16,6 @@
 #include "sdm450.dtsi"
 #include "sdm450-qrd-sku4.dtsi"
 #include "sdm450-pmi632.dtsi"
-#include "msm8953-camera-sensor-qrd.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM450 + PMI632 QRD SKU4";
