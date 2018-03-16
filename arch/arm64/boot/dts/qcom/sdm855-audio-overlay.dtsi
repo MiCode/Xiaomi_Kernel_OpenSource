@@ -110,7 +110,7 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-parent = <&tlmm>;
-		qcom,gpio-connect = <&tlmm 124 0>;
+		qcom,gpio-connect = <&tlmm 123 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&wcd_intr_default>;
 	};
