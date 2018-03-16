@@ -513,6 +513,7 @@ skip_notify:
 static void dp_display_process_mst_hpd_high(struct dp_display_private *dp)
 {
 	bool is_mst_receiver;
+	struct dp_mst_hdp_info info;
 
 	if (dp->parser->has_mst && dp->mst.drm_registered) {
 		DP_MST_DEBUG("mst_hpd_high work\n");
@@ -522,8 +523,11 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp)
 		if (is_mst_receiver && !dp->mst.mst_active) {
 			dp->mst.mst_active = true;
 
+			info.mst_protocol = dp->parser->has_mst_sideband;
+			info.edid = dp->debug->get_edid(dp->debug);
+
 			if (dp->mst.cbs.hpd)
-				dp->mst.cbs.hpd(&dp->dp_display, true);
+				dp->mst.cbs.hpd(&dp->dp_display, true, &info);
 		}
 	}
 
@@ -613,11 +617,15 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 
 static void dp_display_process_mst_hpd_low(struct dp_display_private *dp)
 {
+	struct dp_mst_hdp_info info = {0};
+
 	if (dp->mst.mst_active) {
 		DP_MST_DEBUG("mst_hpd_low work\n");
 
-		if (dp->mst.cbs.hpd)
-			dp->mst.cbs.hpd(&dp->dp_display, false);
+		if (dp->mst.cbs.hpd) {
+			info.mst_protocol = dp->parser->has_mst_sideband;
+			dp->mst.cbs.hpd(&dp->dp_display, false, &info);
+		}
 
 		dp->mst.mst_active = false;
 	}
@@ -1085,7 +1093,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
 				dp->link, dp->aux,
 				&dp->dp_display.base_connector,
-				dp->catalog);
+				dp->catalog, dp->parser);
 
 	if (IS_ERR(dp->debug)) {
 		rc = PTR_ERR(dp->debug);
@@ -1516,8 +1524,12 @@ static int dp_display_validate_mode(struct dp_display *dp, void *panel,
 	mode_rate_khz = mode_pclk_khz * mode_bpp;
 	supported_rate_khz = link_info->num_lanes * link_info->rate * 8;
 
-	if (mode_rate_khz > supported_rate_khz)
+	if (mode_rate_khz > supported_rate_khz) {
+		DP_MST_DEBUG("pclk:%d, supported_rate:%d\n",
+				mode_pclk_khz, supported_rate_khz);
+
 		return MODE_BAD;
+	}
 
 	return MODE_OK;
 }
