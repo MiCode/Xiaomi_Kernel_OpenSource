@@ -1003,8 +1003,11 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		} else {
 			mutex_unlock(&driver->md_session_lock);
 			if (MD_PERIPHERAL_MASK(reg_item->proc) &
-				driver->logging_mask)
+				driver->logging_mask) {
+				mutex_unlock(&driver->cmd_reg_mutex);
 				diag_send_error_rsp(buf, len, pid);
+				return write_len;
+			}
 			else
 				write_len = diag_send_data(reg_item, buf, len);
 		}
