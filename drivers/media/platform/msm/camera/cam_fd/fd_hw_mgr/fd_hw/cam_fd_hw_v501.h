@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,18 +10,18 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _CAM_FD_HW_V41_H_
-#define _CAM_FD_HW_V41_H_
+#ifndef _CAM_FD_HW_V501_H_
+#define _CAM_FD_HW_V501_H_
 
-static struct cam_fd_hw_static_info cam_fd_wrapper120_core410_info = {
+static struct cam_fd_hw_static_info cam_fd_wrapper200_core501_info = {
 	.core_version = {
-		.major  = 4,
-		.minor  = 1,
-		.incr   = 0,
+		.major  = 5,
+		.minor  = 0,
+		.incr   = 1,
 	},
 	.wrapper_version = {
-		.major  = 1,
-		.minor  = 2,
+		.major  = 2,
+		.minor  = 0,
 		.incr   = 0,
 	},
 	.core_regs = {
@@ -63,8 +63,8 @@ static struct cam_fd_hw_static_info cam_fd_wrapper120_core410_info = {
 		CAM_FD_IRQ_TO_MASK(CAM_FD_IRQ_RESET_DONE),
 	.qos_priority       = 4,
 	.qos_priority_level = 4,
-	.supported_modes    = CAM_FD_MODE_FACEDETECTION,
+	.supported_modes    = CAM_FD_MODE_FACEDETECTION | CAM_FD_MODE_PYRAMID,
 	.ro_mode_supported  = true,
 };
 
-#endif /* _CAM_FD_HW_V41_H_ */
+#endif /* _CAM_FD_HW_V501_H_ */

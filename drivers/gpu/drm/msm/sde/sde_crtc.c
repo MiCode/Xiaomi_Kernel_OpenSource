@@ -1330,15 +1330,6 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 		return -E2BIG;
 	}
 
-	/**
-	 * TODO: Need to check against ROI alignment restrictions if partial
-	 * update support is added for destination scalar configurations
-	 */
-	if (sde_crtc_state->num_ds_enabled) {
-		SDE_ERROR("DS and PU concurrency is not supported\n");
-		return -EINVAL;
-	}
-
 	rc = _sde_crtc_set_crtc_roi(crtc, state);
 	if (rc)
 		return rc;
@@ -6227,6 +6218,7 @@ static int _sde_crtc_event_disable(struct sde_kms *kms,
 	spin_lock_irqsave(&crtc->spin_lock, flags);
 	list_for_each_entry(node, &crtc->user_event_list, list) {
 		if (node->event == event) {
+			list_del(&node->list);
 			found = true;
 			break;
 		}
@@ -6242,7 +6234,6 @@ static int _sde_crtc_event_disable(struct sde_kms *kms,
 	 * no need to disable/de-register.
 	 */
 	if (!crtc_drm->enabled) {
-		list_del(&node->list);
 		kfree(node);
 		return 0;
 	}
@@ -6251,13 +6242,11 @@ static int _sde_crtc_event_disable(struct sde_kms *kms,
 	if (ret) {
 		SDE_ERROR("failed to enable power resource %d\n", ret);
 		SDE_EVT32(ret, SDE_EVTLOG_ERROR);
-		list_del(&node->list);
 		kfree(node);
 		return ret;
 	}
 
 	ret = node->func(crtc_drm, false, &node->irq);
-	list_del(&node->list);
 	kfree(node);
 	sde_power_resource_enable(&priv->phandle, kms->core_client, false);
 	return ret;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1681,7 +1681,7 @@ static const struct msm_pingroup sdm845_groups[] = {
 	[153] = UFS_RESET(ufs_reset, 0x99f000),
 };
 
-static const struct msm_dir_conn sdm845_dir_conn[] = {
+static struct msm_dir_conn sdm845_dir_conn[] = {
 	{1, 510},
 	{3, 511},
 	{5, 512},

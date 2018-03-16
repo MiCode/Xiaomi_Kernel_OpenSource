@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -844,6 +844,68 @@ void sde_power_resource_deinit(struct platform_device *pdev,
 		sde_rsc_client_destroy(phandle->rsc_client);
 }
 
+
+int sde_power_scale_reg_bus(struct sde_power_handle *phandle,
+	struct sde_power_client *pclient, u32 usecase_ndx, bool skip_lock)
+{
+	struct sde_power_client *client;
+	int rc = 0;
+	u32 max_usecase_ndx = VOTE_INDEX_DISABLE;
+
+	if (!skip_lock) {
+		mutex_lock(&phandle->phandle_lock);
+
+		if (WARN_ON(pclient->refcount == 0)) {
+			/*
+			 * This is not expected, clients calling without skip
+			 * lock are outside the power resource enable, which
+			 * means that they should have enabled the power
+			 * resource before trying to scale.
+			 */
+			rc = -EINVAL;
+			goto exit;
+		}
+	}
+
+	pr_debug("%pS: current idx:%d requested:%d client:%d\n",
+		__builtin_return_address(0), pclient->usecase_ndx,
+		usecase_ndx, pclient->id);
+
+	pclient->usecase_ndx = usecase_ndx;
+
+	list_for_each_entry(client, &phandle->power_client_clist, list) {
+		if (client->usecase_ndx < VOTE_INDEX_MAX &&
+		    client->usecase_ndx > max_usecase_ndx)
+			max_usecase_ndx = client->usecase_ndx;
+	}
+
+	rc = sde_power_reg_bus_update(phandle->reg_bus_hdl,
+						max_usecase_ndx);
+	if (rc)
+		pr_err("failed to set reg bus vote rc=%d\n", rc);
+
+exit:
+	if (!skip_lock)
+		mutex_unlock(&phandle->phandle_lock);
+
+	return rc;
+}
+
+static inline bool _resource_changed(u32 current_usecase_ndx,
+		u32 max_usecase_ndx)
+{
+	WARN_ON((current_usecase_ndx >= VOTE_INDEX_MAX)
+		|| (max_usecase_ndx >= VOTE_INDEX_MAX));
+
+	if (((current_usecase_ndx >= VOTE_INDEX_LOW) && /*current enabled */
+		(max_usecase_ndx == VOTE_INDEX_DISABLE)) || /* max disabled */
+		((current_usecase_ndx == VOTE_INDEX_DISABLE) && /* disabled */
+		(max_usecase_ndx >= VOTE_INDEX_LOW))) /* max enabled */
+		return true;
+
+	return false;
+}
+
 int sde_power_resource_enable(struct sde_power_handle *phandle,
 	struct sde_power_client *pclient, bool enable)
 {
@@ -877,7 +939,15 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 			max_usecase_ndx = client->usecase_ndx;
 	}
 
-	if (phandle->current_usecase_ndx != max_usecase_ndx) {
+	/*
+	 * Check if we need to enable/disable the power resource, we won't
+	 * only-scale up/down the AHB vote in this API; if a client wants to
+	 * bump up the AHB clock above the LOW (default) level, it needs to
+	 * call 'sde_power_scale_reg_bus' with the desired vote after the power
+	 * resource was enabled.
+	 */
+	if (_resource_changed(phandle->current_usecase_ndx,
+			max_usecase_ndx)) {
 		changed = true;
 		prev_usecase_ndx = phandle->current_usecase_ndx;
 		phandle->current_usecase_ndx = max_usecase_ndx;
@@ -920,8 +990,8 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 			}
 		}
 
-		rc = sde_power_reg_bus_update(phandle->reg_bus_hdl,
-							max_usecase_ndx);
+		rc = sde_power_scale_reg_bus(phandle, pclient,
+				max_usecase_ndx, true);
 		if (rc) {
 			pr_err("failed to set reg bus vote rc=%d\n", rc);
 			goto reg_bus_hdl_err;
@@ -952,8 +1022,8 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 
 		sde_power_rsc_update(phandle, false);
 
-		sde_power_reg_bus_update(phandle->reg_bus_hdl,
-							max_usecase_ndx);
+		sde_power_scale_reg_bus(phandle, pclient,
+				max_usecase_ndx, true);
 
 		if (!phandle->rsc_client)
 			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
@@ -975,7 +1045,7 @@ end:
 clk_err:
 	sde_power_rsc_update(phandle, false);
 rsc_err:
-	sde_power_reg_bus_update(phandle->reg_bus_hdl, prev_usecase_ndx);
+	sde_power_scale_reg_bus(phandle, pclient, max_usecase_ndx, true);
 reg_bus_hdl_err:
 	if (!phandle->rsc_client)
 		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);

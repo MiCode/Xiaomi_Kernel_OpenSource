@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,4 +66,6 @@ int crm_timer_init(struct cam_req_mgr_timer **timer,
  * @timer : timer pointer which will be freed
  */
 void crm_timer_exit(struct cam_req_mgr_timer **timer);
+
+extern struct kmem_cache *g_cam_req_mgr_timer_cachep;
 #endif

@@ -1145,7 +1145,9 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	struct cam_ctx_request           *req;
 	struct cam_ctx_request           *req_temp;
 	struct cam_isp_ctx_req           *req_isp;
+	struct list_head                  flush_list;
 
+	INIT_LIST_HEAD(&flush_list);
 	spin_lock_bh(&ctx->lock);
 	if (list_empty(req_list)) {
 		spin_unlock_bh(&ctx->lock);
@@ -1154,11 +1156,22 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	}
 
 	list_for_each_entry_safe(req, req_temp, req_list, list) {
-		if ((flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ)
-				&& (req->request_id != flush_req->req_id))
-			continue;
-
+		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
+			if (req->request_id != flush_req->req_id) {
+				continue;
+			} else {
+				list_del_init(&req->list);
+				list_add_tail(&req->list, &flush_list);
+				cancel_req_id_found = 1;
+				break;
+			}
+		}
 		list_del_init(&req->list);
+		list_add_tail(&req->list, &flush_list);
+	}
+	spin_unlock_bh(&ctx->lock);
+
+	list_for_each_entry_safe(req, req_temp, &flush_list, list) {
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
 			if (req_isp->fence_map_out[i].sync_id != -1) {
@@ -1174,15 +1187,10 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 				req_isp->fence_map_out[i].sync_id = -1;
 			}
 		}
+		spin_lock_bh(&ctx->lock);
 		list_add_tail(&req->list, &ctx->free_req_list);
-
-		/* If flush request id found, exit the loop */
-		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
-			cancel_req_id_found = 1;
-			break;
-		}
+		spin_unlock_bh(&ctx->lock);
 	}
-	spin_unlock_bh(&ctx->lock);
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
 		!cancel_req_id_found)
@@ -2215,7 +2223,7 @@ static int __cam_isp_ctx_unlink_in_ready(struct cam_context *ctx,
 }
 
 static int __cam_isp_ctx_stop_dev_in_activated_unlock(
-	struct cam_context *ctx)
+	struct cam_context *ctx, struct cam_start_stop_dev_cmd *stop_cmd)
 {
 	int rc = 0;
 	uint32_t i;
@@ -2234,6 +2242,7 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	/* stop hw first */
 	if (ctx_isp->hw_ctx) {
 		stop.ctxt_to_hw_map = ctx_isp->hw_ctx;
+		stop.args = stop_cmd;
 		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
 			&stop);
 	}
@@ -2282,7 +2291,7 @@ static int __cam_isp_ctx_stop_dev_in_activated(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	__cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+	__cam_isp_ctx_stop_dev_in_activated_unlock(ctx, cmd);
 	ctx->state = CAM_CTX_ACQUIRED;
 	trace_cam_context_state("ISP", ctx);
 	return rc;
@@ -2293,7 +2302,7 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx, NULL);
 	if (rc)
 		CAM_ERR(CAM_ISP, "Stop device failed rc=%d", rc);
 
@@ -2363,7 +2372,8 @@ static int __cam_isp_ctx_unlink_in_activated(struct cam_context *ctx,
 
 	CAM_WARN(CAM_ISP,
 		"Received unlink in activated state. It's unexpected");
-	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
+
+	rc = __cam_isp_ctx_stop_dev_in_activated_unlock(ctx, NULL);
 	if (rc)
 		CAM_WARN(CAM_ISP, "Stop device failed rc=%d", rc);
 

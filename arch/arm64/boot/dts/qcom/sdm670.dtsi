@@ -1037,6 +1037,20 @@
 		vdd_mx-supply = <&pm660l_s1_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+		qcom,cam_cc_csi0phytimer_clk_src-opp-handle = <&cam_csiphy0>;
+		qcom,cam_cc_csi1phytimer_clk_src-opp-handle = <&cam_csiphy1>;
+		qcom,cam_cc_csi2phytimer_clk_src-opp-handle = <&cam_csiphy2>;
+		qcom,cam_cc_cci_clk_src-opp-handle = <&cam_cci>;
+		qcom,cam_cc_ife_0_csid_clk_src-opp-handle = <&cam_csid0>;
+		qcom,cam_cc_ife_0_clk_src-opp-handle = <&cam_vfe0>;
+		qcom,cam_cc_ife_1_csid_clk_src-opp-handle = <&cam_csid1>;
+		qcom,cam_cc_ife_1_clk_src-opp-handle = <&cam_vfe1>;
+		qcom,cam_cc_ife_lite_csid_clk_src-opp-handle = <&cam_csid_lite>;
+		qcom,cam_cc_ife_lite_clk_src-opp-handle = <&cam_vfe_lite>;
+		qcom,cam_cc_icp_clk_src-opp-handle = <&cam_a5>;
+		qcom,cam_cc_ipe_0_clk_src-opp-handle = <&cam_ipe0>;
+		qcom,cam_cc_ipe_1_clk_src-opp-handle = <&cam_ipe1>;
+		qcom,cam_cc_bps_clk_src-opp-handle = <&cam_bps>;
 	};
 
 	clock_dispcc: qcom,dispcc@af00000 {
@@ -2567,6 +2581,8 @@
 		qcom,vdd-3.3-ch0-config = <3000000 3312000>;
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,wlan-msa-fixed-region = <&wlan_msa_mem>;
+		qcom,gpio-force-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
+		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 		qcom,smmu-s1-bypass;
 	};
 
@@ -2648,6 +2664,18 @@
 		status = "ok";
 		qcom,bw-tbl =
 			< 1 >;
+	};
+
+	bus_proxy_client: qcom,bus_proxy_client {
+		compatible = "qcom,bus-proxy-client";
+		qcom,msm-bus,name = "bus-proxy-client";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>, <23 512 0 0>,
+			<22 512 0 5000000>, <23 512 0 5000000>;
+		qcom,msm-bus,active-only;
+		status = "ok";
 	};
 
 	devfreq_memlat_0: qcom,cpu0-memlat-mon {
