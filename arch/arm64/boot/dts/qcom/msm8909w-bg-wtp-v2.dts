@@ -18,6 +18,7 @@
 #include "msm8909w-bg-memory.dtsi"
 #include "8909w-pm660.dtsi"
 #include "msm8909-audio-bg_codec.dtsi"
+#include "msm-arm-smmu-8909.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 BLACKGHOST WTP";
