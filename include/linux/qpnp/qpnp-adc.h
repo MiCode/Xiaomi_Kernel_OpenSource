@@ -133,8 +133,11 @@ enum qpnp_vadc_channels {
 	VADC_VCOIN = 0x85,
 	VADC_DIE_TEMP = 6,
 	VADC_CHG_TEMP = 7,
+	VADC_USB_IN_I_PM5 = 7,
 	VADC_USB_IN = 8,
+	VADC_USB_IN_V_DIV_16_PM5 = 8,
 	VADC_IREG_FB = 9,
+	VADC_CHG_TEMP_PM5 = 9,
 	/* External input connection */
 	VADC_BAT_THERM = 0xa,
 	VADC_BAT_ID = 0xb,
@@ -156,6 +159,7 @@ enum qpnp_vadc_channels {
 	VADC_ATEST2 = 0x1b,
 	VADC_ATEST3 = 0x1c,
 	VADC_ATEST4 = 0x1d,
+	VADC_MID_CHG_DIV_6 = 0x1e,
 	VADC_OFF = 0xff,
 	/* PU1 is 30K pull up */
 	VADC_BAT_THERM_PU1 = 0x2a,
@@ -222,6 +226,13 @@ enum qpnp_vadc_channels {
 	VADC_ATEST3_DIV_3 = 0x9c,
 	VADC_ATEST4_DIV_3 = 0x9d,
 	VADC_REFRESH_MAX_NUM = 0xffff,
+	/*Current and synchronous channels*/
+	VADC_ISNS_INT_EXT_PM5 = 0xa1,
+	VADC_ISNS_PAR_PM5 = 0xa5,
+	VADC_V_I_INT_EXT_VDATA_PM5 = 0xb0,
+	VADC_V_I_INT_EXT_IDATA_PM5 = 0xb1,
+	VADC_V_I_PAR_VDATA_PM5 = 0xb4,
+	VADC_V_I_PAR_IDATA_PM5 = 0xb5,
 };
 
 /**
