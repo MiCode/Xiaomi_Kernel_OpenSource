@@ -131,6 +131,19 @@
 	};
 };
 
+/delete-node/ &mtp_batterydata;
+
+&vendor {
+	qcs_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-vrcamera-1300mah.dtsi"
+	};
+};
+
+&pm660_fg {
+	qcom,battery-data = <&qcs_batterydata>;
+};
+
 &int_codec {
 	qcom,model = "sdm670-360cam-snd-card";
 	qcom,audio-routing =
