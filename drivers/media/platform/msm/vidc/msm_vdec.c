@@ -123,7 +123,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE,
 		.name = "Picture Type Decoding",
 		.type = V4L2_CTRL_TYPE_BITMASK,
-		.minimum = V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_I,
+		.minimum = 0,
 		.maximum = (V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_I |
 				V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_P |
 				V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_B),
