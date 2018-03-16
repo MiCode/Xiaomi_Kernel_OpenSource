@@ -234,6 +234,11 @@ static int cam_vfe_camif_resource_start(
 	CAM_DBG(CAM_ISP, "hw id:%d core_cfg val:%d", camif_res->hw_intf->hw_idx,
 		val);
 
+	/* disable the CGC for stats */
+	cam_io_w_mb(0xFFFFFFFF, rsrc_data->mem_base +
+		rsrc_data->common_reg->module_ctrl[
+		CAM_VFE_TOP_VER2_MODULE_STATS]->cgc_ovd);
+
 	/* epoch config with 20 line */
 	cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
 		rsrc_data->mem_base + rsrc_data->camif_reg->epoch_irq);
@@ -324,8 +329,10 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 	uint32_t                              irq_status0;
 	uint32_t                              irq_status1;
 
-	if (!handler_priv || !evt_payload_priv)
+	if (!handler_priv || !evt_payload_priv) {
+		CAM_ERR(CAM_ISP, "Invalid params");
 		return ret;
+	}
 
 	camif_node = handler_priv;
 	camif_priv = camif_node->res_priv;
