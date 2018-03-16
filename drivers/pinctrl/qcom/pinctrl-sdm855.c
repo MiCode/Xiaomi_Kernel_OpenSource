@@ -1839,10 +1839,10 @@ static const struct msm_pingroup sdm855_groups[] = {
 	[172] = PINGROUP(172, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[173] = PINGROUP(173, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[174] = PINGROUP(174, NORTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[175] = SDC_QDSD_PINGROUP(sdc2_clk, 0xb2000, 14, 6),
-	[176] = SDC_QDSD_PINGROUP(sdc2_cmd, 0xb2000, 11, 3),
-	[177] = SDC_QDSD_PINGROUP(sdc2_data, 0xb2000, 9, 0),
-	[178] = UFS_RESET(ufs_reset, 0xb6004),
+	[175] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b2000, 14, 6),
+	[176] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
+	[177] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
+	[178] = UFS_RESET(ufs_reset, 0xdb6004),
 };
 
 static const struct msm_pinctrl_soc_data sdm855_pinctrl = {
