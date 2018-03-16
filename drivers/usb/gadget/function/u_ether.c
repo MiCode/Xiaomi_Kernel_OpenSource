@@ -739,7 +739,8 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	/* apply outgoing CDC or RNDIS filters */
-	if (skb && !is_promisc(cdc_filter)) {
+	if (!test_bit(RMNET_MODE_LLP_IP, &dev->flags) &&
+			!is_promisc(cdc_filter)) {
 		u8		*dest = skb->data;
 
 		if (is_multicast_ether_addr(dest)) {
@@ -753,6 +754,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			else
 				type = USB_CDC_PACKET_TYPE_ALL_MULTICAST;
 			if (!(cdc_filter & type)) {
+				dev->net->stats.tx_dropped++;
 				dev_kfree_skb_any(skb);
 				return NETDEV_TX_OK;
 			}
