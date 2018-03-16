@@ -2423,9 +2423,30 @@ void msm_vfe47_put_clks(struct vfe_device *vfe_dev)
 
 int msm_vfe47_enable_clks(struct vfe_device *vfe_dev, int enable)
 {
-	return msm_camera_clk_enable(&vfe_dev->pdev->dev,
+	unsigned long flags;
+	int rc;
+
+	if (!enable) {
+		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
+		vfe_dev->clk_enabled = false;
+		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+	}
+
+	rc = msm_camera_clk_enable(&vfe_dev->pdev->dev,
 			vfe_dev->vfe_clk_info,
 			vfe_dev->vfe_clk, vfe_dev->num_clk, enable);
+	if (rc < 0) {
+		pr_err("%s: clk set %d failed %d\n", __func__, enable, rc);
+		return rc;
+	}
+
+	if (enable) {
+		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
+		vfe_dev->clk_enabled = true;
+		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+	}
+
+	return rc;
 }
 
 int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)

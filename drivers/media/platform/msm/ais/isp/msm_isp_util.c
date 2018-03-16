@@ -851,6 +851,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 {
 	long rc = 0;
 	long rc2 = 0;
+	unsigned long flags;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 
 	if (!vfe_dev || !vfe_dev->vfe_base) {
@@ -1060,6 +1061,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case MSM_SD_SHUTDOWN:
 		while (vfe_dev->vfe_open_cnt != 0)
 			msm_isp_close_node(sd, NULL);
+		break;
+	case VIDIOC_MSM_ISP_SET_CLK_STATUS:
+		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
+		vfe_dev->clk_enabled = *((unsigned int *)arg);
+		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
 		break;
 
 	default:
@@ -2113,11 +2119,21 @@ void msm_isp_do_tasklet(unsigned long data)
 		}
 		atomic_sub(1, &vfe_dev->irq_cnt);
 		list_del(&queue_cmd->list);
+
+		if (!vfe_dev->clk_enabled) {
+			/* client closed, delayed task should exit directly */
+			spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+			return;
+		}
+
 		queue_cmd->cmd_used = 0;
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
 		pingpong_status = queue_cmd->vfePingPongStatus;
 		ts = queue_cmd->ts;
+		/* related to rw reg, need to be protected */
+		irq_ops->process_halt_irq(vfe_dev,
+			irq_status0, irq_status1);
 		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
 		ISP_DBG("%s: vfe_id %d status0: 0x%x status1: 0x%x\n",
 			__func__, vfe_dev->pdev->id, irq_status0, irq_status1);
@@ -2140,8 +2156,6 @@ void msm_isp_do_tasklet(unsigned long data)
 			spin_unlock(&dump_tasklet_lock);
 		}
 		irq_ops->process_reset_irq(vfe_dev,
-			irq_status0, irq_status1);
-		irq_ops->process_halt_irq(vfe_dev,
 			irq_status0, irq_status1);
 		if (atomic_read(&vfe_dev->error_info.overflow_state)
 			!= NO_OVERFLOW) {
