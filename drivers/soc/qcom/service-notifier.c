@@ -100,6 +100,9 @@ struct qmi_client_info {
 	int instance_id;
 	enum pd_subsys_state subsys_state;
 	struct work_struct ind_ack;
+	struct work_struct new_server;
+	struct work_struct del_server;
+	struct workqueue_struct *svc_event_wq;
 	struct qmi_handle clnt_handle;
 	struct notifier_block notifier;
 	void *ssr_handle;
@@ -317,11 +320,8 @@ static int register_notif_listener(struct service_notif_info *service_notif,
 static int service_notifier_new_server(struct qmi_handle *qmi,
 		struct qmi_service *svc)
 {
-	struct service_notif_info *service_notif = NULL;
 	struct qmi_client_info *data = container_of(qmi,
 					struct qmi_client_info, clnt_handle);
-	int rc;
-	int curr_state;
 
 	data->s_addr.sq_family = AF_QIPCRTR;
 	data->s_addr.sq_node = svc->node;
@@ -329,6 +329,17 @@ static int service_notifier_new_server(struct qmi_handle *qmi,
 	data->service_connected = true;
 	pr_info("Connection established between QMI handle and %d service\n",
 							data->instance_id);
+	queue_work(data->svc_event_wq, &data->new_server);
+	return 0;
+}
+
+static void new_server_work(struct work_struct *work)
+{
+	struct service_notif_info *service_notif = NULL;
+	struct qmi_client_info *data = container_of(work,
+			struct qmi_client_info, new_server);
+	int rc = 0, curr_state = 0;
+
 	mutex_lock(&notif_add_lock);
 	mutex_lock(&service_list_lock);
 	list_for_each_entry(service_notif, &service_list, list) {
@@ -337,7 +348,7 @@ static int service_notifier_new_server(struct qmi_handle *qmi,
 
 			rc = register_notif_listener(service_notif, data,
 								&curr_state);
-			if (rc) {
+			if (rc < 0) {
 				pr_err("Notifier registration failed for %s rc:%d\n",
 					service_notif->service_path, rc);
 			} else {
@@ -352,7 +363,6 @@ static int service_notifier_new_server(struct qmi_handle *qmi,
 	}
 	mutex_unlock(&service_list_lock);
 	mutex_unlock(&notif_add_lock);
-	return 0;
 }
 
 static void root_service_service_exit(struct qmi_client_info *data,
@@ -365,7 +375,6 @@ static void root_service_service_exit(struct qmi_client_info *data,
 	 * Send service down notifications to all clients
 	 * of registered for notifications for that service.
 	 */
-	data->service_connected = false;
 	mutex_lock(&notif_add_lock);
 	mutex_lock(&service_list_lock);
 	list_for_each_entry(service_notif, &service_list, list) {
@@ -415,13 +424,24 @@ static int ssr_event_notify(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
+static void del_server_work(struct work_struct *work)
+{
+	struct qmi_client_info *data = container_of(work,
+			struct qmi_client_info, del_server);
+
+	data->subsys_state = ROOT_PD_DOWN;
+	root_service_service_exit(data, data->subsys_state);
+}
+
 static void service_notifier_del_server(struct qmi_handle *qmi,
 		struct qmi_service *svc)
 {
 	struct qmi_client_info *data = container_of(qmi,
 					struct qmi_client_info, clnt_handle);
-	data->subsys_state = ROOT_PD_DOWN;
-	root_service_service_exit(data, data->subsys_state);
+	data->service_connected = false;
+	pr_info("Connection lost between QMI handle and %d service\n",
+							data->instance_id);
+	queue_work(data->svc_event_wq, &data->del_server);
 }
 
 static struct qmi_ops server_ops = {
@@ -461,7 +481,7 @@ static void *add_service_notif(const char *service_path, int instance_id,
 			if (tmp->service_connected) {
 				rc = register_notif_listener(service_notif, tmp,
 								curr_state);
-				if (rc) {
+				if (rc < 0) {
 					mutex_unlock(&qmi_list_lock);
 					pr_err("Register notifier failed: %s",
 						service_path);
@@ -483,8 +503,15 @@ static void *add_service_notif(const char *service_path, int instance_id,
 	}
 
 	qmi_data->instance_id = instance_id;
+	qmi_data->svc_event_wq = create_singlethread_workqueue(subsys);
+	if (!qmi_data->svc_event_wq) {
+		rc = -ENOMEM;
+		goto exit;
+	}
 
 	INIT_WORK(&qmi_data->ind_ack, send_ind_ack);
+	INIT_WORK(&qmi_data->new_server, new_server_work);
+	INIT_WORK(&qmi_data->del_server, del_server_work);
 
 	*curr_state = service_notif->curr_state =
 				SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01;
@@ -494,7 +521,7 @@ static void *add_service_notif(const char *service_path, int instance_id,
 			&server_ops,
 			qmi_indication_handler);
 	if (rc < 0) {
-		pr_err("Service Notifier QRTR client init failed rc:%d\n", rc);
+		pr_err("Service Notifier qmi handle init failed rc:%d\n", rc);
 		goto exit;
 	}
 
@@ -529,6 +556,8 @@ add_service_list:
 
 	return service_notif;
 exit:
+	if (qmi_data->svc_event_wq)
+		destroy_workqueue(qmi_data->svc_event_wq);
 	kfree(qmi_data);
 	kfree(service_notif);
 	return ERR_PTR(rc);
