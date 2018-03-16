@@ -535,7 +535,8 @@ int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx)
 	return 0;
 }
 
-static int connect_pipe(enum usb_ctrl cur_bam, u8 idx, u32 *usb_pipe_idx)
+static int connect_pipe(enum usb_ctrl cur_bam, u8 idx, u32 *usb_pipe_idx,
+							unsigned long iova)
 {
 	int ret;
 	struct usb_bam_ctx_type *ctx = &msm_usb_bam[cur_bam];
@@ -580,9 +581,11 @@ static int connect_pipe(enum usb_ctrl cur_bam, u8 idx, u32 *usb_pipe_idx)
 	if (dir == USB_TO_PEER_PERIPHERAL) {
 		sps_connection->mode = SPS_MODE_SRC;
 		*usb_pipe_idx = pipe_connect->src_pipe_index;
+		sps_connection->dest_iova = iova;
 	} else {
 		sps_connection->mode = SPS_MODE_DEST;
 		*usb_pipe_idx = pipe_connect->dst_pipe_index;
+		sps_connection->source_iova = iova;
 	}
 
 	sps_connection->data = *data_buf;
@@ -620,7 +623,34 @@ static int disconnect_pipe(enum usb_ctrl cur_bam, u8 idx)
 	return 0;
 }
 
-int usb_bam_connect(enum usb_ctrl cur_bam, int idx, u32 *bam_pipe_idx)
+int get_qdss_bam_info(enum usb_ctrl cur_bam, u8 idx,
+			phys_addr_t *p_addr, u32 *bam_size)
+{
+	int ret = 0;
+	struct usb_bam_ctx_type *ctx = &msm_usb_bam[cur_bam];
+	struct usb_bam_pipe_connect *pipe_connect =
+				&ctx->usb_bam_connections[idx];
+	unsigned long peer_bam_handle;
+
+	ret = sps_phy2h(pipe_connect->dst_phy_addr, &peer_bam_handle);
+	if (ret) {
+		log_event_err("%s: sps_phy2h failed (src BAM) %d\n",
+						__func__, ret);
+		return ret;
+	}
+
+	ret = sps_get_bam_addr(peer_bam_handle, p_addr, bam_size);
+	if (ret) {
+		log_event_err("%s: sps_get_bam_addr failed%d\n",
+						__func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+int usb_bam_connect(enum usb_ctrl cur_bam, int idx, u32 *bam_pipe_idx,
+						unsigned long iova)
 {
 	int ret;
 	struct usb_bam_ctx_type *ctx = &msm_usb_bam[cur_bam];
@@ -657,7 +687,7 @@ int usb_bam_connect(enum usb_ctrl cur_bam, int idx, u32 *bam_pipe_idx)
 	}
 	spin_unlock(&ctx->usb_bam_lock);
 
-	ret = connect_pipe(cur_bam, idx, bam_pipe_idx);
+	ret = connect_pipe(cur_bam, idx, bam_pipe_idx, iova);
 	if (ret) {
 		log_event_err("%s: pipe connection[%d] failure\n",
 				__func__, idx);
@@ -1164,6 +1194,7 @@ static int usb_bam_init(struct platform_device *pdev)
 	struct usb_bam_ctx_type *ctx = dev_get_drvdata(&pdev->dev);
 	enum usb_ctrl bam_type = ctx->usb_bam_data->bam_type;
 	struct sps_bam_props props;
+	struct device *dev;
 
 	memset(&props, 0, sizeof(props));
 
@@ -1180,6 +1211,15 @@ static int usb_bam_init(struct platform_device *pdev)
 
 	if (ctx->usb_bam_data->disable_clk_gating)
 		props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+
+	dev = &ctx->usb_bam_pdev->dev;
+	if (dev && dev->parent && device_property_present(dev->parent, "iommus")
+		&& !device_property_present(dev->parent,
+						"qcom,smmu-s1-bypass")) {
+		pr_info("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
+						__func__, dev_name(dev));
+		props.options |= SPS_BAM_SMMU_EN;
+	}
 
 	ret = sps_register_bam_device(&props, &ctx->h_bam);
 	if (ret < 0) {
