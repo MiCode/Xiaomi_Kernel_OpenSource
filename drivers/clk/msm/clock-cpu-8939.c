@@ -489,6 +489,11 @@ static int add_opp(struct clk *c, struct device *cpudev, struct device *vregdev,
 	struct dev_pm_opp *oppl;
 	int j = 1;
 
+	if (!cpudev) {
+		pr_warn("clock-cpu: NULL CPU device\n");
+		return -ENODEV;
+	}
+
 	rcu_read_lock();
 	/* Check if the regulator driver has already populated OPP tables */
 	oppl = dev_pm_opp_find_freq_exact(vregdev, 2, true);
