@@ -1805,15 +1805,9 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	secure_level = sde_crtc_get_secure_level(crtc, crtc->state);
 	catalog = sde_kms->catalog;
 
-	SDE_DEBUG("crtc%d, secure_level%d old_valid_fb%d\n",
-			crtc->base.id, secure_level, old_valid_fb);
-
-	SDE_EVT32_VERBOSE(DRMID(crtc), secure_level, smmu_state->state,
-			old_valid_fb, SDE_EVTLOG_FUNC_ENTRY);
-	/**
-	 * SMMU operations need to be delayed in case of
-	 * video mode panels when switching back to non_secure
-	 * mode
+	/*
+	 * SMMU operations need to be delayed in case of video mode panels
+	 * when switching back to non_secure mode
 	 */
 	drm_for_each_encoder(encoder, crtc->dev) {
 		if (encoder->crtc != crtc)
@@ -1823,6 +1817,11 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 						MSM_DISPLAY_CAP_VID_MODE);
 	}
 
+	SDE_DEBUG("crtc%d: secure_level %d old_valid_fb %d post_commit %d\n",
+			DRMID(crtc), secure_level, old_valid_fb, post_commit);
+	SDE_EVT32_VERBOSE(DRMID(crtc), secure_level, smmu_state->state,
+			old_valid_fb, post_commit, SDE_EVTLOG_FUNC_ENTRY);
+
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		if (!plane->state)
 			continue;
@@ -1831,15 +1830,12 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 				to_sde_plane_state(plane->state),
 				PLANE_PROP_FB_TRANSLATION_MODE);
 		if (translation_mode > SDE_DRM_FB_SEC_DIR_TRANS) {
-			SDE_ERROR("crtc%d, invalid translation_mode%d\n",
-					crtc->base.id, translation_mode);
+			SDE_ERROR("crtc%d: invalid translation_mode %d\n",
+					DRMID(crtc), translation_mode);
 			return -EINVAL;
 		}
 
-		/**
-		 * we can break if we find sec_fir or non_sec_dir
-		 * plane
-		 */
+		/* we can break if we find sec_dir plane */
 		if (translation_mode == SDE_DRM_FB_SEC_DIR_TRANS)
 			break;
 	}
@@ -1849,21 +1845,23 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 	switch (translation_mode) {
 	case SDE_DRM_FB_SEC_DIR_TRANS:
 		/* secure display usecase */
-		if ((smmu_state->state == ATTACHED) &&
-				(secure_level == SDE_DRM_SEC_ONLY)) {
-			smmu_state->state = DETACH_ALL_REQ;
+		if ((smmu_state->state == ATTACHED)
+				&& (secure_level == SDE_DRM_SEC_ONLY)) {
+			smmu_state->state = catalog->sui_ns_allowed ?
+						DETACH_SEC_REQ : DETACH_ALL_REQ;
+			smmu_state->secure_level = secure_level;
 			smmu_state->transition_type = PRE_COMMIT;
 			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
-			if (old_valid_fb) {
+			if (old_valid_fb)
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE  |
-					SDE_KMS_OPS_CLEANUP_PLANE_FB);
-			}
+						SDE_KMS_OPS_CLEANUP_PLANE_FB);
 			if (catalog->sui_misr_supported)
 				smmu_state->sui_misr_state =
 						SUI_MISR_ENABLE_REQ;
 		/* secure camera usecase */
 		} else if (smmu_state->state == ATTACHED) {
 			smmu_state->state = DETACH_SEC_REQ;
+			smmu_state->secure_level = secure_level;
 			smmu_state->transition_type = PRE_COMMIT;
 			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
 		}
@@ -1871,41 +1869,52 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 
 	case SDE_DRM_FB_SEC:
 	case SDE_DRM_FB_NON_SEC:
-		if ((smmu_state->state == DETACHED_SEC) ||
-			(smmu_state->state == DETACH_SEC_REQ)) {
-			smmu_state->state = ATTACH_SEC_REQ;
+		if (((smmu_state->state == DETACHED)
+				|| (smmu_state->state == DETACH_ALL_REQ))
+			|| ((smmu_state->secure_level == SDE_DRM_SEC_ONLY)
+				&& ((smmu_state->state == DETACHED_SEC)
+				  || (smmu_state->state == DETACH_SEC_REQ)))) {
+			smmu_state->state = catalog->sui_ns_allowed ?
+						ATTACH_SEC_REQ : ATTACH_ALL_REQ;
+			smmu_state->secure_level = secure_level;
 			smmu_state->transition_type = post_commit ?
-				POST_COMMIT : PRE_COMMIT;
-			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
-			if (old_valid_fb)
-				ops |= SDE_KMS_OPS_WAIT_FOR_TX_DONE;
-		} else if ((smmu_state->state == DETACHED) ||
-				(smmu_state->state == DETACH_ALL_REQ)) {
-			smmu_state->state = ATTACH_ALL_REQ;
-			smmu_state->transition_type = post_commit ?
-				POST_COMMIT : PRE_COMMIT;
+						POST_COMMIT : PRE_COMMIT;
 			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
 			if (old_valid_fb)
 				ops |= (SDE_KMS_OPS_WAIT_FOR_TX_DONE |
-				 SDE_KMS_OPS_CLEANUP_PLANE_FB);
+						SDE_KMS_OPS_CLEANUP_PLANE_FB);
 			if (catalog->sui_misr_supported)
 				smmu_state->sui_misr_state =
 						SUI_MISR_DISABLE_REQ;
+		} else if ((smmu_state->state == DETACHED_SEC)
+				|| (smmu_state->state == DETACH_SEC_REQ)) {
+			smmu_state->state = ATTACH_SEC_REQ;
+			smmu_state->secure_level = secure_level;
+			smmu_state->transition_type = post_commit ?
+						POST_COMMIT : PRE_COMMIT;
+			ops |= SDE_KMS_OPS_SECURE_STATE_CHANGE;
+			if (old_valid_fb)
+				ops |= SDE_KMS_OPS_WAIT_FOR_TX_DONE;
 		}
 		break;
 
 	default:
-		SDE_ERROR("invalid plane fb_mode:%d\n", translation_mode);
+		SDE_ERROR("crtc%d: invalid plane fb_mode %d\n",
+				DRMID(crtc), translation_mode);
 		ops = -EINVAL;
 	}
 
-	SDE_DEBUG("SMMU State:%d, type:%d ops:%x\n", smmu_state->state,
-			smmu_state->transition_type, ops);
 	/* log only during actual transition times */
-	if (ops)
+	if (ops) {
+		SDE_DEBUG("crtc%d: state %d, secure_level %d, type %d ops %x\n",
+			DRMID(crtc), smmu_state->state,
+			smmu_state->secure_level,
+			smmu_state->transition_type, ops);
 		SDE_EVT32(DRMID(crtc), secure_level, translation_mode,
 				smmu_state->state, smmu_state->transition_type,
-				ops, old_valid_fb, SDE_EVTLOG_FUNC_EXIT);
+				smmu_state->secure_level, old_valid_fb,
+				post_commit, ops, SDE_EVTLOG_FUNC_EXIT);
+	}
 
 	mutex_unlock(&sde_kms->secure_transition_lock);
 
@@ -3106,7 +3115,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	 * apply color processing properties only if
 	 * smmu state is attached,
 	 */
-	if (!sde_kms_is_secure_session_inprogress(sde_kms))
+	if (sde_kms_is_cp_operation_allowed(sde_kms))
 		sde_cp_crtc_apply_properties(crtc);
 
 	/*
@@ -4455,7 +4464,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 		if (fb_ns || fb_sec) {
 			SDE_ERROR(
 			 "crtc%d: invalid fb_modes Sec:%d, NS:%d, Sec_Dir:%d\n",
-				crtc->base.id, fb_sec, fb_ns, fb_sec_dir);
+				DRMID(crtc), fb_sec, fb_ns, fb_sec_dir);
 			return -EINVAL;
 		}
 
@@ -4467,22 +4476,34 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 			if (!pstates[i].drm_pstate
 					|| !pstates[i].drm_pstate->plane) {
 				SDE_ERROR("crtc%d: invalid pstate at i:%d\n",
-						crtc->base.id, i);
+						DRMID(crtc), i);
 				return -EINVAL;
 			}
 			plane = pstates[i].drm_pstate->plane;
 
 			if (!sde_plane_is_sec_ui_allowed(plane)) {
 				SDE_ERROR("crtc%d: sec-ui not allowed in p%d\n",
-						crtc->base.id, plane->base.id);
+						DRMID(crtc), plane->base.id);
 				return -EINVAL;
-			}
 
-			if (pstates[i].stage != pstates[i-1].stage) {
+			} else if (pstates[i].stage != pstates[i-1].stage) {
 				SDE_ERROR(
 				  "crtc%d: invalid blend stages %d:%d, %d:%d\n",
-				  crtc->base.id, i, pstates[i].stage,
+				  DRMID(crtc), i, pstates[i].stage,
 				  i-1, pstates[i-1].stage);
+				return -EINVAL;
+			}
+		}
+
+		/* check if all the dim_layers are in the same stage */
+		for (i = 1; i < cstate->num_dim_layers; i++) {
+			if (cstate->dim_layer[i].stage !=
+					cstate->dim_layer[i-1].stage) {
+				SDE_ERROR(
+				"crtc%d: invalid dimlayer stage %d:%d, %d:%d\n",
+					DRMID(crtc),
+					i, cstate->dim_layer[i].stage,
+					i-1, cstate->dim_layer[i-1].stage);
 				return -EINVAL;
 			}
 		}
@@ -4499,7 +4520,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 
 		if (encoder_cnt > MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC) {
 			SDE_ERROR("crtc%d, invalid virtual encoder crtc%d\n",
-				crtc->base.id, encoder_cnt);
+				DRMID(crtc), encoder_cnt);
 			return -EINVAL;
 
 		}
@@ -4522,20 +4543,25 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	if (is_video_mode && smmu_state &&
 		state->plane_mask && crtc->state->plane_mask &&
 		((fb_sec_dir && ((smmu_state->state == ATTACHED) &&
-				(secure == SDE_DRM_SEC_ONLY))) ||
-			(fb_ns && ((smmu_state->state == DETACHED) ||
-				(smmu_state->state == DETACH_ALL_REQ))))) {
+			(secure == SDE_DRM_SEC_ONLY))) ||
+		    (fb_ns && ((smmu_state->state == DETACHED) ||
+			(smmu_state->state == DETACH_ALL_REQ))) ||
+		    (fb_ns && ((smmu_state->state == DETACHED_SEC) ||
+			(smmu_state->state == DETACH_SEC_REQ)) &&
+			(smmu_state->secure_level == SDE_DRM_SEC_ONLY)))) {
 
-		SDE_EVT32(DRMID(&sde_crtc->base), fb_ns, fb_sec_dir,
-		  smmu_state->state, crtc->state->plane_mask,
-			crtc->state->plane_mask);
-		SDE_DEBUG("crtc %d, Invalid secure transition %x\n",
-				crtc->base.id, smmu_state->state);
+		SDE_EVT32(DRMID(crtc), fb_ns, fb_sec_dir,
+			smmu_state->state, smmu_state->secure_level,
+			secure, crtc->state->plane_mask, state->plane_mask);
+		SDE_ERROR(
+		 "crtc%d Invalid transition;sec%d state%d slvl%d ns%d sdir%d\n",
+			DRMID(crtc), secure, smmu_state->state,
+			smmu_state->secure_level, fb_ns, fb_sec_dir);
 		return -EINVAL;
 
 	}
 
-	SDE_DEBUG("crtc:%d Secure validation successful\n", crtc->base.id);
+	SDE_DEBUG("crtc:%d Secure validation successful\n", DRMID(crtc));
 
 	return 0;
 }

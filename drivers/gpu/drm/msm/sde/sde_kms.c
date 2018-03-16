@@ -491,7 +491,7 @@ static int _sde_kms_scm_call(struct sde_kms *sde_kms, int vmid)
 	return ret;
 }
 
-static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms)
+static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms, u32 vmid)
 {
 	u32 ret = 0;
 
@@ -505,7 +505,7 @@ static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms)
 		goto end;
 	}
 
-	ret = _sde_kms_scm_call(sde_kms, VMID_CP_SEC_DISPLAY);
+	ret = _sde_kms_scm_call(sde_kms, vmid);
 	if (ret)
 		goto end;
 
@@ -513,14 +513,14 @@ end:
 	return ret;
 }
 
-static int _sde_kms_attach_all_cb(struct sde_kms *sde_kms)
+static int _sde_kms_attach_all_cb(struct sde_kms *sde_kms, int vmid)
 {
 	u32 ret = 0;
 
 	if (atomic_dec_return(&sde_kms->detach_all_cb) != 0)
 		goto end;
 
-	ret = _sde_kms_scm_call(sde_kms, VMID_CP_PIXEL);
+	ret = _sde_kms_scm_call(sde_kms, vmid);
 	if (ret)
 		goto end;
 
@@ -535,7 +535,7 @@ end:
 	return ret;
 }
 
-static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms)
+static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms, int vmid)
 {
 	u32 ret = 0;
 
@@ -549,7 +549,7 @@ static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms)
 		goto end;
 	}
 
-	ret = _sde_kms_scm_call(sde_kms, VMID_CP_CAMERA_PREVIEW);
+	ret = _sde_kms_scm_call(sde_kms, vmid);
 	if (ret)
 		goto end;
 
@@ -557,14 +557,14 @@ end:
 	return ret;
 }
 
-static int _sde_kms_attach_sec_cb(struct sde_kms *sde_kms)
+static int _sde_kms_attach_sec_cb(struct sde_kms *sde_kms, int vmid)
 {
 	u32 ret = 0;
 
 	if (atomic_dec_return(&sde_kms->detach_sec_cb) != 0)
 		goto end;
 
-	ret = _sde_kms_scm_call(sde_kms, VMID_CP_PIXEL);
+	ret = _sde_kms_scm_call(sde_kms, vmid);
 	if (ret)
 		goto end;
 
@@ -618,6 +618,7 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 	struct sde_kms_smmu_state_data *smmu_state = &sde_kms->smmu_state;
 	int old_smmu_state = smmu_state->state;
 	int ret = 0;
+	u32 vmid;
 
 	if (!sde_kms || !crtc) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -626,7 +627,7 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 
 	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
 			post_commit, smmu_state->sui_misr_state,
-			SDE_EVTLOG_FUNC_ENTRY);
+			smmu_state->secure_level, SDE_EVTLOG_FUNC_ENTRY);
 
 	if ((!smmu_state->transition_type) ||
 	    ((smmu_state->transition_type == POST_COMMIT) && !post_commit))
@@ -642,36 +643,35 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 
 	mutex_lock(&sde_kms->secure_transition_lock);
 	switch (smmu_state->state) {
-	/* Secure UI use case enable */
 	case DETACH_ALL_REQ:
-		ret = _sde_kms_detach_all_cb(sde_kms);
+		ret = _sde_kms_detach_all_cb(sde_kms, VMID_CP_SEC_DISPLAY);
 		if (!ret)
 			smmu_state->state = DETACHED;
 		break;
 
-	/* Secure UI use case disable */
 	case ATTACH_ALL_REQ:
-		ret = _sde_kms_attach_all_cb(sde_kms);
+		ret = _sde_kms_attach_all_cb(sde_kms, VMID_CP_PIXEL);
 		if (!ret)
 			smmu_state->state = ATTACHED;
 		break;
 
-	/* Secure preview enable */
 	case DETACH_SEC_REQ:
-		ret = _sde_kms_detach_sec_cb(sde_kms);
+		vmid = (smmu_state->secure_level == SDE_DRM_SEC_ONLY) ?
+				VMID_CP_SEC_DISPLAY : VMID_CP_CAMERA_PREVIEW;
+
+		ret = _sde_kms_detach_sec_cb(sde_kms, vmid);
 		if (!ret)
 			smmu_state->state = DETACHED_SEC;
 		break;
 
-	/* Secure preview disable */
 	case ATTACH_SEC_REQ:
-		ret = _sde_kms_attach_sec_cb(sde_kms);
+		ret = _sde_kms_attach_sec_cb(sde_kms, VMID_CP_PIXEL);
 		if (!ret)
 			smmu_state->state = ATTACHED;
 		break;
 
 	default:
-		SDE_ERROR("crtc:%d invalid smmu state:%d transition type:%d\n",
+		SDE_ERROR("crtc%d: invalid smmu state %d transition type %d\n",
 			DRMID(crtc), smmu_state->state,
 			smmu_state->transition_type);
 		ret = -EINVAL;
@@ -691,11 +691,11 @@ end:
 	smmu_state->transition_type = NONE;
 	smmu_state->transition_error = ret ? true : false;
 
-	SDE_DEBUG("crtc:%d, old_state %d new_state %d, ret %d\n",
+	SDE_DEBUG("crtc %d: old_state %d, new_state %d, ret %d\n",
 			DRMID(crtc), old_smmu_state, smmu_state->state, ret);
 	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
-			smmu_state->transition_error, ret,
-			SDE_EVTLOG_FUNC_EXIT);
+			smmu_state->transition_error, smmu_state->secure_level,
+			smmu_state->sui_misr_state, ret, SDE_EVTLOG_FUNC_EXIT);
 
 	return ret;
 }
