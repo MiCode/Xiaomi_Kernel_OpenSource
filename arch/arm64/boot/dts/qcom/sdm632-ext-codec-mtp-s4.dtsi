@@ -12,4 +12,5 @@
  */
 
 #include "sdm450-pmi632-mtp-s3.dtsi"
+#include "sdm632-ext-audio-mtp.dtsi"
 
