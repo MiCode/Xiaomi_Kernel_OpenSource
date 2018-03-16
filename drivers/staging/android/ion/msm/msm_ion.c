@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -910,6 +910,7 @@ int msm_ion_heap_pages_zero(struct page **pages, int num_pages)
 
 		memset(ptr, 0, npages_to_vmap * PAGE_SIZE);
 		vunmap(ptr);
+		ptr = NULL;
 	}
 
 	return 0;
