@@ -702,11 +702,14 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 
 	/*
+	 * For cases where both the interfaces are connected to same ctl,
+	 * set the flush bit for both master and slave.
 	 * For single flush cases (dual-ctl or pp-split), skip setting the
 	 * flush bit for the slave intf, since both intfs use same ctl
 	 * and HW will only flush the master.
 	 */
-	if (sde_encoder_phys_needs_single_flush(phys_enc) &&
+	if (!test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
+			sde_encoder_phys_needs_single_flush(phys_enc) &&
 		!sde_encoder_phys_vid_is_master(phys_enc))
 		goto skip_flush;
 
