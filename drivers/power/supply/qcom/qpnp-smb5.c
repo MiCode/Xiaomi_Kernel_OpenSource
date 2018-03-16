@@ -1447,12 +1447,21 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/*
 	 * AICL configuration:
-	 * start from min and AICL ADC disable
+	 * start from min and AICL ADC disable, and enable aicl rerun
 	 */
 	rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
-				USBIN_AICL_ADC_EN_BIT, 0);
+		USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT,
+		USBIN_AICL_PERIODIC_RERUN_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure AICL rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_write(chg, AICL_RERUN_TIME_CFG_REG,
+				AICL_RERUN_TIME_12S_VAL);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure AICL rerun interval rc=%d\n", rc);
 		return rc;
 	}
 
