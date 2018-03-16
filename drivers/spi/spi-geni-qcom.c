@@ -388,6 +388,7 @@ static struct msm_gpi_tre *setup_go_tre(int cmd, int cs, int rx_len, int flags,
 	int chain;
 	int eot;
 	int eob;
+	int link_rx = 0;
 
 	if (IS_ERR_OR_NULL(go_tre))
 		return go_tre;
@@ -404,9 +405,12 @@ static struct msm_gpi_tre *setup_go_tre(int cmd, int cs, int rx_len, int flags,
 		chain = 1;
 		eob = 0;
 	}
-	go_tre->dword[3] = MSM_GPI_SPI_GO_TRE_DWORD3(0, 0, eot, eob, chain);
+	if (cmd & SPI_RX_ONLY)
+		link_rx = 1;
+	go_tre->dword[3] = MSM_GPI_SPI_GO_TRE_DWORD3(link_rx, 0, eot, eob,
+								chain);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
-		"%s: rx len %d flags 0x%x cs %d cmd %d eot %d eob %d chain %d\n",
+	"%s: rx len %d flags 0x%x cs %d cmd %d eot %d eob %d chain %d\n",
 		__func__, rx_len, flags, cs, cmd, eot, eob, chain);
 	return go_tre;
 }
