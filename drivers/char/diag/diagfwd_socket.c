@@ -683,12 +683,8 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		} else if (read_len <= 0)
 			goto fail;
 
-		if (src_addr.sq_port == QRTR_PORT_CTRL) {
-			mutex_lock(channel_mutex);
-			diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
-			mutex_unlock(channel_mutex);
-			return 0;
-		}
+		if (src_addr.sq_port == QRTR_PORT_CTRL)
+			continue;
 
 		if (!atomic_read(&info->opened) &&
 		    info->port_type == PORT_TYPE_SERVER) {
