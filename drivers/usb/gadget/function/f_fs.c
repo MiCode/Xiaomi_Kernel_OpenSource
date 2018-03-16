@@ -281,7 +281,8 @@ static void ffs_closed(struct ffs_data *ffs);
 
 static int ffs_mutex_lock(struct mutex *mutex, unsigned nonblock)
 	__attribute__((warn_unused_result, nonnull));
-static char *ffs_prepare_buffer(const char __user *buf, size_t len)
+static char *ffs_prepare_buffer(const char __user *buf, size_t len,
+	size_t extra_buf_alloc)
 	__attribute__((warn_unused_result, nonnull));
 
 
@@ -357,6 +358,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
 			     size_t len, loff_t *ptr)
 {
 	struct ffs_data *ffs = file->private_data;
+	struct usb_gadget *gadget = ffs->gadget;
 	ssize_t ret;
 	char *data;
 
@@ -388,7 +390,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
 			break;
 		}
 
-		data = ffs_prepare_buffer(buf, len);
+		data = ffs_prepare_buffer(buf, len, 0);
 		if (IS_ERR(data)) {
 			ret = PTR_ERR(data);
 			break;
@@ -460,7 +462,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
 
 		spin_unlock_irq(&ffs->ev.waitq.lock);
 
-		data = ffs_prepare_buffer(buf, len);
+		data = ffs_prepare_buffer(buf, len, gadget->extra_buf_alloc);
 		if (IS_ERR(data)) {
 			ret = PTR_ERR(data);
 			break;
@@ -982,9 +984,11 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 	struct ffs_epfile *epfile = file->private_data;
 	struct usb_request *req;
 	struct ffs_ep *ep;
+	struct ffs_data *ffs = epfile->ffs;
 	char *data = NULL;
 	ssize_t ret, data_len = -EINVAL;
 	int halt;
+	size_t extra_buf_alloc = 0;
 
 	ffs_log("enter: epfile name %s epfile err %d (%s)", epfile->name,
 		atomic_read(&epfile->error), io_data->read ? "READ" : "WRITE");
@@ -1075,7 +1079,12 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			data_len = usb_ep_align_maybe(gadget, ep->ep, data_len);
 		spin_unlock_irq(&epfile->ffs->eps_lock);
 
-		data = kmalloc(data_len, GFP_KERNEL);
+		extra_buf_alloc = ffs->gadget->extra_buf_alloc;
+		if (io_data->read)
+			data = kmalloc(data_len + extra_buf_alloc,
+					GFP_KERNEL);
+		else
+			data = kmalloc(data_len, GFP_KERNEL);
 		if (unlikely(!data)) {
 			ret = -ENOMEM;
 			goto error_mutex;
@@ -4370,14 +4379,23 @@ static int ffs_mutex_lock(struct mutex *mutex, unsigned nonblock)
 		: mutex_lock_interruptible(mutex);
 }
 
-static char *ffs_prepare_buffer(const char __user *buf, size_t len)
+/**
+ * ffs_prepare_buffer() - copy userspace buffer into kernel.
+ * @buf: userspace buffer
+ * @len: length of the buffer
+ * @extra_alloc_buf: Extra buffer allocation if required by UDC.
+ *
+ * This function returns pointer to the copied buffer
+ */
+static char *ffs_prepare_buffer(const char __user *buf, size_t len,
+		size_t extra_buf_alloc)
 {
 	char *data;
 
 	if (unlikely(!len))
 		return NULL;
 
-	data = kmalloc(len, GFP_KERNEL);
+	data = kmalloc(len + extra_buf_alloc, GFP_KERNEL);
 	if (unlikely(!data))
 		return ERR_PTR(-ENOMEM);
 
