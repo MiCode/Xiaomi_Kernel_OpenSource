@@ -3549,6 +3549,11 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	dma_addr_t dma_addr;
 	dma_addr_t evt_dma_addr;
 	int result;
+	gfp_t mem_flag = GFP_KERNEL;
+
+	if (in->client == IPA_CLIENT_APPS_WAN_CONS ||
+		in->client == IPA_CLIENT_APPS_WAN_PROD)
+		mem_flag = GFP_ATOMIC;
 
 	if (!ep) {
 		IPAERR("EP context is empty\n");
@@ -3586,7 +3591,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_evt_ring_props.ring_base_vaddr =
 			dma_alloc_coherent(ipa3_ctx->pdev,
 			gsi_evt_ring_props.ring_len,
-			&evt_dma_addr, GFP_KERNEL);
+			&evt_dma_addr, mem_flag);
 		if (!gsi_evt_ring_props.ring_base_vaddr) {
 			IPAERR("fail to dma alloc %u bytes\n",
 				gsi_evt_ring_props.ring_len);
@@ -3656,7 +3661,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_channel_props.ring_len = 2 * in->desc_fifo_sz;
 	gsi_channel_props.ring_base_vaddr =
 		dma_alloc_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
-			&dma_addr, GFP_KERNEL);
+			&dma_addr, mem_flag);
 	if (!gsi_channel_props.ring_base_vaddr) {
 		IPAERR("fail to dma alloc %u bytes\n",
 			gsi_channel_props.ring_len);
