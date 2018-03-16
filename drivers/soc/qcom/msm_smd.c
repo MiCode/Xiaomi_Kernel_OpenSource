@@ -1,7 +1,7 @@
 /* drivers/soc/qcom/msm_smd.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2017, 2018, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -269,11 +269,12 @@ static void *smd_memcpy32_to_fifo(void *dest, const void *src, size_t num_bytes)
 	uint32_t *dest_local = (uint32_t *)dest;
 	uint32_t *src_local = (uint32_t *)src;
 
+	if (WARN_ON(!dest_local || !src_local))
+		return dest;
 	WARN_ON(num_bytes & SMD_FIFO_ADDR_ALIGN_BYTES);
-	WARN_ON(!dest_local ||
-			((uintptr_t)dest_local & SMD_FIFO_ADDR_ALIGN_BYTES));
-	WARN_ON(!src_local ||
-			((uintptr_t)src_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+	WARN_ON(((uintptr_t)dest_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+	WARN_ON(((uintptr_t)src_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+
 	num_bytes /= sizeof(uint32_t);
 
 	while (num_bytes--)
@@ -301,11 +302,12 @@ static void *smd_memcpy32_from_fifo(void *dest, const void *src,
 	uint32_t *dest_local = (uint32_t *)dest;
 	uint32_t *src_local = (uint32_t *)src;
 
+	if (WARN_ON(!dest_local || !src_local))
+		return dest;
 	WARN_ON(num_bytes & SMD_FIFO_ADDR_ALIGN_BYTES);
-	WARN_ON(!dest_local ||
-			((uintptr_t)dest_local & SMD_FIFO_ADDR_ALIGN_BYTES));
-	WARN_ON(!src_local ||
-			((uintptr_t)src_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+	WARN_ON(((uintptr_t)dest_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+	WARN_ON(((uintptr_t)src_local & SMD_FIFO_ADDR_ALIGN_BYTES));
+
 	num_bytes /= sizeof(uint32_t);
 
 	while (num_bytes--)
