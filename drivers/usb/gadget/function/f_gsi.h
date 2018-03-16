@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -218,10 +218,6 @@ struct gsi_data_port {
 	struct ipa_usb_teth_params ipa_init_params;
 	int in_channel_handle;
 	int out_channel_handle;
-	u32 in_db_reg_phs_addr_lsb;
-	u32 in_db_reg_phs_addr_msb;
-	u32 out_db_reg_phs_addr_lsb;
-	u32 out_db_reg_phs_addr_msb;
 	u32 in_xfer_rsc_index;
 	u32 out_xfer_rsc_index;
 	u16 in_last_trb_addr;
