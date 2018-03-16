@@ -155,6 +155,16 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 			s_ctrl->cci_i2c_master = MASTER_0;
 			rc = 0;
 		}
+
+		rc = of_property_read_u32(of_node, "cci-device",
+			&s_ctrl->cci_num);
+		CAM_DBG(CAM_SENSOR, "cci-device %d, rc %d",
+			s_ctrl->cci_num, rc);
+		if (rc < 0) {
+			/* Set default master 0 */
+			s_ctrl->cci_num = CCI_DEVICE_0;
+			rc = 0;
+		}
 	}
 
 	if (of_property_read_u32(of_node, "sensor-position-pitch",
@@ -195,8 +205,12 @@ int32_t msm_sensor_init_default_params(struct cam_sensor_ctrl_t *s_ctrl)
 	if (s_ctrl->io_master_info.master_type == CCI_MASTER) {
 		s_ctrl->io_master_info.cci_client = kzalloc(sizeof(
 			struct cam_sensor_cci_client), GFP_KERNEL);
-		if (!(s_ctrl->io_master_info.cci_client))
+		if (!(s_ctrl->io_master_info.cci_client)) {
 			return -ENOMEM;
+		} else {
+			s_ctrl->io_master_info.cci_client->cci_device
+				= s_ctrl->cci_num;
+		}
 
 	} else if (s_ctrl->io_master_info.master_type == I2C_MASTER) {
 		if (!(s_ctrl->io_master_info.client))

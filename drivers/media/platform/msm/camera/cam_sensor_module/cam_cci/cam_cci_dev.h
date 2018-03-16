@@ -78,6 +78,8 @@
 #define CCI_I2C_MAX_READ 8192
 #define CCI_I2C_MAX_WRITE 8192
 
+#define MAX_CCI 2
+
 #define PRIORITY_QUEUE (QUEUE_0)
 #define SYNC_QUEUE (QUEUE_1)
 
@@ -264,6 +266,7 @@ struct cam_sensor_cci_client {
 	uint32_t timeout;
 	uint16_t retries;
 	uint16_t id_map;
+	uint16_t cci_device;
 };
 
 struct cam_cci_ctrl {
@@ -289,9 +292,9 @@ struct cci_write_async {
 irqreturn_t cam_cci_irq(int irq_num, void *data);
 
 #ifdef CONFIG_SPECTRA_CAMERA
-extern struct v4l2_subdev *cam_cci_get_subdev(void);
+extern struct v4l2_subdev *cam_cci_get_subdev(int cci_dev_index);
 #else
-static inline struct v4l2_subdev *cam_cci_get_subdev(void)
+static inline struct v4l2_subdev *cam_cci_get_subdev(int cci_dev_index)
 {
 	return NULL;
 }
