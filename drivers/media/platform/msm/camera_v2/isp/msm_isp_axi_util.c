@@ -3748,13 +3748,6 @@ static int msm_isp_stream_axi_cfg_update(struct vfe_device *vfe_dev,
 	unsigned long flags;
 	int vfe_idx;
 
-	if (atomic_read(&vfe_dev->axi_data.axi_cfg_update[
-		SRC_TO_INTF(stream_info->stream_src)])) {
-		pr_err("%s: Update in progress for vfe %d intf %d\n",
-			__func__, vfe_dev->pdev->id,
-			SRC_TO_INTF(stream_info->stream_src));
-		return -EINVAL;
-	}
 	spin_lock_irqsave(&stream_info->lock, flags);
 	if (stream_info->state != ACTIVE) {
 		spin_unlock_irqrestore(&stream_info->lock, flags);
