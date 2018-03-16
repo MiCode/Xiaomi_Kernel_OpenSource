@@ -715,6 +715,8 @@ static void dp_catalog_ctrl_state_ctrl(struct dp_catalog_ctrl *ctrl, u32 state)
 	io_data = catalog->io.dp_link;
 
 	dp_write(catalog, io_data, DP_STATE_CTRL, state);
+	/* make sure to change the hw state */
+	wmb();
 }
 
 static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl)
@@ -745,7 +747,7 @@ static void dp_catalog_panel_config_ctrl(struct dp_catalog_panel *panel,
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
-	u32 strm_reg_off = 0;
+	u32 strm_reg_off = 0, mainlink_ctrl;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -766,6 +768,18 @@ static void dp_catalog_panel_config_ctrl(struct dp_catalog_panel *panel,
 	pr_debug("DP_CONFIGURATION_CTRL=0x%x\n", cfg);
 
 	dp_write(catalog, io_data, DP_CONFIGURATION_CTRL + strm_reg_off, cfg);
+
+	mainlink_ctrl = dp_read(catalog, io_data, DP_MAINLINK_CTRL);
+
+	if (panel->stream_id == DP_STREAM_0)
+		io_data = catalog->io.dp_p0;
+	else if (panel->stream_id == DP_STREAM_1)
+		io_data = catalog->io.dp_p1;
+
+	if (mainlink_ctrl & BIT(8))
+		dp_write(catalog, io_data, MMSS_DP_ASYNC_FIFO_CONFIG, 0x01);
+	else
+		dp_write(catalog, io_data, MMSS_DP_ASYNC_FIFO_CONFIG, 0x00);
 }
 
 static void dp_catalog_ctrl_lane_mapping(struct dp_catalog_ctrl *ctrl)
@@ -860,6 +874,7 @@ static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
 	u32 strm_reg_off = 0;
+	u32 mvid_reg_off = 0, nvid_reg_off = 0;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -917,12 +932,14 @@ static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
 
 	io_data = catalog->io.dp_link;
 
-	if (panel->stream_id == DP_STREAM_1)
-		strm_reg_off = DP1_SOFTWARE_MVID - DP_SOFTWARE_MVID;
+	if (panel->stream_id == DP_STREAM_1) {
+		mvid_reg_off = DP1_SOFTWARE_MVID - DP_SOFTWARE_MVID;
+		nvid_reg_off = DP1_SOFTWARE_NVID - DP_SOFTWARE_NVID;
+	}
 
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
-	dp_write(catalog, io_data, DP_SOFTWARE_MVID + strm_reg_off, mvid);
-	dp_write(catalog, io_data, DP_SOFTWARE_NVID + strm_reg_off, nvid);
+	dp_write(catalog, io_data, DP_SOFTWARE_MVID + mvid_reg_off, mvid);
+	dp_write(catalog, io_data, DP_SOFTWARE_NVID + nvid_reg_off, nvid);
 }
 
 static void dp_catalog_ctrl_set_pattern(struct dp_catalog_ctrl *ctrl,

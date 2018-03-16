@@ -143,7 +143,7 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl, enum dp_stream_id strm)
 
 trigger_idle:
 	reinit_completion(&ctrl->idle_comp);
-	dp_ctrl_state_ctrl(ctrl, ST_PUSH_IDLE);
+	dp_ctrl_state_ctrl(ctrl, state);
 
 	if (!wait_for_completion_timeout(&ctrl->idle_comp,
 			idle_pattern_completion_timeout_ms))
@@ -846,6 +846,8 @@ static int dp_ctrl_mst_stream_setup(struct dp_ctrl_private *ctrl,
 	}
 
 	DP_MST_DEBUG("mst stream channel allocation\n");
+
+	panel->hw_cfg(panel);
 
 	ctrl->catalog->channel_alloc(ctrl->catalog,
 				panel->stream_id,

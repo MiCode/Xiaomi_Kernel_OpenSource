@@ -559,8 +559,6 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 			goto notify;
 	}
 
-	dp_display_process_mst_hpd_high(dp);
-
 	edid = dp->panel->edid_ctrl->edid;
 
 	dp->audio_supported = drm_detect_monitor_audio(edid);
@@ -569,6 +567,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	dp->panel->handle_sink_request(dp->panel);
 
 	dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
+
+	dp_display_process_mst_hpd_high(dp);
 notify:
 	dp_display_send_hpd_notification(dp, true);
 
@@ -1211,8 +1211,6 @@ static int dp_display_stream_enable(struct dp_display_private *dp,
 			struct dp_panel *dp_panel)
 {
 	int rc = 0;
-
-	dp_panel->hw_cfg(dp_panel);
 
 	rc = dp->ctrl->stream_on(dp->ctrl, dp_panel);
 
