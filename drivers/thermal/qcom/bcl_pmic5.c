@@ -61,7 +61,7 @@ static char bcl_int_names[BCL_TYPE_MAX][25] = {
 	"bcl-very-high-ibat",
 	"bcl-low-vbat",
 	"bcl-very-low-vbat",
-	"bcl-crit-low-vbat"
+	"bcl-crit-low-vbat",
 };
 
 struct bcl_peripheral_data {
@@ -93,10 +93,9 @@ static int bcl_read_register(int16_t reg_offset, unsigned int *data)
 	ret = regmap_read(bcl_perph->regmap,
 			       (bcl_perph->fg_bcl_addr + reg_offset),
 			       data);
-	if (ret < 0) {
-		pr_err("Error reading register %d. err:%d", reg_offset, ret);
-		return ret;
-	}
+	if (ret < 0)
+		pr_err("Error reading register %d. err:%d\n",
+				reg_offset, ret);
 
 	return ret;
 }
@@ -113,7 +112,8 @@ static int bcl_write_general_register(int16_t reg_offset,
 	}
 	ret = regmap_write(bcl_perph->regmap, (base + reg_offset), *write_buf);
 	if (ret < 0) {
-		pr_err("Error reading register %d. err:%d", reg_offset, ret);
+		pr_err("Error reading register %d. err:%d\n",
+				reg_offset, ret);
 		return ret;
 	}
 	pr_debug("wrote 0x%02x to 0x%04x\n", data, base + reg_offset);
@@ -192,10 +192,8 @@ static int bcl_set_ibat(void *data, int low, int high)
 		goto set_trip_exit;
 	}
 	ret = bcl_write_register(addr, val);
-	if (ret) {
-		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
+	if (ret)
 		goto set_trip_exit;
-	}
 	bat_data->trip_thresh = ibat_ua;
 
 	if (bat_data->irq_num && !bat_data->irq_enabled) {
@@ -218,10 +216,8 @@ static int bcl_read_ibat(void *data, int *adc_value)
 
 	*adc_value = val;
 	ret = bcl_read_register(BCL_IBAT_READ, &val);
-	if (ret) {
-		pr_err("BCL register read error. err:%d\n", ret);
+	if (ret)
 		goto bcl_read_exit;
-	}
 	*adc_value = val;
 	if (*adc_value == 0) {
 		/*
@@ -258,10 +254,8 @@ static int bcl_get_vbat_trip(void *data, int type, int *trip)
 		return -ENODEV;
 
 	ret = bcl_read_register(addr, &val);
-	if (ret) {
-		pr_err("BCL register read error. err:%d\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	if (addr == BCL_VBAT_ADC_LOW) {
 		*trip = val;
@@ -317,10 +311,8 @@ static int bcl_read_vbat(void *data, int *adc_value)
 
 	*adc_value = val;
 	ret = bcl_read_register(BCL_VBAT_READ, &val);
-	if (ret) {
-		pr_err("BCL register read error. err:%d\n", ret);
+	if (ret)
 		goto bcl_read_exit;
-	}
 	*adc_value = val;
 	if (*adc_value == BCL_VBAT_NO_READING) {
 		*adc_value = bat_data->last_val;
@@ -341,7 +333,7 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 
 	mutex_lock(&perph_data->state_trans_lock);
 	if (!perph_data->irq_enabled) {
-		WARN_ON(1);
+		pr_err("irq:%d not in expected state\n", irq);
 		disable_irq_nosync(irq);
 		perph_data->irq_enabled = false;
 		goto exit_intr;
@@ -396,7 +388,7 @@ static void bcl_fetch_trip(struct platform_device *pdev, const char *int_name,
 				int_name, data);
 		if (ret) {
 			dev_err(&pdev->dev,
-				"Error requesting trip irq. err:%d",
+				"Error requesting trip irq. err:%d\n",
 				ret);
 			mutex_unlock(&data->state_trans_lock);
 			return;
@@ -511,7 +503,7 @@ static int bcl_probe(struct platform_device *pdev)
 
 static const struct of_device_id bcl_match[] = {
 	{
-		.compatible = "qcom,msm-bcl-pmic5",
+		.compatible = "qcom,bcl-v5",
 	},
 	{},
 };

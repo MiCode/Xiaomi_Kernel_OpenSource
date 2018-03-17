@@ -72,7 +72,7 @@ config REGULATOR_COOLING_DEVICE
 
 	  If you want this support, you should say Y here.
 
-config MSM_BCL_PMIC5
+config QTI_BCL_PMIC5
 	bool "BCL driver for BCL peripherals in PMIC5"
 	depends on SPMI && THERMAL_OF
 	help
