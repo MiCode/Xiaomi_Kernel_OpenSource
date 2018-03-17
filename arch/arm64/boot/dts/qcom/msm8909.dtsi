@@ -298,6 +298,7 @@
 			<&clock_rpm clk_xo_a_clk_src>;
 		clock-names = "xo", "xo_a";
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_gcc_mdss: qcom,gcc-mdss@1ac8300 {
@@ -808,6 +809,10 @@
 		qcom,bus-clk-rate = <400000000 200000000 100000000>;
 		qcom,max-nominal-sysclk-rate = <100000000>;
 		qcom,boost-sysclk-with-streaming;
+		resets = <&clock_gcc GCC_USB_HS_BCR>,
+			 <&clock_gcc GCC_QUSB2_PHY_BCR>,
+			 <&clock_gcc GCC_USB2_HS_PHY_ONLY_BCR>;
+		reset-names = "core_reset", "phy_reset", "phy_por_reset";
 	};
 
 	android_usb: android_usb@086000c8 {
