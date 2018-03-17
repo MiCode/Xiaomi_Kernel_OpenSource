@@ -108,6 +108,23 @@ First Level Node - CAM CPAS device
   Definition: List of strings corresponds clock-rates levels.
   Supported strings: minsvs, lowsvs, svs, svs_l1, nominal, turbo.
 
+- control-camnoc-axi-clk
+  Usage: optional
+  Value type: <empty>
+  Definition: Bool property specifying whether to control camnoc axi
+              clock from cpas driver.
+
+- camnoc-bus-width
+  Usage: required if control-camnoc-axi-clk is enabled
+  Value type: <u32>
+  Definition: camnoc bus width.
+
+- camnoc-axi-clk-bw-margin-perc
+  Usage: optional
+  Value type: <u32>
+  Definition: Percentage value to be added to camnoc bw while calculating
+              camnoc axi clock frequency.
+
 - qcom,msm-bus,name
 - qcom,msm-bus,num-cases
 - qcom,msm-bus,num-paths
@@ -211,6 +228,9 @@ Example:
 		src-clock-name = "slow_ahb_clk_src";
 		clock-rates = <0 0 0 0 80000000 0>;
 		clock-cntl-level = "turbo";
+		control-camnoc-axi-clk;
+		camnoc-bus-width = <32>;
+		camnoc-axi-clk-bw-margin-perc = <10>;
 		qcom,msm-bus,name = "cam_ahb";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
