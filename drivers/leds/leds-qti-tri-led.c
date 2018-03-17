@@ -358,7 +358,7 @@ static int qpnp_tri_led_parse_dt(struct qpnp_tri_led_chip *chip)
 	struct qpnp_led_dev *led;
 	struct pwm_args pargs;
 	const __be32 *addr;
-	int rc, id, i = 0;
+	int rc = 0, id, i = 0;
 
 	addr = of_get_address(chip->dev->of_node, 0, NULL, NULL);
 	if (!addr) {
