@@ -256,9 +256,6 @@ static struct irq_chip msm_mpm_gpio_chip = {
 	.irq_set_type	= msm_mpm_gpio_chip_set_type,
 	.flags		= IRQCHIP_MASK_ON_SUSPEND | IRQCHIP_SKIP_SET_WAKE,
 	.irq_retrigger          = irq_chip_retrigger_hierarchy,
-	.irq_set_vcpu_affinity  = irq_chip_set_vcpu_affinity_parent,
-	.irq_eoi                = irq_chip_eoi_parent,
-	.irq_set_affinity	= irq_chip_set_affinity_parent,
 };
 
 static int msm_mpm_gpio_chip_translate(struct irq_domain *d,
@@ -659,27 +656,16 @@ IRQCHIP_DECLARE(mpm_gic_chip, "qcom,mpm-gic", mpm_gic_chip_init);
 static int __init mpm_gpio_chip_init(struct device_node *node,
 					struct device_node *parent)
 {
-	struct irq_domain *parent_domain;
 	const struct of_device_id *id;
 
-	if (!parent) {
-		pr_err("%s(): no parent for mpm-gic\n", node->full_name);
-		return -ENXIO;
-	}
-
-	parent_domain = irq_find_host(parent);
-	if (!parent_domain) {
-		pr_err("unable to obtain gpio parent domain defer probe\n");
-		return -ENXIO;
-	}
 	id = of_match_node(mpm_gpio_chip_data_table, node);
 	if (!id) {
 		pr_err("match_table not found for mpm-gpio\n");
 		return -ENODEV;
 	}
 
-	msm_mpm_dev_data.gpio_chip_domain = irq_domain_add_hierarchy(
-			parent_domain, 0, num_mpm_irqs, node,
+	msm_mpm_dev_data.gpio_chip_domain = irq_domain_create_linear(
+			of_node_to_fwnode(node), num_mpm_irqs,
 			&msm_mpm_gpio_chip_domain_ops, (void *)id->data);
 
 	if (!msm_mpm_dev_data.gpio_chip_domain)
