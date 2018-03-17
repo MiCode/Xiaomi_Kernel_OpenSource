@@ -28,6 +28,7 @@
 
 #define SPI_NUM_CHIPSELECT	(4)
 #define SPI_XFER_TIMEOUT_MS	(250)
+#define SPI_AUTO_SUSPEND_DELAY	(250)
 /* SPI SE specific registers */
 #define SE_SPI_CPHA		(0x224)
 #define SE_SPI_LOOPBACK		(0x22C)
@@ -153,6 +154,7 @@ struct spi_geni_master {
 	int num_rx_eot;
 	int num_xfers;
 	void *ipc;
+	bool shared_se;
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -757,9 +759,22 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 	/* Adjust the AB/IB based on the max speed of the slave.*/
 	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
 	rsc->ab = max_speed * DEFAULT_BUS_WIDTH;
+	if (mas->shared_se) {
+		struct se_geni_rsc *rsc;
+		int ret = 0;
+
+		rsc = &mas->spi_rsc;
+		ret = pinctrl_select_state(rsc->geni_pinctrl,
+						rsc->geni_gpio_active);
+		if (ret)
+			GENI_SE_ERR(mas->ipc, false, NULL,
+			"%s: Error %d pinctrl_select_state\n", __func__, ret);
+	}
+
 	ret = pm_runtime_get_sync(mas->dev);
 	if (ret < 0) {
-		dev_err(mas->dev, "Error enabling SE resources\n");
+		dev_err(mas->dev, "%s:Error enabling SE resources %d\n",
+							__func__, ret);
 		pm_runtime_put_noidle(mas->dev);
 		goto exit_prepare_transfer_hardware;
 	} else {
@@ -851,6 +866,9 @@ setup_ipc:
 				"%s:Major:%d Minor:%d step:%dos%d\n",
 			__func__, major, minor, step, mas->oversampling);
 		}
+		mas->shared_se =
+			(geni_read_reg(mas->base, GENI_IF_FIFO_DISABLE_RO) &
+							FIFO_IF_DISABLE);
 	}
 exit_prepare_transfer_hardware:
 	return ret;
@@ -860,7 +878,20 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 {
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 
-	pm_runtime_put_sync(mas->dev);
+	if (mas->shared_se) {
+		struct se_geni_rsc *rsc;
+		int ret = 0;
+
+		rsc = &mas->spi_rsc;
+		ret = pinctrl_select_state(rsc->geni_pinctrl,
+						rsc->geni_gpio_sleep);
+		if (ret)
+			GENI_SE_ERR(mas->ipc, false, NULL,
+			"%s: Error %d pinctrl_select_state\n", __func__, ret);
+	}
+
+	pm_runtime_mark_last_busy(mas->dev);
+	pm_runtime_put_autosuspend(mas->dev);
 	return 0;
 }
 
@@ -1333,6 +1364,9 @@ static int spi_geni_probe(struct platform_device *pdev)
 	init_completion(&geni_mas->xfer_done);
 	init_completion(&geni_mas->tx_cb);
 	init_completion(&geni_mas->rx_cb);
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, SPI_AUTO_SUSPEND_DELAY);
+	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	ret = spi_register_master(spi);
 	if (ret) {
@@ -1366,7 +1400,14 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
-	ret = se_geni_resources_off(&geni_mas->spi_rsc);
+	if (geni_mas->shared_se) {
+		ret = se_geni_clks_off(&geni_mas->spi_rsc);
+		if (ret)
+			GENI_SE_ERR(geni_mas->ipc, false, NULL,
+			"%s: Error %d turning off clocks\n", __func__, ret);
+	} else {
+		ret = se_geni_resources_off(&geni_mas->spi_rsc);
+	}
 	return ret;
 }
 
@@ -1376,7 +1417,14 @@ static int spi_geni_runtime_resume(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
-	ret = se_geni_resources_on(&geni_mas->spi_rsc);
+	if (geni_mas->shared_se) {
+		ret = se_geni_clks_on(&geni_mas->spi_rsc);
+		if (ret)
+			GENI_SE_ERR(geni_mas->ipc, false, NULL,
+			"%s: Error %d turning on clocks\n", __func__, ret);
+	} else {
+		ret = se_geni_resources_on(&geni_mas->spi_rsc);
+	}
 	return ret;
 }
 
@@ -1387,9 +1435,29 @@ static int spi_geni_resume(struct device *dev)
 
 static int spi_geni_suspend(struct device *dev)
 {
-	if (!pm_runtime_status_suspended(dev))
-		return -EBUSY;
-	return 0;
+	int ret = 0;
+
+	if (!pm_runtime_status_suspended(dev)) {
+		struct spi_master *spi = get_spi_master(dev);
+		struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
+
+		if (list_empty(&spi->queue) && !spi->cur_msg) {
+			GENI_SE_ERR(geni_mas->ipc, true, dev,
+					"%s: Force suspend", __func__);
+			ret = spi_geni_runtime_suspend(dev);
+			if (ret) {
+				GENI_SE_ERR(geni_mas->ipc, true, dev,
+					"Force suspend Failed:%d", ret);
+			} else {
+				pm_runtime_disable(dev);
+				pm_runtime_set_suspended(dev);
+				pm_runtime_enable(dev);
+			}
+		} else {
+			ret = -EBUSY;
+		}
+	}
+	return ret;
 }
 #else
 static int spi_geni_runtime_suspend(struct device *dev)
