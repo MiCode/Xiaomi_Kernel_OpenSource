@@ -161,12 +161,20 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON: {
+		if (s_ctrl->streamon_count > 0)
+			return 0;
+
+		s_ctrl->streamon_count = s_ctrl->streamon_count + 1;
 		i2c_reg_settings = &i2c_data->streamon_settings;
 		i2c_reg_settings->request_id = 0;
 		i2c_reg_settings->is_settings_valid = 1;
 		break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF: {
+		if (s_ctrl->streamoff_count > 0)
+			return 0;
+
+		s_ctrl->streamoff_count = s_ctrl->streamoff_count + 1;
 		i2c_reg_settings = &i2c_data->streamoff_settings;
 		i2c_reg_settings->request_id = 0;
 		i2c_reg_settings->is_settings_valid = 1;
@@ -514,6 +522,8 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 	kfree(power_info->power_setting);
 	kfree(power_info->power_down_setting);
 
+	s_ctrl->streamon_count = 0;
+	s_ctrl->streamoff_count = 0;
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 }
 
@@ -757,6 +767,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		CAM_INFO(CAM_SENSOR,
 			"CAM_RELEASE_DEV Success, sensor_id:0x%x",
 			s_ctrl->sensordata->slave_info.sensor_id);
+		s_ctrl->streamon_count = 0;
+		s_ctrl->streamoff_count = 0;
 	}
 		break;
 	case CAM_QUERY_CAP: {
