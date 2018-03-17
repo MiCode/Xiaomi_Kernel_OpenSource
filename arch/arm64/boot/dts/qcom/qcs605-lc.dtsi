@@ -115,7 +115,7 @@
 
 &thermal_zones {
 
-	xo-therm-cpu-step {
+	xo-therm-step {
 		cooling-maps {
 			/delete-node/ skin_cpu2;
 			/delete-node/ skin_cpu3;
