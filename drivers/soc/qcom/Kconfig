@@ -552,3 +552,11 @@ endif # MSM_IDLE_STATS
 endif # MSM_PM
 
 endmenu
+
+config QMP_DEBUGFS_CLIENT
+	bool "Debugfs Client to communicate with AOP using QMP protocol"
+	depends on DEBUG_FS
+	default n
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport.
