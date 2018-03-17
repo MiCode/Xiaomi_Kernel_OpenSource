@@ -47,6 +47,8 @@ static struct hab_device hab_devices[] = {
 	HAB_DEVICE_CNSTR(DEVICE_QCPE4_NAME, MM_QCPE_VM4, 17),
 	HAB_DEVICE_CNSTR(DEVICE_CLK1_NAME, MM_CLK_VM1, 18),
 	HAB_DEVICE_CNSTR(DEVICE_CLK2_NAME, MM_CLK_VM2, 19),
+	HAB_DEVICE_CNSTR(DEVICE_FDE1_NAME, MM_FDE_1, 20),
+	HAB_DEVICE_CNSTR(DEVICE_BUFFERQ1_NAME, MM_BUFFERQ_1, 21),
 };
 
 struct hab_driver hab_driver = {
@@ -624,7 +626,24 @@ static void hab_generate_pchan(struct local_vmid *settings, int i, int j)
 					HABCFG_GET_BE(settings, i, j));
 		}
 		break;
-
+	case MM_FDE_START/100:
+		for (k = MM_FDE_START + 1; k < MM_FDE_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+	case MM_BUFFERQ_START/100:
+		for (k = MM_BUFFERQ_START + 1; k < MM_BUFFERQ_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
 	default:
 		pr_err("failed to find mmid %d, i %d, j %d\n",
 			HABCFG_GET_MMID(settings, i, j), i, j);
