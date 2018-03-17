@@ -1998,7 +1998,7 @@ static int adv7481_get_fmt(struct v4l2_subdev *sd,
 		fmt->code = MEDIA_BUS_FMT_UYVY8_2X8;
 		fmt->colorspace = V4L2_COLORSPACE_SMPTE170M;
 		fmt->width = 720;
-		fmt->height = 576;
+		fmt->height = 507;
 		break;
 	default:
 		return -EINVAL;
