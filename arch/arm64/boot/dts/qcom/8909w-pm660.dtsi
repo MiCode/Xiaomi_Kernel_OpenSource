@@ -205,6 +205,8 @@
 					1000000 500000>;
 		qcom,auto-recharge-soc;
 
+		qcom,use-extcon;
+
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
 			interrupts =
@@ -473,6 +475,10 @@
 
 &pm660_charger {
 	qcom,pd-not-supported;
+};
+
+&usb_otg {
+	extcon = <&pm660_charger>;
 };
 
 &pm660_fg {
