@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,3 +57,4 @@ extern struct tsens_device *tsens_controller_is_present(void);
 extern int tsens_set_mtc_zone_sw_mask(unsigned int zone,
 			unsigned int th1_enable, unsigned int th2_enable);
 extern int tsens_get_mtc_zone_log(unsigned int zone, void *zone_log);
+extern int tsens_mtc_reset_history_counter(unsigned int zone);
