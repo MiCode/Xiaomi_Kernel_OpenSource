@@ -211,7 +211,9 @@ struct hal_data {
 	u32 irq;
 	phys_addr_t firmware_base;
 	u8 __iomem *register_base;
+	u8 __iomem *gcc_reg_base;
 	u32 register_size;
+	u32 gcc_reg_size;
 };
 
 struct venus_resources {

@@ -146,7 +146,9 @@ struct subcache_set {
 struct msm_vidc_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
+	phys_addr_t gcc_register_base;
 	uint32_t register_size;
+	uint32_t gcc_register_size;
 	uint32_t irq;
 	uint32_t sku_version;
 	struct allowed_clock_rates_table *allowed_clks_tbl;
