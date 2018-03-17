@@ -11,5 +11,5 @@
  */
 #include "sdm845-qvr.dtsi"
 #include "sdm845-sde-display.dtsi"
-#include "sdm845-camera-sensor-qvr.dtsi"
+#include "sdm845-camera-sensor-qvr-dvt.dtsi"
 
