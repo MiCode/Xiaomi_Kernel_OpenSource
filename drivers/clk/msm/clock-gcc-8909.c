@@ -34,6 +34,7 @@
 #include <dt-bindings/clock/msm-clocks-8909.h>
 
 #include "clock.h"
+#include "reset.h"
 
 enum {
 	GCC_BASE,
@@ -2559,6 +2560,12 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_snoc_qosgen_clk),
 };
 
+static const struct msm_reset_map gcc_8909_resets[] = {
+	[GCC_USB_HS_BCR] = {0x41000},
+	[GCC_USB2_HS_PHY_ONLY_BCR] = {0x41034},
+	[GCC_QUSB2_PHY_BCR] = {0x4103C},
+};
+
 static int add_dev_opp(struct clk *c, struct device *dev,
 				unsigned long max_rate)
 {
@@ -2746,6 +2753,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		opp_dev_node = of_parse_phandle(pdev->dev.of_node,
 					"qcom,dev-opp-list", node);
 	}
+
+	msm_reset_controller_register(pdev, gcc_8909_resets,
+					ARRAY_SIZE(gcc_8909_resets),
+					virt_bases[GCC_BASE]);
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 

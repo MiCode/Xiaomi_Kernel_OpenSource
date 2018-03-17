@@ -234,4 +234,9 @@
 
 #define clk_audio_lpass_mclk			0x575ec22b
 
+/* GCC block resets */
+#define GCC_USB_HS_BCR			0
+#define GCC_USB2_HS_PHY_ONLY_BCR	1
+#define GCC_QUSB2_PHY_BCR		2
+
 #endif

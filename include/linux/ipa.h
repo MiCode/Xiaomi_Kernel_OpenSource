@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1668,7 +1668,7 @@ static inline int ipa_cfg_ep_nat(u32 clnt_hdl,
 static inline int ipa_cfg_ep_conn_track(u32 clnt_hdl,
 	const struct ipa_ep_cfg_conn_track *ep_conn_track)
 {
-	return -EPERM
+	return -EPERM;
 }
 
 static inline int ipa_cfg_ep_hdr(u32 clnt_hdl,
