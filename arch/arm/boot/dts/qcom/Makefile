@@ -12,6 +12,9 @@ dtb-$(CONFIG_ARCH_MDM9650) += mdm9650-nand-mtp.dtb \
 	mdm9650-v1.1-nand-mtp.dtb \
 	mdm9650-v1.1-nand-cv2x.dtb
 
+dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-mtp.dtb \
+	mdm9607-ttp.dtb
+
 targets += dtbs
 targets += $(addprefix ../, $(dtb-y))
 

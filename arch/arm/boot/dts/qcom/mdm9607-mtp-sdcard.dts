@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mdm9607-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MDM 9607 MTP SDCARD";
+	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
+	qcom,board-id = <8 1>;
+};
+
+&sdhc_2 {
+	/delete-property/cd-gpios;
+
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0>;
+	interrupt-names = "hc_irq", "pwr_irq";
+
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on>;
+
+	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+	qcom,nonremovable;
+	status = "ok";
+};
+
+&pm8019_gpios {
+	gpio@c300 { /* GPIO 4 */
+		qcom,mode = <1>;		/* Digital Output */
+		qcom,output-type = <0>;		/* CMOS Logic */
+		qcom,invert = <0>;		/* Output High */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,out-strength = <1>;	/* Low Drive Strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+};
