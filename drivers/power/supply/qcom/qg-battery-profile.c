@@ -163,7 +163,7 @@ static long qg_battery_data_ioctl(struct file *file, unsigned int cmd,
 		}
 		break;
 	case BPIOCXVAR:
-		if (bp.table_index < TABLE_Z1 || bp.table_index > TABLE_MAX) {
+		if (bp.table_index < TABLE_Z1 || bp.table_index >= TABLE_MAX) {
 			pr_err("Invalid table index %d for VAR lookup\n",
 					bp.table_index);
 			rc = -EINVAL;

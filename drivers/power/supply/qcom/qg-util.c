@@ -15,6 +15,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>
+#include <linux/qpnp/qpnp-adc.h>
 #include <linux/regmap.h>
 #include <linux/rtc.h>
 #include <uapi/linux/qg.h>
@@ -22,6 +23,7 @@
 #include "qg-core.h"
 #include "qg-reg.h"
 #include "qg-defs.h"
+#include "qg-util.h"
 
 static inline bool is_sticky_register(u32 addr)
 {
@@ -287,6 +289,30 @@ int qg_write_monotonic_soc(struct qpnp_qg *chip, int msoc)
 				&reg, 1);
 	if (rc < 0)
 		pr_err("Failed to update QG_SOC_MONOTINIC reg rc=%d\n", rc);
+
+	return rc;
+}
+
+int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
+{
+	int rc = 0;
+	struct qpnp_vadc_result result;
+
+	if (chip->battery_missing) {
+		*temp = 250;
+		return 0;
+	}
+
+	rc = qpnp_vadc_read(chip->vadc_dev, VADC_BAT_THERM_PU2, &result);
+	if (rc) {
+		pr_err("Failed reading adc channel=%d, rc=%d\n",
+					VADC_BAT_THERM_PU2, rc);
+		return rc;
+	}
+	pr_debug("batt_temp = %lld meas = 0x%llx\n",
+			result.physical, result.measurement);
+
+	*temp = (int)result.physical;
 
 	return rc;
 }
