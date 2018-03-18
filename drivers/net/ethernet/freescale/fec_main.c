@@ -3339,6 +3339,8 @@ fec_drv_remove(struct platform_device *pdev)
 	if (fep->reg_phy)
 		regulator_disable(fep->reg_phy);
 	fec_enet_clk_enable(ndev, false);
+	pm_runtime_put(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	of_node_put(fep->phy_node);
 	free_netdev(ndev);
 
