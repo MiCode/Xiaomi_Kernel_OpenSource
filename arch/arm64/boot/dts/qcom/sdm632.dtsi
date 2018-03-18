@@ -544,7 +544,7 @@
 };
 
 &soc {
-	/delete-node/ msm_cpufreq;
+	/delete-node/ qcom,msm-cpufreq;
 	msm_cpufreq: qcom,msm-cpufreq {
 		compatible = "qcom,msm-cpufreq";
 		clock-names =
