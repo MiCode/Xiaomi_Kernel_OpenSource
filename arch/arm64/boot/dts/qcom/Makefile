@@ -306,7 +306,9 @@ dtb-$(CONFIG_ARCH_MSM8937) += msm8937-pmi8950-mtp.dtb \
 
 dtb-$(CONFIG_ARCH_MSM8917) += msm8917-pmi8950-mtp.dtb
 
-dtb-$(CONFIG_ARCH_MSM8909) += msm8909w-bg-wtp-v2.dtb
+dtb-$(CONFIG_ARCH_MSM8909) += msm8909w-bg-wtp-v2.dtb \
+	apq8009w-bg-wtp-v2.dtb \
+	apq8009w-bg-alpha.dtb
 
 dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \
