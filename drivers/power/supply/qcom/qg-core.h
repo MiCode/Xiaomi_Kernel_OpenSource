@@ -44,6 +44,7 @@ struct qg_dt {
 	int			delta_soc;
 	int			rbat_conn_mohm;
 	int			ignore_shutdown_soc_secs;
+	bool			hold_soc_while_full;
 };
 
 struct qpnp_qg {
@@ -89,6 +90,7 @@ struct qpnp_qg {
 	bool			charge_done;
 	bool			parallel_enabled;
 	bool			usb_present;
+	bool			charge_full;
 	int			charge_status;
 	int			charge_type;
 	int			next_wakeup_ms;

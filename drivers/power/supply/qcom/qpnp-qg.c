@@ -531,8 +531,7 @@ static void process_udata_work(struct work_struct *work)
 		qg_scale_soc(chip, false);
 
 		/* update parameters to SDAM */
-		chip->sdam_data[SDAM_SOC] =
-				chip->udata.param[QG_SOC].data;
+		chip->sdam_data[SDAM_SOC] = chip->msoc;
 		chip->sdam_data[SDAM_OCV_UV] =
 				chip->udata.param[QG_OCV_UV].data;
 		chip->sdam_data[SDAM_RBAT_MOHM] =
@@ -891,6 +890,7 @@ static int qg_get_battery_voltage(struct qpnp_qg *chip, int *vbat_uv)
 #define DEBUG_BATT_SOC		67
 #define BATT_MISSING_SOC	50
 #define EMPTY_SOC		0
+#define FULL_SOC		100
 static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 {
 	if (is_debug_batt_id(chip)) {
@@ -900,6 +900,11 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 
 	if (chip->battery_missing || !chip->profile_loaded) {
 		*soc = BATT_MISSING_SOC;
+		return 0;
+	}
+
+	if (chip->charge_full) {
+		*soc = FULL_SOC;
 		return 0;
 	}
 
@@ -1038,13 +1043,58 @@ static const struct power_supply_desc qg_psy_desc = {
 	.property_is_writeable = qg_property_is_writeable,
 };
 
+#define DEFAULT_RECHARGE_SOC 95
 static int qg_charge_full_update(struct qpnp_qg *chip)
 {
+	union power_supply_propval prop = {0, };
+	int rc, recharge_soc, health;
 
 	vote(chip->good_ocv_irq_disable_votable,
 		QG_INIT_STATE_IRQ_DISABLE, !chip->charge_done, 0);
 
-	/* TODO: add hold-soc-at-full logic */
+	if (!chip->dt.hold_soc_while_full)
+		goto out;
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_HEALTH, &prop);
+	if (rc < 0) {
+		pr_err("Failed to get battery health, rc=%d\n", rc);
+		goto out;
+	}
+	health = prop.intval;
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+	if (rc < 0 || prop.intval < 0) {
+		pr_debug("Failed to get recharge-soc\n");
+		recharge_soc = DEFAULT_RECHARGE_SOC;
+	}
+	recharge_soc = prop.intval;
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d health=%d charge_full=%d\n",
+					chip->msoc, recharge_soc,
+					health, chip->charge_full);
+	if (chip->charge_done && !chip->charge_full) {
+		if (chip->msoc >= 99 && health == POWER_SUPPLY_HEALTH_GOOD) {
+			chip->charge_full = true;
+			qg_dbg(chip, QG_DEBUG_STATUS, "Setting charge_full (0->1) @ msoc=%d\n",
+					chip->msoc);
+		} else {
+			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
+					chip->msoc);
+		}
+	} else if ((!chip->charge_done || chip->msoc < recharge_soc)
+				&& chip->charge_full) {
+		/*
+		 * If recharge has started or discharged below
+		 * recharge_soc, set charge_full as false.
+		 */
+
+		qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full (1->0)\n",
+					chip->msoc, recharge_soc);
+		chip->charge_full = false;
+	}
+out:
 	return 0;
 }
 
@@ -1112,6 +1162,9 @@ static void qg_status_change_work(struct work_struct *work)
 		pr_err("Failed to get charge done status, rc=%d\n", rc);
 	else
 		chip->charge_done = prop.intval;
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "charge_status=%d charge_done=%d\n",
+			chip->charge_status, chip->charge_done);
 
 	rc = qg_parallel_status_update(chip);
 	if (rc < 0)
@@ -1188,7 +1241,7 @@ static ssize_t qg_device_read(struct file *file, char __user *buf, size_t count,
 
 	/* non-blocking access, return */
 	if (!chip->data_ready && (file->f_flags & O_NONBLOCK))
-		return -EAGAIN;
+		return 0;
 
 	/* blocking access wait on data_ready */
 	if (!(file->f_flags & O_NONBLOCK)) {
@@ -1274,14 +1327,12 @@ fail:
 static unsigned int qg_device_poll(struct file *file, poll_table *wait)
 {
 	struct qpnp_qg *chip = file->private_data;
-	unsigned int mask;
+	unsigned int mask = 0;
 
 	poll_wait(file, &chip->qg_wait_q, wait);
 
 	if (chip->data_ready)
 		mask = POLLIN | POLLRDNORM;
-	else
-		mask = POLLERR;
 
 	return mask;
 }
@@ -2068,6 +2119,9 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		chip->dt.ignore_shutdown_soc_secs = DEFAULT_SHUTDOWN_SOC_SECS;
 	else
 		chip->dt.ignore_shutdown_soc_secs = temp;
+
+	chip->dt.hold_soc_while_full = of_property_read_bool(node,
+					"qcom,hold-soc-while-full");
 
 	rc = of_property_read_u32(node, "qcom,rbat-conn-mohm", &temp);
 	if (rc < 0)
