@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1496,7 +1496,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 			(fmt->bits[C0_G_Y] << 0);
 
 	/* alpha control */
-	if (fmt->bits[C3_ALPHA] || fmt->alpha_enable) {
+	if (fmt->alpha_enable || (!fmt->is_yuv && (fmt->unpack_count == 4))) {
 		dst_format |= BIT(8);
 		if (!fmt->alpha_enable) {
 			dst_format |= BIT(14);
