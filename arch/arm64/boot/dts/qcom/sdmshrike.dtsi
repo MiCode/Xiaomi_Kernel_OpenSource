@@ -11,6 +11,7 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 
@@ -342,6 +343,13 @@
 				  <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
 				  <CONTROL_TCS 0>;
+	};
+
+	clock_rpmh: qcom,rpmhclk {
+		compatible = "qcom,rpmh-clk-sdm855";
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
+		#clock-cells = <1>;
 	};
 };
 
