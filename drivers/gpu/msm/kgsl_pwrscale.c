@@ -893,12 +893,6 @@ static int opp_notify(struct notifier_block *nb,
 		return PTR_ERR(opp);
 	}
 
-	max_freq = dev_pm_opp_get_freq(opp);
-	if (!max_freq) {
-		rcu_read_unlock();
-		return result;
-	}
-
 	opp = dev_pm_opp_find_freq_ceil(dev, &min_freq);
 	if (IS_ERR(opp))
 		min_freq = pwr->pwrlevels[pwr->min_pwrlevel].gpu_freq;
