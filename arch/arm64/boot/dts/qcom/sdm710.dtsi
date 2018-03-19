@@ -19,7 +19,7 @@
 };
 
 &msm_gpu {
-	qcom,chipid = <0x06010600>;
+	qcom,chipid = <0x06010500>;
 	/delete-property/qcom,gpu-quirk-limit-uche-gbif-rw;
 	/delete-property/qcom,soc-hw-rev-efuse;
 	/delete-node/qcom,soc-hw-revisions;
