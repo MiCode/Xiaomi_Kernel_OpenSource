@@ -72,17 +72,19 @@ TRACE_EVENT(cam_isp_activated_irq,
 );
 
 TRACE_EVENT(cam_icp_fw_dbg,
-	TP_PROTO(char *dbg_message),
-	TP_ARGS(dbg_message),
+	TP_PROTO(char *dbg_message, uint64_t timestamp),
+	TP_ARGS(dbg_message, timestamp),
 	TP_STRUCT__entry(
 		__string(dbg_message, dbg_message)
+		__field(uint64_t, timestamp)
 	),
 	TP_fast_assign(
 		__assign_str(dbg_message, dbg_message);
+		__entry->timestamp = timestamp;
 	),
 	TP_printk(
-		"%s: ",
-		__get_str(dbg_message)
+		"%llu %s: ",
+		 __entry->timestamp, __get_str(dbg_message)
 	)
 );
 
