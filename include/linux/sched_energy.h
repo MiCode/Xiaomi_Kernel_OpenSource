@@ -33,7 +33,6 @@ extern struct sched_group_energy *sge_array[NR_CPUS][NR_SD_LEVELS];
 
 #ifdef CONFIG_GENERIC_ARCH_TOPOLOGY
 void init_sched_energy_costs(void);
-int sched_energy_installed(int cpu);
 #else
 void init_sched_energy_costs(void) {}
 #endif
