@@ -16,3 +16,5 @@ endif
 
 header-y += sockev.h
 header-y += nfc/
+header-y += seemp_api.h
+header-y += seemp_param_id.h
