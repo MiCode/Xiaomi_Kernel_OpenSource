@@ -1154,8 +1154,6 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
 
-	/* will be enabled in dwc3_msm_resume() */
-	irq_set_status_flags(irq, IRQ_NOAUTOEN);
 	ret = devm_request_irq(dev, irq, dwc3_interrupt, IRQF_SHARED, "dwc3",
 			dwc);
 	if (ret) {
@@ -1164,6 +1162,8 @@ static int dwc3_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	/* will be enabled in dwc3_msm_resume() */
+	disable_irq(irq);
 	dwc->irq = irq;
 	/*
 	 * Request memory region but exclude xHCI regs,
