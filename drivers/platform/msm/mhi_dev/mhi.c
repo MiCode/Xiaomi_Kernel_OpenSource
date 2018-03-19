@@ -825,16 +825,14 @@ EXPORT_SYMBOL(mhi_dev_send_ee_event);
 static void mhi_dev_trigger_cb(void)
 {
 	struct mhi_dev_ready_cb_info *info;
-	uint32_t state_data;
+	enum mhi_ctrl_info state_data;
 
-	mutex_lock(&mhi_ctx->mhi_lock);
 	list_for_each_entry(info, &mhi_ctx->client_cb_list, list)
 		if (info->cb) {
 			mhi_ctrl_state_info(&state_data);
 			info->cb_data.ctrl_info = state_data;
 			info->cb(&info->cb_data);
 		}
-	mutex_unlock(&mhi_ctx->mhi_lock);
 }
 
 int mhi_dev_trigger_hw_acc_wakeup(struct mhi_dev *mhi)
