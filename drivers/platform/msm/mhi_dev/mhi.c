@@ -855,10 +855,17 @@ int mhi_dev_trigger_hw_acc_wakeup(struct mhi_dev *mhi)
 }
 EXPORT_SYMBOL(mhi_dev_trigger_hw_acc_wakeup);
 
-static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi)
+static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi,
+				enum mhi_dev_cmd_completion_code code)
 {
 	int rc = 0;
 	union mhi_dev_ring_element_type event;
+
+	if (code > MHI_CMD_COMPL_CODE_RES) {
+		mhi_log(MHI_MSG_ERROR,
+			"Invalid cmd compl code: %d\n", code);
+		return -EINVAL;
+	}
 
 	/* send the command completion event to the host */
 	event.evt_cmd_comp.ptr = mhi->cmd_ctx_cache->rbase
@@ -867,11 +874,10 @@ static int mhi_dev_send_cmd_comp_event(struct mhi_dev *mhi)
 	mhi_log(MHI_MSG_VERBOSE, "evt cmd comp ptr :%d\n",
 			(uint32_t) event.evt_cmd_comp.ptr);
 	event.evt_cmd_comp.type = MHI_DEV_RING_EL_CMD_COMPLETION_EVT;
-	event.evt_cmd_comp.code = MHI_CMD_COMPL_CODE_SUCCESS;
-
+	event.evt_cmd_comp.code = code;
 	rc = mhi_dev_send_event(mhi, 0, &event);
 	if (rc)
-		pr_err("channel start command faied\n");
+		mhi_log(MHI_MSG_ERROR, "Send completion failed\n");
 
 	return rc;
 }
@@ -914,7 +920,8 @@ static int mhi_dev_process_stop_cmd(struct mhi_dev_ring *ring, uint32_t ch_id,
 	mhi_dev_write_to_host(mhi, &data_transfer, NULL, MHI_DEV_DMA_SYNC);
 
 	/* send the completion event to the host */
-	rc = mhi_dev_send_cmd_comp_event(mhi);
+	rc = mhi_dev_send_cmd_comp_event(mhi,
+					MHI_CMD_COMPL_CODE_SUCCESS);
 	if (rc)
 		pr_err("Error sending command completion event\n");
 
@@ -942,7 +949,13 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		if (ch_id >= (HW_CHANNEL_BASE)) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
 			if (rc) {
-				pr_err("Error with HW channel cmd :%d\n", rc);
+				mhi_log(MHI_MSG_ERROR,
+					"Error with HW channel cmd %d\n", rc);
+				rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_UNDEFINED);
+				if (rc)
+					mhi_log(MHI_MSG_ERROR,
+						"Error with compl event\n");
 				return;
 			}
 			goto send_start_completion_event;
@@ -958,6 +971,11 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
 				"start ring failed for ch %d\n", ch_id);
+			rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_UNDEFINED);
+			if (rc)
+				mhi_log(MHI_MSG_ERROR,
+					"Error with compl event\n");
 			return;
 		}
 
@@ -975,6 +993,11 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		rc = mhi_dev_mmio_enable_chdb_a7(mhi, ch_id);
 		if (rc) {
 			pr_err("Failed to enable channel db\n");
+			rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_UNDEFINED);
+			if (rc)
+				mhi_log(MHI_MSG_ERROR,
+					"Error with compl event\n");
 			return;
 		}
 
@@ -991,7 +1014,8 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		mhi_dev_write_to_host(mhi, &host_addr, NULL, MHI_DEV_DMA_SYNC);
 
 send_start_completion_event:
-		rc = mhi_dev_send_cmd_comp_event(mhi);
+		rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_SUCCESS);
 		if (rc)
 			pr_err("Error sending command completion event\n");
 
@@ -1002,11 +1026,9 @@ send_start_completion_event:
 	case MHI_DEV_RING_EL_STOP:
 		if (ch_id >= HW_CHANNEL_BASE) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
-			if (rc) {
+			if (rc)
 				mhi_log(MHI_MSG_ERROR,
 					"send channel stop cmd event failed\n");
-				return;
-			}
 
 			/* send the completion event to the host */
 			event.evt_cmd_comp.ptr = mhi->cmd_ctx_cache->rbase +
@@ -1059,11 +1081,9 @@ send_start_completion_event:
 			"received reset cmd for channel %d\n", ch_id);
 		if (ch_id >= HW_CHANNEL_BASE) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
-			if (rc) {
+			if (rc)
 				mhi_log(MHI_MSG_ERROR,
 					"send channel stop cmd event failed\n");
-				return;
-			}
 
 			/* send the completion event to the host */
 			event.evt_cmd_comp.ptr = mhi->cmd_ctx_cache->rbase +
@@ -1121,7 +1141,8 @@ send_start_completion_event:
 					MHI_DEV_DMA_SYNC);
 
 			/* send the completion event to the host */
-			rc = mhi_dev_send_cmd_comp_event(mhi);
+			rc = mhi_dev_send_cmd_comp_event(mhi,
+						MHI_CMD_COMPL_CODE_SUCCESS);
 			if (rc)
 				pr_err("Error sending command completion event\n");
 			mutex_unlock(&ch->ch_lock);
