@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -174,8 +174,10 @@ enum fg_sram_param_id {
 	FG_SRAM_DELTA_BSOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
 	FG_SRAM_RECHARGE_VBATT_THR,
+	FG_SRAM_KI_COEFF_LOW_DISCHG,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
+	FG_SRAM_KI_COEFF_HI_CHG,
 	FG_SRAM_KI_COEFF_FULL_SOC,
 	FG_SRAM_ESR_TIGHT_FILTER,
 	FG_SRAM_ESR_BROAD_FILTER,
@@ -290,6 +292,8 @@ struct fg_dt_props {
 	int	esr_meas_curr_ma;
 	int	bmd_en_delay_ms;
 	int	ki_coeff_full_soc_dischg;
+	int	ki_coeff_low_dischg;
+	int	ki_coeff_hi_chg;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
