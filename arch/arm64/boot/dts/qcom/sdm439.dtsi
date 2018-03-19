@@ -197,3 +197,64 @@
 		memory-region = <&secure_mem>;
 	};
 };
+
+&clock_cpu {
+	compatible = "qcom,cpu-clock-sdm439";
+	vdd-c0-supply = <&apc_vreg_corner>;
+	vdd-c1-supply = <&apc_vreg_corner>;
+	vdd-cci-supply = <&apc_vreg_corner>;
+	qcom,speed0-bin-v0-c0 =
+		<          0 0>,
+		<  768000000 1>,
+		<  998400000 1>,
+		< 1171200000 2>,
+		< 1305600000 3>,
+		< 1459200000 5>;
+
+	qcom,speed0-bin-v0-c1 =
+		<          0 0>,
+		< 1305600000 1>,
+		< 1497600000 2>,
+		< 1708800000 3>,
+		< 1958400000 5>;
+
+	qcom,speed0-bin-v0-cci =
+		<          0 0>,
+		<  400000000 1>,
+		<  533333333 3>;
+
+	qcom,speed1-bin-v0-c0 =
+		<          0 0>,
+		<  768000000 1>,
+		<  998400000 1>,
+		< 1171200000 2>,
+		< 1305600000 3>,
+		< 1459200000 5>;
+
+	qcom,speed1-bin-v0-c1 =
+		<          0 0>,
+		< 1305600000 1>,
+		< 1497600000 2>,
+		< 1708800000 3>,
+		< 1804800000 5>;
+
+	qcom,speed1-bin-v0-cci =
+		<          0 0>,
+		<  400000000 1>,
+		<  533333333 3>;
+};
+
+&clock_gcc {
+	compatible = "qcom,gcc-sdm439";
+	reg = <0x1800000 0x80000>,
+		<0xb016000 0x00040>,
+		<0xb116000 0x00040>,
+		<0x00a6018 0x00004>;
+	reg-names = "cc_base", "apcs_c1_base",
+			"apcs_c0_base", "efuse";
+	vdd_dig-supply = <&pm8953_s2_level>;
+	vdd_sr2_dig-supply = <&pm8953_s2_level_ao>;
+	vdd_sr2_pll-supply = <&pm8953_l7_ao>;
+	vdd_hf_dig-supply = <&pm8953_s2_level_ao>;
+	vdd_hf_pll-supply = <&pm8953_l7_ao>;
+};
