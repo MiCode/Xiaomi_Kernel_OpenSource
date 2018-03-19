@@ -33,6 +33,8 @@ obj-$(CONFIG_ARCH_MSM8909)	+= clock-gcc-8909.o
 
 # ACPU clock
 obj-$(CONFIG_ARCH_MSM8909)	+= clock-a7.o
+obj-$(CONFIG_ARCH_MDM9607)	+= clock-a7.o
+obj-$(CONFIG_ARCH_MDM9650)	+= clock-a7.o
 endif
 
 obj-y				+= mdss/
