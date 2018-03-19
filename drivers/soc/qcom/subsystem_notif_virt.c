@@ -142,7 +142,7 @@ static struct platform_driver subsys_notif_virt_driver = {
 	.remove = subsys_notif_virt_remove,
 	.driver = {
 		.name = "subsys_notif_virt",
-		.owner = "THIS_MODULE",
+		.owner = THIS_MODULE,
 		.of_match_table = match_table,
 	},
 };
