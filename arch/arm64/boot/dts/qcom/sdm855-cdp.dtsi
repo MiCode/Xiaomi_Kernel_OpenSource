@@ -126,3 +126,7 @@
 	qcom,string-cfg= <7>;
 	status = "ok";
 };
+
+&pm855b_charger {
+	qcom,batteryless-platform;
+};
