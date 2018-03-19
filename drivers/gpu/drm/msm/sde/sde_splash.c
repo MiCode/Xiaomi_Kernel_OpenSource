@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -301,8 +301,8 @@ static int _sde_splash_free_resource(struct msm_mmu *mmu,
 		return -EINVAL;
 
 	if (mmu->funcs && mmu->funcs->unmap)
-		mmu->funcs->unmap(mmu, sinfo->splash_mem_paddr[conn],
-				msm_obj->sgt, NULL);
+		mmu->funcs->early_splash_unmap(mmu,
+			sinfo->splash_mem_paddr[conn], msm_obj->sgt);
 
 	_sde_splash_free_bootup_memory_to_system(sinfo->splash_mem_paddr[conn],
 						sinfo->splash_mem_size[conn]);
@@ -489,8 +489,9 @@ int sde_splash_smmu_map(struct drm_device *dev, struct msm_mmu *mmu,
 		msm_obj = to_msm_bo(sinfo->obj[i]);
 
 		if (mmu->funcs && mmu->funcs->map) {
-			ret = mmu->funcs->map(mmu, sinfo->splash_mem_paddr[i],
-				msm_obj->sgt, IOMMU_READ | IOMMU_NOEXEC, NULL);
+			ret = mmu->funcs->early_splash_map(mmu,
+				sinfo->splash_mem_paddr[i], msm_obj->sgt,
+				IOMMU_READ | IOMMU_NOEXEC);
 
 			if (!ret) {
 				SDE_ERROR("Map blk %d @%pK failed.\n",
