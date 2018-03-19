@@ -521,14 +521,18 @@ static int hab_initialize_pchan_entry(struct hab_device *mmid_device,
 
 	ret = habhyp_commdev_alloc((void **)&pchan, is_be, pchan_name,
 					vmid_remote, mmid_device);
-	if (ret == 0) {
-		pr_debug("pchan %s added, vmid local %d, remote %d, is_be %d, total %d\n",
-				pchan_name, vmid_local, vmid_remote, is_be,
-				mmid_device->pchan_cnt);
-	} else {
+	if (ret) {
 		pr_err("failed %d to allocate pchan %s, vmid local %d, remote %d, is_be %d, total %d\n",
 				ret, pchan_name, vmid_local, vmid_remote,
 				is_be, mmid_device->pchan_cnt);
+	} else {
+		/* local/remote id setting should be kept in lower level */
+		pchan->vmid_local = vmid_local;
+		pchan->vmid_remote = vmid_remote;
+		pr_debug("pchan %s mmid %s local %d remote %d role %d\n",
+				pchan_name, mmid_device->name,
+				pchan->vmid_local, pchan->vmid_remote,
+				pchan->dom_id);
 	}
 
 	return ret;
@@ -780,10 +784,12 @@ static long hab_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	struct hab_close *close_param;
 	struct hab_recv *recv_param;
 	struct hab_send *send_param;
+	struct hab_info *info_param;
 	struct hab_message *msg;
 	void *send_data;
 	unsigned char data[256] = { 0 };
 	long ret = 0;
+	char names[30];
 
 	if (_IOC_SIZE(cmd) && (cmd & IOC_IN)) {
 		if (_IOC_SIZE(cmd) > sizeof(data))
@@ -872,6 +878,31 @@ static long hab_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		break;
 	case IOCTL_HAB_VC_UNIMPORT:
 		ret = hab_mem_unimport(ctx, (struct hab_unimport *)data, 0);
+		break;
+	case IOCTL_HAB_VC_QUERY:
+		info_param = (struct hab_info *)data;
+		if (!info_param->names || !info_param->namesize ||
+			info_param->namesize > sizeof(names)) {
+			pr_err("wrong vm info vcid %X, names %llX, sz %d\n",
+				info_param->vcid, info_param->names,
+				info_param->namesize);
+			ret = -EINVAL;
+			break;
+		}
+		ret = hab_vchan_query(ctx, info_param->vcid,
+				(uint64_t *)&info_param->ids,
+				names, info_param->namesize, 0);
+		if (!ret) {
+			if (copy_to_user((void __user *)info_param->names,
+						 names,
+						 info_param->namesize)) {
+				pr_err("copy_to_user failed: vc=%x size=%d\n",
+					info_param->vcid,
+					info_param->namesize*2);
+				info_param->namesize = 0;
+				ret = -EFAULT;
+			}
+		}
 		break;
 	default:
 		ret = -ENOIOCTLCMD;
