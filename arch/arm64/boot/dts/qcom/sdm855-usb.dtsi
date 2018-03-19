@@ -18,9 +18,8 @@
 	/* Primary USB port related controller */
 	usb0: ssusb@a600000 {
 		compatible = "qcom,dwc-usb3-msm";
-		reg = <0x0a600000 0x100000>,
-			<0x088ee000 0x400>;
-		reg-names = "core_base", "ahb2phy_base";
+		reg = <0x0a600000 0x100000>;
+		reg-names = "core_base";
 
 		iommus = <&apps_smmu 0x140 0x0>;
 		qcom,smmu-s1-bypass;
