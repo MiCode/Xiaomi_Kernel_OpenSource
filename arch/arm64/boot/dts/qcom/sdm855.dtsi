@@ -2765,6 +2765,12 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_qca_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1b53 0x0>;
+		};
 
 		/* Slimbus Slave DT for WCN3990 */
 		btfmslim_codec: wcn3990 {
