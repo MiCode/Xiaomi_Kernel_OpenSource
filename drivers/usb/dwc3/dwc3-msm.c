@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3952,6 +3952,10 @@ static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 
 	dbg_event(0xFF, "fw_restarthost", 0);
 	flush_delayed_work(&mdwc->sm_work);
+
+	if (!mdwc->in_host_mode)
+		goto err;
+
 	dbg_event(0xFF, "stop_host_mode", dwc->maximum_speed);
 	ret = dwc3_otg_start_host(mdwc, 0);
 	if (ret)
