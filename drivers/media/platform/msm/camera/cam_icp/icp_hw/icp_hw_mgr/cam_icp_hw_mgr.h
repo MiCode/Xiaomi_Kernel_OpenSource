@@ -79,6 +79,7 @@
  * @sec_heap: Memory info of secondary heap
  * @fw_buf: Memory info of firmware
  * @qdss_buf: Memory info of qdss
+ * @sfr_buf: Memory info for sfr buffer
  */
 struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc qtbl;
@@ -88,6 +89,7 @@ struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc sec_heap;
 	struct cam_mem_mgr_memory_desc fw_buf;
 	struct cam_mem_mgr_memory_desc qdss_buf;
+	struct cam_mem_mgr_memory_desc sfr_buf;
 	struct cam_smmu_region_info shmem;
 };
 
@@ -309,6 +311,9 @@ struct cam_icp_clk_info {
  * @bps_dev_intf: Device interface for BPS
  * @ipe_clk_state: IPE clock state flag
  * @bps_clk_state: BPS clock state flag
+ * @recovery: Flag to validate if in previous session FW
+ *            reported a fatal error or wdt. If set FW is
+ *            re-downloaded for new camera session.
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -356,6 +361,7 @@ struct cam_icp_hw_mgr {
 	struct cam_hw_intf *bps_dev_intf;
 	bool ipe_clk_state;
 	bool bps_clk_state;
+	bool recovery;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);
