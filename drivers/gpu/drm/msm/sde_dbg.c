@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +57,9 @@
 
 /* print debug ranges in groups of 4 u32s */
 #define REG_DUMP_ALIGN		16
+#define DBG_CTRL_STOP_FTRACE        BIT(0)
+#define DBG_CTRL_PANIC_UNDERRUN     BIT(1)
+#define DBG_CTRL_MAX                BIT(2)
 
 /**
  * struct sde_dbg_reg_offset - tracking for start and end of region
@@ -162,6 +165,7 @@ struct sde_dbg_vbif_debug_bus {
  * @enable_reg_dump: whether to dump registers into memory, kernel log, or both
  * @dbgbus_sde: debug bus structure for the sde
  * @dbgbus_vbif_rt: debug bus structure for the realtime vbif
+ * @dump_all: dump all entries in register dump
  */
 static struct sde_dbg_base {
 	struct sde_dbg_evtlog *evtlog;
@@ -180,6 +184,8 @@ static struct sde_dbg_base {
 
 	struct sde_dbg_sde_debug_bus dbgbus_sde;
 	struct sde_dbg_vbif_debug_bus dbgbus_vbif_rt;
+	bool dump_all;
+	u32 debugfs_ctrl;
 } sde_dbg_base;
 
 /* sde_dbg_base_evtlog - global pointer to main sde event log for macro use */
@@ -1448,7 +1454,7 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
  */
 static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 	u32 len, bool do_panic, const char *name, bool dump_dbgbus_sde,
-	bool dump_dbgbus_vbif_rt)
+	bool dump_dbgbus_vbif_rt, bool dump_all)
 {
 	int i;
 
@@ -1460,7 +1466,8 @@ static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 				sde_dbg_base.enable_reg_dump);
 	}
 
-	sde_evtlog_dump_all(sde_dbg_base.evtlog);
+	if (dump_all)
+		sde_evtlog_dump_all(sde_dbg_base.evtlog);
 
 	if (dump_dbgbus_sde)
 		_sde_dbg_dump_sde_dbg_bus(&sde_dbg_base.dbgbus_sde);
@@ -1484,7 +1491,8 @@ static void _sde_dump_work(struct work_struct *work)
 		ARRAY_SIZE(sde_dbg_base.req_dump_blks),
 		sde_dbg_base.work_panic, "evtlog_workitem",
 		sde_dbg_base.dbgbus_sde.cmn.include_in_deferred_work,
-		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work);
+		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work,
+		sde_dbg_base.dump_all);
 }
 
 void sde_dbg_dump(bool queue_work, const char *name, ...)
@@ -1493,6 +1501,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 	bool do_panic = false;
 	bool dump_dbgbus_sde = false;
 	bool dump_dbgbus_vbif_rt = false;
+	bool dump_all = false;
 	va_list args;
 	char *blk_name = NULL;
 	struct sde_dbg_reg_base *blk_base = NULL;
@@ -1510,6 +1519,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 
 	memset(sde_dbg_base.req_dump_blks, 0,
 			sizeof(sde_dbg_base.req_dump_blks));
+	sde_dbg_base.dump_all = false;
 
 	va_start(args, name);
 	i = 0;
@@ -1531,6 +1541,8 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 						blk_name);
 			}
 		}
+		if (!strcmp(blk_name, "all"))
+			dump_all = true;
 
 		if (!strcmp(blk_name, "dbg_bus"))
 			dump_dbgbus_sde = true;
@@ -1550,11 +1562,51 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 				dump_dbgbus_sde;
 		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work =
 				dump_dbgbus_vbif_rt;
+		sde_dbg_base.dump_all = dump_all;
 		schedule_work(&sde_dbg_base.dump_work);
 	} else {
 		_sde_dump_array(blk_arr, blk_len, do_panic, name,
-				dump_dbgbus_sde, dump_dbgbus_vbif_rt);
+				dump_dbgbus_sde, dump_dbgbus_vbif_rt, dump_all);
 	}
+}
+
+void sde_dbg_ctrl(const char *name, ...)
+{
+	int i = 0;
+	va_list args;
+	char *blk_name = NULL;
+
+
+	/* no debugfs controlled events are enabled, just return */
+	if (!sde_dbg_base.debugfs_ctrl)
+		return;
+
+	va_start(args, name);
+
+	while ((blk_name = va_arg(args, char*))) {
+		if (i++ >= SDE_EVTLOG_MAX_DATA) {
+			pr_err("could not parse all dbg arguments\n");
+			break;
+		}
+
+		if (IS_ERR_OR_NULL(blk_name))
+			break;
+
+		if (!strcmp(blk_name, "stop_ftrace") &&
+				sde_dbg_base.debugfs_ctrl &
+				DBG_CTRL_STOP_FTRACE) {
+			pr_debug("tracing off\n");
+			tracing_off();
+		}
+
+		if (!strcmp(blk_name, "panic_underrun") &&
+				sde_dbg_base.debugfs_ctrl &
+				DBG_CTRL_PANIC_UNDERRUN) {
+			pr_debug("panic underrun\n");
+			panic("underrun");
+		}
+	}
+
 }
 
 /*
@@ -1564,6 +1616,9 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
  */
 static int sde_dbg_debugfs_open(struct inode *inode, struct file *file)
 {
+	if (!inode || !file)
+		return -EINVAL;
+
 	/* non-seekable */
 	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
 	file->private_data = inode->i_private;
@@ -1583,8 +1638,11 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 	ssize_t len = 0;
 	char evtlog_buf[SDE_EVTLOG_BUF_MAX];
 
+	if (!buff || !ppos)
+		return -EINVAL;
+
 	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog, evtlog_buf,
-			SDE_EVTLOG_BUF_MAX);
+			SDE_EVTLOG_BUF_MAX, true);
 	if (copy_to_user(buff, evtlog_buf, len))
 		return -EFAULT;
 	*ppos += len;
@@ -1619,6 +1677,82 @@ static const struct file_operations sde_evtlog_fops = {
 	.open = sde_dbg_debugfs_open,
 	.read = sde_evtlog_dump_read,
 	.write = sde_evtlog_dump_write,
+};
+
+/**
+ * sde_dbg_ctrl_read - debugfs read handler for debug ctrl read
+ * @file: file handler
+ * @buff: user buffer content for debugfs
+ * @count: size of user buffer
+ * @ppos: position offset of user buffer
+ */
+static ssize_t sde_dbg_ctrl_read(struct file *file, char __user *buff,
+		size_t count, loff_t *ppos)
+{
+	ssize_t len = 0;
+	char buf[24] = {'\0'};
+
+	if (!buff || !ppos)
+		return -EINVAL;
+
+	if (*ppos)
+		return 0;	/* the end */
+
+	len = snprintf(buf, sizeof(buf), "0x%x\n", sde_dbg_base.debugfs_ctrl);
+	pr_debug("%s: ctrl:0x%x len:0x%zx\n",
+		__func__, sde_dbg_base.debugfs_ctrl, len);
+
+	if ((count < sizeof(buf)) || copy_to_user(buff, buf, len)) {
+		pr_err("error copying the buffer! count:0x%zx\n", count);
+		return -EFAULT;
+	}
+
+	*ppos += len;	/* increase offset */
+	return len;
+}
+
+/**
+ * sde_dbg_ctrl_write - debugfs read handler for debug ctrl write
+ * @file: file handler
+ * @user_buf: user buffer content from debugfs
+ * @count: size of user buffer
+ * @ppos: position offset of user buffer
+ */
+static ssize_t sde_dbg_ctrl_write(struct file *file,
+	const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	u32 dbg_ctrl = 0;
+	char buf[24];
+
+	if (!file) {
+		pr_err("DbgDbg: %s: error no file --\n", __func__);
+		return -EINVAL;
+	}
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0; /* end of string */
+
+	if (kstrtouint(buf, 0, &dbg_ctrl)) {
+		pr_err("%s: error in the number of bytes\n", __func__);
+		return -EFAULT;
+	}
+
+	pr_debug("dbg_ctrl_read:0x%x\n", dbg_ctrl);
+	sde_dbg_base.debugfs_ctrl = dbg_ctrl;
+
+	return count;
+}
+
+static const struct file_operations sde_dbg_ctrl_fops = {
+	.open = sde_dbg_debugfs_open,
+	.read = sde_dbg_ctrl_read,
+	.write = sde_dbg_ctrl_write,
 };
 
 void sde_dbg_init_dbg_buses(u32 hwversion)
@@ -1695,6 +1829,8 @@ int sde_dbg_init(struct dentry *debugfs_root, struct device *dev,
 	for (i = 0; i < SDE_EVTLOG_ENTRY; i++)
 		sde_dbg_base.evtlog->logs[i].counter = i;
 
+	debugfs_create_file("dbg_ctrl", 0600, sde_dbg_base.root, NULL,
+			&sde_dbg_ctrl_fops);
 	debugfs_create_file("dump", 0600, sde_dbg_base.root, NULL,
 						&sde_evtlog_fops);
 	debugfs_create_u32("enable", 0600, sde_dbg_base.root,
@@ -1736,7 +1872,14 @@ void sde_dbg_destroy(void)
  */
 static int sde_dbg_reg_base_release(struct inode *inode, struct file *file)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
+
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
+	if (!dbg)
+		return -ENODEV;
 
 	mutex_lock(&sde_dbg_base.mutex);
 	if (dbg && dbg->buf) {
@@ -1760,12 +1903,16 @@ static int sde_dbg_reg_base_release(struct inode *inode, struct file *file)
 static ssize_t sde_dbg_reg_base_offset_write(struct file *file,
 		const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
 	u32 off = 0;
 	u32 cnt = DEFAULT_BASE_REG_CNT;
 	char buf[24];
 	ssize_t rc = count;
 
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
 	if (!dbg)
 		return -ENODEV;
 
@@ -1799,6 +1946,9 @@ static ssize_t sde_dbg_reg_base_offset_write(struct file *file,
 		goto exit;
 	}
 
+	if (cnt == 0)
+		return -EINVAL;
+
 	dbg->off = off;
 	dbg->cnt = cnt;
 
@@ -1819,17 +1969,29 @@ exit:
 static ssize_t sde_dbg_reg_base_offset_read(struct file *file,
 			char __user *buff, size_t count, loff_t *ppos)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
 	int len = 0;
 	char buf[24] = {'\0'};
 
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
 	if (!dbg)
 		return -ENODEV;
+
+	if (!ppos)
+		return -EINVAL;
 
 	if (*ppos)
 		return 0;	/* the end */
 
 	mutex_lock(&sde_dbg_base.mutex);
+	if (dbg->off % sizeof(u32)) {
+		mutex_unlock(&sde_dbg_base.mutex);
+		return -EFAULT;
+	}
+
 	len = snprintf(buf, sizeof(buf), "0x%08zx %zx\n", dbg->off, dbg->cnt);
 	if (len < 0 || len >= sizeof(buf)) {
 		mutex_unlock(&sde_dbg_base.mutex);
@@ -1857,11 +2019,15 @@ static ssize_t sde_dbg_reg_base_offset_read(struct file *file,
 static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 		const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
 	size_t off;
 	u32 data, cnt;
 	char buf[24];
 
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
 	if (!dbg)
 		return -ENODEV;
 
@@ -1907,13 +2073,20 @@ static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 			char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct sde_dbg_reg_base *dbg = file->private_data;
+	struct sde_dbg_reg_base *dbg;
 	size_t len;
 
+	if (!file)
+		return -EINVAL;
+
+	dbg = file->private_data;
 	if (!dbg) {
 		pr_err("invalid handle\n");
 		return -ENODEV;
 	}
+
+	if (!ppos)
+		return -EINVAL;
 
 	mutex_lock(&sde_dbg_base.mutex);
 	if (!dbg->buf) {
