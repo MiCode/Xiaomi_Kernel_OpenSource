@@ -353,7 +353,7 @@ static int xhci_plat_resume(struct device *dev)
 
 	dev_dbg(dev, "xhci-plat PM resume\n");
 
-	return xhci_resume(xhci, false);
+	return (!hcd_to_bus(hcd)->skip_resume) ? xhci_resume(xhci, false) : 0;
 }
 #endif
 
