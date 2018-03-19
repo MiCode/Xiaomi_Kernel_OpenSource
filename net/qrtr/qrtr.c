@@ -1078,7 +1078,7 @@ static int qrtr_addr_doit(struct sk_buff *skb, struct nlmsghdr *nlh,
 	struct ifaddrmsg *ifm;
 	int rc;
 
-	if (!netlink_capable(skb, CAP_NET_ADMIN) ||
+	if (!netlink_capable(skb, CAP_NET_ADMIN) &&
 	    !netlink_capable(skb, CAP_NET_BIND_SERVICE))
 		return -EPERM;
 
