@@ -53,6 +53,11 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define MAX_BUFFER_SIZE			(320)
 #define WAKEUP_SRC_TIMEOUT		(2000)
 #define MAX_RETRY_COUNT			3
+#define NCI_RESET_CMD_LEN		4
+#define NCI_INIT_CMD_LEN		3
+#define NCI_RESET_RSP_LEN		6
+#define NCI_INIT_RSP_LEN		28
+
 
 struct nqx_dev {
 	wait_queue_head_t	read_wq;
@@ -540,6 +545,18 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		usleep_range(10000, 10100);
 		gpio_set_value(nqx_dev->en_gpio, 1);
 		usleep_range(10000, 10100);
+	} else if (arg == 4) {
+		/*
+		 * Setting firmware download gpio to HIGH for SN100U
+		 * FW download usecase
+		 */
+		dev_dbg(&nqx_dev->client->dev, "SN100 fw gpio control block\n");
+		if (gpio_is_valid(nqx_dev->firm_gpio)) {
+			gpio_set_value(nqx_dev->firm_gpio, 1);
+			usleep_range(10000, 10100);
+		} else
+			dev_err(&nqx_dev->client->dev,
+				"firm_gpio is invalid\n");
 	} else {
 		r = -ENOIOCTLCMD;
 	}
@@ -659,12 +676,36 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 {
 	int ret = 0;
 
-	unsigned char raw_nci_reset_cmd[] =  {0x20, 0x00, 0x01, 0x00};
-	unsigned char raw_nci_init_cmd[] =   {0x20, 0x01, 0x00};
-	unsigned char nci_init_rsp[28];
-	unsigned char nci_reset_rsp[6];
 	unsigned char init_rsp_len = 0;
 	unsigned int enable_gpio = nqx_dev->en_gpio;
+	char *nci_reset_cmd = NULL;
+	char *nci_init_cmd = NULL;
+	char *nci_init_rsp = NULL;
+	char *nci_reset_rsp = NULL;
+
+	nci_reset_cmd = kzalloc(NCI_RESET_CMD_LEN + 1, GFP_DMA | GFP_KERNEL);
+	if (!nci_reset_cmd) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	nci_reset_rsp = kzalloc(NCI_RESET_RSP_LEN + 1,  GFP_DMA | GFP_KERNEL);
+	if (!nci_reset_rsp) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	nci_init_cmd = kzalloc(NCI_INIT_CMD_LEN + 1,  GFP_DMA | GFP_KERNEL);
+	if (!nci_init_cmd) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	nci_init_rsp = kzalloc(NCI_INIT_RSP_LEN + 1,  GFP_DMA | GFP_KERNEL);
+	if (!nci_init_rsp) {
+		ret = -ENOMEM;
+		goto done;
+	}
 
 	/* making sure that the NFCC starts in a clean state. */
 	gpio_set_value(enable_gpio, 0);/* ULPM: Disable */
@@ -674,9 +715,12 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	/* hardware dependent delay */
 	usleep_range(10000, 10100);
 
+	nci_reset_cmd[0] = 0x20;
+	nci_reset_cmd[1] = 0x00;
+	nci_reset_cmd[2] = 0x01;
+	nci_reset_cmd[3] = 0x00;
 	/* send NCI CORE RESET CMD with Keep Config parameters */
-	ret = i2c_master_send(client, raw_nci_reset_cmd,
-						sizeof(raw_nci_reset_cmd));
+	ret = i2c_master_send(client, nci_reset_cmd, NCI_RESET_CMD_LEN);
 	if (ret < 0) {
 		dev_err(&client->dev,
 		"%s: - i2c_master_send Error\n", __func__);
@@ -686,15 +730,16 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	msleep(30);
 
 	/* Read Response of RESET command */
-	ret = i2c_master_recv(client, nci_reset_rsp,
-		sizeof(nci_reset_rsp));
+	ret = i2c_master_recv(client, nci_reset_rsp, NCI_RESET_RSP_LEN);
 	if (ret < 0) {
 		dev_err(&client->dev,
 		"%s: - i2c_master_recv Error\n", __func__);
 		goto err_nfcc_hw_check;
 	}
-	ret = nqx_standby_write(nqx_dev, raw_nci_init_cmd,
-				sizeof(raw_nci_init_cmd));
+	nci_init_cmd[0] = 0x20;
+	nci_init_cmd[1] = 0x01;
+	nci_init_cmd[2] = 0x00;
+	ret = nqx_standby_write(nqx_dev, nci_init_cmd, NCI_INIT_CMD_LEN);
 	if (ret < 0) {
 		dev_err(&client->dev,
 		"%s: - i2c_master_send Error\n", __func__);
@@ -703,8 +748,7 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	/* hardware dependent delay */
 	msleep(30);
 	/* Read Response of INIT command */
-	ret = i2c_master_recv(client, nci_init_rsp,
-		sizeof(nci_init_rsp));
+	ret = i2c_master_recv(client, nci_init_rsp, NCI_INIT_RSP_LEN);
 	if (ret < 0) {
 		dev_err(&client->dev,
 		"%s: - i2c_master_recv Error\n", __func__);
@@ -775,7 +819,13 @@ err_nfcc_hw_check:
 	ret = -ENXIO;
 	dev_err(&client->dev,
 		"%s: - NFCC HW not available\n", __func__);
+
 done:
+	kfree(nci_reset_rsp);
+	kfree(nci_init_rsp);
+	kfree(nci_init_cmd);
+	kfree(nci_reset_cmd);
+
 	return ret;
 }
 
