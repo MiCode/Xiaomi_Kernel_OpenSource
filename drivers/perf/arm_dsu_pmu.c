@@ -591,6 +591,7 @@ static int dsu_pmu_event_init(struct perf_event *event)
 		return -EINVAL;
 
 	event->hw.config_base = event->attr.config;
+	event->readable_on_cpus = CPU_MASK_ALL;
 	return 0;
 }
 
