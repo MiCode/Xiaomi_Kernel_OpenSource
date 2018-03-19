@@ -43,6 +43,8 @@ struct msm_buf_mngr_info32_t {
 #define VIDIOC_MSM_BUF_MNGR_FLUSH32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 39, struct msm_buf_mngr_info32_t)
 
+#define VIDIOC_MSM_BUF_MNGR_BUF_ERROR32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 41, struct msm_buf_mngr_info32_t)
 #endif
 
 #endif
