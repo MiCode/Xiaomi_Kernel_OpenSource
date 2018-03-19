@@ -32,3 +32,58 @@
 		/delete-property/ qcom,mipi-csi-vdd-supply;
 	};
 };
+
+&energy_costs {
+	compatible = "sched-energy";
+
+	CPU_COST_0: core-cost0 {
+		busy-cost-data = <
+			8000000	137
+			1001600	165
+			1305600	207
+			1497600	256
+			1708800	327
+			1958400	445
+		>;
+		idle-cost-data = <
+			100 80 60 40
+		>;
+	};
+	CPU_COST_1: core-cost1 {
+		busy-cost-data = <
+			8000000	45
+			1001600	56
+			1171200	71
+			1305600	89
+			1459200	120
+		>;
+		idle-cost-data = <
+			40 20 10 8
+		>;
+	};
+	CLUSTER_COST_0: cluster-cost0 {
+			busy-cost-data = <
+			8000000	49
+			1001600	53
+			1305600	61
+			1497600	71
+			1708800	85
+			1958400	110
+		>;
+		idle-cost-data = <
+			4 3 2 1
+		>;
+	};
+	CLUSTER_COST_1: cluster-cost1 {
+			busy-cost-data = <
+			8000000	9
+			1001600	10
+			1171200	13
+			1305600	15
+			1459200	20
+		>;
+		idle-cost-data = <
+			4 3 2 1
+		>;
+	};
+};
