@@ -69,6 +69,8 @@ static void dspp_igc_install_property(struct drm_crtc *crtc);
 
 static void dspp_hist_install_property(struct drm_crtc *crtc);
 
+static void dspp_dither_install_property(struct drm_crtc *crtc);
+
 typedef void (*dspp_prop_install_func_t)(struct drm_crtc *crtc);
 
 static dspp_prop_install_func_t dspp_prop_install_func[SDE_DSPP_MAX];
@@ -98,6 +100,7 @@ do { \
 	func[SDE_DSPP_GC] = dspp_gc_install_property; \
 	func[SDE_DSPP_IGC] = dspp_igc_install_property; \
 	func[SDE_DSPP_HIST] = dspp_hist_install_property; \
+	func[SDE_DSPP_DITHER] = dspp_dither_install_property; \
 } while (0)
 
 typedef void (*lm_prop_install_func_t)(struct drm_crtc *crtc);
@@ -733,6 +736,13 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 				continue;
 			}
 			hw_lm->ops.setup_gc(hw_lm, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_DITHER:
+			if (!hw_dspp || !hw_dspp->ops.setup_pa_dither) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_pa_dither(hw_dspp, &hw_cfg);
 			break;
 		case SDE_CP_CRTC_DSPP_HIST_CTRL:
 			if (!hw_dspp || !hw_dspp->ops.setup_histogram) {
@@ -1489,6 +1499,31 @@ static void dspp_hist_install_property(struct drm_crtc *crtc)
 			ARRAY_SIZE(sde_hist_modes), "SDE_DSPP_HIST_CTRL_V1");
 		sde_cp_crtc_install_range_property(crtc, "SDE_DSPP_HIST_IRQ_V1",
 			SDE_CP_CRTC_DSPP_HIST_IRQ, 0, U16_MAX, 0);
+		break;
+	default:
+		DRM_ERROR("version %d not supported\n", version);
+		break;
+	}
+}
+
+static void dspp_dither_install_property(struct drm_crtc *crtc)
+{
+	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
+	u32 version;
+
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+
+	version = catalog->dspp[0].sblk->dither.version >> 16;
+	snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+		"SDE_DSPP_PA_DITHER_V", version);
+	switch (version) {
+	case 1:
+		sde_cp_crtc_install_blob_property(crtc, feature_name,
+			SDE_CP_CRTC_DSPP_DITHER,
+			sizeof(struct drm_msm_pa_dither));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);

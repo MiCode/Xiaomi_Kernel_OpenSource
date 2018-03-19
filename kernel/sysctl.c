@@ -316,7 +316,46 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &zero,
 		.extra2		= &sysctl_sched_group_upmigrate_pct,
 	},
+	{
+		.procname	= "sched_boost",
+		.data		= &sysctl_sched_boost,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_boost_handler,
+		.extra1         = &zero,
+		.extra2		= &three,
+	},
+	{
+		.procname	= "sched_walt_rotate_big_tasks",
+		.data		= &sysctl_sched_walt_rotate_big_tasks,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one,
+	},
+	{
+		.procname	= "sched_initial_task_util",
+		.data		= &sysctl_sched_init_task_load_pct,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
 #endif
+	{
+		.procname	= "sched_upmigrate",
+		.data		= &sysctl_sched_capacity_margin,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_updown_migrate_handler,
+	},
+	{
+		.procname	= "sched_downmigrate",
+		.data		= &sysctl_sched_capacity_margin_down,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_updown_migrate_handler,
+	},
 #ifdef CONFIG_SCHED_DEBUG
 	{
 		.procname	= "sched_min_granularity_ns",
@@ -358,32 +397,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
-	{
-		.procname	= "sched_boost",
-		.data		= &sysctl_sched_boost,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= sched_boost_handler,
-		.extra1         = &zero,
-		.extra2		= &three,
-	},
-	{
-		.procname	= "sched_walt_rotate_big_tasks",
-		.data		= &sysctl_sched_walt_rotate_big_tasks,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= &zero,
-		.extra2		= &one,
-	},
 #endif
-	{
-		.procname	= "sched_initial_task_util",
-		.data		= &sysctl_sched_initial_task_util,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
 	{
 		.procname	= "sched_cstate_aware",
 		.data		= &sysctl_sched_cstate_aware,
@@ -399,20 +413,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= sched_proc_update_handler,
 		.extra1		= &min_wakeup_granularity_ns,
 		.extra2		= &max_wakeup_granularity_ns,
-	},
-	{
-		.procname	= "sched_upmigrate",
-		.data		= &sysctl_sched_capacity_margin,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= sched_updown_migrate_handler,
-	},
-	{
-		.procname	= "sched_downmigrate",
-		.data		= &sysctl_sched_capacity_margin_down,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= sched_updown_migrate_handler,
 	},
 #ifdef CONFIG_SMP
 	{

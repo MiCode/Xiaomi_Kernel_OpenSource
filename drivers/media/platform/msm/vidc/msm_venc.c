@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,6 +162,15 @@ static const char *const iframe_sizes[] = {
 	"Medium",
 	"Huge",
 	"Unlimited"
+};
+
+static const char *const mpeg_video_stream_format[] = {
+	"NAL Format Start Codes",
+	"NAL Format One NAL Per Buffer",
+	"NAL Format One Byte Length",
+	"NAL Format Two Byte Length",
+	"NAL Format Four Byte Length",
+	NULL
 };
 
 static struct msm_vidc_ctrl msm_venc_ctrls[] = {
@@ -675,7 +684,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_ROI_QP,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -695,7 +704,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_LTR) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS)|
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP)|
+			(1UL << V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 	},
@@ -1196,7 +1206,22 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.qmenu = NULL,
 	},
-
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT,
+		.name = "NAL Format",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_ONE_NAL_PER_BUFFER) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_ONE_BYTE_LENGTH) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_TWO_BYTE_LENGTH) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH)
+		),
+		.qmenu = mpeg_video_stream_format,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1357,6 +1382,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_vui_timing_info vui_timing_info = {0};
 	enum hal_iframesize_type iframesize_type = HAL_IFRAMESIZE_TYPE_DEFAULT;
 	u32 color_primaries, custom_matrix;
+	struct hal_nal_stream_format_select stream_format;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1803,6 +1829,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		case V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO:
 		case V4L2_MPEG_VIDC_EXTRADATA_LTR:
+		case V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP:
 		case V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI:
 			inst->bufq[CAPTURE_PORT].num_planes = 2;
 			break;
@@ -2207,6 +2234,13 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		vui_timing_info.enable = 1;
 		vui_timing_info.fixed_frame_rate = cfr;
 		vui_timing_info.time_scale = NSEC_PER_SEC;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
+	{
+		property_id = HAL_PARAM_NAL_STREAM_FORMAT_SELECT;
+		stream_format.nal_stream_format_select = BIT(ctrl->val);
+		pdata = &stream_format;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_LTRMODE:
