@@ -25,6 +25,7 @@
 #include <linux/sched_energy.h>
 
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
+DEFINE_PER_CPU(unsigned long, efficiency) = SCHED_CAPACITY_SCALE;
 
 void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 			 unsigned long max_freq)
@@ -362,6 +363,7 @@ bool __init topology_parse_cpu_capacity(struct device_node *cpu_node, int cpu)
 	ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
 				   &cpu_capacity);
 	if (!ret) {
+		per_cpu(efficiency, cpu) = cpu_capacity;
 		if (!raw_capacity) {
 			raw_capacity = kcalloc(num_possible_cpus(),
 					       sizeof(*raw_capacity),
