@@ -28,6 +28,15 @@
 	qcom,msm-id = <246 0x0>;
 };
 
+&ion {
+	/delete-node/ qcom,ion-heap@25;
+
+	system_heap: qcom,ion-heap@25 {
+		reg = <25>;
+		qcom,ion-heap-type = "SYSTEM";
+	};
+};
+
 &reserved_memory {
 	modem_mem: modem_region@88800000 {
 		compatible = "removed-dma-pool";
@@ -47,11 +56,6 @@
 		reusable;
 		alignment = <0 0x100000>;
 		size = <0 0x400000>;
-	};
-
-	ion_system: ion_system_region@ff000000 {
-		reg = <0 0xff000000 0 0x00400000>;
-		label = "ion_system_mem";
 	};
 };
 
