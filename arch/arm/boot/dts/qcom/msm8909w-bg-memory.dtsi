@@ -22,3 +22,14 @@
 &peripheral_mem {
 	reg = <0x0 0x8d200000 0x0 0x0600000>;
 };
+
+&reserved_mem {
+	linux,cma {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0 0x00000000 0 0xa0000000>;
+		reusable;
+		alignment = <0 0x400000>;
+		size = <0 0x1000000>;
+		linux,cma-default;
+	};
+};
