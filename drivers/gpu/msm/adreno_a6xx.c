@@ -69,6 +69,7 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a615, a615_gbif },
 	{ adreno_is_a640, a640_gbif },
 	{ adreno_is_a680, a640_gbif },
+	{ adreno_is_a608, a615_gbif },
 };
 
 struct kgsl_hwcg_reg {
@@ -301,6 +302,58 @@ static const struct kgsl_hwcg_reg a640_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_HYST_GMU_GX, 0x00000555},
 };
 
+static const struct kgsl_hwcg_reg a608_hwcg_regs[] = {
+	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
+	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x0000F3CF},
+	{A6XX_RBBM_CLOCK_HYST_SP0, 0x00000081},
+	{A6XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL4_TP0, 0x00022222},
+	{A6XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY3_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY4_TP0, 0x00011111},
+	{A6XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST4_TP0, 0x00077777},
+	{A6XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_RB0, 0x01202222},
+	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002220},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU0, 0x00040F00},
+	{A6XX_RBBM_CLOCK_CNTL_RAC, 0x05522022},
+	{A6XX_RBBM_CLOCK_CNTL2_RAC, 0x00005555},
+	{A6XX_RBBM_CLOCK_DELAY_RAC, 0x00000011},
+	{A6XX_RBBM_CLOCK_HYST_RAC, 0x00445044},
+	{A6XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
+	{A6XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
+	{A6XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
+	{A6XX_RBBM_CLOCK_DELAY_HLSQ_2, 0x00000002},
+	{A6XX_RBBM_CLOCK_MODE_HLSQ, 0x00002222},
+	{A6XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
+	{A6XX_RBBM_CLOCK_DELAY_VFD, 0x00002222},
+	{A6XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
+	{A6XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
+	{A6XX_RBBM_CLOCK_HYST_HLSQ, 0x00000000},
+	{A6XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
+	{A6XX_RBBM_CLOCK_HYST_UCHE, 0x00000004},
+	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
+	{A6XX_RBBM_ISDB_CNT, 0x00000182},
+	{A6XX_RBBM_RAC_THRESHOLD_CNT, 0x00000000},
+	{A6XX_RBBM_SP_HYST_CNT, 0x00000000},
+	{A6XX_RBBM_CLOCK_CNTL_GMU_GX, 0x00000222},
+	{A6XX_RBBM_CLOCK_DELAY_GMU_GX, 0x00000111},
+	{A6XX_RBBM_CLOCK_HYST_GMU_GX, 0x00000555},
+};
+
 static const struct {
 	int (*devfunc)(struct adreno_device *adreno_dev);
 	const struct kgsl_hwcg_reg *regs;
@@ -310,6 +363,7 @@ static const struct {
 	{adreno_is_a615, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
 	{adreno_is_a640, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a680, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
+	{adreno_is_a608, a608_hwcg_regs, ARRAY_SIZE(a608_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -545,6 +599,8 @@ __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a630(adreno_dev))
 		return 0x8AA8AA02;
+	else if (adreno_is_a608(adreno_dev))
+		return 0xAAA8AA82;
 	else
 		return 0x8AA8AA82;
 }
@@ -552,7 +608,9 @@ __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 static inline unsigned int
 __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a608(adreno_dev))
+		return 0x00000022;
+	else if (adreno_is_a615(adreno_dev))
 		return 0x00000222;
 	else
 		return 0x00020202;
@@ -561,7 +619,9 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 static inline unsigned int
 __get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a608(adreno_dev))
+		return 0x00000011;
+	else if (adreno_is_a615(adreno_dev))
 		return 0x00000111;
 	else
 		return 0x00010111;
@@ -570,7 +630,9 @@ __get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
 static inline unsigned int
 __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a608(adreno_dev))
+		return 0x00000055;
+	else if (adreno_is_a615(adreno_dev))
 		return 0x00000555;
 	else
 		return 0x00005555;
@@ -671,7 +733,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		+ sizeof(a6xx_ifpc_pwrup_reglist), a6xx_pwrup_reglist,
 		sizeof(a6xx_pwrup_reglist));
 
-	if (adreno_is_a615(adreno_dev)) {
+	if (adreno_is_a615(adreno_dev) || adreno_is_a608(adreno_dev)) {
 		for (i = 0; i < ARRAY_SIZE(a615_pwrup_reglist); i++) {
 			r = &a615_pwrup_reglist[i];
 			kgsl_regread(KGSL_DEVICE(adreno_dev),
@@ -744,20 +806,30 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_CACHE_WAYS, 0x4);
 
 	/* ROQ sizes are twice as big on a640/a680 than on a630 */
-	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x02000140);
-	else
+		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
+	} else if (adreno_is_a608(adreno_dev)) {
+		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x800060);
+		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x40201b16);
+	} else {
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_2, 0x010000C0);
-	kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
+		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
+	}
 
-	/* Setting the mem pool size */
-	kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 128);
+	/* For a608 Mem pool size is reduced to 1/4 */
+	if (adreno_is_a608(adreno_dev))
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 32);
+	else
+		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 128);
 
 	/* Setting the primFifo thresholds values */
 	if (adreno_is_a640(adreno_dev))
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x400 << 11));
 	else if (adreno_is_a680(adreno_dev))
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x800 << 11));
+	else if (adreno_is_a608(adreno_dev))
+		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x100 << 11));
 	else
 		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
 
