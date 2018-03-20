@@ -1,0 +1,36 @@
+STM VL53L0X Time-of-Flight ranging and gesture detection sensor driver
+
+Description:
+
+The VL53L0X is a new generation Time-of-Flight
+(ToF) laser-ranging module housed in the
+smallest package on the market today, providing
+accurate distance measurement whatever the
+target reflectances unlike conventional
+technologies. It can measure absolute distances
+up to 2m, setting a new benchmark in ranging
+performance levels, opening the door to various
+new applications.
+The VL53L0X integrates a leading-edge SPAD
+array (Single Photon Avalanche Diodes) and
+embeds ST’s second generation FlightSenseTM
+patented technology.
+The VL53L0X’s 940 nm VCSEL emitter (Vertical
+Cavity Surface-Emitting Laser), is totally invisible
+to the human eye, coupled with internal physical
+infrared filters, it enables longer ranging
+distances, higher immunity to ambient light, and
+better robustness to cover glass optical crosstalk.
+
+Required properties:
+
+ - compatible		: Should be "st,stmvl53l0".
+ - reg			: i2c slave address of the device.
+
+Example:
+	i2c@f9925000 {
+		vl53l0x@52 {
+			compatible = "st,stmvl53l0";
+			reg = <0x52>;
+		};
+	};
