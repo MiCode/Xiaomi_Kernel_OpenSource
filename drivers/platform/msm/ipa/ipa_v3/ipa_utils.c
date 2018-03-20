@@ -1746,6 +1746,97 @@ static struct msm_bus_scale_pdata ipa_bus_client_pdata_v3_0 = {
 	.name = "ipa",
 };
 
+static struct ipa3_mem_partition ipa_4_1_mem_part = {
+	.ofst_start			= 0x280,
+	.nat_ofst			= 0x0,
+	.nat_size			= 0x0,
+	.v4_flt_hash_ofst		= 0x288,
+	.v4_flt_hash_size		=  0x78,
+	.v4_flt_hash_size_ddr		= 0x4000,
+	.v4_flt_nhash_ofst		= 0x308,
+	.v4_flt_nhash_size		= 0x78,
+	.v4_flt_nhash_size_ddr		= 0x4000,
+	.v6_flt_hash_ofst		= 0x388,
+	.v6_flt_hash_size		= 0x78,
+	.v6_flt_hash_size_ddr		= 0x4000,
+	.v6_flt_nhash_ofst		= 0x408,
+	.v6_flt_nhash_size		= 0x78,
+	.v6_flt_nhash_size_ddr		= 0x4000,
+	.v4_rt_num_index		= 0xf,
+	.v4_modem_rt_index_lo		= 0x0,
+	.v4_modem_rt_index_hi		= 0x7,
+	.v4_apps_rt_index_lo		= 0x8,
+	.v4_apps_rt_index_hi		= 0xe,
+	.v4_rt_hash_ofst		= 0x488,
+	.v4_rt_hash_size		= 0x78,
+	.v4_rt_hash_size_ddr		= 0x4000,
+	.v4_rt_nhash_ofst		= 0x508,
+	.v4_rt_nhash_size		= 0x78,
+	.v4_rt_nhash_size_ddr		= 0x4000,
+	.v6_rt_num_index		= 0xf,
+	.v6_modem_rt_index_lo		= 0x0,
+	.v6_modem_rt_index_hi		= 0x7,
+	.v6_apps_rt_index_lo		= 0x8,
+	.v6_apps_rt_index_hi		= 0xe,
+	.v6_rt_hash_ofst		= 0x588,
+	.v6_rt_hash_size		= 0x78,
+	.v6_rt_hash_size_ddr		= 0x4000,
+	.v6_rt_nhash_ofst		= 0x608,
+	.v6_rt_nhash_size		= 0x78,
+	.v6_rt_nhash_size_ddr		= 0x4000,
+	.modem_hdr_ofst			= 0x688,
+	.modem_hdr_size			= 0x140,
+	.apps_hdr_ofst			= 0x7c8,
+	.apps_hdr_size			= 0x0,
+	.apps_hdr_size_ddr		= 0x800,
+	.modem_hdr_proc_ctx_ofst	= 0x7d0,
+	.modem_hdr_proc_ctx_size	= 0x200,
+	.apps_hdr_proc_ctx_ofst		= 0x9d0,
+	.apps_hdr_proc_ctx_size		= 0x200,
+	.apps_hdr_proc_ctx_size_ddr	= 0x0,
+	.modem_comp_decomp_ofst		= 0x0,
+	.modem_comp_decomp_size		= 0x0,
+	.modem_ofst			= 0x13f0,
+	.modem_size			= 0x100c,
+	.apps_v4_flt_hash_ofst		= 0x23fc,
+	.apps_v4_flt_hash_size		= 0x0,
+	.apps_v4_flt_nhash_ofst		= 0x23fc,
+	.apps_v4_flt_nhash_size		= 0x0,
+	.apps_v6_flt_hash_ofst		= 0x23fc,
+	.apps_v6_flt_hash_size		= 0x0,
+	.apps_v6_flt_nhash_ofst		= 0x23fc,
+	.apps_v6_flt_nhash_size		= 0x0,
+	.uc_info_ofst			= 0x80,
+	.uc_info_size			= 0x200,
+	.end_ofst			= 0x2800,
+	.apps_v4_rt_hash_ofst		= 0x23fc,
+	.apps_v4_rt_hash_size		= 0x0,
+	.apps_v4_rt_nhash_ofst		= 0x23fc,
+	.apps_v4_rt_nhash_size		= 0x0,
+	.apps_v6_rt_hash_ofst		= 0x23fc,
+	.apps_v6_rt_hash_size		= 0x0,
+	.apps_v6_rt_nhash_ofst		= 0x23fc,
+	.apps_v6_rt_nhash_size		= 0x0,
+	.uc_event_ring_ofst		= 0x2400,
+	.uc_event_ring_size		= 0x400,
+	.pdn_config_ofst		= 0xbd8,
+	.pdn_config_size		= 0x50,
+	.stats_quota_ofst		= 0xc30,
+	.stats_quota_size		= 0x60,
+	.stats_tethering_ofst		= 0xc90,
+	.stats_tethering_size		= 0x140,
+	.stats_flt_v4_ofst		= 0xdd0,
+	.stats_flt_v4_size		= 0x180,
+	.stats_flt_v6_ofst		= 0xf50,
+	.stats_flt_v6_size		= 0x180,
+	.stats_rt_v4_ofst		= 0x10d0,
+	.stats_rt_v4_size		= 0x180,
+	.stats_rt_v6_ofst		= 0x1250,
+	.stats_rt_v6_size		= 0x180,
+	.stats_drop_ofst		= 0x13d0,
+	.stats_drop_size		= 0x20,
+};
+
 /**
  * ipa3_get_clients_from_rm_resource() - get IPA clients which are related to an
  * IPA_RM resource
@@ -3678,33 +3769,33 @@ int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary)
 }
 
 /**
- * ipa3_init_mem_partition() - Reads IPA memory map from DTS, performs alignment
- * checks and logs the fetched values.
+ * ipa3_init_mem_partition() - Assigns the static memory partition
+ * based on the IPA version
  *
  * Returns:	0 on success
  */
-int ipa3_init_mem_partition(struct device_node *node)
+int ipa3_init_mem_partition(enum ipa_hw_type type)
 {
-	const size_t ram_mmap_current_version_size =
-		sizeof(ipa3_ctx->ctrl->mem_partition) / sizeof(u32);
-	int result;
+	switch (type) {
+	case IPA_HW_v4_1:
+		ipa3_ctx->ctrl->mem_partition = &ipa_4_1_mem_part;
+		break;
 
-	memset(&ipa3_ctx->ctrl->mem_partition, 0,
-		sizeof(ipa3_ctx->ctrl->mem_partition));
-
-	IPADBG("Reading from DTS as u32 array\n");
-
-	/*
-	 * The size of ipa-ram-mmap array depends on the IPA version. The
-	 * actual size can't be assumed because of possible DTS versions
-	 * mismatch. The size of the array monotonically increasing because the
-	 * obsolete entries are set to zero rather than deleted, so the
-	 * possible sizes are in range
-	 *	[1, ram_mmap_current_version_size]
-	 */
-	result = of_property_read_variable_u32_array(node, "qcom,ipa-ram-mmap",
-		(u32 *)&ipa3_ctx->ctrl->mem_partition,
-		1, ram_mmap_current_version_size);
+	case IPA_HW_None:
+	case IPA_HW_v1_0:
+	case IPA_HW_v1_1:
+	case IPA_HW_v2_0:
+	case IPA_HW_v2_1:
+	case IPA_HW_v2_5:
+	case IPA_HW_v2_6L:
+	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
+	case IPA_HW_v3_5:
+	case IPA_HW_v3_5_1:
+	case IPA_HW_v4_0:
+		IPAERR("unsupported version %d\n", type);
+		return -EPERM;
+	}
 
 	if (IPA_MEM_PART(uc_event_ring_ofst) & 1023) {
 		IPAERR("UC EVENT RING OFST 0x%x is unaligned\n",

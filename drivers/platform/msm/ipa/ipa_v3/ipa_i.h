@@ -169,7 +169,7 @@
 	~(IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1))
 
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
-#define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition.x_)
+#define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition->x_)
 
 #define IPA_GSI_CHANNEL_STOP_MAX_RETRY 10
 #define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
@@ -1657,7 +1657,7 @@ struct ipa3_mem_partition {
 };
 
 struct ipa3_controller {
-	struct ipa3_mem_partition mem_partition;
+	struct ipa3_mem_partition *mem_partition;
 	u32 ipa_clk_rate_turbo;
 	u32 ipa_clk_rate_nominal;
 	u32 ipa_clk_rate_svs;
@@ -2092,7 +2092,7 @@ void ipa3_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
 #else
 #define IPA_DUMP_BUFF(base, phy_base, size)
 #endif
-int ipa3_init_mem_partition(struct device_node *dev_node);
+int ipa3_init_mem_partition(enum ipa_hw_type ipa_hw_type);
 int ipa3_controller_static_bind(struct ipa3_controller *controller,
 		enum ipa_hw_type ipa_hw_type);
 int ipa3_cfg_route(struct ipahal_reg_route *route);

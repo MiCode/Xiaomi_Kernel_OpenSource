@@ -4929,7 +4929,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_bind;
 	}
 
-	result = ipa3_init_mem_partition(master_dev->of_node);
+	result = ipa3_init_mem_partition(ipa3_ctx->ipa_hw_type);
 	if (result) {
 		IPAERR(":ipa3_init_mem_partition failed\n");
 		result = -ENODEV;
