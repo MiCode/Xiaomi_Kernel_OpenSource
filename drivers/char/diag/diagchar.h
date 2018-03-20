@@ -402,6 +402,11 @@ struct diag_logging_mode_param_t {
 	uint8_t mode_param;
 } __packed;
 
+struct diag_con_all_param_t {
+	uint32_t diag_con_all;
+	uint32_t num_peripherals;
+};
+
 struct diag_md_session_t {
 	int pid;
 	int peripheral_mask;
