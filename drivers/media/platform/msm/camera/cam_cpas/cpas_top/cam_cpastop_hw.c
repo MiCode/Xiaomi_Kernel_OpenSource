@@ -21,6 +21,8 @@
 #include "cam_cpas_soc.h"
 #include "cpastop100.h"
 #include "cpastop_v170_110.h"
+#include "cpastop_v175_100.h"
+#include "cpastop_v175_101.h"
 
 struct cam_camnoc_info *camnoc_info;
 
@@ -577,30 +579,40 @@ static int cam_cpastop_poweroff(struct cam_hw_info *cpas_hw)
 static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 	struct cam_cpas_hw_caps *hw_caps)
 {
-	if ((hw_caps->camera_version.major == 1) &&
-		(hw_caps->camera_version.minor == 7) &&
-		(hw_caps->camera_version.incr == 0)) {
-		if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 0) &&
-			(hw_caps->cpas_version.incr == 0)) {
-			camnoc_info = &cam170_cpas100_camnoc_info;
-		} else if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 1) &&
-			(hw_caps->cpas_version.incr == 0)) {
-			camnoc_info = &cam170_cpas110_camnoc_info;
-		} else {
-			CAM_ERR(CAM_CPAS, "CPAS Version not supported %d.%d.%d",
-				hw_caps->cpas_version.major,
-				hw_caps->cpas_version.minor,
-				hw_caps->cpas_version.incr);
-			return -EINVAL;
-		}
-	} else {
+	int rc = 0;
+	struct cam_cpas_private_soc *soc_private =
+		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
+
+	CAM_DBG(CAM_CPAS,
+		"hw_version=0x%x Camera Version %d.%d.%d, cpas version %d.%d.%d",
+		soc_private->hw_version,
+		hw_caps->camera_version.major,
+		hw_caps->camera_version.minor,
+		hw_caps->camera_version.incr,
+		hw_caps->cpas_version.major,
+		hw_caps->cpas_version.minor,
+		hw_caps->cpas_version.incr);
+
+	switch (soc_private->hw_version) {
+	case CAM_CPAS_TITAN_170_V100:
+		camnoc_info = &cam170_cpas100_camnoc_info;
+		break;
+	case CAM_CPAS_TITAN_170_V110:
+		camnoc_info = &cam170_cpas110_camnoc_info;
+		break;
+	case CAM_CPAS_TITAN_175_V100:
+		camnoc_info = &cam175_cpas100_camnoc_info;
+		break;
+	case CAM_CPAS_TITAN_175_V101:
+		camnoc_info = &cam175_cpas101_camnoc_info;
+		break;
+	default:
 		CAM_ERR(CAM_CPAS, "Camera Version not supported %d.%d.%d",
 			hw_caps->camera_version.major,
 			hw_caps->camera_version.minor,
 			hw_caps->camera_version.incr);
-		return -EINVAL;
+		rc = -EINVAL;
+		break;
 	}
 
 	return 0;
