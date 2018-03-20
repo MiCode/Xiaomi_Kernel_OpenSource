@@ -4892,7 +4892,8 @@ static inline void __mdss_mdp_mixer_write_layer(struct mdss_mdp_ctl *ctl,
 	u32 off[NUM_MIXERCFG_REGS];
 	int i;
 
-	BUG_ON(!values || count < NUM_MIXERCFG_REGS);
+	if (WARN_ON(!values || count < NUM_MIXERCFG_REGS))
+		return;
 
 	__mdss_mdp_mixer_get_offsets(mixer_num, off, ARRAY_SIZE(off));
 
