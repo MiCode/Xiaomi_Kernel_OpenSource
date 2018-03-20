@@ -16,6 +16,16 @@
 #include "sdm439-audio.dtsi"
 #include "sdm439-pmi632.dtsi"
 
+&pm8953_s5 {
+	regulator-min-microvolt = <1155000>;
+	regulator-max-microvolt = <1350000>;
+};
+
+&pm8953_s5_limit {
+	regulator-min-microvolt = <1155000>;
+	regulator-max-microvolt = <1350000>;
+};
+
 &soc {
 	mem_acc_vreg_corner: regulator@01946004 {
 		compatible = "qcom,mem-acc-regulator";
