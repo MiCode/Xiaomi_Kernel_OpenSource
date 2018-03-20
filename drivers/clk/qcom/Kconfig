@@ -297,3 +297,12 @@ config MSM_GPUCC_SDM855
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	  sdm855 devices.
 	  Say Y if you want to support graphics controller devices.
+
+config MSM_GCC_SDMSHRIKE
+	tristate "SDMSHRIKE Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SDMSHRIKE devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, i2c,
+	  USB, UFS, SD/eMMC, PCIe, etc.
