@@ -5515,7 +5515,11 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 	pdev = container_of(dev, struct platform_device, dev);
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
-	data->tcu_base = devm_ioremap_resource(dev, res);
+	if (!res) {
+		dev_err(dev, "Unable to get the tcu-base\n");
+		return -EINVAL;
+	}
+	data->tcu_base = devm_ioremap(dev, res->start, resource_size(res));
 	if (IS_ERR(data->tcu_base))
 		return PTR_ERR(data->tcu_base);
 
