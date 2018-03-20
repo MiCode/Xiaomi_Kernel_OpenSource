@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include "sde_reg_dma.h"
 #include "sde_hw_reg_dma_v1.h"
 #include "sde_dbg.h"
