@@ -23,6 +23,7 @@
 #include <dt-bindings/clock/qcom,videocc-sm6150.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SM6150";
@@ -1613,6 +1614,77 @@
 
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "cdsp-pil";
+	};
+
+	qcom,msm_gsi {
+		compatible = "qcom,msm_gsi";
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa3";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
+		qcom,ipa-napi-enable;
+	};
+
+	ipa_hw: qcom,ipa@1e00000 {
+		compatible = "qcom,ipa";
+		reg = <0x1e00000 0x34000>,
+		      <0x1e04000 0x2c000>;
+		reg-names = "ipa-base", "gsi-base";
+		interrupts = <0 311 0>, <0 432 0>;
+		interrupt-names = "ipa-irq", "gsi-irq";
+		qcom,ipa-hw-ver = <16>; /* IPA core version = IPAv4.2 */
+		qcom,ipa-hw-mode = <1>;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi2;
+		qcom,ipa-fltrt-not-hashable;
+		qcom,use-64-bit-dma-mask;
+		qcom,arm-smmu;
+		qcom,bandwidth-vote-for-ipa;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <5>;
+		qcom,msm-bus,num-paths = <4>;
+		qcom,msm-bus,vectors-KBps =
+		/* No vote */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_EBI_CH0 0 0>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 0 0>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 0 0>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 0>,
+		/* SVS2 */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_EBI_CH0 4400000 8800000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 480000 960000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 80000 160000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 200>,
+		/* SVS */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_EBI_CH0 5520000 11040000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 600000 1200000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 80000 160000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 300>,
+		/* NOMINAL */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_EBI_CH0 5520000 11040000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 800000 1600000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 150000 300000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 400>,
+		/* TURBO */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_EBI_CH0 5520000 11040000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 960000 1920000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 150000 300000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 500>;
+		qcom,bus-vector-names =
+			"MIN", "SVS2", "SVS", "NOMINAL", "TURBO";
+
+	};
+
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_fw_mem>;
 	};
 };
 
