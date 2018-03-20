@@ -312,7 +312,10 @@ static int get_secure_flag_for_buffer_type(
 	case HAL_BUFFER_INTERNAL_SCRATCH_2:
 		return ION_FLAG_CP_PIXEL;
 	case HAL_BUFFER_INTERNAL_PERSIST:
-		return ION_FLAG_CP_BITSTREAM;
+		if (session_type == MSM_VIDC_ENCODER)
+			return ION_FLAG_CP_NON_PIXEL;
+		else
+			return ION_FLAG_CP_BITSTREAM;
 	case HAL_BUFFER_INTERNAL_PERSIST_1:
 		return ION_FLAG_CP_NON_PIXEL;
 	default:
@@ -362,7 +365,9 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 	if (flags & SMEM_CACHED)
 		ion_flags |= ION_FLAG_CACHED;
 
-	if (flags & SMEM_SECURE) {
+	if ((flags & SMEM_SECURE) ||
+		(buffer_type == HAL_BUFFER_INTERNAL_PERSIST &&
+		 session_type == MSM_VIDC_ENCODER)) {
 		int secure_flag =
 			get_secure_flag_for_buffer_type(
 				session_type, buffer_type);
@@ -379,6 +384,7 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 			size = ALIGN(size, SZ_1M);
 			align = ALIGN(size, SZ_1M);
 		}
+		flags |= SMEM_SECURE;
 	}
 
 	trace_msm_smem_buffer_dma_op_start("ALLOC", (u32)buffer_type,
@@ -590,13 +596,16 @@ struct context_bank_info *msm_smem_get_context_bank(u32 session_type,
 	 * HAL_BUFFER_INPUT is directly mapped to bitstream CB in DT
 	 * as the buffer type structure was initially designed
 	 * just for decoder. For Encoder, input should be mapped to
-	 * yuvpixel CB. So swap the buffer types just in this local scope.
+	 * yuvpixel CB. Persist is mapped to nonpixel CB.
+	 * So swap the buffer types just in this local scope.
 	 */
 	if (is_secure && session_type == MSM_VIDC_ENCODER) {
 		if (buffer_type == HAL_BUFFER_INPUT)
 			buffer_type = HAL_BUFFER_OUTPUT;
 		else if (buffer_type == HAL_BUFFER_OUTPUT)
 			buffer_type = HAL_BUFFER_INPUT;
+		else if (buffer_type == HAL_BUFFER_INTERNAL_PERSIST)
+			buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
 	}
 
 	list_for_each_entry(cb, &res->context_banks, list) {
