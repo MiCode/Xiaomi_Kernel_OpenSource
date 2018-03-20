@@ -493,7 +493,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 
 		if (msgs[i].flags & I2C_M_RD) {
 			go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(msgs[i].len);
-			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(0, 0, 0, 1,
+			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(1, 0, 0, 1,
 									0);
 		} else {
 			go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(0);
