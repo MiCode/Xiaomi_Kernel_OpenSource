@@ -190,6 +190,7 @@ static inline void gic_write_bpr1(u32 val)
 }
 
 #define gic_read_typer(c)		readq_relaxed_no_log(c)
+#define gic_read_irouter(c)		readq_relaxed_no_log(c)
 #define gic_write_irouter(v, c)		writeq_relaxed_no_log(v, c)
 
 #endif /* __ASSEMBLY__ */

@@ -42,6 +42,34 @@
 
 #include "irq-gic-common.h"
 
+#define MAX_IRQ			1020U	/* Max number of SGI+PPI+SPI */
+#define SPI_START_IRQ		32	/* SPI start irq number */
+#define GICD_ICFGR_BITS		2	/* 2 bits per irq in GICD_ICFGR */
+#define GICD_ISENABLER_BITS	1	/* 1 bit per irq in GICD_ISENABLER */
+#define GICD_IPRIORITYR_BITS	8	/* 8 bits per irq in GICD_IPRIORITYR */
+
+/* 32 bit mask with lower n bits set */
+#define UMASK_LOW(n)		(~0U >> (32 - (n)))
+
+/* Number of 32-bit words required to store all irqs, for
+ * registers where each word stores configuration for each irq
+ * in bits_per_irq bits.
+ */
+#define NUM_IRQ_WORDS(bits_per_irq)	(DIV_ROUND_UP(MAX_IRQ, \
+						      32 / (bits_per_irq)))
+#define MAX_IRQS_IGNORE		10
+
+#define IRQ_NR_BOUND(nr)	min((nr), MAX_IRQ)
+
+/* Bitmap to irqs, which are restored */
+static DECLARE_BITMAP(irqs_restore, MAX_IRQ);
+
+/* Bitmap to irqs, for which restore is ignored.
+ * Presently, only GICD_IROUTER mismatches are
+ * ignored.
+ */
+static DECLARE_BITMAP(irqs_ignore_restore, MAX_IRQ);
+
 struct redist_region {
 	void __iomem		*redist_base;
 	phys_addr_t		phys_base;
@@ -58,12 +86,74 @@ struct gic_chip_data {
 	u32			nr_redist_regions;
 	unsigned int		irq_nr;
 	struct partition_desc	*ppi_descs[16];
+
+	u64 saved_spi_router[MAX_IRQ];
+	u32 saved_spi_enable[NUM_IRQ_WORDS(GICD_ISENABLER_BITS)];
+	u32 saved_spi_cfg[NUM_IRQ_WORDS(GICD_ICFGR_BITS)];
+	u32 saved_spi_priority[NUM_IRQ_WORDS(GICD_IPRIORITYR_BITS)];
+
+	u64 changed_spi_router[MAX_IRQ];
+	u32 changed_spi_enable[NUM_IRQ_WORDS(GICD_ISENABLER_BITS)];
+	u32 changed_spi_cfg[NUM_IRQ_WORDS(GICD_ICFGR_BITS)];
+	u32 changed_spi_priority[NUM_IRQ_WORDS(GICD_IPRIORITYR_BITS)];
 };
 
 static struct gic_chip_data gic_data __read_mostly;
 static struct static_key supports_deactivate = STATIC_KEY_INIT_TRUE;
 
 static struct gic_kvm_info gic_v3_kvm_info;
+
+enum gicd_save_restore_reg {
+	SAVED_ICFGR,
+	SAVED_IS_ENABLER,
+	SAVED_IPRIORITYR,
+	NUM_SAVED_GICD_REGS,
+};
+
+/* Stores start address of spi config for saved gicd regs */
+static u32 *saved_spi_regs_start[NUM_SAVED_GICD_REGS] = {
+	[SAVED_ICFGR] = gic_data.saved_spi_cfg,
+	[SAVED_IS_ENABLER] = gic_data.saved_spi_enable,
+	[SAVED_IPRIORITYR] = gic_data.saved_spi_priority,
+};
+
+/* Stores start address of spi config for changed gicd regs */
+static u32 *changed_spi_regs_start[NUM_SAVED_GICD_REGS] = {
+	[SAVED_ICFGR] = gic_data.changed_spi_cfg,
+	[SAVED_IS_ENABLER] = gic_data.changed_spi_enable,
+	[SAVED_IPRIORITYR] = gic_data.changed_spi_priority,
+};
+
+/* GICD offset for saved registers */
+static u32 gicd_offset[NUM_SAVED_GICD_REGS] = {
+	[SAVED_ICFGR] = GICD_ICFGR,
+	[SAVED_IS_ENABLER] = GICD_ISENABLER,
+	[SAVED_IPRIORITYR] = GICD_IPRIORITYR,
+};
+
+/* Bits per irq word, for gicd saved registers */
+static u32 gicd_reg_bits_per_irq[NUM_SAVED_GICD_REGS] = {
+	[SAVED_ICFGR] = GICD_ICFGR_BITS,
+	[SAVED_IS_ENABLER] = GICD_ISENABLER_BITS,
+	[SAVED_IPRIORITYR] = GICD_IPRIORITYR_BITS,
+};
+
+#define for_each_spi_irq_word(i, reg) \
+	for (i = 0; \
+	    i < DIV_ROUND_UP(IRQ_NR_BOUND(gic_data.irq_nr) - SPI_START_IRQ, \
+			     32 / gicd_reg_bits_per_irq[reg]); \
+	    i++)
+
+#define read_spi_word_offset(base, reg, i) \
+	readl_relaxed_no_log(	\
+			base + gicd_offset[reg] + i * 4 +	\
+			SPI_START_IRQ * gicd_reg_bits_per_irq[reg] / 8)
+
+#define restore_spi_word_offset(base, reg, i) \
+	writel_relaxed_no_log(	\
+			saved_spi_regs_start[reg][i],\
+			base + gicd_offset[reg] + i * 4 +	\
+			SPI_START_IRQ * gicd_reg_bits_per_irq[reg] / 8)
 
 #define gic_data_rdist()		(this_cpu_ptr(gic_data.rdists.rdist))
 #define gic_data_rdist_rd_base()	(gic_data_rdist()->rd_base)
@@ -131,6 +221,229 @@ static u64 __maybe_unused gic_read_iar(void)
 		return gic_read_iar_common();
 }
 #endif
+
+void gic_v3_dist_save(void)
+{
+	void __iomem *base = gic_data.dist_base;
+	int reg, i;
+
+	for (reg = SAVED_ICFGR; reg < NUM_SAVED_GICD_REGS; reg++) {
+		for_each_spi_irq_word(i, reg) {
+			saved_spi_regs_start[reg][i] =
+				read_spi_word_offset(base, reg, i);
+		}
+	}
+
+	for (i = 32; i < IRQ_NR_BOUND(gic_data.irq_nr); i++)
+		gic_data.saved_spi_router[i] =
+			gic_read_irouter(base + GICD_IROUTER + i * 8);
+}
+
+static void _gicd_check_reg(enum gicd_save_restore_reg reg)
+{
+	void __iomem *base = gic_data.dist_base;
+	u32 *saved_spi_cfg = saved_spi_regs_start[reg];
+	u32 *changed_spi_cfg = changed_spi_regs_start[reg];
+	u32 bits_per_irq = gicd_reg_bits_per_irq[reg];
+	u32 current_cfg = 0;
+	int i, j = SPI_START_IRQ, l;
+	u32 k;
+
+	for_each_spi_irq_word(i, reg) {
+		current_cfg = read_spi_word_offset(base, reg, i);
+		if (current_cfg != saved_spi_cfg[i]) {
+			for (k = current_cfg ^ saved_spi_cfg[i],
+			     l = 0; k ; k >>= bits_per_irq, l++) {
+				if (k & UMASK_LOW(bits_per_irq))
+					set_bit(j+l, irqs_restore);
+			}
+			changed_spi_cfg[i] = current_cfg ^ saved_spi_cfg[i];
+		}
+		j += 32 / bits_per_irq;
+	}
+}
+
+#define _gic_v3_dist_check_icfgr()	\
+		_gicd_check_reg(SAVED_ICFGR)
+#define _gic_v3_dist_check_ipriorityr()	\
+		_gicd_check_reg(SAVED_IPRIORITYR)
+#define _gic_v3_dist_check_isenabler()	\
+		_gicd_check_reg(SAVED_IS_ENABLER)
+
+static void _gic_v3_dist_check_irouter(void)
+{
+	void __iomem *base = gic_data.dist_base;
+	u64 current_irouter_cfg = 0;
+	int i;
+
+	for (i = 32; i < IRQ_NR_BOUND(gic_data.irq_nr); i++) {
+		if (test_bit(i, irqs_ignore_restore))
+			continue;
+		current_irouter_cfg = gic_read_irouter(
+					base + GICD_IROUTER + i * 8);
+		if (current_irouter_cfg != gic_data.saved_spi_router[i]) {
+			set_bit(i, irqs_restore);
+			gic_data.changed_spi_router[i] =
+			    current_irouter_cfg ^ gic_data.saved_spi_router[i];
+		}
+	}
+}
+
+static void _gic_v3_dist_restore_reg(enum gicd_save_restore_reg reg)
+{
+	void __iomem *base = gic_data.dist_base;
+	int i;
+
+	for_each_spi_irq_word(i, reg) {
+		if (changed_spi_regs_start[reg][i])
+			restore_spi_word_offset(base, reg, i);
+	}
+
+	/* Commit all restored configurations before subsequent writes */
+	wmb();
+}
+
+#define _gic_v3_dist_restore_icfgr()	_gic_v3_dist_restore_reg(SAVED_ICFGR)
+#define _gic_v3_dist_restore_ipriorityr()		\
+		_gic_v3_dist_restore_reg(SAVED_IPRIORITYR)
+
+static void _gic_v3_dist_restore_set_reg(u32 offset)
+{
+	void __iomem *base = gic_data.dist_base;
+	int i, j = SPI_START_IRQ, l;
+	int irq_nr = IRQ_NR_BOUND(gic_data.irq_nr) - SPI_START_IRQ;
+
+	for (i = 0; i < DIV_ROUND_UP(irq_nr, 32); i++, j += 32) {
+		u32 reg_val = readl_relaxed_no_log(base + offset + i * 4 + 4);
+		bool irqs_restore_updated = 0;
+
+		for (l = 0; l < 32; l++) {
+			if (test_bit(j+l, irqs_restore)) {
+				reg_val |= BIT(l);
+				irqs_restore_updated = 1;
+			}
+		}
+
+		if (irqs_restore_updated) {
+			writel_relaxed_no_log(
+				reg_val, base + offset + i * 4 + 4);
+		}
+	}
+
+	/* Commit restored configuration updates before subsequent writes */
+	wmb();
+}
+
+#define _gic_v3_dist_restore_isenabler()		\
+		_gic_v3_dist_restore_set_reg(GICD_ISENABLER)
+
+#define _gic_v3_dist_restore_ispending()		\
+		_gic_v3_dist_restore_set_reg(GICD_ISPENDR)
+
+static void _gic_v3_dist_restore_irouter(void)
+{
+	void __iomem *base = gic_data.dist_base;
+	int i;
+
+	for (i = 32; i < IRQ_NR_BOUND(gic_data.irq_nr); i++) {
+		if (test_bit(i, irqs_ignore_restore))
+			continue;
+		if (gic_data.changed_spi_router[i]) {
+			gic_write_irouter(gic_data.saved_spi_router[i],
+						base + GICD_IROUTER + i * 8);
+		}
+	}
+
+	/* Commit GICD_IROUTER writes before subsequent writes */
+	wmb();
+}
+
+static void _gic_v3_dist_clear_reg(u32 offset)
+{
+	void __iomem *base = gic_data.dist_base;
+	int i, j = SPI_START_IRQ, l;
+	int irq_nr = IRQ_NR_BOUND(gic_data.irq_nr) - SPI_START_IRQ;
+
+	for (i = 0; i < DIV_ROUND_UP(irq_nr, 32); i++, j += 32) {
+		u32 clear = 0;
+		bool irqs_restore_updated = 0;
+
+		for (l = 0; l < 32; l++) {
+			if (test_bit(j+l, irqs_restore)) {
+				clear |= BIT(l);
+				irqs_restore_updated = 1;
+			}
+		}
+
+		if (irqs_restore_updated) {
+			writel_relaxed_no_log(
+				clear, base + offset + i * 4 + 4);
+		}
+	}
+
+	/* Commit clearing of irq config before subsequent writes */
+	wmb();
+}
+
+#define _gic_v3_dist_set_icenabler()		\
+		_gic_v3_dist_clear_reg(GICD_ICENABLER)
+
+#define _gic_v3_dist_set_icpending()		\
+		_gic_v3_dist_clear_reg(GICD_ICPENDR)
+
+#define _gic_v3_dist_set_icactive()		\
+		_gic_v3_dist_clear_reg(GICD_ICACTIVER)
+
+/* Restore GICD state for SPIs. SPI configuration is restored
+ * for GICD_ICFGR, GICD_ISENABLER, GICD_IPRIORITYR, GICD_IROUTER
+ * registers. Following is the sequence for restore:
+ *
+ * 1. For SPIs, check whether any of GICD_ICFGR, GICD_ISENABLER,
+ *    GICD_IPRIORITYR, GICD_IROUTER, current configuration is
+ *    different from saved configuration.
+ *
+ * For all irqs, with mismatched configurations,
+ *
+ * 2. Set GICD_ICENABLER and wait for its completion.
+ *
+ * 3. Restore any changed GICD_ICFGR, GICD_IPRIORITYR, GICD_IROUTER
+ *    configurations.
+ *
+ * 4. Set GICD_ICACTIVER.
+ *
+ * 5. Set pending for the interrupt.
+ *
+ * 6. Enable interrupt and wait for its completion.
+ *
+ */
+void gic_v3_dist_restore(void)
+{
+	_gic_v3_dist_check_icfgr();
+	_gic_v3_dist_check_ipriorityr();
+	_gic_v3_dist_check_isenabler();
+	_gic_v3_dist_check_irouter();
+
+	if (bitmap_empty(irqs_restore, IRQ_NR_BOUND(gic_data.irq_nr)))
+		return;
+
+	_gic_v3_dist_set_icenabler();
+	gic_dist_wait_for_rwp();
+
+	_gic_v3_dist_restore_icfgr();
+	_gic_v3_dist_restore_ipriorityr();
+	_gic_v3_dist_restore_irouter();
+
+	_gic_v3_dist_set_icactive();
+
+	_gic_v3_dist_set_icpending();
+	_gic_v3_dist_restore_ispending();
+
+	_gic_v3_dist_restore_isenabler();
+	gic_dist_wait_for_rwp();
+
+	/* Commit all writes before proceeding */
+	wmb();
+}
 
 /*
  * gic_show_pending_irq - Shows the pending interrupts
@@ -1179,7 +1492,8 @@ static int __init gic_of_init(struct device_node *node, struct device_node *pare
 	struct redist_region *rdist_regs;
 	u64 redist_stride;
 	u32 nr_redist_regions;
-	int err, i;
+	int err, i, ignore_irqs_len;
+	u32 ignore_restore_irqs[MAX_IRQS_IGNORE] = {0};
 
 	dist_base = of_iomap(node, 0);
 	if (!dist_base) {
@@ -1229,6 +1543,14 @@ static int __init gic_of_init(struct device_node *node, struct device_node *pare
 
 	gic_populate_ppi_partitions(node);
 	gic_of_setup_kvm_info(node);
+
+	ignore_irqs_len = of_property_read_variable_u32_array(node,
+				"ignored-save-restore-irqs",
+				ignore_restore_irqs,
+				0, MAX_IRQS_IGNORE);
+	for (i = 0; i < ignore_irqs_len; i++)
+		set_bit(ignore_restore_irqs[i], irqs_ignore_restore);
+
 	return 0;
 
 out_unmap_rdist:
