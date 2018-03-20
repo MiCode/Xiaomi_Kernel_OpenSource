@@ -1249,6 +1249,13 @@ static void clk_regera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 							&pll_vote_reg);
 }
 
+const struct clk_ops clk_pll_sleep_vote_ops = {
+	.enable = clk_enable_regmap,
+	.disable = clk_disable_regmap,
+	.list_registers = clk_alpha_pll_list_registers,
+};
+EXPORT_SYMBOL(clk_pll_sleep_vote_ops);
+
 const struct clk_ops clk_alpha_pll_ops = {
 	.enable = clk_alpha_pll_enable,
 	.disable = clk_alpha_pll_disable,
