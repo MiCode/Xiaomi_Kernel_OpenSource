@@ -316,6 +316,7 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 	if (rc)
 		return;
 
+	ctl = hw_cfg->ctl;
 	if (!hw_cfg->payload) {
 		DRM_DEBUG_DRIVER("Disable vlut feature\n");
 		SDE_REG_WRITE(&ctx->hw,
@@ -329,7 +330,6 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 		return;
 	}
 
-	ctl = hw_cfg->ctl;
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(dspp_buf[VLUT][ctx->idx]);
 
@@ -370,7 +370,7 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
 		DRM_ERROR("opmode write single reg failed ret %d\n", rc);
-		return;
+		goto exit;
 	}
 	REG_DMA_SETUP_OPS(dma_write_cfg,
 		ctx->cap->sblk->hist.base + PA_LUTV_DSPP_SWAP_OFF, &i,
@@ -378,7 +378,7 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
 		DRM_ERROR("opmode write single reg failed ret %d\n", rc);
-		return;
+		goto exit;
 	}
 
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[VLUT][ctx->idx],
@@ -392,7 +392,7 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 exit:
 	kfree(data);
 	/* update flush bit */
-	if (ctl && ctl->ops.update_bitmask_dspp_pavlut)
+	if (!rc && ctl && ctl->ops.update_bitmask_dspp_pavlut)
 		ctl->ops.update_bitmask_dspp_pavlut(ctl, ctx->idx, true);
 }
 
