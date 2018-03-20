@@ -326,7 +326,7 @@
 		reg-names = "rcg-base", "efuse";
 		qcom,safe-freq = < 400000000 >;
 		cpu-vdd-supply = <&pm8909_s1_corner_ao>;
-		qcom,a7ssmux-opp-store-vcorner = <&CPU0>;
+		qcom,enable-opp;
 		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
 			 <&clock_gcc clk_a7sspll>;
 		clock-names = "clk-4", "clk-5";
