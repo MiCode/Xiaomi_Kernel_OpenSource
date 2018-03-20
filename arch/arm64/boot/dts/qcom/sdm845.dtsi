@@ -1539,8 +1539,7 @@
 					  "gpll0_mss_clk", "snoc_axi_clk",
 					  "mnoc_axi_clk";
 
-		interrupts = <0 266 1>,
-			     <GIC_SPI 390 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <0 266 1>;
 		vdd_cx-supply = <&pm8998_s9_level>;
 		vdd_cx-voltage = <RPMH_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pm8998_s6_level>;
