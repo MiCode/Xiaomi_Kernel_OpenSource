@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -374,6 +374,9 @@ struct msm_drm_private {
 
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
+
+	/* update the flag when msm driver receives shutdown notification */
+	bool shutdown_in_progress;
 };
 
 struct msm_format {
