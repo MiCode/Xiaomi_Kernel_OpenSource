@@ -118,3 +118,13 @@
 		};
 	};
 };
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
