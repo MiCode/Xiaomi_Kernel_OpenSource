@@ -27,6 +27,7 @@ struct ath10k_wow {
 #ifdef CONFIG_PM
 
 int ath10k_wow_init(struct ath10k *ar);
+void ath10k_wow_deinit(struct ath10k *ar);
 int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 			  struct cfg80211_wowlan *wowlan);
 int ath10k_wow_op_resume(struct ieee80211_hw *hw);
@@ -41,5 +42,8 @@ static inline int ath10k_wow_init(struct ath10k *ar)
 	return 0;
 }
 
+void ath10k_wow_deinit(struct ath10k *ar)
+{
+}
 #endif /* CONFIG_PM */
 #endif /* _WOW_H_ */
