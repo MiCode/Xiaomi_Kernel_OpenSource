@@ -69,6 +69,9 @@
 #define FTS_GESTRUE_POINTS                      255
 #define FTS_GESTRUE_POINTS_HEADER               8
 
+#define GESTURE_SMALL_AREA      0x25    /* TP Coverage < 50% */
+#define GESTURE_LARGE_AREA      0x26    /* TP Coverage > 50% */
+
 /*****************************************************************************
 * Private enumerations, structures and unions using typedef
 *****************************************************************************/
@@ -423,11 +426,21 @@ int fts_gesture_readdata(struct i2c_client *client)
 		return ret;
 	}
 
-	/* FW recognize gesture */
-	if (fts_gesture_fw()) {
-		memcpy(fts_gesture_data.header, buf, FTS_GESTRUE_POINTS_HEADER);
-		gestrue_id = buf[0];
-		pointnum = buf[1];
+	memcpy(fts_gesture_data.header, buf, FTS_GESTRUE_POINTS_HEADER);
+	gestrue_id = buf[0];
+	pointnum = buf[1];
+
+	if (gestrue_id == GESTURE_SMALL_AREA) {
+		FTS_INFO("[GESTURE] Wakeup gesture.");
+		input_report_key(fts_input_dev, KEY_POWER, 1);
+		input_sync(fts_input_dev);
+		input_report_key(fts_input_dev, KEY_POWER, 0);
+		input_sync(fts_input_dev);
+
+	} else if (gestrue_id == GESTURE_LARGE_AREA) {
+		FTS_INFO("[GESTURE] Large object detected.");
+	} else if (fts_gesture_fw()) {
+		/* FW recognize gesture */
 		read_bytes = ((int)pointnum) * 4 + 2;
 		buf[0] = FTS_REG_GESTURE_OUTPUT_ADDRESS;
 		FTS_DEBUG("[GESTURE]PointNum=%d", pointnum);
@@ -448,12 +461,13 @@ int fts_gesture_readdata(struct i2c_client *client)
 				| (((s16) buf[3 + (4 * i + 2)]) & 0xFF);
 		}
 
-		FTS_FUNC_EXIT();
-		return 0;
+
+	} else {
+		FTS_ERROR("[GESTURE]IC 0x%x need lib to support gestures.",
+							chip_types.chip_idh);
 	}
 
-	FTS_ERROR("[GESTURE]IC 0x%x need gesture lib to support gestures.",
-				chip_types.chip_idh);
+	FTS_FUNC_EXIT();
 
 	return 0;
 }
