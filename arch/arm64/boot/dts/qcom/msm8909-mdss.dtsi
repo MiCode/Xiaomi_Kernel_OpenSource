@@ -38,9 +38,11 @@
 
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
 			compatible = "qcom,smmu_mdp_unsec";
+			iommus = <&apps_iommu 0xC00 0>; /* For NS ctx bank */
 		};
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
 			compatible = "qcom,smmu_mdp_sec";
+			iommus = <&apps_iommu 0xC01 0>; /* For SEC Ctx Bank */
 		};
 	};
 
@@ -51,8 +53,8 @@
 		#size-cells = <1>;
 		qcom,mdss-fb-map-prim = <&mdss_fb0>;
 		gdsc-supply = <&gdsc_mdss>;
-		vdda-supply = <&pm8909_l2>;
-		vddio-supply = <&pm8909_l6>;
+		vdda-supply = <&pm660_l2>;
+		vddio-supply = <&pm660_l6>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_dsi";
@@ -133,8 +135,8 @@
 			interrupts = <0 80 0>;
 
 			qcom,mdss-mdp = <&mdss_mdp>;
-			vdd-supply = <&pm8909_l17>;
-			vddio-supply = <&pm8909_l6>;
+			vdd-supply = <&pm660_l17>;
+			vddio-supply = <&pm660_l6>;
 
 			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte0_clk>,
 				 <&clock_gcc_mdss clk_gcc_mdss_pclk0_clk>,
@@ -157,4 +159,4 @@
 	};
 };
 
-/* #include "msm8909-mdss-panels.dtsi" */
+#include "msm8909-mdss-panels.dtsi"
