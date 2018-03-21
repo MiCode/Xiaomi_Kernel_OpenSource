@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@ TRACE_EVENT(pil_event,
 		__get_str(fw_name))
 );
 
+#ifdef CONFIG_MSM_PIL
 TRACE_EVENT(pil_notif,
 
 	TP_PROTO(const char *event_name, unsigned long code,
@@ -64,6 +65,9 @@ TRACE_EVENT(pil_notif,
 		__entry->code,
 		__get_str(fw_name))
 );
+#else
+#define trace_pil_notif(event_name, code, fw_name) do { } while (0)
+#endif
 
 TRACE_EVENT(pil_func,
 
