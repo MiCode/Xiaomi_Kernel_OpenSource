@@ -143,7 +143,6 @@ static int bgdaemon_init_regulators(struct device *pdev)
 	struct regulator *reg03;
 	struct regulator *reg09;
 
-	dev = dev_get_drvdata(pdev);
 	reg03 = regulator_get(pdev, "ssr-reg1");
 	if (IS_ERR_OR_NULL(reg03)) {
 		rc = PTR_ERR(reg03);
@@ -373,8 +372,11 @@ static int bg_daemon_probe(struct platform_device *pdev)
 	unsigned reset_gpio;
 	int ret;
 
-	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	node = pdev->dev.of_node;
+
+	dev = kzalloc(sizeof(struct bgdaemon_priv), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
 
 	reset_gpio = of_get_named_gpio(node, "qcom,bg-reset-gpio", 0);
 	if (!gpio_is_valid(reset_gpio)) {
@@ -395,7 +397,6 @@ static int bg_daemon_probe(struct platform_device *pdev)
 	pr_info("bg-soft-reset gpio successfully requested\n");
 	bgreset_gpio = reset_gpio;
 
-	dev_set_drvdata(&pdev->dev, dev);
 	ret = bgdaemon_init_regulators(&pdev->dev);
 	if (ret != 0) {
 		pr_err("Failed to init regulators:%d\n", ret);
