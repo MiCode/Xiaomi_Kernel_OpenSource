@@ -241,6 +241,34 @@ struct ipahal_reg_clkon_cfg {
 };
 
 /*
+ * struct ipahal_reg_comp_cfg- IPA Core QMB/Master Port selection
+ *
+ * @all: QMB/Master port selection policy is configured via IPA_COMP_CFG
+ *	- Address based Selection
+ *	- Endpoint based selection / Legacy Mode
+ */
+struct ipahal_reg_comp_cfg {
+	bool ipa_atomic_fetcher_arb_lock_dis;
+	bool ipa_qmb_select_by_address_global_en;
+	bool gsi_multi_axi_masters_dis;
+	bool gsi_snoc_cnoc_loop_protection_disable;
+	bool gen_qmb_0_snoc_cnoc_loop_protection_disable;
+	bool gen_qmb_1_multi_inorder_wr_dis;
+	bool gen_qmb_0_multi_inorder_wr_dis;
+	bool gen_qmb_1_multi_inorder_rd_dis;
+	bool gen_qmb_0_multi_inorder_rd_dis;
+	bool gsi_multi_inorder_wr_dis;
+	bool gsi_multi_inorder_rd_dis;
+	bool ipa_qmb_select_by_address_prod_en;
+	bool ipa_qmb_select_by_address_cons_en;
+	bool ipa_dcmp_fast_clk_en;
+	bool gen_qmb_1_snoc_bypass_dis;
+	bool gen_qmb_0_snoc_bypass_dis;
+	bool gsi_snoc_bypass_dis;
+	bool enable;
+};
+
+/*
  * struct ipa_hash_tuple - Hash tuple members for flt and rt
  *  the fields tells if to be masked or not
  * @src_id: pipe number for flt, table index for rt

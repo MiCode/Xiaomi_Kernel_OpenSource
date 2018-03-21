@@ -655,6 +655,202 @@ static void ipareg_parse_clkon_cfg(
 			IPA_CLKON_CFG_OPEN_RX_BMSK);
 }
 
+static void ipareg_construct_comp_cfg(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipahal_reg_comp_cfg *comp_cfg =
+		(struct ipahal_reg_comp_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->ipa_atomic_fetcher_arb_lock_dis,
+		IPA_COMP_CFG_IPA_ATOMIC_FETCHER_ARB_LOCK_DIS_SHFT,
+		IPA_COMP_CFG_IPA_ATOMIC_FETCHER_ARB_LOCK_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->ipa_qmb_select_by_address_global_en,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_GLOBAL_EN_SHFT,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_GLOBAL_EN_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gsi_multi_axi_masters_dis,
+		IPA_COMP_CFG_GSI_MULTI_AXI_MASTERS_DIS_SHFT,
+		IPA_COMP_CFG_GSI_MULTI_AXI_MASTERS_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gsi_snoc_cnoc_loop_protection_disable,
+		IPA_COMP_CFG_GSI_SNOC_CNOC_LOOP_PROTECTION_DISABLE_SHFT,
+		IPA_COMP_CFG_GSI_SNOC_CNOC_LOOP_PROTECTION_DISABLE_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gen_qmb_0_snoc_cnoc_loop_protection_disable,
+		IPA_COMP_CFG_GEN_QMB_0_SNOC_CNOC_LOOP_PROTECTION_DISABLE_SHFT,
+		IPA_COMP_CFG_GEN_QMB_0_SNOC_CNOC_LOOP_PROTECTION_DISABLE_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gen_qmb_1_multi_inorder_wr_dis,
+		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_WR_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_WR_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gen_qmb_0_multi_inorder_wr_dis,
+		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_WR_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_WR_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gen_qmb_1_multi_inorder_rd_dis,
+		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_RD_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_RD_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gen_qmb_0_multi_inorder_rd_dis,
+		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_RD_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_RD_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gsi_multi_inorder_wr_dis,
+		IPA_COMP_CFG_GSI_MULTI_INORDER_WR_DIS_SHFT,
+		IPA_COMP_CFG_GSI_MULTI_INORDER_WR_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gsi_multi_inorder_rd_dis,
+		IPA_COMP_CFG_GSI_MULTI_INORDER_RD_DIS_SHFT,
+		IPA_COMP_CFG_GSI_MULTI_INORDER_RD_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->ipa_qmb_select_by_address_prod_en,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_PROD_EN_SHFT,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_PROD_EN_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->ipa_qmb_select_by_address_cons_en,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_CONS_EN_SHFT,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_CONS_EN_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->ipa_dcmp_fast_clk_en,
+		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_SHFT,
+		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gen_qmb_1_snoc_bypass_dis,
+		IPA_COMP_CFG_GEN_QMB_1_SNOC_BYPASS_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_1_SNOC_BYPASS_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gen_qmb_0_snoc_bypass_dis,
+		IPA_COMP_CFG_GEN_QMB_0_SNOC_BYPASS_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_0_SNOC_BYPASS_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->gsi_snoc_bypass_dis,
+		IPA_COMP_CFG_GSI_SNOC_BYPASS_DIS_SHFT,
+		IPA_COMP_CFG_GSI_SNOC_BYPASS_DIS_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		comp_cfg->enable,
+		IPA_COMP_CFG_ENABLE_SHFT,
+		IPA_COMP_CFG_ENABLE_BMSK);
+}
+
+static void ipareg_parse_comp_cfg(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_comp_cfg *comp_cfg =
+		(struct ipahal_reg_comp_cfg *)fields;
+
+	memset(comp_cfg, 0, sizeof(struct ipahal_reg_comp_cfg));
+
+	comp_cfg->ipa_atomic_fetcher_arb_lock_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_IPA_ATOMIC_FETCHER_ARB_LOCK_DIS_SHFT,
+		IPA_COMP_CFG_IPA_ATOMIC_FETCHER_ARB_LOCK_DIS_BMSK);
+
+	comp_cfg->ipa_qmb_select_by_address_global_en =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_GLOBAL_EN_SHFT,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_GLOBAL_EN_BMSK);
+
+	comp_cfg->gsi_multi_axi_masters_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GSI_MULTI_AXI_MASTERS_DIS_SHFT,
+		IPA_COMP_CFG_GSI_MULTI_AXI_MASTERS_DIS_BMSK);
+
+	comp_cfg->gsi_snoc_cnoc_loop_protection_disable =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GSI_SNOC_CNOC_LOOP_PROTECTION_DISABLE_SHFT,
+		IPA_COMP_CFG_GSI_SNOC_CNOC_LOOP_PROTECTION_DISABLE_BMSK);
+
+	comp_cfg->gen_qmb_0_snoc_cnoc_loop_protection_disable =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GEN_QMB_0_SNOC_CNOC_LOOP_PROTECTION_DISABLE_SHFT,
+		IPA_COMP_CFG_GEN_QMB_0_SNOC_CNOC_LOOP_PROTECTION_DISABLE_BMSK);
+
+	comp_cfg->gen_qmb_1_multi_inorder_wr_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_WR_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_WR_DIS_BMSK);
+
+	comp_cfg->gen_qmb_0_multi_inorder_wr_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_WR_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_WR_DIS_BMSK);
+
+	comp_cfg->gen_qmb_1_multi_inorder_rd_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_RD_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_1_MULTI_INORDER_RD_DIS_BMSK);
+
+	comp_cfg->gen_qmb_0_multi_inorder_rd_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_RD_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_0_MULTI_INORDER_RD_DIS_BMSK);
+
+	comp_cfg->gsi_multi_inorder_wr_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GSI_MULTI_INORDER_WR_DIS_SHFT,
+		IPA_COMP_CFG_GSI_MULTI_INORDER_WR_DIS_BMSK);
+
+	comp_cfg->gsi_multi_inorder_rd_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GSI_MULTI_INORDER_RD_DIS_SHFT,
+		IPA_COMP_CFG_GSI_MULTI_INORDER_RD_DIS_BMSK);
+
+	comp_cfg->ipa_qmb_select_by_address_prod_en =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_PROD_EN_SHFT,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_PROD_EN_BMSK);
+
+	comp_cfg->ipa_qmb_select_by_address_cons_en =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_CONS_EN_SHFT,
+		IPA_COMP_CFG_IPA_QMB_SELECT_BY_ADDRESS_CONS_EN_BMSK);
+
+	comp_cfg->ipa_dcmp_fast_clk_en =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_SHFT,
+		IPA_COMP_CFG_IPA_DCMP_FAST_CLK_EN_BMSK);
+
+	comp_cfg->gen_qmb_1_snoc_bypass_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GEN_QMB_1_SNOC_BYPASS_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_1_SNOC_BYPASS_DIS_BMSK);
+
+	comp_cfg->gen_qmb_0_snoc_bypass_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GEN_QMB_0_SNOC_BYPASS_DIS_SHFT,
+		IPA_COMP_CFG_GEN_QMB_0_SNOC_BYPASS_DIS_BMSK);
+
+	comp_cfg->gsi_snoc_bypass_dis =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_GSI_SNOC_BYPASS_DIS_SHFT,
+		IPA_COMP_CFG_GSI_SNOC_BYPASS_DIS_BMSK);
+
+	comp_cfg->enable =
+		IPA_GETFIELD_FROM_REG(val,
+		IPA_COMP_CFG_ENABLE_SHFT,
+		IPA_COMP_CFG_ENABLE_BMSK);
+}
+
 static void ipareg_construct_qcncm(
 	enum ipahal_reg_name reg, const void *fields, u32 *val)
 {
@@ -1556,7 +1752,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00005094, 0},
 	[IPA_HW_v3_0][IPA_COMP_CFG] = {
-		ipareg_construct_dummy, ipareg_parse_dummy,
+		ipareg_construct_comp_cfg, ipareg_parse_comp_cfg,
 		0x0000003C, 0},
 	[IPA_HW_v3_0][IPA_STATE_AGGR_ACTIVE] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
