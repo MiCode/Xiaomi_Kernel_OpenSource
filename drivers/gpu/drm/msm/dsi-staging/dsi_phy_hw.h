@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -239,6 +239,13 @@ struct dsi_phy_hw_ops {
 	 * Return:    error code.
 	 */
 	int (*phy_lane_reset)(struct dsi_phy_hw *phy);
+
+	/**
+	 * toggle_resync_fifo() - toggle resync retime FIFO to sync data paths
+	 * @phy:      Pointer to DSI PHY hardware object.
+	 * Return:    error code.
+	 */
+	void (*toggle_resync_fifo)(struct dsi_phy_hw *phy);
 
 	void *timing_ops;
 	struct phy_ulps_config_ops ulps_ops;
