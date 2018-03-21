@@ -748,4 +748,11 @@ int dsi_ctrl_get_host_engine_init_state(struct dsi_ctrl *dsi_ctrl,
  */
 int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool en);
 
+/**
+ * dsi_ctrl_wait_for_cmd_mode_mdp_idle() - Wait for command mode engine not to
+ *				     be busy sending data from display engine.
+ * @dsi_ctrl:                     DSI controller handle.
+ */
+int dsi_ctrl_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl *dsi_ctrl);
+
 #endif /* _DSI_CTRL_H_ */
