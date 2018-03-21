@@ -75,6 +75,7 @@ static int pktzr_resp_cb(void *payload, int size)
 	int rc = 0;
 	struct pktzr_pkt *pkt;
 	struct pktzr_hdr *pkt_hdr;
+	struct pktzr_node *pnode, *tmp;
 
 	if (!payload) {
 		pr_err("%s: payload is NULL\n", __func__);
@@ -86,11 +87,23 @@ static int pktzr_resp_cb(void *payload, int size)
 	pkt = (struct pktzr_pkt *)payload;
 	pkt_hdr = &pkt->hdr;
 
-	if (pkt_hdr->opcode == PKTZR_BASIC_RESPONSE_RESULT) {
-		pr_debug("%s: Command response: success\n", __func__);
-		complete(&ppriv->thread_complete);
-	} else
-		pr_err("%s: Command response: fail\n", __func__);
+	mutex_lock(&ppriv->pktzr_lock);
+	list_for_each_entry_safe(pnode, tmp, &ppriv->ch_list, list) {
+		if (pnode->token == pkt_hdr->token) {
+			if (pkt_hdr->opcode == PKTZR_BASIC_RESPONSE_RESULT) {
+				pr_debug("%s: CMD rsp: success token %d\n",
+						__func__, pkt_hdr->token);
+				complete(&ppriv->thread_complete);
+			} else
+				pr_err("%s: CMD rsp: fail token %d\n",
+						__func__, pkt_hdr->token);
+
+			mutex_unlock(&ppriv->pktzr_lock);
+			return rc;
+		}
+	}
+	pr_err("Invalid token %d or the command timedOut\n", pkt_hdr->token);
+	mutex_unlock(&ppriv->pktzr_lock);
 done:
 	return rc;
 }
@@ -273,12 +286,13 @@ void pktzr_deinit(void)
 
 	if (!ppriv)
 		return;
-
+	mutex_lock(&ppriv->pktzr_lock);
 	for (i = 0; i < ppriv->num_channels; i++) {
 		rc = bg_cdc_channel_close(ppriv->pdev, ppriv->ch_info[i]);
 		if (rc)
 			pr_err("%s:Failed to close channel\n", __func__);
 	}
+	mutex_unlock(&ppriv->pktzr_lock);
 	reinit_completion(&ppriv->thread_complete);
 	mutex_destroy(&ppriv->pktzr_lock);
 	kzfree(ppriv);
