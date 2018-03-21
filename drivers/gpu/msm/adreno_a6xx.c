@@ -1258,7 +1258,7 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
 	_regwrite(gmu->pdc_reg_virt,
-			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x6);
+			PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
 	_regwrite(gmu->pdc_reg_virt,
 			PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 	_regwrite(gmu->pdc_reg_virt,
