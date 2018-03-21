@@ -120,10 +120,10 @@ static void bg_cdc_glink_notify_rx(void *handle, const void *priv,
 
 	pr_debug("%s: Rx packet received\n", __func__);
 
-	mutex_lock(&ch_info->w_lock);
+	mutex_lock(&ch_info->r_lock);
 	if (ch_info->func)
 		ch_info->func((void *)ptr, size);
-	mutex_unlock(&ch_info->w_lock);
+	mutex_unlock(&ch_info->r_lock);
 	glink_rx_done(ch_info->handle, ptr, true);
 }
 
