@@ -201,3 +201,5 @@ zyxel	ZyXEL Communications Corp.
 zarlink	Zarlink Semiconductor
 bosch-sensortec»    Bosch Sensortec GmbH
 lontium Lontium Semiconductor
+himax	Himax Technologies, Inc.
+hxcommon	Himax Technologies, Inc.
