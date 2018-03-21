@@ -66,6 +66,27 @@
 	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
 };
 
+&snd_934x {
+	qcom,model = "sdm855-tavil-qrd-snd-card";
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
+		"DMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic3",
+		"DMIC5", "MIC BIAS4",
+		"MIC BIAS4", "Digital Mic5",
+		"SpkrRight IN", "SPK2 OUT";
+
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_70212>, <&wsa881x_70214>;
+	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
+};
+
 /* Force USB to high speed mode before USB re-driver enabled on QRD855 */
 &usb0 {
 	dwc3@a600000 {
