@@ -1019,6 +1019,7 @@ struct v4l2_buffer {
 /* mem2mem encoder/decoder */
 #define V4L2_BUF_FLAG_LAST			0x00100000
 /* Vendor extensions */
+#define V4L2_QCOM_BUF_END_OF_SUBFRAME		0x00000080
 #define V4L2_QCOM_BUF_FLAG_CODECCONFIG		0x00020000
 #define V4L2_QCOM_BUF_FLAG_EOSEQ		0x00040000
 #define V4L2_QCOM_BUF_TIMESTAMP_INVALID		0x00080000

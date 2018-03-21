@@ -806,7 +806,7 @@ int create_pkt_cmd_session_etb_decoder(
 	pkt->offset = input_frame->offset;
 	pkt->alloc_len = input_frame->alloc_len;
 	pkt->filled_len = input_frame->filled_len;
-	pkt->input_tag = input_frame->clnt_data;
+	pkt->input_tag = input_frame->input_tag;
 	pkt->packet_buffer = (u32)input_frame->device_addr;
 
 	trace_msm_v4l2_vidc_buffer_event_start("ETB",
@@ -841,7 +841,7 @@ int create_pkt_cmd_session_etb_encoder(
 	pkt->offset = input_frame->offset;
 	pkt->alloc_len = input_frame->alloc_len;
 	pkt->filled_len = input_frame->filled_len;
-	pkt->input_tag = input_frame->clnt_data;
+	pkt->input_tag = input_frame->input_tag;
 	pkt->packet_buffer = (u32)input_frame->device_addr;
 	pkt->extra_data_buffer = (u32)input_frame->extradata_addr;
 
@@ -877,6 +877,7 @@ int create_pkt_cmd_session_ftb(struct hfi_cmd_session_fill_buffer_packet *pkt,
 		return -EINVAL;
 
 	pkt->packet_buffer = (u32)output_frame->device_addr;
+	pkt->output_tag = output_frame->output_tag;
 	pkt->extra_data_buffer = (u32)output_frame->extradata_addr;
 	pkt->alloc_len = output_frame->alloc_len;
 	pkt->filled_len = output_frame->filled_len;
