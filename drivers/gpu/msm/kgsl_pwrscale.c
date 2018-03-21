@@ -288,19 +288,8 @@ void kgsl_pwrscale_enable(struct kgsl_device *device)
 	if (WARN_ON(!mutex_is_locked(&device->mutex)))
 		return;
 
-	if (device->pwrscale.devfreqptr) {
-		queue_work(device->pwrscale.devfreq_wq,
-			&device->pwrscale.devfreq_resume_ws);
-		device->pwrscale.enabled = true;
-	} else {
-		/*
-		 * Don't enable it if devfreq is not set and let the device
-		 * run at default level;
-		 */
-		kgsl_pwrctrl_pwrlevel_change(device,
-					device->pwrctrl.default_pwrlevel);
-		device->pwrscale.enabled = false;
-	}
+	device->pwrscale.enabled = false;
+	return;
 }
 EXPORT_SYMBOL(kgsl_pwrscale_enable);
 
