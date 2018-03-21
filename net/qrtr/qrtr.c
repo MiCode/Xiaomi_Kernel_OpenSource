@@ -708,6 +708,8 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 		if (!skbn)
 			break;
 		skb_set_owner_w(skbn, skb->sk);
+		to->sq_node = cpu_to_le32(node->nid);
+		to->sq_port = QRTR_NODE_BCAST;
 		qrtr_node_enqueue(node, skbn, type, from, to);
 	}
 	mutex_unlock(&qrtr_node_lock);
