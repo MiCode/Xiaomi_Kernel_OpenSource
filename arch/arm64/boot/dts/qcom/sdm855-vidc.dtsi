@@ -60,7 +60,7 @@
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
 			qcom,bus-governor = "performance";
-			qcom,bus-range-kbps = <1000 100000000>;
+			qcom,bus-range-kbps = <1000 6533000>;
 		};
 		arm9_bus_ddr {
 			compatible = "qcom,msm-vidc,bus";
@@ -76,7 +76,7 @@
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_LLCC>;
 			qcom,bus-governor = "performance";
-			qcom,bus-range-kbps = <1000 100000000>;
+			qcom,bus-range-kbps = <1000 1326000>;
 		};
 
 		/* MMUs */
