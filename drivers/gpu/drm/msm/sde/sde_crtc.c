@@ -1330,15 +1330,6 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 		return -E2BIG;
 	}
 
-	/**
-	 * TODO: Need to check against ROI alignment restrictions if partial
-	 * update support is added for destination scalar configurations
-	 */
-	if (sde_crtc_state->num_ds_enabled) {
-		SDE_ERROR("DS and PU concurrency is not supported\n");
-		return -EINVAL;
-	}
-
 	rc = _sde_crtc_set_crtc_roi(crtc, state);
 	if (rc)
 		return rc;
