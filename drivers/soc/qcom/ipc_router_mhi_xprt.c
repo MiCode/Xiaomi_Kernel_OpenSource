@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -424,7 +424,7 @@ static int ipc_router_mhi_write(void *data,
 	struct rr_packet *pkt = (struct rr_packet *)data;
 	struct sk_buff *ipc_rtr_pkt;
 	struct rr_packet *cloned_pkt;
-	int rc;
+	int rc = 0;
 	struct ipc_router_mhi_xprt *mhi_xprtp =
 		container_of(xprt, struct ipc_router_mhi_xprt, xprt);
 
@@ -948,7 +948,7 @@ error:
  */
 static int ipc_router_mhi_xprt_probe(struct platform_device *pdev)
 {
-	int rc;
+	int rc = -ENODEV;
 	struct ipc_router_mhi_xprt_config mhi_xprt_config;
 
 	if (pdev && pdev->dev.of_node) {
