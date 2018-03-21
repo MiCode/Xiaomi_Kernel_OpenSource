@@ -50,13 +50,7 @@ static void set_power_scale(unsigned int cpu, unsigned long power)
 
 unsigned long scale_cpu_capacity(struct sched_domain *sd, int cpu)
 {
-#ifdef CONFIG_CPU_FREQ
-	unsigned long max_freq_scale = cpufreq_scale_max_freq_capacity(cpu);
-
-	return per_cpu(cpu_scale, cpu) * max_freq_scale >> SCHED_CAPACITY_SHIFT;
-#else
 	return per_cpu(cpu_scale, cpu);
-#endif
 }
 
 static void set_capacity_scale(unsigned int cpu, unsigned long capacity)
