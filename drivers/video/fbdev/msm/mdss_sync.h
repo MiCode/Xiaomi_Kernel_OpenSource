@@ -17,8 +17,31 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 
+#define MDSS_SYNC_NAME_SIZE             64
 struct mdss_fence;
-struct mdss_timeline;
+
+/**
+ * struct mdss_timeline - sync timeline context
+ * @kref: reference count of timeline
+ * @lock: serialization lock for timeline and fence update
+ * @name: name of timeline
+ * @fence_name: fence name prefix
+ * @next_value: next commit sequence number
+ * @value: current retired sequence number
+ * @context: fence context identifier
+ * @fence_list_head: linked list of outstanding sync fence
+ */
+
+struct mdss_timeline {
+	struct kref kref;
+	spinlock_t lock;
+	spinlock_t list_lock;
+	char name[MDSS_SYNC_NAME_SIZE];
+	u32 next_value;
+	u32 value;
+	u64 context;
+	struct list_head fence_list_head;
+};
 
 #if defined(CONFIG_SYNC_FILE)
 struct mdss_timeline *mdss_create_timeline(const char *name);

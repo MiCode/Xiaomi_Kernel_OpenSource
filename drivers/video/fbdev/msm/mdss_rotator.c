@@ -387,7 +387,7 @@ static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 	rot_timeline = &entry->queue->timeline;
 
 	mutex_lock(&rot_timeline->lock);
-	val = 1;
+	val = rot_timeline->next_value + 1;
 
 	fence = mdss_get_sync_fence(rot_timeline->timeline,
 					rot_timeline->fence_name, NULL, val);
