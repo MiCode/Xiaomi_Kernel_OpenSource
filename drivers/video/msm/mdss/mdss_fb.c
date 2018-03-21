@@ -1979,6 +1979,14 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	 * supported for command mode panels. For all other panel, treat lp
 	 * mode as full unblank and ulp mode as full blank.
 	 */
+	if ((mfd->panel_info->type == SPI_PANEL) &&
+		((BLANK_FLAG_LP == blank_mode) ||
+		(BLANK_FLAG_ULP == blank_mode))) {
+		pr_debug("lp/ulp mode are not supported for SPI panels\n");
+		if (mdss_fb_is_power_on_interactive(mfd))
+			return 0;
+	}
+
 	if (mfd->panel_info->type != MIPI_CMD_PANEL) {
 		if (BLANK_FLAG_LP == blank_mode) {
 			pr_debug("lp mode only valid for cmd mode panels\n");
