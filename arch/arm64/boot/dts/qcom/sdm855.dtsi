@@ -1363,7 +1363,7 @@
 			<0x18327800 0x1400>;
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base", "osm_perfpcl_base";
-		l3-devs = <&cpu0_cpu_l3_lat &cpu4_cpu_l3_lat>;
+		l3-devs = <&cpu0_cpu_l3_lat &cpu4_cpu_l3_lat &cdsp_cdsp_l3_lat>;
 
 		#clock-cells = <1>;
 	};
