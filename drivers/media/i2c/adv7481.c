@@ -60,6 +60,7 @@
 
 #define ONE_MHZ_TO_HZ		1000000
 #define I2C_BLOCK_WRITE_SIZE    1024
+#define ADV_REG_STABLE_DELAY    70      /* ms*/
 
 enum adv7481_gpio_t {
 
@@ -476,7 +477,7 @@ static irqreturn_t adv7481_irq(int irq, void *dev)
 	struct adv7481_state *state = dev;
 
 	schedule_delayed_work(&state->irq_delayed_work,
-						msecs_to_jiffies(0));
+				msecs_to_jiffies(ADV_REG_STABLE_DELAY));
 	return IRQ_HANDLED;
 }
 
