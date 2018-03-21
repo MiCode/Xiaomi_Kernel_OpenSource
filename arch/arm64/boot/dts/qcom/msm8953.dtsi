@@ -771,6 +771,7 @@
 		vdd_gfx-supply = <&gfx_vreg_corner>;
 		clocks = <&clock_gcc clk_xo_clk_src>;
 		clock-names = "xo";
+		qcom,gcc_oxili_gfx3d_clk-opp-handle = <&msm_gpu>;
 		qcom,gfxfreq-corner =
 			 <         0   0 >,
 			 < 133330000   1 >,  /* Min SVS   */
