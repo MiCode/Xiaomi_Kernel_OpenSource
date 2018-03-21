@@ -273,8 +273,10 @@ struct msm_otg {
 	unsigned int vbus_state;
 	unsigned int usb_irq_count;
 	int pm_qos_latency;
+	unsigned int notify_current_mA;
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
+	struct work_struct notify_chg_current_work;
 };
 
 struct ci13xxx_platform_data {

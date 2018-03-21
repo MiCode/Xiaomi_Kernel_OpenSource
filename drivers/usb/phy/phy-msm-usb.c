@@ -1861,15 +1861,23 @@ psy_error:
 	motg->cur_power = mA;
 }
 
-static int msm_otg_set_power(struct usb_phy *phy, unsigned int mA)
+static void msm_otg_notify_chg_current_work(struct work_struct *w)
 {
-	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
-
+	struct msm_otg *motg = container_of(w,
+				struct msm_otg, notify_chg_current_work);
 	/*
 	 * Gadget driver uses set_power method to notify about the
 	 * available current based on suspend/configured states.
 	 */
-	msm_otg_notify_chg_current(motg, mA);
+	msm_otg_notify_chg_current(motg, motg->notify_current_mA);
+}
+
+static int msm_otg_set_power(struct usb_phy *phy, unsigned int mA)
+{
+	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
+
+	motg->notify_current_mA = mA;
+	schedule_work(&motg->notify_chg_current_work);
 
 	return 0;
 }
@@ -3835,6 +3843,8 @@ static int msm_otg_probe(struct platform_device *pdev)
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->id_status_work, msm_id_status_w);
 	INIT_DELAYED_WORK(&motg->perf_vote_work, msm_otg_perf_vote_work);
+	INIT_WORK(&motg->notify_chg_current_work,
+			 msm_otg_notify_chg_current_work);
 	motg->otg_wq = alloc_ordered_workqueue("k_otg", 0);
 	if (!motg->otg_wq) {
 		pr_err("%s: Unable to create workqueue otg_wq\n",
@@ -4189,6 +4199,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	cancel_delayed_work_sync(&motg->perf_vote_work);
 	msm_otg_perf_vote_update(motg, false);
 	cancel_work_sync(&motg->sm_work);
+	cancel_work_sync(&motg->notify_chg_current_work);
 	destroy_workqueue(motg->otg_wq);
 
 	pm_runtime_resume(&pdev->dev);
