@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,11 @@
 
 #define DIAG_MAX_REQ_SIZE	(16 * 1024)
 #define DIAG_MAX_RSP_SIZE	(16 * 1024)
+#ifdef CONFIG_USB_CI13XXX_MSM
+#define APF_DIAG_PADDING	256
+#else
 #define APF_DIAG_PADDING	0
+#endif
 /*
  * In the worst case, the HDLC buffer can be atmost twice the size of the
  * original packet. Add 3 bytes for 16 bit CRC (2 bytes) and a delimiter
