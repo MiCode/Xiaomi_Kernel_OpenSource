@@ -1045,6 +1045,7 @@ struct sde_perf_cfg {
  *                         between secure/non-secure sessions
  * @sui_ns_allowed      flag to indicate non-secure context banks are allowed
  *                         during secure-ui session
+ * @sui_supported_blendstage  secure-ui supported blendstage
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -1086,6 +1087,7 @@ struct sde_mdss_cfg {
 	u32 sec_sid_mask_count;
 	u32 sec_sid_mask[MAX_BLOCKS];
 	u32 sui_ns_allowed;
+	u32 sui_supported_blendstage;
 
 	bool has_hdr;
 	u32 mdss_count;

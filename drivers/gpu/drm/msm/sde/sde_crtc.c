@@ -4440,7 +4440,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	}
 
 	sde_kms = _sde_crtc_get_kms(crtc);
-	if (!sde_kms) {
+	if (!sde_kms || !sde_kms->catalog) {
 		SDE_ERROR("invalid kms\n");
 		return -EINVAL;
 	}
@@ -4504,6 +4504,27 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 					DRMID(crtc),
 					i, cstate->dim_layer[i].stage,
 					i-1, cstate->dim_layer[i-1].stage);
+				return -EINVAL;
+			}
+		}
+
+		/*
+		 * if secure-ui supported blendstage is specified,
+		 * - fail empty commit
+		 * - validate dim_layer or plane is staged in the supported
+		 *   blendstage
+		 */
+		if (sde_kms->catalog->sui_supported_blendstage) {
+			int sec_stage = cnt ? pstates[0].sde_pstate->stage :
+						cstate->dim_layer[0].stage;
+
+			if ((!cnt && !cstate->num_dim_layers) ||
+				(sde_kms->catalog->sui_supported_blendstage
+						!= (sec_stage - SDE_STAGE_0))) {
+				SDE_ERROR(
+				  "crtc%d: empty cnt%d/dim%d or bad stage%d\n",
+					DRMID(crtc), cnt,
+					cstate->num_dim_layers, sec_stage);
 				return -EINVAL;
 			}
 		}
@@ -4730,10 +4751,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	/* assign mixer stages based on sorted zpos property */
 	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
 
-	rc = _sde_crtc_check_secure_state(crtc, state, pstates, cnt);
-	if (rc)
-		goto end;
-
 	rc = _sde_crtc_excl_dim_layer_check(state, pstates, cnt);
 	if (rc)
 		goto end;
@@ -4798,6 +4815,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			goto end;
 		}
 	}
+
+	rc = _sde_crtc_check_secure_state(crtc, state, pstates, cnt);
+	if (rc)
+		goto end;
 
 	rc = sde_core_perf_crtc_check(crtc, state);
 	if (rc) {
@@ -5137,6 +5158,8 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			catalog->perf.amortizable_threshold);
 	sde_kms_info_add_keyint(info, "min_prefill_lines",
 			catalog->perf.min_prefill_lines);
+	sde_kms_info_add_keyint(info, "sec_ui_blendstage",
+			catalog->sui_supported_blendstage);
 
 	if (catalog->ubwc_bw_calc_version)
 		sde_kms_info_add_keyint(info, "ubwc_bw_calc_ver",
