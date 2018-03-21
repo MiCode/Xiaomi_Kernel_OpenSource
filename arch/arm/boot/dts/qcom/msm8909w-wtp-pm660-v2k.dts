@@ -162,9 +162,13 @@
 };
 
 &qcom_seecom {
-	reg = <0x87b00000 0x100000>;
+	reg = <0x87a00000 0x200000>;
 	reg-names = "secapp-region";
 	status = "okay";
+};
+
+&external_image_mem {
+	reg = <0x0 0x87a00000 0x0 0x0600000>;
 };
 
 &modem_adsp_mem {
