@@ -36,6 +36,8 @@ static const char drv_name[] = "vfe_bus";
 
 #define CAM_VFE_BUS_VER2_PAYLOAD_MAX             256
 
+#define CAM_VFE_BUS_SET_DEBUG_REG                0x82
+
 #define CAM_VFE_RDI_BUS_DEFAULT_WIDTH               0xFF01
 #define CAM_VFE_RDI_BUS_DEFAULT_STRIDE              0xFF01
 #define CAM_VFE_BUS_INTRA_CLIENT_MASK               0x3
@@ -208,6 +210,7 @@ struct cam_vfe_bus_ver2_priv {
 
 	uint32_t                            irq_handle;
 	uint32_t                            error_irq_handle;
+	void                               *tasklet_info;
 };
 
 static int cam_vfe_bus_process_cmd(
@@ -1348,6 +1351,99 @@ static int cam_vfe_bus_handle_wm_done_bottom_half(void *wm_node,
 	return rc;
 }
 
+
+static int cam_vfe_bus_err_bottom_half(void *ctx_priv,
+	void *evt_payload_priv)
+{
+	struct cam_vfe_bus_irq_evt_payload *evt_payload;
+	struct cam_vfe_bus_ver2_common_data *common_data;
+	uint32_t val = 0;
+
+	if (!ctx_priv || !evt_payload_priv)
+		return -EINVAL;
+
+	evt_payload = evt_payload_priv;
+	common_data = evt_payload->ctx;
+
+	val = evt_payload->debug_status_0;
+	CAM_ERR(CAM_ISP, "Bus Violation: debug_status_0 = 0x%x", val);
+
+	if (val & 0x01)
+		CAM_INFO(CAM_ISP, "RDI 0 violation");
+
+	if (val & 0x02)
+		CAM_INFO(CAM_ISP, "RDI 1 violation");
+
+	if (val & 0x04)
+		CAM_INFO(CAM_ISP, "RDI 2 violation");
+
+	if (val & 0x08)
+		CAM_INFO(CAM_ISP, "VID Y 1:1 UBWC violation");
+
+	if (val & 0x010)
+		CAM_INFO(CAM_ISP, "VID C 1:1 UBWC violation");
+
+	if (val & 0x020)
+		CAM_INFO(CAM_ISP, "VID YC 4:1 violation");
+
+	if (val & 0x040)
+		CAM_INFO(CAM_ISP, "VID YC 16:1 violation");
+
+	if (val & 0x080)
+		CAM_INFO(CAM_ISP, "FD Y violation");
+
+	if (val & 0x0100)
+		CAM_INFO(CAM_ISP, "FD C violation");
+
+	if (val & 0x0200)
+		CAM_INFO(CAM_ISP, "RAW DUMP violation");
+
+	if (val & 0x0400)
+		CAM_INFO(CAM_ISP, "PDAF violation");
+
+	if (val & 0x0800)
+		CAM_INFO(CAM_ISP, "STATs HDR BE violation");
+
+	if (val & 0x01000)
+		CAM_INFO(CAM_ISP, "STATs HDR BHIST violation");
+
+	if (val & 0x02000)
+		CAM_INFO(CAM_ISP, "STATs TINTLESS BG violation");
+
+	if (val & 0x04000)
+		CAM_INFO(CAM_ISP, "STATs BF violation");
+
+	if (val & 0x08000)
+		CAM_INFO(CAM_ISP, "STATs AWB BG UBWC violation");
+
+	if (val & 0x010000)
+		CAM_INFO(CAM_ISP, "STATs BHIST violation");
+
+	if (val & 0x020000)
+		CAM_INFO(CAM_ISP, "STATs RS violation");
+
+	if (val & 0x040000)
+		CAM_INFO(CAM_ISP, "STATs CS violation");
+
+	if (val & 0x080000)
+		CAM_INFO(CAM_ISP, "STATs IHIST violation");
+
+	if (val & 0x0100000)
+		CAM_INFO(CAM_ISP, "DISP Y 1:1 UBWC violation");
+
+	if (val & 0x0200000)
+		CAM_INFO(CAM_ISP, "DISP C 1:1 UBWC violation");
+
+	if (val & 0x0400000)
+		CAM_INFO(CAM_ISP, "DISP YC 4:1 violation");
+
+	if (val & 0x0800000)
+		CAM_INFO(CAM_ISP, "DISP YC 16:1 violation");
+
+	cam_vfe_bus_put_evt_payload(common_data, &evt_payload);
+	return 0;
+}
+
 static int cam_vfe_bus_init_wm_resource(uint32_t index,
 	struct cam_vfe_bus_ver2_priv    *ver2_bus_priv,
 	struct cam_vfe_bus_ver2_hw_info *ver2_hw_info,
@@ -2048,6 +2144,7 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	}
 	mutex_unlock(&rsrc_data->common_data->bus_mutex);
 
+	ver2_bus_priv->tasklet_info = acq_args->tasklet;
 	rsrc_data->num_wm = num_wm;
 	rsrc_node->res_id = out_acquire_args->out_port_info->res_type;
 	rsrc_node->tasklet_info = acq_args->tasklet;
@@ -2389,9 +2486,10 @@ static int cam_vfe_bus_ver2_handle_irq(uint32_t    evt_id,
 static int cam_vfe_bus_error_irq_top_half(uint32_t evt_id,
 	struct cam_irq_th_payload *th_payload)
 {
-	int i = 0;
+	int i = 0, rc = 0;
 	struct cam_vfe_bus_ver2_priv *bus_priv =
 		th_payload->handler_priv;
+	struct cam_vfe_bus_irq_evt_payload *evt_payload;
 
 	CAM_ERR_RATE_LIMIT(CAM_ISP, "Bus Err IRQ");
 	for (i = 0; i < th_payload->num_registers; i++) {
@@ -2402,8 +2500,25 @@ static int cam_vfe_bus_error_irq_top_half(uint32_t evt_id,
 	cam_irq_controller_disable_irq(bus_priv->common_data.bus_irq_controller,
 		bus_priv->error_irq_handle);
 
-	/* Returning error stops from enqueuing bottom half */
-	return -EFAULT;
+	rc  = cam_vfe_bus_get_evt_payload(&bus_priv->common_data, &evt_payload);
+	if (rc) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Cannot get payload");
+		return rc;
+	}
+
+	for (i = 0; i < th_payload->num_registers; i++)
+		evt_payload->irq_reg_val[i] = th_payload->evt_status_arr[i];
+
+	evt_payload->core_index = bus_priv->common_data.core_index;
+	evt_payload->evt_id  = evt_id;
+	evt_payload->ctx = &bus_priv->common_data;
+	evt_payload->debug_status_0 = cam_io_r_mb(
+		bus_priv->common_data.mem_base +
+		bus_priv->common_data.common_reg->debug_status_0);
+
+	th_payload->evt_payload_priv = evt_payload;
+
+	return rc;
 }
 
 static void cam_vfe_bus_update_ubwc_meta_addr(
@@ -3161,14 +3276,18 @@ static int cam_vfe_bus_init_hw(void *hw_priv,
 		bus_error_irq_mask,
 		bus_priv,
 		cam_vfe_bus_error_irq_top_half,
-		NULL,
-		NULL,
-		NULL);
+		cam_vfe_bus_err_bottom_half,
+		bus_priv->tasklet_info,
+		&tasklet_bh_api);
 
 	if (bus_priv->irq_handle <= 0) {
 		CAM_ERR(CAM_ISP, "Failed to subscribe BUS IRQ");
 		return -EFAULT;
 	}
+
+	/*Set Debug Registers*/
+	cam_io_w_mb(CAM_VFE_BUS_SET_DEBUG_REG, bus_priv->common_data.mem_base +
+		bus_priv->common_data.common_reg->debug_status_cfg);
 
 	/* BUS_WR_INPUT_IF_ADDR_SYNC_FRAME_HEADER */
 	cam_io_w_mb(0x0, bus_priv->common_data.mem_base +
