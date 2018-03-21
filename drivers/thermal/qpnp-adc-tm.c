@@ -469,18 +469,12 @@ static int32_t qpnp_adc_tm_disable(struct qpnp_adc_tm_chip *chip)
 	u8 data = 0;
 	int rc = 0;
 
-	if (chip->adc_tm_hc) {
-		rc = qpnp_adc_tm_write_reg(chip, QPNP_BTM_CONV_REQ, data, 1);
+	if (!chip->adc_tm_hc) {
+		rc = qpnp_adc_tm_write_reg(chip, QPNP_EN_CTL1, data, 1);
 		if (rc < 0) {
-			pr_err("adc-tm enable failed\n");
+			pr_err("adc-tm disable failed\n");
 			return rc;
 		}
-	}
-
-	rc = qpnp_adc_tm_write_reg(chip, QPNP_EN_CTL1, data, 1);
-	if (rc < 0) {
-		pr_err("adc-tm disable failed\n");
-		return rc;
 	}
 
 	return rc;
