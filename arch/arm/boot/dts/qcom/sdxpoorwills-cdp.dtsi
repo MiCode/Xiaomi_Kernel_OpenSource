@@ -141,4 +141,5 @@
 &usb {
 	status = "okay";
 	extcon = <&smb1381_charger>;
+	vbus_dwc3-supply = <&smb138x_vbus>;
 };
