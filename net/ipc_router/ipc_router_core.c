@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2936,6 +2936,10 @@ static int loopback_data(struct msm_ipc_port *src,
 	}
 
 	temp_skb = skb_peek_tail(pkt->pkt_fragment_q);
+	if (!temp_skb) {
+		IPC_RTR_ERR("%s: Empty skb\n", __func__);
+		return -EINVAL;
+	}
 	align_size = ALIGN_SIZE(pkt->length);
 	skb_put(temp_skb, align_size);
 	pkt->length += align_size;
@@ -3097,6 +3101,11 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 	}
 
 	temp_skb = skb_peek_tail(pkt->pkt_fragment_q);
+	if (!temp_skb) {
+		IPC_RTR_ERR("%s: Abort invalid pkt\n", __func__);
+		ret = -EINVAL;
+		goto out_write_pkt;
+	}
 	align_size = ALIGN_SIZE(pkt->length);
 	skb_put(temp_skb, align_size);
 	pkt->length += align_size;
@@ -3424,7 +3433,8 @@ int msm_ipc_router_recv_from(struct msm_ipc_port *port_ptr,
 	align_size = ALIGN_SIZE(data_len);
 	if (align_size) {
 		temp_skb = skb_peek_tail((*pkt)->pkt_fragment_q);
-		skb_trim(temp_skb, (temp_skb->len - align_size));
+		if (temp_skb)
+			skb_trim(temp_skb, (temp_skb->len - align_size));
 	}
 	return data_len;
 }
