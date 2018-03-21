@@ -14,6 +14,8 @@
 #include <linux/jhash.h>
 #include <linux/filter.h>
 #include "percpu_freelist.h"
+#define HTAB_CREATE_FLAG_MASK						\
+	(BPF_F_NO_PREALLOC | BPF_F_RDONLY | BPF_F_WRONLY)
 
 struct bucket {
 	struct hlist_head head;
@@ -148,7 +150,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
 	int err, i;
 	u64 cost;
 
-	if (attr->map_flags & ~BPF_F_NO_PREALLOC)
+	if (attr->map_flags & ~HTAB_CREATE_FLAG_MASK)
 		/* reserved bits should not be used */
 		return ERR_PTR(-EINVAL);
 
