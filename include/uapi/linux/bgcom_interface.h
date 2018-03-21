@@ -7,6 +7,7 @@
 #define BGCOM_SET_SPI_BUSY  4
 #define BGCOM_REG_WRITE  5
 #define BGCOM_SOFT_RESET  6
+#define BGCOM_MODEM_DOWN2_BG  7
 #define EXCHANGE_CODE  'V'
 
 struct bg_ui_data {
@@ -44,5 +45,8 @@ enum bg_event_type {
 	struct bg_ui_data)
 #define BG_SOFT_RESET \
 	_IOWR(EXCHANGE_CODE, BGCOM_SOFT_RESET, \
+	struct bg_ui_data)
+#define BG_MODEM_DOWN2_BG_DONE \
+	_IOWR(EXCHANGE_CODE, BGCOM_MODEM_DOWN2_BG, \
 	struct bg_ui_data)
 #endif
