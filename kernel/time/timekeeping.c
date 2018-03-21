@@ -408,7 +408,6 @@ EXPORT_SYMBOL_GPL(pvclock_gtod_unregister_notifier);
  */
 static inline void tk_update_ktime_data(struct timekeeper *tk)
 {
-	u64 seconds;
 	s64 nsec;
 
 	/*
@@ -424,9 +423,7 @@ static inline void tk_update_ktime_data(struct timekeeper *tk)
 	tk->tkr_mono.base = ns_to_ktime(nsec);
 
 	/* Update the monotonic raw base */
-	seconds = tk->raw_sec;
-	nsec = (u32)(tk->tkr_raw.xtime_nsec >> tk->tkr_raw.shift);
-	tk->tkr_raw.base = ns_to_ktime(seconds * NSEC_PER_SEC + nsec);
+	tk->tkr_raw.base = ns_to_ktime(tk->raw_sec * NSEC_PER_SEC);
 }
 
 /* must hold timekeeper_lock */
