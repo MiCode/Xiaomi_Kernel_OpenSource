@@ -629,7 +629,7 @@ uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 
 bool q6core_is_adsp_ready(void)
 {
-	int rc;
+	int rc = 0;
 	bool ret = false;
 	struct apr_hdr hdr;
 

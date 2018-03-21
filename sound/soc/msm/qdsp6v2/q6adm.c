@@ -419,7 +419,7 @@ int adm_programable_channel_mixer(int port_id, int copp_idx, int session_id,
 				  int channel_index)
 {
 	struct adm_cmd_set_pspd_mtmx_strtr_params_v5 *adm_params = NULL;
-	struct param_hdr_v3 data_v5;
+	struct param_hdr_v3 data_v5 = {0,};
 	int ret = 0, port_idx, sz = 0, param_size = 0;
 	u16 *adm_pspd_params;
 	u16 *ptr;
