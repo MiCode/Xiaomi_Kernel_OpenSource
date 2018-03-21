@@ -1702,6 +1702,30 @@
 		clock-names = "apb_pclk";
 	};
 
+	cti0_dlct: cti@6c29000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x6c29000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-dlct_cti0";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti1_dlct: cti@6c2a000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x6c2a000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-dlct_cti1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
 	cti0: cti@6010000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
