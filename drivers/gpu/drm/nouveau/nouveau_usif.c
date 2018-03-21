@@ -316,6 +316,12 @@ usif_ioctl(struct drm_file *filp, void __user *user, u32 argc)
 	} else
 		goto done;
 
+	object = (void *)(unsigned long)argv->v0.token;
+	if (!access_ok(VERIFY_READ, object, sizeof(struct usif_object))) {
+		ret = -EINVAL;
+		goto done;
+	}
+
 	mutex_lock(&cli->mutex);
 	switch (argv->v0.type) {
 	case NVIF_IOCTL_V0_NEW:
@@ -340,7 +346,6 @@ usif_ioctl(struct drm_file *filp, void __user *user, u32 argc)
 		break;
 	}
 	if (argv->v0.route == NVDRM_OBJECT_USIF) {
-		object = (void *)(unsigned long)argv->v0.token;
 		argv->v0.route = object->route;
 		argv->v0.token = object->token;
 		if (ret == 0 && argv->v0.type == NVIF_IOCTL_V0_DEL) {

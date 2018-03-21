@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -403,7 +404,15 @@ static int cmdq_enable(struct mmc_host *mmc)
 	cmdq_writel(cq_host, mmc->card->rca, CQSSC2);
 
 	/* send QSR at lesser intervals than the default */
-	cmdq_writel(cq_host, SEND_QSR_INTERVAL, CQSSC1);
+	if (CID_MANFID_MICRON == mmc->card->cid.manfid) {
+		if ((cmdq_readl(cq_host, CQSSC1) | SEND_QSR_INTERVAL) > 0x70040)
+
+			cmdq_writel(cq_host, cmdq_readl(cq_host, CQSSC1) | SEND_QSR_INTERVAL, CQSSC1);
+		else
+			cmdq_writel(cq_host, 0x70040, CQSSC1);
+	} else{
+		cmdq_writel(cq_host, SEND_QSR_INTERVAL, CQSSC1);
+	}
 
 	/* enable bkops exception indication */
 	if (mmc_card_configured_manual_bkops(mmc->card) &&

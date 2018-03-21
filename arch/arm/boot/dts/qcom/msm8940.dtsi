@@ -473,7 +473,6 @@
 		<38   0   28>, /* SVSP(20mv); TURBO(15mv); KV(1.9) */
 		<0    0   38>; /* TURBO(20mv); KV(1.9) */
 
-	qcom,cpr-enable;
 };
 
 &mdss_mdp {
@@ -548,6 +547,19 @@
 
 		qcom,inst-id = <11>;
 	};
+
+	sn_fuse: snfuse@0xa0128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0xa0128 0x4>;
+		reg-names = "sn-base";
+	};
+
+	sec_boot_fuse: secbootfuse@0xa41d0 {
+		compatible = "qcom,sec-boot-fuse";
+		reg = <0xa41d0 0x4>;
+		reg-names = "sec-boot-base";
+	};
+
 };
 
 /* GPU overrides */

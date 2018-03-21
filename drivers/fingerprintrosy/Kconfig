@@ -1,0 +1,8 @@
+config FINGERPRINT_ROSY
+	tristate "ROSY Fingerprint driver support"
+	help
+	 Say Y here to enable goodix fingerprint driver support!
+
+source "drivers/fingerprintrosy/goodixrosy/Kconfig"
+source "drivers/fingerprintrosy/fpcrosy/Kconfig"
+

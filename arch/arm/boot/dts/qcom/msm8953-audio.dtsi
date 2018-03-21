@@ -16,11 +16,11 @@
 &int_codec {
 	qcom,model = "msm8953-snd-card-mtp";
 
-	qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
-	qcom,msm-mbhc-hphl-swh = <0>;
-	qcom,msm-mbhc-gnd-swh = <0>;
-	qcom,msm-hs-micbias-type = "internal";
+	qcom,cdc-us-euro-gpios;
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-hs-micbias-type = "external";
 	qcom,msm-micbias1-ext-cap;
+        qcom,msm-micbias2-ext-cap;
 
 	qcom,msm-gpios =
 		"pri_i2s",

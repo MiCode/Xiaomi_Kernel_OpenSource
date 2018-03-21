@@ -80,6 +80,13 @@ USB_VIDEO_MODULE_PARAMETERS();
 #endif
 #include "debug.h"
 
+#ifdef WT_COMPILE_FACTORY_VERSION
+#undef dev_dbg
+#define dev_dbg dev_info
+#undef pr_debug
+#define pr_debug pr_info
+#endif
+
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
 MODULE_LICENSE("GPL");

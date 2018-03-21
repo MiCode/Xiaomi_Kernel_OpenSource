@@ -2132,6 +2132,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		commit_cb.data = mfd;
 		ret = mdss_mdp_display_commit(mdp5_data->ctl, NULL,
 			&commit_cb);
+		ctl->panel_data->panel_info.kickoff_count++;
 		ATRACE_END("display_commit");
 	}
 

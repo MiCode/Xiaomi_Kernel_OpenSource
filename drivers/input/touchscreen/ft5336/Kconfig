@@ -1,0 +1,5 @@
+
+config TOUCHSCREEN_FT5336
+	tristate "FOCALTECH FT5336 touchpanel driver"
+	depends on CONFIG_INPUT_TOUCHSCREEN
+	default n

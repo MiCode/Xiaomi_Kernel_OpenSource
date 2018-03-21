@@ -542,7 +542,23 @@ config LEDS_AW2013
 	  This option enables support for the AW2013 RGB LED connected
 	  through I2C. Say Y to enable support for the AW2013 LED.
 
+config DIFFERENT_TP_COLOR
+	tristate "TP support for different color"
+	help
+	  This option enables support for different color.
+
+config COLOFUL_RGB_FOR_PROJECT
+	tristate "different colorful rgb_control for project"
+	help
+	  This option enables colorful rgb_control for project.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
 endif # NEW_LEDS
+
+config VIB_GPIO
+	tristate "LED support for LM3533"
+	help
+	  This option enables support for the LEDs on National Semiconductor /
+	  TI LM3533 Lighting Power chips

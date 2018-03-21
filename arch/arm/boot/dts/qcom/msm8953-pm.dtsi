@@ -402,6 +402,7 @@
 			<0xff 264>, /* arm-smmu context fault */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 271>, /* sps interrupt */
 			<0xff 273>, /* smmu_bus_intr[18] */
 			<0xff 274>, /* smmu_bus_intr[19] */
 			<0xff 275>, /* rpm_ipc(30) */
@@ -455,6 +456,7 @@
 			<34  81>,
 			<35  85>,
 			<36  90>,
+			<37  112>,
 			<50  67>,
 			<51  73>,
 			<52  74>,

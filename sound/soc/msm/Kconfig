@@ -250,6 +250,9 @@ config SND_SOC_MSM8909
 	 the machine drivers and the corresponding
 	 DAI-links.
 
+config SND_SOC_AW87319
+	tristate "Build AWINIC AW87319 ASoc Speaker PA"
+
 config SND_SOC_MDM9640
 	tristate "SoC Machine driver for MDM9640 boards"
 	depends on ARCH_MDM9640

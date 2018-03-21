@@ -226,13 +226,13 @@
 		qcom,resource-id = <10>;
 		qcom,regulator-type = <0>;
 		qcom,hpm-min-load = <10000>;
-		status = "disabled";
+		status = "okay";
 
 		regulator-l10 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8953_l10";
 			qcom,set = <3>;
-			status = "disabled";
+			status = "okay";
 		};
 	};
 

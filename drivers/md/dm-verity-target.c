@@ -233,7 +233,7 @@ out:
 	if (v->mode == DM_VERITY_MODE_LOGGING)
 		return 0;
 
-	if (v->mode == DM_VERITY_MODE_RESTART)
+	if (v->mode == DM_VERITY_MODE_RESTART && system_state != SYSTEM_POWER_OFF)
 		kernel_restart("dm-verity device corrupted");
 
 	return 1;

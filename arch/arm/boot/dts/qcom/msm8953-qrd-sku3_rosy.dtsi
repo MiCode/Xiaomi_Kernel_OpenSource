@@ -1,0 +1,185 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8953-qrd_rosy.dtsi"
+#include "msm8953-pinctrl_rosy.dtsi"
+#include "msm8953-camera-sensor-qrd_rosy.dtsi"
+#include "dsi-panel-ft8613-ebbg-5p7-720p-video.dtsi"
+#include "dsi-panel-ft8006m-boe-5p7-720p-video.dtsi"
+#include "dsi-panel-ft8613-ebbg-5p5-1080p-video.dtsi"
+#include "dsi-panel-ft8613-csot-5p7-720p-video.dtsi"
+
+&spmi_bus {
+	qcom,pmi8940@3 {
+		labibb: qpnp-labibb-regulator {
+			ibb_regulator: qcom,ibb@dc00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5700000>;
+			};
+
+			lab_regulator: qcom,lab@de00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5700000>;
+			};
+		};
+	};
+};
+
+#include "msm8953-mdss-panels.dtsi"
+
+&tlmm {
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio61";
+			};
+			config {
+				pins = "gpio61";
+			};
+		};
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio61";
+			};
+			config {
+				pins = "gpio61";
+			};
+		};
+	};
+};
+
+&dsi_r69006_1080p_cmd {
+	qcom,esd-check-enabled;
+};
+
+#include "msm8953-mdss-panels.dtsi"
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_ft8613_ebbg_5p7_720p_video>;
+	qcom,dsi-pref-sub-pan = <&dsi_ft8006m_boe_5p7_720p_video>;
+	qcom,dsi-pref-sub1-pan = <&dsi_ft8613_csot_5p7_720p_video>;
+	qcom,dsi-pref-sub2-pan = <&dsi_ft8613_ebbg_5p5_1080p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	iovdd_gpio-supply = <&iovdd_gpio_vreg>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&dsi_panel_pwr_supply {
+	qcom,panel-supply-entry@1 {
+		reg = <1>;
+		qcom,supply-name = "iovdd_gpio";
+		qcom,supply-min-voltage = <1800000>;
+		qcom,supply-max-voltage = <1800000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-post-on-sleep = <10>;
+	};
+	qcom,panel-supply-entry@2 {
+		reg = <2>;
+		qcom,supply-name = "lab";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@3 {
+		reg = <3>;
+		qcom,supply-name = "ibb";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-post-on-sleep = <10>;
+	};
+};
+
+&dsi_ft8613_ebbg_5p7_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,qpnp-ibb-init-lcd-voltage = <5800000>;
+	qcom,qpnp-lab-init-lcd-voltage = <5800000>;
+};
+
+&dsi_ft8006m_boe_5p7_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,qpnp-ibb-init-lcd-voltage = <6000000>;
+	qcom,qpnp-lab-init-lcd-voltage = <6000000>;
+};
+
+&dsi_ft8613_csot_5p7_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,qpnp-ibb-init-lcd-voltage = <5800000>;
+	qcom,qpnp-lab-init-lcd-voltage = <5800000>;
+};
+
+&dsi_ft8613_ebbg_5p5_1080p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,qpnp-ibb-init-lcd-voltage = <5800000>;
+	qcom,qpnp-lab-init-lcd-voltage = <5800000>;
+};
+
+&dsi_r69006_1080p_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_r69006_1080p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&int_codec {
+	status = "okay";
+	qcom,model = "msm8953-snd-card-mtp";
+	qcom,msm-hs-micbias-type = "internal";
+};
+
+&pm8953_diangu_dig {
+	status = "okay";
+};
+
+&pm8953_diangu_analog {
+	status = "okay";
+};
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};

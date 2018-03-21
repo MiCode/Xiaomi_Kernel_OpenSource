@@ -31,6 +31,7 @@
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+#include <linux/ktrace.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
@@ -662,6 +663,14 @@ static void cpufreq_interactive_timer(unsigned long data)
 					 ppol->policy->cur, new_freq);
 
 	ppol->target_freq = new_freq;
+
+	if ((ppol->target_freq != ppol->policy->cur)
+		&& (ppol->target_freq > ppol->policy->max)) {
+		ktrace_add_cpufreq_event(KTRACE_CPUFREQ_TYPE_MITIGATION,
+				current->pid, ktime_to_ns(ktime_get()), max_cpu,
+				ppol->target_freq, ppol->policy->max);
+	}
+
 	spin_unlock_irqrestore(&ppol->target_freq_lock, flags);
 	spin_lock_irqsave(&speedchange_cpumask_lock, flags);
 	cpumask_set_cpu(max_cpu, &speedchange_cpumask);
@@ -1795,6 +1804,12 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 
 	case CPUFREQ_GOV_LIMITS:
 		ppol = per_cpu(polinfo, policy->cpu);
+
+		if (policy->max < policy->cpuinfo.max_freq) {
+			ktrace_cpufreq_set_mitigated(current->comm, policy->cpu, policy->related_cpus, policy->max);
+		} else {
+			ktrace_cpufreq_set_mitigated(current->comm, policy->cpu, policy->related_cpus, 0);
+		}
 
 		__cpufreq_driver_target(policy,
 				ppol->target_freq, CPUFREQ_RELATION_L);

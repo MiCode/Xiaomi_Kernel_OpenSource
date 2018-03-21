@@ -3344,6 +3344,7 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 	struct hci_fm_def_data_rd_req rd;
 	int lsb, msb;
 
+	mutex_lock(&fm_smd_enable);
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
 		retval = -EINVAL;
@@ -3681,6 +3682,7 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 	}
 
 END:
+	mutex_unlock(&fm_smd_enable);
 	if (retval > 0)
 		retval = -EINVAL;
 	if (ctrl != NULL && retval < 0)
@@ -3697,6 +3699,7 @@ static int iris_vidioc_g_ext_ctrls(struct file *file, void *priv,
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	struct hci_fm_def_data_rd_req default_data_rd;
 
+	mutex_lock(&fm_smd_enable);
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
 		retval = -EINVAL;
@@ -3728,6 +3731,7 @@ static int iris_vidioc_g_ext_ctrls(struct file *file, void *priv,
 	}
 
 END:
+	mutex_unlock(&fm_smd_enable);
 	if (retval > 0)
 		retval = -EINVAL;
 
@@ -3750,6 +3754,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	char *data = NULL;
 
+	mutex_lock(&fm_smd_enable);
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
 		retval = -EINVAL;
@@ -3961,6 +3966,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	}
 
 END:
+	mutex_unlock(&fm_smd_enable);
 	if (retval > 0)
 		retval = -EINVAL;
 
@@ -3984,6 +3990,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	__u8 intf_det_low_th, intf_det_high_th, intf_det_out;
 	unsigned int spur_freq;
 
+	mutex_lock(&fm_smd_enable);
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
 		retval = -EINVAL;
@@ -4984,6 +4991,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	}
 
 END:
+	mutex_unlock(&fm_smd_enable);
 	if (retval > 0)
 		retval = -EINVAL;
 
@@ -5087,11 +5095,12 @@ static int iris_vidioc_g_tuner(struct file *file, void *priv,
 		FMDERR("Invalid Tuner Index");
 		return -EINVAL;
 	}
+	mutex_lock(&fm_smd_enable);
 	if (radio->mode == FM_RECV) {
 		retval = hci_cmd(HCI_FM_GET_STATION_PARAM_CMD, radio->fm_hdev);
 		if (retval < 0) {
 			FMDERR("Failed to Get station params");
-			return retval;
+			goto END;
 		}
 		tuner->type = V4L2_TUNER_RADIO;
 		tuner->rangelow  =
@@ -5107,16 +5116,20 @@ static int iris_vidioc_g_tuner(struct file *file, void *priv,
 		retval = hci_cmd(HCI_FM_GET_TX_CONFIG, radio->fm_hdev);
 		if (retval < 0) {
 			FMDERR("get Tx config failed %d\n", retval);
-			return retval;
+			goto END;
 		}
 		tuner->type = V4L2_TUNER_RADIO;
 		tuner->rangelow =
 			radio->trans_conf.band_low_limit * TUNE_PARAM;
 		tuner->rangehigh =
 			radio->trans_conf.band_high_limit * TUNE_PARAM;
-	} else
-		return -EINVAL;
-	return 0;
+	} else {
+		retval = -EINVAL;
+		goto END;
+	}
+END:
+	mutex_unlock(&fm_smd_enable);
+	return retval;
 }
 
 static int iris_vidioc_s_tuner(struct file *file, void *priv,
@@ -5138,6 +5151,7 @@ static int iris_vidioc_s_tuner(struct file *file, void *priv,
 	if (tuner->index > 0)
 		return -EINVAL;
 
+	mutex_lock(&fm_smd_enable);
 	if (radio->mode == FM_RECV) {
 		radio->recv_conf.band_low_limit = tuner->rangelow / TUNE_PARAM;
 		radio->recv_conf.band_high_limit =
@@ -5153,17 +5167,22 @@ static int iris_vidioc_s_tuner(struct file *file, void *priv,
 					&radio->stereo_mode,
 					radio->fm_hdev);
 		}
-		if (retval < 0)
+		if (retval < 0) {
 			FMDERR(": set tuner failed with %d\n", retval);
-		return retval;
+			goto END;
+		}
 	} else if (radio->mode == FM_TRANS) {
 			radio->trans_conf.band_low_limit =
 				tuner->rangelow / TUNE_PARAM;
 			radio->trans_conf.band_high_limit =
 				tuner->rangehigh / TUNE_PARAM;
-	} else
-		return -EINVAL;
+	} else {
+		retval = -EINVAL;
+		goto END;
+	}
 
+END:
+	mutex_unlock(&fm_smd_enable);
 	return retval;
 }
 
@@ -5200,6 +5219,7 @@ static int iris_vidioc_s_frequency(struct file *file, void *priv,
 	if (freq->type != V4L2_TUNER_RADIO)
 		return -EINVAL;
 
+	mutex_lock(&fm_smd_enable);
 	/* We turn off RDS prior to tuning to a new station.
 	   because of a bug in SoC which prevents tuning
 	   during RDS transmission.
@@ -5224,6 +5244,7 @@ static int iris_vidioc_s_frequency(struct file *file, void *priv,
 				radio->fm_hdev);
 	}
 
+	mutex_unlock(&fm_smd_enable);
 	if (retval < 0)
 		FMDERR(" set frequency failed with %d\n", retval);
 	return retval;
@@ -5240,6 +5261,7 @@ static int iris_fops_release(struct file *file)
 
 	FMDBG("state %d", radio->mode);
 	mutex_lock(&radio->lock);
+	mutex_lock(&fm_smd_enable);
 
 	if (radio->mode == FM_OFF)
 		goto END;
@@ -5260,12 +5282,12 @@ static int iris_fops_release(struct file *file)
 		radio->is_fm_closing = false;
 	} else if (radio->mode == FM_CALIB) {
 		radio->mode = FM_OFF;
+		mutex_unlock(&fm_smd_enable);
 		mutex_unlock(&radio->lock);
 		return retval;
 	}
 END:
 	FMDBG("mode %d", radio->mode);
-	mutex_lock(&fm_smd_enable);
 	if (radio->fm_hdev != NULL)
 		radio->fm_hdev->close_smd();
 	mutex_unlock(&fm_smd_enable);

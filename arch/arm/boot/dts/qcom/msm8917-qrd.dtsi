@@ -12,7 +12,6 @@
  */
 
 #include "msm8917-pinctrl.dtsi"
-#include "msm8917-camera-sensor-qrd.dtsi"
 
 &blsp1_uart2 {
 	status = "ok";
@@ -25,6 +24,7 @@
 	vdd-supply = <&pm8917_l8>;
 	qcom,vdd-voltage-level = <2900000 2900000>;
 	qcom,vdd-current-level = <200 570000>;
+	qcom,vdd-always-on;
 
 	/* device communication power supply */
 	vdd-io-supply = <&pm8917_l5>;

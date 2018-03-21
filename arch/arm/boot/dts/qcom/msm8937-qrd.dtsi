@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +13,6 @@
  */
 
 #include "msm8937-pinctrl.dtsi"
-#include "msm8937-camera-sensor-qrd.dtsi"
 
 &soc {
 	gpio_keys {
@@ -29,6 +29,11 @@
 			linux,code = <115>;
 			debounce-interval = <15>;
 		};
+	};
+
+
+	boardinfo {
+		compatible = "wt:boardinfo";
 	};
 };
 
@@ -83,6 +88,7 @@
 	vdd-supply = <&pm8937_l8>;
 	qcom,vdd-voltage-level = <2900000 2900000>;
 	qcom,vdd-current-level = <200 570000>;
+	qcom,vdd-always-on;
 
 	/* device communication power supply */
 	vdd-io-supply = <&pm8937_l5>;

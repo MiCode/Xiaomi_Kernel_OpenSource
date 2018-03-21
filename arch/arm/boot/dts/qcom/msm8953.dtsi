@@ -84,8 +84,8 @@
 		};
 
 		dfps_data_mem: dfps_data_mem@90000000 {
-		       reg = <0 0x90000000 0 0x1000>;
-		       label = "dfps_data_mem";
+			reg = <0 0x90000000 0 0x1000>;
+			label = "dfps_data_mem";
 		};
 
 		cont_splash_mem: splash_region@0x90001000 {
@@ -750,7 +750,7 @@
 		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
 			<&dma_blsp1 9 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
-		status = "disabled";
+		status = "okay";
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
@@ -2298,7 +2298,7 @@
 #include "msm-pm8953.dtsi"
 #include "msm8953-regulator.dtsi"
 #include "msm-audio.dtsi"
-#include "msm8953-audio.dtsi"
+#include "msm8953-audio_rosy.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm8953-camera.dtsi"
 #include "msm8953-mdss.dtsi"

@@ -694,6 +694,8 @@ else
 # Use make W=1 to enable this warning (see scripts/Makefile.build)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 endif
+# transport MTK_CDEFS ( mtk compile macros ) to .c for compile
+KBUILD_CFLAGS += $(MTK_CDEFS)
 
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
@@ -777,6 +779,13 @@ KBUILD_ARFLAGS := $(call ar-option,D)
 # check for 'asm goto'
 ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC)), y)
 	KBUILD_CFLAGS += -DCC_HAVE_ASM_GOTO
+endif
+
+ifeq ($(WT_COMPILE_FACTORY_VERSION),yes)
+	KBUILD_CFLAGS += -DWT_COMPILE_FACTORY_VERSION
+endif
+ifeq ($(WT_FINAL_RELEASE),yes)
+	KBUILD_CFLAGS += -DWT_FINAL_RELEASE
 endif
 
 include $(srctree)/scripts/Makefile.kasan

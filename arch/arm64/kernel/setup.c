@@ -63,6 +63,7 @@
 #include <asm/memblock.h>
 #include <asm/psci.h>
 #include <asm/efi.h>
+#include <asm/bootinfo.h>
 
 unsigned int processor_id;
 EXPORT_SYMBOL(processor_id);
@@ -84,6 +85,8 @@ EXPORT_SYMBOL(arch_read_hardware_id);
 unsigned int compat_elf_hwcap __read_mostly = COMPAT_ELF_HWCAP_DEFAULT;
 unsigned int compat_elf_hwcap2 __read_mostly;
 #endif
+
+extern void pstore_ram_reserve_memory(void);
 
 DECLARE_BITMAP(cpu_hwcaps, ARM64_NCAPS);
 
@@ -380,6 +383,14 @@ static void __init request_standard_resources(void)
 			request_resource(res, &kernel_data);
 	}
 }
+#ifdef CONFIG_OF_FLATTREE
+void __init early_init_dt_setup_pureason_arch(unsigned long pu_reason)
+{
+	set_powerup_reason(pu_reason);
+	pr_info("Powerup reason=0x%x\n", get_powerup_reason());
+}
+#endif
+
 
 #ifdef CONFIG_BLK_DEV_INITRD
 /*
@@ -494,6 +505,10 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_SMP
 	smp_init_cpus();
 	smp_build_mpidr_hash();
+#endif
+
+#ifdef CONFIG_PSTORE
+	pstore_ram_reserve_memory();
 #endif
 
 #ifdef CONFIG_VT

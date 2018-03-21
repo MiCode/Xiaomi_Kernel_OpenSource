@@ -26,6 +26,9 @@
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
 
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+
 #ifdef CONFIG_MSM_PM
 #include "lpm-levels.h"
 #endif
@@ -53,6 +56,15 @@ static DEFINE_SPINLOCK(freezer_delta_lock);
 static struct wakeup_source *ws;
 static struct delayed_work work;
 static struct workqueue_struct *power_off_alarm_workqueue;
+
+#define AUTOWAKEUP_MAGIC 0xA2370000
+#define AUTOWAKEUP_MASK  0x0000FFFF
+
+static unsigned int auto_wakeup_time = AUTOWAKEUP_MAGIC;
+#define AUTOWAKEUP_VALID_TIME_GET() \
+	(AUTOWAKEUP_MAGIC == (auto_wakeup_time & (~AUTOWAKEUP_MASK)) ? (AUTOWAKEUP_MASK & auto_wakeup_time) : 0)
+module_param_named(auto_wakeup_time, auto_wakeup_time, uint, S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(auto_wakeup_time, "vRTC auto  wakeup expire time(default is 0s)");
 
 #ifdef CONFIG_RTC_CLASS
 /* rtc timer and device for setting alarm wakeups at suspend */
@@ -372,6 +384,7 @@ static int alarmtimer_suspend(struct device *dev)
 	struct rtc_device *rtc;
 	int i;
 	int ret = 0;
+	unsigned int wakeup_time = 0;
 
 	cancel_delayed_work_sync(&work);
 
@@ -406,6 +419,12 @@ static int alarmtimer_suspend(struct device *dev)
 	if (ktime_to_ns(min) < 2 * NSEC_PER_SEC) {
 		__pm_wakeup_event(ws, 2 * MSEC_PER_SEC);
 		return -EBUSY;
+	}
+
+	wakeup_time = AUTOWAKEUP_VALID_TIME_GET();
+	if (unlikely(0 != wakeup_time)) {
+		min = ktime_set(wakeup_time, 0);
+		pr_err("auto wakeup: wake up in %d seconds\n", wakeup_time);
 	}
 
 	/* Setup a timer to fire that far in the future */
@@ -486,9 +505,15 @@ static int alarmtimer_suspend(struct device *dev)
 	return ret;
 }
 #endif
+
+void qpnp_kpdpwr_simulate(void);
 static int alarmtimer_resume(struct device *dev)
 {
 	struct rtc_device *rtc;
+
+	if (unlikely(0 != AUTOWAKEUP_VALID_TIME_GET())) {
+		qpnp_kpdpwr_simulate();
+	}
 
 	rtc = alarmtimer_get_rtcdev();
 	/* If we have no rtcdev, just return */

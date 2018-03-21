@@ -15,6 +15,13 @@
 
 #include "ci13xxx_udc.c"
 
+#ifdef WT_COMPILE_FACTORY_VERSION
+#undef dev_dbg
+#define dev_dbg dev_info
+#undef pr_debug
+#define pr_debug pr_info
+#endif
+
 #define MSM_USB_BASE	(udc->regs)
 
 #define CI13XXX_MSM_MAX_LOG2_ITC	7

@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,7 +56,9 @@ static void __iomem *msm_ps_hold;
 static phys_addr_t tcsr_boot_misc_detect;
 static void scm_disable_sdi(void);
 
-#ifdef CONFIG_MSM_DLOAD_MODE
+#if defined(WT_FINAL_RELEASE)
+static int download_mode;
+#elif defined(CONFIG_MSM_DLOAD_MODE)
 /* Runtime could be only changed value once.
 * There is no API from TZ to re-enable the registers.
 * So the SDI cannot be re-enabled when it already by-passed.
@@ -154,17 +157,18 @@ static bool get_dload_mode(void)
 
 static void enable_emergency_dload_mode(void)
 {
+#ifdef	WT_COMPILE_FACTORY_VERSION
 	int ret;
 
 	if (emergency_dload_mode_addr) {
 		__raw_writel(EMERGENCY_DLOAD_MAGIC1,
-				emergency_dload_mode_addr);
+					emergency_dload_mode_addr);
 		__raw_writel(EMERGENCY_DLOAD_MAGIC2,
-				emergency_dload_mode_addr +
-				sizeof(unsigned int));
+					emergency_dload_mode_addr +
+					sizeof(unsigned int));
 		__raw_writel(EMERGENCY_DLOAD_MAGIC3,
-				emergency_dload_mode_addr +
-				(2 * sizeof(unsigned int)));
+					emergency_dload_mode_addr +
+					(2 * sizeof(unsigned int)));
 
 		/* Need disable the pmic wdt, then the emergency dload mode
 		 * will not auto reset. */
@@ -175,6 +179,9 @@ static void enable_emergency_dload_mode(void)
 	ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
 	if (ret)
 		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
+#else
+	pr_err("Failed to set secure EDLOAD mode: Xiaomi Required\n");
+#endif
 }
 
 static int dload_set(const char *val, struct kernel_param *kp)
@@ -216,6 +223,7 @@ static bool get_dload_mode(void)
 
 static void scm_disable_sdi(void)
 {
+#ifdef WT_FINAL_RELEASE
 	int ret;
 	struct scm_desc desc = {
 		.args[0] = 1,
@@ -232,6 +240,7 @@ static void scm_disable_sdi(void)
 			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
 	if (ret)
 		pr_err("Failed to disable secure wdog debug: %d\n", ret);
+#endif
 }
 
 void msm_set_restart_mode(int mode)
@@ -264,6 +273,17 @@ static void halt_spmi_pmic_arbiter(void)
 	}
 }
 
+static bool device_locked_flag;
+static int __init device_locked(char *str)
+{
+	if (strcmp(str, "1"))
+		device_locked_flag = false;
+	else
+		device_locked_flag = true;
+	return 1;
+}
+__setup("device_locked=", device_locked);
+
 static void msm_restart_prepare(const char *cmd)
 {
 	bool need_warm_reset = false;
@@ -281,12 +301,12 @@ static void msm_restart_prepare(const char *cmd)
 
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode */
-		if (get_dload_mode() ||
+		if (get_dload_mode() || in_panic ||
 			((cmd != NULL && cmd[0] != '\0') &&
 			!strcmp(cmd, "edl")))
 			need_warm_reset = true;
 	} else {
-		need_warm_reset = (get_dload_mode() ||
+		need_warm_reset = (get_dload_mode() || in_panic ||
 				(cmd != NULL && cmd[0] != '\0'));
 	}
 
@@ -297,7 +317,11 @@ static void msm_restart_prepare(const char *cmd)
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 	}
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+		__raw_writel(0x77665504, restart_reason);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -322,6 +346,8 @@ static void msm_restart_prepare(const char *cmd)
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_KEYS_CLEAR);
 			__raw_writel(0x7766550a, restart_reason);
+		} else if (!strncmp(cmd, "fastmmi", 7)) {
+			       __raw_writel(0x77665505, restart_reason);
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
 			int ret;
@@ -329,11 +355,20 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
+#ifdef WT_COMPILE_FACTORY_VERSION
 		} else if (!strncmp(cmd, "edl", 3)) {
-			enable_emergency_dload_mode();
+				enable_emergency_dload_mode();
+#else
+		} else if (!strncmp(cmd, "edl", 3) && !device_locked_flag) {
+				enable_emergency_dload_mode();
+#endif
 		} else {
+			qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();
@@ -397,6 +432,8 @@ static void do_msm_poweroff(void)
 	pr_notice("Powering off the SoC\n");
 
 	set_dload_mode(0);
+	qpnp_pon_set_restart_reason(PON_RESTART_REASON_UNKNOWN);
+	__raw_writel(0x0, restart_reason);
 	scm_disable_sdi();
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
 
@@ -569,6 +606,9 @@ skip_sysfs_create:
 	if (mem)
 		tcsr_boot_misc_detect = mem->start;
 
+
+	qpnp_pon_set_restart_reason(PON_RESTART_REASON_UNKNOWN);
+	__raw_writel(0x77665506, restart_reason);
 	pm_power_off = do_msm_poweroff;
 	arm_pm_restart = do_msm_restart;
 

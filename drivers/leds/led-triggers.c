@@ -2,6 +2,7 @@
  * LED Triggers Core
  *
  * Copyright 2005-2007 Openedhand Ltd.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Author: Richard Purdie <rpurdie@openedhand.com>
  *
@@ -305,6 +306,23 @@ void led_trigger_blink_oneshot(struct led_trigger *trig,
 }
 EXPORT_SYMBOL_GPL(led_trigger_blink_oneshot);
 
+struct led_trigger *led_trigger_get(const char *name)
+{
+	struct led_trigger *_trig;
+
+	down_write(&triggers_list_lock);
+	/* Make sure the trigger's name isn't already in use */
+	list_for_each_entry(_trig, &trigger_list, next_trig) {
+		if (!strcmp(_trig->name, name)) {
+			up_write(&triggers_list_lock);
+			return _trig;
+		}
+	}
+	up_write(&triggers_list_lock);
+	return NULL;
+}
+
+
 void led_trigger_register_simple(const char *name, struct led_trigger **tp)
 {
 	struct led_trigger *trig;
@@ -324,6 +342,9 @@ void led_trigger_register_simple(const char *name, struct led_trigger **tp)
 	} else {
 		pr_warn("LED trigger %s failed to register (no memory)\n",
 			name);
+	}
+	if (!strcmp("switch_trigger", name) && trig == NULL) {
+		 trig = led_trigger_get(name);
 	}
 	*tp = trig;
 }

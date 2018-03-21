@@ -18,7 +18,7 @@
 
 #include "pmic-voter.h"
 
-#define NUM_MAX_CLIENTS	8
+#define NUM_MAX_CLIENTS	10
 
 struct client_vote {
 	int	state;

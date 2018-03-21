@@ -2,6 +2,7 @@
  * Debugfs support for hosts and cards
  *
  * Copyright (C) 2008 Atmel Corporation
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -322,6 +323,34 @@ static int mmc_force_err_set(void *data, u64 val)
 }
 
 DEFINE_SIMPLE_ATTRIBUTE(mmc_force_err_fops, NULL, mmc_force_err_set, "%llu\n");
+#ifdef CONFIG_MMC_ERROR_STATUS
+static int mmc_err_state_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	*val = host->err_occurred ? 1 : 0;
+
+	return 0;
+}
+
+static int mmc_err_state_clear(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	host->err_occurred = false;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_err_state, mmc_err_state_get,
+		mmc_err_state_clear, "%llu\n");
+#endif
 
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
@@ -368,7 +397,11 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 				root, host, &mmc_ring_buffer_fops))
 		goto err_node;
 #endif
-
+#ifdef CONFIG_MMC_ERROR_STATUS
+		 if (!debugfs_create_file("err_state", S_IRUSR | S_IWUSR, root, host,
+		&mmc_err_state))
+		goto err_node;
+#endif
 #ifdef CONFIG_MMC_CLKGATE
 	if (!debugfs_create_u32("clk_delay", (S_IRUSR | S_IWUSR),
 				root, &host->clk_delay))
@@ -759,6 +792,9 @@ static ssize_t mmc_bkops_stats_write(struct file *filp,
 	int err;
 
 	if (!card)
+		return cnt;
+
+	if (!access_ok(VERIFY_READ, ubuf, cnt))
 		return cnt;
 
 	stats = &card->bkops.stats;

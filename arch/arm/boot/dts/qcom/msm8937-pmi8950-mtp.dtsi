@@ -14,6 +14,9 @@
 #include "msm-pmi8950.dtsi"
 #include "msm8937-mtp.dtsi"
 #include "msm8937-audio-mtp.dtsi"
+#include "dsi-panel-hx8394f-boe-720p-video.dtsi"
+#include "dsi-panel-ili9881c-ebbg-720p-video.dtsi"
+#include "dsi-panel-ili9881c-ebbgDJN-720p-video.dtsi"
 
 &soc {
 	led_flash0: qcom,camera-flash {
@@ -44,9 +47,31 @@
 	qcom,chg-led-support;
 };
 
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
 &mdss_dsi0 {
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
+
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394f_boe_720_vid>;
+        qcom,dsi-pref-sub-pan = <&dsi_ili9881c_ebbg_720p_video>;
+        qcom,dsi-pref-sub1-pan = <&dsi_ili9881c_ebbgDJN_720p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+
+        qcom,regulator-ldo-mode;
+        qcom,platform-regulator-settings = [ 00 01 01 00 20 07 00];
+
 };
 
 &mdss_dsi1 {
@@ -81,5 +106,33 @@
 		qcom,supply-enable-load = <100000>;
 		qcom,supply-disable-load = <100>;
 		qcom,supply-post-on-sleep = <20>;
+	};
+};
+&dsi_hx8394f_boe_720_vid {
+        qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_ili9881c_ebbg_720p_video {
+        qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+&dsi_ili9881c_ebbgDJN_720p_video {
+        qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&spmi_bus {
+	qcom,pmi8950@3 {
+		labibb: qpnp-labibb-regulator {
+			ibb_regulator: qcom,ibb@dc00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5500000>;
+			};
+
+			lab_regulator: qcom,lab@de00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5500000>;
+			};
+		};
 	};
 };

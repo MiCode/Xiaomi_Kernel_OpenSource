@@ -1413,10 +1413,15 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	}
 
 	/* Re-initialize the completion */
-	reinit_completion(&cci_dev->cci_master_info[master].reset_complete);
+	reinit_completion(&cci_dev->cci_master_info[MASTER_0].reset_complete);
 	for (i = 0; i < NUM_QUEUES; i++)
-		reinit_completion(&cci_dev->cci_master_info[master].
+		reinit_completion(&cci_dev->cci_master_info[MASTER_0].
 			report_q[i]);
+	reinit_completion(&cci_dev->cci_master_info[MASTER_1].reset_complete);
+	for (i = 0; i < NUM_QUEUES; i++)
+		reinit_completion(&cci_dev->cci_master_info[MASTER_1].
+			report_q[i]);
+
 	rc = msm_camera_enable_irq(cci_dev->irq, true);
 	if (rc < 0)
 		pr_err("%s: irq enable failed\n", __func__);

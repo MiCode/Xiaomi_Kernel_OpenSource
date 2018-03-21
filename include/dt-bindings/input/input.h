@@ -269,6 +269,8 @@
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+#define KEY_ANTENNA_DET    252
+#define KEY_ANTENNA_DET_UP 253
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100

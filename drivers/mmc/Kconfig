@@ -27,6 +27,14 @@ config MMC_PERF_PROFILING
 	  If you say Y here, support will be added for collecting
 	  performance numbers at the MMC Queue and Host layers.
 
+config MMC_ERROR_STATUS
+	bool "MMC error status"
+	depends on MMC != n
+	default n
+	help
+	  If you say Y here, user space query if eMMC driver has encountered any error or not.
+	  WARNNING:Only SCM could open it.
+
 if MMC
 
 source "drivers/mmc/core/Kconfig"

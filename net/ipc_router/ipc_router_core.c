@@ -720,7 +720,7 @@ static void *msm_ipc_router_skb_to_buf(struct sk_buff_head *skb_head,
 				       unsigned int len)
 {
 	struct sk_buff *temp;
-	unsigned int offset = 0, buf_len = 0, copy_len;
+	int offset = 0, buf_len = 0, copy_len;
 	void *buf;
 
 	if (!skb_head) {

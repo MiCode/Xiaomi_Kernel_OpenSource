@@ -275,3 +275,16 @@ cam_sensor_front1_sleep: cam_sensor_front1_sleep {
 		drive-strength = <2>; /* 2 MA */
 	};
 };
+
+SGM3780_default: SGM3780_default {
+	mux {
+		pins = "gpio90", "gpio93";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio90", "gpio93";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};

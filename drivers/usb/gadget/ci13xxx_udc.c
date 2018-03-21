@@ -69,7 +69,12 @@
 #include <linux/usb/msm_hsusb.h>
 
 #include "ci13xxx_udc.h"
-
+#ifdef WT_COMPILE_FACTORY_VERSION
+#undef dev_dbg
+#define dev_dbg dev_info
+#undef pr_debug
+#define pr_debug pr_info
+#endif
 /******************************************************************************
  * DEFINE
  *****************************************************************************/

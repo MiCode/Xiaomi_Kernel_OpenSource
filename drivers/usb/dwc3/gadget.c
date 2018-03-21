@@ -2,6 +2,7 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -39,6 +40,13 @@
 #include "gadget.h"
 #include "debug.h"
 #include "io.h"
+
+#ifdef WT_COMPILE_FACTORY_VERSION
+#undef dev_dbg
+#define dev_dbg dev_info
+#undef pr_debug
+#define pr_debug pr_info
+#endif
 
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc, bool remote_wakeup);
 static int dwc3_gadget_wakeup_int(struct dwc3 *dwc);
@@ -675,7 +683,9 @@ static void dwc3_remove_requests(struct dwc3 *dwc, struct dwc3_ep *dep)
 
 			dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
 		}
-	} else if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
+		/* For isoc endpoints explicitly stop active transfers */
+	} else if (dep->endpoint.desc &&
+			usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 		dwc3_stop_active_transfer(dwc, dep->number, true);
 	}
 
@@ -3015,7 +3025,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 
 	dwc3_gadget_usb3_phy_suspend(dwc, false);
 
-	usb_gadget_vbus_draw(&dwc->gadget, 0);
+	usb_gadget_vbus_draw(&dwc->gadget, 3);
 
 	if (dwc->gadget.speed != USB_SPEED_UNKNOWN)
 		dwc3_disconnect_gadget(dwc);

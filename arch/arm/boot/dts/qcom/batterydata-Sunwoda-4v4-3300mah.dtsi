@@ -1,0 +1,48 @@
+
+qcom,qrd_sdm450_4v4_3300mAh_sept11th2017 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3300>;
+	qcom,batt-id-kohm = <330>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "D1-qrd-sunwoda-4v4-3300mah";
+	qcom,chg-rslow-comp-c1 = <3898419>;
+	qcom,chg-rslow-comp-c2 = <6564992>;
+	qcom,chg-rs-to-rslow = <1234327>;
+	qcom,chg-rslow-comp-thr = <0xB4>;
+	qcom,checksum = <0xB04E>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+			 DF 83 CB 7C
+			 13 81 3E 77
+			 62 83 56 6F
+			 0A 89 3B 94
+			 31 82 9E 99
+			 8B BC FB C8
+			 56 0F 0D 88
+			 5A 7E 17 82
+			 79 7C 48 83
+			 81 72 2D 77
+			 4A 51 59 82
+			 2F 99 45 BC
+			 BB C8 5E 0D
+			 DF 0C E1 59
+			 14 70 77 FD
+			 32 31 FE 45
+			 6E 33 00 00
+			 66 45 F2 30
+			 8D 36 00 00
+			 00 00 00 00
+			 00 00 00 00
+			 DC 71 31 70
+			 23 84 5C 82
+			 A3 7C 03 72
+			 DB 67 51 79
+			 8F 75 37 6A
+			 7E 60 C1 A0
+			 33 22 62 B7
+			 5F A0 71 0C
+			 28 00 FF 36
+			 F0 11 30 03
+			 00 00 00 0C
+	];
+};
