@@ -21,3 +21,14 @@
 	qcom,msm-id = <353 0x0>;
 };
 
+&soc {
+	qcom,csid@1b30000 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+	qcom,csid@1b30400 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+	qcom,csid@1b30800 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+};

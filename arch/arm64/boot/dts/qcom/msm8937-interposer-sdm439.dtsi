@@ -17,6 +17,16 @@
 #include "sdm439-pmi632.dtsi"
 
 &soc {
+	qcom,csid@1b30000 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+	qcom,csid@1b30400 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+	qcom,csid@1b30800 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+
 	mem_acc_vreg_corner: regulator@01946004 {
 		compatible = "qcom,mem-acc-regulator";
 		regulator-name = "mem_acc_corner";
