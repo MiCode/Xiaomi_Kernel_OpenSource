@@ -545,7 +545,8 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	 * is only done from the clock master. This will ensure that the PLL is
 	 * off when PHY reset is called.
 	 */
-	if (mdss_dsi_is_ctrl_clk_slave(ctrl))
+	if (mdss_dsi_is_ctrl_clk_slave(ctrl) ||
+		(ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM))
 		return;
 
 	mdss_dsi_phy_sw_reset_sub(ctrl);
@@ -590,6 +591,9 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
 		return;
 
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM)
+		return;
+
 	MIPI_OUTP(ctrl->phy_regulator_io.base + 0x018, 0x000);
 }
 
@@ -606,6 +610,8 @@ static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0);
 	} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
 		mdss_dsi_phy_v3_shutdown(ctrl);
+	} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM) {
+		mdss_dsi_12nm_phy_shutdown(ctrl);
 	} else {
 		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
 	}
@@ -627,7 +633,8 @@ void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20)
+	if ((ctrl->shared_data->phy_rev == DSI_PHY_REV_20) ||
+		(ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM))
 		return;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
@@ -1314,6 +1321,8 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			mdss_dsi_8996_phy_regulator_enable(ctrl);
 		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
 			mdss_dsi_phy_v3_regulator_enable(ctrl);
+		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM) {
+			mdss_dsi_12nm_phy_regulator_enable(ctrl);
 		} else {
 			switch (ctrl->shared_data->hw_rev) {
 			case MDSS_DSI_HW_REV_103:
@@ -1365,6 +1374,8 @@ static void mdss_dsi_phy_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 			mdss_dsi_8996_phy_config(ctrl);
 		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
 			mdss_dsi_phy_v3_init(ctrl, DSI_PHY_MODE_DPHY);
+		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM) {
+			mdss_dsi_12nm_phy_config(ctrl);
 		} else {
 			switch (ctrl->shared_data->hw_rev) {
 			case MDSS_DSI_HW_REV_103:

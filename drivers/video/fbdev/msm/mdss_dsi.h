@@ -360,6 +360,7 @@ struct dsi_panel_timing {
 	struct mdss_panel_timing timing;
 	uint32_t phy_timing[12];
 	uint32_t phy_timing_8996[40];
+	uint32_t phy_timing_12nm[8];
 	/* DSI_CLKOUT_TIMING_CTRL */
 	char t_clk_post;
 	char t_clk_pre;

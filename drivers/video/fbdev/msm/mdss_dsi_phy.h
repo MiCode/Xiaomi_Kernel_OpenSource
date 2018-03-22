@@ -23,6 +23,7 @@ enum phy_rev {
 	DSI_PHY_REV_10 = 0x01,	/* REV 1.0 - 20nm, 28nm */
 	DSI_PHY_REV_20 = 0x02,	/* REV 2.0 - 14nm */
 	DSI_PHY_REV_30 = 0x03,  /* REV 3.0 */
+	DSI_PHY_REV_12NM = 0x04, /* 12nm PHY */
 	DSI_PHY_REV_MAX,
 };
 
@@ -124,4 +125,40 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable);
  * can perform any sequence required after the Idle PC exit.
  */
 void mdss_dsi_phy_v3_idle_pc_exit(struct mdss_dsi_ctrl_pdata *ctrl);
+
+/**
+ * mdss_dsi_12nm_phy_regulator_enable() - enable lane reg for DSI 12nm PHY
+ *
+ * @ctrl: pointer to DSI controller structure
+ */
+int mdss_dsi_12nm_phy_regulator_enable(struct mdss_dsi_ctrl_pdata *ctrl);
+
+/*
+ * mdss_dsi_12nm_phy_regulator_disable() - disable lane reg for DSI 12nm PHY
+ *
+ * @ctrl: pointer to DSI controller structure
+ */
+int mdss_dsi_12nm_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl);
+
+/*
+ * mdss_dsi_12nm_phy_config() - initialization sequence for DSI 12nm PHY
+ *
+ * @ctrl: pointer to DSI controller structure
+ *
+ * This function performs a sequence of register writes to initialize DSI
+ * 12nm phy. This function assumes that the DSI bus clocks are turned on.
+ * This function should only be called prior to enabling the DSI link clocks.
+ */
+int mdss_dsi_12nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl);
+
+/*
+ * mdss_dsi_12nm_phy_shutdown() - shutdown sequence for DSI 12nm PHY
+ *
+ * @ctrl: pointer to DSI controller structure
+ *
+ * Perform a sequence of register writes to completely shut down DSI 12nm PHY.
+ * This function assumes that the DSI bus clocks are turned on.
+ */
+int mdss_dsi_12nm_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl);
+
 #endif /* MDSS_DSI_PHY_H */
