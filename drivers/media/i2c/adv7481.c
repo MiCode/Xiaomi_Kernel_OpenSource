@@ -741,18 +741,12 @@ static int adv7481_dev_init(struct adv7481_state *state)
 
 	mutex_lock(&state->mutex);
 
-	/* Soft reset */
-	ret = adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
-		IO_REG_MAIN_RST_ADDR, IO_REG_MAIN_RST_VALUE);
-	/* Delay required following I2C reset and I2C transactions */
-	udelay(I2C_SW_RST_DELAY);
-
 	chip_rev_id = adv7481_rd_word(&state->i2c_client, state->i2c_io_addr,
 			IO_REG_CHIP_REV_ID_1_ADDR);
 	pr_debug("%s: ADV7481 chip rev id: 0x%x", __func__, chip_rev_id);
 
 	/* Disable CEC wake up in power-down mode */
-	ret |= adv7481_cec_wakeup(state, 0);
+	ret = adv7481_cec_wakeup(state, 0);
 	/* Setting Vid_Std to 720x480p60 */
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
 		IO_REG_CP_VID_STD_ADDR, 0x4A);
@@ -2316,7 +2310,12 @@ static int adv7481_init_v4l2_controls(struct adv7481_state *state)
 {
 	int ret = 0;
 
-	v4l2_ctrl_handler_init(&state->ctrl_hdl, 4);
+	ret = v4l2_ctrl_handler_init(&state->ctrl_hdl, 4);
+	if (ret) {
+		pr_err("%s: v4l2_ctrl_handler_init failed, ret: %d\n",
+			__func__, ret);
+		return ret;
+	}
 
 	v4l2_ctrl_new_std(&state->ctrl_hdl, &adv7481_ctrl_ops,
 			  V4L2_CID_BRIGHTNESS, -128, 127, 1, 0);
@@ -2333,7 +2332,10 @@ static int adv7481_init_v4l2_controls(struct adv7481_state *state)
 
 		v4l2_ctrl_handler_free(&state->ctrl_hdl);
 	} else {
-		v4l2_ctrl_handler_setup(&state->ctrl_hdl);
+		ret = v4l2_ctrl_handler_setup(&state->ctrl_hdl);
+		if (ret)
+			pr_err("%s: v4l2_ctrl_handler_init failed, ret: %d\n",
+				__func__, ret);
 	}
 
 	pr_err("%s: Exit with ret: %d\n", __func__, ret);
@@ -2573,11 +2575,22 @@ static int adv7481_probe(struct platform_device *pdev)
 		goto err_media_entity;
 	}
 
+	/* Soft reset */
+	ret = adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
+		IO_REG_MAIN_RST_ADDR, IO_REG_MAIN_RST_VALUE);
+	if (ret) {
+		pr_err("%s: Failed Soft reset %d\n", __func__, ret);
+		goto err_media_entity;
+	}
+	/* Delay required following I2C reset and I2C transactions */
+	udelay(I2C_SW_RST_DELAY);
+
 	/* Register V4l2 Control Functions */
 	ret = adv7481_init_v4l2_controls(state);
 	if (ret) {
 		pr_err("%s: V4L2 Controls Initialisation Failed %d\n",
 			__func__, ret);
+		goto err_media_entity;
 	}
 
 	/* Initial ADV7481 State Settings */
