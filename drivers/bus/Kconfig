@@ -202,5 +202,6 @@ config MHI_DEBUG
 	   will be logged.
 
 source drivers/bus/mhi/controllers/Kconfig
+source drivers/bus/mhi/devices/Kconfig
 
 endmenu
