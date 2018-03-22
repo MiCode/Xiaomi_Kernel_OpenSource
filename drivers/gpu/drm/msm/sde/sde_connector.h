@@ -76,14 +76,6 @@ struct sde_connector_ops {
 			void *display);
 
 	/**
-	 * put_modes - free up drm modes of the connector
-	 * @connector: Pointer to drm connector structure
-	 * @display: Pointer to private display handle
-	 */
-	void (*put_modes)(struct drm_connector *connector,
-			void *display);
-
-	/**
 	 * update_pps - update pps command for the display panel
 	 * @connector: Pointer to drm connector structure
 	 * @pps_cmd: Pointer to pps command
@@ -292,6 +284,14 @@ struct sde_connector_ops {
 	int (*atomic_check)(struct drm_connector *connector,
 			void *display,
 			struct drm_connector_state *c_state);
+
+	/**
+	 * pre_destroy - handle pre destroy operations for the connector
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 * Returns: Zero on success, negative error code for failures
+	 */
+	void (*pre_destroy)(struct drm_connector *connector, void *display);
 };
 
 /**
