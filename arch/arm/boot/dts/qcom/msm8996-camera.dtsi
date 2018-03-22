@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -786,6 +786,139 @@
 		i2c_freq_1Mhz: qcom,i2c_fast_plus_mode {
 			status = "disabled";
 		};
+	};
+
+	qcom,diag-cam {
+		cell-index = <0>;
+		compatible = "qcom,diag-cam";
+		status = "ok";
+		mmagic-supply = <&gdsc_mmagic_camss>;
+		gdscr-supply = <&gdsc_camss_top>;
+		vfe0-vdd-supply = <&gdsc_vfe0>;
+		vfe1-vdd-supply = <&gdsc_vfe1>;
+		qcom,cam-vreg-name = "mmagic", "gdscr",
+				"vfe0-vdd", "vfe1-vdd";
+		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
+			<&clock_mmss clk_camss_ispif_ahb_clk>,
+			<&clock_mmss clk_csi0phytimer_clk_src>,
+			<&clock_mmss clk_camss_csi0phytimer_clk>,
+			<&clock_mmss clk_camss_ahb_clk>,
+			<&clock_mmss clk_csi1phytimer_clk_src>,
+			<&clock_mmss clk_camss_csi1phytimer_clk>,
+			<&clock_mmss clk_csi2phytimer_clk_src>,
+			<&clock_mmss clk_camss_csi2phytimer_clk>,
+			<&clock_mmss clk_csi0_clk_src>,
+			<&clock_mmss clk_camss_csi0_clk>,
+			<&clock_mmss clk_camss_csi0phy_clk>,
+			<&clock_mmss clk_camss_csi0_ahb_clk>,
+			<&clock_mmss clk_camss_csi0rdi_clk>,
+			<&clock_mmss clk_camss_csi0pix_clk>,
+			<&clock_mmss clk_csi1_clk_src>,
+			<&clock_mmss clk_camss_csi1_clk>,
+			<&clock_mmss clk_camss_csi1phy_clk>,
+			<&clock_mmss clk_camss_csi1_ahb_clk>,
+			<&clock_mmss clk_camss_csi1rdi_clk>,
+			<&clock_mmss clk_camss_csi1pix_clk>,
+			<&clock_mmss clk_csi2_clk_src>,
+			<&clock_mmss clk_camss_csi2_clk>,
+			<&clock_mmss clk_camss_csi2phy_clk>,
+			<&clock_mmss clk_camss_csi2_ahb_clk>,
+			<&clock_mmss clk_camss_csi2rdi_clk>,
+			<&clock_mmss clk_camss_csi2pix_clk>,
+			<&clock_mmss clk_csi3_clk_src>,
+			<&clock_mmss clk_camss_csi3_clk>,
+			<&clock_mmss clk_camss_csi3phy_clk>,
+			<&clock_mmss clk_camss_csi3_ahb_clk>,
+			<&clock_mmss clk_camss_csi3rdi_clk>,
+			<&clock_mmss clk_camss_csi3pix_clk>,
+			<&clock_mmss clk_vfe0_clk_src>,
+			<&clock_mmss clk_camss_vfe0_clk>,
+			<&clock_mmss clk_camss_csi_vfe0_clk>,
+			<&clock_mmss clk_vfe1_clk_src>,
+			<&clock_mmss clk_camss_vfe1_clk>,
+			<&clock_mmss clk_camss_csi_vfe1_clk>,
+			<&clock_mmss clk_mmagic_camss_axi_clk>,
+			<&clock_mmss clk_camss_vfe_ahb_clk>,
+			<&clock_mmss clk_camss_vfe0_ahb_clk>,
+			<&clock_mmss clk_camss_vfe_axi_clk>,
+			<&clock_mmss clk_camss_vfe0_stream_clk>,
+			<&clock_mmss clk_smmu_vfe_axi_clk>,
+			<&clock_mmss clk_camss_vfe1_ahb_clk>,
+			<&clock_mmss clk_camss_vfe1_stream_clk>;
+		clock-names =
+			"clk_mmss_mmagic_ahb_clk",
+			"clk_camss_top_ahb_clk",
+			"clk_camss_ispif_ahb_clk",
+			"clk_csi0phytimer_clk_src",
+			"clk_camss_csi0phytimer_clk",
+			"clk_camss_ahb_clk",
+			"clk_csi1phytimer_clk_src",
+			"clk_camss_csi1phytimer_clk",
+			"clk_csi2phytimer_clk_src",
+			"clk_camss_csi2phytimer_clk",
+			"clk_csi0_clk_src",
+			"clk_camss_csi0_clk",
+			"clk_camss_csi0phy_clk",
+			"clk_camss_csi0_ahb_clk",
+			"clk_camss_csi0rdi_clk",
+			"clk_camss_csi0pix_clk",
+			"clk_csi1_clk_src",
+			"clk_camss_csi1_clk",
+			"clk_camss_csi1phy_clk",
+			"clk_camss_csi1_ahb_clk",
+			"clk_camss_csi1rdi_clk",
+			"clk_camss_csi1pix_clk",
+			"clk_csi2_clk_src",
+			"clk_camss_csi2_clk",
+			"clk_camss_csi2phy_clk",
+			"clk_camss_csi2_ahb_clk",
+			"clk_camss_csi2rdi_clk",
+			"clk_camss_csi2pix_clk",
+			"clk_csi3_clk_src",
+			"clk_camss_csi3_clk",
+			"clk_camss_csi3phy_clk",
+			"clk_camss_csi3_ahb_clk",
+			"clk_camss_csi3rdi_clk",
+			"clk_camss_csi3pix_clk",
+			"clk_vfe0_clk_src",
+			"clk_camss_vfe0_clk",
+			"clk_camss_csi_vfe0_clk",
+			"clk_vfe1_clk_src",
+			"clk_camss_vfe1_clk",
+			"clk_camss_csi_vfe1_clk",
+			"clk_mmagic_camss_axi_clk",
+			"clk_camss_vfe_ahb_clk",
+			"clk_camss_vfe0_ahb_clk",
+			"clk_camss_vfe_axi_clk",
+			"clk_camss_vfe0_stream_clk",
+			"clk_smmu_vfe_axi_clk",
+			"clk_camss_vfe1_ahb_clk",
+			"clk_camss_vfe1_stream_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0
+			>;
+		qcom,clock-cntl-support;
+		qcom,clock-control = "NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE",
+			"INIT_RATE","NO_SET_RATE","NO_SET_RATE",
+			"INIT_RATE","NO_SET_RATE","INIT_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE",
+			"NO_SET_RATE","NO_SET_RATE","NO_SET_RATE";
 	};
 };
 
