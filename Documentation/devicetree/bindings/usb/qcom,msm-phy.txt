@@ -45,10 +45,8 @@ Required properties:
    "qcom,usb-ssphy-qmp-v2" or "qcom,usb-ssphy-qmp-usb3-or-dp" or
    "qcom,usb-ssphy-qmp-dp-combo"
  - reg: Address and length of the register set for the device
-   Required regs are:
+   Required reg-names entry must contain:
    "qmp_phy_base" : QMP PHY Base register set.
- - "vls_clamp_reg" : top-level CSR register to be written to enable phy vls
-   clamp which allows phy to detect autonomous mode. (optional for USB DP PHY)
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
@@ -61,7 +59,7 @@ Required properties:
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner
  - qcom,qmp-phy-init-seq: QMP PHY initialization sequence with reg offset, its
-   value, delay after register write. It is not must property to have for emulation.
+   value, delay after register write.
  - qcom,qmp-phy-reg-offset: Provides important phy register offsets in an order
    defined in the phy driver.
    Provide below mentioned register offsets in order for non USB DP combo PHY:
@@ -80,6 +78,8 @@ Required properties:
    USB3_DP_COM_PHY_MODE_CTRL,
    USB3_DP_COM_TYPEC_CTRL,
    USB3_DP_COM_SWI_CTRL,
+
+   Optional register for enabling/disabling VLS clamp if available:
    USB3_PCS_MISC_CLAMP_ENABLE
 
    Optional register for configuring USB Type-C port select if available:
@@ -96,6 +96,8 @@ Optional properties:
    super speed usb qmp phy.
    "pcs_clamp_enable_reg" : Clamps the phy data inputs and enables USB3
    autonomous mode.
+   "vls_clamp_reg" : top-level CSR register to be written to enable phy vls
+   clamp which allows phy to detect autonomous mode.
  - clocks: a list of phandles to the PHY clocks. Use as per
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
@@ -103,7 +105,6 @@ Optional properties:
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
- - qcom,emulation: Indicates that we are running on emulation platform.
  - qcom,core-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner.

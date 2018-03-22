@@ -132,12 +132,10 @@ struct msm_ssphy_qmp {
 	bool			clk_enabled;
 	bool			cable_connected;
 	bool			in_suspend;
-	bool			emulation;
-	unsigned int		*phy_reg; /* revision based offset */
-	unsigned int		*qmp_phy_init_seq;
-	int			init_seq_len;
-	unsigned int		*qmp_phy_reg_offset;
+	u32			*phy_reg; /* revision based offset */
 	int			reg_offset_cnt;
+	u32			*qmp_phy_init_seq;
+	int			init_seq_len;
 };
 
 static const struct of_device_id msm_usb_id_table[] = {
@@ -187,7 +185,8 @@ static void msm_ssusb_qmp_clamp_enable(struct msm_ssphy_qmp *phy, bool val)
 		break;
 	case USB_PHY_TYPE_USB3_OR_DP:
 	case USB_PHY_TYPE_USB3:
-		writel_relaxed(!!val, phy->vls_clamp_reg);
+		if (phy->vls_clamp_reg)
+			writel_relaxed(!!val, phy->vls_clamp_reg);
 		if (phy->pcs_clamp_enable_reg)
 			writel_relaxed(!val, phy->pcs_clamp_enable_reg);
 		break;
@@ -432,9 +431,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	const struct qmp_reg_val *reg = NULL;
 
 	dev_dbg(uphy->dev, "Initializing QMP phy\n");
-
-	if (phy->emulation)
-		return 0;
 
 	ret = msm_ssusb_qmp_ldo_enable(phy, 1);
 	if (ret) {
@@ -843,11 +839,9 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	of_get_property(dev->of_node, "qcom,qmp-phy-reg-offset", &size);
 	if (size) {
-		phy->qmp_phy_reg_offset = devm_kzalloc(dev,
-						size, GFP_KERNEL);
-		if (phy->qmp_phy_reg_offset) {
-			phy->reg_offset_cnt =
-				(size / sizeof(*phy->qmp_phy_reg_offset));
+		phy->phy_reg = devm_kzalloc(dev, size, GFP_KERNEL);
+		if (phy->phy_reg) {
+			phy->reg_offset_cnt = (size / sizeof(*phy->phy_reg));
 			if (phy->reg_offset_cnt > USB3_PHY_REG_MAX) {
 				dev_err(dev, "invalid reg offset count\n");
 				return -EINVAL;
@@ -855,13 +849,11 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 			of_property_read_u32_array(dev->of_node,
 				"qcom,qmp-phy-reg-offset",
-				phy->qmp_phy_reg_offset,
-				phy->reg_offset_cnt);
+				phy->phy_reg, phy->reg_offset_cnt);
 		} else {
 			dev_err(dev, "err mem alloc for qmp_phy_reg_offset\n");
 			return -ENOMEM;
 		}
-		phy->phy_reg = phy->qmp_phy_reg_offset;
 	} else {
 		dev_err(dev, "err provide qcom,qmp-phy-reg-offset\n");
 		return -EINVAL;
@@ -884,12 +876,12 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (phy->phy.type != USB_PHY_TYPE_USB3_AND_DP) {
-		res = platform_get_resource_byname(pdev,
-				IORESOURCE_MEM, "vls_clamp_reg");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"vls_clamp_reg");
+	if (res) {
 		phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
 		if (IS_ERR(phy->vls_clamp_reg)) {
-			dev_err(dev, "couldn't find vls_clamp_reg address.\n");
+			dev_err(dev, "err getting vls_clamp_reg address\n");
 			return PTR_ERR(phy->vls_clamp_reg);
 		}
 	}
@@ -914,33 +906,25 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		}
 	}
 
-	phy->emulation = of_property_read_bool(dev->of_node,
-						"qcom,emulation");
-	if (!phy->emulation) {
-		of_get_property(dev->of_node, "qcom,qmp-phy-init-seq", &size);
-		if (size) {
-			if (size % sizeof(*phy->qmp_phy_init_seq)) {
-				dev_err(dev, "invalid init_seq_len\n");
-				return -EINVAL;
-			}
-			phy->qmp_phy_init_seq = devm_kzalloc(dev,
-							size, GFP_KERNEL);
-			if (phy->qmp_phy_init_seq) {
-				phy->init_seq_len =
-					(size / sizeof(*phy->qmp_phy_init_seq));
-
-				of_property_read_u32_array(dev->of_node,
-					"qcom,qmp-phy-init-seq",
-					phy->qmp_phy_init_seq,
-					phy->init_seq_len);
-			} else {
-				dev_err(dev, "error allocating memory for phy_init_seq\n");
-				return -EINVAL;
-			}
-		} else {
-			dev_err(dev, "error need qmp-phy-init-seq\n");
+	of_get_property(dev->of_node, "qcom,qmp-phy-init-seq", &size);
+	if (size) {
+		if (size % sizeof(*phy->qmp_phy_init_seq)) {
+			dev_err(dev, "invalid init_seq_len\n");
 			return -EINVAL;
 		}
+
+		phy->qmp_phy_init_seq = devm_kzalloc(dev, size, GFP_KERNEL);
+		if (!phy->qmp_phy_init_seq)
+			return -ENOMEM;
+
+		phy->init_seq_len = (size / sizeof(*phy->qmp_phy_init_seq));
+		of_property_read_u32_array(dev->of_node,
+				"qcom,qmp-phy-init-seq",
+				phy->qmp_phy_init_seq,
+				phy->init_seq_len);
+	} else {
+		dev_err(dev, "error need qmp-phy-init-seq\n");
+		return -EINVAL;
 	}
 
 	/* Set default core voltage values */

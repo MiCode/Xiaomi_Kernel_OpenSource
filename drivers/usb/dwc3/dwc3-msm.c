@@ -234,8 +234,6 @@ struct dwc3_msm {
 	bool			hc_died;
 	/* for usb connector either type-C or microAB */
 	bool			type_c;
-	/* whether to vote for VBUS reg in host mode */
-	bool			no_vbus_vote_type_c;
 
 	struct extcon_dev	*extcon_vbus;
 	struct extcon_dev	*extcon_id;
@@ -3388,9 +3386,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->pm_qos_latency = 0;
 	}
 
-	mdwc->no_vbus_vote_type_c = of_property_read_bool(node,
-					"qcom,no-vbus-vote-with-type-C");
-
+	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Mark type-C as true by default */
 	mdwc->type_c = true;
 
@@ -3416,7 +3412,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_psy;
 
-	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_state(mdwc->extcon_vbus,
 							EXTCON_USB))
@@ -3672,8 +3667,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	 * IS_ERR: regulator could not be obtained, so skip using it
 	 * Valid pointer otherwise
 	 */
-	if (!mdwc->vbus_reg && (!mdwc->type_c ||
-				(mdwc->type_c && !mdwc->no_vbus_vote_type_c))) {
+	if (!mdwc->vbus_reg) {
 		mdwc->vbus_reg = devm_regulator_get_optional(mdwc->dev,
 					"vbus_dwc3");
 		if (IS_ERR(mdwc->vbus_reg) &&
