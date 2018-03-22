@@ -2177,7 +2177,7 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		return;
 	}
 	if (len < sizeof(struct smd_msg_hdr)) {
-		pr_err("wcnss: incomplete header available len = %d\n", len);
+		pr_debug("wcnss: incomplete header available len = %d\n", len);
 		return;
 	}
 
@@ -3329,7 +3329,7 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 		return NOTIFY_DONE;
 	}
 
-	pr_debug("%s: wcnss notification event: %lu : %s\n",
+	pr_info("%s: wcnss notification event: %lu : %s\n",
 		 __func__, code, wcnss_subsys_notif_type[code]);
 
 	if (code == SUBSYS_PROXY_VOTE) {
@@ -3524,6 +3524,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 static int
 wcnss_wlan_remove(struct platform_device *pdev)
 {
+	wcnss_free_regulator();
 	if (penv->wcnss_notif_hdle)
 		subsys_notif_unregister_notifier(penv->wcnss_notif_hdle, &wnb);
 	wcnss_cdev_unregister(pdev);
