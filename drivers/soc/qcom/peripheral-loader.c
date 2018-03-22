@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1177,7 +1177,7 @@ static int __init msm_pil_init(void)
 out:
 	return register_pm_notifier(&pil_pm_notifier);
 }
-device_initcall(msm_pil_init);
+subsys_initcall(msm_pil_init);
 
 static void __exit msm_pil_exit(void)
 {
