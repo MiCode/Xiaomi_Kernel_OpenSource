@@ -12,6 +12,7 @@
  */
 
 #include "apq8053-lite-dragon.dtsi"
+#include "msm8953-mdss-panels.dtsi"
 
 &i2c_3 {
 	status = "okay";
@@ -32,6 +33,34 @@
 		himax,irq-gpio = <&tlmm 65 0x2008>;
 		report_type = <1>;
 	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_boyi_hx83100a_800p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active &mdss_dsi_gpio>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend &mdss_dsi_gpio>;
+
+	vdd-supply = <&pm8953_l10>;
+	vddio-supply = <&pm8953_l6>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 100 0>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
 };
 
 &labibb {
