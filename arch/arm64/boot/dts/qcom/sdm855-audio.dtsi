@@ -30,6 +30,7 @@
 	snd_9360: sound-pahu {
 		compatible = "qcom,sdm855-asoc-snd-pahu";
 		qcom,model = "sdm855-pahu-snd-card";
+		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
@@ -94,6 +95,7 @@
 	snd_934x: sound-tavil {
 		compatible = "qcom,sdm855-asoc-snd-tavil";
 		qcom,model = "sdm855-tavil-snd-card";
+		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
