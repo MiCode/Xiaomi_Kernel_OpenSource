@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1399,8 +1399,10 @@ static uint32_t _write_voltage_table(struct adreno_device *adreno_dev,
 		opp = dev_pm_opp_find_freq_exact(&device->pdev->dev,
 				pwr->pwrlevels[i].gpu_freq, true);
 		/* _opp_get returns uV, convert to mV */
-		if (!IS_ERR(opp))
+		if (!IS_ERR(opp)) {
 			mvolt = dev_pm_opp_get_voltage(opp) / 1000;
+			dev_pm_opp_put(opp);
+		}
 		kgsl_regwrite(device, addr++, mvolt);
 		kgsl_regwrite(device, addr++,
 				pwr->pwrlevels[i].gpu_freq / 1000000);

@@ -661,6 +661,7 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 
 		/* Values from OPP framework are offset by 1 */
 		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp) - 1;
+		dev_pm_opp_put(opp);
 	}
 
 	ret = setup_volt_dependency_tbl(votes,
