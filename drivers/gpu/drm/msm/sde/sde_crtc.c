@@ -4125,6 +4125,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	event.type = DRM_EVENT_CRTC_POWER;
 	event.length = sizeof(u32);
 	sde_cp_crtc_suspend(crtc);
+	sde_cp_update_ad_vsync_count(crtc, 0);
 	power_on = 0;
 	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 			(u8 *)&power_on);
