@@ -911,6 +911,15 @@ void mhi_ctrl_ev_task(unsigned long data)
 irqreturn_t mhi_msi_handlr(int irq_number, void *dev)
 {
 	struct mhi_event *mhi_event = dev;
+	struct mhi_controller *mhi_cntrl = mhi_event->mhi_cntrl;
+	struct mhi_event_ctxt *er_ctxt =
+		&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
+	struct mhi_ring *ev_ring = &mhi_event->ring;
+	void *dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
+
+	/* confirm ER has pending events to process before scheduling work */
+	if (ev_ring->rp == dev_rp)
+		return IRQ_HANDLED;
 
 	/* client managed event ring, notify pending data */
 	if (mhi_event->cl_manage) {
