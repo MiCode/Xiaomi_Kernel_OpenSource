@@ -15,11 +15,6 @@
 
 #include "kgsl_hfi.h"
 
-#define FW_VER_MAJOR(ver)		(((ver)>>28) & 0xFF)
-#define FW_VER_MINOR(ver)		(((ver)>>16) & 0xFFF)
-#define FW_VERSION(major, minor)	\
-		(((major) << 28) | (((minor) & 0xFFF) << 16))
-
 #define GMU_INT_WDOG_BITE		BIT(0)
 #define GMU_INT_RSCC_COMP		BIT(1)
 #define GMU_INT_FENCE_ERR		BIT(3)

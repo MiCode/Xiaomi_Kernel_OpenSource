@@ -736,7 +736,7 @@ static int gmu_bus_vote_init(struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
 	 */
 	ret = msm_bus_scale_query_tcs_cmd_all(&hdl, gmu->pcl);
 	if (ret)
-		return ret;
+		goto out;
 
 	build_rpmh_bw_votes(&votes->ddr_votes, gmu->num_bwlevels, hdl);
 
@@ -745,13 +745,14 @@ static int gmu_bus_vote_init(struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
 	 */
 	ret = msm_bus_scale_query_tcs_cmd_all(&hdl, gmu->ccl);
 	if (ret)
-		return ret;
+		goto out;
 
 	build_rpmh_bw_votes(&votes->cnoc_votes, gmu->num_cnocbwlevels, hdl);
 
+out:
 	kfree(usecases);
 
-	return 0;
+	return ret;
 }
 
 static int gmu_rpmh_init(struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
