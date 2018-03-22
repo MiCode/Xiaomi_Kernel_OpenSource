@@ -517,7 +517,8 @@ static const char *eventid2name(u16 eventid)
 	}
 }
 
-static int __wmi_send(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len)
+static int __wmi_send(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len,
+		      bool force_send)
 {
 	struct {
 		struct wil6210_mbox_hdr hdr;
@@ -549,7 +550,7 @@ static int __wmi_send(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len)
 
 	might_sleep();
 
-	if (!test_bit(wil_status_fwready, wil->status)) {
+	if (!test_bit(wil_status_fwready, wil->status) && !force_send) {
 		wil_err(wil, "WMI: cannot send command while FW not ready\n");
 		return -EAGAIN;
 	}
@@ -588,7 +589,7 @@ static int __wmi_send(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len)
 	wil_dbg_wmi(wil, "Head 0x%08x -> 0x%08x\n", r->head, next_head);
 	/* wait till FW finish with previous command */
 	for (retry = 5; retry > 0; retry--) {
-		if (!test_bit(wil_status_fwready, wil->status)) {
+		if (!test_bit(wil_status_fwready, wil->status) && !force_send) {
 			wil_err(wil, "WMI: cannot send command while FW not ready\n");
 			rc = -EAGAIN;
 			goto out;
@@ -643,7 +644,18 @@ int wmi_send(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len)
 	int rc;
 
 	mutex_lock(&wil->wmi_mutex);
-	rc = __wmi_send(wil, cmdid, buf, len);
+	rc = __wmi_send(wil, cmdid, buf, len, false);
+	mutex_unlock(&wil->wmi_mutex);
+
+	return rc;
+}
+
+int wmi_force_send(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len)
+{
+	int rc;
+
+	mutex_lock(&wil->wmi_mutex);
+	rc = __wmi_send(wil, cmdid, buf, len, true);
 	mutex_unlock(&wil->wmi_mutex);
 
 	return rc;
@@ -1363,6 +1375,7 @@ void wmi_recv_cmd(struct wil6210_priv *wil)
 			struct wmi_cmd_hdr *wmi = &evt->event.wmi;
 			u16 id = le16_to_cpu(wmi->command_id);
 			u32 tstamp = le32_to_cpu(wmi->fw_timestamp);
+			wil_nl_60g_receive_wmi_evt(wil, cmd, len);
 			if (test_bit(wil_status_resuming, wil->status)) {
 				if (id == WMI_TRAFFIC_RESUME_EVENTID)
 					clear_bit(wil_status_resuming,
@@ -1436,7 +1449,7 @@ int wmi_call(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len,
 	reinit_completion(&wil->wmi_call);
 	spin_unlock(&wil->wmi_ev_lock);
 
-	rc = __wmi_send(wil, cmdid, buf, len);
+	rc = __wmi_send(wil, cmdid, buf, len, false);
 	if (rc)
 		goto out;
 
