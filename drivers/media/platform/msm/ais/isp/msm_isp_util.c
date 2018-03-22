@@ -2126,6 +2126,7 @@ void msm_isp_do_tasklet(unsigned long data)
 		}
 		atomic_sub(1, &vfe_dev->irq_cnt);
 		list_del(&queue_cmd->list);
+		queue_cmd->cmd_used = 0;
 
 		if (!vfe_dev->clk_enabled) {
 			/* client closed, delayed task should exit directly */
@@ -2133,7 +2134,6 @@ void msm_isp_do_tasklet(unsigned long data)
 			return;
 		}
 
-		queue_cmd->cmd_used = 0;
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
 		pingpong_status = queue_cmd->vfePingPongStatus;
