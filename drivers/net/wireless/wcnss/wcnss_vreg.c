@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,7 +194,7 @@ int validate_iris_chip_id(u32 reg)
 	}
 }
 
-static void wcnss_free_regulator(void)
+void wcnss_free_regulator(void)
 {
 	int vreg_i;
 
@@ -586,12 +586,6 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 				pr_err("vreg %s disable failed (%d)\n",
 						regulators[i].name, rc);
 		}
-
-		/* Free the regulator source */
-		if (regulators[i].state & VREG_GET_REGULATOR_MASK)
-			regulator_put(regulators[i].regulator);
-
-		regulators[i].state = VREG_NULL_CONFIG;
 	}
 }
 
