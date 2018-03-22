@@ -786,6 +786,7 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	struct cam_isp_ctx_req          *req_isp = NULL;
 	struct cam_req_mgr_error_notify  notify;
 	uint64_t                         error_request_id;
+	struct cam_hw_fence_map_entry   *fence_map_out = NULL;
 
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_isp_hw_error_event_data  *error_event_data =
@@ -814,18 +815,18 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 			if (!req_isp->bubble_report) {
 				for (i = 0; i < req_isp->num_fence_map_out;
 					i++) {
+					fence_map_out =
+						&req_isp->fence_map_out[i];
 					CAM_ERR(CAM_ISP, "req %llu, Sync fd %x",
-						req->request_id,
-						req_isp->fence_map_out[i].
-						sync_id);
+					req->request_id,
+					req_isp->fence_map_out[i].sync_id);
 					if (req_isp->fence_map_out[i].sync_id
 						!= -1) {
 						rc = cam_sync_signal(
-						req_isp->fence_map_out[i].
-						sync_id,
+						fence_map_out->sync_id,
 						CAM_SYNC_STATE_SIGNALED_ERROR);
-						req_isp->fence_map_out[i].
-						sync_id = -1;
+						fence_map_out->sync_id =
+						-1;
 					}
 				}
 				list_del_init(&req->list);
@@ -2390,16 +2391,16 @@ static int __cam_isp_ctx_apply_req(struct cam_context *ctx,
 	struct cam_req_mgr_apply_request *apply)
 {
 	int rc = 0;
+	struct cam_ctx_ops *ctx_ops = NULL;
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
 	trace_cam_apply_req("ISP", apply->request_id);
 	CAM_DBG(CAM_ISP, "Enter: apply req in Substate %d request _id:%lld",
 		 ctx_isp->substate_activated, apply->request_id);
-	if (ctx_isp->substate_machine[ctx_isp->substate_activated].
-		crm_ops.apply_req) {
-		rc = ctx_isp->substate_machine[ctx_isp->substate_activated].
-			crm_ops.apply_req(ctx, apply);
+	ctx_ops = &ctx_isp->substate_machine[ctx_isp->substate_activated];
+	if (ctx_ops->crm_ops.apply_req) {
+		rc = ctx_ops->crm_ops.apply_req(ctx, apply);
 	} else {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"No handle function in activated substate %d",
@@ -2420,6 +2421,7 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 	uint32_t evt_id, void *evt_data)
 {
 	int rc = 0;
+	struct cam_isp_ctx_irq_ops *irq_ops = NULL;
 	struct cam_context *ctx = (struct cam_context *)context;
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *)ctx->ctx_priv;
@@ -2431,10 +2433,9 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 
 	CAM_DBG(CAM_ISP, "Enter: State %d, Substate %d, evt id %d",
 		 ctx->state, ctx_isp->substate_activated, evt_id);
-	if (ctx_isp->substate_machine_irq[ctx_isp->substate_activated].
-		irq_ops[evt_id]) {
-		rc = ctx_isp->substate_machine_irq[ctx_isp->substate_activated].
-			irq_ops[evt_id](ctx_isp, evt_data);
+	irq_ops = &ctx_isp->substate_machine_irq[ctx_isp->substate_activated];
+	if (irq_ops->irq_ops[evt_id]) {
+		rc = irq_ops->irq_ops[evt_id](ctx_isp, evt_data);
 	} else {
 		CAM_DBG(CAM_ISP, "No handle function for substate %d",
 			ctx_isp->substate_activated);

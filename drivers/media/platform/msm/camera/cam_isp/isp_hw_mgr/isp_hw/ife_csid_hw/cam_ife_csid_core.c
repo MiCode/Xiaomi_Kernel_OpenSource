@@ -1065,6 +1065,7 @@ static int cam_ife_csid_tpg_start(struct cam_ife_csid_hw   *csid_hw,
 	int rc = 0;
 	uint32_t  val = 0;
 	struct cam_hw_soc_info    *soc_info;
+	struct cam_ife_csid_reg_offset *csid_reg = NULL;
 
 	csid_hw->tpg_start_cnt++;
 	if (csid_hw->tpg_start_cnt == 1) {
@@ -1109,10 +1110,10 @@ static int cam_ife_csid_tpg_start(struct cam_ife_csid_hw   *csid_hw,
 		}
 
 		/* Enable the IFE force clock on for dual isp case */
+		csid_reg = csid_hw->csid_info->csid_reg;
 		if (csid_hw->tpg_cfg.usage_type) {
 			rc = cam_ife_csid_enable_ife_force_clock_on(soc_info,
-				csid_hw->csid_info->csid_reg->tpg_reg->
-				tpg_cpas_ife_reg_offset);
+				csid_reg->tpg_reg->tpg_cpas_ife_reg_offset);
 			if (rc)
 				return rc;
 		}
@@ -1122,10 +1123,9 @@ static int cam_ife_csid_tpg_start(struct cam_ife_csid_hw   *csid_hw,
 		val |= (0x80 << 8);
 		val |= (((csid_hw->csi2_rx_cfg.lane_num - 1) & 0x3) << 4);
 		val |= 7;
-		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-			csid_hw->csid_info->csid_reg->tpg_reg->
-			csid_tpg_ctrl_addr);
 
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			csid_reg->tpg_reg->csid_tpg_ctrl_addr);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base + 0x600);
 		CAM_DBG(CAM_ISP, "reg 0x%x = 0x%x", 0x600, val);
 	}
@@ -1138,6 +1138,7 @@ static int cam_ife_csid_tpg_stop(struct cam_ife_csid_hw   *csid_hw,
 {
 	int rc = 0;
 	struct cam_hw_soc_info    *soc_info;
+	struct cam_ife_csid_reg_offset *csid_reg = NULL;
 
 	if (csid_hw->tpg_start_cnt)
 		csid_hw->tpg_start_cnt--;
@@ -1146,6 +1147,7 @@ static int cam_ife_csid_tpg_stop(struct cam_ife_csid_hw   *csid_hw,
 		return 0;
 
 	soc_info = &csid_hw->hw_info->soc_info;
+	csid_reg = csid_hw->csid_info->csid_reg;
 
 	/* disable the TPG */
 	if (!csid_hw->tpg_start_cnt) {
@@ -1155,8 +1157,7 @@ static int cam_ife_csid_tpg_stop(struct cam_ife_csid_hw   *csid_hw,
 		/* Disable the IFE force clock on for dual isp case */
 		if (csid_hw->tpg_cfg.usage_type)
 			rc = cam_ife_csid_disable_ife_force_clock_on(soc_info,
-				csid_hw->csid_info->csid_reg->tpg_reg->
-				tpg_cpas_ife_reg_offset);
+				csid_reg->tpg_reg->tpg_cpas_ife_reg_offset);
 
 		/*stop the TPG */
 		cam_io_w_mb(0,  soc_info->reg_map[0].mem_base +
@@ -1905,6 +1906,7 @@ static int cam_ife_csid_get_time_stamp(
 	struct cam_isp_resource_node         *res;
 	struct cam_ife_csid_reg_offset       *csid_reg;
 	struct cam_hw_soc_info               *soc_info;
+	struct cam_ife_csid_rdi_reg_offset   *rdi_reg;
 	uint32_t  time_32, id;
 
 	time_stamp = (struct cam_csid_get_time_stamp_args  *)cmd_args;
@@ -1937,15 +1939,14 @@ static int cam_ife_csid_get_time_stamp(
 		time_stamp->time_stamp_val |= time_32;
 	} else {
 		id = res->res_id;
+		rdi_reg = csid_reg->rdi_reg[id];
 		time_32 = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[id]->
-			csid_rdi_timestamp_curr1_sof_addr);
+			rdi_reg->csid_rdi_timestamp_curr1_sof_addr);
 		time_stamp->time_stamp_val = time_32;
 		time_stamp->time_stamp_val = time_stamp->time_stamp_val << 32;
 
 		time_32 = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[id]->
-			csid_rdi_timestamp_curr0_sof_addr);
+			rdi_reg->csid_rdi_timestamp_curr0_sof_addr);
 		time_stamp->time_stamp_val |= time_32;
 	}
 
@@ -2490,6 +2491,7 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	struct cam_ife_csid_hw          *csid_hw;
 	struct cam_hw_soc_info          *soc_info;
 	struct cam_ife_csid_reg_offset  *csid_reg;
+	struct cam_ife_csid_csi2_rx_reg_offset *csi2_reg;
 	uint32_t i, irq_status_top, irq_status_rx, irq_status_ipp = 0;
 	uint32_t irq_status_rdi[4] = {0, 0, 0, 0};
 	uint32_t val;
@@ -2505,6 +2507,7 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
+	csi2_reg = csid_reg->csi2_reg;
 
 	/* read */
 	irq_status_top = cam_io_r_mb(soc_info->reg_map[0].mem_base +
@@ -2653,19 +2656,16 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		CAM_ERR(CAM_ISP, "CSID:%d LONG_PKT_CAPTURED",
 			csid_hw->hw_intf->hw_idx);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->csi2_reg->
-			csid_csi2_rx_captured_long_pkt_0_addr);
+			csi2_reg->csid_csi2_rx_captured_long_pkt_0_addr);
 		CAM_ERR(CAM_ISP, "CSID:%d long packet VC :%d DT:%d WC:%d",
 			csid_hw->hw_intf->hw_idx,
 			(val >> 22), ((val >> 16) & 0x3F), (val & 0xFFFF));
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->csi2_reg->
-			csid_csi2_rx_captured_long_pkt_1_addr);
+			csi2_reg->csid_csi2_rx_captured_long_pkt_1_addr);
 		CAM_ERR(CAM_ISP, "CSID:%d long packet ECC :%d",
 			csid_hw->hw_intf->hw_idx, val);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->csi2_reg->
-			csid_csi2_rx_captured_long_pkt_ftr_addr);
+			csi2_reg->csid_csi2_rx_captured_long_pkt_ftr_addr);
 		CAM_ERR(CAM_ISP, "CSID:%d long pkt cal CRC:%d expected CRC:%d",
 			csid_hw->hw_intf->hw_idx, (val >> 16), (val & 0xFFFF));
 	}
@@ -2674,14 +2674,12 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		CAM_ERR(CAM_ISP, "CSID:%d SHORT_PKT_CAPTURED",
 			csid_hw->hw_intf->hw_idx);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->csi2_reg->
-			csid_csi2_rx_captured_short_pkt_0_addr);
+			csi2_reg->csid_csi2_rx_captured_short_pkt_0_addr);
 		CAM_ERR(CAM_ISP, "CSID:%d short pkt VC :%d DT:%d LC:%d",
 			csid_hw->hw_intf->hw_idx,
 			(val >> 22), ((val >> 16) & 0x1F), (val & 0xFFFF));
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->csi2_reg->
-			csid_csi2_rx_captured_short_pkt_1_addr);
+			csi2_reg->csid_csi2_rx_captured_short_pkt_1_addr);
 		CAM_ERR(CAM_ISP, "CSID:%d short packet ECC :%d",
 			csid_hw->hw_intf->hw_idx, val);
 	}
@@ -2691,8 +2689,7 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		CAM_ERR(CAM_ISP, "CSID:%d CPHY_PKT_HDR_CAPTURED",
 			csid_hw->hw_intf->hw_idx);
 		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->csi2_reg->
-			csid_csi2_rx_captured_cphy_pkt_hdr_addr);
+			csi2_reg->csid_csi2_rx_captured_cphy_pkt_hdr_addr);
 		CAM_ERR(CAM_ISP, "CSID:%d cphy packet VC :%d DT:%d WC:%d",
 			csid_hw->hw_intf->hw_idx,
 			(val >> 22), ((val >> 16) & 0x1F), (val & 0xFFFF));

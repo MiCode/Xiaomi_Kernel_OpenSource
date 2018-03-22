@@ -4031,6 +4031,8 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 	int rc = -EFAULT;
 	int i, j;
 	struct cam_iommu_handle cdm_handles;
+	struct cam_ife_hw_mgr_ctx *ctx_pool;
+	struct cam_ife_hw_mgr_res *res_list_ife_out;
 
 	CAM_DBG(CAM_ISP, "Enter");
 
@@ -4135,9 +4137,10 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 		INIT_LIST_HEAD(&g_ife_hw_mgr.ctx_pool[i].res_list_ife_cid);
 		INIT_LIST_HEAD(&g_ife_hw_mgr.ctx_pool[i].res_list_ife_csid);
 		INIT_LIST_HEAD(&g_ife_hw_mgr.ctx_pool[i].res_list_ife_src);
+		ctx_pool = &g_ife_hw_mgr.ctx_pool[i];
 		for (j = 0; j < CAM_IFE_HW_OUT_RES_MAX; j++) {
-			INIT_LIST_HEAD(&g_ife_hw_mgr.ctx_pool[i].
-				res_list_ife_out[j].list);
+			res_list_ife_out = &ctx_pool->res_list_ife_out[j];
+			INIT_LIST_HEAD(&res_list_ife_out->list);
 		}
 
 		/* init context pool */
