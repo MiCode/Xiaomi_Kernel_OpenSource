@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -294,8 +294,10 @@ static void smd_xprt_read_data(struct work_struct *work)
 	spin_lock_irqsave(&smd_xprtp->ss_reset_lock, flags);
 	if (smd_xprtp->ss_reset) {
 		spin_unlock_irqrestore(&smd_xprtp->ss_reset_lock, flags);
-		if (smd_xprtp->in_pkt)
+		if (smd_xprtp->in_pkt) {
 			release_pkt(smd_xprtp->in_pkt);
+			smd_xprtp->in_pkt = NULL;
+		}
 		smd_xprtp->is_partial_in_pkt = 0;
 		IPC_RTR_ERR("%s: %s channel reset\n",
 			__func__, smd_xprtp->xprt.name);
@@ -348,6 +350,7 @@ static void smd_xprt_read_data(struct work_struct *work)
 				__func__, smd_xprtp->xprt.name);
 			kfree_skb(ipc_rtr_pkt);
 			release_pkt(smd_xprtp->in_pkt);
+			smd_xprtp->in_pkt = NULL;
 			smd_xprtp->is_partial_in_pkt = 0;
 			return;
 		}
