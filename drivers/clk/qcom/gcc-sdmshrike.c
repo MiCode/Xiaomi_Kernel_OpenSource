@@ -5041,6 +5041,7 @@ MODULE_DEVICE_TABLE(of, gcc_sdmshrike_match_table);
 
 static int gcc_sdmshrike_probe(struct platform_device *pdev)
 {
+	struct clk *clk;
 	struct regmap *regmap;
 	int i, ret = 0;
 
