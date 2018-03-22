@@ -66,6 +66,7 @@ static struct {
 	struct regulator *gdsc;
 	const char *reg_name;
 	void __iomem *reg_base;
+	void __iomem *gcc_base;
 	struct device *iommu_ctx_bank_dev;
 	struct dma_iommu_mapping *mapping;
 	dma_addr_t fw_iova;
@@ -435,10 +436,25 @@ int venus_boot_init(struct msm_vidc_platform_resources *res,
 	}
 	venus_data->reg_base = ioremap_nocache(res->register_base,
 			(unsigned long)res->register_size);
+	dprintk(VIDC_DBG, "venus reg: base %x size %x\n",
+		 res->register_base, res->register_size);
 	if (!venus_data->reg_base) {
 		dprintk(VIDC_ERR,
 				"could not map reg addr %pa of size %d\n",
 				&res->register_base, res->register_size);
+		rc = -ENOMEM;
+		goto err_ioremap_fail;
+	}
+
+	venus_data->gcc_base = ioremap_nocache(res->gcc_register_base,
+			(unsigned long)res->gcc_register_size);
+	dprintk(VIDC_DBG, "gcc reg: base %x size %x\n",
+		 res->gcc_register_base, res->gcc_register_size);
+	if (!venus_data->gcc_base) {
+		dprintk(VIDC_ERR,
+				"could not map reg addr %pa of size %d\n",
+				&res->gcc_register_base,
+				res->gcc_register_size);
 		rc = -ENOMEM;
 		goto err_ioremap_fail;
 	}
