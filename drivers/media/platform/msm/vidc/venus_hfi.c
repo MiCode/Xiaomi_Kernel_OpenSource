@@ -1861,6 +1861,8 @@ static int venus_hfi_core_init(void *device)
 	if (rc || __iface_cmdq_write(dev, &version_pkt))
 		dprintk(VIDC_WARN, "Failed to send image version pkt to f/w\n");
 
+	__sys_set_debug(device, msm_vidc_fw_debug);
+
 	__enable_subcaches(device);
 	__set_subcaches(device);
 
