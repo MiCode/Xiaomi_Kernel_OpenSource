@@ -364,6 +364,7 @@
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm855_2_s3_level>;
 		vdd_cx_ao-supply = <&pm855_2_s3_level_ao>;
+		vdd_mm-supply = <&pm855p_s1_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
