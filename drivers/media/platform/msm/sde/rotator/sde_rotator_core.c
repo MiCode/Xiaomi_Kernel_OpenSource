@@ -3400,7 +3400,7 @@ int sde_rotator_resume(struct platform_device *dev)
  */
 int sde_rotator_session_open(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private **pprivate, int session_id,
-	struct sde_rot_queue *queue)
+	struct sde_rot_queue_v1 *queue)
 {
 	int ret;
 	struct sde_rot_file_private *private;
