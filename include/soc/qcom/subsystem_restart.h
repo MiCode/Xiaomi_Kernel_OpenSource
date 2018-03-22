@@ -75,7 +75,6 @@ struct subsys_desc {
 	irqreturn_t (*err_fatal_handler)(int irq, void *dev_id);
 	irqreturn_t (*stop_ack_handler)(int irq, void *dev_id);
 	irqreturn_t (*wdog_bite_handler)(int irq, void *dev_id);
-	irqreturn_t (*periph_hang_handler)(int irq, void *dev_id);
 	irqreturn_t (*generic_handler)(int irq, void *dev_id);
 	int is_not_loadable;
 	int err_fatal_gpio;
@@ -83,7 +82,6 @@ struct subsys_desc {
 	unsigned int err_ready_irq;
 	unsigned int stop_ack_irq;
 	unsigned int wdog_bite_irq;
-	unsigned int periph_hang_irq;
 	unsigned int generic_irq;
 	int force_stop_gpio;
 	int ramdump_disable_gpio;
