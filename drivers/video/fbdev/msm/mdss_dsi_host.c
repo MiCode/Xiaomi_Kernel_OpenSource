@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2018, 2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2012-2018, 2020-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -296,6 +296,30 @@ void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 
 	reg_val = MIPI_INP(ctrl->phy_io.base);
+	if (!reg_val) {
+		/*
+		 * DSI_0_PHY_DSIPHY_REVISION_ID3 for phy 1.0
+		 * reset value = 0x10
+		 * 7:4 Major
+		 * 3:0 Minor
+		 */
+		reg_val = MIPI_INP(ctrl->phy_io.base + 0x20c);
+		reg_val = reg_val >> 4;
+		if (!reg_val) {
+			/*
+			 * DSI_0_PHY_DSIPHY_REVISION_ID3 for 12nm PHY
+			 * reset value = 0x20
+			 * 7:4 Major
+			 * 3:0 Minor
+			 */
+			reg_val = MIPI_INP(ctrl->phy_io.base + 0x3dc);
+			reg_val = reg_val >> 4;
+			if (reg_val == 0x2) {
+				ctrl->shared_data->phy_rev = DSI_PHY_REV_12NM;
+				return;
+			}
+		}
+	}
 
 	if (reg_val == DSI_PHY_REV_30)
 		ctrl->shared_data->phy_rev = DSI_PHY_REV_30;
@@ -418,6 +442,9 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 
 	mdss_dsi_config_data_lane_swap(ctrl_pdata);
 
+	if (ctrl_pdata->shared_data->phy_rev == DSI_PHY_REV_12NM)
+		goto next;
+
 	/* clock out ctrl */
 	data = pinfo->t_clk_post & 0x3f;	/* 6 bits */
 	data <<= 8;
@@ -425,6 +452,7 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	/* DSI_CLKOUT_TIMING_CTRL */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0xc4, data);
 
+next:
 	data = 0;
 	if (pinfo->rx_eot_ignore)
 		data |= BIT(4);

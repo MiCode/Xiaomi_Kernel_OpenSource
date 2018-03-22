@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved. */
 
 #ifndef MDSS_DSI_H
 #define MDSS_DSI_H
@@ -350,6 +350,7 @@ struct dsi_panel_timing {
 	struct mdss_panel_timing timing;
 	uint32_t phy_timing[12];
 	uint32_t phy_timing_8996[40];
+	uint32_t phy_timing_12nm[8];
 	/* DSI_CLKOUT_TIMING_CTRL */
 	char t_clk_post;
 	char t_clk_pre;
