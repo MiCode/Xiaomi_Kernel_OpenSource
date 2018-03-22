@@ -44,7 +44,7 @@
 #define DRIVER_MODE_RAW_FRAMES		0
 #define DRIVER_MODE_PROPERTIES		1
 #define DRIVER_MODE_AMB			2
-#define QUERY_FIRMWARE_TIMEOUT_MS	20
+#define QUERY_FIRMWARE_TIMEOUT_MS	100
 
 struct qti_can {
 	struct net_device	**netdev;
