@@ -101,12 +101,10 @@
 #define RPM_SMD_CXO_A1_A_PIN			59
 #define RPM_SMD_CXO_A2_PIN			60
 #define RPM_SMD_CXO_A2_A_PIN			61
-#define RPM_SMD_IPA_CLK				62
-#define RPM_SMD_IPA_A_CLK			63
-#define RPM_SMD_BIMC_GPU_CLK			64
-#define RPM_SMD_BIMC_GPU_A_CLK			65
-#define RPM_SMD_SYSMMNOC_CLK			66
-#define RPM_SMD_SYSMMNOC_A_CLK			67
+#define RPM_SMD_QPIC_CLK			64
+#define RPM_SMD_QPIC_A_CLK			65
+#define RPM_SMD_CE1_CLK				66
+#define RPM_SMD_CE1_A_CLK			67
 #define PNOC_MSMBUS_CLK				68
 #define PNOC_MSMBUS_A_CLK			69
 #define PNOC_KEEPALIVE_A_CLK			70
@@ -114,8 +112,6 @@
 #define SNOC_MSMBUS_A_CLK			72
 #define BIMC_MSMBUS_CLK				73
 #define BIMC_MSMBUS_A_CLK			74
-#define SYSMMNOC_MSMBUS_CLK			75
-#define SYSMMNOC_MSMBUS_A_CLK			76
 #define PNOC_USB_CLK				77
 #define PNOC_USB_A_CLK				78
 #define SNOC_USB_CLK				79
@@ -124,11 +120,16 @@
 #define BIMC_USB_A_CLK				82
 #define SNOC_WCNSS_A_CLK			83
 #define BIMC_WCNSS_A_CLK			84
-#define CXO_SMD_OTG_CLK				85
-#define CXO_SMD_LPM_CLK				86
-#define CXO_SMD_PIL_PRONTO_CLK			87
-#define CXO_SMD_PIL_MSS_CLK			88
-#define CXO_SMD_WLAN_CLK			89
-#define CXO_SMD_PIL_LPASS_CLK			90
+#define MCD_CE1_CLK				85
+#define QCEDEV_CE1_CLK				86
+#define QCRYPTO_CE1_CLK				87
+#define QSEECOM_CE1_CLK				88
+#define SCM_CE1_CLK				89
+#define CXO_SMD_OTG_CLK				90
+#define CXO_SMD_LPM_CLK				91
+#define CXO_SMD_PIL_PRONTO_CLK			92
+#define CXO_SMD_PIL_MSS_CLK			93
+#define CXO_SMD_WLAN_CLK			94
+#define CXO_SMD_PIL_LPASS_CLK			95
 
 #endif
