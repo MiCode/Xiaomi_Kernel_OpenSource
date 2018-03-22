@@ -568,6 +568,14 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		return -EINVAL;
 	}
 
+	if (cmd->op_code != CAM_SENSOR_PROBE_CMD) {
+		if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
+			CAM_ERR(CAM_SENSOR, "Invalid handle type: %d",
+				cmd->handle_type);
+			return -EINVAL;
+		}
+	}
+
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	switch (cmd->op_code) {
 	case CAM_SENSOR_PROBE_CMD: {
@@ -607,6 +615,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		} else {
 			CAM_ERR(CAM_SENSOR, "Invalid Command Type: %d",
 				 cmd->handle_type);
+			return -EINVAL;
 		}
 
 		/* Parse and fill vreg params for powerup settings */
