@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,8 @@
 
 /* maximum number of outstanding requests per ctx session */
 #define SDE_ROTATOR_REQUEST_MAX		2
+
+#define MAX_ROT_OPEN_SESSION 16
 
 struct sde_rotator_device;
 struct sde_rotator_ctx;
@@ -140,6 +142,7 @@ struct sde_rotator_request {
  * @retired_list: list of retired/free request
  * @requests: static allocation of free requests
  * @rotcfg: current core rotation configuration
+ * @kthread_id: thread_id used for fence management
  */
 struct sde_rotator_ctx {
 	struct kobject kobj;
@@ -164,7 +167,7 @@ struct sde_rotator_ctx {
 	struct sde_rotator_vbinfo *vbinfo_cap;
 	struct sde_rotator_vbinfo *vbinfo_out;
 	wait_queue_head_t wait_queue;
-	struct sde_rot_queue work_queue;
+	struct sde_rot_queue_v1 work_queue;
 	struct sde_rot_file_private *private;
 	struct llcc_slice_desc *slice;
 	u32 commit_sequence_id;
@@ -174,6 +177,8 @@ struct sde_rotator_ctx {
 	struct list_head retired_list;
 	struct sde_rotator_request requests[SDE_ROTATOR_REQUEST_MAX];
 	struct sde_rotation_config rotcfg;
+
+	int kthread_id;
 };
 
 /*
@@ -212,6 +217,9 @@ struct sde_rotator_statistics {
  * @open_timeout: maximum wait time for ctx open in msec
  * @open_wq: wait queue for ctx open
  * @excl_ctx: Pointer to exclusive ctx
+ * @rot_kw: rotator thread work
+ * @rot_thread: rotator threads
+ * @kthread_free: check if thread is available or not
  */
 struct sde_rotator_device {
 	struct mutex lock;
@@ -237,6 +245,10 @@ struct sde_rotator_device {
 	u32 open_timeout;
 	wait_queue_head_t open_wq;
 	struct sde_rotator_ctx *excl_ctx;
+
+	struct kthread_worker rot_kw[MAX_ROT_OPEN_SESSION];
+	struct task_struct *rot_thread[MAX_ROT_OPEN_SESSION];
+	bool kthread_free[MAX_ROT_OPEN_SESSION];
 };
 
 static inline
