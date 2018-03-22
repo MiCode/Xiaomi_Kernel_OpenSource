@@ -1809,7 +1809,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	if (cam_cdm_stream_off(ctx->cdm_handle))
 		CAM_ERR(CAM_ISP, "CDM stream off failed %d",
 			ctx->cdm_handle);
-	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	CAM_DBG(CAM_ISP, "Going to stop IFE Mux");
 
@@ -1830,6 +1829,8 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 			break;
 		}
 	}
+
+	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	/*
 	 * If Context does not have PIX resources and has only RDI resource
