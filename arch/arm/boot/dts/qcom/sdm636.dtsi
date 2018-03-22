@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,4 +70,10 @@
 				< 1804800 5163 >;
 		};
 	};
+};
+
+/* GPU overrides */
+&msm_gpu {
+		/* Update GPU chip ID*/
+		qcom,chipid = <0x05000900>;
 };
