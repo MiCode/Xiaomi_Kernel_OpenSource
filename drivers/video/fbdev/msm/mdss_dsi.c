@@ -3976,12 +3976,11 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	if (!data) {
 		pr_err("%s:%d, Unable to read Phy Strength ctrl settings\n",
 			__func__, __LINE__);
-		return -EINVAL;
+	} else {
+		pinfo->mipi.dsi_phy_db.strength_len = len;
+		for (i = 0; i < len; i++)
+			pinfo->mipi.dsi_phy_db.strength[i] = data[i];
 	}
-
-	pinfo->mipi.dsi_phy_db.strength_len = len;
-	for (i = 0; i < len; i++)
-		pinfo->mipi.dsi_phy_db.strength[i] = data[i];
 
 	pinfo->mipi.dsi_phy_db.reg_ldo_mode = of_property_read_bool(
 		ctrl_pdev->dev.of_node, "qcom,regulator-ldo-mode");
@@ -3991,12 +3990,11 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	if (!data) {
 		pr_err("%s:%d, Unable to read Phy regulator settings\n",
 			__func__, __LINE__);
-		return -EINVAL;
+	} else {
+		pinfo->mipi.dsi_phy_db.regulator_len = len;
+		for (i = 0; i < len; i++)
+			pinfo->mipi.dsi_phy_db.regulator[i] = data[i];
 	}
-
-	pinfo->mipi.dsi_phy_db.regulator_len = len;
-	for (i = 0; i < len; i++)
-		pinfo->mipi.dsi_phy_db.regulator[i] = data[i];
 
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-bist-ctrl", &len);
@@ -4012,12 +4010,11 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	if (!data) {
 		pr_err("%s:%d, Unable to read Phy lane configure settings\n",
 			__func__, __LINE__);
-		return -EINVAL;
+	} else {
+		pinfo->mipi.dsi_phy_db.lanecfg_len = len;
+		for (i = 0; i < len; i++)
+			pinfo->mipi.dsi_phy_db.lanecfg[i] = data[i];
 	}
-
-	pinfo->mipi.dsi_phy_db.lanecfg_len = len;
-	for (i = 0; i < len; i++)
-		pinfo->mipi.dsi_phy_db.lanecfg[i] = data[i];
 
 	ctrl_pdata->timing_db_mode = of_property_read_bool(
 		ctrl_pdev->dev.of_node, "qcom,timing-db-mode");
