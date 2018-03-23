@@ -96,6 +96,8 @@ static uint32_t tmr_add = 1000;
 module_param_named(tmr_add, tmr_add, uint, 0664);
 
 static uint32_t ref_premature_cnt = 1;
+module_param_named(ref_premature_cnt, ref_premature_cnt, uint, 0664);
+
 static uint32_t bias_hyst;
 module_param_named(bias_hyst, bias_hyst, uint, 0664);
 
