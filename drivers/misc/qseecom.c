@@ -1365,10 +1365,15 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 static int qseecom_unregister_listener(struct qseecom_dev_handle *data)
 {
 	int ret = 0;
-	unsigned long flags;
 	struct qseecom_register_listener_ireq req;
 	struct qseecom_registered_listener_list *ptr_svc = NULL;
 	struct qseecom_command_scm_resp resp;
+
+	ptr_svc = __qseecom_find_svc(data->listener.id);
+	if (!ptr_svc) {
+		pr_err("Unregiser invalid listener ID %d\n", data->listener.id);
+		return -ENODATA;
+	}
 
 	req.qsee_cmd_id = QSEOS_DEREGISTER_LISTENER;
 	req.listener_id = data->listener.id;
@@ -1389,15 +1394,7 @@ static int qseecom_unregister_listener(struct qseecom_dev_handle *data)
 	}
 
 	data->abort = 1;
-	spin_lock_irqsave(&qseecom.registered_listener_list_lock, flags);
-	list_for_each_entry(ptr_svc, &qseecom.registered_listener_list_head,
-			list) {
-		if (ptr_svc->svc.listener_id == data->listener.id) {
-			wake_up_all(&ptr_svc->rcv_req_wq);
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&qseecom.registered_listener_list_lock, flags);
+	wake_up_all(&ptr_svc->rcv_req_wq);
 
 	while (atomic_read(&data->ioctl_count) > 1) {
 		if (wait_event_freezable(data->abort_wq,
@@ -1408,21 +1405,13 @@ static int qseecom_unregister_listener(struct qseecom_dev_handle *data)
 		}
 	}
 
-	spin_lock_irqsave(&qseecom.registered_listener_list_lock, flags);
-	list_for_each_entry(ptr_svc,
-			&qseecom.registered_listener_list_head, list) {
-		if (ptr_svc->svc.listener_id == data->listener.id) {
-			if (ptr_svc->sb_virt) {
-				qseecom_vaddr_unmap(ptr_svc->sb_virt,
-					ptr_svc->sgt, ptr_svc->attach,
-					ptr_svc->dmabuf);
-			}
-			list_del(&ptr_svc->list);
-			kzfree(ptr_svc);
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&qseecom.registered_listener_list_lock, flags);
+	if (ptr_svc->sb_virt)
+		qseecom_vaddr_unmap(ptr_svc->sb_virt,
+			ptr_svc->sgt, ptr_svc->attach, ptr_svc->dmabuf);
+
+	list_del(&ptr_svc->list);
+	kzfree(ptr_svc);
+
 	data->released = true;
 	return ret;
 }
