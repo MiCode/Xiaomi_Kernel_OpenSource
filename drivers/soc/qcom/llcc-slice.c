@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,13 +43,18 @@
 #define LLCC_STATUS_READ_DELAY 100
 
 #define CACHE_LINE_SIZE_SHIFT 6
-#define SIZE_PER_LLCC_SHIFT   2
+
+#define LLCC_COMMON_STATUS0		0x0003000C
+#define LLCC_LB_CNT_MASK		0xf0000000
+#define LLCC_LB_CNT_SHIFT		28
 
 #define MAX_CAP_TO_BYTES(n) (n * 1024)
 #define LLCC_TRP_ACT_CTRLn(n) (n * 0x1000)
 #define LLCC_TRP_STATUSn(n)   (4 + n * 0x1000)
 #define LLCC_TRP_ATTR0_CFGn(n) (0x21000 + 0x8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n) (0x21004 + 0x8 * n)
+#define LLCC_TRP_PCB_ACT 0x21F04
+#define LLCC_TRP_SCID_DIS_CAP_ALLOC 0x21F00
 
 /**
  * Driver data for llcc
@@ -65,7 +70,9 @@ struct llcc_drv_data {
 	u32 llcc_config_data_sz;
 	u32 max_slices;
 	u32 b_off;
+	u32 no_banks;
 	unsigned long *llcc_slice_map;
+	bool cap_based_alloc_and_pwr_collapse;
 };
 
 /* Get the slice entry by index */
@@ -324,12 +331,18 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 attr0_cfg;
 	u32 attr1_val;
 	u32 attr0_val;
+	u32 cad_off;
+	u32 pcb_off;
 	u32 max_cap_cacheline;
 	u32 sz;
+	u32 pcb = 0;
+	u32 cad = 0;
 	const struct llcc_slice_config *llcc_table;
 	struct llcc_drv_data *drv = platform_get_drvdata(pdev);
 	struct llcc_slice_desc desc;
 	u32 b_off = drv->b_off;
+	bool cap_based_alloc_and_pwr_collapse =
+		drv->cap_based_alloc_and_pwr_collapse;
 
 	sz = drv->llcc_config_data_sz;
 	llcc_table = drv->slice_data;
@@ -346,13 +359,15 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 		attr1_val |= (llcc_table[i].priority << ATTR1_PRIORITY_SHIFT);
 
 		max_cap_cacheline = MAX_CAP_TO_BYTES(llcc_table[i].max_cap);
-		max_cap_cacheline >>= CACHE_LINE_SIZE_SHIFT;
-		/* There are four llcc instances llcc0..llcc3. The SW writes to
-		 * to broadcast register which gets propagated to each llcc.
+
+		/* LLCC instances can vary for each target.
+		 * The SW writes to broadcast register which gets propagated
+		 * to each llcc instace (llcc0,.. llccN).
 		 * Since the size of the memory is divided equally amongst the
-		 * four llcc, we need to divide the max cap by 4
+		 * llcc instances, we need to configure the max cap accordingly.
 		 */
-		max_cap_cacheline >>= SIZE_PER_LLCC_SHIFT;
+		max_cap_cacheline = (max_cap_cacheline / drv->no_banks);
+		max_cap_cacheline >>= CACHE_LINE_SIZE_SHIFT;
 		attr1_val |= (max_cap_cacheline << ATTR1_MAX_CAP_SHIFT);
 
 		attr0_val = llcc_table[i].res_ways & ATTR0_RES_WAYS_MASK;
@@ -360,6 +375,18 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 
 		regmap_write(drv->llcc_map, attr1_cfg, attr1_val);
 		regmap_write(drv->llcc_map, attr0_cfg, attr0_val);
+
+		if (cap_based_alloc_and_pwr_collapse) {
+			cad_off = b_off + LLCC_TRP_SCID_DIS_CAP_ALLOC;
+			cad |= llcc_table[i].dis_cap_alloc <<
+				llcc_table[i].slice_id;
+			regmap_write(drv->llcc_map, cad_off, cad);
+
+			pcb_off = b_off + LLCC_TRP_PCB_ACT;
+			pcb |= llcc_table[i].retain_on_pc <<
+					llcc_table[i].slice_id;
+			regmap_write(drv->llcc_map, pcb_off, pcb);
+		}
 
 		/* Make sure that the SCT is programmed before activating */
 		mb();
@@ -379,6 +406,7 @@ int qcom_llcc_probe(struct platform_device *pdev,
 		      const struct llcc_slice_config *llcc_cfg, u32 sz)
 {
 	int rc = 0;
+	u32 num_banks = 0;
 	struct device *dev = &pdev->dev;
 	static struct llcc_drv_data *drv_data;
 
@@ -389,6 +417,13 @@ int qcom_llcc_probe(struct platform_device *pdev,
 	drv_data->llcc_map = syscon_node_to_regmap(dev->parent->of_node);
 	if (!drv_data->llcc_map)
 		return PTR_ERR(drv_data->llcc_map);
+
+	regmap_read(drv_data->llcc_map, LLCC_COMMON_STATUS0,
+		    &num_banks);
+
+	num_banks &= LLCC_LB_CNT_MASK;
+	num_banks >>= LLCC_LB_CNT_SHIFT;
+	drv_data->no_banks = num_banks;
 
 	rc = of_property_read_u32(pdev->dev.of_node, "max-slices",
 				  &drv_data->max_slices);
@@ -405,6 +440,10 @@ int qcom_llcc_probe(struct platform_device *pdev,
 		devm_kfree(&pdev->dev, drv_data);
 		return rc;
 	}
+
+	drv_data->cap_based_alloc_and_pwr_collapse =
+		of_property_read_bool(pdev->dev.of_node,
+				      "cap-based-alloc-and-pwr-collapse");
 
 	drv_data->llcc_slice_map = kcalloc(BITS_TO_LONGS(drv_data->max_slices),
 				   sizeof(unsigned long), GFP_KERNEL);
