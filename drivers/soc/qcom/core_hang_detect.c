@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #define _VAL(z)			(z##_MASK_BITS << z##_OFFSET)
 #define _VALUE(_val, z)		(_val<<(z##_OFFSET))
 #define _WRITE(x, y, z)		(((~(_VAL(z))) & y) | _VALUE(x, z))
+#define _GET_BITS(_val, z)	((_val>>(z##_OFFSET)) & z##_MASK_BITS)
 
 #define MODULE_NAME	"msm_hang_detect"
 #define MAX_SYSFS_LEN 12
@@ -38,9 +39,7 @@
 struct hang_detect {
 	phys_addr_t threshold[NR_CPUS];
 	phys_addr_t config[NR_CPUS];
-	uint32_t enabled;
 	uint32_t pmu_event_sel;
-	uint32_t threshold_val;
 	struct kobject kobj;
 };
 
@@ -108,8 +107,11 @@ static ssize_t show_threshold(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
 	struct hang_detect *device =  to_core_hang_dev(kobj);
+	u32 threshold_val;
 
-	return snprintf(buf, MAX_SYSFS_LEN, "0x%x\n", device->threshold_val);
+	threshold_val = scm_io_read(device->threshold[0]);
+
+	return snprintf(buf, MAX_SYSFS_LEN, "0x%x\n", threshold_val);
 }
 
 static size_t store_threshold(struct kobject *kobj, struct attribute *attr,
@@ -137,7 +139,6 @@ static size_t store_threshold(struct kobject *kobj, struct attribute *attr,
 		}
 	}
 
-	hang_dev->threshold_val = threshold_val;
 	return count;
 }
 CORE_HANG_ATTR(threshold, 0644, show_threshold, store_threshold);
@@ -186,9 +187,13 @@ CORE_HANG_ATTR(pmu_event_sel, 0644, show_pmu_event_sel, store_pmu_event_sel);
 static ssize_t show_enable(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
-	struct hang_detect *hang_device = to_core_hang_dev(kobj);
+	struct hang_detect *hang_dev = to_core_hang_dev(kobj);
+	u32 enabled;
 
-	return snprintf(buf, MAX_SYSFS_LEN, "%u\n", hang_device->enabled);
+	enabled = scm_io_read(hang_dev->config[0]);
+	enabled = _GET_BITS(enabled, ENABLE);
+
+	return snprintf(buf, MAX_SYSFS_LEN, "%u\n", enabled);
 }
 
 static size_t store_enable(struct kobject *kobj, struct attribute *attr,
@@ -218,7 +223,6 @@ static size_t store_enable(struct kobject *kobj, struct attribute *attr,
 		}
 	}
 
-	hang_dev->enabled = enabled;
 	return count;
 }
 CORE_HANG_ATTR(enable, 0644, show_enable, store_enable);
