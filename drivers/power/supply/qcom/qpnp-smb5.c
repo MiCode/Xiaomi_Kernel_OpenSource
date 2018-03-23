@@ -1084,6 +1084,7 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 {
 	int rc = 0;
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	bool enable;
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -1106,11 +1107,16 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		vote(chg->fv_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
-		chg->step_chg_enabled = !!val->intval;
+		enable = !!val->intval || chg->sw_jeita_enabled;
+		rc = smblib_configure_wdog(chg, enable);
+		if (rc == 0)
+			chg->step_chg_enabled = !!val->intval;
 		break;
 	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
 		if (chg->sw_jeita_enabled != (!!val->intval)) {
 			rc = smblib_disable_hw_jeita(chg, !!val->intval);
+			enable = !!val->intval || chg->step_chg_enabled;
+			rc |= smblib_configure_wdog(chg, enable);
 			if (rc == 0)
 				chg->sw_jeita_enabled = !!val->intval;
 		}
@@ -1481,6 +1487,10 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	/*
+	 * configure the one time watchdong periodic interval and
+	 * disable "watchdog bite disable charging".
+	 */
 	val = (ilog2(chip->dt.wd_bark_time / 16) << BARK_WDOG_TIMEOUT_SHIFT)
 			& BARK_WDOG_TIMEOUT_MASK;
 	val |= BITE_WDOG_TIMEOUT_8S;
@@ -1488,18 +1498,6 @@ static int smb5_init_hw(struct smb5 *chip)
 			BITE_WDOG_DISABLE_CHARGING_CFG_BIT |
 			BARK_WDOG_TIMEOUT_MASK | BITE_WDOG_TIMEOUT_MASK,
 			val);
-	if (rc < 0) {
-		pr_err("Couldn't configue WD config rc=%d\n", rc);
-		return rc;
-	}
-
-	/* enable WD BARK and enable it on plugin */
-	rc = smblib_masked_write(chg, WD_CFG_REG,
-			WATCHDOG_TRIGGER_AFP_EN_BIT |
-			WDOG_TIMER_EN_ON_PLUGIN_BIT |
-			BARK_WDOG_INT_EN_BIT,
-			WDOG_TIMER_EN_ON_PLUGIN_BIT |
-			BARK_WDOG_INT_EN_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't configue WD config rc=%d\n", rc);
 		return rc;
@@ -1641,6 +1639,14 @@ static int smb5_init_hw(struct smb5 *chip)
 			dev_err(chg->dev, "Couldn't set hw jeita rc=%d\n", rc);
 			return rc;
 		}
+	}
+
+	rc = smblib_configure_wdog(chg,
+			chg->step_chg_enabled || chg->sw_jeita_enabled);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure watchdog rc=%d\n",
+				rc);
+		return rc;
 	}
 
 	return rc;
@@ -1892,6 +1898,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
 		.handler	= wdog_bark_irq_handler,
+		.wake		= true,
 	},
 	[AICL_FAIL_IRQ] = {
 		.name		= "aicl-fail",
