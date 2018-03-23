@@ -162,6 +162,17 @@ static const struct usb_irq usb_irq_info[USB_MAX_IRQ] = {
 	{"ss_phy_irq", 0},
 };
 
+struct dwc3_msm;
+
+struct extcon_nb {
+	struct extcon_dev	*edev;
+	struct dwc3_msm		*mdwc;
+	int			idx;
+	struct notifier_block	vbus_nb;
+	struct notifier_block	id_nb;
+	struct notifier_block	host_restart_nb;
+};
+
 /* Input bits to state machine (mdwc->inputs) */
 
 #define ID			0
@@ -232,17 +243,9 @@ struct dwc3_msm {
 
 	struct notifier_block	usbdev_nb;
 	bool			hc_died;
-	/* for usb connector either type-C or microAB */
-	bool			type_c;
 
-	struct extcon_dev	*extcon_vbus;
-	struct extcon_dev	*extcon_id;
-	struct extcon_dev	*extcon_eud;
-	struct notifier_block	vbus_nb;
-	struct notifier_block	id_nb;
-	struct notifier_block	eud_event_nb;
-	struct notifier_block	host_restart_nb;
-
+	struct extcon_nb	*extcon;
+	int			ext_idx;
 	struct notifier_block	host_nb;
 
 	atomic_t                in_p3;
@@ -2510,11 +2513,11 @@ static void dwc3_resume_work(struct work_struct *w)
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
 
 	if (mdwc->vbus_active && !mdwc->in_restart) {
-		edev = mdwc->extcon_vbus;
 		extcon_id = EXTCON_USB;
+		edev = mdwc->extcon[mdwc->ext_idx].edev;
 	} else if (mdwc->id_state == DWC3_ID_GROUND) {
-		edev = mdwc->extcon_id;
 		extcon_id = EXTCON_USB_HOST;
+		edev = mdwc->extcon[mdwc->ext_idx].edev;
 	}
 
 	/* Check speed and Type-C polarity values in order to configure PHY */
@@ -2783,19 +2786,31 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	unsigned long event, void *ptr)
 {
-	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, id_nb);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct dwc3 *dwc;
+	struct extcon_dev *edev = ptr;
+	struct extcon_nb *enb = container_of(nb, struct extcon_nb, id_nb);
+	struct dwc3_msm *mdwc = enb->mdwc;
 	enum dwc3_id_state id;
+
+	if (!edev || !mdwc)
+		return NOTIFY_DONE;
+
+	dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dbg_event(0xFF, "extcon idx", enb->idx);
 
 	id = event ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
 
+	if (mdwc->id_state == id)
+		return NOTIFY_DONE;
+
+	mdwc->ext_idx = enb->idx;
+
 	dev_dbg(mdwc->dev, "host:%ld (id:%d) event received\n", event, id);
 
-	if (mdwc->id_state != id) {
-		mdwc->id_state = id;
-		dbg_event(0xFF, "id_state", mdwc->id_state);
-		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-	}
+	mdwc->id_state = id;
+	dbg_event(0xFF, "id_state", mdwc->id_state);
+	queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
 	return NOTIFY_DONE;
 }
@@ -2829,14 +2844,25 @@ static void check_for_sdp_connection(struct work_struct *w)
 static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	unsigned long event, void *ptr)
 {
-	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, vbus_nb);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct dwc3 *dwc;
+	struct extcon_dev *edev = ptr;
+	struct extcon_nb *enb = container_of(nb, struct extcon_nb, vbus_nb);
+	struct dwc3_msm *mdwc = enb->mdwc;
+
+	if (!edev || !mdwc)
+		return NOTIFY_DONE;
+
+	dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dbg_event(0xFF, "extcon idx", enb->idx);
+
+	if (mdwc->vbus_active == event)
+		return NOTIFY_DONE;
+
+	mdwc->ext_idx = enb->idx;
 
 	dev_dbg(mdwc->dev, "vbus:%ld event received\n", event);
 
-	if (mdwc->vbus_active == event)
-		return NOTIFY_DONE;
-
 	mdwc->vbus_active = event;
 	if ((dwc->dr_mode == USB_DR_MODE_OTG) && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
@@ -2844,128 +2870,76 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-/*
- * Handle EUD based soft detach/attach event
- *
- * @nb - notifier handler
- * @event - event information i.e. soft detach/attach event
- * @ptr - extcon_dev pointer
- *
- * @return int - NOTIFY_DONE always due to EUD
- */
-static int dwc3_msm_eud_notifier(struct notifier_block *nb,
-		unsigned long event, void *ptr)
-{
-	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, eud_event_nb);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
-	dbg_event(0xFF, "EUD_NB", event);
-	dev_dbg(mdwc->dev, "eud:%ld event received\n", event);
-	if (mdwc->vbus_active == event)
-		return NOTIFY_DONE;
-
-	mdwc->vbus_active = event;
-	if ((dwc->dr_mode == USB_DR_MODE_OTG) && !mdwc->in_restart)
-		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-
-	return NOTIFY_DONE;
-}
-
-static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc, int start_idx)
+static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 {
 	struct device_node *node = mdwc->dev->of_node;
 	struct extcon_dev *edev;
-	int ret = 0;
+	int idx, extcon_cnt, ret = 0;
+	bool check_vbus_state, check_id_state, phandle_found = false;
 
 	if (!of_property_read_bool(node, "extcon"))
 		return 0;
 
-	/*
-	 * Use mandatory phandle (index 0 for type-C; index 3 for microUSB)
-	 * for USB vbus status notification
-	 */
-	edev = extcon_get_edev_by_phandle(mdwc->dev, start_idx);
-	if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV)
-		return PTR_ERR(edev);
+	extcon_cnt = of_count_phandle_with_args(node, "extcon", NULL);
+	if (extcon_cnt < 0) {
+		dev_err(mdwc->dev, "of_count_phandle_with_args failed\n");
+		return -ENODEV;
+	}
 
-	if (!IS_ERR(edev)) {
-		mdwc->extcon_vbus = edev;
-		mdwc->vbus_nb.notifier_call = dwc3_msm_vbus_notifier;
+	mdwc->extcon = devm_kcalloc(mdwc->dev, extcon_cnt,
+					sizeof(*mdwc->extcon), GFP_KERNEL);
+	if (!mdwc->extcon)
+		return -ENOMEM;
+
+	for (idx = 0; idx < extcon_cnt; idx++) {
+		edev = extcon_get_edev_by_phandle(mdwc->dev, idx);
+		if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV)
+			return PTR_ERR(edev);
+
+		if (IS_ERR_OR_NULL(edev))
+			continue;
+
+		check_vbus_state = check_id_state = true;
+		phandle_found = true;
+
+		mdwc->extcon[idx].mdwc = mdwc;
+		mdwc->extcon[idx].edev = edev;
+		mdwc->extcon[idx].idx = idx;
+
+		mdwc->extcon[idx].vbus_nb.notifier_call =
+						dwc3_msm_vbus_notifier;
 		ret = extcon_register_notifier(edev, EXTCON_USB,
-				&mdwc->vbus_nb);
-		if (ret < 0) {
-			dev_err(mdwc->dev, "failed to register notifier for USB\n");
-			return ret;
-		}
-	}
+						&mdwc->extcon[idx].vbus_nb);
+		if (ret < 0)
+			check_vbus_state = false;
 
-	/*
-	 * Use optional phandle (index 1 for type-C; index 4 for microUSB)
-	 * for USB ID status notification
-	 */
-	if (of_count_phandle_with_args(node, "extcon", NULL) > start_idx + 1) {
-		edev = extcon_get_edev_by_phandle(mdwc->dev, start_idx + 1);
-		if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV) {
-			ret = PTR_ERR(edev);
-			goto err;
-		}
-	}
-
-	if (!IS_ERR(edev)) {
-		mdwc->extcon_id = edev;
-		mdwc->id_nb.notifier_call = dwc3_msm_id_notifier;
-		mdwc->host_restart_nb.notifier_call =
-					dwc3_restart_usb_host_mode;
+		mdwc->extcon[idx].id_nb.notifier_call = dwc3_msm_id_notifier;
 		ret = extcon_register_notifier(edev, EXTCON_USB_HOST,
-				&mdwc->id_nb);
-		if (ret < 0) {
-			dev_err(mdwc->dev, "failed to register notifier for USB-HOST\n");
-			goto err;
-		}
+						&mdwc->extcon[idx].id_nb);
+		if (ret < 0)
+			check_id_state = false;
 
-		ret = extcon_register_blocking_notifier(edev, EXTCON_USB_HOST,
-							&mdwc->host_restart_nb);
-		if (ret < 0) {
-			dev_err(mdwc->dev, "failed to register blocking notifier\n");
-			goto err1;
-		}
+		mdwc->extcon[idx].host_restart_nb.notifier_call =
+					dwc3_restart_usb_host_mode;
+		extcon_register_blocking_notifier(edev, EXTCON_USB_HOST,
+					&mdwc->extcon[idx].host_restart_nb);
+
+		/* Update initial VBUS/ID state */
+		if (check_vbus_state && extcon_get_state(edev, EXTCON_USB))
+			dwc3_msm_vbus_notifier(&mdwc->extcon[idx].vbus_nb,
+						true, edev);
+		else  if (check_id_state &&
+				extcon_get_state(edev, EXTCON_USB_HOST))
+			dwc3_msm_id_notifier(&mdwc->extcon[idx].id_nb,
+						true, edev);
 	}
 
-	edev = NULL;
-	/* Use optional phandle (index 2) for EUD based detach/attach events */
-	if (of_count_phandle_with_args(node, "extcon", NULL) > 2) {
-		edev = extcon_get_edev_by_phandle(mdwc->dev, 2);
-		if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV) {
-			ret = PTR_ERR(edev);
-			goto err2;
-		}
-	}
-
-	if (!IS_ERR_OR_NULL(edev)) {
-		mdwc->extcon_eud = edev;
-		mdwc->eud_event_nb.notifier_call = dwc3_msm_eud_notifier;
-		ret = extcon_register_notifier(edev, EXTCON_USB,
-				&mdwc->eud_event_nb);
-		if (ret < 0) {
-			dev_err(mdwc->dev, "failed to register notifier for EUD-USB\n");
-			goto err2;
-		}
+	if (!phandle_found) {
+		dev_err(mdwc->dev, "no extcon device found\n");
+		return -ENODEV;
 	}
 
 	return 0;
-err2:
-	if (mdwc->extcon_id)
-		extcon_unregister_blocking_notifier(mdwc->extcon_id,
-				EXTCON_USB_HOST, &mdwc->host_restart_nb);
-err1:
-	if (mdwc->extcon_id)
-		extcon_unregister_notifier(mdwc->extcon_id, EXTCON_USB_HOST,
-				&mdwc->id_nb);
-err:
-	if (mdwc->extcon_vbus)
-		extcon_unregister_notifier(mdwc->extcon_vbus, EXTCON_USB,
-				&mdwc->vbus_nb);
-	return ret;
 }
 
 #define SMMU_BASE	0x60000000 /* Device address range base */
@@ -3387,43 +3361,24 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&mdwc->suspend_resume_mutex);
-	/* Mark type-C as true by default */
-	mdwc->type_c = true;
-
 	mdwc->usb_psy = power_supply_get_by_name("usb");
 	if (!mdwc->usb_psy) {
 		dev_warn(mdwc->dev, "Could not get usb power_supply\n");
 		pval.intval = -EINVAL;
 	} else {
 		power_supply_get_property(mdwc->usb_psy,
-			POWER_SUPPLY_PROP_CONNECTOR_TYPE, &pval);
-		if (pval.intval == POWER_SUPPLY_CONNECTOR_MICRO_USB)
-			mdwc->type_c = false;
-		power_supply_get_property(mdwc->usb_psy,
 			POWER_SUPPLY_PROP_PRESENT, &pval);
 	}
 
-	/*
-	 * Extcon phandles starting indices in DT:
-	 * type-C : 0
-	 * microUSB : 3
-	 */
-	ret = dwc3_msm_extcon_register(mdwc, mdwc->type_c ? 0 : 3);
+	ret = dwc3_msm_extcon_register(mdwc);
 	if (ret)
 		goto put_psy;
 
-	/* Update initial VBUS/ID state from extcon */
-	if (mdwc->extcon_vbus && extcon_get_state(mdwc->extcon_vbus,
-							EXTCON_USB))
-		dwc3_msm_vbus_notifier(&mdwc->vbus_nb, true, mdwc->extcon_vbus);
-	else if (mdwc->extcon_id && extcon_get_state(mdwc->extcon_id,
-							EXTCON_USB_HOST))
-		dwc3_msm_id_notifier(&mdwc->id_nb, true, mdwc->extcon_id);
-	else if (!pval.intval) {
+	if (!pval.intval) {
 		/* USB cable is not connected */
 		schedule_delayed_work(&mdwc->sm_work, 0);
 	} else {
-		if (pval.intval > 0)
+		if (!mdwc->vbus_active && mdwc->id_state && pval.intval > 0)
 			dev_info(mdwc->dev, "charger detection in progress\n");
 	}
 
@@ -3874,11 +3829,16 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 				unsigned long event, void *ptr)
 {
-	struct dwc3_msm *mdwc;
 	struct dwc3 *dwc;
+	struct extcon_dev *edev = ptr;
+	struct extcon_nb *enb = container_of(nb, struct extcon_nb,
+						host_restart_nb);
+	struct dwc3_msm *mdwc = enb->mdwc;
 	int ret = -EINVAL, usb_speed;
 
-	mdwc = container_of(nb, struct dwc3_msm, host_restart_nb);
+	if (!edev || !mdwc)
+		return NOTIFY_DONE;
+
 	dwc = platform_get_drvdata(mdwc->dwc3);
 
 	usb_speed = (event == 0 ? USB_SPEED_HIGH : USB_SPEED_SUPER);
