@@ -230,7 +230,7 @@ int fsa4480_switch_event(struct device_node *node,
 			switch_control = 0x0;
 		else
 			switch_control = 0x7;
-		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x1F);
+		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x9F);
 		break;
 	case FSA_USBC_ORIENTATION_CC1:
 		fsa4480_usbc_update_settings(fsa_priv, 0x78, 0xF8);
@@ -268,7 +268,7 @@ static int fsa4480_usbc_analog_setup_switches
 			fsa_priv->usbc_force_pr_mode = true;
 
 		/* activate switches */
-		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x1F);
+		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x9F);
 
 		/* notify call chain on event */
 		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
