@@ -650,6 +650,11 @@ struct ufs_stats {
 	struct ufs_uic_err_reg_hist nl_err;
 	struct ufs_uic_err_reg_hist tl_err;
 	struct ufs_uic_err_reg_hist dme_err;
+	u32 pa_err_cnt_total;
+	u32 pa_err_cnt[UFS_EC_PA_MAX];
+	u32 dl_err_cnt_total;
+	u32 dl_err_cnt[UFS_EC_DL_MAX];
+	u32 dme_err_cnt;
 };
 
 /* UFS Host Controller debug print bitmask */
