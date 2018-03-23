@@ -104,7 +104,7 @@ struct msm_audio {
 	int mmap_flag;
 	atomic_t pending_buffer;
 	bool set_channel_map;
-	char channel_map[8];
+	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL_V2];
 	int cmd_interrupt;
 	bool meta_data_mode;
 	uint32_t volume;
