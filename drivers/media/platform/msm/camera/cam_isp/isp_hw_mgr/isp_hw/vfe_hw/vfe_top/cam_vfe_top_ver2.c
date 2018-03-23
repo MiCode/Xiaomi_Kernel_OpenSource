@@ -34,13 +34,13 @@ struct cam_vfe_top_ver2_priv {
 	struct cam_vfe_top_ver2_common_data common_data;
 	struct cam_isp_resource_node        mux_rsrc[CAM_VFE_TOP_VER2_MUX_MAX];
 	unsigned long                       hw_clk_rate;
-	enum cam_vfe_bw_control_action      axi_vote_control[
-						CAM_VFE_TOP_VER2_MUX_MAX];
 	struct cam_axi_vote                 to_be_applied_axi_vote;
 	struct cam_axi_vote                 applied_axi_vote;
 	uint32_t                            counter_to_update_axi_vote;
 	struct cam_axi_vote             req_axi_vote[CAM_VFE_TOP_VER2_MUX_MAX];
 	unsigned long                   req_clk_rate[CAM_VFE_TOP_VER2_MUX_MAX];
+	enum cam_vfe_bw_control_action
+		axi_vote_control[CAM_VFE_TOP_VER2_MUX_MAX];
 };
 
 static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
@@ -225,9 +225,11 @@ static int cam_vfe_top_set_axi_bw_vote(
 			&top_priv->to_be_applied_axi_vote);
 		if (!rc) {
 			top_priv->applied_axi_vote.uncompressed_bw =
-			top_priv->to_be_applied_axi_vote.uncompressed_bw;
+				top_priv->
+				to_be_applied_axi_vote.uncompressed_bw;
 			top_priv->applied_axi_vote.compressed_bw =
-				top_priv->to_be_applied_axi_vote.compressed_bw;
+				top_priv->
+				to_be_applied_axi_vote.compressed_bw;
 		} else {
 			CAM_ERR(CAM_ISP, "BW request failed, rc=%d", rc);
 		}
@@ -607,6 +609,8 @@ int cam_vfe_top_stop(void *device_priv,
 					"set_hw_clk_rate failed, rc=%d", rc);
 				return rc;
 			}
+
+		top_priv->hw_clk_rate = 0;
 
 			rc = cam_vfe_top_set_axi_bw_vote(top_priv, true);
 			if (rc) {

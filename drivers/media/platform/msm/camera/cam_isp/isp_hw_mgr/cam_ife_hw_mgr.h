@@ -13,6 +13,7 @@
 #ifndef _CAM_IFE_HW_MGR_H_
 #define _CAM_IFE_HW_MGR_H_
 
+#include <linux/completion.h>
 #include "cam_isp_hw_mgr.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_ife_csid_hw_intf.h"
@@ -121,6 +122,7 @@ struct cam_ife_hw_mgr_debug {
  * @overflow_pending        flat to specify the overflow is pending for the
  *                          context
  * @is_rdi_only_context     flag to specify the context has only rdi resource
+ * @config_done_complete    indicator for configuration complete
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -153,6 +155,7 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                        eof_cnt[CAM_IFE_HW_NUM_MAX];
 	atomic_t                        overflow_pending;
 	uint32_t                        is_rdi_only_context;
+	struct completion               config_done_complete;
 };
 
 /**
