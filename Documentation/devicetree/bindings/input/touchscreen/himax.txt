@@ -1,0 +1,22 @@
+Himax touch controller
+
+Required properties:
+
+ - compatible			: Should be "himax,hxcommon"
+ - reg					: i2c slave address of the device.
+ - interrupt-parent		: parent of interrupt.
+ - himax,irq-gpio       : irq gpio.
+ - himax,reset-gpio		: reset gpio.
+ - vdd-supply			: Power supply needed to power up the device.
+ - avdd-supply			: Power source required to power up i2c bus.
+ - himax,panel-coords 	: panel coordinates for the chip in pixels.
+						  It is a four tuple consisting of min x,
+						  min y, max x and max y values.
+ - himax,display-coords : display coordinates in pixels. It is a four
+						  tuple consisting of min x, min y, max x and
+						  max y values
+
+Optional properties:
+ - himax,3v3-gpio		: gpio acting as 3.3 v supply.
+ - report_type			: Multi-touch protocol type. Default 0.
+						  0 for protocol A, 1 for protocol B.
