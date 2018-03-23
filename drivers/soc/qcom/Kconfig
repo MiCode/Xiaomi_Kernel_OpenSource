@@ -472,6 +472,14 @@ config QTI_RPM_STATS_LOG
 	  the low power modes that RPM enters. The drivers outputs the message
 	  via a debugfs node.
 
+config MSM_CDSP_LOADER
+	tristate "CDSP loader support"
+	help
+	  Enable CDSP image loader.
+	  The CDSP loader brings CDSP out of reset
+	  for platforms that have compute DSP.
+	  Say M if you want to enable this module.
+
 config MSM_EVENT_TIMER
 	bool "Event timer"
         help
