@@ -9,3 +9,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include "sdmshrike-audio-overlay.dtsi"
+
+&soc {
+	sound-tavil {
+		qcom,us-euro-gpios = <&tavil_us_euro_switch>;
+	};
+};

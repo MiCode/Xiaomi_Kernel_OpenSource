@@ -10,3 +10,4 @@
  * GNU General Public License for more details.
  */
 
+#include "sdmshrike-audio-overlay.dtsi"
