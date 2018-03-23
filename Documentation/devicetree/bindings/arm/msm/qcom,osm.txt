@@ -9,7 +9,7 @@ Properties:
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: must be "qcom,clk-cpu-osm".
+	Definition: must be "qcom,clk-cpu-osm" or "qcom,clk-cpu-osm-sdmshrike".
 
 - reg
 	Usage:      required
@@ -20,7 +20,8 @@ Properties:
 	Usage:      required
 	Value type: <stringlist>
 	Definition: Address names. Must be "osm_l3_base", "osm_pwrcl_base",
-		    "osm_perfcl_base", and "osm_perfpcl_base".
+		    and "osm_perfcl_base". Can optionally have
+		    "osm_perfpcl_base".
 		    Must be specified in the same order as the corresponding
 		    addresses are specified in the reg property.
 

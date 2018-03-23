@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,5 +29,6 @@
 #define PERFCL_CLK			12
 #define CPU7_PERFPCL_CLK		13
 #define PERFPCL_CLK			14
+#define CPU7_PERFCL_CLK			15
 
 #endif
