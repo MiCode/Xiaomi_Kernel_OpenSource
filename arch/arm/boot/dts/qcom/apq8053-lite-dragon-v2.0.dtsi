@@ -42,8 +42,8 @@
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_boyi_hx83100a_800p_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active &mdss_dsi_gpio>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend &mdss_dsi_gpio>;
 
 	vdd-supply = <&pm8953_l10>;
 	vddio-supply = <&pm8953_l6>;
@@ -60,11 +60,17 @@
 };
 
 &labibb {
-	status = "ok";
+	status = "okay";
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
 &wled {
+	status = "okay";
 	qcom,cons-sync-write-delay-us = <1000>;
 	qcom,led-strings-list = [00 01 02 03];
+};
+
+&pm8953_l4 {
+	status = "okay";
+	regulator-always-on;
 };
