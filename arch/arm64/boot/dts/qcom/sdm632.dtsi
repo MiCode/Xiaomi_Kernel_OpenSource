@@ -13,6 +13,9 @@
 
 #include "msm8953.dtsi"
 #include "sdm632-cpu.dtsi"
+#include "pm8004.dtsi"
+#include "pm8004-rpm-regulator.dtsi"
+#include "sdm632-regulator.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM632";
@@ -538,10 +541,6 @@
 		<  768000000 5>,
 		<  787200000 6>;
 	#clock-cells = <1>;
-};
-
-&apc_vreg {
-	status = "disabled";
 };
 
 &soc {
