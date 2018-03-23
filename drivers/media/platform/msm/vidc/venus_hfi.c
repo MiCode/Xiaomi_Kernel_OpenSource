@@ -3265,6 +3265,8 @@ static int __response_handler(struct venus_hfi_device *device)
 		case HAL_SESSION_SET_PROP_DONE:
 		case HAL_SESSION_GET_PROP_DONE:
 		case HAL_SESSION_RELEASE_BUFFER_DONE:
+		case HAL_SESSION_REGISTER_BUFFER_DONE:
+		case HAL_SESSION_UNREGISTER_BUFFER_DONE:
 		case HAL_SESSION_RELEASE_RESOURCE_DONE:
 		case HAL_SESSION_PROPERTY_INFO:
 			session_id = &info->response.cmd.session_id;
