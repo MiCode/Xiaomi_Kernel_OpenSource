@@ -321,6 +321,15 @@
 						<&audio_etm0_out_funnel_mm>;
 				};
 			};
+
+			port@4 {
+				reg = <6>;
+				funnel_mm_in_gfx: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&gfx_out_funnel_mm>;
+				};
+			};
 		};
 	};
 
