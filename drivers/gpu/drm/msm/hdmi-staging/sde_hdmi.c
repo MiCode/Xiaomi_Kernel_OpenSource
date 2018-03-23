@@ -1339,7 +1339,8 @@ static int _sde_hdmi_hpd_enable(struct sde_hdmi *sde_hdmi)
 			HDMI_HPD_CTRL_ENABLE | hpd_ctrl);
 	spin_unlock_irqrestore(&hdmi->reg_lock, flags);
 
-	hdmi->hpd_off = false;
+	if (!sde_hdmi->non_pluggable)
+		hdmi->hpd_off = false;
 	SDE_DEBUG("enabled hdmi hpd\n");
 	return 0;
 
@@ -1401,7 +1402,7 @@ static void _sde_hdmi_hpd_disable(struct sde_hdmi *sde_hdmi)
 	int i, ret = 0;
 	unsigned long flags;
 
-	if (hdmi->hpd_off) {
+	if (!sde_hdmi->non_pluggable && hdmi->hpd_off) {
 		pr_warn("hdmi display hpd was already disabled\n");
 		return;
 	}
@@ -1432,7 +1433,9 @@ static void _sde_hdmi_hpd_disable(struct sde_hdmi *sde_hdmi)
 			pr_warn("failed to disable hpd regulator: %s (%d)\n",
 					config->hpd_reg_names[i], ret);
 	}
-	hdmi->hpd_off = true;
+
+	if (!sde_hdmi->non_pluggable)
+		hdmi->hpd_off = true;
 	SDE_DEBUG("disabled hdmi hpd\n");
 }
 
