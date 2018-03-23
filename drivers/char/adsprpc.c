@@ -663,7 +663,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	dma_addr_t region_phys = 0;
 	void *region_vaddr = NULL;
 	unsigned long flags;
-	int err = 0, vmid;
+	int err = 0, vmid, sgl_index = 0;
+	struct scatterlist *sgl = NULL;
 
 	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, 1, ppmap))
 		return 0;
@@ -749,7 +750,9 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		map->phys = sg_dma_address(map->table->sgl);
 		if (sess->smmu.cb) {
 			map->phys += ((uint64_t)sess->smmu.cb << 32);
-			map->size = sg_dma_len(map->table->sgl);
+			for_each_sg(map->table->sgl, sgl, map->table->nents,
+				sgl_index)
+				map->size += sg_dma_len(sgl);
 		} else {
 			map->size = buf_page_size(len);
 		}
@@ -2137,7 +2140,7 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 		goto bail;
 
 	if (fastrpc_mmap_find(fl, ud->fd, ud->va, ud->len, 0, 0, &map)) {
-		pr_err("adsprpc: mapping not found to unmap %d va %llx %x\n",
+		pr_err("adsprpc: mapping not found to unmap fd 0x%x, va 0x%llx, len 0x%x\n",
 			ud->fd, (unsigned long long)ud->va,
 			(unsigned int)ud->len);
 		err = -1;
