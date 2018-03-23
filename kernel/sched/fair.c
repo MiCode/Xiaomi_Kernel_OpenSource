@@ -7537,6 +7537,39 @@ static inline int wake_to_idle(struct task_struct *p)
 		 (p->flags & PF_WAKE_UP_IDLE);
 }
 
+#define SCHED_SELECT_PREV_CPU_NSEC	2000000
+#define SCHED_FORCE_CPU_SELECTION_NSEC	20000000
+
+static inline bool
+bias_to_prev_cpu(struct task_struct *p, struct cpumask *rtg_target)
+{
+	int prev_cpu = task_cpu(p);
+#ifdef CONFIG_SCHED_WALT
+	u64 ms = p->ravg.mark_start;
+#else
+	u64 ms = sched_clock();
+#endif
+
+	if (cpu_isolated(prev_cpu) || !idle_cpu(prev_cpu))
+		return false;
+
+	if (!ms)
+		return false;
+
+	if (ms - p->last_cpu_selected_ts >= SCHED_SELECT_PREV_CPU_NSEC) {
+		p->last_cpu_selected_ts = ms;
+		return false;
+	}
+
+	if (ms - p->last_sleep_ts >= SCHED_SELECT_PREV_CPU_NSEC)
+		return false;
+
+	if (rtg_target && !cpumask_test_cpu(prev_cpu, rtg_target))
+		return false;
+
+	return true;
+}
+
 #ifdef CONFIG_SCHED_WALT
 static inline struct cpumask *find_rtg_target(struct task_struct *p)
 {
@@ -7635,6 +7668,9 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		 */
 		prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
 				(schedtune_prefer_idle(p) > 0) : 0;
+
+		if (bias_to_prev_cpu(p, rtg_target))
+			return prev_cpu;
 
 		eenv->max_cpu_count = EAS_CPU_BKP + 1;
 
