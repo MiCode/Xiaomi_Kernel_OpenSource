@@ -292,7 +292,7 @@ config MSM_CLK_RPMH
 
 config MSM_GPUCC_SDM855
 	tristate "SDM855 Graphics Clock Controller"
-	depends on MSM_GCC_SDM855
+	depends on COMMON_CLK_QCOM
 	help
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	  sdm855 devices.
