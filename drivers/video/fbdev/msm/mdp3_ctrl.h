@@ -79,7 +79,7 @@ struct mdp3_session_data {
 	int (*wait_for_dma_done)(struct mdp3_session_data *session);
 
 	/* For retire fence */
-	struct sw_sync_timeline *vsync_timeline;
+	struct mdss_timeline *vsync_timeline;
 	int retire_cnt;
 	struct work_struct retire_work;
 };
