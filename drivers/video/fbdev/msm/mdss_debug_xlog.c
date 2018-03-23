@@ -683,6 +683,11 @@ static ssize_t mdss_xlog_dump_read(struct file *file, char __user *buff,
 
 	if (__mdss_xlog_dump_calc_range()) {
 		len = mdss_xlog_dump_entry(xlog_buf, MDSS_XLOG_BUF_MAX);
+		if (len < 0 || len > count) {
+			pr_err("len is more than the size of user buffer\n");
+			return 0;
+		}
+
 		if (copy_to_user(buff, xlog_buf, len))
 			return -EFAULT;
 		*ppos += len;
