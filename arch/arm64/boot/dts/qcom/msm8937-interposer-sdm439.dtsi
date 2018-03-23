@@ -16,6 +16,16 @@
 #include "sdm439-audio.dtsi"
 #include "sdm439-pmi632.dtsi"
 
+&pm8953_s5 {
+	regulator-min-microvolt = <1155000>;
+	regulator-max-microvolt = <1350000>;
+};
+
+&pm8953_s5_limit {
+	regulator-min-microvolt = <1155000>;
+	regulator-max-microvolt = <1350000>;
+};
+
 &soc {
 	qcom,csid@1b30000 {
 		/delete-property/ qcom,mipi-csi-vdd-supply;

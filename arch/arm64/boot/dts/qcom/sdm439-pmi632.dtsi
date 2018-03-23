@@ -36,7 +36,10 @@
 
 &pmi632_qg {
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,rbat-conn-mohm = <20>;
+};
+
+&pm8953_typec {
+	status = "disabled";
 };
 
 &thermal_zones {
