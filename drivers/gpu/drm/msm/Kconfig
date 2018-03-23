@@ -98,3 +98,13 @@ config DRM_SDE_HDMI
 	default y
 	help
 	  Choose this option if HDMI connector support is needed in SDE driver.
+
+config DRM_SDE_EVTLOG_DEBUG
+	bool "Enable event logging in MSM DRM"
+	depends on DRM_MSM
+	help
+          The SDE DRM debugging provides support to enable display debugging
+          features to: dump SDE registers during driver errors, panic
+          driver during fatal errors and enable some display-driver logging
+          into an internal buffer (this avoids logging overhead).
+
