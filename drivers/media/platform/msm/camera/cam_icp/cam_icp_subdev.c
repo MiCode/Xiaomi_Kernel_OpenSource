@@ -184,6 +184,8 @@ static int cam_icp_probe(struct platform_device *pdev)
 	g_icp_dev.open_cnt = 0;
 	mutex_init(&g_icp_dev.icp_lock);
 
+	CAM_DBG(CAM_ICP, "ICP probe complete");
+
 	return rc;
 
 ctx_fail:

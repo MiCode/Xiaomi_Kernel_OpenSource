@@ -508,6 +508,8 @@ static int cam_cdm_intf_probe(struct platform_device *pdev)
 		mutex_unlock(&cam_cdm_mgr_lock);
 	}
 
+	CAM_DBG(CAM_CDM, "CDM Intf probe done");
+
 	return rc;
 }
 
