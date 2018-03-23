@@ -406,8 +406,10 @@ static int msm_isp_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
 			0, 1);
 		msm_isp_reset_framedrop(vfe_dev, stream_info);
 
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_cfg_offline_ping_pong_address(vfe_dev, stream_info,
 			VFE_PING_FLAG, fe_cfg->output_buf_idx);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		if (rc < 0) {
 			pr_err("%s: Fetch engine config failed\n", __func__);
 			return -EINVAL;
@@ -895,7 +897,9 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
 		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
@@ -925,6 +929,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_AXI_RESTART:
 		mutex_lock(&vfe_dev->core_mutex);
 		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		if (atomic_read(&vfe_dev->error_info.overflow_state)
 			!= HALT_ENFORCED) {
 			rc = msm_isp_stats_restart(vfe_dev);
@@ -935,6 +940,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 			pr_err_ratelimited("%s: no AXI restart, halt enforced.\n",
 				__func__);
 		}
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
@@ -1010,7 +1016,9 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STATS_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
 		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_cfg_stats_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
