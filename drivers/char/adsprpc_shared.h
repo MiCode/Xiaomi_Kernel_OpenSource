@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,9 @@
 
 /* Fastrpc attribute for keeping the map persistent */
 #define FASTRPC_ATTR_KEEP_MAP	0x8
+
+/* Fastrpc attribute for no map */
+#define FASTRPC_ATTR_NOMAP   (16)
 
 /* Driver should operate in parallel with the co-processor */
 #define FASTRPC_MODE_PARALLEL    0
