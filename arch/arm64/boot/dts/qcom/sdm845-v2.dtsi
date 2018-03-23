@@ -430,7 +430,7 @@
 			1766400 160
 		>;
 		idle-cost-data = <
-			22 18 14 12
+			10 8 6 4
 		>;
 	};
 	CPU_COST_1: core-cost1 {
