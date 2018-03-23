@@ -1103,6 +1103,8 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 			break;
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_HEVC:
+		case V4L2_PIX_FMT_VP8:
+		case V4L2_PIX_FMT_VP9:
 			yuv_size = inst->prop.height[OUTPUT_PORT] *
 				inst->prop.width[OUTPUT_PORT];
 			if ((inst->pic_struct !=
