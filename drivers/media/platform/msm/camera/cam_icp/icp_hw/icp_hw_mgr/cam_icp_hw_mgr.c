@@ -211,9 +211,9 @@ static int cam_icp_supported_clk_rates(struct cam_icp_hw_mgr *hw_mgr,
 
 	for (i = 0; i < CAM_MAX_VOTE; i++) {
 		ctx_data->clk_info.clk_rate[i] =
-			soc_info->clk_rate[i][soc_info->num_clk - 1];
-		CAM_DBG(CAM_ICP, "clk_info = %d",
-			ctx_data->clk_info.clk_rate[i]);
+			soc_info->clk_rate[i][soc_info->src_clk_idx];
+		CAM_DBG(CAM_ICP, "clk_info[%d] = %d",
+			i, ctx_data->clk_info.clk_rate[i]);
 	}
 
 	return 0;
