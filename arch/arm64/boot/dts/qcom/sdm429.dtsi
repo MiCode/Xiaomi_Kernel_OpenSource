@@ -40,3 +40,16 @@
 		/delete-node/ port@4;
 	};
 };
+
+&thermal_zones {
+	hexa-cpu-max-step {
+		cooling-maps {
+			/delete-node/ cpu4_cdev;
+			/delete-node/ cpu5_cdev;
+			/delete-node/ cpu6_cdev;
+			/delete-node/ cpu7_cdev;
+		};
+	};
+
+	/delete-node/ cpuss0-step;
+};

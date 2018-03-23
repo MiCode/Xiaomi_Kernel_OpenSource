@@ -175,3 +175,84 @@
 #include "pm8953.dtsi"
 #include "pm8953-rpm-regulator.dtsi"
 #include "sdm439-regulator.dtsi"
+
+&thermal_zones {
+	aoss0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+
+	mdm-core-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	lpass-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	camera-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpuss1-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	apc1-cpu0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	apc1-cpu1-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	apc1-cpu2-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	apc1-cpu3-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	cpuss0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+	gpu-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				cooling-device = <&pm8953_cx_cdev 0 0>;
+			};
+		};
+	};
+};
