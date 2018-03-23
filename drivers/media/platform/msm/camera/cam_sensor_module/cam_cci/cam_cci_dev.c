@@ -299,7 +299,7 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 #endif
 
 	cpas_parms.cam_cpas_client_cb = NULL;
-	cpas_parms.cell_index = 0;
+	cpas_parms.cell_index = soc_info->index;
 	cpas_parms.dev = &pdev->dev;
 	cpas_parms.userdata = new_cci_dev;
 	strlcpy(cpas_parms.identifier, "cci", CAM_HW_IDENTIFIER_LENGTH);
