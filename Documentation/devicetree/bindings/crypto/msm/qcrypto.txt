@@ -42,6 +42,7 @@ Optional properties:
 
   - qcom,smmu-s1-enable : Boolean flag to bypass SMMU stage 1 translation.
   - iommus : A list of phandle and IOMMU specifier pairs that describe the IOMMU master interfaces of the device.
+  - qcom,no-clock-support : indicates clocks are not handled by hlos crypto driver.
 
 Example:
 

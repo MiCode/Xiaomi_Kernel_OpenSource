@@ -163,6 +163,7 @@ struct qce_device {
 	uint8_t *dummyreq_in_buf;
 	struct dma_iommu_mapping *smmu_mapping;
 	bool enable_s1_smmu;
+	bool no_clock_support;
 };
 
 static void print_notify_debug(struct sps_event_notify *notify);
@@ -5714,6 +5715,9 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 	if (of_property_read_bool((&pdev->dev)->of_node, "qcom,smmu-s1-enable"))
 		pce_dev->enable_s1_smmu = true;
 
+	pce_dev->no_clock_support = of_property_read_bool((&pdev->dev)->of_node,
+					"qcom,no-clock-support");
+
 	pce_dev->ce_bam_info.dest_pipe_index	=
 			2 * pce_dev->ce_bam_info.pipe_pair_index;
 	pce_dev->ce_bam_info.src_pipe_index	=
@@ -5767,6 +5771,11 @@ err_getting_bam_info:
 static int __qce_init_clk(struct qce_device *pce_dev)
 {
 	int rc = 0;
+
+	if (pce_dev->no_clock_support == true) {
+		pr_debug("No clock support defined in dts\n");
+		return rc;
+	}
 
 	pce_dev->ce_core_src_clk = clk_get(pce_dev->pdev, "core_clk_src");
 	if (!IS_ERR(pce_dev->ce_core_src_clk)) {
@@ -5834,6 +5843,11 @@ exit_put_core_src_clk:
 
 static void __qce_deinit_clk(struct qce_device *pce_dev)
 {
+	if (pce_dev->no_clock_support == true) {
+		pr_debug("No clock support defined in dts\n");
+		return;
+	}
+
 	if (pce_dev->ce_bus_clk)
 		clk_put(pce_dev->ce_bus_clk);
 	if (pce_dev->ce_clk)
@@ -5848,6 +5862,11 @@ int qce_enable_clk(void *handle)
 {
 	struct qce_device *pce_dev = (struct qce_device *)handle;
 	int rc = 0;
+
+	if (pce_dev->no_clock_support == true) {
+		pr_debug("No clock support defined in dts\n");
+		return rc;
+	}
 
 	if (pce_dev->ce_core_src_clk) {
 		rc = clk_prepare_enable(pce_dev->ce_core_src_clk);
@@ -5902,6 +5921,11 @@ int qce_disable_clk(void *handle)
 {
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 	int rc = 0;
+
+	if (pce_dev->no_clock_support == true) {
+		pr_debug("No clock support defined in dts\n");
+		return rc;
+	}
 
 	if (pce_dev->ce_bus_clk)
 		clk_disable_unprepare(pce_dev->ce_bus_clk);
