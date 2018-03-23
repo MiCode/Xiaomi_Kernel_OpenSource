@@ -34,7 +34,7 @@ static void sde_core_irq_callback_handler(void *arg, int irq_idx)
 	bool cb_tbl_error = false;
 	int enable_counts = 0;
 
-	SDE_DEBUG("irq_idx=%d\n", irq_idx);
+	pr_debug("irq_idx=%d\n", irq_idx);
 
 	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
 	if (list_empty(&irq_obj->irq_cb_tbl[irq_idx])) {
