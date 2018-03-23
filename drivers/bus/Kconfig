@@ -201,4 +201,6 @@ config MHI_DEBUG
 	   throughput as individual MHI packets and state transitions
 	   will be logged.
 
+source drivers/bus/mhi/controllers/Kconfig
+
 endmenu

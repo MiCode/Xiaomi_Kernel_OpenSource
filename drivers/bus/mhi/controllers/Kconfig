@@ -1,0 +1,10 @@
+menu "MHI controllers"
+
+config MHI_QCOM
+       tristate "MHI QCOM"
+       depends on MHI_BUS
+       help
+	  If you say yes to this option, MHI bus support for QCOM modem chipsets
+	  will be enabled.
+
+endmenu
