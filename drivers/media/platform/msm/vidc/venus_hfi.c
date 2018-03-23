@@ -1063,9 +1063,13 @@ static int __tzbsp_set_video_state(enum tzbsp_video_state state)
 static inline int __boot_firmware(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	u32 ctrl_status = 0, count = 0, max_tries = 1000;
+	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 1000;
 
-	__write_register(device, VIDC_CTRL_INIT, 0x1);
+	ctrl_init_val = BIT(0);
+	if (device->res->domain_cvp)
+		ctrl_init_val |= BIT(1);
+
+	__write_register(device, VIDC_CTRL_INIT, ctrl_init_val);
 	while (!ctrl_status && count < max_tries) {
 		ctrl_status = __read_register(device, VIDC_CTRL_STATUS);
 		if ((ctrl_status & VIDC_CTRL_ERROR_STATUS__M) == 0x4) {
@@ -1408,7 +1412,7 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 	size_t q_size;
 	u32 flags = 0;
 
-	q_size = SHARED_QSIZE - ALIGNED_SFR_SIZE - ALIGNED_QDSS_SIZE;
+	q_size = ALIGN(QUEUE_SIZE, SZ_1M);
 	mem_addr = &dev->mem_addr;
 	if (!is_iommu_present(dev->res))
 		fw_bias = dev->hal_data->firmware_base;
@@ -1618,7 +1622,7 @@ static void __setup_ucregion_memory_map(struct venus_hfi_device *device)
 		__write_register(device, HFI_DSP_UC_REGION_ADDR,
 			(u32)device->dsp_iface_q_table.align_device_addr);
 		__write_register(device, HFI_DSP_UC_REGION_SIZE,
-			SHARED_QSIZE - ALIGNED_SFR_SIZE - ALIGNED_QDSS_SIZE);
+			device->dsp_iface_q_table.mem_data.size);
 	}
 }
 
