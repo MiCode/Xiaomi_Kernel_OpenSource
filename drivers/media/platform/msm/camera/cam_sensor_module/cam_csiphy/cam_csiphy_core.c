@@ -383,6 +383,7 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 	csiphy_dev->ref_count = 0;
 	csiphy_dev->is_acquired_dev_combo_mode = 0;
 	csiphy_dev->acquire_count = 0;
+	csiphy_dev->start_dev_count = 0;
 	csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
 }
 
