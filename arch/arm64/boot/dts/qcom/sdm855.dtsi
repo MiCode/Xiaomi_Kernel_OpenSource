@@ -1261,7 +1261,7 @@
 	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
 		compatible = "qcom,devbw";
 		governor = "powersave";
-		qcom,src-dst-ports = <139 627>;
+		qcom,src-dst-ports = <1 627>;
 		qcom,active-only;
 		status = "ok";
 		qcom,bw-tbl = < 1 >;
