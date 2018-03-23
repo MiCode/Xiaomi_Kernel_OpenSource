@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -641,15 +641,15 @@ int sysmon_notifier_register(struct subsys_desc *desc)
 	if (!data)
 		return -ENOMEM;
 
-	if (data->instance_id <= 0) {
-		pr_debug("SSCTL instance id not defined\n");
-		goto add_list;
-	}
-
 	data->name = desc->name;
 	data->instance_id = desc->ssctl_instance_id;
 	data->legacy_version = false;
 	data->connected = false;
+
+	if (data->instance_id <= 0) {
+		pr_debug("SSCTL instance id not defined\n");
+		goto add_list;
+	}
 
 	init_completion(&data->ind_recv);
 
