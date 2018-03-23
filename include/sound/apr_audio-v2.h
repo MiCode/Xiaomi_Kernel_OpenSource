@@ -505,6 +505,39 @@ struct adm_cmd_device_open_v6 {
  */
 } __packed;
 
+/* ADM device open endpoint payload the
+*   #ADM_CMD_DEVICE_OPEN_V8 command.
+*/
+struct adm_device_endpoint_payload {
+	       u16                  dev_num_channel;
+	/* Number of channels the audio COPP sends to/receives from
+	    * the endpoint.
+	    * Supported values: 1 to 32.
+	    * The value is ignored for the voice processor Tx block,
+	    * where channel
+	    * configuration is derived from the topology ID.
+	    */
+
+	       u16                  bit_width;
+	/* Bit width (in bits) that the audio COPP sends to/receives
+	    * from the
+	    * endpoint. The value is ignored for the voice processing
+	    * Tx block,
+	    * where the PCM width is 16 bits.
+	    */
+
+	       u32                  sample_rate;
+	/* Sampling rate at which the audio COPP/voice processor
+	     * Tx block
+	     * interfaces with the endpoint.
+	     * Supported values for voice processor Tx: 8000, 16000,
+	     * 48000 Hz
+	     * Supported values for audio COPP: >0 and <=192 kHz
+	     */
+
+	      u8                    dev_channel_mapping[32];
+} __packed;
+
 /*  ADM device open command payload of the
 *   #ADM_CMD_DEVICE_OPEN_V8 command.
 */
@@ -571,111 +604,6 @@ struct adm_cmd_device_open_v8 {
  */
 	u16                  endpoint_id_3;
 	u16                  reserved;
-
-	u16                  dev_num_channel;
-/* Number of channels the audio COPP sends to/receives from
- * the endpoint.
- * Supported values: 1 to 32.
- * The value is ignored for the voice processor Tx block,
- * where channel
- * configuration is derived from the topology ID.
- */
-
-	u16                  bit_width;
-/* Bit width (in bits) that the audio COPP sends to/receives
- * from the
- * endpoint. The value is ignored for the voice processing
- * Tx block,
- * where the PCM width is 16 bits.
- */
-
-	u32                  sample_rate;
-/* Sampling rate at which the audio COPP/voice processor
- * Tx block
- * interfaces with the endpoint.
- * Supported values for voice processor Tx: 8000, 16000,
- * 48000 Hz
- * Supported values for audio COPP: >0 and <=192 kHz
- */
-
-	u8                   dev_channel_mapping[32];
-/* Array of channel mapping of buffers that the audio COPP
- * sends to the endpoint. Channel[i] mapping describes channel
- * I inside the buffer, where 0 < i < dev_num_channel.
- * This value is relevant only for an audio Rx COPP.
- * For the voice processor block and Tx audio block, this field
- * is set to zero and is ignored.
- */
-
-	u16                  dev_num_channel_eid2;
-/* Number of channels the audio COPP sends to/receives from
- * the endpoint.
- * Supported values: 1 to 32.
- * The value is ignored for the voice processor Tx block,
- * where channel
- * configuration is derived from the topology ID.
- */
-
-	u16                  bit_width_eid2;
-/* Bit width (in bits) that the audio COPP sends to/receives
- * from the
- * endpoint. The value is ignored for the voice processing
- * Tx block,
- * where the PCM width is 16 bits.
- */
-
-	u32                  sample_rate_eid2;
-/* Sampling rate at which the audio COPP/voice processor
- * Tx block
- * interfaces with the endpoint.
- * Supported values for voice processor Tx: 8000, 16000,
- * 48000 Hz
- * Supported values for audio COPP: >0 and <=192 kHz
- */
-
-	u8                   dev_channel_mapping_eid2[32];
-/* Array of channel mapping of buffers that the audio COPP
- * sends to the endpoint. Channel[i] mapping describes channel
- * I inside the buffer, where 0 < i < dev_num_channel.
- * This value is relevant only for an audio Rx COPP.
- * For the voice processor block and Tx audio block, this field
- * is set to zero and is ignored.
- */
-
-	u16                  dev_num_channel_eid3;
-/* Number of channels the audio COPP sends to/receives from
- * the endpoint.
- * Supported values: 1 to 32.
- * The value is ignored for the voice processor Tx block,
- * where channel
- * configuration is derived from the topology ID.
- */
-
-	u16                  bit_width_eid3;
-/* Bit width (in bits) that the audio COPP sends to/receives
- * from the
- * endpoint. The value is ignored for the voice processing
- * Tx block,
- * where the PCM width is 16 bits.
- */
-
-	u32                  sample_rate_eid3;
-/* Sampling rate at which the audio COPP/voice processor
- * Tx block
- * interfaces with the endpoint.
- * Supported values for voice processor Tx: 8000, 16000,
- * 48000 Hz
- * Supported values for audio COPP: >0 and <=192 kHz
- */
-
-	u8                   dev_channel_mapping_eid3[32];
-/* Array of channel mapping of buffers that the audio COPP
- * sends to the endpoint. Channel[i] mapping describes channel
- * I inside the buffer, where 0 < i < dev_num_channel.
- * This value is relevant only for an audio Rx COPP.
- * For the voice processor block and Tx audio block, this field
- * is set to zero and is ignored.
- */
 } __packed;
 
 /*
