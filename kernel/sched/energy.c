@@ -49,21 +49,6 @@ static void free_resources(void)
 	}
 }
 
-static inline unsigned long cpu_max_capacity(int cpu)
-{
-	if (!sge_array[cpu][0]->cap_states)
-		return 1024;
-	if (!sge_array[cpu][0]->nr_cap_states)
-		return 1024;
-
-	return sge_array[cpu][0]->cap_states[sge_array[cpu][0]->nr_cap_states-1].cap;
-}
-
-int sched_energy_installed(int cpu)
-{
-	return (sge_array[cpu][0]->cap_states != NULL);
-}
-
 void init_sched_energy_costs(void)
 {
 	struct device_node *cn, *cp;
@@ -148,10 +133,6 @@ void init_sched_energy_costs(void)
 			sge->idle_states = idle_states;
 
 			sge_array[cpu][sd_level] = sge;
-
-			/* populate cpu scale so that flags get set correctly */
-			if (sd_level == 0)
-				topology_set_cpu_scale(cpu, cpu_max_capacity(cpu));
 		}
 	}
 
@@ -187,7 +168,7 @@ static int sched_energy_probe(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		struct device *cpu_dev;
 		struct dev_pm_opp *opp;
-		int efficiency = topology_get_cpu_scale(NULL, cpu);
+		int efficiency = topology_get_cpu_efficiency(cpu);
 
 		max_efficiency = max(efficiency, max_efficiency);
 
@@ -221,7 +202,7 @@ static int sched_energy_probe(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		unsigned long cpu_max_cap;
 		struct sched_group_energy *sge_l0, *sge;
-		int efficiency = topology_get_cpu_scale(NULL, cpu);
+		int efficiency = topology_get_cpu_efficiency(cpu);
 
 		cpu_max_cap = DIV_ROUND_UP(SCHED_CAPACITY_SCALE *
 					   max_frequencies[cpu], max_freq);
@@ -283,7 +264,6 @@ static int sched_energy_probe(struct platform_device *pdev)
 			cpu, efficiency, max_frequencies[cpu], max_efficiency,
 			cpu_max_cap);
 
-		arch_update_cpu_capacity(cpu);
 	}
 
 	kfree(max_frequencies);

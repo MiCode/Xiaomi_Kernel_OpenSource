@@ -25,6 +25,7 @@
 #include <linux/sched_energy.h>
 
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
+DEFINE_PER_CPU(unsigned long, efficiency) = SCHED_CAPACITY_SCALE;
 
 void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 			 unsigned long max_freq)
@@ -72,10 +73,6 @@ static ssize_t cpu_capacity_store(struct device *dev,
 
 	if (!count)
 		return 0;
-
-	/* don't allow changes if sched-group-energy is installed */
-	if(sched_energy_installed(this_cpu))
-		return -EINVAL;
 
 	ret = kstrtoul(buf, 0, &new_capacity);
 	if (ret)
@@ -357,20 +354,16 @@ void topology_normalize_cpu_scale(void)
 bool __init topology_parse_cpu_capacity(struct device_node *cpu_node, int cpu)
 {
 	static bool cap_parsing_failed;
-	int ret = 0;
+	int ret;
 	u32 cpu_capacity;
 
 	if (cap_parsing_failed)
 		return false;
 
-	/* override capacity-dmips-mhz if we have sched-energy-costs */
-	if (of_find_property(cpu_node, "sched-energy-costs", NULL))
-		cpu_capacity = topology_get_cpu_scale(NULL, cpu);
-	else
-		ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
+	ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
 				   &cpu_capacity);
-
 	if (!ret) {
+		per_cpu(efficiency, cpu) = cpu_capacity;
 		if (!raw_capacity) {
 			raw_capacity = kcalloc(num_possible_cpus(),
 					       sizeof(*raw_capacity),
@@ -431,6 +424,7 @@ init_cpu_capacity_callback(struct notifier_block *nb,
 
 	if (cpumask_empty(cpus_to_visit)) {
 		topology_normalize_cpu_scale();
+		init_sched_energy_costs();
 		if (topology_detect_flags())
 			schedule_work(&update_topology_flags_work);
 		free_raw_capacity();

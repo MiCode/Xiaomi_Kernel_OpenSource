@@ -2070,7 +2070,7 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 
 	raw_spin_lock_init(&cluster->load_lock);
 	cluster->cpus = *cpus;
-	cluster->efficiency = topology_get_cpu_scale(NULL, cpumask_first(cpus));
+	cluster->efficiency = topology_get_cpu_efficiency(cpumask_first(cpus));
 
 	if (cluster->efficiency > max_possible_efficiency)
 		max_possible_efficiency = cluster->efficiency;
