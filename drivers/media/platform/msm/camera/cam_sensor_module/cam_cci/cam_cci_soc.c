@@ -198,7 +198,9 @@ static void cam_cci_init_cci_params(struct cci_device *new_cci_dev)
 			mutex_init(&new_cci_dev->cci_master_info[i].mutex_q[j]);
 			init_completion(&new_cci_dev->
 				cci_master_info[i].report_q[j]);
-			}
+			spin_lock_init(
+				&new_cci_dev->cci_master_info[i].lock_q[j]);
+		}
 	}
 }
 
