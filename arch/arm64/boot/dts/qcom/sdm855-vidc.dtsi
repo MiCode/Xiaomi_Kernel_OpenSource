@@ -21,6 +21,10 @@
 		reg = <0xaa00000 0x200000>;
 		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
 
+		/* LLCC Info */
+		cache-slice-names = "vidsc0", "vidsc1";
+		cache-slices = <&llcc 2>, <&llcc 3>;
+
 		/* Supply */
 		iris-ctl-supply = <&mvsc_gdsc>;
 		vcodec-supply = <&mvs0_gdsc>;
