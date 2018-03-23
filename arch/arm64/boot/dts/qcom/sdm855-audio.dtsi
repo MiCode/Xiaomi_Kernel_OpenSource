@@ -164,6 +164,8 @@
 	fsa4480: fsa4480@43 {
 		compatible = "qcom,fsa4480-i2c";
 		reg = <0x43>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsa_usbc_ana_en>;
 	};
 };
 
