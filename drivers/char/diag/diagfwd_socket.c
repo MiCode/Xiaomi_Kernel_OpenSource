@@ -656,10 +656,6 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		read_msg.msg_name = &src_addr;
 		read_msg.msg_namelen = sizeof(src_addr);
 
-		spin_lock_irqsave(&info->lock, flags);
-		info->data_ready--;
-		spin_unlock_irqrestore(&info->lock, flags);
-
 		err = kernel_sock_ioctl(info->hdl, TIOCINQ,
 					(unsigned long)&pkt_len);
 		if (err || pkt_len < 0)
@@ -669,6 +665,10 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 			buf_full = 1;
 			break;
 		}
+
+		spin_lock_irqsave(&info->lock, flags);
+		info->data_ready--;
+		spin_unlock_irqrestore(&info->lock, flags);
 
 		read_len = kernel_recvmsg(info->hdl, &read_msg, &iov, 1,
 					  pkt_len, MSG_DONTWAIT);
