@@ -2384,6 +2384,14 @@
 		};
 	};
 
+	qcom_tzlog: tz-log@146bf720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146bf720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+	};
+
 	dcc: dcc_v2@10a2000 {
 		compatible = "qcom,dcc_v2";
 		reg = <0x10a2000 0x1000>,
