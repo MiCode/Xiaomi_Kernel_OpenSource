@@ -108,13 +108,15 @@ static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 	catalog = dp_catalog_get_priv_v420(aux);
 
 	io_data = catalog->io->dp_phy;
-	dp_write(catalog, io_data, DP_PHY_PD_CTL, 0x7D);
+	dp_write(catalog, io_data, DP_PHY_PD_CTL, 0x65);
 	wmb(); /* make sure PD programming happened */
 
 	/* Turn on BIAS current for PHY/PLL */
-	dp_write(catalog, io_data,
-		QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3d);
+	io_data = catalog->io->dp_pll;
+	dp_write(catalog, io_data, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x17);
+	wmb(); /* make sure PD programming happened */
 
+	io_data = catalog->io->dp_phy;
 	/* DP AUX CFG register programming */
 	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
 		pr_debug("%s: offset=0x%08x, value=0x%08x\n",
@@ -123,6 +125,7 @@ static void dp_catalog_aux_setup_v420(struct dp_catalog_aux *aux,
 		dp_write(catalog, io_data, cfg[i].offset,
 			cfg[i].lut[cfg[i].current_index]);
 	}
+	wmb(); /* make sure DP AUX CFG programming happened */
 
 	dp_write(catalog, io_data, DP_PHY_AUX_INTERRUPT_MASK_V420, 0x1F);
 }
@@ -326,6 +329,9 @@ int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
 	catalog->panel.config_msa  = dp_catalog_panel_config_msa_v420;
 	catalog->ctrl.phy_lane_cfg = dp_catalog_ctrl_phy_lane_cfg_v420;
 	catalog->ctrl.update_vx_px = dp_catalog_ctrl_update_vx_px_v420;
+
+	/* Set the default execution mode to hardware mode */
+	dp_catalog_set_exe_mode_v420(catalog, "hw");
 
 	return 0;
 }
