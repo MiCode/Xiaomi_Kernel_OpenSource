@@ -1392,6 +1392,7 @@
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
+		qcom,signal-aop;
 
 		/* Inputs from mss */
 		interrupts-extended = <&pdc 0 266 1>,
@@ -1411,6 +1412,9 @@
 		/* Outputs to mss */
 		qcom,smem-states = <&modem_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "mss-pil";
 	};
 
 	qcom,lpass@17300000 {
@@ -1432,6 +1436,7 @@
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
 		memory-region = <&pil_adsp_mem>;
+		qcom,signal-aop;
 
 		/* Inputs from lpass */
 		interrupts-extended = <&pdc 0 162 1>,
@@ -1449,6 +1454,9 @@
 		/* Outputs to lpass */
 		qcom,smem-states = <&adsp_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "adsp-pil";
 	};
 
 	qcom,ssc@5c00000 {
@@ -1475,6 +1483,7 @@
 		qcom,firmware-name = "slpi";
 		status = "ok";
 		memory-region = <&pil_slpi_mem>;
+		qcom,signal-aop;
 
 		/* Inputs from ssc */
 		interrupts-extended = <&pdc 0 494 1>,
@@ -1492,6 +1501,9 @@
 		/* Outputs to ssc */
 		qcom,smem-states = <&dsps_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "slpi-pil";
 	};
 
 	qcom,spss@1880000 {
@@ -1516,12 +1528,16 @@
 		qcom,proxy-clock-names = "xo";
 		qcom,pil-generic-irq-handler;
 		status = "ok";
+		qcom,signal-aop;
 
 		qcom,pas-id = <14>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "spss";
 		memory-region = <&pil_spss_mem>;
 		qcom,spss-scsr-bits = <24 25>;
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "spss-pil";
 	};
 
 	wdog: qcom,wdt@17c10000{
@@ -1605,6 +1621,7 @@
 		qcom,ssctl-instance-id = <0x17>;
 		qcom,firmware-name = "cdsp";
 		memory-region = <&pil_cdsp_mem>;
+		qcom,signal-aop;
 
 		qcom,msm-bus,name = "pil-cdsp";
 		qcom,msm-bus,num-cases = <2>;
@@ -1629,6 +1646,9 @@
 		/* Outputs to turing */
 		qcom,smem-states = <&cdsp_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "cdsp-pil";
 	};
 
 	qcom,venus@aae0000 {
