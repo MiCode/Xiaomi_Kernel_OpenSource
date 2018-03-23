@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -260,7 +260,6 @@
 #define	MSM_BUS_MASTER_GIC 149
 #define	MSM_BUS_MASTER_EMMC 150
 #define	MSM_BUS_MASTER_QUP_0 151
-#define	MSM_BUS_MASTER_QSPI 152
 #define	MSM_BUS_MASTER_QUP_1 152
 #define	MSM_BUS_MASTER_QUP_2 153
 #define	MSM_BUS_MASTER_NPU 154
@@ -271,6 +270,7 @@
 #define	MSM_BUS_MASTER_GEM_NOC_PCIE_SNOC 159
 #define	MSM_BUS_MASTER_ECC 160
 #define	MSM_BUS_MASTER_GEM_NOC_SNOC 161
+#define	MSM_BUS_MASTER_QSPI 162
 #define	MSM_BUS_MASTER_MASTER_LAST 170
 
 #define	MSM_BUS_MASTER_LLCC_DISPLAY 20000
