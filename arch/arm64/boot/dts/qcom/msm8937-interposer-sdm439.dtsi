@@ -28,13 +28,13 @@
 
 &soc {
 	qcom,csid@1b30000 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l2>;
 	};
 	qcom,csid@1b30400 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l2>;
 	};
 	qcom,csid@1b30800 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l2>;
 	};
 
 	mem_acc_vreg_corner: regulator@01946004 {
