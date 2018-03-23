@@ -749,4 +749,29 @@
 			};
 		};
 	};
+
+	pmi632_tz {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pmi632_tz>;
+
+		trips {
+			pmi632_tz_trip0: pmi632-trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pmi632_tz_trip1: pmi632-trip1 {
+				temperature = <125000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pmi632_tz_trip2: pmi632-trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
 };
