@@ -360,7 +360,6 @@ struct cam_ife_csid_tpg_cfg  {
  * @dt:          Data type
  * @cnt:         Cid resource reference count.
  * @tpg_set:     Tpg used for this cid resource
- * @pixel_count: Pixel resource connected
  *
  */
 struct cam_ife_csid_cid_data {
