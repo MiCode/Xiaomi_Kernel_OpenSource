@@ -7003,6 +7003,38 @@ struct find_best_target_env {
 	bool need_idle;
 };
 
+static bool is_packing_eligible(struct task_struct *p, int target_cpu,
+				struct find_best_target_env *fbt_env,
+				unsigned int target_cpus_count,
+				int best_idle_cstate)
+{
+	unsigned long tutil, estimated_capacity;
+
+	if (fbt_env->placement_boost || fbt_env->need_idle)
+		return false;
+
+	if (best_idle_cstate == -1)
+		return false;
+
+	if (target_cpus_count != 1)
+		return true;
+
+	if (task_in_cum_window_demand(cpu_rq(target_cpu), p))
+		tutil = 0;
+	else
+		tutil = task_util(p);
+
+	estimated_capacity = cpu_util_cum(target_cpu, tutil);
+	estimated_capacity = add_capacity_margin(estimated_capacity,
+						target_cpu);
+
+	/*
+	 * If there is only one active CPU and it is already above its current
+	 * capacity, avoid placing additional task on the CPU.
+	 */
+	return (estimated_capacity <= capacity_curr_of(target_cpu));
+}
+
 static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 			   struct cpumask *rtg_target)
 {
@@ -7047,6 +7079,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int target_cpu = -1;
 	int cpu, i;
 	unsigned long spare_cap;
+	unsigned int active_cpus_count = 0;
 
 	*backup_cpu = -1;
 
@@ -7270,6 +7303,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * capacity.
 			 */
 
+			active_cpus_count++;
+
 			/* Favor CPUs with maximum spare capacity */
 			if ((capacity_orig - new_util) < target_max_spare_cap)
 				continue;
@@ -7290,11 +7325,10 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 
 	} while (sg = sg->next, sg != sd->groups);
 
-	if (fbt_env->need_idle || fbt_env->placement_boost) {
-		if (best_idle_cpu != -1) {
-			target_cpu = best_idle_cpu;
-			best_idle_cpu = -1;
-		}
+	if (best_idle_cpu != -1 && !is_packing_eligible(p, target_cpu, fbt_env,
+					active_cpus_count, best_idle_cstate)) {
+		target_cpu = best_idle_cpu;
+		best_idle_cpu = -1;
 	}
 
 	/*
