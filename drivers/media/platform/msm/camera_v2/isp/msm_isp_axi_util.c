@@ -2516,7 +2516,7 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 			j--;
 			continue;
 		}
-        stream_info->undelivered_request_cnt = 0;
+		stream_info->undelivered_request_cnt = 0;
 		while (!list_empty(&stream_info->request_q)) {
 			queue_req = list_first_entry_or_null(
 				&stream_info->request_q,
@@ -3760,10 +3760,12 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				&update_cmd->update_info[i];
 			stream_info = &axi_data->stream_info[HANDLE_TO_IDX(
 				update_info->stream_handle)];
+			mutex_lock(&vfe_dev->buf_mgr->lock);
 			rc = msm_isp_request_frame(vfe_dev, stream_info,
 				update_info->user_stream_id,
 				update_info->frame_id,
 				MSM_ISP_INVALID_BUF_INDEX);
+			mutex_unlock(&vfe_dev->buf_mgr->lock);
 			if (rc)
 				pr_err("%s failed to request frame!\n",
 					__func__);
@@ -3835,10 +3837,12 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		}
 		stream_info = &axi_data->stream_info[HANDLE_TO_IDX(
 				req_frm->stream_handle)];
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_request_frame(vfe_dev, stream_info,
 			req_frm->user_stream_id,
 			req_frm->frame_id,
 			req_frm->buf_index);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		if (rc)
 			pr_err("%s failed to request frame!\n",
 				__func__);
