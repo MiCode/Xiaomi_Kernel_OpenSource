@@ -111,6 +111,46 @@ First Level Node - FG Gen4 device
 		    Element 0 - Retry value for timer
 		    Element 1 - Maximum value for timer
 
+- qcom,fg-esr-cal-soc-thresh
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: SOC thresholds applied when ESR fast calibration is done.
+		    Array of 2 elements if specified. This should be specified
+		    if ESR fast calibration algorithm is needed.
+		    Element 0 - Minimum SOC threshold in percentage
+		    Element 1 - Maximum SOC threshold in percentage
+
+- qcom,fg-esr-cal-temp-thresh
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Battery temperature thresholds applied when ESR fast
+		    calibration is done. Array of 2 elements if specified.
+		    This should be specified if ESR fast calibration algorithm
+		    is needed.
+		    Element 0 - Minimum temperature threshold in Celsius
+		    Element 1 - Maximum temperature threshold in Celsius
+
+- qcom,fg-delta-esr-disable-count
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value after which delta ESR interrupt will be disabled.
+		    This is applicable only when ESR fast calibration is
+		    enabled. Default value is 10.
+
+- qcom,fg-delta-esr-thr
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold for delta ESR interrupt in uOhms. Default value
+		    is 1832. If ESR fast calibration algorithm is enabled, this
+		    will be overridden with a maximum value.
+
+- qcom,fg-esr-filter-factor
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR filter factor used in ESR fast calibration algorithm.
+		    This factor will be used when ESR correction delta is
+		    applied after the calculation. Default value is 2.
+
 - qcom,fg-esr-pulse-thresh-ma
 	Usage:      optional
 	Value type: <u32>

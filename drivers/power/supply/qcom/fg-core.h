@@ -63,9 +63,13 @@
 #define SRAM_WRITE		"fg_sram_write"
 #define PROFILE_LOAD		"fg_profile_load"
 #define TTF_PRIMING		"fg_ttf_priming"
+#define ESR_CALIB		"fg_esr_calib"
 
 /* Delta BSOC irq votable reasons */
 #define DELTA_BSOC_IRQ_VOTER	"fg_delta_bsoc_irq"
+
+/* Delta ESR irq votable reasons */
+#define DELTA_ESR_IRQ_VOTER	"fg_delta_esr_irq"
 
 /* Battery missing irq votable reasons */
 #define BATT_MISS_IRQ_VOTER	"fg_batt_miss_irq"
@@ -205,6 +209,11 @@ enum fg_sram_param_id {
 	FG_SRAM_SLOPE_LIMIT,
 	FG_SRAM_BATT_TEMP_COLD,
 	FG_SRAM_BATT_TEMP_HOT,
+	FG_SRAM_ESR_CAL_SOC_MIN,
+	FG_SRAM_ESR_CAL_SOC_MAX,
+	FG_SRAM_ESR_CAL_TEMP_MIN,
+	FG_SRAM_ESR_CAL_TEMP_MAX,
+	FG_SRAM_DELTA_ESR_THR,
 	FG_SRAM_MAX,
 };
 
