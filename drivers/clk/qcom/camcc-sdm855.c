@@ -135,6 +135,9 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -209,11 +212,14 @@ static struct clk_alpha_pll_postdiv cam_cc_pll0_out_odd = {
 };
 
 static const struct alpha_pll_config cam_cc_pll1_config = {
-	.l = 0x13,
-	.alpha = 0x8800,
+	.l = 0x27,
+	.alpha = 0x1000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -262,7 +268,7 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.config_ctl_val = 0x10000927,
 	.config_ctl_hi_val = 0x00000011,
 	.config_ctl_hi1_val = 0x04300142,
-	.test_ctl_val = 0x00000000,
+	.test_ctl_val = 0x04000400,
 	.test_ctl_hi_val = 0x00004000,
 	.test_ctl_hi1_val = 0x00000000,
 };
@@ -314,11 +320,14 @@ static struct clk_alpha_pll_postdiv cam_cc_pll2_out_main = {
 };
 
 static const struct alpha_pll_config cam_cc_pll3_config = {
-	.l = 0x14,
-	.alpha = 0xD555,
+	.l = 0x29,
+	.alpha = 0xAAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -362,11 +371,14 @@ static struct clk_alpha_pll_postdiv cam_cc_pll3_out_even = {
 };
 
 static const struct alpha_pll_config cam_cc_pll4_config = {
-	.l = 0x14,
-	.alpha = 0xD555,
+	.l = 0x29,
+	.alpha = 0xAAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002267,
 	.config_ctl_hi1_val = 0x00000024,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
+	.test_ctl_hi1_val = 0x00000000,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x000000D0,
@@ -1171,6 +1183,7 @@ static struct clk_rcg2 cam_cc_slow_ahb_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_slow_ahb_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_slow_ahb_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -1326,7 +1339,7 @@ static struct clk_branch cam_cc_cci_1_clk = {
 
 static struct clk_branch cam_cc_core_ahb_clk = {
 	.halt_reg = 0xc1c8,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0xc1c8,
 		.enable_mask = BIT(0),
