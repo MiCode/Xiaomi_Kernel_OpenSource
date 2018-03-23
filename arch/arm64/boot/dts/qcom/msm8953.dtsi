@@ -25,6 +25,10 @@
 	qcom,msm-name = "MSM8953";
 	interrupt-parent = <&wakegic>;
 
+	chosen {
+		bootargs = "kpti=0";
+	};
+
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
