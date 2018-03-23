@@ -266,6 +266,30 @@
 		reg = <0x3 SPMI_USID>;
 		#address-cells = <2>;
 		#size-cells = <0>;
+
+		pm855b_pwm: qcom,pwms@b100 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xb100 0x200>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+		};
+
+		pm855b_hr_led: qcom,leds@d000 {
+			compatible = "qcom,tri-led";
+			reg = <0xd000 0x100>;
+			nvmem-names = "pbs_sdam";
+			nvmem = <&pm855_sdam_2>;
+			hr_led1 {
+				label = "hr_led1";
+				pwms = <&pm855b_pwm 0 1000000>;
+				led-sources = <0>;
+			};
+			hr_led2 {
+				label = "hr_led2";
+				pwms = <&pm855b_pwm 1 1000000>;
+				led-sources = <1>;
+			};
+		};
 	};
 };
 
