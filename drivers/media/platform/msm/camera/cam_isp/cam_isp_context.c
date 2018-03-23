@@ -1070,6 +1070,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	req_isp->bubble_report = apply->report_if_bubble;
 
 	cfg.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	cfg.request_id = req->request_id;
 	cfg.hw_update_entries = req_isp->cfg;
 	cfg.num_hw_update_entries = req_isp->num_cfg;
 	cfg.priv  = &req_isp->hw_update_data;
@@ -2180,6 +2181,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	}
 
 	arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	arg.request_id = req->request_id;
 	arg.hw_update_entries = req_isp->cfg;
 	arg.num_hw_update_entries = req_isp->num_cfg;
 	arg.priv  = &req_isp->hw_update_data;

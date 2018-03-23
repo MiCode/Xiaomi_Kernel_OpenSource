@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -271,8 +271,8 @@ static int cam_flash_high(
 static int delete_req(struct cam_flash_ctrl *fctrl, uint64_t req_id)
 {
 	int i = 0;
-	int frame_offset = 0;
 	struct cam_flash_frame_setting *flash_data = NULL;
+	uint64_t top = 0, del_req_id = 0;
 
 	if (req_id == 0) {
 		flash_data = &fctrl->nrt_info;
@@ -288,14 +288,52 @@ static int delete_req(struct cam_flash_ctrl *fctrl, uint64_t req_id)
 				is_settings_valid = false;
 		}
 	} else {
-		frame_offset = (req_id + MAX_PER_FRAME_ARRAY -
-			CAM_FLASH_PIPELINE_DELAY) % 8;
-		flash_data = &fctrl->per_frame[frame_offset];
-		if (req_id > flash_data->cmn_attr.request_id) {
-			flash_data->cmn_attr.request_id = 0;
-			flash_data->cmn_attr.is_settings_valid = false;
-			for (i = 0; i < flash_data->cmn_attr.count; i++)
-				flash_data->led_current_ma[i] = 0;
+		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+			flash_data = &fctrl->per_frame[i];
+			if (req_id >= flash_data->cmn_attr.request_id &&
+				flash_data->cmn_attr.is_settings_valid
+				== 1) {
+				if (top < flash_data->cmn_attr.request_id) {
+					del_req_id = top;
+					top = flash_data->cmn_attr.request_id;
+				} else if (top >
+					flash_data->cmn_attr.request_id &&
+					del_req_id <
+					flash_data->cmn_attr.request_id) {
+					del_req_id =
+						flash_data->cmn_attr.request_id;
+				}
+			}
+		}
+
+		if (top < req_id) {
+			if ((((top % MAX_PER_FRAME_ARRAY) - (req_id %
+				MAX_PER_FRAME_ARRAY)) >= BATCH_SIZE_MAX) ||
+				(((top % MAX_PER_FRAME_ARRAY) - (req_id %
+				MAX_PER_FRAME_ARRAY)) <= -BATCH_SIZE_MAX))
+				del_req_id = req_id;
+		}
+
+		if (!del_req_id)
+			return 0;
+
+		CAM_DBG(CAM_FLASH, "top: %llu, del_req_id:%llu",
+			top, del_req_id);
+
+		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+			flash_data = &fctrl->per_frame[i];
+			if ((del_req_id ==
+				flash_data->cmn_attr.request_id) &&
+				(flash_data->cmn_attr.
+					is_settings_valid == 1)) {
+				CAM_DBG(CAM_FLASH, "Deleting request[%d] %llu",
+					i, flash_data->cmn_attr.request_id);
+				flash_data->cmn_attr.request_id = 0;
+				flash_data->cmn_attr.is_settings_valid = false;
+				flash_data->opcode = 0;
+				for (i = 0; i < flash_data->cmn_attr.count; i++)
+					flash_data->led_current_ma[i] = 0;
+			}
 		}
 	}
 
