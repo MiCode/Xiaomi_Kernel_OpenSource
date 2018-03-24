@@ -71,9 +71,9 @@ struct gmu_iommu_context {
 
 #define DUMPMEM_SIZE SZ_16K
 
-#define LOGMEM_SIZE SZ_4K
+#define DUMMY_SIZE   SZ_4K
 
-#define DUMMY_SIZE  SZ_4K
+#define LOGMEM_SIZE  SZ_4K
 
 /* Define target specific GMU VMA configurations */
 static const struct gmu_vma vma = {
@@ -109,6 +109,18 @@ static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
 static unsigned long gmu_kmem_bitmap;
 static unsigned int num_uncached_entries;
 static unsigned int num_cached_entries;
+
+void init_gmu_log_base(struct kgsl_device *device)
+{
+	uint32_t gmu_log_info;
+	struct gmu_device *gmu = &device->gmu;
+
+	/* Log size is encoded in (number of 4K units - 1) */
+	gmu_log_info = (gmu->gmu_log->gmuaddr & 0xFFFFF000) |
+		((LOGMEM_SIZE/SZ_4K - 1) & 0xFF);
+	kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_MSG,
+			gmu_log_info);
+}
 
 static int _gmu_iommu_fault_handler(struct device *dev,
 		unsigned long addr, int flags, const char *name)

@@ -267,4 +267,5 @@ int gmu_dcvs_set(struct gmu_device *gmu, unsigned int gpu_pwrlevel,
 		unsigned int bus_level);
 int allocate_gmu_cached_fw(struct gmu_device *gmu);
 bool is_cached_fw_size_valid(uint32_t size_in_bytes);
+void init_gmu_log_base(struct kgsl_device *device);
 #endif /* __KGSL_GMU_H */
