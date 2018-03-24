@@ -2088,6 +2088,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 			| (ADRENO_CHIPID_PATCH(adreno_dev->chipid) << 8);
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
+	kgsl_gmu_regwrite(device, A6XX_GMU_GENERAL_6, gmu->gmu_log->gmuaddr);
 
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(device);

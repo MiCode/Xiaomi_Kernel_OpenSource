@@ -226,6 +226,7 @@ struct gmu_device {
 	struct gmu_memdesc *hfi_mem;
 	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
+	struct gmu_memdesc *gmu_log;
 	struct kgsl_hfi hfi;
 	unsigned int lm_config;
 	unsigned int lm_dcvs_level;

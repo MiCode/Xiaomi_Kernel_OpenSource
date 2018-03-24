@@ -71,6 +71,8 @@ struct gmu_iommu_context {
 
 #define DUMPMEM_SIZE SZ_16K
 
+#define LOGMEM_SIZE SZ_4K
+
 /* Define target specific GMU VMA configurations */
 static const struct gmu_vma vma = {
 	/* Noncached user segment */
@@ -437,6 +439,14 @@ static int gmu_memory_probe(struct gmu_device *gmu, struct device_node *node)
 				(IOMMU_READ | IOMMU_WRITE));
 	if (IS_ERR(gmu->dump_mem)) {
 		ret = PTR_ERR(gmu->dump_mem);
+		goto err_ret;
+	}
+
+	/* Allocates & maps memory for GMU log */
+	gmu->gmu_log = allocate_gmu_kmem(gmu, LOGMEM_SIZE,
+				(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+	if (IS_ERR(gmu->gmu_log)) {
+		ret = PTR_ERR(gmu->gmu_log);
 		goto err_ret;
 	}
 
