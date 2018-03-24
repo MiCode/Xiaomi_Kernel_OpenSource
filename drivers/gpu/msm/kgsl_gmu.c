@@ -478,7 +478,7 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 		return ret;
 	}
 
-	return hfi_send_req(gmu, H2F_MSG_DCVS_VOTE, &req);
+	return hfi_send_req(gmu, H2F_MSG_GX_BW_PERF_VOTE, &req);
 }
 
 struct rpmh_arc_vals {

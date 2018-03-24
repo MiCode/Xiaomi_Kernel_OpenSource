@@ -469,12 +469,12 @@ static int hfi_send_test(struct gmu_device *gmu)
 #define DCVS_VOTE(perf, clk_opt) ((((clk_opt) & 0xF) << 28) | ((perf) & 0xFF))
 #define BW_VOTE(bw) ((bw) & 0xFF)
 
-static int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
+static int hfi_send_gx_bw_perf_vote(struct gmu_device *gmu, uint32_t perf_idx,
 		uint32_t bw_idx, enum rpm_ack_type ack_type)
 {
-	struct hfi_dcvs_cmd dcvs_cmd = {
-		.hdr = CMD_MSG_HDR(H2F_MSG_DCVS_VOTE,
-				sizeof(struct hfi_dcvs_cmd) >> 2),
+	struct hfi_gx_bw_perf_vote_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_GX_BW_PERF_VOTE,
+				sizeof(struct hfi_gx_bw_perf_vote_cmd) >> 2),
 		.ack_type = ack_type,
 		.freq = DCVS_VOTE(perf_idx, OPTION_AT_LEAST),
 		.bw = BW_VOTE(bw_idx),
@@ -483,7 +483,7 @@ static int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
 	int rc = 0;
 	struct pending_msg msg;
 
-	rc = hfi_send_msg(gmu, (uint32_t *)&dcvs_cmd, &msg);
+	rc = hfi_send_msg(gmu, (uint32_t *)&cmd, &msg);
 	if (rc)
 		return rc;
 
@@ -663,16 +663,16 @@ void hfi_stop(struct gmu_device *gmu)
 }
 
 /* Entry point for external HFI requests */
-int hfi_send_req(struct gmu_device *gmu, enum hfi_msg_id id, void *data)
+int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
 {
 	switch (id) {
 	case H2F_MSG_LM_CFG: {
 		return hfi_send_lmconfig(gmu);
 	}
-	case H2F_MSG_DCVS_VOTE: {
+	case H2F_MSG_GX_BW_PERF_VOTE: {
 		struct hfi_dcvs_vote *req = (struct hfi_dcvs_vote *)data;
 
-		return hfi_send_dcvs_vote(gmu, req->perf_idx, req->bw_idx,
+		return hfi_send_gx_bw_perf_vote(gmu, req->perf_idx, req->bw_idx,
 				req->ack_type);
 	}
 	case H2F_MSG_PREPARE_SLUMBER: {

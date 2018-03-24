@@ -123,31 +123,19 @@ enum hfi_msg_type {
 	HFI_MSG_INVALID = 3
 };
 
-enum hfi_msg_id {
-	H2F_MSG_INIT = 0,
-	H2F_MSG_FW_VER = 1,
-	H2F_MSG_LM_CFG = 2,
-	H2F_MSG_BW_VOTE_TBL = 3,
-	H2F_MSG_PERF_TBL = 4,
-	H2F_MSG_TEST = 5,
-	H2F_MSG_DCVS_VOTE = 30,
-	H2F_MSG_FW_HALT = 31,
-	H2F_MSG_PREPARE_SLUMBER = 33,
-	F2H_MSG_ERR  = 100,
-	F2H_MSG_GMU_CNTR_REGISTER = 101,
-	F2H_MSG_ACK = 126,
-	H2F_MSG_ACK = 127,
-	H2F_MSG_REGISTER_CONTEXT = 128,
-	H2F_MSG_UNREGISTER_CONTEXT = 129,
-	H2F_MSG_ISSUE_IB = 130,
-	H2F_MSG_REGISTER_QUEUE = 131,
-	H2F_MSG_UNREGISTER_QUEUE = 132,
-	H2F_MSG_CLOSE = 133,
-	H2F_REGISTER_CONTEXT_DONE = 134,
-	H2F_UNREG_CONTEXT_DONE = 135,
-	H2F_ISSUE_IB_DONE = 136,
-	H2F_REGISTER_QUEUE_DONE = 137,
-};
+#define H2F_MSG_INIT		0
+#define H2F_MSG_FW_VER		1
+#define H2F_MSG_LM_CFG		2
+#define H2F_MSG_BW_VOTE_TBL	3
+#define H2F_MSG_PERF_TBL	4
+#define H2F_MSG_TEST		5
+#define H2F_MSG_GX_BW_PERF_VOTE	30
+#define H2F_MSG_FW_HALT		32
+#define H2F_MSG_PREPARE_SLUMBER	33
+#define F2H_MSG_ERR		100
+#define F2H_MSG_DEBUG		101
+#define F2H_MSG_ACK		126
+#define H2F_MSG_ACK		127
 
 #define MAX_GX_LEVELS		16
 #define MAX_CX_LEVELS		4
@@ -244,11 +232,16 @@ struct hfi_dcvs_vote {
 	enum rpm_ack_type ack_type;
 };
 
-struct hfi_dcvs_cmd {
+struct hfi_gx_bw_perf_vote_cmd {
 	uint32_t hdr;
 	uint32_t ack_type;
 	uint32_t freq;
 	uint32_t bw;
+};
+
+struct hfi_fw_halt_cmd {
+	uint32_t hdr;
+	uint32_t en_halt;
 };
 
 struct hfi_prep_slumber_cmd {
@@ -261,6 +254,13 @@ struct hfi_fw_err_msg {
 	uint32_t hdr;
 	uint32_t error_code;
 	uint32_t data[2];
+};
+
+struct hfi_debug_msg {
+	uint32_t hdr;
+	uint32_t type;
+	uint32_t timestamp;
+	uint32_t data;
 };
 
 /**
@@ -314,6 +314,6 @@ void hfi_receiver(unsigned long data);
 void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 		uint32_t queue_sz_bytes);
 
-/* hfi_send_req is only for external (to HFI) requests. */
-int hfi_send_req(struct gmu_device *gmu, enum hfi_msg_id id, void *data);
+/* hfi_send_req is only for external (to HFI) requests */
+int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data);
 #endif  /* __KGSL_HFI_H */
