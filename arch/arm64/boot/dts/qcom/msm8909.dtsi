@@ -23,10 +23,6 @@
 			<275 0>;
 	interrupt-parent = <&intc>;
 
-	chosen {
-		bootargs = "sched_enable_hmp=1";
-	};
-
 	aliases {
 		/* smdtty devices */
 		smd1 = &smdtty_apps_fm;
@@ -78,6 +74,8 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0x0>;
+			efficiency = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu0_slp_sts>;
 			qcom,limits-info = <&mitigation_profile0>;
 		};
@@ -86,6 +84,8 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0x1>;
+			efficiency = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu1_slp_sts>;
 			qcom,limits-info = <&mitigation_profile2>;
 		};
@@ -94,6 +94,8 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0x2>;
+			efficiency = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu2_slp_sts>;
 			qcom,limits-info = <&mitigation_profile1>;
 		};
@@ -102,8 +104,35 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0x3>;
+			efficiency = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,sleep-status = <&cpu3_slp_sts>;
 			qcom,limits-info = <&mitigation_profile2>;
+		};
+	};
+
+	energy_costs: energy-costs {
+		compatible = "sched-energy";
+
+		CPU_COST_0: core-cost0 {
+			busy-cost-data = <
+				400000	82
+				800000	164
+				1094400	290
+			>;
+			idle-cost-data = <
+				40 20 12 8
+			>;
+		};
+		CLUSTER_COST_0: cluster-cost0 {
+			busy-cost-data = <
+				400000	23
+				800000	48
+				1094400	87
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
 		};
 	};
 

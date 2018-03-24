@@ -10,12 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/ {
-	chosen {
-		bootargs="sched_enable_hmp=0";
-	};
-};
-
 &soc {
 	/delete-node/ qcom,clock-a7@0b011050;
 	clock_cpu: qcom,clock-a7@0b011050 {
