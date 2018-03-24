@@ -24,6 +24,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
+#include <linux/iio/consumer.h>
 #include <linux/pmic-voter.h>
 #include "smb5-reg.h"
 #include "smb5-lib.h"
@@ -363,6 +364,50 @@ static int smb5_parse_dt(struct smb5 *chip)
 	if (rc < 0)
 		chg->otg_delay_ms = OTG_DEFAULT_DEGLITCH_TIME_MS;
 
+	rc = of_property_match_string(node, "io-channel-names",
+			"usb_in_voltage");
+	if (rc >= 0) {
+		chg->iio.usbin_v_chan = iio_channel_get(chg->dev,
+				"usb_in_voltage");
+		if (IS_ERR(chg->iio.usbin_v_chan)) {
+			rc = PTR_ERR(chg->iio.usbin_v_chan);
+			if (rc != -EPROBE_DEFER)
+				dev_err(chg->dev, "USBIN_V channel unavailable, %ld\n",
+						rc);
+			chg->iio.usbin_v_chan = NULL;
+			return rc;
+		}
+	}
+
+	rc = of_property_match_string(node, "io-channel-names",
+			"chg_temp");
+	if (rc >= 0) {
+		chg->iio.temp_chan = iio_channel_get(chg->dev, "chg_temp");
+		if (IS_ERR(chg->iio.temp_chan)) {
+			rc = PTR_ERR(chg->iio.temp_chan);
+			if (rc != -EPROBE_DEFER)
+				dev_err(chg->dev, "CHG_TEMP channel unavailable, %ld\n",
+						rc);
+			chg->iio.temp_chan = NULL;
+			return rc;
+		}
+	}
+
+	rc = of_property_match_string(node, "io-channel-names",
+			"usb_in_current");
+	if (rc >= 0) {
+		chg->iio.usbin_i_chan = iio_channel_get(chg->dev,
+				"usb_in_current");
+		if (IS_ERR(chg->iio.usbin_i_chan)) {
+			rc = PTR_ERR(chg->iio.usbin_i_chan);
+			if (rc != -EPROBE_DEFER)
+				dev_err(chg->dev, "USBIN_I channel unavailable, %ld\n",
+						rc);
+			chg->iio.usbin_i_chan = NULL;
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -372,6 +417,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_PD_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
@@ -426,6 +472,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_prop_usb_voltage_max(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		rc = smblib_get_prop_usb_voltage_now(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_PD_CURRENT_MAX:
 		val->intval = get_client_vote(chg->usb_icl_votable, PD_VOTER);
 		break;
@@ -461,6 +510,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
 		rc = smblib_get_prop_input_current_settled(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
+		rc = smblib_get_prop_usb_current_now(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_BOOST_CURRENT:
 		val->intval = chg->boost_current_ua;
@@ -947,6 +999,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
@@ -973,6 +1026,8 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		union power_supply_propval *val)
 {
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	union power_supply_propval pval = {0, };
+
 	int rc = 0;
 
 	switch (psp) {
@@ -999,6 +1054,15 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
 		rc = smblib_get_prop_system_temp_level_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP:
+		rc = smblib_get_prop_usb_present(chg, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get usb present rc=%d\n", rc);
+			break;
+		}
+		if (pval.intval)
+			rc = smblib_get_prop_charger_temp(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_get_prop_input_current_limited(chg, val);
