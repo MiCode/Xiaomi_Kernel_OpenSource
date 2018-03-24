@@ -1778,6 +1778,9 @@ static unsigned int _get_protection_flags(struct kgsl_memdesc *memdesc)
 	if (memdesc->flags & KGSL_MEMFLAGS_IOCOHERENT)
 		flags |= IOMMU_CACHE;
 
+	if (memdesc->priv & KGSL_MEMDESC_UCODE)
+		flags &= ~IOMMU_NOEXEC;
+
 	return flags;
 }
 

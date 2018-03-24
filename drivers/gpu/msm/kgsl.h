@@ -196,6 +196,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_TZ_LOCKED BIT(7)
 /* The memdesc is allocated through contiguous memory */
 #define KGSL_MEMDESC_CONTIG BIT(8)
+/* This is an instruction buffer */
+#define KGSL_MEMDESC_UCODE BIT(9)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor

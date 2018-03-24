@@ -1278,7 +1278,8 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	}
 
 	ret = kgsl_allocate_global(device, &firmware->memdesc, fw->size - 4,
-				KGSL_MEMFLAGS_GPUREADONLY, 0, "ucode");
+				KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_UCODE,
+				"ucode");
 
 	if (!ret) {
 		memcpy(firmware->memdesc.hostptr, &fw->data[4], fw->size - 4);
