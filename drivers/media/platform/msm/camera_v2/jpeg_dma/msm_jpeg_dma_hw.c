@@ -79,8 +79,10 @@ static const struct msm_jpegdma_block msm_jpegdma_block_sel[] = {
  */
 static inline long long jpegdma_do_div(long long num, long long den)
 {
-	do_div(num, den);
-	return num;
+	uint64_t n = (uint64_t) num;
+
+	do_div(n, (uint32_t)den);
+	return n;
 }
 
 /*
@@ -919,7 +921,7 @@ static int msm_jpegdma_hw_add_plane_offset(struct msm_jpegdma_plane *plane,
 static int msm_jpegdma_hw_calc_config(struct msm_jpegdma_size_config *size_cfg,
 	struct msm_jpegdma_plane *plane)
 {
-	u64 scale_hor, scale_ver, phase;
+	u64 scale_hor, scale_ver, phase = 0;
 	u64 in_width, in_height;
 	u64 out_width, out_height;
 	struct msm_jpegdma_config *config;
