@@ -1126,6 +1126,10 @@ int gmu_probe(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i = 0, ret = -ENXIO;
 
+	/* Make sure no flags enabled by default, probably don't need */
+	gmu->flags = 0;
+	gmu->ver = ~0U;
+
 	node = of_find_compatible_node(device->pdev->dev.of_node,
 			NULL, "qcom,gpu-gmu");
 

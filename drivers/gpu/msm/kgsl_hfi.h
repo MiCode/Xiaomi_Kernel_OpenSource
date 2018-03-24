@@ -290,7 +290,7 @@ struct pending_msg {
  * @msglist: outstanding command message list. Each message in the list
  *	is waiting for ACK from GMU
  * @tasklet: the thread handling received messages from GMU
- * @fw_version: FW version number provided by GMU
+ * @version: HFI version number provided
  * @seqnum: atomic counter that is incremented for each message sent. The
  *	value of the counter is used as sequence number for HFI message
  */
@@ -300,7 +300,7 @@ struct kgsl_hfi {
 	struct mutex cmdq_mutex;
 	struct list_head msglist;
 	struct tasklet_struct tasklet;
-	uint32_t fw_version;
+	uint32_t version;
 	atomic_t seqnum;
 	bool gmu_init_done;
 };

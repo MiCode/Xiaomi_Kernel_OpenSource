@@ -31,6 +31,12 @@
 #define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
 #define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
 
+#define HFI_VER_MAJOR(hfi) (((hfi)->version >> 28) & 0xF)
+#define HFI_VER_MINOR(hfi) (((hfi)->version >> 5) & 0x3FFFFF)
+#define HFI_VER_BRANCH(hfi) ((hfi)->version & 0x1F)
+#define HFI_VERSION(major, minor, branch) \
+	(((major) << 28) | (((minor) & 0x8FFFFF) << 5) | ((branch) & 0x1F))
+
 /* Size in below functions are in unit of dwords */
 static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		void *data, unsigned int max_size)
@@ -560,9 +566,9 @@ void hfi_receiver(unsigned long data)
 	};
 }
 
-#define FW_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
-#define FW_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
-#define FW_VERSION(major, minor) \
+#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
+#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
+#define GMU_VERSION(major, minor) \
 	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
 
 static int hfi_verify_fw_version(struct gmu_device *gmu)
@@ -572,10 +578,14 @@ static int hfi_verify_fw_version(struct gmu_device *gmu)
 	int result;
 	unsigned int ver = 0, major, minor;
 
+	/* GMU version is already known, so don't waste time finding again */
+	if (gmu->ver != ~0U)
+		return 0;
+
 	major = adreno_dev->gpucore->gpmu_major;
 	minor = adreno_dev->gpucore->gpmu_minor;
 
-	result = hfi_get_fw_version(gmu, FW_VERSION(major, minor), &ver);
+	result = hfi_get_fw_version(gmu, GMU_VERSION(major, minor), &ver);
 	if (result) {
 		dev_err_once(&gmu->pdev->dev,
 				"Failed to get FW version via HFI\n");
@@ -583,18 +593,22 @@ static int hfi_verify_fw_version(struct gmu_device *gmu)
 	}
 
 	/* For now, warn once. Could return error later if needed */
-	if (major != FW_VER_MAJOR(ver))
+	if (major != GMU_VER_MAJOR(ver))
 		dev_err_once(&gmu->pdev->dev,
 				"FW Major Error: Wanted %d, got %d\n",
-				major, FW_VER_MAJOR(ver));
+				major, GMU_VER_MAJOR(ver));
 
-	if (minor > FW_VER_MINOR(ver))
+	if (minor > GMU_VER_MINOR(ver))
 		dev_err_once(&gmu->pdev->dev,
 				"FW Minor Error: Wanted < %d, got %d\n",
-				FW_VER_MINOR(ver), minor);
+				GMU_VER_MINOR(ver), minor);
 
 	/* Save the gmu version information */
 	gmu->ver = ver;
+
+	/* Read the HFI version from the register */
+	adreno_read_gmureg(adreno_dev,
+		ADRENO_REG_GMU_HFI_VERSION_INFO, &gmu->hfi.version);
 
 	return 0;
 }
