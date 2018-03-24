@@ -507,3 +507,12 @@
 		};
 	};
 };
+
+&pm855b_charger {
+	io-channels = <&pm855b_vadc ADC_USB_IN_V_16>,
+		      <&pm855b_vadc ADC_USB_IN_I>,
+		      <&pm855b_vadc ADC_CHG_TEMP>;
+	io-channel-names = "usb_in_voltage",
+			   "usb_in_current",
+			   "chg_temp";
+};
