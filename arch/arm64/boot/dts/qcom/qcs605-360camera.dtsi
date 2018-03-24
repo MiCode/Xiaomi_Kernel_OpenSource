@@ -141,6 +141,7 @@
 };
 
 &pm660_fg {
+	qcom,fg-force-load-profile;
 	qcom,battery-data = <&qcs_batterydata>;
 };
 
