@@ -278,7 +278,6 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 enum gmu_static_buffer_index {
 	GMU_WB_DUMMY_PAGE_IDX,
 	GMU_DCACHE_DUMMY_PAGE_IDX,
-	GMU_MASTER_LOG_IDX,
 };
 
 struct hfi_mem_alloc_desc gmu_static_buffers[MAX_STATIC_GMU_BUFFERS] = {
@@ -298,14 +297,7 @@ struct hfi_mem_alloc_desc gmu_static_buffers[MAX_STATIC_GMU_BUFFERS] = {
 		.gmu_mem_handle = -1,
 		.gmu_addr = 0,
 		.size = DUMMY_SIZE},
-	[GMU_MASTER_LOG_IDX] = {
-		.gpu_addr = 0,
-		.flags = MEMFLAG_GMU_WRITEABLE | MEMFLAG_GMU_BUFFERABLE,
-		.mem_kind = HFI_MEMKIND_GENERIC,
-		.host_mem_handle = -1,
-		.gmu_mem_handle = -1,
-		.gmu_addr = 0,
-		.size = LOGMEM_SIZE},
+	{0, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 0, 0, 0, 0},
@@ -358,15 +350,6 @@ int allocate_gmu_static_buffers(struct gmu_device *gmu)
 
 			break;
 
-		case GMU_MASTER_LOG_IDX:
-			/* GMU master log */
-			gmu->gmu_log = allocate_gmu_kmem(gmu,
-					mem_type, LOGMEM_SIZE, IOMMU_RWP);
-			if (IS_ERR(gmu->gmu_log))
-				ret = PTR_ERR(gmu->gmu_log);
-			gmu_desc->gmu_addr = gmu->gmu_log->gmuaddr;
-
-			break;
 		default:
 			ret = EINVAL;
 			break;
@@ -576,6 +559,11 @@ static int gmu_memory_probe(struct gmu_device *gmu, struct device_node *node)
 	if (ret)
 		return ret;
 
+	/* Allocate & map static GMU buffers */
+	ret = allocate_gmu_static_buffers(gmu);
+	if (ret)
+		goto err_ret;
+
 	/* Allocates & maps memory for HFI */
 	gmu->hfi_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, HFIMEM_SIZE,
 			(IOMMU_READ | IOMMU_WRITE));
@@ -599,9 +587,13 @@ static int gmu_memory_probe(struct gmu_device *gmu, struct device_node *node)
 		goto err_ret;
 	}
 
-	ret = allocate_gmu_static_buffers(gmu);
-	if (ret)
+	/* GMU master log */
+	gmu->gmu_log = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, LOGMEM_SIZE,
+			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+	if (IS_ERR(gmu->gmu_log)) {
+		ret = PTR_ERR(gmu->gmu_log);
 		goto err_ret;
+	}
 
 	return 0;
 err_ret:
