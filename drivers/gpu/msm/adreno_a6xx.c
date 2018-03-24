@@ -1588,8 +1588,19 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 	if (!kgsl_gmu_isenabled(device))
 		return 0;
 
-	set = BIT(req + 16);
-	check = BIT(req + 24);
+	if (adreno_is_a640(adreno_dev)) {
+		set = BIT(30 - req * 2);
+		check = BIT(31 - req);
+
+		if (req >= 6) {
+			dev_err(&device->gmu.pdev->dev,
+					"OOB_set(0x%x) invalid\n", set);
+			return -EINVAL;
+		}
+	} else {
+		set = BIT(req + 16);
+		check = BIT(req + 24);
+	}
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set);
 
@@ -1623,7 +1634,16 @@ static inline void a6xx_oob_clear(struct adreno_device *adreno_dev,
 	if (!kgsl_gmu_isenabled(device))
 		return;
 
-	clear = BIT(req + 24);
+	if (adreno_is_a640(adreno_dev)) {
+		clear = BIT(31 - req * 2);
+		if (req >= 6) {
+			dev_err(&device->gmu.pdev->dev,
+					"OOB_clear(0x%x) invalid\n", clear);
+			return;
+		}
+	} else
+		clear = BIT(req + 24);
+
 	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, clear);
 	trace_kgsl_gmu_oob_clear(clear);
 }
