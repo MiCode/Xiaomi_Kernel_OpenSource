@@ -221,7 +221,8 @@ struct gmu_device {
 	unsigned int gmu2gpu_offset;
 	void __iomem *pdc_reg_virt;
 	unsigned int gmu_interrupt_num;
-	struct gmu_memdesc fw_image;
+	struct gmu_memdesc cached_fw_image;
+	struct gmu_memdesc *fw_image;
 	struct gmu_memdesc *hfi_mem;
 	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
@@ -261,4 +262,6 @@ int gmu_start(struct kgsl_device *device);
 void gmu_stop(struct kgsl_device *device);
 int gmu_dcvs_set(struct gmu_device *gmu, unsigned int gpu_pwrlevel,
 		unsigned int bus_level);
+int allocate_gmu_cached_fw(struct gmu_device *gmu);
+bool is_cached_fw_size_valid(uint32_t size_in_bytes);
 #endif /* __KGSL_GMU_H */

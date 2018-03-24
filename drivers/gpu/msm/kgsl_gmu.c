@@ -80,7 +80,7 @@ static const struct gmu_vma vma = {
 	/* Cached data segment */
 	0x44000, (SZ_256K-SZ_16K),
 	/* Cached code segment */
-	0x0, (SZ_256K-SZ_16K),
+	0x4000, (SZ_256K-SZ_16K),
 	/* FW image */
 	0x0,
 };
@@ -173,30 +173,6 @@ static int alloc_and_map(struct gmu_device *gmu, unsigned int ctx_id,
 }
 
 /*
- * allocate_gmu_image() - allocates & maps memory for FW image, the size
- * shall come from the loaded f/w file. Firmware image size shall be
- * less than code cache size. Otherwise, FW may experience performance issue.
- * @gmu: Pointer to GMU device
- * @size: Requested allocation size
- */
-int allocate_gmu_image(struct gmu_device *gmu, unsigned int size)
-{
-	struct gmu_memdesc *md = &gmu->fw_image;
-
-	if (size > vma.cached_csize) {
-		dev_err(&gmu->pdev->dev,
-			"GMU firmware size too big: %d\n", size);
-		return -EINVAL;
-	}
-
-	md->size = size;
-	md->gmuaddr = vma.image_start;
-	md->attr = GMU_CACHED_CODE;
-
-	return alloc_and_map(gmu, GMU_CONTEXT_KERNEL, md, IOMMU_READ);
-}
-
-/*
  * allocate_gmu_kmem() - allocates and maps GMU kernel shared memory
  * @gmu: Pointer to GMU device
  * @size: Requested size
@@ -240,6 +216,58 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 	}
 
 	return md;
+}
+
+/*
+ * allocate_gmu_image() - allocates & maps memory for FW image, the size
+ * shall come from the loaded f/w file.
+ * @gmu: Pointer to GMU device
+ * @size: Requested allocation size
+ */
+int allocate_gmu_image(struct gmu_device *gmu, unsigned int size)
+{
+	/* Allocates & maps memory for GMU FW */
+	gmu->fw_image = allocate_gmu_kmem(gmu, size,
+				(IOMMU_READ | IOMMU_PRIV));
+	if (IS_ERR(gmu->fw_image)) {
+		dev_err(&gmu->pdev->dev,
+				"GMU firmware image allocation failed\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/* Checks if cached fw code size falls within the cached code segment range */
+bool is_cached_fw_size_valid(uint32_t size_in_bytes)
+{
+	if (size_in_bytes > vma.cached_csize)
+		return false;
+
+	return true;
+}
+
+/*
+ * allocate_gmu_cached_fw() - Allocates & maps memory for the cached
+ * GMU instructions range. This range has a specific size defined by
+ * the GMU memory map. Cached firmware region size should be less than
+ * cached code range size. Otherwise, FW may experience performance issues.
+ * @gmu: Pointer to GMU device
+ */
+int allocate_gmu_cached_fw(struct gmu_device *gmu)
+{
+	struct gmu_memdesc *md = &gmu->cached_fw_image;
+
+	if (gmu->cached_fw_image.hostptr != 0)
+		return 0;
+
+	/* Allocate and map memory for the GMU cached instructions range */
+	md->size = vma.cached_csize;
+	md->gmuaddr = vma.cached_cstart;
+	md->attr = GMU_CACHED_CODE;
+
+	return alloc_and_map(gmu, GMU_CONTEXT_KERNEL, md,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV);
 }
 
 static int gmu_iommu_cb_probe(struct gmu_device *gmu,
@@ -331,21 +359,20 @@ static int gmu_iommu_init(struct gmu_device *gmu, struct device_node *node)
 static void gmu_kmem_close(struct gmu_device *gmu)
 {
 	int i;
-	struct gmu_memdesc *md = &gmu->fw_image;
+	struct gmu_memdesc *md;
 	struct gmu_iommu_context *ctx = &gmu_ctx[GMU_CONTEXT_KERNEL];
 
-	/* Free GMU image memory */
-	free_gmu_mem(gmu, md);
-
-	/* Unmap image memory */
+	/* Unmap and free cached GMU image */
+	md = &gmu->cached_fw_image;
 	iommu_unmap(ctx->domain,
-			gmu->fw_image.gmuaddr,
-			gmu->fw_image.size);
-
+			md->gmuaddr,
+			md->size);
+	free_gmu_mem(gmu, md);
 
 	gmu->hfi_mem = NULL;
 	gmu->bw_mem = NULL;
 	gmu->dump_mem = NULL;
+	gmu->fw_image = NULL;
 
 	/* Unmap all memories in GMU kernel memory pool */
 	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {

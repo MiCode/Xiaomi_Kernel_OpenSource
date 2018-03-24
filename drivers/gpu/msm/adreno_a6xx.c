@@ -1942,6 +1942,79 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 }
 
 /*
+ * Gmu FW header format:
+ * <32-bit start addr> <32-bit size> <32-bit pad0> <32-bit pad1> <Payload>
+ */
+#define GMU_FW_HEADER_SIZE 4
+
+#define NUM_LOAD_REGIONS  5
+
+#define GMU_ITCM_VA_START 0x0
+#define GMU_ITCM_VA_END   (GMU_ITCM_VA_START + 0x4000) /* 16 KB */
+
+#define GMU_DTCM_VA_START 0x40000
+#define GMU_DTCM_VA_END   (GMU_DTCM_VA_START + 0x4000) /* 16 KB */
+
+#define GMU_ICACHE_VA_START 0x4000
+#define GMU_ICACHE_VA_END   (GMU_ICACHE_VA_START + 0x3C000) /* 240 KB */
+
+static int load_gmu_fw(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = &device->gmu;
+	uint32_t *fwptr = gmu->fw_image->hostptr;
+	int i, j, ret;
+	int start_addr, size_in_bytes, num_dwords, tcm_slot;
+
+	/* Allocates & maps memory for GMU cached instructions range */
+	ret = allocate_gmu_cached_fw(gmu);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < NUM_LOAD_REGIONS; i++) {
+		start_addr = fwptr[0];
+		size_in_bytes = fwptr[1];
+		num_dwords = size_in_bytes / sizeof(uint32_t);
+		fwptr += GMU_FW_HEADER_SIZE;
+
+		if ((start_addr >= GMU_ITCM_VA_START) &&
+				(start_addr < GMU_ITCM_VA_END)) {
+			tcm_slot = start_addr / sizeof(uint32_t);
+
+			for (j = 0; j < num_dwords; j++)
+				kgsl_gmu_regwrite(device,
+					A6XX_GMU_CM3_ITCM_START + tcm_slot + j,
+					fwptr[j]);
+		} else if ((start_addr >= GMU_DTCM_VA_START) &&
+				(start_addr < GMU_DTCM_VA_END)) {
+			tcm_slot = (start_addr - GMU_DTCM_VA_START)
+				/ sizeof(uint32_t);
+
+			for (j = 0; j < num_dwords; j++)
+				kgsl_gmu_regwrite(device,
+					A6XX_GMU_CM3_DTCM_START + tcm_slot + j,
+					fwptr[j]);
+		} else if ((start_addr >= GMU_ICACHE_VA_START) &&
+				(start_addr < GMU_ICACHE_VA_END)) {
+			if (!is_cached_fw_size_valid(size_in_bytes)) {
+				dev_err(&gmu->pdev->dev,
+						"GMU firmware size too big\n");
+				return -EINVAL;
+
+			}
+			memcpy(gmu->cached_fw_image.hostptr,
+					fwptr, size_in_bytes);
+		}
+
+		fwptr += num_dwords;
+	}
+
+	/* Proceed only after the FW is written */
+	wmb();
+	return 0;
+}
+
+
+/*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
  * @boot_state: State of the GMU being started
@@ -1952,7 +2025,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
-	int ret, i;
+	int ret;
 	unsigned int chipid = 0;
 
 	switch (boot_state) {
@@ -1972,15 +2045,9 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 
 		if (gmu->load_mode == TCM_BOOT) {
 			/* Load GMU image via AHB bus */
-			for (i = 0; i < MAX_GMUFW_SIZE; i++) {
-				uint32_t *data = gmu->fw_image.hostptr;
-
-				kgsl_gmu_regwrite(device,
-					A6XX_GMU_CM3_ITCM_START + i,
-					data[i]);
-		}
-			/* Prevent leaving reset before the FW is written */
-			wmb();
+			ret = load_gmu_fw(device);
+			if (ret)
+				return ret;
 		} else {
 			dev_err(&gmu->pdev->dev, "Unsupported GMU load mode %d\n",
 					gmu->load_mode);
@@ -2195,7 +2262,7 @@ static int _load_gmu_firmware(struct kgsl_device *device)
 		return 0;
 
 	/* GMU fw already saved and verified so do nothing new */
-	if (gmu->fw_image.hostptr != 0)
+	if (gmu->fw_image)
 		return 0;
 
 	if (gpucore->gpmufw_name == NULL)
@@ -2214,7 +2281,7 @@ static int _load_gmu_firmware(struct kgsl_device *device)
 
 	/* load into shared memory with GMU */
 	if (!ret)
-		memcpy(gmu->fw_image.hostptr, fw->data, fw->size);
+		memcpy(gmu->fw_image->hostptr, fw->data, fw->size);
 
 	release_firmware(fw);
 
