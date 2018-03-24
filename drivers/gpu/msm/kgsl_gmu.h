@@ -31,6 +31,8 @@
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
+#define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
+
 /* Bitmask for GPU low power mode enabling and hysterisis*/
 #define SPTP_ENABLE_MASK (BIT(2) | BIT(0))
 #define IFPC_ENABLE_MASK (BIT(1) | BIT(0))
@@ -183,6 +185,7 @@ enum gpu_idle_level {
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: descriptor of GMU memory that has GMU image in it
  * @hfi_mem: pointer to HFI shared memory
+ * @bw_mem: pointer to BW data indirect buffer memory
  * @dump_mem: pointer to GMU debug dump memory
  * @hfi: HFI controller
  * @lm_config: GPU LM configuration data
@@ -220,6 +223,7 @@ struct gmu_device {
 	unsigned int gmu_interrupt_num;
 	struct gmu_memdesc fw_image;
 	struct gmu_memdesc *hfi_mem;
+	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
 	struct kgsl_hfi hfi;
 	unsigned int lm_config;

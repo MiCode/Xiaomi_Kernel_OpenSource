@@ -949,6 +949,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		int result;
 		struct gmu_device *gmu = &device->gmu;
 		struct device *dev = &gmu->pdev->dev;
+		struct hfi_lmconfig_cmd cmd;
 
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
 			GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
@@ -959,7 +960,15 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		gmu->bcl_config = 0;
 		gmu->lm_dcvs_level = 0;
 
-		result = hfi_send_req(gmu, H2F_MSG_LM_CFG, NULL);
+		cmd.limit_conf = gmu->lm_config;
+		cmd.bcl_conf = gmu->bcl_config;
+		cmd.lm_enable_bitmask = 0;
+
+		if (gmu->lm_dcvs_level <= MAX_GX_LEVELS)
+			cmd.lm_enable_bitmask =
+				(1 << (gmu->lm_dcvs_level + 1)) - 1;
+
+		result = hfi_send_req(gmu, H2F_MSG_LM_CFG, &cmd);
 		if (result)
 			dev_err(dev, "Failure enabling limits management (%d)\n",
 			result);
@@ -1800,9 +1809,9 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 		a6xx_sptprac_disable(adreno_dev);
 
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
-		struct hfi_dcvs_vote req = {
-			.perf_idx = perf_idx,
-			.bw_idx = bus_level,
+		struct hfi_prep_slumber_cmd req = {
+			.freq = perf_idx,
+			.bw = bus_level,
 		};
 
 		ret = hfi_send_req(gmu, H2F_MSG_PREPARE_SLUMBER, &req);
@@ -2062,10 +2071,10 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 	struct gmu_device *gmu = &device->gmu;
 	int ret;
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, ACK_NONBLOCK);
+	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, DCVS_ACK_NONBLOCK);
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_PERF_SETTING,
-			FREQ_VOTE(perf_idx, OPTION_AT_LEAST));
+			FREQ_VOTE(perf_idx, CLKSET_OPTION_ATLEAST));
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_BW_SETTING, BW_VOTE(bw_idx));
 
