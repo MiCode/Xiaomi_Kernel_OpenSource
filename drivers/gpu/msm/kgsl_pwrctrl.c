@@ -2602,6 +2602,9 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
 {
+	if (!IS_ERR_OR_NULL(device->l3_clk))
+		clk_set_rate(device->l3_clk, 0);
+
 	if (kgsl_gmu_isenabled(device)) {
 		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
 		return gmu_stop(device);
