@@ -228,7 +228,7 @@ struct gmu_device {
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
 	struct gmu_memdesc *system_wb_page;
-	struct gmu_memdesc *dcache_flush_page;
+	struct gmu_memdesc *dcache_chunk;
 	struct kgsl_hfi hfi;
 	unsigned int lm_config;
 	unsigned int lm_dcvs_level;

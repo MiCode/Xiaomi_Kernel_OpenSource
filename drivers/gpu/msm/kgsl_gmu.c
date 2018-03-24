@@ -75,6 +75,8 @@ struct gmu_iommu_context {
 
 #define LOGMEM_SIZE  SZ_4K
 
+#define GMU_DCACHE_CHUNK_SIZE  (60 * SZ_4K) /* GMU DCache VA size - 240KB */
+
 /* Define target specific GMU VMA configurations */
 static const struct gmu_vma vma = {
 	/* Noncached user segment */
@@ -108,7 +110,6 @@ struct gmu_iommu_context gmu_ctx[] = {
 static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
 static unsigned long gmu_kmem_bitmap;
 static unsigned int num_uncached_entries;
-static unsigned int num_cached_entries;
 
 void init_gmu_log_base(struct kgsl_device *device)
 {
@@ -209,10 +210,9 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 		return ERR_PTR(-EINVAL);
 	}
 
-	size = PAGE_ALIGN(size);
-
 	switch (mem_type) {
 	case GMU_NONCACHED_KERNEL:
+		size = PAGE_ALIGN(size);
 		if (size > SZ_1M || size == 0) {
 			dev_err(&gmu->pdev->dev,
 					"Invalid uncached GMU memory req %d\n",
@@ -230,7 +230,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 
 		break;
 	case GMU_CACHED_DATA:
-		if (size > SZ_16K || size == 0) {
+		if (size != GMU_DCACHE_CHUNK_SIZE) {
 			dev_err(&gmu->pdev->dev,
 					"Invalid cached GMU memory req %d\n",
 					size);
@@ -239,8 +239,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 
 		/* Allocate GMU virtual memory */
 		md = &gmu_kmem_entries[entry_idx];
-		md->gmuaddr = vma.cached_dstart +
-			(num_cached_entries * SZ_16K);
+		md->gmuaddr = vma.cached_dstart;
 		set_bit(entry_idx, &gmu_kmem_bitmap);
 		md->attr = GMU_CACHED_DATA;
 		md->size = size;
@@ -262,8 +261,6 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 
 	if (mem_type == GMU_NONCACHED_KERNEL)
 		num_uncached_entries++;
-	else if (mem_type == GMU_CACHED_DATA)
-		num_cached_entries++;
 
 	return md;
 }
@@ -273,11 +270,11 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
  * time for GMU to function. The buffers are permanent (not freed) after
  * GPU boot. The size of the buffers are constant and not expected to change.
  */
-#define MAX_STATIC_GMU_BUFFERS	8
+#define MAX_STATIC_GMU_BUFFERS	  4
 
 enum gmu_static_buffer_index {
 	GMU_WB_DUMMY_PAGE_IDX,
-	GMU_DCACHE_DUMMY_PAGE_IDX,
+	GMU_DCACHE_CHUNK_IDX,
 };
 
 struct hfi_mem_alloc_desc gmu_static_buffers[MAX_STATIC_GMU_BUFFERS] = {
@@ -288,19 +285,15 @@ struct hfi_mem_alloc_desc gmu_static_buffers[MAX_STATIC_GMU_BUFFERS] = {
 		.host_mem_handle = -1,
 		.gmu_mem_handle = -1,
 		.gmu_addr = 0,
-		.size = DUMMY_SIZE},
-	[GMU_DCACHE_DUMMY_PAGE_IDX] = {
+		.size = PAGE_ALIGN(DUMMY_SIZE)},
+	[GMU_DCACHE_CHUNK_IDX] = {
 		.gpu_addr = 0,
 		.flags = MEMFLAG_GMU_WRITEABLE | MEMFLAG_GMU_CACHEABLE,
 		.mem_kind = HFI_MEMKIND_GENERIC,
 		.host_mem_handle = -1,
 		.gmu_mem_handle = -1,
 		.gmu_addr = 0,
-		.size = DUMMY_SIZE},
-	{0, 0, 0, 0, 0, 0, 0},
-	{0, 0, 0, 0, 0, 0, 0},
-	{0, 0, 0, 0, 0, 0, 0},
-	{0, 0, 0, 0, 0, 0, 0},
+		.size = PAGE_ALIGN(GMU_DCACHE_CHUNK_SIZE)},
 	{0, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 0, 0, 0, 0},
 };
@@ -332,21 +325,25 @@ int allocate_gmu_static_buffers(struct gmu_device *gmu)
 		switch (i) {
 		case GMU_WB_DUMMY_PAGE_IDX:
 			/* GMU System Write Buffer flush SWA */
-			gmu->system_wb_page = allocate_gmu_kmem(gmu,
-					mem_type, DUMMY_SIZE, IOMMU_RWP);
-			if (IS_ERR(gmu->system_wb_page))
+			gmu->system_wb_page = allocate_gmu_kmem(gmu, mem_type,
+					gmu_desc->size, IOMMU_RWP);
+			if (IS_ERR(gmu->system_wb_page)) {
 				ret = PTR_ERR(gmu->system_wb_page);
+				break;
+			}
 			gmu_desc->gmu_addr = gmu->system_wb_page->gmuaddr;
 
 			break;
 
-		case GMU_DCACHE_DUMMY_PAGE_IDX:
+		case GMU_DCACHE_CHUNK_IDX:
 			/* GMU DCache flush SWA */
-			gmu->dcache_flush_page = allocate_gmu_kmem(gmu,
-					mem_type, DUMMY_SIZE, IOMMU_RWP);
-			if (IS_ERR(gmu->dcache_flush_page))
-				ret = PTR_ERR(gmu->dcache_flush_page);
-			gmu_desc->gmu_addr = gmu->dcache_flush_page->gmuaddr;
+			gmu->dcache_chunk = allocate_gmu_kmem(gmu, mem_type,
+					gmu_desc->size, IOMMU_RWP);
+			if (IS_ERR(gmu->dcache_chunk)) {
+				ret = PTR_ERR(gmu->dcache_chunk);
+				break;
+			}
+			gmu_desc->gmu_addr = gmu->dcache_chunk->gmuaddr;
 
 			break;
 
@@ -514,6 +511,9 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 	gmu->bw_mem = NULL;
 	gmu->dump_mem = NULL;
 	gmu->fw_image = NULL;
+	gmu->gmu_log = NULL;
+	gmu->system_wb_page = NULL;
+	gmu->dcache_chunk = NULL;
 
 	/* Unmap all memories in GMU kernel memory pool */
 	for (i = 0; i < GMU_KERNEL_ENTRIES; i++) {
