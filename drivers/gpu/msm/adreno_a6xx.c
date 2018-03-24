@@ -74,9 +74,6 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a640, a640_gbif },
 };
 
-
-static unsigned long a6xx_oob_state_bitmask;
-
 struct kgsl_hwcg_reg {
 	unsigned int off;
 	unsigned int val;
@@ -1579,64 +1576,56 @@ static int a6xx_gmu_hfi_start(struct kgsl_device *device)
 /*
  * a6xx_oob_set() - Set OOB interrupt to GMU.
  * @adreno_dev: Pointer to adreno device
- * @set_mask: set_mask is a bitmask that defines a set of OOB
- *	interrupts to trigger.
- * @check_mask: check_mask is a bitmask that provides a set of
- *	OOB ACK bits. check_mask usually matches set_mask to
- *	ensure OOBs are handled.
- * @clear_mask: After GMU handles a OOB interrupt, GMU driver
- *	clears the interrupt. clear_mask is a bitmask defines
- *	a set of OOB interrupts to clear.
+ * @req: Which of the OOB bits to request
  */
 static int a6xx_oob_set(struct adreno_device *adreno_dev,
-		unsigned int set_mask, unsigned int check_mask,
-		unsigned int clear_mask)
+		enum oob_request req)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret = 0;
+	int set, check;
 
-	if (!kgsl_gmu_isenabled(device) || !clear_mask)
+	if (!kgsl_gmu_isenabled(device))
 		return 0;
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set_mask);
+	set = BIT(req + 16);
+	check = BIT(req + 24);
+
+	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set);
 
 	if (timed_poll_check(device,
 			A6XX_GMU_GMU2HOST_INTR_INFO,
-			check_mask,
+			check,
 			GPU_START_TIMEOUT,
-			check_mask)) {
+			check)) {
 		ret = -ETIMEDOUT;
-		WARN(1, "OOB set timed out, mask %x\n", set_mask);
+		dev_err(&device->gmu.pdev->dev,
+			"OOB_set(0x%x) timed out\n", set);
 	}
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, clear_mask);
+	kgsl_gmu_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, check);
 
-	set_bit((fls(clear_mask) - 1), &a6xx_oob_state_bitmask);
-
-	trace_kgsl_gmu_oob_set(set_mask);
+	trace_kgsl_gmu_oob_set(set);
 	return ret;
 }
 
 /*
  * a6xx_oob_clear() - Clear a previously set  OOB request.
  * @adreno_dev: Pointer to the adreno device that has the GMU
- * @clear_mask: Bitmask that provides the OOB bits to clear
+ * @req: Which of the OOB bits to clear
  */
 static inline void a6xx_oob_clear(struct adreno_device *adreno_dev,
-		unsigned int clear_mask)
+		enum oob_request req)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int clear;
 
-	if (!kgsl_gmu_isenabled(device) || !clear_mask)
+	if (!kgsl_gmu_isenabled(device))
 		return;
 
-	if (test_and_clear_bit(fls(clear_mask) - 1,
-				&a6xx_oob_state_bitmask))
-		kgsl_gmu_regwrite(device,
-			A6XX_GMU_HOST2GMU_INTR_SET,
-			clear_mask);
-
-	trace_kgsl_gmu_oob_clear(clear_mask);
+	clear = BIT(req + 24);
+	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, clear);
+	trace_kgsl_gmu_oob_clear(clear);
 }
 
 /*
@@ -1767,7 +1756,6 @@ static int a6xx_gfx_rail_on(struct kgsl_device *device)
 	struct gmu_device *gmu = &device->gmu;
 	unsigned int perf_idx = pwr->num_pwrlevels - pwr->default_pwrlevel - 1;
 	uint32_t default_opp = gmu->rpmh_votes.gx_votes[perf_idx];
-	int ret;
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
 			OOB_BOOT_OPTION);
@@ -1776,14 +1764,7 @@ static int a6xx_gfx_rail_on(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_GMU_MX_VOTE_IDX,
 			ARC_VOTE_GET_SEC(default_opp));
 
-	ret = a6xx_oob_set(adreno_dev, OOB_BOOT_SLUMBER_SET_MASK,
-			OOB_BOOT_SLUMBER_CHECK_MASK,
-			OOB_BOOT_SLUMBER_CLEAR_MASK);
-
-	if (ret)
-		dev_err(&gmu->pdev->dev, "Boot OOB timed out\n");
-
-	return ret;
+	return a6xx_oob_set(adreno_dev, oob_boot_slumber);
 }
 
 #define GMU_POWER_STATE_SLUMBER 15
@@ -1823,14 +1804,10 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_GMU_GX_VOTE_IDX, perf_idx);
 	kgsl_gmu_regwrite(device, A6XX_GMU_MX_VOTE_IDX, bus_level);
 
-	ret = a6xx_oob_set(adreno_dev, OOB_BOOT_SLUMBER_SET_MASK,
-			OOB_BOOT_SLUMBER_CHECK_MASK,
-			OOB_BOOT_SLUMBER_CLEAR_MASK);
-	a6xx_oob_clear(adreno_dev, OOB_BOOT_SLUMBER_CLEAR_MASK);
+	ret = a6xx_oob_set(adreno_dev, oob_boot_slumber);
+	a6xx_oob_clear(adreno_dev, oob_boot_slumber);
 
-	if (ret)
-		dev_err(&gmu->pdev->dev, "Notify slumber OOB timed out\n");
-	else {
+	if (!ret) {
 		kgsl_gmu_regread(device,
 			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &state);
 		if (state != GPU_HW_SLUMBER) {
@@ -2032,8 +2009,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 		ret = a6xx_gfx_rail_on(device);
 		if (ret) {
-			a6xx_oob_clear(adreno_dev,
-					OOB_BOOT_SLUMBER_CLEAR_MASK);
+			a6xx_oob_clear(adreno_dev, oob_boot_slumber);
 			return ret;
 		}
 	}
@@ -2068,7 +2044,6 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 		unsigned int perf_idx, unsigned int bw_idx)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
 	int ret;
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, DCVS_ACK_NONBLOCK);
@@ -2078,20 +2053,11 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_BW_SETTING, BW_VOTE(bw_idx));
 
-	ret = a6xx_oob_set(adreno_dev, OOB_DCVS_SET_MASK, OOB_DCVS_CHECK_MASK,
-		OOB_DCVS_CLEAR_MASK);
+	ret = a6xx_oob_set(adreno_dev, oob_dcvs);
+	if (ret == 0)
+		kgsl_gmu_regread(device, A6XX_GMU_DCVS_RETURN, &ret);
 
-	if (ret) {
-		dev_err(&gmu->pdev->dev, "DCVS OOB timed out\n");
-		goto done;
-	}
-
-	kgsl_gmu_regread(device, A6XX_GMU_DCVS_RETURN, &ret);
-	if (ret)
-		dev_err(&gmu->pdev->dev, "OOB DCVS error %d\n", ret);
-
-done:
-	a6xx_oob_clear(adreno_dev, OOB_DCVS_CLEAR_MASK);
+	a6xx_oob_clear(adreno_dev, oob_dcvs);
 
 	return ret;
 }
@@ -2459,8 +2425,7 @@ static int a6xx_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
 		break;
 	case GMU_FW_STOP:
 		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-			a6xx_oob_clear(adreno_dev,
-					OOB_BOOT_SLUMBER_CLEAR_MASK);
+			a6xx_oob_clear(adreno_dev, oob_boot_slumber);
 		ret = a6xx_rpmh_power_off_gpu(device);
 		break;
 	case GMU_DCVS_NOHFI:

@@ -65,22 +65,20 @@
 #define OOB_BOOT_OPTION         0
 #define OOB_SLUMBER_OPTION      1
 
-/* Bitmasks for GMU OOBs */
-#define OOB_BOOT_SLUMBER_SET_MASK	BIT(22)
-#define OOB_BOOT_SLUMBER_CHECK_MASK	BIT(30)
-#define OOB_BOOT_SLUMBER_CLEAR_MASK	BIT(30)
-#define OOB_DCVS_SET_MASK		BIT(23)
-#define OOB_DCVS_CHECK_MASK		BIT(31)
-#define OOB_DCVS_CLEAR_MASK		BIT(31)
-#define OOB_GPU_SET_MASK		BIT(16)
-#define OOB_GPU_CHECK_MASK		BIT(24)
-#define OOB_GPU_CLEAR_MASK		BIT(24)
-#define OOB_PERFCNTR_SET_MASK		BIT(17)
-#define OOB_PERFCNTR_CHECK_MASK		BIT(25)
-#define OOB_PERFCNTR_CLEAR_MASK		BIT(25)
-#define OOB_PREEMPTION_SET_MASK		BIT(18)
-#define OOB_PREEMPTION_CHECK_MASK	BIT(26)
-#define OOB_PREEMPTION_CLEAR_MASK	BIT(26)
+/*
+ * OOB requests values. These range from 0 to 7 and then
+ * the BIT() offset into the actual value is calculated
+ * later based on the request. This keeps the math clean
+ * and easy to ensure not reaching over/under the range
+ * of 8 bits.
+ */
+enum oob_request {
+	oob_gpu = 0,
+	oob_perfcntr = 1,
+	oob_preempt = 2,
+	oob_boot_slumber = 6, /* reserved special case */
+	oob_dcvs = 7, /* reserved special case */
+};
 
 /*
  * Wait time before trying to write the register again.
