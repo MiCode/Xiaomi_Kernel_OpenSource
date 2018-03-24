@@ -20,12 +20,11 @@
 #define HFI_MAX_MSG_SIZE		(SZ_1K>>2)	/* dwords */
 
 /* Below section is for all structures related to HFI queues */
-enum hfi_queue_type {
-	HFI_CMD_QUEUE = 0,
-	HFI_MSG_QUEUE,
-	HFI_DBG_QUEUE,
-	HFI_QUEUE_MAX
-};
+#define HFI_QUEUE_MAX 3
+
+#define HFI_CMD_IDX 0
+#define HFI_MSG_IDX 1
+#define HFI_DBG_IDX 2
 
 #define HFI_QUEUE_OFFSET(i)		\
 		((sizeof(struct hfi_queue_table)) + \
@@ -66,7 +65,7 @@ struct hfi_queue_table_header {
 
 /**
  * struct hfi_queue_header - HFI queue header structure
- * @status: active: 1; inactive: 0
+ * @enabled: active: 1; inactive: 0
  * @start_addr: starting address of the queue in GMU VA space
  * @type: queue type encoded the priority, ID and send/recevie types
  * @queue_size: size of the queue
@@ -81,7 +80,7 @@ struct hfi_queue_table_header {
  * @write_index: write index of the queue
  */
 struct hfi_queue_header {
-	uint32_t status;
+	uint32_t enabled;
 	uint32_t start_addr;
 	uint32_t type;
 	uint32_t queue_size;
@@ -161,27 +160,15 @@ enum hfi_msg_id {
 #error "CNOC levels cannot exceed GX levels"
 #endif
 
-/**
- * For detail usage of structures defined below,
- * please look up HFI spec.
- */
-
-struct hfi_msg_hdr {
-	uint32_t id: 8;		/* 0~127 power, 128~255 ecp */
-	uint32_t size: 8;	/* unit in dword */
-	uint32_t type: 4;
-	uint32_t seqnum: 12;
-};
-
 struct hfi_msg_rsp {
-	struct hfi_msg_hdr hdr;
-	struct hfi_msg_hdr ret_hdr;
+	uint32_t hdr;
+	uint32_t ret_hdr;
 	uint32_t error;
 	uint32_t payload[MAX_RSP_PAYLOAD_SIZE];
 };
 
 struct hfi_gmu_init_cmd {
-	struct hfi_msg_hdr  hdr;
+	uint32_t hdr;
 	uint32_t seg_id;
 	uint32_t dbg_buffer_addr;
 	uint32_t dbg_buffer_size;
@@ -189,33 +176,19 @@ struct hfi_gmu_init_cmd {
 };
 
 struct hfi_fw_version_cmd {
-	struct hfi_msg_hdr hdr;
+	uint32_t hdr;
 	uint32_t supported_ver;
 };
 
-struct limits_config {
-	uint32_t lm_type: 4;
-	uint32_t lm_sensor_type: 4;
-	uint32_t throttle_config: 4;
-	uint32_t idle_throttle_en: 4;
-	uint32_t acd_en: 4;
-	uint32_t reserved: 12;
-};
-
-struct bcl_config {
-	uint32_t bcl: 8;
-	uint32_t reserved: 24;
-};
-
 struct hfi_lmconfig_cmd {
-	struct hfi_msg_hdr hdr;
-	struct limits_config limit_conf;
-	struct bcl_config bcl_conf;
+	uint32_t hdr;
+	uint32_t limit_conf;
+	uint32_t bcl_conf;
 	uint32_t lm_enable_bitmask;
 };
 
 struct hfi_bwtable_cmd {
-	struct hfi_msg_hdr hdr;
+	uint32_t hdr;
 	uint32_t bw_level_num;
 	uint32_t cnoc_cmds_num;
 	uint32_t ddr_cmds_num;
@@ -228,25 +201,23 @@ struct hfi_bwtable_cmd {
 };
 
 struct hfi_test_cmd {
-	struct hfi_msg_hdr hdr;
+	uint32_t hdr;
 };
 
-struct arc_vote_desc {
-	/* In case of GPU freq vote, primary is GX, secondary is MX
-	 * in case of GMU freq vote, primary is CX, secondary is MX
-	 */
-	uint32_t pri_idx: 8;
-	uint32_t sec_idx : 8;
-	uint32_t vlvl: 16;
-};
+#define ARC_VOTE_GET_PRI(_v) ((_v) & 0xFF)
+#define ARC_VOTE_GET_SEC(_v) (((_v) >> 8) & 0xFF)
+#define ARC_VOTE_GET_VLVL(_v) (((_v) >> 16) & 0xFFFF)
+
+#define ARC_VOTE_SET(pri, sec, vlvl) \
+	((((vlvl) & 0xFFFF) << 16) | (((sec) & 0xFF) << 8) | ((pri) & 0xFF))
 
 struct opp_desc {
-	struct arc_vote_desc vote;
+	uint32_t vote;
 	uint32_t freq;
 };
 
 struct hfi_dcvstable_cmd {
-	struct hfi_msg_hdr hdr;
+	uint32_t hdr;
 	uint32_t gpu_level_num;
 	uint32_t gmu_level_num;
 	struct opp_desc gx_votes[MAX_GX_LEVELS];
@@ -273,42 +244,23 @@ struct hfi_dcvs_vote {
 	enum rpm_ack_type ack_type;
 };
 
-struct gpu_dcvs_vote {
-	uint32_t perf_idx : 8;
-	uint32_t reserved : 20;
-	uint32_t clkset_opt : 4;
-};
-
-struct gpu_bw_vote {
-	uint32_t bw_idx : 8;
-/* to support split AB and IB vote */
-	uint32_t reserved : 24;
-};
-
-union gpu_perf_vote {
-	struct gpu_dcvs_vote fvote;
-	struct gpu_bw_vote bvote;
-	uint32_t raw;
-};
-
 struct hfi_dcvs_cmd {
-	struct hfi_msg_hdr hdr;
+	uint32_t hdr;
 	uint32_t ack_type;
-	struct gpu_dcvs_vote freq;
-	struct gpu_bw_vote bw;
+	uint32_t freq;
+	uint32_t bw;
 };
 
 struct hfi_prep_slumber_cmd {
-	struct hfi_msg_hdr hdr;
+	uint32_t hdr;
 	uint32_t init_bw_idx;
 	uint32_t init_perf_idx;
 };
 
 struct hfi_fw_err_msg {
-	struct hfi_msg_hdr hdr;
+	uint32_t hdr;
 	uint32_t error_code;
-	uint32_t data_1;
-	uint32_t data_2;
+	uint32_t data[2];
 };
 
 /**

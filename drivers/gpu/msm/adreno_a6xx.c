@@ -790,6 +790,13 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		a6xx_pwrup_reglist, sizeof(a6xx_pwrup_reglist));
 }
 
+#define LIMITS_CONFIG(t, s, c, i, a) ( \
+		(t & 0xF) | \
+		((s & 0xF) << 4) | \
+		((c & 0xF) << 8) | \
+		((i & 0xF) << 12) | \
+		((a & 0xF) << 16))
+
 /*
  * a6xx_start() - Device start
  * @adreno_dev: Pointer to adreno device
@@ -948,11 +955,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
 		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
 
-		gmu->lm_config.lm_type = 1;
-		gmu->lm_config.lm_sensor_type = 1;
-		gmu->lm_config.throttle_config = 1;
-		gmu->lm_config.idle_throttle_en = 0;
-		gmu->lm_config.acd_en = 0;
+		gmu->lm_config = LIMITS_CONFIG(1, 1, 1, 0, 0);
 		gmu->bcl_config = 0;
 		gmu->lm_dcvs_level = 0;
 
@@ -1753,17 +1756,16 @@ static int a6xx_gfx_rail_on(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
-	struct arc_vote_desc *default_opp;
-	unsigned int perf_idx;
+	unsigned int perf_idx = pwr->num_pwrlevels - pwr->default_pwrlevel - 1;
+	uint32_t default_opp = gmu->rpmh_votes.gx_votes[perf_idx];
 	int ret;
-
-	perf_idx = pwr->num_pwrlevels - pwr->default_pwrlevel - 1;
-	default_opp = &gmu->rpmh_votes.gx_votes[perf_idx];
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
 			OOB_BOOT_OPTION);
-	kgsl_gmu_regwrite(device, A6XX_GMU_GX_VOTE_IDX, default_opp->pri_idx);
-	kgsl_gmu_regwrite(device, A6XX_GMU_MX_VOTE_IDX, default_opp->sec_idx);
+	kgsl_gmu_regwrite(device, A6XX_GMU_GX_VOTE_IDX,
+			ARC_VOTE_GET_PRI(default_opp));
+	kgsl_gmu_regwrite(device, A6XX_GMU_MX_VOTE_IDX,
+			ARC_VOTE_GET_SEC(default_opp));
 
 	ret = a6xx_oob_set(adreno_dev, OOB_BOOT_SLUMBER_SET_MASK,
 			OOB_BOOT_SLUMBER_CHECK_MASK,
@@ -2042,8 +2044,9 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	return ret;
 }
 
-#define PERF_VOTE(idx, ack) (((idx) & 0xFF) | (((ack) & 0xF) << 28))
-#define BW_VOTE(idx) ((idx) & 0xFF)
+#define FREQ_VOTE(idx, ack) (((idx) & 0xFF) | (((ack) & 0xF) << 28))
+#define BW_VOTE(idx) ((((idx) & 0xFFF) << 12) | ((idx) & 0xFFF))
+
 /*
  * a6xx_gmu_dcvs_nohfi() - request GMU to do DCVS without using HFI
  * @device: Pointer to KGSL device
@@ -2062,7 +2065,7 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, ACK_NONBLOCK);
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_PERF_SETTING,
-			PERF_VOTE(perf_idx, OPTION_AT_LEAST));
+			FREQ_VOTE(perf_idx, OPTION_AT_LEAST));
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_BW_SETTING, BW_VOTE(bw_idx));
 

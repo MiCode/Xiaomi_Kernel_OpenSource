@@ -555,7 +555,7 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
  *	of pri_rail VLVL table
  * @num_entries: Valid number of entries in table pointed by "vlvl" parameter
  */
-static int setup_volt_dependency_tbl(struct arc_vote_desc *votes,
+static int setup_volt_dependency_tbl(uint32_t *votes,
 		struct rpmh_arc_vals *pri_rail, struct rpmh_arc_vals *sec_rail,
 		unsigned int *vlvl, unsigned int num_entries)
 {
@@ -573,8 +573,6 @@ static int setup_volt_dependency_tbl(struct arc_vote_desc *votes,
 		/* Look for a primary rail voltage that matches a VLVL level */
 		for (k = 0; k < pri_rail->num; k++) {
 			if (pri_rail->val[k] == vlvl[i]) {
-				votes[i].pri_idx = k;
-				votes[i].vlvl = vlvl[i];
 				cur_vlvl = vlvl[i];
 				found_match = true;
 				break;
@@ -592,12 +590,16 @@ static int setup_volt_dependency_tbl(struct arc_vote_desc *votes,
 		 */
 		for (j = 0; j < sec_rail->num; j++) {
 			if (sec_rail->val[j] >= cur_vlvl ||
-					j + 1 == sec_rail->num) {
-				votes[i].sec_idx = j;
+					j + 1 == sec_rail->num)
 				break;
-			}
 		}
+
+		if (j == sec_rail->num)
+			j = 0;
+
+		votes[i] = ARC_VOTE_SET(k, j, vlvl[i]);
 	}
+
 	return 0;
 }
 
@@ -618,7 +620,7 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 	struct device *dev;
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	unsigned int num_freqs;
-	struct arc_vote_desc *votes;
+	uint32_t *votes;
 	unsigned int vlvl_tbl[MAX_GX_LEVELS];
 	unsigned int *freq_tbl;
 	int i, ret;

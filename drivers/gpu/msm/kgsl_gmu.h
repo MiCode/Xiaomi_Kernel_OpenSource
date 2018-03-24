@@ -123,8 +123,8 @@ struct gmu_bw_votes {
 };
 
 struct rpmh_votes_t {
-	struct arc_vote_desc gx_votes[MAX_GX_LEVELS];
-	struct arc_vote_desc cx_votes[MAX_CX_LEVELS];
+	uint32_t gx_votes[MAX_GX_LEVELS];
+	uint32_t cx_votes[MAX_CX_LEVELS];
 	struct gmu_bw_votes ddr_votes;
 	struct gmu_bw_votes cnoc_votes;
 };
@@ -222,7 +222,7 @@ struct gmu_device {
 	struct gmu_memdesc *hfi_mem;
 	struct gmu_memdesc *dump_mem;
 	struct kgsl_hfi hfi;
-	struct limits_config lm_config;
+	unsigned int lm_config;
 	unsigned int lm_dcvs_level;
 	unsigned int bcl_config;
 	unsigned int gmu_freqs[MAX_CX_LEVELS];
