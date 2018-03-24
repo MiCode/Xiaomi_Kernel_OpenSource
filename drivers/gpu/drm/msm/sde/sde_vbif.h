@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,6 +118,15 @@ void sde_vbif_init_memtypes(struct sde_kms *sde_kms);
  */
 int sde_vbif_halt_plane_xin(struct sde_kms *sde_kms, u32 xin_id,
 	       u32 clk_ctrl);
+
+/**
+ * sde_vbif_halt_xin_mask - halts/unhalts all the xin clients present in
+ * the mask.
+ * @sde_kms:	SDE handler
+ * @xin_id_mask: Mask of all the xin-ids to be halted/unhalted
+ * halt:	boolen to indicate halt/unhalt
+ */
+int sde_vbif_halt_xin_mask(struct sde_kms *sde_kms, u32 xin_id_mask, bool halt);
 
 #ifdef CONFIG_DEBUG_FS
 int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root);

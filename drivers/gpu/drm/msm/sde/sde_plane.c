@@ -204,6 +204,18 @@ static bool sde_plane_crtc_enabled(struct drm_plane_state *state)
 			state->crtc->state->enable;
 }
 
+bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+
+	if (!plane)
+		return false;
+
+	psde = to_sde_plane(plane);
+
+	return !(psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI));
+}
+
 /**
  * _sde_plane_calc_fill_level - calculate fill level of the given source format
  * @plane:		Pointer to drm plane
@@ -2565,6 +2577,25 @@ void sde_plane_halt_requests(struct drm_plane *plane, bool enable)
 				psde->xin_halt_forced_clk, enable);
 }
 
+void sde_plane_secure_ctrl_xin_client(struct drm_plane *plane,
+				struct drm_crtc *crtc)
+{
+	struct sde_plane *psde;
+
+	if (!plane || !crtc) {
+		SDE_ERROR("invalid plane/crtc\n");
+		return;
+	}
+	psde = to_sde_plane(plane);
+
+	if (psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI))
+		return;
+
+	/* do all VBIF programming for the sec-ui allowed SSPP */
+	_sde_plane_set_qos_remap(plane);
+	_sde_plane_set_ot_limit(plane, crtc);
+}
+
 int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state)
 {
 	struct sde_plane *psde;
@@ -4370,6 +4401,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			psde->pipe_sblk->maxvdeciexp);
 	sde_kms_info_add_keyint(info, "max_per_pipe_bw",
 			psde->pipe_sblk->max_per_pipe_bw * 1000LL);
+	if (psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI))
+		sde_kms_info_add_keyint(info, "block_sec_ui", 1);
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
 			info->data, SDE_KMS_INFO_DATALEN(info),
 			PLANE_PROP_INFO);
