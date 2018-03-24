@@ -1118,6 +1118,7 @@ static int adreno_probe(struct platform_device *pdev)
 	struct kgsl_device *device;
 	struct adreno_device *adreno_dev;
 	int status;
+	unsigned long flags;
 
 	adreno_dev = adreno_get_dev(pdev);
 
@@ -1148,8 +1149,10 @@ static int adreno_probe(struct platform_device *pdev)
 	 * Another part of GPU power probe in platform_probe
 	 * needs GMU initialized.
 	 */
-	status = gmu_probe(device);
-	if (status != 0 && status != -ENXIO) {
+	flags = ADRENO_FEATURE(adreno_dev, ADRENO_GPMU) ? BIT(GMU_GPMU) : 0;
+
+	status = gmu_probe(device, flags);
+	if (status) {
 		device->pdev = NULL;
 		return status;
 	}
@@ -1484,7 +1487,7 @@ static bool regulators_left_on(struct kgsl_device *device)
 {
 	int i;
 
-	if (kgsl_gmu_isenabled(device))
+	if (kgsl_gmu_gpmu_isenabled(device))
 		return false;
 
 	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {

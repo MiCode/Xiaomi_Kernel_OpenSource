@@ -104,25 +104,6 @@ struct gmu_iommu_context gmu_ctx[] = {
 static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
 static unsigned long gmu_kmem_bitmap;
 
-/*
- * kgsl_gmu_isenabled() - Check if there is a GMU and it is enabled
- * @device: Pointer to the KGSL device that owns the GMU
- *
- * Check if a GMU has been found and successfully probed. Also
- * check that the feature flag to use a GMU is enabled. Returns
- * true if both of these conditions are met, otherwise false.
- */
-bool kgsl_gmu_isenabled(struct kgsl_device *device)
-{
-	struct gmu_device *gmu = &device->gmu;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	if (!nogmu && gmu->pdev &&
-		ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return true;
-	return false;
-}
-
 static int _gmu_iommu_fault_handler(struct device *dev,
 		unsigned long addr, int flags, const char *name)
 {
@@ -1177,7 +1158,7 @@ static void gmu_irq_disable(struct kgsl_device *device)
 }
 
 /* Do not access any GMU registers in GMU probe function */
-int gmu_probe(struct kgsl_device *device)
+int gmu_probe(struct kgsl_device *device, unsigned long flags)
 {
 	struct device_node *node;
 	struct gmu_device *gmu = &device->gmu;
@@ -1191,11 +1172,22 @@ int gmu_probe(struct kgsl_device *device)
 	gmu->flags = 0;
 	gmu->ver = ~0U;
 
+	/* Normalize flags for input feature requests */
+	flags &= BIT(GMU_GPMU);
+
 	node = of_find_compatible_node(device->pdev->dev.of_node,
 			NULL, "qcom,gpu-gmu");
+	/* No GMU in dt, no worries...hopefully */
+	if (node == NULL) {
+		/* If we are trying to use GPMU and no GMU, that's bad */
+		if (flags & BIT(GMU_GPMU))
+			return -ENXIO;
+		/* Otherwise it's ok and nothing to do */
+		return 0;
+	}
 
-	if (node == NULL)
-		return ret;
+	/* Ok, now say the flags are enabled */
+	gmu->flags = flags;
 
 	device->gmu.pdev = of_find_device_by_node(node);
 
@@ -1284,6 +1276,8 @@ int gmu_probe(struct kgsl_device *device)
 
 	/* disable LM during boot time */
 	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+	set_bit(GMU_ENABLED, &gmu->flags);
+
 	return 0;
 
 error:
@@ -1690,7 +1684,20 @@ void gmu_remove(struct kgsl_device *device)
 		gmu->cx_gdsc = NULL;
 	}
 
+	device->gmu.flags = 0;
 	device->gmu.pdev = NULL;
+}
+
+/* Check if GPMU is in charge of power features */
+bool kgsl_gmu_gpmu_isenabled(struct kgsl_device *device)
+{
+	return test_bit(GMU_GPMU, &(device->gmu.flags));
+}
+
+/* Check if GMU is enabled. Only set once GMU is fully initialized */
+bool kgsl_gmu_isenabled(struct kgsl_device *device)
+{
+	return !nogmu && test_bit(GMU_ENABLED, &device->gmu.flags);
 }
 
 /*

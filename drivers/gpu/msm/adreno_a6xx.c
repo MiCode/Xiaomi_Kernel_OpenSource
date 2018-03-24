@@ -1674,10 +1674,10 @@ static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
 
-	if (!gmu->pdev)
+	if (!kgsl_gmu_gpmu_isenabled(device))
 		return -EINVAL;
+
 	if (!adreno_has_sptprac_gdsc(adreno_dev))
 		return 0;
 
@@ -1689,7 +1689,7 @@ static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 			SPTPRAC_POWERON_STATUS_MASK,
 			SPTPRAC_CTRL_TIMEOUT,
 			SPTPRAC_POWERON_STATUS_MASK)) {
-		dev_err(&gmu->pdev->dev, "power on SPTPRAC fail\n");
+		dev_err(&device->gmu.pdev->dev, "power on SPTPRAC fail\n");
 		return -EINVAL;
 	}
 
@@ -1703,9 +1703,11 @@ static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
 
-	if (!gmu->pdev || !adreno_has_sptprac_gdsc(adreno_dev))
+	if (!adreno_has_sptprac_gdsc(adreno_dev))
+		return;
+
+	if (!kgsl_gmu_gpmu_isenabled(device))
 		return;
 
 	/* Ensure that retention is on */
@@ -1720,7 +1722,7 @@ static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 			SPTPRAC_POWEROFF_STATUS_MASK,
 			SPTPRAC_CTRL_TIMEOUT,
 			SPTPRAC_POWEROFF_STATUS_MASK))
-		dev_err(&gmu->pdev->dev, "power off SPTPRAC fail\n");
+		dev_err(&device->gmu.pdev->dev, "power off SPTPRAC fail\n");
 }
 
 #define SPTPRAC_POWER_OFF	BIT(2)

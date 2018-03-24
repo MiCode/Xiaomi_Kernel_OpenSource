@@ -93,10 +93,12 @@ enum oob_request {
 /* Bits for the flags field in the gmu structure */
 enum gmu_flags {
 	GMU_BOOT_INIT_DONE = 0,
-	GMU_CLK_ON = 1,
-	GMU_HFI_ON = 2,
-	GMU_FAULT = 3,
-	GMU_DCVS_REPLAY = 4,
+	GMU_CLK_ON,
+	GMU_HFI_ON,
+	GMU_FAULT,
+	GMU_DCVS_REPLAY,
+	GMU_GPMU,
+	GMU_ENABLED,
 };
 
 /**
@@ -202,7 +204,7 @@ enum gpu_idle_level {
  * @gx_gdsc: GX headswitch that controls power of GPU subsystem
  * @clks: GPU subsystem clocks required for GMU functionality
  * @load_mode: GMU FW load/boot mode
- * @flags: GMU power control flags
+ * @flags: GMU flags
  * @wakeup_pwrlevel: GPU wake up power/DCVS level in case different
  *		than default power level
  * @pcl: GPU BW scaling client
@@ -246,9 +248,13 @@ struct gmu_device {
 	unsigned int fault_count;
 };
 
+struct kgsl_device;
 void gmu_snapshot(struct kgsl_device *device);
+
+bool kgsl_gmu_gpmu_isenabled(struct kgsl_device *device);
 bool kgsl_gmu_isenabled(struct kgsl_device *device);
-int gmu_probe(struct kgsl_device *device);
+
+int gmu_probe(struct kgsl_device *device, unsigned long flags);
 void gmu_remove(struct kgsl_device *device);
 int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
 int gmu_start(struct kgsl_device *device);
