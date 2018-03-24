@@ -1947,8 +1947,6 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
  */
 #define GMU_FW_HEADER_SIZE 4
 
-#define NUM_LOAD_REGIONS  7
-
 #define GMU_ITCM_VA_START 0x0
 #define GMU_ITCM_VA_END   (GMU_ITCM_VA_START + 0x4000) /* 16 KB */
 
@@ -1963,14 +1961,19 @@ static int load_gmu_fw(struct kgsl_device *device)
 	struct gmu_device *gmu = &device->gmu;
 	uint32_t *fwptr = gmu->fw_image->hostptr;
 	int i, j, ret;
-	int start_addr, size_in_bytes, num_dwords, tcm_slot;
+	int start_addr, size_in_bytes, num_dwords, tcm_slot, num_records;
 
 	/* Allocates & maps memory for GMU cached instructions range */
 	ret = allocate_gmu_cached_fw(gmu);
 	if (ret)
 		return ret;
 
-	for (i = 0; i < NUM_LOAD_REGIONS; i++) {
+	/*
+	 * Read first record. pad0 field of first record contains
+	 * number of records in the image.
+	 */
+	num_records = fwptr[2];
+	for (i = 0; i < num_records; i++) {
 		start_addr = fwptr[0];
 		size_in_bytes = fwptr[1];
 		num_dwords = size_in_bytes / sizeof(uint32_t);
