@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -267,6 +267,12 @@ enum rpm_ack_type {
 	ACK_INVALID = 2,
 };
 
+struct hfi_dcvs_vote {
+	uint32_t perf_idx;
+	uint32_t bw_idx;
+	enum rpm_ack_type ack_type;
+};
+
 struct gpu_dcvs_vote {
 	uint32_t perf_idx : 8;
 	uint32_t reserved : 20;
@@ -355,9 +361,7 @@ void hfi_stop(struct gmu_device *gmu);
 void hfi_receiver(unsigned long data);
 void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 		uint32_t queue_sz_bytes);
-int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
-		uint32_t bw_idx, enum rpm_ack_type ack_type);
-int hfi_notify_slumber(struct gmu_device *gmu, uint32_t init_perf_idx,
-		uint32_t init_bw_idx);
-int hfi_send_lmconfig(struct gmu_device *gmu);
+
+/* hfi_send_req is only for external (to HFI) requests. */
+int hfi_send_req(struct gmu_device *gmu, enum hfi_msg_id id, void *data);
 #endif  /* __KGSL_HFI_H */

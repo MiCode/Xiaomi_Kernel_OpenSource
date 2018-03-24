@@ -459,7 +459,7 @@ static int hfi_send_test(struct gmu_device *gmu)
 			msg_size_dwords, &msg);
 }
 
-int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
+static int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
 		uint32_t bw_idx, enum rpm_ack_type ack_type)
 {
 	struct hfi_dcvs_cmd dcvs_cmd = {
@@ -495,7 +495,7 @@ int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
 	return rc;
 }
 
-int hfi_notify_slumber(struct gmu_device *gmu,
+static int hfi_notify_slumber(struct gmu_device *gmu,
 		uint32_t init_perf_idx, uint32_t init_bw_idx)
 {
 	struct hfi_prep_slumber_cmd slumber_cmd = {
@@ -663,4 +663,29 @@ void hfi_stop(struct gmu_device *gmu)
 	}
 
 	clear_bit(GMU_HFI_ON, &gmu->flags);
+}
+
+/* Entry point for external HFI requests */
+int hfi_send_req(struct gmu_device *gmu, enum hfi_msg_id id, void *data)
+{
+	switch (id) {
+	case H2F_MSG_LM_CFG: {
+		return hfi_send_lmconfig(gmu);
+	}
+	case H2F_MSG_DCVS_VOTE: {
+		struct hfi_dcvs_vote *req = (struct hfi_dcvs_vote *)data;
+
+		return hfi_send_dcvs_vote(gmu, req->perf_idx, req->bw_idx,
+				req->ack_type);
+	}
+	case H2F_MSG_PREPARE_SLUMBER: {
+		struct hfi_dcvs_vote *req = (struct hfi_dcvs_vote *)data;
+
+		return hfi_notify_slumber(gmu, req->perf_idx, req->bw_idx);
+	}
+	default:
+		break;
+	}
+
+	return -EINVAL;
 }

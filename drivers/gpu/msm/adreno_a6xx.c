@@ -28,6 +28,7 @@
 #include "kgsl_log.h"
 #include "kgsl.h"
 #include "kgsl_gmu.h"
+#include "kgsl_hfi.h"
 #include "kgsl_trace.h"
 
 #define MIN_HBB		13
@@ -955,7 +956,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		gmu->bcl_config = 0;
 		gmu->lm_dcvs_level = 0;
 
-		result = hfi_send_lmconfig(gmu);
+		result = hfi_send_req(gmu, H2F_MSG_LM_CFG, NULL);
 		if (result)
 			dev_err(dev, "Failure enabling limits management (%d)\n",
 			result);
@@ -1797,7 +1798,12 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 		a6xx_sptprac_disable(adreno_dev);
 
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
-		ret = hfi_notify_slumber(gmu, perf_idx, bus_level);
+		struct hfi_dcvs_vote req = {
+			.perf_idx = perf_idx,
+			.bw_idx = bus_level,
+		};
+
+		ret = hfi_send_req(gmu, H2F_MSG_PREPARE_SLUMBER, &req);
 		goto out;
 	}
 
