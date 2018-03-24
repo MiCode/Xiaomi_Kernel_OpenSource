@@ -1947,7 +1947,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
  */
 #define GMU_FW_HEADER_SIZE 4
 
-#define NUM_LOAD_REGIONS  5
+#define NUM_LOAD_REGIONS  7
 
 #define GMU_ITCM_VA_START 0x0
 #define GMU_ITCM_VA_END   (GMU_ITCM_VA_START + 0x4000) /* 16 KB */
