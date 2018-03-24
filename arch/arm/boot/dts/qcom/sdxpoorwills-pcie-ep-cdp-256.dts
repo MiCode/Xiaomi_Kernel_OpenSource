@@ -12,12 +12,11 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-pcie-ep-cdp.dtsi"
+#include "sdxpoorwills-pcie-ep-cdp-256.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDXPOORWILLS PCIE-EP CDP";
+	model = "Qualcomm Technologies, Inc. SDXPOORWILLS(M) PCIE-EP CDP";
 	compatible = "qcom,sdxpoorwills-cdp",
 		"qcom,sdxpoorwills", "qcom,cdp";
-	qcom,board-id = <1 0x106>;
+	qcom,board-id = <1 0x1>;
 };
-
