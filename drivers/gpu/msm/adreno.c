@@ -1660,6 +1660,15 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 			goto error_mmu_off;
 	}
 
+	if (adreno_is_a640(adreno_dev)) {
+		struct hfi_start_cmd req;
+
+		/* Send hfi start msg */
+		status = hfi_send_req(&device->gmu, H2F_MSG_START, &req);
+		if (status)
+			goto error_mmu_off;
+	}
+
 	/* Enable 64 bit gpu addr if feature is set */
 	if (gpudev->enable_64bit &&
 			adreno_support_64bit(adreno_dev))

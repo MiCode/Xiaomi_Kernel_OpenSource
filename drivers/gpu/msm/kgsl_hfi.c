@@ -362,6 +362,48 @@ static int hfi_get_fw_version(struct gmu_device *gmu,
 	return rc;
 }
 
+static int hfi_send_core_fw_start(struct gmu_device *gmu)
+{
+	struct hfi_core_fw_start_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_CORE_FW_START, sizeof(cmd)),
+		.handle = 0x0,
+	};
+
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
+}
+
+static struct hfi_feature {
+	uint32_t feature;
+	uint32_t enable;
+	uint32_t data;
+} hfi_features[] = {
+	{ HFI_FEATURE_ECP, 0, 0},
+};
+
+static int hfi_send_feature_ctrls(struct gmu_device *gmu)
+{
+	struct hfi_feature_ctrl_cmd cmd;
+	int ret = 0, i;
+
+	for (i = 0; i < ARRAY_SIZE(hfi_features); i++) {
+		cmd.hdr = CMD_MSG_HDR(H2F_MSG_FEATURE_CTRL, sizeof(cmd));
+		cmd.feature = hfi_features[i].feature;
+		cmd.enable = hfi_features[i].enable;
+		cmd.data = hfi_features[i].data;
+
+		ret = hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
+		if (ret) {
+			pr_err("KGSL: setfeature fail:%d [%d:%d:0x%x]\n", ret,
+					hfi_features[i].feature,
+					hfi_features[i].enable,
+					hfi_features[i].data);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int hfi_send_dcvstbl(struct gmu_device *gmu)
 {
 	struct hfi_dcvstable_cmd cmd = {
@@ -524,6 +566,10 @@ static int hfi_verify_fw_version(struct gmu_device *gmu)
 	if (gmu->ver != ~0U)
 		return 0;
 
+	/* Read the HFI version from the register */
+	adreno_read_gmureg(adreno_dev,
+		ADRENO_REG_GMU_HFI_VERSION_INFO, &gmu->hfi.version);
+
 	major = adreno_dev->gpucore->gpmu_major;
 	minor = adreno_dev->gpucore->gpmu_minor;
 
@@ -548,10 +594,6 @@ static int hfi_verify_fw_version(struct gmu_device *gmu)
 	/* Save the gmu version information */
 	gmu->ver = ver;
 
-	/* Read the HFI version from the register */
-	adreno_read_gmureg(adreno_dev,
-		ADRENO_REG_GMU_HFI_VERSION_INFO, &gmu->hfi.version);
-
 	return 0;
 }
 
@@ -564,9 +606,11 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 	if (test_bit(GMU_HFI_ON, &gmu->flags))
 		return 0;
 
-	result = hfi_send_gmu_init(gmu, boot_state);
-	if (result)
-		return result;
+	if (!adreno_is_a640(adreno_dev)) {
+		result = hfi_send_gmu_init(gmu, boot_state);
+		if (result)
+			return result;
+	}
 
 	result = hfi_verify_fw_version(gmu);
 	if (result)
@@ -580,11 +624,28 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 	if (result)
 		return result;
 
-	/* Tell the GMU we are sending no more HFIs until the next boot */
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
-		result = hfi_send_test(gmu);
+	/*
+	 * Send H2F_MSG_CORE_FW_START and features for A640 devices,
+	 * otherwise send H2F_MSG_TEST if quirk is enabled.
+	 */
+	if (adreno_is_a640(adreno_dev)) {
+		result = hfi_send_feature_ctrls(gmu);
 		if (result)
 			return result;
+
+		result = hfi_send_core_fw_start(gmu);
+		if (result)
+			return result;
+	} else {
+		/*
+		 * Tell the GMU we are sending no more HFIs
+		 * until the next boot
+		 */
+		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+			result = hfi_send_test(gmu);
+			if (result)
+				return result;
+		}
 	}
 
 	set_bit(GMU_HFI_ON, &gmu->flags);
@@ -641,6 +702,13 @@ int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
 
 		if (cmd->freq >= MAX_GX_LEVELS || cmd->bw >= MAX_GX_LEVELS)
 			return -EINVAL;
+
+		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
+
+		return hfi_send_generic_req(gmu, HFI_CMD_IDX, cmd);
+	}
+	case H2F_MSG_START: {
+		struct hfi_start_cmd *cmd = data;
 
 		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
 
