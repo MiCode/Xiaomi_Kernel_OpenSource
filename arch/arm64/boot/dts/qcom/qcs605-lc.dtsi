@@ -201,12 +201,12 @@
 
 &clock_gfx {
 	/delete-property/ vdd_gfx-supply;
-	vdd_gfx-supply = <&pm8005_s2>;
+	vdd_gfx-supply = <&pm8005_s3_level>;
 };
 
 &gpu_gx_gdsc {
 	/delete-property/ parent-supply;
-	parent-supply = <&pm8005_s2>;
+	parent-supply = <&pm8005_s3_level>;
 };
 
 &mdss_dsi_phy0 {
