@@ -658,6 +658,11 @@ static int dp_display_configure_aux_switch(struct dp_display_private *dp)
 	int rc = 0;
 	enum fsa_function event = FSA_EVENT_MAX;
 
+	if (dp->debug->sim_mode) {
+		pr_debug("simulation mode, skipping AUX switch programming\n");
+		return 0;
+	}
+
 	if (!dp->aux_switch_node) {
 		pr_debug("undefined fsa4480 handle\n");
 		goto end;
