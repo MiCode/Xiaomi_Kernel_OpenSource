@@ -43,6 +43,7 @@
 #define BGDAEMON_LDO03_LPM_VTG 0
 #define BGDAEMON_LDO03_NPM_VTG 10000
 
+#define MPPS_DOWN_EVENT_TO_BG_TIMEOUT 100
 
 enum {
 	SSR_DOMAIN_BG,
@@ -93,6 +94,7 @@ static  dev_t                    bg_dev;
 static  int                      device_open;
 static  void                     *handle;
 static  struct   bgcom_open_config_type   config_type;
+static DECLARE_COMPLETION(bg_modem_down_wait);
 
 /**
  * send_uevent(): send events to user space
@@ -310,6 +312,12 @@ int bg_soft_reset(void)
 }
 EXPORT_SYMBOL(bg_soft_reset);
 
+static int modem_down2_bg(void)
+{
+	complete(&bg_modem_down_wait);
+	return 0;
+}
+
 static long bg_com_ioctl(struct file *filp,
 		unsigned int ui_bgcom_cmd, unsigned long arg)
 {
@@ -348,6 +356,9 @@ static long bg_com_ioctl(struct file *filp,
 		break;
 	case BG_SOFT_RESET:
 		ret = bg_soft_reset();
+		break;
+	case BG_MODEM_DOWN2_BG_DONE:
+		ret = modem_down2_bg();
 		break;
 	default:
 		ret = -ENOIOCTLCMD;
@@ -524,11 +535,17 @@ static int ssr_modem_cb(struct notifier_block *this,
 		unsigned long opcode, void *data)
 {
 	struct bg_event modeme;
+	int ret;
 
 	switch (opcode) {
 	case SUBSYS_BEFORE_SHUTDOWN:
 		modeme.e_type = MODEM_BEFORE_POWER_DOWN;
+		reinit_completion(&bg_modem_down_wait);
 		send_uevent(&modeme);
+		ret = wait_for_completion_timeout(&bg_modem_down_wait,
+			msecs_to_jiffies(MPPS_DOWN_EVENT_TO_BG_TIMEOUT));
+		if (!ret)
+			pr_err("Time out on modem down event\n");
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		modeme.e_type = MODEM_AFTER_POWER_UP;
