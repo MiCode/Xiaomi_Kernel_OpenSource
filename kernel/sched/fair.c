@@ -2881,9 +2881,6 @@ static inline void cfs_rq_util_change(struct cfs_rq *cfs_rq)
 		 * See cpu_util().
 		 */
 		cpufreq_update_util(rq, 0);
-#ifdef CONFIG_SMP
-		trace_sched_load_avg_cpu(cpu_of(rq), cfs_rq);
-#endif
 	}
 }
 
