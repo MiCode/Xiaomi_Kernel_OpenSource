@@ -13,8 +13,6 @@
 
 #include "msm8953.dtsi"
 #include "sdm632-cpu.dtsi"
-#include "pm8004.dtsi"
-#include "pm8004-rpm-regulator.dtsi"
 #include "sdm632-regulator.dtsi"
 
 / {
