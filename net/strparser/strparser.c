@@ -59,7 +59,7 @@ static void strp_abort_rx_strp(struct strparser *strp, int err)
 	strp->rx_stopped = 1;
 
 	/* Report an error on the lower socket */
-	csk->sk_err = err;
+	csk->sk_err = -err;
 	csk->sk_error_report(csk);
 }
 
@@ -422,7 +422,7 @@ static void strp_rx_msg_timeout(unsigned long arg)
 	/* Message assembly timed out */
 	STRP_STATS_INCR(strp->stats.rx_msg_timeouts);
 	lock_sock(strp->sk);
-	strp->cb.abort_parser(strp, ETIMEDOUT);
+	strp->cb.abort_parser(strp, -ETIMEDOUT);
 	release_sock(strp->sk);
 }
 
