@@ -48,6 +48,7 @@ enum mmc_drv_op {
 };
 
 struct mmc_queue_req {
+	struct request		*req;
 	struct mmc_blk_request	brq;
 	struct scatterlist	*sg;
 	struct mmc_async_req	areq;
@@ -55,16 +56,37 @@ struct mmc_queue_req {
 	int			drv_op_result;
 	void			*drv_op_data;
 	unsigned int		ioc_count;
+	struct mmc_cmdq_req	cmdq_req;
 };
 
 struct mmc_queue {
 	struct mmc_card		*card;
 	struct task_struct	*thread;
 	struct semaphore	thread_sem;
+	unsigned long		flags;
+#define MMC_QUEUE_SUSPENDED		0
+	int (*issue_fn)(struct mmc_queue *, struct request *);
+	int (*cmdq_issue_fn)(struct mmc_queue *,
+			     struct request *);
+	void (*cmdq_complete_fn)(struct request *);
+	void (*cmdq_error_fn)(struct mmc_queue *);
+	enum blk_eh_timer_return (*cmdq_req_timed_out)(struct request *);
 	bool			suspended;
 	bool			asleep;
 	struct mmc_blk_data	*blkdata;
 	struct request_queue	*queue;
+	struct mmc_queue_req	mqrq[2];
+	struct mmc_queue_req	*mqrq_cur;
+	struct mmc_queue_req	*mqrq_prev;
+	struct mmc_queue_req	*mqrq_cmdq;
+	struct work_struct	cmdq_err_work;
+
+	struct completion	cmdq_pending_req_done;
+	struct completion	cmdq_shutdown_complete;
+	struct request		*cmdq_req_peeked;
+	enum mmc_blk_status (*err_check_fn)(struct mmc_card *,
+				struct mmc_async_req *);
+	void (*cmdq_shutdown)(struct mmc_queue *);
 	/*
 	 * FIXME: this counter is not a very reliable way of keeping
 	 * track of how many requests that are ongoing. Switch to just
@@ -83,13 +105,19 @@ struct mmc_queue {
 };
 
 extern int mmc_init_queue(struct mmc_queue *, struct mmc_card *, spinlock_t *,
-			  const char *);
+			  const char *, int);
 extern void mmc_cleanup_queue(struct mmc_queue *);
-extern void mmc_queue_suspend(struct mmc_queue *);
+extern int mmc_queue_suspend(struct mmc_queue *mq, int wait);
 extern void mmc_queue_resume(struct mmc_queue *);
+
 extern unsigned int mmc_queue_map_sg(struct mmc_queue *,
 				     struct mmc_queue_req *);
+extern void mmc_queue_bounce_pre(struct mmc_queue_req *mqrq);
+extern void mmc_queue_bounce_post(struct mmc_queue_req *mqrq);
 
 extern int mmc_access_rpmb(struct mmc_queue *);
+
+extern int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card);
+extern void mmc_cmdq_clean(struct mmc_queue *mq, struct mmc_card *card);
 
 #endif

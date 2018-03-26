@@ -3132,7 +3132,8 @@ static ssize_t mtf_test_write(struct file *file, const char __user *buf,
 	}
 
 #ifdef CONFIG_HIGHMEM
-	__free_pages(test->highmem, BUFFER_ORDER);
+	if (test->highmem)
+		__free_pages(test->highmem, BUFFER_ORDER);
 #endif
 	kfree(test->buffer);
 	kfree(test);
