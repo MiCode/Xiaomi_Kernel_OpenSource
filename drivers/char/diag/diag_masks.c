@@ -2025,14 +2025,6 @@ int diag_copy_to_user_msg_mask(char __user *buf, size_t count,
 			__func__, mask_info->ptr, mask_info->update_buf);
 		return -EINVAL;
 	}
-	mutex_lock(&driver->diag_maskclear_mutex);
-	if (driver->mask_clear) {
-		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-		"diag:%s: count = %zu\n", __func__, count);
-		mutex_unlock(&driver->diag_maskclear_mutex);
-		return -EIO;
-	}
-	mutex_unlock(&driver->diag_maskclear_mutex);
 	mutex_lock(&mask_info->lock);
 	mutex_lock(&driver->msg_mask_lock);
 
