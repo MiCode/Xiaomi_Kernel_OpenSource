@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,10 +45,7 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 		int status;
 
 		if (gpudev->oob_set) {
-			status = gpudev->oob_set(adreno_dev,
-				OOB_PREEMPTION_SET_MASK,
-				OOB_PREEMPTION_CHECK_MASK,
-				OOB_PREEMPTION_CLEAR_MASK);
+			status = gpudev->oob_set(adreno_dev, oob_preempt);
 			if (status)
 				return;
 		}
@@ -77,8 +74,7 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 
 	if (in_interrupt() == 0) {
 		if (gpudev->oob_clear)
-			gpudev->oob_clear(adreno_dev,
-				OOB_PREEMPTION_CLEAR_MASK);
+			gpudev->oob_clear(adreno_dev, oob_preempt);
 	}
 }
 

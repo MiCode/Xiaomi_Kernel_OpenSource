@@ -948,11 +948,10 @@ struct adreno_gpudev {
 	void (*llc_configure_gpuhtw_scid)(struct adreno_device *adreno_dev);
 	void (*llc_enable_overrides)(struct adreno_device *adreno_dev);
 	void (*pre_reset)(struct adreno_device *);
-	int (*oob_set)(struct adreno_device *adreno_dev, unsigned int set_mask,
-				unsigned int check_mask,
-				unsigned int clear_mask);
+	int (*oob_set)(struct adreno_device *adreno_dev,
+			enum oob_request req);
 	void (*oob_clear)(struct adreno_device *adreno_dev,
-				unsigned int clear_mask);
+			enum oob_request req);
 	void (*gpu_keepalive)(struct adreno_device *adreno_dev,
 			bool state);
 	int (*rpmh_gpu_pwrctrl)(struct adreno_device *, unsigned int ops,
@@ -1856,9 +1855,7 @@ static inline int adreno_perfcntr_active_oob_get(
 		return ret;
 
 	if (gpudev->oob_set) {
-		ret = gpudev->oob_set(adreno_dev, OOB_PERFCNTR_SET_MASK,
-				OOB_PERFCNTR_CHECK_MASK,
-				OOB_PERFCNTR_CLEAR_MASK);
+		ret = gpudev->oob_set(adreno_dev, oob_perfcntr);
 		if (ret)
 			kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
 	}
@@ -1872,7 +1869,7 @@ static inline void adreno_perfcntr_active_oob_put(
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->oob_clear)
-		gpudev->oob_clear(adreno_dev, OOB_PERFCNTR_CLEAR_MASK);
+		gpudev->oob_clear(adreno_dev, oob_perfcntr);
 
 	kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
 }

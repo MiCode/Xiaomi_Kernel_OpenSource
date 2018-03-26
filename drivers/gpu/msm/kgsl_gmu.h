@@ -31,6 +31,8 @@
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
 
+#define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
+
 /* Bitmask for GPU low power mode enabling and hysterisis*/
 #define SPTP_ENABLE_MASK (BIT(2) | BIT(0))
 #define IFPC_ENABLE_MASK (BIT(1) | BIT(0))
@@ -63,22 +65,20 @@
 #define OOB_BOOT_OPTION         0
 #define OOB_SLUMBER_OPTION      1
 
-/* Bitmasks for GMU OOBs */
-#define OOB_BOOT_SLUMBER_SET_MASK	BIT(22)
-#define OOB_BOOT_SLUMBER_CHECK_MASK	BIT(30)
-#define OOB_BOOT_SLUMBER_CLEAR_MASK	BIT(30)
-#define OOB_DCVS_SET_MASK		BIT(23)
-#define OOB_DCVS_CHECK_MASK		BIT(31)
-#define OOB_DCVS_CLEAR_MASK		BIT(31)
-#define OOB_GPU_SET_MASK		BIT(16)
-#define OOB_GPU_CHECK_MASK		BIT(24)
-#define OOB_GPU_CLEAR_MASK		BIT(24)
-#define OOB_PERFCNTR_SET_MASK		BIT(17)
-#define OOB_PERFCNTR_CHECK_MASK		BIT(25)
-#define OOB_PERFCNTR_CLEAR_MASK		BIT(25)
-#define OOB_PREEMPTION_SET_MASK		BIT(18)
-#define OOB_PREEMPTION_CHECK_MASK	BIT(26)
-#define OOB_PREEMPTION_CLEAR_MASK	BIT(26)
+/*
+ * OOB requests values. These range from 0 to 7 and then
+ * the BIT() offset into the actual value is calculated
+ * later based on the request. This keeps the math clean
+ * and easy to ensure not reaching over/under the range
+ * of 8 bits.
+ */
+enum oob_request {
+	oob_gpu = 0,
+	oob_perfcntr = 1,
+	oob_preempt = 2,
+	oob_boot_slumber = 6, /* reserved special case */
+	oob_dcvs = 7, /* reserved special case */
+};
 
 /*
  * Wait time before trying to write the register again.
@@ -93,10 +93,12 @@
 /* Bits for the flags field in the gmu structure */
 enum gmu_flags {
 	GMU_BOOT_INIT_DONE = 0,
-	GMU_CLK_ON = 1,
-	GMU_HFI_ON = 2,
-	GMU_FAULT = 3,
-	GMU_DCVS_REPLAY = 4,
+	GMU_CLK_ON,
+	GMU_HFI_ON,
+	GMU_FAULT,
+	GMU_DCVS_REPLAY,
+	GMU_GPMU,
+	GMU_ENABLED,
 };
 
 /**
@@ -123,8 +125,8 @@ struct gmu_bw_votes {
 };
 
 struct rpmh_votes_t {
-	struct arc_vote_desc gx_votes[MAX_GX_LEVELS];
-	struct arc_vote_desc cx_votes[MAX_CX_LEVELS];
+	uint32_t gx_votes[MAX_GX_LEVELS];
+	uint32_t cx_votes[MAX_CX_LEVELS];
 	struct gmu_bw_votes ddr_votes;
 	struct gmu_bw_votes cnoc_votes;
 };
@@ -183,6 +185,7 @@ enum gpu_idle_level {
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: descriptor of GMU memory that has GMU image in it
  * @hfi_mem: pointer to HFI shared memory
+ * @bw_mem: pointer to BW data indirect buffer memory
  * @dump_mem: pointer to GMU debug dump memory
  * @hfi: HFI controller
  * @lm_config: GPU LM configuration data
@@ -201,7 +204,7 @@ enum gpu_idle_level {
  * @gx_gdsc: GX headswitch that controls power of GPU subsystem
  * @clks: GPU subsystem clocks required for GMU functionality
  * @load_mode: GMU FW load/boot mode
- * @flags: GMU power control flags
+ * @flags: GMU flags
  * @wakeup_pwrlevel: GPU wake up power/DCVS level in case different
  *		than default power level
  * @pcl: GPU BW scaling client
@@ -218,11 +221,16 @@ struct gmu_device {
 	unsigned int gmu2gpu_offset;
 	void __iomem *pdc_reg_virt;
 	unsigned int gmu_interrupt_num;
-	struct gmu_memdesc fw_image;
+	struct gmu_memdesc cached_fw_image;
+	struct gmu_memdesc *fw_image;
 	struct gmu_memdesc *hfi_mem;
+	struct gmu_memdesc *bw_mem;
 	struct gmu_memdesc *dump_mem;
+	struct gmu_memdesc *gmu_log;
+	struct gmu_memdesc *system_wb_page;
+	struct gmu_memdesc *dcache_chunk;
 	struct kgsl_hfi hfi;
-	struct limits_config lm_config;
+	unsigned int lm_config;
 	unsigned int lm_dcvs_level;
 	unsigned int bcl_config;
 	unsigned int gmu_freqs[MAX_CX_LEVELS];
@@ -244,13 +252,20 @@ struct gmu_device {
 	unsigned int fault_count;
 };
 
+struct kgsl_device;
 void gmu_snapshot(struct kgsl_device *device);
+
+bool kgsl_gmu_gpmu_isenabled(struct kgsl_device *device);
 bool kgsl_gmu_isenabled(struct kgsl_device *device);
-int gmu_probe(struct kgsl_device *device);
+
+int gmu_probe(struct kgsl_device *device, unsigned long flags);
 void gmu_remove(struct kgsl_device *device);
 int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
 int gmu_start(struct kgsl_device *device);
 void gmu_stop(struct kgsl_device *device);
 int gmu_dcvs_set(struct gmu_device *gmu, unsigned int gpu_pwrlevel,
 		unsigned int bus_level);
+int allocate_gmu_cached_fw(struct gmu_device *gmu);
+bool is_cached_fw_size_valid(uint32_t size_in_bytes);
+void init_gmu_log_base(struct kgsl_device *device);
 #endif /* __KGSL_GMU_H */

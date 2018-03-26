@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,9 +181,7 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 		return;
 
 	if (gpudev->oob_set)
-		ret = gpudev->oob_set(adreno_dev, OOB_PERFCNTR_SET_MASK,
-				OOB_PERFCNTR_CHECK_MASK,
-				OOB_PERFCNTR_CLEAR_MASK);
+		ret = gpudev->oob_set(adreno_dev, oob_perfcntr);
 
 	/* if oob_set timeout, clear the mask and return */
 	if (ret)
@@ -211,7 +209,7 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 
 done:
 	if (gpudev->oob_clear)
-		gpudev->oob_clear(adreno_dev, OOB_PERFCNTR_CLEAR_MASK);
+		gpudev->oob_clear(adreno_dev, oob_perfcntr);
 }
 
 static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,

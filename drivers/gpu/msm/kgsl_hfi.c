@@ -16,41 +16,91 @@
 #include "adreno.h"
 #include "kgsl_trace.h"
 
+#define HFI_QUEUE_OFFSET(i)		\
+		((sizeof(struct hfi_queue_table)) + \
+		((i) * HFI_QUEUE_SIZE))
+
+#define HOST_QUEUE_START_ADDR(hfi_mem, i) \
+	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
+
+#define GMU_QUEUE_START_ADDR(hfi_mem, i) \
+	((hfi_mem)->gmuaddr + HFI_QUEUE_OFFSET(i))
+
+#define MSG_HDR_GET_ID(hdr) ((hdr) & 0xFF)
+#define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
+#define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
+#define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
+
+/* Size is converted from Bytes to DWords */
+#define CREATE_MSG_HDR(id, size, type) \
+	(((type) << 16) | ((((size) >> 2) & 0xFF) << 8) | ((id) & 0xFF))
+#define CMD_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_CMD)
+#define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
+
+#define HFI_VER_MAJOR(hfi) (((hfi)->version >> 28) & 0xF)
+#define HFI_VER_MINOR(hfi) (((hfi)->version >> 5) & 0x7FFFFF)
+#define HFI_VER_BRANCH(hfi) ((hfi)->version & 0x1F)
+#define HFI_VERSION(major, minor, branch) \
+	((((major) & 0xF) << 28) | \
+	 (((minor) & 0x7FFFFF) << 5) | \
+	 ((branch) & 0x1F))
+
+/*
+ * hfi_align_idx() - Update index based on HFI version
+ * @gmu: Pointer to a GMU device
+ * @idx: Integer that is either a read or write index
+ * @boundary: boundary of adjusted ptr value. Exceeding the boundary
+ *	will reset ptr to 0
+ */
+static int hfi_align_idx(struct gmu_device *gmu, int idx, int boundary)
+{
+	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
+		idx = ALIGN(idx, SZ_4);
+		return (idx < boundary) ? idx : 0;
+	}
+	return idx;
+}
+
 /* Size in below functions are in unit of dwords */
-static int hfi_queue_read(struct gmu_device *gmu,
-		enum hfi_queue_type queue_idx, void *msg,
-		unsigned int max_size)
+static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
+		unsigned int *output, unsigned int max_size)
 {
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
-	uint32_t *queue = HOST_QUEUE_START_ADDR(mem_addr, queue_idx);
-	uint32_t *output = msg;
-	struct hfi_msg_hdr *msg_hdr;
-	int i, read, result = 0;
+	uint32_t *queue;
+	uint32_t msg_hdr;
+	uint32_t i, read;
+	uint32_t size;
+	int result = 0;
 
 	if (hdr->read_index == hdr->write_index) {
 		hdr->rx_req = 1;
 		return -ENODATA;
 	}
 
-	msg_hdr = (struct hfi_msg_hdr *)&queue[hdr->read_index];
+	/* Clear the output data before populating */
+	memset(output, 0, max_size);
 
-	if (msg_hdr->size > max_size) {
+	queue = HOST_QUEUE_START_ADDR(mem_addr, queue_idx);
+	msg_hdr = queue[hdr->read_index];
+	size = MSG_HDR_GET_SIZE(msg_hdr);
+
+	if (size > (max_size >> 2)) {
 		dev_err(&gmu->pdev->dev,
-			"Received invalid msg: size=%d dwords, rd idx=%d, id=%d\n",
-			msg_hdr->size, hdr->read_index, msg_hdr->id);
+		"HFI message too big: hdr:0x%x rd idx=%d\n",
+			msg_hdr, hdr->read_index);
 		return -EMSGSIZE;
 	}
 
 	read = hdr->read_index;
 
 	if (read < hdr->queue_size) {
-		for (i = 0; i < msg_hdr->size; i++) {
+		for (i = 0; i < size && i < (max_size >> 2); i++) {
 			output[i] = queue[read];
 			read = (read + 1)%hdr->queue_size;
 		}
-		result = msg_hdr->size;
+		result = size;
 	} else {
 		/* In case FW messed up */
 		dev_err(&gmu->pdev->dev,
@@ -58,32 +108,38 @@ static int hfi_queue_read(struct gmu_device *gmu,
 			hdr->read_index, hdr->queue_size);
 		result = -ENODATA;
 	}
-	hdr->read_index = read;
+
+	hdr->read_index = hfi_align_idx(gmu, read, hdr->queue_size);
 
 	return result;
 }
 
 /* Size in below functions are in unit of dwords */
-static int hfi_queue_write(struct gmu_device *gmu,
-		enum hfi_queue_type queue_idx,
-		struct hfi_msg_hdr *msg)
+static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
+		uint32_t *msg)
 {
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct hfi_queue_table *tbl = gmu->hfi_mem->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
-	uint32_t *queue = HOST_QUEUE_START_ADDR(gmu->hfi_mem, queue_idx);
-	uint32_t *input = (uint32_t *) msg;
+	uint32_t *queue;
 	struct kgsl_hfi *hfi = &gmu->hfi;
 	uint32_t i, write, empty_space;
+	uint32_t size = MSG_HDR_GET_SIZE(*msg);
+	uint32_t id = MSG_HDR_GET_ID(*msg);
 
-	if (msg->size > HFI_MAX_MSG_SIZE) {
+	if (hdr->enabled == 0)
+		return -EINVAL;
+
+	if (size > HFI_MAX_MSG_SIZE) {
 		dev_err(&gmu->pdev->dev,
 			"Message too big to send: sz=%d, id=%d\n",
-			msg->size, msg->id);
+			size, id);
 		return -EINVAL;
 	}
 
-	trace_kgsl_hfi_send(msg->id, msg->size, msg->seqnum);
+	queue = HOST_QUEUE_START_ADDR(gmu->hfi_mem, queue_idx);
+
+	trace_kgsl_hfi_send(id, size, MSG_HDR_GET_SEQNUM(*msg));
 
 	mutex_lock(&hfi->cmdq_mutex);
 
@@ -91,10 +147,10 @@ static int hfi_queue_write(struct gmu_device *gmu,
 			(hdr->queue_size - (hdr->write_index - hdr->read_index))
 			: (hdr->read_index - hdr->write_index);
 
-	if (empty_space < msg->size) {
+	if (empty_space < size) {
 		dev_err(&gmu->pdev->dev,
 			"Insufficient bufsize %d for msg id=%d of size %d\n",
-			empty_space, msg->id, msg->size);
+			empty_space, id, size);
 
 		hdr->drop_cnt++;
 		mutex_unlock(&hfi->cmdq_mutex);
@@ -103,12 +159,12 @@ static int hfi_queue_write(struct gmu_device *gmu,
 
 	write = hdr->write_index;
 
-	for (i = 0; i < msg->size; i++) {
-		queue[write] = input[i];
+	for (i = 0; i < size; i++) {
+		queue[write] = msg[i];
 		write = (write + 1) % hdr->queue_size;
 	}
 
-	hdr->write_index = write;
+	hdr->write_index = hfi_align_idx(gmu, write, hdr->queue_size);
 
 	mutex_unlock(&hfi->cmdq_mutex);
 
@@ -137,12 +193,15 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 	int i;
 	struct hfi_queue_table *tbl;
 	struct hfi_queue_header *hdr;
-	int queue_prio[HFI_QUEUE_MAX] = {
-		HFI_H2F_QPRI_CMD,
-		HFI_F2H_QPRI_MSG,
-		HFI_F2H_QPRI_DEBUG
+	struct {
+		unsigned int idx;
+		unsigned int pri;
+	} queue[HFI_QUEUE_MAX] = {
+		{ HFI_CMD_ID, HFI_CMD_PRI },
+		{ HFI_MSG_ID, HFI_MSG_PRI },
+		{ HFI_DBG_ID, HFI_DBG_PRI },
+		{ HFI_DSP_ID_0, HFI_DSP_PRI_0 },
 	};
-	int queue_ids[HFI_QUEUE_MAX] = {0, 4, 5};
 
 	/* Fill Table Header */
 	tbl = mem_addr->hostptr;
@@ -157,8 +216,8 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 	for (i = 0; i < HFI_QUEUE_MAX; i++) {
 		hdr = &tbl->qhdr[i];
 		hdr->start_addr = GMU_QUEUE_START_ADDR(mem_addr, i);
-		hdr->type = QUEUE_HDR_TYPE(queue_ids[i], queue_prio[i], 0,  0);
-		hdr->status = 0x1;
+		hdr->type = QUEUE_HDR_TYPE(queue[i].idx, queue[i].pri, 0,  0);
+		hdr->enabled = 0x1;
 		hdr->queue_size = queue_sz_bytes >> 2; /* convert to dwords */
 		hdr->msg_size = 0;
 		hdr->drop_cnt = 0;
@@ -173,75 +232,69 @@ void hfi_init(struct kgsl_hfi *hfi, struct gmu_memdesc *mem_addr,
 	mutex_init(&hfi->cmdq_mutex);
 }
 
-static void receive_ack_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
-{
-	struct kgsl_hfi *hfi = &gmu->hfi;
-	struct pending_msg *msg = NULL, *next;
-	bool in_queue = false;
+#define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
+	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
 
-	trace_kgsl_hfi_receive(rsp->ret_hdr.id,
-		rsp->ret_hdr.size,
-		rsp->ret_hdr.seqnum);
+static void receive_ack_cmd(struct gmu_device *gmu, void *rcvd)
+{
+	uint32_t *ack = rcvd;
+	uint32_t hdr = ack[0];
+	uint32_t req_hdr = ack[1];
+	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct pending_cmd *cmd = NULL;
+
+	trace_kgsl_hfi_receive(MSG_HDR_GET_ID(req_hdr),
+		MSG_HDR_GET_SIZE(req_hdr),
+		MSG_HDR_GET_SEQNUM(req_hdr));
 
 	spin_lock_bh(&hfi->msglock);
-	list_for_each_entry_safe(msg, next, &hfi->msglist, node) {
-		if (msg->msg_id == rsp->ret_hdr.id &&
-				msg->seqnum == rsp->ret_hdr.seqnum) {
-			in_queue = true;
-			break;
+	list_for_each_entry(cmd, &hfi->msglist, node) {
+		if (HDR_CMP_SEQNUM(cmd->sent_hdr, req_hdr)) {
+			memcpy(&cmd->results, ack, MSG_HDR_GET_SIZE(hdr) << 2);
+			complete(&cmd->msg_complete);
+			spin_unlock_bh(&hfi->msglock);
+			return;
 		}
 	}
-
-	if (in_queue == false) {
-		spin_unlock_bh(&hfi->msglock);
-		dev_err(&gmu->pdev->dev,
-				"Cannot find receiver of ack msg with id=%d\n",
-				rsp->ret_hdr.id);
-		return;
-	}
-
-	memcpy(&msg->results, (void *) rsp, rsp->hdr.size << 2);
-	complete(&msg->msg_complete);
 	spin_unlock_bh(&hfi->msglock);
+
+	dev_err(&gmu->pdev->dev,
+			"HFI ACK(0x%x) Cannot find sender\n", req_hdr);
 }
 
-static void receive_err_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
-{
-	struct hfi_fw_err_msg *err = (struct hfi_fw_err_msg *) rsp;
+#define MSG_HDR_SET_SEQNUM(hdr, num) \
+	(((hdr) & 0xFFFFF) | ((num) << 20))
 
-	dev_err(&gmu->pdev->dev, "FW error with error code %d\n",
-			err->error_code);
-}
-
-static int hfi_send_msg(struct gmu_device *gmu, struct hfi_msg_hdr *msg,
-		unsigned int size, struct pending_msg *ret_msg)
+static int hfi_send_cmd(struct gmu_device *gmu, uint32_t queue_idx,
+		void *data, struct pending_cmd *ret_cmd)
 {
-	int rc = 0;
+	int rc;
+	uint32_t *cmd = data;
 	struct kgsl_hfi *hfi = &gmu->hfi;
+	unsigned int seqnum = atomic_inc_return(&hfi->seqnum);
 
-	msg->seqnum = atomic_inc_return(&hfi->seqnum);
-	if (msg->type != HFI_MSG_CMD)
-		return hfi_queue_write(gmu, HFI_CMD_QUEUE, msg);
+	*cmd = MSG_HDR_SET_SEQNUM(*cmd, seqnum);
+	if (ret_cmd == NULL)
+		return hfi_queue_write(gmu, queue_idx, cmd);
 
-	/* For messages of type HFI_MSG_CMD we must handle the ack */
-	init_completion(&ret_msg->msg_complete);
-	ret_msg->msg_id = msg->id;
-	ret_msg->seqnum = msg->seqnum;
+	init_completion(&ret_cmd->msg_complete);
+	ret_cmd->sent_hdr = cmd[0];
 
 	spin_lock_bh(&hfi->msglock);
-	list_add_tail(&ret_msg->node, &hfi->msglist);
+	list_add_tail(&ret_cmd->node, &hfi->msglist);
 	spin_unlock_bh(&hfi->msglock);
 
-	rc = hfi_queue_write(gmu, HFI_CMD_QUEUE, msg);
+	rc = hfi_queue_write(gmu, queue_idx, cmd);
 	if (rc)
 		goto done;
 
 	rc = wait_for_completion_timeout(
-			&ret_msg->msg_complete,
+			&ret_cmd->msg_complete,
 			msecs_to_jiffies(HFI_RSP_TIMEOUT));
 	if (!rc) {
 		dev_err(&gmu->pdev->dev,
-				"Receiving GMU ack %d timed out\n", msg->id);
+				"Receiving GMU ack %d timed out\n",
+				MSG_HDR_GET_ID(*cmd));
 		rc = -ETIMEDOUT;
 		goto done;
 	}
@@ -250,157 +303,134 @@ static int hfi_send_msg(struct gmu_device *gmu, struct hfi_msg_hdr *msg,
 	rc = 0;
 done:
 	spin_lock_bh(&hfi->msglock);
-	list_del(&ret_msg->node);
+	list_del(&ret_cmd->node);
 	spin_unlock_bh(&hfi->msglock);
 	return rc;
 }
 
+static int hfi_send_generic_req(struct gmu_device *gmu, uint32_t queue,
+		void *cmd)
+{
+	struct pending_cmd ret_cmd;
+	int rc;
+
+	memset(&ret_cmd, 0, sizeof(ret_cmd));
+
+	rc = hfi_send_cmd(gmu, queue, cmd, &ret_cmd);
+	if (rc)
+		return rc;
+
+	return ret_cmd.results[2];
+}
+
 static int hfi_send_gmu_init(struct gmu_device *gmu, uint32_t boot_state)
 {
-	struct hfi_gmu_init_cmd init_msg = {
-		.hdr = {
-			.id = H2F_MSG_INIT,
-			.size = sizeof(init_msg) >> 2,
-			.type = HFI_MSG_CMD,
-		},
+	struct hfi_gmu_init_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_INIT, sizeof(cmd)),
 		.seg_id = 0,
 		.dbg_buffer_addr = (unsigned int) gmu->dump_mem->gmuaddr,
 		.dbg_buffer_size = (unsigned int) gmu->dump_mem->size,
 		.boot_state = boot_state,
 	};
 
-	struct hfi_msg_rsp *rsp;
-	uint32_t msg_size_dwords = (sizeof(init_msg)) >> 2;
-	int rc = 0;
-	struct pending_msg msg;
-
-	rc = hfi_send_msg(gmu, &init_msg.hdr, msg_size_dwords, &msg);
-	if (rc)
-		return rc;
-
-	rsp = (struct hfi_msg_rsp *) &msg.results;
-	rc = rsp->error;
-	if (!rc)
-		gmu->hfi.gmu_init_done = true;
-	else
-		dev_err(&gmu->pdev->dev,
-			"gmu init message failed with error=%d\n", rc);
-	return rc;
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
 }
 
 static int hfi_get_fw_version(struct gmu_device *gmu,
 		uint32_t expected_ver, uint32_t *ver)
 {
-	struct hfi_fw_version_cmd fw_ver = {
-		.hdr = {
-			.id = H2F_MSG_FW_VER,
-			.size = sizeof(fw_ver) >> 2,
-			.type = HFI_MSG_CMD
-		},
+	struct hfi_fw_version_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_FW_VER, sizeof(cmd)),
 		.supported_ver = expected_ver,
 	};
-	struct hfi_msg_rsp *rsp;
-	uint32_t msg_size_dwords = (sizeof(fw_ver)) >> 2;
-	int rc = 0;
-	struct pending_msg msg;
+	int rc;
+	struct pending_cmd ret_cmd;
 
-	rc = hfi_send_msg(gmu, &fw_ver.hdr, msg_size_dwords, &msg);
+	memset(&ret_cmd, 0, sizeof(ret_cmd));
+
+	rc = hfi_send_cmd(gmu, HFI_CMD_IDX, &cmd, &ret_cmd);
 	if (rc)
 		return rc;
 
-	rsp = (struct hfi_msg_rsp *) &msg.results;
-	rc = rsp->error;
+	rc = ret_cmd.results[2];
 	if (!rc)
-		*ver = rsp->payload[0];
+		*ver = ret_cmd.results[3];
 	else
 		dev_err(&gmu->pdev->dev,
 			"gmu get fw ver failed with error=%d\n", rc);
+
 	return rc;
 }
 
-int hfi_send_lmconfig(struct gmu_device *gmu)
+static int hfi_send_core_fw_start(struct gmu_device *gmu)
 {
-	struct hfi_lmconfig_cmd lmconfig = {
-		.hdr = {
-			.id =  H2F_MSG_LM_CFG,
-			.size = sizeof(lmconfig) >> 2,
-			.type = HFI_MSG_CMD
-		},
-		.limit_conf = gmu->lm_config,
-		.bcl_conf.bcl = gmu->bcl_config
+	struct hfi_core_fw_start_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_CORE_FW_START, sizeof(cmd)),
+		.handle = 0x0,
 	};
-	struct hfi_msg_rsp *rsp;
-	uint32_t msg_size_dwords = (sizeof(lmconfig)) >> 2;
-	int rc = 0;
-	struct pending_msg msg;
 
-	if (gmu->lm_dcvs_level > MAX_GX_LEVELS)
-		lmconfig.lm_enable_bitmask = 0;
-	else
-		lmconfig.lm_enable_bitmask =
-			(1 << (gmu->lm_dcvs_level + 1)) - 1;
-
-	rc = hfi_send_msg(gmu, &lmconfig.hdr, msg_size_dwords, &msg);
-	if (rc)
-		return rc;
-
-	rsp = (struct hfi_msg_rsp *) &msg.results;
-	rc = rsp->error;
-	if (rc)
-		dev_err(&gmu->pdev->dev,
-			"gmu send lmconfig failed with error=%d\n", rc);
-	return rc;
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
 }
 
-static int hfi_send_perftbl(struct gmu_device *gmu)
-{
-	struct hfi_dcvstable_cmd dcvstbl = {
-		.hdr = {
-			.id = H2F_MSG_PERF_TBL,
-			.size = sizeof(dcvstbl) >> 2,
-			.type = HFI_MSG_CMD
-		},
-	};
-	struct hfi_msg_rsp *rsp;
-	struct pending_msg msg;
-	uint32_t msg_size = (sizeof(dcvstbl)) >> 2;
-	int i, rc = 0;
+static struct hfi_feature {
+	uint32_t feature;
+	uint32_t enable;
+	uint32_t data;
+} hfi_features[] = {
+	{ HFI_FEATURE_ECP, 0, 0},
+};
 
-	dcvstbl.gpu_level_num = gmu->num_gpupwrlevels;
-	dcvstbl.gmu_level_num = gmu->num_gmupwrlevels;
+static int hfi_send_feature_ctrls(struct gmu_device *gmu)
+{
+	struct hfi_feature_ctrl_cmd cmd;
+	int ret = 0, i;
+
+	for (i = 0; i < ARRAY_SIZE(hfi_features); i++) {
+		cmd.hdr = CMD_MSG_HDR(H2F_MSG_FEATURE_CTRL, sizeof(cmd));
+		cmd.feature = hfi_features[i].feature;
+		cmd.enable = hfi_features[i].enable;
+		cmd.data = hfi_features[i].data;
+
+		ret = hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
+		if (ret) {
+			pr_err("KGSL: setfeature fail:%d [%d:%d:0x%x]\n", ret,
+					hfi_features[i].feature,
+					hfi_features[i].enable,
+					hfi_features[i].data);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int hfi_send_dcvstbl(struct gmu_device *gmu)
+{
+	struct hfi_dcvstable_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_PERF_TBL, sizeof(cmd)),
+		.gpu_level_num = gmu->num_gpupwrlevels,
+		.gmu_level_num = gmu->num_gmupwrlevels,
+	};
+	int i;
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
-		dcvstbl.gx_votes[i].vote = gmu->rpmh_votes.gx_votes[i];
+		cmd.gx_votes[i].vote = gmu->rpmh_votes.gx_votes[i];
 		/* Divide by 1000 to convert to kHz */
-		dcvstbl.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
+		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
 	}
 
 	for (i = 0; i < gmu->num_gmupwrlevels; i++) {
-		dcvstbl.cx_votes[i].vote = gmu->rpmh_votes.cx_votes[i];
-		dcvstbl.cx_votes[i].freq = gmu->gmu_freqs[i] / 1000;
-
+		cmd.cx_votes[i].vote = gmu->rpmh_votes.cx_votes[i];
+		cmd.cx_votes[i].freq = gmu->gmu_freqs[i] / 1000;
 	}
 
-	rc = hfi_send_msg(gmu, &dcvstbl.hdr, msg_size, &msg);
-	if (rc)
-		return rc;
-
-	rsp = (struct hfi_msg_rsp *)&msg.results;
-	rc = rsp->error;
-	if (rc)
-		dev_err(&gmu->pdev->dev,
-			"gmu send perf table failed with error=%d\n", rc);
-	return rc;
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
 }
 
 static int hfi_send_bwtbl(struct gmu_device *gmu)
 {
-	struct hfi_bwtable_cmd bwtbl = {
-		.hdr = {
-			.id = H2F_MSG_BW_VOTE_TBL,
-			.size = sizeof(bwtbl) >> 2,
-			.type = HFI_MSG_CMD,
-		},
+	struct hfi_bwtable_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_BW_VOTE_TBL, sizeof(cmd)),
 		.bw_level_num = gmu->num_bwlevels,
 		.cnoc_cmds_num =
 			gmu->rpmh_votes.cnoc_votes.cmds_per_bw_vote,
@@ -409,163 +439,120 @@ static int hfi_send_bwtbl(struct gmu_device *gmu)
 		.ddr_cmds_num = gmu->rpmh_votes.ddr_votes.cmds_per_bw_vote,
 		.ddr_wait_bitmask = gmu->rpmh_votes.ddr_votes.cmds_wait_bitmask,
 	};
-	struct hfi_msg_rsp *rsp;
-	struct pending_msg msg;
-	uint32_t msg_size_dwords = (sizeof(bwtbl)) >> 2;
-	int i, j, rc = 0;
+	int i, j;
 
-	for (i = 0; i < bwtbl.ddr_cmds_num; i++)
-		bwtbl.ddr_cmd_addrs[i] = gmu->rpmh_votes.ddr_votes.cmd_addrs[i];
+	for (i = 0; i < cmd.ddr_cmds_num; i++)
+		cmd.ddr_cmd_addrs[i] = gmu->rpmh_votes.ddr_votes.cmd_addrs[i];
 
-	for (i = 0; i < bwtbl.bw_level_num; i++)
-		for (j = 0; j < bwtbl.ddr_cmds_num; j++)
-			bwtbl.ddr_cmd_data[i][j] =
+	for (i = 0; i < cmd.bw_level_num; i++)
+		for (j = 0; j < cmd.ddr_cmds_num; j++)
+			cmd.ddr_cmd_data[i][j] =
 				gmu->rpmh_votes.ddr_votes.cmd_data[i][j];
 
-	for (i = 0; i < bwtbl.cnoc_cmds_num; i++)
-		bwtbl.cnoc_cmd_addrs[i] =
+	for (i = 0; i < cmd.cnoc_cmds_num; i++)
+		cmd.cnoc_cmd_addrs[i] =
 			gmu->rpmh_votes.cnoc_votes.cmd_addrs[i];
 
 	for (i = 0; i < MAX_CNOC_LEVELS; i++)
-		for (j = 0; j < bwtbl.cnoc_cmds_num; j++)
-			bwtbl.cnoc_cmd_data[i][j] =
+		for (j = 0; j < cmd.cnoc_cmds_num; j++)
+			cmd.cnoc_cmd_data[i][j] =
 				gmu->rpmh_votes.cnoc_votes.cmd_data[i][j];
 
-	rc = hfi_send_msg(gmu, &bwtbl.hdr, msg_size_dwords, &msg);
-	if (rc)
-		return rc;
-
-	rsp = (struct hfi_msg_rsp *) &msg.results;
-	rc = rsp->error;
-	if (rc)
-		dev_err(&gmu->pdev->dev,
-			"gmu send bw table failed with error=%d\n", rc);
-	return rc;
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
 }
 
 static int hfi_send_test(struct gmu_device *gmu)
 {
-	struct hfi_test_cmd test_msg = {
-		.hdr = {
-			.id = H2F_MSG_TEST,
-			.size = sizeof(test_msg) >> 2,
-			.type = HFI_MSG_CMD,
-		},
+	struct hfi_test_cmd cmd = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_TEST, sizeof(cmd)),
 	};
-	uint32_t msg_size_dwords = (sizeof(test_msg)) >> 2;
-	struct pending_msg msg;
 
-	return hfi_send_msg(gmu, (struct hfi_msg_hdr *)&test_msg.hdr,
-			msg_size_dwords, &msg);
+	return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
 }
 
-int hfi_send_dcvs_vote(struct gmu_device *gmu, uint32_t perf_idx,
-		uint32_t bw_idx, enum rpm_ack_type ack_type)
+static void receive_err_req(struct gmu_device *gmu, void *rcvd)
 {
-	struct hfi_dcvs_cmd dcvs_cmd = {
-		.hdr = {
-			.id = H2F_MSG_DCVS_VOTE,
-			.size = sizeof(dcvs_cmd) >> 2,
-			.type = HFI_MSG_CMD,
-		},
-		.ack_type = ack_type,
-		.freq = {
-			.perf_idx = perf_idx,
-			.clkset_opt = OPTION_AT_LEAST,
-		},
-		.bw = {
-			.bw_idx = bw_idx,
-		},
+	struct hfi_err_cmd *cmd = rcvd;
 
-	};
-	struct hfi_msg_rsp *rsp;
-	uint32_t msg_size_dwords = (sizeof(dcvs_cmd)) >> 2;
-	int rc = 0;
-	struct pending_msg msg;
-
-	rc = hfi_send_msg(gmu, &dcvs_cmd.hdr, msg_size_dwords, &msg);
-	if (rc)
-		return rc;
-
-	rsp = (struct hfi_msg_rsp *)&msg.results;
-	rc = rsp->error;
-	if (rc)
-		dev_err(&gmu->pdev->dev,
-			"gmu send dcvs cmd failed with error=%d\n", rc);
-	return rc;
+	dev_err(&gmu->pdev->dev, "HFI Error Received: %d %d %d\n",
+			cmd->error_code, cmd->data[0], cmd->data[1]);
 }
 
-int hfi_notify_slumber(struct gmu_device *gmu,
-		uint32_t init_perf_idx, uint32_t init_bw_idx)
+static void receive_debug_req(struct gmu_device *gmu, void *rcvd)
 {
-	struct hfi_prep_slumber_cmd slumber_cmd = {
-		.hdr = {
-			.id = H2F_MSG_PREPARE_SLUMBER,
-			.size = sizeof(slumber_cmd) >> 2,
-			.type = HFI_MSG_CMD,
-		},
-		.init_bw_idx = init_bw_idx,
-		.init_perf_idx = init_perf_idx,
-	};
-	struct hfi_msg_rsp *rsp;
-	uint32_t msg_size_dwords = (sizeof(slumber_cmd)) >> 2;
-	int rc = 0;
-	struct pending_msg msg;
+	struct hfi_debug_cmd *cmd = rcvd;
 
-	if (init_perf_idx >= MAX_GX_LEVELS || init_bw_idx >= MAX_GX_LEVELS)
-		return -EINVAL;
+	dev_dbg(&gmu->pdev->dev, "HFI Debug Received: %d %d %d\n",
+			cmd->type, cmd->timestamp, cmd->data);
+}
 
-	rc = hfi_send_msg(gmu, &slumber_cmd.hdr, msg_size_dwords, &msg);
-	if (rc)
-		return rc;
+static void hfi_v1_receiver(struct gmu_device *gmu, uint32_t *rcvd)
+{
+	/* V1 ACK Handler */
+	if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_V1_MSG_ACK) {
+		receive_ack_cmd(gmu, rcvd);
+		return;
+	}
 
-	rsp = (struct hfi_msg_rsp *) &msg.results;
-	rc = rsp->error;
-	if (rc)
+	/* V1 Request Handler */
+	switch (MSG_HDR_GET_ID(rcvd[0])) {
+	case F2H_MSG_ERR: /* No Reply */
+		receive_err_req(gmu, rcvd);
+		break;
+	case F2H_MSG_DEBUG: /* No Reply */
+		receive_debug_req(gmu, rcvd);
+		break;
+	default: /* No Reply */
 		dev_err(&gmu->pdev->dev,
-			"gmu send slumber notification failed with error=%d\n",
-			rc);
-	return rc;
+				"HFI V1 request %d not supported\n",
+				MSG_HDR_GET_ID(rcvd[0]));
+		break;
+	}
 }
 
 void hfi_receiver(unsigned long data)
 {
 	struct gmu_device *gmu;
-	struct hfi_msg_rsp response;
+	uint32_t rcvd[MAX_RCVD_SIZE];
 
 	if (!data)
 		return;
 
 	gmu = (struct gmu_device *)data;
 
-	while (hfi_queue_read(gmu, HFI_MSG_QUEUE,
-			&response, sizeof(response)) > 0) {
-		if (response.hdr.size > (sizeof(response) >> 2)) {
-			dev_err(&gmu->pdev->dev,
-					"Ack is too large, id=%d, size=%d\n",
-					response.ret_hdr.id,
-					response.hdr.size);
+	while (hfi_queue_read(gmu, HFI_MSG_IDX, rcvd, sizeof(rcvd)) > 0) {
+		/* Special case if we're v1 */
+		if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
+			hfi_v1_receiver(gmu, rcvd);
 			continue;
 		}
 
-		switch (response.hdr.id) {
-		case F2H_MSG_ACK:
-			receive_ack_msg(gmu, &response);
+		/* V2 ACK Handler */
+		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
+			receive_ack_cmd(gmu, rcvd);
+			continue;
+		}
+
+		/* V2 Request Handler */
+		switch (MSG_HDR_GET_ID(rcvd[0])) {
+		case F2H_MSG_ERR: /* No Reply */
+			receive_err_req(gmu, rcvd);
 			break;
-		case F2H_MSG_ERR:
-			receive_err_msg(gmu, &response);
+		case F2H_MSG_DEBUG: /* No Reply */
+			receive_debug_req(gmu, rcvd);
 			break;
-		default:
+		default: /* No Reply */
 			dev_err(&gmu->pdev->dev,
-				"Invalid packet with id %d\n", response.hdr.id);
+				"HFI request %d not supported\n",
+				MSG_HDR_GET_ID(rcvd[0]));
 			break;
 		}
 	};
 }
 
-#define FW_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
-#define FW_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
-#define FW_VERSION(major, minor) \
+#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
+#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
+#define GMU_VERSION(major, minor) \
 	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
 
 static int hfi_verify_fw_version(struct gmu_device *gmu)
@@ -573,12 +560,20 @@ static int hfi_verify_fw_version(struct gmu_device *gmu)
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int result;
-	unsigned int ver = 0, major, minor;
+	unsigned int ver, major, minor;
+
+	/* GMU version is already known, so don't waste time finding again */
+	if (gmu->ver != ~0U)
+		return 0;
+
+	/* Read the HFI version from the register */
+	adreno_read_gmureg(adreno_dev,
+		ADRENO_REG_GMU_HFI_VERSION_INFO, &gmu->hfi.version);
 
 	major = adreno_dev->gpucore->gpmu_major;
 	minor = adreno_dev->gpucore->gpmu_minor;
 
-	result = hfi_get_fw_version(gmu, FW_VERSION(major, minor), &ver);
+	result = hfi_get_fw_version(gmu, GMU_VERSION(major, minor), &ver);
 	if (result) {
 		dev_err_once(&gmu->pdev->dev,
 				"Failed to get FW version via HFI\n");
@@ -586,15 +581,15 @@ static int hfi_verify_fw_version(struct gmu_device *gmu)
 	}
 
 	/* For now, warn once. Could return error later if needed */
-	if (major != FW_VER_MAJOR(ver))
+	if (major != GMU_VER_MAJOR(ver))
 		dev_err_once(&gmu->pdev->dev,
 				"FW Major Error: Wanted %d, got %d\n",
-				major, FW_VER_MAJOR(ver));
+				major, GMU_VER_MAJOR(ver));
 
-	if (minor > FW_VER_MINOR(ver))
+	if (minor > GMU_VER_MINOR(ver))
 		dev_err_once(&gmu->pdev->dev,
 				"FW Minor Error: Wanted < %d, got %d\n",
-				FW_VER_MINOR(ver), minor);
+				GMU_VER_MINOR(ver), minor);
 
 	/* Save the gmu version information */
 	gmu->ver = ver;
@@ -611,15 +606,17 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 	if (test_bit(GMU_HFI_ON, &gmu->flags))
 		return 0;
 
-	result = hfi_send_gmu_init(gmu, boot_state);
-	if (result)
-		return result;
+	if (!adreno_is_a640(adreno_dev)) {
+		result = hfi_send_gmu_init(gmu, boot_state);
+		if (result)
+			return result;
+	}
 
 	result = hfi_verify_fw_version(gmu);
 	if (result)
 		return result;
 
-	result = hfi_send_perftbl(gmu);
+	result = hfi_send_dcvstbl(gmu);
 	if (result)
 		return result;
 
@@ -627,11 +624,28 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 	if (result)
 		return result;
 
-	/* Tell the GMU we are sending no more HFIs until the next boot */
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
-		result = hfi_send_test(gmu);
+	/*
+	 * Send H2F_MSG_CORE_FW_START and features for A640 devices,
+	 * otherwise send H2F_MSG_TEST if quirk is enabled.
+	 */
+	if (adreno_is_a640(adreno_dev)) {
+		result = hfi_send_feature_ctrls(gmu);
 		if (result)
 			return result;
+
+		result = hfi_send_core_fw_start(gmu);
+		if (result)
+			return result;
+	} else {
+		/*
+		 * Tell the GMU we are sending no more HFIs
+		 * until the next boot
+		 */
+		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
+			result = hfi_send_test(gmu);
+			if (result)
+				return result;
+		}
 	}
 
 	set_bit(GMU_HFI_ON, &gmu->flags);
@@ -655,7 +669,7 @@ void hfi_stop(struct gmu_device *gmu)
 
 		if (hdr->read_index != hdr->write_index)
 			dev_err(&gmu->pdev->dev,
-			"HFI queue at idx %d is not empty before close: rd=%d,wt=%d",
+			"HFI queue[%d] is not empty before close: rd=%d,wt=%d",
 				i, hdr->read_index, hdr->write_index);
 
 		hdr->read_index = 0x0;
@@ -663,4 +677,46 @@ void hfi_stop(struct gmu_device *gmu)
 	}
 
 	clear_bit(GMU_HFI_ON, &gmu->flags);
+}
+
+/* Entry point for external HFI requests */
+int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
+{
+	switch (id) {
+	case H2F_MSG_LM_CFG: {
+		struct hfi_lmconfig_cmd *cmd = data;
+
+		cmd->hdr = CMD_MSG_HDR(H2F_MSG_LM_CFG, sizeof(*cmd));
+
+		return hfi_send_generic_req(gmu, HFI_CMD_IDX, &cmd);
+	}
+	case H2F_MSG_GX_BW_PERF_VOTE: {
+		struct hfi_gx_bw_perf_vote_cmd *cmd = data;
+
+		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
+
+		return hfi_send_generic_req(gmu, HFI_CMD_IDX, cmd);
+	}
+	case H2F_MSG_PREPARE_SLUMBER: {
+		struct hfi_prep_slumber_cmd *cmd = data;
+
+		if (cmd->freq >= MAX_GX_LEVELS || cmd->bw >= MAX_GX_LEVELS)
+			return -EINVAL;
+
+		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
+
+		return hfi_send_generic_req(gmu, HFI_CMD_IDX, cmd);
+	}
+	case H2F_MSG_START: {
+		struct hfi_start_cmd *cmd = data;
+
+		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
+
+		return hfi_send_generic_req(gmu, HFI_CMD_IDX, cmd);
+	}
+	default:
+		break;
+	}
+
+	return -EINVAL;
 }

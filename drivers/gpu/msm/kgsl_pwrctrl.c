@@ -225,6 +225,10 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int ret = 0;
 
+	/* GMU scales BW */
+	if (kgsl_gmu_gpmu_isenabled(device))
+		return 0;
+
 	if (pwr->pcl) {
 		/* Linux bus driver scales BW */
 		ret = msm_bus_scale_client_update_request(pwr->pcl, buslevel);
@@ -250,7 +254,7 @@ int kgsl_clk_set_rate(struct kgsl_device *device,
 	int ret = 0;
 
 	/* GMU scales GPU freq */
-	if (kgsl_gmu_isenabled(device)) {
+	if (kgsl_gmu_gpmu_isenabled(device)) {
 		/* If GMU has not been started, save it */
 		if (!test_bit(GMU_HFI_ON, &gmu->flags)) {
 			/* store clock change request */
@@ -1697,7 +1701,7 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int i = 0;
 
-	if (kgsl_gmu_isenabled(device))
+	if (kgsl_gmu_gpmu_isenabled(device))
 		return;
 	if (test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->ctrl_flags))
 		return;
@@ -1807,6 +1811,9 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
+	if (kgsl_gmu_gpmu_isenabled(device))
+		return;
+
 	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->ctrl_flags))
 		return;
 
@@ -1873,7 +1880,7 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int status = 0;
 
-	if (kgsl_gmu_isenabled(device))
+	if (kgsl_gmu_gpmu_isenabled(device))
 		return 0;
 	/*
 	 * Disabling the regulator means also disabling dependent clocks.
@@ -2573,7 +2580,7 @@ void kgsl_pre_hwaccess(struct kgsl_device *device)
 	 * A register access without device power will cause a fatal timeout.
 	 * This is not valid for targets with a GMU.
 	 */
-	if (!kgsl_gmu_isenabled(device))
+	if (!kgsl_gmu_gpmu_isenabled(device))
 		WARN_ON(!kgsl_pwrctrl_isenabled(device));
 }
 EXPORT_SYMBOL(kgsl_pre_hwaccess);
@@ -2594,7 +2601,7 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 
 	kgsl_pwrctrl_pwrlevel_change(device, level);
 
-	if (kgsl_gmu_isenabled(device)) {
+	if (kgsl_gmu_gpmu_isenabled(device)) {
 		int ret = gmu_start(device);
 
 		if (!ret)
@@ -2613,7 +2620,7 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
 {
-	if (kgsl_gmu_isenabled(device)) {
+	if (kgsl_gmu_gpmu_isenabled(device)) {
 		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
 		return gmu_stop(device);
 	}
@@ -2762,7 +2769,7 @@ _aware(struct kgsl_device *device)
 
 	switch (device->state) {
 	case KGSL_STATE_RESET:
-		if (!kgsl_gmu_isenabled(device))
+		if (!kgsl_gmu_gpmu_isenabled(device))
 			break;
 		status = gmu_start(device);
 		break;
