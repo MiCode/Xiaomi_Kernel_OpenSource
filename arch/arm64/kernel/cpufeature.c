@@ -889,6 +889,20 @@ static inline void __cpu_enable_hw_dbm(void)
 	isb();
 }
 
+static bool cpu_has_broken_dbm(void)
+{
+	/* List of CPUs which have broken DBM support. */
+	static const struct midr_range cpus[] = {
+#ifdef CONFIG_ARM64_ERRATUM_1024718
+		// A55 r0p0 -r1p0
+		GENERIC_MIDR_RANGE(MIDR_CORTEX_A55, 0, 0, 1, 0),
+#endif
+		{},
+	};
+
+	return is_midr_in_range_list(read_cpuid_id(), cpus);
+}
+
 static bool cpu_can_use_dbm(const struct arm64_cpu_capabilities *cap)
 {
 	bool has_cpu_feature;
@@ -897,7 +911,7 @@ static bool cpu_can_use_dbm(const struct arm64_cpu_capabilities *cap)
 	has_cpu_feature = has_cpuid_feature(cap, SCOPE_LOCAL_CPU);
 	preempt_enable();
 
-	return has_cpu_feature;
+	return has_cpu_feature && !cpu_has_broken_dbm();
 }
 
 static int cpu_enable_hw_dbm(void *entry)
