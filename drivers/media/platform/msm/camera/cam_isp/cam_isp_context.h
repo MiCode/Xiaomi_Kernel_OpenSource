@@ -157,6 +157,8 @@ struct cam_isp_context_state_monitor {
  * @frame_skip_count:          Number of frame to skip before change state
  * @state_monitor_head:        Write index to the state monitoring array
  * @cam_isp_ctx_state_monitor: State monitoring array
+ * @rdi_only_context:          Get context type information.
+ *                             true, if context is rdi only context
  *
  */
 struct cam_isp_context {
@@ -180,6 +182,7 @@ struct cam_isp_context {
 	atomic64_t                       state_monitor_head;
 	struct cam_isp_context_state_monitor cam_isp_ctx_state_monitor[
 		CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES];
+	bool                             rdi_only_context;
 };
 
 /**

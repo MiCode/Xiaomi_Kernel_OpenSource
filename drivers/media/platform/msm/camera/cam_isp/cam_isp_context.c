@@ -1701,6 +1701,7 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 	struct cam_req_mgr_trigger_notify  notify;
 	uint64_t  request_id  = 0;
 
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_EPOCH;
 	/* notify reqmgr with sof signal*/
 	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger) {
 		if (list_empty(&ctx->pending_req_list)) {
@@ -1712,13 +1713,19 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 		list_del_init(&req->list);
 
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-		request_id = req->request_id;
+		request_id =
+			(req_isp->hw_update_data.packet_opcode_type ==
+				CAM_ISP_PACKET_INIT_DEV) ?
+			0 : req->request_id;
+
 		if (req_isp->num_fence_map_out != 0) {
 			list_add_tail(&req->list, &ctx->active_req_list);
 			ctx_isp->active_req_cnt++;
 			CAM_DBG(CAM_ISP,
 				"move request %lld to active list(cnt = %d)",
 				req->request_id, ctx_isp->active_req_cnt);
+			/* if packet has buffers, set correct request id */
+			request_id = req->request_id;
 		} else {
 			/* no io config, so the request is completed. */
 			list_add_tail(&req->list, &ctx->free_req_list);
@@ -1738,10 +1745,11 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 	} else {
 		CAM_ERR(CAM_ISP, "Can not notify SOF to CRM");
 	}
+	if (request_id)
+		ctx_isp->reported_req_id = request_id;
+
 	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
-
-	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_EPOCH;
 	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
 
 	return 0;
@@ -2042,7 +2050,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req->request_id = packet->header.request_id;
 	req->status = 1;
 
-	CAM_DBG(CAM_ISP, "Packet request id 0x%llx packet opcode:%d",
+	CAM_DBG(CAM_ISP, "Packet request id %lld packet opcode:%d",
 		packet->header.request_id,
 		req_isp->hw_update_data.packet_opcode_type);
 
@@ -2185,6 +2193,7 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 			cam_isp_ctx_activated_state_machine;
 	}
 
+	ctx_isp->rdi_only_context = hw_cmd_args.u.is_rdi_only_context;
 	ctx_isp->hw_ctx = param.ctxt_to_hw_map;
 
 	req_hdl_param.session_hdl = cmd->session_handle;
@@ -2330,7 +2339,8 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
-	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	ctx_isp->substate_activated = ctx_isp->rdi_only_context ?
+		CAM_ISP_CTX_ACTIVATED_APPLIED : CAM_ISP_CTX_ACTIVATED_SOF;
 
 	/*
 	 * Only place to change state before calling the hw due to
