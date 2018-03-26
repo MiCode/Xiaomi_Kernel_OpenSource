@@ -837,3 +837,4 @@
 #include "sdmshrike-ion.dtsi"
 #include "sdmshrike-bus.dtsi"
 #include "msm-arm-smmu-sdmshrike.dtsi"
+#include "sdmshrike-usb.dtsi"
