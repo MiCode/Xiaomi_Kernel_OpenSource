@@ -266,18 +266,37 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 				__func__);
 		return;
 	}
-	if (unlikely(!do_cleanup_data))
-		goto missing_do_cleanup_data;
-	if (unlikely(!cb_data))
-		goto missing_cb_data;
-	if (unlikely(!resp))
-		goto missing_response;
-	if (unlikely(resp->version != do_cleanup_data->version))
-		goto version_mismatch;
-	if (unlikely(resp->seq_num != do_cleanup_data->seq_num))
-		goto invalid_seq_number;
-	if (unlikely(resp->response != GLINK_SSR_CLEANUP_DONE))
-		goto wrong_response;
+	if (unlikely(!do_cleanup_data)) {
+		GLINK_SSR_ERR("<SSR> %s: Missing do_cleanup data!\n", __func__);
+		goto no_clean_done;
+	}
+	if (unlikely(!cb_data)) {
+		GLINK_SSR_ERR("<SSR> %s: Missing cb_data!\n", __func__);
+		goto done;
+	}
+	if (unlikely(!resp)) {
+		GLINK_SSR_ERR("<SSR> %s: Missing response data\n", __func__);
+		goto done;
+	}
+	if (unlikely(resp->version != do_cleanup_data->version)) {
+		GLINK_SSR_ERR("<SSR> %s: Version mismatch. %s[%d], %s[%d]\n",
+			__func__, "do_cleanup version",
+			do_cleanup_data->version, "cleanup_done version",
+			resp->version);
+		goto done;
+	}
+	if (unlikely(resp->seq_num != do_cleanup_data->seq_num)) {
+		GLINK_SSR_ERR("<SSR> %s: Invalid seq. number %s[%d], %s[%d]\n",
+			__func__, "do_cleanup seq num",
+			do_cleanup_data->seq_num,
+			"cleanup_done seq_num", resp->seq_num);
+		goto done;
+	}
+	if (unlikely(resp->response != GLINK_SSR_CLEANUP_DONE)) {
+		GLINK_SSR_ERR("<SSR> %s: Not a cleaup_done message. %s[%d]\n",
+			__func__, "cleanup_done response", resp->response);
+		goto done;
+	}
 
 	cb_data->responded = true;
 	atomic_dec(&responses_remaining);
@@ -287,38 +306,15 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 			__func__, cb_data->edge, resp->response,
 			resp->version, resp->seq_num,
 			do_cleanup_data->name);
-
+done:
 	kfree(do_cleanup_data);
+no_clean_done:
 	rx_done_work->ptr = ptr;
 	rx_done_work->handle = handle;
 	INIT_WORK(&rx_done_work->work, rx_done_cb_worker);
 	queue_work(glink_ssr_wq, &rx_done_work->work);
 	wake_up(&waitqueue);
 	return;
-
-missing_cb_data:
-	panic("%s: Missing cb_data!\n", __func__);
-	return;
-missing_do_cleanup_data:
-	panic("%s: Missing do_cleanup data!\n", __func__);
-	return;
-missing_response:
-	GLINK_SSR_ERR("<SSR> %s: Missing response data\n", __func__);
-	return;
-version_mismatch:
-	GLINK_SSR_ERR("<SSR> %s: Version mismatch. %s[%d], %s[%d]\n", __func__,
-			"do_cleanup version", do_cleanup_data->version,
-			"cleanup_done version", resp->version);
-	return;
-invalid_seq_number:
-	GLINK_SSR_ERR("<SSR> %s: Invalid seq. number. %s[%d], %s[%d]\n",
-			__func__, "do_cleanup seq num",
-			do_cleanup_data->seq_num,
-			"cleanup_done seq_num", resp->seq_num);
-	return;
-wrong_response:
-	GLINK_SSR_ERR("<SSR> %s: Not a cleaup_done message. %s[%d]\n", __func__,
-			"cleanup_done response", resp->response);
 }
 
 /**
