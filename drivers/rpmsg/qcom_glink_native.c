@@ -159,13 +159,6 @@ enum {
 	GLINK_STATE_CLOSING,
 };
 
-struct qcom_glink_device {
-	struct rpmsg_device rpdev;
-	struct qcom_glink *glink;
-};
-
-#define to_glink_device(_x) container_of(_x, struct qcom_glink_device, rpdev)
-
 /**
  * struct glink_channel - internal representation of a channel
  * @rpdev:	rpdev reference, only used for primary endpoints
@@ -214,6 +207,9 @@ struct glink_channel {
 	int buf_offset;
 	int buf_size;
 
+	unsigned int lsigs;
+	unsigned int rsigs;
+
 	struct completion open_ack;
 	struct completion open_req;
 
@@ -240,6 +236,7 @@ static const struct rpmsg_endpoint_ops glink_endpoint_ops;
 #define RPM_CMD_TX_DATA_CONT		12
 #define RPM_CMD_READ_NOTIF		13
 #define RPM_CMD_RX_DONE_W_REUSE		14
+#define RPM_CMD_SIGNALS			15
 
 #define GLINK_FEATURE_INTENTLESS	BIT(1)
 
@@ -1021,6 +1018,54 @@ static int qcom_glink_rx_open_ack(struct qcom_glink *glink, unsigned int lcid)
 	return 0;
 }
 
+/**
+ * qcom_glink_send_signals() - convert a signal  cmd to wire format and transmit
+ * @glink:	The transport to transmit on.
+ * @channel:	The glink channel
+ * @sigs:	The signals to encode.
+ *
+ * Return: 0 on success or standard Linux error code.
+ */
+static int qcom_glink_send_signals(struct qcom_glink *glink,
+				   struct glink_channel *channel,
+				   u32 sigs)
+{
+	struct glink_msg msg;
+
+	msg.cmd = cpu_to_le16(RPM_CMD_SIGNALS);
+	msg.param1 = cpu_to_le16(channel->lcid);
+	msg.param2 = cpu_to_le32(sigs);
+
+	GLINK_INFO(glink->ilc, "sigs:%d\n", sigs);
+	return qcom_glink_tx(glink, &msg, sizeof(msg), NULL, 0, true);
+}
+
+static int qcom_glink_handle_signals(struct qcom_glink *glink,
+				     unsigned int rcid, unsigned int signals)
+{
+	struct glink_channel *channel;
+	unsigned long flags;
+	u32 old;
+
+	spin_lock_irqsave(&glink->idr_lock, flags);
+	channel = idr_find(&glink->rcids, rcid);
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+	if (!channel) {
+		dev_err(glink->dev, "signal for non-existing channel\n");
+		return -EINVAL;
+	}
+
+	old = channel->rsigs;
+	channel->rsigs = signals;
+
+	if (channel->ept.sig_cb)
+		channel->ept.sig_cb(channel->ept.rpdev, old, channel->rsigs);
+
+	CH_INFO(channel, "old:%d new:%d\n", old, channel->rsigs);
+
+	return 0;
+}
+
 static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 {
 	struct qcom_glink *glink = data;
@@ -1080,6 +1125,10 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 			break;
 		case RPM_CMD_RX_INTENT_REQ_ACK:
 			qcom_glink_handle_intent_req_ack(glink, param1, param2);
+			qcom_glink_rx_advance(glink, ALIGN(sizeof(msg), 8));
+			break;
+		case RPM_CMD_SIGNALS:
+			qcom_glink_handle_signals(glink, param1, param2);
 			qcom_glink_rx_advance(glink, ALIGN(sizeof(msg), 8));
 			break;
 		default:
@@ -1233,7 +1282,7 @@ static int qcom_glink_announce_create(struct rpmsg_device *rpdev)
 	__be32 *val = defaults;
 	int size;
 
-	if (glink->intentless)
+	if (glink->intentless || !completion_done(&channel->open_ack))
 		return 0;
 
 	prop = of_find_property(np, "qcom,intents", NULL);
@@ -1389,6 +1438,27 @@ static int qcom_glink_trysend(struct rpmsg_endpoint *ept, void *data, int len)
 	return __qcom_glink_send(channel, data, len, false);
 }
 
+static int qcom_glink_get_sigs(struct rpmsg_endpoint *ept,
+			       u32 *lsigs, u32 *rsigs)
+{
+	struct glink_channel *channel = to_glink_channel(ept);
+
+	*lsigs = channel->lsigs;
+	*rsigs = channel->rsigs;
+
+	return 0;
+}
+
+static int qcom_glink_set_sigs(struct rpmsg_endpoint *ept, u32 sigs)
+{
+	struct glink_channel *channel = to_glink_channel(ept);
+	struct qcom_glink *glink = channel->glink;
+
+	channel->lsigs = sigs;
+
+	return qcom_glink_send_signals(glink, channel, sigs);
+}
+
 /*
  * Finds the device_node for the glink child interested in this channel.
  */
@@ -1413,10 +1483,6 @@ static struct device_node *qcom_glink_match_channel(struct device_node *node,
 	return NULL;
 }
 
-static const struct rpmsg_device_ops glink_chrdev_ops = {
-	.create_ept = qcom_glink_create_ept,
-};
-
 static const struct rpmsg_device_ops glink_device_ops = {
 	.create_ept = qcom_glink_create_ept,
 	.announce_create = qcom_glink_announce_create,
@@ -1426,6 +1492,8 @@ static const struct rpmsg_endpoint_ops glink_endpoint_ops = {
 	.destroy_ept = qcom_glink_destroy_ept,
 	.send = qcom_glink_send,
 	.trysend = qcom_glink_trysend,
+	.get_sigs = qcom_glink_get_sigs,
+	.set_sigs = qcom_glink_set_sigs,
 };
 
 static void qcom_glink_rpdev_release(struct device *dev)
@@ -1635,9 +1703,9 @@ static ssize_t rpmsg_name_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
-	struct qcom_glink_device *gdev = to_glink_device(rpdev);
+	struct glink_channel *channel = to_glink_channel(rpdev->ept);
 
-	return snprintf(buf, RPMSG_NAME_SIZE, "%s\n", gdev->glink->name);
+	return snprintf(buf, RPMSG_NAME_SIZE, "%s\n", channel->glink->name);
 }
 static DEVICE_ATTR_RO(rpmsg_name);
 
@@ -1650,25 +1718,35 @@ ATTRIBUTE_GROUPS(qcom_glink);
 static void qcom_glink_device_release(struct device *dev)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
-	struct qcom_glink_device *gdev = to_glink_device(rpdev);
+	struct glink_channel *channel = to_glink_channel(rpdev->ept);
 
-	kfree(gdev);
+	/* Release qcom_glink_alloc_channel() reference */
+	kref_put(&channel->refcount, qcom_glink_channel_release);
+	kfree(rpdev);
 }
 
 static int qcom_glink_create_chrdev(struct qcom_glink *glink)
 {
-	struct qcom_glink_device *gdev;
+	struct rpmsg_device *rpdev;
+	struct glink_channel *channel;
 
-	gdev = kzalloc(sizeof(*gdev), GFP_KERNEL);
-	if (!gdev)
+	rpdev = kzalloc(sizeof(*rpdev), GFP_KERNEL);
+	if (!rpdev)
 		return -ENOMEM;
 
-	gdev->glink = glink;
-	gdev->rpdev.ops = &glink_chrdev_ops;
-	gdev->rpdev.dev.parent = glink->dev;
-	gdev->rpdev.dev.release = qcom_glink_device_release;
+	channel = qcom_glink_alloc_channel(glink, "rpmsg_chrdev");
+	if (IS_ERR(channel)) {
+		kfree(rpdev);
+		return PTR_ERR(channel);
+	}
+	channel->rpdev = rpdev;
 
-	return rpmsg_chrdev_register_device(&gdev->rpdev);
+	rpdev->ept = &channel->ept;
+	rpdev->ops = &glink_device_ops;
+	rpdev->dev.parent = glink->dev;
+	rpdev->dev.release = qcom_glink_device_release;
+
+	return rpmsg_chrdev_register_device(rpdev);
 }
 
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
