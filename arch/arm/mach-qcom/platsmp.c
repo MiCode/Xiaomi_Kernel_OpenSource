@@ -20,7 +20,13 @@
 #include <linux/qcom_scm.h>
 
 #include <asm/smp_plat.h>
+#include <asm/fixmap.h>
+#include "platsmp.h"
 
+#define MSM_APCS_IDR 0x0B011030
+
+/* Base Address of APC IPC block */
+#define APCS_ALIAS0_APC_SECURE 0x0B088000
 
 #define VDD_SC1_ARRAY_CLAMP_GFS_CTL	0x35a0
 #define SCSS_CPU1CORE_RESET		0x2d80
@@ -29,9 +35,12 @@
 #define APCS_CPU_PWR_CTL	0x04
 #define PLL_CLAMP		BIT(8)
 #define CORE_PWRD_UP		BIT(7)
+#define GATE_CLK		BIT(6)
 #define COREPOR_RST		BIT(5)
 #define CORE_RST		BIT(4)
 #define L2DT_SLP		BIT(3)
+#define L1_RST_DIS		BIT(2)
+#define CORE_MEM_CLAMP		BIT(1)
 #define CLAMP			BIT(0)
 
 #define APC_PWR_GATE_CTL	0x14
@@ -270,6 +279,67 @@ out_acc:
 
 static DEFINE_PER_CPU(int, cold_boot_done);
 
+/*
+ * writing to physical address:
+ * 0xb088000 + (cpu * 0x10000) + 0x04  and
+ * 0xb088000 + (cpu * 0x10000) + 0x014
+ * For each secondary cpu
+ */
+
+static int arm_release_secondary(unsigned int cpu)
+{
+	phys_addr_t base = APCS_ALIAS0_APC_SECURE;
+	void __iomem *base_ptr;
+	unsigned int reg_val;
+
+	base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
+
+	if (!base_ptr)
+		return -ENODEV;
+
+	reg_val = COREPOR_RST | CORE_RST | CORE_MEM_CLAMP | CLAMP;
+	writel_relaxed(reg_val, base_ptr + APCS_CPU_PWR_CTL);
+	/* memory barrier */
+	mb();
+
+	/* Turn on the BHS, set the BHS_CNT value with 16 */
+	reg_val = (0x10 << BHS_CNT_SHIFT) | BHS_EN;
+	writel_relaxed(reg_val, base_ptr + APC_PWR_GATE_CTL);
+	/* memory barrier */
+	mb();
+	udelay(2);
+
+	reg_val = COREPOR_RST | CORE_RST | CLAMP;
+	writel_relaxed(reg_val, base_ptr + APCS_CPU_PWR_CTL);
+	/* memory barrier */
+	mb();
+
+	reg_val = COREPOR_RST | CORE_RST | L2DT_SLP | CLAMP;
+	writel_relaxed(reg_val, base_ptr + APCS_CPU_PWR_CTL);
+	/* memory barrier */
+	mb();
+	udelay(2);
+
+	reg_val = COREPOR_RST | CORE_RST | L2DT_SLP;
+	writel_relaxed(reg_val, base_ptr + APCS_CPU_PWR_CTL);
+	/* memory barrier */
+	mb();
+	udelay(2);
+
+	reg_val = L2DT_SLP;
+	writel_relaxed(reg_val, base_ptr + APCS_CPU_PWR_CTL);
+	/* memory barrier */
+	mb();
+
+	reg_val = CORE_PWRD_UP | L2DT_SLP;
+	writel_relaxed(reg_val, base_ptr + APCS_CPU_PWR_CTL);
+	/* memory barrier */
+	mb();
+
+	iounmap(base_ptr);
+	return 0;
+}
+
 static int qcom_boot_secondary(unsigned int cpu, int (*func)(unsigned int))
 {
 	int ret = 0;
@@ -300,6 +370,40 @@ static int qcom_boot_secondary(unsigned int cpu, int (*func)(unsigned int))
 	spin_unlock(&boot_lock);
 
 	return ret;
+}
+
+/*
+ * Initialise the CPU possible map early - this describes the CPUs
+ * which may be present or become present in the system.
+ */
+
+static void __init arm_smp_init_cpus(void)
+{
+	unsigned int i, ncores;
+	void __iomem *base;
+
+	set_fixmap_io(FIX_SMP_MEM_BASE, MSM_APCS_IDR & PAGE_MASK);
+	base = (void __iomem *)__fix_to_virt(FIX_SMP_MEM_BASE);
+
+	if (!base)
+		return;
+
+	base += MSM_APCS_IDR & ~PAGE_MASK;
+
+	ncores = (__raw_readl(base)) & 0xF;
+	if (ncores > nr_cpu_ids) {
+		pr_warn("SMP: %u cores greater than maximum (%u), clipping\n",
+					ncores, nr_cpu_ids);
+		ncores = nr_cpu_ids;
+	}
+	for (i = 0; i < ncores; i++)
+		set_cpu_possible(i, true);
+}
+
+static int msm8909_boot_secondary(unsigned int cpu, struct task_struct *idle)
+{
+	pr_debug("Starting secondary CPU %d\n", cpu);
+	return qcom_boot_secondary(cpu, arm_release_secondary);
 }
 
 static int msm8660_boot_secondary(unsigned int cpu, struct task_struct *idle)
@@ -361,3 +465,15 @@ static const struct smp_operations qcom_smp_kpssv2_ops __initconst = {
 #endif
 };
 CPU_METHOD_OF_DECLARE(qcom_smp_kpssv2, "qcom,kpss-acc-v2", &qcom_smp_kpssv2_ops);
+
+struct smp_operations msm8909_smp_ops __initdata = {
+	.smp_init_cpus = arm_smp_init_cpus,
+	.smp_prepare_cpus = qcom_smp_prepare_cpus,
+	.smp_secondary_init = qcom_secondary_init,
+	.smp_boot_secondary = msm8909_boot_secondary,
+#ifdef CONFIG_HOTPLUG_CPU
+	.cpu_die		= qcom_cpu_die,
+#endif
+};
+
+CPU_METHOD_OF_DECLARE(qcom_smp_8909, "qcom,apss-8909", &msm8909_smp_ops);
