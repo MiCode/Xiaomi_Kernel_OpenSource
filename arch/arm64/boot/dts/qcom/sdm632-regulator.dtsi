@@ -13,6 +13,42 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+&pm8953_s3 {
+	regulator-min-microvolt = <984000>;
+	regulator-max-microvolt = <1240000>;
+	qcom,init-voltage = <984000>;
+};
+
+&pm8953_s4 {
+	regulator-min-microvolt = <1036000>;
+	regulator-max-microvolt = <2040000>;
+	qcom,init-voltage = <1036000>;
+};
+
+&pm8953_l1 {
+	regulator-min-microvolt = <975000>;
+	regulator-max-microvolt = <1050000>;
+	qcom,init-voltage = <975000>;
+};
+
+&pm8953_l2 {
+	regulator-min-microvolt = <975000>;
+	regulator-max-microvolt = <1175000>;
+	qcom,init-voltage = <975000>;
+};
+
+&pm8953_l10 {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <3000000>;
+	qcom,init-voltage = <2800000>;
+};
+
+&pm8953_l22 {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
+	qcom,init-voltage = <2800000>;
+};
+
 &rpm_bus {
 	rpm-regulator-ldoc1 {
 		status = "okay";
@@ -150,7 +186,7 @@
 				qcom,cpr-corner-fmax-map = <1 2 3 4 7>;
 
 				qcom,cpr-voltage-ceiling =
-					<720000  720000 790000 865000 920000
+					<720000  790000 865000 865000 920000
 					 990000 1065000>;
 
 				qcom,cpr-voltage-floor =
@@ -162,7 +198,7 @@
 				qcom,corner-frequencies =
 					<614400000  883200000 1036800000
 					1363200000 1536000000 1670400000
-					1785600000>;
+					1804800000>;
 
 				qcom,cpr-ro-scaling-factor =
 				      <3600 3600 3830 2430 2520 2700 1790 1760
@@ -200,7 +236,7 @@
 				qcom,cpr-corner-fmax-map = <1 2 5>;
 
 				qcom,cpr-voltage-ceiling =
-					<790000 865000 920000 990000 1065000>;
+					<865000 865000 920000 990000 1065000>;
 
 				qcom,cpr-voltage-floor =
 					<500000  500000 500000 500000 500000>;
@@ -209,7 +245,7 @@
 
 				qcom,corner-frequencies =
 					<1094400000 1401600000 1555200000
-					 1785600000 1996200000>;
+					 1804800000 2016000000>;
 
 				qcom,cpr-ro-scaling-factor =
 				      <3600 3600 3830 2430 2520 2700 1790 1760
