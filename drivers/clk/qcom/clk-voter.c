@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,6 +133,16 @@ static unsigned long voter_clk_recalc_rate(struct clk_hw *hw,
 
 	return v->rate;
 }
+
+int voter_clk_handoff(struct clk_hw *hw)
+{
+	struct clk_voter *v = to_clk_voter(hw);
+
+	v->enabled = true;
+
+	return 0;
+}
+EXPORT_SYMBOL(voter_clk_handoff);
 
 const struct clk_ops clk_ops_voter = {
 	.prepare = voter_clk_prepare,

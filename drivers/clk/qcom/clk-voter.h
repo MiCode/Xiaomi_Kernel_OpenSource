@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@ extern const struct clk_ops clk_ops_voter;
 		.hw.init = &(struct clk_init_data){			   \
 			.ops = &clk_ops_voter,				   \
 			.name = #clk_name,				   \
+			.flags = CLK_ENABLE_HAND_OFF,			   \
 			.parent_names = (const char *[]){ #_parent_name }, \
 			.num_parents = 1,				   \
 		},							   \
@@ -46,5 +47,7 @@ extern const struct clk_ops clk_ops_voter;
 
 #define DEFINE_CLK_BRANCH_VOTER(clk_name, _parent_name) \
 	 __DEFINE_CLK_VOTER(clk_name, _parent_name, 1000, 1)
+
+int voter_clk_handoff(struct clk_hw *hw);
 
 #endif
