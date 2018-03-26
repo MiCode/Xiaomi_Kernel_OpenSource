@@ -79,6 +79,11 @@
 			linux,can-disable;
 		};
 	};
+
+	sound-tavil {
+		qcom,model = "sdm855-tavil-cdp-snd-card";
+		qcom,us-euro-gpios = <&tavil_us_euro_switch>;
+	};
 };
 
 &dsi_sharp_4k_dsc_cmd {
