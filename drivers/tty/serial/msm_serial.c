@@ -197,13 +197,13 @@ struct msm_port {
 static
 void msm_write(struct uart_port *port, unsigned int val, unsigned int off)
 {
-	writel_relaxed(val, port->membase + off);
+	writel_relaxed_no_log(val, port->membase + off);
 }
 
 static
 unsigned int msm_read(struct uart_port *port, unsigned int off)
 {
-	return readl_relaxed(port->membase + off);
+	return readl_relaxed_no_log(port->membase + off);
 }
 
 /*
@@ -1157,15 +1157,6 @@ static int msm_set_baud_rate(struct uart_port *port, unsigned int baud,
 	return baud;
 }
 
-static void msm_init_clock(struct uart_port *port)
-{
-	struct msm_port *msm_port = UART_TO_MSM(port);
-
-	clk_prepare_enable(msm_port->clk);
-	clk_prepare_enable(msm_port->pclk);
-	msm_serial_set_mnd_regs(port);
-}
-
 static int msm_startup(struct uart_port *port)
 {
 	struct msm_port *msm_port = UART_TO_MSM(port);
@@ -1180,7 +1171,23 @@ static int msm_startup(struct uart_port *port)
 	if (unlikely(ret))
 		return ret;
 
-	msm_init_clock(port);
+	/*
+	 * UART clk must be kept enabled to
+	 * avoid losing received character
+	 */
+	ret = clk_prepare_enable(msm_port->clk);
+	if (ret) {
+		goto err_clk;
+		return ret;
+	}
+
+	ret = clk_prepare_enable(msm_port->pclk);
+	if (ret) {
+		goto err_pclk;
+		return ret;
+	}
+
+	msm_serial_set_mnd_regs(port);
 
 	if (likely(port->fifosize > 12))
 		rfr_level = port->fifosize - 12;
@@ -1207,6 +1214,13 @@ static int msm_startup(struct uart_port *port)
 	}
 
 	return 0;
+
+err_pclk:
+	clk_disable_unprepare(msm_port->clk);
+err_clk:
+	free_irq(port->irq, port);
+
+	return ret;
 }
 
 static void msm_shutdown(struct uart_port *port)
@@ -1219,6 +1233,7 @@ static void msm_shutdown(struct uart_port *port)
 	if (msm_port->is_uartdm)
 		msm_release_dma(msm_port);
 
+	clk_disable_unprepare(msm_port->pclk);
 	clk_disable_unprepare(msm_port->clk);
 
 	free_irq(port->irq, port);
@@ -1385,8 +1400,16 @@ static void msm_power(struct uart_port *port, unsigned int state,
 
 	switch (state) {
 	case 0:
-		clk_prepare_enable(msm_port->clk);
-		clk_prepare_enable(msm_port->pclk);
+		/*
+		 * UART clk must be kept enabled to
+		 * avoid losing received character
+		 */
+		if (clk_prepare_enable(msm_port->clk))
+			return;
+		if (clk_prepare_enable(msm_port->pclk)) {
+			clk_disable_unprepare(msm_port->clk);
+			return;
+		}
 		break;
 	case 3:
 		clk_disable_unprepare(msm_port->clk);
@@ -1651,7 +1674,7 @@ static int __init msm_console_setup(struct console *co, char *options)
 	if (unlikely(!port->membase))
 		return -ENXIO;
 
-	msm_init_clock(port);
+	msm_serial_set_mnd_regs(port);
 
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
@@ -1813,12 +1836,37 @@ static const struct of_device_id msm_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, msm_match_table);
 
+#ifdef CONFIG_PM_SLEEP
+static int msm_serial_suspend(struct device *dev)
+{
+	struct uart_port *port = dev_get_drvdata(dev);
+
+	uart_suspend_port(&msm_uart_driver, port);
+
+	return 0;
+}
+
+static int msm_serial_resume(struct device *dev)
+{
+	struct uart_port *port = dev_get_drvdata(dev);
+
+	uart_resume_port(&msm_uart_driver, port);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops msm_serial_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(msm_serial_suspend, msm_serial_resume)
+};
+
 static struct platform_driver msm_platform_driver = {
 	.remove = msm_serial_remove,
 	.probe = msm_serial_probe,
 	.driver = {
 		.name = "msm_serial",
 		.of_match_table = msm_match_table,
+		.pm = &msm_serial_pm_ops,
 	},
 };
 
