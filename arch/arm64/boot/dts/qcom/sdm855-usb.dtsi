@@ -138,10 +138,9 @@
 		reg = <0x88e8000 0x3000>;
 		reg-names = "qmp_phy_base";
 
-		vdd-supply = <&pm855_l3>;
+		vdd-supply = <&pm855_l5>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
-		core-supply = <&pm855_l5>;
-		qcom,core-voltage-level = <0 880000 880000>;
+		core-supply = <&pm855l_l3>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =
 		    /* <reg_offset, value, delay> */
