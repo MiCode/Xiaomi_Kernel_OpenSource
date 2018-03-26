@@ -95,8 +95,10 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
 				continue;
 
 			nest = nla_nest_start(skb, n_i);
-			if (nest == NULL)
+			if (nest == NULL) {
+				index--;
 				goto nla_put_failure;
+			}
 			err = tcf_action_dump_1(skb, p, 0, 0);
 			if (err < 0) {
 				index--;
