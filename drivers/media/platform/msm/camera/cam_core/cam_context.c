@@ -40,6 +40,7 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 int cam_context_shutdown(struct cam_context *ctx)
 {
 	int rc = 0;
+	int32_t ctx_hdl = ctx->dev_hdl;
 
 	if (ctx->state_machine[ctx->state].ioctl_ops.stop_dev) {
 		rc = ctx->state_machine[ctx->state].ioctl_ops.stop_dev(
@@ -54,6 +55,8 @@ int cam_context_shutdown(struct cam_context *ctx)
 			CAM_ERR(CAM_CORE, "Error while dev release %d", rc);
 	}
 
+	if (!rc)
+		cam_destroy_device_hdl(ctx_hdl);
 	return rc;
 }
 
