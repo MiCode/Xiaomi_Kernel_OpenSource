@@ -1393,6 +1393,7 @@
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from mss */
 		interrupts-extended = <&pdc 0 266 1>,
