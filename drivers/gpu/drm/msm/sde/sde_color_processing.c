@@ -1799,25 +1799,21 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 		goto exit;
 	}
 
-	node = _sde_cp_get_intr_node(DRM_EVENT_AD_BACKLIGHT, crtc);
+	node = container_of(ad_irq, struct sde_crtc_irq_info, irq);
 
 	if (!en) {
-		if (node) {
-			spin_lock_irqsave(&node->state_lock, flags);
-			if (node->state == IRQ_ENABLED) {
-				ret = sde_core_irq_disable(kms, &irq_idx, 1);
-				if (ret)
-					DRM_ERROR("disable irq %d error %d\n",
-						irq_idx, ret);
-				else
-					node->state = IRQ_NOINIT;
-			} else {
+		spin_lock_irqsave(&node->state_lock, flags);
+		if (node->state == IRQ_ENABLED) {
+			ret = sde_core_irq_disable(kms, &irq_idx, 1);
+			if (ret)
+				DRM_ERROR("disable irq %d error %d\n",
+					irq_idx, ret);
+			else
 				node->state = IRQ_NOINIT;
-			}
-			spin_unlock_irqrestore(&node->state_lock, flags);
 		} else {
-			DRM_ERROR("failed to get node from crtc event list\n");
+			node->state = IRQ_NOINIT;
 		}
+		spin_unlock_irqrestore(&node->state_lock, flags);
 		sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
 		ret = 0;
 		goto exit;
@@ -1831,32 +1827,18 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 		goto exit;
 	}
 
-	if (node) {
-		/* device resume or resume from IPC cases */
-		spin_lock_irqsave(&node->state_lock, flags);
-		if (node->state == IRQ_DISABLED || node->state == IRQ_NOINIT) {
-			ret = sde_core_irq_enable(kms, &irq_idx, 1);
-			if (ret) {
-				DRM_ERROR("enable irq %d error %d\n",
-					irq_idx, ret);
-				sde_core_irq_unregister_callback(kms,
-					irq_idx, ad_irq);
-			} else {
-				node->state = IRQ_ENABLED;
-			}
-		}
-		spin_unlock_irqrestore(&node->state_lock, flags);
-	} else {
-		/* request from userspace to register the event
-		 * in this case, node has not been added into the event list
-		 */
+	spin_lock_irqsave(&node->state_lock, flags);
+	if (node->state == IRQ_DISABLED || node->state == IRQ_NOINIT) {
 		ret = sde_core_irq_enable(kms, &irq_idx, 1);
 		if (ret) {
-			DRM_ERROR("failed to enable irq ret %d\n", ret);
-			sde_core_irq_unregister_callback(kms,
-				irq_idx, ad_irq);
+			DRM_ERROR("enable irq %d error %d\n", irq_idx, ret);
+			sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
+		} else {
+			node->state = IRQ_ENABLED;
 		}
 	}
+	spin_unlock_irqrestore(&node->state_lock, flags);
+
 exit:
 	return ret;
 }
@@ -1937,7 +1919,7 @@ static void sde_cp_hist_interrupt_cb(void *arg, int irq_idx)
 	spin_unlock_irqrestore(&crtc->spin_lock, flags);
 
 	if (!node) {
-		DRM_ERROR("cannot find histogram event node in crtc\n");
+		DRM_DEBUG_DRIVER("cannot find histogram event node in crtc\n");
 		return;
 	}
 
@@ -2082,26 +2064,29 @@ int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
 		goto exit;
 	}
 
-	node = _sde_cp_get_intr_node(DRM_EVENT_HISTOGRAM, crtc);
+	node = container_of(hist_irq, struct sde_crtc_irq_info, irq);
 
 	/* deregister histogram irq */
 	if (!en) {
-		if (node) {
-			/* device suspend case or suspend to IPC cases */
+		spin_lock_irqsave(&node->state_lock, flags);
+		if (node->state == IRQ_ENABLED) {
+			node->state = IRQ_DISABLING;
+			spin_unlock_irqrestore(&node->state_lock, flags);
+			ret = sde_core_irq_disable(kms, &irq_idx, 1);
 			spin_lock_irqsave(&node->state_lock, flags);
-			if (node->state == IRQ_ENABLED) {
-				ret = sde_core_irq_disable(kms, &irq_idx, 1);
-				if (ret)
-					DRM_ERROR("disable irq %d error %d\n",
-						irq_idx, ret);
-				else
-					node->state = IRQ_NOINIT;
+			if (ret) {
+				DRM_ERROR("disable irq %d error %d\n",
+					irq_idx, ret);
+				node->state = IRQ_ENABLED;
 			} else {
 				node->state = IRQ_NOINIT;
 			}
 			spin_unlock_irqrestore(&node->state_lock, flags);
+		} else if (node->state == IRQ_DISABLED) {
+			node->state = IRQ_NOINIT;
+			spin_unlock_irqrestore(&node->state_lock, flags);
 		} else {
-			DRM_ERROR("failed to get node from crtc event list\n");
+			spin_unlock_irqrestore(&node->state_lock, flags);
 		}
 
 		sde_core_irq_unregister_callback(kms, irq_idx, hist_irq);
@@ -2117,32 +2102,19 @@ int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
 		goto exit;
 	}
 
-	if (node) {
-		/* device resume or resume from IPC cases */
-		spin_lock_irqsave(&node->state_lock, flags);
-		if (node->state == IRQ_DISABLED || node->state == IRQ_NOINIT) {
-			ret = sde_core_irq_enable(kms, &irq_idx, 1);
-			if (ret) {
-				DRM_ERROR("enable irq %d error %d\n",
-					irq_idx, ret);
-				sde_core_irq_unregister_callback(kms,
-					irq_idx, hist_irq);
-			} else {
-				node->state = IRQ_ENABLED;
-			}
-		}
-		spin_unlock_irqrestore(&node->state_lock, flags);
-	} else {
-		/* request from userspace to register the event
-		 * in this case, node has not been added into the event list
-		 */
+	spin_lock_irqsave(&node->state_lock, flags);
+	if (node->state == IRQ_DISABLED || node->state == IRQ_NOINIT) {
 		ret = sde_core_irq_enable(kms, &irq_idx, 1);
 		if (ret) {
-			DRM_ERROR("failed to enable irq ret %d\n", ret);
+			DRM_ERROR("enable irq %d error %d\n", irq_idx, ret);
 			sde_core_irq_unregister_callback(kms,
 				irq_idx, hist_irq);
+		} else {
+			node->state = IRQ_ENABLED;
 		}
 	}
+	spin_unlock_irqrestore(&node->state_lock, flags);
+
 exit:
 	return ret;
 }
