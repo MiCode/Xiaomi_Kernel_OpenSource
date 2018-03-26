@@ -218,6 +218,26 @@ Properties:
 - qcom,mempool-allocate:	Allocate memory from the system memory when the
 				reserved pool exhausted.
 
+SOC Hardware revisions:
+- qcom,soc-hw-revisions:
+		Container of sets of SOC hardware revisions specified by
+		qcom,soc-hw-revision.
+Properties:
+- compatible:
+		Must be qcom,soc-hw-revisions.
+
+- qcom,soc-hw-revision:
+		Defines a SOC hardware revision.
+
+Properties:
+- reg:
+		Identifier for the hardware revision - must match the value read
+		from the hardware.
+- qcom,chipid:
+		GPU Chip ID to be used for this hardware revision.
+- qcom,gpu-quirk-*:
+		GPU quirks applicable for this hardware revision.
+
 GPU LLC slice info:
 - cache-slice-names:		List of LLC cache slices for GPU transactions
 				and pagetable walk.
@@ -292,6 +312,28 @@ Example of A330 GPU in MSM8916:
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <5>;
+
+		qcom,soc-hw-revisions {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible="qcom,soc-hw-revisions";
+
+			qcom,soc-hw-revision@0 {
+				reg = <0>;
+
+				qcom,chipid = <0x06010500>;
+				qcom,gpu-quirk-hfi-use-reg;
+				qcom,gpu-quirk-limit-uche-gbif-rw;
+			};
+
+			qcom,soc-hw-revision@1 {
+				reg = <1>;
+
+				qcom,chipid = <0x06010501>;
+				qcom,gpu-quirk-hfi-use-reg;
+			};
+		};
 
 		/* GPU Mempools */
 		qcom,gpu-mempools {

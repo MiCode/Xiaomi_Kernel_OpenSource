@@ -19,6 +19,7 @@
 #include <linux/input.h>
 #include <linux/io.h>
 #include <soc/qcom/scm.h>
+#include <linux/nvmem-consumer.h>
 
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
@@ -755,17 +756,113 @@ static inline const struct adreno_gpu_core *_get_gpu_core(unsigned int chipid)
 	return NULL;
 }
 
+static struct {
+	unsigned int quirk;
+	const char *prop;
+} adreno_quirks[] = {
+	 { ADRENO_QUIRK_TWO_PASS_USE_WFI, "qcom,gpu-quirk-two-pass-use-wfi" },
+	 { ADRENO_QUIRK_IOMMU_SYNC, "qcom,gpu-quirk-iommu-sync" },
+	 { ADRENO_QUIRK_CRITICAL_PACKETS, "qcom,gpu-quirk-critical-packets" },
+	 { ADRENO_QUIRK_FAULT_DETECT_MASK, "qcom,gpu-quirk-fault-detect-mask" },
+	 { ADRENO_QUIRK_DISABLE_RB_DP2CLOCKGATING,
+			"qcom,gpu-quirk-dp2clockgating-disable" },
+	 { ADRENO_QUIRK_DISABLE_LMLOADKILL,
+			"qcom,gpu-quirk-lmloadkill-disable" },
+	{ ADRENO_QUIRK_HFI_USE_REG, "qcom,gpu-quirk-hfi-use-reg" },
+	{ ADRENO_QUIRK_SECVID_SET_ONCE, "qcom,gpu-quirk-secvid-set-once" },
+	{ ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW,
+			"qcom,gpu-quirk-limit-uche-gbif-rw" },
+};
+
+#if defined(CONFIG_NVMEM) && defined(CONFIG_QCOM_QFPROM)
+static struct device_node *
+adreno_get_soc_hw_revision_node(struct platform_device *pdev)
+{
+	struct device_node *node, *child;
+	struct nvmem_cell *cell;
+	ssize_t len;
+	u32 *buf, hw_rev, rev;
+
+	node = of_find_node_by_name(pdev->dev.of_node, "qcom,soc-hw-revisions");
+	if (node == NULL)
+		goto err;
+
+	/* read the soc hw revision and select revision node */
+	cell = nvmem_cell_get(&pdev->dev, "minor_rev");
+	if (IS_ERR_OR_NULL(cell)) {
+		if (PTR_ERR(cell) == -EPROBE_DEFER)
+			return (void *)cell;
+
+		KGSL_CORE_ERR("Unable to get nvmem cell: ret=%ld\n",
+				PTR_ERR(cell));
+		goto err;
+	}
+
+	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
+	if (IS_ERR_OR_NULL(buf)) {
+		KGSL_CORE_ERR("Unable to read nvmem cell: ret=%ld\n",
+				PTR_ERR(buf));
+		goto err;
+	}
+
+	hw_rev = *buf;
+	kfree(buf);
+
+	for_each_child_of_node(node, child) {
+		if (of_property_read_u32(child, "reg", &rev))
+			continue;
+
+		if (rev == hw_rev)
+			return child;
+	}
+
+err:
+	/* fall back to parent node */
+	return pdev->dev.of_node;
+}
+#else
+static struct device_node *
+adreno_get_soc_hw_revision_node(struct platform_device *pdev)
+{
+	return pdev->dev.of_node;
+}
+#endif
+
+
+static int adreno_update_soc_hw_revision_quirks(
+		struct adreno_device *adreno_dev, struct platform_device *pdev)
+{
+	struct device_node *node;
+	int i;
+
+	node = adreno_get_soc_hw_revision_node(pdev);
+	if (IS_ERR(node))
+		return PTR_ERR(node);
+
+	/* get chip id, fall back to parent if revision node does not have it */
+	if (of_property_read_u32(node, "qcom,chipid", &adreno_dev->chipid))
+		if (of_property_read_u32(pdev->dev.of_node,
+				"qcom,chipid", &adreno_dev->chipid))
+			KGSL_DRV_FATAL(KGSL_DEVICE(adreno_dev),
+			"No GPU chip ID was specified\n");
+
+	/* update quirk */
+	for (i = 0; i < ARRAY_SIZE(adreno_quirks); i++) {
+		if (of_property_read_bool(node, adreno_quirks[i].prop))
+			adreno_dev->quirks |= adreno_quirks[i].quirk;
+	}
+
+	return 0;
+}
+
 static void
 adreno_identify_gpu(struct adreno_device *adreno_dev)
 {
 	const struct adreno_reg_offsets *reg_offsets;
 	struct adreno_gpudev *gpudev;
 	int i;
-
-	if (kgsl_property_read_u32(KGSL_DEVICE(adreno_dev), "qcom,chipid",
-		&adreno_dev->chipid))
-		KGSL_DRV_FATAL(KGSL_DEVICE(adreno_dev),
-			"No GPU chip ID was specified\n");
 
 	adreno_dev->gpucore = _get_gpu_core(adreno_dev->chipid);
 
@@ -932,31 +1029,12 @@ static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
 	return of_id ? (struct adreno_device *) of_id->data : NULL;
 }
 
-static struct {
-	unsigned int quirk;
-	const char *prop;
-} adreno_quirks[] = {
-	 { ADRENO_QUIRK_TWO_PASS_USE_WFI, "qcom,gpu-quirk-two-pass-use-wfi" },
-	 { ADRENO_QUIRK_IOMMU_SYNC, "qcom,gpu-quirk-iommu-sync" },
-	 { ADRENO_QUIRK_CRITICAL_PACKETS, "qcom,gpu-quirk-critical-packets" },
-	 { ADRENO_QUIRK_FAULT_DETECT_MASK, "qcom,gpu-quirk-fault-detect-mask" },
-	 { ADRENO_QUIRK_DISABLE_RB_DP2CLOCKGATING,
-			"qcom,gpu-quirk-dp2clockgating-disable" },
-	 { ADRENO_QUIRK_DISABLE_LMLOADKILL,
-			"qcom,gpu-quirk-lmloadkill-disable" },
-	{ ADRENO_QUIRK_HFI_USE_REG, "qcom,gpu-quirk-hfi-use-reg" },
-	{ ADRENO_QUIRK_SECVID_SET_ONCE, "qcom,gpu-quirk-secvid-set-once" },
-	{ ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW,
-			"qcom,gpu-quirk-limit-uche-gbif-rw" },
-};
-
 static int adreno_of_get_power(struct adreno_device *adreno_dev,
 		struct platform_device *pdev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
-	int i;
 	unsigned int timeout;
 
 	if (of_property_read_string(node, "label", &pdev->name)) {
@@ -966,12 +1044,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	if (adreno_of_read_property(node, "qcom,id", &pdev->id))
 		return -EINVAL;
-
-	/* Set up quirks and other boolean options */
-	for (i = 0; i < ARRAY_SIZE(adreno_quirks); i++) {
-		if (of_property_read_bool(node, adreno_quirks[i].prop))
-			adreno_dev->quirks |= adreno_quirks[i].quirk;
-	}
 
 	/* Get starting physical address of device registers */
 	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
@@ -1132,6 +1204,12 @@ static int adreno_probe(struct platform_device *pdev)
 	if (adreno_is_gpu_disabled(adreno_dev)) {
 		pr_err("adreno: GPU is disabled on this device\n");
 		return -ENODEV;
+	}
+
+	status = adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
+	if (status) {
+		device->pdev = NULL;
+		return status;
 	}
 
 	/* Get the chip ID from the DT and set up target specific parameters */
