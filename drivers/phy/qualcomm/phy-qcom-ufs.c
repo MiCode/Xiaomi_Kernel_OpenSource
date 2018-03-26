@@ -223,7 +223,15 @@ skip_txrx_clk:
 
 	err = ufs_qcom_phy_clk_get(phy_common->dev, "ref_clk",
 				   &phy_common->ref_clk);
+	if (err)
+		goto out;
 
+	/*
+	 * "ref_aux_clk" is optional and only supported by certain
+	 * phy versions, don't abort init if it's not found.
+	 */
+	 __ufs_qcom_phy_clk_get(phy_common->dev, "ref_aux_clk",
+				   &phy_common->ref_aux_clk, false);
 out:
 	return err;
 }
@@ -269,6 +277,9 @@ static int ufs_qcom_phy_init_vreg(struct device *dev,
 			}
 			err = 0;
 		}
+		snprintf(prop_name, MAX_PROP_NAME, "%s-always-on", name);
+		vreg->is_always_on = of_property_read_bool(dev->of_node,
+							   prop_name);
 	}
 
 	if (!strcmp(name, "vdda-pll")) {
@@ -316,6 +327,8 @@ static int ufs_qcom_phy_cfg_vreg(struct device *dev,
 	const char *name = vreg->name;
 	int min_uV;
 	int uA_load;
+
+	WARN_ON(!vreg);
 
 	if (regulator_count_voltages(reg) > 0) {
 		min_uV = on ? vreg->min_uV : 0;
@@ -442,7 +455,7 @@ static int ufs_qcom_phy_disable_vreg(struct device *dev,
 {
 	int ret = 0;
 
-	if (!vreg || !vreg->enabled)
+	if (!vreg || !vreg->enabled || vreg->is_always_on)
 		goto out;
 
 	ret = regulator_disable(vreg->reg);
@@ -462,6 +475,13 @@ out:
 static void ufs_qcom_phy_disable_ref_clk(struct ufs_qcom_phy *phy)
 {
 	if (phy->is_ref_clk_enabled) {
+		/*
+		 * "ref_aux_clk" is optional clock and only supported by
+		 * certain phy versions, hence make sure that clk reference
+		 * is available before trying to disable the clock.
+		 */
+		if (phy->ref_aux_clk)
+			clk_disable_unprepare(phy->ref_aux_clk);
 		clk_disable_unprepare(phy->ref_clk);
 		/*
 		 * "ref_clk_parent" is optional clock hence make sure that clk

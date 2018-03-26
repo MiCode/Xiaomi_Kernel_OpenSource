@@ -81,7 +81,35 @@ void ufs_qcom_phy_qmp_14nm_advertise_quirks(struct ufs_qcom_phy *phy_common)
 
 static int ufs_qcom_phy_qmp_14nm_init(struct phy *generic_phy)
 {
-	return 0;
+	struct ufs_qcom_phy_qmp_14nm *phy = phy_get_drvdata(generic_phy);
+	struct ufs_qcom_phy *phy_common = &phy->common_cfg;
+	int err;
+
+	err = ufs_qcom_phy_init_clks(phy_common);
+	if (err) {
+		dev_err(phy_common->dev, "%s: ufs_qcom_phy_init_clks() failed %d\n",
+			__func__, err);
+		goto out;
+	}
+
+	err = ufs_qcom_phy_init_vregulators(phy_common);
+	if (err) {
+		dev_err(phy_common->dev, "%s: ufs_qcom_phy_init_vregulators() failed %d\n",
+			__func__, err);
+		goto out;
+	}
+
+	ufs_qcom_phy_qmp_14nm_advertise_quirks(phy_common);
+
+	if (phy_common->quirks & UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING) {
+		phy_common->vco_tune1_mode1 = readl_relaxed(phy_common->mmio +
+						QSERDES_COM_VCO_TUNE1_MODE1);
+		dev_info(phy_common->dev, "%s: vco_tune1_mode1 0x%x\n",
+			__func__, phy_common->vco_tune1_mode1);
+	}
+
+out:
+	return err;
 }
 
 static int ufs_qcom_phy_qmp_14nm_exit(struct phy *generic_phy)
@@ -239,25 +267,10 @@ static int ufs_qcom_phy_qmp_14nm_probe(struct platform_device *pdev)
 				&ufs_qcom_phy_qmp_14nm_phy_ops, &phy_14nm_ops);
 
 	if (!generic_phy) {
+		dev_err(dev, "%s: ufs_qcom_phy_generic_probe() failed\n",
+			__func__);
 		err = -EIO;
 		goto out;
-	}
-
-	err = ufs_qcom_phy_init_clks(phy_common);
-	if (err)
-		goto out;
-
-	err = ufs_qcom_phy_init_vregulators(phy_common);
-	if (err)
-		goto out;
-
-	ufs_qcom_phy_qmp_14nm_advertise_quirks(phy_common);
-
-	if (phy_common->quirks & UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING) {
-		phy_common->vco_tune1_mode1 = readl_relaxed(phy_common->mmio +
-						QSERDES_COM_VCO_TUNE1_MODE1);
-		dev_info(phy_common->dev, "%s: vco_tune1_mode1 0x%x\n",
-			__func__, phy_common->vco_tune1_mode1);
 	}
 
 	phy_set_drvdata(generic_phy, phy);
