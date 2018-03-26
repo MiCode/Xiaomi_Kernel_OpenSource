@@ -61,7 +61,7 @@ struct iio_buffer_access_funcs {
 	int (*request_update)(struct iio_buffer *buffer);
 
 	int (*set_bytes_per_datum)(struct iio_buffer *buffer, size_t bpd);
-	int (*set_length)(struct iio_buffer *buffer, int length);
+	int (*set_length)(struct iio_buffer *buffer, unsigned int length);
 
 	int (*enable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
 	int (*disable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
@@ -96,8 +96,8 @@ struct iio_buffer_access_funcs {
  * @watermark:		[INTERN] number of datums to wait for poll/read.
  */
 struct iio_buffer {
-	int					length;
-	int					bytes_per_datum;
+	unsigned int				length;
+	size_t					bytes_per_datum;
 	struct attribute_group			*scan_el_attrs;
 	long					*scan_mask;
 	bool					scan_timestamp;
