@@ -102,7 +102,6 @@
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&can_rst_on>;
 		pinctrl-1 = <&can_rst_off>;
-		status = "disabled";
 	};
 };
 

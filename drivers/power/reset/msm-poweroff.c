@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,7 +152,6 @@ static bool get_dload_mode(void)
 	return dload_mode_enabled;
 }
 
-#if 0
 static void enable_emergency_dload_mode(void)
 {
 	int ret;
@@ -177,7 +176,6 @@ static void enable_emergency_dload_mode(void)
 	if (ret)
 		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
 }
-#endif
 
 static int dload_set(const char *val, struct kernel_param *kp)
 {
@@ -332,10 +330,8 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
-#if 0
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
-#endif
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}

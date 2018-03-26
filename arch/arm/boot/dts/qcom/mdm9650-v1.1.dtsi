@@ -16,5 +16,5 @@
 	model = "Qualcomm Technologies, Inc. MDM 9650 v1.1";
 	compatible = "qcom,mdm9650";
 	qcom,msm-id = <279 0x10001>, <284 0x10001>, <285 0x10001>,
-		      <286 0x10001>, <283 0x10001>;
+		      <286 0x10001>, <283 0x10001>, <359 0x10001>;
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -215,6 +215,7 @@ enum msm_cpu {
 	MSM_CPU_9650,
 	MSM_CPU_COBALT,
 	SDX_CPU_20,
+	MSM_CPU_9150,
 };
 
 struct msm_soc_info {

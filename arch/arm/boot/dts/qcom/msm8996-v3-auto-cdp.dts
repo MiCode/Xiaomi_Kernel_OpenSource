@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,10 +40,14 @@
 &spi_9 {
 	status = "ok";
 	can-controller@0 {
-		compatible = "renesas,rh850";
+		compatible = "qcom,renesas,rh850";
 		reg = <0>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <127 0>;
 		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <16000000>;
+		qcom,max-can-channels = <4>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
 	};
 };

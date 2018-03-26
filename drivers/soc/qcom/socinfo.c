@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -598,6 +598,9 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* MSM8940 IDs */
 	[313] = {MSM_CPU_8940, "MSM8940"},
+
+	/* MDM9150 IDs */
+	[359] = {MSM_CPU_9150, "MDM9150"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
