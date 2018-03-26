@@ -41,7 +41,6 @@ enum {
 #define GLINK_PKT_INFO(x, ...)						\
 do {									\
 	if (glink_pkt_debug_mask & GLINK_PKT_INFO) {			\
-		pr_info("[%s]: "x, __func__, ##__VA_ARGS__);		\
 		ipc_log_string(glink_pkt_ilctxt,			\
 			"[%s]: "x, __func__, ##__VA_ARGS__);		\
 	}								\
@@ -182,6 +181,7 @@ static int glink_pkt_rpdev_probe(struct rpmsg_device *rpdev)
 	gpdev->rpdev = rpdev;
 	mutex_unlock(&gpdev->lock);
 
+	dev_set_drvdata(&rpdev->dev, gpdev);
 	complete_all(&gpdev->ch_open);
 
 	return 0;
@@ -190,7 +190,7 @@ static int glink_pkt_rpdev_probe(struct rpmsg_device *rpdev)
 static int glink_pkt_rpdev_cb(struct rpmsg_device *rpdev, void *buf, int len,
 			      void *priv, u32 addr)
 {
-	struct glink_pkt_device *gpdev = priv;
+	struct glink_pkt_device *gpdev = dev_get_drvdata(&rpdev->dev);
 	unsigned long flags;
 	struct sk_buff *skb;
 
@@ -236,6 +236,8 @@ static void glink_pkt_rpdev_remove(struct rpmsg_device *rpdev)
 	mutex_lock(&gpdev->lock);
 	gpdev->rpdev = NULL;
 	mutex_unlock(&gpdev->lock);
+
+	dev_set_drvdata(&rpdev->dev, NULL);
 
 	/* wake up any blocked readers */
 	reinit_completion(&gpdev->ch_open);
