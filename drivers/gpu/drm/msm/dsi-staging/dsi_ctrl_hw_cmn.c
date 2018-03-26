@@ -1487,7 +1487,7 @@ int dsi_ctrl_hw_cmn_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl_hw *ctrl)
 	rc = readl_poll_timeout(ctrl->base + DSI_STATUS, val,
 			!(val & cmd_mode_mdp_busy_mask), sleep_us, timeout_us);
 	if (rc)
-		pr_err("%s: waiting failed, ret=%d\n", __func__, rc);
+		pr_err("%s: timed out waiting for idle\n", __func__);
 
 	return rc;
 }
