@@ -35,6 +35,10 @@
 #include "pcm.h"
 #include "usb_audio_qmi_v01.h"
 
+#define BUS_INTERVAL_FULL_SPEED 1000 /* in us */
+#define BUS_INTERVAL_HIGHSPEED_AND_ABOVE 125 /* in us */
+#define MAX_BINTERVAL_ISOC_EP 16
+
 #define SND_PCM_CARD_NUM_MASK 0xffff0000
 #define SND_PCM_DEV_NUM_MASK 0xff00
 #define SND_PCM_STREAM_DIRECTION 0xff
@@ -948,6 +952,32 @@ static int info_idx_from_ifnum(int card_num, int intf_num, bool enable)
 	return -EINVAL;
 }
 
+static int get_data_interval_from_si(struct snd_usb_substream *subs,
+	u32 service_interval)
+{
+	unsigned int bus_intval, bus_intval_mult, binterval;
+
+	if (subs->dev->speed >= USB_SPEED_HIGH)
+		bus_intval = BUS_INTERVAL_HIGHSPEED_AND_ABOVE;
+	else
+		bus_intval = BUS_INTERVAL_FULL_SPEED;
+
+	if (service_interval % bus_intval)
+		return -EINVAL;
+
+	bus_intval_mult = service_interval / bus_intval;
+	binterval = ffs(bus_intval_mult);
+	if (!binterval || binterval > MAX_BINTERVAL_ISOC_EP)
+		return -EINVAL;
+
+	/* check if another bit is set then bail out */
+	bus_intval_mult = bus_intval_mult >> binterval;
+	if (bus_intval_mult)
+		return -EINVAL;
+
+	return (binterval - 1);
+}
+
 static void handle_uaudio_stream_req(struct qmi_handle *handle,
 			struct sockaddr_qrtr *sq,
 			struct qmi_txn *txn,
@@ -961,7 +991,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	struct intf_info *info;
 	int pcm_format;
 	u8 pcm_card_num, pcm_dev_num, direction;
-	int info_idx = -EINVAL, ret = 0;
+	int info_idx = -EINVAL, datainterval = -EINVAL, ret = 0;
 
 	req_msg = (struct qmi_uaudio_stream_req_msg_v01 *)decoded_msg;
 
@@ -1028,9 +1058,23 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	subs->pcm_format = pcm_format;
 	subs->channels = req_msg->number_of_ch;
 	subs->cur_rate = req_msg->bit_rate;
+	if (req_msg->service_interval_valid) {
+		ret = get_data_interval_from_si(subs,
+						req_msg->service_interval);
+		if (ret == -EINVAL) {
+			pr_err("%s: invalid service interval %u\n", __func__,
+					req_msg->service_interval);
+			mutex_unlock(&chip->dev_lock);
+			goto response;
+		}
+
+		datainterval = ret;
+		pr_debug("%s: data interval %u\n", __func__, ret);
+	}
+
 	uadev[pcm_card_num].ctrl_intf = chip->ctrl_intf;
 
-	ret = snd_usb_enable_audio_stream(subs, req_msg->enable);
+	ret = snd_usb_enable_audio_stream(subs, datainterval, req_msg->enable);
 
 	if (!ret && req_msg->enable)
 		ret = prepare_qmi_response(subs, req_msg, &resp, info_idx);
@@ -1097,7 +1141,7 @@ static void uaudio_qmi_disconnect_work(struct work_struct *w)
 					info->direction);
 				continue;
 			}
-			snd_usb_enable_audio_stream(subs, 0);
+			snd_usb_enable_audio_stream(subs, -EINVAL, 0);
 		}
 		atomic_set(&uadev[idx].in_use, 0);
 		mutex_lock(&chip->dev_lock);

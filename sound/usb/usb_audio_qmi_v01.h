@@ -99,8 +99,10 @@ struct qmi_uaudio_stream_req_msg_v01 {
 	uint32_t bit_rate;
 	uint8_t xfer_buff_size_valid;
 	uint32_t xfer_buff_size;
+	uint8_t service_interval_valid;
+	uint32_t service_interval;
 };
-#define QMI_UAUDIO_STREAM_REQ_MSG_V01_MAX_MSG_LEN 39
+#define QMI_UAUDIO_STREAM_REQ_MSG_V01_MAX_MSG_LEN 46
 extern struct qmi_elem_info qmi_uaudio_stream_req_msg_v01_ei[];
 
 struct qmi_uaudio_stream_resp_msg_v01 {
