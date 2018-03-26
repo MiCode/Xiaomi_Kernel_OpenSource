@@ -62,7 +62,8 @@ static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
 static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg);
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
-						       u32 clk_cycles);
+						       u32 clk_1us_cycles,
+						       u32 clk_40ns_cycles);
 static void ufs_qcom_pm_qos_suspend(struct ufs_qcom_host *host);
 
 static void ufs_qcom_dump_regs(struct ufs_hba *hba, int offset, int len,
@@ -464,10 +465,13 @@ static int __ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
 	 * UFS_REG_PA_LINK_STARTUP_TIMER
 	 * But UTP controller uses SYS1CLK_1US_REG register for Interrupt
 	 * Aggregation / Auto hibern8 logic.
+	 * It is mandatory to write SYS1CLK_1US_REG register on UFS host
+	 * controller V4.0.0 onwards.
 	*/
 	if (ufs_qcom_cap_qunipro(host) &&
 	    (!(ufshcd_is_intr_aggr_allowed(hba) ||
-	       ufshcd_is_auto_hibern8_supported(hba))))
+	       ufshcd_is_auto_hibern8_supported(hba) ||
+	       host->hw_ver.major >= 4)))
 		goto out;
 
 	if (gear == 0) {
@@ -608,7 +612,7 @@ static int ufs_qcom_link_startup_pre_change(struct ufs_hba *hba)
 		/*
 		 * set unipro core clock cycles to 150 & clear clock divider
 		 */
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6);
 		if (err)
 			goto out;
 	}
@@ -2255,12 +2259,22 @@ static void ufs_qcom_exit(struct ufs_hba *hba)
 }
 
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
-						       u32 clk_cycles)
+						       u32 clk_1us_cycles,
+						       u32 clk_40ns_cycles)
 {
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err;
-	u32 core_clk_ctrl_reg;
+	u32 core_clk_ctrl_reg, clk_cycles;
+	u32 mask = DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK;
+	u32 offset = 0;
 
-	if (clk_cycles > DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK)
+	/* Bits mask and offset changed on UFS host controller V4.0.0 onwards */
+	if (host->hw_ver.major >= 4) {
+		mask = DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK_V4;
+		offset = DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_OFFSET_V4;
+	}
+
+	if (clk_1us_cycles > mask)
 		return -EINVAL;
 
 	err = ufshcd_dme_get(hba,
@@ -2269,8 +2283,9 @@ static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 	if (err)
 		goto out;
 
-	core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK;
-	core_clk_ctrl_reg |= clk_cycles;
+	core_clk_ctrl_reg &= ~mask;
+	core_clk_ctrl_reg |= clk_1us_cycles;
+	core_clk_ctrl_reg <<= offset;
 
 	/* Clear CORE_CLK_DIV_EN */
 	core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
@@ -2278,6 +2293,29 @@ static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 	err = ufshcd_dme_set(hba,
 			    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
 			    core_clk_ctrl_reg);
+
+	/* UFS host controller V4.0.0 onwards needs to program
+	 * PA_VS_CORE_CLK_40NS_CYCLES attribute per programmed frequency of
+	 * unipro core clk of UFS host controller.
+	 */
+	if (!err && (host->hw_ver.major >= 4)) {
+
+		if (clk_40ns_cycles > PA_VS_CORE_CLK_40NS_CYCLES_MASK)
+			return -EINVAL;
+
+		err = ufshcd_dme_get(hba,
+				    UIC_ARG_MIB(PA_VS_CORE_CLK_40NS_CYCLES),
+				    &clk_cycles);
+		if (err)
+			goto out;
+
+		clk_cycles &= ~PA_VS_CORE_CLK_40NS_CYCLES_MASK;
+		clk_cycles |= clk_40ns_cycles;
+
+		err = ufshcd_dme_set(hba,
+				    UIC_ARG_MIB(PA_VS_CORE_CLK_40NS_CYCLES),
+				    clk_cycles);
+	}
 out:
 	return err;
 }
@@ -2296,7 +2334,7 @@ static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 				      attr->hs_rate, false, true);
 
 	/* set unipro core clock cycles to 150 and clear clock divider */
-	err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150);
+	err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6);
 out:
 	return err;
 }
@@ -2319,13 +2357,13 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 		 * For SVS2 set unipro core clock cycles to 37 and
 		 * clear clock divider
 		 */
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 37);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 37, 2);
 	else
 		/*
 		 * For SVS set unipro core clock cycles to 75 and
 		 * clear clock divider
 		 */
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75, 3);
 
 	return err;
 }
