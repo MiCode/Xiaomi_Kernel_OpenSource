@@ -2558,36 +2558,6 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	/* Transition from ACTIVE to RESET state */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
 
-	/* Try soft reset first */
-	if (!(fault & ADRENO_IOMMU_PAGE_FAULT)) {
-		int acked;
-
-		/* NMI */
-		kgsl_gmu_regwrite(device, A6XX_GMU_NMI_CONTROL_STATUS, 0);
-		kgsl_gmu_regwrite(device, A6XX_GMU_CM3_CFG, (1 << 9));
-
-		for (i = 0; i < 10; i++) {
-			kgsl_gmu_regread(device,
-					A6XX_GMU_NMI_CONTROL_STATUS, &acked);
-
-			/* NMI FW ACK recevied */
-			if (acked == 0x1)
-				break;
-
-			udelay(100);
-		}
-
-		if (acked) {
-			/* Make sure VBIF/GBIF is cleared before resetting */
-			ret = adreno_vbif_clear_pending_transactions(device);
-
-			if (ret == 0)
-				ret = adreno_soft_reset(device);
-		}
-
-		if (ret)
-			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
-	}
 	if (ret) {
 		/* If soft reset failed/skipped, then pull the power */
 		set_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
