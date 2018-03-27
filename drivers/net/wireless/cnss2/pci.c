@@ -44,7 +44,9 @@
 #define MAX_M3_FILE_NAME_LENGTH		13
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
 
+#ifdef CONFIG_PCI_MSM
 static DEFINE_SPINLOCK(pci_link_down_lock);
+#endif
 
 static unsigned int pci_link_down_panic;
 module_param(pci_link_down_panic, uint, 0600);
@@ -91,6 +93,7 @@ static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 	return 0;
 }
 
+#ifdef CONFIG_PCI_MSM
 static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 {
 	int ret = 0;
@@ -217,6 +220,13 @@ int cnss_pci_link_down(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_pci_link_down);
 
+#else /* CONFIG_PCI_MSM */
+static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
+{
+	return 0;
+}
+#endif /* CONFIG_PCI_MSM */
+
 static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -277,6 +287,7 @@ static void cnss_pci_deinit_smmu(struct cnss_pci_data *pci_priv)
 	pci_priv->smmu_mapping = NULL;
 }
 
+#ifdef CONFIG_PCI_MSM
 static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 {
 	unsigned long flags;
@@ -594,6 +605,17 @@ int cnss_wlan_pm_control(struct device *dev, bool vote)
 				   NULL, PM_OPTIONS_DEFAULT);
 }
 EXPORT_SYMBOL(cnss_wlan_pm_control);
+
+#else /* CONFIG_PCI_MSM */
+static int cnss_reg_pci_event(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+
+static void cnss_dereg_pci_event(struct cnss_pci_data *pci_priv)
+{
+}
+#endif /* CONFIG_PCI_MSM */
 
 int cnss_auto_suspend(struct device *dev)
 {
@@ -952,6 +974,31 @@ void cnss_get_msi_address(struct device *dev, u32 *msi_addr_low,
 }
 EXPORT_SYMBOL(cnss_get_msi_address);
 
+#ifdef CONFIG_PCI_MSM
+static inline int cnss_pci_set_dma_mask(struct pci_dev *pci_dev)
+{
+	int ret;
+
+	ret = pci_set_dma_mask(pci_dev, DMA_BIT_MASK(PCI_DMA_MASK));
+	if (ret) {
+		cnss_pr_err("PCI DMA mask: %d, err: %d\n", PCI_DMA_MASK, ret);
+		return ret;
+	}
+
+	ret = pci_set_consistent_dma_mask(pci_dev, DMA_BIT_MASK(PCI_DMA_MASK));
+	if (ret)
+		cnss_pr_err("PCI consistent DMA mask: %d, err: %d\n",
+			    PCI_DMA_MASK, ret);
+
+	return ret;
+}
+#else /* CONFIG_PCI_MSM */
+static inline int cnss_pci_set_dma_mask(struct pci_dev *pci_dev)
+{
+	return 0;
+}
+#endif /* CONFIG_PCI_MSM */
+
 static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -984,19 +1031,9 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 		goto disable_device;
 	}
 
-	ret = pci_set_dma_mask(pci_dev, DMA_BIT_MASK(PCI_DMA_MASK));
-	if (ret) {
-		cnss_pr_err("Failed to set PCI DMA mask (%d), err = %d\n",
-			    ret, PCI_DMA_MASK);
+	ret = cnss_pci_set_dma_mask(pci_dev);
+	if (ret)
 		goto release_region;
-	}
-
-	ret = pci_set_consistent_dma_mask(pci_dev, DMA_BIT_MASK(PCI_DMA_MASK));
-	if (ret) {
-		cnss_pr_err("Failed to set PCI consistent DMA mask (%d), err = %d\n",
-			    ret, PCI_DMA_MASK);
-		goto release_region;
-	}
 
 	pci_set_master(pci_dev);
 
@@ -1565,6 +1602,7 @@ static const struct pci_device_id cnss_pci_id_table[] = {
 };
 MODULE_DEVICE_TABLE(pci, cnss_pci_id_table);
 
+#ifdef CONFIG_PCI_MSM
 static const struct dev_pm_ops cnss_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(cnss_pci_suspend, cnss_pci_resume)
 	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(cnss_pci_suspend_noirq,
@@ -1572,20 +1610,24 @@ static const struct dev_pm_ops cnss_pm_ops = {
 	SET_RUNTIME_PM_OPS(cnss_pci_runtime_suspend, cnss_pci_runtime_resume,
 			   cnss_pci_runtime_idle)
 };
+#endif
 
 struct pci_driver cnss_pci_driver = {
 	.name     = "cnss_pci",
 	.id_table = cnss_pci_id_table,
 	.probe    = cnss_pci_probe,
 	.remove   = cnss_pci_remove,
+#ifdef CONFIG_PCI_MSM
 	.driver = {
 		.pm = &cnss_pm_ops,
 	},
+#endif
 };
 
-int cnss_pci_init(struct cnss_plat_data *plat_priv)
+#ifdef CONFIG_PCI_MSM
+static inline int cnss_msm_pcie_enumerate(struct cnss_plat_data *plat_priv)
 {
-	int ret = 0;
+	int ret;
 	struct device *dev = &plat_priv->plat_dev->dev;
 	u32 rc_num;
 
@@ -1601,6 +1643,25 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 			    rc_num, ret);
 		goto out;
 	}
+
+	return 0;
+out:
+	return ret;
+}
+#else /* CONFIG_PCI_MSM */
+static inline int cnss_msm_pcie_enumerate(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+#endif /* CONFIG_PCI_MSM */
+
+int cnss_pci_init(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+
+	ret = cnss_msm_pcie_enumerate(plat_priv);
+	if (ret)
+		goto out;
 
 	ret = pci_register_driver(&cnss_pci_driver);
 	if (ret) {

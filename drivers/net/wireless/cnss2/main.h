@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -213,8 +213,21 @@ int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   u32 flags, void *data);
 int cnss_get_vreg(struct cnss_plat_data *plat_priv);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
+
+#ifndef CONFIG_MSM_GVM_QUIN
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
 void cnss_power_off_device(struct cnss_plat_data *plat_priv);
+#else /* CONFIG_MSM_GVM_QUIN */
+static inline int cnss_power_on_device(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline void cnss_power_off_device(struct cnss_plat_data *plat_priv)
+{
+}
+#endif /* CONFIG_MSM_GVM_QUIN */
+
 int cnss_register_subsys(struct cnss_plat_data *plat_priv);
 void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);

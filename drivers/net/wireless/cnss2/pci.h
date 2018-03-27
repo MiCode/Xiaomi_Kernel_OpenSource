@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,8 +124,21 @@ static inline int cnss_pci_get_auto_suspended(void *bus_priv)
 	return atomic_read(&pci_priv->auto_suspended);
 }
 
+#ifdef CONFIG_PCI_MSM
 int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_resume_pci_link(struct cnss_pci_data *pci_priv);
+#else /* CONFIG_PCI_MSM */
+static inline int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+
+static inline int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+#endif /* CONFIG_PCI_MSM */
+
 int cnss_pci_init(struct cnss_plat_data *plat_priv);
 void cnss_pci_deinit(struct cnss_plat_data *plat_priv);
 int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv);
