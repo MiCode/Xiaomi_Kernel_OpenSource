@@ -231,6 +231,7 @@ enum {
 #define USBIN_CURRENT_LIMIT_CFG_REG		(USBIN_BASE + 0x70)
 
 #define USBIN_AICL_OPTIONS_CFG_REG		(USBIN_BASE + 0x80)
+#define USBIN_AICL_PERIODIC_RERUN_EN_BIT	BIT(4)
 #define USBIN_AICL_ADC_EN_BIT			BIT(3)
 
 /********************************
@@ -351,6 +352,9 @@ enum {
 #define WATCHDOG_TRIGGER_AFP_EN_BIT		BIT(7)
 #define BARK_WDOG_INT_EN_BIT			BIT(6)
 #define WDOG_TIMER_EN_ON_PLUGIN_BIT		BIT(1)
+
+#define AICL_RERUN_TIME_CFG_REG			(MISC_BASE + 0x61)
+#define AICL_RERUN_TIME_12S_VAL			0x01
 
 #define MISC_SMB_CFG_REG			(MISC_BASE + 0x90)
 #define SMB_EN_SEL_BIT				BIT(4)
