@@ -48,6 +48,13 @@
 	};
 };
 
+&soc {
+	qcom,msm-audio-ion-vm {
+		compatible = "qcom,msm-audio-ion-vm";
+		qcom,smmu-enabled;
+	};
+};
+
 &reserved_memory {
 	pmem_shared: pmem_shared_region {
 		reg = <0 0xd0000000 0 0x30000000>;
