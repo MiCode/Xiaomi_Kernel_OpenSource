@@ -317,6 +317,11 @@
 #define clk_apcs_c1_pll					 0x17d32f1e
 #define clk_apcs_cci_pll				 0x09affb3c
 #define clk_a53ssmux_cci				 0x15560bd5
+#define clk_perf_cpussmux				 0xe6532496
+#define clk_pwr_cpussmux				 0xde339cf1
+#define clk_cci_cpussmux				 0xcaeb1b94
+#define clk_pwr_clk					 0x9283a6d8
+#define clk_perf_clk					 0x98d6ee40
 #define clk_a53_cci_clk					 0x4cdbbe58
 
 #define clk_audio_ap_clk				 0x312ac429
