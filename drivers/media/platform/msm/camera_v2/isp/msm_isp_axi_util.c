@@ -4032,10 +4032,12 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				pr_err("%s: stream_info is null", __func__);
 				return -EINVAL;
 			}
+			mutex_lock(&vfe_dev->buf_mgr->lock);
 			rc = msm_isp_request_frame(vfe_dev, stream_info,
 				update_info->user_stream_id,
 				update_info->frame_id,
 				MSM_ISP_INVALID_BUF_INDEX);
+			mutex_unlock(&vfe_dev->buf_mgr->lock);
 			if (rc)
 				pr_err("%s failed to request frame!\n",
 					__func__);
@@ -4087,10 +4089,12 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			pr_err("%s: stream_info is null", __func__);
 			return -EINVAL;
 		}
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_request_frame(vfe_dev, stream_info,
 			req_frm->user_stream_id,
 			req_frm->frame_id,
 			req_frm->buf_index);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		if (rc)
 			pr_err("%s failed to request frame!\n",
 				__func__);
