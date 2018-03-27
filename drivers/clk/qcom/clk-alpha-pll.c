@@ -1199,7 +1199,7 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	unsigned long rrate;
-	u32 l, off = pll->offset;
+	u32 l, regval, off = pll->offset;
 	u64 a;
 	int ret;
 
@@ -1216,6 +1216,13 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	regmap_write(pll->clkr.regmap, off + PLL_ALPHA_VAL, a);
 	regmap_write(pll->clkr.regmap, off + PLL_L_VAL, l);
+
+	/* Return early if the PLL is disabled */
+	ret = regmap_read(pll->clkr.regmap, off + REGERA_PLL_OPMODE, &regval);
+	if (ret)
+		return ret;
+	else if (regval == REGERA_PLL_OFF)
+		return 0;
 
 	/* Wait before polling for the frequency latch */
 	udelay(5);
