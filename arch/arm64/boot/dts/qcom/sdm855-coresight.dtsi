@@ -453,9 +453,16 @@
 		reg = <0x091866F0 0x4>,
 		     <0x91966F0 0x4>,
 		      <0x9186038 0x4>,
-		      <0x9196038 0x4>;
+		      <0x9196038 0x4>,
+		      <0x17E00034 0x4>,
+		     <0x18200050 0x80>,
+		     <0x02C8D050 0x80>,
+		     <0x0AF20050 0x80>;
 		reg-names = "ddr-ch0-cfg", "ddr-ch23-cfg", "ddr-ch0-ctrl",
-			    "ddr-ch23-ctrl";
+			    "ddr-ch23-ctrl", "apss-testbus-mux-cfg",
+			    "apss-rsc-hwevent-mux0-select",
+			    "gpu-rsc-hwevent-mux0-select",
+			    "sde-rsc-hwevent-mux0-select";
 
 		coresight-name = "coresight-hwevent";
 		coresight-csr = <&csr>;
