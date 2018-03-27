@@ -1566,7 +1566,7 @@ error_free_payloads:
 	return rc;
 }
 
-void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set)
+static void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set)
 {
 	u32 i = 0;
 	struct dsi_cmd_desc *cmd;
@@ -1575,7 +1575,10 @@ void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set)
 		cmd = &set->cmds[i];
 		kfree(cmd->msg.tx_buf);
 	}
+}
 
+static void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set)
+{
 	kfree(set->cmds);
 }
 
@@ -3160,8 +3163,10 @@ void dsi_panel_put_mode(struct dsi_display_mode *mode)
 	if (!mode->priv_info)
 		return;
 
-	for (i = 0; i < DSI_CMD_SET_MAX; i++)
+	for (i = 0; i < DSI_CMD_SET_MAX; i++) {
 		dsi_panel_destroy_cmd_packets(&mode->priv_info->cmd_sets[i]);
+		dsi_panel_dealloc_cmd_packets(&mode->priv_info->cmd_sets[i]);
+	}
 
 	kfree(mode->priv_info);
 }
@@ -3363,9 +3368,9 @@ int dsi_panel_update_pps(struct dsi_panel *panel)
 	if (rc) {
 		pr_err("[%s] failed to send DSI_CMD_SET_PPS cmds, rc=%d\n",
 			panel->name, rc);
-		goto error;
 	}
 
+	dsi_panel_destroy_cmd_packets(set);
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
