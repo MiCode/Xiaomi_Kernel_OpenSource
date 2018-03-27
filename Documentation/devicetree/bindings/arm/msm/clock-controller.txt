@@ -25,6 +25,8 @@ Required properties:
 			"qcom,gcc-8992"
 			"qcom,gcc-8952"
 			"qcom,gcc-8937"
+			"qcom,gcc-sdm439"
+			"qcom,gcc-sdm429"
 			"qcom,gcc-8917"
 			"qcom,gcc-8940"
 			"qcom,gcc-8920"
