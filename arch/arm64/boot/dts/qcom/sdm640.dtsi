@@ -611,3 +611,4 @@
 	};
 };
 #include "sdm640-pinctrl.dtsi"
+#include "sdm640-stub-regulator.dtsi"
