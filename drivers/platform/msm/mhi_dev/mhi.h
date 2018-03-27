@@ -714,7 +714,6 @@ enum mhi_client_channel {
 #define MHI_DEV_UEVENT_CTRL	0
 
 struct mhi_dev_uevent_info {
-	enum mhi_client_channel	channel;
 	enum mhi_ctrl_info	ctrl_info;
 };
 
