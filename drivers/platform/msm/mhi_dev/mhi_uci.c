@@ -441,6 +441,61 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 	return rc;
 }
 
+static void  mhi_parse_state(char *buf, int *nbytes, uint32_t info)
+{
+	switch (info) {
+	case MHI_STATE_CONNECTED:
+		*nbytes = scnprintf(buf, MHI_CTRL_STATE,
+			"CONNECTED");
+		break;
+	case MHI_STATE_DISCONNECTED:
+		*nbytes = scnprintf(buf, MHI_CTRL_STATE,
+			"DISCONNECTED");
+		break;
+	case MHI_STATE_CONFIGURED:
+	default:
+		*nbytes = scnprintf(buf, MHI_CTRL_STATE,
+			"CONFIGURED");
+		break;
+	}
+}
+
+static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
+{
+	int rc, nbytes = 0;
+	uint32_t info = 0;
+	char buf[MHI_CTRL_STATE];
+
+	rc = mhi_ctrl_state_info(MHI_DEV_UEVENT_CTRL, &info);
+	if (rc) {
+		pr_err("Failed to obtain MHI_STATE\n");
+		return -EINVAL;
+	}
+
+	mhi_parse_state(buf, &nbytes, info);
+	add_uevent_var(env, "MHI_STATE=%s", buf);
+
+	rc = mhi_ctrl_state_info(MHI_CLIENT_QMI_OUT, &info);
+	if (rc) {
+		pr_err("Failed to obtain channel 14 state\n");
+		return -EINVAL;
+	}
+	nbytes = 0;
+	mhi_parse_state(buf, &nbytes, info);
+	add_uevent_var(env, "MHI_CHANNEL_STATE_14=%s", buf);
+
+	rc = mhi_ctrl_state_info(MHI_CLIENT_MBIM_OUT, &info);
+	if (rc) {
+		pr_err("Failed to obtain channel 12 state\n");
+		return -EINVAL;
+	}
+	nbytes = 0;
+	mhi_parse_state(buf, &nbytes, info);
+	add_uevent_var(env, "MHI_CHANNEL_STATE_12=%s", buf);
+
+	return 0;
+}
+
 static ssize_t mhi_uci_ctrl_client_read(struct file *file,
 		char __user *user_buf,
 		size_t count, loff_t *offp)
@@ -455,7 +510,7 @@ static ssize_t mhi_uci_ctrl_client_read(struct file *file,
 		return -EINVAL;
 
 	uci_ctrl_handle = file->private_data;
-	rc = mhi_ctrl_state_info(&info);
+	rc = mhi_ctrl_state_info(MHI_CLIENT_QMI_OUT, &info);
 	if (rc)
 		return -EINVAL;
 
@@ -992,6 +1047,8 @@ int mhi_uci_init(void)
 		kfree(uci_ctxt.cdev_ctrl);
 		uci_ctxt.cdev_ctrl = NULL;
 	}
+
+	uci_ctxt.mhi_uci_class->dev_uevent = mhi_state_uevent;
 
 	return 0;
 
