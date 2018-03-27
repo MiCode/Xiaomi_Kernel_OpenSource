@@ -509,8 +509,6 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		b->m.planes[i].data_offset = b->m.planes[i].reserved[1];
 	}
 
-	msm_comm_qbuf_cache_operations(inst, b);
-
 	/* Compression ratio is valid only for Encoder YUV buffers. */
 	if (inst->session_type == MSM_VIDC_ENCODER &&
 			b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -570,7 +568,6 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		return rc;
 	}
 
-	msm_comm_dqbuf_cache_operations(inst, b);
 	for (i = 0; i < b->length; i++) {
 		b->m.planes[i].reserved[0] = b->m.planes[i].m.fd;
 		b->m.planes[i].reserved[1] = b->m.planes[i].data_offset;
