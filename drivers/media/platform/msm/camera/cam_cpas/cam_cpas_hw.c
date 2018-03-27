@@ -873,6 +873,7 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 	if (!CAM_CPAS_CLIENT_VALID(client_indx))
 		return -EINVAL;
 
+	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
 
 	if (!CAM_CPAS_CLIENT_STARTED(cpas_core, client_indx)) {
@@ -892,6 +893,7 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 
 unlock_client:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
+	mutex_unlock(&cpas_hw->hw_mutex);
 	return rc;
 }
 
@@ -907,6 +909,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	struct cam_axi_vote *axi_vote;
 	enum cam_vote_level applied_level = CAM_SVS_VOTE;
 	int rc;
+	struct cam_cpas_private_soc *soc_private = NULL;
 
 	if (!hw_priv || !start_args) {
 		CAM_ERR(CAM_CPAS, "Invalid arguments %pK %pK",
@@ -922,6 +925,8 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 
 	cpas_hw = (struct cam_hw_info *)hw_priv;
 	cpas_core = (struct cam_cpas *) cpas_hw->core_info;
+	soc_private = (struct cam_cpas_private_soc *)
+		cpas_hw->soc_info.soc_private;
 	cmd_hw_start = (struct cam_cpas_hw_cmd_start *)start_args;
 	client_indx = CAM_CPAS_GET_CLIENT_IDX(cmd_hw_start->client_handle);
 	ahb_vote = cmd_hw_start->ahb_vote;
@@ -1005,8 +1010,9 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	cpas_client->started = true;
 	cpas_core->streamon_clients++;
 
-	CAM_DBG(CAM_CPAS, "client_indx=%d, streamon_clients=%d",
-		client_indx, cpas_core->streamon_clients);
+	CAM_DBG(CAM_CPAS, "client=%s, streamon_clients=%d",
+		soc_private->client_name[client_indx],
+		cpas_core->streamon_clients);
 done:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
 	mutex_unlock(&cpas_hw->hw_mutex);
@@ -1028,6 +1034,7 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	struct cam_cpas_client *cpas_client;
 	struct cam_ahb_vote ahb_vote;
 	struct cam_axi_vote axi_vote;
+	struct cam_cpas_private_soc *soc_private = NULL;
 	int rc = 0;
 	long result;
 
@@ -1045,6 +1052,8 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 
 	cpas_hw = (struct cam_hw_info *)hw_priv;
 	cpas_core = (struct cam_cpas *) cpas_hw->core_info;
+	soc_private = (struct cam_cpas_private_soc *)
+		cpas_hw->soc_info.soc_private;
 	cmd_hw_stop = (struct cam_cpas_hw_cmd_stop *)stop_args;
 	client_indx = CAM_CPAS_GET_CLIENT_IDX(cmd_hw_stop->client_handle);
 
@@ -1054,8 +1063,9 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
 
-	CAM_DBG(CAM_CPAS, "client_indx=%d, streamon_clients=%d",
-		client_indx, cpas_core->streamon_clients);
+	CAM_DBG(CAM_CPAS, "client=%s, streamon_clients=%d",
+		soc_private->client_name[client_indx],
+		cpas_core->streamon_clients);
 
 	if (!CAM_CPAS_CLIENT_STARTED(cpas_core, client_indx)) {
 		CAM_ERR(CAM_CPAS, "Client %d is not started", client_indx);
