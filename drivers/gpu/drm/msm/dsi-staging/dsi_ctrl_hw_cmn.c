@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1475,4 +1475,19 @@ u32 dsi_ctrl_hw_cmn_get_hw_version(struct dsi_ctrl_hw *ctrl)
 	reg = DSI_R32(ctrl, 0x0);
 
 	return reg;
+}
+
+int dsi_ctrl_hw_cmn_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl_hw *ctrl)
+{
+	int rc = 0, val = 0;
+	u32 cmd_mode_mdp_busy_mask = BIT(2);
+	u32 const sleep_us = 2 * 1000;
+	u32 const timeout_us = 200 * 1000;
+
+	rc = readl_poll_timeout(ctrl->base + DSI_STATUS, val,
+			!(val & cmd_mode_mdp_busy_mask), sleep_us, timeout_us);
+	if (rc)
+		pr_err("%s: timed out waiting for idle\n", __func__);
+
+	return rc;
 }

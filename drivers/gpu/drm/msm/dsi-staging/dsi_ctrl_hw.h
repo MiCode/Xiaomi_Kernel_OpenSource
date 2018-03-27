@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -798,6 +798,13 @@ struct dsi_ctrl_hw_ops {
 	 * @ctrl:         Pointer to the controller host hardware.
 	 */
 	u32 (*get_hw_version)(struct dsi_ctrl_hw *ctrl);
+
+	/**
+	 * wait_for_cmd_mode_mdp_idle() - wait for command mode engine not to
+	 *                           be busy sending data from display engine
+	 * @ctrl:         Pointer to the controller host hardware.
+	 */
+	int (*wait_for_cmd_mode_mdp_idle)(struct dsi_ctrl_hw *ctrl);
 };
 
 /*
