@@ -74,7 +74,6 @@ struct msm_smem {
 	unsigned long flags;
 	enum hal_buffer buffer_type;
 	struct dma_mapping_info mapping_info;
-	unsigned long pages; //in PAGE_SIZE units
 };
 
 enum smem_cache_ops {
