@@ -535,10 +535,9 @@ int32_t cam_context_flush_ctx_to_hw(struct cam_context *ctx)
 					CAM_SYNC_STATE_SIGNALED_ERROR);
 				if (rc == -EALREADY) {
 					CAM_ERR(CAM_CTXT,
-						"Req: %llu already signalled, sync_id:%d",
-						req->request_id,
-						req->out_map_entries[i].
-						sync_id);
+					"Req: %llu already signalled, sync_id:%d",
+					req->request_id,
+					req->out_map_entries[i].sync_id);
 					break;
 				}
 			}
@@ -629,6 +628,7 @@ int32_t cam_context_flush_req_to_hw(struct cam_context *ctx,
 	struct cam_ctx_request *req = NULL;
 	struct cam_hw_flush_args flush_args;
 	uint32_t i;
+	int32_t sync_id = 0;
 	int rc = 0;
 
 	CAM_DBG(CAM_CTXT, "[%s] E: NRT flush req", ctx->dev_name);
@@ -683,20 +683,20 @@ int32_t cam_context_flush_req_to_hw(struct cam_context *ctx,
 
 	if (req) {
 		if (flush_args.num_req_pending || flush_args.num_req_active) {
-			for (i = 0; i < req->num_out_map_entries; i++)
-				if (req->out_map_entries[i].sync_id != -1) {
-					rc = cam_sync_signal(
-						req->out_map_entries[i].sync_id,
+			for (i = 0; i < req->num_out_map_entries; i++) {
+				sync_id =
+					req->out_map_entries[i].sync_id;
+				if (sync_id != -1) {
+					rc = cam_sync_signal(sync_id,
 						CAM_SYNC_STATE_SIGNALED_ERROR);
 					if (rc == -EALREADY) {
 						CAM_ERR(CAM_CTXT,
-							"Req: %llu already signalled, sync_id:%d",
-							req->request_id,
-							req->out_map_entries[i].
-							sync_id);
+						"Req: %llu already signalled, sync_id:%d",
+						req->request_id, sync_id);
 						break;
 					}
 				}
+			}
 			if (flush_args.num_req_active) {
 				spin_lock(&ctx->lock);
 				list_add_tail(&req->list, &ctx->free_req_list);

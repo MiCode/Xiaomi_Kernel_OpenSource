@@ -275,7 +275,7 @@ static int cam_vfe_top_clock_update(
 	}
 
 	if (hw_info->hw_state != CAM_HW_STATE_POWER_UP) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP,
+		CAM_DBG(CAM_ISP,
 			"VFE:%d Not ready to set clocks yet :%d",
 			res->hw_intf->hw_idx,
 			hw_info->hw_state);
