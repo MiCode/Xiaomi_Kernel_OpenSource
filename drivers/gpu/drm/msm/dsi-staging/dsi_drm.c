@@ -320,9 +320,11 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 		cur_mode = crtc_state->crtc->mode;
 
+		/* No DMS/VRR when drm pipeline is changing */
 		if (!drm_mode_equal(&cur_mode, adjusted_mode) &&
-			(!(dsi_mode.dsi_mode_flags &
-				DSI_MODE_FLAG_VRR)))
+			(!(dsi_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR)) &&
+			(!crtc_state->active_changed ||
+			 display->is_cont_splash_enabled))
 			dsi_mode.dsi_mode_flags |= DSI_MODE_FLAG_DMS;
 	}
 

@@ -171,6 +171,7 @@ enum flash_charger_mitigation {
 };
 
 enum flash_led_type {
+	FLASH_LED_TYPE_UNKNOWN,
 	FLASH_LED_TYPE_FLASH,
 	FLASH_LED_TYPE_TORCH,
 };
@@ -204,13 +205,13 @@ struct flash_node_data {
 	int				prev_current_ma;
 	u8				duration;
 	u8				id;
-	u8				type;
 	u8				ires_idx;
 	u8				default_ires_idx;
 	u8				hdrm_val;
 	u8				current_reg_val;
 	u8				strobe_ctrl;
 	u8				strobe_sel;
+	enum flash_led_type		type;
 	bool				led_on;
 };
 
@@ -225,6 +226,7 @@ struct flash_switch_data {
 	int				led_mask;
 	bool				regulator_on;
 	bool				enabled;
+	bool				symmetry_en;
 };
 
 /*
@@ -999,7 +1001,8 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 	fnode->cdev.brightness = prgm_current_ma;
 	fnode->current_reg_val = get_current_reg_code(prgm_current_ma,
 					fnode->ires_ua);
-	fnode->led_on = prgm_current_ma != 0;
+	if (prgm_current_ma)
+		fnode->led_on = true;
 
 	if (led->pdata->chgr_mitigation_sel == FLASH_SW_CHARGER_MITIGATION) {
 		qpnp_flash_led_aggregate_max_current(fnode);
@@ -1091,6 +1094,71 @@ static int qpnp_flash_led_switch_disable(struct flash_switch_data *snode)
 	return 0;
 }
 
+static int qpnp_flash_led_symmetry_config(struct flash_switch_data *snode)
+{
+	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
+	int i, total_curr_ma = 0, num_leds = 0, prgm_current_ma;
+	enum flash_led_type type = FLASH_LED_TYPE_UNKNOWN;
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		if (snode->led_mask & BIT(led->fnode[i].id)) {
+			if (led->fnode[i].type == FLASH_LED_TYPE_FLASH &&
+				led->fnode[i].led_on)
+				type = FLASH_LED_TYPE_FLASH;
+
+			if (led->fnode[i].type == FLASH_LED_TYPE_TORCH &&
+				led->fnode[i].led_on)
+				type = FLASH_LED_TYPE_TORCH;
+		}
+	}
+
+	if (type == FLASH_LED_TYPE_UNKNOWN) {
+		pr_err("Incorrect type possibly because of no active LEDs\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		if ((snode->led_mask & BIT(led->fnode[i].id)) &&
+			(led->fnode[i].type == type)) {
+			total_curr_ma += led->fnode[i].current_ma;
+			num_leds++;
+		}
+	}
+
+	if (num_leds > 0 && total_curr_ma > 0) {
+		prgm_current_ma = total_curr_ma / num_leds;
+	} else {
+		pr_err("Incorrect configuration, num_leds: %d total_curr_ma: %d\n",
+			num_leds, total_curr_ma);
+		return -EINVAL;
+	}
+
+	if (prgm_current_ma == 0) {
+		pr_warn("prgm_curr_ma cannot be 0\n");
+		return 0;
+	}
+
+	pr_debug("num_leds: %d total: %d prgm_curr_ma: %d\n", num_leds,
+		total_curr_ma, prgm_current_ma);
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		if (snode->led_mask & BIT(led->fnode[i].id) &&
+			led->fnode[i].current_ma != prgm_current_ma &&
+			led->fnode[i].type == type) {
+			qpnp_flash_led_node_set(&led->fnode[i],
+				prgm_current_ma);
+			pr_debug("%s LED %d current: %d code: %d ires_ua: %d\n",
+				(type == FLASH_LED_TYPE_FLASH) ?
+					"flash" : "torch",
+				led->fnode[i].id, prgm_current_ma,
+				led->fnode[i].current_reg_val,
+				led->fnode[i].ires_ua);
+		}
+	}
+
+	return 0;
+}
+
 static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 {
 	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
@@ -1109,6 +1177,15 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	}
 
 	/* Iterate over all active leds for this switch node */
+	if (snode->symmetry_en) {
+		rc = qpnp_flash_led_symmetry_config(snode);
+		if (rc < 0) {
+			pr_err("Failed to configure current symmetrically, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	val = 0;
 	for (i = 0; i < led->num_fnodes; i++)
 		if (led->fnode[i].led_on &&
@@ -1706,6 +1783,8 @@ static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 		pr_err("Unable to read led mask rc=%d\n", rc);
 		return rc;
 	}
+
+	snode->symmetry_en = of_property_read_bool(node, "qcom,symmetry-en");
 
 	if (snode->led_mask < 1 || snode->led_mask > 7) {
 		pr_err("Invalid value for led-mask\n");

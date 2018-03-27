@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,7 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 	struct cam_hw_soc_info *soc_info =
 		&cci_dev->soc_info;
 	void __iomem *base = soc_info->reg_map[0].mem_base;
+	unsigned long flags;
 
 	irq = cam_io_r_mb(base + CCI_IRQ_STATUS_0_ADDR);
 	cam_io_w_mb(irq, base + CCI_IRQ_CLEAR_0_ADDR);
@@ -91,23 +92,35 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 		struct cam_cci_master_info *cci_master_info;
 
 		cci_master_info = &cci_dev->cci_master_info[MASTER_0];
+		spin_lock_irqsave(
+			&cci_dev->cci_master_info[MASTER_0].lock_q[QUEUE_0],
+			flags);
 		atomic_set(&cci_master_info->q_free[QUEUE_0], 0);
 		cci_master_info->status = 0;
 		if (atomic_read(&cci_master_info->done_pending[QUEUE_0]) == 1) {
 			complete(&cci_master_info->report_q[QUEUE_0]);
 			atomic_set(&cci_master_info->done_pending[QUEUE_0], 0);
 		}
+		spin_unlock_irqrestore(
+			&cci_dev->cci_master_info[MASTER_0].lock_q[QUEUE_0],
+			flags);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M0_Q1_REPORT_BMSK) {
 		struct cam_cci_master_info *cci_master_info;
 
 		cci_master_info = &cci_dev->cci_master_info[MASTER_0];
+		spin_lock_irqsave(
+			&cci_dev->cci_master_info[MASTER_0].lock_q[QUEUE_1],
+			flags);
 		atomic_set(&cci_master_info->q_free[QUEUE_1], 0);
 		cci_master_info->status = 0;
 		if (atomic_read(&cci_master_info->done_pending[QUEUE_1]) == 1) {
 			complete(&cci_master_info->report_q[QUEUE_1]);
 			atomic_set(&cci_master_info->done_pending[QUEUE_1], 0);
 		}
+		spin_unlock_irqrestore(
+			&cci_dev->cci_master_info[MASTER_0].lock_q[QUEUE_1],
+			flags);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M1_RD_DONE_BMSK) {
 		cci_dev->cci_master_info[MASTER_1].status = 0;
@@ -117,23 +130,35 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 		struct cam_cci_master_info *cci_master_info;
 
 		cci_master_info = &cci_dev->cci_master_info[MASTER_1];
+		spin_lock_irqsave(
+			&cci_dev->cci_master_info[MASTER_1].lock_q[QUEUE_0],
+			flags);
 		atomic_set(&cci_master_info->q_free[QUEUE_0], 0);
 		cci_master_info->status = 0;
 		if (atomic_read(&cci_master_info->done_pending[QUEUE_0]) == 1) {
 			complete(&cci_master_info->report_q[QUEUE_0]);
 			atomic_set(&cci_master_info->done_pending[QUEUE_0], 0);
 		}
+		spin_unlock_irqrestore(
+			&cci_dev->cci_master_info[MASTER_1].lock_q[QUEUE_0],
+			flags);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M1_Q1_REPORT_BMSK) {
 		struct cam_cci_master_info *cci_master_info;
 
 		cci_master_info = &cci_dev->cci_master_info[MASTER_1];
+		spin_lock_irqsave(
+			&cci_dev->cci_master_info[MASTER_1].lock_q[QUEUE_1],
+			flags);
 		atomic_set(&cci_master_info->q_free[QUEUE_1], 0);
 		cci_master_info->status = 0;
 		if (atomic_read(&cci_master_info->done_pending[QUEUE_1]) == 1) {
 			complete(&cci_master_info->report_q[QUEUE_1]);
 			atomic_set(&cci_master_info->done_pending[QUEUE_1], 0);
 		}
+		spin_unlock_irqrestore(
+			&cci_dev->cci_master_info[MASTER_1].lock_q[QUEUE_1],
+			flags);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_HALT_ACK_BMSK) {
 		cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;

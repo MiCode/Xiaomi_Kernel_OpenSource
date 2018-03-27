@@ -182,6 +182,10 @@ Optional properties:
 				  be edge triggered. Otherwise, it is level triggered.
 - qcom,hw-strobe-active-low	: Boolean property to select strobe signal polarity. If defined, hw-strobe
 				  signal polarity is set to active-low, else it is active-high.
+- qcom,symmetry-en	: Boolean property to specify if the flash LEDs under a
+			  switch node are controlled symmetrically. This needs
+			  to be specified if a group of flash LED channels are
+			  connected to a single LED.
 Example:
 	qcom,leds@d300 {
 		compatible = "qcom,qpnp-flash-led-v2";
@@ -302,6 +306,7 @@ Example:
 			qcom,led-mask = <3>;
 			qcom,default-led-trigger =
 						"switch0_trigger";
+			qcom,symmetry-en;
 		};
 
 		pmi8998_switch1: qcom,led_switch_1 {

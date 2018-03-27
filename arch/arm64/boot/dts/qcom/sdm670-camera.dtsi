@@ -234,9 +234,7 @@
 		msm_cam_smmu_lrme {
 			compatible = "qcom,msm-cam-smmu-cb";
 			iommus = <&apps_smmu 0x1038 0x0>,
-				<&apps_smmu 0x1058 0x0>,
-				<&apps_smmu 0x1039 0x0>,
-				<&apps_smmu 0x1059 0x0>;
+				<&apps_smmu 0x1058 0x0>;
 			label = "lrme";
 			lrme_iova_mem_map: iova-mem-map {
 				iova-mem-region-shared {

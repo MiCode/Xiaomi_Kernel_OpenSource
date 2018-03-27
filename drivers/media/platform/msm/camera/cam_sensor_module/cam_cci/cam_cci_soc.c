@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -198,7 +198,9 @@ static void cam_cci_init_cci_params(struct cci_device *new_cci_dev)
 			mutex_init(&new_cci_dev->cci_master_info[i].mutex_q[j]);
 			init_completion(&new_cci_dev->
 				cci_master_info[i].report_q[j]);
-			}
+			spin_lock_init(
+				&new_cci_dev->cci_master_info[i].lock_q[j]);
+		}
 	}
 }
 
@@ -390,7 +392,6 @@ int cam_cci_soc_release(struct cci_device *cci_dev)
 
 	cci_dev->cci_state = CCI_STATE_DISABLED;
 	cci_dev->cycles_per_us = 0;
-	soc_info->src_clk_idx = 0;
 
 	cam_cpas_stop(cci_dev->cpas_handle);
 
