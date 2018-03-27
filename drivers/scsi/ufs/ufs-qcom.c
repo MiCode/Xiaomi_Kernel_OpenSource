@@ -2354,10 +2354,10 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 
 	if (ufs_qcom_cap_svs2(host))
 		/*
-		 * For SVS2 set unipro core clock cycles to 37 and
+		 * For SVS2 set unipro core clock cycles to 38 and
 		 * clear clock divider
 		 */
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 37, 2);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 38, 2);
 	else
 		/*
 		 * For SVS set unipro core clock cycles to 75 and
