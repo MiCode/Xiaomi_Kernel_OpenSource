@@ -1177,11 +1177,15 @@ void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
 static void cnss_mhi_notify_status(enum MHI_CB_REASON reason, void *priv)
 {
 	struct cnss_pci_data *pci_priv = priv;
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_plat_data *plat_priv;
 	enum cnss_recovery_reason cnss_reason = CNSS_REASON_RDDM;
 
-	if (!pci_priv)
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL");
 		return;
+	}
+
+	plat_priv = pci_priv->plat_priv;
 
 	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
 
