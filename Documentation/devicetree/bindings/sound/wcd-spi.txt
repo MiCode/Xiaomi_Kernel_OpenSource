@@ -35,3 +35,23 @@ tavil_codec {
 		qcom,mem-base-addr = <0x100000>;
 	};
 };
+
+WCD SPI Accces Control driver support
+
+* wcd_spi_ac
+
+The wcd_spi_ac driver can be added as child device node to the wcd_spi node
+to indicate that the WCD SPI bus needs access control and the access needs
+to be arbitrated with other masters, possibly residing on another processor.
+The wcd-spi driver will parse this node and register platform_device for
+this node.
+
+Required properties:
+
+- compatible : "qcom,wcd-spi-ac"
+
+Example:
+
+wcd_spi_ac {
+	compatible = "qcom,wcd-spi-ac";
+};
