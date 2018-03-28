@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -210,4 +210,20 @@ void hab_vchan_put(struct virtual_channel *vchan)
 {
 	if (vchan)
 		kref_put(&vchan->refcount, hab_vchan_schedule_free);
+}
+
+int hab_vchan_query(struct uhab_context *ctx, int32_t vcid, uint64_t *ids,
+		char *names, size_t name_size, uint32_t flags)
+{
+	struct virtual_channel *vchan = hab_get_vchan_fromvcid(vcid, ctx);
+
+	if (!vchan || vchan->otherend_closed)
+		return -ENODEV;
+
+	*ids = vchan->pchan->vmid_local |
+		((uint64_t)vchan->pchan->vmid_remote) << 32;
+	names[0] = 0;
+	names[name_size/2] = 0;
+
+	return 0;
 }

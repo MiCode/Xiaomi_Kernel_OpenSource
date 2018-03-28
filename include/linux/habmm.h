@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,5 +34,16 @@ int32_t habmm_import(int32_t handle, void **buff_shared, uint32_t size_bytes,
 		     uint32_t export_id, uint32_t flags);
 int32_t habmm_unimport(int32_t handle, uint32_t export_id, void *buff_shared,
 		       uint32_t flags);
+
+struct hab_socket_info {
+	int32_t vmid_remote; /* habmm's vmid */
+	int32_t vmid_local;
+	/* name from hypervisor framework if available */
+	char    vmname_remote[12];
+	char    vmname_local[12];
+};
+
+int32_t habmm_socket_query(int32_t handle, struct hab_socket_info *info,
+		uint32_t flags);
 
 #endif

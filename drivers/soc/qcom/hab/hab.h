@@ -194,6 +194,10 @@ struct physical_channel {
 
 	void *hyp_data;
 	int dom_id;
+	int vmid_local;
+	int vmid_remote;
+	char vmname_local[12];
+	char vmname_remote[12];
 	int closed;
 
 	spinlock_t rxbuf_lock;
@@ -503,6 +507,9 @@ int fill_default_gvm_settings(struct local_vmid *settings,
 		int vmid_local, int mmid_start, int mmid_end);
 
 bool hab_is_loopback(void);
+
+int hab_vchan_query(struct uhab_context *ctx, int32_t vcid, uint64_t *ids,
+		char *names, size_t name_size, uint32_t flags);
 
 /* Global singleton HAB instance */
 extern struct hab_driver hab_driver;

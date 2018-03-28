@@ -59,6 +59,14 @@ struct hab_unimport {
 	__u32 flags;
 };
 
+struct hab_info {
+	__s32 vcid;
+	__u64 ids; /* high part remote; low part local */
+	__u64 names;
+	__u32 namesize; /* single name length */
+	__u32 flags;
+};
+
 #define HAB_IOC_TYPE 0x0A
 #define HAB_MAX_MSG_SIZEBYTES 0x1000
 #define HAB_MAX_EXPORT_SIZE 0x8000000
@@ -162,5 +170,8 @@ struct hab_unimport {
 
 #define IOCTL_HAB_VC_UNIMPORT \
 	_IOW(HAB_IOC_TYPE, 0x9, struct hab_unimport)
+
+#define IOCTL_HAB_VC_QUERY \
+	_IOWR(HAB_IOC_TYPE, 0xA, struct hab_info)
 
 #endif /* HABMM_H */

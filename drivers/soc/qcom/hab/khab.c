@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,3 +138,24 @@ int32_t habmm_unimport(int32_t handle,
 	return hab_mem_unimport(hab_driver.kctx, &param, 1);
 }
 EXPORT_SYMBOL(habmm_unimport);
+
+int32_t habmm_socket_query(int32_t handle,
+		struct hab_socket_info *info,
+		uint32_t flags)
+{
+	int ret;
+	uint64_t ids;
+	char nm[sizeof(info->vmname_remote) + sizeof(info->vmname_local)];
+
+	ret = hab_vchan_query(hab_driver.kctx, handle, &ids, nm, sizeof(nm), 1);
+	if (!ret) {
+		info->vmid_local = ids & 0xFFFFFFFF;
+		info->vmid_remote = (ids & 0xFFFFFFFF00000000UL) > 32;
+
+		strlcpy(info->vmname_local, nm, sizeof(info->vmname_local));
+		strlcpy(info->vmname_remote, &nm[sizeof(info->vmname_local)],
+			sizeof(info->vmname_remote));
+	}
+	return ret;
+}
+EXPORT_SYMBOL(habmm_socket_query);
