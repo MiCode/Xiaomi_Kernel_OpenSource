@@ -73,7 +73,7 @@ __XCHG_CASE( ,  ,  mb_8, dmb ish, nop,  , a, l, "memory")
 #undef __XCHG_CASE
 
 #define __XCHG_GEN(sfx)							\
-static __always_inline unsigned long __xchg##sfx(unsigned long x,	\
+static inline unsigned long __xchg##sfx(unsigned long x,		\
 					volatile void *ptr,		\
 					int size)			\
 {									\
