@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -294,6 +294,18 @@ DEFINE_CLK_RPMH_VRM(sdm855, rf_clk2, rf_clk2_ao, "rfclka2", &apps_rsc,
 DEFINE_CLK_RPMH_VRM(sdm855, rf_clk3, rf_clk3_ao, "rfclka3", &apps_rsc,
 		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
+DEFINE_CLK_RPMH_VRM(sdmshrike, rf_clk1, rf_clk1_ao, "rfclkd1", &apps_rsc,
+		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
+		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
+DEFINE_CLK_RPMH_VRM(sdmshrike, rf_clk2, rf_clk2_ao, "rfclkd2", &apps_rsc,
+		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
+		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
+DEFINE_CLK_RPMH_VRM(sdmshrike, rf_clk3, rf_clk3_ao, "rfclkd3", &apps_rsc,
+		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
+		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
+DEFINE_CLK_RPMH_VRM(sdmshrike, rf_clk4, rf_clk4_ao, "rfclkd4", &apps_rsc,
+		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
+		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
 
 static struct clk_hw *sdm855_rpmh_clocks[] = {
 	[RPMH_CXO_CLK]		= &sdm855_bi_tcxo.hw,
@@ -315,8 +327,31 @@ static const struct clk_rpmh_desc clk_rpmh_sdm855 = {
 	.num_clks = ARRAY_SIZE(sdm855_rpmh_clocks),
 };
 
+static struct clk_hw *sdmshrike_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]		= &sdm855_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]	= &sdm855_bi_tcxo_ao.hw,
+	[RPMH_LN_BB_CLK2]	= &sdm855_ln_bb_clk2.hw,
+	[RPMH_LN_BB_CLK2_A]	= &sdm855_ln_bb_clk2_ao.hw,
+	[RPMH_LN_BB_CLK3]	= &sdm855_ln_bb_clk3.hw,
+	[RPMH_LN_BB_CLK3_A]	= &sdm855_ln_bb_clk3_ao.hw,
+	[RPMH_RF_CLK1]		= &sdmshrike_rf_clk1.hw,
+	[RPMH_RF_CLK1_A]	= &sdmshrike_rf_clk1_ao.hw,
+	[RPMH_RF_CLK2]		= &sdmshrike_rf_clk2.hw,
+	[RPMH_RF_CLK2_A]	= &sdmshrike_rf_clk2_ao.hw,
+	[RPMH_RF_CLK3]		= &sdmshrike_rf_clk3.hw,
+	[RPMH_RF_CLK3_A]	= &sdmshrike_rf_clk3_ao.hw,
+	[RPMH_RF_CLK4]		= &sdmshrike_rf_clk4.hw,
+	[RPMH_RF_CLK4_A]	= &sdmshrike_rf_clk4_ao.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_sdmshrike = {
+	.clks = sdmshrike_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(sdmshrike_rpmh_clocks),
+};
+
 static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,rpmh-clk-sdm855", .data = &clk_rpmh_sdm855},
+	{ .compatible = "qcom,rpmh-clk-sdmshrike", .data = &clk_rpmh_sdmshrike},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
