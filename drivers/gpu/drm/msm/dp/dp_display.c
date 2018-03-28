@@ -1118,7 +1118,7 @@ error:
 	return rc;
 }
 
-static void dp_display_post_init(struct dp_display *dp_display)
+static int dp_display_post_init(struct dp_display *dp_display)
 {
 	int rc = 0;
 	struct dp_display_private *dp;
@@ -1145,6 +1145,7 @@ static void dp_display_post_init(struct dp_display *dp_display)
 	dp_display->post_init = NULL;
 end:
 	pr_debug("%s\n", rc ? "failed" : "success");
+	return rc;
 }
 
 static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
