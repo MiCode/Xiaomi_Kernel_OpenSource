@@ -337,14 +337,15 @@ static struct device_attribute *audio_source_function_attributes[] = {
 
 /*--------------------------------------------------------------------------*/
 
-static struct usb_request *audio_request_new(struct usb_ep *ep, int buffer_size)
+static struct usb_request *audio_request_new(struct usb_ep *ep, int buffer_size,
+					size_t extra_buf_alloc)
 {
 	struct usb_request *req = usb_ep_alloc_request(ep, GFP_KERNEL);
 
 	if (!req)
 		return NULL;
 
-	req->buf = kmalloc(buffer_size, GFP_KERNEL);
+	req->buf = kmalloc(buffer_size + extra_buf_alloc, GFP_KERNEL);
 	if (!req->buf) {
 		usb_ep_free_request(ep, req);
 		return NULL;
@@ -748,7 +749,8 @@ audio_bind(struct usb_configuration *c, struct usb_function *f)
 	f->ss_descriptors = ss_audio_desc;
 
 	for (i = 0, status = 0; i < IN_EP_REQ_COUNT && status == 0; i++) {
-		req = audio_request_new(ep, IN_EP_MAX_PACKET_SIZE);
+		req = audio_request_new(ep, IN_EP_MAX_PACKET_SIZE,
+						cdev->gadget->extra_buf_alloc);
 		if (req) {
 			req->context = audio;
 			req->complete = audio_data_complete;
