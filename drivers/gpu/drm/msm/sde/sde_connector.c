@@ -1207,7 +1207,7 @@ void sde_connector_prepare_fence(struct drm_connector *connector)
 }
 
 void sde_connector_complete_commit(struct drm_connector *connector,
-		ktime_t ts)
+		ktime_t ts, enum sde_fence_event fence_event)
 {
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
@@ -1215,7 +1215,8 @@ void sde_connector_complete_commit(struct drm_connector *connector,
 	}
 
 	/* signal connector's retire fence */
-	sde_fence_signal(&to_sde_connector(connector)->retire_fence, ts, false);
+	sde_fence_signal(&to_sde_connector(connector)->retire_fence,
+			ts, fence_event);
 }
 
 void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
@@ -1226,7 +1227,8 @@ void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
 	}
 
 	/* signal connector's retire fence */
-	sde_fence_signal(&to_sde_connector(connector)->retire_fence, ts, true);
+	sde_fence_signal(&to_sde_connector(connector)->retire_fence,
+			ts, SDE_FENCE_RESET_TIMELINE);
 }
 
 static void sde_connector_update_hdr_props(struct drm_connector *connector)

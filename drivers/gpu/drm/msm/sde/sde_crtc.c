@@ -2243,7 +2243,8 @@ static void sde_crtc_vblank_cb(void *data)
 	SDE_EVT32_VERBOSE(DRMID(crtc));
 }
 
-static void _sde_crtc_retire_event(struct drm_crtc *crtc, ktime_t ts)
+static void _sde_crtc_retire_event(struct drm_crtc *crtc, ktime_t ts,
+		bool is_error)
 {
 	struct sde_crtc_retire_event *retire_event;
 	struct sde_crtc *sde_crtc;
@@ -2273,8 +2274,8 @@ static void _sde_crtc_retire_event(struct drm_crtc *crtc, ktime_t ts)
 	SDE_ATRACE_BEGIN("signal_retire_fence");
 	for (i = 0; (i < retire_event->num_connectors) &&
 					retire_event->connectors[i]; ++i)
-		sde_connector_complete_commit(
-					retire_event->connectors[i], ts);
+		sde_connector_complete_commit(retire_event->connectors[i],
+					ts, is_error);
 	SDE_ATRACE_END("signal_retire_fence");
 }
 
@@ -2347,13 +2348,17 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
 		SDE_ATRACE_BEGIN("signal_release_fence");
-		sde_fence_signal(&sde_crtc->output_fence, fevent->ts, false);
+		sde_fence_signal(&sde_crtc->output_fence, fevent->ts,
+				(fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR)
+				? SDE_FENCE_SIGNAL_ERROR : SDE_FENCE_SIGNAL);
 		SDE_ATRACE_END("signal_release_fence");
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE)
 		/* this api should be called without spin_lock */
-		_sde_crtc_retire_event(crtc, fevent->ts);
+		_sde_crtc_retire_event(crtc, fevent->ts,
+				(fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR)
+				? SDE_FENCE_SIGNAL_ERROR : SDE_FENCE_SIGNAL);
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
@@ -4191,7 +4196,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	 * reset the fence timeline if crtc will not be enabled for this commit
 	 */
 	if (!crtc->state->active || !crtc->state->enable) {
-		sde_fence_signal(&sde_crtc->output_fence, ktime_get(), true);
+		sde_fence_signal(&sde_crtc->output_fence,
+				ktime_get(), SDE_FENCE_RESET_TIMELINE);
 		for (i = 0; i < cstate->num_connectors; ++i)
 			sde_connector_commit_reset(cstate->connectors[i],
 					ktime_get());

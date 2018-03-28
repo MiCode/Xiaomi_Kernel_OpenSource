@@ -583,8 +583,10 @@ void sde_connector_prepare_fence(struct drm_connector *connector);
  * sde_connector_complete_commit - signal completion of current commit
  * @connector: Pointer to drm connector object
  * @ts: timestamp to be updated in the fence signalling
+ * @fence_event: enum value to indicate nature of fence event
  */
-void sde_connector_complete_commit(struct drm_connector *connector, ktime_t ts);
+void sde_connector_complete_commit(struct drm_connector *connector,
+		ktime_t ts, enum sde_fence_event fence_event);
 
 /**
  * sde_connector_commit_reset - reset the completion signal
