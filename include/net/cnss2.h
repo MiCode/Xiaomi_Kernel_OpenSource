@@ -88,6 +88,7 @@ enum cnss_driver_status {
 	CNSS_INITIALIZED,
 	CNSS_LOAD_UNLOAD,
 	CNSS_RECOVERY,
+	CNSS_FW_DOWN,
 };
 
 struct cnss_ce_tgt_pipe_cfg {

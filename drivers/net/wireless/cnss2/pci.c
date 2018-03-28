@@ -1185,6 +1185,10 @@ static void cnss_mhi_notify_status(enum MHI_CB_REASON reason, void *priv)
 
 	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
 
+	if (plat_priv->driver_ops && plat_priv->driver_ops->update_status)
+		plat_priv->driver_ops->update_status(pci_priv->pci_dev,
+						     CNSS_FW_DOWN);
+
 	set_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 	del_timer(&plat_priv->fw_boot_timer);
 
