@@ -652,8 +652,8 @@ void sde_connector_destroy(struct drm_connector *connector)
 	/* cancel if any pending esd work */
 	sde_connector_schedule_status_work(connector, false);
 
-	if (c_conn->ops.put_modes)
-		c_conn->ops.put_modes(connector, c_conn->display);
+	if (c_conn->ops.pre_destroy)
+		c_conn->ops.pre_destroy(connector, c_conn->display);
 
 	if (c_conn->blob_caps)
 		drm_property_blob_put(c_conn->blob_caps);
@@ -2127,8 +2127,6 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	SDE_DEBUG("connector %d attach encoder %d\n",
 			c_conn->base.base.id, encoder->base.id);
-
-	priv->connectors[priv->num_connectors++] = &c_conn->base;
 
 	INIT_DELAYED_WORK(&c_conn->status_work,
 			sde_connector_check_status_work);

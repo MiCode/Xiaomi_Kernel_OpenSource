@@ -915,7 +915,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.set_info_blob = dsi_conn_set_info_blob,
 		.detect =     dsi_conn_detect,
 		.get_modes =  dsi_connector_get_modes,
-		.put_modes =  dsi_connector_put_modes,
+		.pre_destroy =  dsi_connector_put_modes,
 		.mode_valid = dsi_conn_mode_valid,
 		.get_info =   dsi_display_get_info,
 		.set_backlight = dsi_display_set_backlight,
@@ -1009,6 +1009,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 					DRM_MODE_CONNECTOR_DSI);
 		if (connector) {
 			priv->encoders[priv->num_encoders++] = encoder;
+			priv->connectors[priv->num_connectors++] = connector;
 		} else {
 			SDE_ERROR("dsi %d connector init failed\n", i);
 			dsi_display_drm_bridge_deinit(display);
@@ -1051,6 +1052,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 				DRM_MODE_CONNECTOR_VIRTUAL);
 		if (connector) {
 			priv->encoders[priv->num_encoders++] = encoder;
+			priv->connectors[priv->num_connectors++] = connector;
 		} else {
 			SDE_ERROR("wb %d connector init failed\n", i);
 			sde_wb_drm_deinit(display);
@@ -1094,6 +1096,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 					DRM_MODE_CONNECTOR_DisplayPort);
 		if (connector) {
 			priv->encoders[priv->num_encoders++] = encoder;
+			priv->connectors[priv->num_connectors++] = connector;
 		} else {
 			SDE_ERROR("dp %d connector init failed\n", i);
 			dp_drm_bridge_deinit(display);
