@@ -143,6 +143,11 @@ int32_t habmm_socket_send(int32_t handle, void *src_buff, uint32_t size_bytes,
  */
 #define HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING 0x00000001
 
+/* In the blocking mode, this flag is used to indicate it is an
+ * uninterruptbile blocking call.
+ */
+#define HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE 0x00000002
+
 int32_t habmm_socket_recv(int32_t handle, void *dst_buff, uint32_t *size_bytes,
 		uint32_t timeout, uint32_t flags);
 

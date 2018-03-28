@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,16 +43,24 @@ void hab_msg_free(struct hab_message *message)
 }
 
 struct hab_message *
-hab_msg_dequeue(struct virtual_channel *vchan, int wait_flag)
+hab_msg_dequeue(struct virtual_channel *vchan, unsigned int flags)
 {
 	struct hab_message *message = NULL;
 	int ret = 0;
+	int wait = !(flags & HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING);
+	int interruptible = !(flags & HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 
-	if (wait_flag) {
-		if (hab_rx_queue_empty(vchan))
-			ret = wait_event_interruptible(vchan->rx_queue,
-				!hab_rx_queue_empty(vchan) ||
-				vchan->otherend_closed);
+	if (wait) {
+		if (hab_rx_queue_empty(vchan)) {
+			if (interruptible)
+				ret = wait_event_interruptible(vchan->rx_queue,
+					!hab_rx_queue_empty(vchan) ||
+					vchan->otherend_closed);
+			else
+				wait_event(vchan->rx_queue,
+					!hab_rx_queue_empty(vchan) ||
+					vchan->otherend_closed);
+		}
 	}
 
 	/* return all the received messages before the remote close */
@@ -74,7 +82,7 @@ static void hab_msg_queue(struct virtual_channel *vchan,
 	list_add_tail(&message->node, &vchan->rx_list);
 	spin_unlock_bh(&vchan->rx_lock);
 
-	wake_up_interruptible(&vchan->rx_queue);
+	wake_up(&vchan->rx_queue);
 }
 
 static int hab_export_enqueue(struct virtual_channel *vchan,
