@@ -2197,13 +2197,9 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 					"Invalid LTR count %d. Supported max: %d\n",
 					ltr_mode.count,
 					cap->ltr_count.max);
-				/*
-				 * FIXME: Return an error (-EINVALID)
-				 * here once VP8 supports LTR count
-				 * capability
-				 */
-				ltr_mode.count = 1;
+				rc = -EINVAL;
 			}
+			ltr_mode.mode = HAL_LTR_MODE_MANUAL;
 			ltr_mode.trust_mode = 1;
 			property_id = HAL_PARAM_VENC_LTRMODE;
 			pdata = &ltr_mode;
