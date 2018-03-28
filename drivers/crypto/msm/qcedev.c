@@ -1,6 +1,6 @@
 /* Qualcomm CE device driver.
  *
- * Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -843,6 +843,7 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 	memset(&handle->sha_ctxt.trailing_buf[0], 0, 64);
 
 	kzfree(k_buf_src);
+	qcedev_areq->sha_req.sreq.src = NULL;
 	return err;
 }
 
@@ -1012,6 +1013,7 @@ static int qcedev_hmac_get_ohash(struct qcedev_async_req *qcedev_areq,
 	handle->sha_ctxt.first_blk = 0;
 
 	kzfree(k_src);
+	qcedev_areq->sha_req.sreq.src = NULL;
 	return err;
 }
 
@@ -1166,8 +1168,10 @@ static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 			if (err == 0 && copy_to_user(
 				(void __user *)creq->vbuf.dst[dst_i].vaddr,
 					(k_align_dst + byteoffset),
-					creq->vbuf.dst[dst_i].len))
-					return -EFAULT;
+					creq->vbuf.dst[dst_i].len)) {
+				err = -EFAULT;
+				goto exit;
+			}
 
 			k_align_dst += creq->vbuf.dst[dst_i].len +
 						byteoffset;
@@ -1176,9 +1180,11 @@ static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 		} else {
 				if (err == 0 && copy_to_user(
 				(void __user *)creq->vbuf.dst[dst_i].vaddr,
-				(k_align_dst + byteoffset),
-				creq->data_len))
-					return -EFAULT;
+					(k_align_dst + byteoffset),
+				creq->data_len)) {
+				err = -EFAULT;
+				goto exit;
+			}
 
 			k_align_dst += creq->data_len;
 			creq->vbuf.dst[dst_i].len -= creq->data_len;
@@ -1187,7 +1193,9 @@ static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 		}
 	}
 	*di = dst_i;
-
+exit:
+	areq->cipher_req.creq.src = NULL;
+	areq->cipher_req.creq.dst = NULL;
 	return err;
 };
 
