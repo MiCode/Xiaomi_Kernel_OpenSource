@@ -274,6 +274,7 @@ struct sde_encoder_irq {
  * @has_intf_te:		Interface TE configuration support
  * @cont_splash_single_flush	Variable to check if single flush is enabled.
  * @cont_splash_settings	Variable to store continuous splash settings.
+ * @in_clone_mode		Indicates if encoder is in clone mode ref@CWB
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -307,6 +308,7 @@ struct sde_encoder_phys {
 	bool has_intf_te;
 	u32 cont_splash_single_flush;
 	bool cont_splash_settings;
+	bool in_clone_mode;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)

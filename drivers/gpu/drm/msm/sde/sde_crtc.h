@@ -31,7 +31,8 @@
 #define SDE_CRTC_NAME_SIZE	12
 
 /* define the maximum number of in-flight frame events */
-#define SDE_CRTC_FRAME_EVENT_SIZE	4
+/* Expand it to 2x for handling atleast 2 connectors safely */
+#define SDE_CRTC_FRAME_EVENT_SIZE	(4 * 2)
 
 /**
  * enum sde_crtc_client_type: crtc client type
@@ -77,9 +78,20 @@ struct sde_crtc_mixer {
 };
 
 /**
+ * struct sde_crtc_frame_event_cb_data : info of drm objects of a frame event
+ * @crtc:       pointer to drm crtc object registered for frame event
+ * @connector:  pointer to drm connector which is source of frame event
+ */
+struct sde_crtc_frame_event_cb_data {
+	 struct drm_crtc *crtc;
+	 struct drm_connector *connector;
+};
+
+/**
  * struct sde_crtc_frame_event: stores crtc frame event for crtc processing
  * @work:	base work structure
  * @crtc:	Pointer to crtc handling this event
+ * @connector:  pointer to drm connector which is source of frame event
  * @list:	event list
  * @ts:		timestamp at queue entry
  * @event:	event identifier
@@ -87,6 +99,7 @@ struct sde_crtc_mixer {
 struct sde_crtc_frame_event {
 	struct kthread_work work;
 	struct drm_crtc *crtc;
+	struct drm_connector *connector;
 	struct list_head list;
 	ktime_t ts;
 	u32 event;
@@ -154,8 +167,6 @@ struct sde_crtc_event {
  * @frame_events  : static allocation of in-flight frame events
  * @frame_event_list : available frame event list
  * @spin_lock     : spin lock for frame event, transaction status, etc...
- * @retire_events  : static allocation of retire fence connector
- * @retire_event_list : available retire fence connector list
  * @event_thread  : Pointer to event handler thread
  * @event_worker  : Event worker queue
  * @event_cache   : Local cache of event worker structures
@@ -222,8 +233,6 @@ struct sde_crtc {
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
 	struct list_head frame_event_list;
 	spinlock_t spin_lock;
-	struct sde_crtc_retire_event retire_events[SDE_CRTC_FRAME_EVENT_SIZE];
-	struct list_head retire_event_list;
 
 	/* for handling internal event thread */
 	struct sde_crtc_event event_cache[SDE_CRTC_MAX_EVENT_COUNT];
