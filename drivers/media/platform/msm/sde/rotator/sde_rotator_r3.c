@@ -2795,6 +2795,9 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 			item->input.format, item->output.format,
 			entry->perf->config.frame_rate);
 
+	/* initialize static vbif setting */
+	sde_mdp_init_vbif();
+
 	if (!ctx->sbuf_mode && mdata->default_ot_rd_limit) {
 		struct sde_mdp_set_ot_params ot_params;
 
