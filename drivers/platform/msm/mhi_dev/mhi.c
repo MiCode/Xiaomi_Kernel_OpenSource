@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,11 +72,12 @@ static struct mhi_dev *mhi_ctx;
 static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 	unsigned long data);
 static void mhi_ring_init_cb(void *user_data);
-static void mhi_update_state_info(uint32_t info);
+static void mhi_update_state_info(uint32_t uevent_idx, enum mhi_ctrl_info info);
 static int mhi_deinit(struct mhi_dev *mhi);
 static void mhi_dev_resume_init_with_link_up(struct ep_pcie_notify *notify);
 static int mhi_dev_pcie_notify_event;
 static void mhi_dev_transfer_completion_cb(void *mreq);
+static struct mhi_dev_uevent_info channel_state_info[MHI_MAX_CHANNELS];
 
 /*
  * mhi_dev_ring_cache_completion_cb () - Call back function called
@@ -466,7 +467,7 @@ static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 			return;
 		}
 
-		mhi_update_state_info(MHI_STATE_CONNECTED);
+		mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_CONNECTED);
 
 		ep_pcie_mask_irq_event(mhi_ctx->phandle,
 				EP_PCIE_INT_EVT_MHI_A7, true);
@@ -927,6 +928,8 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 	struct mhi_addr host_addr;
 	struct mhi_dev_channel *ch;
 	struct mhi_dev_ring *ring;
+	char *connected[2] = { "MHI_CHANNEL_STATE_12=CONNECTED", NULL};
+	char *disconnected[2] = { "MHI_CHANNEL_STATE_12=DISCONNECTED", NULL};
 
 	ch_id = el->generic.chid;
 	mhi_log(MHI_MSG_VERBOSE, "for channel:%d and cmd:%d\n",
@@ -992,6 +995,10 @@ send_start_completion_event:
 		if (rc)
 			pr_err("Error sending command completion event\n");
 
+		mhi_update_state_info(ch_id, MHI_STATE_CONNECTED);
+		if (ch_id == MHI_CLIENT_MBIM_OUT)
+			kobject_uevent_env(&mhi_ctx->dev->kobj,
+						KOBJ_CHANGE, connected);
 		break;
 	case MHI_DEV_RING_EL_STOP:
 		if (ch_id >= HW_CHANNEL_BASE) {
@@ -1046,6 +1053,10 @@ send_start_completion_event:
 				pr_err("stop event send failed\n");
 
 			mutex_unlock(&ch->ch_lock);
+			mhi_update_state_info(ch_id, MHI_STATE_DISCONNECTED);
+			if (ch_id == MHI_CLIENT_MBIM_OUT)
+				kobject_uevent_env(&mhi_ctx->dev->kobj,
+						KOBJ_CHANGE, disconnected);
 		}
 		break;
 	case MHI_DEV_RING_EL_RESET:
@@ -1119,6 +1130,10 @@ send_start_completion_event:
 			if (rc)
 				pr_err("Error sending command completion event\n");
 			mutex_unlock(&ch->ch_lock);
+			mhi_update_state_info(ch_id, MHI_STATE_DISCONNECTED);
+			if (ch_id == MHI_CLIENT_MBIM_OUT)
+				kobject_uevent_env(&mhi_ctx->dev->kobj,
+						KOBJ_CHANGE, disconnected);
 		}
 		break;
 	default:
@@ -1300,7 +1315,7 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 	}
 
 	/* Update ctrl node */
-	mhi_update_state_info(MHI_STATE_DISCONNECTED);
+	mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_DISCONNECTED);
 
 	flush_workqueue(mhi->ring_init_wq);
 	flush_workqueue(mhi->pending_ring_wq);
@@ -1781,7 +1796,7 @@ int mhi_dev_resume(struct mhi_dev *mhi)
 		mhi_dev_write_to_host(mhi, &data_transfer, NULL,
 				MHI_DEV_DMA_SYNC);
 	}
-	mhi_update_state_info(MHI_STATE_CONNECTED);
+	mhi_update_state_info(MHI_DEV_UEVENT_CTRL, MHI_STATE_CONNECTED);
 
 	atomic_set(&mhi->is_suspended, 0);
 
@@ -2338,7 +2353,8 @@ static void mhi_dev_enable(struct work_struct *work)
 	if (mhi_ctx->config_iatu || mhi_ctx->mhi_int)
 		enable_irq(mhi_ctx->mhi_irq);
 
-	mhi_update_state_info(MHI_STATE_CONNECTED);
+	mhi_update_state_info(MHI_DEV_UEVENT_CTRL,
+						MHI_STATE_CONFIGURED);
 }
 
 static void mhi_ring_init_cb(void *data)
@@ -2353,25 +2369,36 @@ static void mhi_ring_init_cb(void *data)
 	queue_work(mhi->ring_init_wq, &mhi->ring_init_cb_work);
 }
 
-static void mhi_update_state_info(uint32_t info)
+static void mhi_update_state_info(uint32_t uevent_idx, enum mhi_ctrl_info info)
 {
 	struct mhi_dev_client_cb_reason reason;
 
-	mhi_ctx->ctrl_info = info;
+	if (uevent_idx == MHI_DEV_UEVENT_CTRL)
+		mhi_ctx->ctrl_info = info;
 
-	reason.reason = MHI_DEV_CTRL_UPDATE;
-	uci_ctrl_update(&reason);
+	channel_state_info[uevent_idx].ctrl_info = info;
+
+	if (uevent_idx == MHI_CLIENT_QMI_OUT ||
+			uevent_idx == MHI_CLIENT_QMI_IN) {
+		/* For legacy reasons for QTI client */
+		reason.reason = MHI_DEV_CTRL_UPDATE;
+		uci_ctrl_update(&reason);
+	}
 }
 
-int mhi_ctrl_state_info(uint32_t *info)
+int mhi_ctrl_state_info(uint32_t idx, uint32_t *info)
 {
 	if (!info) {
 		pr_err("Invalid info\n");
 		return -EINVAL;
 	}
 
-	*info = mhi_ctx->ctrl_info;
-	mhi_log(MHI_MSG_VERBOSE, "ctrl:%d", mhi_ctx->ctrl_info);
+	if (idx == MHI_DEV_UEVENT_CTRL)
+		*info = mhi_ctx->ctrl_info;
+	else
+		*info = channel_state_info[idx].ctrl_info;
+
+	mhi_log(MHI_MSG_VERBOSE, "idx:%d, ctrl:%d", idx, *info);
 
 	return 0;
 }
@@ -2866,7 +2893,8 @@ static int mhi_dev_probe(struct platform_device *pdev)
 				"Failed to create IPC logging context\n");
 		}
 		mhi_uci_init();
-		mhi_update_state_info(MHI_STATE_CONFIGURED);
+		mhi_update_state_info(MHI_DEV_UEVENT_CTRL,
+						MHI_STATE_CONFIGURED);
 	}
 
 	INIT_WORK(&mhi_ctx->pcie_event, mhi_dev_pcie_handle_event);
