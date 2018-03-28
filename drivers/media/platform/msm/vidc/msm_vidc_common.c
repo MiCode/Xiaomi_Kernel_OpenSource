@@ -1719,6 +1719,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	inst->in_reconfig = true;
 	inst->reconfig_height = event_notify->height;
 	inst->reconfig_width = event_notify->width;
+	inst->bit_depth = event_notify->bit_depth;
 
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
