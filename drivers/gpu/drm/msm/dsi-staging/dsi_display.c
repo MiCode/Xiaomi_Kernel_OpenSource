@@ -343,7 +343,7 @@ static void dsi_display_change_te_irq_status(struct dsi_display *display,
 
 static void dsi_display_register_te_irq(struct dsi_display *display)
 {
-	int rc;
+	int rc = 0;
 	struct platform_device *pdev;
 	struct device *dev;
 
@@ -359,6 +359,11 @@ static void dsi_display_register_te_irq(struct dsi_display *display)
 		return;
 	}
 
+	if (!gpio_is_valid(display->disp_te_gpio)) {
+		rc = -EINVAL;
+		goto error;
+	}
+
 	init_completion(&display->esd_te_gate);
 
 	rc = devm_request_irq(dev, gpio_to_irq(display->disp_te_gpio),
@@ -366,11 +371,19 @@ static void dsi_display_register_te_irq(struct dsi_display *display)
 			"TE_GPIO", display);
 	if (rc) {
 		pr_err("TE request_irq failed for ESD rc:%d\n", rc);
-		return;
+		goto error;
 	}
 
 	disable_irq(gpio_to_irq(display->disp_te_gpio));
 	display->is_te_irq_enabled = false;
+
+	return;
+
+error:
+	/* disable the TE based ESD check */
+	pr_warn("Unable to register for TE IRQ\n");
+	if (display->panel->esd_config.status_mode == ESD_MODE_PANEL_TE)
+		display->panel->esd_config.esd_enabled = false;
 }
 
 static bool dsi_display_is_te_based_esd(struct dsi_display *display)
