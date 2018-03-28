@@ -2675,7 +2675,8 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 
 static int cam_ife_mgr_cmd_get_sof_timestamp(
 	struct cam_ife_hw_mgr_ctx      *ife_ctx,
-	uint64_t                       *time_stamp)
+	uint64_t                       *time_stamp,
+	uint64_t                       *boot_time_stamp)
 {
 	int rc = -EINVAL;
 	uint32_t i;
@@ -2704,9 +2705,12 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 					&csid_get_time,
 					sizeof(
 					struct cam_csid_get_time_stamp_args));
-				if (!rc)
+				if (!rc) {
 					*time_stamp =
 						csid_get_time.time_stamp_val;
+					*boot_time_stamp =
+						csid_get_time.boot_timestamp;
+				}
 			/*
 			 * Single VFE case, Get the time stamp from available
 			 * one csid hw in the context
@@ -3537,7 +3541,8 @@ static int cam_ife_hw_mgr_handle_sof(
 				if (!sof_status && !sof_sent) {
 					cam_ife_mgr_cmd_get_sof_timestamp(
 						ife_hw_mgr_ctx,
-						&sof_done_event_data.timestamp);
+						&sof_done_event_data.timestamp,
+						&sof_done_event_data.boot_time);
 
 					ife_hw_irq_sof_cb(
 						ife_hw_mgr_ctx->common.cb_priv,
@@ -3558,7 +3563,8 @@ static int cam_ife_hw_mgr_handle_sof(
 			if (!sof_status && !sof_sent) {
 				cam_ife_mgr_cmd_get_sof_timestamp(
 					ife_hw_mgr_ctx,
-					&sof_done_event_data.timestamp);
+					&sof_done_event_data.timestamp,
+					&sof_done_event_data.boot_time);
 
 				ife_hw_irq_sof_cb(
 					ife_hw_mgr_ctx->common.cb_priv,
