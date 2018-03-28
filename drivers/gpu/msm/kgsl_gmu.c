@@ -417,6 +417,7 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 	int ret;
 
 	dev = &pdev->dev;
+	of_dma_configure(dev, node);
 
 	ctx->dev = dev;
 	ctx->domain = iommu_domain_alloc(&platform_bus_type);
@@ -1372,6 +1373,7 @@ int gmu_probe(struct kgsl_device *device, unsigned long flags)
 	gmu->flags = flags;
 
 	device->gmu.pdev = of_find_device_by_node(node);
+	of_dma_configure(&gmu->pdev->dev, node);
 
 	/* Set up GMU regulators */
 	ret = gmu_regulators_probe(gmu, node);

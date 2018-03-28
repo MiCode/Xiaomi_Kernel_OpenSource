@@ -1475,8 +1475,10 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 
 	/* Configure registers for idle setting. The setting is cumulative */
 
-	/* Disable GMU WB/RB buffer */
+	/* Disable GMU WB/RB buffer and caches at boot */
 	kgsl_gmu_regwrite(device, A6XX_GMU_SYS_BUS_CONFIG, 0x1);
+	kgsl_gmu_regwrite(device, A6XX_GMU_ICACHE_CONFIG, 0x1);
+	kgsl_gmu_regwrite(device, A6XX_GMU_DCACHE_CONFIG, 0x1);
 
 	kgsl_gmu_regwrite(device,
 		A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,  0x9C40400);
