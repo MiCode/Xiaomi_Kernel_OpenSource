@@ -29,6 +29,10 @@
 
 	aliases {
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
+		serial0 = &qupv3_se12_2uart;
+		hsuart0 = &qupv3_se13_4uart;
+		spi0 = &qupv3_se3_spi;
+		i2c0 = &qupv3_se4_i2c;
 	};
 
 	cpus {
@@ -527,6 +531,26 @@
 		#mbox-cells = <1>;
 	};
 
+	slim_aud: slim@171c0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x171c0000 0x2c000>,
+			<0x17184000 0x2c000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x780000>;
+		qcom,ea-pc = <0x2b0>;
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1b46 0x8>,
+				 <&apps_smmu 0x1b4d 0x2>,
+				 <&apps_smmu 0x1b50 0x1>;
+		};
+	};
+
 	cmd_db: qcom,cmd-db@c3f000c {
 		compatible = "qcom,cmd-db";
 		reg = <0xc3f000c 8>;
@@ -853,3 +877,4 @@
 #include "sdmshrike-bus.dtsi"
 #include "msm-arm-smmu-sdmshrike.dtsi"
 #include "sdmshrike-usb.dtsi"
+#include "sdmshrike-qupv3.dtsi"

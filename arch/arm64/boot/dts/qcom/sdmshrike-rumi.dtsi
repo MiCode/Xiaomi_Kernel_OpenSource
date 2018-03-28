@@ -65,3 +65,7 @@
 
 	status = "ok";
 };
+
+&qupv3_se10_2uart {
+	status = "ok";
+};
