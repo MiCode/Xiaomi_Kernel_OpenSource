@@ -3524,7 +3524,6 @@ wcnss_wlan_probe(struct platform_device *pdev)
 static int
 wcnss_wlan_remove(struct platform_device *pdev)
 {
-	wcnss_free_regulator();
 	if (penv->wcnss_notif_hdle)
 		subsys_notif_unregister_notifier(penv->wcnss_notif_hdle, &wnb);
 	wcnss_cdev_unregister(pdev);
