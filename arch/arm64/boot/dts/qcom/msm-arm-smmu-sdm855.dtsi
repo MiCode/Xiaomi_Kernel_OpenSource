@@ -374,3 +374,8 @@
 		iommus = <&apps_smmu 0x20 0>;
 	};
 };
+
+&kgsl_smmu {
+	qcom,actlr = <0x0 0x407 0x1>;
+};
+
