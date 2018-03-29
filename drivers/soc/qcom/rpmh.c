@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -884,7 +884,6 @@ int send_single(struct rpmh_client *rc, enum rpmh_state state, u32 addr,
 	rpm_msg.cmd[0].addr = addr;
 	rpm_msg.cmd[0].data = data;
 	rpm_msg.msg.num_payload = 1;
-	rpm_msg.msg.is_complete = false;
 
 	return mbox_write_controller_data(rc->chan, &rpm_msg.msg);
 }
