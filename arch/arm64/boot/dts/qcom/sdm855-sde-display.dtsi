@@ -508,7 +508,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_wb>;
+	connectors = <&sde_wb &sde_dp>;
 };
 
 /* PHY TIMINGS REVISION P */

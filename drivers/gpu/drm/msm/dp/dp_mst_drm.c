@@ -51,7 +51,7 @@ struct dp_mst_bridge {
 };
 
 struct dp_mst_private {
-	bool state;
+	bool mst_initialized;
 	struct dp_mst_caps caps;
 	struct drm_dp_mst_topology_mgr mst_mgr;
 	struct dp_mst_bridge mst_bridge[MAX_DP_MST_DRM_BRIDGES];
@@ -418,6 +418,11 @@ int dp_mst_drm_bridge_init(void *data, struct drm_encoder *encoder)
 	struct msm_drm_private *priv = NULL;
 	struct dp_mst_private *mst = display->dp_mst_prv_info;
 	int i;
+
+	if (!mst || !mst->mst_initialized) {
+		pr_err("mst not initialized\n");
+		return -ENODEV;
+	}
 
 	for (i = 0; i < MAX_DP_MST_DRM_BRIDGES; i++) {
 		if (!mst->mst_bridge[i].in_use) {
@@ -884,7 +889,7 @@ int dp_mst_init(struct dp_display *dp_display)
 
 	memset(dp_mst.mst_bridge, 0, sizeof(dp_mst.mst_bridge));
 
-	dp_mst.state = true;
+	dp_mst.mst_initialized = true;
 
 	DP_MST_DEBUG("dp drm mst topology manager init completed\n");
 
@@ -902,12 +907,14 @@ void dp_mst_deinit(struct dp_display *dp_display)
 
 	mst = dp_display->dp_mst_prv_info;
 
-	if (!mst->state)
+	if (!mst->mst_initialized)
 		return;
 
 	dp_display->mst_uninstall(dp_display);
 
 	drm_dp_mst_topology_mgr_destroy(&mst->mst_mgr);
+
+	dp_mst.mst_initialized = false;
 
 	DP_MST_DEBUG("dp drm mst topology manager deinit completed\n");
 }
