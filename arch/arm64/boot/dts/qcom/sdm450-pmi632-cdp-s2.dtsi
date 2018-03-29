@@ -13,6 +13,14 @@
 
 #include "msm8953-cdp.dtsi"
 
+&eeprom0 {
+	cam_vdig-supply = <&pm8953_l23>;
+};
+
+&camera0 {
+	cam_vdig-supply = <&pm8953_l23>;
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_truly_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";

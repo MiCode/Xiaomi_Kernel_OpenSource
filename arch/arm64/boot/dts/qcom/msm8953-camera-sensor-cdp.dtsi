@@ -190,7 +190,7 @@
 		qcom,clock-rates = <19200000 0>;
 	};
 
-	qcom,camera@0 {
+	camera0: qcom,camera@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
 		reg = <0x0>;
