@@ -1480,6 +1480,9 @@ static int rpmh_regulator_allocate_vreg(struct rpmh_aggr_vreg *aggr_vreg)
 	aggr_vreg->vreg_count = 0;
 
 	for_each_available_child_of_node(aggr_vreg->dev->of_node, node) {
+		/* Skip child nodes handled by other drivers. */
+		if (of_find_property(node, "compatible", NULL))
+			continue;
 		aggr_vreg->vreg_count++;
 	}
 
@@ -1495,6 +1498,10 @@ static int rpmh_regulator_allocate_vreg(struct rpmh_aggr_vreg *aggr_vreg)
 
 	i = 0;
 	for_each_available_child_of_node(aggr_vreg->dev->of_node, node) {
+		/* Skip child nodes handled by other drivers. */
+		if (of_find_property(node, "compatible", NULL))
+			continue;
+
 		aggr_vreg->vreg[i].of_node = node;
 		aggr_vreg->vreg[i].aggr_vreg = aggr_vreg;
 
@@ -1968,6 +1975,7 @@ static int rpmh_regulator_probe(struct platform_device *pdev)
 		mutex_unlock(&aggr_vreg->lock);
 	}
 
+	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	platform_set_drvdata(pdev, aggr_vreg);
 
 	aggr_vreg_debug(aggr_vreg, "successfully probed; addr=0x%05X, type=%s\n",
