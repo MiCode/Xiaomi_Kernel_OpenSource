@@ -3190,6 +3190,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 {
 	struct sde_hw_ctl *ctl;
+	struct sde_encoder_virt *sde_enc;
 
 	if (!phys) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -3201,14 +3202,31 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 		return;
 	}
 
+	if (!phys->parent) {
+		SDE_ERROR("invalid parent\n");
+		return;
+	}
+
 	ctl = phys->hw_ctl;
+	sde_enc = to_sde_encoder_virt(phys->parent);
+
 	if (phys->split_role == ENC_ROLE_SKIP) {
-		SDE_DEBUG_ENC(to_sde_encoder_virt(phys->parent),
+		SDE_DEBUG_ENC(sde_enc,
 				"skip start pp%d ctl%d\n",
 				phys->hw_pp->idx - PINGPONG_0,
 				ctl->idx - CTL_0);
 		return;
 	}
+
+	/* Start rotator before CTL_START for async inline mode */
+	if (sde_crtc_get_rotator_op_mode(sde_enc->crtc) ==
+			SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
+			ctl->ops.trigger_rot_start) {
+		SDE_DEBUG_ENC(sde_enc, "trigger rotator start ctl%d\n",
+				ctl->idx - CTL_0);
+		ctl->ops.trigger_rot_start(ctl);
+	}
+
 	if (phys->ops.trigger_start && phys->enable_state != SDE_ENC_DISABLED)
 		phys->ops.trigger_start(phys);
 }
