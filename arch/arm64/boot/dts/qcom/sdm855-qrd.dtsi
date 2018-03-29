@@ -89,7 +89,7 @@
 };
 
 &soc {
-	display_panel_avdd_eldo: gpio-regulator@0 {
+	display_panel_avdd_eldo: display-gpio-regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "display_panel_avdd_eldo";
 		regulator-min-microvolt = <1800000>;
