@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@ int read_platform_resources_from_dt(
 int read_context_bank_resources_from_dt(struct platform_device *pdev);
 
 int read_bus_resources_from_dt(struct platform_device *pdev);
+int read_mem_adsp_resources_from_dt(struct platform_device *pdev);
 
 int msm_vidc_load_u32_table(struct platform_device *pdev,
 		struct device_node *of_node, char *table_name, int struct_size,

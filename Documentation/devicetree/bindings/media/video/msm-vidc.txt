@@ -138,6 +138,13 @@ Optional properties:
   this tag will be used to pick the appropriate bus as per the session profile
   as shown below in example.
 
+Memory Heaps
+============
+Required properties:
+- compatible : one of:
+	- "qcom,msm-vidc,mem-adsp"
+- memory-region : phandle to the memory heap/region.
+
 Example:
 
 	qcom,vidc@fdc00000 {
