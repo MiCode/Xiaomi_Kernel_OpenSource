@@ -21,6 +21,7 @@
 #include <linux/types.h>
 
 #include <linux/habmm.h>
+#include <linux/hab_ioctl.h>
 
 #include <linux/kernel.h>
 #include <linux/interrupt.h>

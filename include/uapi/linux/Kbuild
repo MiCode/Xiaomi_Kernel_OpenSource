@@ -529,4 +529,5 @@ header-y += ipa_qmi_service_v01.h
 header-y += rmnet_ipa_fd_ioctl.h
 header-y += msm_ipa.h
 header-y += smcinvoke.h
-header-y += habmm.h
+header-y += habmmid.h
+header-y += hab_ioctl.h
