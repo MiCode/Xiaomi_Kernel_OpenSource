@@ -214,7 +214,7 @@ struct mdp3_hw_resource {
 	struct mutex reg_bus_lock;
 	int bklt_level;
 	int bklt_update;
-
+	bool twm_en;
 	u32 max_bw;
 
 	u8 ppp_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];
