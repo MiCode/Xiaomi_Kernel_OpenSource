@@ -37,6 +37,8 @@ struct dp_debug {
 	int hdisplay;
 	int vrefresh;
 	bool tpg_state;
+
+	u8 *(*get_edid)(struct dp_debug *dp_debug);
 };
 
 /**
@@ -48,6 +50,7 @@ struct dp_debug {
  * @link: instance of link module
  * @connector: double pointer to display connector
  * @catalog: instance of catalog module
+ * @parser: instance of parser module
  * return: pointer to allocated debug module data
  *
  * This function sets up the debug module and provides a way
@@ -56,7 +59,8 @@ struct dp_debug {
 struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 			struct dp_usbpd *usbpd, struct dp_link *link,
 			struct dp_aux *aux, struct drm_connector **connector,
-			struct dp_catalog *catalog);
+			struct dp_catalog *catalog,
+			struct dp_parser *parser);
 /**
  * dp_debug_put()
  *

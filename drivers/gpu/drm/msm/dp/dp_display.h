@@ -20,8 +20,14 @@
 
 #include "dp_panel.h"
 
+struct dp_mst_hdp_info {
+	bool mst_protocol;
+	u8 *edid;
+};
+
 struct dp_mst_drm_cbs {
-	void (*hpd)(void *display, bool hpd_status);
+	void (*hpd)(void *display, bool hpd_status,
+			struct dp_mst_hdp_info *info);
 	void (*hpd_irq)(void *display);
 };
 
