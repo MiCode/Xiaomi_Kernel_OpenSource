@@ -25,6 +25,7 @@
 
 		arm,buffer-size = <0x100000>;
 		arm,sg-enable;
+		qcom,force-reg-dump;
 
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti8>;
@@ -51,6 +52,8 @@
 		coresight-name = "coresight-tmc-etf";
 
 		arm,default-sink;
+		qcom,force-reg-dump;
+
 		coresight-ctis = <&cti0 &cti8>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
