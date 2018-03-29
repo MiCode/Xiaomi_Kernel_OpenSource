@@ -18,7 +18,6 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_dp_mst_helper.h>
-#include <drm/drm_dp_mst_helper.h>
 
 #include "msm_drv.h"
 #include "msm_kms.h"
@@ -493,11 +492,12 @@ static int dp_mst_connector_get_modes(struct drm_connector *connector,
 	struct dp_display *dp_display = display;
 	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
 	struct edid *edid;
-	int rc;
+	int rc = 0;
 
 	edid = drm_dp_mst_get_edid(connector, &mst->mst_mgr, c_conn->mst_port);
-	rc = dp_display->mst_connector_update_edid(dp_display,
-			connector, edid);
+	if (edid)
+		rc = dp_display->mst_connector_update_edid(dp_display,
+				connector, edid);
 
 	DP_MST_DEBUG("mst connector get modes. id: %d\n", connector->base.id);
 
@@ -660,6 +660,15 @@ static int dp_mst_connector_config_hdr(struct drm_connector *connector,
 	return rc;
 }
 
+static void dp_mst_connector_pre_destroy(struct drm_connector *connector,
+		void *display)
+{
+	struct dp_display *dp_display = display;
+
+	DP_MST_DEBUG("enter:\n");
+	dp_display->mst_connector_uninstall(dp_display, connector);
+	DP_MST_DEBUG("exit:\n");
+}
 
 /* DRM MST callbacks */
 
@@ -677,6 +686,7 @@ dp_mst_add_connector(struct drm_dp_mst_topology_mgr *mgr,
 		.atomic_best_encoder = dp_mst_atomic_best_encoder,
 		.atomic_check = dp_mst_connector_atomic_check,
 		.config_hdr = dp_mst_connector_config_hdr,
+		.pre_destroy = dp_mst_connector_pre_destroy,
 	};
 	struct dp_mst_private *dp_mst;
 	struct drm_device *dev;
@@ -746,17 +756,12 @@ static void dp_mst_register_connector(struct drm_connector *connector)
 static void dp_mst_destroy_connector(struct drm_dp_mst_topology_mgr *mgr,
 					   struct drm_connector *connector)
 {
-	struct dp_mst_private *mst = container_of(mgr, struct dp_mst_private,
-							mst_mgr);
-	struct dp_display *dp_display = mst->dp_display;
-
 	DP_MST_DEBUG("enter\n");
 
 	DP_MST_DEBUG("destroy mst connector:%d\n", connector->base.id);
 
-	dp_display->mst_connector_uninstall(dp_display, connector);
-
-	sde_connector_destroy(connector);
+	drm_connector_unregister(connector);
+	drm_connector_unreference(connector);
 }
 
 static void dp_mst_hotplug(struct drm_dp_mst_topology_mgr *mgr)
@@ -764,8 +769,14 @@ static void dp_mst_hotplug(struct drm_dp_mst_topology_mgr *mgr)
 	struct dp_mst_private *mst = container_of(mgr, struct dp_mst_private,
 							mst_mgr);
 	struct drm_device *dev = mst->dp_display->drm_dev;
+	char event_string[] = "MST_HOTPLUG=1";
+	char *envp[2];
 
-	drm_kms_helper_hotplug_event(dev);
+	envp[0] = event_string;
+	envp[1] = NULL;
+
+	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, envp);
+
 	DP_MST_DEBUG("mst hot plug event\n");
 }
 
@@ -788,6 +799,7 @@ static void dp_mst_display_hpd_irq(void *dp_display)
 	struct dp_display *dp = dp_display;
 	struct dp_mst_private *mst = dp->dp_mst_prv_info;
 	u8 esi[14], idx;
+	unsigned int esi_res = DP_SINK_COUNT_ESI + 1;
 	bool handled;
 
 	rc = drm_dp_dpcd_read(mst->caps.drm_aux, DP_SINK_COUNT_ESI,
@@ -801,6 +813,14 @@ static void dp_mst_display_hpd_irq(void *dp_display)
 		DP_MST_DEBUG("mst irq: esi[%d]: 0x%x\n", idx, esi[idx]);
 
 	rc = drm_dp_mst_hpd_irq(&mst->mst_mgr, esi, &handled);
+
+	/* ack the request */
+	if (handled) {
+		rc = drm_dp_dpcd_write(mst->caps.drm_aux, esi_res, &esi[1], 3);
+
+		if (rc != 3)
+			pr_err("dpcd esi_res failed. rlen=%d\n", rc);
+	}
 
 	DP_MST_DEBUG("mst display hpd_irq handled:%d rc:%d\n", handled, rc);
 }
