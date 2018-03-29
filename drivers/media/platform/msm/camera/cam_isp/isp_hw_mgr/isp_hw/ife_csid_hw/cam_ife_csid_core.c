@@ -856,7 +856,27 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	path_data->height  = reserve->in_port->height;
 	path_data->start_line = reserve->in_port->line_start;
 	path_data->end_line = reserve->in_port->line_stop;
-	path_data->crop_enable = true;
+
+	/* Enable RDI crop for single ife use case only */
+	switch (reserve->res_id) {
+	case CAM_IFE_PIX_PATH_RES_RDI_0:
+	case CAM_IFE_PIX_PATH_RES_RDI_1:
+	case CAM_IFE_PIX_PATH_RES_RDI_2:
+	case CAM_IFE_PIX_PATH_RES_RDI_3:
+		if (reserve->in_port->usage_type)
+			path_data->crop_enable = false;
+		else
+			path_data->crop_enable = true;
+
+		break;
+	case CAM_IFE_PIX_PATH_RES_IPP:
+		path_data->crop_enable = true;
+		break;
+	default:
+		rc = -EINVAL;
+		goto end;
+	}
+
 	CAM_DBG(CAM_ISP, "Res id: %d height:%d line_start %d line_stop %d",
 		reserve->res_id, reserve->in_port->height,
 		reserve->in_port->line_start, reserve->in_port->line_stop);
