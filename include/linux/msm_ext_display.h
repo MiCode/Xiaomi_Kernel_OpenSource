@@ -21,6 +21,8 @@
 #define AUDIO_ACK_ENABLE BIT(4)
 #define AUDIO_ACK_CONNECT BIT(0)
 
+#define MSM_EXT_DISP_MAX_CODECS    2
+
 /*
  *   Flags to be used with the HPD operation of the external display
  *   interface:
@@ -89,6 +91,18 @@ enum msm_ext_disp_power_state {
 };
 
 /**
+ *  struct msm_ext_disp_codec_id - codec information
+ *  @type: external display type
+ *  @ctrl_id: controller id
+ *  @stream_id: stream_id
+ */
+struct msm_ext_disp_codec_id {
+	enum msm_ext_disp_type type;
+	int ctrl_id;
+	int stream_id;
+};
+
+/**
  *  struct msm_ext_disp_intf_ops - operations exposed to display interface
  *  @audio_config: configures the audio operations exposed to codec driver
  *  @audio_notify: notifies the audio connection state to user modules.
@@ -96,16 +110,15 @@ enum msm_ext_disp_power_state {
  */
 struct msm_ext_disp_intf_ops {
 	int (*audio_config)(struct platform_device *pdev,
-			enum msm_ext_disp_type type,
+			struct msm_ext_disp_codec_id *codec,
 			enum msm_ext_disp_cable_state state);
 
 	int (*audio_notify)(struct platform_device *pdev,
-			enum msm_ext_disp_type type,
+			struct msm_ext_disp_codec_id *codec,
 			enum msm_ext_disp_cable_state state);
 
-
 	int (*video_notify)(struct platform_device *pdev,
-			enum msm_ext_disp_type type,
+			struct msm_ext_disp_codec_id *codec,
 			enum msm_ext_disp_cable_state state);
 };
 
@@ -140,7 +153,7 @@ struct msm_ext_disp_audio_codec_ops {
  *  @intf_data: interface specific data
  */
 struct msm_ext_disp_init_data {
-	enum msm_ext_disp_type type;
+	struct msm_ext_disp_codec_id codec;
 	struct msm_ext_disp_intf_ops intf_ops;
 	struct msm_ext_disp_audio_codec_ops codec_ops;
 	struct platform_device *pdev;
@@ -166,6 +179,14 @@ int msm_ext_disp_register_audio_codec(struct platform_device *pdev,
 		struct msm_ext_disp_audio_codec_ops *ops);
 
 /**
+ *  msm_ext_disp_select_audio_codec() - select audio codec
+ *  @pdev: platform device pointer
+ *  @codec: codec id information
+ */
+int msm_ext_disp_select_audio_codec(struct platform_device *pdev,
+		struct msm_ext_disp_codec_id *codec);
+
+/**
  *  msm_hdmi_register_audio_codec() - wrapper for hdmi audio codec
  * registration
  *  @pdev: platform device pointer
@@ -179,6 +200,13 @@ int msm_hdmi_register_audio_codec(struct platform_device *pdev,
  *  @init_data: data needed to register the display interface
  */
 int msm_ext_disp_register_intf(struct platform_device *pdev,
+		struct msm_ext_disp_init_data *init_data);
+
+/**
+ *  msm_ext_disp_deregister_intf() - display interface deregistration
+ *  @init_data: data needed to deregister the display interface
+ */
+int msm_ext_disp_deregister_intf(struct platform_device *pdev,
 		struct msm_ext_disp_init_data *init_data);
 
 #endif /*_MSM_EXT_DISPLAY_H_*/

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,28 @@ struct dp_audio {
 	 * Returns the error code in case of failure, 0 in success case.
 	 */
 	int (*off)(struct dp_audio *dp_audio);
+
+	/**
+	 * register_ext_disp()
+	 *
+	 * Registers the audio with external display module.
+	 *
+	 * @dp_audio: an instance of struct dp_audio.
+	 *
+	 * Returns the error code in case of failure, 0 in success case.
+	 */
+	int (*register_ext_disp)(struct dp_audio *dp_audio);
+
+	/**
+	 * deregister_ext_disp()
+	 *
+	 * Deregisters the audio with external display module.
+	 *
+	 * @dp_audio: an instance of struct dp_audio.
+	 *
+	 * Returns the error code in case of failure, 0 in success case.
+	 */
+	int (*deregister_ext_disp)(struct dp_audio *dp_audio);
 };
 
 /**

@@ -1678,16 +1678,26 @@ static void dp_catalog_audio_config_sdp(struct dp_catalog_audio *audio)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
-	u32 sdp_cfg = 0;
-	u32 sdp_cfg2 = 0;
+	u32 sdp_cfg = 0, sdp_cfg_off = 0;
+	u32 sdp_cfg2 = 0, sdp_cfg2_off = 0;
 
 	if (!audio)
 		return;
 
+	if (audio->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream id:%d\n", audio->stream_id);
+		return;
+	}
+
+	if (audio->stream_id == DP_STREAM_1) {
+		sdp_cfg_off = MMSS_DP1_SDP_CFG - MMSS_DP_SDP_CFG;
+		sdp_cfg2_off = MMSS_DP1_SDP_CFG2 - MMSS_DP_SDP_CFG2;
+	}
+
 	catalog = dp_catalog_get_priv(audio);
 	io_data = catalog->io.dp_link;
 
-	sdp_cfg = dp_read(catalog, io_data, MMSS_DP_SDP_CFG);
+	sdp_cfg = dp_read(catalog, io_data, MMSS_DP_SDP_CFG + sdp_cfg_off);
 
 	/* AUDIO_TIMESTAMP_SDP_EN */
 	sdp_cfg |= BIT(1);
@@ -1701,16 +1711,16 @@ static void dp_catalog_audio_config_sdp(struct dp_catalog_audio *audio)
 	sdp_cfg |= BIT(20);
 
 	pr_debug("sdp_cfg = 0x%x\n", sdp_cfg);
-	dp_write(catalog, io_data, MMSS_DP_SDP_CFG, sdp_cfg);
+	dp_write(catalog, io_data, MMSS_DP_SDP_CFG + sdp_cfg_off, sdp_cfg);
 
-	sdp_cfg2 = dp_read(catalog, io_data, MMSS_DP_SDP_CFG2);
+	sdp_cfg2 = dp_read(catalog, io_data, MMSS_DP_SDP_CFG2 + sdp_cfg_off);
 	/* IFRM_REGSRC -> Do not use reg values */
 	sdp_cfg2 &= ~BIT(0);
 	/* AUDIO_STREAM_HB3_REGSRC-> Do not use reg values */
 	sdp_cfg2 &= ~BIT(1);
 
 	pr_debug("sdp_cfg2 = 0x%x\n", sdp_cfg2);
-	dp_write(catalog, io_data, MMSS_DP_SDP_CFG2, sdp_cfg2);
+	dp_write(catalog, io_data, MMSS_DP_SDP_CFG2 + sdp_cfg_off, sdp_cfg2);
 }
 
 static void dp_catalog_audio_get_header(struct dp_catalog_audio *audio)

@@ -135,7 +135,7 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 					bool fixed_nvid)
 {
 	u32 pixel_m, pixel_n;
-	u32 mvid, nvid, reg_off = 0;
+	u32 mvid, nvid, reg_off = 0, mvid_off = 0, nvid_off = 0;
 	u64 mvid_calc;
 	u32 const nvid_fixed = 0x8000;
 	u32 const link_rate_hbr2 = 540000;
@@ -199,12 +199,14 @@ static void dp_catalog_panel_config_msa_v420(struct dp_catalog_panel *panel,
 
 	io_data = catalog->io->dp_link;
 
-	if (panel->stream_id == DP_STREAM_1)
-		reg_off = DP1_SOFTWARE_MVID - DP_SOFTWARE_MVID;
+	if (panel->stream_id == DP_STREAM_1) {
+		mvid_off = DP1_SOFTWARE_MVID - DP_SOFTWARE_MVID;
+		nvid_off = DP1_SOFTWARE_NVID - DP_SOFTWARE_NVID;
+	}
 
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
-	dp_write(catalog, io_data, DP_SOFTWARE_MVID + reg_off, mvid);
-	dp_write(catalog, io_data, DP_SOFTWARE_NVID + reg_off, nvid);
+	dp_write(catalog, io_data, DP_SOFTWARE_MVID + mvid_off, mvid);
+	dp_write(catalog, io_data, DP_SOFTWARE_NVID + nvid_off, nvid);
 }
 
 static void dp_catalog_ctrl_phy_lane_cfg_v420(struct dp_catalog_ctrl *ctrl,
