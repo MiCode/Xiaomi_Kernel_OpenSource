@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@ struct dma_fast_smmu_mapping {
 
 	u32		min_iova_align;
 	struct page	*guard_page;
+	u32		force_guard_page_len;
 
 	unsigned int	bitmap_size;
 	unsigned long	*bitmap;
