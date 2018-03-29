@@ -547,6 +547,16 @@ int dsi_ctrl_set_cmd_engine_state(struct dsi_ctrl *dsi_ctrl,
 				  enum dsi_engine_state state);
 
 /**
+ * dsi_ctrl_validate_host_state() - validate DSI ctrl host state
+ * @dsi_ctrl:            DSI Controller handle.
+ *
+ * Validate DSI cotroller host state
+ *
+ * Return: boolean indicating whether host is not initialized.
+ */
+bool dsi_ctrl_validate_host_state(struct dsi_ctrl *dsi_ctrl);
+
+/**
  * dsi_ctrl_set_vid_engine_state() - set video engine state
  * @dsi_ctrl:            DSI Controller handle.
  * @state:               Engine state.

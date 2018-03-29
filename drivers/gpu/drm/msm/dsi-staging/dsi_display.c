@@ -423,8 +423,16 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	struct dsi_cmd_desc *cmds;
 	u32 flags = 0;
 
-	if (!panel)
+	if (!panel || !ctrl || !ctrl->ctrl)
 		return -EINVAL;
+
+	/*
+	 * When DSI controller is not in initialized state, we do not want to
+	 * report a false ESD failure and hence we defer until next read
+	 * happen.
+	 */
+	if (dsi_ctrl_validate_host_state(ctrl->ctrl))
+		return 1;
 
 	/* acquire panel_lock to make sure no commands are in progress */
 	dsi_panel_acquire_panel_lock(panel);
@@ -4971,12 +4979,15 @@ int dsi_display_prepare(struct dsi_display *display)
 	mode = display->panel->cur_mode;
 
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
+		if (display->is_cont_splash_enabled) {
+			pr_err("DMS is not supposed to be set on first frame\n");
+			return -EINVAL;
+		}
 		/* update dsi ctrl for new mode */
 		rc = dsi_display_pre_switch(display);
 		if (rc)
 			pr_err("[%s] panel pre-prepare-res-switch failed, rc=%d\n",
-				   display->name, rc);
-
+					display->name, rc);
 		goto error;
 	}
 

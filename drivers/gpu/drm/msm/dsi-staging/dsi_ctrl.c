@@ -406,6 +406,21 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 	return rc;
 }
 
+bool dsi_ctrl_validate_host_state(struct dsi_ctrl *dsi_ctrl)
+{
+	struct dsi_ctrl_state_info *state = &dsi_ctrl->current_state;
+
+	if (!state) {
+		pr_err("Invalid host state for DSI controller\n");
+		return -EINVAL;
+	}
+
+	if (!state->host_initialized)
+		return true;
+
+	return false;
+}
+
 static void dsi_ctrl_update_state(struct dsi_ctrl *dsi_ctrl,
 				  enum dsi_ctrl_driver_ops op,
 				  u32 op_state)
