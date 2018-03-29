@@ -112,31 +112,49 @@ static int32_t cam_spi_tx_helper(struct camera_io_master *client,
 {
 	int32_t rc = -EINVAL;
 	struct spi_device *spi = client->spi_client->spi_master;
+	struct device *dev = NULL;
 	char *ctx = NULL, *crx = NULL;
 	uint32_t len, hlen;
 	uint8_t retries = client->spi_client->retries;
+	uint32_t txr = 0, rxr = 0;
+	struct page *page_tx = NULL, *page_rx = NULL;
 
 	hlen = cam_camera_spi_get_hlen(inst);
 	len = hlen + num_byte;
+	dev = &(spi->dev);
+
+	if (!dev) {
+		CAM_ERR(CAM_SENSOR, "Invalid arguments");
+		return -EINVAL;
+	}
 
 	if (tx) {
 		ctx = tx;
 	} else {
-		ctx = kzalloc(len, GFP_KERNEL | GFP_DMA);
-		if (!ctx)
+		txr = PAGE_ALIGN(len) >> PAGE_SHIFT;
+		page_tx = cma_alloc(dev_get_cma_area(dev),
+			txr, 0);
+		if (!page_tx)
 			return -ENOMEM;
+
+		ctx = page_address(page_tx);
 	}
 
 	if (num_byte) {
 		if (rx) {
 			crx = rx;
 		} else {
-			crx = kzalloc(len, GFP_KERNEL | GFP_DMA);
-			if (!crx) {
+			rxr = PAGE_ALIGN(len) >> PAGE_SHIFT;
+			page_rx = cma_alloc(dev_get_cma_area(dev),
+				rxr, 0);
+			if (!page_rx) {
 				if (!tx)
-					kfree(ctx);
+					cma_release(dev_get_cma_area(dev),
+						page_tx, txr);
+
 				return -ENOMEM;
 			}
+			crx = page_address(page_rx);
 		}
 	} else {
 		crx = NULL;
@@ -157,9 +175,9 @@ static int32_t cam_spi_tx_helper(struct camera_io_master *client,
 
 out:
 	if (!tx)
-		kfree(ctx);
+		cma_release(dev_get_cma_area(dev), page_tx, txr);
 	if (!rx)
-		kfree(crx);
+		cma_release(dev_get_cma_area(dev), page_rx, rxr);
 	return rc;
 }
 

@@ -143,6 +143,7 @@ static int cam_context_apply_req_to_hw(struct cam_ctx_request *req,
 			ctx->dev_name, ctx->ctx_id, req->request_id);
 
 	cfg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+	cfg.request_id = req->request_id;
 	cfg.hw_update_entries = req->hw_update_entries;
 	cfg.num_hw_update_entries = req->num_hw_update_entries;
 	cfg.out_map_entries = req->out_map_entries;
