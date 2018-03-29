@@ -302,16 +302,17 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		mem_flag);
 	if (!gsi_xfer_elem_array) {
 		IPAERR("Failed to alloc mem for gsi xfer array.\n");
-		return -EFAULT;
+		return -ENOMEM;
 	}
 
 	spin_lock_bh(&sys->spinlock);
 
 	for (i = 0; i < num_desc; i++) {
 		tx_pkt = kmem_cache_zalloc(ipa3_ctx->tx_pkt_wrapper_cache,
-					   mem_flag);
+					   GFP_ATOMIC);
 		if (!tx_pkt) {
 			IPAERR("failed to alloc tx wrapper\n");
+			result = -ENOMEM;
 			goto failure;
 		}
 
@@ -328,6 +329,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 			if (ipa_populate_tag_field(&desc[i], tx_pkt,
 				&tag_pyld_ret)) {
 				IPAERR("Failed to populate tag field\n");
+				result = -EFAULT;
 				goto failure_dma_map;
 			}
 		}
@@ -367,6 +369,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		}
 		if (dma_mapping_error(ipa3_ctx->pdev, tx_pkt->mem.phys_base)) {
 			IPAERR("failed to do dma map.\n");
+			result = -EFAULT;
 			goto failure_dma_map;
 		}
 
@@ -413,6 +416,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 			gsi_xfer_elem_array, true);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("GSI xfer failed.\n");
+		result = -EFAULT;
 		goto failure;
 	}
 	kfree(gsi_xfer_elem_array);
@@ -466,7 +470,7 @@ failure:
 	kfree(gsi_xfer_elem_array);
 
 	spin_unlock_bh(&sys->spinlock);
-	return -EFAULT;
+	return result;
 }
 
 /**
