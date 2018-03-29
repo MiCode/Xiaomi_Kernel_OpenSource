@@ -2047,12 +2047,6 @@
 		compatible = "qcom,msm-fastrpc-compute";
 		qcom,rpc-latency-us = <611>;
 
-		qcom,msm_fastrpc_rpmsg {
-			compatible = "qcom,msm-fastrpc-rpmsg";
-			qcom,glink-channels = "fastrpcglink-apps-dsp";
-			qcom,intents = <0x64 64>;
-		};
-
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
@@ -2136,6 +2130,7 @@
 		qcom,msm_fastrpc_compute_cb9 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
 			iommus = <&apps_smmu 0x1409 0x40>,
 				 <&apps_smmu 0x1429 0x0>,
 				 <&apps_smmu 0x2009 0x20>,
@@ -2275,6 +2270,12 @@
 						0x2000 3
 						0x4400 2>;
 			};
+
+			qcom,msm_fastrpc_rpmsg {
+				compatible = "qcom,msm-fastrpc-rpmsg";
+				qcom,glink-channels = "fastrpcglink-apps-dsp";
+				qcom,intents = <0x64 64>;
+			};
 		};
 
 		adsp {
@@ -2295,6 +2296,12 @@
 				qcom,glink-channels = "apr_audio_svc";
 				qcom,intents = <0x200 20>;
 			};
+
+			qcom,msm_fastrpc_rpmsg {
+				compatible = "qcom,msm-fastrpc-rpmsg";
+				qcom,glink-channels = "fastrpcglink-apps-dsp";
+				qcom,intents = <0x64 64>;
+			};
 		};
 
 		dsps {
@@ -2310,6 +2317,12 @@
 						0x2000 3
 						0x4400 2>;
 			};
+
+			qcom,msm_fastrpc_rpmsg {
+				compatible = "qcom,msm-fastrpc-rpmsg";
+				qcom,glink-channels = "fastrpcglink-apps-dsp";
+				qcom,intents = <0x64 64>;
+			};
 		};
 
 		cdsp {
@@ -2324,6 +2337,12 @@
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
+			};
+
+			qcom,msm_fastrpc_rpmsg {
+				compatible = "qcom,msm-fastrpc-rpmsg";
+				qcom,glink-channels = "fastrpcglink-apps-dsp";
+				qcom,intents = <0x64 64>;
 			};
 		};
 
