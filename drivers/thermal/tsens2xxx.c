@@ -493,6 +493,7 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 			/* Use id for multiple controllers */
 			pr_debug("sensor:%d trigger temp (%d degC)\n",
 				tm->sensor[i].hw_id, temp);
+			of_thermal_handle_trip(tm->sensor[i].tzd);
 		}
 	}
 
