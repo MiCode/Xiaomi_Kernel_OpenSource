@@ -145,7 +145,7 @@
 #define ADC_GPIO6				0x17
 #define ADC_GPIO7				0x18
 #define ADC_SBUx				0x99
-#define ADC_MID_CHG				0x1e
+#define ADC_MID_CHG_DIV6			0x1e
 #define ADC_OFF					0xff
 
 /* 30k pull-up1 */
@@ -226,5 +226,7 @@
 #define ADC_EXT_ISENSE_VBAT_IDATA		0xb3
 #define ADC_PARALLEL_ISENSE_VBAT_VDATA		0xb4
 #define ADC_PARALLEL_ISENSE_VBAT_IDATA		0xb5
+
+#define ADC_MAX_CHANNEL				0xc0
 
 #endif /* _DT_BINDINGS_QCOM_SPMI_VADC_H */
