@@ -2636,48 +2636,6 @@ static void ufs_qcom_print_utp_hci_testbus(struct ufs_hba *hba)
 	kfree(testbus);
 }
 
-void ufs_qcom_read_custom_testbus(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	host->testbus.select_major = TSTBUS_UTP_HCI;
-	host->testbus.select_minor = 5;
-	ufs_qcom_testbus_config(host);
-	hba->tb_ah8_ctrl_0 = ufshcd_readl(hba, UFS_TEST_BUS);
-
-	host->testbus.select_major = TSTBUS_UNIPRO;
-	host->testbus.select_minor = 33;
-	ufs_qcom_testbus_config(host);
-	hba->tb_dme = ufshcd_readl(hba, UFS_TEST_BUS);
-
-	host->testbus.select_major = TSTBUS_UNIPRO;
-	host->testbus.select_minor = 37;
-	ufs_qcom_testbus_config(host);
-	hba->tb_pa_power_ctrl = ufshcd_readl(hba, UFS_TEST_BUS);
-
-	host->testbus.select_major = TSTBUS_UNIPRO;
-	host->testbus.select_minor = 55;
-	ufs_qcom_testbus_config(host);
-	hba->tb_pa_attr_1 = ufshcd_readl(hba, UFS_TEST_BUS);
-
-	host->testbus.select_major = TSTBUS_UNIPRO;
-	host->testbus.select_minor = 56;
-	ufs_qcom_testbus_config(host);
-	hba->tb_pa_attr_2 = ufshcd_readl(hba, UFS_TEST_BUS);
-}
-
-int ufs_qcom_read_pa_vs_status_reg1(struct ufs_hba *hba, u32 *pa_vs_status_reg1)
-{
-	int err;
-
-	err = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_VS_STATUS_REG1),
-				pa_vs_status_reg1);
-	if (err)
-		dev_err(hba->dev, "%s: couldn't read PA_VS_STATUS_REG1 %d\n",
-								__func__, err);
-	return err;
-}
-
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba, bool no_sleep)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
