@@ -246,7 +246,9 @@ static int msm_ext_disp_update_audio_ops(struct msm_ext_disp *ext_disp,
 
 		pr_debug("codec ops set for %s\n", msm_ext_disp_name(type));
 	} else if (state == EXT_DISPLAY_CABLE_DISCONNECT) {
-		*ext_disp->ops = (struct msm_ext_disp_audio_codec_ops){NULL};
+		if (ext_disp->ops)
+			*ext_disp->ops =
+				(struct msm_ext_disp_audio_codec_ops){NULL};
 		ext_disp->current_disp = EXT_DISPLAY_TYPE_MAX;
 
 		pr_debug("codec ops cleared for %s\n", msm_ext_disp_name(type));
