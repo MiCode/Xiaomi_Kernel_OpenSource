@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,6 +144,43 @@ TRACE_EVENT(
 
 	TP_printk("rx_pkt_cnt=%lu", __entry->rx_pkt_cnt)
 );
+
+TRACE_EVENT(
+	ipa3_rx_poll_num,
+
+	TP_PROTO(int poll_num),
+
+	TP_ARGS(poll_num),
+
+	TP_STRUCT__entry(
+		__field(int,	poll_num)
+	),
+
+	TP_fast_assign(
+		__entry->poll_num = poll_num;
+	),
+
+	TP_printk("each_poll_aggr_pkt_num=%d", __entry->poll_num)
+);
+
+TRACE_EVENT(
+	ipa3_rx_poll_cnt,
+
+	TP_PROTO(int poll_num),
+
+	TP_ARGS(poll_num),
+
+	TP_STRUCT__entry(
+		__field(int,	poll_num)
+	),
+
+	TP_fast_assign(
+		__entry->poll_num = poll_num;
+	),
+
+	TP_printk("napi_overall_poll_pkt_cnt=%d", __entry->poll_num)
+);
+
 
 #endif /* _IPA_TRACE_H */
 

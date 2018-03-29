@@ -74,6 +74,8 @@
 
 #define IPA_MAX_NUM_REQ_CACHE 10
 
+#define NAPI_WEIGHT 60
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -647,7 +649,6 @@ struct ipa3_repl_ctx {
  */
 struct ipa3_sys_context {
 	u32 len;
-	u32 len_pending_xfer;
 	atomic_t curr_polling_state;
 	struct delayed_work switch_to_intr_work;
 	enum ipa3_sys_pipe_policy policy;
