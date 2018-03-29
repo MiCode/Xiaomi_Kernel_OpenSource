@@ -1572,50 +1572,10 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x9800000 0x800000>;
 
-		clocks = <&clock_npucc NPU_CC_XO_CLK>,
-			<&clock_npucc NPU_CC_ARMWIC_CORE_CLK>,
-			<&clock_npucc NPU_CC_CAL_DP_CLK_SRC>,
-			<&clock_npucc NPU_CC_CAL_DP_CLK>,
-			<&clock_npucc NPU_CC_CAL_DP_CDC_CLK>,
-			<&clock_npucc NPU_CC_SLEEP_CLK>,
-			<&clock_npucc NPU_CC_COMP_NOC_AXI_CLK>,
-			<&clock_npucc NPU_CC_CONF_NOC_AHB_CLK>,
-			<&clock_npucc NPU_CC_NPU_CORE_CLK_SRC>,
-			<&clock_npucc NPU_CC_NPU_CORE_CLK>,
-			<&clock_npucc NPU_CC_NPU_CORE_APB_CLK>,
-			<&clock_npucc NPU_CC_NPU_CORE_ATB_CLK>,
-			<&clock_npucc NPU_CC_NPU_CORE_CTI_CLK>,
-			<&clock_npucc NPU_CC_BWMON_CLK>,
-			<&clock_npucc NPU_CC_QTIMER_CORE_CLK>,
-			<&clock_npucc NPU_CC_BTO_CORE_CLK>;
-
-		clock-names = "xo", "armwic", "cal_dp_src", "cal_dp",
-			"cal_dp_cdc", "sleep", "noc_axi", "noc_ahb",
-			"core_src", "core", "apb", "atb", "cti", "bwmon",
-			"qtimer", "bto";
-
-		qcom,proxy-clock-names = "xo", "armwic", "cal_dp_src", "cal_dp",
-			"cal_dp_cdc", "sleep", "noc_axi", "noc_ahb",
-			"core_src", "core", "apb", "atb", "cti", "bwmon",
-			"qtimer", "bto";
-
-		vdd-supply = <&npu_core_gdsc>;
-		vdd_cx-supply = <&pm855l_s6_level>;
-		qcom,proxy-reg-names ="vdd", "vdd_cx";
-		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-
 		status = "ok";
-
-		qcom,msm-bus,name = "pil-npu";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-			<154 10070 0 0>,
-			<154 10070 0 1>;
-
 		qcom,pas-id = <23>;
-		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "npu";
+
 		memory-region = <&pil_npu_mem>;
 	};
 
