@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -375,19 +375,24 @@ static void sde_hw_sspp_setup_secure(struct sde_hw_pipe *ctx,
 
 	c = &ctx->hw;
 
-	if (enable) {
-		if ((rect_mode == SDE_SSPP_RECT_SOLO)
-				|| (rect_mode == SDE_SSPP_RECT_0))
-			secure_bit_mask =
-				(rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF : 0x5;
-		else
-			secure_bit_mask = 0xA;
+	if ((rect_mode == SDE_SSPP_RECT_SOLO)
+			|| (rect_mode == SDE_SSPP_RECT_0))
+		secure_bit_mask =
+			(rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF : 0x5;
+	else
+		secure_bit_mask = 0xA;
 
-		secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
+	secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
+
+	if (enable)
 		secure |= secure_bit_mask;
-	}
+	else
+		secure &= ~secure_bit_mask;
 
 	SDE_REG_WRITE(c, SSPP_SRC_ADDR_SW_STATUS + idx, secure);
+
+	/* multiple planes share same sw_status register */
+	wmb();
 }
 
 
