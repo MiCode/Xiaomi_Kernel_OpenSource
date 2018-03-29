@@ -73,7 +73,7 @@ struct dp_display_private {
 	atomic_t aborted;
 
 	struct platform_device *pdev;
-	struct platform_device *aux_switch_pdev;
+	struct device_node *aux_switch_node;
 	struct dentry *root;
 	struct completion notification_comp;
 
@@ -656,7 +656,7 @@ static int dp_display_configure_aux_switch(struct dp_display_private *dp)
 	int rc = 0;
 	enum fsa_function event = FSA_EVENT_MAX;
 
-	if (!dp->aux_switch_pdev) {
+	if (!dp->aux_switch_node) {
 		pr_debug("undefined fsa4480 handle\n");
 		goto end;
 	}
@@ -674,7 +674,7 @@ static int dp_display_configure_aux_switch(struct dp_display_private *dp)
 		goto end;
 	}
 
-	rc = fsa4480_switch_event(dp->aux_switch_pdev->dev.of_node, event);
+	rc = fsa4480_switch_event(dp->aux_switch_node, event);
 	if (rc)
 		pr_err("failed to configure fsa4480 i2c device (%d)\n", rc);
 end:
@@ -1593,7 +1593,6 @@ static int dp_display_fsa4480_callback(struct notifier_block *self,
 static int dp_display_init_aux_switch(struct dp_display_private *dp)
 {
 	int rc = 0;
-	struct device_node *pd = NULL;
 	const char *phandle = "qcom,dp-aux-switch";
 	struct notifier_block nb;
 
@@ -1603,29 +1602,23 @@ static int dp_display_init_aux_switch(struct dp_display_private *dp)
 		goto end;
 	}
 
-	pd = of_parse_phandle(dp->pdev->dev.of_node, phandle, 0);
-	if (!pd) {
+	dp->aux_switch_node = of_parse_phandle(dp->pdev->dev.of_node,
+			phandle, 0);
+	if (!dp->aux_switch_node) {
 		pr_warn("cannot parse %s handle\n", phandle);
-		goto end;
-	}
-
-	dp->aux_switch_pdev = of_find_device_by_node(pd);
-	if (!dp->aux_switch_pdev) {
-		pr_err("cannot find %s pdev\n", phandle);
-		rc = -ENODEV;
 		goto end;
 	}
 
 	nb.notifier_call = dp_display_fsa4480_callback;
 	nb.priority = 0;
 
-	rc = fsa4480_reg_notifier(&nb, dp->aux_switch_pdev->dev.of_node);
+	rc = fsa4480_reg_notifier(&nb, dp->aux_switch_node);
 	if (rc) {
 		pr_err("failed to register notifier (%d)\n", rc);
 		goto end;
 	}
 
-	fsa4480_unreg_notifier(&nb, dp->aux_switch_pdev->dev.of_node);
+	fsa4480_unreg_notifier(&nb, dp->aux_switch_node);
 end:
 	return rc;
 }

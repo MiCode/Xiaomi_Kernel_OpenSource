@@ -610,7 +610,7 @@
 		cell-index = <0>;
 		compatible = "qcom,dp-display";
 
-		vdda-1p2-supply = <&pm855_l3>;
+		vdda-1p2-supply = <&pm855l_l3>;
 		vdda-0p9-supply = <&pm855_l5>;
 
 		reg =	<0xae90000 0x0dc>,
@@ -622,7 +622,7 @@
 			<0x88ea600 0x200>,
 			<0xaf02000 0x1a0>,
 			<0x780000 0x621c>,
-			<0x88ea030 0x10>,
+			<0x88ea040 0x10>,
 			<0x88e8000 0x20>,
 			<0x0aee1000 0x034>,
 			<0xae91000 0x094>;
@@ -659,14 +659,14 @@
 
 		qcom,phy-version = <0x420>;
 		qcom,aux-cfg0-settings = [20 00];
-		qcom,aux-cfg1-settings = [24 00];
-		qcom,aux-cfg2-settings = [28 04];
+		qcom,aux-cfg1-settings = [24 13];
+		qcom,aux-cfg2-settings = [28 24];
 		qcom,aux-cfg3-settings = [2c 10];
 		qcom,aux-cfg4-settings = [30 0a];
 		qcom,aux-cfg5-settings = [34 26];
 		qcom,aux-cfg6-settings = [38 0a];
 		qcom,aux-cfg7-settings = [3c 03];
-		qcom,aux-cfg8-settings = [40 8b];
+		qcom,aux-cfg8-settings = [40 bb];
 		qcom,aux-cfg9-settings = [44 03];
 
 		qcom,max-pclk-frequency-khz = <675000>;

@@ -75,8 +75,8 @@ static const struct parent_map disp_cc_parent_map_0[] = {
 
 static const char * const disp_cc_parent_names_0[] = {
 	"bi_tcxo",
-	"dp_phy_pll_link_clk",
-	"dp_phy_pll_vco_div_clk",
+	"dp_link_clk_divsel_ten",
+	"dp_vco_divided_clk_src_mux",
 	"dptx1_phy_pll_link_clk",
 	"dptx1_phy_pll_vco_div_clk",
 	"dptx2_phy_pll_link_clk",
@@ -351,10 +351,10 @@ static struct clk_rcg2 disp_cc_mdss_dp_aux_clk_src = {
 };
 
 static const struct freq_tbl ftbl_disp_cc_mdss_dp_crypto1_clk_src[] = {
-	F( 12800000, P_BI_TCXO, 1.5, 0, 0),
-	F( 180000000, P_DP_PHY_PLL_LINK_CLK,   1.5,   0,   0),
-	F( 360000000, P_DP_PHY_PLL_LINK_CLK,   1.5,   0,   0),
-	F( 540000000, P_DP_PHY_PLL_LINK_CLK,   1.5,   0,   0),
+	F( 108000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 180000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 360000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 540000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
 	{ }
 };
 
@@ -373,10 +373,11 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto1_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 12800000,
-			[VDD_LOWER] = 180000000,
-			[VDD_LOW_L1] = 360000000,
-			[VDD_NOMINAL] = 540000000},
+			[VDD_MIN] = 12800,
+			[VDD_LOWER] = 108000,
+			[VDD_LOW] = 180000,
+			[VDD_LOW_L1] = 360000,
+			[VDD_NOMINAL] = 540000},
 	},
 };
 
@@ -395,18 +396,19 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 12800000,
-			[VDD_LOWER] = 180000000,
-			[VDD_LOW_L1] = 360000000,
-			[VDD_NOMINAL] = 540000000},
+			[VDD_MIN] = 12800,
+			[VDD_LOWER] = 108000,
+			[VDD_LOW] = 180000,
+			[VDD_LOW_L1] = 360000,
+			[VDD_NOMINAL] = 540000},
 	},
 };
 
 static const struct freq_tbl ftbl_disp_cc_mdss_dp_link1_clk_src[] = {
-	F( 19200000, P_BI_TCXO, 1, 0, 0),
-	F( 270000000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
-	F( 540000000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
-	F( 810000000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 162000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 270000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 540000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 810000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
 	{ }
 };
 
@@ -425,10 +427,11 @@ static struct clk_rcg2 disp_cc_mdss_dp_link1_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
-			[VDD_LOWER] = 270000000,
-			[VDD_LOW_L1] = 540000000,
-			[VDD_NOMINAL] = 810000000},
+			[VDD_MIN] = 19200,
+			[VDD_LOWER] = 162000,
+			[VDD_LOW] = 270000,
+			[VDD_LOW_L1] = 540000,
+			[VDD_NOMINAL] = 810000},
 	},
 };
 
@@ -447,10 +450,11 @@ static struct clk_rcg2 disp_cc_mdss_dp_link_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
-			[VDD_LOWER] = 270000000,
-			[VDD_LOW_L1] = 540000000,
-			[VDD_NOMINAL] = 810000000},
+			[VDD_MIN] = 19200,
+			[VDD_LOWER] = 162000,
+			[VDD_LOW] = 270000,
+			[VDD_LOW_L1] = 540000,
+			[VDD_NOMINAL] = 810000},
 	},
 };
 
@@ -488,9 +492,9 @@ static struct clk_rcg2 disp_cc_mdss_dp_pixel2_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
-			[VDD_LOWER] = 337500000,
-			[VDD_LOW_L1] = 675000000},
+			[VDD_MIN] = 19200,
+			[VDD_LOWER] = 337500,
+			[VDD_LOW_L1] = 675000},
 	},
 };
 
@@ -508,9 +512,9 @@ static struct clk_rcg2 disp_cc_mdss_dp_pixel_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
-			[VDD_LOWER] = 337500000,
-			[VDD_LOW_L1] = 675000000},
+			[VDD_MIN] = 19200,
+			[VDD_LOWER] = 337500,
+			[VDD_LOW_L1] = 675000},
 	},
 };
 
