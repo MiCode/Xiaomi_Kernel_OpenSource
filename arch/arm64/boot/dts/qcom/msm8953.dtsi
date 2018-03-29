@@ -369,6 +369,11 @@
 			qcom,dump-id = <0xe4>;
 		};
 
+		vsense_dump {
+			qcom,dump-size = <0x10000>;
+			qcom,dump-id = <0xe9>;
+		};
+
 		tmc_etf_dump {
 			qcom,dump-size = <0x10000>;
 			qcom,dump-id = <0xf0>;
@@ -1197,6 +1202,7 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+		qcom,scandump-size = <0x40000>;
 	};
 
 	qcom,chd_silver {
