@@ -164,6 +164,7 @@
 #include "msm8917-bus.dtsi"
 #include "msm8917-mdss.dtsi"
 #include "msm8917-mdss-pll.dtsi"
+#include "msm-arm-smmu-8917.dtsi"
 
 &soc {
 	#address-cells = <1>;
