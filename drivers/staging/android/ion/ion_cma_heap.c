@@ -25,6 +25,7 @@
 #include <linux/scatterlist.h>
 #include <linux/of.h>
 #include <soc/qcom/secure_buffer.h>
+#include <linux/highmem.h>
 
 #include "ion.h"
 #include "ion_secure_util.h"
@@ -65,7 +66,6 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	unsigned long nr_pages = size >> PAGE_SHIFT;
 	unsigned long align = get_order(size);
 	int ret;
-	void *addr;
 	struct device *dev = heap->priv;
 	struct ion_cma_buffer_info *info;
 
@@ -95,8 +95,21 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 			goto free_info;
 
 		if (!(flags & ION_FLAG_SECURE)) {
-			addr = page_address(pages);
-			memset(addr, 0, size);
+			if (PageHighMem(pages)) {
+				unsigned long nr_clear_pages = nr_pages;
+				struct page *page = pages;
+
+				while (nr_clear_pages > 0) {
+					void *vaddr = kmap_atomic(page);
+
+					memset(vaddr, 0, PAGE_SIZE);
+					kunmap_atomic(vaddr);
+					page++;
+					nr_clear_pages--;
+				}
+			} else {
+				memset(page_address(pages), 0, size);
+			}
 		}
 
 		if (MAKE_ION_ALLOC_DMA_READY ||
@@ -106,7 +119,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 						  DMA_BIDIRECTIONAL);
 	}
 
-	table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table)
 		goto err_alloc;
 
