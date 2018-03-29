@@ -125,4 +125,10 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data);
 int msm_pinctrl_remove(struct platform_device *pdev);
 
+#ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
+extern int msm_show_resume_irq_mask;
+#else
+#define msm_show_resume_irq_mask 0
+#endif
+
 #endif
