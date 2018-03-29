@@ -17,6 +17,7 @@
 #include <dt-bindings/clock/qcom,dispcc-sdm855.h>
 #include <dt-bindings/clock/qcom,cpucc-sdm855.h>
 #include <dt-bindings/clock/qcom,gpucc-sdm855.h>
+#include <dt-bindings/clock/qcom,camcc-sdmshrike.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
@@ -620,6 +621,17 @@
 		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_camcc: qcom,camcc@ad00000 {
+		compatible = "qcom,camcc-sdmshrike";
+		reg = <0xad00000 0x20000>;
+		reg-names = "cc_base";
+		vdd_mx-supply = <&pm855p_s3_level>;
+		vdd_mm-supply = <&pm855p_s1_level>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		#clock-cells = <1>;
 	};
 
 	clock_cpucc: qcom,cpucc@18321000 {
