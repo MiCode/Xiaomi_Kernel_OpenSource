@@ -14,6 +14,8 @@
 #include "dsi-panel-sim-cmd.dtsi"
 #include "dsi-panel-truly-1080p-video.dtsi"
 #include "dsi-panel-truly-1080p-cmd.dtsi"
+#include "dsi-panel-truly-720p-video.dtsi"
+#include "dsi-panel-truly-720p-cmd.dtsi"
 #include "dsi-panel-r69006-1080p-cmd.dtsi"
 #include "dsi-panel-r69006-1080p-video.dtsi"
 #include "dsi-adv7533-1080p.dtsi"
