@@ -8565,6 +8565,10 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		return 0;
 	}
 
+	/* Don't detach task if it is under active migration */
+	if (env->src_rq->push_task == p)
+		return 0;
+
 	/*
 	 * Aggressive migration if:
 	 * 1) IDLE or NEWLY_IDLE balance.
