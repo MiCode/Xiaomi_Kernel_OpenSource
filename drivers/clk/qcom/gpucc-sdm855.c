@@ -115,6 +115,14 @@ static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src_sdmshrike[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
+	F(400000000, P_GPLL0_OUT_MAIN, 1.5, 0, 0),
+	F(500000000, P_GPU_CC_PLL1_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 	.cmd_rcgr = 0x1120,
 	.mnd_width = 0,
@@ -415,9 +423,32 @@ static const struct qcom_cc_desc gpu_cc_sdm855_desc = {
 
 static const struct of_device_id gpu_cc_sdm855_match_table[] = {
 	{ .compatible = "qcom,gpucc-sdm855" },
+	{ .compatible = "qcom,gpucc-sdmshrike" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_sdm855_match_table);
+
+static void gpu_cc_sdm855_fixup_sdmshrike(void)
+{
+	gpu_cc_gmu_clk_src.freq_tbl = ftbl_gpu_cc_gmu_clk_src_sdmshrike;
+	gpu_cc_gmu_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 400000000;
+	gpu_cc_gmu_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] = 500000000;
+}
+
+static int gpu_cc_sdm855_fixup(struct platform_device *pdev)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,gpucc-sdmshrike"))
+		gpu_cc_sdm855_fixup_sdmshrike();
+
+	return 0;
+}
 
 static int gpu_cc_sdm855_probe(struct platform_device *pdev)
 {
@@ -445,6 +476,8 @@ static int gpu_cc_sdm855_probe(struct platform_device *pdev)
 	}
 
 	clk_trion_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
+
+	gpu_cc_sdm855_fixup(pdev);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_sdm855_desc, regmap);
 	if (ret) {
