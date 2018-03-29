@@ -214,6 +214,20 @@
 		qcom,pipe-attr-ee;
 	};
 
+	thermal_zones: thermal-zones {};
+
+	tsens0: tsens@4a8000 {
+		compatible = "qcom,msm8937-tsens";
+		reg = <0x4a8000 0x1000>,
+			<0x4a9000 0x1000>,
+			<0xa4000  0x1000>;
+		reg-names = "tsens_srot_physical",
+				"tsens_tm_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
+		#thermal-sensor-cells = <1>;
+	};
+
 	timer@b120000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -1234,6 +1248,7 @@
 #include "msm8917-regulator.dtsi"
 #include "pm8937.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm8917-thermal.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";
