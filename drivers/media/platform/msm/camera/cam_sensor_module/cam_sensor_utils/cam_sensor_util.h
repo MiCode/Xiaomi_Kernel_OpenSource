@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <cam_mem_mgr.h>
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
+#include "cam_sensor_io.h"
 
 #define INVALID_VREG 100
 
@@ -34,7 +35,8 @@ int cam_get_dt_power_setting_data(struct device_node *of_node,
 int msm_camera_pinctrl_init
 	(struct msm_pinctrl_info *sensor_pctrl, struct device *dev);
 
-int cam_sensor_i2c_command_parser(struct i2c_settings_array *i2c_reg_settings,
+int cam_sensor_i2c_command_parser(struct camera_io_master *io_master,
+	struct i2c_settings_array *i2c_reg_settings,
 	struct cam_cmd_buf_desc *cmd_desc, int32_t num_cmd_buffers);
 
 int32_t delete_request(struct i2c_settings_array *i2c_array);
