@@ -306,3 +306,12 @@ config MSM_GCC_SDMSHRIKE
 	  SDMSHRIKE devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI, i2c,
 	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_CAMCC_SDMSHRIKE
+	tristate "SDMSHRIKE Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SDMSHRIKE devices.
+          Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
