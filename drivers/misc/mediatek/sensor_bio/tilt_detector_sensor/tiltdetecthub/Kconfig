@@ -1,0 +1,4 @@
+
+config MTK_TILTDETECTHUB
+	bool "tiltdetecthub for MediaTek package"
+	default n

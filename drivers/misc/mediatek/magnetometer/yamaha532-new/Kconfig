@@ -1,0 +1,9 @@
+
+config MTK_YAS532_NEW
+        bool "YAS532 for Mediatek package"
+        default n
+	help
+	  It support different magnetometer sensor.
+          If this option is set,
+	  it will support
+          Yamaha532 magnetometer.

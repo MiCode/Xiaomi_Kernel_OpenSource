@@ -1,0 +1,23 @@
+Mediatek PMIC Clock Buffer
+
+Required properties:
+- compatible: must be set to "mediatek,pmic_clock_buffer"
+- mediatek,clkbuf-quantity: specify the quantity of clkbuf
+- mediatek,clkbuf-config: the config of clkbuf type
+	- 0: disable
+	- 1: software control mode
+	- 2: hardware control mode
+- mediatek,clkbuf-driving-current: the driving current of clkbuf
+	- 0: 0.4mA (loading: <10pF)
+	- 1: 0.9mA (loading: 10~20pF, if PCB meet constraint)
+	- 2: 1.4mA (loading: 20~30pF, default)
+	- 3: 1.9mA (loading: >30pF)
+
+Example:
+	pmic_clock_buffer {
+		compatible = "mediatek,pmic_clock_buffer";
+		mediatek,clkbuf-quantity = <4>;
+		mediatek,clkbuf-config = <2 1 1 2>;
+		mediatek,clkbuf-driving-current = <2 2 2 2>;
+	};
+

@@ -1,0 +1,34 @@
+Mediatek ap2c2k device
+============================
+
+The Mediatek ap2c2k controller is an interface to communicate with C2K modem.
+
+Required Properties:
+
+	- compatible: Should be:
+		"mediatek,ap2c2k_ccif"
+	- reg: physical base address of AP CCIF base, length of AP CCIF, and MD CCIF base & Length of MD CCIF
+	- interrupts: interrupt number to the cpu.
+	- mediatek,md_id: configure MD id for modem_ccif driver.
+	- mediatek,cldma_capability: config AP ccci driver feature.
+	- mediatek,md_smem_size: AP and MD share memory size.
+	- clocks: Clock driving the hardware.
+	- clock-names:  Clock driving the hardware name.
+Optional properties:
+
+Example:
+ap2c2k_ccif@1020b000 {
+	compatible = "mediatek,ap2c2k_ccif";
+	reg = <0x1020b000 0x1000>, //CCIF
+		<0x10211000 0x300>, // MD1 PCCIF
+		<0x10213000 0x300>; // MD3 PCCIF
+	interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_LOW>, // C2K_CCIF
+			   <GIC_SPI 220 IRQ_TYPE_EDGE_FALLING>; // C2K_WDT
+	cell-index = <2>;
+	ccif,major = <169>;
+	ccif,minor_base = <0>;
+	ccif,capability = <0>;
+	mediatek,md_smem_size = <0x400000>; //md share memory size
+	clocks = <&scpsys SCP_SYS_MD2>;
+	clock-names = "scp-sys-md2-main";
+};

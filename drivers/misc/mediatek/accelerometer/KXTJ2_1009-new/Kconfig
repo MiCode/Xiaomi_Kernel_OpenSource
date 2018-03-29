@@ -1,0 +1,32 @@
+
+config MTK_KXTJ2_1009_NEW
+  bool "KXTJ2_1009 for MediaTek package"
+  default n
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          MTK_KXTJ2_1009_NEW Accelerometer.
+
+
+config KXTJ2_1009_LOWPASS
+	bool "MTK_KXTJ2_1009_NEW for Mediatek package"
+	default n
+	help
+	Say Y here if you have MTK_KXTJ2_1009_NEW accelerometer sensor KXTJ2_1009_LOWPASS.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config CUSTOM_KERNEL_SENSORHUB
+	bool "MTK_KXTJ2_1009_NEW for Mediatek package"
+	default n
+	help
+	Say Y here if you have MTK_KXTJ2_1009_NEW accelerometer sensor CUSTOM_KERNEL_SENSORHUB.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.

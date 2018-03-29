@@ -1,0 +1,8 @@
+config MTK_MC3410_NEW
+	tristate "MC3410 for MediaTek package"
+	default n
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          MC3410 Accelerometer.

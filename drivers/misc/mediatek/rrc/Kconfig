@@ -1,0 +1,17 @@
+# RRC
+config MTK_RRC_SUPPORT
+	bool "MTK_RRC_SUPPORT"
+	default n
+	help
+	  RRC(Refresh Rate Controller) is a display tcehnology that automatically switch display refresh rate for
+	  smoother and clearer user experience.
+
+config MTK_DISPLAY_120HZ_SUPPORT
+	bool "MTK_DISPLAY_120HZ_SUPPORT"
+	default n
+	help
+	  This option enable 120Hz display feature.
+	  This feature also require panel support 120Hz refresh rate.
+	  If you want to use MediaTek 120Hz display feature, say Y here.
+	  If unsure, say N.
+

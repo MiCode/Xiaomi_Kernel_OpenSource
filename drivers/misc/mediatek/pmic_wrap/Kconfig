@@ -1,0 +1,5 @@
+config MTK_PMIC_WRAP
+	bool "MediaTek PMIC_WRAP driver"
+	default y
+	---help---
+	  MediaTek PMIC_WRAP driver

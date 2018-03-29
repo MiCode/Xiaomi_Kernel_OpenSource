@@ -1,0 +1,240 @@
+#
+# Touchscreen driver configuration
+#
+menuconfig INPUT_TOUCHSCREEN
+	bool "Touchscreens"
+	help
+	  Say Y here, and a list of supported touchscreens will be displayed.
+	  This option doesn't affect the kernel.
+
+	  If unsure, say Y.
+
+if INPUT_TOUCHSCREEN
+
+config TOUCHSCREEN_MTK
+	tristate "MediaTek Touch Panel Driver"
+	default n
+	help
+	  Say Y here if you have MediaTek touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT1151/Kconfig"
+
+config TOUCHSCREEN_MTK_FT5726
+	tristate "FT5726 Touchscreen"
+	help
+	  Say Y here if you have FT5726 touchscreen,
+	  connected to your system.
+          To compile this dirver as a module, choose M here: the
+          module will be called.
+
+config CONFIG_TOUCHSCREEN_FT5X46
+	tristate "FT5X46 Touchscreen"
+	default n
+	help
+	  Say Y here if you have FT5X46 touchscreen,
+	  connected to your system.
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/ft5x46/Kconfig"
+
+config TOUCHSCREEN_MTK_GT1151
+	bool "GT1151 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT1151 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+config TOUCHSCREEN_MTK_GT1151TB
+	bool "GT1151 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT1151 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT1151TB/Kconfig"
+
+config TOUCHSCREEN_MTK_GT928
+	tristate "GT928 Touchscreen"
+	help
+	  Say Y here if you have Goodix GT928 touchscreen,
+	  connected to your system.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_MTK_GT9XXTB_HOTKNOT
+	bool "GT9XXTB hotknot for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT9XXTB hotknot touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT9XXTB_hotknot/Kconfig"
+
+config TOUCHSCREEN_MTK_GT9XX_HOTKNOT
+	bool "GT9XX hotknot for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT9XX hotknot touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT9XX_hotknot/Kconfig"
+
+config TOUCHSCREEN_MTK_GT9XX_HOTKNOT_PHONE
+	bool "GT9XX hotknot phone for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT9XX hotknot phone touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT9XX_hotknot_phone/Kconfig"
+
+config TOUCHSCREEN_MTK_SYNAPTICS_I2C_RMI4
+	tristate "Synaptics DSX I2C touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Synaptics DSX I2C touchscreen
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_i2c_rmi4.
+
+source "drivers/input/touchscreen/mediatek/synaptics_i2c_rmi4/Kconfig"
+
+config TOUCHSCREEN_MTK_GT910
+	bool "GT910 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT910 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT910/Kconfig"
+
+config TOUCHSCREEN_MTK_GT9XX_HOTKNOT_SCP
+	bool "GT9XX_HOTKNOT_SCP for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT9XX_HOTKNOT_SCP touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT9XX_hotknot_scp/Kconfig"
+
+config TOUCHSCREEN_MTK_GT911
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT911 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT911/Kconfig"
+
+config TOUCHSCREEN_MTK_FT5X0X
+	bool "FT5X0X for Mediatek package"
+	default n
+	help
+	  Say Y here if you have FT5X0X touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/ft5x0x/Kconfig"
+
+config TOUCHSCREEN_MTK_SYNAPTICS_3320_50
+	bool "Synaptics 5.0inch for Mediatek package"
+    default n
+
+
+config TOUCHSCREEN_MTK_GT9271TB_HOTKNOT
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT9271TB_HOTKNOT touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT9271TB_hotknot/Kconfig"
+
+config TOUCHSCREEN_UNIFIED_DRIVER_4
+	bool "LGE Unified driver Ver4.0"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you use lge unified driver ver4.0
+	  if unsure, say N
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+config TOUCHSCREEN_LGE_MIT300
+	bool "Melfas MIT-300 based on LGE Touch Core driver"
+	depends on I2C && TOUCHSCREEN_UNIFIED_DRIVER_4
+	default n
+	help
+	  Say Y here if you have a Mefas MIT-300 I2C touchscreen
+	  connected to your system.
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+config TOUCHSCREEN_LGE_MIT300_M4
+	bool "Melfas MIT-300 based on LGE Touch Core driver"
+	depends on I2C && TOUCHSCREEN_UNIFIED_DRIVER_4
+	default n
+	help
+	  Say Y here if you have a Mefas MIT-300 I2C touchscreen
+	  connected to your system.
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+config TOUCHSCREEN_LGE_FT8707
+	bool "FT8707 based on LGE Touch Core driver"
+	depends on I2C && TOUCHSCREEN_UNIFIED_DRIVER_4
+	default n
+	help
+	  Say Y here if you have a FT8707 I2C touchscreen
+	  connected to your system.
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+endif

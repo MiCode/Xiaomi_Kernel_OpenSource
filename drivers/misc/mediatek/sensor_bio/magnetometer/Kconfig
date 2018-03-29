@@ -1,0 +1,18 @@
+
+config MTK_AUTO_DETECT_MAGNETOMETER
+	bool "MTK_AUTO_DETECT_MAGNETOMETER"
+	help
+	  one load to support different magnetometer sensor.
+          This feature Option is used for projects which using more than one
+	  magnetometer, more than one ALSPS drivers can be builded in to
+	  project and be auto detected by setting this option to yes
+
+config CUSTOM_KERNEL_MAGNETOMETER
+	bool "CUSTOM_KERNEL_MAGNETOMETER"
+	help
+	  compass driver to detect compass raw data and report orientatino
+	  data. A compass is an instrument used for navigation and
+          orientation that shows direction relative to the geographic
+          cardinal directions, or "points".
+
+source "drivers/misc/mediatek/sensor_bio/magnetometer/maghub/Kconfig"

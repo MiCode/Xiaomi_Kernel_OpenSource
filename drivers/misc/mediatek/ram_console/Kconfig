@@ -1,0 +1,53 @@
+config MTK_RAM_CONSOLE
+	bool "mt ram console"
+        help
+          ram_console is a feature which will record some
+          debug information and can be read after reboot.
+          It can be configured as SRAM or DRAM.
+          Each ram type should be set address and size.
+
+config MTK_RAM_CONSOLE_USING_SRAM
+	bool "Using SRAM as ram console storage"
+	depends on MTK_RAM_CONSOLE
+        help
+          If set this config as yes, ram_console will use
+           SRAM as its storage, all ram_console content
+           will write into SRAM.
+          You should set SRAM address and size as belows.
+
+config MTK_RAM_CONSOLE_USING_DRAM
+	bool "Using DRAM as ram console storage"
+	depends on MTK_RAM_CONSOLE
+        help
+          If set this config as yes, ram_console will use
+           DRAM as its storage, all ram_console content
+           will write into DRAM.
+          You should set DRAM address and size as belows.
+
+config MTK_RAM_CONSOLE_SIZE
+	hex "MTK RAM console  address"
+	default 0
+	depends on MTK_RAM_CONSOLE
+        help
+          SRAM ram_console memory allocate size.
+
+config MTK_RAM_CONSOLE_ADDR
+	hex "MTK RAM console buffer size"
+	default 0
+	depends on MTK_RAM_CONSOLE
+        help
+          SRAM ram_console address.
+
+config MTK_RAM_CONSOLE_DRAM_SIZE
+	hex "MTK RAM console dram address"
+	default 0
+	depends on MTK_RAM_CONSOLE
+        help
+          DRAM ram_console memory allocate size.
+
+config MTK_RAM_CONSOLE_DRAM_ADDR
+	hex "MTK RAM console dram size"
+	default 0
+	depends on MTK_RAM_CONSOLE
+        help
+          DRAM ram_console address.

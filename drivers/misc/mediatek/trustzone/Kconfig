@@ -1,0 +1,24 @@
+config HAVE_MTK_IN_HOUSE_TEE_SUPPORT
+	bool "Enable MTK in-house TEE Solution"
+	def_bool n
+	help
+	  This option decides if the chip can support MTK TEE.
+	  Set to yes if MTK TEE is supported.
+	  If you don't know if it is supported, setting to no.
+	  This option is needed if you would like to turn on MTK TEE.
+
+config MTK_IN_HOUSE_TEE_SUPPORT
+	bool "Enable MTK In House TEE Support"
+	depends on HAVE_MTK_IN_HOUSE_TEE_SUPPORT
+	default n
+	help
+	  This enable MTK TEE support.
+
+config MTEE_CMA_SECURE_MEMORY
+	bool "MTEE using CMA for secure memory allocation"
+	depends on OF
+	depends on CMA
+	depends on MTK_IN_HOUSE_TEE_SUPPORT
+	help
+	  Enable allocation secure memory from CMA to free the memory
+	  back to Linux CMA when secure memory buffer was not used.

@@ -1,0 +1,275 @@
+#
+# Touchscreen driver configuration
+#
+if TOUCHSCREEN_MTK_GT911
+
+config GT911_FIRMWARE
+	string "GT911 for Mediatek firmware"
+
+config GT911_CONFIG
+	string "GT911 for Mediatek config"
+
+config GTP_DRIVER_SEND_CFG
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_DRIVER_SEND_CFG.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CUSTOM_CFG
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_CUSTOM_CFG.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HAVE_TOUCH_KEY
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_HAVE_TOUCH_KEY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CHANGE_X2Y
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_CHANGE_X2Y.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_COMPATIBLE_MODE
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_COMPATIBLE_MODE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WARP_X_ON
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_WARP_X_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WARP_Y_ON
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_WARP_Y_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_GESTURE_WAKEUP
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_GESTURE_WAKEUP.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HOTKNOT
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_HOTKNOT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config HOTKNOT_TYPE
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel HOTKNOT_TYPE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config HOTKNOT_BLOCK_RW
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel HOTKNOT_BLOCK_RW.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_PROXIMITY
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_PROXIMITY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WITH_STYLUS
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_WITH_STYLUS.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HAVE_STYLUS_KEY
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_HAVE_STYLUS_KEY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_AUTO_UPDATE
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_AUTO_UPDATE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HEADER_FW_UPDATE
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_HEADER_FW_UPDATE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_FW_DOWNLOAD
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_FW_DOWNLOAD.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CREATE_WR_NODE
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_CREATE_WR_NODE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_ESD_PROTECT
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_ESD_PROTECT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CHARGER_DETECT
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_CHARGER_DETECT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CHARGER_SWITCH
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_CHARGER_SWITCH.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_DEBUG_ARRAY_ON
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_DEBUG_ARRAY_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_DEBUG_FUNC_ON
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_DEBUG_FUNC_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_POWER_CTRL_SLEEP
+	bool "GT911 for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT911 touch panel GTP_POWER_CTRL_SLEEP.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+endif

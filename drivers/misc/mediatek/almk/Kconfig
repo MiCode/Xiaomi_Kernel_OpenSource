@@ -1,0 +1,5 @@
+config MTK_ALMK
+	bool CONFIG_MTK_ALMK
+	default y
+	  help
+	  CONFIG_MTK_ALMK define if the almk driver should be built in or not

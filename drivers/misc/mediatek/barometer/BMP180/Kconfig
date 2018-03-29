@@ -1,0 +1,4 @@
+
+config MTK_BMP180
+	bool "BMP180 for MediaTek package"
+	default n

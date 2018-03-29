@@ -1,0 +1,5 @@
+config MTK_PERFMGR_TOUCH_BOOST
+	tristate "touch boost in performance manager"
+	default n
+	help
+	  touch boost in performance manager

@@ -1,0 +1,8 @@
+# MJC
+config MTK_MJC_DRIVER
+	bool "MediaTek MJC Driver"
+	default n
+	help
+	  ClearMotion is a display tcehnology that enhance visual quality for
+	  smoother and clearer video playback.
+	  Feature : Super Slow Motion, 120Hz, ...

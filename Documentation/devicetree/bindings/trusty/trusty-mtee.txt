@@ -1,0 +1,6 @@
+Mtee smc interface on trusty
+
+Mtee is secure world framework in trusty.
+
+Required properties:
+- compatible: "mediatek,trusty-mtee-v1"

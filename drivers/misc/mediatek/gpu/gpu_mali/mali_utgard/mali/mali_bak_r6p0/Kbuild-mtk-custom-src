@@ -1,0 +1,41 @@
+#mtk custom port
+
+
+#Debug version (BUILD := debug not eatten by kbuild)
+ccflags-y += -DDEBUG
+
+#Move user ump include to kernel source code
+ccflags-y += -I$(DRIVER_DIR)/../ump_include/ump
+
+#include mtk kernel header files
+ccflags-y += \
+    -I$(srctree)/arch/arm/mach-mt6580/include/mach \
+    -I$(srctree)/drivers/misc/mediatek/mach/mt6580/include/mach \
+    -I$(srctree)/drivers/misc/mediatek/base/power/mt6580 \
+    -I$(srctree)/include/linux \
+    -I$(srctree)/arch/arm/mach-mt6580/gpu/mali/mali/linux/license/gpl
+
+#Add MTK custom source code
+ccflags-y += -I$(DRIVER_DIR)/../../mediatek
+mali-y    += ../../mediatek/mtk_mali_kernel.o
+
+ccflags-y += -DMALI_FAKE_PLATFORM_DEVICE
+
+#Add function trace functionality
+#ccflags-y += -finstrument-functions
+#mali-y += platform/$(TARGET_PLATFORM)/mtk_ptrace.c
+
+mali-y += platform/arm_core_scaling.o
+mali-y += platform/platform.o
+mali-y += platform/platform_pmm.o
+
+
+#MTK_DEBUG
+ccflags-y += -I$(DRIVER_DIR)/mtk_common
+
+mali-y += mtk_common/mtk_mem_record.o
+mali-$(MTK_DEBUG) += mtk_common/mtk_debug.o
+mali-$(MTK_DEBUG_PROC_PRINT) += mtk_common/mtk_pp.o
+
+#Add include path for kernel 3.10
+ccflags-y += -I$(srctree)/drivers/staging/android

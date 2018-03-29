@@ -1,0 +1,9 @@
+
+config MTK_APDS9930_NEW
+	bool "APDS9930_NEW for MediaTek package"
+	default n
+	help
+	It support different type sensor
+	in this platform. If this option
+	is set, it will support ambient
+	and light sensor APDS9930.

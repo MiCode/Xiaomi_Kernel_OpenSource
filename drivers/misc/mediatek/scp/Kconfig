@@ -1,0 +1,7 @@
+config MTK_TINYSYS_SCP_SUPPORT
+	bool "Specifiy If Platform Support SCP"
+	default n
+	help
+		SCP is a MediaTek in-house DSP which can receive
+		command from IPI interface.
+

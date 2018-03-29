@@ -1,0 +1,272 @@
+config MTK_LENS
+  bool CONFIG_MTK_LENS
+  default n
+  help
+    CONFIG_MTK_LENS
+
+config MTK_LENS_USE_MODULE
+  bool "Mediatek lens driver build as module"
+  default n
+  help
+    Say Y here if you want to build touch driver as xxx.ko.
+
+    If unsure, say N.
+
+    To compile this dirver as a module,
+    It will be called by insmod xxx.ko in init.rc.
+
+#
+# LENS
+#
+
+config MTK_LENS_DUMMYLENS_SUPPORT
+  bool "Dummy Lens Driver"
+  default n
+  help
+    Dummy Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_BU63165AF_SUPPORT
+  bool "BU63165AF Lens Driver"
+  default n
+  help
+    BU63165AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_AD5820AF_SUPPORT
+  bool "AD5820AF Lens Driver"
+  default n
+  help
+    AD5820AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_AD5823_SUPPORT
+  bool "AD5823 Lens Driver"
+  default n
+  help
+    AD5823 Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_AD5823AF_SUPPORT
+  bool "AD5823AF Lens Driver"
+  default n
+  help
+    AD5823AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_AK7345AF_SUPPORT
+  bool "AK7345AF Lens Driver"
+  default n
+  help
+    AK7345AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_AK7371AF_SUPPORT
+  bool "AK7371AF Lens Driver"
+  default n
+  help
+    AK7371AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_BU6424AF_SUPPORT
+  bool "BU6424AF Lens Driver"
+  default n
+  help
+    BU6424AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_BU6429AF_SUPPORT
+  bool "BU6429AF Lens Driver"
+  default n
+  help
+    BU6429AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_BU64745GWZAF_SUPPORT
+  bool "BU64745GWZAF Lens Driver"
+  default n
+  help
+    BU64745GWZAF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_AK7345AF_SUPPORT
+  bool "AK7345AF Lens Driver"
+  default n
+  help
+    AK7345AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_DW9719TAF_SUPPORT
+  bool "DW9719TAF Lens Driver"
+  default n
+  help
+    DW9719TAF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_DW9718AF_SUPPORT
+  bool "DW9718AF Lens Driver"
+  default n
+  help
+    DW9718AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_DW9714AF_SUPPORT
+  bool "DW9714AF Lens Driver"
+  default n
+  help
+    DW9714AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_DW9714A_SUPPORT
+  bool "DW9714A Lens Driver"
+  default n
+  help
+    DW9714A Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_DW9814AF_SUPPORT
+  bool "DW9814AF Lens Driver"
+  default n
+  help
+    DW9814AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_LC898122AF_SUPPORT
+  bool "LC898122AF Lens Driver"
+  default n
+  help
+    LC898122AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_LC898212AF_SUPPORT
+  bool "LC898212AF Lens Driver"
+  default n
+  help
+    LC898212AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_LC898212XDAF_SUPPORT
+  bool "LC898212XDAF Lens Driver"
+  default n
+  help
+    LC898212XDAF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_LC898214AF_SUPPORT
+  bool "LC898214AF Lens Driver"
+  default n
+  help
+    LC898212AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_FM50AF_SUPPORT
+  bool "FM50AF Lens Driver"
+  default n
+  help
+    FM50AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_MT9P017AF_SUPPORT
+  bool "MT9P017AF Lens Driver"
+  default n
+  help
+    MT9P017AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_OV8825AF_SUPPORT
+  bool "OV8825AF Lens Driver"
+  default n
+  help
+    OV8825AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_SENSORDRIVE_SUPPORT
+  bool "SENSORDRIVE Lens Driver"
+  default n
+  help
+    SENSORDRIVE Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_GAF001AF_SUPPORT
+  bool "GAF001AF Lens Driver"
+  default n
+  help
+    GAF001AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_GAF002AF_SUPPORT
+  bool "GAF002AF Lens Driver"
+  default n
+  help
+    GAF002AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_GAF008AF_SUPPORT
+  bool "GAF008AF Lens Driver"
+  default n
+  help
+    GAF008AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_WV511AAF_SUPPORT
+  bool "WV511AAF Lens Driver"
+  default n
+  help
+    WV511AAF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project

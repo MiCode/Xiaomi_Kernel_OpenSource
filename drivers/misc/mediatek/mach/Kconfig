@@ -1,0 +1,37 @@
+
+menu "MTK Board Support Package"
+
+choice
+	bool "MTK Board"
+
+config MTK_EVB_BOARD
+	bool "MTK EVB BOARD"
+	depends on (ARCH_MT6570 || ARCH_MT6580 || ARCH_MT6735 || ARCH_MT6735M || ARCH_MT6753 || ARCH_MT6755 || ARCH_MT6797)
+	select ARM_L1_CACHE_SHIFT_6 if (!ARM64)
+	help
+	  Select if you are using an EVB board.
+
+config MTK_FPGA
+	bool "MTK FPGA"
+	depends on (ARCH_MT6570 || ARCH_MT6580 || ARCH_MT6735 || ARCH_MT6735M || ARCH_MT6753 || ARCH_MT6755 || ARCH_MT6797)
+	select ARM_L1_CACHE_SHIFT_6 if (!ARM64)
+	help
+	  Select if you are using the FPGA board.
+
+endchoice
+
+config FPGA_CA7
+	bool "FPGA CA7"
+	depends on MTK_FPGA
+	default n
+	help
+	  Select if you are using the CA7 FPGA board.
+
+config MTK_PSCI
+	bool "Mediatek PSCI boot method"
+	depends on ARM64
+	default n
+	help
+	  Select if you want to enable PSCI boot method on MTK platform.
+
+endmenu

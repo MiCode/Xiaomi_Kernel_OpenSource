@@ -1,0 +1,5 @@
+config MTK_DEVAPC_DRIVER
+	bool "Enable MTK Device APC driver"
+	default n
+	help
+	  Device APC is a kernel driver controlling internal device security

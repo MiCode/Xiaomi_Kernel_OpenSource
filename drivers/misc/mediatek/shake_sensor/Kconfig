@@ -1,0 +1,5 @@
+
+config CUSTOM_KERNEL_SHAKE_SENSOR
+	bool "CUSTOM_KERNEL_SHAKE_SENSOR"
+	help
+	  Kernel space shake sensor driver.

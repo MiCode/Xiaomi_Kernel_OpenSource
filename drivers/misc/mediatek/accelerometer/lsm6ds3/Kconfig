@@ -1,0 +1,9 @@
+
+config MTK_LSM6DS3
+	bool "ST LSM6DS3 accelerometer driver for MediaTek package"
+	default n
+	help
+	  To claim the support of LSM6DS3 accelerometer driver.
+	  If this option is set,
+	  it will support LSM6DS3 Accelerometer.
+	  If unsure,say N.

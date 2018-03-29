@@ -1,0 +1,4 @@
+config BCM_BT_POWER
+	tristate "Broadcom Bluetooth Power Driver"
+	help
+	  RFKill bt switch control

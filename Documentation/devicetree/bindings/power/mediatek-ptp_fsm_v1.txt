@@ -1,0 +1,15 @@
+TWL BCI (Battery Charger Interface)
+
+Required properties:
+- compatible:
+  - "mediatek,psp_fsm"
+- reg: The base address ptp register bank
+- interrupts: Should contain PTP interrupt.
+
+Examples:
+
+ptp_fsm@1100b000 {
+	compatible = "mediatek,psp_fsm";
+	reg = <0x1100B000 0x1000>;
+	interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_LOW>;
+};

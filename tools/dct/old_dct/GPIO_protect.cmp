@@ -1,0 +1,25 @@
+;                                  Pull_en Pull_sel Def_dir In Out Inv Out_High
+;                                  dis:0   low:0    out:1
+[PROTECT]
+;GPS
+PROTECT_0 = gpio_wifi_enable_pin   0       0        1       0  1   0   0
+PROTECT_1 = gpio_wifi_32k_pin      0       0        1       0  1   0   0
+PROTECT_2 = gpio_wifi_ext_rst_pin  0       0        1       0  1   0   1
+;BT
+PROTECT_3 = gpio_bt_power_pin      0       0        1       0  1   0   0
+PROTECT_4 = gpio_bt_wakeup_pin     0       0        1       0  1   0   0
+PROTECT_5 = gpio_bt_32k_pin        0       0        1       0  1   0   0
+PROTECT_6 = gpio_bt_utxd3_pin      0       0        1       0  1   0   0
+PROTECT_7 = gpio_bt_urxd3_pin      1       1        0       1  1   0   0
+PROTECT_8 = gpio_bt_ucts3_pin      0       0        1       0  1   0   0
+PROTECT_9 = gpio_bt_urts3_pin      0       0        1       0  1   0   0
+PROTECT_10 = gpio_bt_pcmclk_pin    0       0        1       0  1   0   0
+PROTECT_11 = gpio_bt_pcmsync_pin   0       0        1       0  1   0   0
+PROTECT_12 = gpio_bt_pcmin_pin     1       0        0       1  1   0   0
+PROTECT_13 = gpio_bt_pcmout_pin    0       0        1       0  1   0   0
+PROTECT_14 = gpio_bt_reset_pin     0       0        1       0  1   0   0
+;WIFI
+PROTECT_15 = gpio_gps_power_pin    1       0        1       0  1   0   0
+PROTECT_16 = gpio_gps_urxd_pin     0       0        1       0  1   0   0
+PROTECT_17 = gpio_gps_utxd_pin     0       0        1       0  1   0   0
+

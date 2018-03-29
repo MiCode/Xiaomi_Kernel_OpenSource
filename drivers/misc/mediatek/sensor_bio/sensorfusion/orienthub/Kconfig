@@ -1,0 +1,4 @@
+
+config MTK_ORIENTHUB
+	bool "orienthub for MediaTek package"
+	default n

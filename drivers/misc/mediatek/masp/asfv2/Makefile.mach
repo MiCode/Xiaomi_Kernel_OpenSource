@@ -1,0 +1,18 @@
+###################################################################
+#[mach_obj][HACC]: if TEE is enabled, HACC is done in secure world.
+###################################################################
+ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+ccflags-y += -I$(src)/$(asf_link)/tlc_inc
+include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+mach_obj += $(asf_link)/mach/hacc_tee_req.o
+mach_obj += $(asf_link)/mach/hacc_tee.o
+mach_obj += $(asf_link)/mach/hacc_service.o
+else
+mach_obj += $(asf_link)/mach/sec_lib.o
+mach_obj += $(asf_link)/mach/hacc_lib.o
+mach_obj += $(asf_link)/mach/hacc_export.o
+mach_obj += $(asf_link)/mach/hacc_hk.o
+mach_obj += $(asf_link)/mach/hacc_sk.o
+endif
+
+ccflags-y += -I$(src)/$(asf_link)/asf_inc

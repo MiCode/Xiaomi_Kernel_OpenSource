@@ -1,0 +1,180 @@
+[EINT_variables]
+MT7118_WIMAX
+MT5921_WIFI
+BT
+KPD_PWRKEY
+KPD_SLIDE
+TOUCH
+TOUCH_PANEL
+MT6326_PMIC
+HEADSET
+MHALL
+HALL_1
+HALL_2
+HALL_3
+FM_RDS
+HALL_4
+ALS
+OFN
+WIFI
+COMBO_BGF
+COMBO_ALL
+GSE_1
+GSE_2
+MSE
+MHL
+GYRO
+ACCDET
+SWTP
+OTG_IDDIG
+CMMB
+NFC
+IRQ_NFC
+HEADSET_HOOK
+MT6329_PMIC
+EINT_HDMI_HPD
+DT_EXT_MD_EXP
+DT_EXT_MD_WDT
+DT_EXT_MD_WK_UP
+DT_EXT_MD_WK_UP_USB
+DT_EXT_MD_EXP
+EVDO_DT_EXT_MDM_RDY
+EVDO_DT_EXT_MDM_WAKE_AP
+EVDO_DT_EXT_MDM_RST_IND
+EVDO_DT_EXT_MDM_PWR_ON
+EVDO_DT_EXT_UART_MDM_WAKE_AP
+EVDO_DT_EXT_MDM_ACK
+EVDO_DT_EXT_MDM_FLOW_CTRL
+MT6280_USB_WAKEUP
+MT6280_WD
+SIM1_HOT_PLUG
+SIM2_HOT_PLUG
+MSDC1_INS
+MSDC2_INS
+MT6322_PMIC
+MT6323_PMIC
+MT6333_PMIC
+MT6397_PMIC
+CHR_STAT
+LTE_SDIO
+LTE_WDT
+EXT_BUCK_OC
+EDP_INTN
+DSI_TE
+DSI_TE_1
+VBUS_DETECT_PIN_EINT
+SENSORHUB
+MRDUMP_EXT_RST
+EXT_DBG_KEY
+FPC1145
+GOODIX_FP
+
+[MD1_EINT_variables]
+MD1_SIM1_HOT_PLUG_EINT
+MD1_SIM2_HOT_PLUG_EINT
+MD1_SIM3_HOT_PLUG_EINT
+MD1_SIM4_HOT_PLUG_EINT
+
+[MD2_EINT_variables]
+AST_DATA_INTR
+MD2_SIM1_HOT_PLUG_EINT
+MD2_SIM2_HOT_PLUG_EINT
+
+[SRC_PIN]
+PAD_INT_SIM1
+PAD_INT_SIM2
+PAD_SPI_MO
+PAD_SPI_CS
+PAD_URXD0
+PAD_URTS0
+PAD_URXD3
+PAD_DPI_D0
+PAD_DPI_D2
+
+
+[cust_eint.h_HEADER]
+#ifndef __CUST_EINTH
+#define __CUST_EINTH
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define CUST_EINT_POLARITY_LOW              0
+#define CUST_EINT_POLARITY_HIGH             1
+#define CUST_EINT_DEBOUNCE_DISABLE          0
+#define CUST_EINT_DEBOUNCE_ENABLE           1
+#define CUST_EINT_EDGE_SENSITIVE            0
+#define CUST_EINT_LEVEL_SENSITIVE           1
+
+//////////////////////////////////////////////////////////////////////////////
+
+[cust_eint2.h_HEADER]
+#ifndef __CUST_EINTH
+#define __CUST_EINTH
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define CUST_EINTF_TRIGGER_RISING     			1    //High Polarity and Edge Sensitive
+#define CUST_EINTF_TRIGGER_FALLING    			2    //Low Polarity and Edge Sensitive
+#define CUST_EINTF_TRIGGER_HIGH      				4    //High Polarity and Level Sensitive
+#define CUST_EINTF_TRIGGER_LOW       				8    //Low Polarity and Level Sensitive
+
+#define CUST_EINT_DEBOUNCE_DISABLE          0
+#define CUST_EINT_DEBOUNCE_ENABLE           1
+
+//////////////////////////////////////////////////////////////////////////////
+
+[cust_eint_ext.h_HEADER]
+#ifndef __CUST_EINT_EXTH
+#define __CUST_EINT_EXTH
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define CUST_EINT_POLARITY_LOW              0
+#define CUST_EINT_POLARITY_HIGH             1
+#define CUST_EINT_DEBOUNCE_DISABLE          0
+#define CUST_EINT_DEBOUNCE_ENABLE           1
+#define CUST_EINT_EDGE_SENSITIVE            0
+#define CUST_EINT_LEVEL_SENSITIVE           1
+//////////////////////////////////////////////////////////////////////////////
+
+[cust_eint_ext2.h_HEADER]
+#ifndef __CUST_EINTH
+#define __CUST_EINTH
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define CUST_EINTF_TRIGGER_RISING     			1    //High Polarity and Edge Sensitive
+#define CUST_EINTF_TRIGGER_FALLING    			2    //Low Polarity and Edge Sensitive
+#define CUST_EINTF_TRIGGER_HIGH      				4    //High Polarity and Level Sensitive
+#define CUST_EINTF_TRIGGER_LOW       				8    //Low Polarity and Level Sensitive
+
+#define CUST_EINT_DEBOUNCE_DISABLE          0
+#define CUST_EINT_DEBOUNCE_ENABLE           1
+
+//////////////////////////////////////////////////////////////////////////////
+
+[cust_eint.h_TAILER]
+
+//////////////////////////////////////////////////////////////////////////////
+#ifdef __cplusplus
+}
+
+#endif
+#endif //_CUST_EINT_H
+
+[cust_eint_ext.h_TAILER]
+
+//////////////////////////////////////////////////////////////////////////////
+#ifdef __cplusplus
+}
+
+#endif
+#endif //_CUST_EINT__EXT_H

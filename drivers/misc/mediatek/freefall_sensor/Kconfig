@@ -1,0 +1,5 @@
+
+config CUSTOM_KERNEL_FREEFALL_SENSOR
+	bool "CUSTOM_KERNEL_FREEFALL_SENSOR"
+	help
+	  Kernel freefall sensor common driver.

@@ -1,0 +1,132 @@
+#!/bin/bash
+
+function usage ()
+{
+	echo $0 'Check for kernel defconfig mismacth'
+	echo 'Usage:'
+	echo '	'$0' [-c] [-u] [defconfig-files]'
+	echo '	    -c	Check changed defconfigs from last git commit'
+	echo '	    -u	Update defconfig if no mismatch is found'
+	echo '	    -h	This help'
+	exit 0
+}
+
+CONFIGS=
+OUT=out-$$
+FAIL=0
+UPDATE=0
+CHECK_COMMIT=0
+
+while getopts "cuh" opt; do
+    case $opt in
+      c)
+	if [ $# == 2 ]; then
+		CHECK_COMMIT=$2
+	else
+		CHECK_COMMIT="HEAD"
+	fi
+
+	KCONFIG=`git show ${CHECK_COMMIT} --stat | gawk '/\/Kconfig.* +\| +[0-9]*/{print $1}'`
+	if [ ".$KCONFIG" != "." ]; then
+		echo From git commit: Checking all defconfig due to Kconfig is changed.
+		CONFIGS=`grep -rl CONFIG_MTK_PLATFORM arch/arm/configs arch/arm64/configs`
+		break
+	fi
+
+	CONFIGS=`git show ${CHECK_COMMIT} --stat-width=500 | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`
+	if [ ".$CONFIGS" != "." ]; then
+		echo From git commit: Checking $CONFIGS
+	fi
+	;;
+      u)
+	UPDATE=1
+	;;
+      h)
+      	usage
+      	;;
+    esac
+done
+
+if [ $# == 0 ]; then
+	usage
+fi
+
+if [ $CHECK_COMMIT == 0 ]; then
+	shift $((OPTIND-1))
+	CONFIGS="${CONFIGS} $*"
+fi
+
+mkdir ${OUT}
+
+for CONFIG in $CONFIGS ; do
+	if [ ! -e ${CONFIG} ]; then
+		echo warning: defconfig file $CONFIG not found
+		continue
+	fi
+
+	echo $CONFIG | grep arch/arm64 > /dev/null
+	RETVAL=$?
+	if [ $RETVAL != 0 ]; then
+		ARCH=arm
+	else
+		ARCH=arm64
+	fi
+
+	OUTPUT="$(make ARCH=${ARCH} O=${OUT} `basename ${CONFIG}` savedefconfig 2>&1)"
+	RETVAL=$?
+	echo "$OUTPUT"
+
+	if [ $RETVAL != 0 ]; then
+		echo error: Make ${CONFIG} error
+		FAIL=1
+		continue
+	fi
+
+	# Check if there is a warning message
+	if echo "$OUTPUT" | grep -q ":warning:"; then
+		echo error: there is a warning message with Kconfig
+		FAIL=1
+		continue
+	fi
+
+	# Check option mismatch
+	echo ${CONFIG} ${OUT}/.config
+	gawk 'BEGIN{lastf="";} { if (lastf != FILENAME) { if (lastf != "") CHECK=1; lastf=FILENAME; } }  \
+		/CONFIG_/ { match($0, /CONFIG_[^ =]*/); option=substr($0, RSTART, RLENGTH); \
+			if (CHECK==1) {  if (option in opts && opts[option]==$0) delete opts[option]; } \
+				else { if (option in opts && opts[option]!=$0) dups[option]=$0; opts[option]=$0; } }  \
+		END { C=0; RET=0; for (i in dups) { RET=1; C++; printf("error: %s duplicate in defconfig\n", i); } \
+			for (i in opts) { RET=1; C++;  printf("error: %s mismatch\n", i); } exit(RET);}' ${CONFIG} ${OUT}/.config
+	RETVAL=$?
+	if [ $RETVAL != 0 ]; then
+		echo error: ${CONFIG}: defconfig mismatch. Please check Kconfig and follow SOP to update _defconfig.
+		FAIL=1
+		continue
+	fi
+
+	if [ $UPDATE == 0 ]; then
+		# Compare output, make sure format is correct
+		OUTPUT="$(diff -u ${OUT}/defconfig ${CONFIG} 2>&1)"
+		RETVAL=$?
+		if [ $RETVAL != 0 ]; then
+			echo error: ${CONFIG} compare error. Please follow SOP to update _defconfig
+			echo "$OUTPUT"
+			FAIL=1
+			continue
+		fi
+	else
+		cp ${OUT}/defconfig ${CONFIG}
+	fi
+done
+
+if [ $FAIL == 1 ]; then
+	echo
+	echo Please be informed that we had phased in defconfig check mechanism in kernel preflight for kernel 3.18 on 2015/7/27.
+	echo
+	echo Please check the following wiki for detail, thanks!
+	echo http://wiki.mediatek.inc/display/KernelStandardization/Check+defconfig+in+kernel+preflight
+	echo http://wiki.mediatek.inc/display/KernelStandardization/SOP+to+update+kernel+config
+fi
+
+rm -rf ${OUT}
+exit $FAIL

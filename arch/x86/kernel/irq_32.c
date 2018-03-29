@@ -1,0 +1,182 @@
+/*
+ *	Copyright (C) 1992, 1998 Linus Torvalds, Ingo Molnar
+ *
+ * This file contains the lowest level x86-specific interrupt
+ * entry, irq-stacks and irq statistics code. All the remaining
+ * irq logic is done by the generic kernel/irq/ code and
+ * by the x86-specific irq controller code. (e.g. i8259.c and
+ * io_apic.c.)
+ */
+
+#include <linux/module.h>
+#include <linux/seq_file.h>
+#include <linux/interrupt.h>
+#include <linux/kernel_stat.h>
+#include <linux/notifier.h>
+#include <linux/cpu.h>
+#include <linux/delay.h>
+#include <linux/uaccess.h>
+#include <linux/percpu.h>
+#include <linux/mm.h>
+
+#include <asm/apic.h>
+
+DEFINE_PER_CPU_SHARED_ALIGNED(irq_cpustat_t, irq_stat);
+EXPORT_PER_CPU_SYMBOL(irq_stat);
+
+DEFINE_PER_CPU(struct pt_regs *, irq_regs);
+EXPORT_PER_CPU_SYMBOL(irq_regs);
+
+#ifdef CONFIG_DEBUG_STACKOVERFLOW
+
+int sysctl_panic_on_stackoverflow __read_mostly;
+
+/* Debugging check for stack overflow: is there less than 1KB free? */
+static int check_stack_overflow(void)
+{
+	long sp;
+
+	__asm__ __volatile__("andl %%esp,%0" :
+			     "=r" (sp) : "0" (THREAD_SIZE - 1));
+
+	return sp < (sizeof(struct thread_info) + STACK_WARN);
+}
+
+static void print_stack_overflow(void)
+{
+	printk(KERN_WARNING "low stack detected by irq handler\n");
+	dump_stack();
+	if (sysctl_panic_on_stackoverflow)
+		panic("low stack detected by irq handler - check messages\n");
+}
+
+#else
+static inline int check_stack_overflow(void) { return 0; }
+static inline void print_stack_overflow(void) { }
+#endif
+
+DEFINE_PER_CPU(struct irq_stack *, hardirq_stack);
+DEFINE_PER_CPU(struct irq_stack *, softirq_stack);
+
+static void call_on_stack(void *func, void *stack)
+{
+	asm volatile("xchgl	%%ebx,%%esp	\n"
+		     "call	*%%edi		\n"
+		     "movl	%%ebx,%%esp	\n"
+		     : "=b" (stack)
+		     : "0" (stack),
+		       "D"(func)
+		     : "memory", "cc", "edx", "ecx", "eax");
+}
+
+/* how to get the current stack pointer from C */
+#define current_stack_pointer ({		\
+	unsigned long sp;			\
+	asm("mov %%esp,%0" : "=g" (sp));	\
+	sp;					\
+})
+
+static inline void *current_stack(void)
+{
+	return (void *)(current_stack_pointer & ~(THREAD_SIZE - 1));
+}
+
+static inline int
+execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
+{
+	struct irq_stack *curstk, *irqstk;
+	u32 *isp, *prev_esp, arg1, arg2;
+
+	curstk = (struct irq_stack *) current_stack();
+	irqstk = __this_cpu_read(hardirq_stack);
+
+	/*
+	 * this is where we switch to the IRQ stack. However, if we are
+	 * already using the IRQ stack (because we interrupted a hardirq
+	 * handler) we can't do that and just have to keep using the
+	 * current stack (which is the irq stack already after all)
+	 */
+	if (unlikely(curstk == irqstk))
+		return 0;
+
+	isp = (u32 *) ((char *)irqstk + sizeof(*irqstk));
+
+	/* Save the next esp at the bottom of the stack */
+	prev_esp = (u32 *)irqstk;
+	*prev_esp = current_stack_pointer;
+
+	if (unlikely(overflow))
+		call_on_stack(print_stack_overflow, isp);
+
+	asm volatile("xchgl	%%ebx,%%esp	\n"
+		     "call	*%%edi		\n"
+		     "movl	%%ebx,%%esp	\n"
+		     : "=a" (arg1), "=d" (arg2), "=b" (isp)
+		     :  "0" (irq),   "1" (desc),  "2" (isp),
+			"D" (desc->handle_irq)
+		     : "memory", "cc", "ecx");
+	return 1;
+}
+
+/*
+ * allocate per-cpu stacks for hardirq and for softirq processing
+ */
+void irq_ctx_init(int cpu)
+{
+	struct irq_stack *irqstk;
+
+	if (per_cpu(hardirq_stack, cpu))
+		return;
+
+	irqstk = page_address(alloc_pages_node(cpu_to_node(cpu),
+					       THREADINFO_GFP,
+					       THREAD_SIZE_ORDER));
+	per_cpu(hardirq_stack, cpu) = irqstk;
+
+	irqstk = page_address(alloc_pages_node(cpu_to_node(cpu),
+					       THREADINFO_GFP,
+					       THREAD_SIZE_ORDER));
+	per_cpu(softirq_stack, cpu) = irqstk;
+
+	printk(KERN_DEBUG "CPU %u irqstacks, hard=%p soft=%p\n",
+	       cpu, per_cpu(hardirq_stack, cpu),  per_cpu(softirq_stack, cpu));
+}
+
+void do_softirq_own_stack(void)
+{
+	struct thread_info *curstk;
+	struct irq_stack *irqstk;
+	u32 *isp, *prev_esp;
+
+	curstk = current_stack();
+	irqstk = __this_cpu_read(softirq_stack);
+
+	/* build the stack frame on the softirq stack */
+	isp = (u32 *) ((char *)irqstk + sizeof(*irqstk));
+
+	/* Push the previous esp onto the stack */
+	prev_esp = (u32 *)irqstk;
+	*prev_esp = current_stack_pointer;
+
+	call_on_stack(__do_softirq, isp);
+}
+
+bool handle_irq(unsigned irq, struct pt_regs *regs)
+{
+	struct irq_desc *desc;
+	int overflow;
+
+	overflow = check_stack_overflow();
+
+	desc = irq_to_desc(irq);
+	if (unlikely(!desc))
+		return false;
+
+	if (user_mode_vm(regs) || !execute_on_irq_stack(overflow, desc, irq)) {
+		if (unlikely(overflow))
+			print_stack_overflow();
+		desc->handle_irq(irq, desc);
+	}
+
+	return true;
+}

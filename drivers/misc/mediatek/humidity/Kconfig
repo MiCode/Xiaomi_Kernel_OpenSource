@@ -1,0 +1,8 @@
+
+config CUSTOM_KERNEL_HUMIDITY
+	bool "CUSTOM_KERNEL_HUMIDITY"
+	help
+	  To detect humidity raw data
+
+source "drivers/misc/mediatek/humidity/hts221/Kconfig"
+source "drivers/misc/mediatek/humidity/hmdyhub/Kconfig"

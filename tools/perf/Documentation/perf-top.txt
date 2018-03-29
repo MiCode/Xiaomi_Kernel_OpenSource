@@ -1,0 +1,240 @@
+perf-top(1)
+===========
+
+NAME
+----
+perf-top - System profiling tool.
+
+SYNOPSIS
+--------
+[verse]
+'perf top' [-e <EVENT> | --event=EVENT] [<options>]
+
+DESCRIPTION
+-----------
+This command generates and displays a performance counter profile in real time.
+
+
+OPTIONS
+-------
+-a::
+--all-cpus::
+        System-wide collection.  (default)
+
+-c <count>::
+--count=<count>::
+	Event period to sample.
+
+-C <cpu-list>::
+--cpu=<cpu>::
+Monitor only on the list of CPUs provided. Multiple CPUs can be provided as a
+comma-separated list with no space: 0,1. Ranges of CPUs are specified with -: 0-2.
+Default is to monitor all CPUS.
+
+-d <seconds>::
+--delay=<seconds>::
+	Number of seconds to delay between refreshes.
+
+-e <event>::
+--event=<event>::
+	Select the PMU event. Selection can be a symbolic event name
+	(use 'perf list' to list all events) or a raw PMU
+	event (eventsel+umask) in the form of rNNN where NNN is a
+	hexadecimal event descriptor.
+
+-E <entries>::
+--entries=<entries>::
+	Display this many functions.
+
+-f <count>::
+--count-filter=<count>::
+	Only display functions with more events than this.
+
+--group::
+        Put the counters into a counter group.
+
+-F <freq>::
+--freq=<freq>::
+	Profile at this frequency.
+
+-i::
+--inherit::
+	Child tasks do not inherit counters.
+
+-k <path>::
+--vmlinux=<path>::
+	Path to vmlinux.  Required for annotation functionality.
+
+-m <pages>::
+--mmap-pages=<pages>::
+	Number of mmap data pages (must be a power of two) or size
+	specification with appended unit character - B/K/M/G. The
+	size is rounded up to have nearest pages power of two value.
+
+-p <pid>::
+--pid=<pid>::
+	Profile events on existing Process ID (comma separated list).
+
+-t <tid>::
+--tid=<tid>::
+        Profile events on existing thread ID (comma separated list).
+
+-u::
+--uid=::
+        Record events in threads owned by uid. Name or number.
+
+-r <priority>::
+--realtime=<priority>::
+	Collect data with this RT SCHED_FIFO priority.
+
+--sym-annotate=<symbol>::
+        Annotate this symbol.
+
+-K::
+--hide_kernel_symbols::
+        Hide kernel symbols.
+
+-U::
+--hide_user_symbols::
+        Hide user symbols.
+
+--demangle-kernel::
+        Demangle kernel symbols.
+
+-D::
+--dump-symtab::
+        Dump the symbol table used for profiling.
+
+-v::
+--verbose::
+	Be more verbose (show counter open errors, etc).
+
+-z::
+--zero::
+	Zero history across display updates.
+
+-s::
+--sort::
+	Sort by key(s): pid, comm, dso, symbol, parent, srcline, weight,
+	local_weight, abort, in_tx, transaction, overhead, sample, period.
+	Please see description of --sort in the perf-report man page.
+
+--fields=::
+	Specify output field - multiple keys can be specified in CSV format.
+	Following fields are available:
+	overhead, overhead_sys, overhead_us, overhead_children, sample and period.
+	Also it can contain any sort key(s).
+
+	By default, every sort keys not specified in --field will be appended
+	automatically.
+
+-n::
+--show-nr-samples::
+	Show a column with the number of samples.
+
+--show-total-period::
+	Show a column with the sum of periods.
+
+--dsos::
+	Only consider symbols in these dsos.  This option will affect the
+	percentage of the overhead column.  See --percentage for more info.
+
+--comms::
+	Only consider symbols in these comms.  This option will affect the
+	percentage of the overhead column.  See --percentage for more info.
+
+--symbols::
+	Only consider these symbols.  This option will affect the
+	percentage of the overhead column.  See --percentage for more info.
+
+-M::
+--disassembler-style=:: Set disassembler style for objdump.
+
+--source::
+	Interleave source code with assembly code. Enabled by default,
+	disable with --no-source.
+
+--asm-raw::
+	Show raw instruction encoding of assembly instructions.
+
+-g::
+	Enables call-graph (stack chain/backtrace) recording.
+
+--call-graph::
+	Setup and enable call-graph (stack chain/backtrace) recording,
+	implies -g.
+
+--children::
+	Accumulate callchain of children to parent entry so that then can
+	show up in the output.  The output will have a new "Children" column
+	and will be sorted on the data.  It requires -g/--call-graph option
+	enabled.
+
+--max-stack::
+	Set the stack depth limit when parsing the callchain, anything
+	beyond the specified depth will be ignored. This is a trade-off
+	between information loss and faster processing especially for
+	workloads that can have a very long callchain stack.
+
+	Default: 127
+
+--ignore-callees=<regex>::
+        Ignore callees of the function(s) matching the given regex.
+        This has the effect of collecting the callers of each such
+        function into one place in the call-graph tree.
+
+--percent-limit::
+	Do not show entries which have an overhead under that percent.
+	(Default: 0).
+
+--percentage::
+	Determine how to display the overhead percentage of filtered entries.
+	Filters can be applied by --comms, --dsos and/or --symbols options and
+	Zoom operations on the TUI (thread, dso, etc).
+
+	"relative" means it's relative to filtered entries only so that the
+	sum of shown entries will be always 100%. "absolute" means it retains
+	the original value before and after the filter is applied.
+
+-w::
+--column-widths=<width[,width...]>::
+	Force each column width to the provided list, for large terminal
+	readability.  0 means no limit (default behavior).
+
+
+INTERACTIVE PROMPTING KEYS
+--------------------------
+
+[d]::
+	Display refresh delay.
+
+[e]::
+	Number of entries to display.
+
+[E]::
+	Event to display when multiple counters are active.
+
+[f]::
+	Profile display filter (>= hit count).
+
+[F]::
+	Annotation display filter (>= % of total).
+
+[s]::
+	Annotate symbol.
+
+[S]::
+	Stop annotation, return to full profile display.
+
+[z]::
+	Toggle event count zeroing across display updates.
+
+[qQ]::
+	Quit.
+
+Pressing any unmapped key displays a menu, and prompts for input.
+
+
+SEE ALSO
+--------
+linkperf:perf-stat[1], linkperf:perf-list[1], linkperf:perf-report[1]

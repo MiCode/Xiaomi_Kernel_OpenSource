@@ -1,0 +1,24 @@
+# WatchDog
+config MTK_WATCHDOG
+	tristate "WatchDog Enable"
+	default y
+	---help---
+	Watch dog mtk driver enable/disable in the kernel.
+	Say Y here if you want to use mediatek watchdog driver
+	please note that mediatek watchdog driver don't use
+	watchdog core which define by WATCHDOG_CORE.
+
+# common watchdog driver
+config MTK_WATCHDOG_COMMON
+	bool "WatchDog Support Common"
+	select RESET_CONTROLLER
+	---help---
+	Watch dog mtk driver support common code between different Socs.
+
+# enable watchdog or not
+config MTK_WD_KICKER
+	tristate "WatchDog Kicer"
+	default y
+	---help---
+	Watch dog kicker is a module in the kernel for kicking the watch dog.
+	Say Y here if you want to use the mediatek watchdog timer driver.

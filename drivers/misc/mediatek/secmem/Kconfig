@@ -1,0 +1,10 @@
+#
+# Secure Memory configuration
+#
+config MTK_SVP_DISABLE_SODI
+	tristate "Disable SODI while SVP playback"
+	depends on TRUSTONIC_TEE_SUPPORT
+	default n
+	---help---
+	  Disable SODI while SVP playback
+

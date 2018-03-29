@@ -1,0 +1,27 @@
+mediatek consys
+
+Required properties:
+- compatible:Should be "mediatek,mt6735-consys".
+- reg: Should contain register location and length.
+- interrupts: Should contain interrupt.(including BGF and WDT interrupts).
+- clocks: The clocks needed in consys power on, provided from clock manager.
+- clock-names : used for sw control clock
+- vcnxx-supply : LDO domain for consys,provided from PMIC owner
+
+Examples:
+
+		consys:consys@18070000 {
+			compatible = "mediatek,mt6735-consys";
+			reg = <0x18070000 0x0200>,  /*CONN_MCU_CONFIG_BASE      */
+			      <0x10212000 0x0100>,  /*AP_RGU_BASE               */
+			      <0x10000000 0x2000>,  /*TOPCKGEN_BASE             */
+			      <0x10006000 0x1000>;  /*SPM_BASE                  */
+			interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_LOW>,  /* BGF_EINT */
+			             <GIC_SPI 225 IRQ_TYPE_LEVEL_LOW>;  /* WDT_EINT */
+			clocks = <&scpsys SCP_SYS_CONN>,<&infrasys INFRA_CONNMCU_BUS>;
+			clock-names = "conn","bus";
+			vcn18-supply = <&mt_pmic_vcn18_ldo_reg>;
+			vcn28-supply = <&mt_pmic_vcn28_ldo_reg>;
+			vcn33_bt-supply = <&mt_pmic_vcn33_bt_ldo_reg>;
+			vcn33_wifi-supply = <&mt_pmic_vcn33_wifi_ldo_reg>;
+		};

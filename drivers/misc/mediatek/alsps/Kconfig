@@ -1,0 +1,33 @@
+
+config CUSTOM_KERNEL_ALSPS
+	bool "CUSTOM_KERNEL_ALSPS"
+	help
+	  ALSPS sensor driver to detect ambient light and the object is close
+	  or far awary from device. After configure this configuration,
+          the specific ambient light and proximity sensor driver configuration
+          should be configured as well.
+
+config MTK_AUTO_DETECT_ALSPS
+	bool "MTK_AUTO_DETECT_ALSPS"
+	help
+	  This feature Option is used for projects which using more than one
+	  ALSPS sensors, more than one ALSPS drivers can be builded in to
+	  project and be auto detected by setting this option to yes,
+          usually only one ALSPS driver can be probed.
+
+config CUSTOM_KERNEL_ALSPS_MODULE
+	bool "Use to control the alsps sensor build type"
+	help
+	  Use to control the sensor build tpye.
+	  If the config is set, it means sensor
+	  will build ko module.
+	  This is request fromo Google about odm driver.
+
+source "drivers/misc/mediatek/alsps/cm36652-new/Kconfig"
+source "drivers/misc/mediatek/alsps/cm36686-new/Kconfig"
+source "drivers/misc/mediatek/alsps/cm36558/Kconfig"
+source "drivers/misc/mediatek/alsps/APDS9930-new/Kconfig"
+source "drivers/misc/mediatek/alsps/EPL2182-new/Kconfig"
+source "drivers/misc/mediatek/alsps/stk3x1x-new/Kconfig"
+source "drivers/misc/mediatek/alsps/alspshub/Kconfig"
+source "drivers/misc/mediatek/alsps/cm3232-new/Kconfig"

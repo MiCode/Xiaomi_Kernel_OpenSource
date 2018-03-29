@@ -1,0 +1,10 @@
+
+config MTK_MPU6050GY_NEW
+	bool "MPU6050GY for MediaTek package"
+	default n
+        help
+        It support different gyroscope sensor.
+        If this option is set,
+	  	it will support
+         MPU6050GY gyroscope.
+

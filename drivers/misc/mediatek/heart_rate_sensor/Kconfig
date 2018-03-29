@@ -1,0 +1,17 @@
+
+config CUSTOM_KERNEL_HEART_RATE_SENSOR
+	bool "CUSTOM_KERNEL_HEART_RATE_SENSOR"
+	help
+	  Kernel space heart rate sensor driver.
+          A heart rate monitor is a personal monitoring device
+          that allows one to measure one's heart rate in real
+          time or record the heart rate for later study.
+
+config CUSTOM_KERNEL_HEART
+	bool "CUSTOM_KERNEL_HEART"
+	help
+	  Kernel space heart rate sensor driver.
+          A heart rate monitor is a personal monitoring device
+          that allows one to measure one's heart rate in real
+          time or record the heart rate for later study.
+

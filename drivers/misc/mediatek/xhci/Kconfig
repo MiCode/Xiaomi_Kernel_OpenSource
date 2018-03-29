@@ -1,0 +1,58 @@
+#
+# Mediatek XHCI Driver
+#
+
+config USB_XHCI_MTK
+	tristate "MediaTek U3 XHCI support"
+	select USB_XHCI_PLATFORM
+	default n
+	---help---
+	This selects the MediaTek USB host xhci controller,
+	and it's just base on XHCI.
+	Say Y here if your system using Mediatek xhci controller.
+	If unsure, say N.
+
+config USB_MTK_DUALMODE
+	bool "MediaTek DUAL MODE support"
+	default n
+	---help---
+	Enable Mediatek USB Host OTG detection mechanism
+	IDDIG - OTG cable attachment detection.
+	Say Y here if your system support OTG IDDIG detection.
+	If unsure, say N.
+
+config MTK_OTG_PMIC_BOOST_5V
+	tristate "MediaTek PMIC BOOST 5V support"
+	default n
+	---help---
+	Support MTK PMIC BOOST 5V , and it can supply usb 5v power.
+	Say Y here if your system using Mediatek PMIC,
+	and this PMIC has BOOST 5V function.
+	If unsure, say N.
+
+config MTK_OTG_OC_DETECTOR
+	tristate "MediaTek Over Current Detector"
+	default n
+	---help---
+	Support SW over current detect, if happen, cut down the 5V power.
+	Say Y here if your system has this OC detect function.
+	If unsure, say N.
+
+config MTK_TEST_XHCI
+	tristate "MediaTek U3 TEST XHCI driver support"
+	default n
+	---help---
+	  Enables support Mediatek U3 XHCI test driver kernel framework.
+	  Say Y if you would like to do verification program.
+	  If unsure, say N.
+
+config USB_MTK_OTG_SWITCH
+	tristate "MediaTek OTG Function Switch"
+	default n
+	depends on USB_MTK_DUALMODE
+	---help---
+	  Enable Mediatek OTG function Switch mechanism.
+	  The default OTG DUALROLE function is disabled.
+	  User can switch to enable or disable by command.
+	  Say Y here if your want to use mechanism.
+	  If unsure, say N.

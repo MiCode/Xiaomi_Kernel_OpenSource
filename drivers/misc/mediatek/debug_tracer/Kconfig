@@ -1,0 +1,18 @@
+menuconfig MTK_DEBUG_TRACER
+	bool "MediaTek Debug Tracer Configuration"
+	help
+	  Select to enable MediaTek Debug Tracer configuration.
+	  Includes BUS_TRACER module for recording the historical
+	  information to debug
+
+if  MTK_DEBUG_TRACER
+
+config MTK_BUS_TRACER
+	bool "MediaTek BUS TRACER"
+	default n
+	help
+	  BUS TRACER is a debugging feature to record the historical
+	  information on bus. After rebooting, these information could
+	  be dumped for debugging.
+
+endif

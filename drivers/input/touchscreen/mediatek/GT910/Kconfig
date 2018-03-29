@@ -1,0 +1,9 @@
+#
+# Touchscreen driver configuration
+#
+if TOUCHSCREEN_MTK_GT910
+
+config GT910_CONFIG
+	string "GT910 for Mediatek config"
+
+endif

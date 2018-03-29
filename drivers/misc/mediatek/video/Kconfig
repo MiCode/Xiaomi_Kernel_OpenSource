@@ -1,0 +1,107 @@
+menuconfig MTK_FB
+	bool "MediaTek Framebuffer Driver"
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	select FB_SOFT_CURSOR
+	---help---
+	  This selects the MediaTek(R) frame buffer driver.
+	  If you want to use MediaTek(R) frame buffer diver, say Y here.
+	  If unsure, say N.
+
+config MTK_VIDEOX
+	bool CONFIG_MTK_VIDEOX
+	default n
+	help
+	  CONFIG_MTK_VIDEOX
+
+config MTK_LCM_PHYSICAL_ROTATION
+	string "MTK_LCM_PHYSICAL_ROTATION"
+	help
+	  To set the angle between dimension of UI layout and LCM scan
+	  direction
+
+config LCM_HEIGHT
+	string "LCM_HEIGHT"
+	default "1920"
+	help
+	  To set LCM resolution height size
+
+config LCM_WIDTH
+	string "LCM_WIDTH"
+	default "1080"
+	help
+	  To set LCM resolution width size
+
+config CUSTOM_LCM_X
+	string "LCM_X"
+	default "0"
+	help
+	  To set CUSTOM_LCM_X size
+
+config CUSTOM_LCM_Y
+	string "LCM_Y"
+	default "0"
+	help
+	  To set CUSTOM_LCM_Y size
+
+config MTK_FB_SUPPORT_ASSERTION_LAYER
+	bool "AEE Assertion Layer Support"
+	depends on MTK_FB
+	select FONT_SUPPORT
+	select FONT_8x16
+	default y
+	---help---
+	  This enable support for AEE assertion layer.
+	  If you want to enable AEE assertion layer support, say Y here.
+	  If unsure, say N.
+
+config MTK_AAL_SUPPORT
+	bool "MTK_AAL_SUPPORT"
+	default n
+	help
+	  Decide whether to support ambient-light adaptive luma and
+	  display visual enhancement.
+	  This feature requires the cowork of AAL user-space algorithm process.
+	  Please also turn on MTK_AAL_SUPPORT in ProjectConfig.mk.
+
+config MTK_OD_SUPPORT
+	bool "MTK_OD_SUPPORT"
+	default n
+	help
+	  Over drive LCD to enhance the response time.
+	  On high frame rate (e.g. 120Hz) platform, the LCD response time is
+	  not short enough to display clear moving objects.
+	  This feature allows to speed up the change time of each pixels.
+	  MUST fill the over-drive table correctly according to LCD property.
+config SINGLE_PANEL_OUTPUT
+	bool "SINGLE_PANEL_OUTPUT"
+	default n
+	help
+	  Decide whether to support single panel display feature.
+	  Panel and tv can't not display at the same time.
+	  When hdmi plug in, only show display in tv, panle will be black screen.
+	  And when hdmi plug out, panel will resume.
+
+config MTK_OVERLAY_ENGINE_SUPPORT
+	bool "MTK_OVERLAY_ENGINE_SUPPORT"
+	default n
+	help
+	  This enable support overlay time division multiplex.
+
+config MTK_CONSUMER_PARTIAL_UPDATE_SUPPORT
+	bool "MTK_CONSUMER_PARTIAL_UPDATE_SUPPORT"
+	default n
+	help
+	  This enable support display partial support.
+
+config MTK_PQ_COLOR_MODE
+	string "Config PQ_COLOR_MODE (MDP & DISP COLOR on/off)"
+	default "DISP"
+	help
+	  This control mdp color on/off and disp color on/off
+	  if value equals to DISP, only display color is on.
+	  if value equals to MDP, only mdp color is on.
+	  if value equals to DISP_MDP, mdp and display color are both on.
+	  if value equals to OFF, mdp and display color are both off.

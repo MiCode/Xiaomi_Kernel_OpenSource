@@ -1,0 +1,8 @@
+
+config MTK_ACCEL_RT3000
+	bool "Support RichTek RT3000 accelerometer for MediaTek package"
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          RT3000 Accelerometer.

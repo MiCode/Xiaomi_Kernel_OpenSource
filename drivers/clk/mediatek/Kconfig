@@ -1,0 +1,116 @@
+#
+# MediaTek SoC drivers
+#
+config COMMON_CLK_MEDIATEK
+	bool
+	---help---
+	  Mediatek SoCs' clock support.
+
+config COMMON_CLK_MEDIATEK_NEW
+	bool
+	select COMMON_CLK_MEDIATEK
+	---help---
+	  A newer version of Mediatek clock common code support.
+
+config COMMON_CLK_MEDIATEK_V1
+	bool
+	select COMMON_CLK_MEDIATEK
+	---help---
+	  An older version (V1) of Mediatek clock common code support.
+
+config COMMON_CLK_MT6735
+	bool "Clock driver for Mediatek MT6735"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_V1
+	default y if ARCH_MT6735 && !MTK_CLKMGR
+	---help---
+	  This driver supports Mediatek MT6735 clocks.
+
+config COMMON_CLK_MT6755
+	bool "Clock driver for Mediatek MT6755"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_V1
+	default y if ARCH_MT6755 && !MTK_CLKMGR
+	---help---
+	  This driver supports Mediatek MT6755 clocks.
+          Use the config to support CCF on MT6755,
+          instead of old clkmgr architecture.
+          MT6755 support CCF for Linux K.S Migration
+          The value is default on.
+
+config COMMON_CLK_MT6797
+	bool "Clock driver for Mediatek MT6797"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_V1
+	default y if ARCH_MT6797 && !MTK_CLKMGR
+	---help---
+	  This driver supports Mediatek MT6797 clocks.
+	  Use the config to support CCF on MT6797,
+	  instead of old clkmgr architecture.
+	  MT6797 default will use CCF.
+
+config COMMON_CLK_MT6757
+	bool "Clock driver for Mediatek MT6757"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_V1
+	default y if ARCH_MT6757 && !MTK_CLKMGR
+	---help---
+	  This driver supports Mediatek MT6757 clocks.
+	  Use the config to support CCF on MT6757,
+	  instead of old clkmgr architecture.
+	  MT6757 default will use CCF.
+
+config COMMON_CLK_ELBRUS
+	bool "Clock driver for Mediatek ELBRUS"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_V1
+	default y if ARCH_ELBRUS && !MTK_CLKMGR
+	---help---
+	  This driver supports Mediatek ELBRUS clocks.
+	  Use the config to support CCF on ELBRUS,
+	  instead of old clkmgr architecture.
+	  ELBRUS support CCF for Linux K.S Migration
+	  The value is default on.
+
+config COMMON_CLK_MT8135
+	bool "Clock driver for Mediatek MT8135"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_NEW
+	default y if ARCH_MT8135
+	---help---
+	  This driver supports Mediatek MT8135 clocks.
+
+config COMMON_CLK_MT8127
+	bool "Clock driver for Mediatek MT8127"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_NEW
+	default y if ARCH_MT8127
+	---help---
+	  This driver supports Mediatek MT8127 clocks,
+	  which descripts the whole clock hierarchy about
+	  IC; It will be used to enable IC-special driver
+	  part of CCF framework on MT8127 platform.
+
+config COMMON_CLK_MT8163
+	bool "Clock driver for Mediatek MT8163"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_NEW
+	default y if ARCH_MT8163
+	---help---
+	  This driver supports Mediatek MT8163 clocks.
+
+config COMMON_CLK_MT8173
+	bool "Clock driver for Mediatek MT8173"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_NEW
+	default y if ARCH_MT8173
+	---help---
+	  This driver supports Mediatek MT8173 clocks.
+
+config COMMON_CLK_MT2701
+	bool "Clock driver for Mediatek MT2701 and MT7623"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK_NEW
+	default y if MACH_MT2701 || ARCH_MT7623
+	---help---
+	  This driver supports Mediatek MT2701 and MT7623 clocks.

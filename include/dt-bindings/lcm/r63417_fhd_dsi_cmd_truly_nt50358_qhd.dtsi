@@ -1,0 +1,245 @@
+/*
+ * Mediatek's LCM driver device tree
+ *
+ * Copyright (c) 2013 MediaTek Co., Ltd.
+ *              http://www.mediatek.com
+ *
+ */
+
+#include "lcm_define.h"
+
+/ {
+	/* LCM standardization */
+	lcm_params {
+		compatible = "mediatek,lcm_params-r63417_fhd_dsi_cmd_truly_nt50358_qhd_drv";
+
+		lcm_params-types = <2 0 0 0>;
+		/* type, ctrl, lcm_if, lcm_cmd_if */
+		lcm_params-resolution = <540 960>;
+		/* width, height */
+		lcm_params-io_select_mode;
+
+		lcm_params-dbi-port;
+		lcm_params-dbi-clock_freq;
+		lcm_params-dbi-data_width;
+		lcm_params-dbi-data_format;
+		/* color_order, trans_seq, padding, format, width */
+		lcm_params-dbi-cpu_write_bits;
+		lcm_params-dbi-io_driving_current;
+		lcm_params-dbi-msb_io_driving_current;
+		lcm_params-dbi-ctrl_io_driving_current;
+
+		lcm_params-dbi-te_mode;
+		lcm_params-dbi-te_edge_polarity;
+		lcm_params-dbi-te_hs_delay_cnt;
+		lcm_params-dbi-te_vs_width_cnt;
+		lcm_params-dbi-te_vs_width_cnt_div;
+
+		lcm_params-dbi-serial-params0;
+		/* cs_polarity, clk_polarity, clk_phase, is_non_dbi_mode, clock_base, clock_div */
+		lcm_params-dbi-serial-params1;
+		/* css, csh, rd_1st, rd_2nd, wr_1st, wr_2nd */
+		lcm_params-dbi-serial-params2;
+		/* sif_1st_pol, sif_sck_def, sif_3wire, sif_sdi sif_div2, sif_hw_cs */
+		lcm_params-dbi-parallel-params0;
+		/* write_setup, write_hold, write_wait, read_setup */
+		lcm_params-dbi-parallel-params1;
+		/* read_hold, read_latency, wait_period, cs_high_width */
+
+		lcm_params-dpi-mipi_pll_clk_ref;
+		lcm_params-dpi-mipi_pll_clk_div1;
+		lcm_params-dpi-mipi_pll_clk_div2;
+		lcm_params-dpi-mipi_pll_clk_fbk_div;
+
+		lcm_params-dpi-dpi_clk_div;
+		lcm_params-dpi-dpi_clk_duty;
+		lcm_params-dpi-PLL_CLOCK;
+		lcm_params-dpi-dpi_clock;
+		lcm_params-dpi-ssc_disable;
+		lcm_params-dpi-ssc_range;
+
+		lcm_params-dpi-width;
+		lcm_params-dpi-height;
+		lcm_params-dpi-bg_width;
+		lcm_params-dpi-bg_height;
+
+		lcm_params-dpi-clk_pol;
+		lcm_params-dpi-de_pol;
+		lcm_params-dpi-vsync_pol;
+		lcm_params-dpi-hsync_pol;
+		lcm_params-dpi-hsync_pulse_width;
+		lcm_params-dpi-hsync_back_porch;
+		lcm_params-dpi-hsync_front_porch;
+		lcm_params-dpi-vsync_pulse_width;
+		lcm_params-dpi-vsync_back_porch;
+		lcm_params-dpi-vsync_front_porch;
+
+		lcm_params-dpi-format;
+		lcm_params-dpi-rgb_order;
+		lcm_params-dpi-is_serial_output;
+		lcm_params-dpi-i2x_en;
+		lcm_params-dpi-i2x_edge;
+		lcm_params-dpi-embsync;
+		lcm_params-dpi-lvds_tx_en;
+		lcm_params-dpi-bit_swap;
+		lcm_params-dpi-intermediat_buffer_num;
+		lcm_params-dpi-io_driving_current;
+		lcm_params-dpi-lsb_io_driving_current;
+
+		lcm_params-dsi-mode = <0>;
+		lcm_params-dsi-switch_mode = <2>;
+		lcm_params-dsi-DSI_WMEM_CONTI;
+		lcm_params-dsi-DSI_RMEM_CONTI;
+		lcm_params-dsi-VC_NUM;
+		lcm_params-dsi-lane_num = <3>;
+		lcm_params-dsi-data_format = <2 0 0 2>;
+		/* color_order, trans_seq, padding, format */
+		lcm_params-dsi-intermediat_buffer_num;
+		lcm_params-dsi-ps = <2>;
+		lcm_params-dsi-word_count;
+		lcm_params-dsi-packet_size = <256>;
+
+		lcm_params-dsi-vertical_sync_active = <2>;
+		lcm_params-dsi-vertical_backporch = <8>;
+		lcm_params-dsi-vertical_frontporch = <10>;
+		lcm_params-dsi-vertical_frontporch_for_low_power;
+		lcm_params-dsi-vertical_active_line = <1920>;
+		lcm_params-dsi-horizontal_sync_active = <10>;
+		lcm_params-dsi-horizontal_backporch = <20>;
+		lcm_params-dsi-horizontal_frontporch = <40>;
+		lcm_params-dsi-horizontal_blanking_pixel;
+		lcm_params-dsi-horizontal_active_pixel = <1080>;
+		lcm_params-dsi-horizontal_bllp;
+		lcm_params-dsi-line_byte;
+		lcm_params-dsi-horizontal_sync_active_byte;
+		lcm_params-dsi-horizontal_backportch_byte;
+		lcm_params-dsi-horizontal_frontporch_byte;
+		lcm_params-dsi-rgb_byte;
+		lcm_params-dsi-horizontal_sync_active_word_count;
+		lcm_params-dsi-horizontal_backporch_word_count;
+		lcm_params-dsi-horizontal_frontporch_word_count;
+
+		lcm_params-dsi-HS_TRAIL;
+		lcm_params-dsi-ZERO;
+		lcm_params-dsi-HS_PRPR;
+		lcm_params-dsi-LPX;
+		lcm_params-dsi-TA_SACK;
+		lcm_params-dsi-TA_GET;
+		lcm_params-dsi-TA_SURE;
+		lcm_params-dsi-TA_GO;
+		lcm_params-dsi-CLK_TRAIL;
+		lcm_params-dsi-CLK_ZERO;
+		lcm_params-dsi-LPX_WAIT;
+		lcm_params-dsi-CONT_DET;
+		lcm_params-dsi-CLK_HS_PRPR;
+		lcm_params-dsi-CLK_HS_POST;
+		lcm_params-dsi-DA_HS_EXIT;
+		lcm_params-dsi-CLK_HS_EXIT;
+
+		lcm_params-dsi-pll_select;
+		lcm_params-dsi-pll_div1;
+		lcm_params-dsi-pll_div2;
+		lcm_params-dsi-fbk_div;
+		lcm_params-dsi-fbk_sel;
+		lcm_params-dsi-rg_bir;
+		lcm_params-dsi-rg_bic;
+		lcm_params-dsi-rg_bp;
+		lcm_params-dsi-pll_clock = <150>;
+		lcm_params-dsi-dsi_clock;
+		lcm_params-dsi-ssc_disable;
+		lcm_params-dsi-ssc_range;
+		lcm_params-dsi-compatibility_for_nvk;
+		lcm_params-dsi-cont_clock;
+
+		lcm_params-dsi-ufoe_enable;
+		lcm_params-dsi-ufoe_params;
+		/* compress_ratio, lr_mode_en, vlc_disable, vlc_config */
+		lcm_params-dsi-edp_panel;
+
+		lcm_params-dsi-customization_esd_check_enable = <0>;
+		lcm_params-dsi-esd_check_enable = <1>;
+
+		lcm_params-dsi-lcm_int_te_monitor;
+		lcm_params-dsi-lcm_int_te_period;
+		lcm_params-dsi-lcm_ext_te_monitor;
+		lcm_params-dsi-lcm_ext_te_enable;
+
+		lcm_params-dsi-noncont_clock;
+		lcm_params-dsi-noncont_clock_period;
+		lcm_params-dsi-clk_lp_per_line_enable = <0>;
+
+		lcm_params-dsi-lcm_esd_check_table0 = <0x0A 0x01 0x1C 0x0>;
+		/* cmd, count, para_list[0], para_list[1] */
+		lcm_params-dsi-lcm_esd_check_table1;
+		lcm_params-dsi-lcm_esd_check_table2;
+
+		lcm_params-dsi-switch_mode_enable = <0>;
+		lcm_params-dsi-dual_dsi_type;
+		lcm_params-dsi-lane_swap_en;
+		lcm_params-dsi-lane_swap0;
+		/* lane_swap[0][0~5] */
+		lcm_params-dsi-lane_swap1;
+		/* lane_swap[1][0~5] */
+		lcm_params-dsi-vertical_vfp_lp;
+		lcm_params-physical_width;
+		lcm_params-physical_height;
+		lcm_params-physical_width_um;
+		lcm_params-physical_height_um;
+		lcm_params-od_table_size;
+		lcm_params-od_table;
+	};
+
+	lcm_ops {
+		compatible = "mediatek,lcm_ops-r63417_fhd_dsi_cmd_truly_nt50358_qhd_drv";
+
+		init = <LCM_FUNC_GPIO LCM_GPIO_MODE 1 LCM_GPIO_MODE_00>,
+			<LCM_FUNC_GPIO LCM_GPIO_DIR 1 LCM_GPIO_DIR_OUT>,
+			<LCM_FUNC_GPIO LCM_GPIO_OUT 1 LCM_GPIO_OUT_ONE>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 10>,
+			<LCM_FUNC_I2C LCM_I2C_WRITE 2 0x00 0x0A>,
+			<LCM_FUNC_I2C LCM_I2C_WRITE 2 0x01 0x0A>,
+			<LCM_FUNC_UTIL LCM_UTIL_RESET 1 LCM_UTIL_RESET_HIGH>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 1>,
+			<LCM_FUNC_UTIL LCM_UTIL_RESET 1 LCM_UTIL_RESET_LOW>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 10>,
+			<LCM_FUNC_UTIL LCM_UTIL_RESET 1 LCM_UTIL_RESET_HIGH>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 10>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0xB0 1 0x00>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0xD6 1 0x01>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0xB4 1 0x08>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 4 0xB6 2 0x38 0xA3>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 10 LCM_UTIL_WRITE_CMD_V2_NULL>,
+			<8 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>,
+			<LCM_FUNC_UTIL LCM_UTIL_RAR 1 1>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0x51 1 0xFF>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0x53 1 0x0C>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0x35 1 0x00>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 2 0x29 0>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 2 0x11 0>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 120>;
+
+		compare_id = <LCM_FUNC_UTIL LCM_UTIL_RESET 1 LCM_UTIL_RESET_HIGH>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 1>,
+			<LCM_FUNC_UTIL LCM_UTIL_RESET 1 LCM_UTIL_RESET_LOW>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 10>,
+			<LCM_FUNC_UTIL LCM_UTIL_RESET 1 LCM_UTIL_RESET_HIGH>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 10>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V1 5 1 0x00 0x37 0x02 0x00>,
+			<LCM_FUNC_CMD LCM_UTIL_READ_CMD_V2 3 0xF4 1 0x95>;
+
+		suspend = <LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 2 0x28 0>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 20>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 2 0x10 0>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0xB0 1 0x00>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0xB1 1 0x01>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 80>,
+			<LCM_FUNC_UTIL LCM_UTIL_MDELAY 1 10>,
+			<LCM_FUNC_GPIO LCM_GPIO_MODE 1 LCM_GPIO_MODE_00>,
+			<LCM_FUNC_GPIO LCM_GPIO_DIR 1 LCM_GPIO_DIR_OUT>,
+			<LCM_FUNC_GPIO LCM_GPIO_OUT 1 LCM_GPIO_OUT_ZERO>;
+
+		backlight = <LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0x51 1 0xFF>;
+	};
+	/* LCM standardization end */
+};
+

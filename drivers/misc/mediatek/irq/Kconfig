@@ -1,0 +1,7 @@
+config MTK_IRQ
+	bool "Enable MTK interrupt controller for 32-bit kernel"
+	help
+		It decides whether the system uses MTK interrupt controller
+		for 32-bit kernel; which forwards IRQs to target CPU, and
+		provides flexibility to set priority, mask, group, polarity,
+		and triggering for IRQs

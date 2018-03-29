@@ -1,0 +1,4 @@
+
+config MTK_INPKHUB
+	bool "inpocket for MediaTek package"
+	default n

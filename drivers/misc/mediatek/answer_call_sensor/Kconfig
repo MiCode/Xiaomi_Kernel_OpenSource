@@ -1,0 +1,6 @@
+config CUSTOM_KERNEL_ANSWER_CALL_SENSOR
+	bool "CUSTOM_KERNEL_ANSWER_CALL_SENSOR"
+	help
+	  Kernel space answer call sensor driver.
+
+source "drivers/misc/mediatek/answer_call_sensor/answercall/Kconfig"

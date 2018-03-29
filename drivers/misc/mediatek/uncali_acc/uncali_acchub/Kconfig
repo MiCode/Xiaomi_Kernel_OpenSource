@@ -1,0 +1,4 @@
+
+config MTK_UNCALI_ACCHUB
+	bool "uncali_acchub for MediaTek package"
+	default n

@@ -1,0 +1,4 @@
+
+config MTK_ANSWER_CALL_HUB
+	bool "glghub for MediaTek package"
+	default n

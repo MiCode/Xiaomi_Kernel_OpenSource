@@ -1,0 +1,9 @@
+
+config MTK_BMI160_STC
+	bool "BMI160 stc for MediaTek package"
+	default n
+	help
+	It support different step counter sensor.
+	If this option is set,
+	 it will support
+	 BMI160 step counter.

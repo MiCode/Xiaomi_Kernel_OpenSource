@@ -1,0 +1,6 @@
+MTK in-house tee interface
+
+MTEE is a secure OS implementation developed by Mediatek.
+
+Required properties:
+- compatible: "mediatek,mtee"

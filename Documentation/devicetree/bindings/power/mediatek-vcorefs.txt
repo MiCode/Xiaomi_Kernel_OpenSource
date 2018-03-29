@@ -1,0 +1,27 @@
+* Mediatek Vcore DVFS
+
+Required properties:
+- compatible should contain:
+  * "mediatek,vcorefs"
+
+- reg: The base address of the AXI register bank
+
+- clocks: device clocks
+
+- clock-name: Should be the names of the clocks
+   - "mux_axi" for the AXI clock source
+   - "syspll_d5" for the 218MHz
+   - "syspll1_d4" for the 136MHz
+
+Example:
+
+	vcorefs {
+		compatible = "mediatek,vcorefs";
+		clocks = <&topckgen TOP_MUX_AXI>,
+			 <&topckgen TOP_SYSPLL_D5>,
+			 <&topckgen TOP_SYSPLL1_D4>;
+		clock-names = "mux_axi",
+			      "syspll_d5",
+			      "syspll1_d4";
+	};
+

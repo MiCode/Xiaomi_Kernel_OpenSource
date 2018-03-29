@@ -1,0 +1,43 @@
+menuconfig MTK_DEBUG_LATCH
+	bool "MediaTek Debug Latch Configuration"
+	help
+	  Select to enable MediaTek Debug Latch configuration.
+	  Includes LASTPC and LASTBUS module for latching the
+	  system status.
+
+if  MTK_DEBUG_LATCH
+
+config MTK_LASTPC
+	bool "MediaTek LASTPC LATCH"
+	default n
+	help
+	  LASTPC is a debugging feature on MCUCFG bus.
+	  Which latches the last pc value on each CPUs as debugging
+	  information after sysytem unexpectedly crash or shutdown.
+	  After rebooting, these information could be dumped for
+	  debugging.
+
+config MTK_LASTBUS
+	bool "MediaTek LASTBUS LATCH"
+	default n
+	help
+	  LASTBUS is a debugging feature on MCUSYS and PERISYS bus.
+	  Which latches the last bus status as debugging information
+	  after sysytem unexpectedly crash or shutdown.
+	  After rebooting, these information could be dumped for
+	  debugging.
+
+config MTK_LASTBUS_V2
+	bool "MediaTek LASTBUS LATCH V2"
+	select MTK_LASTBUS
+	default n
+	help
+	  LASTBUS is a debugging feature on MCUSYS and PERISYS bus.
+	  Which latches the last bus status as debugging information
+	  after sysytem unexpectedly crash or shutdown.
+	  After rebooting, these information could be dumped for
+	  debugging.
+	  Compared to the pervious version, V2 has additional monitors
+	  for PERISYS bus.
+
+endif

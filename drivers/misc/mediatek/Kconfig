@@ -1,0 +1,425 @@
+
+menuconfig MEDIATEK_SOLUTION
+	bool "MediaTek Properitary Configuration"
+	select FW_LOADER_USER_HELPER_FALLBACK
+	help
+	  Check this to enable MediaTek properity configuration.
+
+if MEDIATEK_SOLUTION
+
+config MTK_PLATFORM
+	string "MTK platform name"
+
+config ARCH_MTK_PROJECT
+	string "MTK project name"
+
+config MTK_LEGACY
+	bool "MTK LEGACY driver API support"
+	help
+	  This is an option for MTK legacy driver that using old API
+	  It will be deprecated after all drivers changed to new structure
+
+config MTK_INTERNAL
+	bool "Enable MTK internal debug feature"
+	help
+	  Identify if codebase is built with MTK internal debug
+	  (Don't modify this feature option setting.)
+
+config FPGA_EARLY_PORTING
+	bool "FPGA_EARLY_PORTING"
+	help
+	   Used for FPGA early porting to separate code segments between FPGA
+	   platform and non-FPGA platform
+
+config MTK_LM_MODE
+	bool "MTK Large Memory mode"
+	select ARM_LPAE if !ARM64
+	select ARCH_PHYS_ADDR_T_64BIT
+	select ARCH_DMA_ADDR_T_64BIT
+	help
+	  Large Memory mode support for supporting more than 4GB DRAM access
+
+config DMAUSER_PAGES
+	bool "allocate highuser movable pages from dma zone"
+	depends on MTK_LM_MODE
+	help
+	  An internal debug kernel config for testing large memory mode.
+	  To test if kernel drivers are fully compatible to large
+	  memorys, we replace all GFP_HIGHUSER_MOVABLE/GFP_USER pages by
+	  DMA (<= 4GB) pages. It makes all drivers have more chances
+	  to allocate >= 4GB physical memory.
+
+config MT_ENG_BUILD
+	bool "flag for MTK eng/usr build verification"
+	default n
+	help
+	  Y means this kernel version is engineering mode and has more debugging
+	  features built-in. This option is supposed to specifiy engineering or
+	  user load for this build.
+	  If you are not sure about this, set n
+
+config MTK_LDVT
+	bool "LDVT"
+	default n
+	help
+	  Support LDVT or not
+
+config TABLET_PROJECT
+    bool "IS_TABLET_PROJECT"
+    default n
+    help
+      Is Tablet Project or not
+
+menu "Storage: EMMC, NAND, partition..."
+
+config MTK_SHARED_SDCARD
+	bool "MTK_SHARED_SDCARD"
+	help
+	  sdcard will be a folder of /data
+
+config MTK_GPT_SCHEME_SUPPORT
+        bool "MTK_GPT_SCHEME_SUPPORT"
+	help
+	  GPT is GUID Partition Table
+	  MTK driver support gpt scheme layout
+	  GPT is a better partition layout scheme
+	  GPT is instead of PMT
+
+source "drivers/misc/mediatek/dum-char/Kconfig"
+source "drivers/misc/mediatek/nand/Kconfig"
+source "drivers/misc/mediatek/partition/Kconfig"
+
+endmenu  # Storage
+
+menu "Power, PMIC, Battery & Low Power related configs"
+
+config MTK_BASE_POWER
+	bool
+
+config MTK_POWER_GS
+	bool
+
+config MTK_MEMORY_LOWPOWER
+	bool "Support Mediatek memory lowpower technology"
+	depends on CMA && ZONE_MOVABLE_CMA
+	default n
+	help
+	  Mediatek DRAM low power technology.
+	  It tries to safe DRAM power by switching
+	  different DRAM mode dynamically. It's a
+	  platform-dependent feature.
+
+config MTK_DCS
+	bool "Support Mediatek DDRPHY DCS mechanism"
+	default n
+	help
+	  Mediatek DDRPHY DCS mechanism.
+	  It tries to turn off free DDRPHY's power/clock.
+	  This can help system reduce power consumption.
+	  It is based on MTK_MEMORY_LOWPOWER technology.
+
+config MTK_PASR
+	bool "Support Mediatek DRAM PASR mechanism"
+	depends on MTK_MEMORY_LOWPOWER
+	default n
+	help
+	  Mediatek DRAM PASR mechanism.
+	  It tries to turn off free DRAM segment's self-refresh.
+	  This can help system reduce power consumption.
+	  It is based on MTK_MEMORY_LOWPOWER technology.
+
+config MTK_PERIODIC_DATA_COLLECTION
+	bool "Support Mediatek memory lowpower technology"
+	depends on MTK_MEMORY_LOWPOWER
+	default n
+	help
+	  Mediatek DRAM low power technology.
+	  It tries to compact memory periodically and
+	  to create a unused contiguous memory. The
+	  DRAM can enter low power state if it is idle.
+
+source "drivers/misc/mediatek/base/power/Kconfig"
+source "drivers/misc/mediatek/freqhopping/Kconfig"
+source "drivers/misc/mediatek/pmic/Kconfig"
+source "drivers/misc/mediatek/pmic_wrap/Kconfig"
+source "drivers/misc/mediatek/power/Kconfig"
+source "drivers/misc/mediatek/thermal/Kconfig"
+
+endmenu  # Power
+
+menu "MultiMedia, Display, Camera related configs"
+
+config CUSTOM_KERNEL_IMGSENSOR
+	string "CUSTOM_KERNEL_IMGSENSOR"
+	help
+	  Kernel space image sensor driver. Define  project used all image
+	  sensors .The value is combination of CUSTOM_KERNEL_MAIN_IMGSENSOR,
+	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
+	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
+
+config CUSTOM_KERNEL_CAM_CAL_DRV
+	string "CUSTOM_KERNEL_CAM_CAL_DRV"
+	help
+	  Kernel space camera calibration driver. Define  project used cam_cal
+	  driver .
+
+config MTK_SEC_VIDEO_PATH_SUPPORT
+	bool "Enable MTK Secure Video Path Support"
+	depends on (MTK_IN_HOUSE_TEE_SUPPORT) || (TRUSTONIC_TEE_SUPPORT) || (TRUSTY)
+	default n
+	help
+	  This enable MTK Secure Video Path Support. (depending on
+	  MTK In-House TEE Support or Trustonic TEE Support)
+
+config MTK_DRM_KEY_MNG_SUPPORT
+        bool "Enable MTK DRM Key Manager Support"
+        depends on (MTK_IN_HOUSE_TEE_SUPPORT) || (TRUSTONIC_TEE_SUPPORT) || (TRUSTY)
+        default n
+        help
+          This enable MTK DRM Key Manager Support.
+          depending on
+          MTK In-House TEE Support
+          or Trustonic TEE Support
+
+config MTK_LCM_PHYSICAL_ROTATION_HW
+	bool "MTK_LCM_PHYSICAL_ROTATION_HW"
+	default n
+	help
+	  Rotate LCM display for 180 degree using mediatek hardware engine
+	  Enable it when LCM hardware is intalled upside down,
+	  and you need to rotate the display content to adapting.
+
+source "drivers/misc/mediatek/cam_cal/Kconfig"
+source "drivers/misc/mediatek/cmdq/Kconfig"
+source "drivers/misc/mediatek/cqdma/Kconfig"
+source "drivers/misc/mediatek/ext_disp/Kconfig"
+source "drivers/misc/mediatek/flashlight/Kconfig"
+source "drivers/misc/mediatek/gpu/Kconfig"
+source "drivers/misc/mediatek/hdmi/Kconfig"
+source "drivers/misc/mediatek/imgsensor/Kconfig"
+source "drivers/misc/mediatek/jpeg/Kconfig"
+source "drivers/misc/mediatek/lcm/Kconfig"
+source "drivers/misc/mediatek/lens/Kconfig"
+source "drivers/misc/mediatek/mjc/Kconfig"
+source "drivers/misc/mediatek/mmp/Kconfig"
+source "drivers/misc/mediatek/multibridge/Kconfig"
+source "drivers/misc/mediatek/rrc/Kconfig"
+source "drivers/misc/mediatek/sync/Kconfig"
+source "drivers/misc/mediatek/videocodec/Kconfig"
+source "drivers/misc/mediatek/video/Kconfig"
+
+endmenu  # MM
+
+menu "Sensors"
+
+config MTK_SENSOR_SUPPORT
+	bool "MTK_SENSOR_SUPPORT"
+	help
+	  sensor config to sensor port sensor feature in project.
+
+config MTK_SENSOR_BIO
+	bool "MTK SENSOR driver BOOST IO(BIO) SUPPORT"
+	help
+	  This is an option for MTK SENSOR BIO driver.
+	  we use BIO architecture instead of linux input
+	  architecture, BIO means boost io transfer data
+	  between kernel space and user space.
+
+if !MTK_SENSOR_BIO
+source "drivers/misc/mediatek/accelerometer/Kconfig"
+source "drivers/misc/mediatek/activity_sensor/Kconfig"
+source "drivers/misc/mediatek/alsps/Kconfig"
+source "drivers/misc/mediatek/answer_call_sensor/Kconfig"
+source "drivers/misc/mediatek/barometer/Kconfig"
+source "drivers/misc/mediatek/face_down_sensor/Kconfig"
+source "drivers/misc/mediatek/freefall_sensor/Kconfig"
+source "drivers/misc/mediatek/gamerotationvector/Kconfig"
+source "drivers/misc/mediatek/geomagneticrotationvector/Kconfig"
+source "drivers/misc/mediatek/gesture/Kconfig"
+source "drivers/misc/mediatek/glance_gesture_sensor/Kconfig"
+source "drivers/misc/mediatek/gravity/Kconfig"
+source "drivers/misc/mediatek/gyroscope/Kconfig"
+source "drivers/misc/mediatek/heart_rate_sensor/Kconfig"
+source "drivers/misc/mediatek/humidity/Kconfig"
+source "drivers/misc/mediatek/hwmon/Kconfig"
+source "drivers/misc/mediatek/linearacceleration/Kconfig"
+source "drivers/misc/mediatek/magnetometer/Kconfig"
+source "drivers/misc/mediatek/pdr_sensor/Kconfig"
+source "drivers/misc/mediatek/pedometer/Kconfig"
+source "drivers/misc/mediatek/pick_up_sensor/Kconfig"
+source "drivers/misc/mediatek/rotationvector/Kconfig"
+source "drivers/misc/mediatek/sensorHub/Kconfig"
+source "drivers/misc/mediatek/shake_sensor/Kconfig"
+source "drivers/misc/mediatek/step_counter/Kconfig"
+source "drivers/misc/mediatek/tilt_detector_sensor/Kconfig"
+source "drivers/misc/mediatek/uncali_gyro/Kconfig"
+source "drivers/misc/mediatek/uncali_mag/Kconfig"
+source "drivers/misc/mediatek/wake_gesture_sensor/Kconfig"
+endif
+if MTK_SENSOR_BIO
+source "drivers/misc/mediatek/sensor_bio/Kconfig"
+endif
+endmenu  # Sensors
+
+
+menu "Modem & Connectivity related configs"
+
+source "drivers/misc/mediatek/btcvsd/Kconfig"
+source "drivers/misc/mediatek/btif/Kconfig"
+source "drivers/misc/mediatek/ccci_util/Kconfig"
+source "drivers/misc/mediatek/ccmni/Kconfig"
+source "drivers/misc/mediatek/connectivity/Kconfig"
+source "drivers/misc/mediatek/conn_md/Kconfig"
+source "drivers/misc/mediatek/dual_ccci/Kconfig"
+source "drivers/misc/mediatek/eccci/Kconfig"
+source "drivers/misc/mediatek/nfc/Kconfig"
+source "drivers/misc/mediatek/ssw/Kconfig"
+
+endmenu  # CONN
+
+menu "Other Peripherals"
+
+source "drivers/misc/mediatek/accdet/Kconfig"
+source "drivers/misc/mediatek/auxadc/Kconfig"
+source "drivers/misc/mediatek/cirq/Kconfig"
+source "drivers/misc/mediatek/debug_latch/Kconfig"
+source "drivers/misc/mediatek/debug_tracer/Kconfig"
+source "drivers/misc/mediatek/devapc/Kconfig"
+source "drivers/misc/mediatek/dramc/Kconfig"
+source "drivers/misc/mediatek/emi_bwl/Kconfig"
+source "drivers/misc/mediatek/emi_mbw/Kconfig"
+source "drivers/misc/mediatek/emi_mpu/Kconfig"
+source "drivers/misc/mediatek/ext_gic/Kconfig"
+source "drivers/misc/mediatek/gpio/Kconfig"
+source "drivers/misc/mediatek/gpt/Kconfig"
+source "drivers/misc/mediatek/i2c/Kconfig"
+source "drivers/misc/mediatek/ir_learning/Kconfig"
+source "drivers/misc/mediatek/irq/Kconfig"
+source "drivers/misc/mediatek/irtx/Kconfig"
+source "drivers/misc/mediatek/leds/Kconfig"
+source "drivers/misc/mediatek/chargepump/Kconfig"
+source "drivers/misc/mediatek/m4u/Kconfig"
+source "drivers/misc/mediatek/md32/Kconfig"
+source "drivers/misc/mediatek/mu3d/Kconfig"
+source "drivers/misc/mediatek/mu3phy/Kconfig"
+source "drivers/misc/mediatek/pwm/Kconfig"
+source "drivers/misc/mediatek/rtc/Kconfig"
+source "drivers/misc/mediatek/scp/Kconfig"
+source "drivers/misc/mediatek/smi/Kconfig"
+source "drivers/misc/mediatek/ssusb/Kconfig"
+source "drivers/misc/mediatek/systracker/Kconfig"
+source "drivers/misc/mediatek/uart/Kconfig"
+source "drivers/misc/mediatek/usb11/Kconfig"
+source "drivers/misc/mediatek/usb20/Kconfig"
+source "drivers/misc/mediatek/usb2jtag/Kconfig"
+source "drivers/misc/mediatek/usb_c/Kconfig"
+source "drivers/misc/mediatek/vibrator/Kconfig"
+source "drivers/misc/mediatek/xhci/Kconfig"
+
+endmenu  # Peripheral
+
+menu "Misc configs"
+
+config MTK_MEM
+	bool "Support platform memory information"
+	default y
+	help
+	  MTK_MEM provides basic platform memory information
+	  for mediatek platform drivers. It also provides
+	  some debug features. Please see
+	  MTK_MEMCFG.
+
+config MTK_MEMCFG
+	bool "Support enhanced memory configurations"
+	depends on MTK_MEM
+	default n
+	help
+	  MTK_MEMCFG provides debug features such as
+	  platform memory layout information and
+	  fragmentation test tools. The features
+	  cost additional memory.
+
+config MTK_CACHE_DUMP
+	bool "enable cache dump"
+	depends on MTK_MEM
+	default y
+	help
+	  Enable cache dump feature. When undef instrunction occurred,
+	  we need to check cache data is correct or not. This will use
+	  cpu op code to dump tag, data in current l1 cache. AEE will
+	  store this data in db file after reboot.
+
+config MTK_CACHE_FLUSH_RANGE_PARALLEL
+	bool "Enable cache flush by range in parallel"
+	depends on MTK_IRQ_NEW_DESIGN
+	help
+	  This mediatek feature is to accelerate the cache flush by range operation
+	  with parallel flushing support. Cache flush module issues smp_function_call
+	  to all the online CPUs except the one has largest affinity value, which
+	  services IRQs rather than participating cache flushing procesure.
+
+config MTK_SM100
+	bool "Software synchronization 64bits objects"
+	default n
+
+config MTK_SVP
+	bool "Support Mediatek Shareable Secure Video Playback technology"
+	depends on CMA && ZONE_MOVABLE_CMA
+	default n
+	help
+	  Mediatek Shareable SVP technology.
+	  It tries to save memory by switching
+	  different DRAM mode dynamically. It's a
+	  platform-dependent feature.
+
+config MTK_SVP_RAM_SIZE
+	int "MTK SVP RAM dram buffer size in MB"
+	depends on MTK_SVP
+
+config MTK_TUI_RAM_SIZE
+	int "MTK TUI SVP RAM dram buffer size in MB"
+	depends on MTK_SVP
+	default 0
+
+config MTK_TC8_TABLET_RELEASE_ONLY
+	bool "TC8_TABLET"
+	default y
+	help
+	  Apply MTK_TC8_TABLET_RELEASE_ONLY or not
+
+source "drivers/misc/mediatek/aee/Kconfig"
+source "drivers/misc/mediatek/atf_log/Kconfig"
+source "drivers/misc/mediatek/boot/Kconfig"
+source "drivers/misc/mediatek/boot_reason/Kconfig"
+source "drivers/misc/mediatek/chip/Kconfig"
+ 
+source "drivers/misc/mediatek/devinfo/Kconfig"
+source "drivers/misc/mediatek/dynamic_boost/Kconfig"
+source "drivers/misc/mediatek/exm/Kconfig"
+ 
+source "drivers/misc/mediatek/gud/Kconfig"
+source "drivers/misc/mediatek/ice_debug/Kconfig"
+source "drivers/misc/mediatek/log_store/Kconfig"
+source "drivers/misc/mediatek/masp/Kconfig"
+ 
+source "drivers/misc/mediatek/mlog/Kconfig"
+source "drivers/misc/mediatek/mtprof/Kconfig"
+source "drivers/misc/mediatek/performance/Kconfig"
+source "drivers/misc/mediatek/ram_console/Kconfig"
+source "drivers/misc/mediatek/sched/Kconfig"
+source "drivers/misc/mediatek/secmem/Kconfig"
+source "drivers/misc/mediatek/selinux_warning/Kconfig"
+source "drivers/misc/mediatek/sysenv/Kconfig"
+ 
+source "drivers/misc/mediatek/teei/Kconfig"
+source "drivers/misc/mediatek/trustzone/Kconfig"
+source "drivers/misc/mediatek/vow/Kconfig"
+source "drivers/misc/mediatek/watchpoint/Kconfig"
+source "drivers/misc/mediatek/rt-regmap/Kconfig"
+source "drivers/misc/mediatek/pd/Kconfig"
+
+source "drivers/misc/mediatek/bluetooth/Kconfig"
+
+endmenu    # Misc
+
+endif

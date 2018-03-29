@@ -1,0 +1,91 @@
+config PINCTRL_MTK_COMMON
+	bool "pinctrl mtk common"
+	default n
+	select PINMUX
+	select GENERIC_PINCONF
+	select GPIOLIB
+	select OF_GPIO
+
+config PINCTRL_MT6735
+	bool "pinctrl mt6735"
+	default n
+	def_bool MACH_MT6735
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT6580
+	bool "pinctrl mt6580"
+	default n
+	def_bool MACH_MT6580
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT6755
+	bool "Mediatek MT6755"
+	default n
+	def_bool MACH_MT6755
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT2701
+	bool "Mediatek MT2701 pin control" if COMPILE_TEST && !(MACH_MT2701 && ARCH_MT7623)
+	depends on OF
+	default MACH_MT2701 || ARCH_MT7623
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT8127
+	bool "Mediatek MT8127 pin control" if COMPILE_TEST && !ARCH_MT8127
+	depends on OF
+	default ARCH_MT8127
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT8163
+	bool "Mediatek MT8163 pin control" if COMPILE_TEST && !ARCH_MT8163
+	depends on OF
+	default ARCH_MT8163
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT8167
+	bool "Mediatek MT8167 pin control" if COMPILE_TEST && !ARCH_MT8167
+	depends on OF
+	default ARCH_MT8167
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT8173
+	bool "Mediatek MT8173 pin control" if COMPILE_TEST && !ARCH_MT8173
+	depends on OF
+	default ARCH_MT8173
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT6392
+	bool "Mediatek MT6392 pin control" if COMPILE_TEST && !MFD_MT6397
+	depends on OF
+	default MFD_MT6397
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT6397
+	bool "Mediatek MT6397 pin control" if COMPILE_TEST && !MFD_MT6397
+	depends on OF
+	default MFD_MT6397
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT6797
+	bool "pinctrl mt6797"
+	default n
+	def_bool MACH_MT6797
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT6757
+	bool "Mediatek MT6757"
+	default n
+	def_bool MACH_MT6757
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_ELBRUS
+	bool "Mediatek elbrus pin control"
+	default n
+	def_bool MACH_ELBRUS
+	select PINCTRL_MTK_COMMON
+
+config PINCTRL_MT6570
+	bool "Mediatek MT6570 pin control"
+	default n
+	def_bool MACH_MT6570
+	select PINCTRL_MTK_COMMON

@@ -1,0 +1,50 @@
+#
+# (C) COPYRIGHT 2012 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+
+# Paths required for build
+UMP_PATH = $(src)/../..
+UMP_DEVICEDRV_PATH = $(src)/.
+
+# Set up defaults if not defined by the user
+MALI_UNIT_TEST ?= 0
+
+SRC :=\
+	common/ump_kernel_core.c \
+	common/ump_kernel_descriptor_mapping.c \
+	linux/ump_kernel_linux.c \
+	linux/ump_kernel_linux_mem.c
+
+UNIT_TEST_DEFINES=
+ifeq ($(MALI_UNIT_TEST), 1)
+	MALI_DEBUG ?= 1
+
+	UNIT_TEST_DEFINES = -DMALI_UNIT_TEST=1 \
+	                    -DMALI_DEBUG=$(MALI_DEBUG)
+endif
+
+# Use our defines when compiling
+ccflags-y += -I$(UMP_PATH) -I$(UMP_DEVICEDRV_PATH) $(UNIT_TEST_DEFINES)
+
+
+# Tell the Linux build system from which .o file to create the kernel module
+obj-$(CONFIG_UMP) += ump.o
+ifeq ($(CONFIG_ION),y)
+ccflags-y += -I$(srctree)/drivers/staging/android/ion -I$(srctree)/include/linux
+obj-$(CONFIG_UMP) += imports/ion/ump_kernel_import_ion.o
+endif
+
+# Tell the Linux build system to enable building of our .c files
+ump-y := $(SRC:.c=.o)

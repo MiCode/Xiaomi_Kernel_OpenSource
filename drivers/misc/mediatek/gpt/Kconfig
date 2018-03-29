@@ -1,0 +1,5 @@
+# common gpt driver
+config MTK_GPT_COMMON
+	bool "General Purpose Timer Support Common"
+	---help---
+	TK General_Purpose_Timer driver support common code between different Socs.

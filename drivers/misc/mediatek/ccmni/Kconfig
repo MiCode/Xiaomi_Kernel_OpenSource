@@ -1,0 +1,15 @@
+config MTK_NET_CCMNI
+	bool "MediaTek CCMNI driver"
+	depends on MTK_CCCI_DEVICES
+	default n
+	select WIRELESS_EXT
+	select WEXT_PRIV
+
+config MTK_IRAT_SUPPORT
+	bool "MTK_IRAT_SUPPORT"
+	depends on MTK_NET_CCMNI
+	default n
+
+config MTK_C2K_SLOT2_SUPPORT
+	bool "MTK_C2K_SLOT2_SUPPORT"
+	default n

@@ -1,0 +1,5 @@
+config MTK_CONN_MD
+  bool CONFIG_MTK_CONN_MD
+  default y if MTK_CONN_LTE_IDC_SUPPORT
+  help
+    CONFIG_MTK_CONN_MD

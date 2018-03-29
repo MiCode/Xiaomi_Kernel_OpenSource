@@ -1,0 +1,67 @@
+#
+# MediaTek USB USB TYPEC Driver
+#
+
+config USB_C_SWITCH
+        bool "USB TYPE-C Driver"
+        default n
+	---help---
+	  Enables to support usb-c. So the usb device and host driver register
+          the callback func to the usb-c driver. When the usb-c driver detect
+          a device/host plugged in/out, it will notify the device/host driver
+          by callback func.
+	  If unsure, say N.
+
+config USB_C_SWITCH_FUSB302
+	bool "MediaTek USB TYPE-C Driver with external solution (FUSB302)"
+	default n
+	select USB_C_SWITCH
+	---help---
+	  Enable to support usb-c.
+          usb-c is supported by fusb302 and fusb340 and redriver.
+          Only supports CC detect, without PD.
+          And support DRP, aka UFP and DFP mode.
+          If unsure, say N.
+
+config USB_C_SWITCH_SII70XX
+	bool "MediaTek USB TYPE-C Driver with external solution (sii70xx)"
+	default n
+	select USB_C_SWITCH
+	---help---
+	  Enable to support usb-c.
+          usb-c is supported by Sii7033 and redriver.
+          Sii7033 supports CC detect, PD and MHL alt mode.
+          And support DRP, aka UFP and DFP mode.
+          If unsure, say N.
+
+config USB_C_SWITCH_SII70XX_MHL_MODE
+	bool "MediaTek USB TYPE-C Driver with external solution (sii70xx MHL Mode)"
+	default n
+	---help---
+	  Enable to support usb-c MHL Mode.
+          usb-c is supported by Sii7033 and redriver.
+          Sii7033 MHL Mode supports only MHL alt mode.
+          If unsure, say N.
+
+config USB_C_SWITCH_ANX7418
+	bool "Analogix Type-C interface support"
+	default n
+	select USB_C_SWITCH
+	---help---
+	  Enable to support usb-c.
+          usb-c is supported by ANX7418.
+          ANX7418 supports CC detect, PD and DP alt mode.
+          And support DRP, aka UFP and DFP mode.
+          If unsure, say N.
+
+config USB_C_SWITCH_MT6353
+	bool "MediaTek USB TYPE-C Driver (MT6353)"
+	default n
+	select USB_C_SWITCH
+	---help---
+	  Enable to support usb-c.
+	  Enables support .
+	  usb-c is supported by MT6353 USB TYPE-C (CC only).
+	  MT6353 supports CC detect. And support DRP, aka UFP and DFP mode.
+	  PD and MHL alt mode are not supported.
+	  If unsure, say N.

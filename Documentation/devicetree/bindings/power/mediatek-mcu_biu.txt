@@ -1,0 +1,16 @@
+* Mediatek MCU BIU
+
+Required properties:
+- compatible: Should contain one of the following:
+  * "mediatek,mt6735-mcu_biu"
+  * "mediatek,mt6735m-mcu_biu"
+
+- reg: Address range of the MCU BIU registers
+
+Example:
+
+	mcu_biu: mcu_biu@10300000 {
+		compatible = "mediatek,mt6735-mcu_biu";
+		reg = <0x10300000 0x8000>;
+	};
+

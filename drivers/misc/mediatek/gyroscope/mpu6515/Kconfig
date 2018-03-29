@@ -1,0 +1,9 @@
+
+config MTK_MPU6515G
+        bool "MPU6515G for MediaTek package"
+        default n
+	help
+        It support different gyroscope sensor.
+        If this option is set,
+	  	it will support
+         MPU6515 gyroscope.

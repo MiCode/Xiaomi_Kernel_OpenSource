@@ -1,0 +1,26 @@
+Mediatek ap_ccif0 device
+============================
+
+The Mediatek ap_ccif0 controller is an interface to communicate with MD1.
+
+Required Properties:
+
+	- compatible: Should be:
+		"mediatek,ap_ccif0"
+	- reg: physical base address of AP CCIF base, length of AP CCIF, and MD CCIF base & Length of MD CCIF
+	- interrupts: interrupt number to the cpu.
+	- mediatek,md_smem_size: AP and MD share memory size.
+
+Optional properties:
+	- mediatek,ccif_capability: config AP ccci driver feature, reserved in MT6580
+
+Example:
+ap_ccif0:ap_ccif0@1000C000 {
+		compatible = "mediatek,ap_ccif0";
+		reg =	<0x1000C000 0x1000>,	/*AP_CCIF_BASE*/
+		<0x1000D000 0x1000>;	/*MD_CCIF_BASE*/
+		interrupts =	<GIC_SPI 93 IRQ_TYPE_LEVEL_LOW>, /* CCIF0 IRQ */
+				<GIC_SPI 152 IRQ_TYPE_EDGE_FALLING>;/* MD WDT IRQ */
+		mediatek,ccif_capability = <2>;
+		mediatek,md_smem_size = <0x200000>; /* md share memory size */
+};

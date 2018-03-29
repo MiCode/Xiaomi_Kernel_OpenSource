@@ -1,0 +1,23 @@
+config MTK_LEDS
+	tristate "MediaTek LED Support"
+	depends on LEDS_CLASS
+	---help---
+	  This selects the MediaTek(R) LEDs connected to MediaTek chips.
+	  If you want to use MediaTek(R) LEDs support, say Y or M here.
+	  If unsure, say N.
+	  Mediatek LED module includes backlight, indicate LED, keypad LED, button LED etc.
+
+config LIGHTNESS_MAPPING_VALUE
+	int "LIGHTNESS_MAPPING_VALUE"
+	default 255
+ 	---help---
+	  Backlight brightness mapping value, from 0 to 255.
+
+config BACKLIGHT_SUPPORT_LP8557
+	bool "Support backlight lp8557 board"
+
+config BACKLIGHT_SUPPORT_LM3697
+	bool "LM3697(DW8832) Support"
+	default n
+ 	---help---
+	  charge pump driver for external backlight

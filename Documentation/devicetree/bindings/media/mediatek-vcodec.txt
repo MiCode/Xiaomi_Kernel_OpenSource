@@ -1,0 +1,78 @@
+Mediatek Video Codec
+
+Mediatek Video Codec is the video codec hw  present in Mediatek SoCs whcih
+supports high resolution decoding and encoding functionalities.
+The Mediatek Video Codec device driver is a v4l2 driver which can encode/
+decode video raw/elementary streams and has support for all popular video
+codecs.
+
+Required properties:
+- compatible : "mediatek,mt2701-vcodec-dec", "mediatek,mt2701-vcodec-enc",
+- reg : (1) VDEC_SYS register base and size
+	(2) VDEC_MISC register base and size
+	(3) VDEC_VLD register base and size
+	(4) VDEC_VLD_TOP register base and size
+	(5) VDEC_MC register base and size
+	(6) VDEC_AVC_VLD register base and size
+	(7) VDEC_AVC_MV register base and size
+	(8) VDEC_PP register base and size
+	(9) VDEC_VP8_VLD register base and size
+	(10) VDEC_VP6_VD register base and size
+	(11) VDEC_VP8_VLD2 register base and size
+	(12) VDEC_VP9_VLD register base and size
+- interrupts : interrupt number to the cpu.
+- larb : must contain the larbes of current platform
+- clocks : 	(1) clock name of top video decoder sel from clock manager
+		(2) clock name of top video decoder pll from clock manager
+- clock-names:  (1) "vdec_sel" for top video decoder sel clock
+		(2) "vdecpll" for top video decoder pll clock
+- iommus : Mediatek IOMMU H/W has designed the fixed associations with
+        the multimedia H/W. and there is only one multimedia iommu domain.
+        "iommus = <&iommu portid>" the "portid" is from
+        dt-bindings\iommu\mt2701-iommu-port.h, it means that this portid will
+        enable iommu. The portid default is disable iommu if "<&iommu portid>"
+        didn't be added.
+		(1) porid for VDEC MC
+		(2) porid for VDEC PP
+		(3) porid for VDEC AVC_MV
+		(4) porid for VDEC PRED_RD
+		(5) porid for VDEC PRED_WR
+		(6) porid for VDEC VLD
+		(7) porid for VDEC VLD2
+		(8) porid for VDEC TILE
+
+- vpu : Mediatek Codec need to download vpu firmware if there is any codec ctx created
+
+Example:
+	vdec:v4l2codec@16000000 {
+		compatible = "mediatek,mt2701-vcodec-dec";
+		reg = <0 0x16000000 0 0x100>,		/* VDEC_SYS */
+		      <0 0x16020000 0 0x1000>,		/* VDEC_MISC */
+		      <0 0x16021000 0 0x800>,		/* VDEC_LD */
+		      <0 0x16021800 0 0x800>,		/* VDEC_TOP */
+		      <0 0x16022000 0 0x1000>,		/* VDEC_CM */
+		      <0 0x16023000 0 0x1000>,		/* VDEC_AD */
+		      <0 0x16024000 0 0x1000>,		/* VDEC_AV */
+		      <0 0x16025000 0 0x1000>,		/* VDEC_PP */
+		      <0 0x16026800 0 0x800>,		/* VP8_VD */
+		      <0 0x16027000 0 0x800>,		/* VP6_VD */
+		      <0 0x16027800 0 0x800>,		/* VP8_VL */
+		      <0 0x16028400 0 0x400>;		/* VP9_VD */
+		interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_LOW>;
+		larb = <&larb1>;
+		iommus = <&iommu M4U_PORT_VDEC_MC_EXT>,
+			 <&iommu M4U_PORT_VDEC_PP_EXT>,
+			 <&iommu M4U_PORT_VDEC_AVC_MV_EXT>,
+			 <&iommu M4U_PORT_VDEC_PRED_RD_EXT>,
+			 <&iommu M4U_PORT_VDEC_PRED_WR_EXT>,
+			 <&iommu M4U_PORT_VDEC_VLD_EXT>,
+			 <&iommu M4U_PORT_VDEC_VLD2_EXT>,
+			 <&iommu M4U_PORT_VDEC_TILE_EXT>;
+		vpu = <&vpu>;
+		power-domains = <&scpsys MT2701_POWER_DOMAIN_VDEC>;
+		clocks = <&topckgen CLK_TOP_VDEC_SEL>,
+			 <&topckgen CLK_TOP_VDECPLL>;
+		clock-names = "vdec_sel",
+			      "vdecpll";
+	};
+

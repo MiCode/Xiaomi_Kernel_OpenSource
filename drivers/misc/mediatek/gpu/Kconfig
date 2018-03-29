@@ -1,0 +1,43 @@
+config MTK_GPU_SUPPORT
+	bool CONFIG_MTK_GPU_SUPPORT
+	default n
+	help
+	  CONFIG_MTK_GPU_SUPPORT define if the gpu driver should be built in or not
+
+config MTK_GPU_VERSION
+	string CONFIG_MTK_GPU_VERSION
+	default ""
+	help
+	  CONFIG_MTK_GPU_VERSION define which gpu ddk version will be used
+
+config MTK_GPU_COMMON_DVFS_SUPPORT
+  bool CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
+  default n
+  help
+    CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT define to use COMMON DVFS
+
+config MTK_GPU_R5P0
+	bool CONFIG_MTK_GPU_R5P0
+	default n
+	help
+	  CONFIG_MTK_GPU_R5P0 define to use r5p0 drivers
+
+config MTK_GPU_SAPPHIRE_LITE
+        bool CONFIG_MTK_GPU_SAPPHIRE_LITE
+        help
+          Select Y here to enable mtk sapphire lite gpu support
+
+config SW_SYNC64
+        bool CONFIG_SW_SYNC64
+        depends on SW_SYNC
+        help
+          A sync object driver that uses a 64bit counter to coordinate
+          syncrhronization.  Useful when there is no hardware primitive backing
+          the synchronization.
+
+config MTK_GPU_SPM_DVFS_SUPPORT
+  bool CONFIG_MTK_GPU_SPM_DVFS_SUPPORT
+  default n
+  help
+    CONFIG_MTK_GPU_SPM_DVFS_SUPPORT define to use a SPM for GPU DVFS
+

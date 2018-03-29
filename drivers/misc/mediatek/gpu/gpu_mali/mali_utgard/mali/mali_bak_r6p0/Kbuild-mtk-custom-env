@@ -1,0 +1,48 @@
+#clouds add
+VER:=eng
+ifndef CONFIG_MT_ENG_BUILD
+VER:=user
+endif
+#----------------------------------------------------------
+#[Section:Manual modify]
+
+FLAG_MTK_BUILD_SYS := 1
+USING_GPU_UTILIZATION := 1
+
+#----------------------------------------------------------
+#[Section:Should add to alps project config (TODO)]
+#due to the mechanism
+
+CONFIG_MALI400 := y
+ifeq ($(VER),eng)
+CONFIG_MALI400_DEBUG := y
+ccflags-y += -DDEBUG
+else
+CONFIG_MALI400_DEBUG := n
+ccflags-y += -UDEBUG
+endif
+#CONFIG_PM_RUNTIME := y
+CONFIG_DMA_SHARED_BUFFER := y
+#CONFIG_MALI400_UMP := y
+#CONFIG_MALI400_PROFILING := y
+#CONFIG_MALI400_INTERNAL_PROFILING := y
+
+CONFIG_SYNC := y
+ccflags-y += -DCONFIG_SYNC
+
+ccflags-$(CONFIG_MALI400_PROFILING) += -DCONFIG_MALI400_PROFILING
+
+#----------------------------------------------------------
+#Debug version (BUILD := debug not eatten by kbuild)
+
+
+#Define CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH
+ccflags-y += -DCONFIG_MALI_DMA_BUF_MAP_ON_ATTACH
+
+
+#----------------------------------------------------------
+MTK_DEBUG := $(CONFIG_MALI400_DEBUG)
+MTK_DEBUG_PROC_PRINT := $(MTK_DEBUG)
+
+#ccflags-$(MTK_DEBUG) += -DMTK_DEBUG
+#ccflags-$(MTK_DEBUG_PROC_PRINT) += -DMTK_DEBUG_PROC_PRINT

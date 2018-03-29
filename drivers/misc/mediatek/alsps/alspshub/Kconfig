@@ -1,0 +1,9 @@
+
+config MTK_ALSPSHUB
+	bool "alspshub for MediaTek package"
+	default n
+	help
+	  It support different alspshub sensor.
+          If this option is set,
+	  it will support
+          sensorhub gyroscope.

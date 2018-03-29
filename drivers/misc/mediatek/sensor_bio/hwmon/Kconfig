@@ -1,0 +1,5 @@
+config MTK_HWMON
+  bool CONFIG_MTK_HWMON
+  default n
+  help
+    CONFIG_MTK_HWMON

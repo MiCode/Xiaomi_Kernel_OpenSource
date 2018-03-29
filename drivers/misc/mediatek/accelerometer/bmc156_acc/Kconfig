@@ -1,0 +1,13 @@
+config MTK_BMC156_ACC
+	bool "bmc156 accelerometer for MediaTek package"
+	help
+	Say Y here if you want support bmc156 accelerometer.
+
+	If unsure, say N.
+
+config BMC156_LOWPASS
+	bool "bmc156 accelerometer lowpass data filter feature"
+	help
+	Say Y here if you want enable lowpass data filter.
+
+	If unsure, say N.

@@ -1,0 +1,17 @@
+ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+	ifeq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6582" "mt6592" "mt6580"))
+		# armv8
+		ifeq ($(CONFIG_TRUSTONIC_TEE_VERSION), "")
+			# use default version
+			ccflags-y += -I$(srctree)/drivers/misc/mediatek/gud/302a/gud/MobiCoreKernelApi/include \
+						 -I$(srctree)/drivers/misc/mediatek/gud/302a/gud/MobiCoreKernelApi/public
+		else
+			ccflags-y += -I$(srctree)/drivers/misc/mediatek/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/gud/MobiCoreKernelApi/include \
+						 -I$(srctree)/drivers/misc/mediatek/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/gud/MobiCoreKernelApi/public
+		endif
+	else
+		# armv7
+		ccflags-y += -I$(srctree)/drivers/misc/mediatek/gud/$(MTK_PLATFORM)/gud/MobiCoreKernelApi/include \
+					 -I$(srctree)/drivers/misc/mediatek/gud/$(MTK_PLATFORM)/gud/MobiCoreKernelApi/public
+	endif
+endif

@@ -1,0 +1,9 @@
+
+config MTK_EPL2182_NEW
+	bool "MTK_EPL2182_NEW for MediaTek package"
+	default n
+	help
+	It support different type sensor
+	in this platform. If this option
+	is set, it will support ambient
+	and light sensor MTK_EPL2182_NEW.

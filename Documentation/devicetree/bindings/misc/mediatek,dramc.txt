@@ -1,0 +1,12 @@
+Mediatek SoC system dramc
+
+Required properties:
+- compatible : Should be "mediatek,dramc"
+- reg: Should contain dramc registers location and length
+
+Examples:
+
+		dramc_conf@10004000 {
+			compatible = "mediatek,dramc";
+			reg = <0x10004000 0x1000>;
+		};

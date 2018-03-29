@@ -1,0 +1,22 @@
+config MTK_EMI_BWL
+  bool "enable MTK_EMI_BWL"
+  default y
+  help
+    This enable MTK_EMI_BWL
+
+config MTK_COMMON_EMI
+  bool "common emi driver for 8127/2701/7623"
+  help
+    This enable 8127/7623/2701 common emi driver.
+
+config MTK_EMI_D1P
+  bool "CONFIG_MTK_EMI for MT6737T"
+  default n
+  help
+    Config MTK_EMI_D1P
+
+config MTK_EMI_D2P
+  bool "CONFIG_MTK_EMI for MT6737M"
+  default n
+  help
+    Config MTK_EMI_D2P

@@ -1,0 +1,107 @@
+# For MTK USB3.0 IP++++
+config SSUSB_DRV
+	tristate "MediaTek MU3D Gadget support"
+	default n
+	help
+	  Say Y if support Gadget based on
+	  MediaTek USB3.0 Device controller.
+	  It will turn on ssusb support.
+	  If unsure,say N.
+
+config SSUSB_MU3_PHY
+	bool "MU3 PHY"
+	default n
+	---help---
+	  Enables support
+	  MU3 PHY for SSUSB or XHCI.
+	  It's common config for USB PHY,
+	  we need turn on it if support USB_MU3D_DRV.
+	  If unsure,say N.
+
+config SSUSB_U3_PHY_GPIO_SUPPORT
+	bool "MU3 PHY registers access by I2C"
+	depends on SSUSB_MU3_PHY
+	default n
+	---help---
+	  Enables support for
+	  read/write PHY registers by external I2C.
+	  It's only for FPGA test.
+	  If unsure,say N.
+
+config SSUSB_U3_PHY_AHB_SUPPORT
+	bool "MU3 PHY registers access by AHB"
+	depends on SSUSB_MU3_PHY
+	default n
+	---help---
+	  Enables support for
+	  read/write PHY registers by internal AHB.
+	  It's one type of USB PHY.
+	  If unsure,say N.
+
+config SSUSB_MTK_XHCI
+	tristate "MediaTek U3 XHCI support"
+		default n
+	---help---
+	  Enables support
+	  Mediatek U3 XHCI functions.
+	  If we want to support USB host,we need turn on this config.
+	  If unsure,say N.
+
+config SSUSB_MTK_TEST_XHCI
+	tristate "MediaTek U3 TEST XHCI driver support"
+		default n
+	---help---
+	  Enables support
+	  Mediatek U3 XHCI test driver kernel framework.
+	  This test driver is for USB complicate test.
+	  If unsure,say N.
+
+config SSUSB_C60802_SUPPORT
+	bool "MU3 PHY C60802 support"
+	depends on SSUSB_MU3_PHY
+	default n
+	---help---
+	  Enables support for
+	  external PHY(Ver C).
+	  It's only for FPGA test.
+	  If unsure,say N.
+
+config SSUSB_D60802_SUPPORT
+	bool "MU3 PHY D60802 support"
+	depends on SSUSB_MU3_PHY
+	default n
+	---help---
+	  Enables support
+	  for external PHY(Ver D).
+	  It's only for FPGA test.
+	  If unsure,say N.
+
+config SSUSB_E60802_SUPPORT
+	bool "MU3 PHY E60802 support"
+	depends on SSUSB_MU3_PHY
+	default n
+	---help---
+	  Enables support
+	  for external PHY(Ver E).
+	  It's only for FPGA test.
+	  If unsure,say N.
+
+config SSUSB_PROJECT_PHY
+	bool "MU3 ASIC PHY support"
+	depends on SSUSB_MU3_PHY
+	default n
+	---help---
+	  Enables support
+	   for ASIC PHY.
+	   We often use it for USB PHY now.
+	  If unsure,say N.
+
+config SSUSB_PHY0_U2_CURRENT_DETECT
+	bool "U2 CURRENT DYNAMIC DETECTIONG"
+	depends on SSUSB_MU3_PHY
+	default n
+	---help---
+	  Enable it if dynamically select current source of u2-phy0
+	  which are internal current or U3 current; it's add only for
+	  mt8173-magna platform. so for others, disable it anyway.
+	  If unsure, say N.

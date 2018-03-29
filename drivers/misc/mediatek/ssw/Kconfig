@@ -1,0 +1,12 @@
+config CUSTOM_KERNEL_SSW
+	string "CUSTOM_KERNEL_SSW"
+	help
+	  To choose kernel sim switch driver
+	  ssw_single: internal switcher for MT6572,MT6582,MT6592
+	  ssw_generic: internal switcher for MT6589
+	  ssw_generic_v2: internal switcher for K2 phone
+	  fxla2203: phase-out
+	  combo_fxla2203: external switcher for MT6582+EVDO, MT6592+EVDO
+	  combo_fxla2203_v2: 2 2X2 external switcher for ROME(MT6595 MT6795) DSDA
+	  combo_fxla2203_v3: 1 2X2 external switcher for X2(MT6595 MT6795) DSDA
+	  ssw_single_v2: internal switcher for Denali(1,2,3)

@@ -1,0 +1,20 @@
+config MTK_DRAMC
+	tristate "MediaTek DRAMC driver"
+	default n
+	---help---
+	  This selects the MediaTek(R) DRAMC driver.
+
+config MTK_DRAMC_PASR
+	bool "Mediatek DRAMC PASR control"
+	default n
+	help
+	  Mediatek(R) PASR HW control.
+	  This controls the setting of DRAM mode register
+	  for PASR(Partial Array Self-Refresh).
+	  Caller needs to prepare bit-mask setting of DRAM
+	  segment to trigger PASR.
+
+config MTK_COMMON_EMI
+	bool "Common emi driver for 8127/2701/7623"
+	help
+	  This enable 8127/7623/2701 common emi driver.

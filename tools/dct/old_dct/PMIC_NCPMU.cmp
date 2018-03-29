@@ -1,0 +1,17 @@
+[PMIC_TABLE]
+NUM_LDO = 0
+
+
+[LDO_APPNAME_DEFAULT]
+MT6323_POWER_LDO_DEFAULT
+
+[pmic_drv.h_HEADER]
+
+[pmic_drv.h_TAILER]
+
+[pmic_drv.c_HEADER]
+#include <linux/types.h>
+#include <mach/mt_typedefs.h>
+#include <mach/mt_pm_ldo.h>
+
+[pmic_drv.c_TAILER]

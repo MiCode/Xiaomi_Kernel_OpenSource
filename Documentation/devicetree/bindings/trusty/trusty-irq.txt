@@ -1,0 +1,8 @@
+Trusty irq interface
+
+Trusty requires non-secure irqs to be forwarded to the secure OS.
+
+Required properties:
+- compatible: "android,trusty-irq-v1"
+
+Must be a child of the node that provides the trusty std/fast call interface.

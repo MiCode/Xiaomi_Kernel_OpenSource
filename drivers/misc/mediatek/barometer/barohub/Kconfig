@@ -1,0 +1,9 @@
+
+config MTK_BAROHUB
+	bool "barohub for MediaTek package"
+	default n
+	help
+	  It support different barohub sensor.
+          If this option is set,
+	  it will support
+          sensorhub gyroscope.

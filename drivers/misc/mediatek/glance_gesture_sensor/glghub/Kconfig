@@ -1,0 +1,4 @@
+
+config MTK_GLGHUB
+	bool "glghub for MediaTek package"
+	default n

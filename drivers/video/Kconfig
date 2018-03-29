@@ -1,0 +1,60 @@
+#
+# Video configuration
+#
+
+menu "Graphics support"
+	depends on HAS_IOMEM
+
+config HAVE_FB_ATMEL
+	bool
+
+config SH_MIPI_DSI
+	tristate
+	depends on (SUPERH || ARCH_SHMOBILE) && HAVE_CLK
+
+config SH_LCD_MIPI_DSI
+	bool
+
+source "drivers/char/agp/Kconfig"
+
+menu "ARM GPU Configuration"
+source "drivers/gpu/arm/Kconfig"
+endmenu
+
+source "drivers/gpu/vga/Kconfig"
+
+source "drivers/gpu/host1x/Kconfig"
+source "drivers/gpu/ipu-v3/Kconfig"
+
+menu "Direct Rendering Manager"
+source "drivers/gpu/drm/Kconfig"
+endmenu
+
+menu "Frame buffer Devices"
+source "drivers/video/fbdev/Kconfig"
+endmenu
+
+source "drivers/video/backlight/Kconfig"
+source "drivers/video/adf/Kconfig"
+
+config VGASTATE
+       tristate
+       default n
+
+config VIDEOMODE_HELPERS
+	bool
+
+config HDMI
+	bool
+
+if VT
+	source "drivers/video/console/Kconfig"
+endif
+
+if FB || SGI_NEWPORT_CONSOLE
+	source "drivers/video/logo/Kconfig"
+
+endif
+
+
+endmenu

@@ -1,0 +1,37 @@
+# HDMI
+config CUSTOM_KERNEL_HDMI
+	string "CUSTOM_KERNEL_HDMI"
+	help
+	  Kernel sapce mhl driver
+
+config MTK_HDMI_SUPPORT
+	bool "MTK_HDMI_SUPPORT"
+	default n
+	help
+	  To control whether enable or disable HDMI feature. If choose yes,
+	  phone's screen can be demonstrated on TV via HDMI cable.
+
+config MTK_HDMI_3D_SUPPORT
+	bool "MTK_HDMI_3D_SUPPORT"
+	default n
+	help
+	  To control whether enable or disable HDMI 3D feature. If choose yes,
+	  phone's screen can show 3D content on TV via HDMI cable.
+
+config MTK_MT8193_HDMI_SUPPORT
+	bool "MTK_MT8193_HDMI_SUPPORT"
+	depends on MTK_HDMI_SUPPORT
+	depends on MTK_MT8193_SUPPORT
+
+config MTK_INTERNAL_HDMI_SUPPORT
+	bool "MTK_INTERNAL_HDMI_SUPPORT"
+	default n
+	depends on MTK_HDMI_SUPPORT
+	help
+			Enable the Internal HDMI Support
+
+config MTK_HDMI_HDCP_SUPPORT
+	bool "MTK_HDMI_HDCP_SUPPORT"
+	depends on MTK_HDMI_SUPPORT
+	help
+	   Enable hdmi tx hdcp support

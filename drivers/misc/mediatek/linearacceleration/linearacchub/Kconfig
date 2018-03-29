@@ -1,0 +1,4 @@
+
+config MTK_LINEARACCHUB
+	bool "linearacchub for MediaTek package"
+	default n

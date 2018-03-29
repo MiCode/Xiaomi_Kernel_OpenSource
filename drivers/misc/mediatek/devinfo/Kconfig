@@ -1,0 +1,21 @@
+config MTK_DEVINFO_DRIVER
+	bool "Support MTK EFUSE driver with sysfs interface"
+	default y
+	depends on !MTK_DEVINFO_DRIVER_V2
+	help
+	  EFUSE driver is a must. EFUSE Driver V1 includes the Sysfs driver.
+	  EFUSE Sysfs driver v1 is supported in legacy platforms.
+	  It is used to provide device information. The devinfo kernel API and
+	  user-space API(including ioctl and sysfs) are provided for users to
+	  query device information in an easier way.
+
+config MTK_DEVINFO_DRIVER_V2
+	bool "Support MTK EFUSE driver without sysfs interface"
+	help
+	  EFUSE driver is a must. EFUSE Driver V2 removes the Sysfs driver.
+	  EFUSE Sysfs driver v1 is supported in legacy platforms.
+	  V2 driver makes no difference with v1 driver except that devinfo
+	  sysfs driver is removed in newer platforms because the atag has already
+	  exported a device node by device tree. Thus, the sysfs driver will
+	  be duplicated. So we use the atag device node in the new platforms
+	  and deprecated the old EFUSE sysfs driver.

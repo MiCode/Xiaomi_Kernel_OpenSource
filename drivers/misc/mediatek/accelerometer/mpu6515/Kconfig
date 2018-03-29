@@ -1,0 +1,9 @@
+
+config MTK_MPU6515A
+        bool "MPU6515A for MediaTek package"
+        default n
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          MPU6515 Accelerometer.

@@ -1,0 +1,8 @@
+
+config MTK_BMC156_MAG
+	bool "bmc156 magnetometer for MediaTek package"
+	help
+	  It support different magnetometer sensor.
+          If this option is set,
+	  it will support
+          bmc156 magnetometer.

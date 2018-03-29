@@ -1,0 +1,4 @@
+
+config MTK_GAMEROTVECHUB
+	bool "gamerotvechub for MediaTek package"
+	default n

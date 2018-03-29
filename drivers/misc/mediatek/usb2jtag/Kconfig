@@ -1,0 +1,7 @@
+config MTK_USB2JTAG_SUPPORT
+	bool "Enable serial-wired JTAG Debugging through usb port"
+	help
+	  After selecting both this option and MTK_USB2JTAG_SUPPORT in LK,
+	  users could type fastboot command 'fastboot oem usb2jtag 1' to enter the USB2JTAG debug mode.
+	  ('fastboot oem usb2jtag 0' for returning to normal mode).
+	  Note: Parallel-wired JTAG Debugging and USB driver would be disabled in USB2JTAG debug mode.

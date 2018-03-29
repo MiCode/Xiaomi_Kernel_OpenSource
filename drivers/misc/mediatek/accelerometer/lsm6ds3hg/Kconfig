@@ -1,0 +1,8 @@
+config MTK_LSM6DS3HG
+	bool "LSM6DS3H for MediaTek package"
+	default n
+	help
+	  LSM6DS3H is a system-in-package featureing a 3D digital accelerometer
+	  and a 3D digital gyroscope performing at 1.1mA in high-performance
+	  mode and enabling always-on low-power features for an
+	  optional motion experience for the customer.

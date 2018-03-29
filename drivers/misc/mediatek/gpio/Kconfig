@@ -1,0 +1,14 @@
+config MTK_GPIO
+	tristate "MediaTek GPIO driver"
+	default y
+	---help---
+	  This selects the MediaTek(R) GPIO driver.
+	  If you want to use MediaTek(R) SPI interface, say Y or M here.
+	  If unsure, say N.
+	  This selects the MediaTek(R) GPIO driver.
+	  If you want to use MediaTek(R) SPI interface, say Y or M here.
+	  If unsure, say N.
+
+config MTK_MT6306_SUPPORT
+	tristate "MediaTek MT6306 GPIO Controller support"
+	default n

@@ -1,0 +1,280 @@
+/*
+ * arch/arm/mach-at91/pm.c
+ * AT91 Power Management
+ *
+ * Copyright (C) 2005 David Brownell
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+#include <linux/gpio.h>
+#include <linux/suspend.h>
+#include <linux/sched.h>
+#include <linux/proc_fs.h>
+#include <linux/interrupt.h>
+#include <linux/sysfs.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/io.h>
+#include <linux/clk/at91_pmc.h>
+
+#include <asm/irq.h>
+#include <linux/atomic.h>
+#include <asm/mach/time.h>
+#include <asm/mach/irq.h>
+
+#include <mach/cpu.h>
+#include <mach/hardware.h>
+
+#include "at91_aic.h"
+#include "generic.h"
+#include "pm.h"
+#include "gpio.h"
+
+static void (*at91_pm_standby)(void);
+
+static int at91_pm_valid_state(suspend_state_t state)
+{
+	switch (state) {
+		case PM_SUSPEND_ON:
+		case PM_SUSPEND_STANDBY:
+		case PM_SUSPEND_MEM:
+			return 1;
+
+		default:
+			return 0;
+	}
+}
+
+
+static suspend_state_t target_state;
+
+/*
+ * Called after processes are frozen, but before we shutdown devices.
+ */
+static int at91_pm_begin(suspend_state_t state)
+{
+	target_state = state;
+	return 0;
+}
+
+/*
+ * Verify that all the clocks are correct before entering
+ * slow-clock mode.
+ */
+static int at91_pm_verify_clocks(void)
+{
+	unsigned long scsr;
+	int i;
+
+	scsr = at91_pmc_read(AT91_PMC_SCSR);
+
+	/* USB must not be using PLLB */
+	if (cpu_is_at91rm9200()) {
+		if ((scsr & (AT91RM9200_PMC_UHP | AT91RM9200_PMC_UDP)) != 0) {
+			pr_err("AT91: PM - Suspend-to-RAM with USB still active\n");
+			return 0;
+		}
+	} else if (cpu_is_at91sam9260() || cpu_is_at91sam9261() || cpu_is_at91sam9263()
+			|| cpu_is_at91sam9g20() || cpu_is_at91sam9g10()) {
+		if ((scsr & (AT91SAM926x_PMC_UHP | AT91SAM926x_PMC_UDP)) != 0) {
+			pr_err("AT91: PM - Suspend-to-RAM with USB still active\n");
+			return 0;
+		}
+	}
+
+	/* PCK0..PCK3 must be disabled, or configured to use clk32k */
+	for (i = 0; i < 4; i++) {
+		u32 css;
+
+		if ((scsr & (AT91_PMC_PCK0 << i)) == 0)
+			continue;
+
+		css = at91_pmc_read(AT91_PMC_PCKR(i)) & AT91_PMC_CSS;
+		if (css != AT91_PMC_CSS_SLOW) {
+			pr_err("AT91: PM - Suspend-to-RAM with PCK%d src %d\n", i, css);
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+/*
+ * Call this from platform driver suspend() to see how deeply to suspend.
+ * For example, some controllers (like OHCI) need one of the PLL clocks
+ * in order to act as a wakeup source, and those are not available when
+ * going into slow clock mode.
+ *
+ * REVISIT: generalize as clk_will_be_available(clk)?  Other platforms have
+ * the very same problem (but not using at91 main_clk), and it'd be better
+ * to add one generic API rather than lots of platform-specific ones.
+ */
+int at91_suspend_entering_slow_clock(void)
+{
+	return (target_state == PM_SUSPEND_MEM);
+}
+EXPORT_SYMBOL(at91_suspend_entering_slow_clock);
+
+
+static void (*slow_clock)(void __iomem *pmc, void __iomem *ramc0,
+			  void __iomem *ramc1, int memctrl);
+
+#ifdef CONFIG_AT91_SLOW_CLOCK
+extern void at91_slow_clock(void __iomem *pmc, void __iomem *ramc0,
+			    void __iomem *ramc1, int memctrl);
+extern u32 at91_slow_clock_sz;
+#endif
+
+static int at91_pm_enter(suspend_state_t state)
+{
+	if (of_have_populated_dt())
+		at91_pinctrl_gpio_suspend();
+	else
+		at91_gpio_suspend();
+
+	if (IS_ENABLED(CONFIG_OLD_IRQ_AT91) && at91_aic_base) {
+		at91_irq_suspend();
+
+		pr_debug("AT91: PM - wake mask %08x, pm state %d\n",
+				/* remember all the always-wake irqs */
+				(at91_pmc_read(AT91_PMC_PCSR)
+						| (1 << AT91_ID_FIQ)
+						| (1 << AT91_ID_SYS)
+						| (at91_get_extern_irq()))
+					& at91_aic_read(AT91_AIC_IMR),
+				state);
+	}
+
+	switch (state) {
+		/*
+		 * Suspend-to-RAM is like STANDBY plus slow clock mode, so
+		 * drivers must suspend more deeply:  only the master clock
+		 * controller may be using the main oscillator.
+		 */
+		case PM_SUSPEND_MEM:
+			/*
+			 * Ensure that clocks are in a valid state.
+			 */
+			if (!at91_pm_verify_clocks())
+				goto error;
+
+			/*
+			 * Enter slow clock mode by switching over to clk32k and
+			 * turning off the main oscillator; reverse on wakeup.
+			 */
+			if (slow_clock) {
+				int memctrl = AT91_MEMCTRL_SDRAMC;
+
+				if (cpu_is_at91rm9200())
+					memctrl = AT91_MEMCTRL_MC;
+				else if (cpu_is_at91sam9g45())
+					memctrl = AT91_MEMCTRL_DDRSDR;
+#ifdef CONFIG_AT91_SLOW_CLOCK
+				/* copy slow_clock handler to SRAM, and call it */
+				memcpy(slow_clock, at91_slow_clock, at91_slow_clock_sz);
+#endif
+				slow_clock(at91_pmc_base, at91_ramc_base[0],
+					   at91_ramc_base[1], memctrl);
+				break;
+			} else {
+				pr_info("AT91: PM - no slow clock mode enabled ...\n");
+				/* FALLTHROUGH leaving master clock alone */
+			}
+
+		/*
+		 * STANDBY mode has *all* drivers suspended; ignores irqs not
+		 * marked as 'wakeup' event sources; and reduces DRAM power.
+		 * But otherwise it's identical to PM_SUSPEND_ON:  cpu idle, and
+		 * nothing fancy done with main or cpu clocks.
+		 */
+		case PM_SUSPEND_STANDBY:
+			/*
+			 * NOTE: the Wait-for-Interrupt instruction needs to be
+			 * in icache so no SDRAM accesses are needed until the
+			 * wakeup IRQ occurs and self-refresh is terminated.
+			 * For ARM 926 based chips, this requirement is weaker
+			 * as at91sam9 can access a RAM in self-refresh mode.
+			 */
+			if (at91_pm_standby)
+				at91_pm_standby();
+			break;
+
+		case PM_SUSPEND_ON:
+			cpu_do_idle();
+			break;
+
+		default:
+			pr_debug("AT91: PM - bogus suspend state %d\n", state);
+			goto error;
+	}
+
+	if (IS_ENABLED(CONFIG_OLD_IRQ_AT91) && at91_aic_base)
+		pr_debug("AT91: PM - wakeup %08x\n",
+			 at91_aic_read(AT91_AIC_IPR) &
+			 at91_aic_read(AT91_AIC_IMR));
+
+error:
+	target_state = PM_SUSPEND_ON;
+
+	if (IS_ENABLED(CONFIG_OLD_IRQ_AT91) && at91_aic_base)
+		at91_irq_resume();
+
+	if (of_have_populated_dt())
+		at91_pinctrl_gpio_resume();
+	else
+		at91_gpio_resume();
+	return 0;
+}
+
+/*
+ * Called right prior to thawing processes.
+ */
+static void at91_pm_end(void)
+{
+	target_state = PM_SUSPEND_ON;
+}
+
+
+static const struct platform_suspend_ops at91_pm_ops = {
+	.valid	= at91_pm_valid_state,
+	.begin	= at91_pm_begin,
+	.enter	= at91_pm_enter,
+	.end	= at91_pm_end,
+};
+
+static struct platform_device at91_cpuidle_device = {
+	.name = "cpuidle-at91",
+};
+
+void at91_pm_set_standby(void (*at91_standby)(void))
+{
+	if (at91_standby) {
+		at91_cpuidle_device.dev.platform_data = at91_standby;
+		at91_pm_standby = at91_standby;
+	}
+}
+
+static int __init at91_pm_init(void)
+{
+#ifdef CONFIG_AT91_SLOW_CLOCK
+	slow_clock = (void *) (AT91_IO_VIRT_BASE - at91_slow_clock_sz);
+#endif
+
+	pr_info("AT91: Power Management%s\n", (slow_clock ? " (with slow clock mode)" : ""));
+
+	/* AT91RM9200 SDRAM low-power mode cannot be used with self-refresh. */
+	if (cpu_is_at91rm9200())
+		at91_ramc_write(0, AT91RM9200_SDRAMC_LPR, 0);
+	
+	if (at91_cpuidle_device.dev.platform_data)
+		platform_device_register(&at91_cpuidle_device);
+
+	suspend_set_ops(&at91_pm_ops);
+
+	return 0;
+}
+arch_initcall(at91_pm_init);

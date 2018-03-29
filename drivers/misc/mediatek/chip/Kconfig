@@ -1,0 +1,6 @@
+config MTK_CHIP
+	bool "Enable MTK Chip Version Driver"
+	default n
+	help
+	  MTK chip version driver will provide information about chip version, such as hardware code, hardware version, software version.
+

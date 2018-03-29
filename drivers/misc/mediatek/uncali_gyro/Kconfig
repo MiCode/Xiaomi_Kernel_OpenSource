@@ -1,0 +1,7 @@
+
+config CUSTOM_KERNEL_UNCALI_GYRO_SENSOR
+	bool "CUSTOM_KERNEL_UNCALI_GYRO_SENSOR"
+	help
+	  Kernel space rotation vector sensor driver.
+
+source "drivers/misc/mediatek/uncali_gyro/uncali_gyrohub/Kconfig"

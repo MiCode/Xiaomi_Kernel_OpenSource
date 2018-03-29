@@ -1,0 +1,9 @@
+
+config MTK_HMDYHUB
+	bool "hmdyhub for MediaTek package"
+	default n
+	help
+	  It support different hmdyhub sensor.
+          If this option is set,
+	  it will support
+          sensorhub gyroscope.

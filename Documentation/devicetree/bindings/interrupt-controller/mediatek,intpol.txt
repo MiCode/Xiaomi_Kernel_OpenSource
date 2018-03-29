@@ -1,0 +1,16 @@
+Mediatek 65xx/81xx GIC interrupt polarity extension
+
+Mediatek SOCs contain controllable inverter for each GIC SPI interrupt,
+these can be used as GIC interrupt polarity extension.
+
+Required properties:
+- compatible: Compatible property value should be "mediatek,mt6577-intpol"
+
+- reg: Physical base address of the int pol registers and length of memory
+  mapped region.
+
+Example:
+       intpol: intpol@10200100 {
+               compatible = "mediatek,mt6577-intpol";
+               reg = <0x10200100 0x1c>;
+       };

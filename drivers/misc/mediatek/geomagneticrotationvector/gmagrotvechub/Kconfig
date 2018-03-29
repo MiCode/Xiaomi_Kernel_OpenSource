@@ -1,0 +1,4 @@
+
+config MTK_GMAGROTVECHUB
+	bool "gmagrotvechub for MediaTek package"
+	default n

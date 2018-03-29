@@ -1,0 +1,28 @@
+
+config CRYPTO_SHA2_ARM_CE
+	tristate "SHA-224/256 digest algorithm (ARM v8 Crypto Extensions)"
+	depends on KERNEL_MODE_NEON
+	select CRYPTO_SHA256_ARM
+	select CRYPTO_HASH
+	help
+	  SHA-256 secure hash standard (DFIPS 180-2) implemented
+	  using special ARMv8 Crypto Extensions.
+          SHA-224/256 digest algorithm (ARM v8 Crypto Extensions)
+          from linaro.org
+
+config CRYPTO_SHA256_ARM
+	tristate "SHA-224/256 digest algorithm (ARM-asm and NEON)"
+	select CRYPTO_HASH
+	depends on !CPU_V7M
+	help
+	  SHA-256 secure hash standard (DFIPS 180-2) implemented
+	  using optimized ARM assembler and NEON, when available.
+          SHA-224/256 digest algorithm (ARM-asm and NEON)
+          from linaro.org
+
+config MTK_ADVERTISE_CE_SUPPORT
+	bool "advertise availability of v8 Crypto instructions"
+	default n
+	help
+	  Select if you want to advertise the availability of the
+          ARMv8 Crypto instructions (PMULL, AES, SHA1, SHA2, CRC32).

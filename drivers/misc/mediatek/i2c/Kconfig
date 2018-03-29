@@ -1,0 +1,25 @@
+config MTK_I2C
+	tristate "MediaTek I2C adapter"
+	depends on I2C
+	default y
+	---help---
+	  This selects the MediaTek(R) Integrated Inter Circuit bus driver.
+	  MediaTek(R) I2C bus adapter is the base for some other I2C client, eg: touch, sensors.
+	  If you want to use MediaTek(R) I2C interface, say Y or M here.
+	  If unsure, say N.
+
+
+config MTK_I2C_EXTENSION
+	def_bool y if (ARCH_MT6735 || ARCH_MT6735M || ARCH_MT6753 || ARCH_MT6580 || ARCH_MT6755 || ARCH_MT6570)
+	help
+	  Select this if your platform need MTK i2c extension.
+
+config MTK_I2C_ARBITRATION
+	def_bool y if (ARCH_MT6797)
+	help
+	  Select this if your platform need MTK i2c arbitration support.
+
+config MTK_AP_TO_SCP_I2C
+	def_bool y if (ARCH_MT6752 || ARCH_MT8163)
+	---help---
+	  This option enables AP to control SCP I2C controller 2.

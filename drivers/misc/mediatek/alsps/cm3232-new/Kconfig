@@ -1,0 +1,4 @@
+
+config MTK_CM3232_NEW
+	bool "cm3232 for MediaTek package"
+	default n

@@ -1,0 +1,4 @@
+
+config MTK_ACTIVITYHUB
+	bool "activityhub for MediaTek package"
+	default n

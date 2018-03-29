@@ -1,0 +1,8 @@
+config MTK_PDRHUB
+	bool "pdrhub for MediaTek package"
+	default n
+	help
+	  It support different pdrhub sensor.
+          If this option is set,
+	  it will support
+          sensorhub pdrsensor.

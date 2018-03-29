@@ -1,0 +1,5 @@
+config MTK_IR_LEARNING_SUPPORT
+	bool "MediaTek consumer IR learning solution"
+	default n
+	---help---
+	  IR-learning driver support for MediaTek solution

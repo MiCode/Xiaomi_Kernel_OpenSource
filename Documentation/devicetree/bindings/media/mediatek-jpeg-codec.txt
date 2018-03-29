@@ -1,0 +1,35 @@
+* Mediatek JPEG Codec
+
+Mediatek JPEG Codec device driver is a v4l2 driver which can decode
+JPEG-encoded video frames.
+
+Required properties:
+  - compatible : "mediatek,mt2701-jpgdec"
+  - reg : Physical base address of the jpeg codec registers and length of
+        memory mapped region.
+  - interrupts : interrupt number to the cpu.
+  - clocks : clock name from clock manager
+  - clock-names: the clocks of the jpeg codec H/W
+  - power-domains : a phandle to the power domain.
+  - larb : must contain the larbes of current platform
+  - iommus : Mediatek IOMMU H/W has designed the fixed associations with
+        the multimedia H/W. and there is only one multimedia iommu domain.
+        "iommus = <&iommu portid>" the "portid" is from
+        dt-bindings\iommu\mt2701-iommu-port.h, it means that this portid will
+        enable iommu. The portid default is disable iommu if "<&iommu portid>"
+        don't be added.
+
+Example:
+	jpegdec: jpegdec@15004000 {
+			compatible = "mediatek,mt2701-jpgdec";
+			reg = <0 0x15004000 0 0x1000>;
+			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_LOW>;
+			clocks =  <&imgsys CLK_IMG_JPGDEC_SMI>,
+				  <&imgsys CLK_IMG_JPGDEC>;
+			clock-names = "venc-jpgdec-smi",
+				      "venc-jpgdec";
+			power-domains = <&scpsys MT2701_POWER_DOMAIN_ISP>;
+			larb = <&larb2>;
+			iommus = <&iommu M4U_PORT_JPGDEC_WDMA>,
+				 <&iommu M4U_PORT_JPGDEC_BSDMA>;
+	};

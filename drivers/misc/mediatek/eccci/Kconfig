@@ -1,0 +1,69 @@
+config MTK_ECCCI_DRIVER
+	tristate "Enable Evolved CCCI Driver as interface for modem"
+	depends on MTK_CCCI_DEVICES
+	default n
+	select MTK_NET_CCMNI
+	help
+	  This option enables ECCCI device driver support,
+	  if yes, then modem1 is using eccci driver,
+	  if no, eccci driver is disabled.
+	  The option default disabled.
+
+config MTK_ECCCI_CLDMA
+	tristate "ECCCI driver using CLDMA HW to communicate wtih LTE modem"
+	depends on MTK_ECCCI_DRIVER
+	default y
+	help
+	  This option enables ECCCI CLDMA driver,
+	  if yes, then modem1 is using cldma hardware,
+	  if no, cldma hardware is disabled.
+	  The option default disabled.
+
+config MTK_ECCCI_CCIF
+	tristate "ECCCI driver using CCIF HW to communicate wtih LTE modem"
+	depends on MTK_ECCCI_DRIVER
+	default n
+	help
+	  This option enables ECCCI CCIF driver,
+	  if yes, then modem1 is using ccif hardware,
+	  if no, ccif hardware is disabled,
+	  The option default disabled.
+
+config MTK_ECCCI_C2K
+	tristate "ECCCI driver using CCIF HW to communicate wtih C2K modem"
+	depends on MTK_ECCCI_DRIVER
+	default n
+	help
+	  This option enables ECCCI CCIF C2K driver,
+	  if yes, c2k modem is enabled,
+	  if no, c2k modem is disabled,
+	  The option default disabled.
+
+config MTK_ECCCI_UT
+	tristate "Enable ECCCI UT mode to test"
+	depends on MTK_ECCCI_DRIVER
+	default n
+	help
+	  This option enables ECCCI UT mode,
+	  (software loopback, no CLDMA support),
+	  The option depends on MTK_ECCCI_DRIVER,
+	  and default is disabled.
+
+config MTK_C2K_OM_SOLUTION1
+	bool "C2K OM solution1 support"
+	default n
+	help
+	  To support C2K OM solution1 feature,
+	  if yes, then VIA CBP modem is supported,
+	  if no, VIA CBP modem is disabled.
+	  The option default disabled.
+
+config MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
+	bool "sim lock poweron write protect"
+	default n
+	help
+	  To support SIM lock power on write protect  feature,
+	  if yes, then it is supported,
+	  if no, it is disabled.
+	  The option default disabled.
+

@@ -1,0 +1,8 @@
+#
+# Multibridge device configuration
+#
+
+config MTK_MULTIBRIDGE_SUPPORT
+	bool "MTK_MULTIBRIDGE_SUPPORT"
+	help
+	  This feature option is for companion chip MT8193 use.

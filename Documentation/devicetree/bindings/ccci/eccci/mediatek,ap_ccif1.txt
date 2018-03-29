@@ -1,0 +1,28 @@
+Mediatek ap_ccif1 device
+============================
+
+The Mediatek ap_ccif1 controller is an interface to communicate with MD2.
+
+Required Properties:
+
+	- compatible: Should be:
+		"mediatek,ap_ccif1"
+	- reg: physical base address of AP CCIF base, length of AP CCIF, and MD CCIF base & Length of MD CCIF
+	- interrupts: interrupt number to the cpu.
+	- mediatek,md_id: configure MD id for modem_ccif driver.
+	- mediatek,ccif_capability: config AP ccci driver feature.
+	- mediatek,md_smem_size: AP and MD share memory size.
+
+Optional properties:
+
+Example:
+ap_ccif1:ap_ccif1@1020B000 {
+		compatible = "mediatek,ap_ccif1";
+		reg = 	<0x1020B000 0x1000>, /*ap ccif1 base*/
+						<0x1020C000 0x1000>; /*md ccif1 base*/
+		interrupts = <0 141 0x8>, /* AP CCIF1 irq*/
+		             <0 175 0x2>; /* MD2_WDT irq*/
+		mediatek,md_id = <1>;
+		mediatek,ccif_capability = <0>;
+		mediatek,md_smem_size = <0x400000>; /* md share memory size */
+};

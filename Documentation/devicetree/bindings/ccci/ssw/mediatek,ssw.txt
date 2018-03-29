@@ -1,0 +1,27 @@
+Mediatek ssw device
+============================
+
+The Mediatek ssw controller is charge of switch sim mode.
+
+Required Properties:
+
+	- compatible: Should be:
+		"mediatek,mediatek,sim_switch"
+
+Optional properties:
+
+Example:
+ssw:simswitch@0 {
+	compatible = "mediatek,sim_switch";
+};
+
+&ssw {
+	pinctrl-names = "default", "hot_plug_mode1", "hot_plug_mode2", "two_sims_bound_to_md1", "sim1_md3_sim2_md1";
+	pinctrl-0 = <&ssw_default>;
+	pinctrl-1 = <&ssw_hot_plug_mode1>;
+	pinctrl-2 = <&ssw_hot_plug_mode2>;
+	pinctrl-3 = <&ssw_two_sims_bound_to_md1>;
+	pinctrl-4 = <&ssw_sim1_md3_sim2_md1>;
+
+	status = "okay";
+};

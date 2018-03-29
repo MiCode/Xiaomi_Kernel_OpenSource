@@ -1,0 +1,40 @@
+
+config MTK_AUTO_DETECT_ACCELEROMETER
+	bool "MTK_AUTO_DETECT_ACCELEROMETER"
+	depends on MTK_SENSOR_SUPPORT
+	help
+	  one load to support different accelerometer sensor.
+	  If this option is set, multiple accelerometer driver
+	  can be configured at the same time, but only one
+	  can be probed.
+
+config CUSTOM_KERNEL_ACCELEROMETER
+	bool "CUSTOM_KERNEL_ACCELEROMETER"
+	help
+	  accelerometer sensor to detect accelerometer from x y z axis.
+	  If the platform is supported for acceleometer, this
+	  configuration should be configured, and the acceleometer
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_ACCELEROMETER_MODULE
+	bool "Use to control the gsensor build type"
+	help
+	  Use to control the sensor build tpye.
+	  If the config is set, it means sensor
+	  will build ko module.
+	  This is request fromo Google about odm driver.
+
+source "drivers/misc/mediatek/accelerometer/lsm6ds3/Kconfig"
+source "drivers/misc/mediatek/accelerometer/mc3410-new/Kconfig"
+source "drivers/misc/mediatek/accelerometer/lsm6ds3hg/Kconfig"
+source "drivers/misc/mediatek/accelerometer/icm20645g/Kconfig"
+source "drivers/misc/mediatek/accelerometer/mpu6050g-new/Kconfig"
+source "drivers/misc/mediatek/accelerometer/mpu6515/Kconfig"
+source "drivers/misc/mediatek/accelerometer/accelhub/Kconfig"
+source "drivers/misc/mediatek/accelerometer/bma222E-new/Kconfig"
+source "drivers/misc/mediatek/accelerometer/bma250e/Kconfig"
+source "drivers/misc/mediatek/accelerometer/bmc156_acc/Kconfig"
+source "drivers/misc/mediatek/accelerometer/mma8653/Kconfig"
+source "drivers/misc/mediatek/accelerometer/KXTJ2_1009-new/Kconfig"
+source "drivers/misc/mediatek/accelerometer/rt3000/Kconfig"
+source "drivers/misc/mediatek/accelerometer/bmi160/Kconfig"

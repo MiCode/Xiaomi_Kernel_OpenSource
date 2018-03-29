@@ -1,0 +1,13 @@
+* Mediatek Video Process Unit
+
+Video Processor Unit is a hw video controller. It can accepts commands from
+Application Processor.
+
+Required properties:
+  - compatible: "mediatek,mt2701-vpu"
+
+Example:
+	vpu: vpu@10020000 {
+		compatible = "mediatek,mt2701-vpu";
+		iommus = <&iommu M4U_PORT_VENC_RCPU>;
+	};

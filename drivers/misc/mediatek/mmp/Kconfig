@@ -1,0 +1,10 @@
+config MTK_MMPROFILE_SUPPORT
+	bool "MTK_MMPROFILE_SUPPORT"
+	help
+	  Multimedia profiling mechanism
+
+config MMPROFILE
+	bool "MMProfile Support"
+	help
+	  Enable other module to use Multimedia profiling mechanism
+

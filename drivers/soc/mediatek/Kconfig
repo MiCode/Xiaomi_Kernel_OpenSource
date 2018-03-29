@@ -1,0 +1,79 @@
+#
+# MediaTek SoC drivers
+#
+config SOC_MEDIATEK
+	bool
+	help
+	  Mediatek SoC support.
+
+config MTK_INFRACFG
+	bool "MediaTek INFRACFG Support"
+	depends on ARCH_MEDIATEK
+	select SOC_MEDIATEK
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek INFRACFG controller. The
+	  INFRACFG controller contains various infrastructure registers not
+	  directly associated to any device.
+	  INFRACFG controller is needed by SCPSYS driver.
+
+config MTK_SCPSYS_MT8173
+	bool "SCPSYS Support for MediaTek MT8173"
+	depends on MTK_INFRACFG
+	select SOC_MEDIATEK
+	select REGMAP
+	select PM_GENERIC_DOMAINS
+	default y if ARCH_MT8173
+	help
+	  Say yes here to add support for the MediaTek SCPSYS power domain
+	  driver.
+	  The System Control Processor System (SCPSYS) has several power
+	  management related tasks in the system.
+
+config MTK_SCPSYS_MT8163
+	bool "SCPSYS Support MediaTek MT8163"
+	depends on MTK_INFRACFG
+	select SOC_MEDIATEK
+	select REGMAP
+	select PM_GENERIC_DOMAINS
+	default y if ARCH_MT8163
+	help
+	  Say yes here to add support for the MediaTek SCPSYS power domain
+	  driver.
+	  The System Control Processor System (SCPSYS) has several power
+	  management related tasks in the system.
+
+config MTK_SCPSYS_MT2701
+	bool "SCPSYS Support MediaTek MT2701 and MT7623"
+	depends on MTK_INFRACFG
+	select SOC_MEDIATEK
+	select REGMAP
+	select PM_GENERIC_DOMAINS
+	default y if MACH_MT2701 || ARCH_MT7623
+	help
+	  Say yes here to add support for the MediaTek SCPSYS power domain
+	  driver.
+	  The System Control Processor System (SCPSYS) has several power
+	  management related tasks in the system.
+
+config MTK_SCPSYS_MT8127
+	bool "SCPSYS Support MediaTek MT8127"
+	depends on MTK_INFRACFG
+	select SOC_MEDIATEK
+	select REGMAP
+	select PM_GENERIC_DOMAINS
+	default y if ARCH_MT8127
+	help
+	  Say yes here to add support for the MediaTek SCPSYS power domain
+	  driver.
+	  The System Control Processor System (SCPSYS) has several power
+	  management related tasks in the system.
+
+config MTK_PMIC_WRAP_COMMON
+	tristate "MediaTek PMIC Wrapper Support"
+	depends on ARCH_MEDIATEK
+	select REGMAP
+	help
+	  Say yes here to add support for MediaTek PMIC Wrapper found
+	  on different MediaTek SoCs. The PMIC wrapper is a proprietary
+	  hardware to connect the PMIC.

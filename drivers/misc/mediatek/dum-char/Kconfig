@@ -1,0 +1,12 @@
+config MTK_DUM_CHAR
+	bool CONFIG_MTK_DUM_CHAR
+	default n
+	help
+	  Enable dum-char only on nand platform.
+
+config DUM_CHAR_V2
+	bool "Mediatek DumChar Version 2 Support"
+	default n
+	help
+	  Enable dum-char version 2 only on nand platform.
+

@@ -1,0 +1,46 @@
+config CUSTOM_KERNEL_GESTURE_SENSOR
+	bool "mediatek gesture sensor tag"
+	help
+	  Kernel space support gesture sensor driver.
+	  If the platform is supported for gesture, this
+	  configuration should be configured, and the gesture
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_GLANCE_GESTURE_SENSOR
+	bool "mediatek glance gesture sensor type"
+	help
+	  Kernel space glance gesture sensor driver.
+	  If the platform is supported for glance gesture, this
+	  configuration should be configured, and the glance gesture
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_PICK_UP_SENSOR
+	bool "mediatek pickup gesture sensor type"
+	help
+	  Kernel space pick up sensor driver.
+	  If the platform is supported for pickup gesture, this
+	  configuration should be configured, and the pickup gesture
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_ANSWER_CALL_SENSOR
+	bool "mediatek answer call sensor type"
+	help
+	  Kernel space answer call sensor driver.
+	  If the platform is supported for answer call, this
+	  configuration should be configured, and the answer call
+	  driver configuration should be configured as well.
+
+config CUSTOM_KERNEL_WAKE_GESTURE_SENSOR
+	bool "mediatek wake gesture sensor type"
+	help
+	  Kernel space wake up gesture sensor driver.
+	  If the platform is supported for wake gesture, this
+	  configuration should be configured, and the wake gesture
+	  driver configuration should be configured as well.
+
+source "drivers/misc/mediatek/sensor_bio/gesture/stationary/Kconfig"
+source "drivers/misc/mediatek/sensor_bio/gesture/inpocket/Kconfig"
+source "drivers/misc/mediatek/sensor_bio/gesture/wake_gesture/Kconfig"
+source "drivers/misc/mediatek/sensor_bio/gesture/glance_gesture/Kconfig"
+source "drivers/misc/mediatek/sensor_bio/gesture/pickup_gesture/Kconfig"
+source "drivers/misc/mediatek/sensor_bio/gesture/answercall/Kconfig"

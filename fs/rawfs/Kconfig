@@ -1,0 +1,7 @@
+config RAWFS_FS
+        tristate "RAW File System for NAND Flash (Experimental)"
+        help
+            NAND based file system, used to store SML files for MTK modems.
+            This feature only can be used on NAND storage.
+            RAWFS manages only first two physical blocks in the mtd partition
+            additional blocks in that partition will be ignored.

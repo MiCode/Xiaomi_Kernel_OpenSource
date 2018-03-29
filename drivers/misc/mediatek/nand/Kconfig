@@ -1,0 +1,108 @@
+#nand
+menuconfig MTK_MTD_NAND
+	tristate "MediaTek Nand Support"
+	depends on MTD_NAND
+	help
+	  NAND flash memory, a type of non-volatile storage device,
+	  introduced by Toshiba in 1989. With formal commands,
+	  controller can access data via devices.
+	  This configuration enable Mediatek NAND controller to perform operations
+	  on NAND devices of verious vendors.
+	  For products choosing raw NAND as booting device,this configuration must say y.
+	  Since kernel using MTD as storage device common driver,
+	  this configuration depends on MTD_NAND config.
+	  Please visit JEDEC sites for more information.
+
+config MTK_MTD_NAND_INTERRUPT_SCHEME
+	bool "Nand Read/Write with interrupt scheme"
+	depends on MTK_MTD_NAND
+	default n
+	help
+	  While performing page read/write to NAND device, controller use
+	  DMA to send/receive data to/from device. There are two schemes to
+	  wait until DMA finish its' job, polling and interrupt.
+	  Using polling may quicker, but CPU resource won't be released.
+	  Interrupt may suffer some software overhead, but CPU can be released.
+	  This configuration is for user to chose from these two scheme.
+	  Default using polling mode since DMA may not take too long.
+
+config MTK_TLC_NAND_SUPPORT
+	tristate "Mediatek MLC NAND Support"
+	depends on MTK_MTD_NAND
+	help
+	  In electronics, TLC is a memory element capable of
+	  storing more than a single bit of information.
+	  TLC NAND flash is a flash memory technology using multiple levels per
+	  cell to allow more bits to be stored using the same number of transistors.
+	  The primary benefit of TLC flash memory is its lower cost per unit of storage
+	  due to the higher data density, and memory-reading software can compensate for
+	  a larger bit error rate.
+	  Thus, firmware and driver to support TLC devices need to take care of data robustness,
+	  and TLC features with extend command and storage methods.
+	  Compatible with SLC, MLC and TLC, Mediatek controller driver and firmware have
+	  implement various method to enhance data robustness.
+	  While using TLC devices as booting device, please set this configuration as
+	  y to enable TLC features.
+
+config MTK_MLC_NAND_SUPPORT
+	tristate "Mediatek MLC NAND Support"
+	depends on MTK_MTD_NAND
+	help
+	  In electronics, a multi-level cell (MLC) is a memory element capable of
+	  storing more than a single bit of information.
+	  MLC NAND flash is a flash memory technology using multiple levels per
+	  cell to allow more bits to be stored using the same number of transistors.
+	  The primary benefit of MLC flash memory is its lower cost per unit of storage
+	  due to the higher data density, and memory-reading software can compensate for
+	  a larger bit error rate.
+	  Thus, firmware and driver to support MLC devices need to take care of data robustness,
+	  and MLC features with extend command and storage methods.
+	  Compatible with both SLC and MLC, Mediatek controller driver and firmware have
+	  implement various method to enhance data robustness.
+	  While using MLC devices as booting device, please set this configuration as
+	  y to enable MLC features.
+
+config MTK_NAND_BITFLIP
+	tristate "Mediatek NAND Bit flip injection"
+	depends on MTK_MTD_NAND
+	help
+	  The upper layer will do re-charge When bit flip is happened
+	  Inject bitflip will simulate  the worst case of NAND device
+	  It will trigger more GC/re-charge for stress testing
+	  This option is for testing only
+
+config MTK_COMBO_NAND_SUPPORT
+	tristate "Mediatek COMBO NAND Support"
+	depends on MTK_MTD_NAND
+	help
+	  NAND memories are accessed much like block devices.
+	  Each block consists of a number of pages.
+	  Knowned that reading and programming is performed on a page basis,
+	  and erasure can only be performed on a block basis.
+	  Different devices have different block size and page size.
+	  This configuration enables the multi devices in one load feature.
+
+config MTK_FAT_ON_NAND
+	tristate "Mediatek FAT on NAND Support"
+	depends on MTK_MTD_NAND
+	help
+	  Enable FAT on nand feature of Mediatek NAND driver.
+	  This will create a FAT partition on NAND device.
+	  With this configuration turns on, user can use UMS to access native storage.
+	  Without this configuration, users only use MTP to acces native storage.
+	  Please see Project config for more information of this configuration.
+
+config MTK_FACTORY_RESET_PROTECTION_SUPPORT
+	bool "Mediatek FRP Support"
+	depends on MTK_MTD_NAND
+	help
+	  FRP stands for factory reset protect.
+	  This feature backup customer data after factory reset.
+	  Turn on this configuration to enable data save after factory reset.
+
+config MTK_NAND_V2
+	bool "Mediatek NAND Driver Version 2 Support"
+	depends on MTK_MTD_NAND
+	help
+	  Enable mtk nand driver version 2.
+

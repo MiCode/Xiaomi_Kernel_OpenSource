@@ -1,0 +1,4 @@
+
+config MTK_STATHUB
+	bool "stahub for MediaTek package"
+	default n

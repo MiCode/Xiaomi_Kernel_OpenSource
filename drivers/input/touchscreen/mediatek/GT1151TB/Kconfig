@@ -1,0 +1,231 @@
+#
+# Touchscreen driver configuration
+#
+if TOUCHSCREEN_MTK_GT1151TB
+
+config GT1151TB_FIRMWARE
+	string "GT1151TB for Mediatek firmware"
+
+config GT1151TB_CONFIG
+	string "GT1151TB for Mediatek config"
+
+config GTP_DRIVER_SEND_CFG
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_DRIVER_SEND_CFG.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CUSTOM_CFG
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_CUSTOM_CFG.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CHANGE_X2Y
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_CHANGE_X2Y.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WARP_X_ON
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_WARP_X_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WARP_Y_ON
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_WARP_Y_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_GESTURE_WAKEUP
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_GESTURE_WAKEUP.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HOTKNOT
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_HOTKNOT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config HOTKNOT_TYPE
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel HOTKNOT_TYPE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config HOTKNOT_BLOCK_RW
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel HOTKNOT_BLOCK_RW.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_PROXIMITY
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_PROXIMITY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_WITH_STYLUS
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_WITH_STYLUS.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HAVE_STYLUS_KEY
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_HAVE_STYLUS_KEY.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_AUTO_UPDATE
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_AUTO_UPDATE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_HEADER_FW_UPDATE
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_HEADER_FW_UPDATE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CREATE_WR_NODE
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_CREATE_WR_NODE.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_ESD_PROTECT
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_ESD_PROTECT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_CHARGER_SWITCH
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_CHARGER_SWITCH.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_DEBUG_ARRAY_ON
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_DEBUG_ARRAY_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_DEBUG_FUNC_ON
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_DEBUG_FUNC_ON.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config GTP_POWER_CTRL_SLEEP
+	bool "GT1151TB for Mediatek package"
+	default n
+	help
+	Say Y here if you have GT1151TB touch panel GTP_POWER_CTRL_SLEEP.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+endif

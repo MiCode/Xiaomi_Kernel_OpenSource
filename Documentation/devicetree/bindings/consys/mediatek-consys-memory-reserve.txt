@@ -1,0 +1,15 @@
+mediatek consys memory reserve
+
+Required properties:
+- compatible:Should be "mediatek,consys-reserve-memory".
+- size: Should contain memory size need to be reserved.
+- alignment: Memory address alignment
+
+Examples:
+
+		consys-reserve-memory {
+			compatible = "mediatek,consys-reserve-memory";
+			no-map;
+			size = <0 0x200000>;
+			alignment = <0 0x200000>;
+		};

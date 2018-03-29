@@ -1,0 +1,23 @@
+* Mediatek MD32
+
+MD32 is a tiny processor sub-system. MD32 integrated with peripherals is
+designed to handle specific tasks for base-band SoC, such as Sensor HUB.
+
+Required properties:
+  - compatible: "mediatek,mt8163-md32"
+  - reg: physical base address of the md32 sram, md32 register and md32 clock control,
+    length of memory mapped region, 0x38000, 0x400 and 0x400 respectively.
+  - interrupts: interrupt number to the cpu.
+  - clocks : clock name from clock manager
+  - clock-names: the clock of MD32 system
+
+Example:
+	md32@10020000 {
+		compatible = "mediatek,mt8163-md32";
+		reg = <0 0x10020000 0 0x38000>,
+		      <0 0x10058000 0 0x400>,
+		      <0 0x10059000 0 0x400>;
+		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg CLK_INFRA_SCPSYS>;
+		clock-names = "sys";
+	};

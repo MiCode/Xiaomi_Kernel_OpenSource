@@ -1,0 +1,5 @@
+config MTK_SYSENV
+  bool CONFIG_MTK_SYSENV
+  default n
+  help
+    CONFIG_MTK_SYSENV

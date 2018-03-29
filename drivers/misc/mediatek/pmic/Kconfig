@@ -1,0 +1,90 @@
+#
+# MTK PMIC configuration
+#
+
+config MTK_PMIC_NEW_ARCH
+	tristate "MediaTek Power Management New Arch driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC New Arch driver.
+          Separate pmic feature form Power folder that also have battery and charging feature.
+	  Select y to support MTK PMIC NEW ARCH.
+	  If so, you should choose the corresponding main chip to follow.
+
+	  Select n to support MTK PMIC LEGACY ARCH.
+
+config MTK_PMIC_CHIP_MT6353
+	tristate "MediaTek PMIC MT6353 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6353 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6335
+	tristate "MediaTek Power MT6335 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6335 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6337
+	tristate "MediaTek Power MT6337 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6337 driver.
+	  It's sub chip type and used mainly in audio controlling.
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6336
+	tristate "MediaTek Power MT6336 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6336 driver.
+	  This driver uses I2C bus.
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_PMIC_CHIP_MT6313
+	tristate "MediaTek Power MT6313 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6313 driver.
+	  It's sub chip type and used mainly in buck controlling.
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+config MTK_EXTBUCK
+	tristate "EXT BUCK Driver"
+	default n
+	---help---
+	  This selects for EXT BUCK driver.
+	  It's sub chip type and used mainly in buck controlling.
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
+if MTK_LDVT
+config MTK_LDVT_PMIC
+	bool "MediaTek PMIC driver for LDVT"
+	default y
+	---help---
+	  MediaTek PMIC driver for LDVT
+	  Set y to support DVT.
+	  Set n to default.
+endif
+
+config MTK_AUXADC_INTF
+	bool "MediaTek PMIC Auxadc interface"
+	depends on MTK_PMIC_NEW_ARCH
+	default n
+	---help---
+	  MediaTek PMIC Auxadc interface Driver
+	  only for MTK_PMIC_NEW_ARCH
+	  Set y to enable it.
+	  Set n to disable it.

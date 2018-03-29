@@ -1,0 +1,67 @@
+#
+# (C) COPYRIGHT 2013-2015 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+* ARM Mali Midgard devices
+
+
+Required properties:
+
+- compatible : Should be mali<chip>, replacing digits with x from the back,
+until malit<Major>xx, ending with arm,mali-midgard, the latter not optional.
+- reg : Physical base address of the device and length of the register area.
+- interrupts : Contains the three IRQ lines required by T-6xx devices
+- interrupt-names : Contains the names of IRQ resources in the order they were
+provided in the interrupts property. Must contain: "JOB, "MMU", "GPU".
+
+Optional:
+
+- clocks : Phandle to clock for the Mali T-6xx device.
+- clock-names : Shall be "clk_mali".
+- mali-supply : Phandle to regulator for the Mali device. Refer to
+Documentation/devicetree/bindings/regulator/regulator.txt for details.
+- operating-points : Refer to Documentation/devicetree/bindings/power/opp.txt
+for details.
+- snoop_enable_smc : SMC function ID to enable CCI snooping on the GPU port(s).
+- snoop_disable_smc : SMC function ID to disable CCI snooping on the GPU port(s).
+- jm_config : For T860/T880. Sets job manager configuration. An array containing:
+	- 1 to override the TIMESTAMP value, 0 otherwise.
+	- 1 to override clock gate, forcing them to be always on, 0 otherwise.
+	- 1 to enable job throttle, limiting the number of cores that can be started
+	  simultaneously, 0 otherwise.
+	- Value between 0 and 63 (including). If job throttle is enabled, this is one
+	  less than the number of cores that can be started simultaneously.
+
+Example for a Mali-T602:
+
+gpu@0xfc010000 {
+	compatible = "arm,malit602", "arm,malit60x", "arm,malit6xx", "arm,mali-midgard";
+	reg = <0xfc010000 0x4000>;
+	interrupts = <0 36 4>, <0 37 4>, <0 38 4>;
+	interrupt-names = "JOB", "MMU", "GPU";
+
+	clocks = <&pclk_mali>;
+	clock-names = "clk_mali";
+	mali-supply = <&vdd_mali>;
+	operating-points = <
+		/* KHz   uV */
+		533000 1250000,
+		450000 1150000,
+		400000 1125000,
+		350000 1075000,
+		266000 1025000,
+		160000  925000,
+		100000  912500,
+	>;
+};

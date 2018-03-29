@@ -1,0 +1,4 @@
+
+config MTK_ROTATVECHUB
+	bool "rotatvechub for MediaTek package"
+	default n

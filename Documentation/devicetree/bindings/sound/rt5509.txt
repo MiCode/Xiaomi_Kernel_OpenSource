@@ -1,0 +1,21 @@
+* RT5509 SPK AMP controller
+
+Required Specific Properties:
+
+- compatible : "richtek,rt5509"
+
+Optional Specific Properties:
+
+- proprietary_param : proprietary param for Richtek RT5509,
+		      something liks as the speaker protection/MBDRC/ALC, etc...
+
+Example:
+
+	i2c@12C70000 {
+		status = "ok";
+		rt5509: rt5509@34 {
+			status = "ok";
+			compatible = "richtek,rt5509";
+			reg = <0x34>;
+		};
+	};

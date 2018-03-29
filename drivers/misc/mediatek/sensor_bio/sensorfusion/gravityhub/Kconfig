@@ -1,0 +1,4 @@
+
+config MTK_GRAVITYHUB
+	bool "gravityhub for MediaTek package"
+	default n

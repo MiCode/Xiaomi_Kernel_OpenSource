@@ -1,0 +1,9 @@
+
+config MTK_S62X
+	bool "s62x for MediaTek package"
+	default n
+	help
+	  It support different magnetometer sensor.
+          If this option is set,
+	  it will support
+          s62x magnetometer.

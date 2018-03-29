@@ -1,0 +1,4 @@
+
+config MTK_ST480
+	bool "ST480 for MediaTek package"
+	default n

@@ -1,0 +1,41 @@
+#
+# MediaTek ICUSB Driver
+#
+
+config MTK_USBFSH # USBFSH
+	bool "MediaTek USB fullspeed Host driver"
+	default n
+	---help---
+	  This is support of Mediatek customized Host-only MUSB hardware.
+	  This MUSB HOST periphal been has removed USB Device functions.
+	  External devices such as the secound MODEM or speicial SIM card
+	  like ICUSB will be connect to this port.
+
+config MTK_ICUSB_SUPPORT
+	bool "MTK_ICUSB_SUPPORT"
+	default n
+	---help---
+	  To enable the ICUSB featurea in phone over MTK_MUSBFSH USB port.
+	  This port is usaually configurerd as USB port 1 on device.
+	  ICUSB is a standard USB interface to connect special SIM card.
+	  Device can mount a USB Mass Storage from this kind of SIM card
+	  through ICUSB interface.
+
+config MTK_DT_USB_SUPPORT
+	bool "MTK_DT_USB_SUPPORT"
+	default n
+	---help---
+	  To enable the dual talk feature in phone over MTK_MUSBFSH USB port.
+	  This port is usaually configurerd as USB port 1 on device.
+	  When there is secound MODEM on the device and connected to main
+	  SoC via MTK_MUSBFSH USB port. MTK_DT_USB_SUPPORT is need for
+	  supporting dual talk to transfer data between 2 MODEMs.
+
+config MTK_MUSBFSH_QMU_SUPPORT
+	bool "QMU Transfer mode of MediaTek MUSBFSH"
+	depends on MTK_USBFSH
+	---help---
+	  Say Y here if your system has a QMU capability for USB11
+	  controller based on the MTK MUSBFSH IP.
+	  QMU is some kind of enhanced DMA mode by HW queeu rather
+	  than SW queue to reduce SW effort.

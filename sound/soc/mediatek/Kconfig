@@ -1,0 +1,213 @@
+config MT_SND_SOC_V1
+	bool "MT_SND_SOC_V1"
+	default n
+	help
+	  If you say Y, enable MT_SND_SOC_V1_driver.
+
+config MT_SND_SOC_V2
+	bool "MT_SND_SOC_V2"
+	default n
+	help
+	  If you say Y, enable MT_SND_SOC_V2_driver.
+
+config MT_SND_SOC_V3
+	bool "MT_SND_SOC_V3"
+	default n
+	help
+	  If you say Y, enable MT_SND_SOC_V3_driver.
+
+config MT_SND_SOC_6570
+	bool "MT_SND_SOC_6570"
+	default n
+	help
+	  If you say Y, enable MT_SND_SOC_6570_driver.
+	  Must enable this to use medatek audio driver.
+	  The default value is n for MT6570.
+	  It is recommended not to change this.
+
+config MT_SND_SOC_6580
+	bool "MT_SND_SOC_6580"
+	default n
+	help
+	  If you say Y, enable MT_SND_SOC_6580_driver.
+
+config MT_SND_SOC_6755
+	bool "MT_SND_SOC_6755"
+	default n
+	help
+	  If you say Y, enable MT_SND_SOC_6755_driver.
+
+config MT_SND_SOC_6750
+	bool "MT_SND_SOC_6750"
+	help
+	  If you say Y, enable MT_SND_SOC_6750_driver.
+	  Must enable this to use medatek audio driver.
+	  The default value is n for MT8127.
+	  Recommnad to configure it before using MT8127 audio driver.
+
+config MT_SND_SOC_6797
+	bool "MT_SND_SOC_6797"
+	default n
+	help
+	  If you say Y, enable MT_SND_SOC_6797_driver.
+	  Must enable this to use medatek audio driver.
+	  The default value is y for MT6797.
+	  It's recommended no to change this.
+
+config MT_SND_SOC_CODEC
+	string "String for Mediatek audio codec"
+	help
+	  Specify Mediatek audio codec.
+	  Say "mt6351" if you have mt6351 audio codec.
+
+config MT_SND_SOC_8163
+	bool "MT_SND_SOC_8163"
+	default n
+	help
+	  If you say Y, enable MT_SND_SOC_8163_driver.
+
+config MT_SND_SOC_8127
+	bool "MT_SND_SOC_8127"
+	help
+	  If you say Y, enable MT_SND_SOC_8127_driver.
+	  Must enable this to use medatek 8127 audio driver.
+	  The default value is n for MT8127.
+	  Recommnad to configure it before using MT8127 audio driver.
+
+config MTK_SPEAKER
+	bool "MTK_SPEAKER"
+	default n
+	help
+	  If you say Y, enable MTK_SPEAKER_AMP
+
+config MTK_NXP_TFA9890
+	bool "MTK_NXP_TFA9890"
+	default n
+	help
+	  If you say Y, enable MTK_NXP_TFA9890 driver.
+
+config SND_SOC_MT8173
+	tristate
+
+config SND_SOC_MT8173_MT6391_MACH
+	tristate "ASoC Audio driver for MT8173 with MT6391 codec"
+	depends on ARCH_MT8173
+	select SND_SOC_MT8173
+	select SND_SOC_MT6391
+	help
+	  This adds audio driver for MT8173 platform with the MT6391 audio codec.
+
+config SND_SOC_MT8173_MT6391_ARIEL_MACH
+    tristate "ASoC Audio driver for MT8173 Ariel board"
+    depends on ARCH_MT8173
+    select SND_SOC_MT8173
+    select SND_SOC_MT6391
+    help
+        This adds audio driver for MT8173 Ariel board
+        with the MT6391 audio codec.
+        It depends on ARCH_MT8173.
+        Select Y to include related drivers.
+
+config MT_SND_SOC_2701
+	tristate
+
+config SND_SOC_MT2701_EVB
+	bool "SND_SOC_MT2701_EVB"
+	select MT_SND_SOC_2701
+	help
+	  Say Y if you want to use the MT2701 EVB
+	  Audio interfaces for MT2701.
+
+config SND_SOC_MT2701_RT5640
+	bool "SND_SOC_MT2701_RT5640"
+	select MT_SND_SOC_2701
+	select SND_SOC_RT5640
+	help
+	  This adds ASoC driver for Mediatek MT2701 boards
+	  with the RT5640 audio codec.
+	  Select Y if you have such device.
+
+config SND_SOC_MT2701_CS42448
+	bool "SND_SOC_MT2701_CS42448"
+	select MT_SND_SOC_2701
+	select SND_SOC_CS42XX8_I2C
+	help
+	  This adds ASoC driver for Mediatek MT2701 boards
+	  with the CS42448 audio codec.
+	  Select Y if you have such device.
+
+config SND_SOC_MT7623_RFB
+	bool "SND_SOC_MT7623_RFB"
+	select MT_SND_SOC_2701
+	help
+	  This adds ASoC driver for Mediatek MT7623 RFB boards
+	  with WS2431 audio daughter board.
+	  The driver is based on MT_SND_SOC_2701.
+	  Select Y if you have such device.
+
+config SND_SOC_MT7623_WM8960
+	bool "SND_SOC_MT7623_WM8960"
+	select MT_SND_SOC_2701
+	select SND_SOC_WM8960
+	help
+	  This adds ASoC driver for Mediatek MT7623 RFB boards
+	  with WS2408(WM8960) audio daughter board.
+	  The driver is based on MT_SND_SOC_2701.
+	  Select Y if you have such device.
+
+config SND_SOC_MT8167
+	tristate
+
+config SND_SOC_MT8167_MT6392_MACH
+	tristate "ASoC Audio driver for MT8167 with internal codec"
+	depends on ARCH_MT8167
+	select SND_SOC_MT8167
+	select SND_SOC_MT8167_CODEC
+	help
+	  This adds support for ASoC machine driver for Mediatek MT8167
+	  platforms with internal audio codec and speaker amplifier MT6392.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config MTK_SPKGPIO_REWORK
+	bool "MTK_SPKGPIO_REWORK"
+	default n
+	help
+	  This is only for MTK internal phone only
+	  Enable SPKGPIO REWORK check functionality
+	  Will choose the correct GPIO for external AMP
+	  If you say Y, enable MTK_SPKGPIO_REWORK
+
+config MTK_HP_ANASWITCH
+	bool "MTK_HP_ANASWITCH"
+	default n
+	help
+	  This will enable headphone analog switch control
+	  for de-pop functionality
+	  Only enable this when you have headphone analog switch
+	  If you say Y, enable MTK_HP_ANASWITCH
+
+config MTK_BTCVSD_ALSA
+	bool "MTK_BTCVSD_ALSA"
+	default n
+	help
+	  If you say Y, enable MTK_BTCVSD_ALSA.
+
+config MTK_SND_SOC_NEW_ARCH
+	bool "Support new audio architecture"
+	help
+	  If you say Y, enable MTK_SND_SOC_NEW_ARCH.
+	  Only enable this when you use refactored audio driver architecture.
+
+config MTK_OFFLOAD_PLAYBACK
+	bool "Audio playback through dsp"
+	help
+	  If you say Y, enable MTK_OFFLOAD_PLAYBACK.
+	  Only enable this when we have DSP.
+	  This makes audio out pass bitstream, and decoding process is done in DSP.
+
+config MTK_SND_HYBRID_DRE_SUPPORT
+	bool "Audio Hybrid DRE support"
+	help
+	  If you say Y, enable MTK_SND_HYBRID_DRE_SUPPORT.
+	  Only enable this when we have Hybrid DRE feature.

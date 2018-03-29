@@ -1,0 +1,22 @@
+MediaTek CPU DVFS Processor (DVFSP)
+
+
+Required properties:
+
+	- compatible: "mediatek,<soc>-dvfsp"
+	- reg: (1) DVFSP register base and size
+	       (2) Debug SRAM base and size
+	- interrupts: DVFSP interrupt number and property
+	- clocks, clock-names: I2C clock for external buck
+
+
+Example:
+
+	dvfsp@10227000 {
+		compatible = "mediatek,mt6755-dvfsp";
+		reg = <0x10227000 0x1000>,
+		      <0x0011c000 0xf80>;
+		interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infrasys INFRA_I2C3>;
+		clock-names = "i2c";
+	};

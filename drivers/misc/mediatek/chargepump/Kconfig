@@ -1,0 +1,35 @@
+config	CUSTOM_KERNEL_CHARGEPUMP
+	bool "chargepump Support"
+	default n
+	help
+	  This feature Option is used for projects which using exteranl backlight driver
+	  if you want to  external backlight driver, please turn on this feature first,
+	  then LED driver call external backlight driver API.
+	  Also this feature related to flashlight and DSV driver.
+
+config LEDS_RT4832
+	bool "RT4832 Support"
+	default n
+	help
+	  charge pump driver for external backlight and flashlight
+	  it support DSV, flashlight, LED module.
+	  if you want to use external backlight driver moulde on your project,
+	  please turn on chargepump option also.
+
+config LEDS_RT8542
+	bool "RT8542 Support"
+	default n
+	help
+	  charge pump driver for external backlight and flashlight
+	  it support DSV, flashlight, LED module.
+	  if you want to use external backlight driver moulde on your project,
+	  please turn on chargepump option also.
+
+config DSV_SM5107
+	bool "SM5107 Support"
+	default n
+	help
+	  charge pump driver for external backlight and flashlight
+	  it support DSV, flashlight, LED module.
+	  if you want to use external backlight driver moulde on your project,
+	  please turn on chargepump option also.

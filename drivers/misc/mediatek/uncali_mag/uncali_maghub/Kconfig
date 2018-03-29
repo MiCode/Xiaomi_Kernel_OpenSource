@@ -1,0 +1,4 @@
+
+config MTK_UNCALI_MAGHUB
+	bool "uncali_maghub for MediaTek package"
+	default n

@@ -1,0 +1,5 @@
+config MTK_CQDMA
+  bool "Enable MTK CQDMA Driver"
+  default n
+  help
+     This enable MTK cqdma driver.

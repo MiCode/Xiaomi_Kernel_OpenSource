@@ -1,0 +1,4 @@
+
+config MTK_WAKEHUB
+	bool "wakehub for MediaTek package"
+	default n

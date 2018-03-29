@@ -1,0 +1,8 @@
+#SPI
+config MTK_SPI
+	tristate "MediaTek SPI controller"
+	#depends on SPI
+	default n
+	---help---
+	This selects the MediaTek(R) SPI bus driver.
+	If you want to use MediaTek(R) SPI interface, say Y or M here.  If unsure, say N.

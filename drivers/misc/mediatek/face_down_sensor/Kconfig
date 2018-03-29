@@ -1,0 +1,5 @@
+
+config CUSTOM_KERNEL_FACE_DOWN_SENSOR
+	bool "CUSTOM_KERNEL_FACE_DOWN_SENSOR"
+	help
+	  Kernel space face down sensor driver.

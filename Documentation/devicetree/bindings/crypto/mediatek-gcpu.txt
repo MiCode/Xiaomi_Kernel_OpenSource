@@ -1,0 +1,14 @@
+Mediatek SoC Security Engines (GCPU)
+
+Required properties:
+- compatible : Should be "mediatek,<soc>-gcpu"
+- reg: Should contain GCPU registers location and length
+- interrupts: Should contain GCPU interrupt number
+
+Examples:
+
+	gcpu@10216000 {
+		compatible = "mediatek,mt6735-gcpu";
+		reg = <0x10216000 0x1000>;
+		interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_LOW>;
+	};

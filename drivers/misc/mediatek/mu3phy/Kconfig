@@ -1,0 +1,102 @@
+#
+# USB3.0 PHY
+#
+
+config MU3_PHY
+	bool "MU3 PHY"
+	default n
+	---help---
+	  Enables support Mediatek MU3 PHY for SSUSB or XHCI.
+	  It support in-circuit PHY and external PHY.
+	  Say Y here if your system using SSUSB MAC and PHY.
+	  If unsure, say N.
+
+config U3_PHY_GPIO_SUPPORT
+	bool "MU3 PHY registers access by I2C"
+	depends on MU3_PHY
+	default n
+	---help---
+	  Enables support for read/write PHY registers by I2C.
+	  This driver provides interface to interact with USB 2.0 and
+	  USB 3.0 PHY that is part of the Mediatek SOC.
+	  Say Y here if your system using external Mediatek USB PHY.
+	  If unsure, say N.
+
+config U3_PHY_AHB_SUPPORT
+	bool "MU3 PHY registers access by AHB"
+	depends on MU3_PHY
+	default n
+	---help---
+	  Enables support for read/write PHY registers by internal AHB.
+	  This driver provides interface to interact with USB 2.0 and
+	  USB 3.0 PHY that is part of the Mediatek SOC.
+	  Say Y here if your system using external USB Mediatek PHY.
+	  If unsure, say N.
+
+config PROJECT_PHY
+	bool "MU3 ASIC PHY support"
+	depends on MU3_PHY
+	default n
+	---help---
+	  Enables support for ASIC PHY.
+	  This driver provides interface to interact with USB 2.0 and
+	  USB 3.0 PHY that is part of the Mediatek SOC.
+	  Say Y here if your system using in-circuit Mediatek USB PHY.
+	  If unsure, say N.
+
+config C60802_SUPPORT
+	bool "MU3 PHY C60802 support"
+	depends on MU3_PHY
+	default n
+	---help---
+	  Enables support for external PHY(Ver C).
+	  This driver provides interface to interact with USB 2.0 and
+	  USB 3.0 PHY that is part of the Mediatek SOC.
+	  Say Y here if your system using external Mediatek USB PHY.
+	  If unsure, say N.
+
+config D60802_SUPPORT
+	bool "MU3 PHY D60802 support"
+	depends on MU3_PHY
+	default n
+	---help---
+	  Enables support for external PHY(Ver D).
+	  This driver provides interface to interact with USB 2.0 and
+	  USB 3.0 PHY that is part of the Mediatek SOC.
+	  Say Y here if your system using external Mediatek USB PHY.
+	  If unsure, say N.
+
+config E60802_SUPPORT
+	bool "MU3 PHY E60802 support"
+	depends on MU3_PHY
+	default n
+	---help---
+	  Enables support for external PHY(Ver E).
+	  This driver provides interface to interact with USB 2.0 and
+	  USB 3.0 PHY that is part of the Mediatek SOC.
+	  Say Y here if your system using external Mediatek USB PHY.
+	  If unsure, say N.
+
+config A60810_SUPPORT
+	bool "MU3 PHY A60810 support"
+	depends on MU3_PHY
+	default n
+	---help---
+	  Enables support for external PHY(Ver A).
+	  This driver provides interface to interact with USB 2.0 and
+	  USB 3.0 PHY that is part of the Mediatek SOC.
+	  Say Y here if your system using external Mediatek USB PHY.
+	  If unsure, say N.
+
+config U3_PHY_SMT_LOOP_BACK_SUPPORT
+	bool "MU3 ASIC PHY support SMT loop back mode"
+	depends on MU3_PHY
+	default n
+	---help---
+	  Enables support for testing SuperSpeed signal is correct.
+          Use to check the USB-C connector is mounted properly.
+          U3 PHY sends a pattern of signal from TX1/2+, TX1/2-.
+          And receive the signal from RX1/2+, RX1/2-. Then
+          verify the signal is correct. If loopback signal is
+          corrent, it means the path from TX to RX is smooth.
+	  If unsure, say N.

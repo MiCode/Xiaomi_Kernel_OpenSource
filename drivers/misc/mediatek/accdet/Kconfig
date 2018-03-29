@@ -1,0 +1,87 @@
+config MTK_ACCDET
+	tristate "MediaTek ACCDET driver"
+	---help---
+	  ACCDET driver support for MediaTek SOC
+	  If you want to use MediaTek ACCDET driver,
+	  say Y or M here.
+	  If unsure, say N.
+
+config ACCDET_EINT
+	tristate "MediaTek ACCDET AP EINT"
+	---help---
+	  ACCDET External EINT(AP GPIO) support for MediaTek SOC
+	  If you want to use MediaTek ACCDET EINT from AP GPIO,
+	  say Y or M here.
+	  If unsure, say N.
+
+config ACCDET_EINT_IRQ
+	tristate "MediaTek ACCDET PMIC EINT"
+	---help---
+	  ACCDET Internal EINT(PMIC) support for MediaTek SOC
+	  If you want to use MediaTek ACCDET EINT from PMIC,
+	  say Y or M here.
+	  If unsure, say N.
+
+config ACCDET_SUPPORT_EINT0
+	tristate "MediaTek ACCDET PMIC EINT0"
+	---help---
+	  ACCDET use Internal EINT0(PMIC) support for MediaTek SOC
+	  If you just want to use MediaTek PMIC ACCDET EINT0,
+	  say Y or M here.
+	  If unsure, say N.
+
+config ACCDET_SUPPORT_EINT1
+	tristate "MediaTek ACCDET PMIC EINT1"
+	---help---
+	  ACCDET use Internal EINT1(PMIC) support for MediaTek SOC
+	  If you just want to use MediaTek PMIC ACCDET EINT1,
+	  say Y or M here.
+	  If unsure, say N.
+
+config ACCDET_SUPPORT_BI_EINT
+	tristate "MediaTek ACCDET PMIC EINT0 and EINT1"
+	---help---
+	  ACCDET use Internal EINT0&EINT1(PMIC) support for MediaTek SOC
+	  If you want to use MediaTek PMIC ACCDET EINT0&EINT1,
+	  say Y or M here.
+	  If unsure, say N.
+
+config HEADSET_SUPPORT_FIVE_POLE
+	tristate "MediaTek five pole Headset"
+	---help---
+	  ACCDET support 5-pole headset support for MediaTek SOC
+	  If you want to support 5-pole headset,
+	  say Y or M here.
+	  If unsure, say N.
+
+config ACCDET_PIN_SWAP
+	tristate "MediaTek ACCDET PIN_SWAP"
+	---help---
+	  ACCDET_PIN_SWAP support for MediaTek SOC
+	  If you want to use MediaTek ACCDET PIN SWAP,
+	  say Y or M here.
+	  If unsure, say N.
+
+config ACCDET_PIN_RECOGNIZATION
+	tristate "MediaTek ACCDET PIN_RECONIZATION"
+	---help---
+	  ACCDET_PIN_RECOGNIZATION support for MediaTek SOC
+	  If you want to use MediaTek ACCDET PIN RECOGNIZATION,
+	  say Y or M here.
+	  If unsure, say N.
+
+config FOUR_KEY_HEADSET
+	tristate "MediaTek four key headset"
+	---help---
+	  FOUR_KEY_HEADSET support for MediaTek SOC
+	  If you want to use MediaTek ACCDET four key headset,
+	  say Y or M here.
+	  If unsure, say N.
+
+config TS3A225E_ACCDET
+	tristate "MediaTek ACCDET ts3a225e"
+	---help---
+	  TS3A225E support for MediaTek SOC
+	  If you want to use TS3A225E
+	  say Y or M here.
+	  If unsure, say N.

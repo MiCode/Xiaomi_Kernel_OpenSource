@@ -1,0 +1,236 @@
+menu "MTK runqueue statistic calculation and CPU affinity"
+
+config MTK_SCHED_RQAVG_KS
+	bool "Enable runqueue statistic calculation used in kernel space operation"
+	depends on SMP
+	help
+	  MTK ruqueue statistic kernel space CPUfreq governors, e.g., hotplug
+	     TLP estimation,
+	     heavy task detection and
+             per CPU load for kernel space CPUfreq governors
+
+config MTK_SCHED_RQAVG_US
+	bool "Enable runqueue staticsic calculation used in user space operation"
+	depends on SMP && HIGH_RES_TIMERS
+	help
+	  TLP estimation for user space CPUfreq governors
+
+config MT_CPU_AFFINITY
+	bool "Enhance CPU affinity in hotplug"
+	depends on HOTPLUG_CPU
+	help
+	  The CPU affinity library for Hotplug enhancement is to achieve set CPU
+	  affinity without take care kernel behavior and to avoid affect the original
+	  Linux design.
+
+endmenu
+
+menu "MT load balance and schedule enhancement"
+config MT_LOAD_BALANCE_ENHANCEMENT
+	bool "mt load balance enhancement"
+	depends on SMP
+	default n
+	help
+	   Mediatek aggressive load balance, include 1. wake up load balance,
+	   2. shorten the schedule migration cost and let the idle balance more aggregative,
+	   3. force ignore the cache hot when current rq is idle and src cpu have more
+	   than 2 tasks,
+	   4. migrate heavy load_weight task as long as RT tasks exist in busy cpu
+	   5. when move tasks fil, force migration no matter cache-hot,
+	   use mt_ignore_cachehot_in_idle.
+
+config MT_RT_SCHED
+	bool "mt RT scheduling enhancement for big.LITTLE"
+	depends on SCHED_HMP
+	default n
+	help
+	   Mediatek big.LITTLE MP Scheduling for RT-class. Linux big.LITTLE MP Scheduling
+	   for RT-class don’t aware the different processor power (A15/A7). That would
+	   lead to priority inversion. We want to provide a solution to solve above problem
+	   and let the user experience, and system performance  to achieve the best condition
+	   under the consideration with power-saving and following the policy of hotplug and
+	   DVFS (do not UP processor forcedly).
+
+config MTK_COMPAT
+	bool "mt fast mode switching enhancement"
+	depends on COMPAT
+	default n
+	help
+	   Current design will save/restore all registers in mode switching.
+	   However, when kernel layer is 64-bits and application layer is 32 bits,
+	   the 32-bits application use a part of registers.
+	   Save/restore all register will consume CPU cycles.
+	   To avoid the unnecessary save/restore registers behavior,
+	   we propose fast mode switching method to optimize the mode switching
+
+config MT_SCHED_INTEROP
+	bool "mtk scheduling interopation enhancement"
+	default n
+	help
+	   Original Linux Design, RT & CFS do load balance seperatedly,
+	   and let would result in unload balance.
+	   that is, one CPU has more than 2 tasks, however, one CPU is IDLE
+	   We make RT & CFS to check each other and make load more balance.
+
+config MT_SCHED_TRACE
+	bool "mt scheduling trace, output mtk schedule trace into FTRACE"
+	default n
+	help
+	   Provide RT info via ftrace,
+	   mt_sched_printf for scheduling module to output info and
+	   RT scheduling info to ftrace,
+	   including select_task_rq, check_preempt, find_lowest_rq.
+	   Say no if not sure.
+
+config MT_SCHED_TRACE_DETAIL
+	bool "mt scheduling trace log information in more dtails"
+	depends on MT_SCHED_TRACE
+	default n
+	help
+	   MTK scheduling trace in details. It logs more scheduler details
+	   into ftrace.
+	   depends on ftrace.
+	   Say no if not sure.
+
+config MT_SCHED_DEBUG
+	bool "mt scheduling log, also output the scheduling log into Kernel log"
+	depends on MT_SCHED_TRACE
+	default n
+	help
+	   MTK scheduling log, add scheduling log into Kernel log.
+	   Including print scheduler debug information at KE and print load balance
+	   information at kernel log.
+	   Say no if not sure.
+
+config MT_DEBUG_PREEMPT
+	bool "debug preempt, output the preempt enable/disable to FTRACE"
+	default n
+	help
+	   Provide preempt debug.
+	   Dump preempt disable/enable backtrace into ftrace.
+	   Dump preempt count in kernel log.
+	   Say no if not sure.
+
+endmenu
+
+menu "MTK Cluster MultiProcessor Scheduler"
+config MTK_CPU_TOPOLOGY
+        bool "MTK cpu topology infrastructure"
+	depends on (64BIT && OF && SMP) || (ARM_CPU_TOPOLOGY && OF)
+	default n
+        help
+          Say N if you want to build up another wheel
+          sched_init -> cmp_cputopo_domain_seutp()
+          rest_init -> fork kernel_init -> kernel_init_freeable ... -> parse_dt_topology
+          we focus to build up cpu topology and domain before scheduler runs.
+
+config MTK_SCHED_CMP
+	bool "Enable CMP scheduler"
+	depends on SMP && SCHED_MC && MTK_CPU_TOPOLOGY
+	default n
+	help
+	   CMP Scheduler Enhancement for MTK SoC.
+	   Attempts to introspectively select tasks to optimize
+	   energy and performance.
+	   say no if not sure.
+
+config MTK_SCHED_CMP_TGS
+	bool "Enable thread group scheduling"
+	depends on MTK_SCHED_CMP
+	default n
+	help
+	   CMP Scheduler Enhancement for MTK SoC.
+	   To utilize the nature of tasks in the same thread group, which  eager
+	   to share data (pages) essentially. Balance the same parent’s tasks to
+	   the same CPU cluster Would get improvement with L2-cache Read-Hit/Miss
+	   and Write.
+
+config MTK_SCHED_CMP_TGS_WAKEUP
+	bool "Enable thread group scheduling"
+	depends on MTK_SCHED_CMP_TGS
+	default n
+	help
+	   CMP Scheduler Enhancement for MTK SoC.
+	   If the wakeup task is single thread, it will try to find idlest group
+	   and find idlest CPU. Else if the wakeup task has thread group, prefer
+	   the cluster which has idle CPU with most tasks in the same thread group.
+
+endmenu
+
+menu "MTK Heterogenous MultiProcessor Scheduler"
+config DISABLE_CPU_SCHED_DOMAIN_BALANCE
+	bool "(EXPERIMENTAL) Disable CPU level scheduler load-balancing"
+	help
+	  Disables scheduler load-balancing at CPU sched domain level.
+	  In hmp scheduler, use hmp global balance, a.k.a. force up/down
+	  migration, instead.
+	  If unsure say N here.
+
+config SCHED_HMP
+	bool "(EXPERIMENTAL) Heterogenous multiprocessor scheduling"
+	depends on SCHED_MC && FAIR_GROUP_SCHED && !SCHED_AUTOGROUP
+	help
+	  Experimental scheduler optimizations for heterogeneous platforms.
+	  Attempts to introspectively select task affinity to optimize power
+	  and performance. Basic support for multiple (>2) cpu types is in place,
+	  but it has only been tested with two types of cpus.
+	  There is currently no support for migration of task groups, hence
+	  !SCHED_AUTOGROUP.
+
+config SCHED_HMP_PRIO_FILTER
+	bool "(EXPERIMENTAL) Filter HMP migrations by task priority"
+	help
+	  Enables task priority based HMP migration filter. Any task with
+	  a NICE value above the threshold will always be on low-power cpus
+	  with less compute capacity.
+	  If unsure say N here.
+
+config SCHED_HMP_PRIO_FILTER_VAL
+        int "NICE priority threshold"
+        default 5
+        depends on SCHED_HMP_PRIO_FILTER
+
+config HMP_FREQUENCY_INVARIANT_SCALE
+	bool "(EXPERIMENTAL) Frequency-Invariant Tracked Load for HMP"
+	depends on !ARCH_SCALE_INVARIANT_CPU_CAPACITY
+	help
+	  Scales the current load contribution in line with the frequency
+	  of the CPU that the task was executed on.
+	  In this version, we use a simple linear scale derived from the
+	  maximum frequency reported by CPUFreq.
+	  Restricting tracked load to be scaled by the CPU's frequency
+	  represents the consumption of possible compute capacity
+	  (rather than consumption of actual instantaneous capacity as
+	  normal) and allows the HMP migration's simple threshold
+	  migration strategy to interact more predictably with CPUFreq's
+	  asynchronous compute capacity changes.
+
+config HMP_TRACER
+	bool "(EXPERIMENTAL) Profile HMP scheduler"
+	help
+	  Profile HMP scheduler
+	  Trace the update of cfs rq, load, and hmp_statisics to evaluate if
+	  the schedule decision is as expected.
+	  If unsure say N here.
+
+config HMP_PACK_SMALL_TASK
+	bool "(EXPERIMENTAL) Packing Small Tasks"
+	depends on SCHED_HMP
+	help
+	  This option enables Packing Small Tasks
+	  Packing small task mechanism is try to limit small tasks to run
+	  on as little CPUs as possible and meke better power efficiency.
+	  If unsure say N here.
+
+config SCHED_HMP_PLUS
+	bool "(EXPERIMENTAL) Corepilot enhancement"
+	depends on SCHED_HMP
+	default n
+	help
+	  Corepilot hmp enhancement.
+	  1. Do hmp_idle_pull at idle_balance
+	  2. At global balance, consider the tasks in rq, move heaviest/lightest
+             of first 5 tasks in rq.
+	  3. Enhance down migration rule: Do not migrate task when big core
+             is idle
+endmenu

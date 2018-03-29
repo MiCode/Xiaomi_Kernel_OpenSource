@@ -1,0 +1,270 @@
+[Key_definition]
+KEY_NONE
+KEY_HOME
+KEY_BACK
+KEY_CALL
+KEY_ENDCALL
+KEY_VOLUMEDOWN
+KEY_VOLUMEUP
+KEY_MUTE
+KEY_MENU
+KEY_UP
+KEY_DOWN
+KEY_LEFT
+KEY_RIGHT
+KEY_OK
+KEY_FOCUS
+KEY_CAMERA
+KEY_POWER
+KEY_AT
+KEY_POUND
+KEY_STAR
+KEY_DEL
+KEY_TAB
+KEY_ENTER
+KEY_LEFTSHIFT
+KEY_COMMA
+KEY_DOT
+KEY_SLASH
+KEY_LEFTALT
+KEY_RIGHTALT
+KEY_SPACE
+KEY_SEARCH
+KEY_SYM
+KEY_0
+KEY_1
+KEY_2
+KEY_3
+KEY_4
+KEY_5
+KEY_6
+KEY_7
+KEY_8
+KEY_9
+KEY_A
+KEY_B
+KEY_C
+KEY_D
+KEY_E
+KEY_F
+KEY_G
+KEY_H
+KEY_I
+KEY_J
+KEY_K
+KEY_L
+KEY_M
+KEY_N
+KEY_O
+KEY_P
+KEY_Q
+KEY_R
+KEY_S
+KEY_T
+KEY_U
+KEY_V
+KEY_W
+KEY_X
+KEY_Y
+KEY_Z
+
+[Key_code]
+0
+228
+158
+231
+212
+51
+111
+52
+108
+107
+28
+211
+102
+105
+56
+42
+139
+113
+352
+523
+116
+106
+100
+217
+53
+57
+227
+127
+15
+103
+114
+115
+11
+2
+3
+4
+5
+6
+7
+8
+9
+10
+30
+48
+46
+32
+18
+33
+34
+35
+23
+36
+37
+38
+50
+49
+24
+25
+16
+19
+31
+20
+22
+47
+17
+45
+21
+44
+
+[Key_code_linux]
+0
+102
+158
+231
+107
+114
+115
+113
+139
+103
+108
+105
+106
+352
+211
+212
+116
+228
+523
+227
+111
+15
+28
+42
+51
+52
+53
+56
+100
+57
+217
+127
+11
+2
+3
+4
+5
+6
+7
+8
+9
+10
+30
+48
+46
+32
+18
+33
+34
+35
+23
+36
+37
+38
+50
+49
+24
+25
+16
+19
+31
+20
+22
+47
+17
+45
+21
+44
+
+[Power_Key_definition]
+KEY_POWER
+KEY_ENDCALL
+
+
+[cust_kpd.h_HEADER]
+#ifndef _CUST_KPD_H_
+#define _CUST_KPD_H_
+#include <linux/input.h>
+#include <cust_eint.h>
+
+#define KPD_YES		1
+#define KPD_NO		0
+
+/* available keys (Linux keycodes) */
+#define KEY_CALL	KEY_SEND
+#define KEY_ENDCALL	KEY_END
+#undef KEY_OK
+#define KEY_OK		KEY_REPLY	/* DPAD_CENTER */
+#define KEY_FOCUS	KEY_HP
+#define KEY_AT		KEY_EMAIL
+#define KEY_POUND	228	//KEY_KBDILLUMTOGGLE
+#define KEY_STAR	227	//KEY_SWITCHVIDEOMODE
+#define KEY_DEL 	KEY_BACKSPACE
+#define KEY_SYM		KEY_COMPOSE
+/* KEY_HOME */
+/* KEY_BACK */
+/* KEY_VOLUMEDOWN */
+/* KEY_VOLUMEUP */
+/* KEY_MUTE */
+/* KEY_MENU */
+/* KEY_UP */
+/* KEY_DOWN */
+/* KEY_LEFT */
+/* KEY_RIGHT */
+/* KEY_CAMERA */
+/* KEY_POWER */
+/* KEY_TAB */
+/* KEY_ENTER */
+/* KEY_LEFTSHIFT */
+/* KEY_COMMA */
+/* KEY_DOT */		/* PERIOD */
+/* KEY_SLASH */
+/* KEY_LEFTALT */
+/* KEY_RIGHTALT */
+/* KEY_SPACE */
+/* KEY_SEARCH */
+/* KEY_0 ~ KEY_9 */
+/* KEY_A ~ KEY_Z */
+
+/*
+ * Power key's HW keycodes are 8, 17, 26, 35, 44, 53, 62, 71.  Only [8] works
+ * for Power key in Keypad driver, so we set KEY_ENDCALL in [8] because
+ * EndCall key is Power key in Android.  If KPD_PWRKEY_USE_EINT is YES, these
+ * eight keycodes will not work for Power key.
+ */
+
+[cust_kpd.h_TAILER]
+#endif
+

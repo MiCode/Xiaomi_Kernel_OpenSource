@@ -1,0 +1,4 @@
+The "alps/kernel/include/trustzone/" directory is intended for
+MTK in-house TEE kernel library header files.
+
+kree   Headers for kernel level CA and user level UREE library.

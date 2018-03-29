@@ -1,0 +1,19 @@
+
+config MTK_AUTO_DETECT_ACCELEROMETER
+	bool "MTK_AUTO_DETECT_ACCELEROMETER"
+	depends on MTK_SENSOR_SUPPORT
+	help
+	  one load to support different accelerometer sensor.
+          If this option is set, multiple accelerometer driver
+          can be configured at the same time, but only one
+          can be probed.
+
+config CUSTOM_KERNEL_ACCELEROMETER
+	bool "CUSTOM_KERNEL_ACCELEROMETER"
+	help
+	  accelerometer sensor to detect accelerometer from x y z axis.
+          If the platform is supported for acceleometer, this
+          configuration should be configured, and the acceleometer
+          driver configuration should be configured as well.
+
+source "drivers/misc/mediatek/sensor_bio/accelerometer/accelhub/Kconfig"

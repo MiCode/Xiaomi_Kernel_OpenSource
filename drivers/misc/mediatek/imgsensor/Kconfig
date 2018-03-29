@@ -1,0 +1,19 @@
+config MTK_IMGSENSOR
+	tristate "enable MTK cam driver"
+	default n
+	help
+	  It support different sensor.
+          If this option is set to m,
+          it will build module.
+
+config MTK_CAM_MAX_NUMBER_OF_CAMERA
+	int "max number of camera supported"
+	default 2
+	help
+	  max number of camera supported
+
+config MTK_EFUSE_DOWNGRADE
+	bool "a variant of downgrade chip"
+	default n
+	help
+	  a variant of downgrade chip

@@ -1,0 +1,12 @@
+//  Generic Compilers, -si4 -sp4,
+//  Standard lint options
+
+// Set sizes of data types
+-ss2 -si4 -sl4 -sp4
+
+// Include options
+co.lnt
+mtk.lnt
+mtk-sup.lnt
+options.lnt
+mt6620.lnt

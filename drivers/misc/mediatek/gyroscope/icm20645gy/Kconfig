@@ -1,0 +1,10 @@
+
+config MTK_ICM20645GY
+        bool "ITG1010 for MediaTek package"
+        default n
+        help
+        It support different gyroscope sensor.
+        If this option is set,
+	  	it will support
+         ITG1010 gyroscope.
+

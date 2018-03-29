@@ -1,0 +1,9 @@
+
+config MTK_CM36652_NEW
+	tristate "cm36652 for MediaTek package"
+	default n
+	help
+	It support different type sensor
+	in this platform. If this option
+	is set, it will support ambient
+	and light sensor CM36652.

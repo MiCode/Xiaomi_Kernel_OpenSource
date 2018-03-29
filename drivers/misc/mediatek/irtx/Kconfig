@@ -1,0 +1,11 @@
+config MTK_IRTX_SUPPORT
+	bool "MediaTek consumer IR transmitter"
+	default n
+	---help---
+	  IRTX driver support for MediaTek IRTX+PWM solution
+
+config MTK_IRTX_PWM_SUPPORT
+	bool "MediaTek consumer IR tansmitter"
+	default n
+	---help---
+	  IRTX driver support for MediaTek PWM only solution

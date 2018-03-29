@@ -1,0 +1,94 @@
+config MTK_CLKMGR
+	bool "Mediatek proprietary clock management"
+	default n
+	---help---
+	  Mediatek proprietary clock management is used to operate
+          the clocks. The clocks are composed of CG, MUX, PLL,
+          non-MTCMOS. The operations of clocks are enabling,
+          disabling, and querying status. If this config is not set,
+          system will use COMMON_CLK instead.
+
+config MTK_DISABLE_PICACHU
+        bool "Disable Picachu"
+        default n
+        ---help---
+          PICACHU (PI CAlibration and CHaracterization Utility) aims
+          at the voltage calibration during booting. It increases
+	  the voltage when needed.
+
+config MTK_DISABLE_SODI
+	bool "Disable SODI"
+	---help---
+	  SODI is short for the Screen On Deep Idle.
+	  It's a power saving mode when the screen is still truned on,
+	  but the device always display the same image.
+	  Select if you want to disable it.
+
+config MTK_HYBRID_CPU_DVFS
+	bool "MediaTek Hybrid CPU DVFS support"
+	default n
+	help
+	  This kernel config can be used to control CONFIG_HYBRID_CPU_DVFS
+	  defined/undefined in the header file of CPUHVFS driver.
+	  If CONFIG_HYBRID_CPU_DVFS is defined, CPUHVFS driver will bring up
+	  DVFS processor to do CPU DVFS.
+
+config MTK_SPM_USE_EXT_BUCK
+	bool "MTK SPM use ext buck"
+	default n
+	help
+	  Vmd1 is controlled by an ext buck. If you want to use ext buck for
+	  Vmd1, set y here, or it dependeds on the efuse value.
+
+config MT2701_DCM
+	bool "Enable MT2701/MT7623 dynamic clock manager"
+	default y
+	depends on (MACH_MT2701 || ARCH_MT7623) && MTK_BASE_POWER
+	---help---
+	  Dynamic Clock Manager(DCM) can help slow bus frequency when
+	  DCM's hardware detects bus is in idle state.
+
+config MTK_CPU_HOTPLUG_DEBUG_0
+	bool "MediaTek CPU Hotplug DEBUG 0"
+	default y
+	help
+	  This kernel config can be used to enable log message in cpu notify
+	  callback function in register_cpu_notifier. This is useful for CPU
+	  hotplug debug.
+	  If unsure, say Y.
+
+config MTK_CPU_HOTPLUG_DEBUG_1
+	bool "MediaTek CPU Hotplug DEBUG 1"
+	default n
+	help
+	  This kernel config can be used to enable log message in cpu notify
+	  callback function in notifier_call_chain. This is useful for CPU
+	  hotplug debug but the performance will be drop down.
+	  If unsure, say N.
+
+config MTK_CPU_HOTPLUG_DEBUG_2
+	bool "MediaTek CPU Hotplug DEBUG 2"
+	default y
+	help
+	  This kernel config can be used to enable aee to log cpu notify
+	  callback in notifier_call_chain. This is useful for CPU hotplug
+	  debug.
+	  If unsure, say Y.
+
+config PROFILE_CPU
+	bool "Support for CPU hot-plug profiling"
+	default y
+	help
+	  This kernel config can be used to enable basic CPU hot-plug
+	  latency for each one. This information is useful for someone who
+	  care the latency, for example, thermal.
+	  If unsure, say Y.
+
+config MTK_CPU_HOTPLUG_DEBUG_3
+	bool "MediaTek CPU Hotplug DEBUG 3"
+	default y
+	help
+	  This kernel config can be used to enable advanced CPU hot-plug
+	  latency profiling. This information is useful for someone who
+	  care the latency, for example, thermal.
+	  If unsure, say Y.

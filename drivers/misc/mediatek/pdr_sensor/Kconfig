@@ -1,0 +1,8 @@
+
+config CUSTOM_KERNEL_PDR_SENSOR
+       bool "CUSTOM_KERNEL_PDR_SENSOR"
+       default n
+       help
+          Kernel space PDR sensor driver.
+
+source "drivers/misc/mediatek/pdr_sensor/pdrhub/Kconfig"

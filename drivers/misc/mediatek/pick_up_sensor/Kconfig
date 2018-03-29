@@ -1,0 +1,7 @@
+
+config CUSTOM_KERNEL_PICK_UP_SENSOR
+	bool "CUSTOM_KERNEL_PICK_UP_SENSOR"
+	help
+	  Kernel space pick up sensor driver.
+
+source "drivers/misc/mediatek/pick_up_sensor/pickuphub/Kconfig"

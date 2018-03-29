@@ -1,0 +1,7 @@
+config CUSTOM_KERNEL_GESTURE_SENSOR
+	bool "CUSTOM_KERNEL_GESTURE_SENSOR"
+	help
+	  Kernel space support gesture sensor driver.
+
+source "drivers/misc/mediatek/gesture/inpocket/Kconfig"
+source "drivers/misc/mediatek/gesture/stationary/Kconfig"

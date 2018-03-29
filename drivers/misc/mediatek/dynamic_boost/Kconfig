@@ -1,0 +1,31 @@
+menu "MTK CPU boost mechanism"
+
+config MTK_DYNAMIC_BOOST
+	bool "Enable a boost interface"
+        default n
+        help
+	  Provide an interface to boost cpu hotplug and dvfs for performance
+	  improvement. This is target to kernel modules by event. The boost
+	  can support both one-time event and continuous boost. It can cover
+	  both HMP and SMP platform.
+
+config TOUCH_BOOST
+        bool "Enable touch boost"
+        depends on MTK_DYNAMIC_BOOST
+        default n
+        help
+	  This option enables touch boost. It is implemented by registering an
+	  input event handler. Once dynamic_boost driver receives an input event,
+	  it will hotplug on 2 LITTLE cores and set max frequency. Touch boost is
+	  a one-time boost mechanism.
+
+config SCREEN_ON_BOOST
+	bool "Enable screen on boost"
+	depends on MTK_DYNAMIC_BOOST
+	default n
+	help
+	  This option enables screen on boost. It will register the lcm
+	  brightness notifier, and identify the event, FB_BLANK_UNBLANK, as lcm on.
+	  It will set at least 2 cores online for 200ms.
+
+endmenu

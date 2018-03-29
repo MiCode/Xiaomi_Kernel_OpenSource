@@ -1,0 +1,8 @@
+config MTK_WMT_CCCI
+	bool CONFIG_MTK_WMT_CCCI
+	default n
+	help
+	  This config is used to control wmt
+	  ccci co-clock feature,ccci can get
+	  co-clock type and clock buffer
+	  index provided by wmt.

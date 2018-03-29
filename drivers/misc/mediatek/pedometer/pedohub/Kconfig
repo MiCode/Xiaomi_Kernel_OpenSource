@@ -1,0 +1,8 @@
+config MTK_PEDOHUB
+	bool "pedohub for MediaTek package"
+	default n
+	help
+	  It support different pedohub sensor.
+          If this option is set,
+	  it will support
+          sensorhub pedometer.

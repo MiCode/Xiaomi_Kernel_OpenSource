@@ -1,0 +1,8 @@
+config MTK_ICM20645G
+	bool "MC3410 for MediaTek package"
+	default n
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          MC3410 Accelerometer.

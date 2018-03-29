@@ -1,0 +1,55 @@
+#
+# Trusty
+#
+
+menu "Trusty"
+
+config TRUSTY
+	tristate "Trusty"
+	default n
+
+config TRUSTY_LOG
+	tristate
+	depends on TRUSTY
+	default y
+
+config TRUSTY_VIRTIO
+	tristate "Trusty virtio support"
+	depends on TRUSTY
+	select VIRTIO
+	default y
+
+config TRUSTY_VIRTIO_IPC
+	tristate "Trusty Virtio IPC driver"
+	depends on TRUSTY_VIRTIO
+	default y
+	help
+	  This module adds support for communications with Trusty Services
+
+	  If you choose to build a module, it'll be called trusty-ipc.
+	  Say N if unsure.
+
+config MT_TRUSTY_DEBUGFS
+	tristate "Trusty debugfs for Mediatek platforms"
+	default n
+
+config TRUSTY_INTERRUPT_MAP
+	tristate "Trusty interrupt map"
+	depends on TRUSTY
+	default n
+
+config TRUSTY_INTERRUPT_FIQ_ONLY
+	tristate "Trusty interrupt fiq support"
+	depends on TRUSTY && MTK_GIC_V3_EXT
+	default y
+	help
+	  This is used for Trusty to support handling new flow in GICv3
+	  If this is selected, NWd will not route IRQ to Secure OS
+	  but just fire NOP.
+	  This is MUST for us to handle G0S IRQ for Secure OS.
+
+config TRUSTY_WDT_FIQ_ARMV7_SUPPORT
+	tristate "Trusty WDT FIQ for arm"
+	depends on TRUSTY && MTK_NO_ATF && !MTK_KERNEL_IN_SECURE_MODE
+	default y
+endmenu

@@ -1,0 +1,36 @@
+Mediatek mdcldma device
+============================
+
+The Mediatek mdcldma controller is an interface to communicate with MD1.
+
+Required Properties:
+
+	- compatible: Should be:
+		"mediatek,mdcldma"
+	- reg: physical base address of AP CCIF base, length of AP CCIF, and MD CCIF base & Length of MD CCIF
+	- interrupts: interrupt number to the cpu.
+	- mediatek,md_id: configure MD id for modem_ccif driver.
+	- mediatek,cldma_capability: config AP ccci driver feature.
+	- mediatek,md_smem_size: AP and MD share memory size.
+	- clocks: Clock driving the hardware.
+	- clock-names:  Clock driving the hardware name.
+Optional properties:
+
+Example:
+mdcldma:mdcldma@1000A000 {
+	compatible = "mediatek,mdcldma";
+	reg = 	<0x1000A000 0x1000>, /*AP_CLDMA_AO*/
+		<0x1000B000 0x1000>, /*MD_CLDMA_AO*/
+		<0x1021A000 0x1000>, /*AP_CLDMA_PDN*/
+		<0x1021B000 0x1000>, /*MD_CLDMA_PDN*/
+		<0x1020A000 0x1000>, /*AP_CCIF_BASE*/
+		<0x1020B000 0x1000>; /*MD_CCIF_BASE*/
+	interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>, /*IRQ_CLDMA*/
+		     <GIC_SPI 140 IRQ_TYPE_LEVEL_LOW>, /*IRQ_CCIF*/
+		     <GIC_SPI 221 IRQ_TYPE_EDGE_FALLING>; /*IRQ_MDWDT*/
+	mediatek,md_id = <0>;
+	mediatek,cldma_capability = <6>;
+	mediatek,md_smem_size = <0x10000>; /* md share memory size */
+	clocks = <&scpsys SCP_SYS_MD1>;
+	clock-names = "scp-sys-md1-main";
+};

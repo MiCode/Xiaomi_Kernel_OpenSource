@@ -1,0 +1,4 @@
+
+config MTK_SCP_SENSORHUB_V1
+	bool "MTK_SCP_SENSORHUB_V1 for Mediatek package"
+	default n

@@ -1,0 +1,33 @@
+config MICROTRUST_TEE_SUPPORT
+	bool "Enable Microtrust TEEI Support"
+	default n
+	---help---
+	  Enable Microtrust TEEI Support
+
+config MICROTRUST_TZ_DRIVER
+	tristate "Microtrust TEEI Driver"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	---help---
+	  Enable TEEI Linux Kernel Tz Driver
+
+config MICROTRUST_VFS_DRIVER
+	tristate "Microtrust Virtual File System Driver"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	---help---
+	  Enable TEEI Virtual File System Driver
+
+config MICROTRUST_FP_DRIVER
+	tristate "Microtrust Fingerprint Driver"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	---help---
+	  Enable TEEI Fingerprint Driver
+
+config MICROTRUST_KEYMASTER_DRIVER
+	tristate "Microtrust keymaster Driver"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	---help---
+	  Enable TEEI Keymaster Driver

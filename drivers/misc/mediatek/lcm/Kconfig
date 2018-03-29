@@ -1,0 +1,17 @@
+config MTK_LCM
+	bool CONFIG_MTK_LCM
+	default n
+	help
+	  LCM driver
+
+config CUSTOM_KERNEL_LCM
+	string "CUSTOM_KERNEL_LCM"
+	help
+	  To choose kernel LCM driver name
+
+config MTK_LCM_DEVICE_TREE_SUPPORT
+	bool "MTK_LCM_DEVICE_TREE_SUPPORT"
+	help
+	  Decide whether to support LCM device tree based configuration.
+	  This feature requires the connection between display driver and LCM devices.
+	  Please also turn on MTK_LCM_DEVICE_TREE_SUPPORT in ProjectConfig.mk.

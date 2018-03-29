@@ -1,0 +1,23 @@
+config MTK_FLASHLIGHT
+  bool CONFIG_MTK_FLASHLIGHT
+  default n
+  help
+    CONFIG_MTK_FLASHLIGHT
+
+config CUSTOM_KERNEL_FLASHLIGHT
+        string "CUSTOM_KERNEL_FLASHLIGHT"
+        help
+          Kernel space cameara flashlight driver. You can use this driver
+          choose cameara flashlight type.
+
+config MTK_FLASHLIGHT_USE_MODULE
+	bool "Mediatek flashlight driver build as module"
+	default n
+	help
+	  Say Y here if you want to build flashlight driver as xxx.ko.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module,
+	  It will be called by insmod xxx.ko in init.rc.
+

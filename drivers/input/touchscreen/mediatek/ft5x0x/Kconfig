@@ -1,0 +1,85 @@
+#
+# Touchscreen driver configuration
+#
+if TOUCHSCREEN_MTK_FT5X0X
+
+config FT5X0X_FIRMWARE
+	string "FT5X0X for Mediatek firmware"
+
+config TPD_ROTATE_90
+	bool "ft5x0x for Mediatek package"
+	default n
+	help
+	Say Y here if you have ft5x0x touch panel TPD_ROTATE_90.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config TPD_ROTATE_180
+	bool "ft5x0x for Mediatek package"
+	default n
+	help
+	Say Y here if you have ft5x0x touch panel TPD_ROTATE_180.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config TPD_ROTATE_270
+	bool "ft5x0x for Mediatek package"
+	default n
+	help
+	Say Y here if you have ft5x0x touch panel TPD_ROTATE_270.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config FT_AUTO_UPGRADE_SUPPORT
+	bool "ft5x0x for Mediatek package"
+	default n
+	help
+	Say Y here if you have ft5x0x touch panel FT_AUTO_UPGRADE_SUPPORT.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config CUST_FTS_APK_DEBUG
+	bool "ft5x0x for Mediatek package"
+	default n
+	help
+	Say Y here if you have ft5x0x touch panel CUST_FTS_APK_DEBUG.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config TPD_HAVE_CALIBRATION
+	bool "ft5x0x for Mediatek package"
+	default n
+	help
+	Say Y here if you have ft5x0x touch panel TPD_HAVE_CALIBRATION.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config TPD_CUSTOM_CALIBRATION
+	bool "ft5x0x for Mediatek package"
+	default n
+	help
+	Say Y here if you have ft5x0x touch panel TPD_CUSTOM_CALIBRATION.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+endif

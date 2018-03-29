@@ -1,0 +1,7 @@
+
+config CUSTOM_KERNEL_BAROMETER
+	bool "CUSTOM_KERNEL_BAROMETER"
+	help
+	  To detect barometer raw data
+
+source "drivers/misc/mediatek/sensor_bio/barometer/barohub/Kconfig"

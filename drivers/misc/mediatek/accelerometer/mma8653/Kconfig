@@ -1,0 +1,30 @@
+config MTK_MMA8653
+	bool "MTK_MMA8653 for MediaTek package"
+	default n
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          MTK_MMA8653 Accelerometer.
+
+config MMA8653_LOWPASS
+	bool "MMA8653_LOWPASS for Mediatek package"
+	default n
+	help
+	Say Y here if you have MTK_MMA8653 gsensor MMA8653_LOWPASS.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.
+
+config CUSTOM_KERNEL_SENSORHUB
+	bool "MTK_MMA8653 for Mediatek package"
+	default n
+	help
+	Say Y here if you have MTK_MMA8653 gsensor CUSTOM_KERNEL_SENSORHUB.
+
+	If unsure, say N.
+
+	To compile this dirver as a module, choose M here: the
+	module will be called.

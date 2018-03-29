@@ -1,0 +1,9 @@
+
+config MTK_MPU6050G_NEW
+	bool "MPU6050G for MediaTek package"
+	default n
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          MPU6050G Accelerometer.

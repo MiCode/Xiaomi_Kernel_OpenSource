@@ -1,0 +1,19 @@
+Mediatek ccci_off device
+============================
+
+The Mediatek ccci_off controller will turn off all Modem related power in charing mode or ccci driver disable.
+
+Required Properties:
+
+	- compatible: Should be:
+		"mediatek,ccci_off"
+	- clocks: Clock driving the hardware.
+	- clock-names:  Clock driving the hardware name.
+Optional properties:
+
+Example:
+ccci_off@0 {
+	compatible = "mediatek,ccci_off";
+	clocks = <&scpsys SCP_SYS_MD1>;
+	clock-names = "scp-sys-md1-main";
+};

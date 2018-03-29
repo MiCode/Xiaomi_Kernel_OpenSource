@@ -1,0 +1,7 @@
+
+config CUSTOM_KERNEL_UNCALI_MAG_SENSOR
+	bool "CUSTOM_KERNEL_UNCALI_MAG_SENSOR"
+	help
+	  Kernel space rotation vector sensor driver.
+
+source "drivers/misc/mediatek/uncali_mag/uncali_maghub/Kconfig"

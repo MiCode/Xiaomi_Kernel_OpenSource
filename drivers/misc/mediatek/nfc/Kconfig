@@ -1,0 +1,27 @@
+menuconfig MTK_NFC
+	tristate "NFC drivers"
+	default n
+	---help---
+	  Say Y here for supporting NFC.
+	  Say Y here for supporting NFC.
+	  Say Y here for supporting NFC.
+
+if MTK_NFC
+
+config NFC_MT6605 # MTK_NFC
+	tristate "MediaTek NFC driver"
+	default n
+	help
+	  Y means NFC_MT6605 define if use Mediatek NFC Function to provide reader
+	  Card emulation or P2P function. If you are not sure about this, set n.
+	  Y means NFC_MT6605 define if use Mediatek NFC Function to provide reader
+	  Card emulation or P2P function. If you are not sure about this, set n.
+
+config NFC_MSR3110
+	tristate "MSR3110 NFC driver"
+	default n
+	help
+	  Y means NFC_MSR3110 define if use MSTAR NFC Function to provide reader
+	  Card emulation or P2P function. If you are not sure about this, set n.
+
+endif # NFC

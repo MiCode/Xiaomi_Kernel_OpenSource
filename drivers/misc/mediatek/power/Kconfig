@@ -1,0 +1,102 @@
+# Power Related
+config MTK_PMIC
+	bool "MediaTek PMIC driver"
+	default y
+	---help---
+	  MediaTek PMIC driver
+
+config MTK_RT9466_SUPPORT
+	bool "MTK_RT9466_SUPPORT"
+	select MTK_SWITCH_INPUT_OUTPUT_CURRENT_SUPPORT
+	default n
+	---help---
+	  Mediatek Richtek RT9466 driver.
+	  Say y to support this driver.
+	  Say n and choose other chargers.
+	  This driver uses I2C bus.
+
+config MTK_BQ25896_SUPPORT
+	bool "MTK_BQ25896_SUPPORT"
+	select MTK_SWITCH_INPUT_OUTPUT_CURRENT_SUPPORT
+	default n
+	---help---
+	Mediatek TI BQ25896 driver.
+	Set y to support this driver.
+	Set n and choose other chargers.
+	This driver uses I2c bus.
+
+config MTK_BQ25898_DUAL_SUPPORT
+	bool "MTK_BQ25898_DUAL_SUPPORT"
+	select MTK_SWITCH_INPUT_OUTPUT_CURRENT_SUPPORT
+	default n
+	---help---
+	Mediatek TI BQ25898D driver.
+	Set y to support this driver.
+	Set n and choose other chargers.
+	This driver uses I2c bus.
+
+config MTK_SWITCH_INPUT_OUTPUT_CURRENT_SUPPORT
+	bool "MTK_SWITCH_INPUT_OUTPUT_CURRENT_SUPPORT"
+	default n
+	---help---
+	Mediatek switch charger input output current.
+	Set y to support.
+	Set n to disable.
+	switch charger often supports this feature.
+
+config MTK_BIF_SUPPORT
+	bool "MTK_BIF_SUPPORT"
+	select MTK_DYNAMIC_BAT_CV_SUPPORT
+	default n
+	---help---
+	Mediatek smart battery BIF feature.
+	BIF feature provides battery information
+	to AP and no need to use AuxADC
+	to get battery information.
+
+config MTK_DYNAMIC_BAT_CV_SUPPORT
+	bool "MTK_DYNAMIC_BAT_CV_SUPPORT"
+	default n
+	---help---
+	Mediatek dynamic CV support with BIF battery
+	BIF feature provides battery information
+	to AP and no need to use AuxADC
+	to get battery voltage.
+
+config MTK_WIRELESS_CHARGER_SUPPORT
+	bool "MTK_WIRELESS_CHARGER_SUPPORT"
+	default n
+	---help---
+	yes : support wireless charger feature, it can show the wireless
+	charging animation and charging icon when receive wireless charger
+	plug-in. no: not support wireless charger feature, stay with
+	legancy feature, which cannot sense the exist of the wireles
+	charger.
+
+config MTK_POWER_EXT_DETECT
+	bool "MediaTek Power Ext detect"
+	default n
+	---help---
+	EVB/Phone share load configration.
+	Require one GPIO to do detection,
+	GPIO high mean EVB, otherwise mean phone platform.
+
+config MTK_GPUREGULATOR_INTF
+	bool "MTK Reaulator Richtek Chip INTF"
+	---help---
+	  This driver provide MTK
+	  GPU Regulator
+	  support.
+	  from Richtek.
+
+config REGULATOR_RT5735
+	bool "RT5735 Regulator As External BUCK for GPU"
+        depends on ARCH_MT6797
+	select MTK_GPUREGULATOR_INTF
+        select RT_REGMAP
+	default y
+	---help---
+	  Say Y here
+	  to enable support
+	  RT5735 Regulator
+	  from Richtek

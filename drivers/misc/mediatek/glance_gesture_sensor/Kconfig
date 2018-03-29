@@ -1,0 +1,7 @@
+
+config CUSTOM_KERNEL_GLANCE_GESTURE_SENSOR
+	bool "CUSTOM_KERNEL_GLANCE_GESTURE_SENSOR"
+	help
+	  Kernel space glance(touch wake up) gesture sensor driver.
+
+source "drivers/misc/mediatek/glance_gesture_sensor/glghub/Kconfig"

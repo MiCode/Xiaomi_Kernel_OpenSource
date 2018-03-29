@@ -1,0 +1,5 @@
+config MTK_JPEG
+  bool CONFIG_MTK_JPEG
+  default n
+  help
+    CONFIG_MTK_JPEG define if the jpeg driver should be built in or not
