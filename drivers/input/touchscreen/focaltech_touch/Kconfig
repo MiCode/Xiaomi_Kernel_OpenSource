@@ -1,0 +1,18 @@
+#
+# Focaltech Touchscreen driver configuration
+#
+menuconfig TOUCHSCREEN_FTS
+	bool "Focaltech Touchscreen"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you have Focaltech touch panel.
+	  If unsure, say N.
+
+config TOUCHSCREEN_FTS_DIRECTORY
+	string "Focaltech ts directory name"
+	default "focaltech_touch"
+	depends on TOUCHSCREEN_FTS
+	help
+	  Specify the path for the driver directory.
+	  Path should be relative to driver/input/touchscreen/.
