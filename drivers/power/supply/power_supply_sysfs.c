@@ -327,6 +327,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(batt_profile_version),
 	POWER_SUPPLY_ATTR(batt_full_current),
 	POWER_SUPPLY_ATTR(recharge_soc),
+	POWER_SUPPLY_ATTR(toggle_stat),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
