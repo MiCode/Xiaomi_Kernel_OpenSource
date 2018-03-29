@@ -372,11 +372,9 @@ int ipa3_active_clients_log_print_table(char *buf, int size)
 static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
-	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
 	ipa3_active_clients_log_print_table(active_clients_table_buf,
 			IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE);
 	IPAERR("%s", active_clients_table_buf);
-	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
 
 	return NOTIFY_DONE;
 }
