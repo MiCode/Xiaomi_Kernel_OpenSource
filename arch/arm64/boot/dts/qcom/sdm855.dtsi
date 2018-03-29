@@ -3254,3 +3254,4 @@
 #include "sdm855-vidc.dtsi"
 #include "sdm855-thermal.dtsi"
 #include "sdm855-usb.dtsi"
+#include "sdm855-gpu.dtsi"
