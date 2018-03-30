@@ -54,8 +54,6 @@
 
 #ifdef CONFIG_DEBUG_FS
 
-static u32 pa_vs_status_reg1;
-
 static int ufshcd_tag_req_type(struct request *rq)
 {
 	int rq_type = TS_WRITE;
@@ -630,23 +628,6 @@ static void __ufshcd_cmd_log(struct ufs_hba *hba, char *str, char *cmd_type,
 	entry->tag = tag;
 	entry->tstamp = ktime_get();
 	entry->outstanding_reqs = hba->outstanding_reqs;
-	if (!strcmp(cmd_type, "custom")) {
-		ufs_qcom_read_custom_testbus(hba);
-		entry->tb_ah8_ctrl_0 = hba->tb_ah8_ctrl_0;
-		entry->tb_dme = hba->tb_dme;
-		entry->tb_pa_power_ctrl = hba->tb_pa_power_ctrl;
-		entry->tb_pa_attr_1 = hba->tb_pa_attr_1;
-		entry->tb_pa_attr_2 = hba->tb_pa_attr_2;
-		entry->pa_vs_status_reg1 = pa_vs_status_reg1;
-		pa_vs_status_reg1 = 0;
-	} else {
-		entry->tb_ah8_ctrl_0 = 0;
-		entry->tb_dme = 0;
-		entry->tb_pa_power_ctrl = 0;
-		entry->tb_pa_attr_1 = 0;
-		entry->tb_pa_attr_2 = 0;
-		entry->pa_vs_status_reg1 = 0;
-	}
 	entry->seq_num = hba->cmd_log.seq_num;
 	hba->cmd_log.seq_num++;
 	hba->cmd_log.pos =
@@ -686,14 +667,11 @@ static void ufshcd_print_cmd_log(struct ufs_hba *hba)
 		pos = (pos + 1) % UFSHCD_MAX_CMD_LOGGING;
 
 		if (ktime_to_us(p->tstamp)) {
-			pr_err("%s: %s: seq_no=%u lun=0x%x cmd_id=0x%02x lba=0x%llx txfer_len=%d tag=%u, doorbell=0x%x outstanding=0x%x idn=%d ah8_ctrl_0=0x%x dme=0x%x pa_power_ctrl=0x%x pa_attr_1=0x%x pa_attr_2=0x%x pa_vs_status_reg1=0x%x time=%lld us\n",
+			pr_err("%s: %s: seq_no=%u lun=0x%x cmd_id=0x%02x lba=0x%llx txfer_len=%d tag=%u, doorbell=0x%x outstanding=0x%x idn=%d time=%lld us\n",
 				p->cmd_type, p->str, p->seq_num,
 				p->lun, p->cmd_id, (unsigned long long)p->lba,
 				p->transfer_len, p->tag, p->doorbell,
 				p->outstanding_reqs, p->idn,
-				p->tb_ah8_ctrl_0, p->tb_dme,
-				p->tb_pa_power_ctrl, p->tb_pa_attr_1,
-				p->tb_pa_attr_2, p->pa_vs_status_reg1,
 				ktime_to_us(p->tstamp));
 				usleep_range(1000, 1100);
 		}
@@ -10235,7 +10213,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	if (ret)
 		goto out;
 
-	ufs_qcom_read_pa_vs_status_reg1(hba, &pa_vs_status_reg1);
 	ufshcd_custom_cmd_log(hba, "waited-for-DB-clear");
 
 	/* scale down the gear before scaling down clocks */
@@ -10243,7 +10220,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		ret = ufshcd_scale_gear(hba, false);
 		if (ret)
 			goto clk_scaling_unprepare;
-		ufs_qcom_read_pa_vs_status_reg1(hba, &pa_vs_status_reg1);
 		ufshcd_custom_cmd_log(hba, "Gear-scaled-down");
 	}
 
@@ -10257,14 +10233,12 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
 			return ret;
-		ufs_qcom_read_pa_vs_status_reg1(hba, &pa_vs_status_reg1);
 		ufshcd_custom_cmd_log(hba, "Hibern8-entered");
 	}
 
 	ret = ufshcd_scale_clks(hba, scale_up);
 	if (ret)
 		goto scale_up_gear;
-	ufs_qcom_read_pa_vs_status_reg1(hba, &pa_vs_status_reg1);
 	ufshcd_custom_cmd_log(hba, "Clk-freq-switched");
 
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
@@ -10272,7 +10246,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
 			return ret;
-		ufs_qcom_read_pa_vs_status_reg1(hba, &pa_vs_status_reg1);
 		ufshcd_custom_cmd_log(hba, "Hibern8-Exited");
 	}
 
@@ -10283,7 +10256,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 			ufshcd_scale_clks(hba, false);
 			goto clk_scaling_unprepare;
 		}
-		ufs_qcom_read_pa_vs_status_reg1(hba, &pa_vs_status_reg1);
 		ufshcd_custom_cmd_log(hba, "Gear-scaled-up");
 	}
 
