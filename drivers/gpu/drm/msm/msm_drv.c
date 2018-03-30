@@ -1806,6 +1806,27 @@ static int add_display_components(struct device *dev,
 	return ret;
 }
 
+static int add_bridge_components(struct device *dev,
+				  struct component_match **matchptr)
+{
+	struct device_node *node;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,sde-kms")) {
+		struct device_node *np = dev->of_node;
+		unsigned int i;
+
+		for (i = 0; ; i++) {
+			node = of_parse_phandle(np, "bridges", i);
+			if (!node)
+				break;
+
+			component_match_add(dev, matchptr, compare_of, node);
+		}
+	}
+
+	return 0;
+}
+
 struct msm_gem_address_space *
 msm_gem_smmu_address_space_get(struct drm_device *dev,
 		unsigned int domain)
@@ -1894,6 +1915,10 @@ static int msm_pdev_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = add_gpu_components(&pdev->dev, &match);
+	if (ret)
+		return ret;
+
+	ret = add_bridge_components(&pdev->dev, &match);
 	if (ret)
 		return ret;
 

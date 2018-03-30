@@ -24,6 +24,7 @@
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
+#include <linux/component.h>
 #include <linux/of_gpio.h>
 #include <linux/of_graph.h>
 #include <linux/of_irq.h>
@@ -1997,6 +1998,20 @@ static void lt9611_sysfs_remove(struct device *dev)
 	sysfs_remove_group(&dev->kobj, &lt9611_sysfs_attr_grp);
 }
 
+static int lt9611_bind(struct device *dev, struct device *master, void *data)
+{
+	return 0;
+}
+
+static void lt9611_unbind(struct device *dev, struct device *master, void *data)
+{
+}
+
+static const struct component_ops lt9611_comp_ops = {
+	.bind = lt9611_bind,
+	.unbind = lt9611_unbind,
+};
+
 static int lt9611_probe(struct i2c_client *client,
 	 const struct i2c_device_id *id)
 {
@@ -2077,6 +2092,10 @@ static int lt9611_probe(struct i2c_client *client,
 	pdata->bridge.of_node = client->dev.of_node;
 
 	drm_bridge_add(&pdata->bridge);
+
+	ret = component_add(&client->dev, &lt9611_comp_ops);
+	if (ret)
+		pr_err("component add failed, rc=%d\n", ret);
 
 	return ret;
 

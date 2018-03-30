@@ -1,0 +1,73 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/mdss-10nm-pll-clk.h>
+
+&soc {
+	ext_dsi_bridge_display: qcom,dsi-display@0 {
+		compatible = "qcom,dsi-display";
+		label = "ext_dsi_bridge_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				ext_dsi_out: endpoint {
+				};
+			};
+		};
+	};
+
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+};
+
+&mdss_dsi0 {
+	vdda-1p2-supply = <&pm660_l2>;
+};
+
+&mdss_dsi1 {
+	vdda-1p2-supply = <&pm660_l2>;
+};
+
+&mdss_dsi_phy0 {
+	vdda-0p9-supply = <&pm660_l6>;
+};
+
+&mdss_dsi_phy1 {
+	vdda-0p9-supply = <&pm660_l6>;
+};
+
+&sde_dp {
+	vdda-0p9-supply = <&pm660_l6>;
+};
+
