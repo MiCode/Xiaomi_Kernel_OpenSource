@@ -65,10 +65,18 @@
 
 		spmi_bus: qcom,virtspmi@4400000 {
 			compatible = "qcom,virtspmi-pmic-arb";
-			reg = <0x4400000 0x800000>;
-			reg-names = "core";
+			reg = <0x400f000 0xc00>,
+				<0x4400000 0x800000>,
+				<0x5800000 0x200000>;
+			reg-names = "core", "chnls", "intr";
+			interrupt-names = "periph_irq";
+			interrupts = <0 326 0>;
+			qcom,channel = <0>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+			interrupt-controller;
+			#interrupt-cells = <4>;
+			cell-index = <0>;
 		};
 	};
 };
