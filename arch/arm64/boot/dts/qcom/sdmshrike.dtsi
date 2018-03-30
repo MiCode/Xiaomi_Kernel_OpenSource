@@ -25,7 +25,7 @@
 	model = "Qualcomm Technologies, Inc. SDMSHRIKE";
 	compatible = "qcom,sdmshrike";
 	qcom,msm-id = <340 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	aliases {
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
@@ -410,6 +410,14 @@
 		clock-names = "iface_clk", "core_clk";
 
 		status = "disabled";
+	};
+
+	pdc: interrupt-controller@0xb220000{
+		compatible = "qcom,pdc-sdm855";
+		reg = <0xb220000 0x400>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
 	};
 
 	timer {
