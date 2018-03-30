@@ -426,6 +426,15 @@ config QTI_RPMH_API
 config QTI_SYSTEM_PM
 	bool
 
+config QSEE_IPC_IRQ
+	bool "QSEE interrupt manager"
+	help
+	  The QSEE IPC IRQ controller manages the interrupts from the QTI
+	  secure execution environment. This interrupt controller will use
+	  the registers in the spcs region to mask and clear interrupts.
+	  Clients can use this driver to avoid adding common interrupt handling
+	  code.
+
 config QCOM_GLINK
 	tristate "GLINK Probe Helper"
 	depends on RPMSG_QCOM_GLINK_SMEM
