@@ -471,9 +471,6 @@ int msm_smem_alloc(size_t size, u32 align, u32 flags,
 	enum hal_buffer buffer_type, int map_kernel,
 	void  *res, u32 session_type, struct msm_smem *smem);
 int msm_smem_free(struct msm_smem *smem);
-int msm_smem_cache_operations(struct dma_buf *dbuf,
-		unsigned long offset, unsigned long size,
-		enum smem_cache_ops cache_op);
 
 struct context_bank_info *msm_smem_get_context_bank(u32 session_type,
 	bool is_secure, struct msm_vidc_platform_resources *res,

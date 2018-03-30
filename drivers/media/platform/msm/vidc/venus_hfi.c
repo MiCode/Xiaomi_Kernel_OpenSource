@@ -609,10 +609,6 @@ static int __smem_alloc(struct venus_hfi_device *dev,
 
 	dprintk(VIDC_DBG, "%s: ptr = %pK, size = %d\n", __func__,
 			alloc->kvaddr, size);
-	rc = msm_smem_cache_operations(alloc->dma_buf, 0,
-			alloc->size, SMEM_CACHE_CLEAN);
-	if (rc)
-		dprintk(VIDC_WARN, "Failed to clean cache\n");
 
 	mem->mem_size = alloc->size;
 	mem->align_virtual_addr = alloc->kvaddr;

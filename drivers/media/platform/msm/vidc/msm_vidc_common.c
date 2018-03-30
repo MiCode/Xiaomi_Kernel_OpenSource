@@ -3434,12 +3434,6 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 					"Failed to allocate output memory\n");
 				goto err_no_mem;
 			}
-			rc = msm_comm_smem_cache_operations(inst,
-					&binfo->smem, SMEM_CACHE_CLEAN);
-			if (rc) {
-				dprintk(VIDC_WARN,
-					"Failed to clean cache may cause undefined behavior\n");
-			}
 			binfo->buffer_type = buffer_type;
 			binfo->buffer_ownership = DRIVER;
 			dprintk(VIDC_DBG, "Output buffer address: %#x\n",
@@ -3517,13 +3511,6 @@ static int set_internal_buf_on_fw(struct msm_vidc_inst *inst,
 	}
 
 	hdev = inst->core->device;
-
-	rc = msm_comm_smem_cache_operations(inst,
-					handle, SMEM_CACHE_CLEAN);
-	if (rc) {
-		dprintk(VIDC_WARN,
-			"Failed to clean cache. Undefined behavior\n");
-	}
 
 	buffer_info.buffer_size = handle->size;
 	buffer_info.buffer_type = buffer_type;
@@ -5405,148 +5392,6 @@ void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *mem)
 		return;
 	}
 	msm_smem_free(mem);
-}
-
-int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
-		struct msm_smem *mem, enum smem_cache_ops cache_ops)
-{
-	if (!inst || !mem) {
-		dprintk(VIDC_ERR,
-			"%s: invalid params: %pK %pK\n", __func__, inst, mem);
-		return -EINVAL;
-	}
-	return msm_smem_cache_operations(mem->dma_buf,
-			mem->offset, mem->size, cache_ops);
-}
-
-int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
-		struct v4l2_buffer *b)
-{
-	int rc = 0, i;
-	bool skip;
-
-	if (!inst || !b) {
-		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
-			__func__, inst, b);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < b->length; i++) {
-		unsigned long offset, size;
-		enum smem_cache_ops cache_ops;
-		struct dma_buf *dbuf;
-
-		dbuf = msm_smem_get_dma_buf(b->m.planes[i].m.fd);
-		offset = b->m.planes[i].data_offset;
-		size = b->m.planes[i].length - offset;
-		cache_ops = SMEM_CACHE_INVALIDATE;
-		skip = false;
-
-		if (inst->session_type == MSM_VIDC_DECODER) {
-			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-				if (!i) { /* bitstream */
-					size = b->m.planes[i].bytesused;
-					cache_ops = SMEM_CACHE_CLEAN_INVALIDATE;
-				}
-			} else if (b->type ==
-					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				if (!i) { /* yuv */
-					/* all values are correct */
-				}
-			}
-		} else if (inst->session_type == MSM_VIDC_ENCODER) {
-			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-				if (!i) { /* yuv */
-					size = b->m.planes[i].bytesused;
-					cache_ops = SMEM_CACHE_CLEAN_INVALIDATE;
-				} else { /* extradata */
-					cache_ops = SMEM_CACHE_CLEAN_INVALIDATE;
-				}
-			} else if (b->type ==
-					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				if (!i) { /* bitstream */
-					/* all values are correct */
-				}
-			}
-		}
-
-		if (!skip) {
-			rc = msm_smem_cache_operations(dbuf,
-					offset, size, cache_ops);
-			if (rc)
-				print_v4l2_buffer(VIDC_ERR,
-					"qbuf cache ops failed", inst, b);
-		}
-
-		msm_smem_put_dma_buf(dbuf);
-	}
-
-	return rc;
-}
-
-int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
-		struct v4l2_buffer *b)
-{
-	int rc = 0, i;
-	struct dma_buf *dma_buf;
-	bool skip;
-
-	if (!inst || !b) {
-		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
-			__func__, inst, b);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < b->length; i++) {
-		unsigned long offset, size;
-		enum smem_cache_ops cache_ops;
-
-		dma_buf = msm_smem_get_dma_buf(b->m.planes[i].m.fd);
-		offset = b->m.planes[i].data_offset;
-		size = b->m.planes[i].length - offset;
-		cache_ops = SMEM_CACHE_INVALIDATE;
-		skip = false;
-
-		if (inst->session_type == MSM_VIDC_DECODER) {
-			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-				if (!i) /* bitstream */
-					skip = true;
-			} else if (b->type ==
-					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				if (!i) { /* yuv */
-					/* all values are correct */
-				}
-			}
-		} else if (inst->session_type == MSM_VIDC_ENCODER) {
-			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-				/* yuv and extradata */
-				skip = true;
-			} else if (b->type ==
-					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				if (!i) { /* bitstream */
-					/*
-					 * Include vp8e header bytes as well
-					 * by making offset equal to zero
-					 */
-					offset = 0;
-					size = b->m.planes[i].bytesused +
-						b->m.planes[i].data_offset;
-				}
-			}
-		}
-
-		if (!skip) {
-			rc = msm_smem_cache_operations(dma_buf,
-					offset, size, cache_ops);
-			if (rc)
-				print_v4l2_buffer(VIDC_ERR,
-					"dqbuf cache ops failed", inst, b);
-		}
-
-		msm_smem_put_dma_buf(dma_buf);
-	}
-
-	return rc;
 }
 
 void msm_vidc_fw_unload_handler(struct work_struct *work)
