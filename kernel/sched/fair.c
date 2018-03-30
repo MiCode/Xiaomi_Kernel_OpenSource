@@ -5935,19 +5935,32 @@ static int compute_energy(struct energy_env *eenv)
 	int cpu;
 	struct cpumask visit_cpus;
 	struct sched_group *sg;
+	int cpu_count;
 
 	WARN_ON(!eenv->sg_top->sge);
 
 	cpumask_copy(&visit_cpus, sched_group_span(eenv->sg_top));
 
+	/* If a cpu is hotplugged in while we are in this function, it does
+	 * not appear in the existing visit_cpus mask which came from the
+	 * sched_group pointer of the sched_domain pointed at by sd_ea for
+	 * either the prev or next cpu and was dereferenced in
+	 * select_energy_cpu_idx.
+	 * Since we will dereference sd_scs later as we iterate through the
+	 * CPUs we expect to visit, new CPUs can be present which are not in
+	 * the visit_cpus mask. Guard this with cpu_count.
+	 */
+	cpu_count = cpumask_weight(&visit_cpus);
+
 	while (!cpumask_empty(&visit_cpus)) {
 		struct sched_group *sg_shared_cap = NULL;
-
 		cpu = cpumask_first(&visit_cpus);
 
 		/*
 		 * Is the group utilization affected by cpus outside this
 		 * sched_group?
+		 * This sd may have groups with cpus which were not present
+		 * when we took visit_cpus.
 		 */
 		sd = rcu_dereference(per_cpu(sd_scs, cpu));
 		if (sd && sd->parent)
@@ -5955,7 +5968,6 @@ static int compute_energy(struct energy_env *eenv)
 
 		for_each_domain(cpu, sd) {
 			sg = sd->groups;
-
 			/* Has this sched_domain already been visited? */
 			if (sd->child && group_first_cpu(sg) != cpu)
 				break;
@@ -5973,8 +5985,24 @@ static int compute_energy(struct energy_env *eenv)
 				calc_sg_energy(eenv);
 
 				/* remove CPUs we have just visited */
-				if (!sd->child)
+				if (!sd->child) {
+					/*
+					 * cpu_count here is the number of
+					 * cpus we expect to visit in this
+					 * calculation. If we race against
+					 * hotplug, we can have extra cpus
+					 * added to the groups we are
+					 * iterating which do not appear in
+					 * the visit_cpus mask. In that case
+					 * we are not able to calculate energy
+					 * without restarting so we will bail
+					 * out and use prev_cpu this time.
+					 */
+					if (!cpu_count)
+						return -EINVAL;
 					cpumask_xor(&visit_cpus, &visit_cpus, sched_group_span(sg));
+					cpu_count--;
+				}
 
 				if (cpumask_equal(sched_group_span(sg), sched_group_span(eenv->sg_top)))
 					goto next_cpu;
