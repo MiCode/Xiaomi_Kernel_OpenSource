@@ -21,6 +21,7 @@
 #include <linux/pm_opp.h>
 #include <linux/io.h>
 #include <soc/qcom/cmd-db.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
 #include "kgsl_device.h"
 #include "kgsl_gmu.h"
@@ -417,6 +418,7 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 	int ret;
 
 	dev = &pdev->dev;
+	of_dma_configure(dev, node);
 
 	ctx->dev = dev;
 	ctx->domain = iommu_domain_alloc(&platform_bus_type);
@@ -835,7 +837,8 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 		}
 
 		/* Values from OPP framework are offset by 1 */
-		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp) - 1;
+		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp)
+				- RPMH_REGULATOR_LEVEL_OFFSET;
 		dev_pm_opp_put(opp);
 	}
 
@@ -1062,10 +1065,22 @@ static irqreturn_t hfi_irq_handler(int irq, void *data)
 
 static int gmu_pwrlevel_probe(struct gmu_device *gmu, struct device_node *node)
 {
+	int ret;
 	struct device_node *pwrlevel_node, *child;
 
-	pwrlevel_node = of_find_node_by_name(node, "qcom,gmu-pwrlevels");
+	/* Add the GMU OPP table if we define it */
+	if (of_find_property(gmu->pdev->dev.of_node,
+			"operating-points-v2", NULL)) {
+		ret = dev_pm_opp_of_add_table(&gmu->pdev->dev);
+		if (ret) {
+			dev_err(&gmu->pdev->dev,
+					"Unable to set the GMU OPP table: %d\n",
+					ret);
+			return ret;
+		}
+	}
 
+	pwrlevel_node = of_find_node_by_name(node, "qcom,gmu-pwrlevels");
 	if (pwrlevel_node == NULL) {
 		dev_err(&gmu->pdev->dev, "Unable to find 'qcom,gmu-pwrlevels'\n");
 		return -EINVAL;
@@ -1372,6 +1387,7 @@ int gmu_probe(struct kgsl_device *device, unsigned long flags)
 	gmu->flags = flags;
 
 	device->gmu.pdev = of_find_device_by_node(node);
+	of_dma_configure(&gmu->pdev->dev, node);
 
 	/* Set up GMU regulators */
 	ret = gmu_regulators_probe(gmu, node);

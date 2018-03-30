@@ -29,6 +29,7 @@
 #define MB_SIZE_IN_PIXEL (16 * 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
 #define MAX_VP9D_INST_COUNT 6
+#define MAX_4K_MBPF 38736 /* (4096 * 2304 / 256) */
 
 static const char *const mpeg_video_stream_format[] = {
 	"NAL Format Start Codes",
@@ -393,13 +394,19 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 static u32 get_frame_size_compressed_full_yuv(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
 {
-	return (max_mbs_per_frame * size_per_mb * 3 / 2);
+	if (max_mbs_per_frame > MAX_4K_MBPF)
+		return (max_mbs_per_frame * size_per_mb * 3 / 2) / 4;
+	else
+		return (max_mbs_per_frame * size_per_mb * 3 / 2);
 }
 
 static u32 get_frame_size_compressed(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
 {
-	return (max_mbs_per_frame * size_per_mb * 3/2)/2;
+	if (max_mbs_per_frame > MAX_4K_MBPF)
+		return (max_mbs_per_frame * size_per_mb * 3 / 2) / 4;
+	else
+		return (max_mbs_per_frame * size_per_mb * 3/2)/2;
 }
 
 static u32 get_frame_size(struct msm_vidc_inst *inst,

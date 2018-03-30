@@ -377,6 +377,14 @@ static int msm_vidc_load_allowed_clocks_table(
 	return 0;
 }
 
+static int msm_vidc_populate_mem_adsp(struct device *dev,
+		struct msm_vidc_platform_resources *res)
+{
+	res->mem_adsp.dev = dev;
+
+	return 0;
+}
+
 static int msm_vidc_populate_bus(struct device *dev,
 		struct msm_vidc_platform_resources *res)
 {
@@ -1276,4 +1284,27 @@ int read_bus_resources_from_dt(struct platform_device *pdev)
 	}
 
 	return msm_vidc_populate_bus(&pdev->dev, &core->resources);
+}
+
+int read_mem_adsp_resources_from_dt(struct platform_device *pdev)
+{
+	struct msm_vidc_core *core;
+
+	if (!pdev) {
+		dprintk(VIDC_ERR, "%s: invalid platform device\n", __func__);
+		return -EINVAL;
+	} else if (!pdev->dev.parent) {
+		dprintk(VIDC_ERR, "Failed to find a parent for %s\n",
+				dev_name(&pdev->dev));
+		return -ENODEV;
+	}
+
+	core = dev_get_drvdata(pdev->dev.parent);
+	if (!core) {
+		dprintk(VIDC_ERR, "Failed to find cookie in parent device %s",
+				dev_name(pdev->dev.parent));
+		return -EINVAL;
+	}
+
+	return msm_vidc_populate_mem_adsp(&pdev->dev, &core->resources);
 }

@@ -216,16 +216,27 @@ static void programmable_fetch_config(struct sde_encoder_phys *phys_enc,
 	u32 vert_total = 0;
 	u32 vfp_fetch_start_vsync_counter = 0;
 	unsigned long lock_flags;
+	struct sde_mdss_cfg *m;
 
 	if (WARN_ON_ONCE(!phys_enc->hw_intf->ops.setup_prg_fetch))
 		return;
+
+	m = phys_enc->sde_kms->catalog;
 
 	vfp_fetch_lines = programmable_fetch_get_num_lines(vid_enc, timing);
 	if (vfp_fetch_lines) {
 		vert_total = get_vertical_total(timing);
 		horiz_total = get_horizontal_total(timing);
 		vfp_fetch_start_vsync_counter =
-		    (vert_total - vfp_fetch_lines) * horiz_total + 1;
+			(vert_total - vfp_fetch_lines) * horiz_total + 1;
+
+		/**
+		 * Check if we need to throttle the fetch to start
+		 * from second line after the active region.
+		 */
+		if (m->delay_prg_fetch_start)
+			vfp_fetch_start_vsync_counter += horiz_total;
+
 		f.enable = 1;
 		f.fetch_start = vfp_fetch_start_vsync_counter;
 	}

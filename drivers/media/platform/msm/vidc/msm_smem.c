@@ -336,9 +336,6 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 	int rc = 0;
 	int ion_flags = 0;
 	struct dma_buf *dbuf = NULL;
-	unsigned long page_count = 0;
-	unsigned long mapped_pages = 0;
-	void *kvaddr = NULL;
 
 	if (!res) {
 		dprintk(VIDC_ERR, "%s: NULL res\n", __func__);
@@ -405,6 +402,7 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 	mem->offset = 0;
 	mem->size = size;
 	mem->dma_buf = dbuf;
+	mem->kvaddr = NULL;
 
 	rc = msm_dma_get_device_address(dbuf, align, &iova,
 			&buffer_size, flags, buffer_type,
@@ -422,22 +420,14 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 	}
 
 	if (map_kernel) {
-		mem->pages = size/PAGE_SIZE;
 		dma_buf_begin_cpu_access(dbuf, DMA_BIDIRECTIONAL);
-		for (page_count = 0; page_count < mem->pages; page_count++) {
-			kvaddr = dma_buf_kmap(dbuf, page_count);
-			if (IS_ERR_OR_NULL(kvaddr)) {
-				dprintk(VIDC_ERR,
-					"Failed to map shared mem in kernel\n");
-				rc = -EIO;
-				goto fail_map;
-			}
-			if (!page_count)
-				mem->kvaddr = kvaddr;
+		mem->kvaddr = dma_buf_vmap(dbuf);
+		if (!mem->kvaddr) {
+			dprintk(VIDC_ERR,
+				"Failed to map shared mem in kernel\n");
+			rc = -EIO;
+			goto fail_map;
 		}
-	} else {
-		mem->kvaddr = NULL;
-		mem->pages = 0;
 	}
 
 	dprintk(VIDC_DBG,
@@ -446,20 +436,10 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 		mem->kvaddr, mem->buffer_type, mem->flags);
 	return rc;
 
-fail_device_address:
-	mapped_pages = mem->pages;
 fail_map:
-	mapped_pages = page_count;
-	if (mem->kvaddr) {
-		kvaddr = mem->kvaddr;
-		for (page_count = 0; page_count < mapped_pages; page_count++) {
-			dma_buf_kunmap(mem->dma_buf, page_count, kvaddr);
-			kvaddr += PAGE_SIZE;
-		}
-		mem->pages = 0;
-		mem->kvaddr = NULL;
-		dma_buf_end_cpu_access(mem->dma_buf, DMA_BIDIRECTIONAL);
-	}
+	if (map_kernel)
+		dma_buf_end_cpu_access(dbuf, DMA_BIDIRECTIONAL);
+fail_device_address:
 	dma_buf_put(dbuf);
 fail_shared_mem_alloc:
 	return rc;
@@ -468,8 +448,6 @@ fail_shared_mem_alloc:
 static int free_dma_mem(struct msm_smem *mem)
 {
 	int rc = 0;
-	void *kvaddr;
-	unsigned long page_count = 0;
 
 	dprintk(VIDC_DBG,
 		"%s: dma_buf = %pK, device_addr = %x, size = %d, kvaddr = %pK, buffer_type = %#x\n",
@@ -483,12 +461,7 @@ static int free_dma_mem(struct msm_smem *mem)
 	}
 
 	if (mem->kvaddr) {
-		kvaddr = mem->kvaddr;
-		for (page_count = 0; page_count < mem->pages; page_count++) {
-			dma_buf_kunmap(mem->dma_buf, page_count, kvaddr);
-			kvaddr += PAGE_SIZE;
-		}
-		mem->pages = 0;
+		dma_buf_vunmap(mem->dma_buf, mem->kvaddr);
 		mem->kvaddr = NULL;
 		dma_buf_end_cpu_access(mem->dma_buf, DMA_BIDIRECTIONAL);
 	}

@@ -46,14 +46,24 @@ Properties:
 			property is valid only if there is valid entry for
 			isens_vref-supply.
 
+- reg:
+	Usage: Required
+	Value type: <a b>
+	Definition: where 'a' is the starting register address of the OSM/LLM
+			and 'b' is the size of OSM/LLM address space. The
+			register space in index 0 should be LLM and index 1
+			should be OSM.
+
 Example:
 
-	lmh_dcvs0: qcom,limits-dcvs@0 {
+	lmh_dcvs0: qcom,limits-dcvs@18350800 {
 		compatible = "qcom,msm-hw-limits";
 		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,affinity = <0>;
 		isens_vref-supply = <&pm8998_l1_ao>;
 		isens-vref-settings = <880000 880000 36000>;
+		reg =  <0x18350800 0x1000>, //LLM
+			<0x18323000 0x1000>; //OSM
 	};
 
 	CPU0: cpu@0 {

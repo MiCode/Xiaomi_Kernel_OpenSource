@@ -49,6 +49,7 @@ struct dp_debug_private {
 	struct device *dev;
 	struct work_struct sim_work;
 	struct dp_debug dp_debug;
+	struct dp_parser *parser;
 };
 
 static int dp_debug_get_edid_buf(struct dp_debug_private *debug)
@@ -73,13 +74,13 @@ static int dp_debug_get_dpcd_buf(struct dp_debug_private *debug)
 	int rc = 0;
 
 	if (!debug->dpcd) {
-		debug->dpcd = devm_kzalloc(debug->dev, SZ_1K, GFP_KERNEL);
+		debug->dpcd = devm_kzalloc(debug->dev, SZ_16K, GFP_KERNEL);
 		if (!debug->dpcd) {
 			rc = -ENOMEM;
 			goto end;
 		}
 
-		debug->dpcd_size = SZ_1K;
+		debug->dpcd_size = SZ_16K;
 	}
 end:
 	return rc;
@@ -359,6 +360,65 @@ static ssize_t dp_debug_bw_code_write(struct file *file,
 	}
 	debug->panel->max_bw_code = max_bw_code;
 	pr_debug("max_bw_code: %d\n", max_bw_code);
+
+	return len;
+}
+
+static ssize_t dp_debug_mst_mode_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 mst_mode = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		return 0;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &mst_mode) != 0)
+		return 0;
+
+	debug->parser->has_mst = mst_mode ? true : false;
+	pr_debug("mst_enable: %d\n", mst_mode);
+
+	return len;
+}
+
+static ssize_t dp_debug_mst_sideband_mode_write(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	u32 mst_sideband_mode = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		return 0;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &mst_sideband_mode) != 0)
+		return 0;
+
+	debug->parser->has_mst_sideband = mst_sideband_mode ? true : false;
+	pr_debug("mst_enable: %d\n", mst_sideband_mode);
 
 	return len;
 }
@@ -1078,6 +1138,16 @@ static const struct file_operations dump_fops = {
 	.read = dp_debug_read_dump,
 };
 
+static const struct file_operations mst_mode_fops = {
+	.open = simple_open,
+	.write = dp_debug_mst_mode_write,
+};
+
+static const struct file_operations mst_sideband_mode_fops = {
+	.open = simple_open,
+	.write = dp_debug_mst_sideband_mode_write,
+};
+
 static int dp_debug_init(struct dp_debug *dp_debug)
 {
 	int rc = 0;
@@ -1217,6 +1287,22 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_file("mst_mode", 0644, dir,
+			debug, &mst_mode_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
+	file = debugfs_create_file("mst_sideband_mode", 0644, dir,
+			debug, &mst_sideband_mode_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+	}
+
 	return 0;
 
 error_remove_dir:
@@ -1235,10 +1321,23 @@ static void dp_debug_sim_work(struct work_struct *work)
 	debug->usbpd->simulate_attention(debug->usbpd, debug->vdo);
 }
 
+u8 *dp_debug_get_edid(struct dp_debug *dp_debug)
+{
+	struct dp_debug_private *debug;
+
+	if (!dp_debug)
+		return NULL;
+
+	debug = container_of(dp_debug, struct dp_debug_private, dp_debug);
+
+	return debug->edid;
+}
+
 struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 			struct dp_usbpd *usbpd, struct dp_link *link,
 			struct dp_aux *aux, struct drm_connector **connector,
-			struct dp_catalog *catalog)
+			struct dp_catalog *catalog,
+			struct dp_parser *parser)
 {
 	int rc = 0;
 	struct dp_debug_private *debug;
@@ -1266,6 +1365,7 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 	debug->dev = dev;
 	debug->connector = connector;
 	debug->catalog = catalog;
+	debug->parser = parser;
 
 	dp_debug = &debug->dp_debug;
 	dp_debug->vdisplay = 0;
@@ -1277,6 +1377,8 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 		devm_kfree(dev, debug);
 		goto error;
 	}
+
+	dp_debug->get_edid = dp_debug_get_edid;
 
 	return dp_debug;
 error:

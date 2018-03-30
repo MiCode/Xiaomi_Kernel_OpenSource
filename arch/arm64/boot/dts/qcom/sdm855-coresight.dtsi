@@ -453,9 +453,16 @@
 		reg = <0x091866F0 0x4>,
 		     <0x91966F0 0x4>,
 		      <0x9186038 0x4>,
-		      <0x9196038 0x4>;
+		      <0x9196038 0x4>,
+		      <0x17E00034 0x4>,
+		     <0x18200050 0x80>,
+		     <0x02C8D050 0x80>,
+		     <0x0AF20050 0x80>;
 		reg-names = "ddr-ch0-cfg", "ddr-ch23-cfg", "ddr-ch0-ctrl",
-			    "ddr-ch23-ctrl";
+			    "ddr-ch23-ctrl", "apss-testbus-mux-cfg",
+			    "apss-rsc-hwevent-mux0-select",
+			    "gpu-rsc-hwevent-mux0-select",
+			    "sde-rsc-hwevent-mux0-select";
 
 		coresight-name = "coresight-hwevent";
 		coresight-csr = <&csr>;
@@ -1697,6 +1704,30 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-dlmm_cti1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti0_dlct: cti@6c29000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x6c29000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-dlct_cti0";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti1_dlct: cti@6c2a000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x6c2a000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-dlct_cti1";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";

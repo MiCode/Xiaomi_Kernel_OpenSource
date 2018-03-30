@@ -342,6 +342,10 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 			SDE_REG_WRITE(c, SSPP_UBWC_STATIC_CTRL,
 				alpha_en_mask | (ctx->mdp->ubwc_swizzle) |
 				(ctx->mdp->highest_bank_bit << 4));
+		} else if (IS_UBWC_30_SUPPORTED(ctx->catalog->ubwc_version)) {
+			SDE_REG_WRITE(c, SSPP_UBWC_STATIC_CTRL,
+				BIT(30) | (ctx->mdp->ubwc_swizzle) |
+				(ctx->mdp->highest_bank_bit << 4));
 		}
 	}
 

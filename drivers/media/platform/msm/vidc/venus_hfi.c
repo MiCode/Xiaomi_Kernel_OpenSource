@@ -33,6 +33,7 @@
 #include <soc/qcom/socinfo.h>
 #include <linux/soc/qcom/smem.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <linux/dma-mapping.h>
 #include "hfi_packetization.h"
 #include "msm_vidc_debug.h"
 #include "venus_hfi.h"
@@ -1388,8 +1389,19 @@ static void __set_queue_hdr_defaults(struct hfi_queue_header *q_hdr)
 static void __interface_dsp_queues_release(struct venus_hfi_device *device)
 {
 	int i;
+	struct msm_smem *mem_data = &device->iface_q_table.mem_data;
+	struct context_bank_info *cb = mem_data->mapping_info.cb_info;
 
-	__smem_free(device, &device->dsp_iface_q_table.mem_data);
+	if (!device->dsp_iface_q_table.align_virtual_addr) {
+		dprintk(VIDC_ERR, "%s: already released\n", __func__);
+		return;
+	}
+
+	dma_unmap_single_attrs(cb->dev, mem_data->dma_handle,
+		mem_data->size, DMA_BIDIRECTIONAL, 0);
+	dma_free_coherent(device->res->mem_adsp.dev, mem_data->size,
+		mem_data->kvaddr, mem_data->dma_handle);
+
 	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
 		device->dsp_iface_queues[i].q_hdr = NULL;
 		device->dsp_iface_queues[i].q_array.align_virtual_addr = NULL;
@@ -1406,39 +1418,62 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 	struct hfi_queue_table_header *q_tbl_hdr;
 	struct hfi_queue_header *q_hdr;
 	struct vidc_iface_q_info *iface_q;
-	struct vidc_mem_addr *mem_addr;
 	int offset = 0;
 	phys_addr_t fw_bias = 0;
 	size_t q_size;
-	u32 flags = 0;
+	struct msm_smem *mem_data;
+	void *kvaddr;
+	dma_addr_t dma_handle;
+	dma_addr_t iova;
+	struct context_bank_info *cb;
 
 	q_size = ALIGN(QUEUE_SIZE, SZ_1M);
-	mem_addr = &dev->mem_addr;
+	mem_data = &dev->dsp_iface_q_table.mem_data;
+
+	/* Allocate dsp queues from ADSP device memory */
+	kvaddr = dma_alloc_coherent(dev->res->mem_adsp.dev, q_size,
+				&dma_handle, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(kvaddr)) {
+		dprintk(VIDC_ERR, "%s: failed dma allocation\n", __func__);
+		goto fail_dma_alloc;
+	}
+	cb = msm_smem_get_context_bank(MSM_VIDC_UNKNOWN, 0,
+			dev->res, HAL_BUFFER_INTERNAL_CMD_QUEUE);
+	if (!cb) {
+		dprintk(VIDC_ERR,
+			"%s: failed to get context bank\n", __func__);
+		goto fail_dma_map;
+	}
+	iova = dma_map_single_attrs(cb->dev, phys_to_virt(dma_handle),
+				q_size, DMA_BIDIRECTIONAL, 0);
+	if (dma_mapping_error(cb->dev, iova)) {
+		dprintk(VIDC_ERR, "%s: failed dma mapping\n", __func__);
+		goto fail_dma_map;
+	}
+	dprintk(VIDC_DBG,
+		"%s: kvaddr %pK dma_handle %#lx iova %#lx size %d\n",
+		__func__, kvaddr, dma_handle, iova, q_size);
+
+	memset(mem_data, 0, sizeof(struct msm_smem));
+	mem_data->kvaddr = kvaddr;
+	mem_data->device_addr = iova;
+	mem_data->dma_handle = dma_handle;
+	mem_data->size = q_size;
+	mem_data->buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
+	mem_data->mapping_info.cb_info = cb;
+
 	if (!is_iommu_present(dev->res))
 		fw_bias = dev->hal_data->firmware_base;
-	/* Allocate dsp queues from ADSP heap_id */
-	flags |= SMEM_ADSP;
-	rc = __smem_alloc(dev, mem_addr, q_size, 1, flags,
-			HAL_BUFFER_INTERNAL_CMD_QUEUE);
-	if (rc) {
-		dprintk(VIDC_ERR, "dsp iface_q_table_alloc_fail\n");
-		goto fail_alloc_queue;
-	}
 
-	dev->dsp_iface_q_table.mem_data = mem_addr->mem_data;
-	dev->dsp_iface_q_table.align_virtual_addr =
-			mem_addr->align_virtual_addr;
-	dev->dsp_iface_q_table.align_device_addr =
-			mem_addr->align_device_addr - fw_bias;
+	dev->dsp_iface_q_table.align_virtual_addr = kvaddr;
+	dev->dsp_iface_q_table.align_device_addr = iova - fw_bias;
 	dev->dsp_iface_q_table.mem_size = VIDC_IFACEQ_TABLE_SIZE;
 	offset = dev->dsp_iface_q_table.mem_size;
 
 	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
 		iface_q = &dev->dsp_iface_queues[i];
-		iface_q->q_array.align_device_addr =
-			mem_addr->align_device_addr + offset - fw_bias;
-		iface_q->q_array.align_virtual_addr =
-			mem_addr->align_virtual_addr + offset;
+		iface_q->q_array.align_device_addr = iova + offset - fw_bias;
+		iface_q->q_array.align_virtual_addr = kvaddr + offset;
 		iface_q->q_array.mem_size = VIDC_IFACEQ_QUEUE_SIZE;
 		offset += iface_q->q_array.mem_size;
 		iface_q->q_hdr = VIDC_IFACEQ_GET_QHDR_START_ADDR(
@@ -1476,9 +1511,12 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 	 * need of interrupt from video hardware for debug messages
 	 */
 	q_hdr->qhdr_rx_req = 0;
-
-fail_alloc_queue:
 	return rc;
+
+fail_dma_map:
+	dma_free_coherent(dev->res->mem_adsp.dev, q_size, kvaddr, dma_handle);
+fail_dma_alloc:
+	return -ENOMEM;
 }
 
 static void __interface_queues_release(struct venus_hfi_device *device)

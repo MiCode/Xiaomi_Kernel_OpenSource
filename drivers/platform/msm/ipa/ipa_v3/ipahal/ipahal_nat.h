@@ -53,6 +53,18 @@ int ipahal_nat_is_entry_zeroed(enum ipahal_nat_type nat_type, void *entry,
 	bool *entry_zeroed);
 
 /*
+ * ipahal_nat_is_entry_valid() - Determines whether HW NAT entry is
+ *                                valid.
+ *  Validity criterium depends on entry type. E.g. for NAT base table
+ *   Entry need to be with valid protocol and enabled.
+ * @nat_type: [in] The type of the NAT entry
+ * @entry: [in] The NAT entry
+ * @entry_valid: [out] True if the received entry is valid
+ */
+int ipahal_nat_is_entry_valid(enum ipahal_nat_type nat_type, void *entry,
+	bool *entry_valid);
+
+/*
  * ipahal_nat_stringify_entry() - Creates a string for HW NAT entry
  * @nat_type: [in] The type of the NAT entry
  * @entry: [in] The NAT entry

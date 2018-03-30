@@ -44,6 +44,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
+#include <linux/crc8.h>
 #include <linux/pm_wakeup.h>
 #include <linux/compiler.h>
 #include <linux/ipc_logging.h>
@@ -88,6 +89,7 @@
 #define PCIE20_PARF_BDF_TRANSLATE_CFG	0x24C
 #define PCIE20_PARF_BDF_TRANSLATE_N	0x250
 #define PCIE20_PARF_DEVICE_TYPE		0x1000
+#define PCIE20_PARF_BDF_TO_SID_TABLE_N	0x2000
 
 #define PCIE20_ELBI_VERSION		0x00
 #define PCIE20_ELBI_SYS_CTRL	     0x04
@@ -170,6 +172,8 @@
 #define LINKDOWN_WAITING_US_MIN	   4900
 #define LINKDOWN_WAITING_US_MAX	   5100
 #define LINKDOWN_WAITING_COUNT	    200
+
+#define MSM_PCIE_CRC8_POLYNOMIAL (BIT(2) | BIT(1) | BIT(0))
 
 #define GEN1_SPEED 0x1
 #define GEN2_SPEED 0x2
@@ -497,6 +501,16 @@ struct msm_pcie_phy_info_t {
 	u32	delay;
 };
 
+/* sid info structure */
+struct msm_pcie_sid_info_t {
+	u16	bdf;
+	u8	pcie_sid;
+	u8	hash;
+	u8	next_hash;
+	u32	smmu_sid;
+	u32	value;
+};
+
 /* PCIe device info structure */
 struct msm_pcie_device_info {
 	u32			bdf;
@@ -618,6 +632,8 @@ struct msm_pcie_dev_t {
 	bool				pending_ep_reg;
 	u32				phy_len;
 	struct msm_pcie_phy_info_t	*phy_sequence;
+	u32				sid_info_len;
+	struct msm_pcie_sid_info_t	*sid_info;
 	u32		ep_shadow[MAX_DEVICE_NUM][PCIE_CONF_SPACE_DW];
 	u32				  rc_shadow[PCIE_CONF_SPACE_DW];
 	bool				 shadow_en;
@@ -692,6 +708,9 @@ static u32 wr_offset;
 static u32 wr_mask;
 static u32 wr_value;
 static u32 corr_counter_limit = 5;
+
+/* CRC8 table for BDF to SID translation */
+static u8 msm_pcie_crc8_table[CRC8_TABLE_SIZE];
 
 /* Table to track info of PCIe devices */
 static struct msm_pcie_device_info
@@ -867,6 +886,7 @@ static const struct msm_pcie_irq_info_t msm_pcie_msi_info[MSM_PCIE_MAX_MSI] = {
 	{"msi_28", 0}, {"msi_29", 0}, {"msi_30", 0}, {"msi_31", 0}
 };
 
+static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev);
 static int msm_pcie_config_device(struct pci_dev *dev, void *pdev);
 static int msm_pcie_config_l0s_disable(struct pci_dev *dev, void *pdev);
 static int msm_pcie_config_l0s_enable(struct pci_dev *dev, void *pdev);
@@ -3451,6 +3471,50 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 			dev->rc_idx);
 	}
 
+	size = 0;
+	of_get_property(pdev->dev.of_node, "iommu-map", &size);
+	if (size) {
+		/* iommu map structure */
+		struct {
+			u32 bdf;
+			u32 phandle;
+			u32 smmu_sid;
+			u32 smmu_sid_len;
+		} *map;
+		u32 map_len = size / (sizeof(*map));
+		int i;
+
+		map = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+		if (!map) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		of_property_read_u32_array(pdev->dev.of_node,
+			"iommu-map", (u32 *)map, size / sizeof(u32));
+
+		dev->sid_info_len = map_len;
+		dev->sid_info = devm_kzalloc(&pdev->dev,
+			dev->sid_info_len * sizeof(*dev->sid_info), GFP_KERNEL);
+		if (!dev->sid_info) {
+			devm_kfree(&pdev->dev, map);
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		for (i = 0; i < dev->sid_info_len; i++) {
+			dev->sid_info[i].bdf = map[i].bdf;
+			dev->sid_info[i].smmu_sid = map[i].smmu_sid;
+			dev->sid_info[i].pcie_sid = dev->sid_info[i].smmu_sid -
+				dev->smmu_sid_base;
+		}
+
+		devm_kfree(&pdev->dev, map);
+	} else {
+		PCIE_DBG(dev, "RC%d: iommu-map is not present in DT. ret: %d\n",
+			dev->rc_idx, ret);
+	}
+
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
 		clk_info = &dev->clk[i];
 
@@ -3918,6 +3982,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			msleep(dev->switch_latency);
 	}
 
+	msm_pcie_config_sid(dev);
 	msm_pcie_config_controller(dev);
 
 	/* check endpoint configuration space is accessible */
@@ -4181,40 +4246,74 @@ static int msm_pcie_config_device_table(struct device *dev, void *pdev)
 	return ret;
 }
 
-static void msm_pcie_configure_sid(struct msm_pcie_dev_t *pcie_dev,
-				struct pci_dev *dev)
+static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
 {
-	u32 offset;
-	u32 sid;
-	u32 bdf;
-	int ret;
+	void __iomem *bdf_to_sid_base = dev->parf +
+		PCIE20_PARF_BDF_TO_SID_TABLE_N;
+	int i;
 
-	ret = iommu_fwspec_get_id(&dev->dev, &sid);
-	if (ret) {
-		PCIE_DBG(pcie_dev,
-			"PCIe: RC%d: Device does not have a SID\n",
-			pcie_dev->rc_idx);
+	if (!dev->sid_info)
+		return;
+
+	/* Registers need to be zero out first */
+	memset_io(bdf_to_sid_base, 0, CRC8_TABLE_SIZE * sizeof(u32));
+
+	if (dev->enumerated) {
+		for (i = 0; i < dev->sid_info_len; i++)
+			writel_relaxed(dev->sid_info[i].value,
+				bdf_to_sid_base + dev->sid_info[i].hash *
+				sizeof(u32));
 		return;
 	}
 
-	PCIE_DBG(pcie_dev,
-		"PCIe: RC%d: Device SID: 0x%x\n",
-		pcie_dev->rc_idx, sid);
+	/* initial setup for boot */
+	for (i = 0; i < dev->sid_info_len; i++) {
+		struct msm_pcie_sid_info_t *sid_info = &dev->sid_info[i];
+		u32 val;
+		u8 hash;
+		u16 bdf_be = cpu_to_be16(sid_info->bdf);
 
-	bdf = BDF_OFFSET(dev->bus->number, dev->devfn);
-	offset = (sid - pcie_dev->smmu_sid_base) * 4;
+		hash = crc8(msm_pcie_crc8_table, (u8 *)&bdf_be, sizeof(bdf_be),
+			0);
 
-	if (offset >= MAX_SHORT_BDF_NUM * 4) {
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d: Invalid SID offset: 0x%x. Should be less than 0x%x\n",
-			pcie_dev->rc_idx, offset, MAX_SHORT_BDF_NUM * 4);
-		return;
+		val = readl_relaxed(bdf_to_sid_base + hash * sizeof(u32));
+
+		/* if there is a collision, look for next available entry */
+		while (val) {
+			u8 current_hash = hash++;
+			u8 next_mask = 0xff;
+
+			/* if NEXT is NULL then update current entry */
+			if (!(val & next_mask)) {
+				int j;
+
+				val |= (u32)hash;
+				writel_relaxed(val, bdf_to_sid_base +
+					current_hash * sizeof(u32));
+
+				/* sid_info of current hash and update it */
+				for (j = 0; j < dev->sid_info_len; j++) {
+					if (dev->sid_info[j].hash !=
+						current_hash)
+						continue;
+
+					dev->sid_info[j].next_hash = hash;
+					dev->sid_info[j].value = val;
+					break;
+				}
+			}
+
+			val = readl_relaxed(bdf_to_sid_base +
+				hash * sizeof(u32));
+		}
+
+		/* BDF [31:16] | SID [15:8] | NEXT [7:0] */
+		val = sid_info->bdf << 16 | sid_info->pcie_sid << 8 | 0;
+		writel_relaxed(val, bdf_to_sid_base + hash * sizeof(u32));
+
+		sid_info->hash = hash;
+		sid_info->value = val;
 	}
-
-	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_BDF_TRANSLATE_CFG, 0);
-	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_SID_OFFSET, 0);
-	msm_pcie_write_reg(pcie_dev->parf,
-		PCIE20_PARF_BDF_TRANSLATE_N + offset, bdf >> 16);
 }
 
 int msm_pcie_enumerate(u32 rc_idx)
@@ -5573,8 +5672,6 @@ static int msm_pcie_config_device(struct pci_dev *dev, void *pdev)
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: configure PCI device %02x:%02x.%01x\n",
 		pcie_dev->rc_idx, busnr, slot, func);
 
-	msm_pcie_configure_sid(pcie_dev, dev);
-
 	if (!pci_is_root_bus(dev->bus))
 		msm_pcie_config_link_pm(pcie_dev, dev, true);
 
@@ -6151,6 +6248,8 @@ static int __init pcie_init(void)
 		msm_pcie_dev_tbl[i].event_reg = NULL;
 		msm_pcie_dev_tbl[i].registered = true;
 	}
+
+	crc8_populate_msb(msm_pcie_crc8_table, MSM_PCIE_CRC8_POLYNOMIAL);
 
 	msm_pcie_debugfs_init();
 

@@ -1010,13 +1010,25 @@ int smblib_vconn_regulator_enable(struct regulator_dev *rdev)
 {
 	struct smb_charger *chg = rdev_get_drvdata(rdev);
 	int rc = 0;
+	u8 stat, orientation;
 
 	smblib_dbg(chg, PR_OTG, "enabling VCONN\n");
 
-	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
-				 VCONN_EN_VALUE_BIT, VCONN_EN_VALUE_BIT);
+	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't enable vconn setting rc=%d\n", rc);
+		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
+		return rc;
+	}
+
+	/* VCONN orientation is opposite to that of CC */
+	orientation =
+		stat & TYPEC_CCOUT_VALUE_BIT ? 0 : VCONN_EN_ORIENTATION_BIT;
+	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
+				VCONN_EN_VALUE_BIT | VCONN_EN_ORIENTATION_BIT,
+				VCONN_EN_VALUE_BIT | orientation);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_CCOUT_CONTROL_REG rc=%d\n",
+			rc);
 		return rc;
 	}
 
@@ -3027,37 +3039,12 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 		smblib_err(chg, "Couldn't write float charger options rc=%d\n",
 			rc);
 
-	/* reset back to 103mS tCC debounce */
-	rc = smblib_masked_write(chg, TYPE_C_DEBOUNCE_OPTION_REG,
-					REDUCE_TCCDEBOUNCE_TO_2MS_BIT, 0);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't set 120mS tCC debounce rc=%d\n", rc);
-
 	/* reconfigure allowed voltage for HVDCP */
 	rc = smblib_set_adapter_allowance(chg,
 			USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
 			rc);
-
-	/* enable DRP */
-	rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
-				 TYPEC_POWER_ROLE_CMD_MASK, 0);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't enable DRP rc=%d\n", rc);
-
-	/* HW controlled CC_OUT */
-	rc = smblib_masked_write(chg, TYPE_C_CCOUT_CONTROL_REG,
-				TYPEC_CCOUT_SRC_BIT, 0);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't enable HW cc_out rc=%d\n", rc);
-
-
-	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
-				 VCONN_EN_SRC_BIT, 0);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't set TYPE_C_VCONN_CONTROL_REG rc=%d\n",
-				rc);
 
 	/* clear exit sink based on cc */
 	rc = smblib_masked_write(chg, TYPE_C_EXIT_STATE_CFG_REG,
@@ -3366,19 +3353,55 @@ int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
 	int rc;
+	u8 stat, orientation;
 
 	chg->pr_swap_in_progress = val->intval;
 
-	/*
-	 * call the cc changed irq to handle real removals while
-	 * PR_SWAP was in progress
-	 */
-	smblib_usb_typec_change(chg);
 	rc = smblib_masked_write(chg, TYPE_C_DEBOUNCE_OPTION_REG,
 			REDUCE_TCCDEBOUNCE_TO_2MS_BIT,
 			val->intval ? REDUCE_TCCDEBOUNCE_TO_2MS_BIT : 0);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't set tCC debounce rc=%d\n", rc);
+
+	rc = smblib_masked_write(chg, TYPE_C_EXIT_STATE_CFG_REG,
+			BYPASS_VSAFE0V_DURING_ROLE_SWAP_BIT,
+			val->intval ? BYPASS_VSAFE0V_DURING_ROLE_SWAP_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't set exit state cfg rc=%d\n", rc);
+
+	if (chg->pr_swap_in_progress) {
+		rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n",
+				rc);
+		}
+
+		orientation =
+			stat & CC_ORIENTATION_BIT ? TYPEC_CCOUT_VALUE_BIT : 0;
+		rc = smblib_masked_write(chg, TYPE_C_CCOUT_CONTROL_REG,
+			TYPEC_CCOUT_SRC_BIT | TYPEC_CCOUT_BUFFER_EN_BIT
+					| TYPEC_CCOUT_VALUE_BIT,
+			TYPEC_CCOUT_SRC_BIT | TYPEC_CCOUT_BUFFER_EN_BIT
+					| orientation);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read TYPE_C_CCOUT_CONTROL_REG rc=%d\n",
+				rc);
+		}
+	} else {
+		rc = smblib_masked_write(chg, TYPE_C_CCOUT_CONTROL_REG,
+			TYPEC_CCOUT_SRC_BIT, 0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read TYPE_C_CCOUT_CONTROL_REG rc=%d\n",
+				rc);
+		}
+
+		/* enable DRP */
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				 TYPEC_POWER_ROLE_CMD_MASK, 0);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't enable DRP rc=%d\n", rc);
+	}
+
 	return 0;
 }
 

@@ -502,6 +502,19 @@ static inline int sde_crtc_get_mixer_height(struct sde_crtc *sde_crtc,
 }
 
 /**
+ * sde_crtc_get_rotator_op_mode - get the rotator op mode from the crtc state
+ * @crtc: Pointer to drm crtc object
+ */
+static inline enum sde_ctl_rot_op_mode sde_crtc_get_rotator_op_mode(
+		struct drm_crtc *crtc)
+{
+	if (!crtc || !crtc->state)
+		return SDE_CTL_ROT_OP_MODE_OFFLINE;
+
+	return to_sde_crtc_state(crtc->state)->sbuf_cfg.rot_op_mode;
+}
+
+/**
  * sde_crtc_frame_pending - retun the number of pending frames
  * @crtc: Pointer to drm crtc object
  */

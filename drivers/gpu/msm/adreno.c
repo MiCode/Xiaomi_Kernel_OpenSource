@@ -108,13 +108,13 @@ static struct adreno_device device_3d0 = {
 	.input_work = __WORK_INITIALIZER(device_3d0.input_work,
 		adreno_input_work),
 	.pwrctrl_flag = BIT(ADRENO_SPTP_PC_CTRL) | BIT(ADRENO_PPD_CTRL) |
-		BIT(ADRENO_LM_CTRL) | BIT(ADRENO_HWCG_CTRL) |
+		BIT(ADRENO_LM_CTRL) |
 		BIT(ADRENO_THROTTLING_CTRL),
 	.profile.enabled = false,
 	.active_list = LIST_HEAD_INIT(device_3d0.active_list),
 	.active_list_lock = __SPIN_LOCK_UNLOCKED(device_3d0.active_list_lock),
-	.gpu_llc_slice_enable = true,
-	.gpuhtw_llc_slice_enable = true,
+	.gpu_llc_slice_enable = false,
+	.gpuhtw_llc_slice_enable = false,
 	.preempt = {
 		.preempt_level = 1,
 		.skipsaverestore = 1,
@@ -913,6 +913,18 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct device_node *child;
+	int ret;
+
+	/* ADD the GPU OPP table if we define it */
+	if (of_find_property(device->pdev->dev.of_node,
+			"operating-points-v2", NULL)) {
+		ret = dev_pm_opp_of_add_table(&device->pdev->dev);
+		if (ret) {
+			KGSL_CORE_ERR("Unable to set the GPU OPP table: %d\n",
+					ret);
+			return ret;
+		}
+	}
 
 	pwr->num_pwrlevels = 0;
 
@@ -1082,6 +1094,8 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	if (of_property_read_u32(node, "qcom,idle-timeout", &timeout))
 		timeout = 80;
 
+	/* Force disable slumber */
+	timeout = 10000000;
 	device->pwrctrl.interval_timeout = msecs_to_jiffies(timeout);
 
 	device->pwrctrl.bus_control = of_property_read_bool(node,
@@ -1279,28 +1293,8 @@ static int adreno_probe(struct platform_device *pdev)
 
 	adreno_sysfs_init(adreno_dev);
 
-	kgsl_pwrscale_init(&pdev->dev, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
-
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
-
-	/* Get the system cache slice descriptor for GPU */
-	adreno_dev->gpu_llc_slice = adreno_llc_getd(&pdev->dev, "gpu");
-	if (IS_ERR(adreno_dev->gpu_llc_slice)) {
-		KGSL_DRV_WARN(device,
-			"Failed to get GPU LLC slice descriptor (%ld)\n",
-			PTR_ERR(adreno_dev->gpu_llc_slice));
-		adreno_dev->gpu_llc_slice = NULL;
-	}
-
-	/* Get the system cache slice descriptor for GPU pagetables */
-	adreno_dev->gpuhtw_llc_slice = adreno_llc_getd(&pdev->dev, "gpuhtw");
-	if (IS_ERR(adreno_dev->gpuhtw_llc_slice)) {
-		KGSL_DRV_WARN(device,
-			"Failed to get gpuhtw LLC slice descriptor (%ld)\n",
-			PTR_ERR(adreno_dev->gpuhtw_llc_slice));
-		adreno_dev->gpuhtw_llc_slice = NULL;
-	}
 
 #ifdef CONFIG_INPUT
 	if (!device->pwrctrl.input_disable) {
@@ -1884,14 +1878,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	/* Start the GPU */
 	gpudev->start(adreno_dev);
-
-	/*
-	 * The system cache control registers
-	 * live on the CX rail. Hence need
-	 * reprogramming everytime the GPU
-	 * comes out of power collapse.
-	 */
-	adreno_llc_setup(device);
 
 	/* Re-initialize the coresight registers if applicable */
 	adreno_coresight_start(adreno_dev);

@@ -14,10 +14,13 @@
 
 #define pr_fmt(fmt)	"[drm-dp-mst]: %s: " fmt, __func__
 
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/errno.h>
+
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_crtc.h>
-#include <drm/drm_dp_mst_helper.h>
 #include <drm/drm_dp_mst_helper.h>
 
 #include "msm_drv.h"
@@ -30,6 +33,50 @@
 #define MAX_DP_MST_STREAMS		2
 #define MAX_DP_MST_DRM_ENCODERS		2
 #define MAX_DP_MST_DRM_BRIDGES		2
+#define DP_MST_SIM_MAX_PORTS    2
+
+struct dp_drm_mst_fw_helper_ops {
+	int (*calc_pbn_mode)(int clock, int bpp);
+	int (*find_vcpi_slots)(struct drm_dp_mst_topology_mgr *mgr, int pbn);
+	bool (*allocate_vcpi)(struct drm_dp_mst_topology_mgr *mgr,
+			      struct drm_dp_mst_port *port,
+			      int pbn, int slots);
+	int (*update_payload_part1)(struct drm_dp_mst_topology_mgr *mgr);
+	int (*check_act_status)(struct drm_dp_mst_topology_mgr *mgr);
+	int (*update_payload_part2)(struct drm_dp_mst_topology_mgr *mgr);
+	enum drm_connector_status (*detect_port)(
+		struct drm_connector *connector,
+		struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port);
+	struct edid *(*get_edid)(struct drm_connector *connector,
+		struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port);
+	int (*topology_mgr_set_mst)(struct drm_dp_mst_topology_mgr *mgr,
+		bool mst_state);
+	int (*atomic_release_vcpi_slots)(struct drm_atomic_state *state,
+				     struct drm_dp_mst_topology_mgr *mgr,
+				     int slots);
+	int (*get_ch_start_slot)(struct drm_dp_mst_topology_mgr *mgr,
+			struct drm_dp_mst_port *port, int channel_id);
+};
+
+struct dp_mst_sim_port {
+	struct drm_dp_mst_port port;
+	int port_id;
+	int slots;
+	int start_slot;
+	struct drm_connector *connector;
+	struct edid *edid;
+};
+
+struct dp_mst_sim_mode {
+	bool mst_state;
+	struct dp_mst_sim_port sim_port[DP_MST_SIM_MAX_PORTS];
+	struct edid *edid;
+	struct work_struct probe_work;
+	struct work_struct conn_destroy_work;
+	const struct drm_dp_mst_topology_cbs *cbs;
+};
 
 struct dp_mst_bridge {
 	struct drm_bridge base;
@@ -52,16 +99,190 @@ struct dp_mst_bridge {
 };
 
 struct dp_mst_private {
-	bool state;
+	bool mst_initialized;
 	struct dp_mst_caps caps;
 	struct drm_dp_mst_topology_mgr mst_mgr;
 	struct dp_mst_bridge mst_bridge[MAX_DP_MST_DRM_BRIDGES];
 	struct dp_display *dp_display;
+	const struct dp_drm_mst_fw_helper_ops *mst_fw_cbs;
+	struct dp_mst_sim_mode simulator;
 };
 
 #define to_dp_mst_bridge(x)     container_of((x), struct dp_mst_bridge, base)
 
 struct dp_mst_private dp_mst;
+
+/* DRM DP MST Framework simulator OPs */
+
+static void drm_dp_mst_sim_link_probe_work(struct work_struct *work)
+{
+	struct dp_mst_sim_mode *sim;
+	struct dp_mst_private *mst;
+	u8 cnt;
+	char pathprop[] = "0.1";
+
+	DP_MST_DEBUG("enter\n");
+
+	sim = container_of(work, struct dp_mst_sim_mode, probe_work);
+	mst = container_of(sim, struct dp_mst_private, simulator);
+
+	for (cnt = 0; cnt < DP_MST_SIM_MAX_PORTS; cnt++) {
+		sim->sim_port[cnt].port_id = cnt;
+
+		sim->sim_port[cnt].connector = sim->cbs->add_connector(
+				&mst->mst_mgr,
+				&sim->sim_port[cnt].port,
+				pathprop);
+
+		sim->cbs->register_connector(sim->sim_port[cnt].connector);
+	}
+	DP_MST_DEBUG("completed\n");
+}
+
+static void drm_dp_mst_sim_conn_destroy_work(struct work_struct *work)
+{
+	struct dp_mst_sim_mode *sim;
+	struct dp_mst_private *mst;
+	u8 cnt;
+
+	DP_MST_DEBUG("enter\n");
+
+	sim = container_of(work, struct dp_mst_sim_mode, conn_destroy_work);
+	mst = container_of(sim, struct dp_mst_private, simulator);
+
+	for (cnt = 0; cnt < DP_MST_SIM_MAX_PORTS; cnt++) {
+		sim->cbs->destroy_connector(&mst->mst_mgr,
+				sim->sim_port[cnt].connector);
+	}
+
+	DP_MST_DEBUG("completed\n");
+}
+
+static int drm_dp_sim_find_vcpi_slots(struct drm_dp_mst_topology_mgr *mgr,
+			   int pbn)
+{
+	return 7;
+}
+
+static bool drm_dp_sim_mst_allocate_vcpi(struct drm_dp_mst_topology_mgr *mgr,
+			      struct drm_dp_mst_port *port, int pbn, int slots)
+{
+	return true;
+}
+
+static int drm_dp_sim_atomic_release_vcpi_slots(struct drm_atomic_state *state,
+				     struct drm_dp_mst_topology_mgr *mgr,
+				     int slots)
+{
+	return 0;
+}
+
+static int drm_dp_sim_update_payload_part1(struct drm_dp_mst_topology_mgr *mgr)
+{
+	return 0;
+}
+
+static int drm_dp_sim_check_act_status(struct drm_dp_mst_topology_mgr *mgr)
+{
+	return 0;
+}
+
+static int drm_dp_sim_update_payload_part2(struct drm_dp_mst_topology_mgr *mgr)
+{
+	return 0;
+}
+
+static enum drm_connector_status drm_dp_sim_mst_detect_port(
+		struct drm_connector *connector,
+		struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port)
+{
+	return connector_status_connected;
+}
+
+static struct edid *drm_dp_sim_mst_get_edid(struct drm_connector *connector,
+		struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port)
+{
+	struct dp_mst_private *mst = container_of(mgr,
+			struct dp_mst_private, mst_mgr);
+	struct dp_mst_sim_port *sim_port = container_of(port,
+						struct dp_mst_sim_port, port);
+
+	sim_port->edid = drm_edid_duplicate(mst->simulator.edid);
+
+	return sim_port->edid;
+}
+
+static int drm_dp_sim_mst_topology_mgr_set_mst(
+		struct drm_dp_mst_topology_mgr *mgr,
+		bool mst_state)
+{
+	struct dp_mst_private *mst = container_of(mgr,
+			struct dp_mst_private, mst_mgr);
+
+	if (mst->simulator.mst_state == mst_state)
+		return 0;
+
+	if (mst_state)
+		queue_work(system_long_wq, &mst->simulator.probe_work);
+	else
+		queue_work(system_long_wq, &mst->simulator.conn_destroy_work);
+
+	mst->simulator.mst_state = mst_state;
+
+	return 0;
+}
+
+static int _drm_dp_sim_mst_get_ch_start_slot(
+		struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port, int channel_id)
+{
+	struct dp_mst_sim_port *sim_port = container_of(port,
+			struct dp_mst_sim_port, port);
+
+	if (sim_port->port_id == 0)
+		return 0;
+
+	if (sim_port->port_id == 1)
+		return 7;
+
+	return 0;
+}
+
+static int _drm_dp_mst_get_ch_start_slot(struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_port *port, int channel_id)
+{
+	return mgr->payloads[channel_id-1].start_slot;
+}
+
+static const struct dp_drm_mst_fw_helper_ops drm_dp_mst_fw_helper_ops = {
+	.calc_pbn_mode             = drm_dp_calc_pbn_mode,
+	.find_vcpi_slots           = drm_dp_find_vcpi_slots,
+	.allocate_vcpi             = drm_dp_mst_allocate_vcpi,
+	.update_payload_part1      = drm_dp_update_payload_part1,
+	.check_act_status          = drm_dp_check_act_status,
+	.update_payload_part2      = drm_dp_update_payload_part2,
+	.detect_port               = drm_dp_mst_detect_port,
+	.get_edid                  = drm_dp_mst_get_edid,
+	.topology_mgr_set_mst      = drm_dp_mst_topology_mgr_set_mst,
+	.get_ch_start_slot         = _drm_dp_mst_get_ch_start_slot,
+	.atomic_release_vcpi_slots = drm_dp_atomic_release_vcpi_slots,
+};
+
+static const struct dp_drm_mst_fw_helper_ops drm_dp_sim_mst_fw_helper_ops = {
+	.calc_pbn_mode             = drm_dp_calc_pbn_mode,
+	.find_vcpi_slots           = drm_dp_sim_find_vcpi_slots,
+	.allocate_vcpi             = drm_dp_sim_mst_allocate_vcpi,
+	.update_payload_part1      = drm_dp_sim_update_payload_part1,
+	.check_act_status          = drm_dp_sim_check_act_status,
+	.update_payload_part2      = drm_dp_sim_update_payload_part2,
+	.detect_port               = drm_dp_sim_mst_detect_port,
+	.get_edid                  = drm_dp_sim_mst_get_edid,
+	.topology_mgr_set_mst      = drm_dp_sim_mst_topology_mgr_set_mst,
+	.get_ch_start_slot         = _drm_dp_sim_mst_get_ch_start_slot,
+	.atomic_release_vcpi_slots = drm_dp_sim_atomic_release_vcpi_slots,
+};
 
 /* DP MST Bridge OPs */
 
@@ -118,7 +339,7 @@ static bool dp_mst_bridge_mode_fixup(struct drm_bridge *drm_bridge,
 	convert_to_dp_mode(mode, &dp_mode, dp);
 	convert_to_drm_mode(&dp_mode, adjusted_mode);
 
-	DP_MST_DEBUG("mst bridge [%d] mode fixup\n", bridge->id);
+	DP_MST_DEBUG("mst bridge [%d] mode:%s fixup\n", bridge->id, mode->name);
 end:
 	return ret;
 }
@@ -133,10 +354,11 @@ static bool _dp_mst_compute_config(struct dp_mst_bridge *dp_bridge)
 
 	bpp = 24;
 
-	mst_pbn = drm_dp_calc_pbn_mode(dp_bridge->drm_mode.crtc_clock, bpp);
+	mst_pbn = mst->mst_fw_cbs->calc_pbn_mode(
+			dp_bridge->drm_mode.crtc_clock, bpp);
 	dp_bridge->pbn = mst_pbn;
 
-	slots = drm_dp_find_vcpi_slots(&mst->mst_mgr, mst_pbn);
+	slots = mst->mst_fw_cbs->find_vcpi_slots(&mst->mst_mgr, mst_pbn);
 	if (slots < 0) {
 		pr_err("mst: failed finding vcpi slots:%d\n", slots);
 		return false;
@@ -162,7 +384,7 @@ static void _dp_mst_bridge_pre_enable_part1(struct dp_mst_bridge *dp_bridge)
 
 	DP_MST_DEBUG("enter\n");
 
-	ret = drm_dp_mst_allocate_vcpi(&mst->mst_mgr,
+	ret = mst->mst_fw_cbs->allocate_vcpi(&mst->mst_mgr,
 				       port,
 				       dp_bridge->pbn,
 				       dp_bridge->slots);
@@ -172,10 +394,12 @@ static void _dp_mst_bridge_pre_enable_part1(struct dp_mst_bridge *dp_bridge)
 		return;
 	}
 
-	ret = drm_dp_update_payload_part1(&mst->mst_mgr);
+	ret = mst->mst_fw_cbs->update_payload_part1(&mst->mst_mgr);
 
 	ch = port->vcpi.vcpi;
-	dp_bridge->start_slot = mst->mst_mgr.payloads[ch-1].start_slot;
+	dp_bridge->start_slot = mst->mst_fw_cbs->get_ch_start_slot(
+					&mst->mst_mgr,
+					port, ch);
 
 	DP_MST_DEBUG("ch %d start-slot %d tot-slots %d, bridge:%d\n", ch,
 		dp_bridge->start_slot,
@@ -193,9 +417,9 @@ static void _dp_mst_bridge_pre_enable_part2(struct dp_mst_bridge *dp_bridge)
 
 	DP_MST_DEBUG("enter\n");
 
-	drm_dp_check_act_status(&mst->mst_mgr);
+	mst->mst_fw_cbs->check_act_status(&mst->mst_mgr);
 
-	drm_dp_update_payload_part2(&mst->mst_mgr);
+	mst->mst_fw_cbs->update_payload_part2(&mst->mst_mgr);
 
 	DP_MST_DEBUG("mst bridge [%d] _pre enable part-2 complete\n",
 			dp_bridge->id);
@@ -420,6 +644,11 @@ int dp_mst_drm_bridge_init(void *data, struct drm_encoder *encoder)
 	struct dp_mst_private *mst = display->dp_mst_prv_info;
 	int i;
 
+	if (!mst || !mst->mst_initialized) {
+		pr_err("mst not initialized\n");
+		return -ENODEV;
+	}
+
 	for (i = 0; i < MAX_DP_MST_DRM_BRIDGES; i++) {
 		if (!mst->mst_bridge[i].in_use) {
 			bridge = &mst->mst_bridge[i];
@@ -476,7 +705,7 @@ dp_mst_connector_detect(struct drm_connector *connector, bool force,
 	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
 	enum drm_connector_status status;
 
-	status = drm_dp_mst_detect_port(connector,
+	status = mst->mst_fw_cbs->detect_port(connector,
 			&mst->mst_mgr,
 			c_conn->mst_port);
 
@@ -493,11 +722,14 @@ static int dp_mst_connector_get_modes(struct drm_connector *connector,
 	struct dp_display *dp_display = display;
 	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
 	struct edid *edid;
-	int rc;
+	int rc = 0;
 
-	edid = drm_dp_mst_get_edid(connector, &mst->mst_mgr, c_conn->mst_port);
-	rc = dp_display->mst_connector_update_edid(dp_display,
-			connector, edid);
+	edid = mst->mst_fw_cbs->get_edid(connector, &mst->mst_mgr,
+			c_conn->mst_port);
+
+	if (edid)
+		rc = dp_display->mst_connector_update_edid(dp_display,
+				connector, edid);
 
 	DP_MST_DEBUG("mst connector get modes. id: %d\n", connector->base.id);
 
@@ -513,8 +745,8 @@ enum drm_mode_status dp_mst_connector_mode_valid(
 
 	status = dp_connector_mode_valid(connector, mode, display);
 
-	DP_MST_DEBUG("mst connector:%d mode valid status:%d\n",
-			connector->base.id, status);
+	DP_MST_DEBUG("mst connector:%d mode:%s valid status:%d\n",
+			connector->base.id, mode->name, status);
 
 	return status;
 }
@@ -635,7 +867,7 @@ static int dp_mst_connector_atomic_check(struct drm_connector *connector,
 
 	slots = bridge->slots;
 	if (drm_atomic_crtc_needs_modeset(crtc_state) && slots > 0) {
-		ret = drm_dp_atomic_release_vcpi_slots(state,
+		ret = mst->mst_fw_cbs->atomic_release_vcpi_slots(state,
 				&mst->mst_mgr, slots);
 		if (ret)
 			pr_err("failed releasing %d vcpi slots:%d\n",
@@ -660,6 +892,15 @@ static int dp_mst_connector_config_hdr(struct drm_connector *connector,
 	return rc;
 }
 
+static void dp_mst_connector_pre_destroy(struct drm_connector *connector,
+		void *display)
+{
+	struct dp_display *dp_display = display;
+
+	DP_MST_DEBUG("enter:\n");
+	dp_display->mst_connector_uninstall(dp_display, connector);
+	DP_MST_DEBUG("exit:\n");
+}
 
 /* DRM MST callbacks */
 
@@ -677,6 +918,7 @@ dp_mst_add_connector(struct drm_dp_mst_topology_mgr *mgr,
 		.atomic_best_encoder = dp_mst_atomic_best_encoder,
 		.atomic_check = dp_mst_connector_atomic_check,
 		.config_hdr = dp_mst_connector_config_hdr,
+		.pre_destroy = dp_mst_connector_pre_destroy,
 	};
 	struct dp_mst_private *dp_mst;
 	struct drm_device *dev;
@@ -746,17 +988,12 @@ static void dp_mst_register_connector(struct drm_connector *connector)
 static void dp_mst_destroy_connector(struct drm_dp_mst_topology_mgr *mgr,
 					   struct drm_connector *connector)
 {
-	struct dp_mst_private *mst = container_of(mgr, struct dp_mst_private,
-							mst_mgr);
-	struct dp_display *dp_display = mst->dp_display;
-
 	DP_MST_DEBUG("enter\n");
 
 	DP_MST_DEBUG("destroy mst connector:%d\n", connector->base.id);
 
-	dp_display->mst_connector_uninstall(dp_display, connector);
-
-	sde_connector_destroy(connector);
+	drm_connector_unregister(connector);
+	drm_connector_unreference(connector);
 }
 
 static void dp_mst_hotplug(struct drm_dp_mst_topology_mgr *mgr)
@@ -764,20 +1001,40 @@ static void dp_mst_hotplug(struct drm_dp_mst_topology_mgr *mgr)
 	struct dp_mst_private *mst = container_of(mgr, struct dp_mst_private,
 							mst_mgr);
 	struct drm_device *dev = mst->dp_display->drm_dev;
+	char event_string[] = "MST_HOTPLUG=1";
+	char *envp[2];
 
-	drm_kms_helper_hotplug_event(dev);
+	envp[0] = event_string;
+	envp[1] = NULL;
+
+	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, envp);
+
 	DP_MST_DEBUG("mst hot plug event\n");
 }
 
 /* DP Driver Callback OPs */
 
-static void dp_mst_display_hpd(void *dp_display, bool hpd_status)
+static void dp_mst_display_hpd(void *dp_display, bool hpd_status,
+		struct dp_mst_hdp_info *info)
 {
 	int rc;
 	struct dp_display *dp = dp_display;
 	struct dp_mst_private *mst = dp->dp_mst_prv_info;
 
-	rc = drm_dp_mst_topology_mgr_set_mst(&mst->mst_mgr, hpd_status);
+	if (!hpd_status)
+		rc = mst->mst_fw_cbs->topology_mgr_set_mst(&mst->mst_mgr,
+				hpd_status);
+
+	if (info && !info->mst_protocol) {
+		mst->simulator.edid = (struct edid *)info->edid;
+		mst->mst_fw_cbs = &drm_dp_sim_mst_fw_helper_ops;
+	} else {
+		mst->mst_fw_cbs = &drm_dp_mst_fw_helper_ops;
+	}
+
+	if (hpd_status)
+		rc = mst->mst_fw_cbs->topology_mgr_set_mst(&mst->mst_mgr,
+				hpd_status);
 
 	DP_MST_DEBUG("mst display hpd:%d, rc:%d\n", hpd_status, rc);
 }
@@ -788,6 +1045,7 @@ static void dp_mst_display_hpd_irq(void *dp_display)
 	struct dp_display *dp = dp_display;
 	struct dp_mst_private *mst = dp->dp_mst_prv_info;
 	u8 esi[14], idx;
+	unsigned int esi_res = DP_SINK_COUNT_ESI + 1;
 	bool handled;
 
 	rc = drm_dp_dpcd_read(mst->caps.drm_aux, DP_SINK_COUNT_ESI,
@@ -801,6 +1059,14 @@ static void dp_mst_display_hpd_irq(void *dp_display)
 		DP_MST_DEBUG("mst irq: esi[%d]: 0x%x\n", idx, esi[idx]);
 
 	rc = drm_dp_mst_hpd_irq(&mst->mst_mgr, esi, &handled);
+
+	/* ack the request */
+	if (handled) {
+		rc = drm_dp_dpcd_write(mst->caps.drm_aux, esi_res, &esi[1], 3);
+
+		if (rc != 3)
+			pr_err("dpcd esi_res failed. rlen=%d\n", rc);
+	}
 
 	DP_MST_DEBUG("mst display hpd_irq handled:%d rc:%d\n", handled, rc);
 }
@@ -818,6 +1084,14 @@ static const struct drm_dp_mst_topology_cbs dp_mst_drm_cbs = {
 	.destroy_connector = dp_mst_destroy_connector,
 	.hotplug = dp_mst_hotplug,
 };
+
+static void drm_dp_sim_mst_init(struct dp_mst_private *mst)
+{
+	INIT_WORK(&mst->simulator.probe_work, drm_dp_mst_sim_link_probe_work);
+	INIT_WORK(&mst->simulator.conn_destroy_work,
+			drm_dp_mst_sim_conn_destroy_work);
+	mst->simulator.cbs = &dp_mst_drm_cbs;
+}
 
 int dp_mst_init(struct dp_display *dp_display)
 {
@@ -847,6 +1121,8 @@ int dp_mst_init(struct dp_display *dp_display)
 		return 0;
 	}
 
+	dp_mst.mst_fw_cbs = &drm_dp_mst_fw_helper_ops;
+
 	memset(&dp_mst.mst_mgr, 0, sizeof(dp_mst.mst_mgr));
 	dp_mst.mst_mgr.cbs = &dp_mst_drm_cbs;
 	conn_base_id = dp_display->base_connector->base.id;
@@ -862,9 +1138,9 @@ int dp_mst_init(struct dp_display *dp_display)
 		return ret;
 	}
 
-	memset(dp_mst.mst_bridge, 0, sizeof(dp_mst.mst_bridge));
+	drm_dp_sim_mst_init(&dp_mst);
 
-	dp_mst.state = true;
+	dp_mst.mst_initialized = true;
 
 	DP_MST_DEBUG("dp drm mst topology manager init completed\n");
 
@@ -882,12 +1158,14 @@ void dp_mst_deinit(struct dp_display *dp_display)
 
 	mst = dp_display->dp_mst_prv_info;
 
-	if (!mst->state)
+	if (!mst->mst_initialized)
 		return;
 
 	dp_display->mst_uninstall(dp_display);
 
 	drm_dp_mst_topology_mgr_destroy(&mst->mst_mgr);
+
+	dp_mst.mst_initialized = false;
 
 	DP_MST_DEBUG("dp drm mst topology manager deinit completed\n");
 }

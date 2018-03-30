@@ -24,6 +24,8 @@
 #include "dp_drm.h"
 #include "dp_debug.h"
 
+#define DP_MST_DEBUG(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
+
 #define to_dp_bridge(x)     container_of((x), struct dp_bridge, base)
 
 void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
@@ -373,14 +375,17 @@ int dp_connector_post_init(struct drm_connector *connector, void *display)
 	dp_display->base_connector = connector;
 	dp_display->bridge->connector = connector;
 
-	if (dp_display->post_init)
-		dp_display->post_init(dp_display);
+	if (dp_display->post_init) {
+		rc = dp_display->post_init(dp_display);
+		if (rc)
+			goto end;
+	}
 
 	sde_conn = to_sde_connector(connector);
 	dp_display->bridge->dp_panel = sde_conn->drv_panel;
 
 	rc = dp_mst_init(dp_display);
-
+end:
 	return rc;
 }
 
@@ -612,8 +617,11 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
-	if (mode->clock > dp_disp->max_pclk_khz)
+	if (mode->clock > dp_disp->max_pclk_khz) {
+		DP_MST_DEBUG("clk:%d, max:%d\n", mode->clock,
+				dp_disp->max_pclk_khz);
 		return MODE_BAD;
+	}
 
 	if (debug->debug_en && (mode->hdisplay != debug->hdisplay ||
 			mode->vdisplay != debug->vdisplay ||

@@ -980,7 +980,6 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	uint64_t gpuaddr;
-	void *zap;
 	int ret = 0;
 
 	gpuaddr = fw->memdesc.gpuaddr;
@@ -988,19 +987,6 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
 				upper_32_bits(gpuaddr));
-
-	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
-		zap = subsystem_get(adreno_dev->gpucore->zap_name);
-
-		/* Return error if the zap shader cannot be loaded */
-		if (IS_ERR_OR_NULL(zap)) {
-			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
-			zap = NULL;
-		} else
-			adreno_dev->zap_loaded = 1;
-	}
-
 	return ret;
 }
 
@@ -1475,8 +1461,10 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 
 	/* Configure registers for idle setting. The setting is cumulative */
 
-	/* Disable GMU WB/RB buffer */
+	/* Disable GMU WB/RB buffer and caches at boot */
 	kgsl_gmu_regwrite(device, A6XX_GMU_SYS_BUS_CONFIG, 0x1);
+	kgsl_gmu_regwrite(device, A6XX_GMU_ICACHE_CONFIG, 0x1);
+	kgsl_gmu_regwrite(device, A6XX_GMU_DCACHE_CONFIG, 0x1);
 
 	kgsl_gmu_regwrite(device,
 		A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,  0x9C40400);
@@ -1591,6 +1579,12 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 		set = BIT(30 - req * 2);
 		check = BIT(31 - req);
 
+		if ((device->gmu.hfi.version & 0x1F) == 0) {
+			/* LEGACY for intermediate oobs */
+			set = BIT(req + 16);
+			check = BIT(req + 16);
+		}
+
 		if (req >= 6) {
 			dev_err(&device->gmu.pdev->dev,
 					"OOB_set(0x%x) invalid\n", set);
@@ -1640,6 +1634,9 @@ static inline void a6xx_oob_clear(struct adreno_device *adreno_dev,
 					"OOB_clear(0x%x) invalid\n", clear);
 			return;
 		}
+		/* LEGACY for intermediate oobs */
+		if ((device->gmu.hfi.version & 0x1F) == 0)
+			clear = BIT(req + 24);
 	} else
 		clear = BIT(req + 24);
 
@@ -2558,36 +2555,6 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	/* Transition from ACTIVE to RESET state */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
 
-	/* Try soft reset first */
-	if (!(fault & ADRENO_IOMMU_PAGE_FAULT)) {
-		int acked;
-
-		/* NMI */
-		kgsl_gmu_regwrite(device, A6XX_GMU_NMI_CONTROL_STATUS, 0);
-		kgsl_gmu_regwrite(device, A6XX_GMU_CM3_CFG, (1 << 9));
-
-		for (i = 0; i < 10; i++) {
-			kgsl_gmu_regread(device,
-					A6XX_GMU_NMI_CONTROL_STATUS, &acked);
-
-			/* NMI FW ACK recevied */
-			if (acked == 0x1)
-				break;
-
-			udelay(100);
-		}
-
-		if (acked) {
-			/* Make sure VBIF/GBIF is cleared before resetting */
-			ret = adreno_vbif_clear_pending_transactions(device);
-
-			if (ret == 0)
-				ret = adreno_soft_reset(device);
-		}
-
-		if (ret)
-			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
-	}
 	if (ret) {
 		/* If soft reset failed/skipped, then pull the power */
 		set_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);

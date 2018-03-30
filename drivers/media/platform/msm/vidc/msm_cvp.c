@@ -538,7 +538,6 @@ int msm_cvp_inst_deinit(struct msm_vidc_inst *inst)
 		}
 		cbuf = list_first_entry(&inst->cvpbufs.list,
 			struct msm_vidc_cvp_buffer, list);
-		list_del(&cbuf->list);
 		mutex_unlock(&inst->cvpbufs.lock);
 
 		print_cvp_buffer(VIDC_ERR, "unregistered", inst, cbuf);
@@ -569,6 +568,9 @@ int msm_cvp_inst_deinit(struct msm_vidc_inst *inst)
 		if (rc)
 			dprintk(VIDC_ERR, "%s: unmap failed\n", __func__);
 
+		mutex_lock(&inst->cvpbufs.lock);
+		list_del(&cbuf->list);
+		mutex_unlock(&inst->cvpbufs.lock);
 		kfree(cbuf);
 		cbuf = NULL;
 	} while (1);

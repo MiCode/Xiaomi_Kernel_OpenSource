@@ -73,7 +73,7 @@ struct dp_display_private {
 	atomic_t aborted;
 
 	struct platform_device *pdev;
-	struct platform_device *aux_switch_pdev;
+	struct device_node *aux_switch_node;
 	struct dentry *root;
 	struct completion notification_comp;
 
@@ -513,6 +513,7 @@ skip_notify:
 static void dp_display_process_mst_hpd_high(struct dp_display_private *dp)
 {
 	bool is_mst_receiver;
+	struct dp_mst_hdp_info info;
 
 	if (dp->parser->has_mst && dp->mst.drm_registered) {
 		DP_MST_DEBUG("mst_hpd_high work\n");
@@ -522,8 +523,11 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp)
 		if (is_mst_receiver && !dp->mst.mst_active) {
 			dp->mst.mst_active = true;
 
+			info.mst_protocol = dp->parser->has_mst_sideband;
+			info.edid = dp->debug->get_edid(dp->debug);
+
 			if (dp->mst.cbs.hpd)
-				dp->mst.cbs.hpd(&dp->dp_display, true);
+				dp->mst.cbs.hpd(&dp->dp_display, true, &info);
 		}
 	}
 
@@ -559,8 +563,6 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 			goto notify;
 	}
 
-	dp_display_process_mst_hpd_high(dp);
-
 	edid = dp->panel->edid_ctrl->edid;
 
 	dp->audio_supported = drm_detect_monitor_audio(edid);
@@ -569,6 +571,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	dp->panel->handle_sink_request(dp->panel);
 
 	dp->dp_display.max_pclk_khz = dp->parser->max_pclk_khz;
+
+	dp_display_process_mst_hpd_high(dp);
 notify:
 	dp_display_send_hpd_notification(dp, true);
 
@@ -613,11 +617,15 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 
 static void dp_display_process_mst_hpd_low(struct dp_display_private *dp)
 {
+	struct dp_mst_hdp_info info = {0};
+
 	if (dp->mst.mst_active) {
 		DP_MST_DEBUG("mst_hpd_low work\n");
 
-		if (dp->mst.cbs.hpd)
-			dp->mst.cbs.hpd(&dp->dp_display, false);
+		if (dp->mst.cbs.hpd) {
+			info.mst_protocol = dp->parser->has_mst_sideband;
+			dp->mst.cbs.hpd(&dp->dp_display, false, &info);
+		}
 
 		dp->mst.mst_active = false;
 	}
@@ -656,7 +664,7 @@ static int dp_display_configure_aux_switch(struct dp_display_private *dp)
 	int rc = 0;
 	enum fsa_function event = FSA_EVENT_MAX;
 
-	if (!dp->aux_switch_pdev) {
+	if (!dp->aux_switch_node) {
 		pr_debug("undefined fsa4480 handle\n");
 		goto end;
 	}
@@ -674,7 +682,7 @@ static int dp_display_configure_aux_switch(struct dp_display_private *dp)
 		goto end;
 	}
 
-	rc = fsa4480_switch_event(dp->aux_switch_pdev->dev.of_node, event);
+	rc = fsa4480_switch_event(dp->aux_switch_node, event);
 	if (rc)
 		pr_err("failed to configure fsa4480 i2c device (%d)\n", rc);
 end:
@@ -1085,7 +1093,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
 				dp->link, dp->aux,
 				&dp->dp_display.base_connector,
-				dp->catalog);
+				dp->catalog, dp->parser);
 
 	if (IS_ERR(dp->debug)) {
 		rc = PTR_ERR(dp->debug);
@@ -1118,7 +1126,7 @@ error:
 	return rc;
 }
 
-static void dp_display_post_init(struct dp_display *dp_display)
+static int dp_display_post_init(struct dp_display *dp_display)
 {
 	int rc = 0;
 	struct dp_display_private *dp;
@@ -1145,6 +1153,7 @@ static void dp_display_post_init(struct dp_display *dp_display)
 	dp_display->post_init = NULL;
 end:
 	pr_debug("%s\n", rc ? "failed" : "success");
+	return rc;
 }
 
 static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
@@ -1211,8 +1220,6 @@ static int dp_display_stream_enable(struct dp_display_private *dp,
 			struct dp_panel *dp_panel)
 {
 	int rc = 0;
-
-	dp_panel->hw_cfg(dp_panel);
 
 	rc = dp->ctrl->stream_on(dp->ctrl, dp_panel);
 
@@ -1517,8 +1524,12 @@ static int dp_display_validate_mode(struct dp_display *dp, void *panel,
 	mode_rate_khz = mode_pclk_khz * mode_bpp;
 	supported_rate_khz = link_info->num_lanes * link_info->rate * 8;
 
-	if (mode_rate_khz > supported_rate_khz)
+	if (mode_rate_khz > supported_rate_khz) {
+		DP_MST_DEBUG("pclk:%d, supported_rate:%d\n",
+				mode_pclk_khz, supported_rate_khz);
+
 		return MODE_BAD;
+	}
 
 	return MODE_OK;
 }
@@ -1593,7 +1604,6 @@ static int dp_display_fsa4480_callback(struct notifier_block *self,
 static int dp_display_init_aux_switch(struct dp_display_private *dp)
 {
 	int rc = 0;
-	struct device_node *pd = NULL;
 	const char *phandle = "qcom,dp-aux-switch";
 	struct notifier_block nb;
 
@@ -1603,29 +1613,23 @@ static int dp_display_init_aux_switch(struct dp_display_private *dp)
 		goto end;
 	}
 
-	pd = of_parse_phandle(dp->pdev->dev.of_node, phandle, 0);
-	if (!pd) {
+	dp->aux_switch_node = of_parse_phandle(dp->pdev->dev.of_node,
+			phandle, 0);
+	if (!dp->aux_switch_node) {
 		pr_warn("cannot parse %s handle\n", phandle);
-		goto end;
-	}
-
-	dp->aux_switch_pdev = of_find_device_by_node(pd);
-	if (!dp->aux_switch_pdev) {
-		pr_err("cannot find %s pdev\n", phandle);
-		rc = -ENODEV;
 		goto end;
 	}
 
 	nb.notifier_call = dp_display_fsa4480_callback;
 	nb.priority = 0;
 
-	rc = fsa4480_reg_notifier(&nb, dp->aux_switch_pdev->dev.of_node);
+	rc = fsa4480_reg_notifier(&nb, dp->aux_switch_node);
 	if (rc) {
 		pr_err("failed to register notifier (%d)\n", rc);
 		goto end;
 	}
 
-	fsa4480_unreg_notifier(&nb, dp->aux_switch_pdev->dev.of_node);
+	fsa4480_unreg_notifier(&nb, dp->aux_switch_node);
 end:
 	return rc;
 }

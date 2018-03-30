@@ -21,6 +21,7 @@
 
 #define FSA4480_SWITCH_SETTINGS 0x04
 #define FSA4480_SWITCH_CONTROL  0x05
+#define FSA4480_SWITCH_STATUS1  0x07
 #define FSA4480_SLOW_L          0x08
 #define FSA4480_SLOW_R          0x09
 #define FSA4480_SLOW_MIC        0x0A
@@ -198,6 +199,20 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 }
 EXPORT_SYMBOL(fsa4480_unreg_notifier);
 
+static int fsa4480_validate_display_port_settings(struct fsa4480_priv *fsa_priv)
+{
+	u32 switch_status = 0;
+
+	regmap_read(fsa_priv->regmap, FSA4480_SWITCH_STATUS1, &switch_status);
+
+	if ((switch_status != 0x23) && (switch_status != 0x1C)) {
+		pr_err("AUX SBU1/2 switch status is invalid = %u\n",
+				switch_status);
+		return -EIO;
+	}
+
+	return 0;
+}
 /*
  * fsa4480_switch_event - configure FSA switch position based on event
  *
@@ -233,11 +248,11 @@ int fsa4480_switch_event(struct device_node *node,
 		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x9F);
 		break;
 	case FSA_USBC_ORIENTATION_CC1:
-		fsa4480_usbc_update_settings(fsa_priv, 0x78, 0xF8);
-		break;
+		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0xE0);
+		return fsa4480_validate_display_port_settings(fsa_priv);
 	case FSA_USBC_ORIENTATION_CC2:
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
-		break;
+		fsa4480_usbc_update_settings(fsa_priv, 0x60, 0xE0);
+		return fsa4480_validate_display_port_settings(fsa_priv);
 	default:
 		break;
 	}

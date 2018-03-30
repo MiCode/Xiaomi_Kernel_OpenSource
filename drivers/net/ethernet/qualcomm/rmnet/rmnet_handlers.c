@@ -144,10 +144,19 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 	}
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_DEAGGREGATION) {
-		while ((skbn = rmnet_map_deaggregate(skb, port)) != NULL)
-			__rmnet_map_ingress_handler(skbn, port);
+		while (skb) {
+			struct sk_buff *skb_frag = skb_shinfo(skb)->frag_list;
 
-		consume_skb(skb);
+			skb_shinfo(skb)->frag_list = NULL;
+
+			while ((skbn = rmnet_map_deaggregate(skb, port))
+			       != NULL)
+				__rmnet_map_ingress_handler(skbn, port);
+
+			consume_skb(skb);
+
+			skb = skb_frag;
+		}
 	} else {
 		__rmnet_map_ingress_handler(skb, port);
 	}

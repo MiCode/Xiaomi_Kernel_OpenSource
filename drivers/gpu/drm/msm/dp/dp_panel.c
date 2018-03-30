@@ -1482,6 +1482,11 @@ static void dp_panel_config_misc(struct dp_panel *dp_panel)
 static bool dp_panel_use_fixed_nvid(struct dp_panel *dp_panel)
 {
 	u8 *dpcd = dp_panel->dpcd;
+	struct sde_connector *c_conn = to_sde_connector(dp_panel->connector);
+
+	/* use fixe mvid and nvid for MST streams */
+	if (c_conn->mst_port)
+		return true;
 
 	/*
 	 * For better interop experience, used a fixed NVID=0x8000

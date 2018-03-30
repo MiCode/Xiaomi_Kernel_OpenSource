@@ -11,7 +11,7 @@
  *
  */
 
-#define pr_fmt(fmt)	"%s: " fmt, __func__
+#define pr_fmt(fmt)	"[dp-pll] %s: " fmt, __func__
 
 #include <linux/kernel.h>
 #include <linux/err.h>
@@ -134,7 +134,7 @@ int dp_mux_set_parent_7nm(void *context, unsigned int reg, unsigned int val)
 	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_VCO_DIV, auxclk_div);
 	/* Make sure the PHY registers writes are done */
 	wmb();
-	pr_debug("%s: mux=%d auxclk_div=%x\n", __func__, val, auxclk_div);
+	pr_debug("mux=%d auxclk_div=%x\n", val, auxclk_div);
 
 	mdss_pll_resource_enable(dp_res, false);
 
@@ -170,7 +170,7 @@ int dp_mux_get_parent_7nm(void *context, unsigned int reg, unsigned int *val)
 
 	mdss_pll_resource_enable(dp_res, false);
 
-	pr_debug("%s: auxclk_div=%d, val=%d\n", __func__, auxclk_div, *val);
+	pr_debug("auxclk_div=%d, val=%d\n", auxclk_div, *val);
 
 	return 0;
 }
@@ -185,18 +185,19 @@ static int dp_vco_pll_init_db_7nm(struct dp_pll_db_7nm *pdb,
 	pdb->lane_cnt = spare_value & 0x0F;
 	pdb->orientation = (spare_value & 0xF0) >> 4;
 
-	pr_debug("%s: spare_value=0x%x, ln_cnt=0x%x, orientation=0x%x\n",
-			__func__, spare_value, pdb->lane_cnt, pdb->orientation);
+	pr_debug("spare_value=0x%x, ln_cnt=0x%x, orientation=0x%x\n",
+			spare_value, pdb->lane_cnt, pdb->orientation);
 
 	pdb->div_frac_start1_mode0 = 0x00;
 	pdb->integloop_gain0_mode0 = 0x3f;
 	pdb->integloop_gain1_mode0 = 0x00;
 	pdb->vco_tune_map = 0x00;
+	pdb->cmn_config = 0x02;
+	pdb->txn_tran_drv_emp_en = 0xf;
 
 	switch (rate) {
 	case DP_VCO_HSCLK_RATE_1620MHZDIV1000:
-		pr_debug("%s: VCO rate: %ld\n", __func__,
-				DP_VCO_RATE_9720MHZDIV1000);
+		pr_debug("VCO rate: %ld\n", DP_VCO_RATE_9720MHZDIV1000);
 		pdb->hsclk_sel = 0x05;
 		pdb->dec_start_mode0 = 0x69;
 		pdb->div_frac_start2_mode0 = 0x80;
@@ -205,12 +206,9 @@ static int dp_vco_pll_init_db_7nm(struct dp_pll_db_7nm *pdb,
 		pdb->lock_cmp2_mode0 = 0x08;
 		pdb->phy_vco_div = 0x1;
 		pdb->lock_cmp_en = 0x04;
-		pdb->cmn_config = 0x42;
-		pdb->txn_tran_drv_emp_en = 0xf;
 		break;
 	case DP_VCO_HSCLK_RATE_2700MHZDIV1000:
-		pr_debug("%s: VCO rate: %ld\n", __func__,
-				DP_VCO_RATE_10800MHZDIV1000);
+		pr_debug("VCO rate: %ld\n", DP_VCO_RATE_10800MHZDIV1000);
 		pdb->hsclk_sel = 0x03;
 		pdb->dec_start_mode0 = 0x69;
 		pdb->div_frac_start2_mode0 = 0x80;
@@ -219,12 +217,9 @@ static int dp_vco_pll_init_db_7nm(struct dp_pll_db_7nm *pdb,
 		pdb->lock_cmp2_mode0 = 0x0e;
 		pdb->phy_vco_div = 0x1;
 		pdb->lock_cmp_en = 0x08;
-		pdb->cmn_config = 0x02;
-		pdb->txn_tran_drv_emp_en = 0xf;
 		break;
 	case DP_VCO_HSCLK_RATE_5400MHZDIV1000:
-		pr_debug("%s: VCO rate: %ld\n", __func__,
-				DP_VCO_RATE_10800MHZDIV1000);
+		pr_debug("VCO rate: %ld\n", DP_VCO_RATE_10800MHZDIV1000);
 		pdb->hsclk_sel = 0x01;
 		pdb->dec_start_mode0 = 0x8c;
 		pdb->div_frac_start2_mode0 = 0x00;
@@ -233,12 +228,9 @@ static int dp_vco_pll_init_db_7nm(struct dp_pll_db_7nm *pdb,
 		pdb->lock_cmp2_mode0 = 0x1c;
 		pdb->phy_vco_div = 0x2;
 		pdb->lock_cmp_en = 0x08;
-		pdb->cmn_config = 0x12;
-		pdb->txn_tran_drv_emp_en = 0xf;
 		break;
 	case DP_VCO_HSCLK_RATE_8100MHZDIV1000:
-		pr_debug("%s: VCO rate: %ld\n", __func__,
-				DP_VCO_RATE_8100MHZDIV1000);
+		pr_debug("VCO rate: %ld\n", DP_VCO_RATE_8100MHZDIV1000);
 		pdb->hsclk_sel = 0x00;
 		pdb->dec_start_mode0 = 0x69;
 		pdb->div_frac_start2_mode0 = 0x80;
@@ -247,8 +239,6 @@ static int dp_vco_pll_init_db_7nm(struct dp_pll_db_7nm *pdb,
 		pdb->lock_cmp2_mode0 = 0x2a;
 		pdb->phy_vco_div = 0x0;
 		pdb->lock_cmp_en = 0x08;
-		pdb->cmn_config = 0x02;
-		pdb->txn_tran_drv_emp_en = 0x3;
 		break;
 	default:
 		pr_err("unsupported rate %ld\n", rate);
@@ -282,7 +272,7 @@ static int dp_config_vco_rate_7nm(struct dp_pll_vco_clk *vco,
 	/* Make sure the PHY register writes are done */
 	wmb();
 
-	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_SVS_MODE_CLK_SEL, 0x01);
+	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_SVS_MODE_CLK_SEL, 0x05);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_SYSCLK_EN_SEL, 0x3b);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_SYS_CLK_CTRL, 0x02);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_CLK_ENABLE1, 0x0c);
@@ -322,12 +312,15 @@ static int dp_config_vco_rate_7nm(struct dp_pll_vco_clk *vco,
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_BG_TIMER, 0x0a);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_CORECLK_DIV_MODE0, 0x0a);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_VCO_TUNE_CTRL, 0x00);
-	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3d);
+	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x1d);
 	MDSS_PLL_REG_W(dp_res->pll_base, QSERDES_COM_CORE_CLK_EN, 0x1f);
 	/* Make sure the PHY register writes are done */
 	wmb();
 
-	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0x5c);
+	if (pdb->orientation == ORIENTATION_CC2)
+		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0x4c);
+	else
+		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0x5c);
 	/* Make sure the PLL register writes are done */
 	wmb();
 
@@ -441,7 +434,7 @@ static int dp_pll_enable_7nm(struct clk_hw *hw)
 		goto lock_err;
 	}
 
-	pr_debug("%s: PLL is locked\n", __func__);
+	pr_debug("PLL is locked\n");
 
 	if (pdb->lane_cnt == 1) {
 		bias_en = 0x3e;
@@ -640,7 +633,7 @@ unsigned long dp_vco_recalc_rate_7nm(struct clk_hw *hw,
 {
 	struct dp_pll_vco_clk *vco;
 	int rc;
-	u32 div, hsclk_div, link_clk_div = 0;
+	u32 hsclk_sel, link_clk_divsel, hsclk_div, link_clk_div = 0;
 	unsigned long vco_rate;
 	struct mdss_pll_resources *dp_res;
 
@@ -658,40 +651,43 @@ unsigned long dp_vco_recalc_rate_7nm(struct clk_hw *hw,
 		return 0;
 	}
 
-	div = MDSS_PLL_REG_R(dp_res->pll_base, QSERDES_COM_HSCLK_SEL);
-	div &= 0x0f;
+	pr_debug("input rates: parent=%lu, vco=%lu\n", parent_rate, vco->rate);
 
-	if (div == 12)
-		hsclk_div = 6; /* Default */
-	else if (div == 4)
-		hsclk_div = 4;
-	else if (div == 0)
+	hsclk_sel = MDSS_PLL_REG_R(dp_res->pll_base, QSERDES_COM_HSCLK_SEL);
+	hsclk_sel &= 0x0f;
+
+	if (hsclk_sel == 5)
+		hsclk_div = 5;
+	else if (hsclk_sel == 3)
+		hsclk_div = 3;
+	else if (hsclk_sel == 1)
 		hsclk_div = 2;
-	else if (div == 3)
+	else if (hsclk_sel == 0)
 		hsclk_div = 1;
 	else {
 		pr_debug("unknown divider. forcing to default\n");
 		hsclk_div = 5;
 	}
 
-	div = MDSS_PLL_REG_R(dp_res->phy_base, DP_PHY_AUX_CFG2);
-	div >>= 2;
+	link_clk_divsel = MDSS_PLL_REG_R(dp_res->phy_base, DP_PHY_AUX_CFG2);
+	link_clk_divsel >>= 2;
+	link_clk_divsel &= 0x3;
 
-	if ((div & 0x3) == 0)
+	if (link_clk_divsel == 0)
 		link_clk_div = 5;
-	else if ((div & 0x3) == 1)
+	else if (link_clk_divsel == 1)
 		link_clk_div = 10;
-	else if ((div & 0x3) == 2)
+	else if (link_clk_divsel == 2)
 		link_clk_div = 20;
 	else
-		pr_err("unsupported div. Phy_mode: %d\n", div);
+		pr_err("unsupported div. Phy_mode: %d\n", link_clk_divsel);
 
 	if (link_clk_div == 20) {
 		vco_rate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
 	} else {
-		if (hsclk_div == 6)
+		if (hsclk_div == 5)
 			vco_rate = DP_VCO_HSCLK_RATE_1620MHZDIV1000;
-		else if (hsclk_div == 4)
+		else if (hsclk_div == 3)
 			vco_rate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
 		else if (hsclk_div == 2)
 			vco_rate = DP_VCO_HSCLK_RATE_5400MHZDIV1000;
@@ -699,7 +695,8 @@ unsigned long dp_vco_recalc_rate_7nm(struct clk_hw *hw,
 			vco_rate = DP_VCO_HSCLK_RATE_8100MHZDIV1000;
 	}
 
-	pr_debug("returning vco rate = %lu\n", vco_rate);
+	pr_debug("hsclk: sel=0x%x, div=0x%x; lclk: sel=%lu, div=%lu, rate=%lu\n",
+		hsclk_sel, hsclk_div, link_clk_divsel, link_clk_div, vco_rate);
 
 	mdss_pll_resource_enable(dp_res, false);
 
@@ -728,7 +725,7 @@ long dp_vco_round_rate_7nm(struct clk_hw *hw, unsigned long rate,
 	else
 		rrate = vco->max_rate;
 
-	pr_debug("%s: rrate=%ld\n", __func__, rrate);
+	pr_debug("rrate=%ld\n", rrate);
 
 	if (parent_rate)
 		*parent_rate = rrate;

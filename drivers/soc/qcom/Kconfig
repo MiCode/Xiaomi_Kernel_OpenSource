@@ -567,8 +567,6 @@ config MSM_PERFORMANCE
 	when requested by the userspace by changing the cpufreq policy
 	fmin and fmax.
 
-endmenu
-
 config QMP_DEBUGFS_CLIENT
 	bool "Debugfs Client to communicate with AOP using QMP protocol"
 	depends on DEBUG_FS
@@ -576,3 +574,4 @@ config QMP_DEBUGFS_CLIENT
 	help
 	  This options enables a driver which allows clients to send messages
 	  to Alway On processor using QMP transport.
+endmenu

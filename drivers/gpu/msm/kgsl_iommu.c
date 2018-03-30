@@ -1551,18 +1551,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	kgsl_setup_qdss_desc(device);
 	kgsl_setup_qtimer_desc(device);
 
-	if (!mmu->secured)
-		goto done;
-
-	mmu->securepagetable = kgsl_mmu_getpagetable(mmu,
-				KGSL_MMU_SECURE_PT);
-	if (IS_ERR(mmu->securepagetable)) {
-		status = PTR_ERR(mmu->securepagetable);
-		mmu->securepagetable = NULL;
-	} else if (mmu->securepagetable == NULL) {
-		status = -ENOMEM;
-	}
-
 done:
 	if (status)
 		kgsl_iommu_close(mmu);
@@ -2576,6 +2564,7 @@ static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
 			return PTR_ERR(ctx->dev);
 	}
 
+	of_dma_configure(ctx->dev, node);
 	return 0;
 }
 

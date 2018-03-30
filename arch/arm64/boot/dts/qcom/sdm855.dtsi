@@ -36,6 +36,7 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
 	aliases {
@@ -58,6 +59,7 @@
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_0>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -96,6 +98,7 @@
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_1>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -128,6 +131,7 @@
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_2>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -160,6 +164,7 @@
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_3>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_3: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -192,6 +197,7 @@
 			cache-size = <0x20000>;
 			next-level-cache = <&L2_4>;
 			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -224,6 +230,7 @@
 			cache-size = <0x20000>;
 			next-level-cache = <&L2_5>;
 			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -256,6 +263,7 @@
 			cache-size = <0x20000>;
 			next-level-cache = <&L2_6>;
 			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -288,6 +296,7 @@
 			cache-size = <0x20000>;
 			next-level-cache = <&L2_7>;
 			sched-energy-costs = <&CPU_COST_2 &CLUSTER_COST_2>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -1400,6 +1409,7 @@
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
 		qcom,signal-aop;
+		qcom,complete-ramdump;
 
 		/* Inputs from mss */
 		interrupts-extended = <&pdc 0 266 1>,
@@ -1562,50 +1572,10 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x9800000 0x800000>;
 
-		clocks = <&clock_npucc NPU_CC_XO_CLK>,
-			<&clock_npucc NPU_CC_ARMWIC_CORE_CLK>,
-			<&clock_npucc NPU_CC_CAL_DP_CLK_SRC>,
-			<&clock_npucc NPU_CC_CAL_DP_CLK>,
-			<&clock_npucc NPU_CC_CAL_DP_CDC_CLK>,
-			<&clock_npucc NPU_CC_SLEEP_CLK>,
-			<&clock_npucc NPU_CC_COMP_NOC_AXI_CLK>,
-			<&clock_npucc NPU_CC_CONF_NOC_AHB_CLK>,
-			<&clock_npucc NPU_CC_NPU_CORE_CLK_SRC>,
-			<&clock_npucc NPU_CC_NPU_CORE_CLK>,
-			<&clock_npucc NPU_CC_NPU_CORE_APB_CLK>,
-			<&clock_npucc NPU_CC_NPU_CORE_ATB_CLK>,
-			<&clock_npucc NPU_CC_NPU_CORE_CTI_CLK>,
-			<&clock_npucc NPU_CC_BWMON_CLK>,
-			<&clock_npucc NPU_CC_QTIMER_CORE_CLK>,
-			<&clock_npucc NPU_CC_BTO_CORE_CLK>;
-
-		clock-names = "xo", "armwic", "cal_dp_src", "cal_dp",
-			"cal_dp_cdc", "sleep", "noc_axi", "noc_ahb",
-			"core_src", "core", "apb", "atb", "cti", "bwmon",
-			"qtimer", "bto";
-
-		qcom,proxy-clock-names = "xo", "armwic", "cal_dp_src", "cal_dp",
-			"cal_dp_cdc", "sleep", "noc_axi", "noc_ahb",
-			"core_src", "core", "apb", "atb", "cti", "bwmon",
-			"qtimer", "bto";
-
-		vdd-supply = <&npu_core_gdsc>;
-		vdd_cx-supply = <&pm855l_s6_level>;
-		qcom,proxy-reg-names ="vdd", "vdd_cx";
-		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-
 		status = "ok";
-
-		qcom,msm-bus,name = "pil-npu";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-			<154 10070 0 0>,
-			<154 10070 0 1>;
-
 		qcom,pas-id = <23>;
-		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "npu";
+
 		memory-region = <&pil_npu_mem>;
 	};
 
@@ -2023,6 +1993,11 @@
 		status = "disabled";
 	};
 
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
+	};
+
 	qcom,msm-adsprpc-mem {
 		compatible = "qcom,msm-adsprpc-mem-region";
 		memory-region = <&adsp_mem>;
@@ -2148,6 +2123,68 @@
 			iommus = <&apps_smmu 0x1b25 0x0>;
 			dma-coherent;
 		};
+	};
+
+	sdhc_2: sdhci@8804000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x8804000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <0 204 0>, <0 222 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		qcom,large-address-bus;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<81 512 0 0>, <1 608 0 0>,
+			/* 400 KB/s*/
+			<81 512 1046 1600>,
+			<1 608 1600 1600>,
+			/* 20 MB/s */
+			<81 512 52286 80000>,
+			<1 608 80000 80000>,
+			/* 25 MB/s */
+			<81 512 65360 100000>,
+			<1 608 100000 100000>,
+			/* 50 MB/s */
+			<81 512 130718 200000>,
+			<1 608 133320 133320>,
+			/* 100 MB/s */
+			<81 512 261438 200000>,
+			<1 608 150000 150000>,
+			/* 200 MB/s */
+			<81 512 261438 400000>,
+			<1 608 300000 300000>,
+			/* Max. bandwidth */
+			<81 512 1338562 4096000>,
+			<1 608 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 4294967295>;
+
+		qcom,restore-after-cx-collapse;
+
+		qcom,clk-rates = <400000 20000000 25000000
+					50000000 100000000 201500000>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
+				      "SDR104";
+
+		qcom,devfreq,freq-table = <50000000 201500000>;
+		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+			<&clock_gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <70 70>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-legacy-latency-us = <70 70>, <70 70>;
+
+		status = "disabled";
 	};
 
 	apps_rsc: mailbox@18220000 {
@@ -3177,3 +3214,4 @@
 #include "sdm855-vidc.dtsi"
 #include "sdm855-thermal.dtsi"
 #include "sdm855-usb.dtsi"
+#include "sdm855-gpu.dtsi"

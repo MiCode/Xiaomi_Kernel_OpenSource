@@ -88,6 +88,8 @@ Optional Properties:
   - qcom,msi-gicm-addr: MSI address for GICv2m.
   - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
+  - iommu-map: For details of iommu-map properties, please refer to:
+    "Documentation/devicetree/bindings/pci/pci-iommu.txt"
   - iommus: the phandle and stream IDs for the SMMU used by this root
     complex. This should be used in separate nodes from the main root
     complex nodes, and is the only property needed in that case.
@@ -275,6 +277,23 @@ Example:
 		qcom,cpl-timeout = <0x2>;
 
 		iommus = <&anoc0_smmu>;
+
+		iommu-map = <0x0 &apps_smmu 0x1d80 0x1>,
+			<0x100 &apps_smmu 0x1d81 0x1>,
+			<0x200 &apps_smmu 0x1d82 0x1>,
+			<0x300 &apps_smmu 0x1d83 0x1>,
+			<0x400 &apps_smmu 0x1d84 0x1>,
+			<0x500 &apps_smmu 0x1d85 0x1>,
+			<0x600 &apps_smmu 0x1d86 0x1>,
+			<0x700 &apps_smmu 0x1d87 0x1>,
+			<0x800 &apps_smmu 0x1d88 0x1>,
+			<0x900 &apps_smmu 0x1d89 0x1>,
+			<0xa00 &apps_smmu 0x1d8a 0x1>,
+			<0xb00 &apps_smmu 0x1d8b 0x1>,
+			<0xc00 &apps_smmu 0x1d8c 0x1>,
+			<0xd00 &apps_smmu 0x1d8d 0x1>,
+			<0xe00 &apps_smmu 0x1d8e 0x1>,
+			<0xf00 &apps_smmu 0x1d8f 0x1>;
 
 		qcom,msm-bus,name = "pcie0";
 		qcom,msm-bus,num-cases = <2>;

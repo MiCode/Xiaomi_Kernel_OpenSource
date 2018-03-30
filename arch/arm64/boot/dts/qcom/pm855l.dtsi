@@ -13,6 +13,7 @@
 
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 
 &spmi_bus {
 	qcom,pm855l@4 {
@@ -72,6 +73,37 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <7>;
+		};
+
+		pm855l_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc5";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x4 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			/* Channel node */
+			ref_gnd {
+				reg = <ADC_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vref_1p25 {
+				reg = <ADC_1P25VREF>;
+				label = "vref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			die_temp {
+				reg = <ADC_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
 		};
 	};
 
@@ -163,6 +195,7 @@
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+				status = "disabled";
 			};
 
 			pm855l_torch0: qcom,torch_0 {
@@ -199,20 +232,28 @@
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+				status = "disabled";
 			};
 
 			pm855l_switch0: qcom,led_switch_0 {
 				label = "switch";
 				qcom,led-name = "led:switch_0";
-				qcom,led-mask = <3>;
+				qcom,led-mask = <1>;
 				qcom,default-led-trigger = "switch0_trigger";
 			};
 
 			pm855l_switch1: qcom,led_switch_1 {
 				label = "switch";
 				qcom,led-name = "led:switch_1";
-				qcom,led-mask = <4>;
+				qcom,led-mask = <2>;
 				qcom,default-led-trigger = "switch1_trigger";
+			};
+
+			pm855l_switch2: qcom,led_switch_2 {
+				label = "switch";
+				qcom,led-name = "led:switch_2";
+				qcom,led-mask = <3>;
+				qcom,default-led-trigger = "switch2_trigger";
 			};
 		};
 

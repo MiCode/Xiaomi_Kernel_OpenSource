@@ -3537,11 +3537,7 @@ static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
 	if (master_ctl && master_ctl->ops.update_bitmask_rot) {
 		master_ctl->ops.update_bitmask_rot(master_ctl, rot_id, 1);
 
-		/* explicitly trigger rotator for async modes */
-		if (cstate->sbuf_cfg.rot_op_mode ==
-				SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
-				master_ctl->ops.trigger_rot_start)
-			master_ctl->ops.trigger_rot_start(master_ctl);
+		/* defer ROT_START trigger until CTL_START */
 		SDE_EVT32(DRMID(crtc), master_ctl->idx - CTL_0,
 				sde_crtc->sbuf_rot_id,
 				sde_crtc->sbuf_rot_id_delta);

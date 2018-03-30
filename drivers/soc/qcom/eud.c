@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,6 +83,7 @@ static const unsigned int eud_extcon_cable[] = {
  * EUD is disabled by default.
  */
 static int enable;
+static bool eud_ready;
 static struct platform_device *eud_private;
 
 static void enable_eud(struct platform_device *pdev)
@@ -157,6 +158,10 @@ static int param_eud_set(const char *val, const struct kernel_param *kp)
 	if (enable != EUD_ENABLE_CMD && enable != EUD_DISABLE_CMD)
 		return -EINVAL;
 
+	*((uint *)kp->arg) = enable;
+	if (!eud_ready)
+		return 0;
+
 	if (enable == EUD_ENABLE_CMD) {
 		pr_debug("%s: Enbling EUD\n", __func__);
 		enable_eud(eud_private);
@@ -165,7 +170,6 @@ static int param_eud_set(const char *val, const struct kernel_param *kp)
 		disable_eud(eud_private);
 	}
 
-	*((uint *)kp->arg) = enable;
 	return 0;
 }
 
@@ -532,6 +536,7 @@ static int msm_eud_probe(struct platform_device *pdev)
 	}
 
 	eud_private = pdev;
+	eud_ready = true;
 
 	/* Enable EUD */
 	if (enable)

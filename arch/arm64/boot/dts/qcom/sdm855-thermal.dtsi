@@ -12,6 +12,28 @@
 
 #include <dt-bindings/thermal/thermal.h>
 
+&clock_cpucc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	lmh_dcvs0: qcom,limits-dcvs@18358800 {
+		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,affinity = <0>;
+		reg = <0x18358800 0x1000>,
+			<0x18323000 0x1000>;
+		#thermal-sensor-cells = <0>;
+	};
+
+	lmh_dcvs1: qcom,limits-dcvs@18350800 {
+		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,affinity = <1>;
+		reg = <0x18350800 0x1000>,
+			<0x18325800 0x1000>;
+		#thermal-sensor-cells = <0>;
+	};
+};
+
 &thermal_zones {
 	aoss0-usr {
 		polling-delay-passive = <0>;
@@ -441,6 +463,36 @@
 				cooling-device =
 					<&CPU7 THERMAL_NO_LIMIT
 						(THERMAL_MAX_LIMIT-1)>;
+			};
+		};
+	};
+
+	lmh-dcvs-01 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&lmh_dcvs1>;
+
+		trips {
+			active-config {
+				temperature = <95000>;
+				hysteresis = <30000>;
+				type = "passive";
+			};
+		};
+	};
+
+	lmh-dcvs-00 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "user_space";
+		thermal-sensors = <&lmh_dcvs0>;
+
+		trips {
+			active-config {
+				temperature = <95000>;
+				hysteresis = <30000>;
+				type = "passive";
 			};
 		};
 	};

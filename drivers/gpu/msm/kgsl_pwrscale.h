@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,7 +144,7 @@ bool kgsl_popp_check(struct kgsl_device *device);
 
 
 #define KGSL_PWRSCALE_INIT(_priv_data) { \
-	.enabled = true, \
+	.enabled = false, \
 	.gpu_profile = { \
 		.private_data = _priv_data, \
 		.profile = { \

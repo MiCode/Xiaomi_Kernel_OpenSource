@@ -519,7 +519,7 @@ static struct clk_hw *msm8916_clks[] = {
 
 static const struct rpm_smd_clk_desc rpm_clk_msm8916 = {
 	.clks = msm8916_clks,
-	.num_rpm_clks = RPM_RF_CLK2_A_PIN,
+	.num_rpm_clks = RPM_SMD_RF_CLK2_A_PIN,
 	.num_clks = ARRAY_SIZE(msm8916_clks),
 };
 
@@ -600,14 +600,11 @@ DEFINE_CLK_SMD_RPM_BRANCH(qcs405, cxo, cxo_a, QCOM_SMD_RPM_MISC_CLK, 0,
 								19200000);
 DEFINE_CLK_SMD_RPM(qcs405, pnoc_clk, pnoc_a_clk, QCOM_SMD_RPM_BUS_CLK, 0);
 DEFINE_CLK_SMD_RPM(qcs405, bimc_clk, bimc_a_clk, QCOM_SMD_RPM_MEM_CLK, 0);
-DEFINE_CLK_SMD_RPM(qcs405, bimc_gpu_clk, bimc_gpu_a_clk,
-						QCOM_SMD_RPM_MEM_CLK, 2);
 DEFINE_CLK_SMD_RPM(qcs405, snoc_clk, snoc_a_clk, QCOM_SMD_RPM_BUS_CLK, 1);
-DEFINE_CLK_SMD_RPM(qcs405, sysmmnoc_clk, sysmmnoc_clk_a_clk,
-						QCOM_SMD_RPM_BUS_CLK, 2);
-DEFINE_CLK_SMD_RPM(qcs405, ipa_clk, ipa_a_clk, QCOM_SMD_RPM_IPA_CLK, 0);
 DEFINE_CLK_SMD_RPM_QDSS(qcs405, qdss_clk, qdss_a_clk,
 						QCOM_SMD_RPM_MISC_CLK, 1);
+DEFINE_CLK_SMD_RPM(qcs405, qpic_clk, qpic_a_clk, QCOM_SMD_RPM_QPIC_CLK, 0);
+DEFINE_CLK_SMD_RPM(qcs405, ce1_clk, ce1_a_clk, QCOM_SMD_RPM_CE_CLK, 0);
 
 /* SMD_XO_BUFFER */
 DEFINE_CLK_SMD_RPM_XO_BUFFER(qcs405, bb_clk1, bb_clk1_a, 1);
@@ -620,12 +617,10 @@ DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(qcs405, bb_clk2_pin, bb_clk2_a_pin, 2);
 /* Voter clocks */
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, pnoc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_clk, snoc_clk, LONG_MAX);
-static DEFINE_CLK_VOTER(sysmmnoc_msmbus_clk, sysmmnoc_clk,  LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_clk, bimc_clk, LONG_MAX);
 
 static DEFINE_CLK_VOTER(pnoc_msmbus_a_clk, pnoc_a_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_a_clk, snoc_a_clk, LONG_MAX);
-static DEFINE_CLK_VOTER(sysmmnoc_msmbus_a_clk, sysmmnoc_a_clk,  LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, bimc_a_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, pnoc_a_clk, LONG_MAX);
 
@@ -640,8 +635,13 @@ static DEFINE_CLK_VOTER(bimc_usb_clk, bimc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_wcnss_a_clk, snoc_a_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_wcnss_a_clk, bimc_a_clk, LONG_MAX);
 
+static DEFINE_CLK_VOTER(mcd_ce1_clk, ce1_clk, 85710000);
+static DEFINE_CLK_VOTER(qcedev_ce1_clk, ce1_clk, 85710000);
+static DEFINE_CLK_VOTER(qcrypto_ce1_clk, ce1_clk, 85710000);
+static DEFINE_CLK_VOTER(qseecom_ce1_clk, ce1_clk, 85710000);
+static DEFINE_CLK_VOTER(scm_ce1_clk, ce1_clk, 85710000);
+
 /* Branch Voter clocks */
-static DEFINE_CLK_BRANCH_VOTER(cxo_gcc, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_lpm_clk, cxo);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_pronto_clk, cxo);
@@ -672,12 +672,8 @@ static struct clk_hw *qcs405_clks[] = {
 	[RPM_SMD_DIV_A_CLK2]		= &qcs405_div_clk2_a.hw,
 	[RPM_SMD_PNOC_CLK]		= &qcs405_pnoc_clk.hw,
 	[RPM_SMD_PNOC_A_CLK]		= &qcs405_pnoc_a_clk.hw,
-	[RPM_SMD_IPA_CLK]		= &qcs405_ipa_clk.hw,
-	[RPM_SMD_IPA_A_CLK]		= &qcs405_ipa_a_clk.hw,
-	[RPM_SMD_BIMC_GPU_CLK]		= &qcs405_bimc_gpu_clk.hw,
-	[RPM_SMD_BIMC_GPU_A_CLK]	= &qcs405_bimc_gpu_a_clk.hw,
-	[RPM_SMD_SYSMMNOC_CLK]		= &qcs405_sysmmnoc_clk.hw,
-	[RPM_SMD_SYSMMNOC_A_CLK]	= &qcs405_sysmmnoc_a_clk.hw,
+	[RPM_SMD_QPIC_CLK]		= &qcs405_qpic_clk.hw,
+	[RPM_SMD_QPIC_A_CLK]		= &qcs405_qpic_a_clk.hw,
 	[PNOC_MSMBUS_CLK]		= &pnoc_msmbus_clk.hw,
 	[PNOC_MSMBUS_A_CLK]		= &pnoc_msmbus_a_clk.hw,
 	[PNOC_KEEPALIVE_A_CLK]		= &pnoc_keepalive_a_clk.hw,
@@ -685,8 +681,6 @@ static struct clk_hw *qcs405_clks[] = {
 	[SNOC_MSMBUS_A_CLK]		= &snoc_msmbus_a_clk.hw,
 	[BIMC_MSMBUS_CLK]		= &bimc_msmbus_clk.hw,
 	[BIMC_MSMBUS_A_CLK]		= &bimc_msmbus_a_clk.hw,
-	[SYSMMNOC_MSMBUS_CLK]		= &sysmmnoc_msmbus_clk.hw,
-	[SYSMMNOC_MSMBUS_A_CLK]		= &sysmmnoc_msmbus_a_clk.hw,
 	[PNOC_USB_CLK]			= &pnoc_usb_clk.hw,
 	[PNOC_USB_A_CLK]		= &pnoc_usb_a_clk.hw,
 	[SNOC_USB_CLK]			= &snoc_usb_clk.hw,
@@ -695,6 +689,11 @@ static struct clk_hw *qcs405_clks[] = {
 	[BIMC_USB_A_CLK]		= &bimc_usb_a_clk.hw,
 	[SNOC_WCNSS_A_CLK]		= &snoc_wcnss_a_clk.hw,
 	[BIMC_WCNSS_A_CLK]		= &bimc_wcnss_a_clk.hw,
+	[MCD_CE1_CLK]			= &mcd_ce1_clk.hw,
+	[QCEDEV_CE1_CLK]		= &qcedev_ce1_clk.hw,
+	[QCRYPTO_CE1_CLK]		= &qcrypto_ce1_clk.hw,
+	[QSEECOM_CE1_CLK]		= &qseecom_ce1_clk.hw,
+	[SCM_CE1_CLK]			= &scm_ce1_clk.hw,
 	[CXO_SMD_OTG_CLK]		= &cxo_otg_clk.hw,
 	[CXO_SMD_LPM_CLK]		= &cxo_otg_clk.hw,
 	[CXO_SMD_PIL_PRONTO_CLK]	= &cxo_pil_pronto_clk.hw,

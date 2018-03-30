@@ -13,6 +13,7 @@
 
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 
 &spmi_bus {
 	qcom,pm855b@2 {
@@ -71,6 +72,61 @@
 			qcom,gpios-disallowed = <3 4 7>;
 		};
 
+		pm855b_vadc: vadc@3100 {
+			compatible = "qcom,spmi-adc5";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x2 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			/* Channel node */
+			ref_gnd {
+				reg = <ADC_REF_GND>;
+				label = "ref_gnd";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			vref_1p25 {
+				reg = <ADC_1P25VREF>;
+				label = "vref_1p25";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			die_temp {
+				reg = <ADC_DIE_TEMP>;
+				label = "die_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			chg_temp {
+				reg = <ADC_CHG_TEMP>;
+				label = "chg_temp";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			v_i_int_ext {
+				reg = <ADC_INT_EXT_ISENSE_VBAT_VDATA>;
+				label = "v_i_int_vbat_vdata";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			v_i_ext {
+				reg = <ADC_EXT_ISENSE_VBAT_VDATA>;
+				label = "v_i_int_ext_vbat_vdata";
+				qcom,pre-scaling = <1 1>;
+			};
+
+			v_i_parallel {
+				reg = <ADC_PARALLEL_ISENSE_VBAT_VDATA>;
+				label = "v_i_parallel_vbat_vdata";
+				qcom,pre-scaling = <1 1>;
+			};
+		};
+
 		pm855b_charger: qcom,qpnp-smb5 {
 			compatible = "qcom,qpnp-smb5";
 			#address-cells = <1>;
@@ -86,7 +142,6 @@
 					<0x2 0x10 0x2 IRQ_TYPE_EDGE_RISING>,
 					<0x2 0x10 0x3 IRQ_TYPE_EDGE_RISING>,
 					<0x2 0x10 0x4 IRQ_TYPE_EDGE_RISING>,
-					<0x2 0x10 0x5 IRQ_TYPE_EDGE_RISING>,
 					<0x2 0x10 0x6 IRQ_TYPE_LEVEL_HIGH>,
 					<0x2 0x10 0x7 IRQ_TYPE_LEVEL_HIGH>;
 
@@ -95,7 +150,6 @@
 						  "step-chg-state-change",
 						  "step-chg-soc-update-fail",
 						  "step-chg-soc-update-req",
-						  "fg-fvcal-qualified",
 						  "vph-alarm",
 						  "vph-drop-prechg";
 			};
@@ -106,7 +160,6 @@
 					<0x2 0x11 0x0 IRQ_TYPE_EDGE_RISING>,
 					<0x2 0x11 0x1 IRQ_TYPE_EDGE_RISING>,
 					<0x2 0x11 0x2 IRQ_TYPE_EDGE_RISING>,
-					<0x2 0x11 0x3 IRQ_TYPE_LEVEL_HIGH>,
 					<0x2 0x11 0x4 IRQ_TYPE_LEVEL_HIGH>,
 					<0x2 0x11 0x5 IRQ_TYPE_LEVEL_HIGH>,
 					<0x2 0x11 0x6 IRQ_TYPE_EDGE_RISING>,
@@ -115,7 +168,6 @@
 				interrupt-names = "otg-fail",
 						  "otg-oc-disable-sw",
 						  "otg-oc-hiccup",
-						  "bsm-active",
 						  "high-duty-cycle",
 						  "input-current-limiting",
 						  "concurrent-mode-disable",
@@ -126,7 +178,6 @@
 				reg = <0x1200 0x100>;
 				interrupts =
 					<0x2 0x12 0x0 IRQ_TYPE_EDGE_RISING>,
-					<0x2 0x12 0x1 IRQ_TYPE_EDGE_RISING>,
 					<0x2 0x12 0x2 IRQ_TYPE_LEVEL_HIGH>,
 					<0x2 0x12 0x3 IRQ_TYPE_LEVEL_HIGH>,
 					<0x2 0x12 0x4 IRQ_TYPE_LEVEL_HIGH>,
@@ -135,7 +186,6 @@
 					<0x2 0x12 0x7 IRQ_TYPE_LEVEL_HIGH>;
 
 				interrupt-names = "bat-temp",
-						  "all-chnl-conv-done",
 						  "bat-ov",
 						  "bat-low",
 						  "bat-therm-or-id-missing",
@@ -216,7 +266,6 @@
 					<0x2 0x16 0x2 IRQ_TYPE_LEVEL_HIGH>,
 					<0x2 0x16 0x3 IRQ_TYPE_LEVEL_HIGH>,
 					<0x2 0x16 0x4 IRQ_TYPE_LEVEL_HIGH>,
-					<0x2 0x16 0x5 IRQ_TYPE_EDGE_RISING>,
 					<0x2 0x16 0x6 IRQ_TYPE_EDGE_FALLING>,
 					<0x2 0x16 0x7 IRQ_TYPE_EDGE_RISING>;
 
@@ -225,7 +274,6 @@
 						  "aicl-fail",
 						  "aicl-done",
 						  "smb-en",
-						  "imp-trigger",
 						  "temp-change",
 						  "temp-change-smb";
 			};
@@ -259,6 +307,27 @@
 						 <9000 3000>, /* 9V @ 3A */
 						 <12000 2250>; /* 12V @ 2.25A */
 		};
+
+		pm855b_bcl: bcl@1d00 {
+			compatible = "qcom,bcl-v5";
+			reg = <0x1d00 0x100>;
+			interrupts = <0x2 0x1d 0x0 IRQ_TYPE_NONE>,
+					<0x2 0x1d 0x1 IRQ_TYPE_NONE>,
+					<0x2 0x1d 0x0 IRQ_TYPE_NONE>,
+					<0x2 0x1d 0x1 IRQ_TYPE_NONE>,
+					<0x2 0x1d 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-ibat-lvl0",
+						"bcl-ibat-lvl1",
+						"bcl-vbat-lvl0",
+						"bcl-vbat-lvl1",
+						"bcl-vbat-lvl2";
+			#thermal-sensor-cells = <1>;
+		};
+
+		bcl_soc:bcl-soc {
+			compatible = "qcom,msm-bcl-soc";
+			#thermal-sensor-cells = <0>;
+		};
 	};
 
 	qcom,pm855b@3 {
@@ -290,6 +359,26 @@
 				led-sources = <1>;
 			};
 		};
+
+		pm855b_haptics: qcom,haptics@c000 {
+			compatible = "qcom,qpnp-haptics";
+			reg = <0xc000 0x100>;
+			interrupts = <0x3 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x3 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "hap-sc-irq", "hap-play-irq";
+			qcom,pmic-revid = <&pm855b_revid>;
+			qcom,actuator-type = <0>;
+			qcom,play-mode = "direct";
+			qcom,vmax-mv = <3200>;
+			qcom,ilim-ma = <800>;
+			qcom,sc-dbc-cycles = <8>;
+			qcom,wave-play-rate-us = <6667>;
+			qcom,en-brake;
+			qcom,lra-high-z = "opt0";
+			qcom,lra-auto-res-mode = "qwd";
+			qcom,lra-res-cal-period = <4>;
+			status = "ok";
+		};
 	};
 };
 
@@ -315,6 +404,96 @@
 				temperature = <145000>;
 				hysteresis = <0>;
 				type = "critical";
+			};
+		};
+	};
+
+	pm855b-ibat-lvl0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm855b_bcl 0>;
+
+		trips {
+			ibat_lvl0:ibat-lvl0 {
+				temperature = <4500>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm855b-ibat-lvl1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm855b_bcl 1>;
+
+		trips {
+			ibat_lvl1:ibat-lvl1 {
+				temperature = <5000>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm855b-vbat-lvl0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm855b_bcl 2>;
+
+		trips {
+			vbat_lvl0: vbat-lvl0 {
+				temperature = <3500>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm855b-vbat-lvl1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm855b_bcl 3>;
+
+		trips {
+			vbat_lvl1:vbat-lvl1 {
+				temperature = <3000>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm855b-vbat-lvl2 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm855b_bcl 4>;
+
+		trips {
+			vbat_lvl2:vbat-lvl2 {
+				temperature = <2800>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	soc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_soc>;
+
+		trips {
+			soc_trip:soc-trip {
+				temperature = <10>;
+				hysteresis = <0>;
+				type = "passive";
 			};
 		};
 	};

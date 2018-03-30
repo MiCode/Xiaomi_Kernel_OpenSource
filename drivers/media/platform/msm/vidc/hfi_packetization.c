@@ -1686,7 +1686,7 @@ int create_pkt_cmd_session_set_property(
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VENC_HIER_P_HYBRID_MODE;
 		pkt->rg_property_data[1] =
-			((struct hfi_hybrid_hierp *)pdata)->layers;
+			((struct hfi_hybrid_hierp *)pdata)->layers ?: 0xFF;
 		pkt->size += sizeof(u32) +
 			sizeof(struct hfi_hybrid_hierp);
 		break;
