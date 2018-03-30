@@ -325,7 +325,7 @@
 };
 
 &adsp_mem {
-	size = <0 0xc800000>;
+	size = <0 0x12c00000>;
 };
 
 &qupv3_se9_2uart {
