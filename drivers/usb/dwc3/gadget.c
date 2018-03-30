@@ -937,7 +937,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 	struct usb_gadget	*gadget = &dwc->gadget;
 	enum usb_device_speed	speed = gadget->speed;
 
-	dwc3_trace(trace_dwc3_gadget, "%s: req %p dma %08llx length %d%s",
+	dwc3_trace(trace_dwc3_gadget, "%s: req %pK dma %08llx length %d%s%s",
 			dep->name, req, (unsigned long long) dma,
 			length, chain ? " chain" : "");
 
@@ -1293,7 +1293,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 	if (!dep->endpoint.desc) {
 		dwc3_trace(trace_dwc3_gadget,
-				"trying to queue request %p to disabled %s",
+				"trying to queue request %pK to disabled %s",
 				&req->request, dep->endpoint.name);
 		return -ESHUTDOWN;
 	}
@@ -1432,13 +1432,13 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (!dep->endpoint.desc) {
-		dev_dbg(dwc->dev, "trying to queue request %p to disabled %s\n",
+		dev_dbg(dwc->dev, "trying to queue request %pK to disabled %s\n",
 				request, ep->name);
 		ret = -ESHUTDOWN;
 		goto out;
 	}
 
-	if (WARN(req->dep != dep, "request %p belongs to '%s'\n",
+	if (WARN(req->dep != dep, "request %pK belongs to '%s'\n",
 				request, req->dep->name)) {
 		ret = -EINVAL;
 		goto out;
