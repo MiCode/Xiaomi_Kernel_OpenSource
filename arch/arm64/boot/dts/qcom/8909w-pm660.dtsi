@@ -326,6 +326,10 @@
 		};
 	};
 
+	qcom,power-on@800 {
+		qcom,use-legacy-hard-reset-offset;
+	};
+
 	pm660_rradc: rradc@4500 {
 		compatible = "qcom,rradc";
 		reg = <0x4500 0x100>;
