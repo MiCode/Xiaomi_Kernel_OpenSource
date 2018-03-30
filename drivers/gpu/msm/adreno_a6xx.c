@@ -638,7 +638,7 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 	if (adreno_is_a615(adreno_dev))
 		return 0x00000222;
 	else
-		return 0x00020222;
+		return 0x00020202;
 }
 
 static inline unsigned int
@@ -1516,6 +1516,7 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 
+	kgsl_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG, 0x0);
 	/* Write 1 first to make sure the GMU is reset */
 	kgsl_gmu_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
 
