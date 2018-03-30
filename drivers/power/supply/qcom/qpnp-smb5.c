@@ -173,6 +173,7 @@ struct smb_dt_props {
 	int			chg_inhibit_thr_mv;
 	bool			no_battery;
 	bool			hvdcp_disable;
+	int			sec_charger_config;
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
 	int			wd_bark_time;
@@ -277,6 +278,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 		pr_err("device tree node missing\n");
 		return -EINVAL;
 	}
+
+	of_property_read_u32(node, "qcom,sec-charger-config",
+					&chip->dt.sec_charger_config);
 
 	chg->step_chg_enabled = of_property_read_bool(node,
 				"qcom,step-charging-enable");
@@ -1443,6 +1447,12 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
+
+	chg->sec_cp_present = chip->dt.sec_charger_config == SEC_CHG_CP_ONLY
+			|| chip->dt.sec_charger_config == SEC_CHG_CP_AND_PL;
+
+	chg->sec_pl_present = chip->dt.sec_charger_config == SEC_CHG_PL_ONLY
+			|| chip->dt.sec_charger_config == SEC_CHG_CP_AND_PL;
 
 	/* Use SW based VBUS control, disable HW autonomous mode */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
