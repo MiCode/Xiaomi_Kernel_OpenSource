@@ -27,6 +27,16 @@ Charger specific properties:
   Definition: Should specify the phandle of PMI's revid module. This is used to
 		identify the PMI subtype.
 
+- qcom,sec-charger-config
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specify how the secondary chargers are configured.
+		0 - No secondary charger.
+		1 - Charge Pump SMB1390.
+		2 - SMB1355 parallel charger.
+		3 - Both Charge Pump and SMB1355.
+		If the value is not present, 0 is used as default.
+
 - io-channels
 - io-channel-names
   Usage:      optional
@@ -235,6 +245,8 @@ pm8150b_charger: qcom,qpnp-smb5 {
 	qcom,pmic-revid = <&pm8150b_revid>;
 
 	dpdm-supply = <&qusb_phy0>;
+
+	qcom,sec-charger-config = <1>;
 
 	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
 	              <&pm8150b_vadc ADC_USB_IN_I>,
