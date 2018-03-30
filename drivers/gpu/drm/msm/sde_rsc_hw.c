@@ -405,6 +405,9 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 	if (rc)
 		pr_err("vdd reg is not enabled yet\n");
 
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
+						0x3, rsc->debug_mode);
+
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
 
 	return rc;
@@ -477,18 +480,32 @@ static void sde_rsc_reset_mode_0_1(struct sde_rsc_priv *rsc)
 
 	if (seq_busy && (current_mode == SDE_RSC_MODE_0_VAL ||
 			current_mode == SDE_RSC_MODE_1_VAL)) {
-		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
-						0xffffffff, rsc->debug_mode);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_HI,
+						0xffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
 						0xffffffff, rsc->debug_mode);
 		/* unstick f1 qtimer */
 		wmb();
 
-		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
-						0x0, rsc->debug_mode);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_HI,
 						0x0, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
+						0x0, rsc->debug_mode);
 		/* manually trigger f1 qtimer interrupt */
+		wmb();
+
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0xffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0xffffffff, rsc->debug_mode);
+		/* unstick f0 qtimer */
+		wmb();
+
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0x0, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0x0, rsc->debug_mode);
+		/* manually trigger f0 qtimer interrupt */
 		wmb();
 	}
 }
@@ -506,6 +523,8 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 		return rc;
 	}
 
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
+						0x7, rsc->debug_mode);
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
 
 	for (i = 0; i <= MAX_MODE2_ENTRY_TRY; i++) {
