@@ -1236,6 +1236,19 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static unsigned long
+clk_regera_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	u32 l, frac;
+	u64 prate = parent_rate;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 off = pll->offset;
+
+	regmap_read(pll->clkr.regmap, off + PLL_L_VAL, &l);
+	regmap_read(pll->clkr.regmap, off + PLL_ALPHA_VAL, &frac);
+
+	return alpha_pll_calc_rate(pll, prate, l, frac);
+}
 
 static void clk_regera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 {
@@ -1311,7 +1324,7 @@ const struct clk_ops clk_regera_pll_ops = {
 	.enable = clk_regera_pll_enable,
 	.disable = clk_regera_pll_disable,
 	.is_enabled = clk_alpha_pll_is_enabled,
-	.recalc_rate = clk_alpha_pll_recalc_rate,
+	.recalc_rate = clk_regera_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_regera_pll_set_rate,
 	.list_registers = clk_regera_pll_list_registers,
