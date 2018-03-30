@@ -450,6 +450,23 @@ exit_bcm_clist_add:
 	return ret;
 }
 
+static void tcs_cmd_n_shrink(int *n)
+{
+	int i = 0, j = 0, sum = 0;
+
+	do {
+		if (sum + n[i] > MAX_RPMH_PAYLOAD) {
+			n[j] = sum;
+			sum = 0;
+			j++;
+		}
+		sum += n[i];
+	} while (n[i++]);
+
+	n[j] = sum;
+	n[j+1] = 0;
+}
+
 static int bcm_query_list_add(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
@@ -590,6 +607,10 @@ int msm_bus_commit_data(struct list_head *clist)
 
 	bcm_cnt = tcs_cmd_list_gen(n_active, n_wake, n_sleep, cmdlist_active,
 				cmdlist_wake, cmdlist_sleep, cur_bcm_clist);
+
+	tcs_cmd_n_shrink(n_active);
+	tcs_cmd_n_shrink(n_wake);
+	tcs_cmd_n_shrink(n_sleep);
 
 	ret = rpmh_invalidate(cur_mbox);
 	if (ret)
