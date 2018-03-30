@@ -366,6 +366,22 @@ uint16_t gsi_find_idx_from_addr(struct gsi_ring_ctx *ctx, uint64_t addr)
 	return (uint32_t)(addr - ctx->base) / ctx->elem_sz;
 }
 
+static uint16_t gsi_get_complete_num(struct gsi_ring_ctx *ctx, uint64_t addr1,
+		uint64_t addr2)
+{
+	WARN(addr1 < ctx->base || addr1 >= ctx->end,
+		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
+		ctx->base, ctx->end, addr1);
+	WARN(addr2 < ctx->base || addr2 >= ctx->end,
+		"address not in range. base 0x%llx end 0x%llx addr 0x%llx\n",
+		ctx->base, ctx->end, addr2);
+
+	if (addr1 < addr2)
+		return (addr2 - addr1) / ctx->elem_sz;
+	else
+		return (addr2 - addr1 + ctx->len) / ctx->elem_sz;
+}
+
 static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
 		struct gsi_chan_xfer_notify *notify, bool callback)
 {
@@ -386,9 +402,11 @@ static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
 
 	rp = evt->xfer_ptr;
 
-	while (ch_ctx->ring.rp_local != rp) {
-		gsi_incr_ring_rp(&ch_ctx->ring);
-		ch_ctx->stats.completed++;
+	if (ch_ctx->ring.rp_local != rp) {
+		ch_ctx->stats.completed +=
+			gsi_get_complete_num(&ch_ctx->ring,
+				ch_ctx->ring.rp_local, rp);
+		ch_ctx->ring.rp_local = rp;
 	}
 
 	/* the element at RP is also processed */
@@ -418,11 +436,9 @@ static void gsi_process_evt_re(struct gsi_evt_ctx *ctx,
 		struct gsi_chan_xfer_notify *notify, bool callback)
 {
 	struct gsi_xfer_compl_evt *evt;
-	uint16_t idx;
 
-	idx = gsi_find_idx_from_addr(&ctx->ring, ctx->ring.rp_local);
 	evt = (struct gsi_xfer_compl_evt *)(ctx->ring.base_va +
-		idx * ctx->ring.elem_sz);
+			ctx->ring.rp_local - ctx->ring.base);
 	gsi_process_chan(evt, notify, callback);
 	gsi_incr_ring_rp(&ctx->ring);
 	/* recycle this element */
@@ -2575,9 +2591,20 @@ EXPORT_SYMBOL(gsi_start_xfer);
 int gsi_poll_channel(unsigned long chan_hdl,
 		struct gsi_chan_xfer_notify *notify)
 {
+	int unused_var;
+
+	return gsi_poll_n_channel(chan_hdl, notify, 1, &unused_var);
+}
+EXPORT_SYMBOL(gsi_poll_channel);
+
+int gsi_poll_n_channel(unsigned long chan_hdl,
+		struct gsi_chan_xfer_notify *notify,
+		int expected_num, int *actual_num)
+{
 	struct gsi_chan_ctx *ctx;
 	uint64_t rp;
 	int ee;
+	int i;
 	unsigned long flags;
 
 	if (!gsi_ctx) {
@@ -2585,8 +2612,12 @@ int gsi_poll_channel(unsigned long chan_hdl,
 		return -GSI_STATUS_NODEV;
 	}
 
-	if (chan_hdl >= gsi_ctx->max_ch || !notify) {
-		GSIERR("bad param chan_hdl=%lu notify=%pK\n", chan_hdl, notify);
+	if (chan_hdl >= gsi_ctx->max_ch || !notify ||
+	    !actual_num || expected_num <= 0) {
+		GSIERR("bad params chan_hdl=%lu notify=%pK\n",
+			chan_hdl, notify);
+		GSIERR("actual_num=%pK expected_num=%d\n",
+			actual_num, expected_num);
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
 
@@ -2621,13 +2652,21 @@ int gsi_poll_channel(unsigned long chan_hdl,
 		return GSI_STATUS_POLL_EMPTY;
 	}
 
-	gsi_process_evt_re(ctx->evtr, notify, false);
+	*actual_num = gsi_get_complete_num(&ctx->evtr->ring,
+			ctx->evtr->ring.rp_local, ctx->evtr->ring.rp);
+
+	if (*actual_num > expected_num)
+		*actual_num = expected_num;
+
+	for (i = 0; i < *actual_num; i++)
+		gsi_process_evt_re(ctx->evtr, notify + i, false);
+
 	spin_unlock_irqrestore(&ctx->evtr->ring.slock, flags);
 	ctx->stats.poll_ok++;
 
 	return GSI_STATUS_SUCCESS;
 }
-EXPORT_SYMBOL(gsi_poll_channel);
+EXPORT_SYMBOL(gsi_poll_n_channel);
 
 int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 {

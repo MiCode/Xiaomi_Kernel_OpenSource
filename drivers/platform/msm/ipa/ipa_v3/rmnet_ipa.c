@@ -60,7 +60,6 @@
 #define IPA_QUOTA_REACH_ALERT_MAX_SIZE 64
 #define IPA_QUOTA_REACH_IF_NAME_MAX_SIZE 64
 #define IPA_UEVENT_NUM_EVNP 4 /* number of event pointers */
-#define NAPI_WEIGHT 60
 
 #define IPA_NETDEV() \
 	((rmnet_ipa3_ctx && rmnet_ipa3_ctx->wwan_priv) ? \
