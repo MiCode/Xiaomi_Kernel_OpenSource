@@ -814,7 +814,7 @@ int wait_for_shutdown_ack(struct subsys_desc *desc)
 	int ret;
 	struct subsys_device *dev;
 
-	if (!desc || !desc->shutdown_ack_irq)
+	if (!desc)
 		return 0;
 
 	dev = find_subsys_device(desc->name);
