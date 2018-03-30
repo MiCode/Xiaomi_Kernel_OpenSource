@@ -1707,11 +1707,11 @@ int gmu_start(struct kgsl_device *device)
 		gmu_irq_enable(device);
 
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
-				GMU_WARM_BOOT, 0);
+				GMU_COLD_BOOT, 0);
 		if (ret)
 			goto error_gmu;
 
-		ret = hfi_start(gmu, GMU_WARM_BOOT);
+		ret = hfi_start(gmu, GMU_COLD_BOOT);
 		if (ret)
 			goto error_gmu;
 
@@ -1748,7 +1748,7 @@ int gmu_start(struct kgsl_device *device)
 			if (ret)
 				goto error_gmu;
 
-			ret = hfi_start(gmu, GMU_WARM_BOOT);
+			ret = hfi_start(gmu, GMU_COLD_BOOT);
 			if (ret)
 				goto error_gmu;
 		}
