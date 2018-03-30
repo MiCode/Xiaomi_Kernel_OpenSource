@@ -865,13 +865,15 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 		goto out;
 	}
 
-	num_vectors = pci_enable_msi_range(pci_dev,
-					   msi_config->total_vectors,
-					   msi_config->total_vectors);
+	num_vectors = pci_alloc_irq_vectors(pci_dev,
+					    msi_config->total_vectors,
+					    msi_config->total_vectors,
+					    PCI_IRQ_MSI);
 	if (num_vectors != msi_config->total_vectors) {
 		cnss_pr_err("Failed to get enough MSI vectors (%d), available vectors = %d",
 			    msi_config->total_vectors, num_vectors);
-		ret = -EINVAL;
+		if (num_vectors >= 0)
+			ret = -EINVAL;
 		goto reset_msi_config;
 	}
 
@@ -879,7 +881,7 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 	if (!msi_desc) {
 		cnss_pr_err("msi_desc is NULL!\n");
 		ret = -EINVAL;
-		goto disable_msi;
+		goto free_msi_vector;
 	}
 
 	pci_priv->msi_ep_base_data = msi_desc->msg.data;
@@ -892,8 +894,8 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 
 	return 0;
 
-disable_msi:
-	pci_disable_msi(pci_priv->pci_dev);
+free_msi_vector:
+	pci_free_irq_vectors(pci_priv->pci_dev);
 reset_msi_config:
 	pci_priv->msi_config = NULL;
 out:
@@ -902,7 +904,7 @@ out:
 
 static void cnss_pci_disable_msi(struct cnss_pci_data *pci_priv)
 {
-	pci_disable_msi(pci_priv->pci_dev);
+	pci_free_irq_vectors(pci_priv->pci_dev);
 }
 
 int cnss_get_user_msi_assignment(struct device *dev, char *user_name,
@@ -946,8 +948,12 @@ EXPORT_SYMBOL(cnss_get_user_msi_assignment);
 int cnss_get_msi_irq(struct device *dev, unsigned int vector)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
+	int irq_num;
 
-	return pci_dev->irq + vector;
+	irq_num = pci_irq_vector(pci_dev, vector);
+	cnss_pr_dbg("Get IRQ number %d for vector index %d\n", irq_num, vector);
+
+	return irq_num;
 }
 EXPORT_SYMBOL(cnss_get_msi_irq);
 
