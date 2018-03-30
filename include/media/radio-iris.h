@@ -34,6 +34,9 @@
 #include <linux/mutex.h>
 #include <linux/atomic.h>
 
+#define RDS_PS_SIMPLE_OFFSET 2
+extern struct mutex fm_smd_enable;
+
 struct radio_hci_dev {
 	char		name[8];
 	unsigned long	flags;
@@ -75,7 +78,7 @@ struct radio_hci_dev {
 };
 
 int radio_hci_register_dev(struct radio_hci_dev *hdev);
-int radio_hci_unregister_dev(struct radio_hci_dev *hdev);
+int radio_hci_unregister_dev(void);
 int radio_hci_recv_frame(struct sk_buff *skb);
 int radio_hci_send_cmd(struct radio_hci_dev *hdev, __u16 opcode, __u32 plen,
 	void *param);
