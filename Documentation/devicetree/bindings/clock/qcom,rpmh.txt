@@ -1,7 +1,8 @@
 Qualcomm Technologies, Inc. RPMh Clocks
 
 Required properties:
-- compatible:	Must contain "qcom,rpmh-clk-sdm855".
+- compatible:	Must contain "qcom,rpmh-clk-sdm855" or
+		"qcom,rpmh-clk-sdmshrike".
 - #clock-cells:	Must contain 1.
 - mboxes:	List of RPMh mailbox phandle and channel identifier tuples.
 - mbox-names:	List of names to identify the RPMh mailboxes used.

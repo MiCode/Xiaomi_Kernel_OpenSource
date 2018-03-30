@@ -472,7 +472,7 @@
 	};
 
 	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,rpmh-clk-sdm855";
+		compatible = "qcom,rpmh-clk-sdmshrike";
 		mboxes = <&apps_rsc 0>;
 		mbox-names = "apps";
 		#clock-cells = <1>;
