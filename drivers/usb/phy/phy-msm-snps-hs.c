@@ -69,6 +69,9 @@
 #define REFCLK_SEL_MASK				(0x3 << 0)
 #define REFCLK_SEL_DEFAULT			(0x2 << 0)
 
+#define USB2PHY_USB_PHY_RTUNE_SEL		(0xb4)
+#define RTUNE_SEL				BIT(0)
+
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
@@ -389,6 +392,9 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 	if (phy->param_override_seq)
 		hsusb_phy_write_seq(phy->base, phy->param_override_seq,
 				phy->param_override_seq_cnt, 0);
+
+	msm_usb_write_readback(phy->base, USB2PHY_USB_PHY_RTUNE_SEL,
+			RTUNE_SEL, RTUNE_SEL);
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON2,
 				VREGBYPASS, VREGBYPASS);
