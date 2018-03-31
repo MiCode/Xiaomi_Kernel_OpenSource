@@ -278,8 +278,8 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "cx.lvl";
-		pm855_2_s3_level-parent-supply = <&pm855p_s3_level>;
-		pm855_2_s3_level_ao-parent-supply = <&pm855p_s3_level_ao>;
+		pm855_2_s3_level-parent-supply = <&VDD_MX_LEVEL>;
+		pm855_2_s3_level_ao-parent-supply = <&VDD_MX_LEVEL_AO>;
 
 		VDD_CX_LEVEL: S3E_LEVEL:
 		pm855_2_s3_level: regulator-pm855_2-s3-level {
