@@ -1808,16 +1808,19 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 				goto bail;
 			phys = mem->phys;
 			size = mem->size;
-			VERIFY(err, !hyp_assign_phys(phys, (uint64_t)size,
-				hlosvm, 1, me->channel[fl->cid].rhvm.vmid,
-				me->channel[fl->cid].rhvm.vmperm,
-				me->channel[fl->cid].rhvm.vmcount));
-			if (err) {
-				pr_err("ADSPRPC: hyp_assign_phys fail err %d",
-							 err);
-				pr_err("map->phys %llx, map->size %d\n",
+			if (me->channel[fl->cid].rhvm.vmid) {
+				VERIFY(err, !hyp_assign_phys(phys,
+					(uint64_t)size, hlosvm, 1,
+					me->channel[fl->cid].rhvm.vmid,
+					me->channel[fl->cid].rhvm.vmperm,
+					me->channel[fl->cid].rhvm.vmcount));
+				if (err) {
+					pr_err("ADSPRPC: hyp_assign_phys fail err %d",
+								 err);
+					pr_err("map->phys 0x%llx, map->size %d\n",
 							 phys, (int)size);
-				goto bail;
+					goto bail;
+				}
 			}
 			me->staticpd_flags = 1;
 		}
