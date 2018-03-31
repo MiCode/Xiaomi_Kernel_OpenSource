@@ -495,7 +495,7 @@ int ipa3_wdi_init(void)
 static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 		bool device, unsigned long *iova)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	size_t true_len = roundup(len + pa - rounddown(pa, PAGE_SIZE),
@@ -524,7 +524,7 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 		unsigned long *iova)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	int ret;
@@ -573,7 +573,7 @@ bad_mapping:
 
 static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 	int i;
 	int j;
 	int start;
@@ -1810,7 +1810,7 @@ static void ipa3_uc_wdi_loaded_handler(void)
 
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 	int i;
 	int ret = 0;
 	int prot = IOMMU_READ | IOMMU_WRITE;
@@ -1846,7 +1846,7 @@ int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 
 int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 	int i;
 	int ret = 0;
 
