@@ -236,15 +236,17 @@
 		ois-src = <&ois_rear>;
 		eeprom-src = <&eeprom_rear>;
 		cam_vio-supply = <&pm8150l_l1>;
+		cam_bob-supply = <&pm8150l_bob>;
 		cam_vana-supply = <&pm8009_l5>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
-			"cam_clk";
+			"cam_clk", "cam_bob";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <0 2800000 1200000 0>;
-		rgltr-max-voltage = <0 2800000 1200000 0>;
-		rgltr-load-current = <0 80000 1200000 0>;
+		pwm-switch;
+		rgltr-min-voltage = <0 2800000 1200000 0 3008000>;
+		rgltr-max-voltage = <0 2800000 1200000 0 4000000>;
+		rgltr-load-current = <0 80000 1200000 0 2000000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
@@ -279,16 +281,18 @@
 		actuator-src = <&actuator_rear_aux>;
 		led-flash-src = <&led_flash_rear_aux>;
 		eeprom-src = <&eeprom_rear_aux>;
+		cam_bob-supply = <&pm8150l_bob>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
-			"cam_clk";
+			"cam_clk", "cam_bob";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <0 2856000 1200000 0>;
-		rgltr-max-voltage = <0 2856000 1200000 0>;
-		rgltr-load-current = <0 80000 1200000 0>;
+		pwm-switch;
+		rgltr-min-voltage = <0 2856000 1200000 0 3008000>;
+		rgltr-max-voltage = <0 2856000 1200000 0 4000000>;
+		rgltr-load-current = <0 80000 1200000 0 2000000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
@@ -323,15 +327,17 @@
 		eeprom-src = <&eeprom_front>;
 		actuator-src = <&actuator_front>;
 		cam_vio-supply = <&pm8150l_l1>;
+		cam_bob-supply = <&pm8150l_bob>;
 		cam_vana-supply = <&pm8009_l6>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
-			"cam_clk";
+			"cam_clk", "cam_bob";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <0 2856000 1200000 0>;
-		rgltr-max-voltage = <0 2856000 1200000 0>;
-		rgltr-load-current = <0 80000 1200000 0>;
+		pwm-switch;
+		rgltr-min-voltage = <0 2856000 1200000 0 3008000>;
+		rgltr-max-voltage = <0 2856000 1200000 0 4000000>;
+		rgltr-load-current = <0 80000 1200000 0 2000000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active
@@ -365,15 +371,17 @@
 		sensor-position-yaw = <0>;
 		led-flash-src = <&led_flash_iris>;
 		cam_vio-supply = <&pm8150l_l1>;
+		cam_bob-supply = <&pm8150l_bob>;
 		cam_vana-supply = <&pm8009_l5>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
-			"cam_clk";
+			"cam_clk", "cam_bob";
 		rgltr-cntrl-support;
-		rgltr-min-voltage = <0 2800000 1200000 0>;
-		rgltr-max-voltage = <0 2800000 1200000 0>;
-		rgltr-load-current = <0 80000 1200000 0>;
+		pwm-switch;
+		rgltr-min-voltage = <0 2800000 1200000 0 3008000>;
+		rgltr-max-voltage = <0 2800000 1200000 0 4000000>;
+		rgltr-load-current = <0 80000 1200000 0 2000000>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk3_active
