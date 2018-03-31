@@ -656,6 +656,24 @@
 		};
 	};
 
+	qcom,chd_silver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x18000058 0x18010058
+		0x18020058 0x18030058>;
+		qcom,config-arr = <0x18000060 0x18010060
+		0x18020060 0x18030060>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0x18040058 0x18050058
+		0x18060058 0x18070058>;
+		qcom,config-arr = <0x18040060 0x18050060
+		0x18060060 0x18070060>;
+	};
+
 	qcom,llcc@9200000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
 		reg = <0x9200000 0x450000>;
