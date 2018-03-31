@@ -63,6 +63,11 @@ static struct qg_sdam_info sdam_info[] = {
 		.offset = QG_SDAM_TIME_OFFSET,
 		.length = 4,
 	},
+	[SDAM_PON_OCV_UV] = {
+		.name	= "SDAM_PON_OCV",
+		.offset = QG_SDAM_PON_OCV_OFFSET,
+		.length = 2,
+	},
 };
 
 int qg_sdam_write(u8 param, u32 data)

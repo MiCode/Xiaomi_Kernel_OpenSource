@@ -23,6 +23,7 @@ enum qg_sdam_param {
 	SDAM_OCV_UV,
 	SDAM_IBAT_UA,
 	SDAM_TIME_SEC,
+	SDAM_PON_OCV_UV,
 	SDAM_MAX,
 };
 
