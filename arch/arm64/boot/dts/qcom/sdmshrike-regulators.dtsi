@@ -19,7 +19,7 @@
 	 * RPMh does not provide support for PM855_1 S4. Therefore,
 	 * use a stub regulator for S4.
 	 */
-	pm855_1_s4: regulator-pm855_1-s4 {
+	S4A: pm855_1_s4: regulator-pm855_1-s4 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm855_1_s4";
 		qcom,hpm-min-load = <100000>;
@@ -36,7 +36,7 @@
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "smpa5";
-		pm855_1_s5: regulator-pm855_1-s5 {
+		S5A: pm855_1_s5: regulator-pm855_1-s5 {
 			regulator-name = "pm855_1_s5";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1824000>;
@@ -50,7 +50,7 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "gfx.lvl";
-		pm855_1_s10_level: regulator-pm855_1-s10-level {
+		S10A_LEVEL: pm855_1_s10_level: regulator-pm855_1-s10-level {
 			regulator-name = "pm855_1_s10_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt
@@ -71,7 +71,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
-		pm855_1_l3: regulator-pm855_1-l3 {
+		L3A: pm855_1_l3: regulator-pm855_1-l3 {
 			regulator-name = "pm855_1_l3";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <800000>;
@@ -90,7 +90,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_1_l5: regulator-pm855_1-l5 {
+		L5A: pm855_1_l5: regulator-pm855_1-l5 {
 			regulator-name = "pm855_1_l5";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <480000>;
@@ -109,7 +109,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
-		pm855_1_l6: regulator-pm855_1-l6 {
+		L6A: pm855_1_l6: regulator-pm855_1-l6 {
 			regulator-name = "pm855_1_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1200000>;
@@ -128,7 +128,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_1_l7: regulator-pm855_1-l7 {
+		L7A: pm855_1_l7: regulator-pm855_1-l7 {
 			regulator-name = "pm855_1_l7";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -147,7 +147,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_1_l9: regulator-pm855_1-l9 {
+		L9A: pm855_1_l9: regulator-pm855_1-l9 {
 			regulator-name = "pm855_1_l9";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1304000>;
@@ -166,7 +166,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
-		pm855_1_l11: regulator-pm855_1-l11 {
+		L11A: pm855_1_l11: regulator-pm855_1-l11 {
 			regulator-name = "pm855_1_l11";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1200000>;
@@ -185,7 +185,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_1_l12: regulator-pm855_1-l12 {
+		L12A: pm855_1_l12: regulator-pm855_1-l12 {
 			regulator-name = "pm855_1_l12";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -204,7 +204,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_1_l13: regulator-pm855_1-l13 {
+		L13A: pm855_1_l13: regulator-pm855_1-l13 {
 			regulator-name = "pm855_1_l13";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2704000>;
@@ -223,7 +223,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_1_l15: regulator-pm855_1-l15 {
+		L15A: pm855_1_l15: regulator-pm855_1-l15 {
 			regulator-name = "pm855_1_l15";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1704000>;
@@ -242,7 +242,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_1_l16: regulator-pm855_1-l16 {
+		L16A: pm855_1_l16: regulator-pm855_1-l16 {
 			regulator-name = "pm855_1_l16";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2704000>;
@@ -261,7 +261,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_1_l18: regulator-pm855_1-l18 {
+		L18A: pm855_1_l18: regulator-pm855_1-l18 {
 			regulator-name = "pm855_1_l18";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <880000>;
@@ -281,6 +281,7 @@
 		pm855_2_s3_level-parent-supply = <&pm855p_s3_level>;
 		pm855_2_s3_level_ao-parent-supply = <&pm855p_s3_level_ao>;
 
+		VDD_CX_LEVEL: S3E_LEVEL:
 		pm855_2_s3_level: regulator-pm855_2-s3-level {
 			regulator-name = "pm855_2_s3_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -292,6 +293,8 @@
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 			qcom,min-dropout-voltage-level = <(-1)>;
 		};
+
+		VDD_CX_LEVEL_AO: S3E_LEVEL_AO:
 		pm855_2_s3_level_ao: regulator-pm855_2-s3-level-ao {
 			regulator-name = "pm855_2_s3_level_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
@@ -309,7 +312,7 @@
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "smpe4";
-		pm855_2_s4: regulator-pm855_2-s4 {
+		S4E: pm855_2_s4: regulator-pm855_2-s4 {
 			regulator-name = "pm855_2_s4";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <752000>;
@@ -322,7 +325,7 @@
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "smpe5";
-		pm855_2_s5: regulator-pm855_2-s5 {
+		S5E: pm855_2_s5: regulator-pm855_2-s5 {
 			regulator-name = "pm855_2_s5";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1824000>;
@@ -340,7 +343,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_2_l1: regulator-pm855_2-l1 {
+		L1E: pm855_2_l1: regulator-pm855_2-l1 {
 			regulator-name = "pm855_2_l1";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <752000>;
@@ -359,7 +362,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_2_l2: regulator-pm855_2-l2 {
+		L2E: pm855_2_l2: regulator-pm855_2-l2 {
 			regulator-name = "pm855_2_l2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1704000>;
@@ -373,7 +376,7 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "lmx.lvl";
-		pm855_2_l4_level: regulator-pm855_2-l4-level {
+		L4E_LEVEL: pm855_2_l4_level: regulator-pm855_2-l4-level {
 			regulator-name = "pm855_2_l4_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt =
@@ -394,7 +397,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_2_l5: regulator-pm855_2-l5 {
+		L5E: pm855_2_l5: regulator-pm855_2-l5 {
 			regulator-name = "pm855_2_l5";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <880000>;
@@ -413,7 +416,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_2_l7: regulator-pm855_2-l7 {
+		L7E: pm855_2_l7: regulator-pm855_2-l7 {
 			regulator-name = "pm855_2_l7";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -427,7 +430,7 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "lcx.lvl";
-		pm855_2_l8_level: regulator-pm855_2-l8-level {
+		L8E_LEVEL: pm855_2_l8_level: regulator-pm855_2-l8-level {
 			regulator-name = "pm855_2_l8_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt
@@ -448,7 +451,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
-		pm855_2_l10: regulator-pm855_2-l10 {
+		L10E: pm855_2_l10: regulator-pm855_2-l10 {
 			regulator-name = "pm855_2_l10";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2504000>;
@@ -467,7 +470,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_2_l13: regulator-pm855_2-l13 {
+		L13E: pm855_2_l13: regulator-pm855_2-l13 {
 			regulator-name = "pm855_2_l13";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1704000>;
@@ -486,7 +489,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855_2_l14: regulator-pm855_2-l14 {
+		L14E: pm855_2_l14: regulator-pm855_2-l14 {
 			regulator-name = "pm855_2_l14";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -505,7 +508,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
-		pm855_2_l15: regulator-pm855_2-l15 {
+		L15E: pm855_2_l15: regulator-pm855_2-l15 {
 			regulator-name = "pm855_2_l15";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -524,7 +527,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
-		pm855_2_l16: regulator-pm855_2-l16 {
+		L16E: pm855_2_l16: regulator-pm855_2-l16 {
 			regulator-name = "pm855_2_l16";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <3072000>;
@@ -543,7 +546,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
-		pm855_2_l17: regulator-pm855_2-l17 {
+		L17E: pm855_2_l17: regulator-pm855_2-l17 {
 			regulator-name = "pm855_2_l17";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2960000>;
@@ -560,7 +563,9 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "mmcx.lvl";
-		pm855p_s1_level: regulator-pm855p-s1-level {
+
+		VDD_MMCX_LEVEL:
+		S1C_LEVEL: pm855p_s1_level: regulator-pm855p-s1-level {
 			regulator-name = "pm855p_s1_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt
@@ -577,7 +582,7 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "mss.lvl";
-		pm855p_s2_level: regulator-pm855p-s2-level {
+		S2C_LEVEL: pm855p_s2_level: regulator-pm855p-s2-level {
 			regulator-name = "pm855p_s2_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt
@@ -595,7 +600,8 @@
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "mx.lvl";
 
-		pm855p_s3_level: regulator-pm855p-s3-level {
+		VDD_MX_LEVEL:
+		S3C_LEVEL: pm855p_s3_level: regulator-pm855p-s3-level {
 			regulator-name = "pm855p_s3_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt
@@ -605,7 +611,9 @@
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 		};
-		pm855p_s3_level_ao: regulator-pm855p-s3-level-ao {
+
+		VDD_MX_LEVEL_AO:
+		S3C_LEVEL_AO: pm855p_s3_level_ao: regulator-pm855p-s3-level-ao {
 			regulator-name = "pm855p_s3_level_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
 			regulator-min-microvolt
@@ -622,7 +630,7 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "ebi.lvl";
-		pm855p_s5_level: regulator-pm855p-s5-level {
+		S5C_LEVEL: pm855p_s5_level: regulator-pm855p-s5-level {
 			regulator-name = "pm855p_s5_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt
@@ -638,7 +646,7 @@
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "smpc6";
-		pm855p_s6: regulator-pm855p-s6 {
+		S6C: pm855p_s6: regulator-pm855p-s6 {
 			regulator-name = "pm855p-s6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1260000>;
@@ -651,7 +659,7 @@
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "smpc7";
-		pm855p_s7: regulator-pm855p-s7 {
+		S7C: pm855p_s7: regulator-pm855p-s7 {
 			regulator-name = "pm855p-s7";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <800000>;
@@ -664,7 +672,7 @@
 		compatible = "qcom,rpmh-xob-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "smpc8";
-		pm855p_s8: regulator-pm855p-s8 {
+		S8C: pm855p_s8: regulator-pm855p-s8 {
 			regulator-name = "pm855p_s8";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -676,7 +684,7 @@
 		compatible = "qcom,rpmh-xob-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "ldoc1";
-		pm855p_l1: regulator-pm855p-l1 {
+		L1C: pm855p_l1: regulator-pm855p-l1 {
 			regulator-name = "pm855p_l1";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -693,7 +701,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 30000>;
-		pm855p_l2: regulator-pm855p-l2 {
+		L2C: pm855p_l2: regulator-pm855p-l2 {
 			regulator-name = "pm855p_l2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1200000>;
@@ -712,7 +720,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855p_l3: regulator-pm855p-l3 {
+		L3C: pm855p_l3: regulator-pm855p-l3 {
 			regulator-name = "pm855p_l3";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1200000>;
@@ -731,7 +739,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855p_l4: regulator-pm855p-l4 {
+		L4C: pm855p_l4: regulator-pm855p-l4 {
 			regulator-name = "pm855p_l4";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2856000>;
@@ -750,7 +758,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855p_l6: regulator-pm855p-l6 {
+		L6C: pm855p_l6: regulator-pm855p-l6 {
 			regulator-name = "pm855p_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -769,7 +777,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855p_l7: regulator-pm855p-l7 {
+		L7C: pm855p_l7: regulator-pm855p-l7 {
 			regulator-name = "pm855p_l7";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2856000>;
@@ -783,7 +791,7 @@
 		compatible = "qcom,rpmh-xob-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "ldoc8";
-		pm855p_l8: regulator-pm855p-l8 {
+		L8C: pm855p_l8: regulator-pm855p-l8 {
 			regulator-name = "pm855p_l8";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
@@ -800,7 +808,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
-		pm855p_l9: regulator-pm855p-l9 {
+		L9C: pm855p_l9: regulator-pm855p-l9 {
 			regulator-name = "pm855p_l9";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2504000>;
@@ -819,7 +827,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855p_l10: regulator-pm855p-l10 {
+		L10C: pm855p_l10: regulator-pm855p-l10 {
 			regulator-name = "pm855p_l10";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <3000000>;
@@ -838,7 +846,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 1>;
-		pm855p_l11: regulator-pm855p-l11 {
+		L11C: pm855p_l11: regulator-pm855p-l11 {
 			regulator-name = "pm855p_l11";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <3000000>;
@@ -855,7 +863,7 @@
 		qcom,regulator-type = "pmic5-bob";
 		qcom,send-defaults;
 
-		pm855p_bob: regulator-pm855p-bob {
+		BOB: pm855p_bob: regulator-pm855p-bob {
 			regulator-name = "pm855p_bob";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <3296000>;
@@ -863,7 +871,7 @@
 			qcom,init-voltage = <3296000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_PASS>;
 		};
-		pm855p_bob_ao: regulator-pm855p-bob-ao {
+		BOB_AO: pm855p_bob_ao: regulator-pm855p-bob-ao {
 			regulator-name = "pm855p_bob_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
 			regulator-min-microvolt = <3296000>;
