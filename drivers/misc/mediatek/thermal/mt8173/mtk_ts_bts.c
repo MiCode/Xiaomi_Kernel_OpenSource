@@ -32,7 +32,7 @@
 #include "mach/mt_thermal.h"
 #include "mt-plat/mtk_thermal_platform.h"
 #include <linux/uidgid.h>
-#include <inc/tmp_bts.h>
+#include "inc/tmp_bts.h"
 #include <linux/slab.h>
 
 /*=============================================================
