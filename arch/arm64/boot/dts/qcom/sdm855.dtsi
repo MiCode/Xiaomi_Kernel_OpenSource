@@ -1306,9 +1306,9 @@
 		compatible = "qcom,gcc-sdm855", "syscon";
 		reg = <0x100000 0x1f0000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pm855l_s6_level>;
-		vdd_cx_ao-supply = <&pm855l_s6_level_ao>;
-		vdd_mm-supply = <&pm855l_s5_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1317,7 +1317,7 @@
 		compatible = "qcom,videocc-sdm855", "syscon";
 		reg = <0xab00000 0x10000>;
 		reg-names = "cc_base";
-		vdd_mm-supply = <&pm855l_s5_level>;
+		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
 		clock-names = "cfg_ahb_clk";
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		#clock-cells = <1>;
@@ -1328,8 +1328,8 @@
 		compatible = "qcom,camcc-sdm855", "syscon";
 		reg = <0xad00000 0x10000>;
 		reg-names = "cc_base";
-		vdd_mx-supply = <&pm855l_s4_level>;
-		vdd_mm-supply = <&pm855l_s5_level>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
 		clock-names = "cfg_ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 
@@ -1360,7 +1360,7 @@
 		compatible = "qcom,dispcc-sdm855", "syscon";
 		reg = <0xaf00000 0x20000>;
 		reg-names = "cc_base";
-		vdd_mm-supply = <&pm855l_s5_level>;
+		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
 		clock-names = "cfg_ahb_clk";
 		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 		#clock-cells = <1>;
@@ -1371,7 +1371,7 @@
 		compatible = "qcom,npucc-sdm855", "syscon";
 		reg = <0x9910000 0x10000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		vdd_gdsc-supply = <&npu_core_gdsc>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
@@ -1381,8 +1381,8 @@
 		compatible = "qcom,gpucc-sdm855", "syscon";
 		reg = <0x2c90000 0x9000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pm855l_s6_level>;
-		vdd_mx-supply = <&pm855l_s4_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		qcom,gpu_cc_gmu_clk_src-opp-handle = <&gmu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
@@ -1451,7 +1451,7 @@
 		clock-names = "xo";
 		qcom,proxy-clock-names = "xo";
 
-		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		vdd_mss-supply = <&pm855_s1_level>;
 		qcom,vdd_mss-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
@@ -1494,7 +1494,7 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x17300000 0x00100>;
 
-		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		qcom,proxy-reg-names = "vdd_cx";
 
@@ -1590,10 +1590,10 @@
 			    "sp2soc_irq_mask", "rmb_err", "rmb_err_spare2";
 		interrupts = <0 352 1>;
 
-		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-		vdd_mx-supply = <&pm855l_s4_level>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
@@ -1639,7 +1639,7 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x8300000 0x100000>;
 
-		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 
@@ -3225,7 +3225,7 @@
 &bps_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3233,7 +3233,7 @@
 &ipe_0_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3241,7 +3241,7 @@
 &ipe_1_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3249,7 +3249,7 @@
 &ife_0_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3257,7 +3257,7 @@
 &ife_1_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3265,7 +3265,7 @@
 &titan_top_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3273,7 +3273,7 @@
 &mdss_core_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3291,7 +3291,7 @@
 &mvsc_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3299,7 +3299,7 @@
 &mvs0_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
@@ -3307,7 +3307,7 @@
 &mvs1_gdsc {
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
-	parent-supply = <&pm855l_s5_level>;
+	parent-supply = <&VDD_MMCX_LEVEL>;
 	qcom,vote-parent-supply-voltage;
 	status = "ok";
 };
