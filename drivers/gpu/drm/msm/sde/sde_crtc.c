@@ -936,7 +936,9 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *crtc_state;
 	struct sde_rect *crtc_roi;
-	int i, num_attached_conns = 0;
+	struct msm_mode_info mode_info;
+	int i = 0;
+	int rc;
 	bool is_crtc_roi_dirty;
 	bool is_any_conn_roi_dirty;
 
@@ -958,13 +960,14 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 		if (!conn_state || conn_state->crtc != crtc)
 			continue;
 
-		if (num_attached_conns) {
-			SDE_ERROR(
-				"crtc%d: unsupported: roi on crtc w/ >1 connectors\n",
-					DRMID(crtc));
+		rc = sde_connector_get_mode_info(conn_state, &mode_info);
+		if (rc) {
+			SDE_ERROR("failed to get mode info\n");
 			return -EINVAL;
 		}
-		++num_attached_conns;
+
+		if (!mode_info.roi_caps.enabled)
+			continue;
 
 		sde_conn = to_sde_connector(conn_state->connector);
 		sde_conn_state = to_sde_connector_state(conn_state);
@@ -1285,13 +1288,6 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	sde_crtc_state = to_sde_crtc_state(state);
 
-	if (hweight_long(state->connector_mask) != 1) {
-		SDE_ERROR("invalid connector count(%d) for crtc: %d\n",
-			(int)hweight_long(state->connector_mask),
-			crtc->base.id);
-		return -EINVAL;
-	}
-
 	/*
 	 * check connector array cached at modeset time since incoming atomic
 	 * state may not include any connectors if they aren't modified
@@ -1307,41 +1303,40 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 			SDE_ERROR("failed to get mode info\n");
 			return -EINVAL;
 		}
-		break;
-	}
 
-	if (!mode_info.roi_caps.enabled)
-		return 0;
+		if (!mode_info.roi_caps.enabled)
+			continue;
 
-	if (sde_crtc_state->user_roi_list.num_rects >
-					mode_info.roi_caps.num_roi) {
-		SDE_ERROR("roi count is more than supported limit, %d > %d\n",
-				sde_crtc_state->user_roi_list.num_rects,
-				mode_info.roi_caps.num_roi);
-		return -E2BIG;
-	}
+		if (sde_crtc_state->user_roi_list.num_rects >
+				mode_info.roi_caps.num_roi) {
+			SDE_ERROR("roi count is exceeding limit, %d > %d\n",
+					sde_crtc_state->user_roi_list.num_rects,
+					mode_info.roi_caps.num_roi);
+			return -E2BIG;
+		}
 
-	rc = _sde_crtc_set_crtc_roi(crtc, state);
-	if (rc)
-		return rc;
+		rc = _sde_crtc_set_crtc_roi(crtc, state);
+		if (rc)
+			return rc;
 
-	rc = _sde_crtc_check_autorefresh(crtc, state);
-	if (rc)
-		return rc;
+		rc = _sde_crtc_check_autorefresh(crtc, state);
+		if (rc)
+			return rc;
 
-	for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
-		rc = _sde_crtc_set_lm_roi(crtc, state, lm_idx);
+		for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
+			rc = _sde_crtc_set_lm_roi(crtc, state, lm_idx);
+			if (rc)
+				return rc;
+		}
+
+		rc = _sde_crtc_check_rois_centered_and_symmetric(crtc, state);
+		if (rc)
+			return rc;
+
+		rc = _sde_crtc_check_planes_within_crtc_roi(crtc, state);
 		if (rc)
 			return rc;
 	}
-
-	rc = _sde_crtc_check_rois_centered_and_symmetric(crtc, state);
-	if (rc)
-		return rc;
-
-	rc = _sde_crtc_check_planes_within_crtc_roi(crtc, state);
-	if (rc)
-		return rc;
 
 	return 0;
 }
@@ -2249,9 +2244,16 @@ enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
 		return INTF_MODE_NONE;
 	}
 
-	drm_for_each_encoder(encoder, crtc->dev)
-		if (encoder->crtc == crtc)
-			return sde_encoder_get_intf_mode(encoder);
+	drm_for_each_encoder(encoder, crtc->dev) {
+		if (encoder->crtc != crtc)
+			continue;
+
+		/* continue if copy encoder is encountered */
+		if (sde_encoder_in_clone_mode(encoder))
+			continue;
+
+		return sde_encoder_get_intf_mode(encoder);
+	}
 
 	return INTF_MODE_NONE;
 }
@@ -2933,6 +2935,10 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	/* Check for mixers on all encoders attached to this crtc */
 	list_for_each_entry(enc, &crtc->dev->mode_config.encoder_list, head) {
 		if (enc->crtc != crtc)
+			continue;
+
+		/* avoid overwriting mixers info from a copy encoder */
+		if (sde_encoder_in_clone_mode(enc))
 			continue;
 
 		_sde_crtc_setup_mixer_for_encoder(crtc, enc);
