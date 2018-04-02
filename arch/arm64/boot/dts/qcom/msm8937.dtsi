@@ -991,6 +991,7 @@
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		status = "okay";
+		qcom,scandump-size = <0x40000>;
 	};
 
 	spmi_bus: qcom,spmi@200f000 {
