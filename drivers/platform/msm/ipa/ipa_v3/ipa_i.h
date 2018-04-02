@@ -1177,11 +1177,22 @@ enum ipa_smmu_cb_type {
 };
 
 /**
- * struct ipa3_context - IPA context
+ * struct ipa3_char_device_context - IPA character device
  * @class: pointer to the struct class
  * @dev_num: device number
  * @dev: the dev_t of the device
  * @cdev: cdev of the device
+ */
+struct ipa3_char_device_context {
+	struct class *class;
+	dev_t dev_num;
+	struct device *dev;
+	struct cdev cdev;
+};
+
+/**
+ * struct ipa3_context - IPA context
+ * @cdev: cdev context
  * @ep: list of all end points
  * @skip_ep_cfg_shadow: state to update filter table correctly across
   power-save
@@ -1267,10 +1278,7 @@ enum ipa_smmu_cb_type {
  * IPA context - holds all relevant info about IPA driver and its state
  */
 struct ipa3_context {
-	struct class *class;
-	dev_t dev_num;
-	struct device *dev;
-	struct cdev cdev;
+	struct ipa3_char_device_context cdev;
 	struct ipa3_ep_context ep[IPA3_MAX_NUM_PIPES];
 	bool skip_ep_cfg_shadow[IPA3_MAX_NUM_PIPES];
 	u32 ep_flt_bitmap;
@@ -1352,6 +1360,7 @@ struct ipa3_context {
 	u32 ipa_bus_hdl;
 	struct ipa3_controller *ctrl;
 	struct idr ipa_idr;
+	struct platform_device *master_pdev;
 	struct device *pdev;
 	struct device *uc_pdev;
 	spinlock_t idr_lock;
@@ -1377,7 +1386,6 @@ struct ipa3_context {
 	u32 ee;
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
-	bool smmu_present;
 	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	u32 wdi_map_cnt;
 	struct wakeup_source w_lock;
@@ -2292,9 +2300,7 @@ int ipa_reset_flt_rt_stats(enum ipa_ip_type ip, bool filtering, u16 rule_id);
 int ipa_reset_all_flt_rt_stats(enum ipa_ip_type ip, bool filtering);
 
 u32 ipa3_get_num_pipes(void);
-struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void);
-struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
-struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void);
+struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(enum ipa_smmu_cb_type);
 struct iommu_domain *ipa3_get_smmu_domain(void);
 struct iommu_domain *ipa3_get_uc_smmu_domain(void);
 struct iommu_domain *ipa3_get_wlan_smmu_domain(void);
