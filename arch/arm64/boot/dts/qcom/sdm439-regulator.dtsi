@@ -174,7 +174,7 @@
 		qcom,hpm-min-load = <10000>;
 		status = "okay";
 		pm8953_l4: regulator-l4 {
-			compatible = "qcom,rpm-smd-regulator-resource";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8953_l4";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1800000>;
@@ -291,7 +291,7 @@
 		qcom,hpm-min-load = <5000>;
 		status = "okay";
 		pm8953_l14: regulator-l14 {
-			compatible = "qcom,rpm-smd-regulator-resource";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8953_l14";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1800000>;
@@ -309,7 +309,7 @@
 		qcom,hpm-min-load = <5000>;
 		status = "okay";
 		pm8953_l15: regulator-l15 {
-			compatible = "qcom,rpm-smd-regulator-resource";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8953_l15";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1800000>;
