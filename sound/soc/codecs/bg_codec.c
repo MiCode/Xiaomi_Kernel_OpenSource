@@ -369,8 +369,7 @@ static int _bg_codec_hw_params(struct bg_cdc_priv *bg_cdc)
 	struct pktzr_cmd_rsp rsp;
 	int ret = 0;
 
-	if (delayed_work_pending(&bg_cdc->bg_cdc_cal_init_work))
-		cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
+	cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
 	mutex_lock(&bg_cdc->bg_cdc_lock);
 	if (!bg_cdc->bg_dev_up) {
 		pr_err("%s: Bg ssr in progress\n", __func__);
@@ -1124,10 +1123,8 @@ static int bg_cdc_codec_remove(struct snd_soc_codec *codec)
 	pr_debug("In func %s\n", __func__);
 	pktzr_deinit();
 
-	if (delayed_work_pending(&bg_cdc->bg_cdc_pktzr_init_work))
-		cancel_delayed_work_sync(&bg_cdc->bg_cdc_pktzr_init_work);
-	if (delayed_work_pending(&bg_cdc->bg_cdc_cal_init_work))
-		cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
+	cancel_delayed_work_sync(&bg_cdc->bg_cdc_pktzr_init_work);
+	cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
 	if (adsp_state_notifier)
 		subsys_notif_unregister_notifier(adsp_state_notifier,
 						 &bg_cdc->bg_adsp_nb);
@@ -1146,10 +1143,8 @@ static int bg_cdc_pm_suspend(struct bg_cdc_priv *bg_cdc)
 		pr_debug("audio session in progress don't devote\n");
 		return 0;
 	}
-	if (delayed_work_pending(&bg_cdc->bg_cdc_pktzr_init_work))
-		cancel_delayed_work_sync(&bg_cdc->bg_cdc_pktzr_init_work);
-	if (delayed_work_pending(&bg_cdc->bg_cdc_cal_init_work))
-		cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
+	cancel_delayed_work_sync(&bg_cdc->bg_cdc_pktzr_init_work);
+	cancel_delayed_work_sync(&bg_cdc->bg_cdc_cal_init_work);
 	mutex_lock(&bg_cdc->bg_cdc_lock);
 	if (bg_cdc->bg_cal_updated) {
 		bg_cdc_enable_regulator(bg_cdc->spkr_vreg, false);
