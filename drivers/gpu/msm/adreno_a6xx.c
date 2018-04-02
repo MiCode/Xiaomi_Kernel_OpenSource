@@ -2310,8 +2310,6 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 	return _load_gmu_firmware(device);
 }
 
-#define GBIF_CX_HALT_MASK BIT(1)
-
 static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -2351,12 +2349,8 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	if (!vbif_acked)
 		return -ETIMEDOUT;
 
-	/*
-	 * GBIF GX halt will be released automatically by sw_reset.
-	 * Release GBIF CX halt after sw_reset
-	 */
-	if (adreno_has_gbif(adreno_dev))
-		kgsl_regrmw(device, A6XX_GBIF_HALT, GBIF_CX_HALT_MASK, 0);
+	/* Clear GBIF client halt and CX arbiter halt */
+	adreno_deassert_gbif_halt(adreno_dev);
 
 	a6xx_sptprac_enable(adreno_dev);
 
@@ -3790,8 +3784,8 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 			KGSL_PERFCOUNTER_GROUP_VBIF_PWR].reg_count
 				= ARRAY_SIZE(a6xx_perfcounters_gbif_pwr);
 
-		gpudev->vbif_xin_halt_ctrl0_mask =
-				A6XX_GBIF_HALT_MASK;
+		gpudev->gbif_client_halt_mask = A6XX_GBIF_CLIENT_HALT_MASK;
+		gpudev->gbif_arb_halt_mask = A6XX_GBIF_ARB_HALT_MASK;
 	} else
 		gpudev->vbif_xin_halt_ctrl0_mask =
 				A6XX_VBIF_XIN_HALT_CTRL0_MASK;

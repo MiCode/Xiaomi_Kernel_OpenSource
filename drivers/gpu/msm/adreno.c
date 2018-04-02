@@ -1414,6 +1414,43 @@ static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 	adreno_fault_detect_start(adreno_dev);
 }
 
+/**
+ * adreno_clear_pending_transactions() - Clear transactions in GBIF/VBIF pipe
+ * @device: Pointer to the device whose GBIF/VBIF pipe is to be cleared
+ */
+int adreno_clear_pending_transactions(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int ret = 0;
+
+	if (adreno_has_gbif(adreno_dev)) {
+
+		/* Halt new client requests */
+		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
+				gpudev->gbif_client_halt_mask);
+		ret = adreno_wait_for_halt_ack(device,
+				ADRENO_REG_GBIF_HALT_ACK,
+				gpudev->gbif_client_halt_mask);
+
+		/* Halt all AXI requests */
+		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
+				gpudev->gbif_arb_halt_mask);
+		ret = adreno_wait_for_halt_ack(device,
+				ADRENO_REG_GBIF_HALT_ACK,
+				gpudev->gbif_arb_halt_mask);
+	} else {
+		unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
+
+		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0,
+			mask);
+		ret = adreno_wait_for_halt_ack(device,
+				ADRENO_REG_VBIF_XIN_HALT_CTRL1, mask);
+		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
+	}
+	return ret;
+}
+
 static int adreno_init(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -2001,7 +2038,10 @@ static int adreno_stop(struct kgsl_device *device)
 		error = -EINVAL;
 	}
 
-	adreno_vbif_clear_pending_transactions(device);
+	adreno_clear_pending_transactions(device);
+
+	/* The halt is not cleared in the above function if we have GBIF */
+	adreno_deassert_gbif_halt(adreno_dev);
 
 	kgsl_mmu_stop(&device->mmu);
 
@@ -2050,7 +2090,7 @@ int adreno_reset(struct kgsl_device *device, int fault)
 	/* Try soft reset first */
 	if (adreno_try_soft_reset(device, fault)) {
 		/* Make sure VBIF is cleared before resetting */
-		ret = adreno_vbif_clear_pending_transactions(device);
+		ret = adreno_clear_pending_transactions(device);
 
 		if (ret == 0) {
 			ret = adreno_soft_reset(device);
