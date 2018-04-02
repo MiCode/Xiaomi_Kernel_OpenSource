@@ -2549,6 +2549,8 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 		return -ENOMEM;
 
 	attach = dma_buf_attach(dmabuf, device->dev);
+	attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
 	if (IS_ERR_OR_NULL(attach)) {
 		ret = attach ? PTR_ERR(attach) : -EINVAL;
 		goto out;
@@ -2556,8 +2558,6 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 
 	meta->dmabuf = dmabuf;
 	meta->attach = attach;
-
-	attach->priv = entry;
 
 	entry->priv_data = meta;
 	entry->memdesc.pagetable = pagetable;
@@ -4587,6 +4587,7 @@ static void _unregister_device(struct kgsl_device *device)
 
 static int _register_device(struct kgsl_device *device)
 {
+	static u64 dma_mask = DMA_BIT_MASK(64);
 	int minor, ret;
 	dev_t dev;
 
@@ -4621,6 +4622,9 @@ static int _register_device(struct kgsl_device *device)
 		KGSL_CORE_ERR("device_create(%s): %d\n", device->name, ret);
 		return ret;
 	}
+
+	device->dev->dma_mask = &dma_mask;
+	arch_setup_dma_ops(device->dev, 0, 0, NULL, false);
 
 	dev_set_drvdata(&device->pdev->dev, device);
 	return 0;
