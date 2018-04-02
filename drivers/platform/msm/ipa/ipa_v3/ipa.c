@@ -6040,6 +6040,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	if (of_property_read_bool(dev->of_node,
 		"qcom,smmu-s1-bypass") || ipa3_ctx->ipa_config_is_mhi) {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = true;
+		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] = true;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_S1_BYPASS,
 				&bypass)) {
@@ -6051,6 +6052,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		IPADBG("AP/USB SMMU S1 BYPASS\n");
 	} else {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = false;
+		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] = false;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_ATOMIC,
 				&atomic_ctx)) {
