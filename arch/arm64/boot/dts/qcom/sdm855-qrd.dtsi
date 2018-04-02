@@ -50,6 +50,10 @@
 	};
 };
 
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
 &snd_9360 {
 	qcom,model = "sdm855-pahu-qrd-snd-card";
 	qcom,audio-routing =
