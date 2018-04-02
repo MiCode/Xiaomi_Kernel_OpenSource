@@ -751,7 +751,7 @@ out:
 static int fg_direct_mem_request(struct fg_dev *fg, bool request)
 {
 	int rc, ret, i = 0;
-	u8 val, mask;
+	u8 val, mask, poll_bit;
 
 	mask = MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT;
 	val = request ? MEM_ACCESS_REQ_BIT : 0;
@@ -783,6 +783,10 @@ static int fg_direct_mem_request(struct fg_dev *fg, bool request)
 	 */
 	usleep_range(40, 41);
 
+	poll_bit = MEM_GNT_BIT;
+	if (fg->version == GEN4_FG)
+		poll_bit = GEN4_MEM_GNT_BIT;
+
 	while (i < MEM_GNT_RETRIES) {
 		rc = fg_read(fg, MEM_IF_INT_RT_STS(fg), &val, 1);
 		if (rc < 0) {
@@ -791,8 +795,12 @@ static int fg_direct_mem_request(struct fg_dev *fg, bool request)
 			goto release;
 		}
 
-		if (val & MEM_GNT_BIT)
+		if (val & poll_bit) {
+			/* Delay needed for PM855B V1 after DMA is granted */
+			if (fg->wa_flags & PM855B_V1_DMA_WA)
+				usleep_range(1000, 1001);
 			return 0;
+		}
 
 		usleep_range(MEM_GNT_WAIT_TIME_US, MEM_GNT_WAIT_TIME_US + 1);
 		i++;
@@ -1005,6 +1013,9 @@ static int fg_ima_init(struct fg_dev *fg)
 	if (fg->version == GEN3_FG) {
 		fg->sram.num_bytes_per_word = 4;
 		fg->sram.address_max = 255;
+	} else if (fg->version == GEN4_FG) {
+		fg->sram.num_bytes_per_word = 2;
+		fg->sram.address_max = 480;
 	} else {
 		pr_err("Unknown FG version %d\n", fg->version);
 		return -ENXIO;
@@ -1064,6 +1075,45 @@ static struct fg_dma_address fg_gen3_addr_map[3] = {
 	},
 };
 
+static struct fg_dma_address fg_gen4_addr_map[6] = {
+	/* system partition */
+	{
+		.partition_start = 0,
+		.partition_end = 63,
+		.spmi_addr_base = GEN4_FG_DMA0_BASE + SRAM_ADDR_OFFSET,
+	},
+	/* battery profile partition */
+	{
+		.partition_start = 64,
+		.partition_end = 169,
+		.spmi_addr_base = GEN4_FG_DMA1_BASE + SRAM_ADDR_OFFSET,
+	},
+	/* battery profile partition continued */
+	{
+		.partition_start = 170,
+		.partition_end = 274,
+		.spmi_addr_base = GEN4_FG_DMA2_BASE + SRAM_ADDR_OFFSET,
+	},
+	/* dp/SW partition */
+	{
+		.partition_start = 275,
+		.partition_end = 299,
+		.spmi_addr_base = GEN4_FG_DMA3_BASE + SRAM_ADDR_OFFSET,
+	},
+	/* wk/scratch pad partition */
+	{
+		.partition_start = 300,
+		.partition_end =  405,
+		.spmi_addr_base = GEN4_FG_DMA4_BASE + SRAM_ADDR_OFFSET,
+	},
+	/* wk/scratch pad partition continued */
+	{
+		.partition_start = 406,
+		.partition_end =  480,
+		.spmi_addr_base = GEN4_FG_DMA5_BASE + SRAM_ADDR_OFFSET,
+	},
+};
+
 static int fg_dma_init(struct fg_dev *fg)
 {
 	int rc;
@@ -1073,6 +1123,11 @@ static int fg_dma_init(struct fg_dev *fg)
 		fg->sram.num_partitions = 3;
 		fg->sram.num_bytes_per_word = 4;
 		fg->sram.address_max = 255;
+	} else if (fg->version == GEN4_FG) {
+		fg->sram.addr_map = fg_gen4_addr_map;
+		fg->sram.num_partitions = 6;
+		fg->sram.num_bytes_per_word = 2;
+		fg->sram.address_max = 479;
 	} else {
 		pr_err("Unknown FG version %d\n", fg->version);
 		return -ENXIO;

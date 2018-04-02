@@ -17,6 +17,28 @@
 #define ADC_RR_FAKE_BATT_LOW_LSB(chip)		(chip->rradc_base + 0x58)
 #define ADC_RR_FAKE_BATT_HIGH_LSB(chip)		(chip->rradc_base + 0x5A)
 
+/* GEN4 FG definitions for FG_ADC_RR */
+#define ADC_RR_INT_RT_STS(chip)			(chip->rradc_base + 0x10)
+#define ADC_RR_BT_MISS_BIT			BIT(0)
+
+#define ADC_RR_BATT_ID_HI_BIAS_STS(chip)	(chip->rradc_base + 0x65)
+#define BIAS_STS_READY				BIT(0)
+
+#define ADC_RR_BATT_ID_HI_BIAS_LSB(chip)	(chip->rradc_base + 0x66)
+#define ADC_RR_BATT_ID_HI_BIAS_MSB(chip)	(chip->rradc_base + 0x67)
+
+#define ADC_RR_BATT_ID_MED_BIAS_STS(chip)	(chip->rradc_base + 0x6D)
+#define ADC_RR_BATT_ID_MED_BIAS_LSB(chip)	(chip->rradc_base + 0x6E)
+#define ADC_RR_BATT_ID_MED_BIAS_MSB(chip)	(chip->rradc_base + 0x6F)
+
+#define ADC_RR_BATT_ID_LO_BIAS_STS(chip)	(chip->rradc_base + 0x75)
+#define ADC_RR_BATT_ID_LO_BIAS_LSB(chip)	(chip->rradc_base + 0x76)
+#define ADC_RR_BATT_ID_LO_BIAS_MSB(chip)	(chip->rradc_base + 0x77)
+
+#define ADC_RR_BATT_TEMP_LSB(chip)		(chip->rradc_base + 0x88)
+#define ADC_RR_BATT_TEMP_MSB(chip)		(chip->rradc_base + 0x89)
+#define GEN4_BATT_TEMP_MSB_MASK			GENMASK(1, 0)
+
 /* FG_BATT_SOC register definitions */
 #define BATT_SOC_FG_ALG_STS(chip)		(chip->batt_soc_base + 0x06)
 #define BATT_SOC_FG_ALG_AUX_STS0(chip)		(chip->batt_soc_base + 0x07)
@@ -55,7 +77,6 @@
 
 #define BATT_INFO_FG_STS(chip)			(chip->batt_info_base + 0x09)
 #define FG_WD_RESET_BIT				BIT(7)
-/* This bit is not present in v1.1 */
 #define FG_CRG_TRM_BIT				BIT(0)
 
 #define BATT_INFO_INT_RT_STS(chip)		(chip->batt_info_base + 0x10)
@@ -66,6 +87,14 @@
 #define ESR_DELTA_BIT				BIT(2)
 #define VBT_LOW_BIT				BIT(1)
 #define VBT_PRD_DELTA_BIT			BIT(0)
+
+/* GEN4 bit definitions */
+#define GEN4_BT_ATTN_BIT			BIT(5)
+#define GEN4_WDOG_EXP_BIT			BIT(4)
+#define GEN4_ESR_DELTA_BIT			BIT(3)
+#define GEN4_ESR_PULSE_PRE_BIT			BIT(2)
+#define GEN4_VBT_PRD_DELTA_BIT			BIT(1)
+#define GEN4_VBT_LOW_BIT			BIT(0)
 
 #define BATT_INFO_BATT_REM_LATCH(chip)		(chip->batt_info_base + 0x4F)
 #define BATT_REM_LATCH_CLR_BIT			BIT(7)
@@ -110,11 +139,6 @@
 #define BATT_INFO_JEITA_HOT(chip)		(chip->batt_info_base + 0x64)
 #define BATT_INFO_JEITA_TOO_HOT(chip)		(chip->batt_info_base + 0x65)
 
-/* only for v1.1 */
-#define BATT_INFO_ESR_CFG(chip)			(chip->batt_info_base + 0x69)
-#define CFG_ACTIVE_PD_MASK			GENMASK(2, 1)
-#define CFG_FCC_DEC_MASK			GENMASK(4, 3)
-
 /* starting from v2.0 */
 #define BATT_INFO_ESR_GENERAL_CFG(chip)		(chip->batt_info_base + 0x68)
 #define ESR_DEEP_TAPER_EN_BIT			BIT(0)
@@ -143,6 +167,25 @@
 #define ESR_FCC_5A				0x6
 #define ESR_FCC_6A				0x7
 #define ESR_FAST_CRG_CTL_EN_BIT			BIT(0)
+
+/* GEN4 bit definitions */
+#define GEN4_ESR_FAST_CRG_IVAL_MASK		GENMASK(7, 4)
+#define GEN4_ESR_FCC_300MA			0x0
+#define GEN4_ESR_FCC_600MA			0x1
+#define GEN4_ESR_FCC_1A				0x2
+#define GEN4_ESR_FCC_1P5_A			0x3
+#define GEN4_ESR_FCC_2A				0x4
+#define GEN4_ESR_FCC_2P5_A			0x5
+#define GEN4_ESR_FCC_3A				0x6
+#define GEN4_ESR_FCC_3P5_A			0x7
+#define GEN4_ESR_FCC_4A				0x8
+#define GEN4_ESR_FCC_4P5_A			0x9
+#define GEN4_ESR_FCC_5A				0xA
+#define GEN4_ESR_FCC_5P5_A			0xB
+#define GEN4_ESR_FCC_6A				0xC
+#define GEN4_ESR_FCC_6P5_A			0xD
+#define GEN4_ESR_FCC_7A				0xE
+#define GEN4_ESR_FCC_7P5_A			0xF
 
 #define BATT_INFO_BATT_MISS_CFG(chip)		(chip->batt_info_base + 0x6B)
 #define BM_THERM_TH_MASK			GENMASK(5, 4)
@@ -226,8 +269,6 @@
 #define BATT_IADC_CONV_BIT			BIT(2)
 #define ADC_ENABLE_REG_CTRL_BIT			BIT(1)
 #define WDOG_FORCE_EXP_BIT			BIT(0)
-/* only for v1.1 */
-#define ESR_PULSE_FORCE_CTRL_BIT		BIT(7)
 
 #define BATT_INFO_TM_MISC1(chip)		(chip->batt_info_base + 0xE6)
 /* for v2.0 and above */
@@ -238,6 +279,9 @@
 #define MEM_IF_INT_RT_STS(chip)			((chip->mem_if_base) + 0x10)
 #define MEM_XCP_BIT				BIT(1)
 #define MEM_GNT_BIT				BIT(2)
+#define GEN4_DMA_XCP_BIT			BIT(2)
+#define GEN4_MEM_GNT_BIT			BIT(3)
+#define GEN4_MEM_ATTN_BIT			BIT(4)
 
 #define MEM_IF_MEM_ARB_CFG(chip)		((chip->mem_if_base) + 0x40)
 #define MEM_ARB_LO_LATENCY_EN_BIT		BIT(1)
@@ -300,4 +344,12 @@
 #define FG_DMA2_BASE				0x4A00
 #define FG_DMA3_BASE				0x4B00
 #define SRAM_ADDR_OFFSET			0x20
+
+/* GEN4 FG_DMAx */
+#define GEN4_FG_DMA0_BASE			0x4400
+#define GEN4_FG_DMA1_BASE			0x4500
+#define GEN4_FG_DMA2_BASE			0x4600
+#define GEN4_FG_DMA3_BASE			0x4700
+#define GEN4_FG_DMA4_BASE			0x4800
+#define GEN4_FG_DMA5_BASE			0x4900
 #endif

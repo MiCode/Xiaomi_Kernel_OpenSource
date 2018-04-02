@@ -9,6 +9,16 @@ config QPNP_FG_GEN3
 	  the fuel gauge. The state of charge is reported through a BMS power
 	  supply property and also sends uevents when the capacity is updated.
 
+config QPNP_FG_GEN4
+	tristate "QPNP GEN4 fuel gauge driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the GEN4 Fuel Gauge driver. This adds support
+	  for battery fuel gauging and state of charge of battery connected to
+	  the device that has QTI PMICs like PM855B. The state of charge is
+	  reported through a BMS power supply property and also sends uevents
+	  when the capacity is updated.
+
 config SMB1355_SLAVE_CHARGER
 	tristate "SMB1355 Slave Battery Charger"
 	depends on MFD_I2C_PMIC

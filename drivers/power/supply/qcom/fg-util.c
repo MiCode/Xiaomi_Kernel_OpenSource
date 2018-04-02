@@ -622,10 +622,13 @@ int fg_sram_read(struct fg_dev *fg, u16 address, u8 offset,
 int fg_sram_masked_write(struct fg_dev *fg, u16 address, u8 offset,
 			u8 mask, u8 val, int flags)
 {
-	int rc = 0;
+	int rc = 0, length = 4;
 	u8 buf[4];
 
-	rc = fg_sram_read(fg, address, 0, buf, 4, flags);
+	if (fg->version == GEN4_FG)
+		length = 2;
+
+	rc = fg_sram_read(fg, address, 0, buf, length, flags);
 	if (rc < 0) {
 		pr_err("sram read failed: address=%03X, rc=%d\n", address, rc);
 		return rc;
@@ -634,7 +637,7 @@ int fg_sram_masked_write(struct fg_dev *fg, u16 address, u8 offset,
 	buf[offset] &= ~mask;
 	buf[offset] |= val & mask;
 
-	rc = fg_sram_write(fg, address, 0, buf, 4, flags);
+	rc = fg_sram_write(fg, address, 0, buf, length, flags);
 	if (rc < 0) {
 		pr_err("sram write failed: address=%03X, rc=%d\n", address, rc);
 		return rc;
@@ -667,17 +670,23 @@ int fg_read(struct fg_dev *fg, int addr, u8 *val, int len)
 	return 0;
 }
 
+static inline bool is_sec_access(struct fg_dev *fg, int addr)
+{
+	if (fg->version != GEN3_FG)
+		return false;
+
+	return ((addr & 0x00FF) > 0xD0);
+}
+
 int fg_write(struct fg_dev *fg, int addr, u8 *val, int len)
 {
 	int rc, i;
-	bool sec_access = false;
 
 	if (!fg || !fg->regmap)
 		return -ENXIO;
 
 	mutex_lock(&fg->bus_lock);
-	sec_access = (addr & 0x00FF) > 0xD0;
-	if (sec_access) {
+	if (is_sec_access(fg, addr)) {
 		rc = regmap_write(fg->regmap, (addr & 0xFF00) | 0xD0, 0xA5);
 		if (rc < 0) {
 			dev_err(fg->dev, "regmap_write failed for address %x rc=%d\n",
@@ -710,14 +719,12 @@ out:
 int fg_masked_write(struct fg_dev *fg, int addr, u8 mask, u8 val)
 {
 	int rc;
-	bool sec_access = false;
 
 	if (!fg || !fg->regmap)
 		return -ENXIO;
 
 	mutex_lock(&fg->bus_lock);
-	sec_access = (addr & 0x00FF) > 0xD0;
-	if (sec_access) {
+	if (is_sec_access(fg, addr)) {
 		rc = regmap_write(fg->regmap, (addr & 0xFF00) | 0xD0, 0xA5);
 		if (rc < 0) {
 			dev_err(fg->dev, "regmap_write failed for address %x rc=%d\n",
@@ -1233,8 +1240,23 @@ static int write_next_line_to_log(struct fg_trans *trans, int offset,
 	memcpy(data, trans->data + (offset - trans->addr), items_to_read);
 	*pcnt -= items_to_read;
 
-	/* address is in word now and it increments by 1. */
-	address = trans->addr + ((offset - trans->addr) / ITEMS_PER_LINE);
+	if (trans->fg->version == GEN4_FG) {
+		/*
+		 * For GEN4 FG, address is in word and it increments by 1.
+		 * Each word holds 2 bytes. To keep the SRAM dump format
+		 * compatible, print 4 bytes per line which holds 2 words.
+		 */
+		address = trans->addr + ((offset - trans->addr) * 2 /
+				ITEMS_PER_LINE);
+	} else {
+		/*
+		 * For GEN3 FG, address is in word and it increments by 1.
+		 * Each word holds 4 bytes.
+		 */
+		address = trans->addr + ((offset - trans->addr) /
+			ITEMS_PER_LINE);
+	}
+
 	cnt = print_to_log(log, "%3.3d ", address & 0xfff);
 	if (cnt == 0)
 		goto done;
