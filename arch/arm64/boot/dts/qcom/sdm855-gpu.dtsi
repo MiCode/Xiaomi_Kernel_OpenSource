@@ -293,14 +293,14 @@
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
 			label = "gfx3d_user";
-			iommus = <&kgsl_smmu 0x0 0x400>;
+			iommus = <&kgsl_smmu 0x0 0x401>;
 			qcom,gpu-offset = <0x48000>;
 		};
 
 		gfx3d_secure: gfx3d_secure {
 			compatible = "qcom,smmu-kgsl-cb";
 			label = "gfx3d_secure";
-			iommus = <&kgsl_smmu 0x2 0x400>, <&kgsl_smmu 0x1 0x400>;
+			iommus = <&kgsl_smmu 0x2 0x400>;
 		};
 	};
 
