@@ -432,8 +432,9 @@
 		arm,primecell-periphid = <0x0003b962>;
 
 		reg = <0x6002000 0x1000>,
-		      <0x16280000 0x180000>;
-		reg-names = "stm-base", "stm-stimulus-base";
+		      <0x16280000 0x180000>,
+		      <0x7820f0 0x4>;
+		reg-names = "stm-base", "stm-stimulus-base", "stm-debug-status";
 
 		coresight-name = "coresight-stm";
 
