@@ -1135,6 +1135,7 @@ static int qseecom_dmabuf_cache_operations(struct dma_buf *dmabuf,
 	case QSEECOM_CACHE_CLEAN:
 		dma_buf_begin_cpu_access(dmabuf, DMA_TO_DEVICE);
 		dma_buf_end_cpu_access(dmabuf, DMA_TO_DEVICE);
+		break;
 	case QSEECOM_CACHE_INVALIDATE:
 		dma_buf_begin_cpu_access(dmabuf, DMA_TO_DEVICE);
 		dma_buf_end_cpu_access(dmabuf, DMA_FROM_DEVICE);
@@ -1166,7 +1167,7 @@ static int qseecom_dmabuf_map(int ion_fd, struct sg_table **sgt,
 	}
 
 	new_attach = dma_buf_attach(new_dma_buf, qseecom.dev);
-	if (IS_ERR(attach)) {
+	if (IS_ERR(new_attach)) {
 		pr_err("dma_buf_attach() for ion_fd %d failed\n", ion_fd);
 		ret = -ENOMEM;
 		goto err_put;
@@ -1238,6 +1239,7 @@ static int qseecom_vaddr_map(int ion_fd,
 	return ret;
 
 err_unmap:
+	dma_buf_end_cpu_access(new_dma_buf, DMA_BIDIRECTIONAL);
 	qseecom_dmabuf_unmap(new_sgt, new_attach, new_dma_buf);
 err:
 	return ret;
