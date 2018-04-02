@@ -121,7 +121,7 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 		goto out;
 	}
 
-	ret = scm_call2(smc_id, &desc);
+	ret = scm_call2_noretry(smc_id, &desc);
 
 	if (ret) {
 		pr_err("%s: Set Key Error: %d\n", __func__, ret);
@@ -134,7 +134,7 @@ int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 		smc_id = TZ_ES_INVALIDATE_ICE_KEY_ID;
 		desc.arginfo = TZ_ES_INVALIDATE_ICE_KEY_PARAM_ID;
 		desc.args[0] = index;
-		ret1 = scm_call2(smc_id, &desc);
+		ret1 = scm_call2_noretry(smc_id, &desc);
 		if (ret1)
 			pr_err("%s: Invalidate Key Error: %d\n", __func__,
 					ret1);
@@ -175,7 +175,7 @@ int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type)
 		return ret;
 	}
 
-	ret = scm_call2(smc_id, &desc);
+	ret = scm_call2_noretry(smc_id, &desc);
 
 	if (ret) {
 		pr_err("%s: Error: 0x%x\n", __func__, ret);
