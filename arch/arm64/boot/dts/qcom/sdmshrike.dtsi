@@ -1485,3 +1485,4 @@
 #include "sdmshrike-usb.dtsi"
 #include "sdmshrike-qupv3.dtsi"
 #include "sm8150-audio.dtsi"
+#include "sdmshrike-gpu.dtsi"
