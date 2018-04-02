@@ -254,7 +254,8 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 	new_sg = new_table->sgl;
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		memcpy(new_sg, sg, sizeof(*sg));
-		new_sg->dma_address = 0;
+		sg_dma_address(new_sg) = 0;
+		sg_dma_len(new_sg) = 0;
 		new_sg = sg_next(new_sg);
 	}
 
@@ -519,17 +520,34 @@ static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 {
 }
 
-static void ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
-			       unsigned int nents, unsigned long offset,
-			       unsigned long length,
-			       enum dma_data_direction dir, bool for_cpu)
+static int ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
+			      unsigned int nents, unsigned long offset,
+			      unsigned long length,
+			      enum dma_data_direction dir, bool for_cpu)
 {
 	int i;
 	struct scatterlist *sg;
 	unsigned int len = 0;
+	dma_addr_t sg_dma_addr;
+
+	for_each_sg(sgl, sg, nents, i) {
+		if (sg_dma_len(sg) == 0)
+			break;
+
+		if (i > 0) {
+			pr_warn("Partial cmo only supported with 1 segment\n"
+				"is dma_set_max_seg_size being set on dev:%s\n",
+				dev_name(dev));
+			return -EINVAL;
+		}
+	}
+
 
 	for_each_sg(sgl, sg, nents, i) {
 		unsigned int sg_offset, sg_left, size = 0;
+
+		if (i == 0)
+			sg_dma_addr = sg_dma_address(sg);
 
 		len += sg->length;
 		if (len <= offset)
@@ -540,32 +558,42 @@ static void ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
 
 		size = (length < sg_left) ? length : sg_left;
 		if (for_cpu)
-			dma_sync_single_range_for_cpu(dev, sg->dma_address,
+			dma_sync_single_range_for_cpu(dev, sg_dma_addr,
 						      sg_offset, size, dir);
 		else
-			dma_sync_single_range_for_device(dev, sg->dma_address,
+			dma_sync_single_range_for_device(dev, sg_dma_addr,
 							 sg_offset, size, dir);
 
 		offset += size;
 		length -= size;
+		sg_dma_addr += sg->length;
 
 		if (length == 0)
 			break;
 	}
+
+	return 0;
 }
 
-static void ion_sgl_sync_mapped(struct device *dev, struct scatterlist *sgl,
-				unsigned int nents, struct list_head *vmas,
-				enum dma_data_direction dir, bool for_cpu)
+static int ion_sgl_sync_mapped(struct device *dev, struct scatterlist *sgl,
+			       unsigned int nents, struct list_head *vmas,
+			       enum dma_data_direction dir, bool for_cpu)
 {
 	struct ion_vma_list *vma_list;
+	int ret = 0;
 
 	list_for_each_entry(vma_list, vmas, list) {
 		struct vm_area_struct *vma = vma_list->vma;
 
-		ion_sgl_sync_range(dev, sgl, nents, vma->vm_pgoff * PAGE_SIZE,
-				   vma->vm_end - vma->vm_start, dir, for_cpu);
+		ret = ion_sgl_sync_range(dev, sgl, nents,
+					 vma->vm_pgoff * PAGE_SIZE,
+					 vma->vm_end - vma->vm_start, dir,
+					 for_cpu);
+		if (ret)
+			break;
 	}
+
+	return ret;
 }
 
 static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
@@ -608,23 +636,31 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		struct device *dev = buffer->heap->priv;
 		struct sg_table *table = buffer->sg_table;
 
-		trace_ion_begin_cpu_access_cmo_apply(dev, dmabuf->name,
-						     true, true, direction,
-						     sync_only_mapped);
-
 		if (sync_only_mapped)
-			ion_sgl_sync_mapped(dev, table->sgl,
-					    table->nents, &buffer->vmas,
-					    direction, true);
+			ret = ion_sgl_sync_mapped(dev, table->sgl,
+						  table->nents, &buffer->vmas,
+						  direction, true);
 		else
 			dma_sync_sg_for_cpu(dev, table->sgl,
 					    table->nents, direction);
 
+		if (!ret)
+			trace_ion_begin_cpu_access_cmo_apply(dev, dmabuf->name,
+							     true, true,
+							     direction,
+							     sync_only_mapped);
+		else
+			trace_ion_begin_cpu_access_cmo_skip(dev, dmabuf->name,
+							    true, true,
+							    direction,
+							    sync_only_mapped);
 		mutex_unlock(&buffer->lock);
 		goto out;
 	}
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		int tmp = 0;
+
 		if (!a->dma_mapped) {
 			trace_ion_begin_cpu_access_notmapped(a->dev,
 							     dmabuf->name,
@@ -634,17 +670,29 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 			continue;
 		}
 
-		trace_ion_begin_cpu_access_cmo_apply(a->dev, dmabuf->name,
-						     true, true, direction,
-						     sync_only_mapped);
-
 		if (sync_only_mapped)
-			ion_sgl_sync_mapped(a->dev, a->table->sgl,
-					    a->table->nents, &buffer->vmas,
-					    direction, true);
+			tmp = ion_sgl_sync_mapped(a->dev, a->table->sgl,
+						  a->table->nents,
+						  &buffer->vmas,
+						  direction, true);
 		else
 			dma_sync_sg_for_cpu(a->dev, a->table->sgl,
 					    a->table->nents, direction);
+
+		if (!tmp) {
+			trace_ion_begin_cpu_access_cmo_apply(a->dev,
+							     dmabuf->name,
+							     true, true,
+							     direction,
+							     sync_only_mapped);
+		} else {
+			trace_ion_begin_cpu_access_cmo_skip(a->dev,
+							    dmabuf->name, true,
+							    true, direction,
+							    sync_only_mapped);
+			ret = tmp;
+		}
+
 	}
 	mutex_unlock(&buffer->lock);
 
@@ -687,22 +735,30 @@ static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		struct device *dev = buffer->heap->priv;
 		struct sg_table *table = buffer->sg_table;
 
-		trace_ion_end_cpu_access_cmo_apply(dev, dmabuf->name,
-						   true, true, direction,
-						   sync_only_mapped);
-
 		if (sync_only_mapped)
-			ion_sgl_sync_mapped(dev, table->sgl,
-					    table->nents, &buffer->vmas,
-					    direction, false);
+			ret = ion_sgl_sync_mapped(dev, table->sgl,
+						  table->nents, &buffer->vmas,
+						  direction, false);
 		else
 			dma_sync_sg_for_device(dev, table->sgl,
 					       table->nents, direction);
+
+		if (!ret)
+			trace_ion_end_cpu_access_cmo_apply(dev, dmabuf->name,
+							   true, true,
+							   direction,
+							   sync_only_mapped);
+		else
+			trace_ion_end_cpu_access_cmo_skip(dev, dmabuf->name,
+							  true, true, direction,
+							  sync_only_mapped);
 		mutex_unlock(&buffer->lock);
 		goto out;
 	}
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		int tmp = 0;
+
 		if (!a->dma_mapped) {
 			trace_ion_end_cpu_access_notmapped(a->dev,
 							   dmabuf->name,
@@ -712,17 +768,26 @@ static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 			continue;
 		}
 
-		trace_ion_end_cpu_access_cmo_apply(a->dev, dmabuf->name,
-						   true, true, direction,
-						   sync_only_mapped);
-
 		if (sync_only_mapped)
-			ion_sgl_sync_mapped(a->dev, a->table->sgl,
-					    a->table->nents, &buffer->vmas,
-					    direction, false);
+			tmp = ion_sgl_sync_mapped(a->dev, a->table->sgl,
+						  a->table->nents,
+						  &buffer->vmas, direction,
+						  false);
 		else
 			dma_sync_sg_for_device(a->dev, a->table->sgl,
 					       a->table->nents, direction);
+
+		if (!tmp) {
+			trace_ion_end_cpu_access_cmo_apply(a->dev, dmabuf->name,
+							   true, true,
+							   direction,
+							   sync_only_mapped);
+		} else {
+			trace_ion_end_cpu_access_cmo_skip(a->dev, dmabuf->name,
+							  true, true, direction,
+							  sync_only_mapped);
+			ret = tmp;
+		}
 	}
 	mutex_unlock(&buffer->lock);
 
@@ -794,18 +859,24 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 		struct device *dev = buffer->heap->priv;
 		struct sg_table *table = buffer->sg_table;
 
-		trace_ion_begin_cpu_access_cmo_apply(dev, dmabuf->name,
-						     true, true, dir,
-						     false);
+		ret = ion_sgl_sync_range(dev, table->sgl, table->nents,
+					 offset, len, dir, true);
 
-		ion_sgl_sync_range(dev, table->sgl, table->nents,
-				   offset, len, dir, true);
-
+		if (!ret)
+			trace_ion_begin_cpu_access_cmo_apply(dev, dmabuf->name,
+							     true, true, dir,
+							     false);
+		else
+			trace_ion_begin_cpu_access_cmo_skip(dev, dmabuf->name,
+							    true, true, dir,
+							    false);
 		mutex_unlock(&buffer->lock);
 		goto out;
 	}
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		int tmp = 0;
+
 		if (!a->dma_mapped) {
 			trace_ion_begin_cpu_access_notmapped(a->dev,
 							     dmabuf->name,
@@ -815,12 +886,22 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 			continue;
 		}
 
-		trace_ion_begin_cpu_access_cmo_apply(a->dev, dmabuf->name,
-						     true, true, dir,
-						     false);
+		tmp = ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
+					 offset, len, dir, true);
 
-		ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
-				   offset, len, dir, true);
+		if (!tmp) {
+			trace_ion_begin_cpu_access_cmo_apply(a->dev,
+							     dmabuf->name,
+							     true, true, dir,
+							     false);
+		} else {
+			trace_ion_begin_cpu_access_cmo_skip(a->dev,
+							    dmabuf->name,
+							    true, true, dir,
+							    false);
+			ret = tmp;
+		}
+
 	}
 	mutex_unlock(&buffer->lock);
 
@@ -864,18 +945,25 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 		struct device *dev = buffer->heap->priv;
 		struct sg_table *table = buffer->sg_table;
 
-		trace_ion_end_cpu_access_cmo_apply(dev, dmabuf->name,
-						   true, true, direction,
-						   false);
+		ret = ion_sgl_sync_range(dev, table->sgl, table->nents,
+					 offset, len, direction, false);
 
-		ion_sgl_sync_range(dev, table->sgl, table->nents,
-				   offset, len, direction, false);
+		if (!ret)
+			trace_ion_end_cpu_access_cmo_apply(dev, dmabuf->name,
+							   true, true,
+							   direction, false);
+		else
+			trace_ion_end_cpu_access_cmo_skip(dev, dmabuf->name,
+							  true, true,
+							  direction, false);
 
 		mutex_unlock(&buffer->lock);
 		goto out;
 	}
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		int tmp = 0;
+
 		if (!a->dma_mapped) {
 			trace_ion_end_cpu_access_notmapped(a->dev,
 							   dmabuf->name,
@@ -885,13 +973,20 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 			continue;
 		}
 
-		trace_ion_end_cpu_access_cmo_apply(a->dev, dmabuf->name,
-						   true, true, direction,
-						   false);
+		tmp = ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
+					 offset, len, direction, false);
 
-		ion_sgl_sync_range(a->dev, a->table->sgl, a->table->nents,
-				   offset, len, direction, false);
+		if (!tmp) {
+			trace_ion_end_cpu_access_cmo_apply(a->dev, dmabuf->name,
+							   true, true,
+							   direction, false);
 
+		} else {
+			trace_ion_end_cpu_access_cmo_skip(a->dev, dmabuf->name,
+							  true, true, direction,
+							  false);
+			ret = tmp;
+		}
 	}
 	mutex_unlock(&buffer->lock);
 
