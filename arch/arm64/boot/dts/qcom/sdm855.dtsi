@@ -2215,6 +2215,25 @@
 		#mbox-cells = <1>;
 	};
 
+	sp_scsr_block: syscon@1880000 {
+		compatible = "syscon";
+		reg = <0x1880000 0x10000>;
+	};
+
+	intsp: qcom,qsee_irq {
+		compatible = "qcom,sdm855-qsee-irq";
+
+		syscon = <&sp_scsr_block>;
+		interrupts = <0 348 IRQ_TYPE_LEVEL_HIGH>,
+			     <0 349 IRQ_TYPE_LEVEL_HIGH>;
+
+		interrupt-names = "sp_ipc0",
+				  "sp_ipc1";
+
+		interrupt-controller;
+		#interrupt-cells = <3>;
+	};
+
 	qcom,glink {
 		compatible = "qcom,glink";
 		modem {
