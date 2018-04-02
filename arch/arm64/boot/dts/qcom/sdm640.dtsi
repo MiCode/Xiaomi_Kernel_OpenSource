@@ -908,3 +908,5 @@
 &venus_gdsc {
 	status = "ok";
 };
+
+#include "sdm640-ion.dtsi"
