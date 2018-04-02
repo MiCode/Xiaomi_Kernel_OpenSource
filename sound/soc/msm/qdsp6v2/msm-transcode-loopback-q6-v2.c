@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -645,6 +645,7 @@ static int msm_transcode_stream_cmd_put(struct snd_kcontrol *kcontrol,
 	struct msm_transcode_loopback *prtd;
 	int ret = 0;
 	struct msm_adsp_event_data *event_data = NULL;
+	uint64_t actual_payload_len = 0;
 
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
 		pr_err("%s Received invalid fe_id %lu\n",
@@ -681,6 +682,16 @@ static int msm_transcode_stream_cmd_put(struct snd_kcontrol *kcontrol,
 		ret = -EINVAL;
 		goto done;
 	}
+
+	actual_payload_len = sizeof(struct msm_adsp_event_data) +
+		event_data->payload_len;
+	if (actual_payload_len >= U32_MAX) {
+		pr_err("%s payload length 0x%X  exceeds limit",
+				__func__, event_data->payload_len);
+		ret = -EINVAL;
+		goto done;
+	}
+
 
 	if ((sizeof(struct msm_adsp_event_data) + event_data->payload_len) >=
 					sizeof(ucontrol->value.bytes.data)) {

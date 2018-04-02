@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -600,6 +600,12 @@ static void sde_encoder_underrun_callback(struct drm_encoder *drm_enc,
 	SDE_ATRACE_BEGIN("encoder_underrun_callback");
 	atomic_inc(&phy_enc->underrun_cnt);
 	SDE_EVT32(DRMID(drm_enc), atomic_read(&phy_enc->underrun_cnt));
+
+	trace_sde_encoder_underrun(DRMID(drm_enc),
+		atomic_read(&phy_enc->underrun_cnt));
+	SDE_DBG_CTRL("stop_ftrace");
+	SDE_DBG_CTRL("panic_underrun");
+
 	SDE_ATRACE_END("encoder_underrun_callback");
 }
 

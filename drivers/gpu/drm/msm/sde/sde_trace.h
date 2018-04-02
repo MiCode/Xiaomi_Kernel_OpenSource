@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,6 +123,22 @@ TRACE_EVENT(sde_cmd_release_bw,
 			__entry->crtc_id = crtc_id;
 	),
 	TP_printk("crtc:%d", __entry->crtc_id)
+);
+
+TRACE_EVENT(sde_encoder_underrun,
+	TP_PROTO(u32 enc_id, u32 underrun_cnt),
+	TP_ARGS(enc_id, underrun_cnt),
+	TP_STRUCT__entry(
+			__field(u32, enc_id)
+			__field(u32, underrun_cnt)
+	),
+	TP_fast_assign(
+			__entry->enc_id = enc_id;
+			__entry->underrun_cnt = underrun_cnt;
+
+	),
+	TP_printk("enc:%d underrun_cnt:%d", __entry->enc_id,
+		__entry->underrun_cnt)
 );
 
 TRACE_EVENT(sde_mark_write,

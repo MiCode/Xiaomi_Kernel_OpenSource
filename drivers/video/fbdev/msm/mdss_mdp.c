@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -2435,6 +2435,8 @@ static u32 mdss_mdp_scaler_init(struct mdss_data_type *mdata,
 
 		ret = mdss_mdp_ds_addr_setup(mdata);
 	}
+
+	mutex_init(&mdata->scaler_off->scaler_lock);
 
 	return ret;
 }

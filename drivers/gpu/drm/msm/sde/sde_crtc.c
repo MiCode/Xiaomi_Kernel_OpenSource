@@ -1341,8 +1341,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct drm_display_mode *mode;
 
 	int cnt = 0, rc = 0, mixer_width, i, z_pos;
-	int left_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
-	int right_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
+	int left_zpos_cnt = 0, right_zpos_cnt = 0;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -1396,11 +1395,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 	}
 
+	/* assign mixer stages based on sorted zpos property */
+	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+
 	if (!sde_is_custom_client()) {
 		int stage_old = pstates[0].stage;
 
-		/* assign mixer stages based on sorted zpos property */
-		sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
 		z_pos = 0;
 		for (i = 0; i < cnt; i++) {
 			if (stage_old != pstates[i].stage)
@@ -1410,8 +1410,14 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 	}
 
+	z_pos = -1;
 	for (i = 0; i < cnt; i++) {
-		z_pos = pstates[i].stage;
+		/* reset counts at every new blend stage */
+		if (pstates[i].stage != z_pos) {
+			left_zpos_cnt = 0;
+			right_zpos_cnt = 0;
+			z_pos = pstates[i].stage;
+		}
 
 		/* verify z_pos setting before using it */
 		if (z_pos >= SDE_STAGE_MAX - SDE_STAGE_0) {
@@ -1420,22 +1426,24 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			rc = -EINVAL;
 			goto end;
 		} else if (pstates[i].drm_pstate->crtc_x < mixer_width) {
-			if (left_crtc_zpos_cnt[z_pos] == 2) {
-				SDE_ERROR("> 2 plane @ stage%d on left\n",
+			if (left_zpos_cnt == 2) {
+				SDE_ERROR("> 2 planes @ stage %d on left\n",
 					z_pos);
 				rc = -EINVAL;
 				goto end;
 			}
-			left_crtc_zpos_cnt[z_pos]++;
+			left_zpos_cnt++;
+
 		} else {
-			if (right_crtc_zpos_cnt[z_pos] == 2) {
-				SDE_ERROR("> 2 plane @ stage%d on right\n",
+			if (right_zpos_cnt == 2) {
+				SDE_ERROR("> 2 planes @ stage %d on right\n",
 					z_pos);
 				rc = -EINVAL;
 				goto end;
 			}
-			right_crtc_zpos_cnt[z_pos]++;
+			right_zpos_cnt++;
 		}
+
 		pstates[i].sde_pstate->stage = z_pos + SDE_STAGE_0;
 		SDE_DEBUG("%s: zpos %d", sde_crtc->name, z_pos);
 	}
@@ -1446,6 +1454,73 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 				crtc->base.id, rc);
 		goto end;
 	}
+
+	/* validate source split:
+	 * use pstates sorted by stage to check planes on same stage
+	 * we assume that all pipes are in source split so its valid to compare
+	 * without taking into account left/right mixer placement
+	 */
+	for (i = 1; i < cnt; i++) {
+		struct plane_state *prv_pstate, *cur_pstate;
+		struct sde_rect left_rect, right_rect;
+		int32_t left_pid, right_pid;
+		int32_t stage;
+
+		prv_pstate = &pstates[i - 1];
+		cur_pstate = &pstates[i];
+		if (prv_pstate->stage != cur_pstate->stage)
+			continue;
+
+		stage = cur_pstate->stage;
+
+		left_pid = prv_pstate->sde_pstate->base.plane->base.id;
+		POPULATE_RECT(&left_rect, prv_pstate->drm_pstate->crtc_x,
+			prv_pstate->drm_pstate->crtc_y,
+			prv_pstate->drm_pstate->crtc_w,
+			prv_pstate->drm_pstate->crtc_h, false);
+
+		right_pid = cur_pstate->sde_pstate->base.plane->base.id;
+		POPULATE_RECT(&right_rect, cur_pstate->drm_pstate->crtc_x,
+			cur_pstate->drm_pstate->crtc_y,
+			cur_pstate->drm_pstate->crtc_w,
+			cur_pstate->drm_pstate->crtc_h, false);
+
+		if (right_rect.x < left_rect.x) {
+			swap(left_pid, right_pid);
+			swap(left_rect, right_rect);
+		}
+
+		/**
+		 * - planes are enumerated in pipe-priority order such that
+		 *   planes with lower drm_id must be left-most in a shared
+		 *   blend-stage when using source split.
+		 * - planes in source split must be contiguous in width
+		 * - planes in source split must have same dest yoff and height
+		 */
+		if (right_pid < left_pid) {
+			SDE_ERROR(
+				"invalid src split cfg. priority mismatch. stage: %d left: %d right: %d\n",
+				stage, left_pid, right_pid);
+			rc = -EINVAL;
+			goto end;
+		} else if (right_rect.x != (left_rect.x + left_rect.w)) {
+			SDE_ERROR(
+				"non-contiguous coordinates for src split. stage: %d left: %d - %d right: %d - %d\n",
+				stage, left_rect.x, left_rect.w,
+				right_rect.x, right_rect.w);
+			rc = -EINVAL;
+			goto end;
+		} else if ((left_rect.y != right_rect.y) ||
+				(left_rect.h != right_rect.h)) {
+			SDE_ERROR(
+				"source split at stage: %d. invalid yoff/height: l_y: %d r_y: %d l_h: %d r_h: %d\n",
+				stage, left_rect.y, right_rect.y,
+				left_rect.h, right_rect.h);
+			rc = -EINVAL;
+			goto end;
+		}
+	}
+
 
 end:
 	return rc;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_vbif.h"
+#include "sde_dbg.h"
 
 #define VBIF_VERSION			0x0000
 #define VBIF_CLK_FORCE_CTRL0		0x0008
@@ -156,6 +157,8 @@ struct sde_hw_vbif *sde_hw_vbif_init(enum sde_vbif idx,
 	c->idx = idx;
 	c->cap = cfg;
 	_setup_vbif_ops(&c->ops, c->cap->features);
+
+	/* no need to register sub-range in sde dbg, dump entire vbif io base */
 
 	return c;
 }

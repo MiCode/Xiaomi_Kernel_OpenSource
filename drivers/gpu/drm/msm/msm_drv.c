@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -293,7 +293,7 @@ static int msm_unload(struct drm_device *dev)
 				priv->vram.paddr, &attrs);
 	}
 
-	sde_evtlog_destroy();
+	sde_dbg_destroy();
 
 	sde_power_client_destroy(&priv->phandle, priv->pclient);
 	sde_power_resource_deinit(pdev, &priv->phandle);
@@ -423,12 +423,19 @@ static int msm_component_bind_all(struct device *dev,
 }
 #endif
 
+static int msm_power_enable_wrapper(void *handle, void *client, bool enable)
+{
+	return sde_power_resource_enable(handle, client, enable);
+}
+
 static int msm_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
 	struct msm_drm_private *priv;
 	struct msm_kms *kms;
+	struct sde_dbg_power_ctrl dbg_power_ctrl = { NULL };
 	int ret, i;
+	struct sched_param param;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -477,9 +484,13 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	if (ret)
 		goto fail;
 
-	ret = sde_evtlog_init(dev->primary->debugfs_root);
+	dbg_power_ctrl.handle = &priv->phandle;
+	dbg_power_ctrl.client = priv->pclient;
+	dbg_power_ctrl.enable_fn = msm_power_enable_wrapper;
+	ret = sde_dbg_init(dev->primary->debugfs_root, &pdev->dev,
+			&dbg_power_ctrl);
 	if (ret) {
-		dev_err(dev->dev, "failed to init evtlog: %d\n", ret);
+		dev_err(dev->dev, "failed to init sde dbg: %d\n", ret);
 		goto fail;
 	}
 
@@ -518,7 +529,12 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 			goto fail;
 		}
 	}
-
+	/**
+	 * this priority was found during empiric testing to have appropriate
+	 * realtime scheduling to process display updates and interact with
+	 * other real time and normal priority task
+	 */
+	param.sched_priority = 16;
 	/* initialize commit thread structure */
 	for (i = 0; i < priv->num_crtcs; i++) {
 		priv->disp_thread[i].crtc_id = priv->crtcs[i]->base.id;
@@ -529,6 +545,11 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 				&priv->disp_thread[i].worker,
 				"crtc_commit:%d",
 				priv->disp_thread[i].crtc_id);
+		ret = sched_setscheduler(priv->disp_thread[i].thread,
+							SCHED_FIFO, &param);
+		if (ret)
+			pr_warn("display thread priority update failed: %d\n",
+									ret);
 
 		if (IS_ERR(priv->disp_thread[i].thread)) {
 			dev_err(dev->dev, "failed to create kthread\n");
@@ -2181,6 +2202,28 @@ static const struct platform_device_id msm_id[] = {
 	{ }
 };
 
+static void msm_pdev_shutdown(struct platform_device *pdev)
+{
+	struct drm_device *ddev = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = NULL;
+
+	if (!ddev) {
+		DRM_ERROR("invalid drm device node\n");
+		return;
+	}
+
+	priv = ddev->dev_private;
+	if (!priv) {
+		DRM_ERROR("invalid msm drm private node\n");
+		return;
+	}
+
+	msm_lastclose(ddev);
+
+	/* set this after lastclose to allow kickoff from lastclose */
+	priv->shutdown_in_progress = true;
+}
+
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,mdp" },      /* mdp4 */
 	{ .compatible = "qcom,sde-kms" },  /* sde  */
@@ -2191,6 +2234,7 @@ MODULE_DEVICE_TABLE(of, dt_match);
 static struct platform_driver msm_platform_driver = {
 	.probe      = msm_pdev_probe,
 	.remove     = msm_pdev_remove,
+	.shutdown   = msm_pdev_shutdown,
 	.driver     = {
 		.name   = "msm_drm",
 		.of_match_table = dt_match,

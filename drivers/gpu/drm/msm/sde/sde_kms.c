@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1167,6 +1167,44 @@ fail:
 	return ret;
 }
 
+static void __iomem *_sde_kms_ioremap(struct platform_device *pdev,
+		const char *name, unsigned long *out_size)
+{
+	struct resource *res;
+	unsigned long size;
+	void __iomem *ptr;
+
+	if (out_size)
+		*out_size = 0;
+
+	if (name)
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
+	else
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (!res) {
+		/* availability depends on platform */
+		SDE_DEBUG("failed to get memory resource: %s\n", name);
+		return NULL;
+	}
+
+	size = resource_size(res);
+
+	ptr = devm_ioremap_nocache(&pdev->dev, res->start, size);
+	if (!ptr) {
+		SDE_ERROR("failed to ioremap: %s\n", name);
+		return NULL;
+	}
+
+	SDE_DEBUG("IO:region %s %pK %08lx\n", name, ptr, size);
+
+	if (out_size)
+		*out_size = size;
+
+	return ptr;
+}
+
+
 static int sde_kms_hw_init(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
@@ -1193,29 +1231,42 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto end;
 	}
 
-	sde_kms->mmio = msm_ioremap(dev->platformdev, "mdp_phys", "SDE");
-	if (IS_ERR(sde_kms->mmio)) {
-		rc = PTR_ERR(sde_kms->mmio);
-		SDE_ERROR("mdp register memory map failed: %d\n", rc);
-		sde_kms->mmio = NULL;
+	sde_kms->mmio = _sde_kms_ioremap(dev->platformdev, "mdp_phys",
+			&sde_kms->mmio_len);
+	if (!sde_kms->mmio) {
+		SDE_ERROR("mdp register memory map failed\n");
 		goto error;
 	}
 	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
 
-	sde_kms->vbif[VBIF_RT] = msm_ioremap(dev->platformdev,
-			"vbif_phys", "VBIF");
-	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
-		rc = PTR_ERR(sde_kms->vbif[VBIF_RT]);
-		SDE_ERROR("vbif register memory map failed: %d\n", rc);
-		sde_kms->vbif[VBIF_RT] = NULL;
+	rc = sde_dbg_reg_register_base(SDE_DBG_NAME, sde_kms->mmio,
+			sde_kms->mmio_len);
+	if (rc)
+		SDE_ERROR("dbg base register kms failed: %d\n", rc);
+
+	sde_kms->vbif[VBIF_RT] = _sde_kms_ioremap(dev->platformdev, "vbif_phys",
+			&sde_kms->vbif_len[VBIF_RT]);
+	if (!sde_kms->vbif[VBIF_RT]) {
+		SDE_ERROR("vbif register memory map failed\n");
 		goto error;
 	}
 
-	sde_kms->vbif[VBIF_NRT] = msm_ioremap(dev->platformdev,
-			"vbif_nrt_phys", "VBIF_NRT");
-	if (IS_ERR(sde_kms->vbif[VBIF_NRT])) {
-		sde_kms->vbif[VBIF_NRT] = NULL;
+	rc = sde_dbg_reg_register_base("vbif_rt", sde_kms->vbif[VBIF_RT],
+				sde_kms->vbif_len[VBIF_RT]);
+	if (rc)
+		SDE_ERROR("dbg base register vbif_rt failed: %d\n", rc);
+
+	sde_kms->vbif[VBIF_NRT] = _sde_kms_ioremap(dev->platformdev,
+			"vbif_nrt_phys", &sde_kms->vbif_len[VBIF_NRT]);
+	if (!sde_kms->vbif[VBIF_NRT]) {
 		SDE_DEBUG("VBIF NRT is not defined");
+	} else {
+		rc = sde_dbg_reg_register_base("vbif_nrt",
+				sde_kms->vbif[VBIF_NRT],
+				sde_kms->vbif_len[VBIF_NRT]);
+		if (rc)
+			SDE_ERROR("dbg base register vbif_nrt failed: %d\n",
+					rc);
 	}
 
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
@@ -1244,6 +1295,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		sde_kms->catalog = NULL;
 		goto power_error;
 	}
+
+	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
 	rc = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
 			sde_kms->dev);

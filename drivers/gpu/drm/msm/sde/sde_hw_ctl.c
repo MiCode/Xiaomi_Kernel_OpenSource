@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #include <linux/delay.h>
 #include "sde_hwio.h"
 #include "sde_hw_ctl.h"
+#include "sde_dbg.h"
 
 #define   CTL_LAYER(lm)                 \
 	(((lm) == LM_5) ? (0x024) : (((lm) - LM_0) * 0x004))
@@ -96,6 +97,12 @@ static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
 }
 
+static inline u32 sde_hw_ctl_get_flush_register(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	return SDE_REG_READ(c, CTL_FLUSH);
+}
 
 static inline uint32_t sde_hw_ctl_get_bitmask_sspp(struct sde_hw_ctl *ctx,
 	enum sde_sspp sspp)
@@ -458,6 +465,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->update_pending_flush = sde_hw_ctl_update_pending_flush;
 	ops->get_pending_flush = sde_hw_ctl_get_pending_flush;
 	ops->trigger_flush = sde_hw_ctl_trigger_flush;
+	ops->get_flush_register = sde_hw_ctl_get_flush_register;
 	ops->trigger_start = sde_hw_ctl_trigger_start;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
@@ -495,6 +503,9 @@ struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
 	c->idx = idx;
 	c->mixer_count = m->mixer_count;
 	c->mixer_hw_caps = m->mixer;
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
 }

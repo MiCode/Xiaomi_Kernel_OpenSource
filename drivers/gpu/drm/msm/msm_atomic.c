@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2014 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -561,6 +561,11 @@ int msm_atomic_commit(struct drm_device *dev,
 	ktime_t timeout;
 	struct msm_commit *commit;
 	int i, ret;
+
+	if (!priv || priv->shutdown_in_progress) {
+		DRM_ERROR("priv is null or shutdown is in-progress\n");
+		return -EINVAL;
+	}
 
 	SDE_ATRACE_BEGIN("atomic_commit");
 	ret = drm_atomic_helper_prepare_planes(dev, state);

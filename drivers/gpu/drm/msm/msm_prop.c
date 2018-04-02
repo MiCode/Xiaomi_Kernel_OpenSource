@@ -340,9 +340,16 @@ void msm_property_install_enum(struct msm_property_info *info,
 		info->property_data[property_idx].default_value = default_value;
 		info->property_data[property_idx].force_dirty = false;
 
+		/* select first defined value for enums */
+		if (!is_bitmask)
+			info->property_data[property_idx].default_value =
+				values->type;
+
 		/* always attach property, if created */
 		if (*prop) {
-			drm_object_attach_property(info->base, *prop, 0);
+			drm_object_attach_property(info->base, *prop,
+					info->property_data
+					[property_idx].default_value);
 			++info->install_count;
 		}
 	}

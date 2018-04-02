@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_wb.h"
 #include "sde_formats.h"
+#include "sde_dbg.h"
 
 #define WB_DST_FORMAT			0x000
 #define WB_DST_OP_MODE			0x004
@@ -215,6 +216,9 @@ struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,
 	_setup_wb_ops(&c->ops, c->caps->features);
 	c->highest_bank_bit = m->mdp[0].highest_bank_bit;
 	c->hw_mdp = hw_mdp;
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
 }
