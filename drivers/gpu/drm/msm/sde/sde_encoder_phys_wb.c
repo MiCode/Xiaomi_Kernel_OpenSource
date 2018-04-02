@@ -247,12 +247,8 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 		}
 	}
 
-	/* setup which pp blk will connect to this cdm */
-	if (hw_pp && hw_cdm->ops.bind_pingpong_blk)
-		hw_cdm->ops.bind_pingpong_blk(hw_cdm, true,
-				hw_pp->idx);
-
-	if (hw_cdm && hw_cdm->ops.enable) {
+	if (hw_cdm && hw_pp && hw_cdm->ops.enable) {
+		cdm_cfg->pp_id = hw_pp->idx;
 		ret = hw_cdm->ops.enable(hw_cdm, cdm_cfg);
 		if (ret < 0) {
 			SDE_ERROR("failed to enable CDM %d\n", ret);
