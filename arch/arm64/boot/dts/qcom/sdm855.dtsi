@@ -936,6 +936,7 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,bw-tbl =
+			< MHZ_TO_MBPS(   0, 4) >, /* 0 MB/s */
 			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
 			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
 			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
