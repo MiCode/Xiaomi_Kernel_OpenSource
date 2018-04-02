@@ -2531,11 +2531,14 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
+	if (arm_smmu_power_on(smmu_domain->smmu->pwr))
+		return 0;
+
 	if (smmu_domain->smmu->arch_ops &&
 	    smmu_domain->smmu->arch_ops->iova_to_phys_hard) {
 		ret = smmu_domain->smmu->arch_ops->iova_to_phys_hard(
 						domain, iova);
-		return ret;
+		goto out;
 	}
 
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
@@ -2544,6 +2547,9 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		ret = __arm_smmu_iova_to_phys_hard(domain, iova);
 
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
+
+out:
+	arm_smmu_power_off(smmu_domain->smmu->pwr);
 
 	return ret;
 }
