@@ -459,21 +459,31 @@ void fill_string(char *str, size_t str_len, u8 *buf, int buf_len)
 	}
 }
 
-void dump_sram(u8 *buf, int addr, int len)
+void dump_sram(struct fg_dev *fg, u8 *buf, int addr, int len)
 {
 	int i;
 	char str[16];
 
 	/*
-	 * Length passed should be in multiple of 4 as each FG SRAM word
-	 * holds 4 bytes. To keep this simple, even if a length which is
-	 * not a multiple of 4 bytes or less than 4 bytes is passed, SRAM
-	 * registers dumped will be always in multiple of 4 bytes.
+	 * Length passed should be in multiple of 4 as each GEN3 FG SRAM word
+	 * holds 4 bytes and GEN4 FG SRAM word holds 2 bytes. To keep this
+	 * simple, even if a length which is not a multiple of 4 bytes or less
+	 * than 4 bytes is passed, SRAM registers dumped will be always in
+	 * multiple of 4 bytes.
 	 */
 	for (i = 0; i < len; i += 4) {
 		str[0] = '\0';
 		fill_string(str, sizeof(str), buf + i, 4);
-		pr_info("%03d %s\n", addr + (i / 4), str);
+
+		/*
+		 * We still print 4 bytes per line. However, the address
+		 * should be incremented by 2 for GEN4 FG as each word holds
+		 * 2 bytes.
+		 */
+		if (fg->version == GEN3_FG)
+			pr_info("%03d %s\n", addr + (i / 4), str);
+		else
+			pr_info("%03d %s\n", addr + (i / 2), str);
 	}
 }
 

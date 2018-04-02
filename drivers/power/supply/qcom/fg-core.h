@@ -506,7 +506,7 @@ extern int fg_clear_ima_errors_if_any(struct fg_dev *fg, bool check_hw_sts);
 extern int fg_clear_dma_errors_if_any(struct fg_dev *fg);
 extern int fg_debugfs_create(struct fg_dev *fg);
 extern void fill_string(char *str, size_t str_len, u8 *buf, int buf_len);
-extern void dump_sram(u8 *buf, int addr, int len);
+extern void dump_sram(struct fg_dev *fg, u8 *buf, int addr, int len);
 extern s64 fg_float_decode(u16 val);
 extern bool usb_psy_initialized(struct fg_dev *fg);
 extern bool dc_psy_initialized(struct fg_dev *fg);

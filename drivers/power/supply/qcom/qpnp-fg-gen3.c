@@ -2361,11 +2361,11 @@ static bool is_profile_load_required(struct fg_dev *fg)
 			pr_warn("Profiles doesn't match, skipping loading it since force_load_profile is disabled\n");
 			if (fg_profile_dump) {
 				pr_info("FG: loaded profile:\n");
-				dump_sram(buf, PROFILE_LOAD_WORD,
+				dump_sram(fg, buf, PROFILE_LOAD_WORD,
 					PROFILE_COMP_LEN);
 				pr_info("FG: available profile:\n");
-				dump_sram(chip->batt_profile, PROFILE_LOAD_WORD,
-					PROFILE_LEN);
+				dump_sram(fg, chip->batt_profile,
+					PROFILE_LOAD_WORD, PROFILE_LEN);
 			}
 			fg->profile_load_status = PROFILE_SKIPPED;
 			return false;
@@ -2376,7 +2376,7 @@ static bool is_profile_load_required(struct fg_dev *fg)
 		fg_dbg(fg, FG_STATUS, "Profile integrity bit is not set\n");
 		if (fg_profile_dump) {
 			pr_info("FG: profile to be loaded:\n");
-			dump_sram(chip->batt_profile, PROFILE_LOAD_WORD,
+			dump_sram(fg, chip->batt_profile, PROFILE_LOAD_WORD,
 				PROFILE_LEN);
 		}
 	}
@@ -2582,7 +2582,7 @@ static void sram_dump_work(struct work_struct *work)
 	quotient = div_s64_rem(timestamp_ms, 1000, &remainder);
 	fg_dbg(fg, FG_STATUS, "SRAM Dump Started at %lld.%d\n",
 		quotient, remainder);
-	dump_sram(buf, 0, FG_SRAM_LEN);
+	dump_sram(fg, buf, 0, FG_SRAM_LEN);
 	timestamp_ms = ktime_to_ms(ktime_get_boottime());
 	quotient = div_s64_rem(timestamp_ms, 1000, &remainder);
 	fg_dbg(fg, FG_STATUS, "SRAM Dump done at %lld.%d\n",
