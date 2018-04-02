@@ -43,6 +43,16 @@
 			label = "sbl_mem";
 		};
 
+		flex_sec_apps_mem: flex_sec_apps_regions@8fcfd000 {
+			no-map;
+			reg = <0x8fcfd000 0x3000>;
+		};
+
+		access_control_mem: access_control_mem@8fc80000 {
+			no-map;
+			reg = <0x8fc80000 0x40000>;
+		};
+
 		hyp_region: hyp_region@8fc00000 {
 			no-map;
 			reg = <0x8fc00000 0x80000>;
