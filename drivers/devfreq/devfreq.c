@@ -1170,11 +1170,11 @@ static ssize_t available_frequencies_show(struct device *d,
 			opp = dev_pm_opp_find_freq_ceil(dev, &freq);
 			if (IS_ERR(opp))
 				break;
+			dev_pm_opp_put(opp);
 		} else {
 			freq = df->profile->freq_table[i++];
 		}
 
-		dev_pm_opp_put(opp);
 		count += scnprintf(&buf[count], (PAGE_SIZE - count - 2),
 				   "%lu ", freq);
 		freq++;
