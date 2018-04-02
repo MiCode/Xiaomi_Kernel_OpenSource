@@ -846,3 +846,16 @@ config PROCESS_RECLAIM
 	 (echo all > /proc/PID/reclaim) reclaims all pages.
 
 	 Any other value is ignored.
+
+config MULTIPLE_KSWAPD
+	bool "Spawn multiple kswapd threads"
+	depends on QGKI
+	default y
+	help
+	 kswapd_threads allows you to control the number of kswapd threads
+	 per node running on the system. The default value is 1 and the
+	 range of acceptible values are 1-16. The number of threads can
+	 be controlled by below command:
+	 (echo <num> > /proc/sys/vm/kswapd_threads)
+
+	 Values not in the range of 1..16 are ignored.

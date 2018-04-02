@@ -39,6 +39,7 @@ Currently, these files are in /proc/sys/vm:
 - extfrag_threshold
 - extra_free_kbytes
 - hugetlb_shm_group
+- kswapd_threads
 - laptop_mode
 - legacy_va_layout
 - lowmem_reserve_ratio
@@ -310,6 +311,25 @@ hugetlb_shm_group
 hugetlb_shm_group contains group id that is allowed to create SysV
 shared memory segment using hugetlb page.
 
+kswapd_threads
+==============
+kswapd_threads allows you to control the number of kswapd threads per node
+running on the system. This provides the ability to devote additional CPU
+resources toward proactive page replacement with the goal of reducing
+direct reclaims. When direct reclaims are prevented, the CPU consumed
+by them is prevented as well. Depending on the workload, the result can
+cause aggregate CPU usage on the system to go up, down or stay the same.
+
+More aggressive page replacement can reduce direct reclaims which cause
+latency for tasks and decrease throughput when doing filesystem IO through
+the pagecache. Direct reclaims are recorded using the allocstall counter
+in /proc/vmstat.
+
+The default value is 1 and the range of acceptible values are 1-16.
+Always start with lower values in the 2-6 range. Higher values should
+be justified with testing. If direct reclaims occur in spite of high
+values, the cost of direct reclaims (in latency) that occur can be
+higher due to increased lock contention.
 
 laptop_mode
 ===========
