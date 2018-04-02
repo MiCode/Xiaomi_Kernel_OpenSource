@@ -648,7 +648,7 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 #if FTS_GESTURE_EN
 	u8 state;
 
-	if (data->suspended) {
+	if (data->suspended && data->pdata->wakeup_gestures_en) {
 		fts_i2c_read_reg(data->client, FTS_REG_GESTURE_EN, &state);
 		if (state == 1) {
 			fts_gesture_readdata(data->client);
@@ -989,6 +989,8 @@ static int fts_parse_dt(struct device *dev, struct fts_ts_platform_data *pdata)
 		pdata->max_touch_number = FTS_MAX_POINTS;
 	}
 
+	pdata->wakeup_gestures_en = of_property_read_bool(np,
+			"focaltech,wakeup-gestures-en");
 
 	FTS_FUNC_EXIT();
 	return 0;
@@ -1310,15 +1312,17 @@ static int fts_ts_suspend(struct device *dev)
 #endif
 
 #if FTS_GESTURE_EN
-	retval = fts_gesture_suspend(data->client);
-	if (retval == 0) {
-		/* Enter into gesture mode(suspend) */
-		retval = enable_irq_wake(fts_wq_data->client->irq);
-		if (retval)
-			FTS_ERROR("%s: set_irq_wake failed", __func__);
-		data->suspended = true;
-		FTS_FUNC_EXIT();
-		return 0;
+	if (data->pdata->wakeup_gestures_en) {
+		retval = fts_gesture_suspend(data->client);
+		if (retval == 0) {
+			/* Enter into gesture mode(suspend) */
+			retval = enable_irq_wake(fts_wq_data->client->irq);
+			if (retval)
+				FTS_ERROR("%s: set_irq_wake failed", __func__);
+			data->suspended = true;
+			FTS_FUNC_EXIT();
+			return 0;
+		}
 	}
 #endif
 
@@ -1376,15 +1380,18 @@ static int fts_ts_resume(struct device *dev)
 #endif
 
 #if FTS_GESTURE_EN
-	if (fts_gesture_resume(data->client) == 0) {
-		int err;
+	if (data->pdata->wakeup_gestures_en) {
+		if (fts_gesture_resume(data->client) == 0) {
+			int err;
 
-		err = disable_irq_wake(data->client->irq);
-		if (err)
-			FTS_ERROR("%s: disable_irq_wake failed", __func__);
-		data->suspended = false;
-		FTS_FUNC_EXIT();
-		return 0;
+			err = disable_irq_wake(data->client->irq);
+			if (err)
+				FTS_ERROR("%s: disable_irq_wake failed",
+						__func__);
+			data->suspended = false;
+			FTS_FUNC_EXIT();
+			return 0;
+		}
 	}
 #endif
 
