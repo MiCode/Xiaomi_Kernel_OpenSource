@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include "msm8937-camera-sensor-mtp.dtsi"
+
 #include "msm8937-pinctrl.dtsi"
 &blsp1_uart2 {
 	status = "ok";
