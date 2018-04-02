@@ -2626,8 +2626,8 @@ void ipa3_q6_post_shutdown_cleanup(void)
 				/*
 				 * Indicates GSI hardware is stalled, unexpected
 				 * hardware state.
+				 * Remove bug for adb reboot issue.
 				 */
-				BUG();
 			}
 		}
 
