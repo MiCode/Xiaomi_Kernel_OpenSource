@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sdmshrike-pmic-overlay.dtsi"
+
 &qupv3_se12_2uart {
 	status = "ok";
 };

@@ -571,6 +571,9 @@
 		cell-index = <0>;
 	};
 
+	thermal_zones: thermal-zones {
+	};
+
 	cmd_db: qcom,cmd-db@c3f000c {
 		compatible = "qcom,cmd-db";
 		reg = <0xc3f000c 8>;
