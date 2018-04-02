@@ -744,6 +744,11 @@
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "bobc1";
 		qcom,regulator-type = "pmic5-bob";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_PASS
+			 RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1000000 2000000>;
 		qcom,send-defaults;
 
 		pm855l_bob: regulator-pm855l-bob {
