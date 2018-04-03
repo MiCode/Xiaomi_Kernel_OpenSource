@@ -6814,12 +6814,33 @@ struct find_best_target_env {
 	bool avoid_prev_cpu;
 };
 
+#ifdef CONFIG_SCHED_WALT
+static unsigned long cpu_estimated_capacity(int cpu, struct task_struct *p)
+{
+	unsigned long tutil, estimated_capacity;
+
+	if (task_in_cum_window_demand(cpu_rq(cpu), p))
+		tutil = 0;
+	else
+		tutil = task_util(p);
+
+	estimated_capacity = cpu_util_cum(cpu, tutil);
+
+	return estimated_capacity;
+}
+#else
+static unsigned long cpu_estimated_capacity(int cpu, struct task_struct *p)
+{
+	return cpu_util_wake(cpu, p);
+}
+#endif
+
 static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 				struct find_best_target_env *fbt_env,
 				unsigned int target_cpus_count,
 				int best_idle_cstate)
 {
-	unsigned long tutil, estimated_capacity;
+	unsigned long estimated_capacity;
 
 	if (fbt_env->placement_boost || fbt_env->need_idle)
 		return false;
@@ -6830,12 +6851,7 @@ static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 	if (target_cpus_count != 1)
 		return true;
 
-	if (task_in_cum_window_demand(cpu_rq(target_cpu), p))
-		tutil = 0;
-	else
-		tutil = task_util(p);
-
-	estimated_capacity = cpu_util_cum(target_cpu, tutil);
+	estimated_capacity = cpu_estimated_capacity(target_cpu, p);
 	estimated_capacity = add_capacity_margin(estimated_capacity,
 						 target_cpu);
 
