@@ -42,6 +42,7 @@
 			focaltech,reset-gpio = <&msm_gpio 16 0x00>;/**/
 			focaltech,max-touch-number = <5>;
 			focaltech,display-coords = <0 0 390 390>;/**/
+			focaltech,wakeup-gestures-en;
 		};
 
 		/delete-node/ it7260@46;
