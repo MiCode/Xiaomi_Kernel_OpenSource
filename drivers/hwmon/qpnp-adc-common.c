@@ -677,6 +677,80 @@ static const struct qpnp_vadc_map_pt adcmap_batt_therm[] = {
 	{124,	980}
 };
 
+/* Voltage to temperature */
+static const struct qpnp_vadc_map_pt adcmap_batt_therm_qrd[] = {
+	{1840,	-400},
+	{1835,	-380},
+	{1828,	-360},
+	{1821,	-340},
+	{1813,	-320},
+	{1803,	-300},
+	{1793,	-280},
+	{1781,	-260},
+	{1768,	-240},
+	{1753,	-220},
+	{1737,	-200},
+	{1719,	-180},
+	{1700,	-160},
+	{1679,	-140},
+	{1655,	-120},
+	{1630,	-100},
+	{1603,	-80},
+	{1574,	-60},
+	{1543,	-40},
+	{1510,	-20},
+	{1475,	00},
+	{1438,	20},
+	{1400,	40},
+	{1360,	60},
+	{1318,	80},
+	{1276,	100},
+	{1232,	120},
+	{1187,	140},
+	{1142,	160},
+	{1097,	180},
+	{1051,	200},
+	{1005,	220},
+	{960,	240},
+	{915,	260},
+	{871,	280},
+	{828,	300},
+	{786,	320},
+	{745,	340},
+	{705,	360},
+	{666,	380},
+	{629,	400},
+	{594,	420},
+	{560,	440},
+	{527,	460},
+	{497,	480},
+	{467,	500},
+	{439,	520},
+	{413,	540},
+	{388,	560},
+	{365,	580},
+	{343,	600},
+	{322,	620},
+	{302,	640},
+	{284,	660},
+	{267,	680},
+	{251,	700},
+	{235,	720},
+	{221,	740},
+	{208,	760},
+	{195,	780},
+	{184,	800},
+	{173,	820},
+	{163,	840},
+	{153,	860},
+	{144,	880},
+	{136,	900},
+	{128,	920},
+	{120,	940},
+	{114,	960},
+	{107,	980}
+};
+
 /*
  * Voltage to temperature table for 100k pull up for NTCG104EF104 with
  * 1.875V reference.
@@ -1015,6 +1089,36 @@ int32_t qpnp_adc_batt_therm(struct qpnp_vadc_chip *chip,
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_batt_therm);
+
+int32_t qpnp_adc_batt_therm_qrd(struct qpnp_vadc_chip *chip,
+		int32_t adc_code,
+		const struct qpnp_adc_properties *adc_properties,
+		const struct qpnp_vadc_chan_properties *chan_properties,
+		struct qpnp_vadc_result *adc_chan_result)
+{
+	int64_t batt_thm_voltage = 0;
+
+	if (!chan_properties || !chan_properties->offset_gain_numerator ||
+		!chan_properties->offset_gain_denominator || !adc_properties
+		|| !adc_chan_result)
+		return -EINVAL;
+
+	if (adc_properties->adc_hc) {
+		/* (code * vref_vadc (1.875V) * 1000) / (scale_code * 1000) */
+		if (adc_code > QPNP_VADC_HC_MAX_CODE)
+			adc_code = 0;
+		batt_thm_voltage = (int64_t) adc_code;
+		batt_thm_voltage *= (adc_properties->adc_vdd_reference
+							* 1000);
+		batt_thm_voltage = div64_s64(batt_thm_voltage,
+				adc_properties->full_scale_code * 1000);
+		qpnp_adc_map_voltage_temp(adcmap_batt_therm_qrd,
+			ARRAY_SIZE(adcmap_batt_therm_qrd),
+			batt_thm_voltage, &adc_chan_result->physical);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_adc_batt_therm_qrd);
 
 int32_t qpnp_adc_scale_batt_therm(struct qpnp_vadc_chip *chip,
 		int32_t adc_code,
@@ -1928,6 +2032,34 @@ int32_t qpnp_adc_scale_pmi_chg_temp(struct qpnp_vadc_chip *vadc,
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_scale_pmi_chg_temp);
+
+int32_t qpnp_adc_scale_die_temp_1390(struct qpnp_vadc_chip *chip,
+		int32_t adc_code,
+		const struct qpnp_adc_properties *adc_properties,
+		const struct qpnp_vadc_chan_properties *chan_properties,
+		struct qpnp_vadc_result *adc_chan_result)
+{
+	int rc = 0;
+
+	if (!chan_properties || !chan_properties->offset_gain_numerator ||
+		!chan_properties->offset_gain_denominator || !adc_properties
+		|| !adc_chan_result)
+		return -EINVAL;
+
+	rc = qpnp_adc_scale_default(chip, adc_code, adc_properties,
+			chan_properties, adc_chan_result);
+	if (rc < 0)
+		return rc;
+
+	pr_debug("raw_code:%x, v_adc:%lld\n", adc_code,
+						adc_chan_result->physical);
+	/* T = (1.49322 – V) / 0.00356 */
+	adc_chan_result->physical = 1493220 - adc_chan_result->physical;
+	adc_chan_result->physical = div64_s64(adc_chan_result->physical, 356);
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_adc_scale_die_temp_1390);
 
 int32_t qpnp_adc_enable_voltage(struct qpnp_adc_drv *adc)
 {

@@ -1,0 +1,107 @@
+/*
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sdm845-camera-sensor-qvr.dtsi"
+/* PMD ToF MD101D */
+&cam_cci {
+	qcom,cam-sensor@4 {
+		cell-index = <4>;
+		compatible = "qcom,cam-sensor";
+		reg = <0x4>;
+		csiphy-sd-index = <3>;
+		sensor-position-roll = <270>; /* checked, MTP845 */
+		sensor-position-pitch = <0>; /* checked, MTP845 */
+		sensor-position-yaw = <180>; /* checked, MTP845 */
+		cam_vio-supply = <&pm8998_lvs1>; /* checked, MTP845 */
+		cam_vana-supply = <&pmi8998_bob>;
+		cam_vdig-supply = <&camera_eyetracking_force>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana", "cam_vdig", "cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <0 3312000 1050000 0>;
+		rgltr-max-voltage = <0 3600000 1050000 0>;
+		rgltr-load-current = <0 80000 105000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk3_active
+				&cam_sensor_depth_active>;
+		pinctrl-1 = <&cam_sensor_mclk3_suspend
+				&cam_sensor_depth_suspend>;
+		gpios = <&tlmm 16 0>, //MCLK1
+			    <&tlmm 28 0>, //RESET
+			    <&tlmm 23 0>, //vana
+			    <&tlmm 24 0>;
+		gpio-reset = <1>;   //RESET
+		gpio-vana = <2>;
+		gpio-vdig = <3>;
+		gpio-req-tbl-num = <0 1 2 3> ;
+		gpio-req-tbl-flags = <1 0 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK1",
+					"CAM_RESET1",
+					"CAM_VANA1",
+					"CAM_VDIG1";
+		sensor-mode = <0>; // 0 -> back camera 2D
+		cci-master = <1>; /* checked, MTP845 we are on I2C 0 */
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK3_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+
+/* 6dof */
+	qcom,camera@6 {
+		cell-index = <6>;
+		compatible = "qcom,cam-sensor";
+		reg = <0x6>;
+		csiphy-sd-index = <1>;
+		sensor-position-roll = <270>;
+		sensor-position-pitch = <0>;
+		sensor-position-yaw = <0>;
+		cam_vio-supply = <&pm8998_lvs1>;
+		cam_vana-supply = <&pmi8998_bob>;
+		cam_vdig-supply = <&pm8998_s3>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
+					"cam_clk";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <0 3312000 1050000 0>;
+		rgltr-max-voltage = <0 3600000 1050000 0>;
+		rgltr-load-current = <0 80000 105000 0>;
+		gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk1_active
+				&max_6dof_active>;
+		pinctrl-1 = <&cam_sensor_mclk1_suspend
+				&max_6dof_suspend>;
+		gpios = <&tlmm 14 0>,
+			<&tlmm 30 0>,
+			<&tlmm 95 0>,
+			<&tlmm 94 0>;
+		gpio-reset = <1>;
+		gpio-vana = <2>;
+		gpio-vdig = <3>;
+		gpio-req-tbl-num = <0 1 2 3 >;
+		gpio-req-tbl-flags = <1 0 0 0>;
+		gpio-req-tbl-label = "CAMIF_MCLK3",
+					"CAM_RESET3",
+					"CAM_VANA3",
+					"CAM_VDIG3" ;
+		sensor-mode = <0>;
+		cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_camcc CAM_CC_MCLK1_CLK>;
+		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
+		clock-rates = <24000000>;
+	};
+};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -312,6 +312,17 @@
 #define clk_apss_debug_pri_mux				 0xc691ff55
 #define clk_cpu_debug_pri_mux				 0x61a2945f
 #define clk_debug_cpu_clk                                0x0e696b2b
+
+#define clk_apcs_c0_pll					 0xfbc57bbd
+#define clk_apcs_c1_pll					 0x17d32f1e
+#define clk_apcs_cci_pll				 0x09affb3c
+#define clk_a53ssmux_cci				 0x15560bd5
+#define clk_perf_cpussmux				 0xe6532496
+#define clk_pwr_cpussmux				 0xde339cf1
+#define clk_cci_cpussmux				 0xcaeb1b94
+#define clk_pwr_clk					 0x9283a6d8
+#define clk_perf_clk					 0x98d6ee40
+#define clk_a53_cci_clk					 0x4cdbbe58
 
 #define clk_audio_ap_clk				 0x312ac429
 #define clk_audio_pmi_clk				 0xb7ba2274

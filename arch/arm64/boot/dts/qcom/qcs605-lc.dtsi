@@ -1,0 +1,328 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "qcs605.dtsi"
+#include "pm8005.dtsi"
+#include "qcs605-pm660-pm8005-regulator.dtsi"
+#include "qcs605-lc-sde-display.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS605 SoC";
+	compatible = "qcom,qcs605";
+
+	chosen {
+		bootargs = "core_ctl_disable_cpumask=0-3";
+	};
+
+	cpus {
+		/delete-node/ cpu@200;
+		/delete-node/ cpu@300;
+		/delete-node/ cpu@400;
+		/delete-node/ cpu@500;
+
+		cpu-map {
+			cluster0 {
+				/delete-node/ core2;
+				/delete-node/ core3;
+				/delete-node/ core4;
+				/delete-node/ core5;
+			};
+		};
+	};
+};
+
+&soc {
+	/delete-node/ jtagmm@7240000;
+	/delete-node/ jtagmm@7340000;
+	/delete-node/ jtagmm@7440000;
+	/delete-node/ jtagmm@7540000;
+	/delete-node/ cti@7220000;
+	/delete-node/ cti@7320000;
+	/delete-node/ cti@7420000;
+	/delete-node/ cti@7520000;
+	/delete-node/ etm@7240000;
+	/delete-node/ etm@7340000;
+	/delete-node/ etm@7440000;
+	/delete-node/ etm@7540000;
+	cpuss_dump {
+		/delete-node/ qcom,l1_i_cache200;
+		/delete-node/ qcom,l1_i_cache300;
+		/delete-node/ qcom,l1_i_cache400;
+		/delete-node/ qcom,l1_i_cache500;
+		/delete-node/ qcom,l1_d_cache200;
+		/delete-node/ qcom,l1_d_cache300;
+		/delete-node/ qcom,l1_d_cache400;
+		/delete-node/ qcom,l1_d_cache500;
+		/delete-node/ qcom,l1_tlb_dump200;
+		/delete-node/ qcom,l1_tlb_dump300;
+		/delete-node/ qcom,l1_tlb_dump400;
+		/delete-node/ qcom,l1_tlb_dump500;
+	};
+
+	devfreq_memlat_0: qcom,cpu0-memlat-mon {
+		qcom,cpulist = <&CPU0 &CPU1>;
+	};
+
+	devfreq_l3lat_0: qcom,cpu0-l3lat-mon {
+		qcom,cpulist = <&CPU0 &CPU1>;
+	};
+	devfreq_compute0: qcom,devfreq-compute0 {
+		qcom,cpulist = <&CPU0 &CPU1>;
+	};
+
+	funnel_apss: funnel@7800000 {
+		ports {
+			/delete-node/ port@3;
+			/delete-node/ port@4;
+			/delete-node/ port@5;
+			/delete-node/ port@6;
+		};
+	};
+
+	qcom,lpm-levels {
+		qcom,pm-cluster@0 {
+			qcom,pm-cpu@0 {
+				qcom,cpu = <&CPU0 &CPU1>;
+			};
+		};
+	};
+
+	qcom,chd_silver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x17e00058 0x17e10058>;
+		qcom,config-arr = <0x17e00060 0x17e10060>;
+	};
+};
+
+&pm660_temp_alarm {
+	cooling-maps {
+		/delete-node/ trip0_cpu2;
+		/delete-node/ trip0_cpu3;
+		/delete-node/ trip0_cpu4;
+		/delete-node/ trip0_cpu5;
+		/delete-node/ trip1_cpu2;
+		/delete-node/ trip1_cpu3;
+		/delete-node/ trip1_cpu4;
+		/delete-node/ trip1_cpu5;
+	};
+};
+
+&thermal_zones {
+
+	xo-therm-step {
+		cooling-maps {
+			/delete-node/ skin_cpu2;
+			/delete-node/ skin_cpu3;
+			/delete-node/ skin_cpu4;
+			/delete-node/ skin_cpu5;
+		};
+	};
+};
+
+&spmi_bus {
+	/delete-node/ qcom,pm660l@2;
+	/delete-node/ qcom,pm660l@3;
+};
+
+&icnss {
+	/delete-property/ vdd-3.3-ch0-supply;
+	vdd-0.8-cx-mx-supply = <&pm660_l1>;
+	vdd-1.8-xo-supply = <&pm660_l9>;
+	vdd-1.3-rfa-supply = <&pm660_l3>;
+};
+
+&thermal_zones {
+	pm660l_tz {
+		/delete-property/ thermal-sensors;
+	};
+};
+
+&soc {
+	qcom,turing@8300000 {
+		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&pm8005_s1_level>;
+	};
+
+	qcom,lpass@62400000 {
+		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&pm8005_s1_level>;
+	};
+};
+
+&clock_cpucc {
+	/delete-property/ vdd_l3_mx_ao-supply;
+	/delete-property/ vdd_pwrcl_mx_ao-supply;
+	vdd_l3_mx_ao-supply = <&pm660_s2_level_ao>;
+	vdd_pwrcl_mx_ao-supply = <&pm660_s2_level_ao>;
+};
+
+&clock_gcc {
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_cx_ao-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+	vdd_cx_ao-supply = <&pm8005_s1_level_ao>;
+};
+
+&clock_videocc {
+	/delete-property/ vdd_cx-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+};
+
+&clock_camcc {
+	/delete-property/ vdd_mx-supply;
+	/delete-property/ vdd_cx-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+	vdd_mx-supply = <&pm660_s2_level>;
+};
+
+&clock_dispcc {
+	/delete-property/ vdd_cx-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+};
+
+&clock_gpucc {
+	/delete-property/ vdd_mx-supply;
+	/delete-property/ vdd_cx-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+	vdd_mx-supply = <&pm660_s2_level>;
+};
+
+&pil_modem {
+	/delete-property/ vdd_mx-supply;
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_mss-supply;
+	vdd_cx-supply = <&pm8005_s1_level>;
+	vdd_mx-supply = <&pm660_s2_level>;
+	vdd_mss-supply = <&pm8005_s1_level>;
+};
+
+&clock_gfx {
+	/delete-property/ vdd_gfx-supply;
+	vdd_gfx-supply = <&pm8005_s3_level>;
+};
+
+&gpu_gx_gdsc {
+	/delete-property/ parent-supply;
+	parent-supply = <&pm8005_s3_level>;
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb>;
+	bridges = <&lt9611>;
+};
+
+&sde_dp {
+	status = "disabled";
+};
+
+&qupv3_se9_i2c {
+	status = "okay";
+
+	lt9611: lt,lt9611@3b {
+		compatible = "lt,lt9611";
+		reg = <0x3b>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <96 0>;
+		interrupt-names = "lt_irq";
+		lt,irq-gpio = <&tlmm 96 0x0>;
+		lt,reset-gpio = <&tlmm 95 0x0>;
+		lt,hdmi-en-gpio = <&tlmm 53 0x0>;
+		lt,non-pluggable;
+
+		vdd-supply = <&pm660_l12>;
+		lt,supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			lt,supply-entry@0 {
+				reg = <0>;
+				lt,supply-name = "vdd";
+				lt,supply-min-voltage = <1800000>;
+				lt,supply-max-voltage = <1800000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+		};
+
+		lt,customize-modes {
+			lt,customize-mode-id@0 {
+				lt,mode-h-active = <1920>;
+				lt,mode-h-front-porch = <88>;
+				lt,mode-h-pulse-width = <44>;
+				lt,mode-h-back-porch = <148>;
+				lt,mode-h-active-high;
+				lt,mode-v-active = <1080>;
+				lt,mode-v-front-porch = <4>;
+				lt,mode-v-pulse-width = <5>;
+				lt,mode-v-back-porch = <36>;
+				lt,mode-v-active-high;
+				lt,mode-refresh-rate = <60>;
+				lt,mode-clock-in-khz = <148500>;
+			};
+
+			lt,customize-mode-id@1 {
+				lt,mode-h-active = <3840>;
+				lt,mode-h-front-porch = <176>;
+				lt,mode-h-pulse-width = <88>;
+				lt,mode-h-back-porch = <296>;
+				lt,mode-h-active-high;
+				lt,mode-v-active = <2160>;
+				lt,mode-v-front-porch = <8>;
+				lt,mode-v-pulse-width = <10>;
+				lt,mode-v-back-porch = <72>;
+				lt,mode-v-active-high;
+				lt,mode-refresh-rate = <30>;
+				lt,mode-clock-in-khz = <297000>;
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				lt9611_in: endpoint {
+					remote-endpoint = <&ext_dsi_out>;
+				};
+			};
+		};
+	};
+};
+
+&soc {
+	qcom,dsi-display@0 {
+		qcom,dsi-display-active;
+
+		ports {
+			port@0 {
+				endpoint {
+					remote-endpoint = <&lt9611_in>;
+				};
+			};
+		};
+	};
+};
+
+&qusb_phy0 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdda33-supply;
+};
+
+&usb_qmp_dp_phy {
+	/delete-property/ vdd-supply;
+};
+
+&pm660_pdphy {
+	/delete-property/ vdd-pdphy-supply;
+};

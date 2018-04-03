@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,18 @@ int ipahal_nat_entry_size(enum ipahal_nat_type nat_type, size_t *entry_size);
  */
 int ipahal_nat_is_entry_zeroed(enum ipahal_nat_type nat_type, void *entry,
 	bool *entry_zeroed);
+
+/*
+ * ipahal_nat_is_entry_valid() - Determines whether HW NAT entry is
+ *                                valid.
+ *  Validity criterium depends on entry type. E.g. for NAT base table
+ *   Entry need to be with valid protocol and enabled.
+ * @nat_type: [in] The type of the NAT entry
+ * @entry: [in] The NAT entry
+ * @entry_valid: [out] True if the received entry is valid
+ */
+int ipahal_nat_is_entry_valid(enum ipahal_nat_type nat_type, void *entry,
+	bool *entry_valid);
 
 /*
  * ipahal_nat_stringify_entry() - Creates a string for HW NAT entry

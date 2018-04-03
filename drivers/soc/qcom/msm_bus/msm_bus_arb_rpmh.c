@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1133,7 +1133,7 @@ static void unregister_client_adhoc(uint32_t cl)
 	}
 
 	curr = client->curr;
-	if (curr >= pdata->num_usecases) {
+	if (curr >= pdata->num_usecases || curr < 0) {
 		MSM_BUS_ERR("Invalid index Defaulting curr to 0");
 		curr = 0;
 	}

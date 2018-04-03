@@ -33,6 +33,7 @@ enum {
 	Opt_userid,
 	Opt_reserved_mb,
 	Opt_gid_derivation,
+	Opt_default_normal,
 	Opt_err,
 };
 
@@ -45,6 +46,7 @@ static const match_table_t sdcardfs_tokens = {
 	{Opt_userid, "userid=%d"},
 	{Opt_multiuser, "multiuser"},
 	{Opt_gid_derivation, "derive_gid"},
+	{Opt_default_normal, "default_normal"},
 	{Opt_reserved_mb, "reserved_mb=%u"},
 	{Opt_err, NULL}
 };
@@ -68,6 +70,7 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 	opts->reserved_mb = 0;
 	/* by default, gid derivation is off */
 	opts->gid_derivation = false;
+	opts->default_normal = false;
 
 	*debug = 0;
 
@@ -122,6 +125,9 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 		case Opt_gid_derivation:
 			opts->gid_derivation = true;
 			break;
+		case Opt_default_normal:
+			opts->default_normal = true;
+			break;
 		/* unknown option */
 		default:
 			if (!silent)
@@ -175,6 +181,7 @@ int parse_options_remount(struct super_block *sb, char *options, int silent,
 				return 0;
 			vfsopts->mask = option;
 			break;
+		case Opt_default_normal:
 		case Opt_multiuser:
 		case Opt_userid:
 		case Opt_fsuid:
@@ -334,13 +341,11 @@ static int sdcardfs_read_super(struct vfsmount *mnt, struct super_block *sb,
 	mutex_lock(&sdcardfs_super_list_lock);
 	if (sb_info->options.multiuser) {
 		setup_derived_state(d_inode(sb->s_root), PERM_PRE_ROOT,
-				sb_info->options.fs_user_id, AID_ROOT,
-				false, SDCARDFS_I(d_inode(sb->s_root))->data);
+				sb_info->options.fs_user_id, AID_ROOT);
 		snprintf(sb_info->obbpath_s, PATH_MAX, "%s/obb", dev_name);
 	} else {
 		setup_derived_state(d_inode(sb->s_root), PERM_ROOT,
-				sb_info->options.fs_user_id, AID_ROOT,
-				false, SDCARDFS_I(d_inode(sb->s_root))->data);
+				sb_info->options.fs_user_id, AID_ROOT);
 		snprintf(sb_info->obbpath_s, PATH_MAX, "%s/Android/obb", dev_name);
 	}
 	fixup_tmp_permissions(d_inode(sb->s_root));

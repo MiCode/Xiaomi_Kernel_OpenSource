@@ -20,3 +20,19 @@ config QTI_PDC_SDM670
         default y if ARCH_SDM670
         help
           QTI Power Domain Controller for SDM670
+
+config QTI_PDC_SDXPOORWILLS
+        bool "QTI PDC SDxPOORWILLS"
+        select QTI_PDC
+        default y if ARCH_SDXPOORWILLS
+        help
+          QTI Power Domain Controller for SDxPoorwills
+
+config QTI_MPM
+	bool "QTI MPM"
+	depends on ARCH_QCOM
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+	help
+	  QTI MSM Power Manager driver to manage and configure wakeup
+	  IRQs.

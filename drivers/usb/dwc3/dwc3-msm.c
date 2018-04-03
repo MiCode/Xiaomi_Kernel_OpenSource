@@ -289,7 +289,8 @@ struct dwc3_msm {
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
-static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event);
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
+						unsigned int value);
 static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 					unsigned long event, void *ptr);
 
@@ -439,6 +440,16 @@ static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
 		return dwc3_msm_is_host_superspeed(mdwc);
 
 	return dwc3_msm_is_dev_superspeed(mdwc);
+}
+
+static int dwc3_msm_dbm_disable_updxfer(struct dwc3 *dwc, u8 usb_ep)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	dev_dbg(mdwc->dev, "%s\n", __func__);
+	dwc3_dbm_disable_update_xfer(mdwc->dbm, usb_ep);
+
+	return 0;
 }
 
 #if IS_ENABLED(CONFIG_USB_DWC3_GADGET) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
@@ -697,66 +708,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	struct dwc3_msm_req_complete *req_complete;
 	unsigned long flags;
 	int ret = 0, size;
-	u8 bam_pipe;
-	bool producer;
-	bool disable_wb;
-	bool internal_mem;
-	bool ioc;
 	bool superspeed;
-
-	if (!(request->udc_priv & MSM_SPS_MODE)) {
-		/* Not SPS mode, call original queue */
-		dev_vdbg(mdwc->dev, "%s: not sps mode, use regular queue\n",
-					__func__);
-
-		return (mdwc->original_ep_ops[dep->number])->queue(ep,
-								request,
-								gfp_flags);
-	}
-
-	/* HW restriction regarding TRB size (8KB) */
-	if (req->request.length < 0x2000) {
-		dev_err(mdwc->dev, "%s: Min TRB size is 8KB\n", __func__);
-		return -EINVAL;
-	}
-
-	/*
-	 * Override req->complete function, but before doing that,
-	 * store it's original pointer in the req_complete_list.
-	 */
-	req_complete = kzalloc(sizeof(*req_complete), gfp_flags);
-	if (!req_complete)
-		return -ENOMEM;
-
-	req_complete->req = request;
-	req_complete->orig_complete = request->complete;
-	list_add_tail(&req_complete->list_item, &mdwc->req_complete_list);
-	request->complete = dwc3_msm_req_complete_func;
-
-	/*
-	 * Configure the DBM endpoint
-	 */
-	bam_pipe = request->udc_priv & MSM_PIPE_ID_MASK;
-	producer = ((request->udc_priv & MSM_PRODUCER) ? true : false);
-	disable_wb = ((request->udc_priv & MSM_DISABLE_WB) ? true : false);
-	internal_mem = ((request->udc_priv & MSM_INTERNAL_MEM) ? true : false);
-	ioc = ((request->udc_priv & MSM_ETD_IOC) ? true : false);
-
-	ret = dbm_ep_config(mdwc->dbm, dep->number, bam_pipe, producer,
-				disable_wb, internal_mem, ioc);
-	if (ret < 0) {
-		dev_err(mdwc->dev,
-			"error %d after calling dbm_ep_config\n", ret);
-		return ret;
-	}
-
-	dev_vdbg(dwc->dev, "%s: queing request %p to ep %s length %d\n",
-			__func__, request, ep->name, request->length);
-	size = dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0));
-	dbm_event_buffer_config(mdwc->dbm,
-		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
-		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
-		DWC3_GEVNTSIZ_SIZE(size));
 
 	/*
 	 * We must obtain the lock of the dwc3 core driver,
@@ -770,31 +722,83 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		dev_err(mdwc->dev,
 			"%s: trying to queue request %p to disabled ep %s\n",
 			__func__, request, ep->name);
-		ret = -EPERM;
-		goto err;
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EPERM;
+	}
+
+	if (!mdwc->original_ep_ops[dep->number]) {
+		dev_err(mdwc->dev,
+			"ep [%s,%d] was unconfigured as msm endpoint\n",
+			ep->name, dep->number);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
+	}
+
+	if (!request) {
+		dev_err(mdwc->dev, "%s: request is NULL\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
+	}
+
+	if (!(request->udc_priv & MSM_SPS_MODE)) {
+		dev_err(mdwc->dev, "%s: sps mode is not set\n",
+					__func__);
+
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
+	}
+
+	/* HW restriction regarding TRB size (8KB) */
+	if (req->request.length < 0x2000) {
+		dev_err(mdwc->dev, "%s: Min TRB size is 8KB\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
 	}
 
 	if (dep->number == 0 || dep->number == 1) {
 		dev_err(mdwc->dev,
 			"%s: trying to queue dbm request %p to control ep %s\n",
 			__func__, request, ep->name);
-		ret = -EPERM;
-		goto err;
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EPERM;
 	}
 
-
-	if (dep->trb_dequeue != dep->trb_enqueue ||
-			!list_empty(&dep->pending_list)
-			|| !list_empty(&dep->started_list)) {
+	if (dep->trb_dequeue != dep->trb_enqueue
+					|| !list_empty(&dep->pending_list)
+					|| !list_empty(&dep->started_list)) {
 		dev_err(mdwc->dev,
 			"%s: trying to queue dbm request %p tp ep %s\n",
 			__func__, request, ep->name);
-		ret = -EPERM;
-		goto err;
-	} else {
-		dep->trb_dequeue = 0;
-		dep->trb_enqueue = 0;
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EPERM;
 	}
+	dep->trb_dequeue = 0;
+	dep->trb_enqueue = 0;
+
+	/*
+	 * Override req->complete function, but before doing that,
+	 * store it's original pointer in the req_complete_list.
+	 */
+	req_complete = kzalloc(sizeof(*req_complete), gfp_flags);
+
+	if (!req_complete) {
+		dev_err(mdwc->dev, "%s: not enough memory\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -ENOMEM;
+	}
+
+	req_complete->req = request;
+	req_complete->orig_complete = request->complete;
+	list_add_tail(&req_complete->list_item, &mdwc->req_complete_list);
+	request->complete = dwc3_msm_req_complete_func;
+
+	dev_vdbg(dwc->dev, "%s: queing request %pK to ep %s length %d\n",
+			__func__, request, ep->name, request->length);
+	size = dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0));
+	dbm_event_buffer_config(mdwc->dbm,
+		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
+		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
+		DWC3_GEVNTSIZ_SIZE(size));
 
 	ret = __dwc3_msm_ep_queue(dep, req);
 	if (ret < 0) {
@@ -988,7 +992,7 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 		dev_dbg(mdwc->dev, "Failed to get GSI DBL address MSB\n");
 
 	offset = dwc3_trb_dma_offset(dep, &dep->trb_pool[num_trbs-1]);
-	dev_dbg(mdwc->dev, "Writing link TRB addr: %pa to %p (%x) for ep:%s\n",
+	dev_dbg(mdwc->dev, "Writing link TRB addr: %pa to %pK (%x) for ep:%s\n",
 		&offset, gsi_dbl_address_lsb, request->db_reg_phs_addr_lsb,
 		ep->name);
 
@@ -1061,6 +1065,8 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	struct dwc3_trb *trb;
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 2);
+	struct scatterlist *sg;
+	struct sg_table *sgt;
 
 	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
 				num_trbs * sizeof(struct dwc3_trb),
@@ -1073,6 +1079,19 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	}
 
 	dep->num_trbs = num_trbs;
+	dma_get_sgtable(dwc->sysdev, &req->sgt_trb_xfer_ring, dep->trb_pool,
+		dep->trb_pool_dma, num_trbs * sizeof(struct dwc3_trb));
+
+	sgt = &req->sgt_trb_xfer_ring;
+	dev_dbg(dwc->dev, "%s(): trb_pool:%pK trb_pool_dma:%lx\n",
+		__func__, dep->trb_pool, (unsigned long)dep->trb_pool_dma);
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		dev_dbg(dwc->dev,
+			"%i: page_link:%lx offset:%x length:%x address:%lx\n",
+			i, sg->page_link, sg->offset, sg->length,
+			(unsigned long)sg->dma_address);
+
 	/* IN direction */
 	if (dep->direction) {
 		for (i = 0; i < num_trbs ; i++) {
@@ -1138,11 +1157,13 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 		}
 	}
 
-	pr_debug("%s: Initialized TRB Ring for %s\n", __func__, dep->name);
+	dev_dbg(dwc->dev, "%s: Initialized TRB Ring for %s\n",
+					__func__, dep->name);
 	trb = &dep->trb_pool[0];
 	if (trb) {
 		for (i = 0; i < num_trbs; i++) {
-			pr_debug("TRB(%d): ADDRESS:%lx bpl:%x bph:%x size:%x ctrl:%x\n",
+			dev_dbg(dwc->dev,
+				"TRB %d: ADDR:%lx bpl:%x bph:%x sz:%x ctl:%x\n",
 				i, (unsigned long)dwc3_trb_dma_offset(dep,
 				&dep->trb_pool[i]), trb->bpl, trb->bph,
 				trb->size, trb->ctrl);
@@ -1159,7 +1180,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 * @usb_ep - pointer to usb_ep instance.
 *
 */
-static void gsi_free_trbs(struct usb_ep *ep)
+static void gsi_free_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
@@ -1176,6 +1197,7 @@ static void gsi_free_trbs(struct usb_ep *ep)
 		dep->trb_pool = NULL;
 		dep->trb_pool_dma = 0;
 	}
+	sg_free_table(&req->sgt_trb_xfer_ring);
 }
 /*
 * Configures GSI EPs. For GSI EPs we need to set interrupter numbers.
@@ -1365,7 +1387,8 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		break;
 	case GSI_EP_OP_FREE_TRBS:
 		dev_dbg(mdwc->dev, "EP_OP_FREE_TRBS for %s\n", ep->name);
-		gsi_free_trbs(ep);
+		request = (struct usb_gsi_request *)op_data;
+		gsi_free_trbs(ep, request);
 		break;
 	case GSI_EP_OP_CONFIG:
 		request = (struct usb_gsi_request *)op_data;
@@ -1452,37 +1475,68 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
  *
  * @return int - 0 on success, negetive on error.
  */
-int msm_ep_config(struct usb_ep *ep)
+int msm_ep_config(struct usb_ep *ep, struct usb_request *request)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct usb_ep_ops *new_ep_ops;
+	int ret = 0;
+	u8 bam_pipe;
+	bool producer;
+	bool disable_wb;
+	bool internal_mem;
+	bool ioc;
+	unsigned long flags;
 
 
+	spin_lock_irqsave(&dwc->lock, flags);
 	/* Save original ep ops for future restore*/
 	if (mdwc->original_ep_ops[dep->number]) {
 		dev_err(mdwc->dev,
 			"ep [%s,%d] already configured as msm endpoint\n",
 			ep->name, dep->number);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EPERM;
 	}
 	mdwc->original_ep_ops[dep->number] = ep->ops;
 
 	/* Set new usb ops as we like */
 	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), GFP_ATOMIC);
-	if (!new_ep_ops)
+	if (!new_ep_ops) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ENOMEM;
+	}
 
 	(*new_ep_ops) = (*ep->ops);
 	new_ep_ops->queue = dwc3_msm_ep_queue;
 	new_ep_ops->gsi_ep_op = dwc3_msm_gsi_ep_op;
 	ep->ops = new_ep_ops;
 
+	if (!mdwc->dbm || !request || (dep->endpoint.ep_type == EP_TYPE_GSI)) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return 0;
+	}
+
 	/*
-	 * Do HERE more usb endpoint configurations
-	 * which are specific to MSM.
+	 * Configure the DBM endpoint if required.
 	 */
+	bam_pipe = request->udc_priv & MSM_PIPE_ID_MASK;
+	producer = ((request->udc_priv & MSM_PRODUCER) ? true : false);
+	disable_wb = ((request->udc_priv & MSM_DISABLE_WB) ? true : false);
+	internal_mem = ((request->udc_priv & MSM_INTERNAL_MEM) ? true : false);
+	ioc = ((request->udc_priv & MSM_ETD_IOC) ? true : false);
+
+	ret = dbm_ep_config(mdwc->dbm, dep->number, bam_pipe, producer,
+					disable_wb, internal_mem, ioc);
+	if (ret < 0) {
+		dev_err(mdwc->dev,
+			"error %d after calling dbm_ep_config\n", ret);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return ret;
+	}
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return 0;
 }
@@ -1503,12 +1557,15 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct usb_ep_ops *old_ep_ops;
+	unsigned long flags;
 
+	spin_lock_irqsave(&dwc->lock, flags);
 	/* Restore original ep ops */
 	if (!mdwc->original_ep_ops[dep->number]) {
 		dev_err(mdwc->dev,
 			"ep [%s,%d] was not configured as msm endpoint\n",
 			ep->name, dep->number);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EINVAL;
 	}
 	old_ep_ops = (struct usb_ep_ops	*)ep->ops;
@@ -1520,6 +1577,32 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	 * Do HERE more usb endpoint un-configurations
 	 * which are specific to MSM.
 	 */
+	if (!mdwc->dbm || (dep->endpoint.ep_type == EP_TYPE_GSI)) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return 0;
+	}
+
+	if (dep->trb_dequeue == dep->trb_enqueue
+					&& list_empty(&dep->pending_list)
+					&& list_empty(&dep->started_list)) {
+		dev_dbg(mdwc->dev,
+			"%s: request is not queued, disable DBM ep for ep %s\n",
+			__func__, ep->name);
+		/* Unconfigure dbm ep */
+		dbm_ep_unconfig(mdwc->dbm, dep->number);
+
+		/*
+		 * If this is the last endpoint we unconfigured, than reset also
+		 * the event buffers; unless unconfiguring the ep due to lpm,
+		 * in which case the event buffer only gets reset during the
+		 * block reset.
+		 */
+		if (dbm_get_num_of_eps_configured(mdwc->dbm) == 0 &&
+				!dbm_reset_ep_after_lpm(mdwc->dbm))
+			dbm_event_buffer_config(mdwc->dbm, 0, 0, 0);
+	}
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return 0;
 }
@@ -1745,7 +1828,8 @@ static void dwc3_msm_vbus_draw_work(struct work_struct *w)
 	dwc3_msm_gadget_vbus_draw(mdwc, dwc->vbus_draw);
 }
 
-static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
+							unsigned int value)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_event_buffer *evt;
@@ -1875,7 +1959,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 			if (!evt)
 				break;
 
-			dev_dbg(mdwc->dev, "Evt buf %p dma %08llx length %d\n",
+			dev_dbg(mdwc->dev, "Evt buf %pK dma %08llx length %d\n",
 				evt->buf, (unsigned long long) evt->dma,
 				evt->length);
 			memset(evt->buf, 0, evt->length);
@@ -1931,6 +2015,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 				dma_free_coherent(dwc->sysdev, evt->length,
 							evt->buf, evt->dma);
 		}
+		break;
+	case DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER:
+		dwc3_msm_dbm_disable_updxfer(dwc, value);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
@@ -3499,6 +3586,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->no_vbus_vote_type_c = of_property_read_bool(node,
 					"qcom,no-vbus-vote-with-type-C");
 
+	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Mark type-C as true by default */
 	mdwc->type_c = true;
 
@@ -3524,7 +3612,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_psy;
 
-	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_state(mdwc->extcon_vbus,
 							EXTCON_USB))
@@ -3800,6 +3887,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
 
+		pm_runtime_get_sync(mdwc->dev);
+		dbg_event(0xFF, "StrtHost gync",
+			atomic_read(&mdwc->dev->power.usage_count));
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
 		if (dwc->maximum_speed == USB_SPEED_SUPER) {
 			mdwc->ss_phy->flags |= PHY_HOST_MODE;
@@ -3808,9 +3898,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
-		pm_runtime_get_sync(mdwc->dev);
-		dbg_event(0xFF, "StrtHost gync",
-			atomic_read(&mdwc->dev->power.usage_count));
 		if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
 			ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {

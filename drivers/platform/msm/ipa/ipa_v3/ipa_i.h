@@ -185,6 +185,16 @@
 #define IPA3_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE 50
 #define IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN 40
 
+#define IPA_WDI_RX_RING_RES			0
+#define IPA_WDI_RX_RING_RP_RES		1
+#define IPA_WDI_RX_COMP_RING_RES	2
+#define IPA_WDI_RX_COMP_RING_WP_RES	3
+#define IPA_WDI_TX_RING_RES			4
+#define IPA_WDI_CE_RING_RES			5
+#define IPA_WDI_CE_DB_RES			6
+#define IPA_WDI_TX_DB_RES			7
+#define IPA_WDI_MAX_RES				8
+
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
 	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
@@ -1114,6 +1124,7 @@ struct ipa_hw_stats_quota {
 
 struct ipa_hw_stats_teth {
 	struct ipahal_stats_init_tethering init;
+	struct ipa_quota_stats_all prod_stats_sum[IPA_CLIENT_MAX];
 	struct ipa_quota_stats_all prod_stats[IPA_CLIENT_MAX];
 };
 
@@ -1150,11 +1161,22 @@ enum ipa_smmu_cb_type {
 };
 
 /**
- * struct ipa3_context - IPA context
+ * struct ipa3_char_device_context - IPA character device
  * @class: pointer to the struct class
  * @dev_num: device number
  * @dev: the dev_t of the device
  * @cdev: cdev of the device
+ */
+struct ipa3_char_device_context {
+	struct class *class;
+	dev_t dev_num;
+	struct device *dev;
+	struct cdev cdev;
+};
+
+/**
+ * struct ipa3_context - IPA context
+ * @cdev: cdev context
  * @ep: list of all end points
  * @skip_ep_cfg_shadow: state to update filter table correctly across
   power-save
@@ -1240,10 +1262,7 @@ enum ipa_smmu_cb_type {
  * IPA context - holds all relevant info about IPA driver and its state
  */
 struct ipa3_context {
-	struct class *class;
-	dev_t dev_num;
-	struct device *dev;
-	struct cdev cdev;
+	struct ipa3_char_device_context cdev;
 	struct ipa3_ep_context ep[IPA3_MAX_NUM_PIPES];
 	bool skip_ep_cfg_shadow[IPA3_MAX_NUM_PIPES];
 	u32 ep_flt_bitmap;
@@ -1325,6 +1344,7 @@ struct ipa3_context {
 	u32 ipa_bus_hdl;
 	struct ipa3_controller *ctrl;
 	struct idr ipa_idr;
+	struct platform_device *master_pdev;
 	struct device *pdev;
 	struct device *uc_pdev;
 	spinlock_t idr_lock;
@@ -1898,8 +1918,9 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
 int ipa3_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *), void *priv);
 void ipa3_ntn_uc_dereg_rdyCB(void);
-int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
-	struct ipa_wdi3_conn_out_params *out);
+int ipa3_conn_wdi3_pipes(struct ipa_wdi_conn_in_params *in,
+	struct ipa_wdi_conn_out_params *out,
+	ipa_wdi_meter_notifier_cb wdi_notify);
 int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
@@ -1920,6 +1941,10 @@ int ipa3_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
  * To de-register uC ready callback
  */
 int ipa3_uc_dereg_rdyCB(void);
+
+int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
+		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
+		unsigned long *iova);
 
 /*
  * Tethering bridge (Rmnet / MBIM)
@@ -2236,8 +2261,10 @@ int ipa_reset_all_drop_stats(void);
 
 int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in);
 
-int ipa_get_teth_stats(enum ipa_client_type prod,
-	struct ipa_quota_stats_all *out);
+int ipa_get_teth_stats(void);
+
+int ipa_query_teth_stats(enum ipa_client_type prod,
+	struct ipa_quota_stats_all *out, bool reset);
 
 int ipa_reset_teth_stats(enum ipa_client_type prod, enum ipa_client_type cons);
 
@@ -2260,9 +2287,7 @@ int ipa_reset_flt_rt_stats(enum ipa_ip_type ip, bool filtering, u16 rule_id);
 int ipa_reset_all_flt_rt_stats(enum ipa_ip_type ip, bool filtering);
 
 u32 ipa3_get_num_pipes(void);
-struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void);
-struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
-struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void);
+struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(enum ipa_smmu_cb_type);
 struct iommu_domain *ipa3_get_smmu_domain(void);
 struct iommu_domain *ipa3_get_uc_smmu_domain(void);
 struct iommu_domain *ipa3_get_wlan_smmu_domain(void);

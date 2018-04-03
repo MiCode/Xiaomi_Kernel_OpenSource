@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,8 +175,8 @@
 		io-channel-names = "rradc_batt_id",
 				   "rradc_die_temp";
 		qcom,rradc-base = <0x4500>;
-		qcom,fg-esr-timer-awake = <96 96>;
-		qcom,fg-esr-timer-asleep = <256 256>;
+		qcom,fg-esr-timer-awake = <64 96>;
+		qcom,fg-esr-timer-asleep = <224 256>;
 		qcom,fg-esr-timer-charging = <0 96>;
 		qcom,cycle-counter-en;
 		qcom,hold-soc-while-full;
@@ -387,35 +387,25 @@
 };
 
 &thermal_zones {
-	xo-therm-batt-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&pm660_adc_tm 0x4c>;
-		thermal-governor = "step_wise";
-
+	xo-therm-step {
 		trips {
 			batt_trip1: batt-trip1 {
-				temperature = <40000>;
-				hysteresis = <2000>;
+				temperature = <50000>;
+				hysteresis = <4000>;
 				type = "passive";
 			};
 			batt_trip2: batt-trip2 {
-				temperature = <45000>;
+				temperature = <52000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
 			batt_trip3: batt-trip3 {
-				temperature = <48000>;
-				hysteresis = <3000>;
-				type = "passive";
-			};
-			batt_trip4: batt-trip4 {
-				temperature = <50000>;
+				temperature = <54000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
-			batt_trip5: batt-trip5 {
-				temperature = <52000>;
+			batt_trip4: batt-trip4 {
+				temperature = <56000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
@@ -432,14 +422,10 @@
 			};
 			battery_lvl3 {
 				trip = <&batt_trip3>;
-				cooling-device = <&pm660_charger 3 3>;
+				cooling-device = <&pm660_charger 4 4>;
 			};
 			battery_lvl4 {
 				trip = <&batt_trip4>;
-				cooling-device = <&pm660_charger 4 4>;
-			};
-			battery_lvl5 {
-				trip = <&batt_trip5>;
 				cooling-device = <&pm660_charger 5 5>;
 			};
 		};

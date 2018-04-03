@@ -62,6 +62,19 @@ config QPNP_SMB2
 	  VBUS and VCONN regulators are registered for supporting OTG,
 	  and powered Type-C cables respectively.
 
+config QPNP_SMB5
+	tristate "SMB5 Battery Charger"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y to enables support for the SMB5 charging peripheral.
+	  The QPNP SMB5 charger driver supports the charger peripheral
+	  present in the chip.
+	  The power supply framework is used to communicate battery and
+	  usb properties to userspace and other driver consumers such
+	  as fuel gauge, USB, and USB-PD.
+	  VBUS and VCONN regulators are registered for supporting OTG,
+	  and powered Type-C cables respectively.
+
 config SMB138X_CHARGER
 	tristate "SMB138X Battery Charger"
 	depends on MFD_I2C_PMIC
@@ -101,5 +114,22 @@ config QPNP_TYPEC
 	  current-capability and CC-orientation. The module does not support
 	  USB power-delivery. The driver adds support to report these type-C
 	  parameters via the power-supply framework.
+
+config QPNP_QG
+	bool "QPNP Qgauge driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the Qualcomm Technologies, Inc. QGauge driver
+	  which uses the periodic sampling of the battery voltage and current
+	  to determine the battery state-of-charge (SOC) and supports other
+	  battery management features.
+
+config SMB1390_CHARGE_PUMP
+	tristate "SMB1390 Charge Pump"
+	depends on MFD_I2C_PMIC
+	help
+	  Say Y to include support for SMB1390 Charge Pump.
+	  SMB1390 is a div2 charge pump capable of delivering 6A charge current
+	  with very high efficiency.
 
 endmenu

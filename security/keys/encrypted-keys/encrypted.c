@@ -141,23 +141,22 @@ static int valid_ecryptfs_desc(const char *ecryptfs_desc)
  */
 static int valid_master_desc(const char *new_desc, const char *orig_desc)
 {
-	if (!memcmp(new_desc, KEY_TRUSTED_PREFIX, KEY_TRUSTED_PREFIX_LEN)) {
-		if (strlen(new_desc) == KEY_TRUSTED_PREFIX_LEN)
-			goto out;
-		if (orig_desc)
-			if (memcmp(new_desc, orig_desc, KEY_TRUSTED_PREFIX_LEN))
-				goto out;
-	} else if (!memcmp(new_desc, KEY_USER_PREFIX, KEY_USER_PREFIX_LEN)) {
-		if (strlen(new_desc) == KEY_USER_PREFIX_LEN)
-			goto out;
-		if (orig_desc)
-			if (memcmp(new_desc, orig_desc, KEY_USER_PREFIX_LEN))
-				goto out;
-	} else
-		goto out;
+	int prefix_len;
+
+	if (!strncmp(new_desc, KEY_TRUSTED_PREFIX, KEY_TRUSTED_PREFIX_LEN))
+		prefix_len = KEY_TRUSTED_PREFIX_LEN;
+	else if (!strncmp(new_desc, KEY_USER_PREFIX, KEY_USER_PREFIX_LEN))
+		prefix_len = KEY_USER_PREFIX_LEN;
+	else
+		return -EINVAL;
+
+	if (!new_desc[prefix_len])
+		return -EINVAL;
+
+	if (orig_desc && strncmp(new_desc, orig_desc, prefix_len))
+		return -EINVAL;
+
 	return 0;
-out:
-	return -EINVAL;
 }
 
 /*
@@ -314,7 +313,7 @@ static struct key *request_user_key(const char *master_desc, const u8 **master_k
 		goto error;
 
 	down_read(&ukey->sem);
-	upayload = user_key_payload(ukey);
+	upayload = user_key_payload_locked(ukey);
 	if (!upayload) {
 		/* key was revoked before we acquired its semaphore */
 		up_read(&ukey->sem);
@@ -934,7 +933,7 @@ static long encrypted_read(const struct key *key, char __user *buffer,
 	size_t asciiblob_len;
 	int ret;
 
-	epayload = rcu_dereference_key(key);
+	epayload = dereference_key_locked(key);
 
 	/* returns the hex encoded iv, encrypted-data, and hmac as ascii */
 	asciiblob_len = epayload->datablob_len + ivsize + 1

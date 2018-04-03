@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "pmi632.dtsi"
+
+&pmi632_charger {
+	dpdm-supply = <&usb_otg>;
+};
+
+&usb_otg {
+	vbus_otg-supply = <&smb5_vbus>;
+	extcon = <&pmi632_charger>;
+};
+
+&pmi632_pon {
+	qcom,ps-hold-hard-reset-disable;
+	qcom,ps-hold-shutdown-disable;
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-ascent-3450mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
+
+&pmi632_qg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pm8953_typec {
+	status = "disabled";
+};
+
+&thermal_zones {
+	pmi-vbat-lvl0 {
+		cooling-maps {
+			vbat_map0 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU0 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map1 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map2 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map3 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	soc {
+		cooling-maps {
+			soc_map0 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU0 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map1 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map2 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map3 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+};

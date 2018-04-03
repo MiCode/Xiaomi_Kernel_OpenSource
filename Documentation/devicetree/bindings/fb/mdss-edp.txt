@@ -1,4 +1,4 @@
-Qualcomm MDSS EDP
+Qualcomm Technologies, Inc. MDSS EDP
 
 MDSS EDP is a edp driver which supports panels that are compatible with
 VESA EDP display interface specification.

@@ -1,0 +1,131 @@
+/*
+ * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/pm.h>
+
+&soc {
+	qcom,spm@b012000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xb012000 0x1000>;
+		qcom,name = "perf-l2";
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,saw2-cfg = <0x14>;
+		qcom,saw2-spm-dly= <0x3C11840A>;
+		qcom,saw2-spm-ctl = <0xe>;
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,vctl-timeout-us = <500>;
+		qcom,vctl-port = <0x0>;
+	};
+
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		qcom,use-psci;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0{
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			label = "perf";
+			qcom,spm-device-names = "l2";
+			qcom,default-level=<0>;
+			qcom,psci-mode-shift = <4>;
+			qcom,psci-mode-mask = <0xf>;
+
+			qcom,pm-cluster-level@0{
+				reg = <0>;
+				label = "perf-l2-wfi";
+				qcom,psci-mode = <1>;
+				qcom,latency-us = <180>;
+				qcom,ss-power = <429>;
+				qcom,energy-overhead = <162991>;
+				qcom,time-overhead = <305>;
+			};
+
+			qcom,pm-cluster-level@1{
+				reg = <1>;
+				label = "perf-l2-gdhs";
+				qcom,psci-mode = <4>;
+				qcom,latency-us = <280>;
+				qcom,ss-power = <421>;
+				qcom,energy-overhead = <257510>;
+				qcom,time-overhead = <520>;
+				qcom,min-child-idx = <1>;
+				qcom,reset-level = <LPM_RESET_LVL_GDHS>;
+			};
+
+			qcom,pm-cluster-level@2{
+				reg = <2>;
+				label = "perf-l2-retention";
+				qcom,psci-mode = <2>;
+				qcom,latency-us = <650>;
+				qcom,ss-power = <350>;
+				qcom,energy-overhead = <651061>;
+				qcom,time-overhead = <1350>;
+				qcom,min-child-idx = <1>;
+				qcom,reset-level = <LPM_RESET_LVL_RET>;
+			};
+
+			qcom,pm-cluster-level@3{
+				reg = <3>;
+				label = "perf-l2-pc";
+				qcom,psci-mode = <5>;
+				qcom,latency-us = <11200>;
+				qcom,ss-power = <320>;
+				qcom,energy-overhead = <917561>;
+				qcom,time-overhead = <1700>;
+				qcom,min-child-idx = <1>;
+				qcom,is-reset;
+				qcom,notify-rpm;
+				qcom,reset-level = <LPM_RESET_LVL_PC>;
+			};
+
+			qcom,pm-cpu {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+
+				qcom,pm-cpu-level@0 {
+					reg = <0>;
+					qcom,psci-cpu-mode = <0>;
+					label = "wfi";
+					qcom,latency-us = <12>;
+					qcom,ss-power = <463>;
+					qcom,energy-overhead = <23520>;
+					qcom,time-overhead = <25>;
+				};
+
+				qcom,pm-cpu-level@1 {
+					reg = <1>;
+					qcom,psci-cpu-mode = <3>;
+					label = "pc";
+					qcom,latency-us = <180>;
+					qcom,ss-power = <429>;
+					qcom,energy-overhead = <162991>;
+					qcom,time-overhead = <305>;
+					qcom,use-broadcast-timer;
+					qcom,is-reset;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
+				};
+			};
+		};
+	};
+
+	qcom,cpu-sleep-status {
+		compatible = "qcom,cpu-sleep-status";
+	};
+};

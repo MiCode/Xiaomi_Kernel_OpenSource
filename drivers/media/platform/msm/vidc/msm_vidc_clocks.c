@@ -736,7 +736,7 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 
 	operating_rate = operating_rate >> 16;
 
-	if ((curr_operating_rate + ops_left) >= operating_rate ||
+	if ((curr_operating_rate * (1 + ops_left)) >= operating_rate ||
 			!msm_vidc_clock_scaling ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW) {
 		dprintk(VIDC_DBG,
@@ -1018,9 +1018,10 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
 		rc_mode =  msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL);
 		if (rc_mode == V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR ||
-			rc_mode ==
-				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR)
-			pdata.video_work_mode = VIDC_WORK_MODE_2;
+		    rc_mode == V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR ||
+		    rc_mode == V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_MBR_CFR ||
+		    rc_mode == V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_MBR_VFR)
+		pdata.video_work_mode = VIDC_WORK_MODE_2;
 	} else {
 		return -EINVAL;
 	}

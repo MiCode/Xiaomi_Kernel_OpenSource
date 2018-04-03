@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1600,14 +1600,14 @@ EXPORT_SYMBOL(slim_disconnect_ports);
  * Client will call slim_port_get_xfer_status to get error and/or number of
  * bytes transferred if used asynchronously.
  */
-int slim_port_xfer(struct slim_device *sb, u32 ph, phys_addr_t iobuf, u32 len,
+int slim_port_xfer(struct slim_device *sb, u32 ph, void *buf, u32 len,
 				struct completion *comp)
 {
 	struct slim_controller *ctrl = sb->ctrl;
 	u8 pn = SLIM_HDL_TO_PORT(ph);
 
 	dev_dbg(&ctrl->dev, "port xfer: num:%d", pn);
-	return ctrl->port_xfer(ctrl, pn, iobuf, len, comp);
+	return ctrl->port_xfer(ctrl, pn, buf, len, comp);
 }
 EXPORT_SYMBOL(slim_port_xfer);
 

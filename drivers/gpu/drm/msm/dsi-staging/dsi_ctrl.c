@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -399,6 +399,21 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 	}
 
 	return rc;
+}
+
+bool dsi_ctrl_validate_host_state(struct dsi_ctrl *dsi_ctrl)
+{
+	struct dsi_ctrl_state_info *state = &dsi_ctrl->current_state;
+
+	if (!state) {
+		pr_err("Invalid host state for DSI controller\n");
+		return -EINVAL;
+	}
+
+	if (!state->host_initialized)
+		return true;
+
+	return false;
 }
 
 static void dsi_ctrl_update_state(struct dsi_ctrl *dsi_ctrl,
@@ -900,6 +915,27 @@ static int dsi_ctrl_copy_and_pad_cmd(struct dsi_ctrl *dsi_ctrl,
 	return rc;
 }
 
+int dsi_ctrl_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl *dsi_ctrl)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (dsi_ctrl->host_config.panel_mode != DSI_OP_CMD_MODE)
+		return -EINVAL;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	rc = dsi_ctrl->hw.ops.wait_for_cmd_mode_mdp_idle(&dsi_ctrl->hw);
+
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	return rc;
+}
+
 static void dsi_ctrl_wait_for_video_done(struct dsi_ctrl *dsi_ctrl)
 {
 	u32 v_total = 0, v_blank = 0, sleep_ms = 0, fps = 0, ret;
@@ -1072,10 +1108,10 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 
 		cmdbuf = (u8 *)(dsi_ctrl->vaddr);
 
+		msm_gem_sync(dsi_ctrl->tx_cmd_buf);
 		for (cnt = 0; cnt < length; cnt++)
 			cmdbuf[dsi_ctrl->cmd_len + cnt] = buffer[cnt];
 
-		msm_gem_sync(dsi_ctrl->tx_cmd_buf);
 		dsi_ctrl->cmd_len += length;
 
 		if (!(msg->flags & MIPI_DSI_MSG_LASTCOMMAND)) {
@@ -1401,8 +1437,7 @@ static int dsi_enable_ulps(struct dsi_ctrl *dsi_ctrl)
 	u32 lanes = 0;
 	u32 ulps_lanes;
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
-		lanes = dsi_ctrl->host_config.common_config.data_lanes;
+	lanes = dsi_ctrl->host_config.common_config.data_lanes;
 
 	rc = dsi_ctrl->hw.ops.wait_for_lane_idle(&dsi_ctrl->hw, lanes);
 	if (rc) {
@@ -1443,9 +1478,7 @@ static int dsi_disable_ulps(struct dsi_ctrl *dsi_ctrl)
 		return 0;
 	}
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
-		lanes = dsi_ctrl->host_config.common_config.data_lanes;
-
+	lanes = dsi_ctrl->host_config.common_config.data_lanes;
 	lanes |= DSI_CLOCK_LANE;
 
 	ulps_lanes = dsi_ctrl->hw.ops.ulps_ops.get_lanes_in_ulps(&dsi_ctrl->hw);
@@ -2087,11 +2120,14 @@ int dsi_ctrl_set_roi(struct dsi_ctrl *dsi_ctrl, struct dsi_rect *roi,
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-	if (!dsi_rect_is_equal(&dsi_ctrl->roi, roi)) {
+	if ((!dsi_rect_is_equal(&dsi_ctrl->roi, roi)) ||
+			dsi_ctrl->modeupdated) {
 		*changed = true;
 		memcpy(&dsi_ctrl->roi, roi, sizeof(dsi_ctrl->roi));
+		dsi_ctrl->modeupdated = false;
 	} else
 		*changed = false;
+
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
 }
@@ -2421,6 +2457,31 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
 }
 
 /**
+ * dsi_ctrl_update_host_init_state() - Update the host initialization state.
+ * @dsi_ctrl:        DSI controller handle.
+ * @enable:        boolean signifying host state.
+ *
+ * Update the host initialization status only while exiting from ulps during
+ * suspend state.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	int rc = 0;
+	u32 state = enable ? 0x1 : 0x0;
+
+	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, state);
+	if (rc) {
+		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
+		       dsi_ctrl->cell_index, rc);
+		return rc;
+	}
+	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, state);
+	return rc;
+}
+
+/**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
  * @is_splash_enabled:        boolean signifying splash status.
@@ -2647,6 +2708,7 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active;
 	ctrl->mode_bounds.h = ctrl->host_config.video_timing.v_active;
 	memcpy(&ctrl->roi, &ctrl->mode_bounds, sizeof(ctrl->mode_bounds));
+	ctrl->modeupdated = true;
 	ctrl->roi.x = 0;
 error:
 	mutex_unlock(&ctrl->ctrl_lock);
@@ -2672,9 +2734,6 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
-
-	mutex_lock(&dsi_ctrl->ctrl_lock);
-	mutex_unlock(&dsi_ctrl->ctrl_lock);
 
 	return rc;
 }
@@ -3291,6 +3350,25 @@ u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
 		dsi_ctrl->cell_index, dsi_ctrl->misr_cache, misr);
 
 	return misr;
+}
+
+void dsi_ctrl_mask_error_status_interrupts(struct dsi_ctrl *dsi_ctrl)
+{
+	if (!dsi_ctrl || !dsi_ctrl->hw.ops.error_intr_ctrl
+			|| !dsi_ctrl->hw.ops.clear_error_status) {
+		pr_err("Invalid params\n");
+		return;
+	}
+
+	/*
+	 * Mask DSI error status interrupts and clear error status
+	 * register
+	 */
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, false);
+	dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					DSI_ERROR_INTERRUPT_COUNT);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
 /**

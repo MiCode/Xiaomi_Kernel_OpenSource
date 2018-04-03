@@ -1,6 +1,6 @@
-Qualcomm Technologies MSM Clock controller
+Qualcomm Technologies, Inc. MSM Clock controller
 
-Qualcomm Technologies MSM Clock controller devices contain PLLs, root clock
+Qualcomm Technologies, Inc. MSM Clock controller devices contain PLLs, root clock
 generators and other clocking hardware blocks that provide stable, low power
 clocking to hardware blocks on Qualcomm Technologies SOCs. The clock controller
 device node lists the power supplies needed to be scaled using the vdd_*-supply
@@ -12,10 +12,46 @@ the compatible string to indicate the revision.
 Required properties:
 - compatible:           Must be one of following,
 			"qcom,gcc-8953"
+			"qcom,gcc-8909"
+			"qcom,gcc-sdm632"
 			"qcom,cc-debug-8953"
+			"qcom,cc-debug-8909"
+			"qcom,cc-debug-sdm632"
 			"qcom,gcc-mdss-8953"
+			"qcom,gcc-mdss-sdm632"
                         "qcom,gcc-gfx-8953"
                         "qcom,gcc-gfx-sdm450"
+                        "qcom,gcc-gfx-sdm632"
+			"qcom,gcc-8992"
+			"qcom,gcc-8952"
+			"qcom,gcc-8937"
+			"qcom,gcc-8917"
+			"qcom,gcc-8940"
+			"qcom,gcc-8920"
+			"qcom,gcc-spm-8952"
+			"qcom,gcc-spm-8937"
+			"qcom,rpmcc-8909"
+			"qcom,rpmcc-8909-pm660"
+			"qcom,cc-debug-8952"
+			"qcom,cc-debug-8953"
+			"qcom,cc-debug-8937"
+			"qcom,cc-debug-8917"
+			"qcom,cc-debug-8940"
+			"qcom,cc-debug-8920"
+			"qcom,gcc-mdss-8953"
+			"qcom,gcc-mdss-8952"
+			"qcom,gcc-mdss-8909"
+			"qcom,gcc-mdss-8937"
+			"qcom,gcc-mdss-8917"
+			"qcom,gcc-mdss-8940"
+			"qcom,gcc-mdss-8920"
+			"qcom,gcc-gfx-8953"
+			"qcom,gcc-gfx-sdm450"
+			"qcom,gcc-mdm9607"
+			"qcom,cc-debug-mdm9607"
+			"qcom,gcc-9650"
+			"qcom,cc-debug-9650"
+			"qcom,gcc-sdx20"
 
 - reg:                  Pairs of physical base addresses and region sizes of
                         memory mapped registers.

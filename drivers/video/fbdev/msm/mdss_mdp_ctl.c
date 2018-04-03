@@ -76,13 +76,15 @@ static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 	u64 result = val;
 
 	if (val) {
-		u64 temp = -1UL;
+		u64 temp = U64_MAX;
 
 		do_div(temp, val);
 		if (temp > numer) {
 			/* no overflow, so we can do the operation*/
 			result = (val * (u64)numer);
 			do_div(result, denom);
+		} else {
+			pr_warn("Overflow, skip fudge factor\n");
 		}
 	}
 	return result;
@@ -942,6 +944,7 @@ static u32 mdss_mdp_calc_prefill_line_time(struct mdss_mdp_ctl *ctl,
 	if (!ctl || !ctl->mdata)
 		return 0;
 
+	mdata = ctl->mdata;
 	mixer = pipe->mixer_left;
 	if (!mixer)
 		return -EINVAL;
@@ -2670,7 +2673,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 	ktime_t current_time = ktime_get();
 
 	if (!ctl->ops.read_line_cnt_fnc)
-		return -ENOTSUP;
+		return -ENOTSUPP;
 
 	pinfo = &ctl->panel_data->panel_info;
 	if (!pinfo)
@@ -4559,7 +4562,8 @@ static inline void __mdss_mdp_mixer_write_layer(struct mdss_mdp_ctl *ctl,
 	u32 off[NUM_MIXERCFG_REGS];
 	int i;
 
-	WARN_ON(!values || count < NUM_MIXERCFG_REGS);
+	if (WARN_ON(!values || count < NUM_MIXERCFG_REGS))
+		return;
 
 	__mdss_mdp_mixer_get_offsets(mixer_num, off, ARRAY_SIZE(off));
 
@@ -5524,9 +5528,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		} else {
 			sctl_flush_bits = sctl->flush_bits;
 		}
-		sctl->commit_in_progress = true;
 	}
-	ctl->commit_in_progress = true;
 	ctl_flush_bits = ctl->flush_bits;
 
 	ATRACE_END("postproc_programming");
@@ -5666,15 +5668,11 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 	ATRACE_BEGIN("flush_kickoff");
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush_bits);
-	if (sctl) {
-		if (sctl_flush_bits) {
-			mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH,
-				sctl_flush_bits);
-			sctl->flush_bits = 0;
-		}
-		sctl->commit_in_progress = false;
+	if (sctl && sctl_flush_bits) {
+		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH,
+				   sctl_flush_bits);
+		sctl->flush_bits = 0;
 	}
-	ctl->commit_in_progress = false;
 
 	MDSS_XLOG(ctl->intf_num, ctl_flush_bits, sctl_flush_bits,
 		split_lm_valid);

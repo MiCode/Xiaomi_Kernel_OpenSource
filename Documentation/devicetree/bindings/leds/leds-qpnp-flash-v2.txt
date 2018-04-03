@@ -119,6 +119,8 @@ Optional properties:
 			  2: Flash strobe is used for LED1; GPIO9 is used for LED2; GPIO10 is used for LED3
 - switchX-supply		: phandle of the regulator that needs to be used
 				  as a supply for flash switch_X device.
+- qcom,bst-pwm-ovrhd-uv		: Charger flash VPH overhead. Applicable for PMI632 only.
+				  Supported values (in mV) are: 300, 400, 500, 600. Default is 300.
 
 Child node: Contains settings for each individual LED. Each LED channel needs a flash node and
 torch node for itself, and an individual switch node to serve as an overall switch.
@@ -182,6 +184,10 @@ Optional properties:
 				  be edge triggered. Otherwise, it is level triggered.
 - qcom,hw-strobe-active-low	: Boolean property to select strobe signal polarity. If defined, hw-strobe
 				  signal polarity is set to active-low, else it is active-high.
+- qcom,symmetry-en	: Boolean property to specify if the flash LEDs under a
+			  switch node are controlled symmetrically. This needs
+			  to be specified if a group of flash LED channels are
+			  connected to a single LED.
 Example:
 	qcom,leds@d300 {
 		compatible = "qcom,qpnp-flash-led-v2";
@@ -302,6 +308,7 @@ Example:
 			qcom,led-mask = <3>;
 			qcom,default-led-trigger =
 						"switch0_trigger";
+			qcom,symmetry-en;
 		};
 
 		pmi8998_switch1: qcom,led_switch_1 {

@@ -22,6 +22,7 @@ Required properties for Ion heaps
     - "SYSTEM"
     - "SYSTEM_CONTIG"
     - "CARVEOUT"
+    - "SECURE_CARVEOUT"
     - "CHUNK"
     - "CP"
     - "DMA"
@@ -40,6 +41,7 @@ Optional properties for Ion heaps
   optimizations. Ignored if the heap does not support prefetching.
   Will set to a reasonable default value (e.g. the maximum heap size)
   if this option is not set.
+
 
 Example:
 	qcom,ion {
@@ -70,3 +72,32 @@ Example:
                          qcom,ion-heap-type = "CARVEOUT";
                  };
 	};
+
+"SECURE_CARVEOUT"
+
+This heap type is expected to contain multiple child nodes. Each child node
+shall contain the following required properties:
+
+- memory-regions:
+Refer to Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
+
+- token:
+A u32 containing the set of secure domains which will be able to access the
+memory-region.
+
+Example:
+qcom,ion {
+	compatible = "qcom,msm-ion";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	qcom,ion-heap@14 {
+		reg = <14>;
+		qcom,ion-heap-type = "SECURE_CARVEOUT";
+
+		node1 {
+			memory-regions = <&cp_region>;
+			token = <ION_FLAG_CP_TOUCH>;
+		};
+	};
+};

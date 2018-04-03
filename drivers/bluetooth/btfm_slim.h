@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,6 +77,8 @@ struct btfmslim {
 	int (*vendor_port_en)(struct btfmslim *btfmslim, uint8_t port_num,
 		uint8_t rxport, uint8_t enable);
 };
+
+extern int btfm_feedback_ch_setting;
 
 /**
  * btfm_slim_hw_init: Initialize slimbus slave device

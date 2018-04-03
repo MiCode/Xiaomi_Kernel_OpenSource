@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3139,7 +3139,8 @@ static int usb_bam_init(struct platform_device *pdev)
 	}
 
 	dev = &ctx->usb_bam_pdev->dev;
-	if (dev && dev->parent && !device_property_present(dev->parent,
+	if (dev && dev->parent && device_property_present(dev->parent, "iommus")
+		&& !device_property_present(dev->parent,
 						"qcom,smmu-s1-bypass")) {
 		pr_info("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
 						__func__, dev_name(dev));
@@ -3312,7 +3313,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 	return ret;
 }
 
-bool usb_bam_get_prod_granted(enum usb_ctrl bam_type, u8 idx)
+bool usb_bam_get_prod_granted(enum usb_ctrl bam_type)
 {
 	return (info[bam_type].cur_prod_state == IPA_RM_RESOURCE_GRANTED);
 }

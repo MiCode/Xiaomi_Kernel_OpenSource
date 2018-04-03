@@ -204,6 +204,18 @@ static bool sde_plane_crtc_enabled(struct drm_plane_state *state)
 			state->crtc->state->enable;
 }
 
+bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+
+	if (!plane)
+		return false;
+
+	psde = to_sde_plane(plane);
+
+	return !(psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI));
+}
+
 /**
  * _sde_plane_calc_fill_level - calculate fill level of the given source format
  * @plane:		Pointer to drm plane
@@ -2379,6 +2391,29 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 					(u64) &rstate->rot_hw->base);
 			rstate->out_fbo = NULL;
 		}
+
+		/*
+		 * For video mode, reject any downscale factor greater than or
+		 * equal to 1.1x
+		 *
+		 * Check the downscale factor first to avoid querying the
+		 * interface mode unnecessarily.
+		 */
+		if ((rstate->out_src_h >> 16) * 10 >= state->crtc_h * 11 &&
+				sde_crtc_get_intf_mode(state->crtc) ==
+				INTF_MODE_VIDEO) {
+			SDE_DEBUG_PLANE(psde,
+					"inline %d with invalid scale, %dx%d, %dx%d\n",
+					rstate->sequence_id,
+					rstate->out_src_w, rstate->out_src_h,
+					state->crtc_w, state->crtc_h);
+			SDE_EVT32(DRMID(plane), rstate->sequence_id,
+					rstate->out_src_w >> 16,
+					rstate->out_src_h >> 16,
+					state->crtc_w, state->crtc_h,
+					SDE_EVTLOG_ERROR);
+			return -EINVAL;
+		}
 	} else {
 
 		SDE_DEBUG("plane%d.%d bypass rotator\n", plane->base.id,
@@ -2540,6 +2575,25 @@ void sde_plane_halt_requests(struct drm_plane *plane, bool enable)
 	psde->xin_halt_forced_clk =
 		_sde_plane_halt_requests(plane, psde->pipe_hw->cap->xin_id,
 				psde->xin_halt_forced_clk, enable);
+}
+
+void sde_plane_secure_ctrl_xin_client(struct drm_plane *plane,
+				struct drm_crtc *crtc)
+{
+	struct sde_plane *psde;
+
+	if (!plane || !crtc) {
+		SDE_ERROR("invalid plane/crtc\n");
+		return;
+	}
+	psde = to_sde_plane(plane);
+
+	if (psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI))
+		return;
+
+	/* do all VBIF programming for the sec-ui allowed SSPP */
+	_sde_plane_set_qos_remap(plane);
+	_sde_plane_set_ot_limit(plane, crtc);
 }
 
 int sde_plane_reset_rot(struct drm_plane *plane, struct drm_plane_state *state)
@@ -3257,7 +3311,8 @@ static void _sde_plane_sspp_atomic_check_mode_changed(struct sde_plane *psde,
 
 	if (!fb || !old_fb) {
 		SDE_DEBUG_PLANE(psde, "can't compare fb handles\n");
-	} else if (fb->pixel_format != old_fb->pixel_format) {
+	} else if ((fb->pixel_format != old_fb->pixel_format) ||
+			pstate->const_alpha_en != old_pstate->const_alpha_en) {
 		SDE_DEBUG_PLANE(psde, "format change\n");
 		pstate->dirty |= SDE_PLANE_DIRTY_FORMAT | SDE_PLANE_DIRTY_RECTS;
 	} else {
@@ -3569,7 +3624,8 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 
 	pstate->const_alpha_en = fmt->alpha_enable &&
 		(SDE_DRM_BLEND_OP_OPAQUE !=
-		 sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP));
+		 sde_plane_get_property(pstate, PLANE_PROP_BLEND_OP)) &&
+		(pstate->stage != SDE_STAGE_0);
 
 modeset_update:
 	if (!ret)
@@ -4345,6 +4401,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			psde->pipe_sblk->maxvdeciexp);
 	sde_kms_info_add_keyint(info, "max_per_pipe_bw",
 			psde->pipe_sblk->max_per_pipe_bw * 1000LL);
+	if (psde->features & BIT(SDE_SSPP_BLOCK_SEC_UI))
+		sde_kms_info_add_keyint(info, "block_sec_ui", 1);
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
 			info->data, SDE_KMS_INFO_DATALEN(info),
 			PLANE_PROP_INFO);

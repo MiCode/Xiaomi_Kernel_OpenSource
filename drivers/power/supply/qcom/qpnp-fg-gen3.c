@@ -35,6 +35,8 @@
 #define ESR_PULSE_THRESH_OFFSET		3
 #define SLOPE_LIMIT_WORD		3
 #define SLOPE_LIMIT_OFFSET		0
+#define CUTOFF_CURR_WORD		4
+#define CUTOFF_CURR_OFFSET		0
 #define CUTOFF_VOLT_WORD		5
 #define CUTOFF_VOLT_OFFSET		0
 #define SYS_TERM_CURR_WORD		6
@@ -126,6 +128,8 @@
 #define KI_COEFF_MED_DISCHG_v2_OFFSET	0
 #define KI_COEFF_HI_DISCHG_v2_WORD	10
 #define KI_COEFF_HI_DISCHG_v2_OFFSET	1
+#define KI_COEFF_HI_CHG_v2_WORD		11
+#define KI_COEFF_HI_CHG_v2_OFFSET	2
 #define DELTA_BSOC_THR_v2_WORD		12
 #define DELTA_BSOC_THR_v2_OFFSET	3
 #define DELTA_MSOC_THR_v2_WORD		13
@@ -208,6 +212,8 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_WORD, CHG_TERM_CURR_OFFSET, 1,
 		100000, 390625, 0, fg_encode_current, NULL),
+	PARAM(CUTOFF_CURR, CUTOFF_CURR_WORD, CUTOFF_CURR_OFFSET, 3,
+		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_WORD, DELTA_MSOC_THR_OFFSET, 1,
 		2048, 100, 0, fg_encode_default, NULL),
 	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_WORD, DELTA_BSOC_THR_OFFSET, 1,
@@ -284,6 +290,8 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 	PARAM(CHG_TERM_BASE_CURR, CHG_TERM_CURR_v2_WORD,
 		CHG_TERM_BASE_CURR_v2_OFFSET, 1, 1024, 1000, 0,
 		fg_encode_current, NULL),
+	PARAM(CUTOFF_CURR, CUTOFF_CURR_WORD, CUTOFF_CURR_OFFSET, 3,
+		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_v2_WORD, DELTA_MSOC_THR_v2_OFFSET,
 		1, 2048, 100, 0, fg_encode_default, NULL),
 	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_v2_WORD, DELTA_BSOC_THR_v2_OFFSET,
@@ -306,11 +314,17 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_PULSE_THRESH, ESR_PULSE_THRESH_WORD, ESR_PULSE_THRESH_OFFSET,
 		1, 100000, 390625, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_LOW_DISCHG, KI_COEFF_LOW_DISCHG_v2_WORD,
+		KI_COEFF_LOW_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
 	PARAM(KI_COEFF_MED_DISCHG, KI_COEFF_MED_DISCHG_v2_WORD,
 		KI_COEFF_MED_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_v2_WORD,
 		KI_COEFF_HI_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_HI_CHG, KI_COEFF_HI_CHG_v2_WORD,
+		KI_COEFF_HI_CHG_v2_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_WORD,
 		KI_COEFF_FULL_SOC_OFFSET, 1, 1000, 244141, 0,
@@ -910,10 +924,15 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 #define DEFAULT_BATT_TYPE	"Unknown Battery"
 #define MISSING_BATT_TYPE	"Missing Battery"
 #define LOADING_BATT_TYPE	"Loading Battery"
+#define SKIP_BATT_TYPE		"Skipped loading battery"
 static const char *fg_get_battery_type(struct fg_chip *chip)
 {
-	if (chip->battery_missing)
+	if (chip->battery_missing ||
+		chip->profile_load_status == PROFILE_MISSING)
 		return MISSING_BATT_TYPE;
+
+	if (chip->profile_load_status == PROFILE_SKIPPED)
+		return SKIP_BATT_TYPE;
 
 	if (chip->bp.batt_type_str) {
 		if (chip->profile_loaded)
@@ -1397,16 +1416,16 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 			QNOVO_CL_SKEW_DECIPCT, chip->cl.final_cc_uah);
 		chip->cl.final_cc_uah = chip->cl.final_cc_uah *
 						(1000 + QNOVO_CL_SKEW_DECIPCT);
-		do_div(chip->cl.final_cc_uah, 1000);
+		div64_s64(chip->cl.final_cc_uah, 1000);
 	}
 
 	max_inc_val = chip->cl.learned_cc_uah
 			* (1000 + chip->dt.cl_max_cap_inc);
-	do_div(max_inc_val, 1000);
+	div64_s64(max_inc_val, 1000);
 
 	min_dec_val = chip->cl.learned_cc_uah
 			* (1000 - chip->dt.cl_max_cap_dec);
-	do_div(min_dec_val, 1000);
+	div64_s64(min_dec_val, 1000);
 
 	old_cap = chip->cl.learned_cc_uah;
 	if (chip->cl.final_cc_uah > max_inc_val)
@@ -1420,7 +1439,7 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 	if (chip->dt.cl_max_cap_limit) {
 		max_inc_val = (int64_t)chip->cl.nom_cap_uah * (1000 +
 				chip->dt.cl_max_cap_limit);
-		do_div(max_inc_val, 1000);
+		div64_s64(max_inc_val, 1000);
 		if (chip->cl.final_cc_uah > max_inc_val) {
 			fg_dbg(chip, FG_CAP_LEARN, "learning capacity %lld goes above max limit %lld\n",
 				chip->cl.final_cc_uah, max_inc_val);
@@ -1431,7 +1450,7 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 	if (chip->dt.cl_min_cap_limit) {
 		min_dec_val = (int64_t)chip->cl.nom_cap_uah * (1000 -
 				chip->dt.cl_min_cap_limit);
-		do_div(min_dec_val, 1000);
+		div64_s64(min_dec_val, 1000);
 		if (chip->cl.final_cc_uah < min_dec_val) {
 			fg_dbg(chip, FG_CAP_LEARN, "learning capacity %lld goes below min limit %lld\n",
 				chip->cl.final_cc_uah, min_dec_val);
@@ -1935,7 +1954,7 @@ static int fg_rconn_config(struct fg_chip *chip)
 	}
 
 	val *= scaling_factor;
-	do_div(val, 1000);
+	div64_s64(val, 1000);
 	rc = fg_sram_write(chip, ESR_RSLOW_CHG_WORD,
 			ESR_RSLOW_CHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -1952,7 +1971,7 @@ static int fg_rconn_config(struct fg_chip *chip)
 	}
 
 	val *= scaling_factor;
-	do_div(val, 1000);
+	div64_s64(val, 1000);
 	rc = fg_sram_write(chip, ESR_RSLOW_DISCHG_WORD,
 			ESR_RSLOW_DISCHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -2708,12 +2727,14 @@ static bool is_profile_load_required(struct fg_chip *chip)
 				buf, PROFILE_COMP_LEN, FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in reading battery profile, rc:%d\n", rc);
+			chip->profile_load_status = PROFILE_SKIPPED;
 			return false;
 		}
 		profiles_same = memcmp(chip->batt_profile, buf,
 					PROFILE_COMP_LEN) == 0;
 		if (profiles_same) {
 			fg_dbg(chip, FG_STATUS, "Battery profile is same, not loading it\n");
+			chip->profile_load_status = PROFILE_LOADED;
 			return false;
 		}
 
@@ -2727,6 +2748,7 @@ static bool is_profile_load_required(struct fg_chip *chip)
 				dump_sram(chip->batt_profile, PROFILE_LOAD_WORD,
 					PROFILE_LEN);
 			}
+			chip->profile_load_status = PROFILE_SKIPPED;
 			return false;
 		}
 
@@ -2870,6 +2892,7 @@ static void profile_load_work(struct work_struct *work)
 
 	rc = fg_get_batt_profile(chip);
 	if (rc < 0) {
+		chip->profile_load_status = PROFILE_MISSING;
 		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
 			chip->batt_id_ohms / 1000, rc);
 		goto out;
@@ -2921,6 +2944,7 @@ static void profile_load_work(struct work_struct *work)
 	}
 
 	fg_dbg(chip, FG_STATUS, "SOC is ready\n");
+	chip->profile_load_status = PROFILE_LOADED;
 done:
 	rc = fg_bp_params_config(chip);
 	if (rc < 0)
@@ -2946,7 +2970,10 @@ done:
 
 	batt_psy_initialized(chip);
 	fg_notify_charger(chip);
-	chip->profile_loaded = true;
+
+	if (chip->profile_load_status == PROFILE_LOADED)
+		chip->profile_loaded = true;
+
 	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
 out:
 	chip->soc_reporting_ready = true;
@@ -3974,6 +4001,16 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	fg_encode(chip->sp, FG_SRAM_CUTOFF_CURR, chip->dt.cutoff_curr_ma,
+		buf);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CUTOFF_CURR].addr_word,
+			chip->sp[FG_SRAM_CUTOFF_CURR].addr_byte, buf,
+			chip->sp[FG_SRAM_CUTOFF_CURR].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing cutoff_curr, rc=%d\n", rc);
+		return rc;
+	}
+
 	if (!(chip->wa_flags & PMI8998_V1_REV_WA)) {
 		fg_encode(chip->sp, FG_SRAM_CHG_TERM_BASE_CURR,
 			chip->dt.chg_term_base_curr_ma, buf);
@@ -4192,6 +4229,35 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
+	if (chip->dt.ki_coeff_low_dischg != -EINVAL) {
+		fg_encode(chip->sp, FG_SRAM_KI_COEFF_LOW_DISCHG,
+			chip->dt.ki_coeff_low_dischg, &val);
+		rc = fg_sram_write(chip,
+				chip->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].addr_word,
+				chip->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].addr_byte,
+				&val, chip->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].len,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_low_dischg, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.ki_coeff_hi_chg != -EINVAL) {
+		fg_encode(chip->sp, FG_SRAM_KI_COEFF_HI_CHG,
+			chip->dt.ki_coeff_hi_chg, &val);
+		rc = fg_sram_write(chip,
+				chip->sp[FG_SRAM_KI_COEFF_HI_CHG].addr_word,
+				chip->sp[FG_SRAM_KI_COEFF_HI_CHG].addr_byte,
+				&val, chip->sp[FG_SRAM_KI_COEFF_HI_CHG].len,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_hi_chg, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -4296,6 +4362,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	if (chip->battery_missing) {
 		chip->profile_available = false;
 		chip->profile_loaded = false;
+		chip->profile_load_status = PROFILE_NOT_LOADED;
 		chip->soc_reporting_ready = false;
 		chip->batt_id_ohms = -EINVAL;
 		cancel_delayed_work_sync(&chip->pl_enable_work);
@@ -4653,6 +4720,16 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 	if (!rc)
 		chip->dt.ki_coeff_full_soc_dischg = temp;
 
+	chip->dt.ki_coeff_hi_chg = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,ki-coeff-hi-chg", &temp);
+	if (!rc)
+		chip->dt.ki_coeff_hi_chg = temp;
+
+	chip->dt.ki_coeff_low_dischg = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,ki-coeff-low-dischg", &temp);
+	if (!rc)
+		chip->dt.ki_coeff_low_dischg = temp;
+
 	rc = fg_parse_dt_property_u32_array(node, "qcom,ki-coeff-soc-dischg",
 		chip->dt.ki_coeff_soc, KI_COEFF_SOC_LEVELS);
 	if (rc < 0)
@@ -4697,6 +4774,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_CHG_TERM_CURR_MA	100
 #define DEFAULT_CHG_TERM_BASE_CURR_MA	75
 #define DEFAULT_SYS_TERM_CURR_MA	-125
+#define DEFAULT_CUTOFF_CURR_MA		500
 #define DEFAULT_DELTA_SOC_THR		1
 #define DEFAULT_RECHARGE_SOC_THR	95
 #define DEFAULT_BATT_TEMP_COLD		0
@@ -4859,6 +4937,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.chg_term_base_curr_ma = DEFAULT_CHG_TERM_BASE_CURR_MA;
 	else
 		chip->dt.chg_term_base_curr_ma = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-cutoff-current", &temp);
+	if (rc < 0)
+		chip->dt.cutoff_curr_ma = DEFAULT_CUTOFF_CURR_MA;
+	else
+		chip->dt.cutoff_curr_ma = temp;
 
 	rc = of_property_read_u32(node, "qcom,fg-delta-soc-thr", &temp);
 	if (rc < 0)

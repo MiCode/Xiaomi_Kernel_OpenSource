@@ -250,6 +250,17 @@ config QCOM_WATCHDOG_V2
 	  deadlocks. It does not run during the bootup process, so it will
 	  not catch any early lockups.
 
+config QCOM_WDOG_IPI_ENABLE
+	bool "Qcom WDT pet optimization"
+	depends on QCOM_WATCHDOG_V2
+	default n
+	help
+	  When this option is enabled, watchdog sends IPI to cores in low power
+	  mode also. For power optimizations, by default watchdog don't ping
+	  cores in low power mode at pettime.
+
+	  To track CPUs health on LPM, or on debug builds enable it.
+
 config QPNP_PBS
 	tristate "PBS trigger support for QPNP PMIC"
 	depends on SPMI
@@ -266,6 +277,15 @@ config QCOM_MEMORY_DUMP_V2
 	  subsystems to register respective dump regions. At the time
 	  of deadlocks or cpu hangs these dump regions are captured to
 	  give a snapshot of the system at the time of the crash.
+
+config MSM_DEBUG_LAR_UNLOCK
+        bool "MSM Debug LAR Unlock Support"
+        depends on QCOM_MEMORY_DUMP_V2
+        help
+         This allows unlocking Core Debug lock to allow capture
+         of upper 32 bits of program counter at the time of
+         system crash. This is useful in getting correct crash
+         location.
 
 config QCOM_MINIDUMP
 	bool "QCOM Minidump Support"
@@ -635,6 +655,15 @@ config MSM_EVENT_TIMER
 	  monitor events that require the core to be awake and ready to
 	  handle the event.
 
+config MSM_AVTIMER
+	tristate "Avtimer Driver"
+	default n
+	help
+	  This driver gets the Q6 out of power collapsed state
+	  and exposes ioctl control to read avtimer tick.
+	  Enables camera to use for VT call to get avtimer
+	  timestamp.
+
 config MSM_PM
 	depends on PM
 	select MSM_IDLE_STATS if DEBUG_FS
@@ -774,5 +803,14 @@ config QCOM_QDSS_BRIDGE
 	  The driver will help route diag traffic from modem side over the QDSS
 	  sub-system to USB on APSS side. The driver acts as a bridge between the
 	  MHI and USB interface. If unsure, say N.
+
+config MSM_BAM_DMUX
+	bool "BAM Data Mux Driver"
+	depends on SPS
+	help
+	  Support Muxed Data Channels over BAM interface.
+	  BAM has a limited number of pipes.  This driver
+	  provides a means to support more logical channels
+	  via muxing than BAM could without muxing.
 
 source "drivers/soc/qcom/wcnss/Kconfig"

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,7 @@ struct msm_watchdog_data {
 
 	bool timer_expired;
 	bool user_pet_complete;
+	unsigned int scandump_size;
 };
 
 /*
@@ -112,12 +113,22 @@ static long WDT_HZ = 32765;
 module_param(WDT_HZ, long, 0);
 
 /*
+ * Watchdog ipi optimization:
+ * Does not ping cores in low power mode at pet time to save power.
+ * This feature is enabled by default.
+ *
  * On the kernel command line specify
- * watchdog_v2.ipi_opt_en=1 to enable the watchdog ipi ping
- * optimization. By default it is turned off
+ * watchdog_v2.ipi_en=1 to disable this optimization.
+ * Or, can be turned off, by enabling CONFIG_QCOM_WDOG_IPI_ENABLE.
  */
-static int ipi_opt_en;
-module_param(ipi_opt_en, int, 0);
+#ifdef CONFIG_QCOM_WDOG_IPI_ENABLE
+#define IPI_CORES_IN_LPM 1
+#else
+#define IPI_CORES_IN_LPM 0
+#endif
+
+static int ipi_en = IPI_CORES_IN_LPM;
+module_param(ipi_en, int, 0444);
 
 static void dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
 {
@@ -463,7 +474,7 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 	struct msm_watchdog_data *wdog_dd =
 			(struct msm_watchdog_data *)platform_get_drvdata(pdev);
 
-	if (ipi_opt_en)
+	if (!ipi_en)
 		cpu_pm_unregister_notifier(&wdog_cpu_pm_nb);
 
 	mutex_lock(&wdog_dd->disable_lock);
@@ -571,6 +582,41 @@ out0:
 	return;
 }
 
+static void register_scan_dump(struct msm_watchdog_data *wdog_dd)
+{
+	static void *dump_addr;
+	int ret;
+	struct msm_dump_entry dump_entry;
+	struct msm_dump_data *dump_data;
+
+	if (!wdog_dd->scandump_size)
+		return;
+
+	dump_data = kzalloc(sizeof(struct msm_dump_data), GFP_KERNEL);
+	if (!dump_data)
+		return;
+	dump_addr = kzalloc(wdog_dd->scandump_size, GFP_KERNEL);
+	if (!dump_addr)
+		goto err0;
+
+	dump_data->addr = virt_to_phys(dump_addr);
+	dump_data->len = wdog_dd->scandump_size;
+	strlcpy(dump_data->name, "KSCANDUMP", sizeof(dump_data->name));
+
+	dump_entry.id = MSM_DUMP_DATA_SCANDUMP;
+	dump_entry.addr = virt_to_phys(dump_data);
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret) {
+		pr_err("Registering scandump region failed\n");
+		goto err1;
+	}
+	return;
+err1:
+	kfree(dump_addr);
+err0:
+	kfree(dump_data);
+}
+
 static void configure_scandump(struct msm_watchdog_data *wdog_dd)
 {
 	int ret;
@@ -614,6 +660,8 @@ static void configure_scandump(struct msm_watchdog_data *wdog_dd)
 			devm_kfree(wdog_dd->dev, cpu_data);
 		}
 	}
+
+	register_scan_dump(wdog_dd);
 }
 
 static int init_watchdog_sysfs(struct msm_watchdog_data *wdog_dd)
@@ -709,7 +757,7 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 
 	if (wdog_dd->irq_ppi)
 		enable_percpu_irq(wdog_dd->bark_irq, 0);
-	if (ipi_opt_en)
+	if (!ipi_en)
 		cpu_pm_register_notifier(&wdog_cpu_pm_nb);
 	dev_info(wdog_dd->dev, "MSM Watchdog Initialized\n");
 }
@@ -794,6 +842,11 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	}
 	pdata->wakeup_irq_enable = of_property_read_bool(node,
 							 "qcom,wakeup-enable");
+
+	if (of_property_read_u32(node, "qcom,scandump-size",
+				 &pdata->scandump_size))
+		dev_info(&pdev->dev,
+			 "No need to allocate memory for scandumps\n");
 
 	pdata->irq_ppi = irq_is_percpu(pdata->bark_irq);
 	dump_pdata(pdata);

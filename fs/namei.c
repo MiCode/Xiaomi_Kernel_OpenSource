@@ -2153,6 +2153,9 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
 	int retval = 0;
 	const char *s = nd->name->name;
 
+	if (!*s)
+		flags &= ~LOOKUP_RCU;
+
 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
 	nd->depth = 0;
@@ -2903,11 +2906,6 @@ int vfs_create2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry,
 	if (error)
 		return error;
 	error = dir->i_op->create(dir, dentry, mode, want_excl);
-	if (error)
-		return error;
-	error = security_inode_post_create(dir, dentry, mode);
-	if (error)
-		return error;
 	if (!error)
 		fsnotify_create(dir, dentry);
 	return error;
@@ -3723,13 +3721,6 @@ int vfs_mknod2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry, u
 		return error;
 
 	error = dir->i_op->mknod(dir, dentry, mode, dev);
-	if (error)
-		return error;
-
-	error = security_inode_post_create(dir, dentry, mode);
-	if (error)
-		return error;
-
 	if (!error)
 		fsnotify_create(dir, dentry);
 	return error;

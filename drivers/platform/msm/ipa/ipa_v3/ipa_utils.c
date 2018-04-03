@@ -88,6 +88,8 @@
 #define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_DEC_UCP 0x00000013
 /* 2 Packet Processing pass + no decipher + uCP */
 #define IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP 0x00000004
+/* 2 Packet Processing pass + no decipher + uCP + HPS REP DMA Parser. */
+#define IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP 0x00000804
 /* 2 Packet Processing pass + decipher + uCP */
 #define IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP 0x00000015
 /* Packet Processing + no decipher + no uCP */
@@ -1115,13 +1117,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_4_0][IPA_CLIENT_WLAN1_PROD]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 6, 2, 8, 16, IPA_EE_UC } },
 	[IPA_4_0][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 0, 8, 8, 16, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_APPS_LAN_PROD]   = {
@@ -1133,7 +1135,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_4_0][IPA_CLIENT_APPS_WAN_PROD] = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 2, 3, 16, 32, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_APPS_CMD_PROD]	  = {
@@ -1145,13 +1147,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_4_0][IPA_CLIENT_ODU_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 1, 0, 8, 16, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_ETHERNET_PROD]	  = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 9, 0, 8, 16, IPA_EE_UC } },
 	[IPA_4_0][IPA_CLIENT_Q6_WAN_PROD]         = {
@@ -1473,53 +1475,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 31, 31, 8, 8, IPA_EE_AP } },
-};
-
-static struct msm_bus_vectors ipa_init_vectors_v3_0[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-static struct msm_bus_vectors ipa_nominal_perf_vectors_v3_0[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 100000000,
-		.ib = 1300000000,
-	},
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 100000000,
-		.ib = 1300000000,
-	},
-};
-
-static struct msm_bus_paths ipa_usecases_v3_0[]  = {
-	{
-		.num_paths = ARRAY_SIZE(ipa_init_vectors_v3_0),
-		.vectors = ipa_init_vectors_v3_0,
-	},
-	{
-		.num_paths = ARRAY_SIZE(ipa_nominal_perf_vectors_v3_0),
-		.vectors = ipa_nominal_perf_vectors_v3_0,
-	},
-};
-
-static struct msm_bus_scale_pdata ipa_bus_client_pdata_v3_0 = {
-	.usecase = ipa_usecases_v3_0,
-	.num_usecases = ARRAY_SIZE(ipa_usecases_v3_0),
-	.name = "ipa",
 };
 
 /**
@@ -1970,6 +1925,49 @@ int ipa3_cfg_filter(u32 disable)
 }
 
 /**
+ * ipa_comp_cfg() - Configure QMB/Master port selection
+ *
+ * Returns:	None
+ */
+static void ipa_comp_cfg(void)
+{
+	struct ipahal_reg_comp_cfg comp_cfg;
+
+	/* IPAv4 specific, on NON-MHI config*/
+	if ((ipa3_ctx->ipa_hw_type == IPA_HW_v4_0) &&
+		(ipa3_ctx->ipa_config_is_mhi == false)) {
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("Before comp config\n");
+		IPADBG("ipa_qmb_select_by_address_global_en = %d\n",
+			comp_cfg.ipa_qmb_select_by_address_global_en);
+
+		IPADBG("ipa_qmb_select_by_address_prod_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_prod_en);
+
+		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_cons_en);
+
+		comp_cfg.ipa_qmb_select_by_address_global_en = false;
+		comp_cfg.ipa_qmb_select_by_address_prod_en = false;
+		comp_cfg.ipa_qmb_select_by_address_cons_en = false;
+
+		ipahal_write_reg_fields(IPA_COMP_CFG, &comp_cfg);
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("After comp config\n");
+		IPADBG("ipa_qmb_select_by_address_global_en = %d\n",
+			comp_cfg.ipa_qmb_select_by_address_global_en);
+
+		IPADBG("ipa_qmb_select_by_address_prod_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_prod_en);
+
+		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_cons_en);
+	}
+}
+
+/**
  * ipa3_cfg_qsb() - Configure IPA QSB maximal reads and writes
  *
  * Returns:	None
@@ -2047,6 +2045,8 @@ int ipa3_init_hw(void)
 	}
 
 	ipa3_cfg_qsb();
+
+	ipa_comp_cfg();
 
 	return 0;
 }
@@ -3739,7 +3739,6 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->ipa3_commit_hdr = __ipa_commit_hdr_v3_0;
 	ctrl->ipa3_enable_clks = _ipa_enable_clks_v3_0;
 	ctrl->ipa3_disable_clks = _ipa_disable_clks_v3_0;
-	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v3_0;
 	ctrl->clock_scaling_bw_threshold_svs =
 		IPA_V3_0_BW_THRESHOLD_SVS_MBPS;
 	ctrl->clock_scaling_bw_threshold_nominal =
@@ -3822,6 +3821,9 @@ static void ipa3_tag_free_skb(void *user1, int user2)
 }
 
 #define REQUIRED_TAG_PROCESS_DESCRIPTORS 4
+#define MAX_RETRY_ALLOC 10
+#define ALLOC_MIN_SLEEP_RX 100000
+#define ALLOC_MAX_SLEEP_RX 200000
 
 /* ipa3_tag_process() - Initiates a tag process. Incorporates the input
  * descriptors
@@ -3849,6 +3851,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	int res;
 	struct ipa3_tag_completion *comp;
 	int ep_idx;
+	u32 retry_cnt = 0;
 
 	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
@@ -3954,10 +3957,22 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	tag_desc[desc_idx].callback = ipa3_tag_free_skb;
 	tag_desc[desc_idx].user1 = dummy_skb;
 	desc_idx++;
-
+retry_alloc:
 	/* send all descriptors to IPA with single EOT */
 	res = ipa3_send(sys, desc_idx, tag_desc, true);
 	if (res) {
+		if (res == -ENOMEM) {
+			if (retry_cnt < MAX_RETRY_ALLOC) {
+				IPADBG(
+				"failed to alloc memory retry cnt = %d\n",
+					retry_cnt);
+				retry_cnt++;
+				usleep_range(ALLOC_MIN_SLEEP_RX,
+					ALLOC_MAX_SLEEP_RX);
+				goto retry_alloc;
+			}
+
+		}
 		IPAERR("failed to send TAG packets %d\n", res);
 		res = -ENOMEM;
 		goto fail_free_skb;
@@ -4168,9 +4183,8 @@ bool ipa3_is_client_handle_valid(u32 clnt_hdl)
  */
 void ipa3_proxy_clk_unvote(void)
 {
-	if (!ipa3_is_ready())
+	if (ipa3_ctx == NULL)
 		return;
-
 	mutex_lock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 	if (ipa3_ctx->q6_proxy_clk_vote_valid) {
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PROXY_CLK_VOTE");
@@ -4188,9 +4202,8 @@ void ipa3_proxy_clk_unvote(void)
  */
 void ipa3_proxy_clk_vote(void)
 {
-	if (!ipa3_is_ready())
+	if (ipa3_ctx == NULL)
 		return;
-
 	mutex_lock(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 	if (!ipa3_ctx->q6_proxy_clk_vote_valid ||
 		(ipa3_ctx->q6_proxy_clk_vote_cnt > 0)) {
@@ -4334,6 +4347,11 @@ static int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 
 	IPADBG("Driver %d vlan mode is %d\n", iface, *res);
 	return 0;
+}
+
+static bool ipa3_pm_is_used(void)
+{
+	return (ipa3_ctx) ? ipa3_ctx->use_ipa_pm : false;
 }
 
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
@@ -4516,13 +4534,14 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_pdev = ipa3_get_pdev;
 	api_ctrl->ipa_ntn_uc_reg_rdyCB = ipa3_ntn_uc_reg_rdyCB;
 	api_ctrl->ipa_ntn_uc_dereg_rdyCB = ipa3_ntn_uc_dereg_rdyCB;
-	api_ctrl->ipa_conn_wdi3_pipes = ipa3_conn_wdi3_pipes;
-	api_ctrl->ipa_disconn_wdi3_pipes = ipa3_disconn_wdi3_pipes;
-	api_ctrl->ipa_enable_wdi3_pipes = ipa3_enable_wdi3_pipes;
-	api_ctrl->ipa_disable_wdi3_pipes = ipa3_disable_wdi3_pipes;
+	api_ctrl->ipa_conn_wdi_pipes = ipa3_conn_wdi3_pipes;
+	api_ctrl->ipa_disconn_wdi_pipes = ipa3_disconn_wdi3_pipes;
+	api_ctrl->ipa_enable_wdi_pipes = ipa3_enable_wdi3_pipes;
+	api_ctrl->ipa_disable_wdi_pipes = ipa3_disable_wdi3_pipes;
 	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
 	api_ctrl->ipa_get_smmu_params = ipa3_get_smmu_params;
 	api_ctrl->ipa_is_vlan_mode = ipa3_is_vlan_mode;
+	api_ctrl->ipa_pm_is_used = ipa3_pm_is_used;
 
 	return 0;
 }

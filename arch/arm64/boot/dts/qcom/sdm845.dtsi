@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,7 +87,7 @@
 				qcom,dump-size = <0xa000>;
 			};
 			L1_TLB_0: l1-tlb {
-				qcom,dump-size = <0x3000>;
+				qcom,dump-size = <0x6000>;
 			};
 		};
 
@@ -118,7 +118,7 @@
 				qcom,dump-size = <0xa000>;
 			};
 			L1_TLB_100: l1-tlb {
-				qcom,dump-size = <0x3000>;
+				qcom,dump-size = <0x6000>;
 			};
 		};
 
@@ -149,7 +149,7 @@
 				qcom,dump-size = <0xa000>;
 			};
 			L1_TLB_200: l1-tlb {
-				qcom,dump-size = <0x3000>;
+				qcom,dump-size = <0x6000>;
 			};
 		};
 
@@ -180,7 +180,7 @@
 				qcom,dump-size = <0xa000>;
 			};
 			L1_TLB_300: l1-tlb {
-				qcom,dump-size = <0x3000>;
+				qcom,dump-size = <0x6000>;
 			};
 		};
 
@@ -211,7 +211,7 @@
 				qcom,dump-size = <0x14000>;
 			};
 			L1_TLB_400: l1-tlb {
-				qcom,dump-size = <0x3c00>;
+				qcom,dump-size = <0x6800>;
 			};
 		};
 
@@ -242,7 +242,7 @@
 				qcom,dump-size = <0x14000>;
 			};
 			L1_TLB_500: l1-tlb {
-				qcom,dump-size = <0x3c00>;
+				qcom,dump-size = <0x6800>;
 			};
 		};
 
@@ -273,7 +273,7 @@
 				qcom,dump-size = <0x14000>;
 			};
 			L1_TLB_600: l1-tlb {
-				qcom,dump-size = <0x3c00>;
+				qcom,dump-size = <0x6800>;
 			};
 		};
 
@@ -304,7 +304,7 @@
 				qcom,dump-size = <0x14000>;
 			};
 			L1_TLB_700: l1-tlb {
-				qcom,dump-size = <0x3c00>;
+				qcom,dump-size = <0x6800>;
 			};
 		};
 
@@ -1267,7 +1267,7 @@
 		vdd_pwrcl_mx_ao-supply = <&pm8998_s6_level_ao>;
 
 		qcom,mx-turbo-freq = <1478400000 1689600000 3300000001>;
-		l3-devs = <&l3_cpu0 &l3_cpu4 &l3_cdsp>;
+		l3-devs = <&l3_cpu0 &l3_cpu4 &l3_cdsp &msm_gpu>;
 
 		clock-names = "xo_ao";
 		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
@@ -2045,35 +2045,35 @@
 		};
 		qcom,l1_tlb_dump0 {
 			qcom,dump-node = <&L1_TLB_0>;
-			qcom,dump-id = <0x20>;
+			qcom,dump-id = <0x120>;
 		};
 		qcom,l1_tlb_dump100 {
 			qcom,dump-node = <&L1_TLB_100>;
-			qcom,dump-id = <0x21>;
+			qcom,dump-id = <0x121>;
 		};
 		qcom,l1_tlb_dump200 {
 			qcom,dump-node = <&L1_TLB_200>;
-			qcom,dump-id = <0x22>;
+			qcom,dump-id = <0x122>;
 		};
 		qcom,l1_tlb_dump300 {
 			qcom,dump-node = <&L1_TLB_300>;
-			qcom,dump-id = <0x23>;
+			qcom,dump-id = <0x123>;
 		};
 		qcom,l1_tlb_dump400 {
 			qcom,dump-node = <&L1_TLB_400>;
-			qcom,dump-id = <0x24>;
+			qcom,dump-id = <0x124>;
 		};
 		qcom,l1_tlb_dump500 {
 			qcom,dump-node = <&L1_TLB_500>;
-			qcom,dump-id = <0x25>;
+			qcom,dump-id = <0x125>;
 		};
 		qcom,l1_tlb_dump600 {
 			qcom,dump-node = <&L1_TLB_600>;
-			qcom,dump-id = <0x26>;
+			qcom,dump-id = <0x126>;
 		};
 		qcom,l1_tlb_dump700 {
 			qcom,dump-node = <&L1_TLB_700>;
-			qcom,dump-id = <0x27>;
+			qcom,dump-id = <0x127>;
 		};
 	};
 
@@ -2641,7 +2641,7 @@
 			<0 432 0>;
 		interrupt-names = "ipa-irq", "gsi-irq";
 		qcom,ipa-hw-ver = <13>; /* IPA core version = IPAv3.5.1 */
-		qcom,ipa-hw-mode = <1>;
+		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
@@ -3080,6 +3080,7 @@
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,gpio-force-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
+		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 
 		vdd-0.8-cx-mx-supply = <&pm8998_l5>;
 		vdd-1.8-xo-supply = <&pm8998_l7>;

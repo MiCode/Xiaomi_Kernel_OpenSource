@@ -195,6 +195,7 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
 	ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 	ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+	ICNSS_DRIVER_EVENT_FW_EARLY_CRASH_IND,
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
@@ -464,6 +465,7 @@ static struct icnss_priv {
 	bool bypass_s1_smmu;
 	bool force_err_fatal;
 	bool allow_recursive_recovery;
+	bool early_crash_ind;
 	u8 cause_for_rejuvenation;
 	u8 requesting_sub_system;
 	u16 line_number;
@@ -608,6 +610,8 @@ static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "UNREGISTER_DRIVER";
 	case ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN:
 		return "PD_SERVICE_DOWN";
+	case ICNSS_DRIVER_EVENT_FW_EARLY_CRASH_IND:
+		return "FW_EARLY_CRASH_IND";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1194,7 +1198,24 @@ static irqreturn_t fw_error_fatal_handler(int irq, void *ctx)
 	return IRQ_HANDLED;
 }
 
-static void icnss_register_force_error_fatal(struct icnss_priv *priv)
+static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
+{
+	struct icnss_priv *priv = ctx;
+
+	icnss_pr_err("Received early crash indication from FW\n");
+
+	if (priv) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_qmi_timeout(true);
+	}
+
+	icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_EARLY_CRASH_IND,
+				0, NULL);
+
+	return IRQ_HANDLED;
+}
+
+static void register_fw_error_notifications(struct icnss_priv *priv)
 {
 	int gpio, irq, ret;
 
@@ -1217,11 +1238,38 @@ static void icnss_register_force_error_fatal(struct icnss_priv *priv)
 	ret = request_irq(irq, fw_error_fatal_handler,
 			IRQF_TRIGGER_RISING, "wlanfw-err", priv);
 	if (ret < 0) {
-		icnss_pr_err("Unable to regiser for error fatal IRQ handler %d",
+		icnss_pr_err("Unable to register for error fatal IRQ handler %d",
 				irq);
 		return;
 	}
 	icnss_pr_dbg("FW force error fatal handler registered\n");
+
+	if (!of_find_property(priv->pdev->dev.of_node,
+				"qcom,gpio-early-crash-ind", NULL)) {
+		icnss_pr_dbg("FW early crash indication handler not registered\n");
+		return;
+	}
+	gpio = of_get_named_gpio(priv->pdev->dev.of_node,
+				"qcom,gpio-early-crash-ind", 0);
+	if (!gpio_is_valid(gpio)) {
+		icnss_pr_err("Invalid GPIO for early crash indication %d\n",
+				gpio);
+		return;
+	}
+	irq = gpio_to_irq(gpio);
+	if (irq < 0) {
+		icnss_pr_err("Invalid IRQ for early crash indication %u\n",
+				irq);
+		return;
+	}
+	ret = request_irq(irq, fw_crash_indication_handler,
+			IRQF_TRIGGER_RISING, "wlanfw-early-crash-ind", priv);
+	if (ret < 0) {
+		icnss_pr_err("Unable to register for early crash indication IRQ handler %d",
+				irq);
+		return;
+	}
+	icnss_pr_dbg("FW crash indication handler registered\n");
 }
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
@@ -2113,7 +2161,7 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	icnss_init_vph_monitor(penv);
 
-	icnss_register_force_error_fatal(penv);
+	register_fw_error_notifications(penv);
 
 	return ret;
 
@@ -2213,6 +2261,7 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 	icnss_call_driver_shutdown(priv);
 
 	clear_bit(ICNSS_PD_RESTART, &priv->state);
+	priv->early_crash_ind = false;
 
 	if (!priv->ops || !priv->ops->reinit)
 		goto out;
@@ -2354,29 +2403,6 @@ out:
 	return 0;
 }
 
-static int icnss_call_driver_remove(struct icnss_priv *priv)
-{
-	icnss_pr_dbg("Calling driver remove state: 0x%lx\n", priv->state);
-
-	clear_bit(ICNSS_FW_READY, &priv->state);
-
-	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
-		return 0;
-
-	if (!priv->ops || !priv->ops->remove)
-		return 0;
-
-	set_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
-	penv->ops->remove(&priv->pdev->dev);
-
-	clear_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
-	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
-
-	icnss_hw_power_off(penv);
-
-	return 0;
-}
-
 static int icnss_fw_crashed(struct icnss_priv *priv,
 			    struct icnss_event_pd_service_down_data *event_data)
 {
@@ -2390,7 +2416,7 @@ static int icnss_fw_crashed(struct icnss_priv *priv,
 	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_CRASHED, NULL);
 
-	if (event_data->fw_rejuvenate)
+	if (event_data && event_data->fw_rejuvenate)
 		wlfw_rejuvenate_ack_send_sync_msg(priv);
 
 	return 0;
@@ -2405,6 +2431,12 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
 		goto out;
 
+	if (priv->early_crash_ind) {
+		icnss_pr_dbg("PD Down ignored as early indication is processed: %d, state: 0x%lx\n",
+			     event_data->crashed, priv->state);
+		goto out;
+	}
+
 	if (test_bit(ICNSS_PD_RESTART, &priv->state) && event_data->crashed) {
 		icnss_pr_err("PD Down while recovery inprogress, crashed: %d, state: 0x%lx\n",
 			     event_data->crashed, priv->state);
@@ -2416,10 +2448,7 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	if (priv->force_err_fatal)
 		ICNSS_ASSERT(0);
 
-	if (event_data->crashed)
-		icnss_fw_crashed(priv, event_data);
-	else
-		icnss_call_driver_remove(priv);
+	icnss_fw_crashed(priv, event_data);
 
 out:
 	kfree(data);
@@ -2428,6 +2457,25 @@ out:
 
 	return ret;
 }
+
+static int icnss_driver_event_early_crash_ind(struct icnss_priv *priv,
+					      void *data)
+{
+	int ret = 0;
+
+	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
+		goto out;
+
+	priv->early_crash_ind = true;
+	icnss_fw_crashed(priv, NULL);
+
+out:
+	kfree(data);
+	icnss_ignore_qmi_timeout(false);
+
+	return ret;
+}
+
 
 static void icnss_driver_event_work(struct work_struct *work)
 {
@@ -2468,6 +2516,10 @@ static void icnss_driver_event_work(struct work_struct *work)
 			break;
 		case ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN:
 			ret = icnss_driver_event_pd_service_down(penv,
+								 event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_FW_EARLY_CRASH_IND:
+			ret = icnss_driver_event_early_crash_ind(penv,
 								 event->data);
 			break;
 		default:
@@ -3102,6 +3154,12 @@ int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 	if (!dev)
 		return -ENODEV;
 
+	if (test_bit(ICNSS_FW_DOWN, &penv->state)) {
+		icnss_pr_err("FW down, ignoring fw_log_mode state: 0x%lx\n",
+			     penv->state);
+		return -EINVAL;
+	}
+
 	icnss_pr_dbg("FW log mode: %u\n", fw_log_mode);
 
 	ret = wlfw_ini_send_sync_msg(fw_log_mode);
@@ -3194,6 +3252,12 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 
 	if (!dev)
 		return -ENODEV;
+
+	if (test_bit(ICNSS_FW_DOWN, &penv->state)) {
+		icnss_pr_err("FW down, ignoring wlan_enable state: 0x%lx\n",
+			     penv->state);
+		return -EINVAL;
+	}
 
 	icnss_pr_dbg("Mode: %d, config: %p, host_version: %s\n",
 		     mode, config, host_version);

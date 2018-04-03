@@ -1,0 +1,97 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&cam_sensor_mclk0_active{
+	/* MCLK0 */
+	mux {
+		pins = "gpio13";
+		function = "cam_mclk";
+	};
+
+	config {
+		pins = "gpio13";
+		bias-disable; /* No PULL */
+		drive-strength = <8>; /* 2 MA */
+	};
+};
+
+&cam_sensor_mclk0_suspend {
+	/* MCLK0 */
+	mux {
+		pins = "gpio13";
+		function = "cam_mclk";
+	};
+
+	config {
+		pins = "gpio13";
+		bias-pull-down; /* PULL DOWN */
+		drive-strength = <8>; /* 2 MA */
+	};
+};
+
+&cam_sensor_rear_active {
+	/* RESET, AVDD LDO */
+	mux {
+		pins = "gpio8","gpio79";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio8","gpio79";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};
+
+&cam_sensor_rear_suspend {
+	/* RESET, AVDD LDO */
+	mux {
+		pins = "gpio8","gpio79";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio8","gpio79";
+		bias-pull-down; /* PULL DOWN */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};
+
+&cam_sensor_front_active{
+	/* RESET  AVDD_LDO*/
+	mux {
+		pins = "gpio26", "gpio8";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio26", "gpio8";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};
+
+&cam_sensor_front_suspend{
+	/* RESET */
+	mux {
+		pins = "gpio26", "gpio8";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio26", "gpio8";
+		bias-pull-down; /* PULL DOWN */
+		drive-strength = <2>; /* 2 MA */
+		output-low;
+	};
+};

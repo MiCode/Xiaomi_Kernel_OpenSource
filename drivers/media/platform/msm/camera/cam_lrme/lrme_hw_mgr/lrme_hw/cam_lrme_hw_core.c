@@ -68,6 +68,10 @@ static void cam_lrme_hw_util_fill_fe_reg(struct cam_lrme_hw_io_buffer *io_buf,
 		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
 			0x1);
+	else if (io_buf->io_cfg->format == CAM_FORMAT_PLAIN16_10)
+		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
+			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
+			0x22);
 	else
 		CAM_ERR(CAM_LRME, "Unsupported format %d",
 			io_buf->io_cfg->format);
@@ -445,8 +449,8 @@ static int cam_lrme_hw_util_flush_ctx(struct cam_hw_info *lrme_hw,
 		cb_args.cb_type = CAM_LRME_CB_PUT_FRAME;
 		cb_args.frame_req = req_submit;
 		if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb)
-			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
-				hw_mgr_cb.data, &cb_args);
+			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
+				lrme_core->hw_mgr_cb.data, &cb_args);
 	} else if (req_submit) {
 		submit_args.frame_req = req_submit;
 		submit_args.hw_update_entries = req_submit->hw_update_entries;
@@ -464,8 +468,8 @@ static int cam_lrme_hw_util_flush_ctx(struct cam_hw_info *lrme_hw,
 		cb_args.cb_type = CAM_LRME_CB_PUT_FRAME;
 		cb_args.frame_req = req_proc;
 		if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb)
-			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
-				hw_mgr_cb.data, &cb_args);
+			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
+				lrme_core->hw_mgr_cb.data, &cb_args);
 	} else if (req_proc) {
 		submit_args.frame_req = req_proc;
 		submit_args.hw_update_entries = req_proc->hw_update_entries;
@@ -507,8 +511,8 @@ static int cam_lrme_hw_util_flush_req(struct cam_hw_info *lrme_hw,
 		cb_args.cb_type = CAM_LRME_CB_PUT_FRAME;
 		cb_args.frame_req = req_submit;
 		if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb)
-			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
-				hw_mgr_cb.data, &cb_args);
+			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
+				lrme_core->hw_mgr_cb.data, &cb_args);
 	} else if (req_submit) {
 		submit_args.frame_req = req_submit;
 		submit_args.hw_update_entries = req_submit->hw_update_entries;
@@ -526,8 +530,8 @@ static int cam_lrme_hw_util_flush_req(struct cam_hw_info *lrme_hw,
 		cb_args.cb_type = CAM_LRME_CB_PUT_FRAME;
 		cb_args.frame_req = req_proc;
 		if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb)
-			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
-				hw_mgr_cb.data, &cb_args);
+			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
+				lrme_core->hw_mgr_cb.data, &cb_args);
 	} else if (req_proc) {
 		submit_args.frame_req = req_proc;
 		submit_args.hw_update_entries = req_proc->hw_update_entries;
@@ -741,8 +745,8 @@ int cam_lrme_hw_process_irq(void *priv, void *data)
 	}
 
 	if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb) {
-		lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
-			hw_mgr_cb.data, &cb_args);
+		lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
+			lrme_core->hw_mgr_cb.data, &cb_args);
 	} else {
 		CAM_ERR(CAM_LRME, "No hw mgr cb");
 		rc = -EINVAL;

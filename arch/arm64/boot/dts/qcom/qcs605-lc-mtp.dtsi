@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,196 +10,78 @@
  * GNU General Public License for more details.
  */
 
-#include "pm8005.dtsi"
-#include "sdm670-pmic-overlay.dtsi"
-#include "qcs605-pm660-pm8005-regulator.dtsi"
+#include "qcs605-lc-pmic-overlay.dtsi"
+#include "qcs605-lc-camera-sensor-mtp.dtsi"
 
-/ {
-	cpus {
-		/delete-node/ cpu@200;
-		/delete-node/ cpu@300;
-		/delete-node/ cpu@400;
-		/delete-node/ cpu@500;
+&qupv3_se9_2uart {
+	status = "disabled";
+};
 
-		cpu-map {
-			cluster0 {
-				/delete-node/ core2;
-				/delete-node/ core3;
-				/delete-node/ core4;
-				/delete-node/ core5;
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&qupv3_se8_spi {
+	status = "disabled";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm660_l19>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&pm660_l8>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&tlmm {
+	sdc2_cd_on: cd_on {
+		mux {
+			pins = "gpio116";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio116";
+			drive-strength = <2>;
+			bias-pull-up;
 			};
 		};
-	};
 
-
-};
-
-&soc {
-	/delete-node/ jtagmm@7240000;
-	/delete-node/ jtagmm@7340000;
-	/delete-node/ jtagmm@7440000;
-	/delete-node/ jtagmm@7540000;
-	/delete-node/ cti@7220000;
-	/delete-node/ cti@7320000;
-	/delete-node/ cti@7420000;
-	/delete-node/ cti@7520000;
-	/delete-node/ etm@7240000;
-	/delete-node/ etm@7340000;
-	/delete-node/ etm@7440000;
-	/delete-node/ etm@7540000;
-	cpuss_dump {
-		/delete-node/ qcom,l1_i_cache200;
-		/delete-node/ qcom,l1_i_cache300;
-		/delete-node/ qcom,l1_i_cache400;
-		/delete-node/ qcom,l1_i_cache500;
-		/delete-node/ qcom,l1_d_cache200;
-		/delete-node/ qcom,l1_d_cache300;
-		/delete-node/ qcom,l1_d_cache400;
-		/delete-node/ qcom,l1_d_cache500;
-		/delete-node/ qcom,l1_tlb_dump200;
-		/delete-node/ qcom,l1_tlb_dump300;
-		/delete-node/ qcom,l1_tlb_dump400;
-		/delete-node/ qcom,l1_tlb_dump500;
-	};
-
-	devfreq_memlat_0: qcom,cpu0-memlat-mon {
-		qcom,cpulist = <&CPU0 &CPU1>;
-	};
-
-	devfreq_l3lat_0: qcom,cpu0-l3lat-mon {
-		qcom,cpulist = <&CPU0 &CPU1>;
-	};
-	devfreq_compute0: qcom,devfreq-compute0 {
-		qcom,cpulist = <&CPU0 &CPU1>;
-	};
-
-	funnel_apss: funnel@7800000 {
-		ports {
-			/delete-node/ port@3;
-			/delete-node/ port@4;
-			/delete-node/ port@5;
-			/delete-node/ port@6;
+	sdc2_cd_off: cd_off {
+		mux {
+			pins = "gpio116";
+			function = "gpio";
 		};
-	};
 
-	qcom,lpm-levels {
-		qcom,pm-cluster@0 {
-			qcom,pm-cpu@0 {
-				qcom,cpu = <&CPU0 &CPU1>;
+		config {
+			pins = "gpio116";
+			drive-strength = <2>;
+			bias-disable;
 			};
-		};
 	};
 };
 
-&pm660_temp_alarm {
-	cooling-maps {
-		/delete-node/ trip0_cpu2;
-		/delete-node/ trip0_cpu3;
-		/delete-node/ trip0_cpu4;
-		/delete-node/ trip0_cpu5;
-		/delete-node/ trip1_cpu2;
-		/delete-node/ trip1_cpu3;
-		/delete-node/ trip1_cpu4;
-		/delete-node/ trip1_cpu5;
-	};
-};
+&sdhc_2 {
+	/* VDD external regulator is enabled/disabled by pm660_l18 regulator */
+	vdd-io-supply = <&pm660_l18>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
 
-&thermal_zones {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
 
-	xo-therm-cpu-step {
-		cooling-maps {
-			/delete-node/ skin_cpu2;
-			/delete-node/ skin_cpu3;
-			/delete-node/ skin_cpu4;
-			/delete-node/ skin_cpu5;
-		};
-	};
-};
+	cd-gpios = <&tlmm 116 0x1>;
 
-&spmi_bus {
-	/delete-node/ qcom,pm660l@2;
-	/delete-node/ qcom,pm660l@3;
-};
-
-&thermal_zones {
-	pm660l_tz {
-		/delete-property/ thermal-sensors;
-	};
-};
-
-&soc {
-	qcom,turing@8300000 {
-		/delete-property/ vdd_cx-supply;
-	};
-
-	qcom,lpass@62400000 {
-		/delete-property/ vdd_cx-supply;
-	};
-};
-
-&clock_cpucc {
-	/delete-property/ vdd_l3_mx_ao-supply;
-	/delete-property/ vdd_pwrcl_mx_ao-supply;
-};
-
-&clock_gcc {
-	/delete-property/ vdd_cx-supply;
-	/delete-property/ vdd_cx_ao-supply;
-};
-
-&clock_videocc {
-	/delete-property/ vdd_cx-supply;
-};
-
-&clock_camcc {
-	/delete-property/ vdd_mx-supply;
-	/delete-property/ vdd_cx-supply;
-};
-
-&clock_dispcc {
-	/delete-property/ vdd_cx-supply;
-};
-
-&clock_gpucc {
-	/delete-property/ vdd_mx-supply;
-	/delete-property/ vdd_cx-supply;
-};
-
-&pil_modem {
-	/delete-property/ vdd_mx-supply;
-	/delete-property/ vdd_cx-supply;
-	/delete-property/ vdd_mss-supply;
-};
-
-&clock_gfx {
-	/delete-property/ vdd_gfx-supply;
-};
-
-&gpu_gx_gdsc {
-	/delete-property/ parent-supply;
-};
-
-&mdss_dsi_phy0 {
-	/delete-property/ vdda-0p9-supply;
-};
-
-&mdss_dsi_phy1 {
-	/delete-property/ vdda-0p9-supply;
-};
-
-&sde_dp {
-	/delete-property/ vdda-0p9-supply;
-};
-
-&qusb_phy0 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vdda33-supply;
-};
-
-&usb_qmp_dp_phy {
-	/delete-property/ vdd-supply;
-};
-
-&pm660_pdphy {
-	/delete-property/ vdd-pdphy-supply;
+	status = "ok";
 };

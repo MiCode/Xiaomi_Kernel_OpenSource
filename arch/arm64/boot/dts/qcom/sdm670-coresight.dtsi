@@ -11,6 +11,19 @@
  */
 &soc {
 
+	csr: csr@6001000 {
+		compatible = "qcom,coresight-csr";
+		reg = <0x6001000 0x1000>;
+		reg-names = "csr-base";
+
+		coresight-name = "coresight-csr";
+
+		qcom,usb-bam-support;
+		qcom,hwctrl-set-support;
+		qcom,set-byte-cntr-support;
+		qcom,blk-size = <1>;
+	};
+
 	replicator_qdss: replicator@6046000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b909>;
@@ -59,6 +72,7 @@
 
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti8>;
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -117,6 +131,7 @@
 		reg-names = "tmc-base";
 
 		coresight-name = "coresight-tmc-etf-swao";
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -284,6 +299,7 @@
 		coresight-name = "coresight-tmc-etf";
 		coresight-ctis = <&cti0 &cti8>;
 		arm,default-sink;
+		coresight-csr = <&csr>;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -395,20 +411,11 @@
 		reg-names = "ddr-ch0-cfg", "ddr-ch23-cfg", "ddr-ch0-ctrl",
 			    "ddr-ch23-ctrl";
 
+		coresight-csr = <&csr>;
 		coresight-name = "coresight-hwevent";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
-	};
-
-	csr: csr@6001000 {
-		compatible = "qcom,coresight-csr";
-		reg = <0x6001000 0x1000>;
-		reg-names = "csr-base";
-
-		coresight-name = "coresight-csr";
-
-		qcom,blk-size = <1>;
 	};
 
 	funnel_in0: funnel@0x6041000 {

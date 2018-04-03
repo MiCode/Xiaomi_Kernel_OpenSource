@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,9 +18,16 @@
 #define MAX_PERIPHERAL_HDLC_BUF_SZ	65539
 
 #define TRANSPORT_UNKNOWN		-1
+#ifdef CONFIG_DIAG_USES_SMD
+#define TRANSPORT_SMD			0
+#define TRANSPORT_SOCKET		1
+#define TRANSPORT_GLINK			2
+#define NUM_TRANSPORT			3
+#else
 #define TRANSPORT_SOCKET		0
 #define TRANSPORT_GLINK			1
 #define NUM_TRANSPORT			2
+#endif
 #define NUM_WRITE_BUFFERS		2
 #define PERIPHERAL_MASK(x)					\
 	((x == PERIPHERAL_MODEM) ? DIAG_CON_MPSS :		\
@@ -58,7 +65,8 @@ struct diag_peripheral_ops {
 	void (*open)(void *ctxt);
 	void (*close)(void *ctxt);
 	int (*write)(void *ctxt, unsigned char *buf, int len);
-	int (*read)(void *ctxt, unsigned char *buf, int len);
+	int (*read)(void *ctxt, unsigned char *buf, int len,
+			struct diagfwd_buf_t *fwd_buf);
 	void (*queue_read)(void *ctxt);
 };
 

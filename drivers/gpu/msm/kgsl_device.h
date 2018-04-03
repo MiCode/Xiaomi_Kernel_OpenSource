@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -104,6 +104,7 @@ enum kgsl_event_results {
 
 /* Allocate 600K for the snapshot static region*/
 #define KGSL_SNAPSHOT_MEMSIZE (600 * 1024)
+#define MAX_L3_LEVELS	3
 
 struct kgsl_device;
 struct platform_device;
@@ -190,6 +191,8 @@ struct kgsl_functable {
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
 	void (*stop_fault_timer)(struct kgsl_device *device);
+	void (*dispatcher_halt)(struct kgsl_device *device);
+	void (*dispatcher_unhalt)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
@@ -303,6 +306,7 @@ struct kgsl_device {
 
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	bool force_panic;		/* Force panic after snapshot dump */
+	bool prioritize_unrecoverable;	/* Overwrite with new GMU snapshots */
 
 	/* Use CP Crash dumper to get GPU snapshot*/
 	bool snapshot_crashdumper;
@@ -329,6 +333,9 @@ struct kgsl_device {
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
 	struct kobject *gpu_sysfs_kobj;
+	struct clk *l3_clk;
+	unsigned int l3_freq[MAX_L3_LEVELS];
+	unsigned int num_l3_pwrlevels;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -407,6 +414,7 @@ struct kgsl_context {
 	struct kgsl_event_group events;
 	unsigned int flags;
 	struct kgsl_pwr_constraint pwr_constraint;
+	struct kgsl_pwr_constraint l3_pwr_constraint;
 	unsigned int fault_count;
 	unsigned long fault_time;
 	struct kgsl_mem_entry *user_ctxt_record;
@@ -442,6 +450,7 @@ struct kgsl_context {
  * @syncsource_lock: Spinlock to protect the syncsource idr
  * @fd_count: Counter for the number of FDs for this process
  * @ctxt_count: Count for the number of contexts for this process
+ * @ctxt_count_lock: Spinlock to protect ctxt_count
  */
 struct kgsl_process_private {
 	unsigned long priv;
@@ -462,6 +471,7 @@ struct kgsl_process_private {
 	spinlock_t syncsource_lock;
 	int fd_count;
 	atomic_t ctxt_count;
+	spinlock_t ctxt_count_lock;
 };
 
 /**

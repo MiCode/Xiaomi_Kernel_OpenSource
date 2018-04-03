@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 
 #define IPA_64_LOW_32_MASK (0xFFFFFFFF)
 #define IPA_64_HIGH_32_MASK (0xFFFFFFFF00000000ULL)
+#define IPAHAL_NAT_INVALID_PROTOCOL (0xFF)
 
 static const char *ipahal_nat_type_to_str[IPA_NAT_MAX] = {
 	__stringify(IPAHAL_NAT_IPV4),
@@ -71,6 +72,40 @@ static bool ipa_nat_ipv6ct_is_entry_zeroed_v_4_0(const void *entry)
 	struct ipa_nat_hw_ipv6ct_entry zero_entry = { 0 };
 
 	return (memcmp(&zero_entry, entry, sizeof(zero_entry))) ? false : true;
+}
+
+static bool ipa_nat_ipv4_is_entry_valid_v_3_0(const void *entry)
+{
+	struct ipa_nat_hw_ipv4_entry *hw_entry =
+		(struct ipa_nat_hw_ipv4_entry *)entry;
+
+	return hw_entry->enable &&
+		hw_entry->protocol != IPAHAL_NAT_INVALID_PROTOCOL;
+}
+
+static bool ipa_nat_ipv4_is_index_entry_valid_v_3_0(const void *entry)
+{
+	struct ipa_nat_hw_indx_entry *hw_entry =
+		(struct ipa_nat_hw_indx_entry *)entry;
+
+	return hw_entry->tbl_entry != 0;
+}
+
+static bool ipa_nat_ipv4_is_pdn_entry_valid_v_4_0(const void *entry)
+{
+	struct ipa_nat_hw_pdn_entry *hw_entry =
+		(struct ipa_nat_hw_pdn_entry *)entry;
+
+	return hw_entry->public_ip != 0;
+}
+
+static bool ipa_nat_ipv6ct_is_entry_valid_v_4_0(const void *entry)
+{
+	struct ipa_nat_hw_ipv6ct_entry *hw_entry =
+		(struct ipa_nat_hw_ipv6ct_entry *)entry;
+
+	return hw_entry->enable &&
+		hw_entry->protocol != IPAHAL_NAT_INVALID_PROTOCOL;
 }
 
 static int ipa_nat_ipv4_stringify_entry_v_3_0(const void *entry,
@@ -194,11 +229,15 @@ static int ipa_nat_ipv6ct_stringify_entry_v_4_0(const void *entry,
  * struct ipahal_nat_obj - H/W information for specific IPA version
  * @entry_size - CB to get the size of the entry
  * @is_entry_zeroed - CB to determine whether an entry is definitely zero
+ * @is_entry_valid - CB to determine whether an entry is valid
+ *  Validity criterium depends on entry type. E.g. for NAT base table
+ *   Entry need to be with valid protocol and enabled.
  * @stringify_entry - CB to create string that represents an entry
  */
 struct ipahal_nat_obj {
 	size_t (*entry_size)(void);
 	bool (*is_entry_zeroed)(const void *entry);
+	bool (*is_entry_valid)(const void *entry);
 	int (*stringify_entry)(const void *entry, char *buff, size_t buff_size);
 };
 
@@ -216,11 +255,13 @@ static struct ipahal_nat_obj ipahal_nat_objs[IPA_HW_MAX][IPA_NAT_MAX] = {
 	[IPA_HW_v3_0][IPAHAL_NAT_IPV4] = {
 			ipa_nat_ipv4_entry_size_v_3_0,
 			ipa_nat_ipv4_is_entry_zeroed_v_3_0,
+			ipa_nat_ipv4_is_entry_valid_v_3_0,
 			ipa_nat_ipv4_stringify_entry_v_3_0
 		},
 	[IPA_HW_v3_0][IPAHAL_NAT_IPV4_INDEX] = {
 			ipa_nat_ipv4_index_entry_size_v_3_0,
 			ipa_nat_ipv4_is_index_entry_zeroed_v_3_0,
+			ipa_nat_ipv4_is_index_entry_valid_v_3_0,
 			ipa_nat_ipv4_index_stringify_entry_v_3_0
 		},
 
@@ -228,16 +269,19 @@ static struct ipahal_nat_obj ipahal_nat_objs[IPA_HW_MAX][IPA_NAT_MAX] = {
 	[IPA_HW_v4_0][IPAHAL_NAT_IPV4] = {
 			ipa_nat_ipv4_entry_size_v_3_0,
 			ipa_nat_ipv4_is_entry_zeroed_v_3_0,
+			ipa_nat_ipv4_is_entry_valid_v_3_0,
 			ipa_nat_ipv4_stringify_entry_v_4_0
 		},
 	[IPA_HW_v4_0][IPAHAL_NAT_IPV4_PDN] = {
 			ipa_nat_ipv4_pdn_entry_size_v_4_0,
 			ipa_nat_ipv4_is_pdn_entry_zeroed_v_4_0,
+			ipa_nat_ipv4_is_pdn_entry_valid_v_4_0,
 			ipa_nat_ipv4_pdn_stringify_entry_v_4_0
 		},
 	[IPA_HW_v4_0][IPAHAL_NAT_IPV6CT] = {
 			ipa_nat_ipv6ct_entry_size_v_4_0,
 			ipa_nat_ipv6ct_is_entry_zeroed_v_4_0,
+			ipa_nat_ipv6ct_is_entry_valid_v_4_0,
 			ipa_nat_ipv6ct_stringify_entry_v_4_0
 		}
 };
@@ -331,6 +375,25 @@ int ipahal_nat_is_entry_zeroed(enum ipahal_nat_type nat_type, void *entry,
 	*entry_zeroed = ipahal_nat_objs[ipahal_ctx->hw_type][nat_type].
 		is_entry_zeroed(entry);
 	IPAHAL_DBG("The entry is %szeroed\n", (*entry_zeroed) ? "" : "not ");
+
+	return 0;
+}
+
+int ipahal_nat_is_entry_valid(enum ipahal_nat_type nat_type, void *entry,
+	bool *entry_valid)
+{
+	if (WARN(entry == NULL || entry_valid == NULL,
+		"NULL pointer received\n"))
+		return -EINVAL;
+	if (WARN(nat_type < 0 || nat_type >= IPA_NAT_MAX,
+		"requested NAT type %d is invalid\n", nat_type))
+		return -EINVAL;
+
+	IPAHAL_DBG("Determine whether the entry is valid for NAT type=%s\n",
+		ipahal_nat_type_str(nat_type));
+	*entry_valid = ipahal_nat_objs[ipahal_ctx->hw_type][nat_type].
+		is_entry_valid(entry);
+	IPAHAL_DBG("The entry is %svalid\n", (*entry_valid) ? "" : "not ");
 
 	return 0;
 }

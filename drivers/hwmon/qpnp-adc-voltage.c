@@ -35,6 +35,8 @@
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
 
+#define QPNP_VADC_HC_VREF_CODE	0x4000
+
 /* QPNP VADC register definition */
 #define QPNP_VADC_REVISION1				0x0
 #define QPNP_VADC_REVISION2				0x1
@@ -224,6 +226,8 @@ static struct qpnp_vadc_scale_fn vadc_scale_fn[] = {
 	[SCALE_DIE_TEMP] = {qpnp_adc_scale_die_temp},
 	[SCALE_I_DEFAULT] = {qpnp_iadc_scale_default},
 	[SCALE_USBIN_I] = {qpnp_adc_scale_usbin_curr},
+	[SCALE_BATT_THERM_TEMP_QRD] = {qpnp_adc_batt_therm_qrd},
+	[SCALE_SMB1390_DIE_TEMP] = {qpnp_adc_scale_die_temp_1390},
 };
 
 static struct qpnp_vadc_rscale_fn adc_vadc_rscale_fn[] = {
@@ -271,42 +275,6 @@ static int qpnp_vadc_is_valid(struct qpnp_vadc_chip *vadc)
 			return 0;
 
 	return -EINVAL;
-}
-
-static int32_t qpnp_vadc_warm_rst_configure(struct qpnp_vadc_chip *vadc)
-{
-	int rc = 0;
-	u8 data = 0, buf = 0;
-
-	buf = QPNP_VADC_ACCESS_DATA;
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_ACCESS, &buf, 1);
-	if (rc < 0) {
-		pr_err("VADC write access failed\n");
-		return rc;
-	}
-
-	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_PERH_RESET_CTL3, &data, 1);
-	if (rc < 0) {
-		pr_err("VADC perh reset ctl3 read failed\n");
-		return rc;
-	}
-
-	buf = QPNP_VADC_ACCESS_DATA;
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_ACCESS, &buf, 1);
-	if (rc < 0) {
-		pr_err("VADC write access failed\n");
-		return rc;
-	}
-
-	data |= QPNP_FOLLOW_WARM_RB;
-
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_PERH_RESET_CTL3, &data, 1);
-	if (rc < 0) {
-		pr_err("VADC perh reset ctl3 write failed\n");
-		return rc;
-	}
-
-	return 0;
 }
 
 static int32_t qpnp_vadc_mode_select(struct qpnp_vadc_chip *vadc, u8 mode_ctl)
@@ -418,20 +386,7 @@ static int qpnp_vadc_hc_check_conversion_status(struct qpnp_vadc_chip *vadc)
 static int qpnp_vadc_hc_read_data(struct qpnp_vadc_chip *vadc, int *data)
 {
 	int rc = 0;
-	u8 buf = 0, rslt_lsb = 0, rslt_msb = 0;
-
-	/* Set hold bit */
-	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_HC1_DATA_HOLD_CTL, &buf, 1);
-	if (rc) {
-		pr_err("debug register dump failed\n");
-		return rc;
-	}
-	buf |= QPNP_VADC_HC1_DATA_HOLD_CTL_FIELD;
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_DATA_HOLD_CTL, &buf, 1);
-	if (rc) {
-		pr_err("debug register dump failed\n");
-		return rc;
-	}
+	u8 rslt_lsb = 0, rslt_msb = 0;
 
 	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_HC1_DATA0, &rslt_lsb, 1);
 	if (rc < 0) {
@@ -458,11 +413,6 @@ static int qpnp_vadc_hc_read_data(struct qpnp_vadc_chip *vadc, int *data)
 		return rc;
 	}
 
-	/* De-assert hold bit */
-	buf &= ~QPNP_VADC_HC1_DATA_HOLD_CTL_FIELD;
-	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HC1_DATA_HOLD_CTL, &buf, 1);
-	if (rc)
-		pr_err("de-asserting hold bit failed\n");
 
 	return rc;
 }
@@ -556,13 +506,15 @@ int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *vadc,
 		goto fail_unlock;
 	}
 
-	if (!vadc->vadc_init_calib) {
-		rc = qpnp_vadc_calib_device(vadc);
-		if (rc) {
-			pr_err("Calibration failed\n");
-			goto fail_unlock;
-		} else {
-			vadc->vadc_init_calib = true;
+	if (vadc->adc->adc_prop->full_scale_code == QPNP_VADC_HC_VREF_CODE) {
+		if (!vadc->vadc_init_calib) {
+			rc = qpnp_vadc_calib_device(vadc);
+			if (rc) {
+				pr_err("Calibration failed\n");
+				goto fail_unlock;
+			} else {
+				vadc->vadc_init_calib = true;
+			}
 		}
 	}
 
@@ -2748,12 +2700,6 @@ static int qpnp_vadc_probe(struct platform_device *pdev)
 				&vadc->revision_ana_minor, 1);
 	if (rc < 0) {
 		pr_err("qpnp adc ana_minor rev read failed with %d\n", rc);
-		goto err_setup;
-	}
-
-	rc = qpnp_vadc_warm_rst_configure(vadc);
-	if (rc < 0) {
-		pr_err("Setting perp reset on warm reset failed %d\n", rc);
 		goto err_setup;
 	}
 

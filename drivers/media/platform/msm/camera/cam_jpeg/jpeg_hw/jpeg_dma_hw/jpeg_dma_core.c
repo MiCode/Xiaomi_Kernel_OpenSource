@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,9 +47,8 @@ int cam_jpeg_dma_init_hw(void *device_priv,
 	}
 
 	soc_info = &jpeg_dma_dev->soc_info;
-	core_info =
-		(struct cam_jpeg_dma_device_core_info *)jpeg_dma_dev->
-		core_info;
+	core_info = (struct cam_jpeg_dma_device_core_info *)
+		jpeg_dma_dev->core_info;
 
 	if (!soc_info || !core_info) {
 		CAM_ERR(CAM_JPEG, "soc_info = %pK core_info = %pK",
@@ -159,9 +158,8 @@ int cam_jpeg_dma_process_cmd(void *device_priv, uint32_t cmd_type,
 		return -EINVAL;
 	}
 
-	core_info =
-		(struct cam_jpeg_dma_device_core_info *)jpeg_dma_dev->
-		core_info;
+	core_info = (struct cam_jpeg_dma_device_core_info *)
+		jpeg_dma_dev->core_info;
 
 	switch (cmd_type) {
 	case CAM_JPEG_CMD_SET_IRQ_CB:

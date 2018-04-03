@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,15 +25,6 @@
 #define IPA_WDI_ENABLED BIT(1)
 #define IPA_WDI_RESUMED BIT(2)
 #define IPA_UC_POLL_SLEEP_USEC 100
-
-#define IPA_WDI_RX_RING_RES 0
-#define IPA_WDI_RX_RING_RP_RES 1
-#define IPA_WDI_RX_COMP_RING_RES 2
-#define IPA_WDI_RX_COMP_RING_WP_RES 3
-#define IPA_WDI_TX_RING_RES 4
-#define IPA_WDI_CE_RING_RES 5
-#define IPA_WDI_CE_DB_RES 6
-#define IPA_WDI_MAX_RES 7
 
 struct ipa_wdi_res {
 	struct ipa_wdi_buffer_info *res;
@@ -448,7 +439,7 @@ int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	return 0;
 }
 
-int ipa_wdi_init(void)
+int ipa2_wdi_init(void)
 {
 	struct ipa_uc_hdlrs uc_wdi_cbs = { 0 };
 
@@ -583,7 +574,8 @@ static void ipa_save_uc_smmu_mapping_pa(int res_idx, phys_addr_t pa,
 {
 	IPADBG("--res_idx=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", res_idx,
 			&pa, iova, len);
-	wdi_res[res_idx].res = kzalloc(sizeof(struct ipa_wdi_res), GFP_KERNEL);
+	wdi_res[res_idx].res = kzalloc(sizeof(*wdi_res[res_idx].res),
+					GFP_KERNEL);
 	if (!wdi_res[res_idx].res)
 		BUG();
 	wdi_res[res_idx].nents = 1;
@@ -609,8 +601,8 @@ static void ipa_save_uc_smmu_mapping_sgt(int res_idx, struct sg_table *sgt,
 		return;
 	}
 
-	wdi_res[res_idx].res = kcalloc(sgt->nents, sizeof(struct ipa_wdi_res),
-			GFP_KERNEL);
+	wdi_res[res_idx].res = kcalloc(sgt->nents,
+		sizeof(*wdi_res[res_idx].res), GFP_KERNEL);
 	if (!wdi_res[res_idx].res)
 		BUG();
 	wdi_res[res_idx].nents = sgt->nents;
@@ -628,7 +620,7 @@ static void ipa_save_uc_smmu_mapping_sgt(int res_idx, struct sg_table *sgt,
 	}
 }
 
-static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
+int ipa2_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova)
 {
@@ -844,7 +836,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 				in->smmu_enabled,
 				in->u.dl_smmu.comp_ring_size,
 				in->u.dl.comp_ring_size);
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
 					in->smmu_enabled,
 					in->u.dl.comp_ring_base_pa,
 					&in->u.dl_smmu.comp_ring,
@@ -869,7 +861,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 					in->smmu_enabled,
 					in->u.dl_smmu.ce_ring_size,
 					in->u.dl.ce_ring_size);
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
 						in->smmu_enabled,
 						in->u.dl.ce_ring_base_pa,
 						&in->u.dl_smmu.ce_ring,
@@ -890,7 +882,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 			pa = in->smmu_enabled ? in->u.dl_smmu.ce_door_bell_pa :
 				in->u.dl.ce_door_bell_pa;
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
 						in->smmu_enabled,
 						pa,
 						NULL,
@@ -918,7 +910,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 					in->smmu_enabled,
 					in->u.dl_smmu.comp_ring_size,
 					in->u.dl.comp_ring_size);
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
 						in->smmu_enabled,
 						in->u.dl.comp_ring_base_pa,
 						&in->u.dl_smmu.comp_ring,
@@ -938,7 +930,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 					in->smmu_enabled,
 					in->u.dl_smmu.ce_ring_size,
 					in->u.dl.ce_ring_size);
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
 						in->smmu_enabled,
 						in->u.dl.ce_ring_base_pa,
 						&in->u.dl_smmu.ce_ring,
@@ -953,7 +945,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 			tx->ce_ring_size = len;
 			pa = in->smmu_enabled ? in->u.dl_smmu.ce_door_bell_pa :
 				in->u.dl.ce_door_bell_pa;
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
 						in->smmu_enabled,
 						pa,
 						NULL,
@@ -994,7 +986,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 				in->smmu_enabled,
 				in->u.ul_smmu.rdy_ring_size,
 				in->u.ul.rdy_ring_size);
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
 						in->smmu_enabled,
 						in->u.ul.rdy_ring_base_pa,
 						&in->u.ul_smmu.rdy_ring,
@@ -1015,7 +1007,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 			pa = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_rp_pa :
 				in->u.ul.rdy_ring_rp_pa;
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
 						in->smmu_enabled,
 						pa,
 						NULL,
@@ -1039,7 +1031,8 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 					in->smmu_enabled,
 					in->u.ul_smmu.rdy_comp_ring_size,
 					in->u.ul.rdy_comp_ring_size);
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_COMP_RING_RES,
+			if (ipa2_create_uc_smmu_mapping(
+						IPA_WDI_RX_COMP_RING_RES,
 						in->smmu_enabled,
 						in->u.ul.rdy_comp_ring_base_pa,
 						&in->u.ul_smmu.rdy_comp_ring,
@@ -1061,7 +1054,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 			pa = in->smmu_enabled ?
 				in->u.ul_smmu.rdy_comp_ring_wp_pa :
 				in->u.ul.rdy_comp_ring_wp_pa;
-			if (ipa_create_uc_smmu_mapping(
+			if (ipa2_create_uc_smmu_mapping(
 						IPA_WDI_RX_COMP_RING_WP_RES,
 						in->smmu_enabled,
 						pa,
@@ -1089,7 +1082,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 					in->smmu_enabled,
 					in->u.ul_smmu.rdy_ring_size,
 					in->u.ul.rdy_ring_size);
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
 						in->smmu_enabled,
 						in->u.ul.rdy_ring_base_pa,
 						&in->u.ul_smmu.rdy_ring,
@@ -1105,7 +1098,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 			pa = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_rp_pa :
 				in->u.ul.rdy_ring_rp_pa;
-			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
+			if (ipa2_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
 						in->smmu_enabled,
 						pa,
 						NULL,

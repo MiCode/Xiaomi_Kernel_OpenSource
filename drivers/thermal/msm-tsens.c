@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,11 @@ static int tsens_init(struct tsens_device *tmdev)
 	return tmdev->ops->hw_init(tmdev);
 }
 
+static int tsens_calib(struct tsens_device *tmdev)
+{
+	return tmdev->ops->calibrate(tmdev);
+}
+
 static int tsens_register_interrupts(struct tsens_device *tmdev)
 {
 	if (tmdev->ops->interrupts_reg)
@@ -82,6 +87,9 @@ static const struct of_device_id tsens_table[] = {
 	{	.compatible = "qcom,tsens24xx",
 		.data = &data_tsens24xx,
 	},
+	{	.compatible = "qcom,msm8937-tsens",
+		.data = &data_tsens14xx,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, tsens_table);
@@ -97,6 +105,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 	struct device_node *of_node = pdev->dev.of_node;
 	const struct of_device_id *id;
 	const struct tsens_data *data;
+	int rc = 0;
 	struct resource *res_tsens_mem;
 
 	if (!of_match_node(tsens_table, of_node)) {
@@ -150,7 +159,27 @@ static int get_device_tree_data(struct platform_device *pdev,
 		return PTR_ERR(tmdev->tsens_tm_addr);
 	}
 
-	return 0;
+	/* TSENS eeprom register region */
+	res_tsens_mem = platform_get_resource_byname(pdev,
+				IORESOURCE_MEM, "tsens_eeprom_physical");
+	if (!res_tsens_mem) {
+		pr_debug("Could not get tsens physical address resource\n");
+	} else {
+		tmdev->tsens_calib_addr = devm_ioremap_resource(&pdev->dev,
+								res_tsens_mem);
+		if (IS_ERR(tmdev->tsens_calib_addr)) {
+			dev_err(&pdev->dev, "Failed to IO map TSENS EEPROM registers.\n");
+			rc = PTR_ERR(tmdev->tsens_calib_addr);
+		}  else {
+			rc = tsens_calib(tmdev);
+			if (rc) {
+				pr_err("Error initializing TSENS controller\n");
+				return rc;
+			}
+		}
+	}
+
+	return rc;
 }
 
 static int tsens_thermal_zone_register(struct tsens_device *tmdev)

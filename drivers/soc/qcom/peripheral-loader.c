@@ -161,7 +161,7 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 	region_info = (struct md_ss_region __iomem *)subsys_segtable_base;
 	if (!region_info)
 		return -EINVAL;
-	pr_debug("Segments in minidump 0x%x\n", ss_mdump_seg_cnt);
+	pr_info("Minidump : Segments in minidump 0x%x\n", ss_mdump_seg_cnt);
 	ramdump_segs = kcalloc(ss_mdump_seg_cnt,
 			       sizeof(*ramdump_segs), GFP_KERNEL);
 	if (!ramdump_segs)
@@ -184,7 +184,7 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 			offset = offset +
 				sizeof(region_info->region_base_address);
 			s->size = __raw_readl(offset);
-			pr_debug("Minidump : Dumping segment %s with address 0x%lx and size 0x%x\n",
+			pr_info("Minidump : Dumping segment %s with address 0x%lx and size 0x%x\n",
 				s->name, s->address, (unsigned int)s->size);
 		} else
 			ss_valid_seg_cnt--;
@@ -220,15 +220,15 @@ int pil_do_ramdump(struct pil_desc *desc,
 	int count = 0, ret;
 
 	if (desc->minidump) {
-		pr_debug("Minidump : md_ss_toc->md_ss_toc_init is 0x%x\n",
+		pr_info("Minidump : md_ss_toc->md_ss_toc_init is 0x%x\n",
 			(unsigned int)desc->minidump->md_ss_toc_init);
-		pr_debug("Minidump : md_ss_toc->md_ss_enable_status is 0x%x\n",
+		pr_info("Minidump : md_ss_toc->md_ss_enable_status is 0x%x\n",
 			(unsigned int)desc->minidump->md_ss_enable_status);
-		pr_debug("Minidump : md_ss_toc->encryption_status is 0x%x\n",
+		pr_info("Minidump : md_ss_toc->encryption_status is 0x%x\n",
 			(unsigned int)desc->minidump->encryption_status);
-		pr_debug("Minidump : md_ss_toc->ss_region_count is 0x%x\n",
+		pr_info("Minidump : md_ss_toc->ss_region_count is 0x%x\n",
 			(unsigned int)desc->minidump->ss_region_count);
-		pr_debug("Minidump : md_ss_toc->md_ss_smem_regions_baseptr is 0x%x\n",
+		pr_info("Minidump : md_ss_toc->md_ss_smem_regions_baseptr is 0x%x\n",
 			(unsigned int)
 			desc->minidump->md_ss_smem_regions_baseptr);
 		/**
@@ -241,11 +241,11 @@ int pil_do_ramdump(struct pil_desc *desc,
 				MD_SS_ENABLED)) {
 			if (desc->minidump->encryption_status ==
 				MD_SS_ENCR_DONE) {
-				pr_debug("Dumping Minidump for %s\n",
+				pr_info("Minidump : Dumping for %s\n",
 					desc->name);
 				return pil_do_minidump(desc, minidump_dev);
 			}
-			pr_debug("Minidump aborted for %s\n", desc->name);
+			pr_info("Minidump : aborted for %s\n", desc->name);
 			return -EINVAL;
 		}
 	}

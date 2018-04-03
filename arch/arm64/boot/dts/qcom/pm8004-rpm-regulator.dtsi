@@ -1,0 +1,30 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	rpm-regulator-ldoc1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoc";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8004_l1";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+};

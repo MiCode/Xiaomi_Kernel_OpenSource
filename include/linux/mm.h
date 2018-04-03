@@ -1901,6 +1901,7 @@ extern void zone_pcp_reset(struct zone *zone);
 /* page_alloc.c */
 extern int min_free_kbytes;
 extern int watermark_scale_factor;
+extern int extra_free_kbytes;
 
 /* nommu.c */
 extern atomic_long_t mmap_pages_allocated;

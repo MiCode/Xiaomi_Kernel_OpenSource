@@ -821,21 +821,22 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
-#define DWC3_CONTROLLER_ERROR_EVENT		0
-#define DWC3_CONTROLLER_RESET_EVENT		1
-#define DWC3_CONTROLLER_POST_RESET_EVENT	2
-#define DWC3_CORE_PM_SUSPEND_EVENT		3
-#define DWC3_CORE_PM_RESUME_EVENT		4
-#define DWC3_CONTROLLER_CONNDONE_EVENT		5
-#define DWC3_CONTROLLER_NOTIFY_OTG_EVENT	6
-#define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT	7
-#define DWC3_CONTROLLER_RESTART_USB_SESSION	8
+#define DWC3_CONTROLLER_ERROR_EVENT			0
+#define DWC3_CONTROLLER_RESET_EVENT			1
+#define DWC3_CONTROLLER_POST_RESET_EVENT		2
+#define DWC3_CORE_PM_SUSPEND_EVENT			3
+#define DWC3_CORE_PM_RESUME_EVENT			4
+#define DWC3_CONTROLLER_CONNDONE_EVENT			5
+#define DWC3_CONTROLLER_NOTIFY_OTG_EVENT		6
+#define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT		7
+#define DWC3_CONTROLLER_RESTART_USB_SESSION		8
+#define DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER		9
 
 /* USB GSI event buffer related notification */
-#define DWC3_GSI_EVT_BUF_ALLOC			9
-#define DWC3_GSI_EVT_BUF_SETUP			10
-#define DWC3_GSI_EVT_BUF_CLEANUP		11
-#define DWC3_GSI_EVT_BUF_FREE			12
+#define DWC3_GSI_EVT_BUF_ALLOC			10
+#define DWC3_GSI_EVT_BUF_SETUP			11
+#define DWC3_GSI_EVT_BUF_CLEANUP		12
+#define DWC3_GSI_EVT_BUF_FREE			13
 
 #define MAX_INTR_STATS				10
 
@@ -942,6 +943,8 @@ struct dwc3_scratchpad_array {
  * 	3	- Reserved
  * @is_drd: device supports dual-role or not
  * @err_evt_seen: previous event in queue was erratic error
+ * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode
+ * @usb1_l1_disable: if true, disable L1 low power modes in Highspeed mode
  * @in_lpm: indicates if controller is in low power mode (no clocks)
  * @tx_fifo_size: Available RAM size for TX fifo allocation
  * @irq: irq number
@@ -1081,7 +1084,7 @@ struct dwc3 {
 	const char		*hsphy_interface;
 
 	unsigned		connected:1;
-	void (*notify_event)(struct dwc3 *, unsigned int);
+	void (*notify_event)(struct dwc3 *, unsigned int, unsigned int);
 	struct work_struct	wakeup_work;
 
 	unsigned		delayed_status:1;
@@ -1125,6 +1128,8 @@ struct dwc3 {
 	/* Indicate if need to disable controller internal clkgating */
 	unsigned		disable_clk_gating:1;
 	unsigned		enable_bus_suspend:1;
+	unsigned		usb3_u1u2_disable:1;
+	unsigned		usb2_l1_disable:1;
 
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
@@ -1416,6 +1421,9 @@ int dwc3_event_buffers_setup(struct dwc3 *dwc);
 void dwc3_usb3_phy_suspend(struct dwc3 *dwc, int suspend);
 
 extern void dwc3_set_notifier(
-		void (*notify)(struct dwc3 *dwc3, unsigned int event));
-extern int dwc3_notify_event(struct dwc3 *dwc3, unsigned int event);
+	void (*notify)(struct dwc3 *dwc3, unsigned int event,
+						unsigned int value));
+extern int dwc3_notify_event(struct dwc3 *dwc3, unsigned int event,
+							unsigned int value);
+
 #endif /* __DRIVERS_USB_DWC3_CORE_H */

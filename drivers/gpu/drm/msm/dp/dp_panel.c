@@ -136,9 +136,6 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 
 			goto end;
 		}
-
-		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK DPCD: ",
-			DUMP_PREFIX_NONE, 8, 1, dp_panel->dpcd, rlen, false);
 	}
 
 	rlen = drm_dp_dpcd_read(panel->aux->drm_aux,
@@ -275,35 +272,31 @@ static int dp_panel_set_dpcd(struct dp_panel *dp_panel, u8 *dpcd)
 static int dp_panel_read_edid(struct dp_panel *dp_panel,
 	struct drm_connector *connector)
 {
+	int ret = 0;
 	struct dp_panel_private *panel;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto end;
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
 	if (panel->custom_edid) {
 		pr_debug("skip edid read in debug mode\n");
-		return 0;
+		goto end;
 	}
 
 	sde_get_edid(connector, &panel->aux->drm_aux->ddc,
 		(void **)&dp_panel->edid_ctrl);
 	if (!dp_panel->edid_ctrl->edid) {
 		pr_err("EDID read failed\n");
-	} else {
-		u8 *buf = (u8 *)dp_panel->edid_ctrl->edid;
-		u32 size = buf[0x7E] ? 256 : 128;
-
-		print_hex_dump(KERN_DEBUG, "[drm-dp] SINK EDID: ",
-			DUMP_PREFIX_NONE, 16, 1, buf, size, false);
-
-		return 0;
+		ret = -EINVAL;
+		goto end;
 	}
-
-	return -EINVAL;
+end:
+	return ret;
 }
 
 static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,

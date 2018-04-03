@@ -165,14 +165,19 @@ static int kgsl_iommu_map_globals(struct kgsl_pagetable *pagetable)
 }
 
 void kgsl_iommu_unmap_global_secure_pt_entry(struct kgsl_device *device,
-				struct kgsl_memdesc *entry)
+				struct kgsl_memdesc *memdesc)
 {
-	if (!kgsl_mmu_is_secured(&device->mmu))
+	if (!kgsl_mmu_is_secured(&device->mmu) || memdesc == NULL)
 		return;
 
-	if (entry != NULL && entry->pagetable->name == KGSL_MMU_SECURE_PT)
-		kgsl_mmu_unmap(entry->pagetable, entry);
+	/* Check if an empty memdesc got passed in */
+	if ((memdesc->gpuaddr == 0) || (memdesc->size == 0))
+		return;
 
+	if (memdesc->pagetable) {
+		if (memdesc->pagetable->name == KGSL_MMU_SECURE_PT)
+			kgsl_mmu_unmap(memdesc->pagetable, memdesc);
+	}
 }
 
 int kgsl_iommu_map_global_secure_pt_entry(struct kgsl_device *device,
@@ -2522,6 +2527,7 @@ static const struct {
 } kgsl_iommu_cbs[] = {
 	{ KGSL_IOMMU_CONTEXT_USER, "gfx3d_user", },
 	{ KGSL_IOMMU_CONTEXT_SECURE, "gfx3d_secure" },
+	{ KGSL_IOMMU_CONTEXT_SECURE, "gfx3d_secure_alt" },
 };
 
 static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
@@ -2529,11 +2535,19 @@ static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
 {
 	struct platform_device *pdev = of_find_device_by_node(node);
 	struct kgsl_iommu_context *ctx = NULL;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_cbs); i++) {
 		if (!strcmp(node->name, kgsl_iommu_cbs[i].name)) {
 			int id = kgsl_iommu_cbs[i].id;
+
+			if (ADRENO_QUIRK(adreno_dev,
+				ADRENO_QUIRK_MMU_SECURE_CB_ALT)) {
+				if (!strcmp(node->name, "gfx3d_secure"))
+					continue;
+			} else if (!strcmp(node->name, "gfx3d_secure_alt"))
+				continue;
 
 			ctx = &iommu->ctx[id];
 			ctx->id = id;
@@ -2545,8 +2559,8 @@ static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
 	}
 
 	if (ctx == NULL) {
-		KGSL_CORE_ERR("dt: Unknown context label %s\n", node->name);
-		return -EINVAL;
+		KGSL_CORE_ERR("dt: Unused context label %s\n", node->name);
+		return 0;
 	}
 
 	if (ctx->id == KGSL_IOMMU_CONTEXT_SECURE)

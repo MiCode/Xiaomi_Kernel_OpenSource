@@ -98,7 +98,9 @@ static inline void mmc_cmdq_ready_wait(struct mmc_host *host,
 	 *    be any other direct command active.
 	 * 3. cmdq state should be unhalted.
 	 * 4. cmdq state shouldn't be in error state.
-	 * 5. free tag available to process the new request.
+	 * 5. There is no outstanding RPMB request pending.
+	 * 6. free tag available to process the new request.
+	 *    (This must be the last condtion to check)
 	 */
 	wait_event(ctx->wait, kthread_should_stop()
 		|| (mmc_peek_request(mq) &&
@@ -109,6 +111,7 @@ static inline void mmc_cmdq_ready_wait(struct mmc_host *host,
 		&& !(!host->card->part_curr && mmc_host_cq_disable(host) &&
 			!mmc_card_suspended(host->card))
 		&& !test_bit(CMDQ_STATE_ERR, &ctx->curr_state)
+		&& !atomic_read(&host->rpmb_req_pending)
 		&& !mmc_check_blk_queue_start_tag(q, mq->cmdq_req_peeked)));
 }
 

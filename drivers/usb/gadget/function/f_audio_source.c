@@ -158,6 +158,13 @@ static struct usb_endpoint_descriptor hs_as_in_ep_desc  = {
 	.bInterval =		4, /* poll 1 per millisecond */
 };
 
+static struct usb_ss_ep_comp_descriptor ss_as_in_comp_desc = {
+	 .bLength =		 sizeof(ss_as_in_comp_desc),
+	 .bDescriptorType =	 USB_DT_SS_ENDPOINT_COMP,
+
+	 .wBytesPerInterval =	cpu_to_le16(IN_EP_MAX_PACKET_SIZE),
+};
+
 /* Standard ISO IN Endpoint Descriptor for highspeed */
 static struct usb_endpoint_descriptor fs_as_in_ep_desc  = {
 	.bLength =		USB_DT_ENDPOINT_AUDIO_SIZE,
@@ -194,6 +201,26 @@ static struct usb_descriptor_header *hs_audio_desc[] = {
 	(struct usb_descriptor_header *)&as_type_i_desc,
 
 	(struct usb_descriptor_header *)&hs_as_in_ep_desc,
+	(struct usb_descriptor_header *)&as_iso_in_desc,
+	NULL,
+};
+
+static struct usb_descriptor_header *ss_audio_desc[] = {
+	(struct usb_descriptor_header *)&ac_interface_desc,
+	(struct usb_descriptor_header *)&ac_header_desc,
+
+	(struct usb_descriptor_header *)&input_terminal_desc,
+	(struct usb_descriptor_header *)&output_terminal_desc,
+	(struct usb_descriptor_header *)&feature_unit_desc,
+
+	(struct usb_descriptor_header *)&as_interface_alt_0_desc,
+	(struct usb_descriptor_header *)&as_interface_alt_1_desc,
+	(struct usb_descriptor_header *)&as_header_desc,
+
+	(struct usb_descriptor_header *)&as_type_i_desc,
+
+	(struct usb_descriptor_header *)&hs_as_in_ep_desc,
+	(struct usb_descriptor_header *)&ss_as_in_comp_desc,
 	(struct usb_descriptor_header *)&as_iso_in_desc,
 	NULL,
 };
@@ -369,15 +396,22 @@ static void audio_send(struct audio_dev *audio)
 	s64 msecs;
 	s64 frames;
 	ktime_t now;
+	unsigned long flags;
 
+	spin_lock_irqsave(&audio->lock, flags);
 	/* audio->substream will be null if we have been closed */
-	if (!audio->substream)
+	if (!audio->substream) {
+		spin_unlock_irqrestore(&audio->lock, flags);
 		return;
+	}
 	/* audio->buffer_pos will be null if we have been stopped */
-	if (!audio->buffer_pos)
+	if (!audio->buffer_pos) {
+		spin_unlock_irqrestore(&audio->lock, flags);
 		return;
+	}
 
 	runtime = audio->substream->runtime;
+	spin_unlock_irqrestore(&audio->lock, flags);
 
 	/* compute number of frames to send */
 	now = ktime_get();
@@ -400,8 +434,21 @@ static void audio_send(struct audio_dev *audio)
 
 	while (frames > 0) {
 		req = audio_req_get(audio);
-		if (!req)
+		spin_lock_irqsave(&audio->lock, flags);
+		/* audio->substream will be null if we have been closed */
+		if (!audio->substream) {
+			spin_unlock_irqrestore(&audio->lock, flags);
+			return;
+		}
+		/* audio->buffer_pos will be null if we have been stopped */
+		if (!audio->buffer_pos) {
+			spin_unlock_irqrestore(&audio->lock, flags);
+			return;
+		}
+		if (!req) {
+			spin_unlock_irqrestore(&audio->lock, flags);
 			break;
+		}
 
 		length = frames_to_bytes(runtime, frames);
 		if (length > IN_EP_MAX_PACKET_SIZE)
@@ -427,6 +474,7 @@ static void audio_send(struct audio_dev *audio)
 		}
 
 		req->length = length;
+		spin_unlock_irqrestore(&audio->lock, flags);
 		ret = usb_ep_queue(audio->in_ep, req, GFP_ATOMIC);
 		if (ret < 0) {
 			pr_err("usb_ep_queue failed ret: %d\n", ret);
@@ -570,12 +618,36 @@ static int audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	pr_debug("audio_set_alt intf %d, alt %d\n", intf, alt);
 
-	ret = config_ep_by_speed(cdev->gadget, f, audio->in_ep);
-	if (ret)
-		return ret;
+	if (!alt) {
+		usb_ep_disable(audio->in_ep);
+		return 0;
+	}
 
-	usb_ep_enable(audio->in_ep);
+	ret = config_ep_by_speed(cdev->gadget, f, audio->in_ep);
+	if (ret) {
+		audio->in_ep->desc = NULL;
+		pr_err("config_ep fail for audio ep ret %d\n", ret);
+		return ret;
+	}
+	ret = usb_ep_enable(audio->in_ep);
+	if (ret) {
+		audio->in_ep->desc = NULL;
+		pr_err("failed to enable audio ret %d\n", ret);
+		return ret;
+	}
+
 	return 0;
+}
+
+/*
+ * Because the data interface supports multiple altsettings,
+ * this audio_source function *MUST* implement a get_alt() method.
+ */
+static int audio_get_alt(struct usb_function *f, unsigned int intf)
+{
+	struct audio_dev	*audio = func_to_audio(f);
+
+	return audio->in_ep->enabled ? 1 : 0;
 }
 
 static void audio_disable(struct usb_function *f)
@@ -673,6 +745,7 @@ audio_bind(struct usb_configuration *c, struct usb_function *f)
 
 	f->fs_descriptors = fs_audio_desc;
 	f->hs_descriptors = hs_audio_desc;
+	f->ss_descriptors = ss_audio_desc;
 
 	for (i = 0, status = 0; i < IN_EP_REQ_COUNT && status == 0; i++) {
 		req = audio_request_new(ep, IN_EP_MAX_PACKET_SIZE);
@@ -841,6 +914,7 @@ static struct audio_dev _audio_dev = {
 		.bind = audio_bind,
 		.unbind = audio_unbind,
 		.set_alt = audio_set_alt,
+		.get_alt = audio_get_alt,
 		.setup = audio_setup,
 		.disable = audio_disable,
 		.free_func = audio_free_func,

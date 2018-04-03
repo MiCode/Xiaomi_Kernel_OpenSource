@@ -115,6 +115,7 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 	struct hfi_pic_struct *pic_struct;
 	struct hfi_buffer_requirements *buf_req;
 	struct hfi_index_extradata_input_crop_payload *crop_info;
+	struct hfi_dpb_counts *dpb_counts;
 	u32 entropy_mode = 0;
 	u8 *data_ptr;
 	int prop_id;
@@ -215,6 +216,23 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 				data_ptr +=
 					sizeof(struct hfi_pic_struct);
 				break;
+			case HFI_PROPERTY_PARAM_VDEC_DPB_COUNTS:
+				data_ptr = data_ptr + sizeof(u32);
+				dpb_counts = (struct hfi_dpb_counts *) data_ptr;
+				event_notify.max_dpb_count =
+					dpb_counts->max_dpb_count;
+				event_notify.max_ref_count =
+					dpb_counts->max_ref_count;
+				event_notify.max_dec_buffering =
+					dpb_counts->max_dec_buffering;
+				dprintk(VIDC_DBG,
+					"DPB Counts: dpb %d ref %d buff %d\n",
+						dpb_counts->max_dpb_count,
+						dpb_counts->max_ref_count,
+						dpb_counts->max_dec_buffering);
+				data_ptr +=
+					sizeof(struct hfi_pic_struct);
+				break;
 			case HFI_PROPERTY_PARAM_VDEC_COLOUR_SPACE:
 				data_ptr = data_ptr + sizeof(u32);
 				colour_info =
@@ -312,6 +330,7 @@ static int hfi_process_evt_release_buffer_ref(u32 device_id,
 	event_notify.hal_event_type = HAL_EVENT_RELEASE_BUFFER_REFERENCE;
 	event_notify.packet_buffer = data->packet_buffer;
 	event_notify.extra_data_buffer = data->extra_data_buffer;
+	event_notify.output_tag = data->output_tag;
 
 	info->response_type = HAL_SESSION_EVENT_CHANGE;
 	info->response.event = event_notify;
@@ -856,6 +875,36 @@ static int copy_caps_to_sessions(struct hfi_capability_supported *cap,
 	return 0;
 }
 
+static int copy_nal_stream_format_caps_to_sessions(u32 nal_stream_format_value,
+		struct msm_vidc_capability *capabilities, u32 num_sessions,
+		u32 codecs, u32 domain) {
+	u32 i = 0;
+	struct msm_vidc_capability *capability;
+	u32 sess_codec;
+	u32 sess_domain;
+
+	for (i = 0; i < num_sessions; i++) {
+		sess_codec = 0;
+		sess_domain = 0;
+		capability = &capabilities[i];
+
+		if (capability->codec)
+			sess_codec =
+				vidc_get_hfi_codec(capability->codec);
+		if (capability->domain)
+			sess_domain =
+				vidc_get_hfi_domain(capability->domain);
+
+		if (!(sess_codec & codecs && sess_domain & domain))
+			continue;
+
+		capability->nal_stream_format.nal_stream_format_supported =
+				nal_stream_format_value;
+	}
+
+	return 0;
+}
+
 static enum vidc_status hfi_parse_init_done_properties(
 		struct msm_vidc_capability *capabilities,
 		u32 num_sessions, u8 *data_ptr, u32 num_properties,
@@ -984,6 +1033,15 @@ static enum vidc_status hfi_parse_init_done_properties(
 		}
 		case HFI_PROPERTY_PARAM_NAL_STREAM_FORMAT_SUPPORTED:
 		{
+			struct hfi_nal_stream_format_supported *prop =
+				(struct hfi_nal_stream_format_supported *)
+					(data_ptr + next_offset);
+
+			copy_nal_stream_format_caps_to_sessions(
+					prop->nal_stream_format_supported,
+					capabilities, num_sessions,
+					codecs, domain);
+
 			next_offset +=
 				sizeof(struct hfi_nal_stream_format_supported);
 			num_properties--;
@@ -1358,7 +1416,7 @@ static int hfi_process_session_etb_done(u32 device_id,
 	data_done.session_id = (void *)(uintptr_t)pkt->session_id;
 	data_done.status = hfi_map_err_status(pkt->error_type);
 	data_done.size = sizeof(struct msm_vidc_cb_data_done);
-	data_done.clnt_data = pkt->input_tag;
+	data_done.input_done.input_tag = pkt->input_tag;
 	data_done.input_done.recon_stats.buffer_index =
 		pkt->ubwc_cr_stats.frame_index;
 	memcpy(&data_done.input_done.recon_stats.ubwc_stats_info,
@@ -1443,6 +1501,8 @@ static int hfi_process_session_ftb_done(
 		data_done.output_done.timestamp_hi = pkt->time_stamp_hi;
 		data_done.output_done.timestamp_lo = pkt->time_stamp_lo;
 		data_done.output_done.flags1 = pkt->flags;
+		data_done.output_done.input_tag = pkt->input_tag;
+		data_done.output_done.output_tag = pkt->output_tag;
 		data_done.output_done.mark_target = pkt->mark_target;
 		data_done.output_done.mark_data = pkt->mark_data;
 		data_done.output_done.stats = pkt->stats;
@@ -1490,7 +1550,9 @@ static int hfi_process_session_ftb_done(
 		data_done.output_done.frame_height = pkt->frame_height;
 		data_done.output_done.start_x_coord = pkt->start_x_coord;
 		data_done.output_done.start_y_coord = pkt->start_y_coord;
-		data_done.output_done.input_tag1 = pkt->input_tag;
+		data_done.output_done.input_tag = pkt->input_tag;
+		data_done.output_done.input_tag1 = pkt->input_tag2;
+		data_done.output_done.output_tag = pkt->output_tag;
 		data_done.output_done.picture_type = pkt->picture_type;
 		data_done.output_done.packet_buffer1 = pkt->packet_buffer;
 		data_done.output_done.extra_data_buffer =

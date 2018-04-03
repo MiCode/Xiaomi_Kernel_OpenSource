@@ -104,6 +104,13 @@ First Level Node - FG Gen3 device
 		    this property is not specified, then the default value used
 		    will be 75mA.
 
+- qcom,fg-cutoff-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum Battery current (in mA) used for cutoff SOC
+		    estimate. If this property is not specified, then a default
+		    value of 500 mA will be applied.
+
 - qcom,fg-delta-soc-thr
 	Usage:      optional
 	Value type: <u32>
@@ -315,6 +322,20 @@ First Level Node - FG Gen3 device
 	Definition: Ki coefficient full SOC value that will be applied during
 		    discharging. If not specified, a value of 0 will be set.
 		    Allowed range is from 245 to 62256.
+
+- qcom,ki-coeff-low-dischg
+	Usage:      optional
+	Value type: <u32>
+	Definition: Ki coefficient value for low discharge current during
+		    discharging. Value has no unit. Allowed range is 0-62200
+		    in micro units.
+
+- qcom,ki-coeff-hi-chg
+	Usage:      optional
+	Value type: <u32>
+	Definition: Ki coefficient value for high charge current during
+		    charging. Value has no unit. Allowed range is 0-62200
+		    in micro units.
 
 - qcom,fg-rconn-mohms
 	Usage:      optional

@@ -1578,11 +1578,16 @@ int mdss_mdp_scaler_lut_cfg(struct mdp_scale_data_v2 *scaler,
 	};
 
 	mdata = mdss_mdp_get_mdata();
+
+	mutex_lock(&mdata->scaler_off->scaler_lock);
+
 	lut_tbl = &mdata->scaler_off->lut_tbl;
 	if ((!lut_tbl) || (!lut_tbl->valid)) {
+		mutex_unlock(&mdata->scaler_off->scaler_lock);
 		pr_err("%s:Invalid QSEED3 LUT TABLE\n", __func__);
 		return -EINVAL;
 	}
+
 	if ((scaler->lut_flag & SCALER_LUT_DIR_WR) ||
 		(scaler->lut_flag & SCALER_LUT_Y_CIR_WR) ||
 		(scaler->lut_flag & SCALER_LUT_UV_CIR_WR) ||
@@ -1632,6 +1637,7 @@ int mdss_mdp_scaler_lut_cfg(struct mdp_scale_data_v2 *scaler,
 	if (scaler->lut_flag & SCALER_LUT_SWAP)
 		writel_relaxed(BIT(0), MDSS_MDP_REG_SCALER_COEF_LUT_CTRL +
 				offset);
+	mutex_unlock(&mdata->scaler_off->scaler_lock);
 
 	return 0;
 }
@@ -1717,7 +1723,7 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 			lut_offset = mdata->scaler_off->dest_base +
 				mdata->scaler_off->dest_scaler_lut_off[id];
 			/*TODO : set pixel fmt to RGB101010 */
-			return -ENOTSUP;
+			return -ENOTSUPP;
 		} else {
 			return -EINVAL;
 		}
@@ -5772,7 +5778,7 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			struct mdss_ad_input *input, int wait) {
 	int ret = 0;
 	struct mdss_ad_info *ad;
-	u32 bl;
+	u64 bl;
 	struct mdss_overlay_private *mdp5_data;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
@@ -7207,6 +7213,13 @@ int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version)
 	if (!version) {
 		pr_err("invalid param version %pK\n", version);
 		ret = -EINVAL;
+		goto exit_version;
+	}
+	/* PA dither is not supported by driver */
+	if (version->pp_feature == PA_DITHER) {
+		pr_warn("unsupported feature %d\n", version->pp_feature);
+		version->version_info = 0;
+		ret = 0;
 		goto exit_version;
 	}
 	if (version->pp_feature >= PP_FEATURE_MAX) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,11 @@ int32_t camera_io_dev_write(struct camera_io_master *io_master_info,
 		return -EINVAL;
 	}
 
+	if (!write_setting->reg_setting) {
+		CAM_ERR(CAM_SENSOR, "Invalid Register Settings");
+		return -EINVAL;
+	}
+
 	if (io_master_info->master_type == CCI_MASTER) {
 		return cam_cci_i2c_write_table(io_master_info,
 			write_setting);
@@ -122,6 +127,11 @@ int32_t camera_io_dev_write_continuous(struct camera_io_master *io_master_info,
 		CAM_ERR(CAM_SENSOR,
 			"Input parameters not valid ws: %pK ioinfo: %pK",
 			write_setting, io_master_info);
+		return -EINVAL;
+	}
+
+	if (!write_setting->reg_setting) {
+		CAM_ERR(CAM_SENSOR, "Invalid Register Settings");
 		return -EINVAL;
 	}
 

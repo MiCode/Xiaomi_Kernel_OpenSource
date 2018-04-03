@@ -1,0 +1,509 @@
+/*
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/thermal/thermal.h>
+
+&soc {
+	qcom,csid@1b08000 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+
+	qcom,csid@1b08400 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+
+	i2c@78b9000 {
+		synaptics@20 {
+			/delete-property/ avdd-supply;
+			/delete-property/ vdd-supply;
+		};
+	};
+
+	qcom,wcnss-wlan@a000000 {
+		/delete-property/ qcom,iris-vddpa-voltage-level;
+		/delete-property/ qcom,iris-vddpa-supply;
+		/delete-property/ qcom,wcnss-adc_tm;
+		/delete-property/ qcom,is-dual-band-disabled;
+		/delete-property/ qcom,iris-vddpa-current;
+		qcom,pronto-vddmx-supply = <&pm660_s2_corner_ao>;
+		qcom,pronto-vddcx-supply = <&pm660_s3_corner>;
+		qcom,pronto-vddpx-supply = <&pm660_l13>;
+		qcom,iris-vddxo-supply	 = <&pm660_l12>;
+		qcom,iris-vddrfa-supply  = <&pm660_l6>;
+		qcom,iris-vdddig-supply  = <&pm660_l13>;
+		qcom,wcn-external-gpio-support;
+	};
+
+	qcom,pronto@a21b000 {
+		vdd_pronto_pll-supply = <&pm660_l12>;
+	};
+
+	qcom,mss@4080000 {
+		vdd_cx-supply = <&pm660_s2_corner>;
+		vdd_mx-supply = <&pm660_s3_corner_ao>;
+		vdd_pll-supply = <&pm660_l12>;
+	};
+
+	tpiu@820000 {
+		/delete-property/ vdd-supply;
+		/delete-property/ vdd-io-supply;
+	};
+
+	qpdi@1941000 {
+		/delete-property/ vdd-supply;
+		/delete-property/ vdd-io-supply;
+	};
+
+	qcom,msm-thermal {
+		/delete-property/ vdd-dig-supply;
+	};
+
+	msm8x16_wcd_codec@f000 {
+		/delete-property/ cdc-vdda-cp-supply;
+		/delete-property/ cdc-vdda-h-supply;
+		/delete-property/ cdc-vdd-px-supply;
+		/delete-property/ cdc-vdd-pa-supply;
+		/delete-property/ cdc-vdd-mic-bias-supply;
+	};
+};
+
+&i2c_3 {
+	qcom,actuator@0 {
+		/delete-property/ cam_vaf-supply;
+	};
+
+	qcom,eeprom@6c {
+		/delete-property/ cam_vdig-supply;
+		/delete-property/ cam_vana-supply;
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vaf-supply;
+	};
+
+	qcom,camera@0 {
+		/delete-property/ cam_vdig-supply;
+		/delete-property/ cam_vana-supply;
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vaf-supply;
+	};
+
+	qcom,camera@1 {
+		/delete-property/ cam_vana-supply;
+		/delete-property/ cam_vio-supply;
+	};
+};
+
+
+&sdhc_2 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdd-io-supply;
+};
+
+&soc {
+	/delete-node/ qcom,rpm-smd;
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>;
+	};
+};
+
+#include "pm660.dtsi"
+#include "pm660-rpm-regulator.dtsi"
+
+/* over-write the PM660 GPIO mappings for 8909w */
+&pm660_gpios {
+		interrupts  = <0x0 0xc3 0 IRQ_TYPE_NONE>,
+			      <0x0 0xc4 0 IRQ_TYPE_NONE>,
+			      <0x0 0xcb 0 IRQ_TYPE_NONE>;
+		interrupt-names = "pm660_gpio4", "pm660_gpio5", "pm660_gpio12";
+		qcom,gpios-disallowed = <1 2 3 6 7 8 9 10 11 13>;
+};
+
+#include "msm8909w-pm660-regulator.dtsi"
+#include "msm8909-pm660-pm.dtsi"
+
+&soc {
+	qcom,gcc@1800000 {
+		vdd_dig-supply = <&pm660_s2_corner>;
+		vdd_sr2_dig-supply = <&pm660_s2_corner_ao>;
+		vdd_sr2_pll-supply = <&pm660_l12_ao>;
+
+	};
+
+	usb@78d9000 {
+		hsusb_vdd_dig-supply = <&pm660_l5>;
+		HSUSB_1p8-supply = <&pm660_l12>;
+		HSUSB_3p3-supply = <&pm660_l16>;
+	};
+
+	qcom,clock-a7@0b011050 {
+		cpu-vdd-supply = <&apc_vreg_corner>;
+	};
+
+	qcom,rpmcc@1800000 {
+		compatible = "qcom,rpmcc-8909-pm660";
+	};
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm660_l19>;
+	vdd-io-supply = <&pm660_l13>;
+};
+
+&pm660_vadc {
+	/delete-node/ chan@1d;
+};
+
+&mdss_dsi{
+	vdda-supply = <&pm660_l5>; /*1.2V*/
+	vddio-supply = <&pm660_l12>; /*1.8V*/
+	qcom,mdss_dsi_ctrl0@1ac8000 {
+		bklt-supply = <&bob_vreg>;
+		vdd-supply = <&pm660_l18>; /*1.8*/
+		vddio-supply = <&pm660_l11>;
+	};
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&pm660_l12>; /*1.8V*/
+};
+
+&pm660_0 {
+	pm660_charger: qcom,qpnp-smb2 {
+		compatible = "qcom,qpnp-smb2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		#cooling-cells = <2>;
+
+		qcom,pmic-revid = <&pm660_revid>;
+
+		io-channels = <&pm660_rradc 8>,
+			      <&pm660_rradc 10>,
+			      <&pm660_rradc 3>,
+			      <&pm660_rradc 4>;
+		io-channel-names = "charger_temp",
+				   "charger_temp_max",
+				   "usbin_i",
+				   "usbin_v";
+
+		qcom,wipower-max-uw = <5000000>;
+
+		qcom,thermal-mitigation
+				= <3000000 2500000 2000000 1500000
+					1000000 500000>;
+		qcom,auto-recharge-soc;
+
+		qcom,use-extcon;
+
+		qcom,chgr@1000 {
+			reg = <0x1000 0x100>;
+			interrupts =
+				<0x0 0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x2 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x3 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x4 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "chg-error",
+					  "chg-state-change",
+					  "step-chg-state-change",
+					  "step-chg-soc-update-fail",
+					  "step-chg-soc-update-request";
+		};
+
+		qcom,otg@1100 {
+			reg = <0x1100 0x100>;
+			interrupts = <0x0 0x11 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x3 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "otg-fail",
+					  "otg-overcurrent",
+					  "otg-oc-dis-sw-sts",
+					  "testmode-change-detect";
+		};
+
+		qcom,bat-if@1200 {
+			reg = <0x1200 0x100>;
+			interrupts =
+				<0x0 0x12 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x12 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x5 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "bat-temp",
+					  "bat-ocp",
+					  "bat-ov",
+					  "bat-low",
+					  "bat-therm-or-id-missing",
+					  "bat-terminal-missing";
+		};
+
+		qcom,usb-chgpth@1300 {
+			reg = <0x1300 0x100>;
+			interrupts =
+				<0x0 0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x5 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x13 0x6 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x13 0x7 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "usbin-collapse",
+					  "usbin-lt-3p6v",
+					  "usbin-uv",
+					  "usbin-ov",
+					  "usbin-plugin",
+					  "usbin-src-change",
+					  "usbin-icl-change",
+					  "type-c-change";
+		};
+
+		qcom,dc-chgpth@1400 {
+			reg = <0x1400 0x100>;
+			interrupts =
+				<0x0 0x14 0x0 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x5 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x6 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "dcin-collapse",
+					  "dcin-lt-3p6v",
+					  "dcin-uv",
+					  "dcin-ov",
+					  "dcin-plugin",
+					  "div2-en-dg",
+					  "dcin-icl-change";
+		};
+
+		qcom,chgr-misc@1600 {
+			reg = <0x1600 0x100>;
+			interrupts =
+				<0x0 0x16 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x16 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x5 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x6 IRQ_TYPE_EDGE_FALLING>,
+				<0x0 0x16 0x7 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "wdog-snarl",
+					  "wdog-bark",
+					  "aicl-fail",
+					  "aicl-done",
+					  "high-duty-cycle",
+					  "input-current-limiting",
+					  "temperature-change",
+					  "switcher-power-ok";
+		};
+		smb2_vbus: qcom,smb2-vbus {
+			regulator-name = "smb2-vbus";
+		};
+
+		smb2_vconn: qcom,smb2-vconn {
+			regulator-name = "smb2-vconn";
+		};
+	};
+
+	qcom,power-on@800 {
+		qcom,use-legacy-hard-reset-offset;
+	};
+
+	pm660_rradc: rradc@4500 {
+		compatible = "qcom,rradc";
+		reg = <0x4500 0x100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#io-channel-cells = <1>;
+		qcom,pmic-revid = <&pm660_revid>;
+	};
+
+	pm660_fg: qpnp,fg {
+		compatible = "qcom,fg-gen3";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		qcom,pmic-revid = <&pm660_revid>;
+		io-channels = <&pm660_rradc 0>,
+			      <&pm660_rradc 7>;
+		io-channel-names = "rradc_batt_id",
+				   "rradc_die_temp";
+		qcom,rradc-base = <0x4500>;
+		qcom,fg-esr-timer-awake = <64 96>;
+		qcom,fg-esr-timer-asleep = <224 256>;
+		qcom,fg-esr-timer-charging = <0 96>;
+		qcom,cycle-counter-en;
+		qcom,hold-soc-while-full;
+		qcom,fg-auto-recharge-soc;
+		qcom,fg-recharge-soc-thr = <98>;
+		status = "okay";
+
+		qcom,fg-batt-soc@4000 {
+			status = "okay";
+			reg = <0x4000 0x100>;
+			interrupts = <0x0 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x2
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x3
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x5
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x6 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x7 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "soc-update",
+					  "soc-ready",
+					  "bsoc-delta",
+					  "msoc-delta",
+					  "msoc-low",
+					  "msoc-empty",
+					  "msoc-high",
+					  "msoc-full";
+		};
+
+		qcom,fg-batt-info@4100 {
+			status = "okay";
+			reg = <0x4100 0x100>;
+			interrupts = <0x0 0x41 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x3 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x6 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "vbatt-pred-delta",
+					  "vbatt-low",
+					  "esr-delta",
+					  "batt-missing",
+					  "batt-temp-delta";
+		};
+
+		qcom,fg-memif@4400 {
+			status = "okay";
+			reg = <0x4400 0x100>;
+			interrupts = <0x0 0x44 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x44 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x44 0x2 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "ima-rdy",
+					  "mem-xcp",
+					  "dma-grant";
+		};
+	};
+};
+
+&pm660_1 {
+	pm660_haptics: qcom,haptics@c000 {
+		compatible = "qcom,qpnp-haptics";
+		reg = <0xc000 0x100>;
+		interrupts = <0x1 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x1 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "hap-sc-irq", "hap-play-irq";
+		qcom,pmic-revid = <&pm660_revid>;
+		qcom,pmic-misc = <&pm660_misc>;
+		qcom,misc-clk-trim-error-reg = <0xf3>;
+		qcom,actuator-type = <1>;
+		qcom,play-mode = "direct";
+		qcom,vmax-mv = <3200>;
+		qcom,ilim-ma = <800>;
+		qcom,sc-dbc-cycles = <8>;
+		qcom,wave-play-rate-us = <6667>;
+		qcom,en-brake;
+		qcom,lra-high-z = "opt0";
+		qcom,lra-auto-res-mode = "qwd";
+		qcom,lra-res-cal-period = <4>;
+	};
+};
+
+/* pm660 gpio pinctrl configuration */
+&pm660_gpios {
+	/* GPIO 4 (NFC_CLK_REQ) */
+	nfc_clk {
+		nfc_clk_default: nfc_clk_default {
+		pins = "gpio4";
+		function = "normal";
+		input-enable;
+		power-source = <1>;
+		};
+	};
+
+	vreg_bob {
+		vreg_regulator_bob: vreg_regulator-bob {
+			pins = "gpio12";
+			function = "normal";
+			output-enable;
+			qcom,drive-strength = "medium";
+		};
+	};
+
+	bg_daemon_reset {
+		bg_daemon_reset_msm: bg_daemon_reset_msm {
+			pins = "gpio5";
+			function = "func1";
+			output-enable;
+			qcom,drive-strength = "medium";
+			bias-disable;
+		};
+	};
+};
+
+&pm660_misc {
+	qcom,support-twm-config;
+};
+
+/ {
+	/delete-node/ qcom,battery-data;
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-palladium-1500mah.dtsi"
+	};
+};
+
+&pm660_charger {
+	qcom,pd-not-supported;
+};
+
+&usb_otg {
+	extcon = <&pm660_charger>;
+};
+
+&pm660_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pm660_pdphy {
+	/delete-property/ vdd-pdphy-supply;
+};
+
+&thermal_zones {
+	vbat_adc {
+		cooling-maps {
+			/delete-node/ vbat_map6;
+			/delete-node/ vbat_map7;
+		};
+	};
+	soc {
+		cooling-maps {
+		/delete-node/ soc_map6;
+		/delete-node/ soc_map7;
+		};
+	};
+};

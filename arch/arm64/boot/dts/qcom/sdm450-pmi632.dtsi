@@ -26,3 +26,140 @@
 	qcom,ps-hold-hard-reset-disable;
 	qcom,ps-hold-shutdown-disable;
 };
+
+&usb3 {
+	extcon = <&pmi632_charger>, <&pmi632_charger>, <0>,
+		 <&pmi632_charger>, <&pmi632_charger>;
+	vbus_dwc3-supply = <&smb5_vbus>;
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-ascent-3450mah.dtsi"
+		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+	};
+};
+
+&pmi632_qg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pm8953_gpios {
+	bklt_en {
+		bklt_en_default: bklt_en_default {
+		pins = "gpio4";
+		function = "normal";
+		power-source = <0>;
+		output-high;
+		};
+	};
+};
+
+&pm8953_pwm {
+	status = "ok";
+};
+
+&thermal_zones {
+	pmi-vbat-lvl0 {
+		cooling-maps {
+			vbat_map4 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map5 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map6 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vbat_map7 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	soc {
+		cooling-maps {
+			soc_map4 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map5 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map6 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_map7 {
+				trip = <&pmi632_low_soc>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	case-therm-step {
+		trips {
+			batt_trip1: batt-trip1 {
+				temperature = <38000>;
+				hysteresis = <3000>;
+				type = "passive";
+			};
+			batt_trip2: batt-trip2 {
+				temperature = <40000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			batt_trip3: batt-trip3 {
+				temperature = <43000>;
+				hysteresis = <3000>;
+				type = "passive";
+			};
+			batt_trip4: batt-trip4 {
+				temperature = <48000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			battery_lvl1 {
+				trip = <&batt_trip1>;
+				cooling-device = <&pmi632_charger 2 2>;
+			};
+			battery_lvl2 {
+				trip = <&batt_trip2>;
+				cooling-device = <&pmi632_charger 3 3>;
+			};
+			battery_lvl3 {
+				trip = <&batt_trip3>;
+				cooling-device = <&pmi632_charger 4 4>;
+			};
+			battery_lvl4 {
+				trip = <&batt_trip4>;
+				cooling-device = <&pmi632_charger 5 5>;
+			};
+		};
+	};
+};

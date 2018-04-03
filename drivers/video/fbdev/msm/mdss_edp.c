@@ -27,12 +27,9 @@
 #include <linux/clk.h>
 #include <linux/spinlock_types.h>
 #include <linux/kthread.h>
-#include <mach/hardware.h>
-#include <mach/dma.h>
 
 #include "mdss.h"
 #include "mdss_edp.h"
-#include "mdss_debug.h"
 
 #define RGB_COMPONENTS		3
 #define VDDA_MIN_UV			1800000	/* uV units */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,6 +150,8 @@
  * between GBIF, SMMU and MEMNOC.
  */
 #define ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW BIT(8)
+/* Select alternate secure context bank for mmu */
+#define ADRENO_QUIRK_MMU_SECURE_CB_ALT BIT(9)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -174,9 +176,6 @@
 
 /* Number of times to poll the AHB fence in ISR */
 #define FENCE_RETRY_MAX 100
-
-/* Number of times to see if INT_0_STATUS changed or not */
-#define STATUS_RETRY_MAX 3
 
 /* One cannot wait forever for the core to idle, so set an upper limit to the
  * amount of time to wait for the core to go idle
@@ -212,6 +211,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A530 = 530,
 	ADRENO_REV_A540 = 540,
 	ADRENO_REV_A615 = 615,
+	ADRENO_REV_A616 = 616,
 	ADRENO_REV_A630 = 630,
 };
 
@@ -468,6 +468,7 @@ enum gpu_coresight_sources {
  * @gpuhtw_llc_slice: GPU pagetables system cache slice descriptor
  * @gpuhtw_llc_slice_enable: To enable the GPUHTW system cache slice or not
  * @zap_loaded: Used to track if zap was successfully loaded or not
+ * @soc_hw_rev: Indicate which SOC hardware revision to use
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -540,6 +541,7 @@ struct adreno_device {
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
 	unsigned int zap_loaded;
+	unsigned int soc_hw_rev;
 };
 
 /**
@@ -1250,6 +1252,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 }
 
 ADRENO_TARGET(a615, ADRENO_REV_A615)
+ADRENO_TARGET(a616, ADRENO_REV_A616)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 
 static inline int adreno_is_a630v1(struct adreno_device *adreno_dev)
@@ -1877,7 +1880,7 @@ static inline void adreno_perfcntr_active_oob_put(
 
 static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
 		return true;
 	else
 		return false;

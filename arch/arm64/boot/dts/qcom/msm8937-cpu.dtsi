@@ -1,0 +1,271 @@
+/*
+ * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&CPU4>;
+				};
+				core1 {
+					cpu = <&CPU5>;
+				};
+				core2 {
+					cpu = <&CPU6>;
+				};
+				core3 {
+					cpu = <&CPU7>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+				core1 {
+					cpu = <&CPU1>;
+				};
+				core2 {
+					cpu = <&CPU2>;
+				};
+				core3 {
+					cpu = <&CPU3>;
+				};
+			};
+		};
+
+		CPU0: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x100>;
+			enable-method = "psci";
+			efficiency = <1126>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
+			L2_1: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      /* A53 L2 dump not supported */
+			      qcom,dump-size = <0x0>;
+			};
+			L1_I_100: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_100: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU1: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x101>;
+			enable-method = "psci";
+			efficiency = <1126>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
+			L1_I_101: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_101: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU2: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x102>;
+			enable-method = "psci";
+			efficiency = <1126>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
+			L1_I_102: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_102: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU3: cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x103>;
+			enable-method = "psci";
+			efficiency = <1126>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
+			L1_I_103: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_103: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU4: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
+			enable-method = "psci";
+			efficiency = <1024>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
+			L2_0: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      qcom,dump-size = <0x0>;
+			};
+			L1_I_0: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_0: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU5: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x1>;
+			enable-method = "psci";
+			efficiency = <1024>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
+			L1_I_1: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_1: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU6: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x2>;
+			enable-method = "psci";
+			efficiency = <1024>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
+			L1_I_2: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_2: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+
+		CPU7: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x3>;
+			enable-method = "psci";
+			efficiency = <1024>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
+			L1_I_3: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+			L1_D_3: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+		};
+	};
+
+	energy_costs: energy-costs {
+		compatible = "sched-energy";
+
+		CPU_COST_0: core-cost0 {
+			busy-cost-data = <
+				 700000  623
+				1000000  917
+				1100000  1106
+				1250000  1432
+				1400000  1740
+			>;
+			idle-cost-data = <
+				100 80 60 40
+			>;
+		};
+		CPU_COST_1: core-cost1 {
+			busy-cost-data = <
+				 500000  70
+				 800000  114
+				 900000  141
+				1000000  178
+				1100000  213
+			>;
+			idle-cost-data = <
+				40 20 10 8
+			>;
+		};
+		CLUSTER_COST_0: cluster-cost0 {
+			busy-cost-data = <
+				 700000  85
+				1000000  126
+				1100000  152
+				1250000  197
+				1400000  239
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
+		};
+		CLUSTER_COST_1: cluster-cost1 {
+			busy-cost-data = <
+				 500000  19
+				 800000  29
+				 900000  36
+				1000000  46
+				1100000  55
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
+		};
+	};
+};

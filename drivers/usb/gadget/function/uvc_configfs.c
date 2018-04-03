@@ -2221,12 +2221,12 @@ static int __uvcg_cnt_strm(void *priv1, void *priv2, void *priv3, int n,
 			struct uvc_frame_mjpeg mf =
 				frm->frame.mf;
 			*size +=
-			UVC_DT_FRAME_UNCOMPRESSED_SIZE(mf.bFrameIntervalType);
+			UVC_DT_FRAME_MJPEG_SIZE(mf.bFrameIntervalType);
 		} else if (frm->fmt_type == UVCG_H264) {
 			struct uvc_frame_h264 hf =
 				frm->frame.hf;
 			*size +=
-			UVC_DT_FRAME_UNCOMPRESSED_SIZE(hf.bNumFrameIntervals);
+			UVC_DT_FRAME_H264_SIZE(hf.bNumFrameIntervals);
 		}
 	}
 	break;
@@ -2518,7 +2518,7 @@ static struct configfs_item_operations uvc_item_ops = {
 	.release		= uvc_attr_release,
 };
 
-#define UVCG_OPTS_ATTR(cname, conv, str2u, uxx, vnoc, limit)		\
+#define UVCG_OPTS_ATTR(cname, aname, conv, str2u, uxx, vnoc, limit)	\
 static ssize_t f_uvc_opts_##cname##_show(				\
 	struct config_item *item, char *page)				\
 {									\
@@ -2565,12 +2565,12 @@ UVC_ATTR(f_uvc_opts_, cname, cname)
 
 #define identity_conv(x) (x)
 
-UVCG_OPTS_ATTR(streaming_interval, identity_conv, kstrtou8, u8, identity_conv,
-	       16);
-UVCG_OPTS_ATTR(streaming_maxpacket, le16_to_cpu, kstrtou16, u16, le16_to_cpu,
-	       3072);
-UVCG_OPTS_ATTR(streaming_maxburst, identity_conv, kstrtou8, u8, identity_conv,
-	       15);
+UVCG_OPTS_ATTR(streaming_interval, streaming_interval, identity_conv,
+	       kstrtou8, u8, identity_conv, 16);
+UVCG_OPTS_ATTR(streaming_maxpacket, streaming_maxpacket, le16_to_cpu,
+	       kstrtou16, u16, le16_to_cpu, 3072);
+UVCG_OPTS_ATTR(streaming_maxburst, streaming_maxburst, identity_conv,
+	       kstrtou8, u8, identity_conv, 15);
 
 #undef identity_conv
 

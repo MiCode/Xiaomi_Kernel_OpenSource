@@ -8,6 +8,7 @@ Required properties:
 	 which the swr-devid is <0x0 0x032000> where 0x03 represents
 	 device Unique_ID, 0x20 represents Part_Id1 and 0x00
 	 represents part_Id2.
+- qcom,swr-num-dev : Maximum number of possible slave devices.
 - #address-cells = <2>;
 - #size-cells = <0>;
 
@@ -16,6 +17,7 @@ Optional property:
  Example:
 	swr_master {
 		compatible = "qcom,swr-wcd";
+		qcom,swr-num-dev = <2>;
 		#address-cells = <2>;
 		#size-cells = <0>;
 

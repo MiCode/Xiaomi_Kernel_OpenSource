@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,10 @@
 
 #define MAX_CHECK_LOOPS			500
 #define POWER_CTRL_BIT_12		12
+
+#define SDE_RSC_MODE_0_VAL		0
+#define SDE_RSC_MODE_1_VAL		1
+#define MAX_MODE2_ENTRY_TRY		3
 
 static void rsc_event_trigger(struct sde_rsc_priv *rsc, uint32_t event_type)
 {
@@ -401,27 +405,19 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 	if (rc)
 		pr_err("vdd reg is not enabled yet\n");
 
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
+						0x3, rsc->debug_mode);
+
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
 
 	return rc;
 }
 
-static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
+static int sde_rsc_mode2_entry_trigger(struct sde_rsc_priv *rsc)
 {
 	int rc;
 	int count, wrapper_status;
 	unsigned long reg;
-
-	if (rsc->power_collapse_block)
-		return -EINVAL;
-
-	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
-	if (rc) {
-		pr_err("vdd reg fast mode set failed rc:%d\n", rc);
-		return rc;
-	}
-
-	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
 
 	/* update qtimers to high during clk & video mode state */
 	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
@@ -467,11 +463,85 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 		usleep_range(10, 100);
 	}
 
-	if (rc) {
-		pr_err("mdss gdsc power down failed rc:%d\n", rc);
-		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
-		goto end;
+	return rc;
+}
+
+static void sde_rsc_reset_mode_0_1(struct sde_rsc_priv *rsc)
+{
+	u32 seq_busy, current_mode, curr_inst_addr;
+
+	seq_busy = dss_reg_r(&rsc->drv_io, SDE_RSCC_SEQ_BUSY_DRV0,
+			rsc->debug_mode);
+	current_mode = dss_reg_r(&rsc->drv_io, SDE_RSCC_SOLVER_STATUS2_DRV0,
+			rsc->debug_mode);
+	curr_inst_addr = dss_reg_r(&rsc->drv_io, SDE_RSCC_SEQ_PROGRAM_COUNTER,
+			rsc->debug_mode);
+	SDE_EVT32(seq_busy, current_mode, curr_inst_addr);
+
+	if (seq_busy && (current_mode == SDE_RSC_MODE_0_VAL ||
+			current_mode == SDE_RSC_MODE_1_VAL)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_HI,
+						0xffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
+						0xffffffff, rsc->debug_mode);
+		/* unstick f1 qtimer */
+		wmb();
+
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_HI,
+						0x0, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
+						0x0, rsc->debug_mode);
+		/* manually trigger f1 qtimer interrupt */
+		wmb();
+
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0xffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0xffffffff, rsc->debug_mode);
+		/* unstick f0 qtimer */
+		wmb();
+
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0x0, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0x0, rsc->debug_mode);
+		/* manually trigger f0 qtimer interrupt */
+		wmb();
 	}
+}
+
+static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
+{
+	int rc = 0, i;
+
+	if (rsc->power_collapse_block)
+		return -EINVAL;
+
+	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
+	if (rc) {
+		pr_err("vdd reg fast mode set failed rc:%d\n", rc);
+		return rc;
+	}
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
+						0x7, rsc->debug_mode);
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
+
+	for (i = 0; i <= MAX_MODE2_ENTRY_TRY; i++) {
+		rc = sde_rsc_mode2_entry_trigger(rsc);
+		if (!rc)
+			break;
+
+		pr_err("try:%d mdss gdsc power down failed rc:%d\n", i, rc);
+		SDE_EVT32(rc, i, SDE_EVTLOG_ERROR);
+
+		/* avoid touching f1 qtimer for last try */
+		if (i != MAX_MODE2_ENTRY_TRY)
+			sde_rsc_reset_mode_0_1(rsc);
+	}
+
+	if (rc)
+		goto end;
 
 	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
 			(rsc->current_state == SDE_RSC_CLK_STATE)) {
@@ -546,7 +616,7 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 
 		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
-		reg &= ~(BIT(8) | BIT(0));
+		reg &= ~BIT(0);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 							reg, rsc->debug_mode);
 		/* make sure that solver mode is disabled */

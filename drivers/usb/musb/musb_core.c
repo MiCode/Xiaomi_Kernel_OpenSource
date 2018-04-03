@@ -2043,6 +2043,7 @@ struct musb_pending_work {
 	struct list_head node;
 };
 
+#ifdef CONFIG_PM
 /*
  * Called from musb_runtime_resume(), musb_resume(), and
  * musb_queue_resume_work(). Callers must take musb->lock.
@@ -2070,6 +2071,7 @@ static int musb_run_resume_work(struct musb *musb)
 
 	return error;
 }
+#endif
 
 /*
  * Called to run work if device is active or else queue the work to happen

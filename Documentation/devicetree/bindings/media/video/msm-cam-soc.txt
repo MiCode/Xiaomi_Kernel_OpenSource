@@ -1,0 +1,41 @@
+* Qualcomm Technologies, Inc. MSM Camera SOC
+
+The below set of properties need to be defined by all the camera
+modules in their respective dtsi to adapt to SOC layer
+
+Required properties:
+  - clock-names: name of the clocks required for the device
+  - qcom,clock-rates: clock rate in Hz
+    - 0 if appropriate clock is required but doesn't have to apply the rate
+  - qcom,vdd-names: names of all the regulators for the device
+  - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+    below optional properties:
+      - qcom,msm-bus,name
+      - qcom,msm-bus,num-cases
+      - qcom,msm-bus,num-paths
+      - qcom,msm-bus,vectors-KBps
+  - qcom,msm-bus-vector-dyn-vote: indicated dynamic or static voting
+  - qcom,clock-cntl-support: indicates if further control supported for clocks
+  - Refer to "Documentation/devicetree/bindings/media/video/msm-ispif.txt" for
+    below optional property:
+      - qcom,clock-control
+
+Example:
+
+   cpp: qcom,cpp@a04000 {
+       mmagic-vdd-supply = <&gdsc_mmagic_camss>;
+       camss-vdd-supply = <&gdsc_camss_top>;
+       vdd-supply = <&gdsc_cpp>;
+       qcom,vdd-names = "mmagic-vdd", "camss-vdd", "vdd";
+       clock-names = "camss_top_ahb_clk",
+                "ispif_ahb_clk", "csiphy_timer_src_clk",
+                "csiphy_timer_clk";
+       qcom,clock-rates = <0 0 200000000 0>;
+       qcom,msm-bus,name = "msm_camera_cpp";
+       qcom,msm-bus,num-cases = <2>;
+       qcom,msm-bus,num-paths = <1>;
+       qcom,msm-bus,vectors-KBps =
+               <106 512 0 0>,
+               <106 512 0 0>;
+       qcom,msm-bus-vector-dyn-vote;
+   };

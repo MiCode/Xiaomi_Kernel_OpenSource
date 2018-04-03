@@ -1,0 +1,246 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	msm_bus: qcom,kgsl-busmon {
+		label = "kgsl-busmon";
+		compatible = "qcom,kgsl-busmon";
+	};
+
+	gpubw: qcom,gpubw {
+		compatible = "qcom,devbw";
+		governor = "bw_vbif";
+		qcom,src-dst-ports = <26 512>;
+		/*
+		 * active-only flag is used while registering the bus
+		 * governor.It helps release the bus vote when the CPU
+		 * subsystem is inactiv3
+		 */
+		qcom,active-only;
+		qcom,bw-tbl =
+			< 0    >, /*  off */
+			<  769 >, /* 1. DDR:100.80 MHz BIMC: 50.40 MHz */
+			< 1611 >, /* 2. DDR:211.20 MHz BIMC: 105.60 MHz */
+			< 2124 >, /* 3. DDR:278.40 MHz BIMC: 139.20 MHz */
+			< 2929 >, /* 4. DDR:384.00 MHz BIMC: 192.00 MHz */
+			< 4101 >, /* 5. DDR:537.60 MHz BIMC: 268.80 MHz */
+			< 4248 >, /* 6. DDR:556.80 MHz BIMC: 278.40 MHz */
+			< 5346 >, /* 7. DDR:662.40 MHz BIMC: 331.20 MHz */
+			< 5712 >, /* 8. DDR:748.80 MHz BIMC: 374.40 MHz */
+			< 6152 >, /* 9. DDR:806.40 MHz BIMC: 403.20 MHz */
+			< 7031 >; /* 10. DDR:921.60 MHz BIMC: 460.80 MHz */
+	};
+
+	msm_gpu: qcom,kgsl-3d0@1c00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		status = "ok";
+		reg = <0x1c00000 0x40000
+		       0xa0000 0x6fff>;
+		reg-names = "kgsl_3d0_reg_memory", "qfprom_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+		qcom,chipid = <0x05000500>;
+
+		qcom,initial-pwrlevel = <2>;
+
+		qcom,idle-timeout = <80>; //msecs
+		qcom,strtstp-sleepwake;
+
+		qcom,highest-bank-bit = <14>;
+
+		qcom,snapshot-size = <1048576>; //bytes
+
+		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
+			<&clock_gcc clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>,
+			<&clock_gcc clk_gcc_bimc_gpu_clk>,
+			<&clock_gcc clk_gcc_oxili_timer_clk>,
+			<&clock_gcc clk_gcc_oxili_aon_clk>;
+
+		clock-names = "core_clk", "iface_clk",
+			      "mem_iface_clk", "alt_mem_iface_clk",
+			      "rbbmtimer_clk", "alwayson_clk";
+
+
+		/* Bus Scale Settings */
+		qcom,gpubw-dev = <&gpubw>;
+		qcom,bus-control;
+		qcom,bus-width = <16>;
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <11>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>,	    /*    off        */
+				<26 512 0  806400>, /* 1. 100.80 MHz */
+				<26 512 0 1689600>, /* 2. 211.20 MHz */
+				<26 512 0 2227200>, /* 3. 278.40 MHz */
+				<26 512 0 3072000>, /* 4. 384.00 MHz */
+				<26 512 0 4300800>, /* 5. 537.60 MHz */
+				<26 512 0 4454400>, /* 6. 556.80 MHz */
+				<26 512 0 5299200>, /* 7. 662.40 MHz */
+				<26 512 0 5990400>, /* 8. 748.80 MHz */
+				<26 512 0 6451200>, /* 9. 806.40 MHz */
+				<26 512 0 7372800>; /* 10. 921.60 MHz */
+
+		/* GDSC regulator names */
+		regulator-names = "vddcx", "vdd";
+		/* GDSC oxili regulators */
+		vddcx-supply = <&gdsc_oxili_cx>;
+		vdd-supply = <&gdsc_oxili_gx>;
+
+		/* CPU latency parameter */
+		qcom,pm-qos-active-latency = <360>;
+		qcom,pm-qos-wakeup-latency = <360>;
+
+		/*  Quirks  */
+		qcom,gpu-quirk-two-pass-use-wfi;
+		qcom,gpu-quirk-dp2clockgating-disable;
+		qcom,gpu-quirk-lmloadkill-disable;
+
+		/* Enable context aware freq. scaling */
+		qcom,enable-ca-jump;
+
+		/* Context aware jump busy penalty in us */
+		qcom,ca-busy-penalty = <12000>;
+
+		/* Context aware jump target power level */
+		qcom,ca-target-pwrlevel = <1>;
+
+		/* Enable gpu cooling device */
+		#cooling-cells = <2>;
+
+		/* GPU Mempools */
+		qcom,gpu-mempools {
+			#address-cells= <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-mempools";
+
+			qcom,mempool-max-pages = <32768>;
+
+			/* 4K Page Pool configuration */
+			qcom,gpu-mempool@0 {
+				reg = <0>;
+				qcom,mempool-page-size = <4096>;
+			};
+			/* 64K Page Pool configuration */
+			qcom,gpu-mempool@1 {
+				reg = <1>;
+				qcom,mempool-page-size = <65536>;
+			};
+		};
+
+		qcom,gpu-coresights {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-coresight";
+
+			/* Trace bus */
+			qcom,gpu-coresight@0 {
+				reg = <0>;
+				coresight-name = "coresight-gfx";
+				coresight-atid = <67>;
+				port {
+					gfx_out_funnel_mm: endpoint {
+						remote-endpoint =
+						<&funnel_mm_in_gfx>;
+					};
+				};
+			};
+		};
+
+		/* Power levels */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			/* TURBO */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <450000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <9>;
+				qcom,bus-max = <9>;
+			};
+
+			/* NOM+ */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <400000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <6>;
+				qcom,bus-max = <9>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <375000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <8>;
+			};
+
+			/* SVS+ */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <300000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <7>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <216000000>;
+				qcom,bus-freq = <3>;
+				qcom,bus-min = <1>;
+				qcom,bus-max = <4>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <19200000>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
+	};
+
+	kgsl_msm_iommu: qcom,kgsl-iommu@1c40000 {
+		compatible = "qcom,kgsl-smmu-v2";
+
+		reg = <0x1c40000 0x10000>;
+		qcom,protect = <0x40000 0x10000>;
+		qcom,micro-mmu-control = <0x6000>;
+
+		clocks = <&clock_gcc clk_gcc_oxili_ahb_clk>,
+			 <&clock_gcc clk_gcc_bimc_gfx_clk>;
+
+		clock-names = "gpu_ahb_clk", "gcc_bimc_gfx_clk";
+
+		qcom,secure_align_mask = <0xfff>;
+		qcom,retention;
+		gfx3d_user: gfx3d_user {
+			compatible = "qcom,smmu-kgsl-cb";
+			label = "gfx3d_user";
+			iommus = <&kgsl_smmu 0>;
+			qcom,gpu-offset = <0x48000>;
+		};
+	};
+};

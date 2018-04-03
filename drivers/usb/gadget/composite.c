@@ -36,7 +36,7 @@
 	 SSUSB_GADGET_VBUS_DRAW : CONFIG_USB_GADGET_VBUS_DRAW)
 
 /* disable LPM by default */
-static bool disable_l1_for_hs = true;
+static bool disable_l1_for_hs;
 module_param(disable_l1_for_hs, bool, 0644);
 MODULE_PARM_DESC(disable_l1_for_hs,
 	"Disable support for L1 LPM for HS devices");
@@ -167,7 +167,6 @@ int config_ep_by_speed(struct usb_gadget *g,
 			struct usb_function *f,
 			struct usb_ep *_ep)
 {
-	struct usb_composite_dev	*cdev = get_gadget_data(g);
 	struct usb_endpoint_descriptor *chosen_desc = NULL;
 	struct usb_descriptor_header **speed_desc = NULL;
 
@@ -246,8 +245,12 @@ ep_found:
 			_ep->maxburst = comp_desc->bMaxBurst + 1;
 			break;
 		default:
-			if (comp_desc->bMaxBurst != 0)
+			if (comp_desc->bMaxBurst != 0) {
+				struct usb_composite_dev *cdev;
+
+				cdev = get_gadget_data(g);
 				ERROR(cdev, "ep0 bMaxBurst must be 0\n");
+			}
 			_ep->maxburst = 1;
 			break;
 		}
@@ -1730,10 +1733,12 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				if (gadget->speed >= USB_SPEED_SUPER) {
 					cdev->desc.bcdUSB = cpu_to_le16(0x0310);
 					cdev->desc.bMaxPacketSize0 = 9;
-				} else if (!disable_l1_for_hs) {
+				} else if (gadget->l1_supported
+						&& !disable_l1_for_hs) {
 					cdev->desc.bcdUSB = cpu_to_le16(0x0210);
 				}
-			} else if (!disable_l1_for_hs) {
+			} else if (gadget->l1_supported
+						&& !disable_l1_for_hs) {
 				cdev->desc.bcdUSB = cpu_to_le16(0x0210);
 				DBG(cdev, "Config HS device with LPM(L1)\n");
 			}
@@ -1745,7 +1750,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			if (!gadget_is_dualspeed(gadget) ||
 			    gadget->speed >= USB_SPEED_SUPER)
 				break;
+			spin_lock(&cdev->lock);
 			device_qual(cdev);
+			spin_unlock(&cdev->lock);
 			value = min_t(int, w_length,
 				sizeof(struct usb_qualifier_descriptor));
 			break;
@@ -1755,7 +1762,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				break;
 			/* FALLTHROUGH */
 		case USB_DT_CONFIG:
+			spin_lock(&cdev->lock);
 			value = config_desc(cdev, w_value);
+			spin_unlock(&cdev->lock);
 			if (value >= 0)
 				value = min(w_length, (u16) value);
 			break;
@@ -1766,8 +1775,10 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				value = min(w_length, (u16) value);
 			break;
 		case USB_DT_BOS:
-			if (gadget_is_superspeed(gadget) ||
-				!disable_l1_for_hs) {
+			if ((gadget_is_superspeed(gadget) &&
+				(gadget->speed >= USB_SPEED_SUPER)) ||
+				(gadget->l1_supported
+					&& !disable_l1_for_hs)) {
 				value = bos_desc(cdev);
 				value = min(w_length, (u16) value);
 			}
@@ -2259,7 +2270,8 @@ int composite_dev_prepare(struct usb_composite_driver *composite,
 	if (!cdev->req)
 		return -ENOMEM;
 
-	cdev->req->buf = kmalloc(USB_COMP_EP0_BUFSIZ, GFP_KERNEL);
+	cdev->req->buf = kmalloc(USB_COMP_EP0_BUFSIZ +
+				(gadget->extra_buf_alloc), GFP_KERNEL);
 	if (!cdev->req->buf)
 		goto fail;
 

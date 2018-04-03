@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,9 @@
 #include <linux/delay.h>
 #include <linux/completion.h>
 
+#ifdef CONFIG_DRM
 #include <linux/msm_drm_notify.h>
+#endif
 
 #define HBTP_INPUT_NAME			"hbtp_input"
 #define DISP_COORDS_SIZE		2
@@ -39,6 +41,7 @@
 #define HBTP_HOLD_DURATION_US			(10)
 #define HBTP_PINCTRL_DDIC_SEQ_NUM		(4)
 #define HBTP_WAIT_TIMEOUT_MS			2000
+#define MSC_HBTP_ACTIVE_BLOB			0x05
 
 struct hbtp_data {
 	struct platform_device *pdev;
@@ -86,16 +89,19 @@ struct hbtp_data {
 	u32 power_on_delay;
 	u32 power_off_delay;
 	bool manage_pin_ctrl;
+	bool init_completion_done_once;
 	struct kobject *sysfs_kobject;
 	s16 ROI[MAX_ROI_SIZE];
 	s16 accelBuffer[MAX_ACCEL_SIZE];
 	u32 display_status;
+	u32 touch_flag;
 };
 
 static struct hbtp_data *hbtp;
 
 static struct kobject *sensor_kobject;
 
+#ifdef CONFIG_DRM
 static int hbtp_dsi_panel_suspend(struct hbtp_data *ts);
 static int hbtp_dsi_panel_early_resume(struct hbtp_data *ts);
 
@@ -141,6 +147,7 @@ static int dsi_panel_notifier_callback(struct notifier_block *self,
 	}
 	return 0;
 }
+#endif
 
 static ssize_t hbtp_sensor_roi_show(struct file *dev, struct kobject *kobj,
 		struct bin_attribute *attr, char *buf, loff_t pos,
@@ -233,6 +240,9 @@ static int hbtp_input_create_input_dev(struct hbtp_input_absinfo *absinfo)
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
+	/* for Blob touch interference feature */
+	input_set_capability(input_dev, EV_MSC, MSC_HBTP_ACTIVE_BLOB);
+
 	for (i = KEY_HOME; i <= KEY_MICMUTE; i++)
 		__set_bit(i, input_dev->keybit);
 
@@ -272,10 +282,12 @@ err_input_reg_dev:
 }
 
 static int hbtp_input_report_events(struct hbtp_data *hbtp_data,
-				struct hbtp_input_mt *mt_data)
+				struct hbtp_input_mt *mt_data, u32 flag)
 {
 	int i;
 	struct hbtp_input_touch *tch;
+	u32 flag_change;
+	bool active_blob;
 
 	for (i = 0; i < HBTP_MAX_FINGER; i++) {
 		tch = &(mt_data->touches[i]);
@@ -330,10 +342,19 @@ static int hbtp_input_report_events(struct hbtp_data *hbtp_data,
 			hbtp_data->touch_status[i] = tch->active;
 		}
 	}
+	flag_change = hbtp_data->touch_flag ^ flag;
+	if (flag_change) {
+		if (flag_change & HBTP_FLAG_ACTIVE_BLOB) {
+			active_blob = (flag & HBTP_FLAG_ACTIVE_BLOB) ?
+				true : false;
 
+			input_event(hbtp_data->input_dev, EV_MSC,
+				MSC_HBTP_ACTIVE_BLOB, active_blob);
+		}
+	}
 	input_report_key(hbtp->input_dev, BTN_TOUCH, mt_data->num_touches > 0);
 	input_sync(hbtp->input_dev);
-
+	hbtp_data->touch_flag = flag;
 	return 0;
 }
 
@@ -594,6 +615,7 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 {
 	int error = 0;
 	struct hbtp_input_mt mt_data;
+	struct hbtp_input_mt_ext mt_data_ext;
 	struct hbtp_input_absinfo absinfo[ABS_MT_LAST - ABS_MT_FIRST + 1];
 	struct hbtp_input_key key_data;
 	enum hbtp_afe_power_cmd power_cmd;
@@ -635,7 +657,26 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		hbtp_input_report_events(hbtp, &mt_data);
+		hbtp_input_report_events(hbtp, &mt_data, 0);
+		error = 0;
+		break;
+
+	case HBTP_SET_TOUCHDATA_EXT:
+		if (!hbtp || !hbtp->input_dev) {
+			pr_err("%s: The input device hasn't been created\n",
+				__func__);
+			return -EFAULT;
+		}
+
+		if (copy_from_user(&mt_data_ext, (void __user *)arg,
+					sizeof(struct hbtp_input_mt_ext))) {
+			pr_err("%s: Error copying data\n", __func__);
+			return -EFAULT;
+		}
+
+		hbtp_input_report_events(hbtp,
+			(struct hbtp_input_mt *)&mt_data_ext,
+			mt_data_ext.flag);
 		error = 0;
 		break;
 
@@ -783,8 +824,14 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 			mutex_lock(&hbtp->mutex);
-			init_completion(&hbtp->power_resume_sig);
-			init_completion(&hbtp->power_suspend_sig);
+			if (hbtp->init_completion_done_once) {
+				reinit_completion(&hbtp->power_resume_sig);
+				reinit_completion(&hbtp->power_suspend_sig);
+			} else {
+				init_completion(&hbtp->power_resume_sig);
+				init_completion(&hbtp->power_suspend_sig);
+				hbtp->init_completion_done_once = true;
+			}
 			hbtp->power_sig_enabled = true;
 			mutex_unlock(&hbtp->mutex);
 			pr_err("%s: sync_signal option is enabled\n", __func__);
@@ -1163,6 +1210,7 @@ error:
 	return rc;
 }
 
+#ifdef CONFIG_DRM
 static int hbtp_dsi_panel_suspend(struct hbtp_data *ts)
 {
 	int rc;
@@ -1276,6 +1324,7 @@ err_pin_enable:
 	hbtp_pdev_power_on(ts, false);
 	return rc;
 }
+#endif
 
 static int hbtp_pdev_probe(struct platform_device *pdev)
 {
@@ -1438,6 +1487,25 @@ static struct kobj_attribute hbtp_display_attribute =
 		__ATTR(display_pwr, 0660, hbtp_display_pwr_show,
 			hbtp_display_pwr_store);
 
+#ifdef CONFIG_DRM
+static int hbtp_drm_register(struct hbtp_data *ts)
+{
+	int ret = 0;
+
+	ts->dsi_panel_notif.notifier_call = dsi_panel_notifier_callback;
+	ret = msm_drm_register_client(&ts->dsi_panel_notif);
+	if (ret)
+		pr_err("%s: Unable to register dsi_panel_notifier: %d\n",
+			HBTP_INPUT_NAME, ret);
+
+	return ret;
+}
+#else
+static int hbtp_drm_register(struct hbtp_data *ts)
+{
+	return 0;
+}
+#endif
 
 static int __init hbtp_init(void)
 {
@@ -1455,6 +1523,7 @@ static int __init hbtp_init(void)
 	mutex_init(&hbtp->mutex);
 	mutex_init(&hbtp->sensormutex);
 	hbtp->display_status = 1;
+	hbtp->init_completion_done_once = false;
 
 	error = misc_register(&hbtp_input_misc);
 	if (error) {
@@ -1462,13 +1531,9 @@ static int __init hbtp_init(void)
 		goto err_misc_reg;
 	}
 
-	hbtp->dsi_panel_notif.notifier_call = dsi_panel_notifier_callback;
-	error = msm_drm_register_client(&hbtp->dsi_panel_notif);
-	if (error) {
-		pr_err("%s: Unable to register dsi_panel_notifier: %d\n",
-			HBTP_INPUT_NAME, error);
-		goto err_dsi_panel_reg;
-	}
+	error = hbtp_drm_register(hbtp);
+	if (error)
+		goto err_drm_reg;
 
 	sensor_kobject = kobject_create_and_add("hbtpsensor", kernel_kobj);
 	if (!sensor_kobject) {
@@ -1517,8 +1582,10 @@ err_sysfs_create_vibdata:
 err_sysfs_create_capdata:
 	kobject_put(sensor_kobject);
 err_kobject_create:
+#ifdef CONFIG_DRM
 	msm_drm_unregister_client(&hbtp->dsi_panel_notif);
-err_dsi_panel_reg:
+#endif
+err_drm_reg:
 	misc_deregister(&hbtp_input_misc);
 err_misc_reg:
 	kfree(hbtp->sensor_data);
@@ -1539,8 +1606,9 @@ static void __exit hbtp_exit(void)
 	if (hbtp->input_dev)
 		input_unregister_device(hbtp->input_dev);
 
+#ifdef CONFIG_DRM
 	msm_drm_unregister_client(&hbtp->dsi_panel_notif);
-
+#endif
 	platform_driver_unregister(&hbtp_pdev_driver);
 
 	kfree(hbtp->sensor_data);

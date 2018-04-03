@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -232,6 +232,15 @@ void *dsi_register_clk_handle(void *clk_mngr, char *client);
 int dsi_deregister_clk_handle(void *client);
 
 /**
+ * dsi_display_link_clk_force_update_ctrl() - force to set link clks
+ * @handle:     Handle of desired DSI clock client.
+ *
+ * return: error code in case of failure or 0 for success.
+ */
+
+int dsi_display_link_clk_force_update_ctrl(void *handle);
+
+/**
  * dsi_display_clk_ctrl() - set frequencies for link clks
  * @handle:     Handle of desired DSI clock client.
  * @clk_type:   Clock which is being controlled.
@@ -239,8 +248,7 @@ int dsi_deregister_clk_handle(void *client);
  *
  * return: error code in case of failure or 0 for success.
  */
-int dsi_display_clk_ctrl(void *handle,
-	enum dsi_clk_type clk_type, enum dsi_clk_state clk_state);
+int dsi_display_clk_ctrl(void *handle, u32 clk_type, u32 clk_state);
 
 /**
  * dsi_clk_set_link_frequencies() - set frequencies for link clks

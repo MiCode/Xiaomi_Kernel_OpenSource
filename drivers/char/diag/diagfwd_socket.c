@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -224,7 +224,8 @@ struct diag_socket_info socket_dci_cmd[NUM_PERIPHERALS] = {
 static void diag_state_open_socket(void *ctxt);
 static void diag_state_close_socket(void *ctxt);
 static int diag_socket_write(void *ctxt, unsigned char *buf, int len);
-static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len);
+static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len,
+			struct diagfwd_buf_t *fwd_buf);
 static void diag_socket_queue_read(void *ctxt);
 static void socket_init_work_fn(struct work_struct *work);
 static int socket_ready_notify(struct notifier_block *nb,
@@ -1062,7 +1063,8 @@ void diag_socket_exit(void)
 	}
 }
 
-static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
+static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len,
+			struct diagfwd_buf_t *fwd_buf)
 {
 	int err = 0;
 	int pkt_len = 0;
@@ -1082,7 +1084,7 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	if (!info)
 		return -ENODEV;
 
-	if (!buf || !ctxt || buf_len <= 0)
+	if (!buf || !ctxt || buf_len <= 0 || !fwd_buf)
 		return -EINVAL;
 
 	temp = buf;
@@ -1091,13 +1093,17 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	err = wait_event_interruptible(info->read_wait_q,
 				      (info->data_ready > 0) || (!info->hdl) ||
 				      (atomic_read(&info->diag_state) == 0));
-	if (err) {
-		mutex_lock(&driver->diagfwd_channel_mutex[info->peripheral]);
-		diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
-		mutex_unlock(&driver->diagfwd_channel_mutex[info->peripheral]);
-		return -ERESTARTSYS;
+	if (err)
+		goto fail;
+	if (atomic_read(&fwd_buf->in_busy) == 0) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"%s closing read thread. Buffer is already marked freed p: %d t: %d buf_num: %d\n",
+			 info->name, GET_BUF_PERIPHERAL(fwd_buf->ctxt),
+			 GET_BUF_TYPE(fwd_buf->ctxt),
+			 GET_BUF_NUM(fwd_buf->ctxt));
+		diag_ws_release();
+		return 0;
 	}
-
 	/*
 	 * There is no need to continue reading over peripheral in this case.
 	 * Release the wake source hold earlier.
@@ -1106,10 +1112,7 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			 "%s closing read thread. diag state is closed\n",
 			 info->name);
-		mutex_lock(&driver->diagfwd_channel_mutex[info->peripheral]);
-		diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
-		mutex_unlock(&driver->diagfwd_channel_mutex[info->peripheral]);
-		return 0;
+		goto fail;
 	}
 
 	if (!info->hdl) {
@@ -1211,7 +1214,7 @@ fail:
 	mutex_lock(&driver->diagfwd_channel_mutex[info->peripheral]);
 	diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
 	mutex_unlock(&driver->diagfwd_channel_mutex[info->peripheral]);
-	return -EIO;
+	return 0;
 }
 
 static int diag_socket_write(void *ctxt, unsigned char *buf, int len)

@@ -21,8 +21,6 @@
 #include <linux/delay.h>
 #include <linux/msm_mdp.h>
 #include <linux/memblock.h>
-#include <linux/sync.h>
-#include <linux/sw_sync.h>
 #include <linux/file.h>
 
 #include <soc/qcom/event_timer.h>
@@ -31,6 +29,7 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_wfd.h"
+#include "mdss_sync.h"
 
 #define CHECK_LAYER_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
@@ -704,13 +703,13 @@ end:
 	return ret;
 }
 
-static struct sync_fence *__create_fence(struct msm_fb_data_type *mfd,
+static struct mdss_fence *__create_fence(struct msm_fb_data_type *mfd,
 	struct msm_sync_pt_data *sync_pt_data, u32 fence_type,
 	int *fence_fd, int value)
 {
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_ctl *ctl;
-	struct sync_fence *sync_fence = NULL;
+	struct mdss_fence *sync_fence = NULL;
 	char fence_name[32];
 
 	mdp5_data = mfd_to_mdp5_data(mfd);
@@ -735,17 +734,25 @@ static struct sync_fence *__create_fence(struct msm_fb_data_type *mfd,
 
 	if ((fence_type == MDSS_MDP_RETIRE_FENCE) &&
 		(mfd->panel.type == MIPI_CMD_PANEL)) {
-		if (mdp5_data->vsync_timeline) {
-			value = mdp5_data->vsync_timeline->value + 1 +
+		if (sync_pt_data->timeline_retire) {
+			value = sync_pt_data->timeline_retire->value + 1 +
 				mdp5_data->retire_cnt++;
 			sync_fence = mdss_fb_sync_get_fence(
-				mdp5_data->vsync_timeline, fence_name, value);
+				sync_pt_data->timeline_retire,
+				fence_name, value);
 		} else {
 			return ERR_PTR(-EPERM);
 		}
 	} else {
-		sync_fence = mdss_fb_sync_get_fence(sync_pt_data->timeline,
-			fence_name, value);
+		if (fence_type == MDSS_MDP_RETIRE_FENCE)
+			sync_fence = mdss_fb_sync_get_fence(
+						sync_pt_data->timeline_retire,
+						fence_name, value);
+		else
+			sync_fence = mdss_fb_sync_get_fence(
+						sync_pt_data->timeline,
+						fence_name, value);
+
 	}
 
 	if (IS_ERR_OR_NULL(sync_fence)) {
@@ -754,14 +761,15 @@ static struct sync_fence *__create_fence(struct msm_fb_data_type *mfd,
 	}
 
 	/* get fence fd */
-	*fence_fd = get_unused_fd_flags(0);
+	*fence_fd = mdss_get_sync_fence_fd(sync_fence);
 	if (*fence_fd < 0) {
 		pr_err("%s: get_unused_fd_flags failed error:0x%x\n",
 			fence_name, *fence_fd);
-		sync_fence_put(sync_fence);
+		mdss_put_sync_fence(sync_fence);
 		sync_fence = NULL;
 		goto end;
 	}
+	pr_debug("%s:val=%d\n", mdss_get_sync_fence_name(sync_fence), value);
 
 end:
 	return sync_fence;
@@ -777,7 +785,7 @@ end:
 static int __handle_buffer_fences(struct msm_fb_data_type *mfd,
 	struct mdp_layer_commit_v1 *commit, struct mdp_input_layer *layer_list)
 {
-	struct sync_fence *fence, *release_fence, *retire_fence;
+	struct mdss_fence *fence, *release_fence, *retire_fence;
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 	struct mdp_input_layer *layer;
 	int value;
@@ -803,7 +811,7 @@ static int __handle_buffer_fences(struct msm_fb_data_type *mfd,
 		if (layer->buffer.fence < 0)
 			continue;
 
-		fence = sync_fence_fdget(layer->buffer.fence);
+		fence = mdss_get_fd_sync_fence(layer->buffer.fence);
 		if (!fence) {
 			pr_err("%s: sync fence get failed! fd=%d\n",
 				sync_pt_data->fence_name, layer->buffer.fence);
@@ -816,7 +824,7 @@ static int __handle_buffer_fences(struct msm_fb_data_type *mfd,
 	if (ret)
 		goto sync_fence_err;
 
-	value = sync_pt_data->timeline_value + sync_pt_data->threshold +
+	value = sync_pt_data->threshold +
 			atomic_read(&sync_pt_data->commit_cnt);
 
 	release_fence = __create_fence(mfd, sync_pt_data,
@@ -835,21 +843,18 @@ static int __handle_buffer_fences(struct msm_fb_data_type *mfd,
 		goto retire_fence_err;
 	}
 
-	sync_fence_install(release_fence, commit->release_fence);
-	sync_fence_install(retire_fence, commit->retire_fence);
-
 	mutex_unlock(&sync_pt_data->sync_mutex);
 	return ret;
 
 retire_fence_err:
 	put_unused_fd(commit->release_fence);
-	sync_fence_put(release_fence);
+	mdss_put_sync_fence(release_fence);
 release_fence_err:
 	commit->retire_fence = -1;
 	commit->release_fence = -1;
 sync_fence_err:
 	for (i = 0; i < sync_pt_data->acq_fen_cnt; i++)
-		sync_fence_put(sync_pt_data->acq_fen[i]);
+		mdss_put_sync_fence(sync_pt_data->acq_fen[i]);
 	sync_pt_data->acq_fen_cnt = 0;
 
 	mutex_unlock(&sync_pt_data->sync_mutex);
@@ -1522,7 +1527,7 @@ static int __update_multirect_info(struct msm_fb_data_type *mfd,
 	int cnt = 1;
 
 	mode = __multirect_layer_flags_to_mode(layer_list[ndx].flags);
-	if (IS_ERR_VALUE(mode))
+	if (IS_ERR_VALUE((unsigned long)mode))
 		return mode;
 
 	pr_debug("layer #%d pipe_ndx=%d multirect mode=%d\n",
@@ -1557,7 +1562,7 @@ static int __update_multirect_info(struct msm_fb_data_type *mfd,
 
 			mode = __multirect_layer_flags_to_mode(
 					layer_list[i].flags);
-			if (IS_ERR_VALUE(mode))
+			if (IS_ERR_VALUE((unsigned long)mode))
 				return mode;
 
 			if (mode != vinfo[0]->multirect.mode) {
@@ -1598,7 +1603,7 @@ static int __validate_multirect(struct msm_fb_data_type *mfd,
 
 	cnt = __update_multirect_info(mfd, validate_info_list,
 			layer_list, ndx, layer_cnt);
-	if (IS_ERR_VALUE(cnt))
+	if (IS_ERR_VALUE((unsigned long)cnt))
 		return cnt;
 
 	if (cnt <= 1) {
@@ -1619,7 +1624,7 @@ static int __validate_multirect(struct msm_fb_data_type *mfd,
 	}
 
 	rc = __multirect_validate_mode(mfd, layers, cnt);
-	if (IS_ERR_VALUE(rc))
+	if (IS_ERR_VALUE((unsigned long)rc))
 		return rc;
 
 	return 0;
@@ -1647,7 +1652,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	u32 mixer_mux, dst_x;
 	int layer_count = commit->input_layer_cnt;
 
-	struct mdss_mdp_pipe *pipe, *tmp, *left_blend_pipe;
+	struct mdss_mdp_pipe *pipe = NULL, *tmp, *left_blend_pipe;
 	struct mdss_mdp_pipe *right_plist[MAX_PIPES_PER_LM] = {0};
 	struct mdss_mdp_pipe *left_plist[MAX_PIPES_PER_LM] = {0};
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -1867,7 +1872,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 			rec_destroy_ndx[rect_num] |= pipe->ndx;
 
 		ret = mdss_mdp_pipe_map(pipe);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			pr_err("Unable to map used pipe%d ndx=%x\n",
 				pipe->num, pipe->ndx);
 			layer->error_code = ret;
@@ -1937,7 +1942,7 @@ validate_exit:
 			rec_destroy_ndx[0], rec_destroy_ndx[1], ret);
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			if (((pipe->ndx & rec_release_ndx[0]) &&
 						(pipe->multirect.num == 0)) ||
 					((pipe->ndx & rec_release_ndx[1]) &&
@@ -2062,7 +2067,7 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 		if (!validate_info_list[i].layer) {
 			ret = __update_multirect_info(mfd, validate_info_list,
 						   layer_list, i, layer_count);
-			if (IS_ERR_VALUE(ret)) {
+			if (IS_ERR_VALUE((unsigned long)ret)) {
 				pr_err("error updating multirect config. ret=%d i=%d\n",
 					ret, i);
 				goto end;
@@ -2180,7 +2185,7 @@ int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_wfd *wfd = NULL;
 	struct mdp_output_layer *output_layer = NULL;
 	struct mdss_mdp_wfd_data *data = NULL;
-	struct sync_fence *fence = NULL;
+	struct mdss_fence *fence = NULL;
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 
 	if (!mfd || !commit)
@@ -2208,7 +2213,8 @@ int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 			return PTR_ERR(data);
 
 		if (output_layer->buffer.fence >= 0) {
-			fence = sync_fence_fdget(output_layer->buffer.fence);
+			fence = mdss_get_fd_sync_fence(
+						output_layer->buffer.fence);
 			if (!fence) {
 				pr_err("fail to get output buffer fence\n");
 				rc = -EINVAL;
@@ -2249,7 +2255,7 @@ int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 
 input_layer_err:
 	if (fence)
-		sync_fence_put(fence);
+		mdss_put_sync_fence(fence);
 fence_get_err:
 	if (data)
 		mdss_mdp_wfd_remove_data(wfd, data);

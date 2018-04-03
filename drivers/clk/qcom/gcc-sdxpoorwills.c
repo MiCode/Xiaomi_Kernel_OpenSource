@@ -1711,6 +1711,19 @@ static struct clk_branch gcc_usb_phy_cfg_ahb2phy_clk = {
 	},
 };
 
+/* Measure-only clock for gcc_ipa_2x_clk. */
+static struct clk_dummy measure_only_ipa_2x_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_ipa_2x_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_hw *gcc_sdxpoorwills_hws[] = {
+	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
+};
+
 static struct clk_regmap *gcc_sdxpoorwills_clocks[] = {
 	[GCC_BLSP1_AHB_CLK] = &gcc_blsp1_ahb_clk.clkr,
 	[GCC_BLSP1_QUP1_I2C_APPS_CLK] = &gcc_blsp1_qup1_i2c_apps_clk.clkr,
@@ -1826,6 +1839,7 @@ static const struct qcom_reset_map gcc_sdxpoorwills_resets[] = {
 	[GCC_USB30_BCR] = { 0xb000 },
 	[GCC_USB3_PHY_BCR] = { 0xc000 },
 	[GCC_USB3PHY_PHY_BCR] = { 0xc004 },
+	[GCC_QUSB2PHY_BCR] = { 0xd000 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0xe000 },
 };
 
@@ -1854,7 +1868,8 @@ MODULE_DEVICE_TABLE(of, gcc_sdxpoorwills_match_table);
 
 static int gcc_sdxpoorwills_probe(struct platform_device *pdev)
 {
-	int ret = 0;
+	int i, ret = 0;
+	struct clk *clk;
 	struct regmap *regmap;
 
 	regmap = qcom_cc_map(pdev, &gcc_sdxpoorwills_desc);
@@ -1867,6 +1882,13 @@ static int gcc_sdxpoorwills_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to get vdd_cx regulator\n");
 		return PTR_ERR(vdd_cx.regulator[0]);
+	}
+
+	/* Register the dummy measurement clocks */
+	for (i = 0; i < ARRAY_SIZE(gcc_sdxpoorwills_hws); i++) {
+		clk = devm_clk_register(&pdev->dev, gcc_sdxpoorwills_hws[i]);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
 	}
 
 	ret = qcom_cc_really_probe(pdev, &gcc_sdxpoorwills_desc, regmap);

@@ -2750,7 +2750,8 @@ int fsg_common_set_num_buffers(struct fsg_common *common, unsigned int n)
 		bh->next = bh + 1;
 		++bh;
 buffhds_first_it:
-		bh->buf = kmalloc(FSG_BUFLEN, GFP_KERNEL);
+		bh->buf = kmalloc(FSG_BUFLEN + EXTRA_ALLOCATION_SIZE,
+				GFP_KERNEL);
 		if (unlikely(!bh->buf))
 			goto error_release;
 	} while (--i);

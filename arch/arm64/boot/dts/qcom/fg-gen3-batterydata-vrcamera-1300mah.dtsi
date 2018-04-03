@@ -1,0 +1,90 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,kayo_1300mah {
+	/* #kayo_1300mah_averaged_masterslave_feb26th2018 */
+	qcom,max-voltage-uv = <4200000>;
+	qcom,nom-batt-capacity-mah = <1300>;
+	qcom,batt-id-kohm = <100>;
+	qcom,jeita-fcc-ranges = <0   100  975000
+				101  450  1300000
+				451  600  1105000>;
+	qcom,jeita-fv-ranges = <0   100  4000000
+				101 200  4100000
+				201 450  4200000
+				451 500  4100000
+				501 600  4000000>;
+	qcom,step-chg-ranges = <3600000  4200000  2600000>;
+	qcom,battery-beta = <4250>;
+	qcom,fg-cc-cv-threshold-mv = <4190>;
+	qcom,battery-type = "kayo_1300mah_averaged_masterslave_feb26th2018";
+	qcom,checksum = <0xBFF4>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		02 1F 9A 06
+		9A 02 A5 F5
+		DF 1C 91 FB
+		4A 04 97 03
+		29 19 F0 1B
+		80 3D 35 4A
+		81 00 00 00
+		18 00 00 00
+		00 00 74 CD
+		92 BC 65 CA
+		2E 00 08 00
+		EF 07 A5 E5
+		D7 F4 D8 E2
+		FF F5 C3 F3
+		20 0C 1E 4B
+		0A 06 09 20
+		27 00 14 00
+		50 1F BB FC
+		00 03 B9 F4
+		B1 1C D6 02
+		6A 0C 73 0B
+		BD 18 E4 22
+		7E 45 08 53
+		70 00 00 00
+		11 00 00 00
+		00 00 B0 CC
+		AA AA 86 CA
+		2A 00 00 00
+		E4 EA A5 E5
+		4D F5 2B DB
+		69 00 AE 02
+		96 05 6B 1A
+		A5 33 CC FF
+		07 10 00 00
+		5C 05 33 43
+		2A 00 40 00
+		31 01 0A FA
+		FF 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+	];
+};

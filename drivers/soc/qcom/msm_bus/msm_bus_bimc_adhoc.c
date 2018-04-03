@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -243,7 +243,7 @@ enum bimc_m_bke_health_3 {
 	(M_BKE_GC_GC_BMSK >> \
 	(M_BKE_GC_GC_SHFT + 1))
 
-static int bimc_div(int64_t *a, uint32_t b)
+static int bimc_div(uint64_t *a, uint32_t b)
 {
 	if ((*a > 0) && (*a < b)) {
 		*a = 0;

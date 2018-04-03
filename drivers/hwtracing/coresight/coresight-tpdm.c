@@ -3898,6 +3898,8 @@ static const struct attribute_group *tpdm_attr_grps[] = {
 
 static int tpdm_datasets_alloc(struct tpdm_drvdata *drvdata)
 {
+	struct dump_vaddr_entry *dump_entry;
+
 	if (test_bit(TPDM_DS_GPR, drvdata->datasets)) {
 		drvdata->gpr = devm_kzalloc(drvdata->dev, sizeof(*drvdata->gpr),
 					    GFP_KERNEL);
@@ -3939,10 +3941,13 @@ static int tpdm_datasets_alloc(struct tpdm_drvdata *drvdata)
 			return -ENOMEM;
 
 		if (of_property_read_bool(drvdata->dev->of_node,
-						    "qcom,dump-enable"))
-			drvdata->cmb->mcmb->mcmb_msr_dump_ptr =
-				(uint32_t *)get_msm_dump_ptr(
-						MSM_DUMP_DATA_TPDM_SWAO_MCMB);
+						    "qcom,dump-enable")) {
+			dump_entry = get_msm_dump_ptr(
+				MSM_DUMP_DATA_TPDM_SWAO_MCMB);
+			if (dump_entry)
+				drvdata->cmb->mcmb->mcmb_msr_dump_ptr =
+					(uint32_t *)(dump_entry->dump_vaddr);
+		}
 	}
 	return 0;
 }

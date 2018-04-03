@@ -79,6 +79,29 @@ static const struct virtual_sensor_data qti_virtual_sensors[] = {
 				"apc1-l2-usr"},
 		.logic = VIRT_MAXIMUM,
 	},
+	{
+		.virt_zone_name = "hepta-cpu-max-step",
+		.num_sensors = 7,
+		.sensor_names = {"apc1-cpu0-usr",
+				"apc1-cpu1-usr",
+				"apc1-cpu2-usr",
+				"apc1-cpu3-usr",
+				"apc1-mhm-usr",
+				"apc1-l2-usr",
+				"cpuss0-usr"},
+		.logic = VIRT_MAXIMUM,
+	},
+	{
+		.virt_zone_name = "hexa-cpu-max-step",
+		.num_sensors = 6,
+		.sensor_names = {"apc1-cpu0-usr",
+				"apc1-cpu1-usr",
+				"apc1-cpu2-usr",
+				"apc1-cpu3-usr",
+				"cpuss0-usr",
+				"cpuss1-usr"},
+		.logic = VIRT_MAXIMUM,
+	},
 };
 
 int qti_virtual_sensor_register(struct device *dev)

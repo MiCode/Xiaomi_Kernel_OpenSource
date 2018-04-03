@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,8 +15,62 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <soc/qcom/socinfo.h>
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
+#include <linux/nvmem-consumer.h>
+
+uint32_t cam_soc_util_get_soc_id(void)
+{
+	return socinfo_get_id();
+}
+#if defined(CONFIG_NVMEM) && defined(CONFIG_QCOM_QFPROM)
+uint32_t cam_soc_util_get_hw_revision_node(struct cam_hw_soc_info *soc_info)
+{
+	struct nvmem_cell *cell;
+	ssize_t len;
+	uint32_t *buf, hw_rev;
+	struct platform_device *pdev;
+
+	pdev = soc_info->pdev;
+	/* read the soc hw revision and select revision node */
+	cell = nvmem_cell_get(&pdev->dev, "minor_rev");
+	if (IS_ERR_OR_NULL(cell)) {
+		if (PTR_ERR(cell) == -EPROBE_DEFER) {
+			CAM_ERR(CAM_UTIL, "Err to get nvmem cell: ret=%ld",
+				PTR_ERR(cell));
+			return -EINVAL;
+		}
+		CAM_ERR(CAM_UTIL, "No DTS entry");
+		return 0;
+	}
+
+	if (PTR_ERR(cell) == -ENOENT) {
+		CAM_DBG(CAM_UTIL, "nvme cell not found");
+		return 0;
+	}
+
+	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
+	if (IS_ERR_OR_NULL(buf)) {
+		CAM_ERR(CAM_UTIL, "Unable to read nvmem cell: ret=%ld",
+			PTR_ERR(buf));
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_UTIL, "hw_rev = %u", *buf);
+	hw_rev = (*buf >> 28) & 0x3;
+	kfree(buf);
+
+	return hw_rev;
+}
+#else
+uint32_t cam_soc_util_get_hw_revision_node(struct cam_hw_soc_info *soc_info)
+{
+	return 0;
+}
+#endif
 
 int cam_soc_util_get_level_from_string(const char *string,
 	enum cam_vote_level *level)
@@ -859,7 +913,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	count = of_property_count_strings(of_node, "reg-names");
 	if (count <= 0) {
-		CAM_WARN(CAM_UTIL, "no reg-names found for: %s",
+		CAM_DBG(CAM_UTIL, "no reg-names found for: %s",
 			soc_info->dev_name);
 		count = 0;
 	}
@@ -896,7 +950,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 	rc = of_property_read_string_index(of_node, "interrupt-names", 0,
 		&soc_info->irq_name);
 	if (rc) {
-		CAM_WARN(CAM_UTIL, "No interrupt line preset for: %s",
+		CAM_DBG(CAM_UTIL, "No interrupt line preset for: %s",
 			soc_info->dev_name);
 		rc = 0;
 	} else {

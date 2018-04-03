@@ -133,8 +133,11 @@ enum qpnp_vadc_channels {
 	VADC_VCOIN = 0x85,
 	VADC_DIE_TEMP = 6,
 	VADC_CHG_TEMP = 7,
+	VADC_USB_IN_I_PM5 = 7,
 	VADC_USB_IN = 8,
+	VADC_USB_IN_V_DIV_16_PM5 = 8,
 	VADC_IREG_FB = 9,
+	VADC_CHG_TEMP_PM5 = 9,
 	/* External input connection */
 	VADC_BAT_THERM = 0xa,
 	VADC_BAT_ID = 0xb,
@@ -156,6 +159,7 @@ enum qpnp_vadc_channels {
 	VADC_ATEST2 = 0x1b,
 	VADC_ATEST3 = 0x1c,
 	VADC_ATEST4 = 0x1d,
+	VADC_MID_CHG_DIV_6 = 0x1e,
 	VADC_OFF = 0xff,
 	/* PU1 is 30K pull up */
 	VADC_BAT_THERM_PU1 = 0x2a,
@@ -222,6 +226,13 @@ enum qpnp_vadc_channels {
 	VADC_ATEST3_DIV_3 = 0x9c,
 	VADC_ATEST4_DIV_3 = 0x9d,
 	VADC_REFRESH_MAX_NUM = 0xffff,
+	/*Current and synchronous channels*/
+	VADC_ISNS_INT_EXT_PM5 = 0xa1,
+	VADC_ISNS_PAR_PM5 = 0xa5,
+	VADC_V_I_INT_EXT_VDATA_PM5 = 0xb0,
+	VADC_V_I_INT_EXT_IDATA_PM5 = 0xb1,
+	VADC_V_I_PAR_VDATA_PM5 = 0xb4,
+	VADC_V_I_PAR_IDATA_PM5 = 0xb5,
 };
 
 /**
@@ -388,6 +399,9 @@ enum qpnp_adc_channel_scaling_param {
  * %SCALE_DIE_TEMP: Conversion for die temp.
  * %SCALE_I_DEFAULT: Default scaling to convert raw adc code to current (uA).
  * %SCALE_USBIN_I: Conversion for USB input current.
+ * %SCALE_BATT_THERM_TEMP_QRD: Conversion to temperature(decidegC) based on btm
+ *			parameters for QRD.
+ * %SCALE_SMB1390_DIE_TEMP: Conversion for SMB1390 die temp
  * %SCALE_NONE: Do not use this scaling type.
  */
 enum qpnp_adc_scale_fn_type {
@@ -410,6 +424,8 @@ enum qpnp_adc_scale_fn_type {
 	SCALE_DIE_TEMP,
 	SCALE_I_DEFAULT,
 	SCALE_USBIN_I,
+	SCALE_BATT_THERM_TEMP_QRD,
+	SCALE_SMB1390_DIE_TEMP,
 	SCALE_NONE,
 };
 
@@ -1432,6 +1448,23 @@ int32_t qpnp_adc_batt_therm(struct qpnp_vadc_chip *dev,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt);
 /**
+ * qpnp_adc_batt_therm_qrd() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. Returns the temperature in decidegC for QRD.
+ * @dev:	Structure device for qpnp vadc
+ * @adc_code:	pre-calibrated digital output of the ADC.
+ * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t qpnp_adc_batt_therm_qrd(struct qpnp_vadc_chip *dev,
+			int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
  * qpnp_adc_scale_batt_therm() - Scales the pre-calibrated digital output
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
@@ -1688,6 +1721,25 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *dev, int32_t adc_code,
  * @chan_rslt:	physical result to be stored.
  */
 int32_t qpnp_adc_scale_therm_ncp03(struct qpnp_vadc_chip *dev, int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
+ * qpnp_adc_scale_die_temp_1390() -  Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. The voltage measured by HKADC is related to
+ *		the junction temperature according to
+ *		V_adc = 1.496 – 0.00381*Tj
+ * @dev:	Structure device for qpnp vadc
+ * @adc_code:	pre-calibrated digital output of the ADC.
+ * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	physical result to be stored.
+ */
+int32_t qpnp_adc_scale_die_temp_1390(struct qpnp_vadc_chip *dev,
+			int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt);
@@ -2033,6 +2085,12 @@ static inline int32_t qpnp_adc_batt_therm(struct qpnp_vadc_chip *vadc,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt)
 { return -ENXIO; }
+static inline int32_t qpnp_adc_batt_therm_qrd(struct qpnp_vadc_chip *vadc,
+			int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
 static inline int32_t qpnp_adc_scale_batt_therm(struct qpnp_vadc_chip *vadc,
 			int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
@@ -2118,6 +2176,12 @@ static inline int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *vadc,
 			struct qpnp_vadc_result *chan_rslt)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_scale_therm_ncp03(struct qpnp_vadc_chip *vadc,
+			int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_die_temp_1390(struct qpnp_vadc_chip *vadc,
 			int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,

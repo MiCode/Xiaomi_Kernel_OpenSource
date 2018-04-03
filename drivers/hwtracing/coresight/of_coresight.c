@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -238,3 +238,21 @@ struct coresight_cti_data *of_get_coresight_cti_data(
 	return ctidata;
 }
 EXPORT_SYMBOL(of_get_coresight_cti_data);
+
+int of_get_coresight_csr_name(struct device_node *node, const char **csr_name)
+{
+	int  ret;
+	struct device_node *csr_node;
+
+	csr_node = of_parse_phandle(node, "coresight-csr", 0);
+	if (!csr_node)
+		return -EINVAL;
+
+	ret = of_property_read_string(csr_node, "coresight-name", csr_name);
+	of_node_put(csr_node);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+EXPORT_SYMBOL(of_get_coresight_csr_name);

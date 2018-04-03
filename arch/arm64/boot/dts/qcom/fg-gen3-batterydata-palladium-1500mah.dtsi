@@ -1,0 +1,81 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,palladium_1500mah_averaged_masterslave_nov28th2017 {
+	/* #Palladium_1500mAh_averaged_MasterSlave_Nov28th2017*/
+	qcom,max-voltage-uv = <4200000>;
+	qcom,fg-cc-cv-threshold-mv = <4180>;
+	qcom,fastchg-current-ma = <1500>;
+	qcom,batt-id-kohm = <75>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "palladium_1500mah_averaged_masterslave_nov28th2017";
+	qcom,checksum = <0x1C13>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 A6 1F B2 05
+		 1F 0A F7 FC
+		 22 1D 32 F2
+		 B9 02 1C 0D
+		 25 11 FB 2B
+		 88 4C 0A 62
+		 65 00 00 00
+		 0E 00 00 00
+		 00 00 3D C4
+		 5D C5 A4 C2
+		 2A 00 08 00
+		 0F C5 76 D4
+		 71 FC 36 F3
+		 7D 06 C4 03
+		 EB DD F0 22
+		 1E 06 09 20
+		 27 00 14 00
+		 47 1F 5F FC
+		 9B 03 BE 06
+		 EE 1C 17 02
+		 F6 0D 27 03
+		 22 11 0B 32
+		 6D 4C 19 62
+		 7D 00 00 00
+		 0E 00 00 00
+		 00 00 6E CC
+		 03 CA FB BC
+		 26 00 00 00
+		 E9 DB 76 D4
+		 41 FD 89 EB
+		 3E 06 A9 F3
+		 C3 05 F3 13
+		 9C 33 CC FF
+		 07 10 00 00
+		 BD 05 33 43
+		 26 00 40 00
+		 35 02 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

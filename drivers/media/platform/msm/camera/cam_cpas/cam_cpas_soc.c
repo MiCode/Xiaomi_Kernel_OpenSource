@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,18 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 			pdev->name);
 		return rc;
 	}
+
+
+	soc_private->hw_version = 0;
+	rc = of_property_read_u32(of_node,
+		"qcom,cpas-hw-ver", &soc_private->hw_version);
+	if (rc) {
+		CAM_ERR(CAM_CPAS, "device %s failed to read cpas-hw-ver",
+			pdev->name);
+		return rc;
+	}
+
+	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_private->hw_version);
 
 	soc_private->client_id_based = of_property_read_bool(of_node,
 		"client-id-based");
@@ -93,6 +105,35 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 	soc_private->axi_camnoc_based = of_property_read_bool(of_node,
 		"client-bus-camnoc-based");
 
+	soc_private->control_camnoc_axi_clk = of_property_read_bool(of_node,
+		"control-camnoc-axi-clk");
+
+	if (soc_private->control_camnoc_axi_clk == true) {
+		rc = of_property_read_u32(of_node, "camnoc-bus-width",
+			&soc_private->camnoc_bus_width);
+		if (rc || (soc_private->camnoc_bus_width == 0)) {
+			CAM_ERR(CAM_CPAS, "Bus width not found rc=%d, %d",
+				rc, soc_private->camnoc_bus_width);
+			return rc;
+		}
+
+		rc = of_property_read_u32(of_node,
+			"camnoc-axi-clk-bw-margin-perc",
+			&soc_private->camnoc_axi_clk_bw_margin);
+
+		if (rc) {
+			/* this is not fatal, overwrite rc */
+			rc = 0;
+			soc_private->camnoc_axi_clk_bw_margin = 0;
+		}
+	}
+
+	CAM_DBG(CAM_CPAS,
+		"control_camnoc_axi_clk=%d, width=%d, margin=%d",
+		soc_private->control_camnoc_axi_clk,
+		soc_private->camnoc_bus_width,
+		soc_private->camnoc_axi_clk_bw_margin);
+
 	count = of_property_count_u32_elems(of_node, "vdd-corners");
 	if ((count > 0) && (count <= CAM_REGULATOR_LEVEL_MAX) &&
 		(of_property_count_strings(of_node, "vdd-corner-ahb-mapping") ==
@@ -140,6 +181,7 @@ int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 	irq_handler_t irq_handler, void *irq_data)
 {
 	int rc = 0;
+	struct cam_cpas_private_soc *soc_private;
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc) {
@@ -172,6 +214,12 @@ int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 		CAM_ERR(CAM_CPAS, "failed in get_custom_info, rc=%d", rc);
 		goto free_soc_private;
 	}
+
+	soc_private = soc_info->soc_private;
+	soc_private->soc_id = cam_soc_util_get_soc_id();
+	soc_private->hw_rev = cam_soc_util_get_hw_revision_node(soc_info);
+	CAM_DBG(CAM_CPAS, "soc id %d hw_rev %d",
+		soc_private->soc_id, soc_private->hw_rev);
 
 	return rc;
 
@@ -209,13 +257,26 @@ int cam_cpas_soc_enable_resources(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-int cam_cpas_soc_disable_resources(struct cam_hw_soc_info *soc_info)
+int cam_cpas_soc_disable_resources(struct cam_hw_soc_info *soc_info,
+	bool disable_clocks, bool disble_irq)
 {
 	int rc = 0;
 
-	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
+	rc = cam_soc_util_disable_platform_resource(soc_info,
+		disable_clocks, disble_irq);
 	if (rc)
 		CAM_ERR(CAM_CPAS, "disable platform failed, rc=%d", rc);
+
+	return rc;
+}
+
+int cam_cpas_soc_disable_irq(struct cam_hw_soc_info *soc_info)
+{
+	int rc = 0;
+
+	rc = cam_soc_util_irq_disable(soc_info);
+	if (rc)
+		CAM_ERR(CAM_CPAS, "disable irq failed, rc=%d", rc);
 
 	return rc;
 }

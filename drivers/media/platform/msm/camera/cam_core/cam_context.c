@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 int cam_context_shutdown(struct cam_context *ctx)
 {
 	int rc = 0;
+	int32_t ctx_hdl = ctx->dev_hdl;
 
 	if (ctx->state_machine[ctx->state].ioctl_ops.stop_dev) {
 		rc = ctx->state_machine[ctx->state].ioctl_ops.stop_dev(
@@ -54,6 +55,8 @@ int cam_context_shutdown(struct cam_context *ctx)
 			CAM_ERR(CAM_CORE, "Error while dev release %d", rc);
 	}
 
+	if (!rc)
+		cam_destroy_device_hdl(ctx_hdl);
 	return rc;
 }
 
@@ -196,10 +199,35 @@ int cam_context_handle_crm_flush_req(struct cam_context *ctx,
 	return rc;
 }
 
+int cam_context_handle_crm_process_evt(struct cam_context *ctx,
+	struct cam_req_mgr_link_evt_data *process_evt)
+{
+	int rc = 0;
+
+	if (!ctx->state_machine) {
+		CAM_ERR(CAM_CORE, "Context is not ready");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].crm_ops.process_evt) {
+		rc = ctx->state_machine[ctx->state].crm_ops.process_evt(ctx,
+			process_evt);
+	} else {
+		/* handling of this message is optional */
+		CAM_DBG(CAM_CORE, "No crm process evt in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
+	}
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
 int cam_context_handle_acquire_dev(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
 {
 	int rc;
+	int i;
 
 	if (!ctx->state_machine) {
 		CAM_ERR(CAM_CORE, "Context is not ready");
@@ -220,6 +248,17 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
 			cmd->dev_handle, ctx->state);
 		rc = -EPROTO;
 	}
+
+	INIT_LIST_HEAD(&ctx->active_req_list);
+	INIT_LIST_HEAD(&ctx->wait_req_list);
+	INIT_LIST_HEAD(&ctx->pending_req_list);
+	INIT_LIST_HEAD(&ctx->free_req_list);
+
+	for (i = 0; i < ctx->req_size; i++) {
+		INIT_LIST_HEAD(&ctx->req_list[i].list);
+		list_add_tail(&ctx->req_list[i].list, &ctx->free_req_list);
+	}
+
 	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;
@@ -257,10 +296,10 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
 int cam_context_handle_flush_dev(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
-	int rc;
+	int rc = 0;
 
 	if (!ctx->state_machine) {
-		CAM_ERR(CAM_CORE, "context is not ready");
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
@@ -274,9 +313,8 @@ int cam_context_handle_flush_dev(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].ioctl_ops.flush_dev(
 			ctx, cmd);
 	} else {
-		CAM_ERR(CAM_CORE, "No flush device in dev %d, state %d",
+		CAM_WARN(CAM_CORE, "No flush device in dev %d, state %d",
 			ctx->dev_hdl, ctx->state);
-		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
 
@@ -371,6 +409,8 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 
 int cam_context_init(struct cam_context *ctx,
 	const char *dev_name,
+	uint64_t dev_id,
+	uint32_t ctx_id,
 	struct cam_req_mgr_kmd_ops *crm_node_intf,
 	struct cam_hw_mgr_intf *hw_mgr_intf,
 	struct cam_ctx_request *req_list,
@@ -394,6 +434,8 @@ int cam_context_init(struct cam_context *ctx,
 	spin_lock_init(&ctx->lock);
 
 	ctx->dev_name = dev_name;
+	ctx->dev_id = dev_id;
+	ctx->ctx_id = ctx_id;
 	ctx->ctx_crm_intf = NULL;
 	ctx->crm_ctx_intf = crm_node_intf;
 	ctx->hw_mgr_intf = hw_mgr_intf;

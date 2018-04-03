@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,7 @@ struct cam_cpas_bus_client {
  * @axi_port_node: Node representing this AXI Port
  * @axi_port_mnoc_node: Node representing mnoc in this AXI Port
  * @axi_port_camnoc_node: Node representing camnoc in this AXI Port
+ * @consolidated_axi_vote: Consolidated axi bw values for this AXI port
  *
  */
 struct cam_cpas_axi_port {
@@ -157,6 +158,7 @@ struct cam_cpas_axi_port {
 	struct device_node *axi_port_node;
 	struct device_node *axi_port_mnoc_node;
 	struct device_node *axi_port_camnoc_node;
+	struct cam_axi_vote consolidated_axi_vote;
 };
 
 /**
@@ -187,6 +189,8 @@ struct cam_cpas {
 	struct list_head axi_ports_list_head;
 	struct cam_cpas_internal_ops internal_ops;
 	struct workqueue_struct *work_queue;
+	atomic_t irq_count;
+	wait_queue_head_t irq_count_wq;
 };
 
 int cam_camsstop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops);

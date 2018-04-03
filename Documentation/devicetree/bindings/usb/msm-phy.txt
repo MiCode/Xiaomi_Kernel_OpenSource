@@ -24,6 +24,9 @@ Required properties:
  - reset-names: reset signal name strings sorted in the same order as the resets
    property.
 
+Optional properties:
+ - qcom,param-override-seq: parameter override sequence with value, reg offset pair.
+
 Example:
 	hsphy@f9200000 {
 		compatible = "qcom,usb-hsphy-snps-femto";
@@ -32,6 +35,7 @@ Example:
 		vdda18-supply = <&pm8941_l6>;
 		vdda33-supply = <&pm8941_l24>;
 		qcom,vdd-voltage-level = <0 872000 872000>;
+		qcom,param-override-seq = <0x43 0x70>;
 	};
 
 SSUSB-QMP PHY
@@ -101,6 +105,8 @@ Optional properties:
  - qcom,core-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner.
+ - "pcs_clamp_enable_reg" : Clamps the phy data inputs and enables USB3
+   autonomous mode.
 
 Example:
 	ssphy0: ssphy@f9b38000 {
@@ -184,6 +190,11 @@ Optional properties:
    state when attached in host mode and "suspend" state when detached.
  - qcom,tune2-efuse-correction: The value to be adjusted from fused value for
    improved rise/fall times.
+ - qcom,host-chirp-erratum: Indicates host chirp fix is required.
+ - nvmem-cells: specifies the handle to represent the SoC revision.
+   usually it is defined by qfprom device node.
+ - nvmem-cell-names: specifies the given nvmem cell name as defined in
+   qfprom node.
 
 Example:
 	qusb_phy: qusb@f9b39000 {

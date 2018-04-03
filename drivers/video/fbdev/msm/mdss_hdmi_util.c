@@ -186,7 +186,7 @@ static int hdmi_scrambler_status_timer_setup(struct hdmi_tx_ddc_ctrl *ctrl,
 {
 	u32 reg_val;
 	int rc;
-	struct dss_io_data *io = NULL;
+	struct mdss_io_data *io = NULL;
 
 	if (!ctrl || !ctrl->io) {
 		pr_err("invalid input\n");
@@ -655,7 +655,7 @@ static void hdmi_ddc_trigger(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 		enum trigger_mode mode, bool seg)
 {
 	struct hdmi_tx_ddc_data *ddc_data = &ddc_ctrl->ddc_data;
-	struct dss_io_data *io = ddc_ctrl->io;
+	struct mdss_io_data *io = ddc_ctrl->io;
 	u32 const seg_addr = 0x60, seg_num = 0x01;
 	u32 ddc_ctrl_reg_val;
 
@@ -738,7 +738,7 @@ static int hdmi_ddc_read_retry(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	u32 reg_val, ndx, time_out_count, wait_time;
 	struct hdmi_tx_ddc_data *ddc_data;
 	int status;
-	int busy_wait_us;
+	int busy_wait_us = 0;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
 		pr_err("invalid input\n");
@@ -886,7 +886,7 @@ static void hdmi_hdcp2p2_ddc_clear_status(struct hdmi_tx_ddc_ctrl *ctrl)
 
 static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 {
-	struct dss_io_data *io = NULL;
+	struct mdss_io_data *io = NULL;
 	struct hdmi_tx_hdcp2p2_ddc_data *data;
 	u32 intr0, intr2, intr5;
 	u32 msg_size;
@@ -1022,7 +1022,7 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 
 static int hdmi_ddc_scrambling_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 {
-	struct dss_io_data *io;
+	struct mdss_io_data *io;
 	bool scrambler_timer_off = false;
 	u32 intr2, intr5;
 
@@ -1216,7 +1216,7 @@ int hdmi_ddc_write(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	u32 time_out_count;
 	struct hdmi_tx_ddc_data *ddc_data;
 	u32 wait_time;
-	int busy_wait_us;
+	int busy_wait_us = 0;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
 		pr_err("invalid input\n");

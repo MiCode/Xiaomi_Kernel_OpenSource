@@ -19,7 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/iopoll.h>
 #include <linux/types.h>
-#include <linux/switch.h>
+#include <linux/extcon.h>
 #include <linux/gcd.h>
 
 #include "mdss_hdmi_audio.h"
@@ -63,9 +63,9 @@ enum hdmi_audio_sample_rates {
 };
 
 struct hdmi_audio {
-	struct dss_io_data *io;
+	struct mdss_io_data *io;
 	struct msm_hdmi_audio_setup_params params;
-	struct switch_dev sdev;
+	struct extcon_dev sdev;
 	u32 pclk;
 	bool ack_enabled;
 	bool audio_ack_enabled;
@@ -143,7 +143,7 @@ static void hdmi_audio_get_acr_param(u32 pclk, u32 fs,
 
 static void hdmi_audio_acr_enable(struct hdmi_audio *audio)
 {
-	struct dss_io_data *io;
+	struct mdss_io_data *io;
 	struct hdmi_audio_acr acr;
 	struct msm_hdmi_audio_setup_params *params;
 	u32 pclk, layout, multiplier = 1, sample_rate;
@@ -260,7 +260,7 @@ static void hdmi_audio_acr_setup(struct hdmi_audio *audio, bool on)
 
 static void hdmi_audio_infoframe_setup(struct hdmi_audio *audio, bool enabled)
 {
-	struct dss_io_data *io = NULL;
+	struct mdss_io_data *io = NULL;
 	u32 channels, channel_allocation, level_shift, down_mix, layout;
 	u32 hdmi_debug_reg = 0, audio_info_0_reg = 0, audio_info_1_reg = 0;
 	u32 audio_info_ctrl_reg, aud_pck_ctrl_2_reg;
@@ -393,7 +393,7 @@ static void hdmi_audio_notify(void *ctx, int val)
 		return;
 	}
 
-	switch_set_state(&audio->sdev, val);
+	extcon_set_state_sync(&audio->sdev, 0, val);
 	switched = audio->sdev.state != state;
 
 	if (audio->ack_enabled && switched)
@@ -490,7 +490,7 @@ void *hdmi_audio_register(struct hdmi_audio_init_data *data)
 		goto end;
 
 	audio->sdev.name = "hdmi_audio";
-	rc = switch_dev_register(&audio->sdev);
+	rc = extcon_dev_register(&audio->sdev);
 	if (rc) {
 		pr_err("audio switch registration failed\n");
 		kzfree(audio);
@@ -520,7 +520,7 @@ void hdmi_audio_unregister(void *ctx)
 	struct hdmi_audio *audio = ctx;
 
 	if (audio) {
-		switch_dev_unregister(&audio->sdev);
+		extcon_dev_unregister(&audio->sdev);
 		kfree(ctx);
 	}
 }

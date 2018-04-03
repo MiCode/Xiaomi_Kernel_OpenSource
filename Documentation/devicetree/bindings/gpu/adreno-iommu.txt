@@ -42,6 +42,7 @@ Optional properties:
   currently supported names are:
   - gfx3d_user : Used for the 'normal' GPU address space.
   - gfx3d_secure : Used for the content protection address space.
+  - gfx3d_secure_alt : Used for the content protection address space for alternative SID.
   Each sub node has the following required properties:
 
 	- compatible : "qcom,smmu-kgsl-cb"
@@ -82,5 +83,10 @@ Example:
 		gfx3d_secure: gfx3d_secure {
 			compatible = "qcom,smmu-kgsl-cb";
 			iommus = <&kgsl_smmu 2>;
+		};
+
+		gfx3d_secure_alt: gfx3d_secure_alt {
+			compatible = "qcom,smmu-kgsl-cb";
+			iommus = <&kgsl_smmu 2>, <&kgsl_smmu 1>;
 		};
 	};

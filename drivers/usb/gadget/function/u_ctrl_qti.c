@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,8 @@
 #include <linux/usb/usb_ctrl_qti.h>
 #include <linux/cdev.h>
 #include <linux/debugfs.h>
+
+#include <soc/qcom/bam_dmux.h>
 
 #include "u_rmnet.h"
 #include "f_qdss.h"
@@ -206,7 +208,8 @@ gqti_ctrl_notify_modem(void *gptr, enum qti_port_type qport, int val)
 	qti_ctrl_queue_notify(port);
 }
 
-int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned int intf)
+int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned int intf,
+						enum data_xport_type dxport)
 {
 	struct qti_ctrl_port	*port;
 	struct grmnet *g_rmnet = NULL;
@@ -226,8 +229,16 @@ int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned int intf)
 
 	spin_lock_irqsave(&port->lock, flags);
 	port->port_type = qport;
-	port->ep_type = DATA_EP_TYPE_HSUSB;
-	port->intf = intf;
+	if (dxport == BAM_DMUX) {
+		port->ep_type = DATA_EP_TYPE_BAM_DMUX;
+		port->intf = (qport == QTI_PORT_RMNET) ?
+			BAM_DMUX_USB_RMNET_0 : BAM_DMUX_USB_DPL;
+		port->ipa_prod_idx = 0;
+		port->ipa_cons_idx = 0;
+	} else {
+		port->ep_type = DATA_EP_TYPE_HSUSB;
+		port->intf = intf;
+	}
 
 	if (gr) {
 		port->port_usb = gr;
@@ -330,7 +341,7 @@ void gqti_ctrl_update_ipa_pipes(void *gr, enum qti_port_type qport,
 static int qti_ctrl_open(struct inode *ip, struct file *fp)
 {
 	unsigned long		flags;
-	struct qti_ctrl_port *port = container_of(fp->private_data,
+	struct qti_ctrl_port *port = container_of(ip->i_cdev,
 						struct qti_ctrl_port,
 						ctrl_device);
 
@@ -342,6 +353,7 @@ static int qti_ctrl_open(struct inode *ip, struct file *fp)
 		return -EBUSY;
 	}
 
+	fp->private_data = port;
 	spin_lock_irqsave(&port->lock, flags);
 	port->is_open = true;
 	spin_unlock_irqrestore(&port->lock, flags);
@@ -352,7 +364,7 @@ static int qti_ctrl_open(struct inode *ip, struct file *fp)
 static int qti_ctrl_release(struct inode *ip, struct file *fp)
 {
 	unsigned long		flags;
-	struct qti_ctrl_port *port = container_of(fp->private_data,
+	struct qti_ctrl_port *port = container_of(ip->i_cdev,
 						struct qti_ctrl_port,
 						ctrl_device);
 
@@ -370,9 +382,7 @@ static int qti_ctrl_release(struct inode *ip, struct file *fp)
 static ssize_t
 qti_ctrl_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 {
-	struct qti_ctrl_port *port = container_of(fp->private_data,
-						struct qti_ctrl_port,
-						ctrl_device);
+	struct qti_ctrl_port *port = fp->private_data;
 	struct rmnet_ctrl_pkt *cpkt = NULL;
 	unsigned long flags;
 	int ret = 0;
@@ -444,9 +454,7 @@ static ssize_t
 qti_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 		   loff_t *pos)
 {
-	struct qti_ctrl_port *port = container_of(fp->private_data,
-						struct qti_ctrl_port,
-						ctrl_device);
+	struct qti_ctrl_port *port = fp->private_data;
 	void *kbuf;
 	unsigned long flags;
 	int ret = 0;
@@ -523,9 +531,7 @@ qti_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 
 static long qti_ctrl_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 {
-	struct qti_ctrl_port *port = container_of(fp->private_data,
-						struct qti_ctrl_port,
-						ctrl_device);
+	struct qti_ctrl_port *port = fp->private_data;
 	struct grmnet *gr = NULL;
 	struct ep_info info;
 	int val, ret = 0;
@@ -621,9 +627,7 @@ exit_ioctl:
 
 static unsigned int qti_ctrl_poll(struct file *file, poll_table *wait)
 {
-	struct qti_ctrl_port *port = container_of(file->private_data,
-						struct qti_ctrl_port,
-						ctrl_device);
+	struct qti_ctrl_port *port = file->private_data;
 	unsigned long flags;
 	unsigned int mask = 0;
 
@@ -756,18 +760,19 @@ static const struct file_operations dpl_qti_ctrl_fops = {
 #endif
 	.poll = qti_ctrl_poll,
 };
+#define RMNET_MODULE_NAME "rmnet_ctrl"
 
 static int qti_ctrl_alloc_chardev_region(void)
 {
 	int ret;
 
-	rmnet_class = class_create(THIS_MODULE, MODULE_NAME);
+	rmnet_class = class_create(THIS_MODULE, RMNET_MODULE_NAME);
 	if (IS_ERR(rmnet_class)) {
 		pr_err("class_create() failed ENOMEM\n");
 		ret = -ENOMEM;
 	}
 	ret = alloc_chrdev_region(&qti_ctrl_dev, 0, QTI_NUM_PORTS,
-		MODULE_NAME);
+		RMNET_MODULE_NAME);
 	if (ret < 0) {
 		pr_err("alloc_chrdev_region() failed ret:%i\n", ret);
 		return ret;
@@ -819,18 +824,6 @@ int gqti_ctrl_init(void)
 			snprintf(port->name, sz, "%s%d",
 				RMNET_CTRL_QTI_NAME, i);
 
-		port->ctrl_device.owner = THIS_MODULE;
-		if (i == QTI_PORT_DPL)
-			cdev_init(&port->ctrl_device, &dpl_qti_ctrl_fops);
-		else
-			cdev_init(&port->ctrl_device, &qti_ctrl_fops);
-
-		ret = cdev_add(&port->ctrl_device, qti_ctrl_dev + i, 1);
-		if (ret < 0) {
-			pr_err("cdev_add() failed ret:%d\n", ret);
-			goto fail_cdev;
-		}
-
 		port->dev = device_create(rmnet_class, NULL, qti_ctrl_dev+i,
 				port->dev, port->name);
 		if (IS_ERR(port->dev)) {
@@ -838,12 +831,24 @@ int gqti_ctrl_init(void)
 			ret = -ENOMEM;
 			goto fail_device_create;
 		}
+
+		if (i == QTI_PORT_DPL)
+			cdev_init(&port->ctrl_device, &dpl_qti_ctrl_fops);
+		else
+			cdev_init(&port->ctrl_device, &qti_ctrl_fops);
+
+		port->ctrl_device.owner = THIS_MODULE;
+		ret = cdev_add(&port->ctrl_device, qti_ctrl_dev + i, 1);
+		if (ret < 0) {
+			pr_err("cdev_add() failed ret:%d\n", ret);
+			goto fail_cdev;
+		}
 	}
 	qti_ctrl_debugfs_init();
 	return ret;
-fail_device_create:
-	cdev_del(&port->ctrl_device);
 fail_cdev:
+	cdev_del(&port->ctrl_device);
+fail_device_create:
 	class_destroy(rmnet_class);
 	unregister_chrdev_region(MAJOR(qti_ctrl_dev), QTI_NUM_PORTS);
 fail_init:

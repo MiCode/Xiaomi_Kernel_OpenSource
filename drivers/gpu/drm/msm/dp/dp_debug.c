@@ -16,7 +16,6 @@
 
 #include <linux/debugfs.h>
 
-#include "dp_parser.h"
 #include "dp_power.h"
 #include "dp_catalog.h"
 #include "dp_aux.h"
@@ -36,14 +35,55 @@ struct dp_debug_private {
 	u8 *dpcd;
 	u32 dpcd_size;
 
+	int vdo;
+
+	char exe_mode[SZ_32];
+	char reg_dump[SZ_32];
+
 	struct dp_usbpd *usbpd;
 	struct dp_link *link;
 	struct dp_panel *panel;
+	struct dp_aux *aux;
+	struct dp_catalog *catalog;
 	struct drm_connector **connector;
 	struct device *dev;
-
+	struct work_struct sim_work;
 	struct dp_debug dp_debug;
 };
+
+static int dp_debug_get_edid_buf(struct dp_debug_private *debug)
+{
+	int rc = 0;
+
+	if (!debug->edid) {
+		debug->edid = devm_kzalloc(debug->dev, SZ_256, GFP_KERNEL);
+		if (!debug->edid) {
+			rc = -ENOMEM;
+			goto end;
+		}
+
+		debug->edid_size = SZ_256;
+	}
+end:
+	return rc;
+}
+
+static int dp_debug_get_dpcd_buf(struct dp_debug_private *debug)
+{
+	int rc = 0;
+
+	if (!debug->dpcd) {
+		debug->dpcd = devm_kzalloc(debug->dev, SZ_1K, GFP_KERNEL);
+		if (!debug->dpcd) {
+			rc = -ENOMEM;
+			goto end;
+		}
+
+		debug->dpcd_size = SZ_1K;
+	}
+end:
+	return rc;
+}
 
 static ssize_t dp_debug_write_edid(struct file *file,
 		const char __user *user_buff, size_t count, loff_t *ppos)
@@ -75,7 +115,8 @@ static ssize_t dp_debug_write_edid(struct file *file,
 	edid_size = size / char_to_nib;
 	buf_t = buf;
 
-	memset(debug->edid, 0, debug->edid_size);
+	if (dp_debug_get_edid_buf(debug))
+		goto bail;
 
 	if (edid_size != debug->edid_size) {
 		pr_debug("clearing debug edid\n");
@@ -100,13 +141,13 @@ static ssize_t dp_debug_write_edid(struct file *file,
 		buf_t += char_to_nib;
 	}
 
-	print_hex_dump(KERN_DEBUG, "DEBUG EDID: ", DUMP_PREFIX_NONE,
-		16, 1, debug->edid, debug->edid_size, false);
-
 	edid = debug->edid;
 bail:
 	kfree(buf);
-	debug->panel->set_edid(debug->panel, edid);
+
+	if (!debug->dp_debug.sim_mode)
+		debug->panel->set_edid(debug->panel, edid);
+
 	return rc;
 }
 
@@ -119,8 +160,8 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	size_t dpcd_size = 0;
 	size_t size = 0, dpcd_buf_index = 0;
 	ssize_t rc = count;
-
-	pr_debug("count=%zu\n", count);
+	char offset_ch[5];
+	u32 offset;
 
 	if (!debug)
 		return -ENODEV;
@@ -128,7 +169,7 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	if (*ppos)
 		goto bail;
 
-	size = min_t(size_t, count, SZ_32);
+	size = min_t(size_t, count, SZ_2K);
 
 	buf = kzalloc(size, GFP_KERNEL);
 	if (!buf) {
@@ -139,15 +180,29 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	if (copy_from_user(buf, user_buff, size))
 		goto bail;
 
-	dpcd_size = size / char_to_nib;
-	buf_t = buf;
+	memcpy(offset_ch, buf, 4);
+	offset_ch[4] = '\0';
 
-	memset(debug->dpcd, 0, debug->dpcd_size);
-
-	if (dpcd_size != debug->dpcd_size) {
-		pr_debug("clearing debug dpcd\n");
+	if (kstrtoint(offset_ch, 16, &offset)) {
+		pr_err("offset kstrtoint error\n");
 		goto bail;
 	}
+
+	if (dp_debug_get_dpcd_buf(debug))
+		goto bail;
+
+	if (offset == 0xFFFF) {
+		pr_err("clearing dpcd\n");
+		memset(debug->dpcd, 0, debug->dpcd_size);
+		goto bail;
+	}
+
+	size -= 4;
+
+	dpcd_size = size / char_to_nib;
+	buf_t = buf + 4;
+
+	dpcd_buf_index = offset;
 
 	while (dpcd_size--) {
 		char t[3];
@@ -167,14 +222,37 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 		buf_t += char_to_nib;
 	}
 
-	print_hex_dump(KERN_DEBUG, "DEBUG DPCD: ", DUMP_PREFIX_NONE,
-		8, 1, debug->dpcd, debug->dpcd_size, false);
-
 	dpcd = debug->dpcd;
 bail:
 	kfree(buf);
-	debug->panel->set_dpcd(debug->panel, dpcd);
+	if (debug->dp_debug.sim_mode)
+		debug->aux->dpcd_updated(debug->aux);
+	else
+		debug->panel->set_dpcd(debug->panel, dpcd);
+
 	return rc;
+}
+
+static ssize_t dp_debug_read_dpcd(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	u32 len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len += snprintf(buf, SZ_8, "0x%x\n", debug->aux->reg);
+
+	if (copy_to_user(user_buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	return len;
 }
 
 static ssize_t dp_debug_write_hpd(struct file *file,
@@ -323,6 +401,36 @@ bail:
 	return len;
 }
 
+static ssize_t dp_debug_write_exe_mode(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char *buf;
+	size_t len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len = min_t(size_t, count, SZ_32 - 1);
+	buf = memdup_user(user_buff, len);
+	buf[len] = '\0';
+
+	if (sscanf(buf, "%3s", debug->exe_mode) != 1)
+		goto end;
+
+	if (strcmp(debug->exe_mode, "hw") &&
+	    strcmp(debug->exe_mode, "sw") &&
+	    strcmp(debug->exe_mode, "all"))
+		goto end;
+
+	debug->catalog->set_exe_mode(debug->catalog, debug->exe_mode);
+end:
+	return len;
+}
+
 static ssize_t dp_debug_read_connected(struct file *file,
 		char __user *user_buff, size_t count, loff_t *ppos)
 {
@@ -421,7 +529,6 @@ static ssize_t dp_debug_read_info(struct file *file, char __user *user_buff,
 	struct dp_debug_private *debug = file->private_data;
 	char *buf;
 	u32 len = 0, rc = 0;
-	u64 lclk = 0;
 	u32 max_size = SZ_4K;
 
 	if (!debug)
@@ -434,124 +541,60 @@ static ssize_t dp_debug_read_info(struct file *file, char __user *user_buff,
 	if (!buf)
 		return -ENOMEM;
 
-	rc = snprintf(buf + len, max_size, "\tname = %s\n", DEBUG_NAME);
+	rc = snprintf(buf + len, max_size, "\tstate=0x%x\n", debug->aux->state);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
-	rc = snprintf(buf + len, max_size,
-		"\tdp_panel\n\t\tmax_pclk_khz = %d\n",
-		debug->panel->max_pclk_khz);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	rc = snprintf(buf + len, max_size,
-		"\tdrm_dp_link\n\t\trate = %u\n",
+	rc = snprintf(buf + len, max_size, "\tlink_rate=%u\n",
 		debug->panel->link_info.rate);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
-	rc = snprintf(buf + len, max_size,
-		"\t\tnum_lanes = %u\n",
+	rc = snprintf(buf + len, max_size, "\tnum_lanes=%u\n",
 		debug->panel->link_info.num_lanes);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
-	rc = snprintf(buf + len, max_size,
-		"\t\tcapabilities = %lu\n",
-		debug->panel->link_info.capabilities);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	rc = snprintf(buf + len, max_size,
-		"\tdp_panel_info:\n\t\tactive = %dx%d\n",
+	rc = snprintf(buf + len, max_size, "\tresolution=%dx%d@%dHz\n",
 		debug->panel->pinfo.h_active,
-		debug->panel->pinfo.v_active);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	rc = snprintf(buf + len, max_size,
-		"\t\tback_porch = %dx%d\n",
-		debug->panel->pinfo.h_back_porch,
-		debug->panel->pinfo.v_back_porch);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	rc = snprintf(buf + len, max_size,
-		"\t\tfront_porch = %dx%d\n",
-		debug->panel->pinfo.h_front_porch,
-		debug->panel->pinfo.v_front_porch);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	rc = snprintf(buf + len, max_size,
-		"\t\tsync_width = %dx%d\n",
-		debug->panel->pinfo.h_sync_width,
-		debug->panel->pinfo.v_sync_width);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	rc = snprintf(buf + len, max_size,
-		"\t\tactive_low = %dx%d\n",
-		debug->panel->pinfo.h_active_low,
-		debug->panel->pinfo.v_active_low);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	rc = snprintf(buf + len, max_size,
-		"\t\th_skew = %d\n",
-		debug->panel->pinfo.h_skew);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	rc = snprintf(buf + len, max_size,
-		"\t\trefresh rate = %d\n",
+		debug->panel->pinfo.v_active,
 		debug->panel->pinfo.refresh_rate);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
-	rc = snprintf(buf + len, max_size,
-		"\t\tpixel clock khz = %d\n",
+	rc = snprintf(buf + len, max_size, "\tpclock=%dKHz\n",
 		debug->panel->pinfo.pixel_clk_khz);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
-	rc = snprintf(buf + len, max_size,
-		"\t\tbpp = %d\n",
+	rc = snprintf(buf + len, max_size, "\tbpp=%d\n",
 		debug->panel->pinfo.bpp);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	/* Link Information */
-	rc = snprintf(buf + len, max_size,
-		"\tdp_link:\n\t\ttest_requested = %d\n",
-		debug->link->sink_request);
+	rc = snprintf(buf + len, max_size, "\ttest_req=%s\n",
+		dp_link_get_test_name(debug->link->sink_request));
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	rc = snprintf(buf + len, max_size,
-		"\t\tlane_count = %d\n", debug->link->link_params.lane_count);
+		"\tlane_count=%d\n", debug->link->link_params.lane_count);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	rc = snprintf(buf + len, max_size,
-		"\t\tbw_code = %d\n", debug->link->link_params.bw_code);
-	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
-		goto error;
-
-	lclk = drm_dp_bw_code_to_link_rate(
-			debug->link->link_params.bw_code) * 1000;
-	rc = snprintf(buf + len, max_size,
-		"\t\tlclk = %lld\n", lclk);
+		"\tbw_code=%d\n", debug->link->link_params.bw_code);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	rc = snprintf(buf + len, max_size,
-		"\t\tv_level = %d\n", debug->link->phy_params.v_level);
+		"\tv_level=%d\n", debug->link->phy_params.v_level);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
 	rc = snprintf(buf + len, max_size,
-		"\t\tp_level = %d\n", debug->link->phy_params.p_level);
+		"\tp_level=%d\n", debug->link->phy_params.p_level);
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
@@ -816,6 +859,155 @@ error:
 	return rc;
 }
 
+static ssize_t dp_debug_write_sim(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	int sim;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &sim) != 0)
+		goto end;
+
+	if (sim) {
+		if (dp_debug_get_edid_buf(debug))
+			goto end;
+
+		if (dp_debug_get_dpcd_buf(debug))
+			goto error;
+	} else {
+		if (debug->edid) {
+			devm_kfree(debug->dev, debug->edid);
+			debug->edid = NULL;
+		}
+
+		if (debug->dpcd) {
+			devm_kfree(debug->dev, debug->dpcd);
+			debug->dpcd = NULL;
+		}
+	}
+
+	debug->dp_debug.sim_mode = !!sim;
+
+	debug->aux->set_sim_mode(debug->aux, debug->dp_debug.sim_mode,
+			debug->edid, debug->dpcd);
+end:
+	return len;
+error:
+	devm_kfree(debug->dev, debug->edid);
+	return len;
+}
+
+static ssize_t dp_debug_write_attention(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	size_t len = 0;
+	int vdo;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_8 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
+	buf[len] = '\0';
+
+	if (kstrtoint(buf, 10, &vdo) != 0)
+		goto end;
+
+	debug->vdo = vdo;
+
+	schedule_work(&debug->sim_work);
+end:
+	return len;
+}
+
+static ssize_t dp_debug_write_dump(struct file *file,
+		const char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_32];
+	size_t len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	/* Leave room for termination char */
+	len = min_t(size_t, count, SZ_32 - 1);
+	if (copy_from_user(buf, user_buff, len))
+		goto end;
+
+	buf[len] = '\0';
+
+	if (sscanf(buf, "%31s", debug->reg_dump) != 1)
+		goto end;
+
+	/* qfprom register dump not supported */
+	if (!strcmp(debug->reg_dump, "qfprom_physical"))
+		strlcpy(debug->reg_dump, "clear", sizeof(debug->reg_dump));
+end:
+	return len;
+}
+
+static ssize_t dp_debug_read_dump(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	int rc = 0;
+	struct dp_debug_private *debug = file->private_data;
+	u8 *buf = NULL;
+	u32 len = 0;
+	char prefix[SZ_32];
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	if (!debug->usbpd->hpd_high || !strlen(debug->reg_dump))
+		goto end;
+
+	rc = debug->catalog->get_reg_dump(debug->catalog,
+		debug->reg_dump, &buf, &len);
+	if (rc)
+		goto end;
+
+	snprintf(prefix, sizeof(prefix), "%s: ", debug->reg_dump);
+	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_NONE,
+		16, 4, buf, len, false);
+
+	if (copy_to_user(user_buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+end:
+	return len;
+}
+
 static const struct file_operations dp_debug_fops = {
 	.open = simple_open,
 	.read = dp_debug_read_info,
@@ -840,6 +1032,7 @@ static const struct file_operations edid_fops = {
 static const struct file_operations dpcd_fops = {
 	.open = simple_open,
 	.write = dp_debug_write_dpcd,
+	.read = dp_debug_read_dpcd,
 };
 
 static const struct file_operations connected_fops = {
@@ -852,6 +1045,10 @@ static const struct file_operations bw_code_fops = {
 	.read = dp_debug_bw_code_read,
 	.write = dp_debug_bw_code_write,
 };
+static const struct file_operations exe_mode_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_exe_mode,
+};
 
 static const struct file_operations tpg_fops = {
 	.open = simple_open,
@@ -863,6 +1060,22 @@ static const struct file_operations hdr_fops = {
 	.open = simple_open,
 	.write = dp_debug_write_hdr,
 	.read = dp_debug_read_hdr,
+};
+
+static const struct file_operations sim_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_sim,
+};
+
+static const struct file_operations attention_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_attention,
+};
+
+static const struct file_operations dump_fops = {
+	.open = simple_open,
+	.write = dp_debug_write_dump,
+	.read = dp_debug_read_dump,
 };
 
 static int dp_debug_init(struct dp_debug *dp_debug)
@@ -927,7 +1140,14 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		rc = PTR_ERR(file);
 		pr_err("[%s] debugfs max_bw_code failed, rc=%d\n",
 		       DEBUG_NAME, rc);
-		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("exe_mode", 0644, dir,
+			debug, &exe_mode_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs register failed, rc=%d\n",
+		       DEBUG_NAME, rc);
 	}
 
 	file = debugfs_create_file("edid", 0644, dir,
@@ -967,6 +1187,36 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_file("sim", 0644, dir,
+		debug, &sim_fops);
+
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs sim failed, rc=%d\n",
+			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("attention", 0644, dir,
+		debug, &attention_fops);
+
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs attention failed, rc=%d\n",
+			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+	file = debugfs_create_file("dump", 0644, dir,
+		debug, &dump_fops);
+
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs dump failed, rc=%d\n",
+			DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
 	return 0;
 
 error_remove_dir:
@@ -977,15 +1227,24 @@ error:
 	return rc;
 }
 
+static void dp_debug_sim_work(struct work_struct *work)
+{
+	struct dp_debug_private *debug =
+		container_of(work, typeof(*debug), sim_work);
+
+	debug->usbpd->simulate_attention(debug->usbpd, debug->vdo);
+}
+
 struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 			struct dp_usbpd *usbpd, struct dp_link *link,
-			struct drm_connector **connector)
+			struct dp_aux *aux, struct drm_connector **connector,
+			struct dp_catalog *catalog)
 {
 	int rc = 0;
 	struct dp_debug_private *debug;
 	struct dp_debug *dp_debug;
 
-	if (!dev || !panel || !usbpd || !link) {
+	if (!dev || !panel || !usbpd || !link || !catalog) {
 		pr_err("invalid input\n");
 		rc = -EINVAL;
 		goto error;
@@ -997,30 +1256,16 @@ struct dp_debug *dp_debug_get(struct device *dev, struct dp_panel *panel,
 		goto error;
 	}
 
-	debug->edid = devm_kzalloc(dev, SZ_256, GFP_KERNEL);
-	if (!debug->edid) {
-		rc = -ENOMEM;
-		kfree(debug);
-		goto error;
-	}
-
-	debug->edid_size = SZ_256;
-
-	debug->dpcd = devm_kzalloc(dev, SZ_16, GFP_KERNEL);
-	if (!debug->dpcd) {
-		rc = -ENOMEM;
-		kfree(debug);
-		goto error;
-	}
-
-	debug->dpcd_size = SZ_16;
+	INIT_WORK(&debug->sim_work, dp_debug_sim_work);
 
 	debug->dp_debug.debug_en = false;
 	debug->usbpd = usbpd;
 	debug->link = link;
 	debug->panel = panel;
+	debug->aux = aux;
 	debug->dev = dev;
 	debug->connector = connector;
+	debug->catalog = catalog;
 
 	dp_debug = &debug->dp_debug;
 	dp_debug->vdisplay = 0;
@@ -1063,7 +1308,11 @@ void dp_debug_put(struct dp_debug *dp_debug)
 
 	dp_debug_deinit(dp_debug);
 
-	devm_kfree(debug->dev, debug->edid);
-	devm_kfree(debug->dev, debug->dpcd);
+	if (debug->edid)
+		devm_kfree(debug->dev, debug->edid);
+
+	if (debug->dpcd)
+		devm_kfree(debug->dev, debug->dpcd);
+
 	devm_kfree(debug->dev, debug);
 }

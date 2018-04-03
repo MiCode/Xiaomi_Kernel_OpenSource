@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -531,14 +531,21 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	int ret = 0, id;
 	struct kgsl_process_private  *proc_priv = dev_priv->process_priv;
 
+	/*
+	 * Read and increment the context count under lock to make sure
+	 * no process goes beyond the specified context limit.
+	 */
+	spin_lock(&proc_priv->ctxt_count_lock);
 	if (atomic_read(&proc_priv->ctxt_count) > KGSL_MAX_CONTEXTS_PER_PROC) {
 		KGSL_DRV_ERR(device,
 			"Per process context limit reached for pid %u",
 			dev_priv->process_priv->pid);
+		spin_unlock(&proc_priv->ctxt_count_lock);
 		return -ENOSPC;
 	}
 
 	atomic_inc(&proc_priv->ctxt_count);
+	spin_unlock(&proc_priv->ctxt_count_lock);
 
 	id = _kgsl_get_context_id(device);
 	if (id == -ENOSPC) {
@@ -753,6 +760,8 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 
 	mutex_lock(&device->mutex);
 	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (status == 0)
+		device->ftbl->dispatcher_halt(device);
 	mutex_unlock(&device->mutex);
 
 	KGSL_PWR_WARN(device, "suspend end\n");
@@ -767,6 +776,7 @@ static int kgsl_resume_device(struct kgsl_device *device)
 	KGSL_PWR_WARN(device, "resume start\n");
 	mutex_lock(&device->mutex);
 	if (device->state == KGSL_STATE_SUSPEND) {
+		device->ftbl->dispatcher_unhalt(device);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 	} else if (device->state != KGSL_STATE_INIT) {
 		/*
@@ -918,6 +928,7 @@ static struct kgsl_process_private *kgsl_process_private_new(
 
 	spin_lock_init(&private->mem_lock);
 	spin_lock_init(&private->syncsource_lock);
+	spin_lock_init(&private->ctxt_count_lock);
 
 	idr_init(&private->mem_idr);
 	idr_init(&private->syncsource_idr);
@@ -2998,7 +3009,7 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 	long ret = 0;
 	bool full_flush = false;
 	uint64_t size = 0;
-	int i, count = 0;
+	int i;
 	void __user *ptr;
 
 	if (param->count == 0 || param->count > 128)
@@ -3010,8 +3021,8 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 
 	entries = kcalloc(param->count, sizeof(*entries), GFP_KERNEL);
 	if (entries == NULL) {
-		ret = -ENOMEM;
-		goto out;
+		kfree(objs);
+		return -ENOMEM;
 	}
 
 	ptr = to_user_ptr(param->objs);
@@ -3028,8 +3039,6 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 		if (entries[i] == NULL)
 			continue;
 
-		count++;
-
 		if (!(objs[i].op & KGSL_GPUMEM_CACHE_RANGE))
 			size += entries[i]->memdesc.size;
 		else if (objs[i].offset < entries[i]->memdesc.size)
@@ -3038,25 +3047,23 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 		full_flush = check_full_flush(size, objs[i].op);
 		if (full_flush) {
 			trace_kgsl_mem_sync_full_cache(i, size);
-			break;
+			goto out;
 		}
 
 		ptr += sizeof(*objs);
 	}
 
-	if (!full_flush) {
-		for (i = 0; !ret && i < param->count; i++)
-			if (entries[i])
-				ret = _kgsl_gpumem_sync_cache(entries[i],
-						objs[i].offset, objs[i].length,
-						objs[i].op);
-	}
+	for (i = 0; !ret && i < param->count; i++)
+		if (entries[i])
+			ret = _kgsl_gpumem_sync_cache(entries[i],
+					objs[i].offset, objs[i].length,
+					objs[i].op);
 
+out:
 	for (i = 0; i < param->count; i++)
 		if (entries[i])
 			kgsl_mem_entry_put(entries[i]);
 
-out:
 	kfree(entries);
 	kfree(objs);
 
@@ -3422,7 +3429,13 @@ long kgsl_ioctl_sparse_phys_free(struct kgsl_device_private *dev_priv,
 	if (entry == NULL)
 		return -EINVAL;
 
+	if (!kgsl_mem_entry_set_pend(entry)) {
+		kgsl_mem_entry_put(entry);
+		return -EBUSY;
+	}
+
 	if (entry->memdesc.cur_bindings != 0) {
+		kgsl_mem_entry_unset_pend(entry);
 		kgsl_mem_entry_put(entry);
 		return -EINVAL;
 	}
@@ -3491,7 +3504,13 @@ long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
 	if (entry == NULL)
 		return -EINVAL;
 
+	if (!kgsl_mem_entry_set_pend(entry)) {
+		kgsl_mem_entry_put(entry);
+		return -EBUSY;
+	}
+
 	if (entry->bind_tree.rb_node != NULL) {
+		kgsl_mem_entry_unset_pend(entry);
 		kgsl_mem_entry_put(entry);
 		return -EINVAL;
 	}
@@ -4031,6 +4050,7 @@ long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_gpuobj_set_info *param = data;
 	struct kgsl_mem_entry *entry;
+	int ret = 0;
 
 	if (param->id == 0)
 		return -EINVAL;
@@ -4043,13 +4063,16 @@ long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
 		copy_metadata(entry, param->metadata, param->metadata_len);
 
 	if (param->flags & KGSL_GPUOBJ_SET_INFO_TYPE) {
-		entry->memdesc.flags &= ~((uint64_t) KGSL_MEMTYPE_MASK);
-		entry->memdesc.flags |= (uint64_t)(param->type <<
-						KGSL_MEMTYPE_SHIFT);
+		if (param->type <= (KGSL_MEMTYPE_MASK >> KGSL_MEMTYPE_SHIFT)) {
+			entry->memdesc.flags &= ~((uint64_t) KGSL_MEMTYPE_MASK);
+			entry->memdesc.flags |= (uint64_t)((param->type <<
+				KGSL_MEMTYPE_SHIFT) & KGSL_MEMTYPE_MASK);
+		} else
+			ret = -EINVAL;
 	}
 
 	kgsl_mem_entry_put(entry);
-	return 0;
+	return ret;
 }
 
 /**

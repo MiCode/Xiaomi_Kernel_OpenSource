@@ -51,6 +51,7 @@
 			compatible = "qcom,memshare-peripheral";
 			qcom,peripheral-size = <0x500000>;
 			qcom,client-id = <1>;
+			qcom,allocate-boot-time;
 			label = "modem";
 		};
 	};

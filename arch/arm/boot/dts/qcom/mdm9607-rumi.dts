@@ -1,0 +1,50 @@
+/*
+ * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mdm9607.dtsi"
+#include "mdm9607-pinctrl.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MDM 9607 RUMI";
+	compatible = "qcom,mdm9607-rumi", "qcom,mdm9607", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};
+
+&blsp1_uart5 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&usb_otg {
+	qcom,hsusb-otg-mode = <1>; /* DEVICE only */
+	qcom,hsusb-otg-otg-control = <1>; /* PHY control */
+	qcom,emulation;
+	/delete-property/ qcom,boost-sysclk-with-streaming;
+	/delete-property/ vbus_otg-supply;
+};
+
+&clock_gcc {
+	compatible="qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_debug {
+	status = "disabled";
+};

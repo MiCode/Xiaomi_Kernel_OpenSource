@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,12 +161,20 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON: {
+		if (s_ctrl->streamon_count > 0)
+			return 0;
+
+		s_ctrl->streamon_count = s_ctrl->streamon_count + 1;
 		i2c_reg_settings = &i2c_data->streamon_settings;
 		i2c_reg_settings->request_id = 0;
 		i2c_reg_settings->is_settings_valid = 1;
 		break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF: {
+		if (s_ctrl->streamoff_count > 0)
+			return 0;
+
+		s_ctrl->streamoff_count = s_ctrl->streamoff_count + 1;
 		i2c_reg_settings = &i2c_data->streamoff_settings;
 		i2c_reg_settings->request_id = 0;
 		i2c_reg_settings->is_settings_valid = 1;
@@ -182,23 +190,25 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		i2c_reg_settings =
-			&i2c_data->
-			per_frame[csl_packet->header.request_id %
-			MAX_PER_FRAME_ARRAY];
-		CAM_DBG(CAM_SENSOR, "Received Packet: %lld",
-		csl_packet->header.request_id % MAX_PER_FRAME_ARRAY);
+			&i2c_data->per_frame[csl_packet->header.request_id %
+				MAX_PER_FRAME_ARRAY];
+		CAM_DBG(CAM_SENSOR, "Received Packet: %lld req: %lld",
+			csl_packet->header.request_id % MAX_PER_FRAME_ARRAY,
+			csl_packet->header.request_id);
 		if (i2c_reg_settings->is_settings_valid == 1) {
 			CAM_ERR(CAM_SENSOR,
 				"Already some pkt in offset req : %lld",
 				csl_packet->header.request_id);
-			rc = delete_request(i2c_reg_settings);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-				"Failed in Deleting the err: %d", rc);
-				return rc;
-			}
+			/*
+			 * Update req mgr even in case of failure.
+			 * This will help not to wait indefinitely
+			 * and freeze. If this log is triggered then
+			 * fix it.
+			 */
+			cam_sensor_update_req_mgr(s_ctrl, csl_packet);
+			return 0;
 		}
-	break;
+		break;
 	}
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP: {
 		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
@@ -279,16 +289,12 @@ static int32_t cam_sensor_i2c_modes_util(
 		for (i = 0; i < size; i++) {
 			rc = camera_io_dev_poll(
 			io_master_info,
-			i2c_list->i2c_settings.
-				reg_setting[i].reg_addr,
-			i2c_list->i2c_settings.
-				reg_setting[i].reg_data,
-			i2c_list->i2c_settings.
-				reg_setting[i].data_mask,
+			i2c_list->i2c_settings.reg_setting[i].reg_addr,
+			i2c_list->i2c_settings.reg_setting[i].reg_data,
+			i2c_list->i2c_settings.reg_setting[i].data_mask,
 			i2c_list->i2c_settings.addr_type,
-				i2c_list->i2c_settings.data_type,
-			i2c_list->i2c_settings.
-				reg_setting[i].delay);
+			i2c_list->i2c_settings.data_type,
+			i2c_list->i2c_settings.reg_setting[i].delay);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
 					"i2c poll apply setting Fail: %d", rc);
@@ -512,6 +518,8 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 	kfree(power_info->power_setting);
 	kfree(power_info->power_down_setting);
 
+	s_ctrl->streamon_count = 0;
+	s_ctrl->streamoff_count = 0;
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 }
 
@@ -712,6 +720,9 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
+		CAM_INFO(CAM_SENSOR,
+			"CAM_ACQUIRE_DEV Success, sensor_id:0x%x",
+			s_ctrl->sensordata->slave_info.sensor_id);
 	}
 		break;
 	case CAM_RELEASE_DEV: {
@@ -749,6 +760,11 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		s_ctrl->bridge_intf.session_hdl = -1;
 
 		s_ctrl->sensor_state = CAM_SENSOR_INIT;
+		CAM_INFO(CAM_SENSOR,
+			"CAM_RELEASE_DEV Success, sensor_id:0x%x",
+			s_ctrl->sensordata->slave_info.sensor_id);
+		s_ctrl->streamon_count = 0;
+		s_ctrl->streamoff_count = 0;
 	}
 		break;
 	case CAM_QUERY_CAP: {
@@ -784,6 +800,9 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			}
 		}
 		s_ctrl->sensor_state = CAM_SENSOR_START;
+		CAM_INFO(CAM_SENSOR,
+			"CAM_START_DEV Success, sensor_id:0x%x",
+			s_ctrl->sensordata->slave_info.sensor_id);
 	}
 		break;
 	case CAM_STOP_DEV: {
@@ -807,6 +826,9 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 
 		cam_sensor_release_resource(s_ctrl);
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
+		CAM_INFO(CAM_SENSOR,
+			"CAM_STOP_DEV Success, sensor_id:0x%x",
+			s_ctrl->sensordata->slave_info.sensor_id);
 	}
 		break;
 	case CAM_CONFIG_DEV: {
@@ -984,7 +1006,8 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 	int64_t req_id, enum cam_sensor_packet_opcodes opcode)
 {
-	int rc = 0, offset, del_req_id;
+	int rc = 0, offset, i;
+	uint64_t top = 0, del_req_id = 0;
 	struct i2c_settings_array *i2c_set = NULL;
 	struct i2c_settings_list *i2c_list;
 
@@ -1047,21 +1070,46 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 				"Invalid/NOP request to apply: %lld", req_id);
 		}
 
-		del_req_id = (req_id + MAX_PER_FRAME_ARRAY -
-			MAX_SYSTEM_PIPELINE_DELAY) % MAX_PER_FRAME_ARRAY;
-		CAM_DBG(CAM_SENSOR, "Deleting the Request: %d", del_req_id);
-
-		if ((req_id >
-			 s_ctrl->i2c_data.per_frame[del_req_id].request_id) &&
-			(s_ctrl->i2c_data.per_frame[del_req_id].
+		/* Change the logic dynamically */
+		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+			if ((req_id >=
+				s_ctrl->i2c_data.per_frame[i].request_id) &&
+				(top <
+				s_ctrl->i2c_data.per_frame[i].request_id) &&
+				(s_ctrl->i2c_data.per_frame[i].
 				is_settings_valid == 1)) {
-			s_ctrl->i2c_data.per_frame[del_req_id].request_id = 0;
-			rc = delete_request(
-				&(s_ctrl->i2c_data.per_frame[del_req_id]));
-			if (rc < 0)
-				CAM_ERR(CAM_SENSOR,
-					"Delete request Fail:%d rc:%d",
-					del_req_id, rc);
+				del_req_id = top;
+				top = s_ctrl->i2c_data.per_frame[i].request_id;
+			}
+		}
+
+		if (top < req_id) {
+			if ((((top % MAX_PER_FRAME_ARRAY) - (req_id %
+				MAX_PER_FRAME_ARRAY)) >= BATCH_SIZE_MAX) ||
+				(((top % MAX_PER_FRAME_ARRAY) - (req_id %
+				MAX_PER_FRAME_ARRAY)) <= -BATCH_SIZE_MAX))
+				del_req_id = req_id;
+		}
+
+		if (!del_req_id)
+			return rc;
+
+		CAM_DBG(CAM_SENSOR, "top: %llu, del_req_id:%llu",
+			top, del_req_id);
+
+		for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+			if ((del_req_id >
+				 s_ctrl->i2c_data.per_frame[i].request_id) && (
+				 s_ctrl->i2c_data.per_frame[i].is_settings_valid
+					== 1)) {
+				s_ctrl->i2c_data.per_frame[i].request_id = 0;
+				rc = delete_request(
+					&(s_ctrl->i2c_data.per_frame[i]));
+				if (rc < 0)
+					CAM_ERR(CAM_SENSOR,
+						"Delete request Fail:%lld rc:%d",
+						del_req_id, rc);
+			}
 		}
 	}
 

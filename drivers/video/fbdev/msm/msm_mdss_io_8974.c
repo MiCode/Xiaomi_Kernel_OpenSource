@@ -2033,7 +2033,7 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 {
 	int rc = 0;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
-	int i, *vote_cnt;
+	int i, *vote_cnt = NULL;
 
 	void *m_clk_handle;
 	bool is_ecg = false;
@@ -2314,7 +2314,7 @@ int mdss_dsi_post_clkoff_cb(void *priv,
 			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
 				(i != DSI_CORE_PM))
 				continue;
-			rc = msm_dss_enable_vreg(
+			rc = msm_mdss_enable_vreg(
 				sdata->power_data[i].vreg_config,
 				sdata->power_data[i].num_vreg, 0);
 			if (rc) {
@@ -2374,7 +2374,7 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 				(!pdata->panel_info.cont_splash_enabled) &&
 				(i != DSI_CORE_PM))
 				continue;
-			rc = msm_dss_enable_vreg(
+			rc = msm_mdss_enable_vreg(
 				sdata->power_data[i].vreg_config,
 				sdata->power_data[i].num_vreg, 1);
 			if (rc) {

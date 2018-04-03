@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <video/mipi_display.h>
+#include <linux/firmware.h>
 
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
@@ -32,6 +33,7 @@
 #define MAX_TOPOLOGY 5
 
 #define DSI_PANEL_DEFAULT_LABEL  "Default dsi panel"
+#define EXT_BRIDGE_DEFAULT_LABEL  "Default ext bridge"
 
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
@@ -321,6 +323,30 @@ static int dsi_panel_gpio_release(struct dsi_panel *panel)
 	return rc;
 }
 
+int dsi_panel_trigger_esd_attack(struct dsi_panel *panel)
+{
+	struct dsi_panel_reset_config *r_config;
+
+	if (!panel) {
+		pr_err("Invalid panel param\n");
+		return -EINVAL;
+	}
+
+	r_config = &panel->reset_config;
+	if (!r_config) {
+		pr_err("Invalid panel reset configuration\n");
+		return -EINVAL;
+	}
+
+	if (gpio_is_valid(r_config->reset_gpio)) {
+		gpio_set_value(r_config->reset_gpio, 0);
+		pr_info("GPIO pulled low to simulate ESD\n");
+		return 0;
+	}
+	pr_err("failed to pull down gpio\n");
+	return -EINVAL;
+}
+
 static int dsi_panel_reset(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -480,6 +506,9 @@ static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 	if (!panel || !panel->cur_mode)
 		return -EINVAL;
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	mode = panel->cur_mode;
 
 	cmds = mode->priv_info->cmd_sets[type].cmds;
@@ -610,13 +639,10 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 
 	dsi = &panel->mipi_device;
 
-	mutex_lock(&panel->panel_lock);
-
 	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
 	if (rc < 0)
 		pr_err("failed to update dcs backlight:%d\n", bl_lvl);
 
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -625,13 +651,16 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	int rc = 0;
 	struct dsi_backlight_config *bl = &panel->bl_config;
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		led_trigger_event(bl->wled, bl_lvl);
 		break;
 	case DSI_BACKLIGHT_DCS:
-		dsi_panel_update_backlight(panel, bl_lvl);
+		rc = dsi_panel_update_backlight(panel, bl_lvl);
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
@@ -682,12 +711,58 @@ static int dsi_panel_bl_unregister(struct dsi_panel *panel)
 error:
 	return rc;
 }
-static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
-				  struct device_node *of_node)
+
+static int dsi_panel_fw_parse(const struct firmware *fw_entry,
+		char *id_match, u32 *param_value)
 {
-	int rc = 0;
+	int value, numlen = 1, index = 0;
+	char id[SZ_256];
+
+	while (sscanf(fw_entry->data + index,
+			"%255s %d", id, &value) > 0) {
+		if (!strcmp(id, id_match)) {
+			*param_value = value;
+			return 0;
+		}
+
+		while ((value / 10) > 0) {
+			value /= 10;
+			numlen++;
+		}
+
+		index += (strlen(id) + numlen + 1);
+		numlen = 1;
+	}
+
+	return -EINVAL;
+}
+
+static int dsi_panel_parse(struct device_node *of_node,
+	const struct firmware *fw_entry, char *id_match, u32 *val)
+{
+	if (fw_entry && fw_entry->data)
+		return dsi_panel_fw_parse(fw_entry, id_match, val);
+	else
+		return of_property_read_u32(of_node, id_match, val);
+
+	return 0;
+}
+
+static int dsi_panel_parse_timing(struct device *parent,
+	struct dsi_mode_info *mode, const char *name,
+	struct device_node *of_node)
+{
+	int fw = 0, rc = 0;
 	u64 tmp64;
 	struct dsi_display_mode *display_mode;
+	const struct firmware *fw_entry = NULL;
+	char *fw_name = "dsi_prop";
+
+	if (strcmp(name, "Simulator video mode dsi panel") == 0)
+		fw = request_firmware(&fw_entry, fw_name, parent);
+
+	if (fw)
+		fw_entry = NULL;
 
 	display_mode = container_of(mode, struct dsi_display_mode, timing);
 
@@ -702,47 +777,47 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	mode->clk_rate_hz = !rc ? tmp64 : 0;
 	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-framerate",
-				  &mode->refresh_rate);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-panel-framerate", &mode->refresh_rate);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-panel-framerate, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-width",
-				  &mode->h_active);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-panel-width", &mode->h_active);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-panel-width, rc=%d\n", rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-h-front-porch",
-				  &mode->h_front_porch);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-h-front-porch", &mode->h_front_porch);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-h-front-porch, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-h-back-porch",
-				  &mode->h_back_porch);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-h-back-porch", &mode->h_back_porch);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-h-back-porch, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-h-pulse-width",
-				  &mode->h_sync_width);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-h-pulse-width", &mode->h_sync_width);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-h-pulse-width, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-h-sync-skew",
-				  &mode->h_skew);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-h-sync-skew", &mode->h_skew);
 	if (rc)
 		pr_err("qcom,mdss-dsi-h-sync-skew is not defined, rc=%d\n", rc);
 
@@ -750,32 +825,32 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		mode->h_active, mode->h_front_porch, mode->h_back_porch,
 		mode->h_sync_width);
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-height",
-				  &mode->v_active);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-panel-height", &mode->v_active);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-panel-height, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-v-back-porch",
-				  &mode->v_back_porch);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-v-back-porch", &mode->v_back_porch);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-v-back-porch, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-v-front-porch",
-				  &mode->v_front_porch);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-v-front-porch", &mode->v_front_porch);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-v-back-porch, rc=%d\n",
 		       rc);
 		goto error;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-v-pulse-width",
-				  &mode->v_sync_width);
+	rc = dsi_panel_parse(of_node, fw_entry,
+		"qcom,mdss-dsi-v-pulse-width", &mode->v_sync_width);
 	if (rc) {
 		pr_err("failed to read qcom,mdss-dsi-v-pulse-width, rc=%d\n",
 		       rc);
@@ -2552,54 +2627,23 @@ static void dsi_panel_esd_config_deinit(struct drm_panel_esd_config *esd_config)
 	kfree(esd_config->status_cmd.cmds);
 }
 
-static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
-				     struct device_node *of_node)
+int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel,
+				struct device_node *of_node)
 {
+	struct drm_panel_esd_config *esd_config;
 	int rc = 0;
 	u32 tmp;
 	u32 i, status_len, *lenp;
 	struct property *data;
-	const char *string;
-	struct drm_panel_esd_config *esd_config;
-	u8 *esd_mode = NULL;
 
-	esd_config = &panel->esd_config;
-	esd_config->status_mode = ESD_MODE_MAX;
-	esd_config->esd_enabled = of_property_read_bool(of_node,
-		"qcom,esd-check-enabled");
-
-	if (!esd_config->esd_enabled)
-		return 0;
-
-	rc = of_property_read_string(of_node,
-			"qcom,mdss-dsi-panel-status-check-mode", &string);
-	if (!rc) {
-		if (!strcmp(string, "bta_check")) {
-			esd_config->status_mode = ESD_MODE_SW_BTA;
-		} else if (!strcmp(string, "reg_read")) {
-			esd_config->status_mode = ESD_MODE_REG_READ;
-		} else if (!strcmp(string, "te_signal_check")) {
-			if (panel->panel_mode == DSI_OP_CMD_MODE) {
-				esd_config->status_mode = ESD_MODE_PANEL_TE;
-			} else {
-				pr_err("TE-ESD not valid for video mode\n");
-				rc = -EINVAL;
-				goto error;
-			}
-		} else {
-			pr_err("No valid panel-status-check-mode string\n");
-			rc = -EINVAL;
-			goto error;
-		}
-	} else {
-		pr_debug("status check method not defined!\n");
-		rc = -EINVAL;
-		goto error;
+	if (!panel || !of_node) {
+		pr_err("Invalid Params\n");
+		return -EINVAL;
 	}
 
-	if ((esd_config->status_mode == ESD_MODE_SW_BTA) ||
-		(esd_config->status_mode == ESD_MODE_PANEL_TE))
-		return 0;
+	esd_config = &panel->esd_config;
+	if (!esd_config)
+		return -EINVAL;
 
 	dsi_panel_parse_cmd_sets_sub(&esd_config->status_cmd,
 				DSI_CMD_SET_PANEL_STATUS, of_node);
@@ -2674,8 +2718,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 	}
 
 	esd_config->status_buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!esd_config->status_buf)
+	if (!esd_config->status_buf) {
+		rc = -ENOMEM;
 		goto error4;
+	}
 
 	rc = of_property_read_u32_array(of_node,
 		"qcom,mdss-dsi-panel-status-value",
@@ -2685,15 +2731,6 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 		memset(esd_config->status_value, 0,
 				esd_config->groups * status_len);
 	}
-
-	if (panel->esd_config.status_mode == ESD_MODE_REG_READ)
-		esd_mode = "register_read";
-	else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA)
-		esd_mode = "bta_trigger";
-	else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE)
-		esd_mode = "te_check";
-
-	pr_info("ESD enabled with mode: %s\n", esd_mode);
 
 	return 0;
 
@@ -2707,13 +2744,78 @@ error2:
 error1:
 	kfree(esd_config->status_cmd.cmds);
 error:
+	return rc;
+}
+
+static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+	int rc = 0;
+	const char *string;
+	struct drm_panel_esd_config *esd_config;
+	u8 *esd_mode = NULL;
+
+	esd_config = &panel->esd_config;
+	esd_config->status_mode = ESD_MODE_MAX;
+	esd_config->esd_enabled = of_property_read_bool(of_node,
+		"qcom,esd-check-enabled");
+
+	if (!esd_config->esd_enabled)
+		return 0;
+
+	rc = of_property_read_string(of_node,
+			"qcom,mdss-dsi-panel-status-check-mode", &string);
+	if (!rc) {
+		if (!strcmp(string, "bta_check")) {
+			esd_config->status_mode = ESD_MODE_SW_BTA;
+		} else if (!strcmp(string, "reg_read")) {
+			esd_config->status_mode = ESD_MODE_REG_READ;
+		} else if (!strcmp(string, "te_signal_check")) {
+			if (panel->panel_mode == DSI_OP_CMD_MODE) {
+				esd_config->status_mode = ESD_MODE_PANEL_TE;
+			} else {
+				pr_err("TE-ESD not valid for video mode\n");
+				rc = -EINVAL;
+				goto error;
+			}
+		} else {
+			pr_err("No valid panel-status-check-mode string\n");
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		pr_debug("status check method not defined!\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (panel->esd_config.status_mode == ESD_MODE_REG_READ) {
+		rc = dsi_panel_parse_esd_reg_read_configs(panel, of_node);
+		if (rc) {
+			pr_err("failed to parse esd reg read mode params, rc=%d\n",
+						rc);
+			goto error;
+		}
+		esd_mode = "register_read";
+	} else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA) {
+		esd_mode = "bta_trigger";
+	} else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE) {
+		esd_mode = "te_check";
+	}
+
+	pr_info("ESD enabled with mode: %s\n", esd_mode);
+
+	return 0;
+
+error:
 	panel->esd_config.esd_enabled = false;
 	return rc;
 }
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
-				int topology_override)
+				int topology_override,
+				enum dsi_panel_type type)
 {
 	struct dsi_panel *panel;
 	int rc = 0;
@@ -2722,67 +2824,84 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (!panel)
 		return ERR_PTR(-ENOMEM);
 
-	panel->name = of_get_property(of_node, "qcom,mdss-dsi-panel-name",
-				      NULL);
-	if (!panel->name)
-		panel->name = DSI_PANEL_DEFAULT_LABEL;
+	if (type == DSI_PANEL) {
+		panel->name = of_get_property(of_node,
+			"qcom,mdss-dsi-panel-name", NULL);
+		if (!panel->name)
+			panel->name = DSI_PANEL_DEFAULT_LABEL;
 
-	rc = dsi_panel_parse_host_config(panel, of_node);
-	if (rc) {
-		pr_err("failed to parse host configuration, rc=%d\n", rc);
+		rc = dsi_panel_parse_host_config(panel, of_node);
+		if (rc) {
+			pr_err("failed to parse host configuration, rc=%d\n",
+				rc);
+			goto error;
+		}
+
+		rc = dsi_panel_parse_panel_mode(panel, of_node);
+		if (rc) {
+			pr_err("failed to parse panel mode configuration, rc=%d\n",
+				rc);
+			goto error;
+		}
+
+		rc = dsi_panel_parse_dfps_caps(&panel->dfps_caps,
+			of_node, panel->name);
+		if (rc)
+			pr_err("failed to parse dfps configuration, rc=%d\n",
+				rc);
+
+		rc = dsi_panel_parse_phy_props(&panel->phy_props,
+			of_node, panel->name);
+		if (rc) {
+			pr_err("failed to parse panel physical dimension, rc=%d\n",
+				rc);
+			goto error;
+		}
+
+		rc = dsi_panel_parse_power_cfg(parent, panel, of_node);
+		if (rc)
+			pr_err("failed to parse power config, rc=%d\n", rc);
+
+		rc = dsi_panel_parse_gpios(panel, of_node);
+		if (rc)
+			pr_err("failed to parse panel gpios, rc=%d\n", rc);
+
+		rc = dsi_panel_parse_bl_config(panel, of_node);
+		if (rc)
+			pr_err("failed to parse backlight config, rc=%d\n", rc);
+
+
+		rc = dsi_panel_parse_misc_features(panel, of_node);
+		if (rc)
+			pr_err("failed to parse misc features, rc=%d\n", rc);
+
+		rc = dsi_panel_parse_hdr_config(panel, of_node);
+		if (rc)
+			pr_err("failed to parse hdr config, rc=%d\n", rc);
+
+		rc = dsi_panel_get_mode_count(panel, of_node);
+		if (rc) {
+			pr_err("failed to get mode count, rc=%d\n", rc);
+			goto error;
+		}
+
+		rc = dsi_panel_parse_dms_info(panel, of_node);
+		if (rc)
+			pr_debug("failed to get dms info, rc=%d\n", rc);
+
+		rc = dsi_panel_parse_esd_config(panel, of_node);
+		if (rc)
+			pr_debug("failed to parse esd config, rc=%d\n", rc);
+
+		panel->type = DSI_PANEL;
+	} else if (type == EXT_BRIDGE) {
+		panel->name = EXT_BRIDGE_DEFAULT_LABEL;
+		panel->type = EXT_BRIDGE;
+	} else {
+		pr_err("invalid panel type\n");
+		rc = -ENOTSUPP;
 		goto error;
 	}
-
-	rc = dsi_panel_parse_panel_mode(panel, of_node);
-	if (rc) {
-		pr_err("failed to parse panel mode configuration, rc=%d\n", rc);
-		goto error;
-	}
-
-	rc = dsi_panel_parse_dfps_caps(&panel->dfps_caps, of_node, panel->name);
-	if (rc)
-		pr_err("failed to parse dfps configuration, rc=%d\n", rc);
-
-	rc = dsi_panel_parse_phy_props(&panel->phy_props, of_node, panel->name);
-	if (rc) {
-		pr_err("failed to parse panel physical dimension, rc=%d\n", rc);
-		goto error;
-	}
-
-	rc = dsi_panel_parse_power_cfg(parent, panel, of_node);
-	if (rc)
-		pr_err("failed to parse power config, rc=%d\n", rc);
-
-	rc = dsi_panel_parse_gpios(panel, of_node);
-	if (rc)
-		pr_err("failed to parse panel gpios, rc=%d\n", rc);
-
-	rc = dsi_panel_parse_bl_config(panel, of_node);
-	if (rc)
-		pr_err("failed to parse backlight config, rc=%d\n", rc);
-
-
-	rc = dsi_panel_parse_misc_features(panel, of_node);
-	if (rc)
-		pr_err("failed to parse misc features, rc=%d\n", rc);
-
-	rc = dsi_panel_parse_hdr_config(panel, of_node);
-	if (rc)
-		pr_err("failed to parse hdr config, rc=%d\n", rc);
-
-	rc = dsi_panel_get_mode_count(panel, of_node);
-	if (rc) {
-		pr_err("failed to get mode count, rc=%d\n", rc);
-		goto error;
-	}
-
-	rc = dsi_panel_parse_dms_info(panel, of_node);
-	if (rc)
-		pr_debug("failed to get dms info, rc=%d\n", rc);
-
-	rc = dsi_panel_parse_esd_config(panel, of_node);
-	if (rc)
-		pr_debug("failed to parse esd config, rc=%d\n", rc);
 
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
@@ -2797,7 +2916,8 @@ error:
 void dsi_panel_put(struct dsi_panel *panel)
 {
 	/* free resources allocated for ESD check */
-	dsi_panel_esd_config_deinit(&panel->esd_config);
+	if (panel->type == DSI_PANEL)
+		dsi_panel_esd_config_deinit(&panel->esd_config);
 
 	kfree(panel);
 }
@@ -2812,6 +2932,9 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 
@@ -2876,6 +2999,9 @@ int dsi_panel_drv_deinit(struct dsi_panel *panel)
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 
@@ -2960,11 +3086,7 @@ int dsi_panel_get_phy_props(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-
 	memcpy(phy_props, &panel->phy_props, sizeof(*phy_props));
-
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -2978,11 +3100,7 @@ int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-
 	memcpy(dfps_caps, &panel->dfps_caps, sizeof(*dfps_caps));
-
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -3013,6 +3131,9 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	mutex_lock(&panel->panel_lock);
 
 	mode->priv_info = kzalloc(sizeof(*mode->priv_info), GFP_KERNEL);
@@ -3042,7 +3163,8 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 		if (index != child_idx++)
 			continue;
 
-		rc = dsi_panel_parse_timing(&mode->timing, child_np);
+		rc = dsi_panel_parse_timing(panel->parent, &mode->timing,
+			panel->name, child_np);
 		if (rc) {
 			pr_err("failed to parse panel timing, rc=%d\n", rc);
 			goto parse_fail;
@@ -3120,10 +3242,12 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 
 	memcpy(&config->video_timing, &mode->timing,
 	       sizeof(config->video_timing));
-	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
-	config->video_timing.dsc = &mode->priv_info->dsc;
 
-	config->bit_clk_rate_hz = mode->priv_info->clk_rate_hz;
+	if (mode->priv_info) {
+		config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
+		config->video_timing.dsc = &mode->priv_info->dsc;
+		config->bit_clk_rate_hz = mode->priv_info->clk_rate_hz;
+	}
 	config->esc_clk_rate_hz = 19200000;
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -3137,6 +3261,9 @@ int dsi_panel_pre_prepare(struct dsi_panel *panel)
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 
@@ -3165,6 +3292,9 @@ int dsi_panel_update_pps(struct dsi_panel *panel)
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 
@@ -3201,6 +3331,9 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	mutex_lock(&panel->panel_lock);
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_LP1);
 	if (rc)
@@ -3218,6 +3351,9 @@ int dsi_panel_set_lp2(struct dsi_panel *panel)
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_LP2);
@@ -3237,6 +3373,9 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	mutex_lock(&panel->panel_lock);
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_NOLP);
 	if (rc)
@@ -3254,6 +3393,9 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 
@@ -3329,7 +3471,7 @@ static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel_cmd_set *set,
 	set->cmds[0].msg.rx_len = 0;
 	set->cmds[0].msg.rx_buf = 0;
 	set->cmds[0].last_command = 0;
-	set->cmds[0].post_wait_ms = 1;
+	set->cmds[0].post_wait_ms = 0;
 
 	set->cmds[1].msg.channel = 0;
 	set->cmds[1].msg.type = MIPI_DSI_DCS_LONG_WRITE;
@@ -3340,7 +3482,7 @@ static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel_cmd_set *set,
 	set->cmds[1].msg.rx_len = 0;
 	set->cmds[1].msg.rx_buf = 0;
 	set->cmds[1].last_command = 1;
-	set->cmds[1].post_wait_ms = 1;
+	set->cmds[1].post_wait_ms = 0;
 
 	goto exit;
 
@@ -3364,6 +3506,9 @@ int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	priv_info = panel->cur_mode->priv_info;
 	set = &priv_info->cmd_sets[DSI_CMD_SET_ROI];
@@ -3400,6 +3545,9 @@ int dsi_panel_switch(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	mutex_lock(&panel->panel_lock);
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_TIMING_SWITCH);
@@ -3420,6 +3568,9 @@ int dsi_panel_post_switch(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	mutex_lock(&panel->panel_lock);
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_POST_TIMING_SWITCH);
@@ -3439,6 +3590,9 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 
@@ -3461,6 +3615,9 @@ int dsi_panel_post_enable(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	mutex_lock(&panel->panel_lock);
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_POST_ON);
@@ -3482,6 +3639,9 @@ int dsi_panel_pre_disable(struct dsi_panel *panel)
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 
@@ -3506,6 +3666,9 @@ int dsi_panel_disable(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
+	if (panel->type == EXT_BRIDGE)
+		return 0;
+
 	mutex_lock(&panel->panel_lock);
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
@@ -3529,6 +3692,9 @@ int dsi_panel_unprepare(struct dsi_panel *panel)
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 
@@ -3560,6 +3726,9 @@ int dsi_panel_post_unprepare(struct dsi_panel *panel)
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
+	if (panel->type == EXT_BRIDGE)
+		return 0;
 
 	mutex_lock(&panel->panel_lock);
 

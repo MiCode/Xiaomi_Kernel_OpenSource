@@ -13,8 +13,44 @@ menuconfig SPECTRA_CAMERA
       Enabling this adds support for the camera driver stack including sensor,
       IFE and postprocessing drivers.
 
-source "drivers/media/platform/msm/vidc/Kconfig"
+menuconfig MSM_CAMERA
+    bool "QTI MSM camera and video capture support"
+    depends on ARCH_QCOM && VIDEO_V4L2 && I2C
+    ---help---
+      Say Y here to enable selecting the video adapters for
+      QTI msm camera and video capture drivers. enabling this
+      adds support for the camera driver stack including sensor, isp
+      and postprocessing drivers for legacy chipsets.
 
+config MSM_CAMERA_DEBUG
+    bool "QTI MSM camera debugging with printk"
+    depends on MSM_CAMERA
+    default n
+    ---help---
+      Enable printk() debug for msm camera
+
+menuconfig MSMB_CAMERA
+    bool "QTI MSM camera and video capture 2.0 support"
+    depends on ARCH_QCOM && VIDEO_V4L2 && I2C
+    ---help---
+      Say Y here to enable selecting the video adapters for
+      QTI msm camera and video capture 2.0, enabling this
+      adds support for the camera driver stack including sensor, isp
+      and postprocessing drivers.
+
+config MSMB_CAMERA_DEBUG
+    bool "QTI MSM camera 2.0 debugging with printk"
+    depends on MSMB_CAMERA
+    ---help---
+      Enable printk() debug for msm camera 2.0
+
+if MSMB_CAMERA
+source "drivers/media/platform/msm/camera_v2/Kconfig"
+endif # MSMB_CAMERA
+
+source "drivers/media/platform/msm/vidc_3x/Kconfig"
+source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/sde/Kconfig"
 source "drivers/media/platform/msm/dvb/Kconfig"
 source "drivers/media/platform/msm/broadcast/Kconfig"
+

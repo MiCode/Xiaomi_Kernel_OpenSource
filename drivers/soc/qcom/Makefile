@@ -65,9 +65,9 @@ obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o sysmon-qmi.o
 obj-$(CONFIG_ICNSS) += icnss.o wlan_firmware_service_v01.o
 
 obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)		+= memshare/
+obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
 obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
 obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
-obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
 
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
 
@@ -96,4 +96,5 @@ obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
 obj-$(CONFIG_MSM_REMOTEQDSS) += remoteqdss.o
 obj-$(CONFIG_QSEE_IPC_IRQ_BRIDGE) += qsee_ipc_irq_bridge.o
 obj-$(CONFIG_QCOM_QDSS_BRIDGE) += qdss_bridge.o
+obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_WCNSS_CORE) += wcnss/

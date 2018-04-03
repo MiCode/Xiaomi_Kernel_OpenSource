@@ -10,6 +10,7 @@ enum msm_ion_heap_types {
 	ION_HEAP_TYPE_SECURE_DMA = ION_HEAP_TYPE_MSM_START,
 	ION_HEAP_TYPE_SYSTEM_SECURE,
 	ION_HEAP_TYPE_HYP_CMA,
+	ION_HEAP_TYPE_SECURE_CARVEOUT,
 	/*
 	 * if you add a heap type here you should also add it to
 	 * heap_types_info[] in msm_ion.c
@@ -32,6 +33,7 @@ enum ion_heap_ids {
 	ION_SECURE_DISPLAY_HEAP_ID = 10,
 	ION_CP_MFC_HEAP_ID = 12,
 	ION_SPSS_HEAP_ID = 13, /* Secure Processor ION heap */
+	ION_SECURE_CARVEOUT_HEAP_ID = 14,
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
 	ION_QSECOM_TA_HEAP_ID = 19,
 	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
@@ -90,6 +92,8 @@ enum cp_mem_usage {
 #define ION_FLAG_CP_SEC_DISPLAY		ION_BIT(25)
 #define ION_FLAG_CP_APP			ION_BIT(26)
 #define ION_FLAG_CP_CAMERA_PREVIEW	ION_BIT(27)
+/* ION_FLAG_ALLOW_NON_CONTIG uses ION_BIT(28) */
+#define ION_FLAG_CP_CDSP		ION_BIT(29)
 #define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
 
 /**
@@ -131,6 +135,7 @@ enum cp_mem_usage {
 #define ION_IOMMU_HEAP_NAME	"iommu"
 #define ION_MFC_HEAP_NAME	"mfc"
 #define ION_SPSS_HEAP_NAME	"spss"
+#define ION_SECURE_CARVEOUT_HEAP_NAME	"secure_carveout"
 #define ION_WB_HEAP_NAME	"wb"
 #define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
 #define ION_PIL1_HEAP_NAME  "pil_1"

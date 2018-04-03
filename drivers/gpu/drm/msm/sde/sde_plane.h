@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -333,5 +333,21 @@ void sde_plane_set_revalidate(struct drm_plane *plane, bool enable);
  */
 int sde_plane_helper_reset_custom_properties(struct drm_plane *plane,
 		struct drm_plane_state *plane_state);
+
+/**
+ * sde_plane_is_sec_ui_allowed - indicates if the sspp allows secure-ui layers
+ * @plane: Pointer to DRM plane object
+ * Returns: true if allowed; false otherwise
+ */
+bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane);
+
+/* sde_plane_secure_ctrl_xin_client - controls the VBIF programming of
+ *	the xin-client before the secure-ui session. Programs the QOS
+ *	and OT limits in VBIF for the sec-ui allowed xins
+ * @plane: Pointer to DRM plane object
+ * @crtc: Pointer to DRM CRTC state object
+ */
+void sde_plane_secure_ctrl_xin_client(struct drm_plane *plane,
+		struct drm_crtc *crtc);
 
 #endif /* _SDE_PLANE_H_ */

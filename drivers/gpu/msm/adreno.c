@@ -19,7 +19,6 @@
 #include <linux/input.h>
 #include <linux/io.h>
 #include <soc/qcom/scm.h>
-#include <linux/nvmem-consumer.h>
 
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
@@ -614,7 +613,6 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
-	unsigned int status_retries = 0;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -652,32 +650,6 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
-
-	/*
-	 * Read status again to make sure the bits aren't transitory.
-	 * Transitory bits mean that they are spurious interrupts and are
-	 * seen while preemption is on going. Empirical experiments have
-	 * shown that the transitory bits are a timing thing and they
-	 * go away in the small time window between two or three consecutive
-	 * reads. If they don't go away, log the message and return.
-	 */
-	while (status_retries < STATUS_RETRY_MAX) {
-		unsigned int new_status;
-
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS,
-			&new_status);
-
-		if (status == new_status)
-			break;
-
-		status = new_status;
-		status_retries++;
-	}
-
-	if (status_retries == STATUS_RETRY_MAX) {
-		KGSL_DRV_CRIT_RATELIMIT(device, "STATUS bits are not stable\n");
-			return ret;
-	}
 
 	/*
 	 * Clear all the interrupt bits but ADRENO_INT_RBBM_AHB_ERROR. Because
@@ -772,64 +744,33 @@ static struct {
 	{ ADRENO_QUIRK_SECVID_SET_ONCE, "qcom,gpu-quirk-secvid-set-once" },
 	{ ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW,
 			"qcom,gpu-quirk-limit-uche-gbif-rw" },
+	{ ADRENO_QUIRK_MMU_SECURE_CB_ALT, "qcom,gpu-quirk-mmu-secure-cb-alt" },
 };
 
-#if defined(CONFIG_NVMEM) && defined(CONFIG_QCOM_QFPROM)
 static struct device_node *
-adreno_get_soc_hw_revision_node(struct platform_device *pdev)
+adreno_get_soc_hw_revision_node(struct adreno_device *adreno_dev,
+	struct platform_device *pdev)
 {
 	struct device_node *node, *child;
-	struct nvmem_cell *cell;
-	ssize_t len;
-	u32 *buf, hw_rev, rev;
+	unsigned int rev;
 
 	node = of_find_node_by_name(pdev->dev.of_node, "qcom,soc-hw-revisions");
 	if (node == NULL)
-		goto err;
-
-	/* read the soc hw revision and select revision node */
-	cell = nvmem_cell_get(&pdev->dev, "minor_rev");
-	if (IS_ERR_OR_NULL(cell)) {
-		if (PTR_ERR(cell) == -EPROBE_DEFER)
-			return (void *)cell;
-
-		KGSL_CORE_ERR("Unable to get nvmem cell: ret=%ld\n",
-				PTR_ERR(cell));
-		goto err;
-	}
-
-	buf = nvmem_cell_read(cell, &len);
-	nvmem_cell_put(cell);
-
-	if (IS_ERR_OR_NULL(buf)) {
-		KGSL_CORE_ERR("Unable to read nvmem cell: ret=%ld\n",
-				PTR_ERR(buf));
-		goto err;
-	}
-
-	hw_rev = *buf;
-	kfree(buf);
+		return NULL;
 
 	for_each_child_of_node(node, child) {
-		if (of_property_read_u32(child, "reg", &rev))
+		if (of_property_read_u32(child, "qcom,soc-hw-revision", &rev))
 			continue;
 
-		if (rev == hw_rev)
+		if (rev == adreno_dev->soc_hw_rev)
 			return child;
 	}
 
-err:
-	/* fall back to parent node */
-	return pdev->dev.of_node;
+	KGSL_DRV_WARN(KGSL_DEVICE(adreno_dev),
+		"No matching SOC HW revision found for efused HW rev=%u\n",
+		adreno_dev->soc_hw_rev);
+	return NULL;
 }
-#else
-static struct device_node *
-adreno_get_soc_hw_revision_node(struct platform_device *pdev)
-{
-	return pdev->dev.of_node;
-}
-#endif
-
 
 static int adreno_update_soc_hw_revision_quirks(
 		struct adreno_device *adreno_dev, struct platform_device *pdev)
@@ -837,9 +778,9 @@ static int adreno_update_soc_hw_revision_quirks(
 	struct device_node *node;
 	int i;
 
-	node = adreno_get_soc_hw_revision_node(pdev);
-	if (IS_ERR(node))
-		return PTR_ERR(node);
+	node = adreno_get_soc_hw_revision_node(adreno_dev, pdev);
+	if (node == NULL)
+		node = pdev->dev.of_node;
 
 	/* get chip id, fall back to parent if revision node does not have it */
 	if (of_property_read_u32(node, "qcom,chipid", &adreno_dev->chipid))
@@ -906,6 +847,58 @@ static const struct of_device_id adreno_match_table[] = {
 	{ .compatible = "qcom,kgsl-3d0", .data = &device_3d0 },
 	{}
 };
+
+static void adreno_of_get_ca_target_pwrlevel(struct adreno_device *adreno_dev,
+		struct device_node *node)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int ca_target_pwrlevel = 1;
+
+	of_property_read_u32(node, "qcom,ca-target-pwrlevel",
+		&ca_target_pwrlevel);
+
+	if (ca_target_pwrlevel > device->pwrctrl.num_pwrlevels - 2)
+		ca_target_pwrlevel = 1;
+
+	device->pwrscale.ctxt_aware_target_pwrlevel = ca_target_pwrlevel;
+}
+
+static void adreno_of_get_ca_aware_properties(struct adreno_device *adreno_dev,
+		struct device_node *parent)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
+	struct device_node *node, *child;
+	unsigned int bin = 0;
+
+	pwrscale->ctxt_aware_enable =
+		of_property_read_bool(parent, "qcom,enable-ca-jump");
+
+	if (pwrscale->ctxt_aware_enable) {
+		if (of_property_read_u32(parent, "qcom,ca-busy-penalty",
+			&pwrscale->ctxt_aware_busy_penalty))
+			pwrscale->ctxt_aware_busy_penalty = 12000;
+
+		node = of_find_node_by_name(parent, "qcom,gpu-pwrlevel-bins");
+		if (node == NULL) {
+			adreno_of_get_ca_target_pwrlevel(adreno_dev, parent);
+			return;
+		}
+
+		for_each_child_of_node(node, child) {
+			if (of_property_read_u32(child, "qcom,speed-bin", &bin))
+				continue;
+
+			if (bin == adreno_dev->speed_bin) {
+				adreno_of_get_ca_target_pwrlevel(adreno_dev,
+					child);
+				return;
+			}
+		}
+
+		pwrscale->ctxt_aware_target_pwrlevel = 1;
+	}
+}
 
 static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		struct device_node *node)
@@ -1064,6 +1057,9 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	if (adreno_of_get_pwrlevels(adreno_dev, node))
 		return -EINVAL;
 
+	/* Get context aware DCVS properties */
+	adreno_of_get_ca_aware_properties(adreno_dev, node);
+
 	/* get pm-qos-active-latency, set it to default if not found */
 	if (of_property_read_u32(node, "qcom,pm-qos-active-latency",
 		&device->pwrctrl.pm_qos_active_latency))
@@ -1158,6 +1154,36 @@ static void adreno_cx_dbgc_probe(struct kgsl_device *device)
 		KGSL_DRV_WARN(device, "cx_dbgc ioremap failed\n");
 }
 
+static void adreno_efuse_read_soc_hw_rev(struct adreno_device *adreno_dev)
+{
+	unsigned int val;
+	unsigned int soc_hw_rev[3];
+	int ret;
+
+	if (of_property_read_u32_array(
+		KGSL_DEVICE(adreno_dev)->pdev->dev.of_node,
+		"qcom,soc-hw-rev-efuse", soc_hw_rev, 3))
+		return;
+
+	ret = adreno_efuse_map(adreno_dev);
+	if (ret) {
+		KGSL_CORE_ERR(
+			"Unable to map hardware revision fuse: ret=%d\n", ret);
+		return;
+	}
+
+	ret = adreno_efuse_read_u32(adreno_dev, soc_hw_rev[0], &val);
+	adreno_efuse_unmap(adreno_dev);
+
+	if (ret) {
+		KGSL_CORE_ERR(
+			"Unable to read hardware revision fuse: ret=%d\n", ret);
+		return;
+	}
+
+	adreno_dev->soc_hw_rev = (val >> soc_hw_rev[1]) & soc_hw_rev[2];
+}
+
 static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
 {
 	unsigned int row0;
@@ -1206,11 +1232,10 @@ static int adreno_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	status = adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
-	if (status) {
-		device->pdev = NULL;
-		return status;
-	}
+	/* Identify SOC hardware revision to be used */
+	adreno_efuse_read_soc_hw_rev(adreno_dev);
+
+	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	adreno_identify_gpu(adreno_dev);
@@ -2500,7 +2525,39 @@ int adreno_set_constraint(struct kgsl_device *device,
 				context->pwr_constraint.sub_type);
 		context->pwr_constraint.type = KGSL_CONSTRAINT_NONE;
 		break;
+	case KGSL_CONSTRAINT_L3_PWRLEVEL: {
+		struct kgsl_device_constraint_pwrlevel pwr;
 
+		if (constraint->size != sizeof(pwr)) {
+			status = -EINVAL;
+			break;
+		}
+
+		if (copy_from_user(&pwr, (void __user *)constraint->data,
+					sizeof(pwr))) {
+			status = -EFAULT;
+			break;
+		}
+		if (pwr.level >= KGSL_CONSTRAINT_PWR_MAXLEVELS)
+			pwr.level = KGSL_CONSTRAINT_PWR_MAXLEVELS-1;
+
+		context->l3_pwr_constraint.type = KGSL_CONSTRAINT_L3_PWRLEVEL;
+		context->l3_pwr_constraint.sub_type = pwr.level;
+		trace_kgsl_user_pwrlevel_constraint(device, context->id,
+			context->l3_pwr_constraint.type,
+			context->l3_pwr_constraint.sub_type);
+		}
+		break;
+	case KGSL_CONSTRAINT_L3_NONE: {
+		unsigned int type = context->l3_pwr_constraint.type;
+
+		if (type == KGSL_CONSTRAINT_L3_PWRLEVEL)
+			trace_kgsl_user_pwrlevel_constraint(device, context->id,
+				KGSL_CONSTRAINT_L3_NONE,
+				context->l3_pwr_constraint.sub_type);
+		context->l3_pwr_constraint.type = KGSL_CONSTRAINT_L3_NONE;
+		}
+		break;
 	default:
 		status = -EINVAL;
 		break;
@@ -2582,7 +2639,27 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 
 			status = adreno_set_constraint(device, context,
 								&constraint);
+			kgsl_context_put(context);
+		}
+		break;
+	case KGSL_PROP_L3_PWR_CONSTRAINT: {
+			struct kgsl_device_constraint constraint;
+			struct kgsl_context *context;
 
+			if (sizebytes != sizeof(constraint))
+				break;
+			if (copy_from_user(&constraint, value,
+				sizeof(constraint))) {
+				status = -EFAULT;
+				break;
+			}
+			context = kgsl_context_get_owner(dev_priv,
+							constraint.context_id);
+
+			if (context == NULL)
+				break;
+			status = adreno_set_constraint(device, context,
+							&constraint);
 			kgsl_context_put(context);
 		}
 		break;
@@ -3538,6 +3615,8 @@ static const struct kgsl_functable adreno_functable = {
 	.clk_set_options = adreno_clk_set_options,
 	.gpu_model = adreno_gpu_model,
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
+	.dispatcher_halt = adreno_dispatcher_halt,
+	.dispatcher_unhalt = adreno_dispatcher_unhalt,
 };
 
 static struct platform_driver adreno_platform_driver = {

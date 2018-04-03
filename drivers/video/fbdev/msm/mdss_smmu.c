@@ -17,17 +17,15 @@
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/iommu.h>
-#include <linux/qcom_iommu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/clk/msm-clk.h>
-
+#include <linux/module.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/of_platform.h>
 #include <linux/msm_dma_iommu_mapping.h>
 
-#include <linux/qcom_iommu.h>
 #include <asm/dma-iommu.h>
 #include "soc/qcom/secure_buffer.h"
 
@@ -37,6 +35,27 @@
 #include "mdss_debug.h"
 
 #define SZ_4G 0xF0000000
+
+#ifdef CONFIG_QCOM_IOMMU
+#include <linux/qcom_iommu.h>
+static inline struct bus_type *mdss_mmu_get_bus(struct device *dev)
+{
+	return msm_iommu_get_bus(dev);
+}
+static inline struct device *mdss_mmu_get_ctx(const char *name)
+{
+	return msm_iommu_get_ctx(name);
+}
+#else
+static inline struct bus_type *mdss_mmu_get_bus(struct device *dev)
+{
+	return &platform_bus_type;
+}
+static inline struct device *mdss_mmu_get_ctx(const char *name)
+{
+	return ERR_PTR(-ENODEV);
+}
+#endif
 
 static DEFINE_MUTEX(mdp_iommu_lock);
 
@@ -51,7 +70,7 @@ void mdss_iommu_unlock(void)
 }
 
 static int mdss_smmu_util_parse_dt_clock(struct platform_device *pdev,
-		struct dss_module_power *mp)
+		struct mdss_module_power *mp)
 {
 	u32 i = 0, rc = 0;
 	const char *clock_name;
@@ -67,7 +86,7 @@ static int mdss_smmu_util_parse_dt_clock(struct platform_device *pdev,
 
 	mp->num_clk = num_clk;
 	mp->clk_config = devm_kzalloc(&pdev->dev,
-			sizeof(struct dss_clk) * mp->num_clk, GFP_KERNEL);
+			sizeof(struct mdss_clk) * mp->num_clk, GFP_KERNEL);
 	if (!mp->clk_config) {
 		rc = -ENOMEM;
 		mp->num_clk = 0;
@@ -95,7 +114,7 @@ clk_err:
 }
 
 static int mdss_smmu_clk_register(struct platform_device *pdev,
-		struct dss_module_power *mp)
+		struct mdss_module_power *mp)
 {
 	int i, ret;
 	struct clk *clk;
@@ -123,7 +142,7 @@ static int mdss_smmu_enable_power(struct mdss_smmu_client *mdss_smmu,
 	bool enable)
 {
 	int rc = 0;
-	struct dss_module_power *mp;
+	struct mdss_module_power *mp;
 
 	if (!mdss_smmu)
 		return -EINVAL;
@@ -134,27 +153,27 @@ static int mdss_smmu_enable_power(struct mdss_smmu_client *mdss_smmu,
 		return 0;
 
 	if (enable) {
-		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, true);
+		rc = msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg, true);
 		if (rc) {
 			pr_err("vreg enable failed - rc:%d\n", rc);
 			goto end;
 		}
 		mdss_update_reg_bus_vote(mdss_smmu->reg_bus_clt,
 			VOTE_INDEX_LOW);
-		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, true);
+		rc = msm_mdss_enable_clk(mp->clk_config, mp->num_clk, true);
 		if (rc) {
 			pr_err("clock enable failed - rc:%d\n", rc);
 			mdss_update_reg_bus_vote(mdss_smmu->reg_bus_clt,
 				VOTE_INDEX_DISABLE);
-			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
+			msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg,
 				false);
 			goto end;
 		}
 	} else {
-		msm_dss_enable_clk(mp->clk_config, mp->num_clk, false);
+		msm_mdss_enable_clk(mp->clk_config, mp->num_clk, false);
 		mdss_update_reg_bus_vote(mdss_smmu->reg_bus_clt,
 			VOTE_INDEX_DISABLE);
-		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, false);
+		msm_mdss_enable_vreg(mp->vreg_config, mp->num_vreg, false);
 	}
 end:
 	return rc;
@@ -297,7 +316,7 @@ static int mdss_smmu_map_dma_buf_v2(struct dma_buf *dma_buf,
 	}
 	ATRACE_END("map_buffer");
 	*iova = table->sgl->dma_address;
-	*size = table->sgl->dma_length;
+	*size = sg_dma_len(table->sgl);
 	return 0;
 }
 
@@ -655,7 +674,10 @@ void mdss_smmu_device_create(struct device *dev)
 
 	parent = dev->of_node;
 	for_each_child_of_node(parent, child) {
-		if (is_mdss_smmu_compatible_device(child->name))
+		char name[MDSS_SMMU_COMPAT_STR_LEN] = {};
+
+		strlcpy(name, child->name, sizeof(name));
+		if (is_mdss_smmu_compatible_device(name))
 			of_platform_device_create(child, NULL, dev);
 	}
 }
@@ -704,8 +726,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	int rc = 0;
 	struct mdss_smmu_domain smmu_domain;
 	const struct of_device_id *match;
-	struct dss_module_power *mp;
-	int disable_htw = 1;
+	struct mdss_module_power *mp;
 	char name[MAX_CLIENT_NAME_LEN];
 	const __be32 *address = NULL, *size = NULL;
 
@@ -733,7 +754,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		 * For old iommu driver we query the context bank device
 		 * rather than getting it from dt.
 		 */
-		dev = msm_iommu_get_ctx(smmu_domain.ctx_name);
+		dev = mdss_mmu_get_ctx(smmu_domain.ctx_name);
 		if (!dev) {
 			pr_err("Invalid SMMU ctx for domain:%d\n",
 				smmu_domain.domain);
@@ -743,13 +764,13 @@ int mdss_smmu_probe(struct platform_device *pdev)
 
 	mdss_smmu = &mdata->mdss_smmu[smmu_domain.domain];
 	mp = &mdss_smmu->mp;
-	memset(mp, 0, sizeof(struct dss_module_power));
+	memset(mp, 0, sizeof(struct mdss_module_power));
 
 	if (of_find_property(pdev->dev.of_node,
 		"gdsc-mmagic-mdss-supply", NULL)) {
 
 		mp->vreg_config = devm_kzalloc(&pdev->dev,
-			sizeof(struct dss_vreg), GFP_KERNEL);
+			sizeof(struct mdss_vreg), GFP_KERNEL);
 		if (!mp->vreg_config)
 			return -ENOMEM;
 
@@ -758,7 +779,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		mp->num_vreg = 1;
 	}
 
-	rc = msm_dss_config_vreg(&pdev->dev, mp->vreg_config,
+	rc = msm_mdss_config_vreg(&pdev->dev, mp->vreg_config,
 		mp->num_vreg, true);
 	if (rc) {
 		pr_err("vreg config failed rc=%d\n", rc);
@@ -769,7 +790,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	if (rc) {
 		pr_err("smmu clk register failed for domain[%d] with err:%d\n",
 			smmu_domain.domain, rc);
-		msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
+		msm_mdss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
 			false);
 		return rc;
 	}
@@ -778,7 +799,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	mdss_smmu->reg_bus_clt = mdss_reg_bus_vote_client_create(name);
 	if (IS_ERR(mdss_smmu->reg_bus_clt)) {
 		pr_err("mdss bus client register failed\n");
-		msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
+		msm_mdss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
 			false);
 		return PTR_ERR(mdss_smmu->reg_bus_clt);
 	}
@@ -791,19 +812,12 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	}
 
 	mdss_smmu->mmu_mapping = arm_iommu_create_mapping(
-		msm_iommu_get_bus(dev), smmu_domain.start, smmu_domain.size);
+		mdss_mmu_get_bus(dev), smmu_domain.start, smmu_domain.size);
 	if (IS_ERR(mdss_smmu->mmu_mapping)) {
 		pr_err("iommu create mapping failed for domain[%d]\n",
 			smmu_domain.domain);
 		rc = PTR_ERR(mdss_smmu->mmu_mapping);
 		goto disable_power;
-	}
-
-	rc = iommu_domain_set_attr(mdss_smmu->mmu_mapping->domain,
-		DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
-	if (rc) {
-		pr_err("couldn't disable coherent HTW\n");
-		goto release_mapping;
 	}
 
 	if (smmu_domain.domain == MDSS_IOMMU_DOMAIN_SECURE ||
@@ -848,7 +862,7 @@ disable_power:
 bus_client_destroy:
 	mdss_reg_bus_vote_client_destroy(mdss_smmu->reg_bus_clt);
 	mdss_smmu->reg_bus_clt = NULL;
-	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
+	msm_mdss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
 			false);
 	return rc;
 }

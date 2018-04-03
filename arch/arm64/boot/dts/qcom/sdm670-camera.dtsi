@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -234,9 +234,7 @@
 		msm_cam_smmu_lrme {
 			compatible = "qcom,msm-cam-smmu-cb";
 			iommus = <&apps_smmu 0x1038 0x0>,
-				<&apps_smmu 0x1058 0x0>,
-				<&apps_smmu 0x1039 0x0>,
-				<&apps_smmu 0x1059 0x0>;
+				<&apps_smmu 0x1058 0x0>;
 			label = "lrme";
 			lrme_iova_mem_map: iova-mem-map {
 				iova-mem-region-shared {
@@ -338,11 +336,21 @@
 				};
 
 				iova-mem-region-io {
-					/* IO region is approximately 3.3 GB */
+					/* IO region is approximately 3 GB */
 					iova-region-name = "io";
-					iova-region-start = <0xd900000>;
-					iova-region-len = <0xd2700000>;
+					iova-region-start = <0xd911000>;
+					iova-region-len = <0xd26ef000>;
 					iova-region-id = <0x3>;
+					status = "ok";
+				};
+
+				iova-mem-qdss-region {
+					/* qdss region is approximately 64K */
+					iova-region-name = "qdss";
+					iova-region-start = <0xd900000>;
+					iova-region-len = <0x10000>;
+					iova-region-id = <0x5>;
+					qdss-phy-addr = <0x16790000>;
 					status = "ok";
 				};
 			};
@@ -393,13 +401,16 @@
 		label = "cpas";
 		arch-compat = "cpas_top";
 		status = "ok";
-		reg-names = "cam_cpas_top", "cam_camnoc";
+		reg-names = "cam_cpas_top", "cam_camnoc", "core_top_csr_tcsr";
 		reg = <0xac40000 0x1000>,
-			<0xac42000 0x5000>;
-		reg-cam-base = <0x40000 0x42000>;
+			<0xac42000 0x5000>,
+			<0x01fc0000 0x30000>;
+		reg-cam-base = <0x40000 0x42000 0x0>;
 		interrupt-names = "cpas_camnoc";
 		interrupts = <0 459 0>;
 		qcom,cpas-hw-ver = <0x170110>; /* Titan v170 v1.1.0 */
+		nvmem-cells = <&minor_rev>;
+		nvmem-cell-names = "minor_rev";
 		regulator-names = "camss-vdd";
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_ahb_clk",
@@ -892,7 +903,7 @@
 			<0 0 200000000 0 0 0 0 600000000>;
 		clock-cntl-level = "svs", "turbo";
 		fw_name = "CAMERA_ICP.elf";
-		ubwc-cfg = <0x77 0x1DF>;
+		ubwc-cfg = <0x73 0x1CF>;
 		status = "ok";
 	};
 
@@ -913,12 +924,12 @@
 				<&clock_camcc CAM_CC_IPE_0_CLK>,
 				<&clock_camcc CAM_CC_IPE_0_CLK_SRC>;
 
-		clock-rates = <0 0 0 0 240000000>,
+		clock-rates =
 			<0 0 0 0 404000000>,
 			<0 0 0 0 480000000>,
 			<0 0 0 0 538000000>,
 			<0 0 0 0 600000000>;
-		clock-cntl-level = "lowsvs", "svs",
+		clock-cntl-level = "svs",
 			"svs_l1", "nominal", "turbo";
 		status = "ok";
 	};
@@ -940,12 +951,12 @@
 				<&clock_camcc CAM_CC_IPE_1_CLK>,
 				<&clock_camcc CAM_CC_IPE_1_CLK_SRC>;
 
-		clock-rates = <0 0 0 0 240000000>,
+		clock-rates =
 			<0 0 0 0 404000000>,
 			<0 0 0 0 480000000>,
 			<0 0 0 0 538000000>,
 			<0 0 0 0 600000000>;
-		clock-cntl-level = "lowsvs", "svs",
+		clock-cntl-level = "svs",
 			"svs_l1", "nominal", "turbo";
 		status = "ok";
 	};
@@ -967,12 +978,12 @@
 				<&clock_camcc CAM_CC_BPS_CLK>,
 				<&clock_camcc CAM_CC_BPS_CLK_SRC>;
 
-		clock-rates = <0 0 0 0 200000000>,
+		clock-rates =
 			<0 0 0 0 404000000>,
 			<0 0 0 0 480000000>,
 			<0 0 0 0 600000000>,
 			<0 0 0 0 600000000>;
-		clock-cntl-level = "lowsvs", "svs",
+		clock-cntl-level = "svs",
 			"svs_l1", "nominal", "turbo";
 		status = "ok";
 	};

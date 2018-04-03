@@ -664,6 +664,7 @@ extern wait_queue_head_t usb_kill_urb_queue;
 
 #define usb_endpoint_out(ep_dir)	(!((ep_dir) & USB_DIR_IN))
 
+#ifdef CONFIG_USB
 #ifdef CONFIG_PM
 extern void usb_root_hub_lost_power(struct usb_device *rhdev);
 extern int hcd_bus_suspend(struct usb_device *rhdev, pm_message_t msg);
@@ -675,7 +676,15 @@ static inline void usb_hcd_resume_root_hub(struct usb_hcd *hcd)
 	return;
 }
 #endif /* CONFIG_PM */
-
+#else  /* CONFIG_USB */
+extern int usb_add_hcd(struct usb_hcd *hcd,
+		unsigned int irqnum, unsigned long irqflags)
+{
+	return 0;
+}
+extern void usb_remove_hcd(struct usb_hcd *hcd) {}
+extern void usb_hcd_resume_root_hub(struct usb_hcd *hcd) {}
+#endif /* CONFIG_USB */
 /*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)

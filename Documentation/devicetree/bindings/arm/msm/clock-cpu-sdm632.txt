@@ -1,0 +1,94 @@
+Qualcomm Technologies, Inc SDM632 CPU clock driver
+
+clock-cpu-sdm632 is a device that represents the SDM632 CPU subystem clock
+tree. It lists the various power supplies that need to be scaled when the
+clocks are scaled and also other HW specific parameters like fmax tables etc.
+
+The root clock generator could have the ramp controller in built.
+Ramp control will allow programming the sequence ID for pulse swallowing,
+enable sequence and for linking sequence IDs.
+
+Required properties:
+- compatible:		Must be "qcom,clock-cpu-sdm632".
+
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are:
+			"apcs-c1-pll-base", "apcs-c0-pll-base",
+			"apcs-cci-pll-base", "apcs-c1-rcg-base",
+			"apcs-c0-rcg-base", "apcs-cci-rcg-base",
+			"efuse", "rcgwr-c0-base(optional)",
+			"rcgwr-c1-base(optional)".
+- clocks:		The clocks sources used by the cluster/cci mux.
+- clock-names:		Name of the clocks for the above clocks.
+- vdd-mx-supply:	The regulator powering all the PLLs of clusters & cci.
+- vdd-c0-supply:	The regulator powering the cluster 0.
+- vdd-c1-supply:	The regulator powering the cluster 1.
+- vdd-cci-supply:	The regulator powering the CCI cluster.
+
+- qcom,speedX-bin-vY-ZZZ:
+			A table of CPU frequency (Hz) to voltage (corner)
+			mapping that represents the max frequency possible
+			for each supported voltage level for a CPU. 'X' is
+			the speed bin into which the device falls into - a
+			bin will have unique frequency-voltage relationships.
+			'Y' is the characterization version, implying that
+			characterization (deciding what speed bin a device
+			falls into) methods and/or encoding may change. The
+			values 'X' and 'Y' are read from efuse registers, and
+			the right table is picked from multiple possible tables.
+			'ZZZ' can be cl for(c0 & c1) or cci depending on whether
+			the table for the clusters or cci.
+
+Example:
+	clock_cpu {
+		compatible = "qcom,cpu-clock-sdm632";
+		reg =   <0xb114000  0x68>,
+			<0xb014000  0x68>,
+			<0xb016000  0x8>,
+			<0xb116000  0x8>,
+			<0xb1d0000  0x8>,
+			<0xb011050  0x8>,
+			<0xb111050  0x8>,
+			<0xb1d1050  0x8>,
+			<0x00a412c  0x8>;
+		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
+			    "apcs-c1-pll-base", "apcs-c0-pll-base",
+			    "apcs-cci-pll-base", "apcs-c1-rcg-base",
+			    "apcs-c0-rcg-base", "apcs-cci-rcg-base",
+			    "efuse";
+		qcom,num-clusters = <2>;
+		vdd-mx-supply = <&pm8953_s7_level_ao>;
+		vdd-c0-supply = <&apc_vreg_corner>;
+		vdd-c1-supply = <&apc_vreg_corner>;
+		vdd-cci-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_xo_a_clk_src>;
+		clock-names = "xo_a";
+		qcom,speed0-bin-v0-c0 =
+			<          0 0>,
+			<   614400000 1>,
+			<   883200000 2>,
+			<  1036200000 3>,
+			<  1363200000 4>,
+			<  1563000000 5>,
+			<  1670400000 6>,
+			<  1785600000 7>;
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<   633600000 1>,
+			<   902400000 2>,
+			<  1094400000 3>,
+			<  1401600000 4>,
+			<  1555200000 5>,
+			<  1785600000 6>;
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  307200000 1>,
+			<  403200000 2>,
+			<  499200000 3>,
+			<  691200000 4>,
+			<  768000000 5>,
+			<  787200000 6>;
+		#clock-cells = <1>;
+	};

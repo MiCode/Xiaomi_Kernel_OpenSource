@@ -9,6 +9,7 @@
 #define MAX_ROI_SIZE		144
 #define MAX_ACCEL_SIZE		128
 
+#define HBTP_FLAG_ACTIVE_BLOB      0x01
 #define HBTP_EVENT_TYPE_DISPLAY	"EVENT_TYPE=HBTP_DISPLAY"
 
 struct hbtp_input_touch {
@@ -31,6 +32,13 @@ struct hbtp_input_mt {
 	__s32 num_touches;
 	struct hbtp_input_touch touches[HBTP_MAX_FINGER];
 	struct timeval time_val;
+};
+
+struct hbtp_input_mt_ext {
+	__s32  num_touches;
+	struct hbtp_input_touch touches[HBTP_MAX_FINGER];
+	struct timeval time_val;
+	__u32  flag;
 };
 
 struct hbtp_input_absinfo {
@@ -77,6 +85,8 @@ enum hbtp_afe_power_ctrl {
 					enum hbtp_afe_power_ctrl)
 #define HBTP_SET_SENSORDATA	_IOW(HBTP_INPUT_IOCTL_BASE, 207, \
 					struct hbtp_sensor_data)
+#define HBTP_SET_TOUCHDATA_EXT	_IOW(HBTP_INPUT_IOCTL_BASE, 208, \
+					struct hbtp_input_mt_ext)
 
 #endif	/* _UAPI_HBTP_INPUT_H */
 

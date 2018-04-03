@@ -61,6 +61,7 @@ static const struct adreno_vbif_data a615_gbif[] = {
 static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a630, a630_vbif },
 	{ adreno_is_a615, a615_gbif },
+	{ adreno_is_a616, a615_gbif },
 };
 
 
@@ -251,6 +252,7 @@ static const struct {
 } a6xx_hwcg_registers[] = {
 	{adreno_is_a630, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)},
 	{adreno_is_a615, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
+	{adreno_is_a616, a615_hwcg_regs, ARRAY_SIZE(a615_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -499,7 +501,7 @@ static void a6xx_enable_64bit(struct adreno_device *adreno_dev)
 static inline unsigned int
 __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
 		return 0x8AA8AA82;
 	else
 		return 0x8AA8AA02;
@@ -508,16 +510,16 @@ __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 static inline unsigned int
 __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
 		return 0x00000222;
 	else
-		return 0x00020222;
+		return 0x00020202;
 }
 
 static inline unsigned int
 __get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
 		return 0x00000111;
 	else
 		return 0x00010111;
@@ -526,7 +528,7 @@ __get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
 static inline unsigned int
 __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a615(adreno_dev))
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev))
 		return 0x00000555;
 	else
 		return 0x00005555;
@@ -643,7 +645,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		+ sizeof(a6xx_ifpc_pwrup_reglist), a6xx_pwrup_reglist,
 		sizeof(a6xx_pwrup_reglist));
 
-	if (adreno_is_a615(adreno_dev)) {
+	if (adreno_is_a615(adreno_dev) || adreno_is_a616(adreno_dev)) {
 		for (i = 0; i < ARRAY_SIZE(a615_pwrup_reglist); i++) {
 			r = &a615_pwrup_reglist[i];
 			kgsl_regread(KGSL_DEVICE(adreno_dev),
@@ -791,13 +793,14 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 			0x1);
 
+	a6xx_protect_init(adreno_dev);
+
 	if (!patch_reglist && (adreno_dev->pwrup_reglist.gpuaddr != 0)) {
 		a6xx_patch_pwrup_reglist(adreno_dev);
 		patch_reglist = true;
 	}
 
 	a6xx_preemption_start(adreno_dev);
-	a6xx_protect_init(adreno_dev);
 
 	/*
 	 * We start LM here because we want all the following to be up
@@ -1273,7 +1276,7 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	wmb();
 }
 
-#define GMU_START_TIMEOUT	10	/* ms */
+#define GMU_START_TIMEOUT	100	/* ms */
 #define GPU_START_TIMEOUT	100	/* ms */
 #define GPU_RESET_TIMEOUT	1	/* ms */
 #define GPU_RESET_TIMEOUT_US	10	/* us */
@@ -1389,6 +1392,7 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 
+	kgsl_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG, 0x0);
 	/* Write 1 first to make sure the GMU is reset */
 	kgsl_gmu_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
 
@@ -2031,17 +2035,17 @@ static int a6xx_wait_for_gmu_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
-	unsigned int status, status2;
+	unsigned int status2;
+	uint64_t ts1;
 
+	ts1 = read_AO_counter(device);
 	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
 			0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
 		kgsl_gmu_regread(device,
-				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &status);
-		kgsl_gmu_regread(device,
 				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS2, &status2);
 		dev_err(&gmu->pdev->dev,
-				"GMU not idling: status=0x%x, status2=0x%x\n",
-				status, status2);
+				"GMU not idling: status2=0x%x %llx %llx\n",
+				status2, ts1, read_AO_counter(device));
 		return -ETIMEDOUT;
 	}
 
@@ -3585,6 +3589,7 @@ static const struct {
 	void (*func)(struct adreno_device *adreno_dev);
 } a6xx_efuse_funcs[] = {
 	{ adreno_is_a615, a6xx_efuse_speed_bin },
+	{ adreno_is_a616, a6xx_efuse_speed_bin },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3167,52 +3167,53 @@ int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
 EXPORT_SYMBOL(ipa_get_smmu_params);
 
 /**
- * ipa_conn_wdi3_pipes() - connect wdi3 pipes
+ * ipa_conn_wdi_pipes() - connect wdi pipes
  */
-int ipa_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
-	struct ipa_wdi3_conn_out_params *out)
+int ipa_conn_wdi_pipes(struct ipa_wdi_conn_in_params *in,
+	struct ipa_wdi_conn_out_params *out,
+	ipa_wdi_meter_notifier_cb wdi_notify)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_conn_wdi3_pipes, in, out);
+	IPA_API_DISPATCH_RETURN(ipa_conn_wdi_pipes, in, out, wdi_notify);
 
 	return ret;
 }
 
 /**
- * ipa_disconn_wdi3_pipes() - disconnect wdi3 pipes
+ * ipa_disconn_wdi_pipes() - disconnect wdi pipes
  */
-int ipa_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+int ipa_disconn_wdi_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_disconn_wdi3_pipes, ipa_ep_idx_tx,
+	IPA_API_DISPATCH_RETURN(ipa_disconn_wdi_pipes, ipa_ep_idx_tx,
 		ipa_ep_idx_rx);
 
 	return ret;
 }
 
 /**
- * ipa_enable_wdi3_pipes() - enable wdi3 pipes
+ * ipa_enable_wdi_pipes() - enable wdi pipes
  */
-int ipa_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+int ipa_enable_wdi_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_enable_wdi3_pipes, ipa_ep_idx_tx,
+	IPA_API_DISPATCH_RETURN(ipa_enable_wdi_pipes, ipa_ep_idx_tx,
 		ipa_ep_idx_rx);
 
 	return ret;
 }
 
 /**
- * ipa_disable_wdi3_pipes() - disable wdi3 pipes
+ * ipa_disable_wdi_pipes() - disable wdi pipes
  */
-int ipa_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
+int ipa_disable_wdi_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_disable_wdi3_pipes, ipa_ep_idx_tx,
+	IPA_API_DISPATCH_RETURN(ipa_disable_wdi_pipes, ipa_ep_idx_tx,
 		ipa_ep_idx_rx);
 
 	return ret;
@@ -3226,6 +3227,18 @@ int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 	int ret;
 
 	IPA_API_DISPATCH_RETURN(ipa_tz_unlock_reg, reg_info, num_regs);
+
+	return ret;
+}
+
+/**
+ * ipa_pm_is_used() - Returns if IPA PM framework is used
+ */
+bool ipa_pm_is_used(void)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_pm_is_used);
 
 	return ret;
 }

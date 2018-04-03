@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,7 +171,7 @@ static DEVICE_ATTR(__attr, 0644, show_list_##__attr, store_list_##__attr)
 #define MAX_MS	500U
 
 /* Returns MBps of read/writes for the sampling window. */
-static unsigned int bytes_to_mbps(long long bytes, unsigned int us)
+static unsigned long bytes_to_mbps(unsigned long long bytes, unsigned int us)
 {
 	bytes *= USEC_PER_SEC;
 	do_div(bytes, us);

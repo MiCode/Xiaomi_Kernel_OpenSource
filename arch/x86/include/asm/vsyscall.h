@@ -21,5 +21,6 @@ static inline bool emulate_vsyscall(struct pt_regs *regs, unsigned long address)
 }
 static inline bool vsyscall_enabled(void) { return false; }
 #endif
+extern unsigned long vsyscall_pgprot;
 
 #endif /* _ASM_X86_VSYSCALL_H */

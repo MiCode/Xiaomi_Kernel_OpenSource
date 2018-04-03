@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1274,10 +1274,10 @@ static int i2c_msm_dma_xfer_process(struct i2c_msm_ctrl *ctrl)
 						tx->dir,
 						(SPS_IOVEC_FLAG_EOT |
 							SPS_IOVEC_FLAG_NWD));
-	if (dma_desc_tx < 0) {
+	if (IS_ERR_OR_NULL(dma_desc_tx)) {
 		dev_err(ctrl->dev, "error dmaengine_prep_slave_sg tx:%ld\n",
 							PTR_ERR(dma_desc_tx));
-		ret = PTR_ERR(dma_desc_tx);
+		ret = dma_desc_tx ? PTR_ERR(dma_desc_tx) : -ENOMEM;
 		goto dma_xfer_end;
 	}
 
@@ -1292,11 +1292,11 @@ static int i2c_msm_dma_xfer_process(struct i2c_msm_ctrl *ctrl)
 					sg_rx_itr - sg_rx, rx->dir,
 					(SPS_IOVEC_FLAG_EOT |
 							SPS_IOVEC_FLAG_NWD));
-	if (dma_desc_rx < 0) {
+	if (IS_ERR_OR_NULL(dma_desc_rx)) {
 		dev_err(ctrl->dev,
 			"error dmaengine_prep_slave_sg rx:%ld\n",
 						PTR_ERR(dma_desc_rx));
-		ret = PTR_ERR(dma_desc_rx);
+		ret = dma_desc_rx ? PTR_ERR(dma_desc_rx) : -ENOMEM;
 		goto dma_xfer_end;
 	}
 
@@ -3027,7 +3027,7 @@ static int i2c_msm_init(void)
 {
 	return platform_driver_register(&i2c_msm_driver);
 }
-arch_initcall(i2c_msm_init);
+subsys_initcall(i2c_msm_init);
 
 static void i2c_msm_exit(void)
 {

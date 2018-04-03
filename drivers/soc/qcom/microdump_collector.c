@@ -41,7 +41,7 @@ static int microdump_modem_notifier_nb(struct notifier_block *nb,
 	unsigned int smem_id = 611;
 	struct ramdump_segment segment[2];
 
-	if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
+	if (SUBSYS_RAMDUMP_NOTIFICATION == code || SUBSYS_SOC_RESET == code) {
 
 		memset(segment, 0, sizeof(segment));
 

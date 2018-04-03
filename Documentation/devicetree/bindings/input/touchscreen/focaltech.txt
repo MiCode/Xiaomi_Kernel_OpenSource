@@ -1,0 +1,5 @@
+FocalTech touch controller
+
+Required properties:
+
+ - compatible			: Should be "focaltech,5x06"

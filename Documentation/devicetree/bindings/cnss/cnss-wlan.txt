@@ -36,6 +36,8 @@ Optional properties:
                               always on regulator in VDDmin.
   - vdd-wlan-core-supply: phandle to the 1.3V CORE regulator for QCA6174
   - vdd-wlan-sp2t-supply: phandle to the 2.7V SP2T regulator for QCA6174
+  - qcom,smmu-s1-enable: Boolean property to decide whether to enable SMMU
+                         S1 stage or not
   - qcom,wlan-smmu-iova-address: I/O virtual address range as <start length>
                                  format to be used for allocations associated
                                  between WLAN/PCIe and SMMU

@@ -47,36 +47,39 @@ Example:
 Legacy SMMU v1/v2:
 
 Required properties:
-- compatible : Must be "qcom,msm-fastprc-legacy-compute-cb"
+- compatible : Must be "qcom,msm-fastrpc-legacy-compute"
 
 Required subnode:
 - qcom,msm_fastrpc_compute_cb : Child nodes representing the compute context
                                 banks
 
 Required subnode properties:
-- qcom,adsp-shared-phandle: phandle that describe the context bank handle
-- qcom,adsp-shared-sids : A list of SID associated with the context bank
-- qcom,virtual-addr-pool : Virtual address range that the context bank
-                           will be using
+- compatible : Must be "qcom,msm-fastrpc-legacy-compute-cb"
+- label	     : Label describing the channel this context bank belongs to
+- iommus     : A list of phandle and IOMMU specifier pairs that describe the
+			IOMMU master interfaces of the device
+- sids       : A list of SID associated with the context bank
 
 Example:
-        qcom,adsprpc_domains {
-                compatible = "qcom,msm-fastrpc-legacy-compute-cb";
-                qcom,msm_fastrpc_compute_cb {
-                       qcom,adsp-shared-phandle = <&adsp_shared>;
-                       qcom,adsp-shared-sids = <0x8 0x9>;
-                       qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
-                };
-        };
-
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-legacy-compute";
+		qcom,msm_fastrpc_compute_cb {
+			compatible = "qcom,msm-fastrpc-legacy-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_iommu 0x2408 0x7>;
+			sids = <0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf>;
+		};
+	};
 Remote Heap:
 
 Required properties:
 - compatible : Must be "qcom,msm-adsprpc-mem-region"
 - memory-region : CMA region which is owned by this device
+- restrict-access : Blocking vote for hyp_assign_phys function call
 
 Example:
        qcom,adsprpc-mem {
                compatible = "qcom,msm-adsprpc-mem-region";
                memory-region = <&adsp_mem>;
+               restrict-access;
        };

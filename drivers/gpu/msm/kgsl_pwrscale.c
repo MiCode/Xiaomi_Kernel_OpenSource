@@ -892,12 +892,6 @@ static int opp_notify(struct notifier_block *nb,
 		return PTR_ERR(opp);
 	}
 
-	max_freq = dev_pm_opp_get_freq(opp);
-	if (!max_freq) {
-		rcu_read_unlock();
-		return result;
-	}
-
 	opp = dev_pm_opp_find_freq_ceil(dev, &min_freq);
 	if (IS_ERR(opp))
 		min_freq = pwr->pwrlevels[pwr->min_pwrlevel].gpu_freq;
@@ -910,12 +904,12 @@ static int opp_notify(struct notifier_block *nb,
 	min_level = pwr->thermal_pwrlevel_floor;
 
 	/* Thermal limit cannot be lower than lowest non-zero operating freq */
-	for (level = 0; level < (pwr->num_pwrlevels - 1); level++)
+	for (level = 0; level < (pwr->num_pwrlevels - 1); level++) {
 		if (pwr->pwrlevels[level].gpu_freq == max_freq)
 			max_level = level;
 		if (pwr->pwrlevels[level].gpu_freq == min_freq)
 			min_level = level;
-
+	}
 
 	pwr->thermal_pwrlevel = max_level;
 	pwr->thermal_pwrlevel_floor = min_level;
@@ -1039,24 +1033,12 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	data->disable_busy_time_burst = of_property_read_bool(
 		device->pdev->dev.of_node, "qcom,disable-busy-time-burst");
 
-	data->ctxt_aware_enable =
-		of_property_read_bool(device->pdev->dev.of_node,
-			"qcom,enable-ca-jump");
-
-	if (data->ctxt_aware_enable) {
-		if (of_property_read_u32(device->pdev->dev.of_node,
-				"qcom,ca-target-pwrlevel",
-				&data->bin.ctxt_aware_target_pwrlevel))
-			data->bin.ctxt_aware_target_pwrlevel = 1;
-
-		if ((data->bin.ctxt_aware_target_pwrlevel >
-						pwr->num_pwrlevels))
-			data->bin.ctxt_aware_target_pwrlevel = 1;
-
-		if (of_property_read_u32(device->pdev->dev.of_node,
-				"qcom,ca-busy-penalty",
-				&data->bin.ctxt_aware_busy_penalty))
-			data->bin.ctxt_aware_busy_penalty = 12000;
+	if (pwrscale->ctxt_aware_enable) {
+		data->ctxt_aware_enable = pwrscale->ctxt_aware_enable;
+		data->bin.ctxt_aware_target_pwrlevel =
+			pwrscale->ctxt_aware_target_pwrlevel;
+		data->bin.ctxt_aware_busy_penalty =
+			pwrscale->ctxt_aware_busy_penalty;
 	}
 
 	if (of_property_read_bool(device->pdev->dev.of_node,

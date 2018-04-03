@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,54 @@
 / {
 	model = "Qualcomm Technologies, Inc. QCS605";
 	qcom,msm-id = <347 0x0>;
+};
+
+&pil_modem_mem {
+	reg = <0 0x8b000000 0 0x3e00000>;
+};
+
+&pil_video_mem {
+	reg = <0 0x8ee00000 0 0x500000>;
+};
+
+&wlan_msa_mem {
+	reg = <0 0x8f300000 0 0x100000>;
+};
+
+&pil_cdsp_mem {
+	reg = <0 0x8f400000 0 0x800000>;
+};
+
+&pil_mba_mem {
+	reg = <0 0x8fc00000 0 0x200000>;
+};
+
+&pil_adsp_mem {
+	reg = <0 0x8fe00000 0 0x1e00000>;
+};
+
+&pil_ipa_fw_mem {
+	reg = <0 0x91c00000 0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+	reg = <0 0x91c10000 0 0x5000>;
+};
+
+&pil_gpu_mem {
+	reg = <0 0x91c15000 0 0x2000>;
+};
+
+&adsp_mem {
+	size = <0 0x800000>;
+};
+
+&secure_display_memory {
+	status = "disabled";
+};
+
+&sp_mem {
+	status = "disabled";
 };
 
 &soc {
@@ -46,4 +94,8 @@
 			};
 		};
 	};
+};
+
+&msm_gpu {
+	/delete-node/qcom,gpu-mempools;
 };

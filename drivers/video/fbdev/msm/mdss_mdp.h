@@ -648,7 +648,6 @@ struct mdss_mdp_ctl {
 
 	/* vsync handler for FRC */
 	struct mdss_mdp_vsync_handler frc_vsync_handler;
-	bool commit_in_progress;
 };
 
 struct mdss_mdp_mixer {
@@ -1010,7 +1009,6 @@ struct mdss_overlay_private {
 	u32 splash_mem_size;
 	u32 sd_enabled;
 
-	struct sw_sync_timeline *vsync_timeline;
 	struct mdss_mdp_vsync_handler vsync_retire_handler;
 	int retire_cnt;
 	bool kickoff_released;

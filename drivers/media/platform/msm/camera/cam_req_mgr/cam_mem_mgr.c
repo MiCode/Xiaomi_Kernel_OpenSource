@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -377,7 +377,8 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 		heap_id = ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID);
 		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_CAMERA;
 	} else {
-		heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID);
+		heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID) |
+			ION_HEAP(ION_CAMERA_HEAP_ID);
 	}
 
 	if (cmd->flags & CAM_MEM_FLAG_CACHE)
@@ -761,7 +762,7 @@ static int cam_mem_mgr_cleanup_table(void)
 				"Buffer inactive at idx=%d, continuing", i);
 			continue;
 		} else {
-			CAM_INFO(CAM_CRM,
+			CAM_DBG(CAM_CRM,
 			"Active buffer at idx=%d, possible leak needs unmapping",
 			i);
 			cam_mem_mgr_unmap_active_buf(i);
@@ -947,7 +948,8 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 	else
 		ion_flag &= ~ION_FLAG_CACHED;
 
-	heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID);
+	heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID) |
+		ION_HEAP(ION_CAMERA_HEAP_ID);
 
 	rc = cam_mem_util_get_dma_buf(inp->size,
 		inp->align,
@@ -1111,7 +1113,8 @@ int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
 		return -EINVAL;
 	}
 
-	heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID);
+	heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID) |
+		ION_HEAP(ION_CAMERA_HEAP_ID);
 	rc = cam_mem_util_get_dma_buf(inp->size,
 		inp->align,
 		heap_id,

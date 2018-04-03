@@ -224,6 +224,7 @@
 			qcom,sde-dspp-pcc = <0x1700 0x00040000>;
 			qcom,sde-dspp-gc = <0x17c0 0x00010008>;
 			qcom,sde-dspp-hist = <0x800 0x00010007>;
+			qcom,sde-dspp-dither = <0x82c 0x00010007>;
 		};
 
 		qcom,platform-supply-entries {
@@ -398,7 +399,7 @@
 		qcom,mdss-inline-rot-safe-lut = <0x0000f000 0x0000ff00>;
 
 		qcom,mdss-rot-qos-cpu-mask = <0xf>;
-		qcom,mdss-rot-qos-cpu-dma-latency = <75>;
+		qcom,mdss-rot-qos-cpu-dma-latency = <67>;
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;

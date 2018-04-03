@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,34 +16,20 @@
 #define IPA_HW_WDI3_TX_MBOX_START_INDEX 50
 
 static int ipa3_send_wdi3_setup_pipe_cmd(
-	struct ipa_wdi3_setup_info *info, u8 dir)
+	u8 is_smmu_enabled, struct ipa_wdi_pipe_setup_info *info,
+	struct ipa_wdi_pipe_setup_info_smmu *info_smmu, u8 dir)
 {
 	int ipa_ep_idx;
-	int result = 0;
+	int result = 0, len;
+	unsigned long va;
 	struct ipa_mem_buffer cmd;
 	struct IpaHwWdi3SetUpCmdData_t *wdi3_params;
 	struct IpaHwOffloadSetUpCmdData_t *cmd_data;
 
-	if (info == NULL) {
+	if (info == NULL || info_smmu == NULL) {
 		IPAERR("invalid input\n");
 		return -EINVAL;
 	}
-
-	ipa_ep_idx = ipa_get_ep_mapping(info->client);
-	if (ipa_ep_idx == -1) {
-		IPAERR("fail to get ep idx.\n");
-		return -EFAULT;
-	}
-
-	IPADBG("client=%d ep=%d\n", info->client, ipa_ep_idx);
-	IPADBG("ring_base_pa = 0x%pad\n", &info->transfer_ring_base_pa);
-	IPADBG("ring_size = %hu\n", info->transfer_ring_size);
-	IPADBG("ring_db_pa = 0x%pad\n", &info->transfer_ring_doorbell_pa);
-	IPADBG("evt_ring_base_pa = 0x%pad\n", &info->event_ring_base_pa);
-	IPADBG("evt_ring_size = %hu\n", info->event_ring_size);
-	IPADBG("evt_ring_db_pa = 0x%pad\n", &info->event_ring_doorbell_pa);
-	IPADBG("num_pkt_buffers = %hu\n", info->num_pkt_buffers);
-	IPADBG("pkt_offset = %d\n", info->pkt_offset);
 
 	cmd.size = sizeof(*cmd_data);
 	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
@@ -56,29 +42,177 @@ static int ipa3_send_wdi3_setup_pipe_cmd(
 	cmd_data = (struct IpaHwOffloadSetUpCmdData_t *)cmd.base;
 	cmd_data->protocol = IPA_HW_FEATURE_WDI3;
 
-	wdi3_params = &cmd_data->SetupCh_params.Wdi3SetupCh_params;
-	wdi3_params->transfer_ring_base_pa = (u32)info->transfer_ring_base_pa;
-	wdi3_params->transfer_ring_base_pa_hi =
-		(u32)((u64)info->transfer_ring_base_pa >> 32);
-	wdi3_params->transfer_ring_size = info->transfer_ring_size;
-	wdi3_params->transfer_ring_doorbell_pa =
-		(u32)info->transfer_ring_doorbell_pa;
-	wdi3_params->transfer_ring_doorbell_pa_hi =
-		(u32)((u64)info->transfer_ring_doorbell_pa >> 32);
-	wdi3_params->event_ring_base_pa = (u32)info->event_ring_base_pa;
-	wdi3_params->event_ring_base_pa_hi =
-		(u32)((u64)info->event_ring_base_pa >> 32);
-	wdi3_params->event_ring_size = info->event_ring_size;
-	wdi3_params->event_ring_doorbell_pa =
-		(u32)info->event_ring_doorbell_pa;
-	wdi3_params->event_ring_doorbell_pa_hi =
-		(u32)((u64)info->event_ring_doorbell_pa >> 32);
-	wdi3_params->num_pkt_buffers = info->num_pkt_buffers;
-	wdi3_params->ipa_pipe_number = ipa_ep_idx;
-	wdi3_params->dir = dir;
-	wdi3_params->pkt_offset = info->pkt_offset;
-	memcpy(wdi3_params->desc_format_template, info->desc_format_template,
-		sizeof(wdi3_params->desc_format_template));
+	if (!is_smmu_enabled) {
+		ipa_ep_idx = ipa_get_ep_mapping(info->client);
+		if (ipa_ep_idx == -1) {
+			IPAERR("fail to get ep idx.\n");
+			return -EFAULT;
+		}
+
+		IPADBG("client=%d ep=%d\n", info->client, ipa_ep_idx);
+		IPADBG("ring_base_pa = 0x%pad\n", &info->transfer_ring_base_pa);
+		IPADBG("ring_size = %hu\n", info->transfer_ring_size);
+		IPADBG("ring_db_pa = 0x%pad\n",
+			&info->transfer_ring_doorbell_pa);
+		IPADBG("evt_ring_base_pa = 0x%pad\n",
+			&info->event_ring_base_pa);
+		IPADBG("evt_ring_size = %hu\n", info->event_ring_size);
+		IPADBG("evt_ring_db_pa = 0x%pad\n",
+			&info->event_ring_doorbell_pa);
+		IPADBG("num_pkt_buffers = %hu\n", info->num_pkt_buffers);
+		IPADBG("pkt_offset = %d\n", info->pkt_offset);
+
+		wdi3_params = &cmd_data->SetupCh_params.Wdi3SetupCh_params;
+		wdi3_params->transfer_ring_base_pa =
+			(u32)info->transfer_ring_base_pa;
+		wdi3_params->transfer_ring_base_pa_hi =
+			(u32)((u64)info->transfer_ring_base_pa >> 32);
+		wdi3_params->transfer_ring_size = info->transfer_ring_size;
+		wdi3_params->transfer_ring_doorbell_pa =
+			(u32)info->transfer_ring_doorbell_pa;
+		wdi3_params->transfer_ring_doorbell_pa_hi =
+			(u32)((u64)info->transfer_ring_doorbell_pa >> 32);
+		wdi3_params->event_ring_base_pa = (u32)info->event_ring_base_pa;
+		wdi3_params->event_ring_base_pa_hi =
+			(u32)((u64)info->event_ring_base_pa >> 32);
+		wdi3_params->event_ring_size = info->event_ring_size;
+		wdi3_params->event_ring_doorbell_pa =
+			(u32)info->event_ring_doorbell_pa;
+		wdi3_params->event_ring_doorbell_pa_hi =
+			(u32)((u64)info->event_ring_doorbell_pa >> 32);
+		wdi3_params->num_pkt_buffers = info->num_pkt_buffers;
+		wdi3_params->ipa_pipe_number = ipa_ep_idx;
+		wdi3_params->dir = dir;
+		wdi3_params->pkt_offset = info->pkt_offset;
+		memcpy(wdi3_params->desc_format_template,
+			info->desc_format_template,
+			sizeof(wdi3_params->desc_format_template));
+	} else {
+		ipa_ep_idx = ipa_get_ep_mapping(info_smmu->client);
+		if (ipa_ep_idx == -1) {
+			IPAERR("fail to get ep idx\n");
+			return -EFAULT;
+		}
+
+		IPADBG("client=%d ep=%d\n", info_smmu->client, ipa_ep_idx);
+		IPADBG("ring_size = %hu\n", info_smmu->transfer_ring_size);
+		IPADBG("ring_db_pa = 0x%pad\n",
+			&info_smmu->transfer_ring_doorbell_pa);
+		IPADBG("evt_ring_size = %hu\n", info_smmu->event_ring_size);
+		IPADBG("evt_ring_db_pa = 0x%pad\n",
+			&info_smmu->event_ring_doorbell_pa);
+		IPADBG("num_pkt_buffers = %hu\n", info_smmu->num_pkt_buffers);
+		IPADBG("pkt_offset = %d\n", info_smmu->pkt_offset);
+
+		wdi3_params = &cmd_data->SetupCh_params.Wdi3SetupCh_params;
+
+		if (dir == IPA_WDI3_TX_DIR) {
+			len = info_smmu->transfer_ring_size;
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
+				true, info->transfer_ring_base_pa,
+				&info_smmu->transfer_ring_base, len,
+				false, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				return -EFAULT;
+			}
+			wdi3_params->transfer_ring_base_pa = (u32)va;
+			wdi3_params->transfer_ring_base_pa_hi =
+				(u32)((u64)va >> 32);
+			wdi3_params->transfer_ring_size = len;
+
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_TX_DB_RES,
+				true, info_smmu->transfer_ring_doorbell_pa,
+				NULL, 4, true, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				return -EFAULT;
+			}
+			wdi3_params->transfer_ring_doorbell_pa =
+				(u32)va;
+			wdi3_params->transfer_ring_doorbell_pa_hi =
+				(u32)((u64)va >> 32);
+
+			len = info_smmu->event_ring_size;
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
+				true, info->event_ring_base_pa,
+				&info_smmu->event_ring_base, len,
+				false, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				return -EFAULT;
+			}
+			wdi3_params->event_ring_base_pa = (u32)va;
+			wdi3_params->event_ring_base_pa_hi =
+				(u32)((u64)va >> 32);
+			wdi3_params->event_ring_size = len;
+
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
+				true, info_smmu->event_ring_doorbell_pa,
+				NULL, 4, true, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				return -EFAULT;
+			}
+			wdi3_params->event_ring_doorbell_pa =
+				(u32)va;
+			wdi3_params->event_ring_doorbell_pa_hi =
+				(u32)((u64)va >> 32);
+		} else {
+			len = info_smmu->transfer_ring_size;
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
+				true, info->transfer_ring_base_pa,
+				&info_smmu->transfer_ring_base, len,
+				false, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				return -EFAULT;
+			}
+			wdi3_params->transfer_ring_base_pa = (u32)va;
+			wdi3_params->transfer_ring_base_pa_hi =
+				(u32)((u64)va >> 32);
+			wdi3_params->transfer_ring_size = len;
+
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
+				true, info_smmu->transfer_ring_doorbell_pa,
+				NULL, 4, true, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				return -EFAULT;
+			}
+			wdi3_params->transfer_ring_doorbell_pa =
+				(u32)va;
+			wdi3_params->transfer_ring_doorbell_pa_hi =
+				(u32)((u64)va >> 32);
+
+			len = info_smmu->event_ring_size;
+			if (ipa_create_uc_smmu_mapping(
+				IPA_WDI_RX_COMP_RING_RES, true,
+				info->event_ring_base_pa,
+				&info_smmu->event_ring_base, len,
+				false, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				return -EFAULT;
+			}
+			wdi3_params->event_ring_base_pa = (u32)va;
+			wdi3_params->event_ring_base_pa_hi =
+				(u32)((u64)va >> 32);
+			wdi3_params->event_ring_size = len;
+
+			if (ipa_create_uc_smmu_mapping(
+				IPA_WDI_RX_COMP_RING_WP_RES, true,
+				info_smmu->event_ring_doorbell_pa,
+				NULL, 4, true, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				return -EFAULT;
+			}
+			wdi3_params->event_ring_doorbell_pa =
+				(u32)va;
+			wdi3_params->event_ring_doorbell_pa_hi =
+				(u32)((u64)va >> 32);
+		}
+		wdi3_params->num_pkt_buffers = info_smmu->num_pkt_buffers;
+		wdi3_params->ipa_pipe_number = ipa_ep_idx;
+		wdi3_params->dir = dir;
+		wdi3_params->pkt_offset = info_smmu->pkt_offset;
+		memcpy(wdi3_params->desc_format_template,
+			info_smmu->desc_format_template,
+			sizeof(wdi3_params->desc_format_template));
+	}
 
 	result = ipa3_uc_send_cmd((u32)(cmd.phys_base),
 				IPA_CPU_2_HW_CMD_OFFLOAD_CHANNEL_SET_UP,
@@ -93,9 +227,12 @@ static int ipa3_send_wdi3_setup_pipe_cmd(
 	return result;
 }
 
-int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
-	struct ipa_wdi3_conn_out_params *out)
+int ipa3_conn_wdi3_pipes(struct ipa_wdi_conn_in_params *in,
+	struct ipa_wdi_conn_out_params *out,
+	ipa_wdi_meter_notifier_cb wdi_notify)
 {
+	enum ipa_client_type rx_client;
+	enum ipa_client_type tx_client;
 	struct ipa3_ep_context *ep_rx;
 	struct ipa3_ep_context *ep_tx;
 	int ipa_ep_idx_rx;
@@ -107,8 +244,17 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
 		return -EINVAL;
 	}
 
-	ipa_ep_idx_rx = ipa_get_ep_mapping(in->rx.client);
-	ipa_ep_idx_tx = ipa_get_ep_mapping(in->tx.client);
+	if (in->is_smmu_enabled == false) {
+		rx_client = in->u_rx.rx.client;
+		tx_client = in->u_tx.tx.client;
+	} else {
+		rx_client = in->u_rx.rx_smmu.client;
+		tx_client = in->u_tx.tx_smmu.client;
+	}
+
+	ipa_ep_idx_rx = ipa_get_ep_mapping(rx_client);
+	ipa_ep_idx_tx = ipa_get_ep_mapping(tx_client);
+
 	if (ipa_ep_idx_rx == -1 || ipa_ep_idx_tx == -1) {
 		IPAERR("fail to alloc EP.\n");
 		return -EFAULT;
@@ -132,9 +278,14 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
+	if (wdi_notify)
+		ipa3_ctx->uc_wdi_ctx.stats_notify = wdi_notify;
+	else
+		IPADBG("wdi_notify is null\n");
+
 	/* setup rx ep cfg */
 	ep_rx->valid = 1;
-	ep_rx->client = in->rx.client;
+	ep_rx->client = rx_client;
 	result = ipa3_disable_data_path(ipa_ep_idx_rx);
 	if (result) {
 		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
@@ -145,7 +296,12 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
 	ep_rx->client_notify = in->notify;
 	ep_rx->priv = in->priv;
 
-	memcpy(&ep_rx->cfg, &in->rx.ipa_ep_cfg, sizeof(ep_rx->cfg));
+	if (in->is_smmu_enabled == false)
+		memcpy(&ep_rx->cfg, &in->u_rx.rx.ipa_ep_cfg,
+			sizeof(ep_rx->cfg));
+	else
+		memcpy(&ep_rx->cfg, &in->u_rx.rx_smmu.ipa_ep_cfg,
+			sizeof(ep_rx->cfg));
 
 	if (ipa3_cfg_ep(ipa_ep_idx_rx, &ep_rx->cfg)) {
 		IPAERR("fail to setup rx pipe cfg\n");
@@ -153,7 +309,8 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
 		goto fail;
 	}
 
-	if (ipa3_send_wdi3_setup_pipe_cmd(&in->rx, IPA_WDI3_RX_DIR)) {
+	if (ipa3_send_wdi3_setup_pipe_cmd(in->is_smmu_enabled,
+		&in->u_rx.rx, &in->u_rx.rx_smmu, IPA_WDI3_RX_DIR)) {
 		IPAERR("fail to send cmd to uc for rx pipe\n");
 		result = -EFAULT;
 		goto fail;
@@ -165,12 +322,12 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
 		IPA_HW_WDI3_RX_MBOX_START_INDEX/32,
 		IPA_HW_WDI3_RX_MBOX_START_INDEX % 32);
 
-	IPADBG("client %d (ep: %d) connected\n", in->rx.client,
+	IPADBG("client %d (ep: %d) connected\n", rx_client,
 		ipa_ep_idx_rx);
 
-	/* setup dl ep cfg */
+	/* setup tx ep cfg */
 	ep_tx->valid = 1;
-	ep_tx->client = in->tx.client;
+	ep_tx->client = tx_client;
 	result = ipa3_disable_data_path(ipa_ep_idx_tx);
 	if (result) {
 		IPAERR("disable data path failed res=%d ep=%d.\n", result,
@@ -179,7 +336,12 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
 		goto fail;
 	}
 
-	memcpy(&ep_tx->cfg, &in->tx.ipa_ep_cfg, sizeof(ep_tx->cfg));
+	if (in->is_smmu_enabled == false)
+		memcpy(&ep_tx->cfg, &in->u_tx.tx.ipa_ep_cfg,
+			sizeof(ep_tx->cfg));
+	else
+		memcpy(&ep_tx->cfg, &in->u_tx.tx_smmu.ipa_ep_cfg,
+			sizeof(ep_tx->cfg));
 
 	if (ipa3_cfg_ep(ipa_ep_idx_tx, &ep_tx->cfg)) {
 		IPAERR("fail to setup tx pipe cfg\n");
@@ -187,7 +349,8 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
 		goto fail;
 	}
 
-	if (ipa3_send_wdi3_setup_pipe_cmd(&in->tx, IPA_WDI3_TX_DIR)) {
+	if (ipa3_send_wdi3_setup_pipe_cmd(in->is_smmu_enabled,
+		&in->u_tx.tx, &in->u_tx.tx_smmu, IPA_WDI3_TX_DIR)) {
 		IPAERR("fail to send cmd to uc for tx pipe\n");
 		result = -EFAULT;
 		goto fail;
@@ -197,13 +360,7 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi3_conn_in_params *in,
 		ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
 		IPA_HW_WDI3_TX_MBOX_START_INDEX/32,
 		IPA_HW_WDI3_TX_MBOX_START_INDEX % 32);
-	out->tx_uc_db_va = ioremap(out->tx_uc_db_pa, 4);
-	if (!out->tx_uc_db_va) {
-		IPAERR("fail to ioremap tx uc db\n");
-		result = -EFAULT;
-		goto fail;
-	}
-	IPADBG("client %d (ep: %d) connected\n", in->tx.client,
+	IPADBG("client %d (ep: %d) connected\n", tx_client,
 		ipa_ep_idx_tx);
 
 fail:

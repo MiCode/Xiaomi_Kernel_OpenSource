@@ -717,6 +717,8 @@ again:
 	INIT_DELAYED_WORK(&host->detect, mmc_rescan);
 	setup_timer(&host->retune_timer, mmc_retune_timer, (unsigned long)host);
 
+	mutex_init(&host->rpmb_req_mutex);
+
 	/*
 	 * By default, hosts do not support SGIO or large requests.
 	 * They have to set these according to their abilities.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,9 +161,7 @@
 		msm_cam_smmu_lrme {
 			compatible = "qcom,msm-cam-smmu-cb";
 			iommus = <&apps_smmu 0x1038 0x0>,
-				<&apps_smmu 0x1058 0x0>,
-				<&apps_smmu 0x1039 0x0>,
-				<&apps_smmu 0x1059 0x0>;
+				<&apps_smmu 0x1058 0x0>;
 			label = "lrme";
 			lrme_iova_mem_map: iova-mem-map {
 				iova-mem-region-shared {
@@ -248,11 +246,21 @@
 				};
 
 				iova-mem-region-io {
-					/* IO region is approximately 3.3 GB */
+					/* IO region is approximately 3 GB */
 					iova-region-name = "io";
-					iova-region-start = <0xd900000>;
-					iova-region-len = <0xd2700000>;
+					iova-region-start = <0xd911000>;
+					iova-region-len = <0xd26ef000>;
 					iova-region-id = <0x3>;
+					status = "ok";
+				};
+
+				iova-mem-qdss-region {
+					/* qdss region is approximately 64K */
+					iova-region-name = "qdss";
+					iova-region-start = <0xd900000>;
+					iova-region-len = <0x10000>;
+					iova-region-id = <0x5>;
+					qdss-phy-addr = <0x16790000>;
 					status = "ok";
 				};
 			};

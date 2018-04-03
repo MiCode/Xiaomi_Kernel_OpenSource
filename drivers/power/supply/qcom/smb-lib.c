@@ -688,6 +688,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 	vote(chg->usb_icl_votable, USBIN_USBIN_BOOST_VOTER, false, 0);
+	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
@@ -1007,6 +1008,48 @@ int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua)
 	}
 
 	return 0;
+}
+
+int smblib_toggle_stat(struct smb_charger *chg, int reset)
+{
+	int rc = 0;
+
+	if (reset) {
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			STAT_SW_OVERRIDE_CFG_BIT | 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't pull STAT pin low rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * A minimum of 20us delay is expected before switching on STAT
+		 * pin
+		 */
+		usleep_range(20, 30);
+
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't pull STAT pin high rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+			STAT_SW_OVERRIDE_CFG_BIT | STAT_SW_OVERRIDE_VALUE_BIT,
+			0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't set hardware control rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
 }
 
 static int smblib_micro_usb_disable_power_role_switch(struct smb_charger *chg,
@@ -2245,11 +2288,15 @@ int smblib_dp_dm(struct smb_charger *chg, int val)
 			pr_err("Failed to force 5V\n");
 		break;
 	case POWER_SUPPLY_DP_DM_FORCE_9V:
+		/* Force 1A ICL before requesting higher voltage */
+		vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, true, 1000000);
 		rc = smblib_force_vbus_voltage(chg, FORCE_9V_BIT);
 		if (rc < 0)
 			pr_err("Failed to force 9V\n");
 		break;
 	case POWER_SUPPLY_DP_DM_FORCE_12V:
+		/* Force 1A ICL before requesting higher voltage */
+		vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, true, 1000000);
 		rc = smblib_force_vbus_voltage(chg, FORCE_12V_BIT);
 		if (rc < 0)
 			pr_err("Failed to force 12V\n");
@@ -3607,10 +3654,12 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 		case QC_9V_BIT:
 			smblib_set_opt_freq_buck(chg,
 					chg->chg_freq.freq_9V);
+			vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 			break;
 		case QC_12V_BIT:
 			smblib_set_opt_freq_buck(chg,
 					chg->chg_freq.freq_12V);
+			vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 			break;
 		default:
 			smblib_set_opt_freq_buck(chg,
@@ -3817,13 +3866,11 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	switch (apsd_result->bit) {
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
-		if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
-			extcon_set_cable_state_(chg->extcon, EXTCON_USB,
-					true);
-		/* if not DCP then no hvdcp timeout happens. Enable pd here */
+		/* if not DCP, Enable pd here */
 		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
 				false, 0);
-		if (chg->use_extcon)
+		if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB
+						|| chg->use_extcon)
 			smblib_notify_device_mode(chg, true);
 		break;
 	case OCP_CHARGER_BIT:
@@ -4133,6 +4180,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 	vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
 	vote(chg->usb_icl_votable, CTM_VOTER, false, 0);
+	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 
 	/* reset hvdcp voters */
 	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
@@ -4805,7 +4853,7 @@ static void smblib_vconn_oc_work(struct work_struct *work)
 
 	if (++chg->vconn_attempts > VCONN_MAX_ATTEMPTS) {
 		smblib_err(chg, "VCONN failed to enable after %d attempts\n",
-			   chg->otg_attempts - 1);
+			   chg->vconn_attempts - 1);
 		chg->vconn_en = false;
 		chg->vconn_attempts = 0;
 		goto unlock;
@@ -4829,14 +4877,7 @@ static void smblib_vconn_oc_work(struct work_struct *work)
 		chg->vconn_attempts = 0;
 		goto unlock;
 	}
-
 	smblib_dbg(chg, PR_OTG, "VCONN OC fell after %dms\n", 2 * i + 1);
-	if (++chg->vconn_attempts > VCONN_MAX_ATTEMPTS) {
-		smblib_err(chg, "VCONN failed to enable after %d attempts\n",
-			   chg->vconn_attempts - 1);
-		chg->vconn_en = false;
-		goto unlock;
-	}
 
 	rc = _smblib_vconn_regulator_enable(chg->vconn_vreg->rdev);
 	if (rc < 0) {

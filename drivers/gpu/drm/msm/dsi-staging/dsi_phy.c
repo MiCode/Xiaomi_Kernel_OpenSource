@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -694,8 +694,7 @@ static int dsi_phy_enable_ulps(struct msm_dsi_phy *phy,
 	u32 lanes = 0;
 	u32 ulps_lanes;
 
-	if (config->panel_mode == DSI_OP_CMD_MODE)
-		lanes = config->common_config.data_lanes;
+	lanes = config->common_config.data_lanes;
 	lanes |= DSI_CLOCK_LANE;
 
 	/*
@@ -730,8 +729,7 @@ static int dsi_phy_disable_ulps(struct msm_dsi_phy *phy,
 {
 	u32 ulps_lanes, lanes = 0;
 
-	if (config->panel_mode == DSI_OP_CMD_MODE)
-		lanes = config->common_config.data_lanes;
+	lanes = config->common_config.data_lanes;
 	lanes |= DSI_CLOCK_LANE;
 
 	ulps_lanes = phy->hw.ops.ulps_ops.get_lanes_in_ulps(&phy->hw);
@@ -754,6 +752,16 @@ static int dsi_phy_disable_ulps(struct msm_dsi_phy *phy,
 	return 0;
 }
 
+void dsi_phy_toggle_resync_fifo(struct msm_dsi_phy *phy)
+{
+	if (!phy)
+		return;
+
+	if (!phy->hw.ops.toggle_resync_fifo)
+		return;
+
+	phy->hw.ops.toggle_resync_fifo(&phy->hw);
+}
 
 int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
 		bool enable, bool clamp_enabled)

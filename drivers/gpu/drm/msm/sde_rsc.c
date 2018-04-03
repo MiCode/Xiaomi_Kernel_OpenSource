@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -882,23 +882,22 @@ EXPORT_SYMBOL(sde_rsc_client_state_update);
 int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 		u32 bus_id, u64 ab_vote, u64 ib_vote)
 {
-	int rc = 0;
+	int rc = 0, rsc_index;
 	struct sde_rsc_priv *rsc;
 
-	if (!caller_client) {
-		pr_err("invalid client for ab/ib vote\n");
-		return -EINVAL;
-	} else if (caller_client->rsc_index >= MAX_RSC_COUNT) {
+	if (caller_client && caller_client->rsc_index >= MAX_RSC_COUNT) {
 		pr_err("invalid rsc index\n");
 		return -EINVAL;
 	}
 
-	rsc = rsc_prv_list[caller_client->rsc_index];
+	rsc_index = caller_client ? caller_client->rsc_index : SDE_RSC_INDEX;
+	rsc = rsc_prv_list[rsc_index];
 	if (!rsc)
 		return -EINVAL;
 
 	pr_debug("client:%s ab:%llu ib:%llu\n",
-			caller_client->name, ab_vote, ib_vote);
+			caller_client ? caller_client->name : "unknown",
+			ab_vote, ib_vote);
 
 	mutex_lock(&rsc->client_lock);
 	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);

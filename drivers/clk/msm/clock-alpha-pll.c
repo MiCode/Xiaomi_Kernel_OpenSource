@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -771,6 +771,13 @@ void __init_alpha_pll(struct clk *c)
 	if (pll->slew) {
 		regval = readl_relaxed(USER_CTL_HI_REG(pll));
 		regval &= ~PLL_LATCH_INTERFACE;
+		writel_relaxed(regval, USER_CTL_HI_REG(pll));
+	}
+
+	if (masks->cal_l_val_mask && pll->cal_l_val) {
+		regval = readl_relaxed(USER_CTL_HI_REG(pll));
+		regval &= ~masks->cal_l_val_mask;
+		regval |= pll->cal_l_val;
 		writel_relaxed(regval, USER_CTL_HI_REG(pll));
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,6 +69,9 @@
 #define REFCLK_SEL_MASK				(0x3 << 0)
 #define REFCLK_SEL_DEFAULT			(0x2 << 0)
 
+#define USB2PHY_USB_PHY_RTUNE_SEL		(0xb4)
+#define RTUNE_SEL				BIT(0)
+
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
@@ -95,6 +98,9 @@ struct msm_hsphy {
 	bool			power_enabled;
 	bool			suspended;
 	bool			cable_connected;
+
+	int			*param_override_seq;
+	int			param_override_seq_cnt;
 
 	/* emulation targets specific */
 	void __iomem		*emu_phy_base;
@@ -251,6 +257,7 @@ put_vdda18_lpm:
 		dev_err(phy->phy.dev, "Unable to set LPM of vdda18\n");
 
 disable_vdd:
+	ret = regulator_disable(phy->vdd);
 	if (ret)
 		dev_err(phy->phy.dev, "Unable to disable vdd:%d\n",
 								ret);
@@ -381,6 +388,14 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL1,
 				VBUSVLDEXT0, VBUSVLDEXT0);
 
+	/* set parameter ovrride  if needed */
+	if (phy->param_override_seq)
+		hsusb_phy_write_seq(phy->base, phy->param_override_seq,
+				phy->param_override_seq_cnt, 0);
+
+	msm_usb_write_readback(phy->base, USB2PHY_USB_PHY_RTUNE_SEL,
+			RTUNE_SEL, RTUNE_SEL);
+
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON2,
 				VREGBYPASS, VREGBYPASS);
 
@@ -422,6 +437,28 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 
 static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 {
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+
+	if (phy->suspended && suspend) {
+		dev_dbg(uphy->dev, "%s: USB PHY is already suspended\n",
+			__func__);
+		return 0;
+	}
+
+	if (suspend) { /* Bus suspend */
+		if (phy->cable_connected ||
+			(phy->phy.flags & PHY_HOST_MODE)) {
+			msm_hsphy_enable_clocks(phy, false);
+		} else {/* Cable disconnect */
+			msm_hsphy_enable_clocks(phy, false);
+			msm_hsphy_enable_power(phy, false);
+		}
+		phy->suspended = true;
+	} else { /* Bus resume and cable connect */
+			msm_hsphy_enable_clocks(phy, true);
+			phy->suspended = false;
+		}
+
 	return 0;
 }
 
@@ -551,6 +588,34 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		} else {
 			dev_dbg(dev,
 			"error allocating memory for emu_dcm_reset_seq\n");
+		}
+	}
+
+	phy->param_override_seq_cnt = of_property_count_elems_of_size(
+					dev->of_node,
+					"qcom,param-override-seq",
+					sizeof(*phy->param_override_seq));
+	if (phy->param_override_seq_cnt > 0) {
+		phy->param_override_seq = devm_kcalloc(dev,
+					phy->param_override_seq_cnt,
+					sizeof(*phy->param_override_seq),
+					GFP_KERNEL);
+		if (!phy->param_override_seq)
+			return -ENOMEM;
+
+		if (phy->param_override_seq_cnt % 2) {
+			dev_err(dev, "invalid param_override_seq_len\n");
+			return -EINVAL;
+		}
+
+		ret = of_property_read_u32_array(dev->of_node,
+				"qcom,param-override-seq",
+				phy->param_override_seq,
+				phy->param_override_seq_cnt);
+		if (ret) {
+			dev_err(dev, "qcom,param-override-seq read failed %d\n",
+				ret);
+			return ret;
 		}
 	}
 

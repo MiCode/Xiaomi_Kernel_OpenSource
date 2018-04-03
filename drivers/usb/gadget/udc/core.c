@@ -964,7 +964,7 @@ int usb_gadget_ep_match_desc(struct usb_gadget *gadget,
 		return 0;
 
 	/* "high bandwidth" works only at high speed */
-	if (!gadget_is_dualspeed(gadget) && usb_endpoint_maxp(desc) & (3<<11))
+	if (!gadget_is_dualspeed(gadget) && usb_endpoint_maxp_mult(desc) > 1)
 		return 0;
 
 	switch (type) {
@@ -1171,6 +1171,10 @@ int usb_add_gadget_udc_release(struct device *parent, struct usb_gadget *gadget,
 	dev_set_name(&gadget->dev, "gadget");
 	INIT_WORK(&gadget->work, usb_gadget_state_work);
 	gadget->dev.parent = parent;
+
+	dma_set_coherent_mask(&gadget->dev, parent->coherent_dma_mask);
+	gadget->dev.dma_parms = parent->dma_parms;
+	gadget->dev.dma_mask = parent->dma_mask;
 
 	if (release)
 		gadget->dev.release = release;

@@ -683,6 +683,11 @@ static ssize_t mdss_xlog_dump_read(struct file *file, char __user *buff,
 
 	if (__mdss_xlog_dump_calc_range()) {
 		len = mdss_xlog_dump_entry(xlog_buf, MDSS_XLOG_BUF_MAX);
+		if (len < 0 || len > count) {
+			pr_err("len is more than the size of user buffer\n");
+			return 0;
+		}
+
 		if (copy_to_user(buff, xlog_buf, len))
 			return -EFAULT;
 		*ppos += len;
@@ -734,7 +739,7 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 	debugfs_create_u32("enable", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.xlog_enable);
 	debugfs_create_bool("panic", 0644, mdss_dbg_xlog.xlog,
-			    &mdss_dbg_xlog.panic_on_err);
+			    (bool *)&mdss_dbg_xlog.panic_on_err);
 	debugfs_create_u32("reg_dump", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.enable_reg_dump);
 	debugfs_create_u32("dbgbus_dump", 0644, mdss_dbg_xlog.xlog,

@@ -1,0 +1,73 @@
+Qualcomm Technologies, Inc. SMB1390 Charger Specific Bindings
+
+SMB1390 charge pump is paired with QTI family of standalone chargers to
+enable a high current, high efficiency Li+ battery charging system.
+
+=======================
+Required Node Structure
+=======================
+
+SMB1390 Charger must be described in two levels of device nodes.
+
+==================================
+First Level Node - SMB1390 Charger
+==================================
+
+Charger specific properties:
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: "qcom,smb1390-charger".
+
+- qcom,pmic-revid
+  Usage:      required
+  Value type: phandle
+  Definition: Should specify the phandle of SMB's revid module. This is used
+	      to identify the SMB subtype.
+
+- qcom,channel-num
+  Usage:      required
+  Value type: <u32>
+  Definition: Specifies the ADC channel number for reading die temperature.
+
+================================================
+Second Level Nodes - SMB1390 Charger Peripherals
+================================================
+
+Peripheral specific properties:
+- interrupts
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Peripheral interrupt specifier.
+
+- interrupt-names
+  Usage:      required
+  Value type: <stringlist>
+  Definition: Interrupt names.  This list must match up 1-to-1 with the
+	      interrupts specified in the 'interrupts' property.
+
+=======
+Example
+=======
+
+smb1390_charger: qcom,charge_pump {
+	compatible = "qcom,smb1390-charger";
+	qcom,pmic-revid = <&smb1390_revid>;
+	qcom,channel-num = <15>
+	interrupt-parent = <&smb1390>;
+	qcom,smb-vadc = <&pm8998_vadc>;
+	status = "disabled";
+
+	qcom,core {
+		interrupts = <0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+			     <0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+			     <0x10 0x2 IRQ_TYPE_EDGE_RISING>,
+			     <0x10 0x3 IRQ_TYPE_EDGE_RISING>,
+			     <0x10 0x4 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "switcher-off-window",
+				  "switcher-off-fault",
+				  "vph-ov-soft",
+				  "ilim",
+				  "temp-alarm";
+	};
+};

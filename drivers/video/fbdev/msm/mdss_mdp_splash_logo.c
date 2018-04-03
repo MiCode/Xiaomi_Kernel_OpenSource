@@ -1,5 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
- * Copyright (c) 2013-2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +88,7 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 	}
 	sinfo->size = buf_size;
 
-	dma_buf_begin_cpu_access(sinfo->dma_buf, 0, size, DMA_BIDIRECTIONAL);
+	dma_buf_begin_cpu_access(sinfo->dma_buf, DMA_BIDIRECTIONAL);
 	sinfo->splash_buffer = dma_buf_kmap(sinfo->dma_buf, 0);
 	if (IS_ERR(sinfo->splash_buffer)) {
 		pr_err("ion kernel memory mapping failed\n");
@@ -133,8 +132,7 @@ static void mdss_mdp_splash_free_memory(struct msm_fb_data_type *mfd)
 	if (!mdata || !mdata->iclient || !sinfo->dma_buf)
 		return;
 
-	dma_buf_end_cpu_access(sinfo->dma_buf, 0, sinfo->size,
-			       DMA_BIDIRECTIONAL);
+	dma_buf_end_cpu_access(sinfo->dma_buf, DMA_BIDIRECTIONAL);
 	dma_buf_kunmap(sinfo->dma_buf, 0, sinfo->splash_buffer);
 
 	mdss_smmu_unmap_dma_buf(sinfo->table, MDSS_IOMMU_DOMAIN_UNSECURE, 0,
@@ -177,7 +175,7 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 		pr_debug("iommu memory mapping failed rc=%d\n", rc);
 	} else {
 		ret = mdss_iommu_ctrl(1);
-		if (IS_ERR_VALUE(ret)) {
+		if (IS_ERR_VALUE((unsigned long)ret)) {
 			pr_err("mdss iommu attach failed\n");
 			mdss_smmu_unmap(MDSS_IOMMU_DOMAIN_UNSECURE,
 					mdp5_data->splash_mem_addr,
@@ -288,7 +286,7 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 		 */
 		if (mdp5_data->handoff && ctl && ctl->is_video_mode) {
 			rc = mdss_mdp_display_commit(ctl, NULL, NULL);
-			if (!IS_ERR_VALUE(rc)) {
+			if (!IS_ERR_VALUE((unsigned long)rc)) {
 				mdss_mdp_display_wait4comp(ctl);
 			} else {
 				/*

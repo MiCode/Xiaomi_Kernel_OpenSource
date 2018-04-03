@@ -192,7 +192,7 @@ static int ipa3_reconfigure_channel_to_gpi(struct ipa3_ep_context *ep,
 	chan_props.ring_len = 2 * GSI_CHAN_RE_SIZE_16B;
 	chan_props.ring_base_vaddr =
 		dma_alloc_coherent(ipa3_ctx->pdev, chan_props.ring_len,
-		&chan_dma_addr, 0);
+		&chan_dma_addr, GFP_ATOMIC);
 	chan_props.ring_base_addr = chan_dma_addr;
 	chan_dma->base = chan_props.ring_base_vaddr;
 	chan_dma->phys_base = chan_props.ring_base_addr;
@@ -295,7 +295,7 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 
 	memset(&xfer_elem, 0, sizeof(struct gsi_xfer_elem));
 	buff = dma_alloc_coherent(ipa3_ctx->pdev, 1, &dma_addr,
-		GFP_KERNEL);
+		GFP_ATOMIC);
 	xfer_elem.addr = dma_addr;
 	xfer_elem.len = 1;
 	xfer_elem.flags = GSI_XFER_FLAG_EOT;

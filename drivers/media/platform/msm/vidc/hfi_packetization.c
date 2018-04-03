@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -575,8 +575,11 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_STREAM_USERDATA:
 		ret = HFI_PROPERTY_PARAM_VDEC_STREAM_USERDATA_EXTRADATA;
 		break;
-	case HAL_EXTRADATA_FRAME_QP:
+	case HAL_EXTRADATA_DEC_FRAME_QP:
 		ret = HFI_PROPERTY_PARAM_VDEC_FRAME_QP_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_ENC_FRAME_QP:
+		ret = HFI_PROPERTY_PARAM_VENC_FRAME_QP_EXTRADATA;
 		break;
 	case HAL_EXTRADATA_FRAME_BITS_INFO:
 		ret = HFI_PROPERTY_PARAM_VDEC_FRAME_BITS_INFO_EXTRADATA;
@@ -803,7 +806,7 @@ int create_pkt_cmd_session_etb_decoder(
 	pkt->offset = input_frame->offset;
 	pkt->alloc_len = input_frame->alloc_len;
 	pkt->filled_len = input_frame->filled_len;
-	pkt->input_tag = input_frame->clnt_data;
+	pkt->input_tag = input_frame->input_tag;
 	pkt->packet_buffer = (u32)input_frame->device_addr;
 
 	trace_msm_v4l2_vidc_buffer_event_start("ETB",
@@ -838,7 +841,7 @@ int create_pkt_cmd_session_etb_encoder(
 	pkt->offset = input_frame->offset;
 	pkt->alloc_len = input_frame->alloc_len;
 	pkt->filled_len = input_frame->filled_len;
-	pkt->input_tag = input_frame->clnt_data;
+	pkt->input_tag = input_frame->input_tag;
 	pkt->packet_buffer = (u32)input_frame->device_addr;
 	pkt->extra_data_buffer = (u32)input_frame->extradata_addr;
 
@@ -874,6 +877,7 @@ int create_pkt_cmd_session_ftb(struct hfi_cmd_session_fill_buffer_packet *pkt,
 		return -EINVAL;
 
 	pkt->packet_buffer = (u32)output_frame->device_addr;
+	pkt->output_tag = output_frame->output_tag;
 	pkt->extra_data_buffer = (u32)output_frame->extradata_addr;
 	pkt->alloc_len = output_frame->alloc_len;
 	pkt->filled_len = output_frame->filled_len;

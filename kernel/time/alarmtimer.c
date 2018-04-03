@@ -348,6 +348,10 @@ void alarm_init(struct alarm *alarm, enum alarmtimer_type type,
 	alarm->timer.function = alarmtimer_fired;
 	alarm->function = function;
 	alarm->type = type;
+	if (type >= ALARM_NUMTYPE) {
+		/* use ALARM_BOOTTIME as the default */
+		alarm->type = ALARM_BOOTTIME;
+	}
 	alarm->state = ALARMTIMER_STATE_INACTIVE;
 }
 EXPORT_SYMBOL_GPL(alarm_init);

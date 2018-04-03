@@ -23,7 +23,6 @@
 #include <linux/usb_bam.h>
 
 #include "u_data_ipa.h"
-#include "u_rmnet.h"
 
 struct ipa_data_ch_info {
 	struct usb_request			*rx_req;
@@ -45,7 +44,7 @@ struct ipa_data_ch_info {
 	u8					src_connection_idx;
 	u8					dst_connection_idx;
 	enum usb_ctrl				usb_bam_type;
-	struct gadget_ipa_port			*port_usb;
+	struct data_port			*port_usb;
 	struct usb_gadget			*gadget;
 	atomic_t				pipe_connect_notified;
 	struct usb_bam_connect_ipa_params	ipa_params;
@@ -299,7 +298,7 @@ static void ipa_data_disconnect_work(struct work_struct *w)
  * switch is being trigger. This API performs restoring USB endpoint operation
  * and disable USB endpoint used for accelerated path.
  */
-void ipa_data_disconnect(struct gadget_ipa_port *gp, enum ipa_func_type func)
+void ipa_data_disconnect(struct data_port *gp, enum ipa_func_type func)
 {
 	struct ipa_data_ch_info *port;
 	unsigned long flags;
@@ -402,7 +401,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 {
 	struct ipa_data_ch_info *port = container_of(w, struct ipa_data_ch_info,
 								connect_w);
-	struct gadget_ipa_port	*gport;
+	struct data_port	*gport;
 	struct usb_gadget	*gadget = NULL;
 	struct teth_bridge_connect_params connect_params;
 	struct teth_bridge_init_params teth_bridge_params;
@@ -478,7 +477,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 		configure_fifo(port->usb_bam_type,
 				port->src_connection_idx,
 				port->port_usb->out);
-		ret = msm_ep_config(gport->out);
+		ret = msm_ep_config(gport->out, port->rx_req);
 		if (ret) {
 			pr_err("msm_ep_config() failed for OUT EP\n");
 			spin_unlock_irqrestore(&port->port_lock, flags);
@@ -503,7 +502,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 		port->tx_req->udc_priv = sps_params;
 		configure_fifo(port->usb_bam_type,
 				port->dst_connection_idx, gport->in);
-		ret = msm_ep_config(gport->in);
+		ret = msm_ep_config(gport->in, port->tx_req);
 		if (ret) {
 			pr_err("msm_ep_config() failed for IN EP\n");
 			spin_unlock_irqrestore(&port->port_lock, flags);
@@ -730,7 +729,7 @@ out:
  * initiate USB BAM IPA connection. This API is enabling accelerated endpoints
  * and schedule connect_work() which establishes USB IPA BAM communication.
  */
-int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
+int ipa_data_connect(struct data_port *gp, enum ipa_func_type func,
 		u8 src_connection_idx, u8 dst_connection_idx)
 {
 	struct ipa_data_ch_info *port;
@@ -939,7 +938,7 @@ void ipa_data_flush_workqueue(void)
  * It is being used to initiate USB BAM IPA suspend functionality
  * for USB bus suspend functionality.
  */
-void ipa_data_suspend(struct gadget_ipa_port *gp, enum ipa_func_type func,
+void ipa_data_suspend(struct data_port *gp, enum ipa_func_type func,
 			bool remote_wakeup_enabled)
 {
 	struct ipa_data_ch_info *port;
@@ -1050,7 +1049,7 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
  * It is being used to initiate USB resume functionality
  * for USB bus resume case.
  */
-void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
+void ipa_data_resume(struct data_port *gp, enum ipa_func_type func,
 			bool remote_wakeup_enabled)
 {
 	struct ipa_data_ch_info *port;

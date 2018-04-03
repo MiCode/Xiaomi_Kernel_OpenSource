@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3591,8 +3591,8 @@ int ipa2_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	} else {
 		IPADBG_LOW("clocks are gated, not setting rate\n");
+		ipa_active_clients_unlock();
 	}
-	ipa_active_clients_unlock();
 	IPADBG_LOW("Done\n");
 	return 0;
 }
@@ -3925,7 +3925,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa_ctx->use_dma_zone = resource_p->use_dma_zone;
 	ipa_ctx->tethered_flow_control = resource_p->tethered_flow_control;
-	ipa_ctx->use_ipa_pm = resource_p->use_ipa_pm;
 
 	/* Setting up IPA RX Polling Timeout Seconds */
 	ipa_rx_timeout_min_max_calc(&ipa_ctx->ipa_rx_min_timeout_usec,
@@ -4359,7 +4358,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	else
 		IPADBG(":ipa Uc interface init ok\n");
 
-	result = ipa_wdi_init();
+	result = ipa2_wdi_init();
 	if (result)
 		IPAERR(":wdi init failed (%d)\n", -result);
 	else
@@ -4451,20 +4450,12 @@ fail_mem_ctx:
 	return result;
 }
 
-bool ipa_pm_is_used(void)
-{
-	return (ipa_ctx) ? ipa_ctx->use_ipa_pm : false;
-}
-
 static int get_ipa_dts_configuration(struct platform_device *pdev,
 		struct ipa_plat_drv_res *ipa_drv_res)
 {
 	int result;
 	struct resource *resource;
 
-	ipa_drv_res->use_ipa_pm = of_property_read_bool(pdev->dev.of_node,
-		"qcom,use-ipa-pm");
-	IPADBG("use_ipa_pm=%d\n", ipa_drv_res->use_ipa_pm);
 	/* initialize ipa_res */
 	ipa_drv_res->ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
 	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;

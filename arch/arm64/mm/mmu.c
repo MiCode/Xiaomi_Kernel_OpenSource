@@ -67,7 +67,10 @@ struct dma_contig_early_reserve {
 	unsigned long size;
 };
 
-static struct dma_contig_early_reserve dma_mmu_remap[MAX_CMA_AREAS];
+/* allocate the memory for the fixup regions as well */
+#define MAX_FIXUP_AREAS MAX_CMA_AREAS
+static struct dma_contig_early_reserve
+			dma_mmu_remap[MAX_CMA_AREAS + MAX_FIXUP_AREAS];
 static int dma_mmu_remap_num;
 
 void __init dma_contiguous_early_fixup(phys_addr_t base, unsigned long size)
@@ -549,7 +552,7 @@ void __init paging_init(void)
 	 * To do this we need to go via a temporary pgd.
 	 */
 	cpu_replace_ttbr1(__va(pgd_phys));
-	memcpy(swapper_pg_dir, pgd, PAGE_SIZE);
+	memcpy(swapper_pg_dir, pgd, PGD_SIZE);
 	cpu_replace_ttbr1(lm_alias(swapper_pg_dir));
 
 	pgd_clear_fixmap();
@@ -823,6 +826,10 @@ int __init arch_ioremap_pmd_supported(void)
 
 int pud_set_huge(pud_t *pud, phys_addr_t phys, pgprot_t prot)
 {
+	/* ioremap_page_range doesn't honour BBM */
+	if (pud_present(READ_ONCE(*pud)))
+		return 0;
+
 	BUG_ON(phys & ~PUD_MASK);
 	set_pud(pud, __pud(phys | PUD_TYPE_SECT | pgprot_val(mk_sect_prot(prot))));
 	return 1;
@@ -830,6 +837,10 @@ int pud_set_huge(pud_t *pud, phys_addr_t phys, pgprot_t prot)
 
 int pmd_set_huge(pmd_t *pmd, phys_addr_t phys, pgprot_t prot)
 {
+	/* ioremap_page_range doesn't honour BBM */
+	if (pmd_present(READ_ONCE(*pmd)))
+		return 0;
+
 	BUG_ON(phys & ~PMD_MASK);
 	set_pmd(pmd, __pmd(phys | PMD_TYPE_SECT | pgprot_val(mk_sect_prot(prot))));
 	return 1;

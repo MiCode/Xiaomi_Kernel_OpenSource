@@ -47,6 +47,16 @@ config IPA3
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
 
+config IPA_WDI_UNIFIED_API
+	bool "IPA WDI unified API support"
+	depends on IPA3
+	help
+	  This driver supports IPA WDI unified API.
+	  WDI is the interface between IPA micro controller and WLAN chipset.
+	  It is designed to support IPA HW accelerating path for WLAN use case.
+	  The IPA WDI unified API supports all WDI versions through a unified
+	  interface.
+
 config RMNET_IPA3
 	tristate "IPA3 RMNET WWAN Network Device"
 	depends on IPA3 && MSM_QMI_INTERFACE
@@ -163,7 +173,7 @@ config GPIO_USB_DETECT
 
 config MSM_MHI_DEV
         tristate "Modem Device Interface Driver"
-	depends on EP_PCIE && IPA
+	depends on EP_PCIE && IPA3
         help
           This kernel module is used to interact with PCIe Root complex
           supporting MHI protocol. MHI is a data transmission protocol

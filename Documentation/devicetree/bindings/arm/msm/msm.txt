@@ -119,11 +119,17 @@ SoCs:
 - MSM8937
   compatible = "qcom,msm8937"
 
+- SDM439
+  compatible = "qcom,sdm439"
+
+- SDM429
+  compatible = "qcom,sdm429"
+
 - MDM9640
   compatible = "qcom,mdm9640"
 
-- MDMCALIFORNIUM
-  compatible = "qcom,mdmcalifornium"
+- MDM9650
+  compatible = "qcom,mdm9650"
 
 - SDXPOORWILLS
   compatible = "qcom,sdxpoorwills"
@@ -175,11 +181,17 @@ Generic board variants:
 - VR device:
   compatible = "qcom,qvr"
 
+- SVR device:
+  compatible = "qcom,svr"
+
 - HDK device:
   compatible = "qcom,hdk"
 
 - IPC device:
   compatible = "qcom,ipc"
+
+- TTP device:
+  compatible = "qcom,ttp"
 
 Boards (SoC type + board variant):
 
@@ -211,6 +223,7 @@ compatible = "qcom,apq8017-mtp"
 compatible = "qcom,apq8053-cdp"
 compatible = "qcom,apq8053-mtp"
 compatible = "qcom,apq8053-ipc"
+compatible = "qcom,apq8053-lite-dragonboard"
 compatible = "qcom,mdm9630-cdp"
 compatible = "qcom,mdm9630-mtp"
 compatible = "qcom,mdm9630-sim"
@@ -295,6 +308,7 @@ compatible = "qcom,sda845-cdp"
 compatible = "qcom,sda845-mtp"
 compatible = "qcom,sda845-qrd"
 compatible = "qcom,sda845-hdk"
+compatible = "qcom,sda845-svr"
 compatible = "qcom,sdm670-rumi"
 compatible = "qcom,sdm670-cdp"
 compatible = "qcom,sdm670-mtp"
@@ -317,6 +331,12 @@ compatible = "qcom,msm8937-mtp"
 compatible = "qcom,msm8937-qrd"
 compatible = "qcom,msm8937-pmi8950-qrd-sku1"
 compatible = "qcom,msm8937-pmi8937-qrd-sku2"
+compatible = "qcom,sdm429-cdp"
+compatible = "qcom,sdm429-mtp"
+compatible = "qcom,sdm429-qrd"
+compatible = "qcom,sdm439-cdp"
+compatible = "qcom,sdm439-mtp"
+compatible = "qcom,sdm439-qrd"
 compatible = "qcom,msm8953-rumi"
 compatible = "qcom,msm8953-sim"
 compatible = "qcom,msm8953-cdp"
@@ -328,6 +348,9 @@ compatible = "qcom,sdm450-mtp"
 compatible = "qcom,sdm450-cdp"
 compatible = "qcom,sdm450-qrd"
 compatible = "qcom,sdm632-rumi"
+compatible = "qcom,sdm632-cdp"
+compatible = "qcom,sdm632-mtp"
+compatible = "qcom,sdm632-qrd"
 compatible = "qcom,mdm9640-cdp"
 compatible = "qcom,mdm9640-mtp"
 compatible = "qcom,mdm9640-rumi"
@@ -336,12 +359,11 @@ compatible = "qcom,msmvpipa-sim"
 compatible = "qcom,mdm9607-rumi"
 compatible = "qcom,mdm9607-cdp"
 compatible = "qcom,mdm9607-mtp"
-compatible = "qcom,mdmcalifornium-rumi"
-compatible = "qcom,mdmcalifornium-sim"
-compatible = "qcom,mdmcalifornium-cdp"
-compatible = "qcom,mdmcalifornium-mtp"
+compatible = "qcom,mdm9650-mtp"
+compatible = "qcom,mdm9650-ttp"
 compatible = "qcom,apq8009-cdp"
 compatible = "qcom,apq8009-mtp"
 compatible = "qcom,sdxpoorwills-rumi"
 compatible = "qcom,sdxpoorwills-mtp"
 compatible = "qcom,sdxpoorwills-cdp"
+compatible = "qcom,mdm9607-ttp"

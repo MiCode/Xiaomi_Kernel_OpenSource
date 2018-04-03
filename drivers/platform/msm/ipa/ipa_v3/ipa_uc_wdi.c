@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include "ipa_qmi_service.h"
 
 #define IPA_HOLB_TMR_DIS 0x0
+#define IPA_HOLB_TMR_EN 0x1
 
 #define IPA_HW_INTERFACE_WDI_VERSION 0x0001
 #define IPA_HW_WDI_RX_MBOX_START_INDEX 48
@@ -26,15 +27,6 @@
 #define IPA_WDI_ENABLED BIT(1)
 #define IPA_WDI_RESUMED BIT(2)
 #define IPA_UC_POLL_SLEEP_USEC 100
-
-#define IPA_WDI_RX_RING_RES			0
-#define IPA_WDI_RX_RING_RP_RES		1
-#define IPA_WDI_RX_COMP_RING_RES	2
-#define IPA_WDI_RX_COMP_RING_WP_RES	3
-#define IPA_WDI_TX_RING_RES			4
-#define IPA_WDI_CE_RING_RES			5
-#define IPA_WDI_CE_DB_RES			6
-#define IPA_WDI_MAX_RES				7
 
 struct ipa_wdi_res {
 	struct ipa_wdi_buffer_info *res;
@@ -503,7 +495,7 @@ int ipa3_wdi_init(void)
 static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 		bool device, unsigned long *iova)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	size_t true_len = roundup(len + pa - rounddown(pa, PAGE_SIZE),
@@ -532,7 +524,7 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 		unsigned long *iova)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	int ret;
@@ -581,7 +573,7 @@ bad_mapping:
 
 static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 	int i;
 	int j;
 	int start;
@@ -669,7 +661,7 @@ static void ipa_save_uc_smmu_mapping_sgt(int res_idx, struct sg_table *sgt,
 	}
 }
 
-static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
+int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova)
 {
@@ -702,6 +694,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		case IPA_WDI_RX_RING_RP_RES:
 		case IPA_WDI_RX_COMP_RING_WP_RES:
 		case IPA_WDI_CE_DB_RES:
+		case IPA_WDI_TX_DB_RES:
 			if (ipa_create_uc_smmu_mapping_pa(pa, len,
 				(res_idx == IPA_WDI_CE_DB_RES) ? true : false,
 				iova)) {
@@ -839,35 +832,6 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 			in->u.ul.rdy_comp_ring_wp_pa;
 		ipa3_ctx->uc_ctx.rdy_comp_ring_size =
 			in->u.ul.rdy_comp_ring_size;
-
-		/* check if the VA is empty */
-		if (ipa3_ctx->ipa_wdi2) {
-			if (in->smmu_enabled) {
-				if (!in->u.ul_smmu.rdy_ring_rp_va ||
-					!in->u.ul_smmu.rdy_comp_ring_wp_va)
-					goto dma_alloc_fail;
-			} else {
-				if (!in->u.ul.rdy_ring_rp_va ||
-					!in->u.ul.rdy_comp_ring_wp_va)
-					goto dma_alloc_fail;
-			}
-			IPADBG("rdy_ring_rp value =%d\n",
-				in->smmu_enabled ?
-				*in->u.ul_smmu.rdy_ring_rp_va :
-				*in->u.ul.rdy_ring_rp_va);
-			IPADBG("rx_comp_ring_wp value=%d\n",
-				in->smmu_enabled ?
-				*in->u.ul_smmu.rdy_comp_ring_wp_va :
-				*in->u.ul.rdy_comp_ring_wp_va);
-				ipa3_ctx->uc_ctx.rdy_ring_rp_va =
-					in->smmu_enabled ?
-					in->u.ul_smmu.rdy_ring_rp_va :
-					in->u.ul.rdy_ring_rp_va;
-				ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va =
-					in->smmu_enabled ?
-					in->u.ul_smmu.rdy_comp_ring_wp_va :
-					in->u.ul.rdy_comp_ring_wp_va;
-		}
 	}
 
 	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
@@ -1209,8 +1173,6 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		IPADBG("Skipping endpoint configuration.\n");
 	}
 
-	ipa3_enable_data_path(ipa_ep_idx);
-
 	out->clnt_hdl = ipa_ep_idx;
 
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->sys.client))
@@ -1316,6 +1278,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 	struct ipa3_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t enable;
 	struct ipa_ep_cfg_holb holb_cfg;
+	struct ipahal_reg_endp_init_rsrc_grp rsrc_grp;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1347,6 +1310,20 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		result = -EFAULT;
 		goto uc_timeout;
 	}
+
+	/* Assign the resource group for pipe */
+	memset(&rsrc_grp, 0, sizeof(rsrc_grp));
+	rsrc_grp.rsrc_grp = ipa_get_ep_group(ep->client);
+	if (rsrc_grp.rsrc_grp == -1) {
+		IPAERR("invalid group for client %d\n", ep->client);
+		WARN_ON(1);
+		return -EFAULT;
+	}
+
+	IPADBG("Setting group %d for pipe %d\n",
+		rsrc_grp.rsrc_grp, clnt_hdl);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_RSRC_GRP_n, clnt_hdl,
+		&rsrc_grp);
 
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0, sizeof(holb_cfg));
@@ -1521,6 +1498,24 @@ uc_timeout:
 	return result;
 }
 
+static void ipa3_cfg_holb_wdi_consumer(bool is_enable)
+{
+	u32 clnt_hdl;
+	struct ipa_ep_cfg_holb holb_cfg;
+
+	clnt_hdl = ipa3_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
+	if (clnt_hdl < ipa3_ctx->ipa_num_pipes &&
+		ipa3_ctx->ep[clnt_hdl].valid == 1) {
+		memset(&holb_cfg, 0, sizeof(holb_cfg));
+		if (is_enable)
+			holb_cfg.en = IPA_HOLB_TMR_EN;
+		else
+			holb_cfg.en = IPA_HOLB_TMR_DIS;
+		holb_cfg.tmr_val = 0;
+		ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
+	}
+}
+
 /**
  * ipa3_suspend_wdi_pipe() - WDI client suspend
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -1587,6 +1582,9 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 			}
 		}
 
+		/* Enabling HOLB on WDI consumer pipe */
+		ipa3_cfg_holb_wdi_consumer(true);
+
 		IPADBG("Post suspend event first for IPA Producer\n");
 		IPADBG("Client: %d clnt_hdl: %d\n", ep->client, clnt_hdl);
 		result = ipa3_uc_send_cmd(suspend.raw32b,
@@ -1596,8 +1594,12 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 
 		if (result) {
 			result = -EFAULT;
+			/* Disabling HOLB on WDI consumer pipe */
+			ipa3_cfg_holb_wdi_consumer(false);
 			goto uc_timeout;
 		}
+		/* Disabling HOLB on WDI consumer pipe */
+		ipa3_cfg_holb_wdi_consumer(false);
 	}
 
 	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
@@ -1808,7 +1810,7 @@ static void ipa3_uc_wdi_loaded_handler(void)
 
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 	int i;
 	int ret = 0;
 	int prot = IOMMU_READ | IOMMU_WRITE;
@@ -1844,7 +1846,7 @@ int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 
 int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 	int i;
 	int ret = 0;
 

@@ -1,4 +1,4 @@
-Qualcomm mdss-dsi-panel
+Qualcomm Technologies, Inc. mdss-dsi-panel
 
 mdss-dsi-panel is a dsi panel device which supports panels that
 are compatible with MIPI display serial interface specification.

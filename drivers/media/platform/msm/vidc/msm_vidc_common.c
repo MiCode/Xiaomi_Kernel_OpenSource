@@ -70,6 +70,7 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata display VUI",
 	"Extradata vpx color space",
 	"Extradata UBWC CR stats info",
+	"Extradata enc frame QP"
 };
 
 static void handle_session_error(enum hal_command_response cmd, void *data);
@@ -1585,7 +1586,7 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 }
 
 static void msm_vidc_queue_rbr_event(struct msm_vidc_inst *inst,
-		int fd, u32 offset)
+		int fd, u32 offset, u32 output_tag)
 {
 	struct v4l2_event buf_event = {0};
 	u32 *ptr;
@@ -1594,6 +1595,7 @@ static void msm_vidc_queue_rbr_event(struct msm_vidc_inst *inst,
 	ptr = (u32 *)buf_event.u.data;
 	ptr[0] = fd;
 	ptr[1] = offset;
+	ptr[2] = output_tag;
 
 	v4l2_event_queue_fh(&inst->event_handler, &buf_event);
 }
@@ -1642,6 +1644,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		planes[0] = event_notify->packet_buffer;
 		planes[1] = event_notify->extra_data_buffer;
 		mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
+		mbuf->output_tag = event_notify->output_tag;
 		if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 			dprintk(VIDC_ERR,
 				"%s: data_addr %x, extradata_addr %x not found\n",
@@ -1708,6 +1711,9 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	ptr[10] = msm_comm_get_v4l2_level(
 		inst->fmts[OUTPUT_PORT].fourcc,
 		event_notify->level);
+	ptr[11] = event_notify->max_dpb_count;
+	ptr[12] = event_notify->max_ref_count;
+	ptr[13] = event_notify->max_dec_buffering;
 
 	dprintk(VIDC_DBG,
 		"Event payload: height = %d width = %d profile = %d level = %d\n",
@@ -2044,6 +2050,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 		return;
 	}
 
+	mutex_lock(&inst->flush_lock);
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 
@@ -2086,6 +2093,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	v4l2_event_queue_fh(&inst->event_handler, &flush_event);
 
 exit:
+	mutex_unlock(&inst->flush_lock);
 	put_inst(inst);
 }
 
@@ -2372,6 +2380,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	struct msm_vidc_inst *inst;
 	struct vidc_hal_ebd *empty_buf_done;
 	struct vb2_v4l2_buffer *vbuf;
+	struct vidc_tag_data tag_data;
 	u32 planes[VIDEO_MAX_PLANES] = {0};
 	u32 extra_idx = 0, i;
 
@@ -2452,6 +2461,14 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
+	tag_data.index = vb->index;
+	tag_data.input_tag = empty_buf_done->input_tag;
+	tag_data.output_tag = empty_buf_done->output_tag;
+	tag_data.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+
+	msm_comm_store_tags(inst, &tag_data);
+
+
 	update_recon_stats(inst, &empty_buf_done->recon_stats);
 	msm_vidc_clear_freq_entry(inst, mbuf->smem[0].device_addr);
 	/*
@@ -2517,6 +2534,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	struct vb2_buffer *vb, *vb2;
 	struct vidc_hal_fbd *fill_buf_done;
 	struct vb2_v4l2_buffer *vbuf;
+	struct vidc_tag_data tag_data;
 	enum hal_buffer buffer_type;
 	u64 time_usec = 0;
 	u32 planes[VIDEO_MAX_PLANES] = {0};
@@ -2600,6 +2618,13 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			fill_buf_done->mark_data, fill_buf_done->mark_target);
 	}
 
+	tag_data.index = vb->index;
+	tag_data.input_tag = fill_buf_done->input_tag;
+	tag_data.output_tag = fill_buf_done->output_tag;
+	tag_data.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+
+	msm_comm_store_tags(inst, &tag_data);
+
 	extra_idx = EXTRADATA_IDX(inst->bufq[CAPTURE_PORT].num_planes);
 	if (extra_idx && extra_idx < VIDEO_MAX_PLANES)
 		vb->planes[extra_idx].bytesused = vb->planes[extra_idx].length;
@@ -2620,6 +2645,8 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		mbuf->vvb.flags |= V4L2_QCOM_BUF_FLAG_DECODEONLY;
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DATACORRUPT)
 		mbuf->vvb.flags |= V4L2_QCOM_BUF_DATA_CORRUPT;
+	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_ENDOFSUBFRAME)
+		mbuf->vvb.flags |= V4L2_QCOM_BUF_END_OF_SUBFRAME;
 	switch (fill_buf_done->picture_type) {
 	case HAL_PICTURE_IDR:
 		mbuf->vvb.flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
@@ -3341,11 +3368,9 @@ int msm_comm_suspend(int core_id)
 		return -EINVAL;
 	}
 
-	mutex_lock(&core->lock);
 	rc = call_hfi_op(hdev, suspend, hdev->hfi_device_data);
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to suspend\n");
-	mutex_unlock(&core->lock);
 
 	return rc;
 }
@@ -3823,7 +3848,6 @@ int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst)
 	list_for_each_entry_safe(binfo, temp, &inst->eosbufs.list, list) {
 		data.alloc_len = binfo->smem.size;
 		data.device_addr = binfo->smem.device_addr;
-		data.clnt_data = data.device_addr;
 		data.buffer_type = HAL_BUFFER_INPUT;
 		data.filled_len = 0;
 		data.offset = 0;
@@ -3919,13 +3943,17 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		struct eos_buf *binfo = NULL;
 		u32 smem_flags = 0;
 
-		get_inst(inst->core, inst);
+		if (inst->state != MSM_VIDC_START_DONE) {
+			dprintk(VIDC_DBG,
+				"Inst = %pK is not ready for EOS\n", inst);
+			break;
+		}
 
 		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 		if (!binfo) {
 			dprintk(VIDC_ERR, "%s: Out of memory\n", __func__);
 			rc = -ENOMEM;
-			goto exit;
+			break;
 		}
 
 		if (inst->flags & VIDC_SECURE)
@@ -3935,26 +3963,25 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 				SZ_4K, 1, smem_flags,
 				HAL_BUFFER_INPUT, 0, &binfo->smem);
 		if (rc) {
+			kfree(binfo);
 			dprintk(VIDC_ERR,
 				"Failed to allocate output memory\n");
 			rc = -ENOMEM;
-			goto exit;
+			break;
 		}
 
 		mutex_lock(&inst->eosbufs.lock);
 		list_add_tail(&binfo->list, &inst->eosbufs.list);
 		mutex_unlock(&inst->eosbufs.lock);
 
-		if (inst->state != MSM_VIDC_START_DONE) {
-			dprintk(VIDC_DBG,
-				"Inst = %pK is not ready for EOS\n", inst);
-			goto exit;
-		}
-
 		rc = msm_vidc_send_pending_eos_buffers(inst);
-
-exit:
-		put_inst(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed pending_eos_buffers sending\n");
+			list_del(&binfo->list);
+			kfree(binfo);
+			break;
+		}
 		break;
 	}
 	default:
@@ -3972,6 +3999,7 @@ static void populate_frame_data(struct vidc_frame_data *data,
 	int extra_idx;
 	struct vb2_buffer *vb;
 	struct vb2_v4l2_buffer *vbuf;
+	struct vidc_tag_data tag_data;
 
 	if (!inst || !mbuf || !data) {
 		dprintk(VIDC_ERR, "%s: invalid params %pK %pK %pK\n",
@@ -3989,7 +4017,6 @@ static void populate_frame_data(struct vidc_frame_data *data,
 	data->device_addr = mbuf->smem[0].device_addr;
 	data->timestamp = time_usec;
 	data->flags = 0;
-	data->clnt_data = data->device_addr;
 
 	if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		data->buffer_type = HAL_BUFFER_INPUT;
@@ -4016,6 +4043,14 @@ static void populate_frame_data(struct vidc_frame_data *data,
 	} else if (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		data->buffer_type = msm_comm_get_hal_output_buffer(inst);
 	}
+
+	tag_data.index = vb->index;
+	tag_data.type = vb->type;
+
+	msm_comm_fetch_tags(inst, &tag_data);
+	data->input_tag = tag_data.input_tag;
+	data->output_tag = tag_data.output_tag;
+
 
 	extra_idx = EXTRADATA_IDX(vb->num_planes);
 	if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
@@ -5116,6 +5151,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
+	mutex_lock(&inst->flush_lock);
 	/* enable in flush */
 	inst->in_flush = true;
 
@@ -5169,6 +5205,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		rc = call_hfi_op(hdev, session_flush, inst->session,
 			HAL_FLUSH_OUTPUT);
 	}
+	mutex_unlock(&inst->flush_lock);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Sending flush to firmware failed, flush out all buffers\n");
@@ -5235,7 +5272,10 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 		ret = HAL_EXTRADATA_STREAM_USERDATA;
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_FRAME_QP:
-		ret = HAL_EXTRADATA_FRAME_QP;
+		ret = HAL_EXTRADATA_DEC_FRAME_QP;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP:
+		ret = HAL_EXTRADATA_ENC_FRAME_QP;
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO:
 		ret = HAL_EXTRADATA_FRAME_BITS_INFO;
@@ -6581,6 +6621,7 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 	bool found = false;
 	int i = 0;
 
+	mutex_lock(&inst->flush_lock);
 	mutex_lock(&inst->registeredbufs.lock);
 	found = false;
 	/* check if mbuf was not removed by any chance */
@@ -6595,7 +6636,8 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		/* send RBR event to client */
 		msm_vidc_queue_rbr_event(inst,
 			mbuf->vvb.vb2_buf.planes[0].m.fd,
-			mbuf->vvb.vb2_buf.planes[0].data_offset);
+			mbuf->vvb.vb2_buf.planes[0].data_offset,
+			mbuf->output_tag);
 
 		/* clear RBR_PENDING flag */
 		mbuf->flags &= ~MSM_VIDC_FLAG_RBR_PENDING;
@@ -6661,6 +6703,7 @@ unlock:
 			print_vidc_buffer(VIDC_ERR,
 				"rbr qbuf failed", inst, mbuf);
 	}
+	mutex_unlock(&inst->flush_lock);
 }
 
 int msm_comm_unmap_vidc_buffer(struct msm_vidc_inst *inst,
@@ -6729,6 +6772,90 @@ bool kref_get_mbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	return ret;
+}
+
+void msm_comm_free_buffer_tags(struct msm_vidc_inst *inst)
+{
+	struct vidc_tag_data *temp, *next;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK\n",
+				__func__, inst);
+		return;
+	}
+
+	mutex_lock(&inst->buffer_tags.lock);
+	list_for_each_entry_safe(temp, next, &inst->buffer_tags.list, list) {
+		list_del(&temp->list);
+		kfree(temp);
+	}
+	INIT_LIST_HEAD(&inst->buffer_tags.list);
+	mutex_unlock(&inst->buffer_tags.lock);
+}
+
+void msm_comm_store_tags(struct msm_vidc_inst *inst,
+	struct vidc_tag_data *tag_data)
+{
+
+	struct vidc_tag_data *temp, *next;
+	struct vidc_tag_data *pdata = NULL;
+	bool found = false;
+
+	if (!inst || !tag_data) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
+				__func__, inst, tag_data);
+		return;
+	}
+
+
+	mutex_lock(&inst->buffer_tags.lock);
+	list_for_each_entry_safe(temp, next, &inst->buffer_tags.list, list) {
+		if (temp->index == tag_data->index &&
+				temp->type == tag_data->type) {
+			temp->input_tag = tag_data->input_tag;
+			temp->output_tag = tag_data->output_tag;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)  {
+			dprintk(VIDC_WARN, "%s: malloc failure.\n", __func__);
+			goto exit;
+		}
+		pdata->input_tag = tag_data->input_tag;
+		pdata->output_tag = tag_data->output_tag;
+		pdata->index = tag_data->index;
+		pdata->type = tag_data->type;
+		list_add_tail(&pdata->list, &inst->buffer_tags.list);
+	}
+
+exit:
+	mutex_unlock(&inst->buffer_tags.lock);
+}
+
+void msm_comm_fetch_tags(struct msm_vidc_inst *inst,
+	struct vidc_tag_data *tag_data)
+{
+	struct vidc_tag_data *temp, *next;
+
+	if (!inst || !tag_data) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
+				__func__, inst, tag_data);
+		return;
+	}
+	mutex_lock(&inst->buffer_tags.lock);
+	list_for_each_entry_safe(temp, next, &inst->buffer_tags.list, list) {
+		if (temp->index == tag_data->index &&
+				temp->type == tag_data->type) {
+			tag_data->input_tag = temp->input_tag;
+			tag_data->output_tag = temp->output_tag;
+			break;
+		}
+	}
+	mutex_unlock(&inst->buffer_tags.lock);
 }
 
 void msm_comm_store_mark_data(struct msm_vidc_list *data_list,

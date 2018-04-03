@@ -45,15 +45,28 @@ struct gserial {
 
 	/* REVISIT avoid this CDC-ACM support harder ... */
 	struct usb_cdc_line_coding port_line_coding;	/* 9600-8-N-1 etc */
+	u16				serial_state;
+
+	/* control signal callbacks*/
+	unsigned int (*get_dtr)(struct gserial *p);
+	unsigned int (*get_rts)(struct gserial *p);
 
 	/* notification callbacks */
 	void (*connect)(struct gserial *p);
 	void (*disconnect)(struct gserial *p);
 	int (*send_break)(struct gserial *p, int duration);
+	unsigned int (*send_carrier_detect)(struct gserial *p,
+			unsigned int yes);
+	unsigned int (*send_ring_indicator)(struct gserial *p,
+			unsigned int yes);
+	int (*send_modem_ctrl_bits)(struct gserial *p, int ctrl_bits);
+	/* notification changes to modem */
+	void (*notify_modem)(void *gser, u8 portno, int ctrl_bits);
 };
 
 /* utilities to allocate/free request and buffer */
-struct usb_request *gs_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags);
+struct usb_request *gs_alloc_req(struct usb_ep *ep, unsigned int len,
+					size_t extra_sz, gfp_t flags);
 void gs_free_req(struct usb_ep *, struct usb_request *req);
 
 /* management of individual TTY ports */

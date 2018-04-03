@@ -684,6 +684,5 @@
 		regulator-enable-ramp-delay = <5>;
 		proxy-supply = <&refgen>;
 		qcom,proxy-consumer-enable;
-		regulator-always-on;
 	};
 };

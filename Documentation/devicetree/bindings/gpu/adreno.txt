@@ -29,7 +29,7 @@ Required properties:
 				Current values of clock-names are:
 				"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
 				"alt_mem_iface_clk", "rbbmtimer_clk",  "alwayson_clk",
-				"iref_clk"
+				"iref_clk", "l3_vote"
 				"core_clk" and "iface_clk" are required and others are optional
 
 - qcom,base-leakage-coefficient: Dynamic leakage coefficient.
@@ -78,7 +78,10 @@ IOMMU Data:
 GPU Power levels:
 - qcom,gpu-pwrlevel-bins:	Container for sets of GPU power levels (see
 				adreno-pwrlevels.txt)
-
+L3 Power levels:
+- qcom,l3-pwrlevels:		Container for sets of L3 power levels, the
+				L3 frequency is adjusted according to the
+				performance hint received from userspace.
 DCVS Core info
 - qcom,dcvs-core-info		Container for the DCVS core info (see
 				dcvs-core-info.txt)
@@ -130,6 +133,13 @@ Optional Properties:
 				mask   - mask for the relevant bits in the efuse register.
 				shift  - number of bits to right shift to get the disable_gpu
 				fuse bit value.
+
+- qcom,soc-hw-rev-efuse:	SOC hardware revision fuse information in the format
+				<offset bit_position mask>
+				offset - offset of the efuse register from the base.
+				bit_position - hardware revision starting bit in the efuse register.
+				mask - mask for the relevant bits in the efuse register.
+
 - qcom,highest-bank-bit:
 				Specify the bit of the highest DDR bank. This
 				is programmed into protected registers and also
@@ -159,6 +169,15 @@ Optional Properties:
 - qcom,snapshot-size:
 				Specify the size of snapshot in bytes. This will override
 				snapshot size defined in the driver code.
+
+- qcom,enable-ca-jump:
+                                Boolean. Enables use of context aware DCVS
+- qcom,ca-busy-penalty:
+                                This property represents the time in microseconds required to
+                                initiate context aware power level jump.
+- qcom,ca-target-pwrlevel:
+                                This value indicates which qcom,gpu-pwrlevel to jump on in case
+                                of context aware power level jump.
 
 - qcom,gpu-qdss-stm:
 				<baseAddr size>
@@ -200,6 +219,9 @@ GPU Quirks:
 - qcom,gpu-quirk-limit-uche-gbif-rw:
 				Limit number of read and write transactions from UCHE block to
 				GBIF to avoid possible deadlock between GBIF, SMMU and MEMNOC.
+- qcom,gpu-quirk-mmu-secure-cb-alt:
+				Select alternate secure context bank to generate SID1 for
+				secure playback.
 
 KGSL Memory Pools:
 - qcom,gpu-mempools:		Container for sets of GPU mempools.Multiple sets
@@ -230,7 +252,7 @@ Properties:
 		Defines a SOC hardware revision.
 
 Properties:
-- reg:
+-  qcom,soc-hw-revision:
 		Identifier for the hardware revision - must match the value read
 		from the hardware.
 - qcom,chipid:
@@ -313,6 +335,15 @@ Example of A330 GPU in MSM8916:
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <5>;
 
+		/* Enable context aware freq. scaling */
+		qcom,enable-ca-jump;
+
+		/* Context aware jump busy penalty in us */
+		qcom,ca-busy-penalty = <12000>;
+
+		/* Context aware jump target power level */
+		qcom,ca-target-pwrlevel = <1>;
+
 		qcom,soc-hw-revisions {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -379,6 +410,7 @@ Example of A330 GPU in MSM8916:
 				#size-cells = <0>;
 
 				qcom,speed-bin = <0>;
+				qcom,ca-target-pwrlevel = <1>;
 
 				qcom,gpu-pwrlevel@0 {
 					reg = <0>;

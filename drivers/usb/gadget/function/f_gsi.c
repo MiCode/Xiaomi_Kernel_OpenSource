@@ -307,6 +307,10 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	in_params->data_buff_base_len = d_port->in_request.buf_len *
 					d_port->in_request.num_bufs;
 	in_params->data_buff_base_addr_iova = d_port->in_request.dma;
+	in_params->sgt_xfer_rings = &d_port->in_request.sgt_trb_xfer_ring;
+	in_params->sgt_data_buff = &d_port->in_request.sgt_data_buff;
+	log_event_dbg("%s(): IN: sgt_xfer_rings:%pK sgt_data_buff:%pK\n",
+		__func__, in_params->sgt_xfer_rings, in_params->sgt_data_buff);
 	in_params->xfer_scratch.const_buffer_size =
 		gsi_channel_info.const_buffer_size;
 	in_params->xfer_scratch.depcmd_low_addr =
@@ -344,6 +348,13 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 			d_port->out_request.num_bufs;
 		out_params->data_buff_base_addr_iova =
 			d_port->out_request.dma;
+		out_params->sgt_xfer_rings =
+			&d_port->out_request.sgt_trb_xfer_ring;
+		out_params->sgt_data_buff = &d_port->out_request.sgt_data_buff;
+		log_event_dbg("%s(): OUT: sgt_xfer_rings:%pK sgt_data_buff:%pK\n",
+			__func__, out_params->sgt_xfer_rings,
+			out_params->sgt_data_buff);
+
 		out_params->xfer_scratch.last_trb_addr_iova =
 			gsi_channel_info.last_trb_addr;
 		out_params->xfer_scratch.const_buffer_size =
@@ -497,10 +508,12 @@ static void ipa_disconnect_work_handler(struct gsi_data_port *d_port)
 	gsi->d_port.in_channel_handle = -EINVAL;
 	gsi->d_port.out_channel_handle = -EINVAL;
 
-	usb_gsi_ep_op(gsi->d_port.in_ep, NULL, GSI_EP_OP_FREE_TRBS);
+	usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
+							GSI_EP_OP_FREE_TRBS);
 
 	if (gsi->d_port.out_ep)
-		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_FREE_TRBS);
+		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
+							GSI_EP_OP_FREE_TRBS);
 
 	/* free buffers allocated with each TRB */
 	gsi_free_trb_buffer(gsi);
@@ -519,6 +532,9 @@ static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 	if (!usb_gsi_ep_op(gsi->d_port.in_ep, (void *) &f_suspend,
 				GSI_EP_OP_CHECK_FOR_SUSPEND)) {
 		ret = -EFAULT;
+		block_db = false;
+		usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
+			GSI_EP_OP_SET_CLR_BLOCK_DBL);
 		goto done;
 	}
 
@@ -1642,11 +1658,10 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 
 	buf = (rndis_init_msg_type *)req->buf;
 	if (buf->MessageType == RNDIS_MSG_INIT) {
-		gsi->d_port.in_aggr_size = min_t(u32, gsi->d_port.in_aggr_size,
-						gsi->params->dl_max_xfer_size);
-		log_event_dbg("RNDIS host dl_aggr_size:%d in_aggr_size:%d\n",
-				gsi->params->dl_max_xfer_size,
-				gsi->d_port.in_aggr_size);
+		/* honor host dl aggr size */
+		gsi->d_port.in_aggr_size = gsi->params->dl_max_xfer_size;
+		log_event_dbg("RNDIS host dl_aggr_size:%d\n",
+				gsi->params->dl_max_xfer_size);
 	}
 }
 
@@ -1945,6 +1960,11 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 			ret = -ENOMEM;
 			goto fail1;
 		}
+
+		dma_get_sgtable(dev->parent,
+			&gsi->d_port.in_request.sgt_data_buff,
+			gsi->d_port.in_request.buf_base_addr,
+			gsi->d_port.in_request.dma, len_in);
 	}
 
 	if (gsi->d_port.out_ep && !gsi->d_port.out_request.buf_base_addr) {
@@ -1964,6 +1984,11 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 			ret = -ENOMEM;
 			goto fail;
 		}
+
+		dma_get_sgtable(dev->parent,
+			&gsi->d_port.out_request.sgt_data_buff,
+			gsi->d_port.out_request.buf_base_addr,
+			gsi->d_port.out_request.dma, len_out);
 	}
 
 	log_event_dbg("finished allocating trb's buffer\n");
@@ -1994,6 +2019,7 @@ static void gsi_free_trb_buffer(struct f_gsi *gsi)
 			gsi->d_port.out_request.buf_base_addr,
 			gsi->d_port.out_request.dma);
 		gsi->d_port.out_request.buf_base_addr = NULL;
+		sg_free_table(&gsi->d_port.out_request.sgt_data_buff);
 	}
 
 	if (gsi->d_port.in_ep &&
@@ -2004,6 +2030,7 @@ static void gsi_free_trb_buffer(struct f_gsi *gsi)
 			gsi->d_port.in_request.buf_base_addr,
 			gsi->d_port.in_request.dma);
 		gsi->d_port.in_request.buf_base_addr = NULL;
+		sg_free_table(&gsi->d_port.in_request.sgt_data_buff);
 	}
 }
 
@@ -2054,13 +2081,8 @@ static int gsi_set_alt(struct usb_function *f, unsigned int intf,
 		/* for rndis and rmnet alt is always 0 update alt accordingly */
 		if (gsi->prot_id == IPA_USB_RNDIS ||
 				gsi->prot_id == IPA_USB_RMNET ||
-				gsi->prot_id == IPA_USB_DIAG) {
-			if (gsi->d_port.in_ep &&
-				!gsi->d_port.in_ep->driver_data)
+				gsi->prot_id == IPA_USB_DIAG)
 				alt = 1;
-			else
-				alt = 0;
-		}
 
 		if (alt > 1)
 			goto notify_ep_disable;
@@ -2353,7 +2375,7 @@ skip_string_id_alloc:
 		if (!ep)
 			goto fail;
 		gsi->d_port.in_ep = ep;
-		msm_ep_config(gsi->d_port.in_ep);
+		msm_ep_config(gsi->d_port.in_ep, NULL);
 		ep->driver_data = cdev;	/* claim */
 	}
 
@@ -2363,7 +2385,7 @@ skip_string_id_alloc:
 		if (!ep)
 			goto fail;
 		gsi->d_port.out_ep = ep;
-		msm_ep_config(gsi->d_port.out_ep);
+		msm_ep_config(gsi->d_port.out_ep, NULL);
 		ep->driver_data = cdev;	/* claim */
 	}
 
@@ -2540,7 +2562,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.out_epname = "gsi-epout";
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		gsi->d_port.in_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
-		info.in_req_num_buf = GSI_NUM_IN_BUFFERS;
+		info.in_req_num_buf = GSI_NUM_IN_RNDIS_BUFFERS;
 		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_AGGR_SIZE;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,12 @@
 /* maximum number of device clock */
 #define CAM_SOC_MAX_CLK             32
 
+/* soc id */
+#define SDM670_SOC_ID 336
+#define SDM710_SOC_ID 360
+
+/* Minor Version */
+#define SDM670_V1_1 0x1
 /**
  * enum cam_vote_level - Enum for voting level
  *
@@ -615,5 +621,23 @@ void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info);
 
 int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 	enum cam_vote_level clk_level);
+/**
+ * cam_soc_util_get_soc_id()
+ *
+ * @brief:           Read soc id
+ *
+ * @return           SOC id
+ */
+uint32_t cam_soc_util_get_soc_id(void);
 
+/**
+ * cam_soc_util_get_hw_revision_node()
+ *
+ * @brief:           Camera HW ID
+ *
+ * @soc_info:        Device soc information
+ *
+ * @return           HW id
+ */
+uint32_t cam_soc_util_get_hw_revision_node(struct cam_hw_soc_info *soc_info);
 #endif /* _CAM_SOC_UTIL_H_ */

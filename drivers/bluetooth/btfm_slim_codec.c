@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@
 #include <btfm_slim.h>
 
 static int bt_soc_enable_status;
-
+int btfm_feedback_ch_setting;
 
 static int btfm_slim_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
@@ -54,10 +54,27 @@ static int bt_soc_status_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int btfm_get_feedback_ch_setting(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = btfm_feedback_ch_setting;
+	return 1;
+}
+
+static int btfm_put_feedback_ch_setting(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	btfm_feedback_ch_setting = ucontrol->value.integer.value[0];
+	return 1;
+}
+
 static const struct snd_kcontrol_new status_controls[] = {
 	SOC_SINGLE_EXT("BT SOC status", 0, 0, 1, 0,
 			bt_soc_status_get,
-			bt_soc_status_put)
+			bt_soc_status_put),
+	SOC_SINGLE_EXT("BT set feedback channel", 0, 0, 1, 0,
+			btfm_get_feedback_ch_setting,
+			btfm_put_feedback_ch_setting)
 
 };
 
@@ -371,9 +388,11 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 		.capture = {
 			.stream_name = "SCO TX Capture",
 			/* 8 KHz or 16 KHz */
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000
+				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000
+				| SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE, /* 16 bits */
-			.rate_max = 16000,
+			.rate_max = 96000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 1,

@@ -1,0 +1,197 @@
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,vidc@1d00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0x01d00000 0xff000>,
+			<0x000a4124 0x4>,
+			<0x000a0164 0x4>;
+		reg-names = "vidc", "efuse", "efuse2";
+		qcom,platform-version = <0x00180000 0x13>;
+		qcom,capability-version = <0x00002000 0x0d>;
+		interrupts = <0 44 0>;
+		/* Regulators */
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		/* Clocks */
+		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_core0_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_ahb_clk>,
+			<&clock_gcc clk_gcc_venus0_axi_clk>;
+		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
+		qcom,clock-configs = <0x1 0x0 0x0 0x0 0x0>;
+		qcom,hfi = "venus";
+		qcom,hfi-version = "3xx";
+		qcom,reg-presets = <0xe0020 0x05555556>,
+			<0xe0024 0x05555556>,
+			<0x80124 0x00000003>;
+		qcom,qdss-presets = <0x825000 0x1000>,
+			<0x826000 0x1000>,
+			<0x821000 0x1000>,
+			<0x802000 0x1000>,
+			<0x9180000 0x1000>,
+			<0x9181000 0x1000>;
+		qcom,max-hw-load = <1044480>; /* 4096 x 2176 @ 30 fps */
+		qcom,slave-side-cp;
+		qcom,sw-power-collapse;
+		qcom,firmware-name = "venus";
+		qcom,pm-qos-latency-us = <213>;
+		qcom,dcvs-tbl =
+			/* Dec UHD@30 H.264, HEVC, VP8, VP9 - NOM to NOM+*/
+			<816000 816000 979200 0x3f00000c>,
+
+			/* Enc 3840x1920@30 H.264/HEVC Turbo to Nom+ */
+			<855000 821100 979200 0x4000004>,
+
+			/* Enc True4K@24 H.264/HEVC Nom to Nom+ */
+			<816000 720000 835584 0x4000004>;
+		qcom,dcvs-limit =
+			<28800 24>, /* Encoder 3840x1920 */
+			<32400 24>; /* Decoder UHD */
+		qcom,allowed-clock-rates = <465000000 400000000
+			360000000 310000000 228570000 114290000>;
+		qcom,clock-freq-tbl {
+			qcom,profile-enc {
+				qcom,codec-mask = <0x55555555>;
+				qcom,cycles-per-mb = <863>;
+				qcom,low-power-mode-factor = <35616>;
+			};
+			qcom,profile-dec {
+				qcom,codec-mask = <0xf3ffffff>;
+				qcom,cycles-per-mb = <355>;
+			};
+			qcom,profile-hevcdec {
+				qcom,codec-mask = <0x0c000000>;
+				qcom,cycles-per-mb = <400>;
+			};
+		};
+
+		/* MMUs */
+		non_secure_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_ns";
+			iommus = <&apps_iommu 0x800 0x01>,
+				<&apps_iommu 0x807 0x00>,
+				<&apps_iommu 0x808 0x07>,
+				<&apps_iommu 0x810 0x01>,
+				<&apps_iommu 0x828 0x01>,
+				<&apps_iommu 0x82c 0x01>,
+				<&apps_iommu 0x821 0x10>;
+			buffer-types = <0xfff>;
+			virtual-addr-pool = <0x5dc00000 0x7f000000
+				0xdcc00000 0x1000000>;
+		};
+
+		secure_bitstream_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_bitstream";
+			 iommus = <&apps_iommu 0x900 0x0>,
+				<&apps_iommu 0x902 0x8>,
+				<&apps_iommu 0x909 0x2>,
+				<&apps_iommu 0x90e 0x0>,
+				<&apps_iommu 0x926 0x0>,
+				<&apps_iommu 0x929 0x2>;
+			buffer-types = <0x241>;
+			virtual-addr-pool = <0x4b000000 0x12c00000>;
+			qcom,secure-context-bank;
+		};
+
+		secure_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_pixel";
+			iommus = <&apps_iommu 0x904 0x8>,
+				<&apps_iommu 0x910 0x0>,
+				<&apps_iommu 0x92c 0x0>;
+			buffer-types = <0x106>;
+			virtual-addr-pool = <0x25800000 0x25800000>;
+			qcom,secure-context-bank;
+		};
+
+		secure_non_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_non_pixel";
+			iommus = <&apps_iommu 0x908 0x0>,
+				<&apps_iommu 0x905 0xa>,
+				<&apps_iommu 0x925 0x8>,
+				<&apps_iommu 0x928 0x0>;
+			buffer-types = <0x480>;
+			virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-context-bank;
+		};
+
+		/* Buses */
+		venus_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "venus-ddr-gov";
+			qcom,bus-range-kbps = <1000 2365000>;
+		};
+
+		arm9_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-arm9-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+	};
+
+	venus-ddr-gov {
+		compatible = "qcom,msm-vidc,governor,table";
+		name = "venus-ddr-gov";
+		status = "ok";
+		qcom,bus-freq-table {
+			qcom,profile-enc {
+				qcom,codec-mask = <0x55555555>;
+				qcom,load-busfreq-tbl =
+					<979200 1044000>,  /* UHD30E     */
+					<864000 887000>,   /* 720p240LPE */
+					<489600 666000>,   /* 1080p60E   */
+					<432000 578000>,   /* 720p120E   */
+					<244800 346000>,   /* 1080p30E   */
+					<216000 293000>,   /* 720p60E    */
+					<108000 151000>,   /* 720p30E    */
+					<0 0>;
+			};
+			qcom,profile-dec {
+				qcom,codec-mask = <0xffffffff>;
+				qcom,load-busfreq-tbl =
+					<979200 2365000>,  /* UHD30D     */
+					<864000 1978000>,  /* 720p240D   */
+					<489600 1133000>,  /* 1080p60D   */
+					<432000 994000>,   /* 720p120D   */
+					<244800 580000>,   /* 1080p30D   */
+					<216000 501000>,   /* 720p60E    */
+					<108000 255000>,   /* 720p30D    */
+					<0 0>;
+			};
+			qcom,profile-dec-ubwc {
+				qcom,codec-mask = <0xffffffff>;
+				qcom,ubwc-mode;
+				qcom,load-busfreq-tbl =
+					<979200 1892000>,  /* UHD30D     */
+					<864000 1554000>,  /* 720p240D   */
+					<489600 895000>,   /* 1080p60D   */
+					<432000 781000>,   /* 720p120D   */
+					<244800 460000>,   /* 1080p30D   */
+					<216000 301000>,   /* 720p60E    */
+					<108000 202000>,   /* 720p30D    */
+					<0 0>;
+			};
+		};
+	};
+
+};

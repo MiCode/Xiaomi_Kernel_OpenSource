@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,11 @@ void ep_pcie_phy_init(struct ep_pcie_dev_t *dev)
 	case 5:
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: PHY V%d: Initializing 10nm QMP phy - 100MHz\n",
+			dev->rev, dev->phy_rev);
+		break;
+	case 6:
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PHY V%d: Initializing 7nm QMP phy - 100MHz\n",
 			dev->rev, dev->phy_rev);
 		break;
 	default:

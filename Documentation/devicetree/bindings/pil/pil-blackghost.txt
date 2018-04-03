@@ -1,0 +1,33 @@
+Qualcomm Technologies Inc Blackghost(BG) PIL driver:
+
+Blackghost(BG) PIL driver provide interface to load and boot Blackghost(BG)
+SOC. Blackghost(BG) SOC is an external SOC which communicate to MSM via
+SPI. The PIL driver loads firmware into memory and invoke secure app via
+qseecom to transfer and handshake the boot process. Once Blackghost(BG) SOC
+is booted it raises ready interrupt which is handled by BG PIL driver, and
+this event is informed to other MSM drivers, other remote subsystem via
+notifier framework. The PIL driver also handles interrupt for the BG SOC
+crash upon arrival of which it reset and initiates ramdump collection for BG
+SOC.
+
+Required properties:
+- compatible:			Must be "qcom,PIL-blackghost"
+- qcom,firmware-name:		Base name of the firmware image.
+- qcom,bg2ap-status-gpio:	GPIO used by the blackghost to indicate status to the apps.
+- qcom,bg2ap-errfatal-gpio:	GPIO used by the blackghost to indicate software error to the apps.
+- qcom,ap2bg-status-gpio:	GPIO used by the apps to indicate its status to blackghost.
+- qcom,ap2bg-errfatal-gpio:	GPIO used by the apps to indicate blackghost about apps reset.
+
+Example:
+
+	qcom,blackghost {
+		compatible = "qcom,pil-blackghost";
+		qcom,firmware-name = "bgelf";
+
+		/* GPIO inputs from blackghost */
+		qcom,bg2ap-status-gpio = <&msm_gpio 97 0>;
+		qcom,bg2ap-errfatal-gpio = <&msm_gpio 95 0>;
+		/* GPIO output to blackghost */
+		qcom,ap2bg-status-gpio = <&msm_gpio 17 0>;
+		qcom,ap2bg-errfatal-gpio = <&msm_gpio 23 0>;
+	};

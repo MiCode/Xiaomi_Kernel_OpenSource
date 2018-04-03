@@ -218,7 +218,6 @@
 				qcom,scale-function = <2>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
-				qcom,vadc-thermal-node;
 			};
 
 			chan@4f {
@@ -230,7 +229,6 @@
 				qcom,scale-function = <2>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
-				qcom,vadc-thermal-node;
 			};
 
 			chan@1d {
@@ -504,23 +502,9 @@
 
 		trips {
 			pm660_vbat_adc: vbat-adc {
-				temperature = <3300>;
+				temperature = <3200>;
 				hysteresis = <100>;
 				type = "passive";
-			};
-		};
-		cooling-maps {
-			vbat_map6 {
-				trip = <&pm660_vbat_adc>;
-				cooling-device =
-					<&CPU6 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			vbat_map7 {
-				trip = <&pm660_vbat_adc>;
-				cooling-device =
-					<&CPU7 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
@@ -534,7 +518,7 @@
 
 		trips {
 			vbat-low {
-				temperature = <3100>;
+				temperature = <2800>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -550,7 +534,7 @@
 
 		trips {
 			vbat-too-low {
-				temperature = <2900>;
+				temperature = <2600>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -569,20 +553,6 @@
 				temperature = <10>;
 				hysteresis = <0>;
 				type = "passive";
-			};
-		};
-		cooling-maps {
-			soc_map6 {
-				trip = <&pm660_low_soc>;
-				cooling-device =
-					<&CPU6 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			soc_map7 {
-				trip = <&pm660_low_soc>;
-				cooling-device =
-					<&CPU7 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
@@ -608,98 +578,6 @@
 				temperature = <145000>;
 				hysteresis = <0>;
 				type = "critical";
-			};
-		};
-		cooling-maps {
-			trip0_cpu0 {
-				trip = <&pm660_trip0>;
-				cooling-device =
-					<&CPU0 (THERMAL_MAX_LIMIT-1)
-						(THERMAL_MAX_LIMIT-1)>;
-			};
-			trip0_cpu1 {
-				trip = <&pm660_trip0>;
-				cooling-device =
-					<&CPU1 (THERMAL_MAX_LIMIT-1)
-						(THERMAL_MAX_LIMIT-1)>;
-			};
-			trip0_cpu2 {
-				trip = <&pm660_trip0>;
-				cooling-device =
-					<&CPU2 (THERMAL_MAX_LIMIT-1)
-						(THERMAL_MAX_LIMIT-1)>;
-			};
-			trip0_cpu3 {
-				trip = <&pm660_trip0>;
-				cooling-device =
-					<&CPU3 (THERMAL_MAX_LIMIT-1)
-						(THERMAL_MAX_LIMIT-1)>;
-			};
-			trip0_cpu4 {
-				trip = <&pm660_trip0>;
-				cooling-device =
-					<&CPU4 (THERMAL_MAX_LIMIT-1)
-						(THERMAL_MAX_LIMIT-1)>;
-			};
-			trip0_cpu5 {
-				trip = <&pm660_trip0>;
-				cooling-device =
-					<&CPU5 (THERMAL_MAX_LIMIT-1)
-						(THERMAL_MAX_LIMIT-1)>;
-			};
-			trip0_cpu6 {
-				trip = <&pm660_trip0>;
-				cooling-device =
-					<&CPU6 (THERMAL_MAX_LIMIT-1)
-						(THERMAL_MAX_LIMIT-1)>;
-			};
-			trip0_cpu7 {
-				trip = <&pm660_trip0>;
-				cooling-device =
-					<&CPU7 (THERMAL_MAX_LIMIT-1)
-						(THERMAL_MAX_LIMIT-1)>;
-			};
-			trip1_cpu1 {
-				trip = <&pm660_trip1>;
-				cooling-device =
-					<&CPU1 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			trip1_cpu2 {
-				trip = <&pm660_trip1>;
-				cooling-device =
-					<&CPU2 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			trip1_cpu3 {
-				trip = <&pm660_trip1>;
-				cooling-device =
-					<&CPU3 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			trip1_cpu4 {
-				trip = <&pm660_trip1>;
-				cooling-device =
-					<&CPU4 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			trip1_cpu5 {
-				trip = <&pm660_trip1>;
-				cooling-device =
-					<&CPU5 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			trip1_cpu6 {
-				trip = <&pm660_trip1>;
-				cooling-device =
-					<&CPU6 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
-			};
-			trip1_cpu7 {
-				trip = <&pm660_trip1>;
-				cooling-device =
-					<&CPU7 THERMAL_MAX_LIMIT
-						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};

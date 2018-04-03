@@ -1,4 +1,4 @@
-Qualcomm MDSS MDP
+Qualcomm Technologies, Inc. MDSS MDP
 
 MDSS is Mobile Display SubSystem which implements Linux framebuffer APIs to
 drive user interface to different panel interfaces. MDP driver is the core of

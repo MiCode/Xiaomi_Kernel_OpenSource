@@ -1276,7 +1276,7 @@ try_next_bio:
 	 		&& pd->bio_queue_size <= pd->write_congestion_off);
 	spin_unlock(&pd->lock);
 	if (wakeup) {
-		clear_bdi_congested(&pd->disk->queue->backing_dev_info,
+		clear_bdi_congested(pd->disk->queue->backing_dev_info,
 					BLK_RW_ASYNC);
 	}
 
@@ -2405,7 +2405,7 @@ static void pkt_make_request_write(struct request_queue *q, struct bio *bio)
 	spin_lock(&pd->lock);
 	if (pd->write_congestion_on > 0
 	    && pd->bio_queue_size >= pd->write_congestion_on) {
-		set_bdi_congested(&q->backing_dev_info, BLK_RW_ASYNC);
+		set_bdi_congested(q->backing_dev_info, BLK_RW_ASYNC);
 		do {
 			spin_unlock(&pd->lock);
 			congestion_wait(BLK_RW_ASYNC, HZ);
@@ -2779,7 +2779,7 @@ static int pkt_setup_dev(dev_t dev, dev_t* pkt_dev)
 	pd->pkt_dev = MKDEV(pktdev_major, idx);
 	ret = pkt_new_dev(pd, dev);
 	if (ret)
-		goto out_new_dev;
+		goto out_mem2;
 
 	/* inherit events of the host device */
 	disk->events = pd->bdev->bd_disk->events;
@@ -2797,8 +2797,6 @@ static int pkt_setup_dev(dev_t dev, dev_t* pkt_dev)
 	mutex_unlock(&ctl_mutex);
 	return 0;
 
-out_new_dev:
-	blk_cleanup_queue(disk->queue);
 out_mem2:
 	put_disk(disk);
 out_mem:

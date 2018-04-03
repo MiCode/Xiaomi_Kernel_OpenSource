@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,7 +121,8 @@ static struct cam_ctx_ops
 
 int cam_jpeg_context_init(struct cam_jpeg_context *ctx,
 	struct cam_context *ctx_base,
-	struct cam_hw_mgr_intf *hw_intf)
+	struct cam_hw_mgr_intf *hw_intf,
+	uint32_t ctx_id)
 {
 	int rc;
 	int i;
@@ -139,8 +140,8 @@ int cam_jpeg_context_init(struct cam_jpeg_context *ctx,
 	for (i = 0; i < CAM_CTX_REQ_MAX; i++)
 		ctx->req_base[i].req_priv = ctx;
 
-	rc = cam_context_init(ctx_base, jpeg_dev_name, NULL, hw_intf,
-		ctx->req_base, CAM_CTX_REQ_MAX);
+	rc = cam_context_init(ctx_base, jpeg_dev_name, CAM_JPEG, ctx_id,
+		NULL, hw_intf, ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Camera Context Base init failed");
 		goto err;

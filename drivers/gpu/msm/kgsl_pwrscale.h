@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,6 +91,11 @@ struct kgsl_pwr_history {
  * @popp_level - Current level of POPP mitigation
  * @popp_state - Control state for POPP, on/off, recently pushed, etc
  * @cooling_dev - Thermal cooling device handle
+ * @ctxt_aware_enable - Whether or not ctxt aware DCVS feature is enabled
+ * @ctxt_aware_busy_penalty - The time in microseconds required to trigger
+ * ctxt aware power level jump
+ * @ctxt_aware_target_pwrlevel - pwrlevel to jump on in case of ctxt aware
+ * power level jump
  */
 struct kgsl_pwrscale {
 	struct devfreq *devfreqptr;
@@ -113,6 +118,9 @@ struct kgsl_pwrscale {
 	int popp_level;
 	unsigned long popp_state;
 	struct thermal_cooling_device *cooling_dev;
+	bool ctxt_aware_enable;
+	unsigned int ctxt_aware_target_pwrlevel;
+	unsigned int ctxt_aware_busy_penalty;
 };
 
 int kgsl_pwrscale_init(struct device *dev, const char *governor);

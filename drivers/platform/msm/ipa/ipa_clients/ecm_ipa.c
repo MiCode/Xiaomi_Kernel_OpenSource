@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -619,8 +619,10 @@ static netdev_tx_t ecm_ipa_start_xmit
 	}
 
 	if (ecm_ipa_ctx->is_vlan_mode)
-		if (unlikely(skb->protocol != ETH_P_8021Q))
-			ECM_IPA_DEBUG("ether_type != ETH_P_8021Q && vlan\n");
+		if (unlikely(skb->protocol != htons(ETH_P_8021Q)))
+			ECM_IPA_DEBUG(
+				"ether_type != ETH_P_8021Q && vlan, prot = 0x%X\n"
+				, skb->protocol);
 
 	ret = ipa_tx_dp(ecm_ipa_ctx->ipa_to_usb_client, skb, NULL);
 	if (ret) {

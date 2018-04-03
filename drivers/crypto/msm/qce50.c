@@ -5929,8 +5929,7 @@ static int setup_dummy_req(struct qce_device *pce_dev)
 	int len = DUMMY_REQ_DATA_LEN;
 
 	memcpy(pce_dev->dummyreq_in_buf, input, len);
-	sg_set_buf(&pce_dev->dummyreq.sg, pce_dev->dummyreq_in_buf, len);
-	sg_mark_end(&pce_dev->dummyreq.sg);
+	sg_init_one(&pce_dev->dummyreq.sg, pce_dev->dummyreq_in_buf, len);
 
 	pce_dev->dummyreq.sreq.alg = QCE_HASH_SHA1;
 	pce_dev->dummyreq.sreq.qce_cb = qce_dummy_complete;

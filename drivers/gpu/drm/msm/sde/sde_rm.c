@@ -398,7 +398,7 @@ int sde_rm_init(struct sde_rm *rm,
 		void __iomem *mmio,
 		struct drm_device *dev)
 {
-	int rc, i;
+	int rc = 0, i;
 	enum sde_hw_blk_type type;
 
 	if (!rm || !cat || !mmio || !dev) {
@@ -1182,7 +1182,7 @@ static u32 _sde_rm_poll_intr_status_for_cont_splash(struct sde_hw_intr *intr,
 	}
 
 	SDE_EVT32(status, irq_idx_pp_done, SDE_EVTLOG_ERROR);
-	SDE_ERROR("polling timed out. status = 0x%x\n", status);
+	SDE_DEBUG("polling timed out. status = 0x%x\n", status);
 	return -ETIMEDOUT;
 }
 

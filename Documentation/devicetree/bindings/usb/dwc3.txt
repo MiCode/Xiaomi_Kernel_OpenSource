@@ -61,6 +61,8 @@ Optional properties:
  - usb-core-id: Differentiates between different controllers present on a device.
  - snps,bus-suspend-enable: If present then controller supports low power mode
 	during bus suspend.
+ - snps,usb3-u1u2-disable: If present, disable U1U2 low power modes in Superspeed mode
+ - snps,usb2-l1-disable: If present, disable L1 low power modes in Highspeed mode
 
 This is usually a subnode to DWC3 glue to which it is connected.
 

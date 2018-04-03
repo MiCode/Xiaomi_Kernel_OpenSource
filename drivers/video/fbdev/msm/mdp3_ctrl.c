@@ -271,7 +271,7 @@ void dma_done_notify_handler(void *arg)
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
 
 	atomic_inc(&session->dma_done_cnt);
-	queue_kthread_work(&session->worker, &session->dma_done_work);
+	kthread_queue_work(&session->worker, &session->dma_done_work);
 	complete_all(&session->dma_completion);
 }
 
@@ -1656,9 +1656,9 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 	panel = mdp3_session->panel;
 	if (mdp3_session->first_commit) {
 		/*wait to ensure frame is sent to panel*/
-		if (panel_info->mipi.init_delay)
+		if (panel_info->mipi.post_init_delay)
 			msleep(((1000 / panel_info->mipi.frame_rate) + 1) *
-					panel_info->mipi.init_delay);
+					panel_info->mipi.post_init_delay);
 		else
 			msleep(1000 / panel_info->mipi.frame_rate);
 		mdp3_session->first_commit = false;

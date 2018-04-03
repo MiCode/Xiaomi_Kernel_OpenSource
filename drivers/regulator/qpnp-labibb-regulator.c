@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2840,8 +2840,11 @@ static bool is_lab_vreg_ok_irq_available(struct qpnp_labibb *labibb)
 		return true;
 
 	if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE &&
-		labibb->mode == QPNP_LABIBB_LCD_MODE)
+		labibb->mode == QPNP_LABIBB_LCD_MODE) {
+		if (labibb->ttw_en)
+			return false;
 		return true;
+	}
 
 	return false;
 }

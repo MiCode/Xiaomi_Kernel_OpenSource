@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -403,16 +403,17 @@ struct ipa_api_controller {
 
 	void (*ipa_ntn_uc_dereg_rdyCB)(void);
 
-	int (*ipa_conn_wdi3_pipes)(struct ipa_wdi3_conn_in_params *in,
-		struct ipa_wdi3_conn_out_params *out);
+	int (*ipa_conn_wdi_pipes)(struct ipa_wdi_conn_in_params *in,
+		struct ipa_wdi_conn_out_params *out,
+		ipa_wdi_meter_notifier_cb wdi_notify);
 
-	int (*ipa_disconn_wdi3_pipes)(int ipa_ep_idx_tx,
+	int (*ipa_disconn_wdi_pipes)(int ipa_ep_idx_tx,
 		int ipa_ep_idx_rx);
 
-	int (*ipa_enable_wdi3_pipes)(int ipa_ep_idx_tx,
+	int (*ipa_enable_wdi_pipes)(int ipa_ep_idx_tx,
 		int ipa_ep_idx_rx);
 
-	int (*ipa_disable_wdi3_pipes)(int ipa_ep_idx_tx,
+	int (*ipa_disable_wdi_pipes)(int ipa_ep_idx_tx,
 		int ipa_ep_idx_rx);
 
 	int (*ipa_tz_unlock_reg)(struct ipa_tz_unlock_reg_info *reg_info,
@@ -421,6 +422,8 @@ struct ipa_api_controller {
 	int (*ipa_get_smmu_params)(struct ipa_smmu_in_params *in,
 		struct ipa_smmu_out_params *out);
 	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
+
+	bool (*ipa_pm_is_used)(void);
 };
 
 #ifdef CONFIG_IPA

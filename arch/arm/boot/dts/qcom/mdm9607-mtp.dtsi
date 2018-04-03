@@ -1,0 +1,158 @@
+/*
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "mdm9607.dtsi"
+#include "mdm9607-pinctrl.dtsi"
+#include "mdm9607-display.dtsi"
+#include "qpic-panel-ili-hvga.dtsi"
+
+/ {
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pm8019_gpios 2 0>; /* BT_EN */
+		qca,bt-vdd-pa-supply = <&rome_vreg>;
+		qca,bt-vdd-io-supply = <&mdm9607_l11>;
+		qca,bt-vdd-xtal-supply = <&mdm9607_l2>;
+		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
+	};
+};
+
+&blsp1_uart5 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&i2c_4 {
+	status = "ok";
+};
+
+&blsp1_uart3 {
+	status = "ok";
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+/* MPP pin 2 configs for SMB358 interrupt line */
+&pm8019_mpps {
+	mpp@a100 {
+		qcom,mode = <0>;	/* Digital input */
+		qcom,vin-sel = <3>;	/* 1.8V (L11) */
+		qcom,src-sel = <0>;	/* QPNP_PIN_SEL_FUNC_CONSTANT */
+		qcom,pull = <2>;	/* PULL UP 10KOHM */
+		qcom,master-en = <1>;
+	};
+};
+
+&pm8019_gpios {
+	gpio@c100 { /* BT_EN */
+		qcom,mode = <1>;         /* Digital output*/
+		qcom,pull = <4>;         /* Pulldown 10uA */
+		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,src-sel = <0>;      /* GPIO */
+		qcom,invert = <0>;       /* Invert */
+		qcom,master-en = <1>;    /* Enable GPIO */
+		status = "ok";
+	};
+
+	/* PMIC gpio for wlan power supply */
+	gpio@c200 {
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <1>;		/* Output high */
+		qcom,vin-sel = <3>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* High drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+
+	/* ROME 32k Sleep Clock */
+	gpio@c500 {
+		qcom,mode = <1>;               /* Digital output */
+		qcom,output-type = <0>;        /* CMOS logic */
+		qcom,invert = <0>;             /* no inversion */
+		qcom,vin-sel = <2>;            /* VIN 2 */
+		qcom,src-sel = <2>;            /* Function 2 */
+		qcom,out-strength = <2>;       /* Medium */
+		qcom,master-en = <1>;          /* Enable GPIO */
+		status = "ok";
+	};
+};
+
+&sdhc_1 {
+	vdd-io-supply = <&mdm9607_l11>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 30000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on
+						&sdc1_wlan_gpio_active>;
+	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off
+						&sdc1_wlan_gpio_sleep>;
+	qcom,nonremovable;
+	qcom,core_3_0v_support;
+	status = "ok";
+};
+
+/* MPP pin 4 configs for SGMII */
+&pm8019_mpps {
+	mpp@a300 { /* MPP 4 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,vin-sel = <2>;		/* 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+};
+
+&sdhc_2 {
+	vdd-supply = <&sdcard_ext_vreg>;
+	qcom,vdd-voltage-level = <2850000 2850000>;
+	qcom,vdd-current-level = <15000 400000>;
+
+	vdd-io-supply = <&mdm9607_l13>;
+	qcom,vdd-io-voltage-level = <1800000 2850000>;
+	qcom,vdd-io-current-level = <200 50000>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &tlmm_pinmux 26 0>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&tlmm_pinmux 26 0x1>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	status = "disabled";
+};
+
+/* Display */
+&mdss_qpic {
+	pinctrl-names= "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_ldo_active &mdss_cs_active &mdss_te_active
+		&mdss_rs_active &mdss_ad_active &mdss_bl_active>;
+	pinctrl-1 = <&mdss_ldo_sleep &mdss_cs_sleep &mdss_te_sleep
+		&mdss_rs_sleep &mdss_ad_sleep &mdss_bl_sleep>;
+	status = "disabled";
+};

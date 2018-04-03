@@ -2226,7 +2226,6 @@ static int qpnp_flash_led_parse_common_dt(
 					"Invalid thermal derate rate\n");
 				return -EINVAL;
 			}
-
 			led->pdata->thermal_derate_rate = (u8)temp_val;
 		} else {
 			dev_err(&led->pdev->dev,
@@ -2474,11 +2473,12 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	if (!led->pdata)
 		return -ENOMEM;
 
-	led->peripheral_type = (u8)qpnp_flash_led_get_peripheral_type(led);
-	if (led->peripheral_type < 0) {
+	rc = qpnp_flash_led_get_peripheral_type(led);
+	if (rc < 0) {
 		dev_err(&pdev->dev, "Failed to get peripheral type\n");
 		return rc;
 	}
+	led->peripheral_type = (u8) rc;
 
 	rc = qpnp_flash_led_parse_common_dt(led, node);
 	if (rc) {
@@ -2521,6 +2521,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	}
 
 	for_each_child_of_node(node, temp) {
+		j = -1;
 		led->flash_node[i].cdev.brightness_set =
 						qpnp_flash_led_brightness_set;
 		led->flash_node[i].cdev.brightness_get =
@@ -2595,7 +2596,6 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 			if (rc)
 				goto error_led_register;
 		}
-
 		i++;
 	}
 
@@ -2607,7 +2607,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 			(long)root);
 		if (PTR_ERR(root) == -ENODEV)
 			pr_err("debugfs is not enabled in kernel");
-		goto error_led_debugfs;
+		goto error_free_led_sysfs;
 	}
 
 	led->dbgfs_root = root;
@@ -2637,6 +2637,8 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	return 0;
 
 error_led_debugfs:
+	debugfs_remove_recursive(root);
+error_free_led_sysfs:
 	i = led->num_leds - 1;
 	j = ARRAY_SIZE(qpnp_flash_led_attrs) - 1;
 error_led_register:
@@ -2647,7 +2649,6 @@ error_led_register:
 		j = ARRAY_SIZE(qpnp_flash_led_attrs) - 1;
 		led_classdev_unregister(&led->flash_node[i].cdev);
 	}
-	debugfs_remove_recursive(root);
 	mutex_destroy(&led->flash_led_lock);
 	destroy_workqueue(led->ordered_workq);
 

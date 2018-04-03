@@ -421,4 +421,19 @@ struct drm_msm_dither {
 	__u32 matrix[DITHER_MATRIX_SZ];
 };
 
+/**
+ * struct drm_msm_pa_dither - dspp dither feature structure
+ * @flags: for customizing operations
+ * @strength: dither strength
+ * @offset_en: offset enable bit
+ * @matrix: dither data matrix
+ */
+#define DRM_MSM_PA_DITHER
+struct drm_msm_pa_dither {
+	__u64 flags;
+	__u32 strength;
+	__u32 offset_en;
+	__u32 matrix[DITHER_MATRIX_SZ];
+};
+
 #endif /* _MSM_DRM_PP_H_ */

@@ -6816,11 +6816,15 @@ struct find_best_target_env {
 
 static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 				struct find_best_target_env *fbt_env,
-				unsigned int target_cpus_count)
+				unsigned int target_cpus_count,
+				int best_idle_cstate)
 {
 	unsigned long tutil, estimated_capacity;
 
 	if (fbt_env->placement_boost || fbt_env->need_idle)
+		return false;
+
+	if (best_idle_cstate == -1)
 		return false;
 
 	if (target_cpus_count != 1)
@@ -7183,7 +7187,7 @@ retry:
 	} while (sg = sg->next, sg != sd->groups);
 
 	if (best_idle_cpu != -1 && !is_packing_eligible(p, target_cpu, fbt_env,
-					active_cpus_count)) {
+					active_cpus_count, best_idle_cstate)) {
 		if (target_cpu == task_cpu(p))
 			fbt_env->avoid_prev_cpu = true;
 
@@ -10021,6 +10025,19 @@ no_move:
 		if (need_active_balance(&env)) {
 			raw_spin_lock_irqsave(&busiest->lock, flags);
 
+			/*
+			 * The CPUs are marked as reserved if tasks
+			 * are pushed/pulled from other CPUs. In that case,
+			 * bail out from the load balancer.
+			 */
+			if (is_reserved(this_cpu) ||
+			    is_reserved(cpu_of(busiest))) {
+				raw_spin_unlock_irqrestore(&busiest->lock,
+							   flags);
+				*continue_balancing = 0;
+				goto out;
+			}
+
 			/* don't kick the active_load_balance_cpu_stop,
 			 * if the curr task on busiest cpu can't be
 			 * moved to this_cpu
@@ -11620,6 +11637,141 @@ kick_active_balance(struct rq *rq, struct task_struct *p, int new_cpu)
 	return rc;
 }
 
+#ifdef CONFIG_SCHED_WALT
+struct walt_rotate_work {
+	struct work_struct w;
+	struct task_struct *src_task;
+	struct task_struct *dst_task;
+	int src_cpu;
+	int dst_cpu;
+};
+
+static DEFINE_PER_CPU(struct walt_rotate_work, walt_rotate_works);
+
+static void walt_rotate_work_func(struct work_struct *work)
+{
+	struct walt_rotate_work *wr = container_of(work,
+				struct walt_rotate_work, w);
+
+	migrate_swap(wr->src_task, wr->dst_task);
+
+	put_task_struct(wr->src_task);
+	put_task_struct(wr->dst_task);
+
+	clear_reserved(wr->src_cpu);
+	clear_reserved(wr->dst_cpu);
+}
+
+void walt_rotate_work_init(void)
+{
+	int i;
+
+	for_each_possible_cpu(i) {
+		struct walt_rotate_work *wr = &per_cpu(walt_rotate_works, i);
+
+		INIT_WORK(&wr->w, walt_rotate_work_func);
+	}
+}
+
+#define WALT_ROTATION_THRESHOLD_NS	16000000
+static void walt_check_for_rotation(struct rq *src_rq)
+{
+	u64 wc, wait, max_wait = 0, run, max_run = 0;
+	int deserved_cpu = nr_cpu_ids, dst_cpu = nr_cpu_ids;
+	int i, src_cpu = cpu_of(src_rq);
+	struct rq *dst_rq;
+	struct walt_rotate_work *wr = NULL;
+
+	if (!walt_rotation_enabled)
+		return;
+
+	if (got_boost_kick())
+		return;
+
+	if (is_max_capacity_cpu(src_cpu))
+		return;
+
+	wc = ktime_get_ns();
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (is_max_capacity_cpu(i))
+			break;
+
+		if (is_reserved(i))
+			continue;
+
+		if (!rq->misfit_task || rq->curr->sched_class !=
+						&fair_sched_class)
+			continue;
+
+		wait = wc - rq->curr->last_enqueued_ts;
+		if (wait > max_wait) {
+			max_wait = wait;
+			deserved_cpu = i;
+		}
+	}
+
+	if (deserved_cpu != src_cpu)
+		return;
+
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (!is_max_capacity_cpu(i))
+			continue;
+
+		if (is_reserved(i))
+			continue;
+
+		if (rq->curr->sched_class != &fair_sched_class)
+			continue;
+
+		if (rq->nr_running > 1)
+			continue;
+
+		run = wc - rq->curr->last_enqueued_ts;
+
+		if (run < WALT_ROTATION_THRESHOLD_NS)
+			continue;
+
+		if (run > max_run) {
+			max_run = run;
+			dst_cpu = i;
+		}
+	}
+
+	if (dst_cpu == nr_cpu_ids)
+		return;
+
+	dst_rq = cpu_rq(dst_cpu);
+
+	double_rq_lock(src_rq, dst_rq);
+	if (dst_rq->curr->sched_class == &fair_sched_class) {
+		get_task_struct(src_rq->curr);
+		get_task_struct(dst_rq->curr);
+
+		mark_reserved(src_cpu);
+		mark_reserved(dst_cpu);
+		wr = &per_cpu(walt_rotate_works, src_cpu);
+
+		wr->src_task = src_rq->curr;
+		wr->dst_task = dst_rq->curr;
+
+		wr->src_cpu = src_cpu;
+		wr->dst_cpu = dst_cpu;
+	}
+	double_rq_unlock(src_rq, dst_rq);
+
+	if (wr)
+		queue_work_on(src_cpu, system_highpri_wq, &wr->w);
+}
+#else
+static inline void walt_check_for_rotation(struct rq *rq)
+{
+}
+#endif
+
 static DEFINE_RAW_SPINLOCK(migration_lock);
 void check_for_migration(struct rq *rq, struct task_struct *p)
 {
@@ -11649,6 +11801,8 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 					&rq->active_balance_work);
 				return;
 			}
+		} else {
+			walt_check_for_rotation(rq);
 		}
 		raw_spin_unlock(&migration_lock);
 	}

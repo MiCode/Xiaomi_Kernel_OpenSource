@@ -155,6 +155,7 @@ config QCOM_USB_MSM_OTG
 	depends on (USB || USB_GADGET) && (ARCH_QCOM || COMPILE_TEST)
 	depends on USB_GADGET || !USB_GADGET # if USB_GADGET=m, this can't be 'y'
 	depends on RESET_CONTROLLER
+	depends on REGULATOR
 	depends on EXTCON
 	select USB_PHY
 	help
@@ -253,4 +254,15 @@ config MSM_HSUSB_PHY
 	  the high-speed PHY which is usually paired with either the ChipIdea or
 	  Synopsys DWC3 USB IPs on MSM SOCs. This driver expects to configure the
 	  PHY with a dedicated register I/O memory region.
+
+config USB_MSM_OTG
+	tristate "Qualcomm Technologies, Inc. on-chip USB OTG controller support"
+	depends on (USB || USB_GADGET) && (ARCH_QCOM || COMPILE_TEST)
+	select USB_PHY
+	help
+	  Enable this to support the USB OTG transceiver on Qualcomm chips. It
+	  handles PHY initialization, clock management, and workarounds
+	  required after resetting the hardware and power management.
+	  This driver is required even for peripheral only or host only
+	  mode configurations.
 endmenu

@@ -227,17 +227,6 @@ static int param_set_interval(const char *val, struct kernel_param *kp)
 int __init mdss_dsi_status_init(void)
 {
 	int rc = 0;
-	struct mdss_util_intf *util = mdss_get_util_intf();
-
-	if (!util) {
-		pr_err("%s: Failed to get utility functions\n", __func__);
-		return -ENODEV;
-	}
-
-	if (util->display_disabled) {
-		pr_info("Display is disabled, not progressing with dsi_init\n");
-		return -ENOTSUPP;
-	}
 
 	pstatus_data = kzalloc(sizeof(struct dsi_status_data), GFP_KERNEL);
 	if (!pstatus_data)

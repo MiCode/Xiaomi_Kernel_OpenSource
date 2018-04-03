@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,7 +98,8 @@ static int cam_jpeg_dev_probe(struct platform_device *pdev)
 	for (i = 0; i < CAM_CTX_MAX; i++) {
 		rc = cam_jpeg_context_init(&g_jpeg_dev.ctx_jpeg[i],
 			&g_jpeg_dev.ctx[i],
-			&node->hw_mgr_intf);
+			&node->hw_mgr_intf,
+			i);
 		if (rc) {
 			CAM_ERR(CAM_JPEG, "JPEG context init failed %d %d",
 				i, rc);

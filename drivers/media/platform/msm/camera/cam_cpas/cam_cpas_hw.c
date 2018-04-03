@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,12 +16,19 @@
 #include <linux/msm-bus.h>
 #include <linux/pm_opp.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 
 #include "cam_cpas_hw.h"
 #include "cam_cpas_hw_intf.h"
 #include "cam_cpas_soc.h"
 
-#define CAM_CPAS_AXI_MIN_BW (2048 * 1024)
+#define CAM_CPAS_AXI_MIN_MNOC_AB_BW   (2048 * 1024)
+#define CAM_CPAS_AXI_MIN_MNOC_IB_BW   (2048 * 1024)
+#define CAM_CPAS_AXI_MIN_CAMNOC_AB_BW (2048 * 1024)
+#define CAM_CPAS_AXI_MIN_CAMNOC_IB_BW (3000000000L)
+
+static uint cam_min_camnoc_ib_bw;
+module_param(cam_min_camnoc_ib_bw, uint, 0644);
 
 int cam_cpas_util_reg_update(struct cam_hw_info *cpas_hw,
 	enum cam_cpas_reg_base reg_base, struct cam_cpas_reg *reg_info)
@@ -84,11 +91,19 @@ static int cam_cpas_util_vote_bus_client_level(
 }
 
 static int cam_cpas_util_vote_bus_client_bw(
-	struct cam_cpas_bus_client *bus_client, uint64_t ab, uint64_t ib)
+	struct cam_cpas_bus_client *bus_client, uint64_t ab, uint64_t ib,
+	bool camnoc_bw)
 {
 	struct msm_bus_paths *path;
 	struct msm_bus_scale_pdata *pdata;
 	int idx = 0;
+	uint64_t min_camnoc_ib_bw = CAM_CPAS_AXI_MIN_CAMNOC_IB_BW;
+
+	if (cam_min_camnoc_ib_bw > 0)
+		min_camnoc_ib_bw = (uint64_t)cam_min_camnoc_ib_bw * 1000000L;
+
+	CAM_DBG(CAM_CPAS, "cam_min_camnoc_ib_bw = %d, min_camnoc_ib_bw=%llu",
+		cam_min_camnoc_ib_bw, min_camnoc_ib_bw);
 
 	if (!bus_client->valid) {
 		CAM_ERR(CAM_CPAS, "bus client not valid");
@@ -118,11 +133,19 @@ static int cam_cpas_util_vote_bus_client_bw(
 	bus_client->curr_vote_level = idx;
 	mutex_unlock(&bus_client->lock);
 
-	if ((ab > 0) && (ab < CAM_CPAS_AXI_MIN_BW))
-		ab = CAM_CPAS_AXI_MIN_BW;
+	if (camnoc_bw == true) {
+		if ((ab > 0) && (ab < CAM_CPAS_AXI_MIN_CAMNOC_AB_BW))
+			ab = CAM_CPAS_AXI_MIN_CAMNOC_AB_BW;
 
-	if ((ib > 0) && (ib < CAM_CPAS_AXI_MIN_BW))
-		ib = CAM_CPAS_AXI_MIN_BW;
+		if ((ib > 0) && (ib < min_camnoc_ib_bw))
+			ib = min_camnoc_ib_bw;
+	} else {
+		if ((ab > 0) && (ab < CAM_CPAS_AXI_MIN_MNOC_AB_BW))
+			ab = CAM_CPAS_AXI_MIN_MNOC_AB_BW;
+
+		if ((ib > 0) && (ib < CAM_CPAS_AXI_MIN_MNOC_IB_BW))
+			ib = CAM_CPAS_AXI_MIN_MNOC_IB_BW;
+	}
 
 	pdata = bus_client->pdata;
 	path = &(pdata->usecase[idx]);
@@ -205,7 +228,7 @@ static int cam_cpas_util_unregister_bus_client(
 		return -EINVAL;
 
 	if (bus_client->dyn_vote)
-		cam_cpas_util_vote_bus_client_bw(bus_client, 0, 0);
+		cam_cpas_util_vote_bus_client_bw(bus_client, 0, 0, false);
 	else
 		cam_cpas_util_vote_bus_client_level(bus_client, 0);
 
@@ -370,7 +393,7 @@ static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 	list_for_each_entry_safe(curr_port, temp_port,
 		&cpas_core->axi_ports_list_head, sibling_port) {
 		rc = cam_cpas_util_vote_bus_client_bw(&curr_port->mnoc_bus,
-			mnoc_bw, mnoc_bw);
+			mnoc_bw, mnoc_bw, false);
 		if (rc) {
 			CAM_ERR(CAM_CPAS,
 				"Failed in mnoc vote, enable=%d, rc=%d",
@@ -380,13 +403,13 @@ static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 
 		if (soc_private->axi_camnoc_based) {
 			cam_cpas_util_vote_bus_client_bw(
-				&curr_port->camnoc_bus, 0, camnoc_bw);
+				&curr_port->camnoc_bus, 0, camnoc_bw, true);
 			if (rc) {
 				CAM_ERR(CAM_CPAS,
 					"Failed in mnoc vote, enable=%d, %d",
 					enable, rc);
 				cam_cpas_util_vote_bus_client_bw(
-					&curr_port->mnoc_bus, 0, 0);
+					&curr_port->mnoc_bus, 0, 0, false);
 				goto remove_ahb_vote;
 			}
 		}
@@ -520,10 +543,71 @@ unlock_client:
 	return rc;
 }
 
-static int cam_cpas_util_apply_client_axi_vote(
-	struct cam_cpas *cpas_core, struct cam_cpas_private_soc *soc_private,
-	struct cam_cpas_client *cpas_client, struct cam_axi_vote *axi_vote)
+static int cam_cpas_util_set_camnoc_axi_clk_rate(
+	struct cam_hw_info *cpas_hw)
 {
+	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
+	struct cam_cpas_private_soc *soc_private =
+		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
+	int rc = 0;
+
+	CAM_DBG(CAM_CPAS, "control_camnoc_axi_clk=%d",
+		soc_private->control_camnoc_axi_clk);
+
+	if (soc_private->control_camnoc_axi_clk) {
+		struct cam_hw_soc_info *soc_info = &cpas_hw->soc_info;
+		struct cam_cpas_axi_port *curr_axi_port = NULL;
+		struct cam_cpas_axi_port *temp_axi_port = NULL;
+		uint64_t required_camnoc_bw = 0;
+		int32_t clk_rate = 0;
+
+		list_for_each_entry_safe(curr_axi_port, temp_axi_port,
+			&cpas_core->axi_ports_list_head, sibling_port) {
+
+			if (curr_axi_port->consolidated_axi_vote.uncompressed_bw
+				> required_camnoc_bw)
+				required_camnoc_bw = curr_axi_port->
+					consolidated_axi_vote.uncompressed_bw;
+
+			CAM_DBG(CAM_CPAS, "[%s] : curr=%llu, overal=%llu",
+				curr_axi_port->axi_port_name,
+				curr_axi_port->consolidated_axi_vote.
+				uncompressed_bw,
+				required_camnoc_bw);
+		}
+
+		required_camnoc_bw += (required_camnoc_bw *
+			soc_private->camnoc_axi_clk_bw_margin) / 100;
+
+		if ((required_camnoc_bw > 0) &&
+			(required_camnoc_bw < CAM_CPAS_AXI_MIN_CAMNOC_IB_BW))
+			required_camnoc_bw = CAM_CPAS_AXI_MIN_CAMNOC_IB_BW;
+
+		clk_rate = required_camnoc_bw / soc_private->camnoc_bus_width;
+
+		CAM_DBG(CAM_CPAS, "Setting camnoc axi clk rate : %llu %d",
+			required_camnoc_bw, clk_rate);
+
+		rc = cam_soc_util_set_clk_rate(
+			soc_info->clk[soc_info->src_clk_idx],
+			soc_info->clk_name[soc_info->src_clk_idx],
+			clk_rate);
+		if (!rc)
+			CAM_ERR(CAM_CPAS,
+				"Failed in setting camnoc axi clk %llu %d %d",
+				required_camnoc_bw, clk_rate, rc);
+	}
+
+	return rc;
+}
+
+static int cam_cpas_util_apply_client_axi_vote(
+	struct cam_hw_info *cpas_hw,
+	struct cam_cpas_client *cpas_client,
+	struct cam_axi_vote *axi_vote)
+{
+	struct cam_cpas_private_soc *soc_private =
+		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
 	struct cam_cpas_client *curr_client;
 	struct cam_cpas_client *temp_client;
 	struct cam_axi_vote req_axi_vote = *axi_vote;
@@ -564,6 +648,9 @@ static int cam_cpas_util_apply_client_axi_vote(
 	if ((!soc_private->axi_camnoc_based) && (mnoc_bw < camnoc_bw))
 		mnoc_bw = camnoc_bw;
 
+	axi_port->consolidated_axi_vote.compressed_bw = mnoc_bw;
+	axi_port->consolidated_axi_vote.uncompressed_bw = camnoc_bw;
+
 	CAM_DBG(CAM_CPAS,
 		"axi[(%d, %d),(%d, %d)] : camnoc_bw[%llu], mnoc_bw[%llu]",
 		axi_port->mnoc_bus.src, axi_port->mnoc_bus.dst,
@@ -571,7 +658,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 		camnoc_bw, mnoc_bw);
 
 	rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
-		mnoc_bw, mnoc_bw);
+		mnoc_bw, mnoc_bw, false);
 	if (rc) {
 		CAM_ERR(CAM_CPAS,
 			"Failed in mnoc vote ab[%llu] ib[%llu] rc=%d",
@@ -581,7 +668,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 
 	if (soc_private->axi_camnoc_based) {
 		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->camnoc_bus,
-			0, camnoc_bw);
+			0, camnoc_bw, true);
 		if (rc) {
 			CAM_ERR(CAM_CPAS,
 				"Failed camnoc vote ab[%llu] ib[%llu] rc=%d",
@@ -589,6 +676,14 @@ static int cam_cpas_util_apply_client_axi_vote(
 			goto unlock_axi_port;
 		}
 	}
+
+	mutex_unlock(&axi_port->lock);
+
+	rc = cam_cpas_util_set_camnoc_axi_clk_rate(cpas_hw);
+	if (rc)
+		CAM_ERR(CAM_CPAS, "Failed in setting axi clk rate rc=%d", rc);
+
+	return rc;
 
 unlock_axi_port:
 	mutex_unlock(&axi_port->lock);
@@ -622,6 +717,7 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 	if (!CAM_CPAS_CLIENT_VALID(client_indx))
 		return -EINVAL;
 
+	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
 
 	if (!CAM_CPAS_CLIENT_STARTED(cpas_core, client_indx)) {
@@ -635,12 +731,12 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 		client_indx, axi_vote.compressed_bw,
 		axi_vote.uncompressed_bw);
 
-	rc = cam_cpas_util_apply_client_axi_vote(cpas_core,
-		cpas_hw->soc_info.soc_private,
+	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
 		cpas_core->cpas_client[client_indx], &axi_vote);
 
 unlock_client:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
+	mutex_unlock(&cpas_hw->hw_mutex);
 	return rc;
 }
 
@@ -777,6 +873,7 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 	if (!CAM_CPAS_CLIENT_VALID(client_indx))
 		return -EINVAL;
 
+	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
 
 	if (!CAM_CPAS_CLIENT_STARTED(cpas_core, client_indx)) {
@@ -796,6 +893,7 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 
 unlock_client:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
+	mutex_unlock(&cpas_hw->hw_mutex);
 	return rc;
 }
 
@@ -811,6 +909,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	struct cam_axi_vote *axi_vote;
 	enum cam_vote_level applied_level = CAM_SVS_VOTE;
 	int rc;
+	struct cam_cpas_private_soc *soc_private = NULL;
 
 	if (!hw_priv || !start_args) {
 		CAM_ERR(CAM_CPAS, "Invalid arguments %pK %pK",
@@ -826,6 +925,8 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 
 	cpas_hw = (struct cam_hw_info *)hw_priv;
 	cpas_core = (struct cam_cpas *) cpas_hw->core_info;
+	soc_private = (struct cam_cpas_private_soc *)
+		cpas_hw->soc_info.soc_private;
 	cmd_hw_start = (struct cam_cpas_hw_cmd_start *)start_args;
 	client_indx = CAM_CPAS_GET_CLIENT_IDX(cmd_hw_start->client_handle);
 	ahb_vote = cmd_hw_start->ahb_vote;
@@ -874,15 +975,17 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 		"AXI client[%d] compressed_bw[%llu], uncompressed_bw[%llu]",
 		client_indx, axi_vote->compressed_bw,
 		axi_vote->uncompressed_bw);
-	rc = cam_cpas_util_apply_client_axi_vote(cpas_core,
-		cpas_hw->soc_info.soc_private, cpas_client, axi_vote);
+	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
+		cpas_client, axi_vote);
 	if (rc)
 		goto done;
 
 	if (cpas_core->streamon_clients == 0) {
+		atomic_set(&cpas_core->irq_count, 1);
 		rc = cam_cpas_soc_enable_resources(&cpas_hw->soc_info,
 			applied_level);
 		if (rc) {
+			atomic_set(&cpas_core->irq_count, 0);
 			CAM_ERR(CAM_CPAS, "enable_resorce failed, rc=%d", rc);
 			goto done;
 		}
@@ -890,28 +993,36 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 		if (cpas_core->internal_ops.power_on) {
 			rc = cpas_core->internal_ops.power_on(cpas_hw);
 			if (rc) {
+				atomic_set(&cpas_core->irq_count, 0);
 				cam_cpas_soc_disable_resources(
-					&cpas_hw->soc_info);
+					&cpas_hw->soc_info, true, true);
 				CAM_ERR(CAM_CPAS,
 					"failed in power_on settings rc=%d",
 					rc);
 				goto done;
 			}
 		}
+		CAM_DBG(CAM_CPAS, "irq_count=%d\n",
+			atomic_read(&cpas_core->irq_count));
 		cpas_hw->hw_state = CAM_HW_STATE_POWER_UP;
 	}
 
 	cpas_client->started = true;
 	cpas_core->streamon_clients++;
 
-	CAM_DBG(CAM_CPAS, "client_indx=%d, streamon_clients=%d",
-		client_indx, cpas_core->streamon_clients);
+	CAM_DBG(CAM_CPAS, "client=%s, streamon_clients=%d",
+		soc_private->client_name[client_indx],
+		cpas_core->streamon_clients);
 done:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
 	mutex_unlock(&cpas_hw->hw_mutex);
 	return rc;
 }
 
+static int _check_irq_count(struct cam_cpas *cpas_core)
+{
+	return (atomic_read(&cpas_core->irq_count) > 0) ? 0 : 1;
+}
 
 static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	uint32_t arg_size)
@@ -923,7 +1034,9 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	struct cam_cpas_client *cpas_client;
 	struct cam_ahb_vote ahb_vote;
 	struct cam_axi_vote axi_vote;
+	struct cam_cpas_private_soc *soc_private = NULL;
 	int rc = 0;
+	long result;
 
 	if (!hw_priv || !stop_args) {
 		CAM_ERR(CAM_CPAS, "Invalid arguments %pK %pK",
@@ -939,6 +1052,8 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 
 	cpas_hw = (struct cam_hw_info *)hw_priv;
 	cpas_core = (struct cam_cpas *) cpas_hw->core_info;
+	soc_private = (struct cam_cpas_private_soc *)
+		cpas_hw->soc_info.soc_private;
 	cmd_hw_stop = (struct cam_cpas_hw_cmd_stop *)stop_args;
 	client_indx = CAM_CPAS_GET_CLIENT_IDX(cmd_hw_stop->client_handle);
 
@@ -948,8 +1063,9 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
 
-	CAM_DBG(CAM_CPAS, "client_indx=%d, streamon_clients=%d",
-		client_indx, cpas_core->streamon_clients);
+	CAM_DBG(CAM_CPAS, "client=%s, streamon_clients=%d",
+		soc_private->client_name[client_indx],
+		cpas_core->streamon_clients);
 
 	if (!CAM_CPAS_CLIENT_STARTED(cpas_core, client_indx)) {
 		CAM_ERR(CAM_CPAS, "Client %d is not started", client_indx);
@@ -972,11 +1088,29 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 			}
 		}
 
-		rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info);
+		rc = cam_cpas_soc_disable_irq(&cpas_hw->soc_info);
+		if (rc) {
+			CAM_ERR(CAM_CPAS, "disable_irq failed, rc=%d", rc);
+			goto done;
+		}
+
+		/* Wait for any IRQs still being handled */
+		atomic_dec(&cpas_core->irq_count);
+		result = wait_event_timeout(cpas_core->irq_count_wq,
+			_check_irq_count(cpas_core), HZ);
+		if (result == 0) {
+			CAM_ERR(CAM_CPAS, "Wait failed: irq_count=%d",
+				atomic_read(&cpas_core->irq_count));
+		}
+
+		rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info,
+			true, false);
 		if (rc) {
 			CAM_ERR(CAM_CPAS, "disable_resorce failed, rc=%d", rc);
 			goto done;
 		}
+		CAM_DBG(CAM_CPAS, "Disabled all the resources: irq_count=%d\n",
+			atomic_read(&cpas_core->irq_count));
 		cpas_hw->hw_state = CAM_HW_STATE_POWER_DOWN;
 	}
 
@@ -989,8 +1123,8 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 
 	axi_vote.uncompressed_bw = 0;
 	axi_vote.compressed_bw = 0;
-	rc = cam_cpas_util_apply_client_axi_vote(cpas_core,
-		cpas_hw->soc_info.soc_private, cpas_client, &axi_vote);
+	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
+		cpas_client, &axi_vote);
 
 done:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
@@ -1427,6 +1561,8 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	soc_private = (struct cam_cpas_private_soc *)
 		cpas_hw->soc_info.soc_private;
 	cpas_core->num_clients = soc_private->num_clients;
+	atomic_set(&cpas_core->irq_count, 0);
+	init_waitqueue_head(&cpas_core->irq_count_wq);
 
 	if (internal_ops->setup_regbase) {
 		rc = internal_ops->setup_regbase(&cpas_hw->soc_info,
@@ -1482,7 +1618,7 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	if (rc)
 		goto disable_soc_res;
 
-	rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info);
+	rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info, true, true);
 	if (rc) {
 		CAM_ERR(CAM_CPAS, "failed in soc_disable_resources, rc=%d", rc);
 		goto remove_default_vote;
@@ -1500,7 +1636,7 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	return 0;
 
 disable_soc_res:
-	cam_cpas_soc_disable_resources(&cpas_hw->soc_info);
+	cam_cpas_soc_disable_resources(&cpas_hw->soc_info, true, true);
 remove_default_vote:
 	cam_cpas_util_vote_default_ahb_axi(cpas_hw, false);
 axi_cleanup:

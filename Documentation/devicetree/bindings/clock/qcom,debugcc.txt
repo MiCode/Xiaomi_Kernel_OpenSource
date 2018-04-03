@@ -1,0 +1,20 @@
+Qualcomm Technologies, Inc. Debug Clock Controller Binding
+----------------------------------------------------------
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,debugcc-sdm845"
+			"qcom,debugcc-sdxpoorwills"
+
+- clock-names: Shall contain "xo_clk_src"
+- clocks: phandle + clock reference to the CXO clock.
+- #clock-cells : Shall contain 1.
+
+Example:
+	clock_debug: qcom,cc-debug {
+		compatible = "qcom,sdxpoorwills";
+		qcom,gcc = <&clock_gcc>;
+		clock-names = "xo_clk_src";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		#clock-cells = <1>;
+	};

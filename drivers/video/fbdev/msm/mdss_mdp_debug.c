@@ -1414,7 +1414,7 @@ static void __stats_ctl_dump(struct mdss_mdp_ctl *ctl, struct seq_file *s)
 		seq_printf(s, "vsync: %08u \tunderrun: %08u\n",
 				ctl->vsync_cnt, ctl->underrun_cnt);
 		if (ctl->mfd) {
-			seq_printf(s, "user_bl: %08u \tmod_bl: %08u\n",
+			seq_printf(s, "user_bl: %08llu \tmod_bl: %08u\n",
 				ctl->mfd->bl_level, ctl->mfd->bl_level_scaled);
 		}
 	} else {
@@ -1495,11 +1495,11 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 	debugfs_create_file("safe_stat", 0644, mdd->root, mdata,
 			&mdss_debugfs_safe_stats_fops);
 	debugfs_create_bool("serialize_wait4pp", 0644, mdd->root,
-		(u32 *)&mdata->serialize_wait4pp);
+		(bool *)&mdata->serialize_wait4pp);
 	debugfs_create_bool("wait4autorefresh", 0644, mdd->root,
-		(u32 *)&mdata->wait4autorefresh);
+		(bool *)&mdata->wait4autorefresh);
 	debugfs_create_bool("enable_gate", 0644, mdd->root,
-		(u32 *)&mdata->enable_gate);
+		(bool *)&mdata->enable_gate);
 
 	debugfs_create_u32("color0", 0644, mdd->bordercolor,
 		(u32 *)&mdata->bcolor0);

@@ -34,19 +34,6 @@ enum ipa_func_type {
 /* Max Number of IPA data ports supported */
 #define IPA_N_PORTS USB_IPA_NUM_FUNCS
 
-struct gadget_ipa_port {
-	struct usb_composite_dev	*cdev;
-	struct usb_function		*func;
-	int				rx_buffer_size;
-	struct usb_ep			*in;
-	struct usb_ep			*out;
-	int				ipa_consumer_ep;
-	int				ipa_producer_ep;
-	const struct usb_endpoint_descriptor	*in_ep_desc_backup;
-	const struct usb_endpoint_descriptor	*out_ep_desc_backup;
-
-};
-
 struct ipa_function_bind_info {
 	struct usb_string *string_defs;
 	int data_str_idx;
@@ -85,16 +72,16 @@ struct f_rmnet_opts {
 };
 
 void ipa_data_port_select(enum ipa_func_type func);
-void ipa_data_disconnect(struct gadget_ipa_port *gp, enum ipa_func_type func);
-int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
+void ipa_data_disconnect(struct data_port *gp, enum ipa_func_type func);
+int ipa_data_connect(struct data_port *gp, enum ipa_func_type func,
 			u8 src_connection_idx, u8 dst_connection_idx);
 int ipa_data_setup(enum ipa_func_type func);
 void ipa_data_free(enum ipa_func_type func);
 
 void ipa_data_flush_workqueue(void);
-void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
+void ipa_data_resume(struct data_port *gp, enum ipa_func_type func,
 		bool remote_wakeup_enabled);
-void ipa_data_suspend(struct gadget_ipa_port *gp, enum ipa_func_type func,
+void ipa_data_suspend(struct data_port *gp, enum ipa_func_type func,
 		bool remote_wakeup_enabled);
 
 void ipa_data_set_ul_max_xfer_size(u32 ul_max_xfer_size);
@@ -109,11 +96,34 @@ void ipa_data_start_rndis_ipa(enum ipa_func_type func);
 
 void ipa_data_stop_rndis_ipa(enum ipa_func_type func);
 
+#ifdef CONFIG_USB_F_QCRNDIS
 void *rndis_qc_get_ipa_priv(void);
 void *rndis_qc_get_ipa_rx_cb(void);
 bool rndis_qc_get_skip_ep_config(void);
 void *rndis_qc_get_ipa_tx_cb(void);
 void rndis_ipa_reset_trigger(void);
+#else
+static inline void *rndis_qc_get_ipa_priv(void)
+{
+	return NULL;
+}
+static inline void *rndis_qc_get_ipa_rx_cb(void)
+{
+	return NULL;
+}
+static inline bool rndis_qc_get_skip_ep_config(void)
+{
+	return true;
+}
+static inline void *rndis_qc_get_ipa_tx_cb(void)
+{
+	return NULL;
+}
+static inline void rndis_ipa_reset_trigger(void)
+{
+}
+#endif /* CONFIG_USB_F_QCRNDIS */
+
 #if IS_ENABLED(CONFIG_USB_CONFIGFS_RMNET_BAM)
 void gqti_ctrl_update_ipa_pipes(void *gr, enum qti_port_type qport,
 				u32 ipa_prod, u32 ipa_cons);

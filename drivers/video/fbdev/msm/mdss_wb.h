@@ -14,12 +14,12 @@
 #ifndef MDSS_WB_H
 #define MDSS_WB_H
 
-#include <linux/switch.h>
+#include <linux/extcon.h>
 
 struct mdss_wb_ctrl {
 	struct platform_device *pdev;
 	struct mdss_panel_data pdata;
-	struct switch_dev sdev;
+	struct extcon_dev sdev;
 };
 
 #endif

@@ -78,8 +78,8 @@ struct vbif_debug_bus {
 #define MDSS_XLOG_IOMMU(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_IOMMU, \
 		##__VA_ARGS__, DATA_LIMITER)
 
-#define ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
-#define ATRACE_BEGIN(name) trace_tracing_mark_write(current->tgid, name, 1)
+#define ATRACE_END(name) trace_mdss_mark_write(current->tgid, name, 0)
+#define ATRACE_BEGIN(name) trace_mdss_mark_write(current->tgid, name, 1)
 #define ATRACE_FUNC() ATRACE_BEGIN(__func__)
 
 #define ATRACE_INT(name, value) \
@@ -225,7 +225,7 @@ void mdss_mdp_debug_mid(u32 mid) { }
 int mdss_dump_misr_data(char **buf, u32 size);
 
 static inline int mdss_debug_register_io(const char *name,
-		struct dss_io_data *io_data, struct mdss_debug_base **dbg_blk)
+		struct mdss_io_data *io_data, struct mdss_debug_base **dbg_blk)
 {
 	return mdss_debug_register_base(name, io_data->base, io_data->len,
 		dbg_blk);

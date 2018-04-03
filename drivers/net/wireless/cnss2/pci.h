@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,7 @@ struct cnss_pci_data {
 	atomic_t auto_suspended;
 	bool monitor_wake_intr;
 	struct dma_iommu_mapping *smmu_mapping;
+	bool smmu_s1_enable;
 	dma_addr_t smmu_iova_start;
 	size_t smmu_iova_len;
 	void __iomem *bar;

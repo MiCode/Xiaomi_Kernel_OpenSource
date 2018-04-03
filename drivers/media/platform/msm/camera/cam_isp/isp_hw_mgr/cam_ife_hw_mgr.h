@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,13 +13,11 @@
 #ifndef _CAM_IFE_HW_MGR_H_
 #define _CAM_IFE_HW_MGR_H_
 
+#include <linux/completion.h>
 #include "cam_isp_hw_mgr.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_ife_csid_hw_intf.h"
 #include "cam_tasklet_util.h"
-
-/* MAX IFE instance */
-#define CAM_IFE_HW_NUM_MAX                       4
 
 /* enum cam_ife_hw_mgr_res_type - manager resource node type */
 enum cam_ife_hw_mgr_res_type {
@@ -124,6 +122,7 @@ struct cam_ife_hw_mgr_debug {
  * @overflow_pending        flat to specify the overflow is pending for the
  *                          context
  * @is_rdi_only_context     flag to specify the context has only rdi resource
+ * @config_done_complete    indicator for configuration complete
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -156,6 +155,7 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                        eof_cnt[CAM_IFE_HW_NUM_MAX];
 	atomic_t                        overflow_pending;
 	uint32_t                        is_rdi_only_context;
+	struct completion               config_done_complete;
 };
 
 /**

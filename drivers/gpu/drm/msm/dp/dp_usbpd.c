@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -426,6 +426,28 @@ error:
 	return rc;
 }
 
+static int dp_usbpd_simulate_attention(struct dp_usbpd *dp_usbpd, int vdo)
+{
+	int rc = 0;
+	struct dp_usbpd_private *pd;
+
+	if (!dp_usbpd) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pd = container_of(dp_usbpd, struct dp_usbpd_private, dp_usbpd);
+
+	pd->vdo = vdo;
+	dp_usbpd_get_status(pd);
+
+	if (pd->dp_cb && pd->dp_cb->attention)
+		pd->dp_cb->attention(pd->dev);
+error:
+	return rc;
+}
+
 struct dp_usbpd *dp_usbpd_get(struct device *dev, struct dp_usbpd_cb *cb)
 {
 	int rc = 0;
@@ -475,6 +497,7 @@ struct dp_usbpd *dp_usbpd_get(struct device *dev, struct dp_usbpd_cb *cb)
 
 	dp_usbpd = &usbpd->dp_usbpd;
 	dp_usbpd->simulate_connect = dp_usbpd_simulate_connect;
+	dp_usbpd->simulate_attention = dp_usbpd_simulate_attention;
 
 	return dp_usbpd;
 error:

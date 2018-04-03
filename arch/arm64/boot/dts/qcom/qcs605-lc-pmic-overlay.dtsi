@@ -1,0 +1,260 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&pm660_0 {
+	pm660_charger: qcom,qpnp-smb2 {
+		compatible = "qcom,qpnp-smb2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		#cooling-cells = <2>;
+
+		qcom,pmic-revid = <&pm660_revid>;
+
+		io-channels = <&pm660_rradc 8>,
+			      <&pm660_rradc 10>,
+			      <&pm660_rradc 3>,
+			      <&pm660_rradc 4>;
+		io-channel-names = "charger_temp",
+				   "charger_temp_max",
+				   "usbin_i",
+				   "usbin_v";
+
+		qcom,wipower-max-uw = <5000000>;
+
+		dpdm-supply = <&qusb_phy0>;
+
+		qcom,thermal-mitigation
+				= <3000000 2500000 2000000 1500000
+					1000000 500000>;
+		qcom,auto-recharge-soc;
+
+		qcom,chgr@1000 {
+			reg = <0x1000 0x100>;
+			interrupts =
+				<0x0 0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x2 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x3 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x4 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "chg-error",
+					  "chg-state-change",
+					  "step-chg-state-change",
+					  "step-chg-soc-update-fail",
+					  "step-chg-soc-update-request";
+		};
+
+		qcom,otg@1100 {
+			reg = <0x1100 0x100>;
+			interrupts = <0x0 0x11 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x3 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "otg-fail",
+					  "otg-overcurrent",
+					  "otg-oc-dis-sw-sts",
+					  "testmode-change-detect";
+		};
+
+		qcom,bat-if@1200 {
+			reg = <0x1200 0x100>;
+			interrupts =
+				<0x0 0x12 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x12 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x5 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "bat-temp",
+					  "bat-ocp",
+					  "bat-ov",
+					  "bat-low",
+					  "bat-therm-or-id-missing",
+					  "bat-terminal-missing";
+		};
+
+		qcom,usb-chgpth@1300 {
+			reg = <0x1300 0x100>;
+			interrupts =
+				<0x0 0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x5 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x13 0x6 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x13 0x7 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "usbin-collapse",
+					  "usbin-lt-3p6v",
+					  "usbin-uv",
+					  "usbin-ov",
+					  "usbin-plugin",
+					  "usbin-src-change",
+					  "usbin-icl-change",
+					  "type-c-change";
+		};
+
+		qcom,dc-chgpth@1400 {
+			reg = <0x1400 0x100>;
+			interrupts =
+				<0x0 0x14 0x0 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x5 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x6 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "dcin-collapse",
+					  "dcin-lt-3p6v",
+					  "dcin-uv",
+					  "dcin-ov",
+					  "dcin-plugin",
+					  "div2-en-dg",
+					  "dcin-icl-change";
+		};
+
+		qcom,chgr-misc@1600 {
+			reg = <0x1600 0x100>;
+			interrupts =
+				<0x0 0x16 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x16 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x5 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x6 IRQ_TYPE_EDGE_FALLING>,
+				<0x0 0x16 0x7 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "wdog-snarl",
+					  "wdog-bark",
+					  "aicl-fail",
+					  "aicl-done",
+					  "high-duty-cycle",
+					  "input-current-limiting",
+					  "temperature-change",
+					  "switcher-power-ok";
+		};
+		smb2_vbus: qcom,smb2-vbus {
+			regulator-name = "smb2-vbus";
+		};
+
+		smb2_vconn: qcom,smb2-vconn {
+			regulator-name = "smb2-vconn";
+		};
+	};
+
+	pm660_rradc: rradc@4500 {
+		compatible = "qcom,rradc";
+		reg = <0x4500 0x100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#io-channel-cells = <1>;
+		qcom,pmic-revid = <&pm660_revid>;
+	};
+
+	pm660_fg: qpnp,fg {
+		compatible = "qcom,fg-gen3";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		qcom,pmic-revid = <&pm660_revid>;
+		io-channels = <&pm660_rradc 0>,
+			      <&pm660_rradc 7>;
+		io-channel-names = "rradc_batt_id",
+				   "rradc_die_temp";
+		qcom,rradc-base = <0x4500>;
+		qcom,fg-esr-timer-awake = <64 96>;
+		qcom,fg-esr-timer-asleep = <224 256>;
+		qcom,fg-esr-timer-charging = <0 96>;
+		qcom,cycle-counter-en;
+		qcom,hold-soc-while-full;
+		qcom,fg-auto-recharge-soc;
+		qcom,fg-recharge-soc-thr = <98>;
+		status = "okay";
+
+		qcom,fg-batt-soc@4000 {
+			status = "okay";
+			reg = <0x4000 0x100>;
+			interrupts = <0x0 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x2
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x3
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x5
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x6 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x7 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "soc-update",
+					  "soc-ready",
+					  "bsoc-delta",
+					  "msoc-delta",
+					  "msoc-low",
+					  "msoc-empty",
+					  "msoc-high",
+					  "msoc-full";
+		};
+
+		qcom,fg-batt-info@4100 {
+			status = "okay";
+			reg = <0x4100 0x100>;
+			interrupts = <0x0 0x41 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x3 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x6 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "vbatt-pred-delta",
+					  "vbatt-low",
+					  "esr-delta",
+					  "batt-missing",
+					  "batt-temp-delta";
+		};
+
+		qcom,fg-memif@4400 {
+			status = "okay";
+			reg = <0x4400 0x100>;
+			interrupts = <0x0 0x44 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x44 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x44 0x2 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "ima-rdy",
+					  "mem-xcp",
+					  "dma-grant";
+		};
+	};
+};
+
+&pm660_1 {
+	pm660_haptics: qcom,haptics@c000 {
+		compatible = "qcom,qpnp-haptics";
+		reg = <0xc000 0x100>;
+		interrupts = <0x1 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x1 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "hap-sc-irq", "hap-play-irq";
+		qcom,pmic-revid = <&pm660_revid>;
+		qcom,pmic-misc = <&pm660_misc>;
+		qcom,misc-clk-trim-error-reg = <0xf3>;
+		qcom,actuator-type = <0>;
+		qcom,play-mode = "direct";
+		qcom,vmax-mv = <3200>;
+		qcom,ilim-ma = <800>;
+		qcom,sc-dbc-cycles = <8>;
+		qcom,wave-play-rate-us = <6667>;
+		qcom,en-brake;
+		qcom,lra-high-z = "opt0";
+		qcom,lra-auto-res-mode = "qwd";
+		qcom,lra-res-cal-period = <4>;
+	};
+};
