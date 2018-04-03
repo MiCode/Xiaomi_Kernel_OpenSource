@@ -1627,7 +1627,8 @@ static int mxt_update_t100_resolution(struct mxt_data *data)
 	u16 range_y = 0;
 	u16 temp;
 	u8 cfg = 0;
-	u8 tchaux, aux;
+	u8 tchaux = 0;
+	u8 aux;
 	bool update = false;
 
 	object = mxt_get_object(data, MXT_TOUCH_MULTITOUCHSCREEN_T100);
