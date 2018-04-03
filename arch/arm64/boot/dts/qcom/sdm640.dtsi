@@ -811,6 +811,7 @@
 
 #include "sdm640-pinctrl.dtsi"
 #include "sdm640-stub-regulator.dtsi"
+#include "sdm640-pm.dtsi"
 #include "sdm640-gdsc.dtsi"
 
 &emac_gdsc {
