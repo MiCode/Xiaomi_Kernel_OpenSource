@@ -2238,6 +2238,49 @@ int ipa3_cfg_filter(u32 disable)
 }
 
 /**
+ * ipa_comp_cfg() - Configure QMB/Master port selection
+ *
+ * Returns:	None
+ */
+static void ipa_comp_cfg(void)
+{
+	struct ipahal_reg_comp_cfg comp_cfg;
+
+	/* IPAv4 specific, on NON-MHI config*/
+	if ((ipa3_ctx->ipa_hw_type == IPA_HW_v4_0) &&
+		(ipa3_ctx->ipa_config_is_mhi == false)) {
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("Before comp config\n");
+		IPADBG("ipa_qmb_select_by_address_global_en = %d\n",
+			comp_cfg.ipa_qmb_select_by_address_global_en);
+
+		IPADBG("ipa_qmb_select_by_address_prod_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_prod_en);
+
+		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_cons_en);
+
+		comp_cfg.ipa_qmb_select_by_address_global_en = false;
+		comp_cfg.ipa_qmb_select_by_address_prod_en = false;
+		comp_cfg.ipa_qmb_select_by_address_cons_en = false;
+
+		ipahal_write_reg_fields(IPA_COMP_CFG, &comp_cfg);
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("After comp config\n");
+		IPADBG("ipa_qmb_select_by_address_global_en = %d\n",
+			comp_cfg.ipa_qmb_select_by_address_global_en);
+
+		IPADBG("ipa_qmb_select_by_address_prod_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_prod_en);
+
+		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_cons_en);
+	}
+}
+
+/**
  * ipa3_cfg_qsb() - Configure IPA QSB maximal reads and writes
  *
  * Returns:	None
@@ -2321,6 +2364,8 @@ int ipa3_init_hw(void)
 	/* set granularity for 0.5 msec*/
 	cnt_cfg.aggr_granularity = GRAN_VALUE_500_USEC;
 	ipahal_write_reg_fields(IPA_COUNTER_CFG, &cnt_cfg);
+
+	ipa_comp_cfg();
 
 	return 0;
 }
