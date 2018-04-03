@@ -3930,7 +3930,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 					pstate->multirect_mode);
 	}
 
-	if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) &&
+	if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT ||
+			pstate->dirty & SDE_PLANE_DIRTY_RECTS) &&
 			psde->pipe_hw->ops.setup_format) {
 		src_flags = pstate->pipe_order_flags;
 		SDE_DEBUG_PLANE(psde, "rotation 0x%X\n", rstate->out_rotation);
