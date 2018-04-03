@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm439-camera-sensor-cdp.dtsi"
+
 &blsp1_uart2 {
 	status = "ok";
 };
