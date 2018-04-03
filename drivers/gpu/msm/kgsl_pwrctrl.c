@@ -2297,6 +2297,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 			pwr->pwrlevels[i].gpu_freq = freq;
 	}
 
+	kgsl_pwrctrl_disable_unused_opp(device);
+
 	kgsl_clk_set_rate(device, pwr->num_pwrlevels - 1);
 
 	freq = clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ);
@@ -2586,7 +2588,6 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int level, status;
-	static bool disable_opp_done;
 
 	if (pwr->wakeup_maxpwrlevel) {
 		level = pwr->max_pwrlevel;
@@ -2595,11 +2596,6 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 		level = pwr->active_pwrlevel;
 	} else {
 		level = pwr->default_pwrlevel;
-	}
-
-	if (!disable_opp_done) {
-		kgsl_pwrctrl_disable_unused_opp(device);
-		disable_opp_done = true;
 	}
 
 	kgsl_pwrctrl_pwrlevel_change(device, level);
