@@ -20,3 +20,11 @@
 		"qcom,sdxpoorwills", "qcom,mtp";
 	qcom,board-id = <8 0x104>;
 };
+
+&cnss_pcie {
+	qcom,is-dual-wifi-enabled;
+};
+
+&cnss_sdio {
+	status = "okay";
+};
