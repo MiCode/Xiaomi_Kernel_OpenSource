@@ -2333,7 +2333,7 @@ static void fastrpc_session_free(struct fastrpc_channel_ctx *chan,
 static int fastrpc_file_free(struct fastrpc_file *fl)
 {
 	struct hlist_node *n = NULL;
-	struct fastrpc_mmap *map = NULL;
+	struct fastrpc_mmap *map = NULL, *lmap = NULL;
 	struct fastrpc_perf *perf = NULL, *fperf = NULL;
 	int cid;
 
@@ -2356,9 +2356,16 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	spin_unlock(&fl->hlock);
 	fastrpc_context_list_dtor(fl);
 	fastrpc_buf_list_free(fl);
-	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
-		fastrpc_mmap_free(map, 1);
-	}
+	do {
+		lmap = NULL;
+		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+			hlist_del_init(&map->hn);
+			lmap = map;
+			break;
+		}
+		fastrpc_mmap_free(lmap, 1);
+	} while (lmap);
+
 	if (fl->sctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->sctx);
 	if (fl->secsctx)
