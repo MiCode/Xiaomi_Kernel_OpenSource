@@ -79,8 +79,6 @@
 		reg-names = "pll_base", "phy_base", "ln_tx0_base",
 			"ln_tx1_base", "gdsc_base";
 
-		gdsc-supply = <&mdss_core_gdsc>;
-
 		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			 <&clock_rpmh RPMH_CXO_CLK>,
 			 <&clock_gcc GCC_DISP_AHB_CLK>,
@@ -89,21 +87,6 @@
 		clock-names = "iface_clk", "ref_clk_src", "gcc_iface",
 			"ref_clk", "pipe_clk";
 		clock-rate = <0>;
-
-		qcom,platform-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			qcom,platform-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "gdsc";
-				qcom,supply-min-voltage = <0>;
-				qcom,supply-max-voltage = <0>;
-				qcom,supply-enable-load = <0>;
-				qcom,supply-disable-load = <0>;
-			};
-
-		};
 	};
 
 };
