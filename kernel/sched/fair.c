@@ -7303,6 +7303,10 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 	int next_cpu = -1;
 	struct cpumask *rtg_target = find_rtg_target(p);
 	struct find_best_target_env fbt_env;
+	u64 start_t = 0;
+
+	if (trace_sched_task_util_enabled())
+		start_t = sched_clock();
 
 	schedstat_inc(p->se.statistics.nr_wakeups_secb_attempts);
 	schedstat_inc(this_rq()->eas_stats.secb_attempts);
@@ -7427,7 +7431,8 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 unlock:
 	trace_sched_task_util(p, next_cpu, backup_cpu, target_cpu, sync,
 			      fbt_env.need_idle, fbt_env.placement_boost,
-			      rtg_target ? cpumask_first(rtg_target) : -1);
+			      rtg_target ? cpumask_first(rtg_target) : -1,
+			      start_t);
 	rcu_read_unlock();
 	return target_cpu;
 }
