@@ -3122,7 +3122,6 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		struct sde_ctl_flush_cfg *extra_flush)
 {
 	struct sde_hw_ctl *ctl;
-	int pending_kickoff_cnt;
 	unsigned long lock_flags;
 	struct sde_encoder_virt *sde_enc;
 
@@ -3156,8 +3155,6 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	/* update pending counts and trigger kickoff ctl flush atomically */
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
 
-	pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
-
 	if (phys->ops.is_master && phys->ops.is_master(phys))
 		atomic_inc(&phys->pending_retire_fence_cnt);
 
@@ -3174,12 +3171,11 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 
 		ctl->ops.get_pending_flush(ctl, &pending_flush);
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-				pending_kickoff_cnt, ctl->idx - CTL_0,
+				ctl->idx - CTL_0,
 				pending_flush.pending_flush_mask);
 	} else {
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-				ctl->idx - CTL_0,
-				pending_kickoff_cnt);
+				ctl->idx - CTL_0);
 	}
 }
 
@@ -3341,6 +3337,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	struct sde_hw_ctl *ctl;
 	uint32_t i;
 	struct sde_ctl_flush_cfg pending_flush = {0,};
+	u32 pending_kickoff_cnt;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -3384,8 +3381,12 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 		if (!phys->ops.needs_single_flush ||
 				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
-		else if (ctl->ops.get_pending_flush)
+		else if (ctl->ops.get_pending_flush) {
+			pending_kickoff_cnt =
+				sde_encoder_phys_inc_pending(phys);
 			ctl->ops.get_pending_flush(ctl, &pending_flush);
+			SDE_EVT32(pending_kickoff_cnt);
+		}
 	}
 
 	/* for split flush, combine pending flush masks and send to master */
