@@ -77,6 +77,13 @@
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 		};
+
+		ebi_cdev: regulator-cdev {
+			compatible = "qcom,rpmh-reg-cdev";
+			mboxes = <&qmp_aop 0>;
+			qcom,reg-resource-name = "ebi";
+			#cooling-cells = <2>;
+		};
 	};
 
 	rpmh-regulator-smpa5 {
@@ -480,6 +487,14 @@
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 		};
+
+		mx_cdev: mx-cdev-lvl {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pm855l_s4_level>;
+			regulator-levels = <RPMH_REGULATOR_LEVEL_NOM
+					RPMH_REGULATOR_LEVEL_OFF>;
+			#cooling-cells = <2>;
+		};
 	};
 
 	/* PM855L S5 = VDD_MM_CX supply */
@@ -496,6 +511,36 @@
 				= <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+		};
+
+		pm855l_s5_ao: regulator-pm855l-s5-ao {
+			regulator-name = "pm855l_s5_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt
+				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+			regulator-max-microvolt
+				= <RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level
+				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+		};
+
+		regulator-pm855l-s5-so {
+			regulator-name = "pm855l_s5_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt
+				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+			regulator-max-microvolt
+				= <RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level
+				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+		};
+
+		mm_cx_cdev: mm-cx-cdev-lvl {
+			compatible = "qcom,regulator-cooling-device";
+			regulator-cdev-supply = <&pm855l_s5_ao>;
+			regulator-levels = <RPMH_REGULATOR_LEVEL_NOM
+					RPMH_REGULATOR_LEVEL_OFF>;
+			#cooling-cells = <2>;
 		};
 	};
 
@@ -528,6 +573,13 @@
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 			qcom,min-dropout-voltage-level = <(-1)>;
+		};
+
+		cx_cdev: regulator-cdev {
+			compatible = "qcom,rpmh-reg-cdev";
+			mboxes = <&qmp_aop 0>;
+			qcom,reg-resource-name = "cx";
+			#cooling-cells = <2>;
 		};
 	};
 
