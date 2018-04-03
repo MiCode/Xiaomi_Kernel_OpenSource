@@ -2241,7 +2241,7 @@ static bool pwrlevel_uses_ib(struct msm_bus_scale_pdata *bus_scale_table,
 
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
-	int i, k, m, n = 0, result;
+	int i, k, m, n = 0, result, freq;
 	struct platform_device *pdev = device->pdev;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct device_node *ocmem_bus_node;
@@ -2288,7 +2288,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	pwr->wakeup_maxpwrlevel = 0;
 
 	for (i = 0; i < pwr->num_pwrlevels; i++) {
-		unsigned int freq = pwr->pwrlevels[i].gpu_freq;
+		freq = pwr->pwrlevels[i].gpu_freq;
 
 		if (freq > 0)
 			freq = clk_round_rate(pwr->grp_clks[0], freq);
@@ -2299,11 +2299,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	kgsl_clk_set_rate(device, pwr->num_pwrlevels - 1);
 
-	if (pwr->grp_clks[6] != NULL)
+	freq = clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ);
+	if (freq > 0)
 		kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[6],
-			clk_round_rate(pwr->grp_clks[6],
-			KGSL_RBBMTIMER_CLK_FREQ),
-			clocks[6]);
+			freq, clocks[6]);
 
 	_isense_clk_set_rate(pwr, pwr->num_pwrlevels - 1);
 
@@ -2770,6 +2769,7 @@ _aware(struct kgsl_device *device)
 {
 	int status = 0;
 	struct gmu_device *gmu = &device->gmu;
+	unsigned int state = device->state;
 
 	switch (device->state) {
 	case KGSL_STATE_RESET:
@@ -2816,13 +2816,15 @@ _aware(struct kgsl_device *device)
 				WARN_ONCE(1, "Failed to recover GMU\n");
 				if (device->snapshot)
 					device->snapshot->recovered = false;
+				kgsl_pwrctrl_set_state(device, state);
 			} else {
 				if (device->snapshot)
 					device->snapshot->recovered = true;
+				kgsl_pwrctrl_set_state(device,
+					KGSL_STATE_AWARE);
 			}
 
 			clear_bit(GMU_FAULT, &gmu->flags);
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
 			return status;
 		}
 
