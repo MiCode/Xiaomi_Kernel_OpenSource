@@ -1,0 +1,9 @@
+#
+# STMicroelectronics touchscreen driver configuration
+#
+
+config TOUCHSCREEN_ST_I2C
+	tristate "STMicroelectronics i2c touchscreen"
+	depends on TOUCHSCREEN_ST
+	help
+	  This enables support for ST touch panel over I2C based touchscreens.
