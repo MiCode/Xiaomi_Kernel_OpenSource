@@ -1330,6 +1330,7 @@
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm855l_s6_level>;
 		vdd_mx-supply = <&pm855l_s4_level>;
+		qcom,gpu_cc_gmu_clk_src-opp-handle = <&gmu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
