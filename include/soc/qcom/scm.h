@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,7 @@ struct scm_desc {
 
 #define SCM_VERSION(major, minor) (((major) << 16) | ((minor) & 0xFF))
 extern int scm_call2(u32 cmd_id, struct scm_desc *desc);
+extern int scm_call2_noretry(u32 cmd_id, struct scm_desc *desc);
 extern int scm_call2_atomic(u32 cmd_id, struct scm_desc *desc);
 extern u32 scm_get_version(void);
 extern int scm_is_call_available(u32 svc_id, u32 cmd_id);
@@ -110,6 +111,11 @@ extern struct mutex scm_lmh_lock;
 #else
 
 static inline int scm_call2(u32 cmd_id, struct scm_desc *desc)
+{
+	return 0;
+}
+
+static inline int scm_call2_noretry(u32 cmd_id, struct scm_desc *desc)
 {
 	return 0;
 }
