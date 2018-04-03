@@ -378,6 +378,10 @@ static inline int walt_start_cpu(int prev_cpu)
 	return prev_cpu;
 }
 
+static inline u64 sched_irqload(int cpu)
+{
+	return 0;
+}
 #endif /* CONFIG_SCHED_WALT */
 
 #endif
