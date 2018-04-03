@@ -59,6 +59,8 @@
 #include <asm/virt.h>
 #include <asm/system_misc.h>
 
+#include <soc/qcom/scm.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
 
@@ -437,6 +439,7 @@ void __init smp_cpus_done(unsigned int max_cpus)
 	setup_cpu_features();
 	hyp_mode_check();
 	apply_alternatives_all();
+	scm_enable_mem_protection();
 	mark_linear_text_alias_ro();
 }
 

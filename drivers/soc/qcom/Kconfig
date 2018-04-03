@@ -585,4 +585,13 @@ config QMP_DEBUGFS_CLIENT
 	help
 	  This options enables a driver which allows clients to send messages
 	  to Alway On processor using QMP transport.
+
+config QCOM_QHEE_ENABLE_MEM_PROTECTION
+	bool "QHEE enable kernel memory protection"
+	depends on QCOM_SCM
+	default y
+	help
+	  When this option is enabled, an SCM call will be invoked to enable
+	  kernel memory protection in stage 2 memory mappings on kernel boot.
+	  This is part of a security feature enabled in QHEE.
 endmenu
