@@ -2216,6 +2216,13 @@
 		#mbox-cells = <1>;
 	};
 
+	sp_scsr: mailbox@188501c {
+		compatible = "qcom,sdm855-spcs-global";
+		reg = <0x188501c 0x4>;
+
+		#mbox-cells = <1>;
+	};
+
 	sp_scsr_block: syscon@1880000 {
 		compatible = "syscon";
 		reg = <0x1880000 0x10000>;
@@ -2237,6 +2244,10 @@
 
 	qcom,glink {
 		compatible = "qcom,glink";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
 		modem {
 			qcom,remote-pid = <1>;
 			transport = "smem";
@@ -2324,6 +2335,20 @@
 				qcom,glink-channels = "fastrpcglink-apps-dsp";
 				qcom,intents = <0x64 64>;
 			};
+		};
+
+		spss {
+			qcom,remote-pid = <8>;
+			transport = "spss";
+			mboxes = <&sp_scsr 0>;
+			mbox-names = "spss_spss";
+			interrupt-parent = <&intsp>;
+			interrupts = <0 0 IRQ_TYPE_EDGE_RISING>;
+
+			reg = <0x1885008 0x8>,
+			      <0x1885010 0x4>;
+			reg-names = "qcom,spss-addr",
+				    "qcom,spss-size";
 		};
 
 		glink_spi_xprt_wdsp: wdsp {
