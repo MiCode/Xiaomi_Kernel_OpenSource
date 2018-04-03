@@ -73,6 +73,14 @@ config DEVFREQ_GOV_PASSIVE
 	  through sysfs entries. The passive governor recommends that
 	  devfreq device uses the OPP table to get the frequency/voltage.
 
+config DEVFREQ_GOV_CPUFREQ
+	tristate "CPUfreq"
+	depends on CPU_FREQ
+	help
+	  Chooses frequency based on the online CPUs' current frequency and a
+	  CPU frequency to device frequency mapping table(s). This governor
+	  can be useful for controlling devices such as DDR, cache, CCI, etc.
+
 config QCOM_BIMC_BWMON
 	tristate "QCOM BIMC Bandwidth monitor hardware"
 	depends on ARCH_QCOM
@@ -128,6 +136,15 @@ config DEVFREQ_GOV_QCOM_CACHE_HWMON
 	  it can conflict with existing profiling tools. This governor is
 	  unlikely to be useful for other devices.
 
+config DEVFREQ_GOV_SPDM_HYP
+	bool "QTI SPDM Hypervisor Governor"
+	depends on ARCH_QCOM
+	help
+	  Hypervisor based governor for CPU bandwidth voting
+	  for QTI chipsets.
+	  Sets the frequency using a "on-demand" algorithm.
+	  This governor is unlikely to be useful for other devices.
+
 config DEVFREQ_GOV_MEMLAT
 	tristate "HW monitor based governor for device BW"
 	depends on ARM_MEMLAT_MON
@@ -139,6 +156,24 @@ config DEVFREQ_GOV_MEMLAT
 	  tools.
 
 comment "DEVFREQ Drivers"
+
+config DEVFREQ_GOV_QCOM_ADRENO_TZ
+	tristate "Qualcomm Technologies Inc Adreno Trustzone"
+	depends on QCOM_KGSL && QCOM_SCM
+	help
+	   Trustzone based governor for the Adreno GPU. Sets
+	   the frequency using a "on-demand" algorithm. This
+	   governor is unlikely to be useful for other
+	   devices.
+
+config DEVFREQ_GOV_QCOM_GPUBW_MON
+	tristate "GPU BW voting governor"
+	depends on DEVFREQ_GOV_QCOM_ADRENO_TZ
+	help
+	  This governor works together with Adreno Trustzone governor,
+	  and select bus frequency votes using an "on-demand" alorithm.
+	  This governor is unlikely to be useful for non-Adreno
+	  devices.
 
 config ARM_EXYNOS_BUS_DEVFREQ
 	tristate "ARM EXYNOS Generic Memory Bus DEVFREQ Driver"
@@ -201,6 +236,24 @@ config QCOM_DEVFREQ_DEVBW
 	  DDR IB/AB bandwidth votes. This driver provides a SoC topology
 	  agnostic interface to so that some of the devfreq governors can be
 	  shared across SoCs.
+
+config SPDM_SCM
+	bool "QTI SPDM SCM based call support"
+	depends on DEVFREQ_SPDM
+	help
+	  SPDM driver support the dcvs algorithm logic being accessed via
+	  scm or hvc calls. This adds the support for SPDM interaction to
+          tz via SCM based call. If not selected then Hypervisor interaction
+          will be activated.
+
+config DEVFREQ_SPDM
+	bool "QTI SPDM based bandwidth voting"
+	depends on ARCH_QCOM
+	select DEVFREQ_GOV_SPDM_HYP
+	help
+	  This adds the support for SPDM based bandwidth voting on QTI chipsets.
+	  This driver allows any SPDM based client to vote for bandwidth.
+	  Used with the QTI SPDM Hypervisor Governor.
 
 source "drivers/devfreq/event/Kconfig"
 
