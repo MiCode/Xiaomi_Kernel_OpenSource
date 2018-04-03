@@ -97,10 +97,10 @@
 #define FTS_TOUCH_UP        1
 #define FTS_TOUCH_CONTACT   2
 
-#define FTS_SYSFS_ECHO_ON(buf)      ((strnicmp(buf, "1", 1)  == 0) || \
-					(strnicmp(buf, "on", 2) == 0))
-#define FTS_SYSFS_ECHO_OFF(buf)     ((strnicmp(buf, "0", 1)  == 0) || \
-					(strnicmp(buf, "off", 3) == 0))
+#define FTS_SYSFS_ECHO_ON(buf)      ((strncasecmp(buf, "1", 1)  == 0) || \
+					(strncasecmp(buf, "on", 2) == 0))
+#define FTS_SYSFS_ECHO_OFF(buf)     ((strncasecmp(buf, "0", 1)  == 0) || \
+					(strncasecmp(buf, "off", 3) == 0))
 
 /*****************************************************************************
  * Private enumerations, structures and unions using typedef
