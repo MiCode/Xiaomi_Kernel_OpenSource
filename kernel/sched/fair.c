@@ -6890,6 +6890,7 @@ static int start_cpu(bool boosted)
 	return walt_start_cpu(start_cpu);
 }
 
+unsigned int sched_smp_overlap_capacity;
 static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				   bool boosted, bool prefer_idle,
 				   struct find_best_target_env *fbt_env)
