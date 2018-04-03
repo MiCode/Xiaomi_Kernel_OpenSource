@@ -27,6 +27,10 @@
 	qcom,msm-id = <355 0x0>;
 	interrupt-parent = <&intc>;
 
+	aliases {
+		serial0 = &qupv3_se0_2uart;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -813,6 +817,7 @@
 #include "sdm640-stub-regulator.dtsi"
 #include "sdm640-pm.dtsi"
 #include "sdm640-gdsc.dtsi"
+#include "sdm640-qupv3.dtsi"
 
 &emac_gdsc {
 	status = "ok";
