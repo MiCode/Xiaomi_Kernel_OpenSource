@@ -1558,7 +1558,8 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 		    mmc_card_removed(host->card)) {
 			if (cmd->error && !cmd->retries &&
 			     cmd->opcode != MMC_SEND_STATUS &&
-			     cmd->opcode != MMC_SEND_TUNING_BLOCK)
+			     cmd->opcode != MMC_SEND_TUNING_BLOCK &&
+			     cmd->opcode != MMC_SEND_TUNING_BLOCK_HS200)
 				mmc_recovery_fallback_lower_speed(host);
 			break;
 		}
