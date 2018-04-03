@@ -10883,6 +10883,24 @@ static void rq_offline_fair(struct rq *rq)
 
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_SCHED_WALT
+static inline void
+walt_update_misfit_task(struct rq *rq, struct task_struct *curr)
+{
+	bool misfit = rq->misfit_task;
+
+	if (curr->misfit != misfit) {
+		walt_fixup_nr_big_tasks(rq, curr, 1, misfit);
+		curr->misfit = misfit;
+	}
+}
+#else
+static inline void
+walt_update_misfit_task(struct rq *rq, struct task_struct *curr)
+{
+}
+#endif
+
 /*
  * scheduler tick hitting a task of our scheduling class:
  */
@@ -10890,10 +10908,6 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 {
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &curr->se;
-#ifdef CONFIG_SMP
-	bool old_misfit = curr->misfit;
-	bool misfit;
-#endif
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
@@ -10909,15 +10923,9 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 		trace_sched_overutilized(true);
 	}
 
-	misfit = !task_fits_max(curr, rq->cpu);
-	rq->misfit_task = misfit;
-
-	if (old_misfit != misfit) {
-		walt_fixup_nr_big_tasks(rq, curr, 1, misfit);
-		curr->misfit = misfit;
-	}
+	rq->misfit_task = !task_fits_max(curr, rq->cpu);
 #endif
-
+	walt_update_misfit_task(rq, curr);
 }
 
 /*
