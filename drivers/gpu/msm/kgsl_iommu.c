@@ -34,9 +34,6 @@
 #include "kgsl_trace.h"
 #include "kgsl_pwrctrl.h"
 
-#define CP_APERTURE_REG	0
-#define CP_SMMU_APERTURE_ID 0x1B
-
 #define _IOMMU_PRIV(_mmu) (&((_mmu)->priv.iommu))
 
 #define ADDR_IN_GLOBAL(_mmu, _a) \
@@ -117,7 +114,7 @@ static int global_pt_count;
 uint64_t global_pt_alloc;
 static struct kgsl_memdesc gpu_qdss_desc;
 static struct kgsl_memdesc gpu_qtimer_desc;
-
+static unsigned int context_bank_number;
 void kgsl_print_global_pt_entries(struct seq_file *s)
 {
 	int i;
@@ -1168,11 +1165,12 @@ void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
 		"System cache not enabled for GPU pagetable walks: %d\n", ret);
 }
 
-static int program_smmu_aperture(unsigned int cb, unsigned int aperture_reg)
+int kgsl_program_smmu_aperture(void)
 {
 	struct scm_desc desc = {0};
 
-	desc.args[0] = 0xFFFF0000 | ((aperture_reg & 0xff) << 8) | (cb & 0xff);
+	desc.args[0] = 0xFFFF0000 | ((CP_APERTURE_REG & 0xff) << 8) |
+			(context_bank_number & 0xff);
 	desc.args[1] = 0xFFFFFFFF;
 	desc.args[2] = 0xFFFFFFFF;
 	desc.args[3] = 0xFFFFFFFF;
@@ -1220,10 +1218,10 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 				ret);
 		goto done;
 	}
-
+	context_bank_number = cb_num;
 	if (!MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE) &&
 		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
-		ret = program_smmu_aperture(cb_num, CP_APERTURE_REG);
+		ret = kgsl_program_smmu_aperture();
 		if (ret) {
 			pr_err("SMMU aperture programming call failed with error %d\n",
 									ret);

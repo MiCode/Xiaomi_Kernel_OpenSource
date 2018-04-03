@@ -1681,6 +1681,15 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
+	if ((adreno_is_a640v1(adreno_dev)) &&
+		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
+		ret = kgsl_program_smmu_aperture();
+		if (ret) {
+			pr_err("SMMU aperture programming call failed with error %d\n",
+				ret);
+			goto error_pwr_off;
+		}
+	}
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	status = kgsl_mmu_start(device);
