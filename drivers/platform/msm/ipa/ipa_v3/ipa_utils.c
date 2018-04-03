@@ -1699,53 +1699,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 
 };
 
-static struct msm_bus_vectors ipa_init_vectors_v3_0[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-static struct msm_bus_vectors ipa_nominal_perf_vectors_v3_0[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 100000000,
-		.ib = 1300000000,
-	},
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 100000000,
-		.ib = 1300000000,
-	},
-};
-
-static struct msm_bus_paths ipa_usecases_v3_0[]  = {
-	{
-		.num_paths = ARRAY_SIZE(ipa_init_vectors_v3_0),
-		.vectors = ipa_init_vectors_v3_0,
-	},
-	{
-		.num_paths = ARRAY_SIZE(ipa_nominal_perf_vectors_v3_0),
-		.vectors = ipa_nominal_perf_vectors_v3_0,
-	},
-};
-
-static struct msm_bus_scale_pdata ipa_bus_client_pdata_v3_0 = {
-	.usecase = ipa_usecases_v3_0,
-	.num_usecases = ARRAY_SIZE(ipa_usecases_v3_0),
-	.name = "ipa",
-};
-
 static struct ipa3_mem_partition ipa_4_1_mem_part = {
 	.ofst_start			= 0x280,
 	.nat_ofst			= 0x0,
@@ -4071,7 +4024,6 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->ipa3_commit_hdr = __ipa_commit_hdr_v3_0;
 	ctrl->ipa3_enable_clks = _ipa_enable_clks_v3_0;
 	ctrl->ipa3_disable_clks = _ipa_disable_clks_v3_0;
-	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v3_0;
 	ctrl->clock_scaling_bw_threshold_svs =
 		IPA_V3_0_BW_THRESHOLD_SVS_MBPS;
 	ctrl->clock_scaling_bw_threshold_nominal =

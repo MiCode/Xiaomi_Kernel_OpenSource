@@ -270,6 +270,9 @@ static DECLARE_DELAYED_WORK(ipa3_transport_release_resource_work,
 	ipa3_transport_release_resource);
 static void ipa_gsi_notify_cb(struct gsi_per_notify *notify);
 
+static int ipa3_attach_to_smmu(void);
+static int ipa3_alloc_pkt_init(void);
+
 static void ipa3_load_ipa_fw(struct work_struct *work);
 static DECLARE_WORK(ipa3_fw_loading_work, ipa3_load_ipa_fw);
 
@@ -278,15 +281,12 @@ static DECLARE_WORK(ipa_dec_clients_disable_clks_on_wq_work,
 	ipa_dec_clients_disable_clks_on_wq);
 
 static struct ipa3_plat_drv_res ipa3_res = {0, };
-struct msm_bus_scale_pdata *ipa3_bus_scale_table;
 
 static struct clk *ipa3_clk;
 
 struct ipa3_context *ipa3_ctx;
-static struct device *master_dev;
-struct platform_device *ipa3_pdev;
 static struct {
-	bool present;
+	bool present[IPA_SMMU_CB_MAX];
 	bool arm_smmu;
 	bool fast_map;
 	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
@@ -509,42 +509,19 @@ struct device *ipa3_get_dma_dev(void)
 }
 
 /**
- * ipa3_get_smmu_ctx()- Return the wlan smmu context
+ * ipa3_get_smmu_ctx()- Return smmu context for the given cb_type
  *
  * Return value: pointer to smmu context address
  */
-struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void)
+struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(enum ipa_smmu_cb_type cb_type)
 {
-	return &smmu_cb[IPA_SMMU_CB_AP];
-}
-
-/**
- * ipa3_get_wlan_smmu_ctx()- Return the wlan smmu context
- *
- * Return value: pointer to smmu context address
- */
-struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void)
-{
-	return &smmu_cb[IPA_SMMU_CB_WLAN];
-}
-
-/**
- * ipa3_get_uc_smmu_ctx()- Return the uc smmu context
- *
- * Return value: pointer to smmu context address
- */
-struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void)
-{
-	return &smmu_cb[IPA_SMMU_CB_UC];
+	return &smmu_cb[cb_type];
 }
 
 static int ipa3_open(struct inode *inode, struct file *filp)
 {
-	struct ipa3_context *ctx = NULL;
-
 	IPADBG_LOW("ENTER\n");
-	ctx = container_of(inode->i_cdev, struct ipa3_context, cdev);
-	filp->private_data = ctx;
+	filp->private_data = ipa3_ctx;
 
 	return 0;
 }
@@ -3495,6 +3472,11 @@ static unsigned int ipa3_get_bus_vote(void)
  */
 void ipa3_enable_clks(void)
 {
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
+		IPAERR("not supported in this mode\n");
+		return;
+	}
+
 	IPADBG("enabling IPA clocks and bus voting\n");
 
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
@@ -3526,6 +3508,11 @@ void _ipa_disable_clks_v3_0(void)
  */
 void ipa3_disable_clks(void)
 {
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
+		IPAERR("not supported in this mode\n");
+		return;
+	}
+
 	IPADBG("disabling IPA clocks and bus voting\n");
 
 	ipa3_ctx->ctrl->ipa3_disable_clks();
@@ -3855,6 +3842,11 @@ int ipa3_set_clock_plan_from_pm(int idx)
 	if (!ipa3_ctx->enable_clock_scaling)
 		return 0;
 
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
+		IPAERR("not supported in this mode\n");
+		return 0;
+	}
+
 	IPADBG_LOW("idx = %d\n", idx);
 
 	if (idx <= 0 || idx >= ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases) {
@@ -3905,6 +3897,11 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 {
 	enum ipa_voltage_level needed_voltage;
 	u32 clk_rate;
+
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
+		IPAERR("not supported in this mode\n");
+		return 0;
+	}
 
 	IPADBG_LOW("floor_voltage=%d, bandwidth_mbps=%u",
 					floor_voltage, bandwidth_mbps);
@@ -4158,7 +4155,7 @@ int ipa3_init_interrupts(void)
 
 	/*register IPA IRQ handler*/
 	result = ipa3_interrupts_init(ipa3_res.ipa_irq, 0,
-			master_dev);
+			&ipa3_ctx->master_pdev->dev);
 	if (result) {
 		IPAERR("ipa interrupts initialization failed\n");
 		return -ENODEV;
@@ -4176,7 +4173,7 @@ int ipa3_init_interrupts(void)
 	return 0;
 
 fail_add_interrupt_handler:
-	free_irq(ipa3_res.ipa_irq, master_dev);
+	free_irq(ipa3_res.ipa_irq, &ipa3_ctx->master_pdev->dev);
 	return result;
 }
 
@@ -4393,6 +4390,78 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
 
+	/* SMMU was already attached if used, safe to do allocations */
+	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
+		ipa3_ctx->pdev)) {
+		IPAERR("fail to init ipahal\n");
+		result = -EFAULT;
+		goto fail_ipahal;
+	}
+
+	result = ipa3_init_hw();
+	if (result) {
+		IPAERR(":error initializing HW\n");
+		result = -ENODEV;
+		goto fail_init_hw;
+	}
+	IPADBG("IPA HW initialization sequence completed");
+
+	ipa3_ctx->ipa_num_pipes = ipa3_get_num_pipes();
+	if (ipa3_ctx->ipa_num_pipes > IPA3_MAX_NUM_PIPES) {
+		IPAERR("IPA has more pipes then supported has %d, max %d\n",
+			ipa3_ctx->ipa_num_pipes, IPA3_MAX_NUM_PIPES);
+		result = -ENODEV;
+		goto fail_init_hw;
+	}
+
+	ipa3_ctx->ctrl->ipa_sram_read_settings();
+	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
+		ipa3_ctx->smem_sz, ipa3_ctx->smem_restricted_bytes);
+
+	IPADBG("hdr_lcl=%u ip4_rt_hash=%u ip4_rt_nonhash=%u\n",
+		ipa3_ctx->hdr_tbl_lcl, ipa3_ctx->ip4_rt_tbl_hash_lcl,
+		ipa3_ctx->ip4_rt_tbl_nhash_lcl);
+
+	IPADBG("ip6_rt_hash=%u ip6_rt_nonhash=%u\n",
+		ipa3_ctx->ip6_rt_tbl_hash_lcl, ipa3_ctx->ip6_rt_tbl_nhash_lcl);
+
+	IPADBG("ip4_flt_hash=%u ip4_flt_nonhash=%u\n",
+		ipa3_ctx->ip4_flt_tbl_hash_lcl,
+		ipa3_ctx->ip4_flt_tbl_nhash_lcl);
+
+	IPADBG("ip6_flt_hash=%u ip6_flt_nonhash=%u\n",
+		ipa3_ctx->ip6_flt_tbl_hash_lcl,
+		ipa3_ctx->ip6_flt_tbl_nhash_lcl);
+
+	if (ipa3_ctx->smem_reqd_sz > ipa3_ctx->smem_sz) {
+		IPAERR("SW expect more core memory, needed %d, avail %d\n",
+			ipa3_ctx->smem_reqd_sz, ipa3_ctx->smem_sz);
+		result = -ENOMEM;
+		goto fail_init_hw;
+	}
+
+	result = ipa3_allocate_dma_task_for_gsi();
+	if (result) {
+		IPAERR("failed to allocate dma task\n");
+		goto fail_dma_task;
+	}
+
+	if (ipa3_nat_ipv6ct_init_devices()) {
+		IPAERR("unable to init NAT and IPv6CT devices\n");
+		result = -ENODEV;
+		goto fail_nat_ipv6ct_init_dev;
+	}
+
+	result = ipa3_alloc_pkt_init();
+	if (result) {
+		IPAERR("Failed to alloc pkt_init payload\n");
+		result = -ENODEV;
+		goto fail_allok_pkt_init;
+	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
+		ipa3_enable_dcd();
+
 	/*
 	 * indication whether working in MHI config or non MHI config is given
 	 * in ipa3_write which is launched before ipa3_post_init. i.e. from
@@ -4545,6 +4614,15 @@ fail_setup_apps_pipes:
 fail_register_device:
 	ipa3_destroy_flt_tbl_idrs();
 	ipa3_proxy_clk_unvote();
+fail_allok_pkt_init:
+	ipa3_nat_ipv6ct_destroy_devices();
+fail_nat_ipv6ct_init_dev:
+	ipa3_free_dma_task_for_gsi();
+fail_dma_task:
+fail_init_hw:
+	ipahal_destroy();
+fail_ipahal:
+
 	return result;
 }
 
@@ -4555,7 +4633,7 @@ static int ipa3_manual_load_ipa_fws(void)
 
 	IPADBG("Manual FW loading process initiated\n");
 
-	result = request_firmware(&fw, IPA_FWS_PATH, ipa3_ctx->dev);
+	result = request_firmware(&fw, IPA_FWS_PATH, ipa3_ctx->cdev.dev);
 	if (result < 0) {
 		IPAERR("request_firmware failed, error %d\n", result);
 		return result;
@@ -4607,6 +4685,12 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 
 	IPADBG("Entry\n");
 
+	result = ipa3_attach_to_smmu();
+	if (result) {
+		IPAERR("IPA attach to smmu failed %d\n", result);
+		return;
+	}
+
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5))
@@ -4622,7 +4706,7 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 	}
 	pr_info("IPA FW loaded successfully\n");
 
-	result = ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
+	result = ipa3_post_init(&ipa3_res, ipa3_ctx->cdev.dev);
 	if (result)
 		IPAERR("IPA post init failed %d\n", result);
 }
@@ -4837,12 +4921,13 @@ static int ipa3_alloc_pkt_init(void)
  * Configure GSI registers (in GSI case)
  */
 static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
-		struct device *ipa_dev)
+		struct platform_device *ipa_pdev)
 {
 	int result = 0;
 	int i;
 	struct ipa3_rt_tbl_set *rset;
 	struct ipa_active_client_logging_info log_info;
+	struct cdev *cdev;
 
 	IPADBG("IPA Driver initialization started\n");
 
@@ -4856,16 +4941,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	if (ipa3_ctx->logbuf == NULL)
 		IPAERR("failed to create IPC log, continue...\n");
 
-	ipa3_ctx->pdev = ipa_dev;
-	ipa3_ctx->uc_pdev = ipa_dev;
-	ipa3_ctx->smmu_present = smmu_info.present;
-	if (!ipa3_ctx->smmu_present) {
-		for (i = 0; i < IPA_SMMU_CB_MAX; i++)
-			ipa3_ctx->s1_bypass_arr[i] = true;
-	} else {
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] =
-			smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP];
-	}
+	/* ipa3_ctx->pdev and ipa3_ctx->uc_pdev will be set in the smmu probes*/
+	ipa3_ctx->master_pdev = ipa_pdev;
+	for (i = 0; i < IPA_SMMU_CB_MAX; i++)
+		ipa3_ctx->s1_bypass_arr[i] = true;
 
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
@@ -4886,6 +4965,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
 	ipa3_ctx->mhi_evid_limits[0] = resource_p->mhi_evid_limits[0];
 	ipa3_ctx->mhi_evid_limits[1] = resource_p->mhi_evid_limits[1];
+
+	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
+		"Non NORMAL IPA HW mode, is this emulation platform ?");
+
 	if (resource_p->ipa_tz_unlock_reg) {
 		ipa3_ctx->ipa_tz_unlock_reg_num =
 			resource_p->ipa_tz_unlock_reg_num;
@@ -4936,24 +5019,29 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_init_mem_partition;
 	}
 
-	if (ipa3_bus_scale_table) {
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL) {
+		ipa3_ctx->ctrl->msm_bus_data_ptr =
+			msm_bus_cl_get_pdata(ipa3_ctx->master_pdev);
+		if (ipa3_ctx->ctrl->msm_bus_data_ptr == NULL) {
+			IPAERR("failed to get bus scaling\n");
+			goto fail_bus_reg;
+		}
 		IPADBG("Use bus scaling info from device tree #usecases=%d\n",
-			ipa3_bus_scale_table->num_usecases);
-		ipa3_ctx->ctrl->msm_bus_data_ptr = ipa3_bus_scale_table;
-	}
+			ipa3_ctx->ctrl->msm_bus_data_ptr->num_usecases);
 
-	/* get BUS handle */
-	ipa3_ctx->ipa_bus_hdl =
-		msm_bus_scale_register_client(
-			ipa3_ctx->ctrl->msm_bus_data_ptr);
-	if (!ipa3_ctx->ipa_bus_hdl) {
-		IPAERR("fail to register with bus mgr\n");
-		result = -ENODEV;
-		goto fail_bus_reg;
+		/* get BUS handle */
+		ipa3_ctx->ipa_bus_hdl =
+			msm_bus_scale_register_client(
+				ipa3_ctx->ctrl->msm_bus_data_ptr);
+		if (!ipa3_ctx->ipa_bus_hdl) {
+			IPAERR("fail to register with bus mgr!\n");
+			result = -ENODEV;
+			goto fail_bus_reg;
+		}
 	}
 
 	/* get IPA clocks */
-	result = ipa3_get_clks(master_dev);
+	result = ipa3_get_clks(&ipa3_ctx->master_pdev->dev);
 	if (result)
 		goto fail_clk;
 
@@ -4980,55 +5068,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":ipa-base ioremap err\n");
 		result = -EFAULT;
 		goto fail_remap;
-	}
-
-	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
-		ipa3_ctx->pdev)) {
-		IPAERR("fail to init ipahal\n");
-		result = -EFAULT;
-		goto fail_ipahal;
-	}
-
-	result = ipa3_init_hw();
-	if (result) {
-		IPAERR(":error initializing HW\n");
-		result = -ENODEV;
-		goto fail_init_hw;
-	}
-	IPADBG("IPA HW initialization sequence completed");
-
-	ipa3_ctx->ipa_num_pipes = ipa3_get_num_pipes();
-	if (ipa3_ctx->ipa_num_pipes > IPA3_MAX_NUM_PIPES) {
-		IPAERR("IPA has more pipes then supported! has %d, max %d\n",
-			ipa3_ctx->ipa_num_pipes, IPA3_MAX_NUM_PIPES);
-		result = -ENODEV;
-		goto fail_init_hw;
-	}
-
-	ipa3_ctx->ctrl->ipa_sram_read_settings();
-	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
-		ipa3_ctx->smem_sz, ipa3_ctx->smem_restricted_bytes);
-
-	IPADBG("hdr_lcl=%u ip4_rt_hash=%u ip4_rt_nonhash=%u\n",
-		ipa3_ctx->hdr_tbl_lcl, ipa3_ctx->ip4_rt_tbl_hash_lcl,
-		ipa3_ctx->ip4_rt_tbl_nhash_lcl);
-
-	IPADBG("ip6_rt_hash=%u ip6_rt_nonhash=%u\n",
-		ipa3_ctx->ip6_rt_tbl_hash_lcl, ipa3_ctx->ip6_rt_tbl_nhash_lcl);
-
-	IPADBG("ip4_flt_hash=%u ip4_flt_nonhash=%u\n",
-		ipa3_ctx->ip4_flt_tbl_hash_lcl,
-		ipa3_ctx->ip4_flt_tbl_nhash_lcl);
-
-	IPADBG("ip6_flt_hash=%u ip6_flt_nonhash=%u\n",
-		ipa3_ctx->ip6_flt_tbl_hash_lcl,
-		ipa3_ctx->ip6_flt_tbl_nhash_lcl);
-
-	if (ipa3_ctx->smem_reqd_sz > ipa3_ctx->smem_sz) {
-		IPAERR("SW expect more core memory, needed %d, avail %d\n",
-			ipa3_ctx->smem_reqd_sz, ipa3_ctx->smem_sz);
-		result = -ENOMEM;
-		goto fail_init_hw;
 	}
 
 	mutex_init(&ipa3_ctx->ipa3_active_clients.mutex);
@@ -5129,13 +5168,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_rx_pkt_wrapper_cache;
 	}
 
-	/* allocate memory for DMA_TASK workaround */
-	result = ipa3_allocate_dma_task_for_gsi();
-	if (result) {
-		IPAERR("failed to allocate dma task\n");
-		goto fail_dma_task;
-	}
-
 	/* init the various list heads */
 	INIT_LIST_HEAD(&ipa3_ctx->hdr_tbl.head_hdr_entry_list);
 	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
@@ -5180,27 +5212,21 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	spin_lock_init(&ipa3_ctx->wc_memb.ipa_tx_mul_spinlock);
 	INIT_LIST_HEAD(&ipa3_ctx->wc_memb.wlan_comm_desc_list);
 
-	ipa3_ctx->class = class_create(THIS_MODULE, DRV_NAME);
+	ipa3_ctx->cdev.class = class_create(THIS_MODULE, DRV_NAME);
 
-	result = alloc_chrdev_region(&ipa3_ctx->dev_num, 0, 1, DRV_NAME);
+	result = alloc_chrdev_region(&ipa3_ctx->cdev.dev_num, 0, 1, DRV_NAME);
 	if (result) {
 		IPAERR("alloc_chrdev_region err\n");
 		result = -ENODEV;
 		goto fail_alloc_chrdev_region;
 	}
 
-	ipa3_ctx->dev = device_create(ipa3_ctx->class, NULL, ipa3_ctx->dev_num,
-			ipa3_ctx, DRV_NAME);
-	if (IS_ERR(ipa3_ctx->dev)) {
-		IPAERR(":device_create err\n");
+	ipa3_ctx->cdev.dev = device_create(ipa3_ctx->cdev.class, NULL,
+		 ipa3_ctx->cdev.dev_num, ipa3_ctx, DRV_NAME);
+	if (IS_ERR(ipa3_ctx->cdev.dev)) {
+		IPAERR(":device_create err.\n");
 		result = -ENODEV;
 		goto fail_device_create;
-	}
-
-	if (ipa3_nat_ipv6ct_init_devices()) {
-		IPAERR("unable to init NAT and IPv6CT devices\n");
-		result = -ENODEV;
-		goto fail_nat_ipv6ct_init_dev;
 	}
 
 	/* Create a wakeup source. */
@@ -5233,16 +5259,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		}
 	}
 
-	result = ipa3_alloc_pkt_init();
-	if (result) {
-		IPAERR("Failed to alloc pkt_init payload\n");
-		result = -ENODEV;
-		goto fail_allok_pkt_init;
-	}
-
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
-		ipa3_enable_dcd();
-
 	INIT_LIST_HEAD(&ipa3_ctx->ipa_ready_cb_list);
 
 	init_completion(&ipa3_ctx->init_completion_obj);
@@ -5271,19 +5287,20 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		}
 	}
 
-	cdev_init(&ipa3_ctx->cdev, &ipa3_drv_fops);
-	ipa3_ctx->cdev.owner = THIS_MODULE;
-	ipa3_ctx->cdev.ops = &ipa3_drv_fops;  /* from LDD3 */
+	cdev = &ipa3_ctx->cdev.cdev;
+	cdev_init(cdev, &ipa3_drv_fops);
+	cdev->owner = THIS_MODULE;
+	cdev->ops = &ipa3_drv_fops;  /* from LDD3 */
 
-	result = cdev_add(&ipa3_ctx->cdev, ipa3_ctx->dev_num, 1);
+	result = cdev_add(cdev, ipa3_ctx->cdev.dev_num, 1);
 	if (result) {
 		IPAERR(":cdev_add err=%d\n", -result);
 		result = -ENODEV;
 		goto fail_cdev_add;
 	}
 	IPADBG("ipa cdev added successful. major:%d minor:%d\n",
-			MAJOR(ipa3_ctx->dev_num),
-			MINOR(ipa3_ctx->dev_num));
+			MAJOR(ipa3_ctx->cdev.dev_num),
+			MINOR(ipa3_ctx->cdev.dev_num));
 	/*
 	 * for IPA 4.0 offline charge is not needed and we need to prevent
 	 * power collapse until IPA uC is loaded.
@@ -5298,7 +5315,6 @@ fail_cdev_add:
 fail_gsi_pre_fw_load_init:
 	ipa3_dma_shutdown();
 fail_ipa_dma_setup:
-fail_allok_pkt_init:
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_destroy();
 	else
@@ -5307,11 +5323,9 @@ fail_create_apps_resource:
 	if (!ipa3_ctx->use_ipa_pm)
 		ipa_rm_exit();
 fail_ipa_rm_init:
-	ipa3_nat_ipv6ct_destroy_devices();
-fail_nat_ipv6ct_init_dev:
-	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
+	device_destroy(ipa3_ctx->cdev.class, ipa3_ctx->cdev.dev_num);
 fail_device_create:
-	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
+	unregister_chrdev_region(ipa3_ctx->cdev.dev_num, 1);
 fail_alloc_chrdev_region:
 	idr_destroy(&ipa3_ctx->ipa_idr);
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v6];
@@ -5320,8 +5334,6 @@ fail_alloc_chrdev_region:
 	idr_destroy(&rset->rule_ids);
 	idr_destroy(&ipa3_ctx->rt_tbl_set[IPA_IP_v6].rule_ids);
 	idr_destroy(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].rule_ids);
-	ipa3_free_dma_task_for_gsi();
-fail_dma_task:
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
 fail_rx_pkt_wrapper_cache:
 	kmem_cache_destroy(ipa3_ctx->tx_pkt_wrapper_cache);
@@ -5344,8 +5356,6 @@ fail_flt_rule_cache:
 fail_create_transport_wq:
 	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
 fail_init_hw:
-	ipahal_destroy();
-fail_ipahal:
 	iounmap(ipa3_ctx->mmio);
 fail_remap:
 	ipa3_disable_clks();
@@ -5355,12 +5365,11 @@ fail_init_active_client:
 		clk_put(ipa3_clk);
 	ipa3_clk = NULL;
 fail_clk:
-	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
+	if (ipa3_ctx->ipa_bus_hdl)
+		msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
 fail_bus_reg:
-	if (ipa3_bus_scale_table) {
-		msm_bus_cl_clear_pdata(ipa3_bus_scale_table);
-		ipa3_bus_scale_table = NULL;
-	}
+	if (ipa3_ctx->ctrl->msm_bus_data_ptr)
+		msm_bus_cl_clear_pdata(ipa3_ctx->ctrl->msm_bus_data_ptr);
 fail_init_mem_partition:
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
@@ -5747,7 +5756,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 	int atomic_ctx = 1;
 	int fast = 1;
 	int bypass = 1;
@@ -5758,6 +5767,11 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 
 	IPADBG("sub pdev=%pK\n", dev);
 
+	if (!smmu_info.present[IPA_SMMU_CB_WLAN]) {
+		IPAERR("WLAN SMMU is disabled\n");
+		return 0;
+	}
+
 	cb->dev = dev;
 	cb->iommu = iommu_domain_alloc(dev->bus);
 	if (!cb->iommu) {
@@ -5767,7 +5781,8 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	}
 	cb->valid = true;
 
-	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
+	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass") ||
+		ipa3_ctx->ipa_config_is_mhi) {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = true;
 		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN] = true;
 
@@ -5847,7 +5862,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 
 static int ipa_smmu_uc_cb_probe(struct device *dev)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 	int atomic_ctx = 1;
 	int bypass = 1;
 	int fast = 1;
@@ -5855,6 +5870,11 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	u32 iova_ap_mapping[2];
 
 	IPADBG("UC CB PROBE sub pdev=%pK\n", dev);
+
+	if (!smmu_info.present[IPA_SMMU_CB_UC]) {
+		IPAERR("UC SMMU is disabled\n");
+		return 0;
+	}
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,iova-mapping",
 			iova_ap_mapping, 2);
@@ -5895,7 +5915,8 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 
 	IPADBG("UC CB PROBE sub pdev=%pK set attribute\n", dev);
 
-	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
+	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass") ||
+		ipa3_ctx->ipa_config_is_mhi) {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = true;
 		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] = true;
 
@@ -5955,7 +5976,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 
 static int ipa_smmu_ap_cb_probe(struct device *dev)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 	int result;
 	int atomic_ctx = 1;
 	int fast = 1;
@@ -5974,6 +5995,11 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	phys_addr_t pa;
 
 	IPADBG("AP CB probe: sub pdev=%pK\n", dev);
+
+	if (!smmu_info.present[IPA_SMMU_CB_AP]) {
+		IPAERR("AP SMMU is disabled");
+		return 0;
+	}
 
 	result = of_property_read_u32_array(dev->of_node, "qcom,iova-mapping",
 		iova_ap_mapping, 2);
@@ -6012,8 +6038,9 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	cb->valid = true;
 
 	if (of_property_read_bool(dev->of_node,
-		"qcom,smmu-s1-bypass")) {
+		"qcom,smmu-s1-bypass") || ipa3_ctx->ipa_config_is_mhi) {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = true;
+		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] = true;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_S1_BYPASS,
 				&bypass)) {
@@ -6025,6 +6052,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		IPADBG("AP/USB SMMU S1 BYPASS\n");
 	} else {
 		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = false;
+		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] = false;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_ATOMIC,
 				&atomic_ctx)) {
@@ -6115,22 +6143,47 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				iova_p, pa_p, size_p,
 				IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 
-	smmu_info.present = true;
-
-	if (!ipa3_bus_scale_table)
-		ipa3_bus_scale_table = msm_bus_cl_get_pdata(ipa3_pdev);
-
-	/* Proceed to real initialization */
-	result = ipa3_pre_init(&ipa3_res, dev);
-	if (result) {
-		IPAERR("ipa_init failed\n");
-		arm_iommu_detach_device(cb->dev);
-		arm_iommu_release_mapping(cb->mapping);
-		cb->valid = false;
-		return result;
-	}
+	smmu_info.present[IPA_SMMU_CB_AP] = true;
+	ipa3_ctx->pdev = dev;
 
 	return result;
+}
+
+static int ipa_smmu_cb_probe(struct device *dev, enum ipa_smmu_cb_type cb_type)
+{
+	switch (cb_type) {
+	case IPA_SMMU_CB_AP:
+		return ipa_smmu_ap_cb_probe(dev);
+	case IPA_SMMU_CB_WLAN:
+		return ipa_smmu_wlan_cb_probe(dev);
+	case IPA_SMMU_CB_UC:
+		return ipa_smmu_uc_cb_probe(dev);
+	case IPA_SMMU_CB_MAX:
+		IPAERR("Invalid cb_type\n");
+	}
+	return 0;
+}
+
+static int ipa3_attach_to_smmu(void)
+{
+	struct ipa_smmu_cb_ctx *cb;
+	int i, result;
+
+	ipa3_ctx->pdev = &ipa3_ctx->master_pdev->dev;
+	ipa3_ctx->uc_pdev = &ipa3_ctx->master_pdev->dev;
+
+	if (smmu_info.arm_smmu) {
+		IPADBG("smmu is enabled\n");
+		for (i = 0; i < IPA_SMMU_CB_MAX; i++) {
+			cb = ipa3_get_smmu_ctx(i);
+			result = ipa_smmu_cb_probe(cb->dev, i);
+			if (result)
+				IPAERR("probe failed for cb %d\n", i);
+		}
+	} else {
+		IPADBG("smmu is disabled\n");
+	}
+	return 0;
 }
 
 static irqreturn_t ipa3_smp2p_modem_clk_query_isr(int irq, void *ctxt)
@@ -6203,18 +6256,34 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 {
 	int result;
 	struct device *dev = &pdev_p->dev;
+	struct ipa_smmu_cb_ctx *cb;
 
 	IPADBG("IPA driver probing started\n");
 	IPADBG("dev->of_node->name = %s\n", dev->of_node->name);
 
-	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb"))
-		return ipa_smmu_ap_cb_probe(dev);
+	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb")) {
+		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+		cb->dev = dev;
+		smmu_info.present[IPA_SMMU_CB_AP] = true;
 
-	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-wlan-cb"))
-		return ipa_smmu_wlan_cb_probe(dev);
+		return 0;
+	}
 
-	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb"))
-		return ipa_smmu_uc_cb_probe(dev);
+	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-wlan-cb")) {
+		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
+		cb->dev = dev;
+		smmu_info.present[IPA_SMMU_CB_WLAN] = true;
+
+		return 0;
+	}
+
+	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb")) {
+		cb =  ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
+		cb->dev = dev;
+		smmu_info.present[IPA_SMMU_CB_UC] = true;
+
+		return 0;
+	}
 
 	if (of_device_is_compatible(dev->of_node,
 	    "qcom,smp2pgpio-map-ipa-1-in"))
@@ -6223,10 +6292,6 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	if (of_device_is_compatible(dev->of_node,
 	    "qcom,smp2pgpio-map-ipa-1-out"))
 		return ipa3_smp2p_probe(dev);
-
-	master_dev = dev;
-	if (!ipa3_pdev)
-		ipa3_pdev = pdev_p;
 
 	result = get_ipa_dts_configuration(pdev_p, &ipa3_res);
 	if (result) {
@@ -6269,15 +6334,13 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 				return -EOPNOTSUPP;
 			}
 		}
+	}
 
-		if (!ipa3_bus_scale_table)
-			ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
-		/* Proceed to real initialization */
-		result = ipa3_pre_init(&ipa3_res, dev);
-		if (result) {
-			IPAERR("ipa3_init failed\n");
-			return result;
-		}
+	/* Proceed to real initialization */
+	result = ipa3_pre_init(&ipa3_res, pdev_p);
+	if (result) {
+		IPAERR("ipa3_init failed\n");
+		return result;
 	}
 
 	result = of_platform_populate(pdev_p->dev.of_node,
@@ -6429,8 +6492,8 @@ int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data)
 int ipa3_iommu_map(struct iommu_domain *domain,
 	unsigned long iova, phys_addr_t paddr, size_t size, int prot)
 {
-	struct ipa_smmu_cb_ctx *ap_cb = ipa3_get_smmu_ctx();
-	struct ipa_smmu_cb_ctx *uc_cb = ipa3_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *ap_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+	struct ipa_smmu_cb_ctx *uc_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 
 	IPADBG("domain =0x%pK iova 0x%lx\n", domain, iova);
 	IPADBG("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
