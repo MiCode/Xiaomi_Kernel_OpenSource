@@ -1083,6 +1083,7 @@ static void __aac_shutdown(struct aac_dev * aac)
 				up(&fib->event_wait);
 		}
 		kthread_stop(aac->thread);
+		aac->thread = NULL;
 	}
 	aac_adapter_disable_int(aac);
 	cpu = cpumask_first(cpu_online_mask);
