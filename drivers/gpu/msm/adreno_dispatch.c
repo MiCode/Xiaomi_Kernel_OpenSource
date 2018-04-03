@@ -565,6 +565,8 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		return -EBUSY;
 	}
 
+	memset(&time, 0x0, sizeof(time));
+
 	dispatcher->inflight++;
 	dispatch_q->inflight++;
 
