@@ -834,7 +834,7 @@ static int dev_remove(struct dm_ioctl *param, size_t param_size)
 	hc = __find_device_hash_cell(param);
 
 	if (!hc) {
-		DMDEBUG_LIMIT("device doesn't appear to be in the dev hash table.");
+		DMERR("device doesn't appear to be in the dev hash table.");
 		up_write(&_hash_lock);
 		return -ENXIO;
 	}
@@ -851,7 +851,7 @@ static int dev_remove(struct dm_ioctl *param, size_t param_size)
 			dm_put(md);
 			return 0;
 		}
-		DMDEBUG_LIMIT("unable to remove open device %s", hc->name);
+		DMERR("unable to remove open device %s(%d)", hc->name, r);
 		up_write(&_hash_lock);
 		dm_put(md);
 		return r;

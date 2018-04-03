@@ -1802,13 +1802,16 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	}
 
 	pdata->panel_info.cont_splash_enabled = 0;
+	pdata->panel_info.esd_rdy = true;
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
 	if (sctl) {
 		sctl->panel_data->panel_info.cont_splash_enabled = 0;
+		sctl->panel_data->panel_info.esd_rdy = true;
 		sctx = (struct mdss_mdp_video_ctx *) sctl->intf_ctx[MASTER_CTX];
 	} else if (ctl->panel_data->next && is_pingpong_split(ctl->mfd)) {
 		ctl->panel_data->next->panel_info.cont_splash_enabled = 0;
+		ctl->panel_data->next->panel_info.esd_rdy = true;
 		sctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
 	}
 
@@ -2458,10 +2461,21 @@ static int mdss_mdp_video_early_wake_up(struct mdss_mdp_ctl *ctl)
 	 * lot of latency rendering the input events useless in preventing the
 	 * idle time out.
 	 */
-	if (ctl->mfd->idle_state == MDSS_FB_IDLE_TIMER_RUNNING) {
-		if (ctl->mfd->idle_time)
+	if ((ctl->mfd->idle_state == MDSS_FB_IDLE_TIMER_RUNNING) ||
+				(ctl->mfd->idle_state == MDSS_FB_IDLE)) {
+		/*
+		 * Modify the idle time so that an idle fallback can be
+		 * triggered for those cases, where we have no update
+		 * despite of a touch event and idle time is 0.
+		 */
+		if (!ctl->mfd->idle_time) {
+			ctl->mfd->idle_time = 70;
+			schedule_delayed_work(&ctl->mfd->idle_notify_work,
+							msecs_to_jiffies(200));
+		} else {
 			mod_delayed_work(system_wq, &ctl->mfd->idle_notify_work,
 					 msecs_to_jiffies(ctl->mfd->idle_time));
+		}
 		pr_debug("Delayed idle time\n");
 	} else {
 		pr_debug("Nothing to done for this state (%d)\n",

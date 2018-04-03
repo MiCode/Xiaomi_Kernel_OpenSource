@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,10 @@
 #include "battery.h"
 #include "step-chg-jeita.h"
 #include "storm-watch.h"
+#include "fg-core.h"
+
+#define LCT_JEITA_CCC_AUTO_ADJUST  1
+
 
 #define smblib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\
@@ -341,6 +346,55 @@ static int smblib_set_opt_freq_buck(struct smb_charger *chg, int fsw_khz)
 	return rc;
 }
 
+#if LCT_JEITA_CCC_AUTO_ADJUST
+/*
+jeita cc COMP regiseter is 1092,please refer to qualcom doc:80_P7905_2X ,SCHG_CHGR_JEITA_CCCOMP_CFG
+qcom,thermal-mitigation					= <2500000 2000000 1000000 800000 500000>;
+jeita current = fcc - JEITA_CC_COMP_CFG_IN_UEFI*1000
+*/
+
+#define JEITA_CC_COMP_CFG_IN_UEFI  1200
+
+
+static int smblib_adjust_jeita_cc_config(struct smb_charger *chg, int val_u)
+{
+	int rc = 0;
+	int current_cc_minus_ua = 0;
+
+
+
+	pr_err("smblib_adjust_jeita_cc_config fcc val_u  = %d\n", val_u);
+
+	rc = smblib_get_charge_param(chg,  &chg->param.jeita_cc_comp,  &current_cc_minus_ua);
+
+
+	if ((val_u == chg->batt_profile_fcc_ua) && (current_cc_minus_ua != JEITA_CC_COMP_CFG_IN_UEFI * 1000)) {
+		rc = smblib_set_charge_param(chg, &chg->param.jeita_cc_comp, JEITA_CC_COMP_CFG_IN_UEFI * 1000);
+		pr_err("smblib_adjust_jeita_cc_config jeita cc has changed , write it back , write result = %d\n", rc);
+
+	} else if ((val_u < chg->batt_profile_fcc_ua) &&((chg->batt_profile_fcc_ua - val_u) <= JEITA_CC_COMP_CFG_IN_UEFI * 1000)) {
+		if (current_cc_minus_ua != (JEITA_CC_COMP_CFG_IN_UEFI * 1000 - (chg->batt_profile_fcc_ua - val_u))) {
+			current_cc_minus_ua = JEITA_CC_COMP_CFG_IN_UEFI * 1000 - (chg->batt_profile_fcc_ua - val_u);
+			rc = smblib_set_charge_param(chg, &chg->param.jeita_cc_comp, current_cc_minus_ua);
+			pr_err("smblib_adjust_jeita_cc_config jeita cc need to decrease to %d, write result = %d\n", current_cc_minus_ua, rc);
+		} else {
+			pr_err("smblib_adjust_jeita_cc_config jeita cc have decreased \n");
+		}
+
+	} else if ((val_u < chg->batt_profile_fcc_ua) &&((chg->batt_profile_fcc_ua - val_u) > JEITA_CC_COMP_CFG_IN_UEFI * 1000)) {
+		rc = smblib_set_charge_param(chg, &chg->param.jeita_cc_comp, 0);
+		pr_err("smblib_adjust_jeita_cc_config jeita need to set to zero, write result = %d\n", rc);
+	} else {
+		pr_err("smblib_adjust_jeita_cc_config do nothing \n");
+	}
+
+
+	return rc;
+
+
+}
+#endif
+
 int smblib_set_charge_param(struct smb_charger *chg,
 			    struct smb_chg_param *param, int val_u)
 {
@@ -367,6 +421,11 @@ int smblib_set_charge_param(struct smb_charger *chg,
 			param->name, val_raw, param->reg, rc);
 		return rc;
 	}
+	#if LCT_JEITA_CCC_AUTO_ADJUST
+	if (strcmp(param->name, "fast charge current") == 0) {
+		smblib_adjust_jeita_cc_config(chg, val_u);
+	}
+	#endif
 
 	smblib_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
 		   param->name, val_u, val_raw);
@@ -519,7 +578,7 @@ static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 	else
 		chg->real_charger_type = apsd_result->pst;
 
-	smblib_dbg(chg, PR_MISC, "APSD=%s PD=%d\n",
+	smblib_err(chg, "lct battery charge APSD=%s PD=%d\n",
 					apsd_result->name, chg->pd_active);
 	return apsd_result;
 }
@@ -1569,6 +1628,7 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		return rc;
 	}
 
+
 	switch (stat) {
 	case TRICKLE_CHARGE:
 	case PRE_CHARGE:
@@ -1588,7 +1648,6 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 		break;
 	}
-
 	if (val->intval != POWER_SUPPLY_STATUS_CHARGING)
 		return 0;
 
@@ -1677,6 +1736,8 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 		val->intval = POWER_SUPPLY_HEALTH_COLD;
 	else if (stat & BAT_TEMP_STATUS_TOO_HOT_BIT)
 		val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+	else if (chg->low_cool)
+		val->intval = POWER_SUPPLY_HEALTH_LOW_COOL;
 	else if (stat & BAT_TEMP_STATUS_COLD_SOFT_LIMIT_BIT)
 		val->intval = POWER_SUPPLY_HEALTH_COOL;
 	else if (stat & BAT_TEMP_STATUS_HOT_SOFT_LIMIT_BIT)
@@ -1789,6 +1850,23 @@ int smblib_get_prop_charge_qnovo_enable(struct smb_charger *chg,
 	return 0;
 }
 
+
+int smblib_get_prop_battery_full_design(struct smb_charger *chg,
+				     union power_supply_propval *val)
+{
+	struct fg_chip *chip;
+
+	if (!chg->bms_psy)
+		return -EINVAL;
+	chip = power_supply_get_drvdata(chg->bms_psy);
+	if (chip->battery_full_design)
+		val->intval =  chip->battery_full_design;
+	else
+		val->intval = 3000;
+	return 0;
+}
+
+
 /***********************
  * BATTERY PSY SETTERS *
  ***********************/
@@ -1827,6 +1905,13 @@ int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 	return 0;
 }
 
+#ifdef THERMAL_CONFIG_FB
+extern union power_supply_propval lct_therm_lvl_reserved;
+extern bool lct_backlight_off;
+extern int LctIsInCall;
+extern int LctThermal;
+extern int hwc_check_india;
+#endif
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
@@ -1839,10 +1924,35 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 	if (val->intval > chg->thermal_levels)
 		return -EINVAL;
 
+	#ifdef THERMAL_CONFIG_FB
+	pr_err("smblib_set_prop_system_temp_level val=%d, chg->system_temp_level=%d, LctThermal=%d, lct_backlight_off= %d, IsInCall=%d, hwc_check_india=%d\n ",
+		val->intval, chg->system_temp_level, LctThermal, lct_backlight_off, LctIsInCall, hwc_check_india);
+
+	if (LctThermal == 0) {
+		lct_therm_lvl_reserved.intval = val->intval;
+	}
+	if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 0) && (hwc_check_india == 0)) {
+	    return 0;
+	}
+	if ((lct_backlight_off) && (LctIsInCall == 0) && (val->intval > 1) && (hwc_check_india == 1)) {
+		return 0;
+	}
+	if ((LctIsInCall == 1) && (val->intval != 3)) {
+		return 0;
+	}
+	if (val->intval == chg->system_temp_level)
+		return 0;
+	#endif
+
 	chg->system_temp_level = val->intval;
 	/* disable parallel charge in case of system temp level */
-	vote(chg->pl_disable_votable, THERMAL_DAEMON_VOTER,
+	if ((lct_backlight_off == 0) && (chg->system_temp_level <= 1)) {
+		vote(chg->pl_disable_votable, THERMAL_DAEMON_VOTER, false, 0);
+	} else {
+		vote(chg->pl_disable_votable, THERMAL_DAEMON_VOTER,
 			chg->system_temp_level ? true : false, 0);
+	}
+
 
 	if (chg->system_temp_level == chg->thermal_levels)
 		return vote(chg->chg_disable_votable,
@@ -2901,8 +3011,8 @@ int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1500000
-#define HVDCP_CURRENT_UA		3000000
+#define DCP_CURRENT_UA			2500000
+#define HVDCP_CURRENT_UA		2500000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
 #define TYPEC_HIGH_CURRENT_UA		3000000
@@ -3504,14 +3614,22 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
 		break;
 	case POWER_SUPPLY_TYPE_USB_DCP:
-	case POWER_SUPPLY_TYPE_USB_FLOAT:
+
 		typec_mode = smblib_get_prop_typec_mode(chg);
 		rp_ua = get_rp_based_dcp_current(chg, typec_mode);
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, rp_ua);
+		smblib_err(chg, "lct battery smblib_force_legacy_icl dcp\n");
 		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP:
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
+		smblib_err(chg, "lct battery smblib_force_legacy_icl qc2.0\n");
+		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3000000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2500000);
+		smblib_err(chg, "lct battery smblib_force_legacy_icl qc3.0\n");
+		break;
+	case POWER_SUPPLY_TYPE_USB_FLOAT:
+			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 500000);
 		break;
 	default:
 		smblib_err(chg, "Unknown APSD %d; forcing 500mA\n", pst);

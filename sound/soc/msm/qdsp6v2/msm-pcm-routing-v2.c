@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8067,6 +8068,11 @@ static const struct snd_kcontrol_new primary_mi2s_rx_port_mixer_controls[] = {
 	SOC_SINGLE_EXT("SLIM_8_TX", MSM_BACKEND_DAI_PRI_MI2S_RX,
 	MSM_BACKEND_DAI_SLIMBUS_8_TX, 1, 0, msm_routing_get_port_mixer,
 	msm_routing_put_port_mixer),
+#ifdef CONFIG_SND_SOC_TAS2557
+	SOC_SINGLE_EXT("INT3_MI2S_TX", MSM_BACKEND_DAI_PRI_MI2S_RX,
+	MSM_BACKEND_DAI_INT3_MI2S_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
+#endif
 };
 
 static const struct snd_kcontrol_new usb_rx_port_mixer_controls[] = {
@@ -13280,7 +13286,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"INT0_MI2S_RX", NULL, "INT0_MI2S_RX_DL_HL"},
 	{"INT4_MI2S_RX_DL_HL", "Switch", "INT4_MI2S_DL_HL"},
 	{"INT4_MI2S_RX", NULL, "INT4_MI2S_RX_DL_HL"},
-	{"PRI_MI2S_RX_DL_HL", "Switch", "PRI_MI2S_DL_HL"},
+	{"PRI_MI2S_RX_DL_HL", "Switch", "INT4_MI2S_DL_HL"},
 	{"PRI_MI2S_RX", NULL, "PRI_MI2S_RX_DL_HL"},
 	{"SEC_MI2S_RX_DL_HL", "Switch", "SEC_MI2S_DL_HL"},
 	{"SEC_MI2S_RX", NULL, "SEC_MI2S_RX_DL_HL"},
@@ -13825,6 +13831,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"PRI_MI2S_RX Port Mixer", "SEC_MI2S_TX", "SEC_MI2S_TX"},
 	{"PRI_MI2S_RX Port Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"PRI_MI2S_RX Port Mixer", "TERT_MI2S_TX", "TERT_MI2S_TX"},
+#ifdef CONFIG_SND_SOC_TAS2557
+	{"PRI_MI2S_RX Port Mixer", "INT3_MI2S_TX", "INT3_MI2S_TX"},
+#endif
 	{"PRI_MI2S_RX Port Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"PRI_MI2S_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
 	{"PRI_MI2S_RX Port Mixer", "INTERNAL_BT_SCO_TX", "INT_BT_SCO_TX"},

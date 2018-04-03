@@ -337,6 +337,8 @@
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
+#define KEY_ANT_CONNECT		0x292
+#define KEY_ANT_UNCONNECT	0x293
 
 #define BTN_MISC		0x100
 #define BTN_0			0x100
@@ -603,7 +605,8 @@
 
 #define KEY_BRIGHTNESS_MIN		0x250	/* Set Brightness to Minimum */
 #define KEY_BRIGHTNESS_MAX		0x251	/* Set Brightness to Maximum */
-
+#define KEY_HALL_OPEN		0x284
+#define KEY_HALL_CLOSE		0x285
 #define KEY_KBDINPUTASSIST_PREV		0x260
 #define KEY_KBDINPUTASSIST_NEXT		0x261
 #define KEY_KBDINPUTASSIST_PREVGROUP		0x262

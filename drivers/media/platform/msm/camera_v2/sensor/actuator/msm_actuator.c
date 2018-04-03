@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,9 +27,9 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
-#define PARK_LENS_LONG_STEP 7
-#define PARK_LENS_MID_STEP 5
-#define PARK_LENS_SMALL_STEP 3
+#define PARK_LENS_LONG_STEP 4
+#define PARK_LENS_MID_STEP 2
+#define PARK_LENS_SMALL_STEP 1
 #define MAX_QVALUE 4096
 
 static struct v4l2_file_operations msm_actuator_v4l2_subdev_fops;
@@ -813,6 +814,8 @@ static int32_t msm_actuator_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
 
 	if (a_ctrl->park_lens.max_step > a_ctrl->max_code_size)
 		a_ctrl->park_lens.max_step = a_ctrl->max_code_size;
+
+	a_ctrl->park_lens.max_step = a_ctrl->park_lens.max_step >> 1;
 
 	next_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
 	while (next_lens_pos) {

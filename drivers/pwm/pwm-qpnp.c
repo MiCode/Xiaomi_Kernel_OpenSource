@@ -1473,7 +1473,7 @@ static int _pwm_change_mode(struct qpnp_pwm_chip *chip, enum pm_pwm_mode mode)
  */
 int pwm_change_mode(struct pwm_device *pwm, enum pm_pwm_mode mode)
 {
-	int rc;
+	int rc = 0;
 	unsigned long flags;
 	struct qpnp_pwm_chip *chip;
 

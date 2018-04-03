@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -529,7 +530,7 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 {
 	int i, rc;
 	u8 reg;
-	u16 low_limit = WLED_MAX_LEVEL_4095 * 4 / 1000;
+	u16 low_limit = WLED_MAX_LEVEL_4095 * 1 / 1000;
 
 	/* WLED's lower limit of operation is 0.4% */
 	if (level > 0 && level < low_limit)
@@ -1116,9 +1117,9 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 		return IRQ_HANDLED;
 	}
 
-	if (fault_sts & (QPNP_WLED_OVP_FAULT_BIT | QPNP_WLED_ILIM_FAULT_BIT))
-		pr_err("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
-			int_sts, fault_sts);
+
+
+
 	return IRQ_HANDLED;
 }
 

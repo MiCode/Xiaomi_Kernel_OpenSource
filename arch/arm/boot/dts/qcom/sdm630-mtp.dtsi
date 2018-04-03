@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,6 +90,35 @@
 };
 
 &soc {
+	goodix_fp{
+		compatible = "goodix,fingerprint";
+		interrupt-parent = <&tlmm>;
+		interrupt = <72 0x0>;
+		vcc_spi_supply = <&pm660_l16>;
+		vcc_ana_supply = <&pm660_l16>;
+		vdd_io-supply = <&pm660_l16>;
+		goodix,gpio_reset = <&tlmm 46 0>;
+		goodix,gpio_irq = <&tlmm 72 0>;
+	};
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <72 0x0>;
+		fpc,gpio_rst    = <&tlmm 46 0x0>;
+		fpc,gpio_irq    = <&tlmm 72 0x0>;
+		vcc_spi-supply  = <&pm660_l13>;
+		vdd_io-supply   = <&pm660_l13>;
+		vdd_ana-supply  = <&pm660_l13>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_46>;
+		pinctrl-1 = <&msm_gpio_46_output_high>;
+		pinctrl-2 = <&msm_gpio_72>;
+	};
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 	};
@@ -156,7 +186,7 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_nt35695b_truly_fhd_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_td4310_tianma_fhd_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -175,6 +205,13 @@
 
 &pm660l_wled {
 	qcom,led-strings-list = [01 02];
+};
+
+&dsi_td4310_tianma_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_nt35695b_truly_fhd_video {

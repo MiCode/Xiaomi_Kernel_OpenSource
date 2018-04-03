@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +44,8 @@ enum print_reason {
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
 #define CC_DETACHED_VOTER		"CC_DETACHED_VOTER"
+#define LOW_COOL_CC_VOTER		"LOW_COOL_CC_VOTER"
+
 #define HVDCP_TIMEOUT_VOTER		"HVDCP_TIMEOUT_VOTER"
 #define PD_DISALLOWED_INDIRECT_VOTER	"PD_DISALLOWED_INDIRECT_VOTER"
 #define PD_HARD_RESET_VOTER		"PD_HARD_RESET_VOTER"
@@ -65,6 +68,9 @@ enum print_reason {
 #define OTG_DELAY_VOTER			"OTG_DELAY_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
 #define WEAK_CHARGER_VOTER		"WEAK_CHARGER_VOTER"
+
+
+#define THERMAL_CONFIG_FB 1
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -305,8 +311,11 @@ struct smb_charger {
 	int			*thermal_mitigation;
 	int			dcp_icl_ua;
 	int			fake_capacity;
+	int			low_cool_temp;
+	int			low_cool_temp_ua;
 	bool			step_chg_enabled;
 	bool			sw_jeita_enabled;
+	bool			low_cool;
 	bool			is_hdc;
 	bool			chg_done;
 	bool			micro_usb_mode;
@@ -326,6 +335,10 @@ struct smb_charger {
 	bool			pr_swap_in_progress;
 	int			typec_mode;
 	u32			jeita_status;
+#ifdef THERMAL_CONFIG_FB
+	struct notifier_block notifier;
+	struct work_struct fb_notify_work;
+#endif
 	int			usb_icl_change_irq_enabled;
 
 	/* workaround flag */
@@ -509,6 +522,11 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
+
+int smblib_get_prop_battery_full_design(struct smb_charger *chg,
+				     union power_supply_propval *val);
+
+
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -399,6 +400,7 @@ module_param_named(
 
 static int fg_restart;
 static bool fg_sram_dump;
+int hwc_check_india;
 
 /* All getters HERE */
 
@@ -594,6 +596,40 @@ static int fg_get_battery_temp(struct fg_chip *chip, int *val)
 
 	/* Value is in Kelvin; Convert it to deciDegC */
 	temp = (temp - 273) * 10;
+
+	if (temp < -80) {
+		switch (temp) {
+		case -90:
+			temp = -110;
+			break;
+		case -100:
+			temp = -120;
+			break;
+		case -110:
+			temp = -130;
+			break;
+		case -120:
+			temp = -150;
+			break;
+		case -130:
+			temp = -170;
+			break;
+		case -140:
+			temp = -190;
+			break;
+		case -150:
+			temp = -200;
+			break;
+		case -160:
+			temp = -210;
+			break;
+		default:
+			temp = -50;
+			break;
+		};
+	}
+
+
 	*val = temp;
 	return 0;
 }
@@ -907,6 +943,16 @@ out:
 	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, true, 0);
 	return rc;
 }
+static int __init hwc_setup(char *s)
+{
+	if (strcmp(s, "India") == 0)
+		hwc_check_india = 1;
+	else
+		hwc_check_india = 0;
+	return 1;
+}
+
+__setup("androidboot.hwc=", hwc_setup);
 
 static int fg_get_batt_profile(struct fg_chip *chip)
 {
@@ -938,12 +984,16 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		return rc;
 	}
 
-	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
-			&chip->bp.float_volt_uv);
-	if (rc < 0) {
-		pr_err("battery float voltage unavailable, rc:%d\n", rc);
-		chip->bp.float_volt_uv = -EINVAL;
-	}
+
+
+
+		rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
+				&chip->bp.float_volt_uv);
+		if (rc < 0) {
+			pr_err("battery float voltage unavailable, rc:%d\n", rc);
+			chip->bp.float_volt_uv = -EINVAL;
+		}
+
 
 	rc = of_property_read_u32(profile_node, "qcom,fastchg-current-ma",
 			&chip->bp.fastchg_curr_ma);
@@ -952,18 +1002,30 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		chip->bp.fastchg_curr_ma = -EINVAL;
 	}
 
-	rc = of_property_read_u32(profile_node, "qcom,fg-cc-cv-threshold-mv",
-			&chip->bp.vbatt_full_mv);
-	if (rc < 0) {
-		pr_err("battery cc_cv threshold unavailable, rc:%d\n", rc);
-		chip->bp.vbatt_full_mv = -EINVAL;
-	}
+
+
+
+		rc = of_property_read_u32(profile_node, "qcom,fg-cc-cv-threshold-mv",
+				&chip->bp.vbatt_full_mv);
+		if (rc < 0) {
+			pr_err("battery cc_cv threshold unavailable, rc:%d\n", rc);
+			chip->bp.vbatt_full_mv = -EINVAL;
+		}
+
 
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("No profile data available\n");
 		return -ENODATA;
 	}
+
+
+	rc = of_property_read_u32(profile_node, "qcom,battery-full-design", &chip->battery_full_design);
+	if (rc < 0) {
+		pr_err("No profile data available\n");
+		return -ENODATA;
+	}
+
 
 	if (len != PROFILE_LEN) {
 		pr_err("battery profile incorrect size: %d\n", len);
@@ -1590,6 +1652,8 @@ static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 	if (chip->wa_flags & PMI8998_V1_REV_WA)
 		return 0;
 
+	if (voltage_mv == chip->last_recharge_volt_mv)
+		return 0;
 	fg_dbg(chip, FG_STATUS, "Setting recharge voltage to %dmV\n",
 		voltage_mv);
 	fg_encode(chip->sp, FG_SRAM_RECHARGE_VBATT_THR, voltage_mv, &buf);
@@ -1604,6 +1668,7 @@ static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 		return rc;
 	}
 
+	chip->last_recharge_volt_mv = voltage_mv;
 	return 0;
 }
 
@@ -1913,6 +1978,32 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_adjust_recharge_voltage(struct fg_chip *chip)
+{
+	int rc, recharge_volt_mv;
+
+	if (chip->dt.auto_recharge_soc)
+		return 0;
+
+	fg_dbg(chip, FG_STATUS, "health: %d chg_status: %d chg_done: %d\n",
+		chip->health, chip->charge_status, chip->charge_done);
+
+	recharge_volt_mv = chip->dt.recharge_volt_thr_mv;
+
+	/* Lower the recharge voltage in soft JEITA */
+	if (chip->health == POWER_SUPPLY_HEALTH_WARM)
+		recharge_volt_mv -= 250;
+
+	rc = fg_set_recharge_voltage(chip, recharge_volt_mv);
+	if (rc < 0) {
+		pr_err("Error in setting recharge_voltage, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int fg_slope_limit_config(struct fg_chip *chip, int batt_temp)
 {
 	enum slope_limit_status status;
@@ -2194,6 +2285,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_adjust_recharge_soc(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting recharge_soc, rc=%d\n", rc);
+
+	rc = fg_adjust_recharge_voltage(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting recharge_voltage, rc=%d\n", rc);
 
 	rc = fg_adjust_ki_coeff_dischg(chip);
 	if (rc < 0)
@@ -3694,6 +3789,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 		if (rc < 0)
 			pr_err("Error in adjusting timebase, rc=%d\n", rc);
 
+		rc = fg_adjust_recharge_voltage(chip);
+		if (rc < 0)
+			pr_err("Error in adjusting recharge_voltage, rc=%d\n",
+				rc);
 		chip->last_batt_temp = batt_temp;
 		power_supply_changed(chip->batt_psy);
 	}
@@ -3739,7 +3838,8 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
 	int rc;
-
+	int msoc, volt_uv, batt_temp, ibatt_now ;
+	bool input_present;
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	if (chip->cyc_ctr.en)
 		schedule_work(&chip->cycle_count_work);
@@ -3769,6 +3869,21 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 
 	if (batt_psy_initialized(chip))
 		power_supply_changed(chip->batt_psy);
+
+	input_present = is_input_present(chip);
+	rc = fg_get_battery_voltage(chip, &volt_uv);
+	if (!rc)
+		rc = fg_get_prop_capacity(chip, &msoc);
+
+	if (!rc)
+		rc = fg_get_battery_temp(chip, &batt_temp);
+
+	if (!rc)
+		rc = fg_get_battery_current(chip, &ibatt_now);
+
+	if (!rc)
+		pr_err("lct battery SOC:%d voltage:%duV current:%duA temp:%d id:%dK charge_status:%d charge_type:%d health:%d input_present:%d \n",
+			msoc, volt_uv, ibatt_now, batt_temp, chip->batt_id_ohms / 1000, chip->charge_status, chip->charge_type, chip->health, input_present);
 
 	return IRQ_HANDLED;
 }
@@ -4184,7 +4299,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 	if (rc < 0)
 		chip->dt.sys_term_curr_ma = DEFAULT_SYS_TERM_CURR_MA;
 	else
-		chip->dt.sys_term_curr_ma = temp;
+		chip->dt.sys_term_curr_ma = -temp;
 
 	rc = of_property_read_u32(node, "qcom,fg-chg-term-base-current", &temp);
 	if (rc < 0)

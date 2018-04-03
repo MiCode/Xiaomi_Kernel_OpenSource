@@ -1,3 +1,18 @@
 
 config SND_SOC_SDM660_CDC
 	tristate "MSM Internal PMIC based codec"
+
+config SND_SOC_TAS2557
+	tristate "Texas Instruments TAS2557 SmartAmp(R)"
+
+if SND_SOC_TAS2557
+config TAS2557_REGMAP
+	bool "Use of RegMap API"
+
+config TAS2557_CODEC
+	bool "Codec Driver support"
+
+config TAS2557_MISC
+	bool "Misc Driver support"
+
+endif # SND_SOC_TAS2557

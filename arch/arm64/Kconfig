@@ -66,7 +66,6 @@ config ARM64
 	select HAVE_CMPXCHG_DOUBLE
 	select HAVE_CMPXCHG_LOCAL
 	select HAVE_DEBUG_BUGVERBOSE
-	select HAVE_DEBUG_KMEMLEAK
 	select HAVE_DMA_API_DEBUG
 	select HAVE_DMA_ATTRS
 	select HAVE_DMA_CONTIGUOUS
@@ -630,7 +629,7 @@ source kernel/Kconfig.preempt
 source kernel/Kconfig.hz
 
 config ARCH_SUPPORTS_DEBUG_PAGEALLOC
-	def_bool y
+	def_bool n
 
 config ARCH_HAS_HOLES_MEMORYMODEL
 	def_bool y if SPARSEMEM
@@ -1088,3 +1087,10 @@ source "arch/arm64/crypto/Kconfig"
 endif
 
 source "lib/Kconfig"
+
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	 On embedded linux device, we try to collect more information from
+	 bootloader to kernel. eg. powerup reason.

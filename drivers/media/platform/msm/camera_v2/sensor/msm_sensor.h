@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +39,11 @@
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
+#define FD_ADDR_NUMBER	25
+#define SG_ADDR_NUMBER	379
+#define FD_DATA_NUMBER	8
+#define SG_DATA_NUMBER	121
+
 enum msm_sensor_sensor_slave_info_type {
 	MSM_SENSOR_SLAVEADDR_DATA,
 	MSM_SENSOR_IDREGADDR_DATA,
@@ -52,6 +58,13 @@ enum msm_sensor_state_t {
 	MSM_SENSOR_POWER_DOWN,
 	MSM_SENSOR_POWER_UP,
 };
+typedef struct{
+		int32_t fd_dfct_num;
+		int32_t sg_dfct_num;
+		int32_t fd_dfct_buffer[FD_DATA_NUMBER];
+		int32_t sg_dfct_buffer[SG_DATA_NUMBER];
+} GainLibDfc_t;
+
 
 struct msm_sensor_fn_t {
 	int (*sensor_config)(struct msm_sensor_ctrl_t *, void __user *);
@@ -100,6 +113,8 @@ int msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl);
 int msm_sensor_check_id(struct msm_sensor_ctrl_t *s_ctrl);
 
 int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl);
+
+int msm_sensor_match_vendor_id(struct msm_sensor_ctrl_t *s_ctrl);
 
 int msm_sensor_update_cfg(struct msm_sensor_ctrl_t *s_ctrl);
 

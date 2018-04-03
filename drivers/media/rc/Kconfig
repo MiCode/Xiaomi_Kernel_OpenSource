@@ -388,4 +388,12 @@ config IR_SUNXI
 	   To compile this driver as a module, choose M here: the module will
 	   be called sunxi-ir.
 
+config SPI_IRDEV
+	tristate "User mode SPI of ir device driver support"
+	help
+	  This supports user mode SPI protocol drivers.
+
+	  Note that this application programming interface is EXPERIMENTAL
+	  and hence SUBJECT TO CHANGE WITHOUT NOTICE while it stabilizes.
+
 endif #RC_DEVICES

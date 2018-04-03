@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,8 +30,27 @@
 #include "storm-watch.h"
 #include <linux/pmic-voter.h>
 
+#ifdef THERMAL_CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+
+union power_supply_propval lct_therm_lvl_reserved;
+union power_supply_propval lct_therm_level;
+union power_supply_propval lct_therm_call_level = {3,};
+union power_supply_propval lct_therm_india_level = {1,};
+bool lct_backlight_off;
+int LctIsInCall = 0;
+int LctThermal = 0;
+extern int hwc_check_india;
+#endif
+
 #define SMB2_DEFAULT_WPWR_UW	8000000
 
+#ifdef CONFIG_CHARGER_RUNIN
+static int BatteryTestStatus_enable = 0;
+static bool charger_enable = true;
+void runin_work(struct smb_charger *chip, union power_supply_propval *value);
+#endif
 static struct smb_params v1_params = {
 	.fcc			= {
 		.name	= "fast charge current",
@@ -247,6 +267,16 @@ static int smb2_parse_dt(struct smb2 *chip)
 		chip->dt.dc_icl_ua = -EINVAL;
 
 	rc = of_property_read_u32(node,
+		"qcom, low-cool-temp", &chg->low_cool_temp);
+	if (rc < 0)
+		chg->low_cool_temp = -EINVAL;
+
+	rc = of_property_read_u32(node,
+		"qcom, low-cool-temp-ua", &chg->low_cool_temp_ua);
+	if (rc < 0)
+		chg->low_cool_temp_ua = -EINVAL;
+
+	rc = of_property_read_u32(node,
 				"qcom,boost-threshold-ua",
 				&chip->dt.boost_threshold_ua);
 	if (rc < 0)
@@ -351,6 +381,8 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PR_SWAP,
 };
 
+extern bool is_poweroff_charge;
+
 static int smb2_usb_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
@@ -358,6 +390,7 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	struct smb2 *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
+
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -377,6 +410,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 			val->intval = 0;
 		else
 			val->intval = 1;
+
+		if ((is_poweroff_charge != true) && (chg->real_charger_type == POWER_SUPPLY_TYPE_UNKNOWN))
+			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		val->intval = chg->voltage_min_uv;
@@ -394,7 +430,11 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_usb_current_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
-		val->intval = POWER_SUPPLY_TYPE_USB_PD;
+		if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) || (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3)) {
+			val->intval = chg->real_charger_type;
+		} else {
+			val->intval = POWER_SUPPLY_TYPE_USB_PD;
+		}
 		break;
 	case POWER_SUPPLY_PROP_REAL_TYPE:
 		if (chip->bad_part)
@@ -906,6 +946,9 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_DIE_HEALTH,
 	POWER_SUPPLY_PROP_RERUN_AICL,
 	POWER_SUPPLY_PROP_DP_DM,
+
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -934,6 +977,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_get_prop_batt_capacity(chg, val);
+		#ifdef CONFIG_CHARGER_RUNIN
+		runin_work(chg, val);
+		#endif
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		rc = smblib_get_prop_system_temp_level(chg, val);
@@ -976,6 +1022,7 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_batt_current_now(chg, val);
+
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
 		val->intval = get_client_vote_locked(chg->fcc_votable,
@@ -987,9 +1034,23 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		rc = smblib_get_prop_batt_temp(chg, val);
+		if (val->intval >= 0 && val->intval <= chg->low_cool_temp && !chg->low_cool) {
+			chg->low_cool = true;
+			rc = vote(chg->usb_icl_votable, LOW_COOL_CC_VOTER, true, chg->low_cool_temp_ua);
+			rc = vote(chg->dc_icl_votable, LOW_COOL_CC_VOTER, true, chg->low_cool_temp_ua);
+			if (rc < 0)
+				pr_err("set low cool  vote fail\n");
+		} else if ((chg->low_cool) && (val->intval < 0 || val->intval > chg->low_cool_temp))
+		{
+			chg->low_cool = false;
+			rc = vote(chg->usb_icl_votable, LOW_COOL_CC_VOTER, false, 0);
+			rc = vote(chg->dc_icl_votable, LOW_COOL_CC_VOTER, false, 0);
+			if (rc < 0)
+				pr_err("no set  cool  vote fail\n");
+		}
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+		val->intval = POWER_SUPPLY_TECHNOLOGY_LIPO;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		rc = smblib_get_prop_batt_charge_done(chg, val);
@@ -1008,6 +1069,11 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DP_DM:
 		val->intval = chg->pulse_cnt;
 		break;
+
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		rc = smblib_get_prop_battery_full_design(chg, val);
+		break;
+
 	case POWER_SUPPLY_PROP_RERUN_AICL:
 		val->intval = 0;
 		break;
@@ -1477,8 +1543,10 @@ static int smb2_init_hw(struct smb2 *chip)
 		pr_err("Couldn't read APSD_RESULT_STATUS rc=%d\n", rc);
 		return rc;
 	}
+	if (is_poweroff_charge == false) {
+		smblib_rerun_apsd_if_required(chg);
+	}
 
-	smblib_rerun_apsd_if_required(chg);
 
 	/* clear the ICL override if it is set */
 	if (smblib_icl_override(chg, false) < 0) {
@@ -1648,6 +1716,8 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	rc = vote(chg->chg_disable_votable, DEFAULT_VOTER, true, 0);
+
 	switch (chip->dt.chg_inhibit_thr_mv) {
 	case 50:
 		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
@@ -1675,6 +1745,8 @@ static int smb2_init_hw(struct smb2 *chip)
 	default:
 		break;
 	}
+
+	rc = vote(chg->chg_disable_votable, DEFAULT_VOTER, false, 0);
 
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure charge inhibit threshold rc=%d\n",
@@ -1710,6 +1782,16 @@ static int smb2_init_hw(struct smb2 *chip)
 			dev_err(chg->dev, "Couldn't set hw jeita rc=%d\n", rc);
 			return rc;
 		}
+	}
+	 /*
+	 * * JEITA cool fv disable
+	 * * srart to disable JEITA EN COLD FV BIT
+	 * */
+	rc = smblib_masked_write(chg, JEITA_EN_CFG_REG,
+				JEITA_EN_COLD_SL_FCV_BIT, 0);
+	if (rc <0) {
+		dev_err(chg->dev, "Couldn't disable JEITA COLD FV rc=%d\n", rc);
+		return rc;
 	}
 
 	return rc;
@@ -2174,6 +2256,168 @@ static void smb2_create_debugfs(struct smb2 *chip)
 
 #endif
 
+#ifdef CONFIG_CHARGER_RUNIN
+static ssize_t smb_battery_test_status_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", BatteryTestStatus_enable);
+}
+
+static ssize_t smb_battery_test_status_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int retval;
+	unsigned int input;
+
+	if (sscanf(buf, "%u", &input) != 1)
+		retval = -EINVAL;
+	else
+		BatteryTestStatus_enable = input;
+
+	pr_err("%s:input = %d, BatteryTestStatus_enable = %d\n", __func__, input, BatteryTestStatus_enable);
+
+	return retval;
+}
+
+void runin_work(struct smb_charger *chip, union power_supply_propval *value)
+{
+	int rc = 0;
+
+	pr_err("enter runin work\n");
+	pr_err("%s: BatteryTestStatus_enable=%d\n", __func__, BatteryTestStatus_enable);
+
+	if (!BatteryTestStatus_enable) {
+		if (!charger_enable) {
+			rc = smblib_set_dc_suspend(chip, false);
+			if (rc) {
+				pr_err("Couldn't enable charge rc=%d\n", rc);
+			}
+			rc = smblib_set_usb_suspend(chip, false);
+			if (rc)
+				pr_err("Couldn't enable usb charge rc=%d\n", rc);
+			charger_enable = true;
+		}
+		return;
+	}
+	pr_err("capacity = %d\n", value->intval);
+
+	if (value->intval >= 80) {
+		pr_err("bq2560x_get_prop_batt_capacity >= 80\n");
+		if (charger_enable) {
+			rc = smblib_set_dc_suspend(chip, true);
+			if (rc)
+				pr_err("Couldn't enable dc charge rc=%d\n", rc);
+			rc = smblib_set_usb_suspend(chip, true);
+			if (rc)
+				pr_err("Couldn't disenable usb charge rc=%d\n", rc);
+			charger_enable = false;
+		}
+	} else if (value->intval <= 40) {
+		pr_err("bq2560x_get_prop_batt_capacity <= 40\n");
+		if (!charger_enable) {
+			rc = smblib_set_dc_suspend(chip, false);
+			if (rc)
+				pr_err("Couldn't enable dc charge rc=%d\n", rc);
+			rc = smblib_set_usb_suspend(chip, false);
+			if (rc)
+				pr_err("Couldn't enable usb charge rc=%d\n", rc);
+			charger_enable = true;
+		}
+	}
+}
+
+static struct device_attribute attrs[] = {
+	__ATTR(BatteryTestStatus, S_IRUGO | S_IWUSR,
+			smb_battery_test_status_show, smb_battery_test_status_store),
+};
+#endif
+
+#ifdef THERMAL_CONFIG_FB
+static ssize_t lct_thermal_call_status_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", LctIsInCall);
+}
+static ssize_t lct_thermal_call_status_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int retval;
+	unsigned int input;
+
+	if (sscanf(buf, "%u", &input) != 1)
+		retval = -EINVAL;
+	else
+		LctIsInCall = input;
+
+	pr_err("IsInCall = %d\n", LctIsInCall);
+
+	return retval;
+}
+static struct device_attribute attrs2[] = {
+	__ATTR(thermalcall, S_IRUGO | S_IWUSR,
+			lct_thermal_call_status_show, lct_thermal_call_status_store),
+};
+
+static void thermal_fb_notifier_resume_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger, fb_notify_work);
+
+	LctThermal = 1;
+	if ((lct_backlight_off) && (LctIsInCall == 0) && (hwc_check_india == 0))
+		smblib_set_prop_system_temp_level(chg, &lct_therm_level);
+	else if ((lct_backlight_off) && (LctIsInCall == 0) && (hwc_check_india == 1)) {
+		if (lct_therm_lvl_reserved.intval >= 1)
+			smblib_set_prop_system_temp_level(chg, &lct_therm_india_level);
+		else
+			smblib_set_prop_system_temp_level(chg, &lct_therm_level);
+	} else if (LctIsInCall == 1)
+		smblib_set_prop_system_temp_level(chg, &lct_therm_call_level);
+	else
+		smblib_set_prop_system_temp_level(chg, &lct_therm_lvl_reserved);
+	LctThermal = 0;
+}
+
+/* frame buffer notifier block control the suspend/resume procedure */
+static int thermal_notifier_callback(struct notifier_block *noti, unsigned long event, void *data)
+{
+	struct fb_event *ev_data = data;
+	struct smb_charger *chg = container_of(noti, struct smb_charger, notifier);
+	int *blank;
+	if (ev_data && ev_data->data && chg) {
+		blank = ev_data->data;
+		if (event == FB_EARLY_EVENT_BLANK && *blank == FB_BLANK_UNBLANK) {
+
+			lct_backlight_off = false;
+			schedule_work(&chg->fb_notify_work);
+		} else if (event == FB_EVENT_BLANK && *blank == FB_BLANK_POWERDOWN) {
+			lct_backlight_off = true;
+			schedule_work(&chg->fb_notify_work);
+		}
+	}
+
+	return 0;
+}
+
+static int lct_register_powermanger(struct smb_charger *chg)
+{
+#if defined(CONFIG_FB)
+	chg->notifier.notifier_call = thermal_notifier_callback;
+	fb_register_client(&chg->notifier);
+#endif
+
+	return 0;
+}
+
+static int lct_unregister_powermanger(struct smb_charger *chg)
+{
+#if defined(CONFIG_FB)
+	fb_unregister_client(&chg->notifier);
+#endif
+
+	return 0;
+}
+#endif
+
 static int smb2_probe(struct platform_device *pdev)
 {
 	struct smb2 *chip;
@@ -2181,7 +2425,12 @@ static int smb2_probe(struct platform_device *pdev)
 	int rc = 0;
 	union power_supply_propval val;
 	int usb_present, batt_present, batt_health, batt_charge_type;
-
+	#ifdef CONFIG_CHARGER_RUNIN
+	unsigned char attr_count;
+	#endif
+	#ifdef THERMAL_CONFIG_FB
+	unsigned char attr_count2;
+	#endif
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
@@ -2288,7 +2537,29 @@ static int smb2_probe(struct platform_device *pdev)
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);
 		goto cleanup;
 	}
+	#ifdef CONFIG_CHARGER_RUNIN
+	pr_info("enter sysfs create file\n");
+	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
+		rc = sysfs_create_file(&chg->dev->kobj,
+					&attrs[attr_count].attr);
+		if (rc < 0) {
+			sysfs_remove_file(&chg->dev->kobj,
+					&attrs[attr_count].attr);
+		}
+	}
+	#endif
 
+	#ifdef THERMAL_CONFIG_FB
+	pr_info("enter sysfs create file thermal\n");
+	for (attr_count2 = 0; attr_count2 < ARRAY_SIZE(attrs2); attr_count2++) {
+		rc = sysfs_create_file(&chg->dev->kobj,
+					&attrs2[attr_count2].attr);
+		if (rc < 0) {
+			sysfs_remove_file(&chg->dev->kobj,
+					&attrs2[attr_count2].attr);
+		}
+	}
+	#endif
 	rc = smb2_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n",
@@ -2340,6 +2611,15 @@ static int smb2_probe(struct platform_device *pdev)
 
 	device_init_wakeup(chg->dev, true);
 
+	#ifdef THERMAL_CONFIG_FB
+	lct_therm_lvl_reserved.intval = 0;
+	lct_therm_level.intval = 0;
+	lct_backlight_off = false;
+	INIT_WORK(&chg->fb_notify_work, thermal_fb_notifier_resume_work);
+	/* register suspend and resume fucntion*/
+	lct_register_powermanger(chg);
+	#endif
+
 	pr_info("QPNP SMB2 probed successfully usb:present=%d type=%d batt:present = %d health = %d charge = %d\n",
 		usb_present, chg->real_charger_type,
 		batt_present, batt_health, batt_charge_type);
@@ -2372,7 +2652,25 @@ static int smb2_remove(struct platform_device *pdev)
 {
 	struct smb2 *chip = platform_get_drvdata(pdev);
 	struct smb_charger *chg = &chip->chg;
+	#ifdef THERMAL_CONFIG_FB
+	unsigned char attr_count2;
+	#endif
 
+	#ifdef CONFIG_CHARGER_RUNIN
+	unsigned char attr_count;
+			for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
+			    sysfs_remove_file(&chg->dev->kobj,
+							&attrs[attr_count].attr);
+			}
+	#endif
+
+	#ifdef THERMAL_CONFIG_FB
+		for (attr_count2 = 0; attr_count2 < ARRAY_SIZE(attrs2); attr_count2++) {
+			  sysfs_remove_file(&chg->dev->kobj,
+							&attrs2[attr_count2].attr);
+			}
+	lct_unregister_powermanger(chg);
+	#endif
 	power_supply_unregister(chg->batt_psy);
 	power_supply_unregister(chg->usb_psy);
 	power_supply_unregister(chg->usb_port_psy);

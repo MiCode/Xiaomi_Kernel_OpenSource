@@ -1397,7 +1397,9 @@ out:
 static int pagemap_open(struct inode *inode, struct file *file)
 {
 	struct mm_struct *mm;
-
+	/* do not disclose physical addresses: attack vector */
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 	mm = proc_mem_open(inode, PTRACE_MODE_READ);
 	if (IS_ERR(mm))
 		return PTR_ERR(mm);

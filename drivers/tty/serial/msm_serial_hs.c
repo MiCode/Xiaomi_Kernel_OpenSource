@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2008 Google Inc.
  * Copyright (c) 2007-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Modified: Nick Pelly <npelly@google.com>
  *
  * All source code in this file is licensed under the following license
@@ -395,9 +396,6 @@ static void msm_hs_resource_unvote(struct msm_hs_port *msm_uport)
 {
 	struct uart_port *uport = &(msm_uport->uport);
 	int rc = atomic_read(&msm_uport->resource_count);
-	struct msm_hs_tx *tx = &msm_uport->tx;
-	struct msm_hs_rx *rx = &msm_uport->rx;
-
 	MSM_HS_DBG("%s(): power usage count %d", __func__, rc);
 	if (rc <= 0) {
 		MSM_HS_WARN("%s(): rc zero, bailing\n", __func__);
@@ -405,15 +403,8 @@ static void msm_hs_resource_unvote(struct msm_hs_port *msm_uport)
 		return;
 	}
 	atomic_dec(&msm_uport->resource_count);
-
-	if (pm_runtime_enabled(uport->dev)) {
-		pm_runtime_mark_last_busy(uport->dev);
-		pm_runtime_put_autosuspend(uport->dev);
-	} else {
-		MSM_HS_DBG("%s():tx.flush:%d,in_flight:%d,rx.flush:%d\n",
-		__func__, tx->flush, tx->dma_in_flight, rx->flush);
-		msm_hs_pm_suspend(uport->dev);
-	}
+	pm_runtime_mark_last_busy(uport->dev);
+	pm_runtime_put_autosuspend(uport->dev);
 }
 
  /* Vote for resources before accessing them */

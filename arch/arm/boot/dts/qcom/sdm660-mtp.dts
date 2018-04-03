@@ -15,8 +15,8 @@
 
 #include "sdm660.dtsi"
 #include "sdm660-mtp.dtsi"
-#include "sdm660-external-codec.dtsi"
-
+#include "sdm660-internal-codec.dtsi"
+#include "synaptics-dsx-i2c.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. SDM 660 PM660 + PM660L MTP";
 	compatible = "qcom,sdm660-mtp", "qcom,sdm660", "qcom,mtp";
@@ -27,4 +27,7 @@
 
 &tavil_snd {
 	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
+};
+&pm660l_l3 {
+	regulator-always-on;
 };

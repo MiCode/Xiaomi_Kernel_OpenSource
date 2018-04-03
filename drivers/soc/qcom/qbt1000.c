@@ -430,6 +430,13 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
+		if (strcmp(app.name, FP_APP_NAME)) {
+			dev_err(drvdata->dev, "%s: Invalid app name\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
 		if (drvdata->app_handle) {
 			dev_err(drvdata->dev, "%s: LOAD app already loaded, unloading first\n",
 				__func__);

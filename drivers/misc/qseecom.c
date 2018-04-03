@@ -2541,6 +2541,8 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 				if (!strcmp((void *)ptr_app->app_name,
 					(void *)data->client.app_name)) {
 					found_app = true;
+					if (ptr_app->app_blocked)
+						app_crash = false;
 					if (app_crash || ptr_app->ref_cnt == 1)
 						unload = true;
 					break;

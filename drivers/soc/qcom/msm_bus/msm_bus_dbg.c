@@ -864,6 +864,9 @@ static int __init msm_bus_debugfs_init(void)
 	struct msm_bus_cldata *cldata = NULL;
 	uint64_t val = 0;
 
+	pr_err("msm-bus-dbg feature is disabled\n");
+	return -ENODEV;
+
 	dir = debugfs_create_dir("msm-bus-dbg", NULL);
 	if ((!dir) || IS_ERR(dir)) {
 		MSM_BUS_ERR("Couldn't create msm-bus-dbg\n");

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -306,6 +307,10 @@ static struct clk_rcg2 blsp1_qup1_i2c_apps_clk_src = {
 };
 
 static const struct freq_tbl ftbl_blsp1_qup1_spi_apps_clk_src[] = {
+	F(20000, P_XO, 10, 1, 2),
+	F(40000, P_XO, 10, 1, 2),
+	F(100000, P_XO, 10, 1, 2),
+	F(480000, P_XO, 10, 1, 2),
 	F(960000, P_XO, 10, 1, 2),
 	F(4800000, P_XO, 4, 0, 0),
 	F(9600000, P_XO, 2, 0, 0),
@@ -580,6 +585,18 @@ static struct clk_rcg2 blsp2_qup3_i2c_apps_clk_src = {
 				LOW, 50000000),
 	},
 };
+
+static const struct freq_tbl ftbl_blsp2_qup3_spi_apps_clk_src[] = {
+	F(20000, P_XO, 10, 1, 2),
+	F(4800000, P_XO, 4, 0, 0),
+	F(9600000, P_XO, 2, 0, 0),
+	F(15000000, P_GPLL0_OUT_MAIN, 10, 1, 4),
+	F(19200000, P_XO, 1, 0, 0),
+	F(25000000, P_GPLL0_OUT_MAIN, 12, 1, 2),
+	F(50000000, P_GPLL0_OUT_MAIN, 12, 0, 0),
+	{ }
+};
+
 
 static struct clk_rcg2 blsp2_qup3_spi_apps_clk_src = {
 	.cmd_rcgr = 0x2a00c,

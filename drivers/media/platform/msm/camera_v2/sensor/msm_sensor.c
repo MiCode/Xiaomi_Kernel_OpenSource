@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -203,6 +204,17 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			sensor_i2c_client);
 		if (rc < 0)
 			return rc;
+
+		CDBG("is probe succeed %d\n", s_ctrl->is_probe_succeed);
+		if (!s_ctrl->is_probe_succeed) {
+			rc = msm_sensor_match_vendor_id(s_ctrl);
+			if (rc < 0) {
+				msm_camera_power_down(power_info,
+					s_ctrl->sensor_device_type, sensor_i2c_client);
+				msleep(20);
+				continue;
+			}
+		}
 		rc = msm_sensor_check_id(s_ctrl);
 		if (rc < 0) {
 			msm_camera_power_down(power_info,
@@ -216,6 +228,76 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 	return rc;
 }
+
+int msm_sensor_match_vendor_id(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+	uint16_t vendorid = 0;
+	struct msm_camera_i2c_client *sensor_i2c_client;
+	struct msm_camera_slave_info *slave_info;
+	const char *sensor_name;
+	uint16_t temp_sid = 0;
+	enum cci_i2c_master_t temp_master = MASTER_0;
+
+	pr_err("%s: enter\n", __func__);
+	if (!s_ctrl) {
+		pr_err("%s:%d failed: %pK\n",
+			__func__, __LINE__, s_ctrl);
+		return -EINVAL;
+	}
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	slave_info = s_ctrl->sensordata->slave_info;
+	sensor_name = s_ctrl->sensordata->sensor_name;
+
+	if (!sensor_i2c_client || !slave_info || !sensor_name) {
+		pr_err("%s:%d failed: %pK %pK %pK\n",
+			__func__, __LINE__, sensor_i2c_client, slave_info,
+			sensor_name);
+		return -EINVAL;
+	}
+
+	if (s_ctrl->sensordata->vendor_id_info->eeprom_slave_addr == 0) {
+	pr_err("%s: %s: read 3\n", __func__, sensor_name);
+		return rc;
+	}
+
+	temp_master = sensor_i2c_client->cci_client->cci_i2c_master;
+	switch (s_ctrl->sensordata->vendor_id_info->cci_i2c_master) {
+	case MSM_MASTER_0:
+		sensor_i2c_client->cci_client->cci_i2c_master = MASTER_0;
+		break;
+	case MSM_MASTER_1:
+		sensor_i2c_client->cci_client->cci_i2c_master = MASTER_1;
+		break;
+	default:
+		break;
+	}
+	temp_sid = sensor_i2c_client->cci_client->sid;
+	sensor_i2c_client->cci_client->sid =
+		s_ctrl->sensordata->vendor_id_info->eeprom_slave_addr >> 1;
+
+	rc = msm_camera_cci_i2c_read(
+		sensor_i2c_client,
+		s_ctrl->sensordata->vendor_id_info->vendor_id_addr,
+		&vendorid,
+		s_ctrl->sensordata->vendor_id_info->data_type);
+	sensor_i2c_client->cci_client->sid = temp_sid;
+	sensor_i2c_client->cci_client->cci_i2c_master = temp_master;
+	if (rc < 0) {
+		pr_err("%s: %s: read vendor id failed\n", __func__, sensor_name);
+		return rc;
+	}
+	if (s_ctrl->sensordata->vendor_id_info->vendor_id != vendorid) {
+		rc = -1;
+		pr_err("%s: read vendor id: 0x%x expected id 0x%x:\n",
+			__func__, vendorid, s_ctrl->sensordata->vendor_id_info->vendor_id);
+	}
+	pr_err("%s: read vendor id: 0x%x expected id 0x%x:\n",
+			__func__, vendorid, s_ctrl->sensordata->vendor_id_info->vendor_id);
+
+	return rc;
+}
+
 
 static uint16_t msm_sensor_id_by_mask(struct msm_sensor_ctrl_t *s_ctrl,
 	uint16_t chipid)
@@ -235,6 +317,200 @@ static uint16_t msm_sensor_id_by_mask(struct msm_sensor_ctrl_t *s_ctrl,
 	}
 	return sensor_id;
 }
+
+static void msm_sensor_transfer_dpc_addr(uint16_t buf_fd[SG_ADDR_NUMBER], uint16_t buf_sg[SG_ADDR_NUMBER],
+		int32_t buf_out_fd[FD_DATA_NUMBER], int32_t buf_out_sg[SG_DATA_NUMBER])
+{
+	static int32_t i = 0;
+	static int32_t HADDR[SG_DATA_NUMBER] = {0};
+	static int32_t VADDR[SG_DATA_NUMBER] = {0};
+        static int32_t FD_DATA[FD_DATA_NUMBER] = {0};
+	static int32_t SG_DATA[SG_DATA_NUMBER] = {0};
+
+	pr_debug("Lct %s %d addr buf_fd=%p, buf_sg=%p\n", __func__, __LINE__, buf_fd, buf_sg);
+
+
+	HADDR[0] = (buf_fd[0]<<5) | (buf_fd[1]&0xf8)>>3;
+	HADDR[1] = (buf_fd[3]&0x7f)<<6 | (buf_fd[4]&0xfc)>>2;
+	HADDR[2] = (buf_fd[6]&0x3f)<<7 | (buf_fd[7]&0xfe)>>1;
+	HADDR[3] = (buf_fd[9]&0x1f)<<8 | buf_fd[10];
+	HADDR[4] = (buf_fd[12]&0x0f)<<9 | (buf_fd[13]<<1) | (buf_fd[14]&0x80)>>7;
+	HADDR[5] = (buf_fd[15]&0x07)<<10 | (buf_fd[16]<<2) | (buf_fd[17]&0xc0)>>6;
+	HADDR[6] = (buf_fd[18]&0x03)<<11 | (buf_fd[19]<<3) | (buf_fd[20]&0xe0)>>5;
+	HADDR[7] = (buf_fd[21]&0x01)<<12 | (buf_fd[22]<<4) | (buf_fd[23]&0xf0)>>4;
+
+	VADDR[0] = (buf_fd[1]&0x07)<<9 | (buf_fd[2]<<1) | (buf_fd[3]&0x80)>>7;
+	VADDR[1] = (buf_fd[4]&0x03)<<10 | (buf_fd[5]<<2) | (buf_fd[6]&0xc0)>>6;
+	VADDR[2] = (buf_fd[7]&0x01)<<11 | (buf_fd[8]<<3) | (buf_fd[9]&0xe0)>>5;
+	VADDR[3] = (buf_fd[11]<<4) | (buf_fd[12]&0xf0)>>4;
+	VADDR[4] = (buf_fd[14]&0x7f)<<5 | (buf_fd[15]&0xf8)>>3;
+	VADDR[5] = (buf_fd[17]&0x3f)<<6 | (buf_fd[18]&0xfc)>>2;
+	VADDR[6] = (buf_fd[20]&0x1f)<<7 | (buf_fd[21]&0xfe)>>1;
+	VADDR[7] = (buf_fd[23]&0x0f)<<8 | buf_fd[24];
+
+	for (i = 0; i < FD_DATA_NUMBER; i++) {
+		FD_DATA[i] = (HADDR[i]<<12) | VADDR[i];
+	pr_debug("Lct %s HADDR[%d]=0x%x, VADDR[%d]=0x%x, FD_DATA[%d]=0x%x\n",
+				__func__, i, HADDR[i], i, VADDR[i], i, FD_DATA[i]);
+	}
+	memcpy(buf_out_fd, FD_DATA, sizeof(FD_DATA));
+	for (i = 0; i < FD_DATA_NUMBER; i++) {
+		pr_debug("Lct %s buf_out_fd[%d]=0x%x\n", __func__, i, buf_out_fd[i]);
+	}
+
+	memset(HADDR, 0, SG_DATA_NUMBER*sizeof(int));
+	memset(VADDR, 0, FD_DATA_NUMBER*sizeof(int));
+
+
+	for (i = 0; i < SG_DATA_NUMBER; i++) {
+		pr_debug("Lct %s %d i=%d, result=%d\n", __func__, __LINE__, i,  i%FD_DATA_NUMBER);
+		switch(i%FD_DATA_NUMBER) {
+		case 0:
+			HADDR[i] = (buf_sg[i]<<5) | (buf_sg[i+1]&0xf8)>>3;
+			VADDR[i] = (buf_sg[i+1]&0x07)<<9 | (buf_sg[i+2]<<1) | (buf_sg[i+3]&0x80)>>7;
+			pr_debug("Lct %s %d HADDR[%d]=0x%x, VADDR[%d]=0x%x\n", __func__, __LINE__,
+				i, HADDR[i], i, VADDR[i]);
+			break;
+		case 1:
+			HADDR[i] = (buf_sg[i+2]&0x7f)<<6 | (buf_sg[i+3]&0xfc)>>2;
+			VADDR[i] = (buf_sg[i+3]&0x03)<<10 | (buf_sg[i+4]<<2) | (buf_sg[i+5]&0xc0)>>6;
+			pr_debug("Lct %s %d HADDR[%d]=0x%x, VADDR[%d]=0x%x\n", __func__, __LINE__,
+					i, HADDR[i], i, VADDR[i]);
+
+			break;
+		case 2:
+			HADDR[i] = (buf_sg[i+4]&0x3f)<<7 | (buf_sg[i+5]&0xfe)>>1;
+			VADDR[i] = (buf_sg[i+5]&0x01)<<11 | (buf_sg[i+6]<<3) | (buf_sg[i+7]&0xe0)>>5;
+
+			pr_debug("Lct %s %d HADDR[%d]=0x%x, VADDR[%d]=0x%x\n", __func__, __LINE__,
+					i, HADDR[i], i, VADDR[i]);
+			break;
+		case 3:
+			HADDR[i] = (buf_sg[i+6]&0x1f)<<8 | buf_sg[i+7];
+			VADDR[i] = (buf_sg[i+8]<<4) | (buf_sg[i+9]&0xf0)>>4;
+
+			pr_debug("Lct %s %d HADDR[%d]=0x%x, VADDR[%d]=0x%x\n", __func__, __LINE__,
+					i, HADDR[i], i, VADDR[i]);
+			break;
+		case 4:
+			HADDR[i] = (buf_sg[i+8]&0x0f)<<9 | (buf_sg[i+9]<<1) | (buf_sg[i+10]&0x80)>>7;
+			VADDR[i] = (buf_sg[i+10]&0x7f)<<5 | (buf_sg[i+11]&0xf8)>>3;
+
+			pr_debug("Lct %s %d HADDR[%d]=0x%x, VADDR[%d]=0x%x\n", __func__, __LINE__,
+					i, HADDR[i], i, VADDR[i]);
+			break;
+		case 5:
+			HADDR[i] = (buf_sg[i+10]&0x07)<<10 | (buf_sg[i+11]<<2) | (buf_sg[i+12]&0xc0)>>6;
+			VADDR[i] = (buf_sg[i+12]&0x3f)<<6 | (buf_sg[i+13]&0xfc)>>2;
+
+			pr_debug("Lct %s %d HADDR[%d]=0x%x, VADDR[%d]=0x%x\n", __func__, __LINE__,
+				i, HADDR[i], i, VADDR[i]);
+			break;
+		case 6:
+			HADDR[i] = (buf_sg[i+12]&0x03)<<11 | (buf_sg[i+13]<<3) | (buf_sg[i+14]&0xe0)>>5;
+			VADDR[i] = (buf_sg[i+14]&0x1f)<<7 | (buf_sg[i+15]&0xfe)>>1;
+
+		pr_debug("Lct %s %d HADDR[%d]=0x%x, VADDR[%d]=0x%x\n", __func__, __LINE__,
+					i, HADDR[i], i, VADDR[i]);
+			break;
+		case 7:
+			HADDR[i] = (buf_sg[i+14]&0x01)<<12 | (buf_sg[i+15]<<4) | (buf_sg[i+16]&0xf0)>>4;
+			VADDR[i] = (buf_sg[i+16]&0x0f)<<8 | buf_sg[i+17];
+
+			pr_debug("Lct %s %d HADDR[%d]=0x%x, VADDR[%d]=0x%x\n", __func__, __LINE__,
+					i, HADDR[i], i, VADDR[i]);
+			break;
+		default:
+			pr_debug("Lct %s %d result2=%d\n", __func__, __LINE__, i%FD_DATA_NUMBER);
+			break;
+
+		}
+	}
+	for (i = 0; i < SG_DATA_NUMBER; i++) {
+		SG_DATA[i] = (HADDR[i]<<12) | VADDR[i];
+		pr_debug("Lct %s HADDR[%d]=0x%x, VADDR[%d]=0x%x, SG_DATA[%d]=0x%x\n", __func__,
+				i, HADDR[i], i, VADDR[i], i, SG_DATA[i]);
+	}
+	memcpy(buf_out_sg, SG_DATA, sizeof(SG_DATA));
+	for (i = 0; i < SG_DATA_NUMBER; i++) {
+		pr_debug("Lct %s buf_out_sg[%d]=0x%x\n", __func__, i, buf_out_sg[i]);
+	}
+
+}
+
+/*********Get DPC data from sensor**********/
+static uint16_t msm_sensor_get_dpc_sonny(struct msm_sensor_ctrl_t *s_ctrl, GainLibDfc_t *Dpc_fill)
+{
+	int rc = 0;
+	int i = 0;
+
+	uint32_t fd_num_addr = 0xC001;
+	uint32_t fd_start_addr = 0xC004;
+	uint32_t sg_num_addr = 0xC003;
+	uint32_t sg_start_addr = 0xC020;
+	uint16_t fd_num = 0, sg_num = 0;
+	uint16_t buffer_fd[FD_ADDR_NUMBER] = {0};
+	uint16_t buffer_sg[SG_ADDR_NUMBER] = {0};
+	int32_t buffer_fd_out[FD_DATA_NUMBER] = {0};
+	int32_t buffer_sg_out[SG_DATA_NUMBER] = {0};
+
+	struct msm_camera_i2c_client *sensor_i2c_client;
+
+	pr_debug("Lct enter %s:%d E \n", __func__, __LINE__);
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+
+	if (!sensor_i2c_client) {
+		printk("Lct %s %d failed %pK\n", __func__, __LINE__, sensor_i2c_client);
+	}
+
+	rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+		sensor_i2c_client, fd_num_addr,
+		&fd_num, MSM_CAMERA_I2C_BYTE_DATA);
+	pr_debug("%s %d Lct read fd_num: 0x%x\n", __func__, __LINE__, fd_num);
+
+	for (i = 0; i < FD_ADDR_NUMBER; i++) {
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+			sensor_i2c_client, fd_start_addr,
+			&buffer_fd[i], MSM_CAMERA_I2C_BYTE_DATA);
+			pr_debug("%s %d :Lct read from start_add %x buffer_fd[%d] 0x%x\t\n",
+				__func__, __LINE__, fd_start_addr, i, buffer_fd[i]);
+			fd_start_addr += 1;
+	}
+
+	rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+		sensor_i2c_client, sg_num_addr,
+		&sg_num, MSM_CAMERA_I2C_BYTE_DATA);
+	pr_debug("%s %d Lct read sg_num: 0x%x\n", __func__, __LINE__, sg_num);
+
+	for (i = 0; i < SG_ADDR_NUMBER; i++) {
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+			sensor_i2c_client, sg_start_addr,
+			&buffer_sg[i], MSM_CAMERA_I2C_BYTE_DATA);
+			pr_debug("%s %d :Lct read from sg_start_add %x buffer_sg[%d] 0x%x\t\n",
+				__func__, __LINE__, sg_start_addr, i, buffer_sg[i]);
+		sg_start_addr += 1;
+	}
+
+	Dpc_fill->fd_dfct_num = fd_num&0x0f;
+	Dpc_fill->sg_dfct_num = sg_num;
+	pr_debug("Lct %s %d fd_dfct_num=0x%x\n", __func__, __LINE__,  Dpc_fill->fd_dfct_num);
+	pr_debug("Lct %s %d sg_dfct_num=0x%x\n", __func__, __LINE__,  Dpc_fill->sg_dfct_num);
+
+	msm_sensor_transfer_dpc_addr(buffer_fd, buffer_sg, buffer_fd_out, buffer_sg_out);
+
+	for (i = 0; i < FD_DATA_NUMBER; i++) {
+		Dpc_fill->fd_dfct_buffer[i] = buffer_fd_out[i];
+		pr_debug("Lct %s %d fd_dfct_buffer[%d]=0x%x\n", __func__, __LINE__, i, Dpc_fill->fd_dfct_buffer[i]);
+	}
+	for (i = 0; i < SG_DATA_NUMBER; i++) {
+		Dpc_fill->sg_dfct_buffer[i] = buffer_sg_out[i];
+		pr_debug("Lct %s %d sg_dfct_buffer[%d]=0x%x\n", __func__, __LINE__, i, Dpc_fill->sg_dfct_buffer[i]);
+
+	}
+
+	return rc;
+}
+
 
 int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -384,6 +660,10 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 	struct sensorb_cfg_data32 *cdata = (struct sensorb_cfg_data32 *)argp;
 	int32_t rc = 0;
 	int32_t i = 0;
+	GainLibDfc_t Dfc_tbl;
+	int32_t temp_buffer_fd[FD_DATA_NUMBER] = {0};
+	int32_t temp_buffer_sg[SG_DATA_NUMBER] = {0};
+
 	mutex_lock(s_ctrl->msm_sensor_mutex);
 	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
 		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
@@ -787,6 +1067,107 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 		}
 		break;
+
+#if 1
+	case CFG_GET_SENSOR_DPC_FD_NUM:
+		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
+			pr_err("%s:%d failed: invalid state %d\n", __func__,
+				__LINE__, s_ctrl->sensor_state);
+			rc = -EFAULT;
+			break;
+		}
+
+		pr_debug("Lct %s %d sensor_name=%s\n", __func__, __LINE__, s_ctrl->sensordata->sensor_name);
+		if (!strcmp("whyred_imx376_ofilm_i", s_ctrl->sensordata->sensor_name)) {
+			pr_debug("Lct %s %d sensor_name=%s\n", __func__, __LINE__, s_ctrl->sensordata->sensor_name);
+			rc = msm_sensor_get_dpc_sonny(s_ctrl, &Dfc_tbl);
+			pr_debug("Lct %d Dfc_tbl.fd_dfct_num=%d, fd_addr=%p, sg_num=%d, sg_addr=%p\n", __LINE__,
+					Dfc_tbl.fd_dfct_num, Dfc_tbl.fd_dfct_buffer, Dfc_tbl.sg_dfct_num, Dfc_tbl.sg_dfct_buffer);
+			if (rc < 0) {
+				pr_err("%s:%d Lct read sonny %s dpc_data failed\n", __func__, __LINE__,
+									s_ctrl->sensordata->sensor_name);
+			}
+			rc = copy_to_user((void *)compat_ptr((cdata->cfg.setting)), &Dfc_tbl.fd_dfct_num, sizeof(Dfc_tbl.fd_dfct_num));
+			pr_debug("Lct %s %d rc=copy_to_user=%d\n", __func__, __LINE__, rc);
+		}
+		break;
+	case CFG_GET_SENSOR_DPC_FD_BUF:
+
+		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
+			pr_err("%s:%d failed: invalid state %d\n", __func__,
+				__LINE__, s_ctrl->sensor_state);
+		rc = -EFAULT;
+			break;
+		}
+
+		if (!strcmp("whyred_imx376_ofilm_i", s_ctrl->sensordata->sensor_name)) {
+			pr_debug("Lct %s %d sensor_name=%s\n", __func__, __LINE__, s_ctrl->sensordata->sensor_name);
+			rc = msm_sensor_get_dpc_sonny(s_ctrl, &Dfc_tbl);
+			pr_debug("Lct %d Dfc_tbl.fd_dfct_num=%d, fd_addr=%p, sg_num=%d, sg_addr=%p\n", __LINE__,
+					Dfc_tbl.fd_dfct_num, Dfc_tbl.fd_dfct_buffer, Dfc_tbl.sg_dfct_num, Dfc_tbl.sg_dfct_buffer);
+			if (rc < 0) {
+				pr_err("%s:%d Lct read sonny %s dpc_data failed\n", __func__, __LINE__,
+									s_ctrl->sensordata->sensor_name);
+			}
+			for (i = 0; i < FD_DATA_NUMBER; i++) {
+				temp_buffer_fd[i] = Dfc_tbl.fd_dfct_buffer[i];
+				pr_debug("Lct %s %d temp_buffer_fd[%d]=0x%x\n", __func__, __LINE__, i, temp_buffer_fd[i]);
+			}
+			rc = copy_to_user((void *)compat_ptr((cdata->cfg.setting)), (void *)temp_buffer_fd, sizeof(temp_buffer_fd));
+			printk("Lct %s %d rc=copy_to_user=%d\n", __func__, __LINE__, rc);
+		}
+		break;
+	case CFG_GET_SENSOR_DPC_SG_NUM:
+		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
+			pr_err("%s:%d failed: invalid state %d\n", __func__,
+				__LINE__, s_ctrl->sensor_state);
+			rc = -EFAULT;
+			break;
+		}
+
+		pr_debug("Lct %s %d sensor_name=%s\n", __func__, __LINE__, s_ctrl->sensordata->sensor_name);
+		if (!strcmp("whyred_imx376_ofilm_i", s_ctrl->sensordata->sensor_name)) {
+			pr_debug("Lct %s %d sensor_name=%s\n", __func__, __LINE__, s_ctrl->sensordata->sensor_name);
+			rc = msm_sensor_get_dpc_sonny(s_ctrl, &Dfc_tbl);
+			pr_debug("Lct %d Dfc_tbl.fd_dfct_num=%d, fd_addr=%p, sg_num=%d, sg_addr=%p\n", __LINE__,
+					Dfc_tbl.fd_dfct_num, Dfc_tbl.fd_dfct_buffer, Dfc_tbl.sg_dfct_num, Dfc_tbl.sg_dfct_buffer);
+			if (rc < 0) {
+				pr_err("%s:%d Lct read sonny %s dpc_data failed\n", __func__, __LINE__,
+									s_ctrl->sensordata->sensor_name);
+			}
+			rc = copy_to_user((void *)compat_ptr((cdata->cfg.setting)), &Dfc_tbl.sg_dfct_num, sizeof(Dfc_tbl.fd_dfct_num));
+			printk("Lct %s %d rc=copy_to_user=%d\n", __func__, __LINE__, rc);
+		}
+		break;
+	case CFG_GET_SENSOR_DPC_SG_BUF:
+
+		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
+			pr_err("%s:%d failed: invalid state %d\n", __func__,
+				__LINE__, s_ctrl->sensor_state);
+			rc = -EFAULT;
+			break;
+		}
+
+		pr_debug("Lct %s %d sensor_name=%s\n", __func__, __LINE__, s_ctrl->sensordata->sensor_name);
+		if (!strcmp("whyred_imx376_ofilm_i", s_ctrl->sensordata->sensor_name)) {
+			pr_debug("Lct %s %d sensor_name=%s\n", __func__, __LINE__, s_ctrl->sensordata->sensor_name);
+			rc = msm_sensor_get_dpc_sonny(s_ctrl, &Dfc_tbl);
+			pr_debug("Lct %d Dfc_tbl.fd_dfct_num=%d, fd_addr=%p, sg_num=%d, sg_addr=%p\n", __LINE__,
+					Dfc_tbl.fd_dfct_num, Dfc_tbl.fd_dfct_buffer, Dfc_tbl.sg_dfct_num, Dfc_tbl.sg_dfct_buffer);
+			if (rc < 0) {
+				pr_err("%s:%d Lct read sonny %s dpc_data failed\n", __func__, __LINE__,
+								s_ctrl->sensordata->sensor_name);
+			}
+			for (i = 0; i < SG_DATA_NUMBER; i++) {
+				temp_buffer_sg[i] = Dfc_tbl.sg_dfct_buffer[i];
+				pr_debug("Lct %s %d temp_buffer_sg[%d]=0x%x\n", __func__, __LINE__, i, temp_buffer_sg[i]);
+			}
+			rc = copy_to_user((void *)compat_ptr((cdata->cfg.setting)), (void *)temp_buffer_sg, sizeof(temp_buffer_sg));
+			printk("Lct %s %d rc=copy_to_user=%d\n", __func__, __LINE__, rc);
+		}
+		break;
+#endif
+
 	case CFG_POWER_DOWN:
 		if (s_ctrl->is_csid_tg_mode)
 			goto DONE;
