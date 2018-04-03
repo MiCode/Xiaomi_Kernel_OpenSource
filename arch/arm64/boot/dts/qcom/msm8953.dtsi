@@ -26,7 +26,7 @@
 	interrupt-parent = <&wakegic>;
 
 	chosen {
-		bootargs = "kpti=0";
+		bootargs = "core_ctl_disable_cpumask=0-7 kpti=0";
 	};
 
 	firmware: firmware {
