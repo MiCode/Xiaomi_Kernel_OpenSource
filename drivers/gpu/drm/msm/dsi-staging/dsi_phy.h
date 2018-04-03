@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -248,6 +248,16 @@ int dsi_phy_set_timing_params(struct msm_dsi_phy *phy,
  * Return: error code.
  */
 int dsi_phy_lane_reset(struct msm_dsi_phy *phy);
+
+/**
+ * dsi_phy_toggle_resync_fifo() - toggle resync retime FIFO
+ * @phy:          DSI PHY handle
+ *
+ * Toggle the resync retime FIFO to synchronize the data paths.
+ * This should be done everytime there is a change in the link clock
+ * rate
+ */
+void dsi_phy_toggle_resync_fifo(struct msm_dsi_phy *phy);
 
 /**
  * dsi_phy_drv_register() - register platform driver for dsi phy

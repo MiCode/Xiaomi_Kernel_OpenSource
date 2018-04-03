@@ -381,7 +381,6 @@ int cam_node_shutdown(struct cam_node *node)
 	for (i = 0; i < node->ctx_size; i++) {
 		if (node->ctx_list[i].dev_hdl >= 0) {
 			cam_context_shutdown(&(node->ctx_list[i]));
-			cam_destroy_device_hdl(node->ctx_list[i].dev_hdl);
 			cam_context_putref(&(node->ctx_list[i]));
 		}
 	}
