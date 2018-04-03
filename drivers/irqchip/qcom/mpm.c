@@ -512,6 +512,8 @@ static irqreturn_t msm_mpm_irq(int irq, void *dev_id)
 						IRQCHIP_STATE_PENDING, true);
 
 		}
+
+		msm_mpm_write(MPM_REG_STATUS, i, 0);
 	}
 	return IRQ_HANDLED;
 }
