@@ -1688,6 +1688,22 @@ static int lt9611_get_edid_block(void *data, u8 *buf, unsigned int block,
 	return 0;
 }
 
+static void lt9611_set_preferred_mode(struct drm_connector *connector)
+{
+	struct lt9611 *pdata = connector_to_lt9611(connector);
+	struct drm_display_mode *mode;
+	const char *string;
+
+	/* use specified mode as preferred */
+	if (!of_property_read_string(pdata->dev->of_node,
+			"lt,preferred-mode", &string)) {
+		list_for_each_entry(mode, &connector->probed_modes, head) {
+			if (!strcmp(mode->name, string))
+				mode->type |= DRM_MODE_TYPE_PREFERRED;
+		}
+	}
+}
+
 static int lt9611_connector_get_modes(struct drm_connector *connector)
 {
 	struct lt9611 *pdata = connector_to_lt9611(connector);
@@ -1720,11 +1736,10 @@ static int lt9611_connector_get_modes(struct drm_connector *connector)
 		pdata->hdmi_mode = drm_detect_hdmi_monitor(edid);
 		pr_debug("hdmi_mode = %d\n", pdata->hdmi_mode);
 
-		/* TODO: this should not be hard coded */
-		drm_set_preferred_mode(connector, 1920, 1080);
-
 		kfree(edid);
 	}
+
+	lt9611_set_preferred_mode(connector);
 
 	return count;
 }
