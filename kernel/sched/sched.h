@@ -2789,6 +2789,11 @@ static inline int cpu_max_power_cost(int cpu)
 
 static inline void clear_walt_request(int cpu) { }
 
+static inline int is_reserved(int cpu)
+{
+	return 0;
+}
+
 static inline int got_boost_kick(void)
 {
 	return 0;
