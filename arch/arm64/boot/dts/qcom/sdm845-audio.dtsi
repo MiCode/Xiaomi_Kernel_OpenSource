@@ -27,7 +27,9 @@
 		qcom,clk-div = <192>;
 		qcom,clk-mult = <10>;
 	};
+};
 
+&audio_apr {
 	snd_934x: sound-tavil {
 		compatible = "qcom,sdm845-asoc-snd-tavil";
 		qcom,model = "sdm845-tavil-snd-card";
