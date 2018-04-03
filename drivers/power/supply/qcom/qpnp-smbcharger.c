@@ -4410,6 +4410,20 @@ static int smbchg_change_usb_supply_type(struct smbchg_chip *chip,
 	if (type == POWER_SUPPLY_TYPE_UNKNOWN)
 		chip->usb_supply_type = type;
 
+	/*
+	 * Update TYPE property to DCP for HVDCP/HVDCP3 charger types
+	 * so that they can be recongized as AC chargers by healthd.
+	 * Don't report UNKNOWN charger type to prevent healthd missing
+	 * detecting this power_supply status change.
+	 */
+	if (chip->usb_supply_type == POWER_SUPPLY_TYPE_USB_HVDCP_3
+			|| chip->usb_supply_type == POWER_SUPPLY_TYPE_USB_HVDCP)
+		chip->usb_psy_d.type = POWER_SUPPLY_TYPE_USB_DCP;
+	else if (chip->usb_supply_type == POWER_SUPPLY_TYPE_UNKNOWN)
+		chip->usb_psy_d.type = POWER_SUPPLY_TYPE_USB;
+	else
+		chip->usb_psy_d.type = chip->usb_supply_type;
+
 	if (!chip->skip_usb_notification)
 		power_supply_changed(chip->usb_psy);
 
@@ -5631,6 +5645,9 @@ static int smbchg_usb_get_property(struct power_supply *psy,
 		val->intval = chip->usb_online;
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = chip->usb_psy_d.type;
+		break;
+	case POWER_SUPPLY_PROP_REAL_TYPE:
 		val->intval = chip->usb_supply_type;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
@@ -5688,6 +5705,7 @@ static enum power_supply_property smbchg_usb_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_HEALTH,
 };
 
