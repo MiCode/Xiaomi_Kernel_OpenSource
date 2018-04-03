@@ -93,7 +93,7 @@ int getFirmwareVersion(u16 *fw_vers, u16 *config_id)
 int flash_status(void)
 {
 	u8 cmd[2] = {FLASH_CMD_READSTATUS, 0x00};
-	u8 readData;
+	u8 readData = 0;
 
 	logError(0, "%s Reading flash_status...\n", tag);
 	if (fts_readCmd(cmd, 2, &readData, FLASH_STATUS_BYTES) < 0) {
