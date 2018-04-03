@@ -239,6 +239,7 @@
 		lt,reset-gpio = <&tlmm 95 0x0>;
 		lt,hdmi-en-gpio = <&tlmm 53 0x0>;
 		lt,non-pluggable;
+		lt,preferred-mode = "1920x1080";
 
 		vdd-supply = <&pm660_l12>;
 		lt,supply-entries {
