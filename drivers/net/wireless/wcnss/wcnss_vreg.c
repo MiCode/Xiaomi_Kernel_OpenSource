@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,27 +194,6 @@ int validate_iris_chip_id(u32 reg)
 	}
 }
 
-static void wcnss_free_regulator(void)
-{
-	int vreg_i;
-
-	/* Free pronto voltage regulators from device node */
-	for (vreg_i = 0; vreg_i < PRONTO_REGULATORS; vreg_i++) {
-		if (pronto_vregs[vreg_i].state) {
-			regulator_put(pronto_vregs[vreg_i].regulator);
-			pronto_vregs[vreg_i].state = VREG_NULL_CONFIG;
-		}
-	}
-
-	/* Free IRIS voltage regulators from device node */
-	for (vreg_i = 0; vreg_i < IRIS_REGULATORS; vreg_i++) {
-		if (iris_vregs[vreg_i].state) {
-			regulator_put(iris_vregs[vreg_i].regulator);
-			iris_vregs[vreg_i].state = VREG_NULL_CONFIG;
-		}
-	}
-}
-
 static int
 wcnss_dt_parse_vreg_level(struct device *dev, int index,
 			  const char *current_vreg_name, const char *vreg_name,
@@ -257,13 +236,14 @@ wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
 	/* Parse pronto voltage regulators from device node */
 	for (vreg_i = 0; vreg_i < PRONTO_REGULATORS; vreg_i++) {
 		pronto_vregs[vreg_i].regulator =
-			regulator_get(dev, pronto_vregs[vreg_i].name);
+			devm_regulator_get_optional(dev,
+						    pronto_vregs[vreg_i].name);
 		if (IS_ERR(pronto_vregs[vreg_i].regulator)) {
 			if (pronto_vregs[vreg_i].required) {
 				rc = PTR_ERR(pronto_vregs[vreg_i].regulator);
 				dev_err(dev, "regulator get of %s failed (%d)\n",
 					pronto_vregs[vreg_i].name, rc);
-				goto wcnss_vreg_get_err;
+				return rc;
 			} else {
 				dev_dbg(dev, "Skip optional regulator configuration: %s\n",
 					pronto_vregs[vreg_i].name);
@@ -271,27 +251,28 @@ wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
 			}
 		}
 
-		pronto_vregs[vreg_i].state |= VREG_GET_REGULATOR_MASK;
 		rc = wcnss_dt_parse_vreg_level(dev, vreg_i,
 					       pronto_vregs[vreg_i].curr,
 					       pronto_vregs[vreg_i].volt,
 					       wlan_config->pronto_vlevel);
 		if (rc) {
 			dev_err(dev, "error reading voltage-level property\n");
-			goto wcnss_vreg_get_err;
+			return rc;
 		}
+		pronto_vregs[vreg_i].state |= VREG_GET_REGULATOR_MASK;
 	}
 
 	/* Parse iris voltage regulators from device node */
 	for (vreg_i = 0; vreg_i < IRIS_REGULATORS; vreg_i++) {
 		iris_vregs[vreg_i].regulator =
-			regulator_get(dev, iris_vregs[vreg_i].name);
+			devm_regulator_get_optional(dev,
+						    iris_vregs[vreg_i].name);
 		if (IS_ERR(iris_vregs[vreg_i].regulator)) {
 			if (iris_vregs[vreg_i].required) {
 				rc = PTR_ERR(iris_vregs[vreg_i].regulator);
 				dev_err(dev, "regulator get of %s failed (%d)\n",
 					iris_vregs[vreg_i].name, rc);
-				goto wcnss_vreg_get_err;
+				return rc;
 			} else {
 				dev_dbg(dev, "Skip optional regulator configuration: %s\n",
 					iris_vregs[vreg_i].name);
@@ -299,22 +280,18 @@ wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
 			}
 		}
 
-		iris_vregs[vreg_i].state |= VREG_GET_REGULATOR_MASK;
 		rc = wcnss_dt_parse_vreg_level(dev, vreg_i,
 					       iris_vregs[vreg_i].curr,
 					       iris_vregs[vreg_i].volt,
 					       wlan_config->iris_vlevel);
 		if (rc) {
 			dev_err(dev, "error reading voltage-level property\n");
-			goto wcnss_vreg_get_err;
+			return rc;
 		}
+		iris_vregs[vreg_i].state |= VREG_GET_REGULATOR_MASK;
 	}
 
 	return 0;
-
-wcnss_vreg_get_err:
-	wcnss_free_regulator();
-	return rc;
 }
 
 void  wcnss_iris_reset(u32 reg, void __iomem *pmu_conf_reg)
@@ -586,12 +563,6 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 				pr_err("vreg %s disable failed (%d)\n",
 						regulators[i].name, rc);
 		}
-
-		/* Free the regulator source */
-		if (regulators[i].state & VREG_GET_REGULATOR_MASK)
-			regulator_put(regulators[i].regulator);
-
-		regulators[i].state = VREG_NULL_CONFIG;
 	}
 }
 
