@@ -4829,7 +4829,8 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct drm_display_mode *drm_mode = NULL;
 	struct sde_rm_hw_iter dsc_iter, pp_iter, ctl_iter, intf_iter;
-	int ret = 0, i;
+	struct sde_encoder_phys *phys_enc;
+	int ret = 0, i, idx;
 
 	if (!encoder) {
 		SDE_ERROR("invalid drm enc\n");
@@ -4955,14 +4956,24 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 		sde_enc->hw_dsc[i] = (struct sde_hw_dsc *) dsc_iter.hw;
 	}
 
-	sde_rm_init_hw_iter(&ctl_iter, encoder->base.id, SDE_HW_BLK_CTL);
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+	/*
+	 * If we have multiple phys encoders with one controller, make
+	 * sure to populate the controller pointer in both phys encoders.
+	 */
+	for (idx = 0; idx < sde_enc->num_phys_encs; idx++) {
+		phys_enc = sde_enc->phys_encs[idx];
+		phys_enc->hw_ctl = NULL;
 
-		phys->hw_ctl = NULL;
-		if (!sde_rm_get_hw(&sde_kms->rm, &ctl_iter))
-			break;
-		phys->hw_ctl = (struct sde_hw_ctl *) ctl_iter.hw;
+		sde_rm_init_hw_iter(&ctl_iter, encoder->base.id,
+				SDE_HW_BLK_CTL);
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			if (sde_rm_get_hw(&sde_kms->rm, &ctl_iter)) {
+				phys_enc->hw_ctl =
+					(struct sde_hw_ctl *) ctl_iter.hw;
+				pr_debug("HW CTL intf_idx:%d hw_ctl:[0x%pK]\n",
+					phys_enc->intf_idx, phys_enc->hw_ctl);
+			}
+		}
 	}
 
 	sde_rm_init_hw_iter(&intf_iter, encoder->base.id, SDE_HW_BLK_INTF);
