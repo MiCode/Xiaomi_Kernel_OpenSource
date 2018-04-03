@@ -4361,6 +4361,10 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 		return -ERANGE;
 
 	if (flags & MAP_FIXED) {
+		/* We must honor alignment requirements */
+		if (!IS_ALIGNED(hint, align))
+			return -EINVAL;
+
 		/* we must use addr 'hint' or fail */
 		return _gpu_set_svm_region(private, entry, hint, len);
 	} else if (hint != 0) {
