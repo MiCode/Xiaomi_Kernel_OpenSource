@@ -8,7 +8,7 @@ Required properties:
 	- lt,reset-gpio				Main reset gpio mapping
 
 
-	Optional properties:
+Optional properties:
 	- lt,hdmi-ps-gpio:			gpio mapping for HDMI PS
 	- lt,hdmi-en-gpio:			gpio mapping for HDMI EN
 
@@ -29,6 +29,7 @@ Required properties:
 	-- lt,supply-post-off-sleep: time to sleep (ms) after turning off
 
 	- lt,non-pluggable: Boolean to indicate if display is non pluggable.
+	- lt,preferred-mode: Preferred display mode.
 	- lt,customize-modes: Customized modes when it's non-pluggable display.
 	e.g. lt,customize-mode-id@0
 	-- lt,mode-h-active: Horizontal active pixels for this mode.
@@ -66,6 +67,8 @@ Example:
 		lt,reset-gpio = <&tlmm 134 0x0>;
 		lt,hdmi-ps-gpio = <&tlmm 136 0x0>;
 		lt,hdmi-en-gpio = <&tlmm 137 0x0>;
+		lt,non-pluggable;
+		lt,preferred-mode = "1920x1080";
 
 		vcc-supply = <&pm660l_l6>;
 		vdd-supply = <&pm660_l11>;
