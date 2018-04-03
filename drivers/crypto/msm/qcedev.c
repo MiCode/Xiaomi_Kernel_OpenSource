@@ -724,9 +724,8 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 	trailing_buf_len =  CE_SHA_BLOCK_SIZE - sha_pad_len;
 
 	qcedev_areq->sha_req.sreq.src = sg_src;
-	sg_set_buf(qcedev_areq->sha_req.sreq.src, k_align_src,
+	sg_init_one(qcedev_areq->sha_req.sreq.src, k_align_src,
 						total-trailing_buf_len);
-	sg_mark_end(qcedev_areq->sha_req.sreq.src);
 
 	qcedev_areq->sha_req.sreq.nbytes = total - trailing_buf_len;
 
@@ -876,19 +875,18 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 
 	total = handle->sha_ctxt.trailing_buf_len;
 
-	if (total) {
-		k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
-					GFP_KERNEL);
-		if (k_buf_src == NULL)
-			return -ENOMEM;
+	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
+				GFP_KERNEL);
+	if (k_buf_src == NULL)
+		return -ENOMEM;
 
-		k_align_src = (uint8_t *)ALIGN(((uintptr_t)k_buf_src),
-							CACHE_LINE_SIZE);
-		memcpy(k_align_src, &handle->sha_ctxt.trailing_buf[0], total);
-	}
+	k_align_src = (uint8_t *)ALIGN(((uintptr_t)k_buf_src),
+						CACHE_LINE_SIZE);
+	memcpy(k_align_src, &handle->sha_ctxt.trailing_buf[0], total);
+
 	qcedev_areq->sha_req.sreq.src = (struct scatterlist *) &sg_src;
-	sg_set_buf(qcedev_areq->sha_req.sreq.src, k_align_src, total);
-	sg_mark_end(qcedev_areq->sha_req.sreq.src);
+
+	sg_init_one(qcedev_areq->sha_req.sreq.src, k_align_src, total);
 
 	qcedev_areq->sha_req.sreq.nbytes = total;
 
@@ -927,7 +925,7 @@ static int qcedev_hash_cmac(struct qcedev_async_req *qcedev_areq,
 		return -EFAULT;
 
 
-	k_buf_src = kmalloc(total, GFP_KERNEL);
+	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2, GFP_KERNEL);
 	if (k_buf_src == NULL)
 		return -ENOMEM;
 
@@ -947,8 +945,7 @@ static int qcedev_hash_cmac(struct qcedev_async_req *qcedev_areq,
 	}
 
 	qcedev_areq->sha_req.sreq.src = sg_src;
-	sg_set_buf(qcedev_areq->sha_req.sreq.src, k_buf_src, total);
-	sg_mark_end(qcedev_areq->sha_req.sreq.src);
+	sg_init_one(qcedev_areq->sha_req.sreq.src, k_buf_src, total);
 
 	qcedev_areq->sha_req.sreq.nbytes = total;
 	handle->sha_ctxt.diglen = qcedev_areq->sha_op_req.diglen;
@@ -1036,8 +1033,7 @@ static int qcedev_hmac_get_ohash(struct qcedev_async_req *qcedev_areq,
 			handle->sha_ctxt.trailing_buf_len);
 
 	qcedev_areq->sha_req.sreq.src = (struct scatterlist *) &sg_src;
-	sg_set_buf(qcedev_areq->sha_req.sreq.src, k_src, sha_block_size);
-	sg_mark_end(qcedev_areq->sha_req.sreq.src);
+	sg_init_one(qcedev_areq->sha_req.sreq.src, k_src, sha_block_size);
 
 	qcedev_areq->sha_req.sreq.nbytes = sha_block_size;
 	memset(&handle->sha_ctxt.trailing_buf[0], 0, sha_block_size);
@@ -1203,10 +1199,9 @@ static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 	areq->cipher_req.creq.dst = (struct scatterlist *) &sg_src;
 
 	/* In place encryption/decryption */
-	sg_set_buf(areq->cipher_req.creq.src,
+	sg_init_one(areq->cipher_req.creq.src,
 					k_align_dst,
 					areq->cipher_op_req.data_len);
-	sg_mark_end(areq->cipher_req.creq.src);
 
 	areq->cipher_req.creq.nbytes = areq->cipher_op_req.data_len;
 	areq->cipher_req.creq.info = areq->cipher_op_req.iv;
