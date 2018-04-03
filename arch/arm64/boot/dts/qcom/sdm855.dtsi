@@ -37,6 +37,8 @@
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+		pci-domain1 = &pcie1; /* PCIe1 domain */
 	};
 
 	aliases {
@@ -3229,6 +3231,7 @@
 #include "sdm855-regulator.dtsi"
 #include "sdm855-ion.dtsi"
 #include "sdm855-bus.dtsi"
+#include "sdm855-pcie.dtsi"
 #include "sdm855-smp2p.dtsi"
 #include "sdm855-coresight.dtsi"
 #include "msm-arm-smmu-sdm855.dtsi"
