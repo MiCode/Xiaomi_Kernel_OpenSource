@@ -3554,6 +3554,16 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 			max_vert_deci = max(max_vert_deci,
 				sde_cfg->sspp[i].sblk->maxvdeciexp);
 		}
+
+		/*
+		 * set sec-ui blocked SSPP feature flag based on blocked
+		 * xin-mask if sec-ui-misr feature is enabled;
+		 */
+		if (sde_cfg->sui_misr_supported
+				&& (sde_cfg->sui_block_xin_mask
+					& BIT(sde_cfg->sspp[i].xin_id)))
+			set_bit(SDE_SSPP_BLOCK_SEC_UI,
+					&sde_cfg->sspp[i].features);
 	}
 
 	/* this should be updated based on HW rev in future */

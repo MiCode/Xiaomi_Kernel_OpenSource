@@ -105,13 +105,70 @@
 #define MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC	1
 
 /* defines the operations required for secure state transition */
-#define SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE               BIT(0)
-#define SDE_KMS_OPS_WAIT_FOR_TX_DONE                       BIT(1)
-#define SDE_KMS_OPS_CLEANUP_PLANE_FB                       BIT(2)
-#define SDE_KMS_OPS_PREPARE_PLANE_FB                       BIT(3)
+#define SDE_KMS_OPS_SECURE_STATE_CHANGE		BIT(0)
+#define SDE_KMS_OPS_WAIT_FOR_TX_DONE		BIT(1)
+#define SDE_KMS_OPS_CLEANUP_PLANE_FB		BIT(2)
+#define SDE_KMS_OPS_PREPARE_PLANE_FB		BIT(3)
 
 /* ESD status check interval in miliseconds */
 #define STATUS_CHECK_INTERVAL_MS 5000
+
+/**
+ * enum sde_kms_smmu_state:	smmu state
+ * @ATTACHED:	 all the context banks are attached.
+ * @DETACHED:	 all the context banks are detached.
+ * @DETACHED_SEC:	 secure context bank is detached.
+ * @ATTACH_ALL_REQ:	 transient state of attaching context banks.
+ * @DETACH_ALL_REQ:	 transient state of detaching context banks.
+ * @DETACH_SEC_REQ:	 tranisent state of secure context bank is detached
+ * @ATTACH_SEC_REQ:	 transient state of attaching secure context bank.
+ */
+enum sde_kms_smmu_state {
+	ATTACHED = 0,
+	DETACHED,
+	DETACHED_SEC,
+	ATTACH_ALL_REQ,
+	DETACH_ALL_REQ,
+	DETACH_SEC_REQ,
+	ATTACH_SEC_REQ,
+};
+
+/**
+ * enum sde_kms_smmu_state_transition_type: state transition type
+ * @NONE: no pending state transitions
+ * @PRE_COMMIT: state transitions should be done before processing the commit
+ * @POST_COMMIT: state transitions to be done after processing the commit.
+ */
+enum sde_kms_smmu_state_transition_type {
+	NONE,
+	PRE_COMMIT,
+	POST_COMMIT
+};
+
+/**
+ * enum sde_kms_sui_misr_state: state request for enabling/disabling MISR
+ * @NONE: no request
+ * @ENABLE_SUI_MISR_REQ: request to enable sui MISR
+ * @DISABLE_SUI_MISR_REQ: request to disable sui MISR
+ */
+enum sde_kms_sui_misr_state {
+	SUI_MISR_NONE,
+	SUI_MISR_ENABLE_REQ,
+	SUI_MISR_DISABLE_REQ
+};
+
+/**
+ * struct sde_kms_smmu_state_data: stores the smmu state and transition type
+ * @state: current state of smmu context banks
+ * @transition_type: transition request type
+ * @transition_error: whether there is error while transitioning the state
+ */
+struct sde_kms_smmu_state_data {
+	uint32_t state;
+	uint32_t transition_type;
+	uint32_t transition_error;
+	uint32_t sui_misr_state;
+};
 
 /*
  * struct sde_irq_callback - IRQ callback handlers
@@ -195,6 +252,11 @@ struct sde_kms {
 	int dp_stream_count;
 
 	bool has_danger_ctrl;
+
+	struct sde_kms_smmu_state_data smmu_state;
+	atomic_t detach_sec_cb;
+	atomic_t detach_all_cb;
+	struct mutex secure_transition_lock;
 };
 
 struct vsync_info {
@@ -253,6 +315,48 @@ static inline bool sde_kms_is_suspend_blocked(struct drm_device *dev)
 		return false;
 
 	return to_sde_kms(ddev_to_msm_kms(dev))->suspend_block;
+}
+
+/**
+ * sde_kms_is_secure_session_inprogress - to indicate if secure-session is in
+ * currently in-progress based on the current smmu_state
+ *
+ * @sde_kms: Pointer to sde_kms
+ *
+ * return: true if secure-session is in progress; false otherwise
+ */
+static inline bool sde_kms_is_secure_session_inprogress(struct sde_kms *sde_kms)
+{
+	bool ret = false;
+
+	if (!sde_kms)
+		return false;
+
+	mutex_lock(&sde_kms->secure_transition_lock);
+	if (sde_kms->smmu_state.state == DETACHED)
+		ret = true;
+	mutex_unlock(&sde_kms->secure_transition_lock);
+
+	return ret;
+}
+
+/**
+ * sde_kms_is_vbif_operation_allowed - resticts the VBIF programming
+ * during secure-ui, if the sec_ui_misr feature is enabled
+ *
+ * @sde_kms: Pointer to sde_kms
+ *
+ * return: false if secure-session is in progress; true otherwise
+ */
+static inline bool sde_kms_is_vbif_operation_allowed(struct sde_kms *sde_kms)
+{
+	if (!sde_kms)
+		return false;
+
+	if (!sde_kms->catalog->sui_misr_supported)
+		return true;
+
+	return !sde_kms_is_secure_session_inprogress(sde_kms);
 }
 
 /**
