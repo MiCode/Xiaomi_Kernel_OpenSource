@@ -199,16 +199,16 @@ struct fastrpc_ioctl_init_attrs {
 };
 
 struct fastrpc_ioctl_munmap {
-	uintptr_t vaddrout;	/* address to unmap */
+	uint64_t vaddrout;	/* address to unmap */
 	size_t size;		/* size */
 };
 
 struct fastrpc_ioctl_mmap {
 	int fd;				/* ion fd */
 	uint32_t flags;			/* flags for dsp to map with */
-	uintptr_t vaddrin;		/* optional virtual address */
+	uint64_t vaddrin;		/* optional virtual address */
 	size_t size;			/* size */
-	uintptr_t vaddrout;		/* dsps virtual address */
+	uint64_t vaddrout;		/* dsps virtual address */
 };
 
 struct fastrpc_ioctl_munmap_fd {
