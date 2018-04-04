@@ -2921,6 +2921,12 @@ static inline int sched_boost(void)
 	return 0;
 }
 
+static inline bool
+task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	return false;
+}
+
 static inline bool hmp_capable(void) { return false; }
 static inline bool is_max_capacity_cpu(int cpu) { return true; }
 static inline bool is_min_capacity_cpu(int cpu) { return true; }
