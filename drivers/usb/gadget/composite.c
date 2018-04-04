@@ -546,6 +546,7 @@ static u8 encode_bMaxPower(enum usb_device_speed speed,
 		return 0;
 	switch (speed) {
 	case USB_SPEED_SUPER:
+	case USB_SPEED_SUPER_PLUS:
 		return (u8)(val / 8);
 	default:
 		/* only SuperSpeed and faster support > 500mA */
