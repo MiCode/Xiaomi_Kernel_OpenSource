@@ -529,25 +529,23 @@ static int apr_vm_cb_thread(void *data)
 {
 	uint32_t apr_rx_buf_len;
 	struct aprv2_vm_ack_rx_pkt_available_t apr_ack;
+	unsigned long delay = jiffies + (HZ / 2);
 	int status = 0;
 	int ret = 0;
 
 	while (1) {
-		apr_rx_buf_len = sizeof(apr_rx_buf);
-		ret = habmm_socket_recv(hab_handle_rx,
-				(void *)&apr_rx_buf,
-				&apr_rx_buf_len,
-				0xFFFFFFFF,
-				0);
+		do {
+			apr_rx_buf_len = sizeof(apr_rx_buf);
+			ret = habmm_socket_recv(hab_handle_rx,
+					(void *)&apr_rx_buf,
+					&apr_rx_buf_len,
+					0xFFFFFFFF,
+					0);
+		} while (time_before(jiffies, delay) && (ret == -EAGAIN) &&
+			(apr_rx_buf_len == 0));
 		if (ret) {
 			pr_err("%s: habmm_socket_recv failed %d\n",
 					__func__, ret);
-			/*
-			 * TODO: depends on the HAB error code,
-			 *       may need to implement
-			 *       a retry mechanism.
-			 * break if recv failed ?
-			 */
 			break;
 		}
 
