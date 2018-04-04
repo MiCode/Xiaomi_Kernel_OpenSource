@@ -1321,14 +1321,11 @@ static int dp_display_post_enable(struct dp_display *dp_display, void *panel)
 	}
 
 end:
-	if (dp_display->post_open) {
-		/* clear framework event notifier */
-		dp_display->post_open = NULL;
-		dp->aux->state |= DP_STATE_CTRL_POWERED_ON;
+	/* clear framework event notifier */
+	dp_display->post_open = NULL;
+	dp->aux->state |= DP_STATE_CTRL_POWERED_ON;
 
-		complete_all(&dp->notification_comp);
-	}
-
+	complete_all(&dp->notification_comp);
 	mutex_unlock(&dp->session_lock);
 	return 0;
 }
