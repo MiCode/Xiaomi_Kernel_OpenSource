@@ -2227,10 +2227,10 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[187] = PINGROUP(187, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[188] = PINGROUP(188, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[189] = PINGROUP(189, SOUTH, dp_hot, NA, NA, NA, NA, NA, NA, NA, NA),
-	[190] = SDC_QDSD_PINGROUP(sdc2_clk, 0xe72000, 14, 6),
-	[191] = SDC_QDSD_PINGROUP(sdc2_cmd, 0xe72000, 11, 3),
-	[192] = SDC_QDSD_PINGROUP(sdc2_data, 0xe72000, 9, 0),
-	[193] = UFS_RESET(ufs_reset, 0xc7004),
+	[190] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b2000, 14, 6),
+	[191] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
+	[192] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
+	[193] = UFS_RESET(ufs_reset, 0xdb6004),
 };
 
 static const struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
