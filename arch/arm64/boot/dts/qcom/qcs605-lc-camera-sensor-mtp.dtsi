@@ -11,6 +11,15 @@
  * GNU General Public License for more details.
  */
 
+&soc {
+	led_flash_rear: qcom,camera-flash@0 {
+		cell-index = <0>;
+		reg = <0x00 0x00>;
+		compatible = "qcom,camera-flash";
+		status = "ok";
+	};
+};
+
 &cam_cci {
 	qcom,cam-res-mgr {
 		compatible = "qcom,cam-res-mgr";
@@ -25,6 +34,7 @@
 		sensor-position-roll = <270>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
+		led-flash-src = <&led_flash_rear>;
 		cam_vio-supply = <&pm660_l11>;
 		cam_vana-supply = <&pm660_l15>;
 		cam_vdig-supply = <&pm660_l5>;
