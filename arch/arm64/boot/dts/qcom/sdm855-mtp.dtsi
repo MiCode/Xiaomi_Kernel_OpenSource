@@ -211,6 +211,10 @@
 	status = "ok";
 };
 
+&pm855l_lcdb {
+	status = "ok";
+};
+
 &pm855b_fg {
 	qcom,battery-data = <&mtp_batterydata>;
 };
