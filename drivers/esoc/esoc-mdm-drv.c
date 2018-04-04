@@ -82,6 +82,8 @@ static int esoc_msm_restart_handler(struct notifier_block *nb,
 	if (action == SYS_RESTART) {
 		if (mdm_dbg_stall_notify(ESOC_PRIMARY_REBOOT))
 			return NOTIFY_OK;
+		esoc_mdm_log(
+			"Reboot notifier: Notifying esoc of cold reboot\n");
 		dev_dbg(&esoc_clink->dev, "Notifying esoc of cold reboot\n");
 		clink_ops->notify(ESOC_PRIMARY_REBOOT, esoc_clink);
 	}
@@ -91,23 +93,35 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 					struct esoc_eng *eng)
 {
 	struct mdm_drv *mdm_drv = to_mdm_drv(eng);
+	bool unexpected_state = false;
 
 	switch (evt) {
 	case ESOC_INVALID_STATE:
+		esoc_mdm_log(
+		"ESOC_INVALID_STATE: Calling complete with state: PON_FAIL\n");
 		mdm_drv->pon_state = PON_FAIL;
 		complete(&mdm_drv->pon_done);
 		break;
 	case ESOC_RUN_STATE:
+		esoc_mdm_log(
+		"ESOC_RUN_STATE: Calling complete with state: PON_SUCCESS\n");
 		mdm_drv->pon_state = PON_SUCCESS;
 		mdm_drv->mode = RUN,
 		complete(&mdm_drv->pon_done);
 		break;
 	case ESOC_RETRY_PON_EVT:
+		esoc_mdm_log(
+		"ESOC_RETRY_PON_EVT: Calling complete with state: PON_RETRY\n");
 		mdm_drv->pon_state = PON_RETRY;
 		complete(&mdm_drv->pon_done);
 		break;
 	case ESOC_UNEXPECTED_RESET:
+		esoc_mdm_log("evt_state: ESOC_UNEXPECTED_RESET\n");
+		unexpected_state = true;
 	case ESOC_ERR_FATAL:
+		if (!unexpected_state)
+			esoc_mdm_log("evt_state: ESOC_ERR_FATAL\n");
+
 		/*
 		 * Modem can crash while we are waiting for pon_done during
 		 * a subsystem_get(). Setting mode to CRASH will prevent a
@@ -115,12 +129,20 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 		 * this by seting mode to CRASH only if device was up and
 		 * running.
 		 */
+		if (mdm_drv->mode == CRASH)
+			esoc_mdm_log(
+			"Modem in crash state already. Ignoring.\n");
+		if (mdm_drv->mode != RUN)
+			esoc_mdm_log("Modem not up. Ignoring.\n");
 		if (mdm_drv->mode == CRASH || mdm_drv->mode != RUN)
 			return;
 		mdm_drv->mode = CRASH;
+		esoc_mdm_log("Starting SSR work\n");
 		queue_work(mdm_drv->mdm_queue, &mdm_drv->ssr_work);
 		break;
 	case ESOC_REQ_ENG_ON:
+		esoc_mdm_log(
+		"evt_state: ESOC_REQ_ENG_ON; Registered a req engine\n");
 		complete(&mdm_drv->req_eng_wait);
 		break;
 	default:
@@ -145,6 +167,8 @@ static void esoc_client_link_power_on(struct esoc_clink *esoc_clink,
 	struct esoc_client_hook *client_hook;
 
 	dev_dbg(&esoc_clink->dev, "Calling power_on hooks\n");
+	esoc_mdm_log(
+	"Calling power_on hooks with crash state: %d\n", mdm_crashed);
 
 	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
 		client_hook = esoc_clink->client_hook[i];
@@ -161,6 +185,8 @@ static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
 	struct esoc_client_hook *client_hook;
 
 	dev_dbg(&esoc_clink->dev, "Calling power_off hooks\n");
+	esoc_mdm_log(
+	"Calling power_off hooks with crash state: %d\n", mdm_crashed);
 
 	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
 		client_hook = esoc_clink->client_hook[i];
@@ -179,6 +205,8 @@ static void mdm_crash_shutdown(const struct subsys_desc *mdm_subsys)
 								subsys);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
 
+	esoc_mdm_log("MDM crashed notification from SSR\n");
+
 	if (mdm_dbg_stall_notify(ESOC_PRIMARY_CRASH))
 		return;
 	clink_ops->notify(ESOC_PRIMARY_CRASH, esoc_clink);
@@ -193,7 +221,10 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
 
+	esoc_mdm_log("Shutdown request from SSR\n");
+
 	if (mdm_drv->mode == CRASH || mdm_drv->mode == PEER_CRASH) {
+		esoc_mdm_log("Shutdown in crash mode\n");
 		if (mdm_dbg_stall_cmd(ESOC_PREPARE_DEBUG))
 			/* We want to mask debug command.
 			 * In this case return success
@@ -204,18 +235,23 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 		esoc_clink_queue_request(ESOC_REQ_CRASH_SHUTDOWN, esoc_clink);
 		esoc_client_link_power_off(esoc_clink, true);
 
+		esoc_mdm_log("Executing the ESOC_PREPARE_DEBUG command\n");
 		ret = clink_ops->cmd_exe(ESOC_PREPARE_DEBUG,
 							esoc_clink);
 		if (ret) {
+			esoc_mdm_log("ESOC_PREPARE_DEBUG command failed\n");
 			dev_err(&esoc_clink->dev, "failed to enter debug\n");
 			return ret;
 		}
 		mdm_drv->mode = IN_DEBUG;
 	} else if (!force_stop) {
-		if (esoc_clink->subsys.sysmon_shutdown_ret)
+		esoc_mdm_log("Graceful shutdown mode\n");
+		if (esoc_clink->subsys.sysmon_shutdown_ret) {
+			esoc_mdm_log(
+			"Executing the ESOC_FORCE_PWR_OFF command\n");
 			ret = clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF,
 							esoc_clink);
-		else {
+		} else {
 			if (mdm_dbg_stall_cmd(ESOC_PWR_OFF))
 				/* Since power off command is masked
 				 * we return success, and leave the state
@@ -223,9 +259,12 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 				 */
 				return 0;
 			dev_dbg(&esoc_clink->dev, "Sending sysmon-shutdown\n");
+			esoc_mdm_log("Executing the ESOC_PWR_OFF command\n");
 			ret = clink_ops->cmd_exe(ESOC_PWR_OFF, esoc_clink);
 		}
 		if (ret) {
+			esoc_mdm_log(
+			"Executing the ESOC_PWR_OFF command failed\n");
 			dev_err(&esoc_clink->dev, "failed to exe power off\n");
 			return ret;
 		}
@@ -234,6 +273,7 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 		clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF, esoc_clink);
 		mdm_drv->mode = PWR_OFF;
 	}
+	esoc_mdm_log("Shutdown completed\n");
 	return 0;
 }
 
@@ -241,6 +281,8 @@ static void mdm_subsys_retry_powerup_cleanup(struct esoc_clink *esoc_clink)
 {
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc_clink);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
+
+	esoc_mdm_log("Doing cleanup\n");
 
 	esoc_client_link_power_off(esoc_clink, false);
 	mdm_disable_irqs(mdm);
@@ -257,6 +299,7 @@ static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 	switch (boot_fail_action) {
 	case BOOT_FAIL_ACTION_RETRY:
 		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		esoc_mdm_log("Request to retry a warm reset\n");
 		(*pon_trial)++;
 		break;
 	/*
@@ -266,17 +309,21 @@ static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 	 */
 	case BOOT_FAIL_ACTION_COLD_RESET:
 		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		esoc_mdm_log("Doing cold reset by power-down and warm reset\n");
 		(*pon_trial)++;
 		mdm_power_down(mdm);
 		break;
 	case BOOT_FAIL_ACTION_PANIC:
+		esoc_mdm_log("Calling panic!!\n");
 		panic("Panic requested on external modem boot failure\n");
 		break;
 	case BOOT_FAIL_ACTION_NOP:
+		esoc_mdm_log("Leaving the modem in its curent state\n");
 		return -EIO;
 	case BOOT_FAIL_ACTION_SHUTDOWN:
 	default:
 		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		esoc_mdm_log("Shutdown the modem and quit\n");
 		mdm_power_down(mdm);
 		return -EIO;
 	}
@@ -295,30 +342,43 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 	int timeout = INT_MAX;
 	u8 pon_trial = 1;
 
+	esoc_mdm_log("Powerup request from SSR\n");
+
 	do {
+		esoc_mdm_log("Boot trial: %d\n", pon_trial);
 		if (!esoc_clink->auto_boot &&
 			!esoc_req_eng_enabled(esoc_clink)) {
+			esoc_mdm_log("Wait for req eng registration\n");
 			dev_dbg(&esoc_clink->dev,
 					"Wait for req eng registration\n");
 			wait_for_completion(&mdm_drv->req_eng_wait);
 		}
+		esoc_mdm_log("Req eng available\n");
 		if (mdm_drv->mode == PWR_OFF) {
+			esoc_mdm_log("In normal power-on mode\n");
 			if (mdm_dbg_stall_cmd(ESOC_PWR_ON))
 				return -EBUSY;
+			esoc_mdm_log("Executing the ESOC_PWR_ON command\n");
 			ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
 			if (ret) {
+				esoc_mdm_log("ESOC_PWR_ON command failed\n");
 				dev_err(&esoc_clink->dev, "pwr on fail\n");
 				return ret;
 			}
 			esoc_client_link_power_on(esoc_clink, false);
 		} else if (mdm_drv->mode == IN_DEBUG) {
+			esoc_mdm_log("In SSR power-on mode\n");
+			esoc_mdm_log("Executing the ESOC_EXIT_DEBUG command\n");
 			ret = clink_ops->cmd_exe(ESOC_EXIT_DEBUG, esoc_clink);
 			if (ret) {
+				esoc_mdm_log(
+				"ESOC_EXIT_DEBUG command failed\n");
 				dev_err(&esoc_clink->dev,
 						"cannot exit debug mode\n");
 				return ret;
 			}
 			mdm_drv->mode = PWR_OFF;
+			esoc_mdm_log("Executing the ESOC_PWR_ON command\n");
 			ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
 			if (ret) {
 				dev_err(&esoc_clink->dev, "pwr on fail\n");
@@ -336,13 +396,18 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 		 */
 		if (esoc_clink->auto_boot)
 			timeout = 10 * HZ;
+		esoc_mdm_log(
+		"Modem turned-on. Waiting for pon_done notification..\n");
 		ret = wait_for_completion_timeout(&mdm_drv->pon_done, timeout);
 		if (mdm_drv->pon_state == PON_FAIL || ret <= 0) {
 			dev_err(&esoc_clink->dev, "booting failed\n");
+			esoc_mdm_log("booting failed\n");
 			ret = mdm_handle_boot_fail(esoc_clink, &pon_trial);
 			if (ret)
 				return ret;
 		} else if (mdm_drv->pon_state == PON_RETRY) {
+			esoc_mdm_log(
+			"Boot failed. Doing cleanup and attempting to retry\n");
 			pon_trial++;
 			mdm_subsys_retry_powerup_cleanup(esoc_clink);
 		} else if (mdm_drv->pon_state == PON_SUCCESS) {
@@ -362,9 +427,14 @@ static int mdm_subsys_ramdumps(int want_dumps,
 								subsys);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
 
+	esoc_mdm_log("Ramdumps called from SSR\n");
+
 	if (want_dumps) {
+		esoc_mdm_log("Executing the ESOC_EXE_DEBUG command\n");
 		ret = clink_ops->cmd_exe(ESOC_EXE_DEBUG, esoc_clink);
 		if (ret) {
+			esoc_mdm_log(
+			"Failed executing the ESOC_EXE_DEBUG command\n");
 			dev_err(&esoc_clink->dev, "debugging failed\n");
 			return ret;
 		}
