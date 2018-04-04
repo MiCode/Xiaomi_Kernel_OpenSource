@@ -61,6 +61,13 @@
 		qcom,wlan-msa-memory = <0x100000>;
 	};
 
+	wdog: qcom,wdt@17c10000{
+		status = "disabled";
+	};
+
+};
+
+&audio_apr {
 	sound-stub {
 		compatible = "qcom,sdm855-asoc-snd-stub";
 		qcom,model = "sdm855-stub-snd-card";
@@ -76,11 +83,6 @@
 		asoc-codec-names = "msm-stub-codec.1";
 		qcom,wsa-max-devs = <0>;
 	};
-
-	wdog: qcom,wdt@17c10000{
-		status = "disabled";
-	};
-
 };
 
 #include "sdm855-pmic-overlay.dtsi"
