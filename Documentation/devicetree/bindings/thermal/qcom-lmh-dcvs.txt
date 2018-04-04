@@ -31,20 +31,23 @@ Properties:
 	Definition: Should specify the cluster affinity this hardware
 			corresponds to.
 
-- isens_vref-supply:
+- isens_vref_1p8-supply:
+- isens_vref_0p8-supply:
 	Usage: optional
 	Value type: <phandle>
 	Definition: Should specify the phandle of the vref regulator used by
 			the isens hardware. This active only regulator will be
-			enabled by LMH DCVSh.
+			enabled by LMH DCVSh. Isens hardware needs 1.8v and
+			0.8v supply regulators.
 
-- isens-vref-settings:
+- isens-vref-1p8-settings:
+- isens-vref-0p8-settings:
 	Usage: optional
 	Value type: <u32 array>
 	Definition: Should specify the min voltage(uV), max voltage(uV) and
 			max load(uA) for the isens vref regulator. This
 			property is valid only if there is valid entry for
-			isens_vref-supply.
+			isens_vref_1p8-supply and isens_vref_0p8-supply.
 
 - reg:
 	Usage: Required
@@ -60,8 +63,10 @@ Example:
 		compatible = "qcom,msm-hw-limits";
 		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,affinity = <0>;
-		isens_vref-supply = <&pm8998_l1_ao>;
-		isens-vref-settings = <880000 880000 36000>;
+		isens_vref_1p8-supply = <&pm8998_l1_ao>;
+		isens-vref-1p8-settings = <880000 880000 36000>;
+		isens_vref_0p8-supply = <&pm8998_l12_ao>;
+		isens-vref-0p8-settings = <880000 880000 36000>;
 		reg =  <0x18350800 0x1000>, //LLM
 			<0x18323000 0x1000>; //OSM
 	};

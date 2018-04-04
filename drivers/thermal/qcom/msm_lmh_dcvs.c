@@ -99,7 +99,7 @@ struct limits_dcvs_hw {
 	struct mutex cdev_reg_lock;
 	struct __limits_cdev_data *cdev_data;
 	uint32_t cdev_registered;
-	struct regulator *isens_reg;
+	struct regulator *isens_reg[2];
 	struct work_struct cdev_register_work;
 };
 
@@ -435,47 +435,57 @@ static int limits_cpu_online(unsigned int online_cpu)
 	return 0;
 }
 
-static void limits_isens_vref_ldo_init(struct platform_device *pdev,
-					struct limits_dcvs_hw *hw)
+static void limits_isens_qref_init(struct platform_device *pdev,
+					struct limits_dcvs_hw *hw,
+					int idx, char *reg_name,
+					char *reg_setting)
 {
 	int ret = 0;
 	uint32_t settings[3];
 
-	hw->isens_reg = devm_regulator_get(&pdev->dev, "isens_vref");
-	if (IS_ERR_OR_NULL(hw->isens_reg)) {
-		if (PTR_ERR(hw->isens_reg) == -ENODEV)
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+					reg_setting, settings, 3);
+	if (ret) {
+		if (ret == -EINVAL)
 			return;
 
-		pr_err("Regulator:isens_vref init error:%ld\n",
-			PTR_ERR(hw->isens_reg));
-		return;
-	}
-	ret = of_property_read_u32_array(pdev->dev.of_node,
-					"isens-vref-settings",
-					settings, 3);
-	if (ret) {
 		pr_err("Regulator:isens_vref settings read error:%d\n",
 				ret);
-		devm_regulator_put(hw->isens_reg);
 		return;
 	}
-	ret = regulator_set_voltage(hw->isens_reg, settings[0], settings[1]);
+	hw->isens_reg[idx] = devm_regulator_get(&pdev->dev, reg_name);
+	if (IS_ERR_OR_NULL(hw->isens_reg[idx])) {
+		pr_err("Regulator:isens_vref init error:%ld\n",
+			PTR_ERR(hw->isens_reg[idx]));
+		return;
+	}
+	ret = regulator_set_voltage(hw->isens_reg[idx], settings[0],
+					settings[1]);
 	if (ret) {
 		pr_err("Regulator:isens_vref set voltage error:%d\n", ret);
-		devm_regulator_put(hw->isens_reg);
+		devm_regulator_put(hw->isens_reg[idx]);
 		return;
 	}
-	ret = regulator_set_load(hw->isens_reg, settings[2]);
+	ret = regulator_set_load(hw->isens_reg[idx], settings[2]);
 	if (ret) {
 		pr_err("Regulator:isens_vref set load error:%d\n", ret);
-		devm_regulator_put(hw->isens_reg);
+		devm_regulator_put(hw->isens_reg[idx]);
 		return;
 	}
-	if (regulator_enable(hw->isens_reg)) {
+	if (regulator_enable(hw->isens_reg[idx])) {
 		pr_err("Failed to enable regulator:isens_vref\n");
-		devm_regulator_put(hw->isens_reg);
+		devm_regulator_put(hw->isens_reg[idx]);
 		return;
 	}
+}
+
+static void limits_isens_vref_ldo_init(struct platform_device *pdev,
+					struct limits_dcvs_hw *hw)
+{
+	limits_isens_qref_init(pdev, hw, 0, "isens_vref_1p8",
+				"isens-vref-1p8-settings");
+	limits_isens_qref_init(pdev, hw, 1, "isens_vref_0p8",
+				"isens-vref-0p8-settings");
 }
 
 static ssize_t
