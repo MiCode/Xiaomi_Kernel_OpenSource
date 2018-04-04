@@ -2240,9 +2240,9 @@
 		interrupts = <0 129 0>;
 		#mbox-cells = <1>;
 		qcom,drv-id = <0>;
-		qcom,tcs-config = <ACTIVE_TCS  2>,
-				  <SLEEP_TCS   1>,
+		qcom,tcs-config = <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
+				  <ACTIVE_TCS  2>,
 				  <CONTROL_TCS 0>;
 	};
 
