@@ -570,6 +570,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* sdxpoorwills ID */
 	[334] = {SDX_CPU_SDXPOORWILLS, "SDXPOORWILLS"},
+	[335] = {SDX_CPU_SDXPOORWILLS, "SDXPOORWILLS"},
 
 	/* 9650 IDs */
 	[279] = {MSM_CPU_9650, "MDM9650"},
