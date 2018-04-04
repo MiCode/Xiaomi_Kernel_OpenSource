@@ -6,6 +6,8 @@ dtb-$(CONFIG_ARCH_SDXPOORWILLS) += sdxpoorwills-rumi.dtb \
 	sdxpoorwills-mtp-256.dtb \
 	sdxpoorwills-dualwifi-cdp.dtb \
 	sdxpoorwills-dualwifi-mtp.dtb \
+	sdxpoorwills-pcie-ep-cdp-256.dtb \
+	sdxpoorwills-pcie-ep-mtp-256.dtb \
 	sdxpoorwills-pcie-ep-cdp.dtb \
 	sdxpoorwills-pcie-ep-mtp.dtb
 
