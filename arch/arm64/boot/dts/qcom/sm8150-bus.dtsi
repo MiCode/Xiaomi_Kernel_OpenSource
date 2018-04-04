@@ -49,7 +49,7 @@
 			cell-id = <MSM_BUS_RSC_DISP>;
 			label = "disp_rsc";
 			qcom,rsc-dev;
-			qcom,req_state = <3>;
+			qcom,req_state = <2>;
 		};
 
 		/*BCMs*/
