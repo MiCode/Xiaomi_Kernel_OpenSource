@@ -24,7 +24,7 @@
 	qcom,msm-name = "SDM632";
 
 	chosen {
-		/delete-property/ bootargs;
+		bootargs = "kpti=0";
 	};
 };
 
