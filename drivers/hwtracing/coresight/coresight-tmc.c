@@ -393,6 +393,12 @@ static ssize_t mem_size_store(struct device *dev,
 		return -EINVAL;
 	}
 
+	if (drvdata->enable) {
+		mutex_unlock(&drvdata->mem_lock);
+		pr_err("ETR is in use, disable it to change the mem_size\n");
+		return -EINVAL;
+	}
+
 	drvdata->mem_size = val;
 	mutex_unlock(&drvdata->mem_lock);
 	return size;
@@ -523,6 +529,11 @@ static ssize_t mem_type_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mem_lock);
+	if (drvdata->enable) {
+		mutex_unlock(&drvdata->mem_lock);
+		pr_err("ETR is in use, disable it to switch the mode\n");
+		return -EINVAL;
+	}
 	if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_CONTIG]))
 		drvdata->mem_type = TMC_ETR_MEM_TYPE_CONTIG;
 	else if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_SG]))
