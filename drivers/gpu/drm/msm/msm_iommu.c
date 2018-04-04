@@ -237,7 +237,8 @@ static struct device *find_context_bank(const char *name)
 
 	/* Get the parent device */
 	parent = of_find_device_by_node(node->parent);
-
+	if (!parent)
+		return ERR_PTR(-ENODEV);
 	/* Populate the sub nodes */
 	of_platform_populate(parent->dev.of_node, NULL, NULL, &parent->dev);
 
