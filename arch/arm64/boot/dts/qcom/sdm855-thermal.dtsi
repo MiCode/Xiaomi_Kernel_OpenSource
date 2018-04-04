@@ -31,6 +31,10 @@
 		reg = <0x18350800 0x1000>,
 			<0x18325800 0x1000>;
 		#thermal-sensor-cells = <0>;
+		isens_vref_0p8-supply = <&pm855_l5_ao>;
+		isens-vref-0p8-settings = <880000 880000 20000>;
+		isens_vref_1p8-supply = <&pm855_l12_ao>;
+		isens-vref-1p8-settings = <1800000 1800000 20000>;
 	};
 };
 
