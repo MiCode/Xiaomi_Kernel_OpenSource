@@ -93,8 +93,8 @@ compatible devices:
 		qcom,sdm845-llcc,
 		qcom,sdm670-llcc,
 		qcom,sm8150-llcc,
-		qcom,sdmshrike-llcc
-
+		qcom,sdmshrike-llcc,
+		qcom,sdm640-llcc
 
 Example:
 
