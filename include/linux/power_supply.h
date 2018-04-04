@@ -279,6 +279,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_BATT_FULL_CURRENT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_TOGGLE_STAT,
+	POWER_SUPPLY_PROP_ALLOW_HVDCP3,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
