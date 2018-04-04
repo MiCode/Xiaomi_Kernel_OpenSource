@@ -291,7 +291,12 @@ static struct cam_camnoc_specific
 			.value = 0x1,
 		},
 		.ubwc_ctl = {
-			.enable = true,
+			/*
+			 * Do not explicitly set ubwc config register.
+			 * Power on default values are taking care of required
+			 * register settings.
+			 */
+			.enable = false,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.masked_value = 0,
 			.offset = 0x588, /* SPECIFIC_IFE02_ENCCTL_LOW */
@@ -339,7 +344,12 @@ static struct cam_camnoc_specific
 			.value = 0x1,
 		},
 		.ubwc_ctl = {
-			.enable = true,
+			/*
+			 * Do not explicitly set ubwc config register.
+			 * Power on default values are taking care of required
+			 * register settings.
+			 */
+			.enable = false,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.masked_value = 0,
 			.offset = 0x988, /* SPECIFIC_IFE13_ENCCTL_LOW */
@@ -389,7 +399,12 @@ static struct cam_camnoc_specific
 			.value = 0x0,
 		},
 		.ubwc_ctl = {
-			.enable = true,
+			/*
+			 * Do not explicitly set ubwc config register.
+			 * Power on default values are taking care of required
+			 * register settings.
+			 */
+			.enable = false,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.masked_value = 0,
 			.offset = 0xd08, /* SPECIFIC_IBL_RD_DECCTL_LOW */
@@ -439,7 +454,12 @@ static struct cam_camnoc_specific
 			.value = 0x0,
 		},
 		.ubwc_ctl = {
-			.enable = true,
+			/*
+			 * Do not explicitly set ubwc config register.
+			 * Power on default values are taking care of required
+			 * register settings.
+			 */
+			.enable = false,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.masked_value = 0,
 			.offset = 0x1188, /* SPECIFIC_IBL_WR_ENCCTL_LOW */
