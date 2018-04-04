@@ -38,8 +38,7 @@
 		interrupts = <0 83 0>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		iommus = <&apps_smmu 0x800 0x20>,
-			<&apps_smmu 0xc00 0x20>;
+		iommus = <&apps_smmu 0x800 0x420>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -274,8 +273,7 @@
 
 		smmu_sde_sec: qcom,smmu_sde_sec_cb {
 			compatible = "qcom,smmu_sde_sec";
-			iommus = <&apps_smmu 0x801 0x20>,
-			       <&apps_smmu 0xc01 0x20>;
+			iommus = <&apps_smmu 0x801 0x420>;
 		};
 
 		/* data and reg bus scale settings */
