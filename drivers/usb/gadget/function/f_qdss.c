@@ -881,9 +881,14 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	}
 
 	if (qdss->endless_req) {
+		spin_unlock_irqrestore(&qdss_lock, flags);
 		usb_ep_dequeue(qdss->port.data, qdss->endless_req);
-		usb_ep_free_request(qdss->port.data, qdss->endless_req);
-		qdss->endless_req = NULL;
+		spin_lock_irqsave(&qdss_lock, flags);
+		if (qdss->endless_req) {
+			usb_ep_free_request(qdss->port.data,
+					qdss->endless_req);
+			qdss->endless_req = NULL;
+		}
 	}
 	gadget = qdss->gadget;
 	ch->app_conn = 0;
