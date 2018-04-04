@@ -529,11 +529,11 @@ static const struct adc_channels adc_chans_pmic5[ADC_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_DEFAULT)
 	[ADC_XO_THERM_PU2]	= ADC_CHAN_TEMP("xo_therm", 1,
 					SCALE_HW_CALIB_XOTHERM)
-	[ADC_AMUX_THM1_PU2]	= ADC_CHAN_TEMP("amux_thm1", 1,
+	[ADC_AMUX_THM1_PU2]	= ADC_CHAN_TEMP("amux_thm1_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
-	[ADC_AMUX_THM2_PU2]	= ADC_CHAN_TEMP("amux_thm2", 1,
+	[ADC_AMUX_THM2_PU2]	= ADC_CHAN_TEMP("amux_thm2_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
-	[ADC_AMUX_THM3_PU2]	= ADC_CHAN_TEMP("amux_thm3", 1,
+	[ADC_AMUX_THM3_PU2]	= ADC_CHAN_TEMP("amux_thm3_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 	[ADC_INT_EXT_ISENSE_VBAT_VDATA]	= ADC_CHAN_POWER("int_ext_isense", 1,
 					SCALE_HW_CALIB_CUR)
@@ -541,6 +541,8 @@ static const struct adc_channels adc_chans_pmic5[ADC_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_CUR)
 	[ADC_PARALLEL_ISENSE_VBAT_VDATA] = ADC_CHAN_POWER("parallel_isense", 1,
 					SCALE_HW_CALIB_CUR)
+	[ADC_AMUX_THM2]			= ADC_CHAN_TEMP("amux_thm2", 1,
+					SCALE_HW_CALIB_PM5_SMB_TEMP)
 };
 
 static const struct adc_channels adc_chans_rev2[ADC_MAX_CHANNEL] = {
