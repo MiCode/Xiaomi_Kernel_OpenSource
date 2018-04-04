@@ -259,7 +259,7 @@
 				"pcie_tbu_clk", "pcie_phy_refgen_clk",
 				"pcie_phy_aux_clk";
 
-		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>,
+		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>, <0>,
 					<0>, <0>, <0>, <0>, <100000000>, <0>;
 
 		resets = <&clock_gcc GCC_PCIE_0_BCR>,
@@ -595,7 +595,7 @@
 				"pcie_tbu_clk", "pcie_phy_refgen_clk",
 				"pcie_phy_aux_clk";
 
-		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>,
+		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>, <0>,
 					<0>, <0>, <0>, <0>, <100000000>, <0>;
 
 		resets = <&clock_gcc GCC_PCIE_1_BCR>,
