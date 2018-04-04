@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -893,7 +893,7 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 								mdev->name);
 
 	ret = devm_request_irq(&pdev->dev, mdev->rx_irq_line, qmp_irq_handler,
-		IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND | IRQF_SHARED,
+		IRQF_TRIGGER_RISING | IRQF_SHARED,
 		edge_node->name, mdev);
 	if (ret < 0) {
 		qmp_mbox_remove(pdev);

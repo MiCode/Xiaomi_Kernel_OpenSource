@@ -2503,7 +2503,7 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 
 	einfo->irq_line = irq_line;
 	rc = request_irq(irq_line, irq_handler,
-			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND | IRQF_SHARED,
+			IRQF_TRIGGER_RISING | IRQF_SHARED,
 			node->name, einfo);
 	if (rc < 0) {
 		pr_err("%s: request_irq on %d failed: %d\n", __func__, irq_line,
