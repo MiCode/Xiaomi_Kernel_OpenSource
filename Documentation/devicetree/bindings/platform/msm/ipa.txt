@@ -128,6 +128,8 @@ IPA SMMU sub nodes
 
 - qcom,smmu-s1-bypass: Boolean context flag to set SMMU to S1 bypass.
 
+- dma-coherent: Indicate using dma-coherent or not in SMMU block
+
 - iommus : the phandle and stream IDs for the SMMU used by this root
 
 - qcom,iova-mapping: specifies the start address and size of iova space.
