@@ -89,8 +89,8 @@ struct limits_dcvs_hw {
 	void *min_freq_reg;
 	cpumask_t core_map;
 	struct delayed_work freq_poll_work;
-	unsigned long max_freq;
-	unsigned long min_freq;
+	unsigned long max_freq[NR_CPUS];
+	unsigned long min_freq[NR_CPUS];
 	unsigned long hw_freq_limit;
 	struct device_attribute lmh_freq_attr;
 	struct list_head list;
@@ -106,63 +106,80 @@ struct limits_dcvs_hw {
 LIST_HEAD(lmh_dcvs_hw_list);
 DEFINE_MUTEX(lmh_dcvs_list_access);
 
-static int limits_dcvs_get_freq_limits(uint32_t cpu, unsigned long *max_freq,
-					 unsigned long *min_freq)
+static void limits_dcvs_get_freq_limits(struct limits_dcvs_hw *hw)
 {
 	unsigned long freq_ceil = UINT_MAX, freq_floor = 0;
 	struct device *cpu_dev = NULL;
-	int ret = 0;
+	uint32_t cpu, idx = 0;
 
-	cpu_dev = get_cpu_device(cpu);
-	if (!cpu_dev) {
-		pr_err("Error in get CPU%d device\n", cpu);
-		return -ENODEV;
+	for_each_cpu(cpu, &hw->core_map) {
+		freq_ceil = UINT_MAX;
+		freq_floor = 0;
+		cpu_dev = get_cpu_device(cpu);
+		if (!cpu_dev) {
+			pr_err("Error in get CPU%d device\n", cpu);
+			idx++;
+			continue;
+		}
+
+		dev_pm_opp_find_freq_floor(cpu_dev, &freq_ceil);
+		dev_pm_opp_find_freq_ceil(cpu_dev, &freq_floor);
+
+		hw->max_freq[idx] = freq_ceil / 1000;
+		hw->min_freq[idx] = freq_floor / 1000;
+		idx++;
 	}
-
-	dev_pm_opp_find_freq_floor(cpu_dev, &freq_ceil);
-	dev_pm_opp_find_freq_ceil(cpu_dev, &freq_floor);
-
-	*max_freq = freq_ceil / 1000;
-	*min_freq = freq_floor / 1000;
-
-	return ret;
 }
 
 static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 {
-	uint32_t val = 0;
+	uint32_t val = 0, max_cpu_ct = 0, max_cpu_limit = 0, idx = 0, cpu = 0;
 	struct device *cpu_dev = NULL;
 	unsigned long freq_val, max_limit = 0;
 	struct dev_pm_opp *opp_entry;
 
 	val = readl_relaxed(hw->osm_hw_reg);
 	dcvsh_get_frequency(val, max_limit);
-	cpu_dev = get_cpu_device(cpumask_first(&hw->core_map));
-	if (!cpu_dev) {
-		pr_err("Error in get CPU%d device\n",
-			cpumask_first(&hw->core_map));
-		goto notify_exit;
-	}
+	for_each_cpu(cpu, &hw->core_map) {
+		cpu_dev = get_cpu_device(cpu);
+		if (!cpu_dev) {
+			pr_err("Error in get CPU%d device\n",
+				cpumask_first(&hw->core_map));
+			goto notify_exit;
+		}
 
-	pr_debug("CPU:%d max value read:%lu\n",
+		pr_debug("CPU:%d max value read:%lu\n",
 			cpumask_first(&hw->core_map),
 			max_limit);
-	freq_val = FREQ_KHZ_TO_HZ(max_limit);
-	opp_entry = dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
-	/*
-	 * Hardware mitigation frequency can be lower than the lowest
-	 * possible CPU frequency. In that case freq floor call will
-	 * fail with -ERANGE and we need to match to the lowest
-	 * frequency using freq_ceil.
-	 */
-	if (IS_ERR(opp_entry) && PTR_ERR(opp_entry) == -ERANGE) {
-		opp_entry = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_val);
-		if (IS_ERR(opp_entry))
-			dev_err(cpu_dev, "frequency:%lu. opp error:%ld\n",
+		freq_val = FREQ_KHZ_TO_HZ(max_limit);
+		opp_entry = dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
+		/*
+		 * Hardware mitigation frequency can be lower than the lowest
+		 * possible CPU frequency. In that case freq floor call will
+		 * fail with -ERANGE and we need to match to the lowest
+		 * frequency using freq_ceil.
+		 */
+		if (IS_ERR(opp_entry) && PTR_ERR(opp_entry) == -ERANGE) {
+			opp_entry = dev_pm_opp_find_freq_ceil(cpu_dev,
+								&freq_val);
+			if (IS_ERR(opp_entry))
+				dev_err(cpu_dev,
+					"frequency:%lu. opp error:%ld\n",
 					freq_val, PTR_ERR(opp_entry));
+		}
+		if (FREQ_HZ_TO_KHZ(freq_val) == hw->max_freq[idx]) {
+			max_cpu_ct++;
+			if (max_cpu_limit < hw->max_freq[idx])
+				max_cpu_limit = hw->max_freq[idx];
+			idx++;
+			continue;
+		}
+		max_limit = FREQ_HZ_TO_KHZ(freq_val);
+		break;
 	}
-	max_limit = FREQ_HZ_TO_KHZ(freq_val);
 
+	if (max_cpu_ct == cpumask_weight(&hw->core_map))
+		max_limit = max_cpu_limit;
 	sched_update_cpu_freq_min_max(&hw->core_map, 0, max_limit);
 	pr_debug("CPU:%d max limit:%lu\n", cpumask_first(&hw->core_map),
 			max_limit);
@@ -179,13 +196,18 @@ static void limits_dcvs_poll(struct work_struct *work)
 	struct limits_dcvs_hw *hw = container_of(work,
 					struct limits_dcvs_hw,
 					freq_poll_work.work);
+	int cpu_ct = 0, cpu = 0, idx = 0;
 
 	mutex_lock(&hw->access_lock);
-	if (hw->max_freq == U32_MAX)
-		limits_dcvs_get_freq_limits(cpumask_first(&hw->core_map),
-			&hw->max_freq, &hw->min_freq);
+	if (hw->max_freq[0] == U32_MAX)
+		limits_dcvs_get_freq_limits(hw);
 	max_limit = limits_mitigation_notify(hw);
-	if (max_limit >= hw->max_freq) {
+	for_each_cpu(cpu, &hw->core_map) {
+		if (max_limit >= hw->max_freq[idx])
+			cpu_ct++;
+		idx++;
+	}
+	if (cpu_ct >= cpumask_weight(&hw->core_map)) {
 		writel_relaxed(0xFF, hw->int_clr_reg);
 		hw->is_irq_enabled = true;
 		enable_irq(hw->irq_num);
@@ -343,7 +365,7 @@ static int lmh_set_max_limit(int cpu, u32 freq)
 		 * the CPU to use the boost frequencies.
 		 */
 			hw->cdev_data[idx].max_freq =
-				(freq == hw->max_freq) ? U32_MAX : freq;
+				(freq == hw->max_freq[idx]) ? U32_MAX : freq;
 		if (max_freq > hw->cdev_data[idx].max_freq)
 			max_freq = hw->cdev_data[idx].max_freq;
 		idx++;
@@ -360,8 +382,7 @@ static int lmh_set_max_limit(int cpu, u32 freq)
 static int lmh_set_min_limit(int cpu, u32 freq)
 {
 	struct limits_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
-	int cpu_idx, idx = 0;
-	u32 min_freq = 0;
+	int cpu_idx, idx = 0, cpu_ct = 0;
 
 	if (!hw)
 		return -EINVAL;
@@ -370,11 +391,11 @@ static int lmh_set_min_limit(int cpu, u32 freq)
 	for_each_cpu(cpu_idx, &hw->core_map) {
 		if (cpu_idx == cpu)
 			hw->cdev_data[idx].min_freq = freq;
-		if (min_freq < hw->cdev_data[idx].min_freq)
-			min_freq = hw->cdev_data[idx].min_freq;
+		if (hw->cdev_data[idx].min_freq <= hw->min_freq[idx])
+			cpu_ct++;
 		idx++;
 	}
-	if (min_freq != hw->min_freq)
+	if (cpu_ct < cpumask_weight(&hw->core_map))
 		writel_relaxed(0x01, hw->min_freq_reg);
 	else
 		writel_relaxed(0x00, hw->min_freq_reg);
@@ -394,9 +415,8 @@ static void register_cooling_device(struct work_struct *work)
 	unsigned int cpu = 0, idx = 0;
 
 	mutex_lock(&hw->cdev_reg_lock);
-	if (hw->max_freq == U32_MAX)
-		limits_dcvs_get_freq_limits(cpumask_first(&hw->core_map),
-			&hw->max_freq, &hw->min_freq);
+	if (hw->max_freq[0] == U32_MAX)
+		limits_dcvs_get_freq_limits(hw);
 
 	for_each_cpu(cpu, &hw->core_map) {
 		cpumask_t cpu_mask  = { CPU_BITS_NONE };
@@ -547,6 +567,8 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		hw->cdev_data[idx].cdev = NULL;
 		hw->cdev_data[idx].max_freq = U32_MAX;
 		hw->cdev_data[idx].min_freq = 0;
+		hw->max_freq[idx] = U32_MAX;
+		hw->min_freq[idx] = 0;
 		idx++;
 	}
 	ret = of_property_read_u32(dn, "qcom,affinity", &affinity);
@@ -586,8 +608,7 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	 */
 	hw->temp_limits[LIMITS_TRIP_HI] = INT_MAX;
 	hw->temp_limits[LIMITS_TRIP_ARM] = 0;
-	hw->hw_freq_limit = hw->max_freq = U32_MAX;
-	hw->min_freq = 0;
+	hw->hw_freq_limit = U32_MAX;
 	snprintf(hw->sensor_name, sizeof(hw->sensor_name), "limits_sensor-%02d",
 			affinity);
 	tzdev = thermal_zone_of_sensor_register(&pdev->dev, 0, hw,
