@@ -704,6 +704,8 @@
 #include "sdm855-sde-pll.dtsi"
 #include "sdm855-sde.dtsi"
 
+#include "sdm855-camera.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -1330,6 +1332,27 @@
 		vdd_mm-supply = <&pm855l_s5_level>;
 		clock-names = "cfg_ahb_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+
+		qcom,cam_cc_csi0phytimer_clk_src-opp-handle = <&cam_csiphy0>;
+		qcom,cam_cc_csi1phytimer_clk_src-opp-handle = <&cam_csiphy1>;
+		qcom,cam_cc_csi2phytimer_clk_src-opp-handle = <&cam_csiphy2>;
+		qcom,cam_cc_csi3phytimer_clk_src-opp-handle = <&cam_csiphy3>;
+		qcom,cam_cc_cci_0_clk_src-opp-handle = <&cam_cci0>;
+		qcom,cam_cc_cci_1_clk_src-opp-handle = <&cam_cci1>;
+		qcom,cam_cc_ife_0_csid_clk_src-opp-handle = <&cam_csid0>;
+		qcom,cam_cc_ife_0_clk_src-opp-handle = <&cam_vfe0>;
+		qcom,cam_cc_ife_1_csid_clk_src-opp-handle = <&cam_csid1>;
+		qcom,cam_cc_ife_1_clk_src-opp-handle = <&cam_vfe1>;
+		qcom,cam_cc_ife_lite_0_csid_clk_src-opp-handle =
+							<&cam_csid_lite0>;
+		qcom,cam_cc_ife_lite_1_csid_clk_src-opp-handle =
+							<&cam_csid_lite1>;
+		qcom,cam_cc_ife_lite_0_clk_src-opp-handle = <&cam_vfe_lite0>;
+		qcom,cam_cc_ife_lite_1_clk_src-opp-handle = <&cam_vfe_lite1>;
+		qcom,cam_cc_icp_clk_src-opp-handle = <&cam_a5>;
+		qcom,cam_cc_ipe_0_clk_src-opp-handle = <&cam_ipe0>;
+		qcom,cam_cc_bps_clk_src-opp-handle = <&cam_bps>;
+
 		#clock-cells = <1>;
 	};
 

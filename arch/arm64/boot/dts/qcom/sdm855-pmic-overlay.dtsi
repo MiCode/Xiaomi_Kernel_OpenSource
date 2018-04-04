@@ -38,6 +38,26 @@
 	};
 };
 
+&pm855l_gpios {
+	cam_sensor_eldo4 {
+		cam_sensor_eldo4_default: cam_sensor_eldo4_default {
+			pins = "gpio3";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+
+	cam_sensor_eldo3 {
+		cam_sensor_eldo3_default: cam_sensor_eldo3_default {
+			pins = "gpio4";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+};
+
 &pm855b_charger {
 	smb5_vconn: qcom,smb5-vconn {
 		regulator-name = "smb5-vconn";
