@@ -16,6 +16,9 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sm8150-mtp-overlay.dtbo \
 		sm8150-rumi-overlay.dtbo \
 		sm8150-qrd-overlay.dtbo \
+		sm8150p-cdp-overlay.dtbo \
+		sm8150p-mtp-overlay.dtbo \
+		sm8150p-qrd-overlay.dtbo \
 		sm8150-sdx50m-cdp-overlay.dtbo \
 		sm8150-sdx50m-mtp-overlay.dtbo
 
@@ -25,6 +28,8 @@ sm8150-rumi-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-qrd-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-sdx50m-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
 sm8150-sdx50m-mtp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb
+sm8150p-mtp-overlay.dtbo-base := sm8150p.dtb sm8150p-v2.dtb
+sm8150p-qrd-overlay.dtbo-base := sm8150p.dtb sm8150p-v2.dtb
 else
 dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150-mtp.dtb \
@@ -33,7 +38,13 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150-v2-rumi.dtb \
 	sm8150-v2-mtp.dtb \
 	sm8150-v2-cdp.dtb \
-	sm8150-v2-qrd.dtb
+	sm8150-v2-qrd.dtb \
+	sm8150p-mtp.dtb \
+	sm8150p-cdp.dtb \
+	sm8150p-qrd.dtb \
+	sm8150p-v2-mtp.dtb \
+	sm8150p-v2-cdp.dtb \
+	sm8150p-v2-qrd.dtb
 endif
 
 dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-rumi.dtb \
