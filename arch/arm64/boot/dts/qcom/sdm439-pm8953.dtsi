@@ -125,8 +125,8 @@
 };
 
 &mdss_dsi {
-	/delete-property/ vdda-supply;
-	/delete-property/ vddio-supply;
+	vdda-supply = <&pm8953_l2>; /*1.2V*/
+	vddio-supply = <&pm8953_l6>; /*1.8V*/
 };
 
 &usb_otg {
@@ -137,21 +137,22 @@
 };
 
 &mdss_dsi0_pll {
-	/delete-property/ vddio-supply;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &mdss_dsi1_pll {
-	/delete-property/ vddio-supply;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &mdss_dsi0 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vddio-supply;
+	vdd-supply = <&pm8953_l17>;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &mdss_dsi1 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vddio-supply;
+	status = "disabled";
+	vdd-supply = <&pm8953_l17>;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &int_codec {
