@@ -46,6 +46,15 @@
 	};
 };
 
+&pm855l_wled {
+	qcom,string-cfg= <7>;
+	status = "ok";
+};
+
+&pm855l_lcdb {
+	status = "ok";
+};
+
 &qupv3_se12_2uart {
 	status = "ok";
 };
