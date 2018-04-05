@@ -172,6 +172,23 @@
 	qcom,rpmcc@1800000 {
 		compatible = "qcom,rpmcc-8909-pm660";
 	};
+
+	qcom,sensor-information {
+		sensor_information9: qcom,sensor-information-9 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "emmc_therm";
+		};
+
+		sensor_information10: qcom,sensor-information-10 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "msm_therm";
+		};
+
+		sensor_information11: qcom,sensor-information-11 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "quiet_therm";
+		};
+	};
 };
 
 &sdhc_1 {
