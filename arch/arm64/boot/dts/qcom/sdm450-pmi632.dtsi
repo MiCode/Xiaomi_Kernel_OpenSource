@@ -63,6 +63,27 @@
 &thermal_zones {
 	pmi-vbat-lvl0 {
 		cooling-maps {
+			vbat_map0 {
+				trip = <&pmi632_vbat_lvl0>;
+				/* throttle from fmax to 1689600KHz */
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			vbat_map1 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			vbat_map2 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			vbat_map3 {
+				trip = <&pmi632_vbat_lvl0>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
 			vbat_map4 {
 				trip = <&pmi632_vbat_lvl0>;
 				cooling-device =
@@ -90,8 +111,79 @@
 		};
 	};
 
+	pmi-ibat-lvl0 {
+		cooling-maps {
+			ibat_map0 {
+				trip = <&pmi632_ibat_lvl0>;
+				/* throttle from fmax to 1689600KHz */
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			ibat_map1 {
+				trip = <&pmi632_ibat_lvl0>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			ibat_map2 {
+				trip = <&pmi632_ibat_lvl0>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			ibat_map3 {
+				trip = <&pmi632_ibat_lvl0>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			ibat_map4 {
+				trip = <&pmi632_ibat_lvl0>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			ibat_map5 {
+				trip = <&pmi632_ibat_lvl0>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			ibat_map6 {
+				trip = <&pmi632_ibat_lvl0>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			ibat_map7 {
+				trip = <&pmi632_ibat_lvl0>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
 	soc {
 		cooling-maps {
+			soc_map0 {
+				trip = <&pmi632_low_soc>;
+				/* throttle from fmax to 1689600KHz */
+				cooling-device = <&CPU0 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			soc_map1 {
+				trip = <&pmi632_low_soc>;
+				cooling-device = <&CPU1 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			soc_map2 {
+				trip = <&pmi632_low_soc>;
+				cooling-device = <&CPU2 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
+			soc_map3 {
+				trip = <&pmi632_low_soc>;
+				cooling-device = <&CPU3 (THERMAL_MAX_LIMIT - 4)
+						(THERMAL_MAX_LIMIT - 4)>;
+			};
 			soc_map4 {
 				trip = <&pmi632_low_soc>;
 				cooling-device =
