@@ -172,6 +172,7 @@ struct cam_hw_prepare_update_args {
  * @out_map_entries:       Out map info
  * @num_out_map_entries:   Number of out map entries
  * @priv:                  Private pointer
+ * @request_id:            Request ID
  *
  */
 struct cam_hw_config_args {
@@ -181,6 +182,7 @@ struct cam_hw_config_args {
 	struct cam_hw_fence_map_entry  *out_map_entries;
 	uint32_t                        num_out_map_entries;
 	void                           *priv;
+	uint64_t                        request_id;
 };
 
 /**

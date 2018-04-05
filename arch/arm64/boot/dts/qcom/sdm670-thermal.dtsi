@@ -576,7 +576,7 @@
 		};
 	};
 
-	xo-therm-cpu-step {
+	xo-therm-step {
 		polling-delay-passive = <2000>;
 		polling-delay = <0>;
 		thermal-sensors = <&pm660_adc_tm 0x4c>;
@@ -591,6 +591,26 @@
 			silver_trip1: silver-trip1 {
 				temperature = <52000>;
 				hysteresis = <0>;
+				type = "passive";
+			};
+			modem_trip0: modem-trip0 {
+				temperature = <48000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			modem_trip1: modem-trip1 {
+				temperature = <50000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			modem_trip2: modem-trip2 {
+				temperature = <52000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			modem_trip3: modem-trip3 {
+				temperature = <56000>;
+				hysteresis = <4000>;
 				type = "passive";
 			};
 		};
@@ -634,39 +654,6 @@
 				trip = <&silver_trip1>;
 				cooling-device = <&CPU5 THERMAL_NO_LIMIT 2>;
 			};
-		};
-	};
-
-	xo-therm-mdm-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&pm660_adc_tm 0x4c>;
-		thermal-governor = "step_wise";
-
-		trips {
-			modem_trip0: modem-trip0 {
-				temperature = <48000>;
-				hysteresis = <4000>;
-				type = "passive";
-			};
-			modem_trip1: modem-trip1 {
-				temperature = <50000>;
-				hysteresis = <4000>;
-				type = "passive";
-			};
-			modem_trip2: modem-trip2 {
-				temperature = <52000>;
-				hysteresis = <2000>;
-				type = "passive";
-			};
-			modem_trip3: modem-trip3 {
-				temperature = <56000>;
-				hysteresis = <4000>;
-				type = "passive";
-			};
-		};
-
-		cooling-maps {
 			modem_lvl1 {
 				trip = <&modem_trip1>;
 				cooling-device = <&modem_pa 1 1>;

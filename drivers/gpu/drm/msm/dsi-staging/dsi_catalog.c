@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,8 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	ctrl->ops.error_intr_ctrl = dsi_ctrl_hw_cmn_error_intr_ctrl;
 	ctrl->ops.get_error_mask = dsi_ctrl_hw_cmn_get_error_mask;
 	ctrl->ops.get_hw_version = dsi_ctrl_hw_cmn_get_hw_version;
+	ctrl->ops.wait_for_cmd_mode_mdp_idle =
+		dsi_ctrl_hw_cmn_wait_for_cmd_mode_mdp_idle;
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +24,7 @@
 
 #define GAMUT_LUT_MEM_SIZE ((sizeof(struct drm_msm_3d_gamut)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
-#define GAMUT_SCALE_OFF_LEN (GAMUT_3D_SCALE_OFF_SZ * \
-		GAMUT_3D_SCALE_OFF_TBL_NUM * sizeof(u32))
+#define GAMUT_SCALE_OFF_LEN (GAMUT_3D_SCALE_OFF_SZ * sizeof(u32))
 #define GAMUT_SCALE_OFF_LEN_12 (GAMUT_3D_SCALEB_OFF_SZ * sizeof(u32))
 
 #define GC_LUT_MEM_SIZE ((sizeof(struct drm_msm_pgc_lut)) + \
@@ -246,6 +245,32 @@ static int reg_dma_kick_off(enum sde_reg_dma_op op, enum sde_reg_dma_queue q,
 		DRM_ERROR("failed to kick off ret %d\n", rc);
 
 	return rc;
+}
+
+bool reg_dmav1_dspp_feature_support(int feature)
+{
+	struct sde_hw_reg_dma_ops *dma_ops;
+	bool is_supported = false;
+
+	if (feature >= SDE_DSPP_MAX) {
+		DRM_ERROR("invalid feature %x max %x\n",
+			feature, SDE_DSPP_MAX);
+		return is_supported;
+	}
+
+	if (feature_map[feature] >= REG_DMA_FEATURES_MAX) {
+		DRM_ERROR("invalid feature map %d for feature %d\n",
+			feature_map[feature], feature);
+		return is_supported;
+	}
+
+	dma_ops = sde_reg_dma_get_ops();
+	if (IS_ERR_OR_NULL(dma_ops))
+		return is_supported;
+
+	dma_ops->check_support(feature_map[feature], DSPP0, &is_supported);
+
+	return is_supported;
 }
 
 int reg_dmav1_init_dspp_op_v4(int feature, enum sde_dspp idx)

@@ -33,6 +33,7 @@ struct cam_cpas_vdd_ahb_mapping {
  * struct cam_cpas_private_soc : CPAS private DT info
  *
  * @arch_compat: ARCH compatible string
+ * @hw_version: Camera HW version
  * @client_id_based: Whether clients are id based
  * @num_clients: Number of clients supported
  * @client_name: Client names
@@ -43,9 +44,15 @@ struct cam_cpas_vdd_ahb_mapping {
  * @vdd_ahb : AHB level mapping info for the supported vdd levels
  * @soc_id : SOC id
  * @hw_rev : Camera hw revision
+ * @control_camnoc_axi_clk : Whether CPAS driver need to set camnoc axi clk freq
+ * @camnoc_bus_width : CAMNOC Bus width
+ * @camnoc_axi_clk_bw_margin : BW Margin in percentage to add while calculating
+ *      camnoc axi clock
+ *
  */
 struct cam_cpas_private_soc {
 	const char *arch_compat;
+	uint32_t hw_version;
 	bool client_id_based;
 	uint32_t num_clients;
 	const char *client_name[CAM_CPAS_MAX_CLIENTS];
@@ -56,6 +63,9 @@ struct cam_cpas_private_soc {
 	struct cam_cpas_vdd_ahb_mapping vdd_ahb[CAM_REGULATOR_LEVEL_MAX];
 	uint32_t soc_id;
 	uint32_t hw_rev;
+	bool control_camnoc_axi_clk;
+	uint32_t camnoc_bus_width;
+	uint32_t camnoc_axi_clk_bw_margin;
 };
 
 int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,

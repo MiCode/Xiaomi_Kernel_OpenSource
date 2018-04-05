@@ -149,6 +149,8 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 	if (!byte_cntr_data->read_active)
 		goto err0;
 
+	bufp = (char *)(tmcdrvdata->buf + *ppos);
+
 	if (byte_cntr_data->enable) {
 		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
 			mutex_unlock(&byte_cntr_data->byte_cntr_lock);
@@ -159,7 +161,6 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 			if (!byte_cntr_data->read_active)
 				goto err0;
 		}
-		bufp = (char *)(tmcdrvdata->buf + *ppos);
 
 		if (tmcdrvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG)
 			tmc_etr_read_bytes(byte_cntr_data, ppos,
@@ -268,8 +269,12 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 		return -EINVAL;
 	}
 
+	/* IRQ is a '8- byte' counter and to observe interrupt at
+	 * 'block_size' bytes of data
+	 */
 	coresight_csr_set_byte_cntr(byte_cntr_data->csr,
-				byte_cntr_data->block_size);
+				(byte_cntr_data->block_size) / 8);
+
 	fp->private_data = byte_cntr_data;
 	nonseekable_open(in, fp);
 	byte_cntr_data->enable = true;

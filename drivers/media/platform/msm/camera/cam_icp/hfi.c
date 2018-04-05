@@ -285,7 +285,7 @@ int hfi_enable_ipe_bps_pc(bool enable, uint32_t core_info)
 	return 0;
 }
 
-int hfi_set_debug_level(uint32_t lvl)
+int hfi_set_debug_level(u64 a5_dbg_type, uint32_t lvl)
 {
 	uint8_t *prop;
 	struct hfi_cmd_prop *dbg_prop;
@@ -316,9 +316,9 @@ int hfi_set_debug_level(uint32_t lvl)
 	dbg_prop->num_prop = 1;
 	dbg_prop->prop_data[0] = HFI_PROP_SYS_DEBUG_CFG;
 	dbg_prop->prop_data[1] = lvl;
-	dbg_prop->prop_data[2] = HFI_DEBUG_MODE_QUEUE;
-
+	dbg_prop->prop_data[2] = a5_dbg_type;
 	hfi_write_cmd(prop);
+
 	kfree(prop);
 
 	return 0;
@@ -538,6 +538,10 @@ int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
 		icp_base + HFI_REG_UNCACHED_HEAP_PTR);
 	cam_io_w_mb((uint32_t)hfi_mem->sec_heap.len,
 		icp_base + HFI_REG_UNCACHED_HEAP_SIZE);
+	cam_io_w_mb((uint32_t)hfi_mem->qdss.iova,
+		icp_base + HFI_REG_QDSS_IOVA);
+	cam_io_w_mb((uint32_t)hfi_mem->qdss.len,
+		icp_base + HFI_REG_QDSS_IOVA_SIZE);
 
 	return rc;
 }
@@ -715,6 +719,10 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		icp_base + HFI_REG_UNCACHED_HEAP_SIZE);
 	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_SET,
 		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
+	cam_io_w_mb((uint32_t)hfi_mem->qdss.iova,
+		icp_base + HFI_REG_QDSS_IOVA);
+	cam_io_w_mb((uint32_t)hfi_mem->qdss.len,
+		icp_base + HFI_REG_QDSS_IOVA_SIZE);
 
 	hw_version = cam_io_r(icp_base + HFI_REG_A5_HW_VERSION);
 

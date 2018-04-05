@@ -387,12 +387,7 @@
 };
 
 &thermal_zones {
-	xo-therm-batt-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&pm660_adc_tm 0x4c>;
-		thermal-governor = "step_wise";
-
+	xo-therm-step {
 		trips {
 			batt_trip1: batt-trip1 {
 				temperature = <50000>;
