@@ -801,6 +801,11 @@ int pil_mss_debug_reset(struct pil_desc *pil)
 
 	if (!pil->minidump)
 		return 0;
+	if (pil->minidump) {
+		if (pil->minidump->md_ss_enable_status != MD_SS_ENABLED)
+			return 0;
+	}
+
 	/*
 	 * Bring subsystem out of reset and enable required
 	 * regulators and clocks.
