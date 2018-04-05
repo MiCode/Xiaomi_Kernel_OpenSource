@@ -266,3 +266,33 @@
 	/delete-node/ case_therm;
 };
 
+&pil_mss {
+	vdd_mss-supply = <&pm8953_s1>;
+	vdd_cx-supply = <&pm8953_s2_level>;
+	vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	vdd_mx-supply = <&pm8953_s7_level_ao>;
+	vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	vdd_pll-supply = <&pm8953_l7>;
+};
+
+&soc {
+	qcom,lpass@c200000 {
+		vdd_cx-supply = <&pm8953_s2_level>;
+	};
+
+	qcom,pronto@a21b000 {
+		vdd_pronto_pll-supply = <&pm8953_l7>;
+	};
+
+	qcom,wcnss-wlan@0a000000 {
+		qcom,pronto-vddmx-supply = <&pm8953_s7_level_ao>;
+		qcom,pronto-vddcx-supply = <&pm8953_s2_level>;
+		qcom,pronto-vddpx-supply = <&pm8953_l5>;
+		qcom,iris-vddxo-supply   = <&pm8953_l7>;
+		qcom,iris-vddrfa-supply  = <&pm8953_l19>;
+		qcom,iris-vddpa-supply   = <&pm8953_l9>;
+		qcom,iris-vdddig-supply  = <&pm8953_l5>;
+		qcom,wcnss-adc_tm = <&pm8953_adc_tm>;
+	};
+};
+
