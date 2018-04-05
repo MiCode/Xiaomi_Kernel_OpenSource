@@ -22,13 +22,13 @@
 #include <linux/delay.h>
 #include <linux/dma-buf.h>
 #include <linux/pm_runtime.h>
-#include <linux/sw_sync.h>
 #include <linux/iommu.h>
 
 #include "mdp3_ctrl.h"
 #include "mdp3.h"
 #include "mdp3_ppp.h"
 #include "mdss_smmu.h"
+#include "mdss_sync.h"
 
 #define VSYNC_EXPIRE_TICK	4
 
@@ -233,7 +233,7 @@ static void mdp3_vsync_retire_signal(struct msm_fb_data_type *mfd, int val)
 
 	mutex_lock(&mfd->mdp_sync_pt_data.sync_mutex);
 	if (mdp3_session->retire_cnt > 0) {
-		sw_sync_timeline_inc(mdp3_session->vsync_timeline, val);
+		mdss_inc_timeline(mfd->mdp_sync_pt_data.timeline_retire, val);
 		mdp3_session->retire_cnt -= min(val, mdp3_session->retire_cnt);
 	}
 	mutex_unlock(&mfd->mdp_sync_pt_data.sync_mutex);
@@ -2117,7 +2117,7 @@ static int mdp3_pp_ioctl(struct msm_fb_data_type *mfd,
 static int mdp3_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 				void __user *argp)
 {
-	int ret = -ENOTSUP;
+	int ret = -ENOTSUPP;
 	struct mdp_histogram_data hist;
 	struct mdp_histogram_start_req hist_req;
 	u32 block;
@@ -2821,8 +2821,8 @@ static int mdp3_vsync_retire_setup(struct msm_fb_data_type *mfd)
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 
 	snprintf(name, sizeof(name), "mdss_fb%d_retire", mfd->index);
-	mdp3_session->vsync_timeline = sw_sync_timeline_create(name);
-	if (mdp3_session->vsync_timeline == NULL) {
+	mfd->mdp_sync_pt_data.timeline_retire = mdss_create_timeline(name);
+	if (mfd->mdp_sync_pt_data.timeline_retire == NULL) {
 		pr_err("cannot vsync create time line");
 		return -ENOMEM;
 	}
@@ -2875,8 +2875,9 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mutex_init(&mdp3_session->lock);
 	INIT_WORK(&mdp3_session->clk_off_work, mdp3_dispatch_clk_off);
 
-	init_kthread_worker(&mdp3_session->worker);
-	init_kthread_work(&mdp3_session->dma_done_work, mdp3_dispatch_dma_done);
+	kthread_init_worker(&mdp3_session->worker);
+	kthread_init_work(&mdp3_session->dma_done_work, mdp3_dispatch_dma_done);
+
 
 	mdp3_session->thread = kthread_run(kthread_worker_fn,
 					   &mdp3_session->worker,

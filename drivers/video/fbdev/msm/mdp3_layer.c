@@ -21,8 +21,6 @@
 #include <linux/delay.h>
 #include <linux/msm_mdp.h>
 #include <linux/memblock.h>
-#include <linux/sync.h>
-#include <linux/sw_sync.h>
 #include <linux/file.h>
 
 #include <soc/qcom/event_timer.h>
@@ -31,17 +29,18 @@
 #include "mdp3_ppp.h"
 #include "mdp3_ctrl.h"
 #include "mdss_fb.h"
+#include "mdss_sync.h"
 
 enum {
 	MDP3_RELEASE_FENCE = 0,
 	MDP3_RETIRE_FENCE,
 };
 
-static struct sync_fence *__mdp3_create_fence(struct msm_fb_data_type *mfd,
+static struct mdss_fence *__mdp3_create_fence(struct msm_fb_data_type *mfd,
 	struct msm_sync_pt_data *sync_pt_data, u32 fence_type,
 	int *fence_fd, int value)
 {
-	struct sync_fence *sync_fence = NULL;
+	struct mdss_fence *sync_fence = NULL;
 	char fence_name[32];
 	struct mdp3_session_data *mdp3_session;
 
@@ -56,38 +55,42 @@ static struct sync_fence *__mdp3_create_fence(struct msm_fb_data_type *mfd,
 
 	if ((fence_type == MDP3_RETIRE_FENCE) &&
 		(mfd->panel.type == MIPI_CMD_PANEL)) {
-		if (mdp3_session->vsync_timeline) {
-			value = mdp3_session->vsync_timeline->value + 1 +
-				mdp3_session->retire_cnt++;
-			sync_fence = mdss_fb_sync_get_fence(
-					mdp3_session->vsync_timeline,
+		if (sync_pt_data->timeline_retire) {
+			value = sync_pt_data->timeline_retire->value + 1 +
+						mdp3_session->retire_cnt++;
+					sync_fence = mdss_fb_sync_get_fence(
+					sync_pt_data->timeline_retire,
 						fence_name, value);
+
 		} else {
 			return ERR_PTR(-EPERM);
 		}
 	} else {
-		sync_fence = mdss_fb_sync_get_fence(sync_pt_data->timeline,
-			fence_name, value);
-	}
+		if (fence_type == MDP3_RETIRE_FENCE)
+			sync_fence = mdss_fb_sync_get_fence(
+						sync_pt_data->timeline_retire,
+							fence_name, value);
+		else
+			sync_fence = mdss_fb_sync_get_fence(
+						sync_pt_data->timeline,
+							fence_name, value);
+		}
 
 	if (IS_ERR_OR_NULL(sync_fence)) {
 		pr_err("%s: unable to retrieve release fence\n", fence_name);
 		goto end;
 	}
 
-	/* get fence fd */
-	*fence_fd = get_unused_fd_flags(0);
+	*fence_fd = mdss_get_sync_fence_fd(sync_fence);
 	if (*fence_fd < 0) {
 		pr_err("%s: get_unused_fd_flags failed error:0x%x\n",
 			fence_name, *fence_fd);
-		sync_fence_put(sync_fence);
-		sync_fence = NULL;
-		goto end;
+			mdss_put_sync_fence(sync_fence);
+			sync_fence = NULL;
+			goto end;
 	}
-
-	sync_fence_install(sync_fence, *fence_fd);
+	pr_debug("%s:val=%d\n", mdss_get_sync_fence_name(sync_fence), value);
 end:
-
 	return sync_fence;
 }
 
@@ -101,7 +104,7 @@ end:
 static int __mdp3_handle_buffer_fences(struct msm_fb_data_type *mfd,
 	struct mdp_layer_commit_v1 *commit, struct mdp_input_layer *layer_list)
 {
-	struct sync_fence *fence, *release_fence, *retire_fence;
+	struct mdss_fence *fence, *release_fence, *retire_fence;
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 	struct mdp_input_layer *layer;
 	int value;
@@ -127,7 +130,7 @@ static int __mdp3_handle_buffer_fences(struct msm_fb_data_type *mfd,
 		if (layer->buffer.fence < 0)
 			continue;
 
-		fence = sync_fence_fdget(layer->buffer.fence);
+		fence = mdss_get_fd_sync_fence(layer->buffer.fence);
 		if (!fence) {
 			pr_err("%s: sync fence get failed! fd=%d\n",
 				sync_pt_data->fence_name, layer->buffer.fence);
@@ -142,7 +145,7 @@ static int __mdp3_handle_buffer_fences(struct msm_fb_data_type *mfd,
 	if (ret)
 		goto sync_fence_err;
 
-	value = sync_pt_data->timeline_value + sync_pt_data->threshold +
+	value = sync_pt_data->threshold +
 			atomic_read(&sync_pt_data->commit_cnt);
 
 	release_fence = __mdp3_create_fence(mfd, sync_pt_data,
@@ -166,13 +169,13 @@ static int __mdp3_handle_buffer_fences(struct msm_fb_data_type *mfd,
 
 retire_fence_err:
 	put_unused_fd(commit->release_fence);
-	sync_fence_put(release_fence);
+	mdss_put_sync_fence(release_fence);
 release_fence_err:
 	commit->retire_fence = -1;
 	commit->release_fence = -1;
 sync_fence_err:
 	for (i = 0; i < sync_pt_data->acq_fen_cnt; i++)
-		sync_fence_put(sync_pt_data->acq_fen[i]);
+		mdss_put_sync_fence(sync_pt_data->acq_fen[i]);
 	sync_pt_data->acq_fen_cnt = 0;
 
 	mutex_unlock(&sync_pt_data->sync_mutex);
