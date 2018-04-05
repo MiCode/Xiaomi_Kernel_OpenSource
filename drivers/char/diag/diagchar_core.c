@@ -1721,8 +1721,8 @@ static void diag_switch_logging_clear_mask(
 static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 {
 	int new_mode, i = 0;
-	int curr_mode, err = 0;
-	uint8_t do_switch = 1, peripheral = 0;
+	int curr_mode, err = 0, peripheral = 0;
+	uint8_t do_switch = 1;
 	uint32_t peripheral_mask = 0, pd_mask = 0;
 
 	if (!param)
@@ -1736,6 +1736,10 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 
 	if (param->pd_mask) {
 		pd_mask = diag_translate_mask(param->pd_mask);
+		param->diag_id = 0;
+		param->pd_val = 0;
+		param->peripheral = -EINVAL;
+
 		for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
 			if (pd_mask & (1 << i)) {
 				if (diag_search_diagid_by_pd(i, &param->diag_id,
@@ -1745,6 +1749,12 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 				}
 			}
 		}
+
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"diag: pd_mask = %d, diag_id = %d, peripheral = %d, pd_val = %d\n",
+			param->pd_mask, param->diag_id,
+			param->peripheral, param->pd_val);
+
 		if (!param->diag_id ||
 			(param->pd_val < UPD_WLAN) ||
 			(param->pd_val >= NUM_MD_SESSIONS)) {
@@ -1754,22 +1764,26 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 			return -EINVAL;
 		}
 
-		DIAG_LOG(DIAG_DEBUG_USERSPACE,
-			"diag: pd_mask = %d, diag_id = %d, peripheral = %d, pd_val = %d\n",
-			param->pd_mask, param->diag_id,
-			param->peripheral, param->pd_val);
-
 		peripheral = param->peripheral;
+		if ((peripheral < PERIPHERAL_MODEM) ||
+			(peripheral >= NUM_PERIPHERALS)) {
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"Invalid peripheral: %d\n", peripheral);
+			return -EINVAL;
+		}
 		i = param->pd_val - UPD_WLAN;
+		mutex_lock(&driver->md_session_lock);
 		if (driver->md_session_map[peripheral] &&
 			(MD_PERIPHERAL_MASK(peripheral) &
 			diag_mux->mux_mask) &&
 			!driver->pd_session_clear[i]) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_fr: User PD is already logging onto active peripheral logging\n");
+			mutex_unlock(&driver->md_session_lock);
 			driver->pd_session_clear[i] = 0;
 			return -EINVAL;
 		}
+		mutex_unlock(&driver->md_session_lock);
 		peripheral_mask =
 			diag_translate_mask(param->pd_mask);
 		param->peripheral_mask = peripheral_mask;
