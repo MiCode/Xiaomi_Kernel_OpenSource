@@ -404,6 +404,8 @@
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 			100000000 200000000 4294967295>;
 
+		qcom,restore-after-cx-collapse;
+
 		/* PM QoS */
 		qcom,pm-qos-irq-type = "affine_irq";
 		qcom,pm-qos-irq-latency = <70 70>;
