@@ -115,7 +115,7 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl, enum dp_stream_id strm)
 {
 	int const idle_pattern_completion_timeout_ms = 3 * HZ / 100;
 	struct dp_ctrl_private *ctrl;
-	u32 state;
+	u32 state = 0x0;
 
 	if (!dp_ctrl) {
 		pr_err("Invalid input data\n");
@@ -139,7 +139,7 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl, enum dp_stream_id strm)
 		return;
 	}
 
-	state = (strm == DP_STREAM_0) ? MST_DP0_PUSH_VCPF : MST_DP1_PUSH_VCPF;
+	state |= (strm == DP_STREAM_0) ? MST_DP0_PUSH_VCPF : MST_DP1_PUSH_VCPF;
 
 trigger_idle:
 	reinit_completion(&ctrl->idle_comp);
