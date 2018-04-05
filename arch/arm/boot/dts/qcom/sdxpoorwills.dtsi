@@ -526,6 +526,8 @@
 			<&clock_gcc GCC_SDCC1_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
 
+		qcom,restore-after-cx-collapse;
+
 		status = "disabled";
 	};
 
