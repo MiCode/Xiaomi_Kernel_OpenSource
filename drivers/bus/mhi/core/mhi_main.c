@@ -23,6 +23,9 @@
 #include <linux/mhi.h>
 #include "mhi_internal.h"
 
+static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
+				    struct mhi_chan *mhi_chan);
+
 int __must_check mhi_read_reg(struct mhi_controller *mhi_cntrl,
 			      void __iomem *base,
 			      u32 offset,
@@ -661,6 +664,22 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 				mhi_cntrl->wake_put(mhi_cntrl, false);
 				read_unlock_bh(&mhi_cntrl->pm_lock);
 			}
+
+			/*
+			 * recycle the buffer if buffer is pre-allocated,
+			 * if there is error, not much we can do apart from
+			 * dropping the packet
+			 */
+			if (mhi_chan->pre_alloc) {
+				if (mhi_queue_buf(mhi_chan->mhi_dev, mhi_chan,
+						  buf_info->cb_buf,
+						  buf_info->len, MHI_EOT)) {
+					MHI_ERR(
+						"Error recycling buffer for chan:%d\n",
+						mhi_chan->chan);
+					kfree(buf_info->cb_buf);
+				}
+			}
 		};
 		break;
 	} /* CC_EOT */
@@ -1086,6 +1105,32 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
+	/* pre allocate buffer for xfer ring */
+	if (mhi_chan->pre_alloc) {
+		struct mhi_device *mhi_dev = mhi_chan->mhi_dev;
+		int nr_el = get_nr_avail_ring_elements(mhi_cntrl,
+						       &mhi_chan->tre_ring);
+
+		while (nr_el--) {
+			void *buf;
+
+			buf = kmalloc(MHI_MAX_MTU, GFP_KERNEL);
+			if (!buf) {
+				ret = -ENOMEM;
+				goto error_pre_alloc;
+			}
+
+			ret = mhi_queue_buf(mhi_dev, mhi_chan, buf, MHI_MAX_MTU,
+					    MHI_EOT);
+			if (ret) {
+				MHI_ERR("Chan:%d error queue buffer\n",
+					mhi_chan->chan);
+				kfree(buf);
+				goto error_pre_alloc;
+			}
+		}
+	}
+
 	mutex_unlock(&mhi_chan->mutex);
 
 	MHI_LOG("Chan:%d successfully moved to start state\n", mhi_chan->chan);
@@ -1103,6 +1148,12 @@ error_pm_state:
 
 error_init_chan:
 	mutex_unlock(&mhi_chan->mutex);
+
+	return ret;
+
+error_pre_alloc:
+	mutex_unlock(&mhi_chan->mutex);
+	__mhi_unprepare_channel(mhi_cntrl, mhi_chan);
 
 	return ret;
 }
@@ -1169,6 +1220,9 @@ void mhi_reset_chan(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan)
 				 buf_info->len, buf_info->dir);
 		mhi_del_ring_element(mhi_cntrl, buf_ring);
 		mhi_del_ring_element(mhi_cntrl, tre_ring);
+
+		if (mhi_chan->pre_alloc)
+			kfree(buf_info->cb_buf);
 	}
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);

@@ -52,6 +52,9 @@ Main node properties:
 		the data pipe. Not involved in active data transfer.
 		BIT(2) : Must switch to doorbell mode whenever MHI M0 state
 		transition happens.
+		BIT(3) : MHI bus driver pre-allocate buffer for this channel.
+		If set, clients not allowed to queue buffers. Valid only for DL
+		direction.
 
 - mhi,chan-names
   Usage: required

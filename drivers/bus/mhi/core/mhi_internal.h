@@ -339,6 +339,7 @@ enum MHI_CH_CFG {
 #define MHI_CH_CFG_BIT_LPM_NOTIFY BIT(0) /* require LPM notification */
 #define MHI_CH_CFG_BIT_OFFLOAD_CH BIT(1) /* satellite mhi devices */
 #define MHI_CH_CFG_BIT_DBMODE_RESET_CH BIT(2) /* require db mode to reset */
+#define MHI_CH_CFG_BIT_PRE_ALLOC BIT(3) /* host allocate buffers for DL */
 
 enum MHI_EV_CFG {
 	MHI_EV_CFG_ELEMENTS = 0,
@@ -565,6 +566,7 @@ struct mhi_chan {
 	bool lpm_notify;
 	bool configured;
 	bool offload_ch;
+	bool pre_alloc;
 	/* functions that generate the transfer ring elements */
 	int (*gen_tre)(struct mhi_controller *, struct mhi_chan *, void *,
 		       void *, size_t, enum MHI_FLAGS);
