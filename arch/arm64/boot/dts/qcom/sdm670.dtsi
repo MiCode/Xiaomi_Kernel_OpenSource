@@ -2469,6 +2469,7 @@
 		compatible = "qcom,msm-fastrpc-compute";
 		qcom,adsp-remoteheap-vmid = <22 37>;
 		qcom,fastrpc-adsp-audio-pdr;
+		qcom,fastrpc-adsp-sensors-pdr;
 
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
@@ -2543,6 +2544,7 @@
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x1806 0x0>;
 			dma-coherent;
+			shared-cb;
 		};
 	};
 
