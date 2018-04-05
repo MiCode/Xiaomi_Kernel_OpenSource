@@ -407,7 +407,7 @@ static int hfi_send_feature_ctrls(struct gmu_device *gmu)
 static int hfi_send_init_perf_vote(struct gmu_device *gmu)
 {
 	struct hfi_gx_bw_perf_vote_cmd req = {
-		.ack_type = DCVS_ACK_NONBLOCK,
+		.ack_type = DCVS_ACK_BLOCK,
 		.freq = 2,
 		.bw = 2,
 	};
