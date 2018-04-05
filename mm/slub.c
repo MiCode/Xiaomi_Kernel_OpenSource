@@ -3455,7 +3455,7 @@ static void set_cpu_partial(struct kmem_cache *s)
 static int calculate_sizes(struct kmem_cache *s, int forced_order)
 {
 	unsigned long flags = s->flags;
-	size_t size = s->object_size;
+	unsigned int size = s->object_size;
 	int order;
 
 	/*
