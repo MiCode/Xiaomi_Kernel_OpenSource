@@ -1363,6 +1363,7 @@
 		qcom,scm_core_clk_src-freq = <80000000>;
 
 		qcom,pas-id = <9>;
+		qcom,mas-crypto = <&mas_crypto>;
 		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&venus_qseecom_mem>;
@@ -1792,6 +1793,7 @@
 		qcom,sysmon-id = <6>;
 		qcom,ssctl-instance-id = <0x13>;
 		qcom,firmware-name = "wcnss";
+		qcom,mas-crypto = <&mas_crypto>;
 
 		/* GPIO inputs from wcnss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_4_in 0 0>;
@@ -1835,6 +1837,7 @@
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
+		qcom,reset-clk;
 
 		/* GPIO inputs from mss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
