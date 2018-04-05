@@ -344,47 +344,54 @@
 };
 
 &pmi8950_gpios {
-	gpio@c000 {	/* GPIO_1 */
-		status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pmi_gpio1_default>;
+	pmi_gpio1_default: pmi8950_gpio1 {
+		pins = "gpio1";
+		function = "normal";
+		input-enable;
+		power-source = <0>;
+		status = "okay";
 	};
 };
 
 &pmi8950_mpps {
-	mpp@a200 {	/* MPP_3 */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,output-type = <0>;	/* CMOS logic */
-		qcom,vin-sel = <2>;		/* 1.8V */
-		qcom,src-sel = <0>;		/* Constant */
-		qcom,master-en = <1>;	/* Enable GPIO */
-		qcom,invert = <0>;
-		status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&ext_fet_wled_pwr_en_default>;
+	ext_fet_wled_pwr_en_default: pmi8950_mpp3 {
+		pins = "mpp3";  /* MPP_3 */
+		function = "digital"; /* Digital */
+		output-high; /* Output */
+		drive-strength = <2>; /* 1.8 mA */
+		power-source = <1>;
+		bias-disable = <0>; /* no pull */
+		status = "okay";
 	};
 };
 
 &pm8953_gpios {
-	gpio@c000 {	/* GPIO_1 */
-		status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm_gpio1_div_clk2_default>;
+	pm_gpio1_div_clk2_default: pm8953_gpio1 {
+		pins = "gpio1";
+		function = "normal";
+		output-high;
+		power-source = <1>;
+		status = "okay";
 	};
 };
 
 &pm8953_mpps {
-	mpp@a000 {	/* MPP_1 */		/* VDD_PX */
-		status = "disabled";
-	};
-	mpp@a100 {	/* MPP_2 */
-		status = "disabled";
-	};
-	mpp@a200 {	/* MPP_3 */
-		status = "disabled";
-	};
-
-	mpp@a300 {	/* MPP_4 */		/* WLED_PWM_CTRL */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,output-type = <0>;	/* CMOS logic */
-		qcom,vin-sel = <0>;		/* VPH_PWR */
-		qcom,src-sel = <4>;		/* DTEST1 */
-		qcom,master-en = <1>;	/* Enable GPIO */
-		qcom,invert = <0>;
-		status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm_mpp4_wled_pwm_ctrl_default>;
+	pm_mpp4_wled_pwm_ctrl_default: pm8953_mpp4 {
+		pins = "mpp4"; /* WLED_PWM_CTRL */
+		function = "digital"; /* Digital */
+		output-high;	/* Output */
+		drive-strength = <2>; /* 1.8 mA */
+		power-source = <0>; /* VPH_PWR */
+		qcom,dtest = <1>; /* DTEST1 */
+		bias-disable = <0>; /* no pull */
+		status = "okay";
 	};
 };
