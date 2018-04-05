@@ -28,6 +28,7 @@
 		qcom,msm-ext-pa = "primary";
 		qcom,tdm-audio-intf;
 		qcom,msm-afe-clk-ver = <1>;
+		qcom,split-a2dp;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>,
