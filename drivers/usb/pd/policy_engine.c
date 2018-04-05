@@ -3580,7 +3580,7 @@ static ssize_t rdo_h_show(struct device *dev, struct device_attribute *attr,
 {
 	struct usbpd *pd = dev_get_drvdata(dev);
 	int pos = PD_RDO_OBJ_POS(pd->rdo);
-	int type = PD_SRC_PDO_TYPE(pd->received_pdos[pos]);
+	int type = PD_SRC_PDO_TYPE(pd->received_pdos[pos - 1]);
 	int len;
 
 	len = scnprintf(buf, PAGE_SIZE, "Request Data Object\n"
