@@ -1166,6 +1166,7 @@ void mhi_reset_chan(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan)
 	struct mhi_ring *ev_ring, *buf_ring, *tre_ring;
 	unsigned long flags;
 	int chan = mhi_chan->chan;
+	struct mhi_result result;
 
 	/* nothing to reset, client don't queue buffers */
 	if (mhi_chan->offload_ch)
@@ -1210,6 +1211,8 @@ void mhi_reset_chan(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan)
 	/* reset any pending buffers */
 	buf_ring = &mhi_chan->buf_ring;
 	tre_ring = &mhi_chan->tre_ring;
+	result.transaction_status = -ENOTCONN;
+	result.bytes_xferd = 0;
 	while (tre_ring->rp != tre_ring->wp) {
 		struct mhi_buf_info *buf_info = buf_ring->rp;
 
@@ -1221,8 +1224,12 @@ void mhi_reset_chan(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan)
 		mhi_del_ring_element(mhi_cntrl, buf_ring);
 		mhi_del_ring_element(mhi_cntrl, tre_ring);
 
-		if (mhi_chan->pre_alloc)
+		if (mhi_chan->pre_alloc) {
 			kfree(buf_info->cb_buf);
+		} else {
+			result.buf_addr = buf_info->cb_buf;
+			mhi_chan->xfer_cb(mhi_chan->mhi_dev, &result);
+		}
 	}
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
