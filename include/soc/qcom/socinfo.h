@@ -63,6 +63,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmshrike")
 #define early_machine_is_sdm640()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm640")
+#define early_machine_is_qcs405()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs405")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -84,6 +86,7 @@
 #define early_machine_is_sdm855()	0
 #define early_machine_is_sdmshrike()	0
 #define early_machine_is_sdm640()	0
+#define early_machine_is_qcs405()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -107,6 +110,7 @@ enum msm_cpu {
 	MSM_CPU_SDM855,
 	MSM_CPU_SDMSHRIKE,
 	MSM_CPU_SDM640,
+	MSM_CPU_QCS405,
 };
 
 struct msm_soc_info {
