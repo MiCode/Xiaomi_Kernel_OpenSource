@@ -3456,6 +3456,19 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 					| CORE_HC_SELECT_IN_EN), host->ioaddr +
 					msm_host_offset->CORE_VENDOR_SPEC);
 		}
+		if (msm_host->tuning_done ||
+				(card && mmc_card_strobe(card) &&
+				 msm_host->enhanced_strobe)) {
+			/* Write 1 to SDCC_HC_REG_DLL_CONFIG_3 register with DLL_CONFIG_3[1] */
+			writel_relaxed(((readl_relaxed(host->ioaddr + 0x258)) | 0x2),
+				host->ioaddr + 0x258);
+			mb();
+			udelay(2);
+			/* Write 0 to SDCC_HC_REG_DLL_CONFIG_3 register with DLL_CONFIG_3[1] */
+			writel_relaxed(((readl_relaxed(host->ioaddr + 0x258)) & ~0x2),
+				host->ioaddr + 0x258);
+			mb();
+		}
 		if (!host->mmc->ios.old_rate && !msm_host->use_cdclp533) {
 			/*
 			 * Poll on DLL_LOCK and DDR_DLL_LOCK bits in
