@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sdmshrike-pmic-overlay.dtsi"
+
 &soc {
 	usb_emu_phy: usb_emu_phy@a720000 {
 		compatible = "qcom,usb-emu-phy";
