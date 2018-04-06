@@ -33,7 +33,8 @@
 			"mmss_noc-base", "system_noc-base", "ipa_virt-base",
 			"camnoc_virt-base", "compute_noc-base";
 
-	mbox-names = "apps_rsc", "disp_rsc";
+		mbox-names = "apps_rsc", "disp_rsc";
+		mboxes = <&apps_rsc 0 &disp_rsc 0>;
 
 		/*RSCs*/
 		rsc_apps: rsc-apps {
