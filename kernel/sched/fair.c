@@ -6814,12 +6814,33 @@ struct find_best_target_env {
 	bool avoid_prev_cpu;
 };
 
+#ifdef CONFIG_SCHED_WALT
+static unsigned long cpu_estimated_capacity(int cpu, struct task_struct *p)
+{
+	unsigned long tutil, estimated_capacity;
+
+	if (task_in_cum_window_demand(cpu_rq(cpu), p))
+		tutil = 0;
+	else
+		tutil = task_util(p);
+
+	estimated_capacity = cpu_util_cum(cpu, tutil);
+
+	return estimated_capacity;
+}
+#else
+static unsigned long cpu_estimated_capacity(int cpu, struct task_struct *p)
+{
+	return cpu_util_wake(cpu, p);
+}
+#endif
+
 static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 				struct find_best_target_env *fbt_env,
 				unsigned int target_cpus_count,
 				int best_idle_cstate)
 {
-	unsigned long tutil, estimated_capacity;
+	unsigned long estimated_capacity;
 
 	if (fbt_env->placement_boost || fbt_env->need_idle)
 		return false;
@@ -6830,12 +6851,7 @@ static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 	if (target_cpus_count != 1)
 		return true;
 
-	if (task_in_cum_window_demand(cpu_rq(target_cpu), p))
-		tutil = 0;
-	else
-		tutil = task_util(p);
-
-	estimated_capacity = cpu_util_cum(target_cpu, tutil);
+	estimated_capacity = cpu_estimated_capacity(target_cpu, p);
 	estimated_capacity = add_capacity_margin(estimated_capacity,
 						 target_cpu);
 
@@ -6874,6 +6890,7 @@ static int start_cpu(bool boosted)
 	return walt_start_cpu(start_cpu);
 }
 
+unsigned int sched_smp_overlap_capacity;
 static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				   bool boosted, bool prefer_idle,
 				   struct find_best_target_env *fbt_env)
@@ -7273,6 +7290,7 @@ bias_to_waker_cpu(struct task_struct *p, int cpu, struct cpumask *rtg_target)
 	       task_fits_max(p, cpu);
 }
 
+#ifdef CONFIG_SCHED_WALT
 static inline struct cpumask *find_rtg_target(struct task_struct *p)
 {
 	struct related_thread_group *grp;
@@ -7293,6 +7311,12 @@ static inline struct cpumask *find_rtg_target(struct task_struct *p)
 
 	return rtg_target;
 }
+#else
+static inline struct cpumask *find_rtg_target(struct task_struct *p)
+{
+	return NULL;
+}
+#endif
 
 static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 {
@@ -7303,6 +7327,10 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 	int next_cpu = -1;
 	struct cpumask *rtg_target = find_rtg_target(p);
 	struct find_best_target_env fbt_env;
+	u64 start_t = 0;
+
+	if (trace_sched_task_util_enabled())
+		start_t = sched_clock();
 
 	schedstat_inc(p->se.statistics.nr_wakeups_secb_attempts);
 	schedstat_inc(this_rq()->eas_stats.secb_attempts);
@@ -7427,7 +7455,8 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 unlock:
 	trace_sched_task_util(p, next_cpu, backup_cpu, target_cpu, sync,
 			      fbt_env.need_idle, fbt_env.placement_boost,
-			      rtg_target ? cpumask_first(rtg_target) : -1);
+			      rtg_target ? cpumask_first(rtg_target) : -1,
+			      start_t);
 	rcu_read_unlock();
 	return target_cpu;
 }
@@ -10871,6 +10900,24 @@ static void rq_offline_fair(struct rq *rq)
 
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_SCHED_WALT
+static inline void
+walt_update_misfit_task(struct rq *rq, struct task_struct *curr)
+{
+	bool misfit = rq->misfit_task;
+
+	if (curr->misfit != misfit) {
+		walt_fixup_nr_big_tasks(rq, curr, 1, misfit);
+		curr->misfit = misfit;
+	}
+}
+#else
+static inline void
+walt_update_misfit_task(struct rq *rq, struct task_struct *curr)
+{
+}
+#endif
+
 /*
  * scheduler tick hitting a task of our scheduling class:
  */
@@ -10878,10 +10925,6 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 {
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &curr->se;
-#ifdef CONFIG_SMP
-	bool old_misfit = curr->misfit;
-	bool misfit;
-#endif
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
@@ -10897,15 +10940,9 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 		trace_sched_overutilized(true);
 	}
 
-	misfit = !task_fits_max(curr, rq->cpu);
-	rq->misfit_task = misfit;
-
-	if (old_misfit != misfit) {
-		walt_fixup_nr_big_tasks(rq, curr, 1, misfit);
-		curr->misfit = misfit;
-	}
+	rq->misfit_task = !task_fits_max(curr, rq->cpu);
 #endif
-
+	walt_update_misfit_task(rq, curr);
 }
 
 /*
