@@ -21,8 +21,7 @@
 #include "sdm855-rumi.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM855 v1 RUMI";
+	model = "RUMI";
 	compatible = "qcom,sdm855-rumi", "qcom,sdm855", "qcom,rumi";
-	qcom,msm-id = <339 0x0>;
 	qcom,board-id = <15 0>;
 };

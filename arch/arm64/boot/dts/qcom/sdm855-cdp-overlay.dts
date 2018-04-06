@@ -21,8 +21,7 @@
 #include "sdm855-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM855 v1 CDP";
+	model = "CDP";
 	compatible = "qcom,sdm855-cdp", "qcom,sdm855", "qcom,cdp";
-	qcom,msm-id = <339 0x0>;
 	qcom,board-id = <1 0>;
 };

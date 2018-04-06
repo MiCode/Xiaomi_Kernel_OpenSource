@@ -14,5 +14,6 @@
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM855 V2";
+	qcom,msm-name = "SDM855 V2";
 	qcom,msm-id = <339 0x20000>;
 };

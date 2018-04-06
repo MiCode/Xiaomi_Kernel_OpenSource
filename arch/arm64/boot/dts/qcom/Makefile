@@ -16,23 +16,15 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm855-mtp-overlay.dtbo \
 		sdm855-rumi-overlay.dtbo \
 		sdm855-qrd-overlay.dtbo \
-		sdm855-v2-cdp-overlay.dtbo \
-		sdm855-v2-mtp-overlay.dtbo \
-		sdm855-v2-rumi-overlay.dtbo \
-		sdm855-v2-qrd-overlay.dtbo \
 		sdm855-sdx50m-cdp-overlay.dtbo \
 		sdm855-sdx50m-mtp-overlay.dtbo
 
-sdm855-cdp-overlay.dtbo-base := sdm855.dtb
-sdm855-mtp-overlay.dtbo-base := sdm855.dtb
-sdm855-rumi-overlay.dtbo-base := sdm855.dtb
-sdm855-qrd-overlay.dtbo-base := sdm855.dtb
-sdm855-v2-cdp-overlay.dtbo-base := sdm855-v2.dtb
-sdm855-v2-mtp-overlay.dtbo-base := sdm855-v2.dtb
-sdm855-v2-rumi-overlay.dtbo-base := sdm855-v2.dtb
-sdm855-v2-qrd-overlay.dtbo-base := sdm855-v2.dtb
-sdm855-sdx50m-cdp-overlay.dtbo-base := sdm855.dtb
-sdm855-sdx50m-mtp-overlay.dtbo-base := sdm855.dtb
+sdm855-cdp-overlay.dtbo-base := sdm855.dtb sdm855-v2.dtb
+sdm855-mtp-overlay.dtbo-base := sdm855.dtb sdm855-v2.dtb
+sdm855-rumi-overlay.dtbo-base := sdm855.dtb sdm855-v2.dtb
+sdm855-qrd-overlay.dtbo-base := sdm855.dtb sdm855-v2.dtb
+sdm855-sdx50m-cdp-overlay.dtbo-base := sdm855.dtb sdm855-v2.dtb
+sdm855-sdx50m-mtp-overlay.dtbo-base := sdm855.dtb sdm855-v2.dtb
 else
 dtb-$(CONFIG_ARCH_SDM855)	+= sdm855-rumi.dtb \
 	sdm855-mtp.dtb \
