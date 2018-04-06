@@ -375,6 +375,8 @@ extern void _memset_io(volatile void __iomem *, int, size_t);
 #define writel_relaxed(v, c)	__raw_writel((__force u32) cpu_to_le32(v), c)
 #define writeq_relaxed(v, c)	__raw_writeq((__force u64) cpu_to_le64(v), c)
 #define writeb_relaxed_no_log(v, c)	((void)__raw_writeb_no_log((v), (c)))
+#define writew_relaxed_no_log(v, c) __raw_writew_no_log((__force u16) \
+					cpu_to_le16(v), c)
 #define writel_relaxed_no_log(v, c) __raw_writel_no_log((__force u32) \
 					cpu_to_le32(v), c)
 #define writeq_relaxed_no_log(v, c) __raw_writeq_no_log((__force u64) \
