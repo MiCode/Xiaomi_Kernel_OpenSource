@@ -820,7 +820,9 @@
 #define A6XX_GBIF_QSB_SIDE3               0x3c06
 #define A6XX_GBIF_HALT                    0x3c45
 #define A6XX_GBIF_HALT_ACK                0x3c46
-#define A6XX_GBIF_HALT_MASK               0x2
+
+#define A6XX_GBIF_CLIENT_HALT_MASK        BIT(0)
+#define A6XX_GBIF_ARB_HALT_MASK           BIT(1)
 
 #define A6XX_GBIF_PERF_PWR_CNT_EN         0x3cc0
 #define A6XX_GBIF_PERF_CNT_SEL            0x3cc2
