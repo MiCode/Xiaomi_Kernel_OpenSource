@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -773,7 +773,7 @@ static int voice_svc_probe(struct platform_device *pdev)
 	if (ret) {
 		pr_err("%s: Failed to alloc chrdev\n", __func__);
 		ret = -ENODEV;
-		goto chrdev_err;
+		goto done;
 	}
 
 	voice_svc_dev->major = MAJOR(device_num);
@@ -820,8 +820,6 @@ dev_err:
 	class_destroy(voice_svc_class);
 class_err:
 	unregister_chrdev_region(0, MINOR_NUMBER);
-chrdev_err:
-	kfree(voice_svc_dev);
 done:
 	return ret;
 }
@@ -835,7 +833,6 @@ static int voice_svc_remove(struct platform_device *pdev)
 	device_destroy(voice_svc_class, device_num);
 	class_destroy(voice_svc_class);
 	unregister_chrdev_region(0, MINOR_NUMBER);
-	kfree(voice_svc_dev);
 
 	return 0;
 }
