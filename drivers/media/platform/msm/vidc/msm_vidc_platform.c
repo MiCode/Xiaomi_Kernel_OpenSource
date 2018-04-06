@@ -164,7 +164,7 @@ static struct msm_vidc_common_data sdm855_common_data[] = {
 		.value = 0,
 	},
 	{
-		.key = "qcom,domain-attr-non-fatal-faults",
+		.key = "qcom,domain-cvp",
 		.value = 1,
 	},
 };
@@ -221,10 +221,6 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 	{
 		.key = "qcom,debug-timeout",
 		.value = 0,
-	},
-	{
-		.key = "qcom,domain-cvp",
-		.value = 1,
 	},
 };
 
