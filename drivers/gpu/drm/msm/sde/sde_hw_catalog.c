@@ -167,6 +167,7 @@ enum sde_prop {
 	MACROTILE_MODE,
 	UBWC_BW_CALC_VERSION,
 	PIPE_ORDER_VERSION,
+	SEC_SID_MASK,
 	SDE_PROP_MAX,
 };
 
@@ -442,6 +443,7 @@ static struct sde_prop_type sde_prop[] = {
 			PROP_TYPE_U32},
 	{PIPE_ORDER_VERSION, "qcom,sde-pipe-order-version", false,
 			PROP_TYPE_U32},
+	{SEC_SID_MASK, "qcom,sde-secure-sid-mask", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -2861,7 +2863,7 @@ end:
 
 static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 {
-	int rc, dma_rc, len, prop_count[SDE_PROP_MAX];
+	int rc, i, dma_rc, len, prop_count[SDE_PROP_MAX];
 	struct sde_prop_value *prop_value = NULL;
 	bool prop_exists[SDE_PROP_MAX];
 	const char *type;
@@ -2882,6 +2884,11 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 
 	rc = _validate_dt_entry(np, sde_prop, ARRAY_SIZE(sde_prop), prop_count,
 		&len);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &sde_prop[SEC_SID_MASK], 1,
+				&prop_count[SEC_SID_MASK], NULL);
 	if (rc)
 		goto end;
 
@@ -2959,6 +2966,13 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	major_version = SDE_HW_MAJOR(cfg->hwversion);
 	if (major_version < SDE_HW_MAJOR(SDE_HW_VER_500))
 		set_bit(SDE_MDP_VSYNC_SEL, &cfg->mdp[0].features);
+
+	if (prop_exists[SEC_SID_MASK]) {
+		cfg->sec_sid_mask_count = prop_count[SEC_SID_MASK];
+		for (i = 0; i < cfg->sec_sid_mask_count; i++)
+			cfg->sec_sid_mask[i] =
+				PROP_VALUE_ACCESS(prop_value, SEC_SID_MASK, i);
+	}
 
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "qseedv3")) {

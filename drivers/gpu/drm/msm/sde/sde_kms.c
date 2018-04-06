@@ -53,9 +53,6 @@
 #include "sde_trace.h"
 
 /* defines for secure channel call */
-#define SEC_SID_CNT               2
-#define SEC_SID_MASK_0            0x80881
-#define SEC_SID_MASK_1            0x80C81
 #define MEM_PROTECT_SD_CTRL_SWITCH 0x18
 #define MDP_DEVICE_ID            0x1A
 
@@ -444,31 +441,36 @@ static int _sde_kms_secure_ctrl_xin_clients(struct sde_kms *sde_kms,
 
 /**
  * _sde_kms_scm_call - makes secure channel call to switch the VMIDs
- * @vimd: switch the stage 2 translation to this VMID.
+ * @sde_kms: Pointer to sde_kms struct
+ * @vimd: switch the stage 2 translation to this VMID
  */
-static int _sde_kms_scm_call(int vmid)
+static int _sde_kms_scm_call(struct sde_kms *sde_kms, int vmid)
 {
 	struct scm_desc desc = {0};
 	uint32_t num_sids;
 	uint32_t *sec_sid;
 	uint32_t mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_SWITCH;
-	int ret = 0;
+	struct sde_mdss_cfg *sde_cfg = sde_kms->catalog;
+	int ret = 0, i;
 
-	/* This info should be queried from catalog */
-	num_sids = SEC_SID_CNT;
+	num_sids = sde_cfg->sec_sid_mask_count;
+	if (!num_sids) {
+		SDE_ERROR("secure SID masks not configured, vmid 0x%x\n", vmid);
+		return -EINVAL;
+	}
+
 	sec_sid = kcalloc(num_sids, sizeof(uint32_t), GFP_KERNEL);
 	if (!sec_sid)
 		return -ENOMEM;
 
-	/*
-	 * derive this info from device tree/catalog, this is combination of
-	 * smr mask and SID for secure
-	 */
-	sec_sid[0] = SEC_SID_MASK_0;
-	sec_sid[1] = SEC_SID_MASK_1;
+	for (i = 0; i < num_sids; i++) {
+		sec_sid[i] = sde_cfg->sec_sid_mask[i];
+		SDE_DEBUG("sid_mask[%d]: %d\n", i, sec_sid[i]);
+	}
 	dmac_flush_range(sec_sid, sec_sid + num_sids);
 
-	SDE_DEBUG("calling scm_call for vmid %d", vmid);
+	SDE_DEBUG("calling scm_call for vmid 0x%x, num_sids %d",
+				vmid, num_sids);
 
 	desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
 	desc.args[0] = MDP_DEVICE_ID;
@@ -479,7 +481,7 @@ static int _sde_kms_scm_call(int vmid)
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 				mem_protect_sd_ctrl_id), &desc);
 	if (ret)
-		SDE_ERROR("Error:scm_call2, vmid (%lld): ret%d\n",
+		SDE_ERROR("Error:scm_call2, vmid %lld, ret%d\n",
 				desc.args[3], ret);
 	SDE_EVT32(mem_protect_sd_ctrl_id,
 			desc.args[0], desc.args[3], num_sids,
@@ -489,7 +491,7 @@ static int _sde_kms_scm_call(int vmid)
 	return ret;
 }
 
-static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms)
+static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms, u32 vmid)
 {
 	u32 ret = 0;
 
@@ -503,7 +505,7 @@ static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms)
 		goto end;
 	}
 
-	ret = _sde_kms_scm_call(VMID_CP_SEC_DISPLAY);
+	ret = _sde_kms_scm_call(sde_kms, vmid);
 	if (ret)
 		goto end;
 
@@ -511,14 +513,14 @@ end:
 	return ret;
 }
 
-static int _sde_kms_attach_all_cb(struct sde_kms *sde_kms)
+static int _sde_kms_attach_all_cb(struct sde_kms *sde_kms, int vmid)
 {
 	u32 ret = 0;
 
 	if (atomic_dec_return(&sde_kms->detach_all_cb) != 0)
 		goto end;
 
-	ret = _sde_kms_scm_call(VMID_CP_PIXEL);
+	ret = _sde_kms_scm_call(sde_kms, vmid);
 	if (ret)
 		goto end;
 
@@ -533,7 +535,7 @@ end:
 	return ret;
 }
 
-static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms)
+static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms, int vmid)
 {
 	u32 ret = 0;
 
@@ -547,7 +549,7 @@ static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms)
 		goto end;
 	}
 
-	ret = _sde_kms_scm_call(VMID_CP_CAMERA_PREVIEW);
+	ret = _sde_kms_scm_call(sde_kms, vmid);
 	if (ret)
 		goto end;
 
@@ -555,14 +557,14 @@ end:
 	return ret;
 }
 
-static int _sde_kms_attach_sec_cb(struct sde_kms *sde_kms)
+static int _sde_kms_attach_sec_cb(struct sde_kms *sde_kms, int vmid)
 {
 	u32 ret = 0;
 
 	if (atomic_dec_return(&sde_kms->detach_sec_cb) != 0)
 		goto end;
 
-	ret = _sde_kms_scm_call(VMID_CP_PIXEL);
+	ret = _sde_kms_scm_call(sde_kms, vmid);
 	if (ret)
 		goto end;
 
@@ -616,6 +618,7 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 	struct sde_kms_smmu_state_data *smmu_state = &sde_kms->smmu_state;
 	int old_smmu_state = smmu_state->state;
 	int ret = 0;
+	u32 vmid;
 
 	if (!sde_kms || !crtc) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -624,7 +627,7 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 
 	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
 			post_commit, smmu_state->sui_misr_state,
-			SDE_EVTLOG_FUNC_ENTRY);
+			smmu_state->secure_level, SDE_EVTLOG_FUNC_ENTRY);
 
 	if ((!smmu_state->transition_type) ||
 	    ((smmu_state->transition_type == POST_COMMIT) && !post_commit))
@@ -640,36 +643,35 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 
 	mutex_lock(&sde_kms->secure_transition_lock);
 	switch (smmu_state->state) {
-	/* Secure UI use case enable */
 	case DETACH_ALL_REQ:
-		ret = _sde_kms_detach_all_cb(sde_kms);
+		ret = _sde_kms_detach_all_cb(sde_kms, VMID_CP_SEC_DISPLAY);
 		if (!ret)
 			smmu_state->state = DETACHED;
 		break;
 
-	/* Secure UI use case disable */
 	case ATTACH_ALL_REQ:
-		ret = _sde_kms_attach_all_cb(sde_kms);
+		ret = _sde_kms_attach_all_cb(sde_kms, VMID_CP_PIXEL);
 		if (!ret)
 			smmu_state->state = ATTACHED;
 		break;
 
-	/* Secure preview enable */
 	case DETACH_SEC_REQ:
-		ret = _sde_kms_detach_sec_cb(sde_kms);
+		vmid = (smmu_state->secure_level == SDE_DRM_SEC_ONLY) ?
+				VMID_CP_SEC_DISPLAY : VMID_CP_CAMERA_PREVIEW;
+
+		ret = _sde_kms_detach_sec_cb(sde_kms, vmid);
 		if (!ret)
 			smmu_state->state = DETACHED_SEC;
 		break;
 
-	/* Secure preview disable */
 	case ATTACH_SEC_REQ:
-		ret = _sde_kms_attach_sec_cb(sde_kms);
+		ret = _sde_kms_attach_sec_cb(sde_kms, VMID_CP_PIXEL);
 		if (!ret)
 			smmu_state->state = ATTACHED;
 		break;
 
 	default:
-		SDE_ERROR("crtc:%d invalid smmu state:%d transition type:%d\n",
+		SDE_ERROR("crtc%d: invalid smmu state %d transition type %d\n",
 			DRMID(crtc), smmu_state->state,
 			smmu_state->transition_type);
 		ret = -EINVAL;
@@ -689,11 +691,11 @@ end:
 	smmu_state->transition_type = NONE;
 	smmu_state->transition_error = ret ? true : false;
 
-	SDE_DEBUG("crtc:%d, old_state %d new_state %d, ret %d\n",
+	SDE_DEBUG("crtc %d: old_state %d, new_state %d, ret %d\n",
 			DRMID(crtc), old_smmu_state, smmu_state->state, ret);
 	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
-			smmu_state->transition_error, ret,
-			SDE_EVTLOG_FUNC_EXIT);
+			smmu_state->transition_error, smmu_state->secure_level,
+			smmu_state->sui_misr_state, ret, SDE_EVTLOG_FUNC_EXIT);
 
 	return ret;
 }

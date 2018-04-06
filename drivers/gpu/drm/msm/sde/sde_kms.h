@@ -160,11 +160,13 @@ enum sde_kms_sui_misr_state {
 /**
  * struct sde_kms_smmu_state_data: stores the smmu state and transition type
  * @state: current state of smmu context banks
+ * @secure_level: secure level cached from crtc
  * @transition_type: transition request type
  * @transition_error: whether there is error while transitioning the state
  */
 struct sde_kms_smmu_state_data {
 	uint32_t state;
+	uint32_t secure_level;
 	uint32_t transition_type;
 	uint32_t transition_error;
 	uint32_t sui_misr_state;
@@ -333,7 +335,11 @@ static inline bool sde_kms_is_secure_session_inprogress(struct sde_kms *sde_kms)
 		return false;
 
 	mutex_lock(&sde_kms->secure_transition_lock);
-	if (sde_kms->smmu_state.state == DETACHED)
+	if (((sde_kms->smmu_state.secure_level == SDE_DRM_SEC_ONLY) &&
+			((sde_kms->smmu_state.state == DETACHED_SEC) ||
+				(sde_kms->smmu_state.state == DETACH_SEC_REQ)))
+		|| (((sde_kms->smmu_state.state == DETACHED) ||
+			(sde_kms->smmu_state.state == DETACH_ALL_REQ))))
 		ret = true;
 	mutex_unlock(&sde_kms->secure_transition_lock);
 
@@ -354,6 +360,23 @@ static inline bool sde_kms_is_vbif_operation_allowed(struct sde_kms *sde_kms)
 		return false;
 
 	if (!sde_kms->catalog->sui_misr_supported)
+		return true;
+
+	return !sde_kms_is_secure_session_inprogress(sde_kms);
+}
+
+/**
+ * sde_kms_is_cp_operation_allowed - resticts the CP programming
+ * during secure-ui, if the non-secure context banks are detached
+ *
+ * @sde_kms: Pointer to sde_kms
+ */
+static inline bool sde_kms_is_cp_operation_allowed(struct sde_kms *sde_kms)
+{
+	if (!sde_kms || !sde_kms->catalog)
+		return false;
+
+	if (sde_kms->catalog->sui_ns_allowed)
 		return true;
 
 	return !sde_kms_is_secure_session_inprogress(sde_kms);

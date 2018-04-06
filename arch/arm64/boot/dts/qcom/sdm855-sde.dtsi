@@ -221,6 +221,8 @@
 		qcom,sde-reg-dma-version = <0x00010001>;
 		qcom,sde-reg-dma-trigger-off = <0x119c>;
 
+		qcom,sde-secure-sid-mask = <0x4200801>;
+
 		qcom,sde-sspp-vig-blocks {
 			qcom,sde-vig-csc-off = <0x1a00>;
 			qcom,sde-vig-qseed-off = <0xa00>;
