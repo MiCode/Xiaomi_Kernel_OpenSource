@@ -227,7 +227,7 @@
 		reg-cam-base = <0x4b000>;
 		interrupt-names = "cci";
 		interrupts = <0 271 0>;
-		status = "disabled";
+		status = "ok";
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
 		clocks = <&clock_camcc CAM_CC_CCI_1_CLK_SRC>,
