@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 		clock-names = "xo", "core", "cal_dp", "armwic",
 						"axi", "ahb";
 		vdd-supply = <&npu_core_gdsc>;
-		vdd_cx-supply = <&pm855l_s6_level>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		qcom,proxy-reg-names ="vdd", "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 	};

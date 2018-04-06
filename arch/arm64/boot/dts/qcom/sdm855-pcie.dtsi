@@ -188,7 +188,7 @@
 		gdsc-vdd-supply = <&pcie_0_gdsc>;
 		vreg-1.8-supply = <&pm855l_l3>;
 		vreg-0.9-supply = <&pm855_l5>;
-		vreg-cx-supply = <&pm855l_s6_level>;
+		vreg-cx-supply = <&VDD_CX_LEVEL>;
 
 		qcom,vreg-1.8-voltage-level = <1200000 1200000 24000>;
 		qcom,vreg-0.9-voltage-level = <880000 880000 24000>;
@@ -478,7 +478,7 @@
 		gdsc-vdd-supply = <&pcie_1_gdsc>;
 		vreg-1.8-supply = <&pm855l_l3>;
 		vreg-0.9-supply = <&pm855_l5>;
-		vreg-cx-supply = <&pm855l_s6_level>;
+		vreg-cx-supply = <&VDD_CX_LEVEL>;
 
 		qcom,vreg-1.8-voltage-level = <1200000 1200000 24000>;
 		qcom,vreg-0.9-voltage-level = <880000 880000 24000>;

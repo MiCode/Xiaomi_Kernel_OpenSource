@@ -87,8 +87,7 @@
 
 #include "sdm855-pmic-overlay.dtsi"
 
-/* VDD_MMCX */
-&pm855l_s5_level {
+&VDD_MMCX_LEVEL {
 	regulator-always-on;
 };
 

@@ -531,7 +531,7 @@
 
 		mx_cdev: mx-cdev-lvl {
 			compatible = "qcom,regulator-cooling-device";
-			regulator-cdev-supply = <&pm855l_s4_level>;
+			regulator-cdev-supply = <&VDD_MX_LEVEL>;
 			regulator-levels = <RPMH_REGULATOR_LEVEL_NOM
 					RPMH_REGULATOR_LEVEL_OFF>;
 			#cooling-cells = <2>;
@@ -581,7 +581,7 @@
 
 		mm_cx_cdev: mm-cx-cdev-lvl {
 			compatible = "qcom,regulator-cooling-device";
-			regulator-cdev-supply = <&pm855l_s5_level_ao>;
+			regulator-cdev-supply = <&VDD_MMCX_LEVEL_AO>;
 			regulator-levels = <RPMH_REGULATOR_LEVEL_NOM
 					RPMH_REGULATOR_LEVEL_OFF>;
 			#cooling-cells = <2>;
@@ -593,8 +593,8 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "cx.lvl";
-		pm855l_s6_level-parent-supply = <&pm855l_s4_level>;
-		pm855l_s6_level_ao-parent-supply = <&pm855l_s4_level_ao>;
+		pm855l_s6_level-parent-supply = <&VDD_MX_LEVEL>;
+		pm855l_s6_level_ao-parent-supply = <&VDD_MX_LEVEL_AO>;
 
 		VDD_CX_LEVEL:
 		S6C_LEVEL: pm855l_s6_level: regulator-pm855l-s6-level {
