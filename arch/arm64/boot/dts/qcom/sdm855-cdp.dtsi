@@ -88,6 +88,10 @@
 	};
 };
 
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
 &dsi_sharp_4k_dsc_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
