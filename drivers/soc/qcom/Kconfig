@@ -361,6 +361,16 @@ config ICNSS_DEBUG
 	  hardware register access and enabling BUG_ON for certain cases to aid
 	  the debugging.
 
+config ICNSS_QMI
+       bool "ICNSS QMI support"
+       depends on ICNSS
+       ---help---
+        Say 'Y' here to enable ICNSS QMI support. ICNSS driver will use
+	QMI framework to communicate with WLAN FW. It will send coldboot
+	handshake messages to WLAN FW, which includes hardware capabilities
+	and configurations. It also send WLAN on/off control message to FW
+	over QMI channel.
+
 config QCOM_EUD
 	tristate "QTI Embedded USB Debugger (EUD)"
 	depends on ARCH_QCOM

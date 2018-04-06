@@ -13,13 +13,14 @@
 #ifndef __ICNSS_QMI_H__
 #define __ICNSS_QMI_H__
 
-#ifndef ICNSS_QMI
+#ifndef CONFIG_ICNSS_QMI
 
 static inline int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 {
 	return 0;
 }
-static inline int icnss_connect_to_fw_server(struct icnss_priv *priv)
+static inline int icnss_connect_to_fw_server(struct icnss_priv *priv,
+					     void *data)
 {
 	return 0;
 }
@@ -91,7 +92,7 @@ static inline void icnss_unregister_fw_service(struct icnss_priv *priv) {}
 
 #else
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv);
-int icnss_connect_to_fw_server(struct icnss_priv *priv);
+int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data);
 int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv);
 int wlfw_msa_ready_send_sync_msg(struct icnss_priv *priv);
 int wlfw_cap_send_sync_msg(struct icnss_priv *priv);
