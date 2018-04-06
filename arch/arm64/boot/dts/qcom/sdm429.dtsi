@@ -207,3 +207,9 @@
 		"byte1_src";
 	#clock-cells = <1>;
 };
+
+/* GPU overrides */
+&msm_gpu {
+	/* Update GPU chip ID*/
+	qcom,chipid = <0x05000400>;
+};
