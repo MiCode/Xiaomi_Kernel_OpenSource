@@ -619,7 +619,7 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct hfi_gx_bw_perf_vote_cmd req = {
-		.ack_type = DCVS_ACK_NONBLOCK,
+		.ack_type = DCVS_ACK_BLOCK,
 		.freq = INVALID_DCVS_IDX,
 		.bw = INVALID_DCVS_IDX,
 	};
