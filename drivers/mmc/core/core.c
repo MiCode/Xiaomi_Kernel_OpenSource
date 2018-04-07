@@ -4591,7 +4591,9 @@ int mmc_power_save_host(struct mmc_host *host)
 
 	mmc_bus_put(host);
 
+	mmc_claim_host(host);
 	mmc_power_off(host);
+	mmc_release_host(host);
 
 	return ret;
 }
@@ -4612,8 +4614,8 @@ int mmc_power_restore_host(struct mmc_host *host)
 		return -EINVAL;
 	}
 
-	mmc_power_up(host, host->card->ocr);
 	mmc_claim_host(host);
+	mmc_power_up(host, host->card->ocr);
 	ret = host->bus_ops->power_restore(host);
 	mmc_release_host(host);
 
