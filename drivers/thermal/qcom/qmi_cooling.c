@@ -594,7 +594,7 @@ static int qmi_device_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id qmi_device_match[] = {
-	{.compatible = "qcom,qmi_cooling_devices"},
+	{.compatible = "qcom,qmi-cooling-devices"},
 	{}
 };
 
