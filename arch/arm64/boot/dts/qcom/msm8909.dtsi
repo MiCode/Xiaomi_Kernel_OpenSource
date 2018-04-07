@@ -1947,19 +1947,6 @@
 		memory-region = <&modem_adsp_mem>;
 	};
 
-	mcd {
-		compatible = "qcom,mcd";
-		qcom,ce-hw-instance = <0>;
-		qcom,ce-device = <0>;
-		clocks = <&clock_gcc clk_crypto_clk_src>,
-			 <&clock_gcc clk_gcc_crypto_clk>,
-			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
-			 <&clock_gcc clk_gcc_crypto_axi_clk>;
-		clock-names = "core_clk_src", "core_clk",
-				"iface_clk", "bus_clk";
-		qcom,ce-opp-freq = <100000000>;
-	};
-
 	cpu0_slp_sts: cpu-sleep-status@b088008 {
 		reg = <0xb088008 0x100>;
 		qcom,sleep-status-mask= <0x80000>;
