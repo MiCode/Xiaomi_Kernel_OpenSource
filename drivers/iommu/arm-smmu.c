@@ -178,6 +178,7 @@ struct arm_smmu_cb {
 	u32				tcr[2];
 	u32				mair[2];
 	struct arm_smmu_cfg		*cfg;
+	u32				actlr;
 };
 
 struct arm_smmu_master_cfg {
@@ -1586,6 +1587,9 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		writel_relaxed(cb->mair[1], cb_base + ARM_SMMU_CB_S1_MAIR1);
 	}
 
+	/* ACTLR (implementation defined) */
+	writel_relaxed(cb->actlr, cb_base + ARM_SMMU_CB_ACTLR);
+
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
 
@@ -1864,11 +1868,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		/* Initialise the context bank with our page table cfg */
 		arm_smmu_init_context_bank(smmu_domain,
 						&smmu_domain->pgtbl_cfg);
+		arm_smmu_arch_init_context_bank(smmu_domain, dev);
 		arm_smmu_write_context_bank(smmu, cfg->cbndx,
 						smmu_domain->attributes );
-
-		arm_smmu_arch_init_context_bank(smmu_domain, dev);
-
 		/* for slave side secure, we may have to force the pagetable
 		 * format to V8L.
 		 */
@@ -1876,7 +1878,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					     &smmu_domain->pgtbl_cfg);
 		if (ret)
 			goto out_clear_smmu;
-
 
 		/*
 		 * Request context fault interrupt. Do this last to avoid the
@@ -3620,18 +3621,17 @@ static void qsmmuv2_device_reset(struct arm_smmu_device *smmu)
 	int i;
 	u32 val;
 	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
-	void __iomem *cb_base;
-
 	/*
 	 * SCTLR.M must be disabled here per ARM SMMUv2 spec
 	 * to prevent table walks with an inconsistent state.
 	 */
 	for (i = 0; i < smmu->num_context_banks; ++i) {
-		cb_base = ARM_SMMU_CB(smmu, i);
+		struct arm_smmu_cb *cb = &smmu->cbs[i];
+
 		val = ACTLR_QCOM_ISH << ACTLR_QCOM_ISH_SHIFT |
 		ACTLR_QCOM_OSH << ACTLR_QCOM_OSH_SHIFT |
 		ACTLR_QCOM_NSH << ACTLR_QCOM_NSH_SHIFT;
-		writel_relaxed(val, cb_base + ARM_SMMU_CB_ACTLR);
+		cb->actlr = val;
 	}
 
 	/* Program implementation defined registers */
@@ -4258,6 +4258,12 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 				 sizeof(*smmu->cbs), GFP_KERNEL);
 	if (!smmu->cbs)
 		return -ENOMEM;
+	for (i = 0; i < smmu->num_context_banks; i++) {
+		void __iomem *cb_base;
+
+		cb_base = ARM_SMMU_CB(smmu, i);
+		smmu->cbs[i].actlr = readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR);
+	}
 
 	/* ID2 */
 	id = readl_relaxed(gr0_base + ARM_SMMU_GR0_ID2);
@@ -5187,19 +5193,14 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 				struct device *dev)
 {
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_cb *cb = &smmu->cbs[smmu_domain->cfg.cbndx];
 	struct qsmmuv500_group_iommudata *iommudata =
 		to_qsmmuv500_group_iommudata(dev->iommu_group);
-	void __iomem *cb_base;
-	const struct iommu_gather_ops *tlb;
 
 	if (!iommudata->has_actlr)
 		return;
 
-	tlb = smmu_domain->pgtbl_cfg.tlb;
-	cb_base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
-
-	writel_relaxed(iommudata->actlr, cb_base + ARM_SMMU_CB_ACTLR);
-
+	cb->actlr = iommudata->actlr;
 	/*
 	 * Prefetch only works properly if the start and end of all
 	 * buffers in the page table are aligned to ARM_SMMU_MIN_IOVA_ALIGN.
@@ -5207,12 +5208,6 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	if ((iommudata->actlr >> QSMMUV500_ACTLR_DEEP_PREFETCH_SHIFT) &
 			QSMMUV500_ACTLR_DEEP_PREFETCH_MASK)
 		smmu_domain->qsmmuv500_errata1_min_iova_align = true;
-
-	/*
-	 * Flush the context bank after modifying ACTLR to ensure there
-	 * are no cache entries with stale state
-	 */
-	tlb->tlb_flush_all(smmu_domain);
 }
 
 static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
