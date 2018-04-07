@@ -169,6 +169,9 @@ enum usb_qmi_audio_format {
 	USB_QMI_PCM_FORMAT_U32_BE,
 };
 
+static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
+	size_t iova_size, size_t mapped_iova_size);
+
 static enum usb_audio_device_speed_enum_v01
 get_speed_info(enum usb_device_speed udev_speed)
 {
@@ -275,11 +278,14 @@ done:
 }
 
 static unsigned long uaudio_iommu_map(enum mem_type mtype, phys_addr_t pa,
-		size_t size)
+		size_t size, struct sg_table *sgt)
 {
-	unsigned long va = 0;
+	unsigned long va_sg, va = 0;
 	bool map = true;
-	int ret;
+	int i, ret;
+	size_t sg_len, total_len = 0;
+	struct scatterlist *sg;
+	phys_addr_t pa_sg;
 
 	switch (mtype) {
 	case MEM_EVENT_RING:
@@ -302,18 +308,48 @@ static unsigned long uaudio_iommu_map(enum mem_type mtype, phys_addr_t pa,
 		pr_err("%s: unknown mem type %d\n", __func__, mtype);
 	}
 
-	if (!va)
-		map = false;
-
-	if (!map)
+	if (!va || !map)
 		goto done;
 
-	pr_debug("%s: map pa %pa to iova %lu for memtype %d\n", __func__, &pa,
-		va, mtype);
+	if (!sgt)
+		goto skip_sgt_map;
+
+	va_sg = va;
+	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+		sg_len = PAGE_ALIGN(sg->offset + sg->length);
+		pa_sg = page_to_phys(sg_page(sg));
+		ret = iommu_map(uaudio_qdev->domain, va_sg, pa_sg, sg_len,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
+		if (ret) {
+			pr_err("%s:mapping failed ret%d\n", __func__, ret);
+			pr_err("memtype:%d, pa:%pK iova:%lu sg_len:%zu\n",
+				mtype, &pa_sg, va_sg, sg_len);
+			uaudio_iommu_unmap(MEM_XFER_BUF, va, size, total_len);
+			va = 0;
+			goto done;
+		}
+		pr_debug("%s:memtype %d:map pa:%pK to iova:%lu len:%zu\n",
+			__func__, mtype, &pa_sg, va_sg, sg_len);
+		va_sg += sg_len;
+		total_len += sg_len;
+	}
+
+	if (size != total_len) {
+		pr_err("%s: iova size %zu != mapped iova size %zu\n", __func__,
+			size, total_len);
+		uaudio_iommu_unmap(MEM_XFER_BUF, va, size, total_len);
+		va = 0;
+	}
+	return va;
+
+skip_sgt_map:
+	pr_debug("%s:memtype:%d map pa:%pK to iova %lu size:%zu\n", __func__,
+		mtype, &pa, va, size);
+
 	ret = iommu_map(uaudio_qdev->domain, va, pa, size,
 		IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 	if (ret)
-		pr_err("%s:failed to map pa:%pa iova:%lu memtype:%d ret:%d\n",
+		pr_err("%s:failed to map pa:%pK iova:%lu memtype:%d ret:%d\n",
 			__func__, &pa, va, mtype, ret);
 done:
 	return va;
@@ -357,12 +393,12 @@ done:
 }
 
 static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
-	size_t size)
+	size_t iova_size, size_t mapped_iova_size)
 {
 	size_t umap_size;
 	bool unmap = true;
 
-	if (!va || !size)
+	if (!va || !iova_size)
 		return;
 
 	switch (mtype) {
@@ -374,11 +410,11 @@ static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
 		break;
 
 	case MEM_XFER_RING:
-		uaudio_put_iova(va, size, &uaudio_qdev->xfer_ring_list,
+		uaudio_put_iova(va, iova_size, &uaudio_qdev->xfer_ring_list,
 		&uaudio_qdev->xfer_ring_iova_size);
 		break;
 	case MEM_XFER_BUF:
-		uaudio_put_iova(va, size, &uaudio_qdev->xfer_buf_list,
+		uaudio_put_iova(va, iova_size, &uaudio_qdev->xfer_buf_list,
 		&uaudio_qdev->xfer_buf_iova_size);
 		break;
 	default:
@@ -386,15 +422,16 @@ static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
 		unmap = false;
 	}
 
-	if (!unmap)
+	if (!unmap || !mapped_iova_size)
 		return;
 
-	pr_debug("%s: unmap iova %lu for memtype %d\n", __func__, va, mtype);
+	pr_debug("%s:memtype %d: unmap iova %lu size %zu\n", __func__, mtype,
+		va, mapped_iova_size);
 
-	umap_size = iommu_unmap(uaudio_qdev->domain, va, size);
-	if (umap_size != size)
-		pr_err("%s: unmapped size %zu for iova %lu\n", __func__,
-		umap_size, va);
+	umap_size = iommu_unmap(uaudio_qdev->domain, va, mapped_iova_size);
+	if (umap_size != mapped_iova_size)
+		pr_err("%s:unmapped size %zu for iova %lu of mapped size %zu\n",
+		__func__, umap_size, va, mapped_iova_size);
 }
 
 static int prepare_qmi_response(struct snd_usb_substream *subs,
@@ -414,12 +451,11 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	void *hdr_ptr;
 	u8 *xfer_buf;
 	unsigned int data_ep_pipe = 0, sync_ep_pipe = 0;
-	u32 len, mult, remainder, xfer_buf_len, sg_len, i, total_len = 0;
-	unsigned long va, va_sg, tr_data_va = 0, tr_sync_va = 0;
+	u32 len, mult, remainder, xfer_buf_len;
+	unsigned long va, tr_data_va = 0, tr_sync_va = 0;
 	phys_addr_t xhci_pa, xfer_buf_pa, tr_data_pa = 0, tr_sync_pa = 0;
 	dma_addr_t dma;
 	struct sg_table sgt;
-	struct scatterlist *sg;
 
 	iface = usb_ifnum_to_if(subs->dev, subs->interface);
 	if (!iface) {
@@ -589,7 +625,7 @@ skip_sync_ep:
 		goto err;
 	}
 
-	va = uaudio_iommu_map(MEM_EVENT_RING, xhci_pa, PAGE_SIZE);
+	va = uaudio_iommu_map(MEM_EVENT_RING, xhci_pa, PAGE_SIZE, NULL);
 	if (!va)
 		goto err;
 
@@ -606,7 +642,7 @@ skip_sync_ep:
 	resp->speed_info_valid = 1;
 
 	/* data transfer ring */
-	va = uaudio_iommu_map(MEM_XFER_RING, tr_data_pa, PAGE_SIZE);
+	va = uaudio_iommu_map(MEM_XFER_RING, tr_data_pa, PAGE_SIZE, NULL);
 	if (!va)
 		goto unmap_er;
 
@@ -620,7 +656,7 @@ skip_sync_ep:
 		goto skip_sync;
 
 	xhci_pa = resp->xhci_mem_info.tr_sync.pa;
-	va = uaudio_iommu_map(MEM_XFER_RING, tr_sync_pa, PAGE_SIZE);
+	va = uaudio_iommu_map(MEM_XFER_RING, tr_sync_pa, PAGE_SIZE, NULL);
 	if (!va)
 		goto unmap_data;
 
@@ -651,20 +687,9 @@ skip_sync:
 
 	dma_get_sgtable(subs->dev->bus->sysdev, &sgt, xfer_buf, xfer_buf_pa,
 			len);
-
-	va = 0;
-	for_each_sg(sgt.sgl, sg, sgt.nents, i) {
-		sg_len = PAGE_ALIGN(sg->offset + sg->length);
-		va_sg = uaudio_iommu_map(MEM_XFER_BUF,
-			page_to_phys(sg_page(sg)), sg_len);
-		if (!va_sg)
-			goto unmap_xfer_buf;
-
-		if (!va)
-			va = va_sg;
-
-		total_len += sg_len;
-	}
+	va = uaudio_iommu_map(MEM_XFER_BUF, xfer_buf_pa, len, &sgt);
+	if (!va)
+		goto unmap_sync;
 
 	resp->xhci_mem_info.xfer_buff.pa = xfer_buf_pa;
 	resp->xhci_mem_info.xfer_buff.size = len;
@@ -685,7 +710,7 @@ skip_sync:
 			sizeof(struct intf_info), GFP_KERNEL);
 		if (!uadev[card_num].info) {
 			ret = -ENOMEM;
-			goto unmap_xfer_buf;
+			goto unmap_sync;
 		}
 		uadev[card_num].udev = subs->dev;
 		atomic_set(&uadev[card_num].in_use, 1);
@@ -717,16 +742,13 @@ skip_sync:
 
 	return 0;
 
-unmap_xfer_buf:
-	if (va)
-		uaudio_iommu_unmap(MEM_XFER_BUF, va, total_len);
 unmap_sync:
 	usb_free_coherent(subs->dev, len, xfer_buf, xfer_buf_pa);
-	uaudio_iommu_unmap(MEM_XFER_RING, tr_sync_va, PAGE_SIZE);
+	uaudio_iommu_unmap(MEM_XFER_RING, tr_sync_va, PAGE_SIZE, PAGE_SIZE);
 unmap_data:
-	uaudio_iommu_unmap(MEM_XFER_RING, tr_data_va, PAGE_SIZE);
+	uaudio_iommu_unmap(MEM_XFER_RING, tr_data_va, PAGE_SIZE, PAGE_SIZE);
 unmap_er:
-	uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE);
+	uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE, PAGE_SIZE);
 err:
 	return ret;
 }
@@ -755,17 +777,17 @@ static void uaudio_dev_intf_cleanup(struct usb_device *udev,
 	}
 
 	uaudio_iommu_unmap(MEM_XFER_RING, info->data_xfer_ring_va,
-		info->data_xfer_ring_size);
+		info->data_xfer_ring_size, info->data_xfer_ring_size);
 	info->data_xfer_ring_va = 0;
 	info->data_xfer_ring_size = 0;
 
 	uaudio_iommu_unmap(MEM_XFER_RING, info->sync_xfer_ring_va,
-		info->sync_xfer_ring_size);
+		info->sync_xfer_ring_size, info->sync_xfer_ring_size);
 	info->sync_xfer_ring_va = 0;
 	info->sync_xfer_ring_size = 0;
 
 	uaudio_iommu_unmap(MEM_XFER_BUF, info->xfer_buf_va,
-		info->xfer_buf_size);
+		info->xfer_buf_size, info->xfer_buf_size);
 	info->xfer_buf_va = 0;
 
 	usb_free_coherent(udev, info->xfer_buf_size,
@@ -800,7 +822,8 @@ static void uaudio_dev_cleanup(struct uaudio_dev *dev)
 
 	/* all audio devices are disconnected */
 	if (!uaudio_qdev->card_slot) {
-		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE);
+		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE,
+			PAGE_SIZE);
 		usb_sec_event_ring_cleanup(dev->udev, uaudio_qdev->intr_num);
 		pr_debug("%s: all audio devices disconnected\n", __func__);
 	}
@@ -878,7 +901,8 @@ static void uaudio_dev_release(struct kref *kref)
 	/* all audio devices are disconnected */
 	if (!uaudio_qdev->card_slot) {
 		usb_sec_event_ring_cleanup(dev->udev, uaudio_qdev->intr_num);
-		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE);
+		uaudio_iommu_unmap(MEM_EVENT_RING, IOVA_BASE, PAGE_SIZE,
+			PAGE_SIZE);
 		pr_debug("%s: all audio devices disconnected\n", __func__);
 	}
 
