@@ -42,7 +42,7 @@ config QTI_AOP_REG_COOLING_DEVICE
 
 config QTI_QMI_COOLING_DEVICE
 	bool "QTI QMI cooling devices"
-	depends on MSM_QMI_INTERFACE && THERMAL_OF
+	depends on QCOM_QMI_HELPERS && THERMAL_OF
 	help
 	   This enables the QTI remote subsystem cooling devices. These cooling
 	   devices will be used by QTI chipset to place various remote
