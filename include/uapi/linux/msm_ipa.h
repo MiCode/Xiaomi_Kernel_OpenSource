@@ -95,7 +95,9 @@
 #define IPA_IOCTL_ALLOC_IPV6CT_TABLE            53
 #define IPA_IOCTL_DEL_NAT_TABLE                 54
 #define IPA_IOCTL_DEL_IPV6CT_TABLE              55
-#define IPA_IOCTL_MAX                           56
+#define IPA_IOCTL_CLEANUP                       56
+#define IPA_IOCTL_QUERY_WLAN_CLIENT             57
+#define IPA_IOCTL_MAX				58
 
 /**
  * max size of the header to be inserted
@@ -1967,6 +1969,10 @@ struct ipa_tether_device_info {
 #define IPA_IOC_DEL_L2TP_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_DEL_L2TP_VLAN_MAPPING, \
 				struct ipa_ioc_l2tp_vlan_mapping_info *)
+#define IPA_IOC_CLEANUP _IO(IPA_IOC_MAGIC,\
+					IPA_IOCTL_CLEANUP)
+#define IPA_IOC_QUERY_WLAN_CLIENT _IO(IPA_IOC_MAGIC,\
+					IPA_IOCTL_QUERY_WLAN_CLIENT)
 /*
  * unique magic number of the Tethering bridge ioctls
  */
