@@ -21,9 +21,10 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 
-#define DEBUG_SIZE				10
+#define DEBUG_SIZE					10
 #define TSENS_MAX_SENSORS			16
-#define TSENS_1x_MAX_SENSORS			11
+#define TSENS_NUM_SENSORS_8937		11
+#define TSENS_NUM_SENSORS_405		10
 #define TSENS_CONTROLLER_ID(n)			(n)
 #define TSENS_CTRL_ADDR(n)			(n)
 #define TSENS_TM_SN_STATUS(n)			((n) + 0xa0)
@@ -31,6 +32,9 @@
 #define ONE_PT_CALIB		0x1
 #define ONE_PT_CALIB2		0x2
 #define TWO_PT_CALIB		0x3
+
+#define SLOPE_FACTOR		1000
+#define SLOPE_DEFAULT		3200
 
 enum tsens_dbg_type {
 	TSENS_DBG_POLL,
@@ -156,7 +160,10 @@ struct tsens_device {
 };
 
 extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx;
-extern const struct tsens_data data_tsens14xx;
+extern const struct tsens_data data_tsens14xx, data_tsens14xx_405;
 extern struct list_head tsens_device_list;
+
+extern int calibrate_8937(struct tsens_device *tmdev);
+extern int calibrate_405(struct tsens_device *tmdev);
 
 #endif /* __QCOM_TSENS_H__ */
