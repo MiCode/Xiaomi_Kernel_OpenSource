@@ -369,6 +369,43 @@ int ipa3_active_clients_log_print_table(char *buf, int size)
 	return cnt;
 }
 
+static int ipa3_clean_modem_rule(void)
+{
+	struct ipa_install_fltr_rule_req_msg_v01 *req;
+	struct ipa_install_fltr_rule_req_ex_msg_v01 *req_ex;
+	int val = 0;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v3_0) {
+		req = kzalloc(
+			sizeof(struct ipa_install_fltr_rule_req_msg_v01),
+			GFP_KERNEL);
+		if (!req) {
+			IPAERR("mem allocated failed!\n");
+			return -ENOMEM;
+		}
+		req->filter_spec_list_valid = false;
+		req->filter_spec_list_len = 0;
+		req->source_pipe_index_valid = 0;
+		val = ipa3_qmi_filter_request_send(req);
+		kfree(req);
+	} else {
+		req_ex = kzalloc(
+			sizeof(struct ipa_install_fltr_rule_req_ex_msg_v01),
+			GFP_KERNEL);
+		if (!req_ex) {
+			IPAERR("mem allocated failed!\n");
+			return -ENOMEM;
+		}
+		req_ex->filter_spec_ex_list_valid = false;
+		req_ex->filter_spec_ex_list_len = 0;
+		req_ex->source_pipe_index_valid = 0;
+		val = ipa3_qmi_filter_request_ex_send(req_ex);
+		kfree(req_ex);
+	}
+
+	return val;
+}
+
 static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
@@ -941,7 +978,8 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa3_add_hdr((struct ipa_ioc_add_hdr *)param)) {
+		if (ipa3_add_hdr_usr((struct ipa_ioc_add_hdr *)param,
+			true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1021,7 +1059,8 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa3_add_rt_rule((struct ipa_ioc_add_rt_rule *)param)) {
+		if (ipa3_add_rt_rule_usr((struct ipa_ioc_add_rt_rule *)param,
+				true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1225,7 +1264,8 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa3_add_flt_rule((struct ipa_ioc_add_flt_rule *)param)) {
+		if (ipa3_add_flt_rule_usr((struct ipa_ioc_add_flt_rule *)param,
+				true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1362,19 +1402,19 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		retval = ipa3_commit_hdr();
 		break;
 	case IPA_IOC_RESET_HDR:
-		retval = ipa3_reset_hdr();
+		retval = ipa3_reset_hdr(false);
 		break;
 	case IPA_IOC_COMMIT_RT:
 		retval = ipa3_commit_rt(arg);
 		break;
 	case IPA_IOC_RESET_RT:
-		retval = ipa3_reset_rt(arg);
+		retval = ipa3_reset_rt(arg, false);
 		break;
 	case IPA_IOC_COMMIT_FLT:
 		retval = ipa3_commit_flt(arg);
 		break;
 	case IPA_IOC_RESET_FLT:
-		retval = ipa3_reset_flt(arg);
+		retval = ipa3_reset_flt(arg, false);
 		break;
 	case IPA_IOC_GET_RT_TBL:
 		if (copy_from_user(header, (const void __user *)arg,
@@ -1762,7 +1802,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		if (ipa3_add_hdr_proc_ctx(
-			(struct ipa_ioc_add_hdr_proc_ctx *)param)) {
+			(struct ipa_ioc_add_hdr_proc_ctx *)param, true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1885,6 +1925,21 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+		break;
+
+	case IPA_IOC_CLEANUP:
+		/*Route and filter rules will also be clean*/
+		IPADBG("Got IPA_IOC_CLEANUP\n");
+		retval = ipa3_reset_hdr(true);
+		memset(&nat_del, 0, sizeof(nat_del));
+		nat_del.table_index = 0;
+		retval = ipa3_nat_del_cmd(&nat_del);
+		retval = ipa3_clean_modem_rule();
+		break;
+
+	case IPA_IOC_QUERY_WLAN_CLIENT:
+		IPADBG("Got IPA_IOC_QUERY_WLAN_CLIENT\n");
+		retval = ipa3_resend_wlan_msg();
 		break;
 
 	default:
@@ -5380,6 +5435,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	INIT_LIST_HEAD(&ipa3_ctx->pull_msg_list);
 	init_waitqueue_head(&ipa3_ctx->msg_waitq);
 	mutex_init(&ipa3_ctx->msg_lock);
+
+	/* store wlan client-connect-msg-list */
+	INIT_LIST_HEAD(&ipa3_ctx->msg_wlan_client_list);
+	mutex_init(&ipa3_ctx->msg_wlan_client_lock);
 
 	mutex_init(&ipa3_ctx->lock);
 	mutex_init(&ipa3_ctx->q6_proxy_clk_vote_mutex);
