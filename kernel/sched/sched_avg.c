@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,7 @@ void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg,
 		if (*max_nr < per_cpu(nr_max, cpu))
 			*max_nr = per_cpu(nr_max, cpu);
 
-		if (is_max_capacity_cpu(cpu)) {
+		if (!is_min_capacity_cpu(cpu)) {
 			if (*big_max_nr < per_cpu(nr_max, cpu))
 				*big_max_nr = per_cpu(nr_max, cpu);
 		}
