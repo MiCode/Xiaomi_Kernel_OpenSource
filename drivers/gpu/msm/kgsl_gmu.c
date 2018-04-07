@@ -708,7 +708,7 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	 * zero padding.
 	 */
 	for (arc->num = 1; arc->num < (len >> 1); arc->num++) {
-		if (arc->val[arc->num - 1] >= arc->val[arc->num])
+		if (arc->val[arc->num - 1] != 0 &&  arc->val[arc->num] == 0)
 			break;
 	}
 
@@ -736,7 +736,7 @@ static int setup_volt_dependency_tbl(uint32_t *votes,
 	bool found_match;
 
 	/* i tracks current KGSL GPU frequency table entry
-	 * j tracks second rail voltage table entry
+	 * j tracks secondary rail voltage table entry
 	 * k tracks primary rail voltage table entry
 	 */
 	for (i = 0; i < num_entries; i++) {
@@ -744,8 +744,8 @@ static int setup_volt_dependency_tbl(uint32_t *votes,
 
 		/* Look for a primary rail voltage that matches a VLVL level */
 		for (k = 0; k < pri_rail->num; k++) {
-			if (pri_rail->val[k] == vlvl[i]) {
-				cur_vlvl = vlvl[i];
+			if (pri_rail->val[k] >= vlvl[i]) {
+				cur_vlvl = pri_rail->val[k];
 				found_match = true;
 				break;
 			}
@@ -769,7 +769,7 @@ static int setup_volt_dependency_tbl(uint32_t *votes,
 		if (j == sec_rail->num)
 			j = 0;
 
-		votes[i] = ARC_VOTE_SET(k, j, vlvl[i]);
+		votes[i] = ARC_VOTE_SET(k, j, cur_vlvl);
 	}
 
 	return 0;
