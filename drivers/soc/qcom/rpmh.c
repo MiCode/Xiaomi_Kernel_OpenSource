@@ -285,7 +285,8 @@ static int check_ctrlr_state(struct rpmh_client *rc, enum rpmh_state state)
 
 	/* Do not allow setting active votes when in solver mode */
 	spin_lock_irqsave(&rpm->lock, flags);
-	if (rpm->in_solver_mode && state == RPMH_AWAKE_STATE)
+	if (rpm->in_solver_mode &&
+	    (state == RPMH_AWAKE_STATE || state == RPMH_ACTIVE_ONLY_STATE))
 		ret = -EBUSY;
 	spin_unlock_irqrestore(&rpm->lock, flags);
 
