@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1215,6 +1215,9 @@ static int _sde_hdmi_gpio_config(struct hdmi *hdmi, bool on)
 
 		gpio_free(config->hpd_gpio);
 
+		if (config->hpd5v_gpio != -1)
+			gpio_free(config->hpd5v_gpio);
+
 		if (config->mux_en_gpio != -1) {
 			gpio_set_value_cansleep(config->mux_en_gpio, 0);
 			gpio_free(config->mux_en_gpio);
@@ -1336,18 +1339,25 @@ static int _sde_hdmi_hpd_enable(struct sde_hdmi *sde_hdmi)
 			HDMI_HPD_CTRL_ENABLE | hpd_ctrl);
 	spin_unlock_irqrestore(&hdmi->reg_lock, flags);
 
+	hdmi->hpd_off = false;
+	SDE_DEBUG("enabled hdmi hpd\n");
 	return 0;
 
 fail:
 	return ret;
 }
 
-static void _sde_hdmi_hdp_disable(struct sde_hdmi *sde_hdmi)
+static void _sde_hdmi_hpd_disable(struct sde_hdmi *sde_hdmi)
 {
 	struct hdmi *hdmi = sde_hdmi->ctrl.ctrl;
 	const struct hdmi_platform_config *config = hdmi->config;
 	struct device *dev = &hdmi->pdev->dev;
 	int i, ret = 0;
+
+	if (hdmi->hpd_off) {
+		pr_warn("hdmi display hpd was already disabled\n");
+		return;
+	}
 
 	/* Disable HPD interrupt */
 	hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL, 0);
@@ -1371,6 +1381,36 @@ static void _sde_hdmi_hdp_disable(struct sde_hdmi *sde_hdmi)
 			pr_warn("failed to disable hpd regulator: %s (%d)\n",
 					config->hpd_reg_names[i], ret);
 	}
+	hdmi->hpd_off = true;
+	SDE_DEBUG("disabled hdmi hpd\n");
+}
+
+/**
+ * _sde_hdmi_update_hpd_state() - Update the HDMI HPD clock state
+ *
+ * @state: non-zero to disbale HPD clock, 0 to enable.
+ * return: 0 on success, non-zero in case of failure.
+ *
+ */
+static int
+_sde_hdmi_update_hpd_state(struct sde_hdmi *hdmi_display, u64 state)
+{
+	struct hdmi *hdmi = hdmi_display->ctrl.ctrl;
+	int rc = 0;
+
+	if (hdmi_display->non_pluggable)
+		return 0;
+
+	SDE_DEBUG("changing hdmi hpd state to %llu\n", state);
+
+	if (state == SDE_MODE_HPD_ON) {
+		if (!hdmi->hpd_off)
+			pr_warn("hdmi display hpd was already enabled\n");
+		rc = _sde_hdmi_hpd_enable(hdmi_display);
+	} else
+		_sde_hdmi_hpd_disable(hdmi_display);
+
+	return rc;
 }
 
 static void _sde_hdmi_cec_update_phys_addr(struct sde_hdmi *display)
@@ -2140,6 +2180,8 @@ int sde_hdmi_set_property(struct drm_connector *connector,
 		rc = _sde_hdmi_enable_pll_update(display, value);
 	else if (property_index == CONNECTOR_PROP_PLL_DELTA)
 		rc = _sde_hdmi_update_pll_delta(display, value);
+	else if (property_index == CONNECTOR_PROP_HPD_OFF)
+		rc = _sde_hdmi_update_hpd_state(display, value);
 
 	return rc;
 }
@@ -2217,7 +2259,7 @@ int sde_hdmi_connector_pre_deinit(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
-	_sde_hdmi_hdp_disable(sde_hdmi);
+	_sde_hdmi_hpd_disable(sde_hdmi);
 
 	return 0;
 }
