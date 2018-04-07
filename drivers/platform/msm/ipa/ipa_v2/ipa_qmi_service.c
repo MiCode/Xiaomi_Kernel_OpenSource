@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -513,6 +513,14 @@ int qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 	struct msg_desc req_desc, resp_desc;
 	int rc;
 	int i;
+
+	/* check if modem up */
+	if (!qmi_indication_fin ||
+		!qmi_modem_init_fin ||
+		!ipa_q6_clnt) {
+		IPAWANDBG("modem QMI haven't up yet\n");
+		return -EINVAL;
+	}
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->filter_spec_list_len == 0) {
