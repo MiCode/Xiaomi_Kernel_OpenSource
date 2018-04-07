@@ -1708,6 +1708,12 @@
 		status = "disabled";
 	};
 
+	qcom_tzlog: tz-log@8600720 {
+		compatible = "qcom,tz-log";
+		reg = <0x08600720 0x2000>;
+		status = "disabled";
+	};
+
 	emac0: qcom,emac@7c40000 {
 		compatible = "qcom,mdm9607-emac";
 		reg-names = "emac", "emac_csr", "emac_1588";
