@@ -25,11 +25,12 @@
 		.ngroups = ARRAY_SIZE(fname##_groups),	\
 	}
 
+#define NORTH	0x900000 /* dummy tile info */
 #define SOUTH	0xD00000
 #define WEST	0x100000
 #define EAST	0x500000
 #define DUMMY	0x0
-#define REG_SIZE 0x2000
+#define REG_SIZE 0x1000
 #define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
 	{						\
 		.name = "gpio" #id,			\
@@ -2051,20 +2052,20 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[85] = PINGROUP(85, EAST, qup12, qup16, NA, NA, NA, NA, NA, NA, NA),
 	[86] = PINGROUP(86, EAST, qup12, qup16, NA, NA, NA, NA, NA, NA, NA),
 	[87] = PINGROUP(87, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[88] = PINGROUP(88, EAST, tsif1_clk, qup8, qspi0_cs, tgu_ch3,
+	[88] = PINGROUP(88, NORTH, tsif1_clk, qup8, qspi0_cs, tgu_ch3,
 			atest_usb40, ddr_pxi7, NA, NA, NA),
-	[89] = PINGROUP(89, EAST, tsif1_en, qup8, qspi00, mdp_vsync0,
+	[89] = PINGROUP(89, NORTH, tsif1_en, qup8, qspi00, mdp_vsync0,
 			mdp_vsync1, mdp_vsync2, mdp_vsync3, mdp_vsync4,
 			mdp_vsync5),
-	[90] = PINGROUP(90, EAST, tsif1_data, qup8, qspi01, sdc4_cmd, tgu_ch1,
+	[90] = PINGROUP(90, NORTH, tsif1_data, qup8, qspi01, sdc4_cmd, tgu_ch1,
 			qdss_cti, atest_usb0, ddr_pxi7, NA),
-	[91] = PINGROUP(91, EAST, tsif1_sync, qup8, qspi02, sdc43, vfr_1,
+	[91] = PINGROUP(91, NORTH, tsif1_sync, qup8, qspi02, sdc43, vfr_1,
 			tgu_ch2, atest_usb03, NA, NA),
-	[92] = PINGROUP(92, EAST, tsif2_clk, qup11, qspi0_clk, sdc4_clk,
+	[92] = PINGROUP(92, NORTH, tsif2_clk, qup11, qspi0_clk, sdc4_clk,
 			qdss_gpio13, atest_usb02, NA, NA, NA),
-	[93] = PINGROUP(93, EAST, tsif2_en, qup11, qspi03, sdc42, atest_tsens,
+	[93] = PINGROUP(93, NORTH, tsif2_en, qup11, qspi03, sdc42, atest_tsens,
 			atest_usb01, NA, NA, NA),
-	[94] = PINGROUP(94, EAST, tsif2_data, qup11, qspi0_cs, sdc41, NA,
+	[94] = PINGROUP(94, NORTH, tsif2_data, qup11, qspi0_cs, sdc41, NA,
 			atest_usb00, NA, NA, NA),
 	[95] = PINGROUP(95, EAST, tsif2_sync, qup11, sdc40, qup_l4, atest_usb2,
 			NA, NA, NA, NA),
