@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,7 +60,6 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 					bool check_for_reuse);
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_output_buffers(struct msm_vidc_inst *inst);
-void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst);
 int msm_comm_force_cleanup(struct msm_vidc_inst *inst);
 int msm_comm_suspend(int core_id);
 enum hal_extradata_id msm_comm_get_hal_extradata_index(

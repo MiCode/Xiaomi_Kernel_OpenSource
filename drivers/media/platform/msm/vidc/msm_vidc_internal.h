@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -130,11 +130,6 @@ enum buffer_owner {
 	FIRMWARE,
 	CLIENT,
 	MAX_OWNER
-};
-
-struct eos_buf {
-	struct list_head list;
-	struct msm_smem *smem;
 };
 
 struct internal_buf {
@@ -275,7 +270,6 @@ struct msm_vidc_inst {
 	struct msm_vidc_list persistbufs;
 	struct msm_vidc_list pending_getpropq;
 	struct msm_vidc_list outputbufs;
-	struct msm_vidc_list eosbufs;
 	struct msm_vidc_list registeredbufs;
 	struct buffer_requirements buff_req;
 	void *mem_client;
