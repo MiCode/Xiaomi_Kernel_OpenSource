@@ -2028,7 +2028,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_AXI_INTF, 62, 0, _sde_debug_bus_axi_dump_sdm845},
 };
 
-static struct sde_debug_bus_entry dbg_bus_sde_sdm855[] = {
+static struct sde_debug_bus_entry dbg_bus_sde_sm8150[] = {
 
 	/* Unpack 0 sspp 0*/
 	{ DBGBUS_SSPP0, 35, 2 },
@@ -4621,10 +4621,10 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
 		dbg->dbgbus_vbif_rt.cmn.entries_size =
 				ARRAY_SIZE(vbif_dbg_bus_msm8998);
-	} else if (IS_SDM855_TARGET(hwversion)) {
-		dbg->dbgbus_sde.entries = dbg_bus_sde_sdm855;
+	} else if (IS_SM8150_TARGET(hwversion)) {
+		dbg->dbgbus_sde.entries = dbg_bus_sde_sm8150;
 		dbg->dbgbus_sde.cmn.entries_size =
-				ARRAY_SIZE(dbg_bus_sde_sdm855);
+				ARRAY_SIZE(dbg_bus_sde_sm8150);
 		dbg->dbgbus_sde.cmn.flags = DBGBUS_FLAGS_DSPP;
 
 		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;

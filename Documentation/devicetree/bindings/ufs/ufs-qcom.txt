@@ -12,7 +12,7 @@ Required properties:
 			"qcom,ufs-phy-qmp-v3" for V3 ufs phy present
 			 on msmcobalt platform,
 			"qcom,ufs-phy-qmp-v4" for V4 ufs phy present
-			 on sdm855 platform,
+			 on sm8150 platform,
 			"qcom,ufs-phy-qrbtc-sdm845" for phy support
 			 for sdm845 emulation
 		        "qcom,ufs-phy-qmp-v3-falcon" for phy support

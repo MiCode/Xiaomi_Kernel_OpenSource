@@ -1,7 +1,7 @@
 Qualcomm Technologies, Inc. RPMh Clocks
 
 Required properties:
-- compatible:	Must contain "qcom,rpmh-clk-sdm855" or
+- compatible:	Must contain "qcom,rpmh-clk-sm8150" or
 		"qcom,rpmh-clk-sdmshrike".
 - #clock-cells:	Must contain 1.
 - mboxes:	List of RPMh mailbox phandle and channel identifier tuples.
@@ -12,7 +12,7 @@ Required properties:
 
 Example:
 	qcom,rpmhclk {
-		compatible = "qcom,rpmh-clk-sdm855";
+		compatible = "qcom,rpmh-clk-sm8150";
 		#clock-cells = <1>;
 		mboxes = <&apps_rsc 0>, <&disp_rsc 0>;
 		mbox-names = "apps", "display";

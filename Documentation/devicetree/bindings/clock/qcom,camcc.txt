@@ -2,7 +2,7 @@ Qualcomm Technologies, Inc. Camera Clock & Reset Controller Binding
 -------------------------------------------------------------------
 
 Required properties :
-- compatible : must contain "qcom,camcc-sdm855" or "qcom,camcc-sdmshrike".
+- compatible : must contain "qcom,camcc-sm8150" or "qcom,camcc-sdmshrike".
 - reg : shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in
 	     the reg property.
@@ -13,7 +13,7 @@ Required properties :
 
 Example:
 	clock_camcc: qcom,camcc {
-		compatible = "qcom,camcc-sdm855";
+		compatible = "qcom,camcc-sm8150";
 		reg = <0xad00000 0x10000>;
 		reg-names = "cc_base";
 		vdd_mx-supply = <&pm855l_s4_level>;

@@ -13,10 +13,10 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,gcc-sdmshrike.h>
-#include <dt-bindings/clock/qcom,npucc-sdm855.h>
-#include <dt-bindings/clock/qcom,dispcc-sdm855.h>
-#include <dt-bindings/clock/qcom,cpucc-sdm855.h>
-#include <dt-bindings/clock/qcom,gpucc-sdm855.h>
+#include <dt-bindings/clock/qcom,npucc-sm8150.h>
+#include <dt-bindings/clock/qcom,dispcc-sm8150.h>
+#include <dt-bindings/clock/qcom,cpucc-sm8150.h>
+#include <dt-bindings/clock/qcom,gpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,camcc-sdmshrike.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -420,7 +420,7 @@
 	};
 
 	pdc: interrupt-controller@0xb220000{
-		compatible = "qcom,pdc-sdm855";
+		compatible = "qcom,pdc-sm8150";
 		reg = <0xb220000 0x400>;
 		#interrupt-cells = <3>;
 		interrupt-parent = <&intc>;
@@ -627,7 +627,7 @@
 	};
 
 	clock_npucc: qcom,npucc@9910000 {
-		compatible = "qcom,npucc-sdm855";
+		compatible = "qcom,npucc-sm8150";
 		reg = <0x9910000 0x10000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
@@ -637,7 +637,7 @@
 	};
 
 	clock_dispcc: qcom,dispcc@af00000 {
-		compatible = "qcom,dispcc-sdm855";
+		compatible = "qcom,dispcc-sm8150";
 		reg = <0xaf00000 0x20000>;
 		reg-names = "cc_base";
 		vdd_mm-supply = <&VDD_MMCX_LEVEL>;

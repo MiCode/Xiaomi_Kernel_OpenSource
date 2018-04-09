@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include "sdm855-wcd.dtsi"
+#include "sm8150-wcd.dtsi"
 #include "msm-wsa881x.dtsi"
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 

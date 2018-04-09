@@ -62,7 +62,7 @@ def check_kernel():
     """Ensure that PWD is a kernel directory"""
     have_defconfig = any([
         os.path.isfile('arch/arm64/configs/msm_defconfig'),
-        os.path.isfile('arch/arm64/configs/sdm855_defconfig')])
+        os.path.isfile('arch/arm64/configs/sm8150_defconfig')])
 
     if not all([os.path.isfile('MAINTAINERS'), have_defconfig]):
         fail("This doesn't seem to be an MSM kernel dir")

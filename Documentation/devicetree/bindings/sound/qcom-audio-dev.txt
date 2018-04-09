@@ -978,7 +978,7 @@ Example:
 * MSMSTUB ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,sdm855-asoc-snd-stub" for SDM855 target.
+- compatible : "qcom,sm8150-asoc-snd-stub" for SM8150 target.
 - qcom,model : The user-visible name of this sound card.
 - qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
 - asoc-platform: This is phandle list containing the references to platform device
@@ -1004,8 +1004,8 @@ Optional properties:
 Example:
 
 	sound_stub {
-		compatible = "qcom,sdm855-asoc-snd-stub";
-		qcom,model = "sdm855-stub-snd-card";
+		compatible = "qcom,sm8150-asoc-snd-stub";
+		qcom,model = "sm8150-stub-snd-card";
 
 		qcom,tasha-mclk-clk-freq = <9600000>;
 		asoc-platform = <&pcm0>;
@@ -1049,11 +1049,11 @@ Example of child node that would have qcom,wdsp-cmpnt-dev-name property
 		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
 	};
 
-* SDM855 ASoC Machine driver
+* SM8150 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,sdm855-asoc-snd-pahu-aqt" for pahu codec and
-               "qcom,sdm855-asoc-snd-tavil" for tavil codec.
+- compatible : "qcom,sm8150-asoc-snd-pahu-aqt" for pahu codec and
+               "qcom,sm8150-asoc-snd-tavil" for tavil codec.
 - qcom,model : The user-visible name of this sound card.
 - qcom,pahu-ext-clk-freq : External CLK frequency value for pahu codec
 - qcom,audio-routing : A list of the connections between audio components.
@@ -1085,8 +1085,8 @@ Optional properties:
 Example:
 
 	sound-pahu {
-		compatible = "qcom,sdm855-asoc-snd-pahu-aqt";
-		qcom,model = "sdm855-pahu-aqt-snd-card";
+		compatible = "qcom,sm8150-asoc-snd-pahu-aqt";
+		qcom,model = "sm8150-pahu-aqt-snd-card";
 		qcom,ext-disp-audio-rx;
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;

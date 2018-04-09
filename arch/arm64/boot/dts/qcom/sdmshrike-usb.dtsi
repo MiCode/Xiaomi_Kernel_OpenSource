@@ -11,7 +11,7 @@
  */
 
 #include <dt-bindings/msm/msm-bus-ids.h>
-#include <dt-bindings/phy/qcom,sdm855-qmp-usb3.h>
+#include <dt-bindings/phy/qcom,sm8150-qmp-usb3.h>
 
 &soc {
 	/* Primary USB port related controller */

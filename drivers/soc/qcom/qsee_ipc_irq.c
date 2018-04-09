@@ -331,7 +331,7 @@ static const struct qsee_irq_data qsee_irq_data_init[] = {
 };
 
 static const struct of_device_id qsee_irq_of_match[] = {
-	{ .compatible = "qcom,sdm855-qsee-irq", .data = &qsee_irq_data_init},
+	{ .compatible = "qcom,sm8150-qsee-irq", .data = &qsee_irq_data_init},
 	{},
 };
 MODULE_DEVICE_TABLE(of, qsee_irq_of_match);

@@ -41,8 +41,8 @@ SoCs:
 - MSM8996
   compatible = "qcom,msm8996"
 
-- SDM855
-  compatible = "qcom,sdm855"
+- SM8150
+  compatible = "qcom,sm8150"
 
 - SDMSHRIKE
   compatible = "qcom,sdmshrike"
@@ -128,10 +128,10 @@ compatible = "qcom,msm8996-fluid"
 compatible = "qcom,msm8996-liquid"
 compatible = "qcom,msm8996-mtp"
 compatible = "qcom,msm8996-adp"
-compatible = "qcom,sdm855-rumi"
-compatible = "qcom,sdm855-mtp"
-compatible = "qcom,sdm855-cdp"
-compatible = "qcom,sdm855-qrd"
+compatible = "qcom,sm8150-rumi"
+compatible = "qcom,sm8150-mtp"
+compatible = "qcom,sm8150-cdp"
+compatible = "qcom,sm8150-qrd"
 compatible = "qcom,sdmshrike-rumi"
 compatible = "qcom,sdmshrike-mtp"
 compatible = "qcom,sdmshrike-cdp"

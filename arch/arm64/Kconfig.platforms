@@ -141,12 +141,12 @@ config ARCH_QCOM
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
-config ARCH_SDM855
-	bool "Enable Support for Qualcomm Technologies, Inc. SDM855"
+config ARCH_SM8150
+	bool "Enable Support for Qualcomm Technologies, Inc. SM8150"
 	depends on ARCH_QCOM
 	select COMMON_CLK_QCOM
 	help
-	  This enables support for the SDM855 chipset. If you do not
+	  This enables support for the SM8150 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
 config ARCH_SDMSHRIKE

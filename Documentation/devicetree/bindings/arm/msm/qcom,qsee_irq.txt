@@ -11,7 +11,7 @@ the control registers.
 	Usage: required
 	Value type: <string>
 	Definition: must be one of:
-		    "qcom,sdm855-qsee-irq"
+		    "qcom,sm8150-qsee-irq"
 
 - syscon:
 	usage: required
@@ -46,7 +46,7 @@ the control registers.
 
 = EXAMPLE
 The following example shows the QSEE_IRQ setup with the GLINK SPSS node, defined
-from the sdm855 apps processor's point-of-view. In this example the GLINK node
+from the sm8150 apps processor's point-of-view. In this example the GLINK node
 registers for the sp_ipc0 interrupt(index 0 in interrupt-names) and the 0th
 bit on the sp_ipc0 interrupt bank.
 
@@ -56,7 +56,7 @@ sp_scsr_block: syscon@1880000 {
 };
 
 intsp: qcom,qsee_irq {
-	compatible = "qcom,sdm855-qsee-irq";
+	compatible = "qcom,sm8150-qsee-irq";
 
 	syscon = <&sp_scsr_block>;
 	interrupts = <0 348 IRQ_TYPE_LEVEL_HIGH>,

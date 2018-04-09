@@ -1,7 +1,7 @@
 Qualcomm Technologies, Inc. Video Clock & Reset Controller Bindings
 
 Required properties:
-- compatible: shall contain "qcom,videocc-sdm855".
+- compatible: shall contain "qcom,videocc-sm8150".
 - reg: shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in the reg property.
 - vdd_mm-supply: the logic rail supply.
@@ -12,7 +12,7 @@ Required properties:
 
 Example:
 	qcom,videocc@ab00000 {
-		compatible = "qcom,videocc-sdm855";
+		compatible = "qcom,videocc-sm8150";
 		reg = <0xab00000 0x10000>;
 		reg-names = "cc_base";
 		vdd_mm-supply = <&pm855l_s5_level>;

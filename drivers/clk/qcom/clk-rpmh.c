@@ -276,22 +276,22 @@ DEFINE_RSC_TYPE(apps_rsc, "apps", false);
 DEFINE_RSC_TYPE(disp_rsc, "display", true);
 
 /* Resource name must match resource id present in cmd-db. */
-DEFINE_CLK_RPMH_ARC(sdm855, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 0x0,
+DEFINE_CLK_RPMH_ARC(sm8150, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 0x0,
 		    &apps_rsc, 19200000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
-DEFINE_CLK_RPMH_VRM(sdm855, ln_bb_clk2, ln_bb_clk2_ao, "lnbclka2", &apps_rsc,
+DEFINE_CLK_RPMH_VRM(sm8150, ln_bb_clk2, ln_bb_clk2_ao, "lnbclka2", &apps_rsc,
 		    19200000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
-DEFINE_CLK_RPMH_VRM(sdm855, ln_bb_clk3, ln_bb_clk3_ao, "lnbclka3", &apps_rsc,
+DEFINE_CLK_RPMH_VRM(sm8150, ln_bb_clk3, ln_bb_clk3_ao, "lnbclka3", &apps_rsc,
 		    19200000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
-DEFINE_CLK_RPMH_VRM(sdm855, rf_clk1, rf_clk1_ao, "rfclka1", &apps_rsc,
+DEFINE_CLK_RPMH_VRM(sm8150, rf_clk1, rf_clk1_ao, "rfclka1", &apps_rsc,
 		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
-DEFINE_CLK_RPMH_VRM(sdm855, rf_clk2, rf_clk2_ao, "rfclka2", &apps_rsc,
+DEFINE_CLK_RPMH_VRM(sm8150, rf_clk2, rf_clk2_ao, "rfclka2", &apps_rsc,
 		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
-DEFINE_CLK_RPMH_VRM(sdm855, rf_clk3, rf_clk3_ao, "rfclka3", &apps_rsc,
+DEFINE_CLK_RPMH_VRM(sm8150, rf_clk3, rf_clk3_ao, "rfclka3", &apps_rsc,
 		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
 DEFINE_CLK_RPMH_VRM(sdmshrike, rf_clk1, rf_clk1_ao, "rfclkd1", &apps_rsc,
@@ -307,33 +307,33 @@ DEFINE_CLK_RPMH_VRM(sdmshrike, rf_clk4, rf_clk4_ao, "rfclkd4", &apps_rsc,
 		    38400000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
 
-static struct clk_hw *sdm855_rpmh_clocks[] = {
-	[RPMH_CXO_CLK]		= &sdm855_bi_tcxo.hw,
-	[RPMH_CXO_CLK_A]	= &sdm855_bi_tcxo_ao.hw,
-	[RPMH_LN_BB_CLK2]	= &sdm855_ln_bb_clk2.hw,
-	[RPMH_LN_BB_CLK2_A]	= &sdm855_ln_bb_clk2_ao.hw,
-	[RPMH_LN_BB_CLK3]	= &sdm855_ln_bb_clk3.hw,
-	[RPMH_LN_BB_CLK3_A]	= &sdm855_ln_bb_clk3_ao.hw,
-	[RPMH_RF_CLK1]		= &sdm855_rf_clk1.hw,
-	[RPMH_RF_CLK1_A]	= &sdm855_rf_clk1_ao.hw,
-	[RPMH_RF_CLK2]		= &sdm855_rf_clk2.hw,
-	[RPMH_RF_CLK2_A]	= &sdm855_rf_clk2_ao.hw,
-	[RPMH_RF_CLK3]		= &sdm855_rf_clk3.hw,
-	[RPMH_RF_CLK3_A]	= &sdm855_rf_clk3_ao.hw,
+static struct clk_hw *sm8150_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]		= &sm8150_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]	= &sm8150_bi_tcxo_ao.hw,
+	[RPMH_LN_BB_CLK2]	= &sm8150_ln_bb_clk2.hw,
+	[RPMH_LN_BB_CLK2_A]	= &sm8150_ln_bb_clk2_ao.hw,
+	[RPMH_LN_BB_CLK3]	= &sm8150_ln_bb_clk3.hw,
+	[RPMH_LN_BB_CLK3_A]	= &sm8150_ln_bb_clk3_ao.hw,
+	[RPMH_RF_CLK1]		= &sm8150_rf_clk1.hw,
+	[RPMH_RF_CLK1_A]	= &sm8150_rf_clk1_ao.hw,
+	[RPMH_RF_CLK2]		= &sm8150_rf_clk2.hw,
+	[RPMH_RF_CLK2_A]	= &sm8150_rf_clk2_ao.hw,
+	[RPMH_RF_CLK3]		= &sm8150_rf_clk3.hw,
+	[RPMH_RF_CLK3_A]	= &sm8150_rf_clk3_ao.hw,
 };
 
-static const struct clk_rpmh_desc clk_rpmh_sdm855 = {
-	.clks = sdm855_rpmh_clocks,
-	.num_clks = ARRAY_SIZE(sdm855_rpmh_clocks),
+static const struct clk_rpmh_desc clk_rpmh_sm8150 = {
+	.clks = sm8150_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(sm8150_rpmh_clocks),
 };
 
 static struct clk_hw *sdmshrike_rpmh_clocks[] = {
-	[RPMH_CXO_CLK]		= &sdm855_bi_tcxo.hw,
-	[RPMH_CXO_CLK_A]	= &sdm855_bi_tcxo_ao.hw,
-	[RPMH_LN_BB_CLK2]	= &sdm855_ln_bb_clk2.hw,
-	[RPMH_LN_BB_CLK2_A]	= &sdm855_ln_bb_clk2_ao.hw,
-	[RPMH_LN_BB_CLK3]	= &sdm855_ln_bb_clk3.hw,
-	[RPMH_LN_BB_CLK3_A]	= &sdm855_ln_bb_clk3_ao.hw,
+	[RPMH_CXO_CLK]		= &sm8150_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]	= &sm8150_bi_tcxo_ao.hw,
+	[RPMH_LN_BB_CLK2]	= &sm8150_ln_bb_clk2.hw,
+	[RPMH_LN_BB_CLK2_A]	= &sm8150_ln_bb_clk2_ao.hw,
+	[RPMH_LN_BB_CLK3]	= &sm8150_ln_bb_clk3.hw,
+	[RPMH_LN_BB_CLK3_A]	= &sm8150_ln_bb_clk3_ao.hw,
 	[RPMH_RF_CLK1]		= &sdmshrike_rf_clk1.hw,
 	[RPMH_RF_CLK1_A]	= &sdmshrike_rf_clk1_ao.hw,
 	[RPMH_RF_CLK2]		= &sdmshrike_rf_clk2.hw,
@@ -350,7 +350,7 @@ static const struct clk_rpmh_desc clk_rpmh_sdmshrike = {
 };
 
 static const struct of_device_id clk_rpmh_match_table[] = {
-	{ .compatible = "qcom,rpmh-clk-sdm855", .data = &clk_rpmh_sdm855},
+	{ .compatible = "qcom,rpmh-clk-sm8150", .data = &clk_rpmh_sm8150},
 	{ .compatible = "qcom,rpmh-clk-sdmshrike", .data = &clk_rpmh_sdmshrike},
 	{ }
 };
