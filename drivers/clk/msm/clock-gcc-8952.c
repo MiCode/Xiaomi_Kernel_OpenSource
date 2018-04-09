@@ -4765,6 +4765,14 @@ static int msm_gcc_mdss_probe(struct platform_device *pdev)
 		compat_bin = of_device_is_compatible(pdev->dev.of_node,
 				"qcom,gcc-mdss-8940");
 
+	if (!compat_bin)
+		compat_bin = of_device_is_compatible(pdev->dev.of_node,
+				"qcom,gcc-mdss-sdm439");
+
+	if (!compat_bin)
+		compat_bin = of_device_is_compatible(pdev->dev.of_node,
+				"qcom,gcc-mdss-sdm429");
+
 	curr_p = ext_pclk0_clk_src.c.parent = devm_clk_get(&pdev->dev,
 								"pclk0_src");
 	if (IS_ERR(curr_p)) {
@@ -4839,6 +4847,8 @@ static const struct of_device_id msm_clock_mdss_match_table[] = {
 	{ .compatible = "qcom,gcc-mdss-8917" },
 	{ .compatible = "qcom,gcc-mdss-8940" },
 	{ .compatible = "qcom,gcc-mdss-8920" },
+	{ .compatible = "qcom,gcc-mdss-sdm439" },
+	{ .compatible = "qcom,gcc-mdss-sdm429" },
 	{}
 };
 
