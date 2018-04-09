@@ -197,6 +197,34 @@
 			};
 		};
 
+		cam_sensor_ir_cut_default: cam_sensor_ir_cut_default {
+			/* RESET, STANDBY */
+			mux {
+				pins = "gpio38", "gpio39";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio38","gpio39";
+				bias-pull-up; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_ir_cut_sleep: cam_sensor_ir_cut_sleep {
+			/* RESET, STANDBY */
+			mux {
+				pins = "gpio38","gpio39";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio38","gpio39";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
 		cam_sensor_rear_vana: cam_sensor_rear_vdig {
 			/* VDIG */
 			mux {
