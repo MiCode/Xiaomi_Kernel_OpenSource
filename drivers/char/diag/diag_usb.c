@@ -308,23 +308,25 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	if (!ch || !req)
 		return;
 
+	spin_lock_irqsave(&ch->write_lock, flags);
 	ch->write_cnt++;
 	entry = diag_usb_buf_tbl_get(ch, req->context);
 	if (!entry) {
 		pr_err_ratelimited("diag: In %s, unable to find entry %pK in the table\n",
 				   __func__, req->context);
+		spin_unlock_irqrestore(&ch->write_lock, flags);
 		return;
 	}
 	if (atomic_read(&entry->ref_count) != 0) {
 		DIAG_LOG(DIAG_DEBUG_MUX, "partial write_done ref %d\n",
 			 atomic_read(&entry->ref_count));
 		diag_ws_on_copy_complete(DIAG_WS_MUX);
+		spin_unlock_irqrestore(&ch->write_lock, flags);
 		diagmem_free(driver, req, ch->mempool);
 		return;
 	}
 	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %d\n",
 		 ctxt);
-	spin_lock_irqsave(&ch->write_lock, flags);
 	list_del(&entry->track);
 	ctxt = entry->ctxt;
 	buf = entry->buf;
