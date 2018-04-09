@@ -20,8 +20,6 @@
 };
 
 &soc {
-	/delete-node/ qcom,spm@b1d2000;
-	/delete-node/ qcom,lpm-levels;
 	/delete-node/ etm@619c000;
 	/delete-node/ etm@619d000;
 	/delete-node/ etm@619e000;
@@ -30,6 +28,16 @@
 	/delete-node/ cti@61b9000;
 	/delete-node/ cti@61ba000;
 	/delete-node/ cti@61bb000;
+
+	qcom,spm@b1d2000 {
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+	};
+
+	qcom,lpm-levels {
+		qcom,pm-cluster@0 {
+			/delete-node/qcom,pm-cluster@1;
+		};
+	};
 };
 
 &funnel_apss {
