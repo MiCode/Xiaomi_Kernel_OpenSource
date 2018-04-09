@@ -43,7 +43,6 @@
 
 #define BG_SPI_MAX_WORDS (0x3FFFFFFD)
 #define BG_SPI_MAX_REGS (0x0A)
-#define SLEEP_IN_STATE_CHNG 2000
 #define HED_EVENT_ID_LEN (0x02)
 #define HED_EVENT_SIZE_LEN (0x02)
 #define HED_EVENT_DATA_STRT_LEN (0x05)
@@ -149,8 +148,6 @@ int bgcom_set_spi_state(enum bgcom_spi_state state)
 
 	mutex_lock(&bg_spi->xfer_mutex);
 	spi_state = state;
-	if (spi_state == BGCOM_SPI_BUSY)
-		msleep(SLEEP_IN_STATE_CHNG);
 	mutex_unlock(&bg_spi->xfer_mutex);
 	return 0;
 }
