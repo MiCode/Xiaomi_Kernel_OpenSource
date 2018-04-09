@@ -404,6 +404,7 @@ struct kgsl_context {
  * @kobj: Pointer to a kobj for the sysfs directory for this process
  * @debug_root: Pointer to the debugfs root for this process
  * @stats: Memory allocation statistics for this process
+ * @gpumem_mapped: KGSL memory mapped in the process address space
  * @syncsource_idr: sync sources created by this process
  * @syncsource_lock: Spinlock to protect the syncsource idr
  * @fd_count: Counter for the number of FDs for this process
@@ -424,6 +425,7 @@ struct kgsl_process_private {
 		uint64_t cur;
 		uint64_t max;
 	} stats[KGSL_MEM_ENTRY_MAX];
+	uint64_t gpumem_mapped;
 	struct idr syncsource_idr;
 	spinlock_t syncsource_lock;
 	int fd_count;
