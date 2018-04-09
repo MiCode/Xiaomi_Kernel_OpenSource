@@ -110,6 +110,7 @@
 #include "qcs405-pinctrl.dtsi"
 #include "qcs405-blsp.dtsi"
 #include "qcs405-cpu.dtsi"
+#include "qcs405-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
