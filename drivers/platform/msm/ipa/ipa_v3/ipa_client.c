@@ -132,8 +132,8 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 
 static int ipa3_smmu_map_peer_bam(unsigned long dev)
 {
-	phys_addr_t base;
-	u32 size;
+	phys_addr_t base = 0;
+	u32 size = 0;
 	struct iommu_domain *smmu_domain;
 	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx();
 

@@ -4537,7 +4537,7 @@ static void ipa3_post_init_wq(struct work_struct *work)
 static int ipa3_manual_load_ipa_fws(void)
 {
 	int result;
-	const struct firmware *fw;
+	const struct firmware *fw = NULL;
 
 	IPADBG("Manual FW loading process initiated\n");
 
@@ -5742,7 +5742,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	int bypass = 1;
 	int fast = 1;
 	int ret;
-	u32 iova_ap_mapping[2];
+	u32 iova_ap_mapping[2] = {0};
 
 	IPADBG("UC CB PROBE sub pdev=%p\n", dev);
 
@@ -5853,7 +5853,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	int atomic_ctx = 1;
 	int fast = 1;
 	int bypass = 1;
-	u32 iova_ap_mapping[2];
+	u32 iova_ap_mapping[2] = {0};
 	u32 add_map_size;
 	const u32 *add_map;
 	void *smem_addr;
