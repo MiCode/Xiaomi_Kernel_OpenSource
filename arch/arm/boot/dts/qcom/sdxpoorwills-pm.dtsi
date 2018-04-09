@@ -39,7 +39,7 @@
 			qcom,pm-cluster-level@1 {
 				reg = <1>;
 				label = "cx_min";
-				qcom,psci-mode = <0x0>;
+				qcom,psci-mode = <0x4>;
 				qcom,latency-us = <285>;
 				qcom,ss-power = <442>;
 				qcom,energy-overhead = <306621>;
@@ -81,7 +81,7 @@
 				qcom,pm-cpu-level@2 {
 					reg = <2>;
 					label = "system-pc";
-					qcom,psci-cpu-mode = <0x8>;
+					qcom,psci-cpu-mode = <0x4>;
 					qcom,latency-us = <270>;
 					qcom,ss-power = <455>;
 					qcom,energy-overhead = <270621>;
