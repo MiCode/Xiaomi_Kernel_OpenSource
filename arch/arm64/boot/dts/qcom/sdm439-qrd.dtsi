@@ -40,6 +40,24 @@
 	status = "ok";
 };
 
+&int_codec {
+	status = "okay";
+	qcom,model = "sdm439-sku1-snd-card";
+	qcom,msm-micbias1-ext-cap;
+	qcom,msm-micbias2-ext-cap;
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+	qcom,msm-hs-micbias-type = "external";
+};
+
+&wsa881x_i2c_f {
+	status = "okay";
+};
+
+&wsa881x_i2c_45 {
+	status = "okay";
+};
+
 &sdhc_2 {
 	/* device core power supply */
 	vdd-supply = <&pm8953_l11>;
