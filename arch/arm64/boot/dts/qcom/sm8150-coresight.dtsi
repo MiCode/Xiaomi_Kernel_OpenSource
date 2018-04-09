@@ -523,6 +523,15 @@
 			};
 
 			port@1 {
+				reg = <1>;
+				funnel_in0_in_funnel_spss: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&funnel_spss_out_funnel_in0>;
+				};
+			};
+
+			port@2 {
 				reg = <6>;
 				funnel_in0_in_funnel_qatb: endpoint {
 					slave-mode;
@@ -531,7 +540,7 @@
 				};
 			};
 
-			port@2 {
+			port@3 {
 				reg = <7>;
 				funnel_in0_in_stm: endpoint {
 					slave-mode;
@@ -1012,6 +1021,95 @@
 					remote-endpoint =
 					<&tpda_dl_north_out_funnel_dl_north>;
 				};
+			};
+		};
+	};
+
+	funnel_spss: funnel@6883000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x6883000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-spss";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_spss_out_funnel_in0: endpoint {
+					remote-endpoint =
+					    <&funnel_in0_in_funnel_spss>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				funnel_spss_in_tpda_spss: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&tpda_spss_out_funnel_spss>;
+				};
+			};
+		};
+	};
+
+	tpda_spss: tpda@6882000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b969>;
+		reg = <0x06882000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-spss";
+
+		qcom,tpda-atid = <70>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_spss_out_funnel_spss: endpoint {
+					remote-endpoint =
+					<&funnel_spss_in_tpda_spss>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				tpda_spss_in_tpdm_spss: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&tpdm_spss_out_tpda_spss>;
+				};
+			};
+		};
+	};
+
+	tpdm_spss: tpdm@6880000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x6880000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-spss";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_spss_out_tpda_spss: endpoint {
+				remote-endpoint = <&tpda_spss_in_tpdm_spss>;
 			};
 		};
 	};
