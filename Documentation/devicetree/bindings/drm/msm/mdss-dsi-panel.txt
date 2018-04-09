@@ -519,6 +519,8 @@ Optional properties:
 					to identify the default topology for the
 					display. The first set is indexed by the
 					value 0.
+- qcom,mdss-dsi-dma-schedule-line:	An integer value indicates the line number after vertical active
+					region, at which command DMA needs to be triggered.
 
 Required properties for sub-nodes:	None
 Optional properties:
@@ -771,5 +773,6 @@ Example:
 		qcom,display-topology = <1 1 1>,
 			                <2 2 1>;
 		qcom,default-topology-index = <0>;
+		qcom,mdss-dsi-dma-schedule-line = <5>;
 	};
 };

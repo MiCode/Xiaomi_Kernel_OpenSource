@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -438,6 +438,8 @@ struct dsi_host_common_cfg {
  * @bllp_lp11_en:              Enter low power stop mode (LP-11) during BLLP.
  * @traffic_mode:              Traffic mode for video stream.
  * @vc_id:                     Virtual channel identifier.
+ * @dma_sched_line:         Line number, after vactive end, at which command dma
+ *			       needs to be triggered.
  */
 struct dsi_video_engine_cfg {
 	bool last_line_interleave_en;
@@ -449,6 +451,7 @@ struct dsi_video_engine_cfg {
 	bool bllp_lp11_en;
 	enum dsi_video_traffic_mode traffic_mode;
 	u32 vc_id;
+	u32 dma_sched_line;
 };
 
 /**
