@@ -564,6 +564,8 @@ int blkdev_ioctl(struct block_device *bdev, fmode_t mode, unsigned cmd,
 		if ((size >> 9) > ~0UL)
 			return -EFBIG;
 		return put_ulong(arg, size >> 9);
+	case BLKGETSTPART:
+		return put_ulong(arg, bdev->bd_part->start_sect);
 	case BLKGETSIZE64:
 		return put_u64(arg, i_size_read(bdev->bd_inode));
 	case BLKTRACESTART:
