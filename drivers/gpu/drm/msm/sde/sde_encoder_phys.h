@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -261,6 +261,10 @@ struct sde_encoder_irq {
  *                              fences that have to be signalled.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
  * @irq:			IRQ tracking structures
+ * @cont_splash_single_flush	Variable to check if single flush is enabled.
+ * @cont_splash_settings	Variable to store continuous splash settings.
+ * @vfp_cached:			cached vertical front porch to be used for
+ *				programming ROT and MDP fetch start
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -288,6 +292,9 @@ struct sde_encoder_phys {
 	atomic_t pending_retire_fence_cnt;
 	wait_queue_head_t pending_kickoff_wq;
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
+	u32 cont_splash_single_flush;
+	bool cont_splash_settings;
+	int vfp_cached;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
