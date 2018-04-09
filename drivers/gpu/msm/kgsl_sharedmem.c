@@ -341,7 +341,7 @@ int kgsl_allocate_user(struct kgsl_device *device,
 {
 	int ret;
 
-	memdesc->flags = flags;
+	kgsl_memdesc_init(device, memdesc, flags);
 
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE)
 		ret = kgsl_sharedmem_alloc_contig(device, memdesc, size);
@@ -696,6 +696,40 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);
 
+void kgsl_memdesc_init(struct kgsl_device *device,
+			struct kgsl_memdesc *memdesc, uint64_t flags)
+{
+	struct kgsl_mmu *mmu = &device->mmu;
+	unsigned int align;
+
+	memset(memdesc, 0, sizeof(*memdesc));
+	/* Turn off SVM if the system doesn't support it */
+	if (!kgsl_mmu_use_cpu_map(mmu))
+		flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
+
+	/* Secure memory disables advanced addressing modes */
+	if (flags & KGSL_MEMFLAGS_SECURE)
+		flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
+
+	/* Disable IO coherence if it is not supported on the chip */
+	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
+		flags &= ~((uint64_t) KGSL_MEMFLAGS_IOCOHERENT);
+
+	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE))
+		memdesc->priv |= KGSL_MEMDESC_GUARD_PAGE;
+
+	if (flags & KGSL_MEMFLAGS_SECURE)
+		memdesc->priv |= KGSL_MEMDESC_SECURE;
+
+	memdesc->flags = flags;
+	memdesc->dev = device->dev->parent;
+
+	align = max_t(unsigned int,
+		(memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT,
+		ilog2(PAGE_SIZE));
+	kgsl_memdesc_set_align(memdesc, align);
+}
+
 int
 kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 			uint64_t size)
@@ -896,8 +930,6 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 
 	if (memdesc->pages)
 		kgsl_free(memdesc->pages);
-
-	memset(memdesc, 0, sizeof(*memdesc));
 }
 EXPORT_SYMBOL(kgsl_sharedmem_free);
 
