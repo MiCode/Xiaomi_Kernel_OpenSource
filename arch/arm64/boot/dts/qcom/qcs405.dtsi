@@ -34,9 +34,70 @@
 		#size-cells = <2>;
 		ranges;
 
+		removed_region0: removed_region@85600000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85600000 0x0 0x900000>;
+		};
+
 		smem_region: smem@85f00000 {
 			no-map;
 			reg = <0x0 0x85f00000 0x0 0x200000>;
+		};
+
+		removed_region1: removed_region@86100000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x86100000 0x0 0x300000>;
+		};
+
+		wlan_fw_mem: wlan_fw_mem@86400000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x86400000 0x0 0x1c00000>;
+		};
+
+		adsp_fw_mem: adsp_fw_mem@88000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x88000000 0x0 0x1a00000>;
+		};
+
+		cdsp_fw_mem: cdsp_fw_mem@89a00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x89a00000 0x0 0x600000>;
+		};
+
+		secure_mem: secure_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x7000000>;
+		};
+
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1000000>;
+		};
+
+		adsp_mem: adsp_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x400000>;
+		};
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1000000>;
+			linux,cma-default;
 		};
 	};
 
