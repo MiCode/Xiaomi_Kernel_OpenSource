@@ -1370,7 +1370,6 @@ struct ipa3_context {
 	u32 ee;
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
-	bool smmu_present;
 	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	u32 wdi_map_cnt;
 	struct wakeup_source w_lock;
