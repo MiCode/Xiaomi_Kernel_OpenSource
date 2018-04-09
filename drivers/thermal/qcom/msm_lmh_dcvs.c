@@ -88,6 +88,7 @@ struct limits_dcvs_hw {
 	void *int_clr_reg;
 	void *min_freq_reg;
 	cpumask_t core_map;
+	cpumask_t online_mask;
 	struct delayed_work freq_poll_work;
 	unsigned long max_freq[NR_CPUS];
 	unsigned long min_freq[NR_CPUS];
@@ -96,7 +97,6 @@ struct limits_dcvs_hw {
 	struct list_head list;
 	bool is_irq_enabled;
 	struct mutex access_lock;
-	struct mutex cdev_reg_lock;
 	struct __limits_cdev_data *cdev_data;
 	uint32_t cdev_registered;
 	struct regulator *isens_reg[2];
@@ -335,14 +335,10 @@ static struct limits_dcvs_hw *get_dcvsh_hw_from_cpu(int cpu)
 {
 	struct limits_dcvs_hw *hw;
 
-	mutex_lock(&lmh_dcvs_list_access);
 	list_for_each_entry(hw, &lmh_dcvs_hw_list, list) {
-		if (cpumask_test_cpu(cpu, &hw->core_map)) {
-			mutex_unlock(&lmh_dcvs_list_access);
+		if (cpumask_test_cpu(cpu, &hw->core_map))
 			return hw;
-		}
 	}
-	mutex_unlock(&lmh_dcvs_list_access);
 
 	return NULL;
 }
@@ -410,37 +406,42 @@ static struct cpu_cooling_ops cd_ops = {
 
 static void register_cooling_device(struct work_struct *work)
 {
-	struct limits_dcvs_hw *hw = container_of(work, struct limits_dcvs_hw,
-						cdev_register_work);
+	struct limits_dcvs_hw *hw;
 	unsigned int cpu = 0, idx = 0;
 
-	mutex_lock(&hw->cdev_reg_lock);
-	if (hw->max_freq[0] == U32_MAX)
-		limits_dcvs_get_freq_limits(hw);
+	mutex_lock(&lmh_dcvs_list_access);
+	list_for_each_entry(hw, &lmh_dcvs_hw_list, list) {
+		if (hw->max_freq[0] == U32_MAX)
+			limits_dcvs_get_freq_limits(hw);
 
-	for_each_cpu(cpu, &hw->core_map) {
-		cpumask_t cpu_mask  = { CPU_BITS_NONE };
-
-		if (hw->cdev_data[idx].cdev) {
-			idx++;
+		if (cpumask_weight(&hw->online_mask) == 0)
 			continue;
+		idx = 0;
+		for_each_cpu(cpu, &hw->core_map) {
+			cpumask_t cpu_mask  = { CPU_BITS_NONE };
+
+			if (hw->cdev_data[idx].cdev) {
+				idx++;
+				continue;
+			}
+			cpumask_set_cpu(cpu, &cpu_mask);
+			hw->cdev_data[idx].max_freq = U32_MAX;
+			hw->cdev_data[idx].min_freq = 0;
+			hw->cdev_data[idx].cdev =
+					cpufreq_platform_cooling_register(
+							&cpu_mask, &cd_ops);
+			if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev)) {
+				pr_err("CPU:%u cdev register error:%ld\n",
+					cpu, PTR_ERR(hw->cdev_data[idx].cdev));
+				hw->cdev_data[idx].cdev = NULL;
+			} else {
+				pr_debug("CPU:%u cdev registered\n", cpu);
+				hw->cdev_registered++;
+			}
+			idx++;
 		}
-		cpumask_set_cpu(cpu, &cpu_mask);
-		hw->cdev_data[idx].max_freq = U32_MAX;
-		hw->cdev_data[idx].min_freq = 0;
-		hw->cdev_data[idx].cdev = cpufreq_platform_cooling_register(
-						&cpu_mask, &cd_ops);
-		if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev)) {
-			pr_err("CPU:%u cooling device register error:%ld\n",
-				cpu, PTR_ERR(hw->cdev_data[idx].cdev));
-			hw->cdev_data[idx].cdev = NULL;
-		} else {
-			pr_debug("CPU:%u cooling device registered\n", cpu);
-			hw->cdev_registered++;
-		}
-		idx++;
 	}
-	mutex_unlock(&hw->cdev_reg_lock);
+	mutex_unlock(&lmh_dcvs_list_access);
 }
 
 static int limits_cpu_online(unsigned int online_cpu)
@@ -449,6 +450,7 @@ static int limits_cpu_online(unsigned int online_cpu)
 
 	if (!hw)
 		return 0;
+	cpumask_set_cpu(online_cpu, &hw->online_mask);
 	if (hw->cdev_registered != cpumask_weight(&hw->core_map))
 		queue_work(system_highpri_wq, &hw->cdev_register_work);
 
@@ -562,6 +564,7 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	cpumask_copy(&hw->core_map, &mask);
+	cpumask_clear(&hw->online_mask);
 	hw->cdev_registered = 0;
 	for_each_cpu(cpu, &hw->core_map) {
 		hw->cdev_data[idx].cdev = NULL;
@@ -624,7 +627,6 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&hw->access_lock);
-	mutex_init(&hw->cdev_reg_lock);
 	INIT_WORK(&hw->cdev_register_work, register_cooling_device);
 	INIT_DEFERRABLE_WORK(&hw->freq_poll_work, limits_dcvs_poll);
 	hw->osm_hw_reg = devm_ioremap(&pdev->dev, request_reg, 0x4);
@@ -661,7 +663,7 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 probe_exit:
 	mutex_lock(&lmh_dcvs_list_access);
 	INIT_LIST_HEAD(&hw->list);
-	list_add(&hw->list, &lmh_dcvs_hw_list);
+	list_add_tail(&hw->list, &lmh_dcvs_hw_list);
 	mutex_unlock(&lmh_dcvs_list_access);
 	lmh_debug_register(pdev);
 
