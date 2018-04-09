@@ -15,6 +15,9 @@
 #define TSENS_TM_MTC_ZONE0_SW_MASK_ADDR(n)      ((n) + 0x140)
 #define TSENS_TM_MTC_ZONE0_LOG(n)               ((n) + 0x150)
 #define TSENS_TM_MTC_ZONE0_HISTORY(n)           ((n) + 0x160)
+#define TSENS_TM_MTC_ZONE0_SW_MASK_ADDR_V14(n)  ((n) + 0xC0)
+#define TSENS_TM_MTC_ZONE0_LOG_V14(n)           ((n) + 0xD0)
+
 #define TSENS_SN_ADDR_OFFSET             0x4
 #define TSENS_RESET_HISTORY_MASK        0x4
 #define TSENS_ZONEMASK_PARAMS           3
