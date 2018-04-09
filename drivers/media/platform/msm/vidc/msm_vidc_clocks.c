@@ -340,6 +340,33 @@ static inline int get_bufs_outside_fw(struct msm_vidc_inst *inst)
 	return fw_out_qsize;
 }
 
+static inline int msm_dcvs_count_active_instances(struct msm_vidc_core *core,
+	enum session_type session_type)
+{
+	int active_instances = 0;
+	struct msm_vidc_inst *temp = NULL;
+
+	if (!core) {
+		dprintk(VIDC_ERR, "%s: Invalid args: %pK\n", __func__, core);
+		return -EINVAL;
+	}
+
+	/* DCVS condition is as following
+	 * Decoder DCVS : Only for ONE decoder session.
+	 * Encoder DCVS : Only for ONE encoder session + ONE decoder session
+	 */
+	mutex_lock(&core->lock);
+	list_for_each_entry(temp, &core->instances, list) {
+		if (temp->state >= MSM_VIDC_OPEN_DONE &&
+			temp->state < MSM_VIDC_STOP_DONE &&
+			(temp->session_type == session_type ||
+			 temp->session_type == MSM_VIDC_ENCODER))
+			active_instances++;
+	}
+	mutex_unlock(&core->lock);
+	return active_instances;
+}
+
 static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -347,6 +374,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 	int total_output_buf = 0;
 	int min_output_buf = 0;
 	int buffers_outside_fw = 0;
+	int instance_count = 0;
 	struct msm_vidc_core *core;
 	struct hal_buffer_requirements *output_buf_req;
 	struct clock_data *dcvs;
@@ -356,14 +384,17 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (!inst->clk_data.dcvs_mode) {
+	core = inst->core;
+	instance_count = msm_dcvs_count_active_instances(
+		inst->core, inst->session_type);
+
+	if (!inst->clk_data.dcvs_mode || instance_count > 1) {
 		dprintk(VIDC_DBG, "DCVS is not enabled\n");
-		return 0;
+		return -EINVAL;
 	}
 
 	dcvs = &inst->clk_data;
 
-	core = inst->core;
 	mutex_lock(&inst->lock);
 	buffers_outside_fw = get_bufs_outside_fw(inst);
 
@@ -496,8 +527,8 @@ static unsigned long msm_vidc_adjust_freq(struct msm_vidc_inst *inst)
 
 	if (freq < inst->clk_data.load_norm) {
 		dprintk(VIDC_DBG, "Calling DCVS now\n");
-		msm_dcvs_scale_clocks(inst);
-		freq = inst->clk_data.load;
+		if (!msm_dcvs_scale_clocks(inst))
+			freq = inst->clk_data.load;
 	}
 	dprintk(VIDC_PROF, "%s Inst %pK : Freq = %lu\n", __func__, inst, freq);
 
