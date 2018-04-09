@@ -288,6 +288,9 @@
 		clocks = <&clock_gcc GCC_BLSP1_UART3_APPS_CLK>,
 			<&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-names = "core", "iface";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&uart3_console_active>;
+		pinctrl-1 = <&uart3_console_sleep>;
 	};
 
 	gdsc_usb30: qcom,gdsc@10b004 {

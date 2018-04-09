@@ -15,8 +15,6 @@
 #include "sdxpoorwills-mtp-audio-overlay.dtsi"
 
 &serial_uart {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart3_console_active>;
 	status = "ok";
 };
 
