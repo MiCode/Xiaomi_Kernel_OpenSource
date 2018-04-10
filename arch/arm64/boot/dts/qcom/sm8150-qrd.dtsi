@@ -54,6 +54,26 @@
 	#cooling-cells = <2>;
 };
 
+&qupv3_se17_i2c {
+	status = "ok";
+
+	st_fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0x2008>;
+		vdd-supply = <&pm855_s4>;
+		avdd-supply = <&pm855_l17>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		st,irq-gpio = <&tlmm 122 0x2008>;
+		st,reset-gpio = <&tlmm 54 0x00>;
+		st,regulator_dvdd = "vdd";
+		st,regulator_avdd = "avdd";
+	};
+};
+
 &snd_9360 {
 	qcom,model = "sm8150-pahu-qrd-snd-card";
 	qcom,audio-routing =
