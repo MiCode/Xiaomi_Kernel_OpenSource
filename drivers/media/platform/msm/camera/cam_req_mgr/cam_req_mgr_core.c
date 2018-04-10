@@ -183,6 +183,7 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 	int32_t                      curr_idx = traverse_data->idx;
 	struct cam_req_mgr_req_tbl  *tbl;
 	struct cam_req_mgr_apply    *apply_data;
+	struct cam_req_mgr_tbl_slot *slot = NULL;
 
 	if (!traverse_data->tbl || !traverse_data->apply_data) {
 		CAM_ERR(CAM_CRM, "NULL pointer %pK %pK",
@@ -193,17 +194,18 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 
 	tbl = traverse_data->tbl;
 	apply_data = traverse_data->apply_data;
+	slot = &tbl->slot[curr_idx];
 	CAM_DBG(CAM_CRM,
 		"Enter pd %d idx %d state %d skip %d status %d skip_idx %d",
 		tbl->pd, curr_idx, tbl->slot[curr_idx].state,
 		tbl->skip_traverse, traverse_data->in_q->slot[curr_idx].status,
 		traverse_data->in_q->slot[curr_idx].skip_idx);
 
-	if ((tbl->inject_delay > 0) &&
+	if ((slot->inject_delay > 0) &&
 		(traverse_data->self_link == true)) {
 		CAM_DBG(CAM_CRM, "Injecting Delay of one frame");
 		apply_data[tbl->pd].req_id = -1;
-		tbl->inject_delay--;
+		slot->inject_delay--;
 		/* This pd table is not ready to proceed with asked idx */
 		SET_FAILURE_BIT(traverse_data->result, tbl->pd);
 		return -EAGAIN;
@@ -1593,10 +1595,13 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 		goto end;
 	}
 
-	if (add_req->skip_before_applying > tbl->inject_delay)
-		tbl->inject_delay = add_req->skip_before_applying;
-
 	slot = &tbl->slot[idx];
+	if (add_req->skip_before_applying > slot->inject_delay) {
+		slot->inject_delay = add_req->skip_before_applying;
+		CAM_DBG(CAM_CRM, "Req_id %llu injecting delay %u",
+			add_req->req_id, add_req->skip_before_applying);
+	}
+
 	if (slot->state != CRM_REQ_STATE_PENDING &&
 		slot->state != CRM_REQ_STATE_EMPTY) {
 		CAM_WARN(CAM_CRM, "Unexpected state %d for slot %d map %x",
