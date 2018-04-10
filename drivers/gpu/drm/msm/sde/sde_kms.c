@@ -105,6 +105,32 @@ bool sde_is_custom_client(void)
 	return sdecustom;
 }
 
+bool sde_kms_is_vbif_operation_allowed(struct sde_kms *sde_kms)
+{
+	struct drm_device *dev;
+	struct drm_crtc *crtc;
+	bool sui_enhancement = false;
+
+	if (!sde_kms || !sde_kms->dev)
+		return false;
+	dev = sde_kms->dev;
+
+	if (!sde_kms->catalog->sui_misr_supported)
+		return true;
+
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if (!crtc->state || !crtc->state->active)
+			continue;
+
+		sui_enhancement |= sde_crtc_is_sui_enhancement_enabled(crtc);
+	}
+
+	if (!sui_enhancement)
+		return true;
+
+	return !sde_kms_is_secure_session_inprogress(sde_kms);
+}
+
 #ifdef CONFIG_DEBUG_FS
 static int _sde_danger_signal_status(struct seq_file *s,
 		bool danger_status)
