@@ -3700,8 +3700,8 @@ static void msm_pcie_setup_gen3(struct msm_pcie_dev_t *dev)
 		PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS,
 		(0x05 << 14) | (0x05 << 10) | (0x0d <<  5));
 
-	msm_pcie_write_mask(dev->dm_core +
-		PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS, BIT(4), 0);
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS, 0x20);
 
 	msm_pcie_write_mask(dev->dm_core +
 		PCIE_GEN3_L0_RESET_GEN, BIT(0), 0);
