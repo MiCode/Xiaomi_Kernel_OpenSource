@@ -868,3 +868,11 @@ config MSM_BAM_DMUX
 		interrupt event and event data.
 
 source "drivers/soc/qcom/wcnss/Kconfig"
+
+config BIG_CLUSTER_MIN_FREQ_ADJUST
+	bool "Adjust BIG cluster min frequency based on power collapse state"
+	default n
+	help
+	  This driver is used to set the floor of the min frequency of big cluster
+	  to the user specified value when the cluster is not power collapsed. When
+	  the cluster is power collpsed it resets the value to physical limits.
