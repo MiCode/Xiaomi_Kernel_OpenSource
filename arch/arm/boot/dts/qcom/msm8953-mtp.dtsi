@@ -247,12 +247,6 @@
 	status = "ok";
 };
 
-&pm8953_typec {
-	ss-mux-supply = <&pm8953_l13>;
-	qcom,ssmux-gpio = <&tlmm 139 GPIO_ACTIVE_HIGH>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&typec_ssmux_config>;
-};
 
 /{
 	mtp_batterydata: qcom,battery-data {
@@ -268,10 +262,6 @@
 
 &pmi8950_charger {
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,chg-led-sw-controls;
-	qcom,chg-led-support;
-	qcom,external-typec;
-	qcom,typec-psy-name = "typec";
 };
 
 &pm8953_gpios {

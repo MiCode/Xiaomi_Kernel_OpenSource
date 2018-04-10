@@ -815,7 +815,7 @@ int radeon_bo_wait(struct radeon_bo *bo, u32 *mem_type, bool no_wait)
  *
  */
 void radeon_bo_fence(struct radeon_bo *bo, struct radeon_fence *fence,
-                     bool shared)
+		bool shared)
 {
 	struct reservation_object *resv = bo->tbo.resv;
 

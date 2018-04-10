@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,7 +377,7 @@
 			mdss_te_active: mdss_te_active {
 				mux {
 					pins = "gpio24";
-					function = "mdp_vsync";
+					function = "gpio";  //mdp_vsync
 				};
 				config {
 					pins = "gpio24";
@@ -388,7 +389,7 @@
 			mdss_te_suspend: mdss_te_suspend {
 				mux {
 					pins = "gpio24";
-					function = "mdp_vsync";
+					function = "gpio";  //mdp_vsync
 				};
 				config {
 					pins = "gpio24";
@@ -649,6 +650,103 @@
 					drive-strength = <2>;
 					bias-disable;
 				};
+			};
+		};
+
+		goodix_spi_active: goodix_spi_active{
+			mux {
+				pins = "gpio135", "gpio136", "gpio137", "gpio138";
+				function = "blsp_spi6";
+			};
+			config {
+				pins = "gpio135", "gpio136", "gpio137", "gpio138";
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+		goodix_reset_reset: goodix_reset_reset{
+			mux {
+				pins = "gpio140";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio140";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-low;
+			};
+		};
+		goodix_reset_active: goodix_reset_active{
+			mux {
+				pins = "gpio140";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio140";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-high;
+			};
+		};
+		goodix_irq_active: goodix_irq_active {
+			mux {
+				pins = "gpio48";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio48";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				input-enable;
+			};
+		};
+
+		fpc_spi_active: fpc_spi_active {
+			mux {
+				pins = "gpio135", "gpio136", "gpio137", "gpio138";
+				function = "blsp_spi7";
+			};
+
+			config {
+				pins = "gpio135", "gpio136", "gpio137", "gpio138";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		fpc_reset_reset: fpc_reset_reset {
+			mux {
+				pins = "gpio140";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio140";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+		fpc_reset_active: fpc_reset_active {
+			mux {
+				pins = "gpio140";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio140";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+		fpc_irq_active: fpc_irq_active {
+			mux {
+				pins = "gpio48";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio48";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
 			};
 		};
 

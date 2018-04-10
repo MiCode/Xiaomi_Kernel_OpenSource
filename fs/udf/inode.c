@@ -2074,7 +2074,7 @@ int8_t udf_next_aext(struct inode *inode, struct extent_position *epos,
 			udf_err(inode->i_sb,
 				"too many indirect extents in inode %lu\n",
 				inode->i_ino);
-			return -1;
+			return -EPERM;
 		}
 
 		epos->block = *eloc;

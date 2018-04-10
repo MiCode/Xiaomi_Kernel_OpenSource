@@ -41,6 +41,18 @@ config WIL6210_TRACING
 
 	  If unsure, say Y to make it easier to debug problems.
 
+config WIL6210_WRITE_IOCTL
+	bool "wil6210 write ioctl to the device"
+	depends on WIL6210
+	default n
+	---help---
+	  Say Y here to allow write-access from user-space to
+	  the device memory through ioctl. This is useful for
+	  debugging purposes only.
+
+	  If unsure, say N.
+
+
 config WIL6210_PLATFORM_MSM
 	bool "wil6210 MSM platform specific support"
 	depends on WIL6210

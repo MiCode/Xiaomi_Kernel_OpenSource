@@ -207,6 +207,7 @@ source "drivers/input/touchscreen/Kconfig"
 
 source "drivers/input/misc/Kconfig"
 
+source "drivers/input/fingerprint/Kconfig"
 endif
 
 menu "Hardware I/O ports"

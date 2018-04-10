@@ -2,7 +2,6 @@
  *  Generic process-grouping system.
  *
  *  Based originally on the cpuset system, extracted by Paul Menage
- *  Copyright (C) 2006 Google, Inc
  *
  *  Notifications support
  *  Copyright (C) 2009 Nokia Corporation
@@ -15,6 +14,7 @@
  *
  *  Portions derived from Patrick Mochel's sysfs code.
  *  sysfs is Copyright (c) 2001-3 Patrick Mochel
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  2003-10-10 Written by Simon Derr.
  *  2003-10-22 Updates by Stephen Hemminger.
@@ -59,6 +59,7 @@
 #include <linux/delay.h>
 
 #include <linux/atomic.h>
+#include <linux/freezer.h>
 
 /*
  * pidlists linger the following amount before being destroyed.  The goal
@@ -2401,6 +2402,7 @@ retry_find_task:
 		 */
 		tcred = __task_cred(tsk);
 		if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
+		    !uid_eq(cred->euid, GLOBAL_SYSTEM_UID) &&
 		    !uid_eq(cred->euid, tcred->uid) &&
 		    !uid_eq(cred->euid, tcred->suid)) {
 			/*
@@ -2498,6 +2500,22 @@ int cgroup_attach_task_all(struct task_struct *from, struct task_struct *tsk)
 	return retval;
 }
 EXPORT_SYMBOL_GPL(cgroup_attach_task_all);
+
+#ifdef CONFIG_FROZEN_APP
+void cgroup_thawed_by_pid(int pid_nr)
+{
+	struct task_struct *ptask;
+
+	ptask = find_task_by_vpid(pid_nr);
+	if (ptask) {
+		get_task_struct(ptask);
+		freezer_change_state_to_thawed(ptask);
+		put_task_struct(ptask);
+		return;
+	}
+	return;
+}
+#endif
 
 static ssize_t cgroup_tasks_write(struct kernfs_open_file *of,
 				  char *buf, size_t nbytes, loff_t off)

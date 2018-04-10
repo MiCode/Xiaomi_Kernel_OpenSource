@@ -46,7 +46,7 @@ static void _update_wptr(struct adreno_device *adreno_dev)
 static inline bool adreno_move_preempt_state(struct adreno_device *adreno_dev,
 	enum adreno_preempt_states old, enum adreno_preempt_states new)
 {
-	return (atomic_cmpxchg(&adreno_dev->preempt.state, old, new) == old);
+	return atomic_cmpxchg(&adreno_dev->preempt.state, old, new) == old;
 }
 
 static void _a5xx_preemption_done(struct adreno_device *adreno_dev)

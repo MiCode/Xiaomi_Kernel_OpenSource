@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -245,8 +246,8 @@ static int servreg_loc_send_msg(struct msg_desc *req_desc,
 static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 {
 	struct msg_desc req_desc, resp_desc;
-	struct qmi_servreg_loc_get_domain_list_resp_msg_v01 *resp;
-	struct qmi_servreg_loc_get_domain_list_req_msg_v01 *req;
+	struct qmi_servreg_loc_get_domain_list_resp_msg_v01 *resp = NULL;
+	struct qmi_servreg_loc_get_domain_list_req_msg_v01 *req = NULL;
 	int rc;
 	int db_rev_count = 0, domains_read = 0;
 
@@ -300,10 +301,9 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 		if (!domains_read) {
 			db_rev_count = pd->db_rev_count = resp->db_rev_count;
 			pd->total_domains = resp->total_domains;
-			if (!pd->total_domains && resp->domain_list_len) {
-				pr_err("total domains not set\n");
-				pd->total_domains = resp->domain_list_len;
-			}
+			if (!resp->total_domains)
+				pr_info("No matching domains found\n");
+
 			pd->domain_list = kmalloc(
 					sizeof(struct servreg_loc_entry_v01) *
 					resp->total_domains, GFP_KERNEL);
@@ -319,6 +319,9 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 			kfree(pd->domain_list);
 			rc = -EAGAIN;
 			goto out;
+		}
+		if (resp->domain_list_len >  resp->total_domains) {
+			resp->domain_list_len = resp->total_domains;
 		}
 		/* Copy the response*/
 		store_get_domain_list_response(pd, resp, domains_read);

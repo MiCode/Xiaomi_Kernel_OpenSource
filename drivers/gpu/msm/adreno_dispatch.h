@@ -125,6 +125,6 @@ void adreno_preempt_process_dispatch_queue(struct adreno_device *adreno_dev,
 static inline bool adreno_cmdqueue_is_empty(
 		struct adreno_dispatcher_cmdqueue *cmdqueue)
 {
-	return (cmdqueue != NULL && cmdqueue->head == cmdqueue->tail);
+	return cmdqueue != NULL && cmdqueue->head == cmdqueue->tail;
 }
 #endif /* __ADRENO_DISPATCHER_H */

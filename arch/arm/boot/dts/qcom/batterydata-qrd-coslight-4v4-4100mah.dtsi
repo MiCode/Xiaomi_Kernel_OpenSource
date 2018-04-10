@@ -1,0 +1,48 @@
+
+qcom,2786095_huaqin_c6coslight_4100mah_averaged_masterslave_feb3rd2017 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4100>;
+	qcom,batt-id-kohm = <50>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "qrd_msm8953_coslight_4100mah";
+	qcom,chg-rslow-comp-c1 = <3439671>;
+	qcom,chg-rslow-comp-c2 = <5394943>;
+	qcom,chg-rs-to-rslow = <823652>;
+	qcom,chg-rslow-comp-thr = <0xAE>;
+	qcom,checksum = <0xF02E>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+			DF 83 B4 7C
+			E0 80 A2 76
+			56 83 B7 5E
+			DF 82 41 8E
+			40 82 BC 98
+			C2 B6 78 C2
+			57 17 EA 83
+			B7 7C CA 80
+			59 76 4F 83
+			37 6B 71 78
+			EE 86 41 82
+			FA 99 50 BD
+			65 CA 55 0D
+			07 10 F0 58
+			14 70 DA FC
+			05 3E F6 35
+			FE 12 00 00
+			3B 3D 7B 30
+			92 45 00 00
+			00 00 00 00
+			00 00 00 00
+			7B 6A 86 69
+			1C 68 1C 7B
+			0C 6C 60 60
+			63 6A F6 7A
+			BF 64 C1 58
+			C0 84 BB 7E
+			1B C9 61 20
+			5F A0 71 0C
+			28 00 FF 36
+			F0 11 30 03
+			00 00 00 0C
+			];
+};

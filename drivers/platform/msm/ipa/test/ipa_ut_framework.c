@@ -328,7 +328,7 @@ free_mem:
 	_IPA_UT_TEST_LOG_BUF_NAME = NULL;
 unlock_mutex:
 	mutex_unlock(&ipa_ut_ctx->lock);
-	return ((!rc && !tst_fail) ? count : -EFAULT);
+	return (!rc && !tst_fail) ? count : -EFAULT;
 }
 
 /**
@@ -552,7 +552,7 @@ free_mem:
 	_IPA_UT_TEST_LOG_BUF_NAME = NULL;
 unlock_mutex:
 	mutex_unlock(&ipa_ut_ctx->lock);
-	return ((!rc && !tst_fail) ? count : -EFAULT);
+	return (!rc && !tst_fail) ? count : -EFAULT;
 }
 
 /**

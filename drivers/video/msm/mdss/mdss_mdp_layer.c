@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1908,7 +1909,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 			left_plist[left_cnt++] = pipe;
 
 		pr_debug("id:0x%x flags:0x%x dst_x:%d\n",
-			layer->pipe_ndx, layer->flags, layer->dst_rect.x);
+				layer->pipe_ndx, layer->flags, layer->dst_rect.x);
 		layer->z_order -= MDSS_MDP_STAGE_0;
 	}
 
@@ -1926,9 +1927,9 @@ validate_skip:
 
 validate_exit:
 	pr_debug("err=%d total_layer:%d left:%d right:%d rec0_rel_ndx=0x%x rec1_rel_ndx=0x%x rec0_destroy_ndx=0x%x rec1_destroy_ndx=0x%x processed=%d\n",
-		ret, layer_count, left_lm_layers, right_lm_layers,
-		rec_release_ndx[0], rec_release_ndx[1],
-		rec_destroy_ndx[0], rec_destroy_ndx[1], i);
+			ret, layer_count, left_lm_layers, right_lm_layers,
+			rec_release_ndx[0], rec_release_ndx[1],
+			rec_destroy_ndx[0], rec_destroy_ndx[1], i);
 	MDSS_XLOG(rec_ndx[0], rec_ndx[1], layer_count,
 			left_lm_layers, right_lm_layers,
 			rec_release_ndx[0], rec_release_ndx[1],
@@ -1936,29 +1937,27 @@ validate_exit:
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
 		if (IS_ERR_VALUE(ret)) {
-			if ((pipe->ndx & rec_release_ndx[0]) ||
-			    (pipe->ndx & rec_release_ndx[1])) {
+			if (((pipe->ndx & rec_release_ndx[0]) &&
+					(pipe->multirect.num == 0)) ||
+					((pipe->ndx & rec_release_ndx[1]) &&
+					(pipe->multirect.num == 1))) {
 				mdss_mdp_smp_unreserve(pipe);
 				pipe->params_changed = 0;
 				pipe->dirty = true;
 				if (!list_empty(&pipe->list))
 					list_del_init(&pipe->list);
 				mdss_mdp_pipe_destroy(pipe);
-			} else if ((pipe->ndx & rec_destroy_ndx[0]) ||
-				   (pipe->ndx & rec_destroy_ndx[1])) {
-				/*
-				 * cleanup/destroy list pipes should move back
-				 * to destroy list. Next/current kickoff cycle
-				 * will release the pipe because validate also
-				 * acquires ov_lock.
-				 */
+			} else if (((pipe->ndx & rec_destroy_ndx[0]) &&
+					(pipe->multirect.num == 0)) ||
+					((pipe->ndx & rec_destroy_ndx[1]) &&
+					(pipe->multirect.num == 1))) {
 				list_move(&pipe->list,
-					&mdp5_data->pipes_destroy);
+						&mdp5_data->pipes_destroy);
 			}
 		} else {
 			pipe->file = file;
 			pr_debug("file pointer attached with pipe is %pK\n",
-				file);
+					file);
 		}
 	}
 	mutex_unlock(&mdp5_data->list_lock);

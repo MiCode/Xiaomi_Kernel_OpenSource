@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1514,6 +1515,12 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	struct ion_handle *ion_handle;
 	int i;
 
+	if (size != sizeof(*cmd)) {
+		pr_err("cmd size [%d] , expected [%d].\n",
+				(int) size, (int) sizeof(*cmd));
+		return -EINVAL;
+	}
+
 	/* Check ION client */
 	if (spcom_dev->ion_client == NULL) {
 		pr_err("invalid ion client.\n");
@@ -1560,6 +1567,12 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 	int fd = cmd->arg;
 	struct ion_client *ion_client = spcom_dev->ion_client;
 	int i;
+
+	if (size != sizeof(*cmd)) {
+		pr_err("cmd size [%d] , expected [%d].\n",
+				(int) size, (int) sizeof(*cmd));
+		return -EINVAL;
+	}
 
 	/* Check ION client */
 	if (ion_client == NULL) {
@@ -2018,6 +2031,11 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 		return -ENOMEM;
 
 	actual_size = spcom_handle_read(ch, buf, size);
+	if ((actual_size <= 0) || (actual_size > size)) {
+		pr_err("invalid actual_size [%d].\n", actual_size);
+		kfree(buf);
+		return -EFAULT;
+	}
 
 	ret = copy_to_user(user_buff, buf, actual_size);
 

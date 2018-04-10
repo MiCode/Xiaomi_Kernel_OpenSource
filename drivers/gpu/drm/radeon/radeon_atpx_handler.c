@@ -62,7 +62,8 @@ bool radeon_has_atpx(void) {
 	return radeon_atpx_priv.atpx_detected;
 }
 
-bool radeon_has_atpx_dgpu_power_cntl(void) {
+bool radeon_has_atpx_dgpu_power_cntl(void)
+{
 	return radeon_atpx_priv.atpx.functions.power_cntl;
 }
 

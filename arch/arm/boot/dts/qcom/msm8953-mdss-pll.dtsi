@@ -28,8 +28,6 @@
 		clock-names = "iface_clk";
 		clock-rate = <0>;
 
-		qcom,dsi-pll-ssc-en;
-		qcom,dsi-pll-ssc-mode = "down-spread";
 		/* Memory region for passing dynamic refresh pll codes */
 		memory-region = <&dfps_data_mem>;
 
@@ -61,8 +59,6 @@
 
 		gdsc-supply = <&gdsc_mdss>;
 
-		qcom,dsi-pll-ssc-en;
-		qcom,dsi-pll-ssc-mode = "down-spread";
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>;
 		clock-names = "iface_clk";
 		clock-rate = <0>;

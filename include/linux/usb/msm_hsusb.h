@@ -664,7 +664,7 @@ static inline void msm_usb_irq_disable(bool disable)
 {
 }
 #endif
-
+int qusb_phy_run_dcd(struct usb_phy *phy);
 /* CONFIG_PM_RUNTIME */
 #ifdef CONFIG_PM_RUNTIME
 static inline int get_pm_runtime_counter(struct device *dev)

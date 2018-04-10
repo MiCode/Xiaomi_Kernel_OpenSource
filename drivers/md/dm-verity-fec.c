@@ -596,10 +596,10 @@ static void fec_rs_free(void *element, void *pool_data)
 
 bool verity_is_fec_opt_arg(const char *arg_name)
 {
-	return (!strcasecmp(arg_name, DM_VERITY_OPT_FEC_DEV) ||
+	return !strcasecmp(arg_name, DM_VERITY_OPT_FEC_DEV) ||
 		!strcasecmp(arg_name, DM_VERITY_OPT_FEC_BLOCKS) ||
 		!strcasecmp(arg_name, DM_VERITY_OPT_FEC_START) ||
-		!strcasecmp(arg_name, DM_VERITY_OPT_FEC_ROOTS));
+		!strcasecmp(arg_name, DM_VERITY_OPT_FEC_ROOTS);
 }
 
 int verity_fec_parse_opt_args(struct dm_arg_set *as, struct dm_verity *v,

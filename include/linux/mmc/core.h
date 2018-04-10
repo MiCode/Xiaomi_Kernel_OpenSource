@@ -206,6 +206,7 @@ extern void __mmc_put_card(struct mmc_card *card);
 
 extern void mmc_set_ios(struct mmc_host *host);
 extern int mmc_flush_cache(struct mmc_card *);
+extern int mmc_cache_ctrl(struct mmc_host *host, u8 enable);
 extern int mmc_cache_barrier(struct mmc_card *);
 
 extern int mmc_detect_card_removed(struct mmc_host *host);

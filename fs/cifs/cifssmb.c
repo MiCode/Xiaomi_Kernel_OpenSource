@@ -1456,7 +1456,7 @@ cifs_readv_receive(struct TCP_Server_Info *server, struct mid_q_entry *mid)
 	if (server->ops->is_status_pending &&
 	    server->ops->is_status_pending(buf, server, 0)) {
 		discard_remaining_data(server);
-		return -1;
+		return -EPERM;
 	}
 
 	/* Was the SMB read successful? */

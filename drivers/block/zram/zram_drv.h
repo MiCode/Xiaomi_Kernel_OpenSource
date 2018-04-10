@@ -20,12 +20,6 @@
 
 #include "zcomp.h"
 
-/*
- * Some arbitrary value. This is just to catch
- * invalid value for num_devices module parameter.
- */
-static const unsigned max_num_devices = 32;
-
 /*-- Configurable parameters */
 
 /*
@@ -84,7 +78,6 @@ struct zram_stats {
 	atomic64_t compr_data_size;	/* compressed size of pages stored */
 	atomic64_t num_reads;	/* failed + successful */
 	atomic64_t num_writes;	/* --do-- */
-	atomic64_t num_migrated;	/* no. of migrated object */
 	atomic64_t failed_reads;	/* can happen when memory is too low */
 	atomic64_t failed_writes;	/* can happen when memory is too low */
 	atomic64_t invalid_io;	/* non-page-aligned I/O requests */
@@ -109,7 +102,6 @@ struct zram {
 	 * the number of pages zram can consume for storing compressed data
 	 */
 	unsigned long limit_pages;
-	int max_comp_streams;
 
 	struct zram_stats stats;
 	atomic_t refcount; /* refcount for zram_meta */
@@ -121,5 +113,6 @@ struct zram {
 	 */
 	u64 disksize;	/* bytes */
 	char compressor[10];
+	bool claim; /* Protected by bdev->bd_mutex */
 };
 #endif

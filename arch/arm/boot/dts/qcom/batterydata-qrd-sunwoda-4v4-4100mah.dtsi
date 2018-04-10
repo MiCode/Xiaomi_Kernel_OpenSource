@@ -1,0 +1,62 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,qrd_msm8953_id1_4100mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4100>;
+	qcom,batt-id-kohm = <33>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "qrd_msm8953_sunwoda_4100mah";
+	qcom,fastchg-current-ma = <2000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,chg-rslow-comp-c1 = <3047055>;
+	qcom,chg-rslow-comp-c2 = <3708812>;
+	qcom,chg-rs-to-rslow = <1708063>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0x6FF9>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+			DC 83 9E 7C
+			CD 80 80 76
+			60 83 FD 6E
+			04 89 50 94
+			38 82 24 99
+			C7 B7 F4 C3
+			56 0F 06 88
+			F9 7D BA 81
+			0F 7C 54 83
+			B3 69 2B 7A
+			FE 87 4B 82
+			DA 99 33 BD
+			45 CA 58 0D
+			13 10 39 58
+			14 70 DA FC
+			3A 36 CF 46
+			1E 42 00 00
+			5D 46 C4 3B
+			0A 44 00 00
+			00 00 00 00
+			00 00 00 00
+			AD 72 EE 70
+			73 58 12 88
+			E9 75 4D 68
+			47 61 B0 7A
+			24 74 10 53
+			19 74 5B AA
+			23 44 69 3E
+			67 A0 71 0C
+			28 00 FF 36
+			F0 11 30 03
+			00 00 00 0C
+			];
+};

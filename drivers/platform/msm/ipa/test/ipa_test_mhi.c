@@ -155,23 +155,23 @@ struct ipa_mhi_mmio_register_set {
 	u32	reserved_38_34;
 
 	struct mhictrl {
-		u32 rs : 1;
-		u32 reset : 1;
-		u32 reserved_7_2 : 6;
-		u32 mhistate : 8;
-		u32 reserved_31_16 : 16;
+		u32 rs:1;
+		u32 reset:1;
+		u32 reserved_7_2:6;
+		u32 mhistate:8;
+		u32 reserved_31_16:16;
 	} __packed mhictrl;
 
 	u64	reserved_40_3c;
 	u32	reserved_44_40;
 
 	struct mhistatus {
-		u32 ready : 1;
-		u32 reserved_3_2 : 1;
-		u32 syserr : 1;
-		u32 reserved_7_3 : 5;
-		u32 mhistate : 8;
-		u32 reserved_31_16 : 16;
+		u32 ready:1;
+		u32 reserved_3_2:1;
+		u32 syserr:1;
+		u32 reserved_7_3:5;
+		u32 mhistate:8;
+		u32 reserved_31_16:16;
 	} __packed mhistatus;
 
 	/**
@@ -277,8 +277,8 @@ struct ipa_mhi_event_ring_element {
 	u64	ptr;
 	union {
 		struct {
-			u32	len : 24;
-			u32	code : 8;
+			u32	len:24;
+			u32	code:8;
 		} __packed bits;
 		u32	dword;
 	} __packed dword_8;
@@ -298,12 +298,12 @@ struct ipa_mhi_transfer_ring_element {
 	u16	reserved0;
 	union {
 		struct {
-			u16		chain : 1;
-			u16		reserved_7_1 : 7;
-			u16		ieob : 1;
-			u16		ieot : 1;
-			u16		bei : 1;
-			u16		reserved_15_11 : 5;
+			u16		chain:1;
+			u16		reserved_7_1:7;
+			u16		ieob:1;
+			u16		ieot:1;
+			u16		bei:1;
+			u16		reserved_15_11:5;
 		} __packed bits;
 		u16	word;
 	} __packed word_C;

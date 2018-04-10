@@ -32,6 +32,28 @@ config ANDROID_BINDER_IPC_32BIT
 
 	  Note that enabling this will break newer Android user-space.
 
+config ANDROID_BINDER_DEVICES
+	string "Android Binder devices"
+	depends on ANDROID_BINDER_IPC
+	default "binder,hwbinder,vndbinder"
+	---help---
+	  Default value for the binder.devices parameter.
+
+	  The binder.devices parameter is a comma-separated list of strings
+	  that specifies the names of the binder device nodes that will be
+	  created. Each binder device has its own context manager, and is
+	  therefore logically separated from the other devices.
+
+config ANDROID_BINDER_IPC_SELFTEST
+	bool "Android Binder IPC Driver Selftest"
+	depends on ANDROID_BINDER_IPC
+	---help---
+	  This feature allows binder selftest to run.
+
+	  Binder selftest checks the allocation and free of binder buffers
+	  exhaustively with combinations of various buffer sizes and
+	  alignments.
+
 config ASHMEM
 	bool "Enable the Anonymous Shared Memory Subsystem"
 	default n
@@ -125,6 +147,19 @@ config ONESHOT_SYNC_USER
 	depends on SYNC
 	help
 	  Provide a userspace API for creating oneshot sync objects.
+
+config SWAPAGING
+        bool "Swap aging"
+        default n
+        depends on SWAP
+        ---help---
+          Refresh swap area when it is full
+
+config ANDROID_WHETSTONE
+    bool "Android Whetstone"
+    default N
+    ---help---
+        report to whetstone the memory state when reach target limit value.
 
 source "drivers/staging/android/ion/Kconfig"
 

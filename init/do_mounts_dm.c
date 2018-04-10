@@ -363,7 +363,7 @@ static void __init dm_setup_drive(void)
 	} else if (dm_get_md_type(md) != dm_table_get_type(table)) {
 		DMWARN("can't change device type after initial table load.");
 		goto setup_md_queue_fail;
-        }
+	}
 
 	/* Suspend the device so that we can bind it to the table. */
 	if (dm_suspend(md, 0)) {

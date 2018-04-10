@@ -93,7 +93,7 @@ static inline bool cmdqueue_is_current(
 	struct adreno_ringbuffer *rb = CMDQUEUE_RB(cmdqueue);
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 
-	return (adreno_dev->cur_rb == rb);
+	return adreno_dev->cur_rb == rb;
 }
 
 static void _add_context(struct adreno_device *adreno_dev,

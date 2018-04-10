@@ -131,6 +131,8 @@ struct mmc_ext_csd {
 	u8			cmdq_depth;		/* 307 */
 	u8			cmdq_support;		/* 308 */
 	u8			barrier_support;	/* 486 */
+	u8			life_time_est_typ_a;    /* 268 */
+	u8			life_time_est_typ_b;    /* 269 */
 	u8			barrier_en;
 
 	u8			fw_version;		/* 254 */
@@ -428,6 +430,7 @@ struct mmc_card {
 	u8 *cached_ext_csd;
 	bool cmdq_init;
 	struct mmc_bkops_info bkops;
+	u8    cid_ffu_flag;
 };
 
 /*

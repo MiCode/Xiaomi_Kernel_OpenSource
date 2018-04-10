@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +32,63 @@
 		};
 	};
 
+	pwm_ir {
+		compatible = "pwm-ir";
+		pwms = <&pmi8950_pwm 0 0>;
+		reg-id = "vdd";
+		vdd-supply = <&pm8953_l8>;
+	};
+
+	goodix_fp {
+		compatible = "goodix,fingerprint";
+		spi-max-frequency = <1000000>;
+		input-device-name = "gf3208";
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x0>;
+
+		goodix,gpio_reset    = <&tlmm 140 0>;
+		goodix,gpio_irq      = <&tlmm 48 0>;
+
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+		<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+
+		pinctrl-names = "goodixfp_spi_active",
+				"goodixfp_reset_reset",
+				"goodixfp_reset_active",
+				"goodixfp_irq_active";
+
+		pinctrl-0 = <&goodix_spi_active>;
+		pinctrl-1 = <&goodix_reset_reset>;
+		pinctrl-2 = <&goodix_reset_active>;
+		pinctrl-3 = <&goodix_irq_active>;
+	};
+
+	fpc1020 {
+		compatible = "fpc,fpc1020";
+		spi-max-frequency = <1000000>;
+		input-device-name = "fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x0>;
+
+		fpc,gpio_rst    = <&tlmm 140 0>;
+		fpc,gpio_irq      = <&tlmm 48 0>;
+
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+		<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+
+		pinctrl-names = "fpc1020_spi_active",
+				"fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+
+		pinctrl-0 = <&fpc_spi_active>;
+		pinctrl-1 = <&fpc_reset_reset>;
+		pinctrl-2 = <&fpc_reset_active>;
+		pinctrl-3 = <&fpc_irq_active>;
+	};
+
 	i2c@78b7000 { /* BLSP1 QUP3 */
 		status = "okay";
 		synaptics@4b {
@@ -58,8 +116,161 @@
 			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 				<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
 		};
+		focaltech@38 {
+			compatible = "focaltech,5435";
+			reg = <0x38>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2>;
+			vdd-supply = <&pm8953_l10>;
+			vcc_i2c-supply = <&pm8953_l6>;
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			focaltech,name = "ft5435";
+			focaltech,family-id = <0x54>;
+			focaltech,reset-gpio = <&tlmm 64 0x0>;
+			focaltech,irq-gpio = <&tlmm 65 0x2008>;
+			focaltech,display-coords = <0 0 1080 1920>;
+			focaltech,panel-coords = <0 0 1080 1920>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+			focaltech,group-id = <1>;
+			focaltech,hard-reset-delay-ms = <200>;
+			focaltech,soft-reset-delay-ms = <200>;
+			focaltech,num-max-touches = <10>;
+			focaltech,fw-delay-aa-ms = <2>;
+			focaltech,fw-delay-55-ms = <2>;
+			focaltech,fw-upgrade-id1 = <0x54>;
+			focaltech,fw-upgrade-id2 = <0x2c>;
+			focaltech,fw-delay-readid-ms = <10>;
+			focaltech,fw-delay-era-flsh-ms = <2000>;
+			focaltech,fw-auto-cal;
+			focaltech,fw-vkey-support;
+			focaltech,resume-in-workqueue;
+			focaltech,num-virtual-key = <3>;
+			focal,virtual_key_1 = <172 500 2040>;/*home*/
+			focal,virtual_key_2 = <139 200 2040>;/*menu*/
+			focal,virtual_key_3 = <158 800 2040>;/*back*/
+		};
+		imagis@50 {
+			compatible = "imagis,ist30xx-ts";
+			reg = <0x50>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2>;
+			vdd-supply = <&pm8953_l10>;
+			vcc_i2c-supply = <&pm8953_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			imagis,reset-gpio = <&tlmm 64 0x0>;
+			imagis,irq-gpio = <&tlmm 65 0x2008>;
+			imagis,i2c-pull-up;
+		};
+		goodix_ts@14 {
+			compatible = "goodix,gt9xx";
+			reg = <0x14>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x0>;
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+			"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			vdd_ana-supply = <&pm8953_l10>;
+			vcc_i2c-supply = <&pm8953_l6>;
+			goodix,rst-gpio = <&tlmm 64 0x0>;
+			goodix,irq-gpio = <&tlmm 65 0x2008>;
+			goodix,cfg-group0 = [45 38 04 80 07 0A 35 41 01 0A
+					26 0B 5A 32 05 05 00 00 00 00
+					00 00 05 14 14 26 14 8C 2E 0E
+					4A 4C F4 0A F4 0A 00 BA 33 11
+					00 00 00 00 00 05 03 28 78 96
+					3A 1E 5A 8F 90 03 00 00 00 04
+					CE 21 00 B0 29 28 98 34 00 87
+					41 60 7B 51 00 7B 18 38 60 00
+					F0 55 40 AA A0 27 00 04 53 00
+					00 00 00 00 00 02 00 00 00 00
+					00 00 00 00 00 00 3C 00 00 00
+					00 28 02 04 06 08 0A 0C 0E 10
+					12 14 16 18 1A 1C 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 02 04 06 08 0A 0C 0F
+					10 12 13 14 16 18 1C 1D 1E 1F
+					20 21 22 24 26 28 29 2A 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 23 01];
+			goodix,cfg-group1 = [49 38 04 80 07 0A 3D 49 01 48
+					50 0F 50 41 03 65 00 00 00 00
+					00 00 0F 16 1A 23 14 87 27 DD
+					50 52 E7 07 E7 07 00 42 33 91
+					0A 00 00 00 00 83 C4 14 14 C8
+					02 3C 64 8F D0 03 05 1E 00 04
+					93 3F 00 8A 46 00 82 4D 00 7C
+					55 00 76 5F 00 76 18 38 60 00
+					F7 55 40 99 99 17 00 00 D1 00
+					00 00 00 00 00 02 00 00 05 28
+					00 00 00 00 00 28 64 00 00 00
+					00 50 0C 0B 0A 09 08 07 06 05
+					04 03 02 01 00 0D 0E 0F 10 11
+					12 13 14 15 16 17 18 19 1A FF
+					FF FF 29 28 24 22 20 1F 1E 0A
+					08 06 05 04 02 00 FF FF FF 00
+					00 00 00 00 00 00 00 00 28 32
+					3C 10 23 28 0F 00 00 00 00 00
+					00 00 0F 4B 00 00 00 00 00 00
+					1E 50 00 00 00 05 00 00 00 00
+					01 14 78 1A 19 3C 28 00 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 83 01];
+		};
 	};
 
+	i2c@78b6000 {
+		aw2013@45 {
+			compatible = "awinic";
+			reg = <0x45>;
+			vdd-supply = <&pm8953_l10>;
+			vcc-supply = <&pm8953_l5>;
+
+			aw2013,red {
+				aw2013,name = "red";
+				aw2013,id = <0>;
+				aw2013,max-brightness = <150>;
+				aw2013,max-current = <1>;
+				aw2013,rise-time-ms = <3>;
+				aw2013,hold-time-ms = <1>;
+				aw2013,fall-time-ms = <3>;
+				aw2013,off-time-ms = <3>;
+			};
+
+			aw2013,green {
+				aw2013,name = "green";
+				aw2013,id = <1>;
+				aw2013,max-brightness = <150>;
+				aw2013,max-current = <1>;
+				aw2013,rise-time-ms = <3>;
+				aw2013,hold-time-ms = <1>;
+				aw2013,fall-time-ms = <3>;
+				aw2013,off-time-ms = <3>;
+			};
+
+			aw2013,blue {
+				aw2013,name = "blue";
+				aw2013,id = <2>;
+				aw2013,max-brightness = <150>;
+				aw2013,max-current = <1>;
+				aw2013,rise-time-ms = <3>;
+				aw2013,hold-time-ms = <1>;
+				aw2013,fall-time-ms = <3>;
+				aw2013,off-time-ms = <3>;
+			};
+		};
+	};
 	vdd_vreg: vdd_vreg {
 		compatible = "regulator-fixed";
 		status = "ok";
@@ -72,20 +283,23 @@
 };
 
 &spmi_bus {
-	qcom,pmi8950@2 {
+	qcom,pm8953@0 {
 		qcom,leds@a100 {
 			status = "okay";
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa100 0x100>;
+			label = "mpp";
 			qcom,led_mpp_2 {
 				label = "mpp";
-				linux,name = "green";
+				linux,name = "button-backlight";
 				linux,default-trigger = "none";
 				qcom,default-state = "off";
-				qcom,max-current = <40>;
+				qcom,max-current = <5>;
 				qcom,current-setting = <5>;
 				qcom,id = <6>;
 				qcom,mode = "manual";
 				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x60>;
+				qcom,mode-ctrl = <0x61>;
 			};
 		};
 	};
@@ -93,37 +307,31 @@
 
 / {
 	qrd_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "batterydata-qrd-sku1-4v4-2800mah.dtsi"
+		qcom,batt-id-range-pct = <5>;
+		#include "batterydata-qrd-sunwoda-4v4-4100mah.dtsi"
+		#include "batterydata-qrd-sunwoda-ATL-4v4-4100mah.dtsi"
+		#include "batterydata-qrd-coslight-4v4-4100mah.dtsi"
+		#include "batterydata-qrd-desay-lisheng-4v4-4100mah.dtsi"
+		#include "batterydata-qrd-desay-4v4-4100mah.dtsi"
 	};
 };
 
-&pm8953_typec {
-	ss-mux-supply = <&pm8953_l6>;
-	qcom,ssmux-gpio = <&tlmm 139 GPIO_ACTIVE_LOW>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&typec_ssmux_config>;
-};
 
 &pmi8950_charger {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,float-voltage-mv = <4400>;
-	qcom,chg-led-sw-controls;
-	qcom,chg-led-support;
-	qcom,external-typec;
-	qcom,typec-psy-name = "typec";
-	qcom,thermal-mitigation = <3000 2500 2000 1500 1000 500 0>;
+	qcom,thermal-mitigation = <3000 2500 2000 2000 1000 500 0>;
 	status = "okay";
 };
 
 &pmi8950_fg {
 	qcom,battery-data = <&qrd_batterydata>;
-	qcom,cold-bat-decidegc = <(-100)>;
-	qcom,cool-bat-decidegc = <0>;
-	qcom,warm-bat-decidegc = <550>;
+	qcom,thermal-coefficients = [c8 86 c1 50 d3 37];
+	qcom,cold-bat-decidegc = <0>;
+	qcom,cool-bat-decidegc = <150>;
+	qcom,warm-bat-decidegc = <450>;
 	qcom,hot-bat-decidegc = <550>;
 	qcom,bad-battery-detection-enable;
-	qcom,hold-soc-while-full;
 };
 
 &blsp1_uart0 {
@@ -228,14 +436,10 @@
 	status = "ok";
 };
 
-&flash_led {
-	/delete-node/ qcom,flash_1;
-	/delete-node/ qcom,torch_1;
-};
 
 &led_flash0{
-	qcom,flash-source = <&pmi8950_flash0>;
-	qcom,torch-source = <&pmi8950_torch0>;
+	qcom,flash-source = <&pmi8950_flash0 &pmi8950_flash1>;
+	qcom,torch-source = <&pmi8950_torch0 &pmi8950_torch1>;
 };
 
 &pm8953_vadc {

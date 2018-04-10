@@ -213,5 +213,6 @@ struct callback_head {
 };
 #define rcu_head callback_head
 
+typedef u64 cycle_t;
 #endif /*  __ASSEMBLY__ */
 #endif /* _LINUX_TYPES_H */

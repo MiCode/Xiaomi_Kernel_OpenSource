@@ -306,6 +306,34 @@ TRACE_EVENT(mm_page_alloc_extfrag,
 );
 
 
+TRACE_EVENT(mm_page_alloc_slowpath,
+		TP_PROTO(struct task_struct *tsk, int order, gfp_t gfp_flags, unsigned long long delta),
+
+		TP_ARGS(tsk, order, gfp_flags, delta),
+
+		TP_STRUCT__entry(
+		__field(struct task_struct *, tsk)
+		__field(int, order)
+		__field(gfp_t, gfp_flags)
+		__field(unsigned long long, delta)
+		),
+
+		TP_fast_assign(
+		__entry->tsk = tsk;
+		__entry->order = order;
+		__entry->gfp_flags = gfp_flags;
+		__entry->delta = delta;
+		),
+
+		TP_printk("policy %d nice %d, order=%d gfp_flags=%s, %lld ns\n",
+		__entry->tsk->policy,
+		PRIO_TO_NICE(__entry->tsk->static_prio),
+		__entry->order,
+		show_gfp_flags(__entry->gfp_flags),
+		__entry->delta)
+		);
+
+
 DECLARE_EVENT_CLASS(ion_alloc,
 
 	TP_PROTO(const char *client_name,

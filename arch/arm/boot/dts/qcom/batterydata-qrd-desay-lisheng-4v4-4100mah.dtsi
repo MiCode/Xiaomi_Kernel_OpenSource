@@ -1,0 +1,48 @@
+
+qcom,2781148_huaqin_c6desay_4100mah_averaged_masterslave_feb3rd2017 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4100>;
+	qcom,batt-id-kohm = <62>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "batterydata-qrd-desay-lisheng-4v4-4100mah";
+	qcom,chg-rslow-comp-c1 = <2747468>;
+	qcom,chg-rslow-comp-c2 = <3764702>;
+	qcom,chg-rs-to-rslow = <770184>;
+	qcom,chg-rslow-comp-thr = <0xA2>;
+	qcom,checksum = <0x3826>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+			F0 83 6D 7D
+			90 81 15 7C
+			5C 83 50 67
+			0E 83 A6 8D
+			22 82 AE 9A
+			28 BE B5 CB
+			5A 0E FC 83
+			78 7D 8C 81
+			0B 7C 62 83
+			D4 65 5D 88
+			2D 94 57 82
+			BB 99 28 BD
+			42 CA 52 0D
+			2A 10 98 59
+			14 70 DA FC
+			09 44 6E 3D
+			AF 39 00 00
+			23 47 66 38
+			AF 31 00 00
+			00 00 00 00
+			00 00 00 00
+			28 6B 33 6A
+			E6 70 BF 88
+			0C 74 27 69
+			7B 5A 38 80
+			26 6E 19 68
+			25 6E 46 A1
+			1D D3 5A 1B
+			5C A0 71 0C
+			28 00 FF 36
+			F0 11 30 03
+			00 00 00 0C
+			];
+};

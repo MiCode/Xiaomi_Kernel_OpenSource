@@ -24,6 +24,7 @@
 #include <trace/events/power.h>
 
 #include <trace/events/sched.h>
+#include <linux/ktrace.h>
 
 #include "smpboot.h"
 
@@ -492,6 +493,10 @@ static int _cpu_up(unsigned int cpu, int tasks_frozen)
 		nr_calls--;
 		pr_warn("%s: attempt to bring up CPU %u failed\n",
 			__func__, cpu);
+
+		ktrace_add_cpufreq_event(KTRACE_CPUFREQ_TYPE_UNPLUGED,
+				current->pid, ktime_to_ns(ktime_get()), cpu, 0, 0);
+
 		goto out_notify;
 	}
 

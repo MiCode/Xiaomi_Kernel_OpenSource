@@ -7,6 +7,11 @@ power_supply-$(CONFIG_LEDS_TRIGGERS)	+= power_supply_leds.o
 obj-$(CONFIG_POWER_SUPPLY)	+= power_supply.o
 obj-$(CONFIG_GENERIC_ADC_BATTERY)	+= generic-adc-battery.o
 
+ifeq ($(PRODUCT_BUILD_INTERNATIONAL),true)
+EXTRA_CFLAGS += -DGLOBAL_VOLTAGE
+EXTRA_CFLAGS += -DGLOBAL_FG_CC_CV_THRESHOLD_MV
+endif
+
 obj-$(CONFIG_PDA_POWER)		+= pda_power.o
 obj-$(CONFIG_APM_POWER)		+= apm_power.o
 obj-$(CONFIG_MAX8925_POWER)	+= max8925_power.o

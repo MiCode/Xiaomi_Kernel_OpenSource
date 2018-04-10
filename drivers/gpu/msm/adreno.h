@@ -1421,7 +1421,7 @@ unsigned int adreno_get_rptr(struct adreno_ringbuffer *rb);
 
 static inline bool adreno_rb_empty(struct adreno_ringbuffer *rb)
 {
-	return (adreno_get_rptr(rb) == rb->wptr);
+	return adreno_get_rptr(rb) == rb->wptr;
 }
 
 static inline bool adreno_soft_fault_detect(struct adreno_device *adreno_dev)

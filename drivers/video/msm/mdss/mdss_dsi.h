@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,6 +107,7 @@ enum dsi_panel_status_mode {
 	ESD_BTA,
 	ESD_REG,
 	ESD_REG_NT35596,
+	ESD_TE_NT35596,
 	ESD_TE,
 	ESD_MAX,
 };
@@ -463,6 +465,31 @@ struct mdss_dsi_ctrl_pdata {
 	struct mdss_intf_recovery *recovery;
 	struct mdss_intf_recovery *mdp_callback;
 
+	struct dsi_panel_cmds CABC_on_cmds;
+	struct dsi_panel_cmds CABC_off_cmds;
+	struct dsi_panel_cmds CE_on_cmds;
+	struct dsi_panel_cmds CE_off_cmds;
+	struct dsi_panel_cmds cold_gamma_cmds;
+	struct dsi_panel_cmds warm_gamma_cmds;
+	struct dsi_panel_cmds default_gamma_cmds;
+	struct dsi_panel_cmds PM1_cmds;
+	struct dsi_panel_cmds PM2_cmds;
+	struct dsi_panel_cmds PM3_cmds;
+	struct dsi_panel_cmds PM4_cmds;
+	struct dsi_panel_cmds PM5_cmds;
+	struct dsi_panel_cmds PM6_cmds;
+	struct dsi_panel_cmds PM7_cmds;
+	struct dsi_panel_cmds PM8_cmds;
+
+	struct dsi_panel_cmds cold_gamma_fb_cmds;
+	struct dsi_panel_cmds warm_gamma_fb_cmds;
+	struct dsi_panel_cmds CABC_on_fb_cmds;
+	struct dsi_panel_cmds CE_on_fb_cmds;
+
+	struct dsi_panel_cmds cold_gamma_slpout_cmds;
+	struct dsi_panel_cmds warm_gamma_slpout_cmds;
+	struct dsi_panel_cmds default_gamma_slpout_cmds;
+
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds post_dms_on_cmds;
 	struct dsi_panel_cmds post_panel_on_cmds;
@@ -635,6 +662,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp);
 void mdss_dsi_cmdlist_kickoff(int intf);
 int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
+int mdss_dsi_TE_NT35596_check(struct mdss_dsi_ctrl_pdata *ctrl);
 bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl, u8 clk_type);
 void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl);
 bool mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl, bool print_en);
@@ -688,6 +716,9 @@ static inline const char *__mdss_dsi_pm_supply_node_name(
 	default:		return "???";
 	}
 }
+
+void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+		struct dsi_panel_cmds *pcmds, u32 flags);
 
 static inline u32 mdss_dsi_get_hw_config(struct dsi_shared_data *sdata)
 {

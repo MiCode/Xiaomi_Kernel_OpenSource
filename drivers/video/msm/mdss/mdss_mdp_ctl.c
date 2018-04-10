@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -596,7 +597,7 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 static inline bool __is_vert_downscaling(u32 src_h,
 	struct mdss_rect dst){
 
-	return (src_h > dst.h);
+	return src_h > dst.h;
 }
 
 static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
@@ -953,7 +954,7 @@ static inline bool __is_multirect_high_pipe(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_mdp_pipe *next_pipe = pipe->multirect.next;
 
-	return (pipe->src.y > next_pipe->src.y);
+	return pipe->src.y > next_pipe->src.y;
 }
 
 static u64 mdss_mdp_apply_prefill_factor(u64 prefill_bw,

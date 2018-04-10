@@ -1,4 +1,5 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1319,17 +1320,15 @@ static int _setstate_alloc(struct kgsl_device *device,
 {
 	int ret;
 
-	ret = kgsl_sharedmem_alloc_contig(device, &iommu->setstate, NULL,
-		PAGE_SIZE);
-	if (ret)
-		return ret;
+	ret = kgsl_sharedmem_alloc_contig(device, &iommu->setstate, PAGE_SIZE);
 
-	/* Mark the setstate memory as read only */
-	iommu->setstate.flags |= KGSL_MEMFLAGS_GPUREADONLY;
+	if (!ret) {
+		iommu->setstate.flags |= KGSL_MEMFLAGS_GPUREADONLY;
 
-	kgsl_sharedmem_set(device, &iommu->setstate, 0, 0, PAGE_SIZE);
+		kgsl_sharedmem_set(device, &iommu->setstate, 0, 0, PAGE_SIZE);
+	}
 
-	return 0;
+	return ret;
 }
 
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
@@ -1580,7 +1579,7 @@ static int _iommu_map_guard_page(struct kgsl_pagetable *pt,
 
 		if (!kgsl_secure_guard_page_memdesc.sgt) {
 			if (kgsl_allocate_user(KGSL_MMU_DEVICE(pt->mmu),
-					&kgsl_secure_guard_page_memdesc, pt,
+					&kgsl_secure_guard_page_memdesc,
 					sgp_size, KGSL_MEMFLAGS_SECURE)) {
 				KGSL_CORE_ERR(
 					"Secure guard page alloc failed\n");
@@ -2185,23 +2184,27 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 	}
 
 	ret = _insert_gpuaddr(pagetable, addr, size);
-	if (ret == 0)
+	if (ret == 0) {
 		memdesc->gpuaddr = addr;
+		memdesc->pagetable = pagetable;
+	}
 
 out:
 	spin_unlock(&pagetable->lock);
 	return ret;
 }
 
-static void kgsl_iommu_put_gpuaddr(struct kgsl_pagetable *pagetable,
-		struct kgsl_memdesc *memdesc)
+static void kgsl_iommu_put_gpuaddr(struct kgsl_memdesc *memdesc)
 {
-	spin_lock(&pagetable->lock);
+	if (memdesc->pagetable == NULL)
+		return;
 
-	if (_remove_gpuaddr(pagetable, memdesc->gpuaddr))
+	spin_lock(&memdesc->pagetable->lock);
+
+	if (_remove_gpuaddr(memdesc->pagetable, memdesc->gpuaddr))
 		BUG();
 
-	spin_unlock(&pagetable->lock);
+	spin_unlock(&memdesc->pagetable->lock);
 }
 
 static int kgsl_iommu_svm_range(struct kgsl_pagetable *pagetable,

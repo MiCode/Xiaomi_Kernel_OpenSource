@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1201,6 +1202,26 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	pr_debug("%s: Read register done with ret: %d\n", __func__, ret);
 
 	return ret;
+}
+
+extern u32 te_count;
+static u32 te_count_old = 1;
+
+int mdss_dsi_TE_NT35596_check (struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int ret = 1;
+	if (te_count_old != te_count) {
+		te_count_old = te_count;
+	} else {
+		ret = 0;
+		pr_err("liujia te_count doesnt add as time");
+	}
+	if (te_count >= 10000) {
+		te_count = 0;
+	}
+
+	return ret;
+
 }
 
 void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl, struct dsc_desc *dsc)

@@ -2,6 +2,7 @@
  * Debugfs support for hosts and cards
  *
  * Copyright (C) 2008 Atmel Corporation
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -303,6 +304,26 @@ static int mmc_force_err_set(void *data, u64 val)
 
 DEFINE_SIMPLE_ATTRIBUTE(mmc_force_err_fops, NULL, mmc_force_err_set, "%llu\n");
 
+static int mmc_err_state_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+	if (!host)
+		return -EINVAL;
+	*val = host->err_occurred?1:0;
+	return 0;
+}
+
+
+static int mmc_err_state_clear(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+	if (!host)
+		return -EINVAL;
+	host->err_occurred = false;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(mmc_err_state, mmc_err_state_get, mmc_err_state_clear, "%llu\n");
+
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
 	struct dentry *root;
@@ -342,6 +363,17 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 		S_IRUSR | S_IWUSR, root,
 		&host->cmdq_thist_enabled))
 		goto err_node;
+
+	if (!debugfs_create_file("err_state",
+			S_IRUSR | S_IWUSR, root,
+			host, &mmc_err_state))
+		goto err_node;
+
+#ifdef CONFIG_MMC_RING_BUFFER
+	if (!debugfs_create_file("ring_buffer", S_IRUSR,
+			root, host, &mmc_ring_buffer_fops))
+		goto err_node;
+#endif
 
 #ifdef CONFIG_MMC_CLKGATE
 	if (!debugfs_create_u32("clk_delay", (S_IRUSR | S_IWUSR),

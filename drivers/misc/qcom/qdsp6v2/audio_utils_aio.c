@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -119,7 +119,9 @@ static int audio_aio_ion_lookup_vaddr(struct q6audio_aio *audio, void *addr,
 	list_for_each_entry(region_elt, &audio->ion_region_queue, list) {
 		if (addr >= region_elt->vaddr &&
 			addr < region_elt->vaddr + region_elt->len &&
-			addr + len <= region_elt->vaddr + region_elt->len) {
+			addr + len <= region_elt->vaddr + region_elt->len &&
+			addr + len > addr) {
+
 			/* offset since we could pass vaddr inside a registerd
 			* ion buffer
 			*/
@@ -848,6 +850,7 @@ static long audio_aio_process_event_req_compat(struct q6audio_aio *audio,
 	long rc;
 	struct msm_audio_event32 usr_evt_32;
 	struct msm_audio_event usr_evt;
+	memset(&usr_evt, 0, sizeof(struct msm_audio_event));
 
 	if (copy_from_user(&usr_evt_32, arg,
 				sizeof(struct msm_audio_event32))) {
@@ -857,6 +860,11 @@ static long audio_aio_process_event_req_compat(struct q6audio_aio *audio,
 	usr_evt.timeout_ms = usr_evt_32.timeout_ms;
 
 	rc = audio_aio_process_event_req_common(audio, &usr_evt);
+	if (rc < 0) {
+		pr_err("%s: audio process event failed, rc = %ld",
+				__func__, rc);
+		return rc;
+	}
 
 	usr_evt_32.event_type = usr_evt.event_type;
 	switch (usr_evt_32.event_type) {

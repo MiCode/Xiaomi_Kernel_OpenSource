@@ -470,6 +470,13 @@ mem_cgroup_uncharge_swapcache(struct page *page, swp_entry_t ent, bool swapout)
 }
 #endif
 
+#ifdef CONFIG_SWAPAGING
+extern void swapaging_work(void);
+#else
+static inline void swapaging_work(void)
+{
+}
+#endif
 #else /* CONFIG_SWAP */
 
 #define swap_address_space(entry)		(NULL)

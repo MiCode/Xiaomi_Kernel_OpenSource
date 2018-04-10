@@ -531,19 +531,17 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 				cstream, &async_domain);
 			} else {
 				be_list[j++] = be;
+				if (j == DPCM_MAX_BE_USERS) {
+					dev_dbg(fe->dev,
+							"ASoC: MAX backend users!\n");
+					break;
+				}
 			}
 		}
 		for (i = 0; i < j; i++) {
 			cstream->be = be_list[i];
 			dpcm_be_hw_params_prepare(cstream);
 		}
-		/* first we call set_params for the platform driver
-		 * this should configure the soc side
-		 * if the machine has compressed ops then we call that as well
-		 * expectation is that platform and machine will configure
-		 * everything this compress path, like configuring pcm port
-		 * for codec
-		 */
 		if (platform->driver->compr_ops &&
 				platform->driver->compr_ops->set_params) {
 			ret = platform->driver->compr_ops->set_params(cstream,

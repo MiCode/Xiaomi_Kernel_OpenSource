@@ -2376,8 +2376,8 @@ bool mdss_mdp_is_amortizable_pipe(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer, struct mdss_data_type *mdata)
 {
 	/* do not apply for rotator or WB */
-	return ((pipe->src.y > mdata->prefill_data.ts_threshold) &&
-		(mixer->type == MDSS_MDP_MIXER_TYPE_INTF));
+	return (pipe->src.y > mdata->prefill_data.ts_threshold) &&
+			(mixer->type == MDSS_MDP_MIXER_TYPE_INTF);
 }
 
 static inline void __get_ordered_rects(struct mdss_mdp_pipe *pipe,

@@ -10,7 +10,6 @@
  * Chris Zankel	<chris@zankel.net>
  * Joe Taylor
  * Marc Gauthier
- *
  */
 
 #include <linux/init.h>

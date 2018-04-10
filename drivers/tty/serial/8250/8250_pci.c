@@ -1767,8 +1767,8 @@ pci_wch_ch353_setup(struct serial_private *priv,
 
 static int
 pci_wch_ch38x_setup(struct serial_private *priv,
-                    const struct pciserial_board *board,
-                    struct uart_8250_port *port, int idx)
+		const struct pciserial_board *board,
+		struct uart_8250_port *port, int idx)
 {
 	port->port.flags |= UPF_FIXED_TYPE;
 	port->port.type = PORT_16850;

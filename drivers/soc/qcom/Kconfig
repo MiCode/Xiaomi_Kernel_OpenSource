@@ -292,6 +292,16 @@ config MSM_CACHE_M4M_ERP64_PANIC_ON_UE
          Say 'Y' here to cause kernel panic when uncorrectable cache/M4M errors
          are detected.
 
+config MSM_L2_IA_DEBUG
+	bool "Enable MSM L2 Indirect Access Debug"
+	depends on DEBUG_FS
+	default n
+	help
+	  This option enables L2 indirect access debug
+	  capability. It exposes L2 indirect access
+	  debugfs interface to get/set data, address,
+	  and target cpus.
+
 config MSM_RPM_SMD
 	bool "RPM driver using SMD protocol"
 	help
@@ -816,11 +826,10 @@ config MSM_REMOTEQDSS
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
 
-config QCOM_SMCINVOKE
-	bool "Secure QSEE Support"
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
 	help
-	  Enable SMCInvoke driver which supports capability based secure
-	  communication between QSEE and HLOS.
+	Provide a interface for reading CPU serial number
 
 source "drivers/soc/qcom/memshare/Kconfig"
 

@@ -31,6 +31,7 @@
 #include <linux/migrate.h>
 #include <linux/task_work.h>
 #include <linux/ratelimit.h>
+#include <linux/ktrace.h>
 
 #include <trace/events/sched.h>
 
@@ -4924,6 +4925,12 @@ static void enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 			}
 
 			trace_sched_stat_blocked(tsk, delta);
+
+			if (ktrace_sched_match_pid(tsk->pid)) {
+				ktrace_add_sched_event(KTRACE_SCHED_TYPE_BLOCK,
+						tsk->pid, sched_ktime_clock(), delta,
+						(void *)get_wchan(tsk));
+			}
 
 			/*
 			 * Blocking time is in units of nanosecs, so shift by

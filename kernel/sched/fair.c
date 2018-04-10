@@ -18,6 +18,7 @@
  *
  *  Adaptive scheduling granularity, math enhancements by Peter Zijlstra
  *  Copyright (C) 2007 Red Hat, Inc., Peter Zijlstra <pzijlstr@redhat.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  */
 
 #include <linux/latencytop.h>
@@ -32,6 +33,7 @@
 #include <linux/task_work.h>
 
 #include "sched.h"
+#include <linux/ktrace.h>
 #include <trace/events/sched.h>
 
 /*
@@ -4722,6 +4724,12 @@ static void enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 			trace_sched_stat_blocked(tsk, delta);
 			trace_sched_blocked_reason(tsk);
 
+			if (ktrace_sched_match_pid(tsk->pid)) {
+				ktrace_add_sched_event(KTRACE_SCHED_TYPE_BLOCK,
+						tsk->pid, sched_ktime_clock(), delta,
+						(void *)get_wchan(tsk));
+			}
+
 			/*
 			 * Blocking time is in units of nanosecs, so shift by
 			 * 20 to get a milliseconds-range estimation of the
@@ -4732,6 +4740,16 @@ static void enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 						(void *)get_wchan(tsk),
 						delta >> 20);
 			}
+
+			if (delta > KTRACE_SCHED_BLOCK_PRINT_NS) {
+				pr_info("%d(%s)(priority %d/%d) wake up %d(%s)(priority %d/%d): blocked at %pS %llu ms\n",
+						current->pid, current->comm,
+						current->policy, PRIO_TO_NICE(current->static_prio),
+						tsk->pid, tsk->comm,
+						tsk->policy, PRIO_TO_NICE(tsk->static_prio),
+						(void *)get_wchan(tsk), delta >> 20);
+			}
+
 			account_scheduler_latency(tsk, delta >> 10, 0);
 		}
 	}

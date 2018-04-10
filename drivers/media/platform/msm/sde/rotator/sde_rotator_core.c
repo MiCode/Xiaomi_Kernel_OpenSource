@@ -679,7 +679,7 @@ static int sde_rotator_is_hw_available(struct sde_rot_mgr *mgr,
 				entry->item.sequence_id);
 		return sde_rotator_is_hw_idle(mgr, hw);
 	} else {
-		return (atomic_read(&hw->num_active) < hw->max_active);
+		return atomic_read(&hw->num_active) < hw->max_active;
 	}
 }
 

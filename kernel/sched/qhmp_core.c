@@ -4,6 +4,7 @@
  *  Kernel scheduler and related syscalls
  *
  *  Copyright (C) 1991-2002  Linus Torvalds
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  1996-12-23  Modified by Dave Grothe to fix bugs in semaphores and
  *		make semaphores SMP safe
@@ -76,6 +77,8 @@
 #include <linux/compiler.h>
 #include <linux/cpufreq.h>
 #include <linux/syscore_ops.h>
+#include <linux/sched/sysctl.h>
+#include <linux/ktrace.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -1902,6 +1905,8 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 	/* Process (window_start - mark_start) first */
 	add_to_task_demand(rq, p, window_start - mark_start);
 
+	ktrace_cpufreq_update_history(p, p->ravg.sum, nr_full_windows,
+			scale_exec_time(window_size, rq));
 	/* Push new sample(s) into task's demand history */
 	update_history(rq, p, p->ravg.sum, 1, event);
 	if (nr_full_windows)
@@ -3229,6 +3234,9 @@ ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags)
 {
 	check_preempt_curr(rq, p, wake_flags);
 	trace_sched_wakeup(p, true);
+	if (ktrace_sched_match_pid(p->pid)) {
+		p->last_wakeup = sched_ktime_clock();
+	}
 
 	p->state = TASK_RUNNING;
 #ifdef CONFIG_SMP
@@ -4055,6 +4063,23 @@ static inline void
 prepare_task_switch(struct rq *rq, struct task_struct *prev,
 		    struct task_struct *next)
 {
+	if (ktrace_sched_match_pid(prev->pid) && prev->state == TASK_RUNNING) {
+		prev->last_preempt = sched_ktime_clock();
+	} else if (ktrace_sched_match_pid(next->pid) && next->state == TASK_RUNNING) {
+		s64 now = sched_ktime_clock();
+
+		if (next->last_preempt) {
+			ktrace_add_sched_event(KTRACE_SCHED_TYPE_PREEMPT, next->pid,
+					now, (now - next->last_preempt), NULL);
+		} else if (next->last_wakeup) {
+			ktrace_add_sched_event(KTRACE_SCHED_TYPE_WAIT, next->pid,
+					now, (now - next->last_wakeup), NULL);
+		}
+
+		next->last_preempt = 0;
+		next->last_wakeup = 0;
+	}
+
 	trace_sched_switch(prev, next);
 	sched_info_switch(rq, prev, next);
 	perf_event_task_sched_out(prev, next);

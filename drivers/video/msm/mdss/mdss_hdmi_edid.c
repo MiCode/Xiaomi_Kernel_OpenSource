@@ -2180,6 +2180,12 @@ int hdmi_edid_parser(void *input)
 		goto bail;
 	}
 
+	if (num_of_cea_blocks >= MAX_EDID_BLOCKS) {
+		DEV_WARN("%s: HDMI EDID exceeded max CEA blocks limit\n",
+				__func__);
+		num_of_cea_blocks = MAX_EDID_BLOCKS - 1;
+	}
+
 	/* check for valid CEA block */
 	if (edid_buf[EDID_BLOCK_SIZE] != 2) {
 		DEV_ERR("%s: Invalid CEA block\n", __func__);

@@ -280,33 +280,33 @@ TRACE_EVENT(sched_update_task_ravg,
 	TP_ARGS(p, rq, evt, wallclock, irqtime, cycles, exec_time, cpu_time),
 
 	TP_STRUCT__entry(
-		__array(	char,	comm,   TASK_COMM_LEN	)
-		__field(	pid_t,	pid			)
-		__field(	pid_t,	cur_pid			)
-		__field(unsigned int,	cur_freq		)
-		__field(	u64,	wallclock		)
-		__field(	u64,	mark_start		)
-		__field(	u64,	delta_m			)
-		__field(	u64,	win_start		)
-		__field(	u64,	delta			)
-		__field(	u64,	irqtime			)
-		__field(enum task_event,	evt		)
-		__field(unsigned int,	demand			)
-		__field(unsigned int,	sum			)
-		__field(	 int,	cpu			)
+		__array(char,	comm, TASK_COMM_LEN)
+		__field(pid_t,	pid)
+		__field(pid_t,	cur_pid)
+		__field(unsigned int,	cur_freq)
+		__field(u64,	wallclock)
+		__field(u64,	mark_start)
+		__field(u64,	delta_m)
+		__field(u64,	win_start)
+		__field(u64,	delta)
+		__field(u64,	irqtime)
+		__field(enum task_event,	evt)
+		__field(unsigned int,	demand)
+		__field(unsigned int,	sum)
+		__field(int,	cpu)
 #ifdef CONFIG_SCHED_FREQ_INPUT
-		__field(unsigned int,	pred_demand		)
-		__field(	u64,	rq_cs			)
-		__field(	u64,	rq_ps			)
-		__field(	u64,	grp_cs			)
-		__field(	u64,	grp_ps			)
-		__field(	u64,	grp_nt_cs			)
-		__field(	u64,	grp_nt_ps			)
-		__field(	u32,	curr_window		)
-		__field(	u32,	prev_window		)
-		__field(	u64,	nt_cs			)
-		__field(	u64,	nt_ps			)
-		__field(	u32,	active_windows		)
+		__field(unsigned int,	pred_demand)
+		__field(u64,	rq_cs)
+		__field(u64,	rq_ps)
+		__field(u64,	grp_cs)
+		__field(u64,	grp_ps)
+		__field(u64,	grp_nt_cs)
+		__field(u64,	grp_nt_ps)
+		__field(u32,	curr_window)
+		__field(u32,	prev_window)
+		__field(u64,	nt_cs)
+		__field(u64,	nt_ps)
+		__field(u32,	active_windows)
 #endif
 	),
 
@@ -369,12 +369,12 @@ TRACE_EVENT(sched_get_task_cpu_cycles,
 	TP_ARGS(cpu, event, cycles, exec_time),
 
 	TP_STRUCT__entry(
-		__field(int,		cpu		)
-		__field(int,		event		)
-		__field(u64,		cycles		)
-		__field(u64,		exec_time	)
-		__field(u32,		freq		)
-		__field(u32,		legacy_freq	)
+		__field(int,		cpu)
+		__field(int,		event)
+		__field(u64,		cycles)
+		__field(u64,		exec_time)
+		__field(u32,		freq)
+		__field(u32,		legacy_freq)
 	),
 
 	TP_fast_assign(
@@ -525,21 +525,21 @@ TRACE_EVENT(sched_migration_update_sum,
 	TP_ARGS(p, migrate_type, d),
 
 	TP_STRUCT__entry(
-		__field(int,		tcpu			)
-		__field(int,		pid			)
-		__field(	u64,	cs			)
-		__field(	u64,	ps			)
-		__field(	s64,	nt_cs			)
-		__field(	s64,	nt_ps			)
-		__field(enum migrate_types,	migrate_type	)
-		__field(	s64,	src_cs			)
-		__field(	s64,	src_ps			)
-		__field(	s64,	dst_cs			)
-		__field(	s64,	dst_ps			)
-		__field(	s64,	src_nt_cs		)
-		__field(	s64,	src_nt_ps		)
-		__field(	s64,	dst_nt_cs		)
-		__field(	s64,	dst_nt_ps		)
+		__field(int,		tcpu)
+		__field(int,		pid)
+		__field(u64,	cs)
+		__field(u64,	ps)
+		__field(s64,	nt_cs)
+		__field(s64,	nt_ps)
+		__field(enum migrate_types,	migrate_type)
+		__field(s64,	src_cs)
+		__field(s64,	src_ps)
+		__field(s64,	dst_cs)
+		__field(s64,	dst_ps)
+		__field(s64,	src_nt_cs)
+		__field(s64,	src_nt_ps)
+		__field(s64,	dst_nt_cs)
+		__field(s64,	dst_nt_ps)
 	),
 
 	TP_fast_assign(
@@ -585,11 +585,11 @@ TRACE_EVENT(sched_get_busy,
 	TP_ARGS(cpu, load, nload, pload, early),
 
 	TP_STRUCT__entry(
-		__field(	int,	cpu			)
-		__field(	u64,	load			)
-		__field(	u64,	nload			)
-		__field(	u64,	pload			)
-		__field(	int,	early			)
+		__field(int,	cpu)
+		__field(u64,	load)
+		__field(u64,	nload)
+		__field(u64,	pload)
+		__field(int,	early)
 	),
 
 	TP_fast_assign(
@@ -613,14 +613,14 @@ TRACE_EVENT(sched_freq_alert,
 	TP_ARGS(cpu, pd_notif, check_groups, rq, new_load),
 
 	TP_STRUCT__entry(
-		__field(	int,	cpu			)
-		__field(	int,	pd_notif		)
-		__field(	int,	check_groups		)
-		__field(	u64,	old_busy_time		)
-		__field(	u64,	ps			)
-		__field(	u64,	new_load		)
-		__field(	u64,	old_pred		)
-		__field(	u64,	new_pred		)
+		__field(int,	cpu)
+		__field(int,	pd_notif)
+		__field(int,	check_groups)
+		__field(u64,	old_busy_time)
+		__field(u64,	ps)
+		__field(u64,	new_load)
+		__field(u64,	old_pred)
+		__field(u64,	new_pred)
 	),
 
 	TP_fast_assign(

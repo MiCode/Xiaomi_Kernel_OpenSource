@@ -1745,7 +1745,7 @@ decrypt_passphrase_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 	mutex_lock(tfm_mutex);
 	rc = crypto_blkcipher_setkey(
 		desc.tfm, auth_tok->token.password.session_key_encryption_key,
-		auth_tok->token.password.session_key_encryption_key_bytes);
+		ecryptfs_get_key_size_to_store_key(crypt_stat));
 	if (unlikely(rc < 0)) {
 		mutex_unlock(tfm_mutex);
 		printk(KERN_ERR "Error setting key for crypto context\n");
@@ -2294,12 +2294,11 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 	if (auth_tok->token.password.flags &
 	    ECRYPTFS_SESSION_KEY_ENCRYPTION_KEY_SET) {
 		ecryptfs_printk(KERN_DEBUG, "Using previously generated "
-				"session key encryption key of size [%d]\n",
-				auth_tok->token.password.
-				session_key_encryption_key_bytes);
+				"session key encryption key of size [%zd]\n",
+				ecryptfs_get_key_size_to_store_key(crypt_stat));
 		memcpy(session_key_encryption_key,
 		auth_tok->token.password.session_key_encryption_key,
-		auth_tok->token.password.session_key_encryption_key_bytes);
+		ecryptfs_get_key_size_to_store_key(crypt_stat));
 		ecryptfs_printk(KERN_DEBUG,
 				"Cached session key encryption key:\n");
 		if (ecryptfs_verbosity > 0)
@@ -2332,7 +2331,7 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 	}
 	mutex_lock(tfm_mutex);
 	rc = crypto_blkcipher_setkey(desc.tfm, session_key_encryption_key,
-		auth_tok->token.password.session_key_encryption_key_bytes);
+		ecryptfs_get_key_size_to_store_key(crypt_stat));
 	if (rc < 0) {
 		mutex_unlock(tfm_mutex);
 		ecryptfs_printk(KERN_ERR, "Error setting key for crypto "
