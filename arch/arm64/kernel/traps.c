@@ -606,6 +606,61 @@ asmlinkage void __exception do_sysinstr(unsigned int esr, struct pt_regs *regs)
 	force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0);
 }
 
+#ifdef CONFIG_COMPAT
+static void cntfrq_cp15_32_read_handler(unsigned int esr, struct pt_regs *regs)
+{
+	int rt =
+	  (esr & ESR_ELx_CP15_32_ISS_RT_MASK) >> ESR_ELx_CP15_32_ISS_RT_SHIFT;
+	int cv =
+	  (esr & ESR_ELx_CP15_32_ISS_CV_MASK) >> ESR_ELx_CP15_32_ISS_CV_SHIFT;
+	int cond =
+	  (esr & ESR_ELx_CP15_32_ISS_COND_MASK) >>
+		ESR_ELx_CP15_32_ISS_COND_SHIFT;
+	bool read_reg = 1;
+
+	if (rt == 13 && !compat_arm_instr_set(regs))
+		read_reg = 0;
+
+	if (cv && cond != 0xf &&
+	    !(*aarch32_opcode_cond_checks[cond])(regs->pstate & 0xffffffff))
+		read_reg = 0;
+
+	if (read_reg)
+		regs->regs[rt] = read_sysreg(cntfrq_el0);
+	regs->pc += 4;
+}
+
+struct cp15_32_hook {
+	unsigned int esr_mask;
+	unsigned int esr_val;
+	void (*handler)(unsigned int esr, struct pt_regs *regs);
+};
+
+static struct cp15_32_hook cp15_32_hooks[] = {
+	{
+		/* Trap CP15 AArch32 read access to CNTFRQ_EL0 */
+		.esr_mask = ESR_ELx_CP15_32_ISS_SYS_OP_MASK,
+		.esr_val = ESR_ELx_CP15_32_ISS_SYS_CNTFRQ,
+		.handler = cntfrq_cp15_32_read_handler,
+	},
+	{},
+};
+
+asmlinkage void __exception do_cp15_32_instr_compat(unsigned int esr,
+						    struct pt_regs *regs)
+{
+	struct cp15_32_hook *hook;
+
+	for (hook = cp15_32_hooks; hook->handler; hook++)
+		if ((hook->esr_mask & esr) == hook->esr_val) {
+			hook->handler(esr, regs);
+			return;
+		}
+
+	force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0);
+}
+#endif
+
 long compat_arm_syscall(struct pt_regs *regs);
 
 asmlinkage long do_ni_syscall(struct pt_regs *regs)
