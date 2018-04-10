@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <dt-bindings/clock/msm-clocks-8996.h>
+#include "virtclk-front.h"
 #include "virt-reset-front.h"
 
 static struct virtclk_front gcc_blsp1_ahb_clk = {
@@ -498,6 +499,33 @@ static struct virtclk_front gcc_mss_mnoc_bimc_axi_clk = {
 	},
 };
 
+static struct virtclk_front ipa_clk = {
+	.c = {
+		.dbg_name = "ipa",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(ipa_clk.c),
+	},
+	.flag = CLOCK_FLAG_NODE_TYPE_REMOTE,
+};
+
+static struct virtclk_front pnoc_clk = {
+	.c = {
+		.dbg_name = "pnoc",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(pnoc_clk.c),
+	},
+	.flag = CLOCK_FLAG_NODE_TYPE_REMOTE,
+};
+
+static struct virtclk_front qdss_clk = {
+	.c = {
+		.dbg_name = "qdss",
+		.ops = &virtclk_front_ops,
+		CLK_INIT(qdss_clk.c),
+	},
+	.flag = CLOCK_FLAG_NODE_TYPE_REMOTE,
+};
+
 static struct clk_lookup msm_clocks_8996[] = {
 	CLK_LIST(gcc_blsp1_ahb_clk),
 	CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
@@ -559,6 +587,9 @@ static struct clk_lookup msm_clocks_8996[] = {
 	CLK_LIST(gpll0_out_msscc),
 	CLK_LIST(gcc_mss_snoc_axi_clk),
 	CLK_LIST(gcc_mss_mnoc_bimc_axi_clk),
+	CLK_LIST(ipa_clk),
+	CLK_LIST(pnoc_clk),
+	CLK_LIST(qdss_clk),
 };
 
 static struct virt_reset_map msm_resets_8996[] = {

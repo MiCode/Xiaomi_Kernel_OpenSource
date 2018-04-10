@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -311,6 +311,7 @@ extern struct clk_ops clk_ops_mux_div_clk;
 struct virtclk_front {
 	int id;
 	struct clk c;
+	u32 flag;
 };
 
 extern struct clk_ops virtclk_front_ops;

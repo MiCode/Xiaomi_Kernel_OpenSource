@@ -23,6 +23,8 @@ enum virtclk_cmd {
 	CLK_MSG_MAX
 };
 
+#define CLOCK_FLAG_NODE_TYPE_REMOTE	0xff00
+
 struct clk_msg_header {
 	u32 cmd;
 	u32 len;
