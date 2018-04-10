@@ -2710,6 +2710,10 @@ void sde_encoder_virt_restore(struct drm_encoder *drm_enc)
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+
+	/* prepare the encoder for the new changes now */
+	sde_encoder_trigger_kickoff_pending(drm_enc);
+
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	memset(&sde_enc->cur_master->intf_cfg_v1, 0,
 			sizeof(sde_enc->cur_master->intf_cfg_v1));
@@ -2717,7 +2721,12 @@ void sde_encoder_virt_restore(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && (phys != sde_enc->cur_master) && phys->ops.restore)
+		if (!phys)
+			continue;
+
+		phys->enable_state = SDE_ENC_ENABLING;
+
+		if ((phys != sde_enc->cur_master) && phys->ops.restore)
 			phys->ops.restore(phys);
 	}
 
@@ -3584,6 +3593,13 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
 
+		/*
+		 * This could happen when we are restoring the phys encs,
+		 * in such a case ignore clearing the pending flush
+		 */
+		if (phys && phys->enable_state == SDE_ENC_ENABLING)
+			continue;
+
 		if (phys && phys->hw_ctl) {
 			ctl = phys->hw_ctl;
 			if (ctl->ops.clear_pending_flush)
@@ -3984,6 +4000,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			}
 			if (phys->enable_state == SDE_ENC_ERR_NEEDS_HW_RESET)
 				needs_hw_reset = true;
+			else if (phys->enable_state == SDE_ENC_ENABLING)
+				phys->enable_state = SDE_ENC_ENABLED;
 			_sde_encoder_setup_dither(phys);
 		}
 	}
