@@ -122,10 +122,6 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_SECURE_DISPLAY_HEAP_ID,
 		.name	= ION_SECURE_DISPLAY_HEAP_NAME,
-	},
-	{
-		.id	= ION_SECURE_CARVEOUT_HEAP_ID,
-		.name	= ION_SECURE_CARVEOUT_HEAP_NAME,
 	}
 };
 #endif
@@ -447,7 +443,6 @@ static struct heap_types_info {
 	MAKE_HEAP_TYPE_MAPPING(SYSTEM),
 	MAKE_HEAP_TYPE_MAPPING(SYSTEM_CONTIG),
 	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
-	MAKE_HEAP_TYPE_MAPPING(SECURE_CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(CHUNK),
 	MAKE_HEAP_TYPE_MAPPING(DMA),
 	MAKE_HEAP_TYPE_MAPPING(SECURE_DMA),
@@ -1025,9 +1020,6 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 	case ION_HEAP_TYPE_HYP_CMA:
 		heap = ion_cma_secure_heap_create(heap_data);
 		break;
-	case ION_HEAP_TYPE_SECURE_CARVEOUT:
-		heap = ion_secure_carveout_heap_create(heap_data);
-		break;
 	default:
 		heap = ion_heap_create(heap_data);
 	}
@@ -1062,9 +1054,6 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 
 	case ION_HEAP_TYPE_HYP_CMA:
 		ion_cma_secure_heap_destroy(heap);
-		break;
-	case ION_HEAP_TYPE_SECURE_CARVEOUT:
-		ion_secure_carveout_heap_destroy(heap);
 		break;
 	default:
 		ion_heap_destroy(heap);
