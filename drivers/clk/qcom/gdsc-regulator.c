@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -18,6 +18,8 @@
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
+
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 
 /* GDSCR */
 #define PWR_ON_MASK		BIT(31)
@@ -49,6 +51,7 @@ struct gdsc {
 	struct regmap           *hw_ctrl;
 	struct regmap           *sw_reset;
 	struct clk		**clocks;
+	struct regulator	*parent_regulator;
 	struct reset_control	**reset_clocks;
 	bool			toggle_logic;
 	bool			resets_asserted;
@@ -147,6 +150,15 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 	mutex_lock(&gdsc_seq_lock);
 
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
+				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret) {
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
+
 	if (sc->root_en || sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
 
@@ -154,8 +166,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	if (regval & HW_CONTROL_MASK) {
 		dev_warn(&rdev->dev, "Invalid enable while %s is under HW control\n",
 				sc->rdesc.name);
-		mutex_unlock(&gdsc_seq_lock);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto end;
 	}
 
 	if (sc->toggle_logic) {
@@ -238,9 +250,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 					dev_err(&rdev->dev, "%s final state (after additional %d us timeout): 0x%x, GDS_HW_CTRL: 0x%x\n",
 						sc->rdesc.name, sc->gds_timeout,
 						regval, hw_ctrl_regval);
-
-					mutex_unlock(&gdsc_seq_lock);
-					return ret;
+					goto end;
 				}
 			} else {
 				dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
@@ -252,10 +262,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 				dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
 					sc->rdesc.name, regval,
 					sc->gds_timeout);
-
-				mutex_unlock(&gdsc_seq_lock);
-
-				return ret;
+				goto end;
 			}
 		}
 	} else {
@@ -279,6 +286,9 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
 	sc->is_gdsc_enabled = true;
+end:
+	if (sc->parent_regulator)
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
 	mutex_unlock(&gdsc_seq_lock);
 
@@ -292,6 +302,15 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	int i, ret = 0;
 
 	mutex_lock(&gdsc_seq_lock);
+
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
+				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret) {
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
@@ -341,6 +360,9 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	if ((sc->is_gdsc_enabled && sc->root_en) || sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
+	if (sc->parent_regulator)
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
+
 	sc->is_gdsc_enabled = false;
 
 	mutex_unlock(&gdsc_seq_lock);
@@ -370,6 +392,15 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	int ret = 0;
 
 	mutex_lock(&gdsc_seq_lock);
+
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
+				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret) {
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
 
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
 
@@ -413,6 +444,9 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		ret = -EINVAL;
 		break;
 	}
+
+	if (sc->parent_regulator)
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
 	mutex_unlock(&gdsc_seq_lock);
 
@@ -529,6 +563,19 @@ static int gdsc_probe(struct platform_device *pdev)
 
 	sc->force_root_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,force-enable-root-clk");
+
+	if (of_find_property(pdev->dev.of_node, "vdd_parent-supply", NULL)) {
+		sc->parent_regulator = devm_regulator_get(&pdev->dev,
+							"vdd_parent");
+		if (IS_ERR(sc->parent_regulator)) {
+			ret = PTR_ERR(sc->parent_regulator);
+			if (ret != -EPROBE_DEFER)
+				dev_err(&pdev->dev,
+				"Unable to get vdd_parent regulator, err: %d\n",
+					ret);
+			return ret;
+		}
+	}
 
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
