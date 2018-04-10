@@ -34,10 +34,6 @@ static bool usb_compliance_mode;
 module_param(usb_compliance_mode, bool, 0644);
 MODULE_PARM_DESC(usb_compliance_mode, "Start USB stack for USB3.1 compliance testing");
 
-static bool disable_usb_pd;
-module_param(disable_usb_pd, bool, 0644);
-MODULE_PARM_DESC(disable_usb_pd, "Disable USB PD for USB3.1 compliance testing");
-
 static bool rev3_sink_only;
 module_param(rev3_sink_only, bool, 0644);
 MODULE_PARM_DESC(rev3_sink_only, "Enable power delivery rev3.0 sink only mode");
@@ -361,6 +357,7 @@ struct usbpd {
 	struct device		dev;
 	struct workqueue_struct	*wq;
 	struct work_struct	sm_work;
+	struct work_struct	start_periph_work;
 	struct hrtimer		timer;
 	bool			sm_queued;
 
@@ -395,7 +392,6 @@ struct usbpd {
 	struct notifier_block	psy_nb;
 
 	enum power_supply_typec_mode typec_mode;
-	enum power_supply_type	psy_type;
 	enum power_supply_typec_power_role forced_pr;
 	bool			vbus_present;
 
@@ -528,6 +524,15 @@ static inline void start_usb_peripheral(struct usbpd *pd)
 	extcon_set_property(pd->extcon, EXTCON_USB, EXTCON_PROP_USB_SS, val);
 
 	extcon_set_state_sync(pd->extcon, EXTCON_USB, 1);
+}
+
+static void start_usb_peripheral_work(struct work_struct *w)
+{
+	struct usbpd *pd = container_of(w, struct usbpd, start_periph_work);
+
+	pd->current_state = PE_SNK_STARTUP;
+	pd->current_dr = DR_UFP;
+	start_usb_peripheral(pd);
 }
 
 /**
@@ -764,6 +769,10 @@ static int pd_eval_src_caps(struct usbpd *pd)
 	val.intval = PD_SRC_PDO_FIXED_USB_SUSP(first_pdo);
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
+
+	/* First time connecting to a PD source and it supports USB data */
+	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
+		start_usb_peripheral(pd);
 
 	if (pd->spec_rev == USBPD_REV_30 && !rev3_sink_only) {
 		bool pps_found = false;
@@ -1182,6 +1191,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SRC_NEGOTIATE_CAPABILITY:
+		pd->peer_usb_comm = PD_RDO_USB_COMM(pd->rdo);
+
 		if (PD_RDO_OBJ_POS(pd->rdo) != 1 ||
 			PD_RDO_FIXED_CURR(pd->rdo) >
 				PD_SRC_PDO_FIXED_MAX_CURR(*default_src_caps) ||
@@ -1237,6 +1248,14 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SRC_READY:
+		/*
+		 * USB Host stack was started at PE_SRC_STARTUP but if peer
+		 * doesn't support USB communication, we can turn it off
+		 */
+		if (pd->current_dr == DR_DFP && !pd->peer_usb_comm &&
+				!pd->in_explicit_contract)
+			stop_usb_host(pd);
+
 		pd->in_explicit_contract = true;
 
 		if (pd->vdm_tx)
@@ -1279,28 +1298,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	/* Sink states */
 	case PE_SNK_STARTUP:
-		if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP) {
+		if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP)
 			pd->current_dr = DR_UFP;
 
-			if (pd->psy_type == POWER_SUPPLY_TYPE_USB ||
-				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP ||
-				pd->psy_type == POWER_SUPPLY_TYPE_USB_FLOAT ||
-				usb_compliance_mode)
-				start_usb_peripheral(pd);
-		}
-
 		dual_role_instance_changed(pd->dual_role);
-
-		ret = power_supply_get_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_ALLOWED, &val);
-		if (ret) {
-			usbpd_err(&pd->dev, "Unable to read USB PROP_PD_ALLOWED: %d\n",
-					ret);
-			break;
-		}
-
-		if (!val.intval || disable_usb_pd)
-			break;
 
 		/*
 		 * support up to PD 3.0 as a sink; if source is 2.0
@@ -1353,7 +1354,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SNK_EVALUATE_CAPABILITY:
-		pd->pd_connected = true; /* we know peer is PD capable */
 		pd->hard_reset_count = 0;
 
 		/* evaluate PDOs and select one */
@@ -1362,6 +1362,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			usbpd_err(&pd->dev, "Invalid src_caps received. Skipping request\n");
 			break;
 		}
+
+		pd->pd_connected = true; /* we know peer is PD capable */
 		pd->current_state = PE_SNK_SELECT_CAPABILITY;
 		/* fall-through */
 
@@ -1820,11 +1822,13 @@ static void dr_swap(struct usbpd *pd)
 
 	if (pd->current_dr == DR_DFP) {
 		stop_usb_host(pd);
-		start_usb_peripheral(pd);
+		if (pd->peer_usb_comm)
+			start_usb_peripheral(pd);
 		pd->current_dr = DR_UFP;
 	} else if (pd->current_dr == DR_UFP) {
 		stop_usb_peripheral(pd);
-		start_usb_host(pd, true);
+		if (pd->peer_usb_comm)
+			start_usb_host(pd, true);
 		pd->current_dr = DR_DFP;
 
 		usbpd_send_svdm(pd, USBPD_SID, USBPD_SVDM_DISCOVER_IDENTITY,
@@ -1975,6 +1979,7 @@ static void usbpd_sm(struct work_struct *w)
 		pd->requested_voltage = 0;
 		pd->requested_current = 0;
 		pd->selected_pdo = pd->requested_pdo = 0;
+		pd->peer_usb_comm = pd->peer_pr_swap = pd->peer_dr_swap = false;
 		memset(&pd->received_pdos, 0, sizeof(pd->received_pdos));
 		rx_msg_cleanup(pd);
 
@@ -2909,10 +2914,29 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		return ret;
 	}
 
-	/* Don't proceed if PE_START=0 as other props may still change */
+	/* Don't proceed if PE_START=0; start USB directly if needed */
 	if (!val.intval && !pd->pd_connected &&
-			typec_mode != POWER_SUPPLY_TYPEC_NONE)
+			typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
+		ret = power_supply_get_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_REAL_TYPE, &val);
+		if (ret) {
+			usbpd_err(&pd->dev, "Unable to read USB TYPE: %d\n",
+					ret);
+			return ret;
+		}
+
+		if (val.intval == POWER_SUPPLY_TYPE_USB ||
+			val.intval == POWER_SUPPLY_TYPE_USB_CDP ||
+			val.intval == POWER_SUPPLY_TYPE_USB_FLOAT ||
+			usb_compliance_mode) {
+			usbpd_dbg(&pd->dev, "typec mode:%d type:%d\n",
+				typec_mode, val.intval);
+			pd->typec_mode = typec_mode;
+			queue_work(pd->wq, &pd->start_periph_work);
+		}
+
 		return 0;
+	}
 
 	ret = power_supply_get_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PRESENT, &val);
@@ -2922,15 +2946,6 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	}
 
 	pd->vbus_present = val.intval;
-
-	ret = power_supply_get_property(pd->usb_psy,
-			POWER_SUPPLY_PROP_REAL_TYPE, &val);
-	if (ret) {
-		usbpd_err(&pd->dev, "Unable to read USB TYPE: %d\n", ret);
-		return ret;
-	}
-
-	pd->psy_type = val.intval;
 
 	/*
 	 * For sink hard reset, state machine needs to know when VBUS changes
@@ -2952,8 +2967,8 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 	pd->typec_mode = typec_mode;
 
-	usbpd_dbg(&pd->dev, "typec mode:%d present:%d type:%d orientation:%d\n",
-			typec_mode, pd->vbus_present, pd->psy_type,
+	usbpd_dbg(&pd->dev, "typec mode:%d present:%d orientation:%d\n",
+			typec_mode, pd->vbus_present,
 			usbpd_get_plug_orientation(pd));
 
 	switch (typec_mode) {
@@ -3902,6 +3917,7 @@ struct usbpd *usbpd_create(struct device *parent)
 		goto del_pd;
 	}
 	INIT_WORK(&pd->sm_work, usbpd_sm);
+	INIT_WORK(&pd->start_periph_work, start_usb_peripheral_work);
 	hrtimer_init(&pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	pd->timer.function = pd_timeout;
 	mutex_init(&pd->swap_lock);
