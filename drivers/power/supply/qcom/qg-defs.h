@@ -47,4 +47,7 @@
 #define CAP(min, max, value)			\
 		((min > value) ? min : ((value > max) ? max : value))
 
+#define QG_SOC_FULL	10000
+#define BATT_SOC_32BIT	GENMASK(31, 0)
+
 #endif /* __QG_DEFS_H__ */

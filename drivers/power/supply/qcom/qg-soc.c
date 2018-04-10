@@ -13,9 +13,11 @@
 #define pr_fmt(fmt)	"QG-K: %s: " fmt, __func__
 
 #include <linux/alarmtimer.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/power_supply.h>
 #include <uapi/linux/qg.h>
+#include "fg-alg.h"
 #include "qg-sdam.h"
 #include "qg-core.h"
 #include "qg-reg.h"
@@ -98,11 +100,12 @@ static bool is_scaling_required(struct qpnp_qg *chip)
 
 static void update_msoc(struct qpnp_qg *chip)
 {
-	int rc;
+	int rc = 0, batt_temp = 0,  batt_soc_32bit = 0;
+	bool usb_present = is_usb_present(chip);
 
 	if (chip->catch_up_soc > chip->msoc) {
 		/* SOC increased */
-		if (is_usb_present(chip)) /* Increment if USB is present */
+		if (usb_present) /* Increment if USB is present */
 			chip->msoc += chip->dt.delta_soc;
 	} else if (chip->catch_up_soc < chip->msoc) {
 		/* SOC dropped */
@@ -129,6 +132,25 @@ static void update_msoc(struct qpnp_qg *chip)
 	rc = qg_sdam_write(SDAM_SOC, chip->msoc);
 	if (rc < 0)
 		pr_err("Failed to update SDAM with MSOC rc=%d\n", rc);
+
+	if (!chip->dt.cl_disable && chip->cl->active) {
+		rc = qg_get_battery_temp(chip, &batt_temp);
+		if (rc < 0) {
+			pr_err("Failed to read BATT_TEMP rc=%d\n", rc);
+		} else {
+			batt_soc_32bit = div64_u64(
+						chip->batt_soc * BATT_SOC_32BIT,
+						QG_SOC_FULL);
+			cap_learning_update(chip->cl, batt_temp, batt_soc_32bit,
+					chip->charge_status, chip->charge_done,
+					usb_present, false);
+		}
+	}
+
+	cycle_count_update(chip->counter,
+			DIV_ROUND_CLOSEST(chip->msoc * 255, 100),
+			chip->charge_status, chip->charge_done,
+			usb_present);
 
 	qg_dbg(chip, QG_DEBUG_SOC,
 		"SOC scale: Update maint_soc=%d msoc=%d catch_up_soc=%d delta_soc=%d\n",

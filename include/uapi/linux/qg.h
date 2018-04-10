@@ -12,8 +12,8 @@ enum qg {
 	QG_ESR,
 	QG_CHARGE_COUNTER,
 	QG_FIFO_TIME_DELTA,
-	QG_RESERVED_1,
-	QG_RESERVED_2,
+	QG_BATT_SOC,
+	QG_CC_SOC,
 	QG_RESERVED_3,
 	QG_RESERVED_4,
 	QG_RESERVED_5,
@@ -24,6 +24,9 @@ enum qg {
 	QG_RESERVED_10,
 	QG_MAX,
 };
+
+#define QG_BATT_SOC QG_BATT_SOC
+#define QG_CC_SOC QG_CC_SOC
 
 struct fifo_data {
 	unsigned int			v;

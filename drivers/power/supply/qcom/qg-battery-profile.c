@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <uapi/linux/qg-profile.h>
+#include "qg-battery-profile.h"
 #include "qg-profile-lib.h"
 #include "qg-defs.h"
 
@@ -406,6 +407,26 @@ int lookup_soc_ocv(u32 *soc, u32 ocv_uv, int batt_temp, bool charging)
 				batt_temp, UV_TO_DECIUV(ocv_uv));
 
 	*soc = CAP(0, 100, DIV_ROUND_CLOSEST(*soc, 100));
+
+	return 0;
+}
+
+int qg_get_nominal_capacity(u32 *nom_cap_uah, int batt_temp, bool charging)
+{
+	u8 table_index = charging ? TABLE_FCC1 : TABLE_FCC2;
+	u32 fcc_mah;
+
+	if (!the_battery || !the_battery->profile) {
+		pr_err("Battery profile not loaded\n");
+		return -ENODEV;
+	}
+
+	fcc_mah = interpolate_single_row_lut(
+				&the_battery->profile[table_index],
+					batt_temp, DEGC_SCALE);
+	fcc_mah = CAP(QG_MIN_FCC_MAH, QG_MAX_FCC_MAH, fcc_mah);
+
+	*nom_cap_uah = fcc_mah * 1000;
 
 	return 0;
 }

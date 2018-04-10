@@ -191,6 +191,77 @@ First Level Node - QGAUGE device
 		    temperature specific configuration as applied. If not
 		    specified, the default value is 0 degree centigrade.
 
+- qcom,cl-disable
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to disable the battery capacity
+		    learning when charging.
+
+- qcom,cl-feedback-on
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to feedback the learned capacity into
+		    the capacity lerning algorithm. This has to be used only if the
+		    property "qcom,cl-disable" is not specified.
+
+- qcom,cl-max-start-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery SOC has to be below or equal to this value at the
+		    start of a charge cycle to start the capacity learning.
+		    If this is not specified, then the default value used
+		    will be 15. Unit is in percentage.
+
+- qcom,cl-min-start-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery SOC has to be above or equal to this value at the
+		    start of a charge cycle to start the capacity learning.
+		    If this is not specified, then the default value used
+		    will be 10. Unit is in percentage.
+
+- qcom,cl-min-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Lower limit of battery temperature to start the capacity
+		    learning. If this is not specified, then the default value
+		    used will be 150 (15 C). Unit is in decidegC.
+
+- qcom,cl-max-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Upper limit of battery temperature to start the capacity
+		    learning. If this is not specified, then the default value
+		    used will be 500 (50 C). Unit is in decidegC.
+
+- qcom,cl-max-increment
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum capacity increment allowed per capacity learning
+		    cycle. If this is not specified, then the default value
+		    used will be 5 (0.5%). Unit is in decipercentage.
+
+- qcom,cl-max-decrement
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum capacity decrement allowed per capacity learning
+		    cycle. If this is not specified, then the default value
+		    used will be 100 (10%). Unit is in decipercentage.
+
+- qcom,cl-min-limit
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum limit that the capacity cannot go below in a
+		    capacity learning cycle. If this is not specified, then
+		    the default value is 0. Unit is in decipercentage.
+
+- qcom,cl-max-limit
+	Usage:      optional
+	Value type: <u32>
+	Definition: Maximum limit that the capacity cannot go above in a
+		    capacity learning cycle. If this is not specified, then
+		    the default value is 0. Unit is in decipercentage.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

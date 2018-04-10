@@ -37,5 +37,7 @@ int qg_sdam_write(u8 param, u32 data);
 int qg_sdam_read(u8 param, u32 *data);
 int qg_sdam_write_all(u32 *sdam_data);
 int qg_sdam_read_all(u32 *sdam_data);
+int qg_sdam_multibyte_write(u32 offset, u8 *sdam_data, u32 length);
+int qg_sdam_multibyte_read(u32 offset, u8 *sdam_data, u32 length);
 
 #endif
