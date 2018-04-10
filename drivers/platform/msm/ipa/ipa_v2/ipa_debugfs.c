@@ -432,6 +432,8 @@ static ssize_t ipa_read_hdr(struct file *file, char __user *ubuf, size_t count,
 
 	list_for_each_entry(entry, &ipa_ctx->hdr_tbl.head_hdr_entry_list,
 			link) {
+		if (entry->cookie != IPA_HDR_COOKIE)
+			continue;
 		nbytes = scnprintf(
 			dbg_buff,
 			IPA_MAX_MSG_LEN - 1,
@@ -597,12 +599,26 @@ static int ipa_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib)
 	if (attrib->protocol_eq_present)
 		pr_err("protocol:%d ", attrib->protocol_eq);
 
+	if (attrib->num_ihl_offset_range_16 >
+			IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS) {
+		IPAERR_RL("num_ihl_offset_range_16  Max %d passed value %d\n",
+			IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS,
+			attrib->num_ihl_offset_range_16);
+		return -EPERM;
+	}
+
 	for (i = 0; i < attrib->num_ihl_offset_range_16; i++) {
 		pr_err(
 			   "(ihl_ofst_range16: ofst:%u lo:%u hi:%u) ",
 			   attrib->ihl_offset_range_16[i].offset,
 			   attrib->ihl_offset_range_16[i].range_low,
 			   attrib->ihl_offset_range_16[i].range_high);
+	}
+
+	if (attrib->num_offset_meq_32 > IPA_IPFLTR_NUM_MEQ_32_EQNS) {
+		IPAERR_RL("num_offset_meq_32  Max %d passed value %d\n",
+		IPA_IPFLTR_NUM_MEQ_32_EQNS, attrib->num_offset_meq_32);
+		return -EPERM;
 	}
 
 	for (i = 0; i < attrib->num_offset_meq_32; i++) {
@@ -626,12 +642,24 @@ static int ipa_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib)
 				attrib->ihl_offset_eq_16.value);
 	}
 
+	if (attrib->num_ihl_offset_meq_32 > IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS) {
+		IPAERR_RL("num_ihl_offset_meq_32  Max %d passed value %d\n",
+		IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS, attrib->num_ihl_offset_meq_32);
+		return -EPERM;
+	}
+
 	for (i = 0; i < attrib->num_ihl_offset_meq_32; i++) {
 		pr_err(
 				"(ihl_ofst_meq32: ofts:%d mask:0x%x val:0x%x) ",
 				attrib->ihl_offset_meq_32[i].offset,
 				attrib->ihl_offset_meq_32[i].mask,
 				attrib->ihl_offset_meq_32[i].value);
+	}
+
+	if (attrib->num_offset_meq_128 > IPA_IPFLTR_NUM_MEQ_128_EQNS) {
+		IPAERR_RL("num_offset_meq_128  Max %d passed value %d\n",
+		IPA_IPFLTR_NUM_MEQ_128_EQNS, attrib->num_offset_meq_128);
+		return -EPERM;
 	}
 
 	for (i = 0; i < attrib->num_offset_meq_128; i++) {
@@ -803,11 +831,14 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 	u32 rt_tbl_idx;
 	u32 bitmap;
 	bool eq;
+	int res = 0;
 
 	tbl = &ipa_ctx->glob_flt_tbl[ip];
 	mutex_lock(&ipa_ctx->lock);
 	i = 0;
 	list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
+		if (entry->cookie != IPA_FLT_COOKIE)
+			continue;
 		if (entry->rule.eq_attrib_type) {
 			rt_tbl_idx = entry->rule.rt_tbl_idx;
 			bitmap = entry->rule.eq_attrib.rule_eq_bitmap;
@@ -826,10 +857,14 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 			i, entry->rule.action, rt_tbl_idx);
 		pr_err("attrib_mask:%08x retain_hdr:%d eq:%d ",
 			bitmap, entry->rule.retain_hdr, eq);
-		if (eq)
-			ipa_attrib_dump_eq(
+		if (eq) {
+			res = ipa_attrib_dump_eq(
 				&entry->rule.eq_attrib);
-		else
+			if (res) {
+				IPAERR_RL("failed read attrib eq\n");
+				goto bail;
+			}
+		} else
 			ipa_attrib_dump(
 				&entry->rule.attrib, ip);
 		i++;
@@ -839,6 +874,8 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 		tbl = &ipa_ctx->flt_tbl[j][ip];
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
+			if (entry->cookie != IPA_FLT_COOKIE)
+				continue;
 			if (entry->rule.eq_attrib_type) {
 				rt_tbl_idx = entry->rule.rt_tbl_idx;
 				bitmap = entry->rule.eq_attrib.rule_eq_bitmap;
@@ -858,18 +895,23 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 			pr_err("attrib_mask:%08x retain_hdr:%d ",
 				bitmap, entry->rule.retain_hdr);
 			pr_err("eq:%d ", eq);
-			if (eq)
-				ipa_attrib_dump_eq(
-					&entry->rule.eq_attrib);
-			else
+			if (eq) {
+				res = ipa_attrib_dump_eq(
+						&entry->rule.eq_attrib);
+				if (res) {
+					IPAERR_RL("failed read attrib eq\n");
+					goto bail;
+				}
+			} else
 				ipa_attrib_dump(
 					&entry->rule.attrib, ip);
 			i++;
 		}
 	}
+bail:
 	mutex_unlock(&ipa_ctx->lock);
 
-	return 0;
+	return res;
 }
 
 static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
