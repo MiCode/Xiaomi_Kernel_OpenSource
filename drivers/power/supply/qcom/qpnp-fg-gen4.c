@@ -913,6 +913,9 @@ static void get_batt_psy_props(struct fg_dev *fg)
 	union power_supply_propval prop = {0, };
 	int rc;
 
+	if (!batt_psy_initialized(fg))
+		return;
+
 	rc = power_supply_get_property(fg->batt_psy, POWER_SUPPLY_PROP_STATUS,
 			&prop);
 	if (rc < 0) {
