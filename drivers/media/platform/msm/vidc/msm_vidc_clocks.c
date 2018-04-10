@@ -270,7 +270,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 			vote_data[i].fps = inst->prop.fps;
 
 		vote_data[i].power_mode = 0;
-		if (!msm_vidc_clock_scaling || is_turbo ||
+		if (msm_vidc_clock_voting || is_turbo ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW)
 			vote_data[i].power_mode = VIDC_POWER_TURBO;
 
@@ -686,6 +686,14 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 
 		freq_core_max = max_t(unsigned long, freq_core_1, freq_core_2);
 
+		if (msm_vidc_clock_voting) {
+			dprintk(VIDC_PROF,
+				"msm_vidc_clock_voting %d\n",
+				 msm_vidc_clock_voting);
+			freq_core_max = msm_vidc_clock_voting;
+			break;
+		}
+
 		if (temp->clk_data.turbo_mode) {
 			dprintk(VIDC_PROF,
 				"Found an instance with Turbo request\n");
@@ -758,7 +766,7 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 	operating_rate = operating_rate >> 16;
 
 	if ((curr_operating_rate * (1 + ops_left)) >= operating_rate ||
-			!msm_vidc_clock_scaling ||
+			msm_vidc_clock_voting ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW) {
 		dprintk(VIDC_DBG,
 			"Requestd operating rate is valid %u\n",
@@ -820,7 +828,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	inst->clk_data.min_freq = freq;
 
 	if (inst->clk_data.buffer_counter < DCVS_FTB_WINDOW ||
-		!msm_vidc_clock_scaling)
+		msm_vidc_clock_voting)
 		inst->clk_data.min_freq = msm_vidc_max_freq(inst->core);
 	else
 		inst->clk_data.min_freq = freq;
@@ -861,7 +869,7 @@ int msm_dcvs_try_enable(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (!msm_vidc_clock_scaling ||
+	if (msm_vidc_clock_voting ||
 			inst->flags & VIDC_THUMBNAIL ||
 			inst->clk_data.low_latency_mode) {
 		dprintk(VIDC_PROF,
