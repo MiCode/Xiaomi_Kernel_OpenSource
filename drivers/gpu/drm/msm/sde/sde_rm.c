@@ -25,6 +25,8 @@
 #include "sde_connector.h"
 #include "sde_hw_sspp.h"
 #include "sde_splash.h"
+#include "dsi_display.h"
+#include "sde_hdmi.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -41,6 +43,7 @@
  * @dspp:	Whether the user requires a DSPP
  * @num_lm:	Number of layer mixers needed in the use case
  * @hw_res:	Hardware resources required as reported by the encoders
+ * @disp_id:	Current display ID, lm/ctl may have prefer display
  */
 struct sde_rm_requirements {
 	enum sde_rm_topology_name top_name;
@@ -49,6 +52,7 @@ struct sde_rm_requirements {
 	int num_ctl;
 	bool needs_split_display;
 	struct sde_encoder_hw_resources hw_res;
+	uint32_t disp_id;
 };
 
 /**
@@ -565,7 +569,9 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 	struct sde_lm_cfg *lm_cfg = (struct sde_lm_cfg *)lm->catalog;
 	struct sde_pingpong_cfg *pp_cfg;
 	struct sde_rm_hw_iter iter;
-
+	unsigned long caps = ((struct sde_lm_cfg *)lm->catalog)->features;
+	unsigned int preferred_disp_id = 0;
+	bool preferred_disp_match = false;
 	*dspp = NULL;
 	*pp = NULL;
 
@@ -584,9 +590,21 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		}
 	}
 
+	/* bypass rest of the checks if preferred display is found */
+	if (BIT(SDE_DISP_PRIMARY_PREF) & caps)
+		preferred_disp_id = 1;
+	else if (BIT(SDE_DISP_SECONDARY_PREF) & caps)
+		preferred_disp_id = 2;
+	else if (BIT(SDE_DISP_TERTIARY_PREF) & caps)
+		preferred_disp_id = 3;
+
+	if (reqs->disp_id == preferred_disp_id)
+		preferred_disp_match = true;
+
 	/* Matches user requirements? */
-	if ((RM_RQ_DSPP(reqs) && lm_cfg->dspp == DSPP_MAX) ||
-			(!RM_RQ_DSPP(reqs) && lm_cfg->dspp != DSPP_MAX)) {
+	if (!preferred_disp_match &&
+		((RM_RQ_DSPP(reqs) && lm_cfg->dspp == DSPP_MAX) ||
+			(!RM_RQ_DSPP(reqs) && lm_cfg->dspp != DSPP_MAX))) {
 		SDE_DEBUG("dspp req mismatch lm %d reqdspp %d, lm->dspp %d\n",
 				lm_cfg->id, (bool)(RM_RQ_DSPP(reqs)),
 				lm_cfg->dspp);
@@ -769,6 +787,7 @@ static int _sde_rm_reserve_ctls(
 	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		unsigned long caps;
 		bool has_split_display, has_ppsplit;
+		bool ctl_found = false;
 
 		if (RESERVED_BY_OTHER(iter.blk, rsvp))
 			continue;
@@ -780,9 +799,28 @@ static int _sde_rm_reserve_ctls(
 		SDE_DEBUG("ctl %d caps 0x%lX\n", iter.blk->id, caps);
 
 		/* early return when finding the matched ctl id */
-		if ((prefer_ctl_id > 0) && (iter.blk->id == prefer_ctl_id)) {
-			ctls[i] = iter.blk;
+		if ((prefer_ctl_id > 0) && (iter.blk->id == prefer_ctl_id))
+			ctl_found = true;
 
+		switch (reqs->disp_id) {
+		case 1:
+			if (BIT(SDE_CTL_PRIMARY_PREF) & caps)
+				ctl_found = true;
+			break;
+		case 2:
+			if (BIT(SDE_CTL_SECONDARY_PREF) & caps)
+				ctl_found = true;
+			break;
+		case 3:
+			if (BIT(SDE_CTL_TERTIARY_PREF) & caps)
+				ctl_found = true;
+			break;
+		default:
+			break;
+		}
+
+		if (ctl_found) {
+			ctls[i] = iter.blk;
 			if (++i == reqs->num_ctl)
 				break;
 		}
@@ -933,6 +971,30 @@ static int _sde_rm_make_next_rsvp(
 		struct sde_rm_requirements *reqs)
 {
 	int ret;
+	struct sde_connector *sde_conn =
+		to_sde_connector(conn_state->connector);
+	struct dsi_display *dsi;
+	struct sde_hdmi *hdmi;
+	const char *display_type;
+
+	if (sde_conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
+		dsi = (struct dsi_display *)sde_conn->display;
+		display_type = dsi->display_type;
+	} else if (sde_conn->connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+		hdmi = (struct sde_hdmi *)sde_conn->display;
+		display_type = hdmi->display_type;
+	} else {
+		/* virtual display does not have display type */
+		display_type = "none";
+	}
+	if (!strcmp("primary", display_type))
+		reqs->disp_id = 1;
+	else if (!strcmp("secondary", display_type))
+		reqs->disp_id = 2;
+	else if (!strcmp("tertiary", display_type))
+		reqs->disp_id = 3;
+	else /* No display type set in dtsi */
+		reqs->disp_id = 0;
 
 	/* Create reservation info, tag reserved blocks with it as we go */
 	rsvp->seq = ++rm->rsvp_next_seq;
