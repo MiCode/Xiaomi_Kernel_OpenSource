@@ -65,6 +65,19 @@ static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
 
+static void alarmtimer_triggered_func(void *p)
+{
+	struct rtc_device *rtc = rtcdev;
+
+	if (!(rtc->irq_data & RTC_AF))
+		return;
+	__pm_wakeup_event(ws, 2 * MSEC_PER_SEC);
+}
+
+static struct rtc_task alarmtimer_rtc_task = {
+	.func = alarmtimer_triggered_func
+};
+
 /**
  * alarmtimer_get_rtcdev - Return selected rtcdevice
  *
@@ -75,7 +88,7 @@ static DEFINE_SPINLOCK(rtcdev_lock);
 struct rtc_device *alarmtimer_get_rtcdev(void)
 {
 	unsigned long flags;
-	struct rtc_device *ret;
+	struct rtc_device *ret = NULL;
 
 	spin_lock_irqsave(&rtcdev_lock, flags);
 	ret = rtcdev;
@@ -89,6 +102,7 @@ static int alarmtimer_rtc_add_device(struct device *dev,
 				struct class_interface *class_intf)
 {
 	unsigned long flags;
+	int err = 0;
 	struct rtc_device *rtc = to_rtc_device(dev);
 	struct wakeup_source *__ws;
 
@@ -96,8 +110,6 @@ static int alarmtimer_rtc_add_device(struct device *dev,
 		return -EBUSY;
 
 	if (!rtc->ops->set_alarm)
-		return -1;
-	if (!device_may_wakeup(rtc->dev.parent))
 		return -1;
 
 	__ws = wakeup_source_register("alarmtimer");
@@ -109,17 +121,31 @@ static int alarmtimer_rtc_add_device(struct device *dev,
 			return -1;
 		}
 
+		err = rtc_irq_register(rtc, &alarmtimer_rtc_task);
+		if (err)
+			goto rtc_irq_reg_err;
+
 		rtcdev = rtc;
 		/* hold a reference so it doesn't go away */
 		get_device(dev);
 		ws = __ws;
 		__ws = NULL;
 	}
+
+rtc_irq_reg_err:
 	spin_unlock_irqrestore(&rtcdev_lock, flags);
 
 	wakeup_source_unregister(__ws);
+	return err;
+}
 
-	return 0;
+static void alarmtimer_rtc_remove_device(struct device *dev,
+				struct class_interface *class_intf)
+{
+	if (rtcdev && dev == &rtcdev->dev) {
+		rtc_irq_unregister(rtcdev, &alarmtimer_rtc_task);
+		rtcdev = NULL;
+	}
 }
 
 static inline void alarmtimer_rtc_timer_init(void)
@@ -129,6 +155,7 @@ static inline void alarmtimer_rtc_timer_init(void)
 
 static struct class_interface alarmtimer_rtc_interface = {
 	.add_dev = &alarmtimer_rtc_add_device,
+	.remove_dev = &alarmtimer_rtc_remove_device,
 };
 
 static int alarmtimer_rtc_interface_setup(void)
