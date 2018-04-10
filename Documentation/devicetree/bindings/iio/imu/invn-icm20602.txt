@@ -1,0 +1,29 @@
+The ICM20602 sensor is 6-axis gyroscope+accelerometer combo
+device which is made by InvenSense Inc.
+
+The datasheet can be found as the following link:
+https://www.invensense.com/products/motion-tracking/6-axis/icm-20602/
+
+Required properties:
+
+ - compatible	: Should be "invn,icm20602".
+ - reg		: the I2C address which depends on the AD0 pin.
+
+Optional properties:
+ - invn,icm20602-irq:  the irq gpio. This is not used if
+ using SMD to trigger. this is needed only if using the
+ device IRQ to trigger. Only using SMD to trigger can
+ support 8K sample rate.
+
+Example:
+	icm20602-i2c@068 {
+		compatible = "invn,icm20602";
+		reg = <0x68>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <13 0>;
+		invn,icm20602-irq = <&msm_gpio 13 0x0>;
+		pinctrl-names = "imu_active","imu_suspend";
+		pinctrl-0 = <&imu_int_active>;
+		pinctrl-1 = <&imu_int_suspend>;
+		status = "okay";
+	};
