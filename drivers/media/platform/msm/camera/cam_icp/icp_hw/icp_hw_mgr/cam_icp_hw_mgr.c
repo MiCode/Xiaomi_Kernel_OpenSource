@@ -1285,6 +1285,22 @@ static int cam_icp_get_a5_dbg_type(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(cam_icp_debug_type_fs, cam_icp_get_a5_dbg_type,
 	cam_icp_set_a5_dbg_type, "%08llu");
 
+static int cam_icp_set_a5_fw_dump_lvl(void *data, u64 val)
+{
+	if (val < NUM_HFI_DUMP_LVL)
+		icp_hw_mgr.a5_fw_dump_lvl = val;
+	return 0;
+}
+
+static int cam_icp_get_a5_fw_dump_lvl(void *data, u64 *val)
+{
+	*val = icp_hw_mgr.a5_fw_dump_lvl;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cam_icp_debug_fw_dump, cam_icp_get_a5_fw_dump_lvl,
+	cam_icp_set_a5_fw_dump_lvl, "%08llu");
+
 static int cam_icp_hw_mgr_create_debugfs_entry(void)
 {
 	int rc = 0;
@@ -1335,7 +1351,7 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 		0644,
 		icp_hw_mgr.dentry,
 		NULL, &cam_icp_debug_type_fs)) {
-		CAM_ERR(CAM_ICP, "failed to create a5_debug_type\n");
+		CAM_ERR(CAM_ICP, "failed to create a5_debug_type");
 		rc = -ENOMEM;
 		goto err;
 	}
@@ -1344,7 +1360,16 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 		0644,
 		icp_hw_mgr.dentry,
 		NULL, &cam_icp_debug_fs)) {
-		CAM_ERR(CAM_ICP, "failed to create a5_dbg_lvl\n");
+		CAM_ERR(CAM_ICP, "failed to create a5_dbg_lvl");
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	if (!debugfs_create_file("a5_fw_dump_lvl",
+		0644,
+		icp_hw_mgr.dentry,
+		NULL, &cam_icp_debug_fw_dump)) {
+		CAM_ERR(CAM_ICP, "failed to create a5_fw_dump_lvl");
 		rc = -ENOMEM;
 		goto err;
 	}
@@ -3865,6 +3890,8 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		if (icp_hw_mgr.a5_debug_type)
 			hfi_set_debug_level(icp_hw_mgr.a5_debug_type,
 				icp_hw_mgr.a5_dbg_lvl);
+
+		hfi_set_fw_dump_level(icp_hw_mgr.a5_fw_dump_lvl);
 
 		rc = cam_icp_send_ubwc_cfg(hw_mgr);
 		if (rc)

@@ -160,6 +160,7 @@
 #define HFI_PROP_SYS_IMAGE_VER         (HFI_PROPERTY_ICP_COMMON_START + 0x3)
 #define HFI_PROP_SYS_SUPPORTED         (HFI_PROPERTY_ICP_COMMON_START + 0x4)
 #define HFI_PROP_SYS_IPEBPS_PC         (HFI_PROPERTY_ICP_COMMON_START + 0x5)
+#define HFI_PROP_SYS_FW_DUMP_CFG       (HFI_PROPERTY_ICP_COMMON_START + 0x8)
 
 /* Capabilities reported at sys init */
 #define HFI_CAPS_PLACEHOLDER_1         (HFI_COMMON_BASE + 0x1)
@@ -179,6 +180,18 @@
 #define  HFI_DEBUG_CFG_WFI      0x01000000
 /* Disable ARM9 watchdog. */
 #define  HFI_DEBUG_CFG_ARM9WD   0x10000000
+
+
+/*
+ * HFI_FW_DUMP levels
+ * HFI_FW_DUMP_xx
+ */
+#define HFI_FW_DUMP_DISABLED    0x00000000
+#define HFI_FW_DUMP_ON_FAILURE  0x00000001
+#define HFI_FW_DUMP_ALWAYS      0x00000002
+
+/* Number of available dump levels. */
+#define NUM_HFI_DUMP_LVL        0x00000003
 
 /* Debug Msg Communication types:
  * Section describes different modes (HFI_DEBUG_MODE_X)
