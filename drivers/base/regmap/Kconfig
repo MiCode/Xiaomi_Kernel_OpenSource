@@ -33,6 +33,17 @@ config REGMAP_IRQ
 config REGMAP_SWR
 	tristate
 
+config AQT_REGMAP
+	depends on SND_SOC
+	bool "For regmap on AQT"
+	select REGMAP_IRQ
+	default n
+	help
+	   Say 'y' here to enable regmap_irq for aqt1000 codec.
+	   This config is intended for enabling REGMAP_IRQ for
+	   AQT1000 codec. AQT codec uses pm_runtime and calls
+	   regmap_irq as a part of init.
+
 config REGMAP_ALLOW_WRITE_DEBUGFS
 	depends on REGMAP && DEBUG_FS
 	bool "Allow REGMAP debugfs write"
