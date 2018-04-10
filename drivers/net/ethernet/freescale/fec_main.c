@@ -58,6 +58,7 @@
 #include <linux/if_vlan.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/prefetch.h>
+#include <linux/pm_runtime.h>
 
 #include <asm/cacheflush.h>
 
