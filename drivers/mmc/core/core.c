@@ -4702,9 +4702,11 @@ static int mmc_pm_notify(struct notifier_block *notify_block,
 	int err = 0;
 
 	switch (mode) {
-	case PM_HIBERNATION_PREPARE:
-	case PM_SUSPEND_PREPARE:
 	case PM_RESTORE_PREPARE:
+	case PM_HIBERNATION_PREPARE:
+		if (host->bus_ops && host->bus_ops->pre_hibernate)
+			host->bus_ops->pre_hibernate(host);
+	case PM_SUSPEND_PREPARE:
 		spin_lock_irqsave(&host->lock, flags);
 		host->rescan_disable = 1;
 		spin_unlock_irqrestore(&host->lock, flags);
@@ -4728,9 +4730,11 @@ static int mmc_pm_notify(struct notifier_block *notify_block,
 		host->pm_flags = 0;
 		break;
 
-	case PM_POST_SUSPEND:
-	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
+	case PM_POST_HIBERNATION:
+		if (host->bus_ops && host->bus_ops->post_hibernate)
+			host->bus_ops->post_hibernate(host);
+	case PM_POST_SUSPEND:
 
 		spin_lock_irqsave(&host->lock, flags);
 		host->rescan_disable = 0;
