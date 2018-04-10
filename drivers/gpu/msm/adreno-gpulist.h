@@ -397,5 +397,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_minor = 0x000,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
+		.va_padding = SZ_64K,
 	},
 };
