@@ -2003,9 +2003,8 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 	int final_value, final_scale;
 	int ratio_index;
 
-	dsc->version = 0x11;
-	dsc->scr_rev = 0;
 	dsc->rc_model_size = 8192;
+
 	if (dsc->version == 0x11 && dsc->scr_rev == 0x1)
 		dsc->first_line_bpg_offset = 15;
 	else
@@ -2195,6 +2194,36 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 	if (!priv_info->dsc_enabled) {
 		pr_debug("dsc compression is not enabled for the mode");
 		return 0;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-version", &data);
+	if (rc) {
+		priv_info->dsc.version = 0x11;
+		rc = 0;
+	} else {
+		priv_info->dsc.version = data & 0xff;
+		/* only support DSC 1.1 rev */
+		if (priv_info->dsc.version != 0x11) {
+			pr_err("%s: DSC version:%d not supported\n", __func__,
+					priv_info->dsc.version);
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-scr-version", &data);
+	if (rc) {
+		priv_info->dsc.scr_rev = 0x0;
+		rc = 0;
+	} else {
+		priv_info->dsc.scr_rev = data & 0xff;
+		/* only one scr rev supported */
+		if (priv_info->dsc.scr_rev > 0x1) {
+			pr_err("%s: DSC scr version:%d not supported\n",
+					__func__, priv_info->dsc.scr_rev);
+			rc = -EINVAL;
+			goto error;
+		}
 	}
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-slice-height", &data);
