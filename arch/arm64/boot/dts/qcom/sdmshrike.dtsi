@@ -1012,7 +1012,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1020,7 +1020,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1028,7 +1028,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1036,7 +1036,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1044,7 +1044,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1052,7 +1052,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1060,7 +1060,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1068,7 +1068,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1076,7 +1076,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1086,7 +1086,7 @@
 
 &gpu_gx_gdsc {
 	parent-supply = <&pm855_1_s10_level>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&pm855_1_s10_level>;
 	status = "ok";
 };
 
@@ -1094,7 +1094,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1102,7 +1102,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1110,7 +1110,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
