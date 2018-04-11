@@ -48,6 +48,8 @@ struct npu_network {
 	uint32_t first_block_size;
 	uint32_t network_hdl;
 	uint32_t ipc_trans_id;
+	uint32_t priority;
+	uint32_t perf_mode;
 };
 
 struct npu_host_ctx {

@@ -159,6 +159,19 @@ struct npu_pwrctrl {
 
 	struct device *devbw;
 	uint32_t bwmon_enabled;
+	uint32_t uc_pwrlevel;
+};
+
+/**
+ * struct npu_thermalctrl - Thermal control settings for a NPU device
+ * @max_state - maximum thermal mitigation state
+ * @current_state - current thermal mitigation state
+ * @pwr_level -power level that thermal control requested
+ */
+struct npu_thermalctrl {
+	unsigned long max_state;
+	unsigned long current_state;
+	uint32_t pwr_level;
 };
 
 struct npu_device {
@@ -195,6 +208,7 @@ struct npu_device {
 
 	struct thermal_cooling_device *tcdev;
 	struct npu_pwrctrl pwrctrl;
+	struct npu_thermalctrl thermalctrl;
 
 	struct llcc_slice_desc *sys_cache;
 };
@@ -213,7 +227,8 @@ int npu_enable_post_pil_clocks(struct npu_device *npu_dev);
 
 irqreturn_t npu_intr_hdler(int irq, void *ptr);
 
-int npu_set_power_level(struct npu_device *npu_dev, uint32_t pwr_level);
+int npu_set_uc_power_level(struct npu_device *npu_dev,
+	uint32_t pwr_level);
 
 int fw_init(struct npu_device *npu_dev);
 void fw_deinit(struct npu_device *npu_dev);

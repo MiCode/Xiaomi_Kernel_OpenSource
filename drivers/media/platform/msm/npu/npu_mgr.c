@@ -454,6 +454,26 @@ void host_copy_patch_data(struct npu_patch_tuple *param, uint32_t value,
 		layer_info->patch_info.variable_size_in_bits;
 }
 
+static uint32_t find_networks_perf_mode(struct npu_host_ctx *host_ctx)
+{
+	struct npu_network *network;
+	uint32_t max_perf_mode = 0;
+	int i = 0;
+
+	network = host_ctx->networks;
+
+	/* find the max level among all the networks */
+	for (i = 0; i < host_ctx->network_num; i++) {
+		if ((network->perf_mode != 0) &&
+			(network->perf_mode > max_perf_mode))
+			max_perf_mode = network->perf_mode;
+		network++;
+	}
+	pr_debug("max perf mode for networks: %d\n", max_perf_mode);
+
+	return max_perf_mode;
+}
+
 int32_t npu_host_load_network(struct npu_device *npu_dev,
 			struct msm_npu_load_network_ioctl *load_ioctl)
 {
@@ -461,6 +481,7 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 	struct npu_network *network;
 	struct ipc_cmd_load_pkt load_packet;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	uint32_t networks_perf_mode = 0;
 
 	ret = fw_init(npu_dev);
 	if (ret)
@@ -474,7 +495,17 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 	network->size = load_ioctl->buf_size;
 	network->phy_add = load_ioctl->buf_phys_addr;
 	network->first_block_size = load_ioctl->first_block_size;
+	network->priority = load_ioctl->priority;
+	network->perf_mode = load_ioctl->perf_mode;
 	load_ioctl->network_hdl = network->id;
+
+	networks_perf_mode = find_networks_perf_mode(host_ctx);
+
+	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
+	if (ret) {
+		pr_err("network load failed due to power level set\n");
+		goto error_free_network;
+	}
 
 	load_packet.header.cmd_type = NPU_IPC_CMD_LOAD;
 	load_packet.header.size = sizeof(struct ipc_cmd_load_pkt);
@@ -499,10 +530,14 @@ int32_t npu_host_load_network(struct npu_device *npu_dev,
 	if (!wait_for_completion_interruptible_timeout(
 		&host_ctx->load_done, NW_LOAD_TIMEOUT)) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_LOAD time out\n");
-		npu_dump_cal_state(npu_dev);
 		ret = -ETIMEDOUT;
+		goto error_free_network;
 	}
 
+	return ret;
+
+error_free_network:
+	free_network(host_ctx, network->id);
 	return ret;
 }
 
