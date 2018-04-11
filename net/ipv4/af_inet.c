@@ -1385,14 +1385,23 @@ struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb)
 			(iph->tos ^ iph2->tos) |
 			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF));
 
-		/* Save the IP ID check to be included later when we get to
-		 * the transport layer so only the inner most IP ID is checked.
-		 * This is because some GSO/TSO implementations do not
-		 * correctly increment the IP ID for the outer hdrs.
-		 */
-		NAPI_GRO_CB(p)->flush_id =
-			((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
 		NAPI_GRO_CB(p)->flush |= flush;
+
+		/* For non-atomic datagrams we need to save the IP ID offset
+		 * to be included later.  If the frame has the DF bit set
+		 * we must ignore the IP ID value as per RFC 6864.
+		 */
+		if (iph2->frag_off & htons(IP_DF))
+			continue;
+
+		/* We must save the offset as it is possible to have multiple
+		 * flows using the same protocol and address pairs so we
+		 * need to wait until we can validate this is part of the
+		 * same flow with a 5-tuple or better to avoid unnecessary
+		 * collisions between flows.
+		 */
+		NAPI_GRO_CB(p)->flush_id |= ntohs(iph2->id) ^
+					    (u16)(id - NAPI_GRO_CB(p)->count);
 	}
 
 	NAPI_GRO_CB(skb)->flush |= flush;
