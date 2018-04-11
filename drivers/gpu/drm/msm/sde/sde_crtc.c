@@ -2454,6 +2454,23 @@ static void _sde_crtc_set_input_fence_timeout(struct sde_crtc_state *cstate)
 }
 
 /**
+ * _sde_crtc_clear_dim_layers_v1 - clear all dim layer settings
+ * @cstate:      Pointer to sde crtc state
+ */
+static void _sde_crtc_clear_dim_layers_v1(struct sde_crtc_state *cstate)
+{
+	u32 i;
+
+	if (!cstate)
+		return;
+
+	for (i = 0; i < cstate->num_dim_layers; i++)
+		memset(&cstate->dim_layer[i], 0, sizeof(cstate->dim_layer[i]));
+
+	cstate->num_dim_layers = 0;
+}
+
+/**
  * _sde_crtc_set_dim_layer_v1 - copy dim layer settings from userspace
  * @cstate:      Pointer to sde crtc state
  * @user_ptr:    User ptr for sde_drm_dim_layer_v1 struct
@@ -2473,6 +2490,8 @@ static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
 	dim_layer = cstate->dim_layer;
 
 	if (!usr_ptr) {
+		/* usr_ptr is null when setting the default property value */
+		_sde_crtc_clear_dim_layers_v1(cstate);
 		SDE_DEBUG("dim_layer data removed\n");
 		return;
 	}
