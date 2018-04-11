@@ -201,7 +201,7 @@
 
 		cdc-vdd-pa-supply = <&pm855l_bob>;
 		qcom,cdc-vdd-pa-voltage = <3300000 3300000>;
-		qcom,cdc-vdd-pa-current = <230000>;
+		qcom,cdc-vdd-pa-current = <1000000>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-buck-sido",
 					   "cdc-vdd-px",
