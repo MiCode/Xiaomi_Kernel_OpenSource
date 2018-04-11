@@ -53,7 +53,6 @@
 #include <linux/sysfs.h>
 #include <linux/stat.h>
 #include <linux/device.h>
-#include <linux/wakelock.h>
 #include <linux/debugfs.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
