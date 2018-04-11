@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, 2013-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2010, 2013-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -366,7 +366,7 @@ static const struct rfkill_ops bluetooth_power_rfkill_ops = {
 	.set_block = bluetooth_toggle_radio,
 };
 
-#if defined(CONFIG_CNSS) && defined(CONFIG_CLD_LL_CORE)
+#if defined(CONFIG_CNSS)
 static ssize_t enable_extldo(struct device *dev, struct device_attribute *attr,
 			char *buf)
 {
