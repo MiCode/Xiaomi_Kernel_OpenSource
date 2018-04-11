@@ -32,6 +32,10 @@ static bool ftm_mode;
 module_param(ftm_mode, bool, 0444);
 MODULE_PARM_DESC(ftm_mode, " Set factory test mode, default - false");
 
+static bool use_enhanced_dma_hw = true;
+module_param(use_enhanced_dma_hw, bool, 0444);
+MODULE_PARM_DESC(use_enhanced_dma_hw, " Use enhanced or legacy DMA HW. Default: true when available");
+
 #ifdef CONFIG_PM
 #ifdef CONFIG_PM_SLEEP
 static int wil6210_pm_notify(struct notifier_block *notify_block,
@@ -106,6 +110,7 @@ int wil_set_capabilities(struct wil6210_priv *wil)
 		wil->rgf_fw_assert_code_addr = TALYN_RGF_FW_ASSERT_CODE;
 		wil->rgf_ucode_assert_code_addr = TALYN_RGF_UCODE_ASSERT_CODE;
 		set_bit(hw_capa_no_flash, wil->hw_capa);
+		wil->use_enhanced_dma_hw = use_enhanced_dma_hw;
 		break;
 	default:
 		wil_err(wil, "Unknown board hardware, chip_id 0x%08x, chip_revision 0x%08x\n",
@@ -114,6 +119,8 @@ int wil_set_capabilities(struct wil6210_priv *wil)
 		wil->hw_version = HW_VER_UNKNOWN;
 		return -EINVAL;
 	}
+
+	wil_init_txrx_ops(wil);
 
 	iccm_section = wil_find_fw_mapping("fw_code");
 	if (!iccm_section) {
@@ -270,8 +277,8 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		.fw_recovery = wil_platform_rop_fw_recovery,
 	};
 	u32 bar_size = pci_resource_len(pdev, 0);
-	int dma_addr_size[] = {48, 40, 32}; /* keep descending order */
-	int i;
+	int dma_addr_size[] = {64, 48, 40, 32}; /* keep descending order */
+	int i, start_idx;
 
 	/* check HW */
 	dev_info(&pdev->dev, WIL_NAME
@@ -306,24 +313,6 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto if_free;
 	}
 	/* rollback to err_plat */
-
-	/* device supports >32bit addresses */
-	for (i = 0; i < ARRAY_SIZE(dma_addr_size); i++) {
-		rc = dma_set_mask_and_coherent(dev,
-					       DMA_BIT_MASK(dma_addr_size[i]));
-		if (rc) {
-			dev_err(dev, "dma_set_mask_and_coherent(%d) failed: %d\n",
-				dma_addr_size[i], rc);
-			continue;
-		}
-		dev_info(dev, "using dma mask %d", dma_addr_size[i]);
-		wil->dma_addr_size = dma_addr_size[i];
-		break;
-	}
-
-	if (wil->dma_addr_size == 0)
-		goto err_plat;
-
 	rc = pci_enable_device(pdev);
 	if (rc && pdev->msi_enabled == 0) {
 		wil_err(wil,
@@ -363,6 +352,28 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		wil_err(wil, "wil_set_capabilities failed, rc %d\n", rc);
 		goto err_iounmap;
 	}
+
+	/* device supports >32bit addresses.
+	 * for legacy DMA start from 48 bit.
+	 */
+	start_idx = wil->use_enhanced_dma_hw ? 0 : 1;
+
+	for (i = start_idx; i < ARRAY_SIZE(dma_addr_size); i++) {
+		rc = dma_set_mask_and_coherent(dev,
+					       DMA_BIT_MASK(dma_addr_size[i]));
+		if (rc) {
+			dev_err(dev, "dma_set_mask_and_coherent(%d) failed: %d\n",
+				dma_addr_size[i], rc);
+			continue;
+		}
+		dev_info(dev, "using dma mask %d", dma_addr_size[i]);
+		wil->dma_addr_size = dma_addr_size[i];
+		break;
+	}
+
+	if (wil->dma_addr_size == 0)
+		goto err_iounmap;
+
 	wil6210_clear_irq(wil);
 
 	/* FW should raise IRQ when ready */

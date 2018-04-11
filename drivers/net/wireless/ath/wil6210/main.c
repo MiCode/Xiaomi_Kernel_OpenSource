@@ -21,11 +21,13 @@
 
 #include "wil6210.h"
 #include "txrx.h"
+#include "txrx_edma.h"
 #include "wmi.h"
 #include "boot_loader.h"
 
 #define WAIT_FOR_HALP_VOTE_MS 100
 #define WAIT_FOR_SCAN_ABORT_MS 1000
+#define WIL_DEFAULT_NUM_RX_STATUS_RINGS 1
 
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, 0444);
@@ -77,9 +79,9 @@ static const struct kernel_param_ops mtu_max_ops = {
 module_param_cb(mtu_max, &mtu_max_ops, &mtu_max, 0444);
 MODULE_PARM_DESC(mtu_max, " Max MTU value.");
 
-static uint rx_ring_order = WIL_RX_RING_SIZE_ORDER_DEFAULT;
-static uint tx_ring_order = WIL_TX_RING_SIZE_ORDER_DEFAULT;
-static uint bcast_ring_order = WIL_BCAST_RING_SIZE_ORDER_DEFAULT;
+static uint rx_ring_order	 = WIL_RX_RING_SIZE_ORDER_DEFAULT;
+static uint tx_ring_order	 = WIL_TX_RING_SIZE_ORDER_DEFAULT;
+static uint bcast_ring_order	 = WIL_BCAST_RING_SIZE_ORDER_DEFAULT;
 
 static int ring_order_set(const char *val, const struct kernel_param *kp)
 {
@@ -158,6 +160,37 @@ void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 		memcpy(&tmp, s, count);
 		__raw_writel(tmp, d);
 	}
+}
+
+static void wil_ring_fini_tx(struct wil6210_priv *wil, int id)
+{
+	struct wil_ring *ring = &wil->ring_tx[id];
+	struct wil_ring_tx_data *txdata = &wil->ring_tx_data[id];
+
+	lockdep_assert_held(&wil->mutex);
+
+	if (!ring->va)
+		return;
+
+	wil_dbg_misc(wil, "vring_fini_tx: id=%d\n", id);
+
+	spin_lock_bh(&txdata->lock);
+	txdata->dot1x_open = false;
+	txdata->mid = U8_MAX;
+	txdata->enabled = 0; /* no Tx can be in progress or start anew */
+	spin_unlock_bh(&txdata->lock);
+	/* napi_synchronize waits for completion of the current NAPI but will
+	 * not prevent the next NAPI run.
+	 * Add a memory barrier to guarantee that txdata->enabled is zeroed
+	 * before napi_synchronize so that the next scheduled NAPI will not
+	 * handle this vring
+	 */
+	wmb();
+	/* make sure NAPI won't touch this vring */
+	if (test_bit(wil_status_napi_en, wil->status))
+		napi_synchronize(&wil->napi_tx);
+
+	wil->txrx_ops.ring_fini_tx(wil, ring);
 }
 
 static void wil_disconnect_cid(struct wil6210_vif *vif, int cid,
@@ -456,15 +489,16 @@ static void wil_fw_error_worker(struct work_struct *work)
 static int wil_find_free_ring(struct wil6210_priv *wil)
 {
 	int i;
+	int min_ring_id = wil_get_min_tx_ring_id(wil);
 
-	for (i = 0; i < WIL6210_MAX_TX_RINGS; i++) {
+	for (i = min_ring_id; i < WIL6210_MAX_TX_RINGS; i++) {
 		if (!wil->ring_tx[i].va)
 			return i;
 	}
 	return -EINVAL;
 }
 
-int wil_tx_init(struct wil6210_vif *vif, int cid)
+int wil_ring_init_tx(struct wil6210_vif *vif, int cid)
 {
 	struct wil6210_priv *wil = vif_to_wil(vif);
 	int rc = -EINVAL, ringid;
@@ -482,7 +516,8 @@ int wil_tx_init(struct wil6210_vif *vif, int cid)
 	wil_dbg_wmi(wil, "Configure for connection CID %d MID %d ring %d\n",
 		    cid, vif->mid, ringid);
 
-	rc = wil_vring_init_tx(vif, ringid, 1 << tx_ring_order, cid, 0);
+	rc = wil->txrx_ops.ring_init_tx(vif, ringid, 1 << tx_ring_order,
+					cid, 0);
 	if (rc)
 		wil_err(wil, "init TX for CID %d MID %d vring %d failed\n",
 			cid, vif->mid, ringid);
@@ -504,7 +539,7 @@ int wil_bcast_init(struct wil6210_vif *vif)
 		return ri;
 
 	vif->bcast_ring = ri;
-	rc = wil_vring_init_bcast(vif, ri, 1 << bcast_ring_order);
+	rc = wil->txrx_ops.ring_init_bcast(vif, ri, 1 << bcast_ring_order);
 	if (rc)
 		vif->bcast_ring = -1;
 
@@ -593,6 +628,9 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	wil->reply_mid = U8_MAX;
 	wil->max_vifs = 1;
+
+	/* num of rx srings can be updated via debugfs before allocation */
+	wil->num_rx_status_rings = WIL_DEFAULT_NUM_RX_STATUS_RINGS;
 
 	return 0;
 
@@ -1321,7 +1359,8 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	rc = wil_target_reset(wil, no_flash);
 	wil6210_clear_irq(wil);
 	wil_enable_irq(wil);
-	wil_rx_fini(wil);
+	wil->txrx_ops.rx_fini(wil);
+	wil->txrx_ops.tx_fini(wil);
 	if (rc) {
 		if (!no_flash)
 			wil_bl_crash_info(wil, true);
@@ -1374,7 +1413,6 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	clear_bit(wil_status_resetting, wil->status);
 
 	if (load_fw) {
-		wil_configure_interrupt_moderation(wil);
 		wil_unmask_irq(wil);
 
 		/* we just started MAC, wait for FW ready */
@@ -1388,6 +1426,8 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			wil_err(wil, "wmi_echo failed, rc %d\n", rc);
 			return rc;
 		}
+
+		wil->txrx_ops.configure_interrupt_moderation(wil);
 
 		rc = wil_restore_vifs(wil);
 		if (rc) {
@@ -1450,8 +1490,12 @@ int __wil_up(struct wil6210_priv *wil)
 	if (rc)
 		return rc;
 
-	/* Rx VRING. After MAC and beacon */
-	rc = wil_rx_init(wil, 1 << rx_ring_order);
+	/* Rx RING. After MAC and beacon */
+	rc = wil->txrx_ops.rx_init(wil, 1 << rx_ring_order);
+	if (rc)
+		return rc;
+
+	rc = wil->txrx_ops.tx_init(wil);
 	if (rc)
 		return rc;
 
@@ -1612,4 +1656,12 @@ void wil_halp_unvote(struct wil6210_priv *wil)
 		    wil->halp.ref_cnt);
 
 	mutex_unlock(&wil->halp.lock);
+}
+
+void wil_init_txrx_ops(struct wil6210_priv *wil)
+{
+	if (wil->use_enhanced_dma_hw)
+		wil_init_txrx_ops_edma(wil);
+	else
+		wil_init_txrx_ops_legacy_dma(wil);
 }
