@@ -726,6 +726,7 @@ int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 
 	if (trion_pll_is_enabled(pll, regmap)) {
 		pr_warn("PLL is already enabled. Skipping configuration.\n");
+		pll->inited = true;
 		return ret;
 	}
 
@@ -1039,6 +1040,7 @@ int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 
 	if (mode_regval & PLL_LOCK_DET) {
 		pr_warn("PLL is already enabled. Skipping configuration.\n");
+		pll->inited = true;
 		return 0;
 	}
 
