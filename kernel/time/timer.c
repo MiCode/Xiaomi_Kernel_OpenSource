@@ -1902,6 +1902,12 @@ static void __migrate_timers(unsigned int cpu, bool remove_pinned)
 		spin_lock_irqsave(&new_base->lock, flags);
 		spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
 
+		/*
+		 * The current CPUs base clock might be stale. Update it
+		 * before moving the timers over.
+		 */
+		forward_timer_base(new_base);
+
 		if (!cpu_online(cpu))
 			BUG_ON(old_base->running_timer);
 
