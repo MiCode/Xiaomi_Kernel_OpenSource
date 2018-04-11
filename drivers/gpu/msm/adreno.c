@@ -1263,6 +1263,8 @@ static int adreno_probe(struct platform_device *pdev)
 
 	adreno_sysfs_init(adreno_dev);
 
+	kgsl_pwrscale_init(&pdev->dev, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
+
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
 
