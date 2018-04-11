@@ -271,4 +271,7 @@ int dsi_panel_post_switch(struct dsi_panel *panel);
 
 void dsi_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc, int intf_width);
 
+int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel,
+				struct device_node *of_node);
+
 #endif /* _DSI_PANEL_H_ */
