@@ -34,6 +34,7 @@
 #include <linux/ctype.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/dma-mapping.h>
 #include <sound/core.h>
 #include <sound/jack.h>
 #include <sound/pcm.h>
@@ -2664,6 +2665,8 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	ret = snd_soc_instantiate_card(card);
 	if (ret != 0)
 		return ret;
+
+	arch_setup_dma_ops(card->dev, 0, 0, NULL, 0);
 
 	/* deactivate pins to sleep state */
 	list_for_each_entry(rtd, &card->rtd_list, list)  {
