@@ -498,7 +498,7 @@
 	};
 
 	pm855b-ibat-lvl0 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm855b_bcl 0>;
@@ -528,14 +528,15 @@
 	};
 
 	pm855b-vbat-lvl0 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
-		thermal-governor = "step_wise";
+		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm855b_bcl 2>;
+		tracks-low;
 
 		trips {
 			vbat_lvl0: vbat-lvl0 {
-				temperature = <3500>;
+				temperature = <3000>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -545,12 +546,13 @@
 	pm855b-vbat-lvl1 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
-		thermal-governor = "step_wise";
+		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm855b_bcl 3>;
+		tracks-low;
 
 		trips {
 			vbat_lvl1:vbat-lvl1 {
-				temperature = <3000>;
+				temperature = <2800>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -560,12 +562,13 @@
 	pm855b-vbat-lvl2 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
-		thermal-governor = "step_wise";
+		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm855b_bcl 4>;
+		tracks-low;
 
 		trips {
 			vbat_lvl2:vbat-lvl2 {
-				temperature = <2800>;
+				temperature = <2600>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -573,10 +576,11 @@
 	};
 
 	soc {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
-		thermal-governor = "step_wise";
+		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_soc>;
+		tracks-low;
 
 		trips {
 			soc_trip:soc-trip {
