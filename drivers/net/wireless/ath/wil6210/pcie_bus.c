@@ -101,6 +101,10 @@ int wil_set_capabilities(struct wil6210_priv *wil)
 		if (wil_r(wil, RGF_USER_OTP_HW_RD_MACHINE_1) &
 		    BIT_NO_FLASH_INDICATION)
 			set_bit(hw_capa_no_flash, wil->hw_capa);
+		wil_fw_name = ftm_mode ? WIL_FW_NAME_FTM_TALYN :
+			      WIL_FW_NAME_TALYN;
+		if (wil_fw_verify_file_exists(wil, wil_fw_name))
+			wil->wil_fw_name = wil_fw_name;
 		break;
 	case JTAG_DEV_ID_TALYN_MB:
 		wil->hw_name = "Talyn-MB";
@@ -111,6 +115,10 @@ int wil_set_capabilities(struct wil6210_priv *wil)
 		wil->rgf_ucode_assert_code_addr = TALYN_RGF_UCODE_ASSERT_CODE;
 		set_bit(hw_capa_no_flash, wil->hw_capa);
 		wil->use_enhanced_dma_hw = use_enhanced_dma_hw;
+		wil_fw_name = ftm_mode ? WIL_FW_NAME_FTM_TALYN :
+			      WIL_FW_NAME_TALYN;
+		if (wil_fw_verify_file_exists(wil, wil_fw_name))
+			wil->wil_fw_name = wil_fw_name;
 		break;
 	default:
 		wil_err(wil, "Unknown board hardware, chip_id 0x%08x, chip_revision 0x%08x\n",
