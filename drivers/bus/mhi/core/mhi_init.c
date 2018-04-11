@@ -823,6 +823,16 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 		mhi_chan->offload_ch = !!(bit_cfg & MHI_CH_CFG_BIT_OFFLOAD_CH);
 		mhi_chan->db_cfg.reset_req =
 			!!(bit_cfg & MHI_CH_CFG_BIT_DBMODE_RESET_CH);
+		mhi_chan->pre_alloc = !!(bit_cfg & MHI_CH_CFG_BIT_PRE_ALLOC);
+
+		if (mhi_chan->pre_alloc &&
+		    (mhi_chan->dir != DMA_FROM_DEVICE ||
+		     mhi_chan->xfer_type != MHI_XFER_BUFFER))
+			goto error_chan_cfg;
+
+		/* if mhi host allocate the buffers then client cannot queue */
+		if (mhi_chan->pre_alloc)
+			mhi_chan->queue_xfer = mhi_queue_nop;
 
 		ret = of_property_read_string_index(of_node, "mhi,chan-names",
 						    i, &mhi_chan->name);
