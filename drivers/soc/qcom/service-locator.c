@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@
 #define QMI_SERVREG_LOC_SERVER_INITIAL_TIMEOUT		2000
 #define QMI_SERVREG_LOC_SERVER_TIMEOUT			2000
 #define INITIAL_TIMEOUT					100000
+#define LOCATOR_SERVICE_TIMEOUT				300000
 
 #define LOCATOR_NOT_PRESENT	0
 #define LOCATOR_PRESENT		1
@@ -302,11 +303,18 @@ out:
 static int init_service_locator(void)
 {
 	int rc = 0;
+	static bool service_timedout;
 
-	mutex_lock(&service_init_mutex);
+	rc = mutex_lock_interruptible(&service_init_mutex);
+	if (rc)
+		return rc;
 	if (locator_status == LOCATOR_NOT_PRESENT) {
 		pr_err("Service Locator not enabled\n");
 		rc = -ENODEV;
+		goto inited;
+	}
+	if (service_timedout) {
+		rc = -ETIME;
 		goto inited;
 	}
 	if (service_inited)
@@ -336,7 +344,20 @@ static int init_service_locator(void)
 		goto inited;
 	}
 
-	wait_for_completion(&service_locator.service_available);
+	rc = wait_for_completion_interruptible_timeout(
+				&service_locator.service_available,
+				msecs_to_jiffies(LOCATOR_SERVICE_TIMEOUT));
+	if (rc < 0) {
+		pr_err("Wait for locator service interrupted by signal\n");
+		goto inited;
+	}
+	if (!rc) {
+		pr_err("%s: wait for locator service timed out\n", __func__);
+		service_timedout = true;
+		rc = -ETIME;
+		goto inited;
+	}
+
 	service_inited = true;
 	mutex_unlock(&service_init_mutex);
 	pr_info("Service locator initialized\n");
