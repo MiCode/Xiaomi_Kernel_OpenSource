@@ -61,6 +61,8 @@ struct dp_panel_in {
 	struct drm_connector *connector;
 };
 
+struct dp_audio;
+
 struct dp_panel {
 	/* dpcd raw data */
 	u8 dpcd[DP_RECEIVER_CAP_SIZE + 1];
@@ -88,6 +90,9 @@ struct dp_panel {
 
 	/* DRM connector assosiated with this panel */
 	struct drm_connector *connector;
+
+	struct dp_audio *audio;
+	bool audio_supported;
 
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel);
