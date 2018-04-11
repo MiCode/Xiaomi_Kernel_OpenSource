@@ -892,11 +892,11 @@
 		memory-region = <&pil_adsp_mem>;
 
 		/* Inputs from lpass */
-		interrupts-extended = <&intc 0 162 1>,
+		interrupts-extended = <&pdc 0 162 1>,
+			<&adsp_smp2p_in 0 0>,
 			<&adsp_smp2p_in 2 0>,
 			<&adsp_smp2p_in 1 0>,
-			<&adsp_smp2p_in 3 0>,
-			<&adsp_smp2p_in 0 0>;
+			<&adsp_smp2p_in 3 0>;
 
 		interrupt-names = "qcom,wdog",
 			"qcom,err-fatal",
@@ -904,7 +904,7 @@
 			"qcom,err-ready",
 			"qcom,stop-ack";
 
-		/* Outputs from lpass */
+		/* Outputs to lpass */
 		qcom,smem-states = <&adsp_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
 	};
