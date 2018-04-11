@@ -519,6 +519,14 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl);
  */
 int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic);
 
+/**
+ * mhi_force_rddm_mode - Force external device into rddm mode
+ * to collect device ramdump. This is useful if host driver assert
+ * and we need to see device state as well.
+ * @mhi_cntrl: MHI controller
+ */
+int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl);
+
 #else
 
 static inline int mhi_driver_register(struct mhi_driver *mhi_drv)
@@ -639,6 +647,11 @@ static inline int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 
 static inline int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl,
 					bool in_panic)
+{
+	return -EINVAL;
+}
+
+static inlint int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl)
 {
 	return -EINVAL;
 }

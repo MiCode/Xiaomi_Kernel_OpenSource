@@ -821,6 +821,9 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 
 		mhi_chan->lpm_notify = !!(bit_cfg & MHI_CH_CFG_BIT_LPM_NOTIFY);
 		mhi_chan->offload_ch = !!(bit_cfg & MHI_CH_CFG_BIT_OFFLOAD_CH);
+		mhi_chan->db_cfg.reset_req =
+			!!(bit_cfg & MHI_CH_CFG_BIT_DBMODE_RESET_CH);
+
 		ret = of_property_read_string_index(of_node, "mhi,chan-names",
 						    i, &mhi_chan->name);
 		if (ret)

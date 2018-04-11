@@ -338,6 +338,7 @@ enum MHI_CH_CFG {
 
 #define MHI_CH_CFG_BIT_LPM_NOTIFY BIT(0) /* require LPM notification */
 #define MHI_CH_CFG_BIT_OFFLOAD_CH BIT(1) /* satellite mhi devices */
+#define MHI_CH_CFG_BIT_DBMODE_RESET_CH BIT(2) /* require db mode to reset */
 
 enum MHI_EV_CFG {
 	MHI_EV_CFG_ELEMENTS = 0,
@@ -466,6 +467,7 @@ enum MHI_ER_TYPE {
 };
 
 struct db_cfg {
+	bool reset_req;
 	bool db_mode;
 	u32 pollcfg;
 	enum MHI_BRSTMODE brstmode;

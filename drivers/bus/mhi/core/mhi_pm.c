@@ -360,6 +360,9 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl)
 		struct mhi_ring *tre_ring = &mhi_chan->tre_ring;
 
 		write_lock_irq(&mhi_chan->lock);
+		if (mhi_chan->db_cfg.reset_req)
+			mhi_chan->db_cfg.db_mode = true;
+
 		/* only ring DB if ring is not empty */
 		if (tre_ring->base && tre_ring->wp  != tre_ring->rp)
 			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
@@ -1062,23 +1065,10 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 	return 0;
 }
 
-void mhi_device_get(struct mhi_device *mhi_dev)
+static int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-
-	atomic_inc(&mhi_dev->dev_wake);
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_get(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
-}
-EXPORT_SYMBOL(mhi_device_get);
-
-int mhi_device_get_sync(struct mhi_device *mhi_dev)
-{
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	int ret;
 
-	atomic_inc(&mhi_dev->dev_wake);
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	mhi_cntrl->wake_get(mhi_cntrl, false);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
@@ -1096,7 +1086,6 @@ int mhi_device_get_sync(struct mhi_device *mhi_dev)
 		MHI_ERR("Did not enter M0 state, cur_state:%s pm_state:%s\n",
 			TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		atomic_dec(&mhi_dev->dev_wake);
 		read_lock_bh(&mhi_cntrl->pm_lock);
 		mhi_cntrl->wake_put(mhi_cntrl, false);
 		read_unlock_bh(&mhi_cntrl->pm_lock);
@@ -1104,6 +1093,29 @@ int mhi_device_get_sync(struct mhi_device *mhi_dev)
 	}
 
 	return 0;
+}
+
+void mhi_device_get(struct mhi_device *mhi_dev)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	atomic_inc(&mhi_dev->dev_wake);
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_get(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+}
+EXPORT_SYMBOL(mhi_device_get);
+
+int mhi_device_get_sync(struct mhi_device *mhi_dev)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	int ret;
+
+	ret = __mhi_device_get_sync(mhi_cntrl);
+	if (!ret)
+		atomic_inc(&mhi_dev->dev_wake);
+
+	return ret;
 }
 EXPORT_SYMBOL(mhi_device_get_sync);
 
@@ -1117,3 +1129,50 @@ void mhi_device_put(struct mhi_device *mhi_dev)
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 }
 EXPORT_SYMBOL(mhi_device_put);
+
+int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl)
+{
+	int ret;
+
+	MHI_LOG("Enter with pm_state:%s ee:%s\n",
+		to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	/* before rddm mode, we need to enter M0 state */
+	ret = __mhi_device_get_sync(mhi_cntrl);
+	if (ret)
+		return ret;
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
+	write_lock_irq(&mhi_cntrl->pm_lock);
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		goto no_reg_access;
+
+	MHI_LOG("Triggering SYS_ERR to force rddm state\n");
+
+	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_SYS_ERR);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+	/* wait for rddm event */
+	MHI_LOG("Waiting for device to enter RDDM state\n");
+	ret = wait_event_timeout(mhi_cntrl->state_event,
+				 mhi_cntrl->ee == MHI_EE_RDDM,
+				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
+	ret = !ret ? 0 : -EIO;
+
+	MHI_LOG("Exiting with pm_state:%s ee:%s ret:%d\n",
+		to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		TO_MHI_EXEC_STR(mhi_cntrl->ee), ret);
+
+	return ret;
+
+no_reg_access:
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+	return -EIO;
+}
+EXPORT_SYMBOL(mhi_force_rddm_mode);

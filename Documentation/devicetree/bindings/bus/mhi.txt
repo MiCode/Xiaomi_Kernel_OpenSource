@@ -50,6 +50,8 @@ Main node properties:
 		notifications.
 		BIT(1) : Offload channel, MHI host only involved in setting up
 		the data pipe. Not involved in active data transfer.
+		BIT(2) : Must switch to doorbell mode whenever MHI M0 state
+		transition happens.
 
 - mhi,chan-names
   Usage: required
