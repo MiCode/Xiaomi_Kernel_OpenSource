@@ -87,3 +87,7 @@
 		>;
 	};
 };
+
+&kgsl_smmu {
+	qcom,enable-static-cb;
+};
