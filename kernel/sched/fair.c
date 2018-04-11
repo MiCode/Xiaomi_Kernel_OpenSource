@@ -40,9 +40,12 @@
 #include "tune.h"
 #include "walt.h"
 
+#ifdef CONFIG_SMP
+static inline bool task_fits_max(struct task_struct *p, int cpu);
+#endif /* CONFIG_SMP */
+
 #ifdef CONFIG_SCHED_WALT
 
-static inline bool task_fits_max(struct task_struct *p, int cpu);
 static void walt_fixup_sched_stats_fair(struct rq *rq, struct task_struct *p,
 					u32 new_task_load, u32 new_pred_demand);
 static void walt_fixup_nr_big_tasks(struct rq *rq, struct task_struct *p,
@@ -6966,6 +6969,7 @@ static inline int task_fits_capacity(struct task_struct *p,
 					int cpu)
 {
 	unsigned int margin;
+	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity;
 
 	if (capacity == max_capacity)
 		return true;
