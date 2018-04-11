@@ -6158,7 +6158,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
 	ipa3_ctx->pdev = dev;
 
-	return result;
+	return 0;
 }
 
 static int ipa_smmu_cb_probe(struct device *dev, enum ipa_smmu_cb_type cb_type)
