@@ -203,12 +203,6 @@ static void dp_display_notify_hdcp_status_cb(void *ptr,
 		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ/4);
 }
 
-static void dp_display_destroy_hdcp_workqueue(struct dp_display_private *dp)
-{
-	if (dp->wq)
-		destroy_workqueue(dp->wq);
-}
-
 static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 {
 	void *fd = NULL;
@@ -270,7 +264,6 @@ static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
 	}
 
 	sde_dp_hdcp2p2_deinit(dp->hdcp.data);
-	dp_display_destroy_hdcp_workqueue(dp);
 	mutex_destroy(&dp->hdcp_mutex);
 }
 
@@ -1975,6 +1968,9 @@ static int dp_display_remove(struct platform_device *pdev)
 	dp = platform_get_drvdata(pdev);
 
 	dp_display_deinit_sub_modules(dp);
+
+	if (dp->wq)
+		destroy_workqueue(dp->wq);
 
 	platform_set_drvdata(pdev, NULL);
 	devm_kfree(&pdev->dev, dp);
