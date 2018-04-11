@@ -174,6 +174,7 @@ struct cam_eeprom_ctrl_t {
 	struct camera_io_master io_master_info;
 	struct msm_camera_gpio_num_info *gpio_num_info;
 	enum cci_i2c_master_t cci_i2c_master;
+	enum cci_device_num cci_num;
 	struct cam_subdev v4l2_dev_str;
 	struct cam_eeprom_intf_params bridge_intf;
 	enum msm_camera_device_type_t eeprom_device_type;

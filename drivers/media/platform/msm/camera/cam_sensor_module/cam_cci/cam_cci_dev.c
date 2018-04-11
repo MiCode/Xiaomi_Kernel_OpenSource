@@ -18,11 +18,13 @@
 #define CCI_MAX_DELAY 1000000
 #define CCI_TIMEOUT msecs_to_jiffies(500)
 
-static struct v4l2_subdev *g_cci_subdev;
+static struct v4l2_subdev *g_cci_subdev[MAX_CCI];
 
-struct v4l2_subdev *cam_cci_get_subdev(void)
+struct v4l2_subdev *cam_cci_get_subdev(int cci_dev_index)
 {
-	return g_cci_subdev;
+	if (cci_dev_index < MAX_CCI)
+		return g_cci_subdev[cci_dev_index];
+	return NULL;
 }
 
 static long cam_cci_subdev_ioctl(struct v4l2_subdev *sd,
@@ -289,7 +291,14 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, &(new_cci_dev->v4l2_dev_str.sd));
 	v4l2_set_subdevdata(&new_cci_dev->v4l2_dev_str.sd, new_cci_dev);
-	g_cci_subdev = &new_cci_dev->v4l2_dev_str.sd;
+	if (soc_info->index >= MAX_CCI) {
+		CAM_ERR(CAM_CCI, "Invalid index: %d max supported:%d",
+			soc_info->index, MAX_CCI-1);
+		goto cci_no_resource;
+	}
+
+	g_cci_subdev[soc_info->index] = &new_cci_dev->v4l2_dev_str.sd;
+	CAM_ERR(CAM_CCI, "Device Type :%d", soc_info->index);
 
 	cam_register_subdev_fops(&cci_v4l2_subdev_fops);
 	cci_v4l2_subdev_fops.unlocked_ioctl = cam_cci_subdev_fops_ioctl;
@@ -350,14 +359,20 @@ static struct platform_driver cci_driver = {
 static int cam_cci_assign_fops(void)
 {
 	struct v4l2_subdev *sd;
+	int i = 0;
 
-	sd = g_cci_subdev;
-	if (!sd || !(sd->devnode)) {
-		CAM_ERR(CAM_CRM,
-			"Invalid args sd node: %pK", sd);
-		return -EINVAL;
+	for (; i < MAX_CCI; i++) {
+		sd = g_cci_subdev[i];
+		if (!sd)
+			return 0;
+		if (!(sd->devnode)) {
+			CAM_ERR(CAM_CCI,
+			"Invalid dev node:%pK offset: %d",
+			sd->devnode, i);
+			return -EINVAL;
+		}
+		sd->devnode->fops = &cci_v4l2_subdev_fops;
 	}
-	sd->devnode->fops = &cci_v4l2_subdev_fops;
 
 	return 0;
 }
