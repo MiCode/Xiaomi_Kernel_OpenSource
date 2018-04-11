@@ -146,6 +146,7 @@ enum gpu_idle_level {
  * @pcl: GPU BW scaling client
  * @ccl: CNOC BW scaling client
  * @idle_level: Minimal GPU idle power level
+ * @ifpc_count: Number of times GMU went into IFPC
  * @fault_count: GMU fault count
  */
 struct gmu_device {
@@ -184,6 +185,7 @@ struct gmu_device {
 	unsigned int pcl;
 	unsigned int ccl;
 	unsigned int idle_level;
+	unsigned int ifpc_count;
 	unsigned int fault_count;
 };
 

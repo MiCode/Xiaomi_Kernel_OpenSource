@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -609,6 +609,19 @@ TRACE_EVENT(adreno_preempt_done,
 		__entry->next->id, __entry->cur->id, __entry->level
 	)
 );
+
+TRACE_EVENT(adreno_ifpc_count,
+	TP_PROTO(unsigned int ifpc_count),
+	TP_ARGS(ifpc_count),
+	TP_STRUCT__entry(
+		__field(unsigned int, ifpc_count)
+	),
+	TP_fast_assign(
+		__entry->ifpc_count = ifpc_count;
+	),
+	TP_printk("total times GMU entered IFPC = %d", __entry->ifpc_count)
+);
+
 #endif /* _ADRENO_TRACE_H */
 
 /* This part must be outside protection */
