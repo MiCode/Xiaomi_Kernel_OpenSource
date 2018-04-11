@@ -311,8 +311,8 @@ static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	struct ion_buffer *buffer = dmabuf->priv;
 
-	free_duped_table(a->table);
 	mutex_lock(&buffer->lock);
+	free_duped_table(a->table);
 	list_del(&a->list);
 	mutex_unlock(&buffer->lock);
 
@@ -335,6 +335,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	    !hlos_accessible_buffer(buffer))
 		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
+	mutex_lock(&buffer->lock);
 	if (map_attrs & DMA_ATTR_SKIP_CPU_SYNC)
 		trace_ion_dma_map_cmo_skip(attachment->dev,
 					   attachment->dmabuf->name,
@@ -364,6 +365,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 		return ERR_PTR(-ENOMEM);
 
 	a->dma_mapped = true;
+	mutex_unlock(&buffer->lock);
 	return table;
 }
 
@@ -380,6 +382,7 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	    !hlos_accessible_buffer(buffer))
 		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
+	mutex_lock(&buffer->lock);
 	if (map_attrs & DMA_ATTR_SKIP_CPU_SYNC)
 		trace_ion_dma_unmap_cmo_skip(attachment->dev,
 					     attachment->dmabuf->name,
@@ -404,6 +407,7 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
 				   direction, map_attrs);
 	a->dma_mapped = false;
+	mutex_unlock(&buffer->lock);
 }
 
 void ion_pages_sync_for_device(struct device *dev, struct page *page,
