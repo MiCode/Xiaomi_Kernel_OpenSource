@@ -252,7 +252,7 @@ static int dwc3_core_reset(struct dwc3 *dwc)
 
 	/* core exits U1/U2/U3 only in PHY power state P1/P2/P3 respectively */
 	if (dwc->revision <= DWC3_REVISION_310A)
-		reg |= DWC3_GUSB3PIPECTL_UX_EXIT_IN_PX;
+		reg |= DWC3_GUSB3PIPECTL_UX_EXIT_PX;
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
@@ -569,6 +569,12 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 	int ret;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+
+	/*
+	 * Make sure UX_EXIT_PX is cleared as that causes issues with some
+	 * PHYs. Also, this bit is not supposed to be used in normal operation.
+	 */
+	reg &= ~DWC3_GUSB3PIPECTL_UX_EXIT_PX;
 
 	/*
 	 * Above 1.94a, it is recommended to set DWC3_GUSB3PIPECTL_SUSPHY
