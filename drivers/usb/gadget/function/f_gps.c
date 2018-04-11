@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -351,6 +351,15 @@ static void gps_resume(struct usb_function *f)
 		return;
 
 	dev->is_suspended = false;
+
+	/* Check if the previous session is closed as part of suspend
+	 * and try to reconnect to open a new session.
+	 */
+	if (!atomic_read(&dev->ctrl_online)) {
+		pr_debug("%s: ctrl disconnected, reconnect again\n", __func__);
+		gport_ctrl_connect(dev);
+	}
+
 	spin_lock(&dev->lock);
 	if (list_empty(&dev->cpkt_resp_q)) {
 		spin_unlock(&dev->lock);
