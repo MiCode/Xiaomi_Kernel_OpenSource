@@ -309,6 +309,7 @@ struct adreno_busy_data {
 	unsigned int bif_ram_cycles_write_ch1;
 	unsigned int bif_starved_ram;
 	unsigned int bif_starved_ram_ch1;
+	unsigned int num_ifpc;
 	unsigned int throttle_cycles[ADRENO_GPMU_THROTTLE_COUNTERS];
 };
 
@@ -467,6 +468,7 @@ enum gpu_coresight_sources {
  * stall cycles in case of GBIF)
  * @starved_ram_lo_ch1: Number of cycles GBIF is stalled by DDR channel 1
  * @perfctr_pwr_lo: GPU busy cycles
+ * @perfctr_ifpc_lo: IFPC count
  * @halt: Atomic variable to check whether the GPU is currently halted
  * @pending_irq_refcnt: Atomic variable to keep track of running IRQ handlers
  * @ctx_d_debugfs: Context debugfs node
@@ -484,6 +486,7 @@ enum gpu_coresight_sources {
  * @lm_limit: limiting value for LM
  * @lm_threshold_count: register value for counter for lm threshold breakin
  * @lm_threshold_cross: number of current peaks exceeding threshold
+ * @ifpc_count: Number of times the GPU went into IFPC
  * @speed_bin: Indicate which power level set to use
  * @csdev: Pointer to a coresight device (if applicable)
  * @gpmu_throttle_counters - counteers for number of throttled clocks
@@ -533,6 +536,7 @@ struct adreno_device {
 	unsigned int starved_ram_lo;
 	unsigned int starved_ram_lo_ch1;
 	unsigned int perfctr_pwr_lo;
+	unsigned int perfctr_ifpc_lo;
 	atomic_t halt;
 	atomic_t pending_irq_refcnt;
 	struct dentry *ctx_d_debugfs;
@@ -552,6 +556,7 @@ struct adreno_device {
 	uint32_t lm_limit;
 	uint32_t lm_threshold_count;
 	uint32_t lm_threshold_cross;
+	uint32_t ifpc_count;
 
 	unsigned int speed_bin;
 	unsigned int quirks;
