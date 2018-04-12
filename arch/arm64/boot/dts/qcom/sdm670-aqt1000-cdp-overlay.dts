@@ -19,8 +19,8 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-#include "sdm670-cdp.dtsi"
 #include "sdm670-int-cdc-aqt.dtsi"
+#include "sdm670-cdp.dtsi"
 #include "sdm670-int-cdc-aqt-overlay.dtsi"
 
 / {

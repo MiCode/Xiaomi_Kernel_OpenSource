@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "sdm670-audio-overlay.dtsi"
 
 &int_codec {
 	qcom,model = "sdm670-aqt-snd-card";
