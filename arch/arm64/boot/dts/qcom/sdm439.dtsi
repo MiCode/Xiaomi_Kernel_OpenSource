@@ -91,3 +91,13 @@
 &kgsl_smmu {
 	qcom,enable-static-cb;
 };
+
+&reserved_memory {
+	gpu_mem: gpu_region@0 {
+		compatible = "shared-dma-pool";
+		reusable;
+		alloc-ranges = <0x0 0x80000000 0x0 0x10000000>;
+		alignment = <0 0x400000>;
+		size = <0 0x800000>;
+	};
+};
