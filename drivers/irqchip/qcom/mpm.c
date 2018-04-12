@@ -466,6 +466,8 @@ static int system_pm_update_wakeup(bool from_idle)
 	}
 
 	msm_mpm_timer_write((uint32_t *)&wakeup);
+	trace_mpm_wakeup_time(from_idle, wakeup, arch_counter_get_cntvct());
+
 	return 0;
 }
 
