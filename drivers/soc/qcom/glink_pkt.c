@@ -352,9 +352,7 @@ ssize_t glink_pkt_read(struct file *file, char __user *buf,
 
 	if (!completion_done(&gpdev->ch_open)) {
 		GLINK_PKT_ERR("%s channel in reset\n", gpdev->ch_name);
-		mutex_unlock(&gpdev->lock);
 		return -ENETRESET;
-
 	}
 
 	GLINK_PKT_INFO("begin for %s by %s:%ld ref_cnt[%d]\n",
