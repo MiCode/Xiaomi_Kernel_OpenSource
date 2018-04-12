@@ -209,6 +209,14 @@
 		};
 	};
 
+	android_usb: android_usb@66bf0c8 {
+		status = "disabled";
+		compatible = "qcom,android-usb";
+		reg = <0x066bf0c8 0xc8>;
+		qcom,pm-qos-latency = <301 701 801>;
+
+	};
+
 	qusb_phy0: qusb@7411000 {
 		compatible = "qcom,qusb2phy";
 		reg = <0x07411000 0x180>,

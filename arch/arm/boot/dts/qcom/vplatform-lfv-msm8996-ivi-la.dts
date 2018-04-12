@@ -103,3 +103,27 @@
 	};
 };
 
+#include "vplatform-lfv-msm8996-usb.dtsi"
+
+&usb3 {
+	qcom,disable-host-mode-pm;
+	qcom,disable-dev-mode-pm;
+	status = "okay";
+};
+
+&qusb_phy1 {
+	status = "disabled";
+};
+
+&usb_nop_phy {
+	status = "disabled";
+};
+
+&usb_detect {
+	qcom,force-vbus-status-off;
+};
+
+&android_usb {
+	status = "okay";
+};
+
