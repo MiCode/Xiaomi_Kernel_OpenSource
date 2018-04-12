@@ -121,9 +121,6 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle,
 		int64_t time);
 
-static bool menu_select;
-module_param_named(menu_select, menu_select, bool, 0664);
-
 static int msm_pm_sleep_time_override;
 module_param_named(sleep_time_override,
 	msm_pm_sleep_time_override, int, 0664);
@@ -611,10 +608,8 @@ static int cpu_power_select(struct cpuidle_device *dev,
 
 	next_event_us = (uint32_t)(ktime_to_us(get_next_event_time(dev->cpu)));
 
-	if (is_cpu_biased(dev->cpu)) {
-		best_level = 0;
+	if (is_cpu_biased(dev->cpu) && (!cpu_isolated(dev->cpu)))
 		goto done_select;
-	}
 
 	for (i = 0; i < cpu->nlevels; i++) {
 		struct lpm_cpu_level *level = &cpu->levels[i];
@@ -640,7 +635,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 				next_wakeup_us = next_event_us - lvl_latency_us;
 		}
 
-		if (!i) {
+		if (!i && !cpu_isolated(dev->cpu)) {
 			/*
 			 * If the next_wake_us itself is not sufficient for
 			 * deeper low power modes than clock gating do not
@@ -975,6 +970,9 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 			break;
 
 		if (suspend_in_progress && from_idle && level->notify_rpm)
+			continue;
+
+		if (level->notify_rpm && !system_sleep_allowed())
 			continue;
 
 		best_level = i;
