@@ -834,6 +834,7 @@ struct mdss_panel_data {
 	struct mdss_panel_data *next;
 
 	int panel_te_gpio;
+	int panel_en_gpio;
 	struct completion te_done;
 };
 
