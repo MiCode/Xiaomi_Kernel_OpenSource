@@ -425,6 +425,19 @@
 					bias-pull-down; /* pull down */
 				};
 			};
+			mdss_dsi_gpio: mdss_dsi_gpio {
+				mux {
+					pins = "gpio141";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio141";
+					drive-strength = <8>;
+					bias-pull-down;
+					output-low;
+				};
+			};
 		};
 
 		pmx_mdss_te {
