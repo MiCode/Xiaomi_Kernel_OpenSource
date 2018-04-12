@@ -19,6 +19,7 @@
 #include <linux/irq.h>
 #include <linux/iio/consumer.h>
 #include <linux/pmic-voter.h>
+#include <linux/of_batterydata.h>
 #include "smb5-lib.h"
 #include "smb5-reg.h"
 #include "battery.h"
@@ -597,6 +598,8 @@ static int smblib_notifier_call(struct notifier_block *nb,
 			chg->bms_psy = psy;
 		if (ev == PSY_EVENT_PROP_CHANGED)
 			schedule_work(&chg->bms_update_work);
+		if (!chg->jeita_configured)
+			schedule_work(&chg->jeita_update_work);
 	}
 
 	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel")) {
@@ -3542,6 +3545,100 @@ static void smblib_pl_enable_work(struct work_struct *work)
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
 }
 
+#define JEITA_SOFT			0
+#define JEITA_HARD			1
+static int smblib_update_jeita(struct smb_charger *chg, u32 *thresholds,
+								int type)
+{
+	int rc;
+	u16 temp, base;
+
+	base = CHGR_JEITA_THRESHOLD_BASE_REG(type);
+
+	temp = thresholds[1] & 0xFFFF;
+	temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
+	rc = smblib_batch_write(chg, base, (u8 *)&temp, 2);
+	if (rc < 0) {
+		smblib_err(chg,
+			"Couldn't configure Jeita %s hot threshold rc=%d\n",
+			(type == JEITA_SOFT) ? "Soft" : "Hard", rc);
+		return rc;
+	}
+
+	temp = thresholds[0] & 0xFFFF;
+	temp = ((temp & 0xFF00) >> 8) | ((temp & 0xFF) << 8);
+	rc = smblib_batch_write(chg, base + 2, (u8 *)&temp, 2);
+	if (rc < 0) {
+		smblib_err(chg,
+			"Couldn't configure Jeita %s cold threshold rc=%d\n",
+			(type == JEITA_SOFT) ? "Soft" : "Hard", rc);
+		return rc;
+	}
+
+	smblib_dbg(chg, PR_MISC, "%s Jeita threshold configured\n",
+				(type == JEITA_SOFT) ? "Soft" : "Hard");
+
+	return 0;
+}
+
+static void jeita_update_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						jeita_update_work);
+	struct device_node *node = chg->dev->of_node;
+	struct device_node *batt_node, *pnode;
+	union power_supply_propval val;
+	int rc;
+	u32 jeita_thresholds[2];
+
+	batt_node = of_find_node_by_name(node, "qcom,battery-data");
+	if (!batt_node) {
+		smblib_err(chg, "Batterydata not available\n");
+		goto out;
+	}
+
+	rc = power_supply_get_property(chg->bms_psy,
+			POWER_SUPPLY_PROP_RESISTANCE_ID, &val);
+	if (rc < 0) {
+		smblib_err(chg, "Failed to get batt-id rc=%d\n", rc);
+		goto out;
+	}
+
+	pnode = of_batterydata_get_best_profile(batt_node,
+					val.intval / 1000, NULL);
+	if (IS_ERR(pnode)) {
+		rc = PTR_ERR(pnode);
+		smblib_err(chg, "Failed to detect valid battery profile %d\n",
+				rc);
+		goto out;
+	}
+
+	rc = of_property_read_u32_array(pnode, "qcom,jeita-hard-thresholds",
+				jeita_thresholds, 2);
+	if (!rc) {
+		rc = smblib_update_jeita(chg, jeita_thresholds, JEITA_HARD);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't configure Hard Jeita rc=%d\n",
+					rc);
+			goto out;
+		}
+	}
+
+	rc = of_property_read_u32_array(pnode, "qcom,jeita-soft-thresholds",
+				jeita_thresholds, 2);
+	if (!rc) {
+		rc = smblib_update_jeita(chg, jeita_thresholds, JEITA_SOFT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't configure Soft Jeita rc=%d\n",
+					rc);
+			goto out;
+		}
+	}
+
+out:
+	chg->jeita_configured = true;
+}
+
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -3654,6 +3751,7 @@ int smblib_init(struct smb_charger *chg)
 	mutex_init(&chg->lock);
 	INIT_WORK(&chg->bms_update_work, bms_update_work);
 	INIT_WORK(&chg->pl_update_work, pl_update_work);
+	INIT_WORK(&chg->jeita_update_work, jeita_update_work);
 	INIT_DELAYED_WORK(&chg->clear_hdc_work, clear_hdc_work);
 	INIT_DELAYED_WORK(&chg->icl_change_work, smblib_icl_change_work);
 	INIT_DELAYED_WORK(&chg->pl_enable_work, smblib_pl_enable_work);
@@ -3663,6 +3761,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->fake_input_current_limited = -EINVAL;
 	chg->fake_batt_status = -EINVAL;
 	chg->sink_src_mode = UNATTACHED_MODE;
+	chg->jeita_configured = false;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
@@ -3720,6 +3819,7 @@ int smblib_deinit(struct smb_charger *chg)
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
 		cancel_work_sync(&chg->bms_update_work);
+		cancel_work_sync(&chg->jeita_update_work);
 		cancel_work_sync(&chg->pl_update_work);
 		cancel_delayed_work_sync(&chg->clear_hdc_work);
 		cancel_delayed_work_sync(&chg->icl_change_work);

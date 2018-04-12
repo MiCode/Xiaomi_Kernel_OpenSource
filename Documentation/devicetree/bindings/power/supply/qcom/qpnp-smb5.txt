@@ -174,10 +174,7 @@ Charger specific properties:
   Usage:      optional
   Value type: <phandle>
   Definition: Specifies the phandle of the node which contains the battery
-		profiles supported on the device. This is only specified
-		when step charging and sw-jeita configurations are desired
-		to be get from these properties defined in battery profile:
-		qcom,step-chg-ranges, qcom,jeita-fcc-ranges, qcom,jeita-fv-ranges.
+		profiles supported on the device.
 
 - qcom,flash-derating-soc
   Usage:      optional

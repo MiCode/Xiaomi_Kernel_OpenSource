@@ -305,6 +305,7 @@ struct smb_charger {
 	/* work */
 	struct work_struct	bms_update_work;
 	struct work_struct	pl_update_work;
+	struct work_struct	jeita_update_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -352,6 +353,7 @@ struct smb_charger {
 	int			hw_max_icl_ua;
 	int			auto_recharge_soc;
 	enum sink_src_mode	sink_src_mode;
+	bool			jeita_configured;
 
 	/* workaround flag */
 	u32			wa_flags;
