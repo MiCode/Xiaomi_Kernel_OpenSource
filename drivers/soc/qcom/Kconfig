@@ -558,6 +558,14 @@ config MSM_SUBSYSTEM_RESTART
          It also notifies userspace of transitions between these states via
          sysfs.
 
+config MSM_SYSMON_COMM
+	bool "MSM System Monitor communication support"
+	depends on MSM_SMD && MSM_SUBSYSTEM_RESTART
+	help
+	  This option adds support for MSM System Monitor library, which
+	  provides an API that may be used for notifying subsystems within
+	  the SoC about other subsystems' power-up/down state-changes.
+
 config MSM_PIL
        bool "Peripheral image loading"
        select FW_LOADER
