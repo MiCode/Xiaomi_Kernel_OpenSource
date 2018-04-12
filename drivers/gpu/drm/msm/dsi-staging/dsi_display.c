@@ -694,7 +694,7 @@ static int dsi_display_status_check_te(struct dsi_display *display)
 	reinit_completion(&display->esd_te_gate);
 	if (!wait_for_completion_timeout(&display->esd_te_gate,
 				esd_te_timeout)) {
-		pr_err("ESD check failed\n");
+		pr_err("TE check failed\n");
 		rc = -EINVAL;
 	}
 
@@ -703,7 +703,7 @@ static int dsi_display_status_check_te(struct dsi_display *display)
 	return rc;
 }
 
-int dsi_display_check_status(void *display)
+int dsi_display_check_status(void *display, bool te_check_override)
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
@@ -713,17 +713,19 @@ int dsi_display_check_status(void *display)
 	if (dsi_display == NULL)
 		return -EINVAL;
 
-	panel = dsi_display->panel;
-
-	status_mode = panel->esd_config.status_mode;
-
 	mutex_lock(&dsi_display->display_lock);
 
+	panel = dsi_display->panel;
 	if (!panel->panel_initialized) {
 		pr_debug("Panel not initialized\n");
 		mutex_unlock(&dsi_display->display_lock);
 		return rc;
 	}
+
+	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio))
+		status_mode = ESD_MODE_PANEL_TE;
+	else
+		status_mode = panel->esd_config.status_mode;
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);

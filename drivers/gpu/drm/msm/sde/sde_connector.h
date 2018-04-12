@@ -228,9 +228,10 @@ struct sde_connector_ops {
 	/**
 	 * check_status - check status of connected display panel
 	 * @display: Pointer to private display handle
+	 * @te_check_override: Whether check TE from panel or default check
 	 * Returns: positive value for success, negetive or zero for failure
 	 */
-	int (*check_status)(void *display);
+	int (*check_status)(void *display, bool te_check_override);
 
 	/**
 	 * cmd_transfer - Transfer command to the connected display panel
@@ -770,4 +771,11 @@ void sde_connector_helper_bridge_disable(struct drm_connector *connector);
  */
 int sde_connector_get_panel_vfp(struct drm_connector *connector,
 	struct drm_display_mode *mode);
+
+/**
+ * sde_connector_esd_status - helper function to check te status
+ * @connector: Pointer to DRM connector object
+ */
+int sde_connector_esd_status(struct drm_connector *connector);
+
 #endif /* _SDE_CONNECTOR_H_ */
