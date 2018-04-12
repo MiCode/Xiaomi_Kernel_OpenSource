@@ -836,7 +836,7 @@ static void crng_reseed(struct crng_state *crng, struct entropy_store *r)
 		_crng_backtrack_protect(&primary_crng, buf.block,
 					CHACHA20_KEY_SIZE);
 	}
-	spin_lock_irqsave(&primary_crng.lock, flags);
+	spin_lock_irqsave(&crng->lock, flags);
 	for (i = 0; i < 8; i++) {
 		unsigned long	rv;
 		if (!arch_get_random_seed_long(&rv) &&
@@ -852,7 +852,7 @@ static void crng_reseed(struct crng_state *crng, struct entropy_store *r)
 		wake_up_interruptible(&crng_init_wait);
 		pr_notice("random: crng init done\n");
 	}
-	spin_unlock_irqrestore(&primary_crng.lock, flags);
+	spin_unlock_irqrestore(&crng->lock, flags);
 }
 
 static inline void maybe_reseed_primary_crng(void)
