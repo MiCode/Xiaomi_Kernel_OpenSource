@@ -139,6 +139,8 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sda670-pm660a-mtp-overlay.dtbo \
 		sdm670-tasha-codec-cdp-overlay.dtbo \
 		sdm670-pm660a-tasha-codec-cdp-overlay.dtbo \
+		sdm670-aqt1000-cdp-overlay.dtbo \
+		sdm670-pm660a-aqt1000-cdp-overlay.dtbo \
 		qcs605-cdp-overlay.dtbo \
 		qcs605-mtp-overlay.dtbo \
 		qcs605-360camera-overlay.dtbo \
@@ -163,7 +165,9 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm710-usbc-external-codec-pm660a-cdp-overlay.dtbo \
 		sdm710-usbc-external-codec-pm660a-mtp-overlay.dtbo \
 		sdm710-tasha-codec-cdp-overlay.dtbo \
-		sdm710-pm660a-tasha-codec-cdp-overlay.dtbo
+		sdm710-pm660a-tasha-codec-cdp-overlay.dtbo \
+		sdm710-aqt1000-cdp-overlay.dtbo \
+		sdm710-pm660a-aqt1000-cdp-overlay.dtbo
 
 sdm670-cdp-overlay.dtbo-base := sdm670.dtb
 sdm670-mtp-overlay.dtbo-base := sdm670.dtb
@@ -186,6 +190,8 @@ sdm670-usbc-external-codec-pm660a-cdp-overlay.dtbo-base := sdm670.dtb
 sdm670-usbc-external-codec-pm660a-mtp-overlay.dtbo-base := sdm670.dtb
 sdm670-tasha-codec-cdp-overlay.dtbo-base := sdm670.dtb
 sdm670-pm660a-tasha-codec-cdp-overlay.dtbo-base := sdm670.dtb
+sdm670-aqt1000-cdp-overlay.dtbo-base := sdm670.dtb
+sdm670-pm660a-aqt1000-cdp-overlay.dtbo-base := sdm670.dtb
 sda670-cdp-overlay.dtbo-base := sda670.dtb
 sda670-mtp-overlay.dtbo-base := sda670.dtb
 sda670-pm660a-cdp-overlay.dtbo-base := sda670.dtb
@@ -215,6 +221,8 @@ sdm710-usbc-external-codec-pm660a-cdp-overlay.dtbo-base := sdm710.dtb
 sdm710-usbc-external-codec-pm660a-mtp-overlay.dtbo-base := sdm710.dtb
 sdm710-tasha-codec-cdp-overlay.dtbo-base := sdm710.dtb
 sdm710-pm660a-tasha-codec-cdp-overlay.dtbo-base := sdm710.dtb
+sdm710-aqt1000-cdp-overlay.dtbo-base := sdm710.dtb
+sdm710-pm660a-aqt1000-cdp-overlay.dtbo-base := sdm710.dtb
 
 else
 dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
