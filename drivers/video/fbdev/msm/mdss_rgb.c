@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018, 2020-2021, The Linux Foundation. All rights reserved. */
 
 
 #include <linux/module.h>
@@ -449,8 +449,8 @@ static int mdss_rgb_ctrl_clock_init(struct platform_device *ctrl_pdev,
 
 	info.core_clks.mdp_core_clk = rgb_data->mdp_core_clk;
 	info.core_clks.mmss_misc_ahb_clk = rgb_data->mmss_misc_ahb_clk;
-	info.link_clks.byte_clk = rgb_data->byte_clk_rgb;
-	info.link_clks.pixel_clk = rgb_data->pixel_clk_rgb;
+	info.link_hs_clks.byte_clk = rgb_data->byte_clk_rgb;
+	info.link_hs_clks.pixel_clk = rgb_data->pixel_clk_rgb;
 
 	info.priv_data = rgb_data;
 	snprintf(info.name, sizeof(info.name), "DSI0");
