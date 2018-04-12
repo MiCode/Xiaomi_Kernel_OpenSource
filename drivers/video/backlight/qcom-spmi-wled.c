@@ -1514,6 +1514,7 @@ static int wled_probe(struct platform_device *pdev)
 static const struct of_device_id wled_match_table[] = {
 	{ .compatible = "qcom,pmi8998-spmi-wled", .data = &version_table[0] },
 	{ .compatible = "qcom,pm855l-spmi-wled", .data = &version_table[2] },
+	{ .compatible = "qcom,pm640l-spmi-wled", .data = &version_table[2] },
 	{ },
 };
 
