@@ -145,6 +145,7 @@ struct cam_iommu_cb_set {
 	struct mutex payload_list_lock;
 	struct list_head payload_list;
 	u32 non_fatal_fault;
+	u32 enable_iova_guard;
 };
 
 static const struct of_device_id msm_cam_smmu_dt_match[] = {
@@ -3048,6 +3049,15 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 				"Error: failed to set non fatal fault attribute");
 		}
 
+		if (!strcmp(cb->name, "icp")) {
+			iommu_cb_set.enable_iova_guard = 1;
+			if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE,
+				&iommu_cb_set.enable_iova_guard) < 0) {
+				CAM_ERR(CAM_SMMU,
+					"Failed to set iova guard pagei attr");
+			}
+		}
 	} else {
 		CAM_ERR(CAM_SMMU, "Context bank does not have IO region");
 		rc = -ENODEV;
