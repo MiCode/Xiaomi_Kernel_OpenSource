@@ -2193,7 +2193,6 @@ static void sort_clusters(void)
 
 int __read_mostly min_power_cpu;
 
-unsigned int sched_smp_overlap_capacity;
 void walt_sched_energy_populated_callback(void)
 {
 	struct sched_cluster *cluster;
