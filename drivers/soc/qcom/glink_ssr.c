@@ -488,6 +488,17 @@ static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 					"Subsystem notification failed", ret);
 			return ret;
 		}
+	} else if (code == SUBSYS_AFTER_POWERUP) {
+		GLINK_SSR_LOG("<SSR> %s: %s: subsystem restart for %s\n",
+				__func__, "SUBSYS_AFTER_POWERUP",
+				notifier->subsystem);
+		ss_info = get_info_for_subsystem(notifier->subsystem);
+		if (ss_info == NULL) {
+			GLINK_SSR_ERR("<SSR> %s: ss_info is NULL\n", __func__);
+			return -EINVAL;
+		}
+
+		glink_subsys_up(ss_info->edge);
 	}
 	return NOTIFY_DONE;
 }

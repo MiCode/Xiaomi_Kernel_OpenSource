@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -823,6 +823,14 @@ uint32_t glink_ssr_get_seq_num(void);
  * Return: Standard error code.
  */
 int glink_ssr(const char *subsystem);
+
+/*
+ * glink_subsys_up() - SSR sub system up function.
+ * @subsystem:	Constant string for name of remote subsystem.
+ *
+ * Return: Standard error code.
+ */
+int glink_subsys_up(const char *subsystem);
 
 /**
  * notify for subsystem() - Notify other subsystems that a subsystem is being
