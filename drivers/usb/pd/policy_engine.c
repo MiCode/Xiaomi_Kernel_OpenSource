@@ -1270,6 +1270,18 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		dual_role_instance_changed(pd->dual_role);
 		break;
 
+	case PE_PRS_SRC_SNK_TRANSITION_TO_OFF:
+		val.intval = pd->in_pr_swap = true;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
+		pd->in_explicit_contract = false;
+
+		/* lock in current mode */
+		set_power_role(pd, pd->current_pr);
+
+		kick_sm(pd, SRC_TRANSITION_TIME);
+		break;
+
 	case PE_SRC_HARD_RESET:
 	case PE_SNK_HARD_RESET:
 		/* are we still connected? */
@@ -1416,6 +1428,13 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_PRS_SNK_SRC_TRANSITION_TO_OFF:
+		val.intval = pd->in_pr_swap = true;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
+
+		/* lock in current mode */
+		set_power_role(pd, pd->current_pr);
+
 		val.intval = pd->requested_current = 0; /* suspend charging */
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
@@ -2192,9 +2211,6 @@ static void usbpd_sm(struct work_struct *w)
 
 			dr_swap(pd);
 		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP)) {
-			/* lock in current mode */
-			set_power_role(pd, pd->current_pr);
-
 			/* we'll happily accept Src->Sink requests anytime */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -2203,8 +2219,7 @@ static void usbpd_sm(struct work_struct *w)
 				break;
 			}
 
-			pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
-			kick_sm(pd, SRC_TRANSITION_TIME);
+			usbpd_set_state(pd, PE_PRS_SRC_SNK_TRANSITION_TO_OFF);
 			break;
 		} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP)) {
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
@@ -2483,9 +2498,6 @@ static void usbpd_sm(struct work_struct *w)
 			dr_swap(pd);
 		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP) &&
 				pd->spec_rev == USBPD_REV_20) {
-			/* lock in current mode */
-			set_power_role(pd, pd->current_pr);
-
 			/* TODO: should we Reject in certain circumstances? */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -2494,10 +2506,6 @@ static void usbpd_sm(struct work_struct *w)
 				break;
 			}
 
-			pd->in_pr_swap = true;
-			val.intval = 1;
-			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_PR_SWAP, &val);
 			usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 			break;
 		} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP) &&
@@ -2750,17 +2758,10 @@ static void usbpd_sm(struct work_struct *w)
 			break;
 		}
 
-		pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
-		kick_sm(pd, SRC_TRANSITION_TIME);
+		usbpd_set_state(pd, PE_PRS_SRC_SNK_TRANSITION_TO_OFF);
 		break;
 
 	case PE_PRS_SRC_SNK_TRANSITION_TO_OFF:
-		pd->in_pr_swap = true;
-		val.intval = 1;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PR_SWAP, &val);
-		pd->in_explicit_contract = false;
-
 		if (pd->vbus_enabled) {
 			regulator_disable(pd->vbus);
 			pd->vbus_enabled = false;
@@ -2798,10 +2799,6 @@ static void usbpd_sm(struct work_struct *w)
 			break;
 		}
 
-		pd->in_pr_swap = true;
-		val.intval = 1;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PR_SWAP, &val);
 		usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 		break;
 
