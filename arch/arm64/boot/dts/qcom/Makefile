@@ -36,9 +36,18 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150-v2-qrd.dtb
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+	dtbo-$(CONFIG_ARCH_SDMSHRIKE) += \
+		sdmshrike-cdp-overlay.dtbo \
+		sdmshrike-mtp-overlay.dtbo
+
+sdmshrike-cdp-overlay.dtbo-base := sdmshrike.dtb
+sdmshrike-mtp-overlay.dtbo-base := sdmshrike.dtb
+else
 dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-rumi.dtb \
 	sdmshrike-mtp.dtb \
 	sdmshrike-cdp.dtb
+endif
 
 dtb-$(CONFIG_ARCH_SDM640)	+= sdm640-rumi.dtb \
 	sdm640-mtp.dtb \

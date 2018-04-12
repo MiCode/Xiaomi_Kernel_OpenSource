@@ -25,7 +25,8 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDMSHRIKE";
 	compatible = "qcom,sdmshrike";
-	qcom,msm-id = <340 0x0>;
+	qcom,msm-name = "SDMSHRIKE";
+	qcom,msm-id = <340 0x10000>;
 	interrupt-parent = <&pdc>;
 
 	aliases {
