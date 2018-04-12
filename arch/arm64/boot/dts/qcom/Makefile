@@ -419,11 +419,15 @@ dtb-$(CONFIG_ARCH_SDM632) += sdm632-rumi.dtb \
 
 dtb-$(CONFIG_ARCH_SDM439) += sdm439-mtp.dtb \
 	sdm439-cdp.dtb \
-	sdm439-qrd.dtb
+	sdm439-qrd.dtb \
+	sda439-mtp.dtb \
+	sda439-cdp.dtb
 
 dtb-$(CONFIG_ARCH_SDM429) += sdm429-mtp.dtb \
 	sdm429-cdp.dtb \
-	sdm429-qrd.dtb
+	sdm429-qrd.dtb \
+	sda429-mtp.dtb \
+	sda429-cdp.dtb
 
 endif
 
