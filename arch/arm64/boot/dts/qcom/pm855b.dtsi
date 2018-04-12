@@ -125,6 +125,21 @@
 				label = "v_i_parallel_vbat_vdata";
 				qcom,pre-scaling = <1 1>;
 			};
+
+			smb1390_therm {
+				reg = <ADC_AMUX_THM2>;
+				label = "smb1390_therm";
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			smb1355_therm {
+				reg = <ADC_AMUX_THM2_PU2>;
+				label = "smb1355_therm";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
 		};
 
 		pm855b_charger: qcom,qpnp-smb5 {
