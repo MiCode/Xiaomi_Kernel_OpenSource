@@ -671,6 +671,8 @@
 
 		qcom,max-pclk-frequency-khz = <675000>;
 
+		qcom,mst-enable;
+
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
