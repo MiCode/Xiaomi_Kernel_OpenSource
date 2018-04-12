@@ -1862,7 +1862,7 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 	if (kstrtouint(comma2 + 1, 0, &attr))
 		goto invalid_format;
 
-	if (v_addr < test_virt_addr || v_addr > (test_virt_addr + SZ_1M - 1))
+	if (v_addr < test_virt_addr || v_addr + size > test_virt_addr + SZ_1M)
 		goto invalid_addr;
 
 	if (attr == 0)
