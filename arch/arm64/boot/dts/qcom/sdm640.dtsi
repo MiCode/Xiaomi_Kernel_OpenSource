@@ -617,10 +617,10 @@
 		interrupts = <1 5 4>;
 	};
 
-	qcom,msm-imem@146bf000 {
+	qcom,msm-imem@146aa000 {
 		compatible = "qcom,msm-imem";
-		reg = <0x146bf000 0x1000>;
-		ranges = <0x0 0x146bf000 0x1000>;
+		reg = <0x146aa000 0x1000>;
+		ranges = <0x0 0x146aa000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
