@@ -4648,7 +4648,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct qsmmuv500_tbu_device *tbu;
 	int ret;
-	phys_addr_t phys = 0;
+	phys_addr_t phys;
 	u64 val, fsr;
 	unsigned long flags;
 	void __iomem *cb_base;
@@ -4707,7 +4707,6 @@ redo:
 	writeq_relaxed(val, tbu->base + DEBUG_TXN_TRIGG_REG);
 
 	ret = 0;
-	//based on readx_poll_timeout_atomic
 	timeout = ktime_add_us(ktime_get(), TBU_DBG_TIMEOUT_US);
 	for (;;) {
 		val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
@@ -4723,26 +4722,25 @@ redo:
 		}
 	}
 
+	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
 	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
 	if (fsr & FSR_FAULT) {
 		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx\n",
-			fsr);
-		ret = -EINVAL;
+				fsr);
 
-		writel_relaxed(val, cb_base + ARM_SMMU_CB_FSR);
+		/* Clear pending interrupts */
+		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
 		/*
-		 * Clear pending interrupts
 		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation
+		 * before resuming SMMU operation.
 		 */
 		wmb();
 		writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
-	}
 
-	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
-	if (val & DEBUG_PAR_FAULT_VAL) {
-		dev_err(tbu->dev, "ECATS translation failed! PAR = %llx\n",
-			val);
+		/* Check if ECATS translation failed */
+		if (val & DEBUG_PAR_FAULT_VAL)
+			dev_err(tbu->dev, "ECATS translation failed! PAR = %llx\n",
+					val);
 		ret = -EINVAL;
 	}
 
