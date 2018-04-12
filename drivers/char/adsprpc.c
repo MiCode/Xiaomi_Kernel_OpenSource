@@ -3505,7 +3505,6 @@ bail:
 
 static int fastrpc_cb_legacy_probe(struct device *dev)
 {
-	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *chan;
 	struct fastrpc_session_ctx *first_sess = NULL, *sess = NULL;
 	const char *name;
@@ -3574,7 +3573,6 @@ static int fastrpc_cb_legacy_probe(struct device *dev)
 		sess->smmu.secure = false;
 		chan->sesscount++;
 	}
-	me->legacy = 1;
 bail:
 	kfree(sids);
 	return err;
@@ -3627,7 +3625,6 @@ static int fastrpc_probe(struct platform_device *pdev)
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
 	struct device *dev = &pdev->dev;
-	struct smq_phy_page range;
 	struct device_node *ion_node, *node;
 	struct platform_device *ion_pdev;
 	struct cma *cma;
@@ -3651,6 +3648,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-legacy-compute")) {
 		me->glink = false;
+		me->legacy = 1;
 	}
 
 	if (of_device_is_compatible(dev->of_node,
@@ -3661,7 +3659,6 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-adsprpc-mem-region")) {
 		me->dev = dev;
-		range.addr = 0;
 		ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
 		if (ion_node) {
 			for_each_available_child_of_node(ion_node, node) {
@@ -3674,13 +3671,14 @@ static int fastrpc_probe(struct platform_device *pdev)
 					break;
 				cma = dev_get_cma_area(&ion_pdev->dev);
 				if (cma) {
-					range.addr = cma_get_base(cma);
-					range.size = (size_t)cma_get_size(cma);
+					me->range.addr = cma_get_base(cma);
+					me->range.size =
+						(size_t)cma_get_size(cma);
 				}
 				break;
 			}
 		}
-		if (range.addr && !of_property_read_bool(dev->of_node,
+		if (me->range.addr && !of_property_read_bool(dev->of_node,
 							 "restrict-access")) {
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[4] = {VMID_HLOS, VMID_MSS_MSA, VMID_SSC_Q6,
@@ -3691,12 +3689,11 @@ static int fastrpc_probe(struct platform_device *pdev)
 				PERM_READ | PERM_WRITE | PERM_EXEC,
 				};
 
-			VERIFY(err, !hyp_assign_phys(range.addr, range.size,
-					srcVM, 1, destVM, destVMperm, 4));
+			VERIFY(err, !hyp_assign_phys(me->range.addr,
+					me->range.size, srcVM, 1,
+					destVM, destVMperm, 4));
 			if (err)
 				goto bail;
-			me->range.addr = range.addr;
-			me->range.size = range.size;
 		}
 		return 0;
 	}
