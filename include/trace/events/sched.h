@@ -810,7 +810,7 @@ TRACE_EVENT(sched_load_avg_cpu,
 		__field( unsigned long, load_avg                )
 		__field( unsigned long, util_avg                )
 		__field( unsigned long, util_avg_pelt           )
-		__field( unsigned long, util_avg_walt           )
+		__field( u32,		util_avg_walt           )
 	),
 
 	TP_fast_assign(
@@ -820,16 +820,16 @@ TRACE_EVENT(sched_load_avg_cpu,
 		__entry->util_avg_pelt  = cfs_rq->avg.util_avg;
 		__entry->util_avg_walt  = 0;
 #ifdef CONFIG_SCHED_WALT
-		__entry->util_avg_walt  =
-			cpu_rq(cpu)->prev_runnable_sum << SCHED_CAPACITY_SHIFT;
-		do_div(__entry->util_avg_walt, sched_ravg_window);
+		__entry->util_avg_walt  = div64_ul(cpu_rq(cpu)->prev_runnable_sum,
+					  sched_ravg_window >> SCHED_CAPACITY_SHIFT);
+
 		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
 			__entry->util_avg       = __entry->util_avg_walt;
 #endif
 	),
 
 	TP_printk("cpu=%d load_avg=%lu util_avg=%lu "
-			"util_avg_pelt=%lu util_avg_walt=%lu",
+			"util_avg_pelt=%lu util_avg_walt=%u",
 		__entry->cpu, __entry->load_avg, __entry->util_avg,
 		__entry->util_avg_pelt, __entry->util_avg_walt)
 );
@@ -853,7 +853,7 @@ TRACE_EVENT(sched_load_se,
 		__field(	unsigned long,	load			      )
 		__field(	unsigned long,	util			      )
 		__field(	unsigned long,	util_pelt		      )
-		__field(	unsigned long,	util_walt		      )
+		__field(	u32,		util_walt		      )
 	),
 
 	TP_fast_assign(
@@ -873,8 +873,7 @@ TRACE_EVENT(sched_load_se,
 #ifdef CONFIG_SCHED_WALT
 		if (!se->my_q) {
 			struct task_struct *p = container_of(se, struct task_struct, se);
-			__entry->util_walt = ((unsigned long)(p->ravg.demand) << SCHED_CAPACITY_SHIFT);
-			do_div(__entry->util_walt, sched_ravg_window);
+			__entry->util_walt = p->ravg.demand / (sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 			if (!walt_disabled && sysctl_sched_use_walt_task_util)
 				__entry->util = __entry->util_walt;
 		}
