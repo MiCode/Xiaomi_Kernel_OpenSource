@@ -433,12 +433,11 @@ void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 	writel_relaxed(TMC_MODE_CIRCULAR_BUFFER, drvdata->base + TMC_MODE);
 
 	axictl = readl_relaxed(drvdata->base + TMC_AXICTL);
+	axictl &= ~TMC_AXICTL_CLEAR_MASK;
 	if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
 		axictl &= ~TMC_AXICTL_SCT_GAT_MODE;
 	else
 		axictl |= TMC_AXICTL_SCT_GAT_MODE;
-	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
-	axictl &= ~TMC_AXICTL_CLEAR_MASK;
 	axictl |= (TMC_AXICTL_PROT_CTL_B1 | TMC_AXICTL_WR_BURST_16);
 	axictl |= TMC_AXICTL_AXCACHE_OS;
 

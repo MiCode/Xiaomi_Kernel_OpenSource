@@ -272,6 +272,7 @@ extern struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 extern const struct coresight_ops tmc_etr_cs_ops;
 extern void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp);
 
+extern const struct coresight_ops tmc_etr_cs_ops;
 
 #define TMC_REG_PAIR(name, lo_off, hi_off)				\
 static inline u64							\
