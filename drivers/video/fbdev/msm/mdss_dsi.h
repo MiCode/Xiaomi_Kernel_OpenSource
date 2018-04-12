@@ -657,15 +657,19 @@ void mdss_dsi_shadow_clk_deinit(struct device *dev,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_pre_clkoff_cb(void *priv,
 			   enum mdss_dsi_clk_type clk_type,
+			   enum mdss_dsi_lclk_type l_type,
 			   enum mdss_dsi_clk_state new_state);
 int mdss_dsi_post_clkoff_cb(void *priv,
 			    enum mdss_dsi_clk_type clk_type,
+			    enum mdss_dsi_lclk_type l_type,
 			    enum mdss_dsi_clk_state curr_state);
 int mdss_dsi_post_clkon_cb(void *priv,
 			   enum mdss_dsi_clk_type clk_type,
+			   enum mdss_dsi_lclk_type l_type,
 			   enum mdss_dsi_clk_state curr_state);
 int mdss_dsi_pre_clkon_cb(void *priv,
 			  enum mdss_dsi_clk_type clk_type,
+			  enum mdss_dsi_lclk_type l_type,
 			  enum mdss_dsi_clk_state new_state);
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
 void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl);
