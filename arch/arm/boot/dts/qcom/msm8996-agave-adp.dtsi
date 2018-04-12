@@ -1547,3 +1547,12 @@
 		};
 	};
 };
+
+/ {
+	qcom,sde-reserved-plane {
+		qcom,sde-plane-id@0 {
+			reg = <0x0>;
+			qcom,plane-name = "vig0";
+		};
+	};
+};
