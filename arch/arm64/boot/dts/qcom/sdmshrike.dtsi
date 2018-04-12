@@ -650,6 +650,13 @@
 				qcom,intents = <0x64 64>;
 			};
 		};
+
+		glink_spi_xprt_wdsp: wdsp {
+			qcom,remote-pid = <10>;
+			transport = "spi";
+			tx-descriptors = <0x12000 0x12004>;
+			rx-descriptors = <0x1200c 0x12010>;
+		};
 	};
 
 	qcom,glinkpkt {
