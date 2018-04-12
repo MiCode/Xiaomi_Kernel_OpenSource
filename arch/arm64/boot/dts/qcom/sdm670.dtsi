@@ -2011,7 +2011,7 @@
 			<0 432 0>;
 		interrupt-names = "ipa-irq", "gsi-irq";
 		qcom,ipa-hw-ver = <13>; /* IPA core version = IPAv3.5.1 */
-		qcom,ipa-hw-mode = <1>;
+		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
