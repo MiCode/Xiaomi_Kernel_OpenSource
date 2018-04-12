@@ -1445,6 +1445,10 @@ static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	usb_to_ipa_ep_cfg.route.rt_tbl_hdl = 0;
 	usb_to_ipa_ep_cfg.mode.dst = IPA_CLIENT_A5_LAN_WAN_CONS;
 	usb_to_ipa_ep_cfg.mode.mode = IPA_BASIC;
+
+	/* enable hdr_metadata_reg_valid */
+	usb_to_ipa_ep_cfg.hdr.hdr_metadata_reg_valid = true;
+
 	result = ipa_cfg_ep(usb_to_ipa_hdl, &usb_to_ipa_ep_cfg);
 	if (result) {
 		ECM_IPA_ERROR("failed to configure USB to IPA point\n");
