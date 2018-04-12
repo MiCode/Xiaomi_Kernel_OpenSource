@@ -14,6 +14,7 @@
 /dts-v1/;
 
 #include "msm8909-mtp.dtsi"
+#include "msm8909w-gpu.dtsi"
 #include "msm8909w.dtsi"
 #include "msm8909w-bg-memory.dtsi"
 #include "8909w-pm660.dtsi"

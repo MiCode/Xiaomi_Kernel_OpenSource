@@ -1,0 +1,62 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* To use BIMC based bus governor */
+&gpubw {
+	qcom,bw-tbl =
+		<    0 >,	/*   9.6 MHz */
+		<  366 >,	/*  48.0 MHz */
+		<  732 >,	/*  96.0 MHz */
+		< 1464 >,	/* 192.0 MHz */
+		< 2929 >;	/* 384.0 MHz */
+};
+
+&msm_gpu {
+
+	/* To disable GPU wake up on touch event */
+	qcom,disable-wake-on-touch;
+
+	/* Bus Scale Settings */
+	qcom,msm-bus,num-cases = <3>;
+	qcom,msm-bus,vectors-KBps =
+		<26 512 0 0>,
+		<26 512 0 1536000>,
+		<26 512 0 3070000>;
+
+	/delete-node/qcom,gpu-pwrlevels;
+
+	/* Power levels */
+	qcom,gpu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,gpu-pwrlevels";
+
+		qcom,gpu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gpu-freq = <200000000>;
+			qcom,bus-freq = <1>;
+			qcom,bus-min = <1>;
+			qcom,bus-max = <1>;
+		};
+
+		qcom,gpu-pwrlevel@1 {
+			reg = <1>;
+			qcom,gpu-freq = <19200000>;
+			qcom,bus-freq = <0>;
+			qcom,bus-min = <0>;
+			qcom,bus-max = <0>;
+		};
+
+	};
+
+};
