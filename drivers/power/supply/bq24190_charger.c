@@ -506,6 +506,9 @@ static int bq24190_register_reset(struct bq24190_dev_info *bdi)
 	int ret, limit = 100;
 	u8 v;
 
+	if (device_property_read_bool(bdi->dev, "disable-reset"))
+		return 0;
+
 	/* Reset the registers */
 	ret = bq24190_write_mask(bdi, BQ24190_REG_POC,
 			BQ24190_REG_POC_RESET_MASK,
@@ -1184,8 +1187,13 @@ static irqreturn_t bq24190_irq_handler_thread(int irq, void *data)
 		}
 	} while (f_reg && ++i < 2);
 
+	/* ignore over/under voltage fault after disconnect */
+	if (f_reg == (1 << BQ24190_REG_F_CHRG_FAULT_SHIFT) &&
+	    !(ss_reg & BQ24190_REG_SS_PG_STAT_MASK))
+		f_reg = 0;
+
 	if (f_reg != bdi->f_reg) {
-		dev_info(bdi->dev,
+		dev_warn(bdi->dev,
 			"Fault: boost %d, charge %d, battery %d, ntc %d\n",
 			!!(f_reg & BQ24190_REG_F_BOOST_FAULT_MASK),
 			!!(f_reg & BQ24190_REG_F_CHRG_FAULT_MASK),

@@ -113,16 +113,21 @@ static inline struct sk_buff *hci_uart_dequeue(struct hci_uart *hu)
 {
 	struct sk_buff *skb = hu->tx_skb;
 
-	if (!skb)
-		skb = hu->proto->dequeue(hu);
-	else
+	if (!skb) {
+		if (test_bit(HCI_UART_PROTO_READY, &hu->flags))
+			skb = hu->proto->dequeue(hu);
+	} else {
 		hu->tx_skb = NULL;
+	}
 
 	return skb;
 }
 
 int hci_uart_tx_wakeup(struct hci_uart *hu)
 {
+	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags))
+		return 0;
+
 	if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state)) {
 		set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
 		return 0;
