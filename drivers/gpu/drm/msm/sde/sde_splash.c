@@ -372,12 +372,12 @@ void sde_splash_destroy(struct sde_splash_info *sinfo,
 }
 
 /*
- * sde_splash_parse_dt.
+ * sde_splash_parse_memory_dt.
  * In the function, it will parse and reserve two kinds of memory node.
  * First is to get the reserved memory for display buffers.
- * Second is to get the memory node LK's code stack is running on.
+ * Second is to get the memory node which LK's heap memory is running on.
  */
-int sde_splash_parse_dt(struct drm_device *dev)
+int sde_splash_parse_memory_dt(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct sde_kms *sde_kms;
@@ -402,6 +402,79 @@ int sde_splash_parse_dt(struct drm_device *dev)
 	}
 
 	return 0;
+}
+
+static inline u32 _sde_splash_parse_sspp_id(struct sde_mdss_cfg *cfg,
+					const char *name)
+{
+	int i;
+
+	for (i = 0; i < cfg->sspp_count; i++) {
+		if (!strcmp(cfg->sspp[i].name, name))
+			return cfg->sspp[i].id;
+	}
+
+	return 0;
+}
+
+int sde_splash_parse_reserved_plane_dt(struct sde_splash_info *splash_info,
+				struct sde_mdss_cfg *cfg)
+{
+	struct device_node *parent, *node;
+	struct property *prop;
+	const char *cname;
+	int ret = 0, i = 0;
+
+	if (!splash_info || !cfg)
+		return -EINVAL;
+
+	parent = of_find_node_by_path("/qcom,sde-reserved-plane");
+	if (!parent)
+		return -EINVAL;
+
+	for (i = 0; i < MAX_BLOCKS; i++)
+		splash_info->reserved_pipe_info[i] = 0xFFFFFFFF;
+
+	i = 0;
+	for_each_child_of_node(parent, node) {
+		if (i >= MAX_BLOCKS) {
+			SDE_ERROR("num of nodes(%d) is bigger than max(%d)\n",
+				i, MAX_BLOCKS);
+			ret = -EINVAL;
+			goto parent_node_err;
+		}
+
+		of_property_for_each_string(node, "qcom,plane-name",
+					prop, cname)
+		splash_info->reserved_pipe_info[i] =
+					_sde_splash_parse_sspp_id(cfg, cname);
+		i++;
+	}
+
+parent_node_err:
+	of_node_put(parent);
+
+	return ret;
+}
+
+bool sde_splash_query_plane_is_reserved(struct sde_splash_info *sinfo,
+					uint32_t pipe)
+{
+	int i = 0;
+
+	if (!sinfo)
+		return false;
+
+	/* early return if no splash is enabled */
+	if (!sinfo->handoff)
+		return false;
+
+	for (i = 0; i < MAX_BLOCKS; i++) {
+		if (sinfo->reserved_pipe_info[i] == pipe)
+			return true;
+	}
+
+	return false;
 }
 
 int sde_splash_get_handoff_status(struct msm_kms *kms)

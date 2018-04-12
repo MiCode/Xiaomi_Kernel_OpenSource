@@ -812,6 +812,7 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 
 	struct msm_drm_private *priv;
 	struct sde_mdss_cfg *catalog;
+	struct sde_splash_info *sinfo;
 
 	int primary_planes_idx, i, ret;
 	int max_crtc_count, max_plane_count;
@@ -824,6 +825,7 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 	dev = sde_kms->dev;
 	priv = dev->dev_private;
 	catalog = sde_kms->catalog;
+	sinfo = &sde_kms->splash_info;
 
 	ret = sde_core_irq_domain_add(sde_kms);
 	if (ret)
@@ -851,7 +853,7 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 				primary = false;
 
 			plane = sde_plane_init(dev, catalog->vp[i].id,
-					primary, 1UL << crtc_id, true);
+					primary, 1UL << crtc_id, true, false);
 			if (IS_ERR(plane)) {
 				SDE_ERROR("sde_plane_init failed\n");
 				ret = PTR_ERR(plane);
@@ -869,14 +871,22 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 
 		for (i = 0; i < max_plane_count; i++) {
 			bool primary = true;
+			bool resv_plane = false;
 
 			if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
 				|| primary_planes_idx >= max_crtc_count)
 				primary = false;
 
+			if (sde_splash_query_plane_is_reserved(sinfo,
+							catalog->sspp[i].id)) {
+				resv_plane = true;
+				DRM_INFO("pipe%d is reserved\n",
+					catalog->sspp[i].id);
+			}
+
 			plane = sde_plane_init(dev, catalog->sspp[i].id,
 					primary, (1UL << max_crtc_count) - 1,
-					false);
+					false, resv_plane);
 			if (IS_ERR(plane)) {
 				SDE_ERROR("sde_plane_init failed\n");
 				ret = PTR_ERR(plane);
@@ -1337,11 +1347,16 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 */
 	sinfo = &sde_kms->splash_info;
 	if (sinfo->handoff) {
-		rc = sde_splash_parse_dt(dev);
+		rc = sde_splash_parse_memory_dt(dev);
 		if (rc) {
-			SDE_ERROR("parse dt for splash info failed: %d\n", rc);
+			SDE_ERROR("parse memory dt failed: %d\n", rc);
 			goto power_error;
 		}
+
+		rc = sde_splash_parse_reserved_plane_dt(sinfo,
+							sde_kms->catalog);
+		if (rc)
+			SDE_ERROR("parse reserved plane dt failed: %d\n", rc);
 
 		sde_splash_init(&priv->phandle, kms);
 	}
