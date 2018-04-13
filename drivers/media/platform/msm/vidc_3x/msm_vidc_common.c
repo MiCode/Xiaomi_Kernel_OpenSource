@@ -77,9 +77,11 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata output crop",
 	"Extradata display colour SEI",
 	"Extradata light level SEI",
+	"Extradata PQ Info",
 	"Extradata display VUI",
 	"Extradata vpx color space",
-	"Extradata PQ Info",
+	"Extradata UBWC CR stats info",
+	"Extradata enc frame QP"
 };
 
 struct getprop_buf {
@@ -4727,7 +4729,10 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 		ret = HAL_EXTRADATA_STREAM_USERDATA;
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_FRAME_QP:
-		ret = HAL_EXTRADATA_FRAME_QP;
+		ret = HAL_EXTRADATA_DEC_FRAME_QP;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP:
+		ret = HAL_EXTRADATA_ENC_FRAME_QP;
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO:
 		ret = HAL_EXTRADATA_FRAME_BITS_INFO;
