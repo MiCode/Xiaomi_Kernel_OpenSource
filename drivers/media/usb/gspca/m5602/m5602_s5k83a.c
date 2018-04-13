@@ -10,6 +10,7 @@
  * v4l2 interface modeled after the V4L2 driver
  * for SN9C10x PC Camera Controllers
  *
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation, version 2.
@@ -177,7 +178,7 @@ static int rotation_thread_function(void *data)
 	__s32 vflip, hflip;
 
 	set_current_state(TASK_INTERRUPTIBLE);
-	while (!schedule_timeout(100)) {
+	while (!schedule_timeout(msecs_to_jiffies(100))) {
 		if (mutex_lock_interruptible(&sd->gspca_dev.usb_lock))
 			break;
 

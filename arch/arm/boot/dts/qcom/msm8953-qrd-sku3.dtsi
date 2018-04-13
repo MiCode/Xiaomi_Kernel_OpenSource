@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +15,7 @@
 #include "msm8953-qrd.dtsi"
 
 &spmi_bus {
-	qcom,pmi8950@3 {
+	qcom,pmi8940@3 {
 		labibb: qpnp-labibb-regulator {
 			ibb_regulator: qcom,ibb@dc00 {
 				/delete-property/
@@ -71,7 +72,7 @@
 	ibb-supply = <&ibb_regulator>;
 	/delete-property/ vdd-supply;
 
-	qcom,dsi-pref-prim-pan = <&dsi_r69006_1080p_cmd>;
+	qcom,dsi-pref-prim-pan = <&dsi_nt35596_tianma_fhd_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -87,6 +88,61 @@
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
 };
+&dsi_nt35532_fhd_c6lite_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_nt35596_tianma_fhd_c6lite_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_otm1911_fhd_c6lite_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_r63350_ebbg_fhd_c6lite_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_ili7807_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+
+&dsi_ft8716_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_otm1911_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_td4310_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_nt35532_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_nt35596_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
+
+&dsi_nt35596_tianma_fhd_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+
+};
 
 &dsi_r69006_1080p_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
@@ -97,19 +153,19 @@
 };
 
 &int_codec {
-	status = "disabled";
+	status = "ok";
 };
 
 &pm8953_diangu_dig {
-	status = "disabled";
+	status = "ok";
 };
 
 &pm8953_diangu_analog {
-	status = "disabled";
+	status = "ok";
 };
 
 &ext_codec {
-	status = "ok";
+	status = "disable";
 	qcom,model = "msm8953-sku3-tasha-snd-card";
 
 	qcom,audio-routing =
@@ -136,25 +192,25 @@
 };
 
 &slim_msm {
-	status = "ok";
+	status = "disable";
 };
 
 &dai_slim {
-	status = "ok";
+	status = "disable";
 };
 
 &wcd9xxx_intc {
-	status = "ok";
+	status = "disable";
 };
 
 &clock_audio {
-	status = "ok";
+	status = "disable";
 };
 
 &wcd9335 {
-	status = "ok";
+	status = "disable";
 };
 
 &wcd_rst_gpio {
-	status = "ok";
+	status = "disable";
 };

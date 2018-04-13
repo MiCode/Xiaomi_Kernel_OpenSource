@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +65,16 @@ static uint8_t stats_pingpong_offset_map[] = {
 	(~(ping_pong >> (stats_pingpong_offset_map[idx])) & 0x1))
 
 #define VFE44_CLK_IDX 2
+
+static uint32_t msm_vfe44_ub_reg_offset(struct vfe_device *vfe_dev, int wm_idx)
+{
+	return (VFE44_WM_BASE(wm_idx) + 0x10);
+}
+
+static uint32_t msm_vfe44_get_ub_size(struct vfe_device *vfe_dev)
+{
+	return MSM_ISP44_TOTAL_IMAGE_UB;
+}
 
 static void msm_vfe44_config_irq(struct vfe_device *vfe_dev,
 		uint32_t irq0_mask, uint32_t irq1_mask,
@@ -541,6 +552,12 @@ static void msm_vfe44_reg_update(struct vfe_device *vfe_dev,
 		vfe_dev->reg_update_requested;
 	if ((vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE1) &&
 		((frame_src == VFE_PIX_0) || (frame_src == VFE_SRC_MAX))) {
+		if (!vfe_dev->common_data->dual_vfe_res->vfe_base[ISP_VFE0]) {
+			pr_err("%s vfe_base for ISP_VFE0 is NULL\n", __func__);
+			spin_unlock_irqrestore(&vfe_dev->reg_update_lock,
+				flags);
+			return;
+		}
 		msm_camera_io_w_mb(update_mask,
 			vfe_dev->common_data->dual_vfe_res->vfe_base[ISP_VFE0]
 			+ 0x378);
@@ -1028,7 +1045,7 @@ static void msm_vfe44_update_camif_state(struct vfe_device *vfe_dev,
 		msm_camera_io_w_mb(0x81, vfe_dev->vfe_base + 0x34);
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x24);
 
-		msm_vfe44_config_irq(vfe_dev, 0xF7, 0x81,
+		msm_vfe44_config_irq(vfe_dev, 0x17, 0x81,
 				MSM_ISP_IRQ_ENABLE);
 		msm_camera_io_w_mb(0x140000, vfe_dev->vfe_base + 0x318);
 
@@ -1218,67 +1235,6 @@ static void msm_vfe44_axi_clear_wm_xbar_reg(
 		vfe_dev->vfe_base + VFE44_XBAR_BASE(wm));
 }
 
-static void msm_vfe44_cfg_axi_ub_equal_default(
-	struct vfe_device *vfe_dev)
-{
-	int i;
-	uint32_t ub_offset = 0;
-	struct msm_vfe_axi_shared_data *axi_data =
-		&vfe_dev->axi_data;
-	uint32_t total_image_size = 0;
-	uint8_t num_used_wms = 0;
-	uint32_t prop_size = 0;
-	uint32_t wm_ub_size;
-	uint64_t delta;
-	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-		if (axi_data->free_wm[i] > 0) {
-			num_used_wms++;
-			total_image_size += axi_data->wm_image_size[i];
-		}
-	}
-	prop_size = MSM_ISP44_TOTAL_IMAGE_UB -
-		axi_data->hw_info->min_wm_ub * num_used_wms;
-	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-		if (axi_data->free_wm[i]) {
-			delta = (uint64_t)axi_data->wm_image_size[i] *
-					(uint64_t)prop_size;
-			do_div(delta, total_image_size);
-			wm_ub_size = axi_data->hw_info->min_wm_ub +
-				(uint32_t)delta;
-			msm_camera_io_w(ub_offset << 16 | (wm_ub_size - 1),
-				vfe_dev->vfe_base + VFE44_WM_BASE(i) + 0x10);
-			ub_offset += wm_ub_size;
-		} else
-			msm_camera_io_w(0,
-				vfe_dev->vfe_base + VFE44_WM_BASE(i) + 0x10);
-	}
-}
-
-static void msm_vfe44_cfg_axi_ub_equal_slicing(
-	struct vfe_device *vfe_dev)
-{
-	int i;
-	uint32_t ub_offset = 0;
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	uint32_t ub_equal_slice = MSM_ISP44_TOTAL_IMAGE_UB /
-		axi_data->hw_info->num_wm;
-	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-		msm_camera_io_w(ub_offset << 16 | (ub_equal_slice - 1),
-			vfe_dev->vfe_base + VFE44_WM_BASE(i) + 0x10);
-		ub_offset += ub_equal_slice;
-	}
-}
-
-static void msm_vfe44_cfg_axi_ub(struct vfe_device *vfe_dev)
-{
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	axi_data->wm_ub_cfg_policy = MSM_WM_UB_CFG_DEFAULT;
-	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING)
-		msm_vfe44_cfg_axi_ub_equal_slicing(vfe_dev);
-	else
-		msm_vfe44_cfg_axi_ub_equal_default(vfe_dev);
-}
-
 static void msm_vfe44_read_wm_ping_pong_addr(
 	struct vfe_device *vfe_dev)
 {
@@ -1376,8 +1332,8 @@ static int msm_vfe44_axi_restart(struct vfe_device *vfe_dev,
 	/* Start AXI */
 	msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x2C0);
 
-	msm_vfe44_config_irq(vfe_dev, vfe_dev->irq0_mask, vfe_dev->irq1_mask,
-		MSM_ISP_IRQ_SET);
+	msm_vfe44_config_irq(vfe_dev, vfe_dev->recovery_irq0_mask,
+		vfe_dev->recovery_irq1_mask, MSM_ISP_IRQ_SET);
 
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev, VFE_SRC_MAX);
 	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
@@ -1832,6 +1788,7 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.process_stats_irq = msm_isp_process_stats_irq,
 			.process_epoch_irq = msm_vfe44_process_epoch_irq,
 			.config_irq = msm_vfe44_config_irq,
+			.process_eof_irq = msm_isp47_process_eof_irq,
 		},
 		.axi_ops = {
 			.reload_wm = msm_vfe44_axi_reload_wm,
@@ -1847,7 +1804,7 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.clear_wm_reg = msm_vfe44_axi_clear_wm_reg,
 			.cfg_wm_xbar_reg = msm_vfe44_axi_cfg_wm_xbar_reg,
 			.clear_wm_xbar_reg = msm_vfe44_axi_clear_wm_xbar_reg,
-			.cfg_ub = msm_vfe44_cfg_axi_ub,
+			.cfg_ub = msm_vfe47_cfg_axi_ub,
 			.read_wm_ping_pong_addr =
 				msm_vfe44_read_wm_ping_pong_addr,
 			.update_ping_pong_addr =
@@ -1859,6 +1816,8 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.restart = msm_vfe44_axi_restart,
 			.update_cgc_override =
 				msm_vfe44_axi_update_cgc_override,
+			.ub_reg_offset = msm_vfe44_ub_reg_offset,
+			.get_ub_size = msm_vfe44_get_ub_size,
 		},
 		.core_ops = {
 			.reg_update = msm_vfe44_reg_update,

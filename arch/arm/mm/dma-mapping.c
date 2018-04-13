@@ -1,13 +1,14 @@
 /*
- *  linux/arch/arm/mm/dma-mapping.c
+ * linux/arch/arm/mm/dma-mapping.c
  *
- *  Copyright (C) 2000-2004 Russell King
+ * Copyright (C) 2000-2004 Russell King
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- *  DMA uncached mapping support.
+ * DMA uncached mapping support.
  */
 #include <linux/bootmem.h>
 #include <linux/module.h>
@@ -791,13 +792,15 @@ static void *arm_dma_remap(struct device *dev, void *cpu_addr,
 			dma_addr_t handle, size_t size,
 			struct dma_attrs *attrs)
 {
+	void *ptr;
 	struct page *page = pfn_to_page(dma_to_pfn(dev, handle));
 	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL);
 	unsigned long offset = handle & ~PAGE_MASK;
 
 	size = PAGE_ALIGN(size + offset);
-	return __dma_alloc_remap(page, size, GFP_KERNEL, prot,
-				__builtin_return_address(0)) + offset;
+	ptr = __dma_alloc_remap(page, size, GFP_KERNEL, prot,
+				__builtin_return_address(0));
+	return ptr ? ptr + offset : ptr;
 }
 
 static void arm_dma_unremap(struct device *dev, void *remapped_addr,
@@ -806,6 +809,7 @@ static void arm_dma_unremap(struct device *dev, void *remapped_addr,
 	unsigned int flags = VM_ARM_DMA_CONSISTENT | VM_USERMAP;
 	struct vm_struct *area;
 
+	size = PAGE_ALIGN(size);
 	remapped_addr = (void *)((unsigned long)remapped_addr & PAGE_MASK);
 
 	area = find_vm_area(remapped_addr);

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,9 +139,9 @@
 	rpm-regulator-ldoa2 {
 		status = "okay";
 		pm8953_l2: regulator-l2 {
-			regulator-min-microvolt = <975000>;
+			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1225000>;
-			qcom,init-voltage = <975000>;
+			qcom,init-voltage = <1200000>;
 			status = "okay";
 		};
 	};
@@ -267,9 +268,9 @@
 	rpm-regulator-ldoa17 {
 		status = "okay";
 		pm8953_l17: regulator-l17 {
-			regulator-min-microvolt = <2850000>;
+			regulator-min-microvolt = <2750000>;
 			regulator-max-microvolt = <2850000>;
-			qcom,init-voltage = <2850000>;
+			qcom,init-voltage = <2800000>;
 			status = "okay";
 		};
 	};
@@ -297,9 +298,9 @@
 	rpm-regulator-ldoa23 {
 		status = "okay";
 		pm8953_l23: regulator-l23 {
-			regulator-min-microvolt = <975000>;
+			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1225000>;
-			qcom,init-voltage = <975000>;
+			qcom,init-voltage = <120000>;
 			status = "okay";
 		};
 	};
@@ -355,7 +356,7 @@
 		qcom,cpr-step-quot-init-min = <12>;
 		qcom,cpr-step-quot-init-max = <14>;
 		qcom,cpr-count-mode = <0>;		/* All-at-once */
-		qcom,cpr-count-repeat = <1>;
+		qcom,cpr-count-repeat = <14>;
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
 
@@ -378,12 +379,18 @@
 			"APCS_ALIAS0_APM_CTLER_STATUS",
 			"APCS0_CPR_CORE_ADJ_MODE_REG";
 
+		qcom,cpr-temp-point-map = <250 650 850>;
+		qcom,cpr-initial-temp-band = <0>;
+
+		/* Turbo (corner 6) ceiling voltage */
+		qcom,cpr-aging-ref-voltage = <990000>;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
 			qcom,cpr-consecutive-down = <2>;
 			qcom,cpr-up-threshold = <2>;
-			qcom,cpr-down-threshold = <2>;
+			qcom,cpr-down-threshold = <1>;
 
 			apc_vreg: regulator {
 				regulator-name = "apc_corner";
@@ -394,7 +401,7 @@
 				qcom,cpr-fuse-combos = <64>;
 				qcom,cpr-speed-bins = <8>;
 				qcom,cpr-speed-bin-corners =
-					<9 0 7 0 0 0 0 9>;
+					<9 0 7 0 0 0 7 9>;
 				qcom,cpr-corners =
 					/* Speed bin 0 */
 					<9 9 9 9 9 9 9 9>,
@@ -405,11 +412,13 @@
 					/* Speed bin 2 */
 					<7 7 7 7 7 7 7 7>,
 
-					/* Speed bin 3..6 */
+					/* Speed bin 3..5 */
 					<0 0 0 0 0 0 0 0>,
 					<0 0 0 0 0 0 0 0>,
 					<0 0 0 0 0 0 0 0>,
-					<0 0 0 0 0 0 0 0>,
+
+					/* Speed bin 6 */
+					<7 7 7 7 7 7 7 7>,
 
 					/* Speed bin 7 */
 					<9 9 9 9 9 9 9 9>;
@@ -424,11 +433,13 @@
 					/* Speed bin 2 */
 					<1 2 4 7>,
 
-					/* Speed bin 3..6 */
+					/* Speed bin 3..5 */
 					<0 0 0 0>,
 					<0 0 0 0>,
 					<0 0 0 0>,
-					<0 0 0 0>,
+
+					/* Speed bin 6 */
+					<1 2 4 7>,
 
 					/* Speed bin 7 */
 					<1 2 4 9>;
@@ -442,6 +453,10 @@
 					<715000  790000 860000 865000 920000
 					 990000 1065000>,
 
+					/* Speed bin 6 */
+					<715000  790000 860000 865000 920000
+					 990000 1065000>,
+
 					/* Speed bin 7 */
 					<715000  790000 860000 865000 920000
 					 990000 1065000 1065000 1065000>;
@@ -452,6 +467,10 @@
 					 500000  500000 500000 500000>,
 
 					/* Speed bin 2 */
+					<500000  500000 500000 500000 500000
+					 500000  500000>,
+
+					/* Speed bin 6 */
 					<500000  500000 500000 500000 500000
 					 500000  500000>,
 
@@ -479,6 +498,24 @@
 					  50000 50000 50000 50000>,
 
 					/* Speed bin 2; CPR rev 0..7 */
+					 <    0     0     0     0     0
+					      0     0>,
+					 <50000 50000 50000 50000 50000
+					  50000 50000>,
+					 <50000 50000 50000 50000 50000
+					  50000 50000>,
+					 <50000 50000 50000 50000 50000
+					  50000 50000>,
+					 <50000 50000 50000 50000 50000
+					  50000 50000>,
+					 <50000 50000 50000 50000 50000
+					  50000 50000>,
+					 <50000 50000 50000 50000 50000
+					  50000 50000>,
+					 <50000 50000 50000 50000 50000
+					  50000 50000>,
+
+					/* Speed bin 6; CPR rev 0..7 */
 					 <    0     0     0     0     0
 					      0     0>,
 					 <50000 50000 50000 50000 50000
@@ -527,6 +564,12 @@
 					<    0     0 30000     0      0
 					     0     0>,
 
+					/* Speed bin 6; misc fuse 0..1 */
+					<    0     0     0     0      0
+					     0     0>,
+					<    0     0 30000     0      0
+					     0     0>,
+
 					/* Speed bin 7; misc fuse 0..1 */
 					<    0     0     0     0      0
 					     0     0     0     0>,
@@ -540,23 +583,31 @@
 					/* Speed bin 2 */
 					<1 1 2 2 2 2 2>,
 
+					/* Speed bin 6 */
+					<1 1 2 2 2 2 2>,
+
 					/* Speed bin 7 */
 					<1 1 2 2 2 2 2 2 2>;
 
 				qcom,corner-frequencies =
 					/* Speed bin 0 */
 					<652800000 1036800000 1401600000
-					1689600000 1843200000 1958400000
+					1689600000 1804800000 1958400000
 					2016000000 2150400000 2208000000>,
 
 					/* Speed bin 2 */
 					<652800000 1036800000 1401600000
-					1689600000 1843200000 1958400000
+					1689600000 1804800000 1958400000
+					2016000000>,
+
+					/* Speed bin 6 */
+					<652800000 1036800000 1401600000
+					1689600000 1804800000 1958400000
 					2016000000>,
 
 					/* Speed bin 7 */
 					<652800000 1036800000 1401600000
-					1689600000 1843200000 1958400000
+					1689600000 1804800000 1958400000
 					2016000000 2150400000 2208000000>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
@@ -622,9 +673,9 @@
 
 					/* Speed bin 6; CPR rev 0..7 */
 					<     0      0      0     0>,
-					<     0      0      0     0>,
-					<     0      0      0     0>,
-					<     0      0      0     0>,
+					< 25000      0   5000 40000>,
+					< 25000      0   5000 40000>,
+					< 25000      0   5000 40000>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
@@ -645,7 +696,7 @@
 					<      0        0        0      0>,
 					<  10000 (-15000)        0  25000>,
 					<  10000 (-15000)        0  25000>,
-					<  10000 (-15000)        0  25000>,
+					<(-5000) (-30000) (-15000)  10000>,
 					<      0        0        0      0>,
 					<      0        0        0      0>,
 					<      0        0        0      0>,
@@ -665,7 +716,7 @@
 					<      0        0        0      0>,
 					<  10000 (-15000)        0  25000>,
 					<  10000 (-15000)        0  25000>,
-					<  10000 (-15000)        0  25000>,
+					<(-5000) (-30000) (-15000)  10000>,
 					<      0        0        0      0>,
 					<      0        0        0      0>,
 					<      0        0        0      0>,
@@ -703,9 +754,9 @@
 
 					/* Speed bin 6; CPR rev 0..7 */
 					<      0        0        0      0>,
-					<      0        0        0      0>,
-					<      0        0        0      0>,
-					<      0        0        0      0>,
+					<  10000 (-15000)        0  25000>,
+					<  10000 (-15000)        0  25000>,
+					<(-5000) (-30000) (-15000)  10000>,
 					<      0        0        0      0>,
 					<      0        0        0      0>,
 					<      0        0        0      0>,
@@ -715,7 +766,7 @@
 					<      0        0        0      0>,
 					<  10000 (-15000)        0  25000>,
 					<  10000 (-15000)        0  25000>,
-					<  10000 (-15000)        0  25000>,
+					<(-5000) (-30000) (-15000)  10000>,
 					<      0        0        0      0>,
 					<      0        0        0      0>,
 					<      0        0        0      0>,
@@ -734,6 +785,83 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,corner-allow-temp-adjustment =
+					/* Speed bin 0; CPR rev 0..7 */
+					<0 0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+
+					/* Speed bin 2; CPR rev 0..7 */
+					<0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+
+					/* Speed bin 6; CPR rev 0..7 */
+					<0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+
+					/* Speed bin 7; CPR rev 0..7 */
+					<0 0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>;
+
+				qcom,cpr-corner1-temp-core-voltage-adjustment =
+					<(0) (-5000) (-15000) (-20000)>;
+
+				qcom,cpr-corner2-temp-core-voltage-adjustment =
+					<(0) (-5000) (-15000) (-15000)>;
+
+				qcom,cpr-corner3-temp-core-voltage-adjustment =
+					<(0) (-5000) (-15000)      (0)>;
+
+				qcom,cpr-corner4-temp-core-voltage-adjustment =
+					<(0) (-5000) (-15000)      (0)>;
+
+				qcom,cpr-aging-max-voltage-adjustment = <15000>;
+				qcom,cpr-aging-ref-corner = <6>; /* Turbo */
+				qcom,cpr-aging-ro-scaling-factor = <2800>;
+				qcom,allow-aging-voltage-adjustment =
+					/* Speed bin 0 */
+					<0 0 0 1 1 1 1 1>,
+
+					/* Speed bin 1 */
+					<0 0 0 0 0 0 0 0>,
+
+					/* Speed bin 2 */
+					<0 0 0 1 1 1 1 1>,
+
+					/* Speed bin 3..5 */
+					<0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0>,
+
+					/* Speed bin 6 */
+					<0 0 0 1 1 1 1 1>,
+
+					/* Speed bin 7 */
+					<0 0 0 1 1 1 1 1>;
 			};
 		};
 	};
@@ -765,7 +893,7 @@
 
 		qcom,num-corners = <7>;
 		qcom,num-ldo-corners = <3>;
-		qcom,ldo-enable-corner-map = <0 0 0 0 0 0 0>;
+		qcom,ldo-enable-corner-map = <1 1 1 0 0 0 0>;
 		qcom,init-corner = <4>;
 
 		vdd-cx-supply = <&pm8953_s2_level>;

@@ -2,6 +2,7 @@
  * drivers/base/power/common.c - Common device power management code.
  *
  * Copyright (C) 2011 Rafael J. Wysocki <rjw@sisk.pl>, Renesas Electronics Corp.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -19,8 +20,8 @@
  * @dev: Device to handle.
  *
  * If power.subsys_data is NULL, point it to a new object, otherwise increment
- * its reference counter.  Return 1 if a new object has been created, otherwise
- * return 0 or error code.
+ * its reference counter.  Return 0 if new object has been created or refcount
+ * increased, otherwise negative error code.
  */
 int dev_pm_get_subsys_data(struct device *dev)
 {
@@ -56,13 +57,11 @@ EXPORT_SYMBOL_GPL(dev_pm_get_subsys_data);
  * @dev: Device to handle.
  *
  * If the reference counter of power.subsys_data is zero after dropping the
- * reference, power.subsys_data is removed.  Return 1 if that happens or 0
- * otherwise.
+ * reference, power.subsys_data is removed.
  */
-int dev_pm_put_subsys_data(struct device *dev)
+void dev_pm_put_subsys_data(struct device *dev)
 {
 	struct pm_subsys_data *psd;
-	int ret = 1;
 
 	spin_lock_irq(&dev->power.lock);
 
@@ -70,18 +69,14 @@ int dev_pm_put_subsys_data(struct device *dev)
 	if (!psd)
 		goto out;
 
-	if (--psd->refcount == 0) {
+	if (--psd->refcount == 0)
 		dev->power.subsys_data = NULL;
-	} else {
+	else
 		psd = NULL;
-		ret = 0;
-	}
 
  out:
 	spin_unlock_irq(&dev->power.lock);
 	kfree(psd);
-
-	return ret;
 }
 EXPORT_SYMBOL_GPL(dev_pm_put_subsys_data);
 

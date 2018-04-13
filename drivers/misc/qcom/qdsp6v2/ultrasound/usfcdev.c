@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,7 +171,7 @@ static int usfcdev_connect(struct input_handler *handler, struct input_dev *dev,
 	}
 	usfc_handle->dev = dev;
 	ret = input_register_handle(usfc_handle);
-	pr_debug("%s: name=[%s]; ind=%d; dev=0x%p\n",
+	pr_debug("%s: name=[%s]; ind=%d; dev=0x%pK\n",
 		 __func__,
 		dev->name,
 		ind,
@@ -259,7 +260,7 @@ bool usfcdev_register(
 	bool rc = false;
 
 	if ((event_type_ind >= MAX_EVENT_TYPE_NUM) || !match_cb) {
-		pr_err("%s: wrong input: event_type_ind=%d; match_cb=0x%p\n",
+		pr_err("%s: wrong input: event_type_ind=%d; match_cb=0x%pK\n",
 			__func__,
 			event_type_ind,
 			match_cb);

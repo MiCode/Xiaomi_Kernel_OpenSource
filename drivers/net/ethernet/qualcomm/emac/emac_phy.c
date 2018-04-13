@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -318,6 +319,9 @@ static int emac_hw_setup_phy_link(struct emac_adapter *adpt,
 			break;
 		case EMAC_LINK_SPEED_100_FULL:
 			bmcr |= BMCR_SPEED100 | BMCR_FULLDPLX;
+			break;
+		case EMAC_LINK_SPEED_1GB_FULL:
+			bmcr |= BMCR_SPEED1000 | BMCR_FULLDPLX;
 			break;
 		default:
 			return -EINVAL;

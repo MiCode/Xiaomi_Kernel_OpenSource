@@ -8,6 +8,10 @@
 # Copyright (C) 1994 by Linus Torvalds
 # Changed by many, many contributors over the years.
 #
+# Copyright (C) 2018 XiaoMi, Inc.
+#
+
+KASAN_SANITIZE := n
 
 # If you want to preset the SVGA mode, uncomment the next line and
 # set SVGA_MODE to whatever number you want.

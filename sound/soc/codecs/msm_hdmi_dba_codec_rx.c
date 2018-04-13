@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,7 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <video/msm_dba.h>
+#include <linux/msm_hdmi.h>
 
 #define CHANNEL_STATUS_SIZE 24
 #define MSM_DBA_AUDIO_N_SIZE 6144
@@ -214,6 +216,7 @@ static int msm_hdmi_dba_edid_ctl_info(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_info *uinfo)
 {
 	struct msm_hdmi_dba_codec_rx_data *codec_data;
+	struct msm_hdmi_audio_edid_blk edid_blk;
 
 	if (!kcontrol || !uinfo) {
 		pr_err_ratelimited("%s: invalid control\n", __func__);
@@ -224,11 +227,15 @@ static int msm_hdmi_dba_edid_ctl_info(struct snd_kcontrol *kcontrol,
 		pr_err_ratelimited("%s: codec_data is NULL\n", __func__);
 		return -EINVAL;
 	}
+
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
-	if (codec_data->dba_ops.get_edid_size)
-		codec_data->dba_ops.get_edid_size(codec_data->dba_data,
-			&uinfo->count, 0);
-	codec_data->edid_size = uinfo->count;
+	if (codec_data->dba_ops.get_audio_block) {
+		codec_data->dba_ops.get_audio_block(codec_data->dba_data,
+			sizeof(edid_blk), &edid_blk);
+		uinfo->count = edid_blk.audio_data_blk_size +
+				edid_blk.spk_alloc_data_blk_size;
+	} else
+		uinfo->count = 0;
 
 	return 0;
 }
@@ -246,6 +253,7 @@ static int msm_hdmi_dba_edid_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	struct msm_hdmi_dba_codec_rx_data *codec_data;
+	struct msm_hdmi_audio_edid_blk edid_blk;
 
 	if (!kcontrol || !ucontrol) {
 		pr_err_ratelimited("%s: invalid control\n", __func__);
@@ -260,10 +268,18 @@ static int msm_hdmi_dba_edid_get(struct snd_kcontrol *kcontrol,
 		pr_err_ratelimited("%s: hdmi is not connected yet\n", __func__);
 		return -EINVAL;
 	}
-	if (codec_data->dba_ops.get_raw_edid)
-		codec_data->dba_ops.get_raw_edid(codec_data->dba_data,
-			codec_data->edid_size,
-			ucontrol->value.bytes.data, 0);
+
+	if (codec_data->dba_ops.get_audio_block) {
+		codec_data->dba_ops.get_audio_block(codec_data->dba_data,
+					sizeof(edid_blk), &edid_blk);
+
+		memcpy(ucontrol->value.bytes.data, edid_blk.audio_data_blk,
+			edid_blk.audio_data_blk_size);
+		memcpy((ucontrol->value.bytes.data +
+			edid_blk.audio_data_blk_size),
+			edid_blk.spk_alloc_data_blk,
+			edid_blk.spk_alloc_data_blk_size);
+	}
 
 	return 0;
 }

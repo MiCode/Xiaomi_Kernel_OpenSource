@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +61,7 @@
 			qcom,acc = <&acc0>;
 			qcom,limits-info = <&mitigation_profile0>;
 			qcom,ea = <&ea0>;
+			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -86,6 +88,7 @@
 			qcom,acc = <&acc1>;
 			qcom,limits-info = <&mitigation_profile1>;
 			qcom,ea = <&ea1>;
+			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			L1_I_1: l1-icache {
 			      compatible = "arm,arch-cache";
@@ -105,6 +108,7 @@
 			qcom,acc = <&acc2>;
 			qcom,limits-info = <&mitigation_profile2>;
 			qcom,ea = <&ea2>;
+			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			L1_I_2: l1-icache {
 			      compatible = "arm,arch-cache";
@@ -124,6 +128,7 @@
 			qcom,acc = <&acc3>;
 			qcom,limits-info = <&mitigation_profile3>;
 			qcom,ea = <&ea3>;
+			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			L1_I_3: l1-icache {
 			      compatible = "arm,arch-cache";
@@ -143,6 +148,7 @@
 			qcom,acc = <&acc4>;
 			qcom,limits-info = <&mitigation_profile4>;
 			qcom,ea = <&ea4>;
+			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -169,6 +175,7 @@
 			qcom,acc = <&acc5>;
 			qcom,limits-info = <&mitigation_profile5>;
 			qcom,ea = <&ea5>;
+			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_101: l1-icache {
 			      compatible = "arm,arch-cache";
@@ -188,6 +195,7 @@
 			qcom,acc = <&acc6>;
 			qcom,limits-info = <&mitigation_profile6>;
 			qcom,ea = <&ea6>;
+			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_102: l1-icache {
 			      compatible = "arm,arch-cache";
@@ -207,6 +215,7 @@
 			qcom,acc = <&acc7>;
 			qcom,limits-info = <&mitigation_profile7>;
 			qcom,ea = <&ea7>;
+			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_103: l1-icache {
 			      compatible = "arm,arch-cache";

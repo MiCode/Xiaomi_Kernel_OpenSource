@@ -4,6 +4,7 @@
  * Copyright 2007 Red Hat, Inc.
  * Copyright 2008 Marvell. <kewei@marvell.com>
  * Copyright 2009-2011 Marvell. <yuxiangl@marvell.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file is licensed under GPLv2.
  *
@@ -988,6 +989,8 @@ static void mvs_slot_free(struct mvs_info *mvi, u32 rx_desc)
 static void mvs_slot_task_free(struct mvs_info *mvi, struct sas_task *task,
 			  struct mvs_slot_info *slot, u32 slot_idx)
 {
+	if (!slot)
+		return;
 	if (!slot->task)
 		return;
 	if (!sas_protocol_ata(task->task_proto))

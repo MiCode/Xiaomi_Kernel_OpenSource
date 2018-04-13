@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,61 +89,11 @@ static char *inode_to_filename(struct inode *inode)
 	return filename;
 }
 
-static int pfk_inode_alloc_security(struct inode *inode)
-{
-	struct inode_security_struct *i_sec = NULL;
-
-	if (inode == NULL)
-		return -EINVAL;
-
-	i_sec = kzalloc(sizeof(*i_sec), GFP_KERNEL);
-
-	if (i_sec == NULL)
-		return -ENOMEM;
-
-	inode->i_security = i_sec;
-
-	return 0;
-}
-
-static void pfk_inode_free_security(struct inode *inode)
-{
-	if (inode == NULL)
-		return;
-
-	kzfree(inode->i_security);
-}
-
-static struct security_operations pfk_security_ops = {
-	.name			= "pfk",
-
-	.inode_alloc_security	= pfk_inode_alloc_security,
-	.inode_free_security	= pfk_inode_free_security,
-
-	.allow_merge_bio	= pfk_allow_merge_bio,
-};
-
 static int __init pfk_lsm_init(void)
 {
-	int ret;
-
-	/* Check if PFK is the chosen lsm via security_module_enable() */
-	if (security_module_enable(&pfk_security_ops)) {
-		/* replace null callbacks with empty callbacks */
-		security_fixup_ops(&pfk_security_ops);
-		ret = register_security(&pfk_security_ops);
-		if (ret != 0) {
-			pr_err("pfk lsm registeration failed, ret=%d.\n", ret);
-			return ret;
-		}
-		pr_debug("pfk is the chosen lsm, registered successfully !\n");
-	} else {
-		pr_debug("pfk is not the chosen lsm.\n");
-		if (!selinux_is_enabled()) {
-			pr_err("se linux is not enabled.\n");
-			return -ENODEV;
-		}
-
+	if (!selinux_is_enabled()) {
+		pr_err("se linux is not enabled.\n");
+		return -ENODEV;
 	}
 
 	return 0;

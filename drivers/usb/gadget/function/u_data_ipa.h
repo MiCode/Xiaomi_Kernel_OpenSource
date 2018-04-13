@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,5 +31,6 @@ int ipa_data_connect(struct gadget_ipa_port *gp, u8 port_num,
 int ipa_data_setup(unsigned int no_ipa_port);
 void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num);
 void ipa_data_suspend(struct gadget_ipa_port *gp, u8 port_num);
+void ipa_data_flush_workqueue(void);
 
 #endif

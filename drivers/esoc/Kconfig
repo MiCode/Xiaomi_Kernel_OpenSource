@@ -58,4 +58,12 @@ config ESOC_MDM_DBG_ENG
 	  by command engine to the external modem. Also allows masking
 	  of certain notifications being sent to the external modem.
 
+config MDM_DBG_REQ_ENG
+	tristate "manual request engine for 4x series external modems"
+	depends on ESOC_MDM_DBG_ENG
+	help
+	  Provides a user interface to handle incoming requests from
+	  the external modem. Allows for debugging of IPC mechanism
+	  between the external modem and the primary soc.
+
 endif

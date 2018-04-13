@@ -9,29 +9,6 @@ config CNSS
 	  This driver also adds support to integrate WLAN module to subsystem
 	  restart framework.
 
-config CNSS_PCI
-	tristate "Flag to enable platform driver for PCIe based wifi device"
-	select CNSS
-	depends on PCI
-	depends on PCI_MSI
-	---help---
-	  This module specifies whether CNSS Platform Driver supports PCI.
-	  This flag needs to be disabled if CNSS platform Driver need to be
-	  supported for other buses.
-	  The Flag depends on the CNSS Platform Driver and PCI. This Flag
-	  is used by the CLD driver to use the PCIe exported API's through
-	  CNSS Driver.
-
-config CNSS_SDIO
-	tristate "Flag to enable platform driver for SIDO based wifi device"
-	select CNSS
-	depends on MMC_SDHCI
-	depends on MMC_SDHCI_MSM
-	---help---
-	  This module specifies whether CNSS Platform Driver supports SDIO.
-	  This flag needs to be disabled if CNSS platform Driver need to be
-	  supported for other buses.
-
 config CNSS_MAC_BUG
 	bool "Enable/disable 0-4K memory initialization for QCA6174"
 	depends on CNSS
@@ -97,3 +74,11 @@ config BUS_AUTO_SUSPEND
 	  during system pm.
 	  This config flag controls the feature per target based. The feature
 	  requires CNSS driver support.
+
+source "drivers/net/wireless/cnss/logger/Kconfig"
+
+config WLAN_FEATURE_RX_WAKELOCK
+	bool "Enable RX wake lock feature"
+	help
+	Enable WLAN_FEATURE_HOLD_RX_WAKELOCK which is required to take rx
+	wakelock when driver receives packets from fw.

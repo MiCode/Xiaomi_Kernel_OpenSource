@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +53,7 @@ struct clk_freq_tbl {
 /**
  * struct rcg_clk - root clock generator
  * @cmd_rcgr_reg: command register
+ * @mnd_reg_width: Width of MND register
  * @set_rate: function to set frequency
  * @freq_tbl: frequency table for this RCG
  * @current_freq: current RCG frequency
@@ -66,6 +68,7 @@ struct clk_freq_tbl {
  */
 struct rcg_clk {
 	u32 cmd_rcgr_reg;
+	u32 mnd_reg_width;
 
 	void   (*set_rate)(struct rcg_clk *, struct clk_freq_tbl *);
 

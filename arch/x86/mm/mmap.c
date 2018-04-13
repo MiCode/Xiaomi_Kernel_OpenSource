@@ -8,6 +8,7 @@
  * All Rights Reserved.
  * Copyright 2005 Andi Kleen, SUSE Labs.
  * Copyright 2007 Jiri Kosina, SUSE Labs.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -69,15 +70,16 @@ unsigned long arch_mmap_rnd(void)
 {
 	unsigned long rnd;
 
-	/*
-	 *  8 bits of randomness in 32bit mmaps, 20 address space bits
-	 * 28 bits of randomness in 64bit mmaps, 40 address space bits
-	 */
-	if (mmap_is_ia32())
-		rnd = (unsigned long)get_random_int() % (1<<8);
-	else
-		rnd = (unsigned long)get_random_int() % (1<<28);
-
+	if (current->flags & PF_RANDOMIZE) {
+		if (mmap_is_ia32())
+#ifdef CONFIG_COMPAT
+			rnd = get_random_long() & ((1UL << mmap_rnd_compat_bits) - 1);
+#else
+			rnd = get_random_long() & ((1UL << mmap_rnd_bits) - 1);
+#endif
+		else
+			rnd = get_random_long() & ((1UL << mmap_rnd_bits) - 1);
+	}
 	return rnd << PAGE_SHIFT;
 }
 

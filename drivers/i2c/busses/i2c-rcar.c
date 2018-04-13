@@ -11,6 +11,7 @@
  *
  * This file used out-of-tree driver i2c-rcar.c
  * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -584,14 +585,15 @@ static int rcar_i2c_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	pm_runtime_enable(dev);
+	platform_set_drvdata(pdev, priv);
+
 	ret = i2c_add_numbered_adapter(adap);
 	if (ret < 0) {
 		dev_err(dev, "reg adap failed: %d\n", ret);
+		pm_runtime_disable(dev);
 		return ret;
 	}
-
-	pm_runtime_enable(dev);
-	platform_set_drvdata(pdev, priv);
 
 	dev_info(dev, "probed\n");
 

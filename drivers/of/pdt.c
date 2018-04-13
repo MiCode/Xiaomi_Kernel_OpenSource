@@ -9,10 +9,12 @@
  *  Adapted for sparc by David S. Miller davem@davemloft.net
  *  Adapted for multiple architectures by Andres Salomon <dilinger@queued.net>
  *
- *      This program is free software; you can redistribute it and/or
- *      modify it under the terms of the GNU General Public License
- *      as published by the Free Software Foundation; either version
- *      2 of the License, or (at your option) any later version.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version
+ * 2 of the License, or (at your option) any later version.
  */
 
 #include <linux/kernel.h>
@@ -25,8 +27,7 @@
 
 static struct of_pdt_ops *of_pdt_prom_ops __initdata;
 
-void __initdata (*of_pdt_build_more)(struct device_node *dp,
-		struct device_node ***nextp);
+void __initdata (*of_pdt_build_more)(struct device_node *dp);
 
 #if defined(CONFIG_SPARC)
 unsigned int of_pdt_unique_id __initdata;
@@ -192,8 +193,7 @@ static struct device_node * __init of_pdt_create_node(phandle node,
 }
 
 static struct device_node * __init of_pdt_build_tree(struct device_node *parent,
-						   phandle node,
-						   struct device_node ***nextp)
+						   phandle node)
 {
 	struct device_node *ret = NULL, *prev_sibling = NULL;
 	struct device_node *dp;
@@ -210,16 +210,12 @@ static struct device_node * __init of_pdt_build_tree(struct device_node *parent,
 			ret = dp;
 		prev_sibling = dp;
 
-		*(*nextp) = dp;
-		*nextp = &dp->allnext;
-
 		dp->full_name = of_pdt_build_full_name(dp);
 
-		dp->child = of_pdt_build_tree(dp,
-				of_pdt_prom_ops->getchild(node), nextp);
+		dp->child = of_pdt_build_tree(dp, of_pdt_prom_ops->getchild(node));
 
 		if (of_pdt_build_more)
-			of_pdt_build_more(dp, nextp);
+			of_pdt_build_more(dp);
 
 		node = of_pdt_prom_ops->getsibling(node);
 	}
@@ -234,20 +230,17 @@ static void * __init kernel_tree_alloc(u64 size, u64 align)
 
 void __init of_pdt_build_devicetree(phandle root_node, struct of_pdt_ops *ops)
 {
-	struct device_node **nextp;
-
 	BUG_ON(!ops);
 	of_pdt_prom_ops = ops;
 
-	of_allnodes = of_pdt_create_node(root_node, NULL);
+	of_root = of_pdt_create_node(root_node, NULL);
 #if defined(CONFIG_SPARC)
-	of_allnodes->path_component_name = "";
+	of_root->path_component_name = "";
 #endif
-	of_allnodes->full_name = "/";
+	of_root->full_name = "/";
 
-	nextp = &of_allnodes->allnext;
-	of_allnodes->child = of_pdt_build_tree(of_allnodes,
-			of_pdt_prom_ops->getchild(of_allnodes->phandle), &nextp);
+	of_root->child = of_pdt_build_tree(of_root,
+				of_pdt_prom_ops->getchild(of_root->phandle));
 
 	/* Get pointer to "/chosen" and "/aliases" nodes for use everywhere */
 	of_alias_scan(kernel_tree_alloc);

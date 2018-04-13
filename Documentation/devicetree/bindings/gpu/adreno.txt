@@ -80,6 +80,9 @@ DCVS Core info
 Optional Properties:
 - qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
 			   and when coming back out of resume
+- qcom,restrict-powerlevel: This value to limit max GPU power level jump during the clock switch and
+			   while coming back out of slumber. Max GPU power level jump still allowed
+			   from the restricted-pwerlevel.
 - qcom,bus-control:	   Boolean. Enables an independent bus vote from the gpu frequency
 - qcom,bus-width:	   Bus width in number of bytes. This enables dynamic AB bus voting based on
 			   bus width and actual bus transactions.
@@ -130,6 +133,10 @@ Optional Properties:
 				rendering thread is running on masked CPUs.
 				Bit 0 is for CPU-0, bit 1 is for CPU-1...
 
+- qcom,snapshot-size:
+				Specify the size of snapshot in bytes. This will override
+				snapshot size defined in the driver code.
+
 - qcom,enable-ca-jump:
                                 Boolean. Enables use of context aware DCVS
 - qcom,ca-busy-penalty:
@@ -138,9 +145,16 @@ Optional Properties:
 - qcom,ca-target-pwrlevel:
                                 This value indicates which qcom,gpu-pwrlevel to jump on in case
                                 of context aware power level jump.
-- qcom,snapshot-size:
-				Specify the size of snapshot in bytes. This will override
-				snapshot size defined in the driver code.
+
+- qcom,gpu-qdss-stm:
+				<baseAddr size>
+				baseAddr - base address of the gpu channels in the qdss stm memory region
+				size     - size of the gpu stm region
+
+- qcom,tsens-name:
+				Specify the name of GPU temperature sensor. This name will be used
+				to get the temperature from the thermal driver API.
+
 GPU Quirks:
 - qcom,gpu-quirk-two-pass-use-wfi:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
@@ -150,6 +164,8 @@ GPU Quirks:
 - qcom,gpu-quirk-fault-detect-mask:
 				Mask out RB1-3 activity signals from HW hang
 				detection logic
+- qcom,gpu-quirk-dp2clockgating-disable:
+				Disable RB sampler data path clock gating optimization
 
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight

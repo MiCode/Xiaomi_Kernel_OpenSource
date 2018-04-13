@@ -2,6 +2,7 @@
  * AT86RF230/RF231 driver
  *
  * Copyright (C) 2009-2012 Siemens AG
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -1098,7 +1099,7 @@ at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
 {
 	struct at86rf230_local *lp = dev->priv;
 
-	if (changed & IEEE802515_AFILT_SADDR_CHANGED) {
+	if (changed & IEEE802154_AFILT_SADDR_CHANGED) {
 		u16 addr = le16_to_cpu(filt->short_addr);
 
 		dev_vdbg(&lp->spi->dev,
@@ -1107,7 +1108,7 @@ at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
 		__at86rf230_write(lp, RG_SHORT_ADDR_1, addr >> 8);
 	}
 
-	if (changed & IEEE802515_AFILT_PANID_CHANGED) {
+	if (changed & IEEE802154_AFILT_PANID_CHANGED) {
 		u16 pan = le16_to_cpu(filt->pan_id);
 
 		dev_vdbg(&lp->spi->dev,
@@ -1116,7 +1117,7 @@ at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
 		__at86rf230_write(lp, RG_PAN_ID_1, pan >> 8);
 	}
 
-	if (changed & IEEE802515_AFILT_IEEEADDR_CHANGED) {
+	if (changed & IEEE802154_AFILT_IEEEADDR_CHANGED) {
 		u8 i, addr[8];
 
 		memcpy(addr, &filt->ieee_addr, 8);
@@ -1126,7 +1127,7 @@ at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
 			__at86rf230_write(lp, RG_IEEE_ADDR_0 + i, addr[i]);
 	}
 
-	if (changed & IEEE802515_AFILT_PANC_CHANGED) {
+	if (changed & IEEE802154_AFILT_PANC_CHANGED) {
 		dev_vdbg(&lp->spi->dev,
 			"at86rf230_set_hw_addr_filt called for panc change\n");
 		if (filt->pan_coord)

@@ -4,6 +4,7 @@
  * Copyright (C) 2011 Jean-François Moine (http://moinejf.free.fr)
  * Copyright (C) 2009 Anders Blomdell (anders.blomdell@control.lth.se)
  * Copyright (C) 2008 Thomas Champagne (lafeuil@gmail.com)
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -4800,7 +4801,11 @@ static void sd_set_streamparm(struct gspca_dev *gspca_dev,
 	struct v4l2_fract *tpf = &cp->timeperframe;
 	int fr, i;
 
-	sd->framerate = tpf->denominator / tpf->numerator;
+	if (tpf->numerator == 0 || tpf->denominator == 0)
+		sd->framerate = 30;
+	else
+		sd->framerate = tpf->denominator / tpf->numerator;
+
 	if (gspca_dev->streaming)
 		setframerate(gspca_dev, v4l2_ctrl_g_ctrl(gspca_dev->exposure));
 

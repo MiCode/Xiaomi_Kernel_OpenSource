@@ -3,6 +3,7 @@
  * Author: Jiang Liu <liuj97@gmail.com>
  *
  * Copyright (C) 2014 Zi Shen Lim <zlim.lnx@gmail.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -87,8 +88,11 @@ static void __kprobes *patch_map(void *addr, int fixmap)
 
 	if (module && IS_ENABLED(CONFIG_DEBUG_SET_MODULE_RONX))
 		page = vmalloc_to_page(addr);
-	else
+	else if (!module && (IS_ENABLED(CONFIG_DEBUG_RODATA) ||
+			IS_ENABLED(CONFIG_KERNEL_TEXT_RDONLY)))
 		page = virt_to_page(addr);
+	else
+		return addr;
 
 	BUG_ON(!page);
 	set_fixmap(fixmap, page_to_phys(page));

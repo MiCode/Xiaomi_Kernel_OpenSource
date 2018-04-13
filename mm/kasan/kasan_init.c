@@ -29,10 +29,10 @@
  */
 unsigned char kasan_zero_page[PAGE_SIZE] __page_aligned_bss;
 
-#if CONFIG_PGTABLE_LEVELS > 3
+#if CONFIG_ARM64_PGTABLE_LEVELS > 3
 pud_t kasan_zero_pud[PTRS_PER_PUD] __page_aligned_bss;
 #endif
-#if CONFIG_PGTABLE_LEVELS > 2
+#if CONFIG_ARM64_PGTABLE_LEVELS > 2
 pmd_t kasan_zero_pmd[PTRS_PER_PMD] __page_aligned_bss;
 #endif
 pte_t kasan_zero_pte[PTRS_PER_PTE] __page_aligned_bss;

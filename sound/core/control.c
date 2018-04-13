@@ -1,6 +1,7 @@
 /*
  *  Routines for driver control interface
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -149,6 +150,8 @@ void snd_ctl_notify(struct snd_card *card, unsigned int mask,
 	struct snd_kctl_event *ev;
 	
 	if (snd_BUG_ON(!card || !id))
+		return;
+	if (card->shutdown)
 		return;
 	read_lock(&card->ctl_files_rwlock);
 #if IS_ENABLED(CONFIG_SND_MIXER_OSS)

@@ -9,6 +9,7 @@
  *  Copyright (c) 2006-2013 Jiri Kosina
  *  Copyright (c) 2013 Colin Leitner <colin.leitner@gmail.com>
  *  Copyright (c) 2014 Frank Praznik <frank.praznik@gmail.com>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  */
 
 /*
@@ -1112,12 +1113,15 @@ static int sony_input_configured(struct hid_device *hdev,
 	 */
 	if (sc->quirks & DUALSHOCK4_CONTROLLER) {
 		ret = sony_register_touchpad(hidinput, 2, 1920, 942);
-		if (ret != 0)
+		if (ret) {
 			hid_err(sc->hdev,
-				"Unable to initialize multi-touch slots\n");
+				"Unable to initialize multi-touch slots: %d\n",
+				ret);
+			return ret;
+		}
 	}
 
-	return ret;
+	return 0;
 }
 
 /*

@@ -34,6 +34,7 @@
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
  * All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -298,12 +299,12 @@ static void iwl_mvm_wowlan_program_keys(struct ieee80211_hw *hw,
 			u8 *pn = seq.ccmp.pn;
 
 			ieee80211_get_key_rx_seq(key, i, &seq);
-			aes_sc->pn = cpu_to_le64((u64)pn[5] |
-						 ((u64)pn[4] << 8) |
-						 ((u64)pn[3] << 16) |
-						 ((u64)pn[2] << 24) |
-						 ((u64)pn[1] << 32) |
-						 ((u64)pn[0] << 40));
+			aes_sc[i].pn = cpu_to_le64((u64)pn[5] |
+						   ((u64)pn[4] << 8) |
+						   ((u64)pn[3] << 16) |
+						   ((u64)pn[2] << 24) |
+						   ((u64)pn[1] << 32) |
+						   ((u64)pn[0] << 40));
 		}
 		data->use_rsc_tsc = true;
 		break;

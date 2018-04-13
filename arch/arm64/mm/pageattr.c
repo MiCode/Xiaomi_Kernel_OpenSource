@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,9 +53,15 @@ static int change_memory_common(unsigned long addr, int numpages,
 	}
 
 	if (!IS_ENABLED(CONFIG_FORCE_PAGES)) {
-		if (!is_module_address(start) || !is_module_address(end - 1))
+		if (start < MODULES_VADDR || start >= MODULES_END)
+			return -EINVAL;
+
+		if (end < MODULES_VADDR || end >= MODULES_END)
 			return -EINVAL;
 	}
+
+	if (!numpages)
+		return 0;
 
 	data.set_mask = set_mask;
 	data.clear_mask = clear_mask;

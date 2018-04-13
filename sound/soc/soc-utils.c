@@ -2,6 +2,7 @@
  * soc-util.c  --  ALSA SoC Audio Layer utility functions
  *
  * Copyright 2009 Wolfson Microelectronics PLC.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
  *         Liam Girdwood <lrg@slimlogic.co.uk>
@@ -129,6 +130,9 @@ int snd_soc_dai_is_dummy(struct snd_soc_dai *dai)
 static int snd_soc_dummy_probe(struct platform_device *pdev)
 {
 	int ret;
+
+	memset(&dummy_codec, 0,
+		sizeof(struct snd_soc_codec_driver));
 
 	ret = snd_soc_register_codec(&pdev->dev, &dummy_codec, &dummy_dai, 1);
 	if (ret < 0)

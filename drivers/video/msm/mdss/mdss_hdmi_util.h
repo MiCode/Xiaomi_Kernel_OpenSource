@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -368,12 +369,15 @@
 #define HDMI_DEFAULT_TIMEOUT_HSYNC 28571
 
 enum hdmi_tx_feature_type {
-	HDMI_TX_FEAT_EDID,
-	HDMI_TX_FEAT_HDCP,
-	HDMI_TX_FEAT_HDCP2P2,
-	HDMI_TX_FEAT_CEC_HW,
-	HDMI_TX_FEAT_CEC_ABST,
-	HDMI_TX_FEAT_MAX,
+	HDMI_TX_FEAT_EDID     = BIT(0),
+	HDMI_TX_FEAT_HDCP     = BIT(1),
+	HDMI_TX_FEAT_HDCP2P2  = BIT(2),
+	HDMI_TX_FEAT_CEC_HW   = BIT(3),
+	HDMI_TX_FEAT_CEC_ABST = BIT(4),
+	HDMI_TX_FEAT_PANEL    = BIT(5),
+	HDMI_TX_FEAT_MAX      = HDMI_TX_FEAT_EDID | HDMI_TX_FEAT_HDCP |
+				HDMI_TX_FEAT_HDCP2P2 | HDMI_TX_FEAT_CEC_HW |
+				HDMI_TX_FEAT_CEC_ABST | HDMI_TX_FEAT_PANEL
 };
 
 enum hdmi_tx_scdc_access_type {

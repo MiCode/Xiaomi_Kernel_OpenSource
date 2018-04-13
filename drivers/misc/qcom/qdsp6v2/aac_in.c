@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,8 @@
 #define FRAME_SIZE		(1 + ((1536+sizeof(struct meta_out_dsp)) * 5))
 
 #define AAC_FORMAT_ADTS 65535
+
+#define MAX_SAMPLE_RATE_384K 384000
 
 static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 {
@@ -229,6 +232,13 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 		} else if (cfg->channels == 2) {
 			cfg->channels = CH_MODE_STEREO;
 		} else {
+			rc = -EINVAL;
+			break;
+		}
+
+		if (cfg->sample_rate > MAX_SAMPLE_RATE_384K) {
+			pr_err("%s: ERROR: invalid sample rate = %u",
+				__func__, cfg->sample_rate);
 			rc = -EINVAL;
 			break;
 		}

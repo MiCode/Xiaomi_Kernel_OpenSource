@@ -3,6 +3,7 @@
 /*
  *    Copyright (C) 2006 Benjamin Herrenschmidt, IBM Corp.
  *			 <benh@kernel.crashing.org>
+ *    Copyright (C) 2018 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -82,6 +83,12 @@ static inline int of_platform_populate(struct device_node *root,
 	return -ENODEV;
 }
 static inline void of_platform_depopulate(struct device *parent) { }
+#endif
+
+#ifdef CONFIG_OF_DYNAMIC
+extern void of_platform_register_reconfig_notifier(void);
+#else
+static inline void of_platform_register_reconfig_notifier(void) { }
 #endif
 
 #endif	/* _LINUX_OF_PLATFORM_H */

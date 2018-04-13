@@ -2,6 +2,7 @@
  * USB Network driver infrastructure
  * Copyright (C) 2000-2005 by David Brownell
  * Copyright (C) 2003-2005 David Hollis <dhollis@davehollis.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1683,7 +1684,7 @@ static void usbnet_ipa_cleanup_rm(struct usbnet *dev)
 
 	ret =  ipa_rm_release_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
 	if (ret) {
-		if (ret != EINPROGRESS)
+		if (ret != -EINPROGRESS)
 			dev_err(&dev->udev->dev,
 				"Release ODU PROD resource failed:%d\n", ret);
 
@@ -1694,6 +1695,9 @@ static void usbnet_ipa_cleanup_rm(struct usbnet *dev)
 			dev_err(&dev->udev->dev,
 				"Timeout releasing ODU prod resource\n");
 	}
+
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+				 IPA_RM_RESOURCE_APPS_CONS);
 
 	ret = ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
 	if (ret)
@@ -1849,9 +1853,12 @@ static int usbnet_ipa_setup_rm(struct usbnet *dev)
 
 	init_completion(&dev->rm_prod_granted_comp);
 
+	ipa_rm_add_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+			      IPA_RM_RESOURCE_APPS_CONS);
+
 	ret =  ipa_rm_request_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
 	if (ret) {
-		if (ret != EINPROGRESS) {
+		if (ret != -EINPROGRESS) {
 			dev_err(&dev->udev->dev,
 				"Request ODU PROD resource failed: %d\n", ret);
 			goto delete_cons;
@@ -1865,6 +1872,8 @@ static int usbnet_ipa_setup_rm(struct usbnet *dev)
 			ret = -ETIMEDOUT;
 			goto delete_cons;
 		}
+		/* return success when it is not timeout */
+		ret = 0;
 	}
 
 	return ret;
@@ -2203,7 +2212,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (status)
 		goto free_padding_pkt;
 	netif_info(dev, probe, dev->net,
-		   "register '%s' at usb-%s-%s, %s, %pM\n",
+		   "register '%s' at usb-%s-%s, %s, %pKM\n",
 		   udev->dev.driver->name,
 		   xdev->bus->bus_name, xdev->devpath,
 		   dev->driver_info->description,

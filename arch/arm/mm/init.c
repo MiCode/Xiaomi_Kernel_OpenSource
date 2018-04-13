@@ -1,7 +1,8 @@
 /*
- *  linux/arch/arm/mm/init.c
+ * linux/arch/arm/mm/init.c
  *
- *  Copyright (C) 1995-2005 Russell King
+ * Copyright (C) 1995-2005 Russell King
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -337,6 +338,9 @@ void __init bootmem_init(void)
 	max_low = max_high = 0;
 
 	find_limits(&min, &max_low, &max_high);
+
+	early_memtest((phys_addr_t)min << PAGE_SHIFT,
+		      (phys_addr_t)max_low << PAGE_SHIFT);
 
 	/*
 	 * Sparsemem tries to allocate bootmem in memory_present(),

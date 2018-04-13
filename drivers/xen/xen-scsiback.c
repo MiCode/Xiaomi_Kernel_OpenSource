@@ -2,6 +2,7 @@
  * Xen SCSI backend driver
  *
  * Copyright (c) 2008, FUJITSU Limited
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Based on the blkback driver code.
  * Adaption to kernel taget core infrastructure taken from vhost/scsi.c
@@ -947,12 +948,12 @@ out:
 	spin_unlock_irqrestore(&info->v2p_lock, flags);
 
 out_free:
-	mutex_lock(&tpg->tv_tpg_mutex);
-	tpg->tv_tpg_fe_count--;
-	mutex_unlock(&tpg->tv_tpg_mutex);
-
-	if (err)
+	if (err) {
+		mutex_lock(&tpg->tv_tpg_mutex);
+		tpg->tv_tpg_fe_count--;
+		mutex_unlock(&tpg->tv_tpg_mutex);
 		kfree(new);
+	}
 
 	return err;
 }

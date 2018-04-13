@@ -55,6 +55,18 @@ struct msm_vidc_mpeg2_seqdisp_payload {
 	unsigned int disp_height;
 };
 
+struct msm_vidc_vc1_seqdisp_payload {
+	unsigned int prog_seg_format;
+	unsigned int uv_sampl_fmt;
+	unsigned int color_format;
+	unsigned int color_primaries;
+	unsigned int transfer_char;
+	unsigned int matrix_coeffs;
+	unsigned int aspect_ratio;
+	unsigned int aspect_horiz;
+	unsigned int aspect_vert;
+};
+
 struct msm_vidc_input_crop_payload {
 	unsigned int size;
 	unsigned int version;
@@ -64,6 +76,19 @@ struct msm_vidc_input_crop_payload {
 	unsigned int width;
 	unsigned int height;
 };
+
+struct msm_vidc_output_crop_payload {
+	unsigned int size;
+	unsigned int version;
+	unsigned int port_index;
+	unsigned int left;
+	unsigned int top;
+	unsigned int display_width;
+	unsigned int display_height;
+	unsigned int width;
+	unsigned int height;
+};
+
 
 struct msm_vidc_digital_zoom_payload {
 	unsigned int size;
@@ -141,12 +166,50 @@ struct msm_vidc_yuv_stats_payload {
 	unsigned int frame_difference;
 };
 
+struct msm_vidc_vpx_colorspace_payload {
+	unsigned int color_space;
+	unsigned int yuv_range_flag;
+	unsigned int sumsampling_x;
+	unsigned int sumsampling_y;
+};
+
 struct msm_vidc_roi_qp_payload {
 	int upper_qp_offset;
 	int lower_qp_offset;
 	unsigned int b_roi_info;
 	int mbi_info_size;
 	unsigned int data[1];
+};
+
+struct msm_vidc_mastering_display_colour_sei_payload {
+	unsigned int nDisplayPrimariesX[3];
+	unsigned int nDisplayPrimariesY[3];
+	unsigned int nWhitePointX;
+	unsigned int nWhitePointY;
+	unsigned int nMaxDisplayMasteringLuminance;
+	unsigned int nMinDisplayMasteringLuminance;
+};
+
+struct msm_vidc_content_light_level_sei_payload {
+	unsigned int nMaxContentLight;
+	unsigned int nMaxPicAverageLight;
+};
+
+struct msm_vidc_vui_display_info_payload {
+	unsigned int video_signal_present_flag;
+	unsigned int video_format;
+	unsigned int bit_depth_y;
+	unsigned int bit_depth_c;
+	unsigned int video_full_range_flag;
+	unsigned int color_description_present_flag;
+	unsigned int color_primaries;
+	unsigned int transfer_characteristics;
+	unsigned int matrix_coefficients;
+	unsigned int chroma_location_info_present_flag;
+	unsigned int chroma_format_idc;
+	unsigned int separate_color_plane_flag;
+	unsigned int chroma_sample_loc_type_top_field;
+	unsigned int chroma_sample_loc_type_bottom_field;
 };
 
 enum msm_vidc_extradata_type {
@@ -166,8 +229,23 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_FRAME_BITS_INFO = 0x00000010,
 	MSM_VIDC_EXTRADATA_VQZIP_SEI = 0x00000011,
 	MSM_VIDC_EXTRADATA_ROI_QP = 0x00000013,
+#define MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI \
+	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI
+	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI = 0x00000015,
+#define MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI \
+	MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI
+	MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI = 0x00000016,
+#define MSM_VIDC_EXTRADATA_PQ_INFO \
+	MSM_VIDC_EXTRADATA_PQ_INFO
+	MSM_VIDC_EXTRADATA_PQ_INFO = 0x00000017,
 	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
+#define MSM_VIDC_EXTRADATA_OUTPUT_CROP \
+	MSM_VIDC_EXTRADATA_OUTPUT_CROP
+	MSM_VIDC_EXTRADATA_OUTPUT_CROP = 0x0700000F,
 	MSM_VIDC_EXTRADATA_DIGITAL_ZOOM = 0x07000010,
+#define MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO \
+	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO
+	MSM_VIDC_EXTRADATA_VPX_COLORSPACE_INFO = 0x00000014,
 	MSM_VIDC_EXTRADATA_MULTISLICE_INFO = 0x7F100000,
 	MSM_VIDC_EXTRADATA_NUM_CONCEALED_MB = 0x7F100001,
 	MSM_VIDC_EXTRADATA_INDEX = 0x7F100002,
@@ -175,6 +253,9 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_METADATA_LTR = 0x7F100004,
 	MSM_VIDC_EXTRADATA_METADATA_FILLER = 0x7FE00002,
 	MSM_VIDC_EXTRADATA_METADATA_MBI = 0x7F100005,
+#define MSM_VIDC_EXTRADATA_VUI_DISPLAY_INFO \
+	MSM_VIDC_EXTRADATA_VUI_DISPLAY_INFO
+	MSM_VIDC_EXTRADATA_VUI_DISPLAY_INFO = 0x7F100006,
 	MSM_VIDC_EXTRADATA_YUVSTATS_INFO = 0x7F100007,
 };
 enum msm_vidc_interlace_type {
@@ -204,9 +285,92 @@ enum msm_vidc_userdata_type {
 	MSM_VIDC_USERDATA_TYPE_BOTTOM_FIELD = 0x3,
 };
 
+/* See colour_primaries of ISO/IEC 14496 for significance */
+enum msm_vidc_h264_color_primaries_values {
+	MSM_VIDC_RESERVED_1 = 0,
+	MSM_VIDC_BT709_5 = 1,
+	MSM_VIDC_UNSPECIFIED = 2,
+	MSM_VIDC_RESERVED_2 = 3,
+	MSM_VIDC_BT470_6_M = 4,
+	MSM_VIDC_BT601_6_625 = 5,
+	MSM_VIDC_BT470_6_BG = MSM_VIDC_BT601_6_625,
+	MSM_VIDC_BT601_6_525 = 6,
+	MSM_VIDC_SMPTE_240M = 7,
+	MSM_VIDC_GENERIC_FILM = 8,
+	MSM_VIDC_BT2020 = 9,
+};
+
+enum msm_vidc_vp9_color_primaries_values {
+	MSM_VIDC_CS_UNKNOWN,
+	MSM_VIDC_CS_BT_601,
+	MSM_VIDC_CS_BT_709,
+	MSM_VIDC_CS_SMPTE_170,
+	MSM_VIDC_CS_SMPTE_240,
+	MSM_VIDC_CS_BT_2020,
+	MSM_VIDC_CS_RESERVED,
+	MSM_VIDC_CS_RGB,
+};
+
+enum msm_vidc_h264_matrix_coeff_values {
+	MSM_VIDC_MATRIX_RGB = 0,
+	MSM_VIDC_MATRIX_BT_709_5 = 1,
+	MSM_VIDC_MATRIX_UNSPECIFIED = 2,
+	MSM_VIDC_MATRIX_RESERVED = 3,
+	MSM_VIDC_MATRIX_FCC_47 = 4,
+	MSM_VIDC_MATRIX_601_6_625 = 5,
+	MSM_VIDC_MATRIX_BT470_BG = MSM_VIDC_MATRIX_601_6_625,
+	MSM_VIDC_MATRIX_601_6_525 = 6,
+	MSM_VIDC_MATRIX_SMPTE_170M = MSM_VIDC_MATRIX_601_6_525,
+	MSM_VIDC_MATRIX_SMPTE_240M = 7,
+	MSM_VIDC_MATRIX_Y_CG_CO = 8,
+	MSM_VIDC_MATRIX_BT_2020 = 9,
+	MSM_VIDC_MATRIX_BT_2020_CONST = 10,
+};
+
+enum msm_vidc_h264_transfer_chars_values {
+	MSM_VIDC_TRANSFER_RESERVED_1 = 0,
+	MSM_VIDC_TRANSFER_BT709_5 = 1,
+	MSM_VIDC_TRANSFER_UNSPECIFIED = 2,
+	MSM_VIDC_TRANSFER_RESERVED_2 = 3,
+	MSM_VIDC_TRANSFER_BT_470_6_M = 4,
+	MSM_VIDC_TRANSFER_BT_470_6_BG = 5,
+	MSM_VIDC_TRANSFER_601_6_625 = 6,
+	MSM_VIDC_TRANSFER_601_6_525 = MSM_VIDC_TRANSFER_601_6_625,
+	MSM_VIDC_TRANSFER_SMPTE_240M = 7,
+	MSM_VIDC_TRANSFER_LINEAR = 8,
+	MSM_VIDC_TRANSFER_LOG_100_1 = 9,
+	MSM_VIDC_TRANSFER_LOG_100_SQRT10_1 = 10,
+	MSM_VIDC_TRANSFER_IEC_61966 = 11,
+	MSM_VIDC_TRANSFER_BT_1361 = 12,
+	MSM_VIDC_TRANSFER_SRGB = 13,
+	MSM_VIDC_TRANSFER_BT_2020_10 = 14,
+	MSM_VIDC_TRANSFER_BT_2020_12 = 15,
+};
+
 enum msm_vidc_pixel_depth {
 	MSM_VIDC_BIT_DEPTH_8,
 	MSM_VIDC_BIT_DEPTH_10,
 	MSM_VIDC_BIT_DEPTH_UNSUPPORTED = 0XFFFFFFFF,
 };
+
+enum msm_vidc_video_format {
+	MSM_VIDC_COMPONENT,
+	MSM_VIDC_PAL,
+	MSM_VIDC_NTSC,
+	MSM_VIDC_SECAM,
+	MSM_VIDC_MAC,
+	MSM_VIDC_UNSPECIFIED_FORMAT,
+	MSM_VIDC_RESERVED_1_FORMAT,
+	MSM_VIDC_RESERVED_2_FORMAT,
+};
+
+enum msm_vidc_color_desc_flag {
+	MSM_VIDC_COLOR_DESC_NOT_PRESENT,
+	MSM_VIDC_COLOR_DESC_PRESENT,
+};
+
+/*enum msm_vidc_pic_struct */
+#define MSM_VIDC_PIC_STRUCT_MAYBE_INTERLACED 0x0
+#define MSM_VIDC_PIC_STRUCT_PROGRESSIVE 0x1
+
 #endif

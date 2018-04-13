@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,15 @@
 #include <linux/compat.h>
 #include <asm/ioctls.h>
 #include "audio_utils.h"
+
+/*
+ * Define maximum buffer size. Below values are chosen considering the higher
+ * values used among all native drivers.
+ */
+#define MAX_FRAME_SIZE	1536
+#define MAX_FRAMES	5
+#define META_SIZE	(sizeof(struct meta_out_dsp))
+#define MAX_BUFFER_SIZE	(1 + ((MAX_FRAME_SIZE + META_SIZE) * MAX_FRAMES))
 
 static int audio_in_pause(struct q6audio_in  *audio)
 {
@@ -326,6 +336,10 @@ long audio_in_ioctl(struct file *file,
 		if ((cfg.buffer_size < (audio->min_frame_size+ \
 			sizeof(struct meta_out_dsp))) ||
 			(cfg.buffer_count < FRAME_NUM)) {
+			rc = -EINVAL;
+			break;
+		}
+		if (cfg.buffer_size > MAX_BUFFER_SIZE) {
 			rc = -EINVAL;
 			break;
 		}
@@ -744,7 +758,7 @@ ssize_t audio_in_read(struct file *file,
 			count -= bytes_to_copy;
 			buf += bytes_to_copy;
 		} else {
-			pr_err("%s:session id %d: short read data[%p] bytesavail[%d]bytesrequest[%zd]\n",
+			pr_err("%s:session id %d: short read data[%pK] bytesavail[%d]bytesrequest[%zd]\n",
 				__func__,
 				audio->ac->session,
 				data, size, count);
@@ -883,7 +897,7 @@ ssize_t audio_in_write(struct file *file,
 		buf += xfer;
 	}
 	mutex_unlock(&audio->write_lock);
-	pr_debug("%s:session id %d: eos_condition 0x%x buf[0x%p] start[0x%p]\n",
+	pr_debug("%s:session id %d: eos_condition 0x%x buf[0x%pK] start[0x%pK]\n",
 				__func__, audio->ac->session,
 				nflags, buf, start);
 	if (nflags & AUD_EOS_SET) {

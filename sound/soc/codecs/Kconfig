@@ -164,6 +164,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM9705 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9712 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9713 if SND_SOC_AC97_BUS
+	select SND_SOC_MAX98927 if I2C
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -620,6 +621,9 @@ config SND_SOC_UDA134X
 config SND_SOC_UDA1380
         tristate
 
+config SND_SOC_WCD9306
+        tristate
+
 config SND_SOC_WCD9320
         tristate
 
@@ -649,6 +653,7 @@ config SND_SOC_MSM8X16_WCD
 config SND_SOC_WCD9XXX
 	tristate
 	default y if SND_SOC_WCD9320=y || SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
+	default y if SND_SOC_WCD9306=y
 
 config SND_SOC_WCD9XXX_V2
 	tristate
@@ -868,4 +873,36 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 config SND_SOC_MSM_HDMI_DBA_CODEC_RX
 	bool "HDMI DBA Audio Playback"
 	depends on MSM_DBA
+config SND_SOC_MAX98927
+	tristate "Audio SMART PA 98927 support"
+#	default n if SOUND_MIDOLITE=y
+#	depends on SOUND_MIDOLITE
+	help
+	  Say Y here to enable Audio SMART PA support. This allows
+	  monitoring switches by userspace via sysfs and uevent.
+config SOUND_MIDOLITE
+	bool "Midolite use it"
+#	default y
+	default n
+	help
+	  Say Y here to enable Audio SMART PA support. This used for
+	  midolite
+
+menuconfig SND_SOC_TAS2557
+	tristate "Texas Instruments TAS2557 SmartAmp(R)"
+
+if SND_SOC_TAS2557
+config TAS2557_REGMAP
+	bool "Use of RegMap API"
+	default y
+
+config TAS2557_CODEC
+	bool "Codec Driver support"
+	default y
+
+config TAS2557_MISC
+	bool "Misc Driver support"
+	default y
+endif
+
 endmenu

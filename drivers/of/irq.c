@@ -8,6 +8,7 @@
  *  Adapted for Power Macintosh by Paul Mackerras
  *    Copyright (C) 1996 Paul Mackerras (paulus@cs.anu.edu.au)
  *
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version
@@ -410,6 +411,7 @@ int of_irq_get(struct device_node *dev, int index)
 
 	return irq_create_of_mapping(&oirq);
 }
+EXPORT_SYMBOL_GPL(of_irq_get);
 
 /**
  * of_irq_get_byname - Decode a node's IRQ and return it as a Linux irq number

@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,7 +197,7 @@ static void hdmi_cec_msg_recv(struct work_struct *work)
 		msg.sender_id, msg.recvr_id,
 		msg.frame_size);
 
-	if (msg.frame_size < 1) {
+	if (msg.frame_size < 1 || msg.frame_size > MAX_CEC_FRAME_SIZE) {
 		DEV_ERR("%s: invalid message (frame length = %d)\n",
 			__func__, msg.frame_size);
 		return;
@@ -216,7 +217,7 @@ static void hdmi_cec_msg_recv(struct work_struct *work)
 		msg.operand[i] = data & 0xFF;
 	}
 
-	for (; i < 14; i++)
+	for (; i < MAX_OPERAND_SIZE; i++)
 		msg.operand[i] = 0;
 
 	DEV_DBG("%s: opcode 0x%x, wakup_en %d, device_suspend %d\n", __func__,
@@ -270,14 +271,14 @@ int hdmi_cec_isr(void *input)
 		return -EPERM;
 	}
 
+	if (!cec_ctrl->cec_enabled) {
+		DEV_DBG("%s: CEC feature not enabled\n", __func__);
+		return 0;
+	}
+
 	io = cec_ctrl->init_data.io;
 
 	cec_intr = DSS_REG_R_ND(io, HDMI_CEC_INT);
-
-	if (!cec_ctrl->cec_enabled) {
-		DSS_REG_W(io, HDMI_CEC_INT, cec_intr);
-		return 0;
-	}
 
 	cec_status = DSS_REG_R_ND(io, HDMI_CEC_STATUS);
 

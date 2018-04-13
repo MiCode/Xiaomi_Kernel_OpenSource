@@ -16,6 +16,9 @@
  * Copyright (C) 2014 ARM Limited
  *
  * Author: Will Deacon <will.deacon@arm.com>
+ *
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
  */
 
 #define pr_fmt(fmt)	"io-pgtable: " fmt
@@ -34,6 +37,7 @@ extern struct io_pgtable_init_fns io_pgtable_arm_32_lpae_s2_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s1_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s2_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_msm_secure_init_fns;
+extern struct io_pgtable_init_fns io_pgtable_av8l_fast_init_fns;
 
 static const struct io_pgtable_init_fns *
 io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] =
@@ -46,6 +50,9 @@ io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] =
 #endif
 #ifdef CONFIG_MSM_TZ_SMMU
 	[ARM_MSM_SECURE] = &io_pgtable_arm_msm_secure_init_fns,
+#endif
+#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
+	[ARM_V8L_FAST] = &io_pgtable_av8l_fast_init_fns,
 #endif
 };
 

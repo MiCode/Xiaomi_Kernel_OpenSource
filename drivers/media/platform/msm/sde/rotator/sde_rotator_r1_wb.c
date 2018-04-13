@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -408,12 +409,11 @@ static void sde_mdp_set_ot_limit_wb(struct sde_mdp_writeback_ctx *ctx)
 	ot_params.num = ctx->wb_num;
 	ot_params.width = ctx->width;
 	ot_params.height = ctx->height;
+	ot_params.fps = 60;
 	ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_WR_LIM_CONF;
 	ot_params.reg_off_mdp_clk_ctrl = ctx->clk_ctrl.reg_off;
 	ot_params.bit_off_mdp_clk_ctrl = ctx->clk_ctrl.bit_off;
-	ot_params.is_rot = (ctx->type == SDE_MDP_WRITEBACK_TYPE_ROTATOR);
-	ot_params.is_wb = true;
-	ot_params.is_yuv = ctx->dst_fmt->is_yuv;
+	ot_params.fmt = (ctx->dst_fmt) ? ctx->dst_fmt->format : 0;
 
 	sde_mdp_set_ot_limit(&ot_params);
 }

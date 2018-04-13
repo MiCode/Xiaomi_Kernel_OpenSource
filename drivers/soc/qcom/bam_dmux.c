@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2747,7 +2748,11 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	 * block the watchdog pet function, so that netif_rx() in rmnet
 	 * only uses one queue.
 	 */
-	bam_mux_rx_workqueue = alloc_workqueue("bam_dmux_rx",
+	if (no_cpu_affinity)
+		bam_mux_rx_workqueue =
+			create_singlethread_workqueue("bam_dmux_rx");
+	else
+		bam_mux_rx_workqueue = alloc_workqueue("bam_dmux_rx",
 					WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
 	if (!bam_mux_rx_workqueue)
 		return -ENOMEM;

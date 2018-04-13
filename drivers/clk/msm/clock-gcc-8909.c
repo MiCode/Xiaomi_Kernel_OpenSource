@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -614,6 +615,18 @@ static struct rcg_clk blsp1_qup1_spi_apps_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_gcc_blsp1_qup2_spi_apps_clk[] = {
+	F( 960000,	xo,	10,	1,	2),
+	F( 4800000,	xo,	4,	0,	0),
+	F( 8000000,	gpll0,	10,	1,	10),
+	F( 9600000,	xo,	2,	0,	0),
+	F( 16000000,	gpll0,	10,	1,	5),
+	F( 19200000,	xo,	1,	0,	0),
+	F( 25000000,	gpll0,	16,	1,	2),
+	F( 50000000,	gpll0,	16,	0,	0),
+	F_END
+};
+
 static struct rcg_clk blsp1_qup2_i2c_apps_clk_src = {
 	.cmd_rcgr_reg = BLSP1_QUP2_I2C_APPS_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -631,7 +644,7 @@ static struct rcg_clk blsp1_qup2_i2c_apps_clk_src = {
 static struct rcg_clk blsp1_qup2_spi_apps_clk_src = {
 	.cmd_rcgr_reg =  BLSP1_QUP2_SPI_APPS_CMD_RCGR,
 	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_gcc_blsp1_qup1_6_spi_apps_clk,
+	.freq_tbl = ftbl_gcc_blsp1_qup2_spi_apps_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
@@ -922,7 +935,8 @@ static struct rcg_clk crypto_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_gp1_3_clk[] = {
-	F( 19200000,	xo,	1,	0,	0),
+	F(   150000,    xo,     1,      1,      128),
+	F( 19200000,	xo,	1,	0,	  0),
 	F_END
 };
 

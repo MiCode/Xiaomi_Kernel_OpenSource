@@ -1,6 +1,7 @@
 /*
  *      sd.c Copyright (C) 1992 Drew Eckhardt
  *           Copyright (C) 1993, 1994, 1995, 1999 Eric Youngdale
+ *           Copyright (C) 2018 XiaoMi, Inc.
  *
  *      Linux scsi disk driver
  *              Initial versions: Drew Eckhardt
@@ -3113,8 +3114,8 @@ static int sd_suspend_common(struct device *dev, bool ignore_stop_errors)
 	struct scsi_disk *sdkp = scsi_disk_get_from_dev(dev);
 	int ret = 0;
 
-	if (!sdkp)
-		return 0;	/* this can happen */
+	if (!sdkp)	/* E.g.: runtime suspend following sd_remove() */
+		return 0;
 
 	if (sdkp->WCE && sdkp->media_present) {
 		ret = sd_sync_cache(sdkp);

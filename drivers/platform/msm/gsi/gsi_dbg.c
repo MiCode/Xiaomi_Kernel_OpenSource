@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -653,10 +654,10 @@ static ssize_t gsi_rst_stats(struct file *file,
 	} else if (ch_id < 0 || ch_id >= GSI_MAX_CHAN ||
 		   !gsi_ctx->chan[ch_id].allocated) {
 		goto error;
+	} else {
+		min = ch_id;
+		max = ch_id + 1;
 	}
-
-	min = ch_id;
-	max = ch_id + 1;
 
 	for (ch_id = min; ch_id < max; ch_id++)
 		memset(&gsi_ctx->chan[ch_id].stats, 0,

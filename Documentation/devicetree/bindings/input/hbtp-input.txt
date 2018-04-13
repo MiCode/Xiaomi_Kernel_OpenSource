@@ -29,12 +29,21 @@ Optional properties if qcom,use-scale DT property is defined:
  - qcom,des-maxy	: desired Y-resolution of the touch panel.
 			(Above two properties should be defined in pairs only)
 
+Optional properties if secure touch is enabled for hbtp input driver
+ - interrupt-parent	: Parent of interrupt
+ - interrupts		: Touch sample interrupt to indicate presense or release
+			  of fingers on the panel.
+ - hbtp,irq-gpio	: GPIO used for interrupt.
+
 Example:
 	&soc {
 		hbtp {
 			compatible = "qcom,hbtp-input";
 			vcc_ana-supply = <&pm8941_l17>;
 			vcc_dig-supply = <&pm8950_l16>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0>;
+			hbtp,irq-gpio = <&tlmm 65 0x00>;
 			qcom,afe-load = <50000>;
 			qcom,afe-vtg-min = <2850000>;
 			qcom,afe-vtg-max = <2850000>;

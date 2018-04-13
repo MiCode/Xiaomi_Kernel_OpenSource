@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2001-2003 Patrick Mochel
  *  Copyright (C) 2001-2003 Pavel Machek <pavel@ucw.cz>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  */
 
 #include <linux/acpi.h>
@@ -16,6 +17,7 @@
 #include <asm/cacheflush.h>
 #include <asm/realmode.h>
 
+#include <linux/ftrace.h>
 #include "../../realmode/rm/wakeup.h"
 #include "sleep.h"
 
@@ -107,7 +109,13 @@ int x86_acpi_suspend_lowlevel(void)
        saved_magic = 0x123456789abcdef0L;
 #endif /* CONFIG_64BIT */
 
+	/*
+	 * Pause/unpause graph tracing around do_suspend_lowlevel as it has
+	 * inconsistent call/return info after it jumps to the wakeup vector.
+	 */
+	pause_graph_tracing();
 	do_suspend_lowlevel();
+	unpause_graph_tracing();
 	return 0;
 }
 

@@ -36,6 +36,8 @@ Optional properties:
       "typec_ssmux_config" : Default configuration of pins.
 - <supply-name>-supply: handle to the regulator device tree node.
         "supply-name" is "ss-mux" regulator to drive super-speed MUX chip.
+- qcom,role-reversal-supported : A boolean property that when present enables
+			support of dual role class.
 
 Example:
 	qcom,qpnp-typec@bf00 {

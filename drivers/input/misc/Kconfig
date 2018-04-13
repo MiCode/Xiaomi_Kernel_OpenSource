@@ -104,6 +104,16 @@ config INPUT_HBTP_INPUT
 	  To compile this driver as a module, choose M here: the
 	  module will be called hbtp_input.
 
+config HBTP_INPUT_SECURE_TOUCH
+	bool "Secure Touch support for HBTP Input driver"
+	depends on INPUT_HBTP_INPUT
+	help
+	  This option enables the Secure Touch functionality of the HBTP
+	  Input driver.
+
+	  Say Y to enable this functionality.
+	  If unsure, say N.
+
 config INPUT_PCSPKR
 	tristate "PC Speaker support"
 	depends on PCSPKR_PLATFORM

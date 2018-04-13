@@ -337,18 +337,18 @@ config CRYPTO_DEV_QCRYPTO
 
 config CRYPTO_DEV_QCOM_MSM_QCE
         tristate "Qualcomm Crypto Engine (QCE) module"
-        select  CRYPTO_DEV_QCE50 if ARCH_APQ8084 || ARCH_MSM8916 || ARCH_MSM8994 || ARCH_MSM8996 || ARCH_MSM8992 || ARCH_MSM8953 || ARCH_MSM8909
+        select  CRYPTO_DEV_QCE50 if ARCH_APQ8084 || ARCH_MSM8916 || ARCH_MSM8994 || ARCH_MSM8996 || ARCH_MSM8992 || ARCH_MSM8953 || ARCH_MSM8909 || ARCH_MDM9640
         default n
         help
           This driver supports Qualcomm Crypto Engine in MSM7x30, MSM8660
           MSM8x55, MSM8960, MSM9615, MSM8916, MSM8994, MSM8996, FSM9900,
-	  MSMTITANINUM and APQ8084.
+	  MSMTITANINUM, MDM9640 and APQ8084.
 
           To compile this driver as a module, choose M here: the
           For MSM7x30 MSM8660 and MSM8x55 the module is called qce
           For MSM8960, APQ8064 and MSM9615 the module is called qce40
-          For MSM8974, MSM8916, MSM8994, MSM8996, MSM8992, MSM8953
-	  and APQ8084 the module is called qce50.
+          For MSM8974, MSM8916, MSM8994, MSM8996, MSM8992, MSM8953,
+	  MDM9640 and APQ8084 the module is called qce50.
 
 config CRYPTO_DEV_QCEDEV
         tristate "QCEDEV Interface to CE module"

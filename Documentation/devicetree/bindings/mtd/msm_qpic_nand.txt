@@ -7,6 +7,8 @@ Required properties:
 - interrupts : should specify QPIC/BAM interrupt numbers.
 - interrupt-names : should specify relevant names to each interrupts property
   defined.
+- qcom,reg-adjustment-offset : Specify the base adjustment offset value for the
+  version registers
 
 MTD flash partition layout for NAND devices -
 
@@ -37,6 +39,8 @@ Examples:
 		      <0xf9ac4000 0x8000>;
 		reg-names = "nand_phys",
 			    "bam_phys";
+		qcom,reg-adjustment-offset = <0x4000>;
+
 		interrupts = <0 279 0>;
 		interrupt-names = "bam_irq";
 

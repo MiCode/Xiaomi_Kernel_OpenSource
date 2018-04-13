@@ -1,4 +1,5 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +32,6 @@
  * @fault_policy: Internal policy describing how to handle this command in case
  * of a fault
  * @fault_recovery: recovery actions actually tried for this batch
- * @expires: Point in time when the cmdbatch is considered to be hung
  * @refcount: kref structure to maintain the reference count
  * @cmdlist: List of IBs to issue
  * @memlist: List of all memory used in this command batch
@@ -61,7 +61,6 @@ struct kgsl_cmdbatch {
 	unsigned long priv;
 	unsigned long fault_policy;
 	unsigned long fault_recovery;
-	unsigned long expires;
 	struct kref refcount;
 	struct list_head cmdlist;
 	struct list_head memlist;
@@ -86,6 +85,7 @@ struct kgsl_cmdbatch {
  * @context: Pointer to the KGSL context that owns the cmdbatch
  * @timestamp: Pending timestamp for the event
  * @handle: Pointer to a sync fence handle
+ * @handle_lock: Spin lock to protect handle
  * @device: Pointer to the KGSL device
  */
 struct kgsl_cmdbatch_sync_event {
@@ -95,6 +95,7 @@ struct kgsl_cmdbatch_sync_event {
 	struct kgsl_context *context;
 	unsigned int timestamp;
 	struct kgsl_sync_fence_waiter *handle;
+	spinlock_t handle_lock;
 	struct kgsl_device *device;
 };
 

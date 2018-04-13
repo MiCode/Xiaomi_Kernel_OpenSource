@@ -57,7 +57,7 @@ static irqreturn_t pps_gpio_irq_handler(int irq, void *data)
 	int rising_edge;
 
 	/* Get the time stamp first */
-	pps_get_ts(&ts);
+	get_monotonic_boottime(&ts.ts_real);
 
 	info = data;
 

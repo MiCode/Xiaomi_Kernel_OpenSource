@@ -5,6 +5,7 @@
  *  Adapted from 'alpha' version by Gary Thomas
  *  Modified by Cort Dougan (cort@cs.nmt.edu)
  *  Modified by PPC64 Team, IBM Corp
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -251,9 +252,10 @@ static void __init pseries_discover_pic(void)
 	       " interrupt-controller\n");
 }
 
-static int pci_dn_reconfig_notifier(struct notifier_block *nb, unsigned long action, void *node)
+static int pci_dn_reconfig_notifier(struct notifier_block *nb, unsigned long action, void *data)
 {
-	struct device_node *np = node;
+	struct of_reconfig_data *rd = data;
+	struct device_node *np = rd->dn;
 	struct pci_dn *pci = NULL;
 	int err = NOTIFY_OK;
 

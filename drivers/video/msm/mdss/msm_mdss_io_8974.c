@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +17,8 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/iopoll.h>
+#include <linux/kthread.h>
 
 #include "mdss_dsi.h"
 #include "mdss_edp.h"
@@ -425,6 +428,20 @@ static void mdss_dsi_ctrl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0000);
 	udelay(100);
 	wmb();	/* maek sure reset cleared */
+}
+
+int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc;
+	u32 val;
+	u32 const sleep_us = 10, timeout_us = 100;
+
+	pr_debug("%s: polling for RESETSM_READY_STATUS.CORE_READY\n",
+		__func__);
+	rc = readl_poll_timeout(ctrl->phy_io.base + 0x4cc, val,
+		(val & 0x1), sleep_us, timeout_us);
+
+	return rc;
 }
 
 void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -912,13 +929,22 @@ static void mdss_dsi_8996_phy_power_off(
 static void mdss_dsi_phy_power_off(
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	struct mdss_panel_info *pinfo;
+
 	if (ctrl->phy_power_off)
 		return;
 
-	/* supported for phy rev 2.0 */
-	if (ctrl->shared_data->phy_rev != DSI_PHY_REV_20)
-		return;
+	pinfo = &ctrl->panel_data.panel_info;
 
+	if ((ctrl->shared_data->phy_rev != DSI_PHY_REV_20) ||
+		!pinfo->allow_phy_power_off) {
+		pr_debug("%s: ctrl%d phy rev:%d panel support for phy off:%d\n",
+			__func__, ctrl->ndx, ctrl->shared_data->phy_rev,
+			pinfo->allow_phy_power_off);
+		return;
+	}
+
+	/* supported for phy rev 2.0 and if panel allows it*/
 	mdss_dsi_8996_phy_power_off(ctrl);
 
 	ctrl->phy_power_off = true;
@@ -955,7 +981,7 @@ static void mdss_dsi_8996_phy_power_on(
 static void mdss_dsi_phy_power_on(
 	struct mdss_dsi_ctrl_pdata *ctrl, bool mmss_clamp)
 {
-	if (mmss_clamp && (ctrl->shared_data->phy_rev != DSI_PHY_REV_20))
+	if (mmss_clamp && !ctrl->phy_power_off)
 		mdss_dsi_phy_init(ctrl);
 	else if ((ctrl->shared_data->phy_rev == DSI_PHY_REV_20) &&
 	    ctrl->phy_power_off)
@@ -1771,8 +1797,10 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * to be in stop state.
 		 */
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
+		wmb(); /* ensure lanes are put to stop state */
 
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
+		wmb(); /* ensure lanes are in proper state */
 
 		/*
 		 * Wait for a short duration before enabling
@@ -1936,7 +1964,11 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 {
 	int rc = 0;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
-	int i;
+	int i, *vote_cnt;
+
+	void *m_clk_handle;
+	bool is_ecg = false;
+	int state = MDSS_DSI_CLK_OFF;
 
 	if (!ctrl) {
 		pr_err("%s: Invalid arg\n", __func__);
@@ -1968,6 +2000,18 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 	}
 
 	/*
+	 * it should add and remove extra votes based on voting clients to avoid
+	 * removal of legitimate vote from DSI client.
+	 */
+	if (mctrl && (clk_handle == ctrl->dsi_clk_handle)) {
+		m_clk_handle = mctrl->dsi_clk_handle;
+		vote_cnt = &mctrl->m_dsi_vote_cnt;
+	} else if (mctrl) {
+		m_clk_handle = mctrl->mdp_clk_handle;
+		vote_cnt = &mctrl->m_mdp_vote_cnt;
+	}
+
+	/*
 	 * When DSI is used in split mode, the link clock for master controller
 	 * has to be turned on first before the link clock for slave can be
 	 * turned on. In case the current controller is a slave, an ON vote is
@@ -1979,18 +2023,24 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 		 __func__, ctrl->ndx, clk_type, clk_state,
 		 __builtin_return_address(0), mctrl ? 1 : 0);
 	if (mctrl && (clk_type & MDSS_DSI_LINK_CLK)) {
-		rc = mdss_dsi_clk_req_state(mctrl->dsi_clk_handle,
-					     MDSS_DSI_ALL_CLKS,
-					     MDSS_DSI_CLK_ON);
+		if (clk_state != MDSS_DSI_CLK_ON) {
+			/* preserve clk state; do not turn off forcefully */
+			is_ecg = is_dsi_clk_in_ecg_state(m_clk_handle);
+			if (is_ecg)
+				state = MDSS_DSI_CLK_EARLY_GATE;
+		}
+
+		rc = mdss_dsi_clk_req_state(m_clk_handle,
+			MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON, mctrl->ndx);
 		if (rc) {
 			pr_err("%s: failed to turn on mctrl clocks, rc=%d\n",
 				 __func__, rc);
 			goto error;
 		}
-		ctrl->m_vote_cnt++;
+		(*vote_cnt)++;
 	}
 
-	rc = mdss_dsi_clk_req_state(clk_handle, clk_type, clk_state);
+	rc = mdss_dsi_clk_req_state(clk_handle, clk_type, clk_state, ctrl->ndx);
 	if (rc) {
 		pr_err("%s: failed set clk state, rc = %d\n", __func__, rc);
 		goto error;
@@ -2019,24 +2069,24 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 		 *	   for ON, since the previous ECG state must have
 		 *	   removed two votes to let clocks turn off.
 		 *
-		 * To satisfy the above requirement, m_vote_cnt keeps track of
+		 * To satisfy the above requirement, vote_cnt keeps track of
 		 * the number of ON votes for master requested by slave. For
-		 * every OFF/ECG state request, Either 2 or m_vote_cnt number of
+		 * every OFF/ECG state request, Either 2 or vote_cnt number of
 		 * votes are removed depending on which is lower.
 		 */
-		for (i = 0; (i < ctrl->m_vote_cnt && i < 2); i++) {
-			rc = mdss_dsi_clk_req_state(mctrl->dsi_clk_handle,
-						     MDSS_DSI_ALL_CLKS,
-						     MDSS_DSI_CLK_OFF);
+		for (i = 0; (i < *vote_cnt && i < 2); i++) {
+			rc = mdss_dsi_clk_req_state(m_clk_handle,
+				MDSS_DSI_ALL_CLKS, state, mctrl->ndx);
 			if (rc) {
 				pr_err("%s: failed to set mctrl clk state, rc = %d\n",
 				       __func__, rc);
 				goto error;
 			}
 		}
-		ctrl->m_vote_cnt -= i;
-		pr_debug("%s: ctrl=%d, m_vote_cnt=%d\n", __func__, ctrl->ndx,
-			 ctrl->m_vote_cnt);
+		(*vote_cnt) -= i;
+		pr_debug("%s: ctrl=%d, vote_cnt=%d dsi_vote_cnt=%d mdp_vote_cnt:%d\n",
+			__func__, ctrl->ndx, *vote_cnt, mctrl->m_dsi_vote_cnt,
+			mctrl->m_mdp_vote_cnt);
 	}
 
 error:
@@ -2192,18 +2242,8 @@ int mdss_dsi_post_clkoff_cb(void *priv,
 		pdata = &ctrl->panel_data;
 
 		for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
-			/*
-			 * if DSI state is active
-			 * 1. allow to turn off the core power module.
-			 * 2. allow to turn off phy power module if it is
-			 * turned off
-			 *
-			 * allow to turn off all power modules if DSI is not
-			 * active
-			 */
 			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
-				(i != DSI_CORE_PM) &&
-				(ctrl->phy_power_off && (i != DSI_PHY_PM)))
+				(i != DSI_CORE_PM))
 				continue;
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,
@@ -2248,15 +2288,12 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 		 * 3.> CTRL_PM need to be enabled/disabled
 		 *     only during unblank/blank. Their state should
 		 *     not be changed during static screen.
-		 * 4.> PHY_PM can be turned enabled/disabled
-		 *     if phy regulators are enabled/disabled.
 		 */
 		pr_debug("%s: Enable DSI core power\n", __func__);
 		for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
 			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
 				(!pdata->panel_info.cont_splash_enabled) &&
-				(i != DSI_CORE_PM) &&
-				(ctrl->phy_power_off && (i != DSI_PHY_PM)))
+				(i != DSI_CORE_PM))
 				continue;
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,

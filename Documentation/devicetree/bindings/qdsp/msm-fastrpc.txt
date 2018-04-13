@@ -9,18 +9,22 @@ other tasks.
 Required properties:
 - compatible :	Must be "qcom,msm-fastrpc-adsp"
 
+Optional properties:
+- qcom,fastrpc-glink:	Flag to use glink instead of smd for IPC
+
 Optional subnodes:
 - qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context
 				banks
-Subnode properties:
-- compatible :	Must be "qcom,msm-fastrpc-compute-cb"
-- label:	Label describing the channel this context bank belongs to
-- iommus : 	A list of phandle and IOMMU specifier pairs that describe the
-		IOMMU master interfaces of the device
+Subnode Required properties:
+- compatible :		Must be "qcom,msm-fastrpc-compute-cb"
+- label:		Label describing the channel this context bank belongs to
+- iommus : 		A list of phandle and IOMMU specifier pairs that describe the
+			IOMMU master interfaces of the device
 
 Example:
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-adsp";
+		qcom,fastrpc-glink;
 
 		qcom,msm_fastrpc_compute_cb_1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";

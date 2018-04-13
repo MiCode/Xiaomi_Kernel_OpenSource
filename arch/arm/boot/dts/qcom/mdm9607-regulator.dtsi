@@ -261,7 +261,7 @@
 					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
 					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
-			qcom,use-voltage-level;
+			qcom,use-voltage-floor-level;
 			qcom,always-send-voltage;
 		};
 	};

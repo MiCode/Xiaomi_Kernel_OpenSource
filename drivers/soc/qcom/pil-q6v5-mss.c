@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +15,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/of_platform.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/ioport.h>
@@ -214,6 +216,7 @@ static int pil_subsys_init(struct modem_data *drv,
 	drv->subsys_desc.stop_ack_handler = modem_stop_ack_intr_handler;
 	drv->subsys_desc.wdog_bite_handler = modem_wdog_bite_intr_handler;
 
+	drv->q6->desc.modem_ssr = false;
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
 		ret = PTR_ERR(drv->subsys);
@@ -374,6 +377,11 @@ static int pil_mss_driver_probe(struct platform_device *pdev)
 	}
 	init_completion(&drv->stop_ack);
 
+	/* Probe the MBA mem device if present */
+	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	if (ret)
+		return ret;
+
 	return pil_subsys_init(drv, pdev);
 }
 
@@ -386,6 +394,33 @@ static int pil_mss_driver_exit(struct platform_device *pdev)
 	pil_desc_release(&drv->q6->desc);
 	return 0;
 }
+
+static int pil_mba_mem_driver_probe(struct platform_device *pdev)
+{
+	struct modem_data *drv;
+
+	if (!pdev->dev.parent) {
+		pr_err("No parent found.\n");
+		return -EINVAL;
+	}
+	drv = dev_get_drvdata(pdev->dev.parent);
+	drv->mba_mem_dev_fixed = &pdev->dev;
+	return 0;
+}
+
+static struct of_device_id mba_mem_match_table[] = {
+	{ .compatible = "qcom,pil-mba-mem" },
+	{}
+};
+
+static struct platform_driver pil_mba_mem_driver = {
+	.probe = pil_mba_mem_driver_probe,
+	.driver = {
+		.name = "pil-mba-mem",
+		.of_match_table = mba_mem_match_table,
+		.owner = THIS_MODULE,
+	},
+};
 
 static struct of_device_id mss_match_table[] = {
 	{ .compatible = "qcom,pil-q6v5-mss" },
@@ -406,7 +441,12 @@ static struct platform_driver pil_mss_driver = {
 
 static int __init pil_mss_init(void)
 {
-	return platform_driver_register(&pil_mss_driver);
+	int ret;
+
+	ret = platform_driver_register(&pil_mba_mem_driver);
+	if (!ret)
+		ret = platform_driver_register(&pil_mss_driver);
+	return ret;
 }
 module_init(pil_mss_init);
 

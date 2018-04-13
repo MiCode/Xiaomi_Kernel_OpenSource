@@ -8,6 +8,8 @@ Required properties:
 Optional:
 - qcom,rmnet-ipa-ssr: determine if modem SSR is supported
 - qcom,ipa-loaduC: indicate that ipa uC should be loaded
+- qcom,ipa-advertise-sg-support: determine how to respond to a query
+regarding scatter-gather capability
 
 Example:
 	qcom,rmnet-ipa3 {

@@ -2,6 +2,7 @@
  * soc-compress.c  --  ALSA SoC Compress
  *
  * Copyright (C) 2012 Intel Corp.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Authors: Namarta Kohli <namartax.kohli@intel.com>
  *          Ramesh Babu K V <ramesh.babu@linux.intel.com>
@@ -531,6 +532,11 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 				cstream, &async_domain);
 			} else {
 				be_list[j++] = be;
+				if (j == DPCM_MAX_BE_USERS) {
+					dev_dbg(fe->dev,
+						"ASoC: MAX backend users!\n");
+					break;
+				}
 			}
 		}
 		for (i = 0; i < j; i++) {

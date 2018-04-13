@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +46,10 @@ extern void *mhi_ipc_log;
 			ipc_log_string(mhi_ipc_log,			\
 			       "[%s] " _msg, __func__, ##__VA_ARGS__);	\
 } while (0)
+
+extern const char * const mhi_states_str[MHI_STATE_LIMIT];
+#define TO_MHI_STATE_STR(state) (((state) >= MHI_STATE_LIMIT) ? \
+				 "INVALID_STATE" : mhi_states_str[state])
 
 irqreturn_t mhi_msi_handlr(int msi_number, void *dev_id);
 

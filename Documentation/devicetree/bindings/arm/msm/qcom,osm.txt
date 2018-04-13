@@ -52,15 +52,15 @@ Properties:
 	Usage:      required
 	Value type: <prop-encoded-array>
 	Definition: Array which defines the frequency in Hertz, frequency,
-		    and PLL override data used by the OSM hardware for
-		    each supported DCVS setpoint of the Power cluster.
+		    PLL override data, and ACC level used by the OSM hardware
+		    for each supported DCVS setpoint of the Power cluster.
 
 - qcom,perfcl-speedbinX-v0
 	Usage:      required
 	Value type: <prop-encoded-array>
 	Definition: Array which defines the frequency in Hertz, frequency,
-		    and PLL override data used by the OSM hardware for
-		    each supported DCVS setpoint of the Performance cluster.
+		    PLL override data, and ACC level used by the OSM hardware
+		    for each supported DCVS setpoint of the Performance cluster.
 
 - qcom,osm-no-tz
 	Usage:      optional
@@ -195,6 +195,38 @@ Properties:
 		    controller status register for each of the two clusters
 		    managed by the OSM controller.
 
+- qcom,pwrcl-apcs-mem-acc-cfg
+	Usage:      required if qcom,osm-no-tz is specified
+	Value type: <prop-encoded-array>
+	Definition: Array which defines the addresses of the mem-acc
+		    configuration registers for the Power cluster.
+		    The array must contain exactly three elements.
+
+- qcom,perfcl-apcs-mem-acc-cfg
+	Usage:      required if qcom,osm-no-tz is specified
+	Value type: <prop-encoded-array>
+	Definition: Array which defines the addresses of the mem-acc
+		    configuration registers for the Performance cluster.
+		    The array must contain exactly three elements.
+
+- qcom,pwrcl-apcs-mem-acc-val
+	Usage:      required if qcom,osm-no-tz is specified
+	Value type: <prop-encoded-array>
+	Definition: List of integer tuples which define the mem-acc values
+		    for each performance mode of the Power cluster. Each tuple
+		    is of length 3 corresponding to the mem-acc values per
+		    performance mode with a total of 4 tuples corresponding
+		    to each supported performance mode.
+
+- qcom,perfcl-apcs-mem-acc-val
+	Usage:      required if qcom,osm-no-tz is specified
+	Value type: <prop-encoded-array>
+	Definition: List of integer tuples which define the mem-acc values
+		    for each performance mode of the Performance cluster.
+		    Each tuple is of length 3 corresponding to the mem-acc
+		    values per performance mode with a total of 4 tuples
+		    corresponding to each supported performance mode.
+
 - qcom,red-fsm-en
 	Usage:      optional
 	Value type: <empty>
@@ -263,57 +295,55 @@ Example:
 		interrupt-names = "pwrcl-irq", "perfcl-irq";
 
 		qcom,pwrcl-speedbin0-v0 =
-			< 300000000 0x4000f 0x31e001e >,
-			< 345600000 0x5040012 0x4200020 >,
-			< 422400000 0x5040016 0x4200020 >,
-			< 499200000 0x504001a 0x5200020 >,
-			< 576000000 0x504001e 0x6200020 >,
-			< 633600000 0x4040021 0x7200020 >,
-			< 710400000 0x4040025 0x7200020 >,
-			< 806400000 0x404002a 0x8220022 >,
-			< 883200000 0x404002e 0x9250025 >,
-			< 960000000 0x4040032 0xa280028 >,
-			< 1036800000 0x4040036 0xb2b002b >,
-			< 1113600000 0x404003a 0xc2e002e >,
-			< 1190400000 0x404003e 0xc320032 >,
-			< 1248000000 0x4040041 0xd340034 >,
-			< 1324800000 0x4040045 0xe370037 >,
-			< 1401600000 0x4040049 0xf3a003a >,
-			< 1478400000 0x404004d 0x103e003e >,
-			< 1497600000 0x404004e 0x103e003e >,
-			< 1574400000 0x4040052 0x10420042 >,
-			< 1651200000 0x4040056 0x11450045 >,
-			< 1728000000 0x404005a 0x12480048 >,
-			< 1804800000 0x404005e 0x134b004b >,
-			< 1881600000 0x4040062 0x144e004e >;
+			< 300000000  0x0004000f 0x031e001e 0x1>,
+			< 345600000  0x05040012 0x04200020 0x1>,
+			< 422400000  0x05040016 0x04200020 0x1>,
+			< 499200000  0x0504001a 0x05200020 0x1>,
+			< 576000000  0x0504001e 0x06200020 0x1>,
+			< 633600000  0x04040021 0x07200020 0x1>,
+			< 710400000  0x04040025 0x07200020 0x1>,
+			< 806400000  0x0404002a 0x08220022 0x2>,
+			< 883200000  0x0404002e 0x09250025 0x2>,
+			< 960000000  0x04040032 0x0a280028 0x2>,
+			< 1036800000 0x04040036 0x0b2b002b 0x3>,
+			< 1113600000 0x0404003a 0x0c2e002e 0x3>,
+			< 1190400000 0x0404003e 0x0c320032 0x3>,
+			< 1248000000 0x04040041 0x0d340034 0x3>,
+			< 1324800000 0x04040045 0x0e370037 0x3>,
+			< 1401600000 0x04040049 0x0f3a003a 0x3>,
+			< 1478400000 0x0404004d 0x103e003e 0x3>,
+			< 1574400000 0x04040052 0x10420042 0x4>,
+			< 1651200000 0x04040056 0x11450045 0x4>,
+			< 1728000000 0x0404005a 0x12480048 0x4>,
+			< 1804800000 0x0404005e 0x134b004b 0x4>,
+			< 1881600000 0x04040062 0x144e004e 0x4>;
 
 		qcom,perfcl-speedbin0-v0 =
-			< 300000000 0x4000f 0x3200020 >,
-			< 345600000 0x5040012 0x4200020 >,
-			< 422400000 0x5040016 0x4200020 >,
-			< 480000000 0x5040019 0x5200020 >,
-			< 556800000 0x504001d 0x6200020 >,
-			< 633600000 0x4040021 0x7200020 >,
-			< 710400000 0x4040025 0x7200020 >,
-			< 787200000 0x4040029 0x8210021 >,
-			< 844800000 0x404002c 0x9240024 >,
-			< 902400000 0x404002f 0x9260026 >,
-			< 979200000 0x4040033 0xa290029 >,
-			< 1056000000 0x4040037 0xb2c002c >,
-			< 1094400000 0x4040039 0xb2e002e >,
-			< 1171200000 0x404003d 0xc300030 >,
-			< 1248000000 0x4040041 0xd340034 >,
-			< 1324800000 0x4040045 0xe370037 >,
-			< 1401600000 0x4040049 0xf3b003b >,
-			< 1478400000 0x404004d 0xf3e003e >,
-			< 1536000000 0x4040050 0x10400040 >,
-			< 1632000000 0x4040055 0x11440044 >,
-			< 1708800000 0x4040059 0x12480048 >,
-			< 1785600000 0x404005d 0x134a004a >,
-			< 1862400000 0x4040061 0x134e004e >,
-			< 1939200000 0x4040065 0x14510051 >,
-			< 2016000000 0x4040069 0x15540054 >,
-			< 2092800000 0x404006d 0x16570057 >;
+			< 300000000  0x0004000f 0x03200020 0x1>,
+			< 345600000  0x05040012 0x04200020 0x1>,
+			< 422400000  0x05040016 0x04200020 0x1>,
+			< 480000000  0x05040019 0x05200020 0x1>,
+			< 556800000  0x0504001d 0x06200020 0x1>,
+			< 633600000  0x04040021 0x07200020 0x1>,
+			< 710400000  0x04040025 0x07200020 0x1>,
+			< 787200000  0x04040029 0x08210021 0x1>,
+			< 844800000  0x0404002c 0x09240024 0x2>,
+			< 902400000  0x0404002f 0x09260026 0x2>,
+			< 979200000  0x04040033 0x0a290029 0x2>,
+			< 1056000000 0x04040037 0x0b2c002c 0x2>,
+			< 1171200000 0x0404003d 0x0c300030 0x3>,
+			< 1248000000 0x04040041 0x0d340034 0x3>,
+			< 1324800000 0x04040045 0x0e370037 0x3>,
+			< 1401600000 0x04040049 0x0f3b003b 0x3>,
+			< 1478400000 0x0404004d 0x0f3e003e 0x3>,
+			< 1536000000 0x04040050 0x10400040 0x3>,
+			< 1632000000 0x04040055 0x11440044 0x4>,
+			< 1708800000 0x04040059 0x12480048 0x4>,
+			< 1785600000 0x0404005d 0x134a004a 0x4>,
+			< 1862400000 0x04040061 0x134e004e 0x4>,
+			< 1939200000 0x04040065 0x14510051 0x4>,
+			< 2016000000 0x04040069 0x15540054 0x4>,
+			< 2092800000 0x0404006d 0x16570057 0x4>;
 
 		qcom,osm-no-tz;
 		qcom,osm-pll-setup;
@@ -351,6 +381,21 @@ Example:
 			<0x179d0004 0x179d0010>;
 		qcom,apm-ctrl-status =
 			<0x179d000c 0x179d0018>;
+
+		qcom,pwrcl-apcs-mem-acc-cfg =
+			<0x179d1360 0x179d1364 0x179d1364>;
+		qcom,perfcl-apcs-mem-acc-cfg =
+			<0x179d1368 0x179d136C 0x179d1370>;
+		qcom,pwrcl-apcs-mem-acc-val =
+			<0x00000000 0x10000000 0x10000000>,
+			<0x00000000 0x10000000 0x10000000>,
+			<0x00000000 0x00000000 0x00000000>,
+			<0x00000000 0x00000001 0x00000001>;
+		qcom,perfcl-apcs-mem-acc-val =
+			<0x00000000 0x00000000 0x10000000>,
+			<0x00000000 0x00000000 0x10000000>,
+			<0x00000000 0x00000000 0x00000000>,
+			<0x00000000 0x00000000 0x00000001>;
 
 		clock-names = "aux_clk";
 		clocks = <&clock_gcc clk_gpll0_ao>;

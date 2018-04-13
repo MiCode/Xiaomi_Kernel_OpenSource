@@ -1,4 +1,5 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,12 @@
    as an identifier */
 #define KGSL_MMU_GLOBAL_PT 0
 #define KGSL_MMU_SECURE_PT 1
+
+#define MMU_DEFAULT_TTBR0(_d) \
+	(kgsl_mmu_pagetable_get_ttbr0((_d)->mmu.defaultpagetable))
+
+#define MMU_DEFAULT_CONTEXTIDR(_d) \
+	(kgsl_mmu_pagetable_get_contextidr((_d)->mmu.defaultpagetable))
 
 struct kgsl_device;
 
@@ -69,11 +76,12 @@ struct kgsl_mmu_ops {
 			(struct kgsl_mmu *mmu);
 	int (*mmu_init_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *);
 	void (*mmu_add_global)(struct kgsl_mmu *mmu,
-			struct kgsl_memdesc *memdesc);
+			struct kgsl_memdesc *memdesc, const char *name);
 	void (*mmu_remove_global)(struct kgsl_mmu *mmu,
 			struct kgsl_memdesc *memdesc);
 	struct kgsl_pagetable * (*mmu_getpagetable)(struct kgsl_mmu *mmu,
 			unsigned long name);
+	struct kgsl_memdesc* (*mmu_get_qdss_global_entry)(void);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -85,7 +93,7 @@ struct kgsl_mmu_pt_ops {
 	u64 (*get_ttbr0)(struct kgsl_pagetable *);
 	u32 (*get_contextidr)(struct kgsl_pagetable *);
 	int (*get_gpuaddr)(struct kgsl_pagetable *, struct kgsl_memdesc *);
-	void (*put_gpuaddr)(struct kgsl_pagetable *, struct kgsl_memdesc *);
+	void (*put_gpuaddr)(struct kgsl_memdesc *);
 	uint64_t (*find_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t,
 		uint64_t, uint64_t);
 	int (*set_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t);
@@ -164,6 +172,7 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *,
 
 void kgsl_add_global_secure_entry(struct kgsl_device *device,
 					struct kgsl_memdesc *memdesc);
+void kgsl_print_global_pt_entries(struct seq_file *s);
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 
 int kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
@@ -172,8 +181,7 @@ int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
-void kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
-		 struct kgsl_memdesc *memdesc);
+void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 		u64 ttbr0, uint64_t addr);
@@ -188,7 +196,7 @@ int kgsl_mmu_find_region(struct kgsl_pagetable *pagetable,
 		uint64_t *gpuaddr, uint64_t size, unsigned int align);
 
 void kgsl_mmu_add_global(struct kgsl_device *device,
-	struct kgsl_memdesc *memdesc);
+	struct kgsl_memdesc *memdesc, const char *name);
 void kgsl_mmu_remove_global(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc);
 
@@ -220,6 +228,8 @@ int kgsl_mmu_map_offset(struct kgsl_pagetable *pagetable,
 int kgsl_mmu_unmap_offset(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc, uint64_t addr, uint64_t offset,
 		uint64_t size);
+
+struct kgsl_memdesc *kgsl_mmu_get_qdss_global_entry(struct kgsl_device *device);
 
 /*
  * Static inline functions of MMU that simply call the SMMU specific

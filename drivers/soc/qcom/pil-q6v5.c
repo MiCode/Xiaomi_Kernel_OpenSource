@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +102,12 @@ int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 		goto out;
 	}
 
+	ret = clk_prepare_enable(drv->qpic_clk);
+	if (ret) {
+		dev_err(pil->dev, "Failed to vote for qpic clk\n");
+		goto err_qpic_vote;
+	}
+
 	ret = clk_prepare_enable(drv->pnoc_clk);
 	if (ret) {
 		dev_err(pil->dev, "Failed to vote for pnoc\n");
@@ -152,6 +159,8 @@ err_cx_voltage:
 err_qdss_vote:
 	clk_disable_unprepare(drv->pnoc_clk);
 err_pnoc_vote:
+	clk_disable_unprepare(drv->qpic_clk);
+err_qpic_vote:
 	clk_disable_unprepare(drv->xo);
 out:
 	return ret;
@@ -177,6 +186,7 @@ void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 	regulator_set_optimum_mode(drv->vreg_cx, 0);
 	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE, INT_MAX);
 	clk_disable_unprepare(drv->xo);
+	clk_disable_unprepare(drv->qpic_clk);
 	clk_disable_unprepare(drv->pnoc_clk);
 	clk_disable_unprepare(drv->qdss_clk);
 }
@@ -194,9 +204,9 @@ void pil_q6v5_halt_axi_port(struct pil_desc *pil, void __iomem *halt_base)
 	ret = readl_poll_timeout(halt_base + AXI_HALTACK,
 		status, status != 0, 50, HALT_ACK_TIMEOUT_US);
 	if (ret)
-		dev_warn(pil->dev, "Port %p halt timeout\n", halt_base);
+		dev_warn(pil->dev, "Port %pK halt timeout\n", halt_base);
 	else if (!readl_relaxed(halt_base + AXI_IDLE))
-		dev_warn(pil->dev, "Port %p halt failed\n", halt_base);
+		dev_warn(pil->dev, "Port %pK halt failed\n", halt_base);
 
 	/* Clear halt request (port will remain halted until reset) */
 	writel_relaxed(0, halt_base + AXI_HALTREQ);
@@ -575,6 +585,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	if (ret)
 		return ERR_PTR(ret);
 
+	desc->clear_fw_region = false;
 	desc->dev = &pdev->dev;
 
 	drv->qdsp6v5_2_0 = of_device_is_compatible(pdev->dev.of_node,
@@ -673,6 +684,10 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);
+
+	drv->qpic_clk = devm_clk_get(&pdev->dev, "qpic");
+	if (IS_ERR(drv->qpic_clk))
+		drv->qpic_clk = NULL;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,pnoc-clk-vote")) {
 		drv->pnoc_clk = devm_clk_get(&pdev->dev, "pnoc_clk");

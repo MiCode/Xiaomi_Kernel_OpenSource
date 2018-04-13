@@ -1,0 +1,283 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8953-wsa881x.dtsi"
+
+&int_codec {
+	qcom,model = "msm8953-snd-card-mtp";
+	reg = <0xc051000 0x4>,
+		      <0xc051004 0x4>,
+		      <0xc055000 0x4>,
+		      <0xc052000 0x4>;
+	reg-names = "csr_gp_io_mux_mic_ctl",
+			    "csr_gp_io_mux_spkr_ctl",
+			    "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel",
+			    "csr_gp_io_mux_quin_ctl";
+
+	qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
+	qcom,msm-spk-ext-pa = <&tlmm 96 0>;
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,msm-hs-micbias-type = "internal";
+	qcom,msm-micbias1-ext-cap;
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"SPK_RX_BIAS", "MCLK",
+		"INT_LDO_H", "MCLK",
+		"MIC BIAS External", "Handset Mic",
+		"MIC BIAS Internal2", "Headset Mic",
+		"MIC BIAS Internal1", "Secondary Mic",
+		"AMIC1", "MIC BIAS External",
+		"AMIC2", "MIC BIAS Internal2",
+		"AMIC3", "MIC BIAS Internal1";
+
+	qcom,msm-gpios =
+		"pri_i2s",
+		"us_eu_gpio",
+		"quin_i2s",
+		"comp_gpio";
+	qcom,pinctrl-names =
+		"all_off",
+		"pri_i2s_act",
+		"us_eu_gpio_act",
+		"pri_i2s_us_eu_gpio_act",
+		"quin_act",
+		"quin_pri_i2s_act",
+		"quin_us_eu_gpio_act",
+		"quin_us_eu_gpio_pri_i2s_act",
+		"comp_gpio_act",
+		"comp_gpio_pri_i2s_act",
+		"comp_gpio_us_eu_gpio_act",
+		"comp_gpio_pri_i2s_us_eu_gpio_act",
+		"comp_gpio_quin_act",
+		"comp_gpio_quin_pri_i2s_act",
+		"comp_gpio_quin_us_eu_gpio_act",
+		"comp_gpio_quin_us_eu_gpio_pri_i2s_act";
+
+	pinctrl-names =
+		"all_off",
+		"pri_i2s_act",
+		"us_eu_gpio_act",
+		"pri_i2s_us_eu_gpio_act",
+		"quin_act",
+		"quin_pri_i2s_act",
+		"quin_us_eu_gpio_act",
+		"quin_us_eu_gpio_pri_i2s_act",
+		"comp_gpio_act",
+		"comp_gpio_pri_i2s_act",
+		"comp_gpio_us_eu_gpio_act",
+		"comp_gpio_pri_i2s_us_eu_gpio_act",
+		"comp_gpio_quin_act",
+		"comp_gpio_quin_pri_i2s_act",
+		"comp_gpio_quin_us_eu_gpio_act",
+		"comp_gpio_quin_us_eu_gpio_pri_i2s_act";
+
+	pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_act &cross_conn_det_sus
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-2 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_sus &cross_conn_det_act
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-3 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_act &cross_conn_det_act
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-4 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-5 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_act &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-6 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_sus &cross_conn_det_act
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-7 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_act &cross_conn_det_act
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-8 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-9 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_act &cross_conn_det_sus
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-10 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_sus &cross_conn_det_act
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-11 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_act &cross_conn_det_act
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-12 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-13 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_act &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-14 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_sus &cross_conn_det_act
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-15 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_act &cross_conn_det_act
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+
+	asoc-codec = <&stub_codec>, <&pm8953_diangu_dig>, <&hdmi_dba>;
+	asoc-codec-names = "msm-stub-codec.1", "cajon_codec",
+						"msm-hdmi-dba-codec-rx";
+};
+
+&pm8953_gpios {
+	gpio@c000 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
+};
+
+&ext_codec {
+	qcom,model = "msm8953-tasha-snd-card";
+
+	qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+
+	qcom,wsa-max-devs = <2>;
+	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+			<&wsa881x_213>, <&wsa881x_214>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+				"SpkrLeft", "SpkrRight";
+};
+
+&wcd9xxx_intc {
+	interrupt-parent = <&tlmm>;
+	interrupts = <73 0>;
+	qcom,gpio-connect = <&tlmm 73 0>;
+};
+
+&clock_audio {
+	qcom,audio-ref-clk-gpio = <&pm8953_gpios 1 0>;
+	qcom,lpass-mclk-id = "pri_mclk";
+	clocks = <&clock_gcc clk_div_clk2>;
+	pinctrl-names = "sleep", "active";
+	pinctrl-0 = <&cdc_mclk2_sleep>;
+	pinctrl-1 = <&cdc_mclk2_active>;
+};
+
+&pm8953_1 {
+	pm8953_diangu_dig: 8953_wcd_codec@f000 {
+		compatible = "qcom,msm8x16_wcd_codec";
+		reg = <0xf000 0x100>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x1 0xf0 0x0>,
+			     <0x1 0xf0 0x1>,
+			     <0x1 0xf0 0x2>,
+			     <0x1 0xf0 0x3>,
+			     <0x1 0xf0 0x4>,
+			     <0x1 0xf0 0x5>,
+			     <0x1 0xf0 0x6>,
+			     <0x1 0xf0 0x7>;
+		interrupt-names = "spk_cnp_int",
+				  "spk_clip_int",
+				  "spk_ocp_int",
+				  "ins_rem_det1",
+				  "but_rel_det",
+				  "but_press_det",
+				  "ins_rem_det",
+				  "mbhc_int";
+
+		cdc-vdda-cp-supply = <&pm8953_s4>;
+		qcom,cdc-vdda-cp-voltage = <1900000 2050000>;
+		qcom,cdc-vdda-cp-current = <500000>;
+
+		cdc-vdd-io-supply = <&pm8953_l5>;
+		qcom,cdc-vdd-io-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-io-current = <5000>;
+
+		cdc-vdd-pa-supply = <&pm8953_s4>;
+		qcom,cdc-vdd-pa-voltage = <1900000 2050000>;
+		qcom,cdc-vdd-pa-current = <260000>;
+
+		cdc-vdd-mic-bias-supply = <&pm8953_l13>;
+		qcom,cdc-vdd-mic-bias-voltage = <3125000 3125000>;
+		qcom,cdc-vdd-mic-bias-current = <5000>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+
+		qcom,cdc-static-supplies =  "cdc-vdd-io",
+					   "cdc-vdd-pa",
+					   "cdc-vdda-cp";
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
+		qcom,dig-cdc-base-addr = <0xc0f0000>;
+	};
+
+	pm8953_diangu_analog: 8953_wcd_codec@f100 {
+		compatible = "qcom,msm8x16_wcd_codec";
+		reg = <0xf100 0x100>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x1 0xf1 0x0>,
+			     <0x1 0xf1 0x1>,
+			     <0x1 0xf1 0x2>,
+			     <0x1 0xf1 0x3>,
+			     <0x1 0xf1 0x4>,
+			     <0x1 0xf1 0x5>;
+		interrupt-names = "ear_ocp_int",
+				  "hphr_ocp_int",
+				  "hphl_ocp_det",
+				  "ear_cnp_int",
+				  "hphr_cnp_int",
+				  "hphl_cnp_int";
+		qcom,dig-cdc-base-addr = <0xc0f0000>;
+	};
+};
+
+&wcd_rst_gpio {
+	qcom,cdc-rst-n-gpio = <&tlmm 67 0>;
+};
+
+&wcd9335 {
+	clock-names = "wcd_clk", "wcd_native_clk";
+	clocks = <&clock_audio clk_audio_pmi_clk>,
+		<&clock_audio clk_audio_ap_clk2>;
+
+	qcom,cdc-reset-gpio = <&tlmm 67 0>;
+
+	cdc-vdd-buck-supply = <&eldo2_8953>;
+	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-buck-current = <650000>;
+
+	cdc-buck-sido-supply = <&eldo2_8953>;
+	qcom,cdc-buck-sido-voltage = <1800000 1800000>;
+	qcom,cdc-buck-sido-current = <150000>;
+
+	cdc-vdd-tx-h-supply = <&eldo2_8953>;
+	qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-tx-h-current = <25000>;
+
+	cdc-vdd-rx-h-supply = <&eldo2_8953>;
+	qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-rx-h-current = <25000>;
+
+	cdc-vdd-px-supply = <&eldo2_8953>;
+	qcom,cdc-vdd-px-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-px-current = <10000>;
+
+	cdc-vdd-mic-bias-supply = <&pm8953_l13>;
+	qcom,cdc-vdd-mic-bias-voltage = <3125000 3125000>;
+	qcom,cdc-vdd-mic-bias-current = <15000>;
+};

@@ -1,4 +1,5 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -571,7 +572,7 @@ static void ipa_uc_mhi_event_log_info_hdlr(
 	}
 }
 
-int ipa_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
+int ipa2_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
 {
 	struct ipa_uc_hdlrs hdlrs;
 
@@ -600,6 +601,23 @@ int ipa_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
 	return 0;
 }
 
+void ipa2_uc_mhi_cleanup(void)
+{
+	struct ipa_uc_hdlrs null_hdlrs = { 0 };
+
+	IPADBG("Enter\n");
+
+	if (!ipa_uc_mhi_ctx) {
+		IPAERR("ipa3_uc_mhi_ctx is not initialized\n");
+		return;
+	}
+	ipa_uc_register_handlers(IPA_HW_FEATURE_MHI, &null_hdlrs);
+	kfree(ipa_uc_mhi_ctx);
+	ipa_uc_mhi_ctx = NULL;
+
+	IPADBG("Done\n");
+}
+
 int ipa_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 	u32 host_ctrl_addr, u32 host_data_addr, u32 first_ch_idx,
 	u32 first_evt_idx)
@@ -614,7 +632,7 @@ int ipa_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	res = ipa_uc_update_hw_flags(0);
 	if (res) {
@@ -677,7 +695,7 @@ int ipa_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 	res = 0;
 
 disable_clks:
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return res;
 
 }
@@ -700,7 +718,7 @@ int ipa_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
 		return -EINVAL;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	memset(&uc_rsp, 0, sizeof(uc_rsp));
 	uc_rsp.params.state = IPA_HW_MHI_CHANNEL_STATE_RUN;
@@ -725,12 +743,12 @@ int ipa_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
 	res = 0;
 
 disable_clks:
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return res;
 }
 
 
-int ipa_uc_mhi_reset_channel(int channelHandle)
+int ipa2_uc_mhi_reset_channel(int channelHandle)
 {
 	union IpaHwMhiChangeChannelStateCmdData_t cmd;
 	union IpaHwMhiChangeChannelStateResponseData_t uc_rsp;
@@ -741,7 +759,7 @@ int ipa_uc_mhi_reset_channel(int channelHandle)
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	memset(&uc_rsp, 0, sizeof(uc_rsp));
 	uc_rsp.params.state = IPA_HW_MHI_CHANNEL_STATE_DISABLE;
@@ -763,11 +781,11 @@ int ipa_uc_mhi_reset_channel(int channelHandle)
 	res = 0;
 
 disable_clks:
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return res;
 }
 
-int ipa_uc_mhi_suspend_channel(int channelHandle)
+int ipa2_uc_mhi_suspend_channel(int channelHandle)
 {
 	union IpaHwMhiChangeChannelStateCmdData_t cmd;
 	union IpaHwMhiChangeChannelStateResponseData_t uc_rsp;
@@ -778,7 +796,7 @@ int ipa_uc_mhi_suspend_channel(int channelHandle)
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	memset(&uc_rsp, 0, sizeof(uc_rsp));
 	uc_rsp.params.state = IPA_HW_MHI_CHANNEL_STATE_SUSPEND;
@@ -800,7 +818,7 @@ int ipa_uc_mhi_suspend_channel(int channelHandle)
 	res = 0;
 
 disable_clks:
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return res;
 }
 
@@ -815,7 +833,7 @@ int ipa_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected)
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	memset(&uc_rsp, 0, sizeof(uc_rsp));
 	uc_rsp.params.state = IPA_HW_MHI_CHANNEL_STATE_RUN;
@@ -838,11 +856,11 @@ int ipa_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected)
 	res = 0;
 
 disable_clks:
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return res;
 }
 
-int ipa_uc_mhi_stop_event_update_channel(int channelHandle)
+int ipa2_uc_mhi_stop_event_update_channel(int channelHandle)
 {
 	union IpaHwMhiStopEventUpdateData_t cmd;
 	int res;
@@ -852,7 +870,7 @@ int ipa_uc_mhi_stop_event_update_channel(int channelHandle)
 		return -EFAULT;
 	}
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.params.channelHandle = channelHandle;
@@ -870,11 +888,11 @@ int ipa_uc_mhi_stop_event_update_channel(int channelHandle)
 
 	res = 0;
 disable_clks:
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return res;
 }
 
-int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd)
+int ipa2_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t *cmd)
 {
 	int res;
 
@@ -884,13 +902,14 @@ int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd)
 	}
 
 	IPADBG("isDlUlSyncEnabled=0x%x UlAccmVal=0x%x\n",
-		cmd.params.isDlUlSyncEnabled, cmd.params.UlAccmVal);
+		cmd->params.isDlUlSyncEnabled, cmd->params.UlAccmVal);
 	IPADBG("ulMsiEventThreshold=0x%x dlMsiEventThreshold=0x%x\n",
-		cmd.params.ulMsiEventThreshold, cmd.params.dlMsiEventThreshold);
+		cmd->params.ulMsiEventThreshold,
+		cmd->params.dlMsiEventThreshold);
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	res = ipa_uc_send_cmd(cmd.raw32b,
+	res = ipa_uc_send_cmd(cmd->raw32b,
 		IPA_CPU_2_HW_CMD_MHI_DL_UL_SYNC_INFO, 0, false, HZ);
 	if (res) {
 		IPAERR("ipa_uc_send_cmd failed %d\n", res);
@@ -899,11 +918,11 @@ int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd)
 
 	res = 0;
 disable_clks:
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return res;
 }
 
-int ipa_uc_mhi_print_stats(char *dbg_buff, int size)
+int ipa2_uc_mhi_print_stats(char *dbg_buff, int size)
 {
 	int nBytes = 0;
 	int i;

@@ -2,6 +2,7 @@
  * core.h - DesignWare USB3 DRD Core Header
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -449,6 +450,9 @@ enum event_buf_type {
 	EVT_BUF_TYPE_GSI
 };
 
+#define DWC_CTRL_COUNT	10
+#define NUM_LOG_PAGES	12
+
 /**
  * struct dwc3_event_buffer - Software event buffer representation
  * @buf: _THE_ buffer
@@ -521,6 +525,7 @@ struct dwc3_ep_events {
  * @trb_dma_pool: dma pool used to get aligned trb memory pool
  * @trb_pool: array of transaction buffers
  * @trb_pool_dma: dma address of @trb_pool
+ * @num_trbs: num of trbs in the trb dma pool
  * @free_slot: next slot which is going to be used
  * @busy_slot: first slot which is owned by HW
  * @desc: usb_endpoint_descriptor pointer
@@ -548,6 +553,7 @@ struct dwc3_ep {
 	struct dma_pool		*trb_dma_pool;
 	struct dwc3_trb		*trb_pool;
 	dma_addr_t		trb_pool_dma;
+	u32			num_trbs;
 	u32			free_slot;
 	u32			busy_slot;
 	const struct usb_ss_ep_comp_descriptor *comp_desc;
@@ -828,6 +834,7 @@ struct dwc3_scratchpad_array {
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  * @wait_linkstate: waitqueue for waiting LINK to move into required state
  * @vbus_draw: current to be drawn from USB
+ * @dwc_ipc_log_ctxt: dwc3 ipa log context
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -941,7 +948,6 @@ struct dwc3 {
 	unsigned		pullups_connected:1;
 	unsigned		resize_fifos:1;
 	unsigned		setup_packet_pending:1;
-	unsigned		start_config_issued:1;
 	unsigned		three_stage_setup:1;
 	unsigned		is_drd:1;
 
@@ -969,6 +975,7 @@ struct dwc3 {
 	int			irq;
 	struct tasklet_struct	bh;
 	unsigned long		irq_cnt;
+	unsigned long		ep_cmd_timeout_cnt;
 	unsigned                bh_completion_time[MAX_INTR_STATS];
 	unsigned                bh_handled_evt_cnt[MAX_INTR_STATS];
 	unsigned                bh_dbg_index;
@@ -979,6 +986,7 @@ struct dwc3 {
 	unsigned                irq_dbg_index;
 
 	wait_queue_head_t	wait_linkstate;
+	void			*dwc_ipc_log_ctxt;
 };
 
 /* -------------------------------------------------------------------------- */

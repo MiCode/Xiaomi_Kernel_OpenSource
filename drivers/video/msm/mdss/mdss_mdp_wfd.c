@@ -1,4 +1,5 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,6 +90,8 @@ void mdss_mdp_wfd_destroy(struct mdss_mdp_wfd *wfd)
 	if (ctl->ops.stop_fnc)
 		ctl->ops.stop_fnc(ctl, 0);
 
+	mdss_mdp_reset_mixercfg(ctl);
+
 	if (ctl->wb)
 		mdss_mdp_wb_free(ctl->wb);
 
@@ -129,6 +132,7 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	u32 wb_idx = layer->writeback_ndx;
 	struct mdss_mdp_ctl *ctl = wfd->ctl;
 	struct mdss_mdp_writeback *wb = NULL;
+	struct mdss_mdp_format_params *fmt = NULL;
 	int ret = 0;
 	u32 width, height, max_mixer_width;
 
@@ -168,6 +172,32 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	ctl->height = height;
 	ctl->roi =  (struct mdss_rect) {0, 0, width, height};
 	ctl->is_secure = (layer->flags & MDP_LAYER_SECURE_SESSION);
+
+	fmt = mdss_mdp_get_format_params(layer->buffer.format);
+
+	if (fmt == NULL) {
+		pr_err("invalid buffer format\n");
+		ret = -EINVAL;
+		goto wfd_setup_error;
+	}
+
+	/* only 3 csc type supported */
+	if (fmt->is_yuv) {
+		switch (layer->color_space) {
+		case MDP_CSC_ITU_R_601:
+			ctl->csc_type = MDSS_MDP_CSC_RGB2YUV_601L;
+			break;
+		case MDP_CSC_ITU_R_709:
+			ctl->csc_type = MDSS_MDP_CSC_RGB2YUV_709L;
+			break;
+		case MDP_CSC_ITU_R_601_FR:
+		default:
+			ctl->csc_type = MDSS_MDP_CSC_RGB2YUV_601FR;
+			break;
+		}
+	} else {
+		ctl->csc_type = MDSS_MDP_CSC_RGB2RGB;
+	}
 
 	if (ctl->mdata->wfd_mode == MDSS_MDP_WFD_INTERFACE) {
 		ctl->mixer_left = mdss_mdp_mixer_alloc(ctl,
@@ -270,6 +300,12 @@ static int mdss_mdp_wfd_import_data(struct device *device,
 
 	if (wfd_data->layer.flags & MDP_LAYER_SECURE_SESSION)
 		flags = MDP_SECURE_OVERLAY_SESSION;
+
+	if (buffer->plane_count > MAX_PLANES) {
+		pr_err("buffer plane_count exceeds MAX_PLANES limit:%d",
+				buffer->plane_count);
+		return -EINVAL;
+	}
 
 	memset(planes, 0, sizeof(planes));
 

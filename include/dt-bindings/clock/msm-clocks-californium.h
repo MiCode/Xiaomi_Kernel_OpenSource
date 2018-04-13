@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,6 +69,7 @@
 #define clk_gpll0 0x1ebe3bc4
 #define clk_gpll0_ao 0xa1368304
 #define clk_gpll0_out_msscc 0x7d794829
+#define clk_apss_ahb_clk_src 0x36f8495f
 #define clk_usb30_master_clk_src 0xc6262f89
 #define clk_blsp1_qup1_i2c_apps_clk_src 0x17f78f5e
 #define clk_blsp1_qup1_spi_apps_clk_src 0xf534c4fa

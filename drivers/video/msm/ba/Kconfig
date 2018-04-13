@@ -5,6 +5,5 @@
 config MSM_BA_V4L2
    tristate "Qualcomm technologies Inc MSM V4L2 based BA driver"
    depends on VIDEO_V4L2
-   default y
 	---help---
 	  Enables support for the MSM V4L2 bridge abstraction

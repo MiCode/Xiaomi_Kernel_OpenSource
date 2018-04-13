@@ -13,6 +13,7 @@
  *     Copyright (c) 1999 Dag Brattli <dagb@cs.uit.no>
  *     Copyright (c) 1999-2003 Jean Tourrilhes <jt@hpl.hp.com>
  *     All Rights Reserved.
+ *     Copyright (C) 2018 XiaoMi, Inc.
  *
  *     This program is free software; you can redistribute it and/or
  *     modify it under the terms of the GNU General Public License as
@@ -1099,6 +1100,9 @@ static int irda_create(struct net *net, struct socket *sock, int protocol,
 	struct irda_sock *self;
 
 	IRDA_DEBUG(2, "%s()\n", __func__);
+
+	if (protocol < 0 || protocol > SK_PROTOCOL_MAX)
+		return -EINVAL;
 
 	if (net != &init_net)
 		return -EAFNOSUPPORT;

@@ -184,6 +184,16 @@ config MSM_BOOT_STATS
 	 This figures are reported in mpm sleep clock cycles and have a
 	 resolution of 31 bits as 1 bit is used as an overflow check.
 
+config MSM_BOOT_TIME_MARKER
+	bool "Use MSM boot time marker reporting"
+	depends on MSM_BOOT_STATS
+	help
+	 Use this to mark msm boot kpi for measurement.
+	 An instrumentation for boot time measurement.
+	 To create an entry, call "place_marker" function.
+	 At userspace, write marker name to "/sys/kernel/debug/bootkpi/kpi_values"
+	 If unsure, say N
+
 config MSM_CPUSS_DUMP
 	bool "CPU Subsystem Dumping support"
 	help
@@ -281,6 +291,16 @@ config MSM_CACHE_M4M_ERP64_PANIC_ON_UE
        help
          Say 'Y' here to cause kernel panic when uncorrectable cache/M4M errors
          are detected.
+
+config MSM_L2_IA_DEBUG
+	bool "Enable MSM L2 Indirect Access Debug"
+	depends on DEBUG_FS
+	default n
+	help
+	   This option enables L2 indirect access debug
+	   capability. It exposes L2 indirect access
+	   debugfs interface to get/set data, address,
+	   and target cpus.
 
 config MSM_RPM_SMD
 	bool "RPM driver using SMD protocol"
@@ -697,14 +717,6 @@ config ICNSS
 	  control messages to FW over QMI channel. It is also responsible for
 	  handling WLAN PD restart notifications.
 
-config MSM_CORE_CTL_HELPER
-	tristate "Core control helper functions for dynamically hotplug CPUs"
-	help
-	  Provide helper functions for core control driver. Core control
-	  driver dynamically hotplugs CPUs from kernel based on current
-	  system load and state. It also supports limiting min and
-	  max online CPUs from userspace.
-
 config MSM_BAM_DMUX
 	bool "BAM Data Mux Driver"
 	depends on SPS
@@ -730,6 +742,14 @@ config MSM_PERFORMANCE_HOTPLUG_ON
 	  capability of msm_performance driver. Setting this flag to false will
 	  compile out the nodes needed for core-control functionality through
 	  msm_performance.
+
+config MSM_POWER
+	tristate "Power driver to manage system resources"
+	help
+	  This driver monitors and manages system resources for better
+	  power efficiency. It keeps track of the current frequency of
+	  several resources (e.g. CPU and GPU) to manage other system
+	  resources (e.g. DDR frequency) more efficiently.
 
 config MSM_SERVICE_LOCATOR
 	bool "Service Locator"
@@ -764,7 +784,7 @@ config MSM_PACMAN
 	  peripheral (BLSP) ownership.
 
 config MSM_KERNEL_PROTECT
-	bool "Protect kernel text by removing write permissions in stage-2"
+	bool "Protect kernel text by removing write permissions"
         depends on !FUNCTION_TRACER
         help
           On hypervisor-enabled targets, this option will make a call into
@@ -776,6 +796,18 @@ config MSM_KERNEL_PROTECT
           (i.e. anything that uses apply_alternatives,
           aarch64_insn_patch_text_nosync, etc. including the various CPU
           errata workarounds in arch/arm64/kernel/cpu_errata.c).
+
+	  For MPU based protection-enabled targets please refer to
+	  MSM_KERNEL_PROTECT_MPU
+
+config MSM_KERNEL_PROTECT_MPU
+	bool "Protect kernel text from other masters by MPU"
+	depends on MSM_KERNEL_PROTECT
+	help
+	  On MPU based protection enabled targets, this option will make a call
+	  into TrustZone to request that the kernel text be ptotected for any
+	  write access from external bus masters. This protects against
+	  malicious devices rewriting kernel code.
 
 config MSM_KERNEL_PROTECT_TEST
 	bool "Bootup test of kernel protection (INTENTIONAL CRASH)"
@@ -793,6 +825,11 @@ config MSM_REMOTEQDSS
 	  events. Provide a sysfs interface for debug tools to dynamically
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
+
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	Provide a interface for reading CPU serial number
 
 source "drivers/soc/qcom/memshare/Kconfig"
 

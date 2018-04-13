@@ -18,6 +18,7 @@
 #include "msm8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
 #include "msm8909w.dtsi"
+#include "msm8909w-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909W-PM8916 MTP";
@@ -27,18 +28,6 @@
 			<275 0>,
 			<300 0>;
 	qcom,board-id= <8 0x105>;
-};
-
-&external_image_mem {
-	reg = <0x0 0x87a00000 0x0 0x0600000>;
-};
-
-&modem_adsp_mem {
-	reg = <0x0 0x88000000 0x0 0x05200000>;
-};
-
-&peripheral_mem {
-	reg = <0x0 0x8d200000 0x0 0x0500000>;
 };
 
 &soc {

@@ -4,6 +4,7 @@
  * Copyright 2007	Johannes Berg <johannes@sipsolutions.net>
  * Copyright 2008-2011	Luis R. Rodriguez <mcgrof@qca.qualcomm.com>
  * Copyright 2013-2014  Intel Mobile Communications GmbH
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -1747,22 +1748,14 @@ __reg_process_hint_driver(struct regulatory_request *driver_request)
 {
 	struct regulatory_request *lr = get_last_request();
 
-	if (lr->initiator == NL80211_REGDOM_SET_BY_CORE) {
-		if (regdom_changes(driver_request->alpha2))
-			return REG_REQ_OK;
-		return REG_REQ_ALREADY_SET;
-	}
-
-	/*
-	 * This would happen if you unplug and plug your card
-	 * back in or if you add a new device for which the previously
-	 * loaded card also agrees on the regulatory domain.
-	 */
-	if (lr->initiator == NL80211_REGDOM_SET_BY_DRIVER &&
-	    !regdom_changes(driver_request->alpha2))
+	if (!regdom_changes(driver_request->alpha2))
 		return REG_REQ_ALREADY_SET;
 
-	return REG_REQ_INTERSECT;
+	if (lr->initiator == NL80211_REGDOM_SET_BY_USER)
+		return REG_REQ_INTERSECT;
+	else
+		return REG_REQ_OK;
+
 }
 
 /**

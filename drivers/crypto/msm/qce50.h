@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,7 +214,7 @@ struct ce_sps_data {
 };
 
 struct ce_request_info {
-	bool in_use;
+	atomic_t in_use;
 	bool in_prog;
 	enum qce_xfer_type_enum	xfer_type;
 	struct ce_sps_data ce_sps;

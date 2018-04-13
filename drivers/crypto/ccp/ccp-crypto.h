@@ -5,6 +5,8 @@
  *
  * Author: Tom Lendacky <thomas.lendacky@amd.com>
  *
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -132,6 +134,15 @@ struct ccp_aes_cmac_req_ctx {
 	struct ccp_cmd cmd;
 };
 
+struct ccp_aes_cmac_exp_ctx {
+	unsigned int null_msg;
+
+	u8 iv[AES_BLOCK_SIZE];
+
+	unsigned int buf_count;
+	u8 buf[AES_BLOCK_SIZE];
+};
+
 /***** SHA related defines *****/
 #define MAX_SHA_CONTEXT_SIZE	SHA256_DIGEST_SIZE
 #define MAX_SHA_BLOCK_SIZE	SHA256_BLOCK_SIZE
@@ -172,6 +183,19 @@ struct ccp_sha_req_ctx {
 
 	/* CCP driver command */
 	struct ccp_cmd cmd;
+};
+
+struct ccp_sha_exp_ctx {
+	enum ccp_sha_type type;
+
+	u64 msg_bits;
+
+	unsigned int first;
+
+	u8 ctx[MAX_SHA_CONTEXT_SIZE];
+
+	unsigned int buf_count;
+	u8 buf[MAX_SHA_BLOCK_SIZE];
 };
 
 /***** Common Context Structure *****/

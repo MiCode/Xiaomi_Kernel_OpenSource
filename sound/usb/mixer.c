@@ -4,6 +4,7 @@
  *   Mixer control part
  *
  *   Copyright (c) 2002 by Takashi Iwai <tiwai@suse.de>
+ *   Copyright (C) 2018 XiaoMi, Inc.
  *
  *   Many codes borrowed from audio.c by
  *	    Alan Cox (alan@lxorguk.ukuu.org.uk)
@@ -805,12 +806,12 @@ static struct usb_feature_control_info audio_feature_info[] = {
 	{ "Tone Control - Treble",	USB_MIXER_S8 },
 	{ "Graphic Equalizer",		USB_MIXER_S8 }, /* FIXME: not implemeted yet */
 	{ "Auto Gain Control",		USB_MIXER_BOOLEAN },
-	{ "Delay Control",		USB_MIXER_U16 },
+	{ "Delay Control",		USB_MIXER_U16 }, /* FIXME: U32 in UAC2 */
 	{ "Bass Boost",			USB_MIXER_BOOLEAN },
 	{ "Loudness",			USB_MIXER_BOOLEAN },
 	/* UAC2 specific */
-	{ "Input Gain Control",		USB_MIXER_U16 },
-	{ "Input Gain Pad Control",	USB_MIXER_BOOLEAN },
+	{ "Input Gain Control",		USB_MIXER_S16 },
+	{ "Input Gain Pad Control",	USB_MIXER_S16 },
 	{ "Phase Inverter Control",	USB_MIXER_BOOLEAN },
 };
 

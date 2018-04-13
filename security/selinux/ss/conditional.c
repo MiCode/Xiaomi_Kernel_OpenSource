@@ -2,6 +2,7 @@
  *	    Frank Mayer <mayerf@tresys.com>
  *
  * Copyright (C) 2003 - 2004 Tresys Technology, LLC
+ * Copyright (C) 2018 XiaoMi, Inc.
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
  *	the Free Software Foundation, version 2.
@@ -638,7 +639,7 @@ void cond_compute_av(struct avtab *ctab, struct avtab_key *key,
 {
 	struct avtab_node *node;
 
-	if (!ctab || !key || !avd || !xperms)
+	if (!ctab || !key || !avd)
 		return;
 
 	for (node = avtab_search_node(ctab, key); node;
@@ -657,7 +658,7 @@ void cond_compute_av(struct avtab *ctab, struct avtab_key *key,
 		if ((u16)(AVTAB_AUDITALLOW|AVTAB_ENABLED) ==
 		    (node->key.specified & (AVTAB_AUDITALLOW|AVTAB_ENABLED)))
 			avd->auditallow |= node->datum.u.data;
-		if ((node->key.specified & AVTAB_ENABLED) &&
+		if (xperms && (node->key.specified & AVTAB_ENABLED) &&
 				(node->key.specified & AVTAB_XPERMS))
 			services_compute_xperms_drivers(xperms, node);
 	}

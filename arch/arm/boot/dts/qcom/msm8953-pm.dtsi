@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +39,18 @@
 		qcom,use-psci;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk",
+				"cpu2_clk", "cpu3_clk", "cpu4_clk",
+				"cpu5_clk", "cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>;
 
 		qcom,pm-cluster@0 {
 			reg = <0>;
@@ -203,8 +216,8 @@
 					label = "perf-l2-retention";
 					qcom,psci-mode = <3>;
 					qcom,latency-us = <186>;
-					qcom,ss-power = <362>;
-					qcom,energy-overhead = <124342>;
+					qcom,ss-power = <361>;
+					qcom,energy-overhead = <125982>;
 					qcom,time-overhead = <306>;
 					qcom,min-child-idx = <1>;
 					qcom,reset-level =
@@ -390,6 +403,7 @@
 			<0xff 264>, /* arm-smmu context fault */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 271>, /* blsp1_bam_irq[0] */
 			<0xff 273>, /* smmu_bus_intr[18] */
 			<0xff 274>, /* smmu_bus_intr[19] */
 			<0xff 275>, /* rpm_ipc(30) */
@@ -463,6 +477,7 @@
 			<72  139>,
 			<73  140>,
 			<74  141>,
+			<0xff  24>,
 			<0xff 88>;
 	};
 

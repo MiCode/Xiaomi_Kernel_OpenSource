@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2011, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +88,7 @@ struct apr_svc_ch_dev {
 	wait_queue_head_t  wait;
 	void               *priv;
 	unsigned           channel_state;
+	bool               if_remote_intent_ready;
 };
 #else
 struct apr_svc_ch_dev {

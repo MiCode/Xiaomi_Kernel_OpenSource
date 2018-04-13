@@ -18,9 +18,9 @@
 #include <linux/hrtimer.h>
 #include <linux/sched.h>
 #include <linux/math64.h>
-#include <trace/events/sched.h>
 
 #include "sched.h"
+#include <trace/events/sched.h>
 
 static DEFINE_PER_CPU(u64, nr_prod_sum);
 static DEFINE_PER_CPU(u64, last_time);

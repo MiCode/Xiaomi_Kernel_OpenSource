@@ -2,6 +2,7 @@
  * event tracer
  *
  * Copyright (C) 2008 Red Hat Inc, Steven Rostedt <srostedt@redhat.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  *  - Added format output of fields of the trace point.
  *    This was based off of work by Tom Zanussi <tzanussi@gmail.com>.
@@ -645,7 +646,8 @@ t_next(struct seq_file *m, void *v, loff_t *pos)
 		 * The ftrace subsystem is for showing formats only.
 		 * They can not be enabled or disabled via the event files.
 		 */
-		if (call->class && call->class->reg)
+		if (call->class && call->class->reg &&
+		    !(call->flags & TRACE_EVENT_FL_IGNORE_ENABLE))
 			return file;
 	}
 

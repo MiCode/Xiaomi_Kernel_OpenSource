@@ -4,6 +4,7 @@
  * High-speed serial driver for NVIDIA Tegra SoCs
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Author: Laxman Dewangan <ldewangan@nvidia.com>
  *
@@ -1034,6 +1035,20 @@ fail_rx_dma:
 	return ret;
 }
 
+/*
+ * Flush any TX data submitted for DMA and PIO. Called when the
+ * TX circular buffer is reset.
+ */
+static void tegra_uart_flush_buffer(struct uart_port *u)
+{
+	struct tegra_uart_port *tup = to_tegra_uport(u);
+
+	tup->tx_bytes = 0;
+	if (tup->tx_dma_chan)
+		dmaengine_terminate_all(tup->tx_dma_chan);
+	return;
+}
+
 static void tegra_uart_shutdown(struct uart_port *u)
 {
 	struct tegra_uart_port *tup = to_tegra_uport(u);
@@ -1046,6 +1061,8 @@ static void tegra_uart_shutdown(struct uart_port *u)
 	tegra_uart_dma_channel_free(tup, true);
 	tegra_uart_dma_channel_free(tup, false);
 	free_irq(u->irq, tup);
+
+	tegra_uart_flush_buffer(u);
 }
 
 static void tegra_uart_enable_ms(struct uart_port *u)
@@ -1171,20 +1188,6 @@ static void tegra_uart_set_termios(struct uart_port *u,
 	tegra_uart_read(tup, UART_IER);
 
 	spin_unlock_irqrestore(&u->lock, flags);
-	return;
-}
-
-/*
- * Flush any TX data submitted for DMA and PIO. Called when the
- * TX circular buffer is reset.
- */
-static void tegra_uart_flush_buffer(struct uart_port *u)
-{
-	struct tegra_uart_port *tup = to_tegra_uport(u);
-
-	tup->tx_bytes = 0;
-	if (tup->tx_dma_chan)
-		dmaengine_terminate_all(tup->tx_dma_chan);
 	return;
 }
 

@@ -11,6 +11,7 @@
  * Plus various changes from other IBM teams...
  *
  * Copyright (C) 2006 Michael Ellerman, IBM Corporation
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  *      This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -340,16 +341,17 @@ static void pseries_remove_processor(struct device_node *np)
 }
 
 static int pseries_smp_notifier(struct notifier_block *nb,
-				unsigned long action, void *node)
+				unsigned long action, void *data)
 {
+	struct of_reconfig_data *rd = data;
 	int err = 0;
 
 	switch (action) {
 	case OF_RECONFIG_ATTACH_NODE:
-		err = pseries_add_processor(node);
+		err = pseries_add_processor(rd->dn);
 		break;
 	case OF_RECONFIG_DETACH_NODE:
-		pseries_remove_processor(node);
+		pseries_remove_processor(rd->dn);
 		break;
 	}
 	return notifier_from_errno(err);

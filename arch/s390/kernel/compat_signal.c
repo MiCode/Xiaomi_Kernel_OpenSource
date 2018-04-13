@@ -3,9 +3,9 @@
  *    Author(s): Denis Joseph Barrow (djbarrow@de.ibm.com,barrow_dj@yahoo.com)
  *               Gerhard Tonn (ton@de.ibm.com)                  
  *
- *  Copyright (C) 1991, 1992  Linus Torvalds
+ *    Copyright (C) 1991, 1992  Linus Torvalds
  *
- *  1997-11-28  Modified for POSIX.1b signals by Richard Henderson
+ *    1997-11-28  Modified for POSIX.1b signals by Richard Henderson
  */
 
 #include <linux/compat.h>
@@ -293,7 +293,7 @@ static int restore_sigregs_ext32(struct pt_regs *regs,
 
 	/* Restore high gprs from signal stack */
 	if (__copy_from_user(&gprs_high, &sregs_ext->gprs_high,
-			     sizeof(&sregs_ext->gprs_high)))
+			     sizeof(sregs_ext->gprs_high)))
 		return -EFAULT;
 	for (i = 0; i < NUM_GPRS; i++)
 		*(__u32 *)&regs->gprs[i] = gprs_high[i];

@@ -5,6 +5,7 @@
  *
  * Based on max517 by Roland Stigge <stigge@antcom.de>
  *
+ *
  * This file is subject to the terms and conditions of version 2 of
  * the GNU General Public License.  See the file COPYING in the main
  * directory of this archive for more details.
@@ -300,6 +301,7 @@ static int mcp4725_probe(struct i2c_client *client,
 	data->client = client;
 
 	indio_dev->dev.parent = &client->dev;
+	indio_dev->name = id->name;
 	indio_dev->info = &mcp4725_info;
 	indio_dev->channels = &mcp4725_channel;
 	indio_dev->num_channels = 1;

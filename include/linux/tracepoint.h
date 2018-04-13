@@ -7,6 +7,7 @@
  * See Documentation/trace/tracepoints.txt.
  *
  * Copyright (C) 2008-2014 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Heavily inspired from the Linux Kernel Markers.
  *
@@ -14,8 +15,10 @@
  * See the file COPYING for more details.
  */
 
+#include <linux/smp.h>
 #include <linux/errno.h>
 #include <linux/types.h>
+#include <linux/cpumask.h>
 #include <linux/rcupdate.h>
 #include <linux/static_key.h>
 
@@ -319,15 +322,19 @@ extern void syscall_unregfunc(void);
  * "void *__data, proto" as the callback prototype.
  */
 #define DECLARE_TRACE_NOARGS(name)					\
-		__DECLARE_TRACE(name, void, , 1, void *__data, __data)
+	__DECLARE_TRACE(name, void, ,					\
+			cpu_online(raw_smp_processor_id()),		\
+			void *__data, __data)
 
 #define DECLARE_TRACE(name, proto, args)				\
-		__DECLARE_TRACE(name, PARAMS(proto), PARAMS(args), 1,	\
-				PARAMS(void *__data, proto),		\
-				PARAMS(__data, args))
+	__DECLARE_TRACE(name, PARAMS(proto), PARAMS(args),		\
+			cpu_online(raw_smp_processor_id()),		\
+			PARAMS(void *__data, proto),			\
+			PARAMS(__data, args))
 
 #define DECLARE_TRACE_CONDITION(name, proto, args, cond)		\
-	__DECLARE_TRACE(name, PARAMS(proto), PARAMS(args), PARAMS(cond), \
+	__DECLARE_TRACE(name, PARAMS(proto), PARAMS(args),		\
+			cpu_online(raw_smp_processor_id()) && (PARAMS(cond)), \
 			PARAMS(void *__data, proto),			\
 			PARAMS(__data, args))
 

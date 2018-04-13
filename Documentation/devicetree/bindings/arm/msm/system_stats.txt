@@ -1,0 +1,93 @@
+* System sleep stats
+
+Resource Power manager maintains information about system sleep and the time
+each master spent in respective sleep modes. These were previously exported
+through two modules, one for system and another for the respective master
+votes. The two modules are now combined into a system stats drivers to provide
+better visibility into system sleep modes.
+
+Main node properties
+
+- compatible
+	Usage: Required
+	Value type: <string>
+	Definition: must be "qcom,system-stats".
+
+- qcom,rpm-msg-ram
+	Usage: Required
+	Value type: <phandle>
+	Definition: phandle to RPM's message ram registers.
+
+- qcom,rpm-code-ram
+	Usage: Required
+	Value type: <phandle>
+	Definition: phandle to RPM's code ram registers.
+
+- qcom,masters:
+	Usage: Required
+	Value type: <string list>
+
+Definition of memory DT phandles that system stats module is dependent on.
+
+qcom,rpm-msg-ram:
+
+The required phandle pointed to by qcom,rpm-msg-ram are:
+Node properties:
+- compatible:
+	Usage: Required
+	Value Type: <string>
+	Definition: must be "qcom,rpm-msg-ram"
+
+- reg:
+	Usage: Required
+	Value Type: <prop-encoded-array>
+	Definition: Addresses and sizes for RPM address as visible to Apps and
+	Stats address location.
+
+- reg-names:
+	Usage: Required
+	Value Type: <stringlist>
+	Definition: Address names. Must be "phys_addr_base" or "msg-ram-base".
+			Must be specified in the same order as the
+			corresponding addresses in the reg property.
+
+qcom,rpm-code-ram:
+The required phandle pointed to by qcom,rpm-msg-ram are:
+
+Node properties:
+- compatible:
+	Usage: Required
+	Value Type: <string>
+	Definition: must be "qcom,rpm-code-ram".
+- reg:
+	Usage: Required
+	Value Type: <prop-encoded-array>
+	Definition: Address and size for RPM code address.
+
+- reg-names:
+	Usage: Required
+	Value Type: <stringlist>
+	Definition: Address names. Must be "msg-ram-base"
+
+Example:
+
+	rpm_code_ram: rpm-memory@0x68000 {
+		compatible = "qcom,rpm-code-ram";
+		reg = <0x68000 0x5000>;
+		reg-name = "msg-ram-base";
+	};
+
+	rpm_msg_ram: memory@0x200000 {
+		compatible = "qcom,rpm-msg-ram";
+		reg = <0x200000 0x1000>,
+			<0x290000 0x1000>;
+		reg-names = "phys_addr_base",
+			"code-ram-base";
+	};
+
+	qcom,system-stats@68140 {
+		compatible = "qcom,system-stats";
+		qcom,rpm-msg-ram = <&rpm_msg_ram>;
+		qcom,rpm-code-ram = <&rpm_code_ram>;
+		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI";
+	};

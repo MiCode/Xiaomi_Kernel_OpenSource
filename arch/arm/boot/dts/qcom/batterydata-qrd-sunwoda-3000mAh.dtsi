@@ -1,0 +1,48 @@
+
+qcom,2837443_huaqin_d4sunwoda_3000mah_averaged_masterslave_mar14th2017 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <24>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "huaqin_d2_sunwoda_3000mah";
+	qcom,chg-rslow-comp-c1 = <5044400>;
+	qcom,chg-rslow-comp-c2 = <10881500>;
+	qcom,chg-rs-to-rslow = <1557379>;
+	qcom,chg-rslow-comp-thr = <0xC4>;
+	qcom,checksum = <0x16C8>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		C0 83 F1 76
+		FD 7B 1E 75
+		62 83 BC 74
+		4E 8A A3 95
+		12 82 79 9A
+		82 BD 55 CA
+		51 10 E0 83
+		06 7C 48 80
+		80 75 55 83
+		CE 68 27 80
+		FA 8C 51 82
+		B6 99 13 BD
+		19 CA 53 0E
+		10 0C 91 59
+		14 70 B2 FD
+		3F 42 05 4C
+		26 44 00 00
+		35 47 E4 33
+		FE 32 00 00
+		00 00 00 00
+		00 00 00 00
+		53 73 AB 70
+		BB 87 59 4A
+		9C 7D 46 73
+		52 74 9B 6A
+		E8 75 21 6A
+		D3 67 DD A3
+		2D 74 61 03
+		5F A0 71 0C
+		28 00 FF 36
+		F0 11 30 03
+		00 00 00 0C
+	];
+};

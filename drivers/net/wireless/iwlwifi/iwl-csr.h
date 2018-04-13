@@ -34,6 +34,7 @@
  * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
  * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
  * All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -305,23 +306,24 @@ enum {
 };
 
 
-#define CSR_HW_REV_TYPE_MSK            (0x000FFF0)
-#define CSR_HW_REV_TYPE_5300           (0x0000020)
-#define CSR_HW_REV_TYPE_5350           (0x0000030)
-#define CSR_HW_REV_TYPE_5100           (0x0000050)
-#define CSR_HW_REV_TYPE_5150           (0x0000040)
-#define CSR_HW_REV_TYPE_1000           (0x0000060)
-#define CSR_HW_REV_TYPE_6x00           (0x0000070)
-#define CSR_HW_REV_TYPE_6x50           (0x0000080)
-#define CSR_HW_REV_TYPE_6150           (0x0000084)
-#define CSR_HW_REV_TYPE_6x05	       (0x00000B0)
-#define CSR_HW_REV_TYPE_6x30	       CSR_HW_REV_TYPE_6x05
-#define CSR_HW_REV_TYPE_6x35	       CSR_HW_REV_TYPE_6x05
-#define CSR_HW_REV_TYPE_2x30	       (0x00000C0)
-#define CSR_HW_REV_TYPE_2x00	       (0x0000100)
-#define CSR_HW_REV_TYPE_105	       (0x0000110)
-#define CSR_HW_REV_TYPE_135	       (0x0000120)
-#define CSR_HW_REV_TYPE_NONE           (0x00001F0)
+#define CSR_HW_REV_TYPE_MSK		(0x000FFF0)
+#define CSR_HW_REV_TYPE_5300		(0x0000020)
+#define CSR_HW_REV_TYPE_5350		(0x0000030)
+#define CSR_HW_REV_TYPE_5100		(0x0000050)
+#define CSR_HW_REV_TYPE_5150		(0x0000040)
+#define CSR_HW_REV_TYPE_1000		(0x0000060)
+#define CSR_HW_REV_TYPE_6x00		(0x0000070)
+#define CSR_HW_REV_TYPE_6x50		(0x0000080)
+#define CSR_HW_REV_TYPE_6150		(0x0000084)
+#define CSR_HW_REV_TYPE_6x05		(0x00000B0)
+#define CSR_HW_REV_TYPE_6x30		CSR_HW_REV_TYPE_6x05
+#define CSR_HW_REV_TYPE_6x35		CSR_HW_REV_TYPE_6x05
+#define CSR_HW_REV_TYPE_2x30		(0x00000C0)
+#define CSR_HW_REV_TYPE_2x00		(0x0000100)
+#define CSR_HW_REV_TYPE_105		(0x0000110)
+#define CSR_HW_REV_TYPE_135		(0x0000120)
+#define CSR_HW_REV_TYPE_7265D		(0x0000210)
+#define CSR_HW_REV_TYPE_NONE		(0x00001F0)
 
 /* EEPROM REG */
 #define CSR_EEPROM_REG_READ_VALID_MSK	(0x00000001)

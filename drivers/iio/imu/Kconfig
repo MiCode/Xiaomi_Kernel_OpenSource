@@ -26,6 +26,7 @@ config ADIS16480
 	  ADIS16485, ADIS16488 inertial sensors.
 
 source "drivers/iio/imu/inv_mpu6050/Kconfig"
+source "drivers/iio/imu/inv_icm20689/Kconfig"
 
 endmenu
 

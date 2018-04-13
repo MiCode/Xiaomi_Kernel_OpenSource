@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +41,8 @@ void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
 void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts);
+void msm_isp47_process_eof_irq(struct vfe_device *vfe_dev,
+	uint32_t irq_status0);
 void msm_vfe47_reg_update(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src frame_src);
 long msm_vfe47_reset_hardware(struct vfe_device *vfe_dev,
@@ -95,10 +98,11 @@ void msm_vfe47_axi_clear_wm_xbar_reg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx);
 void msm_vfe47_cfg_axi_ub_equal_default(
-	struct vfe_device *vfe_dev);
+	struct vfe_device *vfe_dev, enum msm_vfe_input_src frame_src);
 void msm_vfe47_cfg_axi_ub_equal_slicing(
 	struct vfe_device *vfe_dev);
-void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev);
+void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src);
 void msm_vfe47_read_wm_ping_pong_addr(
 	struct vfe_device *vfe_dev);
 void msm_vfe47_update_ping_pong_addr(

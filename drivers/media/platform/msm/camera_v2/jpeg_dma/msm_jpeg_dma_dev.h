@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +23,7 @@
 /* Max number of clocks defined in device tree */
 #define MSM_JPEGDMA_MAX_CLK 10
 /* Core clock index */
-#define MSM_JPEGDMA_CORE_CLK 0
+#define MSM_JPEGDMA_CORE_CLK "core_clk"
 /* Max number of regulators defined in device tree */
 #define MSM_JPEGDMA_MAX_REGULATOR_NUM 3
 /* Max number of planes supported */
@@ -109,6 +110,8 @@ struct msm_jpegdma_size_config {
 	struct msm_jpegdma_size out_size;
 	struct msm_jpegdma_format format;
 	unsigned int fps;
+	unsigned int in_offset;
+	unsigned int out_offset;
 };
 
 /*
@@ -262,6 +265,8 @@ struct jpegdma_ctx {
 	struct v4l2_format format_out;
 	struct v4l2_rect crop;
 	struct v4l2_fract timeperframe;
+	unsigned int in_offset;
+	unsigned int out_offset;
 
 	unsigned int config_idx;
 	struct msm_jpegdma_plane_config plane_config[MSM_JPEGDMA_MAX_CONFIGS];

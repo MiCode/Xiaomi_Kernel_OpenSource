@@ -1,0 +1,52 @@
+Bandwidth Monitor driver(BW_MONITOR)
+=====================================
+
+Bandwidth Monitor driver creates logical sensor nodes with thermal core
+framework for the specified bus. This logical sensor will be used to monitor
+and mitigate the bus bandwidth. This driver can be configured to register
+any bus bandwidth as a sensor for it to be monitored.
+
+The device tree parameters for bandwidth monitor driver(BW_MONITOR) driver are:
+
+Properties:
+
+- compatible:
+        Usage: required
+        Value type: <string>
+        Definition: shall be "qcom,bm-sensors"
+
+- <child node>
+        Usage: required
+        Definition: Each child node represents a bandwidth sensor and name of
+			the node will be used as bandwidth sensor name. Each
+			sensor can represent either single bus bandwidth or
+			aggregation of multiple bus bandwidth.
+
+Child node Properties:
+- qcom,bm-sensor:
+        Usage: required
+        Value type: <array of phandle>
+        Definition: This bandwidth sensor monitors aggregated bandwidth of
+			these bus bandwidth.
+
+- qcom,bm-sensor-field:
+        Usage: required
+        Value type: <string>
+	Definition: This property defines the bandwidth to be monitored,
+			either average bandwidth(ab) or instantaneous
+			bandwidth(ib).
+
+Example:
+	qcom,bm-sensors {
+		compatible = "qcom,bm-sensors";
+
+		bw_mm {
+			qcom,bm-sensor = <&slv_snoc_bimc_0 &slv_snoc_bimc_2>;
+			qcom,bm-sensor-field = "ab";
+		};
+
+		bw_apps {
+			qcom,bm-sensor = <&mas_apps_proc>;
+			qcom,bm-sensor-field = "ib";
+		};
+	};

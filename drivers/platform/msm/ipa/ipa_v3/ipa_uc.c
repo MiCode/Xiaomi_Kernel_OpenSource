@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -383,7 +384,7 @@ int ipa3_uc_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
 	int result = 0;
-	struct ipa3_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	IPADBG("this=%p evt=%lu ptr=%p\n", this, event, ptr);
 
@@ -960,7 +961,7 @@ void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val)
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 {
 	int res;
-	struct ipa3_mem_buffer mem;
+	struct ipa_mem_buffer mem;
 	struct IpaHwMemCopyData_t *cmd;
 
 	IPADBG("dest 0x%pa src 0x%pa len %d\n", &dest, &src, len);

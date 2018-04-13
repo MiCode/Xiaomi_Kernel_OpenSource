@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -642,11 +643,18 @@ int sps_bam_reset(struct sps_bam *dev)
 		      pipe_index++) {
 			pipe = dev->pipes[pipe_index];
 			if (BAM_PIPE_IS_ASSIGNED(pipe)) {
-				SPS_ERR(dev,
-					"sps:BAM device %pa RESET failed: pipe %d in use\n",
+				if (!(dev->props.options &
+							SPS_BAM_FORCE_RESET)) {
+					SPS_ERR(dev,
+						"sps:BAM device %pa RESET failed: pipe %d in use\n",
+						BAM_ID(dev), pipe_index);
+					result = SPS_ERROR;
+					break;
+				}
+
+				SPS_DBG2(dev,
+					"sps: BAM %pa is force reset with pipe %d in use\n",
 					BAM_ID(dev), pipe_index);
-				result = SPS_ERROR;
-				break;
 			}
 		}
 

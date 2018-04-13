@@ -6,6 +6,7 @@
  *      sd.c Copyright (C) 1992 Drew Eckhardt
  *      Linux scsi disk driver by
  *              Drew Eckhardt <drew@colorado.edu>
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *	Modified by Eric Youngdale ericy@andante.org to
  *	add scatter-gather, multiple outstanding request, and other
@@ -143,6 +144,9 @@ static inline struct scsi_cd *scsi_cd(struct gendisk *disk)
 static int sr_runtime_suspend(struct device *dev)
 {
 	struct scsi_cd *cd = dev_get_drvdata(dev);
+
+	if (!cd)	/* E.g.: runtime suspend following sr_remove() */
+		return 0;
 
 	if (cd->media_present)
 		return -EBUSY;
@@ -990,6 +994,7 @@ static int sr_remove(struct device *dev)
 	scsi_autopm_get_device(cd->device);
 
 	del_gendisk(cd->disk);
+	dev_set_drvdata(dev, NULL);
 
 	mutex_lock(&sr_ref_mutex);
 	kref_put(&cd->kref, sr_kref_release);

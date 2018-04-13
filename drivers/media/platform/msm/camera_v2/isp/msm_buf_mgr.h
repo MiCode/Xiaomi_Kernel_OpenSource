@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +32,8 @@
 #define ISP_NUM_BUF_MASK 2
 #define BUF_MGR_NUM_BUF_Q 28
 #define MAX_IOMMU_CTX 2
+
+#define MSM_ISP_INVALID_BUF_INDEX 0xFFFFFFFF
 
 struct msm_isp_buf_mgr;
 
@@ -140,7 +143,8 @@ struct msm_isp_buf_ops {
 		uint32_t bufq_handle, uint32_t *buf_src);
 
 	int (*get_buf)(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
-		uint32_t bufq_handle, struct msm_isp_buffer **buf_info);
+		uint32_t bufq_handle, uint32_t buf_index,
+		struct msm_isp_buffer **buf_info);
 
 	int (*get_buf_by_index)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index,

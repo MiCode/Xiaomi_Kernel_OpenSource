@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright(c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright(C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,7 @@
 #include <soc/qcom/restart.h>
 #include <soc/qcom/watchdog.h>
 
+
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
@@ -47,7 +49,7 @@
 
 
 static int restart_mode;
-static void *restart_reason, *dload_type_addr;
+static void *restart_reason;
 static bool scm_pmic_arbiter_disable_supported;
 static bool scm_deassert_ps_hold_supported;
 /* Download mode master kill-switch */
@@ -55,12 +57,15 @@ static void __iomem *msm_ps_hold;
 static phys_addr_t tcsr_boot_misc_detect;
 static void scm_disable_sdi(void);
 
+#ifdef CONFIG_MSM_DLOAD_MODE
 /* Runtime could be only changed value once.
- * There is no API from TZ to re-enable the registers.
- * So the SDI cannot be re-enabled when it already by-passed.
+* There is no API from TZ to re-enable the registers.
+* So the SDI cannot be re-enabled when it already by-passed.
 */
-static int download_mode = 1;
-static struct kobject dload_kobj;
+static int download_mode = 0;
+#else
+static const int download_mode;
+#endif
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
@@ -71,14 +76,26 @@ static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
 static bool scm_dload_supported;
+static struct kobject dload_kobj;
+static void *dload_type_addr;
+
+
+
+
+/*lancelot add for reboot dl*/
+static int hq_reboot_dl = 0;
+
+module_param_named(reboot_dl_set, hq_reboot_dl, int, 0644);
+MODULE_PARM_DESC(reboot_dl_set, "for hq reboot enter dl mode");
+/*lancelot add end*/
 
 static int dload_set(const char *val, struct kernel_param *kp);
 /* interface for exporting attributes */
 struct reset_attribute {
 	struct attribute        attr;
-	ssize_t (*show)(struct kobject *kobj, struct attribute *attr,
+	ssize_t(*show)(struct kobject *kobj, struct attribute *attr,
 			char *buf);
-	size_t (*store)(struct kobject *kobj, struct attribute *attr,
+	size_t(*store)(struct kobject *kobj, struct attribute *attr,
 			const char *buf, size_t count);
 };
 #define to_reset_attr(_attr) \
@@ -87,6 +104,7 @@ struct reset_attribute {
 	static struct reset_attribute reset_attr_##_name = \
 			__ATTR(_name, _mode, _show, _store)
 
+extern int version_judge;
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 
@@ -146,7 +164,7 @@ static bool get_dload_mode(void)
 {
 	return dload_mode_enabled;
 }
-
+/*
 static void enable_emergency_dload_mode(void)
 {
 	int ret;
@@ -161,17 +179,18 @@ static void enable_emergency_dload_mode(void)
 				emergency_dload_mode_addr +
 				(2 * sizeof(unsigned int)));
 
-		/* Need disable the pmic wdt, then the emergency dload mode
-		 * will not auto reset. */
 		qpnp_pon_wd_config(0);
 		mb();
 	}
 
-	ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
-	if (ret)
-		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
+	if (version_judge == 3) //userdebug will into emergency_dload_mode
+    {
+		ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
+		if (ret)
+			pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
+	}
 }
-
+*/
 static int dload_set(const char *val, struct kernel_param *kp)
 {
 	int ret;
@@ -197,12 +216,12 @@ static void set_dload_mode(int on)
 {
 	return;
 }
-
+/*
 static void enable_emergency_dload_mode(void)
 {
 	pr_err("dload mode is not enabled on target\n");
 }
-
+*/
 static bool get_dload_mode(void)
 {
 	return false;
@@ -263,6 +282,8 @@ static void msm_restart_prepare(const char *cmd)
 {
 	bool need_warm_reset = false;
 
+	WARN_ON(1);
+
 #ifdef CONFIG_MSM_DLOAD_MODE
 
 	/* Write download mode flags if we're panic'ing
@@ -270,20 +291,36 @@ static void msm_restart_prepare(const char *cmd)
 	 * Kill download mode if master-kill switch is set
 	 */
 
+
+
 	set_dload_mode(download_mode &&
-			(in_panic || restart_mode == RESTART_DLOAD));
+			(in_panic || restart_mode == RESTART_DLOAD || hq_reboot_dl));
 #endif
+
+	printk(KERN_INFO "qpnp_pon_check_hard_reset_stored()=%d\n", qpnp_pon_check_hard_reset_stored());
+	printk(KERN_INFO "get_dload_mode()=%d\n", get_dload_mode());
 
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode */
 		if (get_dload_mode() ||
 			((cmd != NULL && cmd[0] != '\0') &&
-			!strcmp(cmd, "edl")))
+			!strcmp(cmd, "edl"))) {
+			printk(KERN_INFO "cmd[0]=%s\n", cmd);
 			need_warm_reset = true;
+		} else{
+			need_warm_reset = false;
+		}
 	} else {
-		need_warm_reset = (get_dload_mode() ||
-				(cmd != NULL && cmd[0] != '\0'));
+		if (get_dload_mode() ||
+				(cmd != NULL && cmd[0] != '\0')) {
+						printk(KERN_INFO "cmd[0]=%s\n", cmd);
+				need_warm_reset = true;
+		} else{
+						need_warm_reset = false;
+		}
 	}
+
+	printk(KERN_INFO "%s():need_warm_reset=%d\n", __func__, need_warm_reset);
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {
@@ -292,7 +329,12 @@ static void msm_restart_prepare(const char *cmd)
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 	}
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+		qpnp_pon_set_restart_reason(
+			PON_RESTART_REASON_PANIC);
+		__raw_writel(0x77665508, restart_reason);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -322,13 +364,23 @@ static void msm_restart_prepare(const char *cmd)
 			int ret;
 			ret = kstrtoul(cmd + 4, 16, &code);
 			if (!ret)
-				__raw_writel(0x6f656d00 | (code & 0xff),
+				__raw_writel(0x6f656d00 |(code & 0xff),
 					     restart_reason);
 		} else if (!strncmp(cmd, "edl", 3)) {
-			enable_emergency_dload_mode();
+
+		} else if (!strcmp(cmd, "other")) {
+			qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_OTHER);
+			__raw_writel(0x77665501, restart_reason);
 		} else {
+				qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		qpnp_pon_set_restart_reason(
+			PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();
@@ -395,6 +447,9 @@ static void do_msm_poweroff(void)
 	scm_disable_sdi();
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
 
+	qpnp_pon_set_restart_reason(PON_RESTART_REASON_UNKNOWN);
+	__raw_writel(0x0, restart_reason);
+
 	halt_spmi_pmic_arbiter();
 	deassert_ps_hold();
 
@@ -403,6 +458,7 @@ static void do_msm_poweroff(void)
 	return;
 }
 
+#ifdef CONFIG_MSM_DLOAD_MODE
 static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
@@ -460,7 +516,7 @@ static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
 	if (ret < 0)
 		return ret;
 
-	if (!((enabled == 0) || (enabled == 1)))
+	if (!((enabled == 0) ||(enabled == 1)))
 		return -EINVAL;
 
 	if (enabled == 1)
@@ -480,6 +536,7 @@ static struct attribute *reset_attrs[] = {
 static struct attribute_group reset_attr_group = {
 	.attrs = reset_attrs,
 };
+#endif
 
 static int msm_restart_probe(struct platform_device *pdev)
 {
@@ -561,6 +618,11 @@ skip_sysfs_create:
 					   "tcsr-boot-misc-detect");
 	if (mem)
 		tcsr_boot_misc_detect = mem->start;
+
+	qpnp_pon_set_restart_reason(
+								PON_RESTART_REASON_UNKNOWN);
+	__raw_writel(0x77665510, restart_reason);
+
 
 	pm_power_off = do_msm_poweroff;
 	arm_pm_restart = do_msm_restart;

@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,7 +106,11 @@ static int __tzbsp_set_video_state(enum tzbsp_video_state state);
  */
 static inline void __strict_check(struct venus_hfi_device *device)
 {
-	WARN_ON(!mutex_is_locked(&device->lock));
+	if (!mutex_is_locked(&device->lock)) {
+		dprintk(VIDC_WARN,
+			"device->lock mutex is not locked\n");
+		WARN_ON(VIDC_DBG_WARN_ENABLE);
+	}
 }
 
 static inline void __set_state(struct venus_hfi_device *device,
@@ -267,7 +272,7 @@ static int __acquire_regulator(struct regulator_info *rinfo)
 	if (!regulator_is_enabled(rinfo->regulator)) {
 		dprintk(VIDC_WARN, "Regulator is not enabled %s\n",
 			rinfo->name);
-		WARN_ON(1);
+		WARN_ON(VIDC_DBG_WARN_ENABLE);
 	}
 
 	return rc;
@@ -617,7 +622,7 @@ static void __write_register(struct venus_hfi_device *device,
 	if (!device->power_enabled) {
 		dprintk(VIDC_WARN,
 			"HFI Write register failed : Power is OFF\n");
-		WARN_ON(1);
+		WARN_ON(VIDC_DBG_WARN_ENABLE);
 		return;
 	}
 
@@ -643,7 +648,7 @@ static int __read_register(struct venus_hfi_device *device, u32 reg)
 	if (!device->power_enabled) {
 		dprintk(VIDC_WARN,
 			"HFI Read register failed : Power is OFF\n");
-		WARN_ON(1);
+		WARN_ON(VIDC_DBG_WARN_ENABLE);
 		return -EINVAL;
 	}
 
@@ -1238,6 +1243,13 @@ static unsigned long __get_clock_rate_with_bitrate(struct clock_info *clock,
 				break;
 			}
 		}
+
+		/*
+		 * Current bitrate is higher than max supported load.
+		 * Select max frequency to handle this load.
+		 */
+		if (i < 0)
+			supported_clk[j] = table[0].freq;
 	}
 
 	for (i = 0; i < data->num_sessions; i++)
@@ -1339,7 +1351,7 @@ static int __halt_axi(struct venus_hfi_device *device)
 	if (!device->power_enabled) {
 		dprintk(VIDC_WARN,
 			"Clocks are OFF, skipping AXI HALT\n");
-		WARN_ON(1);
+		WARN_ON(VIDC_DBG_WARN_ENABLE);
 		return -EINVAL;
 	}
 
@@ -1531,9 +1543,16 @@ static int venus_hfi_scale_clocks(void *dev, int load,
 	}
 
 	mutex_lock(&device->lock);
-	rc = __scale_clocks(device, load, data, instant_bitrate);
-	mutex_unlock(&device->lock);
 
+	if (__resume(device)) {
+		dprintk(VIDC_ERR, "Resume from power collapse failed\n");
+		rc = -ENODEV;
+		goto exit;
+	}
+
+	rc = __scale_clocks(device, load, data, instant_bitrate);
+exit:
+	mutex_unlock(&device->lock);
 	return rc;
 }
 
@@ -3278,6 +3297,26 @@ exit:
 	return;
 }
 
+static void __dump_venus_debug_registers(struct venus_hfi_device *device)
+{
+	u32 reg;
+
+	dprintk(VIDC_ERR, "Dumping Venus registers...\n");
+	reg = __read_register(device, VENUS_VBIF_XIN_HALT_CTRL1);
+	dprintk(VIDC_ERR, "VENUS_VBIF_XIN_HALT_CTRL1: 0x%x\n", reg);
+
+	reg = __read_register(device,
+		VIDC_VENUS_WRAPPER_MMCC_VENUS0_POWER_STATUS);
+	dprintk(VIDC_ERR,
+		"VIDC_VENUS_WRAPPER_MMCC_VENUS0_POWER_STATUS: 0x%x\n", reg);
+
+	reg = __read_register(device, VIDC_WRAPPER_CPU_STATUS);
+	dprintk(VIDC_ERR, "VIDC_WRAPPER_CPU_STATUS: 0x%x\n", reg);
+
+	reg = __read_register(device, VIDC_CPU_CS_SCIACMDARG0);
+	dprintk(VIDC_ERR, "VIDC_CPU_CS_SCIACMDARG0: 0x%x\n", reg);
+}
+
 static void __process_sys_error(struct venus_hfi_device *device)
 {
 	struct hfi_sfr_struct *vsfr = NULL;
@@ -3393,6 +3432,7 @@ static int __response_handler(struct venus_hfi_device *device)
 			dprintk(VIDC_ERR, "SFR Message from FW: %s\n",
 					vsfr->rg_data);
 
+		__dump_venus_debug_registers(device);
 		dprintk(VIDC_ERR, "Received watchdog timeout\n");
 		packets[packet_count++] = info;
 		goto exit;
@@ -3417,6 +3457,7 @@ static int __response_handler(struct venus_hfi_device *device)
 		/* Process the packet types that we're interested in */
 		switch (info->response_type) {
 		case HAL_SYS_ERROR:
+			__dump_venus_debug_registers(device);
 			__process_sys_error(device);
 			break;
 		case HAL_SYS_RELEASE_RESOURCE_DONE:
@@ -3496,7 +3537,11 @@ static int __response_handler(struct venus_hfi_device *device)
 		if (session_id) {
 			struct hal_session *session = NULL;
 
-			WARN_ON(upper_32_bits((uintptr_t)*session_id) != 0);
+			if (upper_32_bits((uintptr_t)*session_id) != 0) {
+				dprintk(VIDC_WARN,
+					"Upper 32 bits of session_id != 0\n");
+				WARN_ON(VIDC_DBG_WARN_ENABLE);
+			}
 			session = __get_session(device,
 					(u32)(uintptr_t)*session_id);
 			if (!session) {
@@ -4036,7 +4081,7 @@ static int __disable_regulator(struct regulator_info *rinfo)
 disable_regulator_failed:
 
 	/* Bring attention to this issue */
-	WARN_ON(1);
+	WARN_ON(VIDC_DBG_WARN_ENABLE);
 	return rc;
 }
 
@@ -4235,6 +4280,9 @@ static inline int __resume(struct venus_hfi_device *device)
 	} else if (device->power_enabled) {
 		dprintk(VIDC_DBG, "Power is already enabled\n");
 		goto exit;
+	} else if (!__core_in_valid_state(device)) {
+		dprintk(VIDC_DBG, "venus_hfi_device in deinit state.");
+		return -EINVAL;
 	}
 
 	dprintk(VIDC_DBG, "Resuming from power collapse\n");

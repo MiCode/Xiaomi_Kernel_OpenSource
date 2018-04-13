@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2016 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -374,8 +375,13 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 		return -EBUSY;
 	}
 
-	/* scan on P2P_DEVICE is handled as p2p search */
-	if (wdev->iftype == NL80211_IFTYPE_P2P_DEVICE) {
+	/* social scan on P2P_DEVICE is handled as p2p search */
+	if (wdev->iftype == NL80211_IFTYPE_P2P_DEVICE &&
+	    wil_p2p_is_social_scan(request)) {
+		if (!wil->p2p.p2p_dev_started) {
+			wil_err(wil, "P2P search requested on stopped P2P device\n");
+			return -EIO;
+		}
 		wil->scan_request = request;
 		wil->radio_wdev = wdev;
 		rc = wil_p2p_search(wil, request);
@@ -690,6 +696,9 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	wil_dbg_misc(wil, "%s()\n", __func__);
 	print_hex_dump_bytes("mgmt tx frame ", DUMP_PREFIX_OFFSET, buf, len);
+
+	if (len < sizeof(struct ieee80211_mgmt))
+		return -EINVAL;
 
 	cmd = kmalloc(sizeof(*cmd) + len, GFP_KERNEL);
 	if (!cmd) {
@@ -1349,6 +1358,7 @@ static int wil_cfg80211_start_p2p_device(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 
 	wil_dbg_misc(wil, "%s: entered\n", __func__);
+	wil->p2p.p2p_dev_started = 1;
 	return 0;
 }
 
@@ -1356,8 +1366,19 @@ static void wil_cfg80211_stop_p2p_device(struct wiphy *wiphy,
 					 struct wireless_dev *wdev)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	u8 started;
 
 	wil_dbg_misc(wil, "%s: entered\n", __func__);
+	mutex_lock(&wil->mutex);
+	started = wil_p2p_stop_discovery(wil);
+	if (started && wil->scan_request) {
+		cfg80211_scan_done(wil->scan_request, 1);
+		wil->scan_request = NULL;
+		wil->radio_wdev = wil->wdev;
+	}
+	mutex_unlock(&wil->mutex);
+
+	wil->p2p.p2p_dev_started = 0;
 }
 
 static struct cfg80211_ops wil_cfg80211_ops = {

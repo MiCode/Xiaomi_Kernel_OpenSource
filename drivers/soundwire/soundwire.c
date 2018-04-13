@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -238,6 +239,38 @@ void swr_port_response(struct swr_master *mstr, u8 tid)
 	kfree(txn);
 }
 EXPORT_SYMBOL(swr_port_response);
+
+/**
+ * swr_remove_from_group - remove soundwire slave devices from group
+ * @dev: pointer to the soundwire slave device
+ * dev_num: device number of the soundwire slave device
+ *
+ * Returns error code for failure and 0 for success
+ */
+int swr_remove_from_group(struct swr_device *dev, u8 dev_num)
+{
+	struct swr_master *master;
+
+	if (!dev)
+		return -ENODEV;
+
+	master = dev->master;
+	if (!master)
+		return -EINVAL;
+
+	if (!dev->group_id)
+		return 0;
+
+	if (master->gr_sid == dev_num)
+		return 0;
+
+	if (master->remove_from_group && master->remove_from_group(master))
+		dev_dbg(&master->dev, "%s: falling back to GROUP_NONE\n",
+			__func__);
+
+	return 0;
+}
+EXPORT_SYMBOL(swr_remove_from_group);
 
 /**
  * swr_slvdev_datapath_control - Enables/Disables soundwire slave device

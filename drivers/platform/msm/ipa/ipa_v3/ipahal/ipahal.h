@@ -1,4 +1,5 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +15,7 @@
 #define _IPAHAL_H_
 
 #include <linux/msm_ipa.h>
+#include "../../ipa_common_i.h"
 
 /*
  * Immediate command names
@@ -596,6 +598,52 @@ void ipahal_pkt_status_parse(const void *unparsed_status,
  */
 const char *ipahal_pkt_status_exception_str(
 	enum ipahal_pkt_status_exception exception);
+
+/*
+ * ipahal_cp_hdr_to_hw_buff() - copy header to hardware buffer according to
+ * base address and offset given.
+ * @base: dma base address
+ * @offset: offset from base address where the data will be copied
+ * @hdr: the header to be copied
+ * @hdr_len: the length of the header
+ */
+void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *hdr, u32 hdr_len);
+
+/*
+ * ipahal_cp_proc_ctx_to_hw_buff() - copy processing context to
+ * base address and offset given.
+ * @type: type of header processing context
+ * @base: dma base address
+ * @offset: offset from base address where the data will be copied
+ * @hdr_len: the length of the header
+ * @is_hdr_proc_ctx: header is located in phys_base (true) or hdr_base_addr
+ * @phys_base: memory location in DDR
+ * @hdr_base_addr: base address in table
+ * @offset_entry: offset from hdr_base_addr in table
+ */
+void ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
+		void *base, u32 offset, u32 hdr_len,
+		bool is_hdr_proc_ctx, dma_addr_t phys_base,
+		u32 hdr_base_addr,
+		struct ipa_hdr_offset_entry *offset_entry);
+
+/*
+ * ipahal_get_proc_ctx_needed_len() - calculates the needed length for addition
+ * of header processing context according to the type of processing context
+ * @type: header processing context type (no processing context,
+ *	IPA_HDR_PROC_ETHII_TO_ETHII etc.)
+ */
+int ipahal_get_proc_ctx_needed_len(enum ipa_hdr_proc_type type);
+
+/*
+ * Get IPA Data Processing Star image memory size at IPA SRAM
+ */
+u32 ipahal_get_dps_img_mem_size(void);
+
+/*
+ * Get IPA Header Processing Star image memory size at IPA SRAM
+ */
+u32 ipahal_get_hps_img_mem_size(void);
 
 int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base);
 void ipahal_destroy(void);

@@ -2,6 +2,7 @@
  * IEEE802.15.4-2003 specification
  *
  * Copyright (C) 2007-2012 Siemens AG
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -35,13 +36,13 @@
  */
 
 /* indicates that the Short Address changed */
-#define IEEE802515_AFILT_SADDR_CHANGED		0x00000001
+#define IEEE802154_AFILT_SADDR_CHANGED		0x00000001
 /* indicates that the IEEE Address changed */
-#define IEEE802515_AFILT_IEEEADDR_CHANGED	0x00000002
+#define IEEE802154_AFILT_IEEEADDR_CHANGED	0x00000002
 /* indicates that the PAN ID changed */
-#define IEEE802515_AFILT_PANID_CHANGED		0x00000004
+#define IEEE802154_AFILT_PANID_CHANGED		0x00000004
 /* indicates that PAN Coordinator status changed */
-#define	IEEE802515_AFILT_PANC_CHANGED		0x00000008
+#define IEEE802154_AFILT_PANC_CHANGED		0x00000008
 
 struct ieee802154_hw_addr_filt {
 	__le16	pan_id;		/* Each independent PAN selects a unique

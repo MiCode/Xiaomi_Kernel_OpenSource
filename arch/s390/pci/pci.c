@@ -4,6 +4,8 @@
  * Author(s):
  *   Jan Glauber <jang@linux.vnet.ibm.com>
  *
+ * Copyright (C) 2018 XiaoMi, Inc.
+ *
  * The System z PCI code is a rewrite from a prototype by
  * the following people (Kudoz!):
  *   Alexander Schmidt
@@ -189,6 +191,11 @@ int zpci_fmb_enable_device(struct zpci_dev *zdev)
 	if (!zdev->fmb)
 		return -ENOMEM;
 	WARN_ON((u64) zdev->fmb & 0xf);
+
+	/* reset software counters */
+	atomic64_set(&zdev->allocated_pages, 0);
+	atomic64_set(&zdev->mapped_pages, 0);
+	atomic64_set(&zdev->unmapped_pages, 0);
 
 	args.fmb_addr = virt_to_phys(zdev->fmb);
 	return mod_pci(zdev, ZPCI_MOD_FC_SET_MEASURE, 0, &args);
@@ -840,8 +847,11 @@ static inline int barsize(u8 size)
 
 static int zpci_mem_init(void)
 {
+	BUILD_BUG_ON(!is_power_of_2(__alignof__(struct zpci_fmb)) ||
+		     __alignof__(struct zpci_fmb) < sizeof(struct zpci_fmb));
+
 	zdev_fmb_cache = kmem_cache_create("PCI_FMB_cache", sizeof(struct zpci_fmb),
-				16, 0, NULL);
+					   __alignof__(struct zpci_fmb), 0, NULL);
 	if (!zdev_fmb_cache)
 		goto error_zdev;
 

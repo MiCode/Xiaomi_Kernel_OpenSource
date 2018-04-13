@@ -1,22 +1,23 @@
 /*
- *  linux/arch/arm/common/icst307.c
+ * linux/arch/arm/common/icst307.c
  *
- *  Copyright (C) 2003 Deep Blue Solutions, Ltd, All Rights Reserved.
+ * Copyright (C) 2003 Deep Blue Solutions, Ltd, All Rights Reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- *  Support functions for calculating clocks/divisors for the ICST307
- *  clock generators.  See http://www.idt.com/ for more information
- *  on these devices.
+ * Support functions for calculating clocks/divisors for the ICST307
+ * clock generators.  See http://www.idt.com/ for more information
+ * on these devices.
  *
- *  This is an almost identical implementation to the ICST525 clock generator.
- *  The s2div and idx2s files are different
+ * This is an almost identical implementation to the ICST525 clock generator.
+ * The s2div and idx2s files are different
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
-
+#include <asm/div64.h>
 #include <asm/hardware/icst.h>
 
 /*
@@ -29,7 +30,11 @@ EXPORT_SYMBOL(icst525_s2div);
 
 unsigned long icst_hz(const struct icst_params *p, struct icst_vco vco)
 {
-	return p->ref * 2 * (vco.v + 8) / ((vco.r + 2) * p->s2div[vco.s]);
+	u64 dividend = p->ref * 2 * (u64)(vco.v + 8);
+	u32 divisor = (vco.r + 2) * p->s2div[vco.s];
+
+	do_div(dividend, divisor);
+	return (unsigned long)dividend;
 }
 
 EXPORT_SYMBOL(icst_hz);
@@ -58,6 +63,7 @@ icst_hz_to_vco(const struct icst_params *p, unsigned long freq)
 
 		if (f > p->vco_min && f <= p->vco_max)
 			break;
+		i++;
 	} while (i < 8);
 
 	if (i >= 8)

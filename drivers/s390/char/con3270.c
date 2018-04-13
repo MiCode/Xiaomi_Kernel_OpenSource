@@ -5,6 +5,7 @@
  *   Original 3270 Code for 2.4 written by Richard Hitt (UTS Global)
  *   Rewritten for 2.5 by Martin Schwidefsky <schwidefsky@de.ibm.com>
  *     Copyright IBM Corp. 2003, 2009
+ *     Copyright (C) 2018 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -413,6 +414,10 @@ con3270_irq(struct con3270 *cp, struct raw3270_request *rq, struct irb *irb)
 		else
 			/* Normal end. Copy residual count. */
 			rq->rescnt = irb->scsw.cmd.count;
+	} else if (irb->scsw.cmd.dstat & DEV_STAT_DEV_END) {
+		/* Interrupt without an outstanding request -> update all */
+		cp->update_flags = CON_UPDATE_ALL;
+		con3270_set_timer(cp, 1);
 	}
 	return RAW3270_IO_DONE;
 }

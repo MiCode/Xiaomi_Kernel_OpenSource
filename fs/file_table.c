@@ -41,6 +41,141 @@ static struct kmem_cache *filp_cachep __read_mostly;
 
 static struct percpu_counter nr_files __cacheline_aligned_in_smp;
 
+#ifdef CONFIG_FILE_TABLE_DEBUG
+#include <linux/hashtable.h>
+#include <mount.h>
+static DEFINE_MUTEX(global_files_lock);
+static DEFINE_HASHTABLE(global_files_hashtable, 10);
+
+struct global_filetable_lookup_key {
+	struct work_struct work;
+	uintptr_t value;
+};
+
+static void global_filetable_print_warning_once(void)
+{
+	pr_err_once("\n**********************************************************\n");
+	pr_err_once("**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n");
+	pr_err_once("**                                                      **\n");
+	pr_err_once("**      VFS FILE TABLE DEBUG is enabled .               **\n");
+	pr_err_once("**  Allocating extra memory and slowing access to files **\n");
+	pr_err_once("**                                                      **\n");
+	pr_err_once("** This means that this is a DEBUG kernel and it is     **\n");
+	pr_err_once("** unsafe for production use.                           **\n");
+	pr_err_once("**                                                      **\n");
+	pr_err_once("** If you see this message and you are not debugging    **\n");
+	pr_err_once("** the kernel, report this immediately to your vendor!  **\n");
+	pr_err_once("**                                                      **\n");
+	pr_err_once("**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n");
+	pr_err_once("**********************************************************\n");
+}
+
+void global_filetable_add(struct file *filp)
+{
+	struct mount *mnt;
+
+	if (filp->f_path.dentry->d_iname == NULL ||
+	    strlen(filp->f_path.dentry->d_iname) == 0)
+		return;
+
+	mnt = real_mount(filp->f_path.mnt);
+
+	mutex_lock(&global_files_lock);
+	hash_add(global_files_hashtable, &filp->f_hash, (uintptr_t)mnt);
+	mutex_unlock(&global_files_lock);
+}
+
+void global_filetable_del(struct file *filp)
+{
+	mutex_lock(&global_files_lock);
+	hash_del(&filp->f_hash);
+	mutex_unlock(&global_files_lock);
+}
+
+static void global_print_file(struct file *filp, char *path_buffer, int *count)
+{
+	char *pathname;
+
+	pathname = d_path(&filp->f_path, path_buffer, PAGE_SIZE);
+	if (IS_ERR(pathname))
+		pr_err("VFS: File %d Address : %pa partial filename: %s ref_count=%ld\n",
+			++(*count), &filp, filp->f_path.dentry->d_iname,
+			atomic_long_read(&filp->f_count));
+	else
+		pr_err("VFS: File %d Address : %pa full filepath: %s ref_count=%ld\n",
+			++(*count), &filp, pathname,
+			atomic_long_read(&filp->f_count));
+}
+
+static void global_filetable_print(uintptr_t lookup_mnt)
+{
+	struct hlist_node *tmp;
+	struct file *filp;
+	struct mount *mnt;
+	int index;
+	int count = 0;
+	char *path_buffer = (char *)__get_free_page(GFP_TEMPORARY);
+
+	mutex_lock(&global_files_lock);
+	pr_err("\n**********************************************************\n");
+	pr_err("**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n");
+
+	pr_err("\n");
+	pr_err("VFS: The following files hold a reference to the mount\n");
+	pr_err("\n");
+	hash_for_each_possible_safe(global_files_hashtable, filp, tmp, f_hash,
+				    lookup_mnt) {
+		mnt = real_mount(filp->f_path.mnt);
+		if ((uintptr_t)mnt == lookup_mnt)
+			global_print_file(filp, path_buffer, &count);
+	}
+	pr_err("\n");
+	pr_err("VFS: Found total of %d open files\n", count);
+	pr_err("\n");
+
+	count = 0;
+	pr_err("\n");
+	pr_err("VFS: The following files need to cleaned up\n");
+	pr_err("\n");
+	hash_for_each_safe(global_files_hashtable, index, tmp, filp, f_hash) {
+		if (atomic_long_read(&filp->f_count) == 0)
+			global_print_file(filp, path_buffer, &count);
+	}
+
+	pr_err("\n");
+	pr_err("VFS: Found total of %d files awaiting clean-up\n", count);
+	pr_err("\n");
+	pr_err("**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n");
+	pr_err("\n**********************************************************\n");
+
+	mutex_unlock(&global_files_lock);
+	free_page((unsigned long)path_buffer);
+}
+
+static void global_filetable_print_work_fn(struct work_struct *work)
+{
+	struct global_filetable_lookup_key *key;
+	uintptr_t lookup_mnt;
+
+	key = container_of(work, struct global_filetable_lookup_key, work);
+	lookup_mnt = key->value;
+	kfree(key);
+	global_filetable_print(lookup_mnt);
+}
+
+void global_filetable_delayed_print(struct mount *mnt)
+{
+	struct global_filetable_lookup_key *key;
+
+	key = kzalloc(sizeof(*key), GFP_KERNEL);
+	if (key == NULL)
+		return;
+	key->value = (uintptr_t)mnt;
+	INIT_WORK(&key->work, global_filetable_print_work_fn);
+	schedule_work(&key->work);
+}
+#endif /* CONFIG_FILE_TABLE_DEBUG */
+
 static void file_free_rcu(struct rcu_head *head)
 {
 	struct file *f = container_of(head, struct file, f_u.fu_rcuhead);
@@ -219,6 +354,7 @@ static void __fput(struct file *file)
 		put_write_access(inode);
 		__mnt_drop_write(mnt);
 	}
+	global_filetable_del(file);
 	file->f_path.dentry = NULL;
 	file->f_path.mnt = NULL;
 	file->f_inode = NULL;
@@ -324,4 +460,5 @@ void __init files_init(unsigned long mempages)
 	n = (mempages * (PAGE_SIZE / 1024)) / 10;
 	files_stat.max_files = max_t(unsigned long, n, NR_FILE);
 	percpu_counter_init(&nr_files, 0, GFP_KERNEL);
+	global_filetable_print_warning_once();
 } 

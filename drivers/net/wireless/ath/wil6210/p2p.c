@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016 Qualcomm Atheros, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -21,6 +22,12 @@
 #define P2P_DMG_SOCIAL_CHANNEL 2
 #define P2P_SEARCH_DURATION_MS 500
 #define P2P_DEFAULT_BI 100
+
+bool wil_p2p_is_social_scan(struct cfg80211_scan_request *request)
+{
+	return (request->n_channels == 1) &&
+	       (request->channels[0]->hw_value == P2P_DMG_SOCIAL_CHANNEL);
+}
 
 void wil_p2p_discovery_timer_fn(ulong x)
 {
@@ -108,8 +115,10 @@ int wil_p2p_listen(struct wil6210_priv *wil, unsigned int duration,
 	u8 channel = P2P_DMG_SOCIAL_CHANNEL;
 	int rc;
 
-	if (chan)
-		channel = chan->hw_value;
+	if (!chan)
+		return -EINVAL;
+
+	channel = chan->hw_value;
 
 	wil_dbg_misc(wil, "%s: duration %d\n", __func__, duration);
 

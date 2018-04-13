@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2006 Oracle.  All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -181,6 +182,12 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
 			 */
 			trans = &rds_loop_transport;
 		}
+	}
+
+	if (trans == NULL) {
+		kmem_cache_free(rds_conn_slab, conn);
+		conn = ERR_PTR(-ENODEV);
+		goto out;
 	}
 
 	conn->c_trans = trans;

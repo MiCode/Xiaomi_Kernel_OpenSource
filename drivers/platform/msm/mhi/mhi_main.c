@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -520,9 +521,9 @@ static inline int mhi_queue_tre(struct mhi_device_ctxt
 		}
 	} else {
 		mhi_log(MHI_MSG_VERBOSE,
-			"Wakeup, pending data state %d chan state %d\n",
-						 mhi_dev_ctxt->mhi_state,
-						 chan_ctxt->mhi_chan_state);
+			"Wakeup, pending data state %s chan state %d\n",
+			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
+			chan_ctxt->mhi_chan_state);
 			ret_val = 0;
 	}
 	return ret_val;
@@ -766,10 +767,9 @@ int mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	}
 
 	mhi_log(MHI_MSG_INFO,
-		"Entered, MHI state %d dev_exec_env %d chan %d cmd %d\n",
-			mhi_dev_ctxt->mhi_state,
-			mhi_dev_ctxt->dev_exec_env,
-			chan, cmd);
+		"Entered, MHI state %s dev_exec_env %d chan %d cmd %d\n",
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
+		mhi_dev_ctxt->dev_exec_env, chan, cmd);
 	mhi_log(MHI_MSG_INFO, "Getting Reference %d", chan);
 	pm_runtime_get(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	/*
@@ -1166,6 +1166,7 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 	{
 		struct mhi_ring *chan_ctxt = NULL;
 		u64 db_value = 0;
+		unsigned long flags;
 
 		mhi_dev_ctxt->flags.uldl_enabled = 1;
 		chan = MHI_EV_READ_CHID(EV_CHID, event);
@@ -1173,6 +1174,8 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 		chan_ctxt =
 			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 		mhi_log(MHI_MSG_INFO, "DB_MODE/OOB Detected chan %d.\n", chan);
+		spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan],
+				  flags);
 		if (chan_ctxt->wp != chan_ctxt->rp) {
 			db_value = mhi_v2p_addr(mhi_dev_ctxt,
 						MHI_RING_TYPE_XFER_RING, chan,
@@ -1182,8 +1185,10 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 				     db_value);
 		}
 		client_handle = mhi_dev_ctxt->client_handle_list[chan];
-			if (NULL != client_handle)
-				result->transaction_status = -ENOTCONN;
+		if (NULL != client_handle)
+			result->transaction_status = -ENOTCONN;
+		spin_unlock_irqrestore(&mhi_dev_ctxt->db_write_lock[chan],
+				       flags);
 		break;
 	}
 	case MHI_EVENT_CC_BAD_TRE:
@@ -1393,8 +1398,10 @@ static int start_chan_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	u32 chan;
 
 	MHI_TRB_GET_INFO(CMD_TRB_CHID, cmd_pkt, chan);
-	if (!VALID_CHAN_NR(chan))
+	if (!VALID_CHAN_NR(chan)) {
 		mhi_log(MHI_MSG_ERROR, "Bad chan: 0x%x\n", chan);
+		return -EINVAL;
+	}
 	mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan] =
 					MHI_CMD_NOT_PENDING;
 	mhi_log(MHI_MSG_INFO, "Processed START CMD chan %d\n", chan);

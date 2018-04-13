@@ -209,10 +209,13 @@ enum {
 	MDP_RGBX_1010102_UBWC,
 	MDP_Y_CBCR_H2V2_P010,
 	MDP_Y_CBCR_H2V2_TP10_UBWC,
+	MDP_CRYCBY_H2V1,  /* CrYCbY interleave */
 	MDP_IMGTYPE_LIMIT1 = MDP_IMGTYPE_END,
 	MDP_FB_FORMAT = MDP_IMGTYPE2_START,    /* framebuffer format */
 	MDP_IMGTYPE_LIMIT2 /* Non valid image type after this enum */
 };
+
+#define MDP_CRYCBY_H2V1 MDP_CRYCBY_H2V1
 
 enum {
 	PMEM_IMG,
@@ -1365,11 +1368,20 @@ enum {
 	MDP_WRITEBACK_MIRROR_RESUME,
 };
 
+/*
+ * The enum values are continued below as preprocessor macro definitions
+ */
 enum mdp_color_space {
 	MDP_CSC_ITU_R_601,
 	MDP_CSC_ITU_R_601_FR,
 	MDP_CSC_ITU_R_709,
 };
+
+/*
+ * These definitions are a continuation of the mdp_color_space enum above
+ */
+#define MDP_CSC_ITU_R_2020	(MDP_CSC_ITU_R_709 + 1)
+#define MDP_CSC_ITU_R_2020_FR	(MDP_CSC_ITU_R_2020 + 1)
 
 enum {
 	mdp_igc_v1_7 = 1,

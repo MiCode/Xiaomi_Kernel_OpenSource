@@ -2,6 +2,7 @@
  * Silicon Labs Si2147/2157/2158 silicon tuner driver
  *
  * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -157,6 +158,11 @@ static int si2157_init(struct dvb_frontend *fe)
 
 	for (remaining = fw->size; remaining > 0; remaining -= 17) {
 		len = fw->data[fw->size - remaining];
+		if (len > SI2157_ARGLEN) {
+			dev_err(&s->client->dev, "Bad firmware length\n");
+			ret = -EINVAL;
+			goto err;
+		}
 		memcpy(cmd.args, &fw->data[(fw->size - remaining) + 1], len);
 		cmd.wlen = len;
 		cmd.rlen = 1;

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,5 +227,8 @@
 #define clk_apc2_m_clk				0x252cd4ae
 #define clk_apc3_m_clk				0x78c64486
 #define clk_l2_m_clk                            0x4bedf4d0
+
+#define clk_audio_ap_clk                        0x312ac429
+#define clk_audio_pmi_clk                       0xb7ba2274
 
 #endif

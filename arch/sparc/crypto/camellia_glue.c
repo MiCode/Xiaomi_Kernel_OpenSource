@@ -1,6 +1,7 @@
 /* Glue code for CAMELLIA encryption optimized for sparc64 crypto opcodes.
  *
  * Copyright (C) 2012 David S. Miller <davem@davemloft.net>
+ * Copyright (C) 2018 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
@@ -274,6 +275,7 @@ static struct crypto_alg algs[] = { {
 		.blkcipher = {
 			.min_keysize	= CAMELLIA_MIN_KEY_SIZE,
 			.max_keysize	= CAMELLIA_MAX_KEY_SIZE,
+			.ivsize		= CAMELLIA_BLOCK_SIZE,
 			.setkey		= camellia_set_key,
 			.encrypt	= cbc_encrypt,
 			.decrypt	= cbc_decrypt,

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1525,6 +1526,14 @@ static int msm_ipc_router_lookup_resume_tx_port(
 }
 
 /**
+ * ipc_router_dummy_write_space() - Dummy write space available callback
+ * @sk:	Socket pointer for which the callback is called.
+ */
+void ipc_router_dummy_write_space(struct sock *sk)
+{
+}
+
+/**
  * post_resume_tx() - Post the resume_tx event
  * @rport_ptr: Pointer to the remote port
  * @pkt : The data packet that is received on a resume_tx event
@@ -1560,10 +1569,11 @@ static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
 				read_lock(&sk->sk_callback_lock);
 				write_space = sk->sk_write_space;
 				read_unlock(&sk->sk_callback_lock);
-				if (write_space)
-					write_space(sk);
 			}
-			if (!write_space)
+			if (write_space &&
+			    write_space != ipc_router_dummy_write_space)
+				write_space(sk);
+			else
 				post_pkt_to_port(local_port, pkt, 1);
 		} else {
 			IPC_RTR_ERR("%s: Local Port %d not Found",
@@ -2797,6 +2807,9 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	struct msm_ipc_router_remote_port *rport_ptr;
 
 	if (!port_ptr || !name)
+		return -EINVAL;
+
+	if (port_ptr->type != CLIENT_PORT)
 		return -EINVAL;
 
 	if (name->addrtype != MSM_IPC_ADDR_NAME)

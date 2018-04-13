@@ -2054,14 +2054,29 @@ void udf_write_aext(struct inode *inode, struct extent_position *epos,
 		epos->offset += adsize;
 }
 
+/*
+ * Only 1 indirect extent in a row really makes sense but allow upto 16 in case
+ * someone does some weird stuff.
+ */
+#define UDF_MAX_INDIR_EXTS 16
+
 int8_t udf_next_aext(struct inode *inode, struct extent_position *epos,
 		     struct kernel_lb_addr *eloc, uint32_t *elen, int inc)
 {
 	int8_t etype;
+	unsigned int indirections = 0;
 
 	while ((etype = udf_current_aext(inode, epos, eloc, elen, inc)) ==
 	       (EXT_NEXT_EXTENT_ALLOCDECS >> 30)) {
 		int block;
+
+		if (++indirections > UDF_MAX_INDIR_EXTS) {
+			udf_err(inode->i_sb,
+				"too many indirect extents in inode %lu\n",
+				inode->i_ino);
+			return -EPERM;
+		}
+
 		epos->block = *eloc;
 		epos->offset = sizeof(struct allocExtDesc);
 		brelse(epos->bh);
@@ -2069,7 +2084,7 @@ int8_t udf_next_aext(struct inode *inode, struct extent_position *epos,
 		epos->bh = udf_tread(inode->i_sb, block);
 		if (!epos->bh) {
 			udf_debug("reading block %d failed!\n", block);
-			return -1;
+			return -EPERM;
 		}
 	}
 
@@ -2107,7 +2122,7 @@ int8_t udf_current_aext(struct inode *inode, struct extent_position *epos,
 	case ICBTAG_FLAG_AD_SHORT:
 		sad = udf_get_fileshortad(ptr, alen, &epos->offset, inc);
 		if (!sad)
-			return -1;
+			return -EPERM;
 		etype = le32_to_cpu(sad->extLength) >> 30;
 		eloc->logicalBlockNum = le32_to_cpu(sad->extPosition);
 		eloc->partitionReferenceNum =
@@ -2117,14 +2132,14 @@ int8_t udf_current_aext(struct inode *inode, struct extent_position *epos,
 	case ICBTAG_FLAG_AD_LONG:
 		lad = udf_get_filelongad(ptr, alen, &epos->offset, inc);
 		if (!lad)
-			return -1;
+			return -EPERM;
 		etype = le32_to_cpu(lad->extLength) >> 30;
 		*eloc = lelb_to_cpu(lad->extLocation);
 		*elen = le32_to_cpu(lad->extLength) & UDF_EXTENT_LENGTH_MASK;
 		break;
 	default:
 		udf_debug("alloc_type = %d unsupported\n", iinfo->i_alloc_type);
-		return -1;
+		return -EPERM;
 	}
 
 	return etype;
@@ -2175,7 +2190,7 @@ int8_t udf_delete_aext(struct inode *inode, struct extent_position epos,
 
 	oepos = epos;
 	if (udf_next_aext(inode, &epos, &eloc, &elen, 1) == -1)
-		return -1;
+		return -EPERM;
 
 	while ((etype = udf_next_aext(inode, &epos, &eloc, &elen, 1)) != -1) {
 		udf_write_aext(inode, &oepos, &eloc, (etype << 30) | elen, 1);
@@ -2256,7 +2271,7 @@ int8_t inode_bmap(struct inode *inode, sector_t block,
 		if (etype == -1) {
 			*offset = (bcount - lbcount) >> blocksize_bits;
 			iinfo->i_lenExtents = lbcount;
-			return -1;
+			return -EPERM;
 		}
 		lbcount += *elen;
 	} while (lbcount <= bcount);

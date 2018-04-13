@@ -47,6 +47,13 @@ config FB_MSM_MDSS_EDP_PANEL
 	which runs in Video mode only and is responsible for transmitting
 	frame buffer from host SOC to eDP display panel.
 
+config XIAOMI_D2
+	bool "XIAOMI D2 use"
+	---help---
+	The MDSS eDP Panel provides support for eDP host controller driver
+	which runs in Video mode only and is responsible for transmitting
+	frame buffer from host SOC to eDP display panel.
+
 config FB_MSM_MDSS_MDP3
 	depends on FB_MSM_MDSS
 	bool "MDP3 display controller"

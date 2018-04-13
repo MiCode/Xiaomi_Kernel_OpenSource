@@ -534,9 +534,6 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
 
-	/* Turn on MMU clocks since we read MMU registers */
-	kgsl_mmu_enable_clk(&device->mmu);
-
 	/* Master set of (non debug) registers */
 
 	SNAPSHOT_REGISTERS(device, snapshot, a4xx_registers);
@@ -553,8 +550,6 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 	adreno_snapshot_vbif_registers(device, snapshot,
 		a4xx_vbif_snapshot_registers,
 		ARRAY_SIZE(a4xx_vbif_snapshot_registers));
-
-	kgsl_mmu_disable_clk(&device->mmu);
 
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		A4XX_CP_STATE_DEBUG_INDEX, A4XX_CP_STATE_DEBUG_DATA,

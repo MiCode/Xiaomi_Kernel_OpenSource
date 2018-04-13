@@ -63,7 +63,7 @@ dsi_adv7533_720p: qcom,mdss_dsi_adv7533_720p {
 		qcom,mdss-pan-physical-height-dimension = <90>;
 		qcom,mdss-dsi-force-clock-lane-hs;
 		qcom,mdss-dsi-always-on;
-		qcom,mdss-dsi-panel-timings-8996 = [1c 19 02 03 01 03 04 a0
+		qcom,mdss-dsi-panel-timings-phy-v2 = [1c 19 02 03 01 03 04 a0
 			1c 19 02 03 01 03 04 a0
 			1c 19 02 03 01 03 04 a0
 			1c 19 02 03 01 03 04 a0

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2001 Sistina Software (UK) Limited.
  * Copyright (C) 2004-2008 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This file is released under the LGPL.
  */
@@ -374,6 +375,12 @@ void dm_put(struct mapped_device *md);
  */
 void dm_set_mdptr(struct mapped_device *md, void *ptr);
 void *dm_get_mdptr(struct mapped_device *md);
+
+/*
+ * Export the device via the ioctl interface (uses mdptr).
+ */
+int dm_ioctl_export(struct mapped_device *md, const char *name,
+		    const char *uuid);
 
 /*
  * A device can still be used while suspended, but I/O is deferred.
