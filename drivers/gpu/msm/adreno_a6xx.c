@@ -801,8 +801,11 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Setting the mem pool size */
 	kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 128);
 
-	/* Setting the primFifo thresholds default values */
-	kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
+	/* Setting the primFifo thresholds values */
+	if (adreno_is_a640(adreno_dev))
+		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x400 << 11));
+	else
+		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
 
 	/* Set the AHB default slave response to "ERROR" */
 	kgsl_regwrite(device, A6XX_CP_AHB_CNTL, 0x1);
