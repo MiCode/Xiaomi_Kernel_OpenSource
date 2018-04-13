@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 #include <linux/dma-buf.h>
 #include <linux/of_platform.h>
 #include <linux/msm_dma_iommu_mapping.h>
+#include <linux/vmalloc.h>
 
 #include <linux/qcom_iommu.h>
 #include <asm/dma-iommu.h>
@@ -495,7 +496,7 @@ static void mdss_smmu_deinit_v2(struct mdss_data_type *mdata)
  *   either sides of sgl.
  *
  * Returns:
- *   Pointer to new kmalloced sg list, ERR_PTR() on error
+ *   Pointer to new vmalloced sg list, ERR_PTR() on error
  *
  */
 static struct scatterlist *sg_clone(struct scatterlist *orig_sgl, u64 len,
@@ -511,7 +512,7 @@ static struct scatterlist *sg_clone(struct scatterlist *orig_sgl, u64 len,
 	if (padding)
 		nents += 2;
 
-	head = kmalloc_array(nents, sizeof(struct scatterlist), gfp_mask);
+	head = vmalloc(nents * sizeof(struct scatterlist));
 	if (!head)
 		return ERR_PTR(-ENOMEM);
 
