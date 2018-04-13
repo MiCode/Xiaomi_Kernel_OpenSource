@@ -1446,6 +1446,13 @@ void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 }
 
+static void mdss_dsi_phy_hstx_drv_ctrl(
+	struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
+{
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM)
+		mdss_dsi_12nm_phy_hstx_drv_ctrl(ctrl, enable);
+}
+
 void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 {
 }
@@ -2446,6 +2453,12 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 
 	pdata = &ctrl->panel_data;
 
+	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_HS_CLK) &&
+		(new_state == MDSS_DSI_CLK_OFF)) {
+		/* Disable HS TX driver in DSI PHY if applicable */
+		mdss_dsi_phy_hstx_drv_ctrl(ctrl, false);
+	}
+
 	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_LP_CLK) &&
 		(new_state == MDSS_DSI_CLK_OFF)) {
 		if (pdata->panel_info.mipi.force_clk_lane_hs)
@@ -2597,6 +2610,9 @@ int mdss_dsi_post_clkon_cb(void *priv,
 
 		/* enable split link for cmn clk cfg1 */
 		mdss_dsi_split_link_clk_cfg(ctrl, 1);
+
+		/* Enable HS TX driver in DSI PHY if applicable */
+		mdss_dsi_phy_hstx_drv_ctrl(ctrl, true);
 	}
 error:
 	return rc;
