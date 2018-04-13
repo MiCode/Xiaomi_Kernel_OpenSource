@@ -1,20 +1,36 @@
 /*
+ * FTS Capacitive touch screen controller (FingerTipS)
+ *
+ * Copyright (C) 2016-2018, STMicroelectronics Limited.
+ * Authors: AMG(Analog Mems Group) <marco.cali@st.com>
+ *
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by
+ * the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-**************************************************************************
-**						STMicroelectronics						**
-**************************************************************************
-**						marco.cali@st.com				**
-**************************************************************************
-*																		*
-*				  FTS Utility for mesuring/handling the time		 *
-*																		*
-**************************************************************************
-**************************************************************************
-
-*/
-
-#include "ftsCrossCompile.h"
-#include "ftsTime.h"
+/**
+ *
+ **************************************************************************
+ **                        STMicroelectronics                            **
+ **************************************************************************
+ **                        marco.cali@st.com                             **
+ **************************************************************************
+ *                                                                        *
+ *                  FTS Utility for mesuring/handling the time            *
+ *                                                                        *
+ **************************************************************************
+ ***************************************************************************
+ */
 
 #include <linux/init.h>
 #include <linux/errno.h>
@@ -40,38 +56,45 @@
 #include <linux/firmware.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
-/* #include <linux/sec_sysfs.h> */
+//#include <linux/sec_sysfs.h>
 
-void startStopWatch(StopWatch *w)
+#include "ftsCrossCompile.h"
+#include "ftsTime.h"
+
+
+void startStopWatch(struct StopWatch *w)
 {
 	w->start = current_kernel_time();
 }
 
-void stopStopWatch(StopWatch *w)
+void stopStopWatch(struct StopWatch *w)
 {
 	w->end = current_kernel_time();
 }
 
-int elapsedMillisecond(StopWatch *w)
+int elapsedMillisecond(struct StopWatch *w)
 {
 	int result;
 
-	result = ((w->end.tv_sec - w->start.tv_sec)*1000) + (w->end.tv_nsec - w->start.tv_nsec) / 1000000;
+	result = ((w->end.tv_sec - w->start.tv_sec) * 1000)
+		+ (w->end.tv_nsec - w->start.tv_nsec) / 1000000;
 	return result;
 }
 
-int elapsedNanosecond(StopWatch *w)
+int elapsedNanosecond(struct StopWatch *w)
 {
 	int result;
 
-	result = ((w->end.tv_sec - w->start.tv_sec)*1000000000) + (w->end.tv_nsec - w->start.tv_nsec);
+	result = ((w->end.tv_sec - w->start.tv_sec) * 1000000000)
+		+ (w->end.tv_nsec - w->start.tv_nsec);
 	return result;
 }
 
-char *timestamp(void)
+char *timestamp()
 {
 	char *result = NULL;
-	result = (char *)kmalloc((1)*sizeof(char), GFP_KERNEL);
+
+	result = (char *)kmalloc_array(1, sizeof(char), GFP_KERNEL);
 	if (result == NULL)
 		return NULL;
 	result[0] = ' ';
@@ -80,5 +103,5 @@ char *timestamp(void)
 
 void stdelay(unsigned long ms)
 {
-	 msleep(ms);
+	msleep(ms);
 }
