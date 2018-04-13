@@ -359,6 +359,8 @@ static void dsi_display_register_te_irq(struct dsi_display *display)
 		return;
 	}
 
+	init_completion(&display->esd_te_gate);
+
 	rc = devm_request_irq(dev, gpio_to_irq(display->disp_te_gpio),
 			dsi_display_panel_te_irq_handler, IRQF_TRIGGER_FALLING,
 			"TE_GPIO", display);
@@ -366,8 +368,6 @@ static void dsi_display_register_te_irq(struct dsi_display *display)
 		pr_err("TE request_irq failed for ESD rc:%d\n", rc);
 		return;
 	}
-
-	init_completion(&display->esd_te_gate);
 
 	disable_irq(gpio_to_irq(display->disp_te_gpio));
 	display->is_te_irq_enabled = false;
