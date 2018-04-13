@@ -40,7 +40,8 @@ static const char drv_name[] = "vfe_bus";
 #define CAM_VFE_RDI_BUS_DEFAULT_STRIDE              0xFF01
 #define CAM_VFE_BUS_INTRA_CLIENT_MASK               0x3
 #define CAM_VFE_BUS_ADDR_SYNC_INTRA_CLIENT_SHIFT    8
-#define CAM_VFE_BUS_ADDR_NO_SYNC_DEFAULT_VAL        0xFFFFF
+#define CAM_VFE_BUS_ADDR_NO_SYNC_DEFAULT_VAL \
+	((1 << CAM_VFE_BUS_VER2_MAX_CLIENTS) - 1)
 
 #define ALIGNUP(value, alignment) \
 	((value + alignment - 1) / alignment * alignment)
@@ -375,6 +376,9 @@ static bool cam_vfe_bus_can_be_secure(uint32_t out_type)
 	case CAM_VFE_BUS_VER2_VFE_OUT_RDI0:
 	case CAM_VFE_BUS_VER2_VFE_OUT_RDI1:
 	case CAM_VFE_BUS_VER2_VFE_OUT_RDI2:
+	case CAM_VFE_BUS_VER2_VFE_OUT_FULL_DISP:
+	case CAM_VFE_BUS_VER2_VFE_OUT_DS4_DISP:
+	case CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP:
 		return true;
 
 	case CAM_VFE_BUS_VER2_VFE_OUT_PDAF:
@@ -434,6 +438,12 @@ static enum cam_vfe_bus_ver2_vfe_out_type
 		return CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS;
 	case CAM_ISP_IFE_OUT_RES_STATS_IHIST:
 		return CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST;
+	case CAM_ISP_IFE_OUT_RES_FULL_DISP:
+		return CAM_VFE_BUS_VER2_VFE_OUT_FULL_DISP;
+	case CAM_ISP_IFE_OUT_RES_DS4_DISP:
+		return CAM_VFE_BUS_VER2_VFE_OUT_DS4_DISP;
+	case CAM_ISP_IFE_OUT_RES_DS16_DISP:
+		return CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP;
 	default:
 		return CAM_VFE_BUS_VER2_VFE_OUT_MAX;
 	}
@@ -474,6 +484,7 @@ static int cam_vfe_bus_get_num_wm(
 		}
 		break;
 	case CAM_VFE_BUS_VER2_VFE_OUT_FULL:
+	case CAM_VFE_BUS_VER2_VFE_OUT_FULL_DISP:
 		switch (format) {
 		case CAM_FORMAT_NV21:
 		case CAM_FORMAT_NV12:
@@ -503,7 +514,9 @@ static int cam_vfe_bus_get_num_wm(
 		}
 		break;
 	case CAM_VFE_BUS_VER2_VFE_OUT_DS4:
+	case CAM_VFE_BUS_VER2_VFE_OUT_DS4_DISP:
 	case CAM_VFE_BUS_VER2_VFE_OUT_DS16:
+	case CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP:
 		switch (format) {
 		case CAM_FORMAT_PD8:
 		case CAM_FORMAT_PD10:
@@ -752,6 +765,37 @@ static int cam_vfe_bus_get_wm_idx(
 			break;
 		}
 		break;
+	case CAM_VFE_BUS_VER2_VFE_OUT_FULL_DISP:
+		switch (plane) {
+		case PLANE_Y:
+			wm_idx = 20;
+			break;
+		case PLANE_C:
+			wm_idx = 21;
+			break;
+		default:
+			break;
+		}
+		break;
+	case CAM_VFE_BUS_VER2_VFE_OUT_DS4_DISP:
+		switch (plane) {
+		case PLANE_Y:
+			wm_idx = 22;
+			break;
+		default:
+			break;
+		}
+		break;
+	case CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP:
+		switch (plane) {
+		case PLANE_Y:
+			wm_idx = 23;
+			break;
+		default:
+			break;
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -764,7 +808,7 @@ static enum cam_vfe_bus_packer_format
 {
 	switch (out_fmt) {
 	case CAM_FORMAT_NV21:
-		if (wm_index == 4 || wm_index == 6)
+		if ((wm_index == 4) || (wm_index == 6) || (wm_index == 21))
 			return PACKER_FMT_PLAIN_8_LSB_MSB_10_ODD_EVEN;
 	case CAM_FORMAT_NV12:
 	case CAM_FORMAT_UBWC_NV12:
@@ -895,9 +939,13 @@ static int cam_vfe_bus_acquire_wm(
 				rsrc_data->format);
 			return -EINVAL;
 		}
-	} else if (rsrc_data->index < 5 ||
-		rsrc_data->index == 7 || rsrc_data->index == 8) {
-		/* Write master 3, 4 - for Full OUT , 7-8  FD OUT */
+	} else if ((rsrc_data->index < 5) ||
+		(rsrc_data->index == 7) || (rsrc_data->index == 8) ||
+		(rsrc_data->index == 20) || (rsrc_data->index == 21)) {
+		/*
+		 * Write master 3, 4 - for Full OUT , 7-8  FD OUT,
+		 * WM 20-21 = FULL_DISP
+		 */
 		switch (rsrc_data->format) {
 		case CAM_FORMAT_UBWC_NV12_4R:
 			rsrc_data->en_ubwc = 1;
@@ -977,7 +1025,7 @@ static int cam_vfe_bus_acquire_wm(
 			return -EINVAL;
 		}
 		rsrc_data->en_cfg = 0x1;
-	} else if (rsrc_data->index >= 11) {
+	} else if ((rsrc_data->index >= 11) && (rsrc_data->index < 20)) {
 		/* Write master 11-19  stats */
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
