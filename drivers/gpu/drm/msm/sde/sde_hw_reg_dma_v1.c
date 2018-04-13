@@ -68,6 +68,7 @@ static uint32_t reg_dma_intr_4_status_offset;
 static uint32_t reg_dma_intr_clear_offset;
 static uint32_t reg_dma_ctl_trigger_offset;
 static uint32_t reg_dma_ctl0_reset_offset;
+static uint32_t reg_dma_error_clear_mask;
 
 typedef int (*reg_dma_internal_ops) (struct sde_reg_dma_setup_ops_cfg *cfg);
 
@@ -530,8 +531,13 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	SET_UP_REG_DMA_REG(hw, reg_dma);
 	SDE_REG_WRITE(&hw, reg_dma_opmode_offset, BIT(0));
 	val = SDE_REG_READ(&hw, reg_dma_intr_4_status_offset);
-	if (val)
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
+	if (val) {
+		DRM_DEBUG("LUT dma status %x\n", val);
+		mask = reg_dma_error_clear_mask;
+		SDE_REG_WRITE(&hw, reg_dma_intr_clear_offset + sizeof(u32) * 4,
+				mask);
+		SDE_EVT32(val);
+	}
 
 	SDE_REG_WRITE(&hw, reg_dma_ctl_queue_off[cfg->ctl->idx],
 			cfg->dma_buf->iova);
@@ -599,6 +605,7 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 	reg_dma_intr_clear_offset = 0xb0;
 	reg_dma_ctl_trigger_offset = 0xd4;
 	reg_dma_ctl0_reset_offset = 0xe4;
+	reg_dma_error_clear_mask = BIT(0) | BIT(1) | BIT(2) | BIT(16);
 
 	reg_dma_ctl_queue_off[CTL_0] = reg_dma_ctl0_queue0_cmd0_offset;
 	for (i = CTL_1; i < ARRAY_SIZE(reg_dma_ctl_queue_off); i++)
@@ -628,6 +635,8 @@ int init_v11(struct sde_hw_reg_dma *cfg)
 	reg_dma_intr_clear_offset = 0x1a0;
 	reg_dma_ctl_trigger_offset = 0xd4;
 	reg_dma_ctl0_reset_offset = 0x200;
+	reg_dma_error_clear_mask = BIT(0) | BIT(1) | BIT(2) | BIT(16) |
+		BIT(17) | BIT(18);
 
 	reg_dma_ctl_queue_off[CTL_0] = reg_dma_ctl0_queue0_cmd0_offset;
 	for (i = CTL_1; i < ARRAY_SIZE(reg_dma_ctl_queue_off); i++)
