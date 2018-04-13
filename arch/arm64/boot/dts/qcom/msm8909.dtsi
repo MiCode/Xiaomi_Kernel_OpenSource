@@ -227,6 +227,7 @@
 #include "msm8909-smp2p.dtsi"
 #include "msm8909-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm-arm-smmu-8909.dtsi"
 #include "msm8909-gpu.dtsi"
 #include "msm8909-coresight.dtsi"
 #include "msm8909-bus.dtsi"
