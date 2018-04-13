@@ -1092,6 +1092,8 @@ struct ipa3_smp2p_info {
 	u32 in_base_id;
 	bool ipa_clk_on;
 	bool res_sent;
+	unsigned int smem_bit;
+	struct qcom_smem_state *smem_state;
 };
 
 /**
