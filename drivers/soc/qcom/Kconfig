@@ -453,6 +453,16 @@ config QSEE_IPC_IRQ
 	  Clients can use this driver to avoid adding common interrupt handling
 	  code.
 
+config QSEE_IPC_IRQ_BRIDGE
+	tristate "QSEE IPC Interrupt Bridge"
+	select QSEE_IPC_IRQ
+	help
+	  This module enables bridging an Inter-Processor Communication(IPC)
+	  interrupt from a remote subsystem directed towards Qualcomm
+	  Technologies, Inc. Secure Execution Environment(QSEE) to userspace.
+	  The interrupt will be propagated through a character device that
+	  userspace clients can poll on.
+
 config QCOM_GLINK
 	tristate "GLINK Probe Helper"
 	depends on RPMSG_QCOM_GLINK_SMEM
