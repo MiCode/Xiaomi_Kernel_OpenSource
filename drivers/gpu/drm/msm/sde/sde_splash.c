@@ -283,6 +283,44 @@ static void _sde_splash_destroy_splash_node(struct sde_splash_info *sinfo)
 	sinfo->splash_mem_size = NULL;
 }
 
+static void _sde_splash_sent_pipe_update_uevent(struct sde_kms *sde_kms)
+{
+	char *event_string;
+	char *envp[2];
+	struct drm_device *dev;
+	struct device *kdev;
+	int i =  0;
+
+	if (!sde_kms || !sde_kms->dev) {
+		DRM_ERROR("invalid input\n");
+		return;
+	}
+
+	dev = sde_kms->dev;
+	kdev = dev->primary->kdev;
+
+	event_string = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!event_string) {
+		SDE_ERROR("failed to allocate event string\n");
+		return;
+	}
+
+	for (i = 0; i < MAX_BLOCKS; i++) {
+		if (sde_kms->splash_info.reserved_pipe_info[i] != 0xFFFFFFFF)
+			snprintf(event_string, SZ_4K, "pipe%d avialable",
+				sde_kms->splash_info.reserved_pipe_info[i]);
+	}
+
+	DRM_INFO("generating pipe update event[%s]", event_string);
+
+	envp[0] = event_string;
+	envp[1] = NULL;
+
+	kobject_uevent_env(&kdev->kobj, KOBJ_CHANGE, envp);
+
+	kfree(event_string);
+}
+
 static void _sde_splash_get_connector_ref_cnt(struct sde_splash_info *sinfo,
 					u32 *hdmi_cnt, u32 *dsi_cnt)
 {
@@ -650,6 +688,8 @@ int sde_splash_clean_up_free_resource(struct msm_kms *kms,
 
 		sde_power_data_bus_bandwidth_ctrl(phandle,
 				sde_kms->core_client, false);
+
+		_sde_splash_sent_pipe_update_uevent(sde_kms);
 
 		mutex_unlock(&sde_splash_lock);
 		return 0;
