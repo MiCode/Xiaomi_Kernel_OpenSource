@@ -887,7 +887,8 @@ static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned int addr,
 		goto err;
 	}
 
-	if (!len) {
+	/* Check the len to avoid allocate huge memory */
+	if (!len || len > (drvdata->ram_size / 8)) {
 		dev_err(drvdata->dev, "DCC: Invalid length\n");
 		ret = -EINVAL;
 		goto err;
