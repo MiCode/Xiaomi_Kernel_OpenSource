@@ -618,3 +618,44 @@ bool scm_is_secure_device(void)
 		return false;
 }
 EXPORT_SYMBOL(scm_is_secure_device);
+
+/*
+ * SCM call command ID to protect kernel memory
+ * in Hyp Stage 2 page tables.
+ * Return zero for success.
+ * Return non-zero for failure.
+ */
+#define TZ_RTIC_ENABLE_MEM_PROTECTION	0x4
+#if IS_ENABLED(CONFIG_QCOM_QHEE_ENABLE_MEM_PROTECTION)
+int scm_enable_mem_protection(void)
+{
+	struct scm_desc desc = {0};
+	int ret = 0, resp;
+
+	desc.args[0] = 0;
+	desc.arginfo = 0;
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_RTIC,
+			TZ_RTIC_ENABLE_MEM_PROTECTION),
+			&desc);
+	resp = desc.ret[0];
+
+	if (ret == -1) {
+		pr_err("%s: SCM call not supported\n", __func__);
+		return ret;
+	} else if (ret || resp) {
+		pr_err("%s: SCM call failed\n", __func__);
+		if (ret)
+			return ret;
+		else
+			return resp;
+	}
+
+	return resp;
+}
+#else
+inline int scm_enable_mem_protection(void)
+{
+	return 0;
+}
+#endif
+EXPORT_SYMBOL(scm_enable_mem_protection);
