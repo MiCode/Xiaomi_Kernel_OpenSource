@@ -773,6 +773,24 @@
 				  <CONTROL_TCS 0>;
 	};
 
+	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 627>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl = < 1 >;
+	};
+
+	cdsp_keepalive: qcom,cdsp_keepalive {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <154 10070>;
+		qcom,active-only;
+		status = "ok";
+		qcom,bw-tbl = < 1 >;
+	};
+
 	clock_rpmh: qcom,rpmhclk {
 		compatible = "qcom,rpmh-clk-sdmshrike";
 		mboxes = <&apps_rsc 0>;
