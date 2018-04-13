@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdm632.dtsi"
+#include "sdm450-pmi632.dtsi"
+#include "sdm632-pm8004.dtsi"
+#include "sdm632-ext-codec-mtp-s4.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM632 + PMI632 + PMI8004 MTP S4";
+	compatible = "qcom,sdm632-mtp", "qcom,sdm632", "qcom,mtp";
+	qcom,board-id = <8 4>;
+	qcom,pmic-id = <0x010016 0x25 0xC 0x0>;
+};
+

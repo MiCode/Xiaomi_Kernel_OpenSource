@@ -300,6 +300,9 @@ dtbo-$(CONFIG_ARCH_SDM450) += msm8953-mtp-overlay.dtbo \
 dtbo-$(CONFIG_ARCH_SDM632) += sdm632-rumi-overlay.dtbo \
 	sdm450-cdp-s2-overlay.dtbo \
 	sdm450-mtp-s3-overlay.dtbo \
+	sdm632-ext-codec-cdp-s3-overlay.dtbo \
+	sdm632-ext-codec-mtp-s4-overlay.dtbo \
+	sdm632-rcm-overlay.dtbo \
 	sdm450-qrd-sku4-overlay.dtbo \
 	sdm632-qrd-overlay.dtbo
 
@@ -351,6 +354,12 @@ sdm450-qrd-sku4-overlay.dtbo-base := sdm450-pmi632.dtb \
 	sdm632.dtb \
 	sdm632-pm8004.dtb
 sdm632-rumi-overlay.dtbo-base := sdm632.dtb
+sdm632-ext-codec-cdp-s3-overlay.dtbo-base := sdm632.dtb \
+	sdm632-pm8004.dtb
+sdm632-ext-codec-mtp-s4-overlay.dtbo-base := sdm632.dtb \
+	sdm632-pm8004.dtb
+sdm632-rcm-overlay.dtbo-base := sdm632.dtb \
+	sdm632-pm8004.dtb
 sdm632-qrd-overlay.dtbo-base := sdm632.dtb \
 	sdm632-pm8004.dtb
 
@@ -419,12 +428,18 @@ dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-pmi632-mtp-s3.dtb
 
 dtb-$(CONFIG_ARCH_SDM632) += sdm632-rumi.dtb \
-	sdm632-cdp-s2.dtb	\
-	sdm632-mtp-s3.dtb	\
-	sdm632-qrd-sku4.dtb	\
-	sdm632-qrd.dtb		\
+	sdm632-cdp-s2.dtb \
+	sdm632-ext-codec-cdp-s3.dtb \
+	sdm632-mtp-s3.dtb \
+	sdm632-ext-codec-mtp-s4.dtb \
+	sdm632-rcm.dtb \
+	sdm632-qrd-sku4.dtb \
+	sdm632-qrd.dtb \
 	sdm632-pm8004-cdp-s2.dtb \
+	sdm632-pm8004-ext-codec-cdp-s3.dtb \
 	sdm632-pm8004-mtp-s3.dtb \
+	sdm632-pm8004-ext-codec-mtp-s4.dtb \
+	sdm632-pm8004-rcm.dtb \
 	sdm632-pm8004-qrd-sku4.dtb \
 	sdm632-pm8004-qrd.dtb
 
