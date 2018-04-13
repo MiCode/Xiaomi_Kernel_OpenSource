@@ -121,6 +121,7 @@ struct geni_i2c_dev {
 	struct msm_gpi_dma_async_tx_cb_param tx_cb;
 	struct msm_gpi_dma_async_tx_cb_param rx_cb;
 	enum i2c_se_mode se_mode;
+	bool autosuspend_disable;
 };
 
 struct geni_i2c_err_log {
@@ -641,6 +642,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 {
 	struct geni_i2c_dev *gi2c = i2c_get_adapdata(adap);
 	int i, ret = 0, timeout = 0;
+	int ref = 0;
 
 	gi2c->err = 0;
 	gi2c->cur = &msgs[0];
@@ -654,6 +656,12 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		pm_runtime_set_suspended(gi2c->dev);
 		return ret;
 	}
+	ref = atomic_read(&gi2c->dev->power.usage_count);
+	if (ref <= 0) {
+		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+			"resume usage count mismatch:%d\n", ref);
+	}
+
 	if (gi2c->se_mode == GSI_ONLY) {
 		ret = geni_i2c_gsi_xfer(adap, msgs, num);
 		goto geni_i2c_txn_ret;
@@ -759,8 +767,17 @@ geni_i2c_txn_ret:
 	if (ret == 0)
 		ret = num;
 
-	pm_runtime_mark_last_busy(gi2c->dev);
-	pm_runtime_put_autosuspend(gi2c->dev);
+	if (gi2c->autosuspend_disable) {
+		pm_runtime_put_sync(gi2c->dev);
+		ref = atomic_read(&gi2c->dev->power.usage_count);
+		if (ref < 0)
+			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"suspend usage count mismatch:%d\n", ref);
+	} else {
+		pm_runtime_mark_last_busy(gi2c->dev);
+		pm_runtime_put_autosuspend(gi2c->dev);
+	}
+
 	gi2c->cur = NULL;
 	gi2c->err = 0;
 	dev_dbg(gi2c->dev, "i2c txn ret:%d\n", ret);
@@ -874,6 +891,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		gi2c->i2c_rsc.clk_freq_out = KHz(400);
 	}
 
+	gi2c->autosuspend_disable = of_property_read_bool(pdev->dev.of_node,
+									"qcom,disable-autosuspend");
+
 	gi2c->irq = platform_get_irq(pdev, 0);
 	if (gi2c->irq < 0) {
 		dev_err(gi2c->dev, "IRQ error for i2c-geni\n");
@@ -905,8 +925,11 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	strlcpy(gi2c->adap.name, "Geni-I2C", sizeof(gi2c->adap.name));
 
 	pm_runtime_set_suspended(gi2c->dev);
-	pm_runtime_set_autosuspend_delay(gi2c->dev, I2C_AUTO_SUSPEND_DELAY);
-	pm_runtime_use_autosuspend(gi2c->dev);
+	if (!gi2c->autosuspend_disable) {
+		pm_runtime_set_autosuspend_delay(gi2c->dev,
+							I2C_AUTO_SUSPEND_DELAY);
+		pm_runtime_use_autosuspend(gi2c->dev);
+	}
 	pm_runtime_enable(gi2c->dev);
 	i2c_add_adapter(&gi2c->adap);
 
@@ -994,6 +1017,9 @@ static int geni_i2c_runtime_resume(struct device *dev)
 				    "i2c fifo/se-dma mode. fifo depth:%d\n",
 				    gi2c_tx_depth);
 		}
+		if (gi2c->autosuspend_disable)
+			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+					    "i2c in autosuspend disable mode\n");
 	}
 	if (gi2c->se_mode == FIFO_SE_DMA)
 		enable_irq(gi2c->irq);
