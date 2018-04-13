@@ -16,8 +16,11 @@
 
 #define T_TA_GO_TIM_COUNT                    0x014
 #define T_TA_SURE_TIM_COUNT                  0x018
+#define HSTX_DRIV_INDATA_CTRL_CLKLANE        0x0c0
 #define HSTX_DATAREV_CTRL_CLKLANE            0x0d4
+#define HSTX_DRIV_INDATA_CTRL_LANE0          0x100
 #define HSTX_READY_DLY_DATA_REV_CTRL_LANE0   0x114
+#define HSTX_DRIV_INDATA_CTRL_LANE1          0x140
 #define HSTX_READY_DLY_DATA_REV_CTRL_LANE1   0x154
 #define HSTX_CLKLANE_REQSTATE_TIM_CTRL       0x180
 #define HSTX_CLKLANE_HS0STATE_TIM_CTRL       0x188
@@ -27,8 +30,10 @@
 #define HSTX_DATALANE_HS0STATE_TIM_CTRL      0x1c8
 #define HSTX_DATALANE_TRAILSTATE_TIM_CTRL    0x1cc
 #define HSTX_DATALANE_EXITSTATE_TIM_CTRL     0x1d0
+#define HSTX_DRIV_INDATA_CTRL_LANE2          0x200
 #define HSTX_READY_DLY_DATA_REV_CTRL_LANE2   0x214
 #define HSTX_READY_DLY_DATA_REV_CTRL_LANE3   0x254
+#define HSTX_DRIV_INDATA_CTRL_LANE3          0x240
 #define CTRL0                                0x3e8
 #define SYS_CTRL                             0x3f0
 #define REQ_DLY                              0x3fc
@@ -102,3 +107,18 @@ int mdss_dsi_12nm_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 	return 0;
 }
 
+void mdss_dsi_12nm_phy_hstx_drv_ctrl(
+	struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
+{
+	u32 data = 0;
+
+	if (enable)
+		data = BIT(2) | BIT(3);
+
+	DSI_PHY_W32(ctrl->phy_io.base, HSTX_DRIV_INDATA_CTRL_CLKLANE, data);
+	DSI_PHY_W32(ctrl->phy_io.base, HSTX_DRIV_INDATA_CTRL_LANE0, data);
+	DSI_PHY_W32(ctrl->phy_io.base, HSTX_DRIV_INDATA_CTRL_LANE1, data);
+	DSI_PHY_W32(ctrl->phy_io.base, HSTX_DRIV_INDATA_CTRL_LANE2, data);
+	DSI_PHY_W32(ctrl->phy_io.base, HSTX_DRIV_INDATA_CTRL_LANE3, data);
+	wmb(); /* make sure DSI PHY registers are programmed */
+}
