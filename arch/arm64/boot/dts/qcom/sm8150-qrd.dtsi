@@ -228,6 +228,8 @@
 	vdda-pll-supply = <&pm855l_l3>;
 	vdda-phy-max-microamp = <90200>;
 	vdda-pll-max-microamp = <19000>;
+
+	status = "ok";
 };
 
 &ufshc_mem {
@@ -241,6 +243,8 @@
 
 	qcom,vddp-ref-clk-supply = <&pm855_l9>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
 };
 
 &sdhc_2 {
