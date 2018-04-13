@@ -1318,7 +1318,7 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	return -ETIMEDOUT;
 }
 
-static int gmu_suspend(struct kgsl_device *device)
+int gmu_suspend(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -1404,6 +1404,7 @@ int gmu_start(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
+	unsigned int boot_state = GMU_WARM_BOOT;
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
@@ -1440,12 +1441,21 @@ int gmu_start(struct kgsl_device *device)
 		gmu_enable_clks(gmu);
 		gmu_irq_enable(device);
 
+		/*
+		 * If unrecovered is set that means last
+		 * wakeup from SLUMBER state failed. Use GMU
+		 * and HFI boot state as COLD as this is a
+		 * boot after RESET.
+		 */
+		if (gmu->unrecovered)
+			boot_state = GMU_COLD_BOOT;
+
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
-				GMU_WARM_BOOT, 0);
+				boot_state, 0);
 		if (ret)
 			goto error_gmu;
 
-		ret = hfi_start(gmu, GMU_WARM_BOOT);
+		ret = hfi_start(gmu, boot_state);
 		if (ret)
 			goto error_gmu;
 
@@ -1491,6 +1501,8 @@ int gmu_start(struct kgsl_device *device)
 		break;
 	}
 
+	/* Clear unrecovered as GMU start is successful */
+	gmu->unrecovered = false;
 	return ret;
 
 error_gmu:
