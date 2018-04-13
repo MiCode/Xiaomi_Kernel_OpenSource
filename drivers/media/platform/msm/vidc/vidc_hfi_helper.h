@@ -356,6 +356,12 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x010)
 #define HFI_PROPERTY_CONFIG_VENC_FRAME_QP			\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x012)
+#define HFI_PROPERTY_CONFIG_HEIC_FRAME_CROP_INFO		\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x013)
+#define HFI_PROPERTY_CONFIG_HEIC_FRAME_QUALITY			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x014)
+#define HFI_PROPERTY_CONFIG_HEIC_GRID_ENABLE			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x015)
 
 #define HFI_PROPERTY_PARAM_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x7000)
@@ -378,6 +384,14 @@ struct hfi_bitrate {
 
 struct hfi_colour_space {
 	u32 colour_space;
+};
+
+struct hfi_frame_crop {
+	u32 left;
+	u32 top;
+	u32 width;
+	u32 height;
+	u32 reserved[3];
 };
 
 #define HFI_CAPABILITY_FRAME_WIDTH			(HFI_COMMON_BASE + 0x1)
@@ -414,6 +428,8 @@ struct hfi_colour_space {
 #define HFI_CAPABILITY_MAX_VIDEOCORES			(HFI_COMMON_BASE + 0X2B)
 #define HFI_CAPABILITY_MAX_WORKMODES			(HFI_COMMON_BASE + 0X2C)
 #define HFI_CAPABILITY_UBWC_CR_STATS			(HFI_COMMON_BASE + 0X2D)
+#define HFI_CAPABILITY_CQ_QUALITY_LEVEL			(HFI_COMMON_BASE + 0X32)
+#define HFI_CAPABILITY_IMG_GRID_DIMENSION		(HFI_COMMON_BASE + 0X33)
 
 struct hfi_capability_supported {
 	u32 capability_type;
@@ -472,6 +488,14 @@ struct hfi_h264_entropy_control {
 struct hfi_frame_rate {
 	u32 buffer_type;
 	u32 frame_rate;
+};
+
+struct hfi_heic_frame_quality {
+	u32 frame_quality;
+};
+
+struct hfi_heic_grid_enable {
+	u32 grid_enable;
 };
 
 #define HFI_INTRA_REFRESH_NONE				(HFI_COMMON_BASE + 0x1)

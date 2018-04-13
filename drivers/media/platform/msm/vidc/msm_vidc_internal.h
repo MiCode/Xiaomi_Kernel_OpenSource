@@ -51,6 +51,7 @@
 #define MAX_NUM_CAPTURE_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 
 #define MAX_SUPPORTED_INSTANCES 16
+#define MAX_HEIC_TILES_COUNT 256
 
 /* Maintains the number of FTB's between each FBD over a window */
 #define DCVS_FTB_WINDOW 16
@@ -264,6 +265,11 @@ struct session_crop {
 	u32 height;
 };
 
+struct tile_info {
+	u32 count;
+	struct session_crop tile_rects[MAX_HEIC_TILES_COUNT];
+};
+
 struct session_prop {
 	u32 width[MAX_PORT_NUM];
 	u32 height[MAX_PORT_NUM];
@@ -419,6 +425,8 @@ struct msm_vidc_inst {
 	u32 profile;
 	u32 level;
 	u32 entropy_mode;
+	u32 img_grid_dimension;
+	struct tile_info tinfo;
 	struct msm_vidc_codec_data *codec_data;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
 };
