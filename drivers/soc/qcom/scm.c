@@ -80,6 +80,7 @@ DEFINE_MUTEX(scm_lmh_lock);
 #define R3_STR "r3"
 #define R4_STR "r4"
 #define R5_STR "r5"
+#define R6_STR "r6"
 
 #endif
 
