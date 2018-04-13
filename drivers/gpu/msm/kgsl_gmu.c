@@ -68,8 +68,6 @@ struct gmu_iommu_context {
 	struct iommu_domain *domain;
 };
 
-#define HFIMEM_SIZE (HFI_QUEUE_SIZE * (HFI_QUEUE_MAX + 1))
-
 #define DUMPMEM_SIZE SZ_16K
 
 #define DUMMY_SIZE   SZ_4K
