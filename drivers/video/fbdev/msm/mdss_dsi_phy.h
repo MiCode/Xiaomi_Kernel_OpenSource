@@ -161,4 +161,18 @@ int mdss_dsi_12nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl);
  */
 int mdss_dsi_12nm_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl);
 
+/*
+ * mdss_dsi_12nm_phy_hstx_drv_ctrl() - enable/disable HSTX drivers
+ *
+ * @ctrl: pointer to DSI controller structure
+ * @enable: boolean to specify enable/disable the HSTX drivers
+ *
+ * Perform a sequence of register writes to enable/disable HSTX drivers.
+ * This function assumes that the DSI bus clocks are turned on.
+ */
+
+void mdss_dsi_12nm_phy_hstx_drv_ctrl(
+	struct mdss_dsi_ctrl_pdata *ctrl, bool enable);
+
+
 #endif /* MDSS_DSI_PHY_H */
