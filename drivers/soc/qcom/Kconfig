@@ -534,6 +534,15 @@ config MSM_NOPM
 	  This enables bare minimum support of power management at platform level.
 	  i.e WFI
 
+config MSM_QBT1000
+	bool "QBT1000 Ultrasonic Fingerprint Sensor"
+	help
+	  This driver provides services for configuring the fingerprint
+	  sensor hardware and for communicating with the trusted app which
+	  uses it. It enables clocks and provides commands for loading
+	  trusted apps, unloading them and marshalling buffers to the
+	  trusted fingerprint app.
+
 config APSS_CORE_EA
 	depends on CPU_FREQ && PM_OPP
 	bool "Qualcomm Technology Inc specific power aware driver"
