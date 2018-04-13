@@ -16,7 +16,7 @@
 #include "cam_irq_controller.h"
 #include "cam_vfe_bus.h"
 
-#define CAM_VFE_BUS_VER2_MAX_CLIENTS 20
+#define CAM_VFE_BUS_VER2_MAX_CLIENTS 24
 
 enum cam_vfe_bus_ver2_vfe_core_id {
 	CAM_VFE_BUS_VER2_VFE_CORE_0,
@@ -60,6 +60,9 @@ enum cam_vfe_bus_ver2_vfe_out_type {
 	CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS,
 	CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS,
 	CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST,
+	CAM_VFE_BUS_VER2_VFE_OUT_FULL_DISP,
+	CAM_VFE_BUS_VER2_VFE_OUT_DS4_DISP,
+	CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP,
 	CAM_VFE_BUS_VER2_VFE_OUT_MAX,
 };
 
