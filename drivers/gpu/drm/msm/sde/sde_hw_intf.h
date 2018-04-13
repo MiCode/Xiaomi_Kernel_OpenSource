@@ -113,6 +113,12 @@ struct sde_hw_intf_ops {
 			bool enable);
 
 	/**
+	 * updates tearcheck configuration
+	 */
+	void (*update_tearcheck)(struct sde_hw_intf *intf,
+			struct sde_hw_tear_check *cfg);
+
+	/**
 	 * read, modify, write to either set or clear listening to external TE
 	 * @Return: 1 if TE was originally connected, 0 if not, or -ERROR
 	 */

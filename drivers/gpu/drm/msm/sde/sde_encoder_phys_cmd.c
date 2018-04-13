@@ -1300,12 +1300,15 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 	}
 
 	if (sde_connector_qsync_updated(phys_enc->connector)) {
-
 		tc_cfg.sync_threshold_start =
 			_get_tearcheck_threshold(phys_enc);
-		if (phys_enc->hw_pp->ops.update_tearcheck)
-			phys_enc->hw_pp->ops.update_tearcheck(phys_enc->hw_pp,
-					&tc_cfg);
+		if (phys_enc->has_intf_te &&
+				phys_enc->hw_intf->ops.update_tearcheck)
+			phys_enc->hw_intf->ops.update_tearcheck(
+					phys_enc->hw_intf, &tc_cfg);
+		else if (phys_enc->hw_pp->ops.update_tearcheck)
+			phys_enc->hw_pp->ops.update_tearcheck(
+					phys_enc->hw_pp, &tc_cfg);
 	}
 
 	SDE_DEBUG_CMDENC(cmd_enc, "pp:%d pending_cnt %d\n",
