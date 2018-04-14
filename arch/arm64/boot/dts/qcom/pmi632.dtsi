@@ -225,6 +225,33 @@
 			};
 		};
 
+		pmi632_adc_tm: vadc@3500 {
+			compatible = "qcom,qpnp-adc-tm-hc";
+			reg = <0x3500 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x2 0x35 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-vdd-reference = <1875>;
+			qcom,adc-full-scale-code = <0x70e4>;
+			qcom,adc_tm-vadc = <&pmi632_vadc>;
+			qcom,decimation = <0>;
+			qcom,fast-avg-setup = <0>;
+			#thermal-sensor-cells = <1>;
+
+			chan@53 {
+				label = "quiet_therm";
+				reg = <0x53>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <0>;
+				qcom,btm-channel-number = <0x60>;
+				qcom,thermal-node;
+			};
+
+		};
+
 		pmi632_tz: qcom,temp-alarm@2400 {
 			compatible = "qcom,qpnp-temp-alarm";
 			reg = <0x2400 0x100>;
