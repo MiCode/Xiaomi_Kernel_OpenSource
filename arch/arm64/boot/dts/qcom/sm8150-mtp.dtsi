@@ -503,3 +503,8 @@
 &wil6210 {
 	status = "ok";
 };
+
+&mhi_0 {
+	mhi,fw-name = "debug.mbn";
+	status = "okay";
+};
