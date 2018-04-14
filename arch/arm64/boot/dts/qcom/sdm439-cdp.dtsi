@@ -138,7 +138,7 @@
 
 	qcom,platform-bklight-en-gpio = <&pm8953_gpios 4 0>;
 	qcom,platform-te-gpio = <&tlmm 24 0>;
-	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
 	lab-supply = <&lcdb_ldo_vreg>;
 	ibb-supply = <&lcdb_ncp_vreg>;
 
