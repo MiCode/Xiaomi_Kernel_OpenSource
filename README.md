@@ -9,7 +9,7 @@
 | ferrari-l-oss  | Mi 4i | Android L | LA.BR.1.1.2-01120-8x16.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ferrari-l-oss |
 | gemini-m-oss  | Mi 5 | Android M | LA.HB.1.1.1.c2_rb1035 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gemini-m-oss |
 | gucci-kk-oss  | Redmi Note Dual SIM | Android KK | LNX.LA.3.7.2.1.c6-01400-8x16.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gucci-kk-oss |
-| hydrogen-m-oss  | Mi MAX | Android M | LA.BR.1.3.4-05310-8976.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/hydrogen-m-oss |
+| hydrogen-m-oss  | Mi MAX, Mi Max Pro | Android M | LA.BR.1.3.4-05310-8976.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/hydrogen-m-oss |
 | ido-l-oss  | Redmi 2, Redmi 3 | Android L | LA.BR.1.2.4-04410-8x16.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ido-l-oss |
 | jason-n-oss  | Mi Note 3 | Android N | LA.UM.6.1.r1-08100-sdm660.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jason-n-oss |
 | kenzo-l-oss  | Redmi Note 3 Full Netcom | Android L | LA.BR.1.3.2-04330-8976.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/kenzo-l-oss |
