@@ -2,8 +2,8 @@
 | :- | :- | :- | :- |:- |
 | armani-jb-oss  | Redmi 1S | Android JB | LNX.LA.3.2-09720-8x26.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/armani-jb-oss |
 | armani-kk-oss | Redmi 1S, Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/armani-kk-oss |
-| cancro-kk-oss  | Mi 3, Mi 4, Mi Note | Android M | LA.BF.1.1.3-01310-8x74.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cancro-m-oss |
-| cancro-m-oss  | Mi 3, Mi 4, Mi Note | Android KK | LNX.LA.3.5.2.2.1-04310-8x74.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cancro-kk-oss |
+| cancro-m-oss  | Mi 3, Mi 4, Mi Note | Android M | LA.BF.1.1.3-01310-8x74.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cancro-m-oss |
+| cancro-kk-oss  | Mi 3, Mi 4, Mi Note | Android KK | LNX.LA.3.5.2.2.1-04310-8x74.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cancro-kk-oss |
 | cappu-n-oss | Mi Pad 3 | Android N | MTK | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cappu-n-oss |
 | dior-kk-oss  | Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dior-kk-oss |
 | ferrari-l-oss  | Mi 4i | Android L | LA.BR.1.1.2-01120-8x16.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ferrari-l-oss |
