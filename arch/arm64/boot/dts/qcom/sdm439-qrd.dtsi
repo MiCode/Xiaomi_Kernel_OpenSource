@@ -12,6 +12,7 @@
  */
 
 #include "msm8937-mdss-panels.dtsi"
+#include "sdm439-camera-sensor-qrd.dtsi"
 
 &blsp1_uart2 {
 	status = "ok";
