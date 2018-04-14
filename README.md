@@ -29,7 +29,7 @@
 | santoni-n-oss  | Redmi 4X | Android N | LA.UM.5.6.r1-04600-89xx.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/santoni-n-oss |
 | scorpio-m-oss  | Mi 5, Mi 5s, Mi 5s Plus, Mi Mix, Mi Note 2 | Android M | LA.HB.1.3.1_101rb1275 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/scorpio-m-oss |
 | thomas-kk-oss  | Redmi 2 Standard | Android KK | LNX.LA.3.7.2.1.c6-02400-8x16.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/thomas-kk-oss |
+| tiffany-n-oss | Xiaomi5X, Redmi 5Plus | Android N | LA.UM.5.3-06310-89xx.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tiffany-n-oss |
 | tissot-o-oss  | Mi A1 | Android O | LA.UM.6.6.r1-04000-89xx.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tissot-o-oss |
 | tissot-n-oss | Mi A1 | Android N | LA.UM.5.3-06310-89xx.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tissot-n-oss |
 | whyred-n-oss | Redmi Note 5 | Android N | LA.UM.6.1.r1-11000-sdm660.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/whyred-n-oss |
-| tiffany-n-oss | Xiaomi5X, Redmi 5Plus | Android N | LA.UM.5.3-06310-89xx.0 | https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tiffany-n-oss |
