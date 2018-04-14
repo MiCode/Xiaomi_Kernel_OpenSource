@@ -137,7 +137,7 @@ static int uhdlc_init(struct ucc_hdlc_private *priv)
 	priv->tx_ring_size = TX_BD_RING_LEN;
 	/* Alloc Rx BD */
 	priv->rx_bd_base = dma_alloc_coherent(priv->dev,
-			RX_BD_RING_LEN * sizeof(struct qe_bd *),
+			RX_BD_RING_LEN * sizeof(struct qe_bd),
 			&priv->dma_rx_bd, GFP_KERNEL);
 
 	if (!priv->rx_bd_base) {
@@ -148,7 +148,7 @@ static int uhdlc_init(struct ucc_hdlc_private *priv)
 
 	/* Alloc Tx BD */
 	priv->tx_bd_base = dma_alloc_coherent(priv->dev,
-			TX_BD_RING_LEN * sizeof(struct qe_bd *),
+			TX_BD_RING_LEN * sizeof(struct qe_bd),
 			&priv->dma_tx_bd, GFP_KERNEL);
 
 	if (!priv->tx_bd_base) {
@@ -158,7 +158,7 @@ static int uhdlc_init(struct ucc_hdlc_private *priv)
 	}
 
 	/* Alloc parameter ram for ucc hdlc */
-	priv->ucc_pram_offset = qe_muram_alloc(sizeof(priv->ucc_pram),
+	priv->ucc_pram_offset = qe_muram_alloc(sizeof(struct ucc_hdlc_param),
 				ALIGNMENT_OF_UCC_HDLC_PRAM);
 
 	if (priv->ucc_pram_offset < 0) {
@@ -295,11 +295,11 @@ free_ucc_pram:
 	qe_muram_free(priv->ucc_pram_offset);
 free_tx_bd:
 	dma_free_coherent(priv->dev,
-			  TX_BD_RING_LEN * sizeof(struct qe_bd *),
+			  TX_BD_RING_LEN * sizeof(struct qe_bd),
 			  priv->tx_bd_base, priv->dma_tx_bd);
 free_rx_bd:
 	dma_free_coherent(priv->dev,
-			  RX_BD_RING_LEN * sizeof(struct qe_bd *),
+			  RX_BD_RING_LEN * sizeof(struct qe_bd),
 			  priv->rx_bd_base, priv->dma_rx_bd);
 free_uccf:
 	ucc_fast_free(priv->uccf);
@@ -454,7 +454,7 @@ static int hdlc_tx_done(struct ucc_hdlc_private *priv)
 static int hdlc_rx_done(struct ucc_hdlc_private *priv, int rx_work_limit)
 {
 	struct net_device *dev = priv->ndev;
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
 	hdlc_device *hdlc = dev_to_hdlc(dev);
 	struct qe_bd *bd;
 	u32 bd_status;
@@ -688,7 +688,7 @@ static void uhdlc_memclean(struct ucc_hdlc_private *priv)
 
 	if (priv->rx_bd_base) {
 		dma_free_coherent(priv->dev,
-				  RX_BD_RING_LEN * sizeof(struct qe_bd *),
+				  RX_BD_RING_LEN * sizeof(struct qe_bd),
 				  priv->rx_bd_base, priv->dma_rx_bd);
 
 		priv->rx_bd_base = NULL;
@@ -697,7 +697,7 @@ static void uhdlc_memclean(struct ucc_hdlc_private *priv)
 
 	if (priv->tx_bd_base) {
 		dma_free_coherent(priv->dev,
-				  TX_BD_RING_LEN * sizeof(struct qe_bd *),
+				  TX_BD_RING_LEN * sizeof(struct qe_bd),
 				  priv->tx_bd_base, priv->dma_tx_bd);
 
 		priv->tx_bd_base = NULL;
@@ -1002,7 +1002,7 @@ static int ucc_hdlc_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct ucc_hdlc_private *uhdlc_priv = NULL;
 	struct ucc_tdm_info *ut_info;
-	struct ucc_tdm *utdm;
+	struct ucc_tdm *utdm = NULL;
 	struct resource res;
 	struct net_device *dev;
 	hdlc_device *hdlc;

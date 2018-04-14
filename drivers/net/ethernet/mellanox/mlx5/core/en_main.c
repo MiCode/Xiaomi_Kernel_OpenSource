@@ -2741,6 +2741,9 @@ static int set_feature_lro(struct net_device *netdev, bool enable)
 
 	mutex_unlock(&priv->state_lock);
 
+	if (mlx5e_vxlan_allowed(priv->mdev))
+		udp_tunnel_get_rx_info(netdev);
+
 	return err;
 }
 
@@ -3784,13 +3787,6 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
 
 	if (netdev->reg_state != NETREG_REGISTERED)
 		return;
-
-	/* Device already registered: sync netdev system state */
-	if (mlx5e_vxlan_allowed(mdev)) {
-		rtnl_lock();
-		udp_tunnel_get_rx_info(netdev);
-		rtnl_unlock();
-	}
 
 	queue_work(priv->wq, &priv->set_rx_mode_work);
 }

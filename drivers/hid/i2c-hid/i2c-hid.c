@@ -968,6 +968,15 @@ static int i2c_hid_acpi_pdata(struct i2c_client *client,
 	return ret < 0 && ret != -ENXIO ? ret : 0;
 }
 
+static void i2c_hid_acpi_fix_up_power(struct device *dev)
+{
+	acpi_handle handle = ACPI_HANDLE(dev);
+	struct acpi_device *adev;
+
+	if (handle && acpi_bus_get_device(handle, &adev) == 0)
+		acpi_device_fix_up_power(adev);
+}
+
 static const struct acpi_device_id i2c_hid_acpi_match[] = {
 	{"ACPI0C50", 0 },
 	{"PNP0C50", 0 },
@@ -980,6 +989,8 @@ static inline int i2c_hid_acpi_pdata(struct i2c_client *client,
 {
 	return -ENODEV;
 }
+
+static inline void i2c_hid_acpi_fix_up_power(struct device *dev) {}
 #endif
 
 #ifdef CONFIG_OF
@@ -1081,6 +1092,8 @@ static int i2c_hid_probe(struct i2c_client *client,
 	ret = i2c_hid_alloc_buffers(ihid, HID_MIN_BUFFER_SIZE);
 	if (ret < 0)
 		goto err;
+
+	i2c_hid_acpi_fix_up_power(&client->dev);
 
 	pm_runtime_get_noresume(&client->dev);
 	pm_runtime_set_active(&client->dev);

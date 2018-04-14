@@ -268,22 +268,11 @@ out:
 	return ret;
 }
 
-static int kszphy_config_init(struct phy_device *phydev)
+/* Some config bits need to be set again on resume, handle them here. */
+static int kszphy_config_reset(struct phy_device *phydev)
 {
 	struct kszphy_priv *priv = phydev->priv;
-	const struct kszphy_type *type;
 	int ret;
-
-	if (!priv)
-		return 0;
-
-	type = priv->type;
-
-	if (type->has_broadcast_disable)
-		kszphy_broadcast_disable(phydev);
-
-	if (type->has_nand_tree_disable)
-		kszphy_nand_tree_disable(phydev);
 
 	if (priv->rmii_ref_clk_sel) {
 		ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
@@ -295,7 +284,7 @@ static int kszphy_config_init(struct phy_device *phydev)
 	}
 
 	if (priv->led_mode >= 0)
-		kszphy_setup_led(phydev, type->led_mode_reg, priv->led_mode);
+		kszphy_setup_led(phydev, priv->type->led_mode_reg, priv->led_mode);
 
 	if (phy_interrupt_is_valid(phydev)) {
 		int ctl = phy_read(phydev, MII_BMCR);
@@ -309,6 +298,25 @@ static int kszphy_config_init(struct phy_device *phydev)
 	}
 
 	return 0;
+}
+
+static int kszphy_config_init(struct phy_device *phydev)
+{
+	struct kszphy_priv *priv = phydev->priv;
+	const struct kszphy_type *type;
+
+	if (!priv)
+		return 0;
+
+	type = priv->type;
+
+	if (type->has_broadcast_disable)
+		kszphy_broadcast_disable(phydev);
+
+	if (type->has_nand_tree_disable)
+		kszphy_nand_tree_disable(phydev);
+
+	return kszphy_config_reset(phydev);
 }
 
 static int ksz8041_config_init(struct phy_device *phydev)
@@ -715,7 +723,13 @@ static int kszphy_suspend(struct phy_device *phydev)
 
 static int kszphy_resume(struct phy_device *phydev)
 {
+	int ret;
+
 	genphy_resume(phydev);
+
+	ret = kszphy_config_reset(phydev);
+	if (ret)
+		return ret;
 
 	/* Enable PHY Interrupts */
 	if (phy_interrupt_is_valid(phydev)) {
