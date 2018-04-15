@@ -19,6 +19,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM439 CDP";
 	compatible = "qcom,sdm439-cdp", "qcom,sdm439", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	qcom,board-id = <1 2>;
 	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
 };

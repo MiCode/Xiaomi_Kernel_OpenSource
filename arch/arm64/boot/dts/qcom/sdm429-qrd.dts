@@ -19,6 +19,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM429 QRD";
 	compatible = "qcom,sdm429-qrd", "qcom,sdm429", "qcom,qrd";
-	qcom,board-id = <0xb 0>;
+	qcom,board-id = <0xb 3>;
 	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
 };
