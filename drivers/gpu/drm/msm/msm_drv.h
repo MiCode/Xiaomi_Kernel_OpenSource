@@ -156,6 +156,8 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_IDLE_TIMEOUT,
 	CRTC_PROP_DEST_SCALER,
 
+	CRTC_PROP_ENABLE_SUI_ENHANCEMENT,
+
 	/* total # of properties */
 	CRTC_PROP_COUNT
 };
