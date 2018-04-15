@@ -394,6 +394,7 @@ struct sde_crtc_state {
 enum sde_crtc_irq_state {
 	IRQ_NOINIT,
 	IRQ_ENABLED,
+	IRQ_DISABLING,
 	IRQ_DISABLED,
 };
 
