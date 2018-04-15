@@ -168,3 +168,7 @@
 		vdd-cci-supply = <&apc_vreg_corner>;
 	};
 };
+
+&mdss_dsi {
+	vdda-supply = <&pm8953_l2>;
+};
