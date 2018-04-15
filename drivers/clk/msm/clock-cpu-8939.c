@@ -230,19 +230,31 @@ static struct cpu_clk_8939 *cpuclk[] = { &a53_bc_clk, &a53_lc_clk, &cci_clk};
 
 static struct clk *logical_cpu_to_clk(int cpu)
 {
-	struct device_node *cpu_node = of_get_cpu_node(cpu, NULL);
-	u32 reg;
+	struct device_node *cpu_node;
+	const u32 *cell;
+	u64 hwid;
 
-	/* CPU 0/1/2/3 --> a53_bc_clk and mask = 0x103
-	 * CPU 4/5/6/7 --> a53_lc_clk and mask = 0x3
-	 */
-	if (cpu_node && !of_property_read_u32(cpu_node, "reg", &reg)) {
-		if ((reg | a53_bc_clk.cpu_reg_mask) == a53_bc_clk.cpu_reg_mask)
-			return &a53_lc_clk.c;
-		if ((reg | a53_lc_clk.cpu_reg_mask) == a53_lc_clk.cpu_reg_mask)
-			return &a53_bc_clk.c;
+	cpu_node = of_get_cpu_node(cpu, NULL);
+	if (!cpu_node)
+		goto fail;
+
+	cell = of_get_property(cpu_node, "reg", NULL);
+	if (!cell) {
+		pr_err("%s: missing reg property\n", cpu_node->full_name);
+		goto fail;
 	}
 
+	/*
+	 * CPU 0/1/2/3 --> a53_bc_clk and mask = 0x103
+	 * CPU 4/5/6/7 --> a53_lc_clk and mask = 0x3
+	 */
+	hwid = of_read_number(cell, of_n_addr_cells(cpu_node));
+	if ((hwid | a53_bc_clk.cpu_reg_mask) == a53_bc_clk.cpu_reg_mask)
+		return &a53_lc_clk.c;
+	if ((hwid | a53_lc_clk.cpu_reg_mask) == a53_lc_clk.cpu_reg_mask)
+		return &a53_bc_clk.c;
+
+fail:
 	return NULL;
 }
 

@@ -528,18 +528,28 @@ static struct a53_cpu_clk *cpuclk[] = { &perf_clk, &pwr_clk,
 
 static struct clk *logical_cpu_to_clk(int cpu)
 {
-	struct device_node *cpu_node = of_get_cpu_node(cpu, NULL);
-	u32 reg;
+	struct device_node *cpu_node;
+	const u32 *cell;
+	u64 hwid;
 
-	if (cpu_node && !of_property_read_u32(cpu_node, "reg", &reg)) {
-		if ((reg | pwr_clk.cpu_reg_mask) ==
-						pwr_clk.cpu_reg_mask)
-			return &pwr_clk.c;
-		if ((reg | perf_clk.cpu_reg_mask) ==
-						perf_clk.cpu_reg_mask)
-			return &perf_clk.c;
+	cpu_node = of_get_cpu_node(cpu, NULL);
+	if (!cpu_node)
+		goto fail;
+
+	cell = of_get_property(cpu_node, "reg", NULL);
+	if (!cell) {
+		pr_err("%s: missing reg property\n", cpu_node->full_name);
+		goto fail;
 	}
 
+	hwid = of_read_number(cell, of_n_addr_cells(cpu_node));
+	if ((hwid | pwr_clk.cpu_reg_mask) == pwr_clk.cpu_reg_mask)
+		return &pwr_clk.c;
+
+	if ((hwid | perf_clk.cpu_reg_mask) == perf_clk.cpu_reg_mask)
+		return &perf_clk.c;
+
+fail:
 	return NULL;
 }
 
