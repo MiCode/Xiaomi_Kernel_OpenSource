@@ -4,7 +4,7 @@
  * Copyright (C) 2003 Al Borchers (alborchers@steinerpoint.com)
  * Copyright (C) 2008 David Brownell
  * Copyright (C) 2008 by Nokia Corporation
- * Copyright (c) 2013-2015, 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2017-2018 The Linux Foundation. All rights reserved.
  *
  * This code also borrows from usbserial.c, which is
  * Copyright (C) 1999 - 2002 Greg Kroah-Hartman (greg@kroah.com)
@@ -517,11 +517,10 @@ __acquires(&port->port_lock)
 		/*
 		 * If port_usb is NULL, gserial disconnect is called
 		 * while the spinlock is dropped and all requests are
-		 * freed. Free the current request here.
+		 * freed.
 		 */
 		if (!port->port_usb) {
 			started = 0;
-			gs_free_req(out, req);
 			break;
 		}
 		if (status) {
