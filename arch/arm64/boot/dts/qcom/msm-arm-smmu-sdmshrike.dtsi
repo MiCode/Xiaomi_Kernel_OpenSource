@@ -322,8 +322,6 @@
 				<0x15182220 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1000 0x400>;
-			qcom,regulator-names = "vdd";
-			vdd-supply = <&hlos1_vote_turing_mmu_tbu1_gdsc>;
 			qcom,msm-bus,name = "apps_smmu";
 			qcom,msm-bus,num-cases = <2>;
 			qcom,msm-bus,active-only;
@@ -343,8 +341,6 @@
 				<0x15182228 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1400 0x400>;
-			qcom,regulator-names = "vdd";
-			vdd-supply = <&hlos1_vote_turing_mmu_tbu0_gdsc>;
 			qcom,msm-bus,name = "apps_smmu";
 			qcom,msm-bus,num-cases = <2>;
 			qcom,msm-bus,active-only;
