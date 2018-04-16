@@ -555,6 +555,8 @@ static void gmu_memory_close(struct gmu_device *gmu)
  */
 static int gmu_memory_probe(struct gmu_device *gmu, struct device_node *node)
 {
+	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
 	ret = gmu_iommu_init(gmu, node);
@@ -582,11 +584,13 @@ static int gmu_memory_probe(struct gmu_device *gmu, struct device_node *node)
 	}
 
 	/* Allocates & maps GMU crash dump memory */
-	gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
-			DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
-	if (IS_ERR(gmu->dump_mem)) {
-		ret = PTR_ERR(gmu->dump_mem);
-		goto err_ret;
+	if (adreno_is_a630(adreno_dev)) {
+		gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
+				DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
+		if (IS_ERR(gmu->dump_mem)) {
+			ret = PTR_ERR(gmu->dump_mem);
+			goto err_ret;
+		}
 	}
 
 	/* GMU master log */
