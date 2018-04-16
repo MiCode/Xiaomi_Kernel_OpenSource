@@ -231,9 +231,11 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
 	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
 
 	sg_init_table(sg, nfrags);
-	skb_to_sgvec(skb, sg,
-		     esph->enc_data + crypto_aead_ivsize(aead) - skb->data,
-		     clen + alen);
+	err = skb_to_sgvec(skb, sg,
+			   esph->enc_data + crypto_aead_ivsize(aead) - skb->data,
+			   clen + alen);
+	if (unlikely(err < 0))
+		goto error;
 
 	if ((x->props.flags & XFRM_STATE_ESN)) {
 		sg_init_table(asg, 3);
@@ -381,7 +383,9 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
 	iv = esph->enc_data;
 
 	sg_init_table(sg, nfrags);
-	skb_to_sgvec(skb, sg, sizeof(*esph) + crypto_aead_ivsize(aead), elen);
+	ret = skb_to_sgvec(skb, sg, sizeof(*esph) + crypto_aead_ivsize(aead), elen);
+	if (unlikely(ret < 0))
+		goto out;
 
 	if ((x->props.flags & XFRM_STATE_ESN)) {
 		sg_init_table(asg, 3);
