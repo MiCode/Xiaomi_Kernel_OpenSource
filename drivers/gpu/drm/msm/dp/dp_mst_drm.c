@@ -366,7 +366,7 @@ static bool _dp_mst_compute_config(struct dp_mst_bridge *dp_bridge)
 
 	dp_bridge->slots = slots;
 
-	DP_MST_DEBUG("mst bridge [%d] pbn: %d slots: %d", dp_bridge->id,
+	DP_MST_DEBUG("mst bridge [%d] pbn: %d slots: %d\n", dp_bridge->id,
 			mst_pbn, slots);
 
 	return true;
@@ -798,24 +798,35 @@ dp_mst_atomic_best_encoder(struct drm_connector *connector,
 	struct dp_display *dp_display = display;
 	struct dp_mst_private *mst = dp_display->dp_mst_prv_info;
 	struct sde_connector *conn = to_sde_connector(connector);
+	struct drm_encoder *enc = NULL;
 	u32 i;
 
-	DP_MST_DEBUG("mst connector:%d atomic best encoder\n",
-			connector->base.id);
+	for (i = 0; i < MAX_DP_MST_DRM_BRIDGES; i++) {
+		if (mst->mst_bridge[i].connector == connector) {
+			enc = mst->mst_bridge[i].encoder;
+			goto end;
+		}
+	}
 
 	for (i = 0; i < MAX_DP_MST_DRM_BRIDGES; i++) {
 		if (!mst->mst_bridge[i].encoder_active_sts) {
 			mst->mst_bridge[i].encoder_active_sts = true;
 			mst->mst_bridge[i].connector = connector;
 			mst->mst_bridge[i].dp_panel = conn->drv_panel;
-			return mst->mst_bridge[i].encoder;
+			enc = mst->mst_bridge[i].encoder;
+			break;
 		}
 	}
 
-	DP_MST_DEBUG("mst connector:%d atomic best encoder failed\n",
-			connector->base.id);
+end:
+	if (enc)
+		DP_MST_DEBUG("mst connector:%d atomic best encoder:%d\n",
+			connector->base.id, i);
+	else
+		DP_MST_DEBUG("mst connector:%d atomic best encoder failed\n",
+				connector->base.id);
 
-	return NULL;
+	return enc;
 }
 
 static struct dp_mst_bridge *_dp_mst_get_bridge_from_encoder(

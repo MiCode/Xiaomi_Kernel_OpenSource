@@ -711,6 +711,9 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 	if (ret)
 		goto failed_parse_params;
 
+	key = "qcom,use-prediction";
+	cpu->lpm_prediction = of_property_read_bool(node, key);
+
 	key = "parse_cpu";
 	ret = parse_cpu(node, cpu);
 	if (ret)

@@ -33,6 +33,9 @@ extern int cnss_utils_get_driver_load_cnt(struct device *dev);
 extern void cnss_utils_increment_driver_load_cnt(struct device *dev);
 extern int cnss_utils_set_wlan_mac_address(const u8 *in, uint32_t len);
 extern u8 *cnss_utils_get_wlan_mac_address(struct device *dev, uint32_t *num);
+extern int cnss_utils_set_wlan_derived_mac_address(const u8 *in, uint32_t len);
+extern u8 *cnss_utils_get_wlan_derived_mac_address(struct device *dev,
+							uint32_t *num);
 extern void cnss_utils_set_cc_source(struct device *dev,
 				     enum cnss_utils_cc_src cc_source);
 extern enum cnss_utils_cc_src cnss_utils_get_cc_source(struct device *dev);

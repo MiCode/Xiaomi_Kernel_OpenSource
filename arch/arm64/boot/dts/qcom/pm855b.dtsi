@@ -125,12 +125,28 @@
 				label = "v_i_parallel_vbat_vdata";
 				qcom,pre-scaling = <1 1>;
 			};
+
+			smb1390_therm {
+				reg = <ADC_AMUX_THM2>;
+				label = "smb1390_therm";
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			smb1355_therm {
+				reg = <ADC_AMUX_THM2_PU2>;
+				label = "smb1355_therm";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,pre-scaling = <1 1>;
+			};
 		};
 
 		pm855b_charger: qcom,qpnp-smb5 {
 			compatible = "qcom,qpnp-smb5";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pm855b_revid>;
 
@@ -328,6 +344,79 @@
 			compatible = "qcom,msm-bcl-soc";
 			#thermal-sensor-cells = <0>;
 		};
+
+		pm855b_fg: qpnp,fg {
+			compatible = "qcom,fg-gen4";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,pmic-revid = <&pm855b_revid>;
+			status = "okay";
+
+			qcom,fg-batt-soc@4000 {
+				status = "okay";
+				reg = <0x4000 0x100>;
+				interrupts = <0x2 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x2
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x3
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x4 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x5
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x6 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x7 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "soc-update",
+						  "soc-ready",
+						  "bsoc-delta",
+						  "msoc-delta",
+						  "msoc-low",
+						  "msoc-empty",
+						  "msoc-high",
+						  "msoc-full";
+			};
+
+			qcom,fg-batt-info@4100 {
+				status = "okay";
+				reg = <0x4100 0x100>;
+				interrupts = <0x2 0x41 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x41 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x41 0x3
+							IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "vbatt-low",
+						  "vbatt-pred-delta",
+						  "esr-delta";
+			};
+
+			qcom,fg-rradc@4200 {
+				status = "okay";
+				reg = <0x4200 0x100>;
+				interrupts = <0x2 0x42 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x42 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x42 0x2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x42 0x3 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x42 0x4 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "batt-missing",
+						  "batt-id",
+						  "batt-temp-delta",
+						  "batt-temp-hot",
+						  "batt-temp-cold";
+			};
+
+			qcom,fg-memif@4300 {
+				status = "okay";
+				reg = <0x4300 0x100>;
+				interrupts = <0x2 0x43 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x43 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x43 0x2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x43 0x3
+							IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "ima-rdy",
+						  "ima-xcp",
+						  "dma-xcp",
+						  "dma-grant";
+			};
+		};
 	};
 
 	qcom,pm855b@3 {
@@ -390,12 +479,12 @@
 		thermal-sensors = <&pm855b_tz>;
 
 		trips {
-			trip0 {
+			pm855b_trip0: trip0 {
 				temperature = <95000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
-			trip1 {
+			pm855b_trip1: trip1 {
 				temperature = <115000>;
 				hysteresis = <0>;
 				type = "passive";
@@ -403,7 +492,7 @@
 			trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
-				type = "critical";
+				type = "passive";
 			};
 		};
 	};

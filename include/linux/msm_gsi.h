@@ -995,6 +995,25 @@ int gsi_set_channel_cfg(unsigned long chan_hdl, struct gsi_chan_props *props,
 int gsi_poll_channel(unsigned long chan_hdl,
 		struct gsi_chan_xfer_notify *notify);
 
+
+/**
+ * gsi_poll_n_channel - Peripheral should call this function to query for
+ * completed transfer descriptors.
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @notify:    Information about the completed transfer if any
+ * @expected_num:  Number of descriptor we want to poll each time.
+ * @actual_num:    Actual number of descriptor we polled successfully.
+ *
+ * @Return gsi_status (GSI_STATUS_POLL_EMPTY is returned if no transfers
+ * completed)
+ */
+int gsi_poll_n_channel(unsigned long chan_hdl,
+		struct gsi_chan_xfer_notify *notify,
+		int expected_num, int *actual_num);
+
+
 /**
  * gsi_config_channel_mode - Peripheral should call this function
  * to configure the channel mode.
@@ -1226,6 +1245,13 @@ static inline int gsi_is_channel_empty(unsigned long chan_hdl, bool *is_empty)
 
 static inline int gsi_poll_channel(unsigned long chan_hdl,
 		struct gsi_chan_xfer_notify *notify)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_poll_n_channel(unsigned long chan_hdl,
+		struct gsi_chan_xfer_notify *notify,
+		int expected_num, int *actual_num)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

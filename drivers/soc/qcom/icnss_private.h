@@ -114,6 +114,11 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
+struct icnss_event_server_arrive_data {
+	unsigned int node;
+	unsigned int port;
+};
+
 struct icnss_event_pd_service_down_data {
 	bool crashed;
 	bool fw_rejuvenate;
@@ -295,7 +300,7 @@ struct icnss_priv {
 	size_t smmu_iova_len;
 	dma_addr_t smmu_iova_ipa_start;
 	size_t smmu_iova_ipa_len;
-	struct qmi_handle *wlfw_clnt;
+	struct qmi_handle qmi;
 	struct list_head event_list;
 	spinlock_t event_lock;
 	struct work_struct event_work;

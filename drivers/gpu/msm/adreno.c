@@ -19,7 +19,6 @@
 #include <linux/input.h>
 #include <linux/io.h>
 #include <soc/qcom/scm.h>
-#include <linux/nvmem-consumer.h>
 
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
@@ -108,7 +107,7 @@ static struct adreno_device device_3d0 = {
 	.input_work = __WORK_INITIALIZER(device_3d0.input_work,
 		adreno_input_work),
 	.pwrctrl_flag = BIT(ADRENO_SPTP_PC_CTRL) | BIT(ADRENO_PPD_CTRL) |
-		BIT(ADRENO_LM_CTRL) |
+		BIT(ADRENO_LM_CTRL) | BIT(ADRENO_HWCG_CTRL) |
 		BIT(ADRENO_THROTTLING_CTRL),
 	.profile.enabled = false,
 	.active_list = LIST_HEAD_INIT(device_3d0.active_list),
@@ -614,7 +613,6 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
-	unsigned int status_retries = 0;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -652,32 +650,6 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
-
-	/*
-	 * Read status again to make sure the bits aren't transitory.
-	 * Transitory bits mean that they are spurious interrupts and are
-	 * seen while preemption is on going. Empirical experiments have
-	 * shown that the transitory bits are a timing thing and they
-	 * go away in the small time window between two or three consecutive
-	 * reads. If they don't go away, log the message and return.
-	 */
-	while (status_retries < STATUS_RETRY_MAX) {
-		unsigned int new_status;
-
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS,
-			&new_status);
-
-		if (status == new_status)
-			break;
-
-		status = new_status;
-		status_retries++;
-	}
-
-	if (status_retries == STATUS_RETRY_MAX) {
-		KGSL_DRV_CRIT_RATELIMIT(device, "STATUS bits are not stable\n");
-			return ret;
-	}
 
 	/*
 	 * Clear all the interrupt bits but ADRENO_INT_RBBM_AHB_ERROR. Because
@@ -772,64 +744,33 @@ static struct {
 	{ ADRENO_QUIRK_SECVID_SET_ONCE, "qcom,gpu-quirk-secvid-set-once" },
 	{ ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW,
 			"qcom,gpu-quirk-limit-uche-gbif-rw" },
+	{ ADRENO_QUIRK_MMU_SECURE_CB_ALT, "qcom,gpu-quirk-mmu-secure-cb-alt" },
 };
 
-#if defined(CONFIG_NVMEM) && defined(CONFIG_QCOM_QFPROM)
 static struct device_node *
-adreno_get_soc_hw_revision_node(struct platform_device *pdev)
+adreno_get_soc_hw_revision_node(struct adreno_device *adreno_dev,
+	struct platform_device *pdev)
 {
 	struct device_node *node, *child;
-	struct nvmem_cell *cell;
-	ssize_t len;
-	u32 *buf, hw_rev, rev;
+	unsigned int rev;
 
 	node = of_find_node_by_name(pdev->dev.of_node, "qcom,soc-hw-revisions");
 	if (node == NULL)
-		goto err;
-
-	/* read the soc hw revision and select revision node */
-	cell = nvmem_cell_get(&pdev->dev, "minor_rev");
-	if (IS_ERR_OR_NULL(cell)) {
-		if (PTR_ERR(cell) == -EPROBE_DEFER)
-			return (void *)cell;
-
-		KGSL_CORE_ERR("Unable to get nvmem cell: ret=%ld\n",
-				PTR_ERR(cell));
-		goto err;
-	}
-
-	buf = nvmem_cell_read(cell, &len);
-	nvmem_cell_put(cell);
-
-	if (IS_ERR_OR_NULL(buf)) {
-		KGSL_CORE_ERR("Unable to read nvmem cell: ret=%ld\n",
-				PTR_ERR(buf));
-		goto err;
-	}
-
-	hw_rev = *buf;
-	kfree(buf);
+		return NULL;
 
 	for_each_child_of_node(node, child) {
-		if (of_property_read_u32(child, "reg", &rev))
+		if (of_property_read_u32(child, "qcom,soc-hw-revision", &rev))
 			continue;
 
-		if (rev == hw_rev)
+		if (rev == adreno_dev->soc_hw_rev)
 			return child;
 	}
 
-err:
-	/* fall back to parent node */
-	return pdev->dev.of_node;
+	KGSL_DRV_WARN(KGSL_DEVICE(adreno_dev),
+		"No matching SOC HW revision found for efused HW rev=%u\n",
+		adreno_dev->soc_hw_rev);
+	return NULL;
 }
-#else
-static struct device_node *
-adreno_get_soc_hw_revision_node(struct platform_device *pdev)
-{
-	return pdev->dev.of_node;
-}
-#endif
-
 
 static int adreno_update_soc_hw_revision_quirks(
 		struct adreno_device *adreno_dev, struct platform_device *pdev)
@@ -837,9 +778,9 @@ static int adreno_update_soc_hw_revision_quirks(
 	struct device_node *node;
 	int i;
 
-	node = adreno_get_soc_hw_revision_node(pdev);
-	if (IS_ERR(node))
-		return PTR_ERR(node);
+	node = adreno_get_soc_hw_revision_node(adreno_dev, pdev);
+	if (node == NULL)
+		node = pdev->dev.of_node;
 
 	/* get chip id, fall back to parent if revision node does not have it */
 	if (of_property_read_u32(node, "qcom,chipid", &adreno_dev->chipid))
@@ -1172,6 +1113,36 @@ static void adreno_cx_dbgc_probe(struct kgsl_device *device)
 		KGSL_DRV_WARN(device, "cx_dbgc ioremap failed\n");
 }
 
+static void adreno_efuse_read_soc_hw_rev(struct adreno_device *adreno_dev)
+{
+	unsigned int val;
+	unsigned int soc_hw_rev[3];
+	int ret;
+
+	if (of_property_read_u32_array(
+		KGSL_DEVICE(adreno_dev)->pdev->dev.of_node,
+		"qcom,soc-hw-rev-efuse", soc_hw_rev, 3))
+		return;
+
+	ret = adreno_efuse_map(adreno_dev);
+	if (ret) {
+		KGSL_CORE_ERR(
+			"Unable to map hardware revision fuse: ret=%d\n", ret);
+		return;
+	}
+
+	ret = adreno_efuse_read_u32(adreno_dev, soc_hw_rev[0], &val);
+	adreno_efuse_unmap(adreno_dev);
+
+	if (ret) {
+		KGSL_CORE_ERR(
+			"Unable to read hardware revision fuse: ret=%d\n", ret);
+		return;
+	}
+
+	adreno_dev->soc_hw_rev = (val >> soc_hw_rev[1]) & soc_hw_rev[2];
+}
+
 static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
 {
 	unsigned int row0;
@@ -1221,11 +1192,10 @@ static int adreno_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	status = adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
-	if (status) {
-		device->pdev = NULL;
-		return status;
-	}
+	/* Identify SOC hardware revision to be used */
+	adreno_efuse_read_soc_hw_rev(adreno_dev);
+
+	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	adreno_identify_gpu(adreno_dev);
@@ -1292,6 +1262,8 @@ static int adreno_probe(struct platform_device *pdev)
 	adreno_profile_init(adreno_dev);
 
 	adreno_sysfs_init(adreno_dev);
+
+	kgsl_pwrscale_init(&pdev->dev, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
 
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
@@ -1443,6 +1415,43 @@ static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 	set_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv);
 
 	adreno_fault_detect_start(adreno_dev);
+}
+
+/**
+ * adreno_clear_pending_transactions() - Clear transactions in GBIF/VBIF pipe
+ * @device: Pointer to the device whose GBIF/VBIF pipe is to be cleared
+ */
+int adreno_clear_pending_transactions(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int ret = 0;
+
+	if (adreno_has_gbif(adreno_dev)) {
+
+		/* Halt new client requests */
+		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
+				gpudev->gbif_client_halt_mask);
+		ret = adreno_wait_for_halt_ack(device,
+				ADRENO_REG_GBIF_HALT_ACK,
+				gpudev->gbif_client_halt_mask);
+
+		/* Halt all AXI requests */
+		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
+				gpudev->gbif_arb_halt_mask);
+		ret = adreno_wait_for_halt_ack(device,
+				ADRENO_REG_GBIF_HALT_ACK,
+				gpudev->gbif_arb_halt_mask);
+	} else {
+		unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
+
+		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0,
+			mask);
+		ret = adreno_wait_for_halt_ack(device,
+				ADRENO_REG_VBIF_XIN_HALT_CTRL1, mask);
+		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
+	}
+	return ret;
 }
 
 static int adreno_init(struct kgsl_device *device)
@@ -1711,6 +1720,15 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
+	if ((adreno_is_a640v1(adreno_dev)) &&
+		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
+		ret = kgsl_program_smmu_aperture();
+		if (ret) {
+			pr_err("SMMU aperture programming call failed with error %d\n",
+				ret);
+			goto error_pwr_off;
+		}
+	}
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	status = kgsl_mmu_start(device);
@@ -2032,7 +2050,10 @@ static int adreno_stop(struct kgsl_device *device)
 		error = -EINVAL;
 	}
 
-	adreno_vbif_clear_pending_transactions(device);
+	adreno_clear_pending_transactions(device);
+
+	/* The halt is not cleared in the above function if we have GBIF */
+	adreno_deassert_gbif_halt(adreno_dev);
 
 	kgsl_mmu_stop(&device->mmu);
 
@@ -2081,7 +2102,7 @@ int adreno_reset(struct kgsl_device *device, int fault)
 	/* Try soft reset first */
 	if (adreno_try_soft_reset(device, fault)) {
 		/* Make sure VBIF is cleared before resetting */
-		ret = adreno_vbif_clear_pending_transactions(device);
+		ret = adreno_clear_pending_transactions(device);
 
 		if (ret == 0) {
 			ret = adreno_soft_reset(device);

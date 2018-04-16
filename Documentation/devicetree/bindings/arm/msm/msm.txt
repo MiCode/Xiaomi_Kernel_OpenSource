@@ -41,14 +41,17 @@ SoCs:
 - MSM8996
   compatible = "qcom,msm8996"
 
-- SDM855
-  compatible = "qcom,sdm855"
+- SM8150
+  compatible = "qcom,sm8150"
 
 - SDMSHRIKE
   compatible = "qcom,sdmshrike"
 
 - SDM640
   compatible = "qcom,sdm640"
+
+- QCS405
+  compatible = "qcom,qcs405"
 
 Generic board variants:
 
@@ -125,10 +128,13 @@ compatible = "qcom,msm8996-fluid"
 compatible = "qcom,msm8996-liquid"
 compatible = "qcom,msm8996-mtp"
 compatible = "qcom,msm8996-adp"
-compatible = "qcom,sdm855-rumi"
-compatible = "qcom,sdm855-mtp"
-compatible = "qcom,sdm855-cdp"
-compatible = "qcom,sdm855-qrd"
+compatible = "qcom,sm8150-rumi"
+compatible = "qcom,sm8150-mtp"
+compatible = "qcom,sm8150-cdp"
+compatible = "qcom,sm8150-qrd"
+compatible = "qcom,sm8150p-cdp"
+compatible = "qcom,sm8150p-mtp"
+compatible = "qcom,sm8150p-qrd"
 compatible = "qcom,sdmshrike-rumi"
 compatible = "qcom,sdmshrike-mtp"
 compatible = "qcom,sdmshrike-cdp"
@@ -136,3 +142,6 @@ compatible = "qcom,sdm640-rumi"
 compatible = "qcom,sdm640-mtp"
 compatible = "qcom,sdm640-cdp"
 compatible = "qcom,sdm640-qrd"
+compatible = "qcom,qcs405-rumi"
+compatible = "qcom,qcs405-mtp"
+compatible = "qcom,qcs405-cdp"

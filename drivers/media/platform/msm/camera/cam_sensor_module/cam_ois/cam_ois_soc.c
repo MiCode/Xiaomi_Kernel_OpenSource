@@ -108,6 +108,17 @@ int cam_ois_driver_soc_init(struct cam_ois_ctrl_t *o_ctrl)
 			CAM_DBG(CAM_OIS, "failed rc %d", rc);
 			return rc;
 		}
+
+		rc = of_property_read_u32(of_node, "cci-device",
+			&o_ctrl->cci_num);
+		CAM_DBG(CAM_ACTUATOR, "cci-device %d, rc %d",
+			o_ctrl->cci_num, rc);
+		if (rc < 0) {
+			/* Set default master 0 */
+			o_ctrl->cci_num = CCI_DEVICE_0;
+			rc = 0;
+		}
+		o_ctrl->io_master_info.cci_client->cci_device = o_ctrl->cci_num;
 	}
 
 	rc = cam_ois_get_dt_data(o_ctrl);

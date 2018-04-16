@@ -11,6 +11,7 @@
  */
 
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
@@ -42,6 +43,97 @@ static void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 	}
 }
 
+/* collect rddm during kernel panic */
+static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
+{
+	int ret;
+	struct mhi_buf *mhi_buf;
+	u32 sequence_id;
+	u32 rx_status;
+	enum MHI_EE ee;
+	struct image_info *rddm_image = mhi_cntrl->rddm_image;
+	const u32 delayus = 100;
+	u32 retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
+	void __iomem *base = mhi_cntrl->bhi;
+
+	MHI_LOG("Entered with pm_state:%s dev_state:%s ee:%s\n",
+		to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
+		TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	/*
+	 * This should only be executing during a kernel panic, we expect all
+	 * other cores to shutdown while we're collecting rddm buffer. After
+	 * returning from this function, we expect device to reset.
+	 *
+	 * Normaly, we would read/write pm_state only after grabbing
+	 * pm_lock, since we're in a panic, skipping it.
+	 */
+
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		return -EIO;
+
+	/*
+	 * There is no gurantee this state change would take effect since
+	 * we're setting it w/o grabbing pmlock, it's best effort
+	 */
+	mhi_cntrl->pm_state = MHI_PM_LD_ERR_FATAL_DETECT;
+	/* update should take the effect immediately */
+	smp_wmb();
+
+	/* setup the RX vector table */
+	mhi_rddm_prepare(mhi_cntrl, rddm_image);
+	mhi_buf = &rddm_image->mhi_buf[rddm_image->entries - 1];
+
+	MHI_LOG("Starting BHIe programming for RDDM\n");
+
+	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_HIGH_OFFS,
+		      upper_32_bits(mhi_buf->dma_addr));
+
+	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_LOW_OFFS,
+		      lower_32_bits(mhi_buf->dma_addr));
+
+	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECSIZE_OFFS, mhi_buf->len);
+	sequence_id = prandom_u32() & BHIE_RXVECSTATUS_SEQNUM_BMSK;
+
+	if (unlikely(!sequence_id))
+		sequence_id = 1;
+
+
+	mhi_write_reg_field(mhi_cntrl, base, BHIE_RXVECDB_OFFS,
+			    BHIE_RXVECDB_SEQNUM_BMSK, BHIE_RXVECDB_SEQNUM_SHFT,
+			    sequence_id);
+
+	MHI_LOG("Trigger device into RDDM mode\n");
+	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_SYS_ERR);
+
+	MHI_LOG("Waiting for image download completion\n");
+	while (retry--) {
+		ret = mhi_read_reg_field(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS,
+					 BHIE_RXVECSTATUS_STATUS_BMSK,
+					 BHIE_RXVECSTATUS_STATUS_SHFT,
+					 &rx_status);
+		if (ret)
+			return -EIO;
+
+		if (rx_status == BHIE_RXVECSTATUS_STATUS_XFER_COMPL) {
+			MHI_LOG("RDDM successfully collected\n");
+			return 0;
+		}
+
+		udelay(delayus);
+	}
+
+	ee = mhi_get_exec_env(mhi_cntrl);
+	ret = mhi_read_reg(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS, &rx_status);
+
+	MHI_ERR("Did not complete RDDM transfer\n");
+	MHI_ERR("Current EE:%s\n", TO_MHI_EXEC_STR(ee));
+	MHI_ERR("RXVEC_STATUS:0x%x, ret:%d\n", rx_status, ret);
+
+	return -EIO;
+}
+
 /* download ramdump image from device */
 int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic)
 {
@@ -55,6 +147,9 @@ int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic)
 
 	if (!rddm_image)
 		return -ENOMEM;
+
+	if (in_panic)
+		return __mhi_download_rddm_in_panic(mhi_cntrl);
 
 	MHI_LOG("Waiting for device to enter RDDM state from EE:%s\n",
 		TO_MHI_EXEC_STR(mhi_cntrl->ee));

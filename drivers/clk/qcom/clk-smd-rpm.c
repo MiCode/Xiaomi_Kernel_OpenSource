@@ -672,6 +672,8 @@ static struct clk_hw *qcs405_clks[] = {
 	[RPM_SMD_DIV_A_CLK2]		= &qcs405_div_clk2_a.hw,
 	[RPM_SMD_PNOC_CLK]		= &qcs405_pnoc_clk.hw,
 	[RPM_SMD_PNOC_A_CLK]		= &qcs405_pnoc_a_clk.hw,
+	[RPM_SMD_CE1_CLK]		= &qcs405_ce1_clk.hw,
+	[RPM_SMD_CE1_A_CLK]		= &qcs405_ce1_a_clk.hw,
 	[RPM_SMD_QPIC_CLK]		= &qcs405_qpic_clk.hw,
 	[RPM_SMD_QPIC_A_CLK]		= &qcs405_qpic_a_clk.hw,
 	[PNOC_MSMBUS_CLK]		= &pnoc_msmbus_clk.hw,
@@ -695,7 +697,7 @@ static struct clk_hw *qcs405_clks[] = {
 	[QSEECOM_CE1_CLK]		= &qseecom_ce1_clk.hw,
 	[SCM_CE1_CLK]			= &scm_ce1_clk.hw,
 	[CXO_SMD_OTG_CLK]		= &cxo_otg_clk.hw,
-	[CXO_SMD_LPM_CLK]		= &cxo_otg_clk.hw,
+	[CXO_SMD_LPM_CLK]		= &cxo_lpm_clk.hw,
 	[CXO_SMD_PIL_PRONTO_CLK]	= &cxo_pil_pronto_clk.hw,
 	[CXO_SMD_PIL_MSS_CLK]		= &cxo_pil_mss_clk.hw,
 	[CXO_SMD_WLAN_CLK]		= &cxo_wlan_clk.hw,
@@ -704,7 +706,7 @@ static struct clk_hw *qcs405_clks[] = {
 
 static const struct rpm_smd_clk_desc rpm_clk_qcs405 = {
 	.clks = qcs405_clks,
-	.num_rpm_clks = CXO_SMD_PIL_LPASS_CLK,
+	.num_rpm_clks = RPM_SMD_QPIC_A_CLK,
 	.num_clks = ARRAY_SIZE(qcs405_clks),
 };
 

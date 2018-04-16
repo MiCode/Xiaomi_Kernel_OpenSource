@@ -808,3 +808,8 @@ void ufs_qcom_phy_dbg_register_dump(struct phy *generic_phy)
 		ufs_qcom_phy->phy_spec_ops->dbg_register_dump(ufs_qcom_phy);
 }
 EXPORT_SYMBOL(ufs_qcom_phy_dbg_register_dump);
+
+MODULE_AUTHOR("Yaniv Gardi <ygardi@codeaurora.org>");
+MODULE_AUTHOR("Vivek Gautam <vivek.gautam@codeaurora.org>");
+MODULE_DESCRIPTION("Universal Flash Storage (UFS) QCOM PHY");
+MODULE_LICENSE("GPL v2");

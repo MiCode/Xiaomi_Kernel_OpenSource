@@ -211,6 +211,13 @@ static void msm_smmu_destroy(struct msm_mmu *mmu)
 	kfree(smmu);
 }
 
+struct device *msm_smmu_get_dev(struct msm_mmu *mmu)
+{
+	struct msm_smmu *smmu = to_msm_smmu(mmu);
+
+	return smmu->client_dev;
+}
+
 static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 		int dir, u32 flags)
 {
@@ -292,6 +299,7 @@ static const struct msm_mmu_funcs funcs = {
 	.set_attribute = msm_smmu_set_attribute,
 	.one_to_one_map = msm_smmu_one_to_one_map,
 	.one_to_one_unmap = msm_smmu_one_to_one_unmap,
+	.get_dev = msm_smmu_get_dev,
 };
 
 static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {

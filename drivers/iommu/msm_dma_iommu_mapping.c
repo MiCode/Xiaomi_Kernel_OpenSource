@@ -236,8 +236,20 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		    (attrs & ~DMA_ATTR_SKIP_CPU_SYNC) ==
 		    (iommu_map->attrs & ~DMA_ATTR_SKIP_CPU_SYNC) &&
 		    sg_phys(sg) == iommu_map->buf_start_addr) {
-			sg->dma_address = iommu_map->sgl->dma_address;
-			sg->dma_length = iommu_map->sgl->dma_length;
+			struct scatterlist *sg_tmp = sg;
+			struct scatterlist *map_sg;
+			int i;
+
+			for_each_sg(iommu_map->sgl, map_sg, nents, i) {
+				sg_dma_address(sg_tmp) = sg_dma_address(map_sg);
+				sg_dma_len(sg_tmp) = sg_dma_len(map_sg);
+				if (sg_dma_len(map_sg) == 0)
+					break;
+
+				sg_tmp = sg_next(sg_tmp);
+				if (sg == NULL)
+					break;
+			}
 
 			kref_get(&iommu_map->ref);
 

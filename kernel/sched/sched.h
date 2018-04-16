@@ -1844,13 +1844,6 @@ unsigned long arch_scale_cpu_capacity(struct sched_domain *sd, int cpu)
 }
 #endif
 
-#ifndef arch_update_cpu_capacity
-static __always_inline
-void arch_update_cpu_capacity(int cpu)
-{
-}
-#endif
-
 #ifdef CONFIG_SMP
 static inline unsigned long capacity_of(int cpu)
 {
@@ -1960,7 +1953,7 @@ static inline unsigned long
 cpu_util_freq_pelt(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
-	unsigned long util = rq->cfs.avg.util_avg;
+	u64 util = rq->cfs.avg.util_avg;
 	unsigned long capacity = capacity_orig_of(cpu);
 
 	util *= (100 + per_cpu(sched_load_boost, cpu));
@@ -2006,7 +1999,7 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		walt_load->prev_window_util = util;
 		walt_load->nl = nl;
 		walt_load->pl = pl;
-		walt_load->ws = rq->window_start;
+		walt_load->ws = rq->load_reported_window;
 	}
 
 	return (util >= capacity) ? capacity : util;
@@ -2025,6 +2018,9 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 {
 	return cpu_util_freq_pelt(cpu);
 }
+
+#define sched_ravg_window TICK_NSEC
+#define sysctl_sched_use_walt_cpu_util 0
 
 #endif /* CONFIG_SCHED_WALT */
 
@@ -2467,7 +2463,8 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 		(rq->load_reported_window == rq->window_start) &&
 		!(flags & exception_flags))
 		return;
-	rq->load_reported_window = rq->window_start;
+	if (!(flags & exception_flags))
+		rq->load_reported_window = rq->window_start;
 #endif
 
 	data = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
@@ -2503,6 +2500,11 @@ enum sched_boost_policy {
 	SCHED_BOOST_ON_BIG,
 	SCHED_BOOST_ON_ALL,
 };
+
+#define NO_BOOST 0
+#define FULL_THROTTLE_BOOST 1
+#define CONSERVATIVE_BOOST 2
+#define RESTRAINED_BOOST 3
 
 /*
  * Returns the rq capacity of any rq in a group. This does not play
@@ -2558,7 +2560,7 @@ extern unsigned int max_load_scale_factor;
 extern unsigned int max_possible_capacity;
 extern unsigned int min_max_possible_capacity;
 extern unsigned int max_power_cost;
-extern unsigned int sched_init_task_load_windows;
+extern unsigned int __read_mostly sched_init_task_load_windows;
 extern unsigned int up_down_migrate_scale_factor;
 extern unsigned int sysctl_sched_restrict_cluster_spill;
 extern unsigned int sched_pred_alert_load;
@@ -2579,11 +2581,6 @@ extern int update_preferred_cluster(struct related_thread_group *grp,
 extern void set_preferred_cluster(struct related_thread_group *grp);
 extern void add_new_task_to_grp(struct task_struct *new);
 extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
-
-#define NO_BOOST 0
-#define FULL_THROTTLE_BOOST 1
-#define CONSERVATIVE_BOOST 2
-#define RESTRAINED_BOOST 3
 
 static inline int cpu_capacity(int cpu)
 {
@@ -2925,6 +2922,12 @@ static inline int sched_boost(void)
 	return 0;
 }
 
+static inline bool
+task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	return false;
+}
+
 static inline bool hmp_capable(void) { return false; }
 static inline bool is_max_capacity_cpu(int cpu) { return true; }
 static inline bool is_min_capacity_cpu(int cpu) { return true; }
@@ -3003,6 +3006,11 @@ static inline unsigned long thermal_cap(int cpu)
 #endif
 
 static inline void clear_walt_request(int cpu) { }
+
+static inline int is_reserved(int cpu)
+{
+	return 0;
+}
 
 static inline int got_boost_kick(void)
 {

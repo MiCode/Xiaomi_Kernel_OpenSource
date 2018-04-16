@@ -215,40 +215,40 @@ config MSM_CLK_AOP_QMP
 	  Always On Processor manages few shared clocks on some Qualcomm
 	  Technologies, Inc. SoCs. It accepts requests from other hardware
 	  subsystems via QMP mailboxes.
-	  Say Y to support the clocks managed by AOP on platforms such as sdm855.
+	  Say Y to support the clocks managed by AOP on platforms such as sm8150.
 
-config MSM_GCC_SDM855
-	tristate "SDM855 Global Clock Controller"
+config MSM_GCC_SM8150
+	tristate "SM8150 Global Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the global clock controller on Qualcomm Technologies, Inc
-	  SDM855 devices.
+	  SM8150 devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI, i2c,
 	  USB, UFS, SD/eMMC, PCIe, etc.
 
-config MSM_NPUCC_SDM855
-	tristate "SDM855 NPU Clock Controller"
+config MSM_NPUCC_SM8150
+	tristate "SM8150 NPU Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
           Support for the NPU clock controller on Qualcomm Technologies, Inc
-	  SDM855 devices.
+	  SM8150 devices.
 	  Say Y if you want to enable use of the Network Processing Unit.
 
-config MSM_VIDEOCC_SDM855
-	tristate "SDM855 Video Clock Controller"
+config MSM_VIDEOCC_SM8150
+	tristate "SM8150 Video Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the video clock controller on Qualcomm Technologies, Inc.
-	  SDM855 devices.
+	  SM8150 devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
-config MSM_CAMCC_SDM855
-	tristate "SDM855 Camera Clock Controller"
+config MSM_CAMCC_SM8150
+	tristate "SM8150 Camera Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the camera clock controller on Qualcomm Technologies, Inc
-	  SDM855 devices.
+	  SM8150 devices.
           Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
@@ -264,21 +264,21 @@ config CLOCK_CPU_OSM
 	 existence of multiple OSM domains.
 	 Say Y if you want to support OSM clocks.
 
-config MSM_DISPCC_SDM855
-	tristate "SDM855 Display Clock Controller"
+config MSM_DISPCC_SM8150
+	tristate "SM8150 Display Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the display clock controller on Qualcomm Technologies, Inc
-	  SDM855 devices.
+	  SM8150 devices.
 	  Say Y if you want to support display devices and functionality such as
 	  splash screen.
 
-config MSM_DEBUGCC_SDM855
-	tristate "SDM855 Debug Clock Controller"
+config MSM_DEBUGCC_SM8150
+	tristate "SM8150 Debug Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
-	  SDM855 devices.
+	  SM8150 devices.
 	  Say Y if you want to support the clock measurement functionality.
 
 config MSM_CLK_RPMH
@@ -290,12 +290,12 @@ config MSM_CLK_RPMH
 	  Say Y to support the clocks managed by RPMh VRM/ARC on platforms
 	  such as sdm845.
 
-config MSM_GPUCC_SDM855
-	tristate "SDM855 Graphics Clock Controller"
+config MSM_GPUCC_SM8150
+	tristate "SM8150 Graphics Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
-	  sdm855 devices.
+	  sm8150 devices.
 	  Say Y if you want to support graphics controller devices.
 
 config MSM_GCC_SDMSHRIKE
@@ -306,3 +306,12 @@ config MSM_GCC_SDMSHRIKE
 	  SDMSHRIKE devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI, i2c,
 	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_CAMCC_SDMSHRIKE
+	tristate "SDMSHRIKE Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SDMSHRIKE devices.
+          Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.

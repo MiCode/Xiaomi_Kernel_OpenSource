@@ -107,6 +107,7 @@ struct dsi_display_boot_param {
 	int length;
 	struct device_node *node;
 	int cmdline_topology;
+	void *disp;
 };
 
 /**
@@ -170,7 +171,6 @@ struct dsi_display {
 	const char *name;
 	const char *display_type;
 	struct list_head list;
-	bool is_active;
 	bool is_cont_splash_enabled;
 	struct mutex display_lock;
 
@@ -179,6 +179,7 @@ struct dsi_display {
 
 	/* panel info */
 	struct dsi_panel *panel;
+	struct device_node *disp_node;
 	struct device_node *panel_of;
 
 	struct dsi_display_mode *modes;
@@ -246,14 +247,6 @@ int dsi_display_get_num_of_displays(void);
  */
 int dsi_display_get_active_displays(void **display_array,
 		u32 max_display_count);
-
-/**
- * dsi_display_get_boot_display()- get DSI boot display name
- * @index:	index of display selection
- *
- * Return:	returns the display node pointer
- */
-struct device_node *dsi_display_get_boot_display(int index);
 
 /**
  * dsi_display_get_display_by_name()- finds display by name

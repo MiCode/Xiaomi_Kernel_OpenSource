@@ -112,6 +112,7 @@ struct intf_params {
 struct cam_actuator_ctrl_t {
 	struct i2c_driver *i2c_driver;
 	enum cci_i2c_master_t cci_i2c_master;
+	enum cci_device_num cci_num;
 	struct camera_io_master io_master_info;
 	struct cam_hw_soc_info soc_info;
 	struct mutex actuator_mutex;

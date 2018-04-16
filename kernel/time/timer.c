@@ -1385,8 +1385,8 @@ static int next_pending_bucket(struct timer_base *base, unsigned offset,
 
 	pos = find_next_bit(base->pending_map, start, offset);
 	pos_down = pos < start ? pos + LVL_SIZE - start : -1;
-	if (((pos_up + base->clk) << LVL_SHIFT(lvl)) >
-		((pos_down + base->clk) << LVL_SHIFT(lvl)))
+	if (((pos_up + (u64)base->clk) << LVL_SHIFT(lvl)) >
+		((pos_down + (u64)base->clk) << LVL_SHIFT(lvl)))
 		return pos_down;
 	return pos_up;
 }
@@ -1903,8 +1903,6 @@ static void __migrate_timers(unsigned int cpu, bool remove_pinned)
 		 * before moving the timers over.
 		 */
 		forward_timer_base(new_base);
-
-		BUG_ON(old_base->running_timer);
 
 		for (i = 0; i < WHEEL_SIZE; i++)
 			migrate_timer_list(new_base, old_base->vectors + i,

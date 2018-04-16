@@ -338,6 +338,8 @@ enum MHI_CH_CFG {
 
 #define MHI_CH_CFG_BIT_LPM_NOTIFY BIT(0) /* require LPM notification */
 #define MHI_CH_CFG_BIT_OFFLOAD_CH BIT(1) /* satellite mhi devices */
+#define MHI_CH_CFG_BIT_DBMODE_RESET_CH BIT(2) /* require db mode to reset */
+#define MHI_CH_CFG_BIT_PRE_ALLOC BIT(3) /* host allocate buffers for DL */
 
 enum MHI_EV_CFG {
 	MHI_EV_CFG_ELEMENTS = 0,
@@ -466,6 +468,7 @@ enum MHI_ER_TYPE {
 };
 
 struct db_cfg {
+	bool reset_req;
 	bool db_mode;
 	u32 pollcfg;
 	enum MHI_BRSTMODE brstmode;
@@ -563,6 +566,7 @@ struct mhi_chan {
 	bool lpm_notify;
 	bool configured;
 	bool offload_ch;
+	bool pre_alloc;
 	/* functions that generate the transfer ring elements */
 	int (*gen_tre)(struct mhi_controller *, struct mhi_chan *, void *,
 		       void *, size_t, enum MHI_FLAGS);
@@ -652,6 +656,7 @@ void mhi_write_db(struct mhi_controller *mhi_cntrl, void __iomem *db_addr,
 void mhi_ring_cmd_db(struct mhi_controller *mhi_cntrl, struct mhi_cmd *mhi_cmd);
 void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 		      struct mhi_chan *mhi_chan);
+void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl, enum MHI_STATE state);
 
 /* memory allocation methods */
 static inline void *mhi_alloc_coherent(struct mhi_controller *mhi_cntrl,

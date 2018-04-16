@@ -2408,8 +2408,7 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 		return;
 	}
 
-	offset = ctx->catalog->sspp[ctx->idx].sblk->scaler_blk.base -
-		REG_DMA_VIG_SWI_DIFF;
+	offset = ctx->cap->sblk->scaler_blk.base - REG_DMA_VIG_SWI_DIFF;
 	dma_ops = sde_reg_dma_get_ops();
 	dma_ops->reset_reg_dma_buf(sspp_buf[QSEED][ctx->idx]);
 

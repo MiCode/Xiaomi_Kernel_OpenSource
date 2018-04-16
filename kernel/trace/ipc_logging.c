@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -790,7 +790,7 @@ static void *get_deserialization_func(struct ipc_log_context *ilctxt,
 }
 
 /**
- * ipc_log_context_create: Create a debug log context
+ * ipc_log_context_create: Create a debug log context if context does not exist.
  *                         Should not be called from atomic context
  *
  * @max_num_pages: Number of pages of logging space required (max. 10)
@@ -802,10 +802,22 @@ static void *get_deserialization_func(struct ipc_log_context *ilctxt,
 void *ipc_log_context_create(int max_num_pages,
 			     const char *mod_name, uint16_t user_version)
 {
-	struct ipc_log_context *ctxt;
+	struct ipc_log_context *ctxt = NULL, *tmp;
 	struct ipc_log_page *pg = NULL;
 	int page_cnt;
 	unsigned long flags;
+
+	/* check if ipc ctxt already exists */
+	read_lock_irq(&context_list_lock_lha1);
+	list_for_each_entry(tmp, &ipc_log_context_list, list)
+		if (!strcmp(tmp->name, mod_name)) {
+			ctxt = tmp;
+			break;
+		}
+	read_unlock_irq(&context_list_lock_lha1);
+
+	if (ctxt)
+		return ctxt;
 
 	ctxt = kzalloc(sizeof(struct ipc_log_context), GFP_KERNEL);
 	if (!ctxt)

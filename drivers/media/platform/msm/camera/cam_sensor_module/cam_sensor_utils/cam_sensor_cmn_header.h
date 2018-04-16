@@ -208,6 +208,12 @@ enum cci_i2c_master_t {
 	MASTER_MAX,
 };
 
+enum cci_device_num {
+	CCI_DEVICE_0,
+	CCI_DEVICE_1,
+	CCI_DEVICE_MAX,
+};
+
 enum camera_vreg_type {
 	VREG_TYPE_DEFAULT,
 	VREG_TYPE_CUSTOM,

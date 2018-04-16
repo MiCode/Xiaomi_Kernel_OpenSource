@@ -44,7 +44,7 @@ struct level_stats {
 	int64_t max_time[CONFIG_MSM_IDLE_STATS_BUCKET_COUNT];
 	int success_count;
 	int failed_count;
-	int64_t total_time;
+	uint64_t total_time;
 	uint64_t enter_time;
 };
 
@@ -103,7 +103,7 @@ static void level_stats_print(struct seq_file *m, struct level_stats *stats)
 	int i = 0;
 	int64_t bucket_time = 0;
 	char seqs[MAX_STR_LEN] = {0};
-	int64_t s = stats->total_time;
+	uint64_t s = stats->total_time;
 	uint32_t ns = do_div(s, NSEC_PER_SEC);
 
 	snprintf(seqs, MAX_STR_LEN,

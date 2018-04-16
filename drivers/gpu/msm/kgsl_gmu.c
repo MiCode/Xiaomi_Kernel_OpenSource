@@ -619,7 +619,7 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct hfi_gx_bw_perf_vote_cmd req = {
-		.ack_type = DCVS_ACK_NONBLOCK,
+		.ack_type = DCVS_ACK_BLOCK,
 		.freq = INVALID_DCVS_IDX,
 		.bw = INVALID_DCVS_IDX,
 	};
@@ -708,7 +708,7 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	 * zero padding.
 	 */
 	for (arc->num = 1; arc->num < (len >> 1); arc->num++) {
-		if (arc->val[arc->num - 1] >= arc->val[arc->num])
+		if (arc->val[arc->num - 1] != 0 &&  arc->val[arc->num] == 0)
 			break;
 	}
 
@@ -736,7 +736,7 @@ static int setup_volt_dependency_tbl(uint32_t *votes,
 	bool found_match;
 
 	/* i tracks current KGSL GPU frequency table entry
-	 * j tracks second rail voltage table entry
+	 * j tracks secondary rail voltage table entry
 	 * k tracks primary rail voltage table entry
 	 */
 	for (i = 0; i < num_entries; i++) {
@@ -744,8 +744,8 @@ static int setup_volt_dependency_tbl(uint32_t *votes,
 
 		/* Look for a primary rail voltage that matches a VLVL level */
 		for (k = 0; k < pri_rail->num; k++) {
-			if (pri_rail->val[k] == vlvl[i]) {
-				cur_vlvl = vlvl[i];
+			if (pri_rail->val[k] >= vlvl[i]) {
+				cur_vlvl = pri_rail->val[k];
 				found_match = true;
 				break;
 			}
@@ -769,7 +769,7 @@ static int setup_volt_dependency_tbl(uint32_t *votes,
 		if (j == sec_rail->num)
 			j = 0;
 
-		votes[i] = ARC_VOTE_SET(k, j, vlvl[i]);
+		votes[i] = ARC_VOTE_SET(k, j, cur_vlvl);
 	}
 
 	return 0;
@@ -1707,11 +1707,11 @@ int gmu_start(struct kgsl_device *device)
 		gmu_irq_enable(device);
 
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
-				GMU_WARM_BOOT, 0);
+				GMU_COLD_BOOT, 0);
 		if (ret)
 			goto error_gmu;
 
-		ret = hfi_start(gmu, GMU_WARM_BOOT);
+		ret = hfi_start(gmu, GMU_COLD_BOOT);
 		if (ret)
 			goto error_gmu;
 
@@ -1748,7 +1748,7 @@ int gmu_start(struct kgsl_device *device)
 			if (ret)
 				goto error_gmu;
 
-			ret = hfi_start(gmu, GMU_WARM_BOOT);
+			ret = hfi_start(gmu, GMU_COLD_BOOT);
 			if (ret)
 				goto error_gmu;
 		}

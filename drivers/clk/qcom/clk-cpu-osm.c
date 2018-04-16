@@ -31,7 +31,7 @@
 #include <linux/sched.h>
 #include <linux/cpufreq.h>
 #include <linux/slab.h>
-#include <dt-bindings/clock/qcom,cpucc-sdm855.h>
+#include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 
 #include "common.h"
 #include "clk-regmap.h"

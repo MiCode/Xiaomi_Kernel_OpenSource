@@ -286,6 +286,12 @@ Image sensor node contains properties of camera image sensor
 	for the device for the cci operating in
 	compatible mode.
 
+- cci-device
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c device id to be used for this camera
+	sensor
+
 - cci-master
   Usage: required
   Value type: <u32>
@@ -568,6 +574,12 @@ ACTUATOR MODULE
 	for the device for the cci operating in
 	compatible mode.
 
+- cci-device
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c device id to be used for this camera
+	sensor
+
 - cci-master
   Usage: required
   Value type: <u32>
@@ -632,6 +644,12 @@ OIS MODULE
   Definition: offset and length of the register set
 	for the device for the cci operating in
 	compatible mode.
+
+- cci-device
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c device id to be used for this camera
+	sensor
 
 - cci-master
   Usage: required
@@ -700,6 +718,7 @@ Example:
          cell-index = <0>;
          reg = <0x0>;
          compatible = "qcom,actuator";
+         cci-device = <0>;
          cci-master = <0>;
          cam_vaf-supply = <&pmi8998_bob>;
          regulator-names = "cam_vaf";
@@ -713,6 +732,7 @@ Example:
          cell-index = <0>;
          reg = <0x0>;
          compatible = "qcom,ois";
+         cci-device = <0>;
          cci-master = <0>;
          cam_vaf-supply = <&pmi8998_bob>;
          regulator-names = "cam_vaf";
@@ -770,6 +790,7 @@ Example:
                          "CAM_VANA";
          sensor-position = <0>;
          sensor-mode = <0>;
+         cci-device = <0>;
          cci-master = <0>;
          status = "ok";
          use-shared-clk;

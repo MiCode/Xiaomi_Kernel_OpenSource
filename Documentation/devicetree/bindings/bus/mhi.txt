@@ -50,6 +50,11 @@ Main node properties:
 		notifications.
 		BIT(1) : Offload channel, MHI host only involved in setting up
 		the data pipe. Not involved in active data transfer.
+		BIT(2) : Must switch to doorbell mode whenever MHI M0 state
+		transition happens.
+		BIT(3) : MHI bus driver pre-allocate buffer for this channel.
+		If set, clients not allowed to queue buffers. Valid only for DL
+		direction.
 
 - mhi,chan-names
   Usage: required
@@ -133,4 +138,40 @@ mhi_controller {
 		mhi,chan = "LOOPBACK"
 		<driver specific properties>
 	};
+};
+
+================
+Children Devices
+================
+
+MHI netdev properties
+
+- mhi,chan
+  Usage: required
+  Value type: <string>
+  Definition: Channel name MHI netdev support
+
+- mhi,mru
+  Usage: required
+  Value type: <u32>
+  Definition: Largest packet size interface can receive in bytes.
+
+- mhi,interface-name
+  Usage: optional
+  Value type: <string>
+  Definition: Interface name to be given so clients can identify it
+
+- mhi,recycle-buf
+  Usage: optional
+  Value type: <bool>
+  Definition: Set true if interface support recycling buffers.
+
+========
+Example:
+========
+
+mhi_rmnet@0 {
+	mhi,chan = "IP_HW0";
+	mhi,interface-name = "rmnet_mhi";
+	mhi,mru = <0x4000>;
 };

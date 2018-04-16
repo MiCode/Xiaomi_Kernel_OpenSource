@@ -253,110 +253,49 @@ static const struct kgsl_hwcg_reg a615_hwcg_regs[] = {
 };
 
 static const struct kgsl_hwcg_reg a640_hwcg_regs[] = {
-	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_SP1, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_SP2, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_SP3, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
 	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A6XX_RBBM_CLOCK_CNTL2_SP1, 0x02222220},
-	{A6XX_RBBM_CLOCK_CNTL2_SP2, 0x02222220},
-	{A6XX_RBBM_CLOCK_CNTL2_SP3, 0x02222220},
-	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x0000F3CF},
-	{A6XX_RBBM_CLOCK_DELAY_SP1, 0x0000F3CF},
-	{A6XX_RBBM_CLOCK_DELAY_SP2, 0x0000F3CF},
-	{A6XX_RBBM_CLOCK_DELAY_SP3, 0x0000F3CF},
-	{A6XX_RBBM_CLOCK_HYST_SP0, 0x00000081},
-	{A6XX_RBBM_CLOCK_HYST_SP1, 0x00000081},
-	{A6XX_RBBM_CLOCK_HYST_SP2, 0x00000081},
-	{A6XX_RBBM_CLOCK_HYST_SP3, 0x00000081},
-	{A6XX_RBBM_CLOCK_CNTL_TP0, 0x02222222},
-	{A6XX_RBBM_CLOCK_CNTL_TP1, 0x02222222},
-	{A6XX_RBBM_CLOCK_CNTL_TP2, 0x02222222},
-	{A6XX_RBBM_CLOCK_CNTL_TP3, 0x02222222},
+	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x00000080},
+	{A6XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
+	{A6XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL2_TP1, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL2_TP2, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL2_TP3, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL3_TP0, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL3_TP1, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL3_TP2, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL3_TP3, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL4_TP0, 0x00022222},
-	{A6XX_RBBM_CLOCK_CNTL4_TP1, 0x00022222},
-	{A6XX_RBBM_CLOCK_CNTL4_TP2, 0x00022222},
-	{A6XX_RBBM_CLOCK_CNTL4_TP3, 0x00022222},
-	{A6XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST_TP1, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST_TP2, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST_TP3, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST2_TP1, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST2_TP2, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST2_TP3, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST3_TP0, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST3_TP1, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST3_TP2, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST3_TP3, 0x77777777},
-	{A6XX_RBBM_CLOCK_HYST4_TP0, 0x00077777},
-	{A6XX_RBBM_CLOCK_HYST4_TP1, 0x00077777},
-	{A6XX_RBBM_CLOCK_HYST4_TP2, 0x00077777},
-	{A6XX_RBBM_CLOCK_HYST4_TP3, 0x00077777},
 	{A6XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY_TP1, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY_TP2, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY_TP3, 0x11111111},
 	{A6XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY2_TP1, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY2_TP2, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY2_TP3, 0x11111111},
 	{A6XX_RBBM_CLOCK_DELAY3_TP0, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY3_TP1, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY3_TP2, 0x11111111},
-	{A6XX_RBBM_CLOCK_DELAY3_TP3, 0x11111111},
 	{A6XX_RBBM_CLOCK_DELAY4_TP0, 0x00011111},
-	{A6XX_RBBM_CLOCK_DELAY4_TP1, 0x00011111},
-	{A6XX_RBBM_CLOCK_DELAY4_TP2, 0x00011111},
-	{A6XX_RBBM_CLOCK_DELAY4_TP3, 0x00011111},
-	{A6XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
-	{A6XX_RBBM_CLOCK_HYST_UCHE, 0x00000004},
-	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
+	{A6XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST4_TP0, 0x00077777},
 	{A6XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_RB1, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_RB2, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL_RB3, 0x22222222},
-	{A6XX_RBBM_CLOCK_CNTL2_RB0, 0x01202222},
-	{A6XX_RBBM_CLOCK_CNTL2_RB1, 0x01202222},
-	{A6XX_RBBM_CLOCK_CNTL2_RB2, 0x01202222},
-	{A6XX_RBBM_CLOCK_CNTL2_RB3, 0x01202222},
+	{A6XX_RBBM_CLOCK_CNTL2_RB0, 0x01002222},
 	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002220},
-	{A6XX_RBBM_CLOCK_CNTL_CCU1, 0x00002220},
-	{A6XX_RBBM_CLOCK_CNTL_CCU2, 0x00002220},
-	{A6XX_RBBM_CLOCK_CNTL_CCU3, 0x00002220},
 	{A6XX_RBBM_CLOCK_HYST_RB_CCU0, 0x00040F00},
-	{A6XX_RBBM_CLOCK_HYST_RB_CCU1, 0x00040F00},
-	{A6XX_RBBM_CLOCK_HYST_RB_CCU2, 0x00040F00},
-	{A6XX_RBBM_CLOCK_HYST_RB_CCU3, 0x00040F00},
-	{A6XX_RBBM_CLOCK_CNTL_RAC, 0x05522022},
+	{A6XX_RBBM_CLOCK_CNTL_RAC, 0x05222022},
 	{A6XX_RBBM_CLOCK_CNTL2_RAC, 0x00005555},
 	{A6XX_RBBM_CLOCK_DELAY_RAC, 0x00000011},
 	{A6XX_RBBM_CLOCK_HYST_RAC, 0x00445044},
 	{A6XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
 	{A6XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
-	{A6XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
-	{A6XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
-	{A6XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
+	{A6XX_RBBM_CLOCK_MODE_GPC, 0x00222222},
 	{A6XX_RBBM_CLOCK_DELAY_HLSQ_2, 0x00000002},
 	{A6XX_RBBM_CLOCK_MODE_HLSQ, 0x00002222},
+	{A6XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
 	{A6XX_RBBM_CLOCK_DELAY_VFD, 0x00002222},
 	{A6XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
 	{A6XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
 	{A6XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
 	{A6XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
 	{A6XX_RBBM_CLOCK_HYST_HLSQ, 0x00000000},
-	{A6XX_RBBM_CLOCK_CNTL, 0xAAA8AA82},
+	{A6XX_RBBM_CLOCK_CNTL_TEX_FCHE, 0x00000222},
+	{A6XX_RBBM_CLOCK_DELAY_TEX_FCHE, 0x00000111},
+	{A6XX_RBBM_CLOCK_HYST_TEX_FCHE, 0x00000777},
+	{A6XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_HYST_UCHE, 0x00000004},
+	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
 	{A6XX_RBBM_ISDB_CNT, 0x00000182},
 	{A6XX_RBBM_RAC_THRESHOLD_CNT, 0x00000000},
 	{A6XX_RBBM_SP_HYST_CNT, 0x00000000},
@@ -628,6 +567,8 @@ __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a615(adreno_dev))
 		return 0x8AA8AA82;
+	else if (adreno_is_a640(adreno_dev))
+		return 0x8AA8AA82;
 	else
 		return 0x8AA8AA02;
 }
@@ -637,8 +578,10 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a615(adreno_dev))
 		return 0x00000222;
+	else if (adreno_is_a640(adreno_dev))
+		return 0x00020202;
 	else
-		return 0x00020222;
+		return 0x00020202;
 }
 
 static inline unsigned int
@@ -646,6 +589,8 @@ __get_gmu_ao_cgc_delay_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a615(adreno_dev))
 		return 0x00000111;
+	else if (adreno_is_a640(adreno_dev))
+		return 0x00010111;
 	else
 		return 0x00010111;
 }
@@ -655,6 +600,8 @@ __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a615(adreno_dev))
 		return 0x00000555;
+	else if (adreno_is_a640(adreno_dev))
+		return 0x00005555;
 	else
 		return 0x00005555;
 }
@@ -854,8 +801,11 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Setting the mem pool size */
 	kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 128);
 
-	/* Setting the primFifo thresholds default values */
-	kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
+	/* Setting the primFifo thresholds values */
+	if (adreno_is_a640(adreno_dev))
+		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x400 << 11));
+	else
+		kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
 
 	/* Set the AHB default slave response to "ERROR" */
 	kgsl_regwrite(device, A6XX_CP_AHB_CNTL, 0x1);
@@ -925,13 +875,14 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
 			0x1);
 
+	a6xx_protect_init(adreno_dev);
+
 	if (!patch_reglist && (adreno_dev->pwrup_reglist.gpuaddr != 0)) {
 		a6xx_patch_pwrup_reglist(adreno_dev);
 		patch_reglist = true;
 	}
 
 	a6xx_preemption_start(adreno_dev);
-	a6xx_protect_init(adreno_dev);
 
 	/*
 	 * We start LM here because we want all the following to be up
@@ -980,6 +931,7 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	uint64_t gpuaddr;
+	void *zap;
 	int ret = 0;
 
 	gpuaddr = fw->memdesc.gpuaddr;
@@ -987,6 +939,19 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
 				upper_32_bits(gpuaddr));
+
+	/* Load the zap shader firmware through PIL if its available */
+	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
+		zap = subsystem_get(adreno_dev->gpucore->zap_name);
+
+		/* Return error if the zap shader cannot be loaded */
+		if (IS_ERR_OR_NULL(zap)) {
+			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
+			zap = NULL;
+		} else
+			adreno_dev->zap_loaded = 1;
+	}
+
 	return ret;
 }
 
@@ -1278,7 +1243,8 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	}
 
 	ret = kgsl_allocate_global(device, &firmware->memdesc, fw->size - 4,
-				KGSL_MEMFLAGS_GPUREADONLY, 0, "ucode");
+				KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_UCODE,
+				"ucode");
 
 	if (!ret) {
 		memcpy(firmware->memdesc.hostptr, &fw->data[4], fw->size - 4);
@@ -1516,6 +1482,7 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 
+	kgsl_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG, 0x0);
 	/* Write 1 first to make sure the GMU is reset */
 	kgsl_gmu_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
 
@@ -2308,8 +2275,6 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 	return _load_gmu_firmware(device);
 }
 
-#define GBIF_CX_HALT_MASK BIT(1)
-
 static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -2349,12 +2314,8 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	if (!vbif_acked)
 		return -ETIMEDOUT;
 
-	/*
-	 * GBIF GX halt will be released automatically by sw_reset.
-	 * Release GBIF CX halt after sw_reset
-	 */
-	if (adreno_has_gbif(adreno_dev))
-		kgsl_regrmw(device, A6XX_GBIF_HALT, GBIF_CX_HALT_MASK, 0);
+	/* Clear GBIF client halt and CX arbiter halt */
+	adreno_deassert_gbif_halt(adreno_dev);
 
 	a6xx_sptprac_enable(adreno_dev);
 
@@ -3788,8 +3749,8 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 			KGSL_PERFCOUNTER_GROUP_VBIF_PWR].reg_count
 				= ARRAY_SIZE(a6xx_perfcounters_gbif_pwr);
 
-		gpudev->vbif_xin_halt_ctrl0_mask =
-				A6XX_GBIF_HALT_MASK;
+		gpudev->gbif_client_halt_mask = A6XX_GBIF_CLIENT_HALT_MASK;
+		gpudev->gbif_arb_halt_mask = A6XX_GBIF_ARB_HALT_MASK;
 	} else
 		gpudev->vbif_xin_halt_ctrl0_mask =
 				A6XX_VBIF_XIN_HALT_CTRL0_MASK;

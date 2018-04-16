@@ -225,6 +225,9 @@ static int tsens2xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 	if (!tmdev)
 		return -EINVAL;
 
+	pr_debug("%s:low_temp(mdegC):%d, high_temp(mdegC):%d\n", __func__,
+							low_temp, high_temp);
+
 	spin_lock_irqsave(&tmdev->tsens_upp_low_lock, flags);
 
 	if (high_temp != INT_MAX) {
@@ -429,10 +432,6 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 			int_mask = readl_relaxed(sensor_int_mask_addr);
 			int_mask_val = TSENS_TM_UPPER_INT_SET(
 					tm->sensor[i].hw_id);
-			/* Mask the corresponding interrupt for the sensors */
-			writel_relaxed(int_mask | int_mask_val,
-				TSENS_TM_UPPER_LOWER_INT_MASK(
-					tm->tsens_tm_addr));
 			/* Clear the corresponding sensors interrupt */
 			writel_relaxed(int_mask_val,
 				TSENS_TM_UPPER_LOWER_INT_CLEAR(
@@ -461,10 +460,6 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 				(1 << tm->sensor[i].hw_id))) {
 			int_mask = readl_relaxed(sensor_int_mask_addr);
 			int_mask_val = (1 << tm->sensor[i].hw_id);
-			/* Mask the corresponding interrupt for the sensors */
-			writel_relaxed(int_mask | int_mask_val,
-				TSENS_TM_UPPER_LOWER_INT_MASK(
-					tm->tsens_tm_addr));
 			/* Clear the corresponding sensors interrupt */
 			writel_relaxed(int_mask_val,
 				TSENS_TM_UPPER_LOWER_INT_CLEAR(
@@ -493,6 +488,7 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 			/* Use id for multiple controllers */
 			pr_debug("sensor:%d trigger temp (%d degC)\n",
 				tm->sensor[i].hw_id, temp);
+			of_thermal_handle_trip(tm->sensor[i].tzd);
 		}
 	}
 

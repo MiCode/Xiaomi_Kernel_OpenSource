@@ -22,6 +22,7 @@
 #include "ipahal/ipahal_fltrt.h"
 
 #define IPA_WAN_AGGR_PKT_CNT 5
+#define IPA_WAN_NAPI_MAX_FRAMES (NAPI_WEIGHT / IPA_WAN_AGGR_PKT_CNT)
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
 #define POLLING_MIN_SLEEP_RX 1010
@@ -70,7 +71,7 @@
 #define IPA_GSI_CH_20_WA_VIRT_CHAN 29
 
 #define IPA_DEFAULT_SYS_YELLOW_WM 32
-#define IPA_REPL_XFER_THRESH 10
+#define IPA_REPL_XFER_THRESH 20
 
 #define IPA_TX_SEND_COMPL_NOP_DELAY_NS (2 * 1000 * 1000)
 
@@ -85,6 +86,8 @@ static void ipa3_replenish_rx_work_func(struct work_struct *work);
 static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_wq_handle_rx(struct work_struct *work);
 static void ipa3_wq_rx_common(struct ipa3_sys_context *sys, u32 size);
+static void ipa3_wq_rx_napi_chain(struct ipa3_sys_context *sys,
+		struct ipa_mem_buffer *mem_info, uint32_t num);
 static void ipa3_wlan_wq_rx_common(struct ipa3_sys_context *sys,
 				u32 size);
 static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
@@ -103,6 +106,8 @@ static int ipa_populate_tag_field(struct ipa3_desc *desc,
 		struct ipahal_imm_cmd_pyld **tag_pyld_ret);
 static int ipa_poll_gsi_pkt(struct ipa3_sys_context *sys,
 	struct ipa_mem_buffer *mem_info);
+static int ipa_poll_gsi_n_pkt(struct ipa3_sys_context *sys,
+	struct ipa_mem_buffer *mem_info, int expected_num, int *actual_num);
 static unsigned long tag_to_pointer_wa(uint64_t tag);
 static uint64_t pointer_to_tag_wa(struct ipa3_tx_pkt_wrapper *tx_pkt);
 
@@ -243,7 +248,7 @@ static void ipa3_send_nop_desc(struct work_struct *work)
 		queue_work(sys->wq, &sys->work);
 		return;
 	}
-	sys->len_pending_xfer = 0;
+
 	/* make sure TAG process is sent before clocks are gated */
 	ipa3_ctx->tag_process_before_gating = true;
 
@@ -314,10 +319,12 @@ int ipa3_send(struct ipa3_sys_context *sys,
 
 	for (i = 0; i < num_desc; i++) {
 		tx_pkt = kmem_cache_zalloc(ipa3_ctx->tx_pkt_wrapper_cache,
-					   mem_flag);
-		if (!tx_pkt)
+					   GFP_ATOMIC);
+		if (!tx_pkt) {
+			IPAERR("failed to alloc tx wrapper\n");
+			result = -ENOMEM;
 			goto failure;
-
+		}
 		INIT_LIST_HEAD(&tx_pkt->link);
 
 		if (i == 0) {
@@ -331,6 +338,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 			if (ipa_populate_tag_field(&desc[i], tx_pkt,
 				&tag_pyld_ret)) {
 				IPAERR("Failed to populate tag field\n");
+				result = -EFAULT;
 				goto failure_dma_map;
 			}
 		}
@@ -370,6 +378,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		}
 		if (dma_mapping_error(ipa3_ctx->pdev, tx_pkt->mem.phys_base)) {
 			IPAERR("failed to do dma map.\n");
+			result = -EFAULT;
 			goto failure_dma_map;
 		}
 
@@ -416,6 +425,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 			gsi_xfer, true);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("GSI xfer failed.\n");
+		result = -EFAULT;
 		goto failure;
 	}
 
@@ -467,7 +477,7 @@ failure:
 	}
 
 	spin_unlock_bh(&sys->spinlock);
-	return -EFAULT;
+	return result;
 }
 
 /**
@@ -784,7 +794,7 @@ static void ipa3_handle_rx(struct ipa3_sys_context *sys)
 		 * completed descs; release the worker so delayed work can
 		 * run in a timely manner
 		 */
-		if (sys->len - sys->len_pending_xfer == 0)
+		if (sys->len == 0)
 			break;
 
 	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
@@ -1728,11 +1738,17 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 	void *ptr;
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
 	int ret;
+	int idx = 0;
 	int rx_len_cached = 0;
-	struct gsi_xfer_elem gsi_xfer_elem_one;
+	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_THRESH];
 	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
 
 	rx_len_cached = sys->len;
+
+	/* start replenish only when buffers go lower than the threshold */
+	if (sys->rx_pool_sz - sys->len < IPA_REPL_XFER_THRESH)
+		return;
+
 
 	while (rx_len_cached < sys->rx_pool_sz) {
 		rx_pkt = kmem_cache_zalloc(ipa3_ctx->rx_pkt_wrapper_cache,
@@ -1760,49 +1776,53 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 		}
 
 		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
-		rx_len_cached = ++sys->len;
-
-		memset(&gsi_xfer_elem_one, 0,
-			sizeof(gsi_xfer_elem_one));
-		gsi_xfer_elem_one.addr = rx_pkt->data.dma_addr;
-		gsi_xfer_elem_one.len = sys->rx_buff_sz;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
-		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
-		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
-
-		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl,
-				1, &gsi_xfer_elem_one, false);
-		if (ret != GSI_STATUS_SUCCESS) {
-			IPAERR("failed to provide buffer: %d\n",
-				ret);
-			goto fail_provide_rx_buffer;
-		}
-
+		gsi_xfer_elem_array[idx].addr = rx_pkt->data.dma_addr;
+		gsi_xfer_elem_array[idx].len = sys->rx_buff_sz;
+		gsi_xfer_elem_array[idx].flags = GSI_XFER_FLAG_EOT;
+		gsi_xfer_elem_array[idx].flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_array[idx].flags |= GSI_XFER_FLAG_BEI;
+		gsi_xfer_elem_array[idx].type = GSI_XFER_ELEM_DATA;
+		gsi_xfer_elem_array[idx].xfer_user_data = rx_pkt;
+		idx++;
+		rx_len_cached++;
 		/*
-		 * As doorbell is a costly operation, notify to GSI
-		 * of new buffers if threshold is exceeded
+		 * gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_THRESH.
+		 * If this size is reached we need to queue the xfers.
 		 */
-		if (++sys->len_pending_xfer >= IPA_REPL_XFER_THRESH) {
-			sys->len_pending_xfer = 0;
-			gsi_start_xfer(sys->ep->gsi_chan_hdl);
+		if (idx == IPA_REPL_XFER_THRESH) {
+			ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+				gsi_xfer_elem_array, true);
+			if (ret == GSI_STATUS_SUCCESS) {
+				sys->len = rx_len_cached;
+			} else {
+				/* we don't expect this will happen */
+				IPAERR("failed to provide buffer: %d\n", ret);
+				WARN_ON(1);
+				break;
+			}
+			idx = 0;
 		}
 	}
-
+	if (idx) {
+		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+			gsi_xfer_elem_array, true);
+		if (ret == GSI_STATUS_SUCCESS) {
+			sys->len = rx_len_cached;
+		} else {
+			/* we don't expect this will happen */
+			IPAERR("failed to provide buffer: %d\n", ret);
+			WARN_ON(1);
+		}
+		idx = 0;
+	}
 	return;
 
-fail_provide_rx_buffer:
-	list_del(&rx_pkt->link);
-	rx_len_cached = --sys->len;
-	dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
-			sys->rx_buff_sz, DMA_FROM_DEVICE);
 fail_dma_mapping:
 	sys->free_skb(rx_pkt->data.skb);
 fail_skb_alloc:
 	kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
 fail_kmem_cache_alloc:
-	if (rx_len_cached - sys->len_pending_xfer == 0)
+	if (rx_len_cached == 0)
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
 				msecs_to_jiffies(1));
 }
@@ -1812,9 +1832,14 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 	void *ptr;
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
 	int ret;
+	int idx = 0;
 	int rx_len_cached = 0;
-	struct gsi_xfer_elem gsi_xfer_elem_one;
+	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_THRESH];
 	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
+
+	/* start replenish only when buffers go lower than the threshold */
+	if (sys->rx_pool_sz - sys->len < IPA_REPL_XFER_THRESH)
+		return;
 
 	rx_len_cached = sys->len;
 
@@ -1864,49 +1889,53 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 		}
 
 		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
-		rx_len_cached = ++sys->len;
-		memset(&gsi_xfer_elem_one, 0,
-			sizeof(gsi_xfer_elem_one));
-		gsi_xfer_elem_one.addr = rx_pkt->data.dma_addr;
-		gsi_xfer_elem_one.len = sys->rx_buff_sz;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
-		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
-		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
-
-		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl,
-				1, &gsi_xfer_elem_one, false);
-		if (ret != GSI_STATUS_SUCCESS) {
-			IPAERR("failed to provide buffer: %d\n",
-				ret);
-			goto fail_provide_rx_buffer;
-		}
-
+		gsi_xfer_elem_array[idx].addr = rx_pkt->data.dma_addr;
+		gsi_xfer_elem_array[idx].len = sys->rx_buff_sz;
+		gsi_xfer_elem_array[idx].flags = GSI_XFER_FLAG_EOT;
+		gsi_xfer_elem_array[idx].flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_array[idx].flags |= GSI_XFER_FLAG_BEI;
+		gsi_xfer_elem_array[idx].type = GSI_XFER_ELEM_DATA;
+		gsi_xfer_elem_array[idx].xfer_user_data = rx_pkt;
+		idx++;
+		rx_len_cached++;
 		/*
-		 * As doorbell is a costly operation, notify to GSI
-		 * of new buffers if threshold is exceeded
-		 */
-		if (++sys->len_pending_xfer >= IPA_REPL_XFER_THRESH) {
-			sys->len_pending_xfer = 0;
-			gsi_start_xfer(sys->ep->gsi_chan_hdl);
+		* gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_THRESH.
+		* If this size is reached we need to queue the xfers.
+		*/
+		if (idx == IPA_REPL_XFER_THRESH) {
+			ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+				gsi_xfer_elem_array, true);
+			if (ret == GSI_STATUS_SUCCESS) {
+				sys->len = rx_len_cached;
+			} else {
+				/* we don't expect this will happen */
+				IPAERR("failed to provide buffer: %d\n", ret);
+				WARN_ON(1);
+				break;
+			}
+			idx = 0;
 		}
 	}
-
+	if (idx) {
+		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+			gsi_xfer_elem_array, true);
+		if (ret == GSI_STATUS_SUCCESS) {
+			sys->len = rx_len_cached;
+		} else {
+			/* we don't expect this will happen */
+			IPAERR("failed to provide buffer: %d\n", ret);
+			WARN_ON(1);
+		}
+		idx = 0;
+	}
 	return;
-fail_provide_rx_buffer:
-	rx_len_cached = --sys->len;
-	list_del(&rx_pkt->link);
-	INIT_LIST_HEAD(&rx_pkt->link);
-	dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
-		sys->rx_buff_sz, DMA_FROM_DEVICE);
 fail_dma_mapping:
 	spin_lock_bh(&sys->spinlock);
 	list_add_tail(&rx_pkt->link, &sys->rcycl_list);
 	INIT_LIST_HEAD(&rx_pkt->link);
 	spin_unlock_bh(&sys->spinlock);
 fail_kmem_cache_alloc:
-	if (rx_len_cached - sys->len_pending_xfer == 0)
+	if (rx_len_cached == 0)
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
 		msecs_to_jiffies(1));
 }
@@ -1933,60 +1962,74 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
 	int ret;
 	int rx_len_cached = 0;
-	struct gsi_xfer_elem gsi_xfer_elem_one;
+	struct gsi_xfer_elem gsi_xfer_elem_array[IPA_REPL_XFER_THRESH];
 	u32 curr;
+	int idx = 0;
+
+	/* start replenish only when buffers go lower than the threshold */
+	if (sys->rx_pool_sz - sys->len < IPA_REPL_XFER_THRESH)
+		return;
 
 	spin_lock_bh(&sys->spinlock);
-
 	rx_len_cached = sys->len;
 	curr = atomic_read(&sys->repl.head_idx);
 
 	while (rx_len_cached < sys->rx_pool_sz) {
 		if (curr == atomic_read(&sys->repl.tail_idx))
 			break;
-
 		rx_pkt = sys->repl.cache[curr];
 		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
-
-		memset(&gsi_xfer_elem_one, 0,
-			sizeof(gsi_xfer_elem_one));
-		gsi_xfer_elem_one.addr = rx_pkt->data.dma_addr;
-		gsi_xfer_elem_one.len = sys->rx_buff_sz;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
-		gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_BEI;
-		gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
-		gsi_xfer_elem_one.xfer_user_data = rx_pkt;
-
-		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, 1,
-			&gsi_xfer_elem_one, false);
-		if (ret != GSI_STATUS_SUCCESS) {
-			IPAERR("failed to provide buffer: %d\n",
-				ret);
-			break;
-		}
-
+		gsi_xfer_elem_array[idx].addr = rx_pkt->data.dma_addr;
+		gsi_xfer_elem_array[idx].len = sys->rx_buff_sz;
+		gsi_xfer_elem_array[idx].flags = GSI_XFER_FLAG_EOT;
+		gsi_xfer_elem_array[idx].flags |= GSI_XFER_FLAG_EOB;
+		gsi_xfer_elem_array[idx].flags |= GSI_XFER_FLAG_BEI;
+		gsi_xfer_elem_array[idx].type = GSI_XFER_ELEM_DATA;
+		gsi_xfer_elem_array[idx].xfer_user_data = rx_pkt;
+		rx_len_cached++;
+		curr = (++curr == sys->repl.capacity) ? 0 : curr;
+		idx++;
 		/*
-		 * As doorbell is a costly operation, notify to GSI
-		 * of new buffers if threshold is exceeded
+		 * gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_THRESH.
+		 * If this size is reached we need to queue the xfers.
 		 */
-		if (++sys->len_pending_xfer >= IPA_REPL_XFER_THRESH) {
-			sys->len_pending_xfer = 0;
-			gsi_start_xfer(sys->ep->gsi_chan_hdl);
+		if (idx == IPA_REPL_XFER_THRESH) {
+			ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+				gsi_xfer_elem_array, true);
+			if (ret == GSI_STATUS_SUCCESS) {
+				/* ensure write is done before setting head */
+				mb();
+				atomic_set(&sys->repl.head_idx, curr);
+				sys->len = rx_len_cached;
+			} else {
+				/* we don't expect this will happen */
+				IPAERR("failed to provide buffer: %d\n", ret);
+				WARN_ON(1);
+				break;
+			}
+			idx = 0;
 		}
-
-		rx_len_cached = ++sys->len;
-		curr = (curr + 1) % sys->repl.capacity;
-		/* ensure write is done before setting head index */
-		mb();
-		atomic_set(&sys->repl.head_idx, curr);
+	}
+	/* There can still be something left which has not been xfer yet */
+	if (idx) {
+		ret = gsi_queue_xfer(sys->ep->gsi_chan_hdl, idx,
+				gsi_xfer_elem_array, true);
+		if (ret == GSI_STATUS_SUCCESS) {
+			/* ensure write is done before setting head index */
+			mb();
+			atomic_set(&sys->repl.head_idx, curr);
+			sys->len = rx_len_cached;
+		} else {
+			/* we don't expect this will happen */
+			IPAERR("failed to provide buffer: %d\n", ret);
+			WARN_ON(1);
+		}
 	}
 	spin_unlock_bh(&sys->spinlock);
 
 	__trigger_repl_work(sys);
 
-	if (rx_len_cached - sys->len_pending_xfer
-		<= IPA_DEFAULT_SYS_YELLOW_WM) {
+	if (rx_len_cached <= IPA_DEFAULT_SYS_YELLOW_WM) {
 		if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
 			IPA_STATS_INC_CNT(ipa3_ctx->stats.wan_rx_empty);
 		else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
@@ -2685,6 +2728,49 @@ static void ipa3_wq_rx_common(struct ipa3_sys_context *sys, u32 size)
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
 	sys->pyld_hdlr(rx_skb, sys);
 	sys->free_rx_wrapper(rx_pkt_expected);
+	sys->repl_hdlr(sys);
+}
+
+static void ipa3_wq_rx_napi_chain(struct ipa3_sys_context *sys,
+		struct ipa_mem_buffer *mem_info, uint32_t num)
+{
+	struct ipa3_rx_pkt_wrapper *rx_pkt_expected;
+	struct sk_buff *rx_skb, *first_skb = NULL, *prev_skb = NULL;
+	int i;
+
+	if (unlikely(list_empty(&sys->head_desc_list)) || !mem_info || !num) {
+		WARN_ON(1);
+		return;
+	}
+
+	for (i = 0; i < num; i++) {
+		spin_lock_bh(&sys->spinlock);
+		rx_pkt_expected = list_first_entry(&sys->head_desc_list,
+						   struct ipa3_rx_pkt_wrapper,
+						   link);
+		list_del(&rx_pkt_expected->link);
+		sys->len--;
+		if (mem_info[i].size)
+			rx_pkt_expected->len = mem_info[i].size;
+		spin_unlock_bh(&sys->spinlock);
+		rx_skb = rx_pkt_expected->data.skb;
+		dma_unmap_single(ipa3_ctx->pdev, rx_pkt_expected->data.dma_addr,
+				sys->rx_buff_sz, DMA_FROM_DEVICE);
+		skb_set_tail_pointer(rx_skb, rx_pkt_expected->len);
+		rx_skb->len = rx_pkt_expected->len;
+
+		if (!first_skb)
+			first_skb = rx_skb;
+
+		if (prev_skb)
+			skb_shinfo(prev_skb)->frag_list = rx_skb;
+
+		prev_skb = rx_skb;
+		sys->free_rx_wrapper(rx_pkt_expected);
+	}
+
+	skb_shinfo(prev_skb)->frag_list = NULL;
+	sys->pyld_hdlr(first_skb, sys);
 	sys->repl_hdlr(sys);
 }
 
@@ -3545,6 +3631,11 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	dma_addr_t dma_addr;
 	dma_addr_t evt_dma_addr;
 	int result;
+	gfp_t mem_flag = GFP_KERNEL;
+
+	if (in->client == IPA_CLIENT_APPS_WAN_CONS ||
+		in->client == IPA_CLIENT_APPS_WAN_PROD)
+		mem_flag = GFP_ATOMIC;
 
 	if (!ep) {
 		IPAERR("EP context is empty\n");
@@ -3582,7 +3673,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_evt_ring_props.ring_base_vaddr =
 			dma_alloc_coherent(ipa3_ctx->pdev,
 			gsi_evt_ring_props.ring_len,
-			&evt_dma_addr, GFP_KERNEL);
+			&evt_dma_addr, mem_flag);
 		if (!gsi_evt_ring_props.ring_base_vaddr) {
 			IPAERR("fail to dma alloc %u bytes\n",
 				gsi_evt_ring_props.ring_len);
@@ -3657,7 +3748,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_channel_props.ring_len = 2 * in->desc_fifo_sz;
 	gsi_channel_props.ring_base_vaddr =
 		dma_alloc_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
-			&dma_addr, GFP_KERNEL);
+			&dma_addr, mem_flag);
 	if (!gsi_channel_props.ring_base_vaddr) {
 		IPAERR("fail to dma alloc %u bytes\n",
 			gsi_channel_props.ring_len);
@@ -3776,31 +3867,65 @@ static int ipa_populate_tag_field(struct ipa3_desc *desc,
 static int ipa_poll_gsi_pkt(struct ipa3_sys_context *sys,
 		struct ipa_mem_buffer *mem_info)
 {
-	int ret;
-	struct gsi_chan_xfer_notify xfer_notify;
-	struct ipa3_rx_pkt_wrapper *rx_pkt;
+	int unused_var;
 
-	if (sys->ep->bytes_xfered_valid) {
-		mem_info->phys_base = sys->ep->phys_base;
-		mem_info->size = (u32)sys->ep->bytes_xfered;
-		sys->ep->bytes_xfered_valid = false;
-		return GSI_STATUS_SUCCESS;
+	return ipa_poll_gsi_n_pkt(sys, mem_info, 1, &unused_var);
+}
+
+
+static int ipa_poll_gsi_n_pkt(struct ipa3_sys_context *sys,
+		struct ipa_mem_buffer *mem_info,
+		int expected_num, int *actual_num)
+{
+	int ret;
+	int idx = 0;
+	int i;
+	struct gsi_chan_xfer_notify xfer_notify[IPA_WAN_NAPI_MAX_FRAMES];
+	struct ipa3_rx_pkt_wrapper *rx_pkt;
+	int poll_num = 0;
+
+	if (!actual_num || expected_num <= 0 ||
+		expected_num > IPA_WAN_NAPI_MAX_FRAMES) {
+		IPAERR("bad params actual_num=%pK expected_num=%d\n",
+			actual_num, expected_num);
+		return GSI_STATUS_INVALID_PARAMS;
 	}
 
-	ret = gsi_poll_channel(sys->ep->gsi_chan_hdl,
-		&xfer_notify);
-	if (ret == GSI_STATUS_POLL_EMPTY)
-		return ret;
-	else if (ret != GSI_STATUS_SUCCESS) {
+	if (sys->ep->bytes_xfered_valid) {
+		mem_info[idx].phys_base = sys->ep->phys_base;
+		mem_info[idx].size = (u32)sys->ep->bytes_xfered;
+		sys->ep->bytes_xfered_valid = false;
+		idx++;
+	}
+	if (expected_num == idx)
+		return GSI_STATUS_SUCCESS;
+
+	ret = gsi_poll_n_channel(sys->ep->gsi_chan_hdl,
+		xfer_notify, expected_num - idx, &poll_num);
+	if (ret == GSI_STATUS_POLL_EMPTY) {
+		if (idx) {
+			*actual_num = idx;
+			return GSI_STATUS_SUCCESS;
+		} else {
+			return ret;
+		}
+	} else if (ret != GSI_STATUS_SUCCESS) {
+		if (idx) {
+			*actual_num = idx;
+			return GSI_STATUS_SUCCESS;
+		}
+
 		IPAERR("Poll channel err: %d\n", ret);
 		return ret;
 	}
 
-	rx_pkt = (struct ipa3_rx_pkt_wrapper *)
-		xfer_notify.xfer_user_data;
-	mem_info->phys_base = rx_pkt->data.dma_addr;
-	mem_info->size = xfer_notify.bytes_xfered;
-
+	for (i = 0; i < poll_num; i++) {
+		rx_pkt = (struct ipa3_rx_pkt_wrapper *)
+			xfer_notify[i].xfer_user_data;
+		mem_info[i+idx].phys_base = rx_pkt->data.dma_addr;
+		mem_info[i+idx].size = xfer_notify[i].bytes_xfered;
+	}
+	*actual_num = idx + poll_num;
 	return ret;
 }
 
@@ -3818,8 +3943,9 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	struct ipa3_ep_context *ep;
 	int ret;
 	int cnt = 0;
-	struct ipa_mem_buffer mem_info = {0};
-	static int total_cnt;
+	int num = 0;
+	struct ipa_mem_buffer mem_info[IPA_WAN_NAPI_MAX_FRAMES];
+	int remain_aggr_weight;
 	struct ipa_active_client_logging_info log;
 
 	IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log, "NAPI");
@@ -3830,27 +3956,36 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 		return cnt;
 	}
 
+	remain_aggr_weight = weight / IPA_WAN_AGGR_PKT_CNT;
+
+	if (remain_aggr_weight > IPA_WAN_NAPI_MAX_FRAMES) {
+		IPAERR("NAPI weight is higher than expected\n");
+		IPAERR("expected %d got %d\n",
+			IPA_WAN_NAPI_MAX_FRAMES, remain_aggr_weight);
+		return -EINVAL;
+	}
+
 	ep = &ipa3_ctx->ep[clnt_hdl];
-
-	while (cnt < weight &&
-		   atomic_read(&ep->sys->curr_polling_state)) {
-
+	while (remain_aggr_weight > 0 &&
+			atomic_read(&ep->sys->curr_polling_state)) {
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
-		ret = ipa_poll_gsi_pkt(ep->sys, &mem_info);
+		ret = ipa_poll_gsi_n_pkt(ep->sys, mem_info,
+			remain_aggr_weight, &num);
 		if (ret)
 			break;
 
-		ipa3_wq_rx_common(ep->sys, mem_info.size);
-		cnt += IPA_WAN_AGGR_PKT_CNT;
-		total_cnt++;
+		trace_ipa3_rx_poll_num(num);
+		ipa3_wq_rx_napi_chain(ep->sys, mem_info, num);
+		remain_aggr_weight -= num;
 
+		trace_ipa3_rx_poll_cnt(ep->sys->len);
 		if (ep->sys->len == 0) {
-			total_cnt = 0;
-			cnt = cnt-1;
+			if (remain_aggr_weight == 0)
+				cnt--;
 			break;
 		}
-	};
-
+	}
+	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
 	if (cnt < weight) {
 		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
 		ipa3_rx_switch_to_intr_mode(ep->sys);

@@ -31,6 +31,13 @@
 #define IPA_IPV6CT_MAX_NUM_OF_INIT_CMD_DESC 2
 #define IPA_MAX_NUM_OF_TABLE_DMA_CMD_DESC 4
 
+/*
+ * The base table max entries is limited by index into table 13 bits number.
+ * Limit the memory size required by user to prevent kernel memory starvation
+ */
+#define IPA_TABLE_MAX_ENTRIES 8192
+#define MAX_ALLOC_NAT_SIZE(size) (IPA_TABLE_MAX_ENTRIES * size)
+
 enum ipa_nat_ipv6ct_table_type {
 	IPA_NAT_BASE_TBL = 0,
 	IPA_NAT_EXPN_TBL = 1,
@@ -337,10 +344,12 @@ void ipa3_nat_ipv6ct_destroy_devices(void)
 }
 
 static int ipa3_nat_ipv6ct_allocate_mem(struct ipa3_nat_ipv6ct_common_mem *dev,
-	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
+	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc,
+	enum ipahal_nat_type nat_type)
 {
 	gfp_t gfp_flags = GFP_KERNEL | __GFP_ZERO;
 	int result = 0;
+	size_t nat_entry_size;
 
 	IPADBG("passed memory size %zu for %s\n",
 		table_alloc->size, dev->name);
@@ -354,6 +363,15 @@ static int ipa3_nat_ipv6ct_allocate_mem(struct ipa3_nat_ipv6ct_common_mem *dev,
 	if (dev->is_mem_allocated) {
 		IPAERR("Memory already allocated\n");
 		result = 0;
+		goto bail;
+	}
+
+	ipahal_nat_entry_size(nat_type, &nat_entry_size);
+	if (table_alloc->size > MAX_ALLOC_NAT_SIZE(nat_entry_size)) {
+		IPAERR("Trying allocate more size = %zu, Max allowed = %zu\n",
+				table_alloc->size,
+				MAX_ALLOC_NAT_SIZE(nat_entry_size));
+		result = -EPERM;
 		goto bail;
 	}
 
@@ -432,7 +450,8 @@ int ipa3_allocate_nat_table(struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
 
 	mutex_lock(&nat_ctx->dev.lock);
 
-	result = ipa3_nat_ipv6ct_allocate_mem(&nat_ctx->dev, table_alloc);
+	result = ipa3_nat_ipv6ct_allocate_mem(&nat_ctx->dev, table_alloc,
+							IPAHAL_NAT_IPV4);
 	if (result)
 		goto bail;
 
@@ -506,7 +525,7 @@ int ipa3_allocate_ipv6ct_table(
 	mutex_lock(&ipa3_ctx->ipv6ct_mem.dev.lock);
 
 	result = ipa3_nat_ipv6ct_allocate_mem(
-		&ipa3_ctx->ipv6ct_mem.dev, table_alloc);
+		&ipa3_ctx->ipv6ct_mem.dev, table_alloc, IPAHAL_NAT_IPV6CT);
 	if (result)
 		goto bail;
 
