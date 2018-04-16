@@ -1594,11 +1594,16 @@ static int _sde_encoder_update_rsc_client(
 	 * only primary command mode panel can request CMD state.
 	 * all other panels/displays can request for VID state including
 	 * secondary command mode panel.
+	 * Clone mode encoder can request CLK STATE only.
 	 */
-	rsc_state = enable ?
-		(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) &&
-		  disp_info->is_primary) ? SDE_RSC_CMD_STATE :
-		SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
+	if (sde_encoder_in_clone_mode(drm_enc))
+		rsc_state = enable ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE;
+	else
+		rsc_state = enable ?
+			(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE)
+			  && disp_info->is_primary) ? SDE_RSC_CMD_STATE :
+			 SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
+
 	prefill_lines = config ? mode_info.prefill_lines +
 		config->inline_rotate_prefill : mode_info.prefill_lines;
 
@@ -3020,6 +3025,10 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 		SDE_ERROR("invalid pingpong hw\n");
 		return;
 	}
+
+	/* avoid ctrl start for encoder in clone mode */
+	if (phys->in_clone_mode)
+		return;
 
 	ctl = phys->hw_ctl;
 	if (phys->split_role == ENC_ROLE_SKIP) {

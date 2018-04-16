@@ -194,6 +194,15 @@ struct sde_hw_mdp_ops {
 	 * @mdp: mdp top context driver
 	 */
 	void (*intf_audio_select)(struct sde_hw_mdp *mdp);
+
+	/**
+	 * set_cwb_ppb_cntl - select the data point for CWB
+	 * @mdp: mdp top context driver
+	 * @dual: indicates if dual pipe line needs to be programmed
+	 * @dspp_out : true if dspp output required. LM is default tap point
+	 */
+	void (*set_cwb_ppb_cntl)(struct sde_hw_mdp *mdp,
+			bool dual, bool dspp_out);
 };
 
 struct sde_hw_mdp {

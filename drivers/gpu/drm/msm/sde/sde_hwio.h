@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,8 @@
 #define PPB0_CONFIG                     0x334
 #define PPB1_CNTL                       0x338
 #define PPB1_CONFIG                     0x33C
+#define PPB2_CNTL                       0x370
+#define PPB3_CNTL                       0x374
 #define HW_EVENTS_CTL                   0x37C
 #define CLK_CTRL3                       0x3A8
 #define CLK_STATUS3                     0x3AC
