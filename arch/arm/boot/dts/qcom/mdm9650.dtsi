@@ -1123,6 +1123,11 @@
 			qcom,sensor-type = "adc";
 			qcom,sensor-name = "xo_therm";
 		};
+
+		sensor_information8: qcom,sensor-information-8 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "pa_therm2";
+		};
 	};
 
 	mitigation_profile0: qcom,limit_info-0 {
