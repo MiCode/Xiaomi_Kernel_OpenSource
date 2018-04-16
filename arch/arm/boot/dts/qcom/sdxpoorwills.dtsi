@@ -1202,7 +1202,7 @@
 			<&pdc 0 54 4>, <&pdc 0 55 4>,
 			<&pdc 0 56 4>, <&pdc 0 57 4>;
 		interrupt-names = "sbd-intr", "lpi-intr",
-			"wol-intr", "tx-ch0-intr",
+			"phy-intr", "tx-ch0-intr",
 			"tx-ch1-intr", "tx-ch2-intr",
 			"tx-ch3-intr", "tx-ch4-intr",
 			"rx-ch0-intr", "rx-ch1-intr",
