@@ -3474,6 +3474,7 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 		if (udc->udc_driver->notify_event)
 			udc->udc_driver->notify_event(udc,
 				CI13XXX_CONTROLLER_DISCONNECT_EVENT);
+		usb_gadget_set_state(&udc->gadget, USB_STATE_NOTATTACHED);
 	}
 
 	return 0;
