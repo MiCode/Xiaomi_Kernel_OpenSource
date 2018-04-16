@@ -152,8 +152,8 @@ static int cam_jpeg_enc_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_alloc_core;
 	}
-	core_info = (struct cam_jpeg_enc_device_core_info *)jpeg_enc_dev->
-		core_info;
+	core_info = (struct cam_jpeg_enc_device_core_info *)
+		jpeg_enc_dev->core_info;
 
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);

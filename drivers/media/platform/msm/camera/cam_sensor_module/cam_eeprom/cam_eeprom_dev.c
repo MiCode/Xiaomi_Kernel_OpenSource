@@ -69,6 +69,9 @@ int32_t cam_eeprom_update_i2c_info(struct cam_eeprom_ctrl_t *e_ctrl,
 		cci_client->retries = 3;
 		cci_client->id_map = 0;
 		cci_client->i2c_freq_mode = i2c_info->i2c_freq_mode;
+	} else if (e_ctrl->io_master_info.master_type == I2C_MASTER) {
+		e_ctrl->io_master_info.client->addr = i2c_info->slave_addr;
+		CAM_DBG(CAM_EEPROM, "Slave addr: 0x%x", i2c_info->slave_addr);
 	}
 	return 0;
 }
@@ -188,6 +191,9 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 	e_ctrl->io_master_info.master_type = I2C_MASTER;
 	e_ctrl->io_master_info.client = client;
 	e_ctrl->eeprom_device_type = MSM_CAMERA_I2C_DEVICE;
+	e_ctrl->cal_data.mapdata = NULL;
+	e_ctrl->cal_data.map = NULL;
+	e_ctrl->userspace_probe = false;
 
 	rc = cam_eeprom_parse_dt(e_ctrl);
 	if (rc) {
@@ -204,10 +210,6 @@ static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
 	rc = cam_eeprom_init_subdev(e_ctrl);
 	if (rc)
 		goto free_soc;
-
-	e_ctrl->cal_data.mapdata = NULL;
-	e_ctrl->cal_data.map = NULL;
-	e_ctrl->userspace_probe = false;
 
 	if (soc_private->i2c_info.slave_addr != 0)
 		e_ctrl->io_master_info.client->addr =

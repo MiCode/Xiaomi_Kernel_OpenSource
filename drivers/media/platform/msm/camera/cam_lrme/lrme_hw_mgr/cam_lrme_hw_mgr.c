@@ -391,13 +391,14 @@ static int cam_lrme_mgr_util_submit_req(void *priv, void *data)
 	work_data = (struct cam_lrme_mgr_work_data *)data;
 	hw_device = work_data->hw_device;
 
-	rc = cam_lrme_mgr_util_get_frame_req(&hw_device->
-		frame_pending_list_high, &frame_req, &hw_device->high_req_lock);
+	rc = cam_lrme_mgr_util_get_frame_req(
+		&hw_device->frame_pending_list_high, &frame_req,
+		&hw_device->high_req_lock);
 
 	if (!frame_req) {
-		rc = cam_lrme_mgr_util_get_frame_req(&hw_device->
-				frame_pending_list_normal, &frame_req,
-				&hw_device->normal_req_lock);
+		rc = cam_lrme_mgr_util_get_frame_req(
+			&hw_device->frame_pending_list_normal, &frame_req,
+			&hw_device->normal_req_lock);
 		if (frame_req)
 			req_prio = 1;
 	}

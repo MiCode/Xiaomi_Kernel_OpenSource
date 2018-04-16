@@ -46,7 +46,8 @@ enum cam_smmu_region_id {
 	CAM_SMMU_REGION_SHARED,
 	CAM_SMMU_REGION_SCRATCH,
 	CAM_SMMU_REGION_IO,
-	CAM_SMMU_REGION_SECHEAP
+	CAM_SMMU_REGION_SECHEAP,
+	CAM_SMMU_REGION_QDSS
 };
 
 /**
@@ -343,5 +344,27 @@ int cam_smmu_reserve_sec_heap(int32_t smmu_hdl,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_release_sec_heap(int32_t smmu_hdl);
+
+/**
+ * @brief Allocates qdss for context bank
+ *
+ * @param smmu_hdl: SMMU handle identifying context bank
+ * @param iova: IOVA address of allocated qdss
+ * @param len: Length of allocated qdss memory
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_alloc_qdss(int32_t smmu_hdl,
+	dma_addr_t *iova,
+	size_t *len);
+
+/**
+ * @brief Deallocates qdss memory for context bank
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_dealloc_qdss(int32_t smmu_hdl);
 
 #endif /* _CAM_SMMU_API_H_ */

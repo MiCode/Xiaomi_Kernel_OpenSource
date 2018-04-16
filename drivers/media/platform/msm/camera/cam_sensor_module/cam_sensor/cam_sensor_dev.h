@@ -90,6 +90,8 @@ struct intf_params {
  * @sensor_info: Sensor query cap structure
  * @bridge_intf: Bridge interface structure
  * @device_name: Sensor device structure
+ * @streamon_count: Count to hold the number of times stream on called
+ * @streamoff_count: Count to hold the number of times stream off called
  */
 struct cam_sensor_ctrl_t {
 	struct platform_device *pdev;
@@ -110,6 +112,8 @@ struct cam_sensor_ctrl_t {
 	struct  cam_sensor_query_cap sensor_info;
 	struct intf_params bridge_intf;
 	char device_name[20];
+	uint32_t streamon_count;
+	uint32_t streamoff_count;
 };
 
 #endif /* _CAM_SENSOR_DEV_H_ */

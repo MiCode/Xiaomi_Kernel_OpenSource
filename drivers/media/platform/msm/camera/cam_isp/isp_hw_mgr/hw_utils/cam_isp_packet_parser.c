@@ -414,6 +414,8 @@ int cam_isp_add_io_buffers(
 	struct cam_ife_hw_mgr_res          *hw_mgr_res;
 	struct cam_isp_hw_get_cmd_update    update_buf;
 	struct cam_isp_hw_get_wm_update     wm_update;
+	struct cam_hw_fence_map_entry      *out_map_entries;
+	struct cam_hw_fence_map_entry      *in_map_entries;
 	uint32_t                            kmd_buf_remain_size;
 	uint32_t                            i, j, num_out_buf, num_in_buf;
 	uint32_t                            res_id_out, res_id_in, plane_id;
@@ -458,14 +460,15 @@ int cam_isp_add_io_buffers(
 			CAM_DBG(CAM_ISP,
 				"configure output io with fill fence %d",
 				fill_fence);
+			out_map_entries =
+				&prepare->out_map_entries[num_out_buf];
 			if (fill_fence) {
 				if (num_out_buf <
 					prepare->max_out_map_entries) {
-					prepare->out_map_entries[num_out_buf].
-						resource_handle =
-							io_cfg[i].resource_type;
-					prepare->out_map_entries[num_out_buf].
-						sync_id = io_cfg[i].fence;
+					out_map_entries->resource_handle =
+						io_cfg[i].resource_type;
+					out_map_entries->sync_id =
+						io_cfg[i].fence;
 					num_out_buf++;
 				} else {
 					CAM_ERR(CAM_ISP, "ln_out:%d max_ln:%d",
@@ -486,14 +489,14 @@ int cam_isp_add_io_buffers(
 			CAM_DBG(CAM_ISP,
 				"configure input io with fill fence %d",
 				fill_fence);
+			in_map_entries =
+				&prepare->in_map_entries[num_in_buf];
 			if (fill_fence) {
 				if (num_in_buf < prepare->max_in_map_entries) {
-					prepare->in_map_entries[num_in_buf].
-						resource_handle =
-							io_cfg[i].resource_type;
-					prepare->in_map_entries[num_in_buf].
-						sync_id =
-							io_cfg[i].fence;
+					in_map_entries->resource_handle =
+						io_cfg[i].resource_type;
+					in_map_entries->sync_id =
+						io_cfg[i].fence;
 					num_in_buf++;
 				} else {
 					CAM_ERR(CAM_ISP, "ln_in:%d imax_ln:%d",
