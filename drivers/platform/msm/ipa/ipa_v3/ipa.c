@@ -501,6 +501,19 @@ struct iommu_domain *ipa3_get_wlan_smmu_domain(void)
 	return NULL;
 }
 
+struct iommu_domain *ipa3_get_smmu_domain_by_type(enum ipa_smmu_cb_type cb_type)
+{
+
+	if (cb_type == IPA_SMMU_CB_WLAN && smmu_cb[IPA_SMMU_CB_WLAN].valid)
+		return smmu_cb[IPA_SMMU_CB_WLAN].iommu;
+
+	if (smmu_cb[cb_type].valid)
+		return smmu_cb[cb_type].mapping->domain;
+
+	IPAERR("CB#%d not valid\n", cb_type);
+
+	return NULL;
+}
 
 struct device *ipa3_get_dma_dev(void)
 {
