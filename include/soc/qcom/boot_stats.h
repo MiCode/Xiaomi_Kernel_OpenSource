@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014,2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014,2016,2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,6 @@ unsigned long long int msm_timer_get_sclk_ticks(void) { return 0; }
 static inline int boot_marker_enabled(void) { return 1; }
 void place_marker(const char *name);
 #else
-inline void place_marker(char *name);
+static inline void place_marker(char *name) { };
 static inline int boot_marker_enabled(void) { return 0; }
 #endif
