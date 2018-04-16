@@ -26,3 +26,91 @@
 &blsp2_uart0 {
 	status = "okay";
 };
+
+&int_codec {
+	status = "disabled";
+};
+
+&pm8953_diangu_dig {
+	status = "disabled";
+};
+
+&pm8953_diangu_analog {
+	status = "disabled";
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};
+
+&wsa881x_i2c_45 {
+	status = "disabled";
+};
+
+&slim_msm {
+	status = "okay";
+	tasha_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_211: wsa881x@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				qcom,spkr-sd-n-gpio = <&tlmm 68 0>;
+			};
+
+			wsa881x_212: wsa881x@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				qcom,spkr-sd-n-gpio = <&tlmm 68 0>;
+			};
+
+			wsa881x_213: wsa881x@21170213 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170213>;
+				qcom,spkr-sd-n-gpio = <&tlmm 68 0>;
+			};
+
+			wsa881x_214: wsa881x@21170214 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170214>;
+				qcom,spkr-sd-n-gpio = <&tlmm 68 0>;
+			};
+		};
+	};
+};
+
+&dai_slim {
+	status = "okay";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+};
+
+&clock_audio {
+	status = "okay";
+};
+
+&wcd9335 {
+	status = "okay";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&ext_codec {
+	qcom,model = "msm8953-tasha-snd-card";
+	status = "okay";
+};
