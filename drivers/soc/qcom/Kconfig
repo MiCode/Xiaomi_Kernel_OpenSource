@@ -386,8 +386,8 @@ config MSM_GLINK
 	  configured separately.
 
 config MSM_TZ_SMMU
-	depends on ARCH_MSM8953 || ARCH_MSM8909
 	bool "Helper functions for SMMU configuration through TZ"
+	default n
 	help
 	  Say 'Y' here for targets that need to call into TZ to configure
 	  SMMUs for any reason (for example, for errata workarounds or
