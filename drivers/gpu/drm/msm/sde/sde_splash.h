@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,12 @@ struct sde_splash_info {
 
 	/* memory size of lk pool */
 	size_t lk_pool_size;
+
+	/* enabled statue of displays*/
+	uint32_t intf_sel_status;
+
+	/* DSI split enabled flag */
+	bool split_is_enabled;
 
 	/* registered hdmi connector count */
 	uint32_t hdmi_connector_cnt;
@@ -129,4 +135,11 @@ void sde_splash_destroy(struct sde_splash_info *sinfo,
  */
 bool sde_splash_get_lk_complete_status(struct sde_splash_info *sinfo);
 
+/**
+ * sde_splash_setup_display_resource
+ *
+ * Setup display resource based on connector type.
+ */
+int sde_splash_setup_display_resource(struct sde_splash_info *sinfo,
+				void *disp, int connector_type);
 #endif

@@ -51,6 +51,7 @@ struct dba_bridge {
 	u32 num_of_input_lanes;
 	bool pluggable;
 	u32 panel_count;
+	bool cont_splash_enabled;
 };
 #define to_dba_bridge(x)     container_of((x), struct dba_bridge, base)
 
@@ -324,6 +325,7 @@ struct drm_bridge *dba_bridge_init(struct drm_device *dev,
 	bridge->panel_count = data->panel_count;
 	bridge->base.funcs = &_dba_bridge_ops;
 	bridge->base.encoder = encoder;
+	bridge->cont_splash_enabled = data->cont_splash_enabled;
 
 	rc = drm_bridge_attach(dev, &bridge->base);
 	if (rc) {
@@ -339,7 +341,10 @@ struct drm_bridge *dba_bridge_init(struct drm_device *dev,
 		encoder->bridge = &bridge->base;
 	}
 
-	if (!bridge->pluggable) {
+	/* If early splash has enabled bridge chip in bootloader,
+	 * below call should be skipped.
+	 */
+	if (!bridge->pluggable && !bridge->cont_splash_enabled) {
 		if (bridge->ops.power_on)
 			bridge->ops.power_on(bridge->dba_ctx, true, 0);
 		if (bridge->ops.check_hpd)

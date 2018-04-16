@@ -639,6 +639,15 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 			continue;
 		}
 
+		rc = sde_splash_setup_display_resource(&sde_kms->splash_info,
+					display, DRM_MODE_CONNECTOR_DSI);
+		if (rc) {
+			SDE_ERROR("dsi %d splash resource setup failed %d\n",
+									i, rc);
+			sde_encoder_destroy(encoder);
+			continue;
+		}
+
 		rc = dsi_display_drm_bridge_init(display, encoder);
 		if (rc) {
 			SDE_ERROR("dsi bridge %d init failed, %d\n", i, rc);
@@ -728,6 +737,15 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		encoder = sde_encoder_init(dev, &info);
 		if (IS_ERR_OR_NULL(encoder)) {
 			SDE_ERROR("encoder init failed for hdmi %d\n", i);
+			continue;
+		}
+
+		rc = sde_splash_setup_display_resource(&sde_kms->splash_info,
+				display, DRM_MODE_CONNECTOR_HDMIA);
+		if (rc) {
+			SDE_ERROR("hdmi %d splash resource setup failed %d\n",
+									i, rc);
+			sde_encoder_destroy(encoder);
 			continue;
 		}
 
