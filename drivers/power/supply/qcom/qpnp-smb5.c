@@ -1883,6 +1883,8 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[TYPEC_ATTACH_DETACH_IRQ] = {
 		.name		= "typec-attach-detach",
+		.handler	= typec_attach_detach_irq_handler,
+		.wake		= true,
 	},
 	[TYPEC_LEGACY_CABLE_DETECT_IRQ] = {
 		.name		= "typec-legacy-cable-detect",
