@@ -2232,7 +2232,7 @@ static int wp_page_copy(struct fault_env *fe, pte_t orig_pte,
 		 * thread doing COW.
 		 */
 		ptep_clear_flush_notify(vma, fe->address, fe->pte);
-		page_add_new_anon_rmap(new_page, vma, fe->address, false);
+		__page_add_new_anon_rmap(new_page, vma, fe->address, false);
 		mem_cgroup_commit_charge(new_page, memcg, false, false);
 		__lru_cache_add_active_or_unevictable(new_page, fe->vma_flags);
 		/*
@@ -2705,7 +2705,7 @@ int do_swap_page(struct fault_env *fe, pte_t orig_pte)
 		mem_cgroup_commit_charge(page, memcg, true, false);
 		activate_page(page);
 	} else { /* ksm created a completely new copy */
-		page_add_new_anon_rmap(page, vma, fe->address, false);
+		__page_add_new_anon_rmap(page, vma, fe->address, false);
 		mem_cgroup_commit_charge(page, memcg, false, false);
 		__lru_cache_add_active_or_unevictable(page, fe->vma_flags);
 	}
@@ -2844,7 +2844,7 @@ static int do_anonymous_page(struct fault_env *fe)
 	}
 
 	inc_mm_counter_fast(vma->vm_mm, MM_ANONPAGES);
-	page_add_new_anon_rmap(page, vma, fe->address, false);
+	__page_add_new_anon_rmap(page, vma, fe->address, false);
 	mem_cgroup_commit_charge(page, memcg, false, false);
 	__lru_cache_add_active_or_unevictable(page, fe->vma_flags);
 setpte:
@@ -3080,7 +3080,7 @@ int alloc_set_pte(struct fault_env *fe, struct mem_cgroup *memcg,
 	/* copy-on-write page */
 	if (write && !(fe->vma_flags & VM_SHARED)) {
 		inc_mm_counter_fast(vma->vm_mm, MM_ANONPAGES);
-		page_add_new_anon_rmap(page, vma, fe->address, false);
+		__page_add_new_anon_rmap(page, vma, fe->address, false);
 		mem_cgroup_commit_charge(page, memcg, false, false);
 		__lru_cache_add_active_or_unevictable(page, fe->vma_flags);
 	} else {
