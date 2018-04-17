@@ -565,7 +565,13 @@
 			compatible = "qcom,msm-imem-diag-dload";
 			reg = <0xc8 200>;
 		};
-};
+	};
+
+	qcom,mpm2-sleep-counter@c221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x0c221000 0x1000>;
+		clock-frequency = <32768>;
+	};
 
 	restart@c264000 {
 		compatible = "qcom,pshold";
