@@ -38,6 +38,8 @@ static DEFINE_MUTEX(rd_minor_mutex);
 static DEFINE_IDA(rd_minor_id);
 static bool ramdump_devnode_inited;
 #define RAMDUMP_WAIT_MSECS	120000
+#define MAX_STRTBL_SIZE 512
+#define MAX_NAME_LENGTH 16
 
 struct ramdump_device {
 	char name[256];
@@ -447,11 +449,125 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 
 }
 
+static inline unsigned int set_section_name(const char *name,
+					    struct elfhdr *ehdr)
+{
+	char *strtab = elf_str_table(ehdr);
+	static int strtable_idx = 1;
+	int idx, ret = 0;
+
+	idx = strtable_idx;
+	if ((strtab == NULL) || (name == NULL))
+		return 0;
+
+	ret = idx;
+	idx += strlcpy((strtab + idx), name, MAX_NAME_LENGTH);
+	strtable_idx = idx + 1;
+
+	return ret;
+}
+
+static int _do_minidump(void *handle, struct ramdump_segment *segments,
+		int nsegments)
+{
+	int ret, i;
+	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+	struct elfhdr *ehdr;
+	struct elf_shdr *shdr;
+	unsigned long offset, strtbl_off;
+
+	if (!rd_dev->consumer_present) {
+		pr_err("Ramdump(%s): No consumers. Aborting..\n", rd_dev->name);
+		return -EPIPE;
+	}
+
+	rd_dev->segments = segments;
+	rd_dev->nsegments = nsegments;
+
+	rd_dev->elfcore_size = sizeof(*ehdr) +
+			(sizeof(*shdr) * (nsegments + 2)) + MAX_STRTBL_SIZE;
+	ehdr = kzalloc(rd_dev->elfcore_size, GFP_KERNEL);
+	rd_dev->elfcore_buf = (char *)ehdr;
+	if (!rd_dev->elfcore_buf)
+		return -ENOMEM;
+
+	memcpy(ehdr->e_ident, ELFMAG, SELFMAG);
+	ehdr->e_ident[EI_CLASS] = ELF_CLASS;
+	ehdr->e_ident[EI_DATA] = ELF_DATA;
+	ehdr->e_ident[EI_VERSION] = EV_CURRENT;
+	ehdr->e_ident[EI_OSABI] = ELF_OSABI;
+	ehdr->e_type = ET_CORE;
+	ehdr->e_machine  = ELF_ARCH;
+	ehdr->e_version = EV_CURRENT;
+	ehdr->e_ehsize = sizeof(*ehdr);
+	ehdr->e_shoff = sizeof(*ehdr);
+	ehdr->e_shentsize = sizeof(*shdr);
+	ehdr->e_shstrndx = 1;
+
+
+	offset = rd_dev->elfcore_size;
+	shdr = (struct elf_shdr *)(ehdr + 1);
+	strtbl_off = sizeof(*ehdr) + sizeof(*shdr) * (nsegments + 2);
+	shdr++;
+	shdr->sh_type = SHT_STRTAB;
+	shdr->sh_offset = (elf_addr_t)strtbl_off;
+	shdr->sh_size = MAX_STRTBL_SIZE;
+	shdr->sh_entsize = 0;
+	shdr->sh_flags = 0;
+	shdr->sh_name = set_section_name("STR_TBL", ehdr);
+	shdr++;
+
+	for (i = 0; i < nsegments; i++, shdr++) {
+		/* Update elf header */
+		shdr->sh_type = SHT_PROGBITS;
+		shdr->sh_name = set_section_name(segments[i].name, ehdr);
+		shdr->sh_addr = (elf_addr_t)segments[i].address;
+		shdr->sh_size = segments[i].size;
+		shdr->sh_flags = SHF_WRITE;
+		shdr->sh_offset = offset;
+		shdr->sh_entsize = 0;
+		offset += shdr->sh_size;
+	}
+	ehdr->e_shnum = nsegments + 2;
+
+	rd_dev->data_ready = 1;
+	rd_dev->ramdump_status = -1;
+
+	reinit_completion(&rd_dev->ramdump_complete);
+
+	/* Tell userspace that the data is ready */
+	wake_up(&rd_dev->dump_wait_q);
+
+	/* Wait (with a timeout) to let the ramdump complete */
+	ret = wait_for_completion_timeout(&rd_dev->ramdump_complete,
+			msecs_to_jiffies(RAMDUMP_WAIT_MSECS));
+
+	if (!ret) {
+		pr_err("Ramdump(%s): Timed out waiting for userspace.\n",
+		       rd_dev->name);
+		ret = -EPIPE;
+	} else {
+		ret = (rd_dev->ramdump_status == 0) ? 0 : -EPIPE;
+	}
+
+	rd_dev->data_ready = 0;
+	rd_dev->elfcore_size = 0;
+	kfree(rd_dev->elfcore_buf);
+	rd_dev->elfcore_buf = NULL;
+	return ret;
+}
+
 int do_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
 {
 	return _do_ramdump(handle, segments, nsegments, false);
 }
 EXPORT_SYMBOL(do_ramdump);
+
+int do_minidump(void *handle, struct ramdump_segment *segments, int nsegments)
+{
+	return _do_minidump(handle, segments, nsegments);
+}
+EXPORT_SYMBOL(do_minidump);
 
 int
 do_elf_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
