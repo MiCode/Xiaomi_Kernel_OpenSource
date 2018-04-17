@@ -255,4 +255,7 @@
 		qcom,master-en = <1>;           /* Enable GPIO */
 		status = "okay";
 	};
+
+&sde_kms_hyp {
+	qcom,client-id = "7815";
 };
