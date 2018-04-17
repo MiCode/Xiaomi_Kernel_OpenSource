@@ -1153,8 +1153,13 @@ void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
 		return;
 
 	/* Domain attribute to enable system cache for GPU pagetable walks */
-	ret = iommu_domain_set_attr(iommu_pt->domain,
+	if (adreno_is_a640(adreno_dev))
+		ret = iommu_domain_set_attr(iommu_pt->domain,
+			DOMAIN_ATTR_USE_LLC_NWA, &gpuhtw_llc_enable);
+	else
+		ret = iommu_domain_set_attr(iommu_pt->domain,
 			DOMAIN_ATTR_USE_UPSTREAM_HINT, &gpuhtw_llc_enable);
+
 	/*
 	 * Warn that the system cache will not be used for GPU
 	 * pagetable walks. This is not a fatal error.
@@ -1773,10 +1778,21 @@ static int _iommu_map_guard_page(struct kgsl_pagetable *pt,
 			protflags & ~IOMMU_WRITE);
 }
 
-static unsigned int _get_protection_flags(struct kgsl_memdesc *memdesc)
+static unsigned int _get_protection_flags(struct kgsl_pagetable *pt,
+	struct kgsl_memdesc *memdesc)
 {
 	unsigned int flags = IOMMU_READ | IOMMU_WRITE |
-		IOMMU_NOEXEC | IOMMU_USE_UPSTREAM_HINT;
+		IOMMU_NOEXEC;
+	int ret, llc_nwa = 0;
+	struct kgsl_iommu_pt *iommu_pt = pt->priv;
+
+	ret = iommu_domain_get_attr(iommu_pt->domain,
+				DOMAIN_ATTR_USE_LLC_NWA, &llc_nwa);
+
+	if (ret || (llc_nwa == 0))
+		flags |= IOMMU_USE_UPSTREAM_HINT;
+	else
+		flags |= IOMMU_USE_LLC_NWA;
 
 	if (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY)
 		flags &= ~IOMMU_WRITE;
@@ -1800,7 +1816,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	int ret;
 	uint64_t addr = memdesc->gpuaddr;
 	uint64_t size = memdesc->size;
-	unsigned int flags = _get_protection_flags(memdesc);
+	unsigned int flags = _get_protection_flags(pt, memdesc);
 	struct sg_table *sgt = NULL;
 
 	/*
@@ -1930,7 +1946,7 @@ static int kgsl_iommu_map_offset(struct kgsl_pagetable *pt,
 		uint64_t size, uint64_t feature_flag)
 {
 	int pg_sz;
-	unsigned int protflags = _get_protection_flags(memdesc);
+	unsigned int protflags = _get_protection_flags(pt, memdesc);
 	int ret;
 	struct sg_table *sgt = NULL;
 
