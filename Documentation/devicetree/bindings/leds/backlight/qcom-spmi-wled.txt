@@ -23,6 +23,22 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Definition:  Names associated with base addresses. should be
 		     "wled-ctrl-base", "wled-sink-base".
 
+- interrupts
+	Usage:      optional
+	Value type: <prop encoded array>
+	Definition: Interrupts associated with WLED. Interrupts can be
+		    specified as per the encoding listed under
+		    Documentation/devicetree/bindings/spmi/
+		    qcom,spmi-pmic-arb.txt.
+
+- interrupt-names
+	Usage:      optional
+	Value type: <string>
+	Definition: Interrupt names associated with the interrupts.
+		    Currently supported interrupts are "sc-irq", "ovp-irq",
+		    "pre-flash-irq" and "flash-irq". Pre_flash and flash
+		    interrupts can be specified only for PMICs that has WLED5.
+
 - label
 	Usage:      required
 	Value type: <string>
@@ -95,20 +111,6 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Definition: Specify if external PFET control for short circuit
 		    protection is needed. This is not applicable for PM8150L.
 
-- interrupts
-	Usage:      optional
-	Value type: <prop encoded array>
-	Definition: Interrupts associated with WLED. Interrupts can be
-		    specified as per the encoding listed under
-		    Documentation/devicetree/bindings/spmi/
-		    qcom,spmi-pmic-arb.txt.
-
-- interrupt-names
-	Usage:      optional
-	Value type: <string>
-	Definition: Interrupt names associated with the interrupts.
-		    Currently supported interrupts are "sc-irq" and "ovp-irq".
-
 - qcom,auto-calibration
 	Usage:      optional
 	Value type: <bool>
@@ -139,6 +141,95 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 	Usage:      optional
 	Value type: <phandle>
 	Definition: If specified, can be used to get PMIC revision information.
+
+Following properties are for child subnodes that are needed for WLED preflash
+(or torch), flash and switch. These child subnodes can be specified only for
+PMICs that has WLED5 (e.g. PM8150L).
+
+For wled_torch child subnode,
+
+- label
+	Usage:      required
+	Value type: <string>
+	Definition: Should be "torch".
+
+- qcom,default-led-trigger
+	Usage:      optional
+	Value type: <string>
+	Definition: Name for LED trigger. If unspecified, "wled_torch" is used.
+
+- qcom,wled-torch-fsc
+	Usage:      optional
+	Value type: <u32>
+	Definition: WLED torch full scale current in mA. This configures the
+		    maximum current allowed for torch device. Allowed values
+		    are from 5 to 60 mA with a step of 5 mA. If not specified,
+		    default value is set to 30 mA.
+
+- qcom,wled-torch-step
+	Usage:      optional
+	Value type: <u32>
+	Definition: WLED torch step delay in us. This configures the step delay
+		    when the output is ramped up to the desired target current.
+		    Allowed values are from 50 to 400 us with a step of 50 us.
+		    If not specified, default value is set to 200 us.
+
+- qcom,wled-torch-timer
+	Usage:      optional
+	Value type: <u32>
+	Definition: WLED torch safety timer in ms. This configures the safety
+		    timer to turn off torch automatically after timer expiry.
+		    Allowed values are: 50, 100, 200, 400, 600, 800, 1000 and
+		    1200. If not specified, default value is set to 1200 ms.
+
+For wled_flash child subnode,
+
+- label
+	Usage:      required
+	Value type: <string>
+	Definition: Should be "flash".
+
+- qcom,default-led-trigger
+	Usage:      optional
+	Value type: <string>
+	Definition: Name for LED trigger. If unspecified, "wled_flash" is used.
+
+- qcom,wled-flash-fsc
+	Usage:      optional
+	Value type: <u32>
+	Definition: WLED flash full scale current in mA. This configures the
+		    maximum current allowed for flash device. Allowed values
+		    are from 5 to 60 mA with a step of 5 mA. If not specified,
+		    default value is set to 40 mA.
+
+- qcom,wled-flash-step
+	Usage:      optional
+	Value type: <u32>
+	Definition: WLED flash step delay in us. This configures the step delay
+		    when the output is ramped up to the desired target current.
+		    Allowed values are from 50 to 400 us with a step of 50 us.
+		    If not specified, default value is set to 200 us.
+
+- qcom,wled-flash-timer
+	Usage:      optional
+	Value type: <u32>
+	Definition: WLED flash safety timer in ms. This configures the safety
+		    timer to turn off flash automatically after timer expiry.
+		    Allowed values are: 50, 100, 200, 400, 600, 800, 1000 and
+		    1200. If not specified, default value is set to 100 ms.
+
+For wled_switch child subnode,
+
+- label
+	Usage:      required
+	Value type: <string>
+	Definition: Should be "switch".
+
+- qcom,default-led-trigger
+	Usage:      optional
+	Value type: <string>
+	Definition: Name for LED trigger. If unspecified, "wled_switch" is
+		    used.
 
 Example:
 
@@ -171,4 +262,22 @@ qcom-wled@d800 {
 	interrupts = <0x5 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
 	interrupt-names = "ovp-irq";
 	qcom,string-cfg = <7>;
+
+	wled_torch: qcom,wled-torch {
+		label = "torch";
+		qcom,wled-torch-fsc = <40>;
+		qcom,wled-torch-step = <300>;
+		qcom,wled-torch-timer = <600>;
+	};
+
+	wled_flash: qcom,wled-flash {
+		label = "flash";
+		qcom,wled-flash-fsc = <60>;
+		qcom,wled-flash-step = <100>;
+		qcom,wled-flash-timer = <200>;
+	};
+
+	wled_switch: qcom,wled-switch {
+		label = "switch";
+	};
 };
