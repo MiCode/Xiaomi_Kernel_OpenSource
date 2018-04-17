@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,12 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/irqreturn.h>
+#include <media/v4l2-subdev.h>
+#include <media/v4l2-dev.h>
+#include <media/v4l2-ioctl.h>
+#include <media/v4l2-device.h>
+#include <media/v4l2-fh.h>
+#include <media/v4l2-event.h>
 #include "msm_csid.h"
 #include "msm_sd.h"
 #include "msm_camera_io_util.h"
@@ -51,12 +57,13 @@
 #define CSID_VERSION_V40                      0x40000000
 #define MSM_CSID_DRV_NAME                    "msm_csid"
 
-#define DBG_CSID                             0
+#define DBG_CSID                             1
 #define SHORT_PKT_CAPTURE                    0
 #define SHORT_PKT_OFFSET                     0x200
 #define ENABLE_3P_BIT                        1
 #define SOF_DEBUG_ENABLE                     1
 #define SOF_DEBUG_DISABLE                    0
+#define MAX_CSID_V4l2_EVENTS                 100
 
 #define TRUE   1
 #define FALSE  0
@@ -153,6 +160,25 @@ static int msm_csid_stop(struct csid_device *csid_dev, uint32_t cid_mask)
 			(i * 4));
 	}
 
+	return 0;
+}
+
+static int msm_csid_send_event(struct csid_device *csid_dev,
+	uint32_t event_type, struct msm_csid_event_data *event_data)
+{
+	struct v4l2_event csid_event;
+	struct msm_csid_event_data *d_event_data;
+
+	memset(&csid_event, 0, sizeof(struct v4l2_event));
+	csid_event.id = 0;
+	csid_event.type = event_type;
+
+	d_event_data =
+		(struct msm_csid_event_data *)(&csid_event.u.data[0]);
+	d_event_data->csid_id = event_data->csid_id;
+	d_event_data->error_status = event_data->error_status;
+
+	v4l2_event_queue(csid_dev->msm_sd.sd.devnode, &csid_event);
 	return 0;
 }
 
@@ -490,8 +516,9 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 #else
 static irqreturn_t msm_csid_irq(int irq_num, void *data)
 {
-	uint32_t irq;
+	uint32_t irq, error_irq, rst_done_irq_mask;
 	struct csid_device *csid_dev = data;
+	struct msm_csid_event_data csid_event;
 
 	if (!csid_dev) {
 		pr_err("%s:%d csid_dev NULL\n", __func__, __LINE__);
@@ -509,11 +536,26 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 
 	irq = msm_camera_io_r(csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
+	irq &= msm_camera_io_r(csid_dev->base +
+		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
 	pr_err_ratelimited("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
-	if (irq & (0x1 <<
-		csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift))
+	error_irq = irq;
+	rst_done_irq_mask =
+		0x1 << csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift;
+
+	if (irq & rst_done_irq_mask) {
 		complete(&csid_dev->reset_complete);
+		error_irq &= ~rst_done_irq_mask;
+	}
+
+	if (error_irq) {
+		csid_event.csid_id = csid_dev->pdev->id;
+		csid_event.error_status = error_irq;
+		msm_csid_send_event(csid_dev, CSID_EVENT_SIGNAL_ERROR,
+							&csid_event);
+	}
+
 	msm_camera_io_w(irq, csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
 	return IRQ_HANDLED;
@@ -890,7 +932,6 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 
-
 #ifdef CONFIG_COMPAT
 static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void *arg)
 {
@@ -1061,27 +1102,135 @@ static long msm_csid_subdev_ioctl32(struct v4l2_subdev *sd,
 	mutex_unlock(&csid_dev->mutex);
 	return rc;
 }
+#endif
 
-static long msm_csid_subdev_do_ioctl32(
+static long msm_csid_subdev_do_ioctl(
 	struct file *file, unsigned int cmd, void *arg)
 {
+	int rc = -ENOIOCTLCMD;
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct v4l2_fh *vfh = file->private_data;
 
-	return msm_csid_subdev_ioctl32(sd, cmd, arg);
+	switch (cmd) {
+	case VIDIOC_DQEVENT:
+		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_EVENTS))
+			return -ENOIOCTLCMD;
+		return v4l2_event_dequeue(vfh, arg,
+			file->f_flags & O_NONBLOCK);
+	case VIDIOC_SUBSCRIBE_EVENT:
+		return v4l2_subdev_call(sd, core, subscribe_event, vfh, arg);
+
+	case VIDIOC_UNSUBSCRIBE_EVENT:
+		return v4l2_subdev_call(sd, core, unsubscribe_event, vfh, arg);
+
+	case VIDIOC_MSM_CSID_IO_CFG32:
+#ifdef CONFIG_COMPAT
+		rc = msm_csid_subdev_ioctl32(sd, cmd, arg);
+#endif
+		break;
+
+	default:
+		rc = msm_csid_subdev_ioctl(sd, cmd, arg);
+		break;
+	}
+
+	return rc;
 }
 
-static long msm_csid_subdev_fops_ioctl32(struct file *file, unsigned int cmd,
+static long msm_csid_subdev_fops_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
-	return video_usercopy(file, cmd, arg, msm_csid_subdev_do_ioctl32);
+	return video_usercopy(file, cmd, arg, msm_csid_subdev_do_ioctl);
 }
-#endif
+
+static u32 msm_csid_evt_mask_to_csid_event(u32 evt_mask)
+{
+	u32 evt_id = CSID_EVENT_SUBS_MASK_NONE;
+
+	switch (evt_mask) {
+	case CSID_EVENT_MASK_INDEX_SIGNAL_ERROR:
+		evt_id = CSID_EVENT_SIGNAL_ERROR;
+		break;
+	default:
+		evt_id = CSID_EVENT_SUBS_MASK_NONE;
+		break;
+	}
+
+	return evt_id;
+}
+
+static int msm_csid_subscribe_event_mask(struct v4l2_fh *fh,
+		struct v4l2_event_subscription *sub, int evt_mask_index,
+		u32 evt_id, bool subscribe_flag)
+{
+	int rc = 0;
+
+	sub->type = evt_id;
+
+	if (subscribe_flag)
+		rc = v4l2_event_subscribe(fh, sub,
+				MAX_CSID_V4l2_EVENTS, NULL);
+	else
+		rc = v4l2_event_unsubscribe(fh, sub);
+	if (rc != 0) {
+		pr_err("%s: Subs event_type =0x%x failed\n",
+				__func__, sub->type);
+		return rc;
+	}
+	return rc;
+}
+
+static int msm_csid_process_event_subscription(struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub, bool subscribe_flag)
+{
+	int rc = 0, evt_mask_index = 0;
+	u32 evt_mask = sub->type;
+	u32 evt_id = 0;
+
+	if (evt_mask == CSID_EVENT_SUBS_MASK_NONE) {
+		pr_err("%s: Subs event_type is None=0x%x\n",
+			__func__, evt_mask);
+		return 0;
+	}
+
+	evt_mask_index = CSID_EVENT_MASK_INDEX_SIGNAL_ERROR;
+	if (evt_mask & (1<<evt_mask_index)) {
+		evt_id =
+			msm_csid_evt_mask_to_csid_event(
+				evt_mask_index);
+		rc = msm_csid_subscribe_event_mask(fh, sub,
+			evt_mask_index, evt_id, subscribe_flag);
+		if (rc != 0) {
+			pr_err("%s: Subs event index:%d failed\n",
+				__func__, evt_mask_index);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+static int msm_csid_subscribe_event(struct v4l2_subdev *sd,
+	struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	return msm_csid_process_event_subscription(fh, sub, true);
+}
+
+static int msm_csid_unsubscribe_event(struct v4l2_subdev *sd,
+	struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	return msm_csid_process_event_subscription(fh, sub, false);
+}
+
 static const struct v4l2_subdev_internal_ops msm_csid_internal_ops;
 
 static struct v4l2_subdev_core_ops msm_csid_subdev_core_ops = {
 	.ioctl = &msm_csid_subdev_ioctl,
 	.interrupt_service_routine = msm_csid_irq_routine,
+	.subscribe_event = msm_csid_subscribe_event,
+	.unsubscribe_event = msm_csid_unsubscribe_event,
 };
 
 static const struct v4l2_subdev_ops msm_csid_subdev_ops = {
@@ -1175,6 +1324,7 @@ static int csid_probe(struct platform_device *pdev)
 	new_csid_dev->pdev = pdev;
 	new_csid_dev->msm_sd.sd.internal_ops = &msm_csid_internal_ops;
 	new_csid_dev->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	new_csid_dev->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_EVENTS;
 	snprintf(new_csid_dev->msm_sd.sd.name,
 			ARRAY_SIZE(new_csid_dev->msm_sd.sd.name), "msm_csid");
 	media_entity_init(&new_csid_dev->msm_sd.sd.entity, 0, NULL, 0);
@@ -1183,11 +1333,12 @@ static int csid_probe(struct platform_device *pdev)
 	new_csid_dev->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x5;
 	msm_sd_register(&new_csid_dev->msm_sd);
 
-#ifdef CONFIG_COMPAT
 	msm_cam_copy_v4l2_subdev_fops(&msm_csid_v4l2_subdev_fops);
-	msm_csid_v4l2_subdev_fops.compat_ioctl32 = msm_csid_subdev_fops_ioctl32;
-	new_csid_dev->msm_sd.sd.devnode->fops = &msm_csid_v4l2_subdev_fops;
+	msm_csid_v4l2_subdev_fops.unlocked_ioctl = msm_csid_subdev_fops_ioctl;
+#ifdef CONFIG_COMPAT
+	msm_csid_v4l2_subdev_fops.compat_ioctl32 = msm_csid_subdev_fops_ioctl;
 #endif
+	new_csid_dev->msm_sd.sd.devnode->fops = &msm_csid_v4l2_subdev_fops;
 
 	rc = msm_camera_register_irq(pdev, new_csid_dev->irq,
 		msm_csid_irq, IRQF_TRIGGER_RISING, "csid", new_csid_dev);

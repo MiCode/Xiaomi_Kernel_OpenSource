@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,9 @@ struct msm_sd_req_vb2_q {
 		unsigned int stream_id, uint32_t sequence, struct timeval *ts,
 		uint32_t reserved);
 	int (*flush_buf)(int session_id, unsigned int stream_id);
+	int (*buf_error)(struct vb2_v4l2_buffer *vb2_v4l2_buf, int session_id,
+		unsigned int stream_id, uint32_t sequence, struct timeval *ts,
+		uint32_t reserved);
 };
 
 #define MSM_SD_NOTIFY_GET_SD 0x00000001

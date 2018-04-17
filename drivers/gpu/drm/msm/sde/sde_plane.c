@@ -1359,51 +1359,55 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 			src.y  = DIV_ROUND_UP(src.y, 2);
 			src.y &= ~0x1;
 		}
-	}
 
-	list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list)
-		num_of_phy_planes++;
+		list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list)
+			num_of_phy_planes++;
 
-	/*
-	 * Only need to use one physical plane if plane width is still within
-	 * the limitation.
-	 */
-	is_across_mixer_boundary = (plane->state->crtc_x < crtc_split_width) &&
+		/*
+		 * Only need to use one physical plane if plane width
+		 * is still within the limitation.
+		 */
+		is_across_mixer_boundary =
+				(plane->state->crtc_x < crtc_split_width) &&
 				(plane->state->crtc_x + plane->state->crtc_w >
-				crtc_split_width);
-	if (crtc_split_width >= (src.x + src.w) && !is_across_mixer_boundary)
-		num_of_phy_planes = 1;
+					crtc_split_width);
+		if (crtc_split_width >= (src.x + src.w) &&
+				!is_across_mixer_boundary)
+			num_of_phy_planes = 1;
 
-	if (num_of_phy_planes > 1) {
-		/* Adjust width for multi-pipe */
-		src.w /= num_of_phy_planes;
-		dst.w /= num_of_phy_planes;
+		if (num_of_phy_planes > 1) {
+			/* Adjust width for multi-pipe */
+			src.w /= num_of_phy_planes;
+			dst.w /= num_of_phy_planes;
+		}
+
+		list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list) {
+			/* Adjust offset for multi-pipe */
+			if (num_of_phy_planes > 1) {
+				src.x += src.w * pp->index;
+				dst.x += dst.w * pp->index;
+			}
+			pp->pipe_cfg.src_rect = src;
+			pp->pipe_cfg.dst_rect = dst;
+
+			/* check for color fill */
+			pp->color_fill = (uint32_t)sde_plane_get_property(
+					pstate, PLANE_PROP_COLOR_FILL);
+			if (pp->color_fill & SDE_PLANE_COLOR_FILL_FLAG) {
+				/* skip remaining processing on color fill */
+				pstate->dirty = 0x0;
+			} else if (pp->pipe_hw->ops.setup_rects) {
+				_sde_plane_setup_scaler(pp, fmt, pstate);
+
+				pp->pipe_hw->ops.setup_rects(pp->pipe_hw,
+						&pp->pipe_cfg, &pp->pixel_ext,
+						pp->scaler3_cfg);
+			}
+		}
 	}
 
 	list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list) {
-		/* Adjust offset for multi-pipe */
-		if (num_of_phy_planes > 1) {
-			src.x += src.w * pp->index;
-			dst.x += dst.w * pp->index;
-		}
-		pp->pipe_cfg.src_rect = src;
-		pp->pipe_cfg.dst_rect = dst;
-
-		/* check for color fill */
-		pp->color_fill = (uint32_t)sde_plane_get_property(pstate,
-				PLANE_PROP_COLOR_FILL);
-		if (pp->color_fill & SDE_PLANE_COLOR_FILL_FLAG) {
-			/* skip remaining processing on color fill */
-			pstate->dirty = 0x0;
-		} else if (pp->pipe_hw->ops.setup_rects) {
-			_sde_plane_setup_scaler(pp, fmt, pstate);
-
-			pp->pipe_hw->ops.setup_rects(pp->pipe_hw,
-					&pp->pipe_cfg, &pp->pixel_ext,
-					pp->scaler3_cfg);
-		}
-
-	if (((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) ||
+		if (((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) ||
 				(src_flags &
 				 SDE_SSPP_SECURE_OVERLAY_SESSION)) &&
 				pp->pipe_hw->ops.setup_format) {

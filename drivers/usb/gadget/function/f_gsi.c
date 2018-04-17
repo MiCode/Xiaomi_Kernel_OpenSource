@@ -49,6 +49,7 @@ static struct gsi_inst_status {
 /* Deregister misc device and free instance structures */
 static void gsi_inst_clean(struct gsi_opts *opts);
 
+static void gsi_rndis_ipa_reset_trigger(struct gsi_data_port *d_port);
 static void ipa_disconnect_handler(struct gsi_data_port *d_port);
 static int gsi_ctrl_send_notification(struct f_gsi *gsi);
 static int gsi_alloc_trb_buffer(struct f_gsi *gsi);
@@ -501,14 +502,11 @@ static void ipa_disconnect_handler(struct gsi_data_port *d_port)
 		 */
 		usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
 				GSI_EP_OP_SET_CLR_BLOCK_DBL);
-		gsi->in_ep_desc_backup = gsi->d_port.in_ep->desc;
 		usb_gsi_ep_op(gsi->d_port.in_ep, NULL, GSI_EP_OP_DISABLE);
 	}
 
-	if (gsi->d_port.out_ep) {
-		gsi->out_ep_desc_backup = gsi->d_port.out_ep->desc;
+	if (gsi->d_port.out_ep)
 		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_DISABLE);
-	}
 
 	gsi->d_port.net_ready_trigger = false;
 }
@@ -617,6 +615,7 @@ static void ipa_work_handler(struct work_struct *w)
 	struct usb_gadget *gadget = gsi->gadget;
 	struct device *dev;
 	struct device *gad_dev;
+	bool block_db;
 
 	event = read_event(d_port);
 
@@ -677,28 +676,6 @@ static void ipa_work_handler(struct work_struct *w)
 				log_event_err("%s: gsi_alloc_trb_failed\n",
 								__func__);
 				break;
-			}
-
-			/*
-			 * Update desc and reconfigure USB GSI OUT and IN
-			 * endpoint for RNDIS Adaptor enable case.
-			 */
-			if (d_port->out_ep && !d_port->out_ep->desc &&
-					gsi->out_ep_desc_backup) {
-				d_port->out_ep->desc = gsi->out_ep_desc_backup;
-				d_port->out_ep->ep_intr_num = 1;
-				log_event_dbg("%s: OUT ep_op_config", __func__);
-				usb_gsi_ep_op(d_port->out_ep,
-					&d_port->out_request, GSI_EP_OP_CONFIG);
-			}
-
-			if (d_port->in_ep && !d_port->in_ep->desc &&
-					gsi->in_ep_desc_backup) {
-				d_port->in_ep->desc = gsi->in_ep_desc_backup;
-				d_port->in_ep->ep_intr_num = 2;
-				log_event_dbg("%s: IN ep_op_config", __func__);
-				usb_gsi_ep_op(d_port->in_ep,
-					&d_port->in_request, GSI_EP_OP_CONFIG);
 			}
 
 			ipa_connect_channels(d_port);
@@ -762,7 +739,15 @@ static void ipa_work_handler(struct work_struct *w)
 			if (event == EVT_HOST_NRDY) {
 				log_event_dbg("%s: ST_CON_HOST_NRDY\n",
 								__func__);
-				ipa_disconnect_handler(d_port);
+				block_db = true;
+				/* stop USB ringing doorbell to GSI(OUT_EP) */
+				usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
+						GSI_EP_OP_SET_CLR_BLOCK_DBL);
+				gsi_rndis_ipa_reset_trigger(d_port);
+				usb_gsi_ep_op(d_port->in_ep, NULL,
+						GSI_EP_OP_ENDXFER);
+				usb_gsi_ep_op(d_port->out_ep, NULL,
+						GSI_EP_OP_ENDXFER);
 			}
 
 			ipa_disconnect_work_handler(d_port);
@@ -1469,6 +1454,27 @@ static void gsi_rndis_open(struct f_gsi *rndis)
 	rndis_set_param_medium(rndis->params, RNDIS_MEDIUM_802_3,
 				gsi_xfer_bitrate(cdev->gadget) / 100);
 	rndis_signal_connect(rndis->params);
+}
+
+static void gsi_rndis_ipa_reset_trigger(struct gsi_data_port *d_port)
+{
+	struct f_gsi *rndis = d_port_to_gsi(d_port);
+	unsigned long flags;
+
+	if (!rndis) {
+		log_event_err("%s: gsi prot ctx is %pK", __func__, rndis);
+		return;
+	}
+
+	spin_lock_irqsave(&rndis->d_port.lock, flags);
+	if (!rndis) {
+		log_event_err("%s: No RNDIS instance", __func__);
+		spin_unlock_irqrestore(&rndis->d_port.lock, flags);
+		return;
+	}
+
+	rndis->d_port.net_ready_trigger = false;
+	spin_unlock_irqrestore(&rndis->d_port.lock, flags);
 }
 
 void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)

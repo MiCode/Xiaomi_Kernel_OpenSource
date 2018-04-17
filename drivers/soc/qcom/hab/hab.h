@@ -21,6 +21,7 @@
 #include <linux/types.h>
 
 #include <linux/habmm.h>
+#include <linux/hab_ioctl.h>
 
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
@@ -426,7 +427,7 @@ int habmem_imp_hyp_mmap(struct file *flip, struct vm_area_struct *vma);
 
 void hab_msg_free(struct hab_message *message);
 struct hab_message *hab_msg_dequeue(struct virtual_channel *vchan,
-		int wait_flag);
+		unsigned int flags);
 
 void hab_msg_recv(struct physical_channel *pchan,
 		struct hab_header *header);

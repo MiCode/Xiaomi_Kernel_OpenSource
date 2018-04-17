@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2163,7 +2163,7 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		return;
 	}
 	if (len < sizeof(struct smd_msg_hdr)) {
-		pr_err("wcnss: incomplete header available len = %d\n", len);
+		pr_debug("wcnss: incomplete header available len = %d\n", len);
 		return;
 	}
 
@@ -3336,8 +3336,8 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 		return NOTIFY_DONE;
 	}
 
-	pr_debug("%s: wcnss notification event: %lu : %s\n",
-		 __func__, code, wcnss_subsys_notif_type[code]);
+	pr_info("%s: wcnss notification event: %lu : %s\n",
+		__func__, code, wcnss_subsys_notif_type[code]);
 
 	if (code == SUBSYS_PROXY_VOTE) {
 		if (pdev && pwlanconfig) {

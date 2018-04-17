@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -639,7 +639,7 @@ static irqreturn_t bridge_irq(int irq, void *dev)
 {
 	struct msm_sensor_ctrl_t *s_ctrl = dev;
 
-	pr_err("msm_sensor_driver: received bridge interrupt:0x%x",
+	pr_debug("msm_sensor_driver: received bridge interrupt:0x%x\n",
 		s_ctrl->sensordata->slave_info->sensor_slave_addr);
 	schedule_delayed_work(&s_ctrl->irq_delayed_work,
 						msecs_to_jiffies(0));
@@ -682,7 +682,7 @@ static void bridge_irq_delay_work(struct work_struct *work)
 		&sensor_event);
 	mutex_unlock(s_ctrl->msm_sensor_mutex);
 exit_queue:
-	pr_err("Work IRQ exit");
+	pr_debug("Work IRQ exit\n");
 }
 
 /* static function definition */
@@ -947,8 +947,6 @@ CSID_TG:
 		goto free_camera_info;
 	}
 
-	pr_err("%s probe succeeded", slave_info->sensor_name);
-
 	/*
 	 * Update the subdevice id of flash-src based on availability in kernel.
 	 */
@@ -1009,8 +1007,6 @@ CSID_TG:
 				pr_err("%s: Failed gpio_direction irq %d",
 						__func__, rc);
 				goto cancel_work;
-			} else {
-				pr_err("sensor probe IRQ direction succeeded");
 			}
 		}
 
@@ -1035,7 +1031,7 @@ CSID_TG:
 		}
 
 		/* Keep irq enabled */
-		pr_err("msm_sensor_driver.c irq number = %d", s_ctrl->irq);
+		pr_debug("msm_sensor_driver.c irq number = %d\n", s_ctrl->irq);
 	}
 
 	/*

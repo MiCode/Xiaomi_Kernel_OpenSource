@@ -77,7 +77,7 @@ static int virtclk_front_get_id(struct clk *clk)
 	}
 
 	ret = habmm_socket_recv(handle, &rsp, &rsp_size,
-			UINT_MAX, 0);
+			UINT_MAX, HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 	if (ret) {
 		pr_err("%s: habmm socket receive failed (%d)\n", clk->dbg_name,
 				ret);
@@ -132,7 +132,8 @@ static int virtclk_front_prepare(struct clk *clk)
 		goto err_out;
 	}
 
-	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX, 0);
+	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 	if (ret) {
 		pr_err("%s: habmm socket receive failed (%d)\n", clk->dbg_name,
 				ret);
@@ -185,7 +186,8 @@ static void virtclk_front_unprepare(struct clk *clk)
 		goto err_out;
 	}
 
-	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX, 0);
+	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 	if (ret) {
 		pr_err("%s: habmm socket receive failed (%d)\n", clk->dbg_name,
 				ret);
@@ -236,7 +238,8 @@ static int virtclk_front_reset(struct clk *clk, enum clk_reset_action action)
 		goto err_out;
 	}
 
-	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX, 0);
+	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 	if (ret) {
 		pr_err("%s: habmm socket receive failed (%d)\n", clk->dbg_name,
 				ret);
@@ -290,7 +293,8 @@ static int virtclk_front_set_rate(struct clk *clk, unsigned long rate)
 		goto err_out;
 	}
 
-	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX, 0);
+	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 	if (ret) {
 		pr_err("%s: habmm socket receive failed (%d)\n", clk->dbg_name,
 				ret);
@@ -362,7 +366,8 @@ static unsigned long virtclk_front_get_rate(struct clk *clk)
 		goto err_out;
 	}
 
-	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX, 0);
+	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
 	if (ret) {
 		ret = 0;
 		pr_err("%s: habmm socket receive failed (%d)\n", clk->dbg_name,
