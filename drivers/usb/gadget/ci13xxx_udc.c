@@ -3982,15 +3982,15 @@ static void udc_remove(void)
 		return;
 	}
 
+#ifdef CONFIG_USB_GADGET_DEBUG_FILES
+	dbg_remove_files(&udc->gadget.dev);
+#endif
 	usb_del_gadget_udc(&udc->gadget);
 
 	if (udc->transceiver) {
 		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);
 		usb_put_phy(udc->transceiver);
 	}
-#ifdef CONFIG_USB_GADGET_DEBUG_FILES
-	dbg_remove_files(&udc->gadget.dev);
-#endif
 	destroy_eps(udc);
 	dma_pool_destroy(udc->td_pool);
 	dma_pool_destroy(udc->qh_pool);
