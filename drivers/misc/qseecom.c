@@ -1,7 +1,7 @@
 /*
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -7012,6 +7012,31 @@ static inline long qseecom_ioctl(struct file *file,
 			pr_err("failed qseecom_register_listener: %d\n", ret);
 		break;
 	}
+	case QSEECOM_IOCTL_SET_ICE_INFO: {
+		struct qseecom_ice_data_t ice_data;
+
+		ret = copy_from_user(&ice_data, argp, sizeof(ice_data));
+		if (ret) {
+			pr_err("copy_from_user failed\n");
+			return -EFAULT;
+		}
+		qcom_ice_set_fde_flag(ice_data.flag);
+		break;
+	}
+
+	case QSEECOM_IOCTL_SET_ENCDEC_INFO: {
+		struct qseecom_encdec_conf_t conf;
+
+		ret = copy_from_user(&conf, argp, sizeof(conf));
+		if (ret) {
+			pr_err("copy_from_user failed\n");
+			return -EFAULT;
+		}
+		ret = qcom_ice_set_fde_conf(conf.start_sector, conf.fs_size,
+					conf.index, conf.mode);
+		break;
+	}
+
 	case QSEECOM_IOCTL_UNREGISTER_LISTENER_REQ: {
 		if ((data->listener.id == 0) ||
 			(data->type != QSEECOM_LISTENER_SERVICE)) {
