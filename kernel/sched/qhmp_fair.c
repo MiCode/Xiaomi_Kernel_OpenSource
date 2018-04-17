@@ -5023,6 +5023,14 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 
 	update_stats_enqueue(cfs_rq, se, !!(flags & ENQUEUE_MIGRATING));
 	check_spread(cfs_rq, se);
+
+#ifdef CONFIG_FAIR_GROUP_SCHED
+	/*
+	 * Update depth before it can be picked as next sched entity.
+	 */
+	se->depth = se->parent ? se->parent->depth + 1 : 0;
+#endif
+
 	if (se != cfs_rq->curr)
 		__enqueue_entity(cfs_rq, se);
 	se->on_rq = 1;
