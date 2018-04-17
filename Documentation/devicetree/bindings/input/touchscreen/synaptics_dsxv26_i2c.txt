@@ -26,6 +26,7 @@ Optional property:
  - synaptics,ub-i2c-addr	 : microbootloader mode I2C slave address.
  - synaptics,cap-button-codes  : virtual key code mappings to be used.
  - synaptics,vir-button-codes  : virtual key code and the response region on panel.
+ - synaptics,wakeup-gestures-en: enable wakeup gestures.
  - synaptics,x-flip		       : modify orientation of the x axis.
  - synaptics,y-flip		       : modify orientation of the y axis.
  - synaptics,reset-delay-ms	   : reset delay for controller (ms), default 100.
