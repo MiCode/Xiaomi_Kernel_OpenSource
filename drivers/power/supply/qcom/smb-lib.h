@@ -89,6 +89,7 @@ enum {
 	QC_AUTH_INTERRUPT_WA_BIT	= BIT(3),
 	OTG_WA				= BIT(4),
 	OV_IRQ_WA_BIT			= BIT(5),
+	TYPEC_PBS_WA_BIT		= BIT(6),
 };
 
 enum smb_irq_index {
