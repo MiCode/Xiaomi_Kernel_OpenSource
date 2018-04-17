@@ -18,6 +18,7 @@
 #include "dsi-panel-truly-720p-cmd.dtsi"
 #include "dsi-panel-r69006-1080p-cmd.dtsi"
 #include "dsi-panel-r69006-1080p-video.dtsi"
+#include "dsi-panel-hx8394f-720p-video.dtsi"
 #include "dsi-adv7533-1080p.dtsi"
 #include "dsi-adv7533-720p.dtsi"
 #include "dsi-panel-hx8399c-fhd-plus-video.dtsi"
