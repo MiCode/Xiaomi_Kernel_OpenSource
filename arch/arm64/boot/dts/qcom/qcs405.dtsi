@@ -244,9 +244,12 @@
 		interrupt-names = "tsens-upper-lower";
 		#thermal-sensor-cells = <1>;
 	};
+
+	thermal_zones: thermal-zones {};
 };
 
 #include "qcs405-gdsc.dtsi"
+#include "qcs405-thermal.dtsi"
 
 &gdsc_mdss {
 	status = "ok";
