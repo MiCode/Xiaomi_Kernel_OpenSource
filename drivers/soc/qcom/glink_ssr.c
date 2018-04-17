@@ -965,13 +965,6 @@ static int glink_ssr_probe(struct platform_device *pdev)
 	key = "qcom,notify-edges";
 	while (true) {
 		phandle_node = of_parse_phandle(node, key, phandle_index++);
-		if (!phandle_node && phandle_index == 0) {
-			GLINK_SSR_ERR(
-				"<SSR> %s: qcom,notify-edges is not present",
-				__func__);
-			ret = -ENODEV;
-			goto notify_edges_not_present;
-		}
 
 		if (!phandle_node)
 			break;
@@ -983,7 +976,7 @@ static int glink_ssr_probe(struct platform_device *pdev)
 				"<SSR> %s: Could not allocate subsys_info_leaf\n",
 				__func__);
 			ret = -ENOMEM;
-			goto notify_edges_not_present;
+			goto notify_edges_no_memory;
 		}
 
 		subsys_name = of_get_property(phandle_node, "label", NULL);
@@ -1026,7 +1019,7 @@ link_state_register_fail:
 	list_del(&ss_info->subsystem_list_node);
 invalid_dt_node:
 	kfree(ss_info_leaf);
-notify_edges_not_present:
+notify_edges_no_memory:
 	subsys_notif_unregister_notifier(handle, &nb->nb);
 	delete_ss_info_notify_list(ss_info);
 nb_registration_fail:
