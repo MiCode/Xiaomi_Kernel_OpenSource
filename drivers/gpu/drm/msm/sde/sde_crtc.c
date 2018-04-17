@@ -4338,46 +4338,6 @@ static int pstate_cmp(const void *a, const void *b)
 	return rc;
 }
 
-static int _sde_crtc_excl_rect_overlap_check(struct plane_state pstates[],
-	int cnt, int curr_cnt, struct sde_rect *excl_rect)
-{
-	struct sde_rect dst_rect, intersect;
-	int i, rc = -EINVAL;
-	const struct drm_plane_state *pstate;
-
-	for (i = 0; i < cnt; i++) {
-		if (i == curr_cnt)
-			continue;
-
-		pstate = pstates[i].drm_pstate;
-		POPULATE_RECT(&dst_rect, pstate->crtc_x, pstate->crtc_y,
-				pstate->crtc_w, pstate->crtc_h, false);
-		sde_kms_rect_intersect(&dst_rect, excl_rect, &intersect);
-
-		/* complete intersection of excl_rect is required */
-		if (intersect.w == excl_rect->w && intersect.h == excl_rect->h
-			    /* intersecting rect should be in another z_order */
-			    && pstates[curr_cnt].stage != pstates[i].stage) {
-			rc = 0;
-			goto end;
-		}
-	}
-
-	SDE_ERROR(
-	    "no overlapping rect for [%d] z_pos:%d, excl_rect:{%d,%d,%d,%d}\n",
-			i, pstates[curr_cnt].stage,
-			excl_rect->x, excl_rect->y, excl_rect->w, excl_rect->h);
-	for (i = 0; i < cnt; i++) {
-		pstate = pstates[i].drm_pstate;
-		SDE_ERROR("[%d] p:%d, z_pos:%d, src:{%d,%d,%d,%d}\n",
-				i, pstate->plane->base.id, pstates[i].stage,
-				pstate->crtc_x, pstate->crtc_y,
-				pstate->crtc_w, pstate->crtc_h);
-	}
-end:
-	return rc;
-}
-
 /* no input validation - caller API has all the checks */
 static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 		struct plane_state pstates[], int cnt)
@@ -4410,17 +4370,16 @@ static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
 		}
 	}
 
-	/* this is traversing on sorted z-order pstates */
+	/* log all src and excl_rect, useful for debugging */
 	for (i = 0; i < cnt; i++) {
 		pstate = pstates[i].drm_pstate;
 		sde_pstate = to_sde_plane_state(pstate);
-		if (sde_pstate->excl_rect.w && sde_pstate->excl_rect.h) {
-			/* check overlap on any other z-order */
-			rc = _sde_crtc_excl_rect_overlap_check(pstates, cnt,
-			     i, &sde_pstate->excl_rect);
-			if (rc)
-				goto end;
-		}
+		SDE_DEBUG("p %d z %d src{%d,%d,%d,%d} excl_rect{%d,%d,%d,%d}\n",
+			pstate->plane->base.id, pstates[i].stage,
+			pstate->crtc_x, pstate->crtc_y,
+			pstate->crtc_w, pstate->crtc_h,
+			sde_pstate->excl_rect.x, sde_pstate->excl_rect.y,
+			sde_pstate->excl_rect.w, sde_pstate->excl_rect.h);
 	}
 
 end:
