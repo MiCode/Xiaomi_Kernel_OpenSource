@@ -1014,6 +1014,46 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 	return -ENODEV;
 }
 
+static void
+l3_pwrlevel_probe(struct kgsl_device *device, struct device_node *node)
+{
+
+	struct device_node *pwrlevel_node, *child;
+
+	pwrlevel_node = of_find_node_by_name(node, "qcom,l3-pwrlevels");
+
+	if (pwrlevel_node == NULL)
+		return;
+
+	device->num_l3_pwrlevels = 0;
+
+	for_each_child_of_node(pwrlevel_node, child) {
+		unsigned int index;
+
+		if (of_property_read_u32(child, "reg", &index))
+			return;
+		if (index >= MAX_L3_LEVELS) {
+			dev_err(&device->pdev->dev, "L3 pwrlevel %d is out of range\n",
+					index);
+			continue;
+		}
+
+		if (index >= device->num_l3_pwrlevels)
+			device->num_l3_pwrlevels = index + 1;
+
+		if (of_property_read_u32(child, "qcom,l3-freq",
+				&device->l3_freq[index]))
+			return;
+	}
+
+	device->l3_clk = devm_clk_get(&device->pdev->dev, "l3_vote");
+
+	if (IS_ERR_OR_NULL(device->l3_clk)) {
+		dev_err(&device->pdev->dev, "Unable to get the l3_vote clock\n");
+		return;
+	}
+}
+
 static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
@@ -1059,6 +1099,8 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	/* Get context aware DCVS properties */
 	adreno_of_get_ca_aware_properties(adreno_dev, node);
+
+	l3_pwrlevel_probe(device, node);
 
 	/* get pm-qos-active-latency, set it to default if not found */
 	if (of_property_read_u32(node, "qcom,pm-qos-active-latency",
