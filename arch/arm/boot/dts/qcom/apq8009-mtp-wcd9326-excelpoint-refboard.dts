@@ -369,6 +369,24 @@
 	status = "disabled";
 };
 
+&i2c_3 {
+	qcom,camera@0 {
+		status = "disabled";
+	};
+
+	qcom,camera@1 {
+		status = "disabled";
+	};
+
+	qcom,camera@42 {
+		status = "disabled";
+	};
+
+	led_flash0: qcom,led-flash@60 {
+		status = "disabled";
+	};
+};
+
 &i2c_5 {
 	status = "disabled";
 };
