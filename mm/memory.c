@@ -693,7 +693,8 @@ static void print_bad_pte(struct vm_area_struct *vma, unsigned long addr,
 	if (page)
 		dump_page(page, "bad pte");
 	pr_alert("addr:%p vm_flags:%08lx anon_vma:%p mapping:%p index:%lx\n",
-		 (void *)addr, vma->vm_flags, vma->anon_vma, mapping, index);
+		 (void *)addr, READ_ONCE(vma->vm_flags), vma->anon_vma,
+		 mapping, index);
 	/*
 	 * Choose text because data symbols depend on CONFIG_KALLSYMS_ALL=y
 	 */
@@ -1972,6 +1973,115 @@ int apply_to_page_range(struct mm_struct *mm, unsigned long addr,
 }
 EXPORT_SYMBOL_GPL(apply_to_page_range);
 
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+static bool pte_spinlock(struct mm_struct *mm,
+			struct fault_env *fe)
+{
+	bool ret = false;
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+	pmd_t pmdval;
+#endif
+
+	/* Check if vma is still valid */
+	if (!(fe->flags & FAULT_FLAG_SPECULATIVE)) {
+		fe->ptl = pte_lockptr(mm, fe->pmd);
+		spin_lock(fe->ptl);
+		return true;
+	}
+
+	local_irq_disable();
+	if (vma_has_changed(fe))
+		goto out;
+
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+	/*
+	 * We check if the pmd value is still the same to ensure that there
+	 * is not a huge collapse operation in progress in our back.
+	 */
+	pmdval = READ_ONCE(*fe->pmd);
+	if (!pmd_same(pmdval, fe->orig_pmd))
+		goto out;
+#endif
+
+	fe->ptl = pte_lockptr(mm, fe->pmd);
+	if (unlikely(!spin_trylock(fe->ptl)))
+		goto out;
+
+	if (vma_has_changed(fe)) {
+		spin_unlock(fe->ptl);
+		goto out;
+	}
+
+	ret = true;
+out:
+	local_irq_enable();
+	return ret;
+}
+
+static bool pte_map_lock(struct mm_struct *mm,
+				struct fault_env *fe)
+{
+	bool ret = false;
+	pte_t *pte;
+	spinlock_t *ptl;
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+	pmd_t pmdval;
+#endif
+
+	if (!(fe->flags & FAULT_FLAG_SPECULATIVE)) {
+		fe->pte = pte_offset_map_lock(mm, fe->pmd,
+					       fe->address, &fe->ptl);
+		return true;
+	}
+
+	/*
+	 * The first vma_has_changed() guarantees the page-tables are still
+	 * valid, having IRQs disabled ensures they stay around, hence the
+	 * second vma_has_changed() to make sure they are still valid once
+	 * we've got the lock. After that a concurrent zap_pte_range() will
+	 * block on the PTL and thus we're safe.
+	 */
+	local_irq_disable();
+	if (vma_has_changed(fe))
+		goto out;
+
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+	/*
+	 * We check if the pmd value is still the same to ensure that there
+	 * is not a huge collapse operation in progress in our back.
+	 */
+	pmdval = READ_ONCE(*fe->pmd);
+	if (!pmd_same(pmdval, fe->orig_pmd))
+		goto out;
+#endif
+
+	/*
+	 * Same as pte_offset_map_lock() except that we call
+	 * spin_trylock() in place of spin_lock() to avoid race with
+	 * unmap path which may have the lock and wait for this CPU
+	 * to invalidate TLB but this CPU has irq disabled.
+	 * Since we are in a speculative patch, accept it could fail
+	 */
+	ptl = pte_lockptr(mm, fe->pmd);
+	pte = pte_offset_map(fe->pmd, fe->address);
+	if (unlikely(!spin_trylock(ptl))) {
+		pte_unmap(pte);
+		goto out;
+	}
+
+	if (vma_has_changed(fe)) {
+		pte_unmap_unlock(pte, ptl);
+		goto out;
+	}
+
+	fe->pte = pte;
+	fe->ptl = ptl;
+	ret = true;
+out:
+	local_irq_enable();
+	return ret;
+}
+#else
 static inline bool pte_spinlock(struct mm_struct *mm,
 			struct fault_env *fe)
 {
@@ -1987,6 +2097,7 @@ static inline bool pte_map_lock(struct mm_struct *mm,
 				       fe->address, &fe->ptl);
 	return true;
 }
+#endif /* CONFIG_SPECULATIVE_PAGE_FAULT */
 
 /*
  * handle_pte_fault chooses page fault handler according to an entry which was
@@ -2799,6 +2910,14 @@ static int do_anonymous_page(struct fault_env *fe)
 			return VM_FAULT_RETRY;
 		if (!pte_none(*fe->pte))
 			goto unlock;
+		/*
+		 * Don't call the userfaultfd during the speculative path.
+		 * We already checked for the VMA to not be managed through
+		 * userfaultfd, but it may be set in our back once we have lock
+		 * the pte. In such a case we can ignore it this time.
+		 */
+		if (fe->flags & FAULT_FLAG_SPECULATIVE)
+			goto setpte;
 		/* Deliver the page fault to userland, check inside PT lock */
 		if (userfaultfd_missing(vma)) {
 			pte_unmap_unlock(fe->pte, fe->ptl);
@@ -2836,7 +2955,7 @@ static int do_anonymous_page(struct fault_env *fe)
 		goto unlock_and_release;
 
 	/* Deliver the page fault to userland, check inside PT lock */
-	if (userfaultfd_missing(vma)) {
+	if (!(fe->flags & FAULT_FLAG_SPECULATIVE) && userfaultfd_missing(vma)) {
 		pte_unmap_unlock(fe->pte, fe->ptl);
 		mem_cgroup_cancel_charge(page, memcg, false);
 		put_page(page);
@@ -3527,9 +3646,18 @@ static inline bool vma_is_accessible(struct vm_area_struct *vma)
  */
 static int handle_pte_fault(struct fault_env *fe)
 {
-	pte_t entry;
+	pte_t uninitialized_var(entry);
 
 	if (unlikely(pmd_none(*fe->pmd))) {
+		/*
+		 * In the case of the speculative page fault handler we abort
+		 * the speculative path immediately as the pmd is probably
+		 * in the way to be converted in a huge one. We will try
+		 * again holding the mmap_sem (which implies that the collapse
+		 * operation is done).
+		 */
+		if (fe->flags & FAULT_FLAG_SPECULATIVE)
+			return VM_FAULT_RETRY;
 		/*
 		 * Leave __pte_alloc() until later: because vm_ops->fault may
 		 * want to allocate huge page, and if we expose page table
@@ -3537,7 +3665,7 @@ static int handle_pte_fault(struct fault_env *fe)
 		 * concurrent faults and from rmap lookups.
 		 */
 		fe->pte = NULL;
-	} else {
+	} else if (!(fe->flags & FAULT_FLAG_SPECULATIVE)) {
 		/* See comment in pte_alloc_one_map() */
 		if (pmd_devmap_trans_unstable(fe->pmd))
 			return 0;
@@ -3546,6 +3674,9 @@ static int handle_pte_fault(struct fault_env *fe)
 		 * pmd from under us anymore at this point because we hold the
 		 * mmap_sem read mode and khugepaged takes it in write mode.
 		 * So now it's safe to run pte_offset_map().
+		 * This is not applicable to the speculative page fault handler
+		 * but in that case, the pte is fetched earlier in
+		 * handle_speculative_fault().
 		 */
 		fe->pte = pte_offset_map(fe->pmd, fe->address);
 
@@ -3569,10 +3700,16 @@ static int handle_pte_fault(struct fault_env *fe)
 	if (!fe->pte) {
 		if (vma_is_anonymous(fe->vma))
 			return do_anonymous_page(fe);
+		else if (fe->flags & FAULT_FLAG_SPECULATIVE)
+			return VM_FAULT_RETRY;
 		else
 			return do_fault(fe);
 	}
 
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	if (fe->flags & FAULT_FLAG_SPECULATIVE)
+		entry = fe->orig_pte;
+#endif
 	if (!pte_present(entry))
 		return do_swap_page(fe, entry);
 
@@ -3641,7 +3778,9 @@ static int __handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 	} else {
 		pmd_t orig_pmd = *fe.pmd;
 		int ret;
-
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+		fe.sequence = raw_read_seqcount(&vma->vm_sequence);
+#endif
 		barrier();
 		if (pmd_trans_huge(orig_pmd) || pmd_devmap(orig_pmd)) {
 			if (pmd_protnone(orig_pmd) && vma_is_accessible(vma))
@@ -3661,6 +3800,194 @@ static int __handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 
 	return handle_pte_fault(&fe);
 }
+
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+
+#ifndef __HAVE_ARCH_PTE_SPECIAL
+/* This is required by vm_normal_page() */
+#error "Speculative page fault handler requires __HAVE_ARCH_PTE_SPECIAL"
+#endif
+
+/*
+ * vm_normal_page() adds some processing which should be done while
+ * hodling the mmap_sem.
+ */
+int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
+			       unsigned int flags)
+{
+	struct fault_env fe = {
+		.address = address,
+	};
+	pgd_t *pgd, pgdval;
+	pud_t *pud, pudval;
+	int seq, ret = VM_FAULT_RETRY;
+	struct vm_area_struct *vma;
+
+	/* Clear flags that may lead to release the mmap_sem to retry */
+	flags &= ~(FAULT_FLAG_ALLOW_RETRY|FAULT_FLAG_KILLABLE);
+	flags |= FAULT_FLAG_SPECULATIVE;
+
+	vma = get_vma(mm, address);
+	if (!vma)
+		return ret;
+
+	/* rmb <-> seqlock,vma_rb_erase() */
+	seq = raw_read_seqcount(&vma->vm_sequence);
+	if (seq & 1)
+		goto out_put;
+
+	/*
+	 * Can't call vm_ops service has we don't know what they would do
+	 * with the VMA.
+	 * This include huge page from hugetlbfs.
+	 */
+	if (vma->vm_ops)
+		goto out_put;
+
+	/*
+	 * __anon_vma_prepare() requires the mmap_sem to be held
+	 * because vm_next and vm_prev must be safe. This can't be guaranteed
+	 * in the speculative path.
+	 */
+	if (unlikely(!vma->anon_vma))
+		goto out_put;
+
+	fe.vma_flags = READ_ONCE(vma->vm_flags);
+	fe.vma_page_prot = READ_ONCE(vma->vm_page_prot);
+
+	/* Can't call userland page fault handler in the speculative path */
+	if (unlikely(fe.vma_flags & VM_UFFD_MISSING))
+		goto out_put;
+
+	if (fe.vma_flags & VM_GROWSDOWN || fe.vma_flags & VM_GROWSUP)
+		/*
+		 * This could be detected by the check address against VMA's
+		 * boundaries but we want to trace it as not supported instead
+		 * of changed.
+		 */
+		goto out_put;
+
+	if (address < READ_ONCE(vma->vm_start)
+	    || READ_ONCE(vma->vm_end) <= address)
+		goto out_put;
+
+	if (!arch_vma_access_permitted(vma, flags & FAULT_FLAG_WRITE,
+				       flags & FAULT_FLAG_INSTRUCTION,
+				       flags & FAULT_FLAG_REMOTE)) {
+		ret = VM_FAULT_SIGSEGV;
+		goto out_put;
+	}
+
+	/* This is one is required to check that the VMA has write access set */
+	if (flags & FAULT_FLAG_WRITE) {
+		if (unlikely(!(fe.vma_flags & VM_WRITE))) {
+			ret = VM_FAULT_SIGSEGV;
+			goto out_put;
+		}
+	} else if (unlikely(!(fe.vma_flags & (VM_READ|VM_EXEC|VM_WRITE)))) {
+		ret = VM_FAULT_SIGSEGV;
+		goto out_put;
+	}
+
+#ifdef CONFIG_NUMA
+	struct mempolicy *pol;
+
+	/*
+	 * MPOL_INTERLEAVE implies additional checks in
+	 * mpol_misplaced() which are not compatible with the
+	 *speculative page fault processing.
+	 */
+	pol = __get_vma_policy(vma, address);
+	if (!pol)
+		pol = get_task_policy(current);
+	if (pol && pol->mode == MPOL_INTERLEAVE)
+		goto out_put;
+#endif
+
+	/*
+	 * Do a speculative lookup of the PTE entry.
+	 */
+	local_irq_disable();
+	pgd = pgd_offset(mm, address);
+	pgdval = READ_ONCE(*pgd);
+	if (pgd_none(pgdval) || unlikely(pgd_bad(pgdval)))
+		goto out_walk;
+
+	pud = pud_offset(pgd, address);
+	pudval = READ_ONCE(*pud);
+	if (pud_none(pudval) || unlikely(pud_bad(pudval)))
+		goto out_walk;
+
+	fe.pmd = pmd_offset(pud, address);
+	fe.orig_pmd = READ_ONCE(*fe.pmd);
+	/*
+	 * pmd_none could mean that a hugepage collapse is in progress
+	 * in our back as collapse_huge_page() mark it before
+	 * invalidating the pte (which is done once the IPI is catched
+	 * by all CPU and we have interrupt disabled).
+	 * For this reason we cannot handle THP in a speculative way since we
+	 * can't safely indentify an in progress collapse operation done in our
+	 * back on that PMD.
+	 * Regarding the order of the following checks, see comment in
+	 * pmd_devmap_trans_unstable()
+	 */
+	if (unlikely(pmd_devmap(fe.orig_pmd) ||
+		     pmd_none(fe.orig_pmd) || pmd_trans_huge(fe.orig_pmd)))
+		goto out_walk;
+
+	/*
+	 * The above does not allocate/instantiate page-tables because doing so
+	 * would lead to the possibility of instantiating page-tables after
+	 * free_pgtables() -- and consequently leaking them.
+	 *
+	 * The result is that we take at least one !speculative fault per PMD
+	 * in order to instantiate it.
+	 */
+
+	fe.pte = pte_offset_map(fe.pmd, address);
+	fe.orig_pte = READ_ONCE(*fe.pte);
+	barrier(); /* See comment in handle_pte_fault() */
+	if (pte_none(fe.orig_pte)) {
+		pte_unmap(fe.pte);
+		fe.pte = NULL;
+	}
+
+	fe.vma = vma;
+	fe.sequence = seq;
+	fe.flags = flags;
+
+	local_irq_enable();
+
+	/*
+	 * We need to re-validate the VMA after checking the bounds, otherwise
+	 * we might have a false positive on the bounds.
+	 */
+	if (read_seqcount_retry(&vma->vm_sequence, seq))
+		goto out_put;
+
+	mem_cgroup_oom_enable();
+	ret = handle_pte_fault(&fe);
+	mem_cgroup_oom_disable();
+
+	put_vma(vma);
+
+	/*
+	 * The task may have entered a memcg OOM situation but
+	 * if the allocation error was handled gracefully (no
+	 * VM_FAULT_OOM), there is no need to kill anything.
+	 * Just clean up the OOM state peacefully.
+	 */
+	if (task_in_memcg_oom(current) && !(ret & VM_FAULT_OOM))
+		mem_cgroup_oom_synchronize(false);
+	return ret;
+
+out_walk:
+	local_irq_enable();
+out_put:
+	put_vma(vma);
+	return ret;
+}
+#endif /* CONFIG_SPECULATIVE_PAGE_FAULT */
 
 /*
  * By the time we get here, we already hold the mm semaphore
