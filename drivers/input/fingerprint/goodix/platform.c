@@ -72,14 +72,14 @@ int gf_parse_dts(struct gf_dev *gf_dev)
 	pr_warn("--------gf_parse_dts start  haijun.--------\n");
 
 	/*get reset resource*/
-	rc = gf3208_request_named_gpio(gf_dev, "goodix, gpio_reset", &gf_dev->reset_gpio);
+	rc = gf3208_request_named_gpio(gf_dev, "goodix,gpio_reset", &gf_dev->reset_gpio);
 	if (rc) {
 		gf_dbg("Failed to request RESET GPIO. rc = %d\n", rc);
 		return -EPERM;
 	}
 
 	/*get irq resourece*/
-	rc = gf3208_request_named_gpio(gf_dev, "goodix, gpio_irq", &gf_dev->irq_gpio);
+	rc = gf3208_request_named_gpio(gf_dev, "goodix,gpio_irq", &gf_dev->irq_gpio);
 	if (rc) {
 		gf_dbg("Failed to request IRQ GPIO. rc = %d\n", rc);
 		return -EPERM;
