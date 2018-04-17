@@ -812,7 +812,6 @@ thermal_cooling_device_cur_state_store(struct device *dev,
 {
 	struct thermal_cooling_device *cdev = to_cooling_device(dev);
 	unsigned long state;
-	int result;
 
 	if (sscanf(buf, "%ld\n", &state) != 1)
 		return -EINVAL;
@@ -820,9 +819,13 @@ thermal_cooling_device_cur_state_store(struct device *dev,
 	if ((long)state < 0)
 		return -EINVAL;
 
-	result = cdev->ops->set_cur_state(cdev, state);
-	if (result)
-		return result;
+	mutex_lock(&cdev->lock);
+	cdev->sysfs_cur_state_req = state;
+
+	cdev->updated = false;
+	mutex_unlock(&cdev->lock);
+	thermal_cdev_update(cdev);
+
 	return count;
 }
 
