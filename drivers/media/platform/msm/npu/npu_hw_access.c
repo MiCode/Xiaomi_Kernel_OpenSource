@@ -1,0 +1,369 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
+/* -------------------------------------------------------------------------
+ * Includes
+ * -------------------------------------------------------------------------
+ */
+#include <linux/msm_dma_iommu_mapping.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
+
+#include "npu_hw_access.h"
+#include "npu_common.h"
+#include "npu_hw.h"
+
+/* -------------------------------------------------------------------------
+ * Functions - Register
+ * -------------------------------------------------------------------------
+ */
+uint32_t npu_reg_read(struct npu_device *npu_dev, uint32_t off)
+{
+	uint32_t ret = 0;
+
+	ret = readl_relaxed(npu_dev->npu_base + off);
+	__iormb();
+	return ret;
+}
+
+void npu_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
+{
+	writel_relaxed(val, npu_dev->npu_base + off);
+	__iowmb();
+}
+
+/* -------------------------------------------------------------------------
+ * Functions - Memory
+ * -------------------------------------------------------------------------
+ */
+void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
+	uint32_t size)
+{
+	size_t dst_off = (size_t)dst;
+	uint32_t *src_ptr32 = (uint32_t *)src;
+	uint8_t *src_ptr8 = 0;
+	uint32_t i = 0;
+	uint32_t num = 0;
+
+	num = size/4;
+	for (i = 0; i < num; i++) {
+		writel_relaxed(src_ptr32[i], npu_dev->npu_base + dst_off);
+		dst_off += 4;
+	}
+
+	if (size%4 != 0) {
+		src_ptr8 = (uint8_t *)((size_t)src + (num*4));
+		num = size%4;
+		for (i = 0; i < num; i++) {
+			writeb_relaxed(src_ptr8[i], npu_dev->npu_base +
+				dst_off);
+			dst_off += 1;
+		}
+	}
+}
+
+int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
+	uint32_t size)
+{
+	size_t src_off = (size_t)src;
+	uint32_t *out32 = (uint32_t *)dst;
+	uint8_t *out8 = 0;
+	uint32_t i = 0;
+	uint32_t num = 0;
+
+	num = size/4;
+	for (i = 0; i < num; i++) {
+		out32[i] = readl_relaxed(npu_dev->npu_base + src_off);
+		src_off += 4;
+	}
+
+	if (size%4 != 0) {
+		out8 = (uint8_t *)((size_t)dst + (num*4));
+		num = size%4;
+		for (i = 0; i < num; i++) {
+			out8[i] = readb_relaxed(npu_dev->npu_base + src_off);
+			src_off += 1;
+		}
+	}
+	return 0;
+}
+
+void *npu_ipc_addr(void)
+{
+	return (void *)(IPC_MEM_OFFSET_FROM_SSTCM);
+}
+
+/* -------------------------------------------------------------------------
+ * Functions - Interrupt
+ * -------------------------------------------------------------------------
+ */
+void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
+{
+	/* Clear irq state */
+	REGW(npu_dev, NPU_MASTERn_IPC_IRQ_OUT(0), 0x0);
+}
+
+int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
+{
+	int ret = 0;
+
+	/* Bit 4 is setting IRQ_SOURCE_SELECT to local
+	 * and we're triggering a pulse to NPU_MASTER0_IPC_IN_IRQ0
+	 */
+	npu_reg_write(npu_dev, NPU_MASTERn_IPC_IRQ_IN_CTRL(0), 0x1
+		<< NPU_MASTER0_IPC_IRQ_IN_CTRL__IRQ_SOURCE_SELECT___S | 0x1);
+
+	return ret;
+}
+
+/* -------------------------------------------------------------------------
+ * Functions - ION Memory
+ * -------------------------------------------------------------------------
+ */
+static struct npu_ion_buf *npu_get_npu_ion_buffer(struct npu_device
+	*npu_dev)
+{
+	struct npu_ion_buf *ret_val = 0;
+
+	ret_val = kmalloc(sizeof(struct npu_ion_buf), GFP_KERNEL);
+	if (ret_val)
+		list_add(&(ret_val->list), &(npu_dev->mapped_buffers.list));
+
+	return ret_val;
+}
+
+static struct npu_ion_buf *npu_get_existing_ion_buffer(struct npu_device
+	*npu_dev, int buf_hdl)
+{
+	struct list_head *pos = 0;
+	struct npu_ion_buf *npu_ion_buf = 0;
+
+	list_for_each(pos, &(npu_dev->mapped_buffers.list)) {
+		npu_ion_buf = list_entry(pos, struct npu_ion_buf, list);
+		if (npu_ion_buf->fd == buf_hdl)
+			return npu_ion_buf;
+	}
+
+	return NULL;
+}
+
+static struct npu_ion_buf *npu_clear_npu_ion_buffer(struct npu_device
+	*npu_dev, int buf_hdl, uint64_t addr)
+{
+	struct list_head *pos = 0;
+	struct npu_ion_buf *npu_ion_buf = 0;
+
+	list_for_each(pos, &(npu_dev->mapped_buffers.list)) {
+		npu_ion_buf = list_entry(pos, struct npu_ion_buf, list);
+		if (npu_ion_buf->fd == buf_hdl &&
+			npu_ion_buf->iova == addr) {
+			list_del(&npu_ion_buf->list);
+			return npu_ion_buf;
+		}
+	}
+
+	return NULL;
+}
+
+int npu_mem_map(struct npu_device *npu_dev, int buf_hdl, uint32_t size,
+	uint64_t *addr)
+{
+	int ret = 0;
+
+	struct npu_ion_buf *ion_buf = npu_get_npu_ion_buffer(npu_dev);
+	struct npu_smmu_ctx *smmu_ctx = &npu_dev->smmu_ctx;
+
+	if (!ion_buf) {
+		pr_err("%s no more table space\n", __func__);
+		ret = -ENOMEM;
+		return ret;
+	}
+	ion_buf->fd = buf_hdl;
+	ion_buf->size = size;
+
+	if (ion_buf->fd == 0)
+		return -EINVAL;
+
+	smmu_ctx->attach_cnt++;
+
+	ion_buf->dma_buf = dma_buf_get(ion_buf->fd);
+	if (IS_ERR_OR_NULL(ion_buf->dma_buf)) {
+		pr_err("dma_buf_get failed %d\n", ion_buf->fd);
+		ret = -ENOMEM;
+		ion_buf->dma_buf = NULL;
+		goto map_end;
+	}
+
+	ion_buf->attachment = dma_buf_attach(ion_buf->dma_buf,
+			&(npu_dev->pdev->dev));
+	if (IS_ERR(ion_buf->attachment)) {
+		ret = -ENOMEM;
+		ion_buf->attachment = NULL;
+		goto map_end;
+	}
+
+	ion_buf->attachment->dma_map_attrs = DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
+
+	ion_buf->table = dma_buf_map_attachment(ion_buf->attachment,
+			DMA_BIDIRECTIONAL);
+	if (IS_ERR(ion_buf->table)) {
+		pr_err("npu dma_buf_map_attachment failed\n");
+		ret = -ENOMEM;
+		ion_buf->table = NULL;
+		goto map_end;
+	}
+
+	dma_sync_sg_for_device(&(npu_dev->pdev->dev), ion_buf->table->sgl,
+		ion_buf->table->nents, DMA_BIDIRECTIONAL);
+	ion_buf->iova = ion_buf->table->sgl->dma_address;
+	ion_buf->size = ion_buf->table->sgl->dma_length;
+map_end:
+	if (ret)
+		npu_mem_unmap(npu_dev, buf_hdl, 0);
+
+	*addr = ion_buf->iova;
+	return ret;
+}
+
+void npu_mem_invalidate(struct npu_device *npu_dev, int buf_hdl)
+{
+	struct npu_ion_buf *ion_buf = npu_get_existing_ion_buffer(npu_dev,
+		buf_hdl);
+
+	if (!ion_buf)
+		pr_err("%s cant find ion buf\n", __func__);
+	else
+		dma_sync_sg_for_cpu(&(npu_dev->pdev->dev), ion_buf->table->sgl,
+			ion_buf->table->nents, DMA_BIDIRECTIONAL);
+}
+
+void npu_mem_unmap(struct npu_device *npu_dev, int buf_hdl, uint64_t addr)
+{
+	struct npu_ion_buf *ion_buf = 0;
+
+	/* clear entry and retrieve the corresponding buffer */
+	ion_buf = npu_clear_npu_ion_buffer(npu_dev, buf_hdl, addr);
+
+	if (!ion_buf) {
+		pr_err("%s could not find buffer\n", __func__);
+		return;
+	}
+	if (ion_buf->table)
+		dma_buf_unmap_attachment(ion_buf->attachment, ion_buf->table,
+			DMA_BIDIRECTIONAL);
+	ion_buf->table = 0;
+	if (ion_buf->dma_buf && ion_buf->attachment)
+		dma_buf_detach(ion_buf->dma_buf, ion_buf->attachment);
+	ion_buf->attachment = 0;
+	if (ion_buf->dma_buf)
+		dma_buf_put(ion_buf->dma_buf);
+	ion_buf->dma_buf = 0;
+	npu_dev->smmu_ctx.attach_cnt--;
+	kfree(ion_buf);
+}
+
+/* -------------------------------------------------------------------------
+ * Functions - Work Queue
+ * -------------------------------------------------------------------------
+ */
+void npu_destroy_wq(struct workqueue_struct *wq)
+{
+	destroy_workqueue(wq);
+}
+
+struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
+	const char *name, wq_hdlr_fn hdlr, struct work_struct *irq_work)
+{
+	struct workqueue_struct *wq = create_workqueue(name);
+
+	INIT_WORK(irq_work, hdlr);
+
+	return wq;
+}
+
+/* -------------------------------------------------------------------------
+ * Functions - Features
+ * -------------------------------------------------------------------------
+ */
+uint8_t npu_hw_clk_gating_enabled(void)
+{
+	return 1;
+}
+
+uint8_t npu_hw_log_enabled(void)
+{
+	return 0;
+}
+
+/* -------------------------------------------------------------------------
+ * Functions - Subsystem/PIL
+ * -------------------------------------------------------------------------
+ */
+void *subsystem_get_local(char *sub_system)
+{
+	return subsystem_get(sub_system);
+}
+
+void subsystem_put_local(void *sub_system_handle)
+{
+	return subsystem_put(sub_system_handle);
+}
+
+/* -------------------------------------------------------------------------
+ * Functions - Log
+ * -------------------------------------------------------------------------
+ */
+void npu_process_log_message(struct npu_device *npu_dev, uint32_t *message,
+	uint32_t size)
+{
+	struct npu_debugfs_ctx *debugfs = &npu_dev->debugfs_ctx;
+
+	/* mutex log lock */
+	mutex_lock(&debugfs->log_lock);
+
+	if ((debugfs->log_num_bytes_buffered + size) >
+		debugfs->log_buf_size) {
+		/* No more space, invalidate it all and start over */
+		debugfs->log_read_index = 0;
+		debugfs->log_write_index = size;
+		debugfs->log_num_bytes_buffered = size;
+		memcpy(debugfs->log_buf, message, size);
+	} else {
+		if ((debugfs->log_write_index + size) >
+			debugfs->log_buf_size) {
+			/* Wrap around case */
+			uint8_t *src_addr = (uint8_t *)message;
+			uint8_t *dst_addr = 0;
+			uint32_t remaining_to_end = debugfs->log_buf_size -
+				debugfs->log_write_index + 1;
+			dst_addr = debugfs->log_buf + debugfs->log_write_index;
+			memcpy(dst_addr, src_addr, remaining_to_end);
+			src_addr = &(src_addr[remaining_to_end]);
+			dst_addr = debugfs->log_buf;
+			memcpy(dst_addr, src_addr, size-remaining_to_end);
+			debugfs->log_write_index = size-remaining_to_end;
+		} else {
+			memcpy((debugfs->log_buf + debugfs->log_write_index),
+				message, size);
+			debugfs->log_write_index += size;
+			if (debugfs->log_write_index == debugfs->log_buf_size)
+				debugfs->log_write_index = 0;
+		}
+		debugfs->log_num_bytes_buffered += size;
+	}
+
+	/* mutex log unlock */
+	mutex_unlock(&debugfs->log_lock);
+}
