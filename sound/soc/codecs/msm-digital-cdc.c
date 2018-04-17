@@ -21,7 +21,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/workqueue.h>
 #include <linux/regmap.h>
+#include <soc/qcom/subsystem_notif.h>
 #include <sound/q6afe-v2.h>
+#include <sound/q6core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -57,6 +59,7 @@ static unsigned long tx_digital_gain_reg[] = {
 #define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH	64
 #define CODEC_DT_MAX_PROP_SIZE			40
 #define MSM_TX_UNMUTE_DELAY_MS			40
+#define ADSP_STATE_READY_TIMEOUT_MS 50
 
 static int tx_unmute_delay = MSM_TX_UNMUTE_DELAY_MS;
 module_param(tx_unmute_delay, int,
@@ -71,6 +74,8 @@ static struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 static int msm_digit_cdc_enable_on_demand_supply(
 		struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event);
+
+static void *adsp_state_notifier;
 
 /* Codec supports 2 IIR filters */
 enum {
@@ -842,134 +847,85 @@ out:
 	return ret;
 }
 
-static int msm_dig_cdc_event_notify(struct notifier_block *block,
+static int msm_dig_cdc_ssr_cb(struct notifier_block *block,
 				    unsigned long val,
 				    void *data)
 {
-	enum dig_cdc_notify_event event = (enum dig_cdc_notify_event)val;
 	struct snd_soc_codec *codec = registered_digcodec;
 	struct msm_dig_priv *msm_dig_cdc = snd_soc_codec_get_drvdata(codec);
 	struct msm_asoc_mach_data *pdata = NULL;
 	int ret = -EINVAL;
+	bool adsp_ready = false;
+	unsigned long timeout;
+	bool timedout;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 
-	switch (event) {
-	case DIG_CDC_EVENT_CLK_ON:
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_CLK_PDM_CTL, 0x03, 0x03);
-		if (pdata->mclk_freq == MCLK_RATE_12P288MHZ ||
-		    pdata->native_clk_set)
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_TOP_CTL, 0x01, 0x00);
-		else if (pdata->mclk_freq == MCLK_RATE_9P6MHZ)
-			snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_TOP_CTL, 0x01, 0x01);
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_CLK_MCLK_CTL, 0x01, 0x01);
-		break;
-	case DIG_CDC_EVENT_CLK_OFF:
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_CLK_PDM_CTL, 0x03, 0x00);
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_CLK_MCLK_CTL, 0x01, 0x00);
-		break;
-	case DIG_CDC_EVENT_RX1_MUTE_ON:
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_RX1_B6_CTL, 0x01, 0x01);
-		msm_dig_cdc->mute_mask |= HPHL_PA_DISABLE;
-		break;
-	case DIG_CDC_EVENT_RX1_MUTE_OFF:
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_RX1_B6_CTL, 0x01, 0x00);
-		msm_dig_cdc->mute_mask &= (~HPHL_PA_DISABLE);
-		break;
-	case DIG_CDC_EVENT_RX2_MUTE_ON:
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_RX2_B6_CTL, 0x01, 0x01);
-		msm_dig_cdc->mute_mask |= HPHR_PA_DISABLE;
-		break;
-	case DIG_CDC_EVENT_RX2_MUTE_OFF:
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_RX2_B6_CTL, 0x01, 0x00);
-		msm_dig_cdc->mute_mask &= (~HPHR_PA_DISABLE);
-		break;
-	case DIG_CDC_EVENT_RX3_MUTE_ON:
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_RX3_B6_CTL, 0x01, 0x01);
-		msm_dig_cdc->mute_mask |= SPKR_PA_DISABLE;
-		break;
-	case DIG_CDC_EVENT_RX3_MUTE_OFF:
-		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_RX3_B6_CTL, 0x01, 0x00);
-		msm_dig_cdc->mute_mask &= (~SPKR_PA_DISABLE);
-		break;
-	case DIG_CDC_EVENT_PRE_RX1_INT_ON:
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x3C, 0x28);
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B4_CTL, 0x18, 0x10);
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x80, 0x80);
-		break;
-	case DIG_CDC_EVENT_PRE_RX2_INT_ON:
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x3C, 0x28);
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B4_CTL, 0x18, 0x10);
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x80, 0x80);
-		break;
-	case DIG_CDC_EVENT_POST_RX1_INT_OFF:
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x3C, 0x00);
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B4_CTL, 0x18, 0xFF);
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x80, 0x00);
-		break;
-	case DIG_CDC_EVENT_POST_RX2_INT_OFF:
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x3C, 0x00);
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B4_CTL, 0x18, 0xFF);
-		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x80, 0x00);
-		break;
-	case DIG_CDC_EVENT_SSR_DOWN:
+	switch (val) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		dev_dbg(codec->dev,
+			"ADSP is about to power down. teardown/reset codec\n");
 		regcache_cache_only(msm_dig_cdc->regmap, true);
+		atomic_set(&pdata->mclk_enabled, false);
+		snd_soc_card_change_online_state(codec->component.card, 0);
 		break;
-	case DIG_CDC_EVENT_SSR_UP:
-		regcache_cache_only(msm_dig_cdc->regmap, false);
-		regcache_mark_dirty(msm_dig_cdc->regmap);
+	case SUBSYS_AFTER_POWERUP:
+		dev_dbg(codec->dev,
+			"ADSP is up. bring up codec\n");
+		if (!q6core_is_adsp_ready()) {
+			dev_dbg(codec->dev,
+				"ADSP isn't ready\n");
+			timeout = jiffies +
+				 msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
+			while (!(timedout = time_after(jiffies, timeout))) {
+				if (!q6core_is_adsp_ready()) {
+					dev_dbg(codec->dev,
+						"ADSP isn't ready\n");
+				} else {
+					dev_dbg(codec->dev,
+						"ADSP is ready\n");
+					adsp_ready = true;
+					goto powerup;
+				}
+			}
+		} else {
+			adsp_ready = true;
+			dev_dbg(codec->dev, "%s: DSP is ready\n", __func__);
+		}
+powerup:
+		if (adsp_ready) {
+			regcache_cache_only(msm_dig_cdc->regmap, false);
+			regcache_mark_dirty(msm_dig_cdc->regmap);
 
-		mutex_lock(&pdata->cdc_mclk_mutex);
-		pdata->digital_cdc_core_clk.enable = 1;
-		ret = afe_set_lpass_clock_v2(
+			mutex_lock(&pdata->cdc_mclk_mutex);
+			pdata->digital_cdc_core_clk.enable = 1;
+			ret = afe_set_lpass_clock_v2(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+			if (ret < 0) {
+				dev_err(codec->dev, "%s:failed to enable the MCLK\n",
+				       __func__);
+				mutex_unlock(&pdata->cdc_mclk_mutex);
+				break;
+			}
+			mutex_unlock(&pdata->cdc_mclk_mutex);
+
+			regcache_sync(msm_dig_cdc->regmap);
+
+			mutex_lock(&pdata->cdc_mclk_mutex);
+			pdata->digital_cdc_core_clk.enable = 0;
+			afe_set_lpass_clock_v2(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
 					&pdata->digital_cdc_core_clk);
-		if (ret < 0) {
-			pr_err("%s:failed to enable the MCLK\n",
-			       __func__);
 			mutex_unlock(&pdata->cdc_mclk_mutex);
-			break;
+			snd_soc_card_change_online_state(
+					codec->component.card, 1);
 		}
-		mutex_unlock(&pdata->cdc_mclk_mutex);
-
-		regcache_sync(msm_dig_cdc->regmap);
-
-		mutex_lock(&pdata->cdc_mclk_mutex);
-		pdata->digital_cdc_core_clk.enable = 0;
-		afe_set_lpass_clock_v2(
-				AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&pdata->digital_cdc_core_clk);
-		mutex_unlock(&pdata->cdc_mclk_mutex);
 		break;
-	case DIG_CDC_EVENT_INVALID:
 	default:
 		break;
 	}
-	return 0;
+	return NOTIFY_OK;
 }
 
 static void msm_tx_mute_update_callback(struct work_struct *work)
@@ -1104,6 +1060,7 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int i, ret = 0;
+	const char *subsys_name = NULL;
 
 	msm_dig_cdc->codec = codec;
 
@@ -1119,7 +1076,23 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 	}
 
 	/* Register event notifier */
-	msm_dig_cdc->nblock.notifier_call = msm_dig_cdc_event_notify;
+	msm_dig_cdc->nblock.notifier_call = msm_dig_cdc_ssr_cb;
+
+	ret = of_property_read_string(codec->dev->of_node,
+					"qcom,subsys-name",
+					&subsys_name);
+	if (ret) {
+		dev_dbg(codec->dev, "missing subsys-name entry in dt node\n");
+		adsp_state_notifier =
+			subsys_notif_register_notifier("adsp",
+			&msm_dig_cdc->nblock);
+	} else {
+		adsp_state_notifier =
+			subsys_notif_register_notifier(subsys_name,
+			&msm_dig_cdc->nblock);
+	}
+	if (!adsp_state_notifier)
+		dev_err(codec->dev, "Failed to register adsp notifier\n");
 
 	registered_digcodec = codec;
 
@@ -1160,6 +1133,9 @@ static int msm_dig_cdc_soc_remove(struct snd_soc_codec *codec)
 {
 	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
 
+	if (adsp_state_notifier)
+		subsys_notif_unregister_notifier(adsp_state_notifier,
+						 &msm_dig_cdc->nblock);
 	iounmap(msm_dig_cdc->dig_base);
 	return 0;
 }
