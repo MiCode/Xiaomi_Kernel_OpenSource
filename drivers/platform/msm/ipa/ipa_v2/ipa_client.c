@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,8 +97,8 @@ int ipa_disable_data_path(u32 clnt_hdl)
 
 static int ipa2_smmu_map_peer_bam(unsigned long dev)
 {
-	phys_addr_t base;
-	u32 size;
+	phys_addr_t base = 0;
+	u32 size = 0;
 	struct iommu_domain *smmu_domain;
 	struct ipa_smmu_cb_ctx *cb = ipa2_get_smmu_ctx();
 
