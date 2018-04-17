@@ -3083,9 +3083,14 @@ void walt_irq_work(struct irq_work *irq_work)
 	}
 
 	for_each_sched_cluster(cluster) {
-		unsigned int num_cpus = cpumask_weight(&cluster->cpus), i = 1;
+		cpumask_t cluster_online_cpus;
+		unsigned int num_cpus, i = 1;
 
-		for_each_cpu(cpu, &cluster->cpus) {
+		cpumask_and(&cluster_online_cpus, &cluster->cpus,
+						cpu_online_mask);
+		num_cpus = cpumask_weight(&cluster_online_cpus);
+
+		for_each_cpu(cpu, &cluster_online_cpus) {
 			if (i == num_cpus)
 				cpufreq_update_util(cpu_rq(cpu), flag);
 			else
