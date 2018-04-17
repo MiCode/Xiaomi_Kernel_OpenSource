@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -410,8 +410,8 @@ static int msm_bus_noc_set_bw(struct msm_bus_node_device_type *dev,
 			NOC_QOS_MODE_LIMITER))) {
 		struct msm_bus_noc_qos_bw qos_bw;
 
-		bw = msm_bus_div64(info->num_qports,
-				dev->node_bw[ACTIVE_CTX].sum_ab);
+		bw = msm_bus_div64(dev->node_bw[ACTIVE_CTX].sum_ab,
+				info->num_qports);
 
 		for (i = 0; i < info->num_qports; i++) {
 			if (!info->qport) {
