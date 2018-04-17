@@ -2229,7 +2229,7 @@ static int wp_page_copy(struct fault_env *fe, pte_t orig_pte,
 		ptep_clear_flush_notify(vma, fe->address, fe->pte);
 		page_add_new_anon_rmap(new_page, vma, fe->address, false);
 		mem_cgroup_commit_charge(new_page, memcg, false, false);
-		lru_cache_add_active_or_unevictable(new_page, vma);
+		__lru_cache_add_active_or_unevictable(new_page, fe->vma_flags);
 		/*
 		 * We call the notify macro here because, when using secondary
 		 * mmu page tables (such as kvm shadow page tables), we want the
@@ -2701,7 +2701,7 @@ int do_swap_page(struct fault_env *fe, pte_t orig_pte)
 	} else { /* ksm created a completely new copy */
 		page_add_new_anon_rmap(page, vma, fe->address, false);
 		mem_cgroup_commit_charge(page, memcg, false, false);
-		lru_cache_add_active_or_unevictable(page, vma);
+		__lru_cache_add_active_or_unevictable(page, fe->vma_flags);
 	}
 
 	swap_free(entry);
@@ -2840,7 +2840,7 @@ static int do_anonymous_page(struct fault_env *fe)
 	inc_mm_counter_fast(vma->vm_mm, MM_ANONPAGES);
 	page_add_new_anon_rmap(page, vma, fe->address, false);
 	mem_cgroup_commit_charge(page, memcg, false, false);
-	lru_cache_add_active_or_unevictable(page, vma);
+	__lru_cache_add_active_or_unevictable(page, fe->vma_flags);
 setpte:
 	set_pte_at(vma->vm_mm, fe->address, fe->pte, entry);
 
@@ -3076,7 +3076,7 @@ int alloc_set_pte(struct fault_env *fe, struct mem_cgroup *memcg,
 		inc_mm_counter_fast(vma->vm_mm, MM_ANONPAGES);
 		page_add_new_anon_rmap(page, vma, fe->address, false);
 		mem_cgroup_commit_charge(page, memcg, false, false);
-		lru_cache_add_active_or_unevictable(page, vma);
+		__lru_cache_add_active_or_unevictable(page, fe->vma_flags);
 	} else {
 		inc_mm_counter_fast(vma->vm_mm, mm_counter_file(page));
 		page_add_file_rmap(page, false);
