@@ -623,17 +623,10 @@ void kgsl_syncsource_put(struct kgsl_syncsource *syncsource)
 		kref_put(&syncsource->refcount, kgsl_syncsource_destroy);
 }
 
-void kgsl_syncsource_cleanup(struct kgsl_process_private *private,
+static void kgsl_syncsource_cleanup(struct kgsl_process_private *private,
 				struct kgsl_syncsource *syncsource)
 {
 	struct kgsl_syncsource_fence *sfence, *next;
-
-	spin_lock(&private->syncsource_lock);
-	if (syncsource->id != 0) {
-		idr_remove(&private->syncsource_idr, syncsource->id);
-		syncsource->id = 0;
-	}
-	spin_unlock(&private->syncsource_lock);
 
 	/* Signal all fences to release any callbacks */
 	spin_lock(&syncsource->lock);
@@ -659,10 +652,17 @@ long kgsl_ioctl_syncsource_destroy(struct kgsl_device_private *dev_priv,
 
 	spin_lock(&private->syncsource_lock);
 	syncsource = idr_find(&private->syncsource_idr, param->id);
-	spin_unlock(&private->syncsource_lock);
 
-	if (syncsource == NULL)
+	if (syncsource == NULL) {
+		spin_unlock(&private->syncsource_lock);
 		return -EINVAL;
+	}
+
+	if (syncsource->id != 0) {
+		idr_remove(&private->syncsource_idr, syncsource->id);
+		syncsource->id = 0;
+	}
+	spin_unlock(&private->syncsource_lock);
 
 	kgsl_syncsource_cleanup(private, syncsource);
 	return 0;
@@ -805,6 +805,32 @@ static void kgsl_syncsource_fence_release(struct fence *fence)
 	kgsl_syncsource_put(sfence->parent);
 
 	kfree(sfence);
+}
+
+void kgsl_syncsource_process_release_syncsources(
+		struct kgsl_process_private *private)
+{
+	struct kgsl_syncsource *syncsource;
+	int next = 0;
+
+	while (1) {
+		spin_lock(&private->syncsource_lock);
+		syncsource = idr_get_next(&private->syncsource_idr, &next);
+
+		if (syncsource == NULL) {
+			spin_unlock(&private->syncsource_lock);
+			break;
+		}
+
+		if (syncsource->id != 0) {
+			idr_remove(&private->syncsource_idr, syncsource->id);
+			syncsource->id = 0;
+		}
+		spin_unlock(&private->syncsource_lock);
+
+		kgsl_syncsource_cleanup(private, syncsource);
+		next = next + 1;
+	}
 }
 
 static const char *kgsl_syncsource_get_timeline_name(struct fence *fence)
