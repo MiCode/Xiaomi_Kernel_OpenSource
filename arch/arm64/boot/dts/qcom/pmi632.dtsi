@@ -684,14 +684,14 @@
 
 &thermal_zones {
 	pmi-ibat-lvl0 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&bcl_sensor 0>;
 
 		trips {
-			pmi632_ibat:ibat-lvl0 {
-				temperature = <3500>;
+			pmi632_ibat_lvl0: ibat-lvl0 {
+				temperature = <4000>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -706,7 +706,7 @@
 
 		trips {
 			ibat-lvl1 {
-				temperature = <4000>;
+				temperature = <4200>;
 				hysteresis = <200>;
 				type = "passive";
 			};
