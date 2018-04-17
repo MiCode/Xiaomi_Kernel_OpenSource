@@ -71,7 +71,6 @@ struct sysmon_qmi_data {
 	struct notifier_block notifier;
 	void *notif_handle;
 	bool legacy_version;
-	struct completion ind_recv;
 	struct sockaddr_qrtr ssctl;
 	struct list_head list;
 };
@@ -99,8 +98,13 @@ static void sysmon_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 	struct sysmon_qmi_data *qmi_data = container_of(qmi,
 					struct sysmon_qmi_data, clnt_handle);
 
+	struct subsys_device *subsys_dev = find_subsys_device(qmi_data->name);
 	pr_info("%s: Indication received from subsystem\n", qmi_data->name);
-	complete(&qmi_data->ind_recv);
+	if (subsys_dev)
+		complete_shutdown_ack(subsys_dev);
+	else
+		pr_err("Failed to find subsystem: %s for indication\n",
+		       qmi_data->name);
 }
 
 static struct qmi_msg_handler qmi_indication_handler[] = {
@@ -400,8 +404,6 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 	if (!data->connected)
 		return -EAGAIN;
 
-	reinit_completion(&data->ind_recv);
-
 	ret = qmi_txn_init(&data->clnt_handle, &txn,
 			qmi_ssctl_shutdown_resp_msg_ei,
 			&resp);
@@ -428,11 +430,11 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 	if (ret < 0) {
 		pr_err("SYSMON QMI txn wait failed to dest %s, ret - %d\n",
 			dest_ss, ret);
-		goto out;
 	}
 
 	/* Check the response */
-	if (QMI_RESP_BIT_SHIFT(resp.resp.result) != QMI_RESULT_SUCCESS_V01) {
+	if (ret != -ETIMEDOUT && QMI_RESP_BIT_SHIFT(resp.resp.result) !=
+	    QMI_RESULT_SUCCESS_V01) {
 		pr_err("SYSMON QMI request failed 0x%x\n",
 					QMI_RESP_BIT_SHIFT(resp.resp.error));
 		ret = -EREMOTEIO;
@@ -440,21 +442,13 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 	}
 
 	shutdown_ack_ret = wait_for_shutdown_ack(dest_desc);
-	if (shutdown_ack_ret < 0) {
-		pr_err("shutdown_ack SMP2P bit for %s not set\n", data->name);
-		if (!data->ind_recv.done) {
-			pr_err("QMI shutdown indication not received\n");
-			ret = shutdown_ack_ret;
-		}
+	if (shutdown_ack_ret > 0) {
+		ret = 0;
 		goto out;
-	} else if (shutdown_ack_ret > 0)
-		goto out;
-
-	if (!wait_for_completion_timeout(&data->ind_recv,
-					msecs_to_jiffies(SHUTDOWN_TIMEOUT))) {
-		pr_err("Timed out waiting for shutdown indication from %s\n",
-							data->name);
-		ret = -ETIMEDOUT;
+	} else if (shutdown_ack_ret < 0) {
+		pr_err("shutdown acknowledgment not received for %s\n",
+		       data->name);
+		ret = shutdown_ack_ret;
 	}
 out:
 	return ret;
@@ -650,8 +644,6 @@ int sysmon_notifier_register(struct subsys_desc *desc)
 		pr_debug("SSCTL instance id not defined\n");
 		goto add_list;
 	}
-
-	init_completion(&data->ind_recv);
 
 	rc = qmi_handle_init(&data->clnt_handle,
 			QMI_SSCTL_RESP_MSG_LENGTH, &ssctl_ops,
