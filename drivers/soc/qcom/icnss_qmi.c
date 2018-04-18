@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1123,7 +1123,15 @@ static int wlfw_new_server(struct qmi_handle *qmi,
 static void wlfw_del_server(struct qmi_handle *qmi,
 			    struct qmi_service *service)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+
 	icnss_pr_dbg("WLFW server delete\n");
+
+	if (priv) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_fw_timeout(true);
+	}
+
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_EXIT,
 				0, NULL);
 }
