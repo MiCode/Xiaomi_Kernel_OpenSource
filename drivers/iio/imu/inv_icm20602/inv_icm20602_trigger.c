@@ -15,6 +15,7 @@
 #include <linux/sched/rt.h>
 #include <linux/delay.h>
 #include "inv_icm20602_iio.h"
+#include <linux/i2c.h>
 
 static const struct iio_trigger_ops inv_icm20602_trigger_ops = {
 	.owner = THIS_MODULE,
@@ -46,17 +47,20 @@ int inv_icm20602_probe_trigger(struct iio_dev *indio_dev)
 
 	ret = request_irq(st->client->irq, &iio_trigger_generic_data_rdy_poll,
 				IRQF_TRIGGER_RISING,
-				"inv_mpu",
+				"inv_icm20602",
 				st->trig);
-	if (ret)
+	if (ret) {
+		dev_dbgerr("request_irq\n");
 		goto error_free_trig;
-
-	st->trig->dev.parent = &st->spi->dev;
+	}
+	st->trig->dev.parent = &st->client->dev;
 	st->trig->ops = &inv_icm20602_trigger_ops;
 	iio_trigger_set_drvdata(st->trig, indio_dev);
 	ret = iio_trigger_register(st->trig);
-	if (ret)
+	if (ret) {
+		dev_dbgerr("iio_trigger_register\n");
 		goto error_free_irq;
+	}
 	indio_dev->trig = st->trig;
 
 	return 0;

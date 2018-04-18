@@ -34,12 +34,31 @@ int icm20602_debug_enable = 1;
 static ssize_t inv_icm20602_init_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	return count;
+	return MPU_SUCCESS;
+}
+
+static int inv_icm20602_def_config(struct inv_icm20602_state *st)
+{
+	struct icm20602_user_config *config = st->config;
+
+	config->user_fps_in_ms = 10;
+	config->gyro_lpf = INV_ICM20602_GYRO_LFP_92HZ;
+	config->gyro_fsr = ICM20602_GYRO_FSR_1000DPS;
+	config->acc_lpf = ICM20602_ACCLFP_99;
+	config->acc_fsr = ICM20602_ACC_FSR_4G;
+	config->gyro_accel_sample_rate = ICM20602_SAMPLE_RATE_100HZ;
+	config->fifo_enabled = true;
 }
 
 static int inv_icm20602_load_config(struct inv_icm20602_state *st)
 {
-	struct icm20602_chip_config *config = st->config;
+	struct icm20602_user_config *config = st->config;
+
+	if (config->user_fps_in_ms == 0)
+		inv_icm20602_def_config(st);
+	config->fifo_enabled = true;
+
+	return MPU_SUCCESS;
 }
 
 static ssize_t inv_icm20602_init_store(struct device *dev,
@@ -53,6 +72,7 @@ static ssize_t inv_icm20602_init_store(struct device *dev,
 	inv_icm20602_load_config(st);
 	result |= icm20602_detect(st);
 	result |= icm20602_init_device(st);
+	icm20602_start_fifo(st);
 	if (result)
 		dev_dbgerr("inv_select_config_store failed\n");
 
@@ -395,14 +415,31 @@ static int of_populate_icm20602_dt(struct inv_icm20602_state *st)
 	/* use client device irq */
 	st->gpio = of_get_named_gpio(st->client->dev.of_node,
 			"invn,icm20602-irq", 0);
-	result = gpio_request(st->gpio, "icm20602-irq");
-	if (result) {
-		dev_dbgerr("gpio request %d failed\n", st->gpio);
+	result = gpio_is_valid(st->gpio);
+	if (!result) {
+		dev_dbgerr("gpio_is_valid %d failed\n", st->gpio);
 		return -MPU_FAIL;
 	}
-	st->client->irq = gpio_to_irq(st->gpio);
 
-	return result;
+	result = gpio_request(st->gpio, "icm20602-irq");
+	if (result) {
+		dev_dbgerr("gpio_request failed\n");
+		return -MPU_FAIL;
+	}
+
+	result = gpio_direction_input(st->gpio);
+	if (result) {
+		dev_dbgerr("gpio_direction_input failed\n");
+		return -MPU_FAIL;
+	}
+
+	st->client->irq = gpio_to_irq(st->gpio);
+	if (st->client->irq < 0) {
+		dev_dbgerr("gpio_to_irq failed\n");
+		return -MPU_FAIL;
+	}
+
+	return MPU_SUCCESS;
 }
 
 /*
@@ -419,7 +456,6 @@ static int inv_icm20602_probe(struct i2c_client *client,
 {
 	struct inv_icm20602_state *st;
 	struct iio_dev *indio_dev;
-	struct inv_icm20602_platform_data *pdata;
 	int result = MPU_SUCCESS;
 
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*st));
@@ -430,21 +466,20 @@ static int inv_icm20602_probe(struct i2c_client *client,
 	}
 	st = iio_priv(indio_dev);
 	st->client = client;
-	st->fifo_cnt_threshold = 140;
 	st->interface = ICM20602_I2C;
 
+	dev_dbginfo("i2c address is %x\n", client->addr);
 	result = of_populate_icm20602_dt(st);
 	if (result)
 		dev_dbgerr("populate dt failed\n");
 
 	st->config = kmalloc(sizeof(struct icm20602_user_config), GFP_ATOMIC);
-
-	pdata =
-	(struct inv_icm20602_platform_data *)dev_get_platdata(&client->dev);
-	if (pdata)
-		st->plat_data = *pdata;
+	memset(st->config, 0, sizeof(struct icm20602_user_config));
+	icm20602_init_reg_map();
 
 	i2c_set_clientdata(&client->dev, indio_dev);
+
+	dev_set_drvdata(&client->dev, indio_dev);
 	indio_dev->dev.parent = &client->dev;
 	indio_dev->name = ICM20602_DEV_NAME;
 	indio_dev->channels = inv_icm20602_channels;

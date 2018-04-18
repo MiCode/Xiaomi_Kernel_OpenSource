@@ -219,7 +219,6 @@ struct inv_icm20602_state {
 	spinlock_t time_stamp_lock;
 	struct spi_device *spi;
 	struct i2c_client *client;
-	struct inv_icm20602_platform_data plat_data;
 	u8 fifo_packet_size;
 	int fifo_cnt_threshold;
 	char *buf;
@@ -283,11 +282,10 @@ int inv_icm20602_validate_trigger(struct iio_dev *indio_dev,
 int icm20602_read_raw(struct inv_icm20602_state *st,
 		struct struct_icm20602_real_data *real_data, u8 type);
 
-
+int icm20602_init_reg_map(void);
 int icm20602_init_device(struct inv_icm20602_state *st);
 int icm20602_detect(struct inv_icm20602_state *st);
 int icm20602_read_fifo(struct inv_icm20602_state *st,
 	void *buf, const int size);
-
-
+int icm20602_start_fifo(struct inv_icm20602_state *st);
 #endif
