@@ -114,6 +114,7 @@
 #include "qcs405-blsp.dtsi"
 #include "qcs405-cpu.dtsi"
 #include "qcs405-ion.dtsi"
+#include "qcs405-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
