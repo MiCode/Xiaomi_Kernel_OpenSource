@@ -3007,8 +3007,15 @@ static int fastrpc_cb_probe(struct device *dev)
 	VERIFY(err, !arm_iommu_attach_device(dev, sess->smmu.mapping));
 	if (err)
 		goto bail;
+
 	sess->smmu.dev = dev;
 	sess->smmu.enabled = 1;
+	if (!sess->smmu.dev->dma_parms)
+		sess->smmu.dev->dma_parms = devm_kzalloc(sess->smmu.dev,
+			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(sess->smmu.dev, DMA_BIT_MASK(64));
+
 	chan->sesscount++;
 	debugfs_global_file = debugfs_create_file("global", 0644, debugfs_root,
 							NULL, &debugfs_fops);
