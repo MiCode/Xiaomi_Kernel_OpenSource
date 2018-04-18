@@ -1498,8 +1498,9 @@ static int clk_alpha_pll_slew_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	unsigned long freq_hz;
 	const struct pll_vco *curr_vco, *vco;
-	u32 l;
+	u32 l, ctl;
 	u64 a;
+	int i = 0;
 
 	freq_hz = alpha_pll_round_rate(pll, rate, parent_rate, &l, &a);
 	if (freq_hz != rate) {
@@ -1507,7 +1508,18 @@ static int clk_alpha_pll_slew_set_rate(struct clk_hw *hw, unsigned long rate,
 		return -EINVAL;
 	}
 
-	curr_vco = alpha_pll_find_vco(pll, clk_hw_get_rate(hw));
+	regmap_read(pll->clkr.regmap, pll->offset + PLL_USER_CTL, &ctl);
+	ctl >>= PLL_POST_DIV_SHIFT;
+	ctl &= PLL_POST_DIV_MASK;
+
+	for (i = 0; i < ARRAY_SIZE(clk_alpha_div_table); i++) {
+		if (clk_alpha_div_table[i].val == ctl)
+			break;
+	}
+
+	if (i < ARRAY_SIZE(clk_alpha_div_table))
+		curr_vco = alpha_pll_find_vco(pll, clk_hw_get_rate(hw) *
+						clk_alpha_div_table[i].div);
 	if (!curr_vco) {
 		pr_err("alpha pll: not in a valid vco range\n");
 		return -EINVAL;
@@ -1553,8 +1565,8 @@ static int clk_alpha_pll_calibrate(struct clk_hw *hw)
 	struct clk_hw *parent;
 	const struct pll_vco *vco;
 	u64 a;
-	u32 l;
-	int rc;
+	u32 l, ctl;
+	int rc, i = 0;
 
 	parent = clk_hw_get_parent(hw);
 	if (!parent) {
@@ -1562,7 +1574,18 @@ static int clk_alpha_pll_calibrate(struct clk_hw *hw)
 		return -EINVAL;
 	}
 
-	vco = alpha_pll_find_vco(pll, clk_hw_get_rate(hw));
+	regmap_read(pll->clkr.regmap, pll->offset + PLL_USER_CTL, &ctl);
+	ctl >>= PLL_POST_DIV_SHIFT;
+	ctl &= PLL_POST_DIV_MASK;
+
+	for (i = 0; i < ARRAY_SIZE(clk_alpha_div_table); i++) {
+		if (clk_alpha_div_table[i].val == ctl)
+			break;
+	}
+
+	if (i < ARRAY_SIZE(clk_alpha_div_table))
+		vco = alpha_pll_find_vco(pll, clk_hw_get_rate(hw) *
+						clk_alpha_div_table[i].div);
 	if (!vco) {
 		pr_err("alpha pll: not in a valid vco range\n");
 		return -EINVAL;
