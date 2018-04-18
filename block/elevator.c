@@ -425,7 +425,10 @@ int elv_merge(struct request_queue *q, struct request **req, struct bio *bio)
 	/*
 	 * First try one-hit cache.
 	 */
-	if (q->last_merge && elv_bio_merge_ok(q->last_merge, bio)) {
+	if (q->last_merge) {
+		if (!elv_bio_merge_ok(q->last_merge, bio))
+			return ELEVATOR_NO_MERGE;
+
 		ret = blk_try_merge(q->last_merge, bio);
 		if (ret != ELEVATOR_NO_MERGE) {
 			*req = q->last_merge;

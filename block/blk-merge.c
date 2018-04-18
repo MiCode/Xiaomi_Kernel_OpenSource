@@ -8,7 +8,7 @@
 #include <linux/scatterlist.h>
 #include <linux/pfk.h>
 #include <trace/events/block.h>
-
+#include <linux/pfk.h>
 #include "blk.h"
 
 static struct bio *blk_bio_discard_split(struct request_queue *q,
