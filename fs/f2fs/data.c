@@ -67,7 +67,7 @@ static void f2fs_read_end_io(struct bio *bio, int err)
 		if (err) {
 			fscrypt_release_ctx(bio->bi_private);
 		} else {
-			fscrypt_decrypt_bio_pages(bio->bi_private, bio);
+			fscrypt_enqueue_decrypt_bio(bio->bi_private, bio);
 			return;
 		}
 	}
