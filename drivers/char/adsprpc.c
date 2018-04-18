@@ -2041,12 +2041,15 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 		err = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
 			TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID), &desc);
 	} else if (map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
-		VERIFY(err, !hyp_assign_phys(map->phys, (uint64_t)map->size,
+		if (me->channel[fl->cid].rhvm.vmid) {
+			VERIFY(err, !hyp_assign_phys(map->phys,
+					(uint64_t)map->size,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
 					destVM, destVMperm, 1));
-		if (err)
-			goto bail;
+			if (err)
+				goto bail;
+		}
 	}
 
 bail:
