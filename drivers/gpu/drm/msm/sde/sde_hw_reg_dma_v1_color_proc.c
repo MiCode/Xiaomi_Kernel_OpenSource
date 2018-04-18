@@ -2057,9 +2057,10 @@ void reg_dmav1_setup_dma_igcv5(struct sde_hw_pipe *ctx, void *cfg,
 		return;
 	}
 
+	/* client packs the 1D LUT data in c2 instead of c0 */
 	for (i = 0; i < DMA_1D_LUT_IGC_LEN; i++)
-		data[i] = (igc_lut->c0[2 * i] & IGC_DATA_MASK) |
-			((igc_lut->c0[2 * i + 1] & IGC_DATA_MASK) << 16);
+		data[i] = (igc_lut->c2[2 * i] & IGC_DATA_MASK) |
+			((igc_lut->c2[2 * i + 1] & IGC_DATA_MASK) << 16);
 
 	if (idx == SDE_SSPP_RECT_SOLO || idx == SDE_SSPP_RECT_0) {
 		igc_base = ctx->cap->sblk->igc_blk[0].base -
@@ -2164,8 +2165,7 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 			enum sde_sspp_multirect_index idx)
 {
 	int rc;
-	u32 i = 0, reg = 0;
-	u32 *data = NULL;
+	u32 reg = 0;
 	struct drm_msm_pgc_lut *gc_lut;
 	struct sde_hw_cp_cfg *hw_cfg = cfg;
 	struct sde_hw_reg_dma_ops *dma_ops;
@@ -2203,15 +2203,6 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 		return;
 	}
 
-	data = kzalloc(DMA_1D_LUT_GC_LEN * sizeof(u32), GFP_KERNEL);
-	if (!data) {
-		DRM_ERROR("failed to allocate memory for igc\n");
-		return;
-	}
-
-	for (i = 0; i < DMA_1D_LUT_GC_LEN; i++)
-		data[i] = gc_lut->c0[2 * i] | (gc_lut->c0[2 * i + 1] << 16);
-
 	if (idx == SDE_SSPP_RECT_SOLO || idx == SDE_SSPP_RECT_0) {
 		gc_base = ctx->cap->sblk->gc_blk[0].base - REG_DMA_DMA_SWI_DIFF;
 		gc_opmode_off = DMA_DGM_0_OP_MODE_OFF;
@@ -2220,13 +2211,16 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 		gc_opmode_off = DMA_DGM_1_OP_MODE_OFF;
 	}
 
-	REG_DMA_SETUP_OPS(dma_write_cfg, gc_base, data,
+	/* client packs the 1D LUT data in c2 instead of c0,
+	 * and even & odd values are already stacked in register foramt
+	 */
+	REG_DMA_SETUP_OPS(dma_write_cfg, gc_base, gc_lut->c2,
 			DMA_1D_LUT_GC_LEN * sizeof(u32),
 			REG_BLK_WRITE_SINGLE, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
 		DRM_ERROR("lut write failed ret %d\n", rc);
-		goto gc_exit;
+		return;
 	}
 	reg = BIT(2);
 	REG_DMA_SETUP_OPS(dma_write_cfg, gc_opmode_off, &reg,
@@ -2235,7 +2229,7 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
 		DRM_ERROR("setting opcode failed ret %d\n", rc);
-		goto gc_exit;
+		return;
 	}
 
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
@@ -2244,8 +2238,6 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
-gc_exit:
-	kfree(data);
 }
 
 int reg_dmav1_deinit_sspp_ops(enum sde_sspp idx)
