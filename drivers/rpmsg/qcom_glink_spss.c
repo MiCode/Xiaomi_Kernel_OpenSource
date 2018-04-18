@@ -210,8 +210,8 @@ static int glink_spss_advertise_cfg(struct device *dev,
 
 	*spss_addr = cpu_to_le64(addr);
 	*spss_size = cpu_to_le32(size);
-	iounmap(spss_addr);
-	iounmap(spss_size);
+	devm_iounmap(dev, spss_addr);
+	devm_iounmap(dev, spss_size);
 
 	return 0;
 }
