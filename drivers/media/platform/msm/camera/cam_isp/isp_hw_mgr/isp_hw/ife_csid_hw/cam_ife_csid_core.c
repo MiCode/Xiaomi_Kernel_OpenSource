@@ -355,8 +355,7 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 	struct cam_hw_soc_info          *soc_info;
 	struct cam_ife_csid_reg_offset  *csid_reg;
 	int rc = 0;
-	uint32_t i, irq_mask_rx, irq_mask_ipp = 0,
-		irq_mask_rdi[CAM_IFE_CSID_RDI_MAX];
+	uint32_t val = 0, i;
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -372,19 +371,6 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 		csid_hw->hw_intf->hw_idx);
 
 	init_completion(&csid_hw->csid_top_complete);
-
-	/* Save interrupt mask registers values*/
-	irq_mask_rx = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
-
-	if (csid_reg->cmn_reg->no_pix)
-		irq_mask_ipp = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
-
-	for (i = 0; i < csid_reg->cmn_reg->no_rdis; i++) {
-		irq_mask_rdi[i] = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-		csid_reg->rdi_reg[i]->csid_rdi_irq_mask_addr);
-	}
 
 	/* Mask all interrupts */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
@@ -448,17 +434,11 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 		rc = 0;
 	}
 
-	/*restore all interrupt masks */
-	cam_io_w_mb(irq_mask_rx, soc_info->reg_map[0].mem_base +
+	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
-
-	if (csid_reg->cmn_reg->no_pix)
-		cam_io_w_mb(irq_mask_ipp, soc_info->reg_map[0].mem_base +
-			csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
-
-	for (i = 0; i < csid_reg->cmn_reg->no_rdis; i++)
-		cam_io_w_mb(irq_mask_rdi[i], soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[i]->csid_rdi_irq_mask_addr);
+	if (val != 0)
+		CAM_ERR(CAM_ISP, "CSID:%d IRQ value after reset rc = %d",
+			csid_hw->hw_intf->hw_idx, val);
 
 	return rc;
 }
@@ -946,7 +926,7 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 		return rc;
 	}
 
-	CAM_DBG(CAM_ISP, "CSID:%d init CSID HW",
+	CAM_INFO(CAM_ISP, "CSID:%d init CSID HW",
 		csid_hw->hw_intf->hw_idx);
 
 	rc = cam_ife_csid_enable_soc_resources(soc_info);
@@ -1050,6 +1030,10 @@ static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	csid_reg = csid_hw->csid_info->csid_reg;
+
+	CAM_INFO(CAM_ISP, "%s:Doing Global Reset\n", __func__);
+	cam_ife_csid_global_reset(csid_hw);
+	CAM_INFO(CAM_ISP, "%s:Doing Global Reset Done\n", __func__);
 
 	CAM_DBG(CAM_ISP, "CSID:%d De-init CSID HW",
 		csid_hw->hw_intf->hw_idx);
@@ -2372,7 +2356,6 @@ static int cam_ife_csid_init_hw(void *hw_priv,
 	rc = cam_ife_csid_reset_retain_sw_reg(csid_hw);
 	if (rc < 0) {
 		CAM_ERR(CAM_ISP, "CSID: Failed in SW reset");
-		return rc;
 	}
 
 	if (rc)
@@ -2410,9 +2393,11 @@ static int cam_ife_csid_deinit_hw(void *hw_priv,
 
 	switch (res->res_type) {
 	case CAM_ISP_RESOURCE_CID:
+		CAM_INFO(CAM_ISP, "De-Init ife_csid");
 		rc = cam_ife_csid_disable_csi2(csid_hw, res);
 		break;
 	case CAM_ISP_RESOURCE_PIX_PATH:
+		CAM_INFO(CAM_ISP, "De-Init Pix Path: %d", res->res_id);
 		if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP)
 			rc = cam_ife_csid_deinit_ipp_path(csid_hw, res);
 		else
@@ -2517,6 +2502,7 @@ static int cam_ife_csid_stop(void *hw_priv,
 				rc = cam_ife_csid_tpg_stop(csid_hw, res);
 			break;
 		case CAM_ISP_RESOURCE_PIX_PATH:
+			CAM_INFO(CAM_ISP, "%s: Stop Pix Path: %d", __func__, res->res_id);
 			if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP)
 				rc = cam_ife_csid_disable_ipp_path(csid_hw,
 						res, csid_stop->stop_cmd);

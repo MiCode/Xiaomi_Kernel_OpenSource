@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,7 @@ struct cam_lrme_context {
 
 int cam_lrme_context_init(struct cam_lrme_context *lrme_ctx,
 	struct cam_context *base_ctx, struct cam_hw_mgr_intf *hw_intf,
-	uint64_t index);
+	uint32_t index);
 int cam_lrme_context_deinit(struct cam_lrme_context *lrme_ctx);
 
 #endif /* _CAM_LRME_CONTEXT_H_ */

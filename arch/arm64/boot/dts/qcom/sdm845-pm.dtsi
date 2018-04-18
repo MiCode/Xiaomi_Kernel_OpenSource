@@ -95,6 +95,7 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
+				qcom,use-prediction;
 				qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
 
 				qcom,pm-cpu-level@0 { /* C1 */
@@ -138,9 +139,5 @@
 		compatible = "qcom,rpm-stats";
 		reg = <0xC300000 0x1000>, <0xC3F0004 0x4>;
 		reg-names = "phys_addr_base", "offset_addr";
-	};
-
-	qcom,rpmh-master-stats {
-		compatible = "qcom,rpmh-master-stats";
 	};
 };

@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/debugfs.h>
 #include <linux/spinlock.h>
 #include <linux/errno.h>
@@ -105,6 +104,11 @@ static void vote_min(struct votable *votable, int client_id,
 	*eff_res = INT_MAX;
 	*eff_id = -EINVAL;
 	for (i = 0; i < votable->num_clients && votable->client_strs[i]; i++) {
+		if (strcmp(votable->name, "FG_WS") != 0) {
+			if (votable->votes[i].enabled)
+				pr_info("%s: val: %d\n", votable->client_strs[i],
+							votable->votes[i].value);
+		}
 		if (votable->votes[i].enabled
 			&& *eff_res > votable->votes[i].value) {
 			*eff_res = votable->votes[i].value;
@@ -174,7 +178,7 @@ static char *get_client_str(struct votable *votable, int client_id)
 	if (client_id == -EINVAL)
 		return NULL;
 
-	return votable->client_strs[client_id];
+	 return votable->client_strs[client_id];
 }
 
 void lock_votable(struct votable *votable)
@@ -375,7 +379,7 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 
 	if ((votable->votes[client_id].enabled == enabled) &&
 		(votable->votes[client_id].value == val)) {
-		pr_debug("%s: %s,%d same vote %s of val=%d\n",
+		pr_err("%s: %s,%d same vote %s of val=%d\n",
 				votable->name,
 				client_str, client_id,
 				enabled ? "on" : "off",
@@ -410,7 +414,12 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 	default:
 		return -EINVAL;
 	}
-
+	if (strcmp(votable->name, "FG_WS") != 0) {
+		pr_info("%s: current vote is now %d voted by %s,%d,previous voted %d\n",
+				votable->name, effective_result,
+				get_client_str(votable, effective_id),
+				effective_id, votable->effective_result);
+	}
 	/*
 	 * Note that the callback is called with a NULL string and -EINVAL
 	 * result when there are no enabled votes
@@ -634,7 +643,7 @@ struct votable *create_votable(const char *name,
 		return ERR_PTR(-ENOMEM);
 	}
 
-	votable->status_ent = debugfs_create_file("status", S_IFREG | 0444,
+	votable->status_ent = debugfs_create_file("status", S_IFREG | S_IRUGO,
 				  votable->root, votable,
 				  &votable_status_ops);
 	if (!votable->status_ent) {
@@ -646,7 +655,7 @@ struct votable *create_votable(const char *name,
 	}
 
 	votable->force_val_ent = debugfs_create_u32("force_val",
-					S_IFREG | 0644,
+					S_IFREG | S_IWUSR | S_IRUGO,
 					votable->root,
 					&(votable->force_val));
 
@@ -659,7 +668,7 @@ struct votable *create_votable(const char *name,
 	}
 
 	votable->force_active_ent = debugfs_create_file("force_active",
-					S_IFREG | 0444,
+					S_IFREG | S_IRUGO,
 					votable->root, votable,
 					&votable_force_ops);
 	if (!votable->force_active_ent) {

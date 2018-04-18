@@ -3,6 +3,7 @@
  *
  * Based on ideas and code from CFQ, CFS and BFQ:
  * Copyright (C) 2003 Jens Axboe <axboe@kernel.dk>
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Copyright (C) 2008 Fabio Checconi <fabio@gandalf.sssup.it>
  *		      Paolo Valente <paolo.valente@unimore.it>
@@ -185,8 +186,7 @@ static struct blkcg_gq *blkg_create(struct blkcg *blkcg,
 	}
 
 	wb_congested = wb_congested_get_create(&q->backing_dev_info,
-					       blkcg->css.id,
-					       GFP_NOWAIT | __GFP_NOWARN);
+					       blkcg->css.id, GFP_NOWAIT);
 	if (!wb_congested) {
 		ret = -ENOMEM;
 		goto err_put_css;
@@ -194,7 +194,7 @@ static struct blkcg_gq *blkg_create(struct blkcg *blkcg,
 
 	/* allocate */
 	if (!new_blkg) {
-		new_blkg = blkg_alloc(blkcg, q, GFP_NOWAIT | __GFP_NOWARN);
+		new_blkg = blkg_alloc(blkcg, q, GFP_NOWAIT);
 		if (unlikely(!new_blkg)) {
 			ret = -ENOMEM;
 			goto err_put_congested;
@@ -1023,7 +1023,7 @@ blkcg_css_alloc(struct cgroup_subsys_state *parent_css)
 	}
 
 	spin_lock_init(&blkcg->lock);
-	INIT_RADIX_TREE(&blkcg->blkg_tree, GFP_NOWAIT | __GFP_NOWARN);
+	INIT_RADIX_TREE(&blkcg->blkg_tree, GFP_NOWAIT);
 	INIT_HLIST_HEAD(&blkcg->blkg_list);
 #ifdef CONFIG_CGROUP_WRITEBACK
 	INIT_LIST_HEAD(&blkcg->cgwb_list);
@@ -1241,7 +1241,7 @@ pd_prealloc:
 		if (blkg->pd[pol->plid])
 			continue;
 
-		pd = pol->pd_alloc_fn(GFP_NOWAIT | __GFP_NOWARN, q->node);
+		pd = pol->pd_alloc_fn(GFP_NOWAIT, q->node);
 		if (!pd)
 			swap(pd, pd_prealloc);
 		if (!pd) {

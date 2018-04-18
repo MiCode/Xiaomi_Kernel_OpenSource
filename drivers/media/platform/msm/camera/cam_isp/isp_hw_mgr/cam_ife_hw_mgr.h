@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,9 +17,6 @@
 #include "cam_vfe_hw_intf.h"
 #include "cam_ife_csid_hw_intf.h"
 #include "cam_tasklet_util.h"
-
-/* MAX IFE instance */
-#define CAM_IFE_HW_NUM_MAX                       4
 
 /* enum cam_ife_hw_mgr_res_type - manager resource node type */
 enum cam_ife_hw_mgr_res_type {
@@ -94,6 +91,15 @@ struct cam_ife_hw_mgr_debug {
 	uint32_t       enable_recovery;
 };
 
+/* enum cam_ife_hw_mgr_ctx_state - state of the context */
+enum cam_ife_hw_mgr_ctx_state {
+	CAM_IFE_HW_MGR_CTX_AVAILABLE = 0,
+	CAM_IFE_HW_MGR_CTX_ACQUIRED  = 1,
+	CAM_IFE_HW_MGR_CTX_STARTED   = 2,
+	CAM_IFE_HW_MGR_CTX_STOPPED   = 3,
+	CAM_IFE_HW_MGR_CTX_PAUSED    = 4,
+};
+
 /**
  * struct cam_vfe_hw_mgr_ctx - IFE HW manager Context object
  *
@@ -101,7 +107,7 @@ struct cam_ife_hw_mgr_debug {
  * @common:                 common acquired context data
  * @ctx_index:              acquired context id.
  * @hw_mgr:                 IFE hw mgr which owns this context
- * @ctx_in_use:             flag to tell whether context is active
+ * @ctx_state:              state of the conxtext
  * @res_list_ife_in:        Starting resource(TPG,PHY0, PHY1...) Can only be
  *                          one.
  * @res_list_csid:          CSID resource list
@@ -131,7 +137,7 @@ struct cam_ife_hw_mgr_ctx {
 
 	uint32_t                        ctx_index;
 	struct cam_ife_hw_mgr          *hw_mgr;
-	uint32_t                        ctx_in_use;
+	enum cam_ife_hw_mgr_ctx_state   ctx_state;
 
 	struct cam_ife_hw_mgr_res       res_list_ife_in;
 	struct list_head                res_list_ife_cid;

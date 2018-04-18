@@ -4,6 +4,7 @@
  * Copyright (C) 1997-1999 Russell King
  * Copyright (C) 2000 Deep Blue Solutions Ltd
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -38,6 +39,12 @@ extern void cpu_do_suspend(struct cpu_suspend_ctx *ptr);
 extern u64 cpu_do_resume(phys_addr_t ptr, u64 idmap_ttbr);
 
 #include <asm/memory.h>
+
+#define cpu_switch_mm(pgd, mm)				\
+do {							\
+	BUG_ON(pgd == swapper_pg_dir);			\
+	cpu_do_switch_mm(virt_to_phys(pgd), mm);		\
+} while (0)
 
 #endif /* __ASSEMBLY__ */
 #endif /* __KERNEL__ */

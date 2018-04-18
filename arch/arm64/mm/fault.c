@@ -473,7 +473,7 @@ static int do_tlb_conf_fault(unsigned long addr,
 				unsigned int esr,
 				struct pt_regs *regs)
 {
-#define SCM_TLB_CONFLICT_CMD	0x1F
+#define SCM_TLB_CONFLICT_CMD	0x1B
 	struct scm_desc desc = {
 		.args[0] = addr,
 		.arginfo = SCM_ARGS(1),
@@ -616,22 +616,6 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 	info.si_code  = inf->code;
 	info.si_addr  = (void __user *)addr;
 	arm64_notify_die("", regs, &info, esr);
-}
-
-asmlinkage void __exception do_el0_ia_bp_hardening(unsigned long addr,
-						   unsigned int esr,
-						   struct pt_regs *regs)
-{
-	/*
-	 * We've taken an instruction abort from userspace and not yet
-	 * re-enabled IRQs. If the address is a kernel address, apply
-	 * BP hardening prior to enabling IRQs and pre-emption.
-	 */
-	if (addr > TASK_SIZE)
-		arm64_apply_bp_hardening();
-
-	local_irq_enable();
-	do_mem_abort(addr, esr, regs);
 }
 
 /*

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,19 +159,19 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 	for (i = 0; i < num_objs; i++) {
 		/* This gets us the row corresponding to the sync object */
 		child_row = table + sync_objs[i];
-		spin_lock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+
 		parent_info = kzalloc(sizeof(*parent_info), GFP_ATOMIC);
 		if (!parent_info) {
 			cam_sync_util_cleanup_parents_list(child_row,
 				SYNC_LIST_CLEAN_ALL, 0);
 			cam_sync_util_cleanup_children_list(row,
 				SYNC_LIST_CLEAN_ALL, 0);
-			spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+
 			return -ENOMEM;
 		}
 		parent_info->sync_id = idx;
 		list_add_tail(&parent_info->list, &child_row->parents_list);
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_objs[i]]);
+
 	}
 
 	row->type = CAM_SYNC_TYPE_GROUP;

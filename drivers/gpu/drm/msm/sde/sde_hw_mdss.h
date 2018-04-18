@@ -1,4 +1,5 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -570,7 +571,8 @@ struct ctl_top {
 /**
  * struct sde_splash_data - Struct contains details of continuous splash
  *	memory region and initial pipeline configuration.
- * @smmu_handoff_pending:boolean to notify handoff from splash memory to smmu
+ * @resource_handoff_pending: boolean to notify boot up resource handoff
+ *			is pending.
  * @splash_base:	Base address of continuous splash region reserved
  *                      by bootloader
  * @splash_size:	Size of continuous splash region
@@ -584,7 +586,7 @@ struct ctl_top {
  * @cont_splash_en:	Stores the cont_splash status (enabled/disbled)
  */
 struct sde_splash_data {
-	bool smmu_handoff_pending;
+	bool resource_handoff_pending;
 	unsigned long splash_base;
 	u32 splash_size;
 	struct ctl_top top[CTL_MAX - CTL_0];

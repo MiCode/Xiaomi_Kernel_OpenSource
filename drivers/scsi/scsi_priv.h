@@ -193,4 +193,6 @@ extern int scsi_internal_device_block(struct scsi_device *sdev);
 extern int scsi_internal_device_unblock(struct scsi_device *sdev,
 					enum scsi_device_state new_state);
 
+int scsi_hr_inquiry(struct scsi_device *sdev, char *hr_inq, int len);
+
 #endif /* _SCSI_PRIV_H */

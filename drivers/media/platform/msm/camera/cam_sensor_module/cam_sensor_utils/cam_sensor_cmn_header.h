@@ -26,7 +26,7 @@
 #define MAX_REGULATOR 5
 #define MAX_POWER_CONFIG 12
 
-#define MAX_PER_FRAME_ARRAY 32
+#define MAX_PER_FRAME_ARRAY 33
 
 #define CAM_SENSOR_NAME    "cam-sensor"
 #define CAM_ACTUATOR_NAME  "cam-actuator"

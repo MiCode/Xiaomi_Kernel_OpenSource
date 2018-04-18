@@ -1890,7 +1890,6 @@ struct usb_function *function_alloc_mtp_ptp(struct usb_function_instance *fi,
 	dev->function.disable = mtp_function_disable;
 	dev->function.setup = mtp_ctrlreq_configfs;
 	dev->function.free_func = mtp_free;
-	fi->f = &dev->function;
 
 	return &dev->function;
 }

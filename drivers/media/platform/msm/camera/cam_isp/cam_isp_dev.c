@@ -1,4 +1,5 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -104,7 +105,8 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 		rc = cam_isp_context_init(&g_isp_dev.ctx_isp[i],
 			&g_isp_dev.ctx[i],
 			&node->crm_node_intf,
-			&node->hw_mgr_intf);
+			&node->hw_mgr_intf,
+			i);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "ISP context init failed!");
 			goto unregister;

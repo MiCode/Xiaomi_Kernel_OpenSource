@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -248,11 +248,6 @@
 	/delete-property/ vdd_gfx-supply;
 };
 
-&clock_cpucc {
-	/delete-property/ vdd_l3_mx_ao-supply;
-	/delete-property/ vdd_pwrcl_mx_ao-supply;
-};
-
 &pil_modem {
 	/delete-property/ vdd_cx-supply;
 	/delete-property/ vdd_mx-supply;
@@ -322,13 +317,6 @@
 	};
 
 	gpio-regulator@2 {
-		/delete-property/ gpio;
-		/delete-property/ vin-supply;
-		/delete-property/ pinctrl-names;
-		/delete-property/ pinctrl-0;
-	};
-
-	gpio-regulator@4 {
 		/delete-property/ gpio;
 		/delete-property/ vin-supply;
 		/delete-property/ pinctrl-names;

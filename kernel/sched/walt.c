@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,9 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 unsigned int __read_mostly walt_disabled = 0;
 
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
+
+unsigned int sysctl_sched_walt_rotate_big_tasks;
+unsigned int walt_rotation_enabled;
 
 /*
  * sched_window_stats_policy and sched_ravg_hist_size have a 'sysctl' copy
@@ -316,7 +319,8 @@ bool early_detection_notify(struct rq *rq, u64 wallclock)
 	struct task_struct *p;
 	int loop_max = 10;
 
-	if (sched_boost_policy() == SCHED_BOOST_NONE || !rq->cfs.h_nr_running)
+	if ((!walt_rotation_enabled && sched_boost_policy() ==
+			SCHED_BOOST_NONE) || !rq->cfs.h_nr_running)
 		return 0;
 
 	rq->ed_task = NULL;
@@ -487,7 +491,7 @@ u64 freq_policy_load(struct rq *rq)
 
 done:
 	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, freq_aggr_thresh,
-				load, reporting_policy);
+				load, reporting_policy, walt_rotation_enabled);
 	return load;
 }
 
@@ -2015,7 +2019,7 @@ void mark_task_starting(struct task_struct *p)
 
 	wallclock = ktime_get_ns();
 	p->ravg.mark_start = p->last_wake_ts = wallclock;
-	p->last_cpu_selected_ts = wallclock;
+	p->last_enqueued_ts = wallclock;
 	p->last_switch_out_ts = 0;
 	update_task_cpu_cycles(p, cpu_of(rq));
 }
@@ -2915,6 +2919,7 @@ static unsigned long thermal_cap_cpu[NR_CPUS];
 
 unsigned long thermal_cap(int cpu)
 {
+
 	return thermal_cap_cpu[cpu] ?: SCHED_CAPACITY_SCALE;
 }
 
@@ -3139,6 +3144,19 @@ void walt_irq_work(struct irq_work *irq_work)
 		core_ctl_check(this_rq()->window_start);
 }
 
+void walt_rotation_checkpoint(int nr_big)
+{
+	if (!hmp_capable())
+		return;
+
+	if (!sysctl_sched_walt_rotate_big_tasks || sched_boost() != NO_BOOST) {
+		walt_rotation_enabled = 0;
+		return;
+	}
+
+	walt_rotation_enabled = nr_big >= num_possible_cpus();
+}
+
 int walt_proc_update_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos)
@@ -3174,6 +3192,8 @@ void walt_sched_init(struct rq *rq)
 	cpumask_set_cpu(cpu_of(rq), &rq->freq_domain_cpumask);
 	init_irq_work(&walt_migration_irq_work, walt_irq_work);
 	init_irq_work(&walt_cpufreq_irq_work, walt_irq_work);
+	walt_rotate_work_init();
+
 	rq->walt_stats.cumulative_runnable_avg = 0;
 	rq->window_start = 0;
 	rq->cum_window_start = 0;

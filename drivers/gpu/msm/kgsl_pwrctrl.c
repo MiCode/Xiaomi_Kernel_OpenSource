@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,10 +166,9 @@ static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
 					int popp)
 {
 	unsigned int max_pwrlevel = max_t(unsigned int, pwr->thermal_pwrlevel,
-					pwr->max_pwrlevel);
-	unsigned int min_pwrlevel = min_t(unsigned int,
-					pwr->thermal_pwrlevel_floor,
-					pwr->min_pwrlevel);
+		pwr->max_pwrlevel);
+	unsigned int min_pwrlevel = max_t(unsigned int, pwr->thermal_pwrlevel,
+		pwr->min_pwrlevel);
 
 	switch (pwrc->type) {
 	case KGSL_CONSTRAINT_PWRLEVEL: {
@@ -2208,7 +2208,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	pwr->max_pwrlevel = 0;
 	pwr->min_pwrlevel = pwr->num_pwrlevels - 2;
 	pwr->thermal_pwrlevel = 0;
-	pwr->thermal_pwrlevel_floor = pwr->min_pwrlevel;
 
 	pwr->wakeup_maxpwrlevel = 0;
 

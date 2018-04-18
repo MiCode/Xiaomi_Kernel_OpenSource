@@ -4,6 +4,7 @@
  * Original Copyright (C) 1995  Linus Torvalds
  * Copyright (C) 1996-2000 Russell King - Converted to ARM.
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -366,17 +367,17 @@ int copy_thread(unsigned long clone_flags, unsigned long stack_start,
 
 static void tls_thread_switch(struct task_struct *next)
 {
-	unsigned long tpidr;
+	unsigned long tpidr, tpidrro;
 
 	tpidr = read_sysreg(tpidr_el0);
 	*task_user_tls(current) = tpidr;
 
-	if (is_compat_thread(task_thread_info(next)))
-		write_sysreg(next->thread.tp_value, tpidrro_el0);
-	else if (!arm64_kernel_unmapped_at_el0())
-		write_sysreg(0, tpidrro_el0);
+	tpidr = *task_user_tls(next);
+	tpidrro = is_compat_thread(task_thread_info(next)) ?
+		  next->thread.tp_value : 0;
 
-	write_sysreg(*task_user_tls(next), tpidr_el0);
+	write_sysreg(tpidr, tpidr_el0);
+	write_sysreg(tpidrro, tpidrro_el0);
 }
 
 /* Restore the UAO state depending on next's addr_limit */

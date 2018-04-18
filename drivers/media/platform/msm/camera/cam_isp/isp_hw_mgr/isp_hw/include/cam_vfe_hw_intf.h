@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +50,9 @@ enum cam_vfe_hw_irq_status {
 	CAM_VFE_IRQ_STATUS_COMP_OWRT            = -2,
 	CAM_VFE_IRQ_STATUS_ERR                  = -1,
 	CAM_VFE_IRQ_STATUS_SUCCESS              = 0,
+	CAM_VFE_IRQ_STATUS_OVERFLOW             = 1,
+	CAM_VFE_IRQ_STATUS_P2I_ERROR            = 2,
+	CAM_VFE_IRQ_STATUS_VIOLATION            = 3,
 	CAM_VFE_IRQ_STATUS_MAX,
 };
 

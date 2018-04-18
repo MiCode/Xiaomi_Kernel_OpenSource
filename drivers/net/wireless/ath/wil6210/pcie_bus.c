@@ -211,8 +211,6 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		.fw_recovery = wil_platform_rop_fw_recovery,
 	};
 	u32 bar_size = pci_resource_len(pdev, 0);
-	int dma_addr_size[] = {48, 40, 32}; /* keep descending order */
-	int i;
 
 	/* check HW */
 	dev_info(&pdev->dev, WIL_NAME
@@ -248,22 +246,20 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	}
 	/* rollback to err_plat */
 
-	/* device supports >32bit addresses */
-	for (i = 0; i < ARRAY_SIZE(dma_addr_size); i++) {
-		rc = dma_set_mask_and_coherent(dev,
-					       DMA_BIT_MASK(dma_addr_size[i]));
+	/* device supports 48bit addresses */
+	rc = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48));
+	if (rc) {
+		dev_err(dev, "dma_set_mask_and_coherent(48) failed: %d\n", rc);
+		rc = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 		if (rc) {
-			dev_err(dev, "dma_set_mask_and_coherent(%d) failed: %d\n",
-				dma_addr_size[i], rc);
-			continue;
+			dev_err(dev,
+				"dma_set_mask_and_coherent(32) failed: %d\n",
+				rc);
+			goto err_plat;
 		}
-		dev_info(dev, "using dma mask %d", dma_addr_size[i]);
-		wil->dma_addr_size = dma_addr_size[i];
-		break;
+	} else {
+		wil->use_extended_dma_addr = 1;
 	}
-
-	if (wil->dma_addr_size == 0)
-		goto err_plat;
 
 	rc = pci_enable_device(pdev);
 	if (rc && pdev->msi_enabled == 0) {
@@ -397,9 +393,6 @@ static int wil6210_suspend(struct device *dev, bool is_runtime)
 	int rc = 0;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct wil6210_priv *wil = pci_get_drvdata(pdev);
-	struct net_device *ndev = wil_to_ndev(wil);
-	bool keep_radio_on = ndev->flags & IFF_UP &&
-			     wil->keep_radio_on_during_sleep;
 
 	wil_dbg_pm(wil, "suspend: %s\n", is_runtime ? "runtime" : "system");
 
@@ -407,18 +400,16 @@ static int wil6210_suspend(struct device *dev, bool is_runtime)
 	if (rc)
 		goto out;
 
-	rc = wil_suspend(wil, is_runtime, keep_radio_on);
+	rc = wil_suspend(wil, is_runtime);
 	if (!rc) {
-		/* In case radio stays on, platform device will control
-		 * PCIe master
+		wil->suspend_stats.successful_suspends++;
+
+		/* If platform device supports keep_radio_on_during_sleep
+		 * it will control PCIe master
 		 */
-		if (!keep_radio_on) {
+		if (!wil->keep_radio_on_during_sleep)
 			/* disable bus mastering */
 			pci_clear_master(pdev);
-			wil->suspend_stats.r_off.successful_suspends++;
-		} else {
-			wil->suspend_stats.r_on.successful_suspends++;
-		}
 	}
 out:
 	return rc;
@@ -429,32 +420,23 @@ static int wil6210_resume(struct device *dev, bool is_runtime)
 	int rc = 0;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct wil6210_priv *wil = pci_get_drvdata(pdev);
-	struct net_device *ndev = wil_to_ndev(wil);
-	bool keep_radio_on = ndev->flags & IFF_UP &&
-			     wil->keep_radio_on_during_sleep;
 
 	wil_dbg_pm(wil, "resume: %s\n", is_runtime ? "runtime" : "system");
 
-	/* In case radio stays on, platform device will control
-	 * PCIe master
+	/* If platform device supports keep_radio_on_during_sleep it will
+	 * control PCIe master
 	 */
-	if (!keep_radio_on)
+	if (!wil->keep_radio_on_during_sleep)
 		/* allow master */
 		pci_set_master(pdev);
-	rc = wil_resume(wil, is_runtime, keep_radio_on);
+	rc = wil_resume(wil, is_runtime);
 	if (rc) {
 		wil_err(wil, "device failed to resume (%d)\n", rc);
-		if (!keep_radio_on) {
+		wil->suspend_stats.failed_resumes++;
+		if (!wil->keep_radio_on_during_sleep)
 			pci_clear_master(pdev);
-			wil->suspend_stats.r_off.failed_resumes++;
-		} else {
-			wil->suspend_stats.r_on.failed_resumes++;
-		}
 	} else {
-		if (keep_radio_on)
-			wil->suspend_stats.r_on.successful_resumes++;
-		else
-			wil->suspend_stats.r_off.successful_resumes++;
+		wil->suspend_stats.successful_resumes++;
 	}
 
 	return rc;

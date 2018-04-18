@@ -20,6 +20,7 @@
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/minidump.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/minidump.h>
 #include <linux/of_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>

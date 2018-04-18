@@ -1043,9 +1043,18 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	}
 
 	if (level->notify_rpm) {
+		uint64_t us;
+		uint32_t pred_us;
+
+		us = get_cluster_sleep_time(cluster, NULL, from_idle,
+								&pred_us);
+
+		us = us + 1;
+
 		clear_predict_history();
 		clear_cl_predict_history();
-		if (system_sleep_enter())
+
+		if (system_sleep_enter(us))
 			return -EBUSY;
 	}
 	/* Notify cluster enter event after successfully config completion */
@@ -1252,13 +1261,6 @@ int get_cluster_id(struct lpm_cluster *cluster, int *aff_lvl)
 		state_id |= (level->psci_id & cluster->psci_mode_mask)
 					<< cluster->psci_mode_shift;
 		(*aff_lvl)++;
-
-		/*
-		 * We may have updated the broadcast timers, update
-		 * the wakeup value by reading the bc timer directly.
-		 */
-		if (level->notify_rpm)
-			system_sleep_update_wakeup();
 	}
 unlock_and_return:
 	spin_unlock(&cluster->sync_lock);
@@ -1595,6 +1597,9 @@ static void lpm_suspend_wake(void)
 	lpm_stats_suspend_exit();
 }
 
+extern void regulator_debug_print_enabled(bool only_enabled);
+extern void system_sleep_status_print_enabled(void);
+extern void gpio_debug_print(void);
 static int lpm_suspend_enter(suspend_state_t state)
 {
 	int cpu = raw_smp_processor_id();
@@ -1621,6 +1626,9 @@ static int lpm_suspend_enter(suspend_state_t state)
 	 * LPMs(XO and Vmin).
 	 */
 	clock_debug_print_enabled(true);
+	regulator_debug_print_enabled(true);
+	gpio_debug_print();
+	system_sleep_status_print_enabled();
 
 	psci_enter_sleep(lpm_cpu, idx, false);
 

@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,7 +54,7 @@ struct cluster_data {
 	spinlock_t pending_lock;
 	bool is_big_cluster;
 	bool enable;
-	int nrrun;
+	unsigned int nrrun;
 	struct task_struct *core_ctl_thread;
 	unsigned int first_cpu;
 	unsigned int boost;
@@ -482,6 +483,7 @@ static void update_running_avg(void)
 
 	sched_get_nr_running_avg(&avg, &iowait_avg, &big_avg,
 				 &max_nr, &big_max_nr);
+	walt_rotation_checkpoint(big_avg);
 
 	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {
@@ -513,6 +515,9 @@ static unsigned int apply_task_need(const struct cluster_data *cluster,
 	 */
 	if (cluster->max_nr > MAX_NR_THRESHOLD)
 		new_need = new_need + 1;
+
+	if (cluster->is_big_cluster)
+		new_need = max(new_need, cluster->nrrun);
 
 	return new_need;
 }

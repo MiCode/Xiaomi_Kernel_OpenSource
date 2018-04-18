@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1926,15 +1927,13 @@ static inline int adreno_vbif_clear_pending_transactions(
 		 * Need to release CX Halt explicitly in case of SW_RESET.
 		 * GX Halt release will be taken care by SW_RESET internally.
 		 */
-		if (gpudev->gx_is_on(adreno_dev)) {
-			adreno_writereg(adreno_dev, ADRENO_REG_RBBM_GPR0_CNTL,
-					GBIF_HALT_REQUEST);
-			ret = adreno_wait_for_vbif_halt_ack(device,
-					ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
-					VBIF_RESET_ACK_MASK);
-			if (ret)
-				return ret;
-		}
+		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_GPR0_CNTL,
+				GBIF_HALT_REQUEST);
+		ret = adreno_wait_for_vbif_halt_ack(device,
+				ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
+				VBIF_RESET_ACK_MASK);
+		if (ret)
+			return ret;
 
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, mask);
 		ret = adreno_wait_for_vbif_halt_ack(device,
@@ -1949,7 +1948,7 @@ static inline int adreno_vbif_clear_pending_transactions(
 	return ret;
 }
 
-int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
+void adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
 #endif /*__ADRENO_H */

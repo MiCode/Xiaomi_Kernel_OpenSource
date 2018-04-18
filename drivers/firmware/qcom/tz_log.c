@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,12 +24,13 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/of.h>
+#include <linux/proc_fs.h>
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
 
-/* QSEE_LOG_BUF_SIZE = 32K */
-#define QSEE_LOG_BUF_SIZE 0x8000
+/* QSEE_LOG_BUF_SIZE = 64K */
+#define QSEE_LOG_BUF_SIZE 0x10000
 
 
 /* TZ Diagnostic Area legacy version number */
@@ -855,6 +857,36 @@ const struct file_operations tzdbg_fops = {
 	.open    = tzdbgfs_open,
 };
 
+
+static ssize_t qsee_log_dump_procfs_read(struct file *file, char __user *buf,
+	size_t count, loff_t *offp)
+{
+	int len = 0;
+
+	len = _disp_qsee_log_stats(count);
+	*offp = 0;
+
+	if (len > count)
+		len = count;
+
+	return simple_read_from_buffer(buf, len, offp,
+				tzdbg.stat[TZDBG_QSEE_LOG].data, len);
+}
+
+
+static int qsee_log_dump_procfs_open(struct inode *inode, struct file *pfile)
+{
+	pfile->private_data = inode->i_private;
+	return 0;
+}
+
+const struct file_operations qsee_log_dump_proc_fops = {
+	.owner   = THIS_MODULE,
+	.read    = qsee_log_dump_procfs_read,
+	.open    = qsee_log_dump_procfs_open,
+};
+
+
 static struct ion_client  *g_ion_clnt;
 static struct ion_handle *g_ihandle;
 
@@ -969,8 +1001,12 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 			goto err;
 		}
 	}
+
+	proc_create("qsee_log_dump", 0, NULL, &qsee_log_dump_proc_fops);
+
 	tzdbg.disp_buf = kzalloc(max(debug_rw_buf_size,
 			tzdbg.hyp_debug_rw_buf_size), GFP_KERNEL);
+
 	if (tzdbg.disp_buf == NULL)
 		goto err;
 	platform_set_drvdata(pdev, dent_dir);

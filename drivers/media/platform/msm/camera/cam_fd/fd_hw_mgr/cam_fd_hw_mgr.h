@@ -176,7 +176,7 @@ struct cam_fd_hw_mgr {
 	uint32_t                           num_devices;
 	bool                               raw_results_available;
 	uint32_t                           supported_modes;
-	struct cam_fd_hw_mgr_ctx           ctx_pool[CAM_CTX_MAX];
+	struct cam_fd_hw_mgr_ctx           ctx_pool[CAM_FD_CTX_MAX];
 	struct cam_fd_mgr_frame_request    frame_req[CAM_CTX_REQ_MAX];
 	struct cam_req_mgr_core_workq     *work;
 	struct cam_fd_mgr_work_data        work_data[CAM_FD_WORKQ_NUM_TASK];

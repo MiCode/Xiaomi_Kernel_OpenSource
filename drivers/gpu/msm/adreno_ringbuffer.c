@@ -89,7 +89,6 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
 	unsigned long flags;
-	int ret = 0;
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);
 	if (adreno_in_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE)) {
@@ -105,7 +104,7 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 			 * Ensure the write posted after a possible
 			 * GMU wakeup (write could have dropped during wakeup)
 			 */
-			ret = adreno_gmu_fenced_write(adreno_dev,
+			adreno_gmu_fenced_write(adreno_dev,
 				ADRENO_REG_CP_RB_WPTR, rb->_wptr,
 				FENCE_STATUS_WRITEDROPPED0_MASK);
 
@@ -114,10 +113,6 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 
 	rb->wptr = rb->_wptr;
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
-
-	if (ret)
-		kgsl_device_snapshot(KGSL_DEVICE(adreno_dev), NULL, false);
-
 }
 
 void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,

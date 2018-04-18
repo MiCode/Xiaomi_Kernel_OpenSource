@@ -1072,6 +1072,45 @@ static DEVICE_ATTR(queue_ramp_up_period, S_IRUGO | S_IWUSR,
 		   sdev_show_queue_ramp_up_period,
 		   sdev_store_queue_ramp_up_period);
 
+static ssize_t
+sdev_show_hr_inq(struct device *dev,
+			       struct device_attribute *attr,
+			       char *buf)
+{
+	struct scsi_device *sdev;
+	int i, n = 0;
+	int err = 0;
+	int len = 0x200;
+	char *hr_inq;
+
+	sdev = to_scsi_device(dev);
+
+	if (!strncmp(sdev->vendor, "TOSHIBA", 7)) {
+		hr_inq =  kzalloc(len, GFP_KERNEL);
+
+		err = scsi_hr_inquiry(sdev, hr_inq, len);
+		if (err) {
+			pr_err("get scsi hr_inquiry fail:err=%d\n", err);
+			n += snprintf(buf,  PAGE_SIZE - n, "Fail to get\n");
+			return n;
+		}
+
+		for (i = 0; i < 512; i++)
+			n += snprintf(buf + n, PAGE_SIZE - n, "%02x", hr_inq[i]);
+
+		n += snprintf(buf + n, PAGE_SIZE - n, "\n");
+		kfree(hr_inq);
+	} else {
+		n += snprintf(buf,  PAGE_SIZE - n, "NOT SUPPORTED\n");
+	}
+
+	return n;
+}
+
+static DEVICE_ATTR(hr_inq, S_IRUGO | S_IWUSR,
+		sdev_show_hr_inq,
+		NULL);
+
 static umode_t scsi_sdev_attr_is_visible(struct kobject *kobj,
 					 struct attribute *attr, int i)
 {
@@ -1136,6 +1175,7 @@ static struct attribute *scsi_sdev_attrs[] = {
 	&dev_attr_queue_depth.attr,
 	&dev_attr_queue_type.attr,
 	&dev_attr_wwid.attr,
+	&dev_attr_hr_inq.attr,
 #ifdef CONFIG_SCSI_DH
 	&dev_attr_dh_state.attr,
 	&dev_attr_access_state.attr,

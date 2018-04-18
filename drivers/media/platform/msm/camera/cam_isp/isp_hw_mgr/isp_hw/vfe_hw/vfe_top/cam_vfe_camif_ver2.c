@@ -1,4 +1,5 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -234,12 +235,10 @@ static int cam_vfe_camif_resource_start(
 	CAM_DBG(CAM_ISP, "hw id:%d core_cfg val:%d", camif_res->hw_intf->hw_idx,
 		val);
 
-	cam_io_w_mb(0x00400040, rsrc_data->mem_base +
-		rsrc_data->camif_reg->camif_config);
-	cam_io_w_mb(0x1, rsrc_data->mem_base +
-			rsrc_data->camif_reg->line_skip_pattern);
-	cam_io_w_mb(0x1, rsrc_data->mem_base +
-			rsrc_data->camif_reg->pixel_skip_pattern);
+	/* disable the CGC for stats */
+	cam_io_w_mb(0xFFFFFFFF, rsrc_data->mem_base +
+		rsrc_data->common_reg->module_ctrl[
+		CAM_VFE_TOP_VER2_MODULE_STATS]->cgc_ovd);
 
 	/* epoch config with 20 line */
 	cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
@@ -331,8 +330,10 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 	uint32_t                              irq_status0;
 	uint32_t                              irq_status1;
 
-	if (!handler_priv || !evt_payload_priv)
+	if (!handler_priv || !evt_payload_priv) {
+		CAM_ERR(CAM_ISP, "Invalid params");
 		return ret;
+	}
 
 	camif_node = handler_priv;
 	camif_priv = camif_node->res_priv;
@@ -348,33 +349,58 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 		if (irq_status0 & camif_priv->reg_data->sof_irq_mask) {
 			CAM_DBG(CAM_ISP, "Received SOF");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+			payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0] &=
+				~(camif_priv->reg_data->sof_irq_mask);
+			cam_vfe_put_evt_payload(payload->core_info, &payload);
 		}
 		break;
 	case CAM_ISP_HW_EVENT_EPOCH:
 		if (irq_status0 & camif_priv->reg_data->epoch0_irq_mask) {
 			CAM_DBG(CAM_ISP, "Received EPOCH");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+			payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0] &=
+				~(camif_priv->reg_data->epoch0_irq_mask);
+			cam_vfe_put_evt_payload(payload->core_info, &payload);
 		}
 		break;
 	case CAM_ISP_HW_EVENT_REG_UPDATE:
 		if (irq_status0 & camif_priv->reg_data->reg_update_irq_mask) {
 			CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+			payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0] &=
+				~(camif_priv->reg_data->reg_update_irq_mask);
+			cam_vfe_put_evt_payload(payload->core_info, &payload);
 		}
 		break;
 	case CAM_ISP_HW_EVENT_EOF:
 		if (irq_status0 & camif_priv->reg_data->eof_irq_mask) {
 			CAM_DBG(CAM_ISP, "Received EOF\n");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+			payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0] &=
+				~(camif_priv->reg_data->eof_irq_mask);
+			cam_vfe_put_evt_payload(payload->core_info, &payload);
 		}
 		break;
 	case CAM_ISP_HW_EVENT_ERROR:
-		if (irq_status1 & camif_priv->reg_data->error_irq_mask1) {
+		if (irq_status0 & camif_priv->reg_data->error_irq_mask0) {
+			CAM_DBG(CAM_ISP, "Received Fatal ERROR\n");
+			ret = CAM_VFE_IRQ_STATUS_VIOLATION;
+			payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0] &=
+				~(camif_priv->reg_data->error_irq_mask0);
+			payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS1] &=
+				~(camif_priv->reg_data->error_irq_mask1);
+			cam_vfe_put_evt_payload(payload->core_info, &payload);
+		} else if (irq_status1 &
+				camif_priv->reg_data->error_irq_mask1) {
 			CAM_DBG(CAM_ISP, "Received ERROR\n");
-			ret = CAM_ISP_HW_ERROR_OVERFLOW;
-		} else {
-			ret = CAM_ISP_HW_ERROR_NONE;
+			ret = CAM_VFE_IRQ_STATUS_OVERFLOW;
+			payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0] &=
+				~(camif_priv->reg_data->error_irq_mask0);
+			payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS1] &=
+				~(camif_priv->reg_data->error_irq_mask1);
+			cam_vfe_put_evt_payload(payload->core_info, &payload);
 		}
+
 		break;
 	default:
 		break;

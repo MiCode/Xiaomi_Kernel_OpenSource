@@ -2,6 +2,7 @@
  *  scsi.c Copyright (C) 1992 Drew Eckhardt
  *         Copyright (C) 1993, 1994, 1995, 1999 Eric Youngdale
  *         Copyright (C) 2002, 2003 Christoph Hellwig
+ *  Copyright (C) 2018 XiaoMi, Inc.
  *
  *  generic mid-level SCSI driver
  *      Initial versions: Drew Eckhardt
@@ -712,6 +713,37 @@ static int scsi_vpd_inquiry(struct scsi_device *sdev, unsigned char *buffer,
 		return -EIO;
 
 	return get_unaligned_be16(&buffer[2]) + 4;
+}
+
+/**
+get hr
+ */
+int scsi_hr_inquiry(struct scsi_device *sdev, char *hr_inq, int len)
+{
+	int result;
+	unsigned char cmd[16];
+	if (!hr_inq)
+		return -EINVAL;
+
+	cmd[0] = INQUIRY;
+	cmd[1] = 0x69;		/* EVPD */
+	cmd[2] = 0xC0;
+	cmd[3] = len >> 8;
+	cmd[4] = len & 0xff;
+	cmd[5] = 0;		/* Control byte */
+
+	result = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE, hr_inq,
+				  len, NULL, 30 * HZ, 3, NULL);
+	if (result) {
+		pr_err("ufs: get hr_inquiry result error\n");
+		return -EIO;
+	}
+
+	/* Sanity check that we got the page back that we asked for */
+	if (hr_inq[1] != 0xC0)
+		pr_err("ufs: hr_inruiry data error\n");
+
+	return 0;
 }
 
 /**

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +88,9 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
+
+	if (bl_lvl && bl_lvl < display->panel->bl_config.bl_min_level)
+		bl_lvl = display->panel->bl_config.bl_min_level;
 
 	if (c_conn->ops.set_backlight) {
 		event.type = DRM_EVENT_SYS_BACKLIGHT;
@@ -1020,6 +1024,10 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	/* connector-specific property handling */
 	idx = msm_property_index(&c_conn->property_info, property);
 	switch (idx) {
+	case CONNECTOR_PROP_LP:
+		if (connector->dev)
+			connector->dev->doze_state = val;
+		break;
 	case CONNECTOR_PROP_OUT_FB:
 		/* clear old fb, if present */
 		if (c_state->out_fb)
@@ -1733,6 +1741,38 @@ static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
 	.best_encoder = sde_connector_best_encoder,
 };
 
+static irqreturn_t esd_err_irq_handle(int irq, void *data)
+{
+	struct sde_connector *c_conn = data;
+	struct drm_event event;
+	bool panel_dead = false;
+	bool panel_on = true;
+
+	if (!c_conn) {
+		SDE_ERROR("not able to get connector object\n");
+		return IRQ_HANDLED;
+	}
+
+	if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
+		struct dsi_display *dsi_display = (struct dsi_display *)(c_conn->display);
+		if (dsi_display && dsi_display->panel) {
+			panel_on = dsi_display->panel->panel_initialized;
+		}
+	}
+
+	SDE_ERROR("esd check irq report PANEL_DEAD conn_id: %d enc_id: %d, panel_status[%d]\n",
+		c_conn->base.base.id, c_conn->encoder->base.id, panel_on);
+
+	if (panel_on) {
+		panel_dead = true;
+		event.type = DRM_EVENT_PANEL_DEAD;
+		event.length = sizeof(bool);
+		msm_mode_object_event_notify(&c_conn->base.base,
+			c_conn->base.dev, &event, (u8 *)&panel_dead);
+	}
+	return IRQ_HANDLED;
+}
+
 static int sde_connector_populate_mode_info(struct drm_connector *conn,
 	struct sde_kms_info *info)
 {
@@ -2035,6 +2075,21 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 				&dsi_display->panel->hdr_props,
 				sizeof(dsi_display->panel->hdr_props),
 				CONNECTOR_PROP_HDR_INFO);
+		}
+
+		/* register esd irq and enable it after panel enabled */
+		if (dsi_display && dsi_display->panel &&
+			dsi_display->panel->esd_config.esd_err_irq_gpio > 0) {
+			rc = request_threaded_irq(dsi_display->panel->esd_config.esd_err_irq,
+							NULL, esd_err_irq_handle,
+							IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+							"esd_err_irq", c_conn);
+			if (rc < 0) {
+				pr_err("%s: request irq %d failed\n", __func__, dsi_display->panel->esd_config.esd_err_irq);
+					dsi_display->panel->esd_config.esd_err_irq = 0;
+			} else {
+				pr_info("%s: Request esd irq succeed!\n", __func__);
+			}
 		}
 	}
 

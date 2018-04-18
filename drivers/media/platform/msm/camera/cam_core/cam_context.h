@@ -147,6 +147,8 @@ struct cam_ctx_ops {
  * struct cam_context - camera context object for the subdevice node
  *
  * @dev_name:              String giving name of device associated
+ * @dev_id:                ID of device associated
+ * @ctx_id:                ID for this context
  * @list:                  Link list entry
  * @sessoin_hdl:           Session handle
  * @dev_hdl:               Device handle
@@ -170,10 +172,13 @@ struct cam_ctx_ops {
  * @refcount:              Context object refcount
  * @node:                  The main node to which this context belongs
  * @sync_mutex:            mutex to sync with sync cb thread
+ * @ctx_released:          whether context is released from umd after acquire
  *
  */
 struct cam_context {
 	const char                  *dev_name;
+	uint64_t                     dev_id;
+	uint32_t                     ctx_id;
 	struct list_head             list;
 	int32_t                      session_hdl;
 	int32_t                      dev_hdl;
@@ -203,6 +208,7 @@ struct cam_context {
 	struct kref                  refcount;
 	void                        *node;
 	struct mutex                 sync_mutex;
+	bool                         ctx_released;
 };
 
 /**
@@ -376,6 +382,8 @@ int cam_context_deinit(struct cam_context *ctx);
  *
  * @ctx:                   Object pointer for cam_context
  * @dev_name:              String giving name of device associated
+ * @dev_id:                ID of the device associated
+ * @ctx_id:                ID for this context
  * @crm_node_intf:         Function table for crm to context interface
  * @hw_mgr_intf:           Function table for context to hw interface
  * @req_list:              Requests storage
@@ -384,6 +392,8 @@ int cam_context_deinit(struct cam_context *ctx);
  */
 int cam_context_init(struct cam_context *ctx,
 		const char *dev_name,
+		uint64_t dev_id,
+		uint32_t ctx_id,
 		struct cam_req_mgr_kmd_ops *crm_node_intf,
 		struct cam_hw_mgr_intf *hw_mgr_intf,
 		struct cam_ctx_request *req_list,

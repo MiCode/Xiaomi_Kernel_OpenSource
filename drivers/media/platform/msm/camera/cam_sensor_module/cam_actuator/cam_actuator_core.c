@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,6 +111,9 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 			"failed in actuator power up rc %d", rc);
 		return rc;
 	}
+
+	/* VREG needs some delay to power up */
+	usleep_range(6000, 6050);
 
 	rc = camera_io_init(&a_ctrl->io_master_info);
 	if (rc < 0)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +170,7 @@ enum cam_req_mgr_device_id {
 	CAM_REQ_MGR_DEVICE_EXTERNAL_1,
 	CAM_REQ_MGR_DEVICE_EXTERNAL_2,
 	CAM_REQ_MGR_DEVICE_EXTERNAL_3,
+	CAM_REQ_MGR_DEVICE_APERTURE,
 	CAM_REQ_MGR_DEVICE_ID_MAX,
 };
 

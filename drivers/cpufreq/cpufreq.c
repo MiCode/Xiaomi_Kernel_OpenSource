@@ -2,6 +2,7 @@
  *  linux/drivers/cpufreq/cpufreq.c
  *
  *  Copyright (C) 2001 Russell King
+ * Copyright (C) 2018 XiaoMi, Inc.
  *            (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
  *            (C) 2013 Viresh Kumar <viresh.kumar@linaro.org>
  *
@@ -729,6 +730,9 @@ static ssize_t store_##file_name					\
 	struct cpufreq_policy new_policy;				\
 									\
 	memcpy(&new_policy, policy, sizeof(*policy));			\
+									\
+	new_policy.min = new_policy.user_policy.min;			\
+	new_policy.max = new_policy.user_policy.max;			\
 									\
 	ret = sscanf(buf, "%u", &new_policy.object);			\
 	if (ret != 1)							\

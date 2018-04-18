@@ -362,6 +362,8 @@ static ssize_t mipi_dsi_device_transfer(struct mipi_dsi_device *dsi,
 		msg->flags |= MIPI_DSI_MSG_USE_LPM;
 	msg->flags |= MIPI_DSI_MSG_LASTCOMMAND;
 
+	msg->flags |= MIPI_DSI_MSG_LASTCOMMAND;
+
 	return ops->transfer(dsi->host, msg);
 }
 
@@ -1043,6 +1045,20 @@ int mipi_dsi_dcs_set_tear_scanline(struct mipi_dsi_device *dsi, u16 scanline)
 	return 0;
 }
 EXPORT_SYMBOL(mipi_dsi_dcs_set_tear_scanline);
+
+int mipi_dsi_dcs_set_display_brightness_ss(struct mipi_dsi_device *dsi,
+					u16 brightness)
+{
+	u8 payload[2] = { brightness >> 8, brightness & 0xff};
+	ssize_t err;
+
+	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+				 payload, sizeof(payload));
+	if (err < 0)
+		return err;
+
+	return 0;
+}
 
 /**
  * mipi_dsi_dcs_set_display_brightness() - sets the brightness value of the

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +31,8 @@ struct cam_fd_context {
 };
 
 int cam_fd_context_init(struct cam_fd_context *fd_ctx,
-	struct cam_context *base_ctx, struct cam_hw_mgr_intf *hw_intf);
+	struct cam_context *base_ctx, struct cam_hw_mgr_intf *hw_intf,
+	uint32_t ctx_id);
 int cam_fd_context_deinit(struct cam_fd_context *ctx);
 
 #endif /* _CAM_FD_CONTEXT_H_ */

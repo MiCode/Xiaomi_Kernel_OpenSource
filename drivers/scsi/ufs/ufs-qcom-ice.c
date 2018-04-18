@@ -21,6 +21,8 @@
 #include "ufs-qcom-debugfs.h"
 #include "ufshcd.h"
 
+static struct workqueue_struct *ice_workqueue;
+
 #define UFS_QCOM_CRYPTO_LABEL "ufs-qcom-crypto"
 /* Timeout waiting for ICE initialization, that requires TZ access */
 #define UFS_QCOM_ICE_COMPLETION_TIMEOUT_MS 500

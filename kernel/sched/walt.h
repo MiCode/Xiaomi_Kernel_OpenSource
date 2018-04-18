@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -285,6 +285,14 @@ void walt_irq_work(struct irq_work *irq_work);
 
 void walt_sched_init(struct rq *rq);
 
+static inline void walt_update_last_enqueue(struct task_struct *p)
+{
+	p->last_enqueued_ts = ktime_get_ns();
+}
+extern void walt_rotate_work_init(void);
+extern void walt_rotation_checkpoint(int nr_big);
+extern unsigned int walt_rotation_enabled;
+
 extern int __read_mostly min_power_cpu;
 static inline int walt_start_cpu(int prev_cpu)
 {
@@ -294,6 +302,9 @@ static inline int walt_start_cpu(int prev_cpu)
 #else /* CONFIG_SCHED_WALT */
 
 static inline void walt_sched_init(struct rq *rq) { }
+static inline void walt_rotate_work_init(void) { }
+static inline void walt_rotation_checkpoint(int nr_big) { }
+static inline void walt_update_last_enqueue(struct task_struct *p) { }
 
 static inline void update_task_ravg(struct task_struct *p, struct rq *rq,
 				int event, u64 wallclock, u64 irqtime) { }

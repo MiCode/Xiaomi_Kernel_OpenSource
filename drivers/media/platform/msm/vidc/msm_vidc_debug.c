@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,7 +132,7 @@ static int trigger_ssr_open(struct inode *inode, struct file *file)
 static ssize_t trigger_ssr_write(struct file *filp, const char __user *buf,
 		size_t count, loff_t *ppos) {
 	unsigned long ssr_trigger_val = 0;
-	int rc = 0, ret = 0;
+	int rc = 0;
 	struct msm_vidc_core *core = filp->private_data;
 	size_t size = MAX_SSR_STRING_LEN;
 	char kbuf[MAX_SSR_STRING_LEN + 1] = {0};
@@ -156,8 +157,8 @@ static ssize_t trigger_ssr_write(struct file *filp, const char __user *buf,
 		dprintk(VIDC_WARN, "returning error err %d\n", rc);
 		rc = -EINVAL;
 	} else {
-		ret = msm_vidc_trigger_ssr(core, ssr_trigger_val);
-		rc = (ret == -EBUSY ? ret : count);
+		msm_vidc_trigger_ssr(core, ssr_trigger_val);
+		rc = count;
 	}
 exit:
 	return rc;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,8 @@
 #define CRM_WORKQ_NUM_TASKS 60
 
 #define MAX_SYNC_COUNT 65535
+
+#define SYNC_LINK_SOF_CNT_MAX_LMT 1
 
 /**
  * enum crm_workq_task_type
@@ -79,14 +81,12 @@ struct crm_task_payload {
  * EMPTY   : indicates req slot is empty
  * PENDING : indicates req slot is waiting for reqs from all devs
  * READY   : indicates req slot is ready to be sent to devs
- * APPLIED : indicates req slot is already sent to devs
  * INVALID : indicates req slot is not in valid state
  */
 enum crm_req_state {
 	CRM_REQ_STATE_EMPTY,
 	CRM_REQ_STATE_PENDING,
 	CRM_REQ_STATE_READY,
-	CRM_REQ_STATE_APPLIED,
 	CRM_REQ_STATE_INVALID,
 };
 
@@ -132,6 +132,8 @@ enum cam_req_mgr_link_state {
  * @apply_data    : pointer which various tables will update during traverse
  * @in_q          : input request queue pointer
  * @validate_only : Whether to validate only and/or update settings
+ * @self_link     : To indicate whether the check is for the given link or the
+ *                  other sync link
  */
 struct cam_req_mgr_traverse {
 	int32_t                       idx;
@@ -140,6 +142,7 @@ struct cam_req_mgr_traverse {
 	struct cam_req_mgr_apply     *apply_data;
 	struct cam_req_mgr_req_queue *in_q;
 	bool                          validate_only;
+	bool                          self_link;
 };
 
 /**
@@ -295,6 +298,9 @@ struct cam_req_mgr_connected_device {
  * @sync_self_ref        : reference sync count against which the difference
  *                         between sync_counts for a given link is checked
  * @frame_skip_flag      : flag that determines if a frame needs to be skipped
+ * @sync_link_sof_skip   : flag determines if a pkt is not available for a given
+ *                         frame in a particular link skip corresponding
+ *                         frame in sync link as well.
  *
  */
 struct cam_req_mgr_core_link {
@@ -317,6 +323,7 @@ struct cam_req_mgr_core_link {
 	int64_t                              sof_counter;
 	int64_t                              sync_self_ref;
 	bool                                 frame_skip_flag;
+	bool                                 sync_link_sof_skip;
 };
 
 /**

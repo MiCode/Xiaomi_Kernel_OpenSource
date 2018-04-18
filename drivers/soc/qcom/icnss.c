@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1108,9 +1108,6 @@ static int icnss_hw_power_off(struct icnss_priv *priv)
 	int ret = 0;
 
 	if (test_bit(HW_ALWAYS_ON, &quirks))
-		return 0;
-
-	if (test_bit(ICNSS_FW_DOWN, &priv->state))
 		return 0;
 
 	icnss_pr_dbg("HW Power off: 0x%lx\n", priv->state);
@@ -2354,6 +2351,29 @@ out:
 	return 0;
 }
 
+static int icnss_call_driver_remove(struct icnss_priv *priv)
+{
+	icnss_pr_dbg("Calling driver remove state: 0x%lx\n", priv->state);
+
+	clear_bit(ICNSS_FW_READY, &priv->state);
+
+	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
+		return 0;
+
+	if (!priv->ops || !priv->ops->remove)
+		return 0;
+
+	set_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
+	penv->ops->remove(&priv->pdev->dev);
+
+	clear_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
+	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
+
+	icnss_hw_power_off(penv);
+
+	return 0;
+}
+
 static int icnss_fw_crashed(struct icnss_priv *priv,
 			    struct icnss_event_pd_service_down_data *event_data)
 {
@@ -2392,7 +2412,10 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	if (priv->force_err_fatal)
 		ICNSS_ASSERT(0);
 
-	icnss_fw_crashed(priv, event_data);
+	if (event_data->crashed)
+		icnss_fw_crashed(priv, event_data);
+	else
+		icnss_call_driver_remove(priv);
 
 out:
 	kfree(data);

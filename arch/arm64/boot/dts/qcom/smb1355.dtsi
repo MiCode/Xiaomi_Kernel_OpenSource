@@ -15,7 +15,7 @@
 &qupv3_se10_i2c {
 	smb1355_0: qcom,smb1355@8 {
 		compatible = "qcom,i2c-pmic";
-		reg = <0x8>;
+		reg = <0x08>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 		interrupt-parent = <&spmi_bus>;

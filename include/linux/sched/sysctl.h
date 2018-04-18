@@ -34,6 +34,7 @@ extern unsigned int sysctl_sched_use_walt_task_util;
 extern unsigned int sysctl_sched_boost;
 extern unsigned int sysctl_sched_group_upmigrate_pct;
 extern unsigned int sysctl_sched_group_downmigrate_pct;
+extern unsigned int sysctl_sched_walt_rotate_big_tasks;
 
 extern int
 walt_proc_update_handler(struct ctl_table *table, int write,

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -490,8 +491,8 @@
 
 		trips {
 			active-config0 {
-				temperature = <125000>;
-				hysteresis = <10000>;
+				temperature = <65000>;
+				hysteresis = <1000>;
 				type = "passive";
 			};
 		};
@@ -505,8 +506,8 @@
 
 		trips {
 			active-config0 {
-				temperature = <125000>;
-				hysteresis = <10000>;
+				temperature = <65000>;
+				hysteresis = <1000>;
 				type = "passive";
 			};
 		};
@@ -520,8 +521,8 @@
 
 		trips {
 			active-config0 {
-				temperature = <125000>;
-				hysteresis = <10000>;
+				temperature = <65000>;
+				hysteresis = <1000>;
 				type = "passive";
 			};
 		};
@@ -535,8 +536,8 @@
 
 		trips {
 			active-config0 {
-				temperature = <125000>;
-				hysteresis = <10000>;
+				temperature = <65000>;
+				hysteresis = <1000>;
 				type = "passive";
 			};
 		};

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,7 +87,8 @@ static int __cam_isp_ctx_enqueue_init_request(
 		struct cam_ctx_request, list);
 	req_isp_old = (struct cam_isp_ctx_req *) req_old->req_priv;
 	req_isp_new = (struct cam_isp_ctx_req *) req->req_priv;
-	if (req_isp_old->packet_opcode_type == CAM_ISP_PACKET_INIT_DEV) {
+	if (req_isp_old->hw_update_data.packet_opcode_type ==
+		CAM_ISP_PACKET_INIT_DEV) {
 		if ((req_isp_old->num_cfg + req_isp_new->num_cfg) >=
 			CAM_ISP_CTX_CFG_MAX) {
 			CAM_WARN(CAM_ISP, "Can not merge INIT pkt");
@@ -1071,6 +1073,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	cfg.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	cfg.hw_update_entries = req_isp->cfg;
 	cfg.num_hw_update_entries = req_isp->num_cfg;
+	cfg.priv  = &req_isp->hw_update_data;
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc) {
@@ -1143,7 +1146,9 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	struct cam_ctx_request           *req;
 	struct cam_ctx_request           *req_temp;
 	struct cam_isp_ctx_req           *req_isp;
+	struct list_head                  flush_list;
 
+	INIT_LIST_HEAD(&flush_list);
 	spin_lock_bh(&ctx->lock);
 	if (list_empty(req_list)) {
 		spin_unlock_bh(&ctx->lock);
@@ -1152,11 +1157,22 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	}
 
 	list_for_each_entry_safe(req, req_temp, req_list, list) {
-		if ((flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ)
-				&& (req->request_id != flush_req->req_id))
-			continue;
-
+		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
+			if (req->request_id != flush_req->req_id) {
+				continue;
+			} else {
+				list_del_init(&req->list);
+				list_add_tail(&req->list, &flush_list);
+				cancel_req_id_found = 1;
+				break;
+			}
+		}
 		list_del_init(&req->list);
+		list_add_tail(&req->list, &flush_list);
+	}
+	spin_unlock_bh(&ctx->lock);
+
+	list_for_each_entry_safe(req, req_temp, &flush_list, list) {
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
 			if (req_isp->fence_map_out[i].sync_id != -1) {
@@ -1173,14 +1189,7 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 			}
 		}
 		list_add_tail(&req->list, &ctx->free_req_list);
-
-		/* If flush request id found, exit the loop */
-		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
-			cancel_req_id_found = 1;
-			break;
-		}
 	}
-	spin_unlock_bh(&ctx->lock);
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
 		!cancel_req_id_found)
@@ -1817,7 +1826,6 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_req_mgr_add_request    add_req;
 	struct cam_isp_context           *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
-	struct cam_isp_prepare_hw_update_data    hw_update_data;
 
 	CAM_DBG(CAM_ISP, "get free request object......");
 
@@ -1868,7 +1876,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	cfg.max_in_map_entries = CAM_ISP_CTX_RES_MAX;
 	cfg.out_map_entries = req_isp->fence_map_out;
 	cfg.in_map_entries = req_isp->fence_map_in;
-	cfg.priv  = &hw_update_data;
+	cfg.priv  = &req_isp->hw_update_data;
 
 	CAM_DBG(CAM_ISP, "try to prepare config packet......");
 
@@ -1883,7 +1891,6 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req_isp->num_fence_map_out = cfg.num_out_map_entries;
 	req_isp->num_fence_map_in = cfg.num_in_map_entries;
 	req_isp->num_acked = 0;
-	req_isp->packet_opcode_type = hw_update_data.packet_opcode_type;
 
 	CAM_DBG(CAM_ISP, "num_entry: %d, num fence out: %d, num fence in: %d",
 		req_isp->num_cfg, req_isp->num_fence_map_out,
@@ -1893,9 +1900,11 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req->status = 1;
 
 	CAM_DBG(CAM_ISP, "Packet request id 0x%llx packet opcode:%d",
-		packet->header.request_id, req_isp->packet_opcode_type);
+		packet->header.request_id,
+		req_isp->hw_update_data.packet_opcode_type);
 
-	if (req_isp->packet_opcode_type == CAM_ISP_PACKET_INIT_DEV) {
+	if (req_isp->hw_update_data.packet_opcode_type ==
+		CAM_ISP_PACKET_INIT_DEV) {
 		if (ctx->state < CAM_CTX_ACTIVATED) {
 			rc = __cam_isp_ctx_enqueue_init_request(ctx, req);
 			if (rc)
@@ -2140,7 +2149,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd)
 {
 	int rc = 0;
-	struct cam_hw_start_args         arg;
+	struct cam_hw_config_args        arg;
 	struct cam_ctx_request          *req;
 	struct cam_isp_ctx_req          *req_isp;
 	struct cam_isp_context          *ctx_isp =
@@ -2168,9 +2177,11 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		rc = -EFAULT;
 		goto end;
 	}
+
 	arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	arg.hw_update_entries = req_isp->cfg;
 	arg.num_hw_update_entries = req_isp->num_cfg;
+	arg.priv  = &req_isp->hw_update_data;
 
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
@@ -2494,7 +2505,8 @@ static struct cam_ctx_ops
 int cam_isp_context_init(struct cam_isp_context *ctx,
 	struct cam_context *ctx_base,
 	struct cam_req_mgr_kmd_ops *crm_node_intf,
-	struct cam_hw_mgr_intf *hw_intf)
+	struct cam_hw_mgr_intf *hw_intf,
+	uint32_t ctx_id)
 
 {
 	int rc = -1;
@@ -2523,8 +2535,8 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	}
 
 	/* camera context setup */
-	rc = cam_context_init(ctx_base, isp_dev_name, crm_node_intf, hw_intf,
-		ctx->req_base, CAM_CTX_REQ_MAX);
+	rc = cam_context_init(ctx_base, isp_dev_name, CAM_ISP, ctx_id,
+		crm_node_intf, hw_intf, ctx->req_base, CAM_CTX_REQ_MAX);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Camera Context Base init failed");
 		goto err;

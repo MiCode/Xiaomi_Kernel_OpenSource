@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,14 +91,17 @@ int32_t cam_sensor_handle_delay(
 	if (offset > 0) {
 		i2c_list =
 			list_entry(list_ptr, struct i2c_settings_list, list);
+		CAM_ERR(CAM_SENSOR, "generic_op_code: %d delay %d", generic_op_code, cmd_uncond_wait->delay);
 		if (generic_op_code ==
-			CAMERA_SENSOR_WAIT_OP_HW_UCND)
+			CAMERA_SENSOR_WAIT_OP_HW_UCND && cmd_uncond_wait->delay < 1000)
 			i2c_list->i2c_settings.
 				reg_setting[offset - 1].delay =
 				cmd_uncond_wait->delay;
-		else
+		else  {
+
 			i2c_list->i2c_settings.delay =
-				cmd_uncond_wait->delay;
+				(cmd_uncond_wait->delay + 500) / 1000;
+		}
 		(*cmd_buf) +=
 			sizeof(
 			struct cam_cmd_unconditional_wait) / sizeof(uint32_t);
@@ -106,7 +109,7 @@ int32_t cam_sensor_handle_delay(
 			sizeof(
 			struct cam_cmd_unconditional_wait);
 	} else {
-		CAM_ERR(CAM_SENSOR, "Delay Rxed Before any buffer: %d", offset);
+		CAM_ERR(CAM_SENSOR, "cam_sensor_handle_delay:Delay Rxed Before any buffer: %d", offset);
 		return -EINVAL;
 	}
 
@@ -147,7 +150,7 @@ int32_t cam_sensor_handle_poll(
 		sizeof(uint32_t);
 	(*byte_cnt) += sizeof(struct cam_cmd_conditional_wait);
 
-	(*offset) += 1;
+	*offset = 1;
 	*list_ptr = &(i2c_list->list);
 
 	return rc;
@@ -191,7 +194,7 @@ int32_t cam_sensor_handle_random_write(
 		i2c_list->i2c_settings.
 			reg_setting[cnt].data_mask = 0;
 	}
-	(*offset) += cnt;
+	*offset = cnt;
 	*list = &(i2c_list->list);
 
 	return rc;
@@ -246,7 +249,7 @@ static int32_t cam_sensor_handle_continuous_write(
 		i2c_list->i2c_settings.
 			reg_setting[cnt].data_mask = 0;
 	}
-	(*offset) += cnt;
+	*offset = cnt;
 	*list = &(i2c_list->list);
 
 	return rc;
