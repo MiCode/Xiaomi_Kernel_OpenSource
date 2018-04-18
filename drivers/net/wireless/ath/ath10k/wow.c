@@ -445,22 +445,6 @@ static int ath10k_config_wow_listen_interval(struct ath10k *ar)
 	return 0;
 }
 
-void ath10k_wow_op_set_rekey_data(struct ieee80211_hw *hw,
-				  struct ieee80211_vif *vif,
-				  struct cfg80211_gtk_rekey_data *data)
-{
-	struct ath10k *ar = hw->priv;
-	struct ath10k_vif *arvif = ath10k_vif_to_arvif(vif);
-
-	mutex_lock(&ar->conf_mutex);
-	memcpy(&arvif->gtk_rekey_data.kek, data->kek, NL80211_KEK_LEN);
-	memcpy(&arvif->gtk_rekey_data.kck, data->kck, NL80211_KCK_LEN);
-	arvif->gtk_rekey_data.replay_ctr =
-		cpu_to_le64(be64_to_cpup((__be64 *)data->replay_ctr));
-	arvif->gtk_rekey_data.valid = true;
-	mutex_unlock(&ar->conf_mutex);
-}
-
 static int ath10k_wow_config_gtk_offload(struct ath10k *ar, bool gtk_offload)
 {
 	struct ath10k_vif *arvif;
@@ -509,6 +493,13 @@ int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 		goto exit;
 	}
 
+	ret =  ath10k_wow_cleanup(ar);
+	if (ret) {
+		ath10k_warn(ar, "failed to clear wow wakeup events: %d\n",
+			    ret);
+		goto exit;
+	}
+
 	ret = ath10k_wow_config_gtk_offload(ar, true);
 	if (ret) {
 		ath10k_warn(ar, "failed to enable GTK offload: %d\n", ret);
@@ -521,18 +512,11 @@ int ath10k_wow_op_suspend(struct ieee80211_hw *hw,
 		goto disable_gtk_offload;
 	}
 
-	ret =  ath10k_wow_cleanup(ar);
-	if (ret) {
-		ath10k_warn(ar, "failed to clear wow wakeup events: %d\n",
-			    ret);
-		goto disable_ns_arp_offload;
-	}
-
 	ret = ath10k_wow_set_wakeups(ar, wowlan);
 	if (ret) {
 		ath10k_warn(ar, "failed to set wow wakeup events: %d\n",
 			    ret);
-		goto cleanup;
+		goto disable_ns_arp_offload;
 	}
 
 	ret = ath10k_config_wow_listen_interval(ar);
