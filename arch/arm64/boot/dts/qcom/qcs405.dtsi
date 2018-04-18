@@ -12,6 +12,9 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-qcs405.h>
+#include <dt-bindings/clock/qcom,cpu-qcs405.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405";
@@ -133,6 +136,24 @@
 		clock-frequency = <32768>;
 	};
 
+	clock_rpmcc: qcom,rpmcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_cpu: qcom,cpu {
+		compatible = "qcom,dummycc";
+		clock-output-names = "cpu_clocks";
+		#clock-cells = <1>;
+	};
+
 	cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupts = <1 7 0xff00>;
@@ -223,4 +244,14 @@
 		interrupt-names = "tsens-upper-lower";
 		#thermal-sensor-cells = <1>;
 	};
+};
+
+#include "qcs405-gdsc.dtsi"
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_oxili_gx {
+	status = "ok";
 };
