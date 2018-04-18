@@ -51,6 +51,33 @@ TRACE_EVENT(consume_skb,
 	TP_printk("skbaddr=%p", __entry->skbaddr)
 );
 
+TRACE_EVENT(print_skb_gso,
+
+	TP_PROTO(struct sk_buff *skb, __be16 src, __be16 dest),
+
+	TP_ARGS(skb, src, dest),
+
+	TP_STRUCT__entry(
+		__field(void *,	skbaddr)
+		__field(int, len)
+		__field(int, data_len)
+		__field(__be16, src)
+		__field(__be16, dest)
+	),
+
+	TP_fast_assign(
+		__entry->skbaddr = skb;
+		__entry->len = skb->len;
+		__entry->data_len = skb->data_len;
+		__entry->src = src;
+		__entry->dest = dest;
+	),
+
+	TP_printk("GSO: skbaddr=%pK, len=%d, data_len=%d, src=%u, dest=%u",
+		__entry->skbaddr, __entry->len, __entry->data_len,
+		be16_to_cpu(__entry->src), be16_to_cpu(__entry->dest))
+);
+
 TRACE_EVENT(skb_copy_datagram_iovec,
 
 	TP_PROTO(const struct sk_buff *skb, int len),
