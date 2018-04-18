@@ -44,6 +44,7 @@ obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)		+= memshare/
 obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
 obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
 obj-$(CONFIG_QCOM_RUN_QUEUE_STATS) += rq_stats.o
+obj-$(CONFIG_MSM_SPCOM) += spcom.o
 obj-$(CONFIG_QCOM_BUS_SCALING) += msm_bus/
 obj-$(CONFIG_QCOM_COMMAND_DB) += cmd-db.o
 obj-$(CONFIG_QTI_RPMH_API) += rpmh.o

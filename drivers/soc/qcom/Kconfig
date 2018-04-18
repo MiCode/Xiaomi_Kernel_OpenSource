@@ -449,6 +449,19 @@ config MSM_SPSS_UTILS
 	  because the SPSS firmware size is too small to support multiple
 	  HW versions.
 
+config MSM_SPCOM
+	depends on QCOM_GLINK
+	bool "Secure Processor Communication over GLINK"
+	help
+	  spcom driver allows loading Secure Processor Applications and
+	  sending messages to Secure Processor Applications.
+	  spcom provides interface to both user space app and kernel driver.
+	  It is using glink as the transport layer, which provides multiple
+	  logical channels over single physical channel.
+	  The physical layer is based on shared memory and interrupts.
+	  spcom provides clients/server API, although currently only one client
+	  or server is allowed per logical channel.
+
 config QTI_RPMH_API
 	bool "QTI RPMH (h/w accelerators) Communication API"
 	select MAILBOX
