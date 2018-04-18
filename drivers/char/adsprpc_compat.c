@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,13 +77,13 @@ struct compat_fastrpc_ioctl_invoke_crc {
 struct compat_fastrpc_ioctl_mmap {
 	compat_int_t fd;	/* ion fd */
 	compat_uint_t flags;	/* flags for dsp to map with */
-	compat_u64 vaddrin;	/* optional virtual address */
+	compat_uptr_t vaddrin;	/* optional virtual address */
 	compat_size_t size;	/* size */
-	compat_u64 vaddrout;	/* dsps virtual address */
+	compat_uptr_t vaddrout;	/* dsps virtual address */
 };
 
 struct compat_fastrpc_ioctl_munmap {
-	compat_u64 vaddrout;	/* address to unmap */
+	compat_uptr_t vaddrout;	/* address to unmap */
 	compat_size_t size;	/* size */
 };
 
@@ -191,7 +191,7 @@ static int compat_get_fastrpc_ioctl_mmap(
 	compat_uint_t u;
 	compat_int_t i;
 	compat_size_t s;
-	compat_u64 p;
+	compat_uptr_t p;
 	int err;
 
 	err = get_user(i, &map32->fd);
@@ -199,7 +199,7 @@ static int compat_get_fastrpc_ioctl_mmap(
 	err |= get_user(u, &map32->flags);
 	err |= put_user(u, &map->flags);
 	err |= get_user(p, &map32->vaddrin);
-	err |= put_user(p, &map->vaddrin);
+	err |= put_user(p, (uintptr_t *)&map->vaddrin);
 	err |= get_user(s, &map32->size);
 	err |= put_user(s, &map->size);
 
@@ -210,7 +210,7 @@ static int compat_put_fastrpc_ioctl_mmap(
 			struct compat_fastrpc_ioctl_mmap __user *map32,
 			struct fastrpc_ioctl_mmap __user *map)
 {
-	compat_u64 p;
+	compat_uptr_t p;
 	int err;
 
 	err = get_user(p, &map->vaddrout);
@@ -223,7 +223,7 @@ static int compat_get_fastrpc_ioctl_munmap(
 			struct compat_fastrpc_ioctl_munmap __user *unmap32,
 			struct fastrpc_ioctl_munmap __user *unmap)
 {
-	compat_u64 p;
+	compat_uptr_t p;
 	compat_size_t s;
 	int err;
 
