@@ -1,0 +1,28 @@
+menu "Qualcomm Technologies, Inc Per File Encryption security device drivers"
+	depends on ARCH_QCOM
+
+config PFT
+	bool "Per-File-Tagger driver"
+	depends on SECURITY
+	default n
+	help
+		This driver is used for tagging enterprise files.
+		It is part of the Per-File-Encryption (PFE) feature.
+		The driver is tagging files when created by
+		registered application.
+		Tagged files are encrypted using the dm-req-crypt driver.
+
+config PFK
+	bool "Per-File-Key driver"
+	depends on SECURITY
+	depends on SECURITY_SELINUX
+	default n
+	help
+		This driver is used for storing eCryptfs information
+		in file node.
+		This is part of eCryptfs hardware enhanced solution
+		provided by Qualcomm Technologies, Inc.
+		Information is used when file is encrypted later using
+		ICE or dm crypto engine
+
+endmenu

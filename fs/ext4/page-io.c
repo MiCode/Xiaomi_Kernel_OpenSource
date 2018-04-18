@@ -28,6 +28,7 @@
 #include "ext4_jbd2.h"
 #include "xattr.h"
 #include "acl.h"
+#include "ext4_ice.h"
 
 static struct kmem_cache *io_end_cachep;
 
@@ -469,6 +470,7 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 		gfp_t gfp_flags = GFP_NOFS;
 
 	retry_encrypt:
+	if (!fs_using_hardware_encryption(inode))
 		data_page = fscrypt_encrypt_page(inode, page, PAGE_SIZE, 0,
 						page->index, gfp_flags);
 		if (IS_ERR(data_page)) {

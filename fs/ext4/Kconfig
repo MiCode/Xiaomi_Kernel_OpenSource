@@ -109,9 +109,15 @@ config EXT4_ENCRYPTION
 	  decrypted pages in the page cache.
 
 config EXT4_FS_ENCRYPTION
-	bool
-	default y
+	bool "Ext4 FS Encryption"
+	default n
 	depends on EXT4_ENCRYPTION
+
+config EXT4_FS_ICE_ENCRYPTION
+	bool "Ext4 Encryption with ICE support"
+	default n
+	depends on EXT4_FS_ENCRYPTION
+	depends on PFK
 
 config EXT4_DEBUG
 	bool "EXT4 debugging support"

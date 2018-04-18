@@ -69,6 +69,7 @@ struct fscrypt_info {
 	struct crypto_skcipher *ci_ctfm;
 	struct crypto_cipher *ci_essiv_tfm;
 	u8 ci_master_key[FS_KEY_DESCRIPTOR_SIZE];
+	u8 ci_raw_key[FS_MAX_KEY_SIZE];
 };
 
 typedef enum {
@@ -88,6 +89,9 @@ static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 
 	if (contents_mode == FS_ENCRYPTION_MODE_AES_256_XTS &&
 	    filenames_mode == FS_ENCRYPTION_MODE_AES_256_CTS)
+		return true;
+
+	if (contents_mode == FS_ENCRYPTION_MODE_PRIVATE)
 		return true;
 
 	return false;
@@ -112,6 +116,10 @@ extern bool fscrypt_fname_encrypted_size(const struct inode *inode,
 					 u32 orig_len, u32 max_len,
 					 u32 *encrypted_len_ret);
 
+static inline int fs_is_ice_enabled(void)
+{
+	return 1;
+}
 /* keyinfo.c */
 extern void __exit fscrypt_essiv_cleanup(void);
 
