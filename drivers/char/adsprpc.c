@@ -2041,12 +2041,15 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 		err = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
 			TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID), &desc);
 	} else if (map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
-		VERIFY(err, !hyp_assign_phys(map->phys, (uint64_t)map->size,
+		if (me->channel[fl->cid].rhvm.vmid) {
+			VERIFY(err, !hyp_assign_phys(map->phys,
+					(uint64_t)map->size,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
 					destVM, destVMperm, 1));
-		if (err)
-			goto bail;
+			if (err)
+				goto bail;
+		}
 	}
 
 bail:
@@ -3004,8 +3007,15 @@ static int fastrpc_cb_probe(struct device *dev)
 	VERIFY(err, !arm_iommu_attach_device(dev, sess->smmu.mapping));
 	if (err)
 		goto bail;
+
 	sess->smmu.dev = dev;
 	sess->smmu.enabled = 1;
+	if (!sess->smmu.dev->dma_parms)
+		sess->smmu.dev->dma_parms = devm_kzalloc(sess->smmu.dev,
+			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(sess->smmu.dev, DMA_BIT_MASK(64));
+
 	chan->sesscount++;
 	debugfs_global_file = debugfs_create_file("global", 0644, debugfs_root,
 							NULL, &debugfs_fops);

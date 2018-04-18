@@ -1141,6 +1141,7 @@ struct ipa_hw_stats_quota {
 
 struct ipa_hw_stats_teth {
 	struct ipahal_stats_init_tethering init;
+	struct ipa_quota_stats_all prod_stats_sum[IPA_CLIENT_MAX];
 	struct ipa_quota_stats_all prod_stats[IPA_CLIENT_MAX];
 };
 
@@ -2276,8 +2277,10 @@ int ipa_reset_all_drop_stats(void);
 
 int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in);
 
-int ipa_get_teth_stats(enum ipa_client_type prod,
-	struct ipa_quota_stats_all *out);
+int ipa_get_teth_stats(void);
+
+int ipa_query_teth_stats(enum ipa_client_type prod,
+	struct ipa_quota_stats_all *out, bool reset);
 
 int ipa_reset_teth_stats(enum ipa_client_type prod, enum ipa_client_type cons);
 

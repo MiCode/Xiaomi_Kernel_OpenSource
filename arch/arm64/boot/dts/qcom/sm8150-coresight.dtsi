@@ -762,6 +762,15 @@
 			};
 
 			port@8 {
+				reg = <10>;
+				tpda_in_tpdm_prng: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_prng_out_tpda>;
+				};
+			};
+
+			port@9 {
 				reg = <13>;
 				tpda_in_tpdm_pimem: endpoint {
 					slave-mode;
@@ -770,7 +779,7 @@
 				};
 			};
 
-			port@9 {
+			port@10 {
 				reg = <14>;
 				tpda_in_tpdm_npu: endpoint {
 					slave-mode;
@@ -875,8 +884,9 @@
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;
 
-		reg = <0x6846000 0x1000>;
-		reg-names = "funnel-base";
+		reg = <0x6867020 0x10>,
+			<0x6846000 0x1000>;
+		reg-names = "funnel-base-dummy", "funnel-base-real";
 
 		coresight-name = "coresight-funnel-lpass-1";
 
@@ -1088,6 +1098,24 @@
 					remote-endpoint =
 					<&tpda_dl_north_out_funnel_dl_north>;
 				};
+			};
+		};
+	};
+
+	tpdm_prng: tpdm@684c000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x684c000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-prng";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			tpdm_prng_out_tpda: endpoint {
+				remote-endpoint = <&tpda_in_tpdm_prng>;
 			};
 		};
 	};
@@ -1398,17 +1426,20 @@
 		};
 	};
 
-	funnel_dl_mm1: funnel@6c0b000 {
+	funnel_dl_mm1: funnel_1@6c0b000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;
 
-		reg = <0x6c0b000 0x1000>;
-		reg-names = "funnel-base";
+		reg = <0x6867000 0x10>,
+			<0x6c0b000 0x1000>;
+		reg-names = "funnel-base-dummy", "funnel-base-real";
 
 		coresight-name = "coresight-funnel-dl-mm1";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
+
+		qcom,duplicate-funnel;
 
 		ports {
 			#address-cells = <1>;
@@ -1492,8 +1523,9 @@
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;
 
-		reg = <0x6861000 0x1000>;
-		reg-names = "funnel-base";
+		reg = <0x6867010 0x10>,
+			<0x6861000 0x1000>;
+		reg-names = "funnel-base-dummy", "funnel-base-real";
 
 		coresight-name = "coresight-funnel-turing-1";
 

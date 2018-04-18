@@ -150,18 +150,17 @@ static int get_cmd_rsp_buffers(struct qseecom_handle *hdl,
 	uint32_t *rsp_len)
 {
 	/* 64 bytes alignment for QSEECOM */
-	*cmd_len = ALIGN(*cmd_len, 64);
-	*rsp_len = ALIGN(*rsp_len, 64);
+	uint64_t aligned_cmd_len = ALIGN((uint64_t)*cmd_len, 64);
+	uint64_t aligned_rsp_len = ALIGN((uint64_t)*rsp_len, 64);
 
-	if (((uint64_t)*rsp_len + (uint64_t)*cmd_len)
-			> (uint64_t)g_app_buf_size) {
-		pr_err("buffer too small to hold cmd=%d and rsp=%d\n",
-			*cmd_len, *rsp_len);
+	if ((aligned_rsp_len + aligned_cmd_len) > (uint64_t)g_app_buf_size)
 		return -ENOMEM;
-	}
 
 	*cmd = hdl->sbuf;
+	*cmd_len = aligned_cmd_len;
 	*rsp = hdl->sbuf + *cmd_len;
+	*rsp_len = aligned_rsp_len;
+
 	return 0;
 }
 
@@ -368,6 +367,7 @@ static long qbt1000_ioctl(
 		}
 
 		pr_debug("app %s load before\n", app.name);
+		app.name[MAX_NAME_SIZE - 1] = '\0';
 
 		/* start the TZ app */
 		rc = qseecom_start_app(
@@ -381,7 +381,8 @@ static long qbt1000_ioctl(
 				pr_err("App %s failed to set bw\n", app.name);
 			}
 		} else {
-			pr_err("app %s failed to load\n", app.name);
+			dev_err(drvdata->dev, "%s: Fingerprint Trusted App failed to load\n",
+				__func__);
 			goto end;
 		}
 

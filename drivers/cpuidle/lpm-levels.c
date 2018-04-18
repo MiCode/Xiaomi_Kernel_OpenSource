@@ -40,6 +40,7 @@
 #include <soc/qcom/event_timer.h>
 #include <soc/qcom/lpm-stats.h>
 #include <soc/qcom/system_pm.h>
+#include <soc/qcom/minidump.h>
 #include <asm/arch_timer.h>
 #include <asm/suspend.h>
 #include <asm/cpuidle.h>
@@ -1621,6 +1622,7 @@ static int lpm_probe(struct platform_device *pdev)
 	int ret;
 	int size;
 	struct kobject *module_kobj = NULL;
+	struct md_region md_entry;
 
 	get_online_cpus();
 	lpm_root_node = lpm_of_parse_cluster(pdev);
@@ -1677,6 +1679,14 @@ static int lpm_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
+	/* Add lpm_debug to Minidump*/
+	strlcpy(md_entry.name, "KLPMDEBUG", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)lpm_debug;
+	md_entry.phys_addr = lpm_debug_phys;
+	md_entry.size = size;
+	if (msm_minidump_add_region(&md_entry))
+		pr_info("Failed to add lpm_debug in Minidump\n");
+
 	return 0;
 failed:
 	free_cluster_node(lpm_root_node);
@@ -1701,6 +1711,18 @@ static struct platform_driver lpm_driver = {
 static int __init lpm_levels_module_init(void)
 {
 	int rc;
+
+#ifdef CONFIG_ARM
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		rc = arm_cpuidle_init(smp_processor_id());
+		if (rc) {
+			pr_err("CPU%d ARM CPUidle init failed (%d)\n", cpu, rc);
+			return rc;
+		}
+	}
+#endif
 
 	rc = platform_driver_register(&lpm_driver);
 	if (rc) {

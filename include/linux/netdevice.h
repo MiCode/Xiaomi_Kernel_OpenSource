@@ -2748,6 +2748,8 @@ struct softnet_data {
 	unsigned int		processed;
 	unsigned int		time_squeeze;
 	unsigned int		received_rps;
+	unsigned int            gro_coalesced;
+
 #ifdef CONFIG_RPS
 	struct softnet_data	*rps_ipi_list;
 #endif

@@ -45,22 +45,6 @@
 	 (((minor) & 0x7FFFFF) << 5) | \
 	 ((branch) & 0x1F))
 
-/*
- * hfi_align_idx() - Update index based on HFI version
- * @gmu: Pointer to a GMU device
- * @idx: Integer that is either a read or write index
- * @boundary: boundary of adjusted ptr value. Exceeding the boundary
- *	will reset ptr to 0
- */
-static int hfi_align_idx(struct gmu_device *gmu, int idx, int boundary)
-{
-	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
-		idx = ALIGN(idx, SZ_4);
-		return (idx < boundary) ? idx : 0;
-	}
-	return idx;
-}
-
 /* Size in below functions are in unit of dwords */
 static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		unsigned int *output, unsigned int max_size)
@@ -109,7 +93,10 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		result = -ENODATA;
 	}
 
-	hdr->read_index = hfi_align_idx(gmu, read, hdr->queue_size);
+	if (HFI_VER_MAJOR(&gmu->hfi) >= 2)
+		read = ALIGN(read, SZ_4) % hdr->queue_size;
+
+	hdr->read_index = read;
 
 	return result;
 }
@@ -164,7 +151,13 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 		write = (write + 1) % hdr->queue_size;
 	}
 
-	hdr->write_index = hfi_align_idx(gmu, write, hdr->queue_size);
+	/* Cookify any non used data at the end of the write buffer */
+	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
+		for (; write % 4; write = (write + 1) % hdr->queue_size)
+			queue[write] = 0xFAFAFAFA;
+	}
+
+	hdr->write_index = write;
 
 	mutex_unlock(&hfi->cmdq_mutex);
 
