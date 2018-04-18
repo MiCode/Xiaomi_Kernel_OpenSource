@@ -4621,13 +4621,14 @@ static void _sde_plane_set_excl_rect_v1(struct sde_plane *psde,
 {
 	struct drm_clip_rect excl_rect_v1;
 
-	if (!psde) {
-		SDE_ERROR("invalid plane\n");
+	if (!psde || !pstate) {
+		SDE_ERROR("invalid argument(s)\n");
 		return;
 	}
 
 	if (!usr_ptr) {
-		SDE_DEBUG_PLANE(psde, "invalid  excl_rect user data\n");
+		memset(&pstate->excl_rect, 0, sizeof(pstate->excl_rect));
+		SDE_DEBUG_PLANE(psde, "excl_rect data cleared\n");
 		return;
 	}
 
