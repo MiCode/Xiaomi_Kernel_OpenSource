@@ -846,7 +846,7 @@ end:
 	if (phys_enc->parent_ops.handle_frame_done && event)
 		phys_enc->parent_ops.handle_frame_done(
 				phys_enc->parent, phys_enc,
-				SDE_ENCODER_FRAME_EVENT_DONE);
+				event);
 	return ret;
 }
 
