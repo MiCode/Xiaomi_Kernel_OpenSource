@@ -347,6 +347,10 @@ static int submit_reloc(struct msm_gpu *gpu,
 	 * to do it page-by-page, w/ kmap() if not vmap()d..
 	 */
 	ptr = msm_gem_vaddr(&obj->base);
+	if (!ptr) {
+		DRM_ERROR("Invalid format");
+		return -EINVAL;
+	}
 
 	if (IS_ERR(ptr)) {
 		ret = PTR_ERR(ptr);
