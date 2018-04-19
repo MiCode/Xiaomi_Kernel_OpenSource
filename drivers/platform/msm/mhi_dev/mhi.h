@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -273,7 +273,7 @@ struct mhi_config {
 #define MHI_ENV_VALUE			2
 #define MHI_MASK_ROWS_CH_EV_DB		4
 #define TRB_MAX_DATA_SIZE		8192
-#define MHI_CTRL_STATE			25
+#define MHI_CTRL_STATE			100
 #define IPA_DMA_SYNC                    1
 #define IPA_DMA_ASYNC                   0
 
@@ -603,6 +603,8 @@ struct mhi_dev {
 
 	/*Register for interrupt*/
 	bool				mhi_int;
+
+	struct kobj_uevent_env		kobj_env;
 };
 
 struct mhi_req {
@@ -706,6 +708,13 @@ enum mhi_client_channel {
 	MHI_CLIENT_RESERVED_2_LOWER = 102,
 	MHI_CLIENT_RESERVED_2_UPPER = 127,
 	MHI_MAX_CHANNELS = 102,
+};
+
+/* Use ID 0 for legacy /dev/mhi_ctrl. Channel 0 used for internal only */
+#define MHI_DEV_UEVENT_CTRL	0
+
+struct mhi_dev_uevent_info {
+	enum mhi_ctrl_info	ctrl_info;
 };
 
 struct mhi_dev_iov {
@@ -1221,7 +1230,19 @@ int mhi_dev_net_interface_init(void);
 
 void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
 
-int mhi_ctrl_state_info(uint32_t *info);
+/**
+ * mhi_ctrl_state_info() - Provide MHI state info
+ *		@idx: Channel number idx. Look at channel_state_info and
+ *		pass the index for the corresponding channel.
+ *		@info: Return the control info.
+ *		MHI_STATE=CONFIGURED - MHI device is present but not ready
+ *					for data traffic.
+ *		MHI_STATE=CONNECTED - MHI device is ready for data transfer.
+ *		MHI_STATE=DISCONNECTED - MHI device has its pipes suspended.
+ *		exposes device nodes for the supported MHI software
+ *		channels.
+ */
+int mhi_ctrl_state_info(uint32_t idx, uint32_t *info);
 
 void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason);
 

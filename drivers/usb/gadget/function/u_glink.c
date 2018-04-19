@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -375,6 +375,15 @@ static void glink_notify_state(void *handle, const void *priv, unsigned event)
 		if (gr && gr->disconnect)
 			gr->disconnect(gr);
 		glink_purge_tx_q(ch_info);
+		/**
+		 * If the channel is closed on the REMOTE side, the channel
+		 * needs to be closed from the LOCAL as well so that the current
+		 * context is cleared and the channel can be opened afresh.
+		 */
+		if (ch_info->handle) {
+			pr_debug("%s queue disconnect work\n", __func__);
+			queue_work(glink_ctrl_wq, &ch_info->disconnect_w);
+		}
 		break;
 	default:
 		pr_err("%s: invalid channel state notification\n", __func__);

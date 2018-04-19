@@ -840,6 +840,9 @@ int f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 			return err;
 	}
 
+	if (is_inode_flag_set(inode, FI_NO_PREALLOC))
+		return 0;
+
 	map.m_lblk = F2FS_BLK_ALIGN(pos);
 	map.m_len = F2FS_BYTES_TO_BLK(pos + count);
 	if (map.m_len > map.m_lblk)
@@ -1865,7 +1868,8 @@ static int prepare_write_begin(struct f2fs_sb_info *sbi,
 	 * we already allocated all the blocks, so we don't need to get
 	 * the block addresses when there is no need to fill the page.
 	 */
-	if (!f2fs_has_inline_data(inode) && len == PAGE_SIZE)
+	if (!f2fs_has_inline_data(inode) && len == PAGE_SIZE &&
+			!is_inode_flag_set(inode, FI_NO_PREALLOC))
 		return 0;
 
 	if (f2fs_has_inline_data(inode) ||
