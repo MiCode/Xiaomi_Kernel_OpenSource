@@ -4776,12 +4776,31 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 {
 	u16 sid;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_fwspec *fwspec;
+	void __iomem *gr1_base;
+	u32 frsynra;
 
-	/* Select a sid */
-	fwspec = smmu_domain->dev->iommu_fwspec;
-	sid = (u16)fwspec->ids[0];
 
+	/* Check to see if the domain is associated with the test
+	 * device. If the domain belongs to the test device, then
+	 * pick the SID from fwspec.
+	 */
+	if (domain->is_debug_domain) {
+		fwspec = smmu_domain->dev->iommu_fwspec;
+		sid    = (u16)fwspec->ids[0];
+	} else {
+
+		/* If the domain belongs to an actual device, read
+		 * SID from the corresponding frsynra register
+		 */
+		gr1_base = ARM_SMMU_GR1(smmu);
+		frsynra  = readl_relaxed(gr1_base +
+				ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+		frsynra &= CBFRSYNRA_SID_MASK;
+		sid      = frsynra;
+	}
 	return qsmmuv500_iova_to_phys(domain, iova, sid);
 }
 
