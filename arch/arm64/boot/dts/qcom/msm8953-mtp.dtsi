@@ -208,4 +208,8 @@
 	case-therm-step {
 		status = "disabled";
 	};
+
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
