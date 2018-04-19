@@ -508,12 +508,12 @@
 };
 
 &dsi_sim_vid {
-	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-post = <0x15>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [01 03 01 00 01 01 01
-				01 00 03 04 00 03 04];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <1 0 1>,
 						<2 0 1>;
 			qcom,default-topology-index = <0>;
@@ -522,12 +522,12 @@
 };
 
 &dsi_dual_sim_vid {
-	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-post = <0x15>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <2 0 2>,
 						<1 0 2>;
 			qcom,default-topology-index = <0>;
@@ -536,12 +536,12 @@
 };
 
 &dsi_sim_cmd {
-	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-post = <0x15>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 03 01 00 01 01 02
-				01 00 03 04 00 03 04];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <1 0 1>,
 						<2 0 1>;
 			qcom,default-topology-index = <0>;
@@ -550,25 +550,25 @@
 };
 
 &dsi_dual_sim_cmd {
-	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-post = <0x15>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 24 09 09 26 24 09
+				09 06 03 04 00];
 			qcom,display-topology = <2 0 2>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@1{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <2 0 2>,
 						<1 0 2>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@2{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 03 04 00 19 18];
 			qcom,display-topology = <2 0 2>;
 			qcom,default-topology-index = <0>;
 		};
