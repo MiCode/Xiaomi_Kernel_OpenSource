@@ -1180,12 +1180,26 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			chip->charge_full = true;
 			qg_dbg(chip, QG_DEBUG_STATUS, "Setting charge_full (0->1) @ msoc=%d\n",
 					chip->msoc);
-		} else {
+		} else if (health != POWER_SUPPLY_HEALTH_GOOD) {
+			/* terminated in JEITA */
 			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
 					chip->msoc);
 		}
 	} else if ((!chip->charge_done || chip->msoc < recharge_soc)
 				&& chip->charge_full) {
+
+		if (chip->wa_flags & QG_RECHARGE_SOC_WA) {
+			/* Force recharge */
+			prop.intval = 0;
+			rc = power_supply_set_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+			if (rc < 0)
+				pr_err("Failed to force recharge rc=%d\n", rc);
+			else
+				qg_dbg(chip, QG_DEBUG_STATUS,
+					"Forced recharge\n");
+		}
+
 		/*
 		 * If recharge or discharge has started and
 		 * if linearize soc dtsi property defined
@@ -1767,6 +1781,7 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 {
 	switch (chip->pmic_rev_id->pmic_subtype) {
 	case PMI632_SUBTYPE:
+		chip->wa_flags |= QG_RECHARGE_SOC_WA;
 		if (chip->pmic_rev_id->rev4 == PMI632_V1P0_REV4)
 			chip->wa_flags |= QG_VBAT_LOW_WA;
 		break;
