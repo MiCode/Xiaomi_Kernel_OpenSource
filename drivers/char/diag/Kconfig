@@ -27,7 +27,7 @@ config DIAG_OVER_USB
 config DIAGFWD_BRIDGE_CODE
 	bool "Enable QSC/9K DIAG traffic over SMUX/HSIC"
 	depends on DIAG_CHAR
-	depends on USB_QCOM_DIAG_BRIDGE || MSM_MHI
+	depends on USB_QCOM_DIAG_BRIDGE || MHI_BUS
 	default y
 	help
 	  SMUX/HSIC Transport Layer for DIAG Router. When the MHI/SMUX endpoints
