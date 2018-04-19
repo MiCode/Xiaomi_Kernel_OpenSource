@@ -23,12 +23,15 @@
 
 &soc {
 	qcom,csid@1b30000 {
+		qcom,csi-vdd-voltage = <800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 	qcom,csid@1b30400 {
+		qcom,csi-vdd-voltage = <800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 	qcom,csid@1b30800 {
+		qcom,csi-vdd-voltage = <800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 
