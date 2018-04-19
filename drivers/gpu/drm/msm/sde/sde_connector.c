@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1725,6 +1725,7 @@ status_dead:
 	event.length = sizeof(bool);
 	msm_mode_object_event_notify(&conn->base.base,
 		conn->base.dev, &event, (u8 *)&panel_dead);
+	sde_encoder_display_failure_notification(conn->encoder);
 }
 
 static const struct drm_connector_helper_funcs sde_connector_helper_ops = {
