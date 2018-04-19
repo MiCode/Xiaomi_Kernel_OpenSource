@@ -1661,6 +1661,8 @@ static struct clk_rcg2 gcc_usb30_mp_master_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_usb30_mp_mock_utmi_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(20000000, P_GPLL0_OUT_EVEN, 15, 0, 0),
 	F(40000000, P_GPLL0_OUT_EVEN, 7.5, 0, 0),
 	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
 	{ }
@@ -1709,19 +1711,12 @@ static struct clk_rcg2 gcc_usb30_prim_master_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_gcc_usb30_prim_mock_utmi_clk_src[] = {
-	F(20000000, P_GPLL0_OUT_EVEN, 15, 0, 0),
-	F(40000000, P_GPLL0_OUT_EVEN, 7.5, 0, 0),
-	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
-	{ }
-};
-
 static struct clk_rcg2 gcc_usb30_prim_mock_utmi_clk_src = {
 	.cmd_rcgr = 0xf034,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_usb30_prim_mock_utmi_clk_src,
+	.freq_tbl = ftbl_gcc_usb30_mp_mock_utmi_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_usb30_prim_mock_utmi_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1764,7 +1759,7 @@ static struct clk_rcg2 gcc_usb30_sec_mock_utmi_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_usb30_prim_mock_utmi_clk_src,
+	.freq_tbl = ftbl_gcc_usb30_mp_mock_utmi_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_usb30_sec_mock_utmi_clk_src",
 		.parent_names = gcc_parent_names_0,
