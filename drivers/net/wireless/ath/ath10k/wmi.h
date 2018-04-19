@@ -197,6 +197,11 @@ enum wmi_service {
 	WMI_SERVICE_TDLS_EXPLICIT_MODE_ONLY,
 	WMI_SERVICE_MGMT_TX_WMI,
 	WMI_SERVICE_TDLS_WIDER_BANDWIDTH,
+	WMI_SERVICE_HTT_MGMT_TX_COMP_VALID_FLAGS,
+	WMI_SERVICE_HOST_DFS_CHECK_SUPPORT,
+	WMI_SERVICE_TPC_STATS_FINAL,
+	WMI_SERVICE_RESET_CHIP,
+	WMI_SERVICE_SPOOF_MAC_SUPPORT,
 
 	/* keep last */
 	WMI_SERVICE_MAX,
@@ -1167,6 +1172,7 @@ enum wmi_cmd_id {
 enum wmi_event_id {
 	WMI_SERVICE_READY_EVENTID = 0x1,
 	WMI_READY_EVENTID,
+	WMI_SERVICE_AVAILABLE_EVENTID,
 
 	/* Scan specific events */
 	WMI_SCAN_EVENTID = WMI_EVT_GRP_START_ID(WMI_GRP_SCAN),
@@ -6545,6 +6551,11 @@ struct wmi_svc_rdy_ev_arg {
 	const struct wlan_host_mem_req *mem_reqs[WMI_MAX_MEM_REQS];
 };
 
+struct wmi_svc_avail_ev_arg {
+	__le32 service_map_ext_len;
+	const __le32 *service_map_ext;
+};
+
 struct wmi_rdy_ev_arg {
 	__le32 sw_version;
 	__le32 abi_version;
@@ -6964,6 +6975,7 @@ void ath10k_wmi_event_vdev_standby_req(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_vdev_resume_req(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_service_ready(struct ath10k *ar, struct sk_buff *skb);
 int ath10k_wmi_event_ready(struct ath10k *ar, struct sk_buff *skb);
+void ath10k_wmi_event_service_available(struct ath10k *ar, struct sk_buff *skb);
 int ath10k_wmi_op_pull_phyerr_ev(struct ath10k *ar, const void *phyerr_buf,
 				 int left_len, struct wmi_phyerr_ev_arg *arg);
 void ath10k_wmi_main_op_fw_stats_fill(struct ath10k *ar,
