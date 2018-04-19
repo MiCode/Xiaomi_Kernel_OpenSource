@@ -847,7 +847,7 @@ static int msm_pcm_channel_mixer_output_map_ctl_put(
 	}
 
 	chmixer_pspd = &(pdata->chmixer_pspd[fe_id][session_type]);
-	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
 		chmixer_pspd->out_ch_map[i] =
 			ucontrol->value.integer.value[i];
 
@@ -878,7 +878,7 @@ static int msm_pcm_channel_mixer_output_map_ctl_get(
 	}
 
 	chmixer_pspd = &(pdata->chmixer_pspd[fe_id][session_type]);
-	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
 		ucontrol->value.integer.value[i] =
 			chmixer_pspd->out_ch_map[i];
 	return 0;
@@ -908,7 +908,7 @@ static int msm_pcm_channel_mixer_input_map_ctl_put(
 	}
 
 	chmixer_pspd = &(pdata->chmixer_pspd[fe_id][session_type]);
-	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
 		chmixer_pspd->in_ch_map[i] = ucontrol->value.integer.value[i];
 
 	return 0;
@@ -938,7 +938,7 @@ static int msm_pcm_channel_mixer_input_map_ctl_get(
 	}
 
 	chmixer_pspd = &(pdata->chmixer_pspd[fe_id][session_type]);
-	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
 		ucontrol->value.integer.value[i] =
 			chmixer_pspd->in_ch_map[i];
 	return 0;
@@ -969,13 +969,13 @@ static int msm_pcm_channel_mixer_weight_ctl_put(
 	}
 
 	chmixer_pspd = &(pdata->chmixer_pspd[fe_id][session_type]);
-	if (channel <= 0 || channel > PCM_FORMAT_MAX_NUM_CHANNEL) {
+	if (channel <= 0 || channel > PCM_FORMAT_MAX_NUM_CHANNEL_V2) {
 		pr_err("%s: invalid channel number %d\n", __func__, channel);
 		return -EINVAL;
 	}
 
 	channel--;
-	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
 		chmixer_pspd->channel_weight[channel][i] =
 			ucontrol->value.integer.value[i];
 	return 0;
@@ -1005,14 +1005,14 @@ static int msm_pcm_channel_mixer_weight_ctl_get(
 		return -EINVAL;
 	}
 
-	if (channel <= 0 || channel > PCM_FORMAT_MAX_NUM_CHANNEL) {
+	if (channel <= 0 || channel > PCM_FORMAT_MAX_NUM_CHANNEL_V2) {
 		pr_err("%s: invalid channel number %d\n", __func__, channel);
 		return -EINVAL;
 	}
 
 	channel--;
 	chmixer_pspd = &(pdata->chmixer_pspd[fe_id][session_type]);
-	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
 		ucontrol->value.integer.value[i] =
 			chmixer_pspd->channel_weight[channel][i];
 	return 0;
@@ -1462,7 +1462,7 @@ static int msm_pcm_add_channel_mixer_controls(struct snd_soc_pcm_runtime *rtd)
 		pr_err("%s: pcm add channel mixer output map controls failed:%d\n",
 				__func__, ret);
 
-	for (i = 1; i <= PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+	for (i = 1; i <= PCM_FORMAT_MAX_NUM_CHANNEL_V2; i++)
 		ret |=  msm_pcm_add_channel_mixer_weight_controls(rtd, i);
 	if (ret)
 		pr_err("%s: pcm add channel mixer weight controls failed:%d\n",
