@@ -79,7 +79,7 @@
 			snps,ssp-u3-u0-quirk;
 			usb-core-id = <0>;
 			tx-fifo-resize;
-			maximum-speed = "super-speed";
+			maximum-speed = "super-speed-plus";
 			dr_mode = "otg";
 		};
 
