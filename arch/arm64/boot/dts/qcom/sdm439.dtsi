@@ -31,6 +31,75 @@
 	qcom,csid@1b30800 {
 		/delete-property/ qcom,mipi-csi-vdd-supply;
 	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names =
+			"l2_clk",
+			"cpu0_clk",
+			"cpu4_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			 < 1305600 >,
+			 < 1497600 >,
+			 < 1708800 >,
+			 < 1958400 >;
+
+		qcom,cpufreq-table-4 =
+			 <  768000 >,
+			 < 1001600 >,
+			 < 1171200 >,
+			 < 1305600 >,
+			 < 1459200 >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map-0 =
+			< 1305600  2929 >,
+			< 1497600  5053 >,
+			< 1708800  5712 >,
+			< 1958400  7031 >;
+		cpu-to-dev-map-4 =
+			<  768000  2929 >,
+			< 1001600  4101 >,
+			< 1171200  5053 >,
+			< 1305600  6152 >,
+			< 1459200  7031 >;
+
+		};
+
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map-0 =
+			< 1305600  400000 >,
+			< 1497600  400000 >,
+			< 1708800  533333 >,
+			< 1958400  533333 >;
+		cpu-to-dev-map-4 =
+			<  768000  400000 >,
+			< 1001600  400000 >,
+			< 1171200  533333 >,
+			< 1305600  533333 >,
+			< 1459200  533333 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map-0 =
+				< 1305600 2929 >,
+				< 1958400 4248 >;
+			cpu-to-dev-map-4 =
+				< 1171200 2929 >,
+				< 1459200 4248 >;
+		};
+	};
 };
 
 &energy_costs {

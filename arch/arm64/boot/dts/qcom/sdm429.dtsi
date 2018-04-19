@@ -38,6 +38,53 @@
 			/delete-node/qcom,pm-cluster@1;
 		};
 	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names =
+			"l2_clk",
+			"cpu0_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_bc_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table =
+			 <  960000 >,
+			 < 1305600 >,
+			 < 1497600 >,
+			 < 1708800 >,
+			 < 1958400 >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map =
+			< 960000   2929 >,
+			< 1305600  5053 >,
+			< 1497600  5712 >,
+			< 1708800  7031 >,
+			< 1958400  7031 >;
+		};
+
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map =
+			< 960000   400000 >,
+			< 1305600  400000 >,
+			< 1497600  533333 >,
+			< 1708800  533333 >,
+			< 1958400  533333 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map =
+				< 1305600 2929 >,
+				< 1958400 4248 >;
+		};
+	};
 };
 
 &funnel_apss {
