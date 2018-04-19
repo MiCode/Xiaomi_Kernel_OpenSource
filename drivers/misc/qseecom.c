@@ -1160,21 +1160,21 @@ static int qseecom_dmabuf_map(int ion_fd, struct sg_table **sgt,
 	int ret = 0;
 
 	new_dma_buf = dma_buf_get(ion_fd);
-	if (new_dma_buf == NULL) {
+	if (IS_ERR_OR_NULL(new_dma_buf)) {
 		pr_err("dma_buf_get() for ion_fd %d failed\n", ion_fd);
 		ret = -ENOMEM;
 		goto err;
 	}
 
 	new_attach = dma_buf_attach(new_dma_buf, qseecom.dev);
-	if (IS_ERR(new_attach)) {
+	if (IS_ERR_OR_NULL(new_attach)) {
 		pr_err("dma_buf_attach() for ion_fd %d failed\n", ion_fd);
 		ret = -ENOMEM;
 		goto err_put;
 	}
 
 	new_sgt = dma_buf_map_attachment(new_attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR(new_sgt)) {
+	if (IS_ERR_OR_NULL(new_sgt)) {
 		ret = PTR_ERR(new_sgt);
 		pr_err("dma_buf_map_attachment for ion_fd %d failed ret = %d\n",
 				ion_fd, ret);
@@ -1227,7 +1227,7 @@ static int qseecom_vaddr_map(int ion_fd,
 
 	dma_buf_begin_cpu_access(new_dma_buf, DMA_BIDIRECTIONAL);
 	new_va = dma_buf_kmap(new_dma_buf, 0);
-	if (!new_va) {
+	if (IS_ERR_OR_NULL(new_va)) {
 		pr_err("dma_buf_kmap failed\n");
 		ret = -ENOMEM;
 		goto err_unmap;
