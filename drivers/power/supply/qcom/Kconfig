@@ -113,6 +113,17 @@ config QPNP_VM_BMS
 	  readings from the battery to calculate the State of
 	  Charge.
 
+config QPNP_LINEAR_CHARGER
+	tristate "QPNP Linear Charger driver"
+	depends on MFD_SPMI_PMIC
+	depends on THERMAL_QPNP_ADC_TM
+	help
+	  Say Y here to enable the Linear battery charger which supports USB
+	  detection and charging. The driver also offers relevant information
+	  to userspace via the power supply framework.
+	  The power supply framework is used to communicate battery and
+	  usb properties to userspace and other driver consumers like USB.
+
 config QPNP_TYPEC
 	tristate "QPNP Type-C driver"
 	depends on MFD_SPMI_PMIC
