@@ -482,9 +482,11 @@ static int bcm_query_list_add(struct msm_bus_node_device_type *cur_dev)
 		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
 		cur_vcd = cur_bcm->bcmdev->clk_domain;
 
-		if (!cur_bcm->query_dirty)
+		if (!cur_bcm->query_dirty) {
 			list_add_tail(&cur_bcm->query_link,
 					&bcm_query_list_inorder[cur_vcd]);
+			cur_bcm->query_dirty = true;
+		}
 	}
 
 exit_bcm_query_list_add:
