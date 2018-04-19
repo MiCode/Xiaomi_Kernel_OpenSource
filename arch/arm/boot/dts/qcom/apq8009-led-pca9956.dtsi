@@ -35,16 +35,3 @@
 	};
 };
 
-&soc {
-	pinctrl@1000000 {
-		i2c3{
-			pca9956b_reset: pca9956b_reset {
-				config {
-					pins = "gpio84";
-					drive-strength = <16>;
-					bias-pull-down;
-				};
-			};
-		};
-	};
-};
