@@ -103,6 +103,13 @@ int ion_hyp_unassign_sg(struct sg_table *sgt, int *source_vm_list,
 	struct scatterlist *sg;
 	int ret, i;
 
+	if (source_nelems <= 0) {
+		pr_err("%s: source_nelems invalid\n",
+		       __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
 	ret = hyp_assign_table(sgt, source_vm_list, source_nelems,
 			       &dest_vmid, &dest_perms, 1);
 	if (ret) {
@@ -125,6 +132,13 @@ int ion_hyp_assign_sg(struct sg_table *sgt, int *dest_vm_list,
 	int *dest_perms;
 	int i;
 	int ret = 0;
+
+	if (dest_nelems <= 0) {
+		pr_err("%s: dest_nelems invalid\n",
+		       __func__);
+		ret = -EINVAL;
+		goto out;
+	}
 
 	dest_perms = kcalloc(dest_nelems, sizeof(*dest_perms), GFP_KERNEL);
 	if (!dest_perms) {
