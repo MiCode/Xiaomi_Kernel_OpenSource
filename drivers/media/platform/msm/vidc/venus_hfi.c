@@ -34,6 +34,7 @@
 #include <linux/soc/qcom/smem.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/dma-mapping.h>
+#include <linux/fastcvpd.h>
 #include "hfi_packetization.h"
 #include "msm_vidc_debug.h"
 #include "venus_hfi.h"
@@ -104,6 +105,7 @@ static int __enable_subcaches(struct venus_hfi_device *device);
 static int __set_subcaches(struct venus_hfi_device *device);
 static int __release_subcaches(struct venus_hfi_device *device);
 static int __disable_subcaches(struct venus_hfi_device *device);
+static int __power_collapse(struct venus_hfi_device *device, bool force);
 static int venus_hfi_noc_error_info(void *dev);
 
 /**
@@ -250,6 +252,216 @@ static void __sim_modify_cmd_packet(u8 *packet, struct venus_hfi_device *device)
 	default:
 		break;
 	}
+}
+
+static int __dsp_send_hfi_queue(struct venus_hfi_device *device)
+{
+	int rc;
+
+	if (!device->res->domain_cvp)
+		return 0;
+
+	if (!device->dsp_iface_q_table.mem_data.dma_handle) {
+		dprintk(VIDC_ERR, "%s: invalid dsm_handle\n", __func__);
+		return -EINVAL;
+	}
+
+	if (device->dsp_flags & DSP_INIT) {
+		dprintk(VIDC_DBG, "%s: dsp already inited\n");
+		return 0;
+	}
+
+	dprintk(VIDC_DBG, "%s: hfi queue %#x size %d\n",
+		__func__, device->dsp_iface_q_table.mem_data.dma_handle,
+		device->dsp_iface_q_table.mem_data.size);
+	rc = fastcvpd_video_send_cmd_hfi_queue(
+		(phys_addr_t *)device->dsp_iface_q_table.mem_data.dma_handle,
+		device->dsp_iface_q_table.mem_data.size);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: dsp init failed\n", __func__);
+		return rc;
+	}
+
+	device->dsp_flags |= DSP_INIT;
+	dprintk(VIDC_DBG, "%s: dsp inited\n", __func__);
+	return rc;
+}
+
+static int __dsp_suspend(struct venus_hfi_device *device, bool force, u32 flags)
+{
+	int rc;
+	struct hal_session *temp;
+
+	if (!device->res->domain_cvp)
+		return 0;
+
+	if (!(device->dsp_flags & DSP_INIT))
+		return 0;
+
+	if (device->dsp_flags & DSP_SUSPEND)
+		return 0;
+
+	list_for_each_entry(temp, &device->sess_head, list) {
+		/* if forceful suspend, don't check session pause info */
+		if (force)
+			continue;
+		if (temp->domain == HAL_VIDEO_DOMAIN_CVP) {
+			/* don't suspend if cvp session is not paused */
+			if (!(temp->flags & SESSION_PAUSE)) {
+				dprintk(VIDC_DBG,
+					"%s: cvp session %x not paused\n",
+					__func__, hash32_ptr(temp));
+				return -EBUSY;
+			}
+		}
+	}
+
+	dprintk(VIDC_DBG, "%s: suspend dsp\n", __func__);
+	rc = fastcvpd_video_suspend(flags);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: dsp suspend failed with error %d\n",
+			__func__, rc);
+		return -EINVAL;
+	}
+
+	device->dsp_flags |= DSP_SUSPEND;
+	dprintk(VIDC_DBG, "%s: dsp suspended\n", __func__);
+	return 0;
+}
+
+static int __dsp_resume(struct venus_hfi_device *device, u32 flags)
+{
+	int rc;
+
+	if (!device->res->domain_cvp)
+		return 0;
+
+	if (!(device->dsp_flags & DSP_SUSPEND)) {
+		dprintk(VIDC_DBG, "%s: dsp not suspended\n", __func__);
+		return 0;
+	}
+
+	dprintk(VIDC_DBG, "%s: resume dsp\n", __func__);
+	rc = fastcvpd_video_resume(flags);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s: dsp resume failed with error %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	device->dsp_flags &= ~DSP_SUSPEND;
+	dprintk(VIDC_DBG, "%s: dsp resumed\n", __func__);
+	return rc;
+}
+
+static int __dsp_shutdown(struct venus_hfi_device *device, u32 flags)
+{
+	int rc;
+
+	if (!device->res->domain_cvp)
+		return 0;
+
+	if (!(device->dsp_flags & DSP_INIT)) {
+		dprintk(VIDC_DBG, "%s: dsp not inited\n", __func__);
+		return 0;
+	}
+
+	dprintk(VIDC_DBG, "%s: shutdown dsp\n", __func__);
+	rc = fastcvpd_video_shutdown(flags);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s: dsp shutdown failed with error %d\n",
+			__func__, rc);
+		WARN_ON(1);
+	}
+
+	device->dsp_flags &= ~DSP_INIT;
+	dprintk(VIDC_DBG, "%s: dsp shutdown successful\n", __func__);
+	return rc;
+}
+
+static int __session_pause(struct venus_hfi_device *device,
+		struct hal_session *session)
+{
+	int rc = 0;
+
+	/* ignore if session paused already */
+	if (session->flags & SESSION_PAUSE)
+		return 0;
+
+	session->flags |= SESSION_PAUSE;
+	dprintk(VIDC_DBG, "%s: cvp session %x paused\n", __func__,
+		hash32_ptr(session));
+
+	return rc;
+}
+
+static int __session_resume(struct venus_hfi_device *device,
+		struct hal_session *session)
+{
+	int rc = 0;
+
+	/* ignore if session already resumed */
+	if (!(session->flags & SESSION_PAUSE))
+		return 0;
+
+	session->flags &= ~SESSION_PAUSE;
+	dprintk(VIDC_DBG, "%s: cvp session %x resumed\n", __func__,
+		hash32_ptr(session));
+
+	rc = __resume(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: resume failed\n", __func__);
+		goto exit;
+	}
+
+	if (device->dsp_flags & DSP_SUSPEND) {
+		dprintk(VIDC_ERR, "%s: dsp not resumed\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+exit:
+	return rc;
+}
+
+static int venus_hfi_session_pause(void *sess)
+{
+	int rc;
+	struct hal_session *session = sess;
+	struct venus_hfi_device *device;
+
+	if (!session || !session->device) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	device = session->device;
+
+	mutex_lock(&device->lock);
+	rc = __session_pause(device, session);
+	mutex_unlock(&device->lock);
+
+	return rc;
+}
+
+static int venus_hfi_session_resume(void *sess)
+{
+	int rc;
+	struct hal_session *session = sess;
+	struct venus_hfi_device *device;
+
+	if (!session || !session->device) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	device = session->device;
+
+	mutex_lock(&device->lock);
+	rc = __session_resume(device, session);
+	mutex_unlock(&device->lock);
+
+	return rc;
 }
 
 static int __acquire_regulator(struct regulator_info *rinfo,
@@ -1098,14 +1310,18 @@ static int venus_hfi_suspend(void *dev)
 	}
 
 	dprintk(VIDC_DBG, "Suspending Venus\n");
-	flush_delayed_work(&venus_hfi_pm_work);
-
 	mutex_lock(&device->lock);
-	if (device->power_enabled) {
+	rc = __power_collapse(device, true);
+	if (rc) {
 		dprintk(VIDC_WARN, "%s: Venus is busy\n", __func__);
 		rc = -EBUSY;
 	}
 	mutex_unlock(&device->lock);
+
+	/* Cancel pending delayed works if any */
+	if (!rc)
+		cancel_delayed_work(&venus_hfi_pm_work);
+
 	return rc;
 }
 
@@ -1957,6 +2173,7 @@ static int venus_hfi_core_init(void *device)
 
 	__enable_subcaches(device);
 	__set_subcaches(device);
+	__dsp_send_hfi_queue(device);
 
 	if (dev->res->pm_qos_latency_us) {
 #ifdef CONFIG_SMP
@@ -1998,6 +2215,8 @@ static int venus_hfi_core_release(void *dev)
 
 	__resume(device);
 	__set_state(device, VENUS_STATE_DEINIT);
+	__dsp_shutdown(device, 0);
+
 	__unload_fw(device);
 
 	/* unlink all sessions from device */
@@ -2988,9 +3207,6 @@ err_pc_prep:
 static void venus_hfi_pm_handler(struct work_struct *work)
 {
 	int rc = 0;
-	u32 wfi_status = 0, idle_status = 0, pc_ready = 0;
-	int count = 0;
-	const int max_tries = 10;
 	struct venus_hfi_device *device = list_first_entry(
 			&hal_ctxt.dev_head, struct venus_hfi_device, list);
 
@@ -3012,7 +3228,51 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 		__process_fatal_error(device);
 		return;
 	}
+
 	mutex_lock(&device->lock);
+	rc = __power_collapse(device, false);
+	mutex_unlock(&device->lock);
+	switch (rc) {
+	case 0:
+		device->skip_pc_count = 0;
+		/* Cancel pending delayed works if any */
+		cancel_delayed_work(&venus_hfi_pm_work);
+		dprintk(VIDC_PROF, "%s: power collapse successful!\n",
+			__func__);
+		break;
+	case -EBUSY:
+		device->skip_pc_count = 0;
+		dprintk(VIDC_DBG, "%s: retry PC as dsp is busy\n", __func__);
+		queue_delayed_work(device->venus_pm_workq,
+			&venus_hfi_pm_work, msecs_to_jiffies(
+			device->res->msm_vidc_pwr_collapse_delay));
+		break;
+	case -EAGAIN:
+		device->skip_pc_count++;
+		dprintk(VIDC_WARN, "%s: retry power collapse (count %d)\n",
+			__func__, device->skip_pc_count);
+		queue_delayed_work(device->venus_pm_workq,
+			&venus_hfi_pm_work, msecs_to_jiffies(
+			device->res->msm_vidc_pwr_collapse_delay));
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: power collapse failed\n", __func__);
+		break;
+	}
+}
+
+static int __power_collapse(struct venus_hfi_device *device, bool force)
+{
+	int rc = 0;
+	u32 wfi_status = 0, idle_status = 0, pc_ready = 0;
+	u32 flags = 0;
+	int count = 0;
+	const int max_tries = 10;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
 	if (!device->power_enabled) {
 		dprintk(VIDC_DBG, "%s: Power already disabled\n",
 				__func__);
@@ -3023,8 +3283,15 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 	if (!rc) {
 		dprintk(VIDC_WARN,
 				"Core is in bad state, Skipping power collapse\n");
-		goto skip_power_off;
+		return -EINVAL;
 	}
+
+	rc = __dsp_suspend(device, force, flags);
+	if (rc == -EBUSY)
+		goto exit;
+	else if (rc)
+		goto skip_power_off;
+
 	pc_ready = __read_register(device, VIDC_CTRL_STATUS) &
 		VIDC_CTRL_STATUS_PC_READY;
 	if (!pc_ready) {
@@ -3077,23 +3344,14 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 	if (rc)
 		dprintk(VIDC_ERR, "Failed __suspend\n");
 
-	/* Cancel pending delayed works if any */
-	cancel_delayed_work(&venus_hfi_pm_work);
-	device->skip_pc_count = 0;
-
-	mutex_unlock(&device->lock);
-	return;
+exit:
+	return rc;
 
 skip_power_off:
-	device->skip_pc_count++;
-	dprintk(VIDC_WARN, "Skip PC(%d, %#x, %#x, %#x)\n",
-		device->skip_pc_count, wfi_status, idle_status, pc_ready);
-	queue_delayed_work(device->venus_pm_workq,
-			&venus_hfi_pm_work,
-			msecs_to_jiffies(
-			device->res->msm_vidc_pwr_collapse_delay));
-exit:
-	mutex_unlock(&device->lock);
+	dprintk(VIDC_WARN, "Skip PC(%#x, %#x, %#x)\n",
+		wfi_status, idle_status, pc_ready);
+
+	return -EAGAIN;
 }
 
 static void __process_sys_error(struct venus_hfi_device *device)
@@ -4420,6 +4678,7 @@ err_tzbsp_suspend:
 static inline int __resume(struct venus_hfi_device *device)
 {
 	int rc = 0;
+	u32 flags = 0;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %pK\n", device);
@@ -4472,6 +4731,7 @@ static inline int __resume(struct venus_hfi_device *device)
 
 	__enable_subcaches(device);
 	__set_subcaches(device);
+	__dsp_resume(device, flags);
 
 	dprintk(VIDC_PROF, "Resumed from power collapse\n");
 exit:
@@ -4890,6 +5150,8 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_flush = venus_hfi_session_flush;
 	hdev->session_set_property = venus_hfi_session_set_property;
 	hdev->session_get_property = venus_hfi_session_get_property;
+	hdev->session_pause = venus_hfi_session_pause;
+	hdev->session_resume = venus_hfi_session_resume;
 	hdev->scale_clocks = venus_hfi_scale_clocks;
 	hdev->vote_bus = venus_hfi_vote_buses;
 	hdev->get_fw_info = venus_hfi_get_fw_info;
