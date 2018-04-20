@@ -305,6 +305,7 @@
 			qcom,pmic-revid = <&pmi632_revid>;
 			dpdm-supply = <&qusb_phy>;
 			qcom,auto-recharge-soc = <98>;
+			qcom,chg-vadc = <&pmi632_vadc>;
 
 			qcom,thermal-mitigation
 				= <3000000 2500000 2000000 1500000
