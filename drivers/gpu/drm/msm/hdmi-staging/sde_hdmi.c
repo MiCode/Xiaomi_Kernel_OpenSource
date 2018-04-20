@@ -3256,8 +3256,6 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 	if (sde_kms->splash_info.handoff) {
 		sde_hdmi_bridge_power_on(hdmi->bridge);
 		hdmi->power_on = true;
-	} else {
-		hdmi->power_on = false;
 	}
 
 	mutex_unlock(&display->display_lock);
