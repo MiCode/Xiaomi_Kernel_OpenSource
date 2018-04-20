@@ -93,7 +93,7 @@ static enum vidc_status hfi_map_err_status(u32 hfi_err)
 	return vidc_err;
 }
 
-static enum msm_vidc_pixel_depth get_hal_pixel_depth(u32 hfi_bit_depth)
+static int get_hal_pixel_depth(u32 hfi_bit_depth)
 {
 	switch (hfi_bit_depth) {
 	case HFI_BITDEPTH_8: return MSM_VIDC_BIT_DEPTH_8;
@@ -119,7 +119,7 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 	u32 entropy_mode = 0;
 	u8 *data_ptr;
 	int prop_id;
-	enum msm_vidc_pixel_depth luma_bit_depth, chroma_bit_depth;
+	int luma_bit_depth, chroma_bit_depth;
 	struct hfi_colour_space *colour_info;
 
 	if (sizeof(struct hfi_msg_event_notify_packet) > pkt->size) {

@@ -407,7 +407,7 @@ struct msm_vidc_inst {
 	u32 buffer_size_limit;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	struct v4l2_ctrl **ctrls;
-	enum msm_vidc_pixel_depth bit_depth;
+	int bit_depth;
 	struct kref kref;
 	bool in_flush;
 	u32 pic_struct;
