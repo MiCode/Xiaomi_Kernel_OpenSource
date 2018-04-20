@@ -84,9 +84,10 @@
 #define CAM_ISP_DSP_MODE_ROUND                  2
 
 /* ISP Generic Cmd Buffer Blob types */
-#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG      0
-#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG    1
-#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG       2
+#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG         0
+#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG       1
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG          2
+#define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG        3
 
 /* Query devices */
 /**
