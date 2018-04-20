@@ -947,6 +947,14 @@ static void msm_lastclose(struct drm_device *dev)
 	struct msm_kms *kms = priv->kms;
 	int i;
 
+	/* check for splash status before triggering cleanup
+	 * if we end up here with splash status ON i.e before first
+	 * commit then ignore the last close call
+	 */
+	if (kms && kms->funcs && kms->funcs->check_for_splash
+		&& kms->funcs->check_for_splash(kms))
+		return;
+
 	/*
 	 * clean up vblank disable immediately as this is the last close.
 	 */

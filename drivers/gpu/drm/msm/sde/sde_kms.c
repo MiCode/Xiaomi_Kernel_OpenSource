@@ -2704,6 +2704,19 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 	return rc;
 }
 
+static bool sde_kms_check_for_splash(struct msm_kms *kms)
+{
+	struct sde_kms *sde_kms;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return false;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	return sde_kms->splash_data.cont_splash_en;
+}
+
 static int sde_kms_pm_suspend(struct device *dev)
 {
 	struct drm_device *ddev;
@@ -2904,6 +2917,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.register_events = _sde_kms_register_events,
 	.get_address_space = _sde_kms_get_address_space,
 	.postopen = _sde_kms_post_open,
+	.check_for_splash = sde_kms_check_for_splash,
 };
 
 /* the caller api needs to turn on clock before calling it */
