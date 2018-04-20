@@ -654,6 +654,13 @@
 		qcom,fragmented-data;
 	};
 
+	qcom,glink-ssr-modem {
+		compatible = "qcom,glink_ssr";
+		label = "modem";
+		qcom,edge = "mpss";
+		qcom,xprt = "smem";
+	};
+
 	qcom,glink_pkt {
 		compatible = "qcom,glinkpkt";
 
