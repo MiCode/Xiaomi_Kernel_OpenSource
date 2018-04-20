@@ -3828,6 +3828,10 @@ static void glink_dummy_xprt_ctx_release(struct rwref_lock *xprt_st_lock)
  */
 int glink_xprt_name_to_id(const char *name, uint16_t *id)
 {
+	if (!strcmp(name, "bgcom")) {
+		*id = SPIV2_XPRT_ID;
+		return 0;
+	}
 	if (!strcmp(name, "smem")) {
 		*id = SMEM_XPRT_ID;
 		return 0;
