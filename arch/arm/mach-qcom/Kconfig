@@ -150,6 +150,22 @@ config ARCH_SDM450
 	select HAVE_CLK_PREPARE
 	select COMMON_CLK_MSM
 
+config ARCH_SDM632
+	bool "Enable Support for Qualcomm Technologies Inc. SDM632"
+	select CPU_V7
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select SOC_BUS
+	select PM_OPP
+	select MFD_CORE
+	select SND_SOC_COMPRESS
+	select SND_HWDEP
+	select CPU_FREQ_QCOM
+	select COMMON_CLK_MSM
+
 config ARCH_MDM9650
 	bool "MDM9650"
 	select ARM_GIC
