@@ -30,6 +30,21 @@
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
+&tlmm {
+	display_panel_avdd_eldo_default: display_panel_avdd_eldo_default {
+		mux {
+			pins = "gpio130";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio130";
+			drive-strength = <8>;
+			bias-disable = <0>;
+			output-low;
+		};
+	};
+};
+
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
 		#address-cells = <1>;
@@ -103,6 +118,18 @@
 			qcom,supply-disable-load = <0>;
 			qcom,supply-post-on-sleep = <0>;
 		};
+	};
+
+	display_panel_avdd_eldo: display-gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "display_panel_avdd_eldo";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 130 0>;
+		enable-active-high;
+		pinctrl-names = "default";
+		pintctrl-0 = <&display_panel_avdd_eldo_default>;
 	};
 
 	dsi_sharp_4k_dsc_video_display: qcom,dsi-display@0 {
@@ -315,6 +342,7 @@
 		vddio-supply = <&pm855_l14>;
 		lab-supply = <&lcdb_ldo_vreg>;
 		ibb-supply = <&lcdb_ncp_vreg>;
+		vdd-supply = <&display_panel_avdd_eldo>;
 
 		qcom,dsi-display-list =
 			<&dsi_sharp_4k_dsc_video_display
