@@ -59,12 +59,7 @@ extern long do_no_restart_syscall(struct restart_block *parm);
 
 #ifdef __KERNEL__
 
-#if IS_ENABLED(CONFIG_DEBUG_STACK_USAGE) || IS_ENABLED(CONFIG_DEBUG_KMEMLEAK)
-# define THREADINFO_GFP		(GFP_KERNEL_ACCOUNT | __GFP_NOTRACK | \
-				 __GFP_ZERO)
-#else
-# define THREADINFO_GFP		(GFP_KERNEL_ACCOUNT | __GFP_NOTRACK)
-#endif
+#define THREADINFO_GFP	(GFP_KERNEL_ACCOUNT | __GFP_NOTRACK | __GFP_ZERO)
 
 /*
  * flag set/clear/test wrappers
