@@ -582,16 +582,20 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 	return -ENOTTY;
 }
 
-static int dma_alloc_memory(dma_addr_t *region_phys, void **vaddr, size_t size)
+static int dma_alloc_memory(dma_addr_t *region_phys, size_t size)
 {
 	struct fastrpc_apps *me = &gfa;
+	void *vaddr = NULL;
+	unsigned long dma_attrs = 0;
 
 	if (me->dev == NULL) {
 		pr_err("device adsprpc-mem is not initialized\n");
 		return -ENODEV;
 	}
-	*vaddr = dma_alloc_coherent(me->dev, size, region_phys, GFP_KERNEL);
-	if (!*vaddr) {
+	dma_attrs |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
+	vaddr = dma_alloc_attrs(me->dev, size, region_phys, GFP_KERNEL,
+								dma_attrs);
+	if (!vaddr) {
 		pr_err("ADSPRPC: Failed to allocate %x remote heap memory\n",
 						(unsigned int)size);
 		return -ENOMEM;
@@ -665,14 +669,17 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 	}
 	if (map->flags == ADSP_MMAP_HEAP_ADDR ||
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+		unsigned long dma_attrs = 0;
 
 		if (me->dev == NULL) {
 			pr_err("failed to free remote heap allocation\n");
 			return;
 		}
 		if (map->phys) {
-			dma_free_coherent(me->dev, map->size,
-				(void *)map->va, (dma_addr_t)map->phys);
+			dma_attrs |=
+			DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
+			dma_free_attrs(me->dev, map->size, (void *)map->va,
+					(dma_addr_t)map->phys, dma_attrs);
 		}
 	} else if (map->flags == FASTRPC_DMAHANDLE_NOMAP) {
 		if (!IS_ERR_OR_NULL(map->handle))
@@ -729,7 +736,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	struct fastrpc_mmap *map = NULL;
 	unsigned long attrs;
 	dma_addr_t region_phys = 0;
-	void *region_vaddr = NULL;
 	unsigned long flags;
 	int err = 0, vmid;
 
@@ -749,13 +755,12 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		map->apps = me;
 		map->fl = NULL;
-		VERIFY(err, !dma_alloc_memory(&region_phys, &region_vaddr,
-						 len));
+		VERIFY(err, !dma_alloc_memory(&region_phys, len));
 		if (err)
 			goto bail;
 		map->phys = (uintptr_t)region_phys;
 		map->size = len;
-		map->va = (uintptr_t)region_vaddr;
+		map->va = (uintptr_t)map->phys;
 	} else if (mflags == FASTRPC_DMAHANDLE_NOMAP) {
 		ion_phys_addr_t iphys;
 
