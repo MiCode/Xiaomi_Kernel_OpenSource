@@ -749,11 +749,18 @@ static int is_bg_resume(void *handle)
 	uint8_t rx_buf[8] = {0};
 	uint32_t cmnd_reg = 0;
 
+	if (spi_state == BGCOM_SPI_BUSY) {
+		printk_ratelimited("SPI is held by TZ\n");
+		goto ret_err;
+	}
+
 	txn_len = 0x08;
 	tx_buf[0] = 0x05;
 	ret = bgcom_transfer(handle, tx_buf, rx_buf, txn_len);
 	if (!ret)
 		memcpy(&cmnd_reg, rx_buf+BG_SPI_READ_LEN, 0x04);
+
+ret_err:
 	return cmnd_reg & BIT(31);
 }
 
