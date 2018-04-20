@@ -15,6 +15,7 @@
 #include "sdmshrike-sde-display.dtsi"
 
 #include "sdmshrike-pmic-overlay.dtsi"
+#include "sdmshrike-audio-overlay.dtsi"
 
 &soc {
 	gpio_keys {
@@ -44,6 +45,10 @@
 			debounce-interval = <15>;
 			linux,can-disable;
 		};
+	};
+
+	sound-tavil {
+		qcom,us-euro-gpios = <&tavil_us_euro_switch>;
 	};
 };
 
