@@ -1,0 +1,85 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&int_codec {
+	qcom,model = "sdm670-aqt-snd-card";
+	qcom,msm-mi2s-master = <1>, <1>, <0>, <1>, <1>;
+	qcom,tert-mi2s-gpios = <&tert_mi2s_gpios>;
+	qcom,us-euro-gpios = <&wcd_usbc_analog_en2_gpio>;
+	asoc-codec = <&stub_codec>, <&msm_digital_codec>,
+		     <&pmic_analog_codec>, <&msm_sdw_codec>,
+		     <&ext_disp_audio_codec>, <&aqt1000_cdc>;
+	qcom,audio-routing =
+		"RX_BIAS", "INT_MCLK0",
+		"SPK_RX_BIAS", "INT_MCLK0",
+		"INT_LDO_H", "INT_MCLK0",
+		"RX_I2S_CLK", "INT_MCLK0",
+		"TX_I2S_CLK", "INT_MCLK0",
+		"MIC BIAS External", "Handset Mic",
+		"AQT MIC BIAS1", "Headset Mic",
+		"MIC BIAS External", "Secondary Mic",
+		"AMIC1", "MIC BIAS External",
+		"AMIC2", "AQT MIC BIAS1",
+		"AMIC3", "MIC BIAS External",
+		"DMIC1", "MIC BIAS External",
+		"MIC BIAS External", "Digital Mic1",
+		"DMIC2", "MIC BIAS External",
+		"MIC BIAS External", "Digital Mic2",
+		"DMIC3", "MIC BIAS External",
+		"MIC BIAS External", "Digital Mic3",
+		"DMIC4", "MIC BIAS External",
+		"MIC BIAS External", "Digital Mic4",
+		"SpkrLeft IN", "SPK1 OUT",
+		"SpkrRight IN", "SPK2 OUT",
+		"PDM_IN_RX1", "PDM_OUT_RX1",
+		"PDM_IN_RX2", "PDM_OUT_RX2",
+		"PDM_IN_RX3", "PDM_OUT_RX3",
+		"ADC1_IN", "ADC1_OUT",
+		"ADC2_IN", "ADC2_OUT",
+		"ADC3_IN", "ADC3_OUT";
+	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
+			   "analog-codec", "msm_sdw_codec",
+			   "msm-ext-disp-audio-codec-rx", "aqt1000-i2c-codec";
+	qcom,mi2s-aqt-enabled;
+};
+
+&pmic_analog_codec {
+	qcom,anlg-cdc-mbhc-disable;
+};
+
+&soc {
+	i2c@a88000 {
+		status = "ok";
+	};
+	wcd_usbc_analog_en2_gpio: msm_cdc_pinctrl_usbc_audio_en2 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wcd_usbc_analog_en2_active>;
+		pinctrl-1 = <&wcd_usbc_analog_en2_idle>;
+	};
+};
+
+&tert_mi2s_gpios {
+	status = "ok";
+};
+
+&clock_audio_lnbb {
+	status = "ok";
+};
+
+&aqt1000_cdc {
+	status = "ok";
+};
+
+&aqt_rst_gpio {
+	status = "ok";
+};
