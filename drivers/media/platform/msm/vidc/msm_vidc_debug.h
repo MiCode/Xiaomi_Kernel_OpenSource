@@ -73,8 +73,8 @@ extern bool msm_vidc_syscache_disable;
 	} while (0)
 
 #define MSM_VIDC_ERROR(value)					\
-	do {							\
-		dprintk(VIDC_DBG, "BugOn");			\
+	do {	if (value)					\
+			dprintk(VIDC_DBG, "BugOn");		\
 		BUG_ON(value);					\
 	} while (0)
 

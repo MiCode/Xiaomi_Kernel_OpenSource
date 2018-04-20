@@ -3162,7 +3162,14 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 		} else {
 			struct hfi_msg_sys_debug_packet *pkt =
 				(struct hfi_msg_sys_debug_packet *) packet;
-			dprintk(log_level, "%s", pkt->rg_msg_data);
+			/*
+			 * All fw messages starts with new line character. This
+			 * causes dprintk to print this message in two lines
+			 * in the kernel log. Ignoring the first character
+			 * from the message fixes this to print it in a single
+			 * line.
+			 */
+			dprintk(log_level, "%s", &pkt->rg_msg_data[1]);
 		}
 	}
 
