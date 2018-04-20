@@ -26,20 +26,25 @@
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/serial_core.h>
+#include <linux/of.h>
 
 /* Goldfish tty register's offsets */
-#define	GOLDFISH_TTY_REG_BYTES_READY	0x04
-#define	GOLDFISH_TTY_REG_CMD		0x08
-#define	GOLDFISH_TTY_REG_DATA_PTR	0x10
-#define	GOLDFISH_TTY_REG_DATA_LEN	0x14
-#define	GOLDFISH_TTY_REG_DATA_PTR_HIGH	0x18
-#define	GOLDFISH_TTY_REG_VERSION	0x20
+enum {
+	GOLDFISH_TTY_REG_BYTES_READY	= 0x04,
+	GOLDFISH_TTY_REG_CMD		= 0x08,
+	GOLDFISH_TTY_REG_DATA_PTR	= 0x10,
+	GOLDFISH_TTY_REG_DATA_LEN	= 0x14,
+	GOLDFISH_TTY_REG_DATA_PTR_HIGH	= 0x18,
+	GOLDFISH_TTY_REG_VERSION	= 0x20,
+};
 
 /* Goldfish tty commands */
-#define	GOLDFISH_TTY_CMD_INT_DISABLE	0
-#define	GOLDFISH_TTY_CMD_INT_ENABLE	1
-#define	GOLDFISH_TTY_CMD_WRITE_BUFFER	2
-#define	GOLDFISH_TTY_CMD_READ_BUFFER	3
+enum {
+	GOLDFISH_TTY_CMD_INT_DISABLE	= 0,
+	GOLDFISH_TTY_CMD_INT_ENABLE	= 1,
+	GOLDFISH_TTY_CMD_WRITE_BUFFER	= 2,
+	GOLDFISH_TTY_CMD_READ_BUFFER	= 3,
+};
 
 struct goldfish_tty {
 	struct tty_port port;
@@ -181,6 +186,7 @@ static void goldfish_tty_shutdown(struct tty_port *port)
 static int goldfish_tty_open(struct tty_struct *tty, struct file *filp)
 {
 	struct goldfish_tty *qtty = &goldfish_ttys[tty->index];
+
 	return tty_port_open(&qtty->port, tty, filp);
 }
 
@@ -210,6 +216,7 @@ static int goldfish_tty_chars_in_buffer(struct tty_struct *tty)
 {
 	struct goldfish_tty *qtty = &goldfish_ttys[tty->index];
 	void __iomem *base = qtty->base;
+
 	return readl(base + GOLDFISH_TTY_REG_BYTES_READY);
 }
 
