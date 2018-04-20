@@ -165,6 +165,21 @@ struct sde_hw_ctl_ops {
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
 		enum sde_lm lm, struct sde_hw_stage_cfg *cfg, u32 index,
 		bool handoff, const u32 *resv_pipes, u32 resv_pipes_length);
+
+	/**
+	 * read CTL_TOP register value for splash case
+	 * @ctx       : ctl path ctx pointer
+	 * @Return    : CTL top register value
+	 */
+	u32 (*read_ctl_top_for_splash)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * read CTL layers register value for splash case
+	 * @ctx       : ctl path ctx pointer
+	 * @index     : layer index for this ctl path
+	 * @Return    : CTL layers register value
+	 */
+	u32 (*read_ctl_layers_for_splash)(struct sde_hw_ctl *ctx, int index);
 };
 
 /**

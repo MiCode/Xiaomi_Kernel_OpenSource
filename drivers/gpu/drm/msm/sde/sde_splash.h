@@ -15,15 +15,43 @@
 
 #include "msm_kms.h"
 #include "msm_mmu.h"
+#include "sde_hw_mdss.h"
+
+#define SPLASH_CTL_MAX 5
+#define SPLASH_LM_MAX 7
 
 enum splash_connector_type {
 	SPLASH_DSI = 0,
 	SPLASH_HDMI,
 };
 
+struct splash_lm_hw {
+	u8 lm_id;
+	u8 ctl_id;
+	u32 lm_reg_value;
+};
+
+struct splash_ctl_top {
+	u32 value;
+	u8 intf_sel;
+	u8 ctl_lm_cnt;
+	struct splash_lm_hw lm[SPLASH_LM_MAX];
+};
+
+struct sde_res_data {
+	struct splash_ctl_top top[SPLASH_CTL_MAX];
+	u8 ctl_ids[SPLASH_CTL_MAX];
+	u8 lm_ids[SPLASH_LM_MAX];
+	u8 ctl_top_cnt;
+	u8 lm_cnt;
+};
+
 struct sde_splash_info {
 	/* handoff flag */
 	bool handoff;
+
+	/* current hw configuration */
+	struct sde_res_data res;
 
 	/* flag of display scratch registers */
 	bool program_scratch_regs;

@@ -22,6 +22,7 @@
 #include "sde_hw_util.h"
 #include "sde_hw_intf.h"
 #include "sde_hw_catalog.h"
+#include "sde_rm.h"
 #include "dsi_display.h"
 #include "sde_hdmi.h"
 
@@ -359,6 +360,7 @@ __ref int sde_splash_init(struct sde_power_handle *phandle, struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
 	struct sde_splash_info *sinfo;
+	int ret = 0;
 	int i = 0;
 
 	if (!phandle || !kms) {
@@ -377,17 +379,21 @@ __ref int sde_splash_init(struct sde_power_handle *phandle, struct msm_kms *kms)
 
 	for (i = 0; i < sinfo->splash_mem_num; i++) {
 		if (!memblock_is_reserved(sinfo->splash_mem_paddr[i])) {
-			SDE_ERROR("failed to reserve memory\n");
+			SDE_ERROR("LK's splash memory is not reserved\n");
 
 			/* withdraw the vote when failed. */
 			sde_power_data_bus_bandwidth_ctrl(phandle,
 					sde_kms->core_client, false);
 
-			return -EINVAL;
+			ret = -EINVAL;
+			break;
 		}
 	}
 
-	return 0;
+	ret = sde_rm_read_resource_for_splash(&sde_kms->rm,
+					(void *)sinfo, sde_kms->catalog);
+
+	return ret;
 }
 
 void sde_splash_destroy(struct sde_splash_info *sinfo,

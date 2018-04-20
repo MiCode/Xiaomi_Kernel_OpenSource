@@ -516,6 +516,38 @@ static void sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,
 	SDE_REG_WRITE(c, CTL_TOP, intf_cfg);
 }
 
+static inline u32 sde_hw_ctl_read_ctl_top_for_splash(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 ctl_top;
+
+	if (!ctx) {
+		pr_err("Invalid ctx\n");
+		return 0;
+	}
+
+	c = &ctx->hw;
+	ctl_top = SDE_REG_READ(c, CTL_TOP);
+	return ctl_top;
+}
+
+static inline u32 sde_hw_ctl_read_ctl_layers_for_splash(struct sde_hw_ctl *ctx,
+							int index)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 ctl_top;
+
+	if (!ctx) {
+		pr_err("Invalid ctx\n");
+		return 0;
+	}
+
+	c = &ctx->hw;
+	ctl_top = SDE_REG_READ(c, CTL_LAYER(index));
+
+	return ctl_top;
+}
+
 static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		unsigned long cap)
 {
@@ -536,6 +568,8 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_bitmask_intf = sde_hw_ctl_get_bitmask_intf;
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
 	ops->get_bitmask_wb = sde_hw_ctl_get_bitmask_wb;
+	ops->read_ctl_top_for_splash = sde_hw_ctl_read_ctl_top_for_splash;
+	ops->read_ctl_layers_for_splash = sde_hw_ctl_read_ctl_layers_for_splash;
 };
 
 struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
