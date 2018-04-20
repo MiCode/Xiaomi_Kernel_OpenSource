@@ -54,7 +54,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	struct image_info *rddm_image = mhi_cntrl->rddm_image;
 	const u32 delayus = 100;
 	u32 retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
-	void __iomem *base = mhi_cntrl->bhi;
+	void __iomem *base = mhi_cntrl->bhie;
 
 	MHI_LOG("Entered with pm_state:%s dev_state:%s ee:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
@@ -137,7 +137,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 /* download ramdump image from device */
 int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic)
 {
-	void __iomem *base = mhi_cntrl->bhi;
+	void __iomem *base = mhi_cntrl->bhie;
 	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
 	struct image_info *rddm_image = mhi_cntrl->rddm_image;
 	struct mhi_buf *mhi_buf;
@@ -219,7 +219,7 @@ EXPORT_SYMBOL(mhi_download_rddm_img);
 static int mhi_fw_load_amss(struct mhi_controller *mhi_cntrl,
 			    const struct mhi_buf *mhi_buf)
 {
-	void __iomem *base = mhi_cntrl->bhi;
+	void __iomem *base = mhi_cntrl->bhie;
 	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
 	u32 tx_status;
 

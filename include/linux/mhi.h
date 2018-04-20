@@ -87,6 +87,7 @@ struct image_info {
  * @of_node: DT that has MHI configuration information
  * @regs: Points to base of MHI MMIO register space
  * @bhi: Points to base of MHI BHI register space
+ * @bhie: Points to base of MHI BHIe register space
  * @wake_db: MHI WAKE doorbell register address
  * @dev_id: PCIe device id of the external device
  * @domain: PCIe domain the device connected to
@@ -137,6 +138,7 @@ struct mhi_controller {
 	/* mmio base */
 	void __iomem *regs;
 	void __iomem *bhi;
+	void __iomem *bhie;
 	void __iomem *wake_db;
 
 	/* device topology */
