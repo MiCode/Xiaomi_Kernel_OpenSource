@@ -856,6 +856,7 @@ static struct usb_endpoint_descriptor mbim_gsi_fs_in_desc = {
 
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	4*cpu_to_le16(NCM_STATUS_BYTECOUNT),
 };
 
 static struct usb_endpoint_descriptor mbim_gsi_fs_out_desc = {
@@ -864,6 +865,7 @@ static struct usb_endpoint_descriptor mbim_gsi_fs_out_desc = {
 
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	4*cpu_to_le16(NCM_STATUS_BYTECOUNT),
 };
 
 static struct usb_descriptor_header *mbim_gsi_fs_function[] = {
@@ -1157,6 +1159,7 @@ static struct usb_endpoint_descriptor ecm_gsi_fs_in_desc = {
 
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(ECM_QC_STATUS_BYTECOUNT),
 };
 
 static struct usb_endpoint_descriptor ecm_gsi_fs_out_desc = {
@@ -1165,6 +1168,7 @@ static struct usb_endpoint_descriptor ecm_gsi_fs_out_desc = {
 
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(ECM_QC_STATUS_BYTECOUNT),
 };
 
 static struct usb_descriptor_header *ecm_gsi_fs_function[] = {
