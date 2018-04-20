@@ -65,6 +65,7 @@ static const struct fsa4480_reg_val fsa_reg_i2c_defaults[] = {
 	{FSA4480_DELAY_L_MIC, 0x00},
 	{FSA4480_DELAY_L_SENSE, 0x00},
 	{FSA4480_DELAY_L_AGND, 0x09},
+	{FSA4480_SWITCH_SETTINGS, 0x98},
 };
 
 static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
@@ -193,7 +194,7 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 	if (!fsa_priv)
 		return -EINVAL;
 
-	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 	return blocking_notifier_chain_unregister
 					(&fsa_priv->fsa4480_notifier, nb);
 }
@@ -253,6 +254,9 @@ int fsa4480_switch_event(struct device_node *node,
 	case FSA_USBC_ORIENTATION_CC2:
 		fsa4480_usbc_update_settings(fsa_priv, 0x60, 0xE0);
 		return fsa4480_validate_display_port_settings(fsa_priv);
+	case FSA_USBC_DISPLAYPORT_DISCONNECTED:
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		break;
 	default:
 		break;
 	}
@@ -294,7 +298,7 @@ static int fsa4480_usbc_analog_setup_switches
 				POWER_SUPPLY_TYPEC_NONE, NULL);
 
 		/* deactivate switches */
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 
 		if (fsa_priv->usbc_force_pr_mode) {
 			pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
@@ -405,7 +409,7 @@ static int fsa4480_remove(struct i2c_client *i2c)
 	if (!fsa_priv)
 		return -EINVAL;
 
-	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
+	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 
 	/* deregister from PMI */
 	power_supply_unreg_notifier(&fsa_priv->psy_nb);
