@@ -382,6 +382,13 @@ static void sde_encoder_phys_cmd_cont_splash_mode_set(
 	phys_enc->cached_mode = *adj_mode;
 	phys_enc->enable_state = SDE_ENC_ENABLED;
 
+	if (!phys_enc->hw_ctl || !phys_enc->hw_pp) {
+		SDE_DEBUG("invalid ctl:%d pp:%d\n",
+			(phys_enc->hw_ctl == NULL),
+			(phys_enc->hw_pp == NULL));
+		return;
+	}
+
 	_sde_encoder_phys_cmd_setup_irq_hw_idx(phys_enc);
 }
 
@@ -845,9 +852,8 @@ static void _sde_encoder_phys_cmd_pingpong_config(
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 
-	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp
-			|| !phys_enc->hw_ctl->ops.setup_intf_cfg) {
-		SDE_ERROR("invalid arg(s), enc %d\n", phys_enc != 0);
+	if (!phys_enc || !phys_enc->hw_pp) {
+		SDE_ERROR("invalid arg(s), enc %d\n", phys_enc != NULL);
 		return;
 	}
 
@@ -866,7 +872,9 @@ static bool sde_encoder_phys_cmd_needs_single_flush(
 	if (!phys_enc)
 		return false;
 
-	return _sde_encoder_phys_is_ppsplit(phys_enc);
+	return phys_enc->cont_splash_settings ?
+		phys_enc->cont_splash_single_flush :
+		_sde_encoder_phys_is_ppsplit(phys_enc);
 }
 
 static void sde_encoder_phys_cmd_enable_helper(
@@ -875,7 +883,7 @@ static void sde_encoder_phys_cmd_enable_helper(
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
 
-	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
 		return;
 	}
@@ -891,6 +899,11 @@ static void sde_encoder_phys_cmd_enable_helper(
 	if (_sde_encoder_phys_is_ppsplit(phys_enc) &&
 		!sde_encoder_phys_cmd_is_master(phys_enc))
 		goto skip_flush;
+
+	if (!phys_enc->hw_ctl) {
+		SDE_ERROR("invalid ctl\n");
+		return;
+	}
 
 	ctl = phys_enc->hw_ctl;
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, phys_enc->intf_idx);
