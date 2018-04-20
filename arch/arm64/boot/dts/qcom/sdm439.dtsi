@@ -23,13 +23,13 @@
 
 &soc {
 	qcom,csid@1b30000 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 	qcom,csid@1b30400 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 	qcom,csid@1b30800 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 
 	msm_cpufreq: qcom,msm-cpufreq {
