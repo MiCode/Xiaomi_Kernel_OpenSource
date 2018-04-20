@@ -150,6 +150,7 @@
 #define VIG_CSC_10_SRC_DATAFMT BIT(1)
 #define VIG_CSC_10_EN          BIT(0)
 #define CSC_10BIT_OFFSET       4
+#define DGM_CSC_MATRIX_SHIFT       0
 
 /* traffic shaper clock in Hz */
 #define TS_CLK			19200000
@@ -1053,7 +1054,7 @@ static void sde_hw_sspp_setup_dgm_csc(struct sde_hw_pipe *ctx,
 	if (data) {
 		op_mode |= BIT(0);
 		sde_hw_csc_matrix_coeff_setup(&ctx->hw,
-			offset + CSC_10BIT_OFFSET, data);
+			offset + CSC_10BIT_OFFSET, data, DGM_CSC_MATRIX_SHIFT);
 	}
 
 	SDE_REG_WRITE(&ctx->hw, offset, op_mode);
