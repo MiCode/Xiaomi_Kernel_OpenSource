@@ -247,7 +247,7 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 					break;
 
 				sg_tmp = sg_next(sg_tmp);
-				if (sg == NULL)
+				if (sg_tmp == NULL)
 					break;
 			}
 
