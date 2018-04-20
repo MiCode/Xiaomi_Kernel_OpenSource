@@ -175,15 +175,22 @@ static bool __same_bdev(struct f2fs_sb_info *sbi,
  */
 static struct bio *__bio_alloc(struct f2fs_sb_info *sbi, block_t blk_addr,
 				struct writeback_control *wbc,
-				int npages, bool is_read)
+				int npages, bool is_read,
+				enum page_type type, enum temp_type temp)
 {
 	struct bio *bio;
 
 	bio = f2fs_bio_alloc(sbi, npages, true);
 
 	f2fs_target_device(sbi, blk_addr, bio);
-	bio->bi_end_io = is_read ? f2fs_read_end_io : f2fs_write_end_io;
-	bio->bi_private = is_read ? NULL : sbi;
+	if (is_read) {
+		bio->bi_end_io = f2fs_read_end_io;
+		bio->bi_private = NULL;
+	} else {
+		bio->bi_end_io = f2fs_write_end_io;
+		bio->bi_private = sbi;
+		/* bio->bi_write_hint = io_type_to_rw_hint(sbi, type, temp); */
+	}
 	if (wbc)
 		wbc_init_bio(wbc, bio);
 
@@ -196,12 +203,11 @@ static inline void __submit_bio(struct f2fs_sb_info *sbi,
 	if (!is_read_io(bio_op(bio))) {
 		unsigned int start;
 
-		if (f2fs_sb_mounted_blkzoned(sbi->sb) &&
-			current->plug && (type == DATA || type == NODE))
-			blk_finish_plug(current->plug);
-
 		if (type != DATA && type != NODE)
 			goto submit_io;
+
+		if (f2fs_sb_has_blkzoned(sbi->sb) && current->plug)
+			blk_finish_plug(current->plug);
 
 		start = bio->bi_iter.bi_size >> F2FS_BLKSIZE_BITS;
 		start %= F2FS_IO_SIZE(sbi);
@@ -377,12 +383,13 @@ int f2fs_submit_page_bio(struct f2fs_io_info *fio)
 	struct page *page = fio->encrypted_page ?
 			fio->encrypted_page : fio->page;
 
+	verify_block_addr(fio, fio->new_blkaddr);
 	trace_f2fs_submit_page_bio(page, fio);
 	f2fs_trace_ios(fio, 0);
 
 	/* Allocate a new bio */
 	bio = __bio_alloc(fio->sbi, fio->new_blkaddr, fio->io_wbc,
-				1, is_read_io(fio->op));
+				1, is_read_io(fio->op), fio->type, fio->temp);
 
 	if (bio_add_page(bio, page, PAGE_SIZE, 0) < PAGE_SIZE) {
 		bio_put(bio);
@@ -422,8 +429,8 @@ next:
 	}
 
 	if (fio->old_blkaddr != NEW_ADDR)
-		verify_block_addr(sbi, fio->old_blkaddr);
-	verify_block_addr(sbi, fio->new_blkaddr);
+		verify_block_addr(fio, fio->old_blkaddr);
+	verify_block_addr(fio, fio->new_blkaddr);
 
 	bio_page = fio->encrypted_page ? fio->encrypted_page : fio->page;
 
@@ -445,7 +452,8 @@ alloc_new:
 			goto out_fail;
 		}
 		io->bio = __bio_alloc(sbi, fio->new_blkaddr, fio->io_wbc,
-						BIO_MAX_PAGES, false);
+						BIO_MAX_PAGES, false,
+						fio->type, fio->temp);
 		io->fio = *fio;
 	}
 
@@ -2304,8 +2312,11 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
 {
 	struct address_space *mapping = iocb->ki_filp->f_mapping;
 	struct inode *inode = mapping->host;
+	/* struct f2fs_sb_info *sbi = F2FS_I_SB(inode); */
 	size_t count = iov_iter_count(iter);
 	int err;
+	/* enum rw_hint hint = iocb->ki_hint;
+	int whint_mode = F2FS_OPTION(sbi).whint_mode; */
 
 	err = check_direct_IO(inode, iter, offset);
 	if (err)
@@ -2337,11 +2348,16 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
 
 	trace_f2fs_direct_IO_enter(inode, offset, count, rw);
 
+	/* if (rw == WRITE && whint_mode == WHINT_MODE_OFF)
+		iocb->ki_hint = WRITE_LIFE_NOT_SET; */
+
 	down_read(&F2FS_I(inode)->dio_rwsem[rw]);
 	err = blockdev_direct_IO(rw, iocb, inode, iter, offset, get_data_block_dio);
 	up_read(&F2FS_I(inode)->dio_rwsem[rw]);
 
 	if (rw & WRITE) {
+		/* if (whint_mode == WHINT_MODE_OFF)
+			iocb->ki_hint = hint; */
 		if (err > 0) {
 			f2fs_update_iostat(F2FS_I_SB(inode), APP_DIRECT_IO,
 									err);
