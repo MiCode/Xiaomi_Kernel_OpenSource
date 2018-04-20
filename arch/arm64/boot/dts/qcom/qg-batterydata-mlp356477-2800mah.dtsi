@@ -29,6 +29,11 @@ qcom,mlp356477_2800mah {
 				 151 450  4400000
 				 451 550  4150000>;
 
+	/* COOL = 15 DegC, WARM = 45 DegC */
+	qcom,jeita-soft-thresholds = <0x4621 0x20b8>;
+	/* COLD = 0 DegC, HOT = 55 DegC */
+	qcom,jeita-hard-thresholds = <0x58cd 0x181d>;
+
 	qcom,fcc1-temp-lut {
 		qcom,lut-col-legend = <0 10 25 40 50>;
 		qcom,lut-data = <2715 2788 2861 2898 2908>;
