@@ -12,18 +12,13 @@
 #include <linux/errno.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
-#include <linux/notifier.h>
 #include <soc/qcom/spm.h>
-#include <soc/qcom/pm.h>
-#include <linux/irqchip/arm-gic.h>
-
+#include <soc/qcom/pm-legacy.h>
 #include <asm/smp_plat.h>
-#include <asm/vfp.h>
-
+#include "platsmp.h"
 #include <soc/qcom/jtag.h>
 
 static cpumask_t cpu_dying_mask;
-
 static DEFINE_PER_CPU(unsigned int, warm_boot_flag);
 
 static inline void cpu_enter_lowpower(void)
@@ -34,36 +29,18 @@ static inline void cpu_leave_lowpower(void)
 {
 }
 
-static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
+static inline void platform_do_lowpower(unsigned int cpu)
 {
-	/* Just enter wfi for now. TODO: Properly shut off the cpu. */
-	for (;;) {
-
-		lpm_cpu_hotplug_enter(cpu);
-		if (pen_release == cpu_logical_map(cpu)) {
-			/*
-			 * OK, proper wakeup, we're done
-			 */
-			break;
-		}
-
-		/*
-		 * getting here, means that we have come out of WFI without
-		 * having been woken up - this shouldn't happen
-		 *
-		 * The trouble is, letting people know about this is not really
-		 * possible, since we are currently running incoherently, and
-		 * therefore cannot safely call printk() or anything else
-		 * Read the pending interrupts to understand why we woke up
-		 */
-#ifdef CONFIG_MSM_PM
-		gic_show_pending_irq();
-#endif
-		(*spurious)++;
-	}
+	lpm_cpu_hotplug_enter(cpu);
+	/*
+	 * getting here, means that we have come out of low power mode
+	 * without having been woken up - this shouldn't happen
+	 *
+	 */
+	pr_err("%s: CPU%u has failed to Hotplug\n", __func__, cpu);
 }
 
-int msm_cpu_kill(unsigned int cpu)
+int qcom_cpu_kill_legacy(unsigned int cpu)
 {
 	int ret = 0;
 
@@ -78,10 +55,8 @@ int msm_cpu_kill(unsigned int cpu)
  *
  * Called with IRQs disabled
  */
-void __ref msm_cpu_die(unsigned int cpu)
+void __ref qcom_cpu_die_legacy(unsigned int cpu)
 {
-	int spurious = 0;
-
 	if (unlikely(cpu != smp_processor_id())) {
 		pr_crit("%s: running on %u, should be %u\n",
 			__func__, smp_processor_id(), cpu);
@@ -91,36 +66,16 @@ void __ref msm_cpu_die(unsigned int cpu)
 	 * we're ready for shutdown now, so do it
 	 */
 	cpu_enter_lowpower();
-	platform_do_lowpower(cpu, &spurious);
+	platform_do_lowpower(cpu);
 
 	pr_debug("CPU%u: %s: normal wakeup\n", cpu, __func__);
 	cpu_leave_lowpower();
-
-	if (spurious)
-		pr_warn("CPU%u: %u spurious wakeup calls\n", cpu, spurious);
 }
-
-static int hotplug_dying_callback(struct notifier_block *nfb,
-				unsigned long action, void *hcpu)
-{
-	switch (action & (~CPU_TASKS_FROZEN)) {
-	case CPU_DYING:
-		cpumask_set_cpu((unsigned long)hcpu, &cpu_dying_mask);
-		break;
-	default:
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-static struct notifier_block hotplug_dying_notifier = {
-	.notifier_call = hotplug_dying_callback,
-};
 
 int msm_platform_secondary_init(unsigned int cpu)
 {
 	int ret;
-	unsigned int *warm_boot = &__get_cpu_var(warm_boot_flag);
+	unsigned int *warm_boot = this_cpu_ptr(&warm_boot_flag);
 
 	if (!(*warm_boot)) {
 		*warm_boot = 1;
@@ -133,16 +88,22 @@ int msm_platform_secondary_init(unsigned int cpu)
 			return 0;
 	}
 	msm_jtag_restore_state();
-#if defined(CONFIG_VFP) && defined(CONFIG_CPU_PM)
-	vfp_pm_resume();
-#endif
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 
 	return ret;
 }
 
+static int hotplug_dying_cpu(unsigned int cpu)
+{
+	cpumask_set_cpu(cpu, &cpu_dying_mask);
+	return 0;
+}
+
 static int __init init_hotplug_dying(void)
 {
-	return register_hotcpu_notifier(&hotplug_dying_notifier);
+	cpuhp_setup_state(CPUHP_AP_QCOM_SLEEP_STARTING,
+		 "AP_QCOM_HOTPLUG_STARTING", NULL, hotplug_dying_cpu);
+
+	return 0;
 }
 early_initcall(init_hotplug_dying);

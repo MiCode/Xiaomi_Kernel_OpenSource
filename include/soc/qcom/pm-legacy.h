@@ -179,9 +179,13 @@ static inline int lpm_get_latency(struct latency_level *level,
 #endif
 
 #ifdef CONFIG_HOTPLUG_CPU
+void qcom_cpu_die_legacy(unsigned int cpu);
+int qcom_cpu_kill_legacy(unsigned int cpu);
 int msm_platform_secondary_init(unsigned int cpu);
 #else
 static inline int msm_platform_secondary_init(unsigned int cpu) { return 0; }
+static inline void qcom_cpu_die_legacy(unsigned int cpu) {}
+static inline int qcom_cpu_kill_legacy(unsigned int cpu) { return 0; }
 #endif
 
 enum msm_pm_time_stats_id {
