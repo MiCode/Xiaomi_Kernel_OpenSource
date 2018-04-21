@@ -450,7 +450,7 @@
 			pins = "gpio12";
 			function = "normal";
 			output-enable;
-			qcom,drive-strength = "medium";
+			qcom,drive-strength = <2>;
 		};
 	};
 
@@ -459,7 +459,7 @@
 			pins = "gpio5";
 			function = "func1";
 			output-enable;
-			qcom,drive-strength = "medium";
+			qcom,drive-strength = <2>;
 			bias-disable;
 		};
 	};
