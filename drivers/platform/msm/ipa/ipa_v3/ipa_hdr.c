@@ -668,7 +668,6 @@ static int __ipa3_del_hdr_proc_ctx(u32 proc_ctx_hdl,
 	return 0;
 }
 
-
 int __ipa3_del_hdr(u32 hdr_hdl, bool by_user)
 {
 	struct ipa3_hdr_entry *entry;
@@ -1008,7 +1007,8 @@ int ipa3_reset_hdr(bool user_only)
 	struct ipa_hdr_offset_entry *off_next;
 	struct ipa3_hdr_proc_ctx_offset_entry *ctx_off_entry;
 	struct ipa3_hdr_proc_ctx_offset_entry *ctx_off_next;
-	int i;
+	int i, end = 0;
+	bool user_rule = false;
 
 	/*
 	 * issue a reset on the routing module since routing rules point to
@@ -1046,6 +1046,8 @@ int ipa3_reset_hdr(bool user_only)
 			return -EFAULT;
 		}
 
+		if (entry->ipacm_installed)
+			user_rule = true;
 		if (!user_only || entry->ipacm_installed) {
 			if (entry->is_hdr_proc_ctx) {
 				dma_unmap_single(ipa3_ctx->pdev,
@@ -1055,9 +1057,9 @@ int ipa3_reset_hdr(bool user_only)
 				entry->proc_ctx = NULL;
 			}
 			list_del(&entry->link);
+			ipa3_ctx->hdr_tbl.hdr_cnt--;
 			entry->ref_cnt = 0;
 			entry->cookie = 0;
-
 			/* remove the handle from the database */
 			ipa3_id_remove(entry->id);
 			kmem_cache_free(ipa3_ctx->hdr_cache, entry);
@@ -1079,7 +1081,15 @@ int ipa3_reset_hdr(bool user_only)
 					off_entry->ipacm_installed) {
 				list_del(&off_entry->link);
 				kmem_cache_free(ipa3_ctx->hdr_offset_cache,
-					off_entry);
+							off_entry);
+			} else {
+				if (off_entry->offset +
+					ipa_hdr_bin_sz[off_entry->bin] > end) {
+					end = off_entry->offset +
+						ipa_hdr_bin_sz[off_entry->bin];
+						IPADBG("replace end = %d\n",
+								end);
+				}
 			}
 		}
 		list_for_each_entry_safe(off_entry, off_next,
@@ -1094,11 +1104,15 @@ int ipa3_reset_hdr(bool user_only)
 			}
 		}
 	}
-	/* there is one header of size 8 */
-	ipa3_ctx->hdr_tbl.end = 8;
-	ipa3_ctx->hdr_tbl.hdr_cnt = 1;
 
+	IPADBG("hdr_tbl.end = %d\n", end);
+	if (user_rule) {
+		ipa3_ctx->hdr_tbl.end = end;
+		IPADBG("hdr_tbl.end = %d\n", end);
+	}
 	IPADBG("reset hdr proc ctx\n");
+	user_rule = false;
+	end = 0;
 	list_for_each_entry_safe(
 		ctx_entry,
 		ctx_next,
@@ -1111,9 +1125,12 @@ int ipa3_reset_hdr(bool user_only)
 			return -EFAULT;
 		}
 
+		if (entry->ipacm_installed)
+			user_rule = true;
 		if (!user_only ||
 				ctx_entry->ipacm_installed) {
 			list_del(&ctx_entry->link);
+			ipa3_ctx->hdr_proc_ctx_tbl.proc_ctx_cnt--;
 			ctx_entry->ref_cnt = 0;
 			ctx_entry->cookie = 0;
 
@@ -1134,6 +1151,14 @@ int ipa3_reset_hdr(bool user_only)
 				kmem_cache_free(
 					ipa3_ctx->hdr_proc_ctx_offset_cache,
 					ctx_off_entry);
+			} else {
+				if (ctx_off_entry->offset +
+					ipa_hdr_bin_sz[ctx_off_entry->bin]
+					> end) {
+					end = ctx_off_entry->offset +
+					ipa_hdr_bin_sz[ctx_off_entry->bin];
+					IPADBG("replace hdr_proc as %d\n", end);
+				}
 			}
 		}
 		list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
@@ -1149,8 +1174,12 @@ int ipa3_reset_hdr(bool user_only)
 			}
 		}
 	}
-	ipa3_ctx->hdr_proc_ctx_tbl.end = 0;
-	ipa3_ctx->hdr_proc_ctx_tbl.proc_ctx_cnt = 0;
+
+	IPADBG("hdr_proc_tbl.end = %d\n", end);
+	if (user_rule) {
+		ipa3_ctx->hdr_proc_ctx_tbl.end = end;
+		IPADBG("hdr_proc_tbl.end = %d\n", end);
+	}
 	mutex_unlock(&ipa3_ctx->lock);
 
 	return 0;
