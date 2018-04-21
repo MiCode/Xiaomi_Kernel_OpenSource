@@ -2172,6 +2172,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			enable.enable = 0;
 		pdata = &enable;
 		inst->clk_data.low_latency_mode = (bool) enable.enable;
+		msm_dcvs_try_enable(inst);
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8:
