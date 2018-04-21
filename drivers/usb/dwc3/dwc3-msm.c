@@ -983,13 +983,17 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 
 	gsi_dbl_address_lsb = devm_ioremap_nocache(mdwc->dev,
 				request->db_reg_phs_addr_lsb, sizeof(u32));
-	if (!gsi_dbl_address_lsb)
-		dev_dbg(mdwc->dev, "Failed to get GSI DBL address LSB\n");
+	if (!gsi_dbl_address_lsb) {
+		dev_err(mdwc->dev, "Failed to get GSI DBL address LSB\n");
+		return;
+	}
 
 	gsi_dbl_address_msb = devm_ioremap_nocache(mdwc->dev,
 			request->db_reg_phs_addr_msb, sizeof(u32));
-	if (!gsi_dbl_address_msb)
-		dev_dbg(mdwc->dev, "Failed to get GSI DBL address MSB\n");
+	if (!gsi_dbl_address_msb) {
+		dev_err(mdwc->dev, "Failed to get GSI DBL address MSB\n");
+		return;
+	}
 
 	offset = dwc3_trb_dma_offset(dep, &dep->trb_pool[num_trbs-1]);
 	dev_dbg(mdwc->dev, "Writing link TRB addr: %pa to %pK (%x) for ep:%s\n",
