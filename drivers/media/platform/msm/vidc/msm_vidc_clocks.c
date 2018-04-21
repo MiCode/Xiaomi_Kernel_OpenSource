@@ -1308,11 +1308,11 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 		min_lp_load = core0_lp_load;
 	}
 
-	current_inst_load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS) *
-		inst->clk_data.entry->vpp_cycles;
+	current_inst_load = (msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS) *
+		inst->clk_data.entry->vpp_cycles)/inst->clk_data.work_route;
 
-	current_inst_lp_load = msm_comm_get_inst_load(inst,
-		LOAD_CALC_NO_QUIRKS) * lp_cycles;
+	current_inst_lp_load = (msm_comm_get_inst_load(inst,
+		LOAD_CALC_NO_QUIRKS) * lp_cycles)/inst->clk_data.work_route;
 
 	dprintk(VIDC_DBG, "Core 0 RT Load = %d Core 1 RT Load = %d\n",
 		 core0_load, core1_load);
