@@ -1585,7 +1585,7 @@
 		mbox-names = "adsp-pil";
 	};
 
-	qcom,ssc@5c00000 {
+	pil_ssc: qcom,ssc@5c00000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x5c00000 0x4000>;
 
@@ -3306,7 +3306,7 @@
 		mbox-names = "aop";
 	};
 
-	qcom,icnss@18800000 {
+	icnss: qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
 		      <0xa0000000 0x10000000>,
