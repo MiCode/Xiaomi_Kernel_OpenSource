@@ -1894,6 +1894,16 @@ ret:
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa3_read_ipahal_regs(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	ipahal_print_all_regs();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	return 0;
+}
+
 static void ipa_dump_status(struct ipahal_pkt_status *status)
 {
 	IPA_DUMP_STATUS_FIELD(status_opcode);
@@ -2159,6 +2169,10 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 	}, {
 		"enable_low_prio_print", IPA_WRITE_ONLY_MODE, NULL, {
 			.write = ipa3_enable_ipc_low,
+		}
+	}, {
+		"ipa_dump_regs", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_ipahal_regs,
 		}
 	}
 };
