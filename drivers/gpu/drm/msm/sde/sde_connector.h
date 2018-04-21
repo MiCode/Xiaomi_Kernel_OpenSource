@@ -817,4 +817,14 @@ void sde_connector_helper_bridge_disable(struct drm_connector *connector);
  */
 void sde_connector_destroy(struct drm_connector *connector);
 
+/**
+ * sde_connector_event_notify - signal hw recovery event to client
+ * @connector: pointer to connector
+ * @type:     event type
+ * @len:     length of the value of the event
+ * @val:     value
+ */
+int sde_connector_event_notify(struct drm_connector *connector, uint32_t type,
+		uint32_t len, uint32_t val);
+
 #endif /* _SDE_CONNECTOR_H_ */

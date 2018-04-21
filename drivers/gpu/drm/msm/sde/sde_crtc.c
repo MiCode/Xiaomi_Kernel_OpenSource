@@ -3434,11 +3434,12 @@ static void _sde_crtc_remove_pipe_flush(struct drm_crtc *crtc)
  * _sde_crtc_reset_hw - attempt hardware reset on errors
  * @crtc: Pointer to DRM crtc instance
  * @old_state: Pointer to crtc state for previous commit
- * @dump_status: Whether or not to dump debug status before reset
+ * @recovery_events: Whether or not recovery events are enabled
  * Returns: Zero if current commit should still be attempted
  */
 static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
-		struct drm_crtc_state *old_state, bool dump_status)
+		struct drm_crtc_state *old_state,
+		bool recovery_events)
 {
 	struct drm_plane *plane_halt[MAX_PLANES];
 	struct drm_plane *plane;
@@ -3458,10 +3459,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 
 	old_rot_op_mode = to_sde_crtc_state(old_state)->sbuf_cfg.rot_op_mode;
 	SDE_EVT32(DRMID(crtc), old_rot_op_mode,
-			dump_status, SDE_EVTLOG_FUNC_ENTRY);
-
-	if (dump_status)
-		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+			recovery_events, SDE_EVTLOG_FUNC_ENTRY);
 
 	/* optionally generate a panic instead of performing a h/w reset */
 	SDE_DBG_CTRL("stop_ftrace", "reset_hw_panic");
@@ -3493,7 +3491,7 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 	 */
 	if (i == sde_crtc->num_ctls &&
 			old_rot_op_mode == SDE_CTL_ROT_OP_MODE_OFFLINE)
-		return false;
+		return 0;
 
 	SDE_DEBUG("crtc%d: issuing hard reset\n", DRMID(crtc));
 
@@ -3570,7 +3568,8 @@ static int _sde_crtc_reset_hw(struct drm_crtc *crtc,
 			sde_encoder_kickoff(encoder, false);
 	}
 
-	return -EAGAIN;
+	/* panic the device if VBIF is not in good state */
+	return !recovery_events ? 0 : -EAGAIN;
 }
 
 /**
@@ -3637,7 +3636,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
-	bool is_error, reset_req;
+	bool is_error, reset_req, recovery_events;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -3683,6 +3682,9 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 				crtc->state);
 		if (sde_encoder_prepare_for_kickoff(encoder, &params))
 			reset_req = true;
+
+		recovery_events =
+			sde_encoder_recovery_events_enabled(encoder);
 	}
 
 	/*
@@ -3690,11 +3692,9 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	 * preparing for the kickoff
 	 */
 	if (reset_req) {
-		if (_sde_crtc_reset_hw(crtc, old_state,
-					!sde_crtc->reset_request))
+		if (_sde_crtc_reset_hw(crtc, old_state, recovery_events))
 			is_error = true;
 	}
-	sde_crtc->reset_request = reset_req;
 
 	SDE_ATRACE_BEGIN("flush_event_thread");
 	_sde_crtc_flush_event_thread(crtc);

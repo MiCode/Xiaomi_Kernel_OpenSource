@@ -32,7 +32,7 @@
 #define to_sde_encoder_phys_cmd(x) \
 	container_of(x, struct sde_encoder_phys_cmd, base)
 
-#define PP_TIMEOUT_MAX_TRIALS	2
+#define PP_TIMEOUT_MAX_TRIALS	4
 
 /*
  * Tearcheck sync start and continue thresholds are empirically found
@@ -490,16 +490,20 @@ static void sde_encoder_phys_cmd_mode_set(
 }
 
 static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc,
+		bool recovery_events)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	u32 frame_event = SDE_ENCODER_FRAME_EVENT_ERROR
 				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
+	struct drm_connector *conn;
+	int event;
 
 	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_ctl)
 		return -EINVAL;
 
+	conn = phys_enc->connector;
 	cmd_enc->pp_timeout_report_cnt++;
 
 	if (sde_encoder_phys_cmd_is_master(phys_enc)) {
@@ -518,21 +522,31 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 			atomic_read(&phys_enc->pending_kickoff_cnt),
 			frame_event);
 
-	if (cmd_enc->pp_timeout_report_cnt >= PP_TIMEOUT_MAX_TRIALS) {
-		cmd_enc->pp_timeout_report_cnt = PP_TIMEOUT_MAX_TRIALS;
-		frame_event |= SDE_ENCODER_FRAME_EVENT_PANEL_DEAD;
-
-		SDE_DBG_DUMP("panic");
-	} else if (cmd_enc->pp_timeout_report_cnt == 1) {
-		/* to avoid flooding, only log first time, and "dead" time */
+	/* to avoid flooding, only log first time, and "dead" time */
+	if (cmd_enc->pp_timeout_report_cnt == 1) {
 		SDE_ERROR_CMDENC(cmd_enc,
-				"pp:%d kickoff timed out ctl %d cnt %d koff_cnt %d\n",
+				"pp:%d kickoff timed out ctl %d koff_cnt %d\n",
 				phys_enc->hw_pp->idx - PINGPONG_0,
 				phys_enc->hw_ctl->idx - CTL_0,
-				cmd_enc->pp_timeout_report_cnt,
 				atomic_read(&phys_enc->pending_kickoff_cnt));
 
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
+		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
+	}
+
+	/*
+	 * if the recovery event is registered by user, don't panic
+	 * trigger panic on first timeout if no listener registered
+	 */
+	if (recovery_events) {
+		event = cmd_enc->pp_timeout_report_cnt > PP_TIMEOUT_MAX_TRIALS ?
+			SDE_RECOVERY_HARD_RESET : SDE_RECOVERY_CAPTURE;
+		sde_connector_event_notify(conn, DRM_EVENT_SDE_HW_RECOVERY,
+				sizeof(uint8_t), event);
+	} else if (cmd_enc->pp_timeout_report_cnt) {
+		SDE_DBG_DUMP("panic");
 	}
 
 	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
@@ -677,6 +691,7 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_encoder_wait_info wait_info;
+	bool recovery_events;
 	int ret;
 
 	if (!phys_enc) {
@@ -687,6 +702,8 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	wait_info.wq = &phys_enc->pending_kickoff_wq;
 	wait_info.atomic_cnt = &phys_enc->pending_kickoff_cnt;
 	wait_info.timeout_ms = KICKOFF_TIMEOUT_MS;
+	recovery_events = sde_encoder_recovery_events_enabled(
+			phys_enc->parent);
 
 	/* slave encoder doesn't enable for ppsplit */
 	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
@@ -694,10 +711,20 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_PINGPONG,
 			&wait_info);
-	if (ret == -ETIMEDOUT)
-		_sde_encoder_phys_cmd_handle_ppdone_timeout(phys_enc);
-	else if (!ret)
+	if (ret == -ETIMEDOUT) {
+		_sde_encoder_phys_cmd_handle_ppdone_timeout(phys_enc,
+				recovery_events);
+	} else if (!ret) {
+		if (cmd_enc->pp_timeout_report_cnt && recovery_events) {
+			struct drm_connector *conn = phys_enc->connector;
+
+			sde_connector_event_notify(conn,
+					DRM_EVENT_SDE_HW_RECOVERY,
+					sizeof(uint8_t),
+					SDE_RECOVERY_SUCCESS);
+		}
 		cmd_enc->pp_timeout_report_cnt = 0;
+	}
 
 	return ret;
 }
