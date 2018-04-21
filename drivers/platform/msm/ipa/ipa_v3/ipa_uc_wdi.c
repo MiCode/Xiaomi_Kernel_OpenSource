@@ -16,6 +16,7 @@
 #include "ipa_qmi_service.h"
 
 #define IPA_HOLB_TMR_DIS 0x0
+#define IPA_HOLB_TMR_EN 0x1
 
 #define IPA_HW_INTERFACE_WDI_VERSION 0x0001
 #define IPA_HW_WDI_RX_MBOX_START_INDEX 48
@@ -1534,6 +1535,24 @@ uc_timeout:
 	return result;
 }
 
+static void ipa3_cfg_holb_wdi_consumer(bool is_enable)
+{
+	u32 clnt_hdl;
+	struct ipa_ep_cfg_holb holb_cfg;
+
+	clnt_hdl = ipa3_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
+	if (clnt_hdl < ipa3_ctx->ipa_num_pipes &&
+		ipa3_ctx->ep[clnt_hdl].valid == 1) {
+		memset(&holb_cfg, 0, sizeof(holb_cfg));
+		if (is_enable)
+			holb_cfg.en = IPA_HOLB_TMR_EN;
+		else
+			holb_cfg.en = IPA_HOLB_TMR_DIS;
+		holb_cfg.tmr_val = 0;
+		ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
+	}
+}
+
 /**
  * ipa3_suspend_wdi_pipe() - WDI client suspend
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -1600,6 +1619,9 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 			}
 		}
 
+		/* Enabling HOLB on WDI consumer pipe */
+		ipa3_cfg_holb_wdi_consumer(true);
+
 		IPADBG("Post suspend event first for IPA Producer\n");
 		IPADBG("Client: %d clnt_hdl: %d\n", ep->client, clnt_hdl);
 		result = ipa3_uc_send_cmd(suspend.raw32b,
@@ -1609,8 +1631,12 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 
 		if (result) {
 			result = -EFAULT;
+			/* Disabling HOLB on WDI consumer pipe */
+			ipa3_cfg_holb_wdi_consumer(false);
 			goto uc_timeout;
 		}
+		/* Disabling HOLB on WDI consumer pipe */
+		ipa3_cfg_holb_wdi_consumer(false);
 	}
 
 	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
