@@ -257,7 +257,9 @@ static inline int fscrypt_encrypt_symlink(struct inode *inode,
 extern int fscrypt_using_hardware_encryption(const struct inode *inode);
 extern void fscrypt_set_ice_dun(const struct inode *inode,
 	struct bio *bio, u64 dun);
-extern bool fscrypt_mergeable_bio(struct bio *bio, u64 dun, bool bio_encrypted);
+extern bool fscrypt_mergeable_bio(struct bio *bio, u64 dun, bool bio_encrypted,
+		int bi_crypt_skip);
+extern void fscrypt_set_ice_skip(struct bio *bio, int bi_crypt_skip);
 #else
 static inline int fscrypt_using_hardware_encryption(const struct inode *inode)
 {
@@ -270,8 +272,12 @@ static inline void fscrypt_set_ice_dun(const struct inode *inode,
 	return;
 }
 
+static inline void fscrypt_set_ice_skip(struct bio *bio, int bi_crypt_skip)
+{
+}
+
 static inline bool fscrypt_mergeable_bio(struct bio *bio,
-	u64 dun, bool bio_encrypted)
+	u64 dun, bool bio_encrypted, int bi_crypt_skip)
 {
 	return true;
 }
