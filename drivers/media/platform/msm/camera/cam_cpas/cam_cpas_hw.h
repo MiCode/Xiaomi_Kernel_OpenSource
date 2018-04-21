@@ -146,7 +146,6 @@ struct cam_cpas_bus_client {
  * @axi_port_mnoc_node: Node representing mnoc in this AXI Port
  * @axi_port_camnoc_node: Node representing camnoc in this AXI Port
  * @consolidated_axi_vote: Consolidated axi bw values for this AXI port
- *
  */
 struct cam_cpas_axi_port {
 	struct list_head sibling_port;

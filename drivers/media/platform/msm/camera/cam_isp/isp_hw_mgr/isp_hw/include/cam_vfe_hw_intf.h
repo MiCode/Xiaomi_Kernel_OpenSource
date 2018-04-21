@@ -49,6 +49,9 @@ enum cam_vfe_hw_irq_status {
 	CAM_VFE_IRQ_STATUS_COMP_OWRT            = -2,
 	CAM_VFE_IRQ_STATUS_ERR                  = -1,
 	CAM_VFE_IRQ_STATUS_SUCCESS              = 0,
+	CAM_VFE_IRQ_STATUS_OVERFLOW             = 1,
+	CAM_VFE_IRQ_STATUS_P2I_ERROR            = 2,
+	CAM_VFE_IRQ_STATUS_VIOLATION            = 3,
 	CAM_VFE_IRQ_STATUS_MAX,
 };
 

@@ -98,8 +98,9 @@ static int cam_req_mgr_process_task(struct crm_workq_task *task)
 static void cam_req_mgr_process_workq(struct work_struct *w)
 {
 	struct cam_req_mgr_core_workq *workq = NULL;
-	struct crm_workq_task         *task, *task_save;
+	struct crm_workq_task         *task;
 	int32_t                        i = CRM_TASK_PRIORITY_0;
+	unsigned long                  flags = 0;
 
 	if (!w) {
 		CAM_ERR(CAM_CRM, "NULL task pointer can not schedule");
@@ -109,15 +110,19 @@ static void cam_req_mgr_process_workq(struct work_struct *w)
 		container_of(w, struct cam_req_mgr_core_workq, work);
 
 	while (i < CRM_TASK_PRIORITY_MAX) {
-		if (!list_empty(&workq->task.process_head[i])) {
-			list_for_each_entry_safe(task, task_save,
-				&workq->task.process_head[i], entry) {
-				atomic_sub(1, &workq->task.pending_cnt);
-				cam_req_mgr_process_task(task);
-			}
+		WORKQ_ACQUIRE_LOCK(workq, flags);
+		while (!list_empty(&workq->task.process_head[i])) {
+			task = list_first_entry(&workq->task.process_head[i],
+				struct crm_workq_task, entry);
+			atomic_sub(1, &workq->task.pending_cnt);
+			list_del_init(&task->entry);
+			WORKQ_RELEASE_LOCK(workq, flags);
+			cam_req_mgr_process_task(task);
 			CAM_DBG(CAM_CRM, "processed task %pK free_cnt %d",
 				task, atomic_read(&workq->task.free_cnt));
+			WORKQ_ACQUIRE_LOCK(workq, flags);
 		}
+		WORKQ_RELEASE_LOCK(workq, flags);
 		i++;
 	}
 }
@@ -268,6 +273,7 @@ void cam_req_mgr_workq_destroy(struct cam_req_mgr_core_workq **crm_workq)
 			destroy_workqueue((*crm_workq)->job);
 			(*crm_workq)->job = NULL;
 		}
+		kfree((*crm_workq)->task.pool);
 		kfree(*crm_workq);
 		*crm_workq = NULL;
 	}

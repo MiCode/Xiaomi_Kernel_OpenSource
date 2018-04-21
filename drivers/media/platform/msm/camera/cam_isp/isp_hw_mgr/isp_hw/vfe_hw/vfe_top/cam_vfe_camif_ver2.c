@@ -22,6 +22,7 @@
 #include "cam_vfe_camif_ver2.h"
 #include "cam_debug_util.h"
 #include "cam_cdm_util.h"
+#include "cam_cpas_api.h"
 
 struct cam_vfe_mux_camif_data {
 	void __iomem                                *mem_base;
@@ -234,6 +235,11 @@ static int cam_vfe_camif_resource_start(
 	CAM_DBG(CAM_ISP, "hw id:%d core_cfg val:%d", camif_res->hw_intf->hw_idx,
 		val);
 
+	/* disable the CGC for stats */
+	cam_io_w_mb(0xFFFFFFFF, rsrc_data->mem_base +
+		rsrc_data->common_reg->module_ctrl[
+		CAM_VFE_TOP_VER2_MODULE_STATS]->cgc_ovd);
+
 	/* epoch config with 20 line */
 	cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
 		rsrc_data->mem_base + rsrc_data->camif_reg->epoch_irq);
@@ -248,6 +254,60 @@ static int cam_vfe_camif_resource_start(
 	return 0;
 }
 
+static int cam_vfe_camif_reg_dump(
+	struct cam_isp_resource_node *camif_res)
+{
+	struct cam_vfe_mux_camif_data *camif_priv;
+	struct cam_vfe_soc_private *soc_private;
+	int rc = 0, i;
+	uint32_t val = 0;
+
+	if (!camif_res) {
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
+		return -EINVAL;
+	}
+
+	if ((camif_res->res_state == CAM_ISP_RESOURCE_STATE_RESERVED) ||
+		(camif_res->res_state == CAM_ISP_RESOURCE_STATE_AVAILABLE))
+		return 0;
+
+	camif_priv = (struct cam_vfe_mux_camif_data *)camif_res->res_priv;
+	soc_private = camif_priv->soc_info->soc_private;
+	for (i = 0xA3C; i <= 0xA90; i += 4) {
+		val = cam_io_r_mb(camif_priv->mem_base + i);
+		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+	}
+
+	for (i = 0xE0C; i <= 0xE3C; i += 4) {
+		val = cam_io_r_mb(camif_priv->mem_base + i);
+		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+	}
+
+	for (i = 0x2000; i <= 0x20B8; i += 4) {
+		val = cam_io_r_mb(camif_priv->mem_base + i);
+		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+	}
+
+	for (i = 0x2500; i <= 0x255C; i += 4) {
+		val = cam_io_r_mb(camif_priv->mem_base + i);
+		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+	}
+
+	for (i = 0x2600; i <= 0x265C; i += 4) {
+		val = cam_io_r_mb(camif_priv->mem_base + i);
+		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
+	}
+
+	cam_cpas_reg_read(soc_private->cpas_handle,
+		CAM_CPAS_REG_CAMNOC, 0x420, true, &val);
+	CAM_INFO(CAM_ISP, "IFE02_MAXWR_LOW offset 0x420 val 0x%x", val);
+
+	cam_cpas_reg_read(soc_private->cpas_handle,
+		CAM_CPAS_REG_CAMNOC, 0x820, true, &val);
+	CAM_INFO(CAM_ISP, "IFE13_MAXWR_LOW offset 0x820 val 0x%x", val);
+
+	return rc;
+}
 
 static int cam_vfe_camif_resource_stop(
 	struct cam_isp_resource_node        *camif_res)
@@ -299,6 +359,9 @@ static int cam_vfe_camif_process_cmd(struct cam_isp_resource_node *rsrc_node,
 		rc = cam_vfe_camif_get_reg_update(rsrc_node, cmd_args,
 			arg_size);
 		break;
+	case CAM_ISP_HW_CMD_GET_REG_DUMP:
+		rc = cam_vfe_camif_reg_dump(rsrc_node);
+		break;
 	default:
 		CAM_ERR(CAM_ISP,
 			"unsupported process command:%d", cmd_type);
@@ -324,8 +387,10 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 	uint32_t                              irq_status0;
 	uint32_t                              irq_status1;
 
-	if (!handler_priv || !evt_payload_priv)
+	if (!handler_priv || !evt_payload_priv) {
+		CAM_ERR(CAM_ISP, "Invalid params");
 		return ret;
+	}
 
 	camif_node = handler_priv;
 	camif_priv = camif_node->res_priv;
@@ -365,6 +430,7 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 		if (irq_status1 & camif_priv->reg_data->error_irq_mask1) {
 			CAM_DBG(CAM_ISP, "Received ERROR\n");
 			ret = CAM_ISP_HW_ERROR_OVERFLOW;
+			cam_vfe_camif_reg_dump(camif_node);
 		} else {
 			ret = CAM_ISP_HW_ERROR_NONE;
 		}

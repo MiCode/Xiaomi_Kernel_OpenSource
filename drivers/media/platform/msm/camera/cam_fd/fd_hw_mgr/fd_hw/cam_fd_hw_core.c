@@ -29,10 +29,10 @@ static uint32_t cam_fd_cdm_write_reg_val_pair(uint32_t *buffer,
 }
 
 static void cam_fd_hw_util_cdm_callback(uint32_t handle, void *userdata,
-	enum cam_cdm_cb_status status, uint32_t cookie)
+	enum cam_cdm_cb_status status, uint64_t cookie)
 {
 	trace_cam_cdm_cb("FD", status);
-	CAM_DBG(CAM_FD, "CDM hdl=%x, udata=%pK, status=%d, cookie=%d",
+	CAM_DBG(CAM_FD, "CDM hdl=%x, udata=%pK, status=%d, cookie=%llu",
 		handle, userdata, status, cookie);
 }
 
@@ -1092,6 +1092,7 @@ int cam_fd_hw_release(void *hw_priv, void *hw_release_args, uint32_t arg_size)
 		CAM_ERR(CAM_FD, "Release cdm handle failed, handle=0x%x, rc=%d",
 			ctx_hw_private->cdm_handle, rc);
 
+	kfree(ctx_hw_private->cdm_cmd);
 	kfree(ctx_hw_private);
 	release_args->ctx_hw_private = NULL;
 
