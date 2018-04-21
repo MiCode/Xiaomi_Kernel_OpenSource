@@ -183,7 +183,7 @@
 
 	subsys_notif_virt: qcom,subsys_notif_virt@2D000000 {
 		compatible = "qcom,subsys-notif-virt";
-		reg = <0x2D000000 0x10>;
+		reg = <0x2D000000 0x18>;
 		reg-names = "vdev_base";
 		adsp {
 			subsys-name = "adsp";
@@ -192,6 +192,10 @@
 		mpss {
 			subsys-name = "modem";
 			offset = <8>;
+		};
+		wlan {
+			subsys-name = "AR6320";
+			offset = <16>;
 		};
 	};
 };
