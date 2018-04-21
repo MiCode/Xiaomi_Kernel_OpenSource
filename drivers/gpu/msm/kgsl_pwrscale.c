@@ -288,8 +288,19 @@ void kgsl_pwrscale_enable(struct kgsl_device *device)
 	if (WARN_ON(!mutex_is_locked(&device->mutex)))
 		return;
 
-	device->pwrscale.enabled = false;
-	return;
+	if (device->pwrscale.devfreqptr) {
+		queue_work(device->pwrscale.devfreq_wq,
+			&device->pwrscale.devfreq_resume_ws);
+		device->pwrscale.enabled = true;
+	} else {
+		/*
+		 * Don't enable it if devfreq is not set and let the device
+		 * run at default level;
+		 */
+		kgsl_pwrctrl_pwrlevel_change(device,
+					device->pwrctrl.default_pwrlevel);
+		device->pwrscale.enabled = false;
+	}
 }
 EXPORT_SYMBOL(kgsl_pwrscale_enable);
 
@@ -894,12 +905,12 @@ static int opp_notify(struct notifier_block *nb,
 	min_level = pwr->thermal_pwrlevel_floor;
 
 	/* Thermal limit cannot be lower than lowest non-zero operating freq */
-	for (level = 0; level < (pwr->num_pwrlevels - 1); level++)
+	for (level = 0; level < (pwr->num_pwrlevels - 1); level++) {
 		if (pwr->pwrlevels[level].gpu_freq == max_freq)
 			max_level = level;
 		if (pwr->pwrlevels[level].gpu_freq == min_freq)
 			min_level = level;
-
+	}
 
 	pwr->thermal_pwrlevel = max_level;
 	pwr->thermal_pwrlevel_floor = min_level;

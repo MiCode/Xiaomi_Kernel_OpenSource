@@ -150,6 +150,8 @@
  * between GBIF, SMMU and MEMNOC.
  */
 #define ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW BIT(8)
+/* Select alternate secure context bank for mmu */
+#define ADRENO_QUIRK_MMU_SECURE_CB_ALT BIT(9)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -174,9 +176,6 @@
 
 /* Number of times to poll the AHB fence in ISR */
 #define FENCE_RETRY_MAX 100
-
-/* Number of times to see if INT_0_STATUS changed or not */
-#define STATUS_RETRY_MAX 3
 
 /* One cannot wait forever for the core to idle, so set an upper limit to the
  * amount of time to wait for the core to go idle
@@ -469,6 +468,7 @@ enum gpu_coresight_sources {
  * @gpuhtw_llc_slice: GPU pagetables system cache slice descriptor
  * @gpuhtw_llc_slice_enable: To enable the GPUHTW system cache slice or not
  * @zap_loaded: Used to track if zap was successfully loaded or not
+ * @soc_hw_rev: Indicate which SOC hardware revision to use
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -541,6 +541,7 @@ struct adreno_device {
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
 	unsigned int zap_loaded;
+	unsigned int soc_hw_rev;
 };
 
 /**
@@ -904,6 +905,8 @@ struct adreno_gpudev {
 	struct adreno_irq *irq;
 	int num_prio_levels;
 	unsigned int vbif_xin_halt_ctrl0_mask;
+	unsigned int gbif_client_halt_mask;
+	unsigned int gbif_arb_halt_mask;
 	/* GPU specific function hooks */
 	void (*irq_trace)(struct adreno_device *, unsigned int status);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
@@ -1263,6 +1266,12 @@ static inline int adreno_is_a630v2(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A630) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
+}
+
+static inline int adreno_is_a640v1(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A640) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
 }
 
 /*
@@ -1891,11 +1900,11 @@ static inline bool adreno_has_gbif(struct adreno_device *adreno_dev)
 }
 
 /**
- * adreno_wait_for_vbif_halt_ack() - wait for VBIF acknowledgment
+ * adreno_wait_for_halt_ack() - wait for GBIF/VBIF acknowledgment
  * for given HALT request.
  * @ack_reg: register offset to wait for acknowledge
  */
-static inline int adreno_wait_for_vbif_halt_ack(struct kgsl_device *device,
+static inline int adreno_wait_for_halt_ack(struct kgsl_device *device,
 	int ack_reg, unsigned int mask)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1912,7 +1921,7 @@ static inline int adreno_wait_for_vbif_halt_ack(struct kgsl_device *device,
 			break;
 		if (time_after(jiffies, wait_for_vbif)) {
 			KGSL_DRV_ERR(device,
-				"Wait limit reached for VBIF XIN Halt\n");
+				"Wait limit reached for GBIF/VBIF Halt\n");
 			ret = -ETIMEDOUT;
 			break;
 		}
@@ -1921,48 +1930,15 @@ static inline int adreno_wait_for_vbif_halt_ack(struct kgsl_device *device,
 	return ret;
 }
 
-/**
- * adreno_vbif_clear_pending_transactions() - Clear transactions in VBIF pipe
- * @device: Pointer to the device whose VBIF pipe is to be cleared
- */
-static inline int adreno_vbif_clear_pending_transactions(
-	struct kgsl_device *device)
+static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
-	int ret = 0;
-
-	if (adreno_has_gbif(adreno_dev)) {
-		/*
-		 * Halt GBIF GX first and then CX part.
-		 * Need to release CX Halt explicitly in case of SW_RESET.
-		 * GX Halt release will be taken care by SW_RESET internally.
-		 */
-		if (gpudev->gx_is_on(adreno_dev)) {
-			adreno_writereg(adreno_dev, ADRENO_REG_RBBM_GPR0_CNTL,
-					GBIF_HALT_REQUEST);
-			ret = adreno_wait_for_vbif_halt_ack(device,
-					ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
-					VBIF_RESET_ACK_MASK);
-			if (ret)
-				return ret;
-		}
-
-		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, mask);
-		ret = adreno_wait_for_vbif_halt_ack(device,
-				ADRENO_REG_GBIF_HALT_ACK, mask);
-	} else {
-		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0,
-			mask);
-		ret = adreno_wait_for_vbif_halt_ack(device,
-				ADRENO_REG_VBIF_XIN_HALT_CTRL1, mask);
-		adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
-	}
-	return ret;
+	if (adreno_has_gbif(adreno_dev))
+		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, 0x0);
 }
 
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
+
+int adreno_clear_pending_transactions(struct kgsl_device *device);
 #endif /*__ADRENO_H */

@@ -228,6 +228,9 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 	u32 opmode = 0;
 	u32 csc = 0;
 
+	if (!ctx || !cdm)
+		return -EINVAL;
+
 	if (!SDE_FORMAT_IS_YUV(fmt))
 		return -EINVAL;
 
@@ -246,7 +249,10 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 	csc &= ~BIT(1);
 	csc |= BIT(0);
 
-	if (ctx->hw_mdp && ctx->hw_mdp->ops.setup_cdm_output)
+	if (ctx && ctx->ops.bind_pingpong_blk)
+		ctx->ops.bind_pingpong_blk(ctx, true,
+				cdm->pp_id);
+	else if (ctx->hw_mdp && ctx->hw_mdp->ops.setup_cdm_output)
 		ctx->hw_mdp->ops.setup_cdm_output(ctx->hw_mdp, &cdm_cfg);
 
 	SDE_REG_WRITE(c, CDM_CSC_10_OPMODE, csc);
@@ -258,7 +264,12 @@ void sde_hw_cdm_disable(struct sde_hw_cdm *ctx)
 {
 	struct cdm_output_cfg cdm_cfg = { 0 };
 
-	if (ctx->hw_mdp && ctx->hw_mdp->ops.setup_cdm_output)
+	if (!ctx)
+		return;
+
+	if (ctx && ctx->ops.bind_pingpong_blk)
+		ctx->ops.bind_pingpong_blk(ctx, false, 0);
+	else if (ctx->hw_mdp && ctx->hw_mdp->ops.setup_cdm_output)
 		ctx->hw_mdp->ops.setup_cdm_output(ctx->hw_mdp, &cdm_cfg);
 }
 
@@ -270,10 +281,11 @@ static void sde_hw_cdm_bind_pingpong_blk(
 	struct sde_hw_blk_reg_map *c;
 	int mux_cfg = 0xF;
 
-	if (!ctx)
+	if (!ctx || (enable && (pp < PINGPONG_0 || pp >= PINGPONG_MAX)))
 		return;
 
 	c = &ctx->hw;
+
 	if (enable)
 		mux_cfg = (pp - PINGPONG_0) & 0x7;
 

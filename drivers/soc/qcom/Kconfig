@@ -50,11 +50,11 @@ config QCOM_LLCC
 	  Level Cache. This provides interfaces to client's that use the LLCC.
 	  Say yes here to enable LLCC slice driver.
 
-config QCOM_SDM855_LLCC
-	tristate "Qualcomm Technologies, Inc. SDM855 LLCC driver"
+config QCOM_SM8150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM8150 LLCC driver"
 	depends on QCOM_LLCC
 	help
-	  Say yes here to enable the LLCC driver for SDM855. This is provides
+	  Say yes here to enable the LLCC driver for SM8150. This is provides
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
@@ -64,6 +64,14 @@ config QCOM_SDMSHRIKE_LLCC
 	help
 	  This configuration option enables LLCC driver specific to SDMSHRIKE.
 	  Say 'Y' here to enable the LLCC driver for SDMSHRIKE which provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
+config QCOM_SDM640_LLCC
+	tristate "Qualcomm Technologies, Inc. SDM640 LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for SDM640. This is provides
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
@@ -361,6 +369,16 @@ config ICNSS_DEBUG
 	  hardware register access and enabling BUG_ON for certain cases to aid
 	  the debugging.
 
+config ICNSS_QMI
+       bool "ICNSS QMI support"
+       depends on ICNSS
+       ---help---
+        Say 'Y' here to enable ICNSS QMI support. ICNSS driver will use
+	QMI framework to communicate with WLAN FW. It will send coldboot
+	handshake messages to WLAN FW, which includes hardware capabilities
+	and configurations. It also send WLAN on/off control message to FW
+	over QMI channel.
+
 config QCOM_EUD
 	tristate "QTI Embedded USB Debugger (EUD)"
 	depends on ARCH_QCOM
@@ -425,6 +443,25 @@ config QTI_RPMH_API
 
 config QTI_SYSTEM_PM
 	bool
+
+config QSEE_IPC_IRQ
+	bool "QSEE interrupt manager"
+	help
+	  The QSEE IPC IRQ controller manages the interrupts from the QTI
+	  secure execution environment. This interrupt controller will use
+	  the registers in the spcs region to mask and clear interrupts.
+	  Clients can use this driver to avoid adding common interrupt handling
+	  code.
+
+config QSEE_IPC_IRQ_BRIDGE
+	tristate "QSEE IPC Interrupt Bridge"
+	select QSEE_IPC_IRQ
+	help
+	  This module enables bridging an Inter-Processor Communication(IPC)
+	  interrupt from a remote subsystem directed towards Qualcomm
+	  Technologies, Inc. Secure Execution Environment(QSEE) to userspace.
+	  The interrupt will be propagated through a character device that
+	  userspace clients can poll on.
 
 config QCOM_GLINK
 	tristate "GLINK Probe Helper"
@@ -507,6 +544,15 @@ config MSM_NOPM
 	  This enables bare minimum support of power management at platform level.
 	  i.e WFI
 
+config MSM_QBT1000
+	bool "QBT1000 Ultrasonic Fingerprint Sensor"
+	help
+	  This driver provides services for configuring the fingerprint
+	  sensor hardware and for communicating with the trusted app which
+	  uses it. It enables clocks and provides commands for loading
+	  trusted apps, unloading them and marshalling buffers to the
+	  trusted fingerprint app.
+
 config APSS_CORE_EA
 	depends on CPU_FREQ && PM_OPP
 	bool "Qualcomm Technology Inc specific power aware driver"
@@ -559,6 +605,8 @@ config MSM_SUSPEND_STATS_FIRST_BUCKET
 endif # MSM_IDLE_STATS
 endif # MSM_PM
 
+source "drivers/soc/qcom/memshare/Kconfig"
+
 config MSM_PERFORMANCE
 	tristate "msm performance driver to support userspace fmin/fmax request"
 	default n
@@ -574,4 +622,13 @@ config QMP_DEBUGFS_CLIENT
 	help
 	  This options enables a driver which allows clients to send messages
 	  to Alway On processor using QMP transport.
+
+config QCOM_QHEE_ENABLE_MEM_PROTECTION
+	bool "QHEE enable kernel memory protection"
+	depends on QCOM_SCM
+	default y
+	help
+	  When this option is enabled, an SCM call will be invoked to enable
+	  kernel memory protection in stage 2 memory mappings on kernel boot.
+	  This is part of a security feature enabled in QHEE.
 endmenu

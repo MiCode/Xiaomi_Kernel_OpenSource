@@ -726,6 +726,7 @@ int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 
 	if (trion_pll_is_enabled(pll, regmap)) {
 		pr_warn("PLL is already enabled. Skipping configuration.\n");
+		pll->inited = true;
 		return ret;
 	}
 
@@ -1039,6 +1040,7 @@ int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 
 	if (mode_regval & PLL_LOCK_DET) {
 		pr_warn("PLL is already enabled. Skipping configuration.\n");
+		pll->inited = true;
 		return 0;
 	}
 
@@ -1199,7 +1201,7 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	unsigned long rrate;
-	u32 l, off = pll->offset;
+	u32 l, regval, off = pll->offset;
 	u64 a;
 	int ret;
 
@@ -1217,6 +1219,13 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	regmap_write(pll->clkr.regmap, off + PLL_ALPHA_VAL, a);
 	regmap_write(pll->clkr.regmap, off + PLL_L_VAL, l);
 
+	/* Return early if the PLL is disabled */
+	ret = regmap_read(pll->clkr.regmap, off + REGERA_PLL_OPMODE, &regval);
+	if (ret)
+		return ret;
+	else if (regval == REGERA_PLL_OFF)
+		return 0;
+
 	/* Wait before polling for the frequency latch */
 	udelay(5);
 
@@ -1229,6 +1238,19 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static unsigned long
+clk_regera_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	u32 l, frac;
+	u64 prate = parent_rate;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 off = pll->offset;
+
+	regmap_read(pll->clkr.regmap, off + PLL_L_VAL, &l);
+	regmap_read(pll->clkr.regmap, off + PLL_ALPHA_VAL, &frac);
+
+	return alpha_pll_calc_rate(pll, prate, l, frac);
+}
 
 static void clk_regera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 {
@@ -1304,7 +1326,7 @@ const struct clk_ops clk_regera_pll_ops = {
 	.enable = clk_regera_pll_enable,
 	.disable = clk_regera_pll_disable,
 	.is_enabled = clk_alpha_pll_is_enabled,
-	.recalc_rate = clk_alpha_pll_recalc_rate,
+	.recalc_rate = clk_regera_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_regera_pll_set_rate,
 	.list_registers = clk_regera_pll_list_registers,

@@ -74,6 +74,8 @@
 
 #define IPA_MAX_NUM_REQ_CACHE 10
 
+#define NAPI_WEIGHT 60
+
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
@@ -169,7 +171,7 @@
 	~(IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1))
 
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
-#define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition.x_)
+#define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition->x_)
 
 #define IPA_GSI_CHANNEL_STOP_MAX_RETRY 10
 #define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
@@ -647,7 +649,6 @@ struct ipa3_repl_ctx {
  */
 struct ipa3_sys_context {
 	u32 len;
-	u32 len_pending_xfer;
 	atomic_t curr_polling_state;
 	struct delayed_work switch_to_intr_work;
 	enum ipa3_sys_pipe_policy policy;
@@ -1176,11 +1177,22 @@ enum ipa_smmu_cb_type {
 };
 
 /**
- * struct ipa3_context - IPA context
+ * struct ipa3_char_device_context - IPA character device
  * @class: pointer to the struct class
  * @dev_num: device number
  * @dev: the dev_t of the device
  * @cdev: cdev of the device
+ */
+struct ipa3_char_device_context {
+	struct class *class;
+	dev_t dev_num;
+	struct device *dev;
+	struct cdev cdev;
+};
+
+/**
+ * struct ipa3_context - IPA context
+ * @cdev: cdev context
  * @ep: list of all end points
  * @skip_ep_cfg_shadow: state to update filter table correctly across
   power-save
@@ -1266,10 +1278,7 @@ enum ipa_smmu_cb_type {
  * IPA context - holds all relevant info about IPA driver and its state
  */
 struct ipa3_context {
-	struct class *class;
-	dev_t dev_num;
-	struct device *dev;
-	struct cdev cdev;
+	struct ipa3_char_device_context cdev;
 	struct ipa3_ep_context ep[IPA3_MAX_NUM_PIPES];
 	bool skip_ep_cfg_shadow[IPA3_MAX_NUM_PIPES];
 	u32 ep_flt_bitmap;
@@ -1351,6 +1360,7 @@ struct ipa3_context {
 	u32 ipa_bus_hdl;
 	struct ipa3_controller *ctrl;
 	struct idr ipa_idr;
+	struct platform_device *master_pdev;
 	struct device *pdev;
 	struct device *uc_pdev;
 	spinlock_t idr_lock;
@@ -1376,7 +1386,6 @@ struct ipa3_context {
 	u32 ee;
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
-	bool smmu_present;
 	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	u32 wdi_map_cnt;
 	struct wakeup_source w_lock;
@@ -1657,7 +1666,7 @@ struct ipa3_mem_partition {
 };
 
 struct ipa3_controller {
-	struct ipa3_mem_partition mem_partition;
+	struct ipa3_mem_partition *mem_partition;
 	u32 ipa_clk_rate_turbo;
 	u32 ipa_clk_rate_nominal;
 	u32 ipa_clk_rate_svs;
@@ -2092,7 +2101,7 @@ void ipa3_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
 #else
 #define IPA_DUMP_BUFF(base, phy_base, size)
 #endif
-int ipa3_init_mem_partition(struct device_node *dev_node);
+int ipa3_init_mem_partition(enum ipa_hw_type ipa_hw_type);
 int ipa3_controller_static_bind(struct ipa3_controller *controller,
 		enum ipa_hw_type ipa_hw_type);
 int ipa3_cfg_route(struct ipahal_reg_route *route);
@@ -2291,9 +2300,7 @@ int ipa_reset_flt_rt_stats(enum ipa_ip_type ip, bool filtering, u16 rule_id);
 int ipa_reset_all_flt_rt_stats(enum ipa_ip_type ip, bool filtering);
 
 u32 ipa3_get_num_pipes(void);
-struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void);
-struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
-struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void);
+struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(enum ipa_smmu_cb_type);
 struct iommu_domain *ipa3_get_smmu_domain(void);
 struct iommu_domain *ipa3_get_uc_smmu_domain(void);
 struct iommu_domain *ipa3_get_wlan_smmu_domain(void);

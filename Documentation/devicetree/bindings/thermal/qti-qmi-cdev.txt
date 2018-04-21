@@ -15,7 +15,7 @@ Properties:
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: should be "qcom,qmi_cooling_devices"
+	Definition: should be "qcom,qmi-cooling-devices"
 
 
 Subsystem properties:
@@ -52,7 +52,7 @@ Subsystem properties:
 Example:
 
 	qmi-tmd-devices {
-		compatible = "qcom,qmi_cooling_devices";
+		compatible = "qcom,qmi-cooling-devices";
 
 		modem {
 			qcom,instance-id = <0x0>;

@@ -69,6 +69,7 @@ struct msm_smem {
 	void *dma_buf;
 	void *kvaddr;
 	u32 device_addr;
+	dma_addr_t dma_handle;
 	unsigned int offset;
 	unsigned int size;
 	unsigned long flags;

@@ -155,6 +155,8 @@ struct dp_catalog_audio {
 	enum dp_catalog_audio_header_type sdp_header;
 	u32 data;
 
+	enum dp_stream_id stream_id;
+
 	void (*init)(struct dp_catalog_audio *audio);
 	void (*enable)(struct dp_catalog_audio *audio);
 	void (*config_acr)(struct dp_catalog_audio *audio);

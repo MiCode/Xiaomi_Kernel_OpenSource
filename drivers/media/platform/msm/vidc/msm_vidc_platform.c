@@ -51,7 +51,7 @@ static struct msm_vidc_codec_data default_codec_data[] =  {
 };
 
 /* Update with 855 data */
-static struct msm_vidc_codec_data sdm855_codec_data[] =  {
+static struct msm_vidc_codec_data sm8150_codec_data[] =  {
 	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_VIDC_ENCODER, 10, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_VIDC_ENCODER, 10, 675, 320),
 	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_VIDC_ENCODER, 10, 675, 320),
@@ -114,7 +114,7 @@ static struct msm_vidc_common_data default_common_data[] = {
 	},
 };
 
-static struct msm_vidc_common_data sdm855_common_data[] = {
+static struct msm_vidc_common_data sm8150_common_data[] = {
 	{
 		.key = "qcom,never-unload-fw",
 		.value = 1,
@@ -133,7 +133,7 @@ static struct msm_vidc_common_data sdm855_common_data[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 4147200,	/* 4096x2160@120 */
+		.value = 3110400,	/* 4096x2160@90 */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",
@@ -164,7 +164,7 @@ static struct msm_vidc_common_data sdm855_common_data[] = {
 		.value = 0,
 	},
 	{
-		.key = "qcom,domain-attr-non-fatal-faults",
+		.key = "qcom,domain-cvp",
 		.value = 1,
 	},
 };
@@ -221,10 +221,6 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 	{
 		.key = "qcom,debug-timeout",
 		.value = 0,
-	},
-	{
-		.key = "qcom,domain-cvp",
-		.value = 1,
 	},
 };
 
@@ -339,11 +335,11 @@ static struct msm_vidc_platform_data default_data = {
 	.sku_version = 0,
 };
 
-static struct msm_vidc_platform_data sdm855_data = {
-	.codec_data = sdm855_codec_data,
-	.codec_data_length =  ARRAY_SIZE(sdm855_codec_data),
-	.common_data = sdm855_common_data,
-	.common_data_length =  ARRAY_SIZE(sdm855_common_data),
+static struct msm_vidc_platform_data sm8150_data = {
+	.codec_data = sm8150_codec_data,
+	.codec_data_length =  ARRAY_SIZE(sm8150_codec_data),
+	.common_data = sm8150_common_data,
+	.common_data_length =  ARRAY_SIZE(sm8150_common_data),
 	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
 	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
@@ -380,8 +376,8 @@ static struct msm_vidc_platform_data sdm670_data = {
 
 static const struct of_device_id msm_vidc_dt_match[] = {
 	{
-		.compatible = "qcom,sdm855-vidc",
-		.data = &sdm855_data,
+		.compatible = "qcom,sm8150-vidc",
+		.data = &sm8150_data,
 	},
 	{
 		.compatible = "qcom,sdm845-vidc",

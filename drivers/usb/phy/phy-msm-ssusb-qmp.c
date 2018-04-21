@@ -168,11 +168,11 @@ static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
 
 static void msm_ssusb_qmp_clr_lfps_rxterm_int(struct msm_ssphy_qmp *phy)
 {
-	writeb_relaxed(1, phy->base +
+	writel_relaxed(1, phy->base +
 			phy->phy_reg[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR]);
 	/* flush the previous write before next write */
 	wmb();
-	writeb_relaxed(0, phy->base +
+	writel_relaxed(0, phy->base +
 			phy->phy_reg[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR]);
 }
 
@@ -198,7 +198,7 @@ static void msm_ssusb_qmp_clamp_enable(struct msm_ssphy_qmp *phy, bool val)
 static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 		int enable)
 {
-	u8 val;
+	u32 val;
 	unsigned int autonomous_mode_offset =
 			phy->phy_reg[USB3_PHY_AUTONOMOUS_MODE_CTRL];
 
@@ -207,7 +207,7 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 
 	if (enable) {
 		msm_ssusb_qmp_clr_lfps_rxterm_int(phy);
-		val = readb_relaxed(phy->base + autonomous_mode_offset);
+		val = readl_relaxed(phy->base + autonomous_mode_offset);
 		val |= ARCVR_DTCT_EN;
 		if (phy->phy.flags & DEVICE_IN_SS_MODE) {
 			val |= ALFPS_DTCT_EN;
@@ -216,11 +216,11 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 			val &= ~ALFPS_DTCT_EN;
 			val |= ARCVR_DTCT_EVENT_SEL;
 		}
-		writeb_relaxed(val, phy->base + autonomous_mode_offset);
+		writel_relaxed(val, phy->base + autonomous_mode_offset);
 		msm_ssusb_qmp_clamp_enable(phy, true);
 	} else {
 		msm_ssusb_qmp_clamp_enable(phy, false);
-		writeb_relaxed(0, phy->base + autonomous_mode_offset);
+		writel_relaxed(0, phy->base + autonomous_mode_offset);
 		msm_ssusb_qmp_clr_lfps_rxterm_int(phy);
 	}
 }

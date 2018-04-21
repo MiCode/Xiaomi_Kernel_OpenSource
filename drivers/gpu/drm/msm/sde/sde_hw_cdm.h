@@ -28,6 +28,7 @@ struct sde_hw_cdm_cfg {
 	const struct sde_format *output_fmt;
 	u32 output_type;
 	int flags;
+	int pp_id;
 };
 
 enum sde_hw_cdwn_type {

@@ -47,14 +47,14 @@
 #define SDE_HW_VER_400	SDE_HW_VER(4, 0, 0) /* sdm845 v1.0 */
 #define SDE_HW_VER_401	SDE_HW_VER(4, 0, 1) /* sdm845 v2.0 */
 #define SDE_HW_VER_410	SDE_HW_VER(4, 1, 0) /* sdm670 v1.0 */
-#define SDE_HW_VER_500	SDE_HW_VER(5, 0, 0) /* sdm855 v1.0 */
-#define SDE_HW_VER_501	SDE_HW_VER(5, 0, 1) /* sdm855 v2.0 */
+#define SDE_HW_VER_500	SDE_HW_VER(5, 0, 0) /* sm8150 v1.0 */
+#define SDE_HW_VER_501	SDE_HW_VER(5, 0, 1) /* sm8150 v2.0 */
 
 #define IS_MSM8996_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_170)
 #define IS_MSM8998_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_300)
 #define IS_SDM845_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
 #define IS_SDM670_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_410)
-#define IS_SDM855_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_500)
+#define IS_SM8150_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_500)
 
 #define SDE_HW_BLK_NAME_LEN	16
 
@@ -149,6 +149,8 @@ enum {
  * @SDE_SSPP_INVERSE_PMA     Alpha unmultiply (PMA) support
  * @SDE_SSPP_DGM_INVERSE_PMA Alpha unmultiply (PMA) support in DGM block
  * @SDE_SSPP_DGM_CSC         Support of color space conversion in DGM block
+ * @SDE_SSPP_SEC_UI_ALLOWED   Allows secure-ui layers
+ * @SDE_SSPP_BLOCK_SEC_UI    Blocks secure-ui layers
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -179,6 +181,8 @@ enum {
 	SDE_SSPP_INVERSE_PMA,
 	SDE_SSPP_DGM_INVERSE_PMA,
 	SDE_SSPP_DGM_CSC,
+	SDE_SSPP_SEC_UI_ALLOWED,
+	SDE_SSPP_BLOCK_SEC_UI,
 	SDE_SSPP_MAX
 };
 
@@ -1004,6 +1008,11 @@ struct sde_perf_cfg {
  * @max_mixer_blendstages max layer mixer blend stages or
  *                       supported z order
  * @max_wb_linewidth   max writeback line width support.
+ * @max_display_width   maximum display width support.
+ * @max_display_height  maximum display height support.
+ * @max_lm_per_display  maximum layer mixer per display
+ * @min_display_width   minimum display width support.
+ * @min_display_height  minimum display height support.
  * @qseed_type         qseed2 or qseed3 support.
  * @csc_type           csc or csc_10bit support.
  * @smart_dma_rev      Supported version of SmartDMA feature.
@@ -1028,6 +1037,15 @@ struct sde_perf_cfg {
  * @macrotile_mode     UBWC parameter for macro tile channel distribution
  * @pipe_order_type    indicate if it is required to specify pipe order
  * @delay_prg_fetch_start indicates if throttling the fetch start is required
+ * @sui_misr_supported  indicate if secure-ui-misr is supported
+ * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
+ *                         secure-ui when secure-ui-misr feature is supported
+ * @sec_sid_mask_count  number of SID masks
+ * @sec_sid_mask        SID masks used during the scm_call for transition
+ *                         between secure/non-secure sessions
+ * @sui_ns_allowed      flag to indicate non-secure context banks are allowed
+ *                         during secure-ui session
+ * @sui_supported_blendstage  secure-ui supported blendstage
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -1036,6 +1054,13 @@ struct sde_mdss_cfg {
 	u32 max_mixer_width;
 	u32 max_mixer_blendstages;
 	u32 max_wb_linewidth;
+
+	u32 max_display_width;
+	u32 max_display_height;
+	u32 min_display_width;
+	u32 min_display_height;
+	u32 max_lm_per_display;
+
 	u32 qseed_type;
 	u32 csc_type;
 	u32 smart_dma_rev;
@@ -1055,6 +1080,14 @@ struct sde_mdss_cfg {
 	u32 macrotile_mode;
 	u32 pipe_order_type;
 	bool delay_prg_fetch_start;
+
+	bool sui_misr_supported;
+	u32 sui_block_xin_mask;
+
+	u32 sec_sid_mask_count;
+	u32 sec_sid_mask[MAX_BLOCKS];
+	u32 sui_ns_allowed;
+	u32 sui_supported_blendstage;
 
 	bool has_hdr;
 	u32 mdss_count;

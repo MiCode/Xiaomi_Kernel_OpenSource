@@ -35,20 +35,20 @@
 		reg = <0x177004 0x4>;
 		qcom,poll-cfg-gdscr;
 		status = "disabled";
-	;
+	};
 
-	usb20_sec_gdsc: qcom,gdsc@1A6004 {
+	usb20_sec_gdsc: qcom,gdsc@1a6004 {
 		compatible = "regulator-fixed";
 		regulator-name = "usb20_sec_gdsc";
-		reg = <0x1A6004 0x4>;
+		reg = <0x1a6004 0x4>;
 		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
-	usb30_prim_gdsc: qcom,gdsc@10F004 {
+	usb30_prim_gdsc: qcom,gdsc@10f004 {
 		compatible = "regulator-fixed";
 		regulator-name = "usb30_prim_gdsc";
-		reg = <0x10F004 0x4>;
+		reg = <0x10f004 0x4>;
 		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};

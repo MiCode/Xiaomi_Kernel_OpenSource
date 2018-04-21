@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,7 +226,7 @@ int stm_trace(uint32_t flags, uint8_t entity_id, uint8_t proto_id,
 	struct stm_drvdata *drvdata = stmdrvdata;
 
 	/* we don't support sizes more than 24bits (0 to 23) */
-	if (!(drvdata && drvdata->enable &&
+	if (!(drvdata && drvdata->enable && drvdata->master_enable &&
 	      test_bit(entity_id, drvdata->entities) && size &&
 	      (size < 0x1000000)))
 		return 0;

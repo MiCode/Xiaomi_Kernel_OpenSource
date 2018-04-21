@@ -1253,7 +1253,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -1699,51 +1699,95 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 
 };
 
-static struct msm_bus_vectors ipa_init_vectors_v3_0[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 0,
-		.ib = 0,
-	},
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-static struct msm_bus_vectors ipa_nominal_perf_vectors_v3_0[]  = {
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 100000000,
-		.ib = 1300000000,
-	},
-	{
-		.src = MSM_BUS_MASTER_IPA,
-		.dst = MSM_BUS_SLAVE_OCIMEM,
-		.ab = 100000000,
-		.ib = 1300000000,
-	},
-};
-
-static struct msm_bus_paths ipa_usecases_v3_0[]  = {
-	{
-		.num_paths = ARRAY_SIZE(ipa_init_vectors_v3_0),
-		.vectors = ipa_init_vectors_v3_0,
-	},
-	{
-		.num_paths = ARRAY_SIZE(ipa_nominal_perf_vectors_v3_0),
-		.vectors = ipa_nominal_perf_vectors_v3_0,
-	},
-};
-
-static struct msm_bus_scale_pdata ipa_bus_client_pdata_v3_0 = {
-	.usecase = ipa_usecases_v3_0,
-	.num_usecases = ARRAY_SIZE(ipa_usecases_v3_0),
-	.name = "ipa",
+static struct ipa3_mem_partition ipa_4_1_mem_part = {
+	.ofst_start			= 0x280,
+	.nat_ofst			= 0x0,
+	.nat_size			= 0x0,
+	.v4_flt_hash_ofst		= 0x288,
+	.v4_flt_hash_size		=  0x78,
+	.v4_flt_hash_size_ddr		= 0x4000,
+	.v4_flt_nhash_ofst		= 0x308,
+	.v4_flt_nhash_size		= 0x78,
+	.v4_flt_nhash_size_ddr		= 0x4000,
+	.v6_flt_hash_ofst		= 0x388,
+	.v6_flt_hash_size		= 0x78,
+	.v6_flt_hash_size_ddr		= 0x4000,
+	.v6_flt_nhash_ofst		= 0x408,
+	.v6_flt_nhash_size		= 0x78,
+	.v6_flt_nhash_size_ddr		= 0x4000,
+	.v4_rt_num_index		= 0xf,
+	.v4_modem_rt_index_lo		= 0x0,
+	.v4_modem_rt_index_hi		= 0x7,
+	.v4_apps_rt_index_lo		= 0x8,
+	.v4_apps_rt_index_hi		= 0xe,
+	.v4_rt_hash_ofst		= 0x488,
+	.v4_rt_hash_size		= 0x78,
+	.v4_rt_hash_size_ddr		= 0x4000,
+	.v4_rt_nhash_ofst		= 0x508,
+	.v4_rt_nhash_size		= 0x78,
+	.v4_rt_nhash_size_ddr		= 0x4000,
+	.v6_rt_num_index		= 0xf,
+	.v6_modem_rt_index_lo		= 0x0,
+	.v6_modem_rt_index_hi		= 0x7,
+	.v6_apps_rt_index_lo		= 0x8,
+	.v6_apps_rt_index_hi		= 0xe,
+	.v6_rt_hash_ofst		= 0x588,
+	.v6_rt_hash_size		= 0x78,
+	.v6_rt_hash_size_ddr		= 0x4000,
+	.v6_rt_nhash_ofst		= 0x608,
+	.v6_rt_nhash_size		= 0x78,
+	.v6_rt_nhash_size_ddr		= 0x4000,
+	.modem_hdr_ofst			= 0x688,
+	.modem_hdr_size			= 0x140,
+	.apps_hdr_ofst			= 0x7c8,
+	.apps_hdr_size			= 0x0,
+	.apps_hdr_size_ddr		= 0x800,
+	.modem_hdr_proc_ctx_ofst	= 0x7d0,
+	.modem_hdr_proc_ctx_size	= 0x200,
+	.apps_hdr_proc_ctx_ofst		= 0x9d0,
+	.apps_hdr_proc_ctx_size		= 0x200,
+	.apps_hdr_proc_ctx_size_ddr	= 0x0,
+	.modem_comp_decomp_ofst		= 0x0,
+	.modem_comp_decomp_size		= 0x0,
+	.modem_ofst			= 0x13f0,
+	.modem_size			= 0x100c,
+	.apps_v4_flt_hash_ofst		= 0x23fc,
+	.apps_v4_flt_hash_size		= 0x0,
+	.apps_v4_flt_nhash_ofst		= 0x23fc,
+	.apps_v4_flt_nhash_size		= 0x0,
+	.apps_v6_flt_hash_ofst		= 0x23fc,
+	.apps_v6_flt_hash_size		= 0x0,
+	.apps_v6_flt_nhash_ofst		= 0x23fc,
+	.apps_v6_flt_nhash_size		= 0x0,
+	.uc_info_ofst			= 0x80,
+	.uc_info_size			= 0x200,
+	.end_ofst			= 0x2800,
+	.apps_v4_rt_hash_ofst		= 0x23fc,
+	.apps_v4_rt_hash_size		= 0x0,
+	.apps_v4_rt_nhash_ofst		= 0x23fc,
+	.apps_v4_rt_nhash_size		= 0x0,
+	.apps_v6_rt_hash_ofst		= 0x23fc,
+	.apps_v6_rt_hash_size		= 0x0,
+	.apps_v6_rt_nhash_ofst		= 0x23fc,
+	.apps_v6_rt_nhash_size		= 0x0,
+	.uc_event_ring_ofst		= 0x2400,
+	.uc_event_ring_size		= 0x400,
+	.pdn_config_ofst		= 0xbd8,
+	.pdn_config_size		= 0x50,
+	.stats_quota_ofst		= 0xc30,
+	.stats_quota_size		= 0x60,
+	.stats_tethering_ofst		= 0xc90,
+	.stats_tethering_size		= 0x140,
+	.stats_flt_v4_ofst		= 0xdd0,
+	.stats_flt_v4_size		= 0x180,
+	.stats_flt_v6_ofst		= 0xf50,
+	.stats_flt_v6_size		= 0x180,
+	.stats_rt_v4_ofst		= 0x10d0,
+	.stats_rt_v4_size		= 0x180,
+	.stats_rt_v6_ofst		= 0x1250,
+	.stats_rt_v6_size		= 0x180,
+	.stats_drop_ofst		= 0x13d0,
+	.stats_drop_size		= 0x20,
 };
 
 /**
@@ -2194,6 +2238,49 @@ int ipa3_cfg_filter(u32 disable)
 }
 
 /**
+ * ipa_comp_cfg() - Configure QMB/Master port selection
+ *
+ * Returns:	None
+ */
+static void ipa_comp_cfg(void)
+{
+	struct ipahal_reg_comp_cfg comp_cfg;
+
+	/* IPAv4 specific, on NON-MHI config*/
+	if ((ipa3_ctx->ipa_hw_type == IPA_HW_v4_0) &&
+		(ipa3_ctx->ipa_config_is_mhi == false)) {
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("Before comp config\n");
+		IPADBG("ipa_qmb_select_by_address_global_en = %d\n",
+			comp_cfg.ipa_qmb_select_by_address_global_en);
+
+		IPADBG("ipa_qmb_select_by_address_prod_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_prod_en);
+
+		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_cons_en);
+
+		comp_cfg.ipa_qmb_select_by_address_global_en = false;
+		comp_cfg.ipa_qmb_select_by_address_prod_en = false;
+		comp_cfg.ipa_qmb_select_by_address_cons_en = false;
+
+		ipahal_write_reg_fields(IPA_COMP_CFG, &comp_cfg);
+
+		ipahal_read_reg_fields(IPA_COMP_CFG, &comp_cfg);
+		IPADBG("After comp config\n");
+		IPADBG("ipa_qmb_select_by_address_global_en = %d\n",
+			comp_cfg.ipa_qmb_select_by_address_global_en);
+
+		IPADBG("ipa_qmb_select_by_address_prod_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_prod_en);
+
+		IPADBG("ipa_qmb_select_by_address_cons_en = %d\n",
+				comp_cfg.ipa_qmb_select_by_address_cons_en);
+	}
+}
+
+/**
  * ipa3_cfg_qsb() - Configure IPA QSB maximal reads and writes
  *
  * Returns:	None
@@ -2277,6 +2364,8 @@ int ipa3_init_hw(void)
 	/* set granularity for 0.5 msec*/
 	cnt_cfg.aggr_granularity = GRAN_VALUE_500_USEC;
 	ipahal_write_reg_fields(IPA_COUNTER_CFG, &cnt_cfg);
+
+	ipa_comp_cfg();
 
 	return 0;
 }
@@ -3678,33 +3767,33 @@ int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary)
 }
 
 /**
- * ipa3_init_mem_partition() - Reads IPA memory map from DTS, performs alignment
- * checks and logs the fetched values.
+ * ipa3_init_mem_partition() - Assigns the static memory partition
+ * based on the IPA version
  *
  * Returns:	0 on success
  */
-int ipa3_init_mem_partition(struct device_node *node)
+int ipa3_init_mem_partition(enum ipa_hw_type type)
 {
-	const size_t ram_mmap_current_version_size =
-		sizeof(ipa3_ctx->ctrl->mem_partition) / sizeof(u32);
-	int result;
+	switch (type) {
+	case IPA_HW_v4_1:
+		ipa3_ctx->ctrl->mem_partition = &ipa_4_1_mem_part;
+		break;
 
-	memset(&ipa3_ctx->ctrl->mem_partition, 0,
-		sizeof(ipa3_ctx->ctrl->mem_partition));
-
-	IPADBG("Reading from DTS as u32 array\n");
-
-	/*
-	 * The size of ipa-ram-mmap array depends on the IPA version. The
-	 * actual size can't be assumed because of possible DTS versions
-	 * mismatch. The size of the array monotonically increasing because the
-	 * obsolete entries are set to zero rather than deleted, so the
-	 * possible sizes are in range
-	 *	[1, ram_mmap_current_version_size]
-	 */
-	result = of_property_read_variable_u32_array(node, "qcom,ipa-ram-mmap",
-		(u32 *)&ipa3_ctx->ctrl->mem_partition,
-		1, ram_mmap_current_version_size);
+	case IPA_HW_None:
+	case IPA_HW_v1_0:
+	case IPA_HW_v1_1:
+	case IPA_HW_v2_0:
+	case IPA_HW_v2_1:
+	case IPA_HW_v2_5:
+	case IPA_HW_v2_6L:
+	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
+	case IPA_HW_v3_5:
+	case IPA_HW_v3_5_1:
+	case IPA_HW_v4_0:
+		IPAERR("unsupported version %d\n", type);
+		return -EPERM;
+	}
 
 	if (IPA_MEM_PART(uc_event_ring_ofst) & 1023) {
 		IPAERR("UC EVENT RING OFST 0x%x is unaligned\n",
@@ -3980,7 +4069,6 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->ipa3_commit_hdr = __ipa_commit_hdr_v3_0;
 	ctrl->ipa3_enable_clks = _ipa_enable_clks_v3_0;
 	ctrl->ipa3_disable_clks = _ipa_disable_clks_v3_0;
-	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v3_0;
 	ctrl->clock_scaling_bw_threshold_svs =
 		IPA_V3_0_BW_THRESHOLD_SVS_MBPS;
 	ctrl->clock_scaling_bw_threshold_nominal =
@@ -4063,6 +4151,9 @@ static void ipa3_tag_free_skb(void *user1, int user2)
 }
 
 #define REQUIRED_TAG_PROCESS_DESCRIPTORS 4
+#define MAX_RETRY_ALLOC 10
+#define ALLOC_MIN_SLEEP_RX 100000
+#define ALLOC_MAX_SLEEP_RX 200000
 
 /* ipa3_tag_process() - Initiates a tag process. Incorporates the input
  * descriptors
@@ -4090,6 +4181,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	int res;
 	struct ipa3_tag_completion *comp;
 	int ep_idx;
+	u32 retry_cnt = 0;
 
 	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
@@ -4195,10 +4287,22 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	tag_desc[desc_idx].callback = ipa3_tag_free_skb;
 	tag_desc[desc_idx].user1 = dummy_skb;
 	desc_idx++;
-
+retry_alloc:
 	/* send all descriptors to IPA with single EOT */
 	res = ipa3_send(sys, desc_idx, tag_desc, true);
 	if (res) {
+		if (res == -ENOMEM) {
+			if (retry_cnt < MAX_RETRY_ALLOC) {
+				IPADBG(
+				"failed to alloc memory retry cnt = %d\n",
+					retry_cnt);
+				retry_cnt++;
+				usleep_range(ALLOC_MIN_SLEEP_RX,
+					ALLOC_MAX_SLEEP_RX);
+				goto retry_alloc;
+			}
+
+		}
 		IPAERR("failed to send TAG packets %d\n", res);
 		res = -ENOMEM;
 		goto fail_free_skb;

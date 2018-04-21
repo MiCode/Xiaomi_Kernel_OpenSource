@@ -83,6 +83,17 @@
 #define LINE_LM_OFFSET			5
 #define LINE_MODE_WB_OFFSET		2
 
+/**
+ * these configurations are decided based on max mdp clock. It accounts
+ * for max and min display resolution based on virtual hardware resource
+ * support.
+ */
+#define MAX_DISPLAY_HEIGHT_WITH_DECIMATION		2160
+#define MAX_DISPLAY_HEIGHT				5120
+#define MIN_DISPLAY_HEIGHT				0
+#define MIN_DISPLAY_WIDTH				0
+#define MAX_LM_PER_DISPLAY				2
+
 /* maximum XIN halt timeout in usec */
 #define VBIF_XIN_HALT_TIMEOUT		0x4000
 
@@ -156,6 +167,7 @@ enum sde_prop {
 	MACROTILE_MODE,
 	UBWC_BW_CALC_VERSION,
 	PIPE_ORDER_VERSION,
+	SEC_SID_MASK,
 	SDE_PROP_MAX,
 };
 
@@ -431,6 +443,7 @@ static struct sde_prop_type sde_prop[] = {
 			PROP_TYPE_U32},
 	{PIPE_ORDER_VERSION, "qcom,sde-pipe-order-version", false,
 			PROP_TYPE_U32},
+	{SEC_SID_MASK, "qcom,sde-secure-sid-mask", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -2850,7 +2863,7 @@ end:
 
 static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 {
-	int rc, dma_rc, len, prop_count[SDE_PROP_MAX];
+	int rc, i, dma_rc, len, prop_count[SDE_PROP_MAX];
 	struct sde_prop_value *prop_value = NULL;
 	bool prop_exists[SDE_PROP_MAX];
 	const char *type;
@@ -2871,6 +2884,11 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 
 	rc = _validate_dt_entry(np, sde_prop, ARRAY_SIZE(sde_prop), prop_count,
 		&len);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &sde_prop[SEC_SID_MASK], 1,
+				&prop_count[SEC_SID_MASK], NULL);
 	if (rc)
 		goto end;
 
@@ -2948,6 +2966,13 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	major_version = SDE_HW_MAJOR(cfg->hwversion);
 	if (major_version < SDE_HW_MAJOR(SDE_HW_VER_500))
 		set_bit(SDE_MDP_VSYNC_SEL, &cfg->mdp[0].features);
+
+	if (prop_exists[SEC_SID_MASK]) {
+		cfg->sec_sid_mask_count = prop_count[SEC_SID_MASK];
+		for (i = 0; i < cfg->sec_sid_mask_count; i++)
+			cfg->sec_sid_mask[i] =
+				PROP_VALUE_ACCESS(prop_value, SEC_SID_MASK, i);
+	}
 
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "qseedv3")) {
@@ -3487,7 +3512,7 @@ end:
 	return rc;
 }
 
-static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
+static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 {
 	int rc = 0;
 
@@ -3511,18 +3536,69 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
-	} else if (IS_SDM855_TARGET(hw_rev)) {
+	} else if (IS_SM8150_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
 		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->sui_ns_allowed = true;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
 		rc = -ENODEV;
 	}
+
+	return rc;
+}
+
+static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
+	uint32_t hw_rev)
+{
+	int rc = 0, i;
+	u32 max_horz_deci = 0, max_vert_deci = 0;
+
+	if (!sde_cfg)
+		return -EINVAL;
+
+	for (i = 0; i < sde_cfg->sspp_count; i++) {
+		if (sde_cfg->sspp[i].sblk) {
+			max_horz_deci = max(max_horz_deci,
+				sde_cfg->sspp[i].sblk->maxhdeciexp);
+			max_vert_deci = max(max_vert_deci,
+				sde_cfg->sspp[i].sblk->maxvdeciexp);
+		}
+
+		/*
+		 * set sec-ui blocked SSPP feature flag based on blocked
+		 * xin-mask if sec-ui-misr feature is enabled;
+		 */
+		if (sde_cfg->sui_misr_supported
+				&& (sde_cfg->sui_block_xin_mask
+					& BIT(sde_cfg->sspp[i].xin_id)))
+			set_bit(SDE_SSPP_BLOCK_SEC_UI,
+					&sde_cfg->sspp[i].features);
+	}
+
+	/* this should be updated based on HW rev in future */
+	sde_cfg->max_lm_per_display = MAX_LM_PER_DISPLAY;
+
+	if (max_horz_deci)
+		sde_cfg->max_display_width = sde_cfg->max_sspp_linewidth *
+			max_horz_deci;
+	else
+		sde_cfg->max_display_width = sde_cfg->max_mixer_width *
+			sde_cfg->max_lm_per_display;
+
+	if (max_vert_deci)
+		sde_cfg->max_display_height =
+			MAX_DISPLAY_HEIGHT_WITH_DECIMATION * max_vert_deci;
+	else
+		sde_cfg->max_display_height = MAX_DISPLAY_HEIGHT;
+
+	sde_cfg->min_display_height = MIN_DISPLAY_HEIGHT;
+	sde_cfg->min_display_width = MIN_DISPLAY_WIDTH;
 
 	return rc;
 }
@@ -3586,7 +3662,7 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 
 	sde_cfg->hwversion = hw_rev;
 
-	rc = _sde_hardware_caps(sde_cfg, hw_rev);
+	rc = _sde_hardware_pre_caps(sde_cfg, hw_rev);
 	if (rc)
 		goto end;
 
@@ -3659,6 +3735,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_parse_merge_3d_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = _sde_hardware_post_caps(sde_cfg, hw_rev);
 	if (rc)
 		goto end;
 

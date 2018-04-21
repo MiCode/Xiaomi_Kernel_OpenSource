@@ -13,7 +13,8 @@ First Level Node - CSIPHY device
 - compatible
   Usage: required
   Value type: <string>
-  Definition: Should be "qcom,csiphy-v1.0", "qcom,csiphy".
+  Definition: Should be "qcom,csiphy-v1.0",
+	"qcom,csiphy-v1.1", "qcom,csiphy".
 
 - cell-index: csiphy hardware core index
   Usage: required

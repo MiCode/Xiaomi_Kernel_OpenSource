@@ -321,6 +321,30 @@ static int dsi_panel_gpio_release(struct dsi_panel *panel)
 	return rc;
 }
 
+int dsi_panel_trigger_esd_attack(struct dsi_panel *panel)
+{
+	struct dsi_panel_reset_config *r_config;
+
+	if (!panel) {
+		pr_err("Invalid panel param\n");
+		return -EINVAL;
+	}
+
+	r_config = &panel->reset_config;
+	if (!r_config) {
+		pr_err("Invalid panel reset configuration\n");
+		return -EINVAL;
+	}
+
+	if (gpio_is_valid(r_config->reset_gpio)) {
+		gpio_set_value(r_config->reset_gpio, 0);
+		pr_info("GPIO pulled low to simulate ESD\n");
+		return 0;
+	}
+	pr_err("failed to pull down gpio\n");
+	return -EINVAL;
+}
+
 static int dsi_panel_reset(struct dsi_panel *panel)
 {
 	int rc = 0;

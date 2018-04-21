@@ -48,50 +48,6 @@ enum sde_crtc_client_type {
 };
 
 /**
- * enum sde_crtc_smmu_state:	smmu state
- * @ATTACHED:	 all the context banks are attached.
- * @DETACHED:	 all the context banks are detached.
- * @DETACHED_SEC:	 secure context bank is detached.
- * @ATTACH_ALL_REQ:	 transient state of attaching context banks.
- * @DETACH_ALL_REQ:	 transient state of detaching context banks.
- * @DETACH_SEC_REQ:	 tranisent state of secure context bank is detached
- * @ATTACH_SEC_REQ:	 transient state of attaching secure context bank.
- */
-enum sde_crtc_smmu_state {
-	ATTACHED = 0,
-	DETACHED,
-	DETACHED_SEC,
-	ATTACH_ALL_REQ,
-	DETACH_ALL_REQ,
-	DETACH_SEC_REQ,
-	ATTACH_SEC_REQ,
-};
-
-/**
- * enum sde_crtc_smmu_state_transition_type: state transition type
- * @NONE: no pending state transitions
- * @PRE_COMMIT: state transitions should be done before processing the commit
- * @POST_COMMIT: state transitions to be done after processing the commit.
- */
-enum sde_crtc_smmu_state_transition_type {
-	NONE,
-	PRE_COMMIT,
-	POST_COMMIT
-};
-
-/**
- * struct sde_crtc_smmu_state_data: stores the smmu state and transition type
- * @state: current state of smmu context banks
- * @transition_type: transition request type
- * @transition_error: whether there is error while transitioning the state
- */
-struct sde_crtc_smmu_state_data {
-	uint32_t state;
-	uint32_t transition_type;
-	uint32_t transition_error;
-};
-
-/**
  * @connectors    : Currently associated drm connectors for retire event
  * @num_connectors: Number of associated drm connectors for retire event
  * @list:	event list
@@ -296,8 +252,6 @@ struct sde_crtc {
 	struct mutex rp_lock;
 	struct list_head rp_head;
 
-	struct sde_crtc_smmu_state_data smmu_state;
-
 	/* blob for histogram data */
 	struct drm_property_blob *hist_blob;
 };
@@ -499,6 +453,19 @@ static inline int sde_crtc_get_mixer_height(struct sde_crtc *sde_crtc,
 
 	return (cstate->num_ds_enabled ?
 			cstate->ds_cfg[0].lm_height : mode->vdisplay);
+}
+
+/**
+ * sde_crtc_get_rotator_op_mode - get the rotator op mode from the crtc state
+ * @crtc: Pointer to drm crtc object
+ */
+static inline enum sde_ctl_rot_op_mode sde_crtc_get_rotator_op_mode(
+		struct drm_crtc *crtc)
+{
+	if (!crtc || !crtc->state)
+		return SDE_CTL_ROT_OP_MODE_OFFLINE;
+
+	return to_sde_crtc_state(crtc->state)->sbuf_cfg.rot_op_mode;
 }
 
 /**
@@ -780,5 +747,13 @@ void sde_crtc_update_cont_splash_mixer_settings(
  * Returns: Filtered sbuf clock setting from user space
  */
 uint64_t sde_crtc_get_sbuf_clk(struct drm_crtc_state *state);
+
+/**
+ * sde_crtc_misr_setup - to configure and enable/disable MISR
+ * @crtc: Pointer to drm crtc structure
+ * @enable: boolean to indicate enable/disable misr
+ * @frame_count: frame_count to be configured
+ */
+void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count);
 
 #endif /* _SDE_CRTC_H_ */

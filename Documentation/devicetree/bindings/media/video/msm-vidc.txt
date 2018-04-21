@@ -6,7 +6,7 @@ Venus
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
-        - "qcom,sdm855-vidc" : Invokes driver specific data for SDM855.
+        - "qcom,sm8150-vidc" : Invokes driver specific data for SM8150.
         - "qcom,sdm845-vidc" : Invokes driver specific data for SDM845.
         - "qcom,sdm670-vidc" : Invokes driver specific data for SDM670.
 
@@ -137,6 +137,13 @@ Optional properties:
 - qcom,ubwc-10bit : UBWC 10 bit content has different bus requirements,
   this tag will be used to pick the appropriate bus as per the session profile
   as shown below in example.
+
+Memory Heaps
+============
+Required properties:
+- compatible : one of:
+	- "qcom,msm-vidc,mem-adsp"
+- memory-region : phandle to the memory heap/region.
 
 Example:
 

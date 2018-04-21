@@ -1135,6 +1135,7 @@ static int qseecom_dmabuf_cache_operations(struct dma_buf *dmabuf,
 	case QSEECOM_CACHE_CLEAN:
 		dma_buf_begin_cpu_access(dmabuf, DMA_TO_DEVICE);
 		dma_buf_end_cpu_access(dmabuf, DMA_TO_DEVICE);
+		break;
 	case QSEECOM_CACHE_INVALIDATE:
 		dma_buf_begin_cpu_access(dmabuf, DMA_TO_DEVICE);
 		dma_buf_end_cpu_access(dmabuf, DMA_FROM_DEVICE);
@@ -1166,7 +1167,7 @@ static int qseecom_dmabuf_map(int ion_fd, struct sg_table **sgt,
 	}
 
 	new_attach = dma_buf_attach(new_dma_buf, qseecom.dev);
-	if (IS_ERR(attach)) {
+	if (IS_ERR(new_attach)) {
 		pr_err("dma_buf_attach() for ion_fd %d failed\n", ion_fd);
 		ret = -ENOMEM;
 		goto err_put;
@@ -1238,6 +1239,7 @@ static int qseecom_vaddr_map(int ion_fd,
 	return ret;
 
 err_unmap:
+	dma_buf_end_cpu_access(new_dma_buf, DMA_BIDIRECTIONAL);
 	qseecom_dmabuf_unmap(new_sgt, new_attach, new_dma_buf);
 err:
 	return ret;
@@ -3563,12 +3565,14 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			}
 		}
 		/* Deallocate the kbuf */
-		if (!IS_ERR(sg_ptr))
-			qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
+		qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
+		sg_ptr = NULL;
+		dmabuf = NULL;
+		attach = NULL;
 	}
 	return ret;
 err:
-	if (!IS_ERR(sg_ptr))
+	if (!IS_ERR_OR_NULL(sg_ptr))
 		qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
 	return -ENOMEM;
 }
@@ -3792,8 +3796,10 @@ cleanup:
 			}
 		}
 		/* unmap the dmabuf */
-		if (!IS_ERR(sg_ptr))
-			qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
+		qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
+		sg_ptr = NULL;
+		dmabuf = NULL;
+		attach = NULL;
 	}
 	return ret;
 err:
@@ -3804,7 +3810,7 @@ err:
 				data->client.sec_buf_fd[i].size,
 				data->client.sec_buf_fd[i].vbase,
 				data->client.sec_buf_fd[i].pbase);
-	if (!IS_ERR(sg_ptr))
+	if (!IS_ERR_OR_NULL(sg_ptr))
 		qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
 	return -ENOMEM;
 }
@@ -6558,12 +6564,14 @@ clean:
 			data->sglist_cnt = i + 1;
 		}
 		/* unmap the dmabuf */
-		if (!IS_ERR(sg_ptr))
-			qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
+		qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
+		sg_ptr = NULL;
+		dmabuf = NULL;
+		attach = NULL;
 	}
 	return ret;
 err:
-	if (!IS_ERR(sg_ptr))
+	if (!IS_ERR_OR_NULL(sg_ptr))
 		qseecom_dmabuf_unmap(sg_ptr, attach, dmabuf);
 	return -ENOMEM;
 }
@@ -8555,6 +8563,12 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.commonlib64_loaded = false;
 	qseecom.pdev = class_dev;
 	qseecom.dev = &pdev->dev;
+
+	rc = dma_set_mask(qseecom.dev, DMA_BIT_MASK(64));
+	if (rc) {
+		pr_err("qseecom failed to set dma mask\n", rc);
+		goto exit_del_cdev;
+	}
 
 	/* register client for bus scaling */
 	if (pdev->dev.of_node) {

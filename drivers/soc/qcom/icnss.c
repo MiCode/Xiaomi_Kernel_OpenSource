@@ -37,6 +37,7 @@
 #include <linux/uaccess.h>
 #include <linux/etherdevice.h>
 #include <linux/of_gpio.h>
+#include <linux/soc/qcom/qmi.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/secure_buffer.h>
@@ -116,7 +117,7 @@ struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
 };
 
 static struct icnss_vreg_info icnss_vreg_info[] = {
-	{NULL, "vdd-0.8-cx-mx", 800000, 800000, 0, 0, false},
+	{NULL, "vdd-cx-mx", 752000, 752000, 0, 0, false},
 	{NULL, "vdd-1.8-xo", 1800000, 1800000, 0, 0, false},
 	{NULL, "vdd-1.3-rfa", 1304000, 1304000, 0, 0, false},
 	{NULL, "vdd-3.3-ch0", 3312000, 3312000, 0, 0, false},
@@ -689,7 +690,7 @@ static int icnss_driver_event_server_arrive(void *data)
 	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
 	clear_bit(ICNSS_FW_DOWN, &penv->state);
 
-	ret = icnss_connect_to_fw_server(penv);
+	ret = icnss_connect_to_fw_server(penv, data);
 	if (ret)
 		goto fail;
 
@@ -749,7 +750,7 @@ fail:
 
 static int icnss_driver_event_server_exit(void *data)
 {
-	if (!penv || !penv->wlfw_clnt)
+	if (!penv)
 		return -ENODEV;
 
 	icnss_pr_info("WLAN FW Service Disconnected: 0x%lx\n", penv->state);

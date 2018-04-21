@@ -115,6 +115,7 @@ struct cam_ois_ctrl_t {
 	struct cam_hw_soc_info soc_info;
 	struct camera_io_master io_master_info;
 	enum cci_i2c_master_t cci_i2c_master;
+	enum cci_device_num cci_num;
 	struct cam_subdev v4l2_dev_str;
 	struct cam_ois_intf_params bridge_intf;
 	struct i2c_settings_array i2c_init_data;

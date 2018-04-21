@@ -479,54 +479,6 @@ static int free_dma_mem(struct msm_smem *mem)
 	return rc;
 }
 
-int msm_smem_cache_operations(struct dma_buf *dbuf,
-	unsigned long offset, unsigned long size,
-	enum smem_cache_ops cache_op)
-{
-	int rc = 0;
-	unsigned long flags = 0;
-	int msm_cache_ops = 0;
-
-	if (!dbuf) {
-		dprintk(VIDC_ERR, "%s: NULL dma_buf\n", __func__);
-		return -EINVAL;
-	}
-
-	/* Identify the get flags & offset based cache operation */
-	rc = dma_buf_get_flags(dbuf, &flags);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to get dma buf flags: %d\n", rc);
-		goto exit;
-	}
-	if (!(flags & ION_FLAG_CACHED))
-		goto exit;
-
-	/* Partial clean of dma buf api is in progress */
-	switch (cache_op) {
-	case SMEM_CACHE_CLEAN:
-	case SMEM_CACHE_INVALIDATE:
-	case SMEM_CACHE_CLEAN_INVALIDATE:
-		dma_buf_begin_cpu_access(dbuf, DMA_BIDIRECTIONAL);
-		dma_buf_end_cpu_access(dbuf, DMA_BIDIRECTIONAL);
-		break;
-	default:
-		dprintk(VIDC_ERR,
-			"%s: cache (%d) operation not supported\n",
-			 __func__, cache_op);
-		rc = -EINVAL;
-		goto exit;
-	}
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"%s: cache operation failed dma_buf %pK, %d, offset %lu, size %lu, msm_cache_ops %u\n",
-			__func__, rc, dbuf, offset, size, msm_cache_ops);
-		goto exit;
-	}
-
-exit:
-	return rc;
-}
-
 int msm_smem_alloc(size_t size, u32 align, u32 flags,
 	enum hal_buffer buffer_type, int map_kernel,
 	void *res, u32 session_type, struct msm_smem *smem)

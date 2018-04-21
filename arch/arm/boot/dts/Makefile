@@ -1069,6 +1069,15 @@ dtb-$(CONFIG_ARCH_ZX) += zx296702-ad1.dtb
 dtb-$(CONFIG_ARCH_ASPEED) += aspeed-bmc-opp-palmetto.dtb \
 	aspeed-bmc-opp-romulus.dtb \
 	aspeed-ast2500-evb.dtb
+DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
+ifneq ($(DTB_NAMES),)
+DTB_LIST := $(addsuffix .dtb,$(DTB_NAMES))
+else
+DTB_LIST := $(dtb-y)
+endif
+
+targets += dtbs dtbs_install
+targets += $(DTB_LIST)
 endif
 
 dtstree		:= $(srctree)/$(src)
@@ -1084,5 +1093,10 @@ endif
 targets += dtbs dtbs_install
 targets += $(DTB_LIST)
 
+ifeq ($(CONFIG_ARM64),y)
 always		:= $(DTB_LIST)
+else
+dtbs: $(addprefix $(obj)/, $(DTB_LIST))
+	$(Q)rm -f $(obj)/../*.dtb
+endif
 clean-files	:= *.dtb

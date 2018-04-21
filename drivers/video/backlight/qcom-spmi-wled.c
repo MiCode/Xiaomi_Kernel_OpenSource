@@ -38,6 +38,7 @@
 #define  WLED_CTRL_ILIM_FAULT_BIT	BIT(0)
 #define  WLED_CTRL_OVP_FAULT_BIT	BIT(1)
 #define  WLED_CTRL_SC_FAULT_BIT		BIT(2)
+#define  WLED5_CTRL_OVP_PRE_ALARM_BIT	BIT(4)
 
 #define WLED_CTRL_INT_RT_STS		0x10
 #define  WLED_CTRL_OVP_FLT_RT_STS_BIT	BIT(1)
@@ -106,6 +107,12 @@ static const int version_table[] = {
 	[1] = WLED_PM660L,
 	[2] = WLED_PM855L,
 };
+
+/* WLED5 specific control registers */
+#define WLED5_CTRL_OVP_INT_CTL_REG	0x5f
+#define  WLED5_OVP_INT_N_MASK		GENMASK(6, 4)
+#define  WLED5_OVP_INT_N_SHIFT		4
+#define  WLED5_OVP_INT_TIMER_MASK	GENMASK(2, 0)
 
 /* WLED5 specific sink registers */
 #define WLED5_SINK_MOD_A_EN_REG		0x50
@@ -497,13 +504,75 @@ static int wled4_cabc_config(struct wled *wled, bool enable)
 	return 0;
 }
 
+static int wled_get_ovp_fault_status(struct wled *wled, bool *fault_set)
+{
+	int rc;
+	u32 int_rt_sts, fault_sts;
+
+	*fault_set = false;
+	rc = regmap_read(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_INT_RT_STS,
+			&int_rt_sts);
+	if (rc < 0) {
+		pr_err("Failed to read INT_RT_STS rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = regmap_read(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_FAULT_STATUS,
+			&fault_sts);
+	if (rc < 0) {
+		pr_err("Failed to read FAULT_STATUS rc=%d\n", rc);
+		return rc;
+	}
+
+	if (int_rt_sts & WLED_CTRL_OVP_FLT_RT_STS_BIT)
+		*fault_set = true;
+
+	if (is_wled4(wled) && (fault_sts & WLED_CTRL_OVP_FAULT_BIT))
+		*fault_set = true;
+	else if (is_wled5(wled) && (fault_sts & (WLED_CTRL_OVP_FAULT_BIT |
+					WLED5_CTRL_OVP_PRE_ALARM_BIT)))
+		*fault_set = true;
+
+	if (*fault_set)
+		pr_debug("WLED OVP fault detected, int_rt_sts=0x%x fault_sts=0x%x\n",
+			int_rt_sts, fault_sts);
+
+	return rc;
+}
+
+static void wled_get_ovp_delay(struct wled *wled, int *delay_time_us)
+{
+	int rc;
+	u32 val;
+	u8 ovp_timer_ms[8] = {1, 2, 4, 8, 12, 16, 20, 24};
+
+	if (is_wled4(wled)) {
+		*delay_time_us = WLED_SOFT_START_DLY_US;
+		return;
+	}
+
+	/* For WLED5, get the delay based on OVP timer */
+	rc = regmap_read(wled->regmap, wled->ctrl_addr +
+		WLED5_CTRL_OVP_INT_CTL_REG, &val);
+	if (!rc)
+		*delay_time_us =
+			ovp_timer_ms[val & WLED5_OVP_INT_TIMER_MASK] * 1000;
+	else
+		*delay_time_us = 2 * WLED_SOFT_START_DLY_US;
+
+	pr_debug("delay_time_us: %d\n", *delay_time_us);
+}
+
 #define AUTO_CALIB_BRIGHTNESS		200
 static int wled_auto_calibrate(struct wled *wled)
 {
-	int rc = 0, i;
-	u32 sink_config = 0, int_sts;
+	int rc = 0, i, delay_time_us;
+	u32 sink_config = 0;
 	u8 reg = 0, sink_test = 0, sink_valid = 0;
 	u8 string_cfg = wled->cfg.string_cfg;
+	bool fault_set;
 
 	if (wled->auto_calib_done)
 		return 0;
@@ -577,17 +646,19 @@ static int wled_auto_calibrate(struct wled *wled)
 			goto failed_calib;
 		}
 
-		usleep_range(WLED_SOFT_START_DLY_US,
-			     WLED_SOFT_START_DLY_US + 1000);
+		wled_get_ovp_delay(wled, &delay_time_us);
+		if (delay_time_us < 20000)
+			usleep_range(delay_time_us, delay_time_us + 1000);
+		else
+			msleep(delay_time_us / 1000);
 
-		rc = regmap_read(wled->regmap, wled->ctrl_addr +
-				 WLED_CTRL_INT_RT_STS, &int_sts);
+		rc = wled_get_ovp_fault_status(wled, &fault_set);
 		if (rc < 0) {
-			pr_err("Error in reading WLED_INT_RT_STS rc=%d\n", rc);
+			pr_err("Error in getting OVP fault_sts, rc=%d\n", rc);
 			goto failed_calib;
 		}
 
-		if (int_sts & WLED_CTRL_OVP_FAULT_BIT)
+		if (fault_set)
 			pr_debug("WLED OVP fault detected with SINK %d\n",
 						i + 1);
 		else
@@ -700,7 +771,29 @@ static bool wled_auto_cal_required(struct wled *wled)
 	if (!wled->auto_calibration_ovp_count) {
 		wled->start_ovp_fault_time = ktime_get();
 		wled->auto_calibration_ovp_count++;
-	} else {
+		return false;
+	}
+
+	if (is_wled5(wled)) {
+		/*
+		 * WLED5 has OVP fault density interrupt configuration i.e. to
+		 * count the number of OVP alarms for a certain duration before
+		 * triggering OVP fault interrupt. By default, number of OVP
+		 * fault events counted before an interrupt is fired is 32 and
+		 * the time interval is 12 ms. If we see more than one OVP fault
+		 * interrupt, then that should qualify for a real OVP fault
+		 * condition to run auto calibration algorithm.
+		 */
+
+		if (wled->auto_calibration_ovp_count > 1) {
+			elapsed_time_us = ktime_us_delta(ktime_get(),
+					wled->start_ovp_fault_time);
+			wled->auto_calibration_ovp_count = 0;
+			pr_debug("Elapsed time: %lld us\n", elapsed_time_us);
+			return true;
+		}
+		wled->auto_calibration_ovp_count++;
+	} else if (is_wled4(wled)) {
 		elapsed_time_us = ktime_us_delta(ktime_get(),
 				wled->start_ovp_fault_time);
 		if (elapsed_time_us > WLED_AUTO_CAL_CNT_DLY_US)
@@ -721,29 +814,20 @@ static bool wled_auto_cal_required(struct wled *wled)
 static int wled_auto_calibrate_at_init(struct wled *wled)
 {
 	int rc;
-	u32 fault_status = 0, rt_status = 0;
+	bool fault_set;
 
 	if (!wled->cfg.auto_calib_enabled)
 		return 0;
 
-	rc = regmap_read(wled->regmap,
-			wled->ctrl_addr + WLED_CTRL_INT_RT_STS,
-			&rt_status);
-	if (rc < 0)
-		pr_err("Failed to read RT status rc=%d\n", rc);
+	rc = wled_get_ovp_fault_status(wled, &fault_set);
+	if (rc < 0) {
+		pr_err("Error in getting OVP fault_sts, rc=%d\n", rc);
+		return rc;
+	}
 
-	rc = regmap_read(wled->regmap,
-			wled->ctrl_addr + WLED_CTRL_FAULT_STATUS,
-			&fault_status);
-	if (rc < 0)
-		pr_err("Failed to read fault status rc=%d\n", rc);
-
-	if ((rt_status & WLED_CTRL_OVP_FLT_RT_STS_BIT) ||
-			(fault_status & WLED_CTRL_OVP_FAULT_BIT)) {
+	if (fault_set) {
 		mutex_lock(&wled->lock);
 		rc = wled_auto_calibrate(wled);
-		if (!rc)
-			wled->auto_calib_done = true;
 		mutex_unlock(&wled->lock);
 	}
 
@@ -752,10 +836,23 @@ static int wled_auto_calibrate_at_init(struct wled *wled)
 
 static void handle_ovp_fault(struct wled *wled)
 {
+	int rc;
+
 	if (!wled->cfg.auto_calib_enabled)
 		return;
 
 	mutex_lock(&wled->lock);
+	if (wled->auto_calib_done) {
+		pr_warn("Disabling module since OVP persists\n");
+		rc = regmap_update_bits(wled->regmap,
+				wled->ctrl_addr + WLED_CTRL_MOD_ENABLE,
+				WLED_CTRL_MOD_EN_MASK, 0);
+		if (!rc)
+			wled->force_mod_disable = true;
+		mutex_unlock(&wled->lock);
+		return;
+	}
+
 	if (wled->ovp_irq > 0 && !wled->ovp_irq_disabled) {
 		disable_irq_nosync(wled->ovp_irq);
 		wled->ovp_irq_disabled = true;
@@ -775,28 +872,15 @@ static irqreturn_t wled_ovp_irq_handler(int irq, void *_wled)
 {
 	struct wled *wled = _wled;
 	int rc;
-	u32 int_sts, fault_sts;
+	bool fault_set;
 
-	rc = regmap_read(wled->regmap,
-			wled->ctrl_addr + WLED_CTRL_INT_RT_STS, &int_sts);
+	rc = wled_get_ovp_fault_status(wled, &fault_set);
 	if (rc < 0) {
-		pr_err("Error in reading WLED_INT_RT_STS rc=%d\n", rc);
-		return IRQ_HANDLED;
+		pr_err("Error in getting OVP fault_sts, rc=%d\n", rc);
+		return rc;
 	}
 
-	rc = regmap_read(wled->regmap, wled->ctrl_addr +
-			WLED_CTRL_FAULT_STATUS, &fault_sts);
-	if (rc < 0) {
-		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
-		return IRQ_HANDLED;
-	}
-
-	if (fault_sts &
-		(WLED_CTRL_OVP_FAULT_BIT | WLED_CTRL_ILIM_FAULT_BIT))
-		pr_err("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
-			int_sts, fault_sts);
-
-	if (fault_sts & WLED_CTRL_OVP_FAULT_BIT)
+	if (fault_set)
 		handle_ovp_fault(wled);
 
 	return IRQ_HANDLED;

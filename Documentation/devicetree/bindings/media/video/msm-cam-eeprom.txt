@@ -104,6 +104,12 @@ First Level Node - CAM EEPROM device
   Value type: <u32>
   Definition: should contain the mount angle of the camera sensor.
 
+- cci-device
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c device id to be used for this camera
+	sensor
+
 - cci-master
   Usage: required
   Value type: <u32>
@@ -161,6 +167,7 @@ Example:
 			"CAM_STANDBY";
 		sensor-position = <0>;
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
@@ -388,6 +395,12 @@ First Level Node - CAM EEPROM device
   Value type: <u32>
   Definition: should contain the mount angle of the camera sensor.
 
+- cci-device
+  Usage: required
+  Value type: <u32>
+  Definition: should contain i2c device id to be used for this camera
+	sensor
+
 - cci-master
   Usage: required
   Value type: <u32>
@@ -480,6 +493,7 @@ Example:
 			"CAM_STANDBY";
 		sensor-position = <0>;
 		sensor-mode = <0>;
+		cci-device = <0>;
 		cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;

@@ -378,6 +378,10 @@ fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 {
 }
 
+static inline u64 sched_irqload(int cpu)
+{
+	return 0;
+}
 #endif /* CONFIG_SCHED_WALT */
 
 #endif

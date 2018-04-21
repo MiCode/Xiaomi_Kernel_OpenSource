@@ -143,6 +143,10 @@ struct subcache_set {
 	u32 count;
 };
 
+struct msm_vidc_mem_adsp {
+	struct device *dev;
+};
+
 struct msm_vidc_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
@@ -191,6 +195,7 @@ struct msm_vidc_platform_resources {
 	struct msm_vidc_codec_data *codec_data;
 	int codec_data_count;
 	struct msm_vidc_csc_coeff *csc_coeff_data;
+	struct msm_vidc_mem_adsp mem_adsp;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)

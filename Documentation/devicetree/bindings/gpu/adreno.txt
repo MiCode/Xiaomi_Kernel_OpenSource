@@ -130,6 +130,13 @@ Optional Properties:
 				mask   - mask for the relevant bits in the efuse register.
 				shift  - number of bits to right shift to get the disable_gpu
 				fuse bit value.
+
+- qcom,soc-hw-rev-efuse:	SOC hardware revision fuse information in the format
+				<offset bit_position mask>
+				offset - offset of the efuse register from the base.
+				bit_position - hardware revision starting bit in the efuse register.
+				mask - mask for the relevant bits in the efuse register.
+
 - qcom,highest-bank-bit:
 				Specify the bit of the highest DDR bank. This
 				is programmed into protected registers and also
@@ -200,6 +207,9 @@ GPU Quirks:
 - qcom,gpu-quirk-limit-uche-gbif-rw:
 				Limit number of read and write transactions from UCHE block to
 				GBIF to avoid possible deadlock between GBIF, SMMU and MEMNOC.
+- qcom,gpu-quirk-mmu-secure-cb-alt:
+				Select alternate secure context bank to generate SID1 for
+				secure playback.
 
 KGSL Memory Pools:
 - qcom,gpu-mempools:		Container for sets of GPU mempools.Multiple sets
@@ -230,7 +240,7 @@ Properties:
 		Defines a SOC hardware revision.
 
 Properties:
-- reg:
+-  qcom,soc-hw-revision:
 		Identifier for the hardware revision - must match the value read
 		from the hardware.
 - qcom,chipid:

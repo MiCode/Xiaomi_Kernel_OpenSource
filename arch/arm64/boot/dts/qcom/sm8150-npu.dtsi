@@ -1,0 +1,33 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	msm_npu: qcom,msm_npu {
+		compatible = "qcom,msm-npu";
+		status = "ok";
+		reg = <0x9800000 0x800000>;
+		reg-names = "npu_base";
+		interrupts = <0 346 0>;
+		clocks = <&clock_npucc NPU_CC_XO_CLK>,
+					<&clock_npucc NPU_CC_NPU_CORE_CLK>,
+					<&clock_npucc NPU_CC_CAL_DP_CLK>,
+					<&clock_npucc NPU_CC_ARMWIC_CORE_CLK>,
+					<&clock_npucc NPU_CC_COMP_NOC_AXI_CLK>,
+					<&clock_npucc NPU_CC_CONF_NOC_AHB_CLK>;
+		clock-names = "xo", "core", "cal_dp", "armwic",
+						"axi", "ahb";
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,proxy-reg-names ="vdd", "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+	};
+};

@@ -36,6 +36,7 @@
 #define CSI_3PHASE_HW                               1
 #define CSIPHY_VERSION_V35                        0x35
 #define CSIPHY_VERSION_V10                        0x10
+#define CSIPHY_VERSION_V11                        0x11
 
 /**
  * @csiphy_dev: CSIPhy device structure

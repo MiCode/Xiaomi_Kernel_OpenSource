@@ -31,7 +31,7 @@
 #include <linux/sched.h>
 #include <linux/cpufreq.h>
 #include <linux/slab.h>
-#include <dt-bindings/clock/qcom,cpucc-sdm855.h>
+#include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 
 #include "common.h"
 #include "clk-regmap.h"
@@ -1073,11 +1073,13 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = clk_osm_read_lut(pdev, &perfpcl_clk);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to read OSM LUT for perf plus cluster, rc=%d\n",
-			rc);
-		return rc;
+	if (!is_sdmshrike) {
+		rc = clk_osm_read_lut(pdev, &perfpcl_clk);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to read OSM LUT for perf plus cluster, rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	spin_lock_init(&l3_clk.lock);

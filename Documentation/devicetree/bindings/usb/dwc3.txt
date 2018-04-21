@@ -48,6 +48,8 @@ Optional properties:
 			from P0 to P1/P2/P3 without delay.
  - snps,dis-tx-ipgap-linecheck-quirk: when set, disable u2mac linestate check
 			during HS transmit.
+ - snps,ssp-u3-u0-quirk: when set, core always changes PHY power state
+                        to P2, before attempting a U3 exit handshake.
  - snps,is-utmi-l1-suspend: true when DWC3 asserts output signal
 			utmi_l1_suspend_n, false when asserts utmi_sleep_n
  - snps,hird-threshold: HIRD threshold
@@ -61,6 +63,7 @@ Optional properties:
  - usb-core-id: Differentiates between different controllers present on a device.
  - snps,bus-suspend-enable: If present then controller supports low power mode
 	during bus suspend.
+ - snps,usb3-u1u2-disable: If present, disable U1U2 low power modes in Superspeed mode
 
  - in addition all properties from usb-xhci.txt from the current directory are
    supported as well

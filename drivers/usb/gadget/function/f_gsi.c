@@ -2551,6 +2551,10 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 	struct rndis_params *params;
 	int status;
+	__u8  class;
+	__u8  subclass;
+	__u8  proto;
+
 
 	if (gsi->prot_id == IPA_USB_RMNET ||
 		gsi->prot_id == IPA_USB_DIAG)
@@ -2632,6 +2636,85 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 					DEFAULT_PKT_ALIGNMENT_FACTOR);
 		rndis_set_pkt_alignment_factor(gsi->params,
 					DEFAULT_PKT_ALIGNMENT_FACTOR);
+
+		/* Windows7/Windows10 automatically loads RNDIS drivers for
+		 * class drivers which represents MISC_ACTIVE_SYNC,
+		 * MISC_RNDIS_OVER_ETHERNET & WIRELESS_CONTROLLER_REMOTE_NDIS.
+		 * All the codes listed below are from
+		 * http://www.usb.org/developers/defined_class and its unknown
+		 * why windows loads rndis class driver for some of them.
+		 * Note that, Windows loads NDIS6 stack automatically for
+		 * MISC_RNDIS_OVER_ETHERNET. Windows loads NDIS5 stack for
+		 * MISC_ACTIVE_SYNC and WIRELESS_CONTROLLER_REMOTE_NDIS.
+		 * For other class codes, NDIS stack can be selected using
+		 * customized INF file but that defeats the purpose as its
+		 * expected to load drivers automatically for known class
+		 * drivers published by usbif.
+		 * Linux rndis host driver supports MISC_ACTIVE_SYNC and
+		 * WIRELESS_CONTROLLER_REMOTE_NDIS as of now.
+		 * Default to rndis over ethernet which loads NDIS6 drivers
+		 * for windows7/windows10 to avoid data stall issues
+		 */
+		if (gsi->rndis_id == RNDIS_ID_UNKNOWN)
+			gsi->rndis_id = MISC_RNDIS_OVER_ETHERNET;
+
+		switch (gsi->rndis_id) {
+		default:
+			/* fall throug */
+		case WIRELESS_CONTROLLER_REMOTE_NDIS:
+			class = USB_CLASS_WIRELESS_CONTROLLER;
+			subclass = 0x01;
+			proto = 0x03;
+			break;
+		case MISC_ACTIVE_SYNC:
+			class = USB_CLASS_MISC;
+			subclass = 0x01;
+			proto = 0x01;
+			break;
+		case MISC_RNDIS_OVER_ETHERNET:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x01;
+			break;
+		case MISC_RNDIS_OVER_WIFI:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x02;
+			break;
+		case MISC_RNDIS_OVER_WIMAX:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x03;
+			break;
+		case MISC_RNDIS_OVER_WWAN:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x04;
+			break;
+		case MISC_RNDIS_FOR_IPV4:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x05;
+			break;
+		case MISC_RNDIS_FOR_IPV6:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x06;
+			break;
+		case MISC_RNDIS_FOR_GPRS:
+			class = USB_CLASS_MISC;
+			subclass = 0x04;
+			proto = 0x07;
+			break;
+		}
+
+		info.iad_desc->bFunctionClass = class;
+		info.iad_desc->bFunctionSubClass = subclass;
+		info.iad_desc->bFunctionProtocol = proto;
+		info.ctrl_desc->bInterfaceClass = class;
+		info.ctrl_desc->bInterfaceSubClass = subclass;
+		info.ctrl_desc->bInterfaceProtocol = proto;
+
 		break;
 	case IPA_USB_MBIM:
 		info.string_defs = mbim_gsi_string_defs;
@@ -3130,6 +3213,43 @@ static struct config_item_type gsi_func_type = {
 	.ct_owner	= THIS_MODULE,
 };
 
+static ssize_t gsi_rndis_class_id_show(struct config_item *item, char *page)
+{
+	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
+
+	return snprintf(page, PAGE_SIZE, "%d\n", gsi->rndis_id);
+}
+
+static ssize_t gsi_rndis_class_id_store(struct config_item *item,
+			const char *page, size_t len)
+{
+	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
+	u8 id;
+
+	if (kstrtou8(page, 0, &id))
+		return -EINVAL;
+
+	if (id > RNDIS_ID_UNKNOWN && id < RNDIS_ID_MAX)
+		gsi->rndis_id = id;
+	else
+		return -EINVAL;
+
+	return len;
+}
+CONFIGFS_ATTR(gsi_, rndis_class_id);
+
+static struct configfs_attribute *gsi_rndis_attrs[] = {
+	&gsi_attr_info,
+	&gsi_attr_rndis_class_id,
+	NULL,
+};
+
+static struct config_item_type gsi_func_rndis_type = {
+	.ct_item_ops	= &gsi_item_ops,
+	.ct_attrs	= gsi_rndis_attrs,
+	.ct_owner	= THIS_MODULE,
+};
+
 static void gsi_inst_clean(struct gsi_opts *opts)
 {
 	if (opts->gsi->c_port.cdev.dev) {
@@ -3177,6 +3297,10 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 		return -EBUSY;
 	}
 	mutex_unlock(&inst_status[prot_id].gsi_lock);
+
+	if (prot_id == IPA_USB_RNDIS)
+		config_group_init_type_name(&opts->func_inst.group, "",
+					    &gsi_func_rndis_type);
 
 	gsi = gsi_function_init(prot_id);
 	if (IS_ERR(gsi))

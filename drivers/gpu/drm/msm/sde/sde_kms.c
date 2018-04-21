@@ -46,8 +46,15 @@
 #include "sde_crtc.h"
 #include "sde_reg_dma.h"
 
+#include <soc/qcom/scm.h>
+#include "soc/qcom/secure_buffer.h"
+
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"
+
+/* defines for secure channel call */
+#define MEM_PROTECT_SD_CTRL_SWITCH 0x18
+#define MDP_DEVICE_ID            0x1A
 
 static const char * const iommu_ports[] = {
 		"mdp_0",
@@ -402,6 +409,297 @@ static void sde_kms_wait_for_frame_transfer_complete(struct msm_kms *kms,
 	}
 }
 
+static int _sde_kms_secure_ctrl_xin_clients(struct sde_kms *sde_kms,
+			struct drm_crtc *crtc, bool enable)
+{
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	struct sde_mdss_cfg *sde_cfg;
+	struct drm_plane *plane;
+	int i, ret;
+
+	dev = sde_kms->dev;
+	priv = dev->dev_private;
+	sde_cfg = sde_kms->catalog;
+
+	ret = sde_vbif_halt_xin_mask(sde_kms,
+			sde_cfg->sui_block_xin_mask, enable);
+	if (ret) {
+		SDE_ERROR("failed to halt some xin-clients, ret:%d\n", ret);
+		return ret;
+	}
+
+	if (enable) {
+		for (i = 0; i < priv->num_planes; i++) {
+			plane = priv->planes[i];
+			sde_plane_secure_ctrl_xin_client(plane, crtc);
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * _sde_kms_scm_call - makes secure channel call to switch the VMIDs
+ * @sde_kms: Pointer to sde_kms struct
+ * @vimd: switch the stage 2 translation to this VMID
+ */
+static int _sde_kms_scm_call(struct sde_kms *sde_kms, int vmid)
+{
+	struct scm_desc desc = {0};
+	uint32_t num_sids;
+	uint32_t *sec_sid;
+	uint32_t mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_SWITCH;
+	struct sde_mdss_cfg *sde_cfg = sde_kms->catalog;
+	int ret = 0, i;
+
+	num_sids = sde_cfg->sec_sid_mask_count;
+	if (!num_sids) {
+		SDE_ERROR("secure SID masks not configured, vmid 0x%x\n", vmid);
+		return -EINVAL;
+	}
+
+	sec_sid = kcalloc(num_sids, sizeof(uint32_t), GFP_KERNEL);
+	if (!sec_sid)
+		return -ENOMEM;
+
+	for (i = 0; i < num_sids; i++) {
+		sec_sid[i] = sde_cfg->sec_sid_mask[i];
+		SDE_DEBUG("sid_mask[%d]: %d\n", i, sec_sid[i]);
+	}
+	dmac_flush_range(sec_sid, sec_sid + num_sids);
+
+	SDE_DEBUG("calling scm_call for vmid 0x%x, num_sids %d",
+				vmid, num_sids);
+
+	desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
+	desc.args[0] = MDP_DEVICE_ID;
+	desc.args[1] = SCM_BUFFER_PHYS(sec_sid);
+	desc.args[2] = sizeof(uint32_t) * num_sids;
+	desc.args[3] =  vmid;
+
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				mem_protect_sd_ctrl_id), &desc);
+	if (ret)
+		SDE_ERROR("Error:scm_call2, vmid %lld, ret%d\n",
+				desc.args[3], ret);
+	SDE_EVT32(mem_protect_sd_ctrl_id,
+			desc.args[0], desc.args[3], num_sids,
+			sec_sid[0], sec_sid[1], ret);
+
+	kfree(sec_sid);
+	return ret;
+}
+
+static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms, u32 vmid)
+{
+	u32 ret = 0;
+
+	if (atomic_inc_return(&sde_kms->detach_all_cb) > 1)
+		goto end;
+
+	/* detach_all_contexts */
+	ret = sde_kms_mmu_detach(sde_kms, false);
+	if (ret) {
+		SDE_ERROR("failed to detach all cb ret:%d\n", ret);
+		goto end;
+	}
+
+	ret = _sde_kms_scm_call(sde_kms, vmid);
+	if (ret)
+		goto end;
+
+end:
+	return ret;
+}
+
+static int _sde_kms_attach_all_cb(struct sde_kms *sde_kms, int vmid)
+{
+	u32 ret = 0;
+
+	if (atomic_dec_return(&sde_kms->detach_all_cb) != 0)
+		goto end;
+
+	ret = _sde_kms_scm_call(sde_kms, vmid);
+	if (ret)
+		goto end;
+
+	/* attach_all_contexts */
+	ret = sde_kms_mmu_attach(sde_kms, false);
+	if (ret) {
+		SDE_ERROR("failed to attach all cb ret:%d\n", ret);
+		goto end;
+	}
+
+end:
+	return ret;
+}
+
+static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms, int vmid)
+{
+	u32 ret = 0;
+
+	if (atomic_inc_return(&sde_kms->detach_sec_cb) > 1)
+		goto end;
+
+	/* detach secure_context */
+	ret = sde_kms_mmu_detach(sde_kms, true);
+	if (ret) {
+		SDE_ERROR("failed to detach sec cb ret:%d\n", ret);
+		goto end;
+	}
+
+	ret = _sde_kms_scm_call(sde_kms, vmid);
+	if (ret)
+		goto end;
+
+end:
+	return ret;
+}
+
+static int _sde_kms_attach_sec_cb(struct sde_kms *sde_kms, int vmid)
+{
+	u32 ret = 0;
+
+	if (atomic_dec_return(&sde_kms->detach_sec_cb) != 0)
+		goto end;
+
+	ret = _sde_kms_scm_call(sde_kms, vmid);
+	if (ret)
+		goto end;
+
+	ret = sde_kms_mmu_attach(sde_kms, true);
+	if (ret) {
+		SDE_ERROR("failed to attach sec cb ret:%d\n", ret);
+		goto end;
+	}
+
+end:
+	return ret;
+}
+
+static int _sde_kms_sui_misr_ctrl(struct sde_kms *sde_kms,
+		struct drm_crtc *crtc, bool enable)
+{
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	int ret;
+
+	if (enable) {
+		ret = sde_power_resource_enable(&priv->phandle,
+					sde_kms->core_client, true);
+		if (ret) {
+			SDE_ERROR("failed to enable resource, ret:%d\n", ret);
+			return ret;
+		}
+
+		sde_crtc_misr_setup(crtc, true, 1);
+
+		ret = _sde_kms_secure_ctrl_xin_clients(sde_kms, crtc, true);
+		if (ret) {
+			sde_power_resource_enable(&priv->phandle,
+					sde_kms->core_client, false);
+			return ret;
+		}
+
+	} else {
+		_sde_kms_secure_ctrl_xin_clients(sde_kms, crtc, false);
+		sde_crtc_misr_setup(crtc, false, 0);
+		sde_power_resource_enable(&priv->phandle,
+					sde_kms->core_client, false);
+	}
+
+	return 0;
+}
+
+static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
+		bool post_commit)
+{
+	struct sde_kms_smmu_state_data *smmu_state = &sde_kms->smmu_state;
+	int old_smmu_state = smmu_state->state;
+	int ret = 0;
+	u32 vmid;
+
+	if (!sde_kms || !crtc) {
+		SDE_ERROR("invalid argument(s)\n");
+		return -EINVAL;
+	}
+
+	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
+			post_commit, smmu_state->sui_misr_state,
+			smmu_state->secure_level, SDE_EVTLOG_FUNC_ENTRY);
+
+	if ((!smmu_state->transition_type) ||
+	    ((smmu_state->transition_type == POST_COMMIT) && !post_commit))
+		/* Bail out */
+		return 0;
+
+	/* enable sui misr if requested, before the transition */
+	if (smmu_state->sui_misr_state == SUI_MISR_ENABLE_REQ) {
+		ret = _sde_kms_sui_misr_ctrl(sde_kms, crtc, true);
+		if (ret)
+			goto end;
+	}
+
+	mutex_lock(&sde_kms->secure_transition_lock);
+	switch (smmu_state->state) {
+	case DETACH_ALL_REQ:
+		ret = _sde_kms_detach_all_cb(sde_kms, VMID_CP_SEC_DISPLAY);
+		if (!ret)
+			smmu_state->state = DETACHED;
+		break;
+
+	case ATTACH_ALL_REQ:
+		ret = _sde_kms_attach_all_cb(sde_kms, VMID_CP_PIXEL);
+		if (!ret)
+			smmu_state->state = ATTACHED;
+		break;
+
+	case DETACH_SEC_REQ:
+		vmid = (smmu_state->secure_level == SDE_DRM_SEC_ONLY) ?
+				VMID_CP_SEC_DISPLAY : VMID_CP_CAMERA_PREVIEW;
+
+		ret = _sde_kms_detach_sec_cb(sde_kms, vmid);
+		if (!ret)
+			smmu_state->state = DETACHED_SEC;
+		break;
+
+	case ATTACH_SEC_REQ:
+		ret = _sde_kms_attach_sec_cb(sde_kms, VMID_CP_PIXEL);
+		if (!ret)
+			smmu_state->state = ATTACHED;
+		break;
+
+	default:
+		SDE_ERROR("crtc%d: invalid smmu state %d transition type %d\n",
+			DRMID(crtc), smmu_state->state,
+			smmu_state->transition_type);
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&sde_kms->secure_transition_lock);
+
+	/* disable sui misr if requested, after the transition */
+	if (!ret && (smmu_state->sui_misr_state == SUI_MISR_DISABLE_REQ)) {
+		ret = _sde_kms_sui_misr_ctrl(sde_kms, crtc, false);
+		if (ret)
+			goto end;
+	}
+
+end:
+	smmu_state->sui_misr_state = NONE;
+	smmu_state->transition_type = NONE;
+	smmu_state->transition_error = ret ? true : false;
+
+	SDE_DEBUG("crtc %d: old_state %d, new_state %d, ret %d\n",
+			DRMID(crtc), old_smmu_state, smmu_state->state, ret);
+	SDE_EVT32(DRMID(crtc), smmu_state->state, smmu_state->transition_type,
+			smmu_state->transition_error, smmu_state->secure_level,
+			smmu_state->sui_misr_state, ret, SDE_EVTLOG_FUNC_EXIT);
+
+	return ret;
+}
+
 static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
@@ -466,9 +764,9 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 			SDE_DEBUG("cleanup planes\n");
 			drm_atomic_helper_cleanup_planes(dev, state);
 		}
-		if (ops & SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE) {
+		if (ops & SDE_KMS_OPS_SECURE_STATE_CHANGE) {
 			SDE_DEBUG("secure ctrl\n");
-			sde_crtc_secure_ctrl(crtc, false);
+			_sde_kms_secure_ctrl(sde_kms, crtc, false);
 		}
 		if (ops & SDE_KMS_OPS_PREPARE_PLANE_FB) {
 			SDE_DEBUG("prepare planes %d",
@@ -614,9 +912,6 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		}
 	}
 
-	if (sde_kms->splash_data.smmu_handoff_pending)
-		sde_kms->splash_data.smmu_handoff_pending = false;
-
 	/*
 	 * NOTE: for secure use cases we want to apply the new HW
 	 * configuration only after completing preparation for secure
@@ -650,6 +945,62 @@ static void sde_kms_commit(struct msm_kms *kms,
 	}
 }
 
+static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
+		struct drm_atomic_state *old_state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	bool primary_crtc_active = false;
+	struct msm_drm_private *priv;
+	int i, rc = 0;
+
+	priv = sde_kms->dev->dev_private;
+
+	if (!sde_kms->splash_data.resource_handoff_pending)
+		return;
+
+	SDE_EVT32(SDE_EVTLOG_FUNC_CASE1);
+	for_each_crtc_in_state(old_state, crtc, crtc_state, i) {
+		if (crtc->state->active)
+			primary_crtc_active = true;
+		SDE_EVT32(crtc->base.id, crtc->state->active);
+	}
+
+	if (!primary_crtc_active) {
+		SDE_EVT32(SDE_EVTLOG_FUNC_CASE2);
+		return;
+	}
+
+	sde_kms->splash_data.resource_handoff_pending = false;
+
+	if (sde_kms->splash_data.cont_splash_en) {
+		SDE_DEBUG("disabling cont_splash feature\n");
+		sde_kms->splash_data.cont_splash_en = false;
+
+		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
+			sde_power_data_bus_set_quota(&priv->phandle,
+				sde_kms->core_client,
+				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
+				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+
+		sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+			false);
+	}
+
+	if (sde_kms->splash_data.splash_base) {
+		_sde_kms_splash_smmu_unmap(sde_kms);
+
+		rc = _sde_kms_release_splash_buffer(
+			sde_kms->splash_data.splash_base,
+			sde_kms->splash_data.splash_size);
+		if (rc)
+			pr_err("failed to release splash memory\n");
+		sde_kms->splash_data.splash_base = 0;
+		sde_kms->splash_data.splash_size = 0;
+	}
+}
+
 static void sde_kms_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *old_state)
 {
@@ -674,8 +1025,13 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 		return;
 	}
 
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
+	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		sde_crtc_complete_commit(crtc, old_crtc_state);
+
+		/* complete secure transitions if any */
+		if (sde_kms->smmu_state.transition_type == POST_COMMIT)
+			_sde_kms_secure_ctrl(sde_kms, crtc, true);
+	}
 
 	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
 		struct sde_connector *c_conn;
@@ -692,39 +1048,9 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
+	_sde_kms_release_splash_resource(sde_kms, old_state);
+
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
-
-	if (sde_kms->splash_data.cont_splash_en) {
-		/* Releasing splash resources as we have first frame update */
-		rc = _sde_kms_splash_smmu_unmap(sde_kms);
-		SDE_DEBUG("Disabling cont_splash feature\n");
-		sde_kms->splash_data.cont_splash_en = false;
-
-		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
-			sde_power_data_bus_set_quota(&priv->phandle,
-				sde_kms->core_client,
-				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
-				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
-				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
-
-		sde_power_resource_enable(&priv->phandle,
-				sde_kms->core_client, false);
-		SDE_DEBUG("removing Vote for MDP Resources\n");
-	}
-
-	/*
-	 * Even for continuous splash disabled cases we have to release
-	 * splash memory reservation back to system after first frame update.
-	 */
-	if (sde_kms->splash_data.splash_base) {
-		rc = _sde_kms_release_splash_buffer(
-				sde_kms->splash_data.splash_base,
-				sde_kms->splash_data.splash_size);
-		if (rc)
-			pr_err("Failed to release splash memory\n");
-		sde_kms->splash_data.splash_base = 0;
-		sde_kms->splash_data.splash_size = 0;
-	}
 }
 
 static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
@@ -2329,8 +2655,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		 * address. To facilitate this requirement we need to have a
 		 * one to one mapping on SMMU until we have our first frame.
 		 */
-		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
-			sde_kms->splash_data.smmu_handoff_pending) {
+		if (i == MSM_SMMU_DOMAIN_UNSECURE) {
 			ret = mmu->funcs->set_attribute(mmu,
 				DOMAIN_ATTR_EARLY_MAP,
 				&early_map);
@@ -2359,27 +2684,27 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		}
 		aspace->domain_attached = true;
 		early_map = 0;
+
 		/* Mapping splash memory block */
 		if ((i == MSM_SMMU_DOMAIN_UNSECURE) &&
-			sde_kms->splash_data.smmu_handoff_pending) {
+				sde_kms->splash_data.splash_base) {
 			ret = _sde_kms_splash_smmu_map(sde_kms->dev, mmu,
 					&sde_kms->splash_data);
 			if (ret) {
 				SDE_ERROR("failed to map ret:%d\n", ret);
 				goto fail;
 			}
-			/*
-			 * Turning off early map after generating one to one
-			 * mapping for splash address space.
-			 */
-			ret = mmu->funcs->set_attribute(mmu,
-				DOMAIN_ATTR_EARLY_MAP,
-				&early_map);
-			if (ret) {
-				SDE_ERROR("failed to set map att ret:%d\n",
-									ret);
-				goto early_map_fail;
-			}
+		}
+
+		/*
+		 * Turning off early map after generating one to one
+		 * mapping for splash address space.
+		 */
+		ret = mmu->funcs->set_attribute(mmu, DOMAIN_ATTR_EARLY_MAP,
+			&early_map);
+		if (ret) {
+			SDE_ERROR("failed to set map att ret:%d\n", ret);
+			goto early_map_fail;
 		}
 	}
 
@@ -2642,6 +2967,22 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
+	sde_kms->splash_data.resource_handoff_pending = true;
+
+	rc = _sde_kms_mmu_init(sde_kms);
+	if (rc) {
+		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
+		goto power_error;
+	}
+
+	/* Initialize reg dma block which is a singleton */
+	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
+			sde_kms->dev);
+	if (rc) {
+		SDE_ERROR("failed: reg dma init failed\n");
+		goto power_error;
+	}
+
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
 	rm = &sde_kms->rm;
@@ -2670,27 +3011,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		sde_rm_cont_splash_res_init(priv, &sde_kms->rm,
 					&sde_kms->splash_data,
 					sde_kms->catalog);
-
-	/*
-	 * SMMU handoff is necessary for continuous splash enabled
-	 * scenario.
-	 */
-	if (sde_kms->splash_data.cont_splash_en)
-		sde_kms->splash_data.smmu_handoff_pending = true;
-
-	/* Initialize reg dma block which is a singleton */
-	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
-			sde_kms->dev);
-	if (rc) {
-		SDE_ERROR("failed: reg dma init failed\n");
-		goto power_error;
-	}
-
-	rc = _sde_kms_mmu_init(sde_kms);
-	if (rc) {
-		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
-		goto power_error;
-	}
 
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
@@ -2734,15 +3054,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto drm_obj_init_err;
 	}
 
-	dev->mode_config.min_width = 0;
-	dev->mode_config.min_height = 0;
+	dev->mode_config.min_width = sde_kms->catalog->min_display_width;
+	dev->mode_config.min_height = sde_kms->catalog->min_display_height;
+	dev->mode_config.max_width = sde_kms->catalog->max_display_width;
+	dev->mode_config.max_height = sde_kms->catalog->max_display_height;
 
-	/*
-	 * max crtc width is equal to the max mixer width * 2 and max height is
-	 * is 4K
-	 */
-	dev->mode_config.max_width = sde_kms->catalog->max_mixer_width * 2;
-	dev->mode_config.max_height = 4096;
+	mutex_init(&sde_kms->secure_transition_lock);
+	atomic_set(&sde_kms->detach_sec_cb, 0);
+	atomic_set(&sde_kms->detach_all_cb, 0);
 
 	/*
 	 * Support format modifiers for compression etc.

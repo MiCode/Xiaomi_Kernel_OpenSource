@@ -83,6 +83,10 @@ do { \
 	sigs &= 0x0fff; \
 } while (0)
 
+#define GLINK_PKT_IOCTL_MAGIC (0xC3)
+
+#define GLINK_PKT_IOCTL_QUEUE_RX_INTENT \
+	_IOW(GLINK_PKT_IOCTL_MAGIC, 0, unsigned int)
 
 #define MODULE_NAME "glink_pkt"
 static dev_t glink_pkt_major;
@@ -348,9 +352,7 @@ ssize_t glink_pkt_read(struct file *file, char __user *buf,
 
 	if (!completion_done(&gpdev->ch_open)) {
 		GLINK_PKT_ERR("%s channel in reset\n", gpdev->ch_name);
-		mutex_unlock(&gpdev->lock);
 		return -ENETRESET;
-
 	}
 
 	GLINK_PKT_INFO("begin for %s by %s:%ld ref_cnt[%d]\n",
@@ -588,9 +590,10 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 	case TIOCMBIC:
 		ret = glink_pkt_tiocmset(gpdev, cmd, arg);
 		break;
-	/*
-	 * Need to add support later any intent requirements.
-	 */
+	case GLINK_PKT_IOCTL_QUEUE_RX_INTENT:
+		/* Return success to not break userspace client logic */
+		ret = 0;
+		break;
 	default:
 		GLINK_PKT_ERR("unrecognized ioctl command 0x%x\n", cmd);
 		ret = -ENOIOCTLCMD;

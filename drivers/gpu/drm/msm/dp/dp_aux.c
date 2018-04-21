@@ -497,7 +497,8 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 				msg->size);
 			aux->aux_error_num = DP_AUX_ERR_NONE;
 		} else {
-			memset(msg->buffer, 0, msg->size);
+			memcpy(aux->dpcd + msg->address, msg->buffer,
+				msg->size);
 		}
 	} else {
 		if (aux->read && msg->address == 0x50) {
@@ -509,6 +510,9 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 
 	if (aux->aux_error_num == DP_AUX_ERR_NONE) {
 		dp_aux_hex_dump(drm_aux, msg);
+
+		if (!aux->read)
+			memset(msg->buffer, 0, msg->size);
 
 		msg->reply = aux->native ?
 			DP_AUX_NATIVE_REPLY_ACK : DP_AUX_I2C_REPLY_ACK;

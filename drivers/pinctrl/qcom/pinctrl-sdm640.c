@@ -53,6 +53,8 @@
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = (base == EAST) ? base + 0x9f000 : \
+			((base == WEST) ? base + 0xa6000 : base + 0xa2000), \
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -67,6 +69,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,		\
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
@@ -1555,6 +1558,76 @@ static const struct msm_pingroup sdm640_groups[] = {
 	[130] = UFS_RESET(ufs_reset, 0x9f000),
 };
 
+static struct msm_dir_conn sdm640_dir_conn[] = {
+	{1, 525},
+	{3, 511},
+	{7, 535},
+	{9, 625},
+	{11, 514},
+	{13, 513},
+	{14, 515},
+	{17, 526},
+	{19, 528},
+	{21, 563},
+	{22, 516},
+	{35, 517},
+	{39, 633},
+	{26, 518},
+	{41, 527},
+	{47, 529},
+	{48, 531},
+	{50, 532},
+	{51, 631},
+	{55, 536},
+	{56, 537},
+	{57, 538},
+	{60, 540},
+	{71, 534},
+	{80, 553},
+	{81, 544},
+	{82, 530},
+	{83, 545},
+	{84, 572},
+	{85, 614},
+	{86, 547},
+	{87, 564},
+	{88, 632},
+	{89, 630},
+	{90, 549},
+	{92, 568},
+	{93, 555},
+	{94, 571},
+	{95, 552},
+	{96, 562},
+	{97, 554},
+	{98, 609},
+	{99, 610},
+	{100, 615},
+	{101, 520},
+	{102, 573},
+	{103, 557},
+	{104, 558},
+	{105, 611},
+	{107, 612},
+	{108, 626},
+	{112, 627},
+	{113, 628},
+	{117, 565},
+	{118, 617},
+	{119, 567},
+	{120, 629},
+	{121, 569},
+	{122, 570},
+	{0, 216},
+	{0, 215},
+	{0, 214},
+	{0, 213},
+	{0, 212},
+	{0, 211},
+	{0, 210},
+	{0, 209},
+};
+
 static const struct msm_pinctrl_soc_data sdm640_pinctrl = {
 	.pins = sdm640_pins,
 	.npins = ARRAY_SIZE(sdm640_pins),
@@ -1563,6 +1636,9 @@ static const struct msm_pinctrl_soc_data sdm640_pinctrl = {
 	.groups = sdm640_groups,
 	.ngroups = ARRAY_SIZE(sdm640_groups),
 	.ngpios = 123,
+	.dir_conn = sdm640_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(sdm640_dir_conn),
+	.dir_conn_irq_base = 216,
 };
 
 static int sdm640_pinctrl_probe(struct platform_device *pdev)

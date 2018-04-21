@@ -3122,7 +3122,6 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		struct sde_ctl_flush_cfg *extra_flush)
 {
 	struct sde_hw_ctl *ctl;
-	int pending_kickoff_cnt;
 	unsigned long lock_flags;
 	struct sde_encoder_virt *sde_enc;
 
@@ -3156,8 +3155,6 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	/* update pending counts and trigger kickoff ctl flush atomically */
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
 
-	pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
-
 	if (phys->ops.is_master && phys->ops.is_master(phys))
 		atomic_inc(&phys->pending_retire_fence_cnt);
 
@@ -3174,12 +3171,11 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 
 		ctl->ops.get_pending_flush(ctl, &pending_flush);
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-				pending_kickoff_cnt, ctl->idx - CTL_0,
+				ctl->idx - CTL_0,
 				pending_flush.pending_flush_mask);
 	} else {
 		SDE_EVT32(DRMID(drm_enc), phys->intf_idx - INTF_0,
-				ctl->idx - CTL_0,
-				pending_kickoff_cnt);
+				ctl->idx - CTL_0);
 	}
 }
 
@@ -3190,6 +3186,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 {
 	struct sde_hw_ctl *ctl;
+	struct sde_encoder_virt *sde_enc;
 
 	if (!phys) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -3201,14 +3198,31 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 		return;
 	}
 
+	if (!phys->parent) {
+		SDE_ERROR("invalid parent\n");
+		return;
+	}
+
 	ctl = phys->hw_ctl;
+	sde_enc = to_sde_encoder_virt(phys->parent);
+
 	if (phys->split_role == ENC_ROLE_SKIP) {
-		SDE_DEBUG_ENC(to_sde_encoder_virt(phys->parent),
+		SDE_DEBUG_ENC(sde_enc,
 				"skip start pp%d ctl%d\n",
 				phys->hw_pp->idx - PINGPONG_0,
 				ctl->idx - CTL_0);
 		return;
 	}
+
+	/* Start rotator before CTL_START for async inline mode */
+	if (sde_crtc_get_rotator_op_mode(sde_enc->crtc) ==
+			SDE_CTL_ROT_OP_MODE_INLINE_ASYNC &&
+			ctl->ops.trigger_rot_start) {
+		SDE_DEBUG_ENC(sde_enc, "trigger rotator start ctl%d\n",
+				ctl->idx - CTL_0);
+		ctl->ops.trigger_rot_start(ctl);
+	}
+
 	if (phys->ops.trigger_start && phys->enable_state != SDE_ENC_DISABLED)
 		phys->ops.trigger_start(phys);
 }
@@ -3341,6 +3355,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	struct sde_hw_ctl *ctl;
 	uint32_t i;
 	struct sde_ctl_flush_cfg pending_flush = {0,};
+	u32 pending_kickoff_cnt;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -3384,8 +3399,12 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 		if (!phys->ops.needs_single_flush ||
 				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
-		else if (ctl->ops.get_pending_flush)
+		else if (ctl->ops.get_pending_flush) {
+			pending_kickoff_cnt =
+				sde_encoder_phys_inc_pending(phys);
 			ctl->ops.get_pending_flush(ctl, &pending_flush);
+			SDE_EVT32(pending_kickoff_cnt);
+		}
 	}
 
 	/* for split flush, combine pending flush masks and send to master */
@@ -4374,6 +4393,9 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 
 	debugfs_create_file("misr_data", 0600,
 		sde_enc->debugfs_root, sde_enc, &debugfs_misr_fops);
+
+	debugfs_create_bool("idle_power_collapse", 0600, sde_enc->debugfs_root,
+			&sde_enc->idle_pc_supported);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++)
 		if (sde_enc->phys_encs[i] &&
