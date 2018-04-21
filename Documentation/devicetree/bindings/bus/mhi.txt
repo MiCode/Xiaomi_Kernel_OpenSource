@@ -22,8 +22,10 @@ Main node properties:
 	2nd element: Transfer ring length in elements
 	3rd element: Event ring associated with this channel
 	4th element: Channel direction as defined by enum dma_data_direction
+		0 = Bidirectional data transfer
 		1 = UL data transfer
 		2 = DL data transfer
+		3 = No direction, not a regular data transfer channel
 	5th element: Channel doorbell mode configuration as defined by
 	enum MHI_BRSTMODE
 		2 = burst mode disabled

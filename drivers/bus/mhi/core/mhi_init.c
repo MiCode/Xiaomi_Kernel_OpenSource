@@ -616,7 +616,19 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 	struct mhi_chan_ctxt *ch_ctxt;
 	int er_index, chan;
 
-	mhi_chan = (dir == DMA_TO_DEVICE) ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+	switch (dir) {
+	case DMA_TO_DEVICE:
+		mhi_chan = mhi_dev->ul_chan;
+		break;
+	case DMA_BIDIRECTIONAL:
+	case DMA_FROM_DEVICE:
+	case DMA_NONE:
+		mhi_chan = mhi_dev->dl_chan;
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	er_index = mhi_chan->er_index;
 	chan = mhi_chan->chan;
 
@@ -828,6 +840,11 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 		if (mhi_chan->pre_alloc &&
 		    (mhi_chan->dir != DMA_FROM_DEVICE ||
 		     mhi_chan->xfer_type != MHI_XFER_BUFFER))
+			goto error_chan_cfg;
+
+		/* bi-dir and dirctionless channels must be a offload chan */
+		if ((mhi_chan->dir == DMA_BIDIRECTIONAL ||
+		     mhi_chan->dir == DMA_NONE) && !mhi_chan->offload_ch)
 			goto error_chan_cfg;
 
 		/* if mhi host allocate the buffers then client cannot queue */
