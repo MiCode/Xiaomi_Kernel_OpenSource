@@ -2570,9 +2570,31 @@
 			 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
 		qcom,request-bw-before-clk;
+
 		qcom,smmu-s1-enable;
 		iommus = <&apps_smmu 0x706 0x1>,
 			 <&apps_smmu 0x716 0x1>;
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x712 0>,
+			       <&apps_smmu 0x71f 0>;
+			virtual-addr = <0x60000000>;
+			virtual-size = <0x40000000>;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x713 0>,
+			       <&apps_smmu 0x71c 0>,
+			       <&apps_smmu 0x71d 0>,
+			       <&apps_smmu 0x71e 0>;
+			virtual-addr = <0x60200000>;
+			virtual-size = <0x40000000>;
+			qcom,secure-context-bank;
+		};
 	};
 
 	qcom_msmhdcp: qcom,msm_hdcp {
