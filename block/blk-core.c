@@ -1655,7 +1655,9 @@ bool bio_attempt_front_merge(struct request_queue *q, struct request *req,
 	bio->bi_next = req->bio;
 	req->bio = bio;
 
+#ifdef CONFIG_PFK
 	WARN_ON(req->__dun || bio->bi_iter.bi_dun);
+#endif
 	req->__sector = bio->bi_iter.bi_sector;
 	req->__data_len += bio->bi_iter.bi_size;
 	req->ioprio = ioprio_best(req->ioprio, bio_prio(bio));
@@ -1805,7 +1807,9 @@ void blk_init_request_from_bio(struct request *req, struct bio *bio)
 	else
 		req->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_NONE, 0);
 	req->write_hint = bio->bi_write_hint;
+#ifdef CONFIG_PFK
 	req->__dun = bio->bi_iter.bi_dun;
+#endif
 	blk_rq_bio_prep(req->q, req, bio);
 }
 EXPORT_SYMBOL_GPL(blk_init_request_from_bio);
@@ -2795,8 +2799,10 @@ bool blk_update_request(struct request *req, blk_status_t error,
 	/* update sector only for requests with clear definition of sector */
 	if (!blk_rq_is_passthrough(req)) {
 		req->__sector += total_bytes >> 9;
+#ifdef CONFIG_PFK
 		if (req->__dun)
 			req->__dun += total_bytes >> 12;
+#endif
 	}
 
 	/* mixed attributes always follow the first bio */
@@ -3160,7 +3166,9 @@ static void __blk_rq_prep_clone(struct request *dst, struct request *src)
 {
 	dst->cpu = src->cpu;
 	dst->__sector = blk_rq_pos(src);
+#ifdef CONFIG_PFK
 	dst->__dun = blk_rq_dun(src);
+#endif
 	dst->__data_len = blk_rq_bytes(src);
 	if (src->rq_flags & RQF_SPECIAL_PAYLOAD) {
 		dst->rq_flags |= RQF_SPECIAL_PAYLOAD;
