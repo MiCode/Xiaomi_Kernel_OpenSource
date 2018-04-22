@@ -23,7 +23,7 @@
 #include "adreno_perfcounter.h"
 #include <linux/stat.h>
 #include <linux/delay.h>
-#include "kgsl_gmu.h"
+#include "kgsl_gmu_core.h"
 
 #include "a4xx_reg.h"
 
@@ -912,7 +912,8 @@ struct adreno_gpudev {
 	/* GPU specific function hooks */
 	void (*irq_trace)(struct adreno_device *, unsigned int status);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
-	void (*snapshot_gmu)(struct adreno_device *, struct kgsl_snapshot *);
+	void (*snapshot_debugbus)(struct adreno_device *adreno_dev,
+			struct kgsl_snapshot *snapshot);
 	void (*platform_setup)(struct adreno_device *);
 	void (*init)(struct adreno_device *);
 	void (*remove)(struct adreno_device *);
@@ -953,17 +954,9 @@ struct adreno_gpudev {
 	void (*llc_configure_gpuhtw_scid)(struct adreno_device *adreno_dev);
 	void (*llc_enable_overrides)(struct adreno_device *adreno_dev);
 	void (*pre_reset)(struct adreno_device *);
-	int (*oob_set)(struct adreno_device *adreno_dev,
-			enum oob_request req);
-	void (*oob_clear)(struct adreno_device *adreno_dev,
-			enum oob_request req);
 	void (*gpu_keepalive)(struct adreno_device *adreno_dev,
 			bool state);
-	int (*rpmh_gpu_pwrctrl)(struct adreno_device *, unsigned int ops,
-				unsigned int arg1, unsigned int arg2);
 	bool (*hw_isidle)(struct adreno_device *);
-	int (*wait_for_lowest_idle)(struct adreno_device *);
-	int (*wait_for_gmu_idle)(struct adreno_device *);
 	const char *(*iommu_fault_block)(struct adreno_device *adreno_dev,
 				unsigned int fsynr1);
 	int (*reset)(struct kgsl_device *, int fault);
@@ -1369,7 +1362,7 @@ static inline void adreno_read_gmureg(struct adreno_device *adreno_dev,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		kgsl_gmu_regread(KGSL_DEVICE(adreno_dev),
+		gmu_core_regread(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets->offsets[offset_name], val);
 	else
 		*val = 0;
@@ -1388,7 +1381,7 @@ static inline void adreno_write_gmureg(struct adreno_device *adreno_dev,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		kgsl_gmu_regwrite(KGSL_DEVICE(adreno_dev),
+		gmu_core_regwrite(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets->offsets[offset_name], val);
 }
 
@@ -1858,15 +1851,16 @@ static inline unsigned int counter_delta(struct kgsl_device *device,
 static inline int adreno_perfcntr_active_oob_get(
 		struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
+			KGSL_DEVICE(adreno_dev));
 	int ret;
 
 	ret = kgsl_active_count_get(KGSL_DEVICE(adreno_dev));
 	if (ret)
 		return ret;
 
-	if (gpudev->oob_set) {
-		ret = gpudev->oob_set(adreno_dev, oob_perfcntr);
+	if (gmu_dev_ops->oob_set) {
+		ret = gmu_dev_ops->oob_set(adreno_dev, oob_perfcntr);
 		if (ret)
 			kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
 	}
@@ -1877,10 +1871,11 @@ static inline int adreno_perfcntr_active_oob_get(
 static inline void adreno_perfcntr_active_oob_put(
 		struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
+			KGSL_DEVICE(adreno_dev));
 
-	if (gpudev->oob_clear)
-		gpudev->oob_clear(adreno_dev, oob_perfcntr);
+	if (gmu_dev_ops->oob_clear)
+		gmu_dev_ops->oob_clear(adreno_dev, oob_perfcntr);
 
 	kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
 }
@@ -1941,6 +1936,8 @@ static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
+unsigned int adreno_gmu_ifpc_show(struct adreno_device *adreno_dev);
+int adreno_gmu_ifpc_store(struct adreno_device *adreno_dev, unsigned int val);
 
 int adreno_clear_pending_transactions(struct kgsl_device *device);
 #endif /*__ADRENO_H */

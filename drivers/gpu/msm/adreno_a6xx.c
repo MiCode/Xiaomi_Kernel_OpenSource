@@ -27,7 +27,6 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_log.h"
 #include "kgsl.h"
-#include "kgsl_gmu.h"
 #include "kgsl_hfi.h"
 #include "kgsl_trace.h"
 
@@ -460,7 +459,7 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 	 * If the GMU is not enabled, rewrite the offset for the always on
 	 * counters to point to the CP always on instead of GMU always on
 	 */
-	if (!kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
+	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
 		_update_always_on_regs(adreno_dev);
 
 	a6xx_pwrup_reglist_init(adreno_dev);
@@ -593,12 +592,12 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
 		on = false;
 
-	if (kgsl_gmu_isenabled(device)) {
-		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_MODE_CNTL,
+	if (gmu_core_isenabled(device)) {
+		gmu_core_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_MODE_CNTL,
 			on ? __get_gmu_ao_cgc_mode_cntl(adreno_dev) : 0);
-		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_DELAY_CNTL,
+		gmu_core_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_DELAY_CNTL,
 			on ? __get_gmu_ao_cgc_delay_cntl(adreno_dev) : 0);
-		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
+		gmu_core_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
 			on ? __get_gmu_ao_cgc_hyst_cntl(adreno_dev) : 0);
 	}
 
@@ -621,13 +620,13 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	regs = a6xx_hwcg_registers[i].regs;
 
 	/* Disable SP clock before programming HWCG registers */
-	kgsl_gmu_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
+	gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
 	for (j = 0; j < a6xx_hwcg_registers[i].count; j++)
 		kgsl_regwrite(device, regs[j].off, on ? regs[j].val : 0);
 
 	/* Enable SP clock */
-	kgsl_gmu_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
+	gmu_core_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL,
@@ -703,12 +702,13 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	unsigned int bit, mal, mode, glbl_inv;
 	unsigned int amsbc = 0;
 	static bool patch_reglist;
 
 	/* runtime adjust callbacks based on feature sets */
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		/* Legacy idle management if gmu is disabled */
 		ADRENO_GPU_DEVICE(adreno_dev)->hw_isidle = NULL;
 	/* enable hardware clockgating */
@@ -845,9 +845,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	 * 3. HFI
 	 * At this point, we are guaranteed all.
 	 */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-			test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		a6xx_gmu_enable_lm(device);
+	if (gmu_dev_ops->enable_lm)
+		gmu_dev_ops->enable_lm(device);
 }
 
 /*
@@ -1196,11 +1195,13 @@ static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 			ADRENO_REG_GMU_PWR_COL_KEEPALIVE, state);
 }
 
+/* Bitmask for GPU idle status check */
+#define GPUBUSYIGNAHB		BIT(23)
 static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 {
 	unsigned int reg;
 
-	kgsl_gmu_regread(KGSL_DEVICE(adreno_dev),
+	gmu_core_regread(KGSL_DEVICE(adreno_dev),
 		A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
 	if (reg & GPUBUSYIGNAHB)
 		return false;
@@ -1215,6 +1216,7 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct adreno_firmware *sqe_fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 
 	if (sqe_fw->memdesc.hostptr == NULL) {
@@ -1224,7 +1226,7 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 			return ret;
 	}
 
-	return a6xx_gmu_load_firmware(device);
+	return gmu_dev_ops->load_firmware(device);
 }
 
 static int a6xx_soft_reset(struct adreno_device *adreno_dev)
@@ -1238,7 +1240,7 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	 * For the soft reset case with GMU enabled this part is done
 	 * by the GMU firmware
 	 */
-	if (kgsl_gmu_isenabled(device) &&
+	if (gmu_core_isenabled(device) &&
 		!test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv))
 		return 0;
 
@@ -1281,7 +1283,7 @@ static void a6xx_count_throttles(struct adreno_device *adreno_dev,
 		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
 
-	kgsl_gmu_regread(KGSL_DEVICE(adreno_dev),
+	gmu_core_regread(KGSL_DEVICE(adreno_dev),
 		adreno_dev->lm_threshold_count,
 		&adreno_dev->lm_threshold_cross);
 }
@@ -1302,7 +1304,7 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	int i = 0;
 
 	/* Use the regular reset sequence for No GMU */
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		return adreno_reset(device, fault);
 
 	/* Transition from ACTIVE to RESET state */
@@ -2494,7 +2496,7 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 	if (counter == 0)
 		return -EINVAL;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		return -ENODEV;
 
 	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xFF000000);
@@ -2795,7 +2797,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
 	.snapshot = a6xx_snapshot,
-	.snapshot_gmu = a6xx_snapshot_gmu,
+	.snapshot_debugbus = a6xx_snapshot_debugbus,
 	.irq = &a6xx_irq,
 	.snapshot_data = &a6xx_snapshot_data,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
@@ -2813,13 +2815,8 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.llc_configure_gpu_scid = a6xx_llc_configure_gpu_scid,
 	.llc_configure_gpuhtw_scid = a6xx_llc_configure_gpuhtw_scid,
 	.llc_enable_overrides = a6xx_llc_enable_overrides,
-	.oob_set = a6xx_gmu_oob_set,
-	.oob_clear = a6xx_gmu_oob_clear,
 	.gpu_keepalive = a6xx_gpu_keepalive,
-	.rpmh_gpu_pwrctrl = a6xx_gmu_rpmh_gpu_pwrctrl,
 	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
-	.wait_for_lowest_idle = a6xx_gmu_wait_for_lowest_idle,
-	.wait_for_gmu_idle = a6xx_gmu_wait_for_idle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_reset,
 	.soft_reset = a6xx_soft_reset,

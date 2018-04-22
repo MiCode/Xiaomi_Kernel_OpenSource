@@ -24,6 +24,7 @@
 #include <linux/msm-bus.h>
 
 #include "kgsl.h"
+#include "kgsl_gmu_core.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_iommu.h"
@@ -79,9 +80,6 @@ static struct adreno_device device_3d0 = {
 		.pwrscale = KGSL_PWRSCALE_INIT(&adreno_tz_data),
 		.name = DEVICE_3D0_NAME,
 		.id = KGSL_DEVICE_3D0,
-		.gmu = {
-			.load_mode = TCM_BOOT,
-		},
 		.pwrctrl = {
 			.irq_name = "kgsl_3d0_irq",
 		},
@@ -634,7 +632,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	 * This is usually harmless because the GMU will abort power collapse
 	 * and change the fence back to ALLOW. Poll so that this can happen.
 	 */
-	if (kgsl_gmu_isenabled(device)) {
+	if (gmu_core_isenabled(device)) {
 		do {
 			adreno_readreg(adreno_dev,
 					ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
@@ -1229,7 +1227,6 @@ static int adreno_probe(struct platform_device *pdev)
 	struct kgsl_device *device;
 	struct adreno_device *adreno_dev;
 	int status;
-	unsigned long flags;
 
 	adreno_dev = adreno_get_dev(pdev);
 
@@ -1265,9 +1262,7 @@ static int adreno_probe(struct platform_device *pdev)
 	 * Another part of GPU power probe in platform_probe
 	 * needs GMU initialized.
 	 */
-	flags = ADRENO_FEATURE(adreno_dev, ADRENO_GPMU) ? BIT(GMU_GPMU) : 0;
-
-	status = gmu_probe(device, flags);
+	status = gmu_core_probe(device);
 	if (status) {
 		device->pdev = NULL;
 		return status;
@@ -1447,7 +1442,7 @@ static int adreno_remove(struct platform_device *pdev)
 	adreno_perfcounter_close(adreno_dev);
 	kgsl_device_platform_remove(device);
 
-	gmu_remove(device);
+	gmu_core_remove(device);
 
 	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv)) {
 		kgsl_free_global(device, &adreno_dev->pwron_fixup);
@@ -1648,7 +1643,7 @@ static bool regulators_left_on(struct kgsl_device *device)
 {
 	int i;
 
-	if (kgsl_gmu_gpmu_isenabled(device))
+	if (gmu_core_gpmu_isenabled(device))
 		return false;
 
 	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
@@ -1764,6 +1759,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	int status = -EINVAL, ret;
 	unsigned int state = device->state;
 	bool regulator_left_on;
@@ -1824,17 +1820,14 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	}
 
 	/* Send OOB request to turn on the GX */
-	if (gpudev->oob_set) {
-		status = gpudev->oob_set(adreno_dev, oob_gpu);
+	if (gmu_dev_ops->oob_set) {
+		status = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
 		if (status)
 			goto error_mmu_off;
 	}
 
-	if (adreno_is_a640(adreno_dev)) {
-		struct hfi_start_cmd req;
-
-		/* Send hfi start msg */
-		status = hfi_send_req(&device->gmu, H2F_MSG_START, &req);
+	if (gmu_dev_ops->hfi_start_msg) {
+		status = gmu_dev_ops->hfi_start_msg(adreno_dev);
 		if (status)
 			goto error_mmu_off;
 	}
@@ -2011,19 +2004,19 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 				pmqos_active_vote);
 
 	/* Send OOB request to allow IFPC */
-	if (gpudev->oob_clear) {
-		gpudev->oob_clear(adreno_dev, oob_gpu);
+	if (gmu_dev_ops->oob_clear) {
+		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 		/* If we made it this far, the BOOT OOB was sent to the GMU */
 		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-			gpudev->oob_clear(adreno_dev, oob_boot_slumber);
+			gmu_dev_ops->oob_clear(adreno_dev, oob_boot_slumber);
 	}
 
 	return 0;
 
 error_oob_clear:
-	if (gpudev->oob_clear)
-		gpudev->oob_clear(adreno_dev, oob_gpu);
+	if (gmu_dev_ops->oob_clear)
+		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);
@@ -2068,24 +2061,21 @@ int adreno_start(struct kgsl_device *device, int priority)
 static int adreno_stop(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	int error = 0;
 
 	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
 		return 0;
 
 	/* Turn the power on one last time before stopping */
-	if (gpudev->oob_set) {
-		error = gpudev->oob_set(adreno_dev, oob_gpu);
+	if (gmu_dev_ops->oob_set) {
+		error = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
 		if (error) {
-			struct gmu_device *gmu = &device->gmu;
-
-			gpudev->oob_clear(adreno_dev, oob_gpu);
-			if (gmu->gx_gdsc &&
-				regulator_is_enabled(gmu->gx_gdsc)) {
+			gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
+			if (gmu_core_regulator_isenabled(device)) {
 				/* GPU is on. Try recovery */
-				set_bit(GMU_FAULT, &gmu->flags);
-				gmu_snapshot(device);
+				gmu_core_setbit(device, GMU_FAULT);
+				gmu_core_snapshot(device);
 				error = -EINVAL;
 			} else {
 				return error;
@@ -2114,8 +2104,8 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
-	if (gpudev->oob_clear)
-		gpudev->oob_clear(adreno_dev, oob_gpu);
+	if (gmu_dev_ops->oob_clear)
+		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 	/*
 	 * Saving perfcounters will use an OOB to put the GMU into
@@ -2123,12 +2113,11 @@ static int adreno_stop(struct kgsl_device *device)
 	 * GMU to return to the lowest idle level. This is
 	 * because some idle level transitions require VBIF and MMU.
 	 */
-	if (!error && gpudev->wait_for_lowest_idle &&
-			gpudev->wait_for_lowest_idle(adreno_dev)) {
-		struct gmu_device *gmu = &device->gmu;
+	if (!error && gmu_dev_ops->wait_for_lowest_idle &&
+			gmu_dev_ops->wait_for_lowest_idle(adreno_dev)) {
 
-		set_bit(GMU_FAULT, &gmu->flags);
-		gmu_snapshot(device);
+		gmu_core_setbit(device, GMU_FAULT);
+		gmu_core_snapshot(device);
 		/*
 		 * Assume GMU hang after 10ms without responding.
 		 * It shall be relative safe to clear vbif and stop
@@ -2773,10 +2762,11 @@ int adreno_soft_reset(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	int ret;
 
-	if (gpudev->oob_set) {
-		ret = gpudev->oob_set(adreno_dev, oob_gpu);
+	if (gmu_dev_ops->oob_set) {
+		ret = gmu_dev_ops->oob_set(adreno_dev, oob_gpu);
 		if (ret)
 			return ret;
 	}
@@ -2799,8 +2789,8 @@ int adreno_soft_reset(struct kgsl_device *device)
 	else
 		ret = _soft_reset(adreno_dev);
 	if (ret) {
-		if (gpudev->oob_clear)
-			gpudev->oob_clear(adreno_dev, oob_gpu);
+		if (gmu_dev_ops->oob_clear)
+			gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 		return ret;
 	}
 
@@ -2853,8 +2843,8 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* Restore physical performance counter values after soft reset */
 	adreno_perfcounter_restore(adreno_dev);
 
-	if (gpudev->oob_clear)
-		gpudev->oob_clear(adreno_dev, oob_gpu);
+	if (gmu_dev_ops->oob_clear)
+		gmu_dev_ops->oob_clear(adreno_dev, oob_gpu);
 
 	return ret;
 }
@@ -3109,44 +3099,72 @@ static void adreno_regwrite(struct kgsl_device *device,
 	__raw_writel(value, reg);
 }
 
-static void adreno_gmu_regwrite(struct kgsl_device *device,
-				unsigned int offsetwords,
-				unsigned int value)
+/*
+ * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
+ * @adreno_dev: Pointer to the Adreno device device that owns the GMU
+ * @offset: 32bit register enum that is to be written
+ * @val: The value to be written to the register
+ * @fence_mask: The value to poll the fence status register
+ *
+ * Check the WRITEDROPPED0/1 bit in the FENCE_STATUS register to check if
+ * the write to the fenced register went through. If it didn't then we retry
+ * the write until it goes through or we time out.
+ */
+int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
+		enum adreno_regs offset, unsigned int val,
+		unsigned int fence_mask)
 {
-	void __iomem *reg;
-	struct gmu_device *gmu = &device->gmu;
+	unsigned int status, i;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int reg_offset = gpudev->reg_offsets->offsets[offset];
 
-	trace_kgsl_regwrite(device, offsetwords, value);
+	adreno_writereg(adreno_dev, offset, val);
 
-	offsetwords -= gmu->gmu2gpu_offset;
-	reg = gmu->reg_virt + (offsetwords << 2);
+	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+		return 0;
 
-	/*
-	 * ensure previous writes post before this one,
-	 * i.e. act like normal writel()
-	 */
-	wmb();
-	__raw_writel(value, reg);
+	for (i = 0; i < GMU_CORE_WAKEUP_RETRY_MAX; i++) {
+		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
+			&status);
+
+		/*
+		 * If !writedropped0/1, then the write to fenced register
+		 * was successful
+		 */
+		if (!(status & fence_mask))
+			return 0;
+		/* Wait a small amount of time before trying again */
+		udelay(GMU_CORE_WAKEUP_DELAY_US);
+
+		/* Try to write the fenced register again */
+		adreno_writereg(adreno_dev, offset, val);
+	}
+
+	dev_err(adreno_dev->dev.dev,
+		"GMU fenced register write timed out: reg 0x%x\n", reg_offset);
+	return -ETIMEDOUT;
 }
 
-static void adreno_gmu_regread(struct kgsl_device *device,
-				unsigned int offsetwords,
-				unsigned int *value)
+unsigned int adreno_gmu_ifpc_show(struct adreno_device *adreno_dev)
 {
-	void __iomem *reg;
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
+			KGSL_DEVICE(adreno_dev));
 
-	offsetwords -= gmu->gmu2gpu_offset;
+	if (gmu_dev_ops->ifpc_show)
+		return gmu_dev_ops->ifpc_show(adreno_dev);
 
-	reg = gmu->reg_virt + (offsetwords << 2);
+	return 0;
+}
 
-	*value = __raw_readl(reg);
+int adreno_gmu_ifpc_store(struct adreno_device *adreno_dev, unsigned int val)
+{
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
+			KGSL_DEVICE(adreno_dev));
 
-	/*
-	 * ensure this read finishes before the next one.
-	 * i.e. act like normal readl()
-	 */
-	rmb();
+	if (gmu_dev_ops->ifpc_store)
+		return gmu_dev_ops->ifpc_store(adreno_dev, val);
+
+	return -EINVAL;
 }
 
 bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
@@ -3600,8 +3618,6 @@ static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
 	.regwrite = adreno_regwrite,
-	.gmu_regread = adreno_gmu_regread,
-	.gmu_regwrite = adreno_gmu_regwrite,
 	.idle = adreno_idle,
 	.isidle = adreno_isidle,
 	.suspend_context = adreno_suspend_context,

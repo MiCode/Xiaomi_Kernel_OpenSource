@@ -198,18 +198,6 @@ enum hfi_msg_type {
 #define H2F_MSG_CONTEXT_RULE	140 /* AKA constraint */
 #define F2H_MSG_CONTEXT_BAD	150
 
-#define NUM_BW_LEVELS		100
-#define MAX_GX_LEVELS		16
-#define MAX_CX_LEVELS		4
-#define MAX_CNOC_LEVELS		2
-#define MAX_CNOC_CMDS		6
-#define MAX_BW_CMDS		8
-#define INVALID_DCVS_IDX	0xFF
-
-#if MAX_CNOC_LEVELS > MAX_GX_LEVELS
-#error "CNOC levels cannot exceed GX levels"
-#endif
-
 /* H2F */
 struct hfi_gmu_init_cmd {
 	uint32_t hdr;

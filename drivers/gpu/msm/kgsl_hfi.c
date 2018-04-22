@@ -105,7 +105,7 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 		uint32_t *msg)
 {
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct kgsl_device *device = kgsl_get_device(KGSL_DEVICE_3D0);
 	struct hfi_queue_table *tbl = gmu->hfi_mem->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	uint32_t *queue;
@@ -559,9 +559,9 @@ void hfi_receiver(unsigned long data)
 #define GMU_VERSION(major, minor) \
 	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
 
-static int hfi_verify_fw_version(struct gmu_device *gmu)
+static int hfi_verify_fw_version(struct kgsl_device *device,
+		struct gmu_device *gmu)
 {
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int result;
 	unsigned int ver, major, minor;
@@ -603,7 +603,7 @@ static int hfi_verify_fw_version(struct gmu_device *gmu)
 
 int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 {
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct kgsl_device *device = kgsl_get_device(KGSL_DEVICE_3D0);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int result;
 
@@ -616,7 +616,7 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 			return result;
 	}
 
-	result = hfi_verify_fw_version(gmu);
+	result = hfi_verify_fw_version(device, gmu);
 	if (result)
 		return result;
 
