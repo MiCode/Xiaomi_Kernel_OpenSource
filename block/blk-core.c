@@ -1529,7 +1529,9 @@ bool bio_attempt_front_merge(struct request_queue *q, struct request *req,
 	bio->bi_next = req->bio;
 	req->bio = bio;
 
+#ifdef CONFIG_PFK
 	WARN_ON(req->__dun || bio->bi_iter.bi_dun);
+#endif
 	req->__sector = bio->bi_iter.bi_sector;
 	req->__data_len += bio->bi_iter.bi_size;
 	req->ioprio = ioprio_best(req->ioprio, bio_prio(bio));
@@ -1645,7 +1647,9 @@ void init_request_from_bio(struct request *req, struct bio *bio)
 
 	req->errors = 0;
 	req->__sector = bio->bi_iter.bi_sector;
+#ifdef CONFIG_PFK
 	req->__dun = bio->bi_iter.bi_dun;
+#endif
 	req->ioprio = bio_prio(bio);
 	blk_rq_bio_prep(req->q, req, bio);
 }
@@ -2650,8 +2654,10 @@ bool blk_update_request(struct request *req, int error, unsigned int nr_bytes)
 	/* update sector only for requests with clear definition of sector */
 	if (req->cmd_type == REQ_TYPE_FS) {
 		req->__sector += total_bytes >> 9;
+#ifdef CONFIG_PFK
 		if (req->__dun)
 			req->__dun += total_bytes >> 12;
+#endif
 	}
 
 	/* mixed attributes always follow the first bio */
@@ -3053,7 +3059,9 @@ static void __blk_rq_prep_clone(struct request *dst, struct request *src)
 			 (src->cmd_flags & REQ_CLONE_MASK) | REQ_NOMERGE);
 	dst->cmd_type = src->cmd_type;
 	dst->__sector = blk_rq_pos(src);
+#ifdef CONFIG_PFK
 	dst->__dun = blk_rq_dun(src);
+#endif
 	dst->__data_len = blk_rq_bytes(src);
 	dst->nr_phys_segments = src->nr_phys_segments;
 	dst->ioprio = src->ioprio;

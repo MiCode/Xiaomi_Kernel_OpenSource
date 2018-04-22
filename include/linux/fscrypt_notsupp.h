@@ -183,23 +183,7 @@ static inline int fscrypt_zeroout_range(const struct inode *inode, pgoff_t lblk,
 	return -EOPNOTSUPP;
 }
 
-/* fscrypt_ice.c */
-static inline int fscrypt_using_hardware_encryption(const struct inode *inode)
-{
-	return 0;
-}
-
-static inline void fscrypt_set_ice_dun(const struct inode *inode,
-		struct bio *bio, u64 dun){}
-
-static inline bool fscrypt_mergeable_bio(struct bio *bio,
-		sector_t iv_block, bool bio_encrypted)
-{
-	return true;
-}
-
 /* hooks.c */
-
 static inline int fscrypt_file_open(struct inode *inode, struct file *filp)
 {
 	if (IS_ENCRYPTED(inode))
