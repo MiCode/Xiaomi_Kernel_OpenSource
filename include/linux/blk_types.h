@@ -66,9 +66,17 @@ struct bio {
 		struct bio_integrity_payload *bi_integrity; /* data integrity */
 #endif
 	};
+
 #ifdef CONFIG_PFK
 	/* Encryption key to use (NULL if none) */
 	const struct blk_encryption_key	*bi_crypt_key;
+
+	/*
+	* When using dircet-io (O_DIRECT), we can't get the inode from a bio
+	* by walking bio->bi_io_vec->bv_page->mapping->host
+	* since the page is anon.
+	*/
+	struct inode            *bi_dio_inode;
 #endif
 
 	unsigned short		bi_vcnt;	/* how many bio_vec's */
@@ -85,12 +93,6 @@ struct bio {
 
 	struct bio_set		*bi_pool;
 
-	/*
-	 * When using dircet-io (O_DIRECT), we can't get the inode from a bio
-	 * by walking bio->bi_io_vec->bv_page->mapping->host
-	 * since the page is anon.
-	 */
-	struct inode		*bi_dio_inode;
 	/*
 	 * We can inline a number of vecs at the end of the bio, to avoid
 	 * double allocations for a small number of bio_vecs. This member
