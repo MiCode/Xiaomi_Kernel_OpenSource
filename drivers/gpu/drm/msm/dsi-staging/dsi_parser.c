@@ -198,23 +198,29 @@ static void dsi_parser_get_int_value(struct dsi_parser_prop *prop,
 
 	for (i = 0; i < prop->len; i++) {
 		int base, val;
+		char *to_int, *tmp;
+		char item[SZ_128];
+
+		strlcpy(item, prop->items[i], SZ_128);
+
+		tmp = item;
 
 		if (forced_base) {
 			base = forced_base;
 		} else {
-			char *to_int = strsep(&prop->items[i], "x");
+			to_int = strsep(&tmp, "x");
 
-			if (!prop->items[i]) {
-				prop->items[i] = to_int;
+			if (!tmp) {
+				tmp = to_int;
 				base = 10;
 			} else {
 				base = 16;
 			}
 		}
 
-		if (kstrtoint(prop->items[i], base, &val)) {
+		if (kstrtoint(tmp, base, &val)) {
 			pr_err("error converting %s at %d\n",
-				prop->items[i], i);
+				tmp, i);
 
 			continue;
 		}
@@ -478,11 +484,19 @@ struct property *dsi_parser_find_property(const struct device_node *np,
 	if (!prop) {
 		pr_debug("%s not found\n", name);
 		goto end;
-	} else {
-		*lenp = strlen(prop->raw);
 	}
 
-	pr_debug("%s: len=%d\n", name, *lenp);
+	if (lenp) {
+		if (prop->type == DSI_PROP_TYPE_INT_ARRAY)
+			*lenp = prop->len;
+		else if (prop->type == DSI_PROP_TYPE_INT_SET_ARRAY ||
+			 prop->type == DSI_PROP_TYPE_INT_SET)
+			*lenp = prop->len * sizeof(u32);
+		else
+			*lenp = strlen(prop->raw) + 1;
+
+		pr_debug("%s len=%d\n", name, *lenp);
+	}
 end:
 	return (struct property *)prop;
 }
@@ -533,8 +547,7 @@ int dsi_parser_read_u32(const struct device_node *np,
 {
 	struct dsi_parser_node *node = (struct dsi_parser_node *)np;
 	struct dsi_parser_prop *prop;
-	char *property = NULL;
-	char *to_int;
+	char *property, *to_int, item[SZ_128];
 	int rc = 0, base;
 
 	prop = dsi_parser_search_property(node, propname);
@@ -542,10 +555,13 @@ int dsi_parser_read_u32(const struct device_node *np,
 		pr_debug("%s not found\n", propname);
 		rc = -EINVAL;
 		goto end;
-	} else {
-		property = prop->value;
 	}
 
+	if (!prop->value)
+		goto end;
+
+	strlcpy(item, prop->value, SZ_128);
+	property = item;
 	to_int = strsep(&property, "x");
 
 	if (!property) {
@@ -555,12 +571,10 @@ int dsi_parser_read_u32(const struct device_node *np,
 		base = 16;
 	}
 
-	if (!property)
-		goto end;
-
 	rc = kstrtoint(property, base, out_value);
 	if (rc) {
-		pr_err("error(%d) converting %s\n", rc, property);
+		pr_err("prop=%s error(%d) converting %s, base=%d\n",
+			propname, rc, property, base);
 		goto end;
 	}
 
@@ -586,22 +600,26 @@ int dsi_parser_read_u32_array(const struct device_node *np,
 
 	for (i = 0; i < prop->len; i++) {
 		int base, val;
-		char *to_int = strsep(&prop->items[i], "x");
+		char item[SZ_128];
+		char *to_int, *tmp;
 
-		if (!prop->items[i]) {
-			prop->items[i] = to_int;
+		strlcpy(item, prop->items[i], SZ_128);
+
+		tmp = item;
+
+		to_int = strsep(&tmp, "x");
+
+		if (!tmp) {
+			tmp = to_int;
 			base = 10;
 		} else {
 			base = 16;
 		}
 
-		if (!prop->items[i])
-			continue;
-
-		if (kstrtoint(prop->items[i], base, &val)) {
-			pr_err("error converting %s at %d\n",
-				prop->items[i], i);
-
+		rc = kstrtoint(tmp, base, &val);
+		if (rc) {
+			pr_err("prop=%s error(%d) converting %s(%d), base=%d\n",
+				propname, rc, tmp, i, base);
 			continue;
 		}
 
@@ -634,6 +652,9 @@ const void *dsi_parser_get_property(const struct device_node *np,
 	if (lenp) {
 		if (prop->type == DSI_PROP_TYPE_INT_ARRAY)
 			*lenp = prop->len;
+		else if (prop->type == DSI_PROP_TYPE_INT_SET_ARRAY ||
+			 prop->type == DSI_PROP_TYPE_INT_SET)
+			*lenp = prop->len * sizeof(u32);
 		else
 			*lenp = strlen(prop->raw) + 1;
 
