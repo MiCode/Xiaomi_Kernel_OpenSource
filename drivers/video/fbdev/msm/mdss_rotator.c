@@ -23,6 +23,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sync_file.h>
 
 #include "mdss_rotator_internal.h"
 #include "mdss_mdp.h"
@@ -374,6 +375,24 @@ static bool mdss_rotator_is_work_pending(struct mdss_rot_mgr *mgr,
 	return false;
 }
 
+static int mdss_rotator_install_fence_fd(struct mdss_rot_entry_container *req)
+{
+	int i;
+	int ret = 0;
+	struct sync_file *sync_file;
+
+	for (i = 0; i < req->count; i++) {
+		sync_file = sync_file_create((struct fence *)
+				(req->entries[i].output_fence));
+		if (!sync_file) {
+			ret = -ENOMEM;
+			break;
+		}
+		fd_install(req->entries[i].output_fence_fd, sync_file->file);
+	}
+	return ret;
+}
+
 static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 {
 	int ret = 0, fd;
@@ -395,9 +414,10 @@ static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 		pr_err("cannot create sync point\n");
 		goto sync_pt_create_err;
 	}
-	fd = mdss_get_sync_fence_fd(fence);
+
+	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {
-		pr_err("get_unused_fd_flags failed error:0x%x\n", fd);
+		pr_err("fail to get unused fd\n");
 		ret = fd;
 		goto get_fd_err;
 	}
@@ -2245,6 +2265,13 @@ static int mdss_rotator_handle_request(struct mdss_rot_mgr *mgr,
 		goto handle_request_err1;
 	}
 
+	ret = mdss_rotator_install_fence_fd(req);
+	if (ret) {
+		pr_err("get_unused_fd_flags failed error:0x%x\n", ret);
+		mdss_rotator_remove_request(mgr, private, req);
+		goto handle_request_err1;
+	}
+
 	mdss_rotator_queue_request(mgr, private, req);
 
 	mutex_unlock(&mgr->lock);
@@ -2400,6 +2427,13 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 	ret = copy_to_user(compat_ptr(user_req32.list), items, size);
 	if (ret) {
 		pr_err("fail to copy output fence to user\n");
+		mdss_rotator_remove_request(mgr, private, req);
+		goto handle_request32_err1;
+	}
+
+	ret = mdss_rotator_install_fence_fd(req);
+	if (ret) {
+		pr_err("get_unused_fd_flags failed error:0x%x\n", ret);
 		mdss_rotator_remove_request(mgr, private, req);
 		goto handle_request32_err1;
 	}
