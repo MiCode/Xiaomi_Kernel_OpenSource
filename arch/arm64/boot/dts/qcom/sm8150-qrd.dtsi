@@ -120,6 +120,8 @@
 		"AIF4 VI", "MCLK",
 		"RX_BIAS", "MCLK",
 		"MADINPUT", "MCLK",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
 		"DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
 		"DMIC2", "MIC BIAS3",
