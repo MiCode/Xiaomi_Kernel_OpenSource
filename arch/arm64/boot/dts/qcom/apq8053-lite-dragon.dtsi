@@ -92,7 +92,7 @@
 	android {
 		vbmeta {
 			compatible = "android,vbmeta";
-			parts = "vbmeta,boot,system,vendor,bluetooth,modem";
+			parts = "vbmeta,boot,system,vendor,bluetooth,modem,oem";
 		};
 		fstab {
 			/delete-node/ system;
