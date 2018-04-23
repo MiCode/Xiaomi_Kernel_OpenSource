@@ -1595,6 +1595,7 @@ static void dsi_display_parse_cmdline_topology(struct dsi_display *display,
 {
 	char *boot_str = NULL;
 	char *str = NULL;
+	char *sw_te = NULL;
 	unsigned long value;
 
 	if (display_type >= MAX_DSI_ACTIVE_DISPLAY) {
@@ -1606,6 +1607,10 @@ static void dsi_display_parse_cmdline_topology(struct dsi_display *display,
 		boot_str = dsi_display_primary;
 	else
 		boot_str = dsi_display_secondary;
+
+	sw_te = strnstr(boot_str, ":swte", strlen(boot_str));
+	if (sw_te)
+		display->sw_te_using_wd = true;
 
 	str = strnstr(boot_str, ":config", strlen(boot_str));
 	if (!str)
@@ -4202,7 +4207,8 @@ int dsi_display_get_info(struct drm_connector *connector,
 	case DSI_OP_CMD_MODE:
 		info->capabilities |= MSM_DISPLAY_CAP_CMD_MODE;
 		info->is_te_using_watchdog_timer =
-			display->panel->te_using_watchdog_timer;
+			display->panel->te_using_watchdog_timer |
+			display->sw_te_using_wd;
 		break;
 	default:
 		pr_err("unknwown dsi panel mode %d\n",
