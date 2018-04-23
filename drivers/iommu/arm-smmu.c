@@ -4659,7 +4659,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct qsmmuv500_tbu_device *tbu;
 	int ret;
-	phys_addr_t phys;
+	phys_addr_t phys = 0;
 	u64 val, fsr;
 	unsigned long flags;
 	void __iomem *cb_base;
