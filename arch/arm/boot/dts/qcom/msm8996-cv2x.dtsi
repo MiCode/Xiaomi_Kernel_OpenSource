@@ -190,12 +190,6 @@
 	};
 };
 
-/delete-node/ &sde_kms;
-/delete-node/ &sde_dsi0;
-/delete-node/ &sde_dsi1;
-/delete-node/ &sde_dsi_phy0;
-/delete-node/ &sde_dsi_phy1;
-/delete-node/ &sde_hdmi_tx;
 /delete-node/ &mdss_mdp;
 /delete-node/ &mdss_dsi;
 /delete-node/ &msm_ext_disp;
