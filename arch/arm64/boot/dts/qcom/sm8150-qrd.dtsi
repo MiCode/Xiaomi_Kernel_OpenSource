@@ -34,6 +34,15 @@
 		qca,bt-vdd-pa-current-level = <0>; /* LPM/PFM */
 		qca,bt-vdd-ldo-current-level = <0>; /* LPM/PFM */
 	};
+
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen4-batterydata-mlp466076-3250mah.dtsi"
+	};
+};
+
+&pm855b_fg {
+	qcom,battery-data = <&qrd_batterydata>;
 };
 
 &soc {
