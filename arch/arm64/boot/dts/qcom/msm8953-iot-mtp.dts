@@ -25,3 +25,18 @@
 	qcom,pmic-id = <0x010016 0x010011 0x0 0x0>;
 };
 
+&kgsl_smmu {
+	qcom,hibernation-support;
+	qcom,static-ns-cbs = <0>;
+	/delete-property/ qcom,skip-init;
+};
+
+&apps_iommu {
+	qcom,hibernation-support;
+	qcom,static-ns-cbs =
+			<15 16 17 18 19>,
+			<20 21 22 23 24 25 26 27 28 29 30>,
+			<31>;
+
+	/delete-property/ qcom,skip-init;
+};
