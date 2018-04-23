@@ -191,6 +191,17 @@
 		      <0x0b002000 0x1000>;
 	};
 
+	dcc: dcc@b3000 {
+		compatible = "qcom,dcc";
+		reg = <0xb3000 0x1000>,
+		      <0xb4000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&clock_gcc clk_gcc_dcc_clk>;
+		clock-names = "apb_pclk";
+		qcom,save-reg;
+	};
+
 	wakegic: wake-gic {
 		compatible = "qcom,mpm-gic-msm8937", "qcom,mpm-gic";
 		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
