@@ -122,14 +122,34 @@ static void a530_efuse_speed_bin(struct adreno_device *adreno_dev)
 	adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
 }
 
+static void a5xx_efuse_speed_bin(struct adreno_device *adreno_dev)
+{
+	unsigned int val;
+	unsigned int speed_bin[3];
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	if (of_get_property(device->pdev->dev.of_node,
+			"qcom,gpu-speed-bin-vectors", NULL)) {
+		adreno_efuse_speed_bin_array(adreno_dev);
+		return;
+	}
+
+	if (!of_property_read_u32_array(device->pdev->dev.of_node,
+			"qcom,gpu-speed-bin", speed_bin, 3)) {
+		adreno_efuse_read_u32(adreno_dev, speed_bin[0], &val);
+		adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
+		return;
+	}
+}
+
 static const struct {
 	int (*check)(struct adreno_device *adreno_dev);
 	void (*func)(struct adreno_device *adreno_dev);
 } a5xx_efuse_funcs[] = {
 	{ adreno_is_a530, a530_efuse_leakage },
 	{ adreno_is_a530, a530_efuse_speed_bin },
-	{ adreno_is_a504, a530_efuse_speed_bin },
-	{ adreno_is_a505, a530_efuse_speed_bin },
+	{ adreno_is_a504, a5xx_efuse_speed_bin },
+	{ adreno_is_a505, a5xx_efuse_speed_bin },
 	{ adreno_is_a512, a530_efuse_speed_bin },
 	{ adreno_is_a508, a530_efuse_speed_bin },
 };
