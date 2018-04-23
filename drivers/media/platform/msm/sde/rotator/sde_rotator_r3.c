@@ -2297,8 +2297,10 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 	 */
 	if (!pmon && mgr && mgr->hw_data) {
 		rot = mgr->hw_data;
-		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]);
-		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
+		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]) &
+				SDE_REGDMA_SWTS_MASK;
+		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]) &
+				SDE_REGDMA_SWTS_MASK;
 
 		/* Need to turn on clock to access rotator register */
 		sde_rotator_clk_ctrl(mgr, true);
@@ -2373,8 +2375,10 @@ void sde_hw_rotator_post_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 		SDEROT_DBG("h_ts:0x%x, l_ts;0x%x\n", h_ts, l_ts);
 		SDEROT_EVTLOG(h_ts, l_ts);
 		rot->reset_hw_ts = true;
-		rot->last_hwts[ROT_QUEUE_LOW_PRIORITY] = l_ts;
-		rot->last_hwts[ROT_QUEUE_HIGH_PRIORITY] = h_ts;
+		rot->last_hwts[ROT_QUEUE_LOW_PRIORITY] =
+				l_ts & SDE_REGDMA_SWTS_MASK;
+		rot->last_hwts[ROT_QUEUE_HIGH_PRIORITY] =
+				h_ts & SDE_REGDMA_SWTS_MASK;
 	}
 }
 
@@ -2678,10 +2682,13 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
 		SDEROT_EVTLOG(0xbad0, rststs, l_hwts, h_hwts, l_ts, h_ts);
 
-		if (ctx->q_id == ROT_QUEUE_HIGH_PRIORITY)
+		if (ctx->q_id == ROT_QUEUE_HIGH_PRIORITY) {
 			h_ts = (h_ts - 1) & SDE_REGDMA_SWTS_MASK;
-		else
+			l_ts &= SDE_REGDMA_SWTS_MASK;
+		} else {
 			l_ts = (l_ts - 1) & SDE_REGDMA_SWTS_MASK;
+			h_ts &= SDE_REGDMA_SWTS_MASK;
+		}
 
 		SDEROT_DBG("h_ts:0x%x, l_ts;0x%x\n", h_ts, l_ts);
 		SDEROT_EVTLOG(0x900d, h_ts, l_ts);
