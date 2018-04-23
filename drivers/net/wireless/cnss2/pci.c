@@ -1458,8 +1458,7 @@ int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		ret = mhi_pm_resume(pci_priv->mhi_ctrl);
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:
-		cnss_pr_dbg("Bypass MHI state: %s(%d)\n",
-			    cnss_mhi_state_to_str(mhi_state), mhi_state);
+		ret = mhi_force_rddm_mode(pci_priv->mhi_ctrl);
 		break;
 	default:
 		cnss_pr_err("Unhandled MHI state (%d)\n", mhi_state);
