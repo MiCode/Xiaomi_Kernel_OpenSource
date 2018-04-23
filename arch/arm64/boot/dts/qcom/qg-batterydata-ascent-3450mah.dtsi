@@ -32,6 +32,11 @@ qcom,ascent_3450mah {
 				4201000  4300000  2760000
 				4301000  4350000  2070000>;
 
+	/* COOL = 5 DegC, WARM = 40 DegC */
+	qcom,jeita-soft-thresholds = <0x44bd 0x1fc4>;
+	/* COLD = 0 DegC, HOT = 45 DegC */
+	qcom,jeita-hard-thresholds = <0x4aa5 0x1bfb>;
+
 	qcom,fcc1-temp-lut {
 		qcom,lut-col-legend = <0 10 25 40 50>;
 		qcom,lut-data = <3377 3428 3481 3496 3500>;

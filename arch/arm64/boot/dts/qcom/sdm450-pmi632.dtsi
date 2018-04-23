@@ -45,6 +45,10 @@
 	qcom,battery-data = <&mtp_batterydata>;
 };
 
+&pmi632_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
 &pm8953_gpios {
 	bklt_en {
 		bklt_en_default: bklt_en_default {
