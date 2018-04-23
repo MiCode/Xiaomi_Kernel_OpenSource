@@ -609,8 +609,11 @@
 	};
 
 	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-sm6150", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm6150_s1_level>;
+		vdd_cx_ao-supply = <&pm6150_s1_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1574,14 +1577,6 @@
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc {
-	status = "ok";
-};
-
-&hlos1_vote_turing_mmu_tbu0_gdsc {
-	status = "ok";
-};
-
-&hlos1_vote_turing_mmu_tbu1_gdsc {
 	status = "ok";
 };
 
