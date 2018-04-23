@@ -597,8 +597,9 @@
 	};
 
 	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpm_clocks";
+		compatible = "qcom,rpmh-clk-sm6150";
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
 		#clock-cells = <1>;
 	};
 
