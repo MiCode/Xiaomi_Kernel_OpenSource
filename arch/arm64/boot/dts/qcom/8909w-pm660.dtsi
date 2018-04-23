@@ -469,6 +469,15 @@
 	qcom,support-twm-config;
 };
 
+&pm660_pbs {
+	status = "okay";
+};
+
+&pm660_pon {
+	qcom,support-twm-config;
+	qcom,pbs-client = <&pm660_pbs>;
+};
+
 / {
 	/delete-node/ qcom,battery-data;
 	mtp_batterydata: qcom,battery-data {
