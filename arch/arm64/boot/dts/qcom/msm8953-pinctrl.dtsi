@@ -466,6 +466,87 @@
 			};
 		};
 
+		cdc_dmic0_clk_act: cdc_dmic0_clk_act_default {
+				mux {
+						pins = "gpio89";
+						function = "dmic0_clk";
+				};
+
+				config {
+						pins = "gpio89";
+						drive-strength = <8>;
+				};
+			};
+
+		cdc_dmic0_clk_sus: cdc_dmic0_clk_sus_sleep {
+				mux {
+						pins = "gpio89";
+						function = "gpio";
+				};
+
+				config {
+						pins = "gpio89";
+						drive-strength = <2>;
+						bias-disable;
+				};
+		};
+
+		cdc_dmic0_data_act: cdc_dmic0_data_act_default {
+				mux {
+						pins = "gpio90";
+						function = "dmic0_data";
+				};
+
+				config {
+						pins = "gpio90";
+						drive-strength = <8>;
+				};
+		};
+
+		cdc_dmic0_data_sus: cdc_dmic0_data_sus_sleep {
+				mux {
+						pins = "gpio90";
+						function = "gpio";
+				};
+
+				config {
+						pins = "gpio90";
+						drive-strength = <2>;
+						bias-disable;
+				};
+		};
+
+		sec-tlmm-lines {
+			sec_tlmm_lines_act: sec_tlmm_lines_act {
+				mux {
+					pins = "gpio135", "gpio136",
+					       "gpio137", "gpio138";
+					function = "sec_mi2s";
+				};
+
+				config {
+					pins = "gpio135", "gpio136",
+					       "gpio137", "gpio138";
+					drive-strength = <8>;
+				};
+			};
+
+			sec_tlmm_lines_sus: sec_tlmm_lines_sus {
+				mux {
+					pins = "gpio135", "gpio136",
+					       "gpio137", "gpio138";
+					function = "sec_mi2s";
+				};
+
+				config {
+					pins = "gpio135", "gpio136",
+					       "gpio137", "gpio138";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
 		hsuart_active: default {
 			mux {
 				pins = "gpio12", "gpio13", "gpio14", "gpio15";
@@ -653,6 +734,32 @@
 				pins = "gpio133";
 				drive-strength = <2>;
 				bias-disable;
+			};
+		};
+
+		i2c_1 {
+			i2c_1_active: i2c_1_active {
+				mux {
+					pins = "gpio2", "gpio3";
+					function = "blsp_i2c1";
+				};
+				config {
+					pins = "gpio2", "gpio3";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			i2c_1_sleep: i2c_1_sleep {
+				mux {
+					pins = "gpio2", "gpio3";
+					function = "blsp_i2c1";
+				};
+				config {
+					pins = "gpio2", "gpio3";
+					drive-strength = <2>;
+					bias-disable;
+				};
 			};
 		};
 

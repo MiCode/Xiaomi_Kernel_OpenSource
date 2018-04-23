@@ -86,6 +86,21 @@
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&tlmm 76 0>; /* BT_EN */
 	};
+
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+		pinctrl-1 = <&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	};
+
+	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sec_tlmm_lines_act>;
+		pinctrl-1 = <&sec_tlmm_lines_sus>;
+	};
+
 };
 
 &firmware {
@@ -124,8 +139,43 @@
 	};
 };
 
+&int_codec {
+	status = "ok";
+	qcom,model = "msm8953-openq624-snd-card";
+
+	/delete-property/ qcom,cdc-us-euro-gpios;
+	qcom,msm-hs-micbias-type = "internal";
+
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"SPK_RX_BIAS", "MCLK",
+		"INT_LDO_H", "MCLK",
+		"MIC BIAS Internal1", "Handset Mic",
+		"MIC BIAS Internal2", "Headset Mic",
+		"MIC BIAS Internal1", "Secondary Mic",
+		"AMIC1", "MIC BIAS Internal1",
+		"AMIC2", "MIC BIAS Internal2",
+		"AMIC3", "MIC BIAS Internal1",
+		"DMIC1", "MIC BIAS Internal1",
+		"MIC BIAS Internal1", "Digital Mic1",
+		"DMIC2", "MIC BIAS Internal1",
+		"MIC BIAS Internal1", "Digital Mic2";
+
+	qcom,quat-mi2s-gpios = <&cdc_quat_mi2s_gpios>;
+	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+
+	/delete-property/ asoc-wsa-codec-names;
+	/delete-property/ asoc-wsa-codec-prefixes;
+	/delete-property/ msm-vdd-wsa-switch-supply;
+	/delete-property/ qcom,msm-vdd-wsa-switch-voltage;
+	/delete-property/ qcom,msm-vdd-wsa-switch-current;
+};
 &spi_3 {
 	status = "disabled";
+};
+
+&i2c_1 {
+	status = "okay";
 };
 
 &i2c_2 {
