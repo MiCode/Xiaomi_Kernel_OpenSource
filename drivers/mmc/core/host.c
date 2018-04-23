@@ -388,7 +388,8 @@ int mmc_retune(struct mmc_host *host)
 	else
 		return 0;
 
-	if (!host->need_retune || host->doing_retune || !host->card)
+	if (!host->need_retune || host->doing_retune || !host->card ||
+			mmc_card_hs400es(host->card))
 		return 0;
 
 	host->need_retune = 0;
