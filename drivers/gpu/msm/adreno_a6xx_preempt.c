@@ -749,6 +749,9 @@ int a6xx_preemption_context_init(struct kgsl_context *context)
 	if (context->flags & KGSL_CONTEXT_SECURE)
 		flags |= KGSL_MEMFLAGS_SECURE;
 
+	if (kgsl_is_compat_task())
+		flags |= KGSL_MEMFLAGS_FORCE_32BIT;
+
 	/*
 	 * gpumem_alloc_entry takes an extra refcount. Put it only when
 	 * destroying the context to keep the context record valid
