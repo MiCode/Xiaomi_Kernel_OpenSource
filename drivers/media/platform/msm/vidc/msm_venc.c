@@ -2283,12 +2283,12 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 						control[i].value;
 					break;
 				case V4L2_CID_MPEG_VIDC_VENC_MAX_DISP_LUM:
-					mdisp_sei->nMaxDispMasteringLum =
-						control[i].value;
+					mdisp_sei->nMaxDisplayMasteringLuminance
+						= control[i].value;
 					break;
 				case V4L2_CID_MPEG_VIDC_VENC_MIN_DISP_LUM:
-					mdisp_sei->nMinDispMasteringLum =
-						control[i].value;
+					mdisp_sei->nMinDisplayMasteringLuminance
+						= control[i].value;
 					break;
 				case V4L2_CID_MPEG_VIDC_VENC_MAX_CLL:
 					cll_sei->nMaxContentLight =
