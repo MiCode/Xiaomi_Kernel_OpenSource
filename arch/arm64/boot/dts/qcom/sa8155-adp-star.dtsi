@@ -52,7 +52,7 @@
 
 &soc {
 	qcom,lpass@17300000 {
-		status = "disabled";
+		status = "ok";
 	};
 
 	qcom,ssc@5c00000 {
