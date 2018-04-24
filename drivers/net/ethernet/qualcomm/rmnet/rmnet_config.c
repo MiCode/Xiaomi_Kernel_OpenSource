@@ -21,6 +21,7 @@
 #include "rmnet_handlers.h"
 #include "rmnet_vnd.h"
 #include "rmnet_private.h"
+#include "rmnet_map.h"
 
 /* Locking scheme -
  * The shared resource which needs to be protected is realdev->rx_handler_data.
@@ -66,6 +67,8 @@ static int rmnet_unregister_real_device(struct net_device *real_dev,
 	if (port->nr_rmnet_devs)
 		return -EINVAL;
 
+	rmnet_map_tx_aggregate_exit(port);
+
 	kfree(port);
 
 	netdev_rx_handler_unregister(real_dev);
@@ -104,6 +107,8 @@ static int rmnet_register_real_device(struct net_device *real_dev)
 	for (entry = 0; entry < RMNET_MAX_LOGICAL_EP; entry++)
 		INIT_HLIST_HEAD(&port->muxed_ep[entry]);
 
+	rmnet_map_tx_aggregate_init(port);
+
 	netdev_dbg(real_dev, "registered with rmnet\n");
 	return 0;
 }
@@ -136,7 +141,8 @@ static int rmnet_newlink(struct net *src_net, struct net_device *dev,
 			 struct nlattr *tb[], struct nlattr *data[],
 			 struct netlink_ext_ack *extack)
 {
-	u32 data_format = RMNET_FLAGS_INGRESS_DEAGGREGATION;
+	u32 data_format = RMNET_FLAGS_INGRESS_DEAGGREGATION |
+			  RMNET_EGRESS_FORMAT_AGGREGATION;
 	struct net_device *real_dev;
 	int mode = RMNET_EPMODE_VND;
 	struct rmnet_endpoint *ep;
