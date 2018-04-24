@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,7 @@ struct ipa_uc_offload_ctx {
 	ipa_notify_cb notify;
 	struct completion ntn_completion;
 	u32 pm_hdl;
+	struct ipa_ntn_conn_in_params conn;
 };
 
 static struct ipa_uc_offload_ctx *ipa_uc_offload_ctx[IPA_UC_MAX_PROT_SIZE];
@@ -403,12 +404,62 @@ static void ipa_uc_offload_rm_notify(void *user_data, enum ipa_rm_event event,
 	}
 }
 
+static int ipa_uc_ntn_alloc_conn_smmu_info(struct ipa_ntn_setup_info *dest,
+	struct ipa_ntn_setup_info *source)
+{
+	int result;
+
+	IPA_UC_OFFLOAD_DBG("Allocating smmu info\n");
+
+	memcpy(dest, source, sizeof(struct ipa_ntn_setup_info));
+
+	dest->data_buff_list =
+		kcalloc(dest->num_buffers, sizeof(struct ntn_buff_smmu_map),
+			GFP_KERNEL);
+	if (dest->data_buff_list == NULL) {
+		IPA_UC_OFFLOAD_ERR("failed to alloc smmu info\n");
+		return -ENOMEM;
+	}
+
+	memcpy(dest->data_buff_list, source->data_buff_list,
+		sizeof(struct ntn_buff_smmu_map) * dest->num_buffers);
+
+	result = ipa_smmu_store_sgt(&dest->buff_pool_base_sgt,
+		source->buff_pool_base_sgt);
+	if (result) {
+		kfree(dest->data_buff_list);
+		return result;
+	}
+
+	result = ipa_smmu_store_sgt(&dest->ring_base_sgt,
+		source->ring_base_sgt);
+	if (result) {
+		kfree(dest->data_buff_list);
+		ipa_smmu_free_sgt(&dest->buff_pool_base_sgt);
+		return result;
+	}
+
+	return 0;
+}
+
+static void ipa_uc_ntn_free_conn_smmu_info(struct ipa_ntn_setup_info *params)
+{
+	kfree(params->data_buff_list);
+	ipa_smmu_free_sgt(&params->buff_pool_base_sgt);
+	ipa_smmu_free_sgt(&params->ring_base_sgt);
+}
+
 int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 			struct ipa_ntn_conn_out_params *outp,
 			struct ipa_uc_offload_ctx *ntn_ctx)
 {
 	int result = 0;
 	enum ipa_uc_offload_state prev_state;
+
+	if (ntn_ctx->conn.dl.smmu_enabled != ntn_ctx->conn.ul.smmu_enabled) {
+		IPA_UC_OFFLOAD_ERR("ul and dl smmu enablement do not match\n");
+		return -EINVAL;
+	}
 
 	prev_state = ntn_ctx->state;
 	if (inp->dl.ring_base_pa % IPA_NTN_DMA_POOL_ALIGNMENT ||
@@ -467,7 +518,21 @@ int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 		goto fail;
 	}
 
-	return 0;
+	if (ntn_ctx->conn.dl.smmu_enabled) {
+		result = ipa_uc_ntn_alloc_conn_smmu_info(&ntn_ctx->conn.dl,
+			&inp->dl);
+		if (result) {
+			IPA_UC_OFFLOAD_ERR("alloc failure on TX\n");
+			goto fail;
+		}
+		result = ipa_uc_ntn_alloc_conn_smmu_info(&ntn_ctx->conn.ul,
+			&inp->ul);
+		if (result) {
+			ipa_uc_ntn_free_conn_smmu_info(&ntn_ctx->conn.dl);
+			IPA_UC_OFFLOAD_ERR("alloc failure on RX\n");
+			goto fail;
+		}
+	}
 
 fail:
 	if (!ipa_pm_is_used())
@@ -563,6 +628,11 @@ static int ipa_uc_ntn_disconn_pipes(struct ipa_uc_offload_ctx *ntn_ctx)
 	int ipa_ep_idx_ul, ipa_ep_idx_dl;
 	int ret = 0;
 
+	if (ntn_ctx->conn.dl.smmu_enabled != ntn_ctx->conn.ul.smmu_enabled) {
+		IPA_UC_OFFLOAD_ERR("ul and dl smmu enablement do not match\n");
+		return -EINVAL;
+	}
+
 	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_INITIALIZED;
 
 #ifdef CONFIG_IPA3
@@ -594,12 +664,16 @@ static int ipa_uc_ntn_disconn_pipes(struct ipa_uc_offload_ctx *ntn_ctx)
 
 	ipa_ep_idx_ul = ipa_get_ep_mapping(IPA_CLIENT_ETHERNET_PROD);
 	ipa_ep_idx_dl = ipa_get_ep_mapping(IPA_CLIENT_ETHERNET_CONS);
-	ret = ipa_tear_down_uc_offload_pipes(ipa_ep_idx_ul, ipa_ep_idx_dl);
+	ret = ipa_tear_down_uc_offload_pipes(ipa_ep_idx_ul, ipa_ep_idx_dl,
+		&ntn_ctx->conn);
 	if (ret) {
 		IPA_UC_OFFLOAD_ERR("fail to tear down ntn offload pipes, %d\n",
 						 ret);
 		return -EFAULT;
 	}
+	if (ntn_ctx->conn.dl.smmu_enabled)
+		ipa_uc_ntn_free_conn_smmu_info(&ntn_ctx->conn.dl);
+		ipa_uc_ntn_free_conn_smmu_info(&ntn_ctx->conn.ul);
 
 	return ret;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -221,8 +221,11 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 
 	IPADBG("ring_base_pa = 0x%pa\n",
 			&ntn_info->ring_base_pa);
+	IPADBG("ring_base_iova = 0x%pa\n",
+			&ntn_info->ring_base_iova);
 	IPADBG("ntn_ring_size = %d\n", ntn_info->ntn_ring_size);
 	IPADBG("buff_pool_base_pa = 0x%pa\n", &ntn_info->buff_pool_base_pa);
+	IPADBG("buff_pool_base_iova = 0x%pa\n", &ntn_info->buff_pool_base_iova);
 	IPADBG("num_buffers = %d\n", ntn_info->num_buffers);
 	IPADBG("data_buff_size = %d\n", ntn_info->data_buff_size);
 	IPADBG("tail_ptr_base_pa = 0x%pa\n", &ntn_info->ntn_reg_base_ptr_pa);
@@ -248,8 +251,15 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 		Ntn_params = &cmd_data->SetupCh_params.NtnSetupCh_params;
 	}
 
-	Ntn_params->ring_base_pa = ntn_info->ring_base_pa;
-	Ntn_params->buff_pool_base_pa = ntn_info->buff_pool_base_pa;
+	if (ntn_info->smmu_enabled) {
+		Ntn_params->ring_base_pa = (u32)ntn_info->ring_base_iova;
+		Ntn_params->buff_pool_base_pa =
+			(u32)ntn_info->buff_pool_base_iova;
+	} else {
+		Ntn_params->ring_base_pa = ntn_info->ring_base_pa;
+		Ntn_params->buff_pool_base_pa = ntn_info->buff_pool_base_pa;
+	}
+
 	Ntn_params->ntn_ring_size = ntn_info->ntn_ring_size;
 	Ntn_params->num_buffers = ntn_info->num_buffers;
 	Ntn_params->ntn_reg_base_ptr_pa = ntn_info->ntn_reg_base_ptr_pa;
@@ -265,6 +275,128 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 		result = -EFAULT;
 
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
+	return result;
+}
+
+static int ipa3_smmu_map_uc_ntn_pipes(struct ipa_ntn_setup_info *params,
+	bool map)
+{
+	struct iommu_domain *smmu_domain;
+	int result;
+	int i;
+	u64 iova;
+	phys_addr_t pa;
+	u64 iova_p;
+	phys_addr_t pa_p;
+	u32 size_p;
+
+	if (params->data_buff_size > PAGE_SIZE) {
+		IPAERR("invalid data buff size\n");
+		return -EINVAL;
+	}
+
+	result = ipa3_smmu_map_peer_reg(rounddown(params->ntn_reg_base_ptr_pa,
+		PAGE_SIZE), map, IPA_SMMU_CB_UC);
+	if (result) {
+		IPAERR("failed to %s uC regs %d\n",
+			map ? "map" : "unmap", result);
+		goto fail;
+	}
+
+	if (params->smmu_enabled) {
+		IPADBG("smmu is enabled on EMAC\n");
+		result = ipa3_smmu_map_peer_buff((u64)params->ring_base_iova,
+			params->ntn_ring_size, map, params->ring_base_sgt,
+			IPA_SMMU_CB_UC);
+		if (result) {
+			IPAERR("failed to %s ntn ring %d\n",
+				map ? "map" : "unmap", result);
+			goto fail_map_ring;
+		}
+		result = ipa3_smmu_map_peer_buff(
+			(u64)params->buff_pool_base_iova,
+			params->num_buffers * 4, map,
+			params->buff_pool_base_sgt, IPA_SMMU_CB_UC);
+		if (result) {
+			IPAERR("failed to %s pool buffs %d\n",
+				map ? "map" : "unmap", result);
+			goto fail_map_buffer_smmu_enabled;
+		}
+	} else {
+		IPADBG("smmu is disabled on EMAC\n");
+		result = ipa3_smmu_map_peer_buff((u64)params->ring_base_pa,
+			params->ntn_ring_size, map, NULL, IPA_SMMU_CB_UC);
+		if (result) {
+			IPAERR("failed to %s ntn ring %d\n",
+				map ? "map" : "unmap", result);
+			goto fail_map_ring;
+		}
+		result = ipa3_smmu_map_peer_buff(params->buff_pool_base_pa,
+			params->num_buffers * 4, map, NULL, IPA_SMMU_CB_UC);
+		if (result) {
+			IPAERR("failed to %s pool buffs %d\n",
+				map ? "map" : "unmap", result);
+			goto fail_map_buffer_smmu_disabled;
+		}
+	}
+
+	if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP]) {
+		IPADBG("AP SMMU is set to s1 bypass\n");
+		return 0;
+	}
+
+	smmu_domain = ipa3_get_smmu_domain();
+	if (!smmu_domain) {
+		IPAERR("invalid smmu domain\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < params->num_buffers; i++) {
+		iova = (u64)params->data_buff_list[i].iova;
+		pa = (phys_addr_t)params->data_buff_list[i].pa;
+		IPA_SMMU_ROUND_TO_PAGE(iova, pa, params->data_buff_size, iova_p,
+			pa_p, size_p);
+		IPADBG("%s 0x%llx to 0x%pa size %d\n", map ? "mapping" :
+			"unmapping", iova_p, &pa_p, size_p);
+		if (map) {
+			result = ipa3_iommu_map(smmu_domain, iova_p, pa_p,
+				size_p, IOMMU_READ | IOMMU_WRITE);
+			if (result)
+				IPAERR("Fail to map 0x%llx\n", iova);
+		} else {
+			result = iommu_unmap(smmu_domain, iova_p, size_p);
+			if (result != params->data_buff_size)
+				IPAERR("Fail to unmap 0x%llx\n", iova);
+		}
+		if (result) {
+			if (params->smmu_enabled)
+				goto fail_map_data_buff_smmu_enabled;
+			else
+				goto fail_map_data_buff_smmu_disabled;
+		}
+	}
+	return 0;
+
+fail_map_data_buff_smmu_enabled:
+	ipa3_smmu_map_peer_buff((u64)params->buff_pool_base_iova,
+		params->num_buffers * 4, !map, NULL, IPA_SMMU_CB_UC);
+	goto fail_map_buffer_smmu_enabled;
+fail_map_data_buff_smmu_disabled:
+	ipa3_smmu_map_peer_buff(params->buff_pool_base_pa,
+		params->num_buffers * 4, !map, NULL, IPA_SMMU_CB_UC);
+	goto fail_map_buffer_smmu_disabled;
+fail_map_buffer_smmu_enabled:
+	ipa3_smmu_map_peer_buff((u64)params->ring_base_iova,
+		params->ntn_ring_size, !map, params->ring_base_sgt,
+		IPA_SMMU_CB_UC);
+	goto fail_map_ring;
+fail_map_buffer_smmu_disabled:
+	ipa3_smmu_map_peer_buff((u64)params->ring_base_pa,
+			params->ntn_ring_size, !map, NULL, IPA_SMMU_CB_UC);
+fail_map_ring:
+	ipa3_smmu_map_peer_reg(rounddown(params->ntn_reg_base_ptr_pa,
+		PAGE_SIZE), !map, IPA_SMMU_CB_UC);
+fail:
 	return result;
 }
 
@@ -324,10 +456,16 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		goto fail;
 	}
 
+	result = ipa3_smmu_map_uc_ntn_pipes(&in->ul, true);
+	if (result) {
+		IPAERR("failed to map SMMU for UL %d\n", result);
+		goto fail;
+	}
+
 	if (ipa3_uc_send_ntn_setup_pipe_cmd(&in->ul, IPA_NTN_RX_DIR)) {
 		IPAERR("fail to send cmd to uc for ul pipe\n");
 		result = -EFAULT;
-		goto fail;
+		goto fail_smmu_map_ul;
 	}
 	ipa3_install_dflt_flt_rules(ipa_ep_idx_ul);
 	outp->ul_uc_db_pa = IPA_UC_NTN_DB_PA_RX;
@@ -346,13 +484,19 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	if (ipa3_cfg_ep(ipa_ep_idx_dl, &ep_dl->cfg)) {
 		IPAERR("fail to setup dl pipe cfg\n");
 		result = -EFAULT;
-		goto fail;
+		goto fail_smmu_map_ul;
+	}
+
+	result = ipa3_smmu_map_uc_ntn_pipes(&in->dl, true);
+	if (result) {
+		IPAERR("failed to map SMMU for DL %d\n", result);
+		goto fail_smmu_map_ul;
 	}
 
 	if (ipa3_uc_send_ntn_setup_pipe_cmd(&in->dl, IPA_NTN_TX_DIR)) {
 		IPAERR("fail to send cmd to uc for dl pipe\n");
 		result = -EFAULT;
-		goto fail;
+		goto fail_smmu_map_dl;
 	}
 	outp->dl_uc_db_pa = IPA_UC_NTN_DB_PA_TX;
 	ep_dl->uc_offload_state |= IPA_UC_OFFLOAD_CONNECTED;
@@ -362,11 +506,17 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		IPAERR("Enable data path failed res=%d clnt=%d.\n", result,
 			ipa_ep_idx_dl);
 		result = -EFAULT;
-		goto fail;
+		goto fail_smmu_map_dl;
 	}
 	IPADBG("client %d (ep: %d) connected\n", in->dl.client,
 		ipa_ep_idx_dl);
 
+	return 0;
+
+fail_smmu_map_dl:
+	ipa3_smmu_map_uc_ntn_pipes(&in->dl, false);
+fail_smmu_map_ul:
+	ipa3_smmu_map_uc_ntn_pipes(&in->ul, false);
 fail:
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return result;
@@ -377,7 +527,7 @@ fail:
  */
 
 int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
-		int ipa_ep_idx_dl)
+		int ipa_ep_idx_dl, struct ipa_ntn_conn_in_params *params)
 {
 	struct ipa_mem_buffer cmd;
 	struct ipa3_ep_context *ep_ul, *ep_dl;
@@ -442,6 +592,13 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 		goto fail;
 	}
 
+	/* unmap the DL pipe */
+	result = ipa3_smmu_map_uc_ntn_pipes(&params->dl, false);
+	if (result) {
+		IPAERR("failed to unmap SMMU for DL %d\n", result);
+		goto fail;
+	}
+
 	/* teardown the UL pipe */
 	tear->params.ipa_pipe_number = ipa_ep_idx_ul;
 	result = ipa3_uc_send_cmd((u32)(cmd.phys_base),
@@ -453,6 +610,14 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 		result = -EFAULT;
 		goto fail;
 	}
+
+	/* unmap the UL pipe */
+	result = ipa3_smmu_map_uc_ntn_pipes(&params->ul, false);
+	if (result) {
+		IPAERR("failed to unmap SMMU for UL %d\n", result);
+		goto fail;
+	}
+
 	ipa3_delete_dflt_flt_rules(ipa_ep_idx_ul);
 	memset(&ipa3_ctx->ep[ipa_ep_idx_ul], 0, sizeof(struct ipa3_ep_context));
 	IPADBG("ul client (ep: %d) disconnected\n", ipa_ep_idx_ul);
