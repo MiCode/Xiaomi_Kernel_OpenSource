@@ -3578,11 +3578,22 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
 	const struct apsd_result *apsd_result;
+	union power_supply_propval pval = {0, };
+	int rc;
 
 	if (!rising)
 		return;
 
 	apsd_result = smblib_update_usb_type(chg);
+	if (!chg->skip_usb_notification && chg->typec_present) {
+		smblib_dbg(chg, PR_REGISTER, "Notify USB insertion\n");
+		rc = smblib_get_prop_usb_online(chg, &pval);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't read USB online status rc=%d\n",
+					rc);
+		power_supply_set_online(chg->usb_psy, pval.intval);
+		power_supply_set_present(chg->usb_psy, true);
+	}
 
 	if (!chg->typec_legacy_valid)
 		smblib_force_legacy_icl(chg, apsd_result->pst);
@@ -3613,7 +3624,6 @@ irqreturn_t smblib_handle_usb_source_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-	union power_supply_propval pval = {0, };
 	int rc = 0;
 	u8 stat;
 
@@ -3650,16 +3660,6 @@ irqreturn_t smblib_handle_usb_source_change(int irq, void *data)
 
 	smblib_handle_sdp_enumeration_done(chg,
 		(bool)(stat & ENUMERATION_DONE_BIT));
-
-	if (!chg->skip_usb_notification && chg->typec_present) {
-		smblib_dbg(chg, PR_REGISTER, "Notify USB insertion\n");
-		rc = smblib_get_prop_usb_online(chg, &pval);
-		if (rc < 0)
-			smblib_err(chg, "Couldn't read USB online status rc=%d\n",
-					rc);
-		power_supply_set_online(chg->usb_psy, pval.intval);
-		power_supply_set_present(chg->usb_psy, true);
-	}
 
 	smblib_handle_slow_plugin_timeout(chg,
 		(bool)(stat & SLOW_PLUGIN_TIMEOUT_BIT));
