@@ -400,3 +400,196 @@ sw_csum:
 	ul_header->csum_enabled = 0;
 	ul_header->udp_ip4_ind = 0;
 }
+
+struct rmnet_agg_work {
+	struct work_struct work;
+	struct rmnet_port *port;
+};
+
+long rmnet_agg_time_limit __read_mostly = 1000000L;
+long rmnet_agg_bypass_time __read_mostly = 10000000L;
+
+int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset)
+{
+	u8 *packet_start = skb->data + offset;
+	int is_icmp = 0;
+
+	if (skb->protocol == htons(ETH_P_IP)) {
+		struct iphdr *ip4h = (struct iphdr *)(packet_start);
+
+		if (ip4h->protocol == IPPROTO_ICMP)
+			is_icmp = 1;
+	} else if (skb->protocol == htons(ETH_P_IPV6)) {
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)(packet_start);
+
+		if (ip6h->nexthdr == IPPROTO_ICMPV6) {
+			is_icmp = 1;
+		} else if (ip6h->nexthdr == NEXTHDR_FRAGMENT) {
+			struct frag_hdr *frag;
+
+			frag = (struct frag_hdr *)(packet_start
+						   + sizeof(struct ipv6hdr));
+			if (frag->nexthdr == IPPROTO_ICMPV6)
+				is_icmp = 1;
+		}
+	}
+
+	return is_icmp;
+}
+
+static void rmnet_map_flush_tx_packet_work(struct work_struct *work)
+{
+	struct rmnet_agg_work *real_work;
+	struct rmnet_port *port;
+	unsigned long flags;
+	struct sk_buff *skb;
+	int agg_count = 0;
+
+	real_work = (struct rmnet_agg_work *)work;
+	port = real_work->port;
+	skb = NULL;
+
+	spin_lock_irqsave(&port->agg_lock, flags);
+	if (likely(port->agg_state == -EINPROGRESS)) {
+		/* Buffer may have already been shipped out */
+		if (likely(port->agg_skb)) {
+			skb = port->agg_skb;
+			agg_count = port->agg_count;
+			port->agg_skb = NULL;
+			port->agg_count = 0;
+			memset(&port->agg_time, 0, sizeof(struct timespec));
+		}
+		port->agg_state = 0;
+	}
+
+	spin_unlock_irqrestore(&port->agg_lock, flags);
+	if (skb) {
+		skb->protocol = htons(ETH_P_MAP);
+		dev_queue_xmit(skb);
+	}
+
+	kfree(work);
+}
+
+enum hrtimer_restart rmnet_map_flush_tx_packet_queue(struct hrtimer *t)
+{
+	struct rmnet_agg_work *work;
+	struct rmnet_port *port;
+
+	port = container_of(t, struct rmnet_port, hrtimer);
+
+	work = kmalloc(sizeof(*work), GFP_ATOMIC);
+	if (!work) {
+		port->agg_state = 0;
+
+		return HRTIMER_NORESTART;
+	}
+
+	INIT_WORK(&work->work, rmnet_map_flush_tx_packet_work);
+	work->port = port;
+	schedule_work((struct work_struct *)work);
+	return HRTIMER_NORESTART;
+}
+
+void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port)
+{
+	struct timespec diff, last;
+	int size, agg_count = 0;
+	struct sk_buff *agg_skb;
+	unsigned long flags;
+	u8 *dest_buff;
+
+new_packet:
+	spin_lock_irqsave(&port->agg_lock, flags);
+	memcpy(&last, &port->agg_last, sizeof(struct timespec));
+	getnstimeofday(&port->agg_last);
+
+	if (!port->agg_skb) {
+		/* Check to see if we should agg first. If the traffic is very
+		 * sparse, don't aggregate. We will need to tune this later
+		 */
+		diff = timespec_sub(port->agg_last, last);
+
+		if (diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_bypass_time) {
+			spin_unlock_irqrestore(&port->agg_lock, flags);
+			skb->protocol = htons(ETH_P_MAP);
+			dev_queue_xmit(skb);
+			return;
+		}
+
+		size = port->egress_agg_size - skb->len;
+		port->agg_skb = skb_copy_expand(skb, 0, size, GFP_ATOMIC);
+		if (!port->agg_skb) {
+			port->agg_skb = 0;
+			port->agg_count = 0;
+			memset(&port->agg_time, 0, sizeof(struct timespec));
+			spin_unlock_irqrestore(&port->agg_lock, flags);
+			skb->protocol = htons(ETH_P_MAP);
+			dev_queue_xmit(skb);
+			return;
+		}
+		port->agg_count = 1;
+		getnstimeofday(&port->agg_time);
+		dev_kfree_skb_any(skb);
+		goto schedule;
+	}
+	diff = timespec_sub(port->agg_last, port->agg_time);
+
+	if (skb->len > (port->egress_agg_size - port->agg_skb->len) ||
+	    port->agg_count >= port->egress_agg_count ||
+	    diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_time_limit) {
+		agg_skb = port->agg_skb;
+		agg_count = port->agg_count;
+		port->agg_skb = 0;
+		port->agg_count = 0;
+		memset(&port->agg_time, 0, sizeof(struct timespec));
+		port->agg_state = 0;
+		spin_unlock_irqrestore(&port->agg_lock, flags);
+		hrtimer_cancel(&port->hrtimer);
+		agg_skb->protocol = htons(ETH_P_MAP);
+		dev_queue_xmit(agg_skb);
+		goto new_packet;
+	}
+
+	dest_buff = skb_put(port->agg_skb, skb->len);
+	memcpy(dest_buff, skb->data, skb->len);
+	port->agg_count++;
+	dev_kfree_skb_any(skb);
+
+schedule:
+	if (port->agg_state != -EINPROGRESS) {
+		port->agg_state = -EINPROGRESS;
+		hrtimer_start(&port->hrtimer, ns_to_ktime(3000000),
+			      HRTIMER_MODE_REL);
+	}
+	spin_unlock_irqrestore(&port->agg_lock, flags);
+}
+
+void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
+{
+	hrtimer_init(&port->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	port->hrtimer.function = rmnet_map_flush_tx_packet_queue;
+	port->egress_agg_size = 8192;
+	port->egress_agg_count = 20;
+	spin_lock_init(&port->agg_lock);
+}
+
+void rmnet_map_tx_aggregate_exit(struct rmnet_port *port)
+{
+	unsigned long flags;
+
+	hrtimer_cancel(&port->hrtimer);
+	spin_lock_irqsave(&port->agg_lock, flags);
+	if (port->agg_state == -EINPROGRESS) {
+		if (port->agg_skb) {
+			kfree_skb(port->agg_skb);
+			port->agg_skb = NULL;
+			port->agg_count = 0;
+			memset(&port->agg_time, 0, sizeof(struct timespec));
+		}
+
+		port->agg_state = 0;
+	}
+
+	spin_unlock_irqrestore(&port->agg_lock, flags);
+}

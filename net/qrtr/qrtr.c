@@ -714,6 +714,8 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	}
 	mutex_unlock(&qrtr_node_lock);
 
+	to->sq_node = QRTR_NODE_BCAST;
+	to->sq_port = QRTR_PORT_CTRL;
 	qrtr_local_enqueue(node, skb, type, from, to);
 
 	return 0;
@@ -766,6 +768,10 @@ static int qrtr_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
 	node = NULL;
 	if (addr->sq_node == QRTR_NODE_BCAST) {
 		enqueue_fn = qrtr_bcast_enqueue;
+		if (addr->sq_port != QRTR_PORT_CTRL) {
+			release_sock(sk);
+			return -EINVAL;
+		}
 	} else if (addr->sq_node == ipc->us.sq_node) {
 		enqueue_fn = qrtr_local_enqueue;
 	} else {

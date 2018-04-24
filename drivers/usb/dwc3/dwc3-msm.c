@@ -3843,10 +3843,14 @@ static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 
 	usb_speed = (event == 0 ? USB_SPEED_HIGH : USB_SPEED_SUPER);
 	if (dwc->maximum_speed == usb_speed)
-		goto err;
+		return 0;
 
 	dbg_event(0xFF, "fw_restarthost", 0);
 	flush_delayed_work(&mdwc->sm_work);
+
+	if (!mdwc->in_host_mode)
+		goto err;
+
 	dbg_event(0xFF, "stop_host_mode", dwc->maximum_speed);
 	ret = dwc3_otg_start_host(mdwc, 0);
 	if (ret)

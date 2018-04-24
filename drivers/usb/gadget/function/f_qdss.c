@@ -362,11 +362,7 @@ static void clear_desc(struct usb_gadget *gadget, struct usb_function *f)
 {
 	pr_debug("%s\n", __func__);
 
-	if (gadget_is_superspeed(gadget) && f->ss_descriptors)
-		usb_free_descriptors(f->ss_descriptors);
-
-	if (gadget_is_dualspeed(gadget) && f->hs_descriptors)
-		usb_free_descriptors(f->hs_descriptors);
+	usb_free_all_descriptors(f);
 }
 
 static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
@@ -374,7 +370,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_gadget *gadget = c->cdev->gadget;
 	struct f_qdss *qdss = func_to_qdss(f);
 	struct usb_ep *ep;
-	int iface, id;
+	int iface, id, ret;
 
 	pr_debug("%s\n", __func__);
 
@@ -455,28 +451,18 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		qdss_ss_ctrl_in_desc.bEndpointAddress;
 		qdss_hs_ctrl_out_desc.bEndpointAddress =
 		qdss_ss_ctrl_out_desc.bEndpointAddress;
-		f->hs_descriptors = usb_copy_descriptors(qdss_hs_desc);
-	} else
-		f->hs_descriptors = usb_copy_descriptors(
-							qdss_hs_data_only_desc);
-	if (!f->hs_descriptors) {
-		pr_err("%s: usb_copy_descriptors error\n", __func__);
-		goto fail;
 	}
 
-	/* update ss descriptors */
-	if (gadget_is_superspeed(gadget)) {
-		if (qdss->debug_inface_enabled)
-			f->ss_descriptors =
-			usb_copy_descriptors(qdss_ss_desc);
-		else
-			f->ss_descriptors =
-			usb_copy_descriptors(qdss_ss_data_only_desc);
-		if (!f->ss_descriptors) {
-			pr_err("%s: usb_copy_descriptors error\n", __func__);
-			goto fail;
-		}
-	}
+	if (qdss->debug_inface_enabled)
+		ret = usb_assign_descriptors(f, qdss_hs_desc, qdss_hs_desc,
+				qdss_ss_desc, qdss_ss_desc);
+	else
+		ret = usb_assign_descriptors(f, qdss_hs_data_only_desc,
+				qdss_hs_data_only_desc, qdss_ss_data_only_desc,
+				qdss_ss_data_only_desc);
+
+	if (ret)
+		goto fail;
 
 	return 0;
 fail:
@@ -643,9 +629,9 @@ static int qdss_set_alt(struct usb_function *f, unsigned int intf,
 	if (alt != 0)
 		goto fail1;
 
-	if (gadget->speed != USB_SPEED_SUPER &&
-		gadget->speed != USB_SPEED_HIGH) {
-		pr_err("%s: qdss supportes HS or SS only\n", __func__);
+	if (gadget->speed < USB_SPEED_HIGH) {
+		pr_err("%s: qdss doesn't support USB full or low speed\n",
+								__func__);
 		ret = -EINVAL;
 		goto fail1;
 	}

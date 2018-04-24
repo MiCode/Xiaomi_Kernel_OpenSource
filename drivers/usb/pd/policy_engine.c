@@ -1832,6 +1832,7 @@ static void reset_vdm_state(struct usbpd *pd)
 	pd->num_svids = 0;
 	kfree(pd->vdm_tx);
 	pd->vdm_tx = NULL;
+	pd->ss_lane_svid = 0x0;
 }
 
 static void dr_swap(struct usbpd *pd)

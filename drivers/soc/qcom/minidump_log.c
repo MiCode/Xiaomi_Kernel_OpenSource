@@ -100,6 +100,9 @@ void dump_stack_minidump(u64 sp)
 	unsigned int stack_pages, i, copy_pages;
 	u64 base_addr;
 
+	if (is_idle_task(current))
+		return;
+
 	/*
 	 * Since stacks are now allocated with vmalloc, the translation to
 	 * physical address is not a simple linear transformation like it is

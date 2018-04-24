@@ -58,7 +58,7 @@ extern int msm_vidc_fw_debug_mode;
 extern int msm_vidc_fw_low_power_mode;
 extern bool msm_vidc_fw_coverage;
 extern bool msm_vidc_thermal_mitigation_disabled;
-extern bool msm_vidc_clock_scaling;
+extern int msm_vidc_clock_voting;
 extern bool msm_vidc_syscache_disable;
 
 #define dprintk(__level, __fmt, arg...)	\
@@ -73,8 +73,8 @@ extern bool msm_vidc_syscache_disable;
 	} while (0)
 
 #define MSM_VIDC_ERROR(value)					\
-	do {							\
-		dprintk(VIDC_DBG, "BugOn");			\
+	do {	if (value)					\
+			dprintk(VIDC_DBG, "BugOn");		\
 		BUG_ON(value);					\
 	} while (0)
 

@@ -401,7 +401,8 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 	}
 }
 
-static int dp_usbpd_simulate_connect(struct dp_usbpd *dp_usbpd, bool hpd)
+static int dp_usbpd_simulate_connect(struct dp_usbpd *dp_usbpd, bool hpd,
+		int orientation)
 {
 	int rc = 0;
 	struct dp_usbpd_private *pd;
@@ -416,7 +417,11 @@ static int dp_usbpd_simulate_connect(struct dp_usbpd *dp_usbpd, bool hpd)
 
 	dp_usbpd->hpd_high = hpd;
 	pd->forced_disconnect = !hpd;
+	pd->dp_usbpd.orientation = orientation;
 
+	pr_debug("hpd_high=%d, forced_disconnect=%d, orientation=%d\n",
+			dp_usbpd->hpd_high, pd->forced_disconnect,
+			pd->dp_usbpd.orientation);
 	if (hpd)
 		pd->dp_cb->configure(pd->dev);
 	else

@@ -1385,7 +1385,7 @@ static void __set_queue_hdr_defaults(struct hfi_queue_header *q_hdr)
 static void __interface_dsp_queues_release(struct venus_hfi_device *device)
 {
 	int i;
-	struct msm_smem *mem_data = &device->iface_q_table.mem_data;
+	struct msm_smem *mem_data = &device->dsp_iface_q_table.mem_data;
 	struct context_bank_info *cb = mem_data->mapping_info.cb_info;
 
 	if (!device->dsp_iface_q_table.align_virtual_addr) {
@@ -1393,7 +1393,7 @@ static void __interface_dsp_queues_release(struct venus_hfi_device *device)
 		return;
 	}
 
-	dma_unmap_single_attrs(cb->dev, mem_data->dma_handle,
+	dma_unmap_single_attrs(cb->dev, mem_data->device_addr,
 		mem_data->size, DMA_BIDIRECTIONAL, 0);
 	dma_free_coherent(device->res->mem_adsp.dev, mem_data->size,
 		mem_data->kvaddr, mem_data->dma_handle);
@@ -3162,7 +3162,14 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 		} else {
 			struct hfi_msg_sys_debug_packet *pkt =
 				(struct hfi_msg_sys_debug_packet *) packet;
-			dprintk(log_level, "%s", pkt->rg_msg_data);
+			/*
+			 * All fw messages starts with new line character. This
+			 * causes dprintk to print this message in two lines
+			 * in the kernel log. Ignoring the first character
+			 * from the message fixes this to print it in a single
+			 * line.
+			 */
+			dprintk(log_level, "%s", &pkt->rg_msg_data[1]);
 		}
 	}
 

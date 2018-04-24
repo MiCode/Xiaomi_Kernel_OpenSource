@@ -355,7 +355,7 @@ static int __init msm_minidump_init(void)
 		return -ENOMEM;
 
 	md_ss_toc->md_ss_smem_regions_baseptr =
-				(void *)virt_to_phys(minidump_table.md_regions);
+				virt_to_phys(minidump_table.md_regions);
 
 	/* First entry would be ELF header */
 	md_ss_toc->ss_region_count = 1;

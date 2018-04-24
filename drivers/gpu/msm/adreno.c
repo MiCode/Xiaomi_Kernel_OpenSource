@@ -643,7 +643,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 			if (fence_retries == FENCE_RETRY_MAX) {
 				KGSL_DRV_CRIT_RATELIMIT(device,
 						"AHB fence stuck in ISR\n");
-				return ret;
+				goto done;
 			}
 			fence_retries++;
 		} while (fence != 0);
@@ -687,6 +687,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_CLEAR_CMD,
 				int_bit);
 
+done:
 	/* Turn off the KEEPALIVE vote from earlier unless hard fault set */
 	if (gpudev->gpu_keepalive) {
 		/* If hard fault, then let snapshot turn off the keepalive */
@@ -1035,8 +1036,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	if (of_property_read_u32(node, "qcom,idle-timeout", &timeout))
 		timeout = 80;
 
-	/* Force disable slumber */
-	timeout = 10000000;
 	device->pwrctrl.interval_timeout = msecs_to_jiffies(timeout);
 
 	device->pwrctrl.bus_control = of_property_read_bool(node,

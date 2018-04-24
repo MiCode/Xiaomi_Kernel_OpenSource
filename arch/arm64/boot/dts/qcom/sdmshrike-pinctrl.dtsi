@@ -1730,16 +1730,18 @@
 		};
 
 		fsa_usbc_ana_en_n@100 {
-			mux {
-				pins = "gpio100";
-				function = "gpio";
-			};
+			fsa_usbc_ana_en: fsa_usbc_ana_en {
+				mux {
+					pins = "gpio100";
+					function = "gpio";
+				};
 
-			config {
-				pins = "gpio100";
-				drive-strength = <2>;
-				bias-disable;
-				output-low;
+				config {
+					pins = "gpio100";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+				};
 			};
 		};
 
