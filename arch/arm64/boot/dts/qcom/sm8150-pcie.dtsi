@@ -597,4 +597,13 @@
 			<GIC_SPI 830 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 831 IRQ_TYPE_EDGE_RISING>;
 	};
+
+	pcie1_edma: qcom,pcie1_edma@40002000 {
+		compatible = "qcom,pci-edma";
+		#dma-cells = <2>;
+		reg = <0x40002000 0x2000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pci-edma-int";
+	};
 };
