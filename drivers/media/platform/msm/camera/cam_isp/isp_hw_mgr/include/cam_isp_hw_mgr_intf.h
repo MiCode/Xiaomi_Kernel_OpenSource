@@ -108,11 +108,13 @@ struct cam_isp_prepare_hw_update_data {
 /**
  * struct cam_isp_hw_sof_event_data - Event payload for CAM_HW_EVENT_SOF
  *
- * @timestamp:     Time stamp for the sof event
+ * @timestamp:   Time stamp for the sof event
+ * @boot_time:   Boot time stamp for the sof event
  *
  */
 struct cam_isp_hw_sof_event_data {
 	uint64_t       timestamp;
+	uint64_t       boot_time;
 };
 
 /**
