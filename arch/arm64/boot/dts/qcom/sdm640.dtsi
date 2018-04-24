@@ -21,6 +21,7 @@
 #include <dt-bindings/clock/qcom,gpucc-sdm640.h>
 #include <dt-bindings/clock/qcom,videocc-sdm640.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
+#include <dt-bindings/spmi/spmi.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM640";
@@ -932,6 +933,25 @@
 		clock-names = "iface_clk", "core_clk";
 
 		status = "disabled";
+	};
+
+	spmi_bus: qcom,spmi@c440000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0xc440000 0x2300>,
+		      <0xc600000 0x2000000>,
+		      <0xe600000 0x100000>,
+		      <0xe700000 0xa0000>,
+		      <0xc40a000 0x26000>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupt-names = "periph_irq";
+		interrupts = <GIC_SPI 481 IRQ_TYPE_NONE>;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
 	};
 };
 
