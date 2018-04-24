@@ -49,6 +49,16 @@ enum sde_crtc_client_type {
 };
 
 /**
+ * enum sde_crtc_output_capture_point
+ * @MIXER_OUT : capture mixer output
+ * @DSPP_OUT : capture output of dspp
+ */
+enum sde_crtc_output_capture_point {
+	CAPTURE_MIXER_OUT,
+	CAPTURE_DSPP_OUT
+};
+
+/**
  * @connectors    : Currently associated drm connectors for retire event
  * @num_connectors: Number of associated drm connectors for retire event
  * @list:	event list
