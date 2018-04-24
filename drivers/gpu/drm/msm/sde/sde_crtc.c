@@ -4899,6 +4899,11 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		{SDE_DRM_SEC_ONLY, "sec_only"},
 	};
 
+	static const struct drm_prop_enum_list e_cwb_data_points[] = {
+		{CAPTURE_MIXER_OUT, "capture_mixer_out"},
+		{CAPTURE_DSPP_OUT, "capture_pp_out"},
+	};
+
 	SDE_DEBUG("\n");
 
 	if (!crtc || !catalog) {
@@ -4977,6 +4982,12 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	msm_property_install_range(&sde_crtc->property_info,
 		"enable_sui_enhancement", 0, 0, U64_MAX, 0,
 		CRTC_PROP_ENABLE_SUI_ENHANCEMENT);
+
+	if (catalog->has_cwb_support)
+		msm_property_install_enum(&sde_crtc->property_info,
+				"capture_mode", 0, 0, e_cwb_data_points,
+				ARRAY_SIZE(e_cwb_data_points),
+				CRTC_PROP_CAPTURE_OUTPUT);
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
