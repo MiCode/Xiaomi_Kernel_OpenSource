@@ -269,3 +269,56 @@
 		"byte1_src";
 	#clock-cells = <1>;
 };
+
+&mdss_dsi0_pll {
+	compatible = "qcom,mdss_dsi_pll_sdm439";
+	reg = <0x001a94400 0x400>,
+		<0x0184d074 0x8>;
+	reg-names = "pll_base", "gdsc_base";
+	/delete-property/ qcom,dsi-pll-ssc-en;
+	/delete-property/ qcom,dsi-pll-ssc-mode;
+	/delete-property/ qcom,ssc-frequency-hz;
+	/delete-property/ qcom,ssc-ppm;
+};
+
+&mdss_dsi1_pll {
+	compatible = "qcom,mdss_dsi_pll_sdm439";
+	reg = <0x001a96400 0x400>,
+		<0x0184d074 0x8>;
+	reg-names = "pll_base", "gdsc_base";
+	/delete-property/ qcom,dsi-pll-ssc-en;
+	/delete-property/ qcom,dsi-pll-ssc-mode;
+	/delete-property/ qcom,ssc-frequency-hz;
+	/delete-property/ qcom,ssc-ppm;
+};
+
+&mdss_dsi {
+	ranges = <0x1a94000 0x1a94000 0x300
+		0x1a94400 0x1a94400 0x400
+		0x193e000 0x193e000 0x30
+		0x1a96000 0x1a96000 0x300
+		0x1a96400 0x1a96400 0x400
+		0x193e000 0x193e000 0x30>;
+};
+
+&mdss_dsi0 {
+	reg = <0x1a94000 0x300>,
+		<0x1a94400 0x400>,
+		<0x193e000 0x30>;
+	reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+	/delete-property/ qcom,platform-strength-ctrl;
+	/delete-property/ qcom,platform-bist-ctrl;
+	/delete-property/ qcom,platform-regulator-settings;
+	/delete-property/ qcom,platform-lane-config;
+};
+
+&mdss_dsi1 {
+	reg = <0x1a96000 0x300>,
+		<0x1a96400 0x400>,
+		<0x193e000 0x30>;
+	reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+	/delete-property/ qcom,platform-strength-ctrl;
+	/delete-property/ qcom,platform-bist-ctrl;
+	/delete-property/ qcom,platform-regulator-settings;
+	/delete-property/ qcom,platform-lane-config;
+};
