@@ -301,10 +301,27 @@ int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
 	return 0;
 }
 
-static void update_task_cpu_cycles(struct task_struct *p, int cpu)
+/*
+ * Assumes rq_lock is held and wallclock was recorded in the same critical
+ * section as this function's invocation.
+ */
+static inline u64 read_cycle_counter(int cpu, u64 wallclock)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	if (rq->last_cc_update != wallclock) {
+		rq->cycles = cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu);
+		rq->last_cc_update = wallclock;
+	}
+
+	return rq->cycles;
+}
+
+static void update_task_cpu_cycles(struct task_struct *p, int cpu,
+				   u64 wallclock)
 {
 	if (use_cycle_counter)
-		p->cpu_cycles = cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu);
+		p->cpu_cycles = read_cycle_counter(cpu, wallclock);
 }
 
 void clear_ed_task(struct task_struct *p, struct rq *rq)
@@ -348,7 +365,7 @@ void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
 	if (is_idle_task(curr)) {
 		/* We're here without rq->lock held, IRQ disabled */
 		raw_spin_lock(&rq->lock);
-		update_task_cpu_cycles(curr, cpu);
+		update_task_cpu_cycles(curr, cpu, ktime_get_ns());
 		raw_spin_unlock(&rq->lock);
 	}
 }
@@ -757,7 +774,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	update_task_ravg(p, task_rq(p), TASK_MIGRATE,
 			 wallclock, 0);
 
-	update_task_cpu_cycles(p, new_cpu);
+	update_task_cpu_cycles(p, new_cpu, wallclock);
 
 	/*
 	 * When a task is migrating during the wakeup, adjust
@@ -1836,7 +1853,7 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 		return;
 	}
 
-	cur_cycles = cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu);
+	cur_cycles = read_cycle_counter(cpu, wallclock);
 
 	/*
 	 * If current task is idle task and irqtime == 0 CPU was
@@ -1901,7 +1918,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	old_window_start = update_window_start(rq, wallclock, event);
 
 	if (!p->ravg.mark_start) {
-		update_task_cpu_cycles(p, cpu_of(rq));
+		update_task_cpu_cycles(p, cpu_of(rq), wallclock);
 		goto done;
 	}
 
@@ -2024,7 +2041,7 @@ void mark_task_starting(struct task_struct *p)
 	p->ravg.mark_start = p->last_wake_ts = wallclock;
 	p->last_enqueued_ts = wallclock;
 	p->last_switch_out_ts = 0;
-	update_task_cpu_cycles(p, cpu_of(rq));
+	update_task_cpu_cycles(p, cpu_of(rq), wallclock);
 }
 
 static cpumask_t all_cluster_cpus = CPU_MASK_NONE;
@@ -3228,6 +3245,8 @@ void walt_sched_init(struct rq *rq)
 	rq->curr_table = 0;
 	rq->prev_top = 0;
 	rq->curr_top = 0;
+	rq->last_cc_update = 0;
+	rq->cycles = 0;
 	for (j = 0; j < NUM_TRACKED_WINDOWS; j++) {
 		memset(&rq->load_subs[j], 0,
 				sizeof(struct load_subtractions));

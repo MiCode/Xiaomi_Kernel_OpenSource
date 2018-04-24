@@ -810,6 +810,8 @@ struct rq {
 	u8 curr_table;
 	int prev_top;
 	int curr_top;
+	u64 last_cc_update;
+	u64 cycles;
 #endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
