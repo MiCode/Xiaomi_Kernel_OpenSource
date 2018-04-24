@@ -99,6 +99,7 @@ enum gmu_flags {
 	GMU_DCVS_REPLAY,
 	GMU_GPMU,
 	GMU_ENABLED,
+	GMU_RSCC_SLEEP_SEQ_DONE,
 };
 
 /**
@@ -136,13 +137,11 @@ struct rpmh_votes_t {
 
 /*
  * These are the different ways the GMU can boot. GMU_WARM_BOOT is waking up
- * from slumber. GMU_COLD_BOOT is booting for the first time. GMU_RESET
- * is a soft reset of the GMU.
+ * from slumber. GMU_COLD_BOOT is booting for the first time.
  */
 enum gmu_boot {
 	GMU_WARM_BOOT = 0,
 	GMU_COLD_BOOT = 1,
-	GMU_RESET = 2
 };
 
 enum gmu_load_mode {
