@@ -23,6 +23,7 @@
 
 #include "msm_prop.h"
 #include "sde_hw_mdss.h"
+#include "sde_kms.h"
 
 #define SDE_ENCODER_FRAME_EVENT_DONE			BIT(0)
 #define SDE_ENCODER_FRAME_EVENT_ERROR			BIT(1)

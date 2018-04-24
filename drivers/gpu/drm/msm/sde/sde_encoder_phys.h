@@ -281,6 +281,8 @@ struct sde_encoder_irq {
  * @in_clone_mode		Indicates if encoder is in clone mode ref@CWB
  * @vfp_cached:			cached vertical front porch to be used for
  *				programming ROT and MDP fetch start
+ * @frame_trigger_mode:		frame trigger mode indication for command
+ *				mode display
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -320,6 +322,7 @@ struct sde_encoder_phys {
 	bool cont_splash_enabled;
 	bool in_clone_mode;
 	int vfp_cached;
+	enum frame_trigger_mode_type frame_trigger_mode;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
@@ -359,8 +362,6 @@ struct sde_encoder_phys_cmd_autorefresh {
  * @base:	Baseclass physical encoder structure
  * @intf_idx:	Intf Block index used by this phys encoder
  * @stream_sel:	Stream selection for multi-stream interfaces
- * @serialize_wait4pp:	serialize wait4pp feature waits for pp_done interrupt
- *			after ctl_start instead of before next frame kickoff
  * @pp_timeout_report_cnt: number of pingpong done irq timeout errors
  * @autorefresh: autorefresh feature state
  * @pending_rd_ptr_cnt: atomic counter to indicate if retire fence can be
@@ -374,7 +375,6 @@ struct sde_encoder_phys_cmd_autorefresh {
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
 	int stream_sel;
-	bool serialize_wait4pp;
 	int pp_timeout_report_cnt;
 	struct sde_encoder_phys_cmd_autorefresh autorefresh;
 	atomic_t pending_rd_ptr_cnt;
