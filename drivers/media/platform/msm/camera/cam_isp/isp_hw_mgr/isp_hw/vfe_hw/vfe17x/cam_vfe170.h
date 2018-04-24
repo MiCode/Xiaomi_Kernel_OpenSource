@@ -198,7 +198,7 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_client ubwc_regs_client_3 = {
 	.meta_addr        = 0x00002538,
 	.meta_offset      = 0x0000253C,
 	.meta_stride      = 0x00002540,
-	.mode_cfg         = 0x00002544,
+	.mode_cfg_0       = 0x00002544,
 	.bw_limit         = 0x000025A0,
 };
 
@@ -209,7 +209,7 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_client ubwc_regs_client_4 = {
 	.meta_addr        = 0x00002638,
 	.meta_offset      = 0x0000263C,
 	.meta_stride      = 0x00002640,
-	.mode_cfg         = 0x00002644,
+	.mode_cfg_0       = 0x00002644,
 	.bw_limit         = 0x000026A0,
 };
 

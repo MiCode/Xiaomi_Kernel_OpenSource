@@ -47,6 +47,7 @@ static uint32_t blob_type_hw_cmd_map[CAM_ISP_GENERIC_BLOB_TYPE_MAX] = {
 	CAM_ISP_HW_CMD_GET_HFR_UPDATE,
 	CAM_ISP_HW_CMD_CLOCK_UPDATE,
 	CAM_ISP_HW_CMD_BW_UPDATE,
+	CAM_ISP_HW_CMD_UBWC_UPDATE,
 };
 
 static struct cam_ife_hw_mgr g_ife_hw_mgr;
@@ -2244,6 +2245,129 @@ static int cam_ife_mgr_release_hw(void *hw_mgr_priv,
 	return rc;
 }
 
+static int cam_isp_blob_ubwc_update(
+	uint32_t                               blob_type,
+	struct cam_isp_generic_blob_info      *blob_info,
+	struct cam_ubwc_config                *ubwc_config,
+	struct cam_hw_prepare_update_args     *prepare)
+{
+	struct cam_ubwc_plane_cfg_v1          *ubwc_plane_cfg;
+	struct cam_kmd_buf_info               *kmd_buf_info;
+	struct cam_ife_hw_mgr_ctx             *ctx = NULL;
+	struct cam_ife_hw_mgr_res             *hw_mgr_res;
+	uint32_t                               res_id_out, i;
+	uint32_t                               total_used_bytes = 0;
+	uint32_t                               kmd_buf_remain_size;
+	uint32_t                              *cmd_buf_addr;
+	uint32_t                               bytes_used = 0;
+	int                                    num_ent, rc = 0;
+
+	ctx = prepare->ctxt_to_hw_map;
+	if (!ctx) {
+		CAM_ERR(CAM_ISP, "Invalid ctx");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if ((prepare->num_hw_update_entries + 1) >=
+		prepare->max_hw_update_entries) {
+		CAM_ERR(CAM_ISP, "Insufficient HW entries :%d max:%d",
+			prepare->num_hw_update_entries,
+			prepare->max_hw_update_entries);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	switch (ubwc_config->api_version) {
+	case CAM_UBWC_CFG_VERSION_1:
+		CAM_DBG(CAM_ISP, "num_ports= %d", ubwc_config->num_ports);
+
+		kmd_buf_info = blob_info->kmd_buf_info;
+		for (i = 0; i < ubwc_config->num_ports; i++) {
+			ubwc_plane_cfg = &ubwc_config->ubwc_plane_cfg[i][0];
+			res_id_out = ubwc_plane_cfg->port_type & 0xFF;
+
+			CAM_DBG(CAM_ISP, "UBWC config idx %d, port_type=%d", i,
+				ubwc_plane_cfg->port_type);
+
+			if (res_id_out >= CAM_IFE_HW_OUT_RES_MAX) {
+				CAM_ERR(CAM_ISP, "Invalid port type:%x",
+					ubwc_plane_cfg->port_type);
+				rc = -EINVAL;
+				goto end;
+			}
+
+			if ((kmd_buf_info->used_bytes
+				+ total_used_bytes) < kmd_buf_info->size) {
+				kmd_buf_remain_size = kmd_buf_info->size -
+					(kmd_buf_info->used_bytes
+					+ total_used_bytes);
+			} else {
+				CAM_ERR(CAM_ISP,
+				"no free kmd memory for base=%d bytes_used=%u buf_size=%u",
+					blob_info->base_info->idx, bytes_used,
+					kmd_buf_info->size);
+				rc = -ENOMEM;
+				goto end;
+			}
+
+			cmd_buf_addr = kmd_buf_info->cpu_addr +
+				kmd_buf_info->used_bytes/4 +
+				total_used_bytes/4;
+			hw_mgr_res = &ctx->res_list_ife_out[res_id_out];
+
+			if (!hw_mgr_res) {
+				CAM_ERR(CAM_ISP, "Invalid hw_mgr_res");
+				rc = -EINVAL;
+				goto end;
+			}
+
+			rc = cam_isp_add_cmd_buf_update(
+				hw_mgr_res, blob_type,
+				blob_type_hw_cmd_map[blob_type],
+				blob_info->base_info->idx,
+				(void *)cmd_buf_addr,
+				kmd_buf_remain_size,
+				(void *)ubwc_plane_cfg,
+				&bytes_used);
+			if (rc < 0) {
+				CAM_ERR(CAM_ISP,
+					"Failed cmd_update, base_idx=%d, bytes_used=%u, res_id_out=0x%x",
+					blob_info->base_info->idx,
+					bytes_used,
+					res_id_out);
+				goto end;
+			}
+
+			total_used_bytes += bytes_used;
+		}
+
+		if (total_used_bytes) {
+			/* Update the HW entries */
+			num_ent = prepare->num_hw_update_entries;
+			prepare->hw_update_entries[num_ent].handle =
+				kmd_buf_info->handle;
+			prepare->hw_update_entries[num_ent].len =
+				total_used_bytes;
+			prepare->hw_update_entries[num_ent].offset =
+				kmd_buf_info->offset;
+			num_ent++;
+
+			kmd_buf_info->used_bytes += total_used_bytes;
+			kmd_buf_info->offset     += total_used_bytes;
+			prepare->num_hw_update_entries = num_ent;
+		}
+		break;
+	default:
+		CAM_ERR(CAM_ISP, "Invalid UBWC API Version %d",
+			ubwc_config->api_version);
+		rc = -EINVAL;
+		break;
+	}
+end:
+	return rc;
+}
+
 static int cam_isp_blob_hfr_update(
 	uint32_t                               blob_type,
 	struct cam_isp_generic_blob_info      *blob_info,
@@ -2484,6 +2608,16 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 			bw_config, sizeof(prepare_hw_data->bw_config[0]));
 		prepare_hw_data->bw_config_valid[bw_config->usage_type] = true;
 
+	}
+		break;
+	case CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG: {
+		struct cam_ubwc_config *ubwc_config =
+			(struct cam_ubwc_config *)blob_data;
+
+		rc = cam_isp_blob_ubwc_update(blob_type, blob_info,
+			ubwc_config, prepare);
+		if (rc)
+			CAM_ERR(CAM_ISP, "UBWC Update Failed rc: %d", rc);
 	}
 		break;
 	default:

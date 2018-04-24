@@ -191,7 +191,7 @@ static struct cam_irq_register_set vfe175_bus_irq_reg[3] = {
 		},
 };
 
-static struct cam_vfe_bus_ver2_reg_offset_ubwc_client
+static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_ubwc_regs_client_3 = {
 	.tile_cfg         = 0x0000252C,
 	.h_init           = 0x00002530,
@@ -199,11 +199,12 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_client
 	.meta_addr        = 0x00002538,
 	.meta_offset      = 0x0000253C,
 	.meta_stride      = 0x00002540,
-	.mode_cfg         = 0x00002544,
+	.mode_cfg_0       = 0x00002544,
+	.mode_cfg_1       = 0x000025A4,
 	.bw_limit         = 0x000025A0,
 };
 
-static struct cam_vfe_bus_ver2_reg_offset_ubwc_client
+static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_ubwc_regs_client_4 = {
 	.tile_cfg         = 0x0000262C,
 	.h_init           = 0x00002630,
@@ -211,11 +212,12 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_client
 	.meta_addr        = 0x00002638,
 	.meta_offset      = 0x0000263C,
 	.meta_stride      = 0x00002640,
-	.mode_cfg         = 0x00002644,
+	.mode_cfg_0       = 0x00002644,
+	.mode_cfg_1       = 0x000026A4,
 	.bw_limit         = 0x000026A0,
 };
 
-static struct cam_vfe_bus_ver2_reg_offset_ubwc_client
+static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_ubwc_regs_client_20 = {
 	.tile_cfg         = 0x0000362C,
 	.h_init           = 0x00003630,
@@ -223,11 +225,12 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_client
 	.meta_addr        = 0x00003638,
 	.meta_offset      = 0x0000363C,
 	.meta_stride      = 0x00003640,
-	.mode_cfg         = 0x00003644,
+	.mode_cfg_0       = 0x00003644,
+	.mode_cfg_1       = 0x000036A4,
 	.bw_limit         = 0x000036A0,
 };
 
-static struct cam_vfe_bus_ver2_reg_offset_ubwc_client
+static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_ubwc_regs_client_21 = {
 	.tile_cfg         = 0x0000372C,
 	.h_init           = 0x00003730,
@@ -235,7 +238,8 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_client
 	.meta_addr        = 0x00003738,
 	.meta_offset      = 0x0000373C,
 	.meta_stride      = 0x00003740,
-	.mode_cfg         = 0x00003744,
+	.mode_cfg_0       = 0x00003744,
+	.mode_cfg_1       = 0x000037A4,
 	.bw_limit         = 0x000037A0,
 };
 
