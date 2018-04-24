@@ -1,0 +1,2 @@
+# Persist STSensors calibration file types
+type persist_STSensors_file, file_type;

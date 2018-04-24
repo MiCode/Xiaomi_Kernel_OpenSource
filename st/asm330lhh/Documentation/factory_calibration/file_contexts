@@ -1,0 +1,5 @@
+# Persist STSensors calibration filesystem
+/persist/STCalibration(/.*)?            u:object_r:persist_STSensors_file:s0
+
+# STSensors_deamon
+/system/bin/STSensors_daemon            u:object_r:STSensors_exec:s0

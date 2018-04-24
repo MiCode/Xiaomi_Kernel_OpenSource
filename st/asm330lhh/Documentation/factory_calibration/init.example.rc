@@ -1,0 +1,5 @@
+# Add STSensors service
+service STSensors /system/bin/STSensors_daemon
+    class late_start
+    user system
+    group system

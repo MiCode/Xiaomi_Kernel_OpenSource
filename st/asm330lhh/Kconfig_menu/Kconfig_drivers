@@ -1,0 +1,28 @@
+#
+# IIO drivers configuration
+#
+
+menu "IIO supported sensors"
+
+config ST_HAL_TEST_SENSORS_ENABLED
+	bool "ST Test sensors"
+	default n
+	help
+	  Enable support for ST-Test sensor.
+
+	  Sensors supported:
+	  - Accelerometer;
+	  - Magnetometer;
+	  - Gyroscope;
+
+config ST_HAL_ASM330LHH_ENABLED
+	bool "ASM330LHH sensor"
+	default y
+	help
+	  Enable support for ASM330LHH combo sensor.
+
+	  Sensors supported:
+	  - Accelerometer;
+	  - Gyroscope;
+
+endmenu # IIO drivers configuration

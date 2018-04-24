@@ -1,0 +1,18 @@
+type STSensors, domain;
+type STSensors_exec, exec_type, file_type;
+
+# Started by init
+init_daemon_domain(STSensors)
+
+# Access to /persist/STSensors
+allow STSensors persist_file:dir r_dir_perms;
+allow STSensors persist_STSensors_file:dir rw_dir_perms;
+allow STSensors persist_STSensors_file:file create_file_perms;
+
+# Access to /data/STSensorHAL
+allow STSensors system_data_file:dir  { create_dir_perms getattr };
+allow STSensors system_data_file:file create_file_perms;
+
+# This part is to be used if APK is used to get calibration data
+allow STSensors app_data_file:dir  { rw_dir_perms getattr };
+allow STSensors app_data_file:file rw_file_perms;

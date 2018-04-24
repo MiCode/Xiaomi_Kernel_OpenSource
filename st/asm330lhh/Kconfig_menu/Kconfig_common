@@ -1,0 +1,99 @@
+#
+# Common configuration
+#
+
+menu "Common configuration"
+config ST_HAL_MAX_SAMPLING_FREQUENCY
+	int "Max sampling frequency selectable [Hz]"
+	range 50 2000
+	default 2000
+	help
+	  Maximium value of sampling frequency that can be used in IIO driver.
+
+config ST_HAL_DEBUG_LEVEL
+	int "Logcat Debug level"
+	range 0 3
+	default 0
+	help
+	  Debugging information level. [0 - 3]
+	  0: disabled (error only);
+	  1: info messages;
+	  2: verbose;
+	  3: extra-verbose;
+
+if ST_HAL_ACCEL_ENABLED
+config ST_HAL_ACCEL_ROT_MATRIX
+	string "Accelerometer Rotation matrix"
+	default "1,0,0,0,1,0,0,0,1"
+	help
+	  The rotation matrix is used to rotate the accelerometer axis data.
+	  
+	  The default matrix is: 1,0,0,0,1,0,0,0,1 (Identity Matrix).
+	  
+	  The mathematical computation is:
+	  
+	                              [1,0,0]
+	  [x', y', z'] = [x, y, z,] * [0,1,0] = [x*1 + y*0 + z*0, x*0 + y*1 + z*0, x*0 + y*0 + z*1] = [x, y, z]
+	                              [0,0,1]
+	  
+	  where:
+	  x', y', z' are the final values.
+	  x, y, z are the input values (from IIO driver).
+
+
+config ST_HAL_ACCEL_RANGE
+	int "Accelerometer Max Range (m/s^2)"
+	default 17
+	help
+	  This parameter is used to configure the accelerometer full-scale
+	  during boot.
+	  
+	  Due to approximations please calculate the full-scale value and
+	  substract 2.x, example:
+	  
+	  2 G = 19.6 m/s^2 => 19.6 - 2.x = 17.
+	  4 G = 39.2 m/s^2 => 39.2 - 2.x = 37.
+	  16 G = 156.8 m/s^2 => 156.8 - 2.x = 154.
+	  
+	  DEFAULT value: 17 (19.6 m/s^s)
+
+endif
+
+if ST_HAL_GYRO_ENABLED
+config ST_HAL_GYRO_ROT_MATRIX
+	string "Gyroscope Rotation matrix"
+	default "1,0,0,0,1,0,0,0,1"
+	help
+	  The rotation matrix is used to rotate the gyroscope axis data.
+	  
+	  The default matrix is: 1,0,0,0,1,0,0,0,1 (Identity Matrix).
+	  
+	  The mathematical computation is:
+	  
+	                              [1,0,0]
+	  [x', y', z'] = [x, y, z,] * [0,1,0] = [x*1 + y*0 + z*0, x*0 + y*1 + z*0, x*0 + y*0 + z*1] = [x, y, z]
+	                              [0,0,1]
+	  
+	  where:
+	  x', y', z' are the final values.
+	  x, y, z are the input values (from IIO driver).
+
+config ST_HAL_GYRO_RANGE
+	int "Gyroscope Max Range (rad/sec)"
+	default 33
+	help
+	  This parameter is used to configure the gyroscope full-scale
+	  during boot.
+	  
+	  Due to approximations please calculate the full-scale value and
+	  substract 1.x, example:
+	  
+	  245 dps = 4.27 rad/sec => 4.27 - 1.x = 3
+	  500 dps = 8.72 rad/sec => 8.72 - 1.x = 7.
+	  2000 dps = 34.9 rad/sec => 34.9 - 1.x = 33.
+	  
+	  DEFAULT value: 33 (34.9 rad/sec)
+
+endif
+
+endmenu # Common configuration

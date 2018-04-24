@@ -1,0 +1,46 @@
+#
+# For a description of the syntax of this configuration file,
+# see tools/kconfig-language.txt.
+#
+
+mainmenu "SensorHAL IIO Configuration"
+
+config ST_HAL_PATH
+	string
+	option env="ST_HAL_PATH"
+
+config ENV_ANDROID_VERSION
+	int
+	option env="ST_HAL_ANDROID_VERSION"
+
+if (ENV_ANDROID_VERSION = 0)
+config ST_HAL_ANDROID_VERSION
+	int
+	default 0
+endif
+if (ENV_ANDROID_VERSION = 1)
+config ST_HAL_ANDROID_VERSION
+	int
+	default 1
+endif
+if (ENV_ANDROID_VERSION = 2)
+config ST_HAL_ANDROID_VERSION
+	int
+	default 2
+endif
+if (ENV_ANDROID_VERSION = 3)
+config ST_HAL_ANDROID_VERSION
+        int
+        default 3
+endif
+if (ENV_ANDROID_VERSION = 4)
+config ST_HAL_ANDROID_VERSION
+        int
+        default 4
+endif
+
+source "$ST_HAL_PATH/Kconfig_menu/Kconfig_enable_sensors"
+source "$ST_HAL_PATH/Kconfig_menu/Kconfig_common"
+source "$ST_HAL_PATH/Kconfig_menu/Kconfig_drivers"
+source "$ST_HAL_PATH/Kconfig_menu/Kconfig_calibration"
+

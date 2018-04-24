@@ -1,0 +1,39 @@
+#
+# Calibration configuration
+#
+
+menu "Factory calibration & Self-Test"
+config ST_HAL_FACTORY_CALIBRATION
+	bool "Apply factory calibration from /persist filesystem"
+	default n
+	help
+	  SensorHAL during boot read factory calibration files from
+	  /data filesystem and load calibration values.
+
+	  This option enable also a service in order to check if new calibration
+	  files are available into /persist/STSensors_calibration/ folder and copy
+	  to /data filesystem.
+
+	  This option require /persist/STSensors_calibration/ folder is
+	  available and factory calibration files are available into it.
+
+config ST_HAL_FACTORY_CALIBRATION_USING_APK
+	bool "Use ST APK to calibrate sensors"
+	depends on ST_HAL_FACTORY_CALIBRATION
+	default n
+	help
+	  SensorHAL use STSensor_daemon service in order to get factory
+	  calibration data from APK and store it to /persist filesystem.a
+
+	  With this option you do not need to have /persist/STSensors_calibration/
+	  folder but service will create it.
+
+config ST_HAL_HAS_SELFTEST_FUNCTIONS
+	bool "Integrate self-test functions"
+	default n
+	help
+	  SensorHAL integrate functions to run self-test on devices that support it.
+	  The macro also enable to build an executable in order to execute SensorHAL
+	  functions.
+
+endmenu # Calibration configuration

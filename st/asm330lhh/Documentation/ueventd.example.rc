@@ -1,0 +1,56 @@
+#common iio char devices
+/dev/iio:device* 0666 system system
+
+#common sensors files
+/sys/devices/iio:device* buffer/enable 0666 system system
+/sys/devices/iio:device* buffer/length 0666 system system
+/sys/devices/iio:device* sampling_frequency 0666 system system
+/sys/devices/iio:device* scan_elements/in_timestamp_en 0666 system system
+/sys/devices/iio:device* hwfifo_flush 0666 system system
+/sys/devices/iio:device* hwfifo_enabled 0666 system system
+/sys/devices/iio:device* hwfifo_watermark 0666 system system
+/sys/devices/iio:device* injection_mode 0666 system system
+
+#accelerometer sensor
+/sys/devices/iio:device* scan_elements/in_accel_x_en 0666 system system
+/sys/devices/iio:device* scan_elements/in_accel_y_en 0666 system system
+/sys/devices/iio:device* scan_elements/in_accel_z_en 0666 system system
+/sys/devices/iio:device* in_accel_x_scale 0666 system system
+/sys/devices/iio:device* in_accel_y_scale 0666 system system
+/sys/devices/iio:device* in_accel_z_scale 0666 system system
+/sys/devices/iio:device* in_accel_injection_raw 0666 system system
+
+#magnetometer sensor
+/sys/devices/iio:device* scan_elements/in_magn_x_en 0666 system system
+/sys/devices/iio:device* scan_elements/in_magn_y_en 0666 system system
+/sys/devices/iio:device* scan_elements/in_magn_z_en 0666 system system
+/sys/devices/iio:device* in_magn_x_scale 0666 system system
+/sys/devices/iio:device* in_magn_y_scale 0666 system system
+/sys/devices/iio:device* in_magn_z_scale 0666 system system
+
+#gyroscope sensor
+/sys/devices/iio:device* scan_elements/in_anglvel_x_en 0666 system system
+/sys/devices/iio:device* scan_elements/in_anglvel_y_en 0666 system system
+/sys/devices/iio:device* scan_elements/in_anglvel_z_en 0666 system system
+/sys/devices/iio:device* in_anglvel_x_scale 0666 system system
+/sys/devices/iio:device* in_anglvel_y_scale 0666 system system
+/sys/devices/iio:device* in_anglvel_z_scale 0666 system system
+
+#pressure sensor
+/sys/devices/iio:device* scan_elements/in_pressure_en 0666 system system
+/sys/devices/iio:device* scan_elements/in_temp_en 0666 system system
+/sys/devices/iio:device* in_pressure_scale 0666 system system
+
+#step counter sensor
+/sys/devices/iio:device* max_delivery_rate 0666 system system
+/sys/devices/iio:device* reset_counter 0666 system system
+/sys/devices/iio:device* scan_elements/in_step_counter_en 0666 system system
+
+#significant motion sensor
+/sys/devices/iio:device* scan_elements/in_sign_motion_en 0666 system system
+
+#step detector sensor
+/sys/devices/iio:device* scan_elements/in_step_detector_en 0666 system system
+
+#tilt sensor
+/sys/devices/iio:device* scan_elements/in_tilt_en 0666 system system

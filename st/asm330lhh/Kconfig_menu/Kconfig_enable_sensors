@@ -1,0 +1,18 @@
+#
+# Enable/Disable sensors
+#
+
+menu "Enable/disable sensors"
+config ST_HAL_ACCEL_ENABLED
+	bool "Accelerometer sensor"
+	default y
+	help
+	  Enable support for Accelerometer sensor.
+
+config ST_HAL_GYRO_ENABLED
+	bool "Gyroscope sensor"
+	default y
+	help
+	  Enable support for Gyroscope sensor.
+
+endmenu # Enable/disable sensors

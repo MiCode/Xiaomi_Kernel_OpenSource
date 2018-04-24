@@ -1,0 +1,61 @@
+		STMicroelectronics SensorHAL-IIO Project
+
+STMicroelectronics licenses this file to you under the Apache License,
+version 2.0 (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at:
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+
+-------------------------------------------------------------------------------
+
+This product contains a modified version of kconfig parser and frontends
+extracted from the Linux kernel source tree, which is covered by GPLv2 only.
+
+  * LICENSE:
+    * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html (GPLv2)
+  * FILE:
+    * tools/mkconfig (binary)
+    * tools/kconfig-mconf (binary)
+    * tools/kconfig-language.txt
+
+
+This product contains a modified version of `iio_utils` code extracted from
+the Linux kernel source tree, which is covered by GPLv2 only.
+Originally developed by Jonathan Cameron <jic23@kernel.org>.
+
+  * LICENSE:
+    * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html (GPLv2)
+  * FILE:
+    * src/iio_utils.h
+    * src/iio_utils.c
+
+
+This product contains a modified version of parts of iio framework, code
+extracted from the Linux kernel source tree, which is covered by GPLv2 only.
+Originally developed by Jonathan Cameron <jic23@kernel.org>.
+
+  * LICENSE:
+    * http://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html (GPLv2)
+  * FILE:
+    * src/types.h
+    * src/events.h
+
+
+This project may contains proprietary librares under lib/ folder. Different
+LICENSES are applied on binary files.
+
+  * LICENSE:
+    * PROPRIETARY - CUSTOM
+  * FILE:
+    * lib/*
+
+
+All other files are considered under Apache License version 2.0.
+Check LICENSE.txt to get information about the license.
+

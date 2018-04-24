@@ -1,0 +1,32 @@
+	Android STMicroelectronics SensorHAL Documentation
+
+In order to correctly use Android SensorHAL, modifications at Android code
+are necessaries.
+
+Linux device drivers permissions:
+	First at all, SensorHAL needs to read/write sysfs files and char devices
+	of IIO drivers.
+	device/{vendor}/{product}/uevent.{board}.rc file modification is mandatory,
+	you can find an example in this folder with 'uevent.example.rc'.
+
+Factory calibration option:
+	If you build the HAL using Factory calibration option, modifications of
+	SELinux policy are necessary in order to read/write /persist and
+	/data filesystem.
+	You can find an example of modifications into the folder factory_calibration.
+	Those modifications will touch:
+		- device/{vendor}/{product}/BoardConfig.mk (modification)
+		- device/{vendor}/{product}/init.{board}.rc (modification)
+		- device/{vendor}/{product}/sepolicy/file.te (modification)
+		- device/{vendor}/{product}/sepolicy/file_contexts (modification)
+		- device/{vendor}/{product}/sepolicy/STSensors.te (add)
+
+Selftest tool manual:
+	If you build HAL enabling Selftest functions, an executable will be
+	available and installed into /system/bin/STSensor_selftest.
+	Using this binaty you will be able to execute easly selftest,
+	based only on Android sensor handle. No information about device
+	driver will be used.
+	You can run binary directly in your device using adb shell. All sensors
+	must be switched off in order to execute the test.
+
