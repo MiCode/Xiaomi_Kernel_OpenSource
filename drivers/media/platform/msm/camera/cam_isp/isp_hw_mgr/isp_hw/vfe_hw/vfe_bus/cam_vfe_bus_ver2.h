@@ -100,9 +100,27 @@ struct cam_vfe_bus_ver2_reg_offset_ubwc_client {
 	uint32_t meta_addr;
 	uint32_t meta_offset;
 	uint32_t meta_stride;
-	uint32_t mode_cfg;
+	uint32_t mode_cfg_0;
 	uint32_t bw_limit;
 };
+
+/*
+ * struct cam_vfe_bus_ver2_reg_offset_ubwc_client:
+ *
+ * @Brief:        UBWC register offsets for BUS Clients
+ */
+struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client {
+	uint32_t tile_cfg;
+	uint32_t h_init;
+	uint32_t v_init;
+	uint32_t meta_addr;
+	uint32_t meta_offset;
+	uint32_t meta_stride;
+	uint32_t mode_cfg_0;
+	uint32_t mode_cfg_1;
+	uint32_t bw_limit;
+};
+
 
 /*
  * struct cam_vfe_bus_ver2_reg_offset_bus_client:
@@ -127,7 +145,7 @@ struct cam_vfe_bus_ver2_reg_offset_bus_client {
 	uint32_t framedrop_pattern;
 	uint32_t frame_inc;
 	uint32_t burst_limit;
-	struct cam_vfe_bus_ver2_reg_offset_ubwc_client *ubwc_regs;
+	void    *ubwc_regs;
 };
 
 /*
