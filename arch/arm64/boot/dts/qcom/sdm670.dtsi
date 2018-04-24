@@ -1096,7 +1096,7 @@
 
 	clock_debug: qcom,cc-debug {
 		compatible = "qcom,debugcc-sdm845";
-		qcom,cc-count = <5>;
+		qcom,cc-count = <6>;
 		qcom,gcc = <&clock_gcc>;
 		qcom,videocc = <&clock_videocc>;
 		qcom,camcc = <&clock_camcc>;
