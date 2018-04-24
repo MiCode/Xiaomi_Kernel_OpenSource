@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -599,6 +599,69 @@
 				/* XO */
 				qcom,gpu-pwrlevel@4 {
 					reg = <4>;
+					qcom,gpu-freq = <19200000>;
+					qcom,bus-freq = <0>;
+					qcom,bus-min = <0>;
+					qcom,bus-max = <0>;
+				};
+			};
+
+			qcom,gpu-pwrlevels-6 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				qcom,speed-bin = <122>;
+
+				qcom,initial-pwrlevel = <3>;
+
+				/* NOM */
+				qcom,gpu-pwrlevel@0 {
+					reg = <0>;
+					qcom,gpu-freq = <585000000>;
+					qcom,bus-freq = <12>;
+					qcom,bus-min = <11>;
+					qcom,bus-max = <12>;
+				};
+
+				/* SVS_L1 */
+				qcom,gpu-pwrlevel@1 {
+					reg = <1>;
+					qcom,gpu-freq = <465000000>;
+					qcom,bus-freq = <9>;
+					qcom,bus-min = <8>;
+					qcom,bus-max = <11>;
+				};
+
+				/* SVS */
+				qcom,gpu-pwrlevel@2 {
+					reg = <2>;
+					qcom,gpu-freq = <370000000>;
+					qcom,bus-freq = <8>;
+					qcom,bus-min = <6>;
+					qcom,bus-max = <9>;
+				};
+
+				/* Low SVS */
+				qcom,gpu-pwrlevel@3 {
+					reg = <3>;
+					qcom,gpu-freq = <266000000>;
+					qcom,bus-freq = <3>;
+					qcom,bus-min = <3>;
+					qcom,bus-max = <6>;
+				};
+
+				/* Min SVS */
+				qcom,gpu-pwrlevel@4 {
+					reg = <4>;
+					qcom,gpu-freq = <160000000>;
+					qcom,bus-freq = <3>;
+					qcom,bus-min = <3>;
+					qcom,bus-max = <5>;
+				};
+
+				/* XO */
+				qcom,gpu-pwrlevel@5 {
+					reg = <5>;
 					qcom,gpu-freq = <19200000>;
 					qcom,bus-freq = <0>;
 					qcom,bus-min = <0>;
