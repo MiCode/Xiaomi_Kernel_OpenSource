@@ -2386,9 +2386,9 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
 	/* if (rw == WRITE && whint_mode == WHINT_MODE_OFF)
 		iocb->ki_hint = WRITE_LIFE_NOT_SET; */
 
-	down_read(&F2FS_I(inode)->dio_rwsem[rw]);
+	down_read(&F2FS_I(inode)->i_gc_rwsem[rw]);
 	err = blockdev_direct_IO(rw, iocb, inode, iter, offset, get_data_block_dio);
-	up_read(&F2FS_I(inode)->dio_rwsem[rw]);
+	up_read(&F2FS_I(inode)->i_gc_rwsem[rw]);
 
 	if (rw & WRITE) {
 		/* if (whint_mode == WHINT_MODE_OFF)
