@@ -12,14 +12,12 @@
  */
 
 /dts-v1/;
-/plugin/;
 
-#include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/clock/msm-clocks-8953.h>
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-#include "sdm439-cdp.dtsi"
+#include "sda439.dtsi"
 
 / {
-	model = "CDP";
-	qcom,board-id = <1 2>;
+	model = "Qualcomm Technologies, Inc. SDA439";
+	compatible = "qcom,sda439";
+	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
+	qcom.pmic-name = "PMI632";
 };
