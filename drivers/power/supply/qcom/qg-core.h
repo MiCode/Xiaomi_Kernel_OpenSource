@@ -29,7 +29,9 @@ struct qg_irq_info {
 
 struct qg_dt {
 	int			vbatt_empty_mv;
+	int			vbatt_empty_cold_mv;
 	int			vbatt_low_mv;
+	int			vbatt_low_cold_mv;
 	int			vbatt_cutoff_mv;
 	int			iterm_ma;
 	int			s2_fifo_length;
@@ -44,6 +46,7 @@ struct qg_dt {
 	int			delta_soc;
 	int			rbat_conn_mohm;
 	int			ignore_shutdown_soc_secs;
+	int			cold_temp_threshold;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 };
@@ -147,6 +150,7 @@ enum qg_irq {
 
 enum qg_wa_flags {
 	QG_VBAT_LOW_WA = BIT(0),
+	QG_RECHARGE_SOC_WA = BIT(1),
 };
 
 

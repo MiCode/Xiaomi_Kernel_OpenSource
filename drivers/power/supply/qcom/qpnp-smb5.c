@@ -949,6 +949,7 @@ static int smb5_init_dc_psy(struct smb5 *chip)
  *************************/
 static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -994,6 +995,10 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smblib_get_prop_input_suspend(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+		val->intval = !get_client_vote(chg->chg_disable_votable,
+					      USER_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		rc = smblib_get_prop_batt_charge_type(chg, val);
@@ -1093,6 +1098,9 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smblib_set_prop_input_suspend(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+		vote(chg->chg_disable_votable, USER_VOTER, !val->intval, 0);
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		rc = smblib_set_prop_system_temp_level(chg, val);
 		break;
@@ -1147,6 +1155,17 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		chg->die_health = val->intval;
 		power_supply_changed(chg->batt_psy);
 		break;
+	case POWER_SUPPLY_PROP_RECHARGE_SOC:
+		if (chg->smb_version == PMI632_SUBTYPE) {
+			/* toggle charging to force recharge */
+			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
+					true, 0);
+			/* charge disable delay */
+			msleep(50);
+			vote(chg->chg_disable_votable, FORCE_RECHARGE_VOTER,
+					false, 0);
+		}
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -1169,6 +1188,7 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
 		return 1;
 	default:
 		break;
