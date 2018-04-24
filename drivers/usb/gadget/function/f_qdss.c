@@ -698,7 +698,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned int intf,
 		goto fail1;
 	}
 
-	if (intf == qdss->data_iface_id) {
+	if (intf == qdss->data_iface_id && !qdss->data_enabled) {
 		/* Increment usage count on connect */
 		usb_gadget_autopm_get_async(qdss->gadget);
 
