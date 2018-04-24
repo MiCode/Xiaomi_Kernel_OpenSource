@@ -257,11 +257,6 @@ static int cnss_put_hw_resources(struct device *dev)
 		return ret;
 	}
 
-	if (!cnss_pdata->regulator.wlan_vreg) {
-		pr_debug("wlan_vreg regulator is invalid\n");
-		return 0;
-	}
-
 	ret = mmc_power_save_host(host);
 	if (ret) {
 		pr_err("Failed to Power Save Host err:%d\n",
@@ -269,7 +264,11 @@ static int cnss_put_hw_resources(struct device *dev)
 		return ret;
 	}
 
-	regulator_disable(cnss_pdata->regulator.wlan_vreg);
+	if (cnss_pdata->regulator.wlan_vreg)
+		regulator_disable(cnss_pdata->regulator.wlan_vreg);
+	else
+		pr_debug("wlan_vreg regulator is invalid\n");
+
 	info->cnss_hw_state = CNSS_HW_SLEEP;
 
 	return ret;
@@ -303,22 +302,23 @@ static int cnss_get_hw_resources(struct device *dev)
 		return ret;
 	}
 
-	if (!cnss_pdata->regulator.wlan_vreg) {
+	if (cnss_pdata->regulator.wlan_vreg) {
+		ret = regulator_enable(cnss_pdata->regulator.wlan_vreg);
+		if (ret) {
+			pr_err("Failed to enable wlan vreg\n");
+			return ret;
+		}
+	} else {
 		pr_debug("wlan_vreg regulator is invalid\n");
-		return 0;
 	}
 
-	ret = regulator_enable(cnss_pdata->regulator.wlan_vreg);
-	if (ret) {
-		pr_err("Failed to enable wlan vreg\n");
-		return ret;
-	}
 
 	ret = mmc_power_restore_host(host);
 	if (ret) {
 		pr_err("Failed to restore host power ret:%d\n",
 		       ret);
-		regulator_disable(cnss_pdata->regulator.wlan_vreg);
+		if (cnss_pdata->regulator.wlan_vreg)
+			regulator_disable(cnss_pdata->regulator.wlan_vreg);
 		return ret;
 	}
 
