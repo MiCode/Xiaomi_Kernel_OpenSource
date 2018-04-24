@@ -44,6 +44,7 @@ walt_proc_update_handler(struct ctl_table *table, int write,
 
 #if defined(CONFIG_PREEMPT_TRACER) || defined(CONFIG_IRQSOFF_TRACER)
 extern unsigned int sysctl_preemptoff_tracing_threshold_ns;
+extern unsigned int sysctl_irqsoff_tracing_threshold_ns;
 #endif
 
 enum sched_tunable_scaling {
