@@ -880,7 +880,7 @@ TRACE_EVENT(sched_load_se,
 #endif
 	),
 
-	TP_printk("cpu=%d path=%s comm=%s pid=%d load=%lu util=%lu util_pelt=%lu util_walt=%lu",
+	TP_printk("cpu=%d path=%s comm=%s pid=%d load=%lu util=%lu util_pelt=%lu util_walt=%u",
 		  __entry->cpu, __get_str(path), __entry->comm,
 		  __entry->pid, __entry->load, __entry->util,
 		  __entry->util_pelt, __entry->util_walt)
