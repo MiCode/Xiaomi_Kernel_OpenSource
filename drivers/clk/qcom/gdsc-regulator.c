@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -25,6 +25,7 @@
 #define PWR_ON_MASK		BIT(31)
 #define CLK_DIS_WAIT_MASK	(0xF << 12)
 #define CLK_DIS_WAIT_SHIFT	(12)
+#define RETAIN_FF_ENABLE_MASK	BIT(11)
 #define SW_OVERRIDE_MASK	BIT(2)
 #define HW_CONTROL_MASK		BIT(1)
 #define SW_COLLAPSE_MASK	BIT(0)
@@ -54,6 +55,7 @@ struct gdsc {
 	struct regulator	*parent_regulator;
 	struct reset_control	**reset_clocks;
 	bool			toggle_logic;
+	bool			retain_ff_enable;
 	bool			resets_asserted;
 	bool			root_en;
 	bool			force_root_en;
@@ -298,6 +300,11 @@ static int gdsc_enable(struct regulator_dev *rdev)
 					sc->gds_timeout);
 				goto end;
 			}
+		}
+
+		if (sc->retain_ff_enable && !(regval & RETAIN_FF_ENABLE_MASK)) {
+			regval |= RETAIN_FF_ENABLE_MASK;
+			regmap_write(sc->regmap, REG_OFFSET, regval);
 		}
 	} else {
 		for (i = 0; i < sc->reset_count; i++)
@@ -699,6 +706,8 @@ static int gdsc_probe(struct platform_device *pdev)
 	sc->no_status_check_on_disable =
 			of_property_read_bool(pdev->dev.of_node,
 					"qcom,no-status-check-on-disable");
+	sc->retain_ff_enable = of_property_read_bool(pdev->dev.of_node,
+						"qcom,retain-regs");
 	sc->toggle_logic = !of_property_read_bool(pdev->dev.of_node,
 						"qcom,skip-logic-collapse");
 	support_hw_trigger = of_property_read_bool(pdev->dev.of_node,
