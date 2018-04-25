@@ -2191,6 +2191,7 @@
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "sdsprpc-smd";
 			iommus = <&apps_smmu 0x5a3 0x0>;
+			shared-cb = <5>;
 			dma-coherent;
 		};
 	};
