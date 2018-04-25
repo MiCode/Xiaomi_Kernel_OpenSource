@@ -623,6 +623,7 @@ end:
 void sde_connector_helper_bridge_disable(struct drm_connector *connector)
 {
 	int rc;
+	struct sde_connector *c_conn = NULL;
 
 	if (!connector)
 		return;
@@ -632,6 +633,31 @@ void sde_connector_helper_bridge_disable(struct drm_connector *connector)
 		SDE_ERROR("conn %d final pre kickoff failed %d\n",
 				connector->base.id, rc);
 		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
+	}
+
+	c_conn = to_sde_connector(connector);
+	if (c_conn->panel_dead) {
+		c_conn->bl_device->props.power = FB_BLANK_POWERDOWN;
+		c_conn->bl_device->props.state |= BL_CORE_FBBLANK;
+		backlight_update_status(c_conn->bl_device);
+	}
+}
+
+void sde_connector_helper_bridge_enable(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn = NULL;
+
+	if (!connector)
+		return;
+
+	c_conn = to_sde_connector(connector);
+
+	/* Special handling for ESD recovery case */
+	if (c_conn->panel_dead) {
+		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;
+		c_conn->bl_device->props.state &= ~BL_CORE_FBBLANK;
+		backlight_update_status(c_conn->bl_device);
+		c_conn->panel_dead = false;
 	}
 }
 
@@ -1734,15 +1760,15 @@ sde_connector_best_encoder(struct drm_connector *connector)
 static void _sde_connector_report_panel_dead(struct sde_connector *conn)
 {
 	struct drm_event event;
-	bool panel_dead = true;
 
 	if (!conn)
 		return;
 
+	conn->panel_dead = true;
 	event.type = DRM_EVENT_PANEL_DEAD;
 	event.length = sizeof(bool);
 	msm_mode_object_event_notify(&conn->base.base,
-		conn->base.dev, &event, (u8 *)&panel_dead);
+		conn->base.dev, &event, (u8 *)&conn->panel_dead);
 	sde_encoder_display_failure_notification(conn->encoder);
 	SDE_EVT32(SDE_EVTLOG_ERROR);
 	SDE_ERROR("esd check failed report PANEL_DEAD conn_id: %d enc_id: %d\n",
