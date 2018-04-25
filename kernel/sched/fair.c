@@ -6951,7 +6951,8 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 	 * utilization from cpu utilization. Instead just use
 	 * cpu_util for this case.
 	 */
-	if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+	if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
+					p->state == TASK_WAKING)
 		return cpu_util(cpu);
 #endif
 	/* Task has no contribution or is new */
@@ -6959,7 +6960,7 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 		return cpu_util(cpu);
 
 	capacity = capacity_orig_of(cpu);
-	util = max_t(long, cpu_rq(cpu)->cfs.avg.util_avg - task_util(p), 0);
+	util = max_t(long, cpu_util(cpu) - task_util(p), 0);
 
 	return (util >= capacity) ? capacity : util;
 }
