@@ -623,6 +623,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SMB_EN_REASON,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
+	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -732,6 +733,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MOISTURE_DETECTED:
 		val->intval = chg->moisture_present;
+		break;
+	case POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED:
+		val->intval = !chg->flash_active;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1026,6 +1030,7 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 {
 	struct smb5 *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
+	union power_supply_propval pval = {0, };
 	int rc = 0;
 
 	switch (psp) {
@@ -1039,7 +1044,31 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		rc = smblib_set_icl_current(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
-		chg->flash_active = val->intval;
+		if ((chg->smb_version == PMI632_SUBTYPE)
+				&& (chg->flash_active != val->intval)) {
+			chg->flash_active = val->intval;
+
+			rc = smblib_get_prop_usb_present(chg, &pval);
+			if (rc < 0)
+				pr_err("Failed to get USB preset status rc=%d\n",
+						rc);
+			if (pval.intval) {
+				rc = smblib_force_vbus_voltage(chg,
+					chg->flash_active ? FORCE_5V_BIT
+								: IDLE_BIT);
+				if (rc < 0)
+					pr_err("Failed to force 5V\n");
+				else
+					chg->pulse_cnt = 0;
+			}
+
+			pr_debug("flash active VBUS 5V restriction %s\n",
+				chg->flash_active ? "applied" : "removed");
+
+			/* Update userspace */
+			if (chg->batt_psy)
+				power_supply_changed(chg->batt_psy);
+		}
 		break;
 	case POWER_SUPPLY_PROP_TOGGLE_STAT:
 		rc = smblib_toggle_smb_en(chg, val->intval);
@@ -1465,7 +1494,8 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		rc = smblib_rerun_aicl(chg);
 		break;
 	case POWER_SUPPLY_PROP_DP_DM:
-		rc = smblib_dp_dm(chg, val->intval);
+		if (!chg->flash_active)
+			rc = smblib_dp_dm(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_set_prop_input_current_limited(chg, val);

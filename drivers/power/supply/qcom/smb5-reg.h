@@ -224,6 +224,7 @@ enum {
 #define FORCE_12V_BIT				BIT(5)
 #define FORCE_9V_BIT				BIT(4)
 #define FORCE_5V_BIT				BIT(3)
+#define IDLE_BIT				BIT(2)
 #define SINGLE_DECREMENT_BIT			BIT(1)
 #define SINGLE_INCREMENT_BIT			BIT(0)
 
