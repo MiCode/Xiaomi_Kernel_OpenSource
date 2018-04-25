@@ -4831,7 +4831,7 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 	struct sde_connector *sde_conn = NULL;
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct drm_display_mode *drm_mode = NULL;
-	struct sde_rm_hw_iter dsc_iter, pp_iter, ctl_iter;
+	struct sde_rm_hw_iter dsc_iter, pp_iter, ctl_iter, intf_iter;
 	int ret = 0, i;
 
 	if (!encoder) {
@@ -4966,6 +4966,16 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 		if (!sde_rm_get_hw(&sde_kms->rm, &ctl_iter))
 			break;
 		phys->hw_ctl = (struct sde_hw_ctl *) ctl_iter.hw;
+	}
+
+	sde_rm_init_hw_iter(&intf_iter, encoder->base.id, SDE_HW_BLK_INTF);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		phys->hw_intf = NULL;
+		if (!sde_rm_get_hw(&sde_kms->rm, &intf_iter))
+			break;
+		phys->hw_intf = (struct sde_hw_intf *) intf_iter.hw;
 	}
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
