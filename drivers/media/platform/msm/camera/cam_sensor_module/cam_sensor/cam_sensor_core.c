@@ -1177,6 +1177,11 @@ int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
 		return -EINVAL;
 	}
 
+	if (s_ctrl->i2c_data.per_frame == NULL) {
+		CAM_ERR(CAM_SENSOR, "i2c frame data is NULL");
+		return -EINVAL;
+	}
+
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
 		i2c_set = &(s_ctrl->i2c_data.per_frame[i]);
 
