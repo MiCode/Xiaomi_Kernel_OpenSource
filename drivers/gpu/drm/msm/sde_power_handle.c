@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -948,14 +948,9 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 				SDE_POWER_EVENT_PRE_DISABLE);
 
 		SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_CASE2);
+		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
 		sde_power_rsc_update(phandle, false);
-
-		/*
-		 * delay clks disable, for disp_rsc to execute power down
-		 * sequence
-		 */
-		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
 		sde_power_reg_bus_update(phandle->reg_bus_hdl,
 							max_usecase_ndx);
