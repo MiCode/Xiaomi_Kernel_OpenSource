@@ -500,6 +500,9 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	diagfwd_channel_close(info->fwd_ctxt);
 
 	atomic_set(&info->opened, 0);
+	/* Don't close the server. Server should always remain open */
+	if (info->port_type == PORT_TYPE_SERVER)
+		return;
 
 	write_lock_bh(&info->hdl->sk->sk_callback_lock);
 	info->hdl->sk->sk_user_data = NULL;
@@ -509,12 +512,12 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	sock_release(info->hdl);
 	info->hdl = NULL;
 
+	cancel_work(&info->read_work);
+	wake_up_interruptible(&info->read_wait_q);
+
 	spin_lock_irqsave(&info->lock, flags);
 	info->data_ready = 0;
 	spin_unlock_irqrestore(&info->lock, flags);
-
-	cancel_work(&info->read_work);
-	wake_up_interruptible(&info->read_wait_q);
 
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s exiting\n", info->name);
 }
@@ -591,6 +594,44 @@ static void diag_socket_queue_read(void *ctxt)
 	info = (struct diag_socket_info *)ctxt;
 	if (info->hdl && info->wq)
 		queue_work(info->wq, &(info->read_work));
+}
+
+static void handle_ctrl_pkt(struct diag_socket_info *info, void *buf, int len)
+{
+	const struct qrtr_ctrl_pkt *pkt = buf;
+	u32 node;
+	u32 port;
+
+	if (len < sizeof(struct qrtr_ctrl_pkt))
+		return;
+
+	switch (le32_to_cpu(pkt->cmd)) {
+	case QRTR_TYPE_BYE:
+		node = le32_to_cpu(pkt->client.node);
+		if (info->remote_addr.sq_node == node) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s rcvd bye\n",
+				 info->name);
+
+			mutex_lock(&driver->diag_notifier_mutex);
+			socket_close_channel(info);
+			mutex_unlock(&driver->diag_notifier_mutex);
+		}
+		break;
+	case QRTR_TYPE_DEL_CLIENT:
+		node = le32_to_cpu(pkt->client.node);
+		port = le32_to_cpu(pkt->client.port);
+
+		if (info->remote_addr.sq_node == node &&
+		    info->remote_addr.sq_port == port) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s rcvd del client\n",
+				 info->name);
+
+			mutex_lock(&driver->diag_notifier_mutex);
+			socket_close_channel(info);
+			mutex_unlock(&driver->diag_notifier_mutex);
+		}
+		break;
+	}
 }
 
 static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
@@ -683,8 +724,10 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		} else if (read_len <= 0)
 			goto fail;
 
-		if (src_addr.sq_port == QRTR_PORT_CTRL)
+		if (src_addr.sq_port == QRTR_PORT_CTRL) {
+			handle_ctrl_pkt(info, temp, read_len);
 			continue;
+		}
 
 		if (!atomic_read(&info->opened) &&
 		    info->port_type == PORT_TYPE_SERVER) {
@@ -694,6 +737,11 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 			 * channel open for communication.
 			 */
 			memcpy(&info->remote_addr, &src_addr, sizeof(src_addr));
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				 "%s first client [0x%x:0x%x]\n",
+				 info->name, src_addr.sq_node,
+				 src_addr.sq_port);
+
 			if (info->ins_id == INST_ID_DCI)
 				atomic_set(&info->opened, 1);
 			else
@@ -917,45 +965,9 @@ static void diag_del_server(struct qmi_handle *qmi, struct qmi_service *svc)
 	socket_close_channel(info);
 }
 
-static void diag_del_client(struct qmi_handle *qmi, unsigned int node_id,
-			    unsigned int port_id)
-{
-
-	struct diag_socket_info *info = NULL;
-	int i;
-
-	for (i = 0; i < NUM_PERIPHERALS; i++) {
-		if ((socket_data[i].remote_addr.sq_node == node_id) &&
-		    (socket_data[i].remote_addr.sq_port == port_id)) {
-			info = &socket_data[i];
-			break;
-		}
-
-		if ((socket_cntl[i].remote_addr.sq_node == node_id) &&
-		    (socket_cntl[i].remote_addr.sq_port == port_id)) {
-			info = &socket_cntl[i];
-			break;
-		}
-
-		if ((socket_dci[i].remote_addr.sq_node == node_id) &&
-		    (socket_dci[i].remote_addr.sq_port == port_id)) {
-			info = &socket_dci[i];
-			break;
-		}
-	}
-	if (!info)
-		return;
-
-	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s rcvd del client\n", info->name);
-	mutex_lock(&driver->diag_notifier_mutex);
-	socket_close_channel(info);
-	mutex_unlock(&driver->diag_notifier_mutex);
-}
-
 static struct qmi_ops diag_qmi_cntl_ops = {
 	.new_server = diag_new_server,
 	.del_server = diag_del_server,
-	.del_client = diag_del_client,
 };
 
 int diag_socket_init(void)
