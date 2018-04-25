@@ -2172,6 +2172,27 @@
 			iommus = <&apps_smmu 0x1b25 0x0>;
 			dma-coherent;
 		};
+
+		qcom,msm_fastrpc_compute_cb13 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "sdsprpc-smd";
+			iommus = <&apps_smmu 0x5a1 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb14 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "sdsprpc-smd";
+			iommus = <&apps_smmu 0x5a2 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb15 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "sdsprpc-smd";
+			iommus = <&apps_smmu 0x5a3 0x0>;
+			dma-coherent;
+		};
 	};
 
 	sdhc_2: sdhci@8804000 {
