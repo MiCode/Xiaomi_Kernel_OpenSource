@@ -1309,7 +1309,9 @@ static int __qseecom_set_sb_memory(struct qseecom_registered_listener_list *svc,
 	}
 	return 0;
 err:
-	qseecom_vaddr_unmap(svc->sb_virt, svc->sgt, svc->attach, svc->dmabuf);
+	if (svc->dmabuf)
+		qseecom_vaddr_unmap(svc->sb_virt, svc->sgt, svc->attach,
+			svc->dmabuf);
 	return ret;
 }
 
@@ -1407,7 +1409,7 @@ static int qseecom_unregister_listener(struct qseecom_dev_handle *data)
 		}
 	}
 
-	if (ptr_svc->sb_virt)
+	if (ptr_svc->dmabuf)
 		qseecom_vaddr_unmap(ptr_svc->sb_virt,
 			ptr_svc->sgt, ptr_svc->attach, ptr_svc->dmabuf);
 
@@ -1709,7 +1711,8 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 
 	return ret;
 exit:
-	qseecom_vaddr_unmap(data->client.sb_virt, data->client.sgt,
+	if (data->client.dmabuf)
+		qseecom_vaddr_unmap(data->client.sb_virt, data->client.sgt,
 			 data->client.attach, data->client.dmabuf);
 	return ret;
 }
@@ -2617,7 +2620,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 
 loadapp_err:
 	__qseecom_disable_clk_scale_down(data);
-	if (vaddr)
+	if (dmabuf)
 		qseecom_vaddr_unmap(vaddr, sgt, attach, dmabuf);
 enable_clk_err:
 	if (qseecom.support_bus_scaling) {
@@ -2766,7 +2769,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 								flags1);
 	}
 unload_exit:
-	if (data->client.sb_virt)
+	if (data->client.dmabuf)
 		qseecom_vaddr_unmap(data->client.sb_virt, data->client.sgt,
 			data->client.attach, data->client.dmabuf);
 	data->released = true;
@@ -3270,11 +3273,13 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	else
 		*(uint32_t *)cmd_buf = QSEOS_CLIENT_SEND_DATA_COMMAND_WHITELIST;
 
-	ret = qseecom_dmabuf_cache_operations(data->client.dmabuf,
+	if (data->client.dmabuf) {
+		ret = qseecom_dmabuf_cache_operations(data->client.dmabuf,
 					QSEECOM_CACHE_CLEAN);
-	if (ret) {
-		pr_err("cache operation failed %d\n", ret);
-		return ret;
+		if (ret) {
+			pr_err("cache operation failed %d\n", ret);
+			return ret;
+		}
 	}
 
 	__qseecom_reentrancy_check_if_this_app_blocked(ptr_app);
@@ -3287,11 +3292,13 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 					ret, data->client.app_id);
 		goto exit;
 	}
-	ret = qseecom_dmabuf_cache_operations(data->client.dmabuf,
+	if (data->client.dmabuf) {
+		ret = qseecom_dmabuf_cache_operations(data->client.dmabuf,
 					QSEECOM_CACHE_INVALIDATE);
-	if (ret) {
-		pr_err("cache operation failed %d\n", ret);
-		return ret;
+		if (ret) {
+			pr_err("cache operation failed %d\n", ret);
+			return ret;
+		}
 	}
 
 	if (qseecom.qsee_reentrancy_support) {
@@ -3597,7 +3604,7 @@ static int __qseecom_allocate_sg_list_buffer(struct qseecom_dev_handle *data,
 	/* Allocate a contiguous kernel buffer */
 	size = sg_ptr->nents * SG_ENTRY_SZ_64BIT;
 	size = (size + PAGE_SIZE) & PAGE_MASK;
-	buf = dma_alloc_coherent(qseecom.pdev,
+	buf = dma_alloc_coherent(qseecom.dev,
 			size, &coh_pmem, GFP_KERNEL);
 	if (buf == NULL) {
 		pr_err("failed to alloc memory for sg buf\n");
@@ -4141,7 +4148,7 @@ static int __qseecom_alloc_coherent_buf(
 
 	/* Allocate a contiguous kernel buffer */
 	size = (size + PAGE_SIZE) & PAGE_MASK;
-	buf = dma_alloc_coherent(qseecom.pdev,
+	buf = dma_alloc_coherent(qseecom.dev,
 			size, &coh_pmem, GFP_KERNEL);
 	if (buf == NULL) {
 		pr_err("failed to alloc memory for size %d\n", size);
@@ -4155,6 +4162,7 @@ static int __qseecom_alloc_coherent_buf(
 static void __qseecom_free_coherent_buf(uint32_t size,
 				u8 *vaddr, phys_addr_t paddr)
 {
+	size = (size + PAGE_SIZE) & PAGE_MASK;
 	dma_free_coherent(qseecom.pdev, size, vaddr, paddr);
 }
 
@@ -4289,7 +4297,8 @@ exit_unregister_bus_bw_need:
 	}
 
 exit_free_img_data:
-	__qseecom_free_coherent_buf(fw_size, img_data, pa);
+	if (img_data)
+		__qseecom_free_coherent_buf(fw_size, img_data, pa);
 	return ret;
 }
 
@@ -4400,7 +4409,8 @@ exit_unregister_bus_bw_need:
 	}
 
 exit_free_img_data:
-	__qseecom_free_coherent_buf(fw_size, img_data, pa);
+	if (img_data)
+		__qseecom_free_coherent_buf(fw_size, img_data, pa);
 	return ret;
 }
 
@@ -4634,6 +4644,9 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 
 	mutex_unlock(&app_access_lock);
 	if (ret == 0) {
+		if (data->client.sb_virt)
+			__qseecom_free_coherent_buf(data->client.sb_length,
+				data->client.sb_virt, data->client.sb_phys);
 		kzfree(data);
 		kzfree(*handle);
 		kzfree(kclient);
@@ -4702,7 +4715,12 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 	if (!strcmp(data->client.app_name, "securemm"))
 		data->use_legacy_cmd = true;
 
+	dmac_flush_range(req.cmd_req_buf, req.cmd_req_buf + req.cmd_req_len);
+
 	ret = __qseecom_send_cmd(data, &req);
+
+	dmac_flush_range(req.resp_buf, req.resp_buf + req.resp_len);
+
 	data->use_legacy_cmd = false;
 	if (qseecom.support_bus_scaling)
 		__qseecom_add_bw_scale_down_timer(
@@ -5330,7 +5348,7 @@ exit_register_bus_bandwidth_needs:
 	}
 
 exit_cpu_restore:
-	if (va)
+	if (dmabuf)
 		qseecom_vaddr_unmap(va, sgt, attach, dmabuf);
 	return ret;
 }
@@ -6425,7 +6443,7 @@ static int __qseecom_qteec_handle_pre_alc_fd(struct qseecom_dev_handle *data,
 	size = sizeof(uint32_t) +
 		sizeof(struct qseecom_sg_entry) * sg_ptr->nents;
 	size = (size + PAGE_SIZE) & PAGE_MASK;
-	buf = dma_alloc_coherent(qseecom.pdev,
+	buf = dma_alloc_coherent(qseecom.dev,
 			size, &coh_pmem, GFP_KERNEL);
 	if (buf == NULL) {
 		pr_err("failed to alloc memory for sg buf\n");
@@ -7673,7 +7691,7 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			break;
 		case QSEECOM_SECURE_SERVICE:
 		case QSEECOM_GENERIC:
-			if (data->client.sb_virt)
+			if (data->client.dmabuf)
 				qseecom_vaddr_unmap(data->client.sb_virt,
 					data->client.sgt, data->client.attach,
 					data->client.dmabuf);
