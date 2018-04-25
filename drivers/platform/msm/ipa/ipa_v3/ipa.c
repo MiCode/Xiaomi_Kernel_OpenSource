@@ -4604,12 +4604,17 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 
 	/*
 	 * IPAv3.5 and above requires to disable prefetch for USB in order
-	 * to allow MBIM to work, currently MBIM is not needed in MHI mode.
+	 * to allow MBIM to work.
 	 */
 	if ((ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5
 		&& ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
 		(!ipa3_ctx->ipa_config_is_mhi))
 		ipa3_disable_prefetch(IPA_CLIENT_USB_CONS);
+
+	if ((ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5
+		&& ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
+		(ipa3_ctx->ipa_config_is_mhi))
+		ipa3_disable_prefetch(IPA_CLIENT_MHI_CONS);
 
 	memset(&gsi_props, 0, sizeof(gsi_props));
 	gsi_props.ver = ipa3_get_gsi_ver(resource_p->ipa_hw_type);
