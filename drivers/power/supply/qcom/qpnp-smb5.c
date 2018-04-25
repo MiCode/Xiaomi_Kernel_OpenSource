@@ -25,6 +25,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
 #include <linux/pmic-voter.h>
+#include <linux/qpnp/qpnp-adc.h>
 #include "smb5-reg.h"
 #include "smb5-lib.h"
 #include "schgm-flash.h"
@@ -180,6 +181,11 @@ static int __weak_chg_icl_ua = 500000;
 module_param_named(
 	weak_chg_icl_ua, __weak_chg_icl_ua, int, 0600
 );
+
+enum {
+	USBIN_CURRENT,
+	USBIN_VOLTAGE,
+};
 
 #define PMI632_MAX_ICL_UA	3000000
 static int smb5_chg_config_init(struct smb5 *chip)
@@ -361,6 +367,61 @@ static int smb5_parse_dt(struct smb5 *chip)
 	return 0;
 }
 
+static int smb5_get_adc_data(struct smb_charger *chg, int channel,
+				union power_supply_propval *val)
+{
+	int rc;
+	struct qpnp_vadc_result result;
+
+	if (!chg->vadc_dev) {
+		if (of_find_property(chg->dev->of_node, "qcom,chg-vadc",
+					NULL)) {
+			chg->vadc_dev = qpnp_get_vadc(chg->dev, "chg");
+			if (IS_ERR(chg->vadc_dev)) {
+				rc = PTR_ERR(chg->vadc_dev);
+				if (rc != -EPROBE_DEFER)
+					pr_debug("Failed to find VADC node, rc=%d\n",
+							rc);
+				else
+					chg->vadc_dev = NULL;
+
+				return rc;
+			}
+		} else {
+			return -ENODATA;
+		}
+	}
+
+	if (IS_ERR(chg->vadc_dev))
+		return PTR_ERR(chg->vadc_dev);
+
+	switch (channel) {
+	case USBIN_VOLTAGE:
+		rc = qpnp_vadc_read(chg->vadc_dev, VADC_USB_IN_V_DIV_16_PM5,
+				&result);
+		if (rc < 0) {
+			pr_err("Failed to read USBIN_V over vadc, rc=%d\n", rc);
+			return rc;
+		}
+		val->intval = result.physical;
+		break;
+	case USBIN_CURRENT:
+		rc = qpnp_vadc_read(chg->vadc_dev, VADC_USB_IN_I_PM5, &result);
+		if (rc < 0) {
+			pr_err("Failed to read USBIN_I over vadc, rc=%d\n", rc);
+			return rc;
+		}
+		val->intval = result.physical;
+		break;
+	default:
+		pr_debug("Invalid channel\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+
 /************************
  * USB PSY REGISTRATION *
  ************************/
@@ -389,6 +450,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_SCOPE,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
 };
 
@@ -504,6 +566,19 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		val->intval = pval.intval ? POWER_SUPPLY_SCOPE_DEVICE
 				: chg->otg_present ? POWER_SUPPLY_SCOPE_SYSTEM
 						: POWER_SUPPLY_SCOPE_UNKNOWN;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
+		rc = smblib_get_prop_usb_present(chg, &pval);
+		if (rc < 0 || !pval.intval) {
+			val->intval = 0;
+			return rc;
+		}
+		if (chg->smb_version == PMI632_SUBTYPE)
+			rc = smb5_get_adc_data(chg, USBIN_CURRENT, val);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		if (chg->smb_version == PMI632_SUBTYPE)
+			rc = smb5_get_adc_data(chg, USBIN_VOLTAGE, val);
 		break;
 	case POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED:
 		val->intval = !chg->flash_active;
