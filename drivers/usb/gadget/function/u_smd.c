@@ -1,7 +1,7 @@
 /*
  * u_smd.c - utilities for USB gadget serial over smd
  *
- * Copyright (c) 2011, 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)
@@ -402,8 +402,8 @@ static void gsmd_read_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_lock(&port->port_lock);
 	if (!test_bit(CH_OPENED, &port->pi->flags) ||
 			req->status == -ESHUTDOWN) {
+		list_add_tail(&req->list, &port->read_pool);
 		spin_unlock(&port->port_lock);
-		gsmd_free_req(ep, req);
 		return;
 	}
 
@@ -428,8 +428,8 @@ static void gsmd_write_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_lock(&port->port_lock);
 	if (!test_bit(CH_OPENED, &port->pi->flags) ||
 			req->status == -ESHUTDOWN) {
+		list_add(&req->list, &port->write_pool);
 		spin_unlock(&port->port_lock);
-		gsmd_free_req(ep, req);
 		return;
 	}
 
@@ -447,45 +447,20 @@ static void gsmd_write_complete(struct usb_ep *ep, struct usb_request *req)
 
 static void gsmd_start_io(struct gsmd_port *port)
 {
-	int		ret = -ENODEV;
-
 	pr_debug("%s: port: %pK\n", __func__, port);
 
 	spin_lock(&port->port_lock);
 
-	if (!port->port_usb)
-		goto start_io_out;
+	if (!port->port_usb) {
+		spin_unlock(&port->port_lock);
+		return;
+	}
 
 	smd_tiocmset_from_cb(port->pi->ch,
 			port->cbits_to_modem,
 			~port->cbits_to_modem);
 
-	ret = gsmd_alloc_requests(port->port_usb->out,
-				&port->read_pool,
-				SMD_RX_QUEUE_SIZE, SMD_RX_BUF_SIZE, 0,
-				gsmd_read_complete);
-	if (ret) {
-		pr_err("%s: unable to allocate out requests\n",
-				__func__);
-		goto start_io_out;
-	}
-
-	ret = gsmd_alloc_requests(port->port_usb->in,
-				&port->write_pool,
-				SMD_TX_QUEUE_SIZE, SMD_TX_BUF_SIZE, extra_sz,
-				gsmd_write_complete);
-	if (ret) {
-		gsmd_free_requests(port->port_usb->out, &port->read_pool);
-		pr_err("%s: unable to allocate IN requests\n",
-				__func__);
-		goto start_io_out;
-	}
-
-start_io_out:
 	spin_unlock(&port->port_lock);
-
-	if (ret)
-		return;
 
 	gsmd_start_rx(port);
 }
@@ -528,6 +503,7 @@ static void gsmd_stop_io(struct gsmd_port *port)
 	struct usb_ep	*in;
 	struct usb_ep	*out;
 	unsigned long	flags;
+	struct list_head *q;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (!port->port_usb) {
@@ -542,16 +518,21 @@ static void gsmd_stop_io(struct gsmd_port *port)
 	usb_ep_fifo_flush(out);
 
 	spin_lock(&port->port_lock);
-	if (port->port_usb) {
-		gsmd_free_requests(out, &port->read_pool);
-		gsmd_free_requests(out, &port->read_queue);
-		gsmd_free_requests(in, &port->write_pool);
-		port->n_read = 0;
-		port->cbits_to_laptop = 0;
-	} else {
+	if (!port->port_usb) {
 		spin_unlock(&port->port_lock);
 		return;
 	}
+
+	q = &port->read_queue;
+	while (!list_empty(q)) {
+		struct usb_request *req;
+
+		req = list_first_entry(q, struct usb_request, list);
+		list_move(&req->list, &port->read_pool);
+	}
+
+	port->n_read = 0;
+	port->cbits_to_laptop = 0;
 
 	if (port->port_usb->send_modem_ctrl_bits)
 		port->port_usb->send_modem_ctrl_bits(
@@ -721,14 +702,36 @@ int gsmd_connect(struct gserial *gser, u8 portno)
 	port->nbytes_tomodem = 0;
 	port->nbytes_tolaptop = 0;
 	port->is_suspended = false;
+	ret = gsmd_alloc_requests(port->port_usb->out,
+				&port->read_pool,
+				SMD_RX_QUEUE_SIZE, SMD_RX_BUF_SIZE, 0,
+				gsmd_read_complete);
+	if (ret) {
+		pr_err("%s: unable to allocate out requests\n",
+				__func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return ret;
+	}
+
+	ret = gsmd_alloc_requests(port->port_usb->in,
+				&port->write_pool,
+				SMD_TX_QUEUE_SIZE, SMD_TX_BUF_SIZE, extra_sz,
+				gsmd_write_complete);
+	if (ret) {
+		gsmd_free_requests(port->port_usb->out, &port->read_pool);
+		pr_err("%s: unable to allocate IN requests\n",
+				__func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return ret;
+	}
+
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	ret = usb_ep_enable(gser->in);
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:IN ep:%pK, err:%d",
 				__func__, gser->in, ret);
-		port->port_usb = 0;
-		return ret;
+		goto free_req;
 	}
 	gser->in->driver_data = port;
 
@@ -736,15 +739,23 @@ int gsmd_connect(struct gserial *gser, u8 portno)
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%pK, err: %d",
 				__func__, gser->out, ret);
-		port->port_usb = 0;
 		gser->in->driver_data = 0;
-		return ret;
+		goto free_req;
 	}
 	gser->out->driver_data = port;
 
 	queue_delayed_work(gsmd_wq, &port->connect_work, msecs_to_jiffies(0));
 
 	return 0;
+
+free_req:
+	spin_lock_irqsave(&port->port_lock, flags);
+	gsmd_free_requests(port->port_usb->out, &port->write_pool);
+	gsmd_free_requests(port->port_usb->out, &port->read_pool);
+	port->port_usb = 0;
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	return ret;
 }
 
 void gsmd_disconnect(struct gserial *gser, u8 portno)
