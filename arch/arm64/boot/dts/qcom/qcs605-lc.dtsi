@@ -365,3 +365,7 @@
 	vdd-supply = <&pm660_l6>;  /* 0.88v */
 	core-supply = <&pm660_l2>; /* 1.2v */
 };
+
+&int_codec {
+	/delete-property/ qcom,ext-disp-audio-rx;
+};
