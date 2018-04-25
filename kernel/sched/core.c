@@ -5793,9 +5793,9 @@ int do_isolation_work_cpu_stop(void *data)
 
 	watchdog_disable(cpu);
 
-	irq_migrate_all_off_this_cpu();
-
 	local_irq_disable();
+
+	irq_migrate_all_off_this_cpu();
 
 	sched_ttwu_pending();
 
