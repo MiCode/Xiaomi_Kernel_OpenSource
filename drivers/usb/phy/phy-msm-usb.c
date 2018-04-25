@@ -1812,51 +1812,32 @@ static void msm_otg_notify_chg_current(struct msm_otg *motg, unsigned int mA)
 {
 	struct usb_gadget *g = motg->phy.otg->gadget;
 	union power_supply_propval pval = {0};
-	bool enable;
-	int limit;
 
 	if (g && g->is_a_peripheral)
 		return;
 
 	dev_dbg(motg->phy.dev, "Requested curr from USB = %u\n", mA);
+	if (!psy) {
+		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
+		return;
+	}
 
-	if (motg->cur_power == mA)
+	power_supply_get_property(psy, POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+
+	if (motg->cur_power == mA || pval.intval != POWER_SUPPLY_TYPE_USB)
 		return;
 
 	dev_info(motg->phy.dev, "Avail curr from USB = %u\n", mA);
 	msm_otg_dbg_log_event(&motg->phy, "AVAIL CURR FROM USB", mA, 0);
 
-	if (!psy) {
-		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
-		goto psy_error;
-	}
+	/* Set max current limit in uA */
+	pval.intval = 1000 * mA;
 
-	if (motg->cur_power == 0 && mA > 2) {
-		/* Enable charging */
-		enable = true;
-		limit = 1000 * mA;
-	} else if (motg->cur_power >= 0 && (mA == 0 || mA == 2)) {
-		/* Disable charging */
-		enable = false;
-		/* Set max current limit in uA */
-		limit = 1000 * mA;
-	} else {
-		enable = true;
-		/* Current has changed (100/2 --> 500) */
-		limit = 1000 * mA;
-	}
-
-	pval.intval = enable;
-	if (power_supply_set_property(psy, POWER_SUPPLY_PROP_ONLINE, &pval))
-		goto psy_error;
-
-	pval.intval = limit;
 	if (power_supply_set_property(psy, POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
-									&pval))
-		goto psy_error;
-
-psy_error:
-	dev_dbg(motg->phy.dev, "power supply error when setting property\n");
+								&pval)) {
+		dev_dbg(motg->phy.dev, "power supply error when setting property\n");
+		return;
+	}
 
 	motg->cur_power = mA;
 }

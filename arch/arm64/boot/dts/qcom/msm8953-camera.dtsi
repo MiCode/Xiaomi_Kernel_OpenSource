@@ -408,21 +408,21 @@
 		interrupt-names = "cpp";
 		vdd-supply = <&gdsc_cpp>;
 		qcom,vdd-names = "vdd";
-		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
+		clocks = <&clock_gcc clk_camss_top_ahb_clk_src>,
+			<&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_cpp_clk_src>,
 			<&clock_gcc clk_gcc_camss_cpp_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_cpp_axi_clk>,
 			<&clock_gcc clk_gcc_camss_cpp_clk>,
 			<&clock_gcc clk_gcc_camss_micro_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
-		clock-names = "camss_top_ahb_clk", "cpp_core_clk",
-			"camss_vfe_cpp_ahb_clk", "camss_vfe_cpp_axi_clk",
-			"camss_vfe_cpp_clk","micro_iface_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 180000000 0 0 180000000 0 0>;
+		clock-names = "camss_ahb_src", "camss_top_ahb_clk",
+			"cpp_core_clk", "camss_vfe_cpp_ahb_clk",
+			"camss_vfe_cpp_axi_clk", "camss_vfe_cpp_clk",
+			"micro_iface_clk", "camss_ahb_clk";
+		qcom,clock-rates = <80000000 0 180000000 0 0 180000000 0 0>;
 		qcom,min-clock-rate = <100000000>;
 		qcom,bus-master = <1>;
-		resets = <&clock_gcc GCC_CAMSS_MICRO_BCR>;
-		reset-names = "micro_iface_reset";
 		qcom,msm-bus,name = "msm_camera_cpp";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -430,7 +430,6 @@
 			<106 512 0 0>,
 			<106 512 0 0>;
 		qcom,msm-bus-vector-dyn-vote;
-		qcom,micro-reset;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <156>;
 			qcom,plane-base = <141>;

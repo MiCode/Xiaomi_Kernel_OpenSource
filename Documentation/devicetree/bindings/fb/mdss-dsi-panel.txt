@@ -40,6 +40,8 @@ Required properties:
 					timing settings for the panel.
 - qcom,mdss-dsi-panel-timings-phy-v2:	An array of length 40 char that specifies the PHY version 2
 					lane timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-phy-12nm: An array of length 8 char that specifies the 12nm DSI PHY
+					lane timing settings for the panel.
 - qcom,mdss-dsi-on-command:		A byte stream formed by multiple dcs packets base on
 					qcom dsi controller protocol.
 					byte 0: dcs data type
@@ -631,6 +633,8 @@ Example:
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 2e 06 08 05 03 04 a0];
+                qcom,mdss-dsi-panel-timings-phy-12nm =
+				[a9 4e 56 0b 8a 4d 0b d6];
 		qcom,mdss-dsi-on-command = [32 01 00 00 00 00 02 00 00
 					29 01 00 00 10 00 02 FF 99];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";

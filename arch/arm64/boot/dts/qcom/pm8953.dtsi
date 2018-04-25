@@ -230,7 +230,6 @@
 				qcom,scale-function = <4>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
-				qcom,vadc-thermal-node;
 			};
 
 			chan@3c {
@@ -282,6 +281,19 @@
 				qcom,scale-function = <2>;
 				qcom,hw-settle-time = <2>;
 				qcom,btm-channel-number = <0x48>;
+				qcom,fast-avg-setup = <0>;
+				qcom,thermal-node;
+			};
+
+			chan@32 {
+				label = "xo_therm";
+				reg = <0x32>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,decimation = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <4>;
+				qcom,hw-settle-time = <2>;
+				qcom,btm-channel-number = <0x68>;
 				qcom,fast-avg-setup = <0>;
 				qcom,thermal-node;
 			};
@@ -346,7 +358,7 @@
 	xo-therm-adc {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
-		thermal-sensors = <&pm8953_vadc 0x32>;
+		thermal-sensors = <&pm8953_adc_tm 0x32>;
 		thermal-governor = "user_space";
 
 		trips {

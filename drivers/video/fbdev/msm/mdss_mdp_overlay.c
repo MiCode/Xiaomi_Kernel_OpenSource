@@ -2913,6 +2913,11 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		}
 	}
 
+	if (!data) {
+		atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
+		MDSS_XLOG(atomic_read(&mfd->mdp_sync_pt_data.commit_cnt));
+	}
+
 	/*
 	 * Setup pipe in solid fill before unstaging,
 	 * to ensure no fetches are happening after dettach or reattach.

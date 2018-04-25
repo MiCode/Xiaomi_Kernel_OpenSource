@@ -226,6 +226,35 @@
 	status = "disabled";
 };
 
+&tlmm {
+	lt9611_vcc_eldo_default: lt9611_vcc_eldo_default {
+		mux {
+			pins = "gpio53";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio53";
+			drive-strength = <8>;
+			bias-disable = <0>;
+			output-low;
+		};
+	};
+};
+
+&soc {
+	lt9611_vcc_eldo: lt9611-gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lt9611_vcc_eldo";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 53 0>;
+		enable-active-high;
+		pinctrl-names = "default";
+		pintctrl-0 = <&lt9611_vcc_eldo_default>;
+	};
+};
+
 &qupv3_se9_i2c {
 	status = "okay";
 
@@ -237,10 +266,11 @@
 		interrupt-names = "lt_irq";
 		lt,irq-gpio = <&tlmm 96 0x0>;
 		lt,reset-gpio = <&tlmm 95 0x0>;
-		lt,hdmi-en-gpio = <&tlmm 53 0x0>;
 		lt,non-pluggable;
+		lt,preferred-mode = "1920x1080";
 
 		vdd-supply = <&pm660_l12>;
+		vcc-supply = <&lt9611_vcc_eldo>;
 		lt,supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -251,6 +281,14 @@
 				lt,supply-min-voltage = <1800000>;
 				lt,supply-max-voltage = <1800000>;
 				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+
+			lt,supply-entry@1 {
+				reg = <1>;
+				lt,supply-name = "vcc";
+				lt,supply-min-voltage = <3300000>;
+				lt,supply-max-voltage = <3300000>;
 				lt,supply-post-on-sleep = <50>;
 			};
 		};
@@ -314,15 +352,16 @@
 	};
 };
 
+&pm660_pdphy {
+	/delete-property/ vdd-pdphy-supply;
+};
+
 &qusb_phy0 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vdda33-supply;
+	vdd-supply = <&pm660_l6>;
+	vdda33-supply = <&pm660_l17>;
 };
 
 &usb_qmp_dp_phy {
-	/delete-property/ vdd-supply;
-};
-
-&pm660_pdphy {
-	/delete-property/ vdd-pdphy-supply;
+	vdd-supply = <&pm660_l6>;  /* 0.88v */
+	core-supply = <&pm660_l2>; /* 1.2v */
 };

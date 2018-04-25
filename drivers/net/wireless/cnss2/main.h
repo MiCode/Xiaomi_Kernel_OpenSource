@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,6 +107,12 @@ struct cnss_fw_mem {
 	void *va;
 	phys_addr_t pa;
 	bool valid;
+};
+
+enum cnss_fw_dump_type {
+	CNSS_FW_IMAGE,
+	CNSS_FW_RDDM,
+	CNSS_FW_REMOTE_HEAP,
 };
 
 enum cnss_driver_event_type {

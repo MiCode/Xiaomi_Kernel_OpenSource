@@ -511,4 +511,5 @@ header-y += rmnet_ipa_fd_ioctl.h
 header-y += msm_dsps.h
 header-y += msm-core-interface.h
 header-y += msm_rotator.h
+header-y += bgcom_interface.h
 header-y += nfc/

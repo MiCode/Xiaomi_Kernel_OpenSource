@@ -8,7 +8,7 @@ It can also perform CRC over the same configuration or memory space.
 Required properties:
 
 - compatible : name of the component used for driver matching, should be
-	       "qcom,dcc" or "qcom,dcc_v2"
+	       "qcom,dcc" or "qcom,dcc-v2"
 
 - reg : physical base address and length of the register set(s), SRAM and XPU
 	of the component.

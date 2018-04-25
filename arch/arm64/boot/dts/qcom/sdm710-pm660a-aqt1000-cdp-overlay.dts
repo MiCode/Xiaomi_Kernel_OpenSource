@@ -1,0 +1,75 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-sdm845.h>
+#include <dt-bindings/clock/qcom,camcc-sdm845.h>
+#include <dt-bindings/clock/qcom,dispcc-sdm845.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "sdm670-cdp.dtsi"
+#include "pm660a.dtsi"
+#include "sdm670-int-cdc-aqt.dtsi"
+#include "sdm670-int-cdc-aqt-overlay.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM710 PM660 + PM660A AQT CDP";
+	compatible = "qcom,sdm670-cdp", "qcom,sdm670", "qcom,cdp";
+	qcom,msm-id = <360 0x0>;
+	qcom,board-id = <1 4>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
+		       <0x0001001b 0x0002001a 0x0 0x0>,
+		       <0x0001001b 0x0202001a 0x0 0x0>;
+};
+
+&dsi_dual_nt35597_truly_video_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&dsi_panel_pwr_supply_labibb_amoled {
+	qcom,panel-supply-entry@2 {
+		reg = <2>;
+		qcom,supply-name = "lab";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6100000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@3 {
+		reg = <3>;
+		qcom,supply-name = "ibb";
+		qcom,supply-min-voltage = <4000000>;
+		qcom,supply-max-voltage = <6300000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@4 {
+		reg = <4>;
+		qcom,supply-name = "oledb";
+		qcom,supply-min-voltage = <5000000>;
+		qcom,supply-max-voltage = <8100000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+};
+
+&dsi_rm67195_amoled_fhd_cmd_display {
+	qcom,dsi-display-active;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+	oledb-supply = <&pm660a_oledb>;
+};

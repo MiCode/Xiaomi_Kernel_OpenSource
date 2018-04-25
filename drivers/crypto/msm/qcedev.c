@@ -1,7 +1,7 @@
 /*
  * QTI CE device driver.
  *
- * Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@
 #include <crypto/hash.h>
 #include "qcedevi.h"
 #include "qce.h"
+#include "qcedev_smmu.h"
 
 #include <linux/compat.h>
 #include "compat_qcedev.h"
@@ -58,6 +59,14 @@ static uint8_t _std_init_vector_sha256_uint8[] = {
 static DEFINE_MUTEX(send_cmd_lock);
 static DEFINE_MUTEX(qcedev_sent_bw_req);
 static DEFINE_MUTEX(hash_access_lock);
+
+MODULE_DEVICE_TABLE(of, qcedev_match);
+
+static const struct of_device_id qcedev_match[] = {
+	{	.compatible = "qcom,qcedev"},
+	{	.compatible = "qcom,qcedev,context-bank"},
+	{}
+};
 
 static int qcedev_control_clocks(struct qcedev_control *podev, bool enable)
 {
@@ -259,6 +268,9 @@ static int qcedev_open(struct inode *inode, struct file *file)
 	file->private_data = handle;
 	if (podev->platform_support.bus_scale_table != NULL)
 		qcedev_ce_high_bw_req(podev, true);
+
+	mutex_init(&handle->registeredbufs.lock);
+	INIT_LIST_HEAD(&handle->registeredbufs.list);
 	return 0;
 }
 
@@ -1857,6 +1869,62 @@ static inline long qcedev_ioctl(struct file *file,
 		}
 		break;
 
+	case QCEDEV_IOCTL_MAP_BUF_REQ:
+		{
+			unsigned long long vaddr = 0;
+			struct qcedev_map_buf_req map_buf = { {0} };
+			int i = 0;
+
+			if (copy_from_user(&map_buf,
+					(void __user *)arg, sizeof(map_buf)))
+				return -EFAULT;
+
+			for (i = 0; i < map_buf.num_fds; i++) {
+				err = qcedev_check_and_map_buffer(handle,
+						map_buf.fd[i],
+						map_buf.fd_offset[i],
+						map_buf.fd_size[i],
+						&vaddr);
+				if (err) {
+					pr_err(
+						"%s: err: failed to map fd(%d) - %d\n",
+						__func__, map_buf.fd[i], err);
+					return err;
+				}
+				map_buf.buf_vaddr[i] = vaddr;
+				pr_info("%s: info: vaddr = %llx\n",
+					__func__, vaddr);
+			}
+
+			if (copy_to_user((void __user *)arg, &map_buf,
+					sizeof(map_buf)))
+				return -EFAULT;
+			break;
+		}
+
+	case QCEDEV_IOCTL_UNMAP_BUF_REQ:
+		{
+			struct qcedev_unmap_buf_req unmap_buf = { { 0 } };
+			int i = 0;
+
+			if (copy_from_user(&unmap_buf,
+					(void __user *)arg, sizeof(unmap_buf)))
+				return -EFAULT;
+
+			for (i = 0; i < unmap_buf.num_fds; i++) {
+				err = qcedev_check_and_unmap_buffer(handle,
+						unmap_buf.fd[i]);
+				if (err) {
+					pr_err(
+						"%s: err: failed to unmap fd(%d) - %d\n",
+						 __func__,
+						unmap_buf.fd[i], err);
+					return err;
+				}
+			}
+			break;
+		}
+
 	default:
 		return -ENOTTY;
 	}
@@ -1864,7 +1932,7 @@ static inline long qcedev_ioctl(struct file *file,
 	return err;
 }
 
-static int qcedev_probe(struct platform_device *pdev)
+static int qcedev_probe_device(struct platform_device *pdev)
 {
 	void *handle = NULL;
 	int rc = 0;
@@ -1876,6 +1944,8 @@ static int qcedev_probe(struct platform_device *pdev)
 	podev->high_bw_req_count = 0;
 	INIT_LIST_HEAD(&podev->ready_commands);
 	podev->active_command = NULL;
+
+	INIT_LIST_HEAD(&podev->context_banks);
 
 	spin_lock_init(&podev->lock);
 
@@ -1934,11 +2004,33 @@ static int qcedev_probe(struct platform_device *pdev)
 	}
 
 	rc = misc_register(&podev->miscdevice);
-	if (rc >= 0)
-		return 0;
+	if (rc) {
+		pr_err("%s: err: register failed for misc: %d\n", __func__, rc);
+		goto exit_qce_close;
+	}
+
+	podev->mem_client = qcedev_mem_new_client(MEM_ION);
+	if (!podev->mem_client) {
+		pr_err("%s: err: qcedev_mem_new_client failed\n", __func__);
+		goto err;
+	}
+
+	rc = of_platform_populate(pdev->dev.of_node, qcedev_match,
+			NULL, &pdev->dev);
+	if (rc) {
+		pr_err("%s: err: of_platform_populate failed: %d\n",
+			__func__, rc);
+		goto err;
+	}
+
+	return 0;
+
+err:
+	if (podev->mem_client)
+		qcedev_mem_delete_client(podev->mem_client);
+	podev->mem_client = NULL;
 
 	misc_deregister(&podev->miscdevice);
-
 exit_qce_close:
 	if (handle)
 		qce_close(handle);
@@ -1947,11 +2039,23 @@ exit_scale_busbandwidth:
 exit_unregister_bus_scale:
 	if (podev->platform_support.bus_scale_table != NULL)
 		msm_bus_scale_unregister_client(podev->bus_scale_handle);
+	podev->bus_scale_handle = 0;
 	platform_set_drvdata(pdev, NULL);
 	podev->pdev = NULL;
 	podev->qce = NULL;
 
 	return rc;
+}
+
+static int qcedev_probe(struct platform_device *pdev)
+{
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,qcedev"))
+		return qcedev_probe_device(pdev);
+	else if (of_device_is_compatible(pdev->dev.of_node,
+		"qcom,qcedev,context-bank"))
+		return qcedev_parse_context_bank(pdev);
+
+	return -EINVAL;
 };
 
 static int qcedev_remove(struct platform_device *pdev)
@@ -2016,12 +2120,6 @@ resume_exit:
 	mutex_unlock(&qcedev_sent_bw_req);
 	return 0;
 }
-
-static const struct of_device_id qcedev_match[] = {
-	{	.compatible = "qcom,qcedev",
-	},
-	{}
-};
 
 static struct platform_driver qcedev_plat_driver = {
 	.probe = qcedev_probe,

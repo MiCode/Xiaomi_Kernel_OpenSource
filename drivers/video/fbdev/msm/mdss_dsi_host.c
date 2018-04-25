@@ -303,6 +303,20 @@ void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 		 */
 		reg_val = MIPI_INP(ctrl->phy_io.base + 0x20c);
 		reg_val = reg_val >> 4;
+		if (!reg_val) {
+			/*
+			 * DSI_0_PHY_DSIPHY_REVISION_ID3 for 12nm PHY
+			 * reset value = 0x20
+			 * 7:4 Major
+			 * 3:0 Minor
+			 */
+			reg_val = MIPI_INP(ctrl->phy_io.base + 0x3dc);
+			reg_val = reg_val >> 4;
+			if (reg_val == 0x2) {
+				ctrl->shared_data->phy_rev = DSI_PHY_REV_12NM;
+				return;
+			}
+		}
 	}
 
 	if (reg_val == DSI_PHY_REV_20)
@@ -413,6 +427,9 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	/* DSI_LAN_SWAP_CTRL */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x00b0, ctrl_pdata->dlane_swap);
 
+	if (ctrl_pdata->shared_data->phy_rev == DSI_PHY_REV_12NM)
+		goto next;
+
 	/* clock out ctrl */
 	data = pinfo->t_clk_post & 0x3f;	/* 6 bits */
 	data <<= 8;
@@ -420,6 +437,7 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	/* DSI_CLKOUT_TIMING_CTRL */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0xc4, data);
 
+next:
 	data = 0;
 	if (pinfo->rx_eot_ignore)
 		data |= BIT(4);

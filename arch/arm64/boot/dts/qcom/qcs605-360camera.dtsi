@@ -65,6 +65,7 @@
 		lt,hdmi-ps-gpio = <&tlmm 136 0x0>;
 		lt,hdmi-en-gpio = <&tlmm 137 0x0>;
 		lt,non-pluggable;
+		lt,preferred-mode = "1920x1080";
 
 		vcc-supply = <&pm660l_l6>;
 		vdd-supply = <&pm660_l11>;
@@ -105,6 +106,21 @@
 				lt,mode-v-active-high;
 				lt,mode-refresh-rate = <60>;
 				lt,mode-clock-in-khz = <148500>;
+			};
+
+			lt,customize-mode-id@1 {
+				lt,mode-h-active = <3840>;
+				lt,mode-h-front-porch = <176>;
+				lt,mode-h-pulse-width = <88>;
+				lt,mode-h-back-porch = <296>;
+				lt,mode-h-active-high;
+				lt,mode-v-active = <2160>;
+				lt,mode-v-front-porch = <8>;
+				lt,mode-v-pulse-width = <10>;
+				lt,mode-v-back-porch = <72>;
+				lt,mode-v-active-high;
+				lt,mode-refresh-rate = <30>;
+				lt,mode-clock-in-khz = <297000>;
 			};
 		};
 
@@ -147,6 +163,10 @@
 
 &pm660_fg {
 	qcom,fg-force-load-profile;
+	qcom,battery-data = <&qcs_batterydata>;
+};
+
+&pm660_charger {
 	qcom,battery-data = <&qcs_batterydata>;
 };
 

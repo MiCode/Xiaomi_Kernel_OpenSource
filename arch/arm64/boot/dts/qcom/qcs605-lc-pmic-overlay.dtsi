@@ -258,3 +258,15 @@
 		qcom,lra-res-cal-period = <4>;
 	};
 };
+
+&pm660_pdphy {
+	vdd-pdphy-supply = <&pm660_l17>;
+	vbus-supply = <&smb2_vbus>;
+	vconn-supply = <&smb2_vconn>;
+};
+
+&usb0 {
+	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <&eud>,
+				<&pm660_charger>, <&pm660_charger>;
+	vbus_dwc3-supply = <&smb2_vbus>;
+};

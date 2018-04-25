@@ -581,8 +581,9 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl);
 /**
  * dsi_display_check_status() - check if panel is dead or alive
  * @display:            Handle to display.
+ * @te_check_override:	Whether check for TE from panel or default check
  */
-int dsi_display_check_status(void *display);
+int dsi_display_check_status(void *display, bool te_check_override);
 
 /**
  * dsi_display_cmd_transfer() - transfer command to the panel
@@ -647,4 +648,14 @@ enum dsi_pixel_format dsi_display_get_dst_format(void *display);
  * Return: Zero on Success
  */
 int dsi_display_cont_splash_config(void *display);
+/*
+ * dsi_display_get_panel_vfp - get panel vsync
+ * @display: Pointer to private display structure
+ * @h_active: width
+ * @v_active: height
+ * Returns: v_front_porch on success error code on failure
+ */
+int dsi_display_get_panel_vfp(void *display,
+	int h_active, int v_active);
+
 #endif /* _DSI_DISPLAY_H_ */

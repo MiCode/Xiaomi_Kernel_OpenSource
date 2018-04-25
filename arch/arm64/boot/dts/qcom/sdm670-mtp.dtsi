@@ -141,6 +141,10 @@
 	qcom,battery-data = <&mtp_batterydata>;
 };
 
+&pm660_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
 &tlmm {
 	smb_int_default: smb_int_default {
 		mux {

@@ -28,6 +28,7 @@
 #include <linux/power_supply.h>
 #include <linux/workqueue.h>
 #include <linux/pmic-voter.h>
+#include <linux/string.h>
 
 /* SMB1355 registers, different than mentioned in smb-reg.h */
 
@@ -120,6 +121,7 @@
 
 #define MISC_CUST_SDCDC_ILIMIT_CFG_REG		(MISC_BASE + 0xA1)
 #define LS_VALLEY_THRESH_PCT_BIT		BIT(3)
+#define PCL_LIMIT_MASK				GENMASK(1, 0)
 
 #define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x53)
 #define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)
@@ -1027,6 +1029,16 @@ static int smb1355_init_hw(struct smb1355 *chip)
 	if (rc < 0) {
 		pr_err("Couldn't set LS valley threshold to 85pc rc=%d\n", rc);
 		return rc;
+	}
+
+	/* For SMB1354, set PCL to 8.6 A */
+	if (!strcmp(chip->name, "smb1354")) {
+		rc = smb1355_masked_write(chip, MISC_CUST_SDCDC_ILIMIT_CFG_REG,
+				PCL_LIMIT_MASK, PCL_LIMIT_MASK);
+		if (rc < 0) {
+			pr_err("Couldn't set PCL limit to 8.6A rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	rc = smb1355_tskin_sensor_config(chip);

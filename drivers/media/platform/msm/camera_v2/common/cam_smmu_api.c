@@ -270,53 +270,6 @@ static void cam_smmu_print_table(void)
 	}
 }
 
-
-static int cam_smmu_query_vaddr_in_range(int handle,
-	unsigned long fault_addr, unsigned long *start_addr,
-	unsigned long *end_addr, int *fd)
-{
-	int idx, rc = -EINVAL;
-	struct cam_dma_buff_info *mapping;
-	unsigned long sa, ea;
-
-	if (!start_addr || !end_addr || !fd) {
-		pr_err("Invalid params\n");
-		return -EINVAL;
-	}
-
-	idx = GET_SMMU_TABLE_IDX(handle);
-	if (handle == HANDLE_INIT || idx < 0 || idx >= iommu_cb_set.cb_num) {
-		pr_err("Error: handle or index invalid. idx = %d hdl = %x\n",
-			idx, handle);
-		return -EINVAL;
-	}
-
-	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
-	if (iommu_cb_set.cb_info[idx].handle != handle) {
-		pr_err("Error: hdl is not valid, table_hdl = %x, hdl = %x\n",
-				iommu_cb_set.cb_info[idx].handle, handle);
-		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-		return -EINVAL;
-	}
-
-	list_for_each_entry(mapping,
-		&iommu_cb_set.cb_info[idx].smmu_buf_list, list) {
-		sa = (unsigned long)mapping->paddr;
-		ea = (unsigned long)mapping->paddr + mapping->len;
-
-		if (sa <= fault_addr && fault_addr < ea) {
-			*start_addr = sa;
-			*end_addr = ea;
-			*fd = mapping->ion_fd;
-			rc = 0;
-			break;
-		}
-	}
-	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-	return rc;
-}
-EXPORT_SYMBOL(cam_smmu_query_vaddr_in_range);
-
 static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 {
 	struct cam_dma_buff_info *mapping;

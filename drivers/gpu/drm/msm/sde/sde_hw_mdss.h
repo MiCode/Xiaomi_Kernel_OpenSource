@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -582,6 +582,7 @@ struct ctl_top {
  * @lm_cnt:	stores the active number of MDSS "LM" blks for the current mode
  * @dsc_cnt:	stores the active number of MDSS "dsc" blks for the current mode
  * @cont_splash_en:	Stores the cont_splash status (enabled/disbled)
+ * @single_flush_en: Stores if the single flush is enabled.
  */
 struct sde_splash_data {
 	bool smmu_handoff_pending;
@@ -595,6 +596,7 @@ struct sde_splash_data {
 	u8 lm_cnt;
 	u8 dsc_cnt;
 	bool cont_splash_en;
+	bool single_flush_en;
 };
 
 #endif  /* _SDE_HW_MDSS_H */

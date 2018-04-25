@@ -132,3 +132,17 @@
 		};
 	};
 };
+
+&pm8953_vadc {
+	pinctrl-0 = <&pa_therm1_default>;
+	/delete-node/ chan@13;
+};
+
+&pm8953_mpps {
+	/delete-node/ case_therm;
+};
+
+&thermal_zones {
+	/delete-node/ case-therm-adc;
+	/delete-node/ case-therm-step;
+};

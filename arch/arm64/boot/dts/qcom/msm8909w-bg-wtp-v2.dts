@@ -14,11 +14,11 @@
 /dts-v1/;
 
 #include "msm8909-mtp.dtsi"
+#include "msm8909w-gpu.dtsi"
 #include "msm8909w.dtsi"
 #include "msm8909w-bg-memory.dtsi"
 #include "8909w-pm660.dtsi"
 #include "msm8909-audio-bg_codec.dtsi"
-#include "msm-arm-smmu-8909.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 BLACKGHOST WTP";
@@ -67,6 +67,17 @@
 		};
 
 		/delete-node/ it7260@46;
+	};
+
+	qcom,blackghost {
+		compatible = "qcom,pil-blackghost";
+		qcom,firmware-name = "bg-wear";
+		/* GPIO inputs from blackghost */
+		qcom,bg2ap-status-gpio = <&msm_gpio 97 0>;
+		qcom,bg2ap-errfatal-gpio = <&msm_gpio 95 0>;
+		/* GPIO output to blackghost */
+		qcom,ap2bg-status-gpio = <&msm_gpio 17 0>;
+		qcom,ap2bg-errfatal-gpio = <&msm_gpio 23 0>;
 	};
 
 	qcom,msm-ssc-sensors {
@@ -155,6 +166,8 @@
 	qcom,bg-daemon {
 		compatible = "qcom,bg-daemon";
 		qcom,bg-reset-gpio = <&pm660_gpios 5 0>;
+		ssr-reg1-supply = <&pm660_l3>;
+		ssr-reg2-supply = <&pm660_l9>;
 	};
 
 	qcom,bcl {

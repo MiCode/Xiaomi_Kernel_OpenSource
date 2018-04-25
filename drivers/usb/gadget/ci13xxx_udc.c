@@ -3474,6 +3474,7 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 		if (udc->udc_driver->notify_event)
 			udc->udc_driver->notify_event(udc,
 				CI13XXX_CONTROLLER_DISCONNECT_EVENT);
+		usb_gadget_set_state(&udc->gadget, USB_STATE_NOTATTACHED);
 	}
 
 	return 0;
@@ -3982,15 +3983,15 @@ static void udc_remove(void)
 		return;
 	}
 
+#ifdef CONFIG_USB_GADGET_DEBUG_FILES
+	dbg_remove_files(&udc->gadget.dev);
+#endif
 	usb_del_gadget_udc(&udc->gadget);
 
 	if (udc->transceiver) {
 		otg_set_peripheral(udc->transceiver->otg, &udc->gadget);
 		usb_put_phy(udc->transceiver);
 	}
-#ifdef CONFIG_USB_GADGET_DEBUG_FILES
-	dbg_remove_files(&udc->gadget.dev);
-#endif
 	destroy_eps(udc);
 	dma_pool_destroy(udc->td_pool);
 	dma_pool_destroy(udc->qh_pool);

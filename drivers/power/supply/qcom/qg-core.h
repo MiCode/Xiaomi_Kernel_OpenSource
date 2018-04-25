@@ -115,8 +115,10 @@ struct qpnp_qg {
 };
 
 enum ocv_type {
-	PON_OCV,
-	GOOD_OCV,
+	S7_PON_OCV,
+	S3_GOOD_OCV,
+	S3_LAST_OCV,
+	SDAM_PON_OCV,
 };
 
 enum debug_mask {

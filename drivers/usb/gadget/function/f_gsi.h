@@ -82,28 +82,6 @@
 #define	EVT_IPA_SUSPEND			9
 #define	EVT_RESUMED			10
 
-#define NUM_LOG_PAGES 10
-#define log_event_err(x, ...) do { \
-	if (gsi) { \
-		ipc_log_string(gsi->ipc_log_ctxt, x, ##__VA_ARGS__); \
-		pr_err(x, ##__VA_ARGS__); \
-	} \
-} while (0)
-
-#define log_event_dbg(x, ...) do { \
-	if (gsi) { \
-		ipc_log_string(gsi->ipc_log_ctxt, x, ##__VA_ARGS__); \
-		pr_debug(x, ##__VA_ARGS__); \
-	} \
-} while (0)
-
-#define log_event_info(x, ...) do { \
-	if (gsi) { \
-		ipc_log_string(gsi->ipc_log_ctxt, x, ##__VA_ARGS__); \
-		pr_info(x, ##__VA_ARGS__); \
-	} \
-} while (0)
-
 enum connection_state {
 	STATE_UNINITIALIZED,
 	STATE_INITIALIZED,
@@ -275,7 +253,6 @@ struct f_gsi {
 
 	struct gsi_data_port d_port;
 	struct gsi_ctrl_port c_port;
-	void *ipc_log_ctxt;
 	bool rmnet_dtr_status;
 };
 
@@ -313,15 +290,15 @@ static enum ipa_usb_teth_prot name_to_prot_id(const char *name)
 	if (!name)
 		goto error;
 
-	if (!strncasecmp(name, "rndis", strlen("rndis")))
+	if (!strncasecmp(name, "rndis", MAX_INST_NAME_LEN))
 		return IPA_USB_RNDIS;
-	if (!strncasecmp(name, "ecm", strlen("ecm")))
+	if (!strncasecmp(name, "ecm", MAX_INST_NAME_LEN))
 		return IPA_USB_ECM;
-	if (!strncasecmp(name, "rmnet", strlen("rmnet")))
+	if (!strncasecmp(name, "rmnet", MAX_INST_NAME_LEN))
 		return IPA_USB_RMNET;
-	if (!strncasecmp(name, "mbim", strlen("mbim")))
+	if (!strncasecmp(name, "mbim", MAX_INST_NAME_LEN))
 		return IPA_USB_MBIM;
-	if (!strncasecmp(name, "dpl", strlen("dpl")))
+	if (!strncasecmp(name, "dpl", MAX_INST_NAME_LEN))
 		return IPA_USB_DIAG;
 
 error:
@@ -879,6 +856,7 @@ static struct usb_endpoint_descriptor mbim_gsi_fs_in_desc = {
 
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	4*cpu_to_le16(NCM_STATUS_BYTECOUNT),
 };
 
 static struct usb_endpoint_descriptor mbim_gsi_fs_out_desc = {
@@ -887,6 +865,7 @@ static struct usb_endpoint_descriptor mbim_gsi_fs_out_desc = {
 
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	4*cpu_to_le16(NCM_STATUS_BYTECOUNT),
 };
 
 static struct usb_descriptor_header *mbim_gsi_fs_function[] = {
@@ -1180,6 +1159,7 @@ static struct usb_endpoint_descriptor ecm_gsi_fs_in_desc = {
 
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(ECM_QC_STATUS_BYTECOUNT),
 };
 
 static struct usb_endpoint_descriptor ecm_gsi_fs_out_desc = {
@@ -1188,6 +1168,7 @@ static struct usb_endpoint_descriptor ecm_gsi_fs_out_desc = {
 
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(ECM_QC_STATUS_BYTECOUNT),
 };
 
 static struct usb_descriptor_header *ecm_gsi_fs_function[] = {

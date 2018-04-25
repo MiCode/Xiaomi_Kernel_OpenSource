@@ -41,6 +41,7 @@
 		qcom,nq-ven = <&tlmm 16 0x00>;
 		qcom,nq-firm = <&tlmm 62 0x00>;
 		qcom,nq-clkreq = <&pm8953_gpios 2 0x00>;
+		qcom,nq-esepwr = <&tlmm 141 0x00>;
 		interrupt-parent = <&tlmm>;
 		qcom,clk-src = "BBCLK2";
 		interrupts = <17 0>;
@@ -206,6 +207,10 @@
 
 &thermal_zones {
 	case-therm-step {
+		status = "disabled";
+	};
+
+	quiet-therm-step {
 		status = "disabled";
 	};
 };

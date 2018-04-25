@@ -14,8 +14,8 @@
 /dts-v1/;
 
 #include "sdm450.dtsi"
-#include "sdm450-qrd-sku4.dtsi"
 #include "sdm450-pmi632.dtsi"
+#include "sdm450-qrd-sku4.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM450 + PMI632 QRD SKU4";
@@ -24,22 +24,3 @@
 	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
 };
 
-&pmi632_vadc {
-	chan@4a {
-		qcom,scale-function = <22>;
-	};
-};
-
-&pm8953_vadc {
-	pinctrl-0 = <&pa_therm1_default>;
-	/delete-node/ chan@13;
-};
-
-&pm8953_mpps {
-	/delete-node/ case_therm;
-};
-
-&thermal_zones {
-	/delete-node/ case-therm-adc;
-	/delete-node/ case-therm-step;
-};

@@ -1,0 +1,187 @@
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <dt-bindings/pinctrl/qcom,pmic-mpp.h>
+
+&soc {
+	i2c@78b9000 {
+		synaptics@20 {
+			avdd-supply = <&pm8916_l17>;
+			vdd-supply = <&pm8916_l6>;
+		};
+	};
+
+	i2c@78b6000 {
+		nq@28 {
+			qcom,nq-clkreq = <&pm8916_gpios 2 0>;
+		};
+	};
+
+};
+
+&audio_codec_mtp {
+	qcom,model = "msm8909-pm8916-snd-card";
+	pinctrl-names =
+		"all_off",
+		"pri_i2s_act",
+		"us_eu_gpio_act",
+		"pri_i2s_us_eu_gpio_act";
+	pinctrl-0 = <&cdc_pdm_lines_sus &cross_conn_det_sus>;
+	pinctrl-1 = <&cdc_pdm_lines_act &cross_conn_det_sus>;
+	pinctrl-2 = <&cdc_pdm_lines_sus &cross_conn_det_act>;
+	pinctrl-3 = <&cdc_pdm_lines_act &cross_conn_det_act>;
+	asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
+	asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm8916_l8>;
+	vdd-io-supply = <&pm8916_l5>;
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8916_l11>;
+	vdd-io-supply = <&pm8916_l12>;
+};
+
+&i2c_3 {
+	qcom,actuator@0 {
+		cam_vaf-supply = <&pm8916_l8>;
+	};
+
+
+	qcom,eeprom@6c{
+		cam_vdig-supply = <&pm8916_l2>;
+		cam_vana-supply = <&pm8916_l10>;
+		cam_vio-supply = <&pm8916_l6>;
+		cam_vaf-supply = <&pm8916_l8>;
+	};
+
+	qcom,camera@0 {
+		cam_vdig-supply = <&pm8916_l2>;
+		cam_vana-supply = <&pm8916_l10>;
+		cam_vio-supply = <&pm8916_l6>;
+		cam_vaf-supply = <&pm8916_l8>;
+	};
+
+	qcom,camera@1 {
+		cam_vana-supply = <&pm8916_l10>;
+		cam_vio-supply = <&pm8916_l6>;
+	};
+};
+
+&spmi_bus {
+	pm8916@0 {
+		qcom,leds@a300 {
+			status = "okay";
+			qcom,led_mpp_4 {
+				label = "mpp";
+				linux,name = "button-backlight";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode = "manual";
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+			};
+		};
+	};
+
+	pm8916@1 {
+		qcom,vibrator@c000 {
+			status = "okay";
+			qcom,vib-timeout-ms = <15000>;
+			qcom,vib-vtg-level-mV = <3100>;
+		};
+	};
+};
+
+&pm8916_mpps {
+	/* VDD_PX_BIAS_MPP_1 */
+	vdd_px_bias_mpp {
+		vdd_px_bias_mpp_default: vdd_px_bias_mpp_default {
+			pins = "mpp1";
+			function = "digital";
+			status = "disabled";
+		};
+	};
+
+	/* PMIC_MPP_2 */
+	pmic_mpp {
+		pmic_mpp_default: pmic_mpp_default {
+			pins = "mpp2";
+			function = "digital";
+			status = "disabled";
+		};
+	};
+
+	/* VREF_DAC_MPP_3 */
+	vref_dac_mpp {
+		vref_dac_mpp_default: vref_dac_mpp_default {
+			pins = "mpp3";
+			function = "digital";
+			status = "disabled";
+		};
+	};
+
+	/* WLED_PWM_MPP_4 */
+	wled_pwm_mpp {
+		wled_pwm_mpp_default: wled_pwm_mpp_default {
+			pins = "mpp3";
+			function = "digital";
+			output-enable;
+			power-source = <PM8916_MPP_VPH>;
+			status = "okay";
+		};
+	};
+};
+
+/* pm8916 gpio pinctrl configuration */
+&pm8916_gpios {
+	/* Battery UICC Alarm */
+	uim_batt_alarm { /* GPIO 1 */
+		uim_batt_alarm_default: uim_batt_alarm_default {
+			pins = "gpio1";
+			status = "disabled";
+		};
+	};
+
+	/* GPIO 2 (NFC_CLK_REQ) */
+	nfc_clk {
+		nfc_clk_default: nfc_clk_default {
+			pins = "gpio2";
+			function = "normal";
+			input-enable;
+			status = "disabled";
+		};
+	};
+
+	/*  WCN_LDO_EN_GPIO_3 */
+	wcn_ldo_en {
+		wcn_ldo_en_default: wcn_ldo_en_default {
+			pins = "gpio3";
+			function = "normal";
+			output-low;
+			qcom,drive-strength = <1>;
+			status = "disabled";
+		};
+	};
+
+	/* External regulator control for APC */
+	wcd_eldo_en { /* GPIO 4 */
+		wcd_eldo_en_default: wcd_eldo_en_default {
+			pins = "gpio4";
+			status = "disabled";
+		};
+	};
+};

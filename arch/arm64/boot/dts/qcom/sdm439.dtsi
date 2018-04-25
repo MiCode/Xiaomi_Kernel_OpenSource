@@ -23,13 +23,82 @@
 
 &soc {
 	qcom,csid@1b30000 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 	qcom,csid@1b30400 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
 	};
 	qcom,csid@1b30800 {
-		/delete-property/ qcom,mipi-csi-vdd-supply;
+		qcom,mipi-csi-vdd-supply = <&pm8953_l23>;
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names =
+			"l2_clk",
+			"cpu0_clk",
+			"cpu4_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			 < 1305600 >,
+			 < 1497600 >,
+			 < 1708800 >,
+			 < 1958400 >;
+
+		qcom,cpufreq-table-4 =
+			 <  768000 >,
+			 < 1001600 >,
+			 < 1171200 >,
+			 < 1305600 >,
+			 < 1459200 >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map-0 =
+			< 1305600  2929 >,
+			< 1497600  5053 >,
+			< 1708800  5712 >,
+			< 1958400  7031 >;
+		cpu-to-dev-map-4 =
+			<  768000  2929 >,
+			< 1001600  4101 >,
+			< 1171200  5053 >,
+			< 1305600  6152 >,
+			< 1459200  7031 >;
+
+		};
+
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map-0 =
+			< 1305600  400000 >,
+			< 1497600  400000 >,
+			< 1708800  533333 >,
+			< 1958400  533333 >;
+		cpu-to-dev-map-4 =
+			<  768000  400000 >,
+			< 1001600  400000 >,
+			< 1171200  533333 >,
+			< 1305600  533333 >,
+			< 1459200  533333 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map-0 =
+				< 1305600 2929 >,
+				< 1958400 4248 >;
+			cpu-to-dev-map-4 =
+				< 1171200 2929 >,
+				< 1459200 4248 >;
+		};
 	};
 };
 
@@ -38,7 +107,7 @@
 
 	CPU_COST_0: core-cost0 {
 		busy-cost-data = <
-			8000000	137
+			 800000	137
 			1001600	165
 			1305600	207
 			1497600	256
@@ -51,7 +120,7 @@
 	};
 	CPU_COST_1: core-cost1 {
 		busy-cost-data = <
-			8000000	45
+			 768000	43
 			1001600	56
 			1171200	71
 			1305600	89
@@ -63,7 +132,7 @@
 	};
 	CLUSTER_COST_0: cluster-cost0 {
 			busy-cost-data = <
-			8000000	49
+			 800000	49
 			1001600	53
 			1305600	61
 			1497600	71
@@ -76,7 +145,7 @@
 	};
 	CLUSTER_COST_1: cluster-cost1 {
 			busy-cost-data = <
-			8000000	9
+			 768000	8
 			1001600	10
 			1171200	13
 			1305600	15
@@ -85,5 +154,46 @@
 		idle-cost-data = <
 			4 3 2 1
 		>;
+	};
+};
+
+&kgsl_smmu {
+	qcom,enable-static-cb;
+};
+
+&reserved_memory {
+	gpu_mem: gpu_region@0 {
+		compatible = "shared-dma-pool";
+		reusable;
+		alloc-ranges = <0x0 0x80000000 0x0 0x10000000>;
+		alignment = <0 0x400000>;
+		size = <0 0x800000>;
+	};
+};
+
+&soc {
+	pil_gpu: qcom,kgsl-hyp {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <13>;
+		qcom,firmware-name = "a506_zap";
+		memory-region = <&gpu_mem>;
+		qcom,mas-crypto = <&mas_crypto>;
+		clocks = <&clock_gcc clk_gcc_crypto_clk>,
+		<&clock_gcc clk_gcc_crypto_ahb_clk>,
+		<&clock_gcc clk_gcc_crypto_axi_clk>,
+		<&clock_gcc clk_crypto_clk_src>;
+		clock-names = "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,proxy-clock-names = "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <80000000>;
+	};
+};
+
+&kgsl_msm_iommu {
+	gfx3d_secure: gfx3d_secure {
+		compatible = "qcom,smmu-kgsl-cb";
+		iommus = <&kgsl_smmu 2>;
+		memory-region = <&secure_mem>;
 	};
 };

@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdm632.dtsi"
+#include "sdm632-pm8004.dtsi"
+#include "sdm450-pmi632.dtsi"
+#include "sdm450-qrd-sku4.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM632 + PMI632 + PM8004 QRD SKU4";
+	compatible = "qcom,sdm632-qrd", "qcom,sdm632", "qcom,qrd";
+	qcom,board-id = <0xb 1>;
+	qcom,pmic-id = <0x010016 0x25 0xC 0x0>;
+};
+

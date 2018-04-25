@@ -218,6 +218,7 @@ static int mdss_inc_timeline_locked(struct mdss_timeline *tl,
 	spin_lock(&tl->list_lock);
 	if (list_empty(&tl->fence_list_head)) {
 		pr_debug("fence list is empty\n");
+		tl->value += 1;
 		spin_unlock(&tl->list_lock);
 		return 0;
 	}

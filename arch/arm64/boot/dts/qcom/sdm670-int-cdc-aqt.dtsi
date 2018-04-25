@@ -1,0 +1,64 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm670-audio-overlay.dtsi"
+
+&dai_mi2s2 {
+	qcom,msm-mi2s-rx-lines = <1>;
+	qcom,msm-mi2s-tx-lines = <2>;
+};
+
+&dsi_dual_nt35597_truly_video_display {
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+	qcom,panel-mode-gpio = <&tlmm 4 0>;
+};
+
+&dsi_dual_nt35597_truly_cmd_display {
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+	qcom,panel-mode-gpio = <&tlmm 4 0>;
+};
+
+&dsi_nt35597_truly_dsc_cmd_display {
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+	qcom,panel-mode-gpio = <&tlmm 4 0>;
+};
+
+&dsi_nt35597_truly_dsc_video_display {
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+	qcom,panel-mode-gpio = <&tlmm 4 0>;
+};
+
+&sde_dsi_active {
+	mux {
+		pins = "gpio90", "gpio4";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio90", "gpio4";
+		drive-strength = <8>;   /* 8 mA */
+		bias-disable = <0>;   /* no pull */
+	};
+};
+
+&sde_dsi_suspend {
+	mux {
+		pins = "gpio90", "gpio4";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio90", "gpio4";
+		drive-strength = <2>;   /* 2 mA */
+		bias-pull-down;         /* PULL DOWN */
+	};
+};

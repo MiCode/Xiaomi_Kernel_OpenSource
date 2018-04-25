@@ -374,7 +374,8 @@ static void cam_cpastop_work(struct work_struct *work)
 		if ((payload->irq_status & camnoc_info->irq_err[i].sbm_port) &&
 			(camnoc_info->irq_err[i].enable)) {
 			irq_type = camnoc_info->irq_err[i].irq_type;
-			CAM_ERR(CAM_CPAS, "Error occurred, type=%d", irq_type);
+			CAM_ERR_RATE_LIMIT(CAM_CPAS,
+				"Error occurred, type=%d", irq_type);
 			memset(&irq_data, 0x0, sizeof(irq_data));
 			irq_data.irq_type = (enum cam_camnoc_irq_type)irq_type;
 

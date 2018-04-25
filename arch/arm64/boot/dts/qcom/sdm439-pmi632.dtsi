@@ -39,6 +39,10 @@
 	qcom,battery-data = <&mtp_batterydata>;
 };
 
+&pmi632_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
 &pm8953_typec {
 	status = "disabled";
 };

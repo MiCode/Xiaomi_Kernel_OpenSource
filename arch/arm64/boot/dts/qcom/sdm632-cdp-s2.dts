@@ -18,10 +18,10 @@
 #include "sdm450-pmi632.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM632 + PMI632 + PMI8004 CDP S2";
+	model = "Qualcomm Technologies, Inc. SDM632 + PMI632 CDP S2";
 	compatible = "qcom,sdm632-cdp", "qcom,sdm632", "qcom,cdp";
 	qcom,board-id = <1 2>;
-	qcom,pmic-id = <0x010016 0x25 0xC 0x0>;
+	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
 };
 
 
@@ -53,18 +53,4 @@
 			};
 		};
 	};
-};
-
-&pm8953_vadc {
-	pinctrl-0 = <&pa_therm1_default>;
-	/delete-node/ chan@13;
-};
-
-&pm8953_mpps {
-	/delete-node/ case_therm;
-};
-
-&thermal_zones {
-	/delete-node/ case-therm-adc;
-	/delete-node/ case-therm-step;
 };

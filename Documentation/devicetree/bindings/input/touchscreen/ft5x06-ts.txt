@@ -1,0 +1,120 @@
+FocalTech touch controller
+
+The focaltech controller is connected to host processor
+via i2c. The controller generates interrupts when the
+user touches the panel. The host controller is expected
+to read the touch coordinates over i2c and pass the coordinates
+to the rest of the system.
+
+Required properties:
+
+ - compatible		: should be "focaltech,5x06".
+ - reg			: i2c slave address of the device.
+ - interrupt-parent	: parent of interrupt.
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - vdd-supply		: Power supply needed to power up the device.
+ - vcc_i2c-supply	: Power source required to power up i2c bus.
+ - focaltech,family-id	: family identification of the controller.
+ - focaltech,irq-gpio	: irq gpio which is to provide interrupts to host,
+				same as "interrupts" node. It will also
+				contain active low or active high information.
+ - focaltech,reset-gpio	: reset gpio to control the reset of chip.
+ - focaltech,display-coords : display coordinates in pixels. It is a four
+				tuple consisting of min x, min y, max x and
+				max y values
+ - focaltech,name	: name of the controller
+ - focaltech,group-id	: group id of this device
+ - focaltech,hard-reset-delay-ms : hard reset delay in ms
+ - focaltech,soft-reset-delay-ms : soft reset delay in ms
+ - focaltech,fw-delay-aa-ms : specify the delay in ms after programming 0xaa
+				register for firmware upgrade
+ - focaltech,fw-delay-55-ms : specify the delay in ms after programming 0x55
+				register for firmware upgrade
+ - focaltech,fw-upgrade-id1 : specify the upgrade id1 for firmware upgrade
+ - focaltech,fw-upgrade-id2 : specify the upgrade id2 for firmware upgrade
+ - focaltech,fw-delay-readid-ms : specify the read id delay in ms for firmware upgrade
+ - focaltech,fw-delay-era-flsh-ms : specify the erase flash delay in ms for firmware upgrade
+ - pinctrl-names : This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			Specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_release" : Release configuration of pins, this should specify
+			release config defined in pin groups of interrupt and reset gpio.
+
+Optional properties:
+
+ - focaltech,panel-coords : panel coordinates for the chip in pixels.
+				It is a four tuple consisting of min x,
+				min y, max x and max y values.
+ - focaltech,i2c-pull-up : to specify pull up is required.
+ - focaltech,no-force-update : to specify force update is allowed.
+ - focaltech,button-map : button map of key codes. The number
+				of key codes depend on panel
+ - focaltech,fw-name	: specify the firmware file name
+ - focaltech,fw-delay-aa-ms : specify the "aa" delay in ms for firmware upgrade
+ - focaltech,fw-delay-55-ms : specify the "55" delay in ms for firmware upgrade
+ - focaltech,fw-upgrade-id1 : specify the upgrade id1 for firmware upgrade
+ - focaltech,fw-upgrade-id2 : specify the upgrade id2 for firmware upgrade
+ - focaltech,fw-delay-readid-ms : specify the read id delay in ms for firmware upgrade
+ - focaltech,fw-delay-era-flsh-ms : specify the erase flash delay in ms for firmware upgrade
+ - focaltech,fw-auto-cal	: specify whether calibration is needed after firmware upgrade
+ - focaltech,fw-vkey-support	: specify if virtual keys are supported through firmware
+ - focaltech,ignore-id-check : specify ignore family-id check
+ - focaltech,panel-coords : panel coordinates for the chip in pixels.
+				It is a four tuple consisting of min x,
+				min y, max x and max y values
+ - focaltech,fw-name	: specify the firmware file name
+ - focaltech,psensor-support	: specify whether support the proximity sensor
+ - focaltech,gesture-support	: specify whether support gesture feature
+ - focaltech,resume-in-workqueue : specifiy whether to defer the resume to workqueue
+ - clock-names:               : Clock names used for secure touch. They are: "iface_clk", "core_clk"
+ - clocks                        : Defined if 'clock-names' DT property is defined. These clocks
+				   are associated with the underlying I2C bus.
+
+Example:
+	i2c@f9923000{
+		focaltech@38{
+			compatible = "focaltech,5x06";
+			reg = <0x38>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <1 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vcc_i2c-supply = <&pm8110_l14>;
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			focaltech,name = "ft6x06";
+			focaltech,family-id = <0x06>;
+			focaltech,reset-gpio = <&msmgpio 0 0x00>;
+			focaltech,irq-gpio = <&msmgpio 1 0x00>;
+			focaltech,display-coords = <0 0 480 800>;
+			focaltech,panel-coords = <0 0 480 800>;
+			focaltech,button-map= <139 102 158>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+			focaltech,group-id = <1>;
+			focaltech,hard-reset-delay = <20>;
+			focaltech,soft-reset-delay = <150>;
+			focaltech,num-max-touches = <2>;
+			focaltech,fw-name = "ft_8610_qrd_fw.bin";
+			focaltech,fw-delay-aa-ms = <100>;
+			focaltech,fw-delay-55-ms = <30>;
+			focaltech,fw-upgrade-id1 = <0x79>;
+			focaltech,fw-upgrade-id2 = <0x08>;
+			focaltech,fw-delay-readid-ms = <10>;
+			focaltech,fw-delay-era-flsh-ms = <2000>;
+			focaltech,fw-auto-cal;
+			focaltech,psensor-support;
+			focaltech,gesture-support;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
+		};
+	};

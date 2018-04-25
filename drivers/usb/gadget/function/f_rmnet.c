@@ -480,6 +480,8 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	if (dev->notify_req)
 		frmnet_free_req(dev->notify, dev->notify_req);
+
+	c->cdev->gadget->bam2bam_func_enabled = false;
 }
 
 static void frmnet_purge_responses(struct f_rmnet *dev)
@@ -1115,6 +1117,9 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 			__func__, dev->ifc_id);
 		return dev->ifc_id;
 	}
+
+	if (dev->xport_type == BAM2BAM_IPA)
+		c->cdev->gadget->bam2bam_func_enabled = true;
 
 	info.data_str_idx = 0;
 	if (dev->qti_port_type == QTI_PORT_RMNET) {

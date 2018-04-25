@@ -373,7 +373,7 @@ static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
 {
 	ipa3_active_clients_log_print_table(active_clients_table_buf,
 			IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE);
-	IPAERR("%s", active_clients_table_buf);
+	IPAERR("%s\n", active_clients_table_buf);
 
 	return NOTIFY_DONE;
 }
@@ -4280,6 +4280,9 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 	if (res)
 		IPAERR("uC panic handler failed %d\n", res);
 
+	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0)
+		ipahal_print_all_regs();
+
 	return NOTIFY_DONE;
 }
 
@@ -4974,14 +4977,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	/* ipa3_ctx->pdev and ipa3_ctx->uc_pdev will be set in the smmu probes*/
 	ipa3_ctx->master_pdev = ipa_pdev;
-	ipa3_ctx->smmu_present = smmu_info.present;
-	if (!ipa3_ctx->smmu_present) {
-		for (i = 0; i < IPA_SMMU_CB_MAX; i++)
-			ipa3_ctx->s1_bypass_arr[i] = true;
-	} else {
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] =
-			smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP];
-	}
+	for (i = 0; i < IPA_SMMU_CB_MAX; i++)
+		ipa3_ctx->s1_bypass_arr[i] = true;
 
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
@@ -6175,7 +6172,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
 	ipa3_ctx->pdev = dev;
 
-	return result;
+	return 0;
 }
 
 static int ipa_smmu_cb_probe(struct device *dev, enum ipa_smmu_cb_type cb_type)

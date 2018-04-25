@@ -63,12 +63,12 @@
 #define PCIE_N_SW_RESET(n)			(PCS_PORT(n) + 0x00)
 #define PCIE_N_POWER_DOWN_CONTROL(n)		(PCS_PORT(n) + 0x04)
 
-#define PCIE_GEN3_COM_INTEGLOOP_GAIN1_MODE0	0x0154
-#define PCIE_GEN3_L0_DRVR_CTRL0			0x080c
-#define PCIE_GEN3_L0_RESET_GEN			0x0890
-#define PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS	0x08a8
-#define PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS	0x08ac
-#define PCIE_GEN3_L0_DEBUG_BUS_STATUS4		0x08bc
+#define PCIE_GEN3_SPCIE_CAP			0x0154
+#define PCIE_GEN3_GEN2_CTRL			0x080c
+#define PCIE_GEN3_RELATED			0x0890
+#define PCIE_GEN3_EQ_CONTROL			0x08a8
+#define PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE		0x08ac
+#define PCIE_GEN3_MISC_CONTROL			0x08bc
 
 #define PCIE20_PARF_SYS_CTRL	     0x00
 #define PCIE20_PARF_PM_CTRL		0x20
@@ -130,7 +130,6 @@
 #define PCIE_IATU_UTAR(n)	(PCIE_IATU_BASE(n) + 0x18)
 
 #define PCIE20_PORT_LINK_CTRL_REG	0x710
-#define PCIE20_GEN3_RELATED_REG	0x890
 #define PCIE20_PIPE_LOOPBACK_CONTROL	0x8b8
 #define LOOPBACK_BASE_ADDR_OFFSET	0x8000
 
@@ -1552,6 +1551,13 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			break;
 		}
 
+		if (((base_sel - 1) >= MSM_PCIE_MAX_RES) ||
+					(!dev->res[base_sel - 1].resource)) {
+			PCIE_DBG_FS(dev, "PCIe: RC%d Resource does not exist\n",
+								dev->rc_idx);
+			break;
+		}
+
 		PCIE_DBG_FS(dev,
 			"base: %s: 0x%pK\nwr_offset: 0x%x\nwr_mask: 0x%x\nwr_value: 0x%x\n",
 			dev->res[base_sel - 1].name,
@@ -1571,6 +1577,13 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 
 		break;
 	case MSM_PCIE_DUMP_PCIE_REGISTER_SPACE:
+		if (((base_sel - 1) >= MSM_PCIE_MAX_RES) ||
+					(!dev->res[base_sel - 1].resource)) {
+			PCIE_DBG_FS(dev, "PCIe: RC%d Resource does not exist\n",
+								dev->rc_idx);
+			break;
+		}
+
 		if (!base_sel) {
 			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
 			break;
@@ -1685,13 +1698,13 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			dev->rc_idx);
 
 		writel_relaxed(0x10000,
-			dev->dm_core + PCIE20_GEN3_RELATED_REG);
+			dev->dm_core + PCIE_GEN3_RELATED);
 		PCIE_DBG_FS(dev,
 			"PCIe: RC%d: 0x%x: 0x%x\n",
 			dev->rc_idx,
-			dbi_base_addr + PCIE20_GEN3_RELATED_REG,
+			dbi_base_addr + PCIE_GEN3_RELATED,
 			readl_relaxed(dev->dm_core +
-				PCIE20_GEN3_RELATED_REG));
+				PCIE_GEN3_RELATED));
 
 		writel_relaxed(0x80000001,
 			dev->dm_core + PCIE20_PIPE_LOOPBACK_CONTROL);
@@ -3694,25 +3707,25 @@ static void msm_pcie_setup_gen3(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "PCIe: RC%d: Setting up Gen3\n", dev->rc_idx);
 
 	msm_pcie_write_reg_field(dev->dm_core,
-		PCIE_GEN3_L0_DRVR_CTRL0, 0x1ff00, BIT(0));
+		PCIE_GEN3_GEN2_CTRL, 0x1ff00, BIT(0));
 
 	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS,
+		PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE,
 		(0x05 << 14) | (0x05 << 10) | (0x0d <<  5));
 
-	msm_pcie_write_mask(dev->dm_core +
-		PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS, BIT(4), 0);
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_EQ_CONTROL, 0x20);
 
 	msm_pcie_write_mask(dev->dm_core +
-		PCIE_GEN3_L0_RESET_GEN, BIT(0), 0);
+		PCIE_GEN3_RELATED, BIT(0), 0);
 
 	/* configure PCIe preset */
 	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_L0_DEBUG_BUS_STATUS4, 1);
+		PCIE_GEN3_MISC_CONTROL, 1);
 	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_COM_INTEGLOOP_GAIN1_MODE0, 0x77777777);
+		PCIE_GEN3_SPCIE_CAP, 0x77777777);
 	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_L0_DEBUG_BUS_STATUS4, 1);
+		PCIE_GEN3_MISC_CONTROL, 1);
 
 	msm_pcie_write_reg_field(dev->dm_core,
 		PCIE20_CAP + PCI_EXP_LNKCTL2,

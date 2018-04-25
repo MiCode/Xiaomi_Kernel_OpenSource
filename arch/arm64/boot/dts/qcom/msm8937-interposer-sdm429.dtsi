@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8937-interposer-sdm439.dtsi"
+#include "sdm429-cpu.dtsi"
+
+&soc {
+	/delete-node/ etm@619c000;
+	/delete-node/ etm@619d000;
+	/delete-node/ etm@619e000;
+	/delete-node/ etm@619f000;
+	/delete-node/ cti@61b8000;
+	/delete-node/ cti@61b9000;
+	/delete-node/ cti@61ba000;
+	/delete-node/ cti@61bb000;
+
+	qcom,spm@b1d2000 {
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+	};
+
+	qcom,lpm-levels {
+		qcom,pm-cluster@0 {
+			/delete-node/qcom,pm-cluster@1;
+		};
+	};
+};
+
+&funnel_apss {
+	ports {
+		/delete-node/ port@1;
+		/delete-node/ port@2;
+		/delete-node/ port@3;
+		/delete-node/ port@4;
+	};
+};
+
+&thermal_zones {
+	hexa-cpu-max-step {
+		cooling-maps {
+			/delete-node/ cpu4_cdev;
+			/delete-node/ cpu5_cdev;
+			/delete-node/ cpu6_cdev;
+			/delete-node/ cpu7_cdev;
+		};
+	};
+
+	/delete-node/ cpuss0-step;
+};

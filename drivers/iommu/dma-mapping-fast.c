@@ -163,7 +163,8 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 	dma_addr_t iova;
 
 	if (mapping->min_iova_align)
-		guard_len = ALIGN(size, mapping->min_iova_align) - size;
+		guard_len = ALIGN(size + mapping->force_guard_page_len,
+				  mapping->min_iova_align) - size;
 	else
 		guard_len = 0;
 
@@ -311,12 +312,15 @@ static void __fast_smmu_free_iova(struct dma_fast_smmu_mapping *mapping,
 	unsigned long nbits;
 	unsigned long guard_len;
 
-	if (mapping->min_iova_align) {
-		guard_len = ALIGN(size, mapping->min_iova_align) - size;
-		iommu_unmap(mapping->domain, iova + size, guard_len);
-	} else {
+	if (mapping->min_iova_align)
+		guard_len = ALIGN(size + mapping->force_guard_page_len,
+				  mapping->min_iova_align) - size;
+	else
 		guard_len = 0;
-	}
+
+	if (guard_len)
+		iommu_unmap(mapping->domain, iova + size, guard_len);
+
 	nbits = (size + guard_len) >> FAST_PAGE_SHIFT;
 
 
@@ -898,20 +902,30 @@ static int fast_smmu_errata_init(struct dma_iommu_mapping *mapping)
 	struct dma_fast_smmu_mapping *fast = mapping->fast;
 	int vmid = VMID_HLOS;
 	int min_iova_align = 0;
+	int force_iova_guard_page = 0;
 
 	iommu_domain_get_attr(mapping->domain,
-			DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,
-			&min_iova_align);
+			      DOMAIN_ATTR_MMU500_ERRATA_MIN_ALIGN,
+			      &min_iova_align);
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_SECURE_VMID, &vmid);
+	iommu_domain_get_attr(mapping->domain,
+			      DOMAIN_ATTR_FORCE_IOVA_GUARD_PAGE,
+			      &force_iova_guard_page);
+
 	if (vmid >= VMID_LAST || vmid < 0)
 		vmid = VMID_HLOS;
 
-	if (min_iova_align) {
-		fast->min_iova_align = ARM_SMMU_MIN_IOVA_ALIGN;
-		fast->guard_page = arm_smmu_errata_get_guard_page(vmid);
-		if (!fast->guard_page)
-			return -ENOMEM;
-	}
+	fast->min_iova_align = (min_iova_align) ?  ARM_SMMU_MIN_IOVA_ALIGN :
+		PAGE_SIZE;
+
+	if (force_iova_guard_page)
+		fast->force_guard_page_len = PAGE_SIZE;
+
+	fast->guard_page =
+		arm_smmu_errata_get_guard_page(vmid);
+	if (!fast->guard_page)
+		return -ENOMEM;
+
 	return 0;
 }
 

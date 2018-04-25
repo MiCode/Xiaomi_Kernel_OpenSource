@@ -21,6 +21,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			label = "L3";
+			qcom,clstr-tmr-add = <1000>;
 			qcom,psci-mode-shift = <4>;
 			qcom,psci-mode-mask = <0xfff>;
 
@@ -52,7 +53,9 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
-				qcom,use-prediction;
+				qcom,ref-stddev = <500>;
+				qcom,tmr-add = <1000>;
+				qcom,ref-premature-cnt = <1>;
 				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
 
 				qcom,pm-cpu-level@0 { /* C1 */
@@ -95,6 +98,9 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
+				qcom,ref-stddev = <100>;
+				qcom,tmr-add = <100>;
+				qcom,ref-premature-cnt = <3>;
 				qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
 
 				qcom,pm-cpu-level@0 { /* C1 */

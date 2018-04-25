@@ -14,6 +14,7 @@ Required properties:
     - "qcom,csiphy-v3.5"
     - "qcom,csiphy-v5.0"
     - "qcom,csiphy-v5.01"
+    - "qcom,csiphy-v10.00"
 - reg : offset and length of the register set for the device
     for the csiphy operating in compatible mode.
 - reg-names : should specify relevant names to each reg property defined.
