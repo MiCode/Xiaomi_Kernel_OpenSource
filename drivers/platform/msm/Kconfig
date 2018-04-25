@@ -166,4 +166,10 @@ config SEEMP_CORE
 	  a log and rates the actions according to whether a typical user would
 	  use the tools.
 
+config IPA_EMULATION
+	bool "IPA on X86 Linux (IPA emulation support)"
+	depends on X86 && IPA3
+	help
+	  This option is used only when building the X86 version of
+	  the IPA/GSI driver. Never set this when building for ARM.
 endmenu
