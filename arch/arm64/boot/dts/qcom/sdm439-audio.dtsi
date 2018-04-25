@@ -76,7 +76,7 @@
 		qcom,cdc-vdd-pa-current = <260000>;
 
 		cdc-vdd-mic-bias-supply = <&pm8953_l13>;
-		qcom,cdc-vdd-mic-bias-voltage = <3125000 3125000>;
+		qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
 		qcom,cdc-vdd-mic-bias-current = <5000>;
 
 		qcom,cdc-mclk-clk-rate = <9600000>;
