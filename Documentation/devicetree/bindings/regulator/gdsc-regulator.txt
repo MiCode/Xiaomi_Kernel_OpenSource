@@ -61,6 +61,17 @@ Optional properties:
  - reset-names: reset signal name strings sorted in the same order as the resets
 			property. These can be supplied only if we support
 			qcom,skip-logic-collapse.
+ - qcom,msm-bus,name:	Name to use for the bus client.  See [1] for details.
+ - qcom,msm-bus,num-cases: Must be 2 if qcom,msm-bus,name is specified.  The
+			first case corresponds to no bus request and the second
+			case corresponds to a minimum bus request.  See [1] for
+			details.
+ - qcom,msm-bus,num-paths: Should be 1 if qcom,msm-bus,name is specified.  See
+			[1] for details.
+ - qcom,msm-bus,vectors-KBps: Required if qcom,msm-bus,name is specified.  See
+			[1] for an explanation of the data format.
+
+[1]: Documentation/devicetree/bindings/arm/msm/msm_bus.txt
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

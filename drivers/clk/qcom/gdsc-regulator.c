@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/msm-bus.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -62,6 +63,8 @@ struct gdsc {
 	struct clk		**clocks;
 	struct regulator	*parent_regulator;
 	struct reset_control	**reset_clocks;
+	struct msm_bus_scale_pdata *bus_pdata;
+	u32			bus_handle;
 	bool			toggle_mem;
 	bool			toggle_periph;
 	bool			toggle_logic;
@@ -72,6 +75,7 @@ struct gdsc {
 	bool			is_gdsc_enabled;
 	bool			allow_clear;
 	bool			reset_aon;
+	bool			is_bus_enabled;
 	int			clock_count;
 	int			reset_count;
 	int			root_clk_idx;
@@ -143,6 +147,8 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
+	int ret;
+	bool is_enabled = false;
 
 	if (!sc->toggle_logic)
 		return !sc->resets_asserted;
@@ -171,6 +177,15 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 		}
 	}
 
+	if (sc->bus_handle && !sc->is_bus_enabled) {
+		ret = msm_bus_scale_client_update_request(sc->bus_handle, 1);
+		if (ret) {
+			dev_err(&rdev->dev, "bus scaling failed, ret=%d\n",
+				ret);
+			goto end;
+		}
+	}
+
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
 
 	if (regval & PWR_ON_MASK) {
@@ -179,21 +194,20 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 		 * votable GDS registers. Check the SW_COLLAPSE_MASK to
 		 * determine if HLOS has voted for it.
 		 */
-		if (!(regval & SW_COLLAPSE_MASK)) {
-			if (sc->parent_regulator) {
-				regulator_disable(sc->parent_regulator);
-				regulator_set_voltage(sc->parent_regulator, 0,
-							INT_MAX);
-			}
-			return true;
-		}
+		if (!(regval & SW_COLLAPSE_MASK))
+			is_enabled = true;
 	}
 
+
+	if (sc->bus_handle && !sc->is_bus_enabled)
+		msm_bus_scale_client_update_request(sc->bus_handle, 0);
+end:
 	if (sc->parent_regulator) {
 		regulator_disable(sc->parent_regulator);
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 	}
-	return false;
+
+	return is_enabled;
 }
 
 static int gdsc_enable(struct regulator_dev *rdev)
@@ -211,6 +225,16 @@ static int gdsc_enable(struct regulator_dev *rdev)
 			mutex_unlock(&gdsc_seq_lock);
 			return ret;
 		}
+	}
+
+	if (sc->bus_handle) {
+		ret = msm_bus_scale_client_update_request(sc->bus_handle, 1);
+		if (ret) {
+			dev_err(&rdev->dev, "bus scaling failed, ret=%d\n",
+				ret);
+			goto end;
+		}
+		sc->is_bus_enabled = true;
 	}
 
 	if (sc->root_en || sc->force_root_en)
@@ -350,6 +374,10 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 	sc->is_gdsc_enabled = true;
 end:
+	if (ret && sc->bus_handle) {
+		msm_bus_scale_client_update_request(sc->bus_handle, 0);
+		sc->is_bus_enabled = false;
+	}
 	if (sc->parent_regulator)
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
@@ -432,6 +460,14 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	if ((sc->is_gdsc_enabled && sc->root_en) || sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
+	if (sc->bus_handle) {
+		ret = msm_bus_scale_client_update_request(sc->bus_handle, 0);
+		if (ret)
+			dev_err(&rdev->dev, "bus scaling failed, ret=%d\n",
+				ret);
+		sc->is_bus_enabled = false;
+	}
+
 	if (sc->parent_regulator)
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
@@ -466,7 +502,25 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 		}
 	}
 
+	if (sc->bus_handle && !sc->is_bus_enabled) {
+		ret = msm_bus_scale_client_update_request(sc->bus_handle, 1);
+		if (ret) {
+			dev_err(&rdev->dev, "bus scaling failed, ret=%d\n",
+				ret);
+			if (sc->parent_regulator) {
+				regulator_disable(sc->parent_regulator);
+				regulator_set_voltage(sc->parent_regulator, 0,
+							INT_MAX);
+			}
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
+
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
+
+	if (sc->bus_handle && !sc->is_bus_enabled)
+		msm_bus_scale_client_update_request(sc->bus_handle, 0);
 
 	if (sc->parent_regulator) {
 		regulator_disable(sc->parent_regulator);
@@ -500,6 +554,21 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		ret = regulator_enable(sc->parent_regulator);
 		if (ret) {
 			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
+
+	if (sc->bus_handle && !sc->is_bus_enabled) {
+		ret = msm_bus_scale_client_update_request(sc->bus_handle, 1);
+		if (ret) {
+			dev_err(&rdev->dev, "bus scaling failed, ret=%d\n",
+				ret);
+			if (sc->parent_regulator) {
+				regulator_disable(sc->parent_regulator);
+				regulator_set_voltage(sc->parent_regulator, 0,
+							INT_MAX);
+			}
 			mutex_unlock(&gdsc_seq_lock);
 			return ret;
 		}
@@ -547,6 +616,9 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		ret = -EINVAL;
 		break;
 	}
+
+	if (sc->bus_handle && !sc->is_bus_enabled)
+		msm_bus_scale_client_update_request(sc->bus_handle, 0);
 
 	if (sc->parent_regulator) {
 		regulator_disable(sc->parent_regulator);
@@ -710,6 +782,34 @@ static int gdsc_probe(struct platform_device *pdev)
 	sc->reset_aon = of_property_read_bool(pdev->dev.of_node,
 							"qcom,reset-aon-logic");
 
+	if (of_find_property(pdev->dev.of_node, "qcom,msm-bus,name", NULL)) {
+		sc->bus_pdata = msm_bus_cl_get_pdata(pdev);
+		if (!sc->bus_pdata) {
+			dev_err(&pdev->dev, "Failed to get bus config data\n");
+			return -EINVAL;
+		}
+
+		sc->bus_handle = msm_bus_scale_register_client(sc->bus_pdata);
+		if (!sc->bus_handle) {
+			dev_err(&pdev->dev, "Failed to register bus client\n");
+			/*
+			 * msm_bus_scale_register_client() returns 0 for all
+			 * errors including when called before the bus driver
+			 * probes.  Therefore, return -EPROBE_DEFER here so that
+			 * probing can be retried and this case handled.
+			 */
+			return -EPROBE_DEFER;
+		}
+
+		ret = msm_bus_scale_client_update_request(sc->bus_handle, 1);
+		if (ret) {
+			dev_err(&pdev->dev, "bus scaling failed, ret=%d\n",
+				ret);
+			goto err;
+		}
+		sc->is_bus_enabled = true;
+	}
+
 	sc->rdesc.id = atomic_inc_return(&gdsc_count);
 	sc->rdesc.ops = &gdsc_ops;
 	sc->rdesc.type = REGULATOR_VOLTAGE;
@@ -760,14 +860,17 @@ static int gdsc_probe(struct platform_device *pdev)
 			sc->reset_count = 0;
 		} else if (sc->reset_count < 0) {
 			dev_err(&pdev->dev, "Failed to get reset clock names\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err;
 		}
 
 		sc->reset_clocks = devm_kzalloc(&pdev->dev,
 			sizeof(struct reset_control *) * sc->reset_count,
 							GFP_KERNEL);
-		if (!sc->reset_clocks)
-			return -ENOMEM;
+		if (!sc->reset_clocks) {
+			ret = -ENOMEM;
+			goto err;
+		}
 
 		for (i = 0; i < sc->reset_count; i++) {
 			const char *reset_name;
@@ -782,7 +885,8 @@ static int gdsc_probe(struct platform_device *pdev)
 				if (rc != -EPROBE_DEFER)
 					dev_err(&pdev->dev, "Failed to get %s\n",
 							reset_name);
-				return rc;
+				ret = rc;
+				goto err;
 			}
 		}
 
@@ -793,7 +897,19 @@ static int gdsc_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev, "%s enable timed out: 0x%x\n",
 				sc->rdesc.name, regval);
-			return ret;
+			goto err;
+		}
+	}
+
+	if (sc->bus_handle) {
+		regmap_read(sc->regmap, REG_OFFSET, &regval);
+		if (!(regval & PWR_ON_MASK) || (regval & SW_COLLAPSE_MASK)) {
+			/*
+			 * Software is not enabling the GDSC so remove the
+			 * bus vote.
+			 */
+			msm_bus_scale_client_update_request(sc->bus_handle, 0);
+			sc->is_bus_enabled = false;
 		}
 	}
 
@@ -823,10 +939,20 @@ static int gdsc_probe(struct platform_device *pdev)
 	if (IS_ERR(sc->rdev)) {
 		dev_err(&pdev->dev, "regulator_register(\"%s\") failed.\n",
 			sc->rdesc.name);
-		return PTR_ERR(sc->rdev);
+		ret = PTR_ERR(sc->rdev);
+		goto err;
 	}
 
 	return 0;
+
+err:
+	if (sc->bus_handle) {
+		if (sc->is_bus_enabled)
+			msm_bus_scale_client_update_request(sc->bus_handle, 0);
+		msm_bus_scale_unregister_client(sc->bus_handle);
+	}
+
+	return ret;
 }
 
 static int gdsc_remove(struct platform_device *pdev)
@@ -834,6 +960,12 @@ static int gdsc_remove(struct platform_device *pdev)
 	struct gdsc *sc = platform_get_drvdata(pdev);
 
 	regulator_unregister(sc->rdev);
+
+	if (sc->bus_handle) {
+		if (sc->is_bus_enabled)
+			msm_bus_scale_client_update_request(sc->bus_handle, 0);
+		msm_bus_scale_unregister_client(sc->bus_handle);
+	}
 
 	return 0;
 }
