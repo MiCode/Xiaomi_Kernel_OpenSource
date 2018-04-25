@@ -35,6 +35,7 @@
 #include <linux/time.h>
 #include <linux/hashtable.h>
 #include <linux/jhash.h>
+#include <linux/pci.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/scm.h>
@@ -57,169 +58,14 @@
 #define CREATE_TRACE_POINTS
 #include "ipa_trace.h"
 
-#define IPA_GPIO_IN_QUERY_CLK_IDX 0
-#define IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX 0
-#define IPA_GPIO_OUT_CLK_VOTE_IDX 1
-
-#define IPA_SUMMING_THRESHOLD (0x10)
-#define IPA_PIPE_MEM_START_OFST (0x0)
-#define IPA_PIPE_MEM_SIZE (0x0)
-#define IPA_MOBILE_AP_MODE(x) (x == IPA_MODE_MOBILE_AP_ETH || \
-			       x == IPA_MODE_MOBILE_AP_WAN || \
-			       x == IPA_MODE_MOBILE_AP_WLAN)
-#define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
-#define IPA_A5_MUX_HEADER_LENGTH (8)
-
-#define IPA_AGGR_MAX_STR_LENGTH (10)
-
-#define CLEANUP_TAG_PROCESS_TIMEOUT 500
-
-#define IPA_AGGR_STR_IN_BYTES(str) \
-	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
-
-#define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
-
-#define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
-
-#define IPA3_ACTIVE_CLIENT_LOG_TYPE_EP 0
-#define IPA3_ACTIVE_CLIENT_LOG_TYPE_SIMPLE 1
-#define IPA3_ACTIVE_CLIENT_LOG_TYPE_RESOURCE 2
-#define IPA3_ACTIVE_CLIENT_LOG_TYPE_SPECIAL 3
-
-#define IPA_MHI_GSI_EVENT_RING_ID_START 10
-#define IPA_MHI_GSI_EVENT_RING_ID_END 12
-
-#define IPA_SMEM_SIZE (8 * 1024)
-
-#define IPA_GSI_CHANNEL_HALT_MIN_SLEEP 5000
-#define IPA_GSI_CHANNEL_HALT_MAX_SLEEP 10000
-#define IPA_GSI_CHANNEL_HALT_MAX_TRY 10
-
-/* round addresses for closes page per SMMU requirements */
-#define IPA_SMMU_ROUND_TO_PAGE(iova, pa, size, iova_p, pa_p, size_p) \
-	do { \
-		(iova_p) = rounddown((iova), PAGE_SIZE); \
-		(pa_p) = rounddown((pa), PAGE_SIZE); \
-		(size_p) = roundup((size) + (pa) - (pa_p), PAGE_SIZE); \
-	} while (0)
-
-
-/* The relative location in /lib/firmware where the FWs will reside */
-#define IPA_FWS_PATH "ipa/ipa_fws.elf"
+/*
+ * The following for adding code (ie. for EMULATION) not found on x86.
+ */
+#if IPA_EMULATION_COMPILE == 1
+# include "ipa_emulation_stubs.h"
+#endif
 
 #ifdef CONFIG_COMPAT
-#define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_ADD_HDR, \
-					compat_uptr_t)
-#define IPA_IOC_DEL_HDR32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_DEL_HDR, \
-					compat_uptr_t)
-#define IPA_IOC_ADD_RT_RULE32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_ADD_RT_RULE, \
-					compat_uptr_t)
-#define IPA_IOC_DEL_RT_RULE32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_DEL_RT_RULE, \
-					compat_uptr_t)
-#define IPA_IOC_ADD_FLT_RULE32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_ADD_FLT_RULE, \
-					compat_uptr_t)
-#define IPA_IOC_DEL_FLT_RULE32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_DEL_FLT_RULE, \
-					compat_uptr_t)
-#define IPA_IOC_GET_RT_TBL32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_GET_RT_TBL, \
-				compat_uptr_t)
-#define IPA_IOC_COPY_HDR32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_COPY_HDR, \
-				compat_uptr_t)
-#define IPA_IOC_QUERY_INTF32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_QUERY_INTF, \
-				compat_uptr_t)
-#define IPA_IOC_QUERY_INTF_TX_PROPS32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_QUERY_INTF_TX_PROPS, \
-				compat_uptr_t)
-#define IPA_IOC_QUERY_INTF_RX_PROPS32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_QUERY_INTF_RX_PROPS, \
-					compat_uptr_t)
-#define IPA_IOC_QUERY_INTF_EXT_PROPS32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_QUERY_INTF_EXT_PROPS, \
-					compat_uptr_t)
-#define IPA_IOC_GET_HDR32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_GET_HDR, \
-				compat_uptr_t)
-#define IPA_IOC_ALLOC_NAT_MEM32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_ALLOC_NAT_MEM, \
-				compat_uptr_t)
-#define IPA_IOC_ALLOC_NAT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_ALLOC_NAT_TABLE, \
-				compat_uptr_t)
-#define IPA_IOC_ALLOC_IPV6CT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_ALLOC_IPV6CT_TABLE, \
-				compat_uptr_t)
-#define IPA_IOC_V4_INIT_NAT32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_V4_INIT_NAT, \
-				compat_uptr_t)
-#define IPA_IOC_INIT_IPV6CT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_INIT_IPV6CT_TABLE, \
-				compat_uptr_t)
-#define IPA_IOC_TABLE_DMA_CMD32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_TABLE_DMA_CMD, \
-				compat_uptr_t)
-#define IPA_IOC_V4_DEL_NAT32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_V4_DEL_NAT, \
-				compat_uptr_t)
-#define IPA_IOC_DEL_NAT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_DEL_NAT_TABLE, \
-				compat_uptr_t)
-#define IPA_IOC_DEL_IPV6CT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_DEL_IPV6CT_TABLE, \
-				compat_uptr_t)
-#define IPA_IOC_NAT_MODIFY_PDN32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_NAT_MODIFY_PDN, \
-				compat_uptr_t)
-#define IPA_IOC_GET_NAT_OFFSET32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_GET_NAT_OFFSET, \
-				compat_uptr_t)
-#define IPA_IOC_PULL_MSG32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_PULL_MSG, \
-				compat_uptr_t)
-#define IPA_IOC_RM_ADD_DEPENDENCY32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_RM_ADD_DEPENDENCY, \
-				compat_uptr_t)
-#define IPA_IOC_RM_DEL_DEPENDENCY32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_RM_DEL_DEPENDENCY, \
-				compat_uptr_t)
-#define IPA_IOC_GENERATE_FLT_EQ32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_GENERATE_FLT_EQ, \
-				compat_uptr_t)
-#define IPA_IOC_QUERY_RT_TBL_INDEX32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_QUERY_RT_TBL_INDEX, \
-				compat_uptr_t)
-#define IPA_IOC_WRITE_QMAPID32  _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_WRITE_QMAPID, \
-				compat_uptr_t)
-#define IPA_IOC_MDFY_FLT_RULE32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_MDFY_FLT_RULE, \
-				compat_uptr_t)
-#define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD, \
-				compat_uptr_t)
-#define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_DEL32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_DEL, \
-				compat_uptr_t)
-#define IPA_IOC_NOTIFY_WAN_EMBMS_CONNECTED32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_NOTIFY_WAN_EMBMS_CONNECTED, \
-					compat_uptr_t)
-#define IPA_IOC_ADD_HDR_PROC_CTX32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_ADD_HDR_PROC_CTX, \
-				compat_uptr_t)
-#define IPA_IOC_DEL_HDR_PROC_CTX32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_DEL_HDR_PROC_CTX, \
-				compat_uptr_t)
-#define IPA_IOC_MDFY_RT_RULE32 _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_MDFY_RT_RULE, \
-				compat_uptr_t)
-
 /**
  * struct ipa3_ioc_nat_alloc_mem32 - nat table memory allocation
  * properties
@@ -243,8 +89,7 @@ struct ipa_ioc_nat_ipv6ct_table_alloc32 {
 	compat_size_t size;
 	compat_off_t offset;
 };
-
-#endif
+#endif /* #ifdef CONFIG_COMPAT */
 
 #define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
 #define TZ_MEM_PROTECT_REGION_ID 0x10
@@ -284,6 +129,7 @@ static struct ipa3_plat_drv_res ipa3_res = {0, };
 static struct clk *ipa3_clk;
 
 struct ipa3_context *ipa3_ctx;
+
 static struct {
 	bool present[IPA_SMMU_CB_MAX];
 	bool arm_smmu;
@@ -2735,6 +2581,16 @@ int _ipa_init_sram_v3(void)
 	u32 *ipa_sram_mmio;
 	unsigned long phys_addr;
 
+	IPADBG(
+	    "ipa_wrapper_base(0x%08X) ipa_reg_base_ofst(0x%08X) IPA_SRAM_DIRECT_ACCESS_n(0x%08X) smem_restricted_bytes(0x%08X) smem_sz(0x%08X)\n",
+	    ipa3_ctx->ipa_wrapper_base,
+	    ipa3_ctx->ctrl->ipa_reg_base_ofst,
+	    ipahal_get_reg_n_ofst(
+		IPA_SRAM_DIRECT_ACCESS_n,
+		ipa3_ctx->smem_restricted_bytes / 4),
+	    ipa3_ctx->smem_restricted_bytes,
+	    ipa3_ctx->smem_sz);
+
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
 		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n,
@@ -3207,21 +3063,27 @@ static int ipa3_setup_apps_pipes(void)
 	}
 	IPADBG("Apps to IPA cmd pipe is connected\n");
 
+	IPADBG("Will initialize SRAM\n");
 	ipa3_ctx->ctrl->ipa_init_sram();
 	IPADBG("SRAM initialized\n");
 
+	IPADBG("Will initialize HDR\n");
 	ipa3_ctx->ctrl->ipa_init_hdr();
 	IPADBG("HDR initialized\n");
 
+	IPADBG("Will initialize V4 RT\n");
 	ipa3_ctx->ctrl->ipa_init_rt4();
 	IPADBG("V4 RT initialized\n");
 
+	IPADBG("Will initialize V6 RT\n");
 	ipa3_ctx->ctrl->ipa_init_rt6();
 	IPADBG("V6 RT initialized\n");
 
+	IPADBG("Will initialize V4 FLT\n");
 	ipa3_ctx->ctrl->ipa_init_flt4();
 	IPADBG("V4 FLT initialized\n");
 
+	IPADBG("Will initialize V6 FLT\n");
 	ipa3_ctx->ctrl->ipa_init_flt6();
 	IPADBG("V6 FLT initialized\n");
 
@@ -4412,8 +4274,8 @@ static int ipa3_gsi_pre_fw_load_init(void)
 	int result;
 
 	result = gsi_configure_regs(ipa3_res.transport_mem_base,
-		ipa3_res.transport_mem_size,
-		ipa3_res.ipa_mem_base);
+				    ipa3_res.transport_mem_size,
+				    ipa3_res.ipa_mem_base);
 	if (result) {
 		IPAERR("Failed to configure GSI registers\n");
 		return -EINVAL;
@@ -4506,12 +4368,19 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
 
-	/* SMMU was already attached if used, safe to do allocations */
-	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
-		ipa3_ctx->pdev)) {
-		IPAERR("fail to init ipahal\n");
-		result = -EFAULT;
-		goto fail_ipahal;
+	/*
+	 * SMMU was already attached if used, safe to do allocations
+	 *
+	 * NOTE WELL: On an emulation system, this allocation is done
+	 *            in ipa3_pre_init()
+	 */
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION) {
+		if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio,
+				ipa3_ctx->pdev)) {
+			IPAERR("fail to init ipahal\n");
+			result = -EFAULT;
+			goto fail_ipahal;
+		}
 	}
 
 	result = ipa3_init_hw();
@@ -4646,9 +4515,18 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	gsi_props.ver = ipa3_get_gsi_ver(resource_p->ipa_hw_type);
 	gsi_props.ee = resource_p->ee;
 	gsi_props.intr = GSI_INTR_IRQ;
-	gsi_props.irq = resource_p->transport_irq;
 	gsi_props.phys_addr = resource_p->transport_mem_base;
 	gsi_props.size = resource_p->transport_mem_size;
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		gsi_props.irq = resource_p->emulator_irq;
+		gsi_props.emulator_intcntrlr_client_isr = ipa3_get_isr();
+		gsi_props.emulator_intcntrlr_addr =
+		    resource_p->emulator_intcntrlr_mem_base;
+		gsi_props.emulator_intcntrlr_size =
+		    resource_p->emulator_intcntrlr_mem_size;
+	} else {
+		gsi_props.irq = resource_p->transport_irq;
+	}
 	gsi_props.notify_cb = ipa_gsi_notify_cb;
 	gsi_props.req_clk_cb = NULL;
 	gsi_props.rel_clk_cb = NULL;
@@ -4716,11 +4594,11 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 
 	ipa3_register_panic_hdlr();
 
+	ipa3_debugfs_init();
+
 	mutex_lock(&ipa3_ctx->lock);
 	ipa3_ctx->ipa_initialization_complete = true;
 	mutex_unlock(&ipa3_ctx->lock);
-
-	ipa3_debugfs_init();
 
 	ipa3_trigger_ipa_ready_cbs();
 	complete_all(&ipa3_ctx->init_completion_obj);
@@ -4734,15 +4612,16 @@ fail_setup_apps_pipes:
 	gsi_deregister_device(ipa3_ctx->gsi_dev_hdl, false);
 fail_register_device:
 	ipa3_destroy_flt_tbl_idrs();
-	ipa3_proxy_clk_unvote();
 fail_allok_pkt_init:
 	ipa3_nat_ipv6ct_destroy_devices();
 fail_nat_ipv6ct_init_dev:
 	ipa3_free_dma_task_for_gsi();
 fail_dma_task:
 fail_init_hw:
-	ipahal_destroy();
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION)
+		ipahal_destroy();
 fail_ipahal:
+	ipa3_proxy_clk_unvote();
 
 	return result;
 }
@@ -4751,10 +4630,24 @@ static int ipa3_manual_load_ipa_fws(void)
 {
 	int result;
 	const struct firmware *fw;
+	const char *path = IPA_FWS_PATH;
 
-	IPADBG("Manual FW loading process initiated\n");
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		switch (ipa3_get_emulation_type()) {
+		case IPA_HW_v3_5_1:
+			path = IPA_FWS_PATH_3_5_1;
+			break;
+		case IPA_HW_v4_0:
+			path = IPA_FWS_PATH_4_0;
+			break;
+		default:
+			break;
+		}
+	}
 
-	result = request_firmware(&fw, IPA_FWS_PATH, ipa3_ctx->cdev.dev);
+	IPADBG("Manual FW loading (%s) process initiated\n", path);
+
+	result = request_firmware(&fw, path, ipa3_ctx->cdev.dev);
 	if (result < 0) {
 		IPAERR("request_firmware failed, error %d\n", result);
 		return result;
@@ -4766,7 +4659,13 @@ static int ipa3_manual_load_ipa_fws(void)
 
 	IPADBG("FWs are available for loading\n");
 
-	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base);
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		result = emulator_load_fws(fw,
+					   ipa3_res.transport_mem_base,
+					   ipa3_res.transport_mem_size);
+	} else {
+		result = ipa3_load_fws(fw, ipa3_res.transport_mem_base);
+	}
 	if (result) {
 		IPAERR("Manual IPA FWs loading has failed\n");
 		release_firmware(fw);
@@ -4785,6 +4684,7 @@ static int ipa3_manual_load_ipa_fws(void)
 	release_firmware(fw);
 
 	IPADBG("Manual FW loading process is complete\n");
+
 	return 0;
 }
 
@@ -4818,7 +4718,8 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	if (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5))
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION &&
+	    (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)))
 		result = ipa3_pil_load_ipa_fws();
 	else
 		result = ipa3_manual_load_ipa_fws();
@@ -5155,7 +5056,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_init_mem_partition;
 	}
 
-	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL) {
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL &&
+	    ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_EMULATION) {
 		ipa3_ctx->ctrl->msm_bus_data_ptr =
 			msm_bus_cl_get_pdata(ipa3_ctx->master_pdev);
 		if (ipa3_ctx->ctrl->msm_bus_data_ptr == NULL) {
@@ -5203,6 +5105,28 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":ipa-base ioremap err.\n");
 		result = -EFAULT;
 		goto fail_remap;
+	}
+
+	IPADBG(
+	    "base(0x%x)+offset(0x%x)=(0x%x) mapped to (%pK) with len (0x%x)\n",
+	    resource_p->ipa_mem_base,
+	    ipa3_ctx->ctrl->ipa_reg_base_ofst,
+	    resource_p->ipa_mem_base + ipa3_ctx->ctrl->ipa_reg_base_ofst,
+	    ipa3_ctx->mmio,
+	    resource_p->ipa_mem_size);
+
+	/*
+	 * Emulation requires ipahal be initialized early...for FW
+	 * download, hence...
+	 */
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		if (ipahal_init(ipa3_ctx->ipa_hw_type,
+				ipa3_ctx->mmio,
+				&(ipa3_ctx->master_pdev->dev))) {
+			IPAERR("fail to init ipahal\n");
+			result = -EFAULT;
+			goto fail_ipahal_init;
+		}
 	}
 
 	mutex_init(&ipa3_ctx->ipa3_active_clients.mutex);
@@ -5413,10 +5337,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	 * We can't register the GSI driver yet, as it expects
 	 * the GSI FW to be up and running before the registration.
 	 *
-	 * For IPA3.0, the GSI configuration is done by the GSI driver.
+	 * For IPA3.0 and the emulation system, the GSI configuration
+	 * is done by the GSI driver.
+	 *
 	 * For IPA3.1 (and on), the GSI configuration is done by TZ.
 	 */
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_0) {
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_0 ||
+	    ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
 		result = ipa3_gsi_pre_fw_load_init();
 		if (result) {
 			IPAERR("gsi pre FW loading config failed\n");
@@ -5494,6 +5421,9 @@ fail_flt_rule_cache:
 fail_create_transport_wq:
 	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
 fail_init_hw:
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION)
+		ipahal_destroy();
+fail_ipahal_init:
 	iounmap(ipa3_ctx->mmio);
 fail_remap:
 	ipa3_disable_clks();
@@ -5806,6 +5736,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			&ipa_drv_res->ee);
 	if (result)
 		ipa_drv_res->ee = 0;
+	IPADBG(":ee = %u\n", ipa_drv_res->ee);
 
 	ipa_drv_res->apply_rg10_wa =
 		of_property_read_bool(pdev->dev.of_node,
@@ -5818,7 +5749,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		of_property_read_bool(pdev->dev.of_node,
 		"qcom,do-not-use-ch-gsi-20");
 	IPADBG(": GSI CH 20 WA is = %s\n",
-		ipa_drv_res->apply_rg10_wa
+		ipa_drv_res->gsi_ch20_wa
 		? "Needed" : "Not needed");
 
 	elem_num = of_property_count_elems_of_size(pdev->dev.of_node,
@@ -5895,6 +5826,26 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	if (result) {
 		IPAERR("failed to get pm info from dts %d\n", result);
 		return result;
+	}
+
+	/*
+	 * If we're on emulator, get its interrupt controller's mem
+	 * start and size
+	 */
+	if (ipa_drv_res->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
+		resource = platform_get_resource_byname(
+		    pdev, IORESOURCE_MEM, "intctrl-base");
+		if (!resource) {
+			IPAERR(":Can't find intctrl-base resource\n");
+			return -ENODEV;
+		}
+		ipa_drv_res->emulator_intcntrlr_mem_base =
+		    resource->start;
+		ipa_drv_res->emulator_intcntrlr_mem_size =
+		    resource_size(resource);
+		IPADBG(":using intctrl-base at 0x%x of size 0x%x\n",
+		       ipa_drv_res->emulator_intcntrlr_mem_base,
+		       ipa_drv_res->emulator_intcntrlr_mem_size);
 	}
 
 	return 0;
@@ -6691,5 +6642,216 @@ int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
 	return 0;
 }
 
+/**************************************************************
+ *            PCIe Version
+ *************************************************************/
+
+int ipa3_pci_drv_probe(
+	struct pci_dev            *pci_dev,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match)
+{
+	int result;
+	struct ipa3_plat_drv_res *ipa_drv_res;
+	u32 bar0_offset;
+	u32 mem_start;
+	u32 mem_end;
+	uint32_t bits;
+	uint32_t ipa_start, gsi_start, intctrl_start;
+	struct device *dev;
+	static struct platform_device platform_dev;
+
+	if (!pci_dev || !api_ctrl || !pdrv_match) {
+		IPAERR(
+		    "Bad arg: pci_dev (%pK) and/or api_ctrl (%pK) and/or pdrv_match (%pK)\n",
+		    pci_dev, api_ctrl, pdrv_match);
+		return -EOPNOTSUPP;
+	}
+
+	dev = &(pci_dev->dev);
+
+	IPADBG("IPA PCI driver probing started\n");
+
+	/*
+	 * Follow PCI driver flow here.
+	 * pci_enable_device:  Enables device and assigns resources
+	 * pci_request_region:  Makes BAR0 address region usable
+	 */
+	result = pci_enable_device(pci_dev);
+	if (result < 0) {
+		IPAERR("pci_enable_device() failed\n");
+		return -EOPNOTSUPP;
+	}
+
+	result = pci_request_region(pci_dev, 0, "IPA Memory");
+	if (result < 0) {
+		IPAERR("pci_request_region() failed\n");
+		pci_disable_device(pci_dev);
+		return -EOPNOTSUPP;
+	}
+
+	/*
+	 * When in the PCI/emulation environment, &platform_dev is
+	 * passed to get_ipa_dts_configuration(), but is unused, since
+	 * all usages of it in the function are replaced by CPP
+	 * relative to definitions in ipa_emulation_stubs.h.  Passing
+	 * &platform_dev makes code validity tools happy.
+	 */
+	if (get_ipa_dts_configuration(&platform_dev, &ipa3_res) != 0) {
+		IPAERR("get_ipa_dts_configuration() failed\n");
+		pci_release_region(pci_dev, 0);
+		pci_disable_device(pci_dev);
+		return -EOPNOTSUPP;
+	}
+
+	ipa_drv_res = &ipa3_res;
+
+	result =
+		of_property_read_u32(NULL, "emulator-bar0-offset",
+				     &bar0_offset);
+	if (result) {
+		IPAERR(":get resource failed for emulator-bar0-offset!\n");
+		pci_release_region(pci_dev, 0);
+		pci_disable_device(pci_dev);
+		return -ENODEV;
+	}
+	IPADBG(":using emulator-bar0-offset 0x%08X\n", bar0_offset);
+
+	ipa_start     = ipa_drv_res->ipa_mem_base;
+	gsi_start     = ipa_drv_res->transport_mem_base;
+	intctrl_start = ipa_drv_res->emulator_intcntrlr_mem_base;
+
+	/*
+	 * Where will we be inerrupted at?
+	 */
+	ipa_drv_res->emulator_irq = pci_dev->irq;
+	IPADBG(
+	    "EMULATION PCI_INTERRUPT_PIN(%u)\n",
+	    ipa_drv_res->emulator_irq);
+
+	/*
+	 * Set the ipa_mem_base to the PCI base address of BAR0
+	 */
+	mem_start = pci_resource_start(pci_dev, 0);
+	mem_end   = pci_resource_end(pci_dev, 0);
+
+	IPADBG("PCI START                = 0x%x\n", mem_start);
+	IPADBG("PCI END                  = 0x%x\n", mem_end);
+
+	ipa_drv_res->ipa_mem_base = mem_start + bar0_offset;
+
+	smmu_info.ipa_base = ipa_drv_res->ipa_mem_base;
+	smmu_info.ipa_size = ipa_drv_res->ipa_mem_size;
+
+	ipa_drv_res->transport_mem_base =
+	    ipa_drv_res->ipa_mem_base + (gsi_start - ipa_start);
+
+	ipa_drv_res->emulator_intcntrlr_mem_base =
+	    ipa_drv_res->ipa_mem_base + (intctrl_start - ipa_start);
+
+	IPADBG("ipa_mem_base                = 0x%x\n",
+	       ipa_drv_res->ipa_mem_base);
+	IPADBG("ipa_mem_size                = 0x%x\n",
+	       ipa_drv_res->ipa_mem_size);
+
+	IPADBG("transport_mem_base          = 0x%x\n",
+	       ipa_drv_res->transport_mem_base);
+	IPADBG("transport_mem_size          = 0x%x\n",
+	       ipa_drv_res->transport_mem_size);
+
+	IPADBG("emulator_intcntrlr_mem_base = 0x%x\n",
+	       ipa_drv_res->emulator_intcntrlr_mem_base);
+	IPADBG("emulator_intcntrlr_mem_size = 0x%x\n",
+	       ipa_drv_res->emulator_intcntrlr_mem_size);
+
+	result = ipa3_bind_api_controller(ipa_drv_res->ipa_hw_type, api_ctrl);
+	if (result != 0) {
+		IPAERR("ipa3_bind_api_controller() failed\n");
+		pci_release_region(pci_dev, 0);
+		pci_disable_device(pci_dev);
+		return result;
+	}
+
+	bits = (ipa_drv_res->use_64_bit_dma_mask) ? 64 : 32;
+
+	if (dma_set_mask(dev, DMA_BIT_MASK(bits)) != 0) {
+		IPAERR("dma_set_mask(%pK, %u) failed\n", dev, bits);
+		pci_release_region(pci_dev, 0);
+		pci_disable_device(pci_dev);
+		return -EOPNOTSUPP;
+	}
+
+	if (dma_set_coherent_mask(dev, DMA_BIT_MASK(bits)) != 0) {
+		IPAERR("dma_set_coherent_mask(%pK, %u) failed\n", dev, bits);
+		pci_release_region(pci_dev, 0);
+		pci_disable_device(pci_dev);
+		return -EOPNOTSUPP;
+	}
+
+	pci_set_master(pci_dev);
+
+	memset(&platform_dev, 0, sizeof(platform_dev));
+	platform_dev.dev = *dev;
+
+	/* Proceed to real initialization */
+	result = ipa3_pre_init(&ipa3_res, &platform_dev);
+	if (result) {
+		IPAERR("ipa3_init failed\n");
+		pci_clear_master(pci_dev);
+		pci_release_region(pci_dev, 0);
+		pci_disable_device(pci_dev);
+		return result;
+	}
+
+	return result;
+}
+
+/*
+ * The following returns transport register memory location and
+ * size...
+ */
+int ipa3_get_transport_info(
+	phys_addr_t *phys_addr_ptr,
+	unsigned long *size_ptr)
+{
+	if (!phys_addr_ptr || !size_ptr) {
+		IPAERR("Bad arg: phys_addr_ptr(%pK) and/or size_ptr(%pK)\n",
+		       phys_addr_ptr, size_ptr);
+		return -EINVAL;
+	}
+
+	*phys_addr_ptr = ipa3_res.transport_mem_base;
+	*size_ptr      = ipa3_res.transport_mem_size;
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa3_get_transport_info);
+
+static uint emulation_type = IPA_HW_v4_0;
+
+/*
+ * The following returns emulation type...
+ */
+uint ipa3_get_emulation_type(void)
+{
+	return emulation_type;
+}
+
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");
+
+/*
+ * Module parameter. Invoke as follows:
+ *     insmod ipat.ko emulation_type=[13|14|...|N]
+ * Examples:
+ *   insmod ipat.ko emulation_type=13 # for IPA 3.5.1
+ *   insmod ipat.ko emulation_type=14 # for IPA 4.0
+ *
+ * NOTE: The emulation_type values need to come from: enum ipa_hw_type
+ *
+ */
+
+module_param(emulation_type, uint, 0000);
+MODULE_PARM_DESC(
+	emulation_type,
+	"IPA emulation type (Use 13 for IPA 3.5.1, 14 for IPA 4.0)");

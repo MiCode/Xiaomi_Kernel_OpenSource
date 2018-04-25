@@ -203,6 +203,188 @@
 #define IPA_WDI_TX_DB_RES			7
 #define IPA_WDI_MAX_RES				8
 
+#ifdef CONFIG_ARM64
+/* Outer caches unsupported on ARM64 platforms */
+# define outer_flush_range(x, y)
+# define __cpuc_flush_dcache_area __flush_dcache_area
+#endif
+
+#define IPA_GPIO_IN_QUERY_CLK_IDX 0
+#define IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX 0
+#define IPA_GPIO_OUT_CLK_VOTE_IDX 1
+
+#define IPA_SUMMING_THRESHOLD (0x10)
+#define IPA_PIPE_MEM_START_OFST (0x0)
+#define IPA_PIPE_MEM_SIZE (0x0)
+#define IPA_MOBILE_AP_MODE(x) (x == IPA_MODE_MOBILE_AP_ETH || \
+			       x == IPA_MODE_MOBILE_AP_WAN || \
+			       x == IPA_MODE_MOBILE_AP_WLAN)
+#define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
+#define IPA_A5_MUX_HEADER_LENGTH (8)
+
+#define IPA_AGGR_MAX_STR_LENGTH (10)
+
+#define CLEANUP_TAG_PROCESS_TIMEOUT 500
+
+#define IPA_AGGR_STR_IN_BYTES(str) \
+	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
+
+#define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
+
+#define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
+
+#define IPA3_ACTIVE_CLIENT_LOG_TYPE_EP 0
+#define IPA3_ACTIVE_CLIENT_LOG_TYPE_SIMPLE 1
+#define IPA3_ACTIVE_CLIENT_LOG_TYPE_RESOURCE 2
+#define IPA3_ACTIVE_CLIENT_LOG_TYPE_SPECIAL 3
+
+#define IPA_MHI_GSI_EVENT_RING_ID_START 10
+#define IPA_MHI_GSI_EVENT_RING_ID_END 12
+
+#define IPA_SMEM_SIZE (8 * 1024)
+
+#define IPA_GSI_CHANNEL_HALT_MIN_SLEEP 5000
+#define IPA_GSI_CHANNEL_HALT_MAX_SLEEP 10000
+#define IPA_GSI_CHANNEL_HALT_MAX_TRY 10
+
+/* round addresses for closes page per SMMU requirements */
+#define IPA_SMMU_ROUND_TO_PAGE(iova, pa, size, iova_p, pa_p, size_p) \
+	do { \
+		(iova_p) = rounddown((iova), PAGE_SIZE); \
+		(pa_p) = rounddown((pa), PAGE_SIZE); \
+		(size_p) = roundup((size) + (pa) - (pa_p), PAGE_SIZE); \
+	} while (0)
+
+
+/* The relative location in /lib/firmware where the FWs will reside */
+#define IPA_FWS_PATH         "ipa/ipa_fws.elf"
+/*
+ * The following paths below are used when building the system for the
+ * emulation environment or when IPA_EMULATION_COMPILE == 1.
+ *
+ * As new hardware platforms are added into the emulation environment,
+ * please add the appropriate paths here for their firmwares.
+ */
+#define IPA_FWS_PATH_4_0     "ipa/4.0/ipa_fws.elf"
+#define IPA_FWS_PATH_3_5_1   "ipa/3.5.1/ipa_fws.elf"
+
+#ifdef CONFIG_COMPAT
+#define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_HDR, \
+					compat_uptr_t)
+#define IPA_IOC_DEL_HDR32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_DEL_HDR, \
+					compat_uptr_t)
+#define IPA_IOC_ADD_RT_RULE32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_RT_RULE, \
+					compat_uptr_t)
+#define IPA_IOC_DEL_RT_RULE32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_DEL_RT_RULE, \
+					compat_uptr_t)
+#define IPA_IOC_ADD_FLT_RULE32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_FLT_RULE, \
+					compat_uptr_t)
+#define IPA_IOC_DEL_FLT_RULE32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_DEL_FLT_RULE, \
+					compat_uptr_t)
+#define IPA_IOC_GET_RT_TBL32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GET_RT_TBL, \
+				compat_uptr_t)
+#define IPA_IOC_COPY_HDR32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_COPY_HDR, \
+				compat_uptr_t)
+#define IPA_IOC_QUERY_INTF32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_QUERY_INTF, \
+				compat_uptr_t)
+#define IPA_IOC_QUERY_INTF_TX_PROPS32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_QUERY_INTF_TX_PROPS, \
+				compat_uptr_t)
+#define IPA_IOC_QUERY_INTF_RX_PROPS32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_QUERY_INTF_RX_PROPS, \
+					compat_uptr_t)
+#define IPA_IOC_QUERY_INTF_EXT_PROPS32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_QUERY_INTF_EXT_PROPS, \
+					compat_uptr_t)
+#define IPA_IOC_GET_HDR32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GET_HDR, \
+				compat_uptr_t)
+#define IPA_IOC_ALLOC_NAT_MEM32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ALLOC_NAT_MEM, \
+				compat_uptr_t)
+#define IPA_IOC_ALLOC_NAT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ALLOC_NAT_TABLE, \
+				compat_uptr_t)
+#define IPA_IOC_ALLOC_IPV6CT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ALLOC_IPV6CT_TABLE, \
+				compat_uptr_t)
+#define IPA_IOC_V4_INIT_NAT32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_V4_INIT_NAT, \
+				compat_uptr_t)
+#define IPA_IOC_INIT_IPV6CT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_INIT_IPV6CT_TABLE, \
+				compat_uptr_t)
+#define IPA_IOC_TABLE_DMA_CMD32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_TABLE_DMA_CMD, \
+				compat_uptr_t)
+#define IPA_IOC_V4_DEL_NAT32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_V4_DEL_NAT, \
+				compat_uptr_t)
+#define IPA_IOC_DEL_NAT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_NAT_TABLE, \
+				compat_uptr_t)
+#define IPA_IOC_DEL_IPV6CT_TABLE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_IPV6CT_TABLE, \
+				compat_uptr_t)
+#define IPA_IOC_NAT_MODIFY_PDN32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NAT_MODIFY_PDN, \
+				compat_uptr_t)
+#define IPA_IOC_GET_NAT_OFFSET32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GET_NAT_OFFSET, \
+				compat_uptr_t)
+#define IPA_IOC_PULL_MSG32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_PULL_MSG, \
+				compat_uptr_t)
+#define IPA_IOC_RM_ADD_DEPENDENCY32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_RM_ADD_DEPENDENCY, \
+				compat_uptr_t)
+#define IPA_IOC_RM_DEL_DEPENDENCY32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_RM_DEL_DEPENDENCY, \
+				compat_uptr_t)
+#define IPA_IOC_GENERATE_FLT_EQ32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GENERATE_FLT_EQ, \
+				compat_uptr_t)
+#define IPA_IOC_QUERY_RT_TBL_INDEX32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_QUERY_RT_TBL_INDEX, \
+				compat_uptr_t)
+#define IPA_IOC_WRITE_QMAPID32  _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_WRITE_QMAPID, \
+				compat_uptr_t)
+#define IPA_IOC_MDFY_FLT_RULE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_MDFY_FLT_RULE, \
+				compat_uptr_t)
+#define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD, \
+				compat_uptr_t)
+#define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_DEL32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_DEL, \
+				compat_uptr_t)
+#define IPA_IOC_NOTIFY_WAN_EMBMS_CONNECTED32 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_NOTIFY_WAN_EMBMS_CONNECTED, \
+					compat_uptr_t)
+#define IPA_IOC_ADD_HDR_PROC_CTX32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_HDR_PROC_CTX, \
+				compat_uptr_t)
+#define IPA_IOC_DEL_HDR_PROC_CTX32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_HDR_PROC_CTX, \
+				compat_uptr_t)
+#define IPA_IOC_MDFY_RT_RULE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_MDFY_RT_RULE, \
+				compat_uptr_t)
+#endif /* #ifdef CONFIG_COMPAT */
+
+#define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
+#define TZ_MEM_PROTECT_REGION_ID 0x10
+
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
 	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
@@ -912,11 +1094,13 @@ struct ipa3_ipv6ct_mem {
  * @IPA_HW_Normal: Regular IPA hardware
  * @IPA_HW_Virtual: IPA hardware supporting virtual memory allocation
  * @IPA_HW_PCIE: IPA hardware supporting memory allocation over PCIE Bridge
+ * @IPA_HW_Emulation: IPA emulation hardware
  */
 enum ipa3_hw_mode {
-	IPA_HW_MODE_NORMAL  = 0,
-	IPA_HW_MODE_VIRTUAL = 1,
-	IPA_HW_MODE_PCIE    = 2
+	IPA_HW_MODE_NORMAL    = 0,
+	IPA_HW_MODE_VIRTUAL   = 1,
+	IPA_HW_MODE_PCIE      = 2,
+	IPA_HW_MODE_EMULATION = 3,
 };
 
 enum ipa3_config_this_ep {
@@ -1207,6 +1391,7 @@ struct ipa3_char_device_context {
  * @mode: IPA operating mode
  * @mmio: iomem
  * @ipa_wrapper_base: IPA wrapper base address
+ * @ipa_wrapper_size: size of the memory pointed to by ipa_wrapper_base
  * @hdr_tbl: IPA header table
  * @hdr_proc_ctx_tbl: IPA processing context table
  * @rt_tbl_set: list of routing tables each of which is a list of rules
@@ -1423,6 +1608,9 @@ struct ipa3_plat_drv_res {
 	u32 ipa_mem_size;
 	u32 transport_mem_base;
 	u32 transport_mem_size;
+	u32 emulator_intcntrlr_mem_base;
+	u32 emulator_intcntrlr_mem_size;
+	u32 emulator_irq;
 	u32 ipa_irq;
 	u32 transport_irq;
 	u32 ipa_pipe_mem_start_ofst;
@@ -2355,6 +2543,10 @@ int ipa3_uc_panic_notifier(struct notifier_block *this,
 void ipa3_inc_acquire_wakelock(void);
 void ipa3_dec_release_wakelock(void);
 int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base);
+int emulator_load_fws(
+	const struct firmware *firmware,
+	u32 transport_mem_base,
+	u32 transport_mem_size);
 int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);
@@ -2381,4 +2573,9 @@ int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
 void ipa3_init_imm_cmd_desc(struct ipa3_desc *desc,
 	struct ipahal_imm_cmd_pyld *cmd_pyld);
 int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res);
+uint ipa3_get_emulation_type(void);
+int ipa3_get_transport_info(
+	phys_addr_t *phys_addr_ptr,
+	unsigned long *size_ptr);
+irq_handler_t ipa3_get_isr(void);
 #endif /* _IPA3_I_H_ */
