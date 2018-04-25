@@ -45,6 +45,8 @@ Required properties:
 			"qcom,gcc-mdss-8917"
 			"qcom,gcc-mdss-8940"
 			"qcom,gcc-mdss-8920"
+			"qcom,gcc-mdss-sdm429"
+			"qcom,gcc-mdss-sdm439"
 			"qcom,gcc-gfx-8953"
 			"qcom,gcc-gfx-sdm450"
 			"qcom,gcc-mdm9607"
