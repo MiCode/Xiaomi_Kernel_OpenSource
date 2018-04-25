@@ -254,7 +254,9 @@ static void sde_encoder_phys_cmd_autorefresh_done_irq(void *arg, int irq_idx)
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt);
+			phys_enc->hw_pp->idx - PINGPONG_0,
+			phys_enc->hw_intf->idx - INTF_0,
+			new_cnt);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&cmd_enc->autorefresh.kickoff_wq);
@@ -376,8 +378,16 @@ static void _sde_encoder_phys_cmd_setup_irq_hw_idx(
 {
 	struct sde_encoder_irq *irq;
 
-	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_intf)
+	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid args %d %d\n", !phys_enc,
+			phys_enc ? !phys_enc->hw_pp : 0);
 		return;
+	}
+
+	if (phys_enc->has_intf_te && !phys_enc->hw_intf) {
+		SDE_ERROR("invalid intf configuration\n");
+		return;
+	}
 
 	irq = &phys_enc->irq[INTR_IDX_CTL_START];
 	irq->hw_idx = phys_enc->hw_ctl->idx;
@@ -417,6 +427,13 @@ static void sde_encoder_phys_cmd_cont_splash_mode_set(
 
 	phys_enc->cached_mode = *adj_mode;
 	phys_enc->enable_state = SDE_ENC_ENABLED;
+
+	if (!phys_enc->hw_ctl || !phys_enc->hw_pp) {
+		SDE_DEBUG("invalid ctl:%d pp:%d\n",
+			(phys_enc->hw_ctl == NULL),
+			(phys_enc->hw_pp == NULL));
+		return;
+	}
 
 	_sde_encoder_phys_cmd_setup_irq_hw_idx(phys_enc);
 }
