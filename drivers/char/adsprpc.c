@@ -276,7 +276,7 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 	},
 	{
 		.name = "mdsprpc-smd",
-		.subsys = "mdsp",
+		.subsys = "modem",
 		.channel = SMD_APPS_MODEM,
 		.edge = "mdsp",
 	},
