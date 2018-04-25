@@ -213,6 +213,9 @@
 
 &dsi_sw43404_amoled_cmd_display {
 	qcom,dsi-display-active;
+};
+
+&sde_dsi {
 	vdd-supply = <&display_panel_avdd_eldo>;
 };
 
