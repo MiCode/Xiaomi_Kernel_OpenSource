@@ -650,31 +650,31 @@
 		pil_modem_mem: modem_region@8d800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8d800000 0x0 0x7d00000>;
+			reg = <0x0 0x8d800000 0x0 0x8f00000>;
 		};
 
-		pil_video_mem: pil_video_region@95500000 {
+		pil_video_mem: pil_video_region@96700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x95500000 0x0 0x500000>;
+			reg = <0x0 0x96700000 0x0 0x500000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@95a00000 {
+		pil_cdsp_mem: cdsp_regions@96c00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x95a00000 0x0 0x800000>;
+			reg = <0x0 0x96c00000 0x0 0x800000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@96200000 {
+		pil_slpi_mem: pil_slpi_region@97400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x96200000 0x0 0x1400000>;
+			reg = <0x0 0x97400000 0x0 0x1400000>;
 		};
 
-		pil_spss_mem: pil_spss_region@97600000 {
+		pil_spss_mem: pil_spss_region@98800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x97600000 0x0 0x100000>;
+			reg = <0x0 0x98800000 0x0 0x100000>;
 		};
 
 		qseecom_mem: qseecom_region@0x9e400000 {
