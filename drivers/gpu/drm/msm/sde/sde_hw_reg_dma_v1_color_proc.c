@@ -92,7 +92,8 @@
 #define QSEED3_COEF_LUT_CTRL_OFF               0x4C
 
 static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
-static struct sde_reg_dma_buffer *sspp_buf[REG_DMA_FEATURES_MAX][SSPP_MAX];
+static struct sde_reg_dma_buffer
+	*sspp_buf[SDE_SSPP_RECT_MAX][REG_DMA_FEATURES_MAX][SSPP_MAX];
 
 static u32 feature_map[SDE_DSPP_MAX] = {
 	[SDE_DSPP_VLUT] = VLUT,
@@ -189,7 +190,8 @@ static int reg_dma_buf_init(struct sde_reg_dma_buffer **buf, u32 sz);
 static int reg_dma_dspp_check(struct sde_hw_dspp *ctx, void *cfg,
 		enum sde_reg_dma_features feature);
 static int reg_dma_sspp_check(struct sde_hw_pipe *ctx, void *cfg,
-		enum sde_reg_dma_features feature);
+		enum sde_reg_dma_features feature,
+		enum sde_sspp_multirect_index idx);
 
 static int reg_dma_buf_init(struct sde_reg_dma_buffer **buf, u32 size)
 {
@@ -1576,7 +1578,7 @@ int reg_dmav1_init_sspp_op_v4(int feature, enum sde_sspp idx)
 	int rc = -ENOTSUPP;
 	struct sde_hw_reg_dma_ops *dma_ops;
 	bool is_supported = false;
-	u32 blk;
+	u32 blk, i = 0;
 
 	if (feature >= SDE_SSPP_MAX || idx >= SSPP_MAX) {
 		DRM_ERROR("invalid feature %x max %x sspp idx %x max %xd\n",
@@ -1600,21 +1602,36 @@ int reg_dmav1_init_sspp_op_v4(int feature, enum sde_sspp idx)
 	if (!rc)
 		rc = (is_supported) ? 0 : -ENOTSUPP;
 
-	if (!rc)
-		rc = reg_dma_buf_init(&sspp_buf[sspp_feature_map[feature]][idx],
+	if (!rc) {
+		for (i = SDE_SSPP_RECT_0; i < SDE_SSPP_RECT_MAX; i++) {
+			rc = reg_dma_buf_init(
+				&sspp_buf[i][sspp_feature_map[feature]][idx],
 				sspp_feature_reg_dma_sz[feature]);
+			if (rc) {
+				DRM_ERROR("rect %d buf init failed\n", i);
+				break;
+			}
+		}
+
+	}
 
 	return rc;
 }
 
 static int reg_dma_sspp_check(struct sde_hw_pipe *ctx, void *cfg,
-		enum sde_reg_dma_features feature)
+		enum sde_reg_dma_features feature,
+		enum sde_sspp_multirect_index idx)
 {
 	struct sde_hw_reg_dma_ops *dma_ops;
 	struct sde_hw_cp_cfg *hw_cfg = cfg;
 
 	if (!cfg || !ctx) {
 		DRM_ERROR("invalid cfg %pK ctx %pK\n", cfg, ctx);
+		return -EINVAL;
+	}
+
+	if (idx >= SDE_SSPP_RECT_MAX) {
+		DRM_ERROR("invalid multirect idx %d\n", idx);
 		return -EINVAL;
 	}
 
@@ -1629,8 +1646,9 @@ static int reg_dma_sspp_check(struct sde_hw_pipe *ctx, void *cfg,
 		return -EINVAL;
 	}
 
-	if (!sspp_buf[feature][ctx->idx]) {
-		DRM_ERROR("invalid dma_buf for sspp idx %d\n", ctx->idx);
+	if (!sspp_buf[idx][feature][ctx->idx]) {
+		DRM_ERROR("invalid dma_buf for rect idx %d sspp idx %d\n", idx,
+			ctx->idx);
 		return -EINVAL;
 	}
 
@@ -1646,12 +1664,13 @@ static void vig_gamutv5_off(struct sde_hw_pipe *ctx, void *cfg)
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	u32 gamut_base = ctx->cap->sblk->gamut_blk.base - REG_DMA_VIG_SWI_DIFF;
+	enum sde_sspp_multirect_index idx = SDE_SSPP_RECT_0;
 
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[GAMUT][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][GAMUT][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], GAMUT,
-			sspp_buf[GAMUT][ctx->idx]);
+			sspp_buf[idx][GAMUT][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1669,8 +1688,9 @@ static void vig_gamutv5_off(struct sde_hw_pipe *ctx, void *cfg)
 		return;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, sspp_buf[GAMUT][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			sspp_buf[idx][GAMUT][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -1688,8 +1708,9 @@ void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg)
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	u32 gamut_base = ctx->cap->sblk->gamut_blk.base - REG_DMA_VIG_SWI_DIFF;
 	bool use_2nd_memory = false;
+	enum sde_sspp_multirect_index idx = SDE_SSPP_RECT_0;
 
-	rc = reg_dma_sspp_check(ctx, cfg, GAMUT);
+	rc = reg_dma_sspp_check(ctx, cfg, GAMUT, idx);
 	if (rc)
 		return;
 
@@ -1714,10 +1735,10 @@ void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg)
 	}
 
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[GAMUT][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][GAMUT][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], GAMUT,
-			sspp_buf[GAMUT][ctx->idx]);
+			sspp_buf[idx][GAMUT][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1778,8 +1799,9 @@ void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg)
 		return;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, sspp_buf[GAMUT][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			sspp_buf[idx][GAMUT][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -1794,12 +1816,13 @@ static void vig_igcv5_off(struct sde_hw_pipe *ctx, void *cfg)
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	u32 igc_base = ctx->cap->sblk->igc_blk[0].base - REG_DMA_VIG_SWI_DIFF;
+	enum sde_sspp_multirect_index idx = SDE_SSPP_RECT_0;
 
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[IGC][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][IGC][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], IGC,
-			sspp_buf[IGC][ctx->idx]);
+			sspp_buf[idx][IGC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1816,8 +1839,9 @@ static void vig_igcv5_off(struct sde_hw_pipe *ctx, void *cfg)
 		return;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, sspp_buf[IGC][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			sspp_buf[idx][IGC][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -1836,8 +1860,9 @@ void reg_dmav1_setup_vig_igcv5(struct sde_hw_pipe *ctx, void *cfg)
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	u32 igc_base = ctx->cap->sblk->igc_blk[0].base - REG_DMA_VIG_SWI_DIFF;
+	enum sde_sspp_multirect_index idx = SDE_SSPP_RECT_0;
 
-	rc = reg_dma_sspp_check(ctx, cfg, IGC);
+	rc = reg_dma_sspp_check(ctx, cfg, IGC, idx);
 	if (rc)
 		return;
 
@@ -1855,10 +1880,10 @@ void reg_dmav1_setup_vig_igcv5(struct sde_hw_pipe *ctx, void *cfg)
 	}
 
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[IGC][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][IGC][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], IGC,
-			sspp_buf[IGC][ctx->idx]);
+			sspp_buf[idx][IGC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1927,8 +1952,9 @@ void reg_dmav1_setup_vig_igcv5(struct sde_hw_pipe *ctx, void *cfg)
 		goto exit;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, sspp_buf[IGC][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			sspp_buf[idx][IGC][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -1948,10 +1974,10 @@ static void dma_igcv5_off(struct sde_hw_pipe *ctx, void *cfg,
 	u32 igc_opmode_off;
 
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[IGC][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][IGC][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], IGC,
-			sspp_buf[IGC][ctx->idx]);
+			sspp_buf[idx][IGC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -1974,8 +2000,9 @@ static void dma_igcv5_off(struct sde_hw_pipe *ctx, void *cfg,
 		return;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, sspp_buf[IGC][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			sspp_buf[idx][IGC][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -1994,14 +2021,9 @@ void reg_dmav1_setup_dma_igcv5(struct sde_hw_pipe *ctx, void *cfg,
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	u32 igc_base, igc_dither_off, igc_opmode_off;
 
-	rc = reg_dma_sspp_check(ctx, cfg, IGC);
+	rc = reg_dma_sspp_check(ctx, cfg, IGC, idx);
 	if (rc)
 		return;
-
-	if (idx > SDE_SSPP_RECT_1) {
-		DRM_ERROR("invalid multirect idx %d\n", idx);
-		return;
-	}
 
 	igc_lut = hw_cfg->payload;
 	if (!igc_lut) {
@@ -2017,10 +2039,10 @@ void reg_dmav1_setup_dma_igcv5(struct sde_hw_pipe *ctx, void *cfg,
 	}
 
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[IGC][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][IGC][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], IGC,
-			sspp_buf[IGC][ctx->idx]);
+			sspp_buf[idx][IGC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -2035,9 +2057,10 @@ void reg_dmav1_setup_dma_igcv5(struct sde_hw_pipe *ctx, void *cfg,
 		return;
 	}
 
+	/* client packs the 1D LUT data in c2 instead of c0 */
 	for (i = 0; i < DMA_1D_LUT_IGC_LEN; i++)
-		data[i] = (igc_lut->c0[2 * i] & IGC_DATA_MASK) |
-			((igc_lut->c0[2 * i + 1] & IGC_DATA_MASK) << 16);
+		data[i] = (igc_lut->c2[2 * i] & IGC_DATA_MASK) |
+			((igc_lut->c2[2 * i + 1] & IGC_DATA_MASK) << 16);
 
 	if (idx == SDE_SSPP_RECT_SOLO || idx == SDE_SSPP_RECT_0) {
 		igc_base = ctx->cap->sblk->igc_blk[0].base -
@@ -2082,8 +2105,9 @@ void reg_dmav1_setup_dma_igcv5(struct sde_hw_pipe *ctx, void *cfg,
 		goto igc_exit;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, sspp_buf[IGC][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			sspp_buf[idx][IGC][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -2103,10 +2127,10 @@ static void dma_gcv5_off(struct sde_hw_pipe *ctx, void *cfg,
 	u32 gc_opmode_off;
 
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[GC][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][GC][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], GC,
-			sspp_buf[GC][ctx->idx]);
+			sspp_buf[idx][GC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -2129,8 +2153,9 @@ static void dma_gcv5_off(struct sde_hw_pipe *ctx, void *cfg,
 		return;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, sspp_buf[GC][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			sspp_buf[idx][GC][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -2140,8 +2165,7 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 			enum sde_sspp_multirect_index idx)
 {
 	int rc;
-	u32 i = 0, reg = 0;
-	u32 *data = NULL;
+	u32 reg = 0;
 	struct drm_msm_pgc_lut *gc_lut;
 	struct sde_hw_cp_cfg *hw_cfg = cfg;
 	struct sde_hw_reg_dma_ops *dma_ops;
@@ -2149,14 +2173,9 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	u32 gc_base, gc_opmode_off;
 
-	rc = reg_dma_sspp_check(ctx, cfg, GC);
+	rc = reg_dma_sspp_check(ctx, cfg, GC, idx);
 	if (rc)
 		return;
-
-	if (idx > SDE_SSPP_RECT_1) {
-		DRM_ERROR("invalid multirect idx %d\n", idx);
-		return;
-	}
 
 	gc_lut = hw_cfg->payload;
 	if (!gc_lut) {
@@ -2172,10 +2191,10 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 	}
 
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[GC][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][GC][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], GC,
-			sspp_buf[GC][ctx->idx]);
+			sspp_buf[idx][GC][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -2183,15 +2202,6 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 		DRM_ERROR("write decode select failed ret %d\n", rc);
 		return;
 	}
-
-	data = kzalloc(DMA_1D_LUT_GC_LEN * sizeof(u32), GFP_KERNEL);
-	if (!data) {
-		DRM_ERROR("failed to allocate memory for igc\n");
-		return;
-	}
-
-	for (i = 0; i < DMA_1D_LUT_GC_LEN; i++)
-		data[i] = gc_lut->c0[2 * i] | (gc_lut->c0[2 * i + 1] << 16);
 
 	if (idx == SDE_SSPP_RECT_SOLO || idx == SDE_SSPP_RECT_0) {
 		gc_base = ctx->cap->sblk->gc_blk[0].base - REG_DMA_DMA_SWI_DIFF;
@@ -2201,13 +2211,16 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 		gc_opmode_off = DMA_DGM_1_OP_MODE_OFF;
 	}
 
-	REG_DMA_SETUP_OPS(dma_write_cfg, gc_base, data,
+	/* client packs the 1D LUT data in c2 instead of c0,
+	 * and even & odd values are already stacked in register foramt
+	 */
+	REG_DMA_SETUP_OPS(dma_write_cfg, gc_base, gc_lut->c2,
 			DMA_1D_LUT_GC_LEN * sizeof(u32),
 			REG_BLK_WRITE_SINGLE, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
 		DRM_ERROR("lut write failed ret %d\n", rc);
-		goto gc_exit;
+		return;
 	}
 	reg = BIT(2);
 	REG_DMA_SETUP_OPS(dma_write_cfg, gc_opmode_off, &reg,
@@ -2216,21 +2229,20 @@ void reg_dmav1_setup_dma_gcv5(struct sde_hw_pipe *ctx, void *cfg,
 	rc = dma_ops->setup_payload(&dma_write_cfg);
 	if (rc) {
 		DRM_ERROR("setting opcode failed ret %d\n", rc);
-		goto gc_exit;
+		return;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, sspp_buf[GC][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
+			sspp_buf[idx][GC][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
-gc_exit:
-	kfree(data);
 }
 
 int reg_dmav1_deinit_sspp_ops(enum sde_sspp idx)
 {
-	int i;
+	u32 i, j;
 	struct sde_hw_reg_dma_ops *dma_ops;
 
 	dma_ops = sde_reg_dma_get_ops();
@@ -2242,11 +2254,13 @@ int reg_dmav1_deinit_sspp_ops(enum sde_sspp idx)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < REG_DMA_FEATURES_MAX; i++) {
-		if (!sspp_buf[i][idx])
-			continue;
-		dma_ops->dealloc_reg_dma(sspp_buf[i][idx]);
-		sspp_buf[i][idx] = NULL;
+	for (i = SDE_SSPP_RECT_0; i < SDE_SSPP_RECT_MAX; i++) {
+		for (j = 0; j < REG_DMA_FEATURES_MAX; j++) {
+			if (!sspp_buf[i][j][idx])
+				continue;
+			dma_ops->dealloc_reg_dma(sspp_buf[i][j][idx]);
+			sspp_buf[i][j][idx] = NULL;
+		}
 	}
 	return 0;
 }
@@ -2392,6 +2406,7 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 	u32 op_mode = 0, offset;
 	u32 preload, src_y_rgb, src_uv, dst;
 	u32 cache[4];
+	enum sde_sspp_multirect_index idx = SDE_SSPP_RECT_0;
 
 	if (!ctx || !pe || !scaler_cfg) {
 		DRM_ERROR("invalid params ctx %pK pe %pK scaler_cfg %pK",
@@ -2402,7 +2417,7 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 	hw_cfg.ctl = ctx->ctl;
 	hw_cfg.payload = scaler_cfg;
 	hw_cfg.len = sizeof(*scaler3_cfg);
-	rc = reg_dma_sspp_check(ctx, &hw_cfg, QSEED);
+	rc = reg_dma_sspp_check(ctx, &hw_cfg, QSEED, idx);
 	if (rc || !sspp) {
 		DRM_ERROR("invalid params rc %d sspp %pK\n", rc, sspp);
 		return;
@@ -2410,10 +2425,10 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 
 	offset = ctx->cap->sblk->scaler_blk.base - REG_DMA_VIG_SWI_DIFF;
 	dma_ops = sde_reg_dma_get_ops();
-	dma_ops->reset_reg_dma_buf(sspp_buf[QSEED][ctx->idx]);
+	dma_ops->reset_reg_dma_buf(sspp_buf[idx][QSEED][ctx->idx]);
 
 	REG_DMA_INIT_OPS(dma_write_cfg, sspp_mapping[ctx->idx], QSEED,
-	    sspp_buf[QSEED][ctx->idx]);
+	    sspp_buf[idx][QSEED][ctx->idx]);
 
 	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0, 0);
 	rc = dma_ops->setup_payload(&dma_write_cfg);
@@ -2529,8 +2544,9 @@ end:
 		return;
 	}
 
-	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg.ctl, sspp_buf[QSEED][ctx->idx],
-			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg.ctl,
+			sspp_buf[idx][QSEED][ctx->idx], REG_DMA_WRITE,
+			DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);

@@ -2688,7 +2688,8 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 				sde_kms->catalog);
 
 	if (sde_enc->cur_master->hw_ctl &&
-			sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1)
+			sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1 &&
+			!sde_kms->splash_data.cont_splash_en)
 		sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1(
 				sde_enc->cur_master->hw_ctl,
 				&sde_enc->cur_master->intf_cfg_v1);
@@ -2901,8 +2902,11 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_STOP);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		if (sde_enc->phys_encs[i])
+		if (sde_enc->phys_encs[i]) {
+			sde_enc->phys_encs[i]->cont_splash_settings = false;
+			sde_enc->phys_encs[i]->cont_splash_single_flush = 0;
 			sde_enc->phys_encs[i]->connector = NULL;
+		}
 	}
 
 	sde_enc->cur_master = NULL;
@@ -4831,8 +4835,9 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 	struct sde_connector *sde_conn = NULL;
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct drm_display_mode *drm_mode = NULL;
-	struct sde_rm_hw_iter dsc_iter, pp_iter, ctl_iter;
-	int ret = 0, i;
+	struct sde_rm_hw_iter dsc_iter, pp_iter, ctl_iter, intf_iter;
+	struct sde_encoder_phys *phys_enc;
+	int ret = 0, i, idx;
 
 	if (!encoder) {
 		SDE_ERROR("invalid drm enc\n");
@@ -4958,14 +4963,34 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 		sde_enc->hw_dsc[i] = (struct sde_hw_dsc *) dsc_iter.hw;
 	}
 
-	sde_rm_init_hw_iter(&ctl_iter, encoder->base.id, SDE_HW_BLK_CTL);
+	/*
+	 * If we have multiple phys encoders with one controller, make
+	 * sure to populate the controller pointer in both phys encoders.
+	 */
+	for (idx = 0; idx < sde_enc->num_phys_encs; idx++) {
+		phys_enc = sde_enc->phys_encs[idx];
+		phys_enc->hw_ctl = NULL;
+
+		sde_rm_init_hw_iter(&ctl_iter, encoder->base.id,
+				SDE_HW_BLK_CTL);
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			if (sde_rm_get_hw(&sde_kms->rm, &ctl_iter)) {
+				phys_enc->hw_ctl =
+					(struct sde_hw_ctl *) ctl_iter.hw;
+				pr_debug("HW CTL intf_idx:%d hw_ctl:[0x%pK]\n",
+					phys_enc->intf_idx, phys_enc->hw_ctl);
+			}
+		}
+	}
+
+	sde_rm_init_hw_iter(&intf_iter, encoder->base.id, SDE_HW_BLK_INTF);
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		phys->hw_ctl = NULL;
-		if (!sde_rm_get_hw(&sde_kms->rm, &ctl_iter))
+		phys->hw_intf = NULL;
+		if (!sde_rm_get_hw(&sde_kms->rm, &intf_iter))
 			break;
-		phys->hw_ctl = (struct sde_hw_ctl *) ctl_iter.hw;
+		phys->hw_intf = (struct sde_hw_intf *) intf_iter.hw;
 	}
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -4977,14 +5002,18 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 			return -EINVAL;
 		}
 
+		/* update connector for master and slave phys encoders */
+		phys->connector = conn;
+		phys->cont_splash_single_flush =
+			sde_kms->splash_data.single_flush_en;
+		phys->cont_splash_settings = true;
+
 		phys->hw_pp = sde_enc->hw_pp[i];
 		if (phys->ops.cont_splash_mode_set)
 			phys->ops.cont_splash_mode_set(phys, drm_mode);
 
-		if (phys->ops.is_master && phys->ops.is_master(phys)) {
-			phys->connector = conn;
+		if (phys->ops.is_master && phys->ops.is_master(phys))
 			sde_enc->cur_master = phys;
-		}
 	}
 
 	return ret;

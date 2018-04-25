@@ -132,6 +132,7 @@ struct dsi_display_clk_info {
  * @list:             List pointer.
  * @is_active:        Is display active.
  * @is_cont_splash_enabled:  Is continuous splash enabled
+ * @sw_te_using_wd:   Is software te enabled
  * @display_lock:     Mutex for dsi_display interface.
  * @ctrl_count:       Number of DSI interfaces required by panel.
  * @ctrl:             Controller information for DSI display.
@@ -172,6 +173,7 @@ struct dsi_display {
 	const char *display_type;
 	struct list_head list;
 	bool is_cont_splash_enabled;
+	bool sw_te_using_wd;
 	struct mutex display_lock;
 
 	u32 ctrl_count;

@@ -561,19 +561,11 @@ struct sde_splash_lm_hw {
 
 /**
  * struct ctl_top - Struct contains CTL block properties
- * @value:	Store the CTL block register value
- * @mode_sel:	stores the mode selected in the CTL block
- * @dspp_sel:	stores the dspp selected in the CTL block
- * @pp_sel:	stores the pp selected in the CTL block
  * @intf_sel:	stores the intf selected in the CTL block
  * @lm:		Pointer to store the list of LMs in the CTL block
  * @ctl_lm_cnt:	stores the active number of MDSS "LM" blocks in the CTL block
  */
 struct ctl_top {
-	u32 value;
-	u8 mode_sel;
-	u8 dspp_sel;
-	u8 pp_sel;
 	u8 intf_sel;
 	struct sde_splash_lm_hw lm[LM_MAX - LM_0];
 	u8 ctl_lm_cnt;
@@ -595,6 +587,7 @@ struct ctl_top {
  * @lm_cnt:	stores the active number of MDSS "LM" blks for the current mode
  * @dsc_cnt:	stores the active number of MDSS "dsc" blks for the current mode
  * @cont_splash_en:	Stores the cont_splash status (enabled/disabled)
+ * @single_flush_en: Stores if the single flush is enabled.
  */
 struct sde_splash_data {
 	bool resource_handoff_pending;
@@ -608,6 +601,7 @@ struct sde_splash_data {
 	u8 lm_cnt;
 	u8 dsc_cnt;
 	bool cont_splash_en;
+	bool single_flush_en;
 };
 
 /**
