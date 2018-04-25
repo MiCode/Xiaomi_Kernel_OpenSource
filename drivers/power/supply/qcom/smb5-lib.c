@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2142,7 +2142,7 @@ static int smblib_dm_pulse(struct smb_charger *chg)
 	return rc;
 }
 
-static int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val)
+int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val)
 {
 	int rc;
 
