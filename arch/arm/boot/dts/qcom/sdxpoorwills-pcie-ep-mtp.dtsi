@@ -16,12 +16,6 @@
 	status = "okay";
 };
 
-&usb {
-	status = "okay";
-	qcom,connector-type-uAB;
-	extcon = <0>, <0>, <0>, <&vbus_detect>;
-};
-
 &pcie_ep {
 	status = "okay";
 };
