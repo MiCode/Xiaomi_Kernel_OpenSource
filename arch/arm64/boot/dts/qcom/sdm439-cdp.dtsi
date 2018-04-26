@@ -150,6 +150,30 @@
 	};
 };
 
+&cdc_pdm_lines_2_act {
+	mux {
+		pins = "gpio70", "gpio71", "gpio72";
+		function = "cdc_pdm0";
+	};
+
+	config {
+		pins = "gpio70", "gpio71", "gpio72";
+		drive-strength = <16>;
+	};
+};
+
+&cdc_pdm_lines_act {
+	mux {
+		pins = "gpio69", "gpio73", "gpio74";
+		function = "cdc_pdm0";
+	};
+
+	config {
+		pins = "gpio69", "gpio73", "gpio74";
+		drive-strength = <16>;
+	};
+};
+
 &pm8953_pwm {
 	status = "ok";
 };
