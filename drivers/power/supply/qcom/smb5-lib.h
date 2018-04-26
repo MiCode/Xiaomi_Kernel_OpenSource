@@ -56,7 +56,7 @@ enum print_reason {
 #define CTM_VOTER			"CTM_VOTER"
 #define SW_QC3_VOTER			"SW_QC3_VOTER"
 #define AICL_RERUN_VOTER		"AICL_RERUN_VOTER"
-#define LEGACY_UNKNOWN_VOTER		"LEGACY_UNKNOWN_VOTER"
+#define SW_ICL_MAX_VOTER		"SW_ICL_MAX_VOTER"
 #define QNOVO_VOTER			"QNOVO_VOTER"
 #define BATT_PROFILE_VOTER		"BATT_PROFILE_VOTER"
 #define OTG_DELAY_VOTER			"OTG_DELAY_VOTER"
@@ -232,6 +232,7 @@ struct smb_params {
 	struct smb_chg_param	fcc;
 	struct smb_chg_param	fv;
 	struct smb_chg_param	usb_icl;
+	struct smb_chg_param	icl_max_stat;
 	struct smb_chg_param	icl_stat;
 	struct smb_chg_param	otg_cl;
 	struct smb_chg_param	jeita_cc_comp_hot;
