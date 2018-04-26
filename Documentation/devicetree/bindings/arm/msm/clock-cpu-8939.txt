@@ -7,7 +7,8 @@ fmax tables, avs settings table, etc.
 
 Required properties:
 - compatible:		Must be one of "qcom,clock-cpu-8939" or
-			"qcom,cpu-clock-8952", "qcom,cpu-clock-8917".
+			"qcom,cpu-clock-8952", "qcom,cpu-clock-8917",
+			"qcom,cpu-clock-sdm439", "qcom,cpu-clock-sdm429".
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected

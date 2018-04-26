@@ -202,7 +202,10 @@ static struct pll_freq_tbl apcs_c0_pll_freq[] = {
 	F_APCS_PLL( 921600000,  48, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 998400000,  52, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1094400000,  57, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1171200000,  61, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1209600000,  63, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1305600000,  68, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1459200000,  76, 0x0, 0x1, 0x0, 0x0, 0x0),
 };
 
 static struct pll_clk a53ss_c0_pll = {
@@ -257,6 +260,7 @@ static struct pll_freq_tbl apcs_c1_pll_freq[] = {
 	F_APCS_PLL(1209600000, 63, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1248000000, 65, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1267200000, 66, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1305600000, 68, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1344000000, 70, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1401000000, 73, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1420800000, 74, 0x0, 0x1, 0x0, 0x0, 0x0),
@@ -266,6 +270,9 @@ static struct pll_freq_tbl apcs_c1_pll_freq[] = {
 	F_APCS_PLL(1516800000, 79, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1536000000, 80, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1651200000, 86, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1708800000, 89, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1804800000, 94, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1958400000, 102, 0x0, 0x1, 0x0, 0x0, 0x0),
 };
 
 static struct pll_clk a53ss_c1_pll = {
@@ -751,6 +758,29 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8937[] = {
 	F_SLEW( 375000000, 750000000,	  gpll3,	1,	0,	0),
 	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
 	F_SLEW( 450000000, 900000000,	  gpll3,	1,	0,	0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_sdm439[] = {
+	F_SLEW( 19200000,  FIXED_CLK_SRC, xo,		1,	0,	0),
+	F_SLEW( 50000000,  FIXED_CLK_SRC, gpll0,	16,	0,	0),
+	F_SLEW( 80000000,  FIXED_CLK_SRC, gpll0,	10,	0,	0),
+	F_SLEW( 100000000, FIXED_CLK_SRC, gpll0,	8,	0,	0),
+	F_SLEW( 160000000, FIXED_CLK_SRC, gpll0,	5,	0,	0),
+	F_SLEW( 200000000, FIXED_CLK_SRC, gpll0,	4,	0,	0),
+	F_SLEW( 216000000, FIXED_CLK_SRC, gpll6_aux,	5,	0,	0),
+	F_SLEW( 228570000, FIXED_CLK_SRC, gpll0,	3.5,	0,	0),
+	F_SLEW( 240000000, FIXED_CLK_SRC, gpll6_aux,	4.5,	0,	0),
+	F_SLEW( 259200000, 1296000000,	  gpll3,	2.5,	0,	0),
+	F_SLEW( 266670000, FIXED_CLK_SRC, gpll0,	3,	0,	0),
+	F_SLEW( 320000000, FIXED_CLK_SRC, gpll0,	2.5,	0,	0),
+	F_SLEW( 355200000, 710400000,	  gpll3,	1,	0,	0),
+	F_SLEW( 375000000, 750000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
+	F_SLEW( 450000000, 900000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 510000000, 1020000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 560000000, 1120000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 650000000, 1300000000,	  gpll3,	1,	0,	0),
 	F_END
 };
 
@@ -4046,6 +4076,26 @@ static struct clk_lookup msm_clocks_lookup_8937[] = {
 	CLK_LIST(gcc_oxili_timer_clk),
 };
 
+static struct clk_lookup msm_clocks_lookup_sdm429[] = {
+	CLK_LIST(gpll0_clk_src_8937),
+	CLK_LIST(gpll0_ao_clk_src_8937),
+	CLK_LIST(gpll0_sleep_clk_src),
+	CLK_LIST(esc1_clk_src),
+	CLK_LIST(gcc_mdss_esc1_clk),
+	CLK_LIST(gcc_dcc_clk),
+	CLK_LIST(gcc_oxili_aon_clk),
+	CLK_LIST(gcc_qdss_dap_clk),
+	CLK_LIST(blsp1_qup1_i2c_apps_clk_src),
+	CLK_LIST(blsp1_qup1_spi_apps_clk_src),
+	CLK_LIST(gcc_blsp1_qup1_i2c_apps_clk),
+	CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
+	CLK_LIST(blsp2_qup4_i2c_apps_clk_src),
+	CLK_LIST(blsp2_qup4_spi_apps_clk_src),
+	CLK_LIST(gcc_blsp2_qup4_i2c_apps_clk),
+	CLK_LIST(gcc_blsp2_qup4_spi_apps_clk),
+	CLK_LIST(gcc_oxili_timer_clk),
+};
+
 static struct clk_lookup msm_clocks_lookup_8917[] = {
 	CLK_LIST(gpll0_clk_src_8937),
 	CLK_LIST(gpll0_ao_clk_src_8937),
@@ -4329,6 +4379,8 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	bool compat_bin2 = false;
 	bool compat_bin3 = false;
 	bool compat_bin4 = false;
+	bool compat_bin5 = false;
+	bool compat_bin6 = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-8937");
@@ -4342,11 +4394,17 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	compat_bin4 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-8920");
 
+	compat_bin5 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-sdm429");
+
+	compat_bin6 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-sdm439");
+
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
 		return ret;
 
-	if (compat_bin2 || compat_bin4)
+	if (compat_bin2 || compat_bin4 || compat_bin5)
 		nbases = APCS_C0_PLL_BASE;
 
 	ret = get_mmio_addr(pdev, nbases);
@@ -4374,7 +4432,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_dig.regulator[0]);
 	}
 
-	if (!compat_bin2 && !compat_bin4) {
+	if (!compat_bin2 && !compat_bin4 && !compat_bin5) {
 		vdd_sr2_pll.regulator[0] = devm_regulator_get(&pdev->dev,
 							"vdd_sr2_pll");
 		if (IS_ERR(vdd_sr2_pll.regulator[0])) {
@@ -4417,15 +4475,42 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	regval |= BIT(0);
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 
-	if (compat_bin || compat_bin3) {
+	if (compat_bin || compat_bin3 || compat_bin5 || compat_bin6) {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
 		/* Oxili Ocmem in GX rail: OXILI_GMEM_CLAMP_IO */
 		regval = readl_relaxed(GCC_REG_BASE(GX_DOMAIN_MISC));
 		regval &= ~BIT(0);
 		writel_relaxed(regval, GCC_REG_BASE(GX_DOMAIN_MISC));
-		get_speed_bin(pdev, &speed_bin);
+
+		if (compat_bin5 || compat_bin6)
+			speed_bin = 0;
+		else
+			get_speed_bin(pdev, &speed_bin);
+
 		override_for_8937(speed_bin);
+
+		if (compat_bin5 || compat_bin6) {
+			vdd_dig.num_levels = VDD_DIG_NUM_439;
+			vdd_dig.cur_level = VDD_DIG_NUM_439;
+			vdd_sr2_pll.num_levels = VDD_SR2_PLL_NUM_439;
+			vdd_sr2_pll.cur_level = VDD_SR2_PLL_NUM_439;
+			vdd_hf_pll.num_levels = VDD_HF_PLL_NUM_439;
+			vdd_hf_pll.cur_level = VDD_HF_PLL_NUM_439;
+
+			gpll3_clk_src.vco_tbl = p_vco;
+			gpll3_clk_src.num_vco = ARRAY_SIZE(p_vco);
+			gpll3_clk_src.c.fmax[VDD_DIG_LOW] = 800000000;
+			gpll3_clk_src.c.fmax[VDD_DIG_NOMINAL] = 1400000000;
+			gfx3d_clk_src.freq_tbl =
+					ftbl_gcc_oxili_gfx3d_clk_sdm439;
+
+			gfx3d_clk_src.c.fmax[VDD_DIG_LOWER] = 320000000;
+			gfx3d_clk_src.c.fmax[VDD_DIG_LOW] = 400000000;
+			gfx3d_clk_src.c.fmax[VDD_DIG_NOMINAL] = 510000000;
+			gfx3d_clk_src.c.fmax[VDD_DIG_NOM_PLUS] = 560000000;
+			gfx3d_clk_src.c.fmax[VDD_DIG_HIGH] = 650000000;
+		}
 
 		if (compat_bin3) {
 			if (speed_bin) {
@@ -4475,7 +4560,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	if (compat_bin)
+	if (compat_bin || compat_bin6)
 		ret = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_lookup_8937,
 					ARRAY_SIZE(msm_clocks_lookup_8937));
@@ -4491,6 +4576,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		ret = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_lookup_8920,
 					ARRAY_SIZE(msm_clocks_lookup_8920));
+	else if (compat_bin5)
+		ret = of_msm_clock_register(pdev->dev.of_node,
+					msm_clocks_lookup_sdm429,
+					ARRAY_SIZE(msm_clocks_lookup_sdm429));
 	else
 		ret = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_lookup_8952,
@@ -4513,7 +4602,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 	clk_prepare_enable(&xo_a_clk_src.c);
 
-	if (!compat_bin && !compat_bin3) {
+	if (!compat_bin && !compat_bin3 && !compat_bin5 && !compat_bin6) {
 		/* Configure Sleep and Wakeup cycles for GMEM clock */
 		regval = readl_relaxed(GCC_REG_BASE(OXILI_GMEM_CBCR));
 		regval ^= 0xFF0;
@@ -4546,6 +4635,8 @@ static const struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8917" },
 	{ .compatible = "qcom,gcc-8940" },
 	{ .compatible = "qcom,gcc-8920" },
+	{ .compatible = "qcom,gcc-sdm439" },
+	{ .compatible = "qcom,gcc-sdm429" },
 	{}
 };
 
