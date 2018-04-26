@@ -520,6 +520,34 @@
 						<&tpda_modem_out_funnel_in1>;
 				};
 			};
+
+			port@4 {
+				reg = <0>;
+				funnel_in1_in_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&etm0_out_funnel_in1>;
+				};
+			};
+		};
+	};
+
+	etm0: etm@7002000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b956>;
+
+		reg = <0x7002000 0x1000>;
+		cpu = <&CPU0>;
+
+		coresight-name = "coresight-etm0";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			etm0_out_funnel_in1: endpoint {
+				remote-endpoint = <&funnel_in1_in_etm0>;
+			};
 		};
 	};
 
