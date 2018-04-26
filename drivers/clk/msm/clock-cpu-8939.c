@@ -130,7 +130,16 @@ static enum handoff cpu_clk_8939_handoff(struct clk *c)
 
 static long cpu_clk_8939_round_rate(struct clk *c, unsigned long rate)
 {
-	return clk_round_rate(c->parent, rate);
+	int level;
+
+	for (level = 0; level < c->num_fmax; level++)
+		if (rate <= c->fmax[level])
+			break;
+
+	if (level == c->num_fmax)
+		return c->fmax[level-1];
+
+	return c->fmax[level];
 }
 
 static int cpu_clk_8939_set_rate(struct clk *c, unsigned long rate)
