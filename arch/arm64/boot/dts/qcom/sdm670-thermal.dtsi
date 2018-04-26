@@ -471,7 +471,9 @@
 			};
 			gpu_vdd_cdev {
 				trip = <&aoss0_trip>;
-				cooling-device = <&msm_gpu 0 0>;
+				/* Vote for SVS_L1 for GPU */
+				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-3)
+							(THERMAL_MAX_LIMIT-3)>;
 			};
 			cx_vdd_cdev {
 				trip = <&aoss0_trip>;
@@ -521,7 +523,9 @@
 			};
 			gpu_vdd_cdev {
 				trip = <&aoss1_trip>;
-				cooling-device = <&msm_gpu 0 0>;
+				/* Vote for SVS_L1 for GPU */
+				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-3)
+							(THERMAL_MAX_LIMIT-3)>;
 			};
 			cx_vdd_cdev {
 				trip = <&aoss1_trip>;
