@@ -5699,6 +5699,22 @@ static struct snd_soc_dai_link apq8096_auto_fe_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
+	},
+	{
+		.name = "DTMF RX Hostless",
+		.stream_name = "DTMF RX Hostless",
+		.cpu_dai_name = "DTMF_RX_HOSTLESS",
+		.platform_name = "msm-pcm-dtmf",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_DTMF_RX,
 	}
 };
 
