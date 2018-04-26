@@ -29,6 +29,10 @@ static const struct of_device_id cam_ife_csid170_dt_match[] = {
 		.compatible = "qcom,csid170",
 		.data = &cam_ife_csid170_hw_info,
 	},
+	{
+		.compatible = "qcom,csid175",
+		.data = &cam_ife_csid170_hw_info,
+	},
 	{}
 };
 

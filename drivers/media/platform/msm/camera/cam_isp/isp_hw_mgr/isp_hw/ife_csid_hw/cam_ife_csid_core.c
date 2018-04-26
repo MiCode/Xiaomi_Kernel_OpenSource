@@ -354,12 +354,11 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 
 static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 {
-	struct cam_hw_soc_info          *soc_info;
-	struct cam_ife_csid_reg_offset  *csid_reg;
+	struct cam_hw_soc_info                *soc_info;
+	const struct cam_ife_csid_reg_offset  *csid_reg;
 	int rc = 0;
 	uint32_t val = 0, i;
 	uint32_t status;
-
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -447,9 +446,9 @@ static int cam_ife_csid_path_reset(struct cam_ife_csid_hw *csid_hw,
 	struct cam_csid_reset_cfg_args  *reset)
 {
 	int rc = 0;
-	struct cam_hw_soc_info              *soc_info;
-	struct cam_isp_resource_node        *res;
-	struct cam_ife_csid_reg_offset      *csid_reg;
+	struct cam_hw_soc_info                    *soc_info;
+	struct cam_isp_resource_node              *res;
+	const struct cam_ife_csid_reg_offset      *csid_reg;
 	uint32_t  reset_strb_addr, reset_strb_val, val, id;
 	struct completion  *complete;
 
@@ -949,8 +948,8 @@ end:
 static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 {
 	int rc = 0;
-	struct cam_ife_csid_reg_offset      *csid_reg;
-	struct cam_hw_soc_info              *soc_info;
+	const struct cam_ife_csid_reg_offset      *csid_reg;
+	struct cam_hw_soc_info                    *soc_info;
 	uint32_t i, val;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1030,8 +1029,8 @@ err:
 static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 {
 	int rc = -EINVAL;
-	struct cam_hw_soc_info             *soc_info;
-	struct cam_ife_csid_reg_offset     *csid_reg;
+	struct cam_hw_soc_info                   *soc_info;
+	const struct cam_ife_csid_reg_offset     *csid_reg;
 
 	/* Check for refcount */
 	if (!csid_hw->hw_info->open_count) {
@@ -1077,7 +1076,7 @@ static int cam_ife_csid_tpg_start(struct cam_ife_csid_hw   *csid_hw,
 	int rc = 0;
 	uint32_t  val = 0;
 	struct cam_hw_soc_info    *soc_info;
-	struct cam_ife_csid_reg_offset *csid_reg = NULL;
+	const struct cam_ife_csid_reg_offset *csid_reg = NULL;
 
 	csid_hw->tpg_start_cnt++;
 	if (csid_hw->tpg_start_cnt == 1) {
@@ -1149,8 +1148,8 @@ static int cam_ife_csid_tpg_stop(struct cam_ife_csid_hw   *csid_hw,
 	struct cam_isp_resource_node       *res)
 {
 	int rc = 0;
-	struct cam_hw_soc_info    *soc_info;
-	struct cam_ife_csid_reg_offset *csid_reg = NULL;
+	struct cam_hw_soc_info                 *soc_info;
+	const struct cam_ife_csid_reg_offset   *csid_reg = NULL;
 
 	if (csid_hw->tpg_start_cnt)
 		csid_hw->tpg_start_cnt--;
@@ -1183,8 +1182,8 @@ static int cam_ife_csid_tpg_stop(struct cam_ife_csid_hw   *csid_hw,
 static int cam_ife_csid_config_tpg(struct cam_ife_csid_hw   *csid_hw,
 	struct cam_isp_resource_node       *res)
 {
-	struct cam_ife_csid_reg_offset *csid_reg;
-	struct cam_hw_soc_info         *soc_info;
+	const struct cam_ife_csid_reg_offset *csid_reg;
+	struct cam_hw_soc_info               *soc_info;
 	uint32_t val = 0;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1239,9 +1238,9 @@ static int cam_ife_csid_enable_csi2(
 	struct cam_isp_resource_node    *res)
 {
 	int rc = 0;
-	struct cam_ife_csid_reg_offset       *csid_reg;
-	struct cam_hw_soc_info               *soc_info;
-	struct cam_ife_csid_cid_data         *cid_data;
+	const struct cam_ife_csid_reg_offset       *csid_reg;
+	struct cam_hw_soc_info                     *soc_info;
+	struct cam_ife_csid_cid_data               *cid_data;
 	uint32_t val = 0;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1338,8 +1337,8 @@ static int cam_ife_csid_disable_csi2(
 	struct cam_ife_csid_hw          *csid_hw,
 	struct cam_isp_resource_node    *res)
 {
-	struct cam_ife_csid_reg_offset      *csid_reg;
-	struct cam_hw_soc_info              *soc_info;
+	const struct cam_ife_csid_reg_offset      *csid_reg;
+	struct cam_hw_soc_info                    *soc_info;
 
 	if (res->res_id >= CAM_IFE_CSID_CID_MAX) {
 		CAM_ERR(CAM_ISP, "CSID:%d Invalid res id :%d",
@@ -1373,7 +1372,7 @@ static int cam_ife_csid_init_config_ipp_path(
 {
 	int rc = 0;
 	struct cam_ife_csid_path_cfg           *path_data;
-	struct cam_ife_csid_reg_offset         *csid_reg;
+	const struct cam_ife_csid_reg_offset   *csid_reg;
 	struct cam_hw_soc_info                 *soc_info;
 	uint32_t decode_format = 0, plain_format = 0, val = 0;
 
@@ -1500,8 +1499,8 @@ static int cam_ife_csid_deinit_ipp_path(
 	struct cam_isp_resource_node    *res)
 {
 	int rc = 0;
-	struct cam_ife_csid_reg_offset      *csid_reg;
-	struct cam_hw_soc_info              *soc_info;
+	const struct cam_ife_csid_reg_offset      *csid_reg;
+	struct cam_hw_soc_info                    *soc_info;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1529,9 +1528,9 @@ static int cam_ife_csid_enable_ipp_path(
 	struct cam_ife_csid_hw          *csid_hw,
 	struct cam_isp_resource_node    *res)
 {
-	struct cam_ife_csid_reg_offset    *csid_reg;
-	struct cam_hw_soc_info            *soc_info;
-	struct cam_ife_csid_path_cfg      *path_data;
+	const struct cam_ife_csid_reg_offset    *csid_reg;
+	struct cam_hw_soc_info                  *soc_info;
+	struct cam_ife_csid_path_cfg            *path_data;
 	uint32_t val = 0;
 
 	path_data = (struct cam_ife_csid_path_cfg   *) res->res_priv;
@@ -1604,7 +1603,7 @@ static int cam_ife_csid_disable_ipp_path(
 	enum cam_ife_csid_halt_cmd       stop_cmd)
 {
 	int rc = 0;
-	struct cam_ife_csid_reg_offset       *csid_reg;
+	const struct cam_ife_csid_reg_offset *csid_reg;
 	struct cam_hw_soc_info               *soc_info;
 	struct cam_ife_csid_path_cfg         *path_data;
 
@@ -1662,7 +1661,7 @@ static int cam_ife_csid_init_config_rdi_path(
 {
 	int rc = 0;
 	struct cam_ife_csid_path_cfg           *path_data;
-	struct cam_ife_csid_reg_offset         *csid_reg;
+	const struct cam_ife_csid_reg_offset   *csid_reg;
 	struct cam_hw_soc_info                 *soc_info;
 	uint32_t path_format = 0, plain_fmt = 0, val = 0, id;
 
@@ -1797,8 +1796,8 @@ static int cam_ife_csid_deinit_rdi_path(
 {
 	int rc = 0;
 	uint32_t id;
-	struct cam_ife_csid_reg_offset      *csid_reg;
-	struct cam_hw_soc_info              *soc_info;
+	const struct cam_ife_csid_reg_offset      *csid_reg;
+	struct cam_hw_soc_info                    *soc_info;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1821,8 +1820,8 @@ static int cam_ife_csid_enable_rdi_path(
 	struct cam_ife_csid_hw          *csid_hw,
 	struct cam_isp_resource_node    *res)
 {
-	struct cam_ife_csid_reg_offset      *csid_reg;
-	struct cam_hw_soc_info              *soc_info;
+	const struct cam_ife_csid_reg_offset      *csid_reg;
+	struct cam_hw_soc_info                    *soc_info;
 	uint32_t id, val;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1868,8 +1867,8 @@ static int cam_ife_csid_disable_rdi_path(
 {
 	int rc = 0;
 	uint32_t id;
-	struct cam_ife_csid_reg_offset       *csid_reg;
-	struct cam_hw_soc_info               *soc_info;
+	const struct cam_ife_csid_reg_offset       *csid_reg;
+	struct cam_hw_soc_info                     *soc_info;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1918,11 +1917,11 @@ static int cam_ife_csid_disable_rdi_path(
 static int cam_ife_csid_get_time_stamp(
 		struct cam_ife_csid_hw   *csid_hw, void *cmd_args)
 {
-	struct cam_csid_get_time_stamp_args  *time_stamp;
-	struct cam_isp_resource_node         *res;
-	struct cam_ife_csid_reg_offset       *csid_reg;
-	struct cam_hw_soc_info               *soc_info;
-	struct cam_ife_csid_rdi_reg_offset   *rdi_reg;
+	struct cam_csid_get_time_stamp_args        *time_stamp;
+	struct cam_isp_resource_node               *res;
+	const struct cam_ife_csid_reg_offset       *csid_reg;
+	struct cam_hw_soc_info                     *soc_info;
+	const struct cam_ife_csid_rdi_reg_offset   *rdi_reg;
 	struct timespec64 ts;
 	uint32_t  time_32, id;
 
@@ -1996,10 +1995,10 @@ static int cam_ife_csid_get_hw_caps(void *hw_priv,
 	void *get_hw_cap_args, uint32_t arg_size)
 {
 	int rc = 0;
-	struct cam_ife_csid_hw_caps     *hw_caps;
-	struct cam_ife_csid_hw          *csid_hw;
-	struct cam_hw_info              *csid_hw_info;
-	struct cam_ife_csid_reg_offset  *csid_reg;
+	struct cam_ife_csid_hw_caps           *hw_caps;
+	struct cam_ife_csid_hw                *csid_hw;
+	struct cam_hw_info                    *csid_hw_info;
+	const struct cam_ife_csid_reg_offset  *csid_reg;
 
 	if (!hw_priv || !get_hw_cap_args) {
 		CAM_ERR(CAM_ISP, "CSID: Invalid args");
@@ -2190,7 +2189,7 @@ static int cam_ife_csid_reset_retain_sw_reg(
 	struct cam_ife_csid_hw *csid_hw)
 {
 	int rc = 0;
-	struct cam_ife_csid_reg_offset *csid_reg =
+	const struct cam_ife_csid_reg_offset *csid_reg =
 		csid_hw->csid_info->csid_reg;
 
 	init_completion(&csid_hw->csid_top_complete);
@@ -2220,7 +2219,7 @@ static int cam_ife_csid_init_hw(void *hw_priv,
 	struct cam_ife_csid_hw                 *csid_hw;
 	struct cam_hw_info                     *csid_hw_info;
 	struct cam_isp_resource_node           *res;
-	struct cam_ife_csid_reg_offset         *csid_reg;
+	const struct cam_ife_csid_reg_offset   *csid_reg;
 
 	if (!hw_priv || !init_args ||
 		(arg_size != sizeof(struct cam_isp_resource_node))) {
@@ -2357,7 +2356,7 @@ static int cam_ife_csid_start(void *hw_priv, void *start_args,
 	struct cam_ife_csid_hw                 *csid_hw;
 	struct cam_hw_info                     *csid_hw_info;
 	struct cam_isp_resource_node           *res;
-	struct cam_ife_csid_reg_offset         *csid_reg;
+	const struct cam_ife_csid_reg_offset   *csid_reg;
 
 	if (!hw_priv || !start_args ||
 		(arg_size != sizeof(struct cam_isp_resource_node))) {
@@ -2522,10 +2521,10 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 
 irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 {
-	struct cam_ife_csid_hw          *csid_hw;
-	struct cam_hw_soc_info          *soc_info;
-	struct cam_ife_csid_reg_offset  *csid_reg;
-	struct cam_ife_csid_csi2_rx_reg_offset *csi2_reg;
+	struct cam_ife_csid_hw                         *csid_hw;
+	struct cam_hw_soc_info                         *soc_info;
+	const struct cam_ife_csid_reg_offset           *csid_reg;
+	const struct cam_ife_csid_csi2_rx_reg_offset   *csi2_reg;
 	uint32_t i, irq_status_top, irq_status_rx, irq_status_ipp = 0;
 	uint32_t irq_status_rdi[4] = {0, 0, 0, 0};
 	uint32_t val;
