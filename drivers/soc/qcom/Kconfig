@@ -666,6 +666,15 @@ config MSM_JTAGV8
 	  and ETM registers are saved and restored across power collapse.
 	  If unsure, say 'N' here to avoid potential power, performance and
 	  memory penalty.
+config QTEE_SHM_BRIDGE
+	bool "QTI TEE shared memory bridge"
+	help
+	  QTEE shared memory bridge driver provides kernel APIs to share
+	  memory between trustzone & other VMs through shared memory bridge.
+	  It allows kernel clients to create bridge, delete bridge, and do
+	  memory sub-allocation and free from the default kernel bridge
+	  created by bridge driver.
+
 endmenu
 
 source "drivers/soc/qcom/memshare/Kconfig"
