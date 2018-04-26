@@ -3940,7 +3940,7 @@ static void dsi_display_setup(struct dsi_display *display)
 
 	}
 
-	display->display_type = of_get_property(pdev->dev.of_node,
+	display->display_type = of_get_property(display->disp_node,
 					"qcom,display-type", NULL);
 	if (!display->display_type)
 		display->display_type = "unknown";
