@@ -177,4 +177,5 @@
 
 &mdss_dsi {
 	vdda-supply = <&pm8953_l2>;
+	vddio-supply = <&pm8953_l6>;
 };
