@@ -374,7 +374,7 @@ static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
 {
 	ipa3_active_clients_log_print_table(active_clients_table_buf,
 			IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE);
-	IPAERR("%s", active_clients_table_buf);
+	IPAERR("%s\n", active_clients_table_buf);
 
 	return NOTIFY_DONE;
 }
@@ -4272,6 +4272,9 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 	res = ipa3_uc_panic_notifier(this, event, ptr);
 	if (res)
 		IPAERR("uC panic handler failed %d\n", res);
+
+	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0)
+		ipahal_print_all_regs();
 
 	return NOTIFY_DONE;
 }
