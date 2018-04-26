@@ -17,6 +17,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/irq.h>
+#include <linux/iio/consumer.h>
 #include <linux/pmic-voter.h>
 #include "smb5-lib.h"
 #include "smb5-reg.h"
@@ -1799,6 +1800,36 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	if (chg->iio.usbin_v_chan)
+		return iio_read_channel_processed(chg->iio.usbin_v_chan,
+				&val->intval);
+	else
+		return -ENODATA;
+}
+
+int smblib_get_prop_charger_temp(struct smb_charger *chg,
+				 union power_supply_propval *val)
+{
+	int rc;
+
+	if (chg->iio.temp_chan) {
+		rc = iio_read_channel_processed(chg->iio.temp_chan,
+				&val->intval);
+		if (rc < 0) {
+			pr_err("Error in reading temp channel, rc=%d", rc);
+			return rc;
+		}
+		val->intval /= 100;
+	} else {
+		return -ENODATA;
+	}
+
+	return rc;
+}
+
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
 					 union power_supply_propval *val)
 {
@@ -1944,6 +1975,36 @@ int smblib_get_prop_typec_power_role(struct smb_charger *chg,
 		return -EINVAL;
 	}
 
+	return rc;
+}
+
+int smblib_get_prop_usb_current_now(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	int rc = 0;
+
+	if (chg->iio.usbin_i_chan) {
+		rc = iio_read_channel_processed(chg->iio.usbin_i_chan,
+				&val->intval);
+
+		/*
+		 * For PM855B, scaling factor = reciprocal of
+		 * 0.2V/A in Buck mode, 0.4V/A in Boost mode.
+		 */
+		if (smblib_get_prop_ufp_mode(chg) != POWER_SUPPLY_TYPEC_NONE) {
+			val->intval *= 5;
+			return rc;
+		}
+
+		if (smblib_get_prop_dfp_mode(chg) != POWER_SUPPLY_TYPEC_NONE) {
+			val->intval = DIV_ROUND_CLOSEST(val->intval * 100, 40);
+			return rc;
+		}
+	} else {
+		rc = -ENODATA;
+	}
+
+	val->intval = 0;
 	return rc;
 }
 
@@ -3575,6 +3636,16 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->chg_disable_votable);
 }
 
+static void smblib_iio_deinit(struct smb_charger *chg)
+{
+	if (!IS_ERR_OR_NULL(chg->iio.usbin_v_chan))
+		iio_channel_release(chg->iio.usbin_v_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.usbin_i_chan))
+		iio_channel_release(chg->iio.usbin_i_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.temp_chan))
+		iio_channel_release(chg->iio.temp_chan);
+}
+
 int smblib_init(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -3665,6 +3736,8 @@ int smblib_deinit(struct smb_charger *chg)
 		smblib_err(chg, "Unsupported mode %d\n", chg->mode);
 		return -EINVAL;
 	}
+
+	smblib_iio_deinit(chg);
 
 	return 0;
 }
