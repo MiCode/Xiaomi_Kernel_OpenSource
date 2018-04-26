@@ -713,16 +713,30 @@
 		qcom,wakeup-enable;
 	};
 
+	qcom,chd_sliver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x18000058 0x18010058
+				      0x18020058 0x18030058
+				      0x18040058 0x18050058>;
+		qcom,config-arr = <0x18000060 0x18010060
+				   0x18020060 0x18030060
+				   0x18040060 0x18050060>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0x18060058 0x18070058>;
+		qcom,config-arr = <0x18060060 0x18070060>;
+	};
+
 	kryo-erp {
 		compatible = "arm,arm64-kryo-cpu-erp";
 		interrupts = <1 6 4>,
-			     <1 7 4>,
-			     <0 34 4>,
 			     <0 35 4>;
 
 		interrupt-names = "l1-l2-faultirq",
-				  "l1-l2-errirq",
-				  "l3-scu-errirq",
 				  "l3-scu-faultirq";
 	};
 
