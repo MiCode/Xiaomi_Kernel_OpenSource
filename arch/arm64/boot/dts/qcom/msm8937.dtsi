@@ -325,16 +325,6 @@
 		compatible = "qcom,mem-dump";
 		memory-region = <&dump_mem>;
 
-		rpmh_dump {
-			qcom,dump-size = <0x2000000>;
-			qcom,dump-id = <0xec>;
-		};
-
-		fcm_dump {
-			qcom,dump-size = <0x8400>;
-			qcom,dump-id = <0xee>;
-		};
-
 		rpm_sw_dump {
 			qcom,dump-size = <0x28000>;
 			qcom,dump-id = <0xea>;
