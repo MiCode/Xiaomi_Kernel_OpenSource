@@ -1243,6 +1243,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	cfg.hw_update_entries = req_isp->cfg;
 	cfg.num_hw_update_entries = req_isp->num_cfg;
 	cfg.priv  = &req_isp->hw_update_data;
+	cfg.init_packet = 0;
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc) {
@@ -2373,6 +2374,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	arg.hw_update_entries = req_isp->cfg;
 	arg.num_hw_update_entries = req_isp->num_cfg;
 	arg.priv  = &req_isp->hw_update_data;
+	arg.init_packet = 1;
 
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;

@@ -1304,6 +1304,11 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 	for (index = 0; index < ctrl->power_setting_size; index++) {
 		CAM_DBG(CAM_SENSOR, "index: %d", index);
 		power_setting = &ctrl->power_setting[index];
+		if (!power_setting) {
+			CAM_ERR(CAM_SENSOR, "Invalid power up settings");
+			return -EINVAL;
+		}
+
 		CAM_DBG(CAM_SENSOR, "seq_type %d", power_setting->seq_type);
 
 		switch (power_setting->seq_type) {
@@ -1589,6 +1594,11 @@ static int cam_config_mclk_reg(struct cam_sensor_power_ctrl_t *ctrl,
 	num_vreg = soc_info->num_rgltr;
 
 	pd = &ctrl->power_down_setting[index];
+
+	if (!pd) {
+		CAM_ERR(CAM_SENSOR, "Invalid power down setting");
+		return -EINVAL;
+	}
 
 	for (j = 0; j < num_vreg; j++) {
 		if (!strcmp(soc_info->rgltr_name[j], "cam_clk")) {

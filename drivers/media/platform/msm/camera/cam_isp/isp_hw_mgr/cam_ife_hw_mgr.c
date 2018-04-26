@@ -1617,7 +1617,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 			cdm_cmd->cmd[i].len = cmd->len;
 		}
 
-		if (cfg->request_id == 1)
+		if (cfg->init_packet)
 			init_completion(&ctx->config_done_complete);
 
 		CAM_DBG(CAM_ISP, "Submit to CDM");
@@ -1627,7 +1627,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 			return rc;
 		}
 
-		if (cfg->request_id == 1) {
+		if (cfg->init_packet) {
 			rc = wait_for_completion_timeout(
 				&ctx->config_done_complete,
 				msecs_to_jiffies(30));

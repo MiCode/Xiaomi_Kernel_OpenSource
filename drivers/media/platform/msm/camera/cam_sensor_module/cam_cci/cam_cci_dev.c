@@ -16,7 +16,6 @@
 #include "cam_cci_core.h"
 
 #define CCI_MAX_DELAY 1000000
-#define CCI_TIMEOUT msecs_to_jiffies(500)
 
 static struct v4l2_subdev *g_cci_subdev[MAX_CCI];
 
