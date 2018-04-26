@@ -215,6 +215,8 @@ struct msm_otg_platform_data {
 	bool vbus_low_as_hostmode;
 };
 
+#define SDP_CHECK_DELAY_MS 10000 /* in ms */
+
 #define MSM_USB_BASE	(motg->regs)
 #define MSM_USB_PHY_CSR_BASE (motg->phy_csr_regs)
 
@@ -1808,23 +1810,41 @@ skip_phy_resume:
 }
 #endif
 
-static void msm_otg_notify_chg_current(struct msm_otg *motg, unsigned int mA)
+static int get_psy_type(struct msm_otg *motg)
 {
-	struct usb_gadget *g = motg->phy.otg->gadget;
 	union power_supply_propval pval = {0};
 
-	if (g && g->is_a_peripheral)
-		return;
-
-	dev_dbg(motg->phy.dev, "Requested curr from USB = %u\n", mA);
 	if (!psy) {
-		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
-		return;
+		dev_err(motg->phy.dev, "no usb power supply registered\n");
+		return -ENODEV;
 	}
 
 	power_supply_get_property(psy, POWER_SUPPLY_PROP_REAL_TYPE, &pval);
 
-	if (motg->cur_power == mA || pval.intval != POWER_SUPPLY_TYPE_USB)
+	return pval.intval;
+}
+
+static void msm_otg_notify_chg_current(struct msm_otg *motg, unsigned int mA)
+{
+	struct usb_gadget *g = motg->phy.otg->gadget;
+	union power_supply_propval pval = {0};
+	int psy_type;
+
+	if (g && g->is_a_peripheral)
+		return;
+
+	psy_type = get_psy_type(motg);
+	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
+		if (!mA)
+			pval.intval = -ETIMEDOUT;
+		else
+			pval.intval = 1000 * mA;
+		goto set_prop;
+	}
+
+	dev_dbg(motg->phy.dev, "Requested curr from USB = %u\n", mA);
+
+	if (motg->cur_power == mA || psy_type != POWER_SUPPLY_TYPE_USB)
 		return;
 
 	dev_info(motg->phy.dev, "Avail curr from USB = %u\n", mA);
@@ -1833,6 +1853,7 @@ static void msm_otg_notify_chg_current(struct msm_otg *motg, unsigned int mA)
 	/* Set max current limit in uA */
 	pval.intval = 1000 * mA;
 
+set_prop:
 	if (power_supply_set_property(psy, POWER_SUPPLY_PROP_SDP_CURRENT_MAX,
 								&pval)) {
 		dev_dbg(motg->phy.dev, "power supply error when setting property\n");
@@ -2335,6 +2356,21 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 							USB_ID_GROUND;
 }
 
+static void check_for_sdp_connection(struct work_struct *w)
+{
+	struct msm_otg *motg = container_of(w, struct msm_otg, sdp_check.work);
+
+	/* Cable disconnected or device enumerated as SDP */
+	if (!motg->vbus_state || motg->phy.otg->gadget->state >=
+							USB_STATE_DEFAULT)
+		return;
+
+	/* floating D+/D- lines detected */
+	motg->vbus_state = 0;
+	msm_otg_dbg_log_event(&motg->phy, "Q RW SDP CHK", motg->vbus_state, 0);
+	msm_otg_set_vbus_state(motg->vbus_state);
+}
+
 static void msm_otg_sm_work(struct work_struct *w)
 {
 	struct msm_otg *motg = container_of(w, struct msm_otg, sm_work);
@@ -2408,6 +2444,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 				break;
 			}
 
+			if (get_psy_type(motg) == POWER_SUPPLY_TYPE_USB_FLOAT)
+				queue_delayed_work(motg->otg_wq,
+					&motg->sdp_check,
+					msecs_to_jiffies(SDP_CHECK_DELAY_MS));
+
 			pm_runtime_get_sync(otg->usb_phy->dev);
 			msm_otg_start_peripheral(otg, 1);
 			otg->state = OTG_STATE_B_PERIPHERAL;
@@ -2421,6 +2462,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 		break;
 	case OTG_STATE_B_PERIPHERAL:
 		if (!test_bit(B_SESS_VLD, &motg->inputs)) {
+			cancel_delayed_work_sync(&motg->sdp_check);
 			msm_otg_start_peripheral(otg, 0);
 			msm_otg_dbg_log_event(&motg->phy, "RT PM: B_PERI A PUT",
 				get_pm_runtime_counter(dev), 0);
@@ -2443,6 +2485,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 		break;
 	case OTG_STATE_B_SUSPEND:
 		if (!test_bit(B_SESS_VLD, &motg->inputs)) {
+			cancel_delayed_work_sync(&motg->sdp_check);
 			msm_otg_start_peripheral(otg, 0);
 			otg->state = OTG_STATE_B_IDLE;
 			/* Schedule work to finish cable disconnect processing*/
@@ -3824,6 +3867,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->id_status_work, msm_id_status_w);
 	INIT_DELAYED_WORK(&motg->perf_vote_work, msm_otg_perf_vote_work);
+	INIT_DELAYED_WORK(&motg->sdp_check, check_for_sdp_connection);
 	INIT_WORK(&motg->notify_chg_current_work,
 			 msm_otg_notify_chg_current_work);
 	motg->otg_wq = alloc_ordered_workqueue("k_otg", 0);
@@ -4176,6 +4220,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	if (psy)
 		power_supply_put(psy);
 	msm_otg_debugfs_cleanup();
+	cancel_delayed_work_sync(&motg->sdp_check);
 	cancel_delayed_work_sync(&motg->id_status_work);
 	cancel_delayed_work_sync(&motg->perf_vote_work);
 	msm_otg_perf_vote_update(motg, false);
