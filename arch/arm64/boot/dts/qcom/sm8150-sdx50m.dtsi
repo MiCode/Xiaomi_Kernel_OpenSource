@@ -54,3 +54,13 @@
 &pcie1 {
 	dma-coherent;
 };
+
+&soc {
+	imp: qcom,ipa-mhi-proxy {
+		compatible = "qcom,ipa-mhi-proxy";
+		qcom,ctrl-iova = <0x00010000 0x0FFF0000>;
+		qcom,data-iova = <0x10000000 0x0FFFFFFF>;
+		qcom,mhi-chdb-base = <0x40300300>;
+		qcom,mhi-erdb-base = <0x40300700>;
+	};
+};
