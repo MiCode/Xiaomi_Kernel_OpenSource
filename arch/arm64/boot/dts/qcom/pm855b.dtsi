@@ -151,6 +151,7 @@
 			#size-cells = <0>;
 			#thermal-sensor-cells = <1>;
 			io-channels = <&pm855b_vadc ADC_AMUX_THM2_PU2>;
+			status = "disabled";
 		};
 
 		pm855b_charger: qcom,qpnp-smb5 {
