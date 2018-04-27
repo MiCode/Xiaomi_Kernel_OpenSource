@@ -1658,12 +1658,14 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 	}
 
 	if (disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) {
+
 		if (is_dummy)
 			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_1;
 		else if (disp_info->is_te_using_watchdog_timer)
 			vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_0;
 		else
-			vsync_source = SDE_VSYNC0_SOURCE_GPIO;
+			vsync_source =
+				sde_enc->cur_master->hw_pp->caps->te_source;
 
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
 			phys = sde_enc->phys_encs[i];
