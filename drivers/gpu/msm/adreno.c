@@ -613,6 +613,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
+	unsigned int shadow_status = 0;
 	int i;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
@@ -635,18 +636,29 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	 * and change the fence back to ALLOW. Poll so that this can happen.
 	 */
 	if (kgsl_gmu_isenabled(device)) {
-		do {
+		adreno_readreg(adreno_dev,
+				ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
+				&fence);
+
+		while (fence != 0) {
+			/* Wait for small time before trying again */
+			udelay(1);
 			adreno_readreg(adreno_dev,
 					ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
 					&fence);
 
-			if (fence_retries == FENCE_RETRY_MAX) {
+			if (fence_retries == FENCE_RETRY_MAX && fence != 0) {
+				adreno_readreg(adreno_dev,
+					ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
+					&shadow_status);
+
 				KGSL_DRV_CRIT_RATELIMIT(device,
-						"AHB fence stuck in ISR\n");
+					"AHB fence stuck in ISR: Shadow INT status=%8.8X\n",
+					shadow_status & irq_params->mask);
 				goto done;
 			}
 			fence_retries++;
-		} while (fence != 0);
+		}
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
