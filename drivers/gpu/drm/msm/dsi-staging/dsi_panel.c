@@ -3010,11 +3010,7 @@ int dsi_panel_get_phy_props(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-
 	memcpy(phy_props, &panel->phy_props, sizeof(*phy_props));
-
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -3028,11 +3024,7 @@ int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-
 	memcpy(dfps_caps, &panel->dfps_caps, sizeof(*dfps_caps));
-
-	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
