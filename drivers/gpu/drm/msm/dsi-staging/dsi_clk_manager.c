@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1070,6 +1070,76 @@ int dsi_clk_req_state(void *client, enum dsi_clk_type clk,
 }
 
 DEFINE_MUTEX(dsi_mngr_clk_mutex);
+
+static int dsi_display_link_clk_force_update(void *client)
+{
+	int rc = 0;
+	struct dsi_clk_client_info *c = client;
+	struct dsi_clk_mngr *mngr;
+	struct dsi_link_clks *l_clks;
+
+	if (!client) {
+		pr_err("%s: Invalid arg\n", __func__);
+		return -EINVAL;
+	}
+	mngr = c->mngr;
+
+	mutex_lock(&mngr->clk_mutex);
+
+	l_clks = mngr->link_clks;
+
+	/*
+	 * When link_clk_state is DSI_CLK_OFF, don't change DSI clock rate
+	 * since it is possible to be overwritten, and return -EAGAIN to
+	 * dynamic DSI writing interface to defer the reenabling to the next
+	 * drm commit.
+	 */
+	if (mngr->link_clk_state == DSI_CLK_OFF) {
+		rc = -EAGAIN;
+		goto error;
+	}
+
+	rc = dsi_display_link_clk_disable(l_clks,
+		mngr->dsi_ctrl_count, mngr->master_ndx);
+	if (rc) {
+		pr_err("%s, failed to stop link clk, rc = %d\n",
+			__func__, rc);
+		goto error;
+	}
+
+	rc = dsi_display_link_clk_enable(l_clks,
+		mngr->dsi_ctrl_count, mngr->master_ndx);
+	if (rc) {
+		pr_err("%s, failed to start link clk rc= %d\n",
+			__func__, rc);
+		goto error;
+	}
+
+error:
+	mutex_unlock(&mngr->clk_mutex);
+	return rc;
+
+}
+
+int dsi_display_link_clk_force_update_ctrl(void *handle)
+{
+	int rc = 0;
+
+	if (!handle) {
+		pr_err("%s: Invalid arg\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_mngr_clk_mutex);
+
+	rc = dsi_display_link_clk_force_update(handle);
+	if (rc && (rc != -EAGAIN))
+		pr_err("%s: failed set clk state, rc = %d\n", __func__, rc);
+
+	mutex_unlock(&dsi_mngr_clk_mutex);
+
+	return rc;
+}
 
 int dsi_display_clk_ctrl(void *handle,
 	enum dsi_clk_type clk_type, enum dsi_clk_state clk_state)
