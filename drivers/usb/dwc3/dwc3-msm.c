@@ -3593,6 +3593,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Mark type-C as true by default */
 	mdwc->type_c = true;
+	if (of_property_read_bool(node, "qcom,connector-type-uAB"))
+		mdwc->type_c = false;
 
 	mdwc->usb_psy = power_supply_get_by_name("usb");
 	if (!mdwc->usb_psy) {
