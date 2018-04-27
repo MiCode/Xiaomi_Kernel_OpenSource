@@ -722,14 +722,15 @@ static int smb1390_probe(struct platform_device *pdev)
 	rc = smb1390_parse_dt(chip);
 	if (rc < 0) {
 		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		goto out_work;
+		return rc;
 	}
 
 	chip->vadc_dev = qpnp_get_vadc(chip->dev, "smb");
 	if (IS_ERR(chip->vadc_dev)) {
 		rc = PTR_ERR(chip->vadc_dev);
-		pr_err("Couldn't get vadc dev rc=%d\n", rc);
-		goto out_work;
+		if (rc != -EPROBE_DEFER)
+			pr_err("Couldn't get vadc dev rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smb1390_create_votables(chip);
