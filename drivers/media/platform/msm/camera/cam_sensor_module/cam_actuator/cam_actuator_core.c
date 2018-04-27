@@ -636,6 +636,12 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		return -EINVAL;
 	}
 
+	if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
+		CAM_ERR(CAM_ACTUATOR, "Invalid handle type: %d",
+			cmd->handle_type);
+		return -EINVAL;
+	}
+
 	CAM_DBG(CAM_ACTUATOR, "Opcode to Actuator: %d", cmd->op_code);
 
 	mutex_lock(&(a_ctrl->actuator_mutex));
@@ -769,6 +775,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		rc = cam_actuator_i2c_pkt_parse(a_ctrl, arg);
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, "Failed in actuator Parsing");
+			goto release_mutex;
 		}
 
 		if (a_ctrl->setting_apply_state ==
