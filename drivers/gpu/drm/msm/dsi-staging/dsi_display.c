@@ -3701,11 +3701,6 @@ static int dsi_display_force_update_dsi_clk(struct dsi_display *display)
 {
 	int rc = 0;
 
-	if (!display || !display->panel) {
-		pr_err("Invalid params\n");
-		return -EINVAL;
-	}
-
 	rc = dsi_display_link_clk_force_update_ctrl(display->dsi_clk_handle);
 
 	if (!rc) {
@@ -3713,8 +3708,6 @@ static int dsi_display_force_update_dsi_clk(struct dsi_display *display)
 			display->cached_clk_rate);
 
 		atomic_set(&display->clkrate_change_pending, 0);
-	} else if (rc == -EAGAIN) {
-		pr_info("Clock is disabled, update it next time\n");
 	} else {
 		pr_err("Failed to configure dsi bit clock '%d'. rc = %d\n",
 			display->cached_clk_rate, rc);
@@ -3730,7 +3723,7 @@ static int dsi_display_request_update_dsi_bitrate(struct dsi_display *display,
 	int i;
 
 	pr_debug("%s:bit rate:%d\n", __func__, bit_clk_rate);
-	if (!display || !display->panel) {
+	if (!display->panel) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
@@ -3809,11 +3802,6 @@ static ssize_t sysfs_dynamic_dsi_clk_read(struct device *dev,
 	struct dsi_display_ctrl *m_ctrl;
 	struct dsi_ctrl *ctrl;
 
-	if (!dev) {
-		pr_err("Invalid device\n");
-		return -EINVAL;
-	}
-
 	display = dev_get_drvdata(dev);
 	if (!display) {
 		pr_err("Invalid display\n");
@@ -3829,7 +3817,7 @@ static ssize_t sysfs_dynamic_dsi_clk_read(struct device *dev,
 					     * 8;
 
 	rc = snprintf(buf, PAGE_SIZE, "%d\n", display->cached_clk_rate);
-	pr_info("%s: read dsi clk rate %d\n", __func__,
+	pr_debug("%s: read dsi clk rate %d\n", __func__,
 		display->cached_clk_rate);
 
 	mutex_unlock(&display->display_lock);
@@ -3843,11 +3831,6 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 	int rc = 0;
 	int clk_rate;
 	struct dsi_display *display;
-
-	if (!dev) {
-		pr_err("Invalid device\n");
-		return -EINVAL;
-	}
 
 	display = dev_get_drvdata(dev);
 	if (!display) {
@@ -5569,11 +5552,8 @@ int dsi_display_pre_kickoff(struct drm_connector *connector,
 			int ret = 0;
 
 			ret = dsi_ctrl_wait_for_cmd_mode_mdp_idle(ctrl);
-			if (ret) {
-				pr_info("Failed to wait for cmd engine not to be busy sending data from MDP, rc: %d\n",
-					ret);
+			if (ret)
 				goto wait_failure;
-			}
 		}
 
 		/*
