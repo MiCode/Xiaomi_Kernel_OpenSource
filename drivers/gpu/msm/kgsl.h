@@ -27,6 +27,7 @@
 #include <linux/uaccess.h>
 #include <linux/kthread.h>
 #include <asm/cacheflush.h>
+#include <linux/compat.h>
 
 /*
  * --- kgsl drawobj flags ---
@@ -629,5 +630,10 @@ static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
 		return;
 
 	kernfs_create_link(dst->sd, dst_name, old);
+}
+
+static inline bool kgsl_is_compat_task(void)
+{
+	return (BITS_PER_LONG == 32) || is_compat_task();
 }
 #endif /* __KGSL_H */

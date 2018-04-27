@@ -201,7 +201,7 @@ static int adc_tm5_configure(struct adc_tm_sensor *sensor,
 	buf[5] = sensor->timer_select;
 
 	/* Set calibration select, hw_settle delay */
-	cal_sel |= (u8) (sensor->cal_sel << ADC_TM_CTL_CAL_SEL_MASK_SHIFT);
+	cal_sel = (u8) (sensor->cal_sel << ADC_TM_CTL_CAL_SEL_MASK_SHIFT);
 	buf[6] &= (u8) ~ADC_TM_CTL_HW_SETTLE_DELAY_MASK;
 	buf[6] |= (u8) sensor->hw_settle_time;
 	buf[6] &= (u8) ~ADC_TM_CTL_CAL_SEL;
@@ -299,7 +299,7 @@ static int adc_tm5_activate_trip_type(struct adc_tm_sensor *adc_tm,
 static int adc_tm5_set_trip_temp(struct adc_tm_sensor *sensor,
 					int low_temp, int high_temp)
 {
-	struct adc_tm_chip *chip = sensor->chip;
+	struct adc_tm_chip *chip;
 	struct adc_tm_config tm_config;
 	u8 trip_low_thr[2], trip_high_thr[2];
 	uint16_t reg_low_thr_lsb, reg_high_thr_lsb;
@@ -313,6 +313,7 @@ static int adc_tm5_set_trip_temp(struct adc_tm_sensor *sensor,
 	pr_debug("%s:low_temp(mdegC):%d, high_temp(mdegC):%d\n", __func__,
 							low_temp, high_temp);
 
+	chip = sensor->chip;
 	tm_config.channel = sensor->adc_ch;
 	tm_config.high_thr_temp = tm_config.low_thr_temp = 0;
 	if (high_temp != INT_MAX)
@@ -516,7 +517,7 @@ static int adc_tm5_register_interrupts(struct adc_tm_chip *chip)
 
 static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 {
-	u8 buf[4], channels_available;
+	u8 buf[4], channels_available, meas_int_timer_2_3 = 0;
 	int ret, i;
 
 	ret = adc_tm5_read_reg(chip, ADC_TM_NUM_BTM, &channels_available, 1);
@@ -531,18 +532,27 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 		return -EINVAL;
 	}
 
+	ret = adc_tm5_read_reg(chip,
+			ADC_TM_ADC_DIG_PARAM, buf, 4);
+	if (ret < 0) {
+		pr_err("adc-tm block read failed with %d\n", ret);
+		return ret;
+	}
+
 	/* Select decimation */
 	buf[0] = chip->prop.decimation;
 
 	/* Select number of samples in fast average mode */
-	buf[1] |= chip->prop.fast_avg_samples | ADC_TM_FAST_AVG_EN;
+	buf[1] = chip->prop.fast_avg_samples | ADC_TM_FAST_AVG_EN;
 
 	/* Select timer1 */
 	buf[2] = chip->prop.timer1;
 
-	/* Select timer2 and timer2 */
-	buf[3] |= chip->prop.timer2 << ADC_TM_MEAS_INTERVAL_CTL2_SHIFT;
-	buf[3] |= chip->prop.timer3;
+	/* Select timer2 and timer3 */
+	meas_int_timer_2_3 |= chip->prop.timer2 <<
+				ADC_TM_MEAS_INTERVAL_CTL2_SHIFT;
+	meas_int_timer_2_3 |= chip->prop.timer3;
+	buf[3] = meas_int_timer_2_3;
 
 	ret = adc_tm5_write_reg(chip,
 			ADC_TM_ADC_DIG_PARAM, buf, 4);

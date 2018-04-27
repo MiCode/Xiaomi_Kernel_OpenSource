@@ -3748,23 +3748,22 @@ static void msm_pcie_setup_gen3(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG(dev, "PCIe: RC%d: Setting up Gen3\n", dev->rc_idx);
 
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_EQ_FB_MODE_DIR_CHANGE,
-		(0x05 << 14) | (0x05 << 10) | (0x0d <<  5));
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_GEN2_CTRL, 0x1f00, 1);
 
-	msm_pcie_write_mask(dev->dm_core +
-		PCIE_GEN3_EQ_CONTROL, BIT(4), 0);
+	msm_pcie_write_mask(dev->dm_core,
+		PCIE_GEN3_EQ_CONTROL, 0x20);
 
 	msm_pcie_write_mask(dev->dm_core +
 		PCIE_GEN3_RELATED, BIT(0), 0);
 
 	/* configure PCIe preset */
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, 1);
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
 	msm_pcie_write_reg(dev->dm_core,
 		PCIE_GEN3_SPCIE_CAP, 0x77777777);
-	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_MISC_CONTROL, 1);
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
 }
 
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)

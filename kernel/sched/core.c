@@ -2276,6 +2276,8 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
 	p->last_sleep_ts		= 0;
+	p->last_cpu_selected_ts		= 0;
+
 	INIT_LIST_HEAD(&p->se.group_node);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -3117,6 +3119,8 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 
 	return ns;
 }
+
+unsigned int capacity_margin_freq = 1280; /* ~20% margin */
 
 /*
  * This function gets called by the timer code, with HZ frequency.
@@ -5789,9 +5793,9 @@ int do_isolation_work_cpu_stop(void *data)
 
 	watchdog_disable(cpu);
 
-	irq_migrate_all_off_this_cpu();
-
 	local_irq_disable();
+
+	irq_migrate_all_off_this_cpu();
 
 	sched_ttwu_pending();
 

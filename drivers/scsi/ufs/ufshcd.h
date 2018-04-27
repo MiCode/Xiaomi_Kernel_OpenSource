@@ -892,10 +892,10 @@ struct ufs_hba {
 
 	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST		UFS_BIT(13)
 
-	#define UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE		UFS_BIT(8)
+	#define UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE		UFS_BIT(14)
 
 	/* Auto hibern8 support is broken */
-	#define UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8		UFS_BIT(9)
+	#define UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8		UFS_BIT(15)
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 

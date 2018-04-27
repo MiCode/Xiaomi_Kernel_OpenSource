@@ -6951,7 +6951,8 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 	 * utilization from cpu utilization. Instead just use
 	 * cpu_util for this case.
 	 */
-	if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+	if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
+					p->state == TASK_WAKING)
 		return cpu_util(cpu);
 #endif
 	/* Task has no contribution or is new */
@@ -6959,7 +6960,7 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 		return cpu_util(cpu);
 
 	capacity = capacity_orig_of(cpu);
-	util = max_t(long, cpu_rq(cpu)->cfs.avg.util_avg - task_util(p), 0);
+	util = max_t(long, cpu_util(cpu) - task_util(p), 0);
 
 	return (util >= capacity) ? capacity : util;
 }
@@ -7002,6 +7003,38 @@ struct find_best_target_env {
 	bool placement_boost;
 	bool need_idle;
 };
+
+static bool is_packing_eligible(struct task_struct *p, int target_cpu,
+				struct find_best_target_env *fbt_env,
+				unsigned int target_cpus_count,
+				int best_idle_cstate)
+{
+	unsigned long tutil, estimated_capacity;
+
+	if (fbt_env->placement_boost || fbt_env->need_idle)
+		return false;
+
+	if (best_idle_cstate == -1)
+		return false;
+
+	if (target_cpus_count != 1)
+		return true;
+
+	if (task_in_cum_window_demand(cpu_rq(target_cpu), p))
+		tutil = 0;
+	else
+		tutil = task_util(p);
+
+	estimated_capacity = cpu_util_cum(target_cpu, tutil);
+	estimated_capacity = add_capacity_margin(estimated_capacity,
+						target_cpu);
+
+	/*
+	 * If there is only one active CPU and it is already above its current
+	 * capacity, avoid placing additional task on the CPU.
+	 */
+	return (estimated_capacity <= capacity_curr_of(target_cpu));
+}
 
 static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 			   struct cpumask *rtg_target)
@@ -7047,6 +7080,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int target_cpu = -1;
 	int cpu, i;
 	unsigned long spare_cap;
+	unsigned int active_cpus_count = 0;
 
 	*backup_cpu = -1;
 
@@ -7270,6 +7304,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * capacity.
 			 */
 
+			active_cpus_count++;
+
 			/* Favor CPUs with maximum spare capacity */
 			if ((capacity_orig - new_util) < target_max_spare_cap)
 				continue;
@@ -7290,11 +7326,10 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 
 	} while (sg = sg->next, sg != sd->groups);
 
-	if (fbt_env->need_idle || fbt_env->placement_boost) {
-		if (best_idle_cpu != -1) {
-			target_cpu = best_idle_cpu;
-			best_idle_cpu = -1;
-		}
+	if (best_idle_cpu != -1 && !is_packing_eligible(p, target_cpu, fbt_env,
+					active_cpus_count, best_idle_cstate)) {
+		target_cpu = best_idle_cpu;
+		best_idle_cpu = -1;
 	}
 
 	/*
@@ -7503,6 +7538,39 @@ static inline int wake_to_idle(struct task_struct *p)
 		 (p->flags & PF_WAKE_UP_IDLE);
 }
 
+#define SCHED_SELECT_PREV_CPU_NSEC	2000000
+#define SCHED_FORCE_CPU_SELECTION_NSEC	20000000
+
+static inline bool
+bias_to_prev_cpu(struct task_struct *p, struct cpumask *rtg_target)
+{
+	int prev_cpu = task_cpu(p);
+#ifdef CONFIG_SCHED_WALT
+	u64 ms = p->ravg.mark_start;
+#else
+	u64 ms = sched_clock();
+#endif
+
+	if (cpu_isolated(prev_cpu) || !idle_cpu(prev_cpu))
+		return false;
+
+	if (!ms)
+		return false;
+
+	if (ms - p->last_cpu_selected_ts >= SCHED_SELECT_PREV_CPU_NSEC) {
+		p->last_cpu_selected_ts = ms;
+		return false;
+	}
+
+	if (ms - p->last_sleep_ts >= SCHED_SELECT_PREV_CPU_NSEC)
+		return false;
+
+	if (rtg_target && !cpumask_test_cpu(prev_cpu, rtg_target))
+		return false;
+
+	return true;
+}
+
 #ifdef CONFIG_SCHED_WALT
 static inline struct cpumask *find_rtg_target(struct task_struct *p)
 {
@@ -7602,6 +7670,9 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		 */
 		prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
 				(schedtune_prefer_idle(p) > 0) : 0;
+
+		if (bias_to_prev_cpu(p, rtg_target))
+			return prev_cpu;
 
 		eenv->max_cpu_count = EAS_CPU_BKP + 1;
 
@@ -11209,13 +11280,16 @@ static inline bool nohz_kick_needed(struct rq *rq, bool only_update)
 	if (time_before(now, nohz.next_balance))
 		return false;
 
+	/*
+	 * If energy aware is enabled, do idle load balance if runqueue has
+	 * at least 2 tasks and cpu is overutilized
+	 */
 	if (rq->nr_running >= 2 &&
 	    (!energy_aware() || cpu_overutilized(cpu)))
 		return true;
 
-	/* Do idle load balance if there have misfit task */
 	if (energy_aware())
-		return rq_has_misfit(rq);
+		return false;
 
 	rcu_read_lock();
 	sds = rcu_dereference(per_cpu(sd_llc_shared, cpu));

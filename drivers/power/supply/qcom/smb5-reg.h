@@ -104,6 +104,8 @@ enum {
 /********************************
  *  DCDC Peripheral Registers  *
  ********************************/
+#define ICL_MAX_STATUS_REG			(DCDC_BASE + 0x06)
+
 #define AICL_ICL_STATUS_REG			(DCDC_BASE + 0x08)
 
 #define AICL_STATUS_REG				(DCDC_BASE + 0x0A)

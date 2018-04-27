@@ -985,24 +985,12 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	data->disable_busy_time_burst = of_property_read_bool(
 		device->pdev->dev.of_node, "qcom,disable-busy-time-burst");
 
-	data->ctxt_aware_enable =
-		of_property_read_bool(device->pdev->dev.of_node,
-			"qcom,enable-ca-jump");
-
-	if (data->ctxt_aware_enable) {
-		if (of_property_read_u32(device->pdev->dev.of_node,
-				"qcom,ca-target-pwrlevel",
-				&data->bin.ctxt_aware_target_pwrlevel))
-			data->bin.ctxt_aware_target_pwrlevel = 1;
-
-		if ((data->bin.ctxt_aware_target_pwrlevel >
-						pwr->num_pwrlevels))
-			data->bin.ctxt_aware_target_pwrlevel = 1;
-
-		if (of_property_read_u32(device->pdev->dev.of_node,
-				"qcom,ca-busy-penalty",
-				&data->bin.ctxt_aware_busy_penalty))
-			data->bin.ctxt_aware_busy_penalty = 12000;
+	if (pwrscale->ctxt_aware_enable) {
+		data->ctxt_aware_enable = pwrscale->ctxt_aware_enable;
+		data->bin.ctxt_aware_target_pwrlevel =
+			pwrscale->ctxt_aware_target_pwrlevel;
+		data->bin.ctxt_aware_busy_penalty =
+			pwrscale->ctxt_aware_busy_penalty;
 	}
 
 	if (of_property_read_bool(device->pdev->dev.of_node,

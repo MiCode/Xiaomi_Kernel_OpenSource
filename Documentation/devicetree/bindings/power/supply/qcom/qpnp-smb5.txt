@@ -27,6 +27,13 @@ Charger specific properties:
   Definition: Should specify the phandle of PMI's revid module. This is used to
 		identify the PMI subtype.
 
+- io-channels
+- io-channel-names
+  Usage:      optional
+  Value type: <phandle>
+  Definition: For details about IIO bindings see:
+		Documentation/devicetree/bindings/iio/iio-bindings.txt
+
 - qcom,batteryless-platform
   Usage:      optional
   Value type: <empty>
@@ -223,12 +230,21 @@ Peripheral specific properties:
 Example
 =======
 
-pmi8998_charger: qcom,qpnp-smb5 {
+pm855b_charger: qcom,qpnp-smb5 {
 	compatible = "qcom,qpnp-smb5";
 	#address-cells = <1>;
 	#size-cells = <1>;
 
+	qcom,pmic-revid = <&pm855b_revid>;
+
 	dpdm-supply = <&qusb_phy0>;
+
+	io-channels = <&pm855b_vadc ADC_USB_IN_V_16>,
+	              <&pm855b_vadc ADC_USB_IN_I>,
+	              <&pm855b_vadc ADC_CHG_TEMP>;
+	io-channel-names = "usb_in_voltage",
+	                   "usb_in_current",
+	                   "chg_temp";
 
 	qcom,chgr@1000 {
 		reg = <0x1000 0x100>;

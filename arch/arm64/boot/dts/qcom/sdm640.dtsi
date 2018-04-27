@@ -665,6 +665,38 @@
 		qcom,pipe-attr-ee;
 	};
 
+	gpi_dma0: qcom,gpi-dma@0x800000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x800000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 244 0>, <0 245 0>, <0 246 0>, <0 247 0>,
+			     <0 248 0>, <0 249 0>, <0 250 0>, <0 251 0>;
+		qcom,ev-factor = <2>;
+		qcom,max-num-gpii = <8>;
+		qcom,gpii-mask = <0x1f>;
+		iommus = <&apps_smmu 0x00d6 0x0>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		status = "ok";
+	};
+
+	gpi_dma1: qcom,gpi-dma@0xa00000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0xa00000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 279 0>, <0 280 0>, <0 281 0>, <0 282 0>,
+			     <0 283 0>, <0 284 0>, <0 293 0>, <0 294 0>;
+		qcom,ev-factor = <2>;
+		qcom,max-num-gpii = <8>;
+		qcom,gpii-mask = <0x1f>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		iommus = <&apps_smmu 0x0376 0x0>;
+		status = "ok";
+	};
+
 	qcom,msm-rtb {
 		compatible = "qcom,msm-rtb";
 		qcom,rtb-size = <0x100000>;
@@ -681,16 +713,30 @@
 		qcom,wakeup-enable;
 	};
 
+	qcom,chd_sliver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x18000058 0x18010058
+				      0x18020058 0x18030058
+				      0x18040058 0x18050058>;
+		qcom,config-arr = <0x18000060 0x18010060
+				   0x18020060 0x18030060
+				   0x18040060 0x18050060>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0x18060058 0x18070058>;
+		qcom,config-arr = <0x18060060 0x18070060>;
+	};
+
 	kryo-erp {
 		compatible = "arm,arm64-kryo-cpu-erp";
 		interrupts = <1 6 4>,
-			     <1 7 4>,
-			     <0 34 4>,
 			     <0 35 4>;
 
 		interrupt-names = "l1-l2-faultirq",
-				  "l1-l2-errirq",
-				  "l3-scu-errirq",
 				  "l3-scu-faultirq";
 	};
 
