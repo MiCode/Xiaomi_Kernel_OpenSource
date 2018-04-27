@@ -215,6 +215,7 @@ enum sde_enc_rc_states {
 struct sde_encoder_virt {
 	struct drm_encoder base;
 	spinlock_t enc_spinlock;
+	struct mutex vblank_ctl_lock;
 	uint32_t bus_scaling_client;
 
 	uint32_t display_num_of_h_tiles;
@@ -4368,6 +4369,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	phys_params.parent = &sde_enc->base;
 	phys_params.parent_ops = parent_ops;
 	phys_params.enc_spinlock = &sde_enc->enc_spinlock;
+	phys_params.vblank_ctl_lock = &sde_enc->vblank_ctl_lock;
 
 	SDE_DEBUG("\n");
 
@@ -4510,6 +4512,7 @@ struct drm_encoder *sde_encoder_init(
 
 	sde_enc->cur_master = NULL;
 	spin_lock_init(&sde_enc->enc_spinlock);
+	mutex_init(&sde_enc->vblank_ctl_lock);
 	drm_enc = &sde_enc->base;
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode, NULL);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);

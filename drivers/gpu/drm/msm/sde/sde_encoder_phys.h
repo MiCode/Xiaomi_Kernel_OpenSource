@@ -284,6 +284,7 @@ struct sde_encoder_phys {
 	enum msm_display_compression_type comp_type;
 	spinlock_t *enc_spinlock;
 	enum sde_enc_enable_state enable_state;
+	struct mutex *vblank_ctl_lock;
 	atomic_t vblank_refcount;
 	atomic_t vsync_cnt;
 	atomic_t underrun_cnt;
@@ -434,6 +435,7 @@ struct sde_enc_phys_init_params {
 	enum sde_wb wb_idx;
 	enum msm_display_compression_type comp_type;
 	spinlock_t *enc_spinlock;
+	struct mutex *vblank_ctl_lock;
 };
 
 /**
