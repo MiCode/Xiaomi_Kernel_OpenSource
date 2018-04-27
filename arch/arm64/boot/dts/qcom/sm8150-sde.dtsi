@@ -313,7 +313,6 @@
 			qcom,msm-bus,name = "mdss_reg";
 			qcom,msm-bus,num-cases = <4>;
 			qcom,msm-bus,num-paths = <1>;
-			qcom,msm-bus,active-only;
 			qcom,msm-bus,vectors-KBps =
 				<1 590 0 0>,
 				<1 590 0 76800>,
@@ -457,7 +456,6 @@
 			qcom,msm-bus,name = "mdss_rot_reg";
 			qcom,msm-bus,num-cases = <2>;
 			qcom,msm-bus,num-paths = <1>;
-			qcom,msm-bus,active-only;
 			qcom,msm-bus,vectors-KBps =
 				<1 590 0 0>,
 				<1 590 0 76800>;
