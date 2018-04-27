@@ -121,6 +121,12 @@ void cam_hfi_deinit(void __iomem *icp_base);
 int hfi_set_debug_level(u64 a5_dbg_type, uint32_t lvl);
 
 /**
+ * hfi_set_fw_dump_level() - set firmware dump level
+ * @lvl: level of firmware dump level
+ */
+int hfi_set_fw_dump_level(uint32_t lvl);
+
+/**
  * hfi_enable_ipe_bps_pc() - Enable interframe pc
  * Host sends a command to firmware to enable interframe
  * power collapse for IPE and BPS hardware.
