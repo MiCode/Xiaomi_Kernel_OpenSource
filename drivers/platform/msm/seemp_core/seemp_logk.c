@@ -273,6 +273,9 @@ static ssize_t
 seemp_logk_write(struct file *file, const char __user *buf, size_t count,
 		loff_t *ppos)
 {
+	if (seemp_logk_kernel_begin == NULL)
+		seemp_logk_attach();
+
 	return seemp_logk_usr_record(buf, count);
 }
 
@@ -742,7 +745,6 @@ __init int seemp_logk_init(void)
 		goto class_destroy_fail;
 	}
 
-	seemp_logk_attach();
 	mutex_init(&slogk_dev->lock);
 	init_waitqueue_head(&slogk_dev->readers_wq);
 	init_waitqueue_head(&slogk_dev->writers_wq);
