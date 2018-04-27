@@ -343,6 +343,7 @@ error:
 
 #define LOG2_STATUS_INTERVAL_MSEC 5
 #define MAX_NOTIFY_SIZE sizeof(struct usb_cdc_notification)
+#define GPS_MAX_NOTIFY_SIZE 64
 
 /* rmnet device descriptors */
 
@@ -1451,7 +1452,7 @@ static struct usb_endpoint_descriptor gps_fs_notify_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
-	.wMaxPacketSize =	cpu_to_le16(MAX_NOTIFY_SIZE),
+	.wMaxPacketSize =	cpu_to_le16(GPS_MAX_NOTIFY_SIZE),
 	.bInterval =		1 << LOG2_STATUS_INTERVAL_MSEC,
 };
 
@@ -1467,7 +1468,7 @@ static struct usb_endpoint_descriptor gps_hs_notify_desc  = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
-	.wMaxPacketSize =	cpu_to_le16(MAX_NOTIFY_SIZE),
+	.wMaxPacketSize =	cpu_to_le16(GPS_MAX_NOTIFY_SIZE),
 	.bInterval =		LOG2_STATUS_INTERVAL_MSEC + 4,
 };
 
@@ -1483,7 +1484,7 @@ static struct usb_endpoint_descriptor gps_ss_notify_desc  = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
-	.wMaxPacketSize =	cpu_to_le16(MAX_NOTIFY_SIZE),
+	.wMaxPacketSize =	cpu_to_le16(GPS_MAX_NOTIFY_SIZE),
 	.bInterval =		LOG2_STATUS_INTERVAL_MSEC + 4,
 };
 
@@ -1494,7 +1495,7 @@ static struct usb_ss_ep_comp_descriptor gps_ss_notify_comp_desc = {
 	/* the following 3 values can be tweaked if necessary */
 	/* .bMaxBurst =		0, */
 	/* .bmAttributes =	0, */
-	.wBytesPerInterval =	cpu_to_le16(MAX_NOTIFY_SIZE),
+	.wBytesPerInterval =	cpu_to_le16(GPS_MAX_NOTIFY_SIZE),
 };
 
 static struct usb_descriptor_header *gps_ss_function[] = {
