@@ -76,14 +76,14 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 		if (cci_dev->cci_master_info[MASTER_0].reset_pending == TRUE) {
 			cci_dev->cci_master_info[MASTER_0].reset_pending =
 				FALSE;
-			complete(&cci_dev->cci_master_info[MASTER_0].
-				reset_complete);
+			complete(
+			&cci_dev->cci_master_info[MASTER_0].reset_complete);
 		}
 		if (cci_dev->cci_master_info[MASTER_1].reset_pending == TRUE) {
 			cci_dev->cci_master_info[MASTER_1].reset_pending =
 				FALSE;
-			complete(&cci_dev->cci_master_info[MASTER_1].
-				reset_complete);
+			complete(
+			&cci_dev->cci_master_info[MASTER_1].reset_complete);
 		}
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK) {
