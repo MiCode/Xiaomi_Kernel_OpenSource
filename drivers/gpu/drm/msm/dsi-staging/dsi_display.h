@@ -19,6 +19,7 @@
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
 #include <linux/of_device.h>
+#include <linux/firmware.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
 
@@ -183,6 +184,7 @@ struct dsi_display {
 	struct dsi_panel *panel;
 	struct device_node *disp_node;
 	struct device_node *panel_of;
+	struct device_node *parser_node;
 
 	struct dsi_display_mode *modes;
 
@@ -228,6 +230,10 @@ struct dsi_display {
 	struct work_struct fifo_underflow_work;
 	struct work_struct fifo_overflow_work;
 	struct work_struct lp_rx_timeout_work;
+
+	/* firmware panel data */
+	const struct firmware *fw;
+	void *parser;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);

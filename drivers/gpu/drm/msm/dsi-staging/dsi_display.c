@@ -29,6 +29,7 @@
 #include "dsi_clk.h"
 #include "dsi_pwr.h"
 #include "sde_dbg.h"
+#include "dsi_parser.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
@@ -1143,6 +1144,8 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 	}
 
 	display->root = dir;
+	dsi_parser_dbg_init(display->parser, dir);
+
 	return rc;
 error_remove_dir:
 	debugfs_remove(dir);
@@ -2457,6 +2460,27 @@ static bool dsi_display_check_prefix(const char *clk_prefix,
 	return !!strnstr(clk_name, clk_prefix, strlen(clk_name));
 }
 
+static int dsi_display_get_clocks_count(struct dsi_display *display)
+{
+	if (display->fw)
+		return dsi_parser_count_strings(display->parser_node,
+			"qcom,dsi-select-clocks");
+	else
+		return of_property_count_strings(display->disp_node,
+			"qcom,dsi-select-clocks");
+}
+
+static void dsi_display_get_clock_name(struct dsi_display *display,
+					int index, const char **clk_name)
+{
+	if (display->fw)
+		dsi_parser_read_string_index(display->parser_node,
+			"qcom,dsi-select-clocks", index, clk_name);
+	else
+		of_property_read_string_index(display->disp_node,
+			"qcom,dsi-select-clocks", index, clk_name);
+}
+
 static int dsi_display_clocks_init(struct dsi_display *display)
 {
 	int i, rc = 0, num_clk = 0;
@@ -2469,12 +2493,12 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	struct dsi_clk_link_set *mux = &display->clock_info.mux_clks;
 	struct dsi_clk_link_set *shadow = &display->clock_info.shadow_clks;
 
-	num_clk = of_property_count_strings(display->disp_node,
-			"qcom,dsi-select-clocks");
+	num_clk = dsi_display_get_clocks_count(display);
+
+	pr_debug("clk count=%d\n", num_clk);
 
 	for (i = 0; i < num_clk; i++) {
-		of_property_read_string_index(display->disp_node,
-			"qcom,dsi-select-clocks", i, &clk_name);
+		dsi_display_get_clock_name(display, i, &clk_name);
 
 		pr_debug("clock name:%s\n", clk_name);
 
@@ -2917,7 +2941,12 @@ static int dsi_display_get_phandle_index(
 	if (index >= count)
 		goto end;
 
-	rc = of_property_read_u32_array(disp_node, propname, val, count);
+	if (display->fw)
+		rc = dsi_parser_read_u32_array(display->parser_node,
+			propname, val, count);
+	else
+		rc = of_property_read_u32_array(disp_node, propname,
+			val, count);
 	if (rc)
 		goto end;
 
@@ -2929,18 +2958,31 @@ end:
 	return rc;
 }
 
+static int dsi_display_get_phandle_count(struct dsi_display *display,
+			const char *propname)
+{
+	if (display->fw)
+		return dsi_parser_count_u32_elems(display->parser_node,
+				propname);
+	else
+		return of_property_count_u32_elems(display->disp_node,
+				propname);
+}
+
 static int dsi_display_parse_dt(struct dsi_display *display)
 {
-	int rc = 0;
-	int i;
+	int i, rc = 0;
 	u32 phy_count = 0;
 	struct device_node *of_node = display->pdev->dev.of_node;
 	struct device_node *disp_node = display->disp_node;
 
-	display->ctrl_count = of_property_count_u32_elems(disp_node,
+	display->ctrl_count = dsi_display_get_phandle_count(display,
 				"qcom,dsi-ctrl-num");
-	phy_count = of_property_count_u32_elems(disp_node,
-				"qcom,dsi-phy-num");
+	phy_count = dsi_display_get_phandle_count(display,
+				"qcom,dsi-ctrl-num");
+
+	pr_debug("ctrl count=%d, phy count=%d\n",
+			display->ctrl_count, phy_count);
 
 	if (!phy_count || !display->ctrl_count) {
 		pr_err("no ctrl/phys found\n");
@@ -2977,6 +3019,8 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		rc = -ENODEV;
 		goto error;
 	}
+
+	pr_debug("success\n");
 error:
 	return rc;
 }
@@ -3007,8 +3051,11 @@ static int dsi_display_res_init(struct dsi_display *display)
 		}
 	}
 
-	display->panel = dsi_panel_get(&display->pdev->dev, display->panel_of,
-						display->cmdline_topology);
+	display->panel = dsi_panel_get(&display->pdev->dev,
+				display->panel_of,
+				display->parser_node,
+				display->root,
+				display->cmdline_topology);
 	if (IS_ERR_OR_NULL(display->panel)) {
 		rc = PTR_ERR(display->panel);
 		pr_err("failed to get panel, rc=%d\n", rc);
@@ -3494,6 +3541,12 @@ static int _dsi_display_dev_init(struct dsi_display *display)
 
 	mutex_lock(&display->display_lock);
 
+	display->parser = dsi_parser_get(&display->pdev->dev);
+	if (display->fw && display->parser)
+		display->parser_node = dsi_parser_get_head_node(
+				display->parser, display->fw->data,
+				display->fw->size);
+
 	rc = dsi_display_parse_dt(display);
 	if (rc) {
 		pr_err("[%s] failed to parse dt, rc=%d\n", display->name, rc);
@@ -3973,6 +4026,28 @@ end:
 	return rc;
 }
 
+static void dsi_display_firmware_display(const struct firmware *fw,
+				void *context)
+{
+	struct dsi_display *display = context;
+	struct platform_device *pdev = display->pdev;
+
+	if (fw) {
+		pr_debug("reading data from firmware, size=%zd\n",
+			fw->size);
+
+		display->fw = fw;
+		display->name = "dsi_firmware_display";
+	}
+
+	dsi_display_setup(display);
+
+	if (dsi_display_init(display, pdev))
+		return;
+
+	pr_debug("success\n");
+}
+
 int dsi_display_dev_probe(struct platform_device *pdev)
 {
 	struct dsi_display *display = NULL;
@@ -3981,6 +4056,7 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	const char *disp_list = "qcom,dsi-display-list";
 	const char *disp_active = "qcom,dsi-display-active";
 	int i, count, rc = 0;
+	bool firm_req = false;
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("pdev not found\n");
@@ -3989,8 +4065,10 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	}
 
 	display = devm_kzalloc(&pdev->dev, sizeof(*display), GFP_KERNEL);
-	if (!display)
-		return -ENOMEM;
+	if (!display) {
+		rc = -ENOMEM;
+		goto end;
+	}
 
 	if (boot_displays[DSI_PRIMARY].boot_disp_en)
 		display_from_cmdline = true;
@@ -4012,6 +4090,12 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 		} else {
 			if (of_property_read_bool(np, disp_active)) {
 				disp_node = np;
+
+				if (IS_ENABLED(CONFIG_DSI_PARSER))
+					firm_req = !request_firmware_nowait(
+						THIS_MODULE, 1, "dsi_prop",
+						&pdev->dev, GFP_KERNEL, display,
+						dsi_display_firmware_display);
 				break;
 			}
 		}
@@ -4035,10 +4119,14 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, display);
 	default_display = display;
 
-	dsi_display_setup(display);
-	rc = dsi_display_init(display, pdev);
-	if (rc)
-		goto end;
+	/* initialize display in firmware callback */
+	if (!firm_req) {
+		dsi_display_setup(display);
+
+		rc = dsi_display_init(display, pdev);
+		if (rc)
+			goto end;
+	}
 
 	return 0;
 end:
