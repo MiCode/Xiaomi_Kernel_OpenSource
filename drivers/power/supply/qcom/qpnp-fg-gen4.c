@@ -2941,9 +2941,9 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 
 	rc = of_property_read_u32(node, "qcom,cl-start-capacity", &temp);
 	if (rc < 0)
-		chip->cl->dt.start_soc = DEFAULT_CL_START_SOC;
+		chip->cl->dt.max_start_soc = DEFAULT_CL_START_SOC;
 	else
-		chip->cl->dt.start_soc = temp;
+		chip->cl->dt.max_start_soc = temp;
 
 	rc = of_property_read_u32(node, "qcom,cl-min-temp", &temp);
 	if (rc < 0)
