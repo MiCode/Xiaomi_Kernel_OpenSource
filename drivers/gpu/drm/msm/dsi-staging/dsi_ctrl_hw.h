@@ -801,6 +801,13 @@ struct dsi_ctrl_hw_ops {
 	 * @ctrl:         Pointer to the controller host hardware.
 	 */
 	u32 (*get_hw_version)(struct dsi_ctrl_hw *ctrl);
+
+	/**
+	 * wait_for_cmd_mode_mdp_idle() - wait for command mode engine not to
+	 *                           be busy sending data from display engine
+	 * @ctrl:         Pointer to the controller host hardware.
+	 */
+	int (*wait_for_cmd_mode_mdp_idle)(struct dsi_ctrl_hw *ctrl);
 };
 
 /*
