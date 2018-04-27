@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sm8150-auto-pmic-overlay.dtsi"
+
 &soc {
 	qcom,lpass@17300000 {
 		status = "disabled";

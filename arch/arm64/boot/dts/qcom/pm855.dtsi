@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/input/qcom,qpnp-power-on.h>
 #include <dt-bindings/interrupt-controller/irq.h>
