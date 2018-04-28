@@ -17,6 +17,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/clock/msm-clocks-8953.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8953";
@@ -168,7 +169,18 @@
 		spi3 = &spi_3;
 	};
 
-	soc: soc { };
+	soc: soc {
+		/*
+		 * The ordering of these devices is important to boot time
+		 * for iot projects.
+		 */
+		smem: qcom,smem@86300000 {};
+		rpm_bus: qcom,rpm-smd {};
+		clock_gcc: qcom,gcc@1800000 {};
+		ad_hoc_bus: ad-hoc-bus@580000 {};
+		tlmm: pinctrl@1000000 {};
+		sdhc_1: sdhci@7824900 {};
+	};
 
 };
 
