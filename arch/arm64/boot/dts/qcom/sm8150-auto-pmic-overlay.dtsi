@@ -87,3 +87,26 @@ pm855_1_gpios: &pm855_gpios {
 		#size-cells = <1>;
 	};
 };
+
+/* PMIC GPIO pin control configurations: */
+&pm855_1_gpios {
+	key_home {
+		key_home_default: key_home_default {
+			pins = "gpio1";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+};

@@ -10,6 +10,9 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
 #include "sm8150-auto-pmic-overlay.dtsi"
 
 &soc {
@@ -24,6 +27,35 @@
 	qcom,glink {
 		modem {
 			status = "disabled";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_home_default
+			     &key_vol_up_default>;
+
+		home {
+			label = "home";
+			gpios = <&pm855_1_gpios 1 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_HOME>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm855_1_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
 		};
 	};
 };
