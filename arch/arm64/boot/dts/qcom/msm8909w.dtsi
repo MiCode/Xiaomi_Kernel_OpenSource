@@ -94,3 +94,14 @@
 		<55 512 196800 196800>,
 		<55 512 393600 393600>;
 };
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_auo_cx_qvga_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&msm_gpio 24 0>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 37 0>;
+};
