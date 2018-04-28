@@ -36,13 +36,13 @@
 		modem_adsp_mem: modem_adsp_region@0 {
 			compatible = "removed-dma-pool";
 			no-map-fixup;
-			reg = <0x82a00000 0x5000000>;
+			reg = <0x82c00000 0x5000000>;
 		};
 
 		cnss_debug_mem: cnss_debug_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x87a00000 0x200000>;
+			reg = <0x82a00000 0x200000>;
 		};
 
 		external_image_mem: external_image_region@0 {
@@ -616,7 +616,7 @@
 
 	cnss_sdio: qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
-		reg = <0x87a00000 0x200000>;
+		reg = <0x82a00000 0x200000>;
 		reg-names = "ramdump";
 		subsys-name = "AR6320";
 		vdd-wlan-supply = <&rome_vreg>;
