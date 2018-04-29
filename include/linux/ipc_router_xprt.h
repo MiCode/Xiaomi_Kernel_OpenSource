@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,6 +100,7 @@ struct rr_opt_hdr {
  * @pkt_fragment_q: Queue of SKBs containing payload.
  * @length: Length of data in the chain of SKBs
  * @ref: Reference count for the packet.
+ * @ws_need: Flag to check wakeup soruce need
  */
 struct rr_packet {
 	struct list_head list;
@@ -108,6 +109,7 @@ struct rr_packet {
 	struct sk_buff_head *pkt_fragment_q;
 	uint32_t length;
 	struct kref ref;
+	bool ws_need;
 };
 
 /**
