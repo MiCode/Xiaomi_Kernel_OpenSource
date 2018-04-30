@@ -258,3 +258,14 @@
 	vdd_hf_dig-supply = <&pm8953_s2_level_ao>;
 	vdd_hf_pll-supply = <&pm8953_l7_ao>;
 };
+
+&clock_gcc_mdss {
+	compatible = "qcom,gcc-mdss-sdm439";
+	clocks = <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_src>,
+		 <&mdss_dsi0_pll clk_dsi0pll_byte_clk_src>,
+		 <&mdss_dsi1_pll clk_dsi1pll_pixel_clk_src>,
+		 <&mdss_dsi1_pll clk_dsi1pll_byte_clk_src>;
+	clock-names = "pclk0_src", "byte0_src", "pclk1_src",
+		"byte1_src";
+	#clock-cells = <1>;
+};
