@@ -160,7 +160,7 @@ void hab_vchan_stop(struct virtual_channel *vchan)
 {
 	if (vchan) {
 		vchan->otherend_closed = 1;
-		wake_up_interruptible(&vchan->rx_queue);
+		wake_up(&vchan->rx_queue);
 	}
 }
 

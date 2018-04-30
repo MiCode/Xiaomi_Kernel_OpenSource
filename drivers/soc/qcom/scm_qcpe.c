@@ -195,32 +195,13 @@ static int scm_remap_error(int err)
 	return -EINVAL;
 }
 
-static int get_hab_vmid(u32 *mm_ip_id)
-{
-	int result, i;
-	struct device_node *hab_node = NULL;
-	int tmp = -1;
+#define MAX_SCM_ARGS 10
 
-	/* parse device tree*/
-	pr_info("parsing hab node in device tree...\n");
-	hab_node = of_find_compatible_node(NULL, NULL, "qcom,hab");
-	if (hab_node) {
-		/* read local vmid of this VM, like 0 for host, 1 for AGL GVM */
-		result = of_property_read_u32(hab_node, "vmid", &tmp);
-		if (!result) {
-			pr_info("local vmid = %d\n", tmp);
-			*mm_ip_id = MM_QCPE_START + tmp;
-			return 0;
-		}
-		pr_err("failed to read local vmid, result = %d\n", result);
-	} else {
-		pr_err("no hab device tree node\n");
-	}
-
-	pr_info("assuming default vmid = 2\n");
-	*mm_ip_id = MM_QCPE_VM2;
-	return 0;
-}
+struct qcpe_msg_s {
+	uint64_t fn_id;
+	uint64_t arginfo;
+	uint64_t args[MAX_SCM_ARGS];
+};
 
 static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 {
@@ -228,16 +209,7 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	static u32 handle;
 	u32 ret;
 	u32 size_bytes;
-
-	struct smc_params_s {
-		uint64_t x0;
-		uint64_t x1;
-		uint64_t x2;
-		uint64_t x3;
-		uint64_t x4;
-		uint64_t x5;
-		uint64_t sid;
-	} smc_params;
+	struct qcpe_msg_s msg;
 
 	pr_info("scm_call_qcpe: IN: 0x%x, 0x%x, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx",
 		fn_id, desc->arginfo, desc->args[0], desc->args[1],
@@ -245,15 +217,7 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 		desc->args[5], desc->args[6]);
 
 	if (!opened) {
-		u32 mm_ip_id;
-
-		ret = get_hab_vmid(&mm_ip_id);
-		if (ret) {
-			pr_err("scm_call_qcpe: get_hab_vmid failed with ret = %d",
-				ret);
-			return ret;
-		}
-		ret = habmm_socket_open(&handle, mm_ip_id, 0, 0);
+		ret = habmm_socket_open(&handle, MM_QCPE_VM1, 0, 0);
 		if (ret) {
 			pr_err("scm_call_qcpe: habmm_socket_open failed with ret = %d",
 				ret);
@@ -262,39 +226,45 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 		opened = true;
 	}
 
-	smc_params.x0 = fn_id | 0x40000000; /* SMC64_MASK */
-	smc_params.x1 = desc->arginfo;
-	smc_params.x2 = desc->args[0];
-	smc_params.x3 = desc->args[1];
-	smc_params.x4 = desc->args[2];
-	smc_params.x5 = desc->x5;
-	smc_params.sid = 0;
+	msg.fn_id = fn_id | 0x40000000; /* SMC64_MASK */
+	msg.arginfo = desc->arginfo;
+	msg.args[0] = desc->args[0];
+	msg.args[1] = desc->args[1];
+	msg.args[2] = desc->args[2];
+	msg.args[3] = desc->x5;
+	msg.args[4] = 0;
 
-	ret = habmm_socket_send(handle, &smc_params, sizeof(smc_params), 0);
-	if (ret)
+	ret = habmm_socket_send(handle, &msg, sizeof(msg), 0);
+	if (ret) {
+		pr_err("scm_call_qcpe: habmm_socket_send failed with ret = %d",
+			ret);
 		return ret;
+	}
 
-	size_bytes = sizeof(smc_params);
-	memset(&smc_params, 0x0, sizeof(smc_params));
+	size_bytes = sizeof(msg);
+	memset(&msg, 0x0, sizeof(msg));
 
-	ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0, 0);
-	if (ret)
+	ret = habmm_socket_recv(handle, &msg, &size_bytes, 0, 0);
+	if (ret) {
+		pr_err("scm_call_qcpe: habmm_socket_recv failed with ret = %d",
+			ret);
 		return ret;
+	}
 
-	if (size_bytes != sizeof(smc_params)) {
+	if (size_bytes != sizeof(msg)) {
 		pr_err("scm_call_qcpe: expected size: %lu, actual=%u\n",
-			sizeof(smc_params), size_bytes);
+			sizeof(msg), size_bytes);
 		return SCM_ERROR;
 	}
 
-	desc->ret[0] = smc_params.x1;
-	desc->ret[1] = smc_params.x2;
-	desc->ret[2] = smc_params.x3;
+	desc->ret[0] = msg.args[1];
+	desc->ret[1] = msg.args[2];
+	desc->ret[2] = msg.args[3];
 
 	pr_info("scm_call_qcpe: OUT: 0x%llx, 0x%llx, 0x%llx, 0x%llx",
-		smc_params.x0, desc->ret[0], desc->ret[1], desc->ret[2]);
+		msg.args[0], msg.args[1], msg.args[2], msg.args[3]);
 
-	return smc_params.x0;
+	return msg.args[0];
 }
 
 static u32 smc(u32 cmd_addr)

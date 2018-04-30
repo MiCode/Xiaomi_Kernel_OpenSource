@@ -294,4 +294,19 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <2950000>;
 	};
+
+	qcom_rng: qrng@83000 {
+		compatible = "qcom,msm-rng";
+		reg = <0x83000 0x1000>;
+		qcom,msm-rng-iface-clk;
+		qcom,no-qrng-config;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 618 0 0>,		/* No vote */
+				<1 618 0 800>;		/* 100 MB/s */
+		clocks = <&clock_gcc clk_gcc_prng_ahb_clk>;
+		clock-names = "iface_clk";
+	};
 };

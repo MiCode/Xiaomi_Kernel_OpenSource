@@ -13,6 +13,7 @@
 #include "msm8996-pinctrl.dtsi"
 #include "msm8996-camera-sensor-auto-cdp.dtsi"
 #include "msm8996-wsa881x.dtsi"
+#include "msm8996-sde.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -694,6 +695,8 @@
 		vdd-ntn-hsic-supply = <&pm8994_l25>;
 		vdd-ntn-pci-supply = <&pm8994_s4>;
 		vdd-ntn-io-supply = <&pm8994_s4>;
+		vdd-ntn-phy-supply = <&pm8994_l29>;
+		vdd-ntn-core-supply = <&pm8994_l31>;
 
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
@@ -1018,17 +1021,75 @@
 		pinctrl-0 = <&quat_tdm_dout_active>;
 		pinctrl-1 = <&quat_tdm_dout_sleep>;
 	};
+
+	qcom,adv7481@70 {
+		compatible = "qcom,adv7481";
+		reg = <0x70 0xff>;
+		cam_vdig-supply = <&pm8994_s3>;
+		tx-lanes = <4 2 1>;
+		settle-count = <16 16 16>;
+		res-array = "RES_1080P", "RES_720P", "RES_576P_480P";
+		/* Cameras powered by PMIC: */
+		cam_vio-supply = <&pm8994_lvs1>;
+		cam_vana-supply = <&pm8994_l17>;
+		/* Self-powered cameras: */
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1300000 0 1800000>;
+		qcom,cam-vreg-max-voltage = <1300000 0 1800000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000>;
+
+		qcom,cci-master = <0>;
+		gpios = <&tlmm 17 0>,          /* I2C SDA */
+			<&tlmm 18 0>,          /* I2C SCL */
+			<&pm8994_gpios 4 0>,   /* RST     */
+			<&pm8994_gpios 5 0>,   /* INT1    */
+			<&pm8994_gpios 6 0>,   /* INT2    */
+			<&pm8994_gpios 7 0>;   /* INT3    */
+	};
+
+	qcom,tv-tuner {
+		compatible = "qcom,tv-tuner";
+	};
+
+	qcom,msm-ba {
+		compatible = "qcom,msm-ba";
+		qcom,ba-input-profile-0 {
+			qcom,type = <4>;          /* input type   */
+			qcom,name = "HDMI-1";     /* input name   */
+			qcom,ba-input = <13>;     /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "adv7481"; /* sd name      */
+			qcom,ba-node = <0>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
+
+		qcom,ba-input-profile-1 {
+			qcom,type = <0>;          /* input type   */
+			qcom,name = "CVBS-0";     /* input name   */
+			qcom,ba-input = <0>;      /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "adv7481"; /* sd name      */
+			qcom,ba-node = <1>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
+
+		qcom,ba-input-profile-2 {
+			qcom,type = <8>;          /* input type   */
+			qcom,name = "TUNER-2";     /* input name   */
+			qcom,ba-input = <16>;      /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "tv-tuner"; /* sd name      */
+			qcom,ba-node = <2>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
+	};
 };
 
 &pm8994_gpios {
-	gpio@c600 { /* GPIO 7 - NFC DWL REQ */
-		qcom,mode = <1>;
-		qcom,output-type = <0>;
-		qcom,pull = <5>;
+	gpio@c600 { /* GPIO 7 - adv7481 INT3*/
+		qcom,mode = <0>;
 		qcom,vin-sel = <2>;
-		qcom,out-strength = <3>;
 		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
 		status = "okay";
 	};
 
@@ -1071,7 +1132,7 @@
 		status = "okay";
 	};
 
-	gpio@c300 { /* GPIO 4 */
+	gpio@c300 { /* GPIO 4 - adv7481 RST */
 		qcom,mode = <0>;
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
@@ -1079,9 +1140,15 @@
 		status = "okay";
 	};
 
-	gpio@c400 { /* GPIO 5 */
+	gpio@c400 { /* GPIO 5 - adv7481 INT1 */
 		qcom,mode = <0>;
-		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "okay";
+	};
+
+	gpio@c500 { /* GPIO 6 - adv7481 INT2*/
+		qcom,mode = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
 		status = "okay";
@@ -1159,6 +1226,7 @@
 &usb2s {
 	status = "ok";
 	vbus_dwc3-supply = <&usb2_otg_switch>;
+	qcom,no-wakeup-src-in-hostmode;
 	dwc3@7600000 {
 		dr_mode = "host";
 	};
@@ -1169,6 +1237,7 @@
 	vbus_dwc3-supply = <&usb_otg_switch>;
 	vdda33-supply = <&pm8994_l24>;
 	vdda18-supply = <&pm8994_l12>;
+	qcom,no-wakeup-src-in-hostmode;
 };
 
 &blsp1_uart2 {

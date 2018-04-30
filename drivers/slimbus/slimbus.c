@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2337,6 +2337,9 @@ static int slim_sched_chans(struct slim_device *sb, u32 clkgear,
 		int opensl1[6];
 		bool opensl1valid = false;
 		int maxctrlw1, maxctrlw3, i;
+
+		/* intitalize array to zero */
+		memset(opensl1, 0x0, sizeof(opensl1));
 		finalexp = (ctrl->sched.chc3[last3])->rootexp;
 		if (last1 >= 0) {
 			slc1 = ctrl->sched.chc1[coeff1];

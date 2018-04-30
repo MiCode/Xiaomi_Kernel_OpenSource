@@ -388,7 +388,8 @@ int mmc_retune(struct mmc_host *host)
 	else
 		return 0;
 
-	if (!host->need_retune || host->doing_retune || !host->card)
+	if (!host->need_retune || host->doing_retune || !host->card ||
+			mmc_card_hs400es(host->card))
 		return 0;
 
 	host->need_retune = 0;
@@ -634,6 +635,8 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	host->pm_notify.notifier_call = mmc_pm_notify;
 #endif
 	setup_timer(&host->retune_timer, mmc_retune_timer, (unsigned long)host);
+
+	mutex_init(&host->rpmb_req_mutex);
 
 	/*
 	 * By default, hosts do not support SGIO or large requests.

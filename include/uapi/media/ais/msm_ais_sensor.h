@@ -199,6 +199,28 @@ enum msm_sensor_event_idx {
 #define SENSOR_EVENT_BASE            (V4L2_EVENT_PRIVATE_START)
 #define SENSOR_EVENT_SIGNAL_STATUS   (SENSOR_EVENT_BASE + SENSOR_SIGNAL_STATUS)
 
+struct msm_csid_event_data {
+	uint8_t  csid_id;
+	uint32_t error_status;
+};
+
+enum msm_csid_event_mask_index {
+	CSID_EVENT_MASK_INDEX_SIGNAL_ERROR	= 2,
+};
+
+#define CSID_EVENT_SUBS_MASK_NONE			0
+
+#define CSID_EVENT_SUBS_MASK_SIGNAL_ERROR \
+			(1 << CSID_EVENT_MASK_INDEX_SIGNAL_ERROR)
+
+enum msm_csid_event_idx {
+	CSID_SIGNAL_ERROR      = 2,
+	CSID_EVENT_MAX         = 15
+};
+
+#define CSID_EVENT_BASE           (V4L2_EVENT_PRIVATE_START + SENSOR_EVENT_MAX)
+#define CSID_EVENT_SIGNAL_ERROR   (CSID_EVENT_BASE + CSID_SIGNAL_ERROR)
+
 struct msm_camera_i2c_array_write_config {
 	struct msm_camera_i2c_reg_setting conf_array;
 	uint16_t slave_addr;

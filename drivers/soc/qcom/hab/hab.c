@@ -378,7 +378,7 @@ struct hab_message *hab_vchan_recv(struct uhab_context *ctx,
 		physical_channel_rx_dispatch((unsigned long) vchan->pchan);
 	}
 
-	message = hab_msg_dequeue(vchan, !nonblocking_flag);
+	message = hab_msg_dequeue(vchan, flags);
 	if (!message) {
 		if (nonblocking_flag)
 			ret = -EAGAIN;

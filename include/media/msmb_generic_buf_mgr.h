@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,8 @@ struct msm_buf_mngr_info32_t {
 #define VIDIOC_MSM_BUF_MNGR_FLUSH32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 39, struct msm_buf_mngr_info32_t)
 
+#define VIDIOC_MSM_BUF_MNGR_BUF_ERROR32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 41, struct msm_buf_mngr_info32_t)
 #endif
 
 #endif
