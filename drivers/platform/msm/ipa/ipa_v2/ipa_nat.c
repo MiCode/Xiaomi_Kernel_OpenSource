@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -763,12 +763,6 @@ int ipa2_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 		IPAERR("using temp memory during nat del\n");
 		mem_type = IPA_NAT_SYSTEM_MEMORY;
 		base_addr = ipa_ctx->nat_mem.tmp_dma_handle;
-	}
-
-	if (del->public_ip_addr == 0) {
-		IPADBG("Bad Parameter\n");
-		result = -EPERM;
-		goto bail;
 	}
 
 	memset(&desc, 0, sizeof(desc));
