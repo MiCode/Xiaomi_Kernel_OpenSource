@@ -636,11 +636,13 @@ static struct div_clk dsi1pll_byte_clk_src = {
 };
 
 static struct clk_lookup mdss_dsi_pllcc_12nm[] = {
+	CLK_LIST(dsi0pll_vco_clk),
 	CLK_LIST(dsi0pll_byte_clk_src),
 	CLK_LIST(dsi0pll_pixel_clk_src),
 };
 
 static struct clk_lookup mdss_dsi_pllcc_12nm_1[] = {
+	CLK_LIST(dsi1pll_vco_clk),
 	CLK_LIST(dsi1pll_byte_clk_src),
 	CLK_LIST(dsi1pll_pixel_clk_src),
 };

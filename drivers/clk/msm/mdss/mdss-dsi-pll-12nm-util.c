@@ -165,7 +165,8 @@ int get_gp_mux_sel(struct mux_clk *clk)
 	return sel;
 }
 
-static bool pll_is_pll_locked_12nm(struct mdss_pll_resources *pll)
+static bool pll_is_pll_locked_12nm(struct mdss_pll_resources *pll,
+	bool is_handoff)
 {
 	u32 status;
 	bool pll_locked;
@@ -177,8 +178,9 @@ static bool pll_is_pll_locked_12nm(struct mdss_pll_resources *pll)
 			((status & BIT(1)) > 0),
 			DSI_PLL_POLL_MAX_READS,
 			DSI_PLL_POLL_TIMEOUT_US)) {
-		pr_err("DSI PLL ndx=%d status=%x failed to Lock\n",
-			pll->index, status);
+		if (!is_handoff)
+			pr_err("DSI PLL ndx=%d status=%x failed to Lock\n",
+				pll->index, status);
 		pll_locked = false;
 	} else {
 		pll_locked = true;
@@ -213,7 +215,7 @@ int dsi_pll_enable_seq_12nm(struct mdss_pll_resources *pll)
 	wmb(); /* make sure register committed before enabling branch clocks */
 	udelay(50); /* h/w recommended delay */
 
-	if (!pll_is_pll_locked_12nm(pll)) {
+	if (!pll_is_pll_locked_12nm(pll, false)) {
 		pr_err("DSI PLL ndx=%d lock failed!\n",
 			pll->index);
 		rc = -EINVAL;
@@ -261,7 +263,7 @@ static int dsi_pll_relock(struct mdss_pll_resources *pll)
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_POWERUP_CTRL, data);
 	ndelay(500); /* h/w recommended delay */
 
-	if (!pll_is_pll_locked_12nm(pll)) {
+	if (!pll_is_pll_locked_12nm(pll, false)) {
 		pr_err("DSI PLL ndx=%d lock failed!\n",
 			pll->index);
 		rc = -EINVAL;
@@ -710,7 +712,7 @@ enum handoff pll_vco_handoff_12nm(struct clk *c)
 		return ret;
 	}
 
-	if (pll_is_pll_locked_12nm(pll)) {
+	if (pll_is_pll_locked_12nm(pll, true)) {
 		pll->handoff_resources = true;
 		pll->pll_on = true;
 		c->rate = pll_vco_get_rate_12nm(c);
@@ -756,15 +758,22 @@ int pll_vco_prepare_12nm(struct clk *c)
 					rc, pll->index);
 			goto error;
 		}
+	}
 
-		data = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_SYS_CTRL);
-		if (data & BIT(7)) { /* DSI PHY in LP-11 or ULPS */
-			rc = dsi_pll_relock(pll);
-			if (rc)
-				goto error;
-			else
-				goto end;
-		}
+	/*
+	 * For cases where  DSI PHY is already enabled like:
+	 * 1.) LP-11 during static screen
+	 * 2.) ULPS during static screen
+	 * 3.) Boot up with cont splash enabled where PHY is programmed in LK
+	 * Execute the Re-lock sequence to enable the DSI PLL.
+	 */
+	data = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_SYS_CTRL);
+	if (data & BIT(7)) {
+		rc = dsi_pll_relock(pll);
+		if (rc)
+			goto error;
+		else
+			goto end;
 	}
 
 	mdss_dsi_pll_12nm_calc_reg(pll, pdb);
