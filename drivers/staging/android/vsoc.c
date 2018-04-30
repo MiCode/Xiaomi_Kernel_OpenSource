@@ -41,6 +41,7 @@
 #include <linux/mutex.h>
 #include <linux/cdev.h>
 #include <linux/file.h>
+#include <linux/slab.h>
 #include "uapi/vsoc_shm.h"
 
 #define VSOC_DEV_NAME "vsoc"
