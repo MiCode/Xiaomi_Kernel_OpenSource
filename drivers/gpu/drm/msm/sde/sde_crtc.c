@@ -2300,7 +2300,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct sde_crtc *sde_crtc;
 	struct sde_kms *sde_kms;
 	unsigned long flags;
-	bool frame_done = false;
 
 	if (!work) {
 		SDE_ERROR("invalid work handle\n");
@@ -2353,10 +2352,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE3);
 		}
-
-		if (fevent->event & (SDE_ENCODER_FRAME_EVENT_DONE
-					| SDE_ENCODER_FRAME_EVENT_ERROR))
-			frame_done = true;
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
@@ -2372,9 +2367,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
 				crtc->base.id, ktime_to_ns(fevent->ts));
-
-	if (frame_done)
-		complete_all(&sde_crtc->frame_done_comp);
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);
@@ -3293,10 +3285,10 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 			&cstate->property_state);
 }
 
-static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
+static int _sde_crtc_flush_event_thread(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
-	int ret, rc = 0, i;
+	int i;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -3320,17 +3312,9 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 			kthread_flush_work(&sde_crtc->frame_events[i].work);
 	}
 
-	ret = wait_for_completion_timeout(&sde_crtc->frame_done_comp,
-			msecs_to_jiffies(SDE_FRAME_DONE_TIMEOUT));
-	if (!ret) {
-		SDE_ERROR("frame done completion wait timed out, ret:%d\n",
-				ret);
-		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FATAL);
-		rc = -ETIMEDOUT;
-	}
 	SDE_EVT32_VERBOSE(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
 
-	return rc;
+	return 0;
 }
 
 static int _sde_crtc_commit_kickoff_rot(struct drm_crtc *crtc,
@@ -3654,7 +3638,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
 	bool is_error, reset_req;
-	int ret;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -3713,20 +3696,9 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 	}
 	sde_crtc->reset_request = reset_req;
 
-	/* wait for frame_event_done completion */
-	SDE_ATRACE_BEGIN("wait_for_frame_done_event");
-	ret = _sde_crtc_wait_for_frame_done(crtc);
-	SDE_ATRACE_END("wait_for_frame_done_event");
-	if (ret) {
-		SDE_ERROR("crtc%d wait for frame done failed;frame_pending%d\n",
-				crtc->base.id,
-				atomic_read(&sde_crtc->frame_pending));
-
-		is_error = true;
-
-		/* force offline rotation mode since the commit has no pipes */
-		cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
-	}
+	SDE_ATRACE_BEGIN("flush_event_thread");
+	_sde_crtc_flush_event_thread(crtc);
+	SDE_ATRACE_END("flush_event_thread");
 
 	if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
 		/* acquire bandwidth and other resources */
@@ -3765,7 +3737,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 		sde_encoder_kickoff(encoder, false);
 	}
 
-	reinit_completion(&sde_crtc->frame_done_comp);
 	SDE_ATRACE_END("crtc_commit");
 }
 
@@ -4164,11 +4135,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	if (cstate->num_ds_enabled)
 		sde_crtc->ds_reconfig = true;
 
-	/* wait for frame_event_done completion */
-	if (_sde_crtc_wait_for_frame_done(crtc))
-		SDE_ERROR("crtc%d wait for frame done failed;frame_pending%d\n",
-				crtc->base.id,
-				atomic_read(&sde_crtc->frame_pending));
+	_sde_crtc_flush_event_thread(crtc);
 
 	SDE_EVT32(DRMID(crtc), sde_crtc->enabled, sde_crtc->suspend,
 			sde_crtc->vblank_requested,
@@ -4183,6 +4150,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	sde_crtc->enabled = false;
 
 	if (atomic_read(&sde_crtc->frame_pending)) {
+		SDE_ERROR("crtc%d frame_pending%d\n", crtc->base.id,
+				atomic_read(&sde_crtc->frame_pending));
 		SDE_EVT32(DRMID(crtc), atomic_read(&sde_crtc->frame_pending),
 							SDE_EVTLOG_FUNC_CASE2);
 		sde_core_perf_crtc_release_bw(crtc);
@@ -6003,7 +5972,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	mutex_init(&sde_crtc->rp_lock);
 	INIT_LIST_HEAD(&sde_crtc->rp_head);
 
-	init_completion(&sde_crtc->frame_done_comp);
 	sde_crtc->enabled = false;
 
 	INIT_LIST_HEAD(&sde_crtc->frame_event_list);
