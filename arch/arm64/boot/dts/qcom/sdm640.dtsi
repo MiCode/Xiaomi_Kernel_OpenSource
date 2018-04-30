@@ -1001,6 +1001,8 @@
 	};
 };
 
+#include "pm640.dtsi"
+#include "pm640l.dtsi"
 #include "sdm640-pinctrl.dtsi"
 #include "sdm640-stub-regulator.dtsi"
 #include "sdm640-pm.dtsi"
