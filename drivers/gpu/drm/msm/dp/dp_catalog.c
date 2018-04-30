@@ -772,8 +772,6 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 	catalog = dp_catalog_get_priv(ctrl);
 	io_data = catalog->io.dp_link;
 
-	misc_val = dp_read(catalog, io_data, DP_MISC1_MISC0);
-	misc_val |= cc;
 	misc_val |= (tb << 5);
 	misc_val |= BIT(0); /* Configure clock to synchronous mode */
 
