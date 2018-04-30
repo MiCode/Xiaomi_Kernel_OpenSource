@@ -15,7 +15,7 @@
 
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
-#include <linux/msm_mhi.h>
+#include <linux/mhi.h>
 #include <linux/msm_pcie.h>
 #include <linux/pci.h>
 
@@ -34,14 +34,13 @@
 enum cnss_mhi_state {
 	CNSS_MHI_INIT,
 	CNSS_MHI_DEINIT,
+	CNSS_MHI_POWER_ON,
+	CNSS_MHI_POWER_OFF,
+	CNSS_MHI_FORCE_POWER_OFF,
 	CNSS_MHI_SUSPEND,
 	CNSS_MHI_RESUME,
-	CNSS_MHI_POWER_OFF,
-	CNSS_MHI_POWER_ON,
 	CNSS_MHI_TRIGGER_RDDM,
 	CNSS_MHI_RDDM,
-	CNSS_MHI_RDDM_KERNEL_PANIC,
-	CNSS_MHI_NOTIFY_LINK_ERROR,
 };
 
 struct cnss_msi_user {
@@ -76,7 +75,7 @@ struct cnss_pci_data {
 	void __iomem *bar;
 	struct cnss_msi_config *msi_config;
 	u32 msi_ep_base_data;
-	struct mhi_device mhi_dev;
+	struct mhi_controller *mhi_ctrl;
 	unsigned long mhi_state;
 };
 
@@ -137,7 +136,7 @@ int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 			   enum cnss_mhi_state state);
 int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv);
-void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv);
+void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic);
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv);
 int cnss_pm_request_resume(struct cnss_pci_data *pci_priv);
 

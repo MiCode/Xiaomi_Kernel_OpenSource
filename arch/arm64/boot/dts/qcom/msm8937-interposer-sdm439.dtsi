@@ -27,6 +27,12 @@
 };
 
 &soc {
+	qcom,csiphy@1b34000 {
+		compatible = "qcom,csiphy-v3.4.2", "qcom,csiphy";
+	};
+	qcom,csiphy@1b35000 {
+		compatible = "qcom,csiphy-v3.4.2", "qcom,csiphy";
+	};
 	qcom,csid@1b30000 {
 		qcom,mipi-csi-vdd-supply = <&pm8953_l2>;
 	};
@@ -167,4 +173,8 @@
 		vdd-c1-supply = <&apc_vreg_corner>;
 		vdd-cci-supply = <&apc_vreg_corner>;
 	};
+};
+
+&mdss_dsi {
+	vdda-supply = <&pm8953_l2>;
 };

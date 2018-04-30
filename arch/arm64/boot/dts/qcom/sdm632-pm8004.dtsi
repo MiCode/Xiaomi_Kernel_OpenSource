@@ -1,0 +1,57 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "pm8004.dtsi"
+#include "pm8004-rpm-regulator.dtsi"
+
+&rpm_bus {
+	rpm-regulator-ldoc1 {
+		status = "okay";
+		pm8004_l1: regulator-l1 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+};
+
+&spmi_bus {
+	qcom,pm8953@1 {
+		/delete-node/ spm-regulator@2000;
+	};
+
+	pmic@5 {
+		#size-cells = <1>;
+
+		/* PM8004 S2 + S4 + S5 = VDD_APC supply */
+		pm8004_s2: spm-regulator@1d00 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x1d00 0x100>;
+			regulator-name = "pm8004_s2";
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <1140000>;
+
+			pm8004_s2_limit: avs-limit-regulator {
+				regulator-name = "pm8004_s2_avs_limit";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1140000>;
+			};
+		};
+	};
+};
+
+&apc_cpr {
+	vdd-supply = <&pm8004_s2>;
+	vdd-limit-supply = <&pm8004_s2_limit>;
+};

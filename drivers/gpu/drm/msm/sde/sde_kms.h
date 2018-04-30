@@ -305,6 +305,16 @@ struct vsync_info {
 bool sde_is_custom_client(void);
 
 /**
+ * sde_kms_is_vbif_operation_allowed - resticts the VBIF programming
+ * during secure-ui, if the sec_ui_misr feature is enabled
+ *
+ * @sde_kms: Pointer to sde_kms
+ *
+ * return: false if secure-session is in progress; true otherwise
+ */
+bool sde_kms_is_vbif_operation_allowed(struct sde_kms *sde_kms);
+
+/**
  * sde_kms_power_resource_is_enabled - whether or not power resource is enabled
  * @dev: Pointer to drm device
  * Return: true if power resource is enabled; false otherwise
@@ -369,25 +379,6 @@ static inline bool sde_kms_is_secure_session_inprogress(struct sde_kms *sde_kms)
 	mutex_unlock(&sde_kms->secure_transition_lock);
 
 	return ret;
-}
-
-/**
- * sde_kms_is_vbif_operation_allowed - resticts the VBIF programming
- * during secure-ui, if the sec_ui_misr feature is enabled
- *
- * @sde_kms: Pointer to sde_kms
- *
- * return: false if secure-session is in progress; true otherwise
- */
-static inline bool sde_kms_is_vbif_operation_allowed(struct sde_kms *sde_kms)
-{
-	if (!sde_kms)
-		return false;
-
-	if (!sde_kms->catalog->sui_misr_supported)
-		return true;
-
-	return !sde_kms_is_secure_session_inprogress(sde_kms);
 }
 
 /**

@@ -125,8 +125,8 @@
 };
 
 &mdss_dsi {
-	vdda-supply = <&pm8953_l2>; /*1.2V*/
-	vddio-supply = <&pm8953_l6>; /*1.8V*/
+	vdda-supply = <&pm8953_l23>;
+	vddio-supply = <&pm8953_l6>;
 };
 
 &usb_otg {

@@ -856,7 +856,27 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	path_data->height  = reserve->in_port->height;
 	path_data->start_line = reserve->in_port->line_start;
 	path_data->end_line = reserve->in_port->line_stop;
-	path_data->crop_enable = true;
+
+	/* Enable RDI crop for single ife use case only */
+	switch (reserve->res_id) {
+	case CAM_IFE_PIX_PATH_RES_RDI_0:
+	case CAM_IFE_PIX_PATH_RES_RDI_1:
+	case CAM_IFE_PIX_PATH_RES_RDI_2:
+	case CAM_IFE_PIX_PATH_RES_RDI_3:
+		if (reserve->in_port->usage_type)
+			path_data->crop_enable = false;
+		else
+			path_data->crop_enable = true;
+
+		break;
+	case CAM_IFE_PIX_PATH_RES_IPP:
+		path_data->crop_enable = true;
+		break;
+	default:
+		rc = -EINVAL;
+		goto end;
+	}
+
 	CAM_DBG(CAM_ISP, "Res id: %d height:%d line_start %d line_stop %d",
 		reserve->res_id, reserve->in_port->height,
 		reserve->in_port->line_start, reserve->in_port->line_stop);
@@ -1884,6 +1904,7 @@ static int cam_ife_csid_get_time_stamp(
 	struct cam_ife_csid_reg_offset       *csid_reg;
 	struct cam_hw_soc_info               *soc_info;
 	struct cam_ife_csid_rdi_reg_offset   *rdi_reg;
+	struct timespec64 ts;
 	uint32_t  time_32, id;
 
 	time_stamp = (struct cam_csid_get_time_stamp_args  *)cmd_args;
@@ -1931,6 +1952,10 @@ static int cam_ife_csid_get_time_stamp(
 		time_stamp->time_stamp_val,
 		CAM_IFE_CSID_QTIMER_MUL_FACTOR,
 		CAM_IFE_CSID_QTIMER_DIV_FACTOR);
+
+	get_monotonic_boottime64(&ts);
+	time_stamp->boot_timestamp = (uint64_t)((ts.tv_sec * 1000000000) +
+		ts.tv_nsec);
 
 	return 0;
 }

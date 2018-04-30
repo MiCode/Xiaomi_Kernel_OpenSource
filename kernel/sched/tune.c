@@ -753,6 +753,10 @@ static void schedtune_attach(struct cgroup_taskset *tset)
 		sync_cgroup_colocation(task, colocate);
 
 }
+#else
+static void schedtune_attach(struct cgroup_taskset *tset)
+{
+}
 #endif
 
 static int

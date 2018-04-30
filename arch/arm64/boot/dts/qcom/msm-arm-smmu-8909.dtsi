@@ -16,6 +16,46 @@
 
 &soc {
 
+	kgsl_smmu: arm,smmu-kgsl@1f00000 {
+		status = "ok";
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x1f00000 0x10000>,
+			<0x1ef2000 0x20>;
+		reg-names = "base", "tcu-base";
+		#iommu-cells = <1>;
+		qcom,tz-device-id = "GPU";
+		qcom,skip-init;
+		qcom,dynamic;
+		qcom,use-3-lvl-tables;
+		#global-interrupts = <0>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+		interrupts =
+			<GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 242 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>;
+
+		vdd-supply = <&gdsc_oxili_gx>;
+		qcom,regulator-names = "vdd";
+		clocks =
+			<&clock_gcc clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>;
+		clock-names = "gpu_ahb_clk", "gcc_bimc_gfx_clk";
+	};
+
+	/* A test device to test the SMMU operation */
+	kgsl_iommu_test_device0 {
+		status = "disabled";
+		compatible = "iommu-debug-test";
+		/*
+		 * The SID should be valid one to get the proper
+		 * SMR,S2CR indices.
+		 */
+		iommus = <&kgsl_smmu 0x0>;
+	};
+
 	apps_iommu: qcom,iommu@1e00000 {
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x1e00000 0x40000>,

@@ -394,7 +394,7 @@ struct ipa_api_controller {
 		struct ipa_ntn_conn_out_params *);
 
 	int (*ipa_tear_down_uc_offload_pipes)(int ipa_ep_idx_ul,
-		int ipa_ep_idx_dl);
+		int ipa_ep_idx_dl, struct ipa_ntn_conn_in_params *params);
 
 	struct device *(*ipa_get_pdev)(void);
 

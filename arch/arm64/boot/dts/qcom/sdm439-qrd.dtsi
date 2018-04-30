@@ -11,6 +11,9 @@
  * GNU General Public License for more details.
  */
 
+#include "msm8937-mdss-panels.dtsi"
+#include "sdm439-camera-sensor-qrd.dtsi"
+
 &blsp1_uart2 {
 	status = "ok";
 };
@@ -40,6 +43,24 @@
 	status = "ok";
 };
 
+&int_codec {
+	status = "okay";
+	qcom,model = "sdm439-sku1-snd-card";
+	qcom,msm-micbias1-ext-cap;
+	qcom,msm-micbias2-ext-cap;
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+	qcom,msm-hs-micbias-type = "external";
+};
+
+&wsa881x_i2c_f {
+	status = "okay";
+};
+
+&wsa881x_i2c_45 {
+	status = "okay";
+};
+
 &sdhc_2 {
 	/* device core power supply */
 	vdd-supply = <&pm8953_l11>;
@@ -62,4 +83,172 @@
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
 	status = "ok";
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_key_active>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&tlmm 91 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
+		};
+	};
+};
+
+&tlmm {
+	pmx_ts_rst_active {
+		ts_rst_active: ts_rst_active {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_rst_suspend {
+		ts_rst_suspend: ts_rst_suspend {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+};
+
+&soc {
+	hbtp {
+		compatible = "qcom,hbtp-input";
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_rst_active>;
+		pinctrl-1 = <&ts_rst_suspend>;
+		vcc_ana-supply = <&pm8953_l10>;
+		vcc_dig-supply = <&pm8953_l5>;
+		qcom,afe-load = <20000>;
+		qcom,afe-vtg-min = <3000000>;
+		qcom,afe-vtg-max = <3000000>;
+		qcom,dig-load = <40000>;
+		qcom,dig-vtg-min = <1800000>;
+		qcom,dig-vtg-max = <1800000>;
+		qcom,fb-resume-delay-us = <1000>;
+		qcom,afe-force-power-on;
+		qcom,afe-power-on-delay-us = <6>;
+		qcom,afe-power-off-delay-us = <6>;
+	};
+};
+
+&tlmm {
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio60";
+			};
+			config {
+				pins = "gpio60";
+			};
+		};
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio60";
+			};
+			config {
+				pins = "gpio60";
+			};
+		};
+	};
+};
+
+&dsi_panel_pwr_supply {
+	qcom,panel-supply-entry@0 {
+		reg = <0>;
+		qcom,supply-name = "bklight_en";
+		qcom,supply-min-voltage = <1800000>;
+		qcom,supply-max-voltage = <1800000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@2 {
+		reg = <2>;
+		qcom,supply-name = "lab";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@3 {
+		reg = <3>;
+		qcom,supply-name = "ibb";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-post-on-sleep = <10>;
+	};
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+	bklight_en-supply = <&pm8953_l5>;
+	vddio-supply = <&pm8953_l6>;
+
+	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_truly_vid>;
+	/delete-property/ qcom,platform-bklight-en-gpio;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&pm8953_pwm {
+	status = "ok";
+};
+
+&dsi_hx8399c_truly_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8953_gpios 8 0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-panel-timings =
+		[7e 48 3c 00 64 59 3b 4a 5e 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x1e>;
+	qcom,mdss-dsi-t-clk-pre = <0x32>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 };

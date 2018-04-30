@@ -87,6 +87,7 @@ struct synaptics_dsx_board_data {
 	bool y_flip;
 	bool swap_axes;
 	bool resume_in_workqueue;
+	bool wakeup_gesture_en;
 	int irq_gpio;
 	int irq_on_state;
 	int power_gpio;

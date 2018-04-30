@@ -23,6 +23,7 @@
 			label = "L3";
 			qcom,psci-mode-shift = <4>;
 			qcom,psci-mode-mask = <0xfff>;
+			qcom,clstr-tmr-add = <1000>;
 
 			qcom,pm-cluster-level@0 { /* D1 */
 				reg = <0>;
@@ -77,7 +78,9 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
-				qcom,use-prediction;
+				qcom,ref-stddev = <500>;
+				qcom,tmr-add = <1000>;
+				qcom,ref-premature-cnt = <1>;
 				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4
 									&CPU5>;
 
@@ -131,6 +134,7 @@
 				#size-cells = <0>;
 				qcom,psci-mode-shift = <0>;
 				qcom,psci-mode-mask = <0xf>;
+				qcom,disable-prediction;
 				qcom,cpu = <&CPU6 &CPU7>;
 
 				qcom,pm-cpu-level@0 { /* C1 */

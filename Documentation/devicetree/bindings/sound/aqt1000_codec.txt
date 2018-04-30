@@ -1,0 +1,79 @@
+Qualcomm Technologies, Inc. for AQT1000 audio CODEC
+
+Required properties:
+
+- compatible: "qcom,aqt1000-i2c-codec" for AQT1000 Codec
+
+- qcom,aqt-rst-gpio-node: Phandle reference to the DT node having codec reset gpio
+			  configuration.
+
+- reg: Address of the codec. This property enabled I2C to get AQT1000 base address.
+
+- qcom,cdc-static-supplies: Static VREG_BOB Supply for AQT1000 codec.
+			    All other supplies are derived from this.
+
+-qcom,cdc-micbias1-mv: micbias1 output voltage in milli volts.
+		       This is used when cfilt is not user configurable
+		       and micbias1 is directly controlled with a register
+		       write.
+
+-qcom,cdc-mclk-clk-rate: Specifies the master clock rate in Hz required for
+			 codec.
+
+Optional properties:
+
+-qcom,cdc-ext-clk-rate: External clock frequency used for AQT1000.
+			All internal clocks for AQT1000 are derived from this clock.
+			If this property is not defined then default external
+			clock rate of 9.6M will be provided.
+
+- qcom,cdc-vdd-mic-bias-supply: phandle of vreg_bob supply's regulator device tree
+			   node.
+
+- qcom,cdc-vdd-mic-bias-voltage: vreg_bob supply's voltage level min and max
+				 in mV.
+- qcom,cdc-vdd-mic-bias-current: vreg_bob supply's max current in mA.
+
+- qcom,cdc-micbias-ldoh-v: LDOH output in volts (should be 3V).
+
+- qcom,cdc-micbias-cfilt1-mv: cfilt1 output voltage in milli volts.
+  cfilt voltage can be set to max of qcom,cdc-micbias-ldoh-v - 0.15V.
+- qcom,cdc-micbias1-cfilt-sel: cfilt to use for micbias1
+			(should be from 1 to 3).
+
+- clock-names : clock name defined for external clock.
+- clocks : external clock defined for codec clock.
+
+Example:
+i2c@a88000 {
+	status = "ok";
+	aqt1000_cdc: aqt1000-i2c-codec@d {
+		status = "disabled";
+		compatible = "qcom,aqt1000-i2c-codec";
+		reg = <0x0d>;
+
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&tlmm>;
+		qcom,gpio-connect = <&tlmm 79 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&aqt_intr_default>;
+
+		qcom,aqt-rst-gpio-node = <&aqt_rst_gpio>;
+
+		qcom,cdc-vdd-mic-bias-supply = <&pm660l_bob>;
+		qcom,cdc-vdd-mic-bias-voltage = <3312000 3312000>;
+		qcom,cdc-vdd-mic-bias-current = <30400>;
+		qcom,cdc-static-supplies = "cdc-vdd-mic-bias";
+
+		qcom,cdc-micbias-ldoh-v = <3>;
+
+		qcom,cdc-ext-clk-rate = <19200000>;
+		qcom,cdc-mclk-clk-rate = <9600000>;
+
+		qcom,cdc-micbias1-mv = <1800>;
+
+		clock-names = "aqt_clk";
+		clocks = <&clock_audio_lnbb AUDIO_PMIC_LNBB_CLK>;
+	};
+};

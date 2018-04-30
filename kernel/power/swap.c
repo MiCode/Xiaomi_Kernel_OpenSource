@@ -1542,10 +1542,12 @@ int swsusp_check(void)
 
 		if (!memcmp(HIBERNATE_SIG, swsusp_header->sig, 10)) {
 			memcpy(swsusp_header->sig, swsusp_header->orig_sig, 10);
+#ifndef CONFIG_HIBERNATION_IMAGE_REUSE
 			/* Reset swap signature now */
 			error = hib_submit_io(REQ_OP_WRITE, WRITE_SYNC,
 						swsusp_resume_block,
 						swsusp_header, NULL);
+#endif
 		} else {
 			error = -EINVAL;
 		}

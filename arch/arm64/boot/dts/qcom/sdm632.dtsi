@@ -13,8 +13,6 @@
 
 #include "msm8953.dtsi"
 #include "sdm632-cpu.dtsi"
-#include "pm8004.dtsi"
-#include "pm8004-rpm-regulator.dtsi"
 #include "sdm632-regulator.dtsi"
 
 / {
@@ -24,7 +22,7 @@
 	qcom,msm-name = "SDM632";
 
 	chosen {
-		/delete-property/ bootargs;
+		bootargs = "kpti=0";
 	};
 };
 
@@ -83,6 +81,10 @@
 	/delete-node/ apc1-cpu3-usr;
 
 	case-therm-step {
+		status = "disabled";
+	};
+
+	quiet-therm-step {
 		status = "disabled";
 	};
 
@@ -792,42 +794,40 @@
 
 &clock_cpu {
 	/delete-property/ vdd-cl-supply;
-	status = "disabled";
 	compatible = "qcom,cpu-clock-sdm632";
 	reg =   <0xb114000  0x68>,
 		<0xb014000  0x68>,
-		<0xb016000  0x8>,
-		<0xb116000  0x8>,
-		<0xb1d0000  0x8>,
 		<0xb011050  0x8>,
 		<0xb111050  0x8>,
 		<0xb1d1050  0x8>,
-		<0x00a412c  0x8>;
+		<0xb011050  0x8>,
+		<0xb111050  0x8>,
+		<0x00a4124  0x8>;
 	reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
-		    "apcs-c1-pll-base", "apcs-c0-pll-base",
-		    "apcs-cci-pll-base", "apcs-c1-rcg-base",
-		    "apcs-c0-rcg-base", "apcs-cci-rcg-base",
-		    "efuse";
+		    "apcs-c1-rcg-base", "apcs-c0-rcg-base",
+		    "apcs-cci-rcg-base", "c1-mux",
+		    "c0-mux", "efuse";
 	qcom,num-clusters = <2>;
+	vdd-c0-supply = <&apc0_pwrcl_vreg>;
+	vdd-c1-supply = <&apc1_perfcl_vreg>;
+	vdd-cci-supply = <&apc0_pwrcl_vreg>;
 	clocks = <&clock_gcc clk_xo_a_clk_src>;
 	clock-names = "xo_a";
 	qcom,speed0-bin-v0-c0 =
 		<          0 0>,
 		<   614400000 1>,
 		<   883200000 2>,
-		<  1036200000 3>,
+		<  1036800000 3>,
 		<  1363200000 4>,
-		<  1563000000 5>,
+		<  1536000000 5>,
 		<  1670400000 6>,
-		<  1785600000 7>;
+		<  1804800000 7>;
 	qcom,speed0-bin-v0-c1 =
 		<          0 0>,
-		<   633600000 1>,
-		<   902400000 2>,
-		<  1094400000 3>,
-		<  1401600000 4>,
-		<  1555200000 5>,
-		<  1785600000 6>;
+		<  1094400000 1>,
+		<  1401600000 2>,
+		<  1555200000 3>,
+		<  1804800000 4>;
 	qcom,speed0-bin-v0-cci =
 		<          0 0>,
 		<  307200000 1>,
@@ -836,6 +836,56 @@
 		<  691200000 4>,
 		<  768000000 5>,
 		<  787200000 6>;
+
+	qcom,speed6-bin-v0-c0 =
+		<          0 0>,
+		<   614400000 1>,
+		<   883200000 2>,
+		<  1036800000 3>,
+		<  1363200000 4>,
+		<  1536000000 5>,
+		<  1670400000 6>,
+		<  1804800000 7>;
+	qcom,speed6-bin-v0-c1 =
+		<          0 0>,
+		<  1094400000 1>,
+		<  1401600000 2>,
+		<  1555200000 3>,
+		<  1804800000 4>;
+	qcom,speed6-bin-v0-cci =
+		<          0 0>,
+		<  307200000 1>,
+		<  403200000 2>,
+		<  499200000 3>,
+		<  691200000 4>,
+		<  768000000 5>,
+		<  787200000 6>;
+
+	qcom,speed2-bin-v0-c0 =
+		<          0 0>,
+		<   614400000 1>,
+		<   883200000 2>,
+		<  1036800000 3>,
+		<  1363200000 4>,
+		<  1536000000 5>,
+		<  1670400000 6>,
+		<  1804800000 7>;
+	qcom,speed2-bin-v0-c1 =
+		<          0 0>,
+		<  1094400000 1>,
+		<  1401600000 2>,
+		<  1555200000 3>,
+		<  1804800000 4>,
+		<  2016000000 5>;
+	qcom,speed2-bin-v0-cci =
+		<          0 0>,
+		<  307200000 1>,
+		<  403200000 2>,
+		<  499200000 3>,
+		<  691200000 4>,
+		<  768000000 5>,
+		<  787200000 6>;
+
 	#clock-cells = <1>;
 };
 
@@ -848,9 +898,9 @@
 			"cpu0_clk",
 			"cpu4_clk";
 		clocks =
-			<&clock_cpu clk_a53_cci_clk >,
-			<&clock_cpu clk_a53_pwr_clk >,
-			<&clock_cpu clk_a53_perf_clk >;
+			<&clock_cpu clk_cci_clk >,
+			<&clock_cpu clk_pwr_clk >,
+			<&clock_cpu clk_perf_clk >;
 
 		qcom,governor-per-policy;
 
@@ -861,21 +911,21 @@
 			< 1363200 >,
 			< 1536000 >,
 			< 1670400 >,
-			< 1785600 >;
+			< 1804800 >;
 
 		qcom,cpufreq-table-4 =
 			< 1094400 >,
 			< 1401600 >,
 			< 1555200 >,
-			< 1785600 >,
+			< 1804800 >,
 			< 1996200 >,
-			< 2082800 >;
+			< 2016000 >;
 	};
 
 	cci_cache: qcom,cci {
 		compatible = "devfreq-simple-dev";
 		clock-names = "devfreq_clk";
-		clocks = <&clock_cpu clk_a53_cci_clk >;
+		clocks = <&clock_cpu clk_cci_clk >;
 		governor = "cpufreq";
 		freq-tbl-khz =
 			<  307200 >,
@@ -893,12 +943,12 @@
 			cpu-to-dev-map-0 =
 				<  614400 1611>,
 				< 1363200 3221>,
-				< 1785600 5859>;
+				< 1804800 5859>;
 			cpu-to-dev-map-4 =
 				< 1094400 1611>,
 				< 1401600 3221>,
-				< 1785600 5859>,
-				< 2082800 7104>;
+				< 1804800 5859>,
+				< 2016000 7104>;
 		};
 
 		cci-cpufreq {
@@ -914,7 +964,22 @@
 				< 1094400 499200>,	/* SVS   */
 				< 1401600 691200>,      /* NOM   */
 				< 1555200 768000>,      /* NOM+  */
-				< 1785600 787200>;      /* TURBO */
+				< 1804800 787200>;      /* TURBO */
 		};
 	};
 };
+
+&pm8953_vadc {
+	pinctrl-0 = <&pa_therm1_default>;
+	/delete-node/ chan@13;
+};
+
+&pm8953_mpps {
+	/delete-node/ case_therm;
+};
+
+&thermal_zones {
+	/delete-node/ case-therm-adc;
+	/delete-node/ case-therm-step;
+};
+

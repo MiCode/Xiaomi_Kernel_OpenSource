@@ -1415,6 +1415,12 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	dev->cdev = cdev;
 	DBG(cdev, "mtp_function_bind dev: %pK\n", dev);
 
+	/* ChipIdea controller supports 16K request length for IN endpoint */
+	if (cdev->gadget->is_chipidea && mtp_tx_req_len > 16384) {
+		DBG(cdev, "Truncating Tx Req length to 16K for ChipIdea\n");
+		mtp_tx_req_len = 16384;
+	}
+
 	/* allocate interface ID(s) */
 	id = usb_interface_id(c, f);
 	if (id < 0)

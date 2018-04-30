@@ -181,7 +181,6 @@ static inline int sched_cpu_high_irqload(int cpu)
 {
 	return sched_irqload(cpu) >= sysctl_sched_cpu_high_irqload;
 }
-#define walt_cpu_high_irqload(cpu) sched_cpu_high_irqload(cpu)
 
 static inline int exiting_task(struct task_struct *p)
 {
@@ -378,6 +377,12 @@ static inline int walt_start_cpu(int prev_cpu)
 	return prev_cpu;
 }
 
+static inline u64 sched_irqload(int cpu)
+{
+	return 0;
+}
 #endif /* CONFIG_SCHED_WALT */
+
+#define walt_cpu_high_irqload(cpu) sched_cpu_high_irqload(cpu)
 
 #endif

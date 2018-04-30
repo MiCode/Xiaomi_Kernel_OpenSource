@@ -128,7 +128,7 @@
 
 		CPU_COST_0: core-cost0 {
 			busy-cost-data = <
-				 800000	137
+				 960000	159
 				1001600	165
 				1305600	207
 				1497600	256
@@ -141,7 +141,7 @@
 		};
 		CLUSTER_COST_0: cluster-cost0 {
 			busy-cost-data = <
-				 800000	49
+				 960000	52
 				1001600	53
 				1305600	61
 				1497600	71
@@ -153,4 +153,8 @@
 			>;
 		};
 	};
+};
+
+&soc {
+	/delete-node/ cpuss_dump;
 };

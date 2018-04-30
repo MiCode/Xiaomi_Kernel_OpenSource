@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +88,7 @@ enum cnss_driver_status {
 	CNSS_INITIALIZED,
 	CNSS_LOAD_UNLOAD,
 	CNSS_RECOVERY,
+	CNSS_FW_DOWN,
 };
 
 struct cnss_ce_tgt_pipe_cfg {

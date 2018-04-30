@@ -582,7 +582,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 	if (ret)
 		goto err_clks;
 
-	if (!pil->minidump || !pil->modem_ssr) {
+	if (!pil->minidump_ss || !pil->modem_ssr) {
 		/* Save state of modem debug register before full reset */
 		debug_val = readl_relaxed(drv->reg_base + QDSP6SS_DBG_CFG);
 	}
@@ -595,7 +595,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 	if (ret)
 		goto err_restart;
 
-	if (!pil->minidump || !pil->modem_ssr) {
+	if (!pil->minidump_ss || !pil->modem_ssr) {
 		writel_relaxed(debug_val, drv->reg_base + QDSP6SS_DBG_CFG);
 		if (modem_dbg_cfg)
 			writel_relaxed(modem_dbg_cfg,
@@ -799,10 +799,10 @@ int pil_mss_debug_reset(struct pil_desc *pil)
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	int ret;
 
-	if (!pil->minidump)
+	if (!pil->minidump_ss)
 		return 0;
-	if (pil->minidump) {
-		if (pil->minidump->md_ss_enable_status != MD_SS_ENABLED)
+	if (pil->minidump_ss) {
+		if (pil->minidump_ss->md_ss_enable_status != MD_SS_ENABLED)
 			return 0;
 	}
 
@@ -814,7 +814,7 @@ int pil_mss_debug_reset(struct pil_desc *pil)
 	if (ret)
 		return ret;
 
-	if (pil->minidump) {
+	if (pil->minidump_ss) {
 		writel_relaxed(0x1, drv->reg_base + QDSP6SS_NMI_CFG);
 		/* Let write complete before proceeding */
 		mb();
@@ -837,7 +837,7 @@ int pil_mss_debug_reset(struct pil_desc *pil)
 	 */
 	pr_info("Minidump: waiting encryption to complete\n");
 	msleep(10000);
-	if (pil->minidump) {
+	if (pil->minidump_ss) {
 		writel_relaxed(0x2, drv->reg_base + QDSP6SS_NMI_CFG);
 		/* Let write complete before proceeding */
 		mb();

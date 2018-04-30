@@ -127,6 +127,8 @@ struct tsens_data {
 	u32				wd_bark_mask;
 	bool				mtc;
 	bool				valid_status_check;
+	u32				ver_major;
+	u32				ver_minor;
 };
 
 struct tsens_mtc_sysfs {

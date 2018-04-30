@@ -1,5 +1,8 @@
 * QCEDEV (QTI Crypto Engine Device)
 
+[Root level node]
+Crypto Engine
+============
 Required properties:
   - compatible : should be "qcom,qcedev"
   - reg : should contain crypto, BAM register map.
@@ -23,6 +26,19 @@ Optional properties:
   - qcom,smmu-s1-enable : Boolean flag to enable SMMU stage 1 translation.
   - iommus : A list of phandle and IOMMU specifier pairs that describe the IOMMU master interfaces of the device.
 
+
+[Second level nodes]
+Context banks
+=============
+Required properties:
+  - compatible : should be "qcom,qcedev,context-bank"
+  - iommus : A phandle parsed by smmu driver. Number of entries will vary across targets.
+
+Optional properties:
+  - label - string describing iommu domain usage.
+  - virtual-addr : start of virtual address pool.
+  - virtual-size : size of virtual address pool.
+
 Example:
 
 	qcom,qcedev@fd440000 {
@@ -42,4 +58,15 @@ Example:
 				<56 512 0 0>,
 				<56 512 3936000 393600>,
 		qcom,ce-opp-freq = <100000000>;
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&anoc2_smmu 0x1878>,
+				<&anoc2_smmu 0x1879>,
+				<&anoc2_smmu 0x187c>,
+				<&anoc2_smmu 0x187f>;
+			virtual-addr = <0x60000000>;
+			virtual-size = <0x00200000>;
+		};
 	};

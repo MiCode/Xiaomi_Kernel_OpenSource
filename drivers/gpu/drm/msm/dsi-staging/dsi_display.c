@@ -488,7 +488,6 @@ static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 	int i, j = 0;
 	int len = 0, *lenp;
 	int group = 0, count = 0;
-	struct dsi_display_mode *mode;
 	struct drm_panel_esd_config *config;
 
 	if (!panel)
@@ -497,8 +496,7 @@ static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 	config = &(panel->esd_config);
 
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
-	mode = panel->cur_mode;
-	count = mode->priv_info->cmd_sets[DSI_CMD_SET_PANEL_STATUS].count;
+	count = config->status_cmd.count;
 
 	for (i = 0; i < count; i++)
 		len += lenp[i];
@@ -694,7 +692,7 @@ static int dsi_display_status_check_te(struct dsi_display *display)
 	reinit_completion(&display->esd_te_gate);
 	if (!wait_for_completion_timeout(&display->esd_te_gate,
 				esd_te_timeout)) {
-		pr_err("ESD check failed\n");
+		pr_err("TE check failed\n");
 		rc = -EINVAL;
 	}
 
@@ -703,7 +701,7 @@ static int dsi_display_status_check_te(struct dsi_display *display)
 	return rc;
 }
 
-int dsi_display_check_status(void *display)
+int dsi_display_check_status(void *display, bool te_check_override)
 {
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
@@ -713,17 +711,19 @@ int dsi_display_check_status(void *display)
 	if (dsi_display == NULL)
 		return -EINVAL;
 
-	panel = dsi_display->panel;
-
-	status_mode = panel->esd_config.status_mode;
-
 	mutex_lock(&dsi_display->display_lock);
 
+	panel = dsi_display->panel;
 	if (!panel->panel_initialized) {
 		pr_debug("Panel not initialized\n");
 		mutex_unlock(&dsi_display->display_lock);
 		return rc;
 	}
+
+	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio))
+		status_mode = ESD_MODE_PANEL_TE;
+	else
+		status_mode = panel->esd_config.status_mode;
 
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
@@ -2706,7 +2706,7 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {
 	struct dsi_display *display = to_dsi_display(host);
-	int rc = 0;
+	int rc = 0, ret = 0;
 
 	if (!host || !msg) {
 		pr_err("Invalid params\n");
@@ -2764,13 +2764,17 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 	}
 
 error_disable_cmd_engine:
-	(void)dsi_display_cmd_engine_disable(display);
+	ret = dsi_display_cmd_engine_disable(display);
+	if (ret) {
+		pr_err("[%s]failed to disable DSI cmd engine, rc=%d\n",
+				display->name, ret);
+	}
 error_disable_clks:
-	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+	ret = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_ALL_CLKS, DSI_CLK_OFF);
-	if (rc) {
+	if (ret) {
 		pr_err("[%s] failed to disable all DSI clocks, rc=%d\n",
-		       display->name, rc);
+		       display->name, ret);
 	}
 error:
 	return rc;
@@ -5183,6 +5187,53 @@ error:
 		kfree(display->modes);
 
 	mutex_unlock(&display->display_lock);
+	return rc;
+}
+
+int dsi_display_get_panel_vfp(void *dsi_display,
+	int h_active, int v_active)
+{
+	int i, rc = 0;
+	u32 count, refresh_rate = 0;
+	struct dsi_dfps_capabilities dfps_caps;
+	struct dsi_display *display = (struct dsi_display *)dsi_display;
+
+	if (!display)
+		return -EINVAL;
+
+	rc = dsi_display_get_mode_count(display, &count);
+	if (rc)
+		return rc;
+
+	mutex_lock(&display->display_lock);
+
+	if (display->panel && display->panel->cur_mode)
+		refresh_rate = display->panel->cur_mode->timing.refresh_rate;
+
+	dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
+	if (dfps_caps.dfps_support)
+		refresh_rate = dfps_caps.max_refresh_rate;
+
+	if (!refresh_rate) {
+		mutex_unlock(&display->display_lock);
+		pr_err("Null Refresh Rate\n");
+		return -EINVAL;
+	}
+
+	h_active *= display->ctrl_count;
+
+	for (i = 0; i < count; i++) {
+		struct dsi_display_mode *m = &display->modes[i];
+
+		if (m && v_active == m->timing.v_active &&
+			h_active == m->timing.h_active &&
+			refresh_rate == m->timing.refresh_rate) {
+			rc = m->timing.v_front_porch;
+			break;
+		}
+	}
+	mutex_unlock(&display->display_lock);
+
 	return rc;
 }
 

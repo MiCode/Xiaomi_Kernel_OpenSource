@@ -526,12 +526,14 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
 
 		/* adjust DBI base address */
-		if (dev->dbi_base_reg)
-			writel_relaxed(0x3FFFE000,
-				dev->parf + dev->dbi_base_reg);
-		else
-			writel_relaxed(0x3FFFE000,
-				dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
+		if (dev->phy_rev < 6) {
+			if (dev->dbi_base_reg)
+				writel_relaxed(0x3FFFE000,
+					dev->parf + dev->dbi_base_reg);
+			else
+				writel_relaxed(0x3FFFE000,
+					dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
+		}
 
 		/* Configure PCIe core to support 1GB aperture */
 		if (dev->slv_space_reg)

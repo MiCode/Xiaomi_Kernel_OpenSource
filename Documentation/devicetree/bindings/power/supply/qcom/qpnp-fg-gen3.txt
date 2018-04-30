@@ -36,6 +36,8 @@ First Level Node - FG Gen3 device
 	Definition: For details about IIO bindings see:
 		    Documentation/devicetree/bindings/iio/iio-bindings.txt
 
+- #thermal-sensor-cells: Should be 0. See thermal.txt for a description.
+
 - qcom,rradc-base
 	Usage:      required
 	Value type: <u32>
@@ -489,6 +491,7 @@ pmi8998_fg: qpnp,fg {
 	qcom,slope-limit-temp-threshold = <100>;
 	qcom,slope-limit-coeffs = <10 11 12 13>;
 	qcom,battery-thermal-coefficients = [9d 50 ff];
+	#thermal-sensor-cells = <0>;
 	status = "okay";
 
 	qcom,fg-batt-soc@4000 {
@@ -515,5 +518,34 @@ pmi8998_fg: qpnp,fg {
 	qcom,fg-memif@4400 {
 		status = "okay";
 		reg = <0x4400 0x100>;
+	};
+};
+
+======================================
+Example for thermal zone configuration
+======================================
+
+thermal_zones {
+	pmi8998_fg {
+		polling-delay-passive = <200>;
+		polling-delay = <200>;
+		thermal-governor = <userspace>;
+		thermal-sensors = <&pmi8998_fg>;
+
+		pmi8998_fg_trip1: pmi8998-fg-trip0 {
+			temperature = <45000>;
+			hysteresis = <0>;
+			type = "passive";
+		};
+		pmi8998_fg_trip2: pmi8998-fg-trip2 {
+			temperature = <50000>;
+			hysteresis = <0>;
+			type = "hot";
+		};
+		pmi8998_fg_trip3: pmi8998-fg-trip3 {
+			temperature = <60000>;
+			hysteresis = <0>;
+			type = "alert";
+		};
 	};
 };

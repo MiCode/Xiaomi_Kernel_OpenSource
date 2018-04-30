@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016,2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,8 +15,25 @@
 #ifndef __MSM_SYSMON_H
 #define __MSM_SYSMON_H
 
+#include <soc/qcom/smd.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
+
+/**
+ * enum subsys_id - Destination subsystems for events.
+ */
+enum subsys_id {
+	/* SMD subsystems */
+	SYSMON_SS_MODEM     = SMD_APPS_MODEM,
+	SYSMON_SS_LPASS     = SMD_APPS_QDSP,
+	SYSMON_SS_WCNSS     = SMD_APPS_WCNSS,
+	SYSMON_SS_DSPS      = SMD_APPS_DSPS,
+	SYSMON_SS_Q6FW      = SMD_APPS_Q6FW,
+
+	/* Non-SMD subsystems */
+	SYSMON_SS_EXT_MODEM = SMD_NUM_TYPE,
+	SYSMON_NUM_SS
+};
 
 /**
  * enum ssctl_ssr_event_enum_type - Subsystem notification type.

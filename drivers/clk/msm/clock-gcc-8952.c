@@ -4512,13 +4512,6 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	clk_prepare_enable(&pnoc_keepalive_a_clk.c);
 
 	clk_prepare_enable(&xo_a_clk_src.c);
-	clk_prepare_enable(&gcc_blsp1_ahb_clk.c);
-	clk_prepare_enable(&gcc_blsp2_ahb_clk.c);
-	clk_prepare_enable(&gcc_blsp1_uart2_apps_clk.c);
-	clk_prepare_enable(&gcc_blsp1_uart1_apps_clk.c);
-	clk_prepare_enable(&gcc_bimc_gpu_clk.c);
-	clk_prepare_enable(&sysmmnoc_msmbus_a_clk.c);
-	clk_prepare_enable(&sysmmnoc_a_clk.c);
 
 	if (!compat_bin && !compat_bin3) {
 		/* Configure Sleep and Wakeup cycles for GMEM clock */

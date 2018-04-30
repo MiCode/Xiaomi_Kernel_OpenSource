@@ -320,6 +320,57 @@
 	wdsp_glink: qcom,wcd-dsp-glink {
 		compatible = "qcom,wcd-dsp-glink";
 	};
+
+	aqt_rst_gpio: aqt_cdc_pinctrl {
+		status = "disabled";
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&aqt_rst_active>;
+		pinctrl-1 = <&aqt_rst_idle>;
+	};
+
+	tert_mi2s_gpios: tert_mi2s_pinctrl {
+		status = "disabled";
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&ter_i2s_data0_active &ter_i2s_data1_active
+			     &ter_i2s_sck_active>;
+		pinctrl-1 = <&ter_i2s_data0_sleep &ter_i2s_data1_sleep
+			     &ter_i2s_sck_sleep>;
+	};
+
+	i2c@a88000 {
+		aqt1000_cdc: aqt1000-i2c-codec@d {
+			status = "disabled";
+			compatible = "qcom,aqt1000-i2c-codec";
+			reg = <0x0d>;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&tlmm>;
+			qcom,gpio-connect = <&tlmm 79 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&aqt_intr_default>;
+
+			qcom,aqt-rst-gpio-node = <&aqt_rst_gpio>;
+
+			qcom,cdc-vdd-mic-bias-supply = <&pm660l_bob>;
+			qcom,cdc-vdd-mic-bias-voltage = <3312000 3312000>;
+			qcom,cdc-vdd-mic-bias-current = <30400>;
+
+			qcom,cdc-static-supplies = "cdc-vdd-mic-bias";
+
+			qcom,cdc-micbias-ldoh-v = <3>;
+
+			qcom,cdc-ext-clk-rate = <19200000>;
+			qcom,cdc-mclk-clk-rate = <9600000>;
+
+			qcom,cdc-micbias1-mv = <1800>;
+
+			clock-names = "aqt_clk";
+			clocks = <&clock_audio_lnbb AUDIO_PMIC_LNBB_CLK>;
+		};
+	};
 };
 
 &slim_aud {

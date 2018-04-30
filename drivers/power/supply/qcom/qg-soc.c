@@ -24,11 +24,15 @@
 
 #define DEFAULT_UPDATE_TIME_MS			64000
 #define SOC_SCALE_HYST_MS			2000
-#define SOC_SCALE_LOW_TEMP_THRESHOLD		100
 
 static int qg_delta_soc_interval_ms = 20000;
 module_param_named(
-	delta_soc_interval_ms, qg_delta_soc_interval_ms, int, 0600
+	soc_interval_ms, qg_delta_soc_interval_ms, int, 0600
+);
+
+static int qg_delta_soc_cold_interval_ms = 4000;
+module_param_named(
+	soc_cold_interval_ms, qg_delta_soc_cold_interval_ms, int, 0600
 );
 
 static void get_next_update_time(struct qpnp_qg *chip)
@@ -52,9 +56,11 @@ static void get_next_update_time(struct qpnp_qg *chip)
 	rc = qg_get_battery_temp(chip, &batt_temp);
 	if (rc < 0)
 		pr_err("Failed to read battery temperature rc=%d\n", rc);
+	else if (batt_temp < chip->dt.cold_temp_threshold)
+		min_delta_soc_interval_ms = qg_delta_soc_cold_interval_ms;
 
-	if (batt_temp < SOC_SCALE_LOW_TEMP_THRESHOLD)
-		min_delta_soc_interval_ms = min_delta_soc_interval_ms / 2;
+	if (!min_delta_soc_interval_ms)
+		min_delta_soc_interval_ms = 1000;	/* 1 second */
 
 	chip->next_wakeup_ms = (full_time_ms / (soc_points + 1))
 					- SOC_SCALE_HYST_MS;

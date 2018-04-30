@@ -88,6 +88,21 @@
 	};
 };
 
+&firmware {
+	android {
+		vbmeta {
+			compatible = "android,vbmeta";
+			parts = "vbmeta,boot,system,vendor,bluetooth,modem,oem";
+		};
+		fstab {
+			/delete-node/ system;
+			vendor {
+				fsmgr_flags = "wait,slotselect,avb";
+			};
+		};
+	};
+};
+
 &rpm_bus {
 	rpm-regulator-ldoa4 {
 		compatible = "qcom,rpm-smd-regulator-resource";

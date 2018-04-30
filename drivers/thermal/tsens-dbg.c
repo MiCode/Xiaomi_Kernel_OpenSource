@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,17 +190,34 @@ static struct device_attribute tsens_mtc_dev_attr[] = {
 	__ATTR(zonehist, 0644, zonehist_show, zonehist_store),
 };
 
+static struct device_attribute tsens_mtc_dev_attr_V14[] = {
+	__ATTR(zonemask, 0644, zonemask_show, zonemask_store),
+	__ATTR(zonelog, 0644, zonelog_show, zonelog_store),
+};
+
 static int tsens_dbg_mtc_data(struct tsens_device *data,
 					u32 id, u32 dbg_type, int *val)
 {
 	int result = 0, i;
 	struct tsens_device *tmdev = NULL;
 	struct device_attribute *attr_ptr = NULL;
+	u32 ver_major;
+	u32 ver_minor;
+	u32 num_elem;
 
-	attr_ptr = tsens_mtc_dev_attr;
 	tmdev = data;
+	ver_major = tmdev->ctrl_data->ver_major;
+	ver_minor = tmdev->ctrl_data->ver_minor;
 
-	for (i = 0; i < ARRAY_SIZE(tsens_mtc_dev_attr); i++) {
+	if (ver_major == 1 && ver_minor == 4) {
+		attr_ptr = tsens_mtc_dev_attr_V14;
+		num_elem = ARRAY_SIZE(tsens_mtc_dev_attr_V14);
+	} else {
+		attr_ptr = tsens_mtc_dev_attr;
+		num_elem = ARRAY_SIZE(tsens_mtc_dev_attr);
+	}
+
+	for (i = 0; i < num_elem; i++) {
 		result = device_create_file(&tmdev->pdev->dev, &attr_ptr[i]);
 		if (result < 0)
 			goto error;

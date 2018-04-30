@@ -66,6 +66,9 @@
 #define AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME   "audio_pdr_adsprpc"
 #define AUDIO_PDR_ADSP_SERVICE_NAME              "avs/audio"
 
+#define SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME   "sensors_pdr_adsprpc"
+#define SENSORS_PDR_ADSP_SERVICE_NAME              "tms/servreg"
+
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
 #define NUM_CHANNELS	4	/* adsp, mdsp, slpi, cdsp*/
@@ -120,7 +123,7 @@
 
 static int fastrpc_glink_open(int cid);
 static void fastrpc_glink_close(void *chan, int cid);
-static int fastrpc_audio_pdr_notifier_cb(struct notifier_block *nb,
+static int fastrpc_pdr_notifier_cb(struct notifier_block *nb,
 					unsigned long code,
 					void *data);
 static struct dentry *debugfs_root;
@@ -230,6 +233,7 @@ struct fastrpc_smmu {
 	int faults;
 	int secure;
 	int coherent;
+	int sharedcb;
 };
 
 struct fastrpc_session_ctx {
@@ -366,6 +370,7 @@ struct fastrpc_file {
 	int pd;
 	char *spdname;
 	int file_close;
+	int sharedcb;
 	struct fastrpc_apps *apps;
 	struct hlist_head perf;
 	struct dentry *debugfs_file;
@@ -391,7 +396,13 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.spdname =
 					AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
 				.pdrnb.notifier_call =
-						fastrpc_audio_pdr_notifier_cb,
+						fastrpc_pdr_notifier_cb,
+			},
+			{
+				.spdname =
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				.pdrnb.notifier_call =
+						fastrpc_pdr_notifier_cb,
 			}
 		},
 	},
@@ -582,16 +593,20 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 	return -ENOTTY;
 }
 
-static int dma_alloc_memory(dma_addr_t *region_phys, void **vaddr, size_t size)
+static int dma_alloc_memory(dma_addr_t *region_phys, size_t size)
 {
 	struct fastrpc_apps *me = &gfa;
+	void *vaddr = NULL;
+	unsigned long dma_attrs = 0;
 
 	if (me->dev == NULL) {
 		pr_err("device adsprpc-mem is not initialized\n");
 		return -ENODEV;
 	}
-	*vaddr = dma_alloc_coherent(me->dev, size, region_phys, GFP_KERNEL);
-	if (!*vaddr) {
+	dma_attrs |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
+	vaddr = dma_alloc_attrs(me->dev, size, region_phys, GFP_KERNEL,
+								dma_attrs);
+	if (!vaddr) {
 		pr_err("ADSPRPC: Failed to allocate %x remote heap memory\n",
 						(unsigned int)size);
 		return -ENOMEM;
@@ -665,14 +680,17 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 	}
 	if (map->flags == ADSP_MMAP_HEAP_ADDR ||
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+		unsigned long dma_attrs = 0;
 
 		if (me->dev == NULL) {
 			pr_err("failed to free remote heap allocation\n");
 			return;
 		}
 		if (map->phys) {
-			dma_free_coherent(me->dev, map->size,
-				(void *)map->va, (dma_addr_t)map->phys);
+			dma_attrs |=
+			DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
+			dma_free_attrs(me->dev, map->size, (void *)map->va,
+					(dma_addr_t)map->phys, dma_attrs);
 		}
 	} else if (map->flags == FASTRPC_DMAHANDLE_NOMAP) {
 		if (!IS_ERR_OR_NULL(map->handle))
@@ -729,7 +747,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	struct fastrpc_mmap *map = NULL;
 	unsigned long attrs;
 	dma_addr_t region_phys = 0;
-	void *region_vaddr = NULL;
 	unsigned long flags;
 	int err = 0, vmid;
 
@@ -749,13 +766,12 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		map->apps = me;
 		map->fl = NULL;
-		VERIFY(err, !dma_alloc_memory(&region_phys, &region_vaddr,
-						 len));
+		VERIFY(err, !dma_alloc_memory(&region_phys, len));
 		if (err)
 			goto bail;
 		map->phys = (uintptr_t)region_phys;
 		map->size = len;
-		map->va = (uintptr_t)region_vaddr;
+		map->va = (uintptr_t)map->phys;
 	} else if (mflags == FASTRPC_DMAHANDLE_NOMAP) {
 		ion_phys_addr_t iphys;
 
@@ -1755,7 +1771,7 @@ static void fastrpc_smd_read_handler(int cid)
 		if (err)
 			goto bail;
 
-		VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp.ctx & ~1)) &&
+		VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp.ctx & ~3)) &&
 			me->ctxtable[index]->magic == FASTRPC_CTX_MAGIC));
 		if (err)
 			goto bail;
@@ -1951,7 +1967,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	VERIFY(err, 0 == (err = fastrpc_channel_open(fl)));
 	if (err)
 		goto bail;
-	if (init->flags == FASTRPC_INIT_ATTACH) {
+	if (init->flags == FASTRPC_INIT_ATTACH ||
+			init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
 		remote_arg_t ra[1];
 		int tgid = fl->tgid;
 
@@ -1963,7 +1980,12 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		ioctl.fds = NULL;
 		ioctl.attrs = NULL;
 		ioctl.crc = NULL;
-		fl->pd = 0;
+		if (init->flags == FASTRPC_INIT_ATTACH)
+			fl->pd = 0;
+		else if (init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
+			fl->spdname = SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME;
+			fl->pd = 2;
+		}
 		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
 			FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 		if (err)
@@ -2073,6 +2095,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 
+		fl->pd = 1;
 		inbuf.pgid = current->tgid;
 		inbuf.namelen = init->filelen;
 		inbuf.pageslen = 0;
@@ -2536,15 +2559,17 @@ static void fastrpc_channel_close(struct kref *kref)
 static void fastrpc_context_list_dtor(struct fastrpc_file *fl);
 
 static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
-			int secure, struct fastrpc_session_ctx **session)
+	int secure, int sharedcb, struct fastrpc_session_ctx **session)
 {
 	struct fastrpc_apps *me = &gfa;
 	int idx = 0, err = 0;
 
 	if (chan->sesscount) {
 		for (idx = 0; idx < chan->sesscount; ++idx) {
-			if (!chan->session[idx].used &&
-				chan->session[idx].smmu.secure == secure) {
+			if ((sharedcb && chan->session[idx].smmu.sharedcb) ||
+					(!chan->session[idx].used &&
+					chan->session[idx].smmu.secure
+					== secure && !sharedcb)) {
 				chan->session[idx].used = 1;
 				break;
 			}
@@ -2600,7 +2625,7 @@ static void fastrpc_glink_notify_rx(void *handle, const void *priv,
 	if (err)
 		goto bail;
 
-	VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp->ctx & ~1)) &&
+	VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp->ctx & ~3)) &&
 		me->ctxtable[index]->magic == FASTRPC_CTX_MAGIC));
 	if (err)
 		goto bail;
@@ -2645,7 +2670,7 @@ static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int secure,
 
 	mutex_lock(&me->smd_mutex);
 	if (!*session)
-		err = fastrpc_session_alloc_locked(chan, secure, session);
+		err = fastrpc_session_alloc_locked(chan, secure, 0, session);
 	mutex_unlock(&me->smd_mutex);
 	return err;
 }
@@ -2663,7 +2688,7 @@ static void fastrpc_session_free(struct fastrpc_channel_ctx *chan,
 static int fastrpc_file_free(struct fastrpc_file *fl)
 {
 	struct hlist_node *n = NULL;
-	struct fastrpc_mmap *map = NULL;
+	struct fastrpc_mmap *map = NULL, *lmap = NULL;
 	struct fastrpc_perf *perf = NULL, *fperf = NULL;
 	int cid;
 
@@ -2687,9 +2712,15 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	fastrpc_context_list_dtor(fl);
 	fastrpc_buf_list_free(fl);
 	mutex_lock(&fl->fl_map_mutex);
-	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
-		fastrpc_mmap_free(map, 1);
-	}
+	do {
+		lmap = NULL;
+		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+			hlist_del_init(&map->hn);
+			lmap = map;
+			break;
+		}
+		fastrpc_mmap_free(lmap, 1);
+	} while (lmap);
 	mutex_unlock(&fl->fl_map_mutex);
 	if (fl->refcount && (fl->ssrcount == fl->apps->channel[cid].ssrcount))
 		kref_put_mutex(&fl->apps->channel[cid].kref,
@@ -3085,7 +3116,7 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		fl->cid = cid;
 		fl->ssrcount = fl->apps->channel[cid].ssrcount;
 		VERIFY(err, !fastrpc_session_alloc_locked(
-				&fl->apps->channel[cid], 0, &fl->sctx));
+			&fl->apps->channel[cid], 0, fl->sharedcb, &fl->sctx));
 		if (err)
 			goto bail;
 	}
@@ -3123,6 +3154,9 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			fl->qos_request = 1;
 		} else
 			pm_qos_update_request(&fl->pm_qos_req, latency);
+		break;
+	case FASTRPC_CONTROL_SMMU:
+		fl->sharedcb = cp->smmu.sharedcb;
 		break;
 	default:
 		err = -ENOTTY;
@@ -3364,7 +3398,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-static int fastrpc_audio_pdr_notifier_cb(struct notifier_block *pdrnb,
+static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 					unsigned long code,
 					void *data)
 {
@@ -3401,7 +3435,7 @@ static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 {
 	struct fastrpc_static_pd *spd;
 	struct pd_qmi_client_data *pdr = data;
-	int curr_state = 0;
+	int curr_state = 0, i = 0;
 
 	spd = container_of(nb, struct fastrpc_static_pd, get_service_nb);
 	if (opcode == LOCATOR_DOWN) {
@@ -3409,15 +3443,21 @@ static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 		return NOTIFY_DONE;
 	}
 
-	if (pdr->total_domains == 1) {
-		spd->pdrhandle = service_notif_register_notifier(
-				pdr->domain_list[0].name,
-				pdr->domain_list[0].instance_id,
+	for (i = 0; i < pdr->total_domains; i++) {
+		if ((!strcmp(pdr->domain_list[i].name,
+					"msm/adsp/audio_pd")) ||
+					(!strcmp(pdr->domain_list[i].name,
+					"msm/adsp/sensor_pd"))) {
+			spd->pdrhandle =
+				service_notif_register_notifier(
+				pdr->domain_list[i].name,
+				pdr->domain_list[i].instance_id,
 				&spd->pdrnb, &curr_state);
-		if (IS_ERR(spd->pdrhandle))
-			pr_err("ADSPRPC: Unable to register notifier\n");
-	} else
-		pr_err("ADSPRPC: Service returned invalid domains\n");
+			if (IS_ERR(spd->pdrhandle))
+				pr_err("ADSPRPC: Unable to register notifier\n");
+			break;
+		}
+	}
 
 	return NOTIFY_DONE;
 }
@@ -3476,6 +3516,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	sess->used = 0;
 	sess->smmu.coherent = of_property_read_bool(dev->of_node,
 						"dma-coherent");
+	sess->smmu.sharedcb = of_property_read_bool(dev->of_node,
+						"shared-cb");
 	sess->smmu.secure = of_property_read_bool(dev->of_node,
 						"qcom,secure-context-bank");
 	if (sess->smmu.secure)
@@ -3505,7 +3547,6 @@ bail:
 
 static int fastrpc_cb_legacy_probe(struct device *dev)
 {
-	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *chan;
 	struct fastrpc_session_ctx *first_sess = NULL, *sess = NULL;
 	const char *name;
@@ -3574,7 +3615,6 @@ static int fastrpc_cb_legacy_probe(struct device *dev)
 		sess->smmu.secure = false;
 		chan->sesscount++;
 	}
-	me->legacy = 1;
 bail:
 	kfree(sids);
 	return err;
@@ -3627,7 +3667,6 @@ static int fastrpc_probe(struct platform_device *pdev)
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
 	struct device *dev = &pdev->dev;
-	struct smq_phy_page range;
 	struct device_node *ion_node, *node;
 	struct platform_device *ion_pdev;
 	struct cma *cma;
@@ -3651,6 +3690,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-legacy-compute")) {
 		me->glink = false;
+		me->legacy = 1;
 	}
 
 	if (of_device_is_compatible(dev->of_node,
@@ -3661,7 +3701,6 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-adsprpc-mem-region")) {
 		me->dev = dev;
-		range.addr = 0;
 		ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
 		if (ion_node) {
 			for_each_available_child_of_node(ion_node, node) {
@@ -3674,13 +3713,14 @@ static int fastrpc_probe(struct platform_device *pdev)
 					break;
 				cma = dev_get_cma_area(&ion_pdev->dev);
 				if (cma) {
-					range.addr = cma_get_base(cma);
-					range.size = (size_t)cma_get_size(cma);
+					me->range.addr = cma_get_base(cma);
+					me->range.size =
+						(size_t)cma_get_size(cma);
 				}
 				break;
 			}
 		}
-		if (range.addr && !of_property_read_bool(dev->of_node,
+		if (me->range.addr && !of_property_read_bool(dev->of_node,
 							 "restrict-access")) {
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[4] = {VMID_HLOS, VMID_MSS_MSA, VMID_SSC_Q6,
@@ -3691,12 +3731,11 @@ static int fastrpc_probe(struct platform_device *pdev)
 				PERM_READ | PERM_WRITE | PERM_EXEC,
 				};
 
-			VERIFY(err, !hyp_assign_phys(range.addr, range.size,
-					srcVM, 1, destVM, destVMperm, 4));
+			VERIFY(err, !hyp_assign_phys(me->range.addr,
+					me->range.size, srcVM, 1,
+					destVM, destVMperm, 4));
 			if (err)
 				goto bail;
-			me->range.addr = range.addr;
-			me->range.size = range.size;
 		}
 		return 0;
 	}
@@ -3713,6 +3752,24 @@ static int fastrpc_probe(struct platform_device *pdev)
 		ret = get_service_location(
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
 				AUDIO_PDR_ADSP_SERVICE_NAME,
+				&me->channel[0].spd[session].get_service_nb);
+		if (ret)
+			pr_err("ADSPRPC: Get service location failed: %d\n",
+								ret);
+	}
+	if (of_property_read_bool(dev->of_node,
+					"qcom,fastrpc-adsp-sensors-pdr")) {
+		int session;
+
+		VERIFY(err, !fastrpc_get_adsp_session(
+			SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME, &session));
+		if (err)
+			goto spdbail;
+		me->channel[0].spd[session].get_service_nb.notifier_call =
+					fastrpc_get_service_location_notify;
+		ret = get_service_location(
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				SENSORS_PDR_ADSP_SERVICE_NAME,
 				&me->channel[0].spd[session].get_service_nb);
 		if (ret)
 			pr_err("ADSPRPC: Get service location failed: %d\n",

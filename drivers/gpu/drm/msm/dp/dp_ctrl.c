@@ -130,7 +130,7 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	if (!ctrl->power_on || atomic_read(&ctrl->aborted)) {
+	if (!ctrl->power_on) {
 		pr_err("CTRL off, return\n");
 		return;
 	}

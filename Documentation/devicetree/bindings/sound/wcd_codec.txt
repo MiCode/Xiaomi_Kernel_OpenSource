@@ -439,6 +439,7 @@ Optional properties:
 				Value from 4000 to 5550 in mV in steps of 50 mV can be given.
  - qcom,dig-cdc-base-addr: Specifies the digital codec base address for MSM digital
 				core register writes.
+ - qcom,anlg-cdc-mbhc-disable: Boolean variable that informs if AQT1000 codec is enabled or not.
 
 Example:
 

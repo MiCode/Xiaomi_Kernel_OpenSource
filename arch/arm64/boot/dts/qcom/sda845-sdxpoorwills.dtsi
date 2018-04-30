@@ -15,9 +15,9 @@
 	pinctrl-0 = <&ap2mdm_pon_reset_default>;
 	pinctrl-1 = <&ap2mdm_active &mdm2ap_active>;
 	pinctrl-2 = <&ap2mdm_sleep &mdm2ap_sleep>;
-	interrupt-map = <0 &tlmm 24 0x3
+	interrupt-map = <0 &tlmm 20 0x3
 			1 &tlmm 21 0x3>;
-	qcom,mdm2ap-errfatal-gpio = <&tlmm 24 0x00>;
+	qcom,mdm2ap-errfatal-gpio = <&tlmm 20 0x00>;
 	qcom,ap2mdm-errfatal-gpio = <&tlmm 23 0x00>;
 	qcom,mdm2ap-status-gpio   = <&tlmm 22 0x00>;
 	qcom,ap2mdm-status-gpio   = <&tlmm 21 0x00>;

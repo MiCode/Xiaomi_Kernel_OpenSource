@@ -2119,6 +2119,7 @@ static struct smb_irq_info smb2_irqs[] = {
 	[SWITCH_POWER_OK_IRQ] = {
 		.name		= "switcher-power-ok",
 		.handler	= smblib_handle_switcher_power_ok,
+		.wake		= true,
 		.storm_data	= {true, 1000, 8},
 	},
 };

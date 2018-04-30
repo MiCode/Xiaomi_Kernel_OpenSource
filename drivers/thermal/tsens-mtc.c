@@ -76,6 +76,8 @@ int tsens_set_mtc_zone_sw_mask(unsigned int zone, unsigned int th1_enable,
 	unsigned int reg_cntl;
 	void __iomem *sensor_addr;
 	struct tsens_device *tmdev = NULL;
+	u32 ver_major;
+	u32 ver_minor;
 
 	if (zone > TSENS_NUM_MTC_ZONES_SUPPORT)
 		return -EINVAL;
@@ -86,8 +88,16 @@ int tsens_set_mtc_zone_sw_mask(unsigned int zone, unsigned int th1_enable,
 		return -EPROBE_DEFER;
 	}
 
-	sensor_addr = TSENS_TM_MTC_ZONE0_SW_MASK_ADDR
-					(tmdev->tsens_tm_addr);
+	ver_major = tmdev->ctrl_data->ver_major;
+	ver_minor = tmdev->ctrl_data->ver_minor;
+
+	if (ver_major == 1 && ver_minor == 4) {
+		sensor_addr = TSENS_TM_MTC_ZONE0_SW_MASK_ADDR_V14
+			(tmdev->tsens_tm_addr);
+	} else {
+		sensor_addr = TSENS_TM_MTC_ZONE0_SW_MASK_ADDR
+			(tmdev->tsens_tm_addr);
+	}
 
 	if (th1_enable && th2_enable)
 		writel_relaxed(TSENS_MTC_IN_EFFECT,
@@ -120,6 +130,8 @@ int tsens_get_mtc_zone_log(unsigned int zone, void *zone_log)
 	int *zlog = (int *)zone_log;
 	void __iomem *sensor_addr;
 	struct tsens_device *tmdev = NULL;
+	u32 ver_major;
+	u32 ver_minor;
 
 	if (zone > TSENS_NUM_MTC_ZONES_SUPPORT)
 		return -EINVAL;
@@ -130,8 +142,13 @@ int tsens_get_mtc_zone_log(unsigned int zone, void *zone_log)
 		return -EPROBE_DEFER;
 	}
 
-	sensor_addr = TSENS_TM_MTC_ZONE0_LOG(tmdev->tsens_tm_addr);
+	ver_major = tmdev->ctrl_data->ver_major;
+	ver_minor = tmdev->ctrl_data->ver_minor;
 
+	if (ver_major == 1 && ver_minor == 4)
+		sensor_addr = TSENS_TM_MTC_ZONE0_LOG_V14(tmdev->tsens_tm_addr);
+	else
+		sensor_addr = TSENS_TM_MTC_ZONE0_LOG(tmdev->tsens_tm_addr);
 	reg_cntl = readl_relaxed((sensor_addr +
 				(zone * TSENS_SN_ADDR_OFFSET)));
 	is_valid = (reg_cntl & TSENS_LOGS_VALID_MASK)

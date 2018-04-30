@@ -81,6 +81,9 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 	bdata->resume_in_workqueue = of_property_read_bool(np,
 			"synaptics,resume-in-workqueue");
 
+	bdata->wakeup_gesture_en = of_property_read_bool(np,
+			"synaptics,wakeup-gestures-en");
+
 	retval = of_property_read_string(np, "synaptics,pwr-reg-name", &name);
 	if (retval < 0)
 		bdata->pwr_reg_name = NULL;

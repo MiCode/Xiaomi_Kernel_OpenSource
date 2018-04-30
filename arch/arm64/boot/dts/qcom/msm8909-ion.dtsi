@@ -39,6 +39,12 @@
 			qcom,ion-heap-type = "DMA";
 		};
 
+		qcom,ion-heap@19 { /* QSEECOM TA HEAP */
+			reg = <19>;
+			memory-region = <&qseecom_ta_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
 		adsp_heap: qcom,ion-heap@22 { /* MODEM HEAP */
 			reg = <22>;
 			memory-region = <&adsp_mem>;

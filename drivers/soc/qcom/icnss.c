@@ -1164,8 +1164,9 @@ bool icnss_is_fw_down(void)
 {
 	if (!penv)
 		return false;
-	else
-		return test_bit(ICNSS_FW_DOWN, &penv->state);
+
+	return test_bit(ICNSS_FW_DOWN, &penv->state) ||
+		test_bit(ICNSS_PD_RESTART, &penv->state);
 }
 EXPORT_SYMBOL(icnss_is_fw_down);
 
@@ -2570,6 +2571,8 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 		break;
 
 	case QMI_SERVER_EXIT:
+		set_bit(ICNSS_FW_DOWN, &penv->state);
+		icnss_ignore_qmi_timeout(true);
 		ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_EXIT,
 					      0, NULL);
 		break;

@@ -18,6 +18,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
+#include <linux/thermal.h>
 #include <linux/iio/consumer.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include "fg-core.h"
@@ -5355,6 +5356,29 @@ static void fg_cleanup(struct fg_chip *chip)
 	dev_set_drvdata(chip->dev, NULL);
 }
 
+static int fg_tz_get_temp(void *data, int *temperature)
+{
+	struct fg_chip *chip = (struct fg_chip *)data;
+	int rc, batt_temp = 0;
+
+	if (!temperature)
+		return -EINVAL;
+
+	rc = fg_get_battery_temp(chip, &batt_temp);
+	if (rc < 0) {
+		pr_err("Error in getting batt_temp\n");
+		return rc;
+	}
+
+	/* Convert deciDegC to milliDegC */
+	*temperature = batt_temp * 100;
+	return 0;
+}
+
+static struct thermal_zone_of_device_ops fg_gen3_tz_ops = {
+	.get_temp = fg_tz_get_temp,
+};
+
 static int fg_gen3_probe(struct platform_device *pdev)
 {
 	struct fg_chip *chip;
@@ -5537,6 +5561,15 @@ static int fg_gen3_probe(struct platform_device *pdev)
 			pr_err("Error in configuring ESR filter rc:%d\n", rc);
 	}
 
+	chip->tz_dev = thermal_zone_of_sensor_register(chip->dev, 0, chip,
+							&fg_gen3_tz_ops);
+	if (IS_ERR_OR_NULL(chip->tz_dev)) {
+		rc = PTR_ERR(chip->tz_dev);
+		chip->tz_dev = NULL;
+		dev_err(chip->dev, "thermal_zone_of_sensor_register() failed rc:%d\n",
+			rc);
+	}
+
 	device_init_wakeup(chip->dev, true);
 	schedule_delayed_work(&chip->profile_load_work, 0);
 
@@ -5601,6 +5634,8 @@ static int fg_gen3_remove(struct platform_device *pdev)
 {
 	struct fg_chip *chip = dev_get_drvdata(&pdev->dev);
 
+	if (chip->tz_dev)
+		thermal_zone_of_sensor_unregister(chip->dev, chip->tz_dev);
 	fg_cleanup(chip);
 	return 0;
 }
