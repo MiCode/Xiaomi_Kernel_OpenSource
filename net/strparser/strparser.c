@@ -285,9 +285,9 @@ static int strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
 					strp_start_rx_timer(strp);
 				}
 
+				rxm->accum_len += cand_len;
 				strp->rx_need_bytes = rxm->strp.full_len -
 						       rxm->accum_len;
-				rxm->accum_len += cand_len;
 				rxm->early_eaten = cand_len;
 				STRP_STATS_ADD(strp->stats.rx_bytes, cand_len);
 				desc->count = 0; /* Stop reading socket */
@@ -310,6 +310,7 @@ static int strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
 		/* Hurray, we have a new message! */
 		del_timer(&strp->rx_msg_timer);
 		strp->rx_skb_head = NULL;
+		strp->rx_need_bytes = 0;
 		STRP_STATS_INCR(strp->stats.rx_msgs);
 
 		/* Give skb to upper layer */
@@ -374,9 +375,7 @@ void strp_data_ready(struct strparser *strp)
 		return;
 
 	if (strp->rx_need_bytes) {
-		if (strp_peek_len(strp) >= strp->rx_need_bytes)
-			strp->rx_need_bytes = 0;
-		else
+		if (strp_peek_len(strp) < strp->rx_need_bytes)
 			return;
 	}
 
