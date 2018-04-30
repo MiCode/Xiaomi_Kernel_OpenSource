@@ -4346,6 +4346,9 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
 		params->is_primary = sde_enc->disp_info.is_primary;
+		params->frame_trigger_mode = sde_enc->frame_trigger_mode;
+		params->recovery_events_enabled =
+					sde_enc->recovery_events_enabled;
 		if (phys) {
 			if (phys->ops.prepare_for_kickoff) {
 				rc = phys->ops.prepare_for_kickoff(
