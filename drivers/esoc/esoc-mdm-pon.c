@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,7 +55,7 @@ static int mdm9x55_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
 	if (!atomic)
 		usleep_range(reset_time_us, reset_time_us + 100000);
 	else
-		mdelay(mdm->reset_time_ms);
+		mdelay(DEF_MDM9X55_RESET_TIME);
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			soft_reset_direction_de_assert);
 	return 0;

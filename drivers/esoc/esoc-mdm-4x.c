@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -230,10 +230,15 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 			}
 			msleep(100);
 		}
-		if (status_down)
+		if (status_down) {
 			dev_dbg(dev, "shutdown successful\n");
-		else
+			esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
+		} else {
 			dev_err(mdm->dev, "graceful poff ipc fail\n");
+			graceful_shutdown = false;
+			goto force_poff;
+		}
+		break;
 force_poff:
 	case ESOC_FORCE_PWR_OFF:
 		if (!graceful_shutdown) {
