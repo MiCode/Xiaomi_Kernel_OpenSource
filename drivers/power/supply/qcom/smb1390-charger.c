@@ -532,12 +532,12 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 	if (rc >= 0) {
 		chip->iio.die_temp_chan =
 			iio_channel_get(chip->dev, "cp_die_temp");
-		rc = PTR_ERR(chip->iio.die_temp_chan);
 		if (IS_ERR(chip->iio.die_temp_chan)) {
+			rc = PTR_ERR(chip->iio.die_temp_chan);
 			if (rc != -EPROBE_DEFER)
 				dev_err(chip->dev,
 					"cp_die_temp channel unavailable %ld\n",
-					PTR_ERR(chip->iio.die_temp_chan));
+					rc);
 			chip->iio.die_temp_chan = NULL;
 			return rc;
 		}
