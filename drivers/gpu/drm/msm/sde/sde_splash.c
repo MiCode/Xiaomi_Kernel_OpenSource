@@ -23,6 +23,7 @@
 #include "sde_hw_intf.h"
 #include "sde_hw_catalog.h"
 #include "dsi_display.h"
+#include "sde_hdmi.h"
 
 #define MDP_SSPP_TOP0_OFF		0x1000
 #define DISP_INTF_SEL			0x004
@@ -38,6 +39,10 @@
 #define SDE_LK_EXIT_VALUE		0xDEADBEEF
 
 #define SDE_LK_EXIT_MAX_LOOP		20
+
+#define INTF_HDMI_SEL                  (BIT(25) | BIT(24))
+#define INTF_DSI0_SEL                  BIT(8)
+#define INTF_DSI1_SEL                  BIT(16)
 
 static DEFINE_MUTEX(sde_splash_lock);
 
@@ -448,14 +453,17 @@ int sde_splash_get_handoff_status(struct msm_kms *kms)
 		 * considered as single display. So decrement
 		 * 'num_of_display_on' by 1
 		 */
-		if (split_display)
+		if (split_display) {
 			num_of_display_on--;
+			sinfo->split_is_enabled = true;
+		}
 	}
 
 	if (num_of_display_on) {
 		sinfo->handoff = true;
 		sinfo->program_scratch_regs = true;
 		sinfo->lk_is_exited = false;
+		sinfo->intf_sel_status = intf_sel;
 	} else {
 		sinfo->handoff = false;
 		sinfo->program_scratch_regs = false;
@@ -502,6 +510,71 @@ int sde_splash_smmu_map(struct drm_device *dev, struct msm_mmu *mmu,
 	}
 
 	return ret ? 0 : -ENOMEM;
+}
+
+static bool _sde_splash_get_panel_intf_status(struct sde_splash_info *sinfo,
+			const char *display_name, int connector_type)
+{
+	bool ret = false;
+	int intf_status = 0;
+
+	if (sinfo && sinfo->handoff) {
+		if (connector_type == DRM_MODE_CONNECTOR_DSI) {
+			if (!strcmp(display_name, "dsi_adv_7533_1")) {
+				if (sinfo->intf_sel_status & INTF_DSI0_SEL)
+					ret = true;
+			} else if (!strcmp(display_name, "dsi_adv_7533_2")) {
+				if (sinfo->intf_sel_status & INTF_DSI1_SEL)
+					ret = true;
+			} else
+				DRM_INFO("wrong display name %s\n",
+						display_name);
+		} else if (connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+			intf_status = sinfo->intf_sel_status & INTF_HDMI_SEL;
+				ret = (intf_status == INTF_HDMI_SEL);
+		}
+	}
+
+	return ret;
+}
+
+int sde_splash_setup_display_resource(struct sde_splash_info *sinfo,
+					void *disp, int connector_type)
+{
+	if (!sinfo || !disp)
+		return -EINVAL;
+
+	/* early return if splash is not enabled in bootloader */
+	if (!sinfo->handoff)
+		return 0;
+
+	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
+		struct dsi_display *display = (struct dsi_display *)disp;
+
+		display->cont_splash_enabled =
+			_sde_splash_get_panel_intf_status(sinfo,
+					display->name,
+					connector_type);
+
+		DRM_INFO("DSI splash %s\n",
+		display->cont_splash_enabled ? "enabled" : "disabled");
+
+		if (display->cont_splash_enabled) {
+			if (dsi_dsiplay_setup_splash_resource(display))
+				return -EINVAL;
+		}
+	} else if (connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+		struct sde_hdmi *sde_hdmi = (struct sde_hdmi *)disp;
+
+		sde_hdmi->cont_splash_enabled =
+			_sde_splash_get_panel_intf_status(sinfo,
+					NULL, connector_type);
+
+		DRM_INFO("HDMI splash %s\n",
+		sde_hdmi->cont_splash_enabled ? "enabled" : "disabled");
+	}
+
+	return 0;
 }
 
 void sde_splash_setup_connector_count(struct sde_splash_info *sinfo,
