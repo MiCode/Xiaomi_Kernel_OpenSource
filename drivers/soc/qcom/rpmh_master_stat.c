@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
 #include <linux/soc/qcom/smem.h>
+#include <asm/arch_timer.h>
 #include "rpmh_master_stat.h"
 
 #define UNIT_DIST 0x14
@@ -102,6 +103,18 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 				struct msm_rpmh_master_stats *record,
 				const char *name)
 {
+	uint64_t accumulated_duration = record->accumulated_duration;
+	/*
+	 * If a master is in sleep when reading the sleep stats from SMEM
+	 * adjust the accumulated sleep duration to show actual sleep time.
+	 * This ensures that the displayed stats are real when used for
+	 * the purpose of computing battery utilization.
+	 */
+	if (record->last_entered > record->last_exited)
+		accumulated_duration +=
+				(arch_counter_get_cntvct()
+				- record->last_entered);
+
 	return snprintf(prvbuf, length, "%s\n\tVersion:0x%x\n"
 			"\tSleep Count:0x%x\n"
 			"\tSleep Last Entered At:0x%llx\n"
@@ -109,7 +122,7 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 			"\tSleep Accumulated Duration:0x%llx\n\n",
 			name, record->version_id, record->counts,
 			record->last_entered, record->last_exited,
-			record->accumulated_duration);
+			accumulated_duration);
 }
 
 static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
@@ -129,7 +142,7 @@ static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 
 	/* Read SMEM data written by other masters */
 
-	for (i = 0, length = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
+	for (i = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
 		record = (struct msm_rpmh_master_stats *) qcom_smem_get(
 					rpmh_masters[i].pid,
 					rpmh_masters[i].smem_id, &size);
