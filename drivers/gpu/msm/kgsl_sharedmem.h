@@ -76,6 +76,10 @@ void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
 int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 				uint64_t size);
 
+void kgsl_free_secure_page(struct page *page);
+
+struct page *kgsl_alloc_secure_page(void);
+
 #define MEMFLAGS(_flags, _mask, _shift) \
 	((unsigned int) (((_flags) & (_mask)) >> (_shift)))
 
@@ -131,6 +135,7 @@ kgsl_memdesc_get_memtype(const struct kgsl_memdesc *memdesc)
 static inline int
 kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 {
+	align = max_t(unsigned int, align, ilog2(memdesc->pad_to));
 	if (align > 32)
 		align = 32;
 
@@ -262,7 +267,8 @@ kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
 static inline uint64_t
 kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 {
-	return  memdesc->size + kgsl_memdesc_guard_page_size(memdesc);
+	return ALIGN(memdesc->size + kgsl_memdesc_guard_page_size(memdesc),
+		memdesc->pad_to);
 }
 
 /*
