@@ -46,10 +46,10 @@
 				qcom,is-reset;
 			};
 
-			qcom,pm-cluster-level@2 { /* Cx off */
+			qcom,pm-cluster-level@2 { /* Cx Ret */
 				reg = <2>;
-				label = "cx-off";
-				qcom,psci-mode = <0x224>;
+				label = "cx-ret";
+				qcom,psci-mode = <0x124>;
 				qcom,latency-us = <4562>;
 				qcom,ss-power = <290>;
 				qcom,energy-overhead = <6989829>;
@@ -62,7 +62,7 @@
 			qcom,pm-cluster-level@3 { /* LLCC off, AOSS sleep */
 				reg = <3>;
 				label = "llcc-off";
-				qcom,psci-mode = <0xC24>;
+				qcom,psci-mode = <0xB24>;
 				qcom,latency-us = <6562>;
 				qcom,ss-power = <165>;
 				qcom,energy-overhead = <7000029>;
@@ -165,5 +165,10 @@
 		compatible = "qcom,rpm-stats";
 		reg = <0xc300000 0x1000>, <0xc3f0004 0x4>;
 		reg-names = "phys_addr_base", "offset_addr";
+	};
+
+	qcom,rpmh-master-stats@b221200 {
+		compatible = "qcom,rpmh-master-stats-v1";
+		reg = <0xb221200 0x60>;
 	};
 };
