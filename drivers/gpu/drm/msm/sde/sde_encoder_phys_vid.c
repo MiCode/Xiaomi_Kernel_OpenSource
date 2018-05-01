@@ -341,6 +341,54 @@ static bool sde_encoder_phys_vid_mode_fixup(
 	return true;
 }
 
+/* vid_enc timing_params must be configured before calling this function */
+static void _sde_encoder_phys_vid_setup_avr(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_vid *vid_enc;
+	struct drm_display_mode mode;
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	mode = phys_enc->cached_mode;
+	if (vid_enc->base.hw_intf->ops.avr_setup) {
+		struct intf_avr_params avr_params = {0};
+		u32 qsync_min_fps = 0;
+		u32 default_fps = mode.vrefresh;
+		int ret;
+
+		if (phys_enc->parent_ops.get_qsync_fps)
+			phys_enc->parent_ops.get_qsync_fps(
+				phys_enc->parent, &qsync_min_fps);
+
+		if (!qsync_min_fps || !default_fps) {
+			SDE_ERROR_VIDENC(vid_enc,
+					"wrong qsync params %d %d\n",
+					qsync_min_fps, default_fps);
+			return;
+		}
+
+		if (qsync_min_fps >= default_fps) {
+			SDE_ERROR_VIDENC(vid_enc,
+				"qsync fps %d must be less than default %d\n",
+				qsync_min_fps, default_fps);
+			return;
+		}
+
+		avr_params.default_fps = default_fps;
+		avr_params.min_fps = qsync_min_fps;
+
+		ret = vid_enc->base.hw_intf->ops.avr_setup(
+				vid_enc->base.hw_intf,
+				&vid_enc->timing_params, &avr_params);
+		if (ret)
+			SDE_ERROR_VIDENC(vid_enc,
+				"bad settings, can't configure AVR\n");
+
+		SDE_EVT32(DRMID(phys_enc->parent), default_fps,
+				qsync_min_fps, ret);
+	}
+}
+
 static void sde_encoder_phys_vid_setup_timing_engine(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -387,7 +435,7 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	if (phys_enc->sde_kms->splash_data.cont_splash_en) {
 		SDE_DEBUG_VIDENC(vid_enc,
 			"skipping intf programming since cont splash is enabled\n");
-		return;
+		goto exit;
 	}
 
 	fmt = sde_get_sde_format(fmt_fourcc);
@@ -412,6 +460,9 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	}
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 	programmable_fetch_config(phys_enc, &timing_params);
+
+exit:
+	_sde_encoder_phys_vid_setup_avr(phys_enc);
 }
 
 static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
@@ -847,6 +898,7 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_ctl *ctl;
 	int rc;
+	struct intf_avr_params avr_params;
 
 	if (!phys_enc || !params || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid encoder/parameters\n");
@@ -880,6 +932,22 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 		phys_enc->enable_state = SDE_ENC_ERR_NEEDS_HW_RESET;
 	} else {
 		vid_enc->error_count = 0;
+	}
+
+	if (sde_connector_qsync_updated(phys_enc->connector)) {
+		avr_params.avr_mode = sde_connector_get_property(
+				phys_enc->connector->state,
+				CONNECTOR_PROP_QSYNC_MODE);
+
+		if (vid_enc->base.hw_intf->ops.avr_ctrl) {
+			vid_enc->base.hw_intf->ops.avr_ctrl(
+					vid_enc->base.hw_intf,
+					&avr_params);
+		}
+
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->hw_intf->idx - INTF_0,
+				avr_params.avr_mode);
 	}
 
 	programmable_rot_fetch_config(phys_enc,
@@ -968,6 +1036,7 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 {
 	unsigned long lock_flags;
 	struct sde_encoder_phys_vid *vid_enc;
+	u32 avr_mode;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -988,6 +1057,17 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 		phys_enc->hw_intf->ops.enable_timing(phys_enc->hw_intf, 1);
 		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 		phys_enc->enable_state = SDE_ENC_ENABLED;
+	}
+
+	avr_mode = sde_connector_get_property(
+			phys_enc->connector->state,
+			CONNECTOR_PROP_QSYNC_MODE);
+
+	if (avr_mode && vid_enc->base.hw_intf->ops.avr_trigger) {
+		vid_enc->base.hw_intf->ops.avr_trigger(vid_enc->base.hw_intf);
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->hw_intf->idx - INTF_0,
+				SDE_EVTLOG_FUNC_CASE9);
 	}
 }
 
