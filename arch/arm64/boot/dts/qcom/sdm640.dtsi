@@ -345,16 +345,28 @@
 			reg = <0 0x85700000 0 0x600000>;
 		};
 
-		xbl_region: xbl_region@85e00000 {
+		xbl_aop_mem: xbl_aop_mem@85e00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x85e00000 0 0x100000>;
+			reg = <0x0 0x85e00000 0x0 0x1ff000>;
 		};
 
-		removed_region: removed_region@85fc0000 {
+		sec_apps_mem: sec_apps_region@85fff000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x85fc0000 0 0x2f40000>;
+			reg = <0x0 0x85fff000 0x0 0x1000>;
+		};
+
+		smem_region: smem@86000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x86000000 0x0 0x200000>;
+		};
+
+		removed_region: removed_region@86200000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x86200000 0 0x2d00000>;
 		};
 
 		pil_camera_mem: camera_region@8ab00000 {
