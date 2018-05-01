@@ -62,6 +62,7 @@ enum bgcom_req_type {
 	BGCOM_READ_REG = 0,
 	BGCOM_READ_FIFO = 1,
 	BGCOM_READ_AHB = 2,
+	BGCOM_WRITE_REG = 3,
 };
 
 struct bg_spi_priv {
@@ -110,6 +111,9 @@ static struct workqueue_struct *wq;
 static DECLARE_WORK(input_work , send_input_events);
 
 static struct mutex bg_resume_mutex;
+
+static atomic_t  bg_is_spi_active;
+static int bg_irq;
 
 static void augmnt_fifo(uint8_t *data, int pos)
 {
@@ -194,6 +198,10 @@ static int read_bg_locl(enum bgcom_req_type req_type,
 	case BGCOM_READ_FIFO:
 		ret = bgcom_fifo_read(&clnt_handle, no_of_words, buf);
 		break;
+	case BGCOM_WRITE_REG:
+		ret = bgcom_reg_write(&clnt_handle, BG_CMND_REG,
+					no_of_words, buf);
+		break;
 	case BGCOM_READ_AHB:
 		break;
 	}
@@ -228,6 +236,9 @@ static int bgcom_transfer(void *handle, uint8_t *tx_buf,
 
 	tx_xfer = &bg_spi->xfer1;
 	spi = bg_spi->spi;
+
+	if (!atomic_read(&bg_is_spi_active))
+		return -ECANCELED;
 
 	mutex_lock(&bg_spi->xfer_mutex);
 	bg_spi_reinit_xfer(tx_xfer);
@@ -617,6 +628,11 @@ int bgcom_fifo_read(void *handle, uint32_t num_words,
 		return -EBUSY;
 	}
 
+	if (bgcom_resume(handle)) {
+		pr_err("Failed to resume\n");
+		return -EBUSY;
+	}
+
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_READ_LEN + size;
 	tx_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
@@ -664,6 +680,11 @@ int bgcom_reg_write(void *handle, uint8_t reg_start_addr,
 
 	if (spi_state == BGCOM_SPI_BUSY) {
 		pr_err("Device busy\n");
+		return -EBUSY;
+	}
+
+	if (bgcom_resume(handle)) {
+		pr_err("Failed to resume\n");
 		return -EBUSY;
 	}
 
@@ -769,6 +790,9 @@ int bgcom_resume(void *handle)
 	if (handle == NULL)
 		return -EINVAL;
 
+	if (!atomic_read(&bg_is_spi_active))
+		return -ECANCELED;
+
 	cntx = (struct bg_context *)handle;
 	bg_spi = cntx->bg_spi;
 
@@ -798,29 +822,9 @@ EXPORT_SYMBOL(bgcom_resume);
 
 int bgcom_suspend(void *handle)
 {
-	struct bg_spi_priv *bg_spi;
-	struct bg_context *cntx;
-	uint32_t cmnd_reg = 0;
-	int ret = 0;
-
-	if (handle == NULL)
+	if (!handle)
 		return -EINVAL;
-
-	cntx = (struct bg_context *)handle;
-	bg_spi = cntx->bg_spi;
-	mutex_lock(&bg_resume_mutex);
-	if (bg_spi->bg_state == BGCOM_STATE_SUSPEND)
-		goto unlock;
-
-	cmnd_reg |= BIT(31);
-	ret = bgcom_reg_write(handle, BG_CMND_REG, 1, &cmnd_reg);
-	if (ret == 0)
-		bg_spi->bg_state = BGCOM_STATE_SUSPEND;
-
-unlock:
-	mutex_unlock(&bg_resume_mutex);
-	pr_info("suspended with : %d\n", ret);
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(bgcom_suspend);
 
@@ -933,7 +937,6 @@ static int bg_spi_probe(struct spi_device *spi)
 	struct bg_spi_priv *bg_spi;
 	struct device_node *node;
 	int irq_gpio = 0;
-	int bg_irq = 0;
 	int ret;
 
 	bg_spi = devm_kzalloc(&spi->dev, sizeof(*bg_spi),
@@ -971,6 +974,7 @@ static int bg_spi_probe(struct spi_device *spi)
 	if (ret)
 		goto err_ret;
 
+	atomic_set(&bg_is_spi_active, 1);
 	pr_info("Bgcom Probed successfully\n");
 	return ret;
 
@@ -992,6 +996,46 @@ static int bg_spi_remove(struct spi_device *spi)
 	return 0;
 }
 
+static int bgcom_pm_suspend(struct device *dev)
+{
+	uint32_t cmnd_reg = 0;
+	struct spi_device *s_dev = to_spi_device(dev);
+	struct bg_spi_priv *bg_spi = spi_get_drvdata(s_dev);
+	int ret = 0;
+
+	if (bg_spi->bg_state == BGCOM_STATE_SUSPEND)
+		return 0;
+
+	cmnd_reg |= BIT(31);
+	ret = read_bg_locl(BGCOM_WRITE_REG, 1, &cmnd_reg);
+	if (ret == 0) {
+		bg_spi->bg_state = BGCOM_STATE_SUSPEND;
+		atomic_set(&bg_is_spi_active, 0);
+	}
+	pr_info("suspended with : %d\n", ret);
+	return ret;
+}
+
+static int bgcom_pm_resume(struct device *dev)
+{
+	struct bg_context clnt_handle;
+	int ret;
+	struct bg_spi_priv *spi =
+		container_of(bg_com_drv, struct bg_spi_priv, lhandle);
+
+	clnt_handle.bg_spi = spi;
+	atomic_set(&bg_is_spi_active, 1);
+	ret = bgcom_resume(&clnt_handle);
+	if (ret == 0)
+		pr_info("Bgcom resumed\n");
+	return ret;
+}
+
+static const struct dev_pm_ops bgcom_pm = {
+	.suspend = bgcom_pm_suspend,
+	.resume = bgcom_pm_resume,
+};
+
 static const struct of_device_id bg_spi_of_match[] = {
 	{ .compatible = "qcom,bg-spi", },
 	{ }
@@ -1002,6 +1046,7 @@ static struct spi_driver bg_spi_driver = {
 	.driver = {
 		.name = "bg-spi",
 		.of_match_table = bg_spi_of_match,
+		.pm = &bgcom_pm,
 	},
 	.probe = bg_spi_probe,
 	.remove = bg_spi_remove,
