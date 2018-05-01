@@ -39,10 +39,10 @@
 #include "sde_trace.h"
 
 /* default input fence timeout, in ms */
-#define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
+#define SDE_CRTC_INPUT_FENCE_TIMEOUT    10000
 
 /*
- * The default input fence timeout is 2 seconds while max allowed
+ * The default input fence timeout is 10 seconds while max allowed
  * range is 10 seconds. Any value above 10 seconds adds glitches beyond
  * tolerance limit.
  */
