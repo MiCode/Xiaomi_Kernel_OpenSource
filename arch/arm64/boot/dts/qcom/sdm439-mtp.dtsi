@@ -175,7 +175,10 @@
 	qcom,platform-reset-gpio = <&tlmm 60 0>;
 	lab-supply = <&lcdb_ldo_vreg>;
 	ibb-supply = <&lcdb_ncp_vreg>;
+};
 
+&mdss_dsi1 {
+	status = "disabled";
 };
 
 &dsi_hx8399c_truly_vid {
