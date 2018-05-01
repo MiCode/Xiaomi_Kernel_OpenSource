@@ -4645,7 +4645,7 @@ static void ipa3_set_tag_process_before_gating(bool val)
  *
  * Returns: 0 on success, negative on failure
  */
-static int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 {
 	if (!res) {
 		IPAERR("NULL out param\n");
