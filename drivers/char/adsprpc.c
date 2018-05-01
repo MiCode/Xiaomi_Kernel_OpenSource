@@ -430,7 +430,7 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 		int destVM[1] = {VMID_HLOS};
 		int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
-		if (fl->sctx->smmu.cb)
+		if (fl->sctx->smmu.cb && fl->cid != SDSP_DOMAIN_ID)
 			buf->phys &= ~((uint64_t)fl->sctx->smmu.cb << 32);
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (vmid) {
@@ -754,7 +754,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		}
 		map->phys = sg_dma_address(map->table->sgl);
 		if (sess->smmu.cb) {
-			map->phys += ((uint64_t)sess->smmu.cb << 32);
+			if (fl->cid != SDSP_DOMAIN_ID)
+				map->phys += ((uint64_t)sess->smmu.cb << 32);
 			for_each_sg(map->table->sgl, sgl, map->table->nents,
 				sgl_index)
 				map->size += sg_dma_len(sgl);
@@ -831,7 +832,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	}
 	if (err)
 		goto bail;
-	if (fl->sctx->smmu.cb)
+	if (fl->sctx->smmu.cb && fl->cid != SDSP_DOMAIN_ID)
 		buf->phys += ((uint64_t)fl->sctx->smmu.cb << 32);
 	vmid = fl->apps->channel[fl->cid].vmid;
 	if (vmid) {
@@ -2958,8 +2959,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	struct fastrpc_session_ctx *sess;
 	struct of_phandle_args iommuspec;
 	const char *name;
-	unsigned int start = 0x80000000;
-	int err = 0, i;
+	dma_addr_t start = 0x80000000;
+	int err = 0, cid, i;
 	int secure_vmid = VMID_CP_PIXEL;
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
@@ -2975,6 +2976,7 @@ static int fastrpc_cb_probe(struct device *dev)
 	VERIFY(err, i < NUM_CHANNELS);
 	if (err)
 		goto bail;
+	cid = i;
 	chan = &gcinfo[i];
 	VERIFY(err, chan->sesscount < NUM_SESSIONS);
 	if (err)
@@ -2991,6 +2993,10 @@ static int fastrpc_cb_probe(struct device *dev)
 						"dma-coherent");
 	sess->smmu.secure = of_property_read_bool(dev->of_node,
 						"qcom,secure-context-bank");
+	if (cid == SDSP_DOMAIN_ID) {
+		start += ((uint64_t)sess->smmu.cb << 32);
+		dma_set_mask(dev, DMA_BIT_MASK(36));
+	}
 	if (sess->smmu.secure)
 		start = 0x60000000;
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =

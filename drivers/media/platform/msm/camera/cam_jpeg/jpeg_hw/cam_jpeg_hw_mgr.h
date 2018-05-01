@@ -95,8 +95,6 @@ struct cam_jpeg_hw_cfg_req {
  * @in_use: Flag for context usage
  * @wait_complete: Completion info
  * @cdm_cmd: Cdm cmd submitted for that context.
- * @cdm_cmd_chbase: Change base cdm command from context
- * @cmd_chbase_buf_addr : Change base cmd buf address
  */
 struct cam_jpeg_hw_ctx_data {
 	void *context_priv;
@@ -106,8 +104,6 @@ struct cam_jpeg_hw_ctx_data {
 	bool in_use;
 	struct completion wait_complete;
 	struct cam_cdm_bl_request *cdm_cmd;
-	struct cam_cdm_bl_request *cdm_cmd_chbase;
-	uint32_t *cmd_chbase_buf_addr;
 };
 
 /**

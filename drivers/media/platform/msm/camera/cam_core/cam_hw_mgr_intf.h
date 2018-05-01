@@ -123,10 +123,12 @@ struct cam_hw_start_args {
  * struct cam_hw_stop_args - Payload for stop command
  *
  * @ctxt_to_hw_map:        HW context from the acquire
+ * @args:                  Arguments to pass for stop
  *
  */
 struct cam_hw_stop_args {
 	void              *ctxt_to_hw_map;
+	void              *args;
 };
 
 /**
@@ -170,6 +172,7 @@ struct cam_hw_prepare_update_args {
  * @out_map_entries:       Out map info
  * @num_out_map_entries:   Number of out map entries
  * @priv:                  Private pointer
+ * @request_id:            Request ID
  *
  */
 struct cam_hw_config_args {
@@ -179,6 +182,7 @@ struct cam_hw_config_args {
 	struct cam_hw_fence_map_entry  *out_map_entries;
 	uint32_t                        num_out_map_entries;
 	void                           *priv;
+	uint64_t                        request_id;
 };
 
 /**

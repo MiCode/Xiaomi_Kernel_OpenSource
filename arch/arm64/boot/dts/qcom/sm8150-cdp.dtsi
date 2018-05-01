@@ -244,6 +244,8 @@
 	vdda-pll-supply = <&pm855l_l3>;
 	vdda-phy-max-microamp = <90200>;
 	vdda-pll-max-microamp = <19000>;
+
+	status = "ok";
 };
 
 &ufshc_mem {
@@ -257,6 +259,8 @@
 
 	qcom,vddp-ref-clk-supply = <&pm855_l9>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
 };
 
 &sdhc_2 {
@@ -288,6 +292,12 @@
 
 &pm855b_charger {
 	qcom,batteryless-platform;
+	io-channels = <&pm855b_vadc ADC_USB_IN_V_16>,
+		      <&pm855b_vadc ADC_USB_IN_I>,
+		      <&pm855b_vadc ADC_CHG_TEMP>;
+	io-channel-names = "usb_in_voltage",
+			   "usb_in_current",
+			   "chg_temp";
 };
 
 &pm855b_vadc {

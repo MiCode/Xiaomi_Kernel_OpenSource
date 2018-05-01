@@ -1281,6 +1281,14 @@ static int adreno_probe(struct platform_device *pdev)
 	if (adreno_support_64bit(adreno_dev))
 		device->mmu.features |= KGSL_MMU_64BIT;
 
+	/* Default to 4K alignment (in other words, no additional padding) */
+	device->mmu.va_padding = PAGE_SIZE;
+
+	if (adreno_dev->gpucore->va_padding) {
+		device->mmu.features |= KGSL_MMU_PAD_VA;
+		device->mmu.va_padding = adreno_dev->gpucore->va_padding;
+	}
+
 	status = kgsl_device_platform_probe(device);
 	if (status) {
 		device->pdev = NULL;

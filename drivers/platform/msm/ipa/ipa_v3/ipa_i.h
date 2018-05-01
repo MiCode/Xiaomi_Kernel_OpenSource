@@ -1437,6 +1437,7 @@ struct ipa3_plat_drv_res {
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
 	u32 mhi_evid_limits[2]; /* start and end values */
+	bool ipa_mhi_dynamic_config;
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 	bool use_ipa_pm;
