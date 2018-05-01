@@ -1479,6 +1479,24 @@ static int wled_get_max_avail_current(struct led_classdev *led_cdev,
 	return 0;
 }
 
+static ssize_t wled_flash_max_avail_current_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	int rc, max_current = 0;
+
+	rc = wled_get_max_avail_current(led_cdev, &max_current);
+	if (rc < 0)
+		pr_err("query max current failed, rc=%d\n", rc);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", max_current);
+}
+
+static struct device_attribute wled_flash_attrs[] = {
+	__ATTR(max_avail_current, 0664, wled_flash_max_avail_current_show,
+		NULL),
+};
+
 int wled_flash_led_prepare(struct led_trigger *trig, int options,
 				int *max_current)
 {
@@ -1708,6 +1726,22 @@ static int wled_flash_device_register(struct wled *wled)
 	rc = devm_led_classdev_register(&wled->pdev->dev, &wled->switch_cdev);
 	if (rc < 0)
 		return rc;
+
+	for (i = 0; i < ARRAY_SIZE(wled_flash_attrs); i++) {
+		rc = sysfs_create_file(&wled->switch_cdev.dev->kobj,
+				&wled_flash_attrs[i].attr);
+		if (rc < 0) {
+			pr_err("sysfs creation failed, rc=%d\n", rc);
+			goto sysfs_fail;
+		}
+	}
+
+	return 0;
+
+sysfs_fail:
+	for (--i; i >= 0; i--)
+		sysfs_remove_file(&wled->switch_cdev.dev->kobj,
+				&wled_flash_attrs[i].attr);
 
 	return rc;
 }
