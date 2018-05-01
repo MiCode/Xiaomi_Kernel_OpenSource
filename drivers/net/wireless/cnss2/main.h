@@ -173,6 +173,7 @@ struct cnss_pin_connect_result {
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
+	enum cnss_dev_bus_type bus_type;
 	struct cnss_vreg_info *vreg_info;
 	struct cnss_pinctrl_info pinctrl_info;
 	struct cnss_subsys_info subsys_info;
@@ -229,6 +230,5 @@ void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
-u32 cnss_get_wake_msi(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

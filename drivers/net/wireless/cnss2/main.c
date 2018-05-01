@@ -23,6 +23,7 @@
 #include <soc/qcom/subsystem_notif.h>
 
 #include "main.h"
+#include "bus.h"
 #include "debug.h"
 #include "pci.h"
 
@@ -37,7 +38,6 @@
 #define FW_READY_TIMEOUT		20000
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
-#define WAKE_MSI_NAME			"WAKE"
 
 static struct cnss_plat_data *plat_env;
 
@@ -86,20 +86,6 @@ struct cnss_driver_event {
 	int ret;
 	void *data;
 };
-
-static enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev)
-{
-	if (!dev)
-		return CNSS_BUS_NONE;
-
-	if (!dev->bus)
-		return CNSS_BUS_NONE;
-
-	if (memcmp(dev->bus->name, "pci", 3) == 0)
-		return CNSS_BUS_PCI;
-	else
-		return CNSS_BUS_NONE;
-}
 
 static void cnss_set_plat_priv(struct platform_device *plat_dev,
 			       struct cnss_plat_data *plat_priv)
@@ -273,23 +259,6 @@ int cnss_get_platform_cap(struct device *dev, struct cnss_platform_cap *cap)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_get_platform_cap);
-
-int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
-{
-	int ret = 0;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	void *bus_priv = cnss_bus_dev_to_bus_priv(dev);
-
-	if (!plat_priv)
-		return -ENODEV;
-
-	ret = cnss_pci_get_bar_info(bus_priv, &info->va, &info->pa);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-EXPORT_SYMBOL(cnss_get_soc_info);
 
 void cnss_request_pm_qos(struct device *dev, u32 qos_val)
 {
@@ -506,24 +475,6 @@ int cnss_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 }
 EXPORT_SYMBOL(cnss_set_fw_log_mode);
 
-u32 cnss_get_wake_msi(struct cnss_plat_data *plat_priv)
-{
-	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
-	int ret, num_vectors;
-	u32 user_base_data, base_vector;
-
-	ret = cnss_get_user_msi_assignment(&pci_priv->pci_dev->dev,
-					   WAKE_MSI_NAME, &num_vectors,
-					   &user_base_data, &base_vector);
-
-	if (ret) {
-		cnss_pr_err("WAKE MSI is not valid\n");
-		return 0;
-	}
-
-	return user_base_data;
-}
-
 static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -541,7 +492,7 @@ static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (ret)
 		goto out;
 
-	ret = cnss_pci_load_m3(plat_priv->bus_priv);
+	ret = cnss_bus_load_m3(plat_priv);
 	if (ret)
 		goto out;
 
@@ -1442,7 +1393,6 @@ static const char *cnss_recovery_reason_to_str(enum cnss_recovery_reason reason)
 static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			    enum cnss_recovery_reason reason)
 {
-	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 	struct cnss_subsys_info *subsys_info =
 		&plat_priv->subsys_info;
 
@@ -1450,11 +1400,6 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto self_recovery;
-
-	if (plat_priv->driver_ops &&
-	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state))
-		plat_priv->driver_ops->update_status(pci_priv->pci_dev,
-						     CNSS_RECOVERY);
 
 	if (test_bit(SKIP_RECOVERY, &quirks)) {
 		cnss_pr_dbg("Skip device recovery\n");
@@ -1468,7 +1413,7 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 		break;
 	case CNSS_REASON_RDDM:
 		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
-		cnss_pci_collect_dump_info(pci_priv, false);
+		cnss_bus_collect_dump_info(plat_priv, false);
 		break;
 	case CNSS_REASON_DEFAULT:
 	case CNSS_REASON_TIMEOUT:
@@ -1575,28 +1520,6 @@ void cnss_schedule_recovery(struct device *dev,
 }
 EXPORT_SYMBOL(cnss_schedule_recovery);
 
-static int cnss_force_fw_assert_hdlr(struct cnss_plat_data *plat_priv)
-{
-	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
-	int ret;
-
-	ret = cnss_pci_set_mhi_state(plat_priv->bus_priv,
-				     CNSS_MHI_TRIGGER_RDDM);
-	if (ret) {
-		cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
-		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
-				       CNSS_REASON_DEFAULT);
-		return 0;
-	}
-
-	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
-		mod_timer(&plat_priv->fw_boot_timer,
-			  jiffies + msecs_to_jiffies(FW_ASSERT_TIMEOUT));
-	}
-
-	return 0;
-}
-
 int cnss_force_fw_assert(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
@@ -1623,17 +1546,6 @@ int cnss_force_fw_assert(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_force_fw_assert);
-
-void fw_boot_timeout(unsigned long data)
-{
-	struct cnss_plat_data *plat_priv = (struct cnss_plat_data *)data;
-	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
-
-	cnss_pr_err("Timeout waiting for FW ready indication!\n");
-
-	cnss_schedule_recovery(&pci_priv->pci_dev->dev,
-			       CNSS_REASON_TIMEOUT);
-}
 
 static int cnss_register_driver_hdlr(struct cnss_plat_data *plat_priv,
 				     void *data)
@@ -1731,7 +1643,7 @@ static void cnss_driver_event_work(struct work_struct *work)
 			ret = cnss_wlfw_server_exit(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_REQUEST_MEM:
-			ret = cnss_pci_alloc_fw_mem(plat_priv->bus_priv);
+			ret = cnss_bus_alloc_fw_mem(plat_priv);
 			if (ret)
 				break;
 			ret = cnss_wlfw_respond_mem_send_sync(plat_priv);
@@ -1760,7 +1672,7 @@ static void cnss_driver_event_work(struct work_struct *work)
 							event->data);
 			break;
 		case CNSS_DRIVER_EVENT_FORCE_FW_ASSERT:
-			ret = cnss_force_fw_assert_hdlr(plat_priv);
+			ret = cnss_bus_force_fw_assert_hdlr(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_POWER_UP:
 			ret = cnss_power_up_hdlr(plat_priv);
@@ -2204,6 +2116,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 	plat_priv->plat_dev = plat_dev;
 	plat_priv->device_id = device_id->driver_data;
+	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
 
@@ -2216,14 +2129,14 @@ static int cnss_probe(struct platform_device *plat_dev)
 		if (ret)
 			goto free_res;
 
-		ret = cnss_pci_init(plat_priv);
+		ret = cnss_bus_init(plat_priv);
 		if (ret)
 			goto power_off;
 	}
 
 	ret = cnss_register_esoc(plat_priv);
 	if (ret)
-		goto deinit_pci;
+		goto deinit_bus;
 
 	ret = cnss_register_bus_scale(plat_priv);
 	if (ret)
@@ -2245,8 +2158,8 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto deinit_qmi;
 
-	setup_timer(&plat_priv->fw_boot_timer,
-		    fw_boot_timeout, (unsigned long)plat_priv);
+	setup_timer(&plat_priv->fw_boot_timer, cnss_bus_fw_boot_timeout_hdlr,
+		    (unsigned long)plat_priv);
 
 	register_pm_notifier(&cnss_pm_notifier);
 
@@ -2272,9 +2185,9 @@ unreg_bus_scale:
 	cnss_unregister_bus_scale(plat_priv);
 unreg_esoc:
 	cnss_unregister_esoc(plat_priv);
-deinit_pci:
+deinit_bus:
 	if (!test_bit(SKIP_DEVICE_BOOT, &quirks))
-		cnss_pci_deinit(plat_priv);
+		cnss_bus_deinit(plat_priv);
 power_off:
 	if (!test_bit(SKIP_DEVICE_BOOT, &quirks))
 		cnss_power_off_device(plat_priv);
@@ -2301,7 +2214,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	cnss_remove_sysfs(plat_priv);
 	cnss_unregister_bus_scale(plat_priv);
 	cnss_unregister_esoc(plat_priv);
-	cnss_pci_deinit(plat_priv);
+	cnss_bus_deinit(plat_priv);
 	cnss_put_resources(plat_priv);
 	platform_set_drvdata(plat_dev, NULL);
 	plat_env = NULL;
