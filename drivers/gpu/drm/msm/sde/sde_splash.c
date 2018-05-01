@@ -288,6 +288,44 @@ static void _sde_splash_destroy_splash_node(struct sde_splash_info *sinfo)
 	sinfo->splash_mem_size = NULL;
 }
 
+static void _sde_splash_sent_pipe_update_uevent(struct sde_kms *sde_kms)
+{
+	char *event_string;
+	char *envp[2];
+	struct drm_device *dev;
+	struct device *kdev;
+	int i =  0;
+
+	if (!sde_kms || !sde_kms->dev) {
+		DRM_ERROR("invalid input\n");
+		return;
+	}
+
+	dev = sde_kms->dev;
+	kdev = dev->primary->kdev;
+
+	event_string = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!event_string) {
+		SDE_ERROR("failed to allocate event string\n");
+		return;
+	}
+
+	for (i = 0; i < MAX_BLOCKS; i++) {
+		if (sde_kms->splash_info.reserved_pipe_info[i] != 0xFFFFFFFF)
+			snprintf(event_string, SZ_4K, "pipe%d avialable",
+				sde_kms->splash_info.reserved_pipe_info[i]);
+	}
+
+	DRM_INFO("generating pipe update event[%s]", event_string);
+
+	envp[0] = event_string;
+	envp[1] = NULL;
+
+	kobject_uevent_env(&kdev->kobj, KOBJ_CHANGE, envp);
+
+	kfree(event_string);
+}
+
 static void _sde_splash_get_connector_ref_cnt(struct sde_splash_info *sinfo,
 					u32 *hdmi_cnt, u32 *dsi_cnt)
 {
@@ -377,12 +415,12 @@ void sde_splash_destroy(struct sde_splash_info *sinfo,
 }
 
 /*
- * sde_splash_parse_dt.
+ * sde_splash_parse_memory_dt.
  * In the function, it will parse and reserve two kinds of memory node.
  * First is to get the reserved memory for display buffers.
- * Second is to get the memory node LK's code stack is running on.
+ * Second is to get the memory node which LK's heap memory is running on.
  */
-int sde_splash_parse_dt(struct drm_device *dev)
+int sde_splash_parse_memory_dt(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct sde_kms *sde_kms;
@@ -407,6 +445,79 @@ int sde_splash_parse_dt(struct drm_device *dev)
 	}
 
 	return 0;
+}
+
+static inline u32 _sde_splash_parse_sspp_id(struct sde_mdss_cfg *cfg,
+					const char *name)
+{
+	int i;
+
+	for (i = 0; i < cfg->sspp_count; i++) {
+		if (!strcmp(cfg->sspp[i].name, name))
+			return cfg->sspp[i].id;
+	}
+
+	return 0;
+}
+
+int sde_splash_parse_reserved_plane_dt(struct sde_splash_info *splash_info,
+				struct sde_mdss_cfg *cfg)
+{
+	struct device_node *parent, *node;
+	struct property *prop;
+	const char *cname;
+	int ret = 0, i = 0;
+
+	if (!splash_info || !cfg)
+		return -EINVAL;
+
+	parent = of_find_node_by_path("/qcom,sde-reserved-plane");
+	if (!parent)
+		return -EINVAL;
+
+	for (i = 0; i < MAX_BLOCKS; i++)
+		splash_info->reserved_pipe_info[i] = 0xFFFFFFFF;
+
+	i = 0;
+	for_each_child_of_node(parent, node) {
+		if (i >= MAX_BLOCKS) {
+			SDE_ERROR("num of nodes(%d) is bigger than max(%d)\n",
+				i, MAX_BLOCKS);
+			ret = -EINVAL;
+			goto parent_node_err;
+		}
+
+		of_property_for_each_string(node, "qcom,plane-name",
+					prop, cname)
+		splash_info->reserved_pipe_info[i] =
+					_sde_splash_parse_sspp_id(cfg, cname);
+		i++;
+	}
+
+parent_node_err:
+	of_node_put(parent);
+
+	return ret;
+}
+
+bool sde_splash_query_plane_is_reserved(struct sde_splash_info *sinfo,
+					uint32_t pipe)
+{
+	int i = 0;
+
+	if (!sinfo)
+		return false;
+
+	/* early return if no splash is enabled */
+	if (!sinfo->handoff)
+		return false;
+
+	for (i = 0; i < MAX_BLOCKS; i++) {
+		if (sinfo->reserved_pipe_info[i] == pipe)
+			return true;
+	}
+
+	return false;
 }
 
 int sde_splash_get_handoff_status(struct msm_kms *kms)
@@ -650,6 +761,8 @@ int sde_splash_clean_up_free_resource(struct msm_kms *kms,
 
 		sde_power_data_bus_bandwidth_ctrl(phandle,
 				sde_kms->core_client, false);
+
+		_sde_splash_sent_pipe_update_uevent(sde_kms);
 
 		mutex_unlock(&sde_splash_lock);
 		return 0;
