@@ -69,7 +69,9 @@ struct apr_hdr {
 #define APR_DOMAIN_MODEM	0x3
 #define APR_DOMAIN_ADSP	0x4
 #define APR_DOMAIN_APPS	0x5
-#define APR_DOMAIN_MAX	0x6
+#define APR_DOMAIN_SDSP	0x8
+#define APR_DOMAIN_MAX	0x9
+
 
 /* ADSP service IDs */
 #define APR_SVC_TEST_CLIENT     0x2
@@ -93,6 +95,9 @@ struct apr_hdr {
 #define APR_SVC_CVS		0x5
 #define APR_SVC_CVP		0x6
 #define APR_SVC_SRD		0x7
+
+/* Sensor DSP Micro Audio Service IDs */
+#define APR_SVC_MAS     0x3
 
 /* APR Port IDs */
 #define APR_MAX_PORTS		0x80

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, 2013-2014, 2016 The Linux Foundation.
+/* Copyright (c) 2010-2011, 2013-2014, 2016, 2018 The Linux Foundation.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -37,6 +37,14 @@ static char *svc_names[APR_DEST_MAX][APR_CLIENT_MAX] = {
 	{
 		"apr_audio_svc",
 		"apr_voice_svc",
+	},
+	{
+		"",
+		"",
+	},
+	{
+		"apr_apps_sdsp",
+		"apr_apps_sdsp",
 	},
 };
 
@@ -162,7 +170,8 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest,
 
 	if ((clnt >= APR_CLIENT_MAX) || (dest >= APR_DEST_MAX) ||
 						(dl >= APR_DL_MAX)) {
-		pr_err("apr_tal: Invalid params\n");
+		pr_err("apr_tal: Invalid params clnt %d dest %d dl %d\n",
+			clnt, dest, dl);
 		return NULL;
 	}
 
@@ -184,10 +193,12 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest,
 		pr_debug("apr_tal:Wakeup done\n");
 		apr_svc_ch[dl][dest][clnt].dest_state = 0;
 	}
+
 	rc = smd_named_open_on_edge(svc_names[dest][clnt], dest,
-			&apr_svc_ch[dl][dest][clnt].ch,
-			&apr_svc_ch[dl][dest][clnt],
-			apr_tal_notify);
+		&apr_svc_ch[dl][dest][clnt].ch,
+		&apr_svc_ch[dl][dest][clnt],
+		apr_tal_notify);
+
 	if (rc < 0) {
 		pr_err("apr_tal: smd_open failed %s\n",
 					svc_names[dest][clnt]);
@@ -256,6 +267,12 @@ static int apr_smd_probe(struct platform_device *pdev)
 		clnt = APR_CLIENT_AUDIO;
 		apr_svc_ch[APR_DL_SMD][dest][clnt].dest_state = 1;
 		wake_up(&apr_svc_ch[APR_DL_SMD][dest][clnt].dest);
+	} else if (pdev->id == APR_DEST_DSPS) {
+		pr_info("apr_tal:Sensor DSP Is Up\n");
+		dest = APR_DEST_DSPS;
+		clnt = APR_CLIENT_AUDIO;
+		apr_svc_ch[APR_DL_SMD][dest][clnt].dest_state = 1;
+		wake_up(&apr_svc_ch[APR_DL_SMD][dest][clnt].dest);
 	} else
 		pr_err("apr_tal:Invalid Dest Id: %d\n", pdev->id);
 
@@ -278,6 +295,14 @@ static struct platform_driver apr_modem_driver = {
 	},
 };
 
+static struct platform_driver apr_sdsp_driver = {
+	.probe = apr_smd_probe,
+	.driver = {
+		.name = "apr_apps_sdsp",
+		.owner = THIS_MODULE,
+	},
+};
+
 static int __init apr_tal_init(void)
 {
 	int i, j, k;
@@ -293,6 +318,7 @@ static int __init apr_tal_init(void)
 			}
 	platform_driver_register(&apr_q6_driver);
 	platform_driver_register(&apr_modem_driver);
+	platform_driver_register(&apr_sdsp_driver);
 	return 0;
 }
 device_initcall(apr_tal_init);
