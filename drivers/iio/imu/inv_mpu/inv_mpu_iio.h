@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 InvenSense, Inc.
+ * Copyright (C) 2012-2018 InvenSense, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -59,7 +59,7 @@
 #include "iam20680/inv_mpu_iio_reg_20680.h"
 #endif
 
-#define INVENSENSE_DRIVER_VERSION		"8.1.1-simple-test1a"
+#define INVENSENSE_DRIVER_VERSION		"8.1.2-simple-test1"
 
 /* #define DEBUG */
 
@@ -723,6 +723,12 @@ struct inv_mpu_state {
 #else
 	struct wakeup_source wake_lock;
 #endif
+#ifdef TIMER_BASED_BATCHING
+	struct hrtimer hr_batch_timer;
+	u64 batch_timeout;
+	bool is_batch_timer_running;
+	struct work_struct batch_work;
+#endif
 	struct i2c_client *client;
 	struct mpu_platform_data plat_data;
 	void *sl_handle;
@@ -1018,7 +1024,9 @@ int inv_create_dmp_sysfs(struct iio_dev *ind);
 int inv_check_chip_type(struct iio_dev *indio_dev, const char *name);
 int inv_write_compass_matrix(struct inv_mpu_state *st, int *adj);
 irqreturn_t inv_read_fifo(int irq, void *dev_id);
-
+#ifdef TIMER_BASED_BATCHING
+void inv_batch_work(struct work_struct *work);
+#endif
 int inv_flush_batch_data(struct iio_dev *indio_dev, int data);
 static inline int mpu_memory_write(struct inv_mpu_state *st, u8 mpu_addr,
                                    u16 mem_addr, u32 len, u8 const *data)

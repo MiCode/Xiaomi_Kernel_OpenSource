@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2012-2017 InvenSense, Inc.
+* Copyright (C) 2012-2018 InvenSense, Inc.
 *
 * This software is licensed under the terms of the GNU General Public
 * License version 2, as published by the Free Software Foundation, and
@@ -416,6 +416,9 @@ static int inv_mpu_probe(struct i2c_client *client,
 	pr_info("Data read from registers\n");
 #else
 	pr_info("Data read from FIFO\n");
+#endif
+#ifdef TIMER_BASED_BATCHING
+	pr_info("Timer based batching\n");
 #endif
 
 	return 0;

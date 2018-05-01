@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2017 InvenSense, Inc.
+ * Copyright (C) 2017-2018 InvenSense, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -172,6 +172,10 @@ static int inv_init_config(struct inv_mpu_state *st)
 	st->eis.count_precision = NSEC_PER_MSEC;
 	st->firmware = 0;
 	st->fifo_count_mode = BYTE_MODE;
+#ifdef TIMER_BASED_BATCHING
+	st->batch_timeout = 0;
+	st->is_batch_timer_running = false;
+#endif
 
 	st->eng_info[ENGINE_GYRO].base_time = NSEC_PER_SEC;
 	st->eng_info[ENGINE_ACCEL].base_time = NSEC_PER_SEC;

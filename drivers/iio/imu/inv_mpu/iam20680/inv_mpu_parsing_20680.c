@@ -193,6 +193,11 @@ static int inv_process_20680_data(struct inv_mpu_state *st)
 	if (!pk_size)
 		return -EINVAL;
 
+	if (fifo_count >= (HARDWARE_FIFO_SIZE / st->batch.pk_size)) {
+		pr_warn("fifo overflow pkt count=%d pkt sz=%d\n", fifo_count, st->batch.pk_size);
+		return -EOVERFLOW;
+	}
+
 	fifo_count *= st->batch.pk_size;
 	st->fifo_count = fifo_count;
 	d = st->fifo_data_store;
@@ -312,20 +317,24 @@ static int inv_process_20680_data(struct inv_mpu_state *st)
 }
 
 /*
- *  inv_read_fifo() - Transfer data from FIFO to ring buffer.
+ *  _inv_read_fifo() - Transfer data from FIFO to ring buffer.
  */
-irqreturn_t inv_read_fifo(int irq, void *dev_id)
+static void _inv_read_fifo(struct inv_mpu_state *st)
 {
-
-	struct inv_mpu_state *st = (struct inv_mpu_state *)dev_id;
 	struct iio_dev *indio_dev = iio_priv_to_dev(st);
 	int result;
 
 	result = wait_event_interruptible_timeout(st->wait_queue,
 					st->resume_state, msecs_to_jiffies(300));
 	if (result <= 0)
-		return IRQ_HANDLED;
+		return;
 	mutex_lock(&indio_dev->mlock);
+#ifdef TIMER_BASED_BATCHING
+	if (st->batch_timeout) {
+		if (inv_plat_single_write(st, REG_INT_ENABLE, st->int_en))
+			pr_err("REG_INT_ENABLE write error\n");
+	}
+#endif
 	st->wake_sensor_received = false;
 	result = inv_process_20680_data(st);
 	if (result)
@@ -338,7 +347,7 @@ irqreturn_t inv_read_fifo(int irq, void *dev_id)
 #else
 		__pm_wakeup_event(&st->wake_lock, 200); /* 200 msecs */
 #endif
-	return IRQ_HANDLED;
+	return;
 
 err_reset_fifo:
 	if ((!st->chip_config.gyro_enable) &&
@@ -348,7 +357,7 @@ err_reset_fifo:
 		inv_switch_power_in_lp(st, false);
 		mutex_unlock(&indio_dev->mlock);
 
-		return IRQ_HANDLED;
+		return;
 	}
 
 	pr_err("error to reset fifo\n");
@@ -357,9 +366,33 @@ err_reset_fifo:
 	inv_switch_power_in_lp(st, false);
 	mutex_unlock(&indio_dev->mlock);
 
-	return IRQ_HANDLED;
-
+	return;
 }
+
+irqreturn_t inv_read_fifo(int irq, void *dev_id)
+{
+	struct inv_mpu_state *st = (struct inv_mpu_state *)dev_id;
+
+	_inv_read_fifo(st);
+
+	return IRQ_HANDLED;
+}
+
+#ifdef TIMER_BASED_BATCHING
+void inv_batch_work(struct work_struct *work)
+{
+	struct inv_mpu_state *st =
+		container_of(work, struct inv_mpu_state, batch_work);
+	struct iio_dev *indio_dev = iio_priv_to_dev(st);
+
+	mutex_lock(&indio_dev->mlock);
+	if (inv_plat_single_write(st, REG_INT_ENABLE, st->int_en | BIT_DATA_RDY_EN))
+		pr_err("REG_INT_ENABLE write error\n");
+	mutex_unlock(&indio_dev->mlock);
+
+	return;
+}
+#endif
 
 int inv_flush_batch_data(struct iio_dev *indio_dev, int data)
 {

@@ -19,9 +19,16 @@
  * sysfs entries */
 #define SUPPORT_ONLY_BASIC_FEATURES
 
-/* Uncomment to read data registers for sensor data
- * instead of FIFO */
+/* Uncomment to read data registers for sensor data instead of FIFO */
 //#define SENSOR_DATA_FROM_REGISTERS
+
+/* Uncomment to enable timer based batching */
+#define TIMER_BASED_BATCHING
+
+/* Polling (batch mode) can be enabled only when FIFO read */
+#if defined(SENSOR_DATA_FROM_REGISTERS)
+#undef TIMER_BASED_BATCHING
+#endif
 
 /*register and associated bit definition*/
 #define REG_XA_OFFS_H		0x77
@@ -140,7 +147,7 @@
 #define BYTES_FOR_TEMP           2
 #define FIFO_COUNT_BYTE          2
 #define HARDWARE_FIFO_SIZE       512
-#define FIFO_SIZE                (HARDWARE_FIFO_SIZE * 7 / 8)
+#define FIFO_SIZE                (HARDWARE_FIFO_SIZE * 7 / 10)
 #define POWER_UP_TIME            100
 #define REG_UP_TIME_USEC         100
 #define LEFT_OVER_BYTES          128
@@ -190,7 +197,7 @@ enum inv_filter_e {
 #define GESTURE_ACCEL_RATE       50
 #define ESI_GYRO_RATE            1000
 #define MAX_FIFO_PACKET_READ     6
-#define MAX_BATCH_FIFO_SIZE      896
+#define MAX_BATCH_FIFO_SIZE      FIFO_SIZE
 
 #define MIN_MST_ODR_CONFIG       4
 #define MAX_MST_ODR_CONFIG       5

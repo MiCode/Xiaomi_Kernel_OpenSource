@@ -44,6 +44,13 @@ static int inv_turn_on_fifo(struct inv_mpu_state *st)
 		st->gesture_int_count = WOM_DELAY_THRESHOLD;
 		int_en |= BIT_WOM_ALL_INT_EN;
 	}
+#ifdef TIMER_BASED_BATCHING
+	if (st->chip_config.eis_enable)
+		int_en |= BIT_FSYNC_INT_EN;
+	if (!st->batch_timeout) {
+		int_en |= BIT_DATA_RDY_EN;
+	}
+#else
 	if (st->batch.timeout) {
 		if(!st->batch.fifo_wm_th)
 			int_en = BIT_DATA_RDY_EN;
@@ -52,6 +59,7 @@ static int inv_turn_on_fifo(struct inv_mpu_state *st)
 		if (st->chip_config.eis_enable)
 			int_en |= BIT_FSYNC_INT_EN;
 	}
+#endif
 	if (st->sensor[SENSOR_GYRO].on)
 		fifo_en |= BITS_GYRO_FIFO_EN;
 
@@ -60,6 +68,7 @@ static int inv_turn_on_fifo(struct inv_mpu_state *st)
 	r = inv_plat_single_write(st, REG_FIFO_EN, fifo_en);
 	if (r)
 		return r;
+	st->int_en = int_en;
 	r = inv_plat_single_write(st, REG_INT_ENABLE, int_en);
 	if (r)
 		return r;
@@ -75,6 +84,19 @@ static int inv_turn_on_fifo(struct inv_mpu_state *st)
 	user = BIT_FIFO_EN;
 #endif
 	r = inv_plat_single_write(st, REG_USER_CTRL, user | st->i2c_dis);
+#ifdef TIMER_BASED_BATCHING
+	if (fifo_en && st->batch_timeout) {
+		if (st->is_batch_timer_running)
+			hrtimer_cancel(&st ->hr_batch_timer);
+		st->is_batch_timer_running = true;
+		hrtimer_start(&st ->hr_batch_timer,
+			ns_to_ktime(st->batch_timeout), HRTIMER_MODE_REL);
+	} else {
+		if (st->is_batch_timer_running)
+			hrtimer_cancel(&st ->hr_batch_timer);
+		st->is_batch_timer_running = false;
+	}
+#endif
 
 	return r;
 }
@@ -245,6 +267,27 @@ static int inv_set_div(struct inv_mpu_state *st, int a_d, int g_d)
 // 20680 does not support batching
 static int inv_set_batch(struct inv_mpu_state *st)
 {
+#ifdef TIMER_BASED_BATCHING
+	u64 timeout;
+	int required_fifo_size;
+
+	if (st->batch.timeout) {
+		required_fifo_size = st->batch.timeout * st->eng_info[ENGINE_GYRO].running_rate
+					* st->batch.pk_size / 1000;
+		if (required_fifo_size > MAX_BATCH_FIFO_SIZE) {
+			required_fifo_size = MAX_BATCH_FIFO_SIZE;
+			timeout = (required_fifo_size / st->batch.pk_size) * (1000 / st->eng_info[ENGINE_GYRO].running_rate);
+		} else {
+			timeout = st->batch.timeout;
+		}
+	} else {
+		timeout = 1000 / st->eng_info[ENGINE_GYRO].running_rate;
+	}
+	if (timeout <= 1000 / st->eng_info[ENGINE_GYRO].running_rate)
+		st->batch_timeout = 0;
+	else
+		st->batch_timeout = timeout * 1000000; // ms to ns
+#endif
 	st->batch.fifo_wm_th = 0;
 
 	return 0;

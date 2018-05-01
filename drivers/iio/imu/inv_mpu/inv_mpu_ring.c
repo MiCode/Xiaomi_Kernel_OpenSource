@@ -533,6 +533,23 @@ static irqreturn_t inv_irq_handler(int irq, void *dev_id)
 	return IRQ_WAKE_THREAD;
 }
 
+#ifdef TIMER_BASED_BATCHING
+static enum hrtimer_restart inv_batch_timer_handler(struct hrtimer *timer)
+{
+	struct inv_mpu_state *st =
+		container_of(timer, struct inv_mpu_state, hr_batch_timer);
+
+	if (st->chip_config.gyro_enable || st->chip_config.accel_enable) {
+		hrtimer_forward_now(&st->hr_batch_timer,
+			ns_to_ktime(st->batch_timeout));
+		schedule_work(&st->batch_work);
+		return HRTIMER_RESTART;
+	}
+	st->is_batch_timer_running = 0;
+	return HRTIMER_NORESTART;
+}
+#endif
+
 void inv_mpu_unconfigure_ring(struct iio_dev *indio_dev)
 {
 	struct inv_mpu_state *st = iio_priv(indio_dev);
@@ -569,6 +586,12 @@ int inv_mpu_configure_ring(struct iio_dev *indio_dev)
 	struct inv_mpu_state *st = iio_priv(indio_dev);
 	struct iio_buffer *ring;
 
+#ifdef TIMER_BASED_BATCHING
+	/* configure hrtimer */
+	hrtimer_init(&st->hr_batch_timer, CLOCK_BOOTTIME, HRTIMER_MODE_REL);
+	st->hr_batch_timer.function = inv_batch_timer_handler;
+	INIT_WORK(&st->batch_work, inv_batch_work);
+#endif
 #ifdef KERNEL_VERSION_4_X
 	ring = devm_iio_kfifo_allocate(st->dev);
 	if (!ring)
