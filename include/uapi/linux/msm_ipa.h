@@ -97,6 +97,7 @@
 #define IPA_IOCTL_DEL_IPV6CT_TABLE              55
 #define IPA_IOCTL_CLEANUP                       56
 #define IPA_IOCTL_QUERY_WLAN_CLIENT             57
+#define IPA_IOCTL_GET_VLAN_MODE                 58
 
 /**
  * max size of the header to be inserted
@@ -1848,6 +1849,29 @@ struct ipa_tether_device_info {
 };
 
 /**
+ * enum ipa_vlan_ifaces - vlan interfaces types
+ */
+enum ipa_vlan_ifaces {
+	IPA_VLAN_IF_ETH,
+	IPA_VLAN_IF_RNDIS,
+	IPA_VLAN_IF_ECM
+};
+
+#define IPA_VLAN_IF_EMAC IPA_VLAN_IF_ETH
+#define IPA_VLAN_IF_MAX (IPA_VLAN_IF_ECM + 1)
+
+/**
+ * struct ipa_get_vlan_mode - get vlan mode of a Lan interface
+ * @iface: Lan interface type to be queried.
+ * @is_vlan_mode: output parameter, is interface in vlan mode, valid only when
+ *		ioctl return val is non-negative
+ */
+struct ipa_ioc_get_vlan_mode {
+	enum ipa_vlan_ifaces iface;
+	uint32_t is_vlan_mode;
+};
+
+/**
  *   actual IOCTLs supported by IPA driver
  */
 #define IPA_IOC_ADD_HDR _IOWR(IPA_IOC_MAGIC, \
@@ -2029,6 +2053,9 @@ struct ipa_tether_device_info {
 					IPA_IOCTL_CLEANUP)
 #define IPA_IOC_QUERY_WLAN_CLIENT _IO(IPA_IOC_MAGIC,\
 					IPA_IOCTL_QUERY_WLAN_CLIENT)
+#define IPA_IOC_GET_VLAN_MODE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GET_VLAN_MODE, \
+				struct ipa_ioc_get_vlan_mode *)
 /*
  * unique magic number of the Tethering bridge ioctls
  */
