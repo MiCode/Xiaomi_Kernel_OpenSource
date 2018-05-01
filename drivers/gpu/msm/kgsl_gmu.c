@@ -1729,7 +1729,7 @@ int gmu_start(struct kgsl_device *device)
 			gmu_irq_enable(device);
 
 			ret = gpudev->rpmh_gpu_pwrctrl(
-				adreno_dev, GMU_FW_START, GMU_RESET, 0);
+				adreno_dev, GMU_FW_START, GMU_COLD_BOOT, 0);
 			if (ret)
 				goto error_gmu;
 
@@ -1746,7 +1746,7 @@ int gmu_start(struct kgsl_device *device)
 			hfi_stop(gmu);
 
 			ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
-					GMU_RESET, 0);
+					GMU_COLD_BOOT, 0);
 			if (ret)
 				goto error_gmu;
 
