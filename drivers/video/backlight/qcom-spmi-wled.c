@@ -27,6 +27,8 @@
 #include <linux/regmap.h>
 #include <linux/spinlock.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/leds-qpnp-flash.h>
+#include "../../leds/leds.h"
 
 /* General definitions */
 #define WLED_DEFAULT_BRIGHTNESS		2048
@@ -1432,6 +1434,100 @@ static u32 wled_values(const struct wled_var_cfg *cfg, u32 idx)
 		return cfg->values[idx];
 	return idx;
 }
+
+static int wled_get_max_current(struct led_classdev *led_cdev,
+					int *max_current)
+{
+	struct wled *wled;
+	bool flash;
+
+	if (!strcmp(led_cdev->name, "wled_flash")) {
+		wled = container_of(led_cdev, struct wled, flash_cdev);
+		flash = true;
+	} else if (!strcmp(led_cdev->name, "wled_torch")) {
+		wled = container_of(led_cdev, struct wled, torch_cdev);
+		flash = false;
+	} else {
+		return -ENODEV;
+	}
+
+	if (flash)
+		*max_current = wled->flash_cdev.max_brightness;
+	else
+		*max_current = wled->torch_cdev.max_brightness;
+
+	return 0;
+}
+
+static int wled_get_max_avail_current(struct led_classdev *led_cdev,
+					int *max_current)
+{
+	struct wled *wled;
+
+	if (!strcmp(led_cdev->name, "wled_switch"))
+		wled = container_of(led_cdev, struct wled, switch_cdev);
+	else
+		return -ENODEV;
+
+	/*
+	 * For now, return the max brightness. Later this will be replaced with
+	 * the available current predicted based on battery parameters.
+	 */
+
+	*max_current = max(wled->flash_cdev.max_brightness,
+			wled->torch_cdev.max_brightness);
+	return 0;
+}
+
+int wled_flash_led_prepare(struct led_trigger *trig, int options,
+				int *max_current)
+{
+	struct led_classdev *led_cdev;
+	int rc;
+
+	if (!(options & FLASH_LED_PREPARE_OPTIONS_MASK)) {
+		pr_err("Invalid options %d\n", options);
+		return -EINVAL;
+	}
+
+	if (!trig) {
+		pr_err("Invalid led_trigger provided\n");
+		return -EINVAL;
+	}
+
+	led_cdev = trigger_to_lcdev(trig);
+	if (!led_cdev) {
+		pr_err("Invalid led_cdev in trigger %s\n", trig->name);
+		return -EINVAL;
+	}
+
+	switch (options) {
+	case QUERY_MAX_CURRENT:
+		rc = wled_get_max_current(led_cdev, max_current);
+		if (rc < 0) {
+			pr_err("Error in getting max_current for %s\n",
+				led_cdev->name);
+			return rc;
+		}
+	case QUERY_MAX_AVAIL_CURRENT:
+		rc = wled_get_max_avail_current(led_cdev, max_current);
+		if (rc < 0) {
+			pr_err("Error in getting max_avail_current for %s\n",
+				led_cdev->name);
+			return rc;
+		}
+		break;
+	case ENABLE_REGULATOR:
+	case DISABLE_REGULATOR:
+		/* Not supported */
+		return 0;
+	default:
+		return -EINVAL;
+	};
+
+	return 0;
+}
+EXPORT_SYMBOL(wled_flash_led_prepare);
 
 static int wled_flash_set_step_delay(struct wled *wled, int step_delay)
 {
