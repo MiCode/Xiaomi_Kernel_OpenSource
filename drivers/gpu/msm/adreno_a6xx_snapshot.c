@@ -19,6 +19,7 @@
 #include "a6xx_reg.h"
 #include "adreno_a6xx.h"
 #include "kgsl_gmu.h"
+#include "kgsl_hfi.h"
 
 #define A6XX_NUM_CTXTS 2
 #define A6XX_NUM_AXI_ARB_BLOCKS 2
@@ -1447,6 +1448,37 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 	}
 }
 
+struct gmu_mem_type_desc {
+	struct gmu_memdesc *memdesc;
+	uint32_t type;
+};
+
+static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_gmu *header = (struct kgsl_snapshot_gmu *)buf;
+	struct gmu_mem_type_desc *desc = priv;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+
+	if (priv == NULL)
+		return 0;
+
+	if (remain < desc->memdesc->size + sizeof(*header)) {
+		KGSL_CORE_ERR(
+			"snapshot: Not enough memory for the gmu section %d\n",
+			desc->type);
+		return 0;
+	}
+
+	header->type = desc->type;
+	header->size = desc->memdesc->size;
+
+	/* Just copy the ringbuffer, there are no active IBs */
+	memcpy(data, desc->memdesc->hostptr, desc->memdesc->size);
+
+	return desc->memdesc->size + sizeof(*header);
+}
+
 /*
  * a6xx_snapshot_gmu() - A6XX GMU snapshot function
  * @adreno_dev: Device being snapshotted
@@ -1459,11 +1491,25 @@ void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+	struct gmu_mem_type_desc desc[] = {
+		{gmu->hfi_mem, SNAPSHOT_GMU_HFIMEM},
+		{gmu->gmu_log, SNAPSHOT_GMU_LOG},
+		{gmu->bw_mem, SNAPSHOT_GMU_BWMEM},
+		{gmu->dump_mem, SNAPSHOT_GMU_DUMPMEM} };
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int val;
+	unsigned int val, i;
 
 	if (!kgsl_gmu_isenabled(device))
 		return;
+
+	for (i = 0; i < ARRAY_SIZE(desc); i++) {
+		if (desc[i].memdesc)
+			kgsl_snapshot_add_section(device,
+					KGSL_SNAPSHOT_SECTION_GMU,
+					snapshot, a6xx_snapshot_gmu_mem,
+					&desc[i]);
+	}
 
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
 					ARRAY_SIZE(a6xx_gmu_registers) / 2);
