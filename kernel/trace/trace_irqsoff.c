@@ -41,12 +41,6 @@ static int save_flags;
 static void stop_irqsoff_tracer(struct trace_array *tr, int graph);
 static int start_irqsoff_tracer(struct trace_array *tr, int graph);
 
-/*
- * irqsoff stack tracing threshold in ns.
- * default: 1ms
- */
-unsigned int sysctl_irqsoff_tracing_threshold_ns = 1000000UL;
-
 #ifdef CONFIG_PREEMPT_TRACER
 static inline int
 preempt_trace(void)
@@ -475,6 +469,12 @@ void time_hardirqs_off(unsigned long a0, unsigned long a1)
 #else /* !CONFIG_PROVE_LOCKING */
 
 #ifdef CONFIG_PREEMPTIRQ_EVENTS
+/*
+ * irqsoff stack tracing threshold in ns.
+ * default: 1ms
+ */
+unsigned int sysctl_irqsoff_tracing_threshold_ns = 1000000UL;
+
 struct irqsoff_store {
 	u64 ts;
 	unsigned long caddr[4];
