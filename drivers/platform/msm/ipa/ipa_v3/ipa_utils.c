@@ -1613,7 +1613,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_1][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_0_GROUP_UL_DL,
