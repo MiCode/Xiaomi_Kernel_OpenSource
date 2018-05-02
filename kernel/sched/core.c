@@ -24,6 +24,7 @@
 #include <linux/nmi.h>
 #include <linux/prefetch.h>
 #include <linux/profile.h>
+#include <linux/scs.h>
 #include <linux/security.h>
 #include <linux/syscalls.h>
 
@@ -5319,6 +5320,7 @@ void init_idle(struct task_struct *idle, int cpu)
 	idle->se.exec_start = sched_clock();
 	idle->flags |= PF_IDLE;
 
+	scs_task_reset(idle);
 	kasan_unpoison_task_stack(idle);
 
 #ifdef CONFIG_SMP
