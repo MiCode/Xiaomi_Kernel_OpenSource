@@ -695,8 +695,15 @@ int ath10k_wow_init(struct ath10k *ar)
 	ar->wow.wowlan_support = ath10k_wowlan_support;
 	ar->wow.wowlan_support.n_patterns = ar->wow.max_num_patterns;
 	ar->hw->wiphy->wowlan = &ar->wow.wowlan_support;
-
-	device_set_wakeup_capable(ar->dev, true);
+	device_init_wakeup(ar->dev, true);
 
 	return 0;
+}
+
+void ath10k_wow_deinit(struct ath10k *ar)
+{
+	if (test_bit(ATH10K_FW_FEATURE_WOWLAN_SUPPORT,
+		     ar->running_fw->fw_file.fw_features) &&
+		test_bit(WMI_SERVICE_WOW, ar->wmi.svc_map))
+		device_init_wakeup(ar->dev, false);
 }

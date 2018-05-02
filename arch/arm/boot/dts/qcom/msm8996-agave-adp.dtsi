@@ -13,6 +13,7 @@
 #include "msm8996-pinctrl.dtsi"
 #include "msm8996-camera-sensor-adp.dtsi"
 #include "msm8996-wsa881x.dtsi"
+#include "msm8996-sde.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {

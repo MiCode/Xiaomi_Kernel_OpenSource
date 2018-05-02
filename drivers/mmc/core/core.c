@@ -1170,6 +1170,46 @@ static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 	return 0;
 }
 
+static int mmc_cmdq_check_retune(struct mmc_host *host)
+{
+	bool cmdq_mode;
+	int err = 0;
+
+	if (!host->need_retune || host->doing_retune || !host->card ||
+			mmc_card_hs400es(host->card) ||
+			(host->ios.clock <= MMC_HIGH_DDR_MAX_DTR))
+		return 0;
+
+	cmdq_mode = mmc_card_cmdq(host->card);
+	if (cmdq_mode) {
+		err = mmc_cmdq_halt(host, true);
+		if (err) {
+			pr_err("%s: %s: failed halting queue (%d)\n",
+				mmc_hostname(host), __func__, err);
+			host->cmdq_ops->dumpstate(host);
+			goto halt_failed;
+		}
+	}
+
+	mmc_retune_hold(host);
+	err = mmc_retune(host);
+	mmc_retune_release(host);
+
+	if (cmdq_mode) {
+		if (mmc_cmdq_halt(host, false)) {
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			mmc_hostname(host), __func__);
+			host->cmdq_ops->dumpstate(host);
+		}
+	}
+
+halt_failed:
+	pr_debug("%s: %s: Retuning done err: %d\n",
+				mmc_hostname(host), __func__, err);
+
+	return err;
+}
+
 static int mmc_start_cmdq_request(struct mmc_host *host,
 				   struct mmc_request *mrq)
 {
@@ -1196,6 +1236,7 @@ static int mmc_start_cmdq_request(struct mmc_host *host,
 	}
 
 	mmc_host_clk_hold(host);
+	mmc_cmdq_check_retune(host);
 	if (likely(host->cmdq_ops->request)) {
 		ret = host->cmdq_ops->request(host, mrq);
 	} else {
@@ -1558,7 +1599,8 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 		    mmc_card_removed(host->card)) {
 			if (cmd->error && !cmd->retries &&
 			     cmd->opcode != MMC_SEND_STATUS &&
-			     cmd->opcode != MMC_SEND_TUNING_BLOCK)
+			     cmd->opcode != MMC_SEND_TUNING_BLOCK &&
+			     cmd->opcode != MMC_SEND_TUNING_BLOCK_HS200)
 				mmc_recovery_fallback_lower_speed(host);
 			break;
 		}
@@ -4492,6 +4534,14 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 			err = host->bus_ops->pre_suspend(host);
 		if (!err)
 			break;
+
+		if (!mmc_card_is_removable(host)) {
+			dev_warn(mmc_dev(host),
+				 "pre_suspend failed for non-removable host: "
+				 "%d\n", err);
+			/* Avoid removing non-removable hosts */
+			break;
+		}
 
 		/* Calling bus_ops->remove() with a claimed host can deadlock */
 		host->bus_ops->remove(host);

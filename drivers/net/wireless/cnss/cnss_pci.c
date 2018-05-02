@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -569,6 +569,7 @@ out:
 
 static void cnss_wlan_gpio_set(struct cnss_wlan_gpio_info *info, bool state)
 {
+#ifndef CONFIG_MSM_GVM_QUIN
 	if (!info->prop)
 		return;
 
@@ -588,6 +589,9 @@ static void cnss_wlan_gpio_set(struct cnss_wlan_gpio_info *info, bool state)
 
 	pr_debug("%s: %s gpio is now %s\n", __func__,
 		 info->name, info->state ? "enabled" : "disabled");
+#else
+	return;
+#endif
 }
 
 static int cnss_configure_wlan_en_gpio(bool state)
@@ -1560,7 +1564,6 @@ int cnss_msm_pcie_enumerate(u32 rc_idx)
 	return msm_pcie_enumerate(rc_idx);
 }
 #else /* !defined CONFIG_PCI_MSM */
-
 struct pci_saved_state *cnss_pci_store_saved_state(struct pci_dev *dev)
 {
 	return NULL;
@@ -1570,7 +1573,7 @@ int cnss_msm_pcie_pm_control(
 		enum msm_pcie_pm_opt pm_opt, u32 bus_num,
 		struct pci_dev *pdev, u32 options)
 {
-	return -ENODEV;
+	return 0;
 }
 
 int cnss_pci_load_and_free_saved_state(
@@ -1581,27 +1584,27 @@ int cnss_pci_load_and_free_saved_state(
 
 int cnss_msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
 {
-	return -ENODEV;
+	return 0;
 }
 
 int cnss_msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 {
-	return -ENODEV;
+	return 0;
 }
 
 int cnss_msm_pcie_recover_config(struct pci_dev *dev)
 {
-	return -ENODEV;
+	return 0;
 }
 
 int cnss_msm_pcie_register_event(struct msm_pcie_register_event *reg)
 {
-	return -ENODEV;
+	return 0;
 }
 
 int cnss_msm_pcie_enumerate(u32 rc_idx)
 {
-	return -EPROBE_DEFER;
+	return 0;
 }
 #endif
 
@@ -2870,7 +2873,9 @@ static int cnss_probe(struct platform_device *pdev)
 	struct esoc_desc *desc;
 	const char *client_desc;
 	struct device *dev = &pdev->dev;
+#ifndef CONFIG_MSM_GVM_QUIN
 	u32 rc_num;
+#endif
 	struct resource *res;
 	u32 ramdump_size = 0;
 	u32 smmu_iova_address[2];
@@ -2905,6 +2910,7 @@ static int cnss_probe(struct platform_device *pdev)
 		goto err_get_rc;
 	}
 
+#ifndef CONFIG_MSM_GVM_QUIN
 	ret = of_property_read_u32(dev->of_node, "qcom,wlan-rc-num", &rc_num);
 	if (ret) {
 		pr_err("%s: Failed to find PCIe RC number!\n", __func__);
@@ -2916,6 +2922,7 @@ static int cnss_probe(struct platform_device *pdev)
 		pr_err("%s: Failed to enable PCIe RC%x!\n", __func__, rc_num);
 		goto err_pcie_enumerate;
 	}
+#endif
 
 	penv->pcie_link_state = PCIE_LINK_UP;
 
@@ -3096,7 +3103,9 @@ err_subsys_reg:
 		devm_unregister_esoc_client(&pdev->dev, penv->esoc_desc);
 
 err_esoc_reg:
+#ifndef CONFIG_MSM_GVM_QUIN
 err_pcie_enumerate:
+#endif
 err_get_rc:
 	cnss_configure_wlan_en_gpio(WLAN_EN_LOW);
 	cnss_wlan_release_resources();

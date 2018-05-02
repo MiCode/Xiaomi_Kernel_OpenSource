@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@
 #define MAX_DPHY_DATA_LN                            4
 #define CLOCK_OFFSET                              0x700
 #define CSIPHY_SOF_DEBUG_COUNT                      2
+#define GBPS                                    1000000000
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -281,11 +282,20 @@ static int msm_csiphy_3phase_lane_config(
 				csiphy_3ph_reg.mipi_csiphy_3ph_lnn_ctrl51.addr +
 				0x200*i);
 		}
-		msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-			mipi_csiphy_3ph_lnn_ctrl25.data,
-			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-			mipi_csiphy_3ph_lnn_ctrl25.addr + 0x200*i);
-
+		if ((csiphy_dev->hw_version == CSIPHY_VERSION_V35) &&
+			((csiphy_params->data_rate /
+			csiphy_params->lane_cnt) > 2 * GBPS)) {
+			msm_camera_io_w(0x40,
+				csiphybase +
+				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+				mipi_csiphy_3ph_lnn_ctrl25.addr + 0x200*i);
+		} else {
+			msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+				mipi_csiphy_3ph_lnn_ctrl25.data,
+				csiphybase +
+				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+				mipi_csiphy_3ph_lnn_ctrl25.addr + 0x200*i);
+		}
 		lane_mask >>= 1;
 		i++;
 	}
@@ -797,10 +807,10 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		ratio = csiphy_dev->csiphy_max_clk/clk_rate;
 		csiphy_params->settle_cnt = csiphy_params->settle_cnt/ratio;
 	}
-	CDBG("%s csiphy_params, mask = 0x%x cnt = %d\n",
+	CDBG("%s csiphy_params, mask = 0x%x cnt = %d, data rate = %lu\n",
 		__func__,
 		csiphy_params->lane_mask,
-		csiphy_params->lane_cnt);
+		csiphy_params->lane_cnt, csiphy_params->data_rate);
 	CDBG("%s csiphy_params, settle cnt = 0x%x csid %d\n",
 		__func__, csiphy_params->settle_cnt,
 		csiphy_params->csid_core);

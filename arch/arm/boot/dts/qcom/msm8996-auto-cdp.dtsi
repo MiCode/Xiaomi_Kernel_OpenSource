@@ -13,6 +13,7 @@
 #include "msm8996-pinctrl.dtsi"
 #include "msm8996-camera-sensor-auto-cdp.dtsi"
 #include "msm8996-wsa881x.dtsi"
+#include "msm8996-sde.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -694,6 +695,8 @@
 		vdd-ntn-hsic-supply = <&pm8994_l25>;
 		vdd-ntn-pci-supply = <&pm8994_s4>;
 		vdd-ntn-io-supply = <&pm8994_s4>;
+		vdd-ntn-phy-supply = <&pm8994_l29>;
+		vdd-ntn-core-supply = <&pm8994_l31>;
 
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;

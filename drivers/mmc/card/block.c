@@ -1048,6 +1048,12 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 		goto idata_free;
 	}
 
+	/*
+	 * Ensure rpmb_req_pending flag is synchronized between multiple
+	 * entities which may use rpmb ioclts with a lock.
+	 */
+	mutex_lock(&card->host->rpmb_req_mutex);
+	atomic_set(&card->host->rpmb_req_pending, 1);
 	mmc_get_card(card);
 
 	if (mmc_card_doing_bkops(card)) {
@@ -1163,6 +1169,9 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 
 cmd_rel_host:
 	mmc_put_card(card);
+	atomic_set(&card->host->rpmb_req_pending, 0);
+	mutex_unlock(&card->host->rpmb_req_mutex);
+
 
 idata_free:
 	for (i = 0; i < MMC_IOC_MAX_RPMB_CMD; i++) {
@@ -3173,11 +3182,11 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_rw_prep(
 static void mmc_blk_cmdq_requeue_rw_rq(struct mmc_queue *mq,
 				struct request *req)
 {
-	struct mmc_card *card = mq->card;
-	struct mmc_host *host = card->host;
+	struct request_queue *q = req->q;
 
-	blk_requeue_request(req->q, req);
-	mmc_put_card(host->card);
+	spin_lock_irq(q->queue_lock);
+	blk_requeue_request(q, req);
+	spin_unlock_irq(q->queue_lock);
 }
 
 static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
@@ -4065,9 +4074,16 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 			 * If issuing of the request fails with eitehr EBUSY or
 			 * EAGAIN error, re-queue the request.
 			 * This case would occur with ICE calls.
+			 * For request which gets completed successfully or
+			 * errored out, we release host lock in completion or
+			 * error handling softirq context. But here the request
+			 * is neither completed nor erred-out, so release the
+			 * host lock explicitly.
 			 */
-			if (ret == -EBUSY || ret == -EAGAIN)
+			if (ret == -EBUSY || ret == -EAGAIN) {
 				mmc_blk_cmdq_requeue_rw_rq(mq, req);
+				mmc_put_card(host->card);
+			}
 		}
 	}
 

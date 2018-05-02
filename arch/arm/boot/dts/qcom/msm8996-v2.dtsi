@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -480,11 +480,7 @@
 	gdsc-venus-supply = <&gdsc_venus>;
 };
 
-&sde_hdmi_tx {
-	hpd-gdsc-venus-supply = <&gdsc_venus>;
-};
-
-&mdss_dsi0 {
+&mdss_dsi {
 	gdsc-venus-supply = <&gdsc_venus>;
 	qcom,core-supply-entries {
 		#address-cells = <1>;

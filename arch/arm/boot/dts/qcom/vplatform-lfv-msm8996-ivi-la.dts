@@ -256,3 +256,7 @@
 		status = "okay";
 	};
 };
+
+&sde_kms_hyp {
+	qcom,client-id = "7815";
+};
