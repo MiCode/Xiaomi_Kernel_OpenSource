@@ -178,6 +178,42 @@ done:
 	return ret;
 }
 
+static atomic_t tdm_gp_en_ref[IDX_GROUP_TDM_MAX];
+
+static int afe_get_tdm_group_idx(u16 group_id)
+{
+	int gp_idx = -1;
+
+	switch (group_id) {
+	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX:
+		gp_idx = IDX_GROUP_PRIMARY_TDM_RX;
+		break;
+	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX:
+		gp_idx = IDX_GROUP_PRIMARY_TDM_TX;
+		break;
+	case AFE_GROUP_DEVICE_ID_SECONDARY_TDM_RX:
+		gp_idx = IDX_GROUP_SECONDARY_TDM_RX;
+		break;
+	case AFE_GROUP_DEVICE_ID_SECONDARY_TDM_TX:
+		gp_idx = IDX_GROUP_SECONDARY_TDM_TX;
+		break;
+	case AFE_GROUP_DEVICE_ID_TERTIARY_TDM_RX:
+		gp_idx = IDX_GROUP_TERTIARY_TDM_RX;
+		break;
+	case AFE_GROUP_DEVICE_ID_TERTIARY_TDM_TX:
+		gp_idx = IDX_GROUP_TERTIARY_TDM_TX;
+		break;
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_RX:
+		gp_idx = IDX_GROUP_QUATERNARY_TDM_RX;
+		break;
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_TX:
+		gp_idx = IDX_GROUP_QUATERNARY_TDM_TX;
+		break;
+	}
+
+	return gp_idx;
+}
+
 int afe_get_topology(int port_id)
 {
 	int topology;
@@ -356,6 +392,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		return -EINVAL;
 	}
 	if (data->opcode == RESET_EVENTS) {
+		int i = 0;
 		pr_debug("%s: reset event = %d %d apr[%pK]\n",
 			__func__,
 			data->reset_event, data->reset_proc, this_afe.apr);
@@ -397,6 +434,12 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 					this_afe.rx_private_data);
 			this_afe.rx_cb = NULL;
 		}
+
+		/*
+		 * reset TDM group enable ref cnt
+		 */
+		for (i = 0; i < IDX_GROUP_TDM_MAX; i++)
+			atomic_set(&tdm_gp_en_ref[i], 0);
 
 		return 0;
 	}
@@ -3864,10 +3907,35 @@ int afe_port_group_enable(u16 group_id,
 {
 	struct afe_group_device_enable group_enable = {0};
 	struct param_hdr_v3 param_hdr = {0};
-	int ret;
+	int ret = 0;
+	int gp_idx;
 
 	pr_debug("%s: group id: 0x%x enable: %d\n", __func__,
 		group_id, enable);
+
+	gp_idx = afe_get_tdm_group_idx(group_id);
+
+	if ((gp_idx >= 0) && (gp_idx < IDX_GROUP_TDM_MAX)) {
+
+		atomic_t *gp_ref = &tdm_gp_en_ref[gp_idx];
+
+		if (enable)
+			atomic_inc(gp_ref);
+		else
+			atomic_dec(gp_ref);
+
+		if ((enable) && (atomic_read(gp_ref) > 1)) {
+			pr_err("%s: this TDM group is enabled already %d  refs_cnt %d\n",
+				__func__, group_id, atomic_read(gp_ref));
+			goto rtn;
+		}
+
+		if ((!enable) && (atomic_read(gp_ref) > 0)) {
+			pr_err("%s: this TDM group will be disabled in last call %d refs_cnt %d\n",
+				__func__, group_id, atomic_read(gp_ref));
+			goto rtn;
+		}
+	}
 
 	ret = afe_q6_interface_prepare();
 	if (ret != 0) {
@@ -3895,6 +3963,8 @@ int afe_port_group_enable(u16 group_id,
 	if (ret)
 		pr_err("%s: AFE_PARAM_ID_GROUP_DEVICE_ENABLE failed %d\n",
 			__func__, ret);
+
+rtn:
 
 	return ret;
 }
@@ -6556,6 +6626,10 @@ static int __init afe_init(void)
 		pr_err("%s: could not init cal data! %d\n", __func__, ret);
 
 	config_debug_fs_init();
+
+	for (i = 0; i < IDX_GROUP_TDM_MAX; i++)
+		atomic_set(&tdm_gp_en_ref[i], 0);
+
 	return 0;
 }
 
