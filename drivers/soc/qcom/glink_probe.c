@@ -364,6 +364,15 @@ static void probe_subsystem(struct device *dev, struct device_node *np)
 	} else if (!strcmp(transport, "spss")) {
 		einfo->register_fn = glink_probe_spss_reg;
 		einfo->unregister_fn = glink_probe_spss_unreg;
+	} else if (!strcmp(transport, "spi")) {
+		/* SPI SSR is self contained */
+		einfo->glink = qcom_glink_spi_register(dev, np);
+		if (IS_ERR_OR_NULL(einfo->glink)) {
+			GLINK_ERR(dev, "%s failed\n", einfo->ssr_label);
+			goto free_einfo;
+		}
+		list_add_tail(&einfo->list, &edge_infos);
+		return;
 	}
 
 	einfo->nb.notifier_call = glink_probe_ssr_cb;
