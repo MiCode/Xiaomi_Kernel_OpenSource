@@ -579,6 +579,9 @@ struct ctl_top {
  * @splash_base:	Base address of continuous splash region reserved
  *                      by bootloader
  * @splash_size:	Size of continuous splash region
+ * @ramdump_base:	Base address of ramdump display region reserved
+ *                      by bootloader
+ * @ramdump_size:	Size of ramdump buffer region
  * @top:	struct ctl_top objects
  * @ctl_ids:	stores the valid MDSS ctl block ids for the current mode
  * @lm_ids:	stores the valid MDSS layer mixer block ids for the current mode
@@ -593,6 +596,8 @@ struct sde_splash_data {
 	bool resource_handoff_pending;
 	unsigned long splash_base;
 	u32 splash_size;
+	unsigned long ramdump_base;
+	u32 ramdump_size;
 	struct ctl_top top[CTL_MAX - CTL_0];
 	u8 ctl_ids[CTL_MAX - CTL_0];
 	u8 lm_ids[LM_MAX - LM_0];
