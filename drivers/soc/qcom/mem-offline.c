@@ -12,6 +12,14 @@
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
 #include <linux/kobject.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
+
+#define AOP_MSG_ADDR_MASK		0xffffffff
+#define AOP_MSG_ADDR_HIGH_SHIFT		32
+#define MAX_LEN				96
 
 static unsigned long start_section_nr, end_section_nr;
 static struct kobject *kobj;
@@ -34,6 +42,11 @@ enum memory_states {
 	MEMORY_OFFLINE,
 	MAX_STATE,
 };
+
+static struct mem_offline_mailbox {
+	struct mbox_client cl;
+	struct mbox_chan *mbox;
+} mailbox;
 
 static struct section_stat *mem_info;
 
@@ -62,6 +75,24 @@ void record_stat(unsigned long sec, ktime_t delay, int mode)
 		mem_info[blk_nr].total_time / mem_info[blk_nr].success_count;
 
 	mem_info[blk_nr].last_recorded_time = delay;
+}
+
+static int aop_send_msg(unsigned long addr, bool online)
+{
+	struct qmp_pkt pkt;
+	char mbox_msg[MAX_LEN];
+	unsigned long addr_low, addr_high;
+
+	addr_low = addr & AOP_MSG_ADDR_MASK;
+	addr_high = (addr >> AOP_MSG_ADDR_HIGH_SHIFT) & AOP_MSG_ADDR_MASK;
+
+	snprintf(mbox_msg, MAX_LEN,
+		 "{class: ddr, event: pasr, addr_hi: 0x%08lx, addr_lo: 0x%08lx, refresh: %s}",
+		 addr_high, addr_low, online ? "on" : "off");
+
+	pkt.size = MAX_LEN;
+	pkt.data = mbox_msg;
+	return mbox_send_message(mailbox.mbox, &pkt);
 }
 
 static int mem_event_callback(struct notifier_block *self,
@@ -95,7 +126,9 @@ static int mem_event_callback(struct notifier_block *self,
 			   idx) / sections_per_block].fail_count;
 		cur = ktime_get();
 
-		/*TODO: Mail AOP to ON self-refresh of this DDR region */
+		if (aop_send_msg(__pfn_to_phys(start), true))
+			pr_err("PASR: AOP online request addr:0x%llx failed\n",
+			       __pfn_to_phys(start));
 
 		break;
 	case MEM_ONLINE:
@@ -113,12 +146,14 @@ static int mem_event_callback(struct notifier_block *self,
 		break;
 	case MEM_OFFLINE:
 		pr_info("mem-offline: Offlined memory block mem%lu\n", sec_nr);
+
+		if (aop_send_msg(__pfn_to_phys(start), false))
+			pr_err("PASR: AOP offline request addr:0x%llx failed\n",
+			       __pfn_to_phys(start));
+
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_OFFLINE);
 		cur = 0;
-
-		/*TODO: Mail AOP to OFF self-refresh of this DDR region */
-
 		break;
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%lx end = 0x%lx\n",
@@ -275,16 +310,11 @@ static int mem_sysfs_init(void)
 	return 0;
 }
 
-static int mem_parse_dt(void)
+static int mem_parse_dt(struct platform_device *pdev)
 {
-	struct device_node *node;
 	const unsigned int *val;
+	struct device_node *node = pdev->dev.of_node;
 
-	node = of_find_node_by_name(NULL, "mem-offline");
-	if (!node) {
-		pr_err("mem-offine node not found in DT\n");
-		return -EINVAL;
-	}
 	val = of_get_property(node, "granule", NULL);
 	if (!val && !*val) {
 		pr_err("mem-offine: granule property not found in DT\n");
@@ -297,12 +327,29 @@ static int mem_parse_dt(void)
 		return -EINVAL;
 	}
 
+	mailbox.cl.dev = &pdev->dev;
+	mailbox.cl.tx_block = true;
+	mailbox.cl.tx_tout = 1000;
+	mailbox.cl.knows_txdone = false;
+
+	mailbox.mbox = mbox_request_channel(&mailbox.cl, 0);
+	if (IS_ERR(mailbox.mbox)) {
+		pr_err("mem-offline: failed to get mailbox channel %pK %d\n",
+			mailbox.mbox, PTR_ERR(mailbox.mbox));
+		return PTR_ERR(mailbox.mbox);
+	}
+
 	return 0;
 }
 
-static int __init mem_module_init(void)
+static struct notifier_block hotplug_memory_callback_nb = {
+	.notifier_call = mem_event_callback,
+	.priority = 0,
+};
+
+static int mem_offline_driver_probe(struct platform_device *pdev)
 {
-	if (mem_parse_dt())
+	if (mem_parse_dt(pdev))
 		return -ENODEV;
 
 	if (mem_online_remaining_blocks())
@@ -311,7 +358,7 @@ static int __init mem_module_init(void)
 	if (mem_sysfs_init())
 		return -ENODEV;
 
-	if (hotplug_memory_notifier(mem_event_callback, 0)) {
+	if (register_hotmemory_notifier(&hotplug_memory_callback_nb)) {
 		pr_err("mem-offline: Registering memory hotplug notifier failed\n");
 		return -ENODEV;
 	}
@@ -319,4 +366,24 @@ static int __init mem_module_init(void)
 			start_section_nr, end_section_nr);
 	return 0;
 }
+
+static const struct of_device_id mem_offline_match_table[] = {
+	{.compatible = "qcom,mem-offline"},
+	{}
+};
+
+static struct platform_driver mem_offline_driver = {
+	.probe = mem_offline_driver_probe,
+	.driver = {
+		.name = "mem_offline",
+		.of_match_table = mem_offline_match_table,
+		.owner = THIS_MODULE,
+	},
+};
+
+static int __init mem_module_init(void)
+{
+	return platform_driver_register(&mem_offline_driver);
+}
+
 subsys_initcall(mem_module_init);
