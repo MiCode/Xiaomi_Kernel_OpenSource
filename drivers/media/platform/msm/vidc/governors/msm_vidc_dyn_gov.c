@@ -489,8 +489,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	if (llc_ref_read_l2_cache_enabled) {
 		ddr.dpb_read = fp_div(ddr.dpb_read,
-		d->codec == HAL_VIDEO_CODEC_H264 ? FP(0, 15, 100) :
-		FP(0, 30, 100));
+		d->codec == HAL_VIDEO_CODEC_H264 ? FP(1, 15, 100) :
+		FP(1, 30, 100));
 		llc.dpb_read = dpb_total - ddr.dpb_read;
 	}
 
@@ -570,7 +570,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		{"opb read", DUMP_FP_FMT, ddr.opb_read},
 		{"opb write", DUMP_FP_FMT, ddr.opb_write},
 		{"dpb read", DUMP_FP_FMT, ddr.dpb_read},
-		{"dbb write", DUMP_FP_FMT, ddr.dpb_write},
+		{"dpb write", DUMP_FP_FMT, ddr.dpb_write},
+		{"dpb total", DUMP_FP_FMT, dpb_total},
 		{"INTERMEDIATE LLC B/W", "", DUMP_HEADER_MAGIC},
 		{"llc dpb read", DUMP_FP_FMT, llc.dpb_read},
 		{"llc line buffer read", DUMP_FP_FMT, llc.line_buffer_read},
@@ -834,6 +835,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 			mese_read_factor},
 		{"qsmmu_bw_overhead_factor",
 			 DUMP_FP_FMT, qsmmu_bw_overhead_factor},
+		{"bw for NV12 8bpc)", DUMP_FP_FMT, y_bw_no_ubwc_8bpp},
+		{"bw for NV12 10bpc)", DUMP_FP_FMT, y_bw_no_ubwc_10bpp},
 
 		{"INTERMEDIATE B/W DDR", "", DUMP_HEADER_MAGIC},
 		{"vsp read", DUMP_FP_FMT, ddr.vsp_read},
