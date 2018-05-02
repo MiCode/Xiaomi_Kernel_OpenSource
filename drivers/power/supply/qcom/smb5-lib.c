@@ -700,6 +700,13 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	chg->pulse_cnt = 0;
 	chg->uusb_apsd_rerun_done = false;
 
+	/* write back the default FLOAT charger configuration */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				(u8)FLOAT_OPTIONS_MASK, chg->float_cfg);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't write float charger options rc=%d\n",
+			rc);
+
 	/* clear USB ICL vote for USB_PSY_VOTER */
 	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	if (rc < 0)
@@ -891,6 +898,9 @@ set_mode:
 		goto out;
 	}
 
+	/* Re-run AICL */
+	if (chg->real_charger_type != POWER_SUPPLY_TYPE_USB)
+		rc = smblib_rerun_aicl(chg);
 out:
 	return rc;
 }
@@ -2142,16 +2152,40 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 
 	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
 		if (usb_current == -ETIMEDOUT) {
-			/*
-			 * Valid FLOAT charger, report the current based
-			 * of Rp
-			 */
-			typec_mode = smblib_get_prop_typec_mode(chg);
-			rp_ua = get_rp_based_dcp_current(chg, typec_mode);
-			rc = vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER,
-								true, rp_ua);
-			if (rc < 0)
+			if ((chg->float_cfg & FLOAT_OPTIONS_MASK)
+						== FORCE_FLOAT_SDP_CFG_BIT) {
+				/*
+				 * Confiugure USB500 mode if Float charger is
+				 * configured for SDP mode.
+				 */
+				rc = set_sdp_current(chg, USBIN_500MA);
+				if (rc < 0)
+					smblib_err(chg,
+						"Couldn't set SDP ICL rc=%d\n",
+						rc);
+
 				return rc;
+			}
+
+			if (chg->connector_type ==
+					POWER_SUPPLY_CONNECTOR_TYPEC) {
+				/*
+				 * Valid FLOAT charger, report the current
+				 * based of Rp.
+				 */
+				typec_mode = smblib_get_prop_typec_mode(chg);
+				rp_ua = get_rp_based_dcp_current(chg,
+								typec_mode);
+				rc = vote(chg->usb_icl_votable,
+						SW_ICL_MAX_VOTER, true, rp_ua);
+				if (rc < 0)
+					return rc;
+			} else {
+				rc = vote(chg->usb_icl_votable,
+					SW_ICL_MAX_VOTER, true, DCP_CURRENT_UA);
+				if (rc < 0)
+					return rc;
+			}
 		} else {
 			/*
 			 * FLOAT charger detected as SDP by USB driver,
@@ -2171,9 +2205,20 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 	} else {
 		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
 					true, usb_current);
+		if (rc < 0) {
+			pr_err("Couldn't vote ICL USB_PSY_VOTER rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
+		if (rc < 0) {
+			pr_err("Couldn't remove SW_ICL_MAX vote rc=%d\n", rc);
+			return rc;
+		}
+
 	}
 
-	return rc;
+	return 0;
 }
 
 int smblib_set_prop_sdp_current_max(struct smb_charger *chg,
@@ -2884,9 +2929,13 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 	if (chg->pd_active)
 		return;
 
-	/* HVDCP 2/3, handled separately */
+	/*
+	 * HVDCP 2/3, handled separately
+	 * For UNKNOWN(input not present) return without updating ICL
+	 */
 	if (pst == POWER_SUPPLY_TYPE_USB_HVDCP
-			|| pst == POWER_SUPPLY_TYPE_USB_HVDCP_3)
+			|| pst == POWER_SUPPLY_TYPE_USB_HVDCP_3
+			|| pst == POWER_SUPPLY_TYPE_UNKNOWN)
 		return;
 
 	/* TypeC rp med or high, use rp value */
@@ -2948,12 +2997,12 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	switch (apsd_result->bit) {
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
+	case FLOAT_CHARGER_BIT:
 		if ((chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
 				|| chg->use_extcon)
 			smblib_notify_device_mode(chg, true);
 		break;
 	case OCP_CHARGER_BIT:
-	case FLOAT_CHARGER_BIT:
 	case DCP_CHARGER_BIT:
 		break;
 	default:
@@ -3162,6 +3211,21 @@ static void typec_src_removal(struct smb_charger *chg)
 static void smblib_handle_rp_change(struct smb_charger *chg, int typec_mode)
 {
 	const struct apsd_result *apsd = smblib_get_apsd_result(chg);
+
+	/*
+	 * We want the ICL vote @ 100mA for a FLOAT charger
+	 * until the detection by the USB stack is complete.
+	 * Ignore the Rp changes unless there is a
+	 * pre-existing valid vote or FLOAT is configured for
+	 * SDP current.
+	 */
+	if (apsd->pst == POWER_SUPPLY_TYPE_USB_FLOAT) {
+		if (get_client_vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER)
+					<= USBIN_100MA
+			|| (chg->float_cfg & FLOAT_OPTIONS_MASK)
+					== FORCE_FLOAT_SDP_CFG_BIT)
+			return;
+	}
 
 	update_sw_icl_max(chg, apsd->pst);
 
@@ -3765,7 +3829,7 @@ int smblib_init(struct smb_charger *chg)
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
-		rc = qcom_batt_init();
+		rc = qcom_batt_init(chg->smb_version);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't init qcom_batt_init rc=%d\n",
 				rc);
