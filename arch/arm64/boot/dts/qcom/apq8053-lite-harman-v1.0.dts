@@ -13,13 +13,13 @@
 
 /dts-v1/;
 
-#include "apq8053-lite-dragon-v2.0.dtsi"
+#include "apq8053-lite-harman-v1.0.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8053 Lite DragonBoard V2.0";
-	compatible = "qcom,apq8053-lite-dragonboard",
-			"qcom,apq8053", "qcom,dragonboard";
-	qcom,board-id = <0x0103000a 0>;
+	model = "Qualcomm Technologies, Inc. APQ8053 Lite Harman v1.0 Board";
+	compatible = "qcom,apq8053-lite-dragonboard", "qcom,apq8053",
+			"qcom,dragonboard";
+	qcom,board-id= <0x01020020 0>;
 };
 
 &blsp2_uart0 {
