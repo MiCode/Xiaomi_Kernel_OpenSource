@@ -208,8 +208,12 @@ static void __qrtr_node_release(struct kref *kref)
 	void __rcu **slot;
 
 	spin_lock_irqsave(&qrtr_nodes_lock, flags);
-	if (node->nid != QRTR_EP_NID_AUTO)
-		radix_tree_delete(&qrtr_nodes, node->nid);
+	if (node->nid != QRTR_EP_NID_AUTO) {
+		radix_tree_for_each_slot(slot, &qrtr_nodes, &iter, 0) {
+			if (node == *slot)
+				radix_tree_delete(&qrtr_nodes, iter.index);
+		}
+	}
 	spin_unlock_irqrestore(&qrtr_nodes_lock, flags);
 
 	list_del(&node->item);
@@ -446,12 +450,15 @@ static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 {
 	unsigned long flags;
 
-	if (node->nid != QRTR_EP_NID_AUTO || nid == QRTR_EP_NID_AUTO)
+	if (nid == node->nid || nid == QRTR_EP_NID_AUTO)
 		return;
 
 	spin_lock_irqsave(&qrtr_nodes_lock, flags);
-	radix_tree_insert(&qrtr_nodes, nid, node);
-	node->nid = nid;
+	if (!radix_tree_lookup(&qrtr_nodes, nid))
+		radix_tree_insert(&qrtr_nodes, nid, node);
+
+	if (node->nid == QRTR_EP_NID_AUTO)
+		node->nid = nid;
 	spin_unlock_irqrestore(&qrtr_nodes_lock, flags);
 }
 
