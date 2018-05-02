@@ -599,6 +599,16 @@ void gpstate_timer_handler(unsigned long data)
 
 	if (!spin_trylock(&gpstates->gpstate_lock))
 		return;
+	/*
+	 * If the timer has migrated to the different cpu then bring
+	 * it back to one of the policy->cpus
+	 */
+	if (!cpumask_test_cpu(raw_smp_processor_id(), policy->cpus)) {
+		gpstates->timer.expires = jiffies + msecs_to_jiffies(1);
+		add_timer_on(&gpstates->timer, cpumask_first(policy->cpus));
+		spin_unlock(&gpstates->gpstate_lock);
+		return;
+	}
 
 	gpstates->last_sampled_time += time_diff;
 	gpstates->elapsed_time += time_diff;
@@ -626,10 +636,8 @@ void gpstate_timer_handler(unsigned long data)
 	gpstates->last_gpstate_idx = pstate_to_idx(freq_data.gpstate_id);
 	gpstates->last_lpstate_idx = pstate_to_idx(freq_data.pstate_id);
 
+	set_pstate(&freq_data);
 	spin_unlock(&gpstates->gpstate_lock);
-
-	/* Timer may get migrated to a different cpu on cpu hot unplug */
-	smp_call_function_any(policy->cpus, set_pstate, &freq_data, 1);
 }
 
 /*
