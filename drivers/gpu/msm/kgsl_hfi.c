@@ -397,17 +397,6 @@ static int hfi_send_feature_ctrls(struct gmu_device *gmu)
 	return 0;
 }
 
-static int hfi_send_init_perf_vote(struct gmu_device *gmu)
-{
-	struct hfi_gx_bw_perf_vote_cmd req = {
-		.ack_type = DCVS_ACK_BLOCK,
-		.freq = 2,
-		.bw = 2,
-	};
-
-	return hfi_send_req(gmu, H2F_MSG_GX_BW_PERF_VOTE, &req);
-}
-
 static int hfi_send_dcvstbl(struct gmu_device *gmu)
 {
 	struct hfi_dcvstable_cmd cmd = {
@@ -638,11 +627,6 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 			return result;
 
 		result = hfi_send_core_fw_start(gmu);
-		if (result)
-			return result;
-
-		/* Force a vote with initial values */
-		result = hfi_send_init_perf_vote(gmu);
 		if (result)
 			return result;
 	} else {
