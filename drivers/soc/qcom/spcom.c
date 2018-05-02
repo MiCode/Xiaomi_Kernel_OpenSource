@@ -981,6 +981,11 @@ static int spcom_handle_write(struct spcom_channel *ch,
 
 	pr_debug("cmd_id [0x%x]\n", cmd_id);
 
+	if (!ch && cmd_id != SPCOM_CMD_CREATE_CHANNEL) {
+		pr_err("channel context is null\n");
+		return -EINVAL;
+	}
+
 	switch (cmd_id) {
 	case SPCOM_CMD_SEND:
 		ret = spcom_handle_send_command(ch, buf, buf_size);
@@ -1350,14 +1355,17 @@ static ssize_t spcom_device_write(struct file *filp,
 
 	ch = filp->private_data;
 	if (!ch) {
-		pr_err("invalid ch pointer, command not allowed.\n");
-		return -EINVAL;
-	}
-
-	/* Check if remote side connect */
-	if (!spcom_is_channel_connected(ch)) {
-		pr_err("ch [%s] remote side not connected\n", ch->name);
-		return -ENOTCONN;
+		if (strcmp(name, DEVICE_NAME) != 0) {
+			pr_err("invalid ch pointer, command not allowed.\n");
+			return -EINVAL;
+		}
+		pr_debug("control device - no channel context.\n");
+	} else {
+		/* Check if remote side connect */
+		if (!spcom_is_channel_connected(ch)) {
+			pr_err("ch [%s] remote side not connect.\n", ch->name);
+			return -ENOTCONN;
+		}
 	}
 
 	if (size > SPCOM_MAX_COMMAND_SIZE) {
@@ -2079,7 +2087,7 @@ static int __init spcom_init(void)
 {
 	int ret;
 
-	pr_debug("spcom driver version 2.0 4-Mar-2018\n");
+	pr_info("spcom driver version 2.1 23-April-2018.\n");
 
 	ret = platform_driver_register(&spcom_driver);
 	if (ret)
