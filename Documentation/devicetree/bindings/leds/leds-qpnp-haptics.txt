@@ -116,6 +116,11 @@ Properties:
   Definition: Short circuit debounce cycles for internal PWM.
 		Allowed values: 0, 8, 16 or 32.
 
+- vcc_pon-supply
+  Usage:      optional
+  Value type: <phandle>
+  Definition: PON driver regulator required to force MBG_ON
+
 Following properties are specific only to LRA vibrators.
 
 - qcom,lra-auto-res-mode
