@@ -1065,12 +1065,14 @@ struct qpnp_vadc_scaling_ratio {
  * @full_scale_code: Full scale value with intrinsic offset removed.
  * @biploar: Polarity for QPNP ADC.
  * @adc_hc: Represents using HC variant of the ADC controller.
+ * @is_pmic_5: To check if PMIC5 is used.
  */
 struct qpnp_adc_properties {
 	uint32_t	adc_vdd_reference;
 	uint32_t	full_scale_code;
 	bool		bipolar;
 	bool		adc_hc;
+	bool		is_pmic_5;
 };
 
 /**
