@@ -278,10 +278,10 @@
 	reg = <0x001a94400 0x400>,
 		<0x0184d074 0x8>;
 	reg-names = "pll_base", "gdsc_base";
-	/delete-property/ qcom,dsi-pll-ssc-en;
-	/delete-property/ qcom,dsi-pll-ssc-mode;
-	/delete-property/ qcom,ssc-frequency-hz;
-	/delete-property/ qcom,ssc-ppm;
+	qcom,dsi-pll-ssc-en;
+	qcom,dsi-pll-ssc-mode = "down-spread";
+	qcom,ssc-frequency-hz = <31500>;
+	qcom,ssc-ppm = <5000>;
 };
 
 &mdss_dsi1_pll {
@@ -289,10 +289,10 @@
 	reg = <0x001a96400 0x400>,
 		<0x0184d074 0x8>;
 	reg-names = "pll_base", "gdsc_base";
-	/delete-property/ qcom,dsi-pll-ssc-en;
-	/delete-property/ qcom,dsi-pll-ssc-mode;
-	/delete-property/ qcom,ssc-frequency-hz;
-	/delete-property/ qcom,ssc-ppm;
+	qcom,dsi-pll-ssc-en;
+	qcom,dsi-pll-ssc-mode = "down-spread";
+	qcom,ssc-frequency-hz = <31500>;
+	qcom,ssc-ppm = <5000>;
 };
 
 &mdss_dsi {
