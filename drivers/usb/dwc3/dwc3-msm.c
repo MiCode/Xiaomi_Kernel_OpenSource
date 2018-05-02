@@ -2513,10 +2513,10 @@ static void dwc3_resume_work(struct work_struct *w)
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
 
-	if (mdwc->vbus_active && !mdwc->in_restart) {
+	if (mdwc->extcon && mdwc->vbus_active && !mdwc->in_restart) {
 		extcon_id = EXTCON_USB;
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
-	} else if (mdwc->id_state == DWC3_ID_GROUND) {
+	} else if (mdwc->extcon && mdwc->id_state == DWC3_ID_GROUND) {
 		extcon_id = EXTCON_USB_HOST;
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
 	}
