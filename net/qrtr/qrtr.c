@@ -150,9 +150,15 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 static void __qrtr_node_release(struct kref *kref)
 {
 	struct qrtr_node *node = container_of(kref, struct qrtr_node, ref);
+	struct radix_tree_iter iter;
+	void **slot;
 
-	if (node->nid != QRTR_EP_NID_AUTO)
-		radix_tree_delete(&qrtr_nodes, node->nid);
+	if (node->nid != QRTR_EP_NID_AUTO) {
+		radix_tree_for_each_slot(slot, &qrtr_nodes, &iter, 0) {
+			if (node == *slot)
+				radix_tree_delete(&qrtr_nodes, iter.index);
+		}
+	}
 
 	list_del(&node->item);
 	mutex_unlock(&qrtr_node_lock);
@@ -232,12 +238,15 @@ static struct qrtr_node *qrtr_node_lookup(unsigned int nid)
  */
 static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 {
-	if (node->nid != QRTR_EP_NID_AUTO || nid == QRTR_EP_NID_AUTO)
+	if (nid == QRTR_EP_NID_AUTO)
 		return;
 
 	mutex_lock(&qrtr_node_lock);
-	radix_tree_insert(&qrtr_nodes, nid, node);
-	node->nid = nid;
+	if (!radix_tree_lookup(&qrtr_nodes, nid))
+		radix_tree_insert(&qrtr_nodes, nid, node);
+
+	if (node->nid == QRTR_EP_NID_AUTO)
+		node->nid = nid;
 	mutex_unlock(&qrtr_node_lock);
 }
 
