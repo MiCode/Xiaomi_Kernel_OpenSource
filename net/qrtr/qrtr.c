@@ -106,8 +106,8 @@ static unsigned int qrtr_local_nid = -1;
 /* for node ids */
 static RADIX_TREE(qrtr_nodes, GFP_KERNEL);
 /* broadcast list */
-static LIST_HEAD(qrtr_all_nodes);
-/* lock for qrtr_nodes, qrtr_all_nodes and node reference */
+static LIST_HEAD(qrtr_all_epts);
+/* lock for qrtr_nodes, qrtr_all_epts and node reference */
 static DEFINE_MUTEX(qrtr_node_lock);
 
 /* local port allocation management */
@@ -446,7 +446,7 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int nid)
 	qrtr_node_assign(node, nid);
 
 	mutex_lock(&qrtr_node_lock);
-	list_add(&node->item, &qrtr_all_nodes);
+	list_add(&node->item, &qrtr_all_epts);
 	mutex_unlock(&qrtr_node_lock);
 	ep->node = node;
 
@@ -712,7 +712,7 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	struct sk_buff *skbn;
 
 	mutex_lock(&qrtr_node_lock);
-	list_for_each_entry(node, &qrtr_all_nodes, item) {
+	list_for_each_entry(node, &qrtr_all_epts, item) {
 		skbn = skb_clone(skb, GFP_KERNEL);
 		if (!skbn)
 			break;
