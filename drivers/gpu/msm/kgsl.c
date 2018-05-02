@@ -423,9 +423,9 @@ static int kgsl_mem_entry_attach_process(struct kgsl_device *device,
 	if (entry->memdesc.gpuaddr) {
 		if (entry->memdesc.flags & KGSL_MEMFLAGS_SPARSE_VIRT)
 			ret = kgsl_mmu_sparse_dummy_map(
-					entry->memdesc.pagetable,
-					&entry->memdesc, 0,
-					entry->memdesc.size);
+				entry->memdesc.pagetable,
+				&entry->memdesc, 0,
+				kgsl_memdesc_footprint(&entry->memdesc));
 		else if (entry->memdesc.gpuaddr)
 			ret = kgsl_mmu_map(entry->memdesc.pagetable,
 					&entry->memdesc);
