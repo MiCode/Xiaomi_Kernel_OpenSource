@@ -51,6 +51,12 @@
 			reg = <0x87c00000 0x400000>;
 		};
 
+		tz_apps_mem: tz_apps_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x88000000 0x500000>;
+		};
+
 		audio_mem: audio_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
