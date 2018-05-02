@@ -12,6 +12,8 @@
 #define SSPP_SPARE                        0x28
 #define UBWC_DEC_HW_VERSION               0x058
 #define UBWC_STATIC                       0x144
+#define UBWC_CTRL_2                       0x150
+#define UBWC_PREDICTION_MODE              0x154
 
 #define FLD_SPLIT_DISPLAY_CMD             BIT(1)
 #define FLD_SMART_PANEL_FREE_RUN          BIT(2)
@@ -377,7 +379,23 @@ void sde_hw_reset_ubwc(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m)
 	c.blk_off = 0x0;
 	ubwc_version = SDE_REG_READ(&c, UBWC_DEC_HW_VERSION);
 
-	if (IS_UBWC_20_SUPPORTED(ubwc_version)) {
+	if (IS_UBWC_40_SUPPORTED(ubwc_version)) {
+		u32 ver = 2;
+		u32 mode = 1;
+		u32 reg = (m->mdp[0].ubwc_swizzle & 0x7) |
+			((m->mdp[0].ubwc_static & 0x1) << 3) |
+			((m->mdp[0].highest_bank_bit & 0x7) << 4) |
+			((m->macrotile_mode & 0x1) << 12);
+
+		if (IS_UBWC_30_SUPPORTED(m->ubwc_version)) {
+			ver = 1;
+			mode = 0;
+		}
+
+		SDE_REG_WRITE(&c, UBWC_STATIC, reg);
+		SDE_REG_WRITE(&c, UBWC_CTRL_2, ver);
+		SDE_REG_WRITE(&c, UBWC_PREDICTION_MODE, mode);
+	} else if (IS_UBWC_20_SUPPORTED(ubwc_version)) {
 		SDE_REG_WRITE(&c, UBWC_STATIC, m->mdp[0].ubwc_static);
 	} else if (IS_UBWC_30_SUPPORTED(ubwc_version)) {
 		u32 reg = m->mdp[0].ubwc_static |
