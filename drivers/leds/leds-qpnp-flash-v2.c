@@ -1336,7 +1336,7 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 		}
 	}
 
-	if (options & QUERY_MAX_CURRENT) {
+	if (options & QUERY_MAX_AVAIL_CURRENT) {
 		rc = qpnp_flash_led_get_max_avail_current(led, max_current);
 		if (rc < 0) {
 			pr_err("query max current failed, rc=%d\n", rc);

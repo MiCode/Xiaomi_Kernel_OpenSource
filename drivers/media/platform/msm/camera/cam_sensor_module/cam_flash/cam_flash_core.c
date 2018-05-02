@@ -719,7 +719,7 @@ int cam_flash_parser(struct cam_flash_ctrl *fctrl, void *arg)
 				(struct cam_flash_query_curr *)cmd_buf;
 
 			rc = qpnp_flash_led_prepare(fctrl->switch_trigger,
-				QUERY_MAX_CURRENT, &query_curr_ma);
+				QUERY_MAX_AVAIL_CURRENT, &query_curr_ma);
 			CAM_DBG(CAM_FLASH, "query_curr_ma = %d",
 				query_curr_ma);
 			if (rc) {
