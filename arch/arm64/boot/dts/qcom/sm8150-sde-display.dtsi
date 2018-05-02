@@ -608,14 +608,14 @@
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
 	qcom,mdss-dsi-display-timings {
 		timing@0 { /* 1080p */
-			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07
-				07 04 03 04 00];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@1 { /* qhd */
-			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07
-				07 04 03 04 00];
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 03 04 00 19 18];
 			qcom,display-topology = <1 1 1>,
 						<2 2 1>, /* dsc merge */
 						<2 1 1>; /* 3d mux */
