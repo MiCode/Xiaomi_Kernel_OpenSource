@@ -311,8 +311,29 @@ static int msm_cvp_request_power(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR,
 			"%s: failed to scale clocks and bus for inst %pK (%#x)\n",
 			__func__, inst, hash32_ptr(inst->session));
+		goto exit;
 	}
 
+	if (!inst->clk_data.min_freq && !inst->clk_data.ddr_bw &&
+		!inst->clk_data.sys_cache_bw) {
+		rc = msm_cvp_inst_pause(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: failed to pause inst %pK (%#x)\n",
+				__func__, inst, hash32_ptr(inst->session));
+			goto exit;
+		}
+	} else {
+		rc = msm_cvp_inst_resume(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: failed to resume inst %pK (%#x)\n",
+				__func__, inst, hash32_ptr(inst->session));
+			goto exit;
+		}
+	}
+
+exit:
 	return rc;
 }
 
@@ -513,6 +534,44 @@ int msm_cvp_ctrl_init(struct msm_vidc_inst *inst,
 {
 	return msm_comm_ctrl_init(inst, msm_cvp_ctrls,
 		ARRAY_SIZE(msm_cvp_ctrls), ctrl_ops);
+}
+
+int msm_cvp_inst_pause(struct msm_vidc_inst *inst)
+{
+	int rc;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	rc = call_hfi_op(hdev, session_pause, (void *)inst->session);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: failed to pause inst %pK (%#x)\n",
+			__func__, inst, hash32_ptr(inst->session));
+
+	return rc;
+}
+
+int msm_cvp_inst_resume(struct msm_vidc_inst *inst)
+{
+	int rc;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	rc = call_hfi_op(hdev, session_resume, (void *)inst->session);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: failed to resume inst %pK (%#x)\n",
+			__func__, inst, hash32_ptr(inst->session));
+
+	return rc;
 }
 
 int msm_cvp_inst_deinit(struct msm_vidc_inst *inst)
