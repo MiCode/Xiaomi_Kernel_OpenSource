@@ -652,6 +652,9 @@ int dsi_pll_clock_register_12nm(struct platform_device *pdev,
 {
 	int rc = 0, ndx;
 	struct dsi_pll_db *pdb;
+	int const ssc_freq_min = 30000; /* min. recommended freq. value */
+	int const ssc_freq_max = 33000; /* max. recommended freq. value */
+	int const ssc_ppm_max = 5000; /* max. recommended ppm */
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("Invalid input parameters\n");
@@ -681,6 +684,21 @@ int dsi_pll_clock_register_12nm(struct platform_device *pdev,
 	/* pixel_clk */
 	pixel_div_clk_src_ops = clk_ops_div;
 	pixel_div_clk_src_ops.prepare = dsi_pll_div_prepare;
+
+	if (pll_res->ssc_en) {
+		if (!pll_res->ssc_freq || (pll_res->ssc_freq < ssc_freq_min) ||
+			(pll_res->ssc_freq > ssc_freq_max)) {
+			pll_res->ssc_freq = ssc_freq_min;
+			pr_debug("SSC frequency out of recommended range. Set to default=%d\n",
+				pll_res->ssc_freq);
+		}
+
+		if (!pll_res->ssc_ppm || (pll_res->ssc_ppm > ssc_ppm_max)) {
+			pll_res->ssc_ppm = ssc_ppm_max;
+			pr_debug("SSC PPM out of recommended range. Set to default=%d\n",
+				pll_res->ssc_ppm);
+		}
+	}
 
 	/* Set client data to mux, div and vco clocks.  */
 	if (pll_res->index == DSI_PLL_1) {

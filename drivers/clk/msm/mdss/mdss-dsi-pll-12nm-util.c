@@ -558,6 +558,142 @@ static void mdss_dsi_pll_12nm_calc_reg(struct mdss_pll_resources *pll,
 	param->gmp_cntrl = 0x1;
 }
 
+static u32 __mdss_dsi_get_multi_intX100(u64 vco_rate, u32 *rem)
+{
+	u32 reminder = 0;
+	u64 temp = 0;
+	const u32 ref_clk_rate = 19200000, quarterX100 = 25;
+
+	temp = div_u64_rem(vco_rate, ref_clk_rate, &reminder);
+	temp *= 100;
+
+	/*
+	 * Multiplication integer needs to be floored in steps of 0.25
+	 * Hence multi_intX100 needs to be rounded off in steps of 25
+	 */
+	if (reminder < (ref_clk_rate / 4)) {
+		*rem = reminder;
+		return temp;
+	} else if ((reminder >= (ref_clk_rate / 4)) &&
+		reminder < (ref_clk_rate / 2)) {
+		*rem = (reminder - (ref_clk_rate / 4));
+		return (temp + quarterX100);
+	} else if ((reminder >= (ref_clk_rate / 2)) &&
+		(reminder < ((3 * ref_clk_rate) / 4))) {
+		*rem = (reminder - (ref_clk_rate / 2));
+		return (temp + (quarterX100 * 2));
+	}
+
+	*rem = (reminder - ((3 * ref_clk_rate) / 4));
+	return (temp + (quarterX100 * 3));
+}
+
+static u32 __calc_gcd(u32 num1, u32 num2)
+{
+	if (num2 != 0)
+		return __calc_gcd(num2, (num1 % num2));
+	else
+		return num1;
+}
+
+static void mdss_dsi_pll_12nm_calc_ssc(struct mdss_pll_resources *pll,
+					struct dsi_pll_db *pdb)
+{
+	struct dsi_pll_param *param = &pdb->param;
+	u64 multi_intX100 = 0, temp = 0;
+	u32 temp_rem1 = 0, temp_rem2 = 0;
+	const u64 power_2_17 = 131072, power_2_10 = 1024;
+	const u32 ref_clk_rate = 19200000;
+
+	multi_intX100 = __mdss_dsi_get_multi_intX100(pll->vco_current_rate,
+		&temp_rem1);
+
+	/* Calculation for mpll_ssc_peak_i */
+	temp = (multi_intX100 * pll->ssc_ppm * power_2_17);
+	temp = div_u64(temp, 100); /* 100 div for multi_intX100 */
+	param->mpll_ssc_peak_i =
+		(u32) div_u64(temp, 1000000); /*10^6 for SSC PPM */
+
+	/* Calculation for mpll_stepsize_i */
+	param->mpll_stepsize_i = (u32) div_u64((param->mpll_ssc_peak_i *
+		pll->ssc_freq * power_2_10), ref_clk_rate);
+
+	/* Calculation for mpll_mint_i */
+	param->mpll_mint_i = (u32) (div_u64((multi_intX100 * 4), 100) - 32);
+
+	/* Calculation for mpll_frac_den */
+	param->mpll_frac_den = (u32) div_u64(ref_clk_rate,
+		__calc_gcd((u32)pll->vco_current_rate, ref_clk_rate));
+
+	/* Calculation for mpll_frac_quot_i */
+	temp = (temp_rem1 * power_2_17);
+	param->mpll_frac_quot_i =
+		(u32) div_u64_rem(temp, ref_clk_rate, &temp_rem2);
+
+	/* Calculation for mpll_frac_rem */
+	param->mpll_frac_rem = (u32) div_u64(((u64)temp_rem2 *
+		param->mpll_frac_den), ref_clk_rate);
+
+	pr_debug("mpll_ssc_peak_i=%d mpll_stepsize_i=%d mpll_mint_i=%d\n",
+		param->mpll_ssc_peak_i, param->mpll_stepsize_i,
+		param->mpll_mint_i);
+	pr_debug("mpll_frac_den=%d mpll_frac_quot_i=%d mpll_frac_rem=%d",
+		param->mpll_frac_den, param->mpll_frac_quot_i,
+		param->mpll_frac_rem);
+}
+
+static void pll_db_commit_12nm_ssc(struct mdss_pll_resources *pll,
+					struct dsi_pll_db *pdb)
+{
+	void __iomem *pll_base = pll->pll_base;
+	struct dsi_pll_param *param = &pdb->param;
+	char data = 0;
+
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC0, 0x27);
+
+	data = (param->mpll_mint_i & 0xff);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC7, data);
+
+	data = ((param->mpll_mint_i & 0xff00) >> 8);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC8, data);
+
+	data = (param->mpll_ssc_peak_i & 0xff);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC1, data);
+
+	data = ((param->mpll_ssc_peak_i & 0xff00) >> 8);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC2, data);
+
+	data = ((param->mpll_ssc_peak_i & 0xf0000) >> 16);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC3, data);
+
+	data = (param->mpll_stepsize_i & 0xff);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC4, data);
+
+	data = ((param->mpll_stepsize_i & 0xff00) >> 8);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC5, data);
+
+	data = ((param->mpll_stepsize_i & 0x1f0000) >> 16);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC6, data);
+
+	data = (param->mpll_frac_quot_i & 0xff);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC10, data);
+
+	data = ((param->mpll_frac_quot_i & 0xff00) >> 8);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC11, data);
+
+	data = (param->mpll_frac_rem & 0xff);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC12, data);
+
+	data = ((param->mpll_frac_rem & 0xff00) >> 8);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC13, data);
+
+	data = (param->mpll_frac_den & 0xff);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC14, data);
+
+	data = ((param->mpll_frac_den & 0xff00) >> 8);
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SSC15, data);
+}
+
 static void pll_db_commit_12nm(struct mdss_pll_resources *pll,
 					struct dsi_pll_db *pdb)
 {
@@ -617,6 +753,9 @@ static void pll_db_commit_12nm(struct mdss_pll_resources *pll,
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_UNLOCK_FILTER, 0x03);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_PRO_DLY_RELOCK, 0x0c);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_LOCK_DET_MODE_SEL, 0x02);
+
+	if (pll->ssc_en)
+		pll_db_commit_12nm_ssc(pll, pdb);
 
 	pr_debug("pll:%d\n", pll->index);
 	wmb(); /* make sure register committed before preparing the clocks */
@@ -777,6 +916,8 @@ int pll_vco_prepare_12nm(struct clk *c)
 	}
 
 	mdss_dsi_pll_12nm_calc_reg(pll, pdb);
+	if (pll->ssc_en)
+		mdss_dsi_pll_12nm_calc_ssc(pll, pdb);
 
 	/* commit DSI vco  */
 	pll_db_commit_12nm(pll, pdb);
@@ -811,6 +952,7 @@ int pll_vco_enable_12nm(struct clk *c)
 {
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
 	struct mdss_pll_resources *pll = vco->priv;
+	u32 data = 0;
 
 	if (!pll) {
 		pr_err("Dsi pll resources are not available\n");
@@ -822,7 +964,9 @@ int pll_vco_enable_12nm(struct clk *c)
 		return -EINVAL;
 	}
 
-	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_SSC0, 0x40);
+	data = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_SSC0);
+	data |= BIT(6); /* enable GP_CLK_EN */
+	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_SSC0, data);
 	wmb(); /* make sure register committed before enabling branch clocks */
 
 	return 0;
