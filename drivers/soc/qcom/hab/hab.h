@@ -147,7 +147,8 @@ struct hab_header {
 	(((vcid) & HAB_VCID_ID_MASK) >> HAB_VCID_ID_SHIFT)
 
 
-#define HAB_HEADER_SET_SESSION_ID(header, sid) ((header).session_id = (sid))
+#define HAB_HEADER_SET_SESSION_ID(header, sid) \
+	((header).session_id = (sid))
 
 #define HAB_HEADER_SET_SIZE(header, size) \
 	((header).id_type_size = ((header).id_type_size & \
@@ -281,8 +282,8 @@ struct uhab_context {
 };
 
 /*
- * array to describe the VM and its MMID configuration as what is connected to
- * so this is describing a pchan's remote side
+ * array to describe the VM and its MMID configuration as
+ * what is connected to so this is describing a pchan's remote side
  */
 struct vmid_mmid_desc {
 	int vmid; /* remote vmid  */
@@ -341,8 +342,9 @@ struct virtual_channel {
 };
 
 /*
- * Struct shared between local and remote, contents are composed by exporter,
- * the importer only writes to pdata and local (exporter) domID
+ * Struct shared between local and remote, contents
+ * are composed by exporter, the importer only writes
+ * to pdata and local (exporter) domID
  */
 struct export_desc {
 	uint32_t  export_id;
@@ -410,16 +412,10 @@ int habmem_hyp_revoke(void *expdata, uint32_t count);
 void *habmem_imp_hyp_open(void);
 void habmem_imp_hyp_close(void *priv, int kernel);
 
-long habmem_imp_hyp_map(void *priv, void *impdata, uint32_t count,
-		uint32_t remotedom,
-		uint64_t *index,
-		void **pkva,
-		int kernel,
-		uint32_t userflags);
+int habmem_imp_hyp_map(void *imp_ctx, struct hab_import *param,
+		struct export_desc *exp, int kernel);
 
-long habmm_imp_hyp_unmap(void *priv, uint64_t index,
-		uint32_t count,
-		int kernel);
+int habmm_imp_hyp_unmap(void *imp_ctx, struct export_desc *exp);
 
 int habmem_imp_hyp_mmap(struct file *flip, struct vm_area_struct *vma);
 
