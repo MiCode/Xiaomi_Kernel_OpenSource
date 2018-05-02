@@ -13,3 +13,4 @@ obj-$(CONFIG_ANDROID_LOW_MEMORY_KILLER)	+= lowmemorykiller.o
 obj-$(CONFIG_SYNC)			+= sync.o
 obj-$(CONFIG_SW_SYNC)			+= sw_sync.o
 obj-$(CONFIG_ONESHOT_SYNC)		+= oneshot_sync.o
+obj-$(CONFIG_ANDROID_VSOC)		+= vsoc.o
