@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/qcom,gcc-qcs405.h>
 #include <dt-bindings/clock/qcom,cpu-qcs405.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405";
