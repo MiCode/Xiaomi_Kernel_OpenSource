@@ -2769,7 +2769,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	mdss_dsi_parse_eye_command(np, ctrl_pdata);
 
-	ctrl_pdata->init_last = of_property_read_bool(np, "qcom, mdss-dsi-init-last");
+	ctrl_pdata->init_last = of_property_read_bool(np, "qcom,mdss-dsi-init-last");
 
 	rc = of_property_read_u32(np, "qcom,adjust-timer-wakeup-ms", &tmp);
 	pinfo->adjust_timer_delay_ms = (!rc ? tmp : 0);

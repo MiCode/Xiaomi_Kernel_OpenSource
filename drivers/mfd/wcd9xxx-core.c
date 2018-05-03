@@ -2755,7 +2755,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 				"qcom,cdc-reset-gpio", 0);
 		if (pdata->reset_gpio < 0) {
 			dev_err(dev, "Looking up %s property in node %s failed %d\n",
-				"qcom, cdc-reset-gpio",
+				"qcom,cdc-reset-gpio",
 				dev->of_node->full_name, pdata->reset_gpio);
 			goto err;
 		}

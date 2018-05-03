@@ -208,8 +208,8 @@ struct bq2560x {
 	struct power_supply batt_psy;
 };
 
-static int BatteryTestStatus_enable;
-static int bq2560x_battery_capacity;
+static int BatteryTestStatus_enable = 0;
+static int bq2560x_battery_capacity = 0;
 
 #define        FG_LOG_INTERVAL         150
 static void bq2560x_dump_status(struct bq2560x *bq);
@@ -1354,84 +1354,84 @@ static int bq2560x_parse_jeita_dt(struct device *dev, struct bq2560x *bq)
 	struct device_node *np = dev->of_node;
 	int ret;
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-hot-degc",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-hot-degc",
 						&bq->batt_hot_degc);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-hot-degc\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-warm-degc",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-warm-degc",
 						&bq->batt_warm_degc);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-warm-degc\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-cool-normal-degc",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-cool-normal-degc",
 						&bq->batt_cool_normal_degc);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-cool-normal-degc\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-cold-cool-degc",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-cold-cool-degc",
 						&bq->batt_cold_cool_degc);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-cold-cool-degc\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-cold-degc",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-cold-degc",
 						&bq->batt_cold_degc);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-cold-degc\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-hot-hysteresis",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-hot-hysteresis",
 						&bq->hot_temp_hysteresis);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-hot-hysteresis\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-cold-hysteresis",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-cold-hysteresis",
 						&bq->cold_temp_hysteresis);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-cold-hysteresis\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-cold-cool-ma",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-cold-cool-ma",
 						&bq->batt_cold_cool_ma);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-cold-cool-ma\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-cool-normal-ma",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-cool-normal-ma",
 						&bq->batt_cool_normal_ma);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-cool-normal-ma\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-cool-mv",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-cool-mv",
 						&bq->batt_cool_mv);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-cool-mv\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-warm-ma",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-warm-ma",
 						&bq->batt_warm_ma);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-warm-ma\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, jeita-warm-mv",
+	ret = of_property_read_u32(np, "ti,bq2560x,jeita-warm-mv",
 						&bq->batt_warm_mv);
 	if (ret) {
 		pr_err("Failed to read ti,bq2560x,jeita-warm-mv\n");
@@ -1439,7 +1439,7 @@ static int bq2560x_parse_jeita_dt(struct device *dev, struct bq2560x *bq)
 	}
 
 	bq->software_jeita_supported =
-		of_property_read_bool(np, "ti, bq2560x, software-jeita-supported");
+		of_property_read_bool(np, "ti,bq2560x,software-jeita-supported");
 
 	return 0;
 }
@@ -1465,72 +1465,72 @@ static struct bq2560x_platform_data *bq2560x_parse_dt(struct device *dev,
 		pr_err("Failed to read node of ti,bq2560x,chip-enable-gpio\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, usb-vlim", &pdata->usb.vlim);
+	ret = of_property_read_u32(np, "ti,bq2560x,usb-vlim", &pdata->usb.vlim);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,usb-vlim\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, usb-ilim", &pdata->usb.ilim);
+	ret = of_property_read_u32(np, "ti,bq2560x,usb-ilim", &pdata->usb.ilim);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,usb-ilim\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, usb-vreg", &pdata->usb.vreg);
+	ret = of_property_read_u32(np, "ti,bq2560x,usb-vreg", &pdata->usb.vreg);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,usb-vreg\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, usb-ichg", &pdata->usb.ichg);
+	ret = of_property_read_u32(np, "ti,bq2560x,usb-ichg", &pdata->usb.ichg);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,usb-ichg\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, ta-vlim", &pdata->ta.vlim);
+	ret = of_property_read_u32(np, "ti,bq2560x,ta-vlim", &pdata->ta.vlim);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,ta-vlim\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, ta-ilim", &pdata->ta.ilim);
+	ret = of_property_read_u32(np, "ti,bq2560x,ta-ilim", &pdata->ta.ilim);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,ta-ilim\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, ta-vreg", &pdata->ta.vreg);
+	ret = of_property_read_u32(np, "ti,bq2560x,ta-vreg", &pdata->ta.vreg);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,ta-vreg\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, ta-ichg", &pdata->ta.ichg);
+	ret = of_property_read_u32(np, "ti,bq2560x,ta-ichg", &pdata->ta.ichg);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,ta-ichg\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, stat-pin-ctrl", &pdata->statctrl);
+	ret = of_property_read_u32(np, "ti,bq2560x,stat-pin-ctrl", &pdata->statctrl);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,stat-pin-ctrl\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, precharge-current", &pdata->iprechg);
+	ret = of_property_read_u32(np, "ti,bq2560x,precharge-current", &pdata->iprechg);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,precharge-current\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, termination-current", &pdata->iterm);
+	ret = of_property_read_u32(np, "ti,bq2560x,termination-current", &pdata->iterm);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,termination-current\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, boost-voltage", &pdata->boostv);
+	ret = of_property_read_u32(np, "ti,bq2560x,boost-voltage", &pdata->boostv);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,boost-voltage\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, boost-current", &pdata->boosti);
+	ret = of_property_read_u32(np, "ti,bq2560x,boost-current", &pdata->boosti);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,boost-current\n");
 	}
 
-	ret = of_property_read_u32(np, "ti, bq2560x, vac-ovp-threshold", &pdata->vac_ovp);
+	ret = of_property_read_u32(np, "ti,bq2560x,vac-ovp-threshold", &pdata->vac_ovp);
 	if (ret) {
 		pr_err("Failed to read node of ti,bq2560x,vac-ovp-threshold\n");
 	}
