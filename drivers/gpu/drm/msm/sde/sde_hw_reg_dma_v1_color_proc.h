@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -151,6 +151,15 @@ void reg_dmav1_setup_vig_igcv5(struct sde_hw_pipe *ctx, void *cfg);
  */
 void reg_dmav1_setup_dma_igcv5(struct sde_hw_pipe *ctx, void *cfg,
 			enum sde_sspp_multirect_index idx);
+
+/**
+ * reg_dmav1_setup_vig_igcv6() - VIG ID lut IGC v6 implementation
+ *                               using reg dma v1.
+ * @ctx: sspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_vig_igcv6(struct sde_hw_pipe *ctx, void *cfg);
+
 /**
  * reg_dmav1_setup_dma_gcv5() - DMA 1D lut GC v5 implementation
  *                              using reg dma v1.

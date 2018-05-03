@@ -1045,6 +1045,17 @@ static void _setup_layer_ops_colorproc(struct sde_hw_pipe *c,
 			else
 				c->ops.setup_vig_igc = NULL;
 		}
+
+		if (c->cap->sblk->igc_blk[0].version ==
+			(SDE_COLOR_PROCESS_VER(0x6, 0x0))) {
+			ret = reg_dmav1_init_sspp_op_v4(SDE_SSPP_VIG_IGC,
+							c->idx);
+			if (!ret)
+				c->ops.setup_vig_igc =
+					reg_dmav1_setup_vig_igcv6;
+			else
+				c->ops.setup_vig_igc = NULL;
+		}
 	}
 
 	if (test_bit(SDE_SSPP_DMA_IGC, &features)) {
