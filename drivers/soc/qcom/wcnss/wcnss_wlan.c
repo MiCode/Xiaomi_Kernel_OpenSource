@@ -1673,7 +1673,7 @@ EXPORT_SYMBOL(wcnss_get_wlan_mac_address);
 static int enable_wcnss_suspend_notify;
 
 static int enable_wcnss_suspend_notify_set(const char *val,
-					   struct kernel_param *kp)
+					   const struct kernel_param *kp)
 {
 	int ret;
 

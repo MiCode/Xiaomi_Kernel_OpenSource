@@ -707,15 +707,13 @@ SMB2_sess_establish_session(struct SMB2_sess_data *sess_data)
 	struct cifs_ses *ses = sess_data->ses;
 
 	mutex_lock(&ses->server->srv_mutex);
-	if (ses->server->sign && ses->server->ops->generate_signingkey) {
+	if (ses->server->ops->generate_signingkey) {
 		rc = ses->server->ops->generate_signingkey(ses);
-		kfree(ses->auth_key.response);
-		ses->auth_key.response = NULL;
 		if (rc) {
 			cifs_dbg(FYI,
 				"SMB3 session key generation failed\n");
 			mutex_unlock(&ses->server->srv_mutex);
-			goto keygen_exit;
+			return rc;
 		}
 	}
 	if (!ses->server->session_estab) {
@@ -729,12 +727,6 @@ SMB2_sess_establish_session(struct SMB2_sess_data *sess_data)
 	ses->status = CifsGood;
 	ses->need_reconnect = false;
 	spin_unlock(&GlobalMid_Lock);
-
-keygen_exit:
-	if (!ses->server->sign) {
-		kfree(ses->auth_key.response);
-		ses->auth_key.response = NULL;
-	}
 	return rc;
 }
 
@@ -1712,6 +1704,9 @@ SMB2_ioctl(const unsigned int xid, struct cifs_tcon *tcon, u64 persistent_fid,
 	} else
 		iov[0].iov_len = get_rfc1002_length(req) + 4;
 
+	/* validate negotiate request must be signed - see MS-SMB2 3.2.5.5 */
+	if (opcode == FSCTL_VALIDATE_NEGOTIATE_INFO)
+		req->hdr.Flags |= SMB2_FLAGS_SIGNED;
 
 	rc = SendReceive2(xid, ses, iov, num_iovecs, &resp_buftype, 0);
 	rsp = (struct smb2_ioctl_rsp *)iov[0].iov_base;
