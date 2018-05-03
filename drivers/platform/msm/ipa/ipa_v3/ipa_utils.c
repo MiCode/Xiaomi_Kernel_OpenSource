@@ -1311,31 +1311,31 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST1_CONS]           = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST2_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 12, 2, 5, 5, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST4_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 21, 14, 9, 9, IPA_EE_AP } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_0][IPA_CLIENT_DUMMY_CONS]          = {
@@ -1665,7 +1665,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_1][IPA_CLIENT_TEST1_CONS]           = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -1677,7 +1677,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 12, 2, 9, 9, IPA_EE_AP } },
 	[IPA_4_1][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -1689,7 +1689,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 21, 14, 9, 9, IPA_EE_AP } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_1][IPA_CLIENT_DUMMY_CONS]          = {
