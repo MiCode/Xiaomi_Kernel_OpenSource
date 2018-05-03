@@ -1103,6 +1103,9 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
 		goto out;
 
+	if (priv->force_err_fatal)
+		ICNSS_ASSERT(0);
+
 	if (priv->early_crash_ind) {
 		icnss_pr_dbg("PD Down ignored as early indication is processed: %d, state: 0x%lx\n",
 			     event_data->crashed, priv->state);
@@ -1116,9 +1119,6 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 			ICNSS_ASSERT(0);
 		goto out;
 	}
-
-	if (priv->force_err_fatal)
-		ICNSS_ASSERT(0);
 
 	icnss_fw_crashed(priv, event_data);
 
