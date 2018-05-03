@@ -809,7 +809,7 @@
 		memory-region = <&dump_mem>;
 
 		rpmh_dump {
-			qcom,dump-size = <0x2000000>;
+			qcom,dump-size = <0x300000>;
 			qcom,dump-id = <0xec>;
 		};
 
