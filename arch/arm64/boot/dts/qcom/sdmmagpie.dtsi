@@ -645,3 +645,5 @@
 		};
 	};
 };
+
+#include "sdmmagpie-pinctrl.dtsi"
