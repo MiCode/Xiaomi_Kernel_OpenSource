@@ -15,6 +15,7 @@
 #include "a6xx_reg.h"
 #include "adreno_trace.h"
 #include "adreno_pm4types.h"
+#include "kgsl_gmu_core.h"
 
 #define PREEMPT_RECORD(_field) \
 		offsetof(struct a6xx_cp_preemption_record, _field)
@@ -35,7 +36,8 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 	unsigned int wptr;
 	unsigned long flags;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
+			KGSL_DEVICE(adreno_dev));
 
 	/*
 	 * Need to make sure GPU is up before we read the
@@ -44,8 +46,8 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	if (in_interrupt() == 0) {
 		int status;
 
-		if (gpudev->oob_set) {
-			status = gpudev->oob_set(adreno_dev, oob_preempt);
+		if (gmu_dev_ops->oob_set) {
+			status = gmu_dev_ops->oob_set(adreno_dev, oob_preempt);
 			if (status)
 				return;
 		}
@@ -73,8 +75,8 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 
 	if (in_interrupt() == 0) {
-		if (gpudev->oob_clear)
-			gpudev->oob_clear(adreno_dev, oob_preempt);
+		if (gmu_dev_ops->oob_clear)
+			gmu_dev_ops->oob_clear(adreno_dev, oob_preempt);
 	}
 }
 
@@ -316,7 +318,7 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	 * free when the GPU is already powered on, whereas an OOB requires an
 	 * unconditional handshake with the GMU.
 	 */
-	kgsl_gmu_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x0, 0x2);
+	gmu_core_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x0, 0x2);
 
 	/*
 	 * Fenced writes on this path will make sure the GPU is woken up
@@ -397,7 +399,7 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 	 * We can now safely clear the preemption keepalive bit, allowing
 	 * power collapse to resume its regular activity.
 	 */
-	kgsl_gmu_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GMU_AO_SPARE_CNTL, 0x2,
+	gmu_core_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GMU_AO_SPARE_CNTL, 0x2,
 			0x0);
 
 	del_timer(&adreno_dev->preempt.timer);

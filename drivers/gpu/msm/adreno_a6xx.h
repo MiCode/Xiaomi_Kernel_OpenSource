@@ -129,18 +129,11 @@ void a6xx_preemption_context_destroy(struct kgsl_context *context);
 
 void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
-void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
+void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
+		struct kgsl_snapshot *snapshot);
+void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 void a6xx_crashdump_init(struct adreno_device *adreno_dev);
-
-int a6xx_gmu_oob_set(struct adreno_device *adreno_dev, enum oob_request req);
-void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev, enum oob_request req);
-void a6xx_gmu_enable_lm(struct kgsl_device *device);
-int a6xx_gmu_load_firmware(struct kgsl_device *device);
-int a6xx_gmu_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
-		unsigned int mode, unsigned int arg1, unsigned int arg2);
-int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev);
-int a6xx_gmu_wait_for_idle(struct adreno_device *adreno_dev);
 int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev);
 void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev);
 bool a6xx_gmu_gx_is_on(struct adreno_device *adreno_dev);

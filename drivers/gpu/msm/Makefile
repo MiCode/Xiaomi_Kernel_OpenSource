@@ -12,6 +12,7 @@ msm_kgsl_core-y = \
 	kgsl_snapshot.o \
 	kgsl_events.o \
 	kgsl_pool.o \
+	kgsl_gmu_core.o \
 	kgsl_gmu.o \
 	kgsl_hfi.o
 
