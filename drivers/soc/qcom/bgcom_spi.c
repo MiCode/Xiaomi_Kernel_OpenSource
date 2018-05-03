@@ -25,6 +25,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/kthread.h>
+#include <linux/dma-mapping.h>
 #include "bgcom.h"
 #include "bgrsb.h"
 #include "bgcom_interface.h"
@@ -114,6 +115,14 @@ static struct mutex bg_resume_mutex;
 
 static atomic_t  bg_is_spi_active;
 static int bg_irq;
+
+static struct spi_device *get_spi_device(void)
+{
+	struct bg_spi_priv *bg_spi = container_of(bg_com_drv,
+						struct bg_spi_priv, lhandle);
+	struct spi_device *spi = bg_spi->spi;
+	return spi;
+}
 
 static void augmnt_fifo(uint8_t *data, int pos)
 {
@@ -450,6 +459,7 @@ static void bg_irq_tasklet_hndlr_l(void)
 int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	uint32_t num_words, void *read_buf)
 {
+	dma_addr_t dma_hndl_tx, dma_hndl_rx;
 	uint32_t txn_len;
 	uint8_t *tx_buf;
 	uint8_t *rx_buf;
@@ -457,6 +467,7 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	int ret;
 	uint8_t cmnd = 0;
 	uint32_t ahb_addr = 0;
+	struct spi_device *spi = get_spi_device();
 
 	if (!handle || !read_buf || num_words == 0
 		|| num_words > BG_SPI_MAX_WORDS) {
@@ -479,15 +490,16 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_READ_CMD_LEN + size;
 
-	tx_buf = kzalloc(txn_len, GFP_KERNEL);
 
+	tx_buf = dma_zalloc_coherent(&spi->dev, txn_len,
+					&dma_hndl_tx, GFP_KERNEL);
 	if (!tx_buf)
 		return -ENOMEM;
 
-	rx_buf = kzalloc(txn_len, GFP_KERNEL);
-
+	rx_buf = dma_zalloc_coherent(&spi->dev, txn_len,
+					&dma_hndl_rx, GFP_KERNEL);
 	if (!rx_buf) {
-		kfree(tx_buf);
+		dma_free_coherent(&spi->dev, txn_len, tx_buf, dma_hndl_tx);
 		return -ENOMEM;
 	}
 
@@ -502,8 +514,8 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 	if (!ret)
 		memcpy(read_buf, rx_buf+BG_SPI_AHB_READ_CMD_LEN, size);
 
-	kfree(tx_buf);
-	kfree(rx_buf);
+	dma_free_coherent(&spi->dev, txn_len, tx_buf, dma_hndl_tx);
+	dma_free_coherent(&spi->dev, txn_len, rx_buf, dma_hndl_rx);
 	return ret;
 }
 EXPORT_SYMBOL(bgcom_ahb_read);
@@ -511,12 +523,14 @@ EXPORT_SYMBOL(bgcom_ahb_read);
 int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 	uint32_t num_words, void *write_buf)
 {
+	dma_addr_t dma_hndl;
 	uint32_t txn_len;
 	uint8_t *tx_buf;
 	uint32_t size;
 	int ret;
 	uint8_t cmnd = 0;
 	uint32_t ahb_addr = 0;
+	struct spi_device *spi = get_spi_device();
 
 	if (!handle || !write_buf || num_words == 0
 		|| num_words > BG_SPI_MAX_WORDS) {
@@ -539,9 +553,7 @@ int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_CMD_LEN + size;
-
-	tx_buf = kzalloc(txn_len, GFP_KERNEL);
-
+	tx_buf = dma_zalloc_coherent(&spi->dev, txn_len, &dma_hndl, GFP_KERNEL);
 	if (!tx_buf)
 		return -ENOMEM;
 
@@ -553,7 +565,7 @@ int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 	memcpy(tx_buf+BG_SPI_AHB_CMD_LEN, write_buf, size);
 
 	ret = bgcom_transfer(handle, tx_buf, NULL, txn_len);
-	kfree(tx_buf);
+	dma_free_coherent(&spi->dev, txn_len, tx_buf, dma_hndl);
 	return ret;
 }
 EXPORT_SYMBOL(bgcom_ahb_write);
@@ -975,6 +987,7 @@ static int bg_spi_probe(struct spi_device *spi)
 		goto err_ret;
 
 	atomic_set(&bg_is_spi_active, 1);
+	dma_set_coherent_mask(&spi->dev, DMA_BIT_MASK(64));
 	pr_info("Bgcom Probed successfully\n");
 	return ret;
 
