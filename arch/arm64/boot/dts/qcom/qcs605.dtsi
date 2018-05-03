@@ -76,6 +76,10 @@
 	};
 };
 
+&llcc {
+	compatible = "qcom,qcs605-llcc";
+};
+
 &ipa_hw {
 	status = "disabled";
 };
