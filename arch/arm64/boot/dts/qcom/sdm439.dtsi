@@ -622,3 +622,7 @@
 		};
 	};
 };
+
+&mdss_mdp {
+	qcom,vbif-settings = <0xd0 0x20>;
+};
