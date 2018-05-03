@@ -117,7 +117,6 @@ struct npu_debugfs_ctx {
 	uint32_t log_read_index;
 	uint32_t log_write_index;
 	uint32_t log_buf_size;
-	bool sys_cache_disable;
 };
 
 struct npu_mbox {

@@ -702,7 +702,7 @@ int npu_enable_sys_cache(struct npu_device *npu_dev)
 	int rc = 0;
 	uint32_t reg_val = 0;
 
-	if (!npu_dev->debugfs_ctx.sys_cache_disable) {
+	if (!npu_dev->host_ctx.sys_cache_disable) {
 		npu_dev->sys_cache = llcc_slice_getd(&(npu_dev->pdev->dev),
 			"npu");
 		if (IS_ERR_OR_NULL(npu_dev->sys_cache)) {
@@ -735,7 +735,7 @@ void npu_disable_sys_cache(struct npu_device *npu_dev)
 {
 	int rc = 0;
 
-	if (!npu_dev->debugfs_ctx.sys_cache_disable) {
+	if (!npu_dev->host_ctx.sys_cache_disable) {
 		if (npu_dev->sys_cache) {
 			rc = llcc_slice_deactivate(npu_dev->sys_cache);
 			if (rc) {
