@@ -191,39 +191,40 @@ static int rsc_hw_seq_memory_init_v2(struct sde_rsc_priv *rsc)
 						0x38bb9ebe, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x10,
 						0xbeff39e0, rsc->debug_mode);
-
-	/* Mode - 2 sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x14,
 						0x20209b9e, rsc->debug_mode);
+
+	/* Mode - 2 sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x18,
-						0xfab9baa0, rsc->debug_mode);
+						0xb9bae5a0, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x1c,
-						0xfebdbbf9, rsc->debug_mode);
+						0xbdbbf9fa, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x20,
-						0xa138999a, rsc->debug_mode);
+						0x38999afe, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x24,
-						0xa2e081e1, rsc->debug_mode);
+						0xac81e1a1, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x28,
-						0x9d3982e2, rsc->debug_mode);
+						0x82e2a2e0, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
+						0x8cfd9d39, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
+						0xbc20209b, rsc->debug_mode);
 
 	/* tcs sleep & wake sequence */
-	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
-						0x20209bfd, rsc->debug_mode);
-	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
-						0x01a6fcbc, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x34,
-						0x20209ce6, rsc->debug_mode);
+						0xe601a6fc, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x38,
-						0x01a7fcbc, rsc->debug_mode);
+						0xbc20209c, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x3c,
-						0x00209ce7, rsc->debug_mode);
-
+						0xe701a7fc, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x40,
+						0x0000209c, rsc->debug_mode);
 
 	/* branch address */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0,
-						0x30, rsc->debug_mode);
+						0x33, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0,
-						0x38, rsc->debug_mode);
+						0x3b, rsc->debug_mode);
 
 	/* start address */
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_OVERRIDE_CTRL_DRV0,
@@ -550,8 +551,11 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 	}
 
 	if (rc) {
-		pr_err("mdss gdsc power down failed rc:%d\n", rc);
-		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
+		reg = dss_reg_r(&rsc->drv_io,
+				SDE_RSCC_SEQ_PROGRAM_COUNTER, rsc->debug_mode);
+		pr_err("mdss gdsc power down failed, instruction:0x%x, rc:%d\n",
+				reg, rc);
+		SDE_EVT32(rc, reg, SDE_EVTLOG_ERROR);
 		goto end;
 	}
 
