@@ -28,6 +28,7 @@
 #include <linux/of.h>
 #include <linux/coresight.h>
 #include <linux/amba/bus.h>
+#include <linux/iommu.h>
 #include <asm/dma-iommu.h>
 
 #include "coresight-priv.h"
