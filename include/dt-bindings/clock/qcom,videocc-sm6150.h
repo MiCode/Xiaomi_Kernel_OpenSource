@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _DT_BINDINGS_CLK_QCOM_VIDEO_CC_SDM640_H
-#define _DT_BINDINGS_CLK_QCOM_VIDEO_CC_SDM640_H
+#ifndef _DT_BINDINGS_CLK_QCOM_VIDEO_CC_SM6150_H
+#define _DT_BINDINGS_CLK_QCOM_VIDEO_CC_SM6150_H
 
 #define VIDEO_CC_APB_CLK					0
 #define VIDEO_CC_AT_CLK						1

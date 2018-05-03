@@ -56,44 +56,44 @@
 		.activate_on_init = a,		\
 	}
 
-static struct llcc_slice_config sdm640_data[] =  {
+static struct llcc_slice_config sm6150_data[] =  {
 	SCT_ENTRY("cpuss",       1, 1, 256, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 1),
 	SCT_ENTRY("modem",       8, 8, 256, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("mmuhwt",      13, 13, 256, 1, 0, 0xF, 0x0, 0, 0, 0, 0, 1),
 };
 
-static int sdm640_qcom_llcc_probe(struct platform_device *pdev)
+static int sm6150_qcom_llcc_probe(struct platform_device *pdev)
 {
-	return qcom_llcc_probe(pdev, sdm640_data,
-				 ARRAY_SIZE(sdm640_data));
+	return qcom_llcc_probe(pdev, sm6150_data,
+				 ARRAY_SIZE(sm6150_data));
 }
 
-static const struct of_device_id sdm640_qcom_llcc_of_match[] = {
-	{ .compatible = "qcom,sdm640-llcc", },
+static const struct of_device_id sm6150_qcom_llcc_of_match[] = {
+	{ .compatible = "qcom,sm6150-llcc", },
 	{ },
 };
 
-static struct platform_driver sdm640_qcom_llcc_driver = {
+static struct platform_driver sm6150_qcom_llcc_driver = {
 	.driver = {
-		.name = "sdm640-llcc",
+		.name = "sm6150-llcc",
 		.owner = THIS_MODULE,
-		.of_match_table = sdm640_qcom_llcc_of_match,
+		.of_match_table = sm6150_qcom_llcc_of_match,
 	},
-	.probe = sdm640_qcom_llcc_probe,
+	.probe = sm6150_qcom_llcc_probe,
 	.remove = qcom_llcc_remove,
 };
 
-static int __init sdm640_init_qcom_llcc_init(void)
+static int __init sm6150_init_qcom_llcc_init(void)
 {
-	return platform_driver_register(&sdm640_qcom_llcc_driver);
+	return platform_driver_register(&sm6150_qcom_llcc_driver);
 }
-module_init(sdm640_init_qcom_llcc_init);
+module_init(sm6150_init_qcom_llcc_init);
 
-static void __exit sdm640_exit_qcom_llcc_exit(void)
+static void __exit sm6150_exit_qcom_llcc_exit(void)
 {
-	platform_driver_unregister(&sdm640_qcom_llcc_driver);
+	platform_driver_unregister(&sm6150_qcom_llcc_driver);
 }
-module_exit(sdm640_exit_qcom_llcc_exit);
+module_exit(sm6150_exit_qcom_llcc_exit);
 
-MODULE_DESCRIPTION("Qualcomm Technologies Inc sdm640 LLCC driver");
+MODULE_DESCRIPTION("Qualcomm Technologies Inc sm6150 LLCC driver");
 MODULE_LICENSE("GPL v2");

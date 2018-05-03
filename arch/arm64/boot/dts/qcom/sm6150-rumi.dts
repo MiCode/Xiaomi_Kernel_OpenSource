@@ -11,14 +11,13 @@
  */
 
 /dts-v1/;
-/plugin/;
+/memreserve/ 0x90000000 0x00000100;
 
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
-#include "sdm640-cdp.dtsi"
+#include "sm6150.dtsi"
+#include "sm6150-rumi.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM640 CDP";
-	compatible = "qcom,sdm640-cdp", "qcom,sdm640", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	model = "Qualcomm Technologies, Inc. SM6150 RUMI";
+	compatible = "qcom,sm6150-rumi", "qcom,sm6150", "qcom,rumi";
+	qcom,board-id = <15 0>;
 };

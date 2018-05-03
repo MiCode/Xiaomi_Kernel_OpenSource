@@ -15,10 +15,10 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-#include "sdm640-rumi.dtsi"
+#include "sm6150-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM640 RUMI";
-	compatible = "qcom,sdm640-rumi", "qcom,sdm640", "qcom,rumi";
-	qcom,board-id = <15 0>;
+	model = "Qualcomm Technologies, Inc. SM6150 CDP";
+	compatible = "qcom,sm6150-cdp", "qcom,sm6150", "qcom,cdp";
+	qcom,board-id = <1 0>;
 };

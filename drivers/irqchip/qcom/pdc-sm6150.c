@@ -14,7 +14,7 @@
 #include <linux/irqchip.h>
 #include "pdc.h"
 
-static struct pdc_pin sdm640_data[] = {
+static struct pdc_pin sm6150_data[] = {
 	{0, 512},/*rpmh_wake*/
 	{1, 513},/*ee0_apps_hlos_spmi_periph_irq*/
 	{2, 514},/*ee1_apps_trustzone_spmi_periph_irq*/
@@ -146,7 +146,7 @@ static struct pdc_pin sdm640_data[] = {
 static int __init qcom_pdc_gic_init(struct device_node *node,
 		struct device_node *parent)
 {
-	return qcom_pdc_init(node, parent, sdm640_data);
+	return qcom_pdc_init(node, parent, sm6150_data);
 }
 
-IRQCHIP_DECLARE(pdc_sdm640, "qcom,pdc-sdm640", qcom_pdc_gic_init);
+IRQCHIP_DECLARE(pdc_sm6150, "qcom,pdc-sm6150", qcom_pdc_gic_init);

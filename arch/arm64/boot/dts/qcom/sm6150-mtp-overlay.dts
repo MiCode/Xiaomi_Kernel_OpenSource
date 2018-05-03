@@ -11,11 +11,14 @@
  */
 
 /dts-v1/;
+/plugin/;
 
-#include "sdm640.dtsi"
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "sm6150-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM640 SoC";
-	compatible = "qcom,sdm640";
-	qcom,board-id = <0 0>;
+	model = "Qualcomm Technologies, Inc. SM6150 MTP";
+	compatible = "qcom,sm6150-mtp", "qcom,sm6150", "qcom,mtp";
+	qcom,board-id = <8 0>;
 };

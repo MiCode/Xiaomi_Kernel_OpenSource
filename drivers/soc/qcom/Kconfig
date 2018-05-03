@@ -67,11 +67,11 @@ config QCOM_SDMSHRIKE_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
-config QCOM_SDM640_LLCC
-	tristate "Qualcomm Technologies, Inc. SDM640 LLCC driver"
+config QCOM_SM6150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM6150 LLCC driver"
 	depends on QCOM_LLCC
 	help
-	  Say yes here to enable the LLCC driver for SDM640. This is provides
+	  Say yes here to enable the LLCC driver for SM6150. This is provides
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 

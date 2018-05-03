@@ -14,18 +14,18 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
-#include <dt-bindings/clock/qcom,gcc-sdm640.h>
-#include <dt-bindings/clock/qcom,camcc-sdm640.h>
-#include <dt-bindings/clock/qcom,cpucc-sdm640.h>
-#include <dt-bindings/clock/qcom,dispcc-sdm640.h>
-#include <dt-bindings/clock/qcom,gpucc-sdm640.h>
-#include <dt-bindings/clock/qcom,videocc-sdm640.h>
+#include <dt-bindings/clock/qcom,gcc-sm6150.h>
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
+#include <dt-bindings/clock/qcom,cpucc-sm6150.h>
+#include <dt-bindings/clock/qcom,dispcc-sm6150.h>
+#include <dt-bindings/clock/qcom,gpucc-sm6150.h>
+#include <dt-bindings/clock/qcom,videocc-sm6150.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include <dt-bindings/spmi/spmi.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM640";
-	compatible = "qcom,sdm640";
+	model = "Qualcomm Technologies, Inc. SM6150";
+	compatible = "qcom,sm6150";
 	qcom,msm-id = <355 0x0>;
 	interrupt-parent = <&pdc>;
 
@@ -503,7 +503,7 @@
 	};
 
 	pdc: interrupt-controller@b220000{
-		compatible = "qcom,pdc-sdm640";
+		compatible = "qcom,pdc-sm6150";
 		reg = <0xb220000 0x400>;
 		#interrupt-cells = <3>;
 		interrupt-parent = <&intc>;
@@ -930,8 +930,8 @@
 		qcom,llcc-banks-off = <0x0>;
 		qcom,llcc-broadcast-off = <0x400000>;
 
-		llcc: qcom,sdm640-llcc {
-			compatible = "qcom,sdm640-llcc";
+		llcc: qcom,sm6150-llcc {
+			compatible = "qcom,sm6150-llcc";
 			#cache-cells = <1>;
 			max-slices = <32>;
 			cap-based-alloc-and-pwr-collapse;
@@ -1060,11 +1060,11 @@
 
 #include "pm640.dtsi"
 #include "pm640l.dtsi"
-#include "sdm640-pinctrl.dtsi"
-#include "sdm640-stub-regulator.dtsi"
-#include "sdm640-pm.dtsi"
-#include "sdm640-gdsc.dtsi"
-#include "sdm640-qupv3.dtsi"
+#include "sm6150-pinctrl.dtsi"
+#include "sm6150-stub-regulator.dtsi"
+#include "sm6150-pm.dtsi"
+#include "sm6150-gdsc.dtsi"
+#include "sm6150-qupv3.dtsi"
 
 &emac_gdsc {
 	status = "ok";
@@ -1162,5 +1162,5 @@
 	status = "ok";
 };
 
-#include "sdm640-ion.dtsi"
-#include "msm-arm-smmu-sdm640.dtsi"
+#include "sm6150-ion.dtsi"
+#include "msm-arm-smmu-sm6150.dtsi"

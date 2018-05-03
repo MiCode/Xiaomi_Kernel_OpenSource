@@ -12,11 +12,10 @@
 
 /dts-v1/;
 
-#include "sdm640.dtsi"
-#include "sdm640-cdp.dtsi"
+#include "sm6150.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM640 CDP";
-	compatible = "qcom,sdm640-cdp", "qcom,sdm640", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	model = "Qualcomm Technologies, Inc. SM6150 SoC";
+	compatible = "qcom,sm6150";
+	qcom,board-id = <0 0>;
 };

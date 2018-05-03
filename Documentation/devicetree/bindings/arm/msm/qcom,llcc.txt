@@ -94,7 +94,7 @@ compatible devices:
 		qcom,sdm670-llcc,
 		qcom,sm8150-llcc,
 		qcom,sdmshrike-llcc,
-		qcom,sdm640-llcc
+		qcom,sm6150-llcc
 
 Example:
 

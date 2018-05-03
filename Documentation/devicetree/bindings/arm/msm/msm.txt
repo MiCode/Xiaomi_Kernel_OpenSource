@@ -47,8 +47,8 @@ SoCs:
 - SDMSHRIKE
   compatible = "qcom,sdmshrike"
 
-- SDM640
-  compatible = "qcom,sdm640"
+- SM6150
+  compatible = "qcom,sm6150"
 
 - QCS405
   compatible = "qcom,qcs405"
@@ -138,10 +138,10 @@ compatible = "qcom,sm8150p-qrd"
 compatible = "qcom,sdmshrike-rumi"
 compatible = "qcom,sdmshrike-mtp"
 compatible = "qcom,sdmshrike-cdp"
-compatible = "qcom,sdm640-rumi"
-compatible = "qcom,sdm640-mtp"
-compatible = "qcom,sdm640-cdp"
-compatible = "qcom,sdm640-qrd"
+compatible = "qcom,sm6150-rumi"
+compatible = "qcom,sm6150-mtp"
+compatible = "qcom,sm6150-cdp"
+compatible = "qcom,sm6150-qrd"
 compatible = "qcom,qcs405-rumi"
 compatible = "qcom,qcs405-mtp"
 compatible = "qcom,qcs405-cdp"
