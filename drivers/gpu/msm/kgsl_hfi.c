@@ -467,8 +467,10 @@ static void receive_err_req(struct gmu_device *gmu, void *rcvd)
 {
 	struct hfi_err_cmd *cmd = rcvd;
 
-	dev_err(&gmu->pdev->dev, "HFI Error Received: %d %d %d\n",
-			cmd->error_code, cmd->data[0], cmd->data[1]);
+	dev_err(&gmu->pdev->dev, "HFI Error Received: %d %d %s\n",
+			((cmd->error_code >> 16) & 0xFFFF),
+			(cmd->error_code & 0xFFFF),
+			(char *) cmd->data);
 }
 
 static void receive_debug_req(struct gmu_device *gmu, void *rcvd)
@@ -507,40 +509,49 @@ void hfi_receiver(unsigned long data)
 {
 	struct gmu_device *gmu;
 	uint32_t rcvd[MAX_RCVD_SIZE];
+	int read_queue[] = {
+		HFI_MSG_IDX,
+		HFI_DBG_IDX,
+	};
+	int q;
 
 	if (!data)
 		return;
 
 	gmu = (struct gmu_device *)data;
 
-	while (hfi_queue_read(gmu, HFI_MSG_IDX, rcvd, sizeof(rcvd)) > 0) {
-		/* Special case if we're v1 */
-		if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
-			hfi_v1_receiver(gmu, rcvd);
-			continue;
-		}
+	/* While we are here, check all of the queues for messages */
+	for (q = 0; q < ARRAY_SIZE(read_queue); q++) {
+		while (hfi_queue_read(gmu, read_queue[q],
+				rcvd, sizeof(rcvd)) > 0) {
+			/* Special case if we're v1 */
+			if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
+				hfi_v1_receiver(gmu, rcvd);
+				continue;
+			}
 
-		/* V2 ACK Handler */
-		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
-			receive_ack_cmd(gmu, rcvd);
-			continue;
-		}
+			/* V2 ACK Handler */
+			if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
+				receive_ack_cmd(gmu, rcvd);
+				continue;
+			}
 
-		/* V2 Request Handler */
-		switch (MSG_HDR_GET_ID(rcvd[0])) {
-		case F2H_MSG_ERR: /* No Reply */
-			receive_err_req(gmu, rcvd);
-			break;
-		case F2H_MSG_DEBUG: /* No Reply */
-			receive_debug_req(gmu, rcvd);
-			break;
-		default: /* No Reply */
-			dev_err(&gmu->pdev->dev,
-				"HFI request %d not supported\n",
-				MSG_HDR_GET_ID(rcvd[0]));
-			break;
-		}
-	};
+			/* V2 Request Handler */
+			switch (MSG_HDR_GET_ID(rcvd[0])) {
+			case F2H_MSG_ERR: /* No Reply */
+				receive_err_req(gmu, rcvd);
+				break;
+			case F2H_MSG_DEBUG: /* No Reply */
+				receive_debug_req(gmu, rcvd);
+				break;
+			default: /* No Reply */
+				dev_err(&gmu->pdev->dev,
+					"HFI request %d not supported\n",
+					MSG_HDR_GET_ID(rcvd[0]));
+				break;
+			}
+		};
+	}
 }
 
 #define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
