@@ -1893,7 +1893,8 @@ bail:
 	if (err && (init->flags == FASTRPC_INIT_CREATE_STATIC))
 		me->staticpd_flags = 0;
 	if (mem && err) {
-		if (mem->flags == ADSP_MMAP_REMOTE_HEAP_ADDR)
+		if (mem->flags == ADSP_MMAP_REMOTE_HEAP_ADDR
+			&& me->channel[fl->cid].rhvm.vmid)
 			hyp_assign_phys(mem->phys, (uint64_t)mem->size,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
@@ -1989,7 +1990,8 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 		desc.arginfo = SCM_ARGS(3);
 		err = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
 			TZ_PIL_PROTECT_MEM_SUBSYS_ID), &desc);
-	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR
+				&& me->channel[fl->cid].rhvm.vmid) {
 		VERIFY(err, !hyp_assign_phys(map->phys, (uint64_t)map->size,
 				hlosvm, 1, me->channel[fl->cid].rhvm.vmid,
 				me->channel[fl->cid].rhvm.vmperm,
