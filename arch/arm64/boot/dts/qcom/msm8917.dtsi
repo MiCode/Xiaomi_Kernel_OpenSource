@@ -1423,6 +1423,86 @@
 		status = "disabled";
 	};
 
+	qcom,wcnss-wlan@a000000 {
+		compatible = "qcom,wcnss_wlan";
+		reg = <0xa000000 0x280000>,
+		      <0xb011008 0x4>,
+		      <0xa21b000 0x3000>,
+		      <0x3204000 0x100>,
+		      <0x3200800 0x200>,
+		      <0xa100400 0x200>,
+		      <0xa205050 0x200>,
+		      <0xa219000 0x20>,
+		      <0xa080488 0x8>,
+		      <0xa080fb0 0x8>,
+		      <0xa08040c 0x8>,
+		      <0xa0120a8 0x8>,
+		      <0xa012448 0x8>,
+		      <0xa080c00 0x1>;
+
+		reg-names = "wcnss_mmio", "wcnss_fiq",
+			    "pronto_phy_base", "riva_phy_base",
+			    "riva_ccu_base", "pronto_a2xb_base",
+			    "pronto_ccpu_base", "pronto_saw2_base",
+			    "wlan_tx_phy_aborts","wlan_brdg_err_source",
+			    "wlan_tx_status", "alarms_txctl",
+			    "alarms_tactl", "pronto_mcu_base";
+
+		interrupts = <0 145 0 0 146 0>;
+		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+
+		qcom,pronto-vddmx-supply = <&pm8937_l3_level_ao>;
+		qcom,pronto-vddcx-supply = <&pm8937_s2_level>;
+		qcom,pronto-vddpx-supply = <&pm8937_l5>;
+		qcom,iris-vddxo-supply   = <&pm8937_l7>;
+		qcom,iris-vddrfa-supply  = <&pm8937_l19>;
+		qcom,iris-vddpa-supply   = <&pm8937_l9>;
+		qcom,iris-vdddig-supply  = <&pm8937_l5>;
+
+		qcom,iris-vddxo-voltage-level = <1800000 0 1800000>;
+		qcom,iris-vddrfa-voltage-level = <1300000 0 1300000>;
+		qcom,iris-vddpa-voltage-level = <3300000 0 3300000>;
+		qcom,iris-vdddig-voltage-level = <1800000 0 1800000>;
+
+		qcom,vddmx-voltage-level = <RPM_SMD_REGULATOR_LEVEL_TURBO
+				       RPM_SMD_REGULATOR_LEVEL_NONE
+				       RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vddcx-voltage-level = <RPM_SMD_REGULATOR_LEVEL_NOM
+				       RPM_SMD_REGULATOR_LEVEL_NONE
+				       RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vddpx-voltage-level = <1800000 0 1800000>;
+
+		qcom,iris-vddxo-current = <10000>;
+		qcom,iris-vddrfa-current = <100000>;
+		qcom,iris-vddpa-current = <515000>;
+		qcom,iris-vdddig-current = <10000>;
+
+		qcom,pronto-vddmx-current = <0>;
+		qcom,pronto-vddcx-current = <0>;
+		qcom,pronto-vddpx-current = <0>;
+
+		pinctrl-names = "wcnss_default", "wcnss_sleep",
+				"wcnss_gpio_default";
+		pinctrl-0 = <&wcnss_default>;
+		pinctrl-1 = <&wcnss_sleep>;
+		pinctrl-2 = <&wcnss_gpio_default>;
+
+		gpios = <&tlmm 76 0>, <&tlmm 77 0>, <&tlmm 78 0>,
+			<&tlmm 79 0>, <&tlmm 80 0>;
+
+		clocks = <&clock_gcc clk_xo_wlan_clk>,
+			 <&clock_gcc clk_rf_clk2>,
+			 <&clock_debug clk_gcc_debug_mux_8937>,
+			 <&clock_gcc clk_wcnss_m_clk>;
+
+		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
+
+		qcom,has-autodetect-xo;
+		qcom,is-pronto-v3;
+		qcom,has-pronto-hw;
+		qcom,has-vsys-adc-channel;
+		qcom,wcnss-adc_tm = <&pm8937_adc_tm>;
+	};
 };
 
 #include "pm8937-rpm-regulator.dtsi"
