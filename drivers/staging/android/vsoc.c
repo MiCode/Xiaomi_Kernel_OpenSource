@@ -801,8 +801,8 @@ static int vsoc_probe_device(struct pci_dev *pdev,
 	vsoc_dev.shm_phys_start = pci_resource_start(pdev, SHARED_MEMORY_BAR);
 	vsoc_dev.shm_size = pci_resource_len(pdev, SHARED_MEMORY_BAR);
 
-	dev_info(&pdev->dev, "shared memory @ DMA %p size=0x%zx\n",
-		 (void *)vsoc_dev.shm_phys_start, vsoc_dev.shm_size);
+	dev_info(&pdev->dev, "shared memory @ DMA %pa size=0x%zx\n",
+		 &vsoc_dev.shm_phys_start, vsoc_dev.shm_size);
 	/* TODO(ghartman): ioremap_wc should work here */
 	vsoc_dev.kernel_mapped_shm = ioremap_nocache(
 			vsoc_dev.shm_phys_start, vsoc_dev.shm_size);
