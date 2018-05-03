@@ -136,6 +136,18 @@ struct npu_pwrlevel {
 	long clk_freq[NUM_TOTAL_CLKS];
 };
 
+/*
+ * struct npu_reg - Struct holding npu register information
+ * @ off - register offset
+ * @ val - register value
+ * @ valid - if register value is valid
+ */
+struct npu_reg {
+	uint32_t off;
+	uint32_t val;
+	bool valid;
+};
+
 /**
  * struct npu_pwrctrl - Power control settings for a NPU device
  * @pwr_vote_num - voting information for power enable
