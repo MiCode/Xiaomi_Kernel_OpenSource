@@ -2960,7 +2960,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	struct of_phandle_args iommuspec;
 	const char *name;
 	dma_addr_t start = 0x80000000;
-	int err = 0, cid, i;
+	int err = 0;
+	unsigned int sharedcb_count = 0, cid, i, j;
 	int secure_vmid = VMID_CP_PIXEL;
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
@@ -3021,6 +3022,24 @@ static int fastrpc_cb_probe(struct device *dev)
 			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
 	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
 	dma_set_seg_boundary(sess->smmu.dev, DMA_BIT_MASK(64));
+
+	if (of_get_property(dev->of_node, "shared-cb", NULL) != NULL) {
+		VERIFY(err, !of_property_read_u32(dev->of_node, "shared-cb",
+				&sharedcb_count));
+		if (err)
+			goto bail;
+		if (sharedcb_count > 0) {
+			struct fastrpc_session_ctx *dup_sess;
+
+			for (j = 1; j < sharedcb_count &&
+					chan->sesscount < NUM_SESSIONS; j++) {
+				chan->sesscount++;
+				dup_sess = &chan->session[chan->sesscount];
+				memcpy(dup_sess, sess,
+					sizeof(struct fastrpc_session_ctx));
+			}
+		}
+	}
 
 	chan->sesscount++;
 	debugfs_global_file = debugfs_create_file("global", 0644, debugfs_root,
