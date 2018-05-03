@@ -52,6 +52,34 @@ DEFINE_EVENT(preemptirq_template, preempt_enable,
 	     TP_ARGS(ip, parent_ip));
 #endif
 
+TRACE_EVENT(irqs_disable,
+
+	TP_PROTO(u64 delta, unsigned long caddr0, unsigned long caddr1,
+				unsigned long caddr2, unsigned long caddr3),
+
+	TP_ARGS(delta, caddr0, caddr1, caddr2, caddr3),
+
+	TP_STRUCT__entry(
+		__field(u64, delta)
+		__field(void*, caddr0)
+		__field(void*, caddr1)
+		__field(void*, caddr2)
+		__field(void*, caddr3)
+	),
+
+	TP_fast_assign(
+		__entry->delta = delta;
+		__entry->caddr0 = (void *)caddr0;
+		__entry->caddr1 = (void *)caddr1;
+		__entry->caddr2 = (void *)caddr2;
+		__entry->caddr3 = (void *)caddr3;
+	),
+
+	TP_printk("delta=%llu(ns) Callers:(%pf<-%pf<-%pf<-%pf)", __entry->delta,
+					__entry->caddr0, __entry->caddr1,
+					__entry->caddr2, __entry->caddr3)
+);
+
 #endif /* _TRACE_PREEMPTIRQ_H */
 
 #include <trace/define_trace.h>
