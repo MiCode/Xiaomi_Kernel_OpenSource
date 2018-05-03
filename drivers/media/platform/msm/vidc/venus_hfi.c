@@ -2040,7 +2040,7 @@ static int __get_q_size(struct venus_hfi_device *dev, unsigned int q_index)
 
 static void __core_clear_interrupt(struct venus_hfi_device *device)
 {
-	u32 intr_status = 0;
+	u32 intr_status = 0, mask = 0;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "%s: NULL device\n", __func__);
@@ -2048,10 +2048,11 @@ static void __core_clear_interrupt(struct venus_hfi_device *device)
 	}
 
 	intr_status = __read_register(device, VIDC_WRAPPER_INTR_STATUS);
+	mask = (VIDC_WRAPPER_INTR_STATUS_A2H_BMSK |
+		VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK |
+		VIDC_CTRL_INIT_IDLE_MSG_BMSK);
 
-	if (intr_status & VIDC_WRAPPER_INTR_STATUS_A2H_BMSK ||
-		intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK ||
-		intr_status & VIDC_CTRL_INIT_IDLE_MSG_BMSK) {
+	if (intr_status & mask) {
 		device->intr_status |= intr_status;
 		device->reg_count++;
 		dprintk(VIDC_DBG,
@@ -2059,9 +2060,6 @@ static void __core_clear_interrupt(struct venus_hfi_device *device)
 			device, device->reg_count, intr_status);
 	} else {
 		device->spur_count++;
-		dprintk(VIDC_INFO,
-			"SPURIOUS_INTR for device: %pK: times: %d interrupt_status: %d\n",
-			device, device->spur_count, intr_status);
 	}
 
 	__write_register(device, VIDC_CPU_CS_A2HSOFTINTCLR, 1);
@@ -3392,7 +3390,6 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 
 	mutex_lock(&device->lock);
 
-	dprintk(VIDC_DBG, "Handling interrupt\n");
 
 	if (!__core_in_valid_state(device)) {
 		dprintk(VIDC_DBG, "%s - Core not in init state\n", __func__);
@@ -3437,7 +3434,6 @@ err_no_work:
 	if (!(intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 		enable_irq(device->hal_data->irq);
 
-	dprintk(VIDC_DBG, "Handling interrupt done\n");
 	/*
 	 * XXX: Don't add any code beyond here.  Reacquiring locks after release
 	 * it above doesn't guarantee the atomicity that we're aiming for.
@@ -3450,7 +3446,6 @@ static irqreturn_t venus_hfi_isr(int irq, void *dev)
 {
 	struct venus_hfi_device *device = dev;
 
-	dprintk(VIDC_INFO, "Received an interrupt %d\n", irq);
 	disable_irq_nosync(irq);
 	queue_work(device->vidc_workq, &venus_hfi_work);
 	return IRQ_HANDLED;

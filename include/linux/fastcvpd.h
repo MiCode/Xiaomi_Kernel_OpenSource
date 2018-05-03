@@ -70,7 +70,7 @@ static inline int fastcvpd_video_send_cmd_hfi_queue(
 	return -ENODEV;
 }
 
-static inline int fastcvpd_video_suspend(uint32_t session_flag)
+static inline int fastcvpd_video_shutdown(uint32_t session_flag)
 {
 	return -ENODEV;
 }

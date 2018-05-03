@@ -13,11 +13,43 @@
 #include "qcs405.dtsi"
 
 &soc {
+	usb_emu_phy: usb_emu_phy@78ccd00 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x78ccd00 0x9500>,
+		      <0x79b8800 0x100>;
+		reg-names = "base", "qcratch_base";
+
+		qcom,emu-init-seq = <0xfff0 0x4
+				     0xfff3 0x4
+				     0x40 0x4
+				     0xfff3 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x1a0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+
 	timer {
 		clock-frequency = <0x100000>;
 	};
 
 	timer@0xb020000{
 		clock-frequency = <0x100000>;
+	};
+};
+
+&usb0 {
+	dwc3@78c0000 {
+		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
 	};
 };
