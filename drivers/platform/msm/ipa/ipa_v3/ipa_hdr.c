@@ -1171,8 +1171,16 @@ int ipa3_reset_hdr(bool user_only)
 		ipa3_ctx->hdr_proc_ctx_tbl.end = end;
 		IPADBG("hdr_proc_tbl.end = %d\n", end);
 	}
-	mutex_unlock(&ipa3_ctx->lock);
 
+	/* commit the change to IPA-HW */
+	if (ipa3_ctx->ctrl->ipa3_commit_hdr()) {
+		IPAERR("fail to commit hdr\n");
+		WARN_ON_RATELIMIT_IPA(1);
+		mutex_unlock(&ipa3_ctx->lock);
+		return -EFAULT;
+	}
+
+	mutex_unlock(&ipa3_ctx->lock);
 	return 0;
 }
 
