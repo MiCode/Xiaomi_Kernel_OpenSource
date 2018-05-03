@@ -10,6 +10,7 @@ emac_hw node:
 - reg: Offset and length of the register regions for the mac and io-macro
 - interrupts: Interrupt number used by this controller
 - io-macro-info: Internal io-macro-info
+- emac_emb_smmu: Internal emac smmu node
 
 Optional:
 - qcom,msm-bus,name: String representing the client-name
@@ -20,16 +21,25 @@ Optional:
                              in KBps, instantaneous bandwidth in KBps
 qcom,bus-vector-names: specifies string IDs for the corresponding bus vectors
                        in the same order as qcom,msm-bus,vectors-KBps property.
+- qcom,arm-smmu: Boolean, if present enables EMAC SMMU support in sdxpoorwills.
 
 Internal io-macro-info:
 - io-macro-bypass-mode: <0 or 1> internal or external delay configuration
 - io-interface: <rgmii/mii/rmii> PHY interface used
+
+Internal emac_emb_smmu:
+- compatible: Should be "qcom,emac-smmu-embedded".
+- qcom,smmu-s1-bypass: Boolean, if present S1 bypass is enabled.
+- iommus: Includes the <&smmu_phandle stream_id size> pair for each context
+			bank.
+- qcom,iova-mapping: <starting_address size> of the smmu context bank.
 
 Example:
 
 soc {
 	emac_hw: qcom,emac@00020000 {
 			compatible = "qcom,emac-dwc-eqos";
+			qcom,arm-smmu;
 			reg = <0x20000 0x10000>,
 				  <0x36000 0x100>;
 			reg-names = "emac-base", "rgmii-base";
@@ -56,6 +66,13 @@ soc {
 			io-macro-info {
 				io-macro-bypass-mode = <0>;
 				io-interface = "rgmii";
+			};
+
+			emac_emb_smmu: emac_emb_smmu {
+				compatible = "qcom,emac-smmu-embedded";
+				qcom,smmu-s1-bypass;
+				iommus = <&apps_smmu 0x220 0xf>;
+				qcom,iova-mapping = <0x80000000 0x40000000>;
 			};
 		};
 }
