@@ -1699,6 +1699,10 @@ void msm_isp_halt_send_error(struct vfe_device *vfe_dev, uint32_t event)
 		/* Recovery is already in Progress */
 		return;
 
+	/* if there are no active streams - do not start recovery */
+	if (!vfe_dev->axi_data.num_active_stream)
+		return;
+
 	if (event == ISP_EVENT_PING_PONG_MISMATCH &&
 		vfe_dev->axi_data.recovery_count < MAX_RECOVERY_THRESHOLD) {
 		pr_err("%s: ping pong mismatch on vfe%d recovery count %d\n",
