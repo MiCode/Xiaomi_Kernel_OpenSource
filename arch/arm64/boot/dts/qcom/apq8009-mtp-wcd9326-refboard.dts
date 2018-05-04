@@ -268,6 +268,7 @@
 };
 
 &i2c_4 {
+	status= "okay";
 	smb1360_otg_supply: smb1360-chg-fg@14 {
 		compatible = "qcom,smb1360-chg-fg";
 		reg = <0x14>;
@@ -283,15 +284,12 @@
 		qcom,recharge-thresh-mv = <100>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
 		regulator-name = "smb1360_otg_vreg";
+		status= "okay";
 	};
 };
 
 &usb_otg {
-	interrupts = <0 134 0>, <0 140 0>;
-	interrupt-names = "core_irq", "async_irq";
-
-	qcom,hsusb-otg-mode = <3>;
-	vbus_otg-supply = <&vbus_otg_supply>;
+	extcon = <&smb1360_otg_supply>;
 };
 
 &mdss_fb0 {
