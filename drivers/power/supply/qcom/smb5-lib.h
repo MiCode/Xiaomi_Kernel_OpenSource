@@ -264,6 +264,7 @@ struct smb_charger {
 	int			smb_version;
 	int			otg_delay_ms;
 	int			*weak_chg_icl_ua;
+	struct qpnp_vadc_chip	*vadc_dev;
 
 	/* locks */
 	struct mutex		lock;
