@@ -208,6 +208,7 @@
 
 &i2c_1 {
 	status = "okay";
+	qcom,clk-freq-out = <400000>;
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
