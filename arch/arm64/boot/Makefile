@@ -28,6 +28,17 @@ DTB_LIST := $(dtb-y)
 endif
 DTB_OBJS := $(shell find $(obj)/dts/ -name \*.dtb)
 
+# Add RTIC DTB to the DTB list if RTIC MPGen is enabled
+ifdef RTIC_MPGEN
+DTB_OBJS += rtic_mp.dtb
+endif
+
+rtic_mp.dtb: vmlinux FORCE
+	$(RTIC_MPGEN) --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
+	--binpath="" --vmlinux="vmlinux" --config=${KCONFIG_CONFIG} \
+	--cc="${CC}" --dts=rtic_mp.dts && \
+	$(DTC) -O dtb -o rtic_mp.dtb -b 0 $(DTC_FLAGS) rtic_mp.dts
+
 $(obj)/Image: vmlinux FORCE
 	$(call if_changed,objcopy)
 
