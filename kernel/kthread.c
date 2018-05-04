@@ -185,7 +185,7 @@ EXPORT_SYMBOL_GPL(kthread_parkme);
 
 void kthread_park_complete(struct task_struct *k)
 {
-	complete(&to_kthread(k)->parked);
+	complete_all(&to_kthread(k)->parked);
 }
 
 static int kthread(void *_create)
@@ -452,6 +452,7 @@ void kthread_unpark(struct task_struct *k)
 	if (test_bit(KTHREAD_IS_PER_CPU, &kthread->flags))
 		__kthread_bind(k, kthread->cpu, TASK_PARKED);
 
+	reinit_completion(&kthread->parked);
 	clear_bit(KTHREAD_SHOULD_PARK, &kthread->flags);
 	wake_up_state(k, TASK_PARKED);
 }
@@ -475,9 +476,6 @@ int kthread_park(struct task_struct *k)
 
 	if (WARN_ON(k->flags & PF_EXITING))
 		return -ENOSYS;
-
-	if (WARN_ON_ONCE(test_bit(KTHREAD_SHOULD_PARK, &kthread->flags)))
-		return -EBUSY;
 
 	set_bit(KTHREAD_SHOULD_PARK, &kthread->flags);
 	if (k != current) {
