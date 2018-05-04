@@ -635,6 +635,9 @@ void sde_connector_helper_bridge_disable(struct drm_connector *connector)
 		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
 	}
 
+	/* Disable ESD thread */
+	sde_connector_schedule_status_work(connector, false);
+
 	c_conn = to_sde_connector(connector);
 	if (c_conn->panel_dead) {
 		c_conn->bl_device->props.power = FB_BLANK_POWERDOWN;
