@@ -378,7 +378,6 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 		if (rc < 0)
 			return rc;
 
-		vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, false, 0);
 		vote(chip->pl_disable_votable, CP_VOTER, false, 0);
 	} else {
 		vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, true, 0);
@@ -791,6 +790,7 @@ static int smb1390_remove(struct platform_device *pdev)
 
 	/* explicitly disable charging */
 	vote(chip->disable_votable, USER_VOTER, true, 0);
+	vote(chip->hvdcp_hw_inov_dis_votable, CP_VOTER, false, 0);
 	cancel_work(&chip->taper_work);
 	cancel_work(&chip->status_change_work);
 	smb1390_destroy_votables(chip);
