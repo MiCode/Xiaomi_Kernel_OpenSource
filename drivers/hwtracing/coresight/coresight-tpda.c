@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -678,8 +678,6 @@ static int tpda_probe(struct amba_device *adev, const struct amba_id *id)
 	if (!coresight_authstatus_enabled(drvdata->base))
 		goto err;
 
-	pm_runtime_put(&adev->dev);
-
 	tpda_init_default_data(drvdata);
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
@@ -694,6 +692,8 @@ static int tpda_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->csdev = coresight_register(desc);
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
+
+	pm_runtime_put(&adev->dev);
 
 	dev_dbg(drvdata->dev, "TPDA initialized\n");
 	return 0;
