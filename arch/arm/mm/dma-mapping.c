@@ -1849,7 +1849,7 @@ int arm_iommu_map_sg(struct device *dev, struct scatterlist *sg,
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	unsigned int total_length = 0, current_offset = 0;
 	dma_addr_t iova;
-	int prot = __dma_direction_to_prot(dir);
+	int prot = __dma_info_to_prot(dir, attrs);
 
 	for_each_sg(sg, s, nents, i)
 		total_length += s->length;
