@@ -212,6 +212,7 @@ enum gpu_idle_level {
  * @ccl: CNOC BW scaling client
  * @idle_level: Minimal GPU idle power level
  * @fault_count: GMU fault count
+ * @unrecovered: Indicates whether GMU recovery failed or not
  */
 struct gmu_device {
 	unsigned int ver;
@@ -246,6 +247,7 @@ struct gmu_device {
 	unsigned int ccl;
 	unsigned int idle_level;
 	unsigned int fault_count;
+	bool unrecovered;
 };
 
 void gmu_snapshot(struct kgsl_device *device);
@@ -255,6 +257,7 @@ void gmu_remove(struct kgsl_device *device);
 int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
 int gmu_start(struct kgsl_device *device);
 void gmu_stop(struct kgsl_device *device);
+int gmu_suspend(struct kgsl_device *device);
 int gmu_dcvs_set(struct gmu_device *gmu, unsigned int gpu_pwrlevel,
 		unsigned int bus_level);
 #endif /* __KGSL_GMU_H */
