@@ -1667,7 +1667,7 @@ static int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		ret = hfi_start(gmu, GMU_COLD_BOOT);
+		ret = hfi_start(device, gmu, GMU_COLD_BOOT);
 		if (ret)
 			goto error_gmu;
 
@@ -1687,7 +1687,7 @@ static int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		ret = hfi_start(gmu, GMU_COLD_BOOT);
+		ret = hfi_start(device, gmu, GMU_COLD_BOOT);
 		if (ret)
 			goto error_gmu;
 
@@ -1708,7 +1708,7 @@ static int gmu_start(struct kgsl_device *device)
 				goto error_gmu;
 
 
-			ret = hfi_start(gmu, GMU_COLD_BOOT);
+			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
 			if (ret)
 				goto error_gmu;
 
@@ -1724,7 +1724,7 @@ static int gmu_start(struct kgsl_device *device)
 			if (ret)
 				goto error_gmu;
 
-			ret = hfi_start(gmu, GMU_COLD_BOOT);
+			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
 			if (ret)
 				goto error_gmu;
 		}
