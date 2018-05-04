@@ -6965,15 +6965,11 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 	return (util >= capacity) ? capacity : util;
 }
 
-static inline int task_fits_capacity(struct task_struct *p,
+static inline bool task_fits_capacity(struct task_struct *p,
 					long capacity,
 					int cpu)
 {
 	unsigned int margin;
-	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity;
-
-	if (capacity == max_capacity)
-		return true;
 
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
 		margin = sched_capacity_margin_down[task_cpu(p)];
@@ -7401,7 +7397,7 @@ static int wake_cap(struct task_struct *p, int cpu, int prev_cpu)
 	/* Bring task utilization in sync with prev_cpu */
 	sync_entity_load_avg(&p->se);
 
-	return !task_fits_capacity(p, min_cap, cpu);
+	return !task_fits_max(p, cpu);
 }
 
 bool __cpu_overutilized(int cpu, int delta)
@@ -8126,8 +8122,7 @@ preempt:
 static inline void update_misfit_task(struct rq *rq, struct task_struct *p)
 {
 #ifdef CONFIG_SMP
-	rq->misfit_task = !task_fits_capacity(p, capacity_orig_of(rq->cpu),
-					      rq->cpu);
+	rq->misfit_task = !task_fits_max(p, rq->cpu);
 #endif
 }
 
