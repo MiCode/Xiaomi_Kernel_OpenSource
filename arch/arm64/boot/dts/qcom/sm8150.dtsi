@@ -27,6 +27,7 @@
 #include <dt-bindings/msm/msm-bus-ids.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
+#define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
 
 / {
 	model = "Qualcomm Technologies, Inc. SM8150";
@@ -967,19 +968,23 @@
 		reg-names = "lagg-base";
 	};
 
+	llcc_bw_opp_table: llcc-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 150, 16); /*  2288 MB/s */
+		BW_OPP_ENTRY( 200, 16); /*  3051 MB/s */
+		BW_OPP_ENTRY( 403, 16); /*  6149 MB/s */
+		BW_OPP_ENTRY( 533, 16); /*  8132 MB/s */
+		BW_OPP_ENTRY( 666, 16); /* 10162 MB/s */
+		BW_OPP_ENTRY( 777, 16); /* 11856 MB/s */
+	};
+
 	cpu_cpu_llcc_bw: qcom,cpu-cpu-llcc-bw {
 		compatible = "qcom,devbw";
 		governor = "performance";
 		qcom,src-dst-ports =
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_LLCC>;
 		qcom,active-only;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS(150, 16) >, /*  2288 MB/s */
-			< MHZ_TO_MBPS(200, 16) >, /*  4577 MB/s */
-			< MHZ_TO_MBPS(403, 16) >, /*  6149 MB/s */
-			< MHZ_TO_MBPS(533, 16) >, /*  8132 MB/s */
-			< MHZ_TO_MBPS(666, 16) >, /* 10162 MB/s */
-			< MHZ_TO_MBPS(777, 16) >; /* 11856 MB/s */
+		operating-points-v2 = <&llcc_bw_opp_table>;
 	};
 
 	cpu_cpu_llcc_bwmon: qcom,cpu-cpu-llcc-bwmon@90b6400 {
@@ -993,24 +998,28 @@
 		qcom,count-unit = <0x10000>;
 	};
 
+	ddr_bw_opp_table: ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
+		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
+		BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
+		BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
+		BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
+		BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
+		BW_OPP_ENTRY(1296, 4); /* 4943 MB/s */
+		BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
+		BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
+		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	};
+
 	cpu_llcc_ddr_bw: qcom,cpu-llcc-ddr-bw {
 		compatible = "qcom,devbw";
 		governor = "performance";
 		qcom,src-dst-ports =
 			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,active-only;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
-			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
-			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
-			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
-			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
-			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
-			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
-			< MHZ_TO_MBPS(1296, 4) >, /* 4943 MB/s */
-			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
-			< MHZ_TO_MBPS(1804, 4) >, /* 6881 MB/s */
-			< MHZ_TO_MBPS(2092, 4) >; /* 7980 MB/s */
+		operating-points-v2 = <&ddr_bw_opp_table>;
 	};
 
 	cpu_llcc_ddr_bwmon: qcom,cpu-llcc-ddr-bwmon@90cd000 {
@@ -1023,23 +1032,27 @@
 		qcom,count-unit = <0x10000>;
 	};
 
+	suspendable_ddr_bw_opp_table: suspendable-ddr-bw-opp-table {
+		compatible = "operating-points-v2";
+		BW_OPP_ENTRY(   0, 4); /*    0 MB/s */
+		BW_OPP_ENTRY( 200, 4); /*  762 MB/s */
+		BW_OPP_ENTRY( 300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 451, 4); /* 1720 MB/s */
+		BW_OPP_ENTRY( 547, 4); /* 2086 MB/s */
+		BW_OPP_ENTRY( 681, 4); /* 2597 MB/s */
+		BW_OPP_ENTRY( 768, 4); /* 2929 MB/s */
+		BW_OPP_ENTRY(1017, 4); /* 3879 MB/s */
+		BW_OPP_ENTRY(1296, 4); /* 4943 MB/s */
+		BW_OPP_ENTRY(1555, 4); /* 5931 MB/s */
+		BW_OPP_ENTRY(1804, 4); /* 6881 MB/s */
+		BW_OPP_ENTRY(2092, 4); /* 7980 MB/s */
+	};
+
 	npu_npu_ddr_bw: qcom,npu-npu-ddr-bw {
 		compatible = "qcom,devbw";
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS(   0, 4) >, /* 0 MB/s */
-			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
-			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
-			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
-			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
-			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
-			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
-			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
-			< MHZ_TO_MBPS(1296, 4) >, /* 4943 MB/s */
-			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
-			< MHZ_TO_MBPS(1804, 4) >, /* 6881 MB/s */
-			< MHZ_TO_MBPS(2092, 4) >; /* 7980 MB/s */
+		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
 	};
 
 	npu_npu_ddr_bwmon: qcom,npu-npu-ddr-bwmon@9960300 {
@@ -1108,13 +1121,7 @@
 		qcom,src-dst-ports =
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_LLCC>;
 		qcom,active-only;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS(150, 16) >, /*  2288 MB/s */
-			< MHZ_TO_MBPS(200, 16) >, /*  4577 MB/s */
-			< MHZ_TO_MBPS(403, 16) >, /*  6149 MB/s */
-			< MHZ_TO_MBPS(533, 16) >, /*  8132 MB/s */
-			< MHZ_TO_MBPS(666, 16) >, /* 10162 MB/s */
-			< MHZ_TO_MBPS(777, 16) >; /* 11856 MB/s */
+		operating-points-v2 = <&llcc_bw_opp_table>;
 	};
 
 	cpu0_cpu_llcc_latmon: qcom,cpu0-cpu-llcc-latmon {
@@ -1137,13 +1144,7 @@
 		qcom,src-dst-ports =
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_LLCC>;
 		qcom,active-only;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS(150, 16) >, /*  2288 MB/s */
-			< MHZ_TO_MBPS(200, 16) >, /*  4577 MB/s */
-			< MHZ_TO_MBPS(403, 16) >, /*  6149 MB/s */
-			< MHZ_TO_MBPS(533, 16) >, /*  8132 MB/s */
-			< MHZ_TO_MBPS(666, 16) >, /* 10162 MB/s */
-			< MHZ_TO_MBPS(777, 16) >; /* 11856 MB/s */
+		operating-points-v2 = <&llcc_bw_opp_table>;
 	};
 
 	cpu4_cpu_llcc_latmon: qcom,cpu4-cpu-llcc-latmon {
@@ -1166,18 +1167,7 @@
 		qcom,src-dst-ports =
 			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,active-only;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
-			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
-			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
-			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
-			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
-			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
-			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
-			< MHZ_TO_MBPS(1296, 4) >, /* 4943 MB/s */
-			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
-			< MHZ_TO_MBPS(1804, 4) >, /* 6881 MB/s */
-			< MHZ_TO_MBPS(2092, 4) >; /* 7980 MB/s */
+		operating-points-v2 = <&ddr_bw_opp_table>;
 	};
 
 	cpu0_llcc_ddr_latmon: qcom,cpu0-llcc-ddr-latmon {
@@ -1200,18 +1190,7 @@
 		qcom,src-dst-ports =
 			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,active-only;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
-			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
-			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
-			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
-			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
-			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
-			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
-			< MHZ_TO_MBPS(1296, 4) >, /* 4943 MB/s */
-			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
-			< MHZ_TO_MBPS(1804, 4) >, /* 6881 MB/s */
-			< MHZ_TO_MBPS(2092, 4) >; /* 7980 MB/s */
+		operating-points-v2 = <&ddr_bw_opp_table>;
 	};
 
 	cpu4_llcc_ddr_latmon: qcom,cpu4-llcc-ddr-latmon {
@@ -1235,18 +1214,7 @@
 		qcom,src-dst-ports =
 			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,active-only;
-		qcom,bw-tbl =
-			< MHZ_TO_MBPS( 200, 4) >, /* 762 MB/s */
-			< MHZ_TO_MBPS( 300, 4) >, /* 1144 MB/s */
-			< MHZ_TO_MBPS( 451, 4) >, /* 1720 MB/s */
-			< MHZ_TO_MBPS( 547, 4) >, /* 2086 MB/s */
-			< MHZ_TO_MBPS( 681, 4) >, /* 2597 MB/s */
-			< MHZ_TO_MBPS( 768, 4) >, /* 2929 MB/s */
-			< MHZ_TO_MBPS(1017, 4) >, /* 3879 MB/s */
-			< MHZ_TO_MBPS(1296, 4) >, /* 4943 MB/s */
-			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
-			< MHZ_TO_MBPS(1804, 4) >, /* 6881 MB/s */
-			< MHZ_TO_MBPS(2092, 4) >; /* 7980 MB/s */
+		operating-points-v2 = <&ddr_bw_opp_table>;
 	};
 
 	cpu4_computemon: qcom,cpu4-computemon {
@@ -1328,13 +1296,20 @@
 		clock-frequency = <32768>;
 	};
 
+	keepalive_opp_table: keepalive-opp-table {
+		compatible = "operating-points-v2";
+		opp-1 {
+			opp-hz = /bits/ 64 < 1 >;
+		};
+	};
+
 	snoc_cnoc_keepalive: qcom,snoc_cnoc_keepalive {
 		compatible = "qcom,devbw";
 		governor = "powersave";
 		qcom,src-dst-ports = <1 627>;
 		qcom,active-only;
 		status = "ok";
-		qcom,bw-tbl = < 1 >;
+		operating-points-v2 = <&keepalive_opp_table>;
 	};
 
 	cdsp_keepalive: qcom,cdsp_keepalive {
@@ -1343,7 +1318,7 @@
 		qcom,src-dst-ports = <154 10070>;
 		qcom,active-only;
 		status = "ok";
-		qcom,bw-tbl = < 1 >;
+		operating-points-v2 = <&keepalive_opp_table>;
 	};
 
 	clock_rpmh: qcom,rpmhclk {
@@ -1590,7 +1565,7 @@
 		mbox-names = "adsp-pil";
 	};
 
-	qcom,ssc@5c00000 {
+	pil_ssc: qcom,ssc@5c00000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x5c00000 0x4000>;
 
@@ -3311,7 +3286,7 @@
 		mbox-names = "aop";
 	};
 
-	qcom,icnss@18800000 {
+	icnss: qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
 		      <0xa0000000 0x10000000>,
@@ -3332,6 +3307,7 @@
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,gpio-force-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
+		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 		qcom,smmu-s1-bypass;
 
 		vdd-cx-mx-supply = <&pm855_l1>;

@@ -1444,6 +1444,8 @@ struct hfi_device {
 	int (*session_set_property)(void *sess, enum hal_property ptype,
 			void *pdata);
 	int (*session_get_property)(void *sess, enum hal_property ptype);
+	int (*session_pause)(void *sess);
+	int (*session_resume)(void *sess);
 	int (*scale_clocks)(void *dev, u32 freq);
 	int (*vote_bus)(void *dev, struct vidc_bus_vote_data *data,
 			int num_data);

@@ -1455,6 +1455,10 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 				pci_walk_bus(bus,
 					&msm_pcie_config_l1_enable, dev);
 
+			/* enable l1 mode, clear bit 5 (REQ_NOT_ENTR_L1) */
+			msm_pcie_write_mask(dev->parf +
+				PCIE20_PARF_PM_CTRL, BIT(5), 0);
+
 			msm_pcie_config_l1_enable(dev->dev, dev);
 		}
 		break;

@@ -15,6 +15,8 @@
 #include <dt-bindings/clock/qcom,gcc-qcs405.h>
 #include <dt-bindings/clock/qcom,cpu-qcs405.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405";
@@ -208,6 +210,31 @@
 		qcom,save-reg;
 	};
 
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
+
+	spmi_bus: qcom,spmi@200f000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0x200f000 0x1000>,
+			<0x2400000 0x800000>,
+			<0x2c00000 0x800000>,
+			<0x3800000 0x200000>,
+			<0x200a000 0x2100>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupt-names = "periph_irq";
+		interrupts = <GIC_SPI 190 IRQ_TYPE_NONE>;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
+	};
+
 	qcom,wdt@b017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xb017000 0x1000>;
@@ -317,6 +344,9 @@
 
 #include "qcs405-gdsc.dtsi"
 #include "qcs405-thermal.dtsi"
+#include "pms405.dtsi"
+#include "pms405-rpm-regulator.dtsi"
+#include "qcs405-regulator.dtsi"
 
 &gdsc_mdss {
 	status = "ok";

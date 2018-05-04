@@ -15,12 +15,53 @@
 #include <linux/pm_opp.h>
 #include <linux/jiffies.h>
 
+#include "kgsl_gmu_core.h"
+#include "kgsl_gmu.h"
+#include "kgsl_trace.h"
+
 #include "adreno.h"
 #include "a6xx_reg.h"
 #include "adreno_a6xx.h"
-#include "adreno_cp_parser.h"
+#include "adreno_snapshot.h"
 #include "adreno_trace.h"
-#include "kgsl_trace.h"
+
+static const unsigned int a6xx_gmu_gx_registers[] = {
+	/* GMU GX */
+	0x1A800, 0x1A800, 0x1A810, 0x1A813, 0x1A816, 0x1A816, 0x1A818, 0x1A81B,
+	0x1A81E, 0x1A81E, 0x1A820, 0x1A823, 0x1A826, 0x1A826, 0x1A828, 0x1A82B,
+	0x1A82E, 0x1A82E, 0x1A830, 0x1A833, 0x1A836, 0x1A836, 0x1A838, 0x1A83B,
+	0x1A83E, 0x1A83E, 0x1A840, 0x1A843, 0x1A846, 0x1A846, 0x1A880, 0x1A884,
+	0x1A900, 0x1A92B, 0x1A940, 0x1A940,
+};
+
+static const unsigned int a6xx_gmu_registers[] = {
+	/* GMU TCM */
+	0x1B400, 0x1C3FF, 0x1C400, 0x1D3FF,
+	/* GMU CX */
+	0x1F400, 0x1F407, 0x1F410, 0x1F412, 0x1F500, 0x1F500, 0x1F507, 0x1F50A,
+	0x1F800, 0x1F804, 0x1F807, 0x1F808, 0x1F80B, 0x1F80C, 0x1F80F, 0x1F81C,
+	0x1F824, 0x1F82A, 0x1F82D, 0x1F830, 0x1F840, 0x1F853, 0x1F887, 0x1F889,
+	0x1F8A0, 0x1F8A2, 0x1F8A4, 0x1F8AF, 0x1F8C0, 0x1F8C3, 0x1F8D0, 0x1F8D0,
+	0x1F8E4, 0x1F8E4, 0x1F8E8, 0x1F8EC, 0x1F900, 0x1F903, 0x1F940, 0x1F940,
+	0x1F942, 0x1F944, 0x1F94C, 0x1F94D, 0x1F94F, 0x1F951, 0x1F954, 0x1F954,
+	0x1F957, 0x1F958, 0x1F95D, 0x1F95D, 0x1F962, 0x1F962, 0x1F964, 0x1F965,
+	0x1F980, 0x1F986, 0x1F990, 0x1F99E, 0x1F9C0, 0x1F9C0, 0x1F9C5, 0x1F9CC,
+	0x1F9E0, 0x1F9E2, 0x1F9F0, 0x1F9F0, 0x1FA00, 0x1FA01,
+	/* GPU RSCC */
+	0x2348C, 0x2348C, 0x23501, 0x23502, 0x23740, 0x23742, 0x23744, 0x23747,
+	0x2374C, 0x23787, 0x237EC, 0x237EF, 0x237F4, 0x2382F, 0x23894, 0x23897,
+	0x2389C, 0x238D7, 0x2393C, 0x2393F, 0x23944, 0x2397F,
+	/* GMU AO */
+	0x23B00, 0x23B16, 0x23C00, 0x23C00,
+	/* GPU CC */
+	0x24000, 0x24012, 0x24040, 0x24052, 0x24400, 0x24404, 0x24407, 0x2440B,
+	0x24415, 0x2441C, 0x2441E, 0x2442D, 0x2443C, 0x2443D, 0x2443F, 0x24440,
+	0x24442, 0x24449, 0x24458, 0x2445A, 0x24540, 0x2455E, 0x24800, 0x24802,
+	0x24C00, 0x24C02, 0x25400, 0x25402, 0x25800, 0x25802, 0x25C00, 0x25C02,
+	0x26000, 0x26002,
+	/* GPU CC ACD */
+	0x26400, 0x26416, 0x26420, 0x26427,
+};
 
 #define RSC_CMD_OFFSET 2
 #define PDC_CMD_OFFSET 4
@@ -42,40 +83,40 @@ static void _regwrite(void __iomem *regbase,
 static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	/* Disable SDE clock gating */
-	kgsl_gmu_regwrite(device, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
+	gmu_core_regwrite(device, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
 
 	/* Setup RSC PDC handshake for sleep and wakeup */
-	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_SLAVE_ID_DRV0, 1);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_HIDDEN_TCS_CMD0_DATA, 0);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR, 0);
-	kgsl_gmu_regwrite(device,
+	gmu_core_regwrite(device, A6XX_RSCC_PDC_SLAVE_ID_DRV0, 1);
+	gmu_core_regwrite(device, A6XX_RSCC_HIDDEN_TCS_CMD0_DATA, 0);
+	gmu_core_regwrite(device, A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR, 0);
+	gmu_core_regwrite(device,
 			A6XX_RSCC_HIDDEN_TCS_CMD0_DATA + RSC_CMD_OFFSET, 0);
-	kgsl_gmu_regwrite(device,
+	gmu_core_regwrite(device,
 			A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR + RSC_CMD_OFFSET, 0);
-	kgsl_gmu_regwrite(device,
+	gmu_core_regwrite(device,
 			A6XX_RSCC_HIDDEN_TCS_CMD0_DATA + RSC_CMD_OFFSET * 2,
 			0x80000000);
-	kgsl_gmu_regwrite(device,
+	gmu_core_regwrite(device,
 			A6XX_RSCC_HIDDEN_TCS_CMD0_ADDR + RSC_CMD_OFFSET * 2,
 			0);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_OVERRIDE_START_ADDR, 0);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_SEQ_START_ADDR, 0x4520);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_LO, 0x4510);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
+	gmu_core_regwrite(device, A6XX_RSCC_OVERRIDE_START_ADDR, 0);
+	gmu_core_regwrite(device, A6XX_RSCC_PDC_SEQ_START_ADDR, 0x4520);
+	gmu_core_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_LO, 0x4510);
+	gmu_core_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
 
 	/* Enable timestamp event for v1 only */
 	if (adreno_is_a630v1(adreno_dev))
-		kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+		gmu_core_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
 
 	/* Load RSC sequencer uCode for sleep and wakeup */
-	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0, 0xA7A506A0);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 1, 0xA1E6A6E7);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 2, 0xA2E081E1);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 3, 0xE9A982E2);
-	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020E8A8);
+	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0, 0xA7A506A0);
+	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 1, 0xA1E6A6E7);
+	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 2, 0xA2E081E1);
+	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 3, 0xE9A982E2);
+	gmu_core_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020E8A8);
 
 	/* Load PDC sequencer uCode for power up and power down sequence */
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0, 0xFEBEA1E1);
@@ -157,7 +198,7 @@ static int timed_poll_check(struct kgsl_device *device,
 	t = jiffies + msecs_to_jiffies(timeout);
 
 	do {
-		kgsl_gmu_regread(device, offset, &value);
+		gmu_core_regread(device, offset, &value);
 		if ((value & mask) == expected_ret)
 			return 0;
 		/* Wait 100us to reduce unnecessary AHB bus traffic */
@@ -165,7 +206,7 @@ static int timed_poll_check(struct kgsl_device *device,
 	} while (!time_after(jiffies, t));
 
 	/* Double check one last time */
-	kgsl_gmu_regread(device, offset, &value);
+	gmu_core_regread(device, offset, &value);
 	if ((value & mask) == expected_ret)
 		return 0;
 
@@ -189,39 +230,39 @@ static int timed_poll_check(struct kgsl_device *device,
 static void a6xx_gmu_power_config(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	/* Configure registers for idle setting. The setting is cumulative */
 
 	/* Disable GMU WB/RB buffer and caches at boot */
-	kgsl_gmu_regwrite(device, A6XX_GMU_SYS_BUS_CONFIG, 0x1);
-	kgsl_gmu_regwrite(device, A6XX_GMU_ICACHE_CONFIG, 0x1);
-	kgsl_gmu_regwrite(device, A6XX_GMU_DCACHE_CONFIG, 0x1);
+	gmu_core_regwrite(device, A6XX_GMU_SYS_BUS_CONFIG, 0x1);
+	gmu_core_regwrite(device, A6XX_GMU_ICACHE_CONFIG, 0x1);
+	gmu_core_regwrite(device, A6XX_GMU_DCACHE_CONFIG, 0x1);
 
-	kgsl_gmu_regwrite(device,
+	gmu_core_regwrite(device,
 		A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,  0x9C40400);
 
 	switch (gmu->idle_level) {
 	case GPU_HW_MIN_VOLT:
-		kgsl_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
 				MIN_BW_ENABLE_MASK);
-		kgsl_gmu_regrmw(device, A6XX_GMU_RPMH_HYST_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_RPMH_HYST_CTRL, 0,
 				MIN_BW_HYST);
 		/* fall through */
 	case GPU_HW_NAP:
-		kgsl_gmu_regrmw(device, A6XX_GMU_GPU_NAP_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_GPU_NAP_CTRL, 0,
 				HW_NAP_ENABLE_MASK);
 		/* fall through */
 	case GPU_HW_IFPC:
-		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
+		gmu_core_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
 				GMU_PWR_COL_HYST);
-		kgsl_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
 				IFPC_ENABLE_MASK);
 		/* fall through */
 	case GPU_HW_SPTP_PC:
-		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
+		gmu_core_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
 				GMU_PWR_COL_HYST);
-		kgsl_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
 				SPTP_ENABLE_MASK);
 		/* fall through */
 	default:
@@ -231,12 +272,12 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 	/* ACD feature enablement */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		kgsl_gmu_regrmw(device, A6XX_GMU_BOOT_KMD_LM_HANDSHAKE, 0,
+		gmu_core_regrmw(device, A6XX_GMU_BOOT_KMD_LM_HANDSHAKE, 0,
 				BIT(10));
 
 	/* Enable RPMh GPU client */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_RPMH))
-		kgsl_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
 				RPMH_ENABLE_MASK);
 }
 
@@ -246,17 +287,17 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
  */
 static int a6xx_gmu_start(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG, 0x0);
 	/* Write 1 first to make sure the GMU is reset */
-	kgsl_gmu_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
 
 	/* Make sure putting in reset doesn't happen after clearing */
 	wmb();
 
 	/* Bring GMU out of reset */
-	kgsl_gmu_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
 	if (timed_poll_check(device,
 			A6XX_GMU_CM3_FW_INIT_RESULT,
 			0xBABEFACE,
@@ -275,11 +316,11 @@ static int a6xx_gmu_start(struct kgsl_device *device)
  */
 static int a6xx_gmu_hfi_start(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	kgsl_gmu_regrmw(device, A6XX_GMU_GMU2HOST_INTR_MASK,
+	gmu_core_regrmw(device, A6XX_GMU_GMU2HOST_INTR_MASK,
 			HFI_IRQ_MSGQ_MASK, 0);
-	kgsl_gmu_regwrite(device, A6XX_GMU_HFI_CTRL_INIT, 1);
+	gmu_core_regwrite(device, A6XX_GMU_HFI_CTRL_INIT, 1);
 
 	if (timed_poll_check(device,
 			A6XX_GMU_HFI_CTRL_STATUS,
@@ -297,9 +338,9 @@ static uint64_t read_AO_counter(struct kgsl_device *device)
 {
 	unsigned int l, h, h1;
 
-	kgsl_gmu_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h);
-	kgsl_gmu_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
-	kgsl_gmu_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h1);
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h);
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h1);
 
 	/*
 	 * If there's no change in COUNTER_H we have no overflow so return,
@@ -309,13 +350,13 @@ static uint64_t read_AO_counter(struct kgsl_device *device)
 	if (h == h1)
 		return (uint64_t) l | ((uint64_t) h << 32);
 
-	kgsl_gmu_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
 	return (uint64_t) l | ((uint64_t) h1 << 32);
 }
 
 static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct device *dev = &gmu->pdev->dev;
 	int val;
 
@@ -323,13 +364,13 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	if (!test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags))
 		return 0;
 
-	kgsl_gmu_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
+	gmu_core_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
 	if (!(val & 0x1))
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"GMEM CLAMP IO not set while GFX rail off\n");
 
 	/* RSC wake sequence */
-	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, BIT(1));
+	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, BIT(1));
 
 	/* Write request before polling */
 	wmb();
@@ -350,13 +391,13 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 			0xFFFFFFFF))
 		goto error_rsc;
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
+	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	/* Clear sleep sequence flag as wakeup sequence is successful */
 	clear_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags);
 
 	/* Enable the power counter because it was disabled before slumber */
-	kgsl_gmu_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
+	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
 
 	return 0;
 error_rsc:
@@ -366,7 +407,7 @@ error_rsc:
 
 static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
@@ -375,9 +416,9 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 
 	/* RSC sleep sequence is different on v1 */
 	if (adreno_is_a630v1(adreno_dev))
-		kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+		gmu_core_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 1);
+	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 1);
 	/* Make sure the request completes before continuing */
 	wmb();
 
@@ -401,19 +442,19 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 
 	/* Read to clear the timestamp valid signal. Don't care what we read. */
 	if (adreno_is_a630v1(adreno_dev)) {
-		kgsl_gmu_regread(device,
+		gmu_core_regread(device,
 				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_L_DRV0,
 				&ret);
-		kgsl_gmu_regread(device,
+		gmu_core_regread(device,
 				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0,
 				&ret);
 	}
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
+	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 			test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
+		gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
 
 	set_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags);
 	return 0;
@@ -436,7 +477,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 
 static int load_gmu_fw(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	uint32_t *fwptr = gmu->fw_image->hostptr;
 	int i, j, ret;
 	int start_addr, size_in_bytes, num_dwords, tcm_slot, num_records;
@@ -462,7 +503,7 @@ static int load_gmu_fw(struct kgsl_device *device)
 			tcm_slot = start_addr / sizeof(uint32_t);
 
 			for (j = 0; j < num_dwords; j++)
-				kgsl_gmu_regwrite(device,
+				gmu_core_regwrite(device,
 					A6XX_GMU_CM3_ITCM_START + tcm_slot + j,
 					fwptr[j]);
 		} else if ((start_addr >= GMU_DTCM_VA_START) &&
@@ -471,7 +512,7 @@ static int load_gmu_fw(struct kgsl_device *device)
 				/ sizeof(uint32_t);
 
 			for (j = 0; j < num_dwords; j++)
-				kgsl_gmu_regwrite(device,
+				gmu_core_regwrite(device,
 					A6XX_GMU_CM3_DTCM_START + tcm_slot + j,
 					fwptr[j]);
 		} else if ((start_addr >= GMU_ICACHE_VA_START) &&
@@ -499,22 +540,22 @@ static int load_gmu_fw(struct kgsl_device *device)
  * @adreno_dev: Pointer to adreno device
  * @req: Which of the OOB bits to request
  */
-int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
+static int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
 		enum oob_request req)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int ret = 0;
 	int set, check;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		return 0;
 
 	if (adreno_is_a640(adreno_dev)) {
 		set = BIT(30 - req * 2);
 		check = BIT(31 - req);
 
-		if ((device->gmu.hfi.version & 0x1F) == 0) {
+		if ((gmu->hfi.version & 0x1F) == 0) {
 			/* LEGACY for intermediate oobs */
 			set = BIT(req + 16);
 			check = BIT(req + 16);
@@ -530,7 +571,7 @@ int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
 		check = BIT(req + 24);
 	}
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set);
+	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set);
 
 	if (timed_poll_check(device,
 			A6XX_GMU_GMU2HOST_INTR_INFO,
@@ -542,7 +583,7 @@ int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
 			"OOB_set(0x%x) timed out\n", set);
 	}
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, check);
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, check);
 
 	trace_kgsl_gmu_oob_set(set);
 	return ret;
@@ -553,14 +594,14 @@ int a6xx_gmu_oob_set(struct adreno_device *adreno_dev,
  * @adreno_dev: Pointer to the adreno device that has the GMU
  * @req: Which of the OOB bits to clear
  */
-void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev,
+static inline void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev,
 		enum oob_request req)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int clear;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		return;
 
 	if (adreno_is_a640(adreno_dev)) {
@@ -571,16 +612,26 @@ void a6xx_gmu_oob_clear(struct adreno_device *adreno_dev,
 			return;
 		}
 		/* LEGACY for intermediate oobs */
-		if ((device->gmu.hfi.version & 0x1F) == 0)
+		if ((gmu->hfi.version & 0x1F) == 0)
 			clear = BIT(req + 24);
 	} else
 		clear = BIT(req + 24);
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, clear);
+	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, clear);
 	trace_kgsl_gmu_oob_clear(clear);
 }
 
+static int a6xx_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct hfi_start_cmd req;
 
+	if (!adreno_is_a640(adreno_dev))
+		return 0;
+
+	/* Send hfi start msg */
+	return hfi_send_req(KGSL_GMU_DEVICE(device), H2F_MSG_START, &req);
+}
 
 #define FREQ_VOTE(idx, ack) (((idx) & 0xFF) | (((ack) & 0xF) << 28))
 #define BW_VOTE(idx) ((((idx) & 0xFFF) << 12) | ((idx) & 0xFFF))
@@ -599,16 +650,16 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, DCVS_ACK_NONBLOCK);
+	gmu_core_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, DCVS_ACK_NONBLOCK);
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_PERF_SETTING,
+	gmu_core_regwrite(device, A6XX_GMU_DCVS_PERF_SETTING,
 			FREQ_VOTE(perf_idx, CLKSET_OPTION_ATLEAST));
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_BW_SETTING, BW_VOTE(bw_idx));
+	gmu_core_regwrite(device, A6XX_GMU_DCVS_BW_SETTING, BW_VOTE(bw_idx));
 
 	ret = a6xx_gmu_oob_set(adreno_dev, oob_dcvs);
 	if (ret == 0)
-		kgsl_gmu_regread(device, A6XX_GMU_DCVS_RETURN, &ret);
+		gmu_core_regread(device, A6XX_GMU_DCVS_RETURN, &ret);
 
 	a6xx_gmu_oob_clear(adreno_dev, oob_dcvs);
 
@@ -618,7 +669,7 @@ static int a6xx_complete_rpmh_votes(struct kgsl_device *device)
 {
 	int ret = 0;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		return ret;
 
 	ret |= timed_poll_check(device, A6XX_RSCC_TCS0_DRV0_STATUS, BIT(0),
@@ -647,15 +698,15 @@ static int a6xx_complete_rpmh_votes(struct kgsl_device *device)
 int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	if (!kgsl_gmu_gpmu_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return -EINVAL;
 
 	if (!adreno_has_sptprac_gdsc(adreno_dev))
 		return 0;
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWERON_CTRL_MASK);
 
 	if (timed_poll_check(device,
@@ -677,19 +728,19 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	if (!adreno_has_sptprac_gdsc(adreno_dev))
 		return;
 
-	if (!kgsl_gmu_gpmu_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return;
 
 	/* Ensure that retention is on */
-	kgsl_gmu_regrmw(device, A6XX_GPU_CC_GX_GDSCR, 0,
+	gmu_core_regrmw(device, A6XX_GPU_CC_GX_GDSCR, 0,
 			A6XX_RETAIN_FF_ENABLE_ENABLE_MASK);
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWEROFF_CTRL_MASK);
 
 	if (timed_poll_check(device,
@@ -716,10 +767,10 @@ bool a6xx_gmu_gx_is_on(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		return true;
 
-	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
+	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	return is_on(val);
 }
 
@@ -734,10 +785,10 @@ bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 
-	if (!kgsl_gmu_isenabled(device) || !adreno_has_sptprac_gdsc(adreno_dev))
+	if (!gmu_core_isenabled(device) || !adreno_has_sptprac_gdsc(adreno_dev))
 		return true;
 
-	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
+	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	return !(val & (SPTPRAC_POWER_OFF | SP_CLK_OFF));
 }
 
@@ -750,15 +801,15 @@ static int a6xx_gmu_gfx_rail_on(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	unsigned int perf_idx = pwr->num_pwrlevels - pwr->default_pwrlevel - 1;
 	uint32_t default_opp = gmu->rpmh_votes.gx_votes[perf_idx];
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
+	gmu_core_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
 			OOB_BOOT_OPTION);
-	kgsl_gmu_regwrite(device, A6XX_GMU_GX_VOTE_IDX,
+	gmu_core_regwrite(device, A6XX_GMU_GX_VOTE_IDX,
 			ARC_VOTE_GET_PRI(default_opp));
-	kgsl_gmu_regwrite(device, A6XX_GMU_MX_VOTE_IDX,
+	gmu_core_regwrite(device, A6XX_GMU_MX_VOTE_IDX,
 			ARC_VOTE_GET_SEC(default_opp));
 
 	return a6xx_gmu_oob_set(adreno_dev, oob_boot_slumber);
@@ -784,24 +835,24 @@ static bool idle_trandition_complete(unsigned int idle_level,
 	return true;
 }
 
-int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
+static int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	unsigned int reg, reg1;
 	unsigned long t;
 	uint64_t ts1, ts2, ts3;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		return 0;
 
 	ts1 = read_AO_counter(device);
 
 	t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
 	do {
-		kgsl_gmu_regread(device,
+		gmu_core_regread(device,
 			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
-		kgsl_gmu_regread(device,
+		gmu_core_regread(device,
 			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
 
 		if (idle_trandition_complete(gmu->idle_level, reg, reg1))
@@ -813,8 +864,8 @@ int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	ts2 = read_AO_counter(device);
 	/* Check one last time */
 
-	kgsl_gmu_regread(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
-	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
+	gmu_core_regread(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
+	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &reg1);
 
 	if (idle_trandition_complete(gmu->idle_level, reg, reg1))
 		return 0;
@@ -826,17 +877,19 @@ int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	return -ETIMEDOUT;
 }
 
-int a6xx_gmu_wait_for_idle(struct adreno_device *adreno_dev)
+/* Bitmask for GPU idle status check */
+#define CXGXCPUBUSYIGNAHB	BIT(30)
+static int a6xx_gmu_wait_for_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	unsigned int status2;
 	uint64_t ts1;
 
 	ts1 = read_AO_counter(device);
 	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
 			0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
-		kgsl_gmu_regread(device,
+		gmu_core_regread(device,
 				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS2, &status2);
 		dev_err(&gmu->pdev->dev,
 				"GMU not idling: status2=0x%x %llx %llx\n",
@@ -856,15 +909,16 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 		unsigned int boot_state)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
+	uint32_t gmu_log_info;
 	int ret;
 	unsigned int chipid = 0;
 
 	switch (boot_state) {
 	case GMU_COLD_BOOT:
 		/* Turn on TCM retention */
-		kgsl_gmu_regwrite(device, A6XX_GMU_GENERAL_7, 1);
+		gmu_core_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
 		if (!test_and_set_bit(GMU_BOOT_INIT_DONE, &gmu->flags))
 			_load_gmu_rpmh_ucode(device);
@@ -895,14 +949,14 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	}
 
 	/* Clear init result to make sure we are getting fresh value */
-	kgsl_gmu_regwrite(device, A6XX_GMU_CM3_FW_INIT_RESULT, 0);
-	kgsl_gmu_regwrite(device, A6XX_GMU_CM3_BOOT_CONFIG, gmu->load_mode);
+	gmu_core_regwrite(device, A6XX_GMU_CM3_FW_INIT_RESULT, 0);
+	gmu_core_regwrite(device, A6XX_GMU_CM3_BOOT_CONFIG, gmu->load_mode);
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_HFI_QTBL_ADDR,
+	gmu_core_regwrite(device, A6XX_GMU_HFI_QTBL_ADDR,
 			mem_addr->gmuaddr);
-	kgsl_gmu_regwrite(device, A6XX_GMU_HFI_QTBL_INFO, 1);
+	gmu_core_regwrite(device, A6XX_GMU_HFI_QTBL_INFO, 1);
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
+	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
 			FENCE_RANGE_MASK);
 
 	/* Pass chipid to GMU FW, must happen before starting GMU */
@@ -918,8 +972,13 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	chipid = chipid | (ADRENO_CHIPID_MINOR(adreno_dev->chipid) << 12)
 			| (ADRENO_CHIPID_PATCH(adreno_dev->chipid) << 8);
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
-	init_gmu_log_base(device);
+	gmu_core_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
+
+	/* Log size is encoded in (number of 4K units - 1) */
+	gmu_log_info = (gmu->gmu_log->gmuaddr & 0xFFFFF000) |
+		((LOGMEM_SIZE/SZ_4K - 1) & 0xFF);
+	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_MSG,
+			gmu_log_info);
 
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(device);
@@ -954,16 +1013,16 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
  * a6xx_gmu_load_firmware() - Load the ucode into the GPMU RAM & PDC/RSC
  * @device: Pointer to KGSL device
  */
-int a6xx_gmu_load_firmware(struct kgsl_device *device)
+static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 {
 	const struct firmware *fw = NULL;
 	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
 	int image_size, ret =  -EINVAL;
 
 	/* there is no GMU */
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu_core_isenabled(device))
 		return 0;
 
 	/* GMU fw already saved and verified so do nothing new */
@@ -1003,16 +1062,16 @@ static int a6xx_llm_glm_handshake(struct kgsl_device *device)
 {
 	unsigned int val;
 	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return 0;
 
-	kgsl_gmu_regread(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, &val);
+	gmu_core_regread(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, &val);
 	if (!(val & A6XX_STATE_OF_CHILD)) {
-		kgsl_gmu_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0, BIT(4));
-		kgsl_gmu_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0,
+		gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0, BIT(4));
+		gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0,
 				A6XX_IDLE_FULL_LLM);
 		if (timed_poll_check(device, A6XX_GMU_LLM_GLM_SLEEP_STATUS,
 				A6XX_IDLE_FULL_ACK, GPU_RESET_TIMEOUT,
@@ -1034,10 +1093,10 @@ static void a6xx_isense_disable(struct kgsl_device *device)
 		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
 
-	kgsl_gmu_regread(device, A6XX_GPU_CS_ENABLE_REG, &val);
+	gmu_core_regread(device, A6XX_GPU_CS_ENABLE_REG, &val);
 	if (val) {
-		kgsl_gmu_regwrite(device, A6XX_GPU_CS_ENABLE_REG, 0);
-		kgsl_gmu_regwrite(device, A6XX_GMU_ISENSE_CTRL, 0);
+		gmu_core_regwrite(device, A6XX_GPU_CS_ENABLE_REG, 0);
+		gmu_core_regwrite(device, A6XX_GMU_ISENSE_CTRL, 0);
 	}
 }
 
@@ -1045,7 +1104,7 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 {
 	/* Max GX clients on A6xx is 2: GMU and KMD */
 	int ret = 0, max_client_num = 2;
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* do it only if LM feature is enabled */
@@ -1099,13 +1158,13 @@ static int a6xx_gmu_notify_slumber(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int bus_level = pwr->pwrlevels[pwr->default_pwrlevel].bus_freq;
 	int perf_idx = gmu->num_gpupwrlevels - pwr->default_pwrlevel - 1;
 	int ret, state;
 
 	/* Disable the power counter so that the GMU is not busy */
-	kgsl_gmu_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0);
+	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0);
 
 	/* Turn off SPTPRAC if we own it */
 	if (gmu->idle_level < GPU_HW_SPTP_PC)
@@ -1121,16 +1180,16 @@ static int a6xx_gmu_notify_slumber(struct kgsl_device *device)
 		goto out;
 	}
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
+	gmu_core_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
 			OOB_SLUMBER_OPTION);
-	kgsl_gmu_regwrite(device, A6XX_GMU_GX_VOTE_IDX, perf_idx);
-	kgsl_gmu_regwrite(device, A6XX_GMU_MX_VOTE_IDX, bus_level);
+	gmu_core_regwrite(device, A6XX_GMU_GX_VOTE_IDX, perf_idx);
+	gmu_core_regwrite(device, A6XX_GMU_MX_VOTE_IDX, bus_level);
 
 	ret = a6xx_gmu_oob_set(adreno_dev, oob_boot_slumber);
 	a6xx_gmu_oob_clear(adreno_dev, oob_boot_slumber);
 
 	if (!ret) {
-		kgsl_gmu_regread(device,
+		gmu_core_regread(device,
 			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &state);
 		if (state != GPU_HW_SLUMBER) {
 			dev_err(&gmu->pdev->dev,
@@ -1142,7 +1201,7 @@ static int a6xx_gmu_notify_slumber(struct kgsl_device *device)
 
 out:
 	/* Make sure the fence is in ALLOW mode */
-	kgsl_gmu_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+	gmu_core_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
 	return ret;
 }
 
@@ -1153,11 +1212,11 @@ out:
  * @arg1: first argument for mode control
  * @arg2: second argument for mode control
  */
-int a6xx_gmu_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
+static int a6xx_gmu_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
 		unsigned int mode, unsigned int arg1, unsigned int arg2)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int ret;
 
 	switch (mode) {
@@ -1215,15 +1274,19 @@ static uint32_t lm_limit(struct adreno_device *adreno_dev)
 void a6xx_gmu_enable_lm(struct kgsl_device *device)
 {
 	int result;
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct device *dev = &gmu->pdev->dev;
 	struct hfi_lmconfig_cmd cmd;
 
-	kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
+			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+		return;
+
+	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
 		GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
-	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
-	kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
+	gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
+	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
 
 	gmu->lm_config = LIMITS_CONFIG(1, 1, 1, 0, 0);
 	gmu->bcl_config = 0;
@@ -1240,5 +1303,142 @@ void a6xx_gmu_enable_lm(struct kgsl_device *device)
 	result = hfi_send_req(gmu, H2F_MSG_LM_CFG, &cmd);
 	if (result)
 		dev_err(dev, "Failure enabling limits management:%d\n", result);
-
 }
+
+static int a6xx_gmu_ifpc_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	unsigned int requested_idle_level;
+
+	if (!gmu_core_isenabled(device) ||
+			!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
+		return -EINVAL;
+
+	if ((val && gmu->idle_level >= GPU_HW_IFPC) ||
+			(!val && gmu->idle_level < GPU_HW_IFPC))
+		return 0;
+
+	if (val)
+		requested_idle_level = GPU_HW_IFPC;
+	else {
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+			requested_idle_level = GPU_HW_SPTP_PC;
+		else
+			requested_idle_level = GPU_HW_ACTIVE;
+	}
+
+	mutex_lock(&device->mutex);
+
+	/* Power down the GPU before changing the idle level */
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	gmu->idle_level = requested_idle_level;
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
+static unsigned int a6xx_gmu_ifpc_show(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	return gmu_core_isenabled(device) && gmu->idle_level  >= GPU_HW_IFPC;
+}
+
+struct gmu_mem_type_desc {
+	struct gmu_memdesc *memdesc;
+	uint32_t type;
+};
+
+static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_gmu *header = (struct kgsl_snapshot_gmu *)buf;
+	struct gmu_mem_type_desc *desc = priv;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+
+	if (priv == NULL)
+		return 0;
+
+	if (remain < desc->memdesc->size + sizeof(*header)) {
+		KGSL_CORE_ERR(
+			"snapshot: Not enough memory for the gmu section %d\n",
+			desc->type);
+		return 0;
+	}
+
+	header->type = desc->type;
+	header->size = desc->memdesc->size;
+
+	/* Just copy the ringbuffer, there are no active IBs */
+	memcpy(data, desc->memdesc->hostptr, desc->memdesc->size);
+
+	return desc->memdesc->size + sizeof(*header);
+}
+
+/*
+ * a6xx_gmu_snapshot() - A6XX GMU snapshot function
+ * @adreno_dev: Device being snapshotted
+ * @snapshot: Pointer to the snapshot instance
+ *
+ * This is where all of the A6XX GMU specific bits and pieces are grabbed
+ * into the snapshot memory
+ */
+void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
+		struct kgsl_snapshot *snapshot)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct gmu_mem_type_desc desc[] = {
+		{gmu->hfi_mem, SNAPSHOT_GMU_HFIMEM},
+		{gmu->gmu_log, SNAPSHOT_GMU_LOG},
+		{gmu->bw_mem, SNAPSHOT_GMU_BWMEM},
+		{gmu->dump_mem, SNAPSHOT_GMU_DUMPMEM} };
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int val, i;
+
+	if (!gmu_core_isenabled(device))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(desc); i++) {
+		if (desc[i].memdesc)
+			kgsl_snapshot_add_section(device,
+					KGSL_SNAPSHOT_SECTION_GMU,
+					snapshot, a6xx_snapshot_gmu_mem,
+					&desc[i]);
+	}
+
+	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
+					ARRAY_SIZE(a6xx_gmu_registers) / 2);
+
+	if (gpudev->gx_is_on(adreno_dev)) {
+		/* Set fence to ALLOW mode so registers can be read */
+		kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
+
+		KGSL_DRV_ERR(device, "set FENCE to ALLOW mode:%x\n", val);
+		adreno_snapshot_registers(device, snapshot,
+				a6xx_gmu_gx_registers,
+				ARRAY_SIZE(a6xx_gmu_gx_registers) / 2);
+	}
+}
+
+struct gmu_dev_ops adreno_a6xx_gmudev = {
+	.load_firmware = a6xx_gmu_load_firmware,
+	.oob_set = a6xx_gmu_oob_set,
+	.oob_clear = a6xx_gmu_oob_clear,
+	.hfi_start_msg = a6xx_gmu_hfi_start_msg,
+	.enable_lm = a6xx_gmu_enable_lm,
+	.rpmh_gpu_pwrctrl = a6xx_gmu_rpmh_gpu_pwrctrl,
+	.wait_for_lowest_idle = a6xx_gmu_wait_for_lowest_idle,
+	.wait_for_gmu_idle = a6xx_gmu_wait_for_idle,
+	.sptprac_enable  = a6xx_gmu_sptprac_enable,
+	.sptprac_disable = a6xx_gmu_sptprac_disable,
+	.ifpc_store = a6xx_gmu_ifpc_store,
+	.ifpc_show = a6xx_gmu_ifpc_show,
+	.snapshot = a6xx_gmu_snapshot,
+};

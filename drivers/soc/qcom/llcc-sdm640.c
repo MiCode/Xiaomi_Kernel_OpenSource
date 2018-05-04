@@ -57,14 +57,9 @@
 	}
 
 static struct llcc_slice_config sdm640_data[] =  {
-	SCT_ENTRY("cpuss",       1, 1, 256, 1, 0, 0x3, 0x0, 0, 0, 0, 1, 1),
-	SCT_ENTRY("rotator",     4, 4, 256, 2, 1, 0x3, 0x0, 2, 0, 0, 1, 0),
-	SCT_ENTRY("voice",       5, 5, 256, 1, 0, 0x3, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("audio",       6, 6, 256, 1, 0, 0x3, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modem",       8, 8, 256, 1, 0, 0x3, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("gpu",         12, 12, 0, 1, 0, 0x3, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("mmuhwt",      13, 13, 256, 1, 0, 0x3, 0x0, 0, 0, 0, 0, 1),
-	SCT_ENTRY("audiohw",     22, 22, 256, 1, 1, 0x3, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("cpuss",       1, 1, 256, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 1),
+	SCT_ENTRY("modem",       8, 8, 256, 1, 0, 0xF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("mmuhwt",      13, 13, 256, 1, 0, 0xF, 0x0, 0, 0, 0, 0, 1),
 };
 
 static int sdm640_qcom_llcc_probe(struct platform_device *pdev)

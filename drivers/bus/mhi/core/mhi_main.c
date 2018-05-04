@@ -1385,7 +1385,7 @@ int mhi_prepare_for_transfer(struct mhi_device *mhi_dev)
 	struct mhi_chan *mhi_chan;
 
 	for (dir = 0; dir < 2; dir++) {
-		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+		mhi_chan = dir ? mhi_dev->dl_chan : mhi_dev->ul_chan;
 
 		if (!mhi_chan)
 			continue;
@@ -1402,7 +1402,7 @@ int mhi_prepare_for_transfer(struct mhi_device *mhi_dev)
 
 error_open_chan:
 	for (--dir; dir >= 0; dir--) {
-		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+		mhi_chan = dir ? mhi_dev->dl_chan : mhi_dev->ul_chan;
 
 		if (!mhi_chan)
 			continue;
