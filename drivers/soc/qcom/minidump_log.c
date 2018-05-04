@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@ static void __init register_log_buf(void)
 static void register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size,
 				 u32 cpu)
 {
-	struct page *sp_page = vmalloc_to_page((const void *) sp);
+	struct page *sp_page;
 	struct vm_struct *stack_vm_area = task_stack_vm_area(current);
 
 	ksp_entry->virt_addr = sp;
@@ -92,16 +92,43 @@ static void __init register_kernel_sections(void)
 	}
 }
 
+static inline bool in_stack_range(u64 sp, u64 base_addr, unsigned int
+				  stack_size)
+{
+	u64 min_addr = base_addr;
+	u64 max_addr = base_addr + stack_size;
+
+	return (min_addr <= sp && sp < max_addr);
+}
+
+static unsigned int calculate_copy_pages(u64 sp, struct vm_struct *stack_area)
+{
+	u64 tsk_stack_base = (u64) stack_area->addr;
+	u64 offset;
+	unsigned int stack_pages, copy_pages;
+
+	if (in_stack_range(sp, tsk_stack_base, get_vm_area_size(stack_area))) {
+		offset = sp - tsk_stack_base;
+		stack_pages = get_vm_area_size(stack_area) / PAGE_SIZE;
+		copy_pages = stack_pages - (offset / PAGE_SIZE);
+	} else {
+		copy_pages = 0;
+	}
+	return copy_pages;
+}
+
 void dump_stack_minidump(u64 sp)
 {
 	struct md_region ksp_entry, ktsk_entry;
 	u32 cpu = smp_processor_id();
 	struct vm_struct *stack_vm_area;
-	unsigned int stack_pages, i, copy_pages;
-	u64 base_addr;
+	unsigned int i, copy_pages;
 
 	if (is_idle_task(current))
 		return;
+
+	if (sp < KIMAGE_VADDR || sp > -256UL)
+		sp = current_stack_pointer;
 
 	/*
 	 * Since stacks are now allocated with vmalloc, the translation to
@@ -113,18 +140,16 @@ void dump_stack_minidump(u64 sp)
 	 */
 	stack_vm_area = task_stack_vm_area(current);
 	if (stack_vm_area) {
-		sp = PAGE_ALIGN(sp);
-		scnprintf(ksp_entry.name, sizeof(ksp_entry.name), "KSTACK%d",
-			  cpu);
-		base_addr = (u64) stack_vm_area->addr;
-		stack_pages = get_vm_area_size(stack_vm_area) >> PAGE_SHIFT;
-		copy_pages = stack_pages - ((sp - base_addr) / PAGE_SIZE);
+		sp &= ~(PAGE_SIZE - 1);
+		copy_pages = calculate_copy_pages(sp, stack_vm_area);
 		for (i = 0; i < copy_pages; i++) {
+			scnprintf(ksp_entry.name, sizeof(ksp_entry.name),
+				  "KSTACK%d_%d", cpu, i);
 			register_stack_entry(&ksp_entry, sp, PAGE_SIZE, cpu);
 			sp += PAGE_SIZE;
 		}
 	} else {
-		sp &= (THREAD_SIZE - 1);
+		sp &= ~(THREAD_SIZE - 1);
 		scnprintf(ksp_entry.name, sizeof(ksp_entry.name), "KSTACK%d",
 			  cpu);
 		register_stack_entry(&ksp_entry, sp, THREAD_SIZE, cpu);
