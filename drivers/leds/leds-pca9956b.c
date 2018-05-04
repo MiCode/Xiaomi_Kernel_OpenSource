@@ -42,7 +42,6 @@ struct pca9956b_led {
 	char	name[32];
 };
 
-static struct class *nxp_ledseg_class;
 static struct device *pca9956b_dev;
 
 /*
@@ -101,6 +100,7 @@ static int pca9956b_readWrite_reg(struct pca9956b_chip *chip,
 		dev_err(&chip->client->dev,
 			"[%s]: Unable to write %s , value = 0x%x\n",
 			__func__, readStr, reg_value);
+		mutex_unlock(&chip->lock);
 		return ret;
 	}
 
@@ -424,6 +424,7 @@ static int pca9956b_probe(struct i2c_client *client,
 	struct pca9956b_chip *chip;
 	struct pca9956b_led *led;
 	int ret;
+	int i;
 
 	pr_info(DRIVER_NAME": "" (I2C) "DRIVER_VERSION"\n");
 
@@ -457,7 +458,7 @@ static int pca9956b_probe(struct i2c_client *client,
 	/* Configuration setup */
 	ret = pca9956b_setup(chip);
 	if (ret < 0)
-		goto exit;
+		goto err_setup;
 
 	pca9956b_dev = &client->dev;
 
@@ -465,17 +466,18 @@ static int pca9956b_probe(struct i2c_client *client,
 	if (ret) {
 		dev_err(&client->dev,
 				"Failed to create sysfs group for pca9956b\n");
-		goto err_sysfs;
+		goto err_setup;
 	}
 
 	return 0;
 
-err_sysfs:
-	class_unregister(nxp_ledseg_class);
-	class_destroy(nxp_ledseg_class);
+err_setup:
+	for (i = 0; i < PCA9956B_LED_NUM; i++)
+		led_classdev_unregister(&chip->leds[i].led_cdev);
 exit:
-	devm_kfree(&client->dev, chip);
+	mutex_destroy(&chip->lock);
 	devm_kfree(&client->dev, chip->leds);
+	devm_kfree(&client->dev, chip);
 	return ret;
 }
 
@@ -488,10 +490,9 @@ static int pca9956b_remove(struct i2c_client *client)
 		led_classdev_unregister(&dev->leds[i].led_cdev);
 
 	sysfs_remove_group(&pca9956b_dev->kobj, &attr_group);
-	class_unregister(nxp_ledseg_class);
-	class_destroy(nxp_ledseg_class);
 
 	mutex_destroy(&dev->lock);
+	devm_kfree(&client->dev, dev->leds);
 	devm_kfree(&client->dev, dev);
 	return 0;
 }
