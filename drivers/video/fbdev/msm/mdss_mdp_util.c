@@ -31,6 +31,7 @@
 #include "mdss_panel.h"
 
 #define PHY_ADDR_4G (1ULL<<32)
+#define ALIGN_UP(x, align) ((DIV_ROUND_UP((x), (align))) * (align))
 
 void mdss_mdp_format_flag_removal(u32 *table, u32 num, u32 remove_bits)
 {
@@ -451,13 +452,13 @@ static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
 		}
 
 		/* Y bitstream stride and plane size */
-		ps->ystride[0] = ALIGN(width, y_stride_alignment);
+		ps->ystride[0] = ALIGN_UP(width, y_stride_alignment);
 		ps->ystride[0] = (ps->ystride[0] * y_bpp_numer) / y_bpp_denom;
 		ps->plane_size[0] = ALIGN(ps->ystride[0] *
 			ALIGN(height, y_height_alignment), 4096);
 
 		/* CbCr bitstream stride and plane size */
-		ps->ystride[1] = ALIGN(width / 2, uv_stride_alignment);
+		ps->ystride[1] = ALIGN_UP(width / 2, uv_stride_alignment);
 		ps->ystride[1] = (ps->ystride[1] * uv_bpp_numer) / uv_bpp_denom;
 		ps->plane_size[1] = ALIGN(ps->ystride[1] *
 			ALIGN(height / 2, uv_height_alignment), 4096);
