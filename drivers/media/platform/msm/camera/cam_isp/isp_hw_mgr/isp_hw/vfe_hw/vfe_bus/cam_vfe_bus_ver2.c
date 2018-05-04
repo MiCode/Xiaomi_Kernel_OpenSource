@@ -876,33 +876,15 @@ static int cam_vfe_bus_acquire_wm(
 			rsrc_data->stride = rsrc_data->width;
 			break;
 		case CAM_FORMAT_PLAIN16_10:
+		case CAM_FORMAT_PLAIN16_12:
+		case CAM_FORMAT_PLAIN16_14:
+		case CAM_FORMAT_PLAIN16_16:
+		case CAM_FORMAT_PLAIN32_20:
 			rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
 			rsrc_data->height = 0;
 			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
 			rsrc_data->pack_fmt = 0x0;
 			rsrc_data->en_cfg = 0x3;
-			break;
-		case CAM_FORMAT_PLAIN16_12:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x3;
-			rsrc_data->width = rsrc_data->width * 2;
-			rsrc_data->stride = rsrc_data->width;
-			break;
-		case CAM_FORMAT_PLAIN16_14:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x4;
-			rsrc_data->width = rsrc_data->width * 2;
-			rsrc_data->stride = rsrc_data->width;
-			break;
-		case CAM_FORMAT_PLAIN16_16:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x5;
-			rsrc_data->width = rsrc_data->width * 2;
-			rsrc_data->stride = rsrc_data->width;
-			break;
-		case CAM_FORMAT_PLAIN32_20:
-			rsrc_data->en_cfg = 0x1;
-			rsrc_data->pack_fmt = 0x9;
 			break;
 		case CAM_FORMAT_PLAIN64:
 			rsrc_data->en_cfg = 0x1;

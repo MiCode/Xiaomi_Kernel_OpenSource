@@ -230,7 +230,7 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 					traverse_data->in_q, curr_idx);
 				apply_data[tbl->pd].idx = curr_idx;
 
-				CAM_DBG(CAM_CRM, "req_id: %d with pd of %d",
+				CAM_DBG(CAM_CRM, "req_id: %lld with pd of %d",
 				apply_data[tbl->pd].req_id,
 				apply_data[tbl->pd].pd);
 				/*
@@ -248,6 +248,11 @@ static int __cam_req_mgr_traverse(struct cam_req_mgr_traverse *traverse_data)
 		}
 	} else {
 		/* This pd table is not ready to proceed with asked idx */
+		CAM_INFO(CAM_CRM,
+			"Skip Frame: req: %lld not ready pd: %d open_req count: %d",
+			CRM_GET_REQ_ID(traverse_data->in_q, curr_idx),
+			tbl->pd,
+			traverse_data->open_req_cnt);
 		SET_FAILURE_BIT(traverse_data->result, tbl->pd);
 		return -EAGAIN;
 	}
@@ -450,6 +455,9 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 				rc = dev->ops->apply_req(&apply_req);
 				if (rc < 0)
 					break;
+
+				if (pd == link->max_delay)
+					link->open_req_cnt--;
 			}
 		}
 	}
@@ -460,6 +468,7 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 		for (; i >= 0; i--) {
 			dev = &link->l_dev[i];
 			evt_data.evt_type = CAM_REQ_MGR_LINK_EVT_ERR;
+			evt_data.dev_hdl = dev->dev_hdl;
 			evt_data.link_hdl =  link->link_hdl;
 			evt_data.req_id = apply_req.request_id;
 			evt_data.u.error = CRM_KMD_ERR_BUBBLE;
@@ -509,6 +518,7 @@ static int __cam_req_mgr_check_link_is_ready(struct cam_req_mgr_core_link *link,
 	traverse_data.result = 0;
 	traverse_data.validate_only = validate_only;
 	traverse_data.self_link = self_link;
+	traverse_data.open_req_cnt = link->open_req_cnt;
 	/*
 	 *  Traverse through all pd tables, if result is success,
 	 *  apply the settings
@@ -1513,6 +1523,7 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 	slot->sync_mode = sched_req->sync_mode;
 	slot->skip_idx = 0;
 	slot->recover = sched_req->bubble_enable;
+	link->open_req_cnt++;
 	__cam_req_mgr_inc_idx(&in_q->wr_idx, 1, in_q->num_slots);
 	mutex_unlock(&link->req.lock);
 

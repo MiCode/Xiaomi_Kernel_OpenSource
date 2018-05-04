@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1562,6 +1562,18 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 
 	/* if this interrupts a previous exchange, abort queued response */
 	if (cmd_type == SVDM_CMD_TYPE_INITIATOR && pd->vdm_tx) {
+		/*
+		 * Drop ATTENTION command unless atleast one SVID handler is
+		 * discovered/connected.
+		 */
+		if (cmd == USBPD_SVDM_ATTENTION && handler &&
+						!handler->discovered) {
+			usbpd_dbg(&pd->dev, "Send vdm command again queued SVDM tx (SVID:0x%04x)\n",
+				VDM_HDR_SVID(pd->vdm_tx->data[0]));
+			kick_sm(pd, 0);
+			return;
+		}
+
 		usbpd_dbg(&pd->dev, "Discarding previously queued SVDM tx (SVID:0x%04x)\n",
 				VDM_HDR_SVID(pd->vdm_tx->data[0]));
 
@@ -1818,6 +1830,7 @@ static void reset_vdm_state(struct usbpd *pd)
 	pd->num_svids = 0;
 	kfree(pd->vdm_tx);
 	pd->vdm_tx = NULL;
+	pd->ss_lane_svid = 0x0;
 }
 
 static void dr_swap(struct usbpd *pd)

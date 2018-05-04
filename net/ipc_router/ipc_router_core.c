@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -277,7 +277,7 @@ static u32 ipc_router_calc_checksum(union rr_control_msg *msg)
  */
 static void skb_copy_to_log_buf(struct sk_buff_head *skb_head,
 				unsigned int pl_len, unsigned int hdr_offset,
-				u64 *log_buf)
+				unsigned char *log_buf)
 {
 	struct sk_buff *temp_skb;
 	unsigned int copied_len = 0, copy_len = 0;
@@ -356,7 +356,8 @@ static void ipc_router_log_msg(void *log_ctx, u32 xchng_type,
 			else if (hdr->version == IPC_ROUTER_V2)
 				hdr_offset = sizeof(struct rr_header_v2);
 		}
-		skb_copy_to_log_buf(skb_head, buf_len, hdr_offset, &pl_buf);
+		skb_copy_to_log_buf(skb_head, buf_len, hdr_offset,
+				    (unsigned char *)&pl_buf);
 
 		if (port_ptr && rport_ptr && (port_ptr->type == CLIENT_PORT) &&
 		    rport_ptr->server) {

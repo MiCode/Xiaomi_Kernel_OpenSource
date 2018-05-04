@@ -1407,6 +1407,7 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 	struct sde_rm_hw_iter iter_c;
 	int index = 0, ctl_top_cnt;
 	struct sde_kms *sde_kms = NULL;
+	struct sde_hw_mdp *hw_mdp;
 
 	if (!priv || !rm || !cat || !splash_data) {
 		SDE_ERROR("invalid input parameters\n");
@@ -1462,9 +1463,16 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 				sde_kms,
 				cat->dsc_count,
 				splash_data->dsc_ids);
-	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d\n",
+
+	hw_mdp = sde_rm_get_mdp(rm);
+	if (hw_mdp && hw_mdp->ops.get_split_flush_status) {
+		splash_data->single_flush_en =
+			hw_mdp->ops.get_split_flush_status(hw_mdp);
+	}
+
+	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d sf=%d\n",
 		splash_data->ctl_top_cnt, splash_data->lm_cnt,
-		splash_data->dsc_cnt);
+		splash_data->dsc_cnt, splash_data->single_flush_en);
 
 	return 0;
 }

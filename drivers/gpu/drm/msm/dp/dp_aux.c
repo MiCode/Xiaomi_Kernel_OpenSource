@@ -444,7 +444,7 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 	}
 
 	ret = dp_aux_cmd_fifo_tx(aux, msg);
-	if ((ret < 0) && aux->native && !atomic_read(&aux->aborted)) {
+	if ((ret < 0) && !atomic_read(&aux->aborted)) {
 		aux->retry_cnt++;
 		if (!(aux->retry_cnt % retry_count))
 			aux->catalog->update_aux_cfg(aux->catalog,

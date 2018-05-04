@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1496,6 +1496,29 @@ static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
 	return ret;
 }
 
+static int _sde_encoder_switch_to_watchdog_vsync(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct msm_display_info disp_info;
+
+	if (!drm_enc) {
+		pr_err("invalid drm encoder\n");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	sde_encoder_control_te(drm_enc, false);
+
+	memcpy(&disp_info, &sde_enc->disp_info, sizeof(disp_info));
+	disp_info.is_te_using_watchdog_timer = true;
+	_sde_encoder_update_vsync_source(sde_enc, &disp_info, false);
+
+	sde_encoder_control_te(drm_enc, true);
+
+	return 0;
+}
+
 static int _sde_encoder_update_rsc_client(
 		struct drm_encoder *drm_enc,
 		struct sde_encoder_rsc_config *config, bool enable)
@@ -1635,7 +1658,12 @@ static int _sde_encoder_update_rsc_client(
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
 					"wait for vblank failed ret:%d\n", ret);
-			break;
+			/**
+			 * rsc hardware may hang without vsync. avoid rsc hang
+			 * by generating the vsync from watchdog timer.
+			 */
+			if (crtc->base.id == wait_vblank_crtc_id)
+				_sde_encoder_switch_to_watchdog_vsync(drm_enc);
 		}
 	}
 
@@ -2584,8 +2612,11 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_STOP);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		if (sde_enc->phys_encs[i])
+		if (sde_enc->phys_encs[i]) {
+			sde_enc->phys_encs[i]->cont_splash_settings = false;
+			sde_enc->phys_encs[i]->cont_splash_single_flush = 0;
 			sde_enc->phys_encs[i]->connector = NULL;
+		}
 	}
 
 	sde_enc->cur_master = NULL;
@@ -4515,15 +4546,33 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 			return -EINVAL;
 		}
 
+		/* update connector for master and slave phys encoders */
+		phys->connector = conn;
+		phys->cont_splash_single_flush =
+			sde_kms->splash_data.single_flush_en;
+		phys->cont_splash_settings = true;
+
 		phys->hw_pp = sde_enc->hw_pp[i];
 		if (phys->ops.cont_splash_mode_set)
 			phys->ops.cont_splash_mode_set(phys, drm_mode);
 
-		if (phys->ops.is_master && phys->ops.is_master(phys)) {
-			phys->connector = conn;
+		if (phys->ops.is_master && phys->ops.is_master(phys))
 			sde_enc->cur_master = phys;
-		}
 	}
 
 	return ret;
+}
+
+int sde_encoder_display_failure_notification(struct drm_encoder *enc)
+{
+	/**
+	 * panel may stop generating te signal (vsync) during esd failure. rsc
+	 * hardware may hang without vsync. Avoid rsc hang by generating the
+	 * vsync from watchdog timer instead of panel.
+	 */
+	_sde_encoder_switch_to_watchdog_vsync(enc);
+
+	sde_encoder_wait_for_event(enc, MSM_ENC_TX_COMPLETE);
+
+	return 0;
 }

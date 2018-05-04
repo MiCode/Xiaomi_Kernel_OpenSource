@@ -2586,7 +2586,7 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {
 	struct dsi_display *display = to_dsi_display(host);
-	int rc = 0;
+	int rc = 0, ret = 0;
 
 	if (!host || !msg) {
 		pr_err("Invalid params\n");
@@ -2644,13 +2644,17 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 	}
 
 error_disable_cmd_engine:
-	(void)dsi_display_cmd_engine_disable(display);
+	ret = dsi_display_cmd_engine_disable(display);
+	if (ret) {
+		pr_err("[%s]failed to disable DSI cmd engine, rc=%d\n",
+				display->name, ret);
+	}
 error_disable_clks:
-	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+	ret = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_ALL_CLKS, DSI_CLK_OFF);
-	if (rc) {
+	if (ret) {
 		pr_err("[%s] failed to disable all DSI clocks, rc=%d\n",
-		       display->name, rc);
+		       display->name, ret);
 	}
 error:
 	return rc;

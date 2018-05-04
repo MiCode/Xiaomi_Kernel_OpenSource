@@ -352,7 +352,7 @@ static int mem_share_do_ramdump(void)
 static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 					void *_cmd)
 {
-	int i, ret;
+	int i, ret, size = 0;
 	u32 source_vmlist[1] = {VMID_MSS_MSA};
 	int dest_vmids[1] = {VMID_HLOS};
 	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
@@ -393,6 +393,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	case SUBSYS_AFTER_POWERUP:
 		pr_debug("memshare: Modem has booted up\n");
 		for (i = 0; i < MAX_CLIENTS; i++) {
+			size = memblock[i].size;
 			if (memblock[i].free_memory > 0 &&
 					bootup_request >= 2) {
 				memblock[i].free_memory -= 1;
@@ -430,9 +431,18 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 						memblock[i].hyp_mapping = 0;
 					}
 				}
+				if (memblock[i].client_id == 1) {
+					/*
+					 *	Check if the client id
+					 *	is of diag so that free
+					 *	the memory region of
+					 *	client's size + guard
+					 *	bytes of 4K.
+					 */
+					size += MEMSHARE_GUARD_BYTES;
+				}
 				dma_free_attrs(memsh_drv->dev,
-					memblock[i].size,
-					memblock[i].virtual_addr,
+					size, memblock[i].virtual_addr,
 					memblock[i].phy_addr,
 					attrs);
 				free_client(i);
@@ -635,7 +645,7 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 {
 	struct mem_free_generic_req_msg_v01 *free_req;
 	struct mem_free_generic_resp_msg_v01 free_resp;
-	int rc, flag = 0, ret = 0;
+	int rc, flag = 0, ret = 0, size = 0;
 	uint32_t client_id;
 	u32 source_vmlist[1] = {VMID_MSS_MSA};
 	int dest_vmids[1] = {VMID_HLOS};
@@ -669,7 +679,18 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 			pr_err("memshare: %s, failed to unmap the region\n",
 				__func__);
 		}
-		dma_free_attrs(memsh_drv->dev, memblock[client_id].size,
+		size = memblock[client_id].size;
+		if (memblock[client_id].client_id == 1) {
+			/*
+			 *	Check if the client id
+			 *	is of diag so that free
+			 *	the memory region of
+			 *	client's size + guard
+			 *	bytes of 4K.
+			 */
+			size += MEMSHARE_GUARD_BYTES;
+		}
+		dma_free_attrs(memsh_drv->dev, size,
 			memblock[client_id].virtual_addr,
 			memblock[client_id].phy_addr,
 			attrs);

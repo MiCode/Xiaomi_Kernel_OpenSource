@@ -6826,6 +6826,39 @@ is_packing_eligible(struct task_struct *p, unsigned long task_util,
 	return cpu_cap_idx_pack == cpu_cap_idx_spread;
 }
 
+#define SCHED_SELECT_PREV_CPU_NSEC	2000000
+#define SCHED_FORCE_CPU_SELECTION_NSEC	20000000
+
+static inline bool
+bias_to_prev_cpu(struct task_struct *p, struct cpumask *rtg_target)
+{
+	int prev_cpu = task_cpu(p);
+#ifdef CONFIG_SCHED_WALT
+	u64 ms = p->ravg.mark_start;
+#else
+	u64 ms = sched_clock();
+#endif
+
+	if (cpu_isolated(prev_cpu) || !idle_cpu(prev_cpu))
+		return false;
+
+	if (!ms)
+		return false;
+
+	if (ms - p->last_cpu_selected_ts >= SCHED_SELECT_PREV_CPU_NSEC) {
+		p->last_cpu_selected_ts = ms;
+		return false;
+	}
+
+	if (ms - p->last_sleep_ts >= SCHED_SELECT_PREV_CPU_NSEC)
+		return false;
+
+	if (rtg_target && !cpumask_test_cpu(prev_cpu, rtg_target))
+		return false;
+
+	return true;
+}
+
 unsigned int sched_smp_overlap_capacity = SCHED_CAPACITY_SCALE;
 
 static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
@@ -6885,6 +6918,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 					task_util(p), cpu, cpu, 0, need_idle);
 		return cpu;
 	}
+
+	if (bias_to_prev_cpu(p, rtg_target))
+		return prev_cpu;
 
 	task_util_boosted = boosted_task_util(p);
 	if (sysctl_sched_is_big_little) {
