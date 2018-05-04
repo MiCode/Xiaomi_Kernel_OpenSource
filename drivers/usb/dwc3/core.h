@@ -222,6 +222,9 @@
 /* Global User Control 1 Register */
 #define DWC3_GUCTL1_DEV_L1_EXIT_BY_HW	(1 << 24)
 
+/* Global User Control 2 Register */
+#define DWC3_GUCTL2_ENABLE_EP_CACHE_EVICT	(1 << 12)
+
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST	(1 << 31)
 #define DWC3_GUSB2PHYCFG_ENBLSLPM	(1 << 8)
