@@ -153,7 +153,7 @@ int fg_get_sram_prop(struct fg_dev *fg, enum fg_sram_param_id id,
 		return -EINVAL;
 
 	if (fg->battery_missing)
-		return -ENODATA;
+		return 0;
 
 	rc = fg_sram_read(fg, fg->sp[id].addr_word, fg->sp[id].addr_byte,
 		buf, fg->sp[id].len, FG_IMA_DEFAULT);
@@ -515,7 +515,7 @@ int fg_sram_write(struct fg_dev *fg, u16 address, u8 offset,
 		return -ENXIO;
 
 	if (fg->battery_missing)
-		return -ENODATA;
+		return 0;
 
 	if (!fg_sram_address_valid(fg, address, len))
 		return -EFAULT;
@@ -598,7 +598,7 @@ int fg_sram_read(struct fg_dev *fg, u16 address, u8 offset,
 		return -ENXIO;
 
 	if (fg->battery_missing)
-		return -ENODATA;
+		return 0;
 
 	if (!fg_sram_address_valid(fg, address, len))
 		return -EFAULT;
