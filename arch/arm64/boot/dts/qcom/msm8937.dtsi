@@ -1101,6 +1101,94 @@
 		};
 	};
 
+	jtag_mm0: jtagmm@61bc000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bc000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm1: jtagmm@61bd000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bd000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+
+		clocks = <&clock_gcc clk_qdss_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm2: jtagmm@61be000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61be000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+
+		clocks = <&clock_gcc clk_qdss_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm3: jtagmm@61bf000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bf000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+
+		clocks = <&clock_gcc clk_qdss_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm4: jtagmm@619c000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x619c000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU4>;
+
+		clocks = <&clock_gcc clk_qdss_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm5: jtagmm@619d000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x619d000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU5>;
+
+		clocks = <&clock_gcc clk_qdss_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm6: jtagmm@619e000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x619e000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU6>;
+
+		clocks = <&clock_gcc clk_qdss_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm7: jtagmm@619f000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x619f000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU7>;
+
+		clocks = <&clock_gcc clk_qdss_clk>;
+		clock-names = "core_clk";
+	};
+
 	qcom,smdtty {
 		compatible = "qcom,smdtty";
 
