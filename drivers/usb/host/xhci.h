@@ -1519,8 +1519,6 @@ struct xhci_hcd {
 	/* secondary interrupter */
 	struct	xhci_intr_reg __iomem **sec_ir_set;
 
-	int		core_id;
-
 	/* Cached register copies of read-only HC data */
 	__u32		hcs_params1;
 	__u32		hcs_params2;
