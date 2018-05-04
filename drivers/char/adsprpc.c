@@ -1236,6 +1236,25 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 
 }
 
+
+static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
+{
+	struct smq_invoke_ctx *ictx;
+	struct hlist_node *n;
+
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
+		if (ictx->msg.pid)
+			complete(&ictx->work);
+	}
+	hlist_for_each_entry_safe(ictx, n, &me->clst.interrupted, hn) {
+		if (ictx->msg.pid)
+			complete(&ictx->work);
+	}
+	spin_unlock(&me->hlock);
+}
+
+
 static void fastrpc_notify_drivers(struct fastrpc_apps *me, int cid)
 {
 	struct fastrpc_file *fl;
@@ -1258,7 +1277,7 @@ static void fastrpc_notify_pdr_drivers(struct fastrpc_apps *me, char *spdname)
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (fl->spdname && !strcmp(spdname, fl->spdname))
-			fastrpc_notify_users(fl);
+			fastrpc_notify_users_staticpd_pdr(fl);
 	}
 	spin_unlock(&me->hlock);
 
