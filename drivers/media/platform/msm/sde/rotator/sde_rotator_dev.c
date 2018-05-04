@@ -1094,6 +1094,7 @@ error_m2m_init:
 	mutex_unlock(&rot_dev->lock);
 error_lock:
 	kfree(ctx);
+	ctx = NULL;
 	return ERR_PTR(ret);
 }
 
@@ -1106,9 +1107,17 @@ error_lock:
 static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 		struct file *file)
 {
-	struct sde_rotator_device *rot_dev = ctx->rot_dev;
-	u32 session_id = ctx->session_id;
+	struct sde_rotator_device *rot_dev;
+	u32 session_id;
 	struct list_head *curr, *next;
+
+	if (!ctx) {
+		SDEROT_DBG("ctx is NULL\n");
+		return -EINVAL;
+	}
+
+	rot_dev = ctx->rot_dev;
+	session_id = ctx->session_id;
 
 	ATRACE_END(ctx->kobj.name);
 
