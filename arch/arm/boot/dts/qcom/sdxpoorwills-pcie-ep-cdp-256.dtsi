@@ -25,6 +25,10 @@
 	status = "okay";
 };
 
+&ipa_hw {
+	qcom,use-ipa-in-mhi-mode;
+};
+
 &pcie0 {
 	status = "disabled";
 };
