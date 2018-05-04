@@ -1027,4 +1027,13 @@ config REFCOUNT_FULL
 	  against various use-after-free conditions that can be used in
 	  security flaw exploits.
 
+config PANIC_ON_REFCOUNT_ERROR
+	bool "Kernel panic on refcount error detection"
+	depends on REFCOUNT_FULL
+	help
+	  If enabled, the kernel will panic when the refcount library
+	  has detected any type of error (e.g. potential use-after-free
+	  or potential memory-leaks) with an object associated with that
+	  reference counter.
+
 source "kernel/gcov/Kconfig"
