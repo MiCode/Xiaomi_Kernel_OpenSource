@@ -1377,6 +1377,14 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32);
 		break;
 	}
+	case HAL_PARAM_VENC_ADAPTIVE_B:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_ADAPTIVE_B,
+			((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(struct hfi_enable);
+		break;
+	}
 	case HAL_PARAM_VDEC_CONCEAL_COLOR:
 	{
 		struct hfi_conceal_color *hfi;

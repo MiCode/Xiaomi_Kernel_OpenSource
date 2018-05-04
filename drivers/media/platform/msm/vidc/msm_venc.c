@@ -292,6 +292,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_ADAPTIVE_B,
+		.name = "Adaptive B frames",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
+		.default_value = V4L2_MPEG_MSM_VIDC_ENABLE,
+		.step = 1,
+	},
+	{
 		.id = V4L2_CID_MIN_BUFFERS_FOR_CAPTURE,
 		.name = "CAPTURE Count",
 		.type = V4L2_CTRL_TYPE_INTEGER,
@@ -1307,6 +1316,11 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &intra_period;
 		break;
 	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_ADAPTIVE_B:
+		property_id = HAL_PARAM_VENC_ADAPTIVE_B;
+		enable.enable = ctrl->val;
+		pdata = &enable;
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_IFRAME:
 		property_id = HAL_CONFIG_VENC_REQUEST_IFRAME;
 		request_iframe.enable = true;
