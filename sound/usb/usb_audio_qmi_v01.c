@@ -1,4 +1,4 @@
- /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -864,24 +864,6 @@ struct elem_info qmi_uaudio_stream_ind_msg_v01_ei[] = {
 		.tlv_type       = 0x18,
 		.offset         = offsetof(struct qmi_uaudio_stream_ind_msg_v01,
 					   interrupter_num),
-	},
-	{
-		.data_type      = QMI_OPT_FLAG,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x19,
-		.offset         = offsetof(struct qmi_uaudio_stream_ind_msg_v01,
-					   controller_num_valid),
-	},
-	{
-		.data_type      = QMI_UNSIGNED_1_BYTE,
-		.elem_len       = 1,
-		.elem_size      = sizeof(uint8_t),
-		.is_array       = NO_ARRAY,
-		.tlv_type       = 0x19,
-		.offset         = offsetof(struct qmi_uaudio_stream_ind_msg_v01,
-					   controller_num),
 	},
 	{
 		.data_type      = QMI_EOTI,
