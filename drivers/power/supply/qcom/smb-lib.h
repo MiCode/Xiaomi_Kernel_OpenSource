@@ -350,6 +350,7 @@ struct smb_charger {
 	u8			float_cfg;
 	bool			use_extcon;
 	bool			otg_present;
+	bool			disable_stat_sw_override;
 
 	/* workaround flag */
 	u32			wa_flags;

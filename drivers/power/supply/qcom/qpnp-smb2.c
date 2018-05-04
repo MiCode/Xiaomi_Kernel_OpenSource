@@ -326,6 +326,9 @@ static int smb2_parse_dt(struct smb2 *chip)
 	if (rc < 0)
 		chg->otg_delay_ms = OTG_DEFAULT_DEGLITCH_TIME_MS;
 
+	chg->disable_stat_sw_override = of_property_read_bool(node,
+					"qcom,disable-stat-sw-override");
+
 	return 0;
 }
 
@@ -1832,6 +1835,16 @@ static int smb2_init_hw(struct smb2 *chip)
 		rc = smblib_disable_hw_jeita(chg, true);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't set hw jeita rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chg->disable_stat_sw_override) {
+		rc = smblib_masked_write(chg, STAT_CFG_REG,
+				STAT_SW_OVERRIDE_CFG_BIT, 0);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't disable STAT SW override rc=%d\n",
+				rc);
 			return rc;
 		}
 	}
