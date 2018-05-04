@@ -1851,10 +1851,12 @@ static void mdss_dsi_parse_dms_config(struct device_node *np,
 		pr_debug("%s: default dms suspend/resume\n", __func__);
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl->video2cmd,
-		"qcom,video-to-cmd-mode-switch-commands", NULL);
+		"qcom,video-to-cmd-mode-switch-commands",
+		"qcom,mode-switch-commands-state");
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl->cmd2video,
-		"qcom,cmd-to-video-mode-switch-commands", NULL);
+		"qcom,cmd-to-video-mode-switch-commands",
+		"qcom,mode-switch-commands-state");
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl->post_dms_on_cmds,
 		"qcom,mdss-dsi-post-mode-switch-on-command",
