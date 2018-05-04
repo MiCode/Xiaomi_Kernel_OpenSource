@@ -195,6 +195,10 @@ Optional properties:
 					"bl_ctrl_wled" = Backlight controlled by WLED.
 					"bl_ctrl_dcs" = Backlight controlled by DCS commands.
 					other: Unknown backlight control. (default)
+- qcom,mdss-dsi-bl-dcs-command-state:	A string that specifies the ctrl state for sending brightness
+					controlling commands, this is only available when backlight is controlled by DCS commands.
+					"dsi_lp_mode" = DSI low power mode (default).
+					"dsi_hs_mode" = DSI high speed mode.
 - qcom,mdss-dsi-bl-pwm-pmi:		Boolean to indicate that PWM control is through second pmic chip.
 - qcom,mdss-dsi-bl-pmic-bank-select:	LPG channel for backlight.
 					Required if blpmiccontroltype is PWM
