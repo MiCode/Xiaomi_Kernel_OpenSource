@@ -96,6 +96,20 @@
 			bias-pull-up;
 		};
 	};
+
+	pca9956b_reset_gpio_on: pca9956b_reset_gpio_on {
+		mux {
+			pins = "gpio35";
+			function = "spare";
+		};
+
+		config {
+			pins = "gpio35";
+			drive-strength = <2>;
+			bias-pull-up;
+			output-high;
+		};
+	};
 };
 
 &soc {
@@ -118,6 +132,30 @@
 			"MIC BIAS3", "Digital Mic3",
 			"SpkrLeft IN", "SPK1 OUT",
 			"SpkrRight IN", "SPK2 OUT";
+	};
+
+	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x78b7000 0x1000>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 97 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-in  = <19200000>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_3_active &pca9956b_reset_gpio_on>;
+		pinctrl-1 = <&i2c_3_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
+			<&dma_blsp1 9  32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
 	};
 
 	i2c@78b8000 {
@@ -370,6 +408,18 @@
 };
 
 &i2c_3 {
+	qcom,actuator@0 {
+		status = "disabled";
+	};
+
+	qcom,eeprom@6c {
+		status = "disabled";
+	};
+
+	led_flash0: qcom,led-flash@60 {
+		status = "disabled";
+	};
+
 	qcom,camera@0 {
 		status = "disabled";
 	};
@@ -379,10 +429,6 @@
 	};
 
 	qcom,camera@42 {
-		status = "disabled";
-	};
-
-	led_flash0: qcom,led-flash@60 {
 		status = "disabled";
 	};
 };
