@@ -1588,8 +1588,9 @@ static int mdss_dsi_parse_topology_config(struct device_node *np,
 				goto end;
 			}
 		}
-		rc = of_property_read_string(cfg_np, "qcom,split-mode", &data);
-		if (!rc && !strcmp(data, "pingpong-split"))
+
+		if (!of_property_read_string(cfg_np, "qcom,split-mode",
+		    &data) && !strcmp(data, "pingpong-split"))
 			pinfo->use_pingpong_split = true;
 
 		if (((timing->lm_widths[0]) || (timing->lm_widths[1])) &&
