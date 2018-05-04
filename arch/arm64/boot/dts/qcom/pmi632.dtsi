@@ -154,6 +154,30 @@
 				qcom,cal-val = <0>;
 			};
 
+			chan@2a {
+				label = "bat_therm_PU30";
+				reg = <0x2a>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <24>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@6a {
+				label = "bat_therm_PU400";
+				reg = <0x6a>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <25>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
 			chan@4b {
 				label = "bat_id";
 				reg = <0x4b>;
