@@ -283,4 +283,17 @@
 	qcom,mdss-dsi-panel-timings-phy-12nm = [18 0a 10 06 03 08 06 0e];
 	qcom,mdss-dsi-t-clk-post = <0x02>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9d 0x9d 0x9d 0x9d>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9d 0x9d 0x9d 0x9d>;
+	qcom,mdss-dsi-panel-status-read-length = <4>;
+	qcom,mdss-dsi-panel-max-error-count = <3>;
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update =
+		"dfps_immediate_porch_mode_vfp";
 };
