@@ -851,7 +851,6 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	path_data->cid = reserve->cid;
 	path_data->in_format = reserve->in_port->format;
 	path_data->out_format = reserve->out_port->format;
-	path_data->master_idx = reserve->master_idx;
 	path_data->sync_mode = reserve->sync_mode;
 	path_data->height  = reserve->in_port->height;
 	path_data->start_line = reserve->in_port->line_start;
@@ -877,9 +876,11 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 		goto end;
 	}
 
-	CAM_DBG(CAM_ISP, "Res id: %d height:%d line_start %d line_stop %d",
+	CAM_DBG(CAM_ISP,
+		"Res id: %d height:%d line_start %d line_stop %d crop_en %d",
 		reserve->res_id, reserve->in_port->height,
-		reserve->in_port->line_start, reserve->in_port->line_stop);
+		reserve->in_port->line_start, reserve->in_port->line_stop,
+		path_data->crop_enable);
 
 	if (reserve->in_port->res_type == CAM_ISP_IFE_IN_RES_TPG) {
 		path_data->dt = CAM_IFE_CSID_TPG_DT_VAL;
@@ -893,20 +894,23 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 		path_data->start_pixel = reserve->in_port->left_start;
 		path_data->end_pixel = reserve->in_port->left_stop;
 		path_data->width  = reserve->in_port->left_width;
-		CAM_DBG(CAM_ISP, "CSID:%dmaster:startpixel 0x%x endpixel:0x%x",
+		CAM_DBG(CAM_ISP, "CSID:%d master:startpixel 0x%x endpixel:0x%x",
 			csid_hw->hw_intf->hw_idx, path_data->start_pixel,
 			path_data->end_pixel);
-		CAM_DBG(CAM_ISP, "CSID:%dmaster:line start:0x%x line end:0x%x",
+		CAM_DBG(CAM_ISP, "CSID:%d master:line start:0x%x line end:0x%x",
 			csid_hw->hw_intf->hw_idx, path_data->start_line,
 			path_data->end_line);
 	} else if (reserve->sync_mode == CAM_ISP_HW_SYNC_SLAVE) {
+		path_data->master_idx = reserve->master_idx;
+		CAM_DBG(CAM_ISP, "CSID:%d master_idx=%d",
+			csid_hw->hw_intf->hw_idx, path_data->master_idx);
 		path_data->start_pixel = reserve->in_port->right_start;
 		path_data->end_pixel = reserve->in_port->right_stop;
 		path_data->width  = reserve->in_port->right_width;
 		CAM_DBG(CAM_ISP, "CSID:%d slave:start:0x%x end:0x%x width 0x%x",
 			csid_hw->hw_intf->hw_idx, path_data->start_pixel,
 			path_data->end_pixel, path_data->width);
-		CAM_DBG(CAM_ISP, "CSID:%dmaster:line start:0x%x line end:0x%x",
+		CAM_DBG(CAM_ISP, "CSID:%d slave:line start:0x%x line end:0x%x",
 			csid_hw->hw_intf->hw_idx, path_data->start_line,
 			path_data->end_line);
 	} else {
@@ -1435,19 +1439,6 @@ static int cam_ife_csid_init_config_ipp_path(
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->ipp_reg->csid_ipp_line_drop_period_addr);
 
-	/*Set master or slave IPP */
-	if (path_data->sync_mode == CAM_ISP_HW_SYNC_MASTER)
-		/*Set halt mode as master */
-		val = CSID_HALT_MODE_MASTER << 2;
-	else if (path_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE)
-		/*Set halt mode as slave and set master idx */
-		val = path_data->master_idx  << 4 | CSID_HALT_MODE_SLAVE << 2;
-	else
-		/* Default is internal halt mode */
-		val = 0;
-
-	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-		csid_reg->ipp_reg->csid_ipp_ctrl_addr);
 
 	/* Enable the IPP path */
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
@@ -1549,19 +1540,31 @@ static int cam_ife_csid_enable_ipp_path(
 
 	CAM_DBG(CAM_ISP, "Enable IPP path");
 
-	/* Resume at frame boundary */
-	if (path_data->sync_mode == CAM_ISP_HW_SYNC_MASTER) {
-		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->ipp_reg->csid_ipp_ctrl_addr);
+
+	/* Set master or slave IPP */
+	if (path_data->sync_mode == CAM_ISP_HW_SYNC_MASTER)
+		/*Set halt mode as master */
+		val = CSID_HALT_MODE_MASTER << 2;
+	else if (path_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE)
+		/*Set halt mode as slave and set master idx */
+		val = path_data->master_idx  << 4 | CSID_HALT_MODE_SLAVE << 2;
+	else
+		/* Default is internal halt mode */
+		val = 0;
+
+	/*
+	 * Resume at frame boundary if Master or No Sync.
+	 * Slave will get resume command from Master.
+	 */
+	if (path_data->sync_mode == CAM_ISP_HW_SYNC_MASTER ||
+		path_data->sync_mode == CAM_ISP_HW_SYNC_NONE)
 		val |= CAM_CSID_RESUME_AT_FRAME_BOUNDARY;
-		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-			csid_reg->ipp_reg->csid_ipp_ctrl_addr);
-	} else if (path_data->sync_mode == CAM_ISP_HW_SYNC_NONE) {
-		cam_io_w_mb(CAM_CSID_RESUME_AT_FRAME_BOUNDARY,
-			soc_info->reg_map[0].mem_base +
-			csid_reg->ipp_reg->csid_ipp_ctrl_addr);
-	}
-	/* for slave mode, not need to resume for slave device */
+
+	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+		csid_reg->ipp_reg->csid_ipp_ctrl_addr);
+
+	CAM_DBG(CAM_ISP, "CSID:%d IPP Ctrl val: 0x%x",
+			csid_hw->hw_intf->hw_idx, val);
 
 	/* Enable the required ipp interrupts */
 	val = CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW;
@@ -1573,6 +1576,7 @@ static int cam_ife_csid_enable_ipp_path(
 
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
+	CAM_DBG(CAM_ISP, "Enable IPP IRQ mask 0x%x", val);
 
 	res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
@@ -2618,38 +2622,46 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOT_IRQ) {
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL0_EOT_CAPTURED) {
-			CAM_ERR(CAM_ISP, "CSID:%d PHY_DL0_EOT_CAPTURED",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PHY_DL0_EOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL1_EOT_CAPTURED) {
-			CAM_ERR(CAM_ISP, "CSID:%d PHY_DL1_EOT_CAPTURED",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PHY_DL1_EOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL2_EOT_CAPTURED) {
-			CAM_ERR(CAM_ISP, "CSID:%d PHY_DL2_EOT_CAPTURED",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PHY_DL2_EOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL3_EOT_CAPTURED) {
-			CAM_ERR(CAM_ISP, "CSID:%d PHY_DL3_EOT_CAPTURED",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PHY_DL3_EOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 	}
 
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOT_IRQ) {
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL0_SOT_CAPTURED) {
-			CAM_ERR(CAM_ISP, "CSID:%d PHY_DL0_SOT_CAPTURED",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PHY_DL0_SOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL1_SOT_CAPTURED) {
-			CAM_ERR(CAM_ISP, "CSID:%d PHY_DL1_SOT_CAPTURED",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PHY_DL1_SOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL2_SOT_CAPTURED) {
-			CAM_ERR(CAM_ISP, "CSID:%d PHY_DL2_SOT_CAPTURED",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PHY_DL2_SOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL3_SOT_CAPTURED) {
-			CAM_ERR(CAM_ISP, "CSID:%d PHY_DL3_SOT_CAPTURED",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PHY_DL3_SOT_CAPTURED",
 				csid_hw->hw_intf->hw_idx);
 		}
 	}
@@ -2709,16 +2721,17 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 
 		if ((irq_status_ipp & CSID_PATH_INFO_INPUT_SOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ))
-			CAM_ERR(CAM_ISP, "CSID:%d IPP SOF received",
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d IPP SOF received",
 				csid_hw->hw_intf->hw_idx);
 
 		if ((irq_status_ipp & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
-			CAM_ERR(CAM_ISP, "CSID:%d IPP EOF received",
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d IPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
 		if (irq_status_ipp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
-			CAM_ERR(CAM_ISP, "CSID:%d IPP fifo over flow",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d IPP fifo over flow",
 				csid_hw->hw_intf->hw_idx);
 			/*Stop IPP path immediately */
 			cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
@@ -2736,14 +2749,17 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 
 		if ((irq_status_rdi[i] & CSID_PATH_INFO_INPUT_SOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ))
-			CAM_ERR(CAM_ISP, "CSID RDI:%d SOF received", i);
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID RDI:%d SOF received", i);
 
 		if ((irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
-			CAM_ERR(CAM_ISP, "CSID RDI:%d EOF received", i);
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID RDI:%d EOF received", i);
 
 		if (irq_status_rdi[i] & CSID_PATH_ERROR_FIFO_OVERFLOW) {
-			CAM_ERR(CAM_ISP, "CSID:%d RDI fifo over flow",
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d RDI fifo over flow",
 				csid_hw->hw_intf->hw_idx);
 			/*Stop RDI path immediately */
 			cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
