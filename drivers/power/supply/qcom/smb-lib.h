@@ -353,6 +353,7 @@ struct smb_charger {
 	bool			use_extcon;
 	bool			otg_present;
 	bool			is_audio_adapter;
+	bool			disable_stat_sw_override;
 
 	/* workaround flag */
 	u32			wa_flags;
