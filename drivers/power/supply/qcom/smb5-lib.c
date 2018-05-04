@@ -1590,7 +1590,7 @@ static int smblib_dm_pulse(struct smb_charger *chg)
 	return rc;
 }
 
-static int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val)
+int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val)
 {
 	int rc;
 
