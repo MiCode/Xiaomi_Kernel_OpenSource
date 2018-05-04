@@ -2278,6 +2278,21 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_NONE:
+			return HAL_INTRA_REFRESH_NONE;
+		case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_CYCLIC:
+			return HAL_INTRA_REFRESH_CYCLIC;
+		case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_RANDOM:
+			return HAL_INTRA_REFRESH_RANDOM;
+		case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_ADAPTIVE:
+			return HAL_INTRA_REFRESH_ADAPTIVE;
+		case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_CYCLIC_ADAPTIVE:
+			return HAL_INTRA_REFRESH_CYCLIC_ADAPTIVE;
+		default:
+			goto unknown_value;
+		}
 	}
 
 unknown_value:
@@ -3138,8 +3153,10 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 
 		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
+		intra_refresh.mode = venc_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE,
+				ctrl->val);
 
-		intra_refresh.mode = ctrl->val;
 		intra_refresh.air_mbs = air_mbs->val;
 		intra_refresh.air_ref = air_ref->val;
 		intra_refresh.cir_mbs = cir_mbs->val;
@@ -3158,7 +3175,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
 
 		intra_refresh.air_mbs = ctrl->val;
-		intra_refresh.mode = ir_mode->val;
+		intra_refresh.mode = venc_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE,
+				ir_mode->val);
 		intra_refresh.air_ref = air_ref->val;
 		intra_refresh.cir_mbs = cir_mbs->val;
 
@@ -3177,7 +3196,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 		intra_refresh.air_ref = ctrl->val;
 		intra_refresh.air_mbs = air_mbs->val;
-		intra_refresh.mode = ir_mode->val;
+		intra_refresh.mode = venc_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE,
+				ir_mode->val);
 		intra_refresh.cir_mbs = cir_mbs->val;
 
 		pdata = &intra_refresh;
@@ -3196,7 +3217,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		intra_refresh.cir_mbs = ctrl->val;
 		intra_refresh.air_mbs = air_mbs->val;
 		intra_refresh.air_ref = air_ref->val;
-		intra_refresh.mode = ir_mode->val;
+		intra_refresh.mode = venc_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE,
+				ir_mode->val);
 
 		pdata = &intra_refresh;
 		break;
