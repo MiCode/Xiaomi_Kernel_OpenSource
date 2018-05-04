@@ -1,0 +1,180 @@
+Qualcomm's QPNP Voltage-Mode(VM) PMIC Battery Management System
+
+QPNP PMIC VM BMS provides interface to clients to read properties related
+to the battery. Its main function is to calculate the SOC (state of charge)
+of the battery based on periodic sampling of the VBAT (battery voltage).
+
+Parent node required properties:
+- compatible	: Must be  "qcom,qpnp-vm-bms" for the BM driver.
+- reg		: Offset and length of the PMIC peripheral register map.
+- interrupts	: The interrupt mappings.
+		  The format should be
+		  <slave-id peripheral-id interrupt-number>.
+- interrupt-names : names for the mapped bms interrupt
+		The following interrupts are required:
+		0 : leave CV state
+		1 : enter CV state
+		2 : good ocv generated
+		3 : ocv_thr
+		4 : fifo update
+		5 : fsm state chnaged
+
+Additionally, optional subnodes may be included:
+- qcom,batt-pres-status : A subnode with a register address for the SMBB
+		battery interface's BATT_PRES_STATUS register. If this node is
+		added, then the BMS will try to detect offmode battery removal
+		via the battery interface's offmode battery removal circuit.
+- qcom,battery-data : A phandle to a node containing the available batterydata
+		profiles. See the batterydata bindings documentation for more
+		details.
+
+Parent node required properties:
+- qcom,v-cutoff-uv : cutoff voltage where the battery is considered dead in
+			micro-volts.
+- qcom,max-voltage-uv : maximum voltage for the battery in micro-volts.
+- qcom,r-conn-mohm : connector resistance in milli-ohms.
+- qcom,shutdown-soc-valid-limit : If the ocv upon restart is within this
+			distance of the shutdown ocv, the BMS will try to force
+			the new SoC to the old one to provide charge continuity.
+			That is to say,
+				if (abs(shutdown-soc - current-soc) < limit)
+				then use old SoC.
+- qcom,low-soc-calculate-soc-threshold : The SoC threshold for when
+			the periodic calculate_soc work speeds up. This ensures
+			SoC is updated in userspace constantly when we are near
+			shutdown.
+- qcom,low-voltage-threshold : The battery voltage threshold in micro-volts for
+			when the BMS tries to wake up and hold a wakelock to
+			ensure a clean shutdown.
+- qcom,low-voltage-calculate-soc-ms : The time period between subsequent
+			SoC recalculations when the current voltage is below
+			qcom,low-voltage threshold. This takes precedence over
+			qcom,low-soc-calculate-soc-ms.
+- qcom,low-soc-calculate-soc-ms : The time period between subsequent
+			SoC recalculations when the current SoC is below
+			qcom,low-soc-calculate-soc-threshold. This takes
+			precedence over qcom,calculate-soc-ms.
+- qcom,calculate-soc-ms : The time period between subsequent SoC
+			recalculations when the current SoC is above or equal
+			qcom,low-soc-calculate-soc-threshold.
+- qcom,volatge-soc-timeout-ms : The timeout period after which the module starts
+			reporting volage based SOC and does not use the VMBMS
+			algorithm for SOC calculation.
+- qcom,bms-vadc: Corresponding VADC device's phandle.
+- qcom,bms-adc_tm: Corresponding ADC_TM device's phandle to set recurring
+                        measurements and receive notifications for vbatt.
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node.
+
+Parent node Optional properties
+- qcom,s1-sample-interval-ms: The sampling rate in ms of the accumulator in state
+			S1. (i.e) the rate at which the accumulator is being
+			filled with vbat samples. Minimum value = 0 and
+			Maximum value = 2550ms.
+- qcom,s2-sample-interval-ms: The sampling rate in ms of the accumulator in state
+			S2. (i.e) the rate at which the accumulator is being
+			filled with vbat samples. Minimum value = 0 and
+			Maximum value = 2550ms.
+- qcom,s1-sample-count: The number of samples to be accululated for one FIFO in
+			state S1. Possible values are - 0, 4, 8, 16, 32, 64, 128,
+			256.
+- qcom,s2-sample-count: The number of samples to be accululated for one FIFO in
+			state S2. Possible values are - 0, 4, 8, 16, 32, 64, 128,
+			256.
+- qcom,s1-fifo-legth:	Number of FIFO's to be filled in state S1, to generate
+			the fifo_update_done interrupt. Possile values - 0 to 8
+- qcom,s2-fifo-legth:	Number of FIFO's to be filled in state S2, to generate
+			the fifo_update_done interrupt. Possible values- 0 to 8
+- qcom,force-s3-on-suspend : Bool property to force the BMS into S3 (sleep) state
+			while entering into system suspend.
+- qcom,force-bms-active-on-charger: Bool property to keep BMS FSM active
+				if charger is present.
+- qcom,report-charger-eoc : Bool property to indicate if BMS needs to indicate
+			EOC to charger.
+- qcom,ignore-shutdown-soc: A boolean that controls whether BMS will
+			try to force the startup SoC to be the same as the
+			shutdown SoC. Defining it will make BMS ignore the
+			shutdown SoC.
+- qcom,use-voltage-soc : A boolean that controls whether BMS will use
+			voltage-based SoC instead of a coulomb counter based
+			one. Voltage-based SoC will not guarantee linearity.
+- qcom,disable-bms :	Bool property to disable the VMBMS hardware module.
+			Enable this property if BMS is not supported or an external
+			fuel gauge is used.
+- qcom,s3-ocv-tolerence-uv : The S3 state OCV tolerence threshold in uV. The
+			LSB value is 300uV and maximum value is 76500uV.
+- qcom,low-soc-fifo-length : The fifo length (of S2 STATE) to be used at lower
+			SOCs. If this value is not specified the system uses
+			default length.
+- qcom,resume-soc:	Capacity in percent at which charging should resume
+			when a fully charged battery drops below this level.
+- qcom,low-temp-threshold : The temperature threshold below which the IBAT
+			averaging and UUC smoothening is disabled. This value
+			is in deci-degrees centigrade. If not specified it
+			defaults to 0.
+- qcom,ibat-avg-samples : The number of samples to be averaged for IBAT
+			estimation. If not specified it defaults to 16.
+			The possible values are 1 to 16.
+- qcom,batt-aging-comp : A boolean that defines if battery aging compensation
+			is enabled.
+- qcom,use-reported-soc : Bool property to enable the reported_soc logic. To
+			enable this feature, qcom,resume-soc must be defined as
+			a proper value. The BMS is also required to control the
+			charging, discharging and recharging.
+
+qcom,batt-pres-status node required properties:
+- reg : offset and length of the PMIC LBC battery interface BATT_PRES_STATUS
+		register.
+
+qcom,qpnp-chg-pres required properties:
+- reg : offset and length of the PMIC LBC charger interafce CHARGER_OPTION
+		register.
+
+Example:
+pm8916_bms: qcom,qpnp-vm-bms {
+	spmi-dev-container;
+	compatible = "qcom,qpnp-vm-bms";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	status = "disabled";
+
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,max-voltage-uv = <4200000>;
+	qcom,r-conn-mohm = <18>;
+	qcom,shutdown-soc-valid-limit = <20>;
+	qcom,low-soc-calculate-soc-threshold = <15>;
+	qcom,low-voltage-threshold = <3420000>;
+	qcom,low-voltage-calculate-soc-ms = <1000>;
+	qcom,low-soc-calculate-soc-ms = <5000>;
+	qcom,low-soc-fifo-length = <2>;
+	qcom,calculate-soc-ms = <20000>;
+	qcom,s3-ocv-tolerence-uv = <1200>;
+	qcom,volatge-soc-timeout-ms = <60000>;
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,bms-vadc = <&pm8916_vadc>;
+	qcom,bms-adc_tm = <&pm8916_adc_tm>;
+
+	qcom,batt-pres-status@1208 {
+		reg = <0x1208 0x1>;
+	}
+
+	qcom,qpnp-chg-pres@1208 {
+		reg = <0x1108 0x1>;
+	}
+
+	qcom,bms-bms@4000 {
+		reg = <0x4000 0x100>;
+		interrupts =	<0x0 0x40 0x0>,
+				<0x0 0x40 0x1>,
+				<0x0 0x40 0x2>,
+				<0x0 0x40 0x3>,
+				<0x0 0x40 0x4>,
+				<0x0 0x40 0x5>,
+
+		interrupt-names = "leave_cv",
+				  "enter_cv",
+				  "good_ocv",
+				  "ocv_thr",
+				  "fifo_updtaed",
+				  "fsm_state_change";
+	};
+};
