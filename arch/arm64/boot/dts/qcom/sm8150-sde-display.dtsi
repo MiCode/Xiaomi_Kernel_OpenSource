@@ -40,7 +40,7 @@
 			pins = "gpio130";
 			drive-strength = <8>;
 			bias-disable = <0>;
-			output-low;
+			output-high;
 		};
 	};
 };
@@ -128,6 +128,7 @@
 		regulator-enable-ramp-delay = <233>;
 		gpio = <&tlmm 130 0>;
 		enable-active-high;
+		regulator-boot-on;
 		pinctrl-names = "default";
 		pintctrl-0 = <&display_panel_avdd_eldo_default>;
 	};
@@ -650,7 +651,7 @@
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1a 07 06 22 21 07
 				07 04 03 04 00 16 16];
-			qcom,display-topology = <1 1 1>;
+			qcom,display-topology = <2 1 1>;
 			qcom,default-topology-index = <0>;
 		};
 	};
