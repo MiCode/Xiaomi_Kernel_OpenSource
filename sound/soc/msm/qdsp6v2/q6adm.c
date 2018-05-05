@@ -602,7 +602,8 @@ int adm_programable_channel_mixer(int port_id, int copp_idx, int session_id,
 			ch_mixer->input_channels[channel_index] +
 			ch_mixer->input_channels[channel_index] *
 			ch_mixer->output_channel);
-	roundup(param_size, 4);
+	/* Params size should be multiple of 4 bytes i.e 32bit aligned*/
+	param_size = roundup(param_size, 4);
 
 	sz = sizeof(struct adm_cmd_set_pspd_mtmx_strtr_params_v5) +
 			sizeof(struct default_chmixer_param_id_coeff) +
