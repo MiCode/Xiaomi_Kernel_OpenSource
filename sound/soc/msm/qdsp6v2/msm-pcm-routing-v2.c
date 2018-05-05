@@ -670,6 +670,78 @@ static bool is_mm_lsm_fe_id(int fe_id)
 	return rc;
 }
 
+/*
+ * msm_pcm_routing_send_chmix_cfg
+ *
+ * Receives fe_id, ip_channel_cnt, op_channel_cnt, channel weight, session_type
+ * use_default_chmap and channel map to map in channel mixer and send to
+ * adm programmable matrix.
+ *
+ * fe_id - Passed value, frontend id which is wanted
+ * ip_channel_cnt - Passed value, number of input channels
+ * op_channel_cnt - Passed value, number of output channels
+ * ch_wght_coeff - Passed reference, weights for each output channel
+ * session_type - Passed value, session_type for RX or TX
+ * use_default_chmap - true if default channel map  to be used
+ * ch_map - input/output channel map for playback/capture session respectively
+ */
+
+int msm_pcm_routing_send_chmix_cfg(int fe_id, int ip_channel_cnt,
+				   int op_channel_cnt, int *ch_wght_coeff,
+				   int session_type, bool use_default_chmap,
+				   char *channel_map)
+{
+	int rc = 0, idx = 0, i, j;
+	int be_index = 0, port_id, index = 0;
+	unsigned int session_id = 0;
+
+	pr_debug("%s: fe_id[%d] ip_ch[%d] op_ch[%d] sess_type [%d]\n",
+		 __func__, fe_id, ip_channel_cnt, op_channel_cnt, session_type);
+
+	if (!use_default_chmap && (channel_map == NULL)) {
+		pr_err("%s: No valid chan map and can't use default\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if ((ch_wght_coeff == NULL) || (op_channel_cnt > ADM_MAX_CHANNELS) ||
+	     (ip_channel_cnt > ADM_MAX_CHANNELS)) {
+		pr_err("%s: Invalid channels or null coefficients\n", __func__);
+		return -EINVAL;
+	}
+
+	for (be_index = 0; be_index < MSM_BACKEND_DAI_MAX; be_index++) {
+		port_id = msm_bedais[be_index].port_id;
+		if (!msm_bedais[be_index].active ||
+			!test_bit(fe_id, &msm_bedais[be_index].fe_sessions))
+			continue;
+
+		session_id = fe_dai_map[fe_id][session_type].strm_id;
+		channel_mixer[fe_id].input_channels[0] = ip_channel_cnt;
+		channel_mixer[fe_id].output_channel = op_channel_cnt;
+		channel_mixer[fe_id].rule = 0;
+
+		for (j = 0; j < op_channel_cnt; j++) {
+			for (i = 0; i < ip_channel_cnt; i++)
+				channel_mixer[fe_id].channel_weight[j][i] =
+						ch_wght_coeff[index++];
+		}
+		for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++) {
+			unsigned long copp =
+				session_copp_map[fe_id][session_type][be_index];
+			if (!test_bit(idx, &copp))
+				continue;
+			rc = adm_programable_channel_mixer(port_id,
+					idx, session_id, session_type,
+					channel_mixer + fe_id, 0,
+					use_default_chmap, channel_map);
+			if (rc < 0)
+				pr_err("%s: err setting channel mix config\n",
+					__func__);
+		}
+	}
+	return 0;
+}
 
 void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 	int acdb_dev_id, int sample_rate, int session_type)
@@ -1127,6 +1199,8 @@ static int msm_pcm_routing_channel_mixer(int fe_id, bool perf_mode,
 	int sess_type = 0;
 	int i = 0, j = 0, be_id;
 	int ret = 0;
+	bool use_default_chmap = true;
+	char *ch_map = NULL;
 
 	if (fe_id >= MSM_FRONTEND_DAI_MM_SIZE) {
 		pr_err("%s: invalid FE %d\n", __func__, fe_id);
@@ -1169,7 +1243,8 @@ static int msm_pcm_routing_channel_mixer(int fe_id, bool perf_mode,
 			ret = adm_programable_channel_mixer(
 					msm_bedais[be_id].port_id,
 					copp_idx, dspst_id, sess_type,
-					channel_mixer + fe_id, i);
+					channel_mixer + fe_id, i,
+					use_default_chmap, ch_map);
 		}
 	}
 

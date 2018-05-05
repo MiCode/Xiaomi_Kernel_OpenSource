@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3447,6 +3447,16 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 	return 0;
 }
 
+static int msm_compr_chmix_cfg_ctl_info(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 128;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0xFFFFFFFF;
+	return 0;
+}
+
 static int msm_compr_volume_info(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_info *uinfo)
 {
@@ -3765,6 +3775,113 @@ static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+
+static int msm_compr_chmix_cfg_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
+				snd_soc_component_get_drvdata(comp);
+	struct snd_compr_stream *cstream = NULL;
+	struct snd_soc_pcm_runtime *rtd = NULL;
+	u64 fe_id = kcontrol->private_value;
+	int ip_channel_cnt, op_channel_cnt;
+	int i, index = 0;
+	int ch_coeff[PCM_FORMAT_MAX_NUM_CHANNEL * PCM_FORMAT_MAX_NUM_CHANNEL];
+	bool use_default_chmap = true;
+	char *chmap = NULL;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+	cstream = pdata->cstream[fe_id];
+	if (!cstream) {
+		pr_err("%s: stream inactive\n", __func__);
+		return -EINVAL;
+	}
+	rtd = cstream->private_data;
+	if (!rtd) {
+		pr_err("%s: stream inactive\n", __func__);
+		return -EINVAL;
+	}
+
+	use_default_chmap = !(pdata->ch_map[rtd->dai_link->be_id]->set_ch_map);
+	chmap = pdata->ch_map[rtd->dai_link->be_id]->channel_map;
+
+	ip_channel_cnt = ucontrol->value.integer.value[index++];
+	op_channel_cnt = ucontrol->value.integer.value[index++];
+	/*
+	 * wght coeff of first out channel corresponding to each in channel
+	 * are sent followed by second out channel for each in channel etc.
+	 */
+	memset(ch_coeff, 0, sizeof(ch_coeff));
+	for (i = 0; i < op_channel_cnt * ip_channel_cnt; i++) {
+		ch_coeff[i] =
+			ucontrol->value.integer.value[index++];
+	}
+
+	msm_pcm_routing_send_chmix_cfg(fe_id, ip_channel_cnt, op_channel_cnt,
+			ch_coeff, SESSION_TYPE_RX, use_default_chmap, chmap);
+
+	return 0;
+}
+
+static int msm_compr_chmix_cfg_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int msm_compr_add_chmix_cfg_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = "Audio Stream";
+	const char *deviceNo       = "NN";
+	const char *suffix         = "Channel Mix Cfg";
+	int ctl_len;
+	char *mixer_str = NULL;
+	struct snd_kcontrol_new chmix_cfg_controls[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_compr_chmix_cfg_ctl_info,
+		.get = msm_compr_chmix_cfg_ctl_get,
+		.put = msm_compr_chmix_cfg_ctl_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
+		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
+		  strlen(suffix) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str)
+		return -ENOMEM;
+
+	snprintf(mixer_str, ctl_len, "%s %d %s", mixer_ctl_name,
+		 rtd->pcm->device, suffix);
+
+	chmix_cfg_controls[0].name = mixer_str;
+	chmix_cfg_controls[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s", __func__, mixer_str);
+	snd_soc_add_platform_controls(rtd->platform,
+				      chmix_cfg_controls,
+				      ARRAY_SIZE(chmix_cfg_controls));
+	kfree(mixer_str);
+	return 0;
+}
+
 static int msm_compr_add_channel_map_control(struct snd_soc_pcm_runtime *rtd)
 {
 	const char *mixer_ctl_name = "Playback Channel Map";
@@ -3795,7 +3912,6 @@ static int msm_compr_add_channel_map_control(struct snd_soc_pcm_runtime *rtd)
 
 	ctl_len = strlen(mixer_ctl_name) + strlen(deviceNo) + 1;
 	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
-
 	if (!mixer_str) {
 		pr_err("%s: failed to allocate mixer ctrl str of len %d\n",
 			__func__, ctl_len);
@@ -3854,6 +3970,9 @@ static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 	if (rc)
 		pr_err("%s: Could not add Compr Channel Map Control\n",
 			__func__);
+	rc = msm_compr_add_chmix_cfg_controls(rtd);
+	if (rc)
+		pr_err("%s: add chmix cfg controls failed:%d\n", __func__, rc);
 	return 0;
 }
 
