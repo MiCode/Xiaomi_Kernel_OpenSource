@@ -73,11 +73,12 @@
 };
 
 &usb_otg {
-		interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
-		interrupt-names = "core_irq", "async_irq", "phy_irq";
+	interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
+	interrupt-names = "core_irq", "async_irq", "phy_irq";
 	qcom,hsusb-otg-mode = <3>;
-		qcom,switch-vbus-w-id;
+	qcom,switch-vbus-w-id;
 	vbus_otg-supply = <&vph_pwr_vreg>;
+	extcon = <&pm8916_chg>;
 };
 
 &external_image_mem {
@@ -110,4 +111,12 @@
 		regulator-name = "smb1360_otg_vreg";
 		status= "disabled";
 	};
+};
+
+&pm8916_chg {
+	status = "ok";
+};
+
+&pm8916_bms {
+	status = "ok";
 };
