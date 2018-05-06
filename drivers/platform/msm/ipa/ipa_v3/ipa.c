@@ -4718,11 +4718,11 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ipa_initialization_complete = true;
 	mutex_unlock(&ipa3_ctx->lock);
 
+	ipa3_debugfs_init();
+
 	ipa3_trigger_ipa_ready_cbs();
 	complete_all(&ipa3_ctx->init_completion_obj);
 	pr_info("IPA driver initialization was successful.\n");
-
-	ipa3_debugfs_init();
 
 	return 0;
 
