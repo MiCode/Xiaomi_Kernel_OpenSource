@@ -1,0 +1,76 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "apq8053-lite-dragon.dtsi"
+
+&i2c_3 {
+	status = "okay";
+	himax_ts@48 {
+		compatible = "himax,hxcommon";
+		reg = <0x48>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8953_l10>;
+		avdd-supply = <&pm8953_l5>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		himax,panel-coords = <0 800 0 1280>;
+		himax,display-coords = <0 800 0 1280>;
+		himax,irq-gpio = <&tlmm 65 0x2008>;
+		//himax,rst-gpio = <&tlmm 64 0x0>;
+		report_type = <1>;
+	};
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_boyi_hx83100a_800p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active &mdss_dsi_gpio>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend &mdss_dsi_gpio>;
+
+	vdd-supply = <&pm8953_l10>;
+	vddio-supply = <&pm8953_l6>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 100 0>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&labibb {
+	status = "okay";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&wled {
+	status = "okay";
+	qcom,cons-sync-write-delay-us = <1000>;
+	qcom,led-strings-list = [00 01 02 03];
+};
+
+&pm8953_l4 {
+	status = "okay";
+	regulator-always-on;
+};

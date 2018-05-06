@@ -37,6 +37,8 @@ Optional:
 - qcom,smmu-disable-htw: boolean value to turn off SMMU page table caching
 - qcom,use-a2-service: determine if A2 service will be used
 - qcom,use-ipa-tethering-bridge: determine if tethering bridge will be used
+- qcom,use-ipa-in-mhi-mode: Boolean context flag to indicate whether
+				device booting in MHI config or not.
 - qcom,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
 - qcom,ee: which EE is assigned to (non-secure) APPS from IPA-BAM POV. This
 is a number
