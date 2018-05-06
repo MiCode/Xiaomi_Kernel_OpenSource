@@ -30,10 +30,6 @@
 };
 
 &soc {
-	qcom,msm-ssc-sensors {
-		status = "disabled";
-	};
-
 	qcom,msm-thermal {
 		qcom,hotplug-temp = <115>;
 		qcom,hotplug-temp-hysteresis = <25>;

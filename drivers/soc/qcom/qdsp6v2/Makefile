@@ -10,3 +10,5 @@ obj-$(CONFIG_MSM_QDSP6_SSR) += audio_ssr.o
 obj-$(CONFIG_MSM_QDSP6_PDR) += audio_pdr.o
 obj-$(CONFIG_MSM_QDSP6_NOTIFIER) += audio_notifier.o
 obj-$(CONFIG_MSM_CDSP_LOADER) += cdsp-loader.o
+obj-$(CONFIG_EXT_ANC) += sdsp-anc.o audio_anc.o audio-anc-dev-mgr.o
+

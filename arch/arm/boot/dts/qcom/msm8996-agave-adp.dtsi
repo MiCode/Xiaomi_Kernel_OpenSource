@@ -1041,6 +1041,12 @@
 		status = "disabled";
 	};
 
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		qcom,firmware-name = "slpi";
+		status = "ok";
+	};
+
 	sound-adp-agave {
 		compatible = "qcom,apq8096-asoc-snd-adp-agave";
 		qcom,model = "apq8096-adp-agave-snd-card";
@@ -1105,6 +1111,37 @@
 				"msm-dai-q6-tdm.36919";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+	};
+
+	qcom,msm-dai-tdm-tert-rx {
+		qcom,msm-cpudai-tdm-group-num-ports = <6>;
+		qcom,msm-cpudai-tdm-group-port-id = <36896 36898 36900
+			36902 36904 36906>;
+
+		dai_tert_tdm_rx_5: qcom,msm-dai-q6-tdm-tert-rx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36906>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	qcom,msm-ext-anc {
+		compatible = "qcom,msm-ext-anc";
+		qcom,refs-port-id = <36906>;
+		qcom,spkr-port-id = <36912>;
+		qcom,mic-port-id = <36913>;
+		qcom,sample-rate = <48000>;
+		qcom,num-channels = <8>;
+		qcom,bit-width = <32>;
+		qcom,num-anc-mic = <4>;
+		qcom,num-add-mic-signal = <0>;
+		qcom,anc-mic-array = <0 1 2 3>;
+		qcom,num-anc-spkr = <4>;
+		qcom,num-add-spkr-signal = <0>;
+		qcom,anc-spkr-array = <0 1 2 3>;
+		qcom,refs-tdm-rx = <&dai_tert_tdm_rx_5>;
+		qcom,spkr-tdm-rx = <&dai_quat_tdm_rx_0>;
+		qcom,mic-tdm-tx = <&dai_quat_tdm_tx_0>;
 	};
 
 	usb_detect: usb_detect {
