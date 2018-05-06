@@ -124,6 +124,10 @@ struct afe_ctl {
 	int set_custom_topology;
 	int dev_acdb_id[AFE_MAX_PORTS];
 	routing_cb rt_cb;
+	int num_alloced_rddma;
+	bool alloced_rddma[AFE_MAX_RDDMA];
+	int num_alloced_wrdma;
+	bool alloced_wrdma[AFE_MAX_WRDMA];
 };
 
 static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
@@ -385,6 +389,99 @@ static int32_t sp_make_afe_callback(uint32_t opcode, uint32_t *payload,
 	return 0;
 }
 
+static int32_t afe_lpass_resources_callback(struct apr_client_data *data)
+{
+	uint8_t *payload = data->payload;
+	struct afe_cmdrsp_request_lpass_resources *resources =
+		(struct afe_cmdrsp_request_lpass_resources *) payload;
+	struct afe_cmdrsp_request_lpass_dma_resources *dma_resources = NULL;
+	uint8_t *dma_channels_id_payload = NULL;
+
+	if (!payload || (data->token >= AFE_MAX_PORTS)) {
+		pr_err("%s: Error: size %d payload %pK token %d\n",
+			__func__, data->payload_size,
+			payload, data->token);
+		atomic_set(&this_afe.status, ADSP_EBADPARAM);
+		return -EINVAL;
+	}
+
+	if (resources->status != 0) {
+		pr_debug("%s: Error: Requesting LPASS resources ret %d\n",
+			__func__, resources->status);
+		atomic_set(&this_afe.status, ADSP_EBADPARAM);
+		return -EINVAL;
+	}
+
+	if (resources->resource_id == AFE_LPAIF_DMA_RESOURCE_ID) {
+		int i;
+
+		payload += sizeof(
+			struct afe_cmdrsp_request_lpass_resources);
+		dma_resources = (struct
+			afe_cmdrsp_request_lpass_dma_resources *)
+			payload;
+
+		pr_debug("%s: DMA Type allocated = %d\n",
+			__func__,
+			dma_resources->dma_type);
+
+		if (dma_resources->num_read_dma_channels > AFE_MAX_RDDMA) {
+			pr_err("%s: Allocated Read DMA %d exceeds max %d\n",
+				__func__,
+				dma_resources->num_read_dma_channels,
+				AFE_MAX_RDDMA);
+			dma_resources->num_read_dma_channels = AFE_MAX_RDDMA;
+		}
+
+		if (dma_resources->num_write_dma_channels > AFE_MAX_WRDMA) {
+			pr_err("%s: Allocated Write DMA %d exceeds max %d\n",
+				__func__,
+				dma_resources->num_write_dma_channels,
+				AFE_MAX_WRDMA);
+			dma_resources->num_write_dma_channels = AFE_MAX_WRDMA;
+		}
+
+		this_afe.num_alloced_rddma =
+			dma_resources->num_read_dma_channels;
+		this_afe.num_alloced_wrdma =
+			dma_resources->num_write_dma_channels;
+
+		pr_debug("%s: Number of allocated Read DMA channels= %d\n",
+			__func__,
+			dma_resources->num_read_dma_channels);
+		pr_debug("%s: Number of allocated Write DMA channels= %d\n",
+			__func__,
+			dma_resources->num_write_dma_channels);
+
+		payload += sizeof(
+			struct afe_cmdrsp_request_lpass_dma_resources);
+		dma_channels_id_payload = payload;
+
+		for (i = 0; i < this_afe.num_alloced_rddma; i++) {
+			pr_debug("%s: Read DMA Index %d allocated\n",
+				__func__, *dma_channels_id_payload);
+			this_afe.alloced_rddma
+				[*dma_channels_id_payload] = 1;
+			dma_channels_id_payload++;
+		}
+
+		for (i = 0; i < this_afe.num_alloced_wrdma; i++) {
+			pr_debug("%s: Write DMA Index %d allocated\n",
+				__func__, *dma_channels_id_payload);
+			this_afe.alloced_wrdma
+				[*dma_channels_id_payload] = 1;
+			dma_channels_id_payload++;
+		}
+	} else {
+		pr_err("%s: Error: Unknown resource ID %d",
+			__func__, resources->resource_id);
+		atomic_set(&this_afe.status, ADSP_EBADPARAM);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int32_t afe_callback(struct apr_client_data *data, void *priv)
 {
 	if (!data) {
@@ -472,6 +569,15 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 				return -EINVAL;
 		}
 		wake_up(&this_afe.wait[data->token]);
+	} else if (data->opcode == AFE_CMDRSP_REQUEST_LPASS_RESOURCES) {
+		uint32_t ret = 0;
+
+		ret = afe_lpass_resources_callback(data);
+		atomic_set(&this_afe.state, 0);
+		wake_up(&this_afe.wait[data->token]);
+		if (!ret) {
+			return ret;
+		}
 	} else if (data->payload_size) {
 		uint32_t *payload;
 		uint16_t port_id = 0;
@@ -502,6 +608,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			case AFE_PORTS_CMD_DTMF_CTL:
 			case AFE_SVC_CMD_SET_PARAM:
 			case AFE_SVC_CMD_SET_PARAM_V2:
+			case AFE_CMD_REQUEST_LPASS_RESOURCES:
 				atomic_set(&this_afe.state, 0);
 				wake_up(&this_afe.wait[data->token]);
 				break;
@@ -539,6 +646,18 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 						return 0;
 				}
 				atomic_set(&this_afe.state, payload[1]);
+				wake_up(&this_afe.wait[data->token]);
+				break;
+			case AFE_CMD_RELEASE_LPASS_RESOURCES:
+				memset(&this_afe.alloced_rddma[0],
+					0,
+					AFE_MAX_RDDMA);
+				memset(&this_afe.alloced_wrdma[0],
+					0,
+					AFE_MAX_WRDMA);
+				this_afe.num_alloced_rddma = 0;
+				this_afe.num_alloced_wrdma = 0;
+				atomic_set(&this_afe.state, 0);
 				wake_up(&this_afe.wait[data->token]);
 				break;
 			default:
@@ -6597,6 +6716,173 @@ int afe_unmap_rtac_block(uint32_t *mem_map_handle)
 done:
 	return result;
 }
+
+int afe_request_dma_resources(uint8_t dma_type, uint8_t num_read_dma_channels,
+				uint8_t num_write_dma_channels)
+{
+	int result = 0;
+	struct afe_request_lpass_dma_resources_command config;
+
+	pr_debug("%s:\n", __func__);
+
+	if (dma_type != AFE_LPAIF_DEFAULT_DMA_TYPE) {
+		pr_err("%s: DMA type %d is invalid\n",
+			__func__,
+			dma_type);
+		goto done;
+	}
+
+	if ((num_read_dma_channels == 0) &&
+		(num_write_dma_channels == 0)) {
+		pr_err("%s: DMA channels to allocate are 0\n",
+			__func__);
+		goto done;
+	}
+
+	if (num_read_dma_channels > AFE_MAX_RDDMA) {
+		pr_err("%s: Read DMA channels %d to allocate are > %d\n",
+			__func__,
+			num_read_dma_channels,
+			AFE_MAX_RDDMA);
+		goto done;
+	}
+
+	if (num_write_dma_channels > AFE_MAX_WRDMA) {
+		pr_err("%s: Write DMA channels %d to allocate are > %d\n",
+			__func__,
+			num_write_dma_channels,
+			AFE_MAX_WRDMA);
+		goto done;
+	}
+
+	result = afe_q6_interface_prepare();
+	if (result != 0) {
+		pr_err("%s: Q6 interface prepare failed %d\n",
+			__func__, result);
+		goto done;
+	}
+
+	memset(&config, 0, sizeof(config));
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						APR_HDR_LEN(APR_HDR_SIZE),
+						APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = IDX_GLOBAL_CFG;
+	config.hdr.opcode = AFE_CMD_REQUEST_LPASS_RESOURCES;
+	config.resources.resource_id = AFE_LPAIF_DMA_RESOURCE_ID;
+	/* Only AFE_LPAIF_DEFAULT_DMA_TYPE dma type is supported */
+	config.dma_resources.dma_type = dma_type;
+	config.dma_resources.num_read_dma_channels = num_read_dma_channels;
+	config.dma_resources.num_write_dma_channels = num_write_dma_channels;
+
+	result = afe_apr_send_pkt(&config, &this_afe.wait[IDX_GLOBAL_CFG]);
+	if (result)
+		pr_err("%s: AFE_CMD_REQUEST_LPASS_RESOURCES failed %d\n",
+		__func__, result);
+
+done:
+	return result;
+}
+EXPORT_SYMBOL(afe_request_dma_resources);
+
+int afe_get_dma_idx(bool **ret_rddma_idx,
+				bool **ret_wrdma_idx)
+{
+	int ret = 0;
+
+	if (!ret_rddma_idx || !ret_wrdma_idx) {
+		pr_err("%s: invalid return pointers.", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	*ret_rddma_idx = &this_afe.alloced_rddma[0];
+	*ret_wrdma_idx = &this_afe.alloced_wrdma[0];
+
+done:
+	return ret;
+}
+EXPORT_SYMBOL(afe_get_dma_idx);
+
+int afe_release_all_dma_resources(void)
+{
+	int result = 0;
+	int i, total_size;
+	struct afe_release_lpass_dma_resources_command *config;
+	uint8_t *payload;
+
+	pr_debug("%s:\n", __func__);
+
+	if ((this_afe.num_alloced_rddma == 0) &&
+		(this_afe.num_alloced_wrdma == 0)) {
+		pr_err("%s: DMA channels to release is 0",
+			__func__);
+		goto done;
+	}
+
+	result = afe_q6_interface_prepare();
+	if (result != 0) {
+		pr_err("%s: Q6 interface prepare failed %d\n",
+			__func__, result);
+		goto done;
+	}
+
+	total_size = sizeof(struct afe_release_lpass_dma_resources_command) +
+		sizeof(uint8_t) *
+		(this_afe.num_alloced_rddma + this_afe.num_alloced_wrdma);
+
+	config = kzalloc(total_size, GFP_KERNEL);
+	if (!config) {
+		result = -ENOMEM;
+		goto done;
+	}
+
+	memset(config, 0, total_size);
+	payload = (uint8_t *) config +
+		sizeof(struct afe_release_lpass_dma_resources_command);
+
+	config->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					     APR_HDR_LEN(APR_HDR_SIZE),
+					     APR_PKT_VER);
+	config->hdr.pkt_size = total_size;
+	config->hdr.src_port = 0;
+	config->hdr.dest_port = 0;
+	config->hdr.token = IDX_GLOBAL_CFG;
+	config->hdr.opcode = AFE_CMD_RELEASE_LPASS_RESOURCES;
+	config->resources.resource_id = AFE_LPAIF_DMA_RESOURCE_ID;
+	/* Only AFE_LPAIF_DEFAULT_DMA_TYPE dma type is supported */
+	config->dma_resources.dma_type = AFE_LPAIF_DEFAULT_DMA_TYPE;
+	config->dma_resources.num_read_dma_channels =
+		this_afe.num_alloced_rddma;
+	config->dma_resources.num_write_dma_channels =
+		this_afe.num_alloced_wrdma;
+
+	for (i = 0; i < AFE_MAX_RDDMA; i++) {
+		if (this_afe.alloced_rddma[i]) {
+			*payload = i;
+			payload++;
+		}
+	}
+
+	for (i = 0; i < AFE_MAX_WRDMA; i++) {
+		if (this_afe.alloced_wrdma[i]) {
+			*payload = i;
+			payload++;
+		}
+	}
+
+	result = afe_apr_send_pkt(config, &this_afe.wait[IDX_GLOBAL_CFG]);
+	if (result)
+		pr_err("%s: AFE_CMD_RELEASE_LPASS_RESOURCES failed %d\n",
+		__func__, result);
+
+	kfree(config);
+done:
+	return result;
+}
+EXPORT_SYMBOL(afe_release_all_dma_resources);
 
 static int __init afe_init(void)
 {

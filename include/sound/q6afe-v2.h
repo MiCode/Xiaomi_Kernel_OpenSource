@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,9 @@
 
 #define AFE_CLK_VERSION_V1    1
 #define AFE_CLK_VERSION_V2    2
+
+#define AFE_MAX_RDDMA    10
+#define AFE_MAX_WRDMA    10
 
 typedef int (*routing_cb)(int port);
 
@@ -450,4 +453,9 @@ void afe_set_routing_callback(routing_cb);
 int afe_get_av_dev_drift(struct afe_param_id_dev_timing_stats *timing_stats,
 		u16 port);
 int afe_get_svc_version(uint32_t service_id);
+int afe_request_dma_resources(uint8_t dma_type, uint8_t num_read_dma_channels,
+				uint8_t num_write_dma_channels);
+int afe_get_dma_idx(bool **ret_rddma_idx,
+				bool **ret_wrdma_idx);
+int afe_release_all_dma_resources(void);
 #endif /* __Q6AFE_V2_H__ */
