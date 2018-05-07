@@ -1054,10 +1054,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		if (!val)
 			goto end;
 
-		/*
-		 * update the the offset to a timeline for commit completion
-		 */
-		rc = sde_fence_create(&c_conn->retire_fence, &fence_fd, 1);
+		rc = sde_fence_create(&c_conn->retire_fence, &fence_fd, 0);
 		if (rc) {
 			SDE_ERROR("fence create failed rc:%d\n", rc);
 			goto end;

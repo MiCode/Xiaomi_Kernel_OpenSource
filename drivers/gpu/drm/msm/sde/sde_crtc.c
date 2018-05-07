@@ -5218,13 +5218,6 @@ static int _sde_crtc_get_output_fence(struct drm_crtc *crtc,
 	 */
 	offset = is_cmd ? 0 : (offset + conn_offset);
 
-	/*
-	 * Hwcomposer now queries the fences using the commit list in atomic
-	 * commit ioctl. The offset should be set to next timeline
-	 * which will be incremented during the prepare commit phase
-	 */
-	offset++;
-
 	return sde_fence_create(&sde_crtc->output_fence, val, offset);
 }
 
