@@ -100,7 +100,7 @@ enum fw_status {
 	FW_STATUS_ABORTED,
 };
 
-static int loading_timeout = 6000;	/* In seconds */
+static int loading_timeout = 60;	/* In seconds */
 
 static inline long firmware_loading_timeout(void)
 {
