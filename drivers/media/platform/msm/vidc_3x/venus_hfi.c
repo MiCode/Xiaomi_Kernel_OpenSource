@@ -4001,6 +4001,32 @@ err_init_clocks:
 	return rc;
 }
 
+static int __early_init_resources(struct venus_hfi_device *device,
+				struct msm_vidc_platform_resources *res)
+{
+	int rc = 0;
+
+	rc = __init_regulators(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to get all regulators\n");
+		return -ENODEV;
+	}
+
+	rc = __init_clocks(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to init clocks\n");
+		rc = -ENODEV;
+		goto err_init_clocks;
+	}
+
+	return rc;
+
+err_init_clocks:
+	__deinit_regulators(device);
+	return rc;
+}
+
+
 static void __deinit_resources(struct venus_hfi_device *device)
 {
 	__deinit_bus(device);
@@ -4008,6 +4034,12 @@ static void __deinit_resources(struct venus_hfi_device *device)
 	__deinit_regulators(device);
 	kfree(device->sys_init_capabilities);
 	device->sys_init_capabilities = NULL;
+}
+
+static void __early_deinit_resources(struct venus_hfi_device *device)
+{
+	__deinit_clocks(device);
+	__deinit_regulators(device);
 }
 
 static int __protect_cp_mem(struct venus_hfi_device *device)
@@ -4235,6 +4267,41 @@ fail_vote_buses:
 	return rc;
 }
 
+static int __venus_early_power_on(struct venus_hfi_device *device)
+{
+	int rc = 0;
+
+	if (device->power_enabled)
+		return 0;
+
+	device->power_enabled = true;
+
+	rc = __enable_regulators(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to enable GDSC, err = %d\n", rc);
+		goto fail_enable_gdsc;
+	}
+
+	rc = __prepare_enable_clks(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to enable clocks: %d\n", rc);
+		goto fail_enable_clks;
+	}
+
+	rc = __scale_clocks(device, 0, NULL, 0);
+	if (rc) {
+		dprintk(VIDC_WARN,
+				"Failed to scale clocks, performance might be affected\n");
+		rc = 0;
+	}
+	return rc;
+
+fail_enable_clks:
+	__disable_regulators(device);
+fail_enable_gdsc:
+	return rc;
+}
+
 static void __venus_power_off(struct venus_hfi_device *device, bool halt_axi)
 {
 	if (!device->power_enabled)
@@ -4258,6 +4325,14 @@ static void __venus_power_off(struct venus_hfi_device *device, bool halt_axi)
 
 	if (__unvote_buses(device))
 		dprintk(VIDC_WARN, "Failed to unvote for buses\n");
+	device->power_enabled = false;
+}
+
+static void __venus_early_power_off(struct venus_hfi_device *device)
+{
+	__disable_unprepare_clks(device);
+	if (__disable_regulators(device))
+		dprintk(VIDC_WARN, "Failed to disable regulators\n");
 	device->power_enabled = false;
 }
 
@@ -4446,7 +4521,7 @@ static int venus_hfi_get_fw_info(void *dev, struct hal_fw_info *fw_info)
 	struct venus_hfi_device *device = dev;
 	u32 smem_block_size = 0;
 	u8 *smem_table_ptr;
-	char version[VENUS_VERSION_LENGTH];
+	char version[VENUS_VERSION_LENGTH] = "";
 	const u32 smem_image_index_venus = 14 * 128;
 
 	if (!device || !fw_info) {
@@ -4652,10 +4727,35 @@ void venus_hfi_delete_device(void *device)
 	}
 }
 
+static int venus_hfi_core_early_init(void *device)
+{
+	int rc = 0;
+	struct venus_hfi_device *dev = device;
+
+	mutex_lock(&dev->lock);
+	rc = __early_init_resources(dev, dev->res);
+	rc = __venus_early_power_on(device);
+	mutex_unlock(&dev->lock);
+	return rc;
+}
+
+static int venus_hfi_core_early_release(void *device)
+{
+	struct venus_hfi_device *dev = device;
+
+	mutex_lock(&dev->lock);
+	__venus_early_power_off(dev);
+	__early_deinit_resources(dev);
+	mutex_unlock(&dev->lock);
+	return 0;
+}
+
 static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 {
 	hdev->core_init = venus_hfi_core_init;
 	hdev->core_release = venus_hfi_core_release;
+	hdev->core_early_init = venus_hfi_core_early_init;
+	hdev->core_early_release = venus_hfi_core_early_release;
 	hdev->core_ping = venus_hfi_core_ping;
 	hdev->core_trigger_ssr = venus_hfi_core_trigger_ssr;
 	hdev->session_init = venus_hfi_session_init;

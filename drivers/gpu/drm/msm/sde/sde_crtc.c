@@ -3099,7 +3099,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	 * apply color processing properties only if
 	 * smmu state is attached,
 	 */
-	if (!sde_kms_is_secure_session_inprogress(sde_kms))
+	if (!sde_kms_is_secure_session_inprogress(sde_kms) && sde_crtc->enabled)
 		sde_cp_crtc_apply_properties(crtc);
 
 	/*

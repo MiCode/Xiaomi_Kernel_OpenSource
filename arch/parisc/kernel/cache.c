@@ -464,10 +464,10 @@ EXPORT_SYMBOL(copy_user_page);
 int __flush_tlb_range(unsigned long sid, unsigned long start,
 		      unsigned long end)
 {
-	unsigned long flags, size;
+	unsigned long flags;
 
-	size = (end - start);
-	if (size >= parisc_tlb_flush_threshold) {
+	if ((!IS_ENABLED(CONFIG_SMP) || !arch_irqs_disabled()) &&
+	    end - start >= parisc_tlb_flush_threshold) {
 		flush_tlb_all();
 		return 1;
 	}
@@ -538,13 +538,12 @@ void flush_cache_mm(struct mm_struct *mm)
 	struct vm_area_struct *vma;
 	pgd_t *pgd;
 
-	/* Flush the TLB to avoid speculation if coherency is required. */
-	if (parisc_requires_coherency())
-		flush_tlb_all();
-
 	/* Flushing the whole cache on each cpu takes forever on
 	   rp3440, etc.  So, avoid it if the mm isn't too big.  */
-	if (mm_total_size(mm) >= parisc_cache_flush_threshold) {
+	if ((!IS_ENABLED(CONFIG_SMP) || !arch_irqs_disabled()) &&
+	    mm_total_size(mm) >= parisc_cache_flush_threshold) {
+		if (mm->context)
+			flush_tlb_all();
 		flush_cache_all();
 		return;
 	}
@@ -552,9 +551,9 @@ void flush_cache_mm(struct mm_struct *mm)
 	if (mm->context == mfsp(3)) {
 		for (vma = mm->mmap; vma; vma = vma->vm_next) {
 			flush_user_dcache_range_asm(vma->vm_start, vma->vm_end);
-			if ((vma->vm_flags & VM_EXEC) == 0)
-				continue;
-			flush_user_icache_range_asm(vma->vm_start, vma->vm_end);
+			if (vma->vm_flags & VM_EXEC)
+				flush_user_icache_range_asm(vma->vm_start, vma->vm_end);
+			flush_tlb_range(vma, vma->vm_start, vma->vm_end);
 		}
 		return;
 	}
@@ -572,6 +571,8 @@ void flush_cache_mm(struct mm_struct *mm)
 			pfn = pte_pfn(*ptep);
 			if (!pfn_valid(pfn))
 				continue;
+			if (unlikely(mm->context))
+				flush_tlb_page(vma, addr);
 			__flush_cache_page(vma, addr, PFN_PHYS(pfn));
 		}
 	}
@@ -598,30 +599,45 @@ flush_user_icache_range(unsigned long start, unsigned long end)
 void flush_cache_range(struct vm_area_struct *vma,
 		unsigned long start, unsigned long end)
 {
-	BUG_ON(!vma->vm_mm->context);
+	pgd_t *pgd;
+	unsigned long addr;
 
-	/* Flush the TLB to avoid speculation if coherency is required. */
-	if (parisc_requires_coherency())
-		flush_tlb_range(vma, start, end);
-
-	if ((end - start) >= parisc_cache_flush_threshold
-	    || vma->vm_mm->context != mfsp(3)) {
+	if ((!IS_ENABLED(CONFIG_SMP) || !arch_irqs_disabled()) &&
+	    end - start >= parisc_cache_flush_threshold) {
+		if (vma->vm_mm->context)
+			flush_tlb_range(vma, start, end);
 		flush_cache_all();
 		return;
 	}
 
-	flush_user_dcache_range_asm(start, end);
-	if (vma->vm_flags & VM_EXEC)
-		flush_user_icache_range_asm(start, end);
+	if (vma->vm_mm->context == mfsp(3)) {
+		flush_user_dcache_range_asm(start, end);
+		if (vma->vm_flags & VM_EXEC)
+			flush_user_icache_range_asm(start, end);
+		flush_tlb_range(vma, start, end);
+		return;
+	}
+
+	pgd = vma->vm_mm->pgd;
+	for (addr = vma->vm_start; addr < vma->vm_end; addr += PAGE_SIZE) {
+		unsigned long pfn;
+		pte_t *ptep = get_ptep(pgd, addr);
+		if (!ptep)
+			continue;
+		pfn = pte_pfn(*ptep);
+		if (pfn_valid(pfn)) {
+			if (unlikely(vma->vm_mm->context))
+				flush_tlb_page(vma, addr);
+			__flush_cache_page(vma, addr, PFN_PHYS(pfn));
+		}
+	}
 }
 
 void
 flush_cache_page(struct vm_area_struct *vma, unsigned long vmaddr, unsigned long pfn)
 {
-	BUG_ON(!vma->vm_mm->context);
-
 	if (pfn_valid(pfn)) {
-		if (parisc_requires_coherency())
+		if (likely(vma->vm_mm->context))
 			flush_tlb_page(vma, vmaddr);
 		__flush_cache_page(vma, vmaddr, PFN_PHYS(pfn));
 	}
@@ -630,21 +646,33 @@ flush_cache_page(struct vm_area_struct *vma, unsigned long vmaddr, unsigned long
 void flush_kernel_vmap_range(void *vaddr, int size)
 {
 	unsigned long start = (unsigned long)vaddr;
+	unsigned long end = start + size;
 
-	if ((unsigned long)size > parisc_cache_flush_threshold)
+	if ((!IS_ENABLED(CONFIG_SMP) || !arch_irqs_disabled()) &&
+	    (unsigned long)size >= parisc_cache_flush_threshold) {
+		flush_tlb_kernel_range(start, end);
 		flush_data_cache();
-	else
-		flush_kernel_dcache_range_asm(start, start + size);
+		return;
+	}
+
+	flush_kernel_dcache_range_asm(start, end);
+	flush_tlb_kernel_range(start, end);
 }
 EXPORT_SYMBOL(flush_kernel_vmap_range);
 
 void invalidate_kernel_vmap_range(void *vaddr, int size)
 {
 	unsigned long start = (unsigned long)vaddr;
+	unsigned long end = start + size;
 
-	if ((unsigned long)size > parisc_cache_flush_threshold)
+	if ((!IS_ENABLED(CONFIG_SMP) || !arch_irqs_disabled()) &&
+	    (unsigned long)size >= parisc_cache_flush_threshold) {
+		flush_tlb_kernel_range(start, end);
 		flush_data_cache();
-	else
-		flush_kernel_dcache_range_asm(start, start + size);
+		return;
+	}
+
+	purge_kernel_dcache_range_asm(start, end);
+	flush_tlb_kernel_range(start, end);
 }
 EXPORT_SYMBOL(invalidate_kernel_vmap_range);

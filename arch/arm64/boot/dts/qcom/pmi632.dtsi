@@ -29,7 +29,9 @@
 		pmi632_pon: qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
+
 			qcom,secondary-pon-reset;
+			qcom,s3-src = "kpdpwr";
 		};
 
 		pmi632_vadc: vadc@3100 {
@@ -147,6 +149,30 @@
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
 				qcom,scale-function = <17>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@2a {
+				label = "bat_therm_PU30";
+				reg = <0x2a>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <24>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,cal-val = <0>;
+			};
+
+			chan@6a {
+				label = "bat_therm_PU400";
+				reg = <0x6a>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <25>;
 				qcom,hw-settle-time = <0>;
 				qcom,fast-avg-setup = <0>;
 				qcom,cal-val = <0>;
@@ -464,9 +490,6 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,vbatt-empty-mv = <3300>;
-			qcom,vbatt-low-mv = <3500>;
-			qcom,vbatt-cutoff-mv = <3400>;
 			qcom,qg-iterm-ma = <100>;
 			qcom,hold-soc-while-full;
 			qcom,linearize-soc;
@@ -476,11 +499,12 @@
 			qcom,qgauge@4800 {
 				status = "okay";
 				reg = <0x4800 0x100>;
-				interrupts = <0x2 0x48 0x0 IRQ_TYPE_EDGE_BOTH>,
-					     <0x2 0x48 0x1 IRQ_TYPE_EDGE_BOTH>,
-					     <0x2 0x48 0x2 IRQ_TYPE_EDGE_BOTH>,
-					     <0x2 0x48 0x3 IRQ_TYPE_EDGE_BOTH>,
-					     <0x2 0x48 0x4 IRQ_TYPE_EDGE_BOTH>;
+				interrupts =
+					<0x2 0x48 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x48 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x48 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x48 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x48 0x4 IRQ_TYPE_EDGE_RISING>;
 				interrupt-names = "qg-batt-missing",
 						  "qg-vbat-low",
 						  "qg-vbat-empty",

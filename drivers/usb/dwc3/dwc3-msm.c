@@ -3593,6 +3593,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mutex_init(&mdwc->suspend_resume_mutex);
 	/* Mark type-C as true by default */
 	mdwc->type_c = true;
+	if (of_property_read_bool(node, "qcom,connector-type-uAB"))
+		mdwc->type_c = false;
 
 	mdwc->usb_psy = power_supply_get_by_name("usb");
 	if (!mdwc->usb_psy) {
@@ -4100,7 +4102,7 @@ static int dwc3_restart_usb_host_mode(struct notifier_block *nb,
 
 	usb_speed = (event == 0 ? USB_SPEED_HIGH : USB_SPEED_SUPER);
 	if (dwc->maximum_speed == usb_speed)
-		goto err;
+		return 0;
 
 	dbg_event(0xFF, "fw_restarthost", 0);
 	flush_delayed_work(&mdwc->sm_work);

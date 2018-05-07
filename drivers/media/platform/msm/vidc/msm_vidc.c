@@ -1480,7 +1480,9 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE,
 			inst->profile);
 		break;
-
+	case V4L2_CID_MPEG_VIDC_IMG_GRID_DIMENSION:
+		ctrl->val = inst->img_grid_dimension;
+		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		ctrl->val = msm_comm_hal_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_H264_LEVEL,

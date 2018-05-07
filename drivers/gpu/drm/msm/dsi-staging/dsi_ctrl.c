@@ -1133,6 +1133,11 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	}
 
 kickoff:
+	/* check if custom dma scheduling line needed */
+	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
+		(flags & DSI_CTRL_CMD_CUSTOM_DMA_SCHED))
+		line_no = dsi_ctrl->host_config.u.video_engine.dma_sched_line;
+
 	timing = &(dsi_ctrl->host_config.video_timing);
 	if (timing)
 		line_no += timing->v_back_porch + timing->v_sync_width +

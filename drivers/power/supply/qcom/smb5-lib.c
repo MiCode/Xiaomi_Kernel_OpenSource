@@ -1026,13 +1026,25 @@ int smblib_vconn_regulator_enable(struct regulator_dev *rdev)
 {
 	struct smb_charger *chg = rdev_get_drvdata(rdev);
 	int rc = 0;
+	u8 stat, orientation;
 
 	smblib_dbg(chg, PR_OTG, "enabling VCONN\n");
 
-	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
-				 VCONN_EN_VALUE_BIT, VCONN_EN_VALUE_BIT);
+	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't enable vconn setting rc=%d\n", rc);
+		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
+		return rc;
+	}
+
+	/* VCONN orientation is opposite to that of CC */
+	orientation =
+		stat & TYPEC_CCOUT_VALUE_BIT ? 0 : VCONN_EN_ORIENTATION_BIT;
+	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
+				VCONN_EN_VALUE_BIT | VCONN_EN_ORIENTATION_BIT,
+				VCONN_EN_VALUE_BIT | orientation);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_CCOUT_CONTROL_REG rc=%d\n",
+			rc);
 		return rc;
 	}
 
@@ -1590,7 +1602,7 @@ static int smblib_dm_pulse(struct smb_charger *chg)
 	return rc;
 }
 
-static int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val)
+int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val)
 {
 	int rc;
 
@@ -3106,13 +3118,6 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 				TYPEC_CCOUT_SRC_BIT, 0);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't enable HW cc_out rc=%d\n", rc);
-
-
-	rc = smblib_masked_write(chg, TYPE_C_VCONN_CONTROL_REG,
-				 VCONN_EN_SRC_BIT, 0);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't set TYPE_C_VCONN_CONTROL_REG rc=%d\n",
-				rc);
 
 	/* clear exit sink based on cc */
 	rc = smblib_masked_write(chg, TYPE_C_EXIT_STATE_CFG_REG,

@@ -353,7 +353,7 @@ static inline int get_current_reg_code(int target_curr_ma, int ires_ua)
 	if (!ires_ua || !target_curr_ma || (target_curr_ma < (ires_ua / 1000)))
 		return 0;
 
-	return DIV_ROUND_UP(target_curr_ma * 1000, ires_ua) - 1;
+	return DIV_ROUND_CLOSEST(target_curr_ma * 1000, ires_ua) - 1;
 }
 
 static int qpnp_flash_led_read(struct qpnp_flash_led *led, u16 addr, u8 *data)

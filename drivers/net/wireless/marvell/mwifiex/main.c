@@ -146,7 +146,6 @@ static int mwifiex_unregister(struct mwifiex_adapter *adapter)
 
 	kfree(adapter->regd);
 
-	vfree(adapter->chan_stats);
 	kfree(adapter);
 	return 0;
 }
@@ -636,6 +635,7 @@ static void mwifiex_fw_dpc(const struct firmware *firmware, void *context)
 	goto done;
 
 err_add_intf:
+	vfree(adapter->chan_stats);
 	wiphy_unregister(adapter->wiphy);
 	wiphy_free(adapter->wiphy);
 err_init_fw:
@@ -1429,6 +1429,7 @@ mwifiex_shutdown_sw(struct mwifiex_adapter *adapter, struct semaphore *sem)
 			mwifiex_del_virtual_intf(adapter->wiphy, &priv->wdev);
 		rtnl_unlock();
 	}
+	vfree(adapter->chan_stats);
 
 	up(sem);
 exit_sem_err:
@@ -1729,6 +1730,7 @@ int mwifiex_remove_card(struct mwifiex_adapter *adapter, struct semaphore *sem)
 			mwifiex_del_virtual_intf(adapter->wiphy, &priv->wdev);
 		rtnl_unlock();
 	}
+	vfree(adapter->chan_stats);
 
 	wiphy_unregister(adapter->wiphy);
 	wiphy_free(adapter->wiphy);

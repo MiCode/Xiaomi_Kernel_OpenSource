@@ -1105,6 +1105,7 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 	struct vfe_device *vfe_dev;
 
 	msm_isp_get_timestamp(&timestamp, vfe_dev_ioctl);
+	mutex_lock(&vfe_dev_ioctl->buf_mgr->lock);
 
 	num_stats_comp_mask =
 		vfe_dev_ioctl->hw_info->stats_hw_info->num_stats_comp_mask;
@@ -1125,6 +1126,7 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 		}
 		if (rc) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
+			mutex_unlock(&vfe_dev_ioctl->buf_mgr->lock);
 			goto error;
 		}
 		rc = msm_isp_init_stats_ping_pong_reg(
@@ -1132,6 +1134,7 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 		if (rc < 0) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
 			pr_err("%s: No buffer for stream%d\n", __func__, idx);
+			mutex_unlock(&vfe_dev_ioctl->buf_mgr->lock);
 			return rc;
 		}
 		init_completion(&stream_info->active_comp);
@@ -1166,6 +1169,7 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 				stats_data->num_active_stream);
 		streams[num_stream++] = stream_info;
 	}
+	mutex_unlock(&vfe_dev_ioctl->buf_mgr->lock);
 
 	for (k = 0; k < MAX_VFE; k++) {
 		if (!update_vfes[k] || num_active_streams[k])

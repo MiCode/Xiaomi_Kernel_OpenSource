@@ -146,6 +146,7 @@ static aggr_get_id_t		aggr_get_id;
 static bool			append_file;
 static const char		*output_name;
 static int			output_fd;
+static int			print_free_counters_hint;
 
 struct perf_stat {
 	bool			 record;
@@ -310,8 +311,12 @@ static int read_counter(struct perf_evsel *counter)
 			struct perf_counts_values *count;
 
 			count = perf_counts(counter->counts, cpu, thread);
-			if (perf_evsel__read(counter, cpu, thread, count))
+			if (perf_evsel__read(counter, cpu, thread, count)) {
+				counter->counts->scaled = -1;
+				perf_counts(counter->counts, cpu, thread)->ena = 0;
+				perf_counts(counter->counts, cpu, thread)->run = 0;
 				return -1;
+			}
 
 			if (STAT_RECORD) {
 				if (perf_evsel__write_stat_event(counter, cpu, thread, count)) {
@@ -336,12 +341,14 @@ static int read_counter(struct perf_evsel *counter)
 static void read_counters(void)
 {
 	struct perf_evsel *counter;
+	int ret;
 
 	evlist__for_each_entry(evsel_list, counter) {
-		if (read_counter(counter))
+		ret = read_counter(counter);
+		if (ret)
 			pr_debug("failed to read counter %s\n", counter->name);
 
-		if (perf_stat_process_counter(&stat_config, counter))
+		if (ret == 0 && perf_stat_process_counter(&stat_config, counter))
 			pr_warning("failed to process counter %s\n", counter->name);
 	}
 }
@@ -869,7 +876,7 @@ static void print_metric_csv(void *ctx,
 	char buf[64], *vals, *ends;
 
 	if (unit == NULL || fmt == NULL) {
-		fprintf(out, "%s%s%s%s", csv_sep, csv_sep, csv_sep, csv_sep);
+		fprintf(out, "%s%s", csv_sep, csv_sep);
 		return;
 	}
 	snprintf(buf, sizeof(buf), fmt, val);
@@ -1108,6 +1115,9 @@ static void printout(int id, int nr, struct perf_evsel *counter, double uval,
 			csv_output ? 0 : 18,
 			counter->supported ? CNTR_NOT_COUNTED : CNTR_NOT_SUPPORTED,
 			csv_sep);
+
+		if (counter->supported)
+			print_free_counters_hint = 1;
 
 		fprintf(stat_config.output, "%-*s%s",
 			csv_output ? 0 : unit_width,
@@ -1477,6 +1487,13 @@ static void print_footer(void)
 				avg_stats(&walltime_nsecs_stats));
 	}
 	fprintf(output, "\n\n");
+
+	if (print_free_counters_hint)
+		fprintf(output,
+"Some events weren't counted. Try disabling the NMI watchdog:\n"
+"	echo 0 > /proc/sys/kernel/nmi_watchdog\n"
+"	perf stat ...\n"
+"	echo 1 > /proc/sys/kernel/nmi_watchdog\n");
 }
 
 static void print_counters(struct timespec *ts, int argc, const char **argv)

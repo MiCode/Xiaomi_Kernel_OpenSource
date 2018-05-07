@@ -161,6 +161,7 @@
 		smd36 = &smdtty_loopback;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 for SD card */
+		i2c1 = &i2c_1;
 		i2c2 = &i2c_2;
 		i2c3 = &i2c_3;
 		i2c5 = &i2c_5;
@@ -348,11 +349,6 @@
 	mem_dump {
 		compatible = "qcom,mem-dump";
 		memory-region = <&dump_mem>;
-
-		fcm_dump {
-			qcom,dump-size = <0x8400>;
-			qcom,dump-id = <0xee>;
-		};
 
 		rpm_sw_dump {
 			qcom,dump-size = <0x28000>;
@@ -642,6 +638,30 @@
 		qcom,bam-consumer-pipe-index = <8>;
 		qcom,bam-producer-pipe-index = <9>;
 		qcom,master-id = <86>;
+		status = "disabled";
+	};
+	i2c_1: i2c@78b5000 { /* BLSP1 QUP1 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x78b5000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 95 0>;
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				 <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_1_active>;
+		pinctrl-1 = <&i2c_1_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		dmas = <&dma_blsp1 4 64 0x20000020 0x20>,
+			<&dma_blsp1 5 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
 		status = "disabled";
 	};
 
@@ -1297,6 +1317,103 @@
 			label = "modem";
 		};
 	};
+
+	jtag_mm0: jtagmm@619c000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x619c000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm1: jtagmm@619d000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x619d000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm2: jtagmm@619e000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x619e000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm3: jtagmm@619f000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x619f000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm4: jtagmm@61bc000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bc000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU4>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm5: jtagmm@61bd000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bd000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU5>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm6: jtagmm@61be000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61be000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU6>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk";
+	};
+
+	jtag_mm7: jtagmm@61bf000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x61bf000 0x1000>;
+		reg-names = "etm-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU7>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk";
+	};
+
 		sdcc1_ice: sdcc1ice@7803000 {
 		compatible = "qcom,ice";
 		reg = <0x7803000 0x8000>;

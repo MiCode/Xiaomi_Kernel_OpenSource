@@ -73,11 +73,13 @@ struct ipa_api_controller {
 
 	int (*ipa_add_hdr)(struct ipa_ioc_add_hdr *hdrs);
 
+	int (*ipa_add_hdr_usr)(struct ipa_ioc_add_hdr *hdrs, bool user_only);
+
 	int (*ipa_del_hdr)(struct ipa_ioc_del_hdr *hdls);
 
 	int (*ipa_commit_hdr)(void);
 
-	int (*ipa_reset_hdr)(void);
+	int (*ipa_reset_hdr)(bool user_only);
 
 	int (*ipa_get_hdr)(struct ipa_ioc_get_hdr *lookup);
 
@@ -85,17 +87,21 @@ struct ipa_api_controller {
 
 	int (*ipa_copy_hdr)(struct ipa_ioc_copy_hdr *copy);
 
-	int (*ipa_add_hdr_proc_ctx)(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs);
+	int (*ipa_add_hdr_proc_ctx)(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs,
+								bool user_only);
 
 	int (*ipa_del_hdr_proc_ctx)(struct ipa_ioc_del_hdr_proc_ctx *hdls);
 
 	int (*ipa_add_rt_rule)(struct ipa_ioc_add_rt_rule *rules);
 
+	int (*ipa_add_rt_rule_usr)(struct ipa_ioc_add_rt_rule *rules,
+							bool user_only);
+
 	int (*ipa_del_rt_rule)(struct ipa_ioc_del_rt_rule *hdls);
 
 	int (*ipa_commit_rt)(enum ipa_ip_type ip);
 
-	int (*ipa_reset_rt)(enum ipa_ip_type ip);
+	int (*ipa_reset_rt)(enum ipa_ip_type ip, bool user_only);
 
 	int (*ipa_get_rt_tbl)(struct ipa_ioc_get_rt_tbl *lookup);
 
@@ -107,13 +113,16 @@ struct ipa_api_controller {
 
 	int (*ipa_add_flt_rule)(struct ipa_ioc_add_flt_rule *rules);
 
+	int (*ipa_add_flt_rule_usr)(struct ipa_ioc_add_flt_rule *rules,
+								bool user_only);
+
 	int (*ipa_del_flt_rule)(struct ipa_ioc_del_flt_rule *hdls);
 
 	int (*ipa_mdfy_flt_rule)(struct ipa_ioc_mdfy_flt_rule *rules);
 
 	int (*ipa_commit_flt)(enum ipa_ip_type ip);
 
-	int (*ipa_reset_flt)(enum ipa_ip_type ip);
+	int (*ipa_reset_flt)(enum ipa_ip_type ip, bool user_only);
 
 	int (*ipa_allocate_nat_device)(struct ipa_ioc_nat_alloc_mem *mem);
 
@@ -394,7 +403,7 @@ struct ipa_api_controller {
 		struct ipa_ntn_conn_out_params *);
 
 	int (*ipa_tear_down_uc_offload_pipes)(int ipa_ep_idx_ul,
-		int ipa_ep_idx_dl);
+		int ipa_ep_idx_dl, struct ipa_ntn_conn_in_params *params);
 
 	struct device *(*ipa_get_pdev)(void);
 

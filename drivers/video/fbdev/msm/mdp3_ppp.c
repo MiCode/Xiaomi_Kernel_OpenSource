@@ -22,6 +22,7 @@
 #include <linux/mutex.h>
 #include "linux/proc_fs.h"
 #include <linux/delay.h>
+#include <linux/fence.h>
 
 #include "mdss_fb.h"
 #include "mdp3_ppp.h"
@@ -1645,6 +1646,7 @@ int mdp3_ppp_parse_req(void __user *p,
 		}
 	} else {
 		fence = req->cur_rel_fence;
+		fence_get((struct fence *) fence);
 	}
 
 	mdp3_ppp_req_push(req_q, req);

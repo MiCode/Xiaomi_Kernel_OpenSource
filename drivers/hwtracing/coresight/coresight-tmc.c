@@ -689,8 +689,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
 
-	pm_runtime_put(&adev->dev);
-
 	ctidata = of_get_coresight_cti_data(dev, adev->dev.of_node);
 	if (IS_ERR(ctidata)) {
 		dev_err(dev, "invalid cti data\n");
@@ -754,6 +752,10 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	ret = misc_register(&drvdata->miscdev);
 	if (ret)
 		coresight_unregister(drvdata->csdev);
+
+	if (!ret)
+		pm_runtime_put(&adev->dev);
+
 out:
 	return ret;
 }

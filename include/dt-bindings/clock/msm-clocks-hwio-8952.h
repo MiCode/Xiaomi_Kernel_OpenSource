@@ -432,6 +432,32 @@ enum vdd_hf_pll_levels_8917 {
 	VDD_HF_PLL_NUM_8917,
 };
 
+enum vdd_sr2_pll_levels_439 {
+	VDD_SR2_PLL_OFF_439,
+	VDD_SR2_PLL_SVS_439,
+	VDD_SR2_PLL_NOM_439,
+	VDD_SR2_PLL_TUR_439,
+	VDD_SR2_PLL_NUM_439,
+};
+
+enum vdd_dig_levels_439 {
+	VDD_DIG_NONE_439,
+	VDD_DIG_LOWER_439,
+	VDD_DIG_LOW_439,
+	VDD_DIG_NOMINAL_439,
+	VDD_DIG_NOM_PLUS_439,
+	VDD_DIG_HIGH_439,
+	VDD_DIG_NUM_439
+};
+
+enum vdd_hf_pll_levels_439 {
+	VDD_HF_PLL_OFF_439,
+	VDD_HF_PLL_SVS_439,
+	VDD_HF_PLL_NOM_439,
+	VDD_HF_PLL_TUR_439,
+	VDD_HF_PLL_NUM_439,
+};
+
 static int vdd_corner[] = {
 	RPM_REGULATOR_LEVEL_NONE,		/* VDD_DIG_NONE */
 	RPM_REGULATOR_LEVEL_SVS,		/* VDD_DIG_SVS */

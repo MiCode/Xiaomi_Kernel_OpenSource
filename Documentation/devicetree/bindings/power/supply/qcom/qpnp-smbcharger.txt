@@ -282,6 +282,9 @@ Optional Properties:
 						battery.
 - qcom,vchg_sns-vadc		Phandle of the VADC node.
 - qcom,vchg-adc-channel-id	The ADC channel to which the VCHG is routed.
+- qcom,max-pulse-allowed	The maximum number of pulses allowed in
+				HVDCP3 mode. It can be used to restrict VBUS
+				to a value.
 
 Example:
 	qcom,qpnp-smbcharger {

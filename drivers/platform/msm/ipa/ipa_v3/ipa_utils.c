@@ -1279,31 +1279,31 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST1_CONS]           = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 11, 6, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST2_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 12, 2, 5, 5, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST3_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 19, 12, 9, 9, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_TEST4_CONS]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_PCIE,
+			QMB_MASTER_SELECT_DDR,
 			{ 21, 14, 9, 9, IPA_EE_AP } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_0][IPA_CLIENT_DUMMY_CONS]          = {
@@ -1363,7 +1363,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{0, 8, 8, 16, IPA_EE_AP } },
-	[IPA_4_0][IPA_CLIENT_TEST1_PROD]          = {
+	[IPA_4_0_MHI][IPA_CLIENT_TEST1_PROD]          = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
@@ -4326,7 +4326,7 @@ static void ipa3_set_tag_process_before_gating(bool val)
  *
  * Returns: 0 on success, negative on failure
  */
-static int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
+int ipa3_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 {
 	if (!res) {
 		IPAERR("NULL out param\n");
@@ -4386,6 +4386,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_cfg_ep_holb_by_client = ipa3_cfg_ep_holb_by_client;
 	api_ctrl->ipa_cfg_ep_ctrl = ipa3_cfg_ep_ctrl;
 	api_ctrl->ipa_add_hdr = ipa3_add_hdr;
+	api_ctrl->ipa_add_hdr_usr = ipa3_add_hdr_usr;
 	api_ctrl->ipa_del_hdr = ipa3_del_hdr;
 	api_ctrl->ipa_commit_hdr = ipa3_commit_hdr;
 	api_ctrl->ipa_reset_hdr = ipa3_reset_hdr;
@@ -4395,6 +4396,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_add_hdr_proc_ctx = ipa3_add_hdr_proc_ctx;
 	api_ctrl->ipa_del_hdr_proc_ctx = ipa3_del_hdr_proc_ctx;
 	api_ctrl->ipa_add_rt_rule = ipa3_add_rt_rule;
+	api_ctrl->ipa_add_rt_rule_usr = ipa3_add_rt_rule_usr;
 	api_ctrl->ipa_del_rt_rule = ipa3_del_rt_rule;
 	api_ctrl->ipa_commit_rt = ipa3_commit_rt;
 	api_ctrl->ipa_reset_rt = ipa3_reset_rt;
@@ -4403,6 +4405,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_query_rt_index = ipa3_query_rt_index;
 	api_ctrl->ipa_mdfy_rt_rule = ipa3_mdfy_rt_rule;
 	api_ctrl->ipa_add_flt_rule = ipa3_add_flt_rule;
+	api_ctrl->ipa_add_flt_rule_usr = ipa3_add_flt_rule_usr;
 	api_ctrl->ipa_del_flt_rule = ipa3_del_flt_rule;
 	api_ctrl->ipa_mdfy_flt_rule = ipa3_mdfy_flt_rule;
 	api_ctrl->ipa_commit_flt = ipa3_commit_flt;
@@ -5309,14 +5312,14 @@ bool ipa3_is_msm_device(void)
 }
 
 /**
-* ipa3_disable_prefetch() - disable\enable tx prefetch
-*
-* @client: the client which is related to the TX where prefetch will be
-*          disabled
-*
-* Return value: Non applicable
-*
-*/
+ * ipa3_disable_prefetch() - disable\enable tx prefetch
+ *
+ * @client: the client which is related to the TX where prefetch will be
+ *          disabled
+ *
+ * Return value: Non applicable
+ *
+ */
 void ipa3_disable_prefetch(enum ipa_client_type client)
 {
 	struct ipahal_reg_tx_cfg cfg;

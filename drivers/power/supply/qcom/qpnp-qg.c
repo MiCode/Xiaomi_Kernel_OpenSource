@@ -114,9 +114,11 @@ static int qg_read_ocv(struct qpnp_qg *chip, u32 *ocv_uv, u32 *ocv_raw, u8 type)
 	return rc;
 }
 
+#define DEFAULT_S3_FIFO_LENGTH		3
 static int qg_update_fifo_length(struct qpnp_qg *chip, u8 length)
 {
 	int rc;
+	u8 s3_entry_fifo_length = 0;
 
 	if (!length || length > 8) {
 		pr_err("Invalid FIFO length %d\n", length);
@@ -127,6 +129,21 @@ static int qg_update_fifo_length(struct qpnp_qg *chip, u8 length)
 			FIFO_LENGTH_MASK, (length - 1) << FIFO_LENGTH_SHIFT);
 	if (rc < 0)
 		pr_err("Failed to write S2 FIFO length, rc=%d\n", rc);
+
+	/* update the S3 FIFO length, when S2 length is updated */
+	if (length > 3)
+		s3_entry_fifo_length = (chip->dt.s3_entry_fifo_length > 0) ?
+			chip->dt.s3_entry_fifo_length : DEFAULT_S3_FIFO_LENGTH;
+	else	/* Use S3 length as 1 for any S2 length <= 3 */
+		s3_entry_fifo_length = 1;
+
+	rc = qg_masked_write(chip,
+			chip->qg_base + QG_S3_SLEEP_OCV_IBAT_CTL1_REG,
+			SLEEP_IBAT_QUALIFIED_LENGTH_MASK,
+			s3_entry_fifo_length - 1);
+	if (rc < 0)
+		pr_err("Failed to write S3-entry fifo-length, rc=%d\n",
+						rc);
 
 	return rc;
 }
@@ -412,8 +429,19 @@ static int qg_process_rt_fifo(struct qpnp_qg *chip)
 #define VBAT_LOW_HYST_UV		50000 /* 50mV */
 static int qg_vbat_low_wa(struct qpnp_qg *chip)
 {
-	int rc, i;
-	u32 vbat_low_uv = chip->dt.vbatt_low_mv * 1000 + VBAT_LOW_HYST_UV;
+	int rc, i, temp = 0;
+	u32 vbat_low_uv = 0;
+
+	rc = qg_get_battery_temp(chip, &temp);
+	if (rc < 0) {
+		pr_err("Failed to read batt_temp rc=%d\n", rc);
+		temp = 250;
+	}
+
+	vbat_low_uv = 1000 * ((temp < chip->dt.cold_temp_threshold) ?
+				chip->dt.vbatt_low_cold_mv :
+				chip->dt.vbatt_low_mv);
+	vbat_low_uv += VBAT_LOW_HYST_UV;
 
 	if (!(chip->wa_flags & QG_VBAT_LOW_WA) || !chip->vbat_low)
 		return 0;
@@ -456,6 +484,73 @@ static int qg_vbat_low_wa(struct qpnp_qg *chip)
 
 done:
 	qg_master_hold(chip, false);
+	return rc;
+}
+
+static int qg_vbat_thresholds_config(struct qpnp_qg *chip)
+{
+	int rc, temp = 0, vbat_mv;
+	u8 reg;
+
+	rc = qg_get_battery_temp(chip, &temp);
+	if (rc < 0) {
+		pr_err("Failed to read batt_temp rc=%d\n", rc);
+		return rc;
+	}
+
+	vbat_mv = (temp < chip->dt.cold_temp_threshold) ?
+			chip->dt.vbatt_empty_cold_mv :
+			chip->dt.vbatt_empty_mv;
+
+	rc = qg_read(chip, chip->qg_base + QG_VBAT_EMPTY_THRESHOLD_REG,
+					&reg, 1);
+	if (rc < 0) {
+		pr_err("Failed to read vbat-empty, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (vbat_mv == (reg * 50))	/* No change */
+		goto config_vbat_low;
+
+	reg = vbat_mv / 50;
+	rc = qg_write(chip, chip->qg_base + QG_VBAT_EMPTY_THRESHOLD_REG,
+					&reg, 1);
+	if (rc < 0) {
+		pr_err("Failed to write vbat-empty, rc=%d\n", rc);
+		return rc;
+	}
+
+	qg_dbg(chip, QG_DEBUG_STATUS,
+		"VBAT EMPTY threshold updated to %dmV temp=%d\n",
+						vbat_mv, temp);
+
+config_vbat_low:
+	vbat_mv = (temp < chip->dt.cold_temp_threshold) ?
+			chip->dt.vbatt_low_cold_mv :
+			chip->dt.vbatt_low_mv;
+
+	rc = qg_read(chip, chip->qg_base + QG_VBAT_LOW_THRESHOLD_REG,
+					&reg, 1);
+	if (rc < 0) {
+		pr_err("Failed to read vbat-low, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (vbat_mv == (reg * 50))	/* No change */
+		return 0;
+
+	reg = vbat_mv / 50;
+	rc = qg_write(chip, chip->qg_base + QG_VBAT_LOW_THRESHOLD_REG,
+					&reg, 1);
+	if (rc < 0) {
+		pr_err("Failed to write vbat-low, rc=%d\n", rc);
+		return rc;
+	}
+
+	qg_dbg(chip, QG_DEBUG_STATUS,
+		"VBAT LOW threshold updated to %dmV temp=%d\n",
+						vbat_mv, temp);
+
 	return rc;
 }
 
@@ -608,6 +703,10 @@ static irqreturn_t qg_fifo_update_done_handler(int irq, void *data)
 		pr_err("Failed to process QG FIFO, rc=%d\n", rc);
 		goto done;
 	}
+
+	rc = qg_vbat_thresholds_config(chip);
+	if (rc < 0)
+		pr_err("Failed to apply VBAT EMPTY config rc=%d\n", rc);
 
 	rc = qg_vbat_low_wa(chip);
 	if (rc < 0) {
@@ -1081,12 +1180,26 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			chip->charge_full = true;
 			qg_dbg(chip, QG_DEBUG_STATUS, "Setting charge_full (0->1) @ msoc=%d\n",
 					chip->msoc);
-		} else {
+		} else if (health != POWER_SUPPLY_HEALTH_GOOD) {
+			/* terminated in JEITA */
 			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
 					chip->msoc);
 		}
 	} else if ((!chip->charge_done || chip->msoc < recharge_soc)
 				&& chip->charge_full) {
+
+		if (chip->wa_flags & QG_RECHARGE_SOC_WA) {
+			/* Force recharge */
+			prop.intval = 0;
+			rc = power_supply_set_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+			if (rc < 0)
+				pr_err("Failed to force recharge rc=%d\n", rc);
+			else
+				qg_dbg(chip, QG_DEBUG_STATUS,
+					"Forced recharge\n");
+		}
+
 		/*
 		 * If recharge or discharge has started and
 		 * if linearize soc dtsi property defined
@@ -1668,6 +1781,7 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 {
 	switch (chip->pmic_rev_id->pmic_subtype) {
 	case PMI632_SUBTYPE:
+		chip->wa_flags |= QG_RECHARGE_SOC_WA;
 		if (chip->pmic_rev_id->rev4 == PMI632_V1P0_REV4)
 			chip->wa_flags |= QG_VBAT_LOW_WA;
 		break;
@@ -1840,31 +1954,25 @@ done_fifo:
 		}
 	}
 
-	/* vbat low */
+	/* vbat based configs */
 	if (chip->dt.vbatt_low_mv < 0)
 		chip->dt.vbatt_low_mv = 0;
 	else if (chip->dt.vbatt_low_mv > 12750)
 		chip->dt.vbatt_low_mv = 12750;
 
-	reg = chip->dt.vbatt_low_mv / 50;
-	rc = qg_write(chip, chip->qg_base + QG_VBAT_LOW_THRESHOLD_REG,
-					&reg, 1);
-	if (rc < 0) {
-		pr_err("Failed to write vbat-low, rc=%d\n", rc);
-		return rc;
-	}
-
-	/* vbat empty */
 	if (chip->dt.vbatt_empty_mv < 0)
 		chip->dt.vbatt_empty_mv = 0;
 	else if (chip->dt.vbatt_empty_mv > 12750)
 		chip->dt.vbatt_empty_mv = 12750;
 
-	reg = chip->dt.vbatt_empty_mv / 50;
-	rc = qg_write(chip, chip->qg_base + QG_VBAT_EMPTY_THRESHOLD_REG,
-					&reg, 1);
+	if (chip->dt.vbatt_empty_cold_mv < 0)
+		chip->dt.vbatt_empty_cold_mv = 0;
+	else if (chip->dt.vbatt_empty_cold_mv > 12750)
+		chip->dt.vbatt_empty_cold_mv = 12750;
+
+	rc = qg_vbat_thresholds_config(chip);
 	if (rc < 0) {
-		pr_err("Failed to write vbat-empty, rc=%d\n", rc);
+		pr_err("Failed to configure VBAT empty/low rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1962,8 +2070,10 @@ static int qg_request_irqs(struct qpnp_qg *chip)
 }
 
 #define DEFAULT_VBATT_EMPTY_MV		3200
+#define DEFAULT_VBATT_EMPTY_COLD_MV	3000
 #define DEFAULT_VBATT_CUTOFF_MV		3400
 #define DEFAULT_VBATT_LOW_MV		3500
+#define DEFAULT_VBATT_LOW_COLD_MV	3800
 #define DEFAULT_ITERM_MA		100
 #define DEFAULT_S2_FIFO_LENGTH		5
 #define DEFAULT_S2_VBAT_LOW_LENGTH	2
@@ -1971,6 +2081,7 @@ static int qg_request_irqs(struct qpnp_qg *chip)
 #define DEFAULT_S2_ACC_INTVL_MS		100
 #define DEFAULT_DELTA_SOC		1
 #define DEFAULT_SHUTDOWN_SOC_SECS	360
+#define DEFAULT_COLD_TEMP_THRESHOLD	0
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -2103,11 +2214,29 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.vbatt_empty_mv = temp;
 
+	rc = of_property_read_u32(node, "qcom,vbatt-empty-cold-mv", &temp);
+	if (rc < 0)
+		chip->dt.vbatt_empty_cold_mv = DEFAULT_VBATT_EMPTY_COLD_MV;
+	else
+		chip->dt.vbatt_empty_cold_mv = temp;
+
+	rc = of_property_read_u32(node, "qcom,cold-temp-threshold", &temp);
+	if (rc < 0)
+		chip->dt.cold_temp_threshold = DEFAULT_COLD_TEMP_THRESHOLD;
+	else
+		chip->dt.cold_temp_threshold = temp;
+
 	rc = of_property_read_u32(node, "qcom,vbatt-low-mv", &temp);
 	if (rc < 0)
 		chip->dt.vbatt_low_mv = DEFAULT_VBATT_LOW_MV;
 	else
 		chip->dt.vbatt_low_mv = temp;
+
+	rc = of_property_read_u32(node, "qcom,vbatt-low-cold-mv", &temp);
+	if (rc < 0)
+		chip->dt.vbatt_low_cold_mv = DEFAULT_VBATT_LOW_COLD_MV;
+	else
+		chip->dt.vbatt_low_cold_mv = temp;
 
 	rc = of_property_read_u32(node, "qcom,vbatt-cutoff-mv", &temp);
 	if (rc < 0)

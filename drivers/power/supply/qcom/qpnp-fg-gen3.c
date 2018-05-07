@@ -1417,16 +1417,16 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 			QNOVO_CL_SKEW_DECIPCT, chip->cl.final_cc_uah);
 		chip->cl.final_cc_uah = chip->cl.final_cc_uah *
 						(1000 + QNOVO_CL_SKEW_DECIPCT);
-		div64_s64(chip->cl.final_cc_uah, 1000);
+		chip->cl.final_cc_uah = div64_u64(chip->cl.final_cc_uah, 1000);
 	}
 
 	max_inc_val = chip->cl.learned_cc_uah
 			* (1000 + chip->dt.cl_max_cap_inc);
-	div64_s64(max_inc_val, 1000);
+	max_inc_val = div64_u64(max_inc_val, 1000);
 
 	min_dec_val = chip->cl.learned_cc_uah
 			* (1000 - chip->dt.cl_max_cap_dec);
-	div64_s64(min_dec_val, 1000);
+	min_dec_val = div64_u64(min_dec_val, 1000);
 
 	old_cap = chip->cl.learned_cc_uah;
 	if (chip->cl.final_cc_uah > max_inc_val)
@@ -1440,7 +1440,7 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 	if (chip->dt.cl_max_cap_limit) {
 		max_inc_val = (int64_t)chip->cl.nom_cap_uah * (1000 +
 				chip->dt.cl_max_cap_limit);
-		div64_s64(max_inc_val, 1000);
+		max_inc_val = div64_u64(max_inc_val, 1000);
 		if (chip->cl.final_cc_uah > max_inc_val) {
 			fg_dbg(chip, FG_CAP_LEARN, "learning capacity %lld goes above max limit %lld\n",
 				chip->cl.final_cc_uah, max_inc_val);
@@ -1451,7 +1451,7 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 	if (chip->dt.cl_min_cap_limit) {
 		min_dec_val = (int64_t)chip->cl.nom_cap_uah * (1000 -
 				chip->dt.cl_min_cap_limit);
-		div64_s64(min_dec_val, 1000);
+		min_dec_val = div64_u64(min_dec_val, 1000);
 		if (chip->cl.final_cc_uah < min_dec_val) {
 			fg_dbg(chip, FG_CAP_LEARN, "learning capacity %lld goes below min limit %lld\n",
 				chip->cl.final_cc_uah, min_dec_val);
@@ -1955,7 +1955,7 @@ static int fg_rconn_config(struct fg_chip *chip)
 	}
 
 	val *= scaling_factor;
-	div64_s64(val, 1000);
+	val = div64_u64(val, 1000);
 	rc = fg_sram_write(chip, ESR_RSLOW_CHG_WORD,
 			ESR_RSLOW_CHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -1972,7 +1972,7 @@ static int fg_rconn_config(struct fg_chip *chip)
 	}
 
 	val *= scaling_factor;
-	div64_s64(val, 1000);
+	val = div64_u64(val, 1000);
 	rc = fg_sram_write(chip, ESR_RSLOW_DISCHG_WORD,
 			ESR_RSLOW_DISCHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {

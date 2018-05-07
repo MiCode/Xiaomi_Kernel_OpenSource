@@ -423,6 +423,8 @@
 		qcom,clock-rates = <80000000 0 180000000 0 0 180000000 0 0>;
 		qcom,min-clock-rate = <100000000>;
 		qcom,bus-master = <1>;
+		resets = <&clock_gcc GCC_CAMSS_MICRO_BCR>;
+		reset-names = "micro_iface_reset";
 		qcom,msm-bus,name = "msm_camera_cpp";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -430,6 +432,7 @@
 			<106 512 0 0>,
 			<106 512 0 0>;
 		qcom,msm-bus-vector-dyn-vote;
+		qcom,micro-reset;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <156>;
 			qcom,plane-base = <141>;

@@ -1708,6 +1708,10 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	struct device *dev = &gmu->pdev->dev;
 	int val;
 
+	/* Only trigger wakeup sequence if sleep sequence was done earlier */
+	if (!test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags))
+		return 0;
+
 	kgsl_gmu_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
 	if (!(val & 0x1))
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -1737,6 +1741,9 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
+	/* Clear sleep sequence flag as wakeup sequence is successful */
+	clear_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags);
+
 	/* Enable the power counter because it was disabled before slumber */
 	kgsl_gmu_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
 
@@ -1751,6 +1758,9 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	struct gmu_device *gmu = &device->gmu;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
+
+	if (test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags))
+		return 0;
 
 	/* RSC sleep sequence is different on v1 */
 	if (adreno_is_a630v1(adreno_dev))
@@ -1793,6 +1803,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 			test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
 
+	set_bit(GMU_RSCC_SLEEP_SEQ_DONE, &gmu->flags);
 	return 0;
 }
 
@@ -1811,15 +1822,13 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	unsigned int chipid = 0;
 
 	switch (boot_state) {
-	case GMU_RESET:
-		/* fall through */
 	case GMU_COLD_BOOT:
 		/* Turn on TCM retention */
 		kgsl_gmu_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
 		if (!test_and_set_bit(GMU_BOOT_INIT_DONE, &gmu->flags))
 			_load_gmu_rpmh_ucode(device);
-		else if (boot_state != GMU_RESET) {
+		else {
 			ret = a6xx_rpmh_power_on_gpu(device);
 			if (ret)
 				return ret;
@@ -3776,6 +3785,8 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_NMI_CONTROL_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_CM3_CFG,
 				A6XX_GMU_CM3_CFG),
+	ADRENO_REG_DEFINE(ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
+				A6XX_GMU_RBBM_INT_UNMASKED_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
 				A6XX_RBBM_SECVID_TRUST_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,

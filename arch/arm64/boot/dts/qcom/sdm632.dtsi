@@ -983,3 +983,4 @@
 	/delete-node/ case-therm-step;
 };
 
+#include "sdm632-coresight.dtsi"

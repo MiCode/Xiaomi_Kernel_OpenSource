@@ -3402,22 +3402,42 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
 static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
 {
 	void *dither_cfg;
-	int ret = 0;
+	int ret = 0, rc;
 	size_t len = 0;
 	enum sde_rm_topology_name topology;
+	struct drm_encoder *drm_enc;
+	struct msm_mode_info mode_info;
+	struct msm_display_dsc_info *dsc = NULL;
+	struct sde_encoder_virt *sde_enc;
 
 	if (!phys || !phys->connector || !phys->hw_pp ||
-			!phys->hw_pp->ops.setup_dither)
+			!phys->hw_pp->ops.setup_dither || !phys->parent)
 		return;
+
 	topology = sde_connector_get_topology_name(phys->connector);
 	if ((topology == SDE_RM_TOPOLOGY_PPSPLIT) &&
 			(phys->split_role == ENC_ROLE_SLAVE))
 		return;
 
-	ret = sde_connector_get_dither_cfg(phys->connector,
+	drm_enc = phys->parent;
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	rc = _sde_encoder_get_mode_info(&sde_enc->base, &mode_info);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
+		return;
+	}
+
+	dsc = &mode_info.comp_info.dsc_info;
+	/* disable dither for 10 bpp or 10bpc dsc config */
+	if (dsc->bpp == 10 || dsc->bpc == 10) {
+		phys->hw_pp->ops.setup_dither(phys->hw_pp, NULL, 0);
+	} else {
+		ret = sde_connector_get_dither_cfg(phys->connector,
 				phys->connector->state, &dither_cfg, &len);
-	if (!ret)
-		phys->hw_pp->ops.setup_dither(phys->hw_pp, dither_cfg, len);
+		if (!ret)
+			phys->hw_pp->ops.setup_dither(phys->hw_pp,
+				dither_cfg, len);
+	}
 }
 
 static u32 _sde_encoder_calculate_linetime(struct sde_encoder_virt *sde_enc,

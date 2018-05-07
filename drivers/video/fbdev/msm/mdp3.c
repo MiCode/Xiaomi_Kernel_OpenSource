@@ -44,6 +44,7 @@
 
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <linux/vmalloc.h>
 
 #include <linux/msm_dma_iommu_mapping.h>
 
@@ -1367,7 +1368,7 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 		return -EINVAL;
 	}
 	if (client == MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
-		kfree(data->tab_clone->sgl);
+		vfree(data->tab_clone->sgl);
 		kfree(data->tab_clone);
 	}
 	return 0;
@@ -1496,7 +1497,7 @@ err_unmap:
 	dma_buf_put(data->srcp_dma_buf);
 
 	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
-		kfree(data->tab_clone->sgl);
+		vfree(data->tab_clone->sgl);
 		kfree(data->tab_clone);
 	}
 	return ret;

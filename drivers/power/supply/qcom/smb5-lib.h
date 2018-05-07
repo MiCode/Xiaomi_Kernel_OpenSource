@@ -67,6 +67,7 @@ enum print_reason {
 #define HW_LIMIT_VOTER			"HW_LIMIT_VOTER"
 #define DYNAMIC_RP_VOTER		"DYNAMIC_RP_VOTER"
 #define DEFAULT_100MA_VOTER		"DEFAULT_100MA_VOTER"
+#define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -263,6 +264,7 @@ struct smb_charger {
 	int			smb_version;
 	int			otg_delay_ms;
 	int			*weak_chg_icl_ua;
+	struct qpnp_vadc_chip	*vadc_dev;
 
 	/* locks */
 	struct mutex		lock;
@@ -527,6 +529,7 @@ int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_stat_sw_override_cfg(struct smb_charger *chg, bool override);
 int smblib_configure_wdog(struct smb_charger *chg, bool enable);
+int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

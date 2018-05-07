@@ -471,6 +471,8 @@ static struct icnss_priv {
 	u16 line_number;
 	char function_name[QMI_WLFW_FUNCTION_NAME_LEN_V01 + 1];
 	struct mutex dev_lock;
+	uint32_t fw_error_fatal_irq;
+	uint32_t fw_early_crash_irq;
 } *penv;
 
 #ifdef CONFIG_ICNSS_DEBUG
@@ -1216,17 +1218,21 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 	return IRQ_HANDLED;
 }
 
-static void register_fw_error_notifications(struct icnss_priv *priv)
+static void register_fw_error_notifications(struct device *dev)
 {
-	int gpio, irq, ret;
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int gpio = 0, irq = 0, ret = 0;
 
-	if (!of_find_property(priv->pdev->dev.of_node,
-				"qcom,gpio-force-fatal-error", NULL)) {
+	if (!priv)
+		return;
+
+	if (!of_find_property(dev->of_node, "qcom,gpio-force-fatal-error",
+			      NULL)) {
 		icnss_pr_dbg("Error fatal smp2p handler not registered\n");
 		return;
 	}
-	gpio = of_get_named_gpio(priv->pdev->dev.of_node,
-				"qcom,gpio-force-fatal-error", 0);
+	gpio = of_get_named_gpio(dev->of_node, "qcom,gpio-force-fatal-error",
+				 0);
 	if (!gpio_is_valid(gpio)) {
 		icnss_pr_err("Invalid GPIO for error fatal smp2p %d\n", gpio);
 		return;
@@ -1236,22 +1242,31 @@ static void register_fw_error_notifications(struct icnss_priv *priv)
 		icnss_pr_err("Invalid IRQ for error fatal smp2p %u\n", irq);
 		return;
 	}
-	ret = request_irq(irq, fw_error_fatal_handler,
-			IRQF_TRIGGER_RISING, "wlanfw-err", priv);
+	ret = devm_request_irq(dev, irq, fw_error_fatal_handler,
+			       IRQF_TRIGGER_RISING, "wlanfw-err", priv);
 	if (ret < 0) {
 		icnss_pr_err("Unable to register for error fatal IRQ handler %d",
-				irq);
+			     irq);
 		return;
 	}
-	icnss_pr_dbg("FW force error fatal handler registered\n");
+	icnss_pr_dbg("FW force error fatal handler registered irq = %d\n", irq);
+	priv->fw_error_fatal_irq = irq;
+}
 
-	if (!of_find_property(priv->pdev->dev.of_node,
-				"qcom,gpio-early-crash-ind", NULL)) {
+static void register_early_crash_notifications(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int gpio = 0, irq = 0, ret = 0;
+
+	if (!priv)
+		return;
+
+	if (!of_find_property(dev->of_node, "qcom,gpio-early-crash-ind",
+			      NULL)) {
 		icnss_pr_dbg("FW early crash indication handler not registered\n");
 		return;
 	}
-	gpio = of_get_named_gpio(priv->pdev->dev.of_node,
-				"qcom,gpio-early-crash-ind", 0);
+	gpio = of_get_named_gpio(dev->of_node, "qcom,gpio-early-crash-ind", 0);
 	if (!gpio_is_valid(gpio)) {
 		icnss_pr_err("Invalid GPIO for early crash indication %d\n",
 				gpio);
@@ -1263,14 +1278,16 @@ static void register_fw_error_notifications(struct icnss_priv *priv)
 				irq);
 		return;
 	}
-	ret = request_irq(irq, fw_crash_indication_handler,
-			IRQF_TRIGGER_RISING, "wlanfw-early-crash-ind", priv);
+	ret = devm_request_irq(dev, irq, fw_crash_indication_handler,
+			       IRQF_TRIGGER_RISING, "wlanfw-early-crash-ind",
+			       priv);
 	if (ret < 0) {
 		icnss_pr_err("Unable to register for early crash indication IRQ handler %d",
 				irq);
 		return;
 	}
-	icnss_pr_dbg("FW crash indication handler registered\n");
+	icnss_pr_dbg("FW crash indication handler registered irq = %d\n", irq);
+	priv->fw_early_crash_irq = irq;
 }
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
@@ -2162,7 +2179,11 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	icnss_init_vph_monitor(penv);
 
-	register_fw_error_notifications(penv);
+	if (!penv->fw_error_fatal_irq)
+		register_fw_error_notifications(&penv->pdev->dev);
+
+	if (!penv->fw_early_crash_irq)
+		register_early_crash_notifications(&penv->pdev->dev);
 
 	return ret;
 
@@ -2571,6 +2592,8 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 		break;
 
 	case QMI_SERVER_EXIT:
+		set_bit(ICNSS_FW_DOWN, &penv->state);
+		icnss_ignore_qmi_timeout(true);
 		ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_EXIT,
 					      0, NULL);
 		break;

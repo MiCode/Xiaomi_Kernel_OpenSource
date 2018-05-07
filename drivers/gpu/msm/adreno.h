@@ -722,6 +722,7 @@ enum adreno_regs {
 	ADRENO_REG_GMU_HOST2GMU_INTR_RAW_INFO,
 	ADRENO_REG_GMU_NMI_CONTROL_STATUS,
 	ADRENO_REG_GMU_CM3_CFG,
+	ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
 	ADRENO_REG_GPMU_POWER_COUNTER_ENABLE,
 	ADRENO_REG_REGISTER_MAX,
 };
@@ -1130,6 +1131,7 @@ int adreno_efuse_map(struct adreno_device *adreno_dev);
 int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
 		unsigned int *val);
 void adreno_efuse_unmap(struct adreno_device *adreno_dev);
+void adreno_efuse_speed_bin_array(struct adreno_device *adreno_dev);
 
 bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
 		unsigned int offset);

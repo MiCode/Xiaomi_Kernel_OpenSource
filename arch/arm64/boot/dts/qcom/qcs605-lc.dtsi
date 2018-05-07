@@ -365,3 +365,17 @@
 	vdd-supply = <&pm660_l6>;  /* 0.88v */
 	core-supply = <&pm660_l2>; /* 1.2v */
 };
+
+&int_codec {
+	/delete-property/ qcom,ext-disp-audio-rx;
+};
+
+&bluetooth {
+	qca,bt-vdd-core-supply = <&pm660_l9>;
+	qca,bt-vdd-pa-supply = <&pm660_l3>;
+	/delete-property/ qca,bt-vdd-ldo-supply;
+};
+
+&qupv3_se6_4uart {
+	status = "ok";
+};

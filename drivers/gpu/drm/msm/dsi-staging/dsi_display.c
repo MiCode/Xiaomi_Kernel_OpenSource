@@ -566,7 +566,8 @@ static int dsi_display_read_status(struct dsi_display_ctrl *ctrl,
 	lenp = config->status_valid_params ?: config->status_cmds_rlen;
 	count = config->status_cmd.count;
 	cmds = config->status_cmd.cmds;
-	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ |
+		  DSI_CTRL_CMD_CUSTOM_DMA_SCHED);
 
 	for (i = 0; i < count; ++i) {
 		memset(config->status_buf, 0x0, SZ_4K);
@@ -3050,6 +3051,8 @@ int dsi_pre_clkoff_cb(void *priv,
 				pr_err("%s: failed to disable ulps. rc=%d\n",
 					__func__, rc);
 		}
+		/* dsi will not be able to serve irqs from here on */
+		dsi_display_ctrl_irq_update(display, false);
 	}
 
 	return rc;
@@ -3157,9 +3160,6 @@ int dsi_post_clkoff_cb(void *priv,
 
 	if ((clk_type & DSI_CORE_CLK) &&
 	    (curr_state == DSI_CLK_OFF)) {
-		/* dsi will not be able to serve irqs from here */
-		dsi_display_ctrl_irq_update(display, false);
-
 		rc = dsi_display_phy_power_off(display);
 		if (rc)
 			pr_err("[%s] failed to power off PHY, rc=%d\n",

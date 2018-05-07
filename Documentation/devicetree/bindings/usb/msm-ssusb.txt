@@ -82,6 +82,7 @@ Optional properties :
 - qcom,smmu-s1-bypass: If present, configure SMMU to bypass stage 1 translation.
 - qcom,no-vbus-vote-with-type-C: If present, then do not try to get and enable VBUS
 	regulator in type-C host mode from dwc3-msm driver.
+- qcom,connector-type-uAB: HW platform is using micro-AB USB connector type.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".

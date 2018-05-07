@@ -1565,7 +1565,7 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 	 * based on the MACRO determine the default state to use or the
 	 * offset from the max_state.
 	 */
-	if (upper > (THERMAL_MAX_LIMIT - max_state)) {
+	if (upper >= (THERMAL_MAX_LIMIT - max_state)) {
 		/* upper default max_state */
 		if (upper == THERMAL_NO_LIMIT)
 			upper = max_state;
@@ -1573,7 +1573,7 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 			upper = max_state - (THERMAL_MAX_LIMIT - upper);
 	}
 
-	if (lower > (THERMAL_MAX_LIMIT - max_state)) {
+	if (lower >= (THERMAL_MAX_LIMIT - max_state)) {
 		/* lower default 0 */
 		if (lower == THERMAL_NO_LIMIT)
 			lower = 0;

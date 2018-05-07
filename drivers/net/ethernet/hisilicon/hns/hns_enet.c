@@ -299,9 +299,9 @@ static void fill_tso_desc(struct hnae_ring *ring, void *priv,
 			     mtu);
 }
 
-int hns_nic_net_xmit_hw(struct net_device *ndev,
-			struct sk_buff *skb,
-			struct hns_nic_ring_data *ring_data)
+netdev_tx_t hns_nic_net_xmit_hw(struct net_device *ndev,
+				struct sk_buff *skb,
+				struct hns_nic_ring_data *ring_data)
 {
 	struct hns_nic_priv *priv = netdev_priv(ndev);
 	struct hnae_ring *ring = ring_data->ring;
@@ -359,6 +359,10 @@ int hns_nic_net_xmit_hw(struct net_device *ndev,
 	/*complete translate all packets*/
 	dev_queue = netdev_get_tx_queue(ndev, skb->queue_mapping);
 	netdev_tx_sent_queue(dev_queue, skb->len);
+
+	netif_trans_update(ndev);
+	ndev->stats.tx_bytes += skb->len;
+	ndev->stats.tx_packets++;
 
 	wmb(); /* commit all data before submit */
 	assert(skb->queue_mapping < priv->ae_handle->q_num);
@@ -511,7 +515,8 @@ static void hns_nic_reuse_page(struct sk_buff *skb, int i,
 	int last_offset;
 	bool twobufs;
 
-	twobufs = ((PAGE_SIZE < 8192) && hnae_buf_size(ring) == HNS_BUFFER_SIZE_2048);
+	twobufs = ((PAGE_SIZE < 8192) &&
+		hnae_buf_size(ring) == HNS_BUFFER_SIZE_2048);
 
 	desc = &ring->desc[ring->next_to_clean];
 	size = le16_to_cpu(desc->rx.size);
@@ -1407,17 +1412,11 @@ static netdev_tx_t hns_nic_net_xmit(struct sk_buff *skb,
 				    struct net_device *ndev)
 {
 	struct hns_nic_priv *priv = netdev_priv(ndev);
-	int ret;
 
 	assert(skb->queue_mapping < ndev->ae_handle->q_num);
-	ret = hns_nic_net_xmit_hw(ndev, skb,
-				  &tx_ring_data(priv, skb->queue_mapping));
-	if (ret == NETDEV_TX_OK) {
-		netif_trans_update(ndev);
-		ndev->stats.tx_bytes += skb->len;
-		ndev->stats.tx_packets++;
-	}
-	return (netdev_tx_t)ret;
+
+	return hns_nic_net_xmit_hw(ndev, skb,
+				   &tx_ring_data(priv, skb->queue_mapping));
 }
 
 static int hns_nic_change_mtu(struct net_device *ndev, int new_mtu)
@@ -1700,7 +1699,7 @@ static void hns_nic_reset_subtask(struct hns_nic_priv *priv)
 static void hns_nic_service_event_complete(struct hns_nic_priv *priv)
 {
 	WARN_ON(!test_bit(NIC_STATE_SERVICE_SCHED, &priv->state));
-
+	/* make sure to commit the things */
 	smp_mb__before_atomic();
 	clear_bit(NIC_STATE_SERVICE_SCHED, &priv->state);
 }

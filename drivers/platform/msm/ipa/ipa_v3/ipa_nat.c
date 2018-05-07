@@ -1466,12 +1466,6 @@ int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 {
 	struct ipa_ioc_nat_ipv6ct_table_del tmp;
 
-	if ((ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
-		(del->public_ip_addr == 0)) {
-		IPAERR_RL("Bad Parameter public IP address\n");
-		return -EPERM;
-	}
-
 	tmp.table_index = del->table_index;
 
 	return ipa3_del_nat_table(&tmp);

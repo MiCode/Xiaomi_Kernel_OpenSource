@@ -12,6 +12,7 @@
  */
 
 #include "msm8953-pinctrl.dtsi"
+#include "apq8053-camera-sensor-dragon.dtsi"
 #include "pmi8950.dtsi"
 #include "msm8953-pmi8950.dtsi"
 
@@ -86,6 +87,21 @@
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&tlmm 76 0>; /* BT_EN */
 	};
+
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+		pinctrl-1 = <&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	};
+
+	cdc_quat_mi2s_gpios: msm_cdc_pinctrl_quat {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sec_tlmm_lines_act>;
+		pinctrl-1 = <&sec_tlmm_lines_sus>;
+	};
+
 };
 
 &firmware {
@@ -124,8 +140,43 @@
 	};
 };
 
+&int_codec {
+	status = "ok";
+	qcom,model = "msm8953-openq624-snd-card";
+
+	/delete-property/ qcom,cdc-us-euro-gpios;
+	qcom,msm-hs-micbias-type = "internal";
+
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"SPK_RX_BIAS", "MCLK",
+		"INT_LDO_H", "MCLK",
+		"MIC BIAS Internal1", "Handset Mic",
+		"MIC BIAS Internal2", "Headset Mic",
+		"MIC BIAS Internal1", "Secondary Mic",
+		"AMIC1", "MIC BIAS Internal1",
+		"AMIC2", "MIC BIAS Internal2",
+		"AMIC3", "MIC BIAS Internal1",
+		"DMIC1", "MIC BIAS Internal1",
+		"MIC BIAS Internal1", "Digital Mic1",
+		"DMIC2", "MIC BIAS Internal1",
+		"MIC BIAS Internal1", "Digital Mic2";
+
+	qcom,quat-mi2s-gpios = <&cdc_quat_mi2s_gpios>;
+	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+
+	/delete-property/ asoc-wsa-codec-names;
+	/delete-property/ asoc-wsa-codec-prefixes;
+	/delete-property/ msm-vdd-wsa-switch-supply;
+	/delete-property/ qcom,msm-vdd-wsa-switch-voltage;
+	/delete-property/ qcom,msm-vdd-wsa-switch-current;
+};
 &spi_3 {
 	status = "disabled";
+};
+
+&i2c_1 {
+	status = "okay";
 };
 
 &i2c_2 {
@@ -237,34 +288,18 @@
 };
 
 &sdhc_2 {
-	/* device core power supply */
-	vdd-supply = <&pm8953_l11>;
-	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <15000 800000>;
-
 	/* device communication power supply */
 	vdd-io-supply = <&pm8953_l12>;
-	qcom,vdd-io-always-on;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
 	qcom,vdd-io-current-level = <200 22000>;
+
 	qcom,core_3_0v_support;
 	qcom,nonremovable;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on
-			&sdc2_wlan_gpio_on>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_wlan_gpio_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
-			&sdc2_wlan_gpio_off>;
-
-	#address-cells = <0>;
-	interrupt-parent = <&sdhc_2>;
-	interrupts = <0 1 2>;
-	#interrupt-cells = <1>;
-	interrupt-map-mask = <0xffffffff>;
-	interrupt-map = <0 &intc 0 125 0
-		1 &intc 0 221 0
-		2 &tlmm 133 0>;
-	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+		 &sdc2_wlan_gpio_off>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";

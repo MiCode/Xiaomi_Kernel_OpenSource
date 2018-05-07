@@ -1673,7 +1673,7 @@ EXPORT_SYMBOL(wcnss_get_wlan_mac_address);
 static int enable_wcnss_suspend_notify;
 
 static int enable_wcnss_suspend_notify_set(const char *val,
-					   struct kernel_param *kp)
+					   const struct kernel_param *kp)
 {
 	int ret;
 
@@ -1771,12 +1771,30 @@ static int wcnss_wlan_suspend(struct device *dev)
 	return 0;
 }
 
+static int wcnss_wlan_suspend_noirq(struct device *dev)
+{
+	if (penv && dev && (dev == &penv->pdev->dev) &&
+	    penv->smd_channel_ready &&
+	    penv->pm_ops && penv->pm_ops->suspend_noirq)
+		return penv->pm_ops->suspend_noirq(dev);
+	return 0;
+}
+
 static int wcnss_wlan_resume(struct device *dev)
 {
 	if (penv && dev && (dev == &penv->pdev->dev) &&
 	    penv->smd_channel_ready &&
 	    penv->pm_ops && penv->pm_ops->resume)
 		return penv->pm_ops->resume(dev);
+	return 0;
+}
+
+static int wcnss_wlan_resume_noirq(struct device *dev)
+{
+	if (penv && dev && (dev == &penv->pdev->dev) &&
+	    penv->smd_channel_ready &&
+	    penv->pm_ops && penv->pm_ops->resume_noirq)
+		return penv->pm_ops->resume_noirq(dev);
 	return 0;
 }
 
@@ -3535,6 +3553,8 @@ wcnss_wlan_remove(struct platform_device *pdev)
 static const struct dev_pm_ops wcnss_wlan_pm_ops = {
 	.suspend	= wcnss_wlan_suspend,
 	.resume		= wcnss_wlan_resume,
+	.suspend_noirq  = wcnss_wlan_suspend_noirq,
+	.resume_noirq   = wcnss_wlan_resume_noirq,
 };
 
 #ifdef CONFIG_WCNSS_CORE_PRONTO

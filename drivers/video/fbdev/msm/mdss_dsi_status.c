@@ -133,14 +133,16 @@ static int fb_event_callback(struct notifier_block *self,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo;
 	struct msm_fb_data_type *mfd;
+	char fb_id[7] = {'\0'};
 
 	if (!evdata) {
 		pr_err("%s: event data not available\n", __func__);
 		return NOTIFY_BAD;
 	}
 
+	strlcpy(fb_id, evdata->info->fix.id, 7);
 	/* handle only mdss fb device */
-	if (strcmp("mdssfb", evdata->info->fix.id))
+	if (strcmp("mdssfb", fb_id))
 		return NOTIFY_DONE;
 
 	mfd = evdata->info->par;
@@ -189,7 +191,8 @@ static int fb_event_callback(struct notifier_block *self,
 	return 0;
 }
 
-static int param_dsi_status_disable(const char *val, struct kernel_param *kp)
+static int param_dsi_status_disable(const char *val,
+				    const struct kernel_param *kp)
 {
 	int ret = 0;
 	int int_val;
@@ -204,7 +207,7 @@ static int param_dsi_status_disable(const char *val, struct kernel_param *kp)
 	return ret;
 }
 
-static int param_set_interval(const char *val, struct kernel_param *kp)
+static int param_set_interval(const char *val, const struct kernel_param *kp)
 {
 	int ret = 0;
 	int int_val;
