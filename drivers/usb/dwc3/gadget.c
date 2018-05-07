@@ -1599,6 +1599,10 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 			 * consideration so we don't mess up our TRB ring
 			 * pointers.
 			 */
+			wait_event_lock_irq(dep->wait_end_transfer,
+					!(dep->flags & DWC3_EP_END_TRANSFER_PENDING),
+					dwc->lock);
+
 			if (!r->trb)
 				goto out0;
 
