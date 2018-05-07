@@ -254,9 +254,7 @@ static void sde_encoder_phys_cmd_autorefresh_done_irq(void *arg, int irq_idx)
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0,
-			phys_enc->hw_intf->idx - INTF_0,
-			new_cnt);
+			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&cmd_enc->autorefresh.kickoff_wq);
