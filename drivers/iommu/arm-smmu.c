@@ -1676,8 +1676,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 	if (is_iommu_pt_coherent(smmu_domain))
 		quirks |= IO_PGTABLE_QUIRK_NO_DMA;
-	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_USE_LLC_NWA))
-		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
 
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
 	if (ret < 0)
@@ -2814,11 +2812,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_USE_LLC_NWA:
-		*((int *)data) = !!(smmu_domain->attributes &
-				   (1 << DOMAIN_ATTR_USE_LLC_NWA));
-		ret = 0;
-		break;
 	case DOMAIN_ATTR_EARLY_MAP:
 		*((int *)data) = !!(smmu_domain->attributes
 				    & (1 << DOMAIN_ATTR_EARLY_MAP));
@@ -2999,17 +2992,6 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		if (*((int *)data))
 			smmu_domain->attributes |=
 				1 << DOMAIN_ATTR_USE_UPSTREAM_HINT;
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_USE_LLC_NWA:
-		/* can't be changed while attached */
-		if (smmu_domain->smmu != NULL) {
-			ret = -EBUSY;
-			break;
-		}
-		if (*((int *)data))
-			smmu_domain->attributes |=
-				1 << DOMAIN_ATTR_USE_LLC_NWA;
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_EARLY_MAP: {

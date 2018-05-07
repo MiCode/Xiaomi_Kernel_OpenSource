@@ -1092,8 +1092,6 @@ static int __get_iommu_pgprot(unsigned long attrs, int prot,
 		prot |= IOMMU_NOEXEC;
 	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
 		prot |= IOMMU_USE_UPSTREAM_HINT;
-	if (attrs & DMA_ATTR_IOMMU_USE_LLC_NWA)
-		prot |= IOMMU_USE_LLC_NWA;
 	if (coherent)
 		prot |= IOMMU_CACHE;
 

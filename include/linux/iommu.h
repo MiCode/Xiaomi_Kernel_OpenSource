@@ -46,9 +46,6 @@
 /* Use upstream device's bus attribute */
 #define IOMMU_USE_UPSTREAM_HINT	(1 << 6)
 
-/* Use upstream device's bus attribute with no write-allocate cache policy */
-#define IOMMU_USE_LLC_NWA	(1 << 7)
-
 struct iommu_ops;
 struct iommu_group;
 struct bus_type;
@@ -158,7 +155,6 @@ enum iommu_attr {
 	DOMAIN_ATTR_CB_STALL_DISABLE,
 	DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR,
 	DOMAIN_ATTR_QCOM_MMU500_ERRATA_MIN_IOVA_ALIGN,
-	DOMAIN_ATTR_USE_LLC_NWA,
 	DOMAIN_ATTR_MAX,
 };
 

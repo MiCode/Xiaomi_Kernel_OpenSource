@@ -381,9 +381,6 @@ int dma_info_to_prot(enum dma_data_direction dir, bool coherent,
 	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
 		prot |= IOMMU_USE_UPSTREAM_HINT;
 
-	if (attrs & DMA_ATTR_IOMMU_USE_LLC_NWA)
-		prot |= IOMMU_USE_LLC_NWA;
-
 	switch (dir) {
 	case DMA_BIDIRECTIONAL:
 		return prot | IOMMU_READ | IOMMU_WRITE;
