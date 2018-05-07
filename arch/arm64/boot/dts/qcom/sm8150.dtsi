@@ -913,7 +913,6 @@
 		compatible = "qcom,qcom-llcc-pmu";
 		reg = <0x090cc000 0x300>;
 		reg-names = "lagg-base";
-		status = "disabled";
 	};
 
 	cpu_cpu_llcc_bw: qcom,cpu-cpu-llcc-bw {
@@ -960,7 +959,6 @@
 			< MHZ_TO_MBPS(1555, 4) >, /* 5931 MB/s */
 			< MHZ_TO_MBPS(1804, 4) >, /* 6881 MB/s */
 			< MHZ_TO_MBPS(2092, 4) >; /* 7980 MB/s */
-
 	};
 
 	cpu_llcc_ddr_bwmon: qcom,cpu-llcc-ddr-bwmon@90cd000 {
@@ -971,7 +969,6 @@
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpu_llcc_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "disabled";
 	};
 
 	npu_npu_ddr_bw: qcom,npu-npu-ddr-bw {
