@@ -643,11 +643,6 @@
 			reg = <0 0x9e400000 0 0x1400000>;
 		};
 
-		cont_splash_memory: cont_splash_region@9c000000 {
-			reg = <0x0 0x9c000000 0x0 0x02400000>;
-			label = "cont_splash_region";
-		};
-
 		adsp_mem: adsp_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
