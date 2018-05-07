@@ -118,6 +118,7 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_BEGIN_BOOT_ROM_UPGRADE	0x99
 #define CMD_BOOT_ROM_UPGRADE_DATA	0x9A
 #define CMD_END_BOOT_ROM_UPGRADE	0x9B
+#define CMD_END_FW_UPDATE_FILE		0x9C
 
 #define IOCTL_RELEASE_CAN_BUFFER	(SIOCDEVPRIVATE + 0)
 #define IOCTL_ENABLE_BUFFERING		(SIOCDEVPRIVATE + 1)
@@ -132,6 +133,7 @@ struct spi_miso { /* TLV for MISO line */
 #define IOCTL_BEGIN_BOOT_ROM_UPGRADE	(SIOCDEVPRIVATE + 11)
 #define IOCTL_BOOT_ROM_UPGRADE_DATA	(SIOCDEVPRIVATE + 12)
 #define IOCTL_END_BOOT_ROM_UPGRADE	(SIOCDEVPRIVATE + 13)
+#define IOCTL_END_FW_UPDATE_FILE    (SIOCDEVPRIVATE + 14)
 
 #define IFR_DATA_OFFSET		0x100
 struct can_fw_resp {
@@ -983,6 +985,8 @@ static int qti_can_convert_ioctl_cmd_to_spi_cmd(int ioctl_cmd)
 		return CMD_BOOT_ROM_UPGRADE_DATA;
 	case IOCTL_END_BOOT_ROM_UPGRADE:
 		return CMD_END_BOOT_ROM_UPGRADE;
+	case IOCTL_END_FW_UPDATE_FILE:
+		return CMD_END_FW_UPDATE_FILE;
 	}
 	return -EINVAL;
 }
@@ -1119,6 +1123,7 @@ static int qti_can_netdev_do_ioctl(struct net_device *netdev,
 	case IOCTL_BEGIN_BOOT_ROM_UPGRADE:
 	case IOCTL_BOOT_ROM_UPGRADE_DATA:
 	case IOCTL_END_BOOT_ROM_UPGRADE:
+	case IOCTL_END_FW_UPDATE_FILE:
 		ret = qti_can_do_blocking_ioctl(netdev, ifr, cmd);
 		break;
 	}
