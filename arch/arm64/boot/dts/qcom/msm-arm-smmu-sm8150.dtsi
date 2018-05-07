@@ -372,7 +372,6 @@
 
 	apps_iommu_test_device {
 		compatible = "iommu-debug-test";
-    status = "disabled";
 		/*
 		 * This SID belongs to TSIF. We can't use a fake SID for
 		 * the apps_smmu device.
