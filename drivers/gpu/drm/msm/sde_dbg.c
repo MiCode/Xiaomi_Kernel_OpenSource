@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2785,6 +2785,11 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 
 	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog, evtlog_buf,
 			SDE_EVTLOG_BUF_MAX, true);
+	if (len < 0 || len > count) {
+		pr_err("len is more than user buffer size");
+		return 0;
+	}
+
 	if (copy_to_user(buff, evtlog_buf, len))
 		return -EFAULT;
 	*ppos += len;
