@@ -404,7 +404,6 @@ end:
 
 	return ret;
 }
-EXPORT_SYMBOL(msm_ext_disp_register_audio_codec);
 
 int msm_ext_disp_select_audio_codec(struct platform_device *pdev,
 		struct msm_ext_disp_codec_id *codec)
