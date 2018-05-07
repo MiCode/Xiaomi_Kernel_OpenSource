@@ -1811,6 +1811,9 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
+	if (kgsl_gmu_gpmu_isenabled(device))
+		return;
+
 	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->ctrl_flags))
 		return;
 
