@@ -376,6 +376,7 @@ struct arm_smmu_cb {
 	u32				mair[2];
 	struct arm_smmu_cfg		*cfg;
 	u32				actlr;
+	bool				has_actlr;
 	u32 				attributes;
 };
 
@@ -1776,7 +1777,8 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx)
 	}
 
 	/* ACTLR (implementation defined) */
-	writel_relaxed(cb->actlr, cb_base + ARM_SMMU_CB_ACTLR);
+	if (cb->has_actlr)
+		writel_relaxed(cb->actlr, cb_base + ARM_SMMU_CB_ACTLR);
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
@@ -3775,6 +3777,7 @@ static void qsmmuv2_device_reset(struct arm_smmu_device *smmu)
 		ACTLR_QCOM_OSH << ACTLR_QCOM_OSH_SHIFT |
 		ACTLR_QCOM_NSH << ACTLR_QCOM_NSH_SHIFT;
 		cb->actlr = val;
+		cb->has_actlr = true;
 	}
 
 	/* Program implementation defined registers */
@@ -5526,6 +5529,7 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 		return;
 
 	cb->actlr = iommudata->actlr;
+	cb->has_actlr = true;
 	/*
 	 * Prefetch only works properly if the start and end of all
 	 * buffers in the page table are aligned to 16 Kb.
