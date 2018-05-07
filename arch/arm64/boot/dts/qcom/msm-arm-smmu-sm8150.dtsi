@@ -361,7 +361,6 @@
 
 	kgsl_iommu_test_device {
 		compatible = "iommu-debug-test";
-		status = "disabled";
 		/*
 		 * 0x7 isn't a valid sid, but should pass the sid sanity check.
 		 * We just need _something_ here to get this node recognized by
