@@ -312,6 +312,21 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 	return preempt->count;
 }
 
+static unsigned int _acd_show(struct adreno_device *adreno_dev)
+{
+	return test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
+static int _acd_store(struct adreno_device *adreno_dev, unsigned int val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag) == val)
+		return 0;
+
+	return gmu_core_acd_set(device, val);
+}
+
 static ssize_t _sysfs_store_u32(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -416,7 +431,7 @@ static ADRENO_SYSFS_BOOL(hwcg);
 static ADRENO_SYSFS_BOOL(throttling);
 static ADRENO_SYSFS_BOOL(ifpc);
 static ADRENO_SYSFS_RO_U32(ifpc_count);
-
+static ADRENO_SYSFS_BOOL(acd);
 
 
 static const struct device_attribute *_attr_list[] = {
@@ -439,6 +454,7 @@ static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_ifpc.attr,
 	&adreno_attr_ifpc_count.attr,
 	&adreno_attr_preempt_count.attr,
+	&adreno_attr_acd.attr,
 	NULL,
 };
 
