@@ -94,6 +94,16 @@ config HIBERNATION_IMAGE_REUSE
 	  For more details, refer to the description of CONFIG_HIBERNATION
 	  for booting without resuming.
 
+config HIBERNATION_SKIP_CRC
+	bool "Skip LZO image CRC check"
+	default n
+	depends on HIBERNATION
+	---help---
+	  Some filesystem devices may have hw based integrity checks. In this
+	  scenario, repeating the integrity check in software is unnecessary
+	  and wasteful. This config option has no effect if uncompressed
+	  hibernation images are used.
+
 config ARCH_SAVE_PAGE_KEYS
 	bool
 
