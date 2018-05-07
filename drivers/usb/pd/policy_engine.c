@@ -564,10 +564,13 @@ static int usbpd_release_ss_lane(struct usbpd *pd,
 		goto err_exit;
 	}
 
-	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
-	if (ret) {
-		usbpd_err(&pd->dev, "err(%d) for releasing ss lane", ret);
-		goto err_exit;
+	if (pd->peer_usb_comm) {
+		ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
+		if (ret) {
+			usbpd_err(&pd->dev, "err(%d) for releasing ss lane",
+					ret);
+			goto err_exit;
+		}
 	}
 
 	pd->ss_lane_svid = hdlr->svid;
