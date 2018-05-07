@@ -581,11 +581,22 @@ static ssize_t perfmon_scid_status_show(struct device *dev,
 {
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
 	uint32_t val;
-	unsigned int i, offset;
+	unsigned int i, j, offset;
 	ssize_t cnt = 0, print;
+	unsigned long total;
 
 	for (i = 0; i < SCID_MAX; i++) {
+		total = 0;
 		offset = TRP_SCID_n_STATUS(i);
+
+		for (j = 0; j < llcc_priv->num_banks; j++) {
+			regmap_read(llcc_priv->llcc_map,
+					llcc_priv->bank_off[j] + offset, &val);
+			val = (val & TRP_SCID_STATUS_CURRENT_CAP_MASK)
+				>> TRP_SCID_STATUS_CURRENT_CAP_SHIFT;
+			total += val;
+		}
+
 		llcc_bcast_read(llcc_priv, offset, &val);
 		if (val & TRP_SCID_STATUS_ACTIVE_MASK)
 			print = snprintf(buf, MAX_STRING_SIZE, "SCID %02d %10s",
@@ -596,10 +607,7 @@ static ssize_t perfmon_scid_status_show(struct device *dev,
 
 		buf += print;
 		cnt += print;
-
-		val = (val & TRP_SCID_STATUS_CURRENT_CAP_MASK)
-			>> TRP_SCID_STATUS_CURRENT_CAP_SHIFT;
-		print = snprintf(buf, MAX_STRING_SIZE, ",0x%08x\n", val);
+		print = snprintf(buf, MAX_STRING_SIZE, ",0x%08lx\n", total);
 		buf += print;
 		cnt += print;
 	}
