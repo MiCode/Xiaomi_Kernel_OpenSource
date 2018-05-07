@@ -174,6 +174,9 @@
 /* Number of times to try hard reset */
 #define NUM_TIMES_RESET_RETRY 5
 
+/* Number of times to try loading of zap shader */
+#define ZAP_RETRY_MAX	5
+
 /* Number of times to poll the AHB fence in ISR */
 #define FENCE_RETRY_MAX 100
 

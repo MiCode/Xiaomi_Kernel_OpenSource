@@ -845,7 +845,7 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	uint64_t gpuaddr;
 	void *zap;
-	int ret = 0;
+	int ret = 0, zap_retry = 0;
 
 	gpuaddr = fw->memdesc.gpuaddr;
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
@@ -855,14 +855,22 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 
 	/* Load the zap shader firmware through PIL if its available */
 	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
-		zap = subsystem_get(adreno_dev->gpucore->zap_name);
+		/*
+		 * subsystem_get() may return -EAGAIN in case system is busy
+		 * and unable to load the firmware. So keep trying since this
+		 * is not a fatal error.
+		 */
+		do {
+			ret = 0;
+			zap = subsystem_get(adreno_dev->gpucore->zap_name);
 
-		/* Return error if the zap shader cannot be loaded */
-		if (IS_ERR_OR_NULL(zap)) {
-			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
-			zap = NULL;
-		} else
-			adreno_dev->zap_loaded = 1;
+			/* Return error if the zap shader cannot be loaded */
+			if (IS_ERR_OR_NULL(zap)) {
+				ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
+				zap = NULL;
+			} else
+				adreno_dev->zap_loaded = 1;
+		} while ((ret == -EAGAIN) && (zap_retry++ < ZAP_RETRY_MAX));
 	}
 
 	return ret;
