@@ -32,7 +32,6 @@
 			/* MDM PON conrol*/
 			pins = "gpio10";
 			function = "normal";
-			output-low;
 			power-source = <0>;
 		};
 	};
