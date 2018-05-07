@@ -2786,8 +2786,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		return;
 	}
 
-	memset(&sde_enc->cur_master->intf_cfg_v1, 0,
-			sizeof(sde_enc->cur_master->intf_cfg_v1));
 	ret = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 	if (ret) {
 		SDE_ERROR_ENC(sde_enc, "sde resource control failed: %d\n",
@@ -2795,6 +2793,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		return;
 	}
 
+	memset(&sde_enc->cur_master->intf_cfg_v1, 0,
+			sizeof(sde_enc->cur_master->intf_cfg_v1));
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -2918,8 +2918,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 		}
 	}
 
-	memset(&sde_enc->cur_master->intf_cfg_v1, 0,
-			sizeof(sde_enc->cur_master->intf_cfg_v1));
 	sde_enc->cur_master = NULL;
 	/*
 	 * clear the cached crtc in sde_enc on use case finish, after all the
@@ -3532,7 +3530,7 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 		if (!phys || !phys->ops.update_split_role || !phys->hw_pp)
 			continue;
 
-		active = 1; //test_bit(i, &params->affected_displays);
+		active = test_bit(i, &params->affected_displays);
 		prv_role = phys->split_role;
 
 		if (active && num_active_phys == 1)
