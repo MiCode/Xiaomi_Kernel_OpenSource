@@ -4858,10 +4858,14 @@ int sde_encoder_display_failure_notification(struct drm_encoder *enc)
 	SDE_EVT32_VERBOSE(DRMID(enc));
 
 	disp_thread = &priv->disp_thread[sde_enc->crtc->index];
-
-	kthread_queue_work(&disp_thread->worker,
-				&sde_enc->esd_trigger_work);
-	kthread_flush_work(&sde_enc->esd_trigger_work);
+	if (current->tgid == disp_thread->thread->tgid) {
+		sde_encoder_resource_control(&sde_enc->base,
+					     SDE_ENC_RC_EVENT_KICKOFF);
+	} else {
+		kthread_queue_work(&disp_thread->worker,
+				   &sde_enc->esd_trigger_work);
+		kthread_flush_work(&sde_enc->esd_trigger_work);
+	}
 	/**
 	 * panel may stop generating te signal (vsync) during esd failure. rsc
 	 * hardware may hang without vsync. Avoid rsc hang by generating the
