@@ -1059,7 +1059,6 @@ static int kgsl_close_device(struct kgsl_device *device)
 	int result = 0;
 
 	mutex_lock(&device->mutex);
-	device->open_count--;
 	if (device->open_count == 0) {
 
 		/* Wait for the active count to go to 0 */
@@ -1159,6 +1158,9 @@ static int kgsl_open_device(struct kgsl_device *device)
 		complete_all(&device->hwaccess_gate);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
 		kgsl_active_count_put(device);
+
+		/* Do not let the device close */
+		device->open_count = 1;
 	}
 	device->open_count++;
 err:
