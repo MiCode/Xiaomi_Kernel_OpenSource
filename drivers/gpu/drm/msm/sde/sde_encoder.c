@@ -3410,16 +3410,13 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 			set_bit(i, sde_enc->frame_busy_mask);
 
 		if (!phys->ops.needs_single_flush ||
-				!phys->ops.needs_single_flush(phys)) {
-			pending_kickoff_cnt =
-				sde_encoder_phys_inc_pending(phys);
+				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
-			SDE_EVT32(pending_kickoff_cnt, SDE_EVTLOG_FUNC_CASE1);
-		} else if (ctl->ops.get_pending_flush) {
+		else if (ctl->ops.get_pending_flush) {
 			pending_kickoff_cnt =
 				sde_encoder_phys_inc_pending(phys);
 			ctl->ops.get_pending_flush(ctl, &pending_flush);
-			SDE_EVT32(pending_kickoff_cnt, SDE_EVTLOG_FUNC_CASE2);
+			SDE_EVT32(pending_kickoff_cnt);
 		}
 	}
 
