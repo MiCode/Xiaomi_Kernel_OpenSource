@@ -4849,9 +4849,8 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 	struct sde_connector *sde_conn = NULL;
 	struct sde_connector_state *sde_conn_state = NULL;
 	struct drm_display_mode *drm_mode = NULL;
-	struct sde_rm_hw_iter dsc_iter, pp_iter, ctl_iter, intf_iter;
-	struct sde_encoder_phys *phys_enc;
-	int ret = 0, i, idx;
+	struct sde_rm_hw_iter dsc_iter, pp_iter, ctl_iter;
+	int ret = 0, i;
 
 	if (!encoder) {
 		SDE_ERROR("invalid drm enc\n");
@@ -4995,16 +4994,6 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder)
 					phys_enc->intf_idx, phys_enc->hw_ctl);
 			}
 		}
-	}
-
-	sde_rm_init_hw_iter(&intf_iter, encoder->base.id, SDE_HW_BLK_INTF);
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-
-		phys->hw_intf = NULL;
-		if (!sde_rm_get_hw(&sde_kms->rm, &intf_iter))
-			break;
-		phys->hw_intf = (struct sde_hw_intf *) intf_iter.hw;
 	}
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {

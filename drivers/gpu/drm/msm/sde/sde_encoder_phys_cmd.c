@@ -378,16 +378,8 @@ static void _sde_encoder_phys_cmd_setup_irq_hw_idx(
 {
 	struct sde_encoder_irq *irq;
 
-	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_ctl) {
-		SDE_ERROR("invalid args %d %d\n", !phys_enc,
-			phys_enc ? !phys_enc->hw_pp : 0);
+	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_intf)
 		return;
-	}
-
-	if (phys_enc->has_intf_te && !phys_enc->hw_intf) {
-		SDE_ERROR("invalid intf configuration\n");
-		return;
-	}
 
 	irq = &phys_enc->irq[INTR_IDX_CTL_START];
 	irq->hw_idx = phys_enc->hw_ctl->idx;

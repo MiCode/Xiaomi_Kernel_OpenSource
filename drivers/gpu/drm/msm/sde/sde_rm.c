@@ -1515,14 +1515,20 @@ static void _sde_rm_get_ctl_top_for_cont_splash(struct sde_hw_ctl *ctl,
 		return;
 	}
 
-	if (!ctl->ops.get_ctl_intf) {
-		SDE_ERROR("get_ctl_intf not initialized\n");
+	if (!ctl->ops.read_ctl_top) {
+		SDE_ERROR("read_ctl_top not initialized\n");
 		return;
 	}
 
-	top->intf_sel = ctl->ops.get_ctl_intf(ctl);
+	top->value = ctl->ops.read_ctl_top(ctl);
+	top->intf_sel = (top->value >> 4) & 0xf;
+	top->pp_sel = (top->value >> 8) & 0x7;
+	top->dspp_sel = (top->value >> 11) & 0x3;
+	top->mode_sel = (top->value >> 17) & 0x1;
 
-	SDE_DEBUG("id=%d intf_sel=%d\n", ctl->idx, top->intf_sel);
+	SDE_DEBUG("id=%d,top->0x%x,pp_sel=0x%x,dspp_sel=0x%x,intf_sel=%d\n",
+				ctl->idx, top->value, top->pp_sel,
+				top->dspp_sel, top->intf_sel);
 }
 
 int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,

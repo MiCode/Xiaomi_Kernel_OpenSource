@@ -381,13 +381,6 @@ struct sde_hw_ctl_ops {
 	u32 (*read_ctl_top)(struct sde_hw_ctl *ctx);
 
 	/**
-	 * get interfaces for the active CTL .
-	 * @ctx		: ctl path ctx pointer
-	 * @return	: bit mask with the active interfaces for the CTL
-	 */
-	u32 (*get_ctl_intf)(struct sde_hw_ctl *ctx);
-
-	/**
 	 * read CTL layers register value and return
 	 * the data.
 	 * @ctx       : ctl path ctx pointer
