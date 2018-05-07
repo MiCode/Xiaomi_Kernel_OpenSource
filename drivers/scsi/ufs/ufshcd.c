@@ -753,6 +753,9 @@ static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 	sector_t lba = 0;
 	int transfer_len = 0;
 
+	if (!trace_ufshcd_command_enabled())
+		return;
+
 	lrbp = &hba->lrb[tag];
 
 	if (lrbp->cmd) { /* data phase exists */
@@ -3700,6 +3703,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (err) {
 		err = SCSI_MLQUEUE_HOST_BUSY;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
+		ufshcd_release_all(hba);
 		goto out;
 	}
 	if (ufshcd_is_clkgating_allowed(hba))
