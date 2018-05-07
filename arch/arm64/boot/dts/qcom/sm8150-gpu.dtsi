@@ -289,6 +289,20 @@
 		};
 	};
 
+	gmu_opp_table: gmu-opp-table {
+		compatible = "operating-points-v2";
+
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+		};
+
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <RPMH_REGULATOR_LEVEL_SVS>;
+		};
+	};
+
 	gmu: qcom,gmu@0x2C6A000 {
 		label = "kgsl-gmu";
 		compatible = "qcom,gpu-gmu";
@@ -309,6 +323,9 @@
 		regulator-names = "vddcx", "vdd";
 		vddcx-supply = <&gpu_cx_gdsc>;
 		vdd-supply = <&gpu_gx_gdsc>;
+
+		/* GMU OPP data */
+		operating-points-v2 = <&gmu_opp_table>;
 
 		clocks = <&clock_gpucc GPU_CC_CX_GMU_CLK>,
 				<&clock_gpucc GPU_CC_CXO_CLK>,
@@ -334,6 +351,11 @@
 			qcom,gmu-pwrlevel@1 {
 				reg = <1>;
 				qcom,gmu-freq = <200000000>;
+			};
+
+			qcom,gmu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gmu-freq = <500000000>;
 			};
 		};
 
