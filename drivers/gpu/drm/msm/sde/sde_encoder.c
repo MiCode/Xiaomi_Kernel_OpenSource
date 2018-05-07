@@ -2690,8 +2690,7 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 				sde_kms->catalog);
 
 	if (sde_enc->cur_master->hw_ctl &&
-			sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1 &&
-			!sde_kms->splash_data.cont_splash_en)
+			sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1)
 		sde_enc->cur_master->hw_ctl->ops.setup_intf_cfg_v1(
 				sde_enc->cur_master->hw_ctl,
 				&sde_enc->cur_master->intf_cfg_v1);
