@@ -5033,19 +5033,18 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_host_engine_off;
 	}
 
+	rc = dsi_display_soft_reset(display);
+	if (rc) {
+		pr_err("[%s] failed soft reset, rc=%d\n", display->name, rc);
+		goto error_ctrl_link_off;
+	}
+
 	if (!display->is_cont_splash_enabled) {
 		/*
-		 * For continuous splash usecase, skip panel prepare and
-		 * ctl reset since the pnael and ctrl is already in active
-		 * state and panel on commands are not needed
+		 * For continuous splash usecase we skip panel
+		 * prepare since the pnael is already in
+		 * active state and panel on commands are not needed
 		 */
-		rc = dsi_display_soft_reset(display);
-		if (rc) {
-			pr_err("[%s] failed soft reset, rc=%d\n",
-					display->name, rc);
-			goto error_ctrl_link_off;
-		}
-
 		rc = dsi_panel_prepare(display->panel);
 		if (rc) {
 			pr_err("[%s] panel prepare failed, rc=%d\n",
