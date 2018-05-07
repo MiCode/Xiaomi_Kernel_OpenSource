@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _DT_BINDINGS_CLK_QCOM_GPU_CC_SDM640_H
-#define _DT_BINDINGS_CLK_QCOM_GPU_CC_SDM640_H
+#ifndef _DT_BINDINGS_CLK_QCOM_GPU_CC_SM6150_H
+#define _DT_BINDINGS_CLK_QCOM_GPU_CC_SM6150_H
 
 #define GPU_CC_AHB_CLK						0
 #define GPU_CC_CRC_AHB_CLK					1

@@ -11,12 +11,14 @@
  */
 
 /dts-v1/;
+/plugin/;
 
-#include "sdm640.dtsi"
-#include "sdm640-qrd.dtsi"
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "sm6150-qrd.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM640 QRD";
-	compatible = "qcom,sdm640-qrd", "qcom,sdm640", "qcom,qrd";
+	model = "Qualcomm Technologies, Inc. SM6150 QRD";
+	compatible = "qcom,sm6150-qrd", "qcom,sm6150", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };

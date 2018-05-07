@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _DT_BINDINGS_CLK_QCOM_GCC_SDM640_H
-#define _DT_BINDINGS_CLK_QCOM_GCC_SDM640_H
+#ifndef _DT_BINDINGS_CLK_QCOM_GCC_SM6150_H
+#define _DT_BINDINGS_CLK_QCOM_GCC_SM6150_H
 
 #define GCC_AGGRE_UFS_PHY_AXI_CLK				0
 #define GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK			1

@@ -1,12 +1,12 @@
-Qualcomm Technologies, Inc. SDM640 TLMM block
+Qualcomm Technologies, Inc. SM6150 TLMM block
 
 This binding describes the Top Level Mode Multiplexer block found in the
-SDM640 platform.
+SM6150 platform.
 
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: must be "qcom,sdm640-pinctrl"
+	Definition: must be "qcom,sm6150-pinctrl"
 
 - reg:
 	Usage: required
@@ -176,7 +176,7 @@ to specify in a pin configuration subnode:
 Example:
 
 	tlmm: pinctrl@03000000 {
-		compatible = "qcom,sdm640-pinctrl";
+		compatible = "qcom,sm6150-pinctrl";
 		reg = <0x03000000 0xdc2000>;
 		interrupts = <0 208 0>;
 		gpio-controller;

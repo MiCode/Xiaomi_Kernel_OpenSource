@@ -64,21 +64,21 @@ dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
-	dtbo-$(CONFIG_ARCH_SDM640) += \
-		sdm640-cdp-overlay.dtbo \
-		sdm640-mtp-overlay.dtbo \
-		sdm640-rumi-overlay.dtbo \
-		sdm640-qrd-overlay.dtbo \
+	dtbo-$(CONFIG_ARCH_SM6150) += \
+		sm6150-cdp-overlay.dtbo \
+		sm6150-mtp-overlay.dtbo \
+		sm6150-rumi-overlay.dtbo \
+		sm6150-qrd-overlay.dtbo \
 
-sdm640-cdp-overlay.dtbo-base := sdm640.dtb
-sdm640-mtp-overlay.dtbo-base := sdm640.dtb
-sdm640-rumi-overlay.dtbo-base := sdm640.dtb
-sdm640-qrd-overlay.dtbo-base := sdm640.dtb
+sm6150-cdp-overlay.dtbo-base := sm6150.dtb
+sm6150-mtp-overlay.dtbo-base := sm6150.dtb
+sm6150-rumi-overlay.dtbo-base := sm6150.dtb
+sm6150-qrd-overlay.dtbo-base := sm6150.dtb
 else
-dtb-$(CONFIG_ARCH_SDM640)	+= sdm640-rumi.dtb \
-	sdm640-mtp.dtb \
-	sdm640-cdp.dtb \
-	sdm640-qrd.dtb
+dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
+	sm6150-mtp.dtb \
+	sm6150-cdp.dtb \
+	sm6150-qrd.dtb
 endif
 
 ifeq ($(CONFIG_ARM64),y)

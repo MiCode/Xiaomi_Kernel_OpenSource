@@ -166,12 +166,12 @@ config PINCTRL_SDMSHRIKE
 	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
 	  Technologies Inc SDMSHRIKE platform.
 
-config PINCTRL_SDM640
-	tristate "Qualcomm Technologies Inc SDM640 pin controller driver"
+config PINCTRL_SM6150
+	tristate "Qualcomm Technologies Inc SM6150 pin controller driver"
 	depends on GPIOLIB && OF
 	select PINCTRL_MSM
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
-	  Technologies Inc SDM640 platform.
+	  Technologies Inc SM6150 platform.
 endif

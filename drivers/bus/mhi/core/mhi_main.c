@@ -1101,13 +1101,8 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	mhi_chan->ch_state = MHI_CH_STATE_ENABLED;
 	write_unlock_irq(&mhi_chan->lock);
 
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
-
 	/* pre allocate buffer for xfer ring */
 	if (mhi_chan->pre_alloc) {
-		struct mhi_device *mhi_dev = mhi_chan->mhi_dev;
 		int nr_el = get_nr_avail_ring_elements(mhi_cntrl,
 						       &mhi_chan->tre_ring);
 
@@ -1120,16 +1115,29 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 				goto error_pre_alloc;
 			}
 
-			ret = mhi_queue_buf(mhi_dev, mhi_chan, buf, MHI_MAX_MTU,
-					    MHI_EOT);
+			/* prepare transfer descriptors */
+			ret = mhi_chan->gen_tre(mhi_cntrl, mhi_chan, buf, buf,
+						MHI_MAX_MTU, MHI_EOT);
 			if (ret) {
-				MHI_ERR("Chan:%d error queue buffer\n",
+				MHI_ERR("Chan:%d error prepare buffer\n",
 					mhi_chan->chan);
 				kfree(buf);
 				goto error_pre_alloc;
 			}
 		}
+
+		read_lock_bh(&mhi_cntrl->pm_lock);
+		if (MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)) {
+			read_lock_irq(&mhi_chan->lock);
+			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
+			read_unlock_irq(&mhi_chan->lock);
+		}
+		read_unlock_bh(&mhi_cntrl->pm_lock);
 	}
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	mutex_unlock(&mhi_chan->mutex);
 
@@ -1152,6 +1160,11 @@ error_init_chan:
 	return ret;
 
 error_pre_alloc:
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	mhi_cntrl->wake_put(mhi_cntrl, false);
+	read_unlock_bh(&mhi_cntrl->pm_lock);
+
 	mutex_unlock(&mhi_chan->mutex);
 	__mhi_unprepare_channel(mhi_cntrl, mhi_chan);
 

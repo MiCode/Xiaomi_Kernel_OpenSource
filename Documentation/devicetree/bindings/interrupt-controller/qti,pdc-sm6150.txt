@@ -55,7 +55,7 @@ Properties:
 Example:
 
 pdcgic: interrupt-controller@0xb220000{
-	compatible = "qcom,pdc-sdm640";
+	compatible = "qcom,pdc-sm6150";
 	reg = <0xb220000 0x30000>;
 	#interrupt-cells = <3>;
 	interrupt-parent = <&intc>;

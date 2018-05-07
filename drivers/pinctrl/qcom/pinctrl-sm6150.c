@@ -121,7 +121,7 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
-static const struct pinctrl_pin_desc sdm640_pins[] = {
+static const struct pinctrl_pin_desc sm6150_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
 	PINCTRL_PIN(2, "GPIO_2"),
@@ -390,7 +390,7 @@ static const unsigned int sdc2_cmd_pins[] = { 128 };
 static const unsigned int sdc2_data_pins[] = { 129 };
 static const unsigned int ufs_reset_pins[] = { 130 };
 
-enum sdm640_functions {
+enum sm6150_functions {
 	msm_mux_qup02,
 	msm_mux_gpio,
 	msm_mux_qdss_gpio6,
@@ -1148,7 +1148,7 @@ static const char * const mclk2_groups[] = {
 	"gpio122",
 };
 
-static const struct msm_function sdm640_functions[] = {
+static const struct msm_function sm6150_functions[] = {
 	FUNCTION(qup02),
 	FUNCTION(gpio),
 	FUNCTION(qdss_gpio6),
@@ -1339,7 +1339,7 @@ static const struct msm_function sdm640_functions[] = {
  * pin descriptor registered with pinctrl core.
  * Clients would not be able to request these dummy pin groups.
  */
-static const struct msm_pingroup sdm640_groups[] = {
+static const struct msm_pingroup sm6150_groups[] = {
 	[0] = PINGROUP(0, WEST, qup02, NA, qdss_gpio6, NA, NA, NA, NA, NA, NA),
 	[1] = PINGROUP(1, WEST, qup02, NA, qdss_gpio7, NA, NA, NA, NA, NA, NA),
 	[2] = PINGROUP(2, WEST, qup02, NA, qdss_gpio8, NA, NA, NA, NA, NA, NA),
@@ -1558,7 +1558,7 @@ static const struct msm_pingroup sdm640_groups[] = {
 	[130] = UFS_RESET(ufs_reset, 0x9f000),
 };
 
-static struct msm_dir_conn sdm640_dir_conn[] = {
+static struct msm_dir_conn sm6150_dir_conn[] = {
 	{1, 525},
 	{3, 511},
 	{7, 535},
@@ -1628,51 +1628,51 @@ static struct msm_dir_conn sdm640_dir_conn[] = {
 	{0, 209},
 };
 
-static const struct msm_pinctrl_soc_data sdm640_pinctrl = {
-	.pins = sdm640_pins,
-	.npins = ARRAY_SIZE(sdm640_pins),
-	.functions = sdm640_functions,
-	.nfunctions = ARRAY_SIZE(sdm640_functions),
-	.groups = sdm640_groups,
-	.ngroups = ARRAY_SIZE(sdm640_groups),
+static const struct msm_pinctrl_soc_data sm6150_pinctrl = {
+	.pins = sm6150_pins,
+	.npins = ARRAY_SIZE(sm6150_pins),
+	.functions = sm6150_functions,
+	.nfunctions = ARRAY_SIZE(sm6150_functions),
+	.groups = sm6150_groups,
+	.ngroups = ARRAY_SIZE(sm6150_groups),
 	.ngpios = 123,
-	.dir_conn = sdm640_dir_conn,
-	.n_dir_conns = ARRAY_SIZE(sdm640_dir_conn),
+	.dir_conn = sm6150_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(sm6150_dir_conn),
 	.dir_conn_irq_base = 216,
 };
 
-static int sdm640_pinctrl_probe(struct platform_device *pdev)
+static int sm6150_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &sdm640_pinctrl);
+	return msm_pinctrl_probe(pdev, &sm6150_pinctrl);
 }
 
-static const struct of_device_id sdm640_pinctrl_of_match[] = {
-	{ .compatible = "qcom,sdm640-pinctrl", },
+static const struct of_device_id sm6150_pinctrl_of_match[] = {
+	{ .compatible = "qcom,sm6150-pinctrl", },
 	{ },
 };
 
-static struct platform_driver sdm640_pinctrl_driver = {
+static struct platform_driver sm6150_pinctrl_driver = {
 	.driver = {
-		.name = "sdm640-pinctrl",
+		.name = "sm6150-pinctrl",
 		.owner = THIS_MODULE,
-		.of_match_table = sdm640_pinctrl_of_match,
+		.of_match_table = sm6150_pinctrl_of_match,
 	},
-	.probe = sdm640_pinctrl_probe,
+	.probe = sm6150_pinctrl_probe,
 	.remove = msm_pinctrl_remove,
 };
 
-static int __init sdm640_pinctrl_init(void)
+static int __init sm6150_pinctrl_init(void)
 {
-	return platform_driver_register(&sdm640_pinctrl_driver);
+	return platform_driver_register(&sm6150_pinctrl_driver);
 }
-arch_initcall(sdm640_pinctrl_init);
+arch_initcall(sm6150_pinctrl_init);
 
-static void __exit sdm640_pinctrl_exit(void)
+static void __exit sm6150_pinctrl_exit(void)
 {
-	platform_driver_unregister(&sdm640_pinctrl_driver);
+	platform_driver_unregister(&sm6150_pinctrl_driver);
 }
-module_exit(sdm640_pinctrl_exit);
+module_exit(sm6150_pinctrl_exit);
 
-MODULE_DESCRIPTION("QTI sdm640 pinctrl driver");
+MODULE_DESCRIPTION("QTI sm6150 pinctrl driver");
 MODULE_LICENSE("GPL v2");
-MODULE_DEVICE_TABLE(of, sdm640_pinctrl_of_match);
+MODULE_DEVICE_TABLE(of, sm6150_pinctrl_of_match);

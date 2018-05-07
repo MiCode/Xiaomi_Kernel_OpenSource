@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _DT_BINDINGS_CLK_QCOM_CAM_CC_SDM640_H
-#define _DT_BINDINGS_CLK_QCOM_CAM_CC_SDM640_H
+#ifndef _DT_BINDINGS_CLK_QCOM_CAM_CC_SM6150_H
+#define _DT_BINDINGS_CLK_QCOM_CAM_CC_SM6150_H
 
 #define CAM_CC_BPS_AHB_CLK					0
 #define CAM_CC_BPS_AREG_CLK					1

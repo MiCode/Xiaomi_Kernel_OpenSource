@@ -68,6 +68,7 @@
 #include <linux/atomic.h>
 #include <linux/list.h>
 #include <uapi/linux/spcom.h>
+#include <soc/qcom/subsystem_restart.h>
 
 /**
  * Request buffer size.
@@ -519,6 +520,28 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 	ret = spcom_create_channel_chardev(ch_name);
 
 	return ret;
+}
+
+/**
+ * spcom_handle_restart_sp_command() - Handle Restart SP command from
+ * user space.
+ *
+ * Return: 0 on successful operation, negative value otherwise.
+ */
+static int spcom_handle_restart_sp_command(void)
+{
+	void *subsystem_get_retval = NULL;
+
+	pr_err("restart - PIL FW loading process initiated\n");
+
+	subsystem_get_retval = subsystem_get("spss");
+	if (!subsystem_get_retval) {
+		pr_err("restart - unable to trigger PIL process for FW loading\n");
+		return -EINVAL;
+	}
+
+	pr_err("restart - PIL FW loading process is complete\n");
+	return 0;
 }
 
 /**
@@ -981,7 +1004,8 @@ static int spcom_handle_write(struct spcom_channel *ch,
 
 	pr_debug("cmd_id [0x%x]\n", cmd_id);
 
-	if (!ch && cmd_id != SPCOM_CMD_CREATE_CHANNEL) {
+	if (!ch && cmd_id != SPCOM_CMD_CREATE_CHANNEL
+			&& cmd_id != SPCOM_CMD_RESTART_SP) {
 		pr_err("channel context is null\n");
 		return -EINVAL;
 	}
@@ -1001,6 +1025,9 @@ static int spcom_handle_write(struct spcom_channel *ch,
 		break;
 	case SPCOM_CMD_CREATE_CHANNEL:
 		ret = spcom_handle_create_channel_command(buf, buf_size);
+		break;
+	case SPCOM_CMD_RESTART_SP:
+		ret = spcom_handle_restart_sp_command();
 		break;
 	default:
 		pr_err("Invalid Command Id [0x%x].\n", (int) cmd->cmd_id);
