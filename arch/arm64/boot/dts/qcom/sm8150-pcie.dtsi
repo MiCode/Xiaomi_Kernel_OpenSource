@@ -207,6 +207,10 @@
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_NOM 0>;
 
+		qcom,l1-supported;
+		qcom,l1ss-supported;
+		qcom,aux-clk-sync;
+
 		qcom,max-link-speed = <0x3>;
 
 		qcom,ep-latency = <10>;
@@ -522,6 +526,10 @@
 		qcom,vreg-0.9-voltage-level = <880000 880000 24000>;
 		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 						RPMH_REGULATOR_LEVEL_NOM 0>;
+
+		qcom,l1-supported;
+		qcom,l1ss-supported;
+		qcom,aux-clk-sync;
 
 		qcom,max-link-speed = <0x3>;
 
