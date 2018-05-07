@@ -418,13 +418,6 @@ static void sde_encoder_phys_cmd_cont_splash_mode_set(
 	phys_enc->cached_mode = *adj_mode;
 	phys_enc->enable_state = SDE_ENC_ENABLED;
 
-	if (!phys_enc->hw_ctl || !phys_enc->hw_pp) {
-		SDE_DEBUG("invalid ctl:%d pp:%d\n",
-			(phys_enc->hw_ctl == NULL),
-			(phys_enc->hw_pp == NULL));
-		return;
-	}
-
 	_sde_encoder_phys_cmd_setup_irq_hw_idx(phys_enc);
 }
 

@@ -269,8 +269,6 @@ struct sde_encoder_irq {
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
  * @irq:			IRQ tracking structures
  * @has_intf_te:		Interface TE configuration support
- * @cont_splash_single_flush	Variable to check if single flush is enabled.
- * @cont_splash_settings	Variable to store continuous splash settings.
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -302,8 +300,6 @@ struct sde_encoder_phys {
 	wait_queue_head_t pending_kickoff_wq;
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
 	bool has_intf_te;
-	u32 cont_splash_single_flush;
-	bool cont_splash_settings;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
@@ -669,9 +665,7 @@ static inline bool sde_encoder_phys_needs_single_flush(
 	if (!phys_enc)
 		return false;
 
-	return phys_enc->cont_splash_settings ?
-			phys_enc->cont_splash_single_flush :
-			(_sde_encoder_phys_is_ppsplit(phys_enc) ||
-				_sde_encoder_phys_is_dual_ctl(phys_enc));
+	return phys_enc && (_sde_encoder_phys_is_ppsplit(phys_enc) ||
+		_sde_encoder_phys_is_dual_ctl(phys_enc));
 }
 #endif /* __sde_encoder_phys_H__ */
