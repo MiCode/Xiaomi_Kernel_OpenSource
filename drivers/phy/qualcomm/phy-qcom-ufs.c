@@ -311,8 +311,8 @@ int ufs_qcom_phy_init_vregulators(struct ufs_qcom_phy *phy_common)
 	if (err)
 		goto out;
 
-	ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vddp_ref_clk,
-		"vddp-ref-clk");
+	err = ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vddp_ref_clk,
+				     "vddp-ref-clk");
 
 out:
 	return err;

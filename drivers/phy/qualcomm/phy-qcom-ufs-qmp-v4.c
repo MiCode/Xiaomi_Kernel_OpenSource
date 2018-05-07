@@ -19,9 +19,6 @@ static
 int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 					bool is_rate_B)
 {
-	writel_relaxed(0x01, ufs_qcom_phy->mmio + UFS_PHY_SW_RESET);
-	/* Ensure PHY is in reset before writing PHY calibration data */
-	wmb();
 	/*
 	 * Writing PHY calibration in this order:
 	 * 1. Write Rate-A calibration first (1-lane mode).
@@ -36,10 +33,8 @@ int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	if (is_rate_B)
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
 				       ARRAY_SIZE(phy_cal_table_rate_B));
-
-	writel_relaxed(0x00, ufs_qcom_phy->mmio + UFS_PHY_SW_RESET);
 	/* flush buffered writes */
-	wmb();
+	mb();
 
 	return 0;
 }
