@@ -13,7 +13,6 @@
 #ifndef _CAM_FLASH_CORE_H_
 #define _CAM_FLASH_CORE_H_
 
-#include <linux/leds-qpnp-flash.h>
 #include <media/cam_sensor.h>
 #include "cam_flash_dev.h"
 #include "cam_sync_api.h"
