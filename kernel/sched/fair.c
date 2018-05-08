@@ -6871,6 +6871,13 @@ static inline bool skip_sg(struct task_struct *p, struct sched_group *sg,
 	if (!sg->group_weight)
 		return true;
 
+	/*
+	 * Don't skip a group if a task affinity allows it
+	 * to run only on that group.
+	 */
+	if (cpumask_subset(tsk_cpus_allowed(p), sched_group_cpus(sg)))
+		return false;
+
 	if (!task_fits_max(p, fcpu))
 		return true;
 
