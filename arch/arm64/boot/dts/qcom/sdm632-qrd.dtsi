@@ -12,3 +12,9 @@
  */
 
 #include "sdm450-qrd-sku4.dtsi"
+
+&ssphy {
+	fpc-redrive-supply = <&pm8953_l6>;
+	qcom,redrive-voltage-level = <0 1800000 1900000>;
+	qcom,redrive-load = <105000>;
+};
