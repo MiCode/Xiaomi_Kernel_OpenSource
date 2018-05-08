@@ -602,6 +602,7 @@ void __init mem_init(void)
 
 	mem_init_print_info(NULL);
 
+#ifdef CONFIG_PRINT_VMEMLAYOUT
 #define MLK(b, t) b, t, ((t) - (b)) >> 10
 #define MLM(b, t) b, t, ((t) - (b)) >> 20
 #define MLG(b, t) b, t, ((t) - (b)) >> 30
@@ -644,7 +645,7 @@ void __init mem_init(void)
 #undef MLK
 #undef MLM
 #undef MLK_ROUNDUP
-
+#endif
 	/*
 	 * Check boundaries twice: Some fundamental inconsistencies can be
 	 * detected at build time already.
