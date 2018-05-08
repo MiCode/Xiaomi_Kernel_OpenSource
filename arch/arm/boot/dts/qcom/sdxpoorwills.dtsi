@@ -1252,9 +1252,10 @@
 			"rx-ch0-intr", "rx-ch1-intr",
 			"rx-ch2-intr", "rx-ch3-intr";
 		qcom,msm-bus,name = "emac";
-		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
+			<98 512 0 0>, <1 781 0 0>,  /* No vote */
 			<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
 			<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
 			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
