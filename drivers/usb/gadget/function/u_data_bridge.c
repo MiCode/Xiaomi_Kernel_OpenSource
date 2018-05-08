@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2018, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -636,6 +636,9 @@ static int gbridge_port_tiocmget(struct gbridge_port *port)
 
 	if (gser->serial_state & TIOCM_DSR)
 		result |= TIOCM_DSR;
+
+	if (gser->serial_state & TIOCM_CTS)
+		result |= TIOCM_CTS;
 fail:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 	return result;
@@ -689,6 +692,18 @@ static int gbridge_port_tiocmset(struct gbridge_port *port,
 		gser->serial_state |= TIOCM_DSR;
 	if (clear & TIOCM_DSR)
 		gser->serial_state &= ~TIOCM_DSR;
+	if (set & TIOCM_CTS) {
+		if (gser->send_break) {
+			gser->serial_state |= TIOCM_CTS;
+			status = gser->send_break(gser, 0);
+		}
+	}
+	if (clear & TIOCM_CTS) {
+		if (gser->send_break) {
+			gser->serial_state &= ~TIOCM_CTS;
+			status = gser->send_break(gser, 1);
+		}
+	}
 fail:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 	return status;
