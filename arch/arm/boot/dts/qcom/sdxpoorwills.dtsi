@@ -1039,7 +1039,6 @@
 
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";
-			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x5E0 0x0>;
 			qcom,iova-mapping = <0x20000000 0x40000000>;
 			qcom,additional-mapping =
@@ -1050,7 +1049,6 @@
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
 			compatible = "qcom,ipa-smmu-wlan-cb";
-			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x5E1 0x0>;
 			qcom,additional-mapping =
 				/* ipa-uc ram */
@@ -1059,7 +1057,6 @@
 
 		ipa_smmu_uc: ipa_smmu_uc {
 			compatible = "qcom,ipa-smmu-uc-cb";
-			qcom,smmu-s1-bypass;
 			iommus = <&apps_smmu 0x5E2 0x0>;
 			qcom,iova-mapping = <0x40000000 0x20000000>;
 		};
