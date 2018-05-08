@@ -65,6 +65,17 @@ config ARCH_MSM8953
 	select HAVE_CLK_PREPARE
 	select COMMON_CLK_MSM
 
+config ARCH_MSM8953_BOOT_ORDERING
+	bool "Enable support for MSM8953 device boot ordering"
+	default n
+	help
+	  Populate devices from devicetree at late_init, after
+	  drivers for all platform devices have been registered.
+	  This causes devices to be probed in the order they are
+	  listed in devicetree. Thus it is possible to have
+	  greater control over the probe ordering such that
+	  overall boot time can be reduced.
+
 config ARCH_MSM8937
 	bool "Enable support for MSM8937"
 	select CPU_V7
