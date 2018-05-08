@@ -71,3 +71,7 @@
 
 	status = "disabled";
 };
+
+&spmi_bus {
+	status = "disabled";
+};
