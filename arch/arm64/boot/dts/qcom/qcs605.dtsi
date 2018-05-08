@@ -66,6 +66,10 @@
 	status = "disabled";
 };
 
+&dump_mem {
+	size = <0 0x800000>;
+};
+
 &soc {
 	qcom,rmnet-ipa {
 		status = "disabled";
@@ -74,6 +78,12 @@
 
 &ipa_hw {
 	status = "disabled";
+};
+
+&mem_dump {
+	rpmh {
+		qcom,dump-size = <0x400000>;
+	};
 };
 
 &thermal_zones {
