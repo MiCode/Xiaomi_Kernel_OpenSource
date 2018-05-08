@@ -1026,9 +1026,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 					cpu_online_mask);
 
 	if (!cpumask_equal(&cluster->num_children_in_sync, &cluster->child_cpus)
-			|| is_IPI_pending(&cluster->num_children_in_sync)) {
+				|| is_IPI_pending(&online_cpus))
 		return -EPERM;
-	}
 
 	if (idx != cluster->default_level) {
 		update_debug_pc_event(CLUSTER_ENTER, idx,
