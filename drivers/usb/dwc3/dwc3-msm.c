@@ -2113,6 +2113,60 @@ static void configure_nonpdc_usb_interrupt(struct dwc3_msm *mdwc,
 	}
 }
 
+enum bus_vote {
+	BUS_VOTE_INVALID,
+	BUS_VOTE_SUSPEND,
+	BUS_VOTE_NOMINAL,
+	BUS_VOTE_SVS
+};
+
+static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
+{
+	int ret = 0;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	if (!mdwc->bus_perf_client)
+		return 0;
+
+	dbg_event(0xFF, "bus_vote_start", bv);
+
+	switch (bv) {
+	case BUS_VOTE_SVS:
+		/* On some platforms SVS does not have separate vote. Vote for
+		 * nominal if svs usecase does not exist
+		 */
+		if (mdwc->bus_scale_table->num_usecases == 2)
+			goto nominal_vote;
+
+		/* index starts from zero */
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 2);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
+		break;
+	case BUS_VOTE_NOMINAL:
+nominal_vote:
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 1);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
+		break;
+	case BUS_VOTE_SUSPEND:
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 0);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
+		break;
+	default:
+		dev_err(mdwc->dev, "Unsupported bus vote:%d\n", bv);
+		ret = -EINVAL;
+	}
+
+	dbg_event(0xFF, "bus_vote_end", bv);
+
+	return ret;
+
+}
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret;
@@ -2244,15 +2298,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		}
 	}
 
-	/* Remove bus voting */
-	if (mdwc->bus_perf_client) {
-		dbg_event(0xFF, "bus_devote_start", 0);
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 0);
-		dbg_event(0xFF, "bus_devote_finish", 0);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw unvoting failed %d\n", ret);
-	}
+	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SUSPEND);
 
 	/*
 	 * release wakeup source with timeout to defer system suspend to
@@ -2310,15 +2356,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	pm_stay_awake(mdwc->dev);
 
-	/* Enable bus voting */
-	if (mdwc->bus_perf_client) {
-		dbg_event(0xFF, "bus_vote_start", 1);
-		ret = msm_bus_scale_client_update_request(
-					mdwc->bus_perf_client, 1);
-		dbg_event(0xFF, "bus_vote_finish", 1);
-		if (ret)
-			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
-	}
+	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH)
+		dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
+	else
+		dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NOMINAL);
 
 	/* Vote for TCXO while waking up USB HSPHY */
 	ret = clk_prepare_enable(mdwc->xo_clk);
@@ -3530,6 +3571,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 					"set hs core clk rate %ld\n",
 					mdwc->core_clk_rate_hs);
 				mdwc->max_rh_port_speed = USB_SPEED_HIGH;
+				dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
 			} else {
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
 			}
@@ -3555,6 +3597,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			dev_dbg(mdwc->dev, "set core clk rate %ld\n",
 				mdwc->core_clk_rate);
 			mdwc->max_rh_port_speed = USB_SPEED_UNKNOWN;
+			dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NOMINAL);
 		}
 	}
 
