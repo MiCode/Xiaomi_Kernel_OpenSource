@@ -114,6 +114,8 @@
 		qcom,cpr-count-repeat = <14>;
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
+		qcom,cpr-reset-step-quot-loop-en;
+		qcom,cpr-thread-has-always-vote-en;
 
 		qcom,apm-ctrl = <&apc_apm>;
 		qcom,apm-threshold-voltage = <875000>;
@@ -131,10 +133,13 @@
 			"APCS_ALIAS0_APM_CTLER_STATUS",
 			"APCS0_CPR_CORE_ADJ_MODE_REG";
 
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-consecutive-down = <0>;
 			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <1>;
 
@@ -156,6 +161,10 @@
 					<500000  500000 500000 500000 500000
 					 500000  500000>;
 
+				qcom,cpr-floor-to-ceiling-max-range =
+					<50000  50000 50000 50000 50000
+					 50000  50000>;
+
 				qcom,mem-acc-voltage = <1 1 2 2 2 2 3>;
 
 				qcom,corner-frequencies =
@@ -176,13 +185,19 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					< 0       0      0 10000>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					<(-10000) 0      0 10000>;
 			};
 		};
 
 		thread@1 {
 			qcom,cpr-thread-id = <1>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-consecutive-down = <0>;
 			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <1>;
 
@@ -203,6 +218,10 @@
 				qcom,cpr-voltage-floor =
 					<500000 500000 500000 500000 500000
 					 500000 500000>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					<50000  50000 50000 50000 50000
+					 50000  50000>;
 
 				qcom,mem-acc-voltage = <1 1 2 2 2 2 3>;
 
@@ -227,9 +246,9 @@
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
 					/* Speed bin 0; CPR rev 0..7 */
-					< 30000      0      0     0>,
-					< 30000      0      0     0>,
-					<     0      0      0     0>,
+					< 30000      0  10000 20000>,
+					< 30000      0  10000 20000>,
+					<     0      0  10000 20000>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
@@ -247,9 +266,9 @@
 					<     0      0      0     0>,
 
 					/* Speed bin 2; CPR rev 0..7 */
-					< 30000      0      0     0>,
-					< 30000      0      0     0>,
-					<     0      0      0     0>,
+					< 30000      0  10000 20000>,
+					< 30000      0  10000 20000>,
+					<     0      0  10000 20000>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
@@ -287,9 +306,9 @@
 					<     0      0      0     0>,
 
 					/* Speed bin 6; CPR rev 0..7 */
-					< 30000      0      0     0>,
-					< 30000      0      0     0>,
-					<     0      0      0     0>,
+					< 30000      0  10000 20000>,
+					< 30000      0  10000 20000>,
+					<     0      0  10000 20000>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
@@ -310,7 +329,7 @@
 					/* Speed bin 0; CPR rev 0..7 */
 					< 30000      0      0     0>,
 					< 30000      0      0     0>,
-					<     0      0      0     0>,
+					<(-10000)    0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
@@ -330,7 +349,7 @@
 					/* Speed bin 2; CPR rev 0..7 */
 					< 30000      0      0     0>,
 					< 30000      0      0     0>,
-					<     0      0      0     0>,
+					<(-10000)    0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
@@ -370,7 +389,7 @@
 					/* Speed bin 6; CPR rev 0..7 */
 					< 30000      0      0     0>,
 					< 30000      0      0     0>,
-					<     0      0      0     0>,
+					<(-10000)    0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
 					<     0      0      0     0>,
