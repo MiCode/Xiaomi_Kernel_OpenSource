@@ -946,6 +946,15 @@
 		reg = <0xc3f000c 8>;
 	};
 
+	dcc: dcc_v2@10a2000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x10a2000 0x1000>,
+		      <0x10ae000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		dcc-ram-offset = <0x6000>;
+	};
+
 	qcom,llcc@9200000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
 		reg = <0x9200000 0x450000>;
@@ -1576,3 +1585,4 @@
 
 #include "sm6150-ion.dtsi"
 #include "msm-arm-smmu-sm6150.dtsi"
+#include "sm6150-coresight.dtsi"
