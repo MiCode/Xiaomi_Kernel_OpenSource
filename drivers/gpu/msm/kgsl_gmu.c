@@ -984,7 +984,7 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 	struct kgsl_device *device = data;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int status = 0;
+	unsigned int mask, status = 0;
 
 	adreno_read_gmureg(ADRENO_DEVICE(device),
 			ADRENO_REG_GMU_AO_HOST_INTERRUPT_STATUS, &status);
@@ -993,6 +993,13 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 
 	/* Ignore GMU_INT_RSCC_COMP and GMU_INT_DBD WAKEUP interrupts */
 	if (status & GMU_INT_WDOG_BITE) {
+		/* Temporarily mask the watchdog interrupt to prevent a storm */
+		adreno_read_gmureg(adreno_dev,
+				ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK, &mask);
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
+				(mask | GMU_INT_WDOG_BITE));
+
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
 		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
