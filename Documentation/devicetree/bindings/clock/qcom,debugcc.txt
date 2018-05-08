@@ -9,6 +9,7 @@ Required properties :
 - qcom,camcc: phandle to the Camera CC device node.
 - qcom,dispcc: phandle to the Display CC device node.
 - qcom,npucc: phandle to the NPU CC device node.
+- qcom,cpucc: phandle to the CPU CC debug device node.
 - clock-names: Shall contain "xo_clk_src"
 - clocks: phandle + clock reference to the CXO clock.
 - #clock-cells : Shall contain 1.
@@ -21,6 +22,7 @@ Example:
 		qcom,camcc = <&clock_camcc>;
 		qcom,dispcc = <&clock_dispcc>;
 		qcom,npucc = <&clock_npucc>;
+		qcom,cpucc = <&cpucc_debug>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
