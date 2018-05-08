@@ -905,6 +905,69 @@ static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+int msm_vidc_set_internal_config(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	u32 rc_mode;
+	bool set_rc = false;
+	struct hal_vbv_hdr_buf_size hrd_buf_size;
+	struct hal_enable latency;
+	struct hfi_device *hdev;
+	u32 codec;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
+		return -EINVAL;
+	}
+
+	if (inst->session_type != MSM_VIDC_ENCODER)
+		return rc;
+
+	hdev = inst->core->device;
+
+	codec = inst->fmts[CAPTURE_PORT].fourcc;
+	rc_mode =  msm_comm_g_ctrl_for_id(inst,
+			V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+	latency.enable =  msm_comm_g_ctrl_for_id(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE);
+
+	if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR) {
+		rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_MBR;
+		set_rc = true;
+	} else if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR &&
+			   latency.enable == V4L2_MPEG_MSM_VIDC_ENABLE &&
+			   codec != V4L2_PIX_FMT_VP8) {
+		rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
+		set_rc = true;
+	}
+
+	if (set_rc) {
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VENC_RATE_CONTROL,
+			(void *)&rc_mode);
+	}
+
+	if ((rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
+		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
+		(codec != V4L2_PIX_FMT_VP8)) {
+		hrd_buf_size.vbv_hdr_buf_size = 1000;
+		dprintk(VIDC_DBG, "Enable cbr+ hdr_buf_size %d :\n",
+				hrd_buf_size.vbv_hdr_buf_size);
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_CONFIG_VENC_VBV_HRD_BUF_SIZE,
+			(void *)&hrd_buf_size);
+
+		latency.enable = V4L2_MPEG_MSM_VIDC_ENABLE;
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
+			(void *)&latency);
+
+		inst->clk_data.low_latency_mode = latency.enable;
+	}
+
+	return rc;
+}
+
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -927,6 +990,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"This session scaling is not supported %pK\n", inst);
+		goto fail_start;
+	}
+
+	rc = msm_vidc_set_internal_config(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Set internal config failed %pK\n", inst);
 		goto fail_start;
 	}
 
