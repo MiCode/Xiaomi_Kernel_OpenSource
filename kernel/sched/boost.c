@@ -27,6 +27,7 @@ static enum sched_boost_policy boost_policy;
 static enum sched_boost_policy boost_policy_dt = SCHED_BOOST_NONE;
 static DEFINE_MUTEX(boost_mutex);
 static unsigned int freq_aggr_threshold_backup;
+static int boost_refcount[MAX_NUM_BOOST_TYPE];
 
 static inline void boost_kick(int cpu)
 {
@@ -103,48 +104,97 @@ enum sched_boost_policy sched_boost_policy(void)
 	return boost_policy;
 }
 
-static bool verify_boost_params(int old_val, int new_val)
+static bool verify_boost_params(int type)
 {
-	/*
-	 * Boost can only be turned on or off. There is no possiblity of
-	 * switching from one boost type to another or to set the same
-	 * kind of boost several times.
-	 */
-	return !(!!old_val == !!new_val);
+	return type >= RESTRAINED_BOOST_DISABLE && type <= RESTRAINED_BOOST;
 }
 
-static void _sched_set_boost(int old_val, int type)
+static void _sched_set_boost(int type)
 {
 	switch (type) {
-	case NO_BOOST:
-		if (old_val == FULL_THROTTLE_BOOST)
+	case NO_BOOST: /* All boost clear */
+		if (boost_refcount[FULL_THROTTLE_BOOST] > 0) {
 			core_ctl_set_boost(false);
-		else if (old_val == CONSERVATIVE_BOOST)
+			boost_refcount[FULL_THROTTLE_BOOST] = 0;
+		}
+		if (boost_refcount[CONSERVATIVE_BOOST] > 0) {
 			restore_cgroup_boost_settings();
-		else
+			boost_refcount[CONSERVATIVE_BOOST] = 0;
+		}
+		if (boost_refcount[RESTRAINED_BOOST] > 0) {
 			update_freq_aggregate_threshold(
 				freq_aggr_threshold_backup);
+			boost_refcount[RESTRAINED_BOOST] = 0;
+		}
 		break;
 
 	case FULL_THROTTLE_BOOST:
-		core_ctl_set_boost(true);
-		boost_kick_cpus();
+	    boost_refcount[FULL_THROTTLE_BOOST]++;
+		if (boost_refcount[FULL_THROTTLE_BOOST] == 1) {
+			core_ctl_set_boost(true);
+			restore_cgroup_boost_settings();
+			boost_kick_cpus();
+		}
 		break;
 
 	case CONSERVATIVE_BOOST:
-		update_cgroup_boost_settings();
-		boost_kick_cpus();
+	    boost_refcount[CONSERVATIVE_BOOST]++;
+		if ((boost_refcount[CONSERVATIVE_BOOST] == 1) &&
+				!boost_refcount[FULL_THROTTLE_BOOST]) {
+			update_cgroup_boost_settings();
+			boost_kick_cpus();
+		}
 		break;
 
 	case RESTRAINED_BOOST:
-		freq_aggr_threshold_backup =
-			update_freq_aggregate_threshold(1);
+	    boost_refcount[RESTRAINED_BOOST]++;
+		if (boost_refcount[RESTRAINED_BOOST] == 1) {
+			freq_aggr_threshold_backup =
+			    update_freq_aggregate_threshold(1);
+		}
 		break;
+
+	case FULL_THROTTLE_BOOST_DISABLE:
+		if (boost_refcount[FULL_THROTTLE_BOOST] >= 1) {
+			boost_refcount[FULL_THROTTLE_BOOST]--;
+			if (!boost_refcount[FULL_THROTTLE_BOOST]) {
+				core_ctl_set_boost(false);
+				if (boost_refcount[CONSERVATIVE_BOOST] >= 1)
+					update_cgroup_boost_settings();
+			}
+		}
+		break;
+
+	case CONSERVATIVE_BOOST_DISABLE:
+		if (boost_refcount[CONSERVATIVE_BOOST] >= 1) {
+			boost_refcount[CONSERVATIVE_BOOST]--;
+			if (!boost_refcount[CONSERVATIVE_BOOST])
+				restore_cgroup_boost_settings();
+		}
+		break;
+
+	case RESTRAINED_BOOST_DISABLE:
+		if (boost_refcount[RESTRAINED_BOOST] >= 1) {
+			boost_refcount[RESTRAINED_BOOST]--;
+			if (!boost_refcount[RESTRAINED_BOOST])
+				update_freq_aggregate_threshold(
+					freq_aggr_threshold_backup);
+		}
 
 	default:
 		WARN_ON(1);
 		return;
 	}
+
+	/* Aggregate final boost type */
+	if (boost_refcount[FULL_THROTTLE_BOOST] >= 1)
+		type = FULL_THROTTLE_BOOST;
+	else if (boost_refcount[CONSERVATIVE_BOOST] >= 1)
+		type = CONSERVATIVE_BOOST;
+	else if (boost_refcount[RESTRAINED_BOOST] >= 1)
+		type = RESTRAINED_BOOST;
+	else
+		type = NO_BOOST;
 
 	set_boost_policy(type);
 	sysctl_sched_boost = type;
@@ -173,12 +223,10 @@ int sched_set_boost(int type)
 	int ret = 0;
 
 	mutex_lock(&boost_mutex);
-
-	if (verify_boost_params(sysctl_sched_boost, type))
-		_sched_set_boost(sysctl_sched_boost, type);
+	if (verify_boost_params(type))
+		_sched_set_boost(type);
 	else
 		ret = -EINVAL;
-
 	mutex_unlock(&boost_mutex);
 	return ret;
 }
@@ -189,22 +237,18 @@ int sched_boost_handler(struct ctl_table *table, int write,
 {
 	int ret;
 	unsigned int *data = (unsigned int *)table->data;
-	unsigned int old_val;
 
 	mutex_lock(&boost_mutex);
 
-	old_val = *data;
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
 	if (ret || !write)
 		goto done;
 
-	if (verify_boost_params(old_val, *data)) {
-		_sched_set_boost(old_val, *data);
-	} else {
-		*data = old_val;
+	if (verify_boost_params(*data))
+		_sched_set_boost(*data);
+	else
 		ret = -EINVAL;
-	}
 
 done:
 	mutex_unlock(&boost_mutex);
