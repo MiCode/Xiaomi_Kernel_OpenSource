@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,6 +117,39 @@ static struct usb_ss_ep_comp_descriptor qdss_ctrl_out_ep_comp_desc = {
 	.wBytesPerInterval  =	0,
 };
 
+/* Full speed support */
+static struct usb_endpoint_descriptor qdss_fs_data_desc = {
+	.bLength            =	 USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType    =	 USB_DT_ENDPOINT,
+	.bEndpointAddress   =	 USB_DIR_IN,
+	.bmAttributes       =	 USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize     =	 cpu_to_le16(64),
+};
+
+static struct usb_endpoint_descriptor qdss_fs_ctrl_in_desc  = {
+	.bLength            =    USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType    =    USB_DT_ENDPOINT,
+	.bEndpointAddress   =    USB_DIR_IN,
+	.bmAttributes       =    USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize     =    cpu_to_le16(64),
+};
+
+static struct usb_endpoint_descriptor qdss_fs_ctrl_out_desc = {
+	.bLength            =     USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType    =     USB_DT_ENDPOINT,
+	.bEndpointAddress   =     USB_DIR_OUT,
+	.bmAttributes       =     USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize     =     cpu_to_le16(64),
+};
+
+static struct usb_descriptor_header *qdss_fs_desc[] = {
+	(struct usb_descriptor_header *) &qdss_data_intf_desc,
+	(struct usb_descriptor_header *) &qdss_fs_data_desc,
+	(struct usb_descriptor_header *) &qdss_ctrl_intf_desc,
+	(struct usb_descriptor_header *) &qdss_fs_ctrl_in_desc,
+	(struct usb_descriptor_header *) &qdss_fs_ctrl_out_desc,
+	NULL,
+};
 static struct usb_descriptor_header *qdss_hs_desc[] = {
 	(struct usb_descriptor_header *) &qdss_data_intf_desc,
 	(struct usb_descriptor_header *) &qdss_hs_data_desc,
@@ -138,6 +171,11 @@ static struct usb_descriptor_header *qdss_ss_desc[] = {
 	NULL,
 };
 
+static struct usb_descriptor_header *qdss_fs_data_only_desc[] = {
+	(struct usb_descriptor_header *) &qdss_data_intf_desc,
+	(struct usb_descriptor_header *) &qdss_fs_data_desc,
+	NULL,
+};
 static struct usb_descriptor_header *qdss_hs_data_only_desc[] = {
 	(struct usb_descriptor_header *) &qdss_data_intf_desc,
 	(struct usb_descriptor_header *) &qdss_hs_data_desc,
@@ -367,6 +405,9 @@ static void clear_desc(struct usb_gadget *gadget, struct usb_function *f)
 
 	if (gadget_is_dualspeed(gadget) && f->hs_descriptors)
 		usb_free_descriptors(f->hs_descriptors);
+
+	if (f->fs_descriptors)
+		usb_free_descriptors(f->fs_descriptors);
 }
 
 static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
@@ -377,11 +418,6 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	int iface, id;
 
 	pr_debug("qdss_bind\n");
-
-	if (!gadget_is_dualspeed(gadget) && !gadget_is_superspeed(gadget)) {
-		pr_err("qdss_bind: full-speed is not supported\n");
-		return -ENOTSUPP;
-	}
 
 	/* Allocate data I/F */
 	iface = usb_interface_id(c, f);
@@ -447,6 +483,18 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		ep->driver_data = qdss;
 	}
 
+	/*update fs descriptors*/
+	qdss_fs_data_desc.bEndpointAddress =
+		qdss_ss_data_desc.bEndpointAddress;
+	if (qdss->debug_inface_enabled) {
+		qdss_fs_ctrl_in_desc.bEndpointAddress =
+		qdss_ss_ctrl_in_desc.bEndpointAddress;
+		qdss_fs_ctrl_out_desc.bEndpointAddress =
+		qdss_ss_ctrl_out_desc.bEndpointAddress;
+		f->fs_descriptors = usb_copy_descriptors(qdss_fs_desc);
+	} else
+		f->fs_descriptors = usb_copy_descriptors(
+							qdss_fs_data_only_desc);
 	/*update descriptors*/
 	qdss_hs_data_desc.bEndpointAddress =
 		qdss_ss_data_desc.bEndpointAddress;
@@ -1144,7 +1192,7 @@ static struct usb_function *qdss_alloc(struct usb_function_instance *fi)
 	struct f_qdss *usb_qdss = opts->usb_qdss;
 
 	usb_qdss->port.function.name = "usb_qdss";
-	usb_qdss->port.function.fs_descriptors = qdss_hs_desc;
+	usb_qdss->port.function.fs_descriptors = qdss_fs_desc;
 	usb_qdss->port.function.hs_descriptors = qdss_hs_desc;
 	usb_qdss->port.function.strings = qdss_strings;
 	usb_qdss->port.function.bind = qdss_bind;
