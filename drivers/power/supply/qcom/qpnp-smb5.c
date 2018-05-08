@@ -973,6 +973,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 };
 
@@ -1066,6 +1067,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		rc = smblib_get_prop_batt_charge_counter(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		rc = smblib_get_prop_batt_cycle_count(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
 		val->intval = chg->auto_recharge_soc;

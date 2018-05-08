@@ -453,6 +453,8 @@ int smblib_get_prop_batt_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_charge_counter(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_batt_cycle_count(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_batt_capacity(struct smb_charger *chg,
