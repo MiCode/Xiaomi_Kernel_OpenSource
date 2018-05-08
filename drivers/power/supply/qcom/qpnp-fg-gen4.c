@@ -3143,6 +3143,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	mutex_init(&fg->bus_lock);
 	mutex_init(&fg->sram_rw_lock);
 	mutex_init(&fg->charge_full_lock);
+	mutex_init(&chip->ttf.lock);
 	init_completion(&fg->soc_update);
 	init_completion(&fg->soc_ready);
 	INIT_WORK(&fg->status_change_work, status_change_work);
