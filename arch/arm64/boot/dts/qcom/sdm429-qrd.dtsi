@@ -12,3 +12,7 @@
  */
 
 #include "sdm439-qrd.dtsi"
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_hd_vid>;
+};
