@@ -12,7 +12,7 @@
 
 &soc {
 	timer {
-		clock-frequency = <5500000>;
+		clock-frequency = <1000000>;
 	};
 
 	timer@0x17c00000 {
