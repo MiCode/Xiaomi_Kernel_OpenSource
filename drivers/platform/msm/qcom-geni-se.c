@@ -675,9 +675,9 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
 	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
-		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
-		    rsc->ab, rsc->ib, bus_bw_update);
+			"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
+			geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
@@ -773,9 +773,9 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
 	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-		    "%s: %lu:%lu (%lu:%lu) %d\n", __func__,
-		    geni_se_dev->cur_ab, geni_se_dev->cur_ib,
-		    rsc->ab, rsc->ib, bus_bw_update);
+			"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
+			geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
 }
