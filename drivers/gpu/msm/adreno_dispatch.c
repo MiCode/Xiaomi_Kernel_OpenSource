@@ -208,8 +208,8 @@ static inline bool _isidle(struct adreno_device *adreno_dev)
 	if (!kgsl_state_is_awake(KGSL_DEVICE(adreno_dev)))
 		goto ret;
 
-	if (adreno_rb_empty(adreno_dev->cur_rb))
-		goto ret;
+	if (!adreno_rb_empty(adreno_dev->cur_rb))
+		return false;
 
 	/* only check rbbm status to determine if GPU is idle */
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &reg_rbbm_status);
