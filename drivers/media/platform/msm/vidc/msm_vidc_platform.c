@@ -167,6 +167,10 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 		.key = "qcom,domain-cvp",
 		.value = 1,
 	},
+	{
+		.key = "qcom,decode-batching",
+		.value = 1,
+	},
 };
 
 static struct msm_vidc_common_data sdm845_common_data[] = {

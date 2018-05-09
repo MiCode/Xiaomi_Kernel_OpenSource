@@ -287,6 +287,11 @@ struct buf_count {
 	int ebd;
 };
 
+struct batch_mode {
+	bool enable;
+	u32 size;
+};
+
 struct clock_data {
 	int buffer_counter;
 	int load;
@@ -417,6 +422,7 @@ struct msm_vidc_inst {
 	u32 entropy_mode;
 	struct msm_vidc_codec_data *codec_data;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
+	struct batch_mode batch;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

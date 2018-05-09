@@ -525,12 +525,18 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 		if (!mhi_dev)
 			return;
 
-		if (mhi_chan->dir == DMA_TO_DEVICE) {
+		switch (mhi_chan->dir) {
+		case DMA_TO_DEVICE:
 			mhi_dev->ul_chan = mhi_chan;
 			mhi_dev->ul_chan_id = mhi_chan->chan;
 			mhi_dev->ul_xfer = mhi_chan->queue_xfer;
 			mhi_dev->ul_event_id = mhi_chan->er_index;
-		} else {
+			break;
+		case DMA_NONE:
+		case DMA_BIDIRECTIONAL:
+			mhi_dev->ul_chan_id = mhi_chan->chan;
+		case DMA_FROM_DEVICE:
+			/* we use dl_chan for offload channels */
 			mhi_dev->dl_chan = mhi_chan;
 			mhi_dev->dl_chan_id = mhi_chan->chan;
 			mhi_dev->dl_xfer = mhi_chan->queue_xfer;

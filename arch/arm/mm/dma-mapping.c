@@ -2218,6 +2218,9 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, u64 size)
 	if (!bitmap_size)
 		return ERR_PTR(-EINVAL);
 
+	WARN(!IS_ALIGNED(size, SZ_128M),
+			"size is not aligned to 128M, alignment enforced");
+
 	if (bitmap_size > PAGE_SIZE) {
 		extensions = bitmap_size / PAGE_SIZE;
 		bitmap_size = PAGE_SIZE;
@@ -2332,12 +2335,16 @@ int arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
+	int s1_bypass = 0;
 
 	err = __arm_iommu_attach_device(dev, mapping);
 	if (err)
 		return err;
 
-	set_dma_ops(dev, &iommu_ops);
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	if (!s1_bypass)
+		set_dma_ops(dev, &iommu_ops);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(arm_iommu_attach_device);
@@ -2352,6 +2359,7 @@ EXPORT_SYMBOL_GPL(arm_iommu_attach_device);
 void arm_iommu_detach_device(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
+	int s1_bypass = 0;
 
 	mapping = to_dma_iommu_mapping(dev);
 	if (!mapping) {
@@ -2362,7 +2370,8 @@ void arm_iommu_detach_device(struct device *dev)
 	iommu_detach_device(mapping->domain, dev);
 	kref_put(&mapping->kref, release_iommu_mapping);
 	to_dma_iommu_mapping(dev) = NULL;
-	set_dma_ops(dev, NULL);
+	if (!s1_bypass)
+		set_dma_ops(dev, NULL);
 
 	pr_debug("Detached IOMMU controller from %s device.\n", dev_name(dev));
 }

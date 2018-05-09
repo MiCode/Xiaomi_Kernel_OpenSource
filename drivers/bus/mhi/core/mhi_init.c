@@ -616,7 +616,19 @@ int mhi_device_configure(struct mhi_device *mhi_dev,
 	struct mhi_chan_ctxt *ch_ctxt;
 	int er_index, chan;
 
-	mhi_chan = (dir == DMA_TO_DEVICE) ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+	switch (dir) {
+	case DMA_TO_DEVICE:
+		mhi_chan = mhi_dev->ul_chan;
+		break;
+	case DMA_BIDIRECTIONAL:
+	case DMA_FROM_DEVICE:
+	case DMA_NONE:
+		mhi_chan = mhi_dev->dl_chan;
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	er_index = mhi_chan->er_index;
 	chan = mhi_chan->chan;
 
@@ -828,6 +840,11 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 		if (mhi_chan->pre_alloc &&
 		    (mhi_chan->dir != DMA_FROM_DEVICE ||
 		     mhi_chan->xfer_type != MHI_XFER_BUFFER))
+			goto error_chan_cfg;
+
+		/* bi-dir and dirctionless channels must be a offload chan */
+		if ((mhi_chan->dir == DMA_BIDIRECTIONAL ||
+		     mhi_chan->dir == DMA_NONE) && !mhi_chan->offload_ch)
 			goto error_chan_cfg;
 
 		/* if mhi host allocate the buffers then client cannot queue */
@@ -1122,26 +1139,27 @@ static int mhi_driver_probe(struct device *dev)
 	struct mhi_event *mhi_event;
 	struct mhi_chan *ul_chan = mhi_dev->ul_chan;
 	struct mhi_chan *dl_chan = mhi_dev->dl_chan;
-	bool offload_ch = ((ul_chan && ul_chan->offload_ch) ||
-			   (dl_chan && dl_chan->offload_ch));
 
-	/* all offload channels require status_cb to be defined */
-	if (offload_ch) {
-		if (!mhi_dev->status_cb)
+
+	if (ul_chan) {
+		/* lpm notification require status_cb */
+		if (ul_chan->lpm_notify && !mhi_drv->status_cb)
 			return -EINVAL;
+
+		if (!ul_chan->offload_ch && !mhi_drv->ul_xfer_cb)
+			return -EINVAL;
+
+		ul_chan->xfer_cb = mhi_drv->ul_xfer_cb;
 		mhi_dev->status_cb = mhi_drv->status_cb;
 	}
 
-	if (ul_chan && !offload_ch) {
-		if (!mhi_drv->ul_xfer_cb)
+	if (dl_chan) {
+		if (dl_chan->lpm_notify && !mhi_drv->status_cb)
 			return -EINVAL;
-		ul_chan->xfer_cb = mhi_drv->ul_xfer_cb;
-	}
 
-	if (dl_chan && !offload_ch) {
-		if (!mhi_drv->dl_xfer_cb)
+		if (!dl_chan->offload_ch && !mhi_drv->dl_xfer_cb)
 			return -EINVAL;
-		dl_chan->xfer_cb = mhi_drv->dl_xfer_cb;
+
 		mhi_event = &mhi_cntrl->mhi_event[dl_chan->er_index];
 
 		/*
@@ -1151,6 +1169,10 @@ static int mhi_driver_probe(struct device *dev)
 		 */
 		if (mhi_event->cl_manage && !mhi_drv->status_cb)
 			return -EINVAL;
+
+		dl_chan->xfer_cb = mhi_drv->dl_xfer_cb;
+
+		/* ul & dl uses same status cb */
 		mhi_dev->status_cb = mhi_drv->status_cb;
 	}
 

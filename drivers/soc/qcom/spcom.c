@@ -1327,13 +1327,6 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	ch->is_busy = false;
 	ch->pid = 0;
 	ch->txn_id = INITIAL_TXN_ID; /* use non-zero nonce for debug */
-
-	if (strcmp(name, "sp_kernel") != 0) {
-		ret = spcom_unregister_rpmsg_drv(ch);
-		if (ret != 0)
-			pr_err("can't unregister rpmsg drv\n", ret);
-	}
-
 	mutex_unlock(&ch->lock);
 	filp->private_data = NULL;
 
@@ -1648,7 +1641,6 @@ static int spcom_create_channel_chardev(const char *name)
 		return ret;
 	}
 
-	mutex_lock(&ch->lock);
 	ret = spcom_register_rpmsg_drv(ch);
 	if (ret < 0) {
 		pr_err("register rpmsg driver failed %d\n", ret);
@@ -1680,6 +1672,7 @@ static int spcom_create_channel_chardev(const char *name)
 		goto exit_destroy_device;
 	}
 	atomic_inc(&spcom_dev->chdev_count);
+	mutex_lock(&ch->lock);
 	ch->cdev = cdev;
 	ch->dev = dev;
 	mutex_unlock(&ch->lock);
@@ -1966,10 +1959,7 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 	dev_info(&rpdev->dev, "rpmsg device %s removed\n", rpdev->id.name);
 }
 
-/*
- * register rpmsg driver to match with channel ch_name
- * function shold be called under ch->lock
- */
+/* register rpmsg driver to match with channel ch_name */
 static int spcom_register_rpmsg_drv(struct spcom_channel *ch)
 {
 	struct rpmsg_driver *rpdrv;
@@ -2016,25 +2006,27 @@ static int spcom_register_rpmsg_drv(struct spcom_channel *ch)
 		kfree(drv_name);
 		return ret;
 	}
-	// the function caller should mutex_lock(&ch->lock)
+	mutex_lock(&ch->lock);
 	ch->rpdrv = rpdrv;
 	ch->rpmsg_abort = false;
+	mutex_unlock(&ch->lock);
 
 	return 0;
 }
 
-/* function shold be called under ch->lock */
 static int spcom_unregister_rpmsg_drv(struct spcom_channel *ch)
 {
 	if (!ch->rpdrv)
 		return -ENODEV;
 	unregister_rpmsg_driver(ch->rpdrv);
 
+	mutex_lock(&ch->lock);
 	kfree(ch->rpdrv->drv.name);
 	kfree((void *)ch->rpdrv->id_table);
 	kfree(ch->rpdrv);
 	ch->rpdrv = NULL;
 	ch->rpmsg_abort = true; /* will unblock spcom_rx() */
+	mutex_unlock(&ch->lock);
 	return 0;
 }
 
