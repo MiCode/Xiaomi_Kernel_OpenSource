@@ -682,12 +682,6 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 						DWC3_ENDPOINTS_NUM); num += 2) {
 				dep = dwc->eps[num];
 				size = 0;
-				/* Don't change TXFRAMNUM on usb31 version */
-				if (dwc3_is_usb31(dwc))
-					size = dwc3_readl(dwc->regs,
-						DWC3_GTXFIFOSIZ(num >> 1)) &
-						DWC31_GTXFIFOSIZ_TXFRAMNUM;
-
 				dwc3_writel(dwc->regs,
 					DWC3_GTXFIFOSIZ(num >> 1), size);
 				dep->fifo_depth = 0;
