@@ -414,9 +414,23 @@ dtb-$(CONFIG_ARCH_MSM8937) += msm8937-pmi8950-mtp.dtb \
 	msm8937-interposer-sdm429-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8917) += msm8917-pmi8950-mtp.dtb \
+	msm8917-pmi8950-cdp.dtb \
+	msm8917-pmi8950-rcm.dtb \
+	msm8917-pmi8950-ext-codec-cdp.dtb \
+	msm8917-pmi8950-cdp-mirror-lake-touch.dtb \
+	apq8017-pmi8950-cdp-wcd-rome.dtb \
+	apq8017-pmi8950-mtp.dtb \
+	apq8017-pmi8950-cdp.dtb \
 	msm8917-pmi8937-qrd-sku5.dtb \
+	msm8917-pmi8937-mtp.dtb \
+	msm8917-pmi8937-cdp.dtb \
+	msm8917-pmi8937-rcm.dtb \
+	apq8017-pmi8937-mtp.dtb \
+	apq8017-pmi8937-cdp.dtb \
+	apq8017-pmi8937-cdp-wcd-rome.dtb \
 	msm8917-pmi8940-mtp.dtb \
-	msm8917-pmi8937-mtp.dtb
+	msm8917-pmi8940-cdp.dtb \
+	msm8917-pmi8940-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSM8909) += msm8909w-bg-wtp-v2.dtb \
 	apq8009w-bg-wtp-v2.dtb \
