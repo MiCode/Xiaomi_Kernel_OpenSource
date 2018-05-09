@@ -1689,8 +1689,8 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					__func__,  cm->payload[0], len);
 
 			if (!wait || dchdr->wait > VSYNC_PERIOD)
-				usleep_range(dchdr->wait * 1000,
-					     dchdr->wait * 1000);
+				usleep_range((dchdr->wait * 1000),
+					     (dchdr->wait * 1000) + 10);
 
 			mdss_dsi_buf_init(tp);
 			len = 0;
