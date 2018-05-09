@@ -879,6 +879,7 @@ static int cam_lrme_mgr_hw_prepare_update(void *hw_mgr_priv,
 	if (args->num_in_map_entries == 0 || args->num_out_map_entries == 0) {
 		CAM_ERR(CAM_LRME, "Error in port number in %d, out %d",
 			args->num_in_map_entries, args->num_out_map_entries);
+		rc = -EINVAL;
 		goto error;
 	}
 
