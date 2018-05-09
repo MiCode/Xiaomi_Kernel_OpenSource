@@ -549,6 +549,7 @@
 };
 
 &pm8150b_charger {
+	qcom,sec-charger-config = <1>;
 	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
 		      <&pm8150b_vadc ADC_USB_IN_I>,
 		      <&pm8150b_vadc ADC_CHG_TEMP>;
