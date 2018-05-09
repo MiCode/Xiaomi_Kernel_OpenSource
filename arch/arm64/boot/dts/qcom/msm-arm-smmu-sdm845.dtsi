@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,14 +27,14 @@
 		vdd-supply = <&gpu_cx_gdsc>;
 		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 364 IRQ_TYPE_EDGE_RISING>,
-				<GIC_SPI 365 IRQ_TYPE_EDGE_RISING>,
-				<GIC_SPI 366 IRQ_TYPE_EDGE_RISING>,
-				<GIC_SPI 367 IRQ_TYPE_EDGE_RISING>,
-				<GIC_SPI 368 IRQ_TYPE_EDGE_RISING>,
-				<GIC_SPI 369 IRQ_TYPE_EDGE_RISING>,
-				<GIC_SPI 370 IRQ_TYPE_EDGE_RISING>,
-				<GIC_SPI 371 IRQ_TYPE_EDGE_RISING>;
+				<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 370 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 371 IRQ_TYPE_LEVEL_HIGH>;
 		clock-names =	"gcc_gpu_memnoc_gfx_clk";
 		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
 		attach-impl-defs =
