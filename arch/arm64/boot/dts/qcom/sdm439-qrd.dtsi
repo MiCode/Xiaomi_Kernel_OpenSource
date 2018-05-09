@@ -51,6 +51,11 @@
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <0>;
 	qcom,msm-hs-micbias-type = "external";
+	/delete-property/ qcom,quin-mi2s-gpios;
+};
+
+&cdc_quin_mi2s_gpios {
+	status = "disabled";
 };
 
 &wsa881x_i2c_f {
