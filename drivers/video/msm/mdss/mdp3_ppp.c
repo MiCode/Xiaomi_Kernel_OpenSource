@@ -1468,6 +1468,18 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 			(!(check_if_rgb(bg_req.src.format))) &&
 			(!(hw_woraround_active))) {
 			/*
+			 * Disable SMART blit for BG(YUV) layer when
+			 * Scaling on BG layer
+			 * Rotation on BG layer
+			 * UD flip on BG layer
+			 */
+			if ((is_scaling_needed(bg_req)) && (
+				bg_req.flags & MDP_ROT_90) &&
+				(bg_req.flags & MDP_FLIP_UD)) {
+				pr_debug("YUV layer with ROT+UD_FLIP+Scaling Not supported\n");
+				return false;
+			}
+			/*
 			 * swap blit requests at index 0 and 1. YUV layer at
 			 * index 0 is replaced with UI layer request present
 			 * at index 1. Since UI layer will be in  background
