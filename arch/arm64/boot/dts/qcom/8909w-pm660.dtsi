@@ -79,6 +79,31 @@
 	};
 };
 
+&msm_gpio {
+	/delete-node/ mpu6050_int_pin;
+	/delete-node/ apds99xx_int_pin;
+	/delete-node/ ak8963_int_pin;
+
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio25", "gpio37", "gpio59";
+			};
+			config {
+				pins = "gpio25", "gpio37", "gpio59";
+			};
+		};
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio25", "gpio37", "gpio59";
+			};
+			config {
+				pins = "gpio25", "gpio37", "gpio59";
+			};
+		};
+	};
+};
+
 &i2c_3 {
 	qcom,actuator@0 {
 		/delete-property/ cam_vaf-supply;
