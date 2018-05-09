@@ -73,6 +73,9 @@ struct kvm_arch {
 
 	/* Timer */
 	struct arch_timer_kvm	timer;
+
+	/* Mandated version of PSCI */
+	u32 psci_version;
 };
 
 #define KVM_NR_MEM_OBJS     40
