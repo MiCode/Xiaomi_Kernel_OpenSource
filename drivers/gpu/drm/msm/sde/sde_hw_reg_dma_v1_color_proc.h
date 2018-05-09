@@ -135,6 +135,14 @@ int reg_dmav1_init_sspp_op_v4(int feature, enum sde_sspp idx);
 void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg);
 
 /**
+ * reg_dmav1_setup_vig_gamutv6() - VIG 3D lut gamut v6 implementation
+ *                                 using reg dma v1.
+ * @ctx: sspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_vig_gamutv6(struct sde_hw_pipe *ctx, void *cfg);
+
+/**
  * reg_dmav1_setup_vig_igcv5() - VIG 1D lut IGC v5 implementation
  *                               using reg dma v1.
  * @ctx: sspp ctx info

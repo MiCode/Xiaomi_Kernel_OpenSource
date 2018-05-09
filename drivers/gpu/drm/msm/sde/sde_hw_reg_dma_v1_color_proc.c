@@ -1713,6 +1713,7 @@ void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg)
 
 	if (!hw_cfg->payload) {
 		DRM_DEBUG_DRIVER("disable gamut feature\n");
+		/* v5 and v6 call the same off version */
 		vig_gamutv5_off(ctx, cfg);
 		return;
 	}
@@ -1802,6 +1803,11 @@ void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg)
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
+}
+
+void reg_dmav1_setup_vig_gamutv6(struct sde_hw_pipe *ctx, void *cfg)
+{
+	reg_dmav1_setup_vig_gamutv5(ctx, cfg);
 }
 
 static void vig_igcv5_off(struct sde_hw_pipe *ctx, void *cfg)

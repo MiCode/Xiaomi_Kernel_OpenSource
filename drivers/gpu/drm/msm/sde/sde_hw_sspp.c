@@ -1032,6 +1032,17 @@ static void _setup_layer_ops_colorproc(struct sde_hw_pipe *c,
 			else
 				c->ops.setup_vig_gamut = NULL;
 		}
+
+		if (c->cap->sblk->gamut_blk.version ==
+			(SDE_COLOR_PROCESS_VER(0x6, 0x0))) {
+			ret = reg_dmav1_init_sspp_op_v4(SDE_SSPP_VIG_GAMUT,
+							c->idx);
+			if (!ret)
+				c->ops.setup_vig_gamut =
+					reg_dmav1_setup_vig_gamutv6;
+			else
+				c->ops.setup_vig_gamut = NULL;
+		}
 	}
 
 	if (test_bit(SDE_SSPP_VIG_IGC, &features)) {
