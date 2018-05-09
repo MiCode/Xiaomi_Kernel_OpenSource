@@ -8093,9 +8093,16 @@ out:
 	/*
 	 * If we failed to initialize the device or the device is not
 	 * present, turn off the power/clocks etc.
+	 * In cases when there's both ufs and emmc present and regualtors
+	 * are shared b/w the two, this shouldn't turn-off the regulators
+	 * w/o giving emmc a chance to send PON.
+	 * Hence schedule a delayed suspend, thus giving enough time to
+	 * emmc to vote for the shared regulator.
 	 */
-	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress)
-		pm_runtime_put_sync(hba->dev);
+	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress) {
+		pm_runtime_put_noidle(hba->dev);
+		pm_schedule_suspend(hba->dev, MSEC_PER_SEC * 10);
+	}
 
 	trace_ufshcd_init(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
