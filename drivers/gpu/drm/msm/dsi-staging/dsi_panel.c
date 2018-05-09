@@ -1536,7 +1536,7 @@ static int dsi_panel_create_cmd_packets(const char *data,
 		cmd[i].msg.channel = data[2];
 		cmd[i].msg.flags |= (data[3] == 1 ? MIPI_DSI_MSG_REQ_ACK : 0);
 		cmd[i].msg.ctrl = 0;
-		cmd[i].post_wait_ms = data[4];
+		cmd[i].post_wait_ms = cmd[i].msg.wait_ms = data[4];
 		cmd[i].msg.tx_len = ((data[5] << 8) | (data[6]));
 
 		size = cmd[i].msg.tx_len * sizeof(u8);
@@ -3511,6 +3511,7 @@ static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel_cmd_set *set,
 	set->cmds[0].msg.tx_buf = caset;
 	set->cmds[0].msg.rx_len = 0;
 	set->cmds[0].msg.rx_buf = 0;
+	set->cmds[0].msg.wait_ms = 0;
 	set->cmds[0].last_command = 0;
 	set->cmds[0].post_wait_ms = 0;
 
@@ -3522,6 +3523,7 @@ static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel_cmd_set *set,
 	set->cmds[1].msg.tx_buf = paset;
 	set->cmds[1].msg.rx_len = 0;
 	set->cmds[1].msg.rx_buf = 0;
+	set->cmds[1].msg.wait_ms = 0;
 	set->cmds[1].last_command = 1;
 	set->cmds[1].post_wait_ms = 0;
 
