@@ -1073,11 +1073,25 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	}
 
 	if (panel->event_handler) {
-		if (mdp3_is_twm_en())
-			pr_info("TWM Enabled skip MDSS_EVENT_PANEL_OFF\n");
-		else
+		if (mdp3_is_twm_en()) {
+			pr_info("TWM active skip panel off, disable disp_en\n");
+			if (gpio_is_valid(panel->panel_en_gpio)) {
+				rc = gpio_direction_output(
+					panel->panel_en_gpio, 1);
+			if (rc) {
+				pr_err("%s:set dir for gpio(%d) FAIL\n",
+					__func__, panel->panel_en_gpio);
+			} else {
+				gpio_set_value((panel->panel_en_gpio), 0);
+				usleep_range(100, 110);
+				pr_debug("%s:set disp_en_gpio_%d Low\n",
+					__func__, panel->panel_en_gpio);
+				}
+			}
+		} else {
 			rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF,
 				(void *) (long int)mfd->panel_power_state);
+		}
 	}
 	if (rc)
 		pr_err("EVENT_PANEL_OFF error (%d)\n", rc);
