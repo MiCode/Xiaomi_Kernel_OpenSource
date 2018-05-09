@@ -201,6 +201,8 @@ enum {
 	PERF_CDP_SETTING,
 	PERF_CPU_MASK,
 	PERF_CPU_DMA_LATENCY,
+	PERF_QOS_LUT_MACROTILE_QSEED,
+	PERF_SAFE_LUT_MACROTILE_QSEED,
 	PERF_PROP_MAX,
 };
 
@@ -497,6 +499,10 @@ static struct sde_prop_type sde_perf_prop[] = {
 	{PERF_CPU_MASK, "qcom,sde-qos-cpu-mask", false, PROP_TYPE_U32},
 	{PERF_CPU_DMA_LATENCY, "qcom,sde-qos-cpu-dma-latency", false,
 			PROP_TYPE_U32},
+	{PERF_QOS_LUT_MACROTILE_QSEED, "qcom,sde-qos-lut-macrotile-qseed",
+			false, PROP_TYPE_U32_ARRAY},
+	{PERF_SAFE_LUT_MACROTILE_QSEED, "qcom,sde-safe-lut-macrotile-qseed",
+			false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -3133,6 +3139,18 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (rc)
 		goto freeprop;
 
+	rc = _validate_dt_entry(np,
+			&sde_perf_prop[PERF_QOS_LUT_MACROTILE_QSEED], 1,
+			&prop_count[PERF_QOS_LUT_MACROTILE_QSEED], NULL);
+	if (rc)
+		goto freeprop;
+
+	rc = _validate_dt_entry(np,
+			&sde_perf_prop[PERF_SAFE_LUT_MACROTILE_QSEED], 1,
+			&prop_count[PERF_SAFE_LUT_MACROTILE_QSEED], NULL);
+	if (rc)
+		goto freeprop;
+
 	rc = _read_dt_entry(np, sde_perf_prop, ARRAY_SIZE(sde_perf_prop),
 			prop_count, prop_exists, prop_value);
 	if (rc)
@@ -3239,6 +3257,8 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 					PERF_SAFE_LUT_NRT,
 			[SDE_QOS_LUT_USAGE_CWB] =
 					PERF_SAFE_LUT_CWB,
+			[SDE_QOS_LUT_USAGE_MACROTILE_QSEED] =
+					PERF_SAFE_LUT_MACROTILE_QSEED,
 		};
 		const u32 entry_size = 2;
 		int m, count;
@@ -3281,6 +3301,8 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 					PERF_QOS_LUT_NRT,
 			[SDE_QOS_LUT_USAGE_CWB] =
 					PERF_QOS_LUT_CWB,
+			[SDE_QOS_LUT_USAGE_MACROTILE_QSEED] =
+					PERF_QOS_LUT_MACROTILE_QSEED,
 		};
 		const u32 entry_size = 3;
 		int m, count;
@@ -3575,9 +3597,14 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 	if (!sde_cfg)
 		return -EINVAL;
 
-	if (IS_SM8150_TARGET(hw_rev))
+	if (IS_SM8150_TARGET(hw_rev)) {
 		sde_cfg->sui_supported_blendstage =
 			sde_cfg->max_mixer_blendstages - SDE_STAGE_0;
+
+		for (i = 0; i < sde_cfg->sspp_count; i++)
+			set_bit(SDE_SSPP_QOS_FL_NOCALC,
+					&sde_cfg->sspp[i].features);
+	}
 
 	for (i = 0; i < sde_cfg->sspp_count; i++) {
 		if (sde_cfg->sspp[i].sblk) {

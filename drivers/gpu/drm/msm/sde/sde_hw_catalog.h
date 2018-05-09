@@ -156,6 +156,7 @@ enum {
  * @SDE_SSPP_DGM_CSC         Support of color space conversion in DGM block
  * @SDE_SSPP_SEC_UI_ALLOWED   Allows secure-ui layers
  * @SDE_SSPP_BLOCK_SEC_UI    Blocks secure-ui layers
+ * @SDE_SSPP_QOS_FL_NOCALC   Avoid fill level calculation for QoS/danger/safe
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -188,6 +189,7 @@ enum {
 	SDE_SSPP_DGM_CSC,
 	SDE_SSPP_SEC_UI_ALLOWED,
 	SDE_SSPP_BLOCK_SEC_UI,
+	SDE_SSPP_QOS_FL_NOCALC,
 	SDE_SSPP_MAX
 };
 
@@ -450,6 +452,7 @@ enum sde_qos_lut_usage {
 	SDE_QOS_LUT_USAGE_MACROTILE,
 	SDE_QOS_LUT_USAGE_NRT,
 	SDE_QOS_LUT_USAGE_CWB,
+	SDE_QOS_LUT_USAGE_MACROTILE_QSEED,
 	SDE_QOS_LUT_USAGE_MAX,
 };
 
