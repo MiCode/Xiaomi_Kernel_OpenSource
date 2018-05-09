@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,6 +219,11 @@ enum gsi_max_prefetch {
 	GSI_TWO_PREFETCH_SEG = 0x1
 };
 
+enum gsi_prefetch_mode {
+	GSI_USE_PREFETCH_BUFS = 0x0,
+	GSI_ESCAPE_BUF_ONLY = 0x1
+};
+
 enum gsi_chan_evt {
 	GSI_CHAN_EVT_INVALID = 0x0,
 	GSI_CHAN_EVT_SUCCESS = 0x1,
@@ -357,6 +362,7 @@ struct gsi_chan_props {
 	enum gsi_chan_use_db_eng use_db_eng;
 	enum gsi_max_prefetch max_prefetch;
 	uint8_t low_weight;
+	enum gsi_prefetch_mode prefetch_mode;
 	void (*xfer_cb)(struct gsi_chan_xfer_notify *notify);
 	void (*err_cb)(struct gsi_chan_err_notify *notify);
 	void *chan_user_data;
