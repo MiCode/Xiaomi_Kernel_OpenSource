@@ -78,8 +78,8 @@ struct vbif_debug_bus {
 #define MDSS_XLOG_IOMMU(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_IOMMU, \
 		##__VA_ARGS__, DATA_LIMITER)
 
-#define ATRACE_END(name) trace_mdss_mark_write(current->tgid, name, 0)
-#define ATRACE_BEGIN(name) trace_mdss_mark_write(current->tgid, name, 1)
+#define ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
+#define ATRACE_BEGIN(name) trace_tracing_mark_write(current->tgid, name, 1)
 #define ATRACE_FUNC() ATRACE_BEGIN(__func__)
 
 #define ATRACE_INT(name, value) \
