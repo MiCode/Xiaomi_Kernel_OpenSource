@@ -40,6 +40,7 @@ enum se_protocol_types {
 
 /**
  * struct geni_se_rsc - GENI Serial Engine Resource
+ * @ctrl_dev		Pointer to controller device.
  * @wrapper_dev:	Pointer to the parent QUPv3 core.
  * @se_clk:		Handle to the core serial engine clock.
  * @m_ahb_clk:		Handle to the primary AHB clock.
@@ -53,6 +54,7 @@ enum se_protocol_types {
  * @geni_gpi_sleep:	Handle to the sleep pinctrl state.
  */
 struct se_geni_rsc {
+	struct device *ctrl_dev;
 	struct device *wrapper_dev;
 	struct clk *se_clk;
 	struct clk *m_ahb_clk;
