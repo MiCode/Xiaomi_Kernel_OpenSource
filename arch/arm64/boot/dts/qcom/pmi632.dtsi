@@ -35,7 +35,8 @@
 		};
 
 		pmi632_vadc: vadc@3100 {
-			compatible = "qcom,qpnp-vadc-hc";
+			compatible = "qcom,qpnp-vadc-hc",
+				"qcom,qpnp-adc-hc-pm5";
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -252,7 +253,8 @@
 		};
 
 		pmi632_adc_tm: vadc@3500 {
-			compatible = "qcom,qpnp-adc-tm-hc";
+			compatible = "qcom,qpnp-adc-tm-hc",
+				"qcom,qpnp-adc-tm-hc-pm5";
 			reg = <0x3500 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
