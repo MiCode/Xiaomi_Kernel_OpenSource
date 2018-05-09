@@ -69,10 +69,6 @@
 				DEV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
-struct ipa_q6_all_client_params {
-	struct sockaddr_qrtr sq;
-};
-
 extern struct ipa3_qmi_context *ipa3_qmi_ctx;
 
 struct ipa3_qmi_context {
@@ -92,7 +88,8 @@ struct ipa3_qmi_context {
 		ipa_configure_ul_firewall_rules_req_msg_cache
 			[MAX_NUM_QMI_RULE_CACHE];
 	bool modem_cfg_emb_pipe_flt;
-	struct ipa_q6_all_client_params ipa_q6_client_params;
+	struct sockaddr_qrtr client_sq;
+	struct sockaddr_qrtr server_sq;
 };
 
 struct ipa3_rmnet_mux_val {

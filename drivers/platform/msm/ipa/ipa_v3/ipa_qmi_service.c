@@ -71,6 +71,9 @@ static void ipa3_handle_indication_req(struct qmi_handle *qmi_handle,
 	indication_req = (struct ipa_indication_reg_req_msg_v01 *)decoded_msg;
 	IPAWANDBG("Received INDICATION Request\n");
 
+	/* cache the client sq */
+	memcpy(&ipa3_qmi_ctx->client_sq, sq, sizeof(*sq));
+
 	memset(&resp, 0, sizeof(struct ipa_indication_reg_resp_msg_v01));
 	resp.resp.result = IPA_QMI_RESULT_SUCCESS_V01;
 
@@ -97,7 +100,7 @@ static void ipa3_handle_indication_req(struct qmi_handle *qmi_handle,
 			IPA_QMI_RESULT_SUCCESS_V01;
 
 		rc = qmi_send_indication(qmi_handle,
-			&(ipa3_qmi_ctx->ipa_q6_client_params.sq),
+			&(ipa3_qmi_ctx->client_sq),
 			QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_V01,
 			QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_MAX_MSG_LEN_V01,
 			ipa3_master_driver_init_complt_ind_msg_data_v01_ei,
@@ -385,7 +388,7 @@ static int ipa3_qmi_send_req_wait(struct qmi_handle *client_handle,
 	}
 
 	ret = qmi_send_request(client_handle,
-		&ipa3_qmi_ctx->ipa_q6_client_params.sq,
+		&ipa3_qmi_ctx->server_sq,
 		&txn,
 		req_desc->msg_id,
 		req_desc->max_msg_len,
@@ -1048,8 +1051,8 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 	struct ipa_master_driver_init_complt_ind_msg_v01 ind;
 
 	rc = kernel_connect(ipa_q6_clnt->sock,
-		(struct sockaddr *) &ipa3_qmi_ctx->ipa_q6_client_params.sq,
-		sizeof(ipa3_qmi_ctx->ipa_q6_client_params.sq),
+		(struct sockaddr *) &ipa3_qmi_ctx->server_sq,
+		sizeof(ipa3_qmi_ctx->server_sq),
 		0);
 
 	if (rc < 0) {
@@ -1104,7 +1107,7 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 			IPA_QMI_RESULT_SUCCESS_V01;
 
 		rc = qmi_send_indication(ipa3_svc_handle,
-			&ipa3_qmi_ctx->ipa_q6_client_params.sq,
+			&ipa3_qmi_ctx->client_sq,
 			QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_V01,
 			QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_MAX_MSG_LEN_V01,
 			ipa3_master_driver_init_complt_ind_msg_data_v01_ei,
@@ -1119,9 +1122,9 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 
 static void ipa3_q6_clnt_svc_exit(struct work_struct *work)
 {
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = 0;
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_node = 0;
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_port = 0;
+	ipa3_qmi_ctx->server_sq.sq_family = 0;
+	ipa3_qmi_ctx->server_sq.sq_node = 0;
+	ipa3_qmi_ctx->server_sq.sq_port = 0;
 }
 
 static int ipa3_q6_clnt_svc_event_notify_svc_new(struct qmi_handle *qmi,
@@ -1131,9 +1134,9 @@ static int ipa3_q6_clnt_svc_event_notify_svc_new(struct qmi_handle *qmi,
 		  service->service, service->version, service->instance,
 		  service->node, service->port);
 
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = AF_QIPCRTR;
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_node = service->node;
-	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_port = service->port;
+	ipa3_qmi_ctx->server_sq.sq_family = AF_QIPCRTR;
+	ipa3_qmi_ctx->server_sq.sq_node = service->node;
+	ipa3_qmi_ctx->server_sq.sq_port = service->port;
 
 	if (!workqueues_stopped) {
 		queue_delayed_work(ipa_clnt_req_workqueue,
@@ -1690,7 +1693,7 @@ int ipa3_qmi_send_mhi_ready_indication(
 		return -ETIMEDOUT;
 
 	return qmi_send_indication(ipa3_svc_handle,
-		&ipa3_qmi_ctx->ipa_q6_client_params.sq,
+		&ipa3_qmi_ctx->client_sq,
 		QMI_IPA_MHI_READY_IND_V01,
 		IPA_MHI_READY_INDICATION_MSG_V01_MAX_MSG_LEN,
 		ipa_mhi_ready_indication_msg_v01_ei,
