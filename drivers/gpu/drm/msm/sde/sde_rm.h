@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -211,5 +211,15 @@ int sde_rm_check_property_topctl(uint64_t val);
  * @Return: 0 on success or error
  */
 int sde_rm_check_property_topctl(uint64_t val);
+
+/**
+ * sde_rm_read_resource_for_splash - read splash resource used in bootloader
+ * @rm: SDE Resource Manager handle
+ * @sinfo: handle for splash info
+ * @cat: Pointer to hardware catalog
+ */
+int sde_rm_read_resource_for_splash(struct sde_rm *rm,
+				void *sinfo,
+				struct sde_mdss_cfg *cat);
 
 #endif /* __SDE_RM_H__ */
