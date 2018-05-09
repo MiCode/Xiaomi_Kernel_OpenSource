@@ -853,6 +853,13 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
 				upper_32_bits(gpuaddr));
 
+	/*
+	 * Do not invoke to load zap shader if MMU does
+	 * not support secure mode.
+	 */
+	if (!device->mmu.secured)
+		return 0;
+
 	/* Load the zap shader firmware through PIL if its available */
 	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
 		/*
