@@ -1704,7 +1704,8 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 			ATRACE_BEGIN("dsi_panel_off");
 			ret = ctrl_pdata->off(pdata);
 			if (ret) {
-				pr_err("%s: Panel OFF failed\n", __func__);
+				pr_err("%s: Panel OFF failed\n",
+					__func__);
 				goto error;
 			}
 			ATRACE_END("dsi_panel_off");

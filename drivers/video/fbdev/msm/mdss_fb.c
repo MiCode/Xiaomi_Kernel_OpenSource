@@ -1653,6 +1653,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	u32 temp = bkl_lvl;
 	bool ad_bl_notify_needed = false;
 	bool bl_notify_needed = false;
+	bool twm_en = false;
 
 	if ((((mdss_fb_is_power_off(mfd) && mfd->dcm_state != DCM_ENTER)
 		|| !mfd->allow_bl_update) && !IS_CALIB_MODE_BL(mfd)) ||
@@ -1687,9 +1688,17 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 			if (mfd->bl_level != bkl_lvl)
 				bl_notify_needed = true;
 			pr_debug("backlight sent to panel :%d\n", temp);
-			pdata->set_backlight(pdata, temp);
-			mfd->bl_level = bkl_lvl;
-			mfd->bl_level_scaled = temp;
+
+			if (mfd->mdp.is_twm_en)
+				twm_en = mfd->mdp.is_twm_en();
+
+			if (twm_en) {
+				pr_info("TWM Enabled skip backlight update\n");
+			} else {
+				pdata->set_backlight(pdata, temp);
+				mfd->bl_level = bkl_lvl;
+				mfd->bl_level_scaled = temp;
+			}
 		}
 		if (ad_bl_notify_needed)
 			mdss_fb_bl_update_notify(mfd,

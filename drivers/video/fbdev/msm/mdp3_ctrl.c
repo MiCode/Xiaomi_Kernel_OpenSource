@@ -983,6 +983,11 @@ end:
 	return rc;
 }
 
+static bool mdp3_is_twm_en(void)
+{
+	return mdp3_res->twm_en;
+}
+
 static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 {
 	int rc = 0;
@@ -1025,8 +1030,10 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 			pr_debug("fb%d is off already", mfd->index);
 			goto off_error;
 		}
-		if (panel && panel->set_backlight)
+		if (panel && panel->set_backlight) {
+			if (!mdp3_is_twm_en())
 			panel->set_backlight(panel, 0);
+		}
 	}
 
 	/*
@@ -1065,9 +1072,13 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 		mdp3_irq_deregister();
 	}
 
-	if (panel->event_handler)
-		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF,
-			(void *) (long int)mfd->panel_power_state);
+	if (panel->event_handler) {
+		if (mdp3_is_twm_en())
+			pr_info("TWM Enabled skip MDSS_EVENT_PANEL_OFF\n");
+		else
+			rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF,
+				(void *) (long int)mfd->panel_power_state);
+	}
 	if (rc)
 		pr_err("EVENT_PANEL_OFF error (%d)\n", rc);
 
@@ -2870,6 +2881,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mdp3_interface->configure_panel = mdp3_update_panel_info;
 	mdp3_interface->input_event_handler = NULL;
 	mdp3_interface->signal_retire_fence = NULL;
+	mdp3_interface->is_twm_en = mdp3_is_twm_en;
 
 	mdp3_session = kzalloc(sizeof(struct mdp3_session_data), GFP_KERNEL);
 	if (!mdp3_session)
