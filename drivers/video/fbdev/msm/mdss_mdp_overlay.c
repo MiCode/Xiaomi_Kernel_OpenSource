@@ -6464,6 +6464,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->signal_retire_fence = mdss_mdp_signal_retire_fence;
 	mdp5_interface->enable_panel_disable_mode =
 		mdss_mdp_enable_panel_disable_mode;
+	mdp5_interface->is_twm_en = NULL;
 
 	/*
 	 * Register footswitch control only for primary fb pm
