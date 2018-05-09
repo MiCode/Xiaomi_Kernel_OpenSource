@@ -423,6 +423,7 @@
 			<0x00a6018 0x00004>;
 		reg-names = "cc_base", "apcs_c1_base",
 				"apcs_c0_base", "efuse";
+		qcom,gfx3d_clk_src-opp-store-vcorner = <&msm_gpu>;
 		vdd_dig-supply = <&pm8937_s2_level>;
 		vdd_sr2_dig-supply = <&pm8937_s2_level_ao>;
 		vdd_sr2_pll-supply = <&pm8937_l7_ao>;
