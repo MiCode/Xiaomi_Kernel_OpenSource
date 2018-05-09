@@ -1338,9 +1338,6 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 	u32 dlen, diff, rlen = msg->rx_len;
 	unsigned char *buff;
 	char cmd;
-	struct dsi_cmd_desc *of_cmd;
-
-	of_cmd = container_of(msg, struct dsi_cmd_desc, msg);
 
 	if (msg->rx_len <= 2) {
 		short_resp = true;
@@ -1378,9 +1375,9 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 		 * wait before reading rdbk_data register, if any delay is
 		 * required after sending the read command.
 		 */
-		if (of_cmd && of_cmd->post_wait_ms)
-			usleep_range(of_cmd->post_wait_ms * 1000,
-				     ((of_cmd->post_wait_ms * 1000) + 10));
+		if (msg->wait_ms)
+			usleep_range(msg->wait_ms * 1000,
+				     ((msg->wait_ms * 1000) + 10));
 
 		dlen = dsi_ctrl->hw.ops.get_cmd_read_data(&dsi_ctrl->hw,
 					buff, total_bytes_read,
