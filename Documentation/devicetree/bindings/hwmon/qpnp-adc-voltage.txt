@@ -10,6 +10,7 @@ VADC node
 Required properties:
 - compatible : should be "qcom,qpnp-vadc" for Voltage ADC device driver and
 		"qcom,qpnp-vadc-hc" for VADC_HC voltage ADC device driver.
+		should include "qcom,qpnp-adc-hc-pm5" for PMIC5.
 - reg : offset and length of the PMIC Aribter register map.
 - address-cells : Must be one.
 - size-cells : Must be zero.
