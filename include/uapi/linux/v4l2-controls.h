@@ -687,6 +687,12 @@ enum v4l2_mpeg_vidc_video_pictype_dec_mode {
 	V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_B = 4,
 };
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT   (V4L2_CID_MPEG_MSM_VIDC_BASE+2)
+enum v4l2_mpeg_vidc_video_stream_format {
+	V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES         = 0,
+	V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH   = 4,
+};
+
 #define V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER   (V4L2_CID_MPEG_MSM_VIDC_BASE+3)
 enum v4l2_mpeg_vidc_video_output_order {
 	V4L2_MPEG_VIDC_VIDEO_OUTPUT_ORDER_DISPLAY         = 0,
