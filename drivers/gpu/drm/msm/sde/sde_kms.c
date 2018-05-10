@@ -2291,8 +2291,7 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
-	struct list_head *connector_list = NULL;
-	struct drm_connector *conn_iter = NULL;
+	struct drm_connector_list_iter conn_iter;
 	struct drm_connector *connector = NULL;
 	struct sde_connector *sde_conn = NULL;
 
@@ -2349,21 +2348,19 @@ static int sde_kms_cont_splash_config(struct msm_kms *kms)
 
 
 	mutex_lock(&dev->mode_config.mutex);
-	connector_list = &dev->mode_config.connector_list;
-	list_for_each_entry(conn_iter, connector_list, head) {
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(connector, &conn_iter) {
 		/**
 		 * SDE_KMS doesn't attach more than one encoder to
-		 * a DSI connector. So it is safe to check only with the
-		 * first encoder entry. Revisit this logic if we ever have
-		 * to support continuous splash for external displays in MST
-		 * configuration.
+		 * a DSI connector. So it is safe to check only with
+		 * the first encoder entry. Revisit this logic if we
+		 * ever have to support continuous splash for
+		 * external displays in MST configuration.
 		 */
-		if (conn_iter &&
-			(conn_iter->encoder_ids[0] == encoder->base.id)) {
-			connector = conn_iter;
+		if (connector->encoder_ids[0] == encoder->base.id)
 			break;
-		}
 	}
+	drm_connector_list_iter_end(&conn_iter);
 
 	if (!connector) {
 		SDE_ERROR("connector not initialized\n");
