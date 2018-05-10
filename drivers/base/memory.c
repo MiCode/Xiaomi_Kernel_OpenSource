@@ -435,10 +435,62 @@ out:
 static DEVICE_ATTR_RO(valid_zones);
 #endif
 
+#ifdef CONFIG_MEMORY_HOTPLUG
+static int count_num_free_block_pages(struct zone *zone, int bid)
+{
+	int order, type;
+	unsigned long freecount = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&zone->lock, flags);
+	for (type = 0; type < MIGRATE_TYPES; type++) {
+		for (order = 0; order < MAX_ORDER; ++order) {
+			struct free_area *area;
+			struct page *page;
+
+			area = &(zone->free_area[order]);
+			list_for_each_entry(page, &area->free_list[type], lru) {
+				unsigned long pfn = page_to_pfn(page);
+				int section_nr = pfn_to_section_nr(pfn);
+
+				if (bid == base_memory_block_id(section_nr))
+					freecount += (1 << order);
+			}
+
+		}
+	}
+	spin_unlock_irqrestore(&zone->lock, flags);
+
+	return freecount;
+}
+
+static ssize_t allocated_bytes_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct memory_block *mem = to_memory_block(dev);
+	int block_id, free_pages;
+	struct zone *movable_zone =
+		&NODE_DATA(numa_node_id())->node_zones[ZONE_MOVABLE];
+	unsigned long used, block_sz = memory_block_size_bytes();
+
+	if (mem->state != MEM_ONLINE)
+		return snprintf(buf, 100, "0\n");
+
+	block_id = base_memory_block_id(mem->start_section_nr);
+	free_pages = count_num_free_block_pages(movable_zone, block_id);
+	used =  block_sz - (free_pages * PAGE_SIZE);
+
+	return snprintf(buf, 100, "%lu\n", used);
+}
+#endif
+
 static DEVICE_ATTR_RO(phys_index);
 static DEVICE_ATTR_RW(state);
 static DEVICE_ATTR_RO(phys_device);
 static DEVICE_ATTR_RO(removable);
+#ifdef CONFIG_MEMORY_HOTPLUG
+static DEVICE_ATTR_RO(allocated_bytes);
+#endif
 
 /*
  * Show the memory block size (shared by all memory blocks).
@@ -637,6 +689,9 @@ static struct attribute *memory_memblk_attrs[] = {
 	&dev_attr_removable.attr,
 #ifdef CONFIG_MEMORY_HOTREMOVE
 	&dev_attr_valid_zones.attr,
+#endif
+#ifdef CONFIG_MEMORY_HOTPLUG
+	&dev_attr_allocated_bytes.attr,
 #endif
 	NULL
 };
