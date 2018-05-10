@@ -858,6 +858,37 @@ static int copy_caps_to_sessions(struct hfi_capability_supported *cap,
 	return 0;
 }
 
+static int copy_nal_stream_format_caps_to_sessions(u32 nal_stream_format_value,
+		struct msm_vidc_capability *capabilities, u32 num_sessions,
+		u32 codecs, u32 domain)
+{
+	u32 i = 0;
+	struct msm_vidc_capability *capability;
+	u32 sess_codec;
+	u32 sess_domain;
+
+	for (i = 0; i < num_sessions; i++) {
+		sess_codec = 0;
+		sess_domain = 0;
+		capability = &capabilities[i];
+
+		if (capability->codec)
+			sess_codec =
+				vidc_get_hfi_codec(capability->codec);
+		if (capability->domain)
+			sess_domain =
+				vidc_get_hfi_domain(capability->domain);
+
+		if (!(sess_codec & codecs && sess_domain & domain))
+			continue;
+
+		capability->nal_stream_format.nal_stream_format_supported =
+				nal_stream_format_value;
+	}
+
+	return 0;
+}
+
 static enum vidc_status hfi_parse_init_done_properties(
 		struct msm_vidc_capability *capabilities,
 		u32 num_sessions, u8 *data_ptr, u32 num_properties,
@@ -986,6 +1017,15 @@ static enum vidc_status hfi_parse_init_done_properties(
 		}
 		case HFI_PROPERTY_PARAM_NAL_STREAM_FORMAT_SUPPORTED:
 		{
+			struct hfi_nal_stream_format_supported *prop =
+				(struct hfi_nal_stream_format_supported *)
+					(data_ptr + next_offset);
+
+			copy_nal_stream_format_caps_to_sessions(
+					prop->nal_stream_format_supported,
+					capabilities, num_sessions,
+					codecs, domain);
+
 			next_offset +=
 				sizeof(struct hfi_nal_stream_format_supported);
 			num_properties--;
