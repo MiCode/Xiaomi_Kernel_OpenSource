@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,6 +175,12 @@ struct sde_hw_mdp_ops {
 	 */
 	void (*get_safe_status)(struct sde_hw_mdp *mdp,
 			struct sde_danger_safe_status *status);
+
+	/**
+	 * get_split_flush_status - get split flush status
+	 * @mdp: mdp top context driver
+	 */
+	u32 (*get_split_flush_status)(struct sde_hw_mdp *mdp);
 
 	/**
 	 * reset_ubwc - reset top level UBWC configuration

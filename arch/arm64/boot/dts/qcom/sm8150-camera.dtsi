@@ -403,9 +403,19 @@
 				iova-mem-region-io {
 					/* IO region is approximately 3.3 GB */
 					iova-region-name = "io";
-					iova-region-start = <0xd900000>;
-					iova-region-len = <0xd2700000>;
+					iova-region-start = <0xd911000>;
+					iova-region-len = <0xd26ef000>;
 					iova-region-id = <0x3>;
+					status = "ok";
+				};
+
+				iova-mem-qdss-region {
+					/* QDSS region is appropriate 64K */
+					iova-region-name = "qdss";
+					iova-region-start = <0xd900000>;
+					iova-region-len = <0x10000>;
+					iova-region-id = <0x5>;
+					qdss-phy-addr = <0x16790000>;
 					status = "ok";
 				};
 			};
@@ -981,7 +991,7 @@
 			<400000000 0 600000000 0>;
 		clock-cntl-level = "svs", "turbo";
 		fw_name = "CAMERA_ICP.elf";
-		ubwc-cfg = <0x7F 0x1FF>;
+		ubwc-cfg = <0x7B 0x1EF>;
 		status = "ok";
 	};
 

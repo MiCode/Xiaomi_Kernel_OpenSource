@@ -159,12 +159,12 @@ config ARCH_SDMSHRIKE
 	  If you do not wish to build a kernel that runs on this chipset,
 	  say 'N' here.
 
-config ARCH_SDM640
-	bool "Enable Support for Qualcomm Technologies, Inc. SDM640"
+config ARCH_SM6150
+	bool "Enable Support for Qualcomm Technologies, Inc. SM6150"
 	depends on ARCH_QCOM
 	select COMMON_CLK_QCOM
 	help
-	  This enables support for the SDM640 chipset. If you do not
+	  This enables support for the SM6150 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
 config ARCH_QCS405

@@ -374,7 +374,7 @@ static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
 {
 	ipa3_active_clients_log_print_table(active_clients_table_buf,
 			IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE);
-	IPAERR("%s", active_clients_table_buf);
+	IPAERR("%s\n", active_clients_table_buf);
 
 	return NOTIFY_DONE;
 }
@@ -4273,6 +4273,9 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 	if (res)
 		IPAERR("uC panic handler failed %d\n", res);
 
+	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0)
+		ipahal_print_all_regs();
+
 	return NOTIFY_DONE;
 }
 
@@ -4526,12 +4529,17 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 
 	/*
 	 * IPAv3.5 and above requires to disable prefetch for USB in order
-	 * to allow MBIM to work, currently MBIM is not needed in MHI mode.
+	 * to allow MBIM to work.
 	 */
 	if ((ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5
 		&& ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
 		(!ipa3_ctx->ipa_config_is_mhi))
 		ipa3_disable_prefetch(IPA_CLIENT_USB_CONS);
+
+	if ((ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5
+		&& ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
+		(ipa3_ctx->ipa_config_is_mhi))
+		ipa3_disable_prefetch(IPA_CLIENT_MHI_CONS);
 
 	memset(&gsi_props, 0, sizeof(gsi_props));
 	gsi_props.ver = ipa3_get_gsi_ver(resource_p->ipa_hw_type);
@@ -4578,8 +4586,6 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		IPADBG("teth_bridge initialized");
 	}
 
-	ipa3_debugfs_init();
-
 	result = ipa3_uc_interface_init();
 	if (result)
 		IPAERR(":ipa Uc interface init failed (%d)\n", -result);
@@ -4616,6 +4622,8 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_trigger_ipa_ready_cbs();
 	complete_all(&ipa3_ctx->init_completion_obj);
 	pr_info("IPA driver initialization was successful.\n");
+
+	ipa3_debugfs_init();
 
 	return 0;
 
@@ -4975,6 +4983,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->gsi_ch20_wa = resource_p->gsi_ch20_wa;
 	ipa3_ctx->use_ipa_pm = resource_p->use_ipa_pm;
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
+	ipa3_ctx->ipa_config_is_mhi = resource_p->ipa_mhi_dynamic_config;
 	ipa3_ctx->mhi_evid_limits[0] = resource_p->mhi_evid_limits[0];
 	ipa3_ctx->mhi_evid_limits[1] = resource_p->mhi_evid_limits[1];
 
@@ -5502,6 +5511,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa3_hw_mode = 0;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
+	ipa_drv_res->ipa_mhi_dynamic_config = false;
 	ipa_drv_res->use_64_bit_dma_mask = false;
 	ipa_drv_res->use_bw_vote = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
@@ -5562,6 +5572,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,use-ipa-tethering-bridge");
 	IPADBG(": using TBDr = %s",
 		ipa_drv_res->use_ipa_teth_bridge
+		? "True" : "False");
+
+	ipa_drv_res->ipa_mhi_dynamic_config =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,use-ipa-in-mhi-mode");
+	IPADBG(": ipa_mhi_dynamic_config (%s)\n",
+		ipa_drv_res->ipa_mhi_dynamic_config
 		? "True" : "False");
 
 	ipa_drv_res->modem_cfg_emb_pipe_flt =

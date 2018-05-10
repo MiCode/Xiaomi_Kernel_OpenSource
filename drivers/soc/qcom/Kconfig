@@ -67,11 +67,11 @@ config QCOM_SDMSHRIKE_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
-config QCOM_SDM640_LLCC
-	tristate "Qualcomm Technologies, Inc. SDM640 LLCC driver"
+config QCOM_SM6150_LLCC
+	tristate "Qualcomm Technologies, Inc. SM6150 LLCC driver"
 	depends on QCOM_LLCC
 	help
-	  Say yes here to enable the LLCC driver for SDM640. This is provides
+	  Say yes here to enable the LLCC driver for SM6150. This is provides
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
@@ -390,6 +390,23 @@ config QCOM_EUD
 	  Embedded USB Debugger (EUD).
 	  If unsure, say N.
 
+config QCOM_MINIDUMP
+	bool "QCOM Minidump Support"
+	depends on QCOM_SMEM && QCOM_DLOAD_MODE
+	help
+	  This enables minidump feature. It allows various clients to
+	  register to dump their state at system bad state (panic/WDT,etc.,).
+	  Minidump would dump all registered entries, only when DLOAD mode
+	  is enabled.
+
+config MINIDUMP_MAX_ENTRIES
+	int "Minidump Maximum num of entries"
+	default 200
+	depends on QCOM_MINIDUMP
+	help
+	  This defines maximum number of entries to be allocated for application
+	  subsytem in Minidump table.
+
 config QCOM_BUS_SCALING
 	bool "Bus scaling driver"
 	help
@@ -431,6 +448,19 @@ config MSM_SPSS_UTILS
 	  Different file name is used for differnt SPSS HW versions,
 	  because the SPSS firmware size is too small to support multiple
 	  HW versions.
+
+config MSM_SPCOM
+	depends on QCOM_GLINK
+	bool "Secure Processor Communication over GLINK"
+	help
+	  spcom driver allows loading Secure Processor Applications and
+	  sending messages to Secure Processor Applications.
+	  spcom provides interface to both user space app and kernel driver.
+	  It is using glink as the transport layer, which provides multiple
+	  logical channels over single physical channel.
+	  The physical layer is based on shared memory and interrupts.
+	  spcom provides clients/server API, although currently only one client
+	  or server is allowed per logical channel.
 
 config QTI_RPMH_API
 	bool "QTI RPMH (h/w accelerators) Communication API"
@@ -516,6 +546,14 @@ config MSM_CDSP_LOADER
 	  The CDSP loader brings CDSP out of reset
 	  for platforms that have compute DSP.
 	  Say M if you want to enable this module.
+
+config QCOM_SMCINVOKE
+       bool "Secure QSEE Support"
+       help
+         Enable SMCInvoke driver which supports capability based secure
+         communication between QTI Secure Execution Environment (QSEE)
+         and high level operating system. It exposes APIs for both
+         userspace and kernel clients.
 
 config MSM_EVENT_TIMER
 	bool "Event timer"

@@ -21,6 +21,7 @@
 #include "rmnet_handlers.h"
 #include "rmnet_vnd.h"
 #include "rmnet_private.h"
+#include "rmnet_map.h"
 
 /* Locking scheme -
  * The shared resource which needs to be protected is realdev->rx_handler_data.
@@ -66,6 +67,8 @@ static int rmnet_unregister_real_device(struct net_device *real_dev,
 	if (port->nr_rmnet_devs)
 		return -EINVAL;
 
+	rmnet_map_tx_aggregate_exit(port);
+
 	kfree(port);
 
 	netdev_rx_handler_unregister(real_dev);
@@ -104,6 +107,8 @@ static int rmnet_register_real_device(struct net_device *real_dev)
 	for (entry = 0; entry < RMNET_MAX_LOGICAL_EP; entry++)
 		INIT_HLIST_HEAD(&port->muxed_ep[entry]);
 
+	rmnet_map_tx_aggregate_init(port);
+
 	netdev_dbg(real_dev, "registered with rmnet\n");
 	return 0;
 }
@@ -136,7 +141,8 @@ static int rmnet_newlink(struct net *src_net, struct net_device *dev,
 			 struct nlattr *tb[], struct nlattr *data[],
 			 struct netlink_ext_ack *extack)
 {
-	u32 data_format = RMNET_FLAGS_INGRESS_DEAGGREGATION;
+	u32 data_format = RMNET_FLAGS_INGRESS_DEAGGREGATION |
+			  RMNET_EGRESS_FORMAT_AGGREGATION;
 	struct net_device *real_dev;
 	int mode = RMNET_EPMODE_VND;
 	struct rmnet_endpoint *ep;
@@ -312,6 +318,8 @@ static int rmnet_changelink(struct net_device *dev, struct nlattr *tb[],
 	if (data[IFLA_RMNET_MUX_ID]) {
 		mux_id = nla_get_u16(data[IFLA_RMNET_MUX_ID]);
 		ep = rmnet_get_endpoint(port, priv->mux_id);
+		if (!ep)
+			return -ENODEV;
 
 		hlist_del_init_rcu(&ep->hlnode);
 		hlist_add_head_rcu(&ep->hlnode, &port->muxed_ep[mux_id]);
@@ -348,15 +356,16 @@ static int rmnet_fill_info(struct sk_buff *skb, const struct net_device *dev)
 
 	real_dev = priv->real_dev;
 
-	if (!rmnet_is_real_dev_registered(real_dev))
-		return -ENODEV;
-
 	if (nla_put_u16(skb, IFLA_RMNET_MUX_ID, priv->mux_id))
 		goto nla_put_failure;
 
-	port = rmnet_get_port_rtnl(real_dev);
+	if (rmnet_is_real_dev_registered(real_dev)) {
+		port = rmnet_get_port_rtnl(real_dev);
+		f.flags = port->data_format;
+	} else {
+		f.flags = 0;
+	}
 
-	f.flags = port->data_format;
 	f.mask  = ~0;
 
 	if (nla_put(skb, IFLA_RMNET_FLAGS, sizeof(f), &f))

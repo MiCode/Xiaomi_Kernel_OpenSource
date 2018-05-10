@@ -21,6 +21,7 @@
 #include <linux/debugfs.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/smp.h>
 #include <linux/suspend.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/lpm-stats.h>
@@ -254,6 +255,15 @@ static ssize_t level_stats_file_write(struct file *file,
 	return count;
 }
 
+static void reset_cpu_stats(void *info)
+{
+	struct lpm_stats *stats = &(*this_cpu_ptr(&(cpu_stats)));
+	int i;
+
+	for (i = 0; i < stats->num_levels; i++)
+		level_stats_reset(&stats->time_stats[i]);
+}
+
 static ssize_t lpm_stats_file_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *off)
 {
@@ -275,6 +285,12 @@ static ssize_t lpm_stats_file_write(struct file *file,
 		return -EINVAL;
 
 	level_stats_reset_all(stats);
+	/*
+	 * Wake up each CPU and reset the stats from that CPU,
+	 * for that CPU, so we could have better timestamp for
+	 * accounting.
+	 */
+	on_each_cpu(reset_cpu_stats, NULL, 1);
 
 	return count;
 }

@@ -29,8 +29,10 @@
 /* limit status ring size in range [ring size..max ring size] */
 #define WIL_SRING_SIZE_ORDER_MIN	(WIL_RING_SIZE_ORDER_MIN)
 #define WIL_SRING_SIZE_ORDER_MAX	(WIL_RING_SIZE_ORDER_MAX)
-#define WIL_RX_SRING_SIZE_ORDER_DEFAULT	(10)
+/* RX sring order should be bigger than RX ring order */
+#define WIL_RX_SRING_SIZE_ORDER_DEFAULT	(11)
 #define WIL_TX_SRING_SIZE_ORDER_DEFAULT	(12)
+#define WIL_RX_BUFF_ARR_SIZE_DEFAULT (1536)
 #define WIL_EDMA_MAX_DATA_OFFSET (2)
 
 bool use_compressed_rx_status = true;
@@ -63,15 +65,26 @@ static const struct kernel_param_ops sring_order_ops = {
 	.get = param_get_uint,
 };
 
+/* Status ring size should be bigger than the number of RX buffers in order
+ * to prevent backpressure on the status ring, which may cause HW freeze.
+ */
 static uint rx_status_ring_order = WIL_RX_SRING_SIZE_ORDER_DEFAULT;
 module_param_cb(rx_status_ring_order, &sring_order_ops, &rx_status_ring_order,
 		0444);
-MODULE_PARM_DESC(rx_status_ring_order, " Rx status ring order; size = 1 << order. Default: 10");
+MODULE_PARM_DESC(rx_status_ring_order, " Rx status ring order; size = 1 << order. Default: 11");
 
 static uint tx_status_ring_order = WIL_TX_SRING_SIZE_ORDER_DEFAULT;
 module_param_cb(tx_status_ring_order, &sring_order_ops, &tx_status_ring_order,
 		0444);
 MODULE_PARM_DESC(tx_status_ring_order, " Tx status ring order; size = 1 << order. Default: 12");
+
+/* Number of RX buffer IDs should be bigger than the RX descriptor ring size
+ * as in HW reorder flow, the HW can consume additional buffers before
+ * releasing the previous ones.
+ */
+static uint rx_buff_id_count = WIL_RX_BUFF_ARR_SIZE_DEFAULT;
+module_param(rx_buff_id_count, uint, 0444);
+MODULE_PARM_DESC(rx_buff_id_count, " Rx buffer IDs count: default: 1536");
 
 static void wil_tx_desc_unmap_edma(struct device *dev,
 				   union wil_tx_desc *desc,
@@ -273,8 +286,7 @@ static int wil_rx_refill_edma(struct wil6210_priv *wil)
 		rc = wil_ring_alloc_skb_edma(wil, ring, ring->swhead);
 		if (unlikely(rc)) {
 			if (rc == -EAGAIN)
-				wil_err_ratelimited(wil,
-						    "No free buffer IDs found\n");
+				wil_dbg_txrx(wil, "No free buffer ID found\n");
 			else
 				wil_err_ratelimited(wil,
 						    "Error %d in refill desc[%d]\n",
@@ -693,8 +705,16 @@ static int wil_rx_init_edma(struct wil6210_priv *wil, u16 desc_ring_size)
 	if (rc)
 		goto err_free_status;
 
+	if (rx_buff_id_count >= status_ring_size) {
+		wil_info(wil,
+			 "rx_buff_id_count %d exceeds sring_size %d. set it to %d\n",
+			 rx_buff_id_count, status_ring_size,
+			 status_ring_size - 1);
+		rx_buff_id_count = status_ring_size - 1;
+	}
+
 	/* Allocate Rx buffer array */
-	rc = wil_init_rx_buff_arr(wil, desc_ring_size + status_ring_size);
+	rc = wil_init_rx_buff_arr(wil, rx_buff_id_count);
 	if (rc)
 		goto err_free_desc;
 

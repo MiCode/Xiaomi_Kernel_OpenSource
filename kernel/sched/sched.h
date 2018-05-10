@@ -876,6 +876,9 @@ struct rq {
 	u8 curr_table;
 	int prev_top;
 	int curr_top;
+	bool notif_pending;
+	u64 last_cc_update;
+	u64 cycles;
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -1213,7 +1216,7 @@ struct sched_group {
 	unsigned int group_weight;
 	struct sched_group_capacity *sgc;
 	int asym_prefer_cpu;		/* cpu of highest priority in group */
-	struct sched_group_energy const *sge;
+	const struct sched_group_energy *sge;
 
 	/*
 	 * The CPUs this group covers.
@@ -2451,7 +2454,8 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 
 #ifdef CONFIG_SCHED_WALT
 	unsigned int exception_flags = SCHED_CPUFREQ_INTERCLUSTER_MIG |
-				SCHED_CPUFREQ_PL | SCHED_CPUFREQ_EARLY_DET;
+				SCHED_CPUFREQ_PL | SCHED_CPUFREQ_EARLY_DET |
+				SCHED_CPUFREQ_FORCE_UPDATE;
 
 	/*
 	 * Skip if we've already reported, but not if this is an inter-cluster

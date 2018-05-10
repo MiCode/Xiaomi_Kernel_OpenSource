@@ -18,7 +18,6 @@
 #include "adreno_snapshot.h"
 #include "a6xx_reg.h"
 #include "adreno_a6xx.h"
-#include "kgsl_gmu.h"
 
 #define A6XX_NUM_CTXTS 2
 #define A6XX_NUM_AXI_ARB_BLOCKS 2
@@ -242,44 +241,6 @@ static const unsigned int a6xx_vbif_ver_20xxxxxx_registers[] = {
 static const unsigned int a6xx_gbif_registers[] = {
 	/* GBIF */
 	0x3C00, 0X3C0B, 0X3C40, 0X3C47, 0X3CC0, 0X3CD1, 0xE3A, 0xE3A,
-};
-
-static const unsigned int a6xx_gmu_gx_registers[] = {
-	/* GMU GX */
-	0x1A800, 0x1A800, 0x1A810, 0x1A813, 0x1A816, 0x1A816, 0x1A818, 0x1A81B,
-	0x1A81E, 0x1A81E, 0x1A820, 0x1A823, 0x1A826, 0x1A826, 0x1A828, 0x1A82B,
-	0x1A82E, 0x1A82E, 0x1A830, 0x1A833, 0x1A836, 0x1A836, 0x1A838, 0x1A83B,
-	0x1A83E, 0x1A83E, 0x1A840, 0x1A843, 0x1A846, 0x1A846, 0x1A880, 0x1A884,
-	0x1A900, 0x1A92B, 0x1A940, 0x1A940,
-};
-
-static const unsigned int a6xx_gmu_registers[] = {
-	/* GMU TCM */
-	0x1B400, 0x1C3FF, 0x1C400, 0x1D3FF,
-	/* GMU CX */
-	0x1F400, 0x1F407, 0x1F410, 0x1F412, 0x1F500, 0x1F500, 0x1F507, 0x1F50A,
-	0x1F800, 0x1F804, 0x1F807, 0x1F808, 0x1F80B, 0x1F80C, 0x1F80F, 0x1F81C,
-	0x1F824, 0x1F82A, 0x1F82D, 0x1F830, 0x1F840, 0x1F853, 0x1F887, 0x1F889,
-	0x1F8A0, 0x1F8A2, 0x1F8A4, 0x1F8AF, 0x1F8C0, 0x1F8C3, 0x1F8D0, 0x1F8D0,
-	0x1F8E4, 0x1F8E4, 0x1F8E8, 0x1F8EC, 0x1F900, 0x1F903, 0x1F940, 0x1F940,
-	0x1F942, 0x1F944, 0x1F94C, 0x1F94D, 0x1F94F, 0x1F951, 0x1F954, 0x1F954,
-	0x1F957, 0x1F958, 0x1F95D, 0x1F95D, 0x1F962, 0x1F962, 0x1F964, 0x1F965,
-	0x1F980, 0x1F986, 0x1F990, 0x1F99E, 0x1F9C0, 0x1F9C0, 0x1F9C5, 0x1F9CC,
-	0x1F9E0, 0x1F9E2, 0x1F9F0, 0x1F9F0, 0x1FA00, 0x1FA01,
-	/* GPU RSCC */
-	0x2348C, 0x2348C, 0x23501, 0x23502, 0x23740, 0x23742, 0x23744, 0x23747,
-	0x2374C, 0x23787, 0x237EC, 0x237EF, 0x237F4, 0x2382F, 0x23894, 0x23897,
-	0x2389C, 0x238D7, 0x2393C, 0x2393F, 0x23944, 0x2397F,
-	/* GMU AO */
-	0x23B00, 0x23B16, 0x23C00, 0x23C00,
-	/* GPU CC */
-	0x24000, 0x24012, 0x24040, 0x24052, 0x24400, 0x24404, 0x24407, 0x2440B,
-	0x24415, 0x2441C, 0x2441E, 0x2442D, 0x2443C, 0x2443D, 0x2443F, 0x24440,
-	0x24442, 0x24449, 0x24458, 0x2445A, 0x24540, 0x2455E, 0x24800, 0x24802,
-	0x24C00, 0x24C02, 0x25400, 0x25402, 0x25800, 0x25802, 0x25C00, 0x25C02,
-	0x26000, 0x26002,
-	/* GPU CC ACD */
-	0x26400, 0x26416, 0x26420, 0x26427,
 };
 
 static const unsigned int a6xx_rb_rac_registers[] = {
@@ -1323,11 +1284,11 @@ static size_t a6xx_snapshot_cx_dbgc_debugbus_block(struct kgsl_device *device,
 }
 
 /* a6xx_snapshot_debugbus() - Capture debug bus data */
-static void a6xx_snapshot_debugbus(struct kgsl_device *device,
+void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
 	int i;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_CNTLT,
 		(0xf << A6XX_DBGC_CFG_DBGBUS_CNTLT_SEGT_SHIFT) |
@@ -1447,40 +1408,7 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 	}
 }
 
-/*
- * a6xx_snapshot_gmu() - A6XX GMU snapshot function
- * @adreno_dev: Device being snapshotted
- * @snapshot: Pointer to the snapshot instance
- *
- * This is where all of the A6XX GMU specific bits and pieces are grabbed
- * into the snapshot memory
- */
-void a6xx_snapshot_gmu(struct adreno_device *adreno_dev,
-		struct kgsl_snapshot *snapshot)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int val;
 
-	if (!kgsl_gmu_isenabled(device))
-		return;
-
-	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
-					ARRAY_SIZE(a6xx_gmu_registers) / 2);
-
-	if (gpudev->gx_is_on(adreno_dev)) {
-		/* Set fence to ALLOW mode so registers can be read */
-		kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
-		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
-
-		KGSL_DRV_ERR(device, "set FENCE to ALLOW mode:%x\n", val);
-		adreno_snapshot_registers(device, snapshot,
-				a6xx_gmu_gx_registers,
-				ARRAY_SIZE(a6xx_gmu_gx_registers) / 2);
-	}
-
-	a6xx_snapshot_debugbus(device, snapshot);
-}
 
 /* a6xx_snapshot_sqe() - Dump SQE data in snapshot */
 static size_t a6xx_snapshot_sqe(struct kgsl_device *device, u8 *buf,
@@ -1568,7 +1496,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	unsigned int i;
 
 	/* GMU TCM data dumped through AHB */
-	a6xx_snapshot_gmu(adreno_dev, snapshot);
+	a6xx_gmu_snapshot(adreno_dev, snapshot);
 
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 

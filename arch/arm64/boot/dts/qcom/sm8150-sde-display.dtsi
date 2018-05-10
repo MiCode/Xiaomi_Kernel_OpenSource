@@ -30,6 +30,21 @@
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
+&tlmm {
+	display_panel_avdd_eldo_default: display_panel_avdd_eldo_default {
+		mux {
+			pins = "gpio130";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio130";
+			drive-strength = <8>;
+			bias-disable = <0>;
+			output-low;
+		};
+	};
+};
+
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
 		#address-cells = <1>;
@@ -103,6 +118,18 @@
 			qcom,supply-disable-load = <0>;
 			qcom,supply-post-on-sleep = <0>;
 		};
+	};
+
+	display_panel_avdd_eldo: display-gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "display_panel_avdd_eldo";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 130 0>;
+		enable-active-high;
+		pinctrl-names = "default";
+		pintctrl-0 = <&display_panel_avdd_eldo_default>;
 	};
 
 	dsi_sharp_4k_dsc_video_display: qcom,dsi-display@0 {
@@ -315,6 +342,7 @@
 		vddio-supply = <&pm855_l14>;
 		lab-supply = <&lcdb_ldo_vreg>;
 		ibb-supply = <&lcdb_ncp_vreg>;
+		vdd-supply = <&display_panel_avdd_eldo>;
 
 		qcom,dsi-display-list =
 			<&dsi_sharp_4k_dsc_video_display
@@ -508,12 +536,12 @@
 };
 
 &dsi_sim_vid {
-	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-post = <0x15>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [01 03 01 00 01 01 01
-				01 00 03 04 00 03 04];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <1 0 1>,
 						<2 0 1>;
 			qcom,default-topology-index = <0>;
@@ -522,12 +550,12 @@
 };
 
 &dsi_dual_sim_vid {
-	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-post = <0x15>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <2 0 2>,
 						<1 0 2>;
 			qcom,default-topology-index = <0>;
@@ -536,12 +564,12 @@
 };
 
 &dsi_sim_cmd {
-	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-post = <0x15>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 03 01 00 01 01 02
-				01 00 03 04 00 03 04];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <1 0 1>,
 						<2 0 1>;
 			qcom,default-topology-index = <0>;
@@ -550,25 +578,25 @@
 };
 
 &dsi_dual_sim_cmd {
-	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-post = <0x15>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 24 09 09 26 24 09
+				09 06 03 04 00];
 			qcom,display-topology = <2 0 2>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@1{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <2 0 2>,
 						<1 0 2>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@2{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 03 04 00 19 18];
 			qcom,display-topology = <2 0 2>;
 			qcom,default-topology-index = <0>;
 		};
@@ -580,14 +608,14 @@
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
 	qcom,mdss-dsi-display-timings {
 		timing@0 { /* 1080p */
-			qcom,mdss-dsi-panel-phy-timings = [00 12 03 04 07 07 04
-				04 03 03 04 00 13 07];
+			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07
+				07 04 03 04 00];
 			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@1 { /* qhd */
-			qcom,mdss-dsi-panel-phy-timings = [00 12 03 04 07 07 04
-				04 03 03 04 00 13 07];
+			qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07
+				07 04 03 04 00];
 			qcom,display-topology = <1 1 1>,
 						<2 2 1>, /* dsc merge */
 						<2 1 1>; /* 3d mux */
@@ -601,14 +629,14 @@
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
 	qcom,mdss-dsi-display-timings {
 		timing@0 { /* qhd */
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
+				07 05 03 04 00 18 17];
 			qcom,display-topology = <2 2 2>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@1 { /* 4k */
-			qcom,mdss-dsi-panel-phy-timings = [00 13 03 03 05 06 03
-				03 02 03 04 00 10 06];
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 03 04 00 19 18];
 			qcom,display-topology = <2 2 2>;
 			qcom,default-topology-index = <0>;
 		};
@@ -618,13 +646,6 @@
 &dsi_sw43404_amoled_cmd {
 	qcom,mdss-dsi-t-clk-post = <0x16>;
 	qcom,mdss-dsi-t-clk-pre = <0x16>;
-	qcom,esd-check-enabled;
-	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
-	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
-	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
-	qcom,mdss-dsi-panel-status-value = <0x9c>;
-	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
-	qcom,mdss-dsi-panel-status-read-length = <1>;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1a 07 06 22 21 07

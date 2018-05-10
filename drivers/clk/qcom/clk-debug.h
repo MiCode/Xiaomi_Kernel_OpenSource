@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,8 @@ struct clk_src {
  * @num_parents:	number of parents
  * @regmap:		regmaps of debug mux
  * @priv:		private measure_clk_data to be used by debug mux
+ * @en_mask:		indicates the enable bit mask at global clock
+ *			controller debug mux.
  * @debug_offset:	debug mux offset.
  * @post_div_offset:	register with post-divider settings for the debug mux.
  * @cbcr_offset:	branch register to turn on debug mux.
@@ -116,6 +118,7 @@ struct clk_debug_mux {
 	int num_parents;
 	struct regmap **regmap;
 	void *priv;
+	u32 en_mask;
 	u32 debug_offset;
 	u32 post_div_offset;
 	u32 cbcr_offset;

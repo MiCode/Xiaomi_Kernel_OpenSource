@@ -1128,10 +1128,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY:
 		property_id = HAL_CONFIG_REALTIME;
-		/* firmware has inverted values for realtime and
-		 * non-realtime priority
-		 */
-		hal_property.enable = !(ctrl->val);
+		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
 		switch (ctrl->val) {
 		case V4L2_MPEG_MSM_VIDC_DISABLE:

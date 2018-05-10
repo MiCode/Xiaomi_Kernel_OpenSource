@@ -27,6 +27,7 @@
 #include <linux/uaccess.h>
 #include <linux/kthread.h>
 #include <asm/cacheflush.h>
+#include <linux/compat.h>
 
 /*
  * --- kgsl drawobj flags ---
@@ -209,6 +210,7 @@ struct kgsl_memdesc_ops {
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
  * @mapsize: Size of memory mapped in userspace
+ * @pad_to: Size that we pad the memdesc to
  * @priv: Internal flags and settings
  * @sgt: Scatter gather table for allocated pages
  * @ops: Function hooks for the memdesc memory type
@@ -228,6 +230,7 @@ struct kgsl_memdesc {
 	phys_addr_t physaddr;
 	uint64_t size;
 	uint64_t mapsize;
+	uint64_t pad_to;
 	unsigned int priv;
 	struct sg_table *sgt;
 	struct kgsl_memdesc_ops *ops;
@@ -629,5 +632,10 @@ static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
 		return;
 
 	kernfs_create_link(dst->sd, dst_name, old);
+}
+
+static inline bool kgsl_is_compat_task(void)
+{
+	return (BITS_PER_LONG == 32) || is_compat_task();
 }
 #endif /* __KGSL_H */

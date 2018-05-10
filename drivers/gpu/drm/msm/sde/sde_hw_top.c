@@ -107,6 +107,18 @@ static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
 	SDE_REG_WRITE(c, SPLIT_DISPLAY_EN, cfg->en & 0x1);
 }
 
+static u32 sde_hw_get_split_flush(struct sde_hw_mdp *mdp)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!mdp)
+		return 0;
+
+	c = &mdp->hw;
+
+	return (SDE_REG_READ(c, SSPP_SPARE) & 0x1);
+}
+
 static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 		struct split_pipe_cfg *cfg)
 {
@@ -411,6 +423,7 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->get_danger_status = sde_hw_get_danger_status;
 	ops->setup_vsync_source = sde_hw_setup_vsync_source;
 	ops->get_safe_status = sde_hw_get_safe_status;
+	ops->get_split_flush_status = sde_hw_get_split_flush;
 	ops->setup_dce = sde_hw_setup_dce;
 	ops->reset_ubwc = sde_hw_reset_ubwc;
 	ops->intf_audio_select = sde_hw_intf_audio_select;

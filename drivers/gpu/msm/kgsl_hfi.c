@@ -45,22 +45,6 @@
 	 (((minor) & 0x7FFFFF) << 5) | \
 	 ((branch) & 0x1F))
 
-/*
- * hfi_align_idx() - Update index based on HFI version
- * @gmu: Pointer to a GMU device
- * @idx: Integer that is either a read or write index
- * @boundary: boundary of adjusted ptr value. Exceeding the boundary
- *	will reset ptr to 0
- */
-static int hfi_align_idx(struct gmu_device *gmu, int idx, int boundary)
-{
-	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
-		idx = ALIGN(idx, SZ_4);
-		return (idx < boundary) ? idx : 0;
-	}
-	return idx;
-}
-
 /* Size in below functions are in unit of dwords */
 static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		unsigned int *output, unsigned int max_size)
@@ -109,7 +93,10 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 		result = -ENODATA;
 	}
 
-	hdr->read_index = hfi_align_idx(gmu, read, hdr->queue_size);
+	if (HFI_VER_MAJOR(&gmu->hfi) >= 2)
+		read = ALIGN(read, SZ_4) % hdr->queue_size;
+
+	hdr->read_index = read;
 
 	return result;
 }
@@ -118,7 +105,7 @@ static int hfi_queue_read(struct gmu_device *gmu, uint32_t queue_idx,
 static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 		uint32_t *msg)
 {
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct kgsl_device *device = kgsl_get_device(KGSL_DEVICE_3D0);
 	struct hfi_queue_table *tbl = gmu->hfi_mem->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	uint32_t *queue;
@@ -164,7 +151,13 @@ static int hfi_queue_write(struct gmu_device *gmu, uint32_t queue_idx,
 		write = (write + 1) % hdr->queue_size;
 	}
 
-	hdr->write_index = hfi_align_idx(gmu, write, hdr->queue_size);
+	/* Cookify any non used data at the end of the write buffer */
+	if (HFI_VER_MAJOR(&gmu->hfi) >= 2) {
+		for (; write % 4; write = (write + 1) % hdr->queue_size)
+			queue[write] = 0xFAFAFAFA;
+	}
+
+	hdr->write_index = write;
 
 	mutex_unlock(&hfi->cmdq_mutex);
 
@@ -404,17 +397,6 @@ static int hfi_send_feature_ctrls(struct gmu_device *gmu)
 	return 0;
 }
 
-static int hfi_send_init_perf_vote(struct gmu_device *gmu)
-{
-	struct hfi_gx_bw_perf_vote_cmd req = {
-		.ack_type = DCVS_ACK_BLOCK,
-		.freq = 2,
-		.bw = 2,
-	};
-
-	return hfi_send_req(gmu, H2F_MSG_GX_BW_PERF_VOTE, &req);
-}
-
 static int hfi_send_dcvstbl(struct gmu_device *gmu)
 {
 	struct hfi_dcvstable_cmd cmd = {
@@ -485,8 +467,10 @@ static void receive_err_req(struct gmu_device *gmu, void *rcvd)
 {
 	struct hfi_err_cmd *cmd = rcvd;
 
-	dev_err(&gmu->pdev->dev, "HFI Error Received: %d %d %d\n",
-			cmd->error_code, cmd->data[0], cmd->data[1]);
+	dev_err(&gmu->pdev->dev, "HFI Error Received: %d %d %s\n",
+			((cmd->error_code >> 16) & 0xFFFF),
+			(cmd->error_code & 0xFFFF),
+			(char *) cmd->data);
 }
 
 static void receive_debug_req(struct gmu_device *gmu, void *rcvd)
@@ -525,40 +509,49 @@ void hfi_receiver(unsigned long data)
 {
 	struct gmu_device *gmu;
 	uint32_t rcvd[MAX_RCVD_SIZE];
+	int read_queue[] = {
+		HFI_MSG_IDX,
+		HFI_DBG_IDX,
+	};
+	int q;
 
 	if (!data)
 		return;
 
 	gmu = (struct gmu_device *)data;
 
-	while (hfi_queue_read(gmu, HFI_MSG_IDX, rcvd, sizeof(rcvd)) > 0) {
-		/* Special case if we're v1 */
-		if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
-			hfi_v1_receiver(gmu, rcvd);
-			continue;
-		}
+	/* While we are here, check all of the queues for messages */
+	for (q = 0; q < ARRAY_SIZE(read_queue); q++) {
+		while (hfi_queue_read(gmu, read_queue[q],
+				rcvd, sizeof(rcvd)) > 0) {
+			/* Special case if we're v1 */
+			if (HFI_VER_MAJOR(&gmu->hfi) < 2) {
+				hfi_v1_receiver(gmu, rcvd);
+				continue;
+			}
 
-		/* V2 ACK Handler */
-		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
-			receive_ack_cmd(gmu, rcvd);
-			continue;
-		}
+			/* V2 ACK Handler */
+			if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
+				receive_ack_cmd(gmu, rcvd);
+				continue;
+			}
 
-		/* V2 Request Handler */
-		switch (MSG_HDR_GET_ID(rcvd[0])) {
-		case F2H_MSG_ERR: /* No Reply */
-			receive_err_req(gmu, rcvd);
-			break;
-		case F2H_MSG_DEBUG: /* No Reply */
-			receive_debug_req(gmu, rcvd);
-			break;
-		default: /* No Reply */
-			dev_err(&gmu->pdev->dev,
-				"HFI request %d not supported\n",
-				MSG_HDR_GET_ID(rcvd[0]));
-			break;
-		}
-	};
+			/* V2 Request Handler */
+			switch (MSG_HDR_GET_ID(rcvd[0])) {
+			case F2H_MSG_ERR: /* No Reply */
+				receive_err_req(gmu, rcvd);
+				break;
+			case F2H_MSG_DEBUG: /* No Reply */
+				receive_debug_req(gmu, rcvd);
+				break;
+			default: /* No Reply */
+				dev_err(&gmu->pdev->dev,
+					"HFI request %d not supported\n",
+					MSG_HDR_GET_ID(rcvd[0]));
+				break;
+			}
+		};
+	}
 }
 
 #define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
@@ -566,9 +559,9 @@ void hfi_receiver(unsigned long data)
 #define GMU_VERSION(major, minor) \
 	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
 
-static int hfi_verify_fw_version(struct gmu_device *gmu)
+static int hfi_verify_fw_version(struct kgsl_device *device,
+		struct gmu_device *gmu)
 {
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int result;
 	unsigned int ver, major, minor;
@@ -610,7 +603,7 @@ static int hfi_verify_fw_version(struct gmu_device *gmu)
 
 int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 {
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct kgsl_device *device = kgsl_get_device(KGSL_DEVICE_3D0);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int result;
 
@@ -623,7 +616,7 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 			return result;
 	}
 
-	result = hfi_verify_fw_version(gmu);
+	result = hfi_verify_fw_version(device, gmu);
 	if (result)
 		return result;
 
@@ -645,11 +638,6 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 			return result;
 
 		result = hfi_send_core_fw_start(gmu);
-		if (result)
-			return result;
-
-		/* Force a vote with initial values */
-		result = hfi_send_init_perf_vote(gmu);
 		if (result)
 			return result;
 	} else {

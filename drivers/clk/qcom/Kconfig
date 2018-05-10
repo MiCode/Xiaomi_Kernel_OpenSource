@@ -315,3 +315,20 @@ config MSM_CAMCC_SDMSHRIKE
 	  SDMSHRIKE devices.
           Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
+
+config MDM_GCC_QCS405
+	tristate "QCS405 Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the global clock controller on Qualcomm Technologies, Inc
+	 QCS405 devices.
+	 Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	 USB, SD/eMMC, PCIe, etc.
+
+config MDM_DEBUGCC_QCS405
+	tristate "QCS405 Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  QCS405 devices.
+	  Say Y if you want to support the clock measurement functionality.

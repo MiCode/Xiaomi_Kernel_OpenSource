@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,12 +24,63 @@
 
 int ipa_hw_stats_init(void)
 {
+	int ret = 0, ep_index;
+	struct ipa_teth_stats_endpoints *teth_stats_init;
+
 	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
 		return 0;
 
 	/* initialize stats here */
 	ipa3_ctx->hw_stats.enabled = true;
-	return 0;
+
+	teth_stats_init = kzalloc(sizeof(*teth_stats_init), GFP_KERNEL);
+	if (!teth_stats_init) {
+		IPAERR("mem allocated failed!\n");
+		return -ENOMEM;
+	}
+	/* enable prod mask */
+	teth_stats_init->prod_mask = (
+		IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD) |
+		IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD) |
+		IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD));
+
+	if (IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD)) {
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_PROD);
+		if (ep_index == -1) {
+			IPAERR("Invalid client.\n");
+			kfree(teth_stats_init);
+			return -EINVAL;
+		}
+		teth_stats_init->dst_ep_mask[ep_index] =
+			(IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS));
+	}
+
+	if (IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD)) {
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
+		if (ep_index == -1) {
+			IPAERR("Invalid client.\n");
+			kfree(teth_stats_init);
+			return -EINVAL;
+		}
+		teth_stats_init->dst_ep_mask[ep_index] =
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
+	}
+
+	if (IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD)) {
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_WLAN1_PROD);
+		if (ep_index == -1) {
+			IPAERR("Invalid client.\n");
+			kfree(teth_stats_init);
+			return -EINVAL;
+		}
+		teth_stats_init->dst_ep_mask[ep_index] =
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
+	}
+
+	ret = ipa_init_teth_stats(teth_stats_init);
+	kfree(teth_stats_init);
+	return ret;
 }
 
 int ipa_init_quota_stats(u32 pipe_bitmask)
@@ -347,9 +398,12 @@ int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in)
 	/* reset driver's cache */
 	memset(&ipa3_ctx->hw_stats.teth.init, 0,
 		sizeof(ipa3_ctx->hw_stats.teth.init));
-	for (i = 0; i < IPA_CLIENT_MAX; i++)
+	for (i = 0; i < IPA_CLIENT_MAX; i++) {
+		memset(&ipa3_ctx->hw_stats.teth.prod_stats_sum[i], 0,
+			sizeof(ipa3_ctx->hw_stats.teth.prod_stats_sum[i]));
 		memset(&ipa3_ctx->hw_stats.teth.prod_stats[i], 0,
 			sizeof(ipa3_ctx->hw_stats.teth.prod_stats[i]));
+	}
 	ipa3_ctx->hw_stats.teth.init.prod_bitmask = in->prod_mask;
 	memcpy(ipa3_ctx->hw_stats.teth.init.cons_bitmask, in->dst_ep_mask,
 		sizeof(ipa3_ctx->hw_stats.teth.init.cons_bitmask));
@@ -457,8 +511,7 @@ destroy_init_pyld:
 	return ret;
 }
 
-int ipa_get_teth_stats(enum ipa_client_type prod,
-	struct ipa_quota_stats_all *out)
+int ipa_get_teth_stats(void)
 {
 	int i, j;
 	int ret;
@@ -468,15 +521,16 @@ int ipa_get_teth_stats(enum ipa_client_type prod,
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipa_mem_buffer mem;
 	struct ipa3_desc desc = { 0 };
-	struct ipahal_stats_tethering_all *stats;
+	struct ipahal_stats_tethering_all *stats_all;
+	struct ipa_hw_stats_teth *sw_stats = &ipa3_ctx->hw_stats.teth;
+	struct ipahal_stats_tethering *stats;
+	struct ipa_quota_stats *quota_stats;
+	struct ipahal_stats_init_tethering *init =
+		(struct ipahal_stats_init_tethering *)
+			&ipa3_ctx->hw_stats.teth.init;
 
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
-
-	if (!IPA_CLIENT_IS_PROD(prod) || ipa3_get_ep_mapping(prod) == -1) {
-		IPAERR("invalid prod %d\n", prod);
-		return -EINVAL;
-	}
 
 	get_offset.init = ipa3_ctx->hw_stats.teth.init;
 	ret = ipahal_stats_get_offset(IPAHAL_HW_STATS_TETHERING, &get_offset,
@@ -524,18 +578,24 @@ int ipa_get_teth_stats(enum ipa_client_type prod,
 		goto destroy_imm;
 	}
 
-	stats = kzalloc(sizeof(*stats), GFP_KERNEL);
-	if (!stats) {
+	stats_all = kzalloc(sizeof(*stats_all), GFP_KERNEL);
+	if (!stats_all) {
 		IPADBG("failed to alloc memory\n");
 		ret = -ENOMEM;
 		goto destroy_imm;
 	}
 
 	ret = ipahal_parse_stats(IPAHAL_HW_STATS_TETHERING,
-		&ipa3_ctx->hw_stats.teth.init, mem.base, stats);
+		&ipa3_ctx->hw_stats.teth.init, mem.base, stats_all);
 	if (ret) {
-		IPAERR("failed to parse stats (error %d)\n", ret);
+		IPAERR("failed to parse stats_all (error %d)\n", ret);
 		goto free_stats;
+	}
+
+	/* reset prod_stats cache */
+	for (i = 0; i < IPA_CLIENT_MAX; i++) {
+		memset(&ipa3_ctx->hw_stats.teth.prod_stats[i], 0,
+			sizeof(ipa3_ctx->hw_stats.teth.prod_stats[i]));
 	}
 
 	/*
@@ -545,8 +605,6 @@ int ipa_get_teth_stats(enum ipa_client_type prod,
 	 */
 	for (i = 0; i < IPA_CLIENT_MAX; i++) {
 		for (j = 0; j < IPA_CLIENT_MAX; j++) {
-			struct ipa_hw_stats_teth *sw_stats =
-				&ipa3_ctx->hw_stats.teth;
 			int prod_idx = ipa3_get_ep_mapping(i);
 			int cons_idx = ipa3_get_ep_mapping(j);
 
@@ -556,38 +614,75 @@ int ipa_get_teth_stats(enum ipa_client_type prod,
 			if (cons_idx == -1 || cons_idx >= IPA3_MAX_NUM_PIPES)
 				continue;
 
-			if (ipa3_ctx->ep[prod_idx].client != i ||
-			    ipa3_ctx->ep[cons_idx].client != j)
-				continue;
+			/* save hw-query result */
+			if ((init->prod_bitmask & (1 << prod_idx)) &&
+				(init->cons_bitmask[prod_idx]
+					& (1 << cons_idx))) {
+				IPADBG_LOW("prod %d cons %d\n",
+					prod_idx, cons_idx);
+				stats = &stats_all->stats[prod_idx][cons_idx];
+				IPADBG_LOW("num_ipv4_bytes %lld\n",
+					stats->num_ipv4_bytes);
+				IPADBG_LOW("num_ipv4_pkts %lld\n",
+					stats->num_ipv4_pkts);
+				IPADBG_LOW("num_ipv6_pkts %lld\n",
+					stats->num_ipv6_pkts);
+				IPADBG_LOW("num_ipv6_bytes %lld\n",
+					stats->num_ipv6_bytes);
 
-			sw_stats->prod_stats[i].client[j].num_ipv4_bytes +=
-				stats->stats[prod_idx][cons_idx].num_ipv4_bytes;
-			sw_stats->prod_stats[i].client[j].num_ipv4_pkts +=
-				stats->stats[prod_idx][cons_idx].num_ipv4_pkts;
-			sw_stats->prod_stats[i].client[j].num_ipv6_bytes +=
-				stats->stats[prod_idx][cons_idx].num_ipv6_bytes;
-			sw_stats->prod_stats[i].client[j].num_ipv6_pkts +=
-				stats->stats[prod_idx][cons_idx].num_ipv6_pkts;
+				/* update stats*/
+				quota_stats =
+					&sw_stats->prod_stats[i].client[j];
+				quota_stats->num_ipv4_bytes =
+					stats->num_ipv4_bytes;
+				quota_stats->num_ipv4_pkts =
+					stats->num_ipv4_pkts;
+				quota_stats->num_ipv6_bytes =
+					stats->num_ipv6_bytes;
+				quota_stats->num_ipv6_pkts =
+					stats->num_ipv6_pkts;
+
+				/* Accumulated stats */
+				quota_stats =
+					&sw_stats->prod_stats_sum[i].client[j];
+				quota_stats->num_ipv4_bytes +=
+					stats->num_ipv4_bytes;
+				quota_stats->num_ipv4_pkts +=
+					stats->num_ipv4_pkts;
+				quota_stats->num_ipv6_bytes +=
+					stats->num_ipv6_bytes;
+				quota_stats->num_ipv6_pkts +=
+					stats->num_ipv6_pkts;
+			}
 		}
 	}
 
-	if (!out) {
-		ret = 0;
-		goto free_stats;
-	}
-
-	/* copy results to out parameter */
-	*out = ipa3_ctx->hw_stats.teth.prod_stats[prod];
-
 	ret = 0;
 free_stats:
-	kfree(stats);
+	kfree(stats_all);
+	stats = NULL;
 destroy_imm:
 	ipahal_destroy_imm_cmd(cmd_pyld);
 free_dma_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return ret;
 
+}
+
+int ipa_query_teth_stats(enum ipa_client_type prod,
+	struct ipa_quota_stats_all *out, bool reset)
+{
+	if (!IPA_CLIENT_IS_PROD(prod) || ipa3_get_ep_mapping(prod) == -1) {
+		IPAERR("invalid prod %d\n", prod);
+		return -EINVAL;
+	}
+
+	/* copy results to out parameter */
+	if (reset)
+		*out = ipa3_ctx->hw_stats.teth.prod_stats[prod];
+	else
+		*out = ipa3_ctx->hw_stats.teth.prod_stats_sum[prod];
+	return 0;
 }
 
 int ipa_reset_teth_stats(enum ipa_client_type prod, enum ipa_client_type cons)
@@ -604,14 +699,14 @@ int ipa_reset_teth_stats(enum ipa_client_type prod, enum ipa_client_type cons)
 	}
 
 	/* reading stats will reset them in hardware */
-	ret = ipa_get_teth_stats(prod, NULL);
+	ret = ipa_get_teth_stats();
 	if (ret) {
 		IPAERR("ipa_get_teth_stats failed %d\n", ret);
 		return ret;
 	}
 
 	/* reset driver's cache */
-	stats = &ipa3_ctx->hw_stats.teth.prod_stats[prod].client[cons];
+	stats = &ipa3_ctx->hw_stats.teth.prod_stats_sum[prod].client[cons];
 	memset(stats, 0, sizeof(*stats));
 	return 0;
 }
@@ -631,7 +726,7 @@ int ipa_reset_all_cons_teth_stats(enum ipa_client_type prod)
 	}
 
 	/* reading stats will reset them in hardware */
-	ret = ipa_get_teth_stats(prod, NULL);
+	ret = ipa_get_teth_stats();
 	if (ret) {
 		IPAERR("ipa_get_teth_stats failed %d\n", ret);
 		return ret;
@@ -639,7 +734,7 @@ int ipa_reset_all_cons_teth_stats(enum ipa_client_type prod)
 
 	/* reset driver's cache */
 	for (i = 0; i < IPA_CLIENT_MAX; i++) {
-		stats = &ipa3_ctx->hw_stats.teth.prod_stats[prod].client[i];
+		stats = &ipa3_ctx->hw_stats.teth.prod_stats_sum[prod].client[i];
 		memset(stats, 0, sizeof(*stats));
 	}
 
@@ -658,7 +753,7 @@ int ipa_reset_all_teth_stats(void)
 	/* reading stats will reset them in hardware */
 	for (i = 0; i < IPA_CLIENT_MAX; i++) {
 		if (IPA_CLIENT_IS_PROD(i) && ipa3_get_ep_mapping(i) != -1) {
-			ret = ipa_get_teth_stats(i, NULL);
+			ret = ipa_get_teth_stats();
 			if (ret) {
 				IPAERR("ipa_get_teth_stats failed %d\n", ret);
 				return ret;
@@ -670,7 +765,7 @@ int ipa_reset_all_teth_stats(void)
 
 	/* reset driver's cache */
 	for (i = 0; i < IPA_CLIENT_MAX; i++) {
-		stats = &ipa3_ctx->hw_stats.teth.prod_stats[i];
+		stats = &ipa3_ctx->hw_stats.teth.prod_stats_sum[i];
 		memset(stats, 0, sizeof(*stats));
 	}
 
@@ -1564,7 +1659,7 @@ static ssize_t ipa_debugfs_print_tethering_stats(struct file *file,
 			(1 << ep_idx)))
 			continue;
 
-		res = ipa_get_teth_stats(i, out);
+		res = ipa_get_teth_stats();
 		if (res) {
 			mutex_unlock(&ipa3_ctx->lock);
 			kfree(out);

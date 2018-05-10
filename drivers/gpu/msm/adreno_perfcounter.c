@@ -171,8 +171,9 @@ void adreno_perfcounter_restore(struct adreno_device *adreno_dev)
  */
 inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(
+				KGSL_DEVICE(adreno_dev));
 	struct adreno_perfcount_group *group;
 	unsigned int counter, groupid;
 	int ret = 0;
@@ -180,8 +181,8 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 	if (counters == NULL)
 		return;
 
-	if (gpudev->oob_set)
-		ret = gpudev->oob_set(adreno_dev, oob_perfcntr);
+	if (gmu_dev_ops->oob_set)
+		ret = gmu_dev_ops->oob_set(adreno_dev, oob_perfcntr);
 
 	/* if oob_set timeout, clear the mask and return */
 	if (ret)
@@ -208,8 +209,8 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 	}
 
 done:
-	if (gpudev->oob_clear)
-		gpudev->oob_clear(adreno_dev, oob_perfcntr);
+	if (gmu_dev_ops->oob_clear)
+		gmu_dev_ops->oob_clear(adreno_dev, oob_perfcntr);
 }
 
 static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,

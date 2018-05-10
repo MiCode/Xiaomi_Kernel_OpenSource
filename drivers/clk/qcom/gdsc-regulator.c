@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,7 @@ struct gdsc {
 	struct regmap           *hw_ctrl;
 	struct regmap           *sw_reset;
 	struct clk		**clocks;
+	struct regulator	*parent_regulator;
 	struct reset_control	**reset_clocks;
 	bool			toggle_mem;
 	bool			toggle_periph;
@@ -71,7 +72,6 @@ struct gdsc {
 	bool			is_gdsc_enabled;
 	bool			allow_clear;
 	bool			reset_aon;
-	bool			vote_supply_voltage;
 	int			clock_count;
 	int			reset_count;
 	int			root_clk_idx;
@@ -131,7 +131,7 @@ static int poll_gdsc_status(struct gdsc *sc, enum gdscr_status status)
 		 * bit in the GDSCR to be set or reset after the GDSC state
 		 * changes. Hence, keep on checking for a reasonable number
 		 * of times until the bit is set with the least possible delay
-		 * between succeessive tries.
+		 * between successive tries.
 		 */
 		udelay(1);
 	}
@@ -147,6 +147,30 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 	if (!sc->toggle_logic)
 		return !sc->resets_asserted;
 
+	if (sc->parent_regulator) {
+		/*
+		 * The parent regulator for the GDSC is required to be on to
+		 * make any register accesses to the GDSC base. Return false
+		 * if the parent supply is disabled.
+		 */
+		if (regulator_is_enabled(sc->parent_regulator) <= 0)
+			return false;
+
+		/*
+		 * Place an explicit vote on the parent rail to cover cases when
+		 * it might be disabled between this point and reading the GDSC
+		 * registers.
+		 */
+		if (regulator_set_voltage(sc->parent_regulator,
+					RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX))
+			return false;
+
+		if (regulator_enable(sc->parent_regulator)) {
+			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
+			return false;
+		}
+	}
+
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
 
 	if (regval & PWR_ON_MASK) {
@@ -155,10 +179,20 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 		 * votable GDS registers. Check the SW_COLLAPSE_MASK to
 		 * determine if HLOS has voted for it.
 		 */
-		if (!(regval & SW_COLLAPSE_MASK))
+		if (!(regval & SW_COLLAPSE_MASK)) {
+			if (sc->parent_regulator) {
+				regulator_disable(sc->parent_regulator);
+				regulator_set_voltage(sc->parent_regulator, 0,
+							INT_MAX);
+			}
 			return true;
+		}
 	}
 
+	if (sc->parent_regulator) {
+		regulator_disable(sc->parent_regulator);
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
+	}
 	return false;
 }
 
@@ -170,8 +204,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 	mutex_lock(&gdsc_seq_lock);
 
-	if (sc->vote_supply_voltage) {
-		ret = regulator_set_voltage(sc->rdev->supply,
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
 				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
 		if (ret) {
 			mutex_unlock(&gdsc_seq_lock);
@@ -316,8 +350,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 	sc->is_gdsc_enabled = true;
 end:
-	if (sc->vote_supply_voltage)
-		regulator_set_voltage(sc->rdev->supply, 0, INT_MAX);
+	if (sc->parent_regulator)
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
 	mutex_unlock(&gdsc_seq_lock);
 
@@ -332,8 +366,8 @@ static int gdsc_disable(struct regulator_dev *rdev)
 
 	mutex_lock(&gdsc_seq_lock);
 
-	if (sc->vote_supply_voltage) {
-		ret = regulator_set_voltage(sc->rdev->supply,
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
 				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
 		if (ret) {
 			mutex_unlock(&gdsc_seq_lock);
@@ -398,8 +432,8 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	if ((sc->is_gdsc_enabled && sc->root_en) || sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
-	if (sc->vote_supply_voltage)
-		regulator_set_voltage(sc->rdev->supply, 0, INT_MAX);
+	if (sc->parent_regulator)
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
 	sc->is_gdsc_enabled = false;
 
@@ -412,9 +446,33 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
+	int ret;
 
 	mutex_lock(&gdsc_seq_lock);
+
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
+					RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret) {
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+
+		ret = regulator_enable(sc->parent_regulator);
+		if (ret) {
+			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+	}
+
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
+
+	if (sc->parent_regulator) {
+		regulator_disable(sc->parent_regulator);
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
+	}
+
 	mutex_unlock(&gdsc_seq_lock);
 
 	if (regval & HW_CONTROL_MASK)
@@ -431,10 +489,17 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 
 	mutex_lock(&gdsc_seq_lock);
 
-	if (sc->vote_supply_voltage) {
-		ret = regulator_set_voltage(sc->rdev->supply,
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
 				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
 		if (ret) {
+			mutex_unlock(&gdsc_seq_lock);
+			return ret;
+		}
+
+		ret = regulator_enable(sc->parent_regulator);
+		if (ret) {
+			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 			mutex_unlock(&gdsc_seq_lock);
 			return ret;
 		}
@@ -483,8 +548,10 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		break;
 	}
 
-	if (sc->vote_supply_voltage)
-		regulator_set_voltage(sc->rdev->supply, 0, INT_MAX);
+	if (sc->parent_regulator) {
+		regulator_disable(sc->parent_regulator);
+		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
+	}
 
 	mutex_unlock(&gdsc_seq_lock);
 
@@ -602,8 +669,18 @@ static int gdsc_probe(struct platform_device *pdev)
 	sc->force_root_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,force-enable-root-clk");
 
-	sc->vote_supply_voltage = of_property_read_bool(pdev->dev.of_node,
-					"qcom,vote-parent-supply-voltage");
+	if (of_find_property(pdev->dev.of_node, "vdd_parent-supply", NULL)) {
+		sc->parent_regulator = devm_regulator_get(&pdev->dev,
+							"vdd_parent");
+		if (IS_ERR(sc->parent_regulator)) {
+			ret = PTR_ERR(sc->parent_regulator);
+			if (ret != -EPROBE_DEFER)
+				dev_err(&pdev->dev,
+				"Unable to get vdd_parent regulator, err: %d\n",
+					ret);
+			return ret;
+		}
+	}
 
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
@@ -748,9 +825,6 @@ static int gdsc_probe(struct platform_device *pdev)
 			sc->rdesc.name);
 		return PTR_ERR(sc->rdev);
 	}
-
-	if (!sc->rdev->supply)
-		sc->vote_supply_voltage = false;
 
 	return 0;
 }

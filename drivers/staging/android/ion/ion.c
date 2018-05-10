@@ -168,6 +168,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	mutex_lock(&dev->buffer_lock);
 	ion_buffer_add(dev, buffer);
 	mutex_unlock(&dev->buffer_lock);
+	atomic_long_add(len, &heap->total_allocated);
 	return buffer;
 
 err1:
@@ -196,6 +197,7 @@ static void _ion_buffer_destroy(struct ion_buffer *buffer)
 	rb_erase(&buffer->node, &dev->buffers);
 	mutex_unlock(&dev->buffer_lock);
 
+	atomic_long_sub(buffer->size, &buffer->heap->total_allocated);
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ion_heap_freelist_add(heap, buffer);
 	else

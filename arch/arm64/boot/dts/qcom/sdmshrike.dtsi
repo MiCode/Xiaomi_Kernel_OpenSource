@@ -375,6 +375,23 @@
 		};
 	};
 
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect";
+					status = "ok";
+				};
+			};
+		};
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -499,6 +516,8 @@
 };
 
 #include "sdmshrike-gdsc.dtsi"
+#include "sdmshrike-sde-pll.dtsi"
+#include "sdmshrike-sde.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -1117,6 +1136,91 @@
 		qcom,smem-state-names = "qcom,force-stop";
 	};
 
+	qcom,ssc@5c00000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x5c00000 0x4000>;
+
+		vdd_cx-supply = <&L8E_LEVEL>;
+		vdd_mx-supply = <&L4E_LEVEL>;
+
+		qcom,proxy-reg-names = "vdd_cx", "vdd_mx";
+		qcom,keep-proxy-regs-on;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <12>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <424>;
+		qcom,sysmon-id = <3>;
+		qcom,ssctl-instance-id = <0x16>;
+		qcom,firmware-name = "slpi";
+		status = "ok";
+		memory-region = <&pil_slpi_mem>;
+
+		/* Inputs from ssc */
+		interrupts-extended = <&pdc 0 494 1>,
+			<&dsps_smp2p_in 0 0>,
+			<&dsps_smp2p_in 2 0>,
+			<&dsps_smp2p_in 1 0>,
+			<&dsps_smp2p_in 3 0>;
+
+		interrupt-names = "qcom,wdog",
+			"qcom,err-fatal",
+			"qcom,proxy-unvote",
+			"qcom,err-ready",
+			"qcom,stop-ack";
+
+		/* Outputs to ssc */
+		qcom,smem-states = <&dsps_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
+	};
+
+	qcom,turing@8300000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x8300000 0x100000>;
+
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,proxy-reg-names = "vdd_cx";
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <18>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <601>;
+		qcom,sysmon-id = <7>;
+		qcom,ssctl-instance-id = <0x17>;
+		qcom,firmware-name = "cdsp";
+		memory-region = <&pil_cdsp_mem>;
+
+		qcom,msm-bus,name = "pil-cdsp";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<154 10070 0 0>,
+			<154 10070 0 1>;
+
+		/* Inputs from turing */
+		interrupts-extended = <&pdc 0 578 1>,
+				<&cdsp_smp2p_in 0 0>,
+				<&cdsp_smp2p_in 2 0>,
+				<&cdsp_smp2p_in 1 0>,
+				<&cdsp_smp2p_in 3 0>;
+
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
+				"qcom,proxy-unvote",
+				"qcom,err-ready",
+				"qcom,stop-ack";
+
+		/* Outputs to turing */
+		qcom,smem-states = <&cdsp_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
+	};
+
 	wdog: qcom,wdt@17c10000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17c10000 0x1000>;
@@ -1264,7 +1368,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1272,7 +1376,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1280,7 +1384,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1288,7 +1392,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1296,7 +1400,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1304,7 +1408,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1312,7 +1416,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1320,7 +1424,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1328,7 +1432,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1338,7 +1442,7 @@
 
 &gpu_gx_gdsc {
 	parent-supply = <&pm855_1_s10_level>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&pm855_1_s10_level>;
 	status = "ok";
 };
 
@@ -1346,7 +1450,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1354,7 +1458,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1362,7 +1466,7 @@
 	clock-names = "ahb_clk";
 	clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 	parent-supply = <&VDD_MMCX_LEVEL>;
-	qcom,vote-parent-supply-voltage;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 	status = "ok";
 };
 
@@ -1380,3 +1484,5 @@
 #include "msm-arm-smmu-sdmshrike.dtsi"
 #include "sdmshrike-usb.dtsi"
 #include "sdmshrike-qupv3.dtsi"
+#include "sm8150-audio.dtsi"
+#include "sdmshrike-gpu.dtsi"

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -140,6 +140,8 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_NEED_GUARD_PAGE BIT(9)
 /* The device supports IO coherency */
 #define KGSL_MMU_IO_COHERENT BIT(10)
+/* The device requires VA mappings padded up to a given size */
+#define KGSL_MMU_PAD_VA BIT(11)
 
 /**
  * struct kgsl_mmu - Master definition for KGSL MMU devices
@@ -151,6 +153,7 @@ struct kgsl_mmu_pt_ops {
  * @secured: True if the MMU needs to be secured
  * @feature: Static list of MMU features
  * @secure_aligned_mask: Mask that secure buffers need to be aligned to
+ * @va_padding: Size to pad VA mappings to
  * @priv: Union of sub-device specific members
  */
 struct kgsl_mmu {
@@ -162,6 +165,7 @@ struct kgsl_mmu {
 	bool secured;
 	unsigned long features;
 	unsigned int secure_align_mask;
+	uint64_t va_padding;
 	union {
 		struct kgsl_iommu iommu;
 	} priv;

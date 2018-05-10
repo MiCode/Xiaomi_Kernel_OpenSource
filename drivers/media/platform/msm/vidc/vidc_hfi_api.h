@@ -1284,7 +1284,7 @@ struct msm_vidc_cb_event {
 	enum vidc_status status;
 	u32 height;
 	u32 width;
-	enum msm_vidc_pixel_depth bit_depth;
+	int bit_depth;
 	u32 hal_event_type;
 	u32 packet_buffer;
 	u32 extra_data_buffer;
@@ -1444,6 +1444,8 @@ struct hfi_device {
 	int (*session_set_property)(void *sess, enum hal_property ptype,
 			void *pdata);
 	int (*session_get_property)(void *sess, enum hal_property ptype);
+	int (*session_pause)(void *sess);
+	int (*session_resume)(void *sess);
 	int (*scale_clocks)(void *dev, u32 freq);
 	int (*vote_bus)(void *dev, struct vidc_bus_vote_data *data,
 			int num_data);

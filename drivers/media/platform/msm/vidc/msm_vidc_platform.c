@@ -133,7 +133,7 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 3110400,	/* 4096x2160@90 */
+		.value = 4147200,	/* 4096x2160/256 MBs@120fps */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",

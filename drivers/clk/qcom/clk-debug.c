@@ -209,17 +209,19 @@ static void enable_debug_clks(struct clk_debug_mux *meas, u8 index)
 {
 	int dbg_cc = meas->parent[index].dbg_cc;
 
+	meas->en_mask = meas->en_mask ? meas->en_mask : CBCR_ENA;
+
 	if (dbg_cc != GCC) {
 		/* Not all recursive muxes have a DEBUG clock. */
 		if (meas->parent[index].cbcr_offset != U32_MAX)
 			regmap_update_bits(meas->regmap[dbg_cc],
 					meas->parent[index].cbcr_offset,
-					CBCR_ENA, CBCR_ENA);
+					meas->en_mask, meas->en_mask);
 	}
 
 	/* Turn on the GCC_DEBUG_CBCR */
 	regmap_update_bits(meas->regmap[GCC], meas->cbcr_offset,
-					CBCR_ENA, CBCR_ENA);
+					meas->en_mask, meas->en_mask);
 
 }
 
@@ -227,15 +229,17 @@ static void disable_debug_clks(struct clk_debug_mux *meas, u8 index)
 {
 	int dbg_cc = meas->parent[index].dbg_cc;
 
+	meas->en_mask = meas->en_mask ? meas->en_mask : CBCR_ENA;
+
 	/* Turn off the GCC_DEBUG_CBCR */
 	regmap_update_bits(meas->regmap[GCC], meas->cbcr_offset,
-					CBCR_ENA, 0);
+					meas->en_mask, 0);
 
 	if (dbg_cc != GCC) {
 		if (meas->parent[index].cbcr_offset != U32_MAX)
 			regmap_update_bits(meas->regmap[dbg_cc],
 					meas->parent[index].cbcr_offset,
-					CBCR_ENA, 0);
+					meas->en_mask, 0);
 	}
 }
 

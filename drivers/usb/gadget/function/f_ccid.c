@@ -638,7 +638,7 @@ static int ccid_function_bind(struct usb_configuration *c,
 					ccid_fs_notify_desc.bEndpointAddress;
 
 	ret = usb_assign_descriptors(f, ccid_fs_descs, ccid_hs_descs,
-						ccid_ss_descs, NULL);
+						ccid_ss_descs, ccid_ss_descs);
 	if (ret)
 		goto ep_auto_out_fail;
 

@@ -361,26 +361,28 @@
 
 	kgsl_iommu_test_device {
 		compatible = "iommu-debug-test";
-		/*
-		 * 0x7 isn't a valid sid, but should pass the sid sanity check.
-		 * We just need _something_ here to get this node recognized by
-		 * the SMMU driver. Our test uses ATOS, which doesn't use SIDs
-		 * anyways, so using a dummy value is ok.
-		 */
 		iommus = <&kgsl_smmu 0x7 0>;
+	};
+
+	kgsl_iommu_coherent_test_device {
+		compatible = "iommu-debug-test";
+		iommus = <&kgsl_smmu 0x9 0>;
+		dma-coherent;
 	};
 
 	apps_iommu_test_device {
 		compatible = "iommu-debug-test";
-		/*
-		 * This SID belongs to TSIF. We can't use a fake SID for
-		 * the apps_smmu device.
-		 */
-		iommus = <&apps_smmu 0x20 0>;
+		iommus = <&apps_smmu 0x21 0>;
+	};
+
+	apps_iommu_coherent_test_device {
+		compatible = "iommu-debug-test";
+		iommus = <&apps_smmu 0x23 0>;
+		dma-coherent;
 	};
 };
 
 &kgsl_smmu {
-	qcom,actlr = <0x0 0x407 0x1>;
+	qcom,actlr = <0x0 0x407 0x303>;
 };
 

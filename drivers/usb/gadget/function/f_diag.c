@@ -2,7 +2,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -728,12 +728,7 @@ static void diag_function_unbind(struct usb_configuration *c,
 	struct diag_context *ctxt = func_to_diag(f);
 	unsigned long flags;
 
-	if (gadget_is_superspeed(c->cdev->gadget))
-		usb_free_descriptors(f->ss_descriptors);
-	if (gadget_is_dualspeed(c->cdev->gadget))
-		usb_free_descriptors(f->hs_descriptors);
-
-	usb_free_descriptors(f->fs_descriptors);
+	usb_free_all_descriptors(f);
 
 	/*
 	 * Channel priv_usb may point to other diag function.
@@ -773,35 +768,19 @@ static int diag_function_bind(struct usb_configuration *c,
 	ctxt->out = ep;
 	ep->driver_data = ctxt;
 
-	status = -ENOMEM;
-	/* copy descriptors, and track endpoint copies */
-	f->fs_descriptors = usb_copy_descriptors(fs_diag_desc);
-	if (!f->fs_descriptors)
+	hs_bulk_in_desc.bEndpointAddress =
+			fs_bulk_in_desc.bEndpointAddress;
+	hs_bulk_out_desc.bEndpointAddress =
+			fs_bulk_out_desc.bEndpointAddress;
+	ss_bulk_in_desc.bEndpointAddress =
+			fs_bulk_in_desc.bEndpointAddress;
+	ss_bulk_out_desc.bEndpointAddress =
+			fs_bulk_out_desc.bEndpointAddress;
+
+	status = usb_assign_descriptors(f, fs_diag_desc, hs_diag_desc,
+				ss_diag_desc, ss_diag_desc);
+	if (status)
 		goto fail;
-
-	if (gadget_is_dualspeed(c->cdev->gadget)) {
-		hs_bulk_in_desc.bEndpointAddress =
-				fs_bulk_in_desc.bEndpointAddress;
-		hs_bulk_out_desc.bEndpointAddress =
-				fs_bulk_out_desc.bEndpointAddress;
-
-		/* copy descriptors, and track endpoint copies */
-		f->hs_descriptors = usb_copy_descriptors(hs_diag_desc);
-		if (!f->hs_descriptors)
-			goto fail;
-	}
-
-	if (gadget_is_superspeed(c->cdev->gadget)) {
-		ss_bulk_in_desc.bEndpointAddress =
-				fs_bulk_in_desc.bEndpointAddress;
-		ss_bulk_out_desc.bEndpointAddress =
-				fs_bulk_out_desc.bEndpointAddress;
-
-		/* copy descriptors, and track endpoint copies */
-		f->ss_descriptors = usb_copy_descriptors(ss_diag_desc);
-		if (!f->ss_descriptors)
-			goto fail;
-	}
 
 	/* Allow only first diag channel to update pid and serial no */
 	if (ctxt == list_first_entry(&diag_dev_list,
@@ -810,12 +789,6 @@ static int diag_function_bind(struct usb_configuration *c,
 
 	return 0;
 fail:
-	if (f->ss_descriptors)
-		usb_free_descriptors(f->ss_descriptors);
-	if (f->hs_descriptors)
-		usb_free_descriptors(f->hs_descriptors);
-	if (f->fs_descriptors)
-		usb_free_descriptors(f->fs_descriptors);
 	if (ctxt->out)
 		ctxt->out->driver_data = NULL;
 	if (ctxt->in)

@@ -91,5 +91,9 @@ void rmnet_map_command(struct sk_buff *skb, struct rmnet_port *port);
 int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len);
 void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 				      struct net_device *orig_dev);
+int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset);
+void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port);
+void rmnet_map_tx_aggregate_init(struct rmnet_port *port);
+void rmnet_map_tx_aggregate_exit(struct rmnet_port *port);
 
 #endif /* _RMNET_MAP_H_ */

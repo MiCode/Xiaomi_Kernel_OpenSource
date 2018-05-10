@@ -880,7 +880,7 @@ TRACE_EVENT(sched_load_se,
 #endif
 	),
 
-	TP_printk("cpu=%d path=%s comm=%s pid=%d load=%lu util=%lu util_pelt=%lu util_walt=%lu",
+	TP_printk("cpu=%d path=%s comm=%s pid=%d load=%lu util=%lu util_pelt=%lu util_walt=%u",
 		  __entry->cpu, __get_str(path), __entry->comm,
 		  __entry->pid, __entry->load, __entry->util,
 		  __entry->util_pelt, __entry->util_walt)
@@ -1296,6 +1296,38 @@ TRACE_EVENT(sched_isolate,
 	TP_printk("iso cpu=%u cpus=0x%x time=%u us isolated=%d",
 		__entry->requested_cpu, __entry->isolated_cpus,
 		__entry->time, __entry->isolate)
+);
+
+TRACE_EVENT(sched_preempt_disable,
+
+	TP_PROTO(u64 delta, bool irqs_disabled,
+			unsigned long caddr0, unsigned long caddr1,
+			unsigned long caddr2, unsigned long caddr3),
+
+	TP_ARGS(delta, irqs_disabled, caddr0, caddr1, caddr2, caddr3),
+
+	TP_STRUCT__entry(
+		__field(u64, delta)
+		__field(bool, irqs_disabled)
+		__field(void*, caddr0)
+		__field(void*, caddr1)
+		__field(void*, caddr2)
+		__field(void*, caddr3)
+	),
+
+	TP_fast_assign(
+		__entry->delta = delta;
+		__entry->irqs_disabled = irqs_disabled;
+		__entry->caddr0 = (void *)caddr0;
+		__entry->caddr1 = (void *)caddr1;
+		__entry->caddr2 = (void *)caddr2;
+		__entry->caddr3 = (void *)caddr3;
+	),
+
+	TP_printk("delta=%llu(ns) irqs_d=%d Callers:(%pf<-%pf<-%pf<-%pf)",
+				__entry->delta, __entry->irqs_disabled,
+				__entry->caddr0, __entry->caddr1,
+				__entry->caddr2, __entry->caddr3)
 );
 
 #include "walt.h"

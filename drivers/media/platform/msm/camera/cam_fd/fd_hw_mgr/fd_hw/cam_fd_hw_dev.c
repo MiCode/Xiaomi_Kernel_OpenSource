@@ -198,6 +198,10 @@ static const struct of_device_id cam_fd_hw_dt_match[] = {
 		.compatible = "qcom,fd501",
 		.data = &cam_fd_wrapper200_core501_info,
 	},
+	{
+		.compatible = "qcom,fd501",
+		.data = &cam_fd_wrapper200_core501_info,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, cam_fd_hw_dt_match);

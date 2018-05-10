@@ -1480,6 +1480,9 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
 
+	/* Ensure bypass transactions are Non-shareable */
+	reg |= SCTLR_SHCFG_NSH << SCTLR_SHCFG_SHIFT;
+
 	if (attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
 		reg &= ~SCTLR_CFCFG;
 		reg |= SCTLR_HUPCF;
@@ -1676,6 +1679,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 	if (is_iommu_pt_coherent(smmu_domain))
 		quirks |= IO_PGTABLE_QUIRK_NO_DMA;
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_USE_LLC_NWA))
+		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
+	if (((quirks & IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT) ||
+	     (quirks & IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA)) &&
+		(smmu->model == QCOM_SMMUV500))
+		quirks |= IO_PGTABLE_QUIRK_QSMMUV500_NON_SHAREABLE;
 
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
 	if (ret < 0)
@@ -1891,7 +1900,8 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	struct arm_smmu_s2cr *s2cr = smmu->s2crs + idx;
 	u32 reg = (s2cr->type & S2CR_TYPE_MASK) << S2CR_TYPE_SHIFT |
 		  (s2cr->cbndx & S2CR_CBNDX_MASK) << S2CR_CBNDX_SHIFT |
-		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT;
+		  (s2cr->privcfg & S2CR_PRIVCFG_MASK) << S2CR_PRIVCFG_SHIFT |
+		  S2CR_SHCFG_NSH << S2CR_SHCFG_SHIFT;
 
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS && smmu->smrs &&
 	    smmu->smrs[idx].valid)
@@ -2812,6 +2822,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_USE_LLC_NWA:
+		*((int *)data) = !!(smmu_domain->attributes &
+				   (1 << DOMAIN_ATTR_USE_LLC_NWA));
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_EARLY_MAP:
 		*((int *)data) = !!(smmu_domain->attributes
 				    & (1 << DOMAIN_ATTR_EARLY_MAP));
@@ -2992,6 +3007,17 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		if (*((int *)data))
 			smmu_domain->attributes |=
 				1 << DOMAIN_ATTR_USE_UPSTREAM_HINT;
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_USE_LLC_NWA:
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_USE_LLC_NWA;
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_EARLY_MAP: {
@@ -3497,6 +3523,10 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS)
 		reg |= sCR0_EXIDENABLE;
+
+	/* Force bypass transaction to be Non-Shareable & not io-coherent */
+	reg &= ~(sCR0_SHCFG_MASK << sCR0_SHCFG_SHIFT);
+	reg |= sCR0_SHCFG_NSH << sCR0_SHCFG_SHIFT;
 
 	/* Push the button */
 	arm_smmu_tlb_sync_global(smmu);
@@ -4648,7 +4678,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct qsmmuv500_tbu_device *tbu;
 	int ret;
-	phys_addr_t phys;
+	phys_addr_t phys = 0;
 	u64 val, fsr;
 	unsigned long flags;
 	void __iomem *cb_base;

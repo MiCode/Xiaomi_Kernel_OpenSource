@@ -4460,7 +4460,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			PLANE_PROP_FB_TRANSLATION_MODE);
 }
 
-static inline void _sde_plane_set_csc_v1(struct sde_plane *psde, void *usr_ptr)
+static inline void _sde_plane_set_csc_v1(struct sde_plane *psde,
+		void __user *usr_ptr)
 {
 	struct sde_drm_csc_v1 csc_v1;
 	int i;
@@ -4496,7 +4497,7 @@ static inline void _sde_plane_set_csc_v1(struct sde_plane *psde, void *usr_ptr)
 }
 
 static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde,
-		struct sde_plane_state *pstate, void *usr)
+		struct sde_plane_state *pstate, void __user *usr)
 {
 	struct sde_drm_scaler_v1 scale_v1;
 	struct sde_hw_pixel_ext *pe;
@@ -4555,7 +4556,7 @@ static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde,
 }
 
 static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
-		struct sde_plane_state *pstate, void *usr)
+		struct sde_plane_state *pstate, void __user *usr)
 {
 	struct sde_drm_scaler_v2 scale_v2;
 	struct sde_hw_pixel_ext *pe;
@@ -4617,17 +4618,18 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 }
 
 static void _sde_plane_set_excl_rect_v1(struct sde_plane *psde,
-		struct sde_plane_state *pstate, void *usr_ptr)
+		struct sde_plane_state *pstate, void __user *usr_ptr)
 {
 	struct drm_clip_rect excl_rect_v1;
 
-	if (!psde) {
-		SDE_ERROR("invalid plane\n");
+	if (!psde || !pstate) {
+		SDE_ERROR("invalid argument(s)\n");
 		return;
 	}
 
 	if (!usr_ptr) {
-		SDE_DEBUG_PLANE(psde, "invalid  excl_rect user data\n");
+		memset(&pstate->excl_rect, 0, sizeof(pstate->excl_rect));
+		SDE_DEBUG_PLANE(psde, "excl_rect data cleared\n");
 		return;
 	}
 
@@ -4674,19 +4676,19 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				break;
 			case PLANE_PROP_CSC_V1:
 			case PLANE_PROP_CSC_DMA_V1:
-				_sde_plane_set_csc_v1(psde, (void *)val);
+				_sde_plane_set_csc_v1(psde, (void __user *)val);
 				break;
 			case PLANE_PROP_SCALER_V1:
 				_sde_plane_set_scaler_v1(psde, pstate,
-						(void *)val);
+						(void __user *)val);
 				break;
 			case PLANE_PROP_SCALER_V2:
 				_sde_plane_set_scaler_v2(psde, pstate,
-						(void *)val);
+						(void __user *)val);
 				break;
 			case PLANE_PROP_EXCL_RECT_V1:
 				_sde_plane_set_excl_rect_v1(psde, pstate,
-						(void *)val);
+						(void __user *)val);
 				break;
 			default:
 				/* nothing to do */

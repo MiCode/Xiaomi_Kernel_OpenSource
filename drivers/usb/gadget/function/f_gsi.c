@@ -2466,59 +2466,35 @@ skip_string_id_alloc:
 	spin_lock_init(&gsi->d_port.evt_q.q_lock);
 	gsi->d_port.evt_q.head = gsi->d_port.evt_q.tail = MAXQUEUELEN - 1;
 
-	/* copy descriptors, and track endpoint copies */
-	f->fs_descriptors = usb_copy_descriptors(info->fs_desc_hdr);
-	if (!gsi->function.fs_descriptors)
+	if (info->fs_in_desc) {
+		info->hs_in_desc->bEndpointAddress =
+			info->fs_in_desc->bEndpointAddress;
+		info->ss_in_desc->bEndpointAddress =
+			info->fs_in_desc->bEndpointAddress;
+	}
+
+	if (info->fs_out_desc) {
+		info->hs_out_desc->bEndpointAddress =
+			info->fs_out_desc->bEndpointAddress;
+		info->ss_out_desc->bEndpointAddress =
+			info->fs_out_desc->bEndpointAddress;
+	}
+
+	if (info->fs_notify_desc) {
+		info->hs_notify_desc->bEndpointAddress =
+			info->fs_notify_desc->bEndpointAddress;
+		info->ss_notify_desc->bEndpointAddress =
+			info->fs_notify_desc->bEndpointAddress;
+	}
+
+	status = usb_assign_descriptors(f, info->fs_desc_hdr, info->hs_desc_hdr,
+					info->ss_desc_hdr, info->ss_desc_hdr);
+	if (status)
 		goto fail;
-
-	/* support all relevant hardware speeds... we expect that when
-	 * hardware is dual speed, all bulk-capable endpoints work at
-	 * both speeds
-	 */
-	if (gadget_is_dualspeed(cdev->gadget)) {
-		if (info->fs_in_desc)
-			info->hs_in_desc->bEndpointAddress =
-					info->fs_in_desc->bEndpointAddress;
-		if (info->fs_out_desc)
-			info->hs_out_desc->bEndpointAddress =
-					info->fs_out_desc->bEndpointAddress;
-		if (info->fs_notify_desc)
-			info->hs_notify_desc->bEndpointAddress =
-					info->fs_notify_desc->bEndpointAddress;
-
-		/* copy descriptors, and track endpoint copies */
-		f->hs_descriptors = usb_copy_descriptors(info->hs_desc_hdr);
-		if (!f->hs_descriptors)
-			goto fail;
-	}
-
-	if (gadget_is_superspeed(cdev->gadget)) {
-		if (info->fs_in_desc)
-			info->ss_in_desc->bEndpointAddress =
-					info->fs_in_desc->bEndpointAddress;
-
-		if (info->fs_out_desc)
-			info->ss_out_desc->bEndpointAddress =
-					info->fs_out_desc->bEndpointAddress;
-		if (info->fs_notify_desc)
-			info->ss_notify_desc->bEndpointAddress =
-					info->fs_notify_desc->bEndpointAddress;
-
-		/* copy descriptors, and track endpoint copies */
-		f->ss_descriptors = usb_copy_descriptors(info->ss_desc_hdr);
-		if (!f->ss_descriptors)
-			goto fail;
-	}
 
 	return 0;
 
 fail:
-	if (gadget_is_superspeed(cdev->gadget) && f->ss_descriptors)
-		usb_free_descriptors(f->ss_descriptors);
-	if (gadget_is_dualspeed(cdev->gadget) && f->hs_descriptors)
-		usb_free_descriptors(f->hs_descriptors);
-	if (f->fs_descriptors)
-		usb_free_descriptors(f->fs_descriptors);
 	if (gsi->c_port.notify_req) {
 		kfree(gsi->c_port.notify_req->buf);
 		usb_ep_free_request(gsi->c_port.notify, gsi->c_port.notify_req);
@@ -2930,16 +2906,11 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	if (gsi->prot_id == IPA_USB_MBIM)
 		mbim_gsi_ext_config_desc.function.subCompatibleID[0] = 0;
 
-	if (gadget_is_superspeed(c->cdev->gadget)) {
-		usb_free_descriptors(f->ss_descriptors);
-		f->ss_descriptors = NULL;
-	}
-	if (gadget_is_dualspeed(c->cdev->gadget)) {
-		usb_free_descriptors(f->hs_descriptors);
-		f->hs_descriptors = NULL;
-	}
-	usb_free_descriptors(f->fs_descriptors);
+	usb_free_all_descriptors(f);
+	f->hs_descriptors = NULL;
 	f->fs_descriptors = NULL;
+	f->ss_descriptors = NULL;
+	f->ssp_descriptors = NULL;
 
 	if (gsi->c_port.notify) {
 		kfree(gsi->c_port.notify_req->buf);

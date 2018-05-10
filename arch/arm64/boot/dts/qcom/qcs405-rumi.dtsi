@@ -13,6 +13,30 @@
 #include "qcs405.dtsi"
 
 &soc {
+	usb_emu_phy: usb_emu_phy@78ccd00 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x78ccd00 0x9500>,
+		      <0x79b8800 0x100>;
+		reg-names = "base", "qcratch_base";
+
+		qcom,emu-init-seq = <0xfff0 0x4
+				     0xfff3 0x4
+				     0x40 0x4
+				     0xfff3 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x1a0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+
 	timer {
 		clock-frequency = <0x100000>;
 	};
@@ -21,3 +45,40 @@
 		clock-frequency = <0x100000>;
 	};
 };
+
+&usb0 {
+	dwc3@78c0000 {
+		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+	};
+};
+
+&rpm_bus {
+	/delete-node/ rpm-regulator-smpa1;
+	/delete-node/ rpm-regulator-smpa2;
+	/delete-node/ rpm-regulator-smpa4;
+	/delete-node/ rpm-regulator-ldoa1;
+	/delete-node/ rpm-regulator-ldoa2;
+	/delete-node/ rpm-regulator-ldoa3;
+	/delete-node/ rpm-regulator-ldoa4;
+	/delete-node/ rpm-regulator-ldoa5;
+	/delete-node/ rpm-regulator-ldoa6;
+	/delete-node/ rpm-regulator-ldoa7;
+	/delete-node/ rpm-regulator-ldoa8;
+	/delete-node/ rpm-regulator-ldoa9;
+	/delete-node/ rpm-regulator-ldoa10;
+	/delete-node/ rpm-regulator-ldoa11;
+	/delete-node/ rpm-regulator-ldoa12;
+	/delete-node/ rpm-regulator-ldoa13;
+};
+
+&soc {
+	/delete-node/ qcom,spmi@200f000;
+};
+
+&rpm_bus {
+	rpm-standalone;
+};
+
+#include "qcs405-stub-regulator.dtsi"

@@ -169,4 +169,12 @@ config MSM_11AD
 	  If you choose to build it as a module, it will be called
 	  msm_11ad_proxy.
 
+config SEEMP_CORE
+	tristate "SEEMP Core"
+	help
+	  This option enables QTI Snapdragron Smart Protection to detect
+	  anomalies in various activities. It records task activities in
+	  a log and rates the actions according to whether a typical user would
+	  use the tools.
+
 endmenu

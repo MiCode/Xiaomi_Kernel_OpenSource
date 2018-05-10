@@ -1053,6 +1053,10 @@ static void ipa3_q6_clnt_svc_exit(struct work_struct *work)
 static int ipa3_q6_clnt_svc_event_notify_svc_new(struct qmi_handle *qmi,
 	struct qmi_service *service)
 {
+	IPAWANDBG("QMI svc:%d vers:%d ins:%d node:%d port:%d\n",
+		  service->service, service->version, service->instance,
+		  service->node, service->port);
+
 	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_family = AF_QIPCRTR;
 	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_node = service->node;
 	ipa3_qmi_ctx->ipa_q6_client_params.sq.sq_port = service->port;
@@ -1064,8 +1068,19 @@ static int ipa3_q6_clnt_svc_event_notify_svc_new(struct qmi_handle *qmi,
 	return 0;
 }
 
-static void ipa3_q6_clnt_svc_event_notify_svc_exit(struct qmi_handle *qmi)
+static void ipa3_q6_clnt_svc_event_notify_net_reset(struct qmi_handle *qmi)
 {
+	if (!workqueues_stopped)
+		queue_delayed_work(ipa_clnt_req_workqueue,
+			&ipa3_work_svc_exit, 0);
+}
+
+static void ipa3_q6_clnt_svc_event_notify_svc_exit(struct qmi_handle *qmi,
+						   struct qmi_service *svc)
+{
+	IPAWANDBG("QMI svc:%d vers:%d ins:%d node:%d port:%d\n", svc->service,
+		  svc->version, svc->instance, svc->node, svc->port);
+
 	if (!workqueues_stopped)
 		queue_delayed_work(ipa_clnt_req_workqueue,
 			&ipa3_work_svc_exit, 0);
@@ -1077,7 +1092,8 @@ static struct qmi_ops server_ops = {
 
 static struct qmi_ops client_ops = {
 	.new_server = ipa3_q6_clnt_svc_event_notify_svc_new,
-	.net_reset = ipa3_q6_clnt_svc_event_notify_svc_exit,
+	.del_server = ipa3_q6_clnt_svc_event_notify_svc_exit,
+	.net_reset = ipa3_q6_clnt_svc_event_notify_net_reset,
 };
 
 static struct qmi_msg_handler server_handlers[] = {

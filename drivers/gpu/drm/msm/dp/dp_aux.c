@@ -14,6 +14,8 @@
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
 
+#include <linux/soc/qcom/fsa4480-i2c.h>
+#include <linux/usb/usbpd.h>
 #include <linux/delay.h>
 
 #include "dp_aux.h"
@@ -29,6 +31,7 @@ struct dp_aux_private {
 	struct dp_aux dp_aux;
 	struct dp_catalog_aux *catalog;
 	struct dp_aux_cfg *cfg;
+	struct device_node *aux_switch_node;
 	struct mutex mutex;
 	struct completion comp;
 	struct drm_dp_aux drm_aux;
@@ -703,14 +706,60 @@ static void dp_aux_set_sim_mode(struct dp_aux *dp_aux, bool en,
 		aux->drm_aux.transfer = dp_aux_transfer;
 }
 
+static int dp_aux_configure_aux_switch(struct dp_aux *dp_aux,
+		bool enable, int orientation)
+{
+	struct dp_aux_private *aux;
+	int rc = 0;
+	enum fsa_function event = FSA_USBC_DISPLAYPORT_DISCONNECTED;
+
+	if (!dp_aux) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
+
+	if (!aux->aux_switch_node) {
+		pr_debug("undefined fsa4480 handle\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (enable) {
+		switch (orientation) {
+		case ORIENTATION_CC1:
+			event = FSA_USBC_ORIENTATION_CC1;
+			break;
+		case ORIENTATION_CC2:
+			event = FSA_USBC_ORIENTATION_CC2;
+			break;
+		default:
+			pr_err("invalid orientation\n");
+			rc = -EINVAL;
+			goto end;
+		}
+	}
+
+	pr_debug("enable=%d, orientation=%d, event=%d\n",
+			enable, orientation, event);
+
+	rc = fsa4480_switch_event(aux->aux_switch_node, event);
+	if (rc)
+		pr_err("failed to configure fsa4480 i2c device (%d)\n", rc);
+end:
+	return rc;
+}
+
 struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
-		struct dp_aux_cfg *aux_cfg)
+		struct dp_aux_cfg *aux_cfg, struct device_node *aux_switch)
 {
 	int rc = 0;
 	struct dp_aux_private *aux;
 	struct dp_aux *dp_aux;
 
-	if (!catalog || !aux_cfg) {
+	if (!catalog || !aux_cfg || !aux_switch) {
 		pr_err("invalid input\n");
 		rc = -ENODEV;
 		goto error;
@@ -729,6 +778,7 @@ struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
 	aux->dev = dev;
 	aux->catalog = catalog;
 	aux->cfg = aux_cfg;
+	aux->aux_switch_node = aux_switch;
 	dp_aux = &aux->dp_aux;
 	aux->retry_cnt = 0;
 	aux->dp_aux.reg = 0xFFFF;
@@ -742,6 +792,7 @@ struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
 	dp_aux->abort = dp_aux_abort_transaction;
 	dp_aux->dpcd_updated = dp_aux_dpcd_updated;
 	dp_aux->set_sim_mode = dp_aux_set_sim_mode;
+	dp_aux->aux_switch = dp_aux_configure_aux_switch;
 
 	return dp_aux;
 error:

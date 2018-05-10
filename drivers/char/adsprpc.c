@@ -430,7 +430,7 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 		int destVM[1] = {VMID_HLOS};
 		int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
-		if (fl->sctx->smmu.cb)
+		if (fl->sctx->smmu.cb && fl->cid != SDSP_DOMAIN_ID)
 			buf->phys &= ~((uint64_t)fl->sctx->smmu.cb << 32);
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (vmid) {
@@ -754,7 +754,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		}
 		map->phys = sg_dma_address(map->table->sgl);
 		if (sess->smmu.cb) {
-			map->phys += ((uint64_t)sess->smmu.cb << 32);
+			if (fl->cid != SDSP_DOMAIN_ID)
+				map->phys += ((uint64_t)sess->smmu.cb << 32);
 			for_each_sg(map->table->sgl, sgl, map->table->nents,
 				sgl_index)
 				map->size += sg_dma_len(sgl);
@@ -831,7 +832,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	}
 	if (err)
 		goto bail;
-	if (fl->sctx->smmu.cb)
+	if (fl->sctx->smmu.cb && fl->cid != SDSP_DOMAIN_ID)
 		buf->phys += ((uint64_t)fl->sctx->smmu.cb << 32);
 	vmid = fl->apps->channel[fl->cid].vmid;
 	if (vmid) {
@@ -2041,12 +2042,15 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 		err = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
 			TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID), &desc);
 	} else if (map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
-		VERIFY(err, !hyp_assign_phys(map->phys, (uint64_t)map->size,
+		if (me->channel[fl->cid].rhvm.vmid) {
+			VERIFY(err, !hyp_assign_phys(map->phys,
+					(uint64_t)map->size,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
 					destVM, destVMperm, 1));
-		if (err)
-			goto bail;
+			if (err)
+				goto bail;
+		}
 	}
 
 bail:
@@ -2955,8 +2959,9 @@ static int fastrpc_cb_probe(struct device *dev)
 	struct fastrpc_session_ctx *sess;
 	struct of_phandle_args iommuspec;
 	const char *name;
-	unsigned int start = 0x80000000;
-	int err = 0, i;
+	dma_addr_t start = 0x80000000;
+	int err = 0;
+	unsigned int sharedcb_count = 0, cid, i, j;
 	int secure_vmid = VMID_CP_PIXEL;
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
@@ -2972,6 +2977,7 @@ static int fastrpc_cb_probe(struct device *dev)
 	VERIFY(err, i < NUM_CHANNELS);
 	if (err)
 		goto bail;
+	cid = i;
 	chan = &gcinfo[i];
 	VERIFY(err, chan->sesscount < NUM_SESSIONS);
 	if (err)
@@ -2988,6 +2994,10 @@ static int fastrpc_cb_probe(struct device *dev)
 						"dma-coherent");
 	sess->smmu.secure = of_property_read_bool(dev->of_node,
 						"qcom,secure-context-bank");
+	if (cid == SDSP_DOMAIN_ID) {
+		start += ((uint64_t)sess->smmu.cb << 32);
+		dma_set_mask(dev, DMA_BIT_MASK(36));
+	}
 	if (sess->smmu.secure)
 		start = 0x60000000;
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =
@@ -3004,8 +3014,33 @@ static int fastrpc_cb_probe(struct device *dev)
 	VERIFY(err, !arm_iommu_attach_device(dev, sess->smmu.mapping));
 	if (err)
 		goto bail;
+
 	sess->smmu.dev = dev;
 	sess->smmu.enabled = 1;
+	if (!sess->smmu.dev->dma_parms)
+		sess->smmu.dev->dma_parms = devm_kzalloc(sess->smmu.dev,
+			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(sess->smmu.dev, DMA_BIT_MASK(64));
+
+	if (of_get_property(dev->of_node, "shared-cb", NULL) != NULL) {
+		VERIFY(err, !of_property_read_u32(dev->of_node, "shared-cb",
+				&sharedcb_count));
+		if (err)
+			goto bail;
+		if (sharedcb_count > 0) {
+			struct fastrpc_session_ctx *dup_sess;
+
+			for (j = 1; j < sharedcb_count &&
+					chan->sesscount < NUM_SESSIONS; j++) {
+				chan->sesscount++;
+				dup_sess = &chan->session[chan->sesscount];
+				memcpy(dup_sess, sess,
+					sizeof(struct fastrpc_session_ctx));
+			}
+		}
+	}
+
 	chan->sesscount++;
 	debugfs_global_file = debugfs_create_file("global", 0644, debugfs_root,
 							NULL, &debugfs_fops);

@@ -81,7 +81,7 @@ struct cam_cdm_acquire_data {
 	enum cam_cdm_id id;
 	void *userdata;
 	void (*cam_cdm_callback)(uint32_t handle, void *userdata,
-		enum cam_cdm_cb_status status, uint32_t cookie);
+		enum cam_cdm_cb_status status, uint64_t cookie);
 	uint32_t base_array_cnt;
 	struct cam_soc_reg_map *base_array[CAM_SOC_MAX_BLOCK];
 	struct cam_hw_version cdm_version;
@@ -128,7 +128,7 @@ struct cam_cdm_bl_cmd {
 struct cam_cdm_bl_request {
 	int flag;
 	void *userdata;
-	uint32_t cookie;
+	uint64_t cookie;
 	enum cam_cdm_bl_cmd_addr_type type;
 	uint32_t cmd_arrary_count;
 	struct cam_cdm_bl_cmd cmd[1];

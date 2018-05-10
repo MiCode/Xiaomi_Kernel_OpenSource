@@ -373,27 +373,27 @@ u32 sde_hw_get_scaler3_ver(struct sde_hw_blk_reg_map *c,
 }
 
 void sde_hw_csc_matrix_coeff_setup(struct sde_hw_blk_reg_map *c,
-		u32 csc_reg_off, struct sde_csc_cfg *data)
+		u32 csc_reg_off, struct sde_csc_cfg *data,
+		u32 shift_bit)
 {
 	u32 val;
 
 	if (!c || !data)
 		return;
 
-	/* matrix coeff - convert S15.16 to S4.9 */
-	val = ((data->csc_mv[0] >> CSC_MATRIX_SHIFT) & 0x1FFF) |
-		(((data->csc_mv[1] >> CSC_MATRIX_SHIFT) & 0x1FFF) << 16);
+	val = ((data->csc_mv[0] >> shift_bit) & 0x1FFF) |
+		(((data->csc_mv[1] >> shift_bit) & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off, val);
-	val = ((data->csc_mv[2] >> CSC_MATRIX_SHIFT) & 0x1FFF) |
-		(((data->csc_mv[3] >> CSC_MATRIX_SHIFT) & 0x1FFF) << 16);
+	val = ((data->csc_mv[2] >> shift_bit) & 0x1FFF) |
+		(((data->csc_mv[3] >> shift_bit) & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0x4, val);
-	val = ((data->csc_mv[4] >> CSC_MATRIX_SHIFT) & 0x1FFF) |
-		(((data->csc_mv[5] >> CSC_MATRIX_SHIFT) & 0x1FFF) << 16);
+	val = ((data->csc_mv[4] >> shift_bit) & 0x1FFF) |
+		(((data->csc_mv[5] >> shift_bit) & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0x8, val);
-	val = ((data->csc_mv[6] >> CSC_MATRIX_SHIFT) & 0x1FFF) |
-		(((data->csc_mv[7] >> CSC_MATRIX_SHIFT) & 0x1FFF) << 16);
+	val = ((data->csc_mv[6] >> shift_bit) & 0x1FFF) |
+		(((data->csc_mv[7] >> shift_bit) & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0xc, val);
-	val = (data->csc_mv[8] >> CSC_MATRIX_SHIFT) & 0x1FFF;
+	val = (data->csc_mv[8] >> shift_bit) & 0x1FFF;
 	SDE_REG_WRITE(c, csc_reg_off + 0x10, val);
 }
 
@@ -407,7 +407,8 @@ void sde_hw_csc_setup(struct sde_hw_blk_reg_map *c,
 	if (!c || !data)
 		return;
 
-	sde_hw_csc_matrix_coeff_setup(c, csc_reg_off, data);
+	/* matrix coeff - convert S15.16 to S4.9 */
+	sde_hw_csc_matrix_coeff_setup(c, csc_reg_off, data, CSC_MATRIX_SHIFT);
 
 	/* Pre clamp */
 	val = (data->csc_pre_lv[0] << clamp_shift) | data->csc_pre_lv[1];

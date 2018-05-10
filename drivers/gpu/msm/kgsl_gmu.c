@@ -28,13 +28,7 @@
 #include "kgsl_hfi.h"
 #include "a6xx_reg.h"
 #include "adreno.h"
-
-#undef MODULE_PARAM_PREFIX
-#define MODULE_PARAM_PREFIX "kgsl_gmu."
-
-static bool nogmu;
-module_param(nogmu, bool, 0444);
-MODULE_PARM_DESC(nogmu, "Disable the GMU");
+#include "kgsl_trace.h"
 
 #define GMU_CONTEXT_USER		0
 #define GMU_CONTEXT_KERNEL		1
@@ -68,13 +62,9 @@ struct gmu_iommu_context {
 	struct iommu_domain *domain;
 };
 
-#define HFIMEM_SIZE (HFI_QUEUE_SIZE * (HFI_QUEUE_MAX + 1))
-
 #define DUMPMEM_SIZE SZ_16K
 
 #define DUMMY_SIZE   SZ_4K
-
-#define LOGMEM_SIZE  SZ_4K
 
 #define GMU_DCACHE_CHUNK_SIZE  (60 * SZ_4K) /* GMU DCache VA size - 240KB */
 
@@ -111,18 +101,7 @@ struct gmu_iommu_context gmu_ctx[] = {
 static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
 static unsigned long gmu_kmem_bitmap;
 static unsigned int num_uncached_entries;
-
-void init_gmu_log_base(struct kgsl_device *device)
-{
-	uint32_t gmu_log_info;
-	struct gmu_device *gmu = &device->gmu;
-
-	/* Log size is encoded in (number of 4K units - 1) */
-	gmu_log_info = (gmu->gmu_log->gmuaddr & 0xFFFFF000) |
-		((LOGMEM_SIZE/SZ_4K - 1) & 0xFF);
-	kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_MSG,
-			gmu_log_info);
-}
+static void gmu_remove(struct kgsl_device *device);
 
 static int _gmu_iommu_fault_handler(struct device *dev,
 		unsigned long addr, int flags, const char *name)
@@ -550,11 +529,14 @@ static void gmu_memory_close(struct gmu_device *gmu)
 /*
  * gmu_memory_probe() - probe GMU IOMMU context banks and allocate memory
  * to share with GMU in kernel mode.
+ * @device: Pointer to KGSL device
  * @gmu: Pointer to GMU device
  * @node: Pointer to GMU device node
  */
-static int gmu_memory_probe(struct gmu_device *gmu, struct device_node *node)
+static int gmu_memory_probe(struct kgsl_device *device,
+		struct gmu_device *gmu, struct device_node *node)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
 	ret = gmu_iommu_init(gmu, node);
@@ -582,11 +564,13 @@ static int gmu_memory_probe(struct gmu_device *gmu, struct device_node *node)
 	}
 
 	/* Allocates & maps GMU crash dump memory */
-	gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
-			DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
-	if (IS_ERR(gmu->dump_mem)) {
-		ret = PTR_ERR(gmu->dump_mem);
-		goto err_ret;
+	if (adreno_is_a630(adreno_dev)) {
+		gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
+				DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
+		if (IS_ERR(gmu->dump_mem)) {
+			ret = PTR_ERR(gmu->dump_mem);
+			goto err_ret;
+		}
 	}
 
 	/* GMU master log */
@@ -612,12 +596,12 @@ err_ret:
  * The function converts GPU power level and bus level index used by KGSL
  * to index being used by GMU/RPMh.
  */
-int gmu_dcvs_set(struct gmu_device *gmu,
+static int gmu_dcvs_set(struct kgsl_device *device,
 		unsigned int gpu_pwrlevel, unsigned int bus_level)
 {
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct hfi_gx_bw_perf_vote_cmd req = {
 		.ack_type = DCVS_ACK_BLOCK,
 		.freq = INVALID_DCVS_IDX,
@@ -635,7 +619,7 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 		return -EINVAL;
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
-		int ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev,
+		int ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
 			GMU_DCVS_NOHFI, req.freq, req.bw);
 
 		if (ret) {
@@ -778,19 +762,18 @@ static int setup_volt_dependency_tbl(uint32_t *votes,
 /*
  * rpmh_arc_votes_init() - initialized RPMh votes needed for rails voltage
  * scaling by GMU.
+ * @device: Pointer to KGSL device
  * @gmu: Pointer to GMU device
  * @pri_rail: Pointer to primary power rail VLVL table
  * @sec_rail: Pointer to second/dependent power rail VLVL table
  *	of pri_rail VLVL table
  * @type: the type of the primary rail, GPU or GMU
  */
-static int rpmh_arc_votes_init(struct gmu_device *gmu,
-		struct rpmh_arc_vals *pri_rail,
-		struct rpmh_arc_vals *sec_rail,
-		unsigned int type)
+static int rpmh_arc_votes_init(struct kgsl_device *device,
+		struct gmu_device *gmu, struct rpmh_arc_vals *pri_rail,
+		struct rpmh_arc_vals *sec_rail, unsigned int type)
 {
 	struct device *dev;
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	unsigned int num_freqs;
 	uint32_t *votes;
 	unsigned int vlvl_tbl[MAX_GX_LEVELS];
@@ -965,7 +948,8 @@ out:
 	return ret;
 }
 
-static int gmu_rpmh_init(struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
+static int gmu_rpmh_init(struct kgsl_device *device,
+		struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
 {
 	struct rpmh_arc_vals gfx_arc, cx_arc, mx_arc;
 	int ret;
@@ -988,17 +972,17 @@ static int gmu_rpmh_init(struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
 	if (ret)
 		return ret;
 
-	ret = rpmh_arc_votes_init(gmu, &gfx_arc, &mx_arc, GPU_ARC_VOTE);
+	ret = rpmh_arc_votes_init(device, gmu, &gfx_arc, &mx_arc, GPU_ARC_VOTE);
 	if (ret)
 		return ret;
 
-	return rpmh_arc_votes_init(gmu, &cx_arc, &mx_arc, GMU_ARC_VOTE);
+	return rpmh_arc_votes_init(device, gmu, &cx_arc, &mx_arc, GMU_ARC_VOTE);
 }
 
 static irqreturn_t gmu_irq_handler(int irq, void *data)
 {
-	struct gmu_device *gmu = data;
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct kgsl_device *device = data;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
@@ -1036,9 +1020,9 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 
 static irqreturn_t hfi_irq_handler(int irq, void *data)
 {
-	struct kgsl_hfi *hfi = data;
-	struct gmu_device *gmu = container_of(hfi, struct gmu_device, hfi);
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct kgsl_device *device = data;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
@@ -1180,9 +1164,8 @@ static int gmu_clocks_probe(struct gmu_device *gmu, struct device_node *node)
 	return 0;
 }
 
-static int gmu_gpu_bw_probe(struct gmu_device *gmu)
+static int gmu_gpu_bw_probe(struct kgsl_device *device, struct gmu_device *gmu)
 {
-	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct msm_bus_scale_pdata *bus_scale_table;
 	struct msm_bus_paths *usecase;
 	struct msm_bus_vectors *vector;
@@ -1278,7 +1261,7 @@ static int gmu_regulators_probe(struct gmu_device *gmu,
 	return 0;
 }
 
-static int gmu_irq_probe(struct gmu_device *gmu)
+static int gmu_irq_probe(struct kgsl_device *device, struct gmu_device *gmu)
 {
 	int ret;
 	struct kgsl_hfi *hfi = &gmu->hfi;
@@ -1288,7 +1271,7 @@ static int gmu_irq_probe(struct gmu_device *gmu)
 	ret = devm_request_irq(&gmu->pdev->dev,
 			hfi->hfi_interrupt_num,
 			hfi_irq_handler, IRQF_TRIGGER_HIGH,
-			"HFI", hfi);
+			"HFI", device);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "request_irq(%d) failed: %d\n",
 				hfi->hfi_interrupt_num, ret);
@@ -1300,7 +1283,7 @@ static int gmu_irq_probe(struct gmu_device *gmu)
 	ret = devm_request_irq(&gmu->pdev->dev,
 			gmu->gmu_interrupt_num,
 			gmu_irq_handler, IRQF_TRIGGER_HIGH,
-			"GMU", gmu);
+			"GMU", device);
 	if (ret)
 		dev_err(&gmu->pdev->dev, "request_irq(%d) failed: %d\n",
 				gmu->gmu_interrupt_num, ret);
@@ -1311,7 +1294,7 @@ static int gmu_irq_probe(struct gmu_device *gmu)
 static void gmu_irq_enable(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct kgsl_hfi *hfi = &gmu->hfi;
 
 	/* Clear any pending IRQs before unmasking on GMU */
@@ -1334,7 +1317,7 @@ static void gmu_irq_enable(struct kgsl_device *device)
 static void gmu_irq_disable(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct kgsl_hfi *hfi = &gmu->hfi;
 
 	/* Disable all IRQs on host */
@@ -1355,38 +1338,28 @@ static void gmu_irq_disable(struct kgsl_device *device)
 }
 
 /* Do not access any GMU registers in GMU probe function */
-int gmu_probe(struct kgsl_device *device, unsigned long flags)
+static int gmu_probe(struct kgsl_device *device,
+		struct device_node *node, unsigned long flags)
 {
-	struct device_node *node;
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu;
 	struct gmu_memdesc *mem_addr = NULL;
-	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct kgsl_hfi *hfi;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i = 0, ret = -ENXIO;
 
-	/* Make sure no flags enabled by default, probably don't need */
-	gmu->flags = 0;
+	gmu = kzalloc(sizeof(struct gmu_device), GFP_KERNEL);
+
+	if (gmu == NULL)
+		return -ENOMEM;
+
+	hfi = &gmu->hfi;
+	gmu->load_mode = TCM_BOOT;
+
 	gmu->ver = ~0U;
-
-	/* Normalize flags for input feature requests */
-	flags &= BIT(GMU_GPMU);
-
-	node = of_find_compatible_node(device->pdev->dev.of_node,
-			NULL, "qcom,gpu-gmu");
-	/* No GMU in dt, no worries...hopefully */
-	if (node == NULL) {
-		/* If we are trying to use GPMU and no GMU, that's bad */
-		if (flags & BIT(GMU_GPMU))
-			return -ENXIO;
-		/* Otherwise it's ok and nothing to do */
-		return 0;
-	}
-
-	/* Ok, now say the flags are enabled */
 	gmu->flags = flags;
 
-	device->gmu.pdev = of_find_device_by_node(node);
+	gmu->pdev = of_find_device_by_node(node);
 	of_dma_configure(&gmu->pdev->dev, node);
 
 	/* Set up GMU regulators */
@@ -1400,7 +1373,7 @@ int gmu_probe(struct kgsl_device *device, unsigned long flags)
 		goto error;
 
 	/* Set up GMU IOMMU and shared memory with GMU */
-	ret = gmu_memory_probe(&device->gmu, node);
+	ret = gmu_memory_probe(device, gmu, node);
 	if (ret)
 		goto error;
 	mem_addr = gmu->hfi_mem;
@@ -1414,10 +1387,12 @@ int gmu_probe(struct kgsl_device *device, unsigned long flags)
 	if (ret)
 		goto error;
 
-	gmu->gmu2gpu_offset = (gmu->reg_phys - device->reg_phys) >> 2;
+	device->gmu_core.gmu2gpu_offset =
+			(gmu->reg_phys - device->reg_phys) >> 2;
+	device->gmu_core.reg_len = gmu->reg_len;
 
 	/* Initialize HFI and GMU interrupts */
-	ret = gmu_irq_probe(gmu);
+	ret = gmu_irq_probe(device, gmu);
 	if (ret)
 		goto error;
 
@@ -1444,7 +1419,7 @@ int gmu_probe(struct kgsl_device *device, unsigned long flags)
 	}
 
 	/* Initializes GPU b/w levels configuration */
-	ret = gmu_gpu_bw_probe(gmu);
+	ret = gmu_gpu_bw_probe(device, gmu);
 	if (ret)
 		goto error;
 
@@ -1454,7 +1429,7 @@ int gmu_probe(struct kgsl_device *device, unsigned long flags)
 		goto error;
 
 	/* Populates RPMh configurations */
-	ret = gmu_rpmh_init(gmu, pwr);
+	ret = gmu_rpmh_init(device, gmu, pwr);
 	if (ret)
 		goto error;
 
@@ -1476,14 +1451,15 @@ int gmu_probe(struct kgsl_device *device, unsigned long flags)
 	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 	set_bit(GMU_ENABLED, &gmu->flags);
 
+	device->gmu_core.ptr = (void *)gmu;
+	device->gmu_core.dev_ops = &adreno_a6xx_gmudev;
+
 	return 0;
 
 error:
 	gmu_remove(device);
 	return ret;
 }
-
-
 
 static int gmu_enable_clks(struct gmu_device *gmu)
 {
@@ -1586,8 +1562,8 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 static int gmu_suspend(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return 0;
@@ -1597,7 +1573,7 @@ static int gmu_suspend(struct kgsl_device *device)
 	clear_bit(GMU_HFI_ON, &gmu->flags);
 	gmu_irq_disable(device);
 
-	if (gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_SUSPEND, 0, 0))
+	if (gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_SUSPEND, 0, 0))
 		return -EINVAL;
 
 	gmu_disable_clks(gmu);
@@ -1606,10 +1582,10 @@ static int gmu_suspend(struct kgsl_device *device)
 	return 0;
 }
 
-void gmu_snapshot(struct kgsl_device *device)
+static void gmu_snapshot(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	/* Mask so there's no interrupt caused by NMI */
 	adreno_write_gmureg(adreno_dev,
@@ -1663,13 +1639,13 @@ static void gmu_change_gpu_pwrlevel(struct kgsl_device *device,
 }
 
 /* To be called to power on both GPU and GMU */
-int gmu_start(struct kgsl_device *device)
+static int gmu_start(struct kgsl_device *device)
 {
 	int ret = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
@@ -1686,7 +1662,7 @@ int gmu_start(struct kgsl_device *device)
 			dev_err(&gmu->pdev->dev,
 				"Failed to allocate gmu b/w: %d\n", ret);
 
-		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
+		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
 				GMU_COLD_BOOT, 0);
 		if (ret)
 			goto error_gmu;
@@ -1706,7 +1682,7 @@ int gmu_start(struct kgsl_device *device)
 		gmu_enable_clks(gmu);
 		gmu_irq_enable(device);
 
-		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
+		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
 				GMU_COLD_BOOT, 0);
 		if (ret)
 			goto error_gmu;
@@ -1726,8 +1702,8 @@ int gmu_start(struct kgsl_device *device)
 			gmu_enable_clks(gmu);
 			gmu_irq_enable(device);
 
-			ret = gpudev->rpmh_gpu_pwrctrl(
-				adreno_dev, GMU_FW_START, GMU_RESET, 0);
+			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
+				adreno_dev, GMU_FW_START, GMU_COLD_BOOT, 0);
 			if (ret)
 				goto error_gmu;
 
@@ -1743,8 +1719,8 @@ int gmu_start(struct kgsl_device *device)
 			/* GMU fast boot */
 			hfi_stop(gmu);
 
-			ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
-					GMU_RESET, 0);
+			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
+					GMU_FW_START, GMU_COLD_BOOT, 0);
 			if (ret)
 				goto error_gmu;
 
@@ -1761,33 +1737,34 @@ int gmu_start(struct kgsl_device *device)
 
 error_gmu:
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		gpudev->oob_clear(adreno_dev, oob_boot_slumber);
-	gmu_snapshot(device);
+		gmu_dev_ops->oob_clear(adreno_dev, oob_boot_slumber);
+	gmu_core_snapshot(device);
 	return ret;
 }
 
 /* Caller shall ensure GPU is ready for SLUMBER */
-void gmu_stop(struct kgsl_device *device)
+static void gmu_stop(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = &device->gmu;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	int ret = 0;
 
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return;
 
 	/* Wait for the lowest idle level we requested */
-	if (gpudev->wait_for_lowest_idle &&
-			gpudev->wait_for_lowest_idle(adreno_dev))
+	if (gmu_dev_ops->wait_for_lowest_idle &&
+			gmu_dev_ops->wait_for_lowest_idle(adreno_dev))
 		goto error;
 
-	ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
+	ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
+			GMU_NOTIFY_SLUMBER, 0, 0);
 	if (ret)
 		goto error;
 
-	if (gpudev->wait_for_gmu_idle &&
-			gpudev->wait_for_gmu_idle(adreno_dev))
+	if (gmu_dev_ops->wait_for_gmu_idle &&
+			gmu_dev_ops->wait_for_gmu_idle(adreno_dev))
 		goto error;
 
 	/* Pending message in all queues are abandoned */
@@ -1795,7 +1772,7 @@ void gmu_stop(struct kgsl_device *device)
 	clear_bit(GMU_HFI_ON, &gmu->flags);
 	gmu_irq_disable(device);
 
-	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
+	gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
 	gmu_disable_clks(gmu);
 	gmu_disable_gdsc(gmu);
 
@@ -1810,17 +1787,19 @@ error:
 	 */
 	set_bit(GMU_FAULT, &gmu->flags);
 	dev_err(&gmu->pdev->dev, "Failed to stop GMU\n");
-	gmu_snapshot(device);
+	gmu_core_snapshot(device);
 }
 
-void gmu_remove(struct kgsl_device *device)
+static void gmu_remove(struct kgsl_device *device)
 {
-	struct gmu_device *gmu = &device->gmu;
-	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_hfi *hfi;
 	int i = 0;
 
-	if (!device->gmu.pdev)
+	if (gmu == NULL || gmu->pdev == NULL)
 		return;
+
+	hfi = &gmu->hfi;
 
 	tasklet_kill(&hfi->tasklet);
 
@@ -1863,7 +1842,7 @@ void gmu_remove(struct kgsl_device *device)
 		gmu->reg_virt = NULL;
 	}
 
-	gmu_memory_close(&device->gmu);
+	gmu_memory_close(gmu);
 
 	for (i = 0; i < MAX_GMU_CLKS; i++) {
 		if (gmu->clks[i]) {
@@ -1882,64 +1861,107 @@ void gmu_remove(struct kgsl_device *device)
 		gmu->cx_gdsc = NULL;
 	}
 
-	device->gmu.flags = 0;
-	device->gmu.pdev = NULL;
+	gmu->flags = 0;
+	gmu->pdev = NULL;
+	kfree(gmu);
+}
+
+static void gmu_regwrite(struct kgsl_device *device,
+				unsigned int offsetwords, unsigned int value)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	void __iomem *reg;
+
+	trace_kgsl_regwrite(device, offsetwords, value);
+
+	offsetwords -= device->gmu_core.gmu2gpu_offset;
+	reg = gmu->reg_virt + (offsetwords << 2);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, reg);
+}
+
+static void gmu_regread(struct kgsl_device *device,
+		unsigned int offsetwords, unsigned int *value)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	void __iomem *reg;
+
+	offsetwords -= device->gmu_core.gmu2gpu_offset;
+
+	reg = gmu->reg_virt + (offsetwords << 2);
+
+	*value = __raw_readl(reg);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
 }
 
 /* Check if GPMU is in charge of power features */
-bool kgsl_gmu_gpmu_isenabled(struct kgsl_device *device)
+static bool gmu_gpmu_isenabled(struct kgsl_device *device)
 {
-	return test_bit(GMU_GPMU, &(device->gmu.flags));
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	return test_bit(GMU_GPMU, &gmu->flags);
 }
 
 /* Check if GMU is enabled. Only set once GMU is fully initialized */
-bool kgsl_gmu_isenabled(struct kgsl_device *device)
+static bool gmu_isenabled(struct kgsl_device *device)
 {
-	return !nogmu && test_bit(GMU_ENABLED, &device->gmu.flags);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	return test_bit(GMU_ENABLED, &gmu->flags);
 }
 
-/*
- * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
- * @adreno_dev: Pointer to the Adreno device device that owns the GMU
- * @offset: 32bit register enum that is to be written
- * @val: The value to be written to the register
- * @fence_mask: The value to poll the fence status register
- *
- * Check the WRITEDROPPED0/1 bit in the FENCE_STATUS register to check if
- * the write to the fenced register went through. If it didn't then we retry
- * the write until it goes through or we time out.
- */
-int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
-		enum adreno_regs offset, unsigned int val,
-		unsigned int fence_mask)
+static void gmu_set_bit(struct kgsl_device *device, enum gmu_core_flags flag)
 {
-	unsigned int status, i;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int reg_offset = gpudev->reg_offsets->offsets[offset];
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	adreno_writereg(adreno_dev, offset, val);
-
-	if (!kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
-		return 0;
-
-	for (i = 0; i < GMU_WAKEUP_RETRY_MAX; i++) {
-		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
-			&status);
-
-		/*
-		 * If !writedropped0/1, then the write to fenced register
-		 * was successful
-		 */
-		if (!(status & fence_mask))
-			return 0;
-		/* Wait a small amount of time before trying again */
-		udelay(GMU_WAKEUP_DELAY_US);
-
-		/* Try to write the fenced register again */
-		adreno_writereg(adreno_dev, offset, val);
-	}
-
-	dev_err(adreno_dev->dev.dev,
-		"GMU fenced register write timed out: reg 0x%x\n", reg_offset);
-	return -ETIMEDOUT;
+	set_bit(flag, &gmu->flags);
 }
+
+static void gmu_clear_bit(struct kgsl_device *device, enum gmu_core_flags flag)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	clear_bit(flag, &gmu->flags);
+}
+
+static int gmu_test_bit(struct kgsl_device *device, enum gmu_core_flags flag)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	return test_bit(flag, &gmu->flags);
+}
+
+static bool gmu_regulator_isenabled(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	return (gmu->gx_gdsc &&	regulator_is_enabled(gmu->gx_gdsc));
+}
+
+
+struct gmu_core_ops gmu_ops = {
+	.probe = gmu_probe,
+	.remove = gmu_remove,
+	.regread = gmu_regread,
+	.regwrite = gmu_regwrite,
+	.isenabled = gmu_isenabled,
+	.gpmu_isenabled = gmu_gpmu_isenabled,
+	.start = gmu_start,
+	.stop = gmu_stop,
+	.set_bit = gmu_set_bit,
+	.clear_bit = gmu_clear_bit,
+	.test_bit = gmu_test_bit,
+	.dcvs_set = gmu_dcvs_set,
+	.snapshot = gmu_snapshot,
+	.regulator_isenabled = gmu_regulator_isenabled,
+};

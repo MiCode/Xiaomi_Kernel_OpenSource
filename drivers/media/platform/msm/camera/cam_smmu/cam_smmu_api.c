@@ -106,8 +106,11 @@ struct cam_context_bank_info {
 	uint8_t shared_support;
 	uint8_t io_support;
 	uint8_t secheap_support;
+	uint8_t qdss_support;
+	dma_addr_t qdss_phy_addr;
 	bool is_fw_allocated;
 	bool is_secheap_allocated;
+	bool is_qdss_allocated;
 
 	struct scratch_mapping scratch_map;
 	struct gen_pool *shared_mem_pool;
@@ -117,6 +120,7 @@ struct cam_context_bank_info {
 	struct cam_smmu_region_info shared_info;
 	struct cam_smmu_region_info io_info;
 	struct cam_smmu_region_info secheap_info;
+	struct cam_smmu_region_info qdss_info;
 	struct secheap_buf_info secheap_buf;
 
 	struct list_head smmu_buf_list;
@@ -174,6 +178,8 @@ struct cam_sec_buff_info {
 	int ion_fd;
 	size_t len;
 };
+
+static const char *qdss_region_name = "qdss";
 
 static struct cam_iommu_cb_set iommu_cb_set;
 
@@ -1156,6 +1162,136 @@ end:
 	return rc;
 }
 EXPORT_SYMBOL(cam_smmu_dealloc_firmware);
+
+int cam_smmu_alloc_qdss(int32_t smmu_hdl,
+	dma_addr_t *iova,
+	size_t *len)
+{
+	int rc;
+	int32_t idx;
+	size_t qdss_len = 0;
+	size_t qdss_start = 0;
+	dma_addr_t qdss_phy_addr;
+	struct iommu_domain *domain;
+
+	if (!iova || !len || (smmu_hdl == HANDLE_INIT)) {
+		CAM_ERR(CAM_SMMU, "Error: Input args are invalid");
+		return -EINVAL;
+	}
+
+	idx = GET_SMMU_TABLE_IDX(smmu_hdl);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		CAM_ERR(CAM_SMMU,
+			"Error: handle or index invalid. idx = %d hdl = %x",
+			idx, smmu_hdl);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (!iommu_cb_set.cb_info[idx].qdss_support) {
+		CAM_ERR(CAM_SMMU,
+			"QDSS memory not supported for this SMMU handle");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	if (iommu_cb_set.cb_info[idx].is_qdss_allocated) {
+		CAM_ERR(CAM_SMMU, "Trying to allocate twice");
+		rc = -ENOMEM;
+		goto unlock_and_end;
+	}
+
+	qdss_len = iommu_cb_set.cb_info[idx].qdss_info.iova_len;
+	qdss_start = iommu_cb_set.cb_info[idx].qdss_info.iova_start;
+	qdss_phy_addr = iommu_cb_set.cb_info[idx].qdss_phy_addr;
+	CAM_DBG(CAM_SMMU, "QDSS area len from DT = %zu", qdss_len);
+
+	domain = iommu_cb_set.cb_info[idx].mapping->domain;
+	rc = iommu_map(domain,
+		qdss_start,
+		qdss_phy_addr,
+		qdss_len,
+		IOMMU_READ|IOMMU_WRITE);
+
+	if (rc) {
+		CAM_ERR(CAM_SMMU, "Failed to map QDSS into IOMMU");
+		goto unlock_and_end;
+	}
+
+	iommu_cb_set.cb_info[idx].is_qdss_allocated = true;
+
+	*iova = iommu_cb_set.cb_info[idx].qdss_info.iova_start;
+	*len = qdss_len;
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+
+	return rc;
+
+unlock_and_end:
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+end:
+	return rc;
+}
+EXPORT_SYMBOL(cam_smmu_alloc_qdss);
+
+int cam_smmu_dealloc_qdss(int32_t smmu_hdl)
+{
+	int rc = 0;
+	int32_t idx;
+	size_t qdss_len = 0;
+	size_t qdss_start = 0;
+	struct iommu_domain *domain;
+	size_t unmapped = 0;
+
+	if (smmu_hdl == HANDLE_INIT) {
+		CAM_ERR(CAM_SMMU, "Error: Invalid handle");
+		return -EINVAL;
+	}
+
+	idx = GET_SMMU_TABLE_IDX(smmu_hdl);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		CAM_ERR(CAM_SMMU,
+			"Error: handle or index invalid. idx = %d hdl = %x",
+			idx, smmu_hdl);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (!iommu_cb_set.cb_info[idx].qdss_support) {
+		CAM_ERR(CAM_SMMU,
+			"QDSS memory not supported for this SMMU handle");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	if (!iommu_cb_set.cb_info[idx].is_qdss_allocated) {
+		CAM_ERR(CAM_SMMU,
+			"Trying to deallocate qdss that is not allocated");
+		rc = -ENOMEM;
+		goto unlock_and_end;
+	}
+
+	qdss_len = iommu_cb_set.cb_info[idx].qdss_info.iova_len;
+	qdss_start = iommu_cb_set.cb_info[idx].qdss_info.iova_start;
+	domain = iommu_cb_set.cb_info[idx].mapping->domain;
+	unmapped = iommu_unmap(domain, qdss_start, qdss_len);
+
+	if (unmapped != qdss_len) {
+		CAM_ERR(CAM_SMMU, "Only %zu unmapped out of total %zu",
+			unmapped,
+			qdss_len);
+		rc = -EINVAL;
+	}
+
+	iommu_cb_set.cb_info[idx].is_qdss_allocated = false;
+
+unlock_and_end:
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+end:
+	return rc;
+}
+EXPORT_SYMBOL(cam_smmu_dealloc_qdss);
 
 int cam_smmu_get_region_info(int32_t smmu_hdl,
 	enum cam_smmu_region_id region_id,
@@ -3031,6 +3167,7 @@ static int cam_smmu_get_memory_regions_info(struct device_node *of_node,
 		uint32_t region_start;
 		uint32_t region_len;
 		uint32_t region_id;
+		uint32_t qdss_region_phy_addr = 0;
 
 		num_regions++;
 		rc = of_property_read_string(child_node,
@@ -3065,6 +3202,17 @@ static int cam_smmu_get_memory_regions_info(struct device_node *of_node,
 			return -EINVAL;
 		}
 
+		if (strcmp(region_name, qdss_region_name) == 0) {
+			rc = of_property_read_u32(child_node,
+				"qdss-phy-addr", &qdss_region_phy_addr);
+			if (rc < 0) {
+				of_node_put(mem_map_node);
+				CAM_ERR(CAM_SMMU,
+					"Failed to read qdss phy addr");
+				return -EINVAL;
+			}
+		}
+
 		switch (region_id) {
 		case CAM_SMMU_REGION_FIRMWARE:
 			cb->firmware_support = 1;
@@ -3090,6 +3238,12 @@ static int cam_smmu_get_memory_regions_info(struct device_node *of_node,
 			cb->secheap_support = 1;
 			cb->secheap_info.iova_start = region_start;
 			cb->secheap_info.iova_len = region_len;
+			break;
+		case CAM_SMMU_REGION_QDSS:
+			cb->qdss_support = 1;
+			cb->qdss_info.iova_start = region_start;
+			cb->qdss_info.iova_len = region_len;
+			cb->qdss_phy_addr = qdss_region_phy_addr;
 			break;
 		default:
 			CAM_ERR(CAM_SMMU,

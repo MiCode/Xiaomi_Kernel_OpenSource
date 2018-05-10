@@ -741,4 +741,11 @@ void dsi_ctrl_irq_update(struct dsi_ctrl *dsi_ctrl, bool enable);
 int dsi_ctrl_get_host_engine_init_state(struct dsi_ctrl *dsi_ctrl,
 		bool *state);
 
+/**
+ * dsi_ctrl_wait_for_cmd_mode_mdp_idle() - Wait for command mode engine not to
+ *				     be busy sending data from display engine.
+ * @dsi_ctrl:                     DSI controller handle.
+ */
+int dsi_ctrl_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl *dsi_ctrl);
+
 #endif /* _DSI_CTRL_H_ */

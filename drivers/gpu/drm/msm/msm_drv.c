@@ -990,7 +990,7 @@ static void msm_lastclose(struct drm_device *dev)
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
 	struct drm_modeset_acquire_ctx ctx;
-	int i;
+	int i, rc;
 
 	/*
 	 * clean up vblank disable immediately as this is the last close.
@@ -1008,15 +1008,31 @@ static void msm_lastclose(struct drm_device *dev)
 
 	if (priv->fbdev) {
 		drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
-	} else {
-		drm_modeset_acquire_init(&ctx, 0);
-		drm_modeset_lock_all_ctx(dev, &ctx);
-		msm_disable_all_modes(dev, &ctx);
-		if (kms && kms->funcs && kms->funcs->lastclose)
-			kms->funcs->lastclose(kms, &ctx);
-		drm_modeset_drop_locks(&ctx);
-		drm_modeset_acquire_fini(&ctx);
+		return;
 	}
+
+	drm_modeset_acquire_init(&ctx, 0);
+retry:
+	rc = drm_modeset_lock_all_ctx(dev, &ctx);
+	if (rc)
+		goto fail;
+
+	rc = msm_disable_all_modes(dev, &ctx);
+	if (rc)
+		goto fail;
+
+	if (kms && kms->funcs && kms->funcs->lastclose)
+		kms->funcs->lastclose(kms, &ctx);
+
+fail:
+	if (rc == -EDEADLK) {
+		drm_modeset_backoff(&ctx);
+		goto retry;
+	} else if (rc) {
+		pr_err("last close failed: %d\n", rc);
+	}
+	drm_modeset_drop_locks(&ctx);
+	drm_modeset_acquire_fini(&ctx);
 }
 
 static irqreturn_t msm_irq(int irq, void *arg)

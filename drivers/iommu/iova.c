@@ -182,14 +182,28 @@ iova_insert_rbtree(struct rb_root *root, struct iova *iova,
 	rb_insert_color(&iova->node, root);
 }
 
+#ifdef CONFIG_ARM64_DMA_IOMMU_ALIGNMENT
+#define MAX_ALIGN(shift) (((1 << CONFIG_ARM64_DMA_IOMMU_ALIGNMENT) * PAGE_SIZE)\
+			  >> (shift))
+#else
+#define MAX_ALIGN(shift) ULONG_MAX
+#endif
+
 /*
  * Computes the padding size required, to make the start address
- * naturally aligned on the power-of-two order of its size
+ * naturally aligned on the minimum of the power-of-two order of its size and
+ * max_align
  */
 static unsigned int
-iova_get_pad_size(unsigned int size, unsigned int limit_pfn)
+iova_get_pad_size(unsigned int size, unsigned int limit_pfn,
+		  unsigned int max_align)
 {
-	return (limit_pfn - size) & (__roundup_pow_of_two(size) - 1);
+	unsigned int align = __roundup_pow_of_two(size);
+
+	if (align > max_align)
+		align = max_align;
+
+	return (limit_pfn - size) & (align - 1);
 }
 
 static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
@@ -200,12 +214,14 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
 	unsigned long flags;
 	unsigned long saved_pfn;
 	unsigned int pad_size = 0;
+	unsigned long shift = iova_shift(iovad);
 
 	/* Walk the tree backwards */
 	spin_lock_irqsave(&iovad->iova_rbtree_lock, flags);
 	saved_pfn = limit_pfn;
 	curr = __get_cached_rbnode(iovad, &limit_pfn);
 	prev = curr;
+
 	while (curr) {
 		struct iova *curr_iova = rb_entry(curr, struct iova, node);
 
@@ -213,7 +229,8 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
 			goto move_left;
 		} else if (limit_pfn > curr_iova->pfn_hi) {
 			if (size_aligned)
-				pad_size = iova_get_pad_size(size, limit_pfn);
+				pad_size = iova_get_pad_size(size, limit_pfn,
+							     MAX_ALIGN(shift));
 			if ((curr_iova->pfn_hi + size + pad_size) < limit_pfn)
 				break;	/* found a free slot */
 		}
@@ -225,7 +242,8 @@ move_left:
 
 	if (!curr) {
 		if (size_aligned)
-			pad_size = iova_get_pad_size(size, limit_pfn);
+			pad_size = iova_get_pad_size(size, limit_pfn,
+						     MAX_ALIGN(shift));
 		if ((iovad->start_pfn + size + pad_size) > limit_pfn) {
 			spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
 			return -ENOMEM;

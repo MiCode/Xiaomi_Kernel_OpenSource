@@ -79,7 +79,7 @@
 
 		qcom,sde-intf-off = <0x6b000 0x6b800
 					0x6c000 0x6c800>;
-		qcom,sde-intf-size = <0x280>;
+		qcom,sde-intf-size = <0x2b8>;
 		qcom,sde-intf-type = "dp", "dsi", "dsi", "dp";
 
 		qcom,sde-pp-off = <0x71000 0x71800
@@ -661,12 +661,12 @@
 		qcom,aux-cfg0-settings = [20 00];
 		qcom,aux-cfg1-settings = [24 13];
 		qcom,aux-cfg2-settings = [28 24];
-		qcom,aux-cfg3-settings = [2c 10];
+		qcom,aux-cfg3-settings = [2c 00];
 		qcom,aux-cfg4-settings = [30 0a];
 		qcom,aux-cfg5-settings = [34 26];
 		qcom,aux-cfg6-settings = [38 0a];
 		qcom,aux-cfg7-settings = [3c 03];
-		qcom,aux-cfg8-settings = [40 bb];
+		qcom,aux-cfg8-settings = [40 b7];
 		qcom,aux-cfg9-settings = [44 03];
 
 		qcom,max-pclk-frequency-khz = <675000>;

@@ -167,12 +167,8 @@ static int dwc3_core_soft_reset(struct dwc3 *dwc)
 	int		retries = 1000;
 	int		ret;
 
-	/* Reset PHYs */
+	/* Reset and initialize PHYs */
 	usb_phy_reset(dwc->usb2_phy);
-
-	if (dwc->maximum_speed == USB_SPEED_SUPER)
-		usb_phy_reset(dwc->usb3_phy);
-
 	ret = usb_phy_init(dwc->usb2_phy);
 	if (ret) {
 		pr_err("%s: usb_phy_init(dwc->usb2_phy) returned %d\n",
@@ -180,9 +176,10 @@ static int dwc3_core_soft_reset(struct dwc3 *dwc)
 		return ret;
 	}
 
-	if (dwc->maximum_speed == USB_SPEED_HIGH)
+	if (dwc->maximum_speed <= USB_SPEED_HIGH)
 		goto generic_phy_init;
 
+	usb_phy_reset(dwc->usb3_phy);
 	ret = usb_phy_init(dwc->usb3_phy);
 	if (ret == -EBUSY) {
 		/*
@@ -766,7 +763,7 @@ int dwc3_core_init(struct dwc3 *dwc)
 	/* Handle USB2.0-only core configuration */
 	if (DWC3_GHWPARAMS3_SSPHY_IFC(dwc->hwparams.hwparams3) ==
 			DWC3_GHWPARAMS3_SSPHY_IFC_DIS) {
-		if (dwc->maximum_speed == USB_SPEED_SUPER)
+		if (dwc->maximum_speed >= USB_SPEED_SUPER)
 			dwc->maximum_speed = USB_SPEED_HIGH;
 	}
 

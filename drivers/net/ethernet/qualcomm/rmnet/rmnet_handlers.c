@@ -191,8 +191,26 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	map_header->mux_id = mux_id;
 
-	skb->protocol = htons(ETH_P_MAP);
+	if (port->data_format & RMNET_EGRESS_FORMAT_AGGREGATION) {
+		int non_linear_skb;
 
+		if (rmnet_map_tx_agg_skip(skb, required_headroom))
+			goto done;
+
+		non_linear_skb = (orig_dev->features & NETIF_F_GSO) &&
+				 skb_is_nonlinear(skb);
+
+		if (non_linear_skb) {
+			if (unlikely(__skb_linearize(skb)))
+				goto done;
+		}
+
+		rmnet_map_tx_aggregate(skb, port);
+		return -EINPROGRESS;
+	}
+
+done:
+	skb->protocol = htons(ETH_P_MAP);
 	return 0;
 
 fail:

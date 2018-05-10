@@ -134,8 +134,6 @@ static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_command(struct fts_ts_info *info, unsigned char cmd);
 
 
-static int fts_chip_initialization(struct fts_ts_info *info);
-
 void touch_callback(unsigned int status)
 {
     /* Empty */
@@ -3271,240 +3269,6 @@ static void fts_event_handler(struct work_struct *work)
 	fts_interrupt_enable(info);
 }
 
-static int cx_crc_check(void)
-{
-	unsigned char regAdd1[3] = {FTS_CMD_HW_REG_R, ADDR_CRC_BYTE0,
-				ADDR_CRC_BYTE1};
-	unsigned char val[2];
-	unsigned char crc_status;
-	int res;
-#ifndef FTM3_CHIP
-	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
-	int event_to_search[2] = {(int)EVENTID_ERROR_EVENT,
-			(int)EVENT_TYPE_CHECKSUM_ERROR};
-	u8 readData[FIFO_EVENT_SIZE];
-#endif
-	/*read 2 bytes because the first one is a dummy byte!*/
-	res = fts_readCmd(regAdd1, sizeof(regAdd1), val, 2);
-	if (res < OK) {
-		logError(1, "%s %s Cannot read crc status ERROR %08X\n",
-			tag, __func__, res);
-	return res;
-	}
-
-	crc_status = val[1] & CRC_MASK;
-	if (crc_status != OK) {
-		logError(1, "%s %s CRC ERROR = %X\n",
-			tag, __func__, crc_status);
-		return crc_status;
-	}
-
-#ifndef FTM3_CHIP
-	logError(1, "%s %s: Verifying if Config CRC Error...\n", tag, __func__);
-	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
-	res = fts_writeCmd(cmd, 4);
-	if (res < OK) {
-		logError(1, "%s %s Cannot send system resest command:%08X\n",
-			tag, __func__, res);
-		return res;
-	}
-	setSystemResettedDown(1);
-	setSystemResettedUp(1);
-	res = pollForEvent(event_to_search, 2, readData, GENERAL_TIMEOUT);
-	if (res < OK) {
-		logError(1, "%s %s: No Config CRC Found!\n", tag, __func__);
-	} else {
-		if (readData[2] == CRC_CONFIG_SIGNATURE ||
-				readData[2] == CRC_CONFIG) {
-			logError(1, "%s:%s: CRC Error for config found! %02X\n",
-				tag, __func__, readData[2]);
-			return readData[2];
-		}
-	}
-#endif
-	/*return OK if no CRC error, or a number >OK if crc error*/
-	return OK;
-}
-
-static void fts_fw_update_auto(struct work_struct *work)
-{
-#ifndef FTM3_CHIP
-	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
-	int event_to_search[2] = {(int)EVENTID_ERROR_EVENT,
-					(int)EVENT_TYPE_CHECKSUM_ERROR};
-	u8 readData[FIFO_EVENT_SIZE];
-	int flag_init = 0;
-#endif
-	int retval = 0;
-	int retval1 = 0;
-	int ret;
-	struct fts_ts_info *info;
-	struct delayed_work *fwu_work = container_of(work,
-	struct delayed_work, work);
-	int crc_status = 0;
-	int error = 0;
-
-	info = container_of(fwu_work, struct fts_ts_info, fwu_work);
-	logError(1, "%s Fw Auto Update is starting...\n", tag);
-
-	/* check CRC status */
-	ret = cx_crc_check();
-	if (ret > OK && ftsInfo.u16_fwVer == 0x0000) {
-		logError(1, "%s %s: CRC Error or NO FW!\n", tag, __func__);
-		crc_status = 1;
-	} else {
-		crc_status = 0;
-		logError(1,
-			"%s %s:NO Error or Impossible to read CRC register!\n",
-			tag, __func__);
-	}
-#ifdef FTM3_CHIP
-	retval = flashProcedure(PATH_FILE_FW, crc_status, !crc_status);
-#else
-	retval = flashProcedure(PATH_FILE_FW, crc_status, 1);
-#endif
-	if ((retval & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
-		logError(1,
-			"%s %s:firmware update failed and retry! ERROR %08X\n",
-			tag, __func__, retval);
-		fts_chip_powercycle(info); /* power reset */
-#ifdef FTM3_CHIP
-		retval1 = flashProcedure(PATH_FILE_FW, crc_status, !crc_status);
-#else
-		retval1 = flashProcedure(PATH_FILE_FW, crc_status, 1);
-#endif
-		if ((retval1 & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
-			logError(1,
-				"%s %s: firmware update failed again! %08X\n",
-				tag, __func__, retval1);
-			logError(1, "%s Fw Auto Update Failed!\n", tag);
-			/* return; */
-		}
-	}
-#ifndef FTM3_CHIP
-	logError(1, "%s %s: Verifying if CX CRC Error...\n",
-		tag, __func__, ret);
-	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
-	ret = fts_writeCmd(cmd, 4);
-	if (ret < OK) {
-		logError(1,
-			"%s %s Cannot send system reset command ERROR %08X\n",
-			tag, __func__, ret);
-	} else {
-		setSystemResettedDown(1);
-		setSystemResettedUp(1);
-		ret = pollForEvent(event_to_search, 2, readData,
-				GENERAL_TIMEOUT);
-		if (ret < OK) {
-			logError(1, "%s %s: No CX CRC Found!\n", tag, __func__);
-		} else {
-			if (readData[2] == CRC_CX_MEMORY) {
-				logError(1, "%s %s: CRC Error for CX found! ",
-					tag, __func__);
-				logError(1, "ERROR:%02X\n\n", readData[2]);
-				flag_init = 1;
-			}
-		}
-	}
-#endif
-
-	if (ftsInfo.u8_msScrConfigTuneVer != ftsInfo.u8_msScrCxmemTuneVer ||
-		ftsInfo.u8_ssTchConfigTuneVer != ftsInfo.u8_ssTchCxmemTuneVer)
-		ret = ERROR_GET_INIT_STATUS;
-	else if (((ftsInfo.u32_mpPassFlag != INIT_MP)
-		&& (ftsInfo.u32_mpPassFlag != INIT_FIELD))
-#ifndef FTM3_CHIP
-		|| flag_init == 1
-#endif
-		)
-		ret = ERROR_GET_INIT_STATUS;
-	else
-		ret = OK;
-	/**
-	 * initialization status not correct or
-	 * after FW complete update, do initialization.
-	 */
-	if (ret == ERROR_GET_INIT_STATUS) {
-		error = fts_chip_initialization(info);
-		if (error < OK) {
-			logError(1,
-				"%s %s Cannot initialize the chip ERROR %08X\n",
-				tag, __func__, error);
-		}
-	}
-
-	error = fts_init_afterProbe(info);
-	if (error < OK) {
-		logError(1,
-			"%s Cannot initialize the hardware device ERROR %08X\n",
-			tag, error);
-	}
-	logError(1, "%s Fw Auto Update Finished!\n", tag);
-}
-
-static int fts_chip_initialization(struct fts_ts_info *info)
-{
-	int ret2 = 0;
-	int retry;
-	int initretrycnt = 0;
-	struct TestToDo todoDefault;
-
-	todoDefault.MutualRaw = 1;
-	todoDefault.MutualRawGap = 1;
-	todoDefault.MutualCx1 = 0;
-	todoDefault.MutualCx2 = 1;
-	todoDefault.MutualCx2Adj = 1;
-	todoDefault.MutualCxTotal = 0;
-	todoDefault.MutualCxTotalAdj = 0;
-
-	todoDefault.MutualKeyRaw = 0;
-	todoDefault.MutualKeyCx1 = 0;
-	todoDefault.MutualKeyCx2 = 0;
-	todoDefault.MutualKeyCxTotal = 0;
-
-	todoDefault.SelfForceRaw = 1;
-	todoDefault.SelfForceRawGap = 0;
-	todoDefault.SelfForceIx1 = 0;
-	todoDefault.SelfForceIx2 = 0;
-	todoDefault.SelfForceIx2Adj = 0;
-	todoDefault.SelfForceIxTotal = 1;
-	todoDefault.SelfForceIxTotalAdj = 0;
-	todoDefault.SelfForceCx1 = 0;
-	todoDefault.SelfForceCx2 = 0;
-	todoDefault.SelfForceCx2Adj = 0;
-	todoDefault.SelfForceCxTotal = 0;
-	todoDefault.SelfForceCxTotalAdj = 0;
-
-	todoDefault.SelfSenseRaw = 1;
-	todoDefault.SelfSenseRawGap = 0;
-	todoDefault.SelfSenseIx1 = 0;
-	todoDefault.SelfSenseIx2 = 0;
-	todoDefault.SelfSenseIx2Adj = 0;
-	todoDefault.SelfSenseIxTotal = 1;
-	todoDefault.SelfSenseIxTotalAdj = 0;
-	todoDefault.SelfSenseCx1 = 0;
-	todoDefault.SelfSenseCx2 = 0;
-	todoDefault.SelfSenseCx2Adj = 0;
-	todoDefault.SelfSenseCxTotal = 0;
-	todoDefault.SelfSenseCxTotalAdj = 0;
-
-	/*initialization error, retry initialization */
-	for (retry = 0; retry <= INIT_FLAG_CNT; retry++) {
-		ret2 = production_test_main(LIMITS_FILE, 1, 1, &todoDefault,
-			INIT_FIELD);
-		if (ret2 == OK)
-			break;
-		initretrycnt++;
-		logError(1,
-			"%s initialization cycle count = %04d - ERROR %08X\n",
-			tag, initretrycnt, ret2);
-		fts_chip_powercycle(info);
-	}
-	/* initialization error */
-	if (ret2 < OK)
-		logError(1, "%s fts initialization failed 3 times\n", tag);
-	return ret2;
-}
 
 #ifdef FTS_USE_POLLING_MODE
 
@@ -4483,7 +4247,7 @@ static int fts_probe(struct i2c_client *client,
 	}
 	info->client->irq = gpio_to_irq(info->bdata->irq_gpio);
 
-	logError(1, "%s SET Auto Fw Update:\n", tag);
+	logError(0, "%s SET Auto Fw Update:\n", tag);
 	/*info->fwu_workqueue =*/
 	/*create_singlethread_workqueue("fts-fwu-queue");*/
 	info->fwu_workqueue = alloc_workqueue("fts-fwu-queue",
@@ -4492,7 +4256,14 @@ static int fts_probe(struct i2c_client *client,
 		logError(1, "%s ERROR: Cannot create fwu work thread\n", tag);
 		goto ProbeErrorExit_3;
 	}
-	INIT_DELAYED_WORK(&info->fwu_work, fts_fw_update_auto);
+
+	error = fts_init_afterProbe(info);
+	if (error < OK) {
+		logError(1,
+			"%s Cannot initialize the hardware device ERROR %08X\n",
+			tag, error);
+		goto ProbeErrorExit_3;
+	}
 
 	logError(1, "%s SET Event Handler:\n", tag);
 	/*wake_lock_init(&info->wakelock, WAKE_LOCK_SUSPEND, "fts_tp");*/
@@ -4700,8 +4471,7 @@ static int fts_probe(struct i2c_client *client,
 		goto ProbeErrorExit_11;
 	}
 #endif
-	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
-			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
+
 	logError(1, "%s Probe Finished!\n", tag);
 	return OK;
 

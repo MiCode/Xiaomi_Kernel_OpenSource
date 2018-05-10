@@ -11,7 +11,13 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-qcs405.h>
+#include <dt-bindings/clock/qcom,cpu-qcs405.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS405";
@@ -27,6 +33,11 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		smem_region: smem@85f00000 {
+			no-map;
+			reg = <0x0 0x85f00000 0x0 0x200000>;
+		};
 	};
 
 	aliases { };
@@ -36,6 +47,7 @@
 };
 
 #include "qcs405-pinctrl.dtsi"
+#include "qcs405-blsp.dtsi"
 #include "qcs405-cpu.dtsi"
 
 &soc {
@@ -133,6 +145,28 @@
 		clock-frequency = <32768>;
 	};
 
+	clock_rpmcc: qcom,rpmcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,gcc-qcs405", "syscon";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pmd9655_s1_level>;
+		clocks = <&clock_rpmcc RPM_SMD_XO_CLK_SRC>;
+		clock-names = "cxo";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_cpu: qcom,cpu {
+		compatible = "qcom,dummycc";
+		clock-output-names = "cpu_clocks";
+		#clock-cells = <1>;
+	};
+
 	cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupts = <1 7 0xff00>;
@@ -141,6 +175,30 @@
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,pipe-attr-ee;
+	};
+
+	slim_aud: slim@c1c0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc1c0000 0x2c000>,
+			<0xc184000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 180 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x7c0000>;
+		qcom,ea-pc = <0x2e0>;
+		status = "disabled";
+	};
+
+	slim_qca: slim@c240000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc240000 0x2c000>,
+			<0xc204000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 191 0>, <0 63 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		status = "disabled";
 	};
 
 	blsp1_uart2: serial@78b0000 {
@@ -156,6 +214,31 @@
 		      <0xb4000 0x2000>;
 		reg-names = "dcc-base", "dcc-ram-base";
 		qcom,save-reg;
+	};
+
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
+
+	spmi_bus: qcom,spmi@200f000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0x200f000 0x1000>,
+			<0x2400000 0x800000>,
+			<0x2c00000 0x800000>,
+			<0x3800000 0x200000>,
+			<0x200a000 0x2100>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupt-names = "periph_irq";
+		interrupts = <GIC_SPI 190 IRQ_TYPE_NONE>;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
 	};
 
 	qcom,wdt@b017000 {
@@ -223,4 +306,252 @@
 		interrupt-names = "tsens-upper-lower";
 		#thermal-sensor-cells = <1>;
 	};
+
+	tcsr_mutex_block: syscon@1905000 {
+		compatible = "syscon";
+		reg = <0x1905000 0x20000>;
+	};
+
+	tcsr_mutex: hwlock {
+		compatible = "qcom,tcsr-mutex";
+		syscon = <&tcsr_mutex_block 0 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	smem: qcom,smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_region>;
+		hwlocks = <&tcsr_mutex 3>;
+	};
+
+	rpm_msg_ram: memory@60000 {
+			compatible = "qcom,rpm-msg-ram";
+			reg = <0x60000 0x6000>;
+	};
+
+	apcs: syscon@b011000 {
+		compatible = "syscon";
+		reg = <0xb011000 0x4>;
+	};
+
+	apcs_glb: mailbox@b011000 {
+		compatible = "qcom,msm8916-apcs-kpss-global";
+		reg = <0xb011000 0x1000>;
+
+		#mbox-cells = <1>;
+	};
+
+	rpm-glink {
+		compatible = "qcom,glink-rpm";
+		interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
+		qcom,rpm-msg-ram = <&rpm_msg_ram>;
+		mboxes = <&apcs_glb 0>;
+	};
+
+	qcom,glink {
+		compatible = "qcom,glink";
+		modem {
+			qcom,remote-pid = <1>;
+			transport = "smem";
+			mboxes = <&apcs_glb 16>;
+			mbox-names = "mpss_smem";
+			interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
+
+			modem_qrtr {
+				qcom,glink-channels = "IPCRTR";
+				qcom,intents = <0x800  5
+						0x2000 3
+						0x4400 2>;
+			};
+		};
+
+		adsp {
+			qcom,remote-pid = <2>;
+			transport = "smem";
+			mboxes = <&apcs_glb 8>;
+			mbox-names = "adsp_smem";
+			interrupts = <GIC_SPI 289 IRQ_TYPE_EDGE_RISING>;
+
+			adsp_qrtr {
+				qcom,glink-channels = "IPCRTR";
+				qcom,intents = <0x800  5
+						0x2000 3
+						0x4400 2>;
+			};
+
+			apr_tal_rpmsg {
+				qcom,glink-channels = "apr_audio_svc";
+				qcom,intents = <0x200 20>;
+			};
+		};
+
+		cdsp {
+			qcom,remote-pid = <5>;
+			transport = "smem";
+			mboxes = <&apcs_glb 12>;
+			mbox-names = "cdsp_smem";
+			interrupts = <GIC_SPI 141 IRQ_TYPE_EDGE_RISING>;
+
+			cdsp_qrtr {
+				qcom,glink-channels = "IPCRTR";
+				qcom,intents = <0x800  5
+						0x2000 3
+						0x4400 2>;
+			};
+		};
+	};
+
+	qcom,glinkpkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-at-mdm0 {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DS";
+			qcom,glinkpkt-dev-name = "at_mdm0";
+		};
+
+		qcom,glinkpkt-apr-apps2 {
+			qcom,glinkpkt-edge = "adsp";
+			qcom,glinkpkt-ch-name = "apr_apps2";
+			qcom,glinkpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,glinkpkt-data40-cntl {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA40_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl8";
+		};
+
+		qcom,glinkpkt-data1 {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA1";
+			qcom,glinkpkt-dev-name = "smd7";
+		};
+
+		qcom,glinkpkt-data4 {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA4";
+			qcom,glinkpkt-dev-name = "smd8";
+		};
+
+		qcom,glinkpkt-data11 {
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA11";
+			qcom,glinkpkt-dev-name = "smd11";
+		};
+	};
+
+	qcom,smp2p-modem {
+		compatible = "qcom,smp2p";
+		qcom,smem = <435>, <428>;
+		interrupts = <GIC_SPI 158 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs 0 18>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p-adsp {
+		compatible = "qcom,smp2p";
+		qcom,smem = <443>, <429>;
+		interrupts = <GIC_SPI 291 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs 0 10>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <2>;
+
+		adsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		adsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p-cdsp {
+		compatible = "qcom,smp2p";
+		qcom,smem = <94>, <432>;
+		interrupts = <GIC_SPI 143 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs 0 14>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <5>;
+
+		cdsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		cdsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	thermal_zones: thermal-zones {};
+
+	usb0: hsusb@78c0000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0x78c0000 0x100000>;
+		reg-names = "core_base";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		interrupts = <0 32 0>;
+		interrupt-names = "pwr_event_irq";
+		/* Using dummy Xo clock, need to check the proper mapping */
+		clocks = <&clock_gcc GCC_USB_HS_SYSTEM_CLK>,
+			 <&clock_gcc GCC_PCNOC_USB2_CLK>,
+			 <&clock_gcc GCC_USB30_SLEEP_CLK>,
+			 <&clock_gcc GCC_USB_HS_INACTIVITY_TIMERS_CLK>,
+			 <&clock_gcc GCC_USB20_MOCK_UTMI_CLK>;
+		clock-names = "core_clk", "iface_clk", "xo",
+				"sleep_clk", "utmi_clk";
+
+		qcom,core-clk-rate = <200000000>;
+		qcom,core-clk-rate-hs = <66666667>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+		resets = <&clock_gcc GCC_USB_HS_BCR>;
+		reset-names = "core_reset";
+
+		dwc3@78c0000 {
+			compatible = "snps,dwc3";
+			reg = <0x78c0000 0xcd00>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 44 0>;
+			tx-fifo-resize;
+			linux,sysdev_is_parent;
+			snps,disable-clk-gating;
+			snps,has-lpm-erratum;
+			snps,hird-threshold = /bits/ 8 <0x10>;
+		};
+	};
+};
+
+#include "qcs405-gdsc.dtsi"
+#include "qcs405-thermal.dtsi"
+#include "pms405.dtsi"
+#include "pms405-rpm-regulator.dtsi"
+#include "qcs405-regulator.dtsi"
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_oxili_gx {
+	status = "ok";
 };

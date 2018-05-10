@@ -37,6 +37,9 @@
 #define sCR0_VMID16EN			(1 << 31)
 #define sCR0_BSU_SHIFT			14
 #define sCR0_BSU_MASK			0x3
+#define sCR0_SHCFG_SHIFT		22
+#define sCR0_SHCFG_MASK			0x3
+#define sCR0_SHCFG_NSH			3
 
 /* Auxiliary Configuration register */
 #define ARM_SMMU_GR0_sACR		0x10
@@ -114,6 +117,9 @@
 #define S2CR_EXIDVALID			(1 << 10)
 #define S2CR_TYPE_SHIFT			16
 #define S2CR_TYPE_MASK			0x3
+#define S2CR_SHCFG_SHIFT		8
+#define S2CR_SHCFG_MASK			0x3
+#define S2CR_SHCFG_NSH			0x3
 enum arm_smmu_s2cr_type {
 	S2CR_TYPE_TRANS,
 	S2CR_TYPE_BYPASS,
@@ -184,6 +190,9 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 
+#define SCTLR_SHCFG_SHIFT		22
+#define SCTLR_SHCFG_MASK		0x3
+#define SCTLR_SHCFG_NSH			0x3
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
 #define SCTLR_HUPCF			(1 << 8)

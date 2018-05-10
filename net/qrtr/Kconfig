@@ -21,4 +21,11 @@ config QRTR_SMD
 	  Say Y here to support SMD based ipcrouter channels.  SMD is the
 	  most common transport for IPC Router.
 
+config QRTR_MHI
+	tristate "MHI IPC Router channels"
+	depends on MHI_BUS || (COMPILE_TEST && MHI_BUS=n)
+	---help---
+	  Say Y here to support MHI based ipcrouter channels.  MHI is the
+	  transport used for external modem connections for IPC Router.
+
 endif # QRTR

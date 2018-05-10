@@ -51,10 +51,7 @@ enum {
 	P_CORE_BI_PLL_TEST_SE,
 	P_GPLL0_OUT_EVEN,
 	P_GPLL0_OUT_MAIN,
-	P_GPLL1_OUT_MAIN,
-	P_GPLL2_OUT_MAIN,
 	P_GPLL4_OUT_MAIN,
-	P_GPLL5_OUT_MAIN,
 	P_GPLL7_OUT_MAIN,
 	P_GPLL9_OUT_MAIN,
 	P_SLEEP_CLK,
@@ -133,10 +130,7 @@ static const char * const gcc_parent_names_4[] = {
 static const struct parent_map gcc_parent_map_5[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_GPLL0_OUT_MAIN, 1 },
-	{ P_GPLL2_OUT_MAIN, 2 },
-	{ P_GPLL5_OUT_MAIN, 3 },
-	{ P_GPLL1_OUT_MAIN, 4 },
-	{ P_GPLL4_OUT_MAIN, 5 },
+	{ P_GPLL7_OUT_MAIN, 3 },
 	{ P_GPLL0_OUT_EVEN, 6 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
@@ -144,31 +138,12 @@ static const struct parent_map gcc_parent_map_5[] = {
 static const char * const gcc_parent_names_5[] = {
 	"bi_tcxo",
 	"gpll0",
-	"gpll2",
-	"gpll5",
-	"gpll1",
-	"gpll4",
-	"gpll0_out_even",
-	"core_bi_pll_test_se",
-};
-
-static const struct parent_map gcc_parent_map_6[] = {
-	{ P_BI_TCXO, 0 },
-	{ P_GPLL0_OUT_MAIN, 1 },
-	{ P_GPLL7_OUT_MAIN, 3 },
-	{ P_GPLL0_OUT_EVEN, 6 },
-	{ P_CORE_BI_PLL_TEST_SE, 7 },
-};
-
-static const char * const gcc_parent_names_6[] = {
-	"bi_tcxo",
-	"gpll0",
 	"gpll7",
 	"gpll0_out_even",
 	"core_bi_pll_test_se",
 };
 
-static const struct parent_map gcc_parent_map_7[] = {
+static const struct parent_map gcc_parent_map_6[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_GPLL0_OUT_MAIN, 1 },
 	{ P_GPLL9_OUT_MAIN, 2 },
@@ -177,7 +152,7 @@ static const struct parent_map gcc_parent_map_7[] = {
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
-static const char * const gcc_parent_names_7[] = {
+static const char * const gcc_parent_names_6[] = {
 	"bi_tcxo",
 	"gpll0",
 	"gpll9",
@@ -186,7 +161,7 @@ static const char * const gcc_parent_names_7[] = {
 	"core_bi_pll_test_se",
 };
 
-static const struct parent_map gcc_parent_map_8[] = {
+static const struct parent_map gcc_parent_map_7[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_GPLL0_OUT_MAIN, 1 },
 	{ P_AUD_REF_CLK, 2 },
@@ -194,7 +169,7 @@ static const struct parent_map gcc_parent_map_8[] = {
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
-static const char * const gcc_parent_names_8[] = {
+static const char * const gcc_parent_names_7[] = {
 	"bi_tcxo",
 	"gpll0",
 	"aud_ref_clk",
@@ -294,54 +269,6 @@ static struct clk_alpha_pll_postdiv gpll0_out_even = {
 	},
 };
 
-static struct clk_alpha_pll gpll1 = {
-	.offset = 0x1000,
-	.vco_table = trion_vco,
-	.num_vco = ARRAY_SIZE(trion_vco),
-	.type = TRION_PLL,
-	.clkr = {
-		.enable_reg = 0x52000,
-		.enable_mask = BIT(1),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpll1",
-			.parent_names = (const char *[]){ "bi_tcxo" },
-			.num_parents = 1,
-			.ops = &clk_trion_fixed_pll_ops,
-			.vdd_class = &vdd_cx,
-			.num_rate_max = VDD_NUM,
-			.rate_max = (unsigned long[VDD_NUM]) {
-				[VDD_MIN] = 615000000,
-				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
-		},
-	},
-};
-
-static struct clk_alpha_pll gpll4 = {
-	.offset = 0x76000,
-	.vco_table = trion_vco,
-	.num_vco = ARRAY_SIZE(trion_vco),
-	.type = TRION_PLL,
-	.clkr = {
-		.enable_reg = 0x52000,
-		.enable_mask = BIT(4),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpll4",
-			.parent_names = (const char *[]){ "bi_tcxo" },
-			.num_parents = 1,
-			.ops = &clk_trion_fixed_pll_ops,
-			.vdd_class = &vdd_cx,
-			.num_rate_max = VDD_NUM,
-			.rate_max = (unsigned long[VDD_NUM]) {
-				[VDD_MIN] = 615000000,
-				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
-		},
-	},
-};
-
 static struct clk_alpha_pll gpll7 = {
 	.offset = 0x1a000,
 	.vco_table = trion_vco,
@@ -430,11 +357,11 @@ static struct clk_rcg2 gcc_emac_ptp_clk_src = {
 	.cmd_rcgr = 0x6038,
 	.mnd_width = 0,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_6,
+	.parent_map = gcc_parent_map_5,
 	.freq_tbl = ftbl_gcc_emac_ptp_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_emac_ptp_clk_src",
-		.parent_names = gcc_parent_names_6,
+		.parent_names = gcc_parent_names_5,
 		.num_parents = 5,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
@@ -463,11 +390,11 @@ static struct clk_rcg2 gcc_emac_rgmii_clk_src = {
 	.cmd_rcgr = 0x601c,
 	.mnd_width = 8,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_6,
+	.parent_map = gcc_parent_map_5,
 	.freq_tbl = ftbl_gcc_emac_rgmii_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_emac_rgmii_clk_src",
-		.parent_names = gcc_parent_names_6,
+		.parent_names = gcc_parent_names_5,
 		.num_parents = 5,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
@@ -553,41 +480,6 @@ static struct clk_rcg2 gcc_gp3_clk_src = {
 			[VDD_LOWER] = 50000000,
 			[VDD_LOW] = 100000000,
 			[VDD_NOMINAL] = 200000000},
-	},
-};
-
-static const struct freq_tbl ftbl_gcc_npu_axi_clk_src[] = {
-	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(60000000, P_GPLL0_OUT_EVEN, 5, 0, 0),
-	F(150000000, P_GPLL0_OUT_EVEN, 2, 0, 0),
-	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
-	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
-	F(403000000, P_GPLL4_OUT_MAIN, 2, 0, 0),
-	F(533000000, P_GPLL1_OUT_MAIN, 2, 0, 0),
-	{ }
-};
-
-static struct clk_rcg2 gcc_npu_axi_clk_src = {
-	.cmd_rcgr = 0x4d014,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = gcc_parent_map_5,
-	.freq_tbl = ftbl_gcc_npu_axi_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "gcc_npu_axi_clk_src",
-		.parent_names = gcc_parent_names_5,
-		.num_parents = 8,
-		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 60000000,
-			[VDD_LOWER] = 150000000,
-			[VDD_LOW] = 200000000,
-			[VDD_LOW_L1] = 300000000,
-			[VDD_NOMINAL] = 403000000,
-			[VDD_HIGH] = 533000000},
 	},
 };
 
@@ -1187,7 +1079,7 @@ static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(25000000, P_GPLL0_OUT_MAIN, 12, 1, 2),
 	F(50000000, P_GPLL0_OUT_MAIN, 12, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	F(201600000, P_GPLL9_OUT_MAIN, 4, 0, 0),
+	F(202000000, P_GPLL9_OUT_MAIN, 4, 0, 0),
 	{ }
 };
 
@@ -1195,11 +1087,11 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 	.cmd_rcgr = 0x1400c,
 	.mnd_width = 8,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_7,
+	.parent_map = gcc_parent_map_6,
 	.freq_tbl = ftbl_gcc_sdcc2_apps_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_sdcc2_apps_clk_src",
-		.parent_names = gcc_parent_names_7,
+		.parent_names = gcc_parent_names_6,
 		.num_parents = 6,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
@@ -1208,7 +1100,7 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 19200000,
 			[VDD_LOW] = 100000000,
-			[VDD_LOW_L1] = 201600000},
+			[VDD_LOW_L1] = 202000000},
 	},
 };
 
@@ -1252,11 +1144,11 @@ static struct clk_rcg2 gcc_tsif_ref_clk_src = {
 	.cmd_rcgr = 0x36010,
 	.mnd_width = 8,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_8,
+	.parent_map = gcc_parent_map_7,
 	.freq_tbl = ftbl_gcc_tsif_ref_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_tsif_ref_clk_src",
-		.parent_names = gcc_parent_names_8,
+		.parent_names = gcc_parent_names_7,
 		.num_parents = 5,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
@@ -1515,6 +1407,7 @@ static struct clk_rcg2 gcc_usb30_prim_master_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_usb30_prim_mock_utmi_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(20000000, P_GPLL0_OUT_EVEN, 15, 0, 0),
 	F(60000000, P_GPLL0_OUT_EVEN, 5, 0, 0),
 	{ }
@@ -4065,7 +3958,6 @@ static struct clk_regmap *gcc_sm8150_clocks[] = {
 	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
 	[GCC_NPU_AT_CLK] = &gcc_npu_at_clk.clkr,
 	[GCC_NPU_AXI_CLK] = &gcc_npu_axi_clk.clkr,
-	[GCC_NPU_AXI_CLK_SRC] = &gcc_npu_axi_clk_src.clkr,
 	[GCC_NPU_CFG_AHB_CLK] = &gcc_npu_cfg_ahb_clk.clkr,
 	[GCC_NPU_GPLL0_CLK_SRC] = &gcc_npu_gpll0_clk_src.clkr,
 	[GCC_NPU_GPLL0_DIV_CLK_SRC] = &gcc_npu_gpll0_div_clk_src.clkr,
@@ -4230,8 +4122,6 @@ static struct clk_regmap *gcc_sm8150_clocks[] = {
 	[GCC_VIDEO_XO_CLK] = &gcc_video_xo_clk.clkr,
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
-	[GPLL1] = &gpll1.clkr,
-	[GPLL4] = &gpll4.clkr,
 	[GPLL7] = &gpll7.clkr,
 	[GPLL9] = &gpll9.clkr,
 };

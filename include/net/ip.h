@@ -295,6 +295,8 @@ static inline int inet_prot_sock(struct net *net)
 
 __be32 inet_current_timestamp(void);
 
+extern int sysctl_reserved_port_bind;
+
 /* From inetpeer.c */
 extern int inet_peer_threshold;
 extern int inet_peer_minttl;

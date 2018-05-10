@@ -1215,47 +1215,132 @@ static u32 _sde_rm_poll_intr_status_for_cont_splash(struct sde_hw_intr *intr,
 	return -ETIMEDOUT;
 }
 
+static inline bool _sde_rm_autorefresh_validate(struct sde_hw_pingpong *pp,
+		struct sde_hw_intf *intf,
+		bool hw_intf_te)
+{
+
+	if ((hw_intf_te && !intf) ||
+		(!hw_intf_te && !pp)) {
+		SDE_ERROR("autorefresh wrong params!\n");
+		return true;
+	}
+
+	if (hw_intf_te) {
+		if (!intf->ops.get_autorefresh ||
+				!intf->ops.setup_autorefresh ||
+				!intf->ops.connect_external_te ||
+				!intf->ops.get_vsync_info) {
+			SDE_ERROR("intf autorefresh apis not supported\n");
+			return true;
+		}
+	} else {
+		if (!pp->ops.get_autorefresh ||
+				!pp->ops.setup_autorefresh ||
+				!pp->ops.connect_external_te ||
+				!pp->ops.get_vsync_info) {
+			SDE_ERROR("pp autorefresh apis not supported\n");
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static inline void _sde_rm_autorefresh_get_cfg(
+		struct sde_hw_pingpong *pp,
+		struct sde_hw_intf *intf,
+		struct sde_hw_autorefresh *cfg,
+		bool hw_intf_te)
+{
+	if (hw_intf_te)
+		intf->ops.get_autorefresh(intf, cfg);
+	else
+		pp->ops.get_autorefresh(pp, cfg);
+}
+
+static inline void _sde_rm_autorefresh_connect_external_te(
+		struct sde_hw_pingpong *pp,
+		struct sde_hw_intf *intf,
+		bool hw_intf_te,
+		bool enable)
+{
+	if (hw_intf_te)
+		intf->ops.connect_external_te(intf, enable);
+	else
+		pp->ops.connect_external_te(pp, enable);
+}
+
+static inline void _sde_rm_autorefresh_setup(struct sde_hw_pingpong *pp,
+		struct sde_hw_intf *intf,
+		struct sde_hw_autorefresh *cfg,
+		bool hw_intf_te)
+{
+	if (hw_intf_te)
+		intf->ops.setup_autorefresh(intf, cfg);
+	else
+		pp->ops.setup_autorefresh(pp, cfg);
+}
+
+static inline void _sde_rm_autorefresh_get_vsync_info(
+		struct sde_hw_pingpong *pp,
+		struct sde_hw_intf *intf,
+		struct sde_hw_pp_vsync_info *info,
+		bool hw_intf_te)
+{
+	if (hw_intf_te)
+		intf->ops.get_vsync_info(intf, info);
+	else
+		pp->ops.get_vsync_info(pp, info);
+}
+
 static int _sde_rm_autorefresh_disable(struct sde_hw_pingpong *pp,
-		struct sde_hw_intr *hw_intr)
+		struct sde_hw_intf *intf,
+		struct sde_hw_intr *hw_intr,
+		bool hw_intf_te)
 {
 	u32 const timeout_ms = 35; /* Max two vsyncs delay */
 	int rc = 0, i, loop = 3;
 	struct sde_hw_pp_vsync_info info;
 	int irq_idx_pp_done = -1, irq_idx_autorefresh = -1;
 	struct sde_hw_autorefresh cfg = {0};
+	int dbg_idx;
+	int te_irq_idx;
 
-	if (!pp->ops.get_autorefresh || !pp->ops.setup_autorefresh ||
-		!pp->ops.connect_external_te || !pp->ops.get_vsync_info) {
-		SDE_ERROR("autorefresh update api not supported\n");
+	if (_sde_rm_autorefresh_validate(pp, intf, hw_intf_te))
 		return 0;
-	}
+
+	dbg_idx = hw_intf_te ? intf->idx - INTF_0 : pp->idx - PINGPONG_0;
+	te_irq_idx = hw_intf_te ? intf->idx : pp->idx;
 
 	/* read default autorefresh configuration */
-	pp->ops.get_autorefresh(pp, &cfg);
+	_sde_rm_autorefresh_get_cfg(pp, intf, &cfg, hw_intf_te);
+
 	if (!cfg.enable) {
-		SDE_DEBUG("autorefresh already disabled\n");
-		SDE_EVT32(pp->idx - PINGPONG_0, SDE_EVTLOG_FUNC_CASE1);
+		SDE_DEBUG("autorefresh already disabled idx:%d\n",
+			dbg_idx);
+		SDE_EVT32(dbg_idx, SDE_EVTLOG_FUNC_CASE1);
 		return 0;
 	}
 
 	/* disable external TE first */
-	pp->ops.connect_external_te(pp, false);
+	_sde_rm_autorefresh_connect_external_te(pp, intf, hw_intf_te, false);
 
 	/* get all IRQ indexes */
 	if (hw_intr->ops.irq_idx_lookup) {
 		irq_idx_pp_done = hw_intr->ops.irq_idx_lookup(
-				SDE_IRQ_TYPE_PING_PONG_COMP, pp->idx);
+				SDE_IRQ_TYPE_PING_PONG_COMP, te_irq_idx);
 		irq_idx_autorefresh = hw_intr->ops.irq_idx_lookup(
-				SDE_IRQ_TYPE_PING_PONG_AUTO_REF, pp->idx);
-		SDE_DEBUG("pp_done itr_idx = %d autorefresh irq_idx:%d\n",
+				SDE_IRQ_TYPE_PING_PONG_AUTO_REF, te_irq_idx);
+		SDE_DEBUG("pp_done irq_idx = %d autorefresh irq_idx:%d\n",
 				irq_idx_pp_done, irq_idx_autorefresh);
 	}
 
 	/* disable autorefresh */
 	cfg.enable = false;
-	pp->ops.setup_autorefresh(pp, &cfg);
+	_sde_rm_autorefresh_setup(pp, intf, &cfg, hw_intf_te);
 
-	SDE_EVT32(pp->idx - PINGPONG_0, irq_idx_pp_done, irq_idx_autorefresh);
+	SDE_EVT32(dbg_idx, irq_idx_pp_done, irq_idx_autorefresh);
 	_sde_rm_clear_irq_status(hw_intr, irq_idx_pp_done, irq_idx_autorefresh);
 
 	/*
@@ -1267,9 +1352,9 @@ static int _sde_rm_autorefresh_disable(struct sde_hw_pingpong *pp,
 	for (i = 0; i < loop; i++) {
 		info.wr_ptr_line_count = 0;
 		info.rd_ptr_init_val = 0;
-		pp->ops.get_vsync_info(pp, &info);
+		_sde_rm_autorefresh_get_vsync_info(pp, intf, &info, hw_intf_te);
 
-		SDE_EVT32(pp->idx - PINGPONG_0, info.wr_ptr_line_count,
+		SDE_EVT32(dbg_idx, info.wr_ptr_line_count,
 			info.rd_ptr_init_val, SDE_EVTLOG_FUNC_CASE1);
 
 		/* wait for read ptr intr */
@@ -1278,10 +1363,11 @@ static int _sde_rm_autorefresh_disable(struct sde_hw_pingpong *pp,
 
 		info.wr_ptr_line_count = 0;
 		info.rd_ptr_init_val = 0;
-		pp->ops.get_vsync_info(pp, &info);
-		SDE_DEBUG("i=%d, line count=%d\n", i, info.wr_ptr_line_count);
 
-		SDE_EVT32(pp->idx - PINGPONG_0, info.wr_ptr_line_count,
+		_sde_rm_autorefresh_get_vsync_info(pp, intf, &info, hw_intf_te);
+
+		SDE_DEBUG("i=%d, line count=%d\n", i, info.wr_ptr_line_count);
+		SDE_EVT32(dbg_idx, info.wr_ptr_line_count,
 			info.rd_ptr_init_val, SDE_EVTLOG_FUNC_CASE2);
 
 		/* log line count and return */
@@ -1295,7 +1381,7 @@ static int _sde_rm_autorefresh_disable(struct sde_hw_pingpong *pp,
 		usleep_range(3000, 4000);
 	}
 
-	pp->ops.connect_external_te(pp, true);
+	_sde_rm_autorefresh_connect_external_te(pp, intf, hw_intf_te, true);
 
 	return rc;
 }
@@ -1315,10 +1401,19 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 {
 	int index = 0;
 	int value, dsc_cnt = 0;
-	struct sde_rm_hw_iter iter_pp;
+	struct sde_rm_hw_iter iter_pp, intf_iter;
+	bool hw_intf_te_supported;
+	struct sde_hw_intr *hw_intr = NULL;
 
 	if (!rm || !sde_kms || !dsc_ids) {
 		SDE_ERROR("invalid input parameters\n");
+		return 0;
+	}
+
+	hw_intf_te_supported = sde_hw_intf_te_supported(sde_kms->catalog);
+	hw_intr = sde_kms->hw_intr;
+	if (!hw_intr) {
+		SDE_ERROR("hw_intr handler not initialized\n");
 		return 0;
 	}
 
@@ -1327,17 +1422,12 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 	while (_sde_rm_get_hw_locked(rm, &iter_pp)) {
 		struct sde_hw_pingpong *pp =
 				to_sde_hw_pingpong(iter_pp.blk->hw);
-		struct sde_hw_intr *hw_intr = NULL;
 
 		if (!pp->ops.get_dsc_status) {
 			SDE_ERROR("get_dsc_status ops not initialized\n");
 			return 0;
 		}
-		hw_intr = sde_kms->hw_intr;
-		if (!hw_intr) {
-			SDE_ERROR("hw_intr handler not initialized\n");
-			return 0;
-		}
+
 		value = pp->ops.get_dsc_status(pp);
 		SDE_DEBUG("DSC[%d]=0x%x, dsc_cnt = %d\n",
 				index, value, dsc_cnt);
@@ -1347,7 +1437,19 @@ static int _sde_rm_get_pp_dsc_for_cont_splash(struct sde_rm *rm,
 		}
 		index++;
 
-		_sde_rm_autorefresh_disable(pp, hw_intr);
+		if (!hw_intf_te_supported)
+			_sde_rm_autorefresh_disable(pp, NULL, hw_intr,
+				hw_intf_te_supported);
+	}
+
+	sde_rm_init_hw_iter(&intf_iter, 0, SDE_HW_BLK_INTF);
+	while (_sde_rm_get_hw_locked(rm, &intf_iter)) {
+		struct sde_hw_intf *intf =
+			to_sde_hw_intf(intf_iter.blk->hw);
+
+		if (hw_intf_te_supported)
+			_sde_rm_autorefresh_disable(NULL, intf, hw_intr,
+				hw_intf_te_supported);
 	}
 
 	return dsc_cnt;
@@ -1412,20 +1514,14 @@ static void _sde_rm_get_ctl_top_for_cont_splash(struct sde_hw_ctl *ctl,
 		return;
 	}
 
-	if (!ctl->ops.read_ctl_top) {
-		SDE_ERROR("read_ctl_top not initialized\n");
+	if (!ctl->ops.get_ctl_intf) {
+		SDE_ERROR("get_ctl_intf not initialized\n");
 		return;
 	}
 
-	top->value = ctl->ops.read_ctl_top(ctl);
-	top->intf_sel = (top->value >> 4) & 0xf;
-	top->pp_sel = (top->value >> 8) & 0x7;
-	top->dspp_sel = (top->value >> 11) & 0x3;
-	top->mode_sel = (top->value >> 17) & 0x1;
+	top->intf_sel = ctl->ops.get_ctl_intf(ctl);
 
-	SDE_DEBUG("id=%d,top->0x%x,pp_sel=0x%x,dspp_sel=0x%x,intf_sel=%d\n",
-				ctl->idx, top->value, top->pp_sel,
-				top->dspp_sel, top->intf_sel);
+	SDE_DEBUG("id=%d intf_sel=%d\n", ctl->idx, top->intf_sel);
 }
 
 int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
@@ -1436,6 +1532,7 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 	struct sde_rm_hw_iter iter_c;
 	int index = 0, ctl_top_cnt;
 	struct sde_kms *sde_kms = NULL;
+	struct sde_hw_mdp *hw_mdp;
 
 	if (!priv || !rm || !cat || !splash_data) {
 		SDE_ERROR("invalid input parameters\n");
@@ -1491,9 +1588,16 @@ int sde_rm_cont_splash_res_init(struct msm_drm_private *priv,
 				sde_kms,
 				cat->dsc_count,
 				splash_data->dsc_ids);
-	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d\n",
+
+	hw_mdp = sde_rm_get_mdp(rm);
+	if (hw_mdp && hw_mdp->ops.get_split_flush_status) {
+		splash_data->single_flush_en =
+			hw_mdp->ops.get_split_flush_status(hw_mdp);
+	}
+
+	SDE_DEBUG("splash_data: ctl_top_cnt=%d, lm_cnt=%d, dsc_cnt=%d sf=%d\n",
 		splash_data->ctl_top_cnt, splash_data->lm_cnt,
-		splash_data->dsc_cnt);
+		splash_data->dsc_cnt, splash_data->single_flush_en);
 
 	return 0;
 }
