@@ -2981,7 +2981,10 @@ bool mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl)
 		 * warning message is ignored.
 		 */
 		if (ctrl->panel_data.panel_info.esd_check_enabled &&
-			(ctrl->status_mode == ESD_BTA) && (status & 0x1008000))
+			((ctrl->status_mode == ESD_BTA) ||
+			 (ctrl->status_mode == ESD_REG) ||
+			 (ctrl->status_mode == ESD_REG_NT35596)) &&
+			 (status & 0x1008000))
 			return false;
 
 		pr_err("%s: status=%x\n", __func__, status);
@@ -3212,8 +3215,10 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 		 * cleared.
 		 */
 		if (ctrl->panel_data.panel_info.esd_check_enabled &&
-			(ctrl->status_mode == ESD_BTA) &&
-			(ctrl->panel_mode == DSI_VIDEO_MODE)) {
+			((ctrl->status_mode == ESD_BTA) ||
+			 (ctrl->status_mode == ESD_REG) ||
+			 (ctrl->status_mode == ESD_REG_NT35596)) &&
+			 (ctrl->panel_mode == DSI_VIDEO_MODE)) {
 			isr &= ~DSI_INTR_ERROR;
 			/* clear only overflow */
 			mdss_dsi_set_reg(ctrl, 0x0c, 0x44440000, 0x44440000);
