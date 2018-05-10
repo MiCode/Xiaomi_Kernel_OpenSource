@@ -159,10 +159,10 @@ static struct smb_params smb5_pm8150b_params = {
 	.freq_switcher		= {
 		.name	= "switching frequency",
 		.reg	= DCDC_FSW_SEL_REG,
-		.min_u	= 1200,
-		.max_u	= 2400,
+		.min_u	= 600,
+		.max_u	= 1200,
 		.step_u	= 400,
-		.set_proc = NULL,
+		.set_proc = smblib_set_chg_freq,
 	},
 };
 
@@ -242,18 +242,21 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->hw_max_icl_ua =
 			(chip->dt.usb_icl_ua > 0) ? chip->dt.usb_icl_ua
 						: PMI632_MAX_ICL_UA;
-		chg->chg_freq.freq_5V			= 600;
-		chg->chg_freq.freq_6V_8V		= 800;
-		chg->chg_freq.freq_9V			= 1050;
-		chg->chg_freq.freq_removal		= 1050;
-		chg->chg_freq.freq_below_otg_threshold	= 800;
-		chg->chg_freq.freq_above_otg_threshold	= 800;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",
 				pmic_rev_id->pmic_subtype);
 		rc = -EINVAL;
+		goto out;
 	}
+
+	chg->chg_freq.freq_5V			= 600;
+	chg->chg_freq.freq_6V_8V		= 800;
+	chg->chg_freq.freq_9V			= 1050;
+	chg->chg_freq.freq_12V                  = 1200;
+	chg->chg_freq.freq_removal		= 1050;
+	chg->chg_freq.freq_below_otg_threshold	= 800;
+	chg->chg_freq.freq_above_otg_threshold	= 800;
 
 out:
 	of_node_put(revid_dev_node);
