@@ -468,5 +468,19 @@
 		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
 		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
 		qcom,cpr-scaled-init-voltage-as-ceiling;
+
+		qcom,cpr-fuse-version-map =
+			/* <Speed-bin pvs-version cpr-rev ... ... ...> */
+			<(-1)    (-1)   ( 0)   (-1)    (-1)    (-1)>,
+			<(-1)    (-1)   (-1)   (-1)    (-1)    (-1)>;
+
+		qcom,cpr-quotient-adjustment =
+			<66    77      66>, /* SVSP_30mV, NOM_35mV, TUR_30mV */
+			<0      0       0>;
+
+		qcom,cpr-voltage-ceiling-override =
+			<(-1) (-1) 795000 795000 835000 910000 910000>;
+
+		qcom,cpr-enable;
 	};
 };
