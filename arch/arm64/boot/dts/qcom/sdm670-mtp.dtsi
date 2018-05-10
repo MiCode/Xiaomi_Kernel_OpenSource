@@ -202,7 +202,7 @@
 
 		cam_snapshot {
 			label = "cam_snapshot";
-			gpios = <&tlmm 91 0>;
+			gpios = <&tlmm 91 GPIO_ACTIVE_LOW>;
 			linux,input-type = <1>;
 			linux,code = <766>;
 			gpio-key,wakeup;
@@ -212,7 +212,7 @@
 
 		cam_focus {
 			label = "cam_focus";
-			gpios = <&tlmm 92 0>;
+			gpios = <&tlmm 92 GPIO_ACTIVE_HIGH>;
 			linux,input-type = <1>;
 			linux,code = <528>;
 			gpio-key,wakeup;
