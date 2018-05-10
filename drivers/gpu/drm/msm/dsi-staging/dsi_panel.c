@@ -1193,6 +1193,9 @@ static int dsi_panel_parse_video_host_config(struct dsi_video_engine_cfg *cfg,
 	cfg->bllp_lp11_en = utils->read_bool(utils->data,
 					"qcom,mdss-dsi-bllp-power-mode");
 
+	cfg->force_clk_lane_hs = of_property_read_bool(utils->data,
+					"qcom,mdss-dsi-force-clock-lane-hs");
+
 	traffic_mode = utils->get_property(utils->data,
 				       "qcom,mdss-dsi-traffic-mode",
 				       NULL);

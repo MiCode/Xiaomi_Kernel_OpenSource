@@ -92,6 +92,7 @@ struct dsi_phy_per_lane_cfgs {
  * @regulators:       Regulator settings for lanes.
  * @pll_source:       PLL source.
  * @lane_map:         DSI logical to PHY lane mapping.
+ * @force_clk_lane_hs:Boolean whether to force clock lane in HS mode.
  */
 struct dsi_phy_cfg {
 	struct dsi_phy_per_lane_cfgs lanecfg;
@@ -101,6 +102,7 @@ struct dsi_phy_cfg {
 	struct dsi_phy_per_lane_cfgs regulators;
 	enum dsi_phy_pll_source pll_source;
 	struct dsi_lane_map lane_map;
+	bool force_clk_lane_hs;
 };
 
 struct dsi_phy_hw;
