@@ -1242,6 +1242,9 @@ static int mhi_driver_remove(struct device *dev)
 		    !mhi_chan->offload_ch)
 			mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
 
+		/* remove associated device */
+		mhi_chan->mhi_dev = NULL;
+
 		mutex_unlock(&mhi_chan->mutex);
 	}
 
