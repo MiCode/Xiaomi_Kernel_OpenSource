@@ -1078,6 +1078,12 @@
 		#mbox-cells = <1>;
 	};
 
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};
+
 	vbus_detect: qcom,pmd-vbus-det {
 		compatible = "qcom,pmd-vbus-det";
 		interrupt-parent = <&spmi_bus>;
