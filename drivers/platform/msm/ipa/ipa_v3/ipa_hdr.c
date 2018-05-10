@@ -993,8 +993,9 @@ int ipa3_reset_hdr(bool user_only)
 	struct ipa_hdr_offset_entry *off_next;
 	struct ipa3_hdr_proc_ctx_offset_entry *ctx_off_entry;
 	struct ipa3_hdr_proc_ctx_offset_entry *ctx_off_next;
-	int i, end = 0;
-	bool user_rule = false;
+	struct ipa3_hdr_tbl *htbl = &ipa3_ctx->hdr_tbl;
+	struct ipa3_hdr_proc_ctx_tbl *htbl_proc = &ipa3_ctx->hdr_proc_ctx_tbl;
+	int i;
 
 	/*
 	 * issue a reset on the routing module since routing rules point to
@@ -1032,9 +1033,6 @@ int ipa3_reset_hdr(bool user_only)
 			return -EFAULT;
 		}
 
-		if (entry->ipacm_installed)
-			user_rule = true;
-
 		if (!user_only || entry->ipacm_installed) {
 			if (entry->is_hdr_proc_ctx) {
 				dma_unmap_single(ipa3_ctx->pdev,
@@ -1042,9 +1040,15 @@ int ipa3_reset_hdr(bool user_only)
 					entry->hdr_len,
 					DMA_TO_DEVICE);
 				entry->proc_ctx = NULL;
+			} else {
+				/* move the offset entry to free list */
+				entry->offset_entry->ipacm_installed = 0;
+				list_move(&entry->offset_entry->link,
+				&htbl->head_free_offset_list[
+					entry->offset_entry->bin]);
 			}
 			list_del(&entry->link);
-			ipa3_ctx->hdr_tbl.hdr_cnt--;
+			htbl->hdr_cnt--;
 			entry->ref_cnt = 0;
 			entry->cookie = 0;
 
@@ -1053,53 +1057,37 @@ int ipa3_reset_hdr(bool user_only)
 			kmem_cache_free(ipa3_ctx->hdr_cache, entry);
 		}
 	}
-	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
-		list_for_each_entry_safe(off_entry, off_next,
+
+	/* only clean up offset_list and free_offset_list on global reset */
+	if (!user_only) {
+		for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
+			list_for_each_entry_safe(off_entry, off_next,
 					 &ipa3_ctx->hdr_tbl.head_offset_list[i],
 					 link) {
-
-			/*
-			 * do not remove the default exception header which is
-			 * at offset 0
-			 */
-			if (off_entry->offset == 0)
-				continue;
-
-			if (!user_only ||
-					off_entry->ipacm_installed) {
+				/**
+				 * do not remove the default exception
+				 * header which is at offset 0
+				 */
+				if (off_entry->offset == 0)
+					continue;
 				list_del(&off_entry->link);
 				kmem_cache_free(ipa3_ctx->hdr_offset_cache,
 					off_entry);
-			} else {
-				if (off_entry->offset +
-					ipa_hdr_bin_sz[off_entry->bin] > end) {
-					end = off_entry->offset +
-						ipa_hdr_bin_sz[off_entry->bin];
-					IPADBG("replace end = %d\n", end);
-				}
 			}
-		}
-		list_for_each_entry_safe(off_entry, off_next,
+			list_for_each_entry_safe(off_entry, off_next,
 				&ipa3_ctx->hdr_tbl.head_free_offset_list[i],
 				link) {
-
-			if (!user_only ||
-					off_entry->ipacm_installed) {
 				list_del(&off_entry->link);
 				kmem_cache_free(ipa3_ctx->hdr_offset_cache,
 					off_entry);
 			}
 		}
+		/* there is one header of size 8 */
+		ipa3_ctx->hdr_tbl.end = 8;
+		ipa3_ctx->hdr_tbl.hdr_cnt = 1;
 	}
 
-	IPADBG("hdr_tbl.end = %d\n", end);
-	if (user_rule) {
-		ipa3_ctx->hdr_tbl.end = end;
-		IPADBG("hdr_tbl.end = %d\n", end);
-	}
 	IPADBG("reset hdr proc ctx\n");
-	user_rule = false;
-	end = 0;
 	list_for_each_entry_safe(
 		ctx_entry,
 		ctx_next,
@@ -1112,13 +1100,14 @@ int ipa3_reset_hdr(bool user_only)
 			return -EFAULT;
 		}
 
-		if (entry->ipacm_installed)
-			user_rule = true;
-
 		if (!user_only ||
 				ctx_entry->ipacm_installed) {
+			/* move the offset entry to appropriate free list */
+			list_move(&ctx_entry->offset_entry->link,
+				&htbl_proc->head_free_offset_list[
+					ctx_entry->offset_entry->bin]);
 			list_del(&ctx_entry->link);
-			ipa3_ctx->hdr_proc_ctx_tbl.proc_ctx_cnt--;
+			htbl_proc->proc_ctx_cnt--;
 			ctx_entry->ref_cnt = 0;
 			ctx_entry->cookie = 0;
 
@@ -1128,45 +1117,28 @@ int ipa3_reset_hdr(bool user_only)
 				ctx_entry);
 		}
 	}
-	for (i = 0; i < IPA_HDR_PROC_CTX_BIN_MAX; i++) {
-		list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
+	/* only clean up offset_list and free_offset_list on global reset */
+	if (!user_only) {
+		for (i = 0; i < IPA_HDR_PROC_CTX_BIN_MAX; i++) {
+			list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
 				&ipa3_ctx->hdr_proc_ctx_tbl.head_offset_list[i],
 				link) {
-
-			if (!user_only ||
-					ctx_off_entry->ipacm_installed) {
 				list_del(&ctx_off_entry->link);
 				kmem_cache_free(
 					ipa3_ctx->hdr_proc_ctx_offset_cache,
 					ctx_off_entry);
-			} else {
-				if (ctx_off_entry->offset +
-					ipa_hdr_bin_sz[ctx_off_entry->bin]
-					> end) {
-					end = ctx_off_entry->offset +
-					ipa_hdr_bin_sz[ctx_off_entry->bin];
-					IPADBG("replace hdr_proc as %d\n", end);
-				}
 			}
-		}
-		list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
-			&ipa3_ctx->hdr_proc_ctx_tbl.head_free_offset_list[i],
-			link) {
-
-			if (!user_only ||
-					ctx_off_entry->ipacm_installed) {
+			list_for_each_entry_safe(ctx_off_entry, ctx_off_next,
+				&ipa3_ctx->hdr_proc_ctx_tbl.
+				head_free_offset_list[i], link) {
 				list_del(&ctx_off_entry->link);
 				kmem_cache_free(
 					ipa3_ctx->hdr_proc_ctx_offset_cache,
 					ctx_off_entry);
 			}
 		}
-	}
-
-	IPADBG("hdr_proc_tbl.end = %d\n", end);
-	if (user_rule) {
-		ipa3_ctx->hdr_proc_ctx_tbl.end = end;
-		IPADBG("hdr_proc_tbl.end = %d\n", end);
+		ipa3_ctx->hdr_proc_ctx_tbl.end = 0;
+		ipa3_ctx->hdr_proc_ctx_tbl.proc_ctx_cnt = 0;
 	}
 
 	/* commit the change to IPA-HW */
