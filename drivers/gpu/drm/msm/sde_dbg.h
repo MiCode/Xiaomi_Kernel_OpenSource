@@ -345,8 +345,10 @@ void sde_rsc_debug_dump(u32 mux_sel);
 
 /**
  * dsi_ctrl_debug_dump - dump dsi debug dump status
+ * @entries:	array of debug bus control values
+ * @size:	size of the debug bus control array
  */
-void dsi_ctrl_debug_dump(void);
+void dsi_ctrl_debug_dump(u32 *entries, u32 size);
 
 #else
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
@@ -438,7 +440,7 @@ static inline void sde_rsc_debug_dump(u32 mux_sel)
 {
 }
 
-static inline void dsi_ctrl_debug_dump(void)
+static inline void dsi_ctrl_debug_dump(u32 entries, u32 size)
 {
 }
 

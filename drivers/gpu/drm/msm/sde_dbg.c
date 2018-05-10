@@ -174,6 +174,11 @@ struct sde_dbg_vbif_debug_bus {
 	struct vbif_debug_bus_entry *entries;
 };
 
+struct sde_dbg_dsi_debug_bus {
+	u32 *entries;
+	u32 size;
+};
+
 /**
  * struct sde_dbg_regbuf - wraps buffer and tracking params for register dumps
  * @buf: pointer to allocated memory for storing register dumps in hw recovery
@@ -229,6 +234,7 @@ static struct sde_dbg_base {
 
 	struct sde_dbg_sde_debug_bus dbgbus_sde;
 	struct sde_dbg_vbif_debug_bus dbgbus_vbif_rt;
+	struct sde_dbg_dsi_debug_bus dbgbus_dsi;
 	bool dump_all;
 	bool dsi_dbg_bus;
 	u32 debugfs_ctrl;
@@ -3331,6 +3337,42 @@ static struct vbif_debug_bus_entry vbif_dbg_bus_msm8998[] = {
 	{0x21c, 0x214, 0, 14, 0, 0xc}, /* xin blocks - clock side */
 };
 
+static u32 dsi_dbg_bus_sdm845[] = {
+	0x0001, 0x1001, 0x0001, 0x0011,
+	0x1021, 0x0021, 0x0031, 0x0041,
+	0x0051, 0x0061, 0x3061, 0x0061,
+	0x2061, 0x2061, 0x1061, 0x1061,
+	0x1061, 0x0071, 0x0071, 0x0071,
+	0x0081, 0x0081, 0x00A1, 0x00A1,
+	0x10A1, 0x20A1, 0x30A1, 0x10A1,
+	0x10A1, 0x30A1, 0x20A1, 0x00B1,
+	0x00C1, 0x00C1, 0x10C1, 0x20C1,
+	0x30C1, 0x00D1, 0x00D1, 0x20D1,
+	0x30D1, 0x00E1, 0x00E1, 0x00E1,
+	0x00F1, 0x00F1, 0x0101, 0x0101,
+	0x1101, 0x2101, 0x3101, 0x0111,
+	0x0141, 0x1141, 0x0141, 0x1141,
+	0x1141, 0x0151, 0x0151, 0x1151,
+	0x2151, 0x3151, 0x0161, 0x0161,
+	0x1161, 0x0171, 0x0171, 0x0181,
+	0x0181, 0x0191, 0x0191, 0x01A1,
+	0x01A1, 0x01B1, 0x01B1, 0x11B1,
+	0x21B1, 0x01C1, 0x01C1, 0x11C1,
+	0x21C1, 0x31C1, 0x01D1, 0x01D1,
+	0x01D1, 0x01D1, 0x11D1, 0x21D1,
+	0x21D1, 0x01E1, 0x01E1, 0x01F1,
+	0x01F1, 0x0201, 0x0201, 0x0211,
+	0x0221, 0x0231, 0x0241, 0x0251,
+	0x0281, 0x0291, 0x0281, 0x0291,
+	0x02A1, 0x02B1, 0x02C1, 0x0321,
+	0x0321, 0x1321, 0x2321, 0x3321,
+	0x0331, 0x0331, 0x1331, 0x0341,
+	0x0341, 0x1341, 0x2341, 0x3341,
+	0x0351, 0x0361, 0x0361, 0x1361,
+	0x2361, 0x0371, 0x0381, 0x0391,
+	0x03C1, 0x03D1, 0x03E1, 0x03F1,
+};
+
 /**
  * _sde_dbg_enable_power - use callback to turn power on for hw register access
  * @enable: whether to turn power on or off
@@ -3898,7 +3940,8 @@ static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 		_sde_dbg_dump_vbif_dbg_bus(&sde_dbg_base.dbgbus_vbif_rt);
 
 	if (sde_dbg_base.dsi_dbg_bus || dump_all)
-		dsi_ctrl_debug_dump();
+		dsi_ctrl_debug_dump(sde_dbg_base.dbgbus_dsi.entries,
+				    sde_dbg_base.dbgbus_dsi.size);
 
 	if (do_panic && sde_dbg_base.panic_on_err)
 		panic(name);
@@ -4990,6 +5033,8 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
 		dbg->dbgbus_vbif_rt.cmn.entries_size =
 				ARRAY_SIZE(vbif_dbg_bus_msm8998);
+		dbg->dbgbus_dsi.entries = NULL;
+		dbg->dbgbus_dsi.size = 0;
 	} else if (IS_SDM845_TARGET(hwversion) || IS_SDM670_TARGET(hwversion)) {
 		dbg->dbgbus_sde.entries = dbg_bus_sde_sdm845;
 		dbg->dbgbus_sde.cmn.entries_size =
@@ -5000,6 +5045,8 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
 		dbg->dbgbus_vbif_rt.cmn.entries_size =
 				ARRAY_SIZE(vbif_dbg_bus_msm8998);
+		dbg->dbgbus_dsi.entries = dsi_dbg_bus_sdm845;
+		dbg->dbgbus_dsi.size = ARRAY_SIZE(dsi_dbg_bus_sdm845);
 	} else if (IS_SM8150_TARGET(hwversion) || IS_SM6150_TARGET(hwversion)) {
 		dbg->dbgbus_sde.entries = dbg_bus_sde_sm8150;
 		dbg->dbgbus_sde.cmn.entries_size =
@@ -5009,6 +5056,8 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
 		dbg->dbgbus_vbif_rt.cmn.entries_size =
 				ARRAY_SIZE(vbif_dbg_bus_msm8998);
+		dbg->dbgbus_dsi.entries = NULL;
+		dbg->dbgbus_dsi.size = 0;
 	} else {
 		pr_err("unsupported chipset id %X\n", hwversion);
 	}
