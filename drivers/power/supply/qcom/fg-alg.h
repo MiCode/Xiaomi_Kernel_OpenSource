@@ -29,7 +29,8 @@ struct cycle_counter {
 };
 
 struct cl_params {
-	int	start_soc;
+	int	min_start_soc;
+	int	max_start_soc;
 	int	max_temp;
 	int	min_temp;
 	int	max_cap_inc;
