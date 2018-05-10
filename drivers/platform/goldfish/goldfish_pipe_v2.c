@@ -697,11 +697,14 @@ static int get_free_pipe_id_locked(struct goldfish_pipe_dev *dev)
 			return id;
 
 	{
-		/* Reallocate the array */
+		/* Reallocate the array.
+		 * Since get_free_pipe_id_locked runs with interrupts disabled,
+		 * we don't want to make calls that could lead to sleep.
+		 */
 		u32 new_capacity = 2 * dev->pipes_capacity;
 		struct goldfish_pipe **pipes =
 				kcalloc(new_capacity, sizeof(*pipes),
-					GFP_KERNEL);
+					GFP_ATOMIC);
 		if (!pipes)
 			return -ENOMEM;
 		memcpy(pipes, dev->pipes, sizeof(*pipes) * dev->pipes_capacity);
