@@ -211,7 +211,7 @@
 	};
 
 	clock_rpmcc: qcom,rpmcc {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,rpmcc-qcs405";
 		#clock-cells = <1>;
 	};
 
