@@ -78,6 +78,12 @@
 };
 
 &soc {
+	int_codec: sound {
+		status = "okay";
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-hs-micbias-type = "internal";
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
