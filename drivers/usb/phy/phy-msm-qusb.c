@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -706,7 +706,9 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 
 			/* Disable PHY */
-			writel_relaxed(POWER_DOWN,
+			writel_relaxed(POWER_DOWN |
+				readl_relaxed(qphy->base +
+					QUSB2PHY_PORT_POWERDOWN),
 				qphy->base + QUSB2PHY_PORT_POWERDOWN);
 			/* Make sure that above write is completed */
 			wmb();
