@@ -84,6 +84,13 @@ struct spcom_user_create_channel_command {
 	char ch_name[SPCOM_CHANNEL_NAME_SIZE];
 } __packed;
 
+/* Command structure between userspace spcomlib and spcom driver, on write() */
+#define SPCOM_USER_RESTART_SP_CMD
+struct spcom_user_restart_sp_command {
+	enum spcom_cmd_id cmd_id;
+	uint32_t arg;
+} __packed;
+
 /* maximum ION buf for send-modfied-command */
 #define SPCOM_MAX_ION_BUF 4
 
