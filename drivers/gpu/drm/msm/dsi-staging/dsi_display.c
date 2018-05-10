@@ -715,6 +715,7 @@ int dsi_display_check_status(void *display, bool te_check_override)
 		dsi_panel_release_panel_lock(panel);
 		return rc;
 	}
+	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 
 	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio))
 		status_mode = ESD_MODE_PANEL_TE;
@@ -738,6 +739,7 @@ int dsi_display_check_status(void *display, bool te_check_override)
 	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_OFF);
 	dsi_panel_release_panel_lock(panel);
+	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 
 	return rc;
 }
@@ -3665,6 +3667,7 @@ static int dsi_display_dfps_update(struct dsi_display *display,
 	/* For split DSI, update the clock master first */
 
 	pr_debug("configuring seamless dynamic fps\n\n");
+	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 
 	m_ctrl = &display->ctrl[display->clk_master_idx];
 	rc = dsi_ctrl_async_timing_update(m_ctrl->ctrl, timing);
@@ -3699,6 +3702,7 @@ static int dsi_display_dfps_update(struct dsi_display *display,
 	panel_mode->dsi_mode_flags = 0;
 
 error:
+	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 	return rc;
 }
 
@@ -5820,6 +5824,7 @@ int dsi_display_prepare(struct dsi_display *display)
 		return -EINVAL;
 	}
 
+	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 	mutex_lock(&display->display_lock);
 
 	mode = display->panel->cur_mode;
@@ -5954,6 +5959,7 @@ error_panel_post_unprep:
 	(void)dsi_panel_post_unprepare(display->panel);
 error:
 	mutex_unlock(&display->display_lock);
+	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 	return rc;
 }
 
@@ -6177,6 +6183,7 @@ int dsi_display_enable(struct dsi_display *display)
 		pr_err("no valid mode set for the display");
 		return -EINVAL;
 	}
+	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 
 	/* Engine states and panel states are populated during splash
 	 * resource init and hence we return early
@@ -6262,6 +6269,7 @@ error_disable_panel:
 	(void)dsi_panel_disable(display->panel);
 error:
 	mutex_unlock(&display->display_lock);
+	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 	return rc;
 }
 
@@ -6324,6 +6332,7 @@ int dsi_display_disable(struct dsi_display *display)
 		return -EINVAL;
 	}
 
+	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 	mutex_lock(&display->display_lock);
 
 	rc = dsi_display_wake_up(display);
@@ -6352,6 +6361,7 @@ int dsi_display_disable(struct dsi_display *display)
 		       display->name, rc);
 
 	mutex_unlock(&display->display_lock);
+	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 	return rc;
 }
 
@@ -6381,6 +6391,7 @@ int dsi_display_unprepare(struct dsi_display *display)
 		return -EINVAL;
 	}
 
+	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 	mutex_lock(&display->display_lock);
 
 	rc = dsi_display_wake_up(display);
@@ -6434,6 +6445,7 @@ int dsi_display_unprepare(struct dsi_display *display)
 		       display->name, rc);
 
 	mutex_unlock(&display->display_lock);
+	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 	return rc;
 }
 
