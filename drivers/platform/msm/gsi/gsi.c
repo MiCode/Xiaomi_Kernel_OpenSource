@@ -1635,6 +1635,10 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 			 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
 		((props->use_db_eng << GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
 			 GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK));
+	if (gsi_ctx->per.ver >= GSI_VER_2_0)
+		val |= ((props->prefetch_mode <<
+			GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_SHFT)
+			& GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_BMSK);
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
 }
