@@ -836,6 +836,7 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 		mhi_chan->db_cfg.reset_req =
 			!!(bit_cfg & MHI_CH_CFG_BIT_DBMODE_RESET_CH);
 		mhi_chan->pre_alloc = !!(bit_cfg & MHI_CH_CFG_BIT_PRE_ALLOC);
+		mhi_chan->auto_start = !!(bit_cfg & MHI_CH_CFG_BIT_AUTO_START);
 
 		if (mhi_chan->pre_alloc &&
 		    (mhi_chan->dir != DMA_FROM_DEVICE ||
@@ -1139,6 +1140,8 @@ static int mhi_driver_probe(struct device *dev)
 	struct mhi_event *mhi_event;
 	struct mhi_chan *ul_chan = mhi_dev->ul_chan;
 	struct mhi_chan *dl_chan = mhi_dev->dl_chan;
+	bool auto_start = false;
+	int ret;
 
 
 	if (ul_chan) {
@@ -1151,6 +1154,7 @@ static int mhi_driver_probe(struct device *dev)
 
 		ul_chan->xfer_cb = mhi_drv->ul_xfer_cb;
 		mhi_dev->status_cb = mhi_drv->status_cb;
+		auto_start = ul_chan->auto_start;
 	}
 
 	if (dl_chan) {
@@ -1174,9 +1178,15 @@ static int mhi_driver_probe(struct device *dev)
 
 		/* ul & dl uses same status cb */
 		mhi_dev->status_cb = mhi_drv->status_cb;
+		auto_start = (auto_start || dl_chan->auto_start);
 	}
 
-	return mhi_drv->probe(mhi_dev, mhi_dev->id);
+	ret = mhi_drv->probe(mhi_dev, mhi_dev->id);
+
+	if (!ret && auto_start)
+		mhi_prepare_for_transfer(mhi_dev);
+
+	return ret;
 }
 
 static int mhi_driver_remove(struct device *dev)
@@ -1231,6 +1241,9 @@ static int mhi_driver_remove(struct device *dev)
 		if (ch_state[dir] == MHI_CH_STATE_ENABLED &&
 		    !mhi_chan->offload_ch)
 			mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
+
+		/* remove associated device */
+		mhi_chan->mhi_dev = NULL;
 
 		mutex_unlock(&mhi_chan->mutex);
 	}

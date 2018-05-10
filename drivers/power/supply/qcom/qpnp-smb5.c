@@ -103,7 +103,7 @@ static struct smb_params smb5_pm855b_params = {
 		.reg    = CHGR_FAST_CHARGE_CURRENT_CFG_REG,
 		.min_u  = 0,
 		.max_u  = 8000000,
-		.step_u = 25000,
+		.step_u = 50000,
 	},
 	.fv			= {
 		.name   = "float voltage",

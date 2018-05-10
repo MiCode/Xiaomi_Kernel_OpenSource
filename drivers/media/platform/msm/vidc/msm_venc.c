@@ -147,6 +147,15 @@ static const char *const iframe_sizes[] = {
 	"Unlimited"
 };
 
+static const char *const mpeg_video_stream_format[] = {
+	"NAL Format Start Codes",
+	"NAL Format One NAL Per Buffer",
+	"NAL Format One Byte Length",
+	"NAL Format Two Byte Length",
+	"NAL Format Four Byte Length",
+	NULL
+};
+
 static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD,
@@ -1097,7 +1106,19 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.qmenu = NULL,
 	},
-
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT,
+		.name = "NAL Format",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_STARTCODES) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH)
+		),
+		.qmenu = mpeg_video_stream_format,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1226,6 +1247,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_vui_timing_info vui_timing_info = {0};
 	enum hal_iframesize_type iframesize_type = HAL_IFRAMESIZE_TYPE_DEFAULT;
 	u32 color_primaries, custom_matrix;
+	struct hal_nal_stream_format_select stream_format;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2022,6 +2044,13 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		vui_timing_info.enable = 1;
 		vui_timing_info.fixed_frame_rate = cfr;
 		vui_timing_info.time_scale = NSEC_PER_SEC;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
+	{
+		property_id = HAL_PARAM_NAL_STREAM_FORMAT_SELECT;
+		stream_format.nal_stream_format_select = BIT(ctrl->val);
+		pdata = &stream_format;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:

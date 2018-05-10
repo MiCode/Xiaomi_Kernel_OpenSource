@@ -461,31 +461,15 @@ error_queue:
 int mhi_destroy_device(struct device *dev, void *data)
 {
 	struct mhi_device *mhi_dev;
-	struct mhi_driver *mhi_drv;
 	struct mhi_controller *mhi_cntrl;
-	struct mhi_chan *mhi_chan;
-	int dir;
 
 	if (dev->bus != &mhi_bus_type)
 		return 0;
 
 	mhi_dev = to_mhi_device(dev);
-	mhi_drv = to_mhi_driver(dev->driver);
 	mhi_cntrl = mhi_dev->mhi_cntrl;
 
 	MHI_LOG("destroy device for chan:%s\n", mhi_dev->chan_name);
-
-	for (dir = 0; dir < 2; dir++) {
-		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
-
-		if (!mhi_chan)
-			continue;
-
-		/* remove device associated with the channel */
-		mutex_lock(&mhi_chan->mutex);
-		mhi_chan->mhi_dev = NULL;
-		mutex_unlock(&mhi_chan->mutex);
-	}
 
 	/* notify the client and remove the device from mhi bus */
 	device_del(dev);

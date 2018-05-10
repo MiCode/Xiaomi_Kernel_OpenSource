@@ -57,6 +57,8 @@ Main node properties:
 		BIT(3) : MHI bus driver pre-allocate buffer for this channel.
 		If set, clients not allowed to queue buffers. Valid only for DL
 		direction.
+		BIT(4) : MHI host driver to automatically start channels once
+		mhi device driver probe is complete.
 
 - mhi,chan-names
   Usage: required
