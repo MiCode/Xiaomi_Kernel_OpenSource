@@ -75,3 +75,7 @@ ifdef CONFIG_QTI_RPMH_API
 endif
 obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
+obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd.o
+ifdef CONFIG_DEBUG_FS
+obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
+endif
