@@ -191,6 +191,7 @@
 #define PHY_CMN_CTRL_0		0x024
 #define PHY_CMN_CTRL_3		0x030
 #define PHY_CMN_PLL_CNTRL	0x03C
+#define PHY_CMN_GLBL_DIGTOP_SPARE4 0x128
 
 /* Bit definition of SSC control registers */
 #define SSC_CENTER		BIT(0)
@@ -880,8 +881,22 @@ static void dsi_pll_enable_global_clk(struct mdss_pll_resources *rsc)
 	u32 data;
 
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_3, 0x04);
+
 	data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CLK_CFG1);
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CLK_CFG1, (data | BIT(5)));
+}
+
+static void dsi_pll_phy_dig_reset(struct mdss_pll_resources *rsc)
+{
+	/*
+	 * Reset the PHY digital domain. This would be needed when
+	 * coming out of a CX or analog rail power collapse while
+	 * ensuring that the pads maintain LP00 or LP11 state
+	 */
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_GLBL_DIGTOP_SPARE4, BIT(0));
+	wmb(); /* Ensure that the reset is asserted */
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_GLBL_DIGTOP_SPARE4, 0x0);
+	wmb(); /* Ensure that the reset is deasserted */
 }
 
 static int dsi_pll_enable(struct dsi_pll_vco_clk *vco)
@@ -917,13 +932,18 @@ static int dsi_pll_enable(struct dsi_pll_vco_clk *vco)
 
 	rsc->pll_on = true;
 
+	/*
+	 * assert power on reset for PHY digital in case the PLL is
+	 * enabled after CX of analog domain power collapse. This needs
+	 * to be done before enabling the global clk.
+	 */
+	dsi_pll_phy_dig_reset(rsc);
+	if (rsc->slave)
+		dsi_pll_phy_dig_reset(rsc->slave);
+
 	dsi_pll_enable_global_clk(rsc);
 	if (rsc->slave)
 		dsi_pll_enable_global_clk(rsc->slave);
-
-	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_RBUF_CTRL, 0x01);
-	if (rsc->slave)
-		MDSS_PLL_REG_W(rsc->slave->phy_base, PHY_CMN_RBUF_CTRL, 0x01);
 
 error:
 	return rc;
