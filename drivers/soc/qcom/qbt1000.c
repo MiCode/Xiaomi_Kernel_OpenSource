@@ -210,11 +210,6 @@ static int send_tz_cmd(struct qbt1000_drvdata *drvdata,
 		goto end;
 	}
 
-	if (aligned_cmd - cmd + cmd_len > g_app_buf_size) {
-		rc = -ENOMEM;
-		goto end;
-	}
-
 	if (is_user_space) {
 		rc = copy_from_user(aligned_cmd, (void __user *)cmd,
 				cmd_len);
