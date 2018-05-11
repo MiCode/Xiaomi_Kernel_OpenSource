@@ -71,6 +71,7 @@
 
 	audio_apr: qcom,msm-audio-apr {
 		compatible = "qcom,msm-audio-apr";
+		qcom,subsys-name = "apr_modem";
 	};
 
 	host_pcm: qcom,msm-voice-host-pcm {
